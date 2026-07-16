@@ -274,11 +274,11 @@ This is untrusted binary parsing, so ASVS V5 input validation is applicable by a
 
 No `[ASSUMED]` claims are used. Conservative workload sizes and the loose benchmark threshold are explicit research recommendations to validate during implementation, not external facts.
 
-## Open Questions
+## Open Questions (RESOLVED)
 
-1. **Exact stable error-code mapping:** use only the existing closed `CoreError` codes; planner should assign malformed token, unsupported maxval, trailing data, and limit cases consistently and test the matrix.
-2. **Report path/schema names:** choose one checked JSON schema and keep current-machine baseline data separate from portable conformance evidence.
-3. **Future real registry qualification:** remains blocked by namespace verification and publication policy; Phase 5 must close with an explicit blocked sub-result, not fabricate a pass.
+1. **Exact stable error matrix:** Plan 05-01 freezes one normative category/code/context matrix for malformed tokens, unsupported maxval, overflow, limit rejection, truncated payload, trailing data, no progress, and stream failure. Every parser, diagnostic, fixture, and public test consumes that matrix; later plans do not invent alternate mappings.
+2. **Qualification report boundaries:** Plans 05-06 through 05-08 use canonical schema-owned paths split by reproducibility: static schemas, expected policy, portable conformance, package inventories, and release qualification records are tracked; current-machine benchmark samples, transient command logs, temporary consumer roots, and rebuilt artifacts are dynamic and untracked. Plan 05-06 freezes the exact paths before Plans 05-07 and 05-08 emit or validate them.
+3. **Registry and consumer qualification:** before publication, downstream modules record `registry_resolution: blocked_unpublished_namespace` separately from `source_isolation: pass`; only `mb-core` may claim exact artifact-consumer qualification because it has no unpublished MNF dependency. No workspace or path substitution may convert the blocked registry result into a pass. After namespace verification and publication authorization, registry qualification runs strictly `mb-core` → `mb-color` → `mb-image`, and each downstream module may pass only after its dependency is resolvable at the declared version.
 
 ## Sources
 
