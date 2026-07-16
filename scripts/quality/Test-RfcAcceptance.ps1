@@ -6,7 +6,7 @@ $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'Assert-Policy.ps1')
 
 function Copy-TestObject([object]$Value) {
-  return ($Value | ConvertTo-Json -Depth 30 | ConvertFrom-Json)
+  return ($Value | ConvertTo-Json -Depth 30 | ConvertFrom-Json -DateKind String)
 }
 
 function Write-TestJson([string]$Path, [object]$Value) {
@@ -97,7 +97,7 @@ function Write-TestState([string]$Root, [object]$Policy, [object]$Roster) {
   Write-TestJson (Join-Path $Root 'policy/maintainers.json') $Roster
 }
 
-function Invoke-AcceptanceCase([string]$Name, [object]$Policy, [object]$Roster, [bool]$ShouldPass, [scriptblock]$Arrange) {
+function Invoke-AcceptanceCase([string]$Name, [object]$Policy, [object]$Roster, [bool]$ShouldPass, [scriptblock]$Arrange, [string]$ExpectedFailurePattern) {
   $root = New-TestRepository
   try {
     Write-TestState $root $Policy $Roster
@@ -106,7 +106,12 @@ function Invoke-AcceptanceCase([string]$Name, [object]$Policy, [object]$Roster, 
     $failureMessage = $null
     try { Assert-RfcAcceptanceState -Policy $Policy -RosterPath (Join-Path $root 'policy/maintainers.json') -RepositoryRoot $root -Now ([DateTimeOffset]'2026-07-16T00:00:00Z') }
     catch { $passed = $false; $failureMessage = $_.Exception.Message }
-    if ($passed -ne $ShouldPass) { throw "RFC acceptance case '$Name' expected pass=$ShouldPass but got pass=$passed. Validation result: $failureMessage" }
+    if ($ShouldPass -and -not $passed) { throw "RFC acceptance case '$Name' expected success but failed: $failureMessage" }
+    if (-not $ShouldPass) {
+      if ([string]::IsNullOrWhiteSpace($ExpectedFailurePattern)) { throw "RFC acceptance case '$Name' is negative but has no expected failure pattern." }
+      if ($passed) { throw "RFC acceptance case '$Name' expected rejection matching '$ExpectedFailurePattern' but validation passed." }
+      if ($failureMessage -cnotmatch $ExpectedFailurePattern) { throw "RFC acceptance case '$Name' rejected for the wrong reason. Expected '$ExpectedFailurePattern'; got '$failureMessage'." }
+    }
     Write-Host "PASS: $Name"
   } finally {
     Remove-Item -LiteralPath $root -Recurse -Force -ErrorAction SilentlyContinue
@@ -130,40 +135,41 @@ $proposedReviewed.rfc.current_foundation_rfc.edge_reviews = @(
 Invoke-AcceptanceCase 'proposed with completed edge reviews' $proposedReviewed $roster $true $null
 
 $missingLedger = Copy-TestObject $accepted
-Invoke-AcceptanceCase 'accepted requires transition ledger row' $missingLedger $roster $false { param($root) '# RFC 0001`n`n- **Status:** Accepted' | Set-Content -LiteralPath (Join-Path $root 'docs/rfcs/0001-moonbit-native-foundation.md') }
+Invoke-AcceptanceCase 'accepted requires transition ledger row' $missingLedger $roster $false { param($root) @('# RFC 0001','','- **Status:** Accepted') | Set-Content -LiteralPath (Join-Path $root 'docs/rfcs/0001-moonbit-native-foundation.md') } 'RFC transition ledger lacks exact'
 $illegalPrior = Copy-TestObject $accepted; $illegalPrior.rfc.current_foundation_rfc.transition.from='Draft'
-Invoke-AcceptanceCase 'accepted rejects illegal prior state' $illegalPrior $roster $false $null
+Invoke-AcceptanceCase 'accepted rejects illegal prior state' $illegalPrior $roster $false $null 'Illegal RFC transition'
 $implemented = Copy-TestObject $accepted; $implemented.rfc.current_foundation_rfc.status='Implemented'; $implemented.rfc.current_foundation_rfc.transition.from='Accepted'; $implemented.rfc.current_foundation_rfc.transition.to='Implemented'; $implemented.rfc.current_foundation_rfc.transition.evidence=@('commit:implementation','report:qualification'); $implemented.rfc.current_foundation_rfc.implementation_evidence=@('commit:implementation'); $implemented.rfc.current_foundation_rfc.qualification_evidence=@('report:qualification')
 Invoke-AcceptanceCase 'implemented requires implementation evidence' $implemented $roster $true $null
 $missingImplementation = Copy-TestObject $implemented; $missingImplementation.rfc.current_foundation_rfc.implementation_evidence=@(); $missingImplementation.rfc.current_foundation_rfc.transition.evidence=@('report:qualification')
-Invoke-AcceptanceCase 'implemented rejects missing implementation evidence' $missingImplementation $roster $false $null
+Invoke-AcceptanceCase 'implemented rejects missing implementation evidence' $missingImplementation $roster $false $null 'implementation evidence requires at least one'
 $superseded = Copy-TestObject $proposed; $superseded.rfc.current_foundation_rfc.status='Superseded'; $superseded.rfc.current_foundation_rfc.transition.from='Proposed'; $superseded.rfc.current_foundation_rfc.transition.to='Superseded'; $superseded.rfc.current_foundation_rfc.transition.evidence=@('docs/rfcs/0002-replacement.md'); $superseded.rfc.current_foundation_rfc.superseded_by='0002'; $superseded.rfc.current_foundation_rfc.supersession_evidence=@('docs/rfcs/0002-replacement.md')
 Invoke-AcceptanceCase 'superseded requires existing replacement RFC' $superseded $roster $true { param($root) '# RFC 0002' | Set-Content -LiteralPath (Join-Path $root 'docs/rfcs/0002-replacement.md') }
-Invoke-AcceptanceCase 'superseded rejects missing replacement RFC' $superseded $roster $false $null
+Invoke-AcceptanceCase 'superseded rejects missing replacement RFC' $superseded $roster $false $null 'must identify exactly one existing RFC file'
 
 $cases = @(
-  @{ n='duplicate roster identity'; mutate={ param($p,$r) $r.maintainers=@($r.maintainers[0],(Copy-TestObject $r.maintainers[0])) } },
-  @{ n='zero maintainers'; mutate={ param($p,$r) $r.maintainers=@() } },
-  @{ n='multiple maintainers'; mutate={ param($p,$r) $r.maintainers += [pscustomobject]@{identity='other';roles=@('maintainer');evidence='local'} } },
-  @{ n='owner mismatch'; mutate={ param($p,$r) $p.rfc.current_foundation_rfc.project_owner='other' } },
-  @{ n='missing decision anchor'; mutate={ param($p,$r) $p.rfc.current_foundation_rfc.decision_evidence_anchors=@('owner-instruction') } },
-  @{ n='mutable canonical decision path'; mutate={ param($p,$r) $p.rfc.sole_owner_bootstrap.decision_path='docs/governance/decisions/attacker.md'; $p.rfc.current_foundation_rfc.decision_evidence_path='docs/governance/decisions/attacker.md' } },
-  @{ n='mutable canonical anchor set'; mutate={ param($p,$r) $p.rfc.sole_owner_bootstrap.required_anchors=@('owner-instruction') } },
-  @{ n='mutable canonical edge ids'; mutate={ param($p,$r) $p.rfc.sole_owner_bootstrap.mandatory_edge_reviews=@('FAKE'); $p.rfc.current_foundation_rfc.edge_reviews=@([pscustomobject]@{id='FAKE';status='completed';disposition='no-omission-found'}) } },
-  @{ n='drive rooted path'; mutate={ param($p,$r) $p.rfc.current_foundation_rfc.decision_evidence_path='C:\outside.md' } },
-  @{ n='UNC rooted path'; mutate={ param($p,$r) $p.rfc.current_foundation_rfc.decision_evidence_path='\\server\share\outside.md' } },
-  @{ n='parent traversal'; mutate={ param($p,$r) $p.rfc.current_foundation_rfc.decision_evidence_path='../outside.md' } },
-  @{ n='sibling prefix escape'; mutate={ param($p,$r) $p.rfc.current_foundation_rfc.decision_evidence_path='../repo-escape/outside.md' } },
-  @{ n='wrong decision artifact'; mutate={ param($p,$r) $p.rfc.current_foundation_rfc.decision_evidence_path='docs/governance/decisions/wrong.md' } },
-  @{ n='missing edge review'; mutate={ param($p,$r) $p.rfc.current_foundation_rfc.edge_reviews=@($p.rfc.current_foundation_rfc.edge_reviews[0]) } },
-  @{ n='legacy approver assertion'; mutate={ param($p,$r) $p.rfc.current_foundation_rfc.approvers=@('sole-project-owner') } },
-  @{ n='legacy lead assertion'; mutate={ param($p,$r) $p.rfc.current_foundation_rfc.project_lead='sole-project-owner' } },
-  @{ n='legacy review assertion'; mutate={ param($p,$r) $p.rfc.current_foundation_rfc.public_review_started_at='2026-07-01' } }
+  @{ n='duplicate roster identity'; e='duplicate identities'; mutate={ param($p,$r) $r.maintainers=@($r.maintainers[0],(Copy-TestObject $r.maintainers[0])) } },
+  @{ n='zero maintainers'; e='exactly one unique canonical maintainer'; mutate={ param($p,$r) $r.maintainers=@() } },
+  @{ n='multiple maintainers'; e='exactly one unique canonical maintainer'; mutate={ param($p,$r) $r.maintainers += [pscustomobject]@{identity='other';roles=@('maintainer');evidence='local'} } },
+  @{ n='owner mismatch'; e='authority must match'; mutate={ param($p,$r) $p.rfc.current_foundation_rfc.project_owner='other' } },
+  @{ n='missing decision anchor'; e='decision anchors count mismatch'; mutate={ param($p,$r) $p.rfc.current_foundation_rfc.decision_evidence_anchors=@('owner-instruction') } },
+  @{ n='mutable canonical decision path'; e='policy decision path differs'; mutate={ param($p,$r) $p.rfc.sole_owner_bootstrap.decision_path='docs/governance/decisions/attacker.md'; $p.rfc.current_foundation_rfc.decision_evidence_path='docs/governance/decisions/attacker.md' } },
+  @{ n='mutable canonical anchor set'; e='policy decision anchors count mismatch'; mutate={ param($p,$r) $p.rfc.sole_owner_bootstrap.required_anchors=@('owner-instruction') } },
+  @{ n='mutable canonical edge ids'; e='policy edge review IDs count mismatch'; mutate={ param($p,$r) $p.rfc.sole_owner_bootstrap.mandatory_edge_reviews=@('FAKE'); $p.rfc.current_foundation_rfc.edge_reviews=@([pscustomobject]@{id='FAKE';status='completed';disposition='no-omission-found'}) } },
+  @{ n='drive rooted path'; e='must be repository-relative'; mutate={ param($p,$r) $p.rfc.current_foundation_rfc.decision_evidence_path='C:\outside.md' } },
+  @{ n='UNC rooted path'; e='must be repository-relative'; mutate={ param($p,$r) $p.rfc.current_foundation_rfc.decision_evidence_path='\\server\share\outside.md' } },
+  @{ n='parent traversal'; e='must not contain a parent traversal'; mutate={ param($p,$r) $p.rfc.current_foundation_rfc.decision_evidence_path='../outside.md' } },
+  @{ n='sibling prefix escape'; e='must not contain a parent traversal'; mutate={ param($p,$r) $p.rfc.current_foundation_rfc.decision_evidence_path='../repo-escape/outside.md' } },
+  @{ n='wrong decision artifact'; e='does not identify the canonical decision artifact'; arrange={ param($root) '# wrong' | Set-Content -LiteralPath (Join-Path $root 'docs/governance/decisions/wrong.md') }; mutate={ param($p,$r) $p.rfc.current_foundation_rfc.decision_evidence_path='docs/governance/decisions/wrong.md' } },
+  @{ n='missing edge review'; e='edge review IDs count mismatch'; mutate={ param($p,$r) $p.rfc.current_foundation_rfc.edge_reviews=@($p.rfc.current_foundation_rfc.edge_reviews[0]) } },
+  @{ n='legacy approver assertion'; e='must not assert a multi-approver list'; mutate={ param($p,$r) $p.rfc.current_foundation_rfc.approvers=@('sole-project-owner') } },
+  @{ n='legacy lead assertion'; e='project_lead must be empty'; mutate={ param($p,$r) $p.rfc.current_foundation_rfc.project_lead='sole-project-owner' } },
+  @{ n='legacy review assertion'; e='public_review_started_at must be empty'; mutate={ param($p,$r) $p.rfc.current_foundation_rfc.public_review_started_at='2026-07-01' } }
 )
 foreach ($case in $cases) {
   $policy = Copy-TestObject $accepted; $caseRoster = Copy-TestObject $roster
   & $case.mutate $policy $caseRoster
-  Invoke-AcceptanceCase $case.n $policy $caseRoster $false $null
+  $arrange = if ($case.ContainsKey('arrange')) { $case.arrange } else { $null }
+  Invoke-AcceptanceCase $case.n $policy $caseRoster $false $arrange $case.e
 }
 
 $maintainer = Copy-TestObject $accepted
@@ -171,43 +177,52 @@ $m=$maintainer.rfc.current_foundation_rfc; $m.acceptance_route='maintainer';$m.a
 $maintainerRoster=[pscustomobject]@{schema_version='1.0.0';maintainers=@([pscustomobject]@{identity='alice';roles=@('maintainer');evidence='local'},[pscustomobject]@{identity='bob';roles=@('maintainer');evidence='local'})}
 Invoke-AcceptanceCase 'maintainer route' $maintainer $maintainerRoster $true $null
 $oneApproval=Copy-TestObject $maintainer;$oneApproval.rfc.current_foundation_rfc.approvers=@('alice')
-Invoke-AcceptanceCase 'maintainer route needs two approvals' $oneApproval $maintainerRoster $false $null
+Invoke-AcceptanceCase 'maintainer route needs two approvals' $oneApproval $maintainerRoster $false $null 'requires two distinct approvals'
 $placeholderApproval=Copy-TestObject $maintainer;$placeholderApproval.rfc.current_foundation_rfc.approval_records[0].reference='placeholder';$placeholderApproval.rfc.current_foundation_rfc.acceptance_evidence[0]='placeholder';$placeholderApproval.rfc.current_foundation_rfc.transition.evidence[0]='placeholder'
-Invoke-AcceptanceCase 'maintainer route rejects placeholder evidence' $placeholderApproval $maintainerRoster $false $null
+Invoke-AcceptanceCase 'maintainer route rejects placeholder evidence' $placeholderApproval $maintainerRoster $false $null 'must use an HTTPS review URL or stable repository reference'
 $duplicateApproval=Copy-TestObject $maintainer;$duplicateApproval.rfc.current_foundation_rfc.approval_records[1].reference=$duplicateApproval.rfc.current_foundation_rfc.approval_records[0].reference;$duplicateApproval.rfc.current_foundation_rfc.acceptance_evidence=@($duplicateApproval.rfc.current_foundation_rfc.approval_records[0].reference);$duplicateApproval.rfc.current_foundation_rfc.transition.evidence=@($duplicateApproval.rfc.current_foundation_rfc.approval_records[0].reference)
-Invoke-AcceptanceCase 'maintainer route rejects duplicate evidence' $duplicateApproval $maintainerRoster $false $null
+Invoke-AcceptanceCase 'maintainer route rejects duplicate evidence' $duplicateApproval $maintainerRoster $false $null 'references must be distinct'
 $unboundApproval=Copy-TestObject $maintainer;$unboundApproval.rfc.current_foundation_rfc.approval_records[1].identity='mallory'
-Invoke-AcceptanceCase 'maintainer route rejects unbound identity' $unboundApproval $maintainerRoster $false $null
+Invoke-AcceptanceCase 'maintainer route rejects unbound identity' $unboundApproval $maintainerRoster $false $null 'Maintainer approval identities mismatch'
 $unboundLedger=Copy-TestObject $maintainer;$unboundLedger.rfc.current_foundation_rfc.transition.evidence=@('reviews/rfc-0001.md#alice-approval','reviews/rfc-0001.md#different')
-Invoke-AcceptanceCase 'maintainer route rejects evidence unbound from ledger' $unboundLedger $maintainerRoster $false $null
+Invoke-AcceptanceCase 'maintainer route rejects evidence unbound from ledger' $unboundLedger $maintainerRoster $false $null 'Accepted RFC transition evidence mismatch'
 
 $lead=Copy-TestObject $accepted
 $l=$lead.rfc.current_foundation_rfc;$l.acceptance_route='project-lead-public-review';$l.authority='project-lead';$l.approvers=@();$l.approval_records=@([pscustomobject]@{identity='lead';role='project-lead';reference='https://reviews.invalid/rfc/1#lead-approval'});$l.project_lead='lead';$l.project_owner=$null;$l.public_review_url='https://reviews.invalid/rfc/1';$l.public_review_started_at='2026-07-01T00:00:00Z';$l.public_review_ended_at='2026-07-08T00:00:00Z';$l.decision_evidence_path=$null;$l.decision_evidence_anchors=@();$l.edge_reviews=@();$l.acceptance_evidence=@('https://reviews.invalid/rfc/1','https://reviews.invalid/rfc/1#lead-approval');$l.transition.evidence=@('https://reviews.invalid/rfc/1','https://reviews.invalid/rfc/1#lead-approval')
 $leadRoster=[pscustomobject]@{schema_version='1.0.0';maintainers=@([pscustomobject]@{identity='lead';roles=@('maintainer','project-lead');evidence='local'})}
 Invoke-AcceptanceCase 'project lead seven-day route' $lead $leadRoster $true $null
 $short=Copy-TestObject $lead;$short.rfc.current_foundation_rfc.public_review_ended_at='2026-07-07T00:00:00Z'
-Invoke-AcceptanceCase 'project lead route needs seven elapsed days' $short $leadRoster $false $null
+Invoke-AcceptanceCase 'project lead route needs seven elapsed days' $short $leadRoster $false $null 'requires seven elapsed days'
 $boundary=Copy-TestObject $lead;$boundary.rfc.current_foundation_rfc.public_review_started_at='2026-07-09T00:00:00+00:00';$boundary.rfc.current_foundation_rfc.public_review_ended_at='2026-07-16T00:00:00+00:00'
 Invoke-AcceptanceCase 'project lead exact seven-day elapsed boundary' $boundary $leadRoster $true $null
 $futureStart=Copy-TestObject $lead;$futureStart.rfc.current_foundation_rfc.public_review_started_at='2099-01-01T00:00:00Z';$futureStart.rfc.current_foundation_rfc.public_review_ended_at='2099-01-08T00:00:00Z'
-Invoke-AcceptanceCase 'project lead rejects future review window' $futureStart $leadRoster $false $null
+Invoke-AcceptanceCase 'project lead rejects future review window' $futureStart $leadRoster $false $null 'end must have elapsed'
 $futureEnd=Copy-TestObject $lead;$futureEnd.rfc.current_foundation_rfc.public_review_started_at='2026-07-10T00:00:00Z';$futureEnd.rfc.current_foundation_rfc.public_review_ended_at='2026-07-17T00:00:00Z'
-Invoke-AcceptanceCase 'project lead rejects future review end' $futureEnd $leadRoster $false $null
+Invoke-AcceptanceCase 'project lead rejects future review end' $futureEnd $leadRoster $false $null 'end must have elapsed'
 $reversed=Copy-TestObject $lead;$reversed.rfc.current_foundation_rfc.public_review_started_at='2026-07-10T00:00:00Z';$reversed.rfc.current_foundation_rfc.public_review_ended_at='2026-07-09T00:00:00Z'
-Invoke-AcceptanceCase 'project lead rejects reversed window' $reversed $leadRoster $false $null
+Invoke-AcceptanceCase 'project lead rejects reversed window' $reversed $leadRoster $false $null 'start must not follow its end'
 $malformedOffset=Copy-TestObject $lead;$malformedOffset.rfc.current_foundation_rfc.public_review_started_at='2026-07-01T00:00:00+99:00'
-Invoke-AcceptanceCase 'project lead rejects malformed offset' $malformedOffset $leadRoster $false $null
+Invoke-AcceptanceCase 'project lead rejects malformed offset' $malformedOffset $leadRoster $false $null 'not a valid timestamp'
 
 $mismatch=Copy-TestObject $accepted
-Invoke-AcceptanceCase 'RFC status mismatch' $mismatch $roster $false { param($root) '# RFC 0001`n`n- **Status:** Proposed' | Set-Content -LiteralPath (Join-Path $root 'docs/rfcs/0001-moonbit-native-foundation.md') }
+Invoke-AcceptanceCase 'RFC status mismatch' $mismatch $roster $false { param($root) '# RFC 0001`n`n- **Status:** Proposed' | Set-Content -LiteralPath (Join-Path $root 'docs/rfcs/0001-moonbit-native-foundation.md') } 'RFC header status does not match policy'
 $indexMismatch=Copy-TestObject $accepted
-Invoke-AcceptanceCase 'RFC index status mismatch' $indexMismatch $roster $false { param($root) '| RFC 0001 | Proposed |' | Set-Content -LiteralPath (Join-Path $root 'docs/rfcs/README.md') }
+Invoke-AcceptanceCase 'RFC index status mismatch' $indexMismatch $roster $false { param($root) '| RFC 0001 | Proposed |' | Set-Content -LiteralPath (Join-Path $root 'docs/rfcs/README.md') } 'RFC index status does not match policy'
 $fileAnchorMissing=Copy-TestObject $accepted
-Invoke-AcceptanceCase 'decision file missing anchor' $fileAnchorMissing $roster $false { param($root) (Get-Content -Raw (Join-Path $root 'docs/governance/decisions/0001-sole-owner-bootstrap.md')).Replace('## Edge review results','## Missing') | Set-Content -LiteralPath (Join-Path $root 'docs/governance/decisions/0001-sole-owner-bootstrap.md') }
+Invoke-AcceptanceCase 'decision file missing anchor' $fileAnchorMissing $roster $false { param($root) (Get-Content -Raw (Join-Path $root 'docs/governance/decisions/0001-sole-owner-bootstrap.md')).Replace('## Edge review results','## Missing') | Set-Content -LiteralPath (Join-Path $root 'docs/governance/decisions/0001-sole-owner-bootstrap.md') } 'lacks required anchor'
 $artifactEdgeMissing=Copy-TestObject $accepted
-Invoke-AcceptanceCase 'decision file missing edge record' $artifactEdgeMissing $roster $false { param($root) (Get-Content -Raw (Join-Path $root 'docs/governance/decisions/0001-sole-owner-bootstrap.md')).Replace('- `EDGE-GOV-02-UNCLASSIFIED`: Completed. Disposition: no-omission-found.','') | Set-Content -LiteralPath (Join-Path $root 'docs/governance/decisions/0001-sole-owner-bootstrap.md') }
+Invoke-AcceptanceCase 'decision file missing edge record' $artifactEdgeMissing $roster $false { param($root) (Get-Content -Raw (Join-Path $root 'docs/governance/decisions/0001-sole-owner-bootstrap.md')).Replace('- `EDGE-GOV-02-UNCLASSIFIED`: Completed. Disposition: no-omission-found.','') | Set-Content -LiteralPath (Join-Path $root 'docs/governance/decisions/0001-sole-owner-bootstrap.md') } 'does not bind.*EDGE-GOV-02'
 $ownerInstructionMoved=Copy-TestObject $accepted
-Invoke-AcceptanceCase 'owner instruction must remain in named section' $ownerInstructionMoved $roster $false { param($root) (Get-Content -Raw (Join-Path $root 'docs/governance/decisions/0001-sole-owner-bootstrap.md')).Replace('> 现在只有我一个人开发，跳过','> instruction moved').Replace('Conditional preauthorization for RFC 0001.','Conditional preauthorization for RFC 0001.`n`n> 现在只有我一个人开发，跳过') | Set-Content -LiteralPath (Join-Path $root 'docs/governance/decisions/0001-sole-owner-bootstrap.md') }
+Invoke-AcceptanceCase 'owner instruction must remain in named section' $ownerInstructionMoved $roster $false { param($root) (Get-Content -Raw (Join-Path $root 'docs/governance/decisions/0001-sole-owner-bootstrap.md')).Replace('> 现在只有我一个人开发，跳过','> instruction moved').Replace('Conditional preauthorization for RFC 0001.','Conditional preauthorization for RFC 0001.`n`n> 现在只有我一个人开发，跳过') | Set-Content -LiteralPath (Join-Path $root 'docs/governance/decisions/0001-sole-owner-bootstrap.md') } 'does not preserve.*named sections'
+
+$arrangeFailureWasRejected = $false
+try {
+  Invoke-AcceptanceCase 'harness arrange failure sentinel' $accepted $roster $false { throw 'ARRANGE-SENTINEL' } 'validation-pattern-that-must-not-match'
+} catch {
+  $arrangeFailureWasRejected = $_.Exception.Message -ceq 'ARRANGE-SENTINEL'
+}
+if (-not $arrangeFailureWasRejected) { throw 'Acceptance harness counted an arrange/setup exception as a successful negative validation.' }
+Write-Host 'PASS: harness rejects arrange/setup exceptions'
 
 $linkRoot = New-TestRepository
 $externalDecision = Join-Path ([System.IO.Path]::GetTempPath()) ("mnf-rfc-external-" + [guid]::NewGuid().ToString('N') + '.md')
@@ -218,9 +233,11 @@ try {
   Remove-Item -LiteralPath $canonicalDecision -Force
   [void](New-Item -ItemType SymbolicLink -Path $canonicalDecision -Target $externalDecision -ErrorAction Stop)
   $linkAccepted = $true
+  $linkFailure = $null
   try { Assert-RfcAcceptanceState -Policy $accepted -RosterPath (Join-Path $linkRoot 'policy/maintainers.json') -RepositoryRoot $linkRoot }
-  catch { $linkAccepted = $false }
+  catch { $linkAccepted = $false; $linkFailure = $_.Exception.Message }
   if ($linkAccepted) { throw 'RFC acceptance case canonical decision symlink escape expected rejection but was accepted.' }
+  if ($linkFailure -cnotmatch 'symbolic link or reparse point') { throw "RFC acceptance case canonical decision symlink escape rejected for the wrong reason: $linkFailure" }
   Write-Host 'PASS: canonical decision symlink escape'
 } finally {
   Remove-Item -LiteralPath $linkRoot -Recurse -Force -ErrorAction SilentlyContinue

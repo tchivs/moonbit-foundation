@@ -169,8 +169,9 @@ function Resolve-RfcEvidenceFile {
     [Parameter(Mandatory)][string]$RelativePath,
     [Parameter(Mandatory)][string]$ExpectedRelativePath
   )
+  $resolved = Resolve-RepositoryLeafFile -RepositoryRoot $RepositoryRoot -RelativePath $RelativePath -Label 'RFC evidence path'
   Assert-Condition ($RelativePath.Replace('\','/') -ceq $ExpectedRelativePath.Replace('\','/')) 'RFC evidence path does not identify the canonical decision artifact.'
-  return Resolve-RepositoryLeafFile -RepositoryRoot $RepositoryRoot -RelativePath $RelativePath -Label 'RFC evidence path'
+  return $resolved
 }
 
 function Assert-FixtureManifest {
