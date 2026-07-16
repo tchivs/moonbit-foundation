@@ -113,6 +113,12 @@ $proposed = New-TestPolicy -Status 'Proposed' -Route $null
 $p = $proposed.rfc.current_foundation_rfc
 $p.authority=$null; $p.decision_evidence_path=$null; $p.decision_evidence_anchors=@(); $p.edge_reviews=@(); $p.blocking_objections='not-assessed'; $p.objection_disposition=$null; $p.acceptance_evidence=@()
 Invoke-AcceptanceCase 'proposed empty evidence' $proposed $roster $true $null
+$proposedReviewed = Copy-TestObject $proposed
+$proposedReviewed.rfc.current_foundation_rfc.edge_reviews = @(
+  [pscustomobject]@{ id='EDGE-GOV-01-UNCLASSIFIED'; status='completed'; disposition='no-omission-found' },
+  [pscustomobject]@{ id='EDGE-GOV-02-UNCLASSIFIED'; status='completed'; disposition='no-omission-found' }
+)
+Invoke-AcceptanceCase 'proposed with completed edge reviews' $proposedReviewed $roster $true $null
 
 $cases = @(
   @{ n='duplicate roster identity'; mutate={ param($p,$r) $r.maintainers=@($r.maintainers[0],(Copy-TestObject $r.maintainers[0])) } },
@@ -152,5 +158,9 @@ Invoke-AcceptanceCase 'project lead route needs seven elapsed days' $short $lead
 
 $mismatch=Copy-TestObject $accepted
 Invoke-AcceptanceCase 'RFC status mismatch' $mismatch $roster $false { param($root) '# RFC 0001`n`n- **Status:** Proposed' | Set-Content -LiteralPath (Join-Path $root 'docs/rfcs/0001-moonbit-native-foundation.md') }
+$indexMismatch=Copy-TestObject $accepted
+Invoke-AcceptanceCase 'RFC index status mismatch' $indexMismatch $roster $false { param($root) '| RFC 0001 | Proposed |' | Set-Content -LiteralPath (Join-Path $root 'docs/rfcs/README.md') }
+$fileAnchorMissing=Copy-TestObject $accepted
+Invoke-AcceptanceCase 'decision file missing anchor' $fileAnchorMissing $roster $false { param($root) (Get-Content -Raw (Join-Path $root 'docs/governance/decisions/0001-sole-owner-bootstrap.md')).Replace('## Edge review results','## Missing') | Set-Content -LiteralPath (Join-Path $root 'docs/governance/decisions/0001-sole-owner-bootstrap.md') }
 
 Write-Host 'RFC acceptance route matrix passed.'
