@@ -353,9 +353,59 @@ function Render-ProfileMoon([object]$Data) {
   $lines.Add('}')
   $lines.Add('')
   $lines.Add('///|')
+  $lines.Add('fn generated_profile_payload_cases() -> Array[(String, Bytes, UInt64, Bool)] {')
+  $lines.Add('  [')
+  foreach ($item in $Data.profile.payload_cases) {
+    $byteLiteral = 'b"' + ((@($item.bytes) | ForEach-Object { '\x{0:x2}' -f [int]$_ }) -join '') + '"'
+    $success = if ($item.should_succeed) { 'true' } else { 'false' }
+    $lines.Add(('    ("{0}", {1}, {2}UL, {3}),' -f $item.id, $byteLiteral, $item.maximum, $success))
+  }
+  $lines.Add('  ]')
+  $lines.Add('}')
+  $lines.Add('')
+  $lines.Add('///|')
+  $lines.Add('fn generated_profile_budget_rejection_cases() -> Array[')
+  $lines.Add('  (String, Bytes, UInt64, UInt64, UInt64, UInt64, String),')
+  $lines.Add('] {')
+  $payloadVariables = @{}
+  $payloadIndex = 0
+  foreach ($item in $Data.profile.payload_cases) {
+    if (-not $item.should_succeed) { continue }
+    $byteLiteral = 'b"' + ((@($item.bytes) | ForEach-Object { '\x{0:x2}' -f [int]$_ }) -join '') + '"'
+    $variable = 'p' + $payloadIndex
+    $payloadVariables[$item.id] = $variable
+    $payloadIndex += 1
+    $lines.Add(('  let {0} = {1}' -f $variable, $byteLiteral))
+  }
+  $lines.Add('  [')
+  foreach ($item in $Data.profile.payload_cases) {
+    if (-not $item.should_succeed) { continue }
+    $variable = $payloadVariables[$item.id]
+    $length = [uint64]@($item.bytes).Count
+    if ($length -gt 0) {
+      $lines.Add(('    ("{0}/b", {1}, {2}UL, {3}UL, 1UL, {4}UL, "bytes"),' -f $item.id, $variable, $item.maximum, ($length - 1), $length))
+    }
+    $lines.Add(('    ("{0}/a", {1}, {2}UL, {3}UL, 0UL, {3}UL, "allocations"),' -f $item.id, $variable, $item.maximum, $length))
+    if ($length -gt 0) {
+      $lines.Add(('    ("{0}/s", {1}, {2}UL, {3}UL, 1UL, {4}UL, "allocation_size"),' -f $item.id, $variable, $item.maximum, $length, ($length - 1)))
+    }
+  }
+  $lines.Add('  ]')
+  $lines.Add('}')
+  $lines.Add('')
+  $lines.Add('///|')
   $lines.Add('test "generated profile vector table is complete" {')
   $lines.Add(('  inspect(generated_accepted_profile_tags().length(), content="{0}")' -f $Data.profile.accepted_tags.Count))
   $lines.Add(('  inspect(generated_rejected_profile_tags().length(), content="{0}")' -f $Data.profile.rejected_tags.Count))
+  $lines.Add(('  inspect(generated_profile_payload_cases().length(), content="{0}")' -f $Data.profile.payload_cases.Count))
+  $budgetCaseCount = 0
+  foreach ($item in $Data.profile.payload_cases) {
+    if ($item.should_succeed) {
+      $budgetCaseCount += 1
+      if (@($item.bytes).Count -gt 0) { $budgetCaseCount += 2 }
+    }
+  }
+  $lines.Add(('  inspect(generated_profile_budget_rejection_cases().length(), content="{0}")' -f $budgetCaseCount))
   $lines.Add('}')
   return Join-Lines $lines.ToArray()
 }

@@ -91,7 +91,8 @@ test "generated profile payload and budget evidence is complete" {
       "empty" => empty_count = empty_count + 1
       "exact-limit" => exact_limit_count = exact_limit_count + 1
       "one-over-limit" => one_over_limit_count = one_over_limit_count + 1
-      "opaque-icc-shaped" => opaque_icc_shaped_count = opaque_icc_shaped_count + 1
+      "opaque-icc-shaped" =>
+        opaque_icc_shaped_count = opaque_icc_shaped_count + 1
       _ => fail("unexpected generated profile payload case")
     }
     let length = payload.length().to_uint64()
@@ -116,7 +117,10 @@ test "generated profile payload and budget evidence is complete" {
       }
       Err(error) => {
         inspect(should_succeed, content="false")
-        inspect(error.code() == @error.ErrorCode::BudgetExceeded, content="true")
+        inspect(
+          error.code() == @error.ErrorCode::BudgetExceeded,
+          content="true",
+        )
         inspect(error.context() == Some("profile-payload"), content="true")
         let after = budget.remaining()
         inspect(after.bytes() == before.bytes(), content="true")
@@ -136,9 +140,33 @@ test "generated profile payload and budget evidence is complete" {
 
   let budget_cases = generated_profile_budget_rejection_cases()
   inspect(budget_cases.length(), content="7")
+  let mut empty_allocations_count = 0
+  let mut exact_limit_bytes_count = 0
+  let mut exact_limit_allocations_count = 0
+  let mut exact_limit_allocation_size_count = 0
+  let mut opaque_icc_shaped_bytes_count = 0
+  let mut opaque_icc_shaped_allocations_count = 0
+  let mut opaque_icc_shaped_allocation_size_count = 0
   for case in budget_cases {
-    let (_, payload, maximum, bytes, allocations, allocation_size, dimension) =
-      case
+    let (id, payload, maximum, bytes, allocations, allocation_size, dimension) = case
+    match id {
+      "empty/a" => empty_allocations_count = empty_allocations_count + 1
+      "exact-limit/b" => exact_limit_bytes_count = exact_limit_bytes_count + 1
+      "exact-limit/a" =>
+        exact_limit_allocations_count = exact_limit_allocations_count + 1
+      "exact-limit/s" =>
+        exact_limit_allocation_size_count = exact_limit_allocation_size_count +
+          1
+      "opaque-icc-shaped/b" =>
+        opaque_icc_shaped_bytes_count = opaque_icc_shaped_bytes_count + 1
+      "opaque-icc-shaped/a" =>
+        opaque_icc_shaped_allocations_count = opaque_icc_shaped_allocations_count +
+          1
+      "opaque-icc-shaped/s" =>
+        opaque_icc_shaped_allocation_size_count = opaque_icc_shaped_allocation_size_count +
+          1
+      _ => fail("unexpected generated profile budget case")
+    }
     let budget = internal_budget(bytes, allocations, allocation_size)
     let before = budget.remaining()
     match
@@ -149,7 +177,10 @@ test "generated profile payload and budget evidence is complete" {
         budget,
       ) {
       Err(error) => {
-        inspect(error.code() == @error.ErrorCode::BudgetExceeded, content="true")
+        inspect(
+          error.code() == @error.ErrorCode::BudgetExceeded,
+          content="true",
+        )
         inspect(error.context() == Some(dimension), content="true")
       }
       Ok(_) => fail("generated underfunded profile budget must reject")
@@ -157,9 +188,13 @@ test "generated profile payload and budget evidence is complete" {
     let after = budget.remaining()
     inspect(after.bytes() == before.bytes(), content="true")
     inspect(after.allocations() == before.allocations(), content="true")
-    inspect(
-      after.allocation_size() == before.allocation_size(),
-      content="true",
-    )
+    inspect(after.allocation_size() == before.allocation_size(), content="true")
   }
+  inspect(empty_allocations_count, content="1")
+  inspect(exact_limit_bytes_count, content="1")
+  inspect(exact_limit_allocations_count, content="1")
+  inspect(exact_limit_allocation_size_count, content="1")
+  inspect(opaque_icc_shaped_bytes_count, content="1")
+  inspect(opaque_icc_shaped_allocations_count, content="1")
+  inspect(opaque_icc_shaped_allocation_size_count, content="1")
 }

@@ -11,7 +11,37 @@ fn generated_rejected_profile_tags() -> Array[String] {
 }
 
 ///|
+fn generated_profile_payload_cases() -> Array[(String, Bytes, UInt64, Bool)] {
+  [
+    ("empty", b"", 0UL, true),
+    ("exact-limit", b"\x00\x01\x7f\xff", 4UL, true),
+    ("one-over-limit", b"\x00\x01\x02\x03\x04", 4UL, false),
+    ("opaque-icc-shaped", b"\x00\x00\x00\x84\x6d\x6e\x74\x72", 8UL, true),
+  ]
+}
+
+///|
+fn generated_profile_budget_rejection_cases() -> Array[
+  (String, Bytes, UInt64, UInt64, UInt64, UInt64, String),
+] {
+  let p0 = b""
+  let p1 = b"\x00\x01\x7f\xff"
+  let p2 = b"\x00\x00\x00\x84\x6d\x6e\x74\x72"
+  [
+    ("empty/a", p0, 0UL, 0UL, 0UL, 0UL, "allocations"),
+    ("exact-limit/b", p1, 4UL, 3UL, 1UL, 4UL, "bytes"),
+    ("exact-limit/a", p1, 4UL, 4UL, 0UL, 4UL, "allocations"),
+    ("exact-limit/s", p1, 4UL, 4UL, 1UL, 3UL, "allocation_size"),
+    ("opaque-icc-shaped/b", p2, 8UL, 7UL, 1UL, 8UL, "bytes"),
+    ("opaque-icc-shaped/a", p2, 8UL, 8UL, 0UL, 8UL, "allocations"),
+    ("opaque-icc-shaped/s", p2, 8UL, 8UL, 1UL, 7UL, "allocation_size"),
+  ]
+}
+
+///|
 test "generated profile vector table is complete" {
   inspect(generated_accepted_profile_tags().length(), content="4")
   inspect(generated_rejected_profile_tags().length(), content="5")
+  inspect(generated_profile_payload_cases().length(), content="4")
+  inspect(generated_profile_budget_rejection_cases().length(), content="7")
 }
