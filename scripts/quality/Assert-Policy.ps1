@@ -493,8 +493,18 @@ function Assert-RfcAcceptanceState {
       }
       $ownerSection = Get-MarkdownSection -Text $decisionText -Heading 'Owner instruction'
       $contextSection = Get-MarkdownSection -Text $decisionText -Heading 'Conversation context and interpretation'
+      $authorizationSection = Get-MarkdownSection -Text $decisionText -Heading 'Authorization and conditions'
       $edgeSection = Get-MarkdownSection -Text $decisionText -Heading 'Edge review results'
       Assert-Condition ($ownerSection.Contains('现在只有我一个人开发，跳过', [System.StringComparison]::Ordinal) -and $contextSection -cmatch 'preauthoriz') 'Decision artifact does not preserve the authentic conditional preauthorization in its named sections.'
+      $canonicalAuthorizationLines = @(
+        '- `AUTH-ONE-OWNER`: Eligibility requires the canonical roster to contain exactly one unique maintainer identity with the project-owner role.',
+        '- `AUTH-EXPIRES-SECOND-MAINTAINER`: Eligibility expires immediately when a second distinct maintainer is present.',
+        '- `AUTH-TWO-EDGE-REVIEWS`: EDGE-GOV-01-UNCLASSIFIED and EDGE-GOV-02-UNCLASSIFIED must both be completed and dispositioned.',
+        '- `AUTH-NO-LATER-APPROVAL`: The recorded owner instruction is consumed; no later approval may be synthesized.'
+      )
+      foreach ($line in $canonicalAuthorizationLines) {
+        Assert-Condition ($authorizationSection.Contains($line, [System.StringComparison]::Ordinal)) "Decision artifact authorization section lacks canonical condition '$line'."
+      }
       $reviews = @($rfc.edge_reviews)
       Assert-ExactSet 'Sole-owner edge review IDs' @($reviews.id) $canonicalEdgeReviewIds
       foreach ($review in $reviews) {

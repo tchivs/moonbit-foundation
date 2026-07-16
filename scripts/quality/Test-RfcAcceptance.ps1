@@ -36,6 +36,11 @@ Conditional preauthorization for RFC 0001.
 
 No second approval and no seven-day public review are claimed.
 
+- `AUTH-ONE-OWNER`: Eligibility requires the canonical roster to contain exactly one unique maintainer identity with the project-owner role.
+- `AUTH-EXPIRES-SECOND-MAINTAINER`: Eligibility expires immediately when a second distinct maintainer is present.
+- `AUTH-TWO-EDGE-REVIEWS`: EDGE-GOV-01-UNCLASSIFIED and EDGE-GOV-02-UNCLASSIFIED must both be completed and dispositioned.
+- `AUTH-NO-LATER-APPROVAL`: The recorded owner instruction is consumed; no later approval may be synthesized.
+
 ## Edge review results
 
 - `EDGE-GOV-01-UNCLASSIFIED`: Completed. Disposition: no-omission-found.
@@ -255,6 +260,8 @@ $artifactEdgeMissing=Copy-TestObject $accepted
 Invoke-AcceptanceCase 'decision file missing edge record' $artifactEdgeMissing $roster $false { param($root) (Get-Content -Raw (Join-Path $root 'docs/governance/decisions/0001-sole-owner-bootstrap.md')).Replace('- `EDGE-GOV-02-UNCLASSIFIED`: Completed. Disposition: no-omission-found.','') | Set-Content -LiteralPath (Join-Path $root 'docs/governance/decisions/0001-sole-owner-bootstrap.md') } 'does not bind.*EDGE-GOV-02'
 $ownerInstructionMoved=Copy-TestObject $accepted
 Invoke-AcceptanceCase 'owner instruction must remain in named section' $ownerInstructionMoved $roster $false { param($root) (Get-Content -Raw (Join-Path $root 'docs/governance/decisions/0001-sole-owner-bootstrap.md')).Replace('> 现在只有我一个人开发，跳过','> instruction moved').Replace('Conditional preauthorization for RFC 0001.','Conditional preauthorization for RFC 0001.`n`n> 现在只有我一个人开发，跳过') | Set-Content -LiteralPath (Join-Path $root 'docs/governance/decisions/0001-sole-owner-bootstrap.md') } 'does not preserve.*named sections'
+$authorizationMissing=Copy-TestObject $accepted
+Invoke-AcceptanceCase 'authorization section requires canonical conditions' $authorizationMissing $roster $false { param($root) $path=Join-Path $root 'docs/governance/decisions/0001-sole-owner-bootstrap.md'; (Get-Content -Raw $path).Replace('- `AUTH-NO-LATER-APPROVAL`: The recorded owner instruction is consumed; no later approval may be synthesized.','Unrelated authorization text.') | Set-Content -LiteralPath $path } 'authorization section lacks canonical condition'
 
 $arrangeFailureWasRejected = $false
 try {
