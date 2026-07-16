@@ -5,15 +5,15 @@ milestone_name: milestone
 current_phase: 03
 current_phase_name: Reference Color Semantics
 status: executing
-stopped_at: Completed 03-02-PLAN.md
-last_updated: "2026-07-16T18:02:52.902Z"
+stopped_at: Completed 03-03-PLAN.md
+last_updated: "2026-07-16T18:16:36.511Z"
 last_activity: 2026-07-17
 last_activity_desc: Phase 03 execution started
 progress:
   total_phases: 3
   completed_phases: 2
   total_plans: 23
-  completed_plans: 18
+  completed_plans: 19
 ---
 
 # Project State
@@ -29,11 +29,11 @@ See `.planning/PROJECT.md` (updated 2026-07-16).
 ## Current Position
 
 Phase: 03 (Reference Color Semantics) — EXECUTING
-Plan: 3 of 7
+Plan: 4 of 7
 Status: Ready to execute
 Last activity: 2026-07-17 — Phase 03 execution started
 
-Progress: [████████░░] 78% (1/5 phases; 8/8 currently planned plans complete)
+Progress: [████████░░] 83% (1/5 phases; 8/8 currently planned plans complete)
 
 ## Performance Metrics
 
@@ -63,6 +63,7 @@ Progress: [████████░░] 78% (1/5 phases; 8/8 currently planne
 | Phase 02 P08 | 5min | 2 tasks | 4 files |
 | Phase 03 P01 | 11min | 2 tasks | 6 files |
 | Phase 03 P02 | 18min | 2 tasks | 4 files |
+| Phase 03 P03 | 10min | 2 tasks | 7 files |
 
 ## Accumulated Context
 
@@ -124,6 +125,8 @@ Progress: [████████░░] 78% (1/5 phases; 8/8 currently planne
 - [Phase 03]: Generate standards-formula-derived and repository-derived evidence from one canonical in-memory dataset while keeping their provenance claims separate.
 - [Phase 03]: Make each package selector own exactly one package-local reference vector table so portable tests require no filesystem capability.
 - [Phase 03]: Use byte-for-byte UTF-8 no-BOM LF check mode for fixtures, generated test tables, and manifest digest refresh.
+- [Phase 03]: Keep sRGB transfer typed end to end and use published inclusive low branches with named 1e-12 operation and 2e-12 round-trip tolerances.
+- [Phase 03]: Canonical package-local transfer evidence must remain byte-stable and formatter-clean from the generator itself.
 
 ### Pending Decisions
 
@@ -144,6 +147,6 @@ None. Phase 01 is independently verified and complete; Phase 02 is ready for con
 
 **Resume file:** None
 
-Last session: 2026-07-16T18:02:52.884Z
-Stopped at: Completed 03-02-PLAN.md
+Last session: 2026-07-16T18:16:36.493Z
+Stopped at: Completed 03-03-PLAN.md
 Resume with: Discuss Phase 02, then plan and execute it through the active auto chain.
