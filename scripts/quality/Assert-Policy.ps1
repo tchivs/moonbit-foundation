@@ -31,6 +31,15 @@ function Get-CompactTargetSet {
   return @($Value.Split('+', [System.StringSplitOptions]::RemoveEmptyEntries))
 }
 
+function Assert-ExactSequence {
+  param([string]$Label, [object[]]$Actual, [string[]]$Expected)
+  $actualStrings = @($Actual | ForEach-Object { [string]$_ })
+  Assert-Condition ($actualStrings.Count -eq $Expected.Count) "$Label count mismatch: expected $($Expected.Count), got $($actualStrings.Count)."
+  for ($index = 0; $index -lt $Expected.Count; $index++) {
+    Assert-Condition ($actualStrings[$index] -ceq $Expected[$index]) "$Label order mismatch at index $index`: expected '$($Expected[$index])', got '$($actualStrings[$index])'."
+  }
+}
+
 function Get-PackageImportSet {
   param([string]$Text, [string]$Label)
   $imports = [System.Collections.Generic.List[string]]::new()
@@ -701,6 +710,16 @@ function Assert-FoundationPolicy {
     Assert-Condition ($packages.Count -gt 0) "$($module.name) must declare at least one public package."
     Assert-ExactSet "Public package names for $($module.name)" @($packages.name) @($packages | ForEach-Object { [string]$_.name })
     Assert-ExactSet "Public package paths for $($module.name)" @($packages.path) @($packages | ForEach-Object { [string]$_.path })
+
+    if ($module.name -ceq 'moonbit-foundation/mb-core') {
+      $corePackagePaths = @('error', 'checked', 'budget', 'bytes', 'io', 'host')
+      $corePackageNames = @($corePackagePaths | ForEach-Object { "moonbit-foundation/mb-core/$_" })
+      Assert-ExactSequence 'mb-core public package spine' @($packages.name) $corePackageNames
+      Assert-ExactSequence 'mb-core public package paths' @($packages.path) $corePackagePaths
+      foreach ($removedRootFile in @('moon.pkg', 'scaffold.mbt', 'scaffold_wbtest.mbt')) {
+        Assert-Condition (-not (Test-Path -LiteralPath (Join-Path $repoRoot "modules/mb-core/$removedRootFile"))) "Obsolete mb-core root scaffold file remains: $removedRootFile."
+      }
+    }
 
     $modulePath = Join-Path $repoRoot ([string]$module.path)
     $manifest = Read-QualityJson -Path (Join-Path $modulePath 'moon.mod.json')

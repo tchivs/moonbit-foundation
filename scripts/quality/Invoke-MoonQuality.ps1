@@ -95,6 +95,54 @@ function Assert-PackageList {
   Write-Host "Package contents verified for $($ModulePolicy.name): $($expectedFiles -join ', ')"
 }
 
+function Assert-CorePortableProhibitions {
+  [CmdletBinding()]
+  param()
+
+  $coreRoot = 'modules/mb-core'
+  $sourceFiles = @(Get-ChildItem -LiteralPath $coreRoot -Recurse -File -Filter '*.mbt')
+  if ($sourceFiles.Count -eq 0) { throw 'No mb-core MoonBit sources were found for prohibition scanning.' }
+
+  foreach ($sourceFile in $sourceFiles) {
+    $text = Get-Content -LiteralPath $sourceFile.FullName -Raw
+    $relative = [System.IO.Path]::GetRelativePath((Resolve-Path '.').Path, $sourceFile.FullName).Replace('\', '/')
+    $publicLines = @($text -split '\r?\n' | Where-Object { $_ -cmatch '^\s*pub(?:\([^)]*\))?\s' })
+    foreach ($line in $publicLines) {
+      if ($line -cmatch '\b(?:FixedArray|MutArrayView)\b') {
+        throw "Raw mutable backing escaped through a public declaration in $relative`: $line"
+      }
+      if ($relative -like 'modules/mb-core/host/*' -and $line -cmatch '\b(?:Host|Environment|NativeAdapter)\b') {
+        throw "Ambient, aggregate, or native host surface escaped in $relative`: $line"
+      }
+    }
+
+    if ($relative -cne 'modules/mb-core/checked/checked.mbt' -and $text -cmatch '[.]to_int\s*\(') {
+      throw "Unchecked UInt64-to-Int narrowing exists outside checked_narrow_int in '$relative'."
+    }
+    if ($relative -like 'modules/mb-core/host/*' -and $text -cmatch '(?i)@(?:env|fs|process)\b|\bgetenv\s*\(|\bglobal_(?:host|clock|files?)\b') {
+      throw "Ambient process or host access token found in '$relative'."
+    }
+  }
+
+  $readme = Get-Content -LiteralPath (Join-Path $coreRoot 'README.mbt.md') -Raw
+  $normalizedReadme = [regex]::Replace($readme, '\s+', ' ')
+  foreach ($requiredPhrase in @(
+    'Budget rejection and injected allocator rejection are portable structured results.',
+    'Built-in physical runtime OOM is unrecoverable',
+    'is not claimed as a catchable `CoreError`',
+    'There is no ambient fallback'
+  )) {
+    if (-not $normalizedReadme.Contains($requiredPhrase)) {
+      throw "mb-core README lacks required portable-safety statement: $requiredPhrase"
+    }
+  }
+  if ($readme -cmatch '(?i)physical(?: runtime)? OOM\s+(?:is|remains)\s+(?:recoverable|catchable)|catch(?:es|ing)?\s+(?:built-in\s+)?physical(?: runtime)? OOM') {
+    throw 'mb-core README falsely claims built-in physical OOM is recoverable.'
+  }
+
+  Write-Host 'mb-core portable prohibitions verified: no raw mutable public backing, unchecked narrowing, ambient host/native aggregate, or false catchable-OOM prose.'
+}
+
 function Get-TrackedDiffSnapshot {
   $output = @(& git diff --binary --no-ext-diff HEAD -- 2>&1 | ForEach-Object { $_.ToString() })
   if ($LASTEXITCODE -ne 0) { throw "Unable to capture tracked diff (exit $LASTEXITCODE)." }
@@ -126,7 +174,13 @@ function Invoke-RequiredQuality {
     if ($sourceFiles.Count -eq 0) { throw 'No MoonBit source files were found for formatting.' }
     Invoke-MoonCommand -Context 'workspace MoonBit source format check' -Arguments (@('fmt', '--check') + $sourceFiles)
   }
+  Invoke-QualityStage 'CORE portable source and documentation prohibitions' {
+    Assert-CorePortableProhibitions
+  }
   foreach ($target in $requiredTargets) {
+    Invoke-QualityStage "CORE literate README check target $target" {
+      Invoke-MoonCommand -Context "mb-core README check target $target" -Arguments @('-C', 'modules/mb-core', 'check', 'README.mbt.md', '--target', $target, '--frozen')
+    }
     Invoke-QualityStage "WORK-05 check target $target" {
       Invoke-MoonCommand -Context "workspace check target $target" -Arguments @('check', '--target', $target, '--deny-warn', '--frozen')
     }

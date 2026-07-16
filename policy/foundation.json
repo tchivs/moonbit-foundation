@@ -82,27 +82,9 @@
         "io/memory.mbt",
         "io/moon.pkg",
         "io/traits.mbt",
-        "moon.mod.json",
-        "moon.pkg",
-        "scaffold.mbt",
-        "scaffold_wbtest.mbt"
+        "moon.mod.json"
       ],
       "public_packages": [
-        {
-          "name": "moonbit-foundation/mb-core",
-          "path": ".",
-          "stability": "candidate",
-          "allowed_imports": [],
-          "semantic_interface": [
-            "package \"moonbit-foundation/mb-core\""
-          ],
-          "supported_targets": [
-            "js",
-            "wasm",
-            "wasm-gc",
-            "native"
-          ]
-        },
         {
           "name": "moonbit-foundation/mb-core/error",
           "path": "error",
