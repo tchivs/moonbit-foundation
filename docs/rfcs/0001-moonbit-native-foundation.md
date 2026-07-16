@@ -1,16 +1,17 @@
 # RFC 0001: MoonBit Native Foundation
 
-- **Status:** Proposed
+- **Status:** Accepted
 - **Authors:** MNF contributors
 - **Created:** 2026-07-16
 - **Target:** Foundation charter and v0.1 architecture
 - **Discussion:** To be established
 - **Normative process:** [RFC process](../governance/rfc-process.md)
-- **Acceptance route:** Not yet satisfied
-- **Maintainer approvals:** None recorded
-- **Blocking objections:** Not yet assessed through an evidenced review
-- **Public review window:** No start or completion evidence recorded
-- **Acceptance evidence:** None; this RFC MUST remain Proposed until an authorized route is evidenced
+- **Acceptance route:** `sole-project-owner-bootstrap`
+- **Authority / project owner:** `sole-project-owner`
+- **Maintainer approvals:** None; no second approval is claimed
+- **Blocking objections:** None; both mandatory edge reviews found no omission and no unresolved blocker
+- **Public review window:** Not used; no seven-day interval is claimed
+- **Acceptance evidence:** Existing conditional preauthorization at [owner instruction](../governance/decisions/0001-sole-owner-bootstrap.md#owner-instruction), with completed dispositions at [edge review results](../governance/decisions/0001-sole-owner-bootstrap.md#edge-review-results)
 
 ## Transition history
 
@@ -18,8 +19,9 @@
 |---|---|---|
 | — | Draft | Initial RFC in repository history |
 | Draft | Proposed | This revision makes the charter reviewable; repository history is the transition record |
+| Proposed | Accepted | `sole-project-owner-bootstrap`: the exact [owner instruction](../governance/decisions/0001-sole-owner-bootstrap.md#owner-instruction) was consumed after both mandatory reviews were completed and dispositioned under [edge review results](../governance/decisions/0001-sole-owner-bootstrap.md#edge-review-results), with no unresolved blocking objection. No later approval, second approval, or seven-day review is asserted. |
 
-No transition to Accepted, Implemented, Rejected, or Superseded has occurred. Every future transition must update this ledger and point to authentic repository or public-review evidence.
+No transition to Implemented, Rejected, or Superseded has occurred. Every future transition must update this ledger and point to authentic repository or public-review evidence.
 
 ## 1. Abstract
 

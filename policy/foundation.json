@@ -195,18 +195,23 @@
     },
     "current_foundation_rfc": {
       "id": "0001",
-      "status": "Proposed",
+      "status": "Accepted",
       "path": "docs/rfcs/0001-moonbit-native-foundation.md",
-      "acceptance_route": null,
-      "authority": null,
+      "acceptance_route": "sole-project-owner-bootstrap",
+      "authority": "sole-project-owner",
       "approvers": [],
       "project_lead": null,
       "project_owner": "sole-project-owner",
       "public_review_url": null,
       "public_review_started_at": null,
       "public_review_ended_at": null,
-      "decision_evidence_path": null,
-      "decision_evidence_anchors": [],
+      "decision_evidence_path": "docs/governance/decisions/0001-sole-owner-bootstrap.md",
+      "decision_evidence_anchors": [
+        "owner-instruction",
+        "conversation-context-and-interpretation",
+        "authorization-and-conditions",
+        "edge-review-results"
+      ],
       "edge_reviews": [
         {
           "id": "EDGE-GOV-01-UNCLASSIFIED",
@@ -219,9 +224,12 @@
           "disposition": "no-omission-found"
         }
       ],
-      "blocking_objections": "not-assessed",
-      "objection_disposition": null,
-      "acceptance_evidence": []
+      "blocking_objections": "none",
+      "objection_disposition": "none-open",
+      "acceptance_evidence": [
+        "docs/governance/decisions/0001-sole-owner-bootstrap.md#owner-instruction",
+        "docs/governance/decisions/0001-sole-owner-bootstrap.md#edge-review-results"
+      ]
     },
     "accepted_evidence_fields": [
       "acceptance_route",
