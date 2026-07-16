@@ -5,15 +5,15 @@ milestone_name: milestone
 current_phase: 4
 current_phase_name: Image Model, Views, and Operations
 status: executing
-stopped_at: Completed 04-02-PLAN.md
-last_updated: "2026-07-16T21:06:38.720Z"
+stopped_at: Completed 04-03-PLAN.md
+last_updated: "2026-07-16T21:25:53.165Z"
 last_activity: 2026-07-17
 last_activity_desc: Phase 4 execution started
 progress:
   total_phases: 4
   completed_phases: 3
   total_plans: 32
-  completed_plans: 26
+  completed_plans: 27
 ---
 
 # Project State
@@ -29,11 +29,11 @@ See `.planning/PROJECT.md` (updated 2026-07-16).
 ## Current Position
 
 Phase: 4 (Image Model, Views, and Operations) — EXECUTING
-Plan: 3 of 8
+Plan: 4 of 8
 Status: Ready to execute
 Last activity: 2026-07-17 — Phase 4 execution started
 
-Progress: [████████░░] 81% (1/5 phases; 8/8 currently planned plans complete)
+Progress: [████████░░] 84% (1/5 phases; 8/8 currently planned plans complete)
 
 ## Performance Metrics
 
@@ -71,6 +71,7 @@ Progress: [████████░░] 81% (1/5 phases; 8/8 currently planne
 | Phase 03 P08 | 7min | 2 tasks | 4 files |
 | Phase 04 P01 | 10min | 2 tasks | 5 files |
 | Phase 04 P02 | 19min | 2 tasks | 6 files |
+| Phase 04 P03 | 38min | 3 tasks | 9 files |
 
 ## Accumulated Context
 
@@ -152,6 +153,9 @@ Progress: [████████░░] 81% (1/5 phases; 8/8 currently planne
 - [Phase 04]: Use the namespace/key/tag tuple as the canonical metadata identity and reject duplicates. — Provides stable backend-independent ordering and unambiguous operation disposition.
 - [Phase 04]: Phase 4 descriptors model packed and planar U8/U16/F32 layouts while reference operation support remains explicit and limited to encoded-sRGB packed U8 RGB/RGBA.
 - [Phase 04]: Phase 4 plane validation treats complete declared half-open ranges as alias boundaries, permits padding and touching endpoints, and rejects storage escape or overlap.
+- [Phase 04]: Construct one ResourceCharge inside mb-core/bytes from explicit storage, dimension, pixel, and work scalars after narrowing and allocator approval.
+- [Phase 04]: Canonical empty immutable crops have no backing, while every empty mutable crop rejects before access.
+- [Phase 04]: Mutable image descendants share one enclosing byte lease and require logical plus per-row byte disjointness before split creation.
 
 ### Pending Decisions
 
@@ -172,6 +176,6 @@ None. Phase 01 is independently verified and complete; Phase 02 is ready for con
 
 **Resume file:** None
 
-Last session: 2026-07-16T21:06:38.702Z
-Stopped at: Completed 04-02-PLAN.md
+Last session: 2026-07-16T21:25:53.150Z
+Stopped at: Completed 04-03-PLAN.md
 Resume with: Discuss Phase 02, then plan and execute it through the active auto chain.

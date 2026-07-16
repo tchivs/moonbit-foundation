@@ -92,13 +92,13 @@ Plans:
 
 **Requirements:** IMAG-01, IMAG-02, IMAG-03, IMAG-04, IMAG-05, IMAG-06, IMAG-07
 
-**Plans:** 2/8 plans executed
+**Plans:** 3/8 plans executed
 
 Plans:
 
 - [x] 04-01-PLAN.md — Establish bounded core-only opaque metadata and disposition values.
 - [x] 04-02-PLAN.md — Define explicit validated image descriptors and image metadata.
-- [ ] 04-03-PLAN.md — Implement owned storage, retained views, and zero-copy crop lifetimes.
+- [x] 04-03-PLAN.md — Implement owned storage, retained views, and zero-copy crop lifetimes.
 - [ ] 04-04-PLAN.md — Add fresh-output copy and exact horizontal/vertical flips.
 - [ ] 04-05-PLAN.md — Generate image evidence and implement all eight orientation transforms.
 - [ ] 04-06-PLAN.md — Add integer nearest resize and closed U8 pixel conversions.
@@ -136,7 +136,7 @@ Plans:
 | 1 | 8/8 | Complete    | 2026-07-16 |
 | 2 | 8/8 | Complete    | 2026-07-17 |
 | 3 | 8/8 | Complete    | 2026-07-17 |
-| 4 | 2/8 | In Progress|  |
+| 4 | 3/8 | In Progress|  |
 | 5 | Reference Codec and Release Qualification | 7 | Not started |
 
 **v0.1 coverage:** 36/36 requirements mapped exactly once.
