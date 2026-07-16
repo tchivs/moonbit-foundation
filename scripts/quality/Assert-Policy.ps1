@@ -317,6 +317,18 @@ function Resolve-RfcArtifactReference {
   return [pscustomobject]@{ kind='report'; target=('file:' + [System.IO.Path]::GetFullPath($reportFile).ToLowerInvariant()) }
 }
 
+function Assert-RfcImplementationArtifacts {
+  param([object]$Rfc, [string]$RepositoryRoot)
+  $implementationEvidence = @($Rfc.implementation_evidence)
+  $qualificationEvidence = @($Rfc.qualification_evidence)
+  Assert-Condition ($implementationEvidence.Count -gt 0) 'Implemented RFC implementation evidence requires at least one reference.'
+  Assert-Condition ($qualificationEvidence.Count -gt 0) 'Implemented RFC qualification evidence requires at least one reference.'
+  $implementationArtifacts = @($implementationEvidence | ForEach-Object { Resolve-RfcArtifactReference -Reference ([string]$_) -Purpose implementation -RfcId ([string]$Rfc.id) -RepositoryRoot $RepositoryRoot })
+  $qualificationArtifacts = @($qualificationEvidence | ForEach-Object { Resolve-RfcArtifactReference -Reference ([string]$_) -Purpose qualification -RfcId ([string]$Rfc.id) -RepositoryRoot $RepositoryRoot })
+  $overlap = @($implementationArtifacts.target | Where-Object { $qualificationArtifacts.target -ccontains $_ })
+  Assert-Condition ($overlap.Count -eq 0) 'Implementation and qualification evidence must identify distinct artifacts.'
+}
+
 function Assert-FixtureManifest {
   [CmdletBinding()]
   param(
@@ -416,6 +428,8 @@ function Assert-RfcAcceptanceState {
   $transitionRow = Get-RfcTransitionLedgerRow -RfcText $rfcText -From $transitionFrom -To ([string]$rfc.status)
   Assert-ReferencesInLedgerRow -Label 'RFC transition' -References $transitionEvidence -LedgerRow $transitionRow
   Assert-RfcLifecycleLedger -Rfc $rfc -RfcText $rfcText
+  $hasAcceptedHistory = [string]$rfc.status -in @('Accepted','Implemented') -or ([string]$rfc.status -ceq 'Superseded' -and $transitionFrom -in @('Accepted','Implemented'))
+  $hasImplementedHistory = [string]$rfc.status -ceq 'Implemented' -or ([string]$rfc.status -ceq 'Superseded' -and $transitionFrom -ceq 'Implemented')
 
   if ($rfc.status -in @('Draft','Proposed')) {
     Assert-NullOrEmpty 'acceptance_route' $rfc.acceptance_route
@@ -479,10 +493,24 @@ function Assert-RfcAcceptanceState {
     Assert-ReferencesInLedgerRow -Label 'Superseded RFC transition' -References $supersessionEvidence -LedgerRow $transitionRow
     Assert-ExactSet 'Superseded RFC transition evidence' $transitionEvidence $supersessionEvidence
     Assert-ExactSet 'Supersession evidence canonical replacement path' $supersessionEvidence @($replacementRelativePath)
-    Assert-NullOrEmpty 'implementation_evidence' $rfc.implementation_evidence
-    Assert-NullOrEmpty 'qualification_evidence' $rfc.qualification_evidence
+    if ($hasImplementedHistory) {
+      Assert-RfcImplementationArtifacts -Rfc $rfc -RepositoryRoot $RepositoryRoot
+    } else {
+      Assert-NullOrEmpty 'implementation_evidence' $rfc.implementation_evidence
+      Assert-NullOrEmpty 'qualification_evidence' $rfc.qualification_evidence
+    }
     Assert-NullOrEmpty 'rejection_disposition' $rfc.rejection_disposition
-    return
+    if (-not $hasAcceptedHistory) {
+      Assert-NullOrEmpty 'acceptance_route' $rfc.acceptance_route
+      Assert-NullOrEmpty 'authority' $rfc.authority
+      Assert-Condition (@($rfc.approvers).Count -eq 0 -and @($rfc.approval_records).Count -eq 0) 'Superseded RFC without Accepted history must not assert approvals.'
+      Assert-NullOrEmpty 'project_lead' $rfc.project_lead; Assert-NullOrEmpty 'project_owner' $rfc.project_owner
+      Assert-NullOrEmpty 'public_review_url' $rfc.public_review_url; Assert-NullOrEmpty 'public_review_started_at' $rfc.public_review_started_at; Assert-NullOrEmpty 'public_review_ended_at' $rfc.public_review_ended_at; Assert-NullOrEmpty 'public_review_evidence' $rfc.public_review_evidence
+      Assert-NullOrEmpty 'decision_evidence_path' $rfc.decision_evidence_path
+      Assert-Condition (@($rfc.decision_evidence_anchors).Count -eq 0 -and @($rfc.acceptance_evidence).Count -eq 0) 'Superseded RFC without Accepted history must not assert acceptance evidence.'
+      Assert-Condition (@($externalVerifications).Count -eq 0) 'Superseded RFC without Accepted history must not assert external evidence verification.'
+      return
+    }
   }
 
   Assert-Condition (@($rfcPolicy.acceptance_routes) -ccontains $rfc.acceptance_route) 'Accepted RFC has an unknown acceptance route.'
@@ -494,21 +522,23 @@ function Assert-RfcAcceptanceState {
     Assert-ExactSet 'Accepted RFC transition evidence' $transitionEvidence @($rfc.acceptance_evidence)
     Assert-NullOrEmpty 'implementation_evidence' $rfc.implementation_evidence
     Assert-NullOrEmpty 'qualification_evidence' $rfc.qualification_evidence
-  } else {
+  } elseif ($rfc.status -ceq 'Implemented') {
     $implementationEvidence = @($rfc.implementation_evidence)
     $qualificationEvidence = @($rfc.qualification_evidence)
     Assert-Condition ($implementationEvidence.Count -gt 0) 'Implemented RFC implementation evidence requires at least one reference.'
     Assert-Condition ($qualificationEvidence.Count -gt 0) 'Implemented RFC qualification evidence requires at least one reference.'
     Assert-ReferencesInLedgerRow -Label 'Implemented RFC implementation and qualification evidence' -References @($implementationEvidence + $qualificationEvidence) -LedgerRow $transitionRow
     Assert-ExactSet 'Implemented RFC transition evidence' $transitionEvidence @($implementationEvidence + $qualificationEvidence)
-    $implementationArtifacts = @($implementationEvidence | ForEach-Object { Resolve-RfcArtifactReference -Reference ([string]$_) -Purpose implementation -RfcId ([string]$rfc.id) -RepositoryRoot $RepositoryRoot })
-    $qualificationArtifacts = @($qualificationEvidence | ForEach-Object { Resolve-RfcArtifactReference -Reference ([string]$_) -Purpose qualification -RfcId ([string]$rfc.id) -RepositoryRoot $RepositoryRoot })
-    $overlap = @($implementationArtifacts.target | Where-Object { $qualificationArtifacts.target -ccontains $_ })
-    Assert-Condition ($overlap.Count -eq 0) 'Implementation and qualification evidence must identify distinct artifacts.'
+    Assert-RfcImplementationArtifacts -Rfc $rfc -RepositoryRoot $RepositoryRoot
+  } elseif (-not $hasImplementedHistory) {
+    Assert-NullOrEmpty 'implementation_evidence' $rfc.implementation_evidence
+    Assert-NullOrEmpty 'qualification_evidence' $rfc.qualification_evidence
   }
   Assert-NullOrEmpty 'rejection_disposition' $rfc.rejection_disposition
-  Assert-NullOrEmpty 'superseded_by' $rfc.superseded_by
-  Assert-NullOrEmpty 'supersession_evidence' $rfc.supersession_evidence
+  if ($rfc.status -cne 'Superseded') {
+    Assert-NullOrEmpty 'superseded_by' $rfc.superseded_by
+    Assert-NullOrEmpty 'supersession_evidence' $rfc.supersession_evidence
+  }
 
   switch -CaseSensitive ([string]$rfc.acceptance_route) {
     'maintainer' {
