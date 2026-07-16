@@ -3,7 +3,7 @@
 - **Decision identity:** `sole-project-owner`
 - **Acceptance route:** `sole-project-owner-bootstrap`
 - **Applies to:** RFC 0001 only
-- **Current effect:** Conditional preauthorization; RFC 0001 remains Proposed until all conditions below pass
+- **Decision-time effect:** Conditional preauthorization; RFC 0001 remained Proposed until all conditions below passed
 
 ## Owner instruction
 
