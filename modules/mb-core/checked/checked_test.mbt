@@ -135,3 +135,107 @@ test "checked offsets move at zero and extrema without wrapping" {
     Ok(_) => fail("offset retreat must not underflow")
   }
 }
+
+///|
+test "half-open empty ranges are valid at every legal boundary" {
+  match @checked.CheckedRange::from_start_length(0UL, 0UL) {
+    Ok(range) => {
+      inspect(range.start(), content="0")
+      inspect(range.end(), content="0")
+      inspect(range.length(), content="0")
+      inspect(range.is_empty(), content="true")
+    }
+    Err(_) => fail("empty range at zero must succeed")
+  }
+  match @checked.CheckedRange::from_start_length(18446744073709551615UL, 0UL) {
+    Ok(range) => {
+      inspect(range.start(), content="18446744073709551615")
+      inspect(range.end(), content="18446744073709551615")
+      inspect(range.is_empty(), content="true")
+    }
+    Err(_) => fail("empty range at UInt64 max must succeed")
+  }
+}
+
+///|
+test "touching half-open ranges are adjacent and non-overlapping" {
+  let left = match @checked.CheckedRange::from_start_length(2UL, 3UL) {
+    Ok(range) => range
+    Err(_) => fail("left range must construct")
+  }
+  let right = match @checked.CheckedRange::from_start_length(5UL, 4UL) {
+    Ok(range) => range
+    Err(_) => fail("right range must construct")
+  }
+  inspect(left.end(), content="5")
+  inspect(left.overlaps(right), content="false")
+}
+
+///|
+test "relative subranges accept exact end and reject escape" {
+  let parent = match @checked.CheckedRange::from_start_length(10UL, 8UL) {
+    Ok(range) => range
+    Err(_) => fail("parent range must construct")
+  }
+  match parent.subrange(8UL, 0UL) {
+    Ok(range) => {
+      inspect(range.start(), content="18")
+      inspect(range.end(), content="18")
+    }
+    Err(_) => fail("empty subrange at exact end must succeed")
+  }
+  match parent.subrange(7UL, 2UL) {
+    Err(error) =>
+      inspect(error.code() == @error.ErrorCode::InvalidRange, content="true")
+    Ok(_) => fail("subrange escaping parent must fail")
+  }
+}
+
+///|
+test "range construction rejects start plus length overflow" {
+  match @checked.CheckedRange::from_start_length(18446744073709551615UL, 1UL) {
+    Err(error) => {
+      inspect(error.code() == @error.ErrorCode::InvalidRange, content="true")
+      inspect(error.range_start(), content="Some(18446744073709551615)")
+    }
+    Ok(_) => fail("overflowed range end must fail")
+  }
+}
+
+///|
+test "dimensions preserve zero sizes and compute checked pixel counts" {
+  match @checked.Dimensions::new(0UL, 9UL) {
+    Ok(dimensions) => {
+      inspect(dimensions.width(), content="0")
+      inspect(dimensions.height(), content="9")
+      inspect(dimensions.pixel_count(), content="0")
+    }
+    Err(_) => fail("zero-width dimensions must be canonical")
+  }
+  match @checked.Dimensions::new(640UL, 480UL) {
+    Ok(dimensions) => inspect(dimensions.pixel_count(), content="307200")
+    Err(_) => fail("valid dimensions must construct")
+  }
+  match @checked.Dimensions::new(18446744073709551615UL, 2UL) {
+    Err(error) =>
+      inspect(error.code() == @error.ErrorCode::InvalidDimensions, content="true")
+    Ok(_) => fail("overflowed pixel count must fail")
+  }
+}
+
+///|
+test "dimension allocation size checks multiplication and backend narrowing" {
+  let dimensions = match @checked.Dimensions::new(1024UL, 1024UL) {
+    Ok(value) => value
+    Err(_) => fail("dimensions must construct")
+  }
+  match dimensions.allocation_size(2UL) {
+    Ok(value) => inspect(value, content="2097152")
+    Err(_) => fail("representable allocation size must succeed")
+  }
+  match dimensions.allocation_size(4096UL) {
+    Err(error) =>
+      inspect(error.code() == @error.ErrorCode::NarrowingFailed, content="true")
+    Ok(_) => fail("allocation size above Int max must fail")
+  }
+}
