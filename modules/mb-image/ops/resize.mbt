@@ -113,6 +113,14 @@ pub fn resize_nearest(
     Ok(value) => value
     Err(error) => return Err(error)
   }
+  match @checked.checked_mul(width - 1UL, source.width()) {
+    Err(error) => return Err(error)
+    Ok(_) => ()
+  }
+  match @checked.checked_mul(height - 1UL, source.height()) {
+    Err(error) => return Err(error)
+    Ok(_) => ()
+  }
   let output = match
     @storage.OwnedImage::new_operation(
       descriptor,
