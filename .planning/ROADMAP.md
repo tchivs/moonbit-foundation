@@ -6,7 +6,7 @@ MNF v0.1 is a contract-and-conformance milestone delivered as five horizontal la
 
 ## Phases
 
-- [ ] **Phase 1: Foundation Charter and Reproducible Workspace** — Accept the ecosystem contract and make the three-module workspace reproducible, target-aware, and operable from the repository root.
+- [x] **Phase 1: Foundation Charter and Reproducible Workspace** — Accept the ecosystem contract and make the three-module workspace reproducible, target-aware, and operable from the repository root. (completed 2026-07-16)
 - [ ] **Phase 2: Bounded Core Primitives** — Deliver the checked byte, stream, diagnostic, budget, and host-capability contracts that every higher layer relies on.
 - [ ] **Phase 3: Reference Color Semantics** — Define explicit color and alpha representation and verify deterministic reference conversions across declared targets.
 - [ ] **Phase 4: Image Model, Views, and Operations** — Build safe image representation, storage/view rules, deterministic transforms, metadata behavior, and codec-facing contracts.
@@ -22,7 +22,7 @@ MNF v0.1 is a contract-and-conformance milestone delivered as five horizontal la
 
 **Requirements:** GOV-01, GOV-02, GOV-03, GOV-04, WORK-01, WORK-02, WORK-03, WORK-04, WORK-05
 
-**Plans:** 8/8 plans executed
+**Plans:** 8/8 plans complete
 
 Plans:
 **Wave 1**
@@ -120,7 +120,7 @@ Plans:
 
 | Phase | Name | Requirements | Status |
 |------:|------|-------------:|--------|
-| 1 | Foundation Charter and Reproducible Workspace | 9 | In Progress (8/8 plans; verification pending) |
+| 1 | 8/8 | Complete    | 2026-07-16 |
 | 2 | Bounded Core Primitives | 8 | Not started |
 | 3 | Reference Color Semantics | 5 | Not started |
 | 4 | Image Model, Views, and Operations | 7 | Not started |
