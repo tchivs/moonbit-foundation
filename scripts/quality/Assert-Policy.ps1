@@ -461,10 +461,24 @@ function Assert-RfcAcceptanceState {
     Assert-Condition ($replacementId -cmatch '^\d{4}$' -and $replacementId -cne [string]$rfc.id) 'Superseded RFC requires a distinct four-digit replacement RFC id.'
     $replacement = @(Get-ChildItem -LiteralPath (Join-Path $RepositoryRoot 'docs/rfcs') -File | Where-Object Name -CLike "$replacementId-*.md")
     Assert-Condition ($replacement.Count -eq 1) "Superseded RFC replacement '$replacementId' must identify exactly one existing RFC file."
+    $replacementRelativePath = 'docs/rfcs/' + $replacement[0].Name
+    $replacementFile = Resolve-RepositoryLeafFile -RepositoryRoot $RepositoryRoot -RelativePath $replacementRelativePath -Label "Superseded RFC replacement '$replacementId'"
+    $replacementText = Get-Content -LiteralPath $replacementFile -Raw
+    $identityMatches = @([regex]::Matches($replacementText, "(?m)^# RFC $([regex]::Escape($replacementId)): [^\r\n]+\s*$"))
+    Assert-Condition ($identityMatches.Count -eq 1) "Replacement RFC '$replacementId' must contain one canonical RFC identity heading."
+    $statusMatches = @([regex]::Matches($replacementText, '(?m)^- \*\*Status:\*\* (?<status>Draft|Proposed|Accepted|Implemented|Rejected|Superseded)\s*$'))
+    Assert-Condition ($statusMatches.Count -eq 1) "Replacement RFC '$replacementId' must contain one lifecycle status header."
+    $replacementStatus = $statusMatches[0].Groups['status'].Value
+    Assert-Condition ($replacementStatus -in @('Draft','Proposed','Accepted','Implemented')) "Replacement RFC '$replacementId' must have a non-terminal reviewable status."
+    $currentRfcName = [System.IO.Path]::GetFileName($canonicalRfcPath)
+    $backReferencePattern = "(?m)^- \*\*Supersedes:\*\* \[RFC $([regex]::Escape([string]$rfc.id))\]\($([regex]::Escape($currentRfcName))\)\s*$"
+    Assert-Condition ($replacementText -cmatch $backReferencePattern) "Replacement RFC '$replacementId' must contain a canonical back-reference to RFC $($rfc.id)."
+    $replacementLedgerRows = @(Get-RfcTransitionLedgerRows -RfcText $replacementText)
+    Assert-Condition ($replacementLedgerRows.Count -gt 0 -and [string]$replacementLedgerRows[-1].to -ceq $replacementStatus) "Replacement RFC '$replacementId' transition ledger must end at its declared status."
     $supersessionEvidence = @($rfc.supersession_evidence)
     Assert-ReferencesInLedgerRow -Label 'Superseded RFC transition' -References $supersessionEvidence -LedgerRow $transitionRow
     Assert-ExactSet 'Superseded RFC transition evidence' $transitionEvidence $supersessionEvidence
-    Assert-Condition (@($supersessionEvidence | Where-Object { ([string]$_) -cmatch "(?:^|/)${replacementId}-[^#]+[.]md(?:#|$)" }).Count -gt 0) 'Supersession evidence must reference the replacement RFC.'
+    Assert-ExactSet 'Supersession evidence canonical replacement path' $supersessionEvidence @($replacementRelativePath)
     Assert-NullOrEmpty 'implementation_evidence' $rfc.implementation_evidence
     Assert-NullOrEmpty 'qualification_evidence' $rfc.qualification_evidence
     Assert-NullOrEmpty 'rejection_disposition' $rfc.rejection_disposition

@@ -193,6 +193,14 @@ function Set-TestMaintainerCommitApproval([string]$Root, [object]$Policy, [objec
   Write-TestState $Root $Policy $Roster
 }
 
+function Write-TestReplacementRfc([string]$Root, [string]$Status = 'Proposed') {
+  $rows = @('| — | Draft | repository:initial-draft |')
+  if ($Status -cne 'Draft') { $rows += '| Draft | Proposed | repository:proposal |' }
+  if ($Status -in @('Accepted','Implemented')) { $rows += '| Proposed | Accepted | reviews/rfc-0002.md#approval |' }
+  if ($Status -ceq 'Implemented') { $rows += '| Accepted | Implemented | commit:1234567; report:reports/rfc-0002.md#qualification |' }
+  @('# RFC 0002: Replacement foundation','',("- **Status:** $Status"),'- **Supersedes:** [RFC 0001](0001-moonbit-native-foundation.md)','','## Transition history','','| From | To | Evidence |','|---|---|---|') + $rows | Set-Content -LiteralPath (Join-Path $Root 'docs/rfcs/0002-replacement.md') -Encoding utf8
+}
+
 function Invoke-AcceptanceCase([string]$Name, [object]$Policy, [object]$Roster, [bool]$ShouldPass, [scriptblock]$Arrange, [string]$ExpectedFailurePattern) {
   $root = New-TestRepository
   try {
@@ -272,8 +280,18 @@ Invoke-AcceptanceCase 'implemented rejects missing qualification anchor' $missin
 $unqualifiedReport = Copy-TestObject $implemented
 Invoke-AcceptanceCase 'implemented rejects unqualified report disposition' $unqualifiedReport $roster $false { param($root,$policy,$caseRoster) & $arrangeValidImplemented $root $policy $caseRoster; $path=Join-Path $root 'reports/rfc-0001-qualification.md'; (Get-Content -Raw $path).Replace('**Disposition:** qualified','**Disposition:** rejected') | Set-Content -LiteralPath $path } 'does not record a qualified disposition'
 $superseded = Copy-TestObject $proposed; $superseded.rfc.current_foundation_rfc.status='Superseded'; $superseded.rfc.current_foundation_rfc.transition.from='Proposed'; $superseded.rfc.current_foundation_rfc.transition.to='Superseded'; $superseded.rfc.current_foundation_rfc.transition.evidence=@('docs/rfcs/0002-replacement.md'); $superseded.rfc.current_foundation_rfc.superseded_by='0002'; $superseded.rfc.current_foundation_rfc.supersession_evidence=@('docs/rfcs/0002-replacement.md')
-Invoke-AcceptanceCase 'superseded requires existing replacement RFC' $superseded $roster $true { param($root) '# RFC 0002' | Set-Content -LiteralPath (Join-Path $root 'docs/rfcs/0002-replacement.md') }
+Invoke-AcceptanceCase 'superseded requires canonical replacement RFC' $superseded $roster $true { param($root) Write-TestReplacementRfc $root }
 Invoke-AcceptanceCase 'superseded rejects missing replacement RFC' $superseded $roster $false $null 'must identify exactly one existing RFC file'
+$placeholderReplacement = Copy-TestObject $superseded
+Invoke-AcceptanceCase 'superseded rejects placeholder replacement RFC' $placeholderReplacement $roster $false { param($root) '# RFC 0002' | Set-Content -LiteralPath (Join-Path $root 'docs/rfcs/0002-replacement.md') } 'canonical RFC identity heading'
+$wrongReplacementId = Copy-TestObject $superseded
+Invoke-AcceptanceCase 'superseded rejects wrong replacement RFC identity' $wrongReplacementId $roster $false { param($root) Write-TestReplacementRfc $root; $path=Join-Path $root 'docs/rfcs/0002-replacement.md'; (Get-Content -Raw $path).Replace('# RFC 0002:','# RFC 0003:') | Set-Content -LiteralPath $path } 'canonical RFC identity heading'
+$terminalReplacement = Copy-TestObject $superseded
+Invoke-AcceptanceCase 'superseded rejects terminal replacement RFC' $terminalReplacement $roster $false { param($root) Write-TestReplacementRfc $root 'Superseded' } 'non-terminal reviewable status'
+$missingBackReference = Copy-TestObject $superseded
+Invoke-AcceptanceCase 'superseded rejects replacement without canonical back-reference' $missingBackReference $roster $false { param($root) Write-TestReplacementRfc $root; $path=Join-Path $root 'docs/rfcs/0002-replacement.md'; (Get-Content -Raw $path).Replace('- **Supersedes:** [RFC 0001](0001-moonbit-native-foundation.md)','- **Supersedes:** none') | Set-Content -LiteralPath $path } 'canonical back-reference'
+$mismatchedReplacementLedger = Copy-TestObject $superseded
+Invoke-AcceptanceCase 'superseded rejects replacement lifecycle mismatch' $mismatchedReplacementLedger $roster $false { param($root) Write-TestReplacementRfc $root; $path=Join-Path $root 'docs/rfcs/0002-replacement.md'; (Get-Content -Raw $path).Replace('- **Status:** Proposed','- **Status:** Accepted') | Set-Content -LiteralPath $path } 'transition ledger must end'
 
 $cases = @(
   @{ n='duplicate roster identity'; e='duplicate identities'; mutate={ param($p,$r) $r.maintainers=@($r.maintainers[0],(Copy-TestObject $r.maintainers[0])) } },
