@@ -43,8 +43,8 @@
 
 ### Image Model and Operations
 
-- [ ] **IMAG-01**: A library author can describe image dimensions, pixel format, component depth/type, channel order, packed or planar layout, stride, plane count, endianness, color space, alpha mode, and orientation explicitly.
-- [ ] **IMAG-02**: Public constructors reject overflow, invalid dimensions, impossible strides, insufficient storage, invalid plane ranges, and prohibited overlap before access or allocation.
+- [x] **IMAG-01**: A library author can describe image dimensions, pixel format, component depth/type, channel order, packed or planar layout, stride, plane count, endianness, color space, alpha mode, and orientation explicitly.
+- [x] **IMAG-02**: Public constructors reject overflow, invalid dimensions, impossible strides, insufficient storage, invalid plane ranges, and prohibited overlap before access or allocation.
 - [ ] **IMAG-03**: A consumer can create owned images and safe immutable or mutable views whose bounds and backing-storage rules are enforced.
 - [ ] **IMAG-04**: A consumer can crop or create subviews without copying when the representation permits it and without escaping the backing storage's safe lifetime.
 - [ ] **IMAG-05**: A consumer can perform deterministic copies, horizontal/vertical flips, orientation application, nearest-neighbor resize, and the minimal required pixel conversions.
@@ -135,8 +135,8 @@
 | COLR-03 | Phase 3 | Complete |
 | COLR-04 | Phase 3 | Complete |
 | COLR-05 | Phase 3 | Complete |
-| IMAG-01 | Phase 4 | Pending |
-| IMAG-02 | Phase 4 | Pending |
+| IMAG-01 | Phase 4 | Complete |
+| IMAG-02 | Phase 4 | Complete |
 | IMAG-03 | Phase 4 | Pending |
 | IMAG-04 | Phase 4 | Pending |
 | IMAG-05 | Phase 4 | Pending |
