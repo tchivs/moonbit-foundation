@@ -290,6 +290,7 @@
             "pub fn OwnedBytes::length(Self) -> UInt64",
             "pub fn OwnedBytes::new(UInt64, @budget.Budget) -> Result[Self, @error.CoreError]",
             "pub fn OwnedBytes::new_with_allocator(UInt64, @budget.Budget, &Allocator) -> Result[Self, @error.CoreError]",
+            "pub fn OwnedBytes::new_with_allocator_and_charge(UInt64, @budget.Budget, &Allocator, UInt64, UInt64, UInt64, UInt64) -> Result[Self, @error.CoreError]",
             "pub fn OwnedBytes::view(Self) -> ByteView",
             "pub fn[T] OwnedBytes::with_mut(Self, UInt64, UInt64, (MutByteLease) -> Result[T, @error.CoreError]) -> Result[T, @error.CoreError]",
             "pub(open) trait Allocator {",

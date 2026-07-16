@@ -76,13 +76,7 @@ test "combined allocation charge consumes every explicit dimension once" {
   )
   let allocator = RejectingAllocator::{  } as &@bytes.Allocator
   let rejected = @bytes.OwnedBytes::new_with_allocator_and_charge(
-    12UL,
-    budget,
-    allocator,
-    7UL,
-    5UL,
-    35UL,
-    91UL,
+    12UL, budget, allocator, 7UL, 5UL, 35UL, 91UL,
   )
   inspect(rejected is Err(_), content="true")
   let before = budget.remaining()

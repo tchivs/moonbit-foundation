@@ -23,15 +23,21 @@ pub struct OwnedBytes {
 }
 
 ///|
-fn allocation_charge(length : UInt64) -> @budget.ResourceCharge {
+fn allocation_charge(
+  length : UInt64,
+  width : UInt64,
+  height : UInt64,
+  pixels : UInt64,
+  work : UInt64,
+) -> @budget.ResourceCharge {
   @budget.ResourceCharge::new(
     bytes=length,
     allocations=1UL,
     allocation_size=length,
-    width=0UL,
-    height=0UL,
-    pixels=0UL,
-    work=0UL,
+    width~,
+    height~,
+    pixels~,
+    work~,
   )
 }
 
@@ -53,6 +59,24 @@ pub fn OwnedBytes::new_with_allocator(
   budget : @budget.Budget,
   allocator : &Allocator,
 ) -> Result[OwnedBytes, @error.CoreError] {
+  OwnedBytes::new_with_allocator_and_charge(
+    length, budget, allocator, 0UL, 0UL, 0UL, 0UL,
+  )
+}
+
+///|
+/// Construct storage while atomically charging its allocation and the caller's
+/// explicit image or operation dimensions. Narrowing and allocator approval
+/// happen before the one hierarchical budget transaction.
+pub fn OwnedBytes::new_with_allocator_and_charge(
+  length : UInt64,
+  budget : @budget.Budget,
+  allocator : &Allocator,
+  width : UInt64,
+  height : UInt64,
+  pixels : UInt64,
+  work : UInt64,
+) -> Result[OwnedBytes, @error.CoreError] {
   let backend_length = match @checked.checked_narrow_int(length) {
     Ok(value) => value
     Err(error) => return Err(error)
@@ -61,7 +85,7 @@ pub fn OwnedBytes::new_with_allocator(
     Err(error) => return Err(error)
     Ok(_) => ()
   }
-  match budget.charge(allocation_charge(length)) {
+  match budget.charge(allocation_charge(length, width, height, pixels, work)) {
     Err(error) => return Err(error)
     Ok(_) => ()
   }
