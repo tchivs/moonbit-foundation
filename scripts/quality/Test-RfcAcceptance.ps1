@@ -434,6 +434,7 @@ Write-Host 'PASS: harness rejects arrange/setup exceptions'
 
 $externalRoster = Join-Path ([System.IO.Path]::GetTempPath()) ('mnf-roster-external-' + [guid]::NewGuid().ToString('N') + '.json')
 $externalRfc = Join-Path ([System.IO.Path]::GetTempPath()) ('mnf-rfc-external-' + [guid]::NewGuid().ToString('N') + '.md')
+$externalReplacement = Join-Path ([System.IO.Path]::GetTempPath()) ('mnf-replacement-external-' + [guid]::NewGuid().ToString('N') + '.md')
 try {
   Invoke-AcceptanceCase 'canonical roster rejects symlink' $accepted $roster $false {
     param($root)
@@ -443,8 +444,12 @@ try {
     param($root)
     $canonical=Join-Path $root 'docs/rfcs/0001-moonbit-native-foundation.md';Copy-Item $canonical $externalRfc;Remove-Item $canonical;[void](New-Item -ItemType SymbolicLink -Path $canonical -Target $externalRfc -ErrorAction Stop)
   } 'Canonical foundation RFC component.*symbolic link or reparse point'
+  Invoke-AcceptanceCase 'replacement RFC rejects symlink' $superseded $roster $false {
+    param($root)
+    Write-TestReplacementRfc $root; $replacement=Join-Path $root 'docs/rfcs/0002-replacement.md'; Copy-Item $replacement $externalReplacement; Remove-Item $replacement; [void](New-Item -ItemType SymbolicLink -Path $replacement -Target $externalReplacement -ErrorAction Stop)
+  } "Superseded RFC replacement '0002' component.*symbolic link or reparse point"
 } finally {
-  Remove-Item $externalRoster,$externalRfc -Force -ErrorAction SilentlyContinue
+  Remove-Item $externalRoster,$externalRfc,$externalReplacement -Force -ErrorAction SilentlyContinue
 }
 
 $linkRoot = New-TestRepository
