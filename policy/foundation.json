@@ -497,7 +497,13 @@
         "alpha/alpha_test.mbt",
         "alpha/alpha_wbtest.mbt",
         "alpha/moon.pkg",
-        "alpha/reference_vectors_wbtest.mbt"
+        "alpha/reference_vectors_wbtest.mbt",
+        "profile",
+        "profile/moon.pkg",
+        "profile/profile.mbt",
+        "profile/profile_test.mbt",
+        "profile/profile_wbtest.mbt",
+        "profile/reference_vectors_wbtest.mbt"
       ],
       "public_packages": [
         {
@@ -700,6 +706,51 @@
             "pub fn StraightNormalizedSrgba::representation(Self) -> @model.ComponentRepresentation",
             "pub fn StraightNormalizedSrgba::space(Self) -> @model.ColorSpaceIdentity",
             "pub fn StraightNormalizedSrgba::transfer(Self) -> @model.TransferIdentity"
+          ],
+          "supported_targets": [
+            "js",
+            "wasm",
+            "wasm-gc",
+            "native"
+          ]
+        },
+        {
+          "name": "moonbit-foundation/mb-color/profile",
+          "path": "profile",
+          "stability": "candidate",
+          "allowed_imports": [
+            "moonbit-foundation/mb-core/error",
+            "moonbit-foundation/mb-core/budget",
+            "moonbit-foundation/mb-core/bytes"
+          ],
+          "semantic_interface": [
+            "package \"moonbit-foundation/mb-color/profile\"",
+            "import {",
+            "  \"moonbit-foundation/mb-core/budget\",",
+            "  \"moonbit-foundation/mb-core/bytes\",",
+            "  \"moonbit-foundation/mb-core/error\",",
+            "}",
+            "pub struct OpaqueProfile {",
+            "}",
+            "pub fn OpaqueProfile::from_bytes(ProfileFormatTag, Bytes, ProfileLimits, @budget.Budget) -> Result[Self, @error.CoreError]",
+            "pub fn OpaqueProfile::length(Self) -> UInt64",
+            "pub fn OpaqueProfile::tag(Self) -> ProfileFormatTag",
+            "pub fn OpaqueProfile::view(Self) -> @bytes.ByteView",
+            "pub struct ProfileFormatTag {",
+            "}",
+            "pub fn ProfileFormatTag::icc() -> Self",
+            "pub fn ProfileFormatTag::new(String) -> Result[Self, @error.CoreError]",
+            "pub fn ProfileFormatTag::value(Self) -> String",
+            "pub struct ProfileIdentity {",
+            "}",
+            "pub fn ProfileIdentity::builtin_srgb() -> Self",
+            "pub fn ProfileIdentity::is_builtin_srgb(Self) -> Bool",
+            "pub fn ProfileIdentity::opaque(OpaqueProfile) -> Self",
+            "pub fn ProfileIdentity::opaque_profile(Self) -> OpaqueProfile?",
+            "pub struct ProfileLimits {",
+            "}",
+            "pub fn ProfileLimits::max_payload_bytes(Self) -> UInt64",
+            "pub fn ProfileLimits::new(UInt64) -> Self"
           ],
           "supported_targets": [
             "js",
