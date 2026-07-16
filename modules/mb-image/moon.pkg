@@ -1,0 +1,6 @@
+import {
+  "moonbit-foundation/mb-core",
+  "moonbit-foundation/mb-color",
+}
+
+supported_targets = "+js+wasm+wasm-gc+native"
