@@ -13,6 +13,17 @@ fn io_limits(bytes : UInt64) -> @budget.ResourceLimits {
 }
 
 ///|
+fn expect_io_ok(
+  result : Result[UInt64, @error.CoreError],
+  expected : UInt64,
+) -> Unit raise {
+  match result {
+    Ok(value) => inspect(value == expected, content="true")
+    Err(_) => fail("operation must succeed")
+  }
+}
+
+///|
 struct ScriptedReader {
   script : Array[Int]
   mut step : Int
@@ -104,7 +115,7 @@ test "read_exact accumulates partial progress and completes" {
   let result = owned.with_mut(0UL, 4UL, fn(lease) {
     @io.read_exact(reader as &@io.Reader, lease)
   })
-  inspect(result, content="Ok(4)")
+  expect_io_ok(result, 4UL)
   inspect(reader.calls, content="3")
 }
 
@@ -113,11 +124,15 @@ test "read_exact distinguishes eos failure no-progress and partial failure" {
   let budget = @budget.Budget::new(io_limits(12UL))
   let eos_owned = @bytes.OwnedBytes::new(3UL, budget).unwrap()
   let eos_reader = ScriptedReader::{ script: [1, -1], step: 0, calls: 0 }
-  match eos_owned.with_mut(0UL, 3UL, fn(lease) {
-    @io.read_exact(eos_reader as &@io.Reader, lease)
-  }) {
+  match
+    eos_owned.with_mut(0UL, 3UL, fn(lease) {
+      @io.read_exact(eos_reader as &@io.Reader, lease)
+    }) {
     Err(error) => {
-      inspect(error.code() == @error.ErrorCode::UnexpectedEndOfStream, content="true")
+      inspect(
+        error.code() == @error.ErrorCode::UnexpectedEndOfStream,
+        content="true",
+      )
       inspect(error.requested(), content="Some(3)")
       inspect(error.completed(), content="Some(1)")
     }
@@ -125,18 +140,21 @@ test "read_exact distinguishes eos failure no-progress and partial failure" {
   }
   let failed_owned = @bytes.OwnedBytes::new(3UL, budget).unwrap()
   let failed_reader = ScriptedReader::{ script: [1, -4], step: 0, calls: 0 }
-  match failed_owned.with_mut(0UL, 3UL, fn(lease) {
-    @io.read_exact(failed_reader as &@io.Reader, lease)
-  }) {
+  match
+    failed_owned.with_mut(0UL, 3UL, fn(lease) {
+      @io.read_exact(failed_reader as &@io.Reader, lease)
+    }) {
     Err(error) => inspect(error.completed(), content="Some(2)")
     Ok(_) => fail("failure after progress must preserve total completion")
   }
   let stalled_owned = @bytes.OwnedBytes::new(1UL, budget).unwrap()
   let stalled = ScriptedReader::{ script: [-3], step: 0, calls: 0 }
-  match stalled_owned.with_mut(0UL, 1UL, fn(lease) {
-    @io.read_exact(stalled as &@io.Reader, lease)
-  }) {
-    Err(error) => inspect(error.code() == @error.ErrorCode::NoProgress, content="true")
+  match
+    stalled_owned.with_mut(0UL, 1UL, fn(lease) {
+      @io.read_exact(stalled as &@io.Reader, lease)
+    }) {
+    Err(error) =>
+      inspect(error.code() == @error.ErrorCode::NoProgress, content="true")
     Ok(_) => fail("zero progress must not spin")
   }
 }
@@ -146,14 +164,14 @@ test "zero-length exact operations never call their backend" {
   let budget = @budget.Budget::new(io_limits(0UL))
   let owned = @bytes.OwnedBytes::new(0UL, budget).unwrap()
   let reader = ScriptedReader::{ script: [], step: 0, calls: 0 }
-  inspect(
+  expect_io_ok(
     owned.with_mut(0UL, 0UL, fn(lease) {
       @io.read_exact(reader as &@io.Reader, lease)
     }),
-    content="Ok(0)",
+    0UL,
   )
   let writer = ScriptedWriter::{ script: [], step: 0, calls: 0 }
-  inspect(@io.write_all(writer as &@io.Writer, owned.view()), content="Ok(0)")
+  expect_io_ok(@io.write_all(writer as &@io.Writer, owned.view()), 0UL)
   inspect(reader.calls, content="0")
   inspect(writer.calls, content="0")
 }
@@ -163,7 +181,7 @@ test "write_all preserves partial completion and rejects no progress" {
   let budget = @budget.Budget::new(io_limits(4UL))
   let owned = @bytes.OwnedBytes::new(4UL, budget).unwrap()
   let writer = ScriptedWriter::{ script: [1, 2, 1], step: 0, calls: 0 }
-  inspect(@io.write_all(writer as &@io.Writer, owned.view()), content="Ok(4)")
+  expect_io_ok(@io.write_all(writer as &@io.Writer, owned.view()), 4UL)
   let failed = ScriptedWriter::{ script: [1, -3], step: 0, calls: 0 }
   match @io.write_all(failed as &@io.Writer, owned.view()) {
     Err(error) => inspect(error.completed(), content="Some(2)")
@@ -171,18 +189,35 @@ test "write_all preserves partial completion and rejects no progress" {
   }
   let stalled = ScriptedWriter::{ script: [-2], step: 0, calls: 0 }
   match @io.write_all(stalled as &@io.Writer, owned.view()) {
-    Err(error) => inspect(error.code() == @error.ErrorCode::NoProgress, content="true")
+    Err(error) =>
+      inspect(error.code() == @error.ErrorCode::NoProgress, content="true")
     Ok(_) => fail("zero write progress must not spin")
   }
 }
 
 ///|
 test "seeking is a separate capability with checked boundaries" {
-  inspect(@io.checked_seek_position(@io.SeekOrigin::Start, 0L, 4UL, 4UL), content="Ok(0)")
-  inspect(@io.checked_seek_position(@io.SeekOrigin::End, 0L, 4UL, 4UL), content="Ok(4)")
-  inspect(@io.checked_seek_position(@io.SeekOrigin::Current, -4L, 4UL, 4UL), content="Ok(0)")
-  inspect(@io.checked_seek_position(@io.SeekOrigin::End, 1L, 4UL, 4UL) is Err(_), content="true")
-  inspect(@io.checked_seek_position(@io.SeekOrigin::Start, -1L, 4UL, 4UL) is Err(_), content="true")
-  let non_seekable = ScriptedReader::{ script: [-1], step: 0, calls: 0 } as &@io.Reader
+  expect_io_ok(
+    @io.checked_seek_position(@io.SeekOrigin::Start, 0L, 4UL, 4UL),
+    0UL,
+  )
+  expect_io_ok(
+    @io.checked_seek_position(@io.SeekOrigin::End, 0L, 4UL, 4UL),
+    4UL,
+  )
+  expect_io_ok(
+    @io.checked_seek_position(@io.SeekOrigin::Current, -4L, 4UL, 4UL),
+    0UL,
+  )
+  inspect(
+    @io.checked_seek_position(@io.SeekOrigin::End, 1L, 4UL, 4UL) is Err(_),
+    content="true",
+  )
+  inspect(
+    @io.checked_seek_position(@io.SeekOrigin::Start, -1L, 4UL, 4UL) is Err(_),
+    content="true",
+  )
+  let non_seekable = ScriptedReader::{ script: [-1], step: 0, calls: 0 }
+    as &@io.Reader
   ignore(non_seekable)
 }
