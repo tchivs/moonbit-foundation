@@ -4,11 +4,11 @@ milestone: v0.1
 milestone_name: milestone
 current_phase: 1
 current_phase_name: Foundation Charter and Reproducible Workspace
-status: blocked
-stopped_at: Plan 01-08 Task 2 — authentic RFC acceptance evidence unavailable
-last_updated: "2026-07-16T17:30:45.791+08:00"
+status: executing
+stopped_at: Completed validated quick task 260716-pml; Plan 01-08 ready
+last_updated: "2026-07-16T19:05:22.409+08:00"
 last_activity: 2026-07-16
-last_activity_desc: Completed 01-07 deterministic Required/LLVM quality controller and pinned read-only CI
+last_activity_desc: Completed validated quick task 260716-pml — sole-owner RFC bootstrap route
 progress:
   total_phases: 1
   completed_phases: 0
@@ -30,8 +30,8 @@ See `.planning/PROJECT.md` (updated 2026-07-16).
 
 Phase: 1 (Foundation Charter and Reproducible Workspace) — EXECUTING
 Plan: 8 of 8
-Status: Blocked at the authentic RFC acceptance evidence gate
-Last activity: 2026-07-16 — Completed 01-07 deterministic Required/LLVM quality controller and pinned read-only CI
+Status: Ready to execute autonomous Plan 01-08
+Last activity: 2026-07-16 — Completed validated quick task 260716-pml: sole-owner RFC bootstrap route
 
 Progress: [█████████░] 88%
 
@@ -83,21 +83,28 @@ Progress: [█████████░] 88%
 - [Phase 01]: Run documentation generation per fixed workspace member because root workspace moon doc cannot infer a module.
 - [Phase 01]: Treat structured policy and source-audit JSON strictly as data; process execution uses fixed commands and hard-coded target/module inventories.
 - [Phase 01]: Keep LLVM isolated from Required success and pin every external CI action to an immutable commit with read-only permissions.
+- [Phase 01]: For the current one-maintainer repository, use the canonical `sole-project-owner-bootstrap` route and the project owner's exact conditional preauthorization; eligibility derives from `policy/maintainers.json` and expires when a second distinct maintainer is added.
+- [Phase 01]: Normative RFC evidence must be the exact repository decision artifact, remain beneath the repository root, and contain no symbolic-link or reparse-point component.
 
 ### Pending Decisions
 
-- Resolve mooncakes.io namespace ownership and RFC acceptance authority with authentic evidence in Phase 1.
+- Resolve mooncakes.io namespace ownership before publication.
 - Finalize numeric/tolerance, image lifetime/layout, resource-budget, and PPM subset details before their respective candidate APIs stabilize.
 
 ### Blockers
 
-- Plan 01-08 cannot record RFC 0001 as Accepted until one complete D-03 route has authentic public evidence: either two distinct maintainer approvals, or an eligible project-lead approval with a public review interval of at least seven elapsed days; both routes also require completion of the two mandatory manual edge reviews and disposition of every blocking objection.
-- Required quality, four-target tests, policy validation, and the exact `1/9/16/29/17/5` closed-world source audit pass, but they cannot substitute for the missing governance authority evidence.
+None. Plan 01-08 is autonomous and ready to perform both mandatory edge reviews, consume the recorded conditional owner preauthorization only if no blocking objection remains, synchronize Accepted state, and run final qualification.
+
+### Quick Tasks Completed
+
+| # | Description | Date | Commit | Status | Directory |
+|---|-------------|------|--------|--------|-----------|
+| 260716-pml | Add a transparent sole-owner bootstrap route and rewire Plan 01-08 without fabricated evidence | 2026-07-16 | c310a68 | Verified | [260716-pml-bootstrap-rfc-01-08-validate](./quick/260716-pml-bootstrap-rfc-01-08-validate/) |
 
 ## Session Continuity
 
 **Resume file:** None
 
-Last session: 2026-07-16T17:30:45.791+08:00
-Stopped at: Resumed Plan 01-08; authentic D-03 acceptance evidence remains unavailable, so RFC 0001 stays Proposed.
-Resume with: Supply one authentic D-03 evidence bundle, then execute Plan 01-08 Tasks 2-3.
+Last session: 2026-07-16T19:05:22.409+08:00
+Stopped at: Completed and independently verified quick task 260716-pml; RFC 0001 remains Proposed until Plan 01-08 performs the edge reviews.
+Resume with: Execute autonomous Plan 01-08.
