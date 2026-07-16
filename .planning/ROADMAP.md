@@ -121,7 +121,7 @@ Plans:
 | Phase | Name | Requirements | Status |
 |------:|------|-------------:|--------|
 | 1 | 8/8 | Complete    | 2026-07-16 |
-| 2 | Bounded Core Primitives | 8 | Not started |
+| 2 | 0/7 | Planned    |  |
 | 3 | Reference Color Semantics | 5 | Not started |
 | 4 | Image Model, Views, and Operations | 7 | Not started |
 | 5 | Reference Codec and Release Qualification | 7 | Not started |
