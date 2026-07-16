@@ -35,7 +35,7 @@
 
 ### Color Semantics
 
-- [ ] **COLR-01**: A library author can represent color components, color-space identity, transfer function, and straight versus premultiplied alpha without implicit defaults.
+- [x] **COLR-01**: A library author can represent color components, color-space identity, transfer function, and straight versus premultiplied alpha without implicit defaults.
 - [ ] **COLR-02**: A consumer can convert between encoded sRGB and linear sRGB using documented finite-value, range, rounding, and tolerance behavior.
 - [ ] **COLR-03**: A consumer can premultiply and unpremultiply alpha with specified zero-alpha and rounding semantics.
 - [ ] **COLR-04**: A maintainer can validate color behavior against provenance-recorded reference vectors and invariants on every declared target.
@@ -130,7 +130,7 @@
 | CORE-06 | Phase 2 | Complete |
 | CORE-07 | Phase 2 | Complete |
 | CORE-08 | Phase 2 | Complete |
-| COLR-01 | Phase 3 | Pending |
+| COLR-01 | Phase 3 | Complete |
 | COLR-02 | Phase 3 | Pending |
 | COLR-03 | Phase 3 | Pending |
 | COLR-04 | Phase 3 | Pending |

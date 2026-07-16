@@ -5,15 +5,15 @@ milestone_name: milestone
 current_phase: 03
 current_phase_name: Reference Color Semantics
 status: executing
-stopped_at: Phase 3 context gathered
-last_updated: "2026-07-16T17:35:47.140Z"
+stopped_at: Completed 03-01-PLAN.md
+last_updated: "2026-07-16T17:49:38.633Z"
 last_activity: 2026-07-17
 last_activity_desc: Phase 03 execution started
 progress:
   total_phases: 3
   completed_phases: 2
   total_plans: 23
-  completed_plans: 16
+  completed_plans: 17
 ---
 
 # Project State
@@ -29,11 +29,11 @@ See `.planning/PROJECT.md` (updated 2026-07-16).
 ## Current Position
 
 Phase: 03 (Reference Color Semantics) — EXECUTING
-Plan: 1 of 7
-Status: Executing Phase 03
+Plan: 2 of 7
+Status: Ready to execute
 Last activity: 2026-07-17 — Phase 03 execution started
 
-Progress: [██████████] 100% (1/5 phases; 8/8 currently planned plans complete)
+Progress: [███████░░░] 74% (1/5 phases; 8/8 currently planned plans complete)
 
 ## Performance Metrics
 
@@ -61,6 +61,7 @@ Progress: [██████████] 100% (1/5 phases; 8/8 currently plann
 | Phase 02 P06 | 18min | 2 tasks | 6 files |
 | Phase 02 P07 | 17min | 3 tasks | 8 files |
 | Phase 02 P08 | 5min | 2 tasks | 4 files |
+| Phase 03 P01 | 11min | 2 tasks | 6 files |
 
 ## Accumulated Context
 
@@ -116,6 +117,9 @@ Progress: [██████████] 100% (1/5 phases; 8/8 currently plann
 - [Phase 02]: Publish exactly six mb-core packages in error, checked, budget, bytes, io, host order; retain no root facade.
 - [Phase 02]: Run standalone README compilation and fail-closed negative fixtures in every Required qualification.
 - [Phase 02]: Callback cleanup closes the shared LeaseGroup scope instead of releasing the parent handle consumed by split_mut. — Every retained descendant observes the shared inactive scope while owner availability is restored exactly once.
+- [Phase 03]: Represent encoded-sRGB, linear-sRGB, normalized alpha, encoded color, and encoded alpha as distinct opaque scalar types rather than aliases or a universal color record.
+- [Phase 03]: Reject non-finite and out-of-range normalized inputs before range acceptance, and reject full-width encoded values above 255 before Byte narrowing.
+- [Phase 03]: Keep the Phase 1 root package private and non-reexporting while registering model as the first real public mb-color package.
 
 ### Pending Decisions
 
@@ -134,8 +138,8 @@ None. Phase 01 is independently verified and complete; Phase 02 is ready for con
 
 ## Session Continuity
 
-**Resume file:** .planning/phases/03-reference-color-semantics/03-CONTEXT.md
+**Resume file:** None
 
-Last session: 2026-07-16T16:51:34.874Z
-Stopped at: Phase 3 context gathered
+Last session: 2026-07-16T17:49:38.616Z
+Stopped at: Completed 03-01-PLAN.md
 Resume with: Discuss Phase 02, then plan and execute it through the active auto chain.
