@@ -9,7 +9,7 @@ MNF v0.1 is a contract-and-conformance milestone delivered as five horizontal la
 - [x] **Phase 1: Foundation Charter and Reproducible Workspace** — Accept the ecosystem contract and make the three-module workspace reproducible, target-aware, and operable from the repository root. (completed 2026-07-16)
 - [x] **Phase 2: Bounded Core Primitives** — Deliver the checked byte, stream, diagnostic, budget, and host-capability contracts that every higher layer relies on. (completed 2026-07-17)
 - [x] **Phase 3: Reference Color Semantics** — Define explicit color and alpha representation and verify deterministic reference conversions across declared targets. (completed 2026-07-17)
-- [ ] **Phase 4: Image Model, Views, and Operations** — Build safe image representation, storage/view rules, deterministic transforms, metadata behavior, and codec-facing contracts.
+- [x] **Phase 4: Image Model, Views, and Operations** — Build safe image representation, storage/view rules, deterministic transforms, metadata behavior, and codec-facing contracts. (completed 2026-07-17)
 - [ ] **Phase 5: Reference Codec and Release Qualification** — Prove the public stack end to end with bounded PPM P6, conformance evidence, documentation, benchmarks, and independent module release checks.
 
 ## Phase Details
@@ -92,7 +92,7 @@ Plans:
 
 **Requirements:** IMAG-01, IMAG-02, IMAG-03, IMAG-04, IMAG-05, IMAG-06, IMAG-07
 
-**Plans:** 9/9 plans executed
+**Plans:** 9/9 plans complete
 
 Plans:
 
@@ -137,7 +137,7 @@ Plans:
 | 1 | 8/8 | Complete    | 2026-07-16 |
 | 2 | 8/8 | Complete    | 2026-07-17 |
 | 3 | 8/8 | Complete    | 2026-07-17 |
-| 4 | 9/9 | In Progress|  |
+| 4 | 9/9 | Complete    | 2026-07-17 |
 | 5 | Reference Codec and Release Qualification | 7 | Not started |
 
 **v0.1 coverage:** 36/36 requirements mapped exactly once.
