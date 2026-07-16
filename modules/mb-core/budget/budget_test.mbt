@@ -62,7 +62,10 @@ test "multidimensional rejection rolls every consumable field back" {
 ///|
 test "zero charges and balanced empty scopes are no-ops" {
   let budget = @budget.Budget::new(generous_limits())
-  inspect(budget.charge(@budget.ResourceCharge::none()) is Ok(_), content="true")
+  inspect(
+    budget.charge(@budget.ResourceCharge::none()) is Ok(_),
+    content="true",
+  )
   let before = budget.remaining()
   let scope = match budget.enter_depth() {
     Ok(scope) => scope
@@ -110,36 +113,82 @@ test "child budgets narrow locally while consuming the shared parent ledger" {
     Ok(child) => child
     Err(_) => fail("strictly narrower child must construct")
   }
-  inspect(child.charge(@budget.ResourceCharge::bytes(3UL)) is Ok(_), content="true")
+  inspect(
+    child.charge(@budget.ResourceCharge::bytes(3UL)) is Ok(_),
+    content="true",
+  )
   inspect(parent.remaining().bytes(), content="97")
   inspect(child.remaining().bytes(), content="1")
-  inspect(child.charge(@budget.ResourceCharge::bytes(2UL)) is Err(_), content="true")
+  inspect(
+    child.charge(@budget.ResourceCharge::bytes(2UL)) is Err(_),
+    content="true",
+  )
   inspect(parent.remaining().bytes(), content="97")
   inspect(child.remaining().bytes(), content="1")
-  inspect(parent.charge(@budget.ResourceCharge::bytes(97UL)) is Ok(_), content="true")
-  inspect(child.charge(@budget.ResourceCharge::bytes(1UL)) is Err(_), content="true")
+  inspect(
+    parent.charge(@budget.ResourceCharge::bytes(97UL)) is Ok(_),
+    content="true",
+  )
+  inspect(
+    child.charge(@budget.ResourceCharge::bytes(1UL)) is Err(_),
+    content="true",
+  )
 }
 
 ///|
 test "depth is shared and scoped cleanup covers success and error results" {
   let budget = @budget.Budget::new(generous_limits())
-  inspect(
-    @budget.with_depth(budget, fn(_scope) { Ok(7) }),
-    content="Ok(7)",
-  )
+  match @budget.with_depth(budget, fn(_scope) { Ok(7) }) {
+    Ok(value) => inspect(value, content="7")
+    Err(_) => fail("successful scoped body must succeed")
+  }
   inspect(budget.current_depth(), content="0")
-  let failed : Result[Int, @error.CoreError] = @budget.with_depth(
-    budget,
-    fn(_scope) {
-      Err(
-        @error.CoreError::new(
-          @error.ErrorCategory::State,
-          @error.ErrorCode::BudgetExceeded,
-          operation="body",
-        ),
-      )
-    },
-  )
+  let failed : Result[Int, @error.CoreError] = @budget.with_depth(budget, fn(
+    _scope,
+  ) {
+    Err(
+      @error.CoreError::new(
+        @error.ErrorCategory::State,
+        @error.ErrorCode::BudgetExceeded,
+        operation="body",
+      ),
+    )
+  })
   inspect(failed is Err(_), content="true")
+  inspect(budget.current_depth(), content="0")
+}
+
+///|
+test "depth accepts the exact shared limit and rejects one more unchanged" {
+  let limits = @budget.ResourceLimits::new(
+    bytes=0UL,
+    allocations=0UL,
+    allocation_size=0UL,
+    width=0UL,
+    height=0UL,
+    pixels=0UL,
+    depth=2UL,
+    work=0UL,
+  )
+  let budget = @budget.Budget::new(limits)
+  let first = match budget.enter_depth() {
+    Ok(scope) => scope
+    Err(_) => fail("first depth must enter")
+  }
+  let second = match budget.enter_depth() {
+    Ok(scope) => scope
+    Err(_) => fail("exact depth limit must enter")
+  }
+  inspect(budget.current_depth(), content="2")
+  match budget.enter_depth() {
+    Err(error) => {
+      inspect(error.code() == @error.ErrorCode::BudgetExceeded, content="true")
+      inspect(error.context() == Some("depth"), content="true")
+    }
+    Ok(_) => fail("one beyond depth limit must fail")
+  }
+  inspect(budget.current_depth(), content="2")
+  second.leave()
+  first.leave()
   inspect(budget.current_depth(), content="0")
 }

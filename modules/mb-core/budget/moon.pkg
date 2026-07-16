@@ -1,4 +1,5 @@
 import {
+  "moonbit-foundation/mb-core/checked",
   "moonbit-foundation/mb-core/error",
 }
 
