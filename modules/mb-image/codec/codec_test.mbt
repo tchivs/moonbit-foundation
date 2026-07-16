@@ -43,8 +43,7 @@ impl @codec.ImageDecoder for PrefixDecoder with fn probe(
   }
   if prefix.length() < 2UL {
     Ok(@codec.ProbeOutcome::NeedMore(2UL))
-  } else if prefix.get(0UL).unwrap() == b'M' &&
-            prefix.get(1UL).unwrap() == b'N' {
+  } else if prefix.get(0UL).unwrap() == b'M' && prefix.get(1UL).unwrap() == b'N' {
     Ok(@codec.ProbeOutcome::Match)
   } else {
     Ok(@codec.ProbeOutcome::NoMatch)
@@ -73,7 +72,8 @@ impl @codec.ImageDecoder for PrefixDecoder with fn decode(
     ),
   )
   let scratch = @bytes.OwnedBytes::new(3UL, scratch_budget).unwrap()
-  match scratch.with_mut(0UL, 3UL, fn(lease) { @io.read_exact(reader, lease) }) {
+  match
+    scratch.with_mut(0UL, 3UL, fn(lease) { @io.read_exact(reader, lease) }) {
     Err(error) => return Err(error)
     Ok(_) => ()
   }

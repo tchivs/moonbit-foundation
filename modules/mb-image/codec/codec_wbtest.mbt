@@ -34,9 +34,11 @@ fn consume_generated_short_progress(length : UInt64) -> Unit raise {
   )
   let destination = @bytes.OwnedBytes::new(length, budget).unwrap()
   let reader = GeneratedShortReader::{ calls: 0 }
-  let completed = destination.with_mut(0UL, length, fn(lease) {
-    @io.read_exact(reader as &@io.Reader, lease)
-  }).unwrap()
+  let completed = destination
+    .with_mut(0UL, length, fn(lease) {
+      @io.read_exact(reader as &@io.Reader, lease)
+    })
+    .unwrap()
   inspect(completed == length, content="true")
   inspect(reader.calls.to_uint64() == length, content="true")
 }

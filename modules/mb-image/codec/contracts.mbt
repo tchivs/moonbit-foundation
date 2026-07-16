@@ -145,7 +145,11 @@ pub fn DecodeResult::new(
   disposition : @metadata.MetadataDisposition,
   bytes_read : UInt64,
 ) -> DecodeResult {
-  { image_value: image, disposition_value: disposition, bytes_read_value: bytes_read }
+  {
+    image_value: image,
+    disposition_value: disposition,
+    bytes_read_value: bytes_read,
+  }
 }
 
 ///|
@@ -216,12 +220,10 @@ pub fn capability_unavailable(
 /// Open decoder seam: probe caller-owned bytes, then decode a forward-only
 /// Reader under explicit options, ceilings, budget, and diagnostics.
 pub(open) trait ImageDecoder {
-  fn probe(
-    Self,
-    @bytes.ByteView,
-    CodecLimits,
-    @error.Diagnostics,
-  ) -> Result[ProbeOutcome, @error.CoreError]
+  fn probe(Self, @bytes.ByteView, CodecLimits, @error.Diagnostics) -> Result[
+    ProbeOutcome,
+    @error.CoreError,
+  ]
   fn decode(
     Self,
     &@io.Reader,
@@ -245,4 +247,3 @@ pub(open) trait ImageEncoder {
     @error.Diagnostics,
   ) -> Result[EncodeResult, @error.CoreError]
 }
-
