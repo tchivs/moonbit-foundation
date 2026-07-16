@@ -130,9 +130,21 @@ test "split descendants are stale after normal callback exit and owner reacquire
   inspect(result is Ok(_), content="true")
   let left = retained_left.unwrap()
   let right = retained_right.unwrap()
-  inspect(left.get(0UL) is Err(_), content="true")
-  inspect(left.set(0UL, b'X') is Err(_), content="true")
-  inspect(right.split_mut(1UL) is Err(_), content="true")
+  match left.get(0UL) {
+    Err(error) =>
+      inspect(error.context() == Some("lease-inactive"), content="true")
+    Ok(_) => fail("retained left child must be stale")
+  }
+  match left.set(0UL, b'X') {
+    Err(error) =>
+      inspect(error.context() == Some("lease-inactive"), content="true")
+    Ok(_) => fail("retained left child must reject writes")
+  }
+  match right.split_mut(1UL) {
+    Err(error) =>
+      inspect(error.context() == Some("lease-inactive"), content="true")
+    Ok(_) => fail("retained right child must reject splitting")
+  }
   left.release()
   right.release()
   let reacquired = owned.with_mut(0UL, 4UL, fn(lease) { lease.set(3UL, b'Z') })

@@ -113,6 +113,7 @@ test "callback cleanup invalidates nested descendants and restores owner once" {
   inspect(middle.set(0UL, b'\x01') is Err(_), content="true")
   inspect(right.split_mut(1UL) is Err(_), content="true")
   inspect(left.group.live_handles, content="0")
+  inspect(left.group.owner_restored, content="true")
   left.release()
   middle.release()
   right.release()

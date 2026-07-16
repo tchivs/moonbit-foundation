@@ -38,6 +38,25 @@ fn LeaseOwner::from_backing(backing : FixedArray[Byte]) -> LeaseOwner {
 struct LeaseGroup {
   owner : LeaseOwner
   mut live_handles : Int
+  mut scope_active : Bool
+  mut owner_restored : Bool
+}
+
+///|
+fn LeaseGroup::restore_owner_once(self : LeaseGroup) -> Unit {
+  if !self.owner_restored {
+    self.owner_restored = true
+    self.owner.leased = false
+  }
+}
+
+///|
+fn LeaseGroup::cleanup_scope(self : LeaseGroup) -> Unit {
+  if self.scope_active {
+    self.scope_active = false
+    self.live_handles = 0
+    self.restore_owner_once()
+  }
 }
 
 ///|
@@ -92,7 +111,12 @@ fn LeaseOwner::acquire_mut(
     start: start_index,
     length_value: length_index,
     state: { active: true },
-    group: { owner: self, live_handles: 1 },
+    group: {
+      owner: self,
+      live_handles: 1,
+      scope_active: true,
+      owner_restored: false,
+    },
   })
 }
 
@@ -106,7 +130,7 @@ fn[T] LeaseOwner::with_mut(
   match self.acquire_mut(start, length) {
     Err(error) => Err(error)
     Ok(lease) => {
-      defer lease.release()
+      defer lease.group.cleanup_scope()
       body(lease)
     }
   }
@@ -184,7 +208,7 @@ fn MutByteLease::checked_index(
   self : MutByteLease,
   index : UInt64,
 ) -> Result[Int, @error.CoreError] {
-  if !self.state.active {
+  if !self.state.active || !self.group.scope_active {
     return Err(lease_state_error("lease-inactive"))
   }
   let index_value = match @checked.checked_narrow_int(index) {
@@ -228,9 +252,11 @@ pub fn MutByteLease::set(
 pub fn MutByteLease::release(self : MutByteLease) -> Unit {
   if self.state.active {
     self.state.active = false
-    self.group.live_handles = self.group.live_handles - 1
-    if self.group.live_handles == 0 {
-      self.group.owner.leased = false
+    if self.group.scope_active && self.group.live_handles > 0 {
+      self.group.live_handles = self.group.live_handles - 1
+      if self.group.live_handles == 0 {
+        self.group.restore_owner_once()
+      }
     }
   }
 }
@@ -242,7 +268,7 @@ pub fn MutByteLease::split_mut(
   self : MutByteLease,
   at : UInt64,
 ) -> Result[(MutByteLease, MutByteLease), @error.CoreError] {
-  if !self.state.active {
+  if !self.state.active || !self.group.scope_active {
     return Err(lease_state_error("lease-inactive"))
   }
   let split = match @checked.checked_narrow_int(at) {
@@ -253,7 +279,7 @@ pub fn MutByteLease::split_mut(
     return Err(lease_range_error("split_mut", at, self.length()))
   }
   self.state.active = false
-  self.group.live_handles = 2
+  self.group.live_handles = self.group.live_handles + 1
   let left = MutByteLease::{
     backing: self.backing,
     start: self.start,
