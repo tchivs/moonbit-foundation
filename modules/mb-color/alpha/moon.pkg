@@ -1,0 +1,8 @@
+import {
+  "moonbit-foundation/mb-color/model",
+  "moonbit-foundation/mb-color/quantize",
+  "moonbit-foundation/mb-core/error",
+  "moonbit-foundation/mb-core/checked",
+}
+
+supported_targets = "+js+wasm+wasm-gc+native"
