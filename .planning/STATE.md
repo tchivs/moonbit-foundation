@@ -5,15 +5,15 @@ milestone_name: milestone
 current_phase: 03
 current_phase_name: Reference Color Semantics
 status: executing
-stopped_at: Completed 03-05-PLAN.md
-last_updated: "2026-07-16T18:46:48.641Z"
+stopped_at: Completed 03-06-PLAN.md
+last_updated: "2026-07-16T19:00:18.074Z"
 last_activity: 2026-07-17
 last_activity_desc: Phase 03 execution started
 progress:
   total_phases: 3
   completed_phases: 2
   total_plans: 23
-  completed_plans: 21
+  completed_plans: 22
 ---
 
 # Project State
@@ -29,11 +29,11 @@ See `.planning/PROJECT.md` (updated 2026-07-16).
 ## Current Position
 
 Phase: 03 (Reference Color Semantics) — EXECUTING
-Plan: 6 of 7
+Plan: 7 of 7
 Status: Ready to execute
 Last activity: 2026-07-17 — Phase 03 execution started
 
-Progress: [█████████░] 91% (1/5 phases; 8/8 currently planned plans complete)
+Progress: [██████████] 96% (1/5 phases; 8/8 currently planned plans complete)
 
 ## Performance Metrics
 
@@ -66,6 +66,7 @@ Progress: [█████████░] 91% (1/5 phases; 8/8 currently planne
 | Phase 03 P03 | 10min | 2 tasks | 7 files |
 | Phase 03 P04 | 6min | 2 tasks | 7 files |
 | Phase 03 P05 | 11min | 2 tasks | 7 files |
+| Phase 03 P06 | 14min | 2 tasks | 7 files |
 
 ## Accumulated Context
 
@@ -135,6 +136,9 @@ Progress: [█████████░] 91% (1/5 phases; 8/8 currently planne
 - [Phase 03]: Keep normalized encoded and linear RGB behind one private tagged representation while exposing exactly four opaque public alpha-state types.
 - [Phase 03]: Treat zero alpha as canonical; exhaustive evidence establishes a 127-code maximum for nonzero straight round trips and exact premultiplied round trips.
 - [Phase 03]: Use checked UInt64 multiplication and the shared exact ties-even ratio helper for every encoded alpha conversion.
+- [Phase 03]: Treat profile format tags as bounded case-preserving identity metadata only. — Canonical icc labels bytes without certifying contents or semantic equivalence.
+- [Phase 03]: Check caller profile ceilings before delegating directly to OwnedBytes::from_bytes. — This preserves checked narrowing, atomic budget charge, allocation, and copy ordering in one authoritative layer.
+- [Phase 03]: Keep profile as an independent leaf over mb-core error, budget, and bytes. — Opaque metadata preservation must not pull in unrelated color semantics or image layers.
 
 ### Pending Decisions
 
@@ -155,6 +159,6 @@ None. Phase 01 is independently verified and complete; Phase 02 is ready for con
 
 **Resume file:** None
 
-Last session: 2026-07-16T18:46:48.621Z
-Stopped at: Completed 03-05-PLAN.md
+Last session: 2026-07-16T19:00:18.054Z
+Stopped at: Completed 03-06-PLAN.md
 Resume with: Discuss Phase 02, then plan and execute it through the active auto chain.
