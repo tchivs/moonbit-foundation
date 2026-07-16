@@ -1,0 +1,27 @@
+{
+  "schema_version": "1.0.0",
+  "preferred_origin": "generated",
+  "required_record_fields": [
+    "id",
+    "path",
+    "origin",
+    "source",
+    "author",
+    "retrieval_date",
+    "sha256",
+    "license",
+    "redistribution_status",
+    "expected_use"
+  ],
+  "allowed_origins": [
+    "generated",
+    "external"
+  ],
+  "allowed_redistribution_statuses": [
+    "confirmed",
+    "not-applicable",
+    "unconfirmed"
+  ],
+  "external_requires_confirmed_redistribution": true,
+  "records": []
+}
