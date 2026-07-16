@@ -5,7 +5,10 @@ test "stable category and code pairs remain machine-readable" {
     @error.ErrorCode::InvalidRange,
     operation="slice",
   )
-  inspect(error.category() == @error.ErrorCategory::InvalidInput, content="true")
+  inspect(
+    error.category() == @error.ErrorCategory::InvalidInput,
+    content="true",
+  )
   inspect(error.code() == @error.ErrorCode::InvalidRange, content="true")
 }
 
@@ -56,8 +59,7 @@ test "canonical rendering uses fixed order and stable escaping" {
 ///|
 test "host mapping excludes foreign exception and platform prose" {
   let error = @error.map_host_failure(
-    "resource_open",
-    "C:\\secret\\asset.bin: Win32Exception 0x00000005 at 2026-07-16",
+    "resource_open", "C:\\secret\\asset.bin: Win32Exception 0x00000005 at 2026-07-16",
   )
   inspect(
     @error.render_error(error),

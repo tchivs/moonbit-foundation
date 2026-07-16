@@ -70,7 +70,10 @@ pub fn CoreError::new(
 ///|
 /// Map a foreign host failure without publishing foreign exception text,
 /// platform status numbers, paths, clocks, or other ambient details.
-pub fn map_host_failure(operation : String, _foreign_detail : String) -> CoreError {
+pub fn map_host_failure(
+  operation : String,
+  _foreign_detail : String,
+) -> CoreError {
   CoreError::new(
     ErrorCategory::Host,
     ErrorCode::HostOperationFailed,
@@ -177,7 +180,11 @@ fn ErrorCode::token(self : ErrorCode) -> String {
 }
 
 ///|
-fn append_string_field(result : String, name : String, value : String?) -> String {
+fn append_string_field(
+  result : String,
+  name : String,
+  value : String?,
+) -> String {
   match value {
     None => result
     Some(value) => result + "|" + name + "=\"" + escape_field(value) + "\""
@@ -185,7 +192,11 @@ fn append_string_field(result : String, name : String, value : String?) -> Strin
 }
 
 ///|
-fn append_uint64_field(result : String, name : String, value : UInt64?) -> String {
+fn append_uint64_field(
+  result : String,
+  name : String,
+  value : UInt64?,
+) -> String {
   match value {
     None => result
     Some(value) => result + "|" + name + "=" + value.to_string()
@@ -196,8 +207,10 @@ fn append_uint64_field(result : String, name : String, value : UInt64?) -> Strin
 /// Render an error canonically. Field order and escaping are part of the
 /// candidate public contract.
 pub fn render_error(error : CoreError) -> String {
-  let mut result = "error|category=" + error.category_value.token() +
-    "|code=" + error.code_value.token()
+  let mut result = "error|category=" +
+    error.category_value.token() +
+    "|code=" +
+    error.code_value.token()
   result = append_string_field(result, "operation", error.operation_value)
   result = append_uint64_field(result, "requested", error.requested_value)
   result = append_uint64_field(result, "completed", error.completed_value)
@@ -206,7 +219,11 @@ pub fn render_error(error : CoreError) -> String {
       result = result + "|range=" + start.to_string() + ".." + end.to_string()
     _ => ()
   }
-  result = append_uint64_field(result, "source_offset", error.source_offset_value)
+  result = append_uint64_field(
+    result,
+    "source_offset",
+    error.source_offset_value,
+  )
   result = append_uint64_field(result, "limit", error.limit_value)
   result = append_string_field(result, "context", error.context_value)
   result

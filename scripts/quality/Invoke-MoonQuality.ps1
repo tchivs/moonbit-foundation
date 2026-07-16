@@ -77,8 +77,9 @@ function Assert-PackageList {
   $expectedFiles = @($ModulePolicy.publication_files | ForEach-Object { [string]$_ })
   $listedFiles = [System.Collections.Generic.List[string]]::new()
   foreach ($line in @($Output | Where-Object { $_ -ne '' })) {
-    if ($expectedFiles -ccontains $line) {
-      $listedFiles.Add($line)
+    $normalizedLine = $line.Replace('\', '/')
+    if ($expectedFiles -ccontains $normalizedLine) {
+      $listedFiles.Add($normalizedLine)
       continue
     }
     if ($line -cmatch "^Warning: 'repository' field is not set or empty in module manifest$" -or
