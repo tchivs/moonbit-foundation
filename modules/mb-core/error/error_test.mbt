@@ -23,14 +23,14 @@ test "typed context fields are available without parsing prose" {
     limit=64UL,
     context="header",
   )
-  inspect(error.operation(), content="Some(read_exact)")
-  inspect(error.requested(), content="Some(12)")
-  inspect(error.completed(), content="Some(5)")
-  inspect(error.range_start(), content="Some(2)")
-  inspect(error.range_end(), content="Some(14)")
-  inspect(error.source_offset(), content="Some(7)")
-  inspect(error.limit(), content="Some(64)")
-  inspect(error.context(), content="Some(header)")
+  inspect(error.operation() == Some("read_exact"), content="true")
+  inspect(error.requested() == Some(12UL), content="true")
+  inspect(error.completed() == Some(5UL), content="true")
+  inspect(error.range_start() == Some(2UL), content="true")
+  inspect(error.range_end() == Some(14UL), content="true")
+  inspect(error.source_offset() == Some(7UL), content="true")
+  inspect(error.limit() == Some(64UL), content="true")
+  inspect(error.context() == Some("header"), content="true")
 }
 
 ///|
