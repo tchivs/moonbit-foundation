@@ -1,0 +1,174 @@
+{
+  "schema_version": "1.0.0",
+  "classification": "repository-derived-adversarial",
+  "generator": "scripts/fixtures/Generate-ColorVectors.ps1",
+  "source": "repository-derived:scripts/fixtures/Generate-ColorVectors.ps1",
+  "notes": "Project-authored edge cases; these are not official or externally sourced vectors.",
+  "quantize_vectors": [
+    {
+      "id": "scaled-half-0",
+      "normalized": 0.00196078431372549,
+      "expected": 0
+    },
+    {
+      "id": "scaled-half-1",
+      "normalized": 0.0058823529411764705,
+      "expected": 2
+    },
+    {
+      "id": "scaled-half-2",
+      "normalized": 0.00980392156862745,
+      "expected": 2
+    },
+    {
+      "id": "below-half-2",
+      "normalized": 0.009803921568623529,
+      "expected": 2
+    },
+    {
+      "id": "above-half-2",
+      "normalized": 0.009803921568631373,
+      "expected": 3
+    },
+    {
+      "id": "endpoint-zero",
+      "normalized": 0.0,
+      "expected": 0
+    },
+    {
+      "id": "endpoint-one",
+      "normalized": 1.0,
+      "expected": 255
+    }
+  ],
+  "ratio_vectors": [
+    {
+      "id": "tie-zero-even",
+      "numerator": 1,
+      "denominator": 2,
+      "expected": 0
+    },
+    {
+      "id": "tie-two-up",
+      "numerator": 3,
+      "denominator": 2,
+      "expected": 2
+    },
+    {
+      "id": "tie-two-down",
+      "numerator": 5,
+      "denominator": 2,
+      "expected": 2
+    },
+    {
+      "id": "below-half",
+      "numerator": 4,
+      "denominator": 3,
+      "expected": 1
+    },
+    {
+      "id": "above-half",
+      "numerator": 5,
+      "denominator": 3,
+      "expected": 2
+    }
+  ],
+  "alpha_vectors": [
+    {
+      "id": "zero-alpha",
+      "component": 255,
+      "alpha": 0,
+      "premultiplied": 0,
+      "unpremultiplied": 0
+    },
+    {
+      "id": "unit-alpha",
+      "component": 255,
+      "alpha": 1,
+      "premultiplied": 1,
+      "unpremultiplied": 255
+    },
+    {
+      "id": "mid-alpha",
+      "component": 255,
+      "alpha": 128,
+      "premultiplied": 128,
+      "unpremultiplied": 255
+    },
+    {
+      "id": "near-opaque",
+      "component": 128,
+      "alpha": 254,
+      "premultiplied": 127,
+      "unpremultiplied": 128
+    },
+    {
+      "id": "opaque",
+      "component": 173,
+      "alpha": 255,
+      "premultiplied": 173,
+      "unpremultiplied": 173
+    }
+  ],
+  "profile_vectors": {
+    "accepted_tags": [
+      "a",
+      "icc",
+      "ICC-v4.4_test+1",
+      "zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz"
+    ],
+    "rejected_tags": [
+      "",
+      "-icc",
+      "contains space",
+      "zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz",
+      "iccé"
+    ],
+    "payload_cases": [
+      {
+        "id": "empty",
+        "bytes": [],
+        "maximum": 0,
+        "should_succeed": true
+      },
+      {
+        "id": "exact-limit",
+        "bytes": [
+          0,
+          1,
+          127,
+          255
+        ],
+        "maximum": 4,
+        "should_succeed": true
+      },
+      {
+        "id": "one-over-limit",
+        "bytes": [
+          0,
+          1,
+          2,
+          3,
+          4
+        ],
+        "maximum": 4,
+        "should_succeed": false
+      },
+      {
+        "id": "opaque-icc-shaped",
+        "bytes": [
+          0,
+          0,
+          0,
+          132,
+          109,
+          110,
+          116,
+          114
+        ],
+        "maximum": 8,
+        "should_succeed": true
+      }
+    ]
+  }
+}

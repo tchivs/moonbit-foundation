@@ -23,5 +23,30 @@
     "unconfirmed"
   ],
   "external_requires_confirmed_redistribution": true,
-  "records": []
+  "records": [
+    {
+      "id": "color-srgb-reference-vectors",
+      "path": "fixtures/color/srgb-reference-vectors.json",
+      "origin": "generated",
+      "source": "https://www.w3.org/TR/css-color-4/#color-conversion-code and https://registry.color.org/rgb-registry/files/sRGB.pdf; values derived by scripts/fixtures/Generate-ColorVectors.ps1",
+      "author": "MoonBit Native Foundation project generator",
+      "retrieval_date": "2026-07-17",
+      "sha256": "ecc7c7d693ea13067a731dc5456677a74222f9ca28163939ab616222a3e00331",
+      "license": "Apache-2.0",
+      "redistribution_status": "not-applicable",
+      "expected_use": "COLR-04 sRGB transfer endpoints, thresholds, adjacent values, monotonicity, and tolerance conformance"
+    },
+    {
+      "id": "color-derived-edge-vectors",
+      "path": "fixtures/color/derived-edge-vectors.json",
+      "origin": "generated",
+      "source": "repository-derived:scripts/fixtures/Generate-ColorVectors.ps1",
+      "author": "MoonBit Native Foundation project generator",
+      "retrieval_date": "2026-07-17",
+      "sha256": "e4f879895414fb0f78cbdd80dba2805e6c8c68202a16a5764b7b93760fe547c7",
+      "license": "Apache-2.0",
+      "redistribution_status": "not-applicable",
+      "expected_use": "COLR-04 project-derived quantization, alpha, profile-limit, and adversarial conformance cases"
+    }
+  ]
 }

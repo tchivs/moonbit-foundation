@@ -1,0 +1,28 @@
+{
+  "schema_version": "1.0.0",
+  "classification": "primary-formula-derived",
+  "generator": "scripts/fixtures/Generate-ColorVectors.ps1",
+  "formula_sources": [
+    "https://www.w3.org/TR/css-color-4/#color-conversion-code",
+    "https://registry.color.org/rgb-registry/files/sRGB.pdf"
+  ],
+  "notes": "Values are computed by the project generator from published formulas; no third-party fixture bytes are copied.",
+  "decode_vectors": [
+    { "id": "decode-0", "encoded": 0, "linear": 0 },
+    { "id": "decode-1", "encoded": 0.0031308, "linear": 0.00024232198142414861 },
+    { "id": "decode-2", "encoded": 0.040449, "linear": 0.0031307275541795666 },
+    { "id": "decode-3", "encoded": 0.04045, "linear": 0.0031308049535603713 },
+    { "id": "decode-4", "encoded": 0.040451, "linear": 0.0031308860048338896 },
+    { "id": "decode-5", "encoded": 0.5, "linear": 0.21404114048223255 },
+    { "id": "decode-6", "encoded": 1, "linear": 1 }
+  ],
+  "encode_vectors": [
+    { "id": "encode-0", "linear": 0, "encoded": 0 },
+    { "id": "encode-1", "linear": 0.0031298, "encoded": 0.040437016 },
+    { "id": "encode-2", "linear": 0.0031308, "encoded": 0.040449936 },
+    { "id": "encode-3", "linear": 0.0031318, "encoded": 0.040462609376884805 },
+    { "id": "encode-4", "linear": 0.0031308049535603713, "encoded": 0.040449970408122 },
+    { "id": "encode-5", "linear": 0.21404114048223255, "encoded": 0.5 },
+    { "id": "encode-6", "linear": 1, "encoded": 0.9999999999999999 }
+  ]
+}
