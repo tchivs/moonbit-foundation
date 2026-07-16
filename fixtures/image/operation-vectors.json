@@ -79,6 +79,7 @@
   ],
   "orientation_vectors": [
     {
+      "id": "orientation-top-left",
       "code": 1,
       "name": "TopLeft",
       "out_width": 3,
@@ -93,6 +94,7 @@
       ]
     },
     {
+      "id": "orientation-top-right",
       "code": 2,
       "name": "TopRight",
       "out_width": 3,
@@ -107,6 +109,7 @@
       ]
     },
     {
+      "id": "orientation-bottom-right",
       "code": 3,
       "name": "BottomRight",
       "out_width": 3,
@@ -121,6 +124,7 @@
       ]
     },
     {
+      "id": "orientation-bottom-left",
       "code": 4,
       "name": "BottomLeft",
       "out_width": 3,
@@ -135,6 +139,7 @@
       ]
     },
     {
+      "id": "orientation-left-top",
       "code": 5,
       "name": "LeftTop",
       "out_width": 2,
@@ -149,6 +154,7 @@
       ]
     },
     {
+      "id": "orientation-right-top",
       "code": 6,
       "name": "RightTop",
       "out_width": 2,
@@ -163,6 +169,7 @@
       ]
     },
     {
+      "id": "orientation-right-bottom",
       "code": 7,
       "name": "RightBottom",
       "out_width": 2,
@@ -177,6 +184,7 @@
       ]
     },
     {
+      "id": "orientation-left-bottom",
       "code": 8,
       "name": "LeftBottom",
       "out_width": 2,

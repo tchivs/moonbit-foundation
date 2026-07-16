@@ -181,3 +181,8 @@ test "disposition rejects duplicate and over-count fields" {
     Ok(_) => fail("disposition field count must be bounded")
   }
 }
+
+///|
+test "generated metadata case IDs are owned by behavioral tests" {
+  inspect(generated_metadata_case_ids().length(), content="3")
+}

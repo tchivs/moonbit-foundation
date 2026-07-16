@@ -70,6 +70,7 @@ fn orientation_source(orientation : @model.Orientation) -> @storage.OwnedImage {
 
 ///|
 test "all eight orientations match the independent generated oracle" {
+  inspect(generated_ops_case_ids().length(), content="14")
   for item in generated_orientation_vectors() {
     let (orientation, output_width, output_height, mappings) = item
     let source = orientation_source(orientation)

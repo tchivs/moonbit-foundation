@@ -214,3 +214,8 @@ test "rect endpoints reject overflow" {
     Ok(_) => fail("rectangle endpoint overflow must reject")
   }
 }
+
+///|
+test "generated model case IDs are owned by behavioral tests" {
+  inspect(generated_model_case_ids().length(), content="3")
+}

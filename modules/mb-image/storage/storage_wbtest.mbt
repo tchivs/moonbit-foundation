@@ -162,3 +162,8 @@ test "empty and overlapping mutable views reject before mutation" {
   inspect(overlap_rejected, content="true")
   inspect(sentinel_unchanged, content="true")
 }
+
+///|
+test "generated storage case IDs are owned by behavioral tests" {
+  inspect(generated_storage_case_ids().length(), content="4")
+}
