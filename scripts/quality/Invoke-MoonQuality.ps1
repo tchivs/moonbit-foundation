@@ -329,6 +329,9 @@ function Assert-ImageSourceTextProhibitions {
     if ($line -cmatch '(?i)\b(?:default|implicit|ambient)\w*\s*\(') {
       throw "Hidden default or ambient image policy surface found in $RelativePath`: $line"
     }
+    if ($line -cmatch 'OwnedImage::new_operation' -and ($line -cmatch 'ResourceCharge' -or @([regex]::Matches($line, '\bUInt64\b')).Count -gt 1)) {
+      throw "Forgeable image allocation charge inputs escaped through a public declaration in $RelativePath`: $line"
+    }
   }
   if ($Text -cmatch '(?m)UInt64[^\r\n]*[.]to_int\s*\(') {
     throw "Unchecked UInt64-to-Int narrowing found in '$RelativePath'."
@@ -341,6 +344,20 @@ function Assert-ImageSourceTextProhibitions {
   }
   if ($RelativePath -like 'modules/mb-image/codec/*' -and $Text -cmatch '(?i)\b(?:Ppm|Png|Jpeg|Gif|Webp|Bmp|Tiff)(?:Decoder|Encoder|Codec)\b') {
     throw "Concrete codec implementation found in Phase 4 source '$RelativePath'."
+  }
+  if ($RelativePath -ceq 'modules/mb-image/storage/owned_image.mbt') {
+    $gate = $Text.IndexOf('require_packed_u8_view(', [System.StringComparison]::Ordinal)
+    $lease = $Text.IndexOf('self.storage.with_mut(', [System.StringComparison]::Ordinal)
+    if ($gate -lt 0 -or $lease -lt 0 -or $gate -gt $lease) {
+      throw 'OwnedImage mutable planar eligibility must reject before backing lease acquisition.'
+    }
+  }
+  if ($RelativePath -ceq 'modules/mb-image/storage/views.mbt') {
+    foreach ($requiredGate in @('fn require_packed_u8_view(', 'packed-u8-byte-access-required', 'packed-u8-mut-access-required', 'planar-mut-crop')) {
+      if (-not $Text.Contains($requiredGate)) {
+        throw "Packed-U8 view eligibility gate is incomplete: missing '$requiredGate'."
+      }
+    }
   }
 }
 
@@ -484,6 +501,10 @@ function Assert-ImageQualificationNegativeFixtures {
   Confirm-ImageRejected 'publication drift' { Assert-ExactSet 'negative image publication' @('metadata/moon.pkg', 'unexpected.mbt') @('metadata/moon.pkg') } 'count mismatch'
   Confirm-ImageRejected 'missing required target' { Assert-ExactSet 'negative image targets' @('js', 'wasm', 'native') @('js', 'wasm', 'wasm-gc', 'native') } 'count mismatch'
   Confirm-ImageRejected 'raw mutable backing' { Assert-ImageSourceTextProhibitions -RelativePath 'modules/mb-image/storage/fixture.mbt' -Text 'pub fn backing() -> MutArrayView[Byte] { abort("fixture") }' } 'Raw mutable'
+  Confirm-ImageRejected 'forgeable scalar operation allocation' { Assert-ImageSourceTextProhibitions -RelativePath 'modules/mb-image/storage/fixture.mbt' -Text 'pub fn OwnedImage::new_operation(descriptor : ImageDescriptor, width : UInt64, height : UInt64) -> OwnedImage { abort("fixture") }' } 'Forgeable image allocation'
+  Confirm-ImageRejected 'forgeable ResourceCharge operation allocation' { Assert-ImageSourceTextProhibitions -RelativePath 'modules/mb-image/storage/fixture.mbt' -Text 'pub fn OwnedImage::new_operation(descriptor : ImageDescriptor, charge : ResourceCharge) -> OwnedImage { abort("fixture") }' } 'Forgeable image allocation'
+  Confirm-ImageRejected 'mutable planar lease gate removed' { Assert-ImageSourceTextProhibitions -RelativePath 'modules/mb-image/storage/owned_image.mbt' -Text 'fn with_mut_view() { self.storage.with_mut() }' } 'before backing lease'
+  Confirm-ImageRejected 'planar byte gate removed' { Assert-ImageSourceTextProhibitions -RelativePath 'modules/mb-image/storage/views.mbt' -Text 'pub fn ImageView::get_byte() -> Byte { backing.get(0UL) }' } 'Packed-U8 view eligibility'
   Confirm-ImageRejected 'ambient limits' { Assert-ImageSourceTextProhibitions -RelativePath 'modules/mb-image/model/fixture.mbt' -Text 'pub fn ambient_limits() -> Unit { () }' } 'Hidden default or ambient'
   Confirm-ImageRejected 'unchecked narrowing' { Assert-ImageSourceTextProhibitions -RelativePath 'modules/mb-image/model/fixture.mbt' -Text 'fn narrow(value : UInt64) -> Int { value.to_int() }' } 'Unchecked UInt64'
   Confirm-ImageRejected 'floating resize' { Assert-ImageSourceTextProhibitions -RelativePath 'modules/mb-image/ops/fixture.mbt' -Text 'fn resize(value : Double) -> Double { value.floor() }' } 'Floating-point'

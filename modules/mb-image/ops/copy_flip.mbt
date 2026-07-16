@@ -182,7 +182,7 @@ fn copy_with_transform(
       ),
     )
   }
-  let (descriptor, pixels, work) = match tight_descriptor(source, operation) {
+  let (descriptor, _pixels, work) = match tight_descriptor(source, operation) {
     Ok(value) => value
     Err(error) => return Err(error)
   }
@@ -192,9 +192,6 @@ fn copy_with_transform(
       descriptor,
       budget,
       OperationBuiltinAllocator::{  } as &@bytes.Allocator,
-      source.width(),
-      source.height(),
-      pixels,
       work,
     ) {
     Ok(value) => value

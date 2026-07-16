@@ -108,7 +108,7 @@ pub fn resize_nearest(
       ),
     )
   }
-  let (descriptor, pixels, work) = match
+  let (descriptor, _pixels, work) = match
     resized_descriptor(source, width, height) {
     Ok(value) => value
     Err(error) => return Err(error)
@@ -126,9 +126,6 @@ pub fn resize_nearest(
       descriptor,
       budget,
       ResizeBuiltinAllocator::{  } as &@bytes.Allocator,
-      width,
-      height,
-      pixels,
       work,
     ) {
     Ok(value) => value

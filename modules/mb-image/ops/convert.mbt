@@ -309,9 +309,6 @@ fn convert_pixel_image(
       descriptor,
       budget,
       ConvertBuiltinAllocator::{  } as &@bytes.Allocator,
-      source.width(),
-      source.height(),
-      pixels,
       work,
     ) {
     Ok(value) => value

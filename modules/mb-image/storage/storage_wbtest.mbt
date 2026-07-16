@@ -167,3 +167,146 @@ test "empty and overlapping mutable views reject before mutation" {
 test "generated storage case IDs are owned by behavioral tests" {
   inspect(generated_storage_case_ids().length(), content="4")
 }
+
+///|
+fn exact_operation_budget(
+  width : UInt64,
+  height : UInt64,
+  pixels : UInt64,
+  work : UInt64,
+) -> @budget.Budget {
+  @budget.Budget::new(
+    @budget.ResourceLimits::new(
+      bytes=24UL,
+      allocations=1UL,
+      allocation_size=24UL,
+      width~,
+      height~,
+      pixels~,
+      depth=0UL,
+      work~,
+    ),
+  )
+}
+
+///|
+test "operation allocation derives dimensions and commits every counter once" {
+  let descriptor = mutable_test_image().descriptor()
+  for
+    budget in [
+      exact_operation_budget(2UL, 2UL, 6UL, 24UL),
+      exact_operation_budget(3UL, 1UL, 6UL, 24UL),
+      exact_operation_budget(3UL, 2UL, 5UL, 24UL),
+      exact_operation_budget(3UL, 2UL, 6UL, 23UL),
+    ] {
+    let before = budget.remaining()
+    inspect(
+      OwnedImage::new_operation(
+        descriptor,
+        budget,
+        ImageBuiltinAllocator::{  } as &@bytes.Allocator,
+        24UL,
+      )
+      is Err(_),
+      content="true",
+    )
+    let after = budget.remaining()
+    inspect(after.bytes() == before.bytes(), content="true")
+    inspect(after.allocations() == before.allocations(), content="true")
+    inspect(after.width() == before.width(), content="true")
+    inspect(after.height() == before.height(), content="true")
+    inspect(after.pixels() == before.pixels(), content="true")
+    inspect(after.work() == before.work(), content="true")
+  }
+  let success_budget = exact_operation_budget(3UL, 2UL, 6UL, 24UL)
+  inspect(
+    OwnedImage::new_operation(
+      descriptor,
+      success_budget,
+      ImageBuiltinAllocator::{  } as &@bytes.Allocator,
+      24UL,
+    )
+    is Ok(_),
+    content="true",
+  )
+  let remaining = success_budget.remaining()
+  inspect(remaining.bytes(), content="0")
+  inspect(remaining.allocations(), content="0")
+  inspect(remaining.width(), content="3")
+  inspect(remaining.height(), content="2")
+  inspect(remaining.pixels(), content="0")
+  inspect(remaining.work(), content="0")
+}
+
+///|
+test "reordered planar rejection preserves sentinels and never acquires lease" {
+  let descriptor = {
+    let packed = mutable_test_image().descriptor()
+    let format = @model.ImageFormat::new(
+      @model.ComponentType::U8,
+      @model.ChannelOrder::Rgb,
+      @model.PlaneLayout::Planar,
+      @model.Endianness::Little,
+    ).unwrap()
+    @model.ImageDescriptor::new(
+      2UL,
+      1UL,
+      format,
+      [
+        @model.PlaneDescriptor::new(4UL, 2UL, 2UL, 2UL, 1UL, 1UL, 2UL, 1UL).unwrap(),
+        @model.PlaneDescriptor::new(0UL, 2UL, 2UL, 2UL, 1UL, 1UL, 2UL, 1UL).unwrap(),
+        @model.PlaneDescriptor::new(2UL, 2UL, 2UL, 2UL, 1UL, 1UL, 2UL, 1UL).unwrap(),
+      ],
+      6UL,
+      packed.metadata(),
+    ).unwrap()
+  }
+  let bytes_budget = @budget.Budget::new(
+    @budget.ResourceLimits::new(
+      bytes=6UL,
+      allocations=1UL,
+      allocation_size=6UL,
+      width=0UL,
+      height=0UL,
+      pixels=0UL,
+      depth=0UL,
+      work=0UL,
+    ),
+  )
+  let storage = @bytes.OwnedBytes::from_bytes(b"ABCDEF", bytes_budget).unwrap()
+  let image = OwnedImage::{ descriptor_value: descriptor, storage }
+  let before = bytes_budget.remaining()
+  inspect(image.view().get_byte(0UL, 0UL, 0UL) is Err(_), content="true")
+  inspect(image.with_mut_view(fn(_view) { Ok(()) }) is Err(_), content="true")
+  let after = bytes_budget.remaining()
+  inspect(after.bytes() == before.bytes(), content="true")
+  inspect(after.allocations() == before.allocations(), content="true")
+  inspect(image.storage.view().get(0UL).unwrap() == b'A', content="true")
+  inspect(image.storage.view().get(5UL).unwrap() == b'F', content="true")
+  inspect(
+    image.storage.with_mut(0UL, 6UL, fn(lease) {
+      match lease.get(0UL) {
+        Ok(value) =>
+          if value == b'A' {
+            Ok(())
+          } else {
+            Err(
+              @error.CoreError::new(
+                @error.ErrorCategory::State,
+                @error.ErrorCode::InvalidRange,
+                operation="planar-lease-sentinel",
+                context="sentinel-changed",
+              ),
+            )
+          }
+        Err(error) => Err(error)
+      }
+    })
+    is Ok(_),
+    content="true",
+  )
+  inspect(
+    image.storage.with_mut(0UL, 6UL, fn(_lease) { Ok(()) }) is Ok(_),
+    content="true",
+  )
+}

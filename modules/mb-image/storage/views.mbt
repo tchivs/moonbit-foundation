@@ -9,6 +9,27 @@ fn storage_error(
 }
 
 ///|
+fn require_packed_u8_view(
+  format : @model.ImageFormat,
+  operation : String,
+  context : String,
+) -> Result[Unit, @error.CoreError] {
+  if format.layout() == @model.PlaneLayout::Packed &&
+    format.component() == @model.ComponentType::U8 {
+    Ok(())
+  } else {
+    Err(
+      storage_error(
+        @error.ErrorCategory::Capability,
+        @error.ErrorCode::CapabilityUnavailable,
+        operation,
+        context,
+      ),
+    )
+  }
+}
+
+///|
 fn checked_offset(
   origin : UInt64,
   y : UInt64,
@@ -132,6 +153,15 @@ pub fn ImageView::get_byte(
   y : UInt64,
   channel : UInt64,
 ) -> Result[Byte, @error.CoreError] {
+  match
+    require_packed_u8_view(
+      self.format_value,
+      "image-view-get",
+      "packed-u8-byte-access-required",
+    ) {
+    Err(error) => return Err(error)
+    Ok(_) => ()
+  }
   let channel_count = self.format_value.channel_count()
   if self.is_empty() ||
     x >= self.width_value ||
@@ -289,6 +319,15 @@ fn MutImageView::validated_offset(
   y : UInt64,
   channel : UInt64,
 ) -> Result[UInt64, @error.CoreError] {
+  match
+    require_packed_u8_view(
+      self.format_value,
+      "mut-image-view-access",
+      "packed-u8-mut-access-required",
+    ) {
+    Err(error) => return Err(error)
+    Ok(_) => ()
+  }
   let channel_count = self.format_value.channel_count()
   if self.width_value == 0UL ||
     self.height_value == 0UL ||
@@ -346,6 +385,15 @@ pub fn MutImageView::crop(
   self : MutImageView,
   rect : @model.Rect,
 ) -> Result[MutImageView, @error.CoreError] {
+  match
+    require_packed_u8_view(
+      self.format_value,
+      "mut-image-view-crop",
+      "planar-mut-crop",
+    ) {
+    Err(error) => return Err(error)
+    Ok(_) => ()
+  }
   if rect.is_empty() {
     return Err(
       storage_error(
@@ -363,16 +411,6 @@ pub fn MutImageView::crop(
         @error.ErrorCode::InvalidRange,
         "mut-image-view-crop",
         "crop-range",
-      ),
-    )
-  }
-  if self.format_value.layout() != @model.PlaneLayout::Packed {
-    return Err(
-      storage_error(
-        @error.ErrorCategory::Capability,
-        @error.ErrorCode::CapabilityUnavailable,
-        "mut-image-view-crop",
-        "planar-mut-crop",
       ),
     )
   }

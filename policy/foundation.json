@@ -1025,7 +1025,7 @@
             "pub fn OwnedImage::descriptor(Self) -> @model.ImageDescriptor",
             "pub fn OwnedImage::metadata(Self) -> @model.ImageMetadata",
             "pub fn OwnedImage::new(@model.ImageDescriptor, @budget.Budget) -> Result[Self, @error.CoreError]",
-            "pub fn OwnedImage::new_operation(@model.ImageDescriptor, @budget.Budget, &@bytes.Allocator, UInt64, UInt64, UInt64, UInt64) -> Result[Self, @error.CoreError]",
+            "pub fn OwnedImage::new_operation(@model.ImageDescriptor, @budget.Budget, &@bytes.Allocator, UInt64) -> Result[Self, @error.CoreError]",
             "pub fn OwnedImage::new_with_allocator(@model.ImageDescriptor, @budget.Budget, &@bytes.Allocator) -> Result[Self, @error.CoreError]",
             "pub fn OwnedImage::storage_length(Self) -> UInt64",
             "pub fn OwnedImage::view(Self) -> ImageView",

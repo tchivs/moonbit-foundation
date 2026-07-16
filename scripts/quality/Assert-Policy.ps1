@@ -763,6 +763,15 @@ function Assert-FoundationPolicy {
       Assert-ExactSet 'mb-image codec DAG edges' $imageImports.codec @('moonbit-foundation/mb-core/error', 'moonbit-foundation/mb-core/budget', 'moonbit-foundation/mb-core/bytes', 'moonbit-foundation/mb-core/io', 'moonbit-foundation/mb-image/metadata', 'moonbit-foundation/mb-image/model', 'moonbit-foundation/mb-image/storage')
       Assert-Condition (-not ($imageImports.codec -ccontains 'moonbit-foundation/mb-core/host')) 'mb-image codec must remain independent of host policy.'
       Assert-Condition (-not ($imageImports.codec -ccontains 'moonbit-foundation/mb-image/ops')) 'mb-image codec must remain independent of image operations.'
+
+      $storagePolicy = @($packages | Where-Object { $_.path -ceq 'storage' })[0]
+      $storageInterface = @($storagePolicy.semantic_interface)
+      $safeOperationFactory = 'pub fn OwnedImage::new_operation(@model.ImageDescriptor, @budget.Budget, &@bytes.Allocator, UInt64) -> Result[Self, @error.CoreError]'
+      $stableViewFactory = 'pub fn OwnedImage::view(Self) -> ImageView'
+      Assert-Condition ($storageInterface -ccontains $safeOperationFactory) 'mb-image storage must expose only the descriptor-plus-work operation allocation seam.'
+      Assert-Condition ($storageInterface -ccontains $stableViewFactory) 'OwnedImage::view() -> ImageView public interface drifted.'
+      Assert-Condition (@($storageInterface | Where-Object { $_ -cmatch '^pub fn OwnedImage::new_operation' -and $_ -cne $safeOperationFactory }).Count -eq 0) 'A forgeable public image operation allocation seam is present.'
+      Assert-Condition (@($storageInterface | Where-Object { $_ -cmatch '^pub fn OwnedImage::new_operation.*ResourceCharge' }).Count -eq 0) 'A public image allocation seam accepts ResourceCharge.'
     }
 
     $modulePath = Join-Path $repoRoot ([string]$module.path)

@@ -145,7 +145,7 @@ pub fn apply_orientation(
       ),
     )
   }
-  let (descriptor, pixels, work) = match orientation_descriptor(source) {
+  let (descriptor, _pixels, work) = match orientation_descriptor(source) {
     Ok(value) => value
     Err(error) => return Err(error)
   }
@@ -155,9 +155,6 @@ pub fn apply_orientation(
       descriptor,
       budget,
       OrientationBuiltinAllocator::{  } as &@bytes.Allocator,
-      descriptor.width(),
-      descriptor.height(),
-      pixels,
       work,
     ) {
     Ok(value) => value
