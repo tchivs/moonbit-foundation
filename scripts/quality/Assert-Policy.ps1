@@ -721,6 +721,28 @@ function Assert-FoundationPolicy {
       }
     }
 
+    if ($module.name -ceq 'moonbit-foundation/mb-color') {
+      $colorPackagePaths = @('model', 'transfer', 'quantize', 'alpha', 'profile')
+      $colorPackageNames = @($colorPackagePaths | ForEach-Object { "moonbit-foundation/mb-color/$_" })
+      Assert-ExactSequence 'mb-color publication package order' @($packages.name) $colorPackageNames
+      Assert-ExactSequence 'mb-color public package paths' @($packages.path) $colorPackagePaths
+      foreach ($removedRootFile in @('moon.pkg', 'scaffold.mbt', 'scaffold_wbtest.mbt')) {
+        Assert-Condition (-not (Test-Path -LiteralPath (Join-Path $repoRoot "modules/mb-color/$removedRootFile"))) "Obsolete mb-color root scaffold file remains: $removedRootFile."
+      }
+
+      $colorImports = @{}
+      foreach ($colorPackage in $packages) {
+        $colorImports[[string]$colorPackage.path] = @($colorPackage.allowed_imports)
+      }
+      Assert-ExactSet 'mb-color model DAG edges' $colorImports.model @('moonbit-foundation/mb-core/error')
+      Assert-ExactSet 'mb-color transfer DAG edges' $colorImports.transfer @('moonbit-foundation/mb-color/model', 'moonbitlang/core/math')
+      Assert-ExactSet 'mb-color quantize DAG edges' $colorImports.quantize @('moonbit-foundation/mb-color/model', 'moonbit-foundation/mb-core/error', 'moonbit-foundation/mb-core/checked')
+      Assert-Condition (-not ($colorImports.quantize -ccontains 'moonbit-foundation/mb-color/transfer')) 'mb-color quantize must remain independent of transfer.'
+      Assert-ExactSet 'mb-color alpha DAG edges' $colorImports.alpha @('moonbit-foundation/mb-color/model', 'moonbit-foundation/mb-color/quantize', 'moonbit-foundation/mb-core/error', 'moonbit-foundation/mb-core/checked')
+      Assert-ExactSet 'mb-color profile DAG edges' $colorImports.profile @('moonbit-foundation/mb-core/error', 'moonbit-foundation/mb-core/budget', 'moonbit-foundation/mb-core/bytes')
+      Assert-Condition (@($colorImports.profile | Where-Object { $_ -clike 'moonbit-foundation/mb-color/*' }).Count -eq 0) 'mb-color profile must remain independent of every color package.'
+    }
+
     $modulePath = Join-Path $repoRoot ([string]$module.path)
     $manifest = Read-QualityJson -Path (Join-Path $modulePath 'moon.mod.json')
     Assert-Condition ($manifest.name -ceq $module.name) "Manifest name drift in $($module.path)."

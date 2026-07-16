@@ -477,9 +477,6 @@
         "model/model_wbtest.mbt",
         "model/moon.pkg",
         "moon.mod.json",
-        "moon.pkg",
-        "scaffold.mbt",
-        "scaffold_wbtest.mbt",
         "transfer",
         "transfer/moon.pkg",
         "transfer/reference_vectors_wbtest.mbt",
@@ -506,21 +503,6 @@
         "profile/reference_vectors_wbtest.mbt"
       ],
       "public_packages": [
-        {
-          "name": "moonbit-foundation/mb-color",
-          "path": ".",
-          "stability": "candidate",
-          "allowed_imports": [],
-          "semantic_interface": [
-            "package \"moonbit-foundation/mb-color\""
-          ],
-          "supported_targets": [
-            "js",
-            "wasm",
-            "wasm-gc",
-            "native"
-          ]
-        },
         {
           "name": "moonbit-foundation/mb-color/model",
           "path": "model",
