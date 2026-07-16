@@ -13,10 +13,16 @@ test "generated alpha vectors match exact ties-even conversions" {
   for vector in generated_alpha_vectors() {
     let (component, coverage, premultiplied, recovered) = vector
     let straight = StraightEncodedSrgba8::new(
-      encoded8_internal(component), encoded8_internal(0), encoded8_internal(0), alpha8_internal(coverage),
+      encoded8_internal(component),
+      encoded8_internal(0),
+      encoded8_internal(0),
+      alpha8_internal(coverage),
     )
     let p = premultiply_encoded(straight).unwrap()
-    inspect(p.r().value().to_uint64() == premultiplied.to_uint64(), content="true")
+    inspect(
+      p.r().value().to_uint64() == premultiplied.to_uint64(),
+      content="true",
+    )
     let u = unpremultiply_encoded(p).unwrap()
     inspect(u.r().value().to_uint64() == recovered.to_uint64(), content="true")
   }
@@ -28,7 +34,10 @@ test "exhaustive encoded pairs establish directional identities and bounds" {
   for coverage = 0; coverage < 256; coverage = coverage + 1 {
     for component = 0; component < 256; component = component + 1 {
       let straight = StraightEncodedSrgba8::new(
-        encoded8_internal(component), encoded8_internal(0), encoded8_internal(0), alpha8_internal(coverage),
+        encoded8_internal(component),
+        encoded8_internal(0),
+        encoded8_internal(0),
+        alpha8_internal(coverage),
       )
       let p = premultiply_encoded(straight).unwrap()
       let u = unpremultiply_encoded(p).unwrap()
@@ -42,9 +51,14 @@ test "exhaustive encoded pairs establish directional identities and bounds" {
         inspect(recovered, content="0")
       }
     }
-    for premultiplied = 0; premultiplied <= coverage; premultiplied = premultiplied + 1 {
+    for premultiplied = 0
+        premultiplied <= coverage
+        premultiplied = premultiplied + 1 {
       let p = PremultipliedEncodedSrgba8::new(
-        encoded8_internal(premultiplied), encoded8_internal(0), encoded8_internal(0), alpha8_internal(coverage),
+        encoded8_internal(premultiplied),
+        encoded8_internal(0),
+        encoded8_internal(0),
+        alpha8_internal(coverage),
       ).unwrap()
       let p_again = premultiply_encoded(unpremultiply_encoded(p).unwrap()).unwrap()
       inspect(p_again.r().value() == p.r().value(), content="true")
