@@ -122,6 +122,19 @@ Plans:
 
 **Requirements:** WORK-06, QUAL-01, QUAL-02, QUAL-03, QUAL-04, QUAL-05, QUAL-06
 
+**Plans:** 8 plans
+
+Plans:
+
+- [ ] 05-01-PLAN.md — Define PPM options and prove the bounded incremental header parser.
+- [ ] 05-02-PLAN.md — Decode through one atomic allocation, exact payload fill, and strict EOF probe.
+- [ ] 05-03-PLAN.md — Emit canonical P6 and generate conformance, adversarial, and metamorphic evidence.
+- [ ] 05-04-PLAN.md — Qualify portable and Native CLI-shaped public stream-transform-stream examples.
+- [ ] 05-05-PLAN.md — Complete candidate docs, support matrices, changelogs, provenance, and qualification metadata.
+- [ ] 05-06-PLAN.md — Capture reproducible correctness-gated benchmark records and environment evidence.
+- [ ] 05-07-PLAN.md — Prove deterministic packages, exact core artifact consumption, and honest downstream blockers.
+- [ ] 05-08-PLAN.md — Close exact policy negatives and two clean deterministic Required runs.
+
 **Success Criteria:**
 
 1. The public codec interfaces decode and encode the documented bounded PPM P6 subset, and malformed or oversized inputs fail with structured errors before prohibited work.
