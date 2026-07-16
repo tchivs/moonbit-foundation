@@ -8,8 +8,8 @@
 
 ### Charter and Governance
 
-- [ ] **GOV-01**: A contributor can read an accepted foundation RFC that defines MNF's vision, principles, terminology, architectural layers, dependency direction, and v0.1 boundaries.
-- [ ] **GOV-02**: A contributor can follow a documented RFC lifecycle with named statuses, acceptance authority, review expectations, and rules for breaking architectural changes.
+- [x] **GOV-01**: A contributor can read an accepted foundation RFC that defines MNF's vision, principles, terminology, architectural layers, dependency direction, and v0.1 boundaries.
+- [x] **GOV-02**: A contributor can follow a documented RFC lifecycle with named statuses, acceptance authority, review expectations, and rules for breaking architectural changes.
 - [ ] **GOV-03**: A package consumer can distinguish experimental, candidate, and stable public APIs and understand the compatibility promise of each status.
 - [ ] **GOV-04**: A contributor can identify the chosen project license, fixture licensing rules, mooncakes.io owner/namespace, and module naming policy before public release.
 
@@ -112,8 +112,8 @@
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| GOV-01 | Phase 1 | Pending |
-| GOV-02 | Phase 1 | Pending |
+| GOV-01 | Phase 1 | Complete |
+| GOV-02 | Phase 1 | Complete |
 | GOV-03 | Phase 1 | Pending |
 | GOV-04 | Phase 1 | Pending |
 | WORK-01 | Phase 1 | Pending |
@@ -150,6 +150,7 @@
 | QUAL-06 | Phase 5 | Pending |
 
 **Coverage:**
+
 - v1 requirements: 36 total
 - Mapped to phases: 36
 - Unmapped: 0
