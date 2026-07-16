@@ -5,15 +5,15 @@ milestone_name: milestone
 current_phase: 03
 current_phase_name: Reference Color Semantics
 status: executing
-stopped_at: Completed 03-01-PLAN.md
-last_updated: "2026-07-16T17:49:38.633Z"
+stopped_at: Completed 03-02-PLAN.md
+last_updated: "2026-07-16T18:02:52.902Z"
 last_activity: 2026-07-17
 last_activity_desc: Phase 03 execution started
 progress:
   total_phases: 3
   completed_phases: 2
   total_plans: 23
-  completed_plans: 17
+  completed_plans: 18
 ---
 
 # Project State
@@ -29,11 +29,11 @@ See `.planning/PROJECT.md` (updated 2026-07-16).
 ## Current Position
 
 Phase: 03 (Reference Color Semantics) — EXECUTING
-Plan: 2 of 7
+Plan: 3 of 7
 Status: Ready to execute
 Last activity: 2026-07-17 — Phase 03 execution started
 
-Progress: [███████░░░] 74% (1/5 phases; 8/8 currently planned plans complete)
+Progress: [████████░░] 78% (1/5 phases; 8/8 currently planned plans complete)
 
 ## Performance Metrics
 
@@ -62,6 +62,7 @@ Progress: [███████░░░] 74% (1/5 phases; 8/8 currently planne
 | Phase 02 P07 | 17min | 3 tasks | 8 files |
 | Phase 02 P08 | 5min | 2 tasks | 4 files |
 | Phase 03 P01 | 11min | 2 tasks | 6 files |
+| Phase 03 P02 | 18min | 2 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -120,6 +121,9 @@ Progress: [███████░░░] 74% (1/5 phases; 8/8 currently planne
 - [Phase 03]: Represent encoded-sRGB, linear-sRGB, normalized alpha, encoded color, and encoded alpha as distinct opaque scalar types rather than aliases or a universal color record.
 - [Phase 03]: Reject non-finite and out-of-range normalized inputs before range acceptance, and reject full-width encoded values above 255 before Byte narrowing.
 - [Phase 03]: Keep the Phase 1 root package private and non-reexporting while registering model as the first real public mb-color package.
+- [Phase 03]: Generate standards-formula-derived and repository-derived evidence from one canonical in-memory dataset while keeping their provenance claims separate.
+- [Phase 03]: Make each package selector own exactly one package-local reference vector table so portable tests require no filesystem capability.
+- [Phase 03]: Use byte-for-byte UTF-8 no-BOM LF check mode for fixtures, generated test tables, and manifest digest refresh.
 
 ### Pending Decisions
 
@@ -140,6 +144,6 @@ None. Phase 01 is independently verified and complete; Phase 02 is ready for con
 
 **Resume file:** None
 
-Last session: 2026-07-16T17:49:38.616Z
-Stopped at: Completed 03-01-PLAN.md
+Last session: 2026-07-16T18:02:52.884Z
+Stopped at: Completed 03-02-PLAN.md
 Resume with: Discuss Phase 02, then plan and execute it through the active auto chain.
