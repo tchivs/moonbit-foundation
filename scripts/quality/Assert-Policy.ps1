@@ -269,7 +269,9 @@ function Assert-FixtureManifest {
     Assert-Condition (@($fixtureManifest.allowed_origins) -ccontains $record.origin) "Fixture '$($record.id)' has invalid origin."
     Assert-Condition (@($fixtureManifest.allowed_redistribution_statuses) -ccontains $record.redistribution_status) "Fixture '$($record.id)' has invalid redistribution status."
     Assert-Condition ([string]$record.sha256 -cmatch '^[0-9a-f]{64}$') "Fixture '$($record.id)' has invalid SHA-256."
-    Assert-Condition ([string]$record.retrieval_date -cmatch '^\d{4}-\d{2}-\d{2}$') "Fixture '$($record.id)' has invalid retrieval date."
+    $retrievalDate = [DateOnly]::MinValue
+    $validRetrievalDate = [DateOnly]::TryParseExact([string]$record.retrieval_date, 'yyyy-MM-dd', [System.Globalization.CultureInfo]::InvariantCulture, [System.Globalization.DateTimeStyles]::None, [ref]$retrievalDate)
+    Assert-Condition $validRetrievalDate "Fixture '$($record.id)' has invalid retrieval date."
     if ($record.origin -ceq 'external') {
       Assert-Condition ($record.redistribution_status -ceq 'confirmed') "External fixture '$($record.id)' lacks confirmed redistribution."
     }

@@ -54,6 +54,10 @@ Invoke-FixtureCase 'rooted fixture path' { param($root,$manifest) $manifest.reco
 Invoke-FixtureCase 'external fixture requires immutable confirmation policy' { param($root,$manifest) $manifest.external_requires_confirmed_redistribution=$false;$manifest.records[0].origin='external';$manifest.records[0].redistribution_status='unconfirmed' } $false 'must always require confirmed redistribution'
 Invoke-FixtureCase 'allowed origin set is canonical' { param($root,$manifest) $manifest.allowed_origins+=@('unknown') } $false 'Fixture allowed origins count mismatch'
 Invoke-FixtureCase 'redistribution status set is canonical' { param($root,$manifest) $manifest.allowed_redistribution_statuses=@('unconfirmed') } $false 'Fixture redistribution statuses count mismatch'
+Invoke-FixtureCase 'retrieval date rejects invalid month' { param($root,$manifest) $manifest.records[0].retrieval_date='2026-99-01' } $false 'invalid retrieval date'
+Invoke-FixtureCase 'retrieval date rejects invalid day' { param($root,$manifest) $manifest.records[0].retrieval_date='2026-02-30' } $false 'invalid retrieval date'
+Invoke-FixtureCase 'retrieval date rejects non-leap February 29' { param($root,$manifest) $manifest.records[0].retrieval_date='2025-02-29' } $false 'invalid retrieval date'
+Invoke-FixtureCase 'retrieval date accepts leap February 29' { param($root,$manifest) $manifest.records[0].retrieval_date='2024-02-29' } $true $null
 
 $external = Join-Path ([System.IO.Path]::GetTempPath()) ('mnf-fixture-external-' + [guid]::NewGuid().ToString('N') + '.bin')
 try {
