@@ -601,6 +601,7 @@ function Assert-FoundationPolicy {
   $rfcProcessText = Get-Content -LiteralPath (Join-Path $repoRoot 'docs/governance/rfc-process.md') -Raw
   Assert-Condition ($rfcProcessText -cmatch 'RFC 0001 completed and dispositioned both checks' -and $rfcProcessText -cmatch 'decisions/0001-sole-owner-bootstrap[.]md#edge-review-results') 'RFC process must record RFC 0001 edge-review completion and link its canonical evidence.'
   Assert-Condition ($rfcProcessText -cnotmatch 'still-unclassified checks' -and $rfcProcessText -cnotmatch 'These checks are open review obligations') 'RFC process incorrectly describes completed RFC 0001 checks as open.'
+  Assert-Condition ($rfcProcessText -cmatch 'public review location and evidenced interval for the `project-lead-public-review` route' -and $rfcProcessText -cnotmatch 'public review location and evidenced interval for the bootstrap route') 'RFC process must bind public-review evidence to the project-lead route without ambiguous bootstrap wording.'
 
   Assert-FixtureManifest -ManifestPath (Join-Path $repoRoot 'fixtures/manifest.json') -RepositoryRoot $repoRoot
 

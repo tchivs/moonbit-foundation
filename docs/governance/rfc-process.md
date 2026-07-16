@@ -78,7 +78,7 @@ An RFC header and transition ledger MUST record, as applicable:
 - the prior and new statuses;
 - links or repository references for each approval;
 - the identities and roles of approving maintainers or the project lead;
-- the public review location and evidenced interval for the bootstrap route;
+- the public review location and evidenced interval for the `project-lead-public-review` route;
 - the canonical roster identity, exact decision artifact, and mandatory edge-review results for
   the `sole-project-owner-bootstrap` route;
 - every blocking objection and its resolution, withdrawal, or rejecting disposition;
