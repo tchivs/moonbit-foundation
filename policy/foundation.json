@@ -779,6 +779,11 @@
         "storage/storage_test.mbt",
         "storage/storage_wbtest.mbt",
         "storage/views.mbt",
+        "ops",
+        "ops/copy_flip.mbt",
+        "ops/copy_flip_test.mbt",
+        "ops/copy_flip_wbtest.mbt",
+        "ops/moon.pkg",
         "moon.mod.json",
         "moon.pkg",
         "scaffold.mbt",
@@ -1011,6 +1016,44 @@
             "pub fn OwnedImage::storage_length(Self) -> UInt64",
             "pub fn OwnedImage::view(Self) -> ImageView",
             "pub fn[T] OwnedImage::with_mut_view(Self, (MutImageView) -> Result[T, @error.CoreError]) -> Result[T, @error.CoreError]"
+          ],
+          "supported_targets": [
+            "js",
+            "wasm",
+            "wasm-gc",
+            "native"
+          ]
+        },
+        {
+          "name": "moonbit-foundation/mb-image/ops",
+          "path": "ops",
+          "stability": "candidate",
+          "allowed_imports": [
+            "moonbit-foundation/mb-core/error",
+            "moonbit-foundation/mb-core/checked",
+            "moonbit-foundation/mb-core/budget",
+            "moonbit-foundation/mb-core/bytes",
+            "moonbit-foundation/mb-color/model",
+            "moonbit-foundation/mb-color/profile",
+            "moonbit-foundation/mb-image/metadata",
+            "moonbit-foundation/mb-image/model",
+            "moonbit-foundation/mb-image/storage"
+          ],
+          "semantic_interface": [
+            "package \"moonbit-foundation/mb-image/ops\"",
+            "import {",
+            "  \"moonbit-foundation/mb-core/budget\",",
+            "  \"moonbit-foundation/mb-core/error\",",
+            "  \"moonbit-foundation/mb-image/metadata\",",
+            "  \"moonbit-foundation/mb-image/storage\",",
+            "}",
+            "pub fn copy_image(@storage.ImageView, @budget.Budget) -> Result[ImageOperationResult, @error.CoreError]",
+            "pub fn flip_horizontal(@storage.ImageView, @budget.Budget) -> Result[ImageOperationResult, @error.CoreError]",
+            "pub fn flip_vertical(@storage.ImageView, @budget.Budget) -> Result[ImageOperationResult, @error.CoreError]",
+            "pub struct ImageOperationResult {",
+            "}",
+            "pub fn ImageOperationResult::disposition(Self) -> @metadata.MetadataDisposition",
+            "pub fn ImageOperationResult::image(Self) -> @storage.OwnedImage"
           ],
           "supported_targets": [
             "js",
