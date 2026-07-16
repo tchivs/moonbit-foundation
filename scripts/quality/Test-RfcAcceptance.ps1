@@ -37,7 +37,9 @@ No second approval and no seven-day public review are claimed.
 
 ## Edge review results
 
-Both mandatory edge reviews completed with no unresolved blocker.
+- `EDGE-GOV-01-UNCLASSIFIED`: Completed. Disposition: no-omission-found.
+- `EDGE-GOV-02-UNCLASSIFIED`: Completed. Disposition: no-omission-found.
+- Unresolved blocking objections: none.
 '@ | Set-Content -LiteralPath (Join-Path $root 'docs/governance/decisions/0001-sole-owner-bootstrap.md') -Encoding utf8
   return $root
 }
@@ -145,6 +147,9 @@ $cases = @(
   @{ n='multiple maintainers'; mutate={ param($p,$r) $r.maintainers += [pscustomobject]@{identity='other';roles=@('maintainer');evidence='local'} } },
   @{ n='owner mismatch'; mutate={ param($p,$r) $p.rfc.current_foundation_rfc.project_owner='other' } },
   @{ n='missing decision anchor'; mutate={ param($p,$r) $p.rfc.current_foundation_rfc.decision_evidence_anchors=@('owner-instruction') } },
+  @{ n='mutable canonical decision path'; mutate={ param($p,$r) $p.rfc.sole_owner_bootstrap.decision_path='docs/governance/decisions/attacker.md'; $p.rfc.current_foundation_rfc.decision_evidence_path='docs/governance/decisions/attacker.md' } },
+  @{ n='mutable canonical anchor set'; mutate={ param($p,$r) $p.rfc.sole_owner_bootstrap.required_anchors=@('owner-instruction') } },
+  @{ n='mutable canonical edge ids'; mutate={ param($p,$r) $p.rfc.sole_owner_bootstrap.mandatory_edge_reviews=@('FAKE'); $p.rfc.current_foundation_rfc.edge_reviews=@([pscustomobject]@{id='FAKE';status='completed';disposition='no-omission-found'}) } },
   @{ n='drive rooted path'; mutate={ param($p,$r) $p.rfc.current_foundation_rfc.decision_evidence_path='C:\outside.md' } },
   @{ n='UNC rooted path'; mutate={ param($p,$r) $p.rfc.current_foundation_rfc.decision_evidence_path='\\server\share\outside.md' } },
   @{ n='parent traversal'; mutate={ param($p,$r) $p.rfc.current_foundation_rfc.decision_evidence_path='../outside.md' } },
@@ -191,6 +196,10 @@ $indexMismatch=Copy-TestObject $accepted
 Invoke-AcceptanceCase 'RFC index status mismatch' $indexMismatch $roster $false { param($root) '| RFC 0001 | Proposed |' | Set-Content -LiteralPath (Join-Path $root 'docs/rfcs/README.md') }
 $fileAnchorMissing=Copy-TestObject $accepted
 Invoke-AcceptanceCase 'decision file missing anchor' $fileAnchorMissing $roster $false { param($root) (Get-Content -Raw (Join-Path $root 'docs/governance/decisions/0001-sole-owner-bootstrap.md')).Replace('## Edge review results','## Missing') | Set-Content -LiteralPath (Join-Path $root 'docs/governance/decisions/0001-sole-owner-bootstrap.md') }
+$artifactEdgeMissing=Copy-TestObject $accepted
+Invoke-AcceptanceCase 'decision file missing edge record' $artifactEdgeMissing $roster $false { param($root) (Get-Content -Raw (Join-Path $root 'docs/governance/decisions/0001-sole-owner-bootstrap.md')).Replace('- `EDGE-GOV-02-UNCLASSIFIED`: Completed. Disposition: no-omission-found.','') | Set-Content -LiteralPath (Join-Path $root 'docs/governance/decisions/0001-sole-owner-bootstrap.md') }
+$ownerInstructionMoved=Copy-TestObject $accepted
+Invoke-AcceptanceCase 'owner instruction must remain in named section' $ownerInstructionMoved $roster $false { param($root) (Get-Content -Raw (Join-Path $root 'docs/governance/decisions/0001-sole-owner-bootstrap.md')).Replace('> 现在只有我一个人开发，跳过','> instruction moved').Replace('Conditional preauthorization for RFC 0001.','Conditional preauthorization for RFC 0001.`n`n> 现在只有我一个人开发，跳过') | Set-Content -LiteralPath (Join-Path $root 'docs/governance/decisions/0001-sole-owner-bootstrap.md') }
 
 $linkRoot = New-TestRepository
 $externalDecision = Join-Path ([System.IO.Path]::GetTempPath()) ("mnf-rfc-external-" + [guid]::NewGuid().ToString('N') + '.md')

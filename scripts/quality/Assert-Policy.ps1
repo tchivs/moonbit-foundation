@@ -113,6 +113,13 @@ function ConvertFrom-RfcTimestamp {
   return $parsed
 }
 
+function Get-MarkdownSection {
+  param([string]$Text, [string]$Heading)
+  $match = [regex]::Match($Text, "(?ms)^##\s+$([regex]::Escape($Heading))\s*\r?\n(?<body>.*?)(?=^##\s+|\z)")
+  Assert-Condition $match.Success "Decision artifact lacks section '$Heading'."
+  return $match.Groups['body'].Value
+}
+
 function Resolve-RfcEvidenceFile {
   [CmdletBinding()]
   param(
@@ -158,8 +165,14 @@ function Assert-RfcAcceptanceState {
 
   $rfcPolicy = $Policy.rfc
   $rfc = $rfcPolicy.current_foundation_rfc
+  $canonicalDecisionPath = 'docs/governance/decisions/0001-sole-owner-bootstrap.md'
+  $canonicalDecisionAnchors = @('owner-instruction','conversation-context-and-interpretation','authorization-and-conditions','edge-review-results')
+  $canonicalEdgeReviewIds = @('EDGE-GOV-01-UNCLASSIFIED','EDGE-GOV-02-UNCLASSIFIED')
   Assert-Condition (@($rfcPolicy.allowed_statuses) -ccontains $rfc.status) "RFC status '$($rfc.status)' is not allowed."
   Assert-ExactSet 'RFC acceptance routes' @($rfcPolicy.acceptance_routes) @('maintainer','project-lead-public-review','sole-project-owner-bootstrap')
+  Assert-Condition ([string]$rfcPolicy.sole_owner_bootstrap.decision_path -ceq $canonicalDecisionPath) 'Sole-owner policy decision path differs from the canonical artifact.'
+  Assert-ExactSet 'Sole-owner policy decision anchors' @($rfcPolicy.sole_owner_bootstrap.required_anchors) $canonicalDecisionAnchors
+  Assert-ExactSet 'Sole-owner policy edge review IDs' @($rfcPolicy.sole_owner_bootstrap.mandatory_edge_reviews) $canonicalEdgeReviewIds
 
   $expectedRosterPath = [System.IO.Path]::GetFullPath((Join-Path $RepositoryRoot ([string]$rfcPolicy.maintainer_roster_path)))
   Assert-Condition ([System.IO.Path]::GetFullPath($RosterPath) -ceq $expectedRosterPath) 'RFC acceptance must use the canonical maintainer roster path.'
@@ -303,29 +316,34 @@ function Assert-RfcAcceptanceState {
       Assert-Condition ($identities.Count -eq 1 -and $identityGroups.Count -eq 1) 'Sole-owner route requires exactly one unique canonical maintainer.'
       $sole = $maintainers[0]
       Assert-Condition (@($sole.roles) -ccontains 'project-owner') 'Sole canonical maintainer must have the project-owner role.'
-      $expectedOwnerEvidence = "$([string]$rfcPolicy.sole_owner_bootstrap.decision_path)#owner-instruction"
+      $expectedOwnerEvidence = "$canonicalDecisionPath#owner-instruction"
       Assert-Condition ([string]$sole.evidence -ceq $expectedOwnerEvidence) 'Sole project-owner roster evidence must point to the canonical owner-instruction anchor.'
       Assert-Condition ([string]$rfc.project_owner -ceq [string]$sole.identity -and [string]$rfc.authority -ceq [string]$sole.identity) 'Sole-owner authority must match the canonical project owner.'
       Assert-Condition (@($rfc.approvers).Count -eq 0) 'Sole-owner route must not assert a multi-approver list.'
       Assert-NullOrEmpty 'project_lead' $rfc.project_lead; Assert-NullOrEmpty 'public_review_url' $rfc.public_review_url; Assert-NullOrEmpty 'public_review_started_at' $rfc.public_review_started_at; Assert-NullOrEmpty 'public_review_ended_at' $rfc.public_review_ended_at
-      $expectedDecision = [string]$rfcPolicy.sole_owner_bootstrap.decision_path
+      $expectedDecision = $canonicalDecisionPath
       $decisionFile = Resolve-RfcEvidenceFile -RepositoryRoot $RepositoryRoot -RelativePath ([string]$rfc.decision_evidence_path) -ExpectedRelativePath $expectedDecision
-      Assert-ExactSet 'Sole-owner decision anchors' @($rfc.decision_evidence_anchors) @($rfcPolicy.sole_owner_bootstrap.required_anchors)
+      Assert-ExactSet 'Sole-owner decision anchors' @($rfc.decision_evidence_anchors) $canonicalDecisionAnchors
       $decisionText = Get-Content -LiteralPath $decisionFile -Raw
       $headingByAnchor = @{
         'owner-instruction'='Owner instruction'; 'conversation-context-and-interpretation'='Conversation context and interpretation'
         'authorization-and-conditions'='Authorization and conditions'; 'edge-review-results'='Edge review results'
       }
-      foreach ($anchor in @($rfcPolicy.sole_owner_bootstrap.required_anchors)) {
+      foreach ($anchor in $canonicalDecisionAnchors) {
         Assert-Condition ($headingByAnchor.ContainsKey([string]$anchor)) "Unknown required decision anchor '$anchor'."
         Assert-Condition ($decisionText -cmatch "(?m)^## $([regex]::Escape($headingByAnchor[[string]$anchor]))\s*$") "Decision artifact lacks required anchor '$anchor'."
       }
-      Assert-Condition ($decisionText.Contains('现在只有我一个人开发，跳过') -and $decisionText -cmatch 'preauthoriz') 'Decision artifact does not preserve the authentic conditional preauthorization.'
+      $ownerSection = Get-MarkdownSection -Text $decisionText -Heading 'Owner instruction'
+      $contextSection = Get-MarkdownSection -Text $decisionText -Heading 'Conversation context and interpretation'
+      $edgeSection = Get-MarkdownSection -Text $decisionText -Heading 'Edge review results'
+      Assert-Condition ($ownerSection.Contains('现在只有我一个人开发，跳过', [System.StringComparison]::Ordinal) -and $contextSection -cmatch 'preauthoriz') 'Decision artifact does not preserve the authentic conditional preauthorization in its named sections.'
       $reviews = @($rfc.edge_reviews)
-      Assert-ExactSet 'Sole-owner edge review IDs' @($reviews.id) @($rfcPolicy.sole_owner_bootstrap.mandatory_edge_reviews)
+      Assert-ExactSet 'Sole-owner edge review IDs' @($reviews.id) $canonicalEdgeReviewIds
       foreach ($review in $reviews) {
         Assert-Condition ($review.status -ceq 'completed') "Edge review '$($review.id)' is not completed."
         Assert-Condition (-not [string]::IsNullOrWhiteSpace([string]$review.disposition) -and [string]$review.disposition -cne 'unresolved') "Edge review '$($review.id)' lacks a resolved disposition."
+        $edgePattern = '(?m)^-\s+`' + [regex]::Escape([string]$review.id) + '`:[^\r\n]*Disposition:\s*' + [regex]::Escape([string]$review.disposition) + '[.]'
+        Assert-Condition ($edgeSection -cmatch $edgePattern) "Decision artifact edge-review section does not bind '$($review.id)' to disposition '$($review.disposition)'."
       }
       $expectedAcceptanceEvidence = @("$expectedDecision#owner-instruction", "$expectedDecision#edge-review-results")
       Assert-ExactSet 'Sole-owner acceptance evidence' @($rfc.acceptance_evidence) $expectedAcceptanceEvidence
