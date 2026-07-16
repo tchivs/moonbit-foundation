@@ -120,6 +120,15 @@ function Get-MarkdownSection {
   return $match.Groups['body'].Value
 }
 
+function Assert-ApprovalReference {
+  param([string]$Reference, [string]$Identity)
+  Assert-Condition (-not [string]::IsNullOrWhiteSpace($Reference)) "Approval for '$Identity' requires a reference."
+  $isHttps = $Reference -cmatch '^https://[^\s]+$'
+  $isRepositoryReference = $Reference -cmatch '^(?:docs|reviews|[.]planning)/[^\s#]+(?:#[^\s#]+)?$' -or $Reference -cmatch '^commit:[0-9a-f]{7,40}$'
+  Assert-Condition ($isHttps -or $isRepositoryReference) "Approval for '$Identity' must use an HTTPS review URL or stable repository reference."
+  Assert-Condition ($Reference -cnotmatch '(?i)(placeholder|example|todo|tbd|dummy|fake)') "Approval for '$Identity' uses placeholder evidence."
+}
+
 function Resolve-RfcEvidenceFile {
   [CmdletBinding()]
   param(
@@ -292,6 +301,14 @@ function Assert-RfcAcceptanceState {
       $approvers = @($rfc.approvers | ForEach-Object { [string]$_ })
       Assert-Condition ($approvers.Count -ge 2 -and @($approvers | Select-Object -Unique).Count -eq $approvers.Count) 'Maintainer route requires two distinct approvals.'
       foreach ($approver in $approvers) { Assert-Condition ($identities -ccontains $approver) "Approver '$approver' is not a canonical maintainer." }
+      $approvalRecords = @($rfc.approval_records)
+      Assert-ExactSet 'Maintainer approval identities' @($approvalRecords.identity) $approvers
+      Assert-Condition (@($approvalRecords.reference | Group-Object -CaseSensitive | Where-Object Count -ne 1).Count -eq 0) 'Maintainer approval references must be distinct.'
+      foreach ($approval in $approvalRecords) {
+        Assert-Condition ([string]$approval.role -ceq 'maintainer') "Approval for '$($approval.identity)' must record the maintainer role."
+        Assert-ApprovalReference -Reference ([string]$approval.reference) -Identity ([string]$approval.identity)
+      }
+      Assert-ExactSet 'Maintainer acceptance evidence' @($rfc.acceptance_evidence) @($approvalRecords.reference)
       Assert-Condition ($rfc.authority -ceq 'maintainers') 'Maintainer route authority must be maintainers.'
       Assert-NullOrEmpty 'project_lead' $rfc.project_lead; Assert-NullOrEmpty 'project_owner' $rfc.project_owner
       Assert-NullOrEmpty 'public_review_url' $rfc.public_review_url; Assert-NullOrEmpty 'public_review_started_at' $rfc.public_review_started_at; Assert-NullOrEmpty 'public_review_ended_at' $rfc.public_review_ended_at
@@ -303,6 +320,10 @@ function Assert-RfcAcceptanceState {
       $lead = @($maintainers | Where-Object { [string]$_.identity -ceq [string]$rfc.project_lead -and @($_.roles) -ccontains 'project-lead' })
       Assert-Condition ($lead.Count -eq 1 -and $identities.Count -lt 2) 'Project-lead route requires an eligible project lead while fewer than two maintainers exist.'
       Assert-Condition ([string]$rfc.public_review_url -cmatch '^https?://') 'Project-lead route requires a public review URL.'
+      $leadApprovals = @($rfc.approval_records)
+      Assert-Condition ($leadApprovals.Count -eq 1 -and [string]$leadApprovals[0].identity -ceq [string]$rfc.project_lead -and [string]$leadApprovals[0].role -ceq 'project-lead') 'Project-lead route requires one approval record bound to the canonical project lead.'
+      Assert-ApprovalReference -Reference ([string]$leadApprovals[0].reference) -Identity ([string]$rfc.project_lead)
+      Assert-Condition (@($rfc.acceptance_evidence) -ccontains [string]$leadApprovals[0].reference) 'Project-lead approval reference must be part of acceptance evidence.'
       $started = ConvertFrom-RfcTimestamp -Value ([string]$rfc.public_review_started_at) -Label 'Public review start'
       $ended = ConvertFrom-RfcTimestamp -Value ([string]$rfc.public_review_ended_at) -Label 'Public review end'
       Assert-Condition ($started -le $ended) 'Public review start must not follow its end.'
@@ -320,6 +341,7 @@ function Assert-RfcAcceptanceState {
       Assert-Condition ([string]$sole.evidence -ceq $expectedOwnerEvidence) 'Sole project-owner roster evidence must point to the canonical owner-instruction anchor.'
       Assert-Condition ([string]$rfc.project_owner -ceq [string]$sole.identity -and [string]$rfc.authority -ceq [string]$sole.identity) 'Sole-owner authority must match the canonical project owner.'
       Assert-Condition (@($rfc.approvers).Count -eq 0) 'Sole-owner route must not assert a multi-approver list.'
+      Assert-Condition (@($rfc.approval_records).Count -eq 0) 'Sole-owner route must not assert maintainer or project-lead approval records.'
       Assert-NullOrEmpty 'project_lead' $rfc.project_lead; Assert-NullOrEmpty 'public_review_url' $rfc.public_review_url; Assert-NullOrEmpty 'public_review_started_at' $rfc.public_review_started_at; Assert-NullOrEmpty 'public_review_ended_at' $rfc.public_review_ended_at
       $expectedDecision = $canonicalDecisionPath
       $decisionFile = Resolve-RfcEvidenceFile -RepositoryRoot $RepositoryRoot -RelativePath ([string]$rfc.decision_evidence_path) -ExpectedRelativePath $expectedDecision

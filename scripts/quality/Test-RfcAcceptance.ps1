@@ -59,7 +59,7 @@ function New-TestPolicy([string]$Status = 'Accepted', [string]$Route = 'sole-pro
   $current = [ordered]@{
     id = '0001'; status = $Status; path = 'docs/rfcs/0001-moonbit-native-foundation.md'
     transition = [ordered]@{ from='Proposed'; to=$Status; evidence=@('docs/governance/decisions/0001-sole-owner-bootstrap.md#owner-instruction','docs/governance/decisions/0001-sole-owner-bootstrap.md#edge-review-results') }
-    acceptance_route = $Route; authority = 'sole-project-owner'; approvers = @()
+    acceptance_route = $Route; authority = 'sole-project-owner'; approvers = @(); approval_records = @()
     project_lead = $null; project_owner = 'sole-project-owner'
     public_review_url = $null; public_review_started_at = $null; public_review_ended_at = $null
     decision_evidence_path = 'docs/governance/decisions/0001-sole-owner-bootstrap.md'
@@ -167,14 +167,22 @@ foreach ($case in $cases) {
 }
 
 $maintainer = Copy-TestObject $accepted
-$m=$maintainer.rfc.current_foundation_rfc; $m.acceptance_route='maintainer';$m.authority='maintainers';$m.approvers=@('alice','bob');$m.project_owner=$null;$m.decision_evidence_path=$null;$m.decision_evidence_anchors=@();$m.edge_reviews=@();$m.acceptance_evidence=@('approval:alice','approval:bob');$m.transition.evidence=@('approval:alice','approval:bob')
+$m=$maintainer.rfc.current_foundation_rfc; $m.acceptance_route='maintainer';$m.authority='maintainers';$m.approvers=@('alice','bob');$m.approval_records=@([pscustomobject]@{identity='alice';role='maintainer';reference='reviews/rfc-0001.md#alice-approval'},[pscustomobject]@{identity='bob';role='maintainer';reference='reviews/rfc-0001.md#bob-approval'});$m.project_owner=$null;$m.decision_evidence_path=$null;$m.decision_evidence_anchors=@();$m.edge_reviews=@();$m.acceptance_evidence=@('reviews/rfc-0001.md#alice-approval','reviews/rfc-0001.md#bob-approval');$m.transition.evidence=@('reviews/rfc-0001.md#alice-approval','reviews/rfc-0001.md#bob-approval')
 $maintainerRoster=[pscustomobject]@{schema_version='1.0.0';maintainers=@([pscustomobject]@{identity='alice';roles=@('maintainer');evidence='local'},[pscustomobject]@{identity='bob';roles=@('maintainer');evidence='local'})}
 Invoke-AcceptanceCase 'maintainer route' $maintainer $maintainerRoster $true $null
 $oneApproval=Copy-TestObject $maintainer;$oneApproval.rfc.current_foundation_rfc.approvers=@('alice')
 Invoke-AcceptanceCase 'maintainer route needs two approvals' $oneApproval $maintainerRoster $false $null
+$placeholderApproval=Copy-TestObject $maintainer;$placeholderApproval.rfc.current_foundation_rfc.approval_records[0].reference='placeholder';$placeholderApproval.rfc.current_foundation_rfc.acceptance_evidence[0]='placeholder';$placeholderApproval.rfc.current_foundation_rfc.transition.evidence[0]='placeholder'
+Invoke-AcceptanceCase 'maintainer route rejects placeholder evidence' $placeholderApproval $maintainerRoster $false $null
+$duplicateApproval=Copy-TestObject $maintainer;$duplicateApproval.rfc.current_foundation_rfc.approval_records[1].reference=$duplicateApproval.rfc.current_foundation_rfc.approval_records[0].reference;$duplicateApproval.rfc.current_foundation_rfc.acceptance_evidence=@($duplicateApproval.rfc.current_foundation_rfc.approval_records[0].reference);$duplicateApproval.rfc.current_foundation_rfc.transition.evidence=@($duplicateApproval.rfc.current_foundation_rfc.approval_records[0].reference)
+Invoke-AcceptanceCase 'maintainer route rejects duplicate evidence' $duplicateApproval $maintainerRoster $false $null
+$unboundApproval=Copy-TestObject $maintainer;$unboundApproval.rfc.current_foundation_rfc.approval_records[1].identity='mallory'
+Invoke-AcceptanceCase 'maintainer route rejects unbound identity' $unboundApproval $maintainerRoster $false $null
+$unboundLedger=Copy-TestObject $maintainer;$unboundLedger.rfc.current_foundation_rfc.transition.evidence=@('reviews/rfc-0001.md#alice-approval','reviews/rfc-0001.md#different')
+Invoke-AcceptanceCase 'maintainer route rejects evidence unbound from ledger' $unboundLedger $maintainerRoster $false $null
 
 $lead=Copy-TestObject $accepted
-$l=$lead.rfc.current_foundation_rfc;$l.acceptance_route='project-lead-public-review';$l.authority='project-lead';$l.approvers=@();$l.project_lead='lead';$l.project_owner=$null;$l.public_review_url='https://example.invalid/review/1';$l.public_review_started_at='2026-07-01T00:00:00Z';$l.public_review_ended_at='2026-07-08T00:00:00Z';$l.decision_evidence_path=$null;$l.decision_evidence_anchors=@();$l.edge_reviews=@();$l.acceptance_evidence=@('https://example.invalid/review/1');$l.transition.evidence=@('https://example.invalid/review/1')
+$l=$lead.rfc.current_foundation_rfc;$l.acceptance_route='project-lead-public-review';$l.authority='project-lead';$l.approvers=@();$l.approval_records=@([pscustomobject]@{identity='lead';role='project-lead';reference='https://reviews.invalid/rfc/1#lead-approval'});$l.project_lead='lead';$l.project_owner=$null;$l.public_review_url='https://reviews.invalid/rfc/1';$l.public_review_started_at='2026-07-01T00:00:00Z';$l.public_review_ended_at='2026-07-08T00:00:00Z';$l.decision_evidence_path=$null;$l.decision_evidence_anchors=@();$l.edge_reviews=@();$l.acceptance_evidence=@('https://reviews.invalid/rfc/1','https://reviews.invalid/rfc/1#lead-approval');$l.transition.evidence=@('https://reviews.invalid/rfc/1','https://reviews.invalid/rfc/1#lead-approval')
 $leadRoster=[pscustomobject]@{schema_version='1.0.0';maintainers=@([pscustomobject]@{identity='lead';roles=@('maintainer','project-lead');evidence='local'})}
 Invoke-AcceptanceCase 'project lead seven-day route' $lead $leadRoster $true $null
 $short=Copy-TestObject $lead;$short.rfc.current_foundation_rfc.public_review_ended_at='2026-07-07T00:00:00Z'

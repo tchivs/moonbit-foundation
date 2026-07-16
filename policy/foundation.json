@@ -208,6 +208,7 @@
       "acceptance_route": "sole-project-owner-bootstrap",
       "authority": "sole-project-owner",
       "approvers": [],
+      "approval_records": [],
       "project_lead": null,
       "project_owner": "sole-project-owner",
       "public_review_url": null,
@@ -247,6 +248,7 @@
     "accepted_evidence_fields": [
       "acceptance_route",
       "authority",
+      "approval_records",
       "blocking_objections",
       "objection_disposition",
       "acceptance_evidence"
