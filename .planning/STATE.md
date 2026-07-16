@@ -4,16 +4,16 @@ milestone: v0.1
 milestone_name: milestone
 current_phase: 4
 current_phase_name: Image Model, Views, and Operations
-status: executing
-stopped_at: Completed 04-07-PLAN.md
-last_updated: "2026-07-16T22:31:43.978Z"
+status: verifying
+stopped_at: Completed 04-08-PLAN.md
+last_updated: "2026-07-16T22:51:43.820Z"
 last_activity: 2026-07-17
 last_activity_desc: Phase 4 execution started
 progress:
   total_phases: 4
-  completed_phases: 3
+  completed_phases: 4
   total_plans: 32
-  completed_plans: 31
+  completed_plans: 32
 ---
 
 # Project State
@@ -30,10 +30,10 @@ See `.planning/PROJECT.md` (updated 2026-07-16).
 
 Phase: 4 (Image Model, Views, and Operations) — EXECUTING
 Plan: 8 of 8
-Status: Ready to execute
+Status: Phase complete — ready for verification
 Last activity: 2026-07-17 — Phase 4 execution started
 
-Progress: [██████████] 97% (1/5 phases; 8/8 currently planned plans complete)
+Progress: [██████████] 100% (1/5 phases; 8/8 currently planned plans complete)
 
 ## Performance Metrics
 
@@ -76,6 +76,7 @@ Progress: [██████████] 97% (1/5 phases; 8/8 currently planne
 | Phase 04 P05 | 24min | 2 tasks | 12 files |
 | Phase 04 P06 | 10min | 2 tasks | 8 files |
 | Phase 04 P07 | 16min | 2 tasks | 7 files |
+| Phase 04 P08 | 36min | 3 tasks | 16 files |
 
 ## Accumulated Context
 
@@ -171,6 +172,9 @@ Progress: [██████████] 97% (1/5 phases; 8/8 currently planne
 - [Phase 04]: Keep codec probing independent from Reader state through caller-owned prefix Match, NoMatch, and NeedMore outcomes.
 - [Phase 04]: Expose decoder and encoder as open forward-only Reader and Writer traits with explicit limits, budgets, diagnostics, progress, and metadata disposition.
 - [Phase 04]: Use bounded CapabilityUnavailable operation and context tokens for unsupported codec behavior without expanding core errors.
+- [Phase ?]: Publish mb-image as exactly metadata, model, storage, ops, and codec with no root facade.
+- [Phase ?]: Require exact canonical IDs and independent behavioral consumers for all five generated image tables.
+- [Phase ?]: Keep the standards-literal orientation oracle generator-owned and independent of production mapping.
 
 ### Pending Decisions
 
@@ -191,6 +195,6 @@ None. Phase 01 is independently verified and complete; Phase 02 is ready for con
 
 **Resume file:** None
 
-Last session: 2026-07-16T22:31:43.962Z
-Stopped at: Completed 04-07-PLAN.md
+Last session: 2026-07-16T22:51:43.801Z
+Stopped at: Completed 04-08-PLAN.md
 Resume with: Discuss Phase 02, then plan and execute it through the active auto chain.
