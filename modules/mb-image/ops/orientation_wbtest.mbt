@@ -24,9 +24,7 @@ fn orientation_metadata(
 }
 
 ///|
-fn orientation_source(
-  orientation : @model.Orientation,
-) -> @storage.OwnedImage {
+fn orientation_source(orientation : @model.Orientation) -> @storage.OwnedImage {
   let width = 3UL
   let height = 2UL
   let row_bytes = 9UL
@@ -36,14 +34,7 @@ fn orientation_source(
     @model.ImageFormat::rgb8(),
     [
       @model.PlaneDescriptor::new(
-        0UL,
-        18UL,
-        row_bytes,
-        row_bytes,
-        1UL,
-        1UL,
-        width,
-        height,
+        0UL, 18UL, row_bytes, row_bytes, 1UL, 1UL, width, height,
       ).unwrap(),
     ],
     18UL,
@@ -104,10 +95,7 @@ test "all eight orientations match the independent generated oracle" {
       let (source_x, source_y, destination_x, destination_y) = mapping
       for channel = 0UL; channel < 3UL; channel = channel + 1UL {
         inspect(
-          output
-          .view()
-          .get_byte(destination_x, destination_y, channel)
-          .unwrap() ==
+          output.view().get_byte(destination_x, destination_y, channel).unwrap() ==
           source.view().get_byte(source_x, source_y, channel).unwrap(),
           content="true",
         )
@@ -125,7 +113,10 @@ test "orientation failures leave every consumable counter unchanged" {
   let source = orientation_source(@model.Orientation::RightTop)
   let insufficient = wb_operation_limits(18UL, 17UL)
   let before = insufficient.remaining()
-  inspect(apply_orientation(source.view(), insufficient) is Err(_), content="true")
+  inspect(
+    apply_orientation(source.view(), insufficient) is Err(_),
+    content="true",
+  )
   let after = insufficient.remaining()
   inspect(after.bytes() == before.bytes(), content="true")
   inspect(after.allocations() == before.allocations(), content="true")
@@ -156,8 +147,5 @@ test "orientation failures leave every consumable counter unchanged" {
     unsupported_after.pixels() == unsupported_before.pixels(),
     content="true",
   )
-  inspect(
-    unsupported_after.work() == unsupported_before.work(),
-    content="true",
-  )
+  inspect(unsupported_after.work() == unsupported_before.work(), content="true")
 }

@@ -187,13 +187,16 @@ function Render-CodecMoon([object]$Data) {
 function Render-Manifest([string]$Digest) {
   $path = Join-Path $RepositoryRoot 'fixtures\manifest.json'
   $manifest = Get-Content -Raw $path | ConvertFrom-Json
-  $records = @($manifest.records | Where-Object { $_.id -cne 'image-operation-vectors' }) + @([ordered]@{
+  $imageRecord = [ordered]@{
     id='image-operation-vectors'; path='fixtures/image/operation-vectors.json'; origin='generated'
     source='repository-derived:scripts/fixtures/Generate-ImageVectors.ps1; Exif eight-state coordinate semantics transcribed literally from CIPA DC-X010-2017'
     author='MoonBit Native Foundation project generator'; retrieval_date='2026-07-17'; sha256=$Digest
     license='Apache-2.0'; redistribution_status='not-applicable'
     expected_use='IMAG-05 and IMAG-07 descriptor, plane, crop, lease, orientation, resize, conversion, metadata disposition, and non-seeking codec conformance'
-  })
+  }
+  # Generate-ColorVectors preserves non-color records first and then emits its
+  # two owned records. Keep that shared order so either generator can run last.
+  $records = @($imageRecord) + @($manifest.records | Where-Object { $_.id -cne 'image-operation-vectors' })
   $out = [ordered]@{
     schema_version=$manifest.schema_version; preferred_origin=$manifest.preferred_origin
     required_record_fields=@($manifest.required_record_fields); allowed_origins=@($manifest.allowed_origins)
