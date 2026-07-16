@@ -62,7 +62,7 @@ pub fn read_exact(
   let mut completed = 0UL
   let mut remaining = destination
   while completed < requested {
-    match reader.read(remaining) {
+    match reader.read(ReadWindow::from_lease(remaining)) {
       Progress(count) => {
         if count == 0UL {
           remaining.release()

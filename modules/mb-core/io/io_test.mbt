@@ -133,8 +133,8 @@ test "read_exact distinguishes eos failure no-progress and partial failure" {
         error.code() == @error.ErrorCode::UnexpectedEndOfStream,
         content="true",
       )
-      inspect(error.requested(), content="Some(3)")
-      inspect(error.completed(), content="Some(1)")
+      inspect(error.requested() == Some(3UL), content="true")
+      inspect(error.completed() == Some(1UL), content="true")
     }
     Ok(_) => fail("early eos must fail")
   }
@@ -144,7 +144,7 @@ test "read_exact distinguishes eos failure no-progress and partial failure" {
     failed_owned.with_mut(0UL, 3UL, fn(lease) {
       @io.read_exact(failed_reader as &@io.Reader, lease)
     }) {
-    Err(error) => inspect(error.completed(), content="Some(2)")
+    Err(error) => inspect(error.completed() == Some(2UL), content="true")
     Ok(_) => fail("failure after progress must preserve total completion")
   }
   let stalled_owned = @bytes.OwnedBytes::new(1UL, budget).unwrap()
@@ -184,7 +184,7 @@ test "write_all preserves partial completion and rejects no progress" {
   expect_io_ok(@io.write_all(writer as &@io.Writer, owned.view()), 4UL)
   let failed = ScriptedWriter::{ script: [1, -3], step: 0, calls: 0 }
   match @io.write_all(failed as &@io.Writer, owned.view()) {
-    Err(error) => inspect(error.completed(), content="Some(2)")
+    Err(error) => inspect(error.completed() == Some(2UL), content="true")
     Ok(_) => fail("partial write failure must be retained")
   }
   let stalled = ScriptedWriter::{ script: [-2], step: 0, calls: 0 }
@@ -223,7 +223,11 @@ test "seeking is a separate capability with checked boundaries" {
 }
 
 ///|
-fn expect_view_byte(view : @bytes.ByteView, index : UInt64, expected : Byte) -> Unit raise {
+fn expect_view_byte(
+  view : @bytes.ByteView,
+  index : UInt64,
+  expected : Byte,
+) -> Unit raise {
   match view.get(index) {
     Ok(value) => inspect(value == expected, content="true")
     Err(_) => fail("validated byte must be readable")
@@ -277,11 +281,15 @@ test "bounded reader caps nested non-seekable streams and sentinels" {
   let outer = @io.BoundedReader::new(inner as &@io.Reader, 2UL)
   let destination_budget = @budget.Budget::new(io_limits(4UL))
   let destination = @bytes.OwnedBytes::from_bytes(b"!!!!", destination_budget).unwrap()
-  match destination.with_mut(0UL, 4UL, fn(lease) {
-    @io.read_exact(outer as &@io.Reader, lease)
-  }) {
+  match
+    destination.with_mut(0UL, 4UL, fn(lease) {
+      @io.read_exact(outer as &@io.Reader, lease)
+    }) {
     Err(error) => {
-      inspect(error.code() == @error.ErrorCode::UnexpectedEndOfStream, content="true")
+      inspect(
+        error.code() == @error.ErrorCode::UnexpectedEndOfStream,
+        content="true",
+      )
       inspect(error.completed() == Some(2UL), content="true")
     }
     Ok(_) => fail("bounded reader must stop at its logical end")

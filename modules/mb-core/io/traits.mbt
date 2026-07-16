@@ -16,10 +16,65 @@ pub(all) enum WriteOutcome {
 }
 
 ///|
+/// A capability-safe mutable destination window. Implementations can access
+/// only the declared prefix and cannot recover the full underlying lease.
+pub struct ReadWindow {
+  priv lease : @bytes.MutByteLease
+  priv length_value : UInt64
+}
+
+///|
+fn ReadWindow::from_lease(lease : @bytes.MutByteLease) -> ReadWindow {
+  { lease, length_value: lease.length() }
+}
+
+///|
+fn ReadWindow::limit(self : ReadWindow, maximum : UInt64) -> ReadWindow {
+  {
+    lease: self.lease,
+    length_value: if self.length_value < maximum {
+      self.length_value
+    } else {
+      maximum
+    },
+  }
+}
+
+///|
+pub fn ReadWindow::length(self : ReadWindow) -> UInt64 {
+  self.length_value
+}
+
+///|
+pub fn ReadWindow::get(
+  self : ReadWindow,
+  index : UInt64,
+) -> Result[Byte, @error.CoreError] {
+  if index >= self.length_value {
+    Err(seek_error(index, self.length_value))
+  } else {
+    self.lease.get(index)
+  }
+}
+
+///|
+pub fn ReadWindow::set(
+  self : ReadWindow,
+  index : UInt64,
+  value : Byte,
+) -> Result[Unit, @error.CoreError] {
+  if index >= self.length_value {
+    Err(seek_error(index, self.length_value))
+  } else {
+    self.lease.set(index, value)
+  }
+}
+
+///|
 /// Open stream capability for callers that can supply an exclusive mutable
 /// destination lease.
 pub(open) trait Reader {
-  fn read(Self, @bytes.MutByteLease) -> ReadOutcome
+  fn read(Self, ReadWindow) -> ReadOutcome
 }
 
 ///|
