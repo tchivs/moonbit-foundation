@@ -1,0 +1,7 @@
+import {
+  "moonbit-foundation/mb-core/budget",
+  "moonbit-foundation/mb-core/checked",
+  "moonbit-foundation/mb-core/error",
+}
+
+supported_targets = "+js+wasm+wasm-gc+native"
