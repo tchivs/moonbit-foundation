@@ -178,12 +178,13 @@ Implementation PRs may refine internals within an accepted boundary, but they MU
 
 The lifecycle is `Draft -> Proposed -> Accepted -> Implemented`, with `Rejected` and `Superseded` as terminal states. Every transition must be recorded in this header ledger and repository history.
 
-Acceptance requires either:
+Acceptance requires exactly one of:
 
 1. two maintainer approvals and no unresolved blocking objection; or
-2. while the project has fewer than two maintainers, project-lead approval after a minimum seven-day public review window and no unresolved blocking objection.
+2. while the project has fewer than two maintainers, project-lead approval after a minimum seven-day public review window and no unresolved blocking objection; or
+3. while the canonical roster contains exactly one unique maintainer and that identity has the `project-owner` role, `sole-project-owner-bootstrap` using the exact [sole-owner decision artifact](../governance/decisions/0001-sole-owner-bootstrap.md), completed and dispositioned `EDGE-GOV-01-UNCLASSIFIED` and `EDGE-GOV-02-UNCLASSIFIED` reviews, and no unresolved blocking objection.
 
-The bootstrap route expires as soon as two maintainers are available. A claim of acceptance must link authentic approvals, the public-review interval when applicable, and objection disposition. Missing evidence fails closed: the status remains Proposed.
+Both single-maintainer routes expire as soon as the canonical roster contains more than one distinct maintainer. The sole-owner decision is conditional preauthorization consumed after the mandatory edge reviews pass; it does not create a later approval or claim a second approval or elapsed public-review time. A claim of acceptance must link the authentic route-specific evidence and objection disposition. Missing evidence fails closed: the status remains Proposed.
 
 ## 13. References
 

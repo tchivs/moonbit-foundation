@@ -12,7 +12,7 @@
 ### RFC governance and acceptance
 - RFC 0001 is the architectural charter and must define vision, terminology, layer boundaries, dependency direction, portability policy, v0.1 scope, and governance.
 - Use the lifecycle `Draft -> Proposed -> Accepted -> Implemented`, with `Rejected` and `Superseded` terminal states; every transition is recorded in the RFC header and repository history.
-- Acceptance requires two maintainer approvals with no unresolved blocking objection. Until the project has two maintainers, the project lead may accept after a minimum seven-day public review window; this bootstrap exception must be explicit.
+- Acceptance requires two maintainer approvals with no unresolved blocking objection. Until the project has two maintainers, the project lead may accept after a minimum seven-day public review window; this bootstrap exception must be explicit. **Superseded for the current one-maintainer repository by the later locked D-03 amendment:** the canonical sole project owner may instead use `sole-project-owner-bootstrap` after both mandatory edge reviews complete without unresolved blockers; the original routes remain available.
 - New modules, public dependency-direction changes, and breaking architectural changes require an accepted RFC. Implementation PRs may not silently redefine an accepted boundary.
 
 ### Licensing, namespace, and naming
@@ -280,7 +280,7 @@ The installed CLI confirms the target values, `--deny-warn`, `--frozen`, `fmt --
 
 **What goes wrong:** RFC 0001 contains the right prose but remains `Draft`, lacks approval/review evidence, or retains unresolved blocking questions.
 
-**How to avoid:** Plan explicit transitions through `Proposed` and `Accepted`, record dates/approvers/review link or bootstrap authority in the header, and make the validator require those fields for Accepted. The seven-day bootstrap window is a real elapsed-time condition; if not already satisfied, the plan must mark RFC acceptance as a human/time checkpoint rather than fabricate evidence. [VERIFIED: CONTEXT.md]
+**How to avoid:** Plan explicit transitions through `Proposed` and `Accepted`, record route-specific authentic evidence, and make the validator require those fields for Accepted. The seven-day project-lead route remains a real elapsed-time condition and must never be fabricated. **Supersession note:** the later locked D-03 amendment adds a distinct `sole-project-owner-bootstrap` route for exactly one rostered project owner; it consumes the owner's existing conditional preauthorization only after both mandatory edge reviews pass and does not claim a second approval or elapsed review time. [VERIFIED: CONTEXT.md]
 
 ### Pitfall 2: Name Drift from Earlier Research
 
@@ -402,9 +402,9 @@ The action documents the exact-version input form; the tag-to-commit resolution 
 
 ## Open Questions (RESOLVED)
 
-1. **Authentic RFC acceptance evidence — resolved fail-closed.**
-   - Disposition: RFC 0001 remains Proposed unless a human supplies authentic evidence for one complete D-03 route: either two maintainer approvals with no unresolved blocking objection, or project-lead acceptance after at least seven elapsed days of public review with no unresolved blocking objection.
-   - Planning consequence: Plan 01-08 is non-autonomous and contains an explicit evidence-handoff checkpoint. Automation validates supplied evidence and never fabricates dates, approvers, elapsed time, review links, or acceptance.
+1. **Authentic RFC acceptance evidence — resolved fail-closed, then superseded for the sole-owner bootstrap case.**
+   - Historical disposition: RFC 0001 remained Proposed until authentic evidence existed for the original two-maintainer or seven-day project-lead route.
+   - Superseding disposition: the later locked D-03 amendment records the exact sole-owner instruction as conditional preauthorization. Plan 01-08 may consume it only while the roster contains exactly one unique project owner and after both mandatory edge reviews complete without unresolved blockers; automation still never fabricates dates, approvers, elapsed time, review links, or a later approval.
 
 2. **mooncakes.io namespace ownership — resolved as a publication block.**
    - Disposition: manifests use the final `moonbit-foundation/mb-*` names, while `publication.blocked=true` remains mandatory until independently verified ownership evidence exists.

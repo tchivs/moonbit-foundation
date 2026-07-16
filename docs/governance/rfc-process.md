@@ -41,7 +41,7 @@ An RFC may move from Proposed to Accepted through exactly one of these routes:
 - no blocking objection remains unresolved; and
 - the RFC ledger links the approvals and objection disposition.
 
-### 4.2 Bootstrap route
+### 4.2 Project-lead public-review route
 
 Only while the project has fewer than two maintainers, the project lead may accept an RFC when:
 
@@ -52,6 +52,25 @@ Only while the project has fewer than two maintainers, the project lead may acce
 
 The bootstrap exception expires immediately when two maintainers are available. It does not reduce the evidence or objection requirements.
 
+### 4.3 Sole project-owner bootstrap route
+
+The `sole-project-owner-bootstrap` route is available only while the canonical
+[`policy/maintainers.json`](../../policy/maintainers.json) roster contains exactly one distinct
+maintainer identity and that same identity has the `project-owner` role. It requires:
+
+- the exact decision artifact
+  [`docs/governance/decisions/0001-sole-owner-bootstrap.md`](decisions/0001-sole-owner-bootstrap.md),
+  including the anchors `owner-instruction`, `conversation-context-and-interpretation`,
+  `authorization-and-conditions`, and `edge-review-results`;
+- completed, dispositioned records for `EDGE-GOV-01-UNCLASSIFIED` and
+  `EDGE-GOV-02-UNCLASSIFIED` under `edge-review-results`; and
+- no unresolved blocking objection.
+
+The recorded owner instruction is conditional preauthorization that Plan 01-08 consumes after
+the edge reviews pass. It is not permission to synthesize a later approval. This route claims
+neither a second maintainer approval nor a seven-day public-review interval. Eligibility expires
+immediately when the canonical roster contains more than one distinct maintainer.
+
 ## 5. Required transition evidence
 
 An RFC header and transition ledger MUST record, as applicable:
@@ -60,6 +79,8 @@ An RFC header and transition ledger MUST record, as applicable:
 - links or repository references for each approval;
 - the identities and roles of approving maintainers or the project lead;
 - the public review location and evidenced interval for the bootstrap route;
+- the canonical roster identity, exact decision artifact, and mandatory edge-review results for
+  the `sole-project-owner-bootstrap` route;
 - every blocking objection and its resolution, withdrawal, or rejecting disposition;
 - the superseding RFC for a `Superseded` transition; and
 - implementation and qualification evidence for an `Implemented` transition.

@@ -16,7 +16,7 @@ Establish the accepted v0.1 foundation charter, governance and compatibility pol
 ### RFC governance and acceptance
 - **D-01:** RFC 0001 is the architectural charter and must define vision, terminology, layer boundaries, dependency direction, portability policy, v0.1 scope, and governance.
 - **D-02:** Use the lifecycle `Draft -> Proposed -> Accepted -> Implemented`, with `Rejected` and `Superseded` terminal states; every transition is recorded in the RFC header and repository history.
-- **D-03:** Acceptance requires two maintainer approvals with no unresolved blocking objection. Until the project has two maintainers, the project lead may accept after a minimum seven-day public review window; this bootstrap exception must be explicit.
+- **D-03:** Acceptance requires one complete, evidenced route with no unresolved blocking objection: (a) two distinct maintainer approvals; (b) while fewer than two maintainers exist, project-lead approval after a minimum seven-day public review window; or (c) while the canonical roster contains exactly one unique maintainer and that identity has the `project-owner` role, the sole owner may use `sole-project-owner-bootstrap` without a second maintainer or seven-day interval. The sole-owner route requires the exact repository decision artifact, both mandatory edge reviews, and expires immediately when the roster contains more than one distinct maintainer.
 - **D-04:** New modules, public dependency-direction changes, and breaking architectural changes require an accepted RFC. Implementation PRs may not silently redefine an accepted boundary.
 
 ### Licensing, namespace, and naming
