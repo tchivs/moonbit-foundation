@@ -1,0 +1,14 @@
+# MoonBit build artifacts
+_build/
+target/
+
+# Editor and operating-system files
+.DS_Store
+Thumbs.db
+*.swp
+
+# Local credentials and environment overrides
+.env
+.env.*
+!.env.example
+.moon/credentials.json
