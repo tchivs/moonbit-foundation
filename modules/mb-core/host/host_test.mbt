@@ -4,7 +4,11 @@ test "file and resource capabilities are independently injectable" {
   let resources = @host.FakeResourceResolver::new("logo", b"resource")
   inspect(files.read("asset.bin").unwrap() == b"file", content="true")
   inspect(resources.resolve("logo").unwrap() == b"resource", content="true")
-  inspect(files.read("missing").unwrap_err().code() == @error.ErrorCode::CapabilityUnavailable, content="true")
+  inspect(
+    files.read("missing").unwrap_err().code() ==
+    @error.ErrorCode::CapabilityUnavailable,
+    content="true",
+  )
 }
 
 ///|
@@ -12,14 +16,18 @@ test "diagnostics clock and cancellation compose without an aggregate host" {
   let diagnostics = @host.FakeDiagnosticSink::new()
   let clock = @host.FakeClock::new(40UL)
   let cancellation = @host.FakeCancellation::new(false)
-  diagnostics.emit(@error.Diagnostic::new(
-    @error.DiagnosticSeverity::Warning,
-    @error.CoreError::new(
-      @error.ErrorCategory::Data,
-      @error.ErrorCode::InvalidEncoding,
-      operation="header",
+  diagnostics
+  .emit(
+    @error.Diagnostic::new(
+      @error.DiagnosticSeverity::Warning,
+      @error.CoreError::new(
+        @error.ErrorCategory::Data,
+        @error.ErrorCode::InvalidEncoding,
+        operation="header",
+      ),
     ),
-  )).unwrap()
+  )
+  .unwrap()
   inspect(diagnostics.length(), content="1")
   inspect(clock.now_millis().unwrap(), content="40")
   clock.advance(2UL).unwrap()
