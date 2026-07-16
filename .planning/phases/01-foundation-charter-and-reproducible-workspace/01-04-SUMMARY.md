@@ -116,10 +116,19 @@ Each task was committed atomically:
 - **Verification:** Targeted mb-core check passed on all four targets; exact test passed 1/1 on every target; info plus the exact semantic-line classifier passed.
 - **Committed in:** No separate code change; verification sequencing adjustment only.
 
+**2. [Rule 1 - Bug] Repaired generated roadmap and stale state fields**
+
+- **Found during:** Post-summary GSD state synchronization
+- **Issue:** `roadmap.update-plan-progress` shifted the Phase 1 progress row columns, while generic state handlers retained stale last-activity, blocker, and resume text from Plan 01-03.
+- **Fix:** Restored the four-column roadmap row and synchronized the affected state fields with Plan 01-04 completion and the Plan 01-05 handoff.
+- **Files modified:** `.planning/ROADMAP.md`, `.planning/STATE.md`
+- **Verification:** Re-read both files and checked the 4/8 plan count, 50% progress, next-plan pointer, and intact progress-table schema.
+- **Committed in:** Final state-sync commit.
+
 ---
 
-**Total deviations:** 1 auto-fixed (1 blocking issue).
-**Impact on plan:** The mb-core artifact and acceptance criteria are fully proven. Only the workspace-wide deny-warn aggregate is deferred until its planned sibling scaffolds exist.
+**Total deviations:** 2 auto-fixed (1 blocking issue, 1 bug).
+**Impact on plan:** The mb-core artifact and acceptance criteria are fully proven. Only the workspace-wide deny-warn aggregate is deferred until its planned sibling scaffolds exist; planning metadata remains structurally valid.
 
 ## Issues Encountered
 
