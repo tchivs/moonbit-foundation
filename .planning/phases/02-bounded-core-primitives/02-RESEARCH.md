@@ -325,17 +325,17 @@ An empty range is represented by `start == end`; all subrange calculations repea
 
 All implementation recommendations are derived from locked context, accepted repository contracts, official MoonBit documentation, pinned installed core source/interfaces, or explicitly labeled inference. No training-only claim is used. [VERIFIED: research source audit]
 
-## Open Questions
+## Open Questions (RESOLVED)
 
-1. **What is the precise mutable lease API that compiles ergonomically across all four targets?**
+1. **Resolved: use a runtime-validated callback-scoped mutable lease, confirmed by an early four-target compile/test spike.**
    - What we know: raw mutable views cannot enforce D-06, and abstract wrapper state can enforce runtime leases. [VERIFIED: pinned core and D-06]
    - What's unclear: whether the best v0.1 surface is callback-scoped leasing, explicit acquire/release, or mutation methods directly on owned storage.
-   - Recommendation: make the first bytes-plan task a small package-local spike; choose callback-scoped leasing with runtime invalidation unless compiler ergonomics reject it, and do not publish raw mutable views.
+   - Resolution: the bytes plan begins with a package-local compile/test spike, then ships callback-scoped `MutByteLease` acquisition with shared active-state validation, deterministic invalidation, and checked disjoint splitting. If the pinned compiler rejects the exact callback shape, the spike may select an equivalent scoped mutation surface, but the runtime exclusivity/invalidation behavior remains locked and raw mutable views remain private. [INFERENCE: D-06 plus pinned MoonBit mutable-view semantics]
 
-2. **How should physical allocation failure be represented when built-in allocation is not recoverable?**
+2. **Resolved: physical built-in OOM remains unrecoverable; explicit budget and injected allocator rejection are the testable structured paths.**
    - What we know: standard constructors return containers directly, while D-07 requires allocation failure to be distinguishable. [VERIFIED: pinned interfaces and D-07]
    - What's unclear: no portable catchable OOM effect was found in the pinned public API.
-   - Recommendation: expose `AllocationFailed` for injected allocators/adapters and test doubles, guarantee pre-allocation range/budget failures, and document unrecoverable runtime OOM honestly rather than fabricating a catch path.
+   - Resolution: expose `AllocationFailed` only through an injected allocator/adapter seam and deterministic test doubles; guarantee structured checked-range and budget rejection before allocation; explicitly document that built-in runtime physical OOM is not a portable catchable result. [VERIFIED: pinned allocation signatures; D-07]
 
 ## Environment Availability
 
