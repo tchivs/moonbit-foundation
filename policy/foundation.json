@@ -1,0 +1,215 @@
+{
+  "schema_version": "1.0.0",
+  "license": "Apache-2.0",
+  "toolchain": {
+    "moon": {
+      "version": "0.1.20260713",
+      "commit": "75c7e1f",
+      "release_date": "2026-07-13"
+    },
+    "moonc": {
+      "version": "v0.10.4+2cc641edf",
+      "release_date": "2026-07-15"
+    },
+    "moonrun": {
+      "version": "0.1.20260713",
+      "commit": "75c7e1f",
+      "release_date": "2026-07-13"
+    }
+  },
+  "module_manifest_format": "moon.mod.json",
+  "required_targets": [
+    "js",
+    "wasm",
+    "wasm-gc",
+    "native"
+  ],
+  "experimental_targets": [
+    "llvm"
+  ],
+  "modules": [
+    {
+      "name": "moonbit-foundation/mb-core",
+      "path": "modules/mb-core",
+      "version": "0.1.0",
+      "stability": "candidate",
+      "preferred_target": "native",
+      "supported_targets": [
+        "js",
+        "wasm",
+        "wasm-gc",
+        "native"
+      ],
+      "direct_dependencies": [],
+      "public_packages": [
+        {
+          "name": "moonbit-foundation/mb-core",
+          "path": ".",
+          "stability": "candidate",
+          "supported_targets": [
+            "js",
+            "wasm",
+            "wasm-gc",
+            "native"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "moonbit-foundation/mb-color",
+      "path": "modules/mb-color",
+      "version": "0.1.0",
+      "stability": "candidate",
+      "preferred_target": "native",
+      "supported_targets": [
+        "js",
+        "wasm",
+        "wasm-gc",
+        "native"
+      ],
+      "direct_dependencies": [
+        "moonbit-foundation/mb-core"
+      ],
+      "public_packages": [
+        {
+          "name": "moonbit-foundation/mb-color",
+          "path": ".",
+          "stability": "candidate",
+          "supported_targets": [
+            "js",
+            "wasm",
+            "wasm-gc",
+            "native"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "moonbit-foundation/mb-image",
+      "path": "modules/mb-image",
+      "version": "0.1.0",
+      "stability": "candidate",
+      "preferred_target": "native",
+      "supported_targets": [
+        "js",
+        "wasm",
+        "wasm-gc",
+        "native"
+      ],
+      "direct_dependencies": [
+        "moonbit-foundation/mb-core",
+        "moonbit-foundation/mb-color"
+      ],
+      "public_packages": [
+        {
+          "name": "moonbit-foundation/mb-image",
+          "path": ".",
+          "stability": "candidate",
+          "supported_targets": [
+            "js",
+            "wasm",
+            "wasm-gc",
+            "native"
+          ]
+        }
+      ]
+    }
+  ],
+  "allowed_dependency_edges": [
+    {
+      "from": "moonbit-foundation/mb-color",
+      "to": "moonbit-foundation/mb-core"
+    },
+    {
+      "from": "moonbit-foundation/mb-image",
+      "to": "moonbit-foundation/mb-core"
+    },
+    {
+      "from": "moonbit-foundation/mb-image",
+      "to": "moonbit-foundation/mb-color"
+    }
+  ],
+  "stability": {
+    "allowed_labels": [
+      "experimental",
+      "candidate",
+      "stable"
+    ],
+    "default_label": "candidate",
+    "promises": {
+      "experimental": "No compatibility promise.",
+      "candidate": "Every public change requires documented migration notes.",
+      "stable": "Semantic Versioning governs the public contract."
+    },
+    "promotion_order": [
+      "experimental",
+      "candidate",
+      "stable"
+    ],
+    "stable_gate": [
+      "documented public contract",
+      "passing conformance evidence",
+      "passing release policy"
+    ],
+    "stable_breaking_change_requirements": [
+      "accepted RFC",
+      "major version change",
+      "migration guide",
+      "compatibility qualification of direct dependants"
+    ],
+    "stable_removal_requirements": {
+      "minimum_prior_deprecation_releases": 1,
+      "deprecation_release_type": "minor",
+      "security_exception_requires_documentation": true
+    },
+    "metadata_required": true,
+    "documentation_required": true
+  },
+  "rfc": {
+    "allowed_statuses": [
+      "Draft",
+      "Proposed",
+      "Accepted",
+      "Implemented",
+      "Rejected",
+      "Superseded"
+    ],
+    "current_foundation_rfc": {
+      "id": "0001",
+      "status": "Proposed",
+      "path": "docs/rfcs/0001-moonbit-native-foundation.md",
+      "acceptance_route": null,
+      "authority": null,
+      "approvers": [],
+      "project_lead": null,
+      "public_review_url": null,
+      "public_review_started_at": null,
+      "public_review_ended_at": null,
+      "blocking_objections": "not-assessed",
+      "objection_disposition": null,
+      "acceptance_evidence": []
+    },
+    "accepted_evidence_fields": [
+      "acceptance_route",
+      "authority",
+      "blocking_objections",
+      "objection_disposition",
+      "acceptance_evidence"
+    ],
+    "bootstrap_evidence_fields": [
+      "project_lead",
+      "public_review_url",
+      "public_review_started_at",
+      "public_review_ended_at"
+    ]
+  },
+  "publication": {
+    "blocked": true,
+    "intended_owner_namespace": "moonbit-foundation",
+    "owner_verified": false,
+    "block_reason": "The intended mooncakes.io owner namespace has not been verified.",
+    "umbrella_module_allowed": false,
+    "lockstep_versions_required": false,
+    "independent_versions": true
+  }
+}
