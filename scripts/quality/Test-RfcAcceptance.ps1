@@ -140,6 +140,23 @@ function Write-TestState([string]$Root, [object]$Policy, [object]$Roster) {
   Write-TestJson (Join-Path $Root 'policy/maintainers.json') $Roster
 }
 
+function New-TestCommitEvidence([string]$Root, [string]$Message) {
+  $tree = (& git -C $Root write-tree).Trim()
+  $sha = ($Message | & git -C $Root commit-tree $tree -p HEAD).Trim()
+  if ($LASTEXITCODE -ne 0 -or $sha -cnotmatch '^[0-9a-f]{40}$') { throw 'Failed to create test evidence commit.' }
+  return $sha
+}
+
+function Set-TestMaintainerCommitApproval([string]$Root, [object]$Policy, [object]$Roster, [string]$Message) {
+  $sha = New-TestCommitEvidence -Root $Root -Message $Message
+  $rfc = $Policy.rfc.current_foundation_rfc
+  $reference = "commit:$sha"
+  $rfc.approval_records[0].reference = $reference
+  $rfc.acceptance_evidence = @($reference, [string]$rfc.approval_records[1].reference)
+  $rfc.transition.evidence = @($rfc.acceptance_evidence)
+  Write-TestState $Root $Policy $Roster
+}
+
 function Invoke-AcceptanceCase([string]$Name, [object]$Policy, [object]$Roster, [bool]$ShouldPass, [scriptblock]$Arrange, [string]$ExpectedFailurePattern) {
   $root = New-TestRepository
   try {
@@ -266,6 +283,17 @@ $missingApprovalFile=Copy-TestObject $maintainer;$missingApprovalFile.rfc.curren
 Invoke-AcceptanceCase 'maintainer route rejects nonexistent approval file' $missingApprovalFile $maintainerRoster $false $null "Approval for 'alice' component 'missing.md' does not exist"
 $missingApprovalAnchor=Copy-TestObject $maintainer;$missingApprovalAnchor.rfc.current_foundation_rfc.approval_records[0].reference='reviews/rfc-0001.md#missing';$missingApprovalAnchor.rfc.current_foundation_rfc.acceptance_evidence[0]='reviews/rfc-0001.md#missing';$missingApprovalAnchor.rfc.current_foundation_rfc.transition.evidence[0]='reviews/rfc-0001.md#missing'
 Invoke-AcceptanceCase 'maintainer route rejects nonexistent approval anchor' $missingApprovalAnchor $maintainerRoster $false $null "Markdown anchor 'missing' does not identify"
+$commitApproval = Copy-TestObject $maintainer
+$approvedCommitMessage = "Approve RFC 0001`n`nApproval-Identity: alice`nApproval-Role: maintainer`nApproval-Disposition: approved"
+Invoke-AcceptanceCase 'maintainer route accepts approved commit trailers' $commitApproval $maintainerRoster $true { param($root,$policy,$caseRoster) Set-TestMaintainerCommitApproval $root $policy $caseRoster $approvedCommitMessage }
+$missingDispositionCommit = Copy-TestObject $maintainer
+Invoke-AcceptanceCase 'maintainer route rejects missing approval disposition trailer' $missingDispositionCommit $maintainerRoster $false { param($root,$policy,$caseRoster) Set-TestMaintainerCommitApproval $root $policy $caseRoster "Approve RFC 0001`n`nApproval-Identity: alice`nApproval-Role: maintainer" } 'exactly one Approval-Disposition trailer'
+$rejectedCommit = Copy-TestObject $maintainer
+Invoke-AcceptanceCase 'maintainer route rejects rejected commit disposition' $rejectedCommit $maintainerRoster $false { param($root,$policy,$caseRoster) Set-TestMaintainerCommitApproval $root $policy $caseRoster "Reject RFC 0001`n`nApproval-Identity: alice`nApproval-Role: maintainer`nApproval-Disposition: rejected" } 'invalid Approval-Disposition'
+$duplicateDispositionCommit = Copy-TestObject $maintainer
+Invoke-AcceptanceCase 'maintainer route rejects duplicate approval disposition trailer' $duplicateDispositionCommit $maintainerRoster $false { param($root,$policy,$caseRoster) Set-TestMaintainerCommitApproval $root $policy $caseRoster "Approve RFC 0001`n`nApproval-Identity: alice`nApproval-Role: maintainer`nApproval-Disposition: approved`nApproval-Disposition: rejected" } 'exactly one Approval-Disposition trailer'
+$duplicateIdentityCommit = Copy-TestObject $maintainer
+Invoke-AcceptanceCase 'maintainer route rejects duplicate approval identity trailer' $duplicateIdentityCommit $maintainerRoster $false { param($root,$policy,$caseRoster) Set-TestMaintainerCommitApproval $root $policy $caseRoster "Approve RFC 0001`n`nApproval-Identity: alice`nApproval-Identity: mallory`nApproval-Role: maintainer`nApproval-Disposition: approved" } 'exactly one Approval-Identity trailer'
 
 $lead=Copy-TestObject $accepted
 $l=$lead.rfc.current_foundation_rfc;$l.acceptance_route='project-lead-public-review';$l.authority='project-lead';$l.approvers=@();$l.approval_records=@([pscustomobject]@{identity='lead';role='project-lead';reference='https://reviews.invalid/rfc/1#lead-approval'});$l.project_lead='lead';$l.project_owner=$null;$l.public_review_url='https://reviews.invalid/rfc/1';$l.public_review_started_at='2026-07-01T00:00:00Z';$l.public_review_ended_at='2026-07-08T00:00:00Z';$l.public_review_evidence=[pscustomobject]@{location_reference='https://reviews.invalid/rfc/1';opened=[pscustomobject]@{at='2026-07-01T00:00:00Z';reference='https://reviews.invalid/rfc/1#opened'};closed=[pscustomobject]@{at='2026-07-08T00:00:00Z';reference='https://reviews.invalid/rfc/1#closed'}};$l.decision_evidence_path=$null;$l.decision_evidence_anchors=@();$l.edge_reviews=@();$l.acceptance_evidence=@('https://reviews.invalid/rfc/1','https://reviews.invalid/rfc/1#opened','https://reviews.invalid/rfc/1#closed','https://reviews.invalid/rfc/1#lead-approval');$l.transition.evidence=@($l.acceptance_evidence)

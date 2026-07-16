@@ -206,7 +206,15 @@ function Assert-ApprovalReference {
   & git -C $RepositoryRoot cat-file -e "$sha`^{commit}" 2>$null
   Assert-Condition ($LASTEXITCODE -eq 0) "Approval commit '$sha' does not exist in the repository."
   $message = (& git -C $RepositoryRoot show -s --format=%B $sha 2>$null) -join "`n"
-  Assert-Condition ($message -cmatch "(?m)^Approval-Identity:\s*$([regex]::Escape($Identity))\s*$" -and $message -cmatch "(?m)^Approval-Role:\s*$([regex]::Escape($Role))\s*$") "Approval commit '$sha' is not bound to identity '$Identity' and role '$Role'."
+  foreach ($trailer in @(
+    [pscustomobject]@{ name='Approval-Identity'; expected=$Identity },
+    [pscustomobject]@{ name='Approval-Role'; expected=$Role },
+    [pscustomobject]@{ name='Approval-Disposition'; expected='approved' }
+  )) {
+    $matches = @([regex]::Matches($message, "(?m)^$([regex]::Escape($trailer.name)):[\t ]*(?<value>[^\r\n]*)[\t ]*\r?$"))
+    Assert-Condition ($matches.Count -eq 1) "Approval commit '$sha' must contain exactly one $($trailer.name) trailer."
+    Assert-Condition ($matches[0].Groups['value'].Value.Trim() -ceq [string]$trailer.expected) "Approval commit '$sha' has invalid $($trailer.name) disposition or binding."
+  }
 }
 
 function Resolve-RepositoryLeafFile {
