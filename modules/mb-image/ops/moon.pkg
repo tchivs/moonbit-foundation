@@ -4,6 +4,7 @@ import {
   "moonbit-foundation/mb-core/budget",
   "moonbit-foundation/mb-core/bytes",
   "moonbit-foundation/mb-color/model" @color,
+  "moonbit-foundation/mb-color/alpha",
   "moonbit-foundation/mb-color/profile",
   "moonbit-foundation/mb-image/metadata",
   "moonbit-foundation/mb-image/model",

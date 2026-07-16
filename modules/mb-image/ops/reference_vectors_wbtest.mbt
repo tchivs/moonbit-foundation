@@ -122,11 +122,11 @@ fn generated_resize_axis_vectors() -> Array[(UInt64, UInt64, Array[UInt64])] {
 }
 
 ///|
-fn generated_conversion_vectors() -> Array[(Array[Byte], Array[Byte], Bool)] {
+fn generated_conversion_vectors() -> Array[(Array[UInt64], Array[UInt64], Bool)] {
   [
-    ([b''\x01'', b''\x02'', b''\x03''], [b''\x01'', b''\x02'', b''\x03'', b''\xff''], false),
-    ([b''\x04'', b''\x05'', b''\x06'', b''\xff''], [b''\x04'', b''\x05'', b''\x06''], false),
-    ([b''\x07'', b''\x08'', b''\x09'', b''\x0a''], [b''\x07'', b''\x08'', b''\x09''], true),
+    ([1UL, 2UL, 3UL], [1UL, 2UL, 3UL, 255UL], false),
+    ([4UL, 5UL, 6UL, 255UL], [4UL, 5UL, 6UL], false),
+    ([7UL, 8UL, 9UL, 10UL], [7UL, 8UL, 9UL], true),
   ]
 }
 

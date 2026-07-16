@@ -95,13 +95,9 @@ fn resize_convert_image(
 
 ///|
 test "nearest resize uses integer floor and fresh tight output" {
-  let source = resize_convert_image(
-    2UL,
-    1UL,
-    3UL,
-    None,
-    [b'\x01', b'\x02', b'\x03', b'\x04', b'\x05', b'\x06'],
-  )
+  let source = resize_convert_image(2UL, 1UL, 3UL, None, [
+    b'\x01', b'\x02', b'\x03', b'\x04', b'\x05', b'\x06',
+  ])
   let result = @ops.resize_nearest(
     source.view(),
     5UL,
@@ -130,18 +126,17 @@ test "nearest resize uses integer floor and fresh tight output" {
 
 ///|
 test "RGB and straight RGBA conversion contracts are explicit" {
-  let rgb = resize_convert_image(
-    1UL,
-    1UL,
-    3UL,
-    None,
-    [b'\x01', b'\x02', b'\x03'],
-  )
+  let rgb = resize_convert_image(1UL, 1UL, 3UL, None, [
+    b'\x01', b'\x02', b'\x03',
+  ])
   let rgba = @ops.rgb8_to_straight_rgba8(
     rgb.view(),
     resize_convert_limits(4UL, 4UL),
   ).unwrap()
-  inspect(rgba.image().view().get_byte(0UL, 0UL, 3UL).unwrap(), content="b'\\xff'")
+  inspect(
+    rgba.image().view().get_byte(0UL, 0UL, 3UL).unwrap(),
+    content="b'\\xFF'",
+  )
   inspect(
     rgba.image().metadata().alpha() == Some(@color.AlphaMode::Straight),
     content="true",
@@ -159,7 +154,10 @@ test "RGB and straight RGBA conversion contracts are explicit" {
     opaque.view(),
     resize_convert_limits(3UL, 3UL),
   ).unwrap()
-  inspect(strict.image().view().get_byte(0UL, 0UL, 2UL).unwrap(), content="b'\\x06'")
+  inspect(
+    strict.image().view().get_byte(0UL, 0UL, 2UL).unwrap(),
+    content="b'\\x06'",
+  )
   inspect(strict.disposition().is_lossy(), content="false")
 
   let translucent = resize_convert_image(
@@ -171,13 +169,19 @@ test "RGB and straight RGBA conversion contracts are explicit" {
   )
   let budget = resize_convert_limits(3UL, 3UL)
   let before = budget.remaining()
-  inspect(@ops.straight_rgba8_to_rgb8(translucent.view(), budget) is Err(_), content="true")
+  inspect(
+    @ops.straight_rgba8_to_rgb8(translucent.view(), budget) is Err(_),
+    content="true",
+  )
   inspect(budget.remaining().bytes() == before.bytes(), content="true")
   let lossy = @ops.drop_straight_rgba8_alpha(
     translucent.view(),
     resize_convert_limits(3UL, 3UL),
   ).unwrap()
-  inspect(lossy.image().view().get_byte(0UL, 0UL, 2UL).unwrap(), content="b'\\x09'")
+  inspect(
+    lossy.image().view().get_byte(0UL, 0UL, 2UL).unwrap(),
+    content="b'\\x09'",
+  )
   inspect(lossy.disposition().discarded(0).unwrap().value(), content="alpha")
   inspect(lossy.disposition().is_lossy(), content="true")
 }
@@ -195,13 +199,28 @@ test "straight and premultiplied conversion delegates encoded alpha semantics" {
     straight.view(),
     resize_convert_limits(8UL, 8UL),
   ).unwrap()
-  inspect(premultiplied.image().view().get_byte(0UL, 0UL, 0UL).unwrap(), content="b'\\x80'")
-  inspect(premultiplied.image().view().get_byte(0UL, 0UL, 1UL).unwrap(), content="b'\\x40'")
-  inspect(premultiplied.image().view().get_byte(1UL, 0UL, 0UL).unwrap(), content="b'\\x00'")
+  inspect(
+    premultiplied.image().view().get_byte(0UL, 0UL, 0UL).unwrap(),
+    content="b'\\x80'",
+  )
+  inspect(
+    premultiplied.image().view().get_byte(0UL, 0UL, 1UL).unwrap(),
+    content="b'\\x40'",
+  )
+  inspect(
+    premultiplied.image().view().get_byte(1UL, 0UL, 0UL).unwrap(),
+    content="b'\\x00'",
+  )
   let restored = @ops.premultiplied_rgba8_to_straight(
     premultiplied.image().view(),
     resize_convert_limits(8UL, 8UL),
   ).unwrap()
-  inspect(restored.image().view().get_byte(1UL, 0UL, 0UL).unwrap(), content="b'\\x00'")
-  inspect(restored.image().metadata().profile().is_builtin_srgb(), content="true")
+  inspect(
+    restored.image().view().get_byte(1UL, 0UL, 0UL).unwrap(),
+    content="b'\\x00'",
+  )
+  inspect(
+    restored.image().metadata().profile().is_builtin_srgb(),
+    content="true",
+  )
 }
