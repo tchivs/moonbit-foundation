@@ -621,6 +621,13 @@ function Get-MarkdownAnchorSet {
   return $anchors
 }
 
+function Get-PhaseSourceAuditMarkerIds {
+  param([string]$PlanText, [string]$Plan)
+  $marker = [regex]::Match($PlanText, '(?m)^<!-- phase-source-audit: (?<ids>[^\r\n]+) -->[ \t]*\r?$')
+  Assert-Condition $marker.Success "Phase 01 plan '$Plan' lacks its reciprocal source-audit marker."
+  return @($marker.Groups['ids'].Value -split ',' | ForEach-Object { $_.Trim() })
+}
+
 function Assert-PhaseSourceAudit {
   [CmdletBinding()]
   param(
@@ -688,9 +695,7 @@ function Assert-PhaseSourceAudit {
   foreach ($plan in $allowedPlans) {
     $planFile = Resolve-RepositoryLeafFile -RepositoryRoot $RepositoryRoot -RelativePath ".planning/phases/01-foundation-charter-and-reproducible-workspace/$plan-PLAN.md" -Label "Phase 01 plan '$plan'"
     $planText = Get-Content -LiteralPath $planFile -Raw
-    $marker = [regex]::Match($planText, '(?m)^<!-- phase-source-audit: (?<ids>[^\r\n]+) -->$')
-    Assert-Condition $marker.Success "Phase 01 plan '$plan' lacks its reciprocal source-audit marker."
-    $markerIds = @($marker.Groups['ids'].Value -split ',' | ForEach-Object { $_.Trim() })
+    $markerIds = @(Get-PhaseSourceAuditMarkerIds -PlanText $planText -Plan $plan)
     Assert-ExactSet "Phase 01 plan '$plan' reciprocal source-audit IDs" $markerIds @($planCoverage[$plan])
   }
 

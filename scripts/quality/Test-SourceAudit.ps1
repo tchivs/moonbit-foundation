@@ -33,6 +33,12 @@ function Invoke-AuditCase([string]$Name, [scriptblock]$Mutate, [string]$Expected
   }
 }
 
+$lfIds = @(Get-PhaseSourceAuditMarkerIds -PlanText "header`n<!-- phase-source-audit: A,B -->`nfooter`n" -Plan 'lf-fixture')
+$crlfIds = @(Get-PhaseSourceAuditMarkerIds -PlanText "header`r`n<!-- phase-source-audit: A,B -->  `r`nfooter`r`n" -Plan 'crlf-fixture')
+Assert-ExactSet 'LF source-audit marker fixture' $lfIds @('A','B')
+Assert-ExactSet 'CRLF source-audit marker fixture' $crlfIds @('A','B')
+Write-Host 'PASS: LF and CRLF source-audit markers'
+
 Invoke-AuditCase 'canonical source audit' $null $null
 Invoke-AuditCase 'missing source anchor' { param($a) $a.goals[0].source='.planning/ROADMAP.md#missing-anchor' } 'anchor.*does not exist'
 Invoke-AuditCase 'unknown covering plan' { param($a) $a.goals[0].covering_plan='99-99' } 'unknown Phase 01 plan'
