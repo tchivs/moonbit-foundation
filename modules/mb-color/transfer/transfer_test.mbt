@@ -89,22 +89,14 @@ test "transfer round trips away from rounded branch discontinuities" {
   for value in [0.0, 0.001, 0.02, 0.1, 0.25, 0.5, 0.75, 1.0] {
     let roundtrip = @transfer.encode_srgb(@transfer.decode_srgb(encoded(value)))
     inspect(
-      close(
-        roundtrip.value(),
-        value,
-        @transfer.roundtrip_absolute_tolerance(),
-      ),
+      close(roundtrip.value(), value, @transfer.roundtrip_absolute_tolerance()),
       content="true",
     )
   }
   for value in [0.0, 0.001, 0.01, 0.1, 0.25, 0.5, 0.75, 1.0] {
     let roundtrip = @transfer.decode_srgb(@transfer.encode_srgb(linear(value)))
     inspect(
-      close(
-        roundtrip.value(),
-        value,
-        @transfer.roundtrip_absolute_tolerance(),
-      ),
+      close(roundtrip.value(), value, @transfer.roundtrip_absolute_tolerance()),
       content="true",
     )
   }
