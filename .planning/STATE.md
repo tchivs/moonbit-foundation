@@ -5,15 +5,15 @@ milestone_name: milestone
 current_phase: 03
 current_phase_name: Reference Color Semantics
 status: executing
-stopped_at: Completed 03-04-PLAN.md
-last_updated: "2026-07-16T18:30:16.088Z"
+stopped_at: Completed 03-05-PLAN.md
+last_updated: "2026-07-16T18:46:48.641Z"
 last_activity: 2026-07-17
 last_activity_desc: Phase 03 execution started
 progress:
   total_phases: 3
   completed_phases: 2
   total_plans: 23
-  completed_plans: 20
+  completed_plans: 21
 ---
 
 # Project State
@@ -29,11 +29,11 @@ See `.planning/PROJECT.md` (updated 2026-07-16).
 ## Current Position
 
 Phase: 03 (Reference Color Semantics) — EXECUTING
-Plan: 5 of 7
+Plan: 6 of 7
 Status: Ready to execute
 Last activity: 2026-07-17 — Phase 03 execution started
 
-Progress: [█████████░] 87% (1/5 phases; 8/8 currently planned plans complete)
+Progress: [█████████░] 91% (1/5 phases; 8/8 currently planned plans complete)
 
 ## Performance Metrics
 
@@ -65,6 +65,7 @@ Progress: [█████████░] 87% (1/5 phases; 8/8 currently planne
 | Phase 03 P02 | 18min | 2 tasks | 4 files |
 | Phase 03 P03 | 10min | 2 tasks | 7 files |
 | Phase 03 P04 | 6min | 2 tasks | 7 files |
+| Phase 03 P05 | 11min | 2 tasks | 7 files |
 
 ## Accumulated Context
 
@@ -131,6 +132,9 @@ Progress: [█████████░] 87% (1/5 phases; 8/8 currently planne
 - [Phase 03]: Keep floating halfway classification private while exposing only typed encoded-sRGB and alpha conversions plus the exact UInt64 ratio helper required by alpha.
 - [Phase 03]: Reject zero denominators and checked twice-remainder overflow before an exact ratio decision; never delegate rounding policy to Double::round or a narrowing cast.
 - [Phase 03]: Keep quantize independent of transfer, with exact DAG edges only to model, mb-core/error, and mb-core/checked.
+- [Phase 03]: Keep normalized encoded and linear RGB behind one private tagged representation while exposing exactly four opaque public alpha-state types.
+- [Phase 03]: Treat zero alpha as canonical; exhaustive evidence establishes a 127-code maximum for nonzero straight round trips and exact premultiplied round trips.
+- [Phase 03]: Use checked UInt64 multiplication and the shared exact ties-even ratio helper for every encoded alpha conversion.
 
 ### Pending Decisions
 
@@ -151,6 +155,6 @@ None. Phase 01 is independently verified and complete; Phase 02 is ready for con
 
 **Resume file:** None
 
-Last session: 2026-07-16T18:30:16.068Z
-Stopped at: Completed 03-04-PLAN.md
+Last session: 2026-07-16T18:46:48.621Z
+Stopped at: Completed 03-05-PLAN.md
 Resume with: Discuss Phase 02, then plan and execute it through the active auto chain.
