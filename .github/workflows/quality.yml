@@ -1,0 +1,44 @@
+name: Quality
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  required:
+    name: Required quality contract
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check out repository without persisted credentials
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - name: Set up exact MoonBit toolchain
+        uses: hustcer/setup-moonbit@bdc8c076af1f4c5012a6ac3451a2009ec75bf921
+        with:
+          version: 0.1.20260713+75c7e1f
+      - name: Run required quality lane
+        shell: pwsh
+        run: ./scripts/quality.ps1 -Lane Required
+
+  llvm-experimental:
+    name: LLVM experimental (non-blocking)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    continue-on-error: true
+    steps:
+      - name: Check out repository without persisted credentials
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - name: Set up exact MoonBit toolchain
+        uses: hustcer/setup-moonbit@bdc8c076af1f4c5012a6ac3451a2009ec75bf921
+        with:
+          version: 0.1.20260713+75c7e1f
+      - name: Run isolated LLVM experiment
+        shell: pwsh
+        run: ./scripts/quality.ps1 -Lane LlvmExperimental
