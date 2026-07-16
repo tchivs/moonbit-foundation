@@ -64,7 +64,7 @@ An RFC header and transition ledger MUST record, as applicable:
 - the superseding RFC for a `Superseded` transition; and
 - implementation and qualification evidence for an `Implemented` transition.
 
-An RFC MUST NOT record acceptance, approvals, review duration, or absence of blocking objections without authentic evidence. Empty, placeholder, inferred, or fabricated evidence fails closed: the RFC remains Proposed.
+**PROH-GOV-02-EVIDENCE:** An RFC MUST NOT record acceptance, approvals, review duration, or absence of blocking objections without authentic evidence. Empty, placeholder, inferred, or fabricated evidence fails closed: the RFC remains Proposed.
 
 ## 6. Changes that require an accepted RFC
 
@@ -83,6 +83,15 @@ Accepted becomes Implemented only when the RFC's stated implementation and quali
 
 Rejected and Superseded are terminal for that RFC number. Further work requires a new RFC that links the terminal record rather than rewriting its history.
 
-## 8. Discoverability and consistency
+## 8. Required manual edge review
+
+Before RFC 0001 can be accepted, reviewers must explicitly complete and record these still-unclassified checks:
+
+- **EDGE-GOV-01-UNCLASSIFIED:** Manually review the accepted charter for an omitted architectural boundary case.
+- **EDGE-GOV-02-UNCLASSIFIED:** Manually review lifecycle and acceptance authority for an omitted transition or authority case.
+
+These checks are open review obligations, not evidence that review has occurred. Any discovered case must be resolved in the RFC or process before acceptance.
+
+## 9. Discoverability and consistency
 
 The [RFC index](../rfcs/README.md) lists every RFC and its current status. The index, RFC header, and transition ledger must agree. On disagreement or missing evidence, tooling and reviewers must use the less advanced truthful state and block the disputed transition until the records are corrected.
