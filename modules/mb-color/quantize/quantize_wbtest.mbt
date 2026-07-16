@@ -9,13 +9,16 @@ test "floating ties use nearest even with explicit neighbors" {
   ]
   for case in cases {
     inspect(
-      quantize_encoded_srgb(
-        @model.EncodedSrgbComponent::new(case.0).unwrap(),
-      ).value().to_uint64() == case.1,
+      quantize_encoded_srgb(@model.EncodedSrgbComponent::new(case.0).unwrap())
+      .value()
+      .to_uint64() ==
+      case.1,
       content="true",
     )
     inspect(
-      quantize_alpha(@model.NormalizedAlpha::new(case.0).unwrap()).value().to_uint64() ==
+      quantize_alpha(@model.NormalizedAlpha::new(case.0).unwrap())
+      .value()
+      .to_uint64() ==
       case.1,
       content="true",
     )
@@ -26,9 +29,10 @@ test "floating ties use nearest even with explicit neighbors" {
 test "generated floating and ratio vectors follow ties to even" {
   for vector in generated_quantize_vectors() {
     inspect(
-      quantize_encoded_srgb(
-        @model.EncodedSrgbComponent::new(vector.0).unwrap(),
-      ).value().to_uint64() == vector.1.to_uint64(),
+      quantize_encoded_srgb(@model.EncodedSrgbComponent::new(vector.0).unwrap())
+      .value()
+      .to_uint64() ==
+      vector.1.to_uint64(),
       content="true",
     )
   }

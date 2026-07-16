@@ -24,7 +24,10 @@ test "quantize keeps encoded sRGB and alpha domains distinct" {
   let coverage = @quantize.quantize_alpha(alpha(0.5))
   require_encoded8(color)
   require_alpha8(coverage)
-  inspect(color.transfer() == @model.TransferIdentity::EncodedSrgb, content="true")
+  inspect(
+    color.transfer() == @model.TransferIdentity::EncodedSrgb,
+    content="true",
+  )
   inspect(
     color.representation() == @model.ComponentRepresentation::Encoded8,
     content="true",
@@ -66,13 +69,11 @@ test "dequantize and requantize preserve all encoded codes" {
       content="true",
     )
     inspect(
-      (normalized_color.value() - code.to_double() / 255.0).abs() <=
-      0.5 / 255.0,
+      (normalized_color.value() - code.to_double() / 255.0).abs() <= 0.5 / 255.0,
       content="true",
     )
     inspect(
-      (normalized_alpha.value() - code.to_double() / 255.0).abs() <=
-      0.5 / 255.0,
+      (normalized_alpha.value() - code.to_double() / 255.0).abs() <= 0.5 / 255.0,
       content="true",
     )
   }
@@ -83,18 +84,23 @@ test "public exact ratio helper rejects invalid arithmetic" {
   let zero = @quantize.round_ratio_ties_even(1UL, 0UL)
   match zero {
     Err(error) => {
-      inspect(error.category() == @error.ErrorCategory::InvalidInput, content="true")
+      inspect(
+        error.category() == @error.ErrorCategory::InvalidInput,
+        content="true",
+      )
       inspect(error.code() == @error.ErrorCode::InvalidRange, content="true")
     }
     Ok(_) => fail("zero denominator must be rejected")
   }
   let overflow = @quantize.round_ratio_ties_even(
-    18446744073709551614UL,
-    18446744073709551615UL,
+    18446744073709551614UL, 18446744073709551615UL,
   )
   match overflow {
     Err(error) =>
-      inspect(error.code() == @error.ErrorCode::ArithmeticOverflow, content="true")
+      inspect(
+        error.code() == @error.ErrorCode::ArithmeticOverflow,
+        content="true",
+      )
     Ok(_) => fail("twice-remainder overflow must be rejected")
   }
 }

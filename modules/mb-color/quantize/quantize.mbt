@@ -88,7 +88,5 @@ pub fn quantize_alpha(alpha : @model.NormalizedAlpha) -> @model.EncodedAlpha8 {
 ///|
 /// Recover normalized alpha coverage from its distinct encoded byte.
 pub fn dequantize_alpha(alpha : @model.EncodedAlpha8) -> @model.NormalizedAlpha {
-  @model.NormalizedAlpha::new(
-    alpha.value().to_uint64().to_double() / 255.0,
-  ).unwrap()
+  @model.NormalizedAlpha::new(alpha.value().to_uint64().to_double() / 255.0).unwrap()
 }
