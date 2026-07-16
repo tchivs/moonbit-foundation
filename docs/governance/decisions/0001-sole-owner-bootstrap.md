@@ -33,6 +33,22 @@ canonical roster contains more than one distinct maintainer.
 
 ## Edge review results
 
-- `EDGE-GOV-01-UNCLASSIFIED`: Pending Plan 01-08 review and disposition.
-- `EDGE-GOV-02-UNCLASSIFIED`: Pending Plan 01-08 review and disposition.
-- Blocking objections: Not yet assessed through the mandatory edge reviews.
+- `EDGE-GOV-01-UNCLASSIFIED`: **Completed. Disposition: no-omission-found.** Scope reviewed:
+  the architecture diagram and arrow meaning; the exact three allowed v0.1 dependency edges;
+  owned and excluded responsibilities for `mb-core`, `mb-color`, and `mb-image`; deferred-layer
+  ownership; the portable-core/native-leaf adapter seam; the v0.1 inclusion and exclusion boundary;
+  and the accepted-RFC gate for new modules, public dependency-direction changes, and breaking
+  public boundaries. Result: the charter covers each reviewed boundary explicitly, forbids reverse,
+  cyclic, self, and undeclared public edges, and leaves the five later-phase design topics deferred
+  rather than silently deciding them. No material architectural omission or blocking objection was
+  found.
+- `EDGE-GOV-02-UNCLASSIFIED`: **Completed. Disposition: no-omission-found.** Scope reviewed:
+  every state and permitted transition in the lifecycle table; the terminal behavior of `Rejected`
+  and `Superseded`; transition-ledger and replacement-RFC evidence; all three mutually exclusive
+  acceptance routes; the roster conditions and expiry of both single-maintainer routes; exact
+  route-specific evidence; objection resolution, withdrawal, or rejecting disposition; and
+  RFC-header/index/policy synchronization. Result: each transition and authority case is explicit,
+  the sole-owner route is limited to the exact RFC 0001 decision artifact and current one-owner
+  roster, and missing or conflicting evidence fails closed to the less advanced truthful state. No
+  omitted transition, omitted authority case, or blocking objection was found.
+- Unresolved blocking objections: **none**.

@@ -210,13 +210,13 @@
       "edge_reviews": [
         {
           "id": "EDGE-GOV-01-UNCLASSIFIED",
-          "status": "pending",
-          "disposition": null
+          "status": "completed",
+          "disposition": "no-omission-found"
         },
         {
           "id": "EDGE-GOV-02-UNCLASSIFIED",
-          "status": "pending",
-          "disposition": null
+          "status": "completed",
+          "disposition": "no-omission-found"
         }
       ],
       "blocking_objections": "not-assessed",
