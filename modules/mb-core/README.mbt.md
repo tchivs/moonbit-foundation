@@ -1,32 +1,237 @@
+---
+moonbit:
+  import:
+    - path: moonbit-foundation/mb-core/error
+      alias: error
+    - path: moonbit-foundation/mb-core/checked
+      alias: checked
+    - path: moonbit-foundation/mb-core/budget
+      alias: budget
+    - path: moonbit-foundation/mb-core/bytes
+      alias: bytes
+    - path: moonbit-foundation/mb-core/io
+      alias: io
+    - path: moonbit-foundation/mb-core/host
+      alias: host
+---
+
 # mb-core
 
 Portable safety and capability foundations for MoonBit Native Foundation.
 
-`mb-core` is an independently versioned MoonBit module. Its Phase 1 package is a
-buildable private scaffold only; public domain contracts begin in Phase 2.
+`mb-core` is an independently versioned candidate module. Its public package
+spine is deliberately acyclic and ordered as `error -> checked -> budget ->
+bytes -> io -> host`. No API is stable yet; candidate changes require migration
+notes.
 
-## Status
+Public publication remains blocked until ownership of the intended
+`moonbit-foundation` mooncakes.io namespace is verified. The module already uses
+its final intended name so consumers do not inherit a later rename.
 
-Candidate. No API is stable yet, and the current package intentionally exposes
-no public domain API.
+## Checked failures and deterministic diagnostics
 
-Public publication is blocked until ownership of the intended
-`moonbit-foundation` mooncakes.io namespace is verified. The local manifest uses
-the final intended name `moonbit-foundation/mb-core` so consumers do not inherit
-a later rename.
+Caller-controlled arithmetic, ranges, offsets, dimensions, and backend
+narrowing return structured failures before access, allocation, or work. Error
+category/code pairs are machine-readable; canonical text has fixed ordering and
+escaping.
 
-## Initial scope
+```mbt check
+///|
+test "checked underflow and offset failure are structured" {
+  let underflow = @checked.checked_sub(8UL, 9UL).unwrap_err()
+  inspect(
+    underflow.code() == @error.ErrorCode::ArithmeticUnderflow,
+    content="true",
+  )
+  let offset = @checked.CheckedOffset::new(0UL).retreat(1UL).unwrap_err()
+  inspect(offset.code() == @error.ErrorCode::InvalidOffset, content="true")
+}
 
-`mb-core` owns shared byte containers, checked arithmetic, stream and seek
-abstractions, bounded readers and writers, structured errors, diagnostics, and
-explicit host-capability boundaries.
+///|
+test "diagnostics render deterministically in encounter order" {
+  let diagnostics = @error.Diagnostics::new()
+  diagnostics.push(
+    @error.Diagnostic::new(
+      @error.DiagnosticSeverity::Warning,
+      @error.CoreError::new(
+        @error.ErrorCategory::Data,
+        @error.ErrorCode::InvalidEncoding,
+        operation="header",
+      ),
+    ),
+  )
+  inspect(diagnostics.length(), content="1")
+  inspect(
+    diagnostics.render(),
+    content="warning|category=data|code=invalid-encoding|operation=\"header\"",
+  )
+}
+```
 
-It does not own color, image, SVG, font, PDF, GUI, codec policy, or application
-concepts. This Phase 1 scaffold introduces none of those future contracts.
+## Budgets, owned bytes, views, and mutable leases
 
-## Supported targets
+Resource charges are preflighted atomically across shared hierarchical limits.
+Owned storage retains validated zero-copy immutable views. Mutable access is a
+callback-scoped runtime lease; checked splitting consumes the parent and creates
+only disjoint child leases.
 
-The module manifest and root package both declare the same support set:
+```mbt check
+///|
+fn example_limits(bytes : UInt64) -> @budget.ResourceLimits {
+  @budget.ResourceLimits::new(
+    bytes~,
+    allocations=4UL,
+    allocation_size=bytes,
+    width=16UL,
+    height=16UL,
+    pixels=256UL,
+    depth=4UL,
+    work=32UL,
+  )
+}
+
+///|
+struct ReadmeRejectingAllocator {}
+
+///|
+impl @bytes.Allocator for ReadmeRejectingAllocator with fn approve(
+  _self,
+  requested,
+) {
+  Err(
+    @error.CoreError::new(
+      @error.ErrorCategory::Resource,
+      @error.ErrorCode::AllocationFailed,
+      operation="readme_allocator",
+      requested~,
+    ),
+  )
+}
+
+///|
+test "budget thresholds reject before allocation" {
+  let budget = @budget.Budget::new(example_limits(4UL))
+  let owned = @bytes.OwnedBytes::new(4UL, budget).unwrap()
+  inspect(owned.length(), content="4")
+  inspect(
+    @bytes.OwnedBytes::new(1UL, budget).unwrap_err().code() ==
+    @error.ErrorCode::BudgetExceeded,
+    content="true",
+  )
+}
+
+///|
+test "views and split mutable leases stay inside validated windows" {
+  let budget = @budget.Budget::new(example_limits(4UL))
+  let owned = @bytes.OwnedBytes::from_bytes(b"abcd", budget).unwrap()
+  inspect(owned.view().subview(1UL, 2UL).unwrap().length(), content="2")
+  owned
+  .with_mut(0UL, 4UL, fn(parent) {
+    let (left, right) = parent.split_mut(2UL).unwrap()
+    left.set(0UL, b'A').unwrap()
+    right.set(0UL, b'C').unwrap()
+    inspect(parent.get(0UL) is Err(_), content="true")
+    Ok(())
+  })
+  .unwrap()
+  inspect(owned.view().get(0UL).unwrap() == b'A', content="true")
+  inspect(owned.view().get(2UL).unwrap() == b'C', content="true")
+}
+
+///|
+test "injected allocator rejection is recoverable and does not charge" {
+  let budget = @budget.Budget::new(example_limits(4UL))
+  let allocator = ReadmeRejectingAllocator::{  } as &@bytes.Allocator
+  let error =
+    @bytes.OwnedBytes::new_with_allocator(4UL, budget, allocator).unwrap_err()
+  inspect(error.code() == @error.ErrorCode::AllocationFailed, content="true")
+  inspect(budget.remaining().bytes(), content="4")
+}
+```
+
+Budget rejection and injected allocator rejection are portable structured
+results. Built-in physical runtime OOM is unrecoverable on the pinned portable
+toolchain and is not claimed as a catchable `CoreError`.
+
+## Partial-to-exact bounded I/O and separate seeking
+
+Readers and writers expose explicit progress, end-of-stream, and failure states.
+Exact helpers accumulate partial progress, preserve completed counts, and reject
+no-progress loops. Seeking is an independent capability implemented only by
+types that support it; bounded wrappers remain non-seeking.
+
+```mbt check
+///|
+struct ReadmePartialReader {
+  mut step : Int
+}
+
+///|
+impl @io.Reader for ReadmePartialReader with fn read(self, destination) {
+  if self.step < 2 {
+    ignore(destination.set(0UL, (self.step + 1).to_byte()))
+    self.step = self.step + 1
+    @io.ReadOutcome::Progress(1UL)
+  } else {
+    @io.ReadOutcome::EndOfStream
+  }
+}
+
+///|
+test "exact read accumulates partial progress" {
+  let budget = @budget.Budget::new(example_limits(2UL))
+  let destination = @bytes.OwnedBytes::new(2UL, budget).unwrap()
+  let reader = ReadmePartialReader::{ step: 0 }
+  let completed =
+    destination
+    .with_mut(0UL, 2UL, fn(lease) {
+      @io.read_exact(reader as &@io.Reader, lease)
+    })
+    .unwrap()
+  inspect(completed, content="2")
+}
+
+///|
+test "bounded I/O does not imply seeking" {
+  let source_budget = @budget.Budget::new(example_limits(4UL))
+  let source = @bytes.OwnedBytes::from_bytes(b"abcd", source_budget).unwrap()
+  let memory = @io.MemoryReader::new(source.view())
+  let bounded = @io.BoundedReader::new(memory as &@io.Reader, 2UL)
+  let destination_budget = @budget.Budget::new(example_limits(2UL))
+  let destination = @bytes.OwnedBytes::new(2UL, destination_budget).unwrap()
+  destination
+  .with_mut(0UL, 2UL, fn(lease) {
+    @io.read_exact(bounded as &@io.Reader, lease)
+  })
+  .unwrap()
+  inspect(memory.seek(@io.SeekOrigin::Start, 0L).unwrap(), content="0")
+}
+```
+
+## Explicit host capabilities
+
+Portable algorithms receive only the individual host capabilities they need.
+There is no ambient fallback, native adapter, global environment, or mandatory
+all-capabilities singleton in the portable package graph.
+
+```mbt check
+///|
+test "host fakes are individually injected" {
+  let files = @host.FakeFileCapability::new("asset.bin", b"file")
+  let resources = @host.FakeResourceResolver::new("logo", b"resource")
+  let clock = @host.FakeClock::new(40UL)
+  let cancellation = @host.FakeCancellation::new(false)
+  inspect(files.read("asset.bin").unwrap() == b"file", content="true")
+  inspect(resources.resolve("logo").unwrap() == b"resource", content="true")
+  clock.advance(2UL).unwrap()
+  inspect(clock.now_millis().unwrap(), content="42")
+  inspect(cancellation.is_cancelled(), content="false")
+}
+```
+
+## Supported targets and boundaries
+
+Every public package declares the same required support set:
 
 | Target | Status |
 | --- | --- |
@@ -36,20 +241,10 @@ The module manifest and root package both declare the same support set:
 | `native` | Required and preferred |
 
 Native-only host adapters, when introduced, remain isolated leaf packages and
-do not narrow this portable root package.
+cannot narrow portable packages. `mb-core` does not own color, image, SVG, font,
+PDF, GUI, codec policy, filesystem policy, or application concepts. Those
+layers compose these contracts without reversing the dependency spine.
 
-## Design commitments
-
-- Implement core algorithms and shared data models in MoonBit.
-- Keep the public dependency graph acyclic and directed toward `mb-core`.
-- Require deterministic checks and tests across every declared target.
-- Keep native FFI narrow, documented, replaceable, and outside portable packages.
-- Mark public APIs experimental, candidate, or stable with their corresponding
-  compatibility promise.
-- Release this module on its own version and changelog lifecycle rather than in
-  lockstep with `mb-color` or `mb-image`.
-
-## Next step
-
-Phase 2 replaces the private scaffold with bounded core primitives. Until then,
-this checked document intentionally contains no fabricated public example API.
+Core algorithms and shared data models remain MoonBit-native. The module keeps
+its own version and changelog lifecycle rather than releasing in lockstep with
+`mb-color` or `mb-image`.
