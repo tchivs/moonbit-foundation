@@ -122,7 +122,7 @@ Plans:
 |------:|------|-------------:|--------|
 | 1 | 8/8 | Complete    | 2026-07-16 |
 | 2 | 8/8 | Complete    | 2026-07-17 |
-| 3 | 7/8 | In Progress|  |
+| 3 | 8/8 | In Progress|  |
 | 4 | Image Model, Views, and Operations | 7 | Not started |
 | 5 | Reference Codec and Release Qualification | 7 | Not started |
 

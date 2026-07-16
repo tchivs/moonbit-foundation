@@ -4,16 +4,16 @@ milestone: v0.1
 milestone_name: milestone
 current_phase: 03
 current_phase_name: Reference Color Semantics
-status: executing
-stopped_at: Completed 03-07-PLAN.md
-last_updated: "2026-07-16T19:36:05.733Z"
+status: verifying
+stopped_at: Completed 03-08-PLAN.md
+last_updated: "2026-07-16T19:46:59.989Z"
 last_activity: 2026-07-17
 last_activity_desc: Phase 03 execution started
 progress:
   total_phases: 3
-  completed_phases: 2
+  completed_phases: 3
   total_plans: 24
-  completed_plans: 23
+  completed_plans: 24
 ---
 
 # Project State
@@ -30,7 +30,7 @@ See `.planning/PROJECT.md` (updated 2026-07-16).
 
 Phase: 03 (Reference Color Semantics) — EXECUTING
 Plan: 8 of 8
-Status: Ready to execute
+Status: Phase complete — ready for verification
 Last activity: 2026-07-17 — Phase 03 execution started
 
 Progress: [██████████] 100% (1/5 phases; 8/8 currently planned plans complete)
@@ -68,6 +68,7 @@ Progress: [██████████] 100% (1/5 phases; 8/8 currently plann
 | Phase 03 P05 | 11min | 2 tasks | 7 files |
 | Phase 03 P06 | 14min | 2 tasks | 7 files |
 | Phase 03 P07 | 10min | 3 tasks | 8 files |
+| Phase 03 P08 | 7min | 2 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -143,6 +144,8 @@ Progress: [██████████] 100% (1/5 phases; 8/8 currently plann
 - [Phase 03]: Publish mb-color in model, transfer, quantize, alpha, profile order while checking the exact dependency DAG independently. — Release order must not imply quantize-to-transfer or profile-to-color dependencies.
 - [Phase 03]: Keep mb-color rootless and compile standalone literate documentation through explicit imports. — A root facade hides dependencies and prevents the pinned toolchain from loading README frontmatter imports.
 - [Phase 03]: Use shared exact classifiers for positive policy and synthetic color negative fixtures. — The same sequence, set, interface, publication, provenance, and source rules must fail closed.
+- [Phase 03]: Derive allocation rejection for every successful canonical profile payload, and bytes plus allocation-size rejection only for nonempty payloads. — Only dimensions with a strictly smaller valid limit can be independently underfunded.
+- [Phase 03]: Keep generated profile payload order canonical and use compact local byte bindings for formatter-clean byte-stable MoonBit. — Generator check mode must own the exact formatter-clean artifact bytes.
 
 ### Pending Decisions
 
@@ -163,6 +166,6 @@ None. Phase 01 is independently verified and complete; Phase 02 is ready for con
 
 **Resume file:** None
 
-Last session: 2026-07-16T19:15:28.182Z
-Stopped at: Completed 03-07-PLAN.md
+Last session: 2026-07-16T19:46:59.973Z
+Stopped at: Completed 03-08-PLAN.md
 Resume with: Discuss Phase 02, then plan and execute it through the active auto chain.
