@@ -206,6 +206,114 @@ function Assert-CoreQualificationNegativeFixtures {
   Write-Host 'Core topology, public surface, docs, capability, backing, narrowing, and OOM negative fixtures all fail closed.'
 }
 
+function Assert-ColorSourceTextProhibitions {
+  [CmdletBinding()]
+  param(
+    [Parameter(Mandatory)][string]$RelativePath,
+    [Parameter(Mandatory)][string]$Text
+  )
+
+  if ($Text -cmatch '(?:Double::round|[.]round)\s*\(') {
+    throw "Backend half-up rounding primitive found in '$RelativePath'."
+  }
+  if ($Text -cmatch '(?i)\bclamp\s*\(') {
+    throw "Silent clamp token found in '$RelativePath'."
+  }
+  $publicLines = @($Text -split '\r?\n' | Where-Object { $_ -cmatch '^\s*pub(?:\([^)]*\))?\s+fn\s' })
+  foreach ($line in $publicLines) {
+    if ($line -cmatch '(?i)\b(?:convert|normalized|component|color)\w*\s*\([^)]*Double') {
+      throw "Identity-erasing generic normalized conversion surface found in $RelativePath`: $line"
+    }
+    if ($line -cmatch '(?i)\b(?:default|implicit|ambient)\w*\s*\(') {
+      throw "Hidden default or ambient color identity surface found in $RelativePath`: $line"
+    }
+    if ($line -cmatch '(?i)\b(?:Css|Image|Pixel|Renderer|Codec|Gamut|Interpolation)\b') {
+      throw "Out-of-phase color surface found in $RelativePath`: $line"
+    }
+  }
+  if ($RelativePath -like 'modules/mb-color/profile/*' -and $Text -cmatch '(?i)\b(?:parse_icc|icc_header|profile_size|header_size|tag_table)\b') {
+    throw "ICC parsing token found in opaque profile package '$RelativePath'."
+  }
+}
+
+function Assert-ColorReadmeContract {
+  [CmdletBinding()]
+  param([Parameter(Mandatory)][string]$Readme)
+
+  $normalized = [regex]::Replace($Readme, '\s+', ' ')
+  foreach ($requiredPhrase in @(
+    'Zero alpha has one canonical result',
+    'maximum component error is 127 code values',
+    'does not certify that bytes are a valid ICC profile',
+    'No ICC header is parsed',
+    'No external fixture bytes are copied or relabeled as project-authored',
+    'This order is a release sequence, not an implied dependency chain',
+    'There is no root facade or prelude'
+  )) {
+    if (-not $normalized.Contains($requiredPhrase)) {
+      throw "mb-color README lacks required exact contract statement: $requiredPhrase"
+    }
+  }
+  foreach ($requiredToken in @('1e-12', '2e-12', '[A-Za-z0-9][A-Za-z0-9._+-]{0,31}', 'max_payload_bytes')) {
+    if (-not $Readme.Contains($requiredToken)) {
+      throw "mb-color README lacks required numerical/profile token: $requiredToken"
+    }
+  }
+  if ($Readme -cmatch '(?i)\b(?:validates?|parses?)\s+(?:an?\s+)?ICC\b|\b(?:provides?|guarantees?)\s+ICC\s+(?:validation|parsing|conformance)\b|\bICC[- ]conformant\b') {
+    throw 'mb-color README overstates ICC parsing, validation, or conformance.'
+  }
+}
+
+function Assert-ColorPortableProhibitions {
+  [CmdletBinding()]
+  param()
+
+  $colorRoot = 'modules/mb-color'
+  $sourceFiles = @(Get-ChildItem -LiteralPath $colorRoot -Recurse -File -Filter '*.mbt' | Where-Object { $_.Name -notmatch '(?:_test|_wbtest)[.]mbt$' })
+  if ($sourceFiles.Count -eq 0) { throw 'No mb-color production MoonBit sources were found for prohibition scanning.' }
+  foreach ($sourceFile in $sourceFiles) {
+    $relative = [System.IO.Path]::GetRelativePath((Resolve-Path '.').Path, $sourceFile.FullName).Replace('\', '/')
+    Assert-ColorSourceTextProhibitions -RelativePath $relative -Text (Get-Content -LiteralPath $sourceFile.FullName -Raw)
+  }
+  Assert-ColorReadmeContract -Readme (Get-Content -LiteralPath (Join-Path $colorRoot 'README.mbt.md') -Raw)
+  Write-Host 'mb-color prohibitions verified: no backend rounding, clamp, hidden identity/default, ICC parser, deferred surface, or overstated README claim.'
+}
+
+function Assert-ColorQualificationNegativeFixtures {
+  [CmdletBinding()]
+  param()
+
+  function Confirm-ColorRejected([string]$Name, [scriptblock]$Action, [string]$ExpectedPattern) {
+    $failure = $null
+    try { & $Action } catch { $failure = $_.Exception.Message }
+    if ($null -eq $failure -or $failure -cnotmatch $ExpectedPattern) {
+      throw "Required color quality accepted negative fixture '$Name' or failed for the wrong reason: '$failure'."
+    }
+    Write-Host "Color negative fixture rejected: $Name"
+  }
+
+  $packageSpine = @('model', 'transfer', 'quantize', 'alpha', 'profile')
+  Confirm-ColorRejected 'root package topology' { Assert-ExactSequence 'negative color package spine' @('.', 'model', 'transfer', 'quantize', 'alpha', 'profile') $packageSpine } 'count mismatch'
+  Confirm-ColorRejected 'extra public package' { Assert-ExactSequence 'negative color package spine' @('model', 'transfer', 'quantize', 'alpha', 'profile', 'extra') $packageSpine } 'count mismatch'
+  Confirm-ColorRejected 'missing public package' { Assert-ExactSequence 'negative color package spine' @('model', 'transfer', 'quantize', 'alpha') $packageSpine } 'count mismatch'
+  Confirm-ColorRejected 'reverse image dependency' { Assert-ExactSet 'negative color imports' @('moonbit-foundation/mb-image/model') @('moonbit-foundation/mb-core/error') } 'mismatch'
+  Confirm-ColorRejected 'forbidden quantize to transfer edge' { Assert-ExactSet 'negative quantize imports' @('moonbit-foundation/mb-color/model', 'moonbit-foundation/mb-color/transfer', 'moonbit-foundation/mb-core/error', 'moonbit-foundation/mb-core/checked') @('moonbit-foundation/mb-color/model', 'moonbit-foundation/mb-core/error', 'moonbit-foundation/mb-core/checked') } 'count mismatch'
+  Confirm-ColorRejected 'forbidden profile to color edge' { Assert-ExactSet 'negative profile imports' @('moonbit-foundation/mb-core/error', 'moonbit-foundation/mb-core/budget', 'moonbit-foundation/mb-core/bytes', 'moonbit-foundation/mb-color/model') @('moonbit-foundation/mb-core/error', 'moonbit-foundation/mb-core/budget', 'moonbit-foundation/mb-core/bytes') } 'count mismatch'
+  Confirm-ColorRejected 'semantic interface drift' { Assert-ExactSequence 'negative color interface' @('package "fixture"', 'pub fn unexpected() -> Unit') @('package "fixture"') } 'count mismatch'
+  Confirm-ColorRejected 'publication drift' { Assert-ExactSet 'negative color publication' @('model/moon.pkg', 'unexpected.mbt') @('model/moon.pkg') } 'count mismatch'
+  Confirm-ColorRejected 'generated vector publication drift' { Assert-ExactSet 'negative color generated vectors' @('transfer/reference_vectors_wbtest.mbt', 'quantize/reference_vectors_wbtest.mbt', 'alpha/reference_vectors_wbtest.mbt') @('transfer/reference_vectors_wbtest.mbt', 'quantize/reference_vectors_wbtest.mbt', 'alpha/reference_vectors_wbtest.mbt', 'profile/reference_vectors_wbtest.mbt') } 'count mismatch'
+  Confirm-ColorRejected 'missing required target' { Assert-ExactSet 'negative color targets' @('js', 'wasm', 'native') @('js', 'wasm', 'wasm-gc', 'native') } 'count mismatch'
+  Confirm-ColorRejected 'backend half-up rounding' { Assert-ColorSourceTextProhibitions -RelativePath 'modules/mb-color/quantize/fixture.mbt' -Text 'fn quantize(value : Double) -> Double { value.round() }' } 'half-up rounding'
+  Confirm-ColorRejected 'silent clamp' { Assert-ColorSourceTextProhibitions -RelativePath 'modules/mb-color/model/fixture.mbt' -Text 'fn normalized(value : Double) -> Double { value.clamp(0.0, 1.0) }' } 'Silent clamp'
+  Confirm-ColorRejected 'identity-erasing normalized API' { Assert-ColorSourceTextProhibitions -RelativePath 'modules/mb-color/fixture.mbt' -Text 'pub fn convert_color(value : Double) -> Double { value }' } 'Identity-erasing'
+  Confirm-ColorRejected 'hidden default identity API' { Assert-ColorSourceTextProhibitions -RelativePath 'modules/mb-color/fixture.mbt' -Text 'pub fn default_color() -> Unit { () }' } 'Hidden default'
+  Confirm-ColorRejected 'ICC parser surface' { Assert-ColorSourceTextProhibitions -RelativePath 'modules/mb-color/profile/fixture.mbt' -Text 'fn parse_icc() -> Unit { () }' } 'ICC parsing'
+  Confirm-ColorRejected 'missing canonical zero README statement' { Assert-ColorReadmeContract -Readme 'candidate js wasm wasm-gc native 1e-12 2e-12 [A-Za-z0-9][A-Za-z0-9._+-]{0,31} max_payload_bytes' } 'Zero alpha'
+
+  & ./scripts/quality/Test-FixturePolicy.ps1
+  Write-Host 'Color topology, DAG, interface, publication, generated-vector, target, source, README, digest, and redistribution negatives all fail closed.'
+}
+
 function Get-TrackedDiffSnapshot {
   $output = @(& git diff --binary --no-ext-diff HEAD -- 2>&1 | ForEach-Object { $_.ToString() })
   if ($LASTEXITCODE -ne 0) { throw "Unable to capture tracked diff (exit $LASTEXITCODE)." }
@@ -243,9 +351,21 @@ function Invoke-RequiredQuality {
   Invoke-QualityStage 'CORE fail-closed negative fixtures' {
     Assert-CoreQualificationNegativeFixtures
   }
+  Invoke-QualityStage 'COLR deterministic generated evidence' {
+    & ./scripts/fixtures/Generate-ColorVectors.ps1 -Artifacts all -Check
+  }
+  Invoke-QualityStage 'COLR portable source and documentation prohibitions' {
+    Assert-ColorPortableProhibitions
+  }
+  Invoke-QualityStage 'COLR fail-closed negative fixtures' {
+    Assert-ColorQualificationNegativeFixtures
+  }
   foreach ($target in $requiredTargets) {
     Invoke-QualityStage "CORE literate README check target $target" {
       Invoke-MoonCommand -Context "mb-core README check target $target" -Arguments @('-C', 'modules/mb-core', 'check', 'README.mbt.md', '--target', $target, '--frozen')
+    }
+    Invoke-QualityStage "COLR literate README check target $target" {
+      Invoke-MoonCommand -Context "mb-color README check target $target" -Arguments @('-C', 'modules/mb-color', 'check', 'README.mbt.md', '--target', $target, '--frozen')
     }
     Invoke-QualityStage "WORK-05 check target $target" {
       Invoke-MoonCommand -Context "workspace check target $target" -Arguments @('check', '--target', $target, '--deny-warn', '--frozen')
