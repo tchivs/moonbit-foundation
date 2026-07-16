@@ -1,0 +1,13 @@
+{
+  "schema_version": "1.0.0",
+  "maintainers": [
+    {
+      "identity": "sole-project-owner",
+      "roles": [
+        "maintainer",
+        "project-owner"
+      ],
+      "evidence": "docs/governance/decisions/0001-sole-owner-bootstrap.md#owner-instruction"
+    }
+  ]
+}
