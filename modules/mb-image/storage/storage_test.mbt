@@ -141,9 +141,6 @@ test "allocator and operation budget failures are atomic" {
     descriptor,
     work_budget,
     ImageTestAllocator::{  } as &@bytes.Allocator,
-    2UL,
-    3UL,
-    6UL,
     129UL,
   )
   inspect(failed is Err(_), content="true")
@@ -151,6 +148,67 @@ test "allocator and operation budget failures are atomic" {
   inspect(work_budget.remaining().allocations(), content="1")
   inspect(work_budget.remaining().pixels(), content="64")
   inspect(work_budget.remaining().work(), content="128")
+}
+
+///|
+fn reordered_planar_descriptor() -> @model.ImageDescriptor {
+  let metadata = packed_descriptor().metadata()
+  let format = @model.ImageFormat::new(
+    @model.ComponentType::U8,
+    @model.ChannelOrder::Rgb,
+    @model.PlaneLayout::Planar,
+    @model.Endianness::Little,
+  ).unwrap()
+  @model.ImageDescriptor::new(
+    2UL,
+    1UL,
+    format,
+    [
+      @model.PlaneDescriptor::new(4UL, 2UL, 2UL, 2UL, 1UL, 1UL, 2UL, 1UL).unwrap(),
+      @model.PlaneDescriptor::new(0UL, 2UL, 2UL, 2UL, 1UL, 1UL, 2UL, 1UL).unwrap(),
+      @model.PlaneDescriptor::new(2UL, 2UL, 2UL, 2UL, 1UL, 1UL, 2UL, 1UL).unwrap(),
+    ],
+    6UL,
+    metadata,
+  ).unwrap()
+}
+
+///|
+test "reordered planar full view is inspectable but grants no byte or mutable authority" {
+  let descriptor = reordered_planar_descriptor()
+  let budget = storage_budget(6UL)
+  let image = @storage.OwnedImage::new(descriptor, budget).unwrap()
+  let before = budget.remaining()
+  let view = image.view()
+  inspect(view.width(), content="2")
+  inspect(view.height(), content="1")
+  inspect(view.format().layout() == @model.PlaneLayout::Planar, content="true")
+  inspect(view.metadata().profile().is_builtin_srgb(), content="true")
+  match view.get_byte(0UL, 0UL, 0UL) {
+    Err(error) => {
+      inspect(error.code() == @error.ErrorCode::CapabilityUnavailable, content="true")
+      inspect(
+        error.context() == Some("packed-u8-byte-access-required"),
+        content="true",
+      )
+    }
+    Ok(_) => fail("planar full view must not fabricate packed byte offsets")
+  }
+  match image.with_mut_view(fn(_view) { Ok(()) }) {
+    Err(error) => {
+      inspect(error.code() == @error.ErrorCode::CapabilityUnavailable, content="true")
+      inspect(
+        error.context() == Some("packed-u8-mut-view-required"),
+        content="true",
+      )
+    }
+    Ok(_) => fail("planar image must reject before acquiring a mutable lease")
+  }
+  let after = budget.remaining()
+  inspect(after.bytes() == before.bytes(), content="true")
+  inspect(after.allocations() == before.allocations(), content="true")
+  inspect(after.pixels() == before.pixels(), content="true")
+  inspect(after.work() == before.work(), content="true")
 }
 
 ///|
