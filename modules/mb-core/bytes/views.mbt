@@ -65,16 +65,18 @@ fn LeaseOwner::acquire_mut(
   if self.leased {
     return Err(lease_state_error("lease-active"))
   }
-  let full = match @checked.CheckedRange::from_start_length(
-    0UL,
-    self.backing.length().to_uint64(),
-  ) {
+  let full = match
+    @checked.CheckedRange::from_start_length(
+      0UL,
+      self.backing.length().to_uint64(),
+    ) {
     Ok(range) => range
     Err(error) => return Err(error)
   }
   let window = match full.subrange(start, length) {
     Ok(range) => range
-    Err(_) => return Err(lease_range_error("acquire_mut", length, full.length()))
+    Err(_) =>
+      return Err(lease_range_error("acquire_mut", length, full.length()))
   }
   let start_index = match @checked.checked_narrow_int(window.start()) {
     Ok(value) => value
@@ -148,16 +150,18 @@ pub fn ByteView::subview(
   relative_start : UInt64,
   length : UInt64,
 ) -> Result[ByteView, @error.CoreError] {
-  let current = match @checked.CheckedRange::from_start_length(
-    self.start.to_uint64(),
-    self.length(),
-  ) {
+  let current = match
+    @checked.CheckedRange::from_start_length(
+      self.start.to_uint64(),
+      self.length(),
+    ) {
     Ok(range) => range
     Err(error) => return Err(error)
   }
   let window = match current.subrange(relative_start, length) {
     Ok(range) => range
-    Err(_) => return Err(lease_range_error("byte_subview", length, self.length()))
+    Err(_) =>
+      return Err(lease_range_error("byte_subview", length, self.length()))
   }
   let start = match @checked.checked_narrow_int(window.start()) {
     Ok(value) => value

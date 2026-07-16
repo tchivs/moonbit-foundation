@@ -1,5 +1,7 @@
 ///|
-fn expect_lease(result : Result[MutByteLease, @error.CoreError]) -> MutByteLease {
+fn expect_lease(
+  result : Result[MutByteLease, @error.CoreError],
+) -> MutByteLease {
   match result {
     Ok(lease) => lease
     Err(_) => abort("mutable lease must be acquired")
@@ -39,7 +41,8 @@ test "callback cleanup invalidates stale handles and permits reacquisition" {
     None => fail("callback must receive the lease")
   }
   match stale.get(0UL) {
-    Err(error) => inspect(error.context() == Some("lease-inactive"), content="true")
+    Err(error) =>
+      inspect(error.context() == Some("lease-inactive"), content="true")
     Ok(_) => fail("a lease must be stale after callback cleanup")
   }
   let next = expect_lease(owner.acquire_mut(0UL, 2UL))
@@ -79,7 +82,8 @@ test "split validates relative bounds without consuming the parent" {
   let owner = LeaseOwner::from_backing(FixedArray::make(3, b'\x00'))
   let parent = expect_lease(owner.acquire_mut(0UL, 3UL))
   match parent.split_mut(4UL) {
-    Err(error) => inspect(error.code() == @error.ErrorCode::InvalidRange, content="true")
+    Err(error) =>
+      inspect(error.code() == @error.ErrorCode::InvalidRange, content="true")
     Ok(_) => fail("out-of-range split must fail")
   }
   inspect(parent.set(2UL, b'\x09') is Ok(_), content="true")

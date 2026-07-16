@@ -16,7 +16,7 @@ fn byte_limits(bytes : UInt64) -> @budget.ResourceLimits {
 struct RejectingAllocator {}
 
 ///|
-impl @bytes.Allocator for RejectingAllocator with approve(_self, requested) {
+impl @bytes.Allocator for RejectingAllocator with fn approve(_self, requested) {
   Err(
     @error.CoreError::new(
       @error.ErrorCategory::Resource,
@@ -38,7 +38,8 @@ test "owned bytes charge budget before built-in allocation" {
   inspect(budget.remaining().bytes(), content="0")
   inspect(budget.remaining().allocations(), content="3")
   match @bytes.OwnedBytes::new(1UL, budget) {
-    Err(error) => inspect(error.code() == @error.ErrorCode::BudgetExceeded, content="true")
+    Err(error) =>
+      inspect(error.code() == @error.ErrorCode::BudgetExceeded, content="true")
     Ok(_) => fail("budget rejection must precede allocation")
   }
 }
@@ -46,9 +47,13 @@ test "owned bytes charge budget before built-in allocation" {
 ///|
 test "injected allocator rejection is structured and does not consume budget" {
   let budget = @budget.Budget::new(byte_limits(8UL))
-  let allocator = RejectingAllocator::{} as &@bytes.Allocator
+  let allocator = RejectingAllocator::{  } as &@bytes.Allocator
   match @bytes.OwnedBytes::new_with_allocator(4UL, budget, allocator) {
-    Err(error) => inspect(error.code() == @error.ErrorCode::AllocationFailed, content="true")
+    Err(error) =>
+      inspect(
+        error.code() == @error.ErrorCode::AllocationFailed,
+        content="true",
+      )
     Ok(_) => fail("injected rejection must not allocate")
   }
   inspect(budget.remaining().bytes(), content="8")
@@ -88,9 +93,7 @@ test "external immutable bytes are copied and mutable access is callback scoped"
     Ok(value) => value
     Err(_) => fail("copy construction must succeed")
   }
-  let changed = owned.with_mut(0UL, 3UL, fn(lease) {
-    lease.set(0UL, b'z')
-  })
+  let changed = owned.with_mut(0UL, 3UL, fn(lease) { lease.set(0UL, b'z') })
   inspect(changed is Ok(_), content="true")
   inspect(source[0] == b'a', content="true")
   match owned.view().get(0UL) {
@@ -103,7 +106,8 @@ test "external immutable bytes are copied and mutable access is callback scoped"
 test "range and backend-width failures remain distinct from allocation rejection" {
   let budget = @budget.Budget::new(byte_limits(8UL))
   match @bytes.OwnedBytes::new(2147483648UL, budget) {
-    Err(error) => inspect(error.code() == @error.ErrorCode::NarrowingFailed, content="true")
+    Err(error) =>
+      inspect(error.code() == @error.ErrorCode::NarrowingFailed, content="true")
     Ok(_) => fail("unrepresentable backend length must reject")
   }
   let owned = match @bytes.OwnedBytes::new(2UL, budget) {
@@ -111,7 +115,8 @@ test "range and backend-width failures remain distinct from allocation rejection
     Err(_) => fail("small allocation must succeed")
   }
   match owned.view().subview(2UL, 1UL) {
-    Err(error) => inspect(error.code() == @error.ErrorCode::InvalidRange, content="true")
+    Err(error) =>
+      inspect(error.code() == @error.ErrorCode::InvalidRange, content="true")
     Ok(_) => fail("escaping subview must reject")
   }
 }

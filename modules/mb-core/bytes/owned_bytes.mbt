@@ -4,14 +4,14 @@
 /// portable built-in storage. Built-in physical OOM is not a catchable portable
 /// result and is deliberately not represented by this contract.
 pub(open) trait Allocator {
-  approve(Self, UInt64) -> Result[Unit, @error.CoreError]
+  fn approve(Self, UInt64) -> Result[Unit, @error.CoreError]
 }
 
 ///|
 priv struct BuiltinAllocator {}
 
 ///|
-impl Allocator for BuiltinAllocator with approve(_self, _requested) {
+impl Allocator for BuiltinAllocator with fn approve(_self, _requested) {
   Ok(())
 }
 
@@ -43,7 +43,7 @@ pub fn OwnedBytes::new(
   length : UInt64,
   budget : @budget.Budget,
 ) -> Result[OwnedBytes, @error.CoreError] {
-  let allocator = BuiltinAllocator::{} as &Allocator
+  let allocator = BuiltinAllocator::{  } as &Allocator
   OwnedBytes::new_with_allocator(length, budget, allocator)
 }
 
