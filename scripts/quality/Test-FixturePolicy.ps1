@@ -1,0 +1,67 @@
+[CmdletBinding()]
+param()
+
+Set-StrictMode -Version Latest
+$ErrorActionPreference = 'Stop'
+. (Join-Path $PSScriptRoot 'Assert-Policy.ps1')
+
+function Write-TestJson([string]$Path, [object]$Value) {
+  $Value | ConvertTo-Json -Depth 20 | Set-Content -LiteralPath $Path -Encoding utf8
+}
+
+function New-TestManifest([string]$Path, [string]$Digest) {
+  return [ordered]@{
+    schema_version = '1.0.0'
+    preferred_origin = 'generated'
+    required_record_fields = @('id','path','origin','source','author','retrieval_date','sha256','license','redistribution_status','expected_use')
+    allowed_origins = @('generated','external')
+    allowed_redistribution_statuses = @('confirmed','not-applicable','unconfirmed')
+    external_requires_confirmed_redistribution = $true
+    records = @([ordered]@{
+      id='fixture-1'; path=$Path; origin='generated'; source='test generator'; author='MNF'; retrieval_date='2026-07-16'
+      sha256=$Digest; license='Apache-2.0'; redistribution_status='not-applicable'; expected_use='validator test'
+    })
+  }
+}
+
+function Invoke-FixtureCase([string]$Name, [scriptblock]$Arrange, [bool]$ShouldPass) {
+  $root = Join-Path ([System.IO.Path]::GetTempPath()) ('mnf-fixture-' + [guid]::NewGuid().ToString('N'))
+  [void](New-Item -ItemType Directory -Force -Path (Join-Path $root 'fixtures'))
+  try {
+    $fixturePath = Join-Path $root 'fixtures/valid.bin'
+    [System.IO.File]::WriteAllBytes($fixturePath, [byte[]](0,1,2,3,255))
+    $digest = (Get-FileHash -LiteralPath $fixturePath -Algorithm SHA256).Hash.ToLowerInvariant()
+    $manifest = New-TestManifest -Path 'fixtures/valid.bin' -Digest $digest
+    if ($Arrange) { & $Arrange $root $manifest }
+    Write-TestJson -Path (Join-Path $root 'fixtures/manifest.json') -Value $manifest
+    $passed = $true
+    try { Assert-FixtureManifest -ManifestPath (Join-Path $root 'fixtures/manifest.json') -RepositoryRoot $root }
+    catch { $passed = $false }
+    if ($passed -ne $ShouldPass) { throw "Fixture case '$Name' expected pass=$ShouldPass but got pass=$passed." }
+    Write-Host "PASS: $Name"
+  } finally {
+    Remove-Item -LiteralPath $root -Recurse -Force -ErrorAction SilentlyContinue
+  }
+}
+
+Invoke-FixtureCase 'valid fixture digest' $null $true
+Invoke-FixtureCase 'mismatched fixture digest' { param($root,$manifest) $manifest.records[0].sha256='0' * 64 } $false
+Invoke-FixtureCase 'missing fixture file' { param($root,$manifest) $manifest.records[0].path='fixtures/missing.bin' } $false
+Invoke-FixtureCase 'parent traversal fixture path' { param($root,$manifest) $manifest.records[0].path='../outside.bin' } $false
+Invoke-FixtureCase 'rooted fixture path' { param($root,$manifest) $manifest.records[0].path=(Join-Path $root 'fixtures/valid.bin') } $false
+
+$external = Join-Path ([System.IO.Path]::GetTempPath()) ('mnf-fixture-external-' + [guid]::NewGuid().ToString('N') + '.bin')
+try {
+  [System.IO.File]::WriteAllBytes($external, [byte[]](4,5,6))
+  Invoke-FixtureCase 'fixture symlink escape' {
+    param($root,$manifest)
+    $link = Join-Path $root 'fixtures/link.bin'
+    [void](New-Item -ItemType SymbolicLink -Path $link -Target $external -ErrorAction Stop)
+    $manifest.records[0].path='fixtures/link.bin'
+    $manifest.records[0].sha256=(Get-FileHash -LiteralPath $external -Algorithm SHA256).Hash.ToLowerInvariant()
+  } $false
+} finally {
+  Remove-Item -LiteralPath $external -Force -ErrorAction SilentlyContinue
+}
+
+Write-Host 'Fixture identity and containment matrix passed.'

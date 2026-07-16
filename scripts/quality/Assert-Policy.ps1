@@ -129,6 +129,39 @@ function Assert-ApprovalReference {
   Assert-Condition ($Reference -cnotmatch '(?i)(placeholder|example|todo|tbd|dummy|fake)') "Approval for '$Identity' uses placeholder evidence."
 }
 
+function Resolve-RepositoryLeafFile {
+  [CmdletBinding()]
+  param(
+    [Parameter(Mandatory)][string]$RepositoryRoot,
+    [Parameter(Mandatory)][string]$RelativePath,
+    [Parameter(Mandatory)][string]$Label
+  )
+
+  Assert-Condition (-not [System.IO.Path]::IsPathRooted($RelativePath)) "$Label must be repository-relative."
+  $segments = @($RelativePath -split '[\\/]')
+  Assert-Condition (-not ($segments -ccontains '..')) "$Label must not contain a parent traversal segment."
+
+  $rootFull = [System.IO.Path]::GetFullPath($RepositoryRoot).TrimEnd([System.IO.Path]::DirectorySeparatorChar, [System.IO.Path]::AltDirectorySeparatorChar)
+  $rootPrefix = $rootFull + [System.IO.Path]::DirectorySeparatorChar
+  $fullPath = [System.IO.Path]::GetFullPath((Join-Path $rootFull $RelativePath))
+  Assert-Condition ($fullPath.StartsWith($rootPrefix, [System.StringComparison]::OrdinalIgnoreCase)) "$Label escapes the repository root."
+  $currentPath = $rootFull
+  for ($index = 0; $index -lt $segments.Count; $index++) {
+    $segment = [string]$segments[$index]
+    Assert-Condition (-not [string]::IsNullOrWhiteSpace($segment) -and $segment -cne '.') "$Label contains an invalid segment."
+    $currentPath = Join-Path $currentPath $segment
+    Assert-Condition (Test-Path -LiteralPath $currentPath) "$Label component '$segment' does not exist."
+    $item = Get-Item -LiteralPath $currentPath -Force
+    $isReparsePoint = ($item.Attributes -band [System.IO.FileAttributes]::ReparsePoint) -ne 0
+    Assert-Condition (-not $isReparsePoint) "$Label component '$segment' must not be a symbolic link or reparse point."
+    if ($index -lt ($segments.Count - 1)) {
+      Assert-Condition ($item.PSIsContainer) "$Label ancestor '$segment' must be a directory."
+    }
+  }
+  Assert-Condition (Test-Path -LiteralPath $fullPath -PathType Leaf) "$Label must resolve to an existing leaf file."
+  return $fullPath
+}
+
 function Resolve-RfcEvidenceFile {
   [CmdletBinding()]
   param(
@@ -136,31 +169,36 @@ function Resolve-RfcEvidenceFile {
     [Parameter(Mandatory)][string]$RelativePath,
     [Parameter(Mandatory)][string]$ExpectedRelativePath
   )
-
-  Assert-Condition (-not [System.IO.Path]::IsPathRooted($RelativePath)) 'RFC evidence path must be repository-relative.'
-  $segments = @($RelativePath -split '[\\/]')
-  Assert-Condition (-not ($segments -ccontains '..')) 'RFC evidence path must not contain a parent traversal segment.'
   Assert-Condition ($RelativePath.Replace('\','/') -ceq $ExpectedRelativePath.Replace('\','/')) 'RFC evidence path does not identify the canonical decision artifact.'
+  return Resolve-RepositoryLeafFile -RepositoryRoot $RepositoryRoot -RelativePath $RelativePath -Label 'RFC evidence path'
+}
 
-  $rootFull = [System.IO.Path]::GetFullPath($RepositoryRoot).TrimEnd([System.IO.Path]::DirectorySeparatorChar, [System.IO.Path]::AltDirectorySeparatorChar)
-  $rootPrefix = $rootFull + [System.IO.Path]::DirectorySeparatorChar
-  $fullPath = [System.IO.Path]::GetFullPath((Join-Path $rootFull $RelativePath))
-  Assert-Condition ($fullPath.StartsWith($rootPrefix, [System.StringComparison]::OrdinalIgnoreCase)) 'RFC evidence path escapes the repository root.'
-  $currentPath = $rootFull
-  for ($index = 0; $index -lt $segments.Count; $index++) {
-    $segment = [string]$segments[$index]
-    Assert-Condition (-not [string]::IsNullOrWhiteSpace($segment) -and $segment -cne '.') 'RFC evidence path contains an invalid segment.'
-    $currentPath = Join-Path $currentPath $segment
-    Assert-Condition (Test-Path -LiteralPath $currentPath) "RFC evidence path component '$segment' does not exist."
-    $item = Get-Item -LiteralPath $currentPath -Force
-    $isReparsePoint = ($item.Attributes -band [System.IO.FileAttributes]::ReparsePoint) -ne 0
-    Assert-Condition (-not $isReparsePoint) "RFC evidence path component '$segment' must not be a symbolic link or reparse point."
-    if ($index -lt ($segments.Count - 1)) {
-      Assert-Condition ($item.PSIsContainer) "RFC evidence ancestor '$segment' must be a directory."
+function Assert-FixtureManifest {
+  [CmdletBinding()]
+  param(
+    [Parameter(Mandatory)][string]$ManifestPath,
+    [Parameter(Mandatory)][string]$RepositoryRoot
+  )
+  $fixtureManifest = Read-QualityJson -Path $ManifestPath
+  Assert-Condition ($fixtureManifest.schema_version -ceq '1.0.0') 'Fixture manifest schema_version must be 1.0.0.'
+  Assert-ExactSet 'Fixture required fields' @($fixtureManifest.required_record_fields) @('id','path','origin','source','author','retrieval_date','sha256','license','redistribution_status','expected_use')
+  $fixtureIds = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::Ordinal)
+  foreach ($record in @($fixtureManifest.records)) {
+    foreach ($field in @($fixtureManifest.required_record_fields)) {
+      Assert-Condition ($null -ne $record.$field -and -not [string]::IsNullOrWhiteSpace([string]$record.$field)) "Fixture record is missing '$field'."
     }
+    Assert-Condition ($fixtureIds.Add([string]$record.id)) "Duplicate fixture id '$($record.id)'."
+    Assert-Condition (@($fixtureManifest.allowed_origins) -ccontains $record.origin) "Fixture '$($record.id)' has invalid origin."
+    Assert-Condition (@($fixtureManifest.allowed_redistribution_statuses) -ccontains $record.redistribution_status) "Fixture '$($record.id)' has invalid redistribution status."
+    Assert-Condition ([string]$record.sha256 -cmatch '^[0-9a-f]{64}$') "Fixture '$($record.id)' has invalid SHA-256."
+    Assert-Condition ([string]$record.retrieval_date -cmatch '^\d{4}-\d{2}-\d{2}$') "Fixture '$($record.id)' has invalid retrieval date."
+    if ($record.origin -ceq 'external' -and $fixtureManifest.external_requires_confirmed_redistribution) {
+      Assert-Condition ($record.redistribution_status -ceq 'confirmed') "External fixture '$($record.id)' lacks confirmed redistribution."
+    }
+    $fixturePath = Resolve-RepositoryLeafFile -RepositoryRoot $RepositoryRoot -RelativePath ([string]$record.path) -Label "Fixture '$($record.id)' path"
+    $actualDigest = (Get-FileHash -LiteralPath $fixturePath -Algorithm SHA256).Hash.ToLowerInvariant()
+    Assert-Condition ($actualDigest -ceq [string]$record.sha256) "Fixture '$($record.id)' SHA-256 does not match its bytes."
   }
-  Assert-Condition (Test-Path -LiteralPath $fullPath -PathType Leaf) 'RFC evidence path must resolve to an existing leaf file.'
-  return $fullPath
 }
 
 function Assert-RfcAcceptanceState {
@@ -450,24 +488,7 @@ function Assert-FoundationPolicy {
   if ([string]::IsNullOrWhiteSpace($MaintainersPath)) { $MaintainersPath = Join-Path $repoRoot ([string]$policy.rfc.maintainer_roster_path) }
   Assert-RfcAcceptanceState -Policy $policy -RosterPath $MaintainersPath -RepositoryRoot $repoRoot
 
-  $fixtureManifest = Read-QualityJson -Path (Join-Path $repoRoot 'fixtures/manifest.json')
-  Assert-Condition ($fixtureManifest.schema_version -ceq '1.0.0') 'Fixture manifest schema_version must be 1.0.0.'
-  Assert-ExactSet 'Fixture required fields' @($fixtureManifest.required_record_fields) @('id','path','origin','source','author','retrieval_date','sha256','license','redistribution_status','expected_use')
-  $fixtureIds = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::Ordinal)
-  foreach ($record in @($fixtureManifest.records)) {
-    foreach ($field in @($fixtureManifest.required_record_fields)) {
-      Assert-Condition ($null -ne $record.$field -and -not [string]::IsNullOrWhiteSpace([string]$record.$field)) "Fixture record is missing '$field'."
-    }
-    Assert-Condition ($fixtureIds.Add([string]$record.id)) "Duplicate fixture id '$($record.id)'."
-    Assert-Condition (@($fixtureManifest.allowed_origins) -ccontains $record.origin) "Fixture '$($record.id)' has invalid origin."
-    Assert-Condition (@($fixtureManifest.allowed_redistribution_statuses) -ccontains $record.redistribution_status) "Fixture '$($record.id)' has invalid redistribution status."
-    Assert-Condition ([string]$record.sha256 -cmatch '^[0-9a-f]{64}$') "Fixture '$($record.id)' has invalid SHA-256."
-    Assert-Condition ([string]$record.retrieval_date -cmatch '^\d{4}-\d{2}-\d{2}$') "Fixture '$($record.id)' has invalid retrieval date."
-    if ($record.origin -ceq 'external' -and $fixtureManifest.external_requires_confirmed_redistribution) {
-      Assert-Condition ($record.redistribution_status -ceq 'confirmed') "External fixture '$($record.id)' lacks confirmed redistribution."
-    }
-    Assert-Condition (Test-Path -LiteralPath (Join-Path $repoRoot ([string]$record.path)) -PathType Leaf) "Fixture '$($record.id)' path does not exist."
-  }
+  Assert-FixtureManifest -ManifestPath (Join-Path $repoRoot 'fixtures/manifest.json') -RepositoryRoot $repoRoot
 
   Write-Host 'Foundation policy, RFC, workspace inventory, target metadata, fixtures, publication block, and dependency DAG verified.'
 }

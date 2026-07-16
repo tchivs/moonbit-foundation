@@ -15,8 +15,9 @@ try {
   if ($Lane -ceq 'Required') {
     try {
       & (Join-Path $PSScriptRoot 'quality/Test-RfcAcceptance.ps1')
+      & (Join-Path $PSScriptRoot 'quality/Test-FixturePolicy.ps1')
     } catch {
-      throw "RFC acceptance test matrix failed: $($_.Exception.Message)"
+      throw "Policy adversarial test matrix failed: $($_.Exception.Message)"
     }
   }
   . (Join-Path $PSScriptRoot 'quality/Invoke-MoonQuality.ps1')
