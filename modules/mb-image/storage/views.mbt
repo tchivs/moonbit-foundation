@@ -229,3 +229,266 @@ pub fn ImageView::crop(
     row_bytes_value: row_bytes,
   })
 }
+
+///|
+/// Runtime-validated mutable image authority over one callback-scoped byte
+/// lease. Logical descendants carry no independent backing authority.
+pub struct MutImageView {
+  priv lease : @bytes.MutByteLease
+  priv width_value : UInt64
+  priv height_value : UInt64
+  priv format_value : @model.ImageFormat
+  priv metadata_value : @model.ImageMetadata
+  priv origin : UInt64
+  priv row_stride_value : UInt64
+  priv row_bytes_value : UInt64
+}
+
+///|
+fn MutImageView::from_owned(
+  descriptor : @model.ImageDescriptor,
+  lease : @bytes.MutByteLease,
+) -> MutImageView {
+  let plane = descriptor.plane(0).unwrap()
+  {
+    lease,
+    width_value: descriptor.width(),
+    height_value: descriptor.height(),
+    format_value: descriptor.format(),
+    metadata_value: descriptor.metadata(),
+    origin: plane.range().start(),
+    row_stride_value: plane.row_stride(),
+    row_bytes_value: plane.row_bytes(),
+  }
+}
+
+///|
+pub fn MutImageView::width(self : MutImageView) -> UInt64 {
+  self.width_value
+}
+
+///|
+pub fn MutImageView::height(self : MutImageView) -> UInt64 {
+  self.height_value
+}
+
+///|
+pub fn MutImageView::format(self : MutImageView) -> @model.ImageFormat {
+  self.format_value
+}
+
+///|
+pub fn MutImageView::metadata(self : MutImageView) -> @model.ImageMetadata {
+  self.metadata_value
+}
+
+///|
+fn MutImageView::validated_offset(
+  self : MutImageView,
+  x : UInt64,
+  y : UInt64,
+  channel : UInt64,
+) -> Result[UInt64, @error.CoreError] {
+  let channel_count = self.format_value.channel_count()
+  if self.width_value == 0UL ||
+    self.height_value == 0UL ||
+    x >= self.width_value ||
+    y >= self.height_value ||
+    channel >= channel_count {
+    return Err(
+      storage_error(
+        @error.ErrorCategory::InvalidInput,
+        @error.ErrorCode::InvalidRange,
+        "mut-image-view-access",
+        "view-range",
+      ),
+    )
+  }
+  checked_offset(
+    self.origin,
+    y,
+    self.row_stride_value,
+    x,
+    self.format_value.bytes_per_component() * channel_count,
+    channel * self.format_value.bytes_per_component(),
+  )
+}
+
+///|
+pub fn MutImageView::get_byte(
+  self : MutImageView,
+  x : UInt64,
+  y : UInt64,
+  channel : UInt64,
+) -> Result[Byte, @error.CoreError] {
+  match self.validated_offset(x, y, channel) {
+    Ok(offset) => self.lease.get(offset)
+    Err(error) => Err(error)
+  }
+}
+
+///|
+pub fn MutImageView::set_byte(
+  self : MutImageView,
+  x : UInt64,
+  y : UInt64,
+  channel : UInt64,
+  value : Byte,
+) -> Result[Unit, @error.CoreError] {
+  match self.validated_offset(x, y, channel) {
+    Ok(offset) => self.lease.set(offset, value)
+    Err(error) => Err(error)
+  }
+}
+
+///|
+pub fn MutImageView::crop(
+  self : MutImageView,
+  rect : @model.Rect,
+) -> Result[MutImageView, @error.CoreError] {
+  if rect.is_empty() {
+    return Err(
+      storage_error(
+        @error.ErrorCategory::InvalidInput,
+        @error.ErrorCode::InvalidDimensions,
+        "mut-image-view-crop",
+        "empty-mutable-crop",
+      ),
+    )
+  }
+  if rect.right() > self.width_value || rect.bottom() > self.height_value {
+    return Err(
+      storage_error(
+        @error.ErrorCategory::InvalidInput,
+        @error.ErrorCode::InvalidRange,
+        "mut-image-view-crop",
+        "crop-range",
+      ),
+    )
+  }
+  if self.format_value.layout() != @model.PlaneLayout::Packed {
+    return Err(
+      storage_error(
+        @error.ErrorCategory::Capability,
+        @error.ErrorCode::CapabilityUnavailable,
+        "mut-image-view-crop",
+        "planar-mut-crop",
+      ),
+    )
+  }
+  let pixel_bytes = self.format_value.bytes_per_component() *
+    self.format_value.channel_count()
+  let origin = match
+    checked_offset(
+      self.origin,
+      rect.y(),
+      self.row_stride_value,
+      rect.x(),
+      pixel_bytes,
+      0UL,
+    ) {
+    Ok(value) => value
+    Err(error) => return Err(error)
+  }
+  let row_bytes = match @checked.checked_mul(rect.width(), pixel_bytes) {
+    Ok(value) => value
+    Err(error) => return Err(error)
+  }
+  Ok({
+    lease: self.lease,
+    width_value: rect.width(),
+    height_value: rect.height(),
+    format_value: self.format_value,
+    metadata_value: self.metadata_value,
+    origin,
+    row_stride_value: self.row_stride_value,
+    row_bytes_value: row_bytes,
+  })
+}
+
+///|
+fn mutable_rows_disjoint(
+  left : MutImageView,
+  right : MutImageView,
+) -> Result[Bool, @error.CoreError] {
+  for left_y = 0UL; left_y < left.height_value; left_y = left_y + 1UL {
+    let left_start = match
+      checked_offset(left.origin, left_y, left.row_stride_value, 0UL, 0UL, 0UL) {
+      Ok(value) => value
+      Err(error) => return Err(error)
+    }
+    let left_end = match
+      @checked.checked_add(left_start, left.row_bytes_value) {
+      Ok(value) => value
+      Err(error) => return Err(error)
+    }
+    for right_y = 0UL; right_y < right.height_value; right_y = right_y + 1UL {
+      let right_start = match
+        checked_offset(
+          right.origin,
+          right_y,
+          right.row_stride_value,
+          0UL,
+          0UL,
+          0UL,
+        ) {
+        Ok(value) => value
+        Err(error) => return Err(error)
+      }
+      let right_end = match
+        @checked.checked_add(right_start, right.row_bytes_value) {
+        Ok(value) => value
+        Err(error) => return Err(error)
+      }
+      if left_start < right_end && right_start < left_end {
+        return Ok(false)
+      }
+    }
+  }
+  Ok(true)
+}
+
+///|
+/// Create two logical descendants only after both their half-open rectangles
+/// and every addressed row-byte interval have been proven disjoint.
+pub fn MutImageView::split_disjoint(
+  self : MutImageView,
+  left_rect : @model.Rect,
+  right_rect : @model.Rect,
+) -> Result[(MutImageView, MutImageView), @error.CoreError] {
+  let logical_overlap = left_rect.x() < right_rect.right() &&
+    right_rect.x() < left_rect.right() &&
+    left_rect.y() < right_rect.bottom() &&
+    right_rect.y() < left_rect.bottom()
+  if logical_overlap {
+    return Err(
+      storage_error(
+        @error.ErrorCategory::State,
+        @error.ErrorCode::InvalidRange,
+        "mut-image-view-split",
+        "overlapping-mutable-crops",
+      ),
+    )
+  }
+  let left = match self.crop(left_rect) {
+    Ok(value) => value
+    Err(error) => return Err(error)
+  }
+  let right = match self.crop(right_rect) {
+    Ok(value) => value
+    Err(error) => return Err(error)
+  }
+  match mutable_rows_disjoint(left, right) {
+    Err(error) => Err(error)
+    Ok(false) =>
+      Err(
+        storage_error(
+          @error.ErrorCategory::State,
+          @error.ErrorCode::InvalidRange,
+          "mut-image-view-split",
+          "overlapping-byte-ranges",
+        ),
+      )
+    Ok(true) => Ok((left, right))
+  }
+}

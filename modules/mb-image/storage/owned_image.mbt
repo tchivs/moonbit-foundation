@@ -91,3 +91,15 @@ pub fn OwnedImage::storage_length(self : OwnedImage) -> UInt64 {
 pub fn OwnedImage::view(self : OwnedImage) -> ImageView {
   ImageView::from_owned(self.descriptor_value, self.storage.view())
 }
+
+///|
+/// Acquire one enclosing backing lease and invalidate every logical descendant
+/// when the callback exits, including structured-error exits.
+pub fn[T] OwnedImage::with_mut_view(
+  self : OwnedImage,
+  body : (MutImageView) -> Result[T, @error.CoreError],
+) -> Result[T, @error.CoreError] {
+  self.storage.with_mut(0UL, self.storage.length(), fn(lease) {
+    body(MutImageView::from_owned(self.descriptor_value, lease))
+  })
+}
