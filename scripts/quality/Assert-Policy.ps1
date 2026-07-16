@@ -31,6 +31,17 @@ function Get-CompactTargetSet {
   return @($Value.Split('+', [System.StringSplitOptions]::RemoveEmptyEntries))
 }
 
+function Get-PackageImportSet {
+  param([string]$Text, [string]$Label)
+  $imports = [System.Collections.Generic.List[string]]::new()
+  foreach ($match in [regex]::Matches($Text, '(?m)^\s*import\s+"(?<name>[^"]+)"(?:\s+as\s+\w+)?\s*$')) {
+    $imports.Add($match.Groups['name'].Value)
+  }
+  $unparsed = @($Text -split '\r?\n' | Where-Object { $_ -cmatch '^\s*import\b' -and $_ -cnotmatch '^\s*import\s+"[^"]+"(?:\s+as\s+\w+)?\s*$' })
+  Assert-Condition ($unparsed.Count -eq 0) "$Label contains an unsupported import declaration: $($unparsed -join ' | ')."
+  return @($imports)
+}
+
 function Assert-AcyclicDependencyGraph {
   param([object[]]$Modules, [object[]]$AllowedEdges)
   $moduleNames = @($Modules.name)
@@ -674,11 +685,10 @@ function Assert-FoundationPolicy {
     Assert-Condition ($module.version -ceq '0.1.0') "Policy version drift for $($module.name)."
     Assert-Condition (@($policy.stability.allowed_labels) -ccontains $module.stability) "Invalid stability label for $($module.name)."
     Assert-ExactSet "Policy targets for $($module.name)" @($module.supported_targets) @($policy.required_targets)
-    Assert-Condition (@($module.public_packages).Count -eq 1) "$($module.name) must declare exactly one public package."
-    $package = @($module.public_packages)[0]
-    Assert-Condition ($package.name -ceq $module.name -and $package.path -ceq '.') "Public package identity drift for $($module.name)."
-    Assert-Condition ($package.stability -ceq $module.stability) "Public package stability drift for $($module.name)."
-    Assert-ExactSet "Public package targets for $($module.name)" @($package.supported_targets) @($policy.required_targets)
+    $packages = @($module.public_packages)
+    Assert-Condition ($packages.Count -gt 0) "$($module.name) must declare at least one public package."
+    Assert-ExactSet "Public package names for $($module.name)" @($packages.name) @($packages | ForEach-Object { [string]$_.name })
+    Assert-ExactSet "Public package paths for $($module.name)" @($packages.path) @($packages | ForEach-Object { [string]$_.path })
 
     $modulePath = Join-Path $repoRoot ([string]$module.path)
     $manifest = Read-QualityJson -Path (Join-Path $modulePath 'moon.mod.json')
@@ -698,10 +708,32 @@ function Assert-FoundationPolicy {
       Assert-Condition ($manifest.deps.$dep -ceq '0.1.0') "Dependency '$dep' in $($module.name) must pin 0.1.0."
     }
 
-    $packageText = Get-Content -LiteralPath (Join-Path $modulePath 'moon.pkg') -Raw
-    $packageMatch = [regex]::Match($packageText, '(?m)^supported_targets\s*=\s*"([^"]+)"\s*$')
-    Assert-Condition $packageMatch.Success "moon.pkg in $($module.path) lacks supported_targets."
-    Assert-ExactSet "moon.pkg targets for $($module.name)" (Get-CompactTargetSet $packageMatch.Groups[1].Value "package targets for $($module.name)") @($policy.required_targets)
+    foreach ($package in $packages) {
+      $packagePath = [string]$package.path
+      Assert-Condition ($packagePath -ceq '.' -or $packagePath -cmatch '^[a-z][a-z0-9-]*(?:/[a-z][a-z0-9-]*)*$') "Public package path '$packagePath' in $($module.name) is not canonical."
+      $expectedName = if ($packagePath -ceq '.') { [string]$module.name } else { "$($module.name)/$packagePath" }
+      Assert-Condition ($package.name -ceq $expectedName) "Public package identity drift for '$packagePath' in $($module.name): expected '$expectedName', got '$($package.name)'."
+      Assert-Condition ($package.stability -ceq $module.stability) "Public package stability drift for $($package.name)."
+      Assert-ExactSet "Public package targets for $($package.name)" @($package.supported_targets) @($policy.required_targets)
+      Assert-Condition ($null -ne $package.PSObject.Properties['allowed_imports']) "Public package $($package.name) lacks allowed_imports."
+      Assert-Condition ($null -ne $package.PSObject.Properties['semantic_interface'] -and @($package.semantic_interface).Count -gt 0) "Public package $($package.name) lacks a semantic_interface allowlist."
+      Assert-Condition (@($package.semantic_interface)[0] -ceq "package `"$expectedName`"") "Public package $($package.name) semantic interface must begin with its exact package declaration."
+
+      $packageDirectory = if ($packagePath -ceq '.') { $modulePath } else { Join-Path $modulePath $packagePath }
+      $packageFile = Join-Path $packageDirectory 'moon.pkg'
+      Assert-Condition (Test-Path -LiteralPath $packageFile -PathType Leaf) "Public package $($package.name) lacks moon.pkg at '$packageFile'."
+      $packageText = Get-Content -LiteralPath $packageFile -Raw
+      $packageMatch = [regex]::Match($packageText, '(?m)^supported_targets\s*=\s*"([^"]+)"\s*$')
+      Assert-Condition $packageMatch.Success "moon.pkg for $($package.name) lacks supported_targets."
+      Assert-ExactSet "moon.pkg targets for $($package.name)" (Get-CompactTargetSet $packageMatch.Groups[1].Value "package targets for $($package.name)") @($policy.required_targets)
+      $actualImports = @(Get-PackageImportSet -Text $packageText -Label "moon.pkg for $($package.name)")
+      Assert-ExactSet "moon.pkg imports for $($package.name)" $actualImports @($package.allowed_imports)
+    }
+
+    Assert-Condition ($null -ne $module.PSObject.Properties['publication_files'] -and @($module.publication_files).Count -gt 0) "$($module.name) lacks an exact publication_files allowlist."
+    foreach ($file in @($module.publication_files)) {
+      Assert-Condition ([string]$file -cmatch '^[A-Za-z0-9_.-]+(?:/[A-Za-z0-9_.-]+)*$') "Publication file '$file' in $($module.name) is not canonical."
+    }
 
     $readmeText = Get-Content -LiteralPath (Join-Path $modulePath 'README.mbt.md') -Raw
     Assert-Condition ($readmeText -cmatch '\bcandidate\b') "README for $($module.name) does not expose candidate stability."

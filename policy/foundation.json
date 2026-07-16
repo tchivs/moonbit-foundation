@@ -41,11 +41,23 @@
         "native"
       ],
       "direct_dependencies": [],
+      "publication_files": [
+        "CHANGELOG.md",
+        "README.mbt.md",
+        "moon.mod.json",
+        "moon.pkg",
+        "scaffold.mbt",
+        "scaffold_wbtest.mbt"
+      ],
       "public_packages": [
         {
           "name": "moonbit-foundation/mb-core",
           "path": ".",
           "stability": "candidate",
+          "allowed_imports": [],
+          "semantic_interface": [
+            "package \"moonbit-foundation/mb-core\""
+          ],
           "supported_targets": [
             "js",
             "wasm",
@@ -70,11 +82,23 @@
       "direct_dependencies": [
         "moonbit-foundation/mb-core"
       ],
+      "publication_files": [
+        "CHANGELOG.md",
+        "README.mbt.md",
+        "moon.mod.json",
+        "moon.pkg",
+        "scaffold.mbt",
+        "scaffold_wbtest.mbt"
+      ],
       "public_packages": [
         {
           "name": "moonbit-foundation/mb-color",
           "path": ".",
           "stability": "candidate",
+          "allowed_imports": [],
+          "semantic_interface": [
+            "package \"moonbit-foundation/mb-color\""
+          ],
           "supported_targets": [
             "js",
             "wasm",
@@ -100,11 +124,23 @@
         "moonbit-foundation/mb-core",
         "moonbit-foundation/mb-color"
       ],
+      "publication_files": [
+        "CHANGELOG.md",
+        "README.mbt.md",
+        "moon.mod.json",
+        "moon.pkg",
+        "scaffold.mbt",
+        "scaffold_wbtest.mbt"
+      ],
       "public_packages": [
         {
           "name": "moonbit-foundation/mb-image",
           "path": ".",
           "stability": "candidate",
+          "allowed_imports": [],
+          "semantic_interface": [
+            "package \"moonbit-foundation/mb-image\""
+          ],
           "supported_targets": [
             "js",
             "wasm",

@@ -41,29 +41,40 @@ function Invoke-MoonCommand {
 function Assert-GeneratedInterface {
   [CmdletBinding()]
   param(
-    [Parameter(Mandatory)][ValidateSet('mb-core', 'mb-color', 'mb-image')][string]$Module
+    [Parameter(Mandatory)][object]$ModulePolicy
   )
 
-  $interfacePath = Join-Path "modules/$Module" 'pkg.generated.mbti'
-  if (-not (Test-Path -LiteralPath $interfacePath -PathType Leaf)) {
-    throw "Interface classifier for $Module cannot find '$interfacePath'."
+  foreach ($package in @($ModulePolicy.public_packages)) {
+    $interfacePath = if ([string]$package.path -ceq '.') {
+      Join-Path ([string]$ModulePolicy.path) 'pkg.generated.mbti'
+    } else {
+      Join-Path (Join-Path ([string]$ModulePolicy.path) ([string]$package.path)) 'pkg.generated.mbti'
+    }
+    if (-not (Test-Path -LiteralPath $interfacePath -PathType Leaf)) {
+      throw "Interface classifier for $($package.name) cannot find '$interfacePath'."
+    }
+    $semanticLines = @(Get-Content -LiteralPath $interfacePath | ForEach-Object { $_.TrimEnd() } | Where-Object { $_ -ne '' -and -not $_.TrimStart().StartsWith('//') })
+    $expectedLines = @($package.semantic_interface | ForEach-Object { [string]$_ })
+    if ($semanticLines.Count -ne $expectedLines.Count) {
+      throw "Interface classifier for $($package.name) line count mismatch: expected $($expectedLines.Count), got $($semanticLines.Count)."
+    }
+    for ($index = 0; $index -lt $expectedLines.Count; $index++) {
+      if ($semanticLines[$index] -cne $expectedLines[$index]) {
+        throw "Interface classifier for $($package.name) mismatch at semantic line $($index + 1): expected '$($expectedLines[$index])', got '$($semanticLines[$index])'."
+      }
+    }
+    Write-Host "Interface verified for $($package.name): $($expectedLines.Count) semantic line(s)"
   }
-  $semanticLines = @(Get-Content -LiteralPath $interfacePath | ForEach-Object { $_.Trim() } | Where-Object { $_ -ne '' -and -not $_.StartsWith('//') })
-  $expectedLine = "package `"moonbit-foundation/$Module`""
-  if ($semanticLines.Count -ne 1 -or $semanticLines[0] -cne $expectedLine) {
-    throw "Interface classifier for $Module expected exactly '$expectedLine'; got [$($semanticLines -join ' | ')]."
-  }
-  Write-Host "Interface verified for ${Module}: $expectedLine"
 }
 
 function Assert-PackageList {
   [CmdletBinding()]
   param(
-    [Parameter(Mandatory)][ValidateSet('mb-core', 'mb-color', 'mb-image')][string]$Module,
+    [Parameter(Mandatory)][object]$ModulePolicy,
     [Parameter(Mandatory)][AllowEmptyCollection()][AllowEmptyString()][string[]]$Output
   )
 
-  $expectedFiles = @('CHANGELOG.md', 'README.mbt.md', 'moon.mod.json', 'moon.pkg', 'scaffold.mbt', 'scaffold_wbtest.mbt')
+  $expectedFiles = @($ModulePolicy.publication_files | ForEach-Object { [string]$_ })
   $listedFiles = [System.Collections.Generic.List[string]]::new()
   foreach ($line in @($Output | Where-Object { $_ -ne '' })) {
     if ($expectedFiles -ccontains $line) {
@@ -77,10 +88,10 @@ function Assert-PackageList {
         $line -cmatch '^Package to .+[.]zip$') {
       continue
     }
-    throw "Package list for $Module contained an unrecognized or forbidden line: '$line'."
+    throw "Package list for $($ModulePolicy.name) contained an unrecognized or forbidden line: '$line'."
   }
-  Assert-ExactSet "Package contents for $Module" @($listedFiles) $expectedFiles
-  Write-Host "Package contents verified for ${Module}: $($expectedFiles -join ', ')"
+  Assert-ExactSet "Package contents for $($ModulePolicy.name)" @($listedFiles) $expectedFiles
+  Write-Host "Package contents verified for $($ModulePolicy.name): $($expectedFiles -join ', ')"
 }
 
 function Get-TrackedDiffSnapshot {
@@ -94,6 +105,7 @@ function Invoke-RequiredQuality {
   $auditPath = 'policy/phase-01-source-audit.json'
   $requiredTargets = @('js', 'wasm', 'wasm-gc', 'native')
   $modules = @('mb-core', 'mb-color', 'mb-image')
+  $policy = Read-QualityJson -Path $policyPath
   $initialTrackedDiff = Get-TrackedDiffSnapshot
 
   Invoke-QualityStage 'D-14 exact toolchain identity' {
@@ -127,13 +139,15 @@ function Invoke-RequiredQuality {
     }
     Invoke-QualityStage "D-15 interface generation and classification for $module" {
       Invoke-MoonCommand -Context "moon info for $module" -Arguments @('-C', "modules/$module", 'info', '--target', 'all', '--frozen')
-      Assert-GeneratedInterface -Module $module
+      $modulePolicy = @($policy.modules | Where-Object { [string]$_.path -ceq "modules/$module" })[0]
+      Assert-GeneratedInterface -ModulePolicy $modulePolicy
     }
   }
   foreach ($module in $modules) {
     Invoke-QualityStage "WORK-04 package allowlist for $module" {
       $packageOutput = Invoke-MoonCommand -Context "package list for $module" -Arguments @('-C', "modules/$module", 'package', '--frozen', '--list') -CaptureCombined
-      Assert-PackageList -Module $module -Output $packageOutput
+      $modulePolicy = @($policy.modules | Where-Object { [string]$_.path -ceq "modules/$module" })[0]
+      Assert-PackageList -ModulePolicy $modulePolicy -Output $packageOutput
     }
   }
   Invoke-QualityStage 'Read-only tracked checkout proof' {
