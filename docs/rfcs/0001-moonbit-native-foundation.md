@@ -19,7 +19,7 @@
 |---|---|---|
 | — | Draft | Initial RFC in repository history |
 | Draft | Proposed | This revision makes the charter reviewable; repository history is the transition record |
-| Proposed | Accepted | `sole-project-owner-bootstrap`: the exact `docs/governance/decisions/0001-sole-owner-bootstrap.md#owner-instruction` was consumed after both mandatory reviews were completed and dispositioned under `docs/governance/decisions/0001-sole-owner-bootstrap.md#edge-review-results`, with no unresolved blocking objection. No later approval, second approval, or seven-day review is asserted. |
+| Proposed | Accepted | docs/governance/decisions/0001-sole-owner-bootstrap.md#owner-instruction; docs/governance/decisions/0001-sole-owner-bootstrap.md#edge-review-results |
 
 No transition to Implemented, Rejected, or Superseded has occurred. Every future transition must update this ledger and point to authentic repository or public-review evidence.
 

@@ -137,24 +137,25 @@ function Assert-RfcLifecycleLedger {
 
   if ($hasAcceptedHistory) {
     $acceptedRow = @($rows | Where-Object { $_.from -ceq 'Proposed' -and $_.to -ceq 'Accepted' })[0]
-    Assert-ReferencesInLedgerRow -Label 'Historical RFC acceptance' -References @($Rfc.acceptance_evidence) -LedgerRow $acceptedRow.text
+    Assert-ReferencesInLedgerRow -Label 'Historical RFC acceptance' -References @($Rfc.acceptance_evidence) -LedgerRow $acceptedRow
   }
   if ($hasImplementedHistory) {
     $implementedRow = @($rows | Where-Object { $_.from -ceq 'Accepted' -and $_.to -ceq 'Implemented' })[0]
-    Assert-ReferencesInLedgerRow -Label 'Historical RFC implementation' -References @($Rfc.implementation_evidence) -LedgerRow $implementedRow.text
-    Assert-ReferencesInLedgerRow -Label 'Historical RFC qualification' -References @($Rfc.qualification_evidence) -LedgerRow $implementedRow.text
+    Assert-ReferencesInLedgerRow -Label 'Historical RFC implementation and qualification' -References @(@($Rfc.implementation_evidence) + @($Rfc.qualification_evidence)) -LedgerRow $implementedRow
   }
 }
 
 function Assert-ReferencesInLedgerRow {
-  param([string]$Label, [object[]]$References, [string]$LedgerRow)
+  param([string]$Label, [object[]]$References, [object]$LedgerRow)
   Assert-Condition ($References.Count -gt 0) "$Label requires at least one evidence reference."
   $strings = @($References | ForEach-Object { [string]$_ })
   Assert-Condition (@($strings | Where-Object { [string]::IsNullOrWhiteSpace($_) }).Count -eq 0) "$Label contains an empty evidence reference."
   Assert-Condition (@($strings | Group-Object -CaseSensitive | Where-Object Count -ne 1).Count -eq 0) "$Label contains duplicate evidence references."
-  foreach ($reference in $strings) {
-    Assert-Condition ($LedgerRow.Contains($reference, [System.StringComparison]::Ordinal)) "$Label reference '$reference' is not bound to the RFC transition ledger row."
-  }
+  $evidenceCell = if ($LedgerRow -is [string]) { [string]$LedgerRow } else { [string]$LedgerRow.evidence }
+  $actual = @($evidenceCell -split ';' | ForEach-Object { $_.Trim() })
+  Assert-Condition (@($actual | Where-Object { [string]::IsNullOrWhiteSpace($_) }).Count -eq 0) "$Label ledger evidence contains an empty delimited reference."
+  Assert-Condition (@($actual | Group-Object -CaseSensitive | Where-Object Count -ne 1).Count -eq 0) "$Label ledger evidence contains duplicate references."
+  Assert-ExactSet "$Label ledger evidence" $actual $strings
 }
 
 function ConvertFrom-RfcTimestamp {
@@ -418,8 +419,9 @@ function Assert-RfcAcceptanceState {
   } else {
     $implementationEvidence = @($rfc.implementation_evidence)
     $qualificationEvidence = @($rfc.qualification_evidence)
-    Assert-ReferencesInLedgerRow -Label 'Implemented RFC implementation evidence' -References $implementationEvidence -LedgerRow $transitionRow
-    Assert-ReferencesInLedgerRow -Label 'Implemented RFC qualification evidence' -References $qualificationEvidence -LedgerRow $transitionRow
+    Assert-Condition ($implementationEvidence.Count -gt 0) 'Implemented RFC implementation evidence requires at least one reference.'
+    Assert-Condition ($qualificationEvidence.Count -gt 0) 'Implemented RFC qualification evidence requires at least one reference.'
+    Assert-ReferencesInLedgerRow -Label 'Implemented RFC implementation and qualification evidence' -References @($implementationEvidence + $qualificationEvidence) -LedgerRow $transitionRow
     Assert-ExactSet 'Implemented RFC transition evidence' $transitionEvidence @($implementationEvidence + $qualificationEvidence)
   }
   Assert-NullOrEmpty 'rejection_disposition' $rfc.rejection_disposition

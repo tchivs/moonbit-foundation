@@ -166,6 +166,18 @@ $missingLedger = Copy-TestObject $accepted
 Invoke-AcceptanceCase 'accepted requires transition ledger row' $missingLedger $roster $false { param($root) @('# RFC 0001','','- **Status:** Accepted') | Set-Content -LiteralPath (Join-Path $root 'docs/rfcs/0001-moonbit-native-foundation.md') } 'exactly one Transition history section'
 $illegalPrior = Copy-TestObject $accepted; $illegalPrior.rfc.current_foundation_rfc.transition.from='Draft'
 Invoke-AcceptanceCase 'accepted rejects illegal prior state' $illegalPrior $roster $false $null 'Illegal RFC transition'
+$ledgerSuffix = Copy-TestObject $accepted
+Invoke-AcceptanceCase 'ledger rejects suffix evidence injection' $ledgerSuffix $roster $false { param($root) $path=Join-Path $root 'docs/rfcs/0001-moonbit-native-foundation.md'; (Get-Content -Raw $path).Replace('#owner-instruction;','#owner-instruction-forged;') | Set-Content -LiteralPath $path } 'ledger evidence.*mismatch'
+$ledgerPrefix = Copy-TestObject $accepted
+Invoke-AcceptanceCase 'ledger rejects prefix evidence injection' $ledgerPrefix $roster $false { param($root) $path=Join-Path $root 'docs/rfcs/0001-moonbit-native-foundation.md'; (Get-Content -Raw $path).Replace('docs/governance/decisions/0001-sole-owner-bootstrap.md#owner-instruction','docs/governance/decisions/0001-sole-owner-bootstrap.md#owner') | Set-Content -LiteralPath $path } 'ledger evidence.*mismatch'
+$ledgerExtra = Copy-TestObject $accepted
+Invoke-AcceptanceCase 'ledger rejects extra evidence token' $ledgerExtra $roster $false { param($root) $path=Join-Path $root 'docs/rfcs/0001-moonbit-native-foundation.md'; (Get-Content -Raw $path).Replace('edge-review-results |','edge-review-results; reviews/extra.md#approval |') | Set-Content -LiteralPath $path } 'ledger evidence.*mismatch'
+$ledgerDuplicate = Copy-TestObject $accepted
+Invoke-AcceptanceCase 'ledger rejects duplicate evidence token' $ledgerDuplicate $roster $false { param($root) $path=Join-Path $root 'docs/rfcs/0001-moonbit-native-foundation.md'; $ref='docs/governance/decisions/0001-sole-owner-bootstrap.md#edge-review-results'; (Get-Content -Raw $path).Replace("$ref |","$ref; $ref |") | Set-Content -LiteralPath $path } 'ledger evidence contains duplicate'
+$ledgerEmpty = Copy-TestObject $accepted
+Invoke-AcceptanceCase 'ledger rejects empty delimited evidence token' $ledgerEmpty $roster $false { param($root) $path=Join-Path $root 'docs/rfcs/0001-moonbit-native-foundation.md'; (Get-Content -Raw $path).Replace('; docs/governance',';; docs/governance') | Set-Content -LiteralPath $path } 'ledger evidence contains an empty'
+$ledgerReordered = Copy-TestObject $accepted
+Invoke-AcceptanceCase 'ledger accepts reordered exact evidence set' $ledgerReordered $roster $true { param($root) $path=Join-Path $root 'docs/rfcs/0001-moonbit-native-foundation.md'; $text=Get-Content -Raw $path; $a='docs/governance/decisions/0001-sole-owner-bootstrap.md#owner-instruction'; $b='docs/governance/decisions/0001-sole-owner-bootstrap.md#edge-review-results'; $text.Replace("$a; $b","$b; $a") | Set-Content -LiteralPath $path }
 $unrelatedTable = Copy-TestObject $accepted
 Invoke-AcceptanceCase 'ledger ignores unrelated three-column table' $unrelatedTable $roster $true { param($root) $path=Join-Path $root 'docs/rfcs/0001-moonbit-native-foundation.md'; Add-Content -LiteralPath $path -Value @('','## Appendix','','| Name | Value | Note |','|---|---|---|','| alpha | beta | gamma |') }
 $outsideTransition = Copy-TestObject $accepted
@@ -221,7 +233,7 @@ Invoke-AcceptanceCase 'maintainer route rejects duplicate evidence' $duplicateAp
 $unboundApproval=Copy-TestObject $maintainer;$unboundApproval.rfc.current_foundation_rfc.approval_records[1].identity='mallory'
 Invoke-AcceptanceCase 'maintainer route rejects unbound identity' $unboundApproval $maintainerRoster $false $null 'Maintainer approval identities mismatch'
 $unboundLedger=Copy-TestObject $maintainer;$unboundLedger.rfc.current_foundation_rfc.transition.evidence=@('reviews/rfc-0001.md#alice-approval','reviews/rfc-0001.md#different')
-Invoke-AcceptanceCase 'maintainer route rejects evidence unbound from ledger' $unboundLedger $maintainerRoster $false $null 'not bound to the RFC transition ledger row'
+Invoke-AcceptanceCase 'maintainer route rejects evidence unbound from ledger' $unboundLedger $maintainerRoster $false $null 'ledger evidence.*mismatch'
 $missingApprovalFile=Copy-TestObject $maintainer;$missingApprovalFile.rfc.current_foundation_rfc.approval_records[0].reference='reviews/missing.md#alice-approval';$missingApprovalFile.rfc.current_foundation_rfc.acceptance_evidence[0]='reviews/missing.md#alice-approval';$missingApprovalFile.rfc.current_foundation_rfc.transition.evidence[0]='reviews/missing.md#alice-approval'
 Invoke-AcceptanceCase 'maintainer route rejects nonexistent approval file' $missingApprovalFile $maintainerRoster $false $null "Approval for 'alice' component 'missing.md' does not exist"
 $missingApprovalAnchor=Copy-TestObject $maintainer;$missingApprovalAnchor.rfc.current_foundation_rfc.approval_records[0].reference='reviews/rfc-0001.md#missing';$missingApprovalAnchor.rfc.current_foundation_rfc.acceptance_evidence[0]='reviews/rfc-0001.md#missing';$missingApprovalAnchor.rfc.current_foundation_rfc.transition.evidence[0]='reviews/rfc-0001.md#missing'
