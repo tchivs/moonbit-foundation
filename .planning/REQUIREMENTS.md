@@ -47,7 +47,7 @@
 - [x] **IMAG-02**: Public constructors reject overflow, invalid dimensions, impossible strides, insufficient storage, invalid plane ranges, and prohibited overlap before access or allocation.
 - [x] **IMAG-03**: A consumer can create owned images and safe immutable or mutable views whose bounds and backing-storage rules are enforced.
 - [x] **IMAG-04**: A consumer can crop or create subviews without copying when the representation permits it and without escaping the backing storage's safe lifetime.
-- [ ] **IMAG-05**: A consumer can perform deterministic copies, horizontal/vertical flips, orientation application, nearest-neighbor resize, and the minimal required pixel conversions.
+- [x] **IMAG-05**: A consumer can perform deterministic copies, horizontal/vertical flips, orientation application, nearest-neighbor resize, and the minimal required pixel conversions.
 - [x] **IMAG-06**: A consumer can predict whether metadata is preserved, transformed, or discarded by each image operation.
 - [ ] **IMAG-07**: A codec author can implement decoding and encoding against backend-neutral reader/writer and image contracts without importing a global registry or filesystem policy.
 
@@ -139,7 +139,7 @@
 | IMAG-02 | Phase 4 | Complete |
 | IMAG-03 | Phase 4 | Complete |
 | IMAG-04 | Phase 4 | Complete |
-| IMAG-05 | Phase 4 | Pending |
+| IMAG-05 | Phase 4 | Complete |
 | IMAG-06 | Phase 4 | Complete |
 | IMAG-07 | Phase 4 | Pending |
 | QUAL-01 | Phase 5 | Pending |

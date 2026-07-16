@@ -5,15 +5,15 @@ milestone_name: milestone
 current_phase: 4
 current_phase_name: Image Model, Views, and Operations
 status: executing
-stopped_at: Completed 04-03-PLAN.md
-last_updated: "2026-07-16T21:25:53.165Z"
+stopped_at: Completed 04-04-PLAN.md
+last_updated: "2026-07-16T21:38:26.261Z"
 last_activity: 2026-07-17
 last_activity_desc: Phase 4 execution started
 progress:
   total_phases: 4
   completed_phases: 3
   total_plans: 32
-  completed_plans: 27
+  completed_plans: 28
 ---
 
 # Project State
@@ -29,11 +29,11 @@ See `.planning/PROJECT.md` (updated 2026-07-16).
 ## Current Position
 
 Phase: 4 (Image Model, Views, and Operations) — EXECUTING
-Plan: 4 of 8
+Plan: 5 of 8
 Status: Ready to execute
 Last activity: 2026-07-17 — Phase 4 execution started
 
-Progress: [████████░░] 84% (1/5 phases; 8/8 currently planned plans complete)
+Progress: [█████████░] 88% (1/5 phases; 8/8 currently planned plans complete)
 
 ## Performance Metrics
 
@@ -72,6 +72,7 @@ Progress: [████████░░] 84% (1/5 phases; 8/8 currently planne
 | Phase 04 P01 | 10min | 2 tasks | 5 files |
 | Phase 04 P02 | 19min | 2 tasks | 6 files |
 | Phase 04 P03 | 38min | 3 tasks | 9 files |
+| Phase 04 P04 | 6min | 2 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -156,6 +157,9 @@ Progress: [████████░░] 84% (1/5 phases; 8/8 currently planne
 - [Phase 04]: Construct one ResourceCharge inside mb-core/bytes from explicit storage, dimension, pixel, and work scalars after narrowing and allocator approval.
 - [Phase 04]: Canonical empty immutable crops have no backing, while every empty mutable crop rejects before access.
 - [Phase 04]: Mutable image descendants share one enclosing byte lease and require logical plus per-row byte disjointness before split creation.
+- [Phase 04]: Return one ImageOperationResult containing the fresh image and metadata disposition so later deterministic operations share one inspectable result contract.
+- [Phase 04]: Support exactly encoded-sRGB packed U8 RGB, straight RGBA, and premultiplied RGBA; reject other layouts and formats before output charge.
+- [Phase 04]: Use output logical byte length as deterministic operation work and forward explicit scalars once to OwnedImage::new_operation.
 
 ### Pending Decisions
 
@@ -176,6 +180,6 @@ None. Phase 01 is independently verified and complete; Phase 02 is ready for con
 
 **Resume file:** None
 
-Last session: 2026-07-16T21:25:53.150Z
-Stopped at: Completed 04-03-PLAN.md
+Last session: 2026-07-16T21:38:26.238Z
+Stopped at: Completed 04-04-PLAN.md
 Resume with: Discuss Phase 02, then plan and execute it through the active auto chain.
