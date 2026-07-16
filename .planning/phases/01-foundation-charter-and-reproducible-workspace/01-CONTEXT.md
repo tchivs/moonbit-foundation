@@ -14,28 +14,28 @@ Establish the accepted v0.1 foundation charter, governance and compatibility pol
 ## Implementation Decisions
 
 ### RFC governance and acceptance
-- RFC 0001 is the architectural charter and must define vision, terminology, layer boundaries, dependency direction, portability policy, v0.1 scope, and governance.
-- Use the lifecycle `Draft -> Proposed -> Accepted -> Implemented`, with `Rejected` and `Superseded` terminal states; every transition is recorded in the RFC header and repository history.
-- Acceptance requires two maintainer approvals with no unresolved blocking objection. Until the project has two maintainers, the project lead may accept after a minimum seven-day public review window; this bootstrap exception must be explicit.
-- New modules, public dependency-direction changes, and breaking architectural changes require an accepted RFC. Implementation PRs may not silently redefine an accepted boundary.
+- **D-01:** RFC 0001 is the architectural charter and must define vision, terminology, layer boundaries, dependency direction, portability policy, v0.1 scope, and governance.
+- **D-02:** Use the lifecycle `Draft -> Proposed -> Accepted -> Implemented`, with `Rejected` and `Superseded` terminal states; every transition is recorded in the RFC header and repository history.
+- **D-03:** Acceptance requires two maintainer approvals with no unresolved blocking objection. Until the project has two maintainers, the project lead may accept after a minimum seven-day public review window; this bootstrap exception must be explicit.
+- **D-04:** New modules, public dependency-direction changes, and breaking architectural changes require an accepted RFC. Implementation PRs may not silently redefine an accepted boundary.
 
 ### Licensing, namespace, and naming
-- License project-authored source, documentation, and generated fixtures under Apache-2.0 to provide a permissive license with an explicit patent grant.
-- Maintain a fixture manifest recording source, author, retrieval date, SHA-256, SPDX/license, redistribution status, and expected use. Prefer generated fixtures; do not commit externally sourced fixtures without confirmed redistribution permission.
-- Reserve `moonbit-foundation` as the intended mooncakes.io owner namespace and use `moonbit-foundation/mb-core`, `moonbit-foundation/mb-color`, and `moonbit-foundation/mb-image`. Public publication is blocked until ownership is verified; local manifests still use these final intended names to avoid a later rename.
-- Keep module names domain-specific and independently publishable. Do not add an umbrella `mnf/all` module or package, and do not force lockstep versions.
+- **D-05:** License project-authored source, documentation, and generated fixtures under Apache-2.0 to provide a permissive license with an explicit patent grant.
+- **D-06:** Maintain a fixture manifest recording source, author, retrieval date, SHA-256, SPDX/license, redistribution status, and expected use. Prefer generated fixtures; do not commit externally sourced fixtures without confirmed redistribution permission.
+- **D-07:** Reserve `moonbit-foundation` as the intended mooncakes.io owner namespace and use `moonbit-foundation/mb-core`, `moonbit-foundation/mb-color`, and `moonbit-foundation/mb-image`. Public publication is blocked until ownership is verified; local manifests still use these final intended names to avoid a later rename.
+- **D-08:** Keep module names domain-specific and independently publishable. Do not add an umbrella `mnf/all` module or package, and do not force lockstep versions.
 
 ### API stability and compatibility
-- Public APIs are labeled `experimental`, `candidate`, or `stable`. Experimental APIs have no compatibility promise; candidate APIs require documented migration notes for changes; stable APIs follow Semantic Versioning.
-- v0.1 packages begin as candidate unless explicitly marked experimental. No package is called stable before its contract, conformance evidence, and release policy meet the stable gate.
-- Stable breaking changes require an accepted RFC, a major-version change, a migration guide, and compatibility qualification of direct dependants. Stable removals require at least one prior minor release of deprecation unless a documented security exception applies.
-- Stability status and supported targets must be visible in package documentation and checked metadata, not inferred from repository location or version number alone.
+- **D-09:** Public APIs are labeled `experimental`, `candidate`, or `stable`. Experimental APIs have no compatibility promise; candidate APIs require documented migration notes for changes; stable APIs follow Semantic Versioning.
+- **D-10:** v0.1 packages begin as candidate unless explicitly marked experimental. No package is called stable before its contract, conformance evidence, and release policy meet the stable gate.
+- **D-11:** Stable breaking changes require an accepted RFC, a major-version change, a migration guide, and compatibility qualification of direct dependants. Stable removals require at least one prior minor release of deprecation unless a documented security exception applies.
+- **D-12:** Stability status and supported targets must be visible in package documentation and checked metadata, not inferred from repository location or version number alone.
 
 ### Workspace, toolchain, and quality contract
-- Use one `moon.work` with three member modules under `modules/mb-core`, `modules/mb-color`, and `modules/mb-image`; each module has its own manifest, version, changelog, and publication lifecycle.
-- Pin the v0.1 development baseline exactly to `moon 0.1.20260713` (`75c7e1f`), recording the bundled `moonc v0.10.4+2cc641edf` and `moonrun 0.1.20260713` in checked-in policy and CI logs.
-- Use `moon.mod.json` for the v0.1 compatibility floor while `moon.mod` rollout remains transitional. Every public package declares `+js+wasm+wasm-gc+native`; native-only leaf adapters declare `native`. Avoid a restrictive module-level target intersection.
-- Provide one root PowerShell 7 quality entry point that runs formatting checks, workspace checks, tests, documentation checks, package-content inspection, explicit target-matrix checks, and dependency-DAG/metadata validation. CI invokes the same entry point and treats LLVM as experimental and non-blocking.
+- **D-13:** Use one `moon.work` with three member modules under `modules/mb-core`, `modules/mb-color`, and `modules/mb-image`; each module has its own manifest, version, changelog, and publication lifecycle.
+- **D-14:** Pin the v0.1 development baseline exactly to `moon 0.1.20260713` (`75c7e1f`), recording the bundled `moonc v0.10.4+2cc641edf` and `moonrun 0.1.20260713` in checked-in policy and CI logs.
+- **D-15:** Use `moon.mod.json` for the v0.1 compatibility floor while `moon.mod` rollout remains transitional. Every public package declares `+js+wasm+wasm-gc+native`; native-only leaf adapters declare `native`. Avoid a restrictive module-level target intersection.
+- **D-16:** Provide one root PowerShell 7 quality entry point that runs formatting checks, workspace checks, tests, documentation checks, package-content inspection, explicit target-matrix checks, and dependency-DAG/metadata validation. CI invokes the same entry point and treats LLVM as experimental and non-blocking.
 
 ### the agent's Discretion
 - Exact document filenames, helper-script decomposition, CI job layout, and minimal placeholder package APIs may be chosen during planning, provided the decisions above and Phase 1 requirements remain machine-verifiable.
