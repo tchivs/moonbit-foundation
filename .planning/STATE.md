@@ -5,15 +5,15 @@ milestone_name: milestone
 current_phase: 1
 current_phase_name: Foundation Charter and Reproducible Workspace
 status: executing
-stopped_at: Completed 01-04-PLAN.md
-last_updated: "2026-07-16T07:51:01.418Z"
+stopped_at: Completed 01-05-PLAN.md
+last_updated: "2026-07-16T08:00:37.177Z"
 last_activity: 2026-07-16
-last_activity_desc: Completed 01-04 private mb-core build, test, documentation, and release-ledger surface
+last_activity_desc: Completed 01-05 private mb-color build, test, documentation, and release-ledger surface
 progress:
   total_phases: 1
   completed_phases: 0
   total_plans: 8
-  completed_plans: 4
+  completed_plans: 5
 ---
 
 # Project State
@@ -29,18 +29,18 @@ See `.planning/PROJECT.md` (updated 2026-07-16).
 ## Current Position
 
 Phase: 1 (Foundation Charter and Reproducible Workspace) — EXECUTING
-Plan: 5 of 8
+Plan: 6 of 8
 Status: Ready to execute
-Last activity: 2026-07-16 — Completed 01-04 private mb-core build, test, documentation, and release-ledger surface
+Last activity: 2026-07-16 — Completed 01-05 private mb-color build, test, documentation, and release-ledger surface
 
-Progress: [█████░░░░░] 50%
+Progress: [██████░░░░] 63%
 
 ## Performance Metrics
 
 **Velocity:**
 
 - Phases completed: 0
-- Plans completed: 3
+- Plans completed: 5
 - Requirements validated: 7/36
 
 | Phase | Plan | Duration | Notes |
@@ -49,6 +49,7 @@ Progress: [█████░░░░░] 50%
 | Phase 01 P02 | 10min | 3 tasks | 9 files |
 | Phase 01 P03 | 6min | 2 tasks | 7 files |
 | Phase 01 P04 | 11min | 2 tasks | 4 files |
+| Phase 01 P05 | 5min | 2 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -70,6 +71,9 @@ Progress: [█████░░░░░] 50%
 - [Phase 01]: Keep the Phase 1 mb-core proof package-private and expose no public domain API.
 - [Phase 01]: Use an underscore-prefixed private probe for warning-free deny-warn builds while white-box tests exercise it.
 - [Phase 01]: Document candidate status and publication blocking without fabricating a public example or released version.
+- [Phase 01]: Keep the Phase 1 mb-color proof package-private and expose no public color API.
+- [Phase 01]: Retain the mb-core module dependency while omitting a package import until a public core contract exists.
+- [Phase 01]: Document candidate status and publication blocking without fabricating a public example or released version.
 
 ### Pending Decisions
 
@@ -78,12 +82,12 @@ Progress: [█████░░░░░] 50%
 
 ### Blockers
 
-None. Plan 01-05 is ready to execute.
+None. Plan 01-06 is ready to execute.
 
 ## Session Continuity
 
 **Resume file:** None
 
-Last session: 2026-07-16T07:51:01.400Z
-Stopped at: Completed 01-04-PLAN.md
-Resume with: Execute Plan 01-05 — private mb-color build, test, documentation, and release-ledger surface.
+Last session: 2026-07-16T08:00:37.155Z
+Stopped at: Completed 01-05-PLAN.md
+Resume with: Execute Plan 01-06 — private mb-image build, test, documentation, and release-ledger surface.
