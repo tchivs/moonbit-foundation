@@ -23,3 +23,9 @@ test "empty seek window has deterministic exact boundaries" {
     content="true",
   )
 }
+
+///|
+test "bounded transition rejects oversized provider progress before cursor escape" {
+  let result = validate_transition_progress(3UL, 2UL, 0UL, "bounded_read")
+  inspect(result is Err(_), content="true")
+}

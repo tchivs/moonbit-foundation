@@ -221,3 +221,92 @@ test "seeking is a separate capability with checked boundaries" {
     as &@io.Reader
   ignore(non_seekable)
 }
+
+///|
+fn expect_view_byte(view : @bytes.ByteView, index : UInt64, expected : Byte) -> Unit raise {
+  match view.get(index) {
+    Ok(value) => inspect(value == expected, content="true")
+    Err(_) => fail("validated byte must be readable")
+  }
+}
+
+///|
+test "memory reader and writer stream partial bounded storage" {
+  let source_budget = @budget.Budget::new(io_limits(4UL))
+  let source = @bytes.OwnedBytes::from_bytes(b"abcd", source_budget).unwrap()
+  let reader = @io.MemoryReader::new(source.view())
+  let destination_budget = @budget.Budget::new(io_limits(4UL))
+  let destination = @bytes.OwnedBytes::new(4UL, destination_budget).unwrap()
+  expect_io_ok(
+    destination.with_mut(0UL, 4UL, fn(lease) {
+      @io.read_exact(reader as &@io.Reader, lease)
+    }),
+    4UL,
+  )
+  expect_view_byte(destination.view(), 0UL, b'a')
+  expect_view_byte(destination.view(), 3UL, b'd')
+  inspect(reader.position(), content="4")
+
+  let writer_budget = @budget.Budget::new(io_limits(4UL))
+  let writer = @io.MemoryWriter::new(4UL, writer_budget).unwrap()
+  expect_io_ok(@io.write_all(writer as &@io.Writer, source.view()), 4UL)
+  expect_view_byte(writer.view(), 0UL, b'a')
+  expect_view_byte(writer.view(), 3UL, b'd')
+}
+
+///|
+test "memory seeking accepts zero and end and rejects outside unchanged" {
+  let budget = @budget.Budget::new(io_limits(4UL))
+  let source = @bytes.OwnedBytes::from_bytes(b"abcd", budget).unwrap()
+  let reader = @io.MemoryReader::new(source.view())
+  expect_io_ok(reader.seek(@io.SeekOrigin::End, 0L), 4UL)
+  expect_io_ok(reader.seek(@io.SeekOrigin::Start, 0L), 0UL)
+  expect_io_ok(reader.seek(@io.SeekOrigin::Current, 4L), 4UL)
+  inspect(reader.seek(@io.SeekOrigin::End, 1L) is Err(_), content="true")
+  inspect(reader.position(), content="4")
+  let empty = @io.MemoryReader::new(source.view().subview(4UL, 0UL).unwrap())
+  expect_io_ok(empty.seek(@io.SeekOrigin::End, 0L), 0UL)
+}
+
+///|
+test "bounded reader caps nested non-seekable streams and sentinels" {
+  let source_budget = @budget.Budget::new(io_limits(4UL))
+  let source = @bytes.OwnedBytes::from_bytes(b"abcd", source_budget).unwrap()
+  let memory = @io.MemoryReader::new(source.view())
+  let inner = @io.BoundedReader::new(memory as &@io.Reader, 3UL)
+  let outer = @io.BoundedReader::new(inner as &@io.Reader, 2UL)
+  let destination_budget = @budget.Budget::new(io_limits(4UL))
+  let destination = @bytes.OwnedBytes::from_bytes(b"!!!!", destination_budget).unwrap()
+  match destination.with_mut(0UL, 4UL, fn(lease) {
+    @io.read_exact(outer as &@io.Reader, lease)
+  }) {
+    Err(error) => {
+      inspect(error.code() == @error.ErrorCode::UnexpectedEndOfStream, content="true")
+      inspect(error.completed() == Some(2UL), content="true")
+    }
+    Ok(_) => fail("bounded reader must stop at its logical end")
+  }
+  expect_view_byte(destination.view(), 0UL, b'a')
+  expect_view_byte(destination.view(), 1UL, b'b')
+  expect_view_byte(destination.view(), 2UL, b'!')
+  expect_view_byte(destination.view(), 3UL, b'!')
+}
+
+///|
+test "bounded writer never escapes its declared output window" {
+  let source_budget = @budget.Budget::new(io_limits(4UL))
+  let source = @bytes.OwnedBytes::from_bytes(b"abcd", source_budget).unwrap()
+  let destination_budget = @budget.Budget::new(io_limits(4UL))
+  let memory = @io.MemoryWriter::new(4UL, destination_budget).unwrap()
+  let bounded = @io.BoundedWriter::new(memory as &@io.Writer, 2UL)
+  match @io.write_all(bounded as &@io.Writer, source.view()) {
+    Err(error) => {
+      inspect(error.completed() == Some(2UL), content="true")
+      inspect(error.code() == @error.ErrorCode::InvalidRange, content="true")
+    }
+    Ok(_) => fail("write_all must report a short bounded destination")
+  }
+  expect_view_byte(memory.view(), 0UL, b'a')
+  expect_view_byte(memory.view(), 1UL, b'b')
+  expect_view_byte(memory.view(), 2UL, b'\x00')
+}
