@@ -488,6 +488,10 @@ function Assert-FoundationPolicy {
   if ([string]::IsNullOrWhiteSpace($MaintainersPath)) { $MaintainersPath = Join-Path $repoRoot ([string]$policy.rfc.maintainer_roster_path) }
   Assert-RfcAcceptanceState -Policy $policy -RosterPath $MaintainersPath -RepositoryRoot $repoRoot
 
+  $rfcProcessText = Get-Content -LiteralPath (Join-Path $repoRoot 'docs/governance/rfc-process.md') -Raw
+  Assert-Condition ($rfcProcessText -cmatch 'RFC 0001 completed and dispositioned both checks' -and $rfcProcessText -cmatch 'decisions/0001-sole-owner-bootstrap[.]md#edge-review-results') 'RFC process must record RFC 0001 edge-review completion and link its canonical evidence.'
+  Assert-Condition ($rfcProcessText -cnotmatch 'still-unclassified checks' -and $rfcProcessText -cnotmatch 'These checks are open review obligations') 'RFC process incorrectly describes completed RFC 0001 checks as open.'
+
   Assert-FixtureManifest -ManifestPath (Join-Path $repoRoot 'fixtures/manifest.json') -RepositoryRoot $repoRoot
 
   Write-Host 'Foundation policy, RFC, workspace inventory, target metadata, fixtures, publication block, and dependency DAG verified.'

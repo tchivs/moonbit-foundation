@@ -106,12 +106,16 @@ Rejected and Superseded are terminal for that RFC number. Further work requires 
 
 ## 8. Required manual edge review
 
-Before RFC 0001 can be accepted, reviewers must explicitly complete and record these still-unclassified checks:
+Every RFC that selects the sole-project-owner bootstrap route must explicitly complete and record
+these checks before acceptance:
 
 - **EDGE-GOV-01-UNCLASSIFIED:** Manually review the accepted charter for an omitted architectural boundary case.
 - **EDGE-GOV-02-UNCLASSIFIED:** Manually review lifecycle and acceptance authority for an omitted transition or authority case.
 
-These checks are open review obligations, not evidence that review has occurred. Any discovered case must be resolved in the RFC or process before acceptance.
+The checks remain permanent route requirements; listing them here is not itself completion evidence.
+RFC 0001 completed and dispositioned both checks in the canonical
+[edge-review results](decisions/0001-sole-owner-bootstrap.md#edge-review-results). Any case found by
+a future application of this route must be resolved in the governing RFC or process before acceptance.
 
 ## 9. Discoverability and consistency
 
