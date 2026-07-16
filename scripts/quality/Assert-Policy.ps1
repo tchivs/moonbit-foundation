@@ -167,13 +167,39 @@ function Get-MarkdownSection {
   return $match.Groups['body'].Value
 }
 
+function Get-MarkdownSectionByAnchor {
+  param([string]$Text, [string]$Anchor)
+  foreach ($match in [regex]::Matches($Text, '(?ms)^#{1,6}\s+(?<heading>.+?)\s*#*\s*\r?\n(?<body>.*?)(?=^#{1,6}\s+|\z)')) {
+    $slug = $match.Groups['heading'].Value.ToLowerInvariant()
+    $slug = [regex]::Replace($slug, '[^\p{L}\p{N}\s_-]', '')
+    $slug = [regex]::Replace($slug.Trim(), '\s+', '-')
+    if ($slug -ceq $Anchor.ToLowerInvariant()) { return $match.Groups['body'].Value }
+  }
+  throw "Markdown anchor '$Anchor' does not identify a section."
+}
+
 function Assert-ApprovalReference {
-  param([string]$Reference, [string]$Identity)
+  param([string]$Reference, [string]$Identity, [string]$Role, [string]$RepositoryRoot)
   Assert-Condition (-not [string]::IsNullOrWhiteSpace($Reference)) "Approval for '$Identity' requires a reference."
   $isHttps = $Reference -cmatch '^https://[^\s]+$'
-  $isRepositoryReference = $Reference -cmatch '^(?:docs|reviews|[.]planning)/[^\s#]+(?:#[^\s#]+)?$' -or $Reference -cmatch '^commit:[0-9a-f]{7,40}$'
-  Assert-Condition ($isHttps -or $isRepositoryReference) "Approval for '$Identity' must use an HTTPS review URL or stable repository reference."
+  $repositoryMatch = [regex]::Match($Reference, '^(?<path>(?:docs|reviews|[.]planning)/[^\s#]+)#(?<anchor>[^\s#]+)$')
+  $commitMatch = [regex]::Match($Reference, '^commit:(?<sha>[0-9a-f]{7,40})$')
+  Assert-Condition ($isHttps -or $repositoryMatch.Success -or $commitMatch.Success) "Approval for '$Identity' must use an HTTPS review URL or stable repository reference."
   Assert-Condition ($Reference -cnotmatch '(?i)(placeholder|example|todo|tbd|dummy|fake)') "Approval for '$Identity' uses placeholder evidence."
+  if ($isHttps) { return }
+  if ($repositoryMatch.Success) {
+    $approvalFile = Resolve-RepositoryLeafFile -RepositoryRoot $RepositoryRoot -RelativePath $repositoryMatch.Groups['path'].Value -Label "Approval for '$Identity'"
+    $section = Get-MarkdownSectionByAnchor -Text (Get-Content -LiteralPath $approvalFile -Raw) -Anchor $repositoryMatch.Groups['anchor'].Value
+    Assert-Condition ($section -cmatch "(?m)^- \*\*Identity:\*\* $([regex]::Escape($Identity))\s*$") "Approval artifact does not bind identity '$Identity'."
+    Assert-Condition ($section -cmatch "(?m)^- \*\*Role:\*\* $([regex]::Escape($Role))\s*$") "Approval artifact does not bind role '$Role'."
+    Assert-Condition ($section -cmatch '(?m)^- \*\*Disposition:\*\* approved\s*$') "Approval artifact for '$Identity' is not approved."
+    return
+  }
+  $sha = $commitMatch.Groups['sha'].Value
+  & git -C $RepositoryRoot cat-file -e "$sha`^{commit}" 2>$null
+  Assert-Condition ($LASTEXITCODE -eq 0) "Approval commit '$sha' does not exist in the repository."
+  $message = (& git -C $RepositoryRoot show -s --format=%B $sha 2>$null) -join "`n"
+  Assert-Condition ($message -cmatch "(?m)^Approval-Identity:\s*$([regex]::Escape($Identity))\s*$" -and $message -cmatch "(?m)^Approval-Role:\s*$([regex]::Escape($Role))\s*$") "Approval commit '$sha' is not bound to identity '$Identity' and role '$Role'."
 }
 
 function Resolve-RepositoryLeafFile {
@@ -394,7 +420,7 @@ function Assert-RfcAcceptanceState {
       Assert-Condition (@($approvalRecords.reference | Group-Object -CaseSensitive | Where-Object Count -ne 1).Count -eq 0) 'Maintainer approval references must be distinct.'
       foreach ($approval in $approvalRecords) {
         Assert-Condition ([string]$approval.role -ceq 'maintainer') "Approval for '$($approval.identity)' must record the maintainer role."
-        Assert-ApprovalReference -Reference ([string]$approval.reference) -Identity ([string]$approval.identity)
+        Assert-ApprovalReference -Reference ([string]$approval.reference) -Identity ([string]$approval.identity) -Role 'maintainer' -RepositoryRoot $RepositoryRoot
       }
       Assert-ExactSet 'Maintainer acceptance evidence' @($rfc.acceptance_evidence) @($approvalRecords.reference)
       Assert-Condition ($rfc.authority -ceq 'maintainers') 'Maintainer route authority must be maintainers.'
@@ -411,7 +437,7 @@ function Assert-RfcAcceptanceState {
       Assert-Condition ([string]$rfc.public_review_url -cmatch '^https?://') 'Project-lead route requires a public review URL.'
       $leadApprovals = @($rfc.approval_records)
       Assert-Condition ($leadApprovals.Count -eq 1 -and [string]$leadApprovals[0].identity -ceq [string]$rfc.project_lead -and [string]$leadApprovals[0].role -ceq 'project-lead') 'Project-lead route requires one approval record bound to the canonical project lead.'
-      Assert-ApprovalReference -Reference ([string]$leadApprovals[0].reference) -Identity ([string]$rfc.project_lead)
+      Assert-ApprovalReference -Reference ([string]$leadApprovals[0].reference) -Identity ([string]$rfc.project_lead) -Role 'project-lead' -RepositoryRoot $RepositoryRoot
       $reviewEvidence = Get-RequiredProperty $rfc 'public_review_evidence' 'Project-lead RFC'
       Assert-Condition ($null -ne $reviewEvidence) 'Project-lead route requires structured public-review evidence.'
       $locationReference = [string](Get-RequiredProperty $reviewEvidence 'location_reference' 'Public-review evidence')
@@ -423,7 +449,7 @@ function Assert-RfcAcceptanceState {
       $closedReference = [string](Get-RequiredProperty $closed 'reference' 'Public-review closing evidence')
       Assert-Condition ($locationReference -ceq [string]$rfc.public_review_url) 'Public-review location evidence must equal the declared review URL.'
       Assert-Condition ($openedAt -ceq [string]$rfc.public_review_started_at -and $closedAt -ceq [string]$rfc.public_review_ended_at) 'Public-review opening and closing evidence must bind the declared interval values.'
-      foreach ($reference in @($locationReference,$openedReference,$closedReference)) { Assert-ApprovalReference -Reference $reference -Identity 'public-review' }
+      foreach ($reference in @($locationReference,$openedReference,$closedReference)) { Assert-ApprovalReference -Reference $reference -Identity 'public-review' -Role 'evidence' -RepositoryRoot $RepositoryRoot }
       $expectedLeadEvidence = @([string]$leadApprovals[0].reference,$locationReference,$openedReference,$closedReference)
       Assert-ExactSet 'Project-lead acceptance evidence' @($rfc.acceptance_evidence) $expectedLeadEvidence
       $started = ConvertFrom-RfcTimestamp -Value ([string]$rfc.public_review_started_at) -Label 'Public review start'

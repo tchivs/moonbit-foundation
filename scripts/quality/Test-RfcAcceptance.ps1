@@ -20,6 +20,7 @@ function New-TestRepository {
   [void](New-Item -ItemType Directory -Force -Path (Join-Path $root 'docs/governance/decisions'))
   [void](New-Item -ItemType Directory -Force -Path (Join-Path $root 'docs/rfcs'))
   [void](New-Item -ItemType Directory -Force -Path (Join-Path $root 'policy'))
+  [void](New-Item -ItemType Directory -Force -Path (Join-Path $root 'reviews'))
   @'
 # Decision 0001
 
@@ -41,6 +42,21 @@ No second approval and no seven-day public review are claimed.
 - `EDGE-GOV-02-UNCLASSIFIED`: Completed. Disposition: no-omission-found.
 - Unresolved blocking objections: none.
 '@ | Set-Content -LiteralPath (Join-Path $root 'docs/governance/decisions/0001-sole-owner-bootstrap.md') -Encoding utf8
+  @'
+# RFC 0001 maintainer approvals
+
+## Alice approval
+
+- **Identity:** alice
+- **Role:** maintainer
+- **Disposition:** approved
+
+## Bob approval
+
+- **Identity:** bob
+- **Role:** maintainer
+- **Disposition:** approved
+'@ | Set-Content -LiteralPath (Join-Path $root 'reviews/rfc-0001.md') -Encoding utf8
   return $root
 }
 
@@ -195,6 +211,10 @@ $unboundApproval=Copy-TestObject $maintainer;$unboundApproval.rfc.current_founda
 Invoke-AcceptanceCase 'maintainer route rejects unbound identity' $unboundApproval $maintainerRoster $false $null 'Maintainer approval identities mismatch'
 $unboundLedger=Copy-TestObject $maintainer;$unboundLedger.rfc.current_foundation_rfc.transition.evidence=@('reviews/rfc-0001.md#alice-approval','reviews/rfc-0001.md#different')
 Invoke-AcceptanceCase 'maintainer route rejects evidence unbound from ledger' $unboundLedger $maintainerRoster $false $null 'not bound to the RFC transition ledger row'
+$missingApprovalFile=Copy-TestObject $maintainer;$missingApprovalFile.rfc.current_foundation_rfc.approval_records[0].reference='reviews/missing.md#alice-approval';$missingApprovalFile.rfc.current_foundation_rfc.acceptance_evidence[0]='reviews/missing.md#alice-approval';$missingApprovalFile.rfc.current_foundation_rfc.transition.evidence[0]='reviews/missing.md#alice-approval'
+Invoke-AcceptanceCase 'maintainer route rejects nonexistent approval file' $missingApprovalFile $maintainerRoster $false $null "Approval for 'alice' component 'missing.md' does not exist"
+$missingApprovalAnchor=Copy-TestObject $maintainer;$missingApprovalAnchor.rfc.current_foundation_rfc.approval_records[0].reference='reviews/rfc-0001.md#missing';$missingApprovalAnchor.rfc.current_foundation_rfc.acceptance_evidence[0]='reviews/rfc-0001.md#missing';$missingApprovalAnchor.rfc.current_foundation_rfc.transition.evidence[0]='reviews/rfc-0001.md#missing'
+Invoke-AcceptanceCase 'maintainer route rejects nonexistent approval anchor' $missingApprovalAnchor $maintainerRoster $false $null "Markdown anchor 'missing' does not identify"
 
 $lead=Copy-TestObject $accepted
 $l=$lead.rfc.current_foundation_rfc;$l.acceptance_route='project-lead-public-review';$l.authority='project-lead';$l.approvers=@();$l.approval_records=@([pscustomobject]@{identity='lead';role='project-lead';reference='https://reviews.invalid/rfc/1#lead-approval'});$l.project_lead='lead';$l.project_owner=$null;$l.public_review_url='https://reviews.invalid/rfc/1';$l.public_review_started_at='2026-07-01T00:00:00Z';$l.public_review_ended_at='2026-07-08T00:00:00Z';$l.public_review_evidence=[pscustomobject]@{location_reference='https://reviews.invalid/rfc/1';opened=[pscustomobject]@{at='2026-07-01T00:00:00Z';reference='https://reviews.invalid/rfc/1#opened'};closed=[pscustomobject]@{at='2026-07-08T00:00:00Z';reference='https://reviews.invalid/rfc/1#closed'}};$l.decision_evidence_path=$null;$l.decision_evidence_anchors=@();$l.edge_reviews=@();$l.acceptance_evidence=@('https://reviews.invalid/rfc/1','https://reviews.invalid/rfc/1#opened','https://reviews.invalid/rfc/1#closed','https://reviews.invalid/rfc/1#lead-approval');$l.transition.evidence=@($l.acceptance_evidence)
