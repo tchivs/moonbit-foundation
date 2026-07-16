@@ -1,0 +1,15 @@
+import {
+  "moonbit-foundation/mb-core/error",
+  "moonbit-foundation/mb-core/checked",
+  "moonbit-foundation/mb-core/budget",
+  "moonbit-foundation/mb-core/bytes",
+  "moonbit-foundation/mb-color/model" @color,
+  "moonbit-foundation/mb-color/profile",
+  "moonbit-foundation/mb-image/metadata",
+  "moonbit-foundation/mb-image/model",
+  "moonbit-foundation/mb-image/storage",
+}
+
+supported_targets = "+js+wasm+wasm-gc+native"
+
+warnings = "-29-35"
