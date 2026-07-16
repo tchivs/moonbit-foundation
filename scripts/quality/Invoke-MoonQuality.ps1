@@ -95,6 +95,51 @@ function Assert-PackageList {
   Write-Host "Package contents verified for $($ModulePolicy.name): $($expectedFiles -join ', ')"
 }
 
+function Assert-CoreSourceTextProhibitions {
+  [CmdletBinding()]
+  param(
+    [Parameter(Mandatory)][string]$RelativePath,
+    [Parameter(Mandatory)][string]$Text
+  )
+
+  $publicLines = @($Text -split '\r?\n' | Where-Object { $_ -cmatch '^\s*pub(?:\([^)]*\))?\s' })
+  foreach ($line in $publicLines) {
+    if ($line -cmatch '\b(?:FixedArray|MutArrayView)\b') {
+      throw "Raw mutable backing escaped through a public declaration in $RelativePath`: $line"
+    }
+    if ($RelativePath -like 'modules/mb-core/host/*' -and $line -cmatch '\b(?:Host|Environment|NativeAdapter)\b') {
+      throw "Ambient, aggregate, or native host surface escaped in $RelativePath`: $line"
+    }
+  }
+
+  if ($RelativePath -cne 'modules/mb-core/checked/checked.mbt' -and $Text -cmatch '[.]to_int\s*\(') {
+    throw "Unchecked UInt64-to-Int narrowing exists outside checked_narrow_int in '$RelativePath'."
+  }
+  if ($RelativePath -like 'modules/mb-core/host/*' -and $Text -cmatch '(?i)@(?:env|fs|process)\b|\bgetenv\s*\(|\bglobal_(?:host|clock|files?)\b') {
+    throw "Ambient process or host access token found in '$RelativePath'."
+  }
+}
+
+function Assert-CoreReadmeProhibitions {
+  [CmdletBinding()]
+  param([Parameter(Mandatory)][string]$Readme)
+
+  $normalizedReadme = [regex]::Replace($Readme, '\s+', ' ')
+  foreach ($requiredPhrase in @(
+    'Budget rejection and injected allocator rejection are portable structured results.',
+    'Built-in physical runtime OOM is unrecoverable',
+    'is not claimed as a catchable `CoreError`',
+    'There is no ambient fallback'
+  )) {
+    if (-not $normalizedReadme.Contains($requiredPhrase)) {
+      throw "mb-core README lacks required portable-safety statement: $requiredPhrase"
+    }
+  }
+  if ($Readme -cmatch '(?i)physical(?: runtime)? OOM\s+(?:is|remains)\s+(?:recoverable|catchable)|catch(?:es|ing)?\s+(?:built-in\s+)?physical(?: runtime)? OOM') {
+    throw 'mb-core README falsely claims built-in physical OOM is recoverable.'
+  }
+}
+
 function Assert-CorePortableProhibitions {
   [CmdletBinding()]
   param()
@@ -106,41 +151,59 @@ function Assert-CorePortableProhibitions {
   foreach ($sourceFile in $sourceFiles) {
     $text = Get-Content -LiteralPath $sourceFile.FullName -Raw
     $relative = [System.IO.Path]::GetRelativePath((Resolve-Path '.').Path, $sourceFile.FullName).Replace('\', '/')
-    $publicLines = @($text -split '\r?\n' | Where-Object { $_ -cmatch '^\s*pub(?:\([^)]*\))?\s' })
-    foreach ($line in $publicLines) {
-      if ($line -cmatch '\b(?:FixedArray|MutArrayView)\b') {
-        throw "Raw mutable backing escaped through a public declaration in $relative`: $line"
-      }
-      if ($relative -like 'modules/mb-core/host/*' -and $line -cmatch '\b(?:Host|Environment|NativeAdapter)\b') {
-        throw "Ambient, aggregate, or native host surface escaped in $relative`: $line"
-      }
-    }
-
-    if ($relative -cne 'modules/mb-core/checked/checked.mbt' -and $text -cmatch '[.]to_int\s*\(') {
-      throw "Unchecked UInt64-to-Int narrowing exists outside checked_narrow_int in '$relative'."
-    }
-    if ($relative -like 'modules/mb-core/host/*' -and $text -cmatch '(?i)@(?:env|fs|process)\b|\bgetenv\s*\(|\bglobal_(?:host|clock|files?)\b') {
-      throw "Ambient process or host access token found in '$relative'."
-    }
+    Assert-CoreSourceTextProhibitions -RelativePath $relative -Text $text
   }
 
   $readme = Get-Content -LiteralPath (Join-Path $coreRoot 'README.mbt.md') -Raw
-  $normalizedReadme = [regex]::Replace($readme, '\s+', ' ')
-  foreach ($requiredPhrase in @(
-    'Budget rejection and injected allocator rejection are portable structured results.',
-    'Built-in physical runtime OOM is unrecoverable',
-    'is not claimed as a catchable `CoreError`',
-    'There is no ambient fallback'
-  )) {
-    if (-not $normalizedReadme.Contains($requiredPhrase)) {
-      throw "mb-core README lacks required portable-safety statement: $requiredPhrase"
-    }
-  }
-  if ($readme -cmatch '(?i)physical(?: runtime)? OOM\s+(?:is|remains)\s+(?:recoverable|catchable)|catch(?:es|ing)?\s+(?:built-in\s+)?physical(?: runtime)? OOM') {
-    throw 'mb-core README falsely claims built-in physical OOM is recoverable.'
-  }
+  Assert-CoreReadmeProhibitions -Readme $readme
 
   Write-Host 'mb-core portable prohibitions verified: no raw mutable public backing, unchecked narrowing, ambient host/native aggregate, or false catchable-OOM prose.'
+}
+
+function Assert-CoreQualificationNegativeFixtures {
+  [CmdletBinding()]
+  param()
+
+  function Confirm-Rejected([string]$Name, [scriptblock]$Action) {
+    $rejected = $false
+    try { & $Action } catch { $rejected = $true }
+    if (-not $rejected) { throw "Required quality accepted negative fixture '$Name'." }
+    Write-Host "Negative fixture rejected: $Name"
+  }
+
+  $packageSpine = @('error', 'checked', 'budget', 'bytes', 'io', 'host')
+  Confirm-Rejected 'root package topology' {
+    Assert-ExactSequence 'negative package spine' @('.', 'error', 'checked', 'budget', 'bytes', 'io', 'host') $packageSpine
+  }
+  Confirm-Rejected 'extra public package' {
+    Assert-ExactSequence 'negative package spine' @('error', 'checked', 'budget', 'bytes', 'io', 'host', 'extra') $packageSpine
+  }
+  Confirm-Rejected 'missing public package' {
+    Assert-ExactSequence 'negative package spine' @('error', 'checked', 'budget', 'bytes', 'io') $packageSpine
+  }
+  Confirm-Rejected 'reverse dependency' {
+    Assert-ExactSet 'negative imports' @('moonbit-foundation/mb-core/host') @('moonbit-foundation/mb-core/error')
+  }
+  Confirm-Rejected 'undeclared public surface' {
+    Assert-ExactSequence 'negative semantic interface' @('package "fixture"', 'pub fn unexpected() -> Unit') @('package "fixture"')
+  }
+  Confirm-Rejected 'raw mutable backing' {
+    Assert-CoreSourceTextProhibitions -RelativePath 'modules/mb-core/bytes/fixture.mbt' -Text 'pub fn backing() -> FixedArray[Byte] { abort("fixture") }'
+  }
+  Confirm-Rejected 'unchecked narrowing' {
+    Assert-CoreSourceTextProhibitions -RelativePath 'modules/mb-core/io/fixture.mbt' -Text 'fn narrow(value : UInt64) -> Int { value.to_int() }'
+  }
+  Confirm-Rejected 'ambient host access' {
+    Assert-CoreSourceTextProhibitions -RelativePath 'modules/mb-core/host/fixture.mbt' -Text 'fn ambient() -> Unit { ignore(@fs.open("fixture")) }'
+  }
+  Confirm-Rejected 'false recoverable physical OOM prose' {
+    Assert-CoreReadmeProhibitions -Readme 'Budget rejection and injected allocator rejection are portable structured results. Built-in physical runtime OOM is unrecoverable and is not claimed as a catchable `CoreError`. There is no ambient fallback. Physical runtime OOM is recoverable.'
+  }
+  Confirm-Rejected 'broken literate documentation input' {
+    Invoke-MoonCommand -Context 'negative missing README fixture' -Arguments @('-C', 'modules/mb-core', 'check', 'README.missing.mbt.md', '--target', 'native', '--frozen')
+  }
+
+  Write-Host 'Core topology, public surface, docs, capability, backing, narrowing, and OOM negative fixtures all fail closed.'
 }
 
 function Get-TrackedDiffSnapshot {
@@ -176,6 +239,9 @@ function Invoke-RequiredQuality {
   }
   Invoke-QualityStage 'CORE portable source and documentation prohibitions' {
     Assert-CorePortableProhibitions
+  }
+  Invoke-QualityStage 'CORE fail-closed negative fixtures' {
+    Assert-CoreQualificationNegativeFixtures
   }
   foreach ($target in $requiredTargets) {
     Invoke-QualityStage "CORE literate README check target $target" {
