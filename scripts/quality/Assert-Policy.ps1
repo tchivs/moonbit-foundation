@@ -43,7 +43,7 @@ function Assert-ExactSequence {
 function Get-PackageImportSet {
   param([string]$Text, [string]$Label)
   $imports = [System.Collections.Generic.List[string]]::new()
-  $singlePattern = '(?m)^\s*import\s+"(?<name>[^"]+)"(?:\s+as\s+\w+)?\s*$'
+  $singlePattern = '(?m)^\s*import\s+"(?<name>[^"]+)"(?:\s+(?:as\s+\w+|@\w+))?\s*$'
   foreach ($match in [regex]::Matches($Text, $singlePattern)) {
     $imports.Add($match.Groups['name'].Value)
   }
@@ -51,7 +51,7 @@ function Get-PackageImportSet {
   foreach ($block in [regex]::Matches($Text, $blockPattern)) {
     $bodyLines = @($block.Groups['body'].Value -split '\r?\n' | Where-Object { -not [string]::IsNullOrWhiteSpace($_) })
     foreach ($line in $bodyLines) {
-      $entry = [regex]::Match($line, '^\s*"(?<name>[^"]+)"(?:\s+as\s+\w+)?\s*,?\s*$')
+      $entry = [regex]::Match($line, '^\s*"(?<name>[^"]+)"(?:\s+(?:as\s+\w+|@\w+))?\s*,?\s*$')
       Assert-Condition $entry.Success "$Label contains an unsupported import entry: $line."
       $imports.Add($entry.Groups['name'].Value)
     }
