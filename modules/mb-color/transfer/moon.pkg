@@ -1,0 +1,6 @@
+import {
+  "moonbit-foundation/mb-color/model",
+  "moonbitlang/core/math",
+}
+
+supported_targets = "+js+wasm+wasm-gc+native"
