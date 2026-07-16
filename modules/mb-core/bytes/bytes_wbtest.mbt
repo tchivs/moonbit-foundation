@@ -2,7 +2,7 @@
 fn expect_lease(result : Result[MutByteLease, @error.CoreError]) -> MutByteLease {
   match result {
     Ok(lease) => lease
-    Err(_) => fail("mutable lease must be acquired")
+    Err(_) => abort("mutable lease must be acquired")
   }
 }
 
