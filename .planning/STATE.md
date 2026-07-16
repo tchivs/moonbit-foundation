@@ -5,15 +5,15 @@ milestone_name: milestone
 current_phase: 02
 current_phase_name: Bounded Core Primitives
 status: executing
-stopped_at: Completed 02-05-PLAN.md
-last_updated: "2026-07-16T15:42:01.719Z"
+stopped_at: Completed 02-06-PLAN.md
+last_updated: "2026-07-16T15:54:06.155Z"
 last_activity: 2026-07-16
 last_activity_desc: Phase 02 execution started
 progress:
   total_phases: 2
   completed_phases: 1
   total_plans: 15
-  completed_plans: 13
+  completed_plans: 14
 ---
 
 # Project State
@@ -29,11 +29,11 @@ See `.planning/PROJECT.md` (updated 2026-07-16).
 ## Current Position
 
 Phase: 02 (Bounded Core Primitives) — EXECUTING
-Plan: 6 of 7
+Plan: 7 of 7
 Status: Ready to execute
 Last activity: 2026-07-16 — Phase 02 execution started
 
-Progress: [█████████░] 87% (1/5 phases; 8/8 currently planned plans complete)
+Progress: [█████████░] 93% (1/5 phases; 8/8 currently planned plans complete)
 
 ## Performance Metrics
 
@@ -58,6 +58,7 @@ Progress: [█████████░] 87% (1/5 phases; 8/8 currently planne
 | Phase 02 P03 | 7min | 2 tasks | 5 files |
 | Phase 02 P04 | 10min | 3 tasks | 6 files |
 | Phase 02 P05 | 10min | 3 tasks | 8 files |
+| Phase 02 P06 | 18min | 2 tasks | 6 files |
 
 ## Accumulated Context
 
@@ -107,6 +108,9 @@ Progress: [█████████░] 87% (1/5 phases; 8/8 currently planne
 - [Phase 02]: Use an opaque ReadWindow so bounded adapters can narrow writable access without consuming the caller lease or exposing a larger destination.
 - [Phase 02]: Keep bounded stream adapters non-seeking and expose seeking only through separately implemented Seeker capabilities.
 - [Phase 02]: Reject zero progress after one transition for non-empty exact operations while zero-length operations bypass the backend.
+- [Phase 02]: Keep file access and logical resource resolution as separate portable traits without prescribed native adapters.
+- [Phase 02]: Use one deterministic instance-local fake per capability and no Host aggregate or ambient fallback.
+- [Phase 02]: Map host adapter failures to fixed bounded operation tokens and advance fake clocks with checked arithmetic.
 
 ### Pending Decisions
 
@@ -127,6 +131,6 @@ None. Phase 01 is independently verified and complete; Phase 02 is ready for con
 
 **Resume file:** None
 
-Last session: 2026-07-16T15:42:01.699Z
-Stopped at: Completed 02-05-PLAN.md
+Last session: 2026-07-16T15:54:06.132Z
+Stopped at: Completed 02-06-PLAN.md
 Resume with: Discuss Phase 02, then plan and execute it through the active auto chain.
