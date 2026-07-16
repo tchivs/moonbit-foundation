@@ -15,7 +15,7 @@
 
 ### Workspace and Portability
 
-- [ ] **WORK-01**: A developer can clone the repository and operate `mb-core`, `mb-color`, and `mb-image` as three independently publishable MoonBit modules in one workspace.
+- [x] **WORK-01**: A developer can clone the repository and operate `mb-core`, `mb-color`, and `mb-image` as three independently publishable MoonBit modules in one workspace.
 - [x] **WORK-02**: A developer can reproduce the v0.1 development environment from a checked-in toolchain policy that records the exact `moon`, `moonc`, and `moonrun` baseline.
 - [x] **WORK-03**: A consumer can inspect every public package's explicit supported-target declaration and determine whether it supports `native`, `wasm`, `wasm-gc`, or `js`.
 - [ ] **WORK-04**: A maintainer can run root-level format, check, test, documentation, package-content, and dependency-DAG validation without manually entering each module.
@@ -116,7 +116,7 @@
 | GOV-02 | Phase 1 | Complete |
 | GOV-03 | Phase 1 | Complete |
 | GOV-04 | Phase 1 | Complete |
-| WORK-01 | Phase 1 | Pending |
+| WORK-01 | Phase 1 | Complete |
 | WORK-02 | Phase 1 | Complete |
 | WORK-03 | Phase 1 | Complete |
 | WORK-04 | Phase 1 | Pending |
