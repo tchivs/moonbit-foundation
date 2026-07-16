@@ -136,6 +136,12 @@ test "views and split mutable leases stay inside validated windows" {
   .unwrap()
   inspect(owned.view().get(0UL).unwrap() == b'A', content="true")
   inspect(owned.view().get(2UL).unwrap() == b'C', content="true")
+  owned
+  .with_mut(0UL, 4UL, fn(lease) {
+    lease.set(3UL, b'D')
+  })
+  .unwrap()
+  inspect(owned.view().get(3UL).unwrap() == b'D', content="true")
 }
 
 ///|
