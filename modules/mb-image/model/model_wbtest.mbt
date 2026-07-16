@@ -41,14 +41,15 @@ fn expect_descriptor_error(
   storage_length : UInt64,
   context : String,
 ) -> Unit raise {
-  match ImageDescriptor::new(
-    width,
-    height,
-    format,
-    planes,
-    storage_length,
-    internal_metadata(None),
-  ) {
+  match
+    ImageDescriptor::new(
+      width,
+      height,
+      format,
+      planes,
+      storage_length,
+      internal_metadata(None),
+    ) {
     Err(error) => inspect(error.context() == Some(context), content="true")
     Ok(_) => fail("invalid descriptor must reject")
   }
@@ -67,15 +68,20 @@ test "owned image dimensions reject zero axes and overflow" {
       "image-dimensions",
     )
   }
-  match ImageDescriptor::new(
-    18446744073709551615UL,
-    2UL,
-    ImageFormat::rgb8(),
-    [plane],
-    3UL,
-    internal_metadata(None),
-  ) {
-    Err(error) => inspect(error.code() == @error.ErrorCode::InvalidDimensions, content="true")
+  match
+    ImageDescriptor::new(
+      18446744073709551615UL,
+      2UL,
+      ImageFormat::rgb8(),
+      [plane],
+      3UL,
+      internal_metadata(None),
+    ) {
+    Err(error) =>
+      inspect(
+        error.code() == @error.ErrorCode::InvalidDimensions,
+        content="true",
+      )
     Ok(_) => fail("pixel-count overflow must reject")
   }
 }
@@ -83,25 +89,38 @@ test "owned image dimensions reject zero axes and overflow" {
 ///|
 test "plane construction rejects stride and extent arithmetic failures" {
   match PlaneDescriptor::new(0UL, 4UL, 3UL, 4UL, 1UL, 1UL, 1UL, 1UL) {
-    Err(error) => inspect(error.context() == Some("plane-row-stride"), content="true")
+    Err(error) =>
+      inspect(error.context() == Some("plane-row-stride"), content="true")
     Ok(_) => fail("short stride must reject")
   }
-  match PlaneDescriptor::new(
-    0UL,
-    18446744073709551615UL,
-    18446744073709551615UL,
-    1UL,
-    1UL,
-    1UL,
-    1UL,
-    3UL,
-  ) {
-    Err(error) => inspect(error.code() == @error.ErrorCode::ArithmeticOverflow, content="true")
+  match
+    PlaneDescriptor::new(
+      0UL, 18446744073709551615UL, 18446744073709551615UL, 1UL, 1UL, 1UL, 1UL, 3UL,
+    ) {
+    Err(error) =>
+      inspect(
+        error.code() == @error.ErrorCode::ArithmeticOverflow,
+        content="true",
+      )
     Ok(_) => fail("plane extent overflow must reject")
   }
   match PlaneDescriptor::new(0UL, 1UL, 1UL, 1UL, 0UL, 1UL, 1UL, 1UL) {
-    Err(error) => inspect(error.context() == Some("plane-subsampling"), content="true")
+    Err(error) =>
+      inspect(error.context() == Some("plane-subsampling"), content="true")
     Ok(_) => fail("zero subsampling must reject")
+  }
+  match PlaneDescriptor::new(0UL, 5UL, 4UL, 2UL, 1UL, 1UL, 2UL, 2UL) {
+    Err(error) =>
+      inspect(error.context() == Some("plane-length"), content="true")
+    Ok(_) => fail("one-byte-short plane must reject")
+  }
+  match
+    PlaneDescriptor::new(
+      18446744073709551615UL, 1UL, 1UL, 1UL, 1UL, 1UL, 1UL, 1UL,
+    ) {
+    Err(error) =>
+      inspect(error.code() == @error.ErrorCode::InvalidRange, content="true")
+    Ok(_) => fail("plane range overflow must reject")
   }
 }
 
@@ -125,7 +144,9 @@ test "descriptor rejects plane count row shape containment and overlap" {
     PlaneDescriptor::new(3UL, 4UL, 2UL, 2UL, 1UL, 1UL, 2UL, 2UL).unwrap(),
     PlaneDescriptor::new(7UL, 4UL, 2UL, 2UL, 1UL, 1UL, 2UL, 2UL).unwrap(),
   ]
-  expect_descriptor_error(2UL, 2UL, planar, overlap, 11UL, "image-plane-overlap")
+  expect_descriptor_error(
+    2UL, 2UL, planar, overlap, 11UL, "image-plane-overlap",
+  )
 }
 
 ///|
@@ -163,7 +184,8 @@ test "format and alpha combinations reject before operation support" {
     internal_metadata(None),
   )
   match invalid_rgba {
-    Err(error) => inspect(error.context() == Some("image-alpha-mode"), content="true")
+    Err(error) =>
+      inspect(error.context() == Some("image-alpha-mode"), content="true")
     Ok(_) => fail("RGBA without alpha identity must reject")
   }
   let invalid_rgb = ImageDescriptor::new(
@@ -175,7 +197,8 @@ test "format and alpha combinations reject before operation support" {
     internal_metadata(Some(@color.AlphaMode::Straight)),
   )
   match invalid_rgb {
-    Err(error) => inspect(error.context() == Some("image-alpha-mode"), content="true")
+    Err(error) =>
+      inspect(error.context() == Some("image-alpha-mode"), content="true")
     Ok(_) => fail("RGB with alpha identity must reject")
   }
 }
@@ -183,7 +206,11 @@ test "format and alpha combinations reject before operation support" {
 ///|
 test "rect endpoints reject overflow" {
   match Rect::new(18446744073709551615UL, 0UL, 1UL, 0UL) {
-    Err(error) => inspect(error.code() == @error.ErrorCode::ArithmeticOverflow, content="true")
+    Err(error) =>
+      inspect(
+        error.code() == @error.ErrorCode::ArithmeticOverflow,
+        content="true",
+      )
     Ok(_) => fail("rectangle endpoint overflow must reject")
   }
 }
