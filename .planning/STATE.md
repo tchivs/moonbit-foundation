@@ -5,15 +5,15 @@ milestone_name: milestone
 current_phase: 4
 current_phase_name: Image Model, Views, and Operations
 status: verifying
-stopped_at: Completed 04-08-PLAN.md
-last_updated: "2026-07-16T22:51:43.820Z"
+stopped_at: Completed 04-09-PLAN.md; verifier rerun pending
+last_updated: "2026-07-16T23:17:35.631Z"
 last_activity: 2026-07-17
 last_activity_desc: Phase 4 execution started
 progress:
   total_phases: 4
   completed_phases: 4
-  total_plans: 32
-  completed_plans: 32
+  total_plans: 33
+  completed_plans: 33
 ---
 
 # Project State
@@ -77,6 +77,7 @@ Progress: [██████████] 100% (1/5 phases; 8/8 currently plann
 | Phase 04 P06 | 10min | 2 tasks | 8 files |
 | Phase 04 P07 | 16min | 2 tasks | 7 files |
 | Phase 04 P08 | 36min | 3 tasks | 16 files |
+| Phase 04 P09 | 25min | 3 tasks | 11 files |
 
 ## Accumulated Context
 
@@ -175,6 +176,8 @@ Progress: [██████████] 100% (1/5 phases; 8/8 currently plann
 - [Phase ?]: Publish mb-image as exactly metadata, model, storage, ops, and codec with no root facade.
 - [Phase ?]: Require exact canonical IDs and independent behavioral consumers for all five generated image tables.
 - [Phase ?]: Keep the standards-literal orientation oracle generator-owned and independent of production mapping.
+- [Phase ?]: [Phase 04]: Derive operation width, height, and pixels from the validated descriptor; callers supply only explicit work.
+- [Phase ?]: [Phase 04]: Preserve OwnedImage::view() -> ImageView while rejecting unsupported planar byte and mutable authority before backing access.
 
 ### Pending Decisions
 
@@ -195,6 +198,6 @@ None. Phase 01 is independently verified and complete; Phase 02 is ready for con
 
 **Resume file:** None
 
-Last session: 2026-07-16T22:51:43.801Z
-Stopped at: Completed 04-08-PLAN.md
+Last session: 2026-07-16T23:17:35.614Z
+Stopped at: Completed 04-09-PLAN.md; verifier rerun pending
 Resume with: Discuss Phase 02, then plan and execute it through the active auto chain.

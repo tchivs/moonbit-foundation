@@ -92,7 +92,7 @@ Plans:
 
 **Requirements:** IMAG-01, IMAG-02, IMAG-03, IMAG-04, IMAG-05, IMAG-06, IMAG-07
 
-**Plans:** 8/9 plans executed
+**Plans:** 9/9 plans executed
 
 Plans:
 
@@ -104,7 +104,7 @@ Plans:
 - [x] 04-06-PLAN.md — Add integer nearest resize and closed U8 pixel conversions.
 - [x] 04-07-PLAN.md — Define prefix/Reader/Writer backend-neutral codec contracts.
 - [x] 04-08-PLAN.md — Remove the scaffold and close docs, policy, fixtures, and Required qualification.
-- [ ] 04-09-PLAN.md — Close descriptor-derived budget charging and fail-closed planar view safety gaps.
+- [x] 04-09-PLAN.md — Close descriptor-derived budget charging and fail-closed planar view safety gaps.
 
 **Success Criteria:**
 
@@ -137,7 +137,7 @@ Plans:
 | 1 | 8/8 | Complete    | 2026-07-16 |
 | 2 | 8/8 | Complete    | 2026-07-17 |
 | 3 | 8/8 | Complete    | 2026-07-17 |
-| 4 | 8/8 | In Progress|  |
+| 4 | 9/9 | In Progress|  |
 | 5 | Reference Codec and Release Qualification | 7 | Not started |
 
 **v0.1 coverage:** 36/36 requirements mapped exactly once.
