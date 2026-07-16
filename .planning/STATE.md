@@ -4,16 +4,16 @@ milestone: v0.1
 milestone_name: milestone
 current_phase: 02
 current_phase_name: Bounded Core Primitives
-status: executing
-stopped_at: Completed 02-07-PLAN.md
-last_updated: "2026-07-16T16:31:31.329Z"
+status: verifying
+stopped_at: Completed 02-08-PLAN.md
+last_updated: "2026-07-16T16:40:58.349Z"
 last_activity: 2026-07-17
 last_activity_desc: Phase 02 execution started
 progress:
   total_phases: 2
-  completed_phases: 1
+  completed_phases: 2
   total_plans: 16
-  completed_plans: 15
+  completed_plans: 16
 ---
 
 # Project State
@@ -30,7 +30,7 @@ See `.planning/PROJECT.md` (updated 2026-07-16).
 
 Phase: 02 (Bounded Core Primitives) — EXECUTING
 Plan: 8 of 8
-Status: Ready to execute
+Status: Phase complete — ready for verification
 Last activity: 2026-07-17 — Phase 02 execution started
 
 Progress: [██████████] 100% (1/5 phases; 8/8 currently planned plans complete)
@@ -60,6 +60,7 @@ Progress: [██████████] 100% (1/5 phases; 8/8 currently plann
 | Phase 02 P05 | 10min | 3 tasks | 8 files |
 | Phase 02 P06 | 18min | 2 tasks | 6 files |
 | Phase 02 P07 | 17min | 3 tasks | 8 files |
+| Phase 02 P08 | 5min | 2 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -114,6 +115,7 @@ Progress: [██████████] 100% (1/5 phases; 8/8 currently plann
 - [Phase 02]: Map host adapter failures to fixed bounded operation tokens and advance fake clocks with checked arithmetic.
 - [Phase 02]: Publish exactly six mb-core packages in error, checked, budget, bytes, io, host order; retain no root facade.
 - [Phase 02]: Run standalone README compilation and fail-closed negative fixtures in every Required qualification.
+- [Phase 02]: Callback cleanup closes the shared LeaseGroup scope instead of releasing the parent handle consumed by split_mut. — Every retained descendant observes the shared inactive scope while owner availability is restored exactly once.
 
 ### Pending Decisions
 
@@ -134,6 +136,6 @@ None. Phase 01 is independently verified and complete; Phase 02 is ready for con
 
 **Resume file:** None
 
-Last session: 2026-07-16T16:12:07.287Z
-Stopped at: Completed 02-07-PLAN.md
+Last session: 2026-07-16T16:40:58.332Z
+Stopped at: Completed 02-08-PLAN.md
 Resume with: Discuss Phase 02, then plan and execute it through the active auto chain.
