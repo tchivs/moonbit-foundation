@@ -510,9 +510,30 @@ function Assert-AuditCollection {
   }
 }
 
+function Get-MarkdownAnchorSet {
+  param([string]$Path)
+  $anchors = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::Ordinal)
+  $duplicates = @{}
+  foreach ($line in Get-Content -LiteralPath $Path) {
+    if ($line -cnotmatch '^#{1,6}\s+(?<heading>.+?)\s*#*\s*$') { continue }
+    $slug = $Matches.heading.ToLowerInvariant()
+    $slug = [regex]::Replace($slug, '[^\p{L}\p{N}\s_-]', '')
+    $slug = [regex]::Replace($slug.Trim(), '\s+', '-')
+    if ([string]::IsNullOrWhiteSpace($slug)) { continue }
+    $ordinal = if ($duplicates.ContainsKey($slug)) { [int]$duplicates[$slug] + 1 } else { 0 }
+    $duplicates[$slug] = $ordinal
+    if ($ordinal -gt 0) { $slug = "$slug-$ordinal" }
+    [void]$anchors.Add($slug)
+  }
+  return $anchors
+}
+
 function Assert-PhaseSourceAudit {
   [CmdletBinding()]
-  param([Parameter(Mandatory)][string]$AuditPath)
+  param(
+    [Parameter(Mandatory)][string]$AuditPath,
+    [string]$RepositoryRoot = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
+  )
 
   $audit = Read-QualityJson -Path $AuditPath
   Assert-Condition ($audit.schema_version -ceq '1.0.0') 'Source audit schema_version must be 1.0.0.'
@@ -542,6 +563,43 @@ function Assert-PhaseSourceAudit {
   Assert-AuditCollection 'research_items' @($audit.research_items) $expectedResearch
   Assert-AuditCollection 'edge_items' @($audit.edge_items) $expectedEdges
   Assert-AuditCollection 'prohibitions' @($audit.prohibitions) $expectedProhibitions
+
+  $allowedPlans = 1..8 | ForEach-Object { '01-{0:D2}' -f $_ }
+  $planCoverage = @{}
+  foreach ($plan in $allowedPlans) { $planCoverage[$plan] = [System.Collections.Generic.List[string]]::new() }
+  $anchorCache = @{}
+  $allItems = @($audit.goals) + @($audit.requirements) + @($audit.decisions) + @($audit.research_items) + @($audit.edge_items) + @($audit.prohibitions)
+  foreach ($item in $allItems) {
+    $sourceMatch = [regex]::Match([string]$item.source, '^(?<path>[^#]+)#(?<anchor>[^#]+)$')
+    Assert-Condition $sourceMatch.Success "Source audit '$($item.id)' must use a repository path plus Markdown anchor."
+    $sourcePath = $sourceMatch.Groups['path'].Value
+    $sourceFile = Resolve-RepositoryLeafFile -RepositoryRoot $RepositoryRoot -RelativePath $sourcePath -Label "Source audit '$($item.id)' source"
+    if (-not $anchorCache.ContainsKey($sourceFile)) {
+      $anchorCache[$sourceFile] = [pscustomobject]@{ anchors=(Get-MarkdownAnchorSet -Path $sourceFile); text=(Get-Content -LiteralPath $sourceFile -Raw) }
+    }
+    $sourceAnchor = $sourceMatch.Groups['anchor'].Value
+    $anchorAsHeading = $anchorCache[$sourceFile].anchors.Contains($sourceAnchor.ToLowerInvariant())
+    $anchorAsStructuredId = $anchorCache[$sourceFile].text -cmatch "(?m)(?:\*\*|\|\s*)$([regex]::Escape($sourceAnchor))(?:\*\*|:|\s*\|)"
+    $anchorAsFrontmatterKey = $anchorCache[$sourceFile].text -cmatch "(?m)^\s*$([regex]::Escape($sourceAnchor)):\s*"
+    Assert-Condition ($anchorAsHeading -or $anchorAsStructuredId -or $anchorAsFrontmatterKey) "Source audit '$($item.id)' anchor '$sourceAnchor' does not exist in '$sourcePath'."
+
+    $plans = @(([string]$item.covering_plan -split ',') | ForEach-Object { $_.Trim() })
+    Assert-Condition ($plans.Count -gt 0 -and @($plans | Where-Object { [string]::IsNullOrWhiteSpace($_) }).Count -eq 0) "Source audit '$($item.id)' has an empty covering plan."
+    Assert-Condition (@($plans | Group-Object -CaseSensitive | Where-Object Count -ne 1).Count -eq 0) "Source audit '$($item.id)' has duplicate covering plan IDs."
+    foreach ($plan in $plans) {
+      Assert-Condition ($allowedPlans -ccontains $plan) "Source audit '$($item.id)' references unknown Phase 01 plan '$plan'."
+      $planCoverage[$plan].Add([string]$item.id)
+    }
+  }
+
+  foreach ($plan in $allowedPlans) {
+    $planFile = Resolve-RepositoryLeafFile -RepositoryRoot $RepositoryRoot -RelativePath ".planning/phases/01-foundation-charter-and-reproducible-workspace/$plan-PLAN.md" -Label "Phase 01 plan '$plan'"
+    $planText = Get-Content -LiteralPath $planFile -Raw
+    $marker = [regex]::Match($planText, '(?m)^<!-- phase-source-audit: (?<ids>[^\r\n]+) -->$')
+    Assert-Condition $marker.Success "Phase 01 plan '$plan' lacks its reciprocal source-audit marker."
+    $markerIds = @($marker.Groups['ids'].Value -split ',' | ForEach-Object { $_.Trim() })
+    Assert-ExactSet "Phase 01 plan '$plan' reciprocal source-audit IDs" $markerIds @($planCoverage[$plan])
+  }
 
   Write-Host 'Phase 1 source audit verified exact inventory: 1 goal, 9 requirements, 16 decisions, 29 research items, 17 edges, 5 prohibitions.'
 }

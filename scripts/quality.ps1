@@ -16,6 +16,7 @@ try {
     try {
       & (Join-Path $PSScriptRoot 'quality/Test-RfcAcceptance.ps1')
       & (Join-Path $PSScriptRoot 'quality/Test-FixturePolicy.ps1')
+      & (Join-Path $PSScriptRoot 'quality/Test-SourceAudit.ps1')
     } catch {
       throw "Policy adversarial test matrix failed: $($_.Exception.Message)"
     }
