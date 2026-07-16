@@ -61,6 +61,61 @@ test "injected allocator rejection is structured and does not consume budget" {
 }
 
 ///|
+test "combined allocation charge consumes every explicit dimension once" {
+  let budget = @budget.Budget::new(
+    @budget.ResourceLimits::new(
+      bytes=12UL,
+      allocations=2UL,
+      allocation_size=12UL,
+      width=7UL,
+      height=5UL,
+      pixels=35UL,
+      depth=0UL,
+      work=91UL,
+    ),
+  )
+  let allocator = RejectingAllocator::{  } as &@bytes.Allocator
+  let rejected = @bytes.OwnedBytes::new_with_allocator_and_charge(
+    12UL,
+    budget,
+    allocator,
+    7UL,
+    5UL,
+    35UL,
+    91UL,
+  )
+  inspect(rejected is Err(_), content="true")
+  let before = budget.remaining()
+  inspect(before.bytes(), content="12")
+  inspect(before.allocations(), content="2")
+  inspect(before.pixels(), content="35")
+  inspect(before.work(), content="91")
+  let owned = @bytes.OwnedBytes::new_with_allocator_and_charge(
+    12UL,
+    budget,
+    AcceptingAllocator::{  } as &@bytes.Allocator,
+    7UL,
+    5UL,
+    35UL,
+    91UL,
+  ).unwrap()
+  inspect(owned.length(), content="12")
+  let after = budget.remaining()
+  inspect(after.bytes(), content="0")
+  inspect(after.allocations(), content="1")
+  inspect(after.pixels(), content="0")
+  inspect(after.work(), content="0")
+}
+
+///|
+struct AcceptingAllocator {}
+
+///|
+impl @bytes.Allocator for AcceptingAllocator with fn approve(_self, _requested) {
+  Ok(())
+}
+
+///|
 test "immutable views retain backing and validate relative subviews" {
   let budget = @budget.Budget::new(byte_limits(4UL))
   let owned = match @bytes.OwnedBytes::from_bytes(b"abcd", budget) {

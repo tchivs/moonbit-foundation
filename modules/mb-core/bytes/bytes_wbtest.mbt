@@ -190,3 +190,48 @@ test "retained view shares owned backing without exposing it" {
     Err(_) => fail("view must retain the shared backing")
   }
 }
+
+///|
+test "combined charge failures preserve all consumable counters" {
+  let budget = @budget.Budget::new(
+    @budget.ResourceLimits::new(
+      bytes=8UL,
+      allocations=1UL,
+      allocation_size=8UL,
+      width=4UL,
+      height=2UL,
+      pixels=8UL,
+      depth=0UL,
+      work=8UL,
+    ),
+  )
+  let rejected = OwnedBytes::new_with_allocator_and_charge(
+    8UL,
+    budget,
+    BuiltinAllocator::{  } as &Allocator,
+    4UL,
+    2UL,
+    9UL,
+    8UL,
+  )
+  inspect(rejected is Err(_), content="true")
+  let remaining = budget.remaining()
+  inspect(remaining.bytes(), content="8")
+  inspect(remaining.allocations(), content="1")
+  inspect(remaining.pixels(), content="8")
+  inspect(remaining.work(), content="8")
+  let narrowed = OwnedBytes::new_with_allocator_and_charge(
+    2147483648UL,
+    budget,
+    BuiltinAllocator::{  } as &Allocator,
+    4UL,
+    2UL,
+    8UL,
+    8UL,
+  )
+  inspect(narrowed is Err(_), content="true")
+  inspect(budget.remaining().bytes(), content="8")
+  inspect(budget.remaining().allocations(), content="1")
+  inspect(budget.remaining().pixels(), content="8")
+  inspect(budget.remaining().work(), content="8")
+}
