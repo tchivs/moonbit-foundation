@@ -91,6 +91,77 @@ test "split validates relative bounds without consuming the parent" {
 }
 
 ///|
+test "callback cleanup invalidates nested descendants and restores owner once" {
+  let owner = LeaseOwner::from_backing(FixedArray::make(6, b'\x00'))
+  let mut retained_left : MutByteLease? = None
+  let mut retained_middle : MutByteLease? = None
+  let mut retained_right : MutByteLease? = None
+  let result = owner.with_mut(0UL, 6UL, fn(parent) {
+    let (left, tail) = parent.split_mut(2UL).unwrap()
+    let (middle, right) = tail.split_mut(2UL).unwrap()
+    retained_left = Some(left)
+    retained_middle = Some(middle)
+    retained_right = Some(right)
+    Ok(())
+  })
+  inspect(result is Ok(_), content="true")
+  inspect(owner.leased, content="false")
+  let left = retained_left.unwrap()
+  let middle = retained_middle.unwrap()
+  let right = retained_right.unwrap()
+  inspect(left.get(0UL) is Err(_), content="true")
+  inspect(middle.set(0UL, b'\x01') is Err(_), content="true")
+  inspect(right.split_mut(1UL) is Err(_), content="true")
+  inspect(left.group.live_handles, content="0")
+  left.release()
+  middle.release()
+  right.release()
+  inspect(left.group.live_handles, content="0")
+  inspect(owner.leased, content="false")
+  let next = expect_lease(owner.acquire_mut(0UL, 6UL))
+  next.release()
+}
+
+///|
+test "callback cleanup tolerates zero one or all explicit child releases" {
+  let owner_zero = LeaseOwner::from_backing(FixedArray::make(2, b'\x00'))
+  inspect(
+    owner_zero.with_mut(0UL, 2UL, fn(parent) {
+      ignore(parent.split_mut(1UL).unwrap())
+      Ok(())
+    })
+    is Ok(_),
+    content="true",
+  )
+  inspect(owner_zero.leased, content="false")
+
+  let owner_one = LeaseOwner::from_backing(FixedArray::make(2, b'\x00'))
+  inspect(
+    owner_one.with_mut(0UL, 2UL, fn(parent) {
+      let (left, _right) = parent.split_mut(1UL).unwrap()
+      left.release()
+      Ok(())
+    })
+    is Ok(_),
+    content="true",
+  )
+  inspect(owner_one.leased, content="false")
+
+  let owner_all = LeaseOwner::from_backing(FixedArray::make(2, b'\x00'))
+  inspect(
+    owner_all.with_mut(0UL, 2UL, fn(parent) {
+      let (left, right) = parent.split_mut(1UL).unwrap()
+      left.release()
+      right.release()
+      Ok(())
+    })
+    is Ok(_),
+    content="true",
+  )
+  inspect(owner_all.leased, content="false")
+}
+
+///|
 test "retained view shares owned backing without exposing it" {
   let budget = @budget.Budget::new(
     @budget.ResourceLimits::new(

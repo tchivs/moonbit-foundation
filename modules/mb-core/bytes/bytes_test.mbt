@@ -103,6 +103,86 @@ test "external immutable bytes are copied and mutable access is callback scoped"
 }
 
 ///|
+test "split descendants are stale after normal callback exit and owner reacquires" {
+  let budget = @budget.Budget::new(byte_limits(4UL))
+  let owned = match @bytes.OwnedBytes::from_bytes(b"abcd", budget) {
+    Ok(value) => value
+    Err(_) => fail("owned storage must construct")
+  }
+  let mut retained_left : @bytes.MutByteLease? = None
+  let mut retained_right : @bytes.MutByteLease? = None
+  let result = owned.with_mut(0UL, 4UL, fn(parent) {
+    let (left, right) = match parent.split_mut(2UL) {
+      Ok(children) => children
+      Err(_) =>
+        return Err(
+          @error.CoreError::new(
+            @error.ErrorCategory::State,
+            @error.ErrorCode::InvalidRange,
+            operation="test_split",
+          ),
+        )
+    }
+    retained_left = Some(left)
+    retained_right = Some(right)
+    left.set(0UL, b'A')
+  })
+  inspect(result is Ok(_), content="true")
+  let left = retained_left.unwrap()
+  let right = retained_right.unwrap()
+  inspect(left.get(0UL) is Err(_), content="true")
+  inspect(left.set(0UL, b'X') is Err(_), content="true")
+  inspect(right.split_mut(1UL) is Err(_), content="true")
+  left.release()
+  right.release()
+  let reacquired = owned.with_mut(0UL, 4UL, fn(lease) { lease.set(3UL, b'Z') })
+  inspect(reacquired is Ok(_), content="true")
+  inspect(owned.view().get(3UL).unwrap() == b'Z', content="true")
+}
+
+///|
+test "split descendants are stale after structured error and error is preserved" {
+  let budget = @budget.Budget::new(byte_limits(4UL))
+  let owned = @bytes.OwnedBytes::from_bytes(b"abcd", budget).unwrap()
+  let mut retained_left : @bytes.MutByteLease? = None
+  let mut retained_right : @bytes.MutByteLease? = None
+  let result : Result[Unit, @error.CoreError] = owned.with_mut(0UL, 4UL, fn(
+    parent,
+  ) {
+    let (left, right) = parent.split_mut(2UL).unwrap()
+    retained_left = Some(left)
+    retained_right = Some(right)
+    Err(
+      @error.CoreError::new(
+        @error.ErrorCategory::Data,
+        @error.ErrorCode::InvalidEncoding,
+        operation="callback_failure",
+        context="preserved",
+      ),
+    )
+  })
+  match result {
+    Err(error) => {
+      inspect(error.code() == @error.ErrorCode::InvalidEncoding, content="true")
+      inspect(error.context() == Some("preserved"), content="true")
+    }
+    Ok(_) => fail("callback error must be preserved")
+  }
+  let left = retained_left.unwrap()
+  let right = retained_right.unwrap()
+  inspect(left.get(0UL) is Err(_), content="true")
+  inspect(right.set(0UL, b'X') is Err(_), content="true")
+  left.release()
+  left.release()
+  right.release()
+  right.release()
+  inspect(
+    owned.with_mut(0UL, 1UL, fn(lease) { lease.set(0UL, b'Q') }) is Ok(_),
+    content="true",
+  )
+}
+
+///|
 test "range and backend-width failures remain distinct from allocation rejection" {
   let budget = @budget.Budget::new(byte_limits(8UL))
   match @bytes.OwnedBytes::new(2147483648UL, budget) {
