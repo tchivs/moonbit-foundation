@@ -5,15 +5,15 @@ milestone_name: milestone
 current_phase: 02
 current_phase_name: Bounded Core Primitives
 status: executing
-stopped_at: Completed 02-02-PLAN.md
-last_updated: "2026-07-16T14:49:10.005Z"
+stopped_at: Completed 02-03-PLAN.md
+last_updated: "2026-07-16T15:05:19.337Z"
 last_activity: 2026-07-16
 last_activity_desc: Phase 02 execution started
 progress:
   total_phases: 2
   completed_phases: 1
   total_plans: 15
-  completed_plans: 10
+  completed_plans: 11
 ---
 
 # Project State
@@ -29,11 +29,11 @@ See `.planning/PROJECT.md` (updated 2026-07-16).
 ## Current Position
 
 Phase: 02 (Bounded Core Primitives) — EXECUTING
-Plan: 3 of 7
+Plan: 4 of 7
 Status: Ready to execute
 Last activity: 2026-07-16 — Phase 02 execution started
 
-Progress: [███████░░░] 67% (1/5 phases; 8/8 currently planned plans complete)
+Progress: [███████░░░] 73% (1/5 phases; 8/8 currently planned plans complete)
 
 ## Performance Metrics
 
@@ -55,6 +55,7 @@ Progress: [███████░░░] 67% (1/5 phases; 8/8 currently planne
 | Phase 01 P08 | 7min | 3 tasks | 4 files |
 | Phase 02 P01 | 10min | 3 tasks | 8 files |
 | Phase 02 P02 | 13min | 3 tasks | 9 files |
+| Phase 02 P03 | 7min | 2 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -95,6 +96,9 @@ Progress: [███████░░░] 67% (1/5 phases; 8/8 currently planne
 - [Phase 02]: Keep logical counts and positions as UInt64 and permit direct UInt64-to-Int conversion only inside checked_narrow_int after the pinned 2147483647 ceiling guard.
 - [Phase 02]: Represent arithmetic underflow, invalid alignment, invalid offset, narrowing failure, and invalid dimensions with distinct stable error codes.
 - [Phase 02]: Treat empty half-open ranges, including an empty range at UInt64 maximum, as valid and non-overlapping.
+- [Phase 02]: Treat bytes, allocation count, pixels, and work as consumable counters while allocation size and dimensions are per-operation ceilings and depth is a balanced shared ceiling.
+- [Phase 02]: Represent budget hierarchy as a chain of shared windows; preflight every ancestor and charge dimension before committing any consumable counter.
+- [Phase 02]: Use Resource/BudgetExceeded with a bounded dimension context token for machine-readable limit rejection.
 
 ### Pending Decisions
 
@@ -115,6 +119,6 @@ None. Phase 01 is independently verified and complete; Phase 02 is ready for con
 
 **Resume file:** None
 
-Last session: 2026-07-16T14:49:09.986Z
-Stopped at: Completed 02-02-PLAN.md
+Last session: 2026-07-16T15:05:19.318Z
+Stopped at: Completed 02-03-PLAN.md
 Resume with: Discuss Phase 02, then plan and execute it through the active auto chain.

@@ -121,7 +121,7 @@ Plans:
 | Phase | Name | Requirements | Status |
 |------:|------|-------------:|--------|
 | 1 | 8/8 | Complete    | 2026-07-16 |
-| 2 | 2/7 | In Progress|  |
+| 2 | 3/7 | In Progress|  |
 | 3 | Reference Color Semantics | 5 | Not started |
 | 4 | Image Model, Views, and Operations | 7 | Not started |
 | 5 | Reference Codec and Release Qualification | 7 | Not started |
