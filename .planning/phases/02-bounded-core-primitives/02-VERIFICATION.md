@@ -1,33 +1,25 @@
 ---
 phase: 02-bounded-core-primitives
-verified: 2026-07-16T16:21:53Z
-status: gaps_found
-score: 11/12 must-haves verified
+verified: 2026-07-16T16:45:50Z
+status: passed
+score: 12/12 must-haves verified
 behavior_unverified: 0
 overrides_applied: 0
-gaps:
-  - truth: "Callers can repeatedly use validated mutable byte views, including callback-scoped split leases, without escaping allocation or leaving the owner permanently leased."
-    status: failed
-    reason: "OwnedBytes::with_mut defers release of only the original lease. split_mut invalidates that parent and replaces its live-handle count with two children, so the deferred parent release is a no-op. If the callback does not explicitly release both children, owner.leased never returns to false and all later mutable acquisitions fail. The checked README example follows this path."
-    artifacts:
-      - path: "modules/mb-core/bytes/views.mbt"
-        issue: "Callback cleanup does not invalidate/release descendant leases created by split_mut."
-      - path: "modules/mb-core/bytes/bytes_wbtest.mbt"
-        issue: "Split coverage releases both children explicitly; there is no callback-exit cleanup regression test after a split."
-      - path: "modules/mb-core/README.mbt.md"
-        issue: "The public split-lease example omits child release and never proves that a later with_mut call remains possible."
-    missing:
-      - "Make callback-scope cleanup invalidate the entire lease group, including live split descendants, and restore owner availability exactly once."
-      - "Add an all-target regression test that splits inside with_mut, omits explicit child release, exits normally and through Err, verifies stale child rejection, then successfully reacquires mutable access."
-      - "Keep the README example honest by demonstrating post-callback reacquisition or by documenting and using the required scoped cleanup API."
+re_verification:
+  previous_status: gaps_found
+  previous_score: 11/12
+  gaps_closed:
+    - "Callback exit now invalidates the complete mutable lease group, including nested split descendants, and restores owner availability exactly once on normal and structured-error exits."
+  gaps_remaining: []
+  regressions: []
 ---
 
 # Phase 2: Bounded Core Primitives Verification Report
 
 **Phase Goal:** `mb-core` provides the safe, backend-neutral primitives required to process untrusted binary data without unchecked ranges, ambient capabilities, or unbounded work.
-**Verified:** 2026-07-16T16:21:53Z
-**Status:** gaps_found
-**Re-verification:** No — initial verification
+**Verified:** 2026-07-16T16:45:50Z
+**Status:** passed
+**Re-verification:** Yes — after Plan 02-08 gap closure
 
 ## Goal Achievement
 
@@ -35,108 +27,120 @@ gaps:
 
 | # | Truth | Status | Evidence |
 |---|---|---|---|
-| 1 | Checked arithmetic, ranges, dimensions, offsets, alignment, casts, and allocation sizes reject overflow before effects. | ✓ VERIFIED | Guard-before-operator implementations are present in `checked.mbt`, `range.mbt`, and `dimensions.mbt`; boundary tests run in the independent four-target Required lane. |
-| 2 | Owned bytes, immutable views, mutable views, and bounded in-memory readers/writers stay within declared ranges and remain reusable after scoped operations. | ✗ FAILED | Bounds checks and retained views are substantive, but split children escape callback cleanup: `with_mut` defers only `lease.release()` while `split_mut` first sets the parent inactive and changes the group to two live handles. The owner therefore remains leased unless callers explicitly release both children. |
-| 3 | Backend-neutral I/O distinguishes progress, EOS, partial failure, no-progress, and optional seeking. | ✓ VERIFIED | `ReadOutcome`, `WriteOutcome`, separate `Seeker`, `read_exact`, and `write_all` are wired; tests cover partial/EOS/failure/no-progress/zero-length behavior on all four targets. |
-| 4 | Errors and diagnostics provide stable machine-readable codes/context and deterministic rendering. | ✓ VERIFIED | Opaque `CoreError`, stable enums, typed fields, bounded context, canonical escaping/order, host-detail discard, and encounter-ordered diagnostics are implemented and tested. |
-| 5 | Resource budgets stop prohibited work atomically and share hierarchical state. | ✓ VERIFIED | `Budget::charge` preflights every ancestor before any commit; `child`, `enter_depth`, idempotent `leave`, and `with_depth` share and balance state. Atomic rollback, thresholds, parent sharing, and success/error cleanup tests passed on all targets. |
-| 6 | Host effects are granular, explicit, optional capabilities with deterministic portable doubles and no ambient fallback. | ✓ VERIFIED | Five independent open traits and instance-local fakes exist; source/policy scans reject ambient access, native aggregates, and globals; host tests passed on all targets. |
-| 7 | Logical quantities remain `UInt64`, half-open empty ranges are valid, and backend narrowing never truncates. | ✓ VERIFIED | The sole direct `UInt64.to_int()` is guarded inside `checked_narrow_int`; exact/one-over boundaries, empty ranges, adjacency, and overflowed endpoints are tested. |
-| 8 | Budget rejection, injected allocator rejection, and unrecoverable built-in physical OOM are represented honestly and distinctly. | ✓ VERIFIED | `Allocator::approve` exposes injected `AllocationFailed`; budget/range failures are distinct; source, tests, README, and negative prose fixture explicitly reject a catchable physical-OOM claim. |
-| 9 | Exactly six public packages replace the root scaffold in the required acyclic order. | ✓ VERIFIED | Policy owns `error -> checked -> budget -> bytes -> io -> host`; every `moon.pkg` has exact four-target metadata/imports; root `moon.pkg`, `scaffold.mbt`, and `scaffold_wbtest.mbt` are absent. |
-| 10 | Policy-driven classifiers fail closed for topology, imports, interfaces, package contents, and prohibitions. | ✓ VERIFIED | Independent Required run rejected root/extra/missing/reverse topology, undeclared surface, raw mutable backing, unchecked narrowing, ambient access, false OOM prose, and broken README input. |
-| 11 | Root Required qualifies all four targets, executable docs, exact artifacts, and read-only behavior. | ✓ VERIFIED | `pwsh -NoProfile -File ./scripts/quality.ps1 -Lane Required` exited 0; js/wasm/wasm-gc/native each reported 62/62 tests, README checks ran per target, interfaces/package lists matched exactly, and tracked-read-only proof passed. |
-| 12 | Public examples demonstrate checked failures, budgets, ownership, bounded I/O, separate seeking, diagnostics, OOM distinctions, and explicit host injection. | ✓ VERIFIED | README literate checks compile on all four targets and cover each family. The split-lease example compiles but also exposes the failed lifecycle truth in item 2. |
+| 1 | Checked arithmetic, ranges, dimensions, offsets, alignment, casts, and allocation sizes reject overflow before effects. | ✓ VERIFIED | Quick regression: implementations and boundary tests remain present; the independent Required lane passed all four targets. |
+| 2 | Owned bytes, immutable views, mutable views, and bounded in-memory readers/writers stay within declared ranges and remain reusable after scoped operations. | ✓ VERIFIED | Full re-verification: callback cleanup now defers `LeaseGroup::cleanup_scope`, every descendant operation checks shared `scope_active`, cleanup normalizes handle state and restores the owner once, and normal/error/nested/mixed-release behavioral tests pass on all targets. |
+| 3 | Backend-neutral I/O distinguishes progress, EOS, partial failure, no-progress, and optional seeking. | ✓ VERIFIED | Quick regression: interfaces and implementations are unchanged; Required exercised all I/O tests on four targets. |
+| 4 | Errors and diagnostics provide stable machine-readable codes/context and deterministic rendering. | ✓ VERIFIED | Quick regression: exact interface remained 57 semantic lines and deterministic tests passed in Required. |
+| 5 | Resource budgets stop prohibited work atomically and share hierarchical state. | ✓ VERIFIED | Quick regression: budget artifacts are unchanged and atomic/hierarchical tests passed in Required. |
+| 6 | Host effects are granular, explicit, optional capabilities with deterministic portable doubles and no ambient fallback. | ✓ VERIFIED | Quick regression: exact host interface remained 48 lines; ambient/native prohibition scans and tests passed. |
+| 7 | Logical quantities remain `UInt64`, half-open empty ranges are valid, and backend narrowing never truncates. | ✓ VERIFIED | Quick regression: checked interface remained 32 lines; source prohibition and boundary tests passed. |
+| 8 | Budget rejection, injected allocator rejection, and unrecoverable built-in physical OOM are represented honestly and distinctly. | ✓ VERIFIED | Quick regression: allocator/budget tests, README language, and false-OOM negative fixture passed unchanged. |
+| 9 | Exactly six public packages replace the root scaffold in the required acyclic order. | ✓ VERIFIED | Quick regression: exact policy/DAG/package inventory passed; no root scaffold returned. |
+| 10 | Policy-driven classifiers fail closed for topology, imports, interfaces, package contents, and prohibitions. | ✓ VERIFIED | Required rejected all ten negative fixtures, including topology, reverse dependency, surface, backing, narrowing, ambient access, OOM prose, and missing README. |
+| 11 | Root Required qualifies all four targets, executable docs, exact artifacts, and read-only behavior. | ✓ VERIFIED | `pwsh -NoProfile -File ./scripts/quality.ps1 -Lane Required` exited 0 with 66/66 tests per target, four README checks, exact interfaces/package lists, and tracked-read-only proof. |
+| 12 | Public examples demonstrate checked failures, budgets, ownership, bounded I/O, separate seeking, diagnostics, OOM distinctions, and explicit host injection. | ✓ VERIFIED | README now performs a second `with_mut` after an unreleased split callback; its literate checks pass on js, wasm, wasm-gc, and native. |
 
-**Score:** 11/12 truths verified (0 present-but-behavior-unverified)
+**Score:** 12/12 truths verified (0 present-but-behavior-unverified)
+
+### Gap Closure Verification
+
+| Previous gap condition | Current evidence | Status |
+|---|---|---|
+| Callback deferred cleanup released only the consumed parent handle. | `LeaseOwner::with_mut` now defers `lease.group.cleanup_scope()`. | ✓ CLOSED |
+| Split descendants could remain active after callback exit. | `checked_index` and `split_mut` require both handle activity and shared group-scope activity; retained descendants fail closed after cleanup. | ✓ CLOSED |
+| Owner could remain permanently leased after unreleased children. | `cleanup_scope` marks scope inactive, normalizes `live_handles` to zero, and invokes idempotent `restore_owner_once`. Reacquisition passes after normal and Err exits. | ✓ CLOSED |
+| Nested split and mixed explicit release paths were uncovered. | Named nested-descendant and zero/one/all explicit-release tests pass on every required target. | ✓ CLOSED |
+| README example did not prove reuse. | The executable example reacquires mutable access and writes after the split callback exits. | ✓ CLOSED |
 
 ### Required Artifacts
 
 | Artifact group | Expected | Status | Details |
 |---|---|---|---|
-| `modules/mb-core/error/{core_error,diagnostics}.mbt` | Stable structured errors/diagnostics | ✓ VERIFIED | Substantive implementation, public tests, policy interface, and consumers in every later package. |
-| `modules/mb-core/checked/{checked,range,dimensions}.mbt` | Safe logical arithmetic/ranges | ✓ VERIFIED | Substantive guards and all-target boundary coverage; imported by budget/bytes/io/host. |
-| `modules/mb-core/budget/budget.mbt` | Atomic hierarchical budget ledger | ✓ VERIFIED | Full preflight/commit separation, shared windows, balanced depth, and behavioral tests. |
-| `modules/mb-core/bytes/{owned_bytes,views}.mbt` | Owned storage and safe immutable/mutable views | ✗ PARTIAL | Bounds and alias validation exist, but scoped cleanup is not group-wide after `split_mut`. |
-| `modules/mb-core/io/{traits,exact,memory,bounded}.mbt` | Explicit stream states and bounded providers | ✓ VERIFIED | Wired to bytes/budget/checked/error; behavioral tests cover exact and bounded transitions. |
-| `modules/mb-core/host/{capabilities,fakes}.mbt` | Explicit capability contracts and doubles | ✓ VERIFIED | Five traits, one fake per trait, deterministic instance-local behavior, no native adapter. |
-| `modules/mb-core/README.mbt.md` | Executable public contract | ✓ VERIFIED WITH GAP NOTE | Compiles on four targets; its split example does not detect the lease-group cleanup defect. |
-| `policy/foundation.json` and quality scripts | Exact six-package qualification | ✓ VERIFIED | Exact metadata/interfaces/contents plus fail-closed negative fixtures and README execution. |
+| `modules/mb-core/error/{core_error,diagnostics}.mbt` | Stable structured errors/diagnostics | ✓ VERIFIED | Quick regression; exact interface and tests pass. |
+| `modules/mb-core/checked/{checked,range,dimensions}.mbt` | Safe logical arithmetic/ranges | ✓ VERIFIED | Quick regression; exact interface and tests pass. |
+| `modules/mb-core/budget/budget.mbt` | Atomic hierarchical budget ledger | ✓ VERIFIED | Quick regression; exact interface and tests pass. |
+| `modules/mb-core/bytes/views.mbt` | Group-wide callback cleanup and descendant invalidation | ✓ VERIFIED | Substantive shared-scope implementation; wired from `with_mut`, checked by all descendant access/split paths, and behaviorally exercised. |
+| `modules/mb-core/bytes/bytes_test.mbt` | Public normal/Err lifecycle regressions | ✓ VERIFIED | Normal exit checks stale get/set/split and reacquisition; Err exit checks error preservation, repeated release, staleness, and reacquisition. |
+| `modules/mb-core/bytes/bytes_wbtest.mbt` | Nested/mixed/exact-once invariants | ✓ VERIFIED | Nested descendants, normalized count, owner restoration, repeated release, and zero/one/all explicit release cases pass. |
+| `modules/mb-core/io/{traits,exact,memory,bounded}.mbt` | Explicit stream states and bounded providers | ✓ VERIFIED | Quick regression; exact interface and tests pass. |
+| `modules/mb-core/host/{capabilities,fakes}.mbt` | Explicit capability contracts and doubles | ✓ VERIFIED | Quick regression; exact interface, tests, and prohibitions pass. |
+| `modules/mb-core/README.mbt.md` | Executable public contract with post-split reacquisition | ✓ VERIFIED | Reacquisition is explicit and all four target-qualified checks pass. |
+| `policy/foundation.json` and quality scripts | Exact six-package qualification | ✓ VERIFIED | Private lifecycle fix preserved the 30-line bytes interface and exact package contents. |
 
 ### Key Link Verification
 
 | From | To | Via | Status | Details |
 |---|---|---|---|---|
-| `checked/moon.pkg` | `mb-core/error` | sole failure dependency | ✓ WIRED | Exact import and public error use. |
-| `budget/moon.pkg` | checked/error | checked counters and structured limits | ✓ WIRED | Preflight calls checked subtraction; errors use `CoreError`. |
-| `owned_bytes.mbt` | budget | charge before built-in allocation | ✓ WIRED | `budget.charge` completes before `FixedArray::make`. |
-| `io/*.mbt` | bytes | retained views and leases | ✓ WIRED | Reader windows wrap leases; writers consume ByteView; memory providers use OwnedBytes. |
-| `host/fakes.mbt` | host traits | explicit `impl` per capability | ✓ WIRED | File, diagnostic, clock, cancellation, and resolver doubles implement their individual traits. |
-| `Invoke-MoonQuality.ps1` | `README.mbt.md` | target-qualified `moon check` | ✓ WIRED | Required loop executes exact check for js, wasm, wasm-gc, and native. |
-| `foundation.json` | six `moon.pkg` files | exact identity/target/import comparison | ✓ WIRED | Policy assertion and package/interface classifiers passed. |
-| `OwnedBytes::with_mut` | split descendant cleanup | deferred lease-group release | ✗ NOT WIRED | Deferred cleanup targets the invalidated parent handle, not the live group descendants. |
+| `LeaseOwner::with_mut` | `LeaseGroup` | deferred group cleanup | ✓ WIRED | `defer lease.group.cleanup_scope()` executes on both normal and structured-error returns. |
+| `LeaseGroup::cleanup_scope` | owner availability | shared scope close and exact-once restoration | ✓ WIRED | Scope becomes inactive, live handles normalize to zero, and `restore_owner_once` clears `owner.leased` once. |
+| `MutByteLease::{checked_index,split_mut,release}` | shared group lifecycle | group-scope checks/accounting | ✓ WIRED | Access/split reject inactive scope; release is idempotent and cannot underflow after cleanup. |
+| Public/internal lifecycle tests | `OwnedBytes::with_mut` | retained descendants and reacquisition | ✓ WIRED | Normal, Err, nested, mixed-release, stale-operation, and reacquisition paths are directly exercised. |
+| `Invoke-MoonQuality.ps1` | README and package policy | four-target checks/classifiers | ✓ WIRED | Required executes docs/tests and exact interface/package checks for all targets. |
+
+Previously passed key links for checked/error, budget, bytes allocation precharge, I/O, host capabilities, and six-package policy remain present and passed the quick regression gate.
 
 ### Data-Flow Trace (Level 4)
 
-Not applicable: Phase 2 produces library primitives and policy automation, not dynamic UI/data-rendering artifacts. The equivalent state-flow checks were performed on budget ledgers, stream cursors, and lease-group ownership.
+Not applicable to UI data. Mutable lifecycle state flow was traced directly:
+
+`with_mut acquisition -> shared LeaseGroup -> nested split net handle increments -> optional explicit releases -> deferred cleanup_scope -> scope inactive/live_handles=0 -> restore_owner_once -> later reacquisition`.
 
 ### Behavioral Spot-Checks
 
 | Behavior | Command | Result | Status |
 |---|---|---|---|
-| Complete required qualification | `pwsh -NoProfile -File ./scripts/quality.ps1 -Lane Required` | Exit 0; 62/62 tests on each of four targets; docs/interfaces/packages/negative fixtures/read-only proof passed | ✓ PASS |
-| Mutable callback cleanup without split | Existing test `callback cleanup invalidates stale handles and permits reacquisition` in the full Required run | Passed on all targets | ✓ PASS |
-| Mutable callback cleanup after split | Source trace: `with_mut` defer at `views.mbt:109`, parent invalidation/live-handle replacement at `views.mbt:255-256`, owner reset only at `views.mbt:232-233` | No regression test; source path deterministically leaves two live handles after callback | ✗ FAIL |
+| Normal split callback exit, stale get/set/split, reacquisition | `moon -C modules/mb-core test bytes --target all --frozen --filter "split descendants are stale after normal callback exit and owner reacquires"` | 1/1 passed on wasm, wasm-gc, js, native | ✓ PASS |
+| Structured Err preservation, stale descendants, repeated release, reacquisition | `moon -C modules/mb-core test bytes --target all --frozen --filter "split descendants are stale after structured error and error is preserved"` | 1/1 passed on all four targets | ✓ PASS |
+| Nested descendants, live-count normalization, exact-once owner restoration | `moon -C modules/mb-core test bytes --target all --frozen --filter "callback cleanup invalidates nested descendants and restores owner once"` | 1/1 passed on all four targets | ✓ PASS |
+| Zero/one/all explicit child release before callback exit | `moon -C modules/mb-core test bytes --target all --frozen --filter "callback cleanup tolerates zero one or all explicit child releases"` | 1/1 passed on all four targets | ✓ PASS |
+| Complete regression and qualification | `pwsh -NoProfile -File ./scripts/quality.ps1 -Lane Required` | Exit 0; 66/66 per target, docs/interfaces/packages/negative fixtures/read-only proof passed | ✓ PASS |
 
 ### Probe Execution
 
-SKIPPED: no phase plan declares a probe script and no conventional `probe-*.sh` applies. The executable verification contract is the root Required lane.
+SKIPPED: no phase plan declares a probe script. Named MoonBit tests and the root Required lane are the executable verification contract.
 
 ### Requirements Coverage
 
 | Requirement | Source Plans | Status | Evidence |
 |---|---|---|---|
-| CORE-01 | 02-02, 02-07 | ✓ SATISFIED | Checked arithmetic/range/dimension/narrowing implementations and boundary tests. |
-| CORE-02 | 02-04, 02-07 | ✗ BLOCKED | Bounds safety exists, but the documented callback-scoped split lease can permanently poison future mutable acquisition. |
-| CORE-03 | 02-05, 02-07 | ✓ SATISFIED | Explicit read/write outcomes and exact helpers with partial/EOS/failure/no-progress tests. |
-| CORE-04 | 02-05, 02-07 | ✓ SATISFIED | Bounded nested reader/writer and memory providers operate without filesystem/full buffering. |
-| CORE-05 | 02-05, 02-07 | ✓ SATISFIED | `Seeker` is independent; seek boundaries validate before cursor mutation. |
-| CORE-06 | 02-01, 02-07 | ✓ SATISFIED | Stable codes, typed context, deterministic rendering, and host-detail exclusion. |
-| CORE-07 | 02-03, 02-07 | ✓ SATISFIED | Atomic multidimensional budgets, shared children, and balanced depth tests. |
-| CORE-08 | 02-06, 02-07 | ✓ SATISFIED | Explicit optional host traits/doubles and fail-closed ambient/native prohibition scans. |
+| CORE-01 | 02-02, 02-07 | ✓ SATISFIED | Quick regression passed. |
+| CORE-02 | 02-04, 02-07, 02-08 | ✓ SATISFIED | Full lifecycle re-verification closed the sole gap across normal, Err, nested, mixed-release, stale-operation, and reacquisition paths. |
+| CORE-03 | 02-05, 02-07 | ✓ SATISFIED | Quick regression passed. |
+| CORE-04 | 02-05, 02-07 | ✓ SATISFIED | Quick regression passed. |
+| CORE-05 | 02-05, 02-07 | ✓ SATISFIED | Quick regression passed. |
+| CORE-06 | 02-01, 02-07 | ✓ SATISFIED | Quick regression passed. |
+| CORE-07 | 02-03, 02-07 | ✓ SATISFIED | Quick regression passed. |
+| CORE-08 | 02-06, 02-07 | ✓ SATISFIED | Quick regression passed. |
 
-No Phase 2 requirements are orphaned from the plans.
+No Phase 2 requirements are orphaned.
 
 ### Prohibition Verification
 
-| Prohibition | Enforcement evidence | Verdict |
+| Prohibition | Regression evidence | Verdict |
 |---|---|---|
-| No prose parsing or ambient/backend error semantics | Exact structured API, deterministic snapshots, foreign-detail discard tests | ✓ VERIFIED |
-| No catchable built-in physical OOM claim | Allocator-double tests, README/source language, negative prose fixture | ✓ VERIFIED |
-| No ambient host fallback/native adapter/all-capabilities singleton | Exact interface/source policy and negative ambient fixture | ✓ VERIFIED |
+| No prose parsing or ambient/backend error semantics | Exact error interface/tests and Required scans passed. | ✓ VERIFIED |
+| No catchable built-in physical OOM claim | README/source checks and false-OOM negative fixture passed. | ✓ VERIFIED |
+| No ambient host fallback/native adapter/all-capabilities singleton | Exact interface/source checks and ambient-access negative fixture passed. | ✓ VERIFIED |
 
 ### Anti-Patterns Found
 
-| File | Line | Pattern | Severity | Impact |
-|---|---:|---|---|---|
-| `modules/mb-core/bytes/views.mbt` | 109, 230-256 | Parent-handle cleanup used for a group whose parent can be consumed into children | 🛑 Blocker | Normal documented callback use can permanently prevent future mutable access. |
-| Phase-modified files | — | `TBD` / `FIXME` / `XXX` | None | No unreferenced debt markers found. Matches for `fake`/long test strings are intentional capability doubles and fixtures, not stubs. |
+No blocker or warning anti-pattern remains in Plan 02-08 files. No `TBD`, `FIXME`, `XXX`, implementation placeholder, unchecked narrowing, raw mutable backing, ambient access, or false catchable-OOM claim was found. The changed files are limited to the intended private implementation, lifecycle tests, and README example.
 
 ### Disconfirmation Pass
 
-- **Partially met requirement:** CORE-02 has strong bounds and alias checks, but callback-scoped split cleanup is incomplete.
-- **Misleading passing test:** `checked split consumes parent and yields disjoint active children` passes only because it explicitly releases both children; it does not exercise the public `with_mut` cleanup promise. The README example omits those releases and still compiles because it never attempts reacquisition.
-- **Uncovered error/cleanup path:** normal or `Err` callback exit after `split_mut` with retained/unreleased children has no test and cannot reset the owner under the current implementation.
+- **Potential partial requirement checked:** explicit release of all children can restore owner availability before deferred cleanup; all handles are inactive at that point, group restoration is idempotent, and mixed-release plus subsequent reacquisition tests confirm no overlapping authority or double restoration.
+- **Potential misleading test checked:** the README no longer stops after a compiling split; it performs and validates a second mutable acquisition.
+- **Potential uncovered error path checked:** structured `Err` preserves the original error while deferred group cleanup invalidates descendants and permits reacquisition.
 
 ### Human Verification Required
 
-None. The blocking lifecycle outcome is deterministically established by the source state transitions; visual, external-service, and performance judgments are not part of this phase.
+None. All lifecycle invariants and portable package contracts have deterministic automated evidence; no visual, external-service, or performance judgment is involved.
 
 ### Gaps Summary
 
-One root-cause gap blocks Phase 2 completion: mutable lease cleanup is handle-local while splitting creates group descendants. The fix must make callback exit invalidate the entire lease group and restore owner availability exactly once, then add all-target regression coverage for normal and error exits. This concern is not deferred by Phases 3-5; those phases consume `mb-core` and therefore require the lifecycle invariant now.
+All previous gaps are closed. No regressions or new gaps were found, and later phases may consume the Phase 2 core contracts.
 
 ---
 
-_Verified: 2026-07-16T16:21:53Z_
+_Verified: 2026-07-16T16:45:50Z_
 _Verifier: the agent (gsd-verifier)_
