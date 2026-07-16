@@ -47,6 +47,18 @@
       "license": "Apache-2.0",
       "redistribution_status": "not-applicable",
       "expected_use": "COLR-04 project-derived quantization, alpha, profile-limit, and adversarial conformance cases"
+    },
+    {
+      "id": "image-operation-vectors",
+      "path": "fixtures/image/operation-vectors.json",
+      "origin": "generated",
+      "source": "repository-derived:scripts/fixtures/Generate-ImageVectors.ps1; Exif eight-state coordinate semantics transcribed literally from CIPA DC-X010-2017",
+      "author": "MoonBit Native Foundation project generator",
+      "retrieval_date": "2026-07-17",
+      "sha256": "1f43b6f1109d5edd1c7595102552ac7ce2a94fa12d605dfd86afa8ba92b6b29a",
+      "license": "Apache-2.0",
+      "redistribution_status": "not-applicable",
+      "expected_use": "IMAG-05 and IMAG-07 descriptor, plane, crop, lease, orientation, resize, conversion, metadata disposition, and non-seeking codec conformance"
     }
   ]
 }

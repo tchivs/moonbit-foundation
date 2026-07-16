@@ -1,0 +1,318 @@
+{
+  "schema_version": "1.0.0",
+  "classification": "repository-derived-adversarial",
+  "generator": "scripts/fixtures/Generate-ImageVectors.ps1",
+  "source": "repository-derived:scripts/fixtures/Generate-ImageVectors.ps1",
+  "standards_note": "Exif orientation equations are literal project-authored transcriptions of the eight-state coordinate semantics; no third-party fixture bytes are copied.",
+  "descriptor_plane_vectors": [
+    {
+      "id": "packed-padded",
+      "behavior": "accept",
+      "start": 1,
+      "length": 14,
+      "stride": 8,
+      "row_bytes": 6,
+      "width": 2,
+      "height": 2,
+      "storage": 16
+    },
+    {
+      "id": "short-row",
+      "behavior": "reject-row",
+      "start": 0,
+      "length": 4,
+      "stride": 2,
+      "row_bytes": 2,
+      "width": 1,
+      "height": 1,
+      "storage": 4
+    },
+    {
+      "id": "one-byte-short",
+      "behavior": "reject-storage",
+      "start": 0,
+      "length": 6,
+      "stride": 6,
+      "row_bytes": 6,
+      "width": 2,
+      "height": 1,
+      "storage": 5
+    }
+  ],
+  "crop_lease_vectors": [
+    {
+      "id": "crop-edge",
+      "x": 1,
+      "y": 0,
+      "width": 1,
+      "height": 2,
+      "first": 4,
+      "last": 12
+    },
+    {
+      "id": "empty-crop",
+      "x": 2,
+      "y": 2,
+      "width": 0,
+      "height": 0,
+      "first": 0,
+      "last": 0
+    },
+    {
+      "id": "lease-stale",
+      "x": 0,
+      "y": 0,
+      "width": 1,
+      "height": 1,
+      "first": 1,
+      "last": 1
+    },
+    {
+      "id": "lease-overlap",
+      "x": 0,
+      "y": 0,
+      "width": 2,
+      "height": 1,
+      "first": 1,
+      "last": 6
+    }
+  ],
+  "orientation_vectors": [
+    {
+      "code": 1,
+      "name": "TopLeft",
+      "out_width": 3,
+      "out_height": 2,
+      "map": [
+        "0,0>0,0",
+        "1,0>1,0",
+        "2,0>2,0",
+        "0,1>0,1",
+        "1,1>1,1",
+        "2,1>2,1"
+      ]
+    },
+    {
+      "code": 2,
+      "name": "TopRight",
+      "out_width": 3,
+      "out_height": 2,
+      "map": [
+        "0,0>2,0",
+        "1,0>1,0",
+        "2,0>0,0",
+        "0,1>2,1",
+        "1,1>1,1",
+        "2,1>0,1"
+      ]
+    },
+    {
+      "code": 3,
+      "name": "BottomRight",
+      "out_width": 3,
+      "out_height": 2,
+      "map": [
+        "0,0>2,1",
+        "1,0>1,1",
+        "2,0>0,1",
+        "0,1>2,0",
+        "1,1>1,0",
+        "2,1>0,0"
+      ]
+    },
+    {
+      "code": 4,
+      "name": "BottomLeft",
+      "out_width": 3,
+      "out_height": 2,
+      "map": [
+        "0,0>0,1",
+        "1,0>1,1",
+        "2,0>2,1",
+        "0,1>0,0",
+        "1,1>1,0",
+        "2,1>2,0"
+      ]
+    },
+    {
+      "code": 5,
+      "name": "LeftTop",
+      "out_width": 2,
+      "out_height": 3,
+      "map": [
+        "0,0>0,0",
+        "1,0>0,1",
+        "2,0>0,2",
+        "0,1>1,0",
+        "1,1>1,1",
+        "2,1>1,2"
+      ]
+    },
+    {
+      "code": 6,
+      "name": "RightTop",
+      "out_width": 2,
+      "out_height": 3,
+      "map": [
+        "0,0>1,0",
+        "1,0>1,1",
+        "2,0>1,2",
+        "0,1>0,0",
+        "1,1>0,1",
+        "2,1>0,2"
+      ]
+    },
+    {
+      "code": 7,
+      "name": "RightBottom",
+      "out_width": 2,
+      "out_height": 3,
+      "map": [
+        "0,0>1,2",
+        "1,0>1,1",
+        "2,0>1,0",
+        "0,1>0,2",
+        "1,1>0,1",
+        "2,1>0,0"
+      ]
+    },
+    {
+      "code": 8,
+      "name": "LeftBottom",
+      "out_width": 2,
+      "out_height": 3,
+      "map": [
+        "0,0>0,2",
+        "1,0>0,1",
+        "2,0>0,0",
+        "0,1>1,2",
+        "1,1>1,1",
+        "2,1>1,0"
+      ]
+    }
+  ],
+  "resize_vectors": [
+    {
+      "id": "upscale-2-to-5",
+      "source": 2,
+      "destination": 5,
+      "map": [
+        0,
+        0,
+        0,
+        1,
+        1
+      ]
+    },
+    {
+      "id": "downscale-5-to-2",
+      "source": 5,
+      "destination": 2,
+      "map": [
+        0,
+        2
+      ]
+    },
+    {
+      "id": "unit-axis",
+      "source": 1,
+      "destination": 4,
+      "map": [
+        0,
+        0,
+        0,
+        0
+      ]
+    }
+  ],
+  "conversion_vectors": [
+    {
+      "id": "rgb-to-rgba",
+      "source": [
+        1,
+        2,
+        3
+      ],
+      "expected": [
+        1,
+        2,
+        3,
+        255
+      ],
+      "lossy": false
+    },
+    {
+      "id": "opaque-rgba-to-rgb",
+      "source": [
+        4,
+        5,
+        6,
+        255
+      ],
+      "expected": [
+        4,
+        5,
+        6
+      ],
+      "lossy": false
+    },
+    {
+      "id": "lossy-rgba-to-rgb",
+      "source": [
+        7,
+        8,
+        9,
+        10
+      ],
+      "expected": [
+        7,
+        8,
+        9
+      ],
+      "lossy": true
+    }
+  ],
+  "metadata_vectors": [
+    {
+      "id": "canonical-order",
+      "behavior": "accept-sort",
+      "count": 2
+    },
+    {
+      "id": "duplicate-key",
+      "behavior": "reject-duplicate",
+      "count": 2
+    },
+    {
+      "id": "orientation-disposition",
+      "behavior": "transform-orientation",
+      "count": 5
+    }
+  ],
+  "codec_vectors": [
+    {
+      "id": "empty-prefix",
+      "available": 0,
+      "outcome": "need-more",
+      "seeker_calls": 0
+    },
+    {
+      "id": "short-prefix",
+      "available": 1,
+      "outcome": "need-more",
+      "seeker_calls": 0
+    },
+    {
+      "id": "non-match",
+      "available": 2,
+      "outcome": "no-match",
+      "seeker_calls": 0
+    },
+    {
+      "id": "short-progress",
+      "available": 3,
+      "outcome": "bounded-read",
+      "seeker_calls": 0
+    }
+  ]
+}
