@@ -33,7 +33,8 @@ test "tag and caller-limit rejection precede owned-byte charging" {
       b"abcde",
       ProfileLimits::new(4UL),
       oversize_budget,
-    ) is Err(_),
+    )
+    is Err(_),
     content="true",
   )
   inspect(oversize_budget.remaining().bytes(), content="5")
@@ -50,7 +51,8 @@ test "owned profile storage is independent from the immutable source" {
     internal_budget(3UL, 1UL, 3UL),
   ).unwrap()
   inspect(
-    profile.owner.with_mut(0UL, 3UL, fn(lease) { lease.set(0UL, b'z') }) is Ok(_),
+    profile.owner.with_mut(0UL, 3UL, fn(lease) { lease.set(0UL, b'z') })
+    is Ok(_),
     content="true",
   )
   inspect(source[0] == b'a', content="true")

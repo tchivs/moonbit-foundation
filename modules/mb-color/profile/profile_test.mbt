@@ -20,10 +20,7 @@ fn profile_budget(
 
 ///|
 fn valid_tag(value : String) -> @profile.ProfileFormatTag {
-  match @profile.ProfileFormatTag::new(value) {
-    Ok(tag) => tag
-    Err(_) => fail("valid profile tag must construct")
-  }
+  @profile.ProfileFormatTag::new(value).unwrap()
 }
 
 ///|
@@ -36,12 +33,10 @@ test "builtin sRGB identity is direct and has no opaque payload" {
 ///|
 test "profile format tags preserve accepted spelling and canonical icc" {
   inspect(@profile.ProfileFormatTag::icc().value(), content="icc")
-  for spelling in [
-    "a",
-    "ICC",
-    "ICC-v4.4_test+1",
-    "zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz",
-  ] {
+  for
+    spelling in [
+      "a", "ICC", "ICC-v4.4_test+1", "zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz",
+    ] {
     let tag = valid_tag(spelling)
     inspect(tag.value() == spelling, content="true")
   }
@@ -49,13 +44,10 @@ test "profile format tags preserve accepted spelling and canonical icc" {
 
 ///|
 test "profile format tags reject empty invalid ASCII and overlong spellings" {
-  for spelling in [
-    "",
-    "-icc",
-    "contains space",
-    "zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz",
-    "iccé",
-  ] {
+  for
+    spelling in [
+      "", "-icc", "contains space", "zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz", "iccé",
+    ] {
     match @profile.ProfileFormatTag::new(spelling) {
       Err(error) => {
         inspect(
@@ -74,6 +66,7 @@ test "profile format tags reject empty invalid ASCII and overlong spellings" {
 }
 
 ///|
+#warnings("-35")
 test "empty and exact-limit opaque payloads round-trip exactly" {
   let empty_limits = @profile.ProfileLimits::new(0UL)
   inspect(empty_limits.max_payload_bytes(), content="0")
@@ -126,8 +119,8 @@ test "one-over-limit rejects before consuming budget" {
     ) {
     Err(error) => {
       inspect(error.code() == @error.ErrorCode::BudgetExceeded, content="true")
-      inspect(error.requested(), content="5")
-      inspect(error.limit(), content="4")
+      inspect(error.requested() == Some(5UL), content="true")
+      inspect(error.limit() == Some(4UL), content="true")
       inspect(error.context() == Some("profile-payload"), content="true")
     }
     Ok(_) => fail("one-over-limit payload must reject")
@@ -154,7 +147,10 @@ test "each independent storage budget dimension rejects atomically" {
         budget,
       ) {
       Err(error) => {
-        inspect(error.code() == @error.ErrorCode::BudgetExceeded, content="true")
+        inspect(
+          error.code() == @error.ErrorCode::BudgetExceeded,
+          content="true",
+        )
         inspect(error.context() == Some(dimension), content="true")
       }
       Ok(_) => fail("insufficient storage budget must reject")
