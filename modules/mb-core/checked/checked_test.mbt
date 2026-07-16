@@ -196,7 +196,10 @@ test "range construction rejects start plus length overflow" {
   match @checked.CheckedRange::from_start_length(18446744073709551615UL, 1UL) {
     Err(error) => {
       inspect(error.code() == @error.ErrorCode::InvalidRange, content="true")
-      inspect(error.range_start(), content="Some(18446744073709551615)")
+      inspect(
+        error.range_start() == Some(18446744073709551615UL),
+        content="true",
+      )
     }
     Ok(_) => fail("overflowed range end must fail")
   }
@@ -218,7 +221,10 @@ test "dimensions preserve zero sizes and compute checked pixel counts" {
   }
   match @checked.Dimensions::new(18446744073709551615UL, 2UL) {
     Err(error) =>
-      inspect(error.code() == @error.ErrorCode::InvalidDimensions, content="true")
+      inspect(
+        error.code() == @error.ErrorCode::InvalidDimensions,
+        content="true",
+      )
     Ok(_) => fail("overflowed pixel count must fail")
   }
 }

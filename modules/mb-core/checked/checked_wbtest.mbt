@@ -13,19 +13,25 @@ test "power-of-two validation rejects zero before subtracting" {
 
 ///|
 test "range end guard preserves exact and overflow adjacency" {
-  inspect(checked_range_end(7UL, 0UL).is_ok(), content="true")
+  inspect(checked_range_end(7UL, 0UL) is Ok(_), content="true")
   inspect(
-    checked_range_end(18446744073709551615UL, 0UL).is_ok(),
+    checked_range_end(18446744073709551615UL, 0UL) is Ok(_),
     content="true",
   )
   inspect(
-    checked_range_end(18446744073709551615UL, 1UL).is_err(),
+    checked_range_end(18446744073709551615UL, 1UL) is Err(_),
     content="true",
   )
 }
 
 ///|
 test "pixel count guard accepts zero before multiplication" {
-  inspect(checked_pixel_count(0UL, 18446744073709551615UL).is_ok(), content="true")
-  inspect(checked_pixel_count(18446744073709551615UL, 2UL).is_err(), content="true")
+  inspect(
+    checked_pixel_count(0UL, 18446744073709551615UL) is Ok(_),
+    content="true",
+  )
+  inspect(
+    checked_pixel_count(18446744073709551615UL, 2UL) is Err(_),
+    content="true",
+  )
 }
