@@ -186,7 +186,10 @@ test "reordered planar full view is inspectable but grants no byte or mutable au
   inspect(view.metadata().profile().is_builtin_srgb(), content="true")
   match view.get_byte(0UL, 0UL, 0UL) {
     Err(error) => {
-      inspect(error.code() == @error.ErrorCode::CapabilityUnavailable, content="true")
+      inspect(
+        error.code() == @error.ErrorCode::CapabilityUnavailable,
+        content="true",
+      )
       inspect(
         error.context() == Some("packed-u8-byte-access-required"),
         content="true",
@@ -196,7 +199,10 @@ test "reordered planar full view is inspectable but grants no byte or mutable au
   }
   match image.with_mut_view(fn(_view) { Ok(()) }) {
     Err(error) => {
-      inspect(error.code() == @error.ErrorCode::CapabilityUnavailable, content="true")
+      inspect(
+        error.code() == @error.ErrorCode::CapabilityUnavailable,
+        content="true",
+      )
       inspect(
         error.context() == Some("packed-u8-mut-view-required"),
         content="true",
