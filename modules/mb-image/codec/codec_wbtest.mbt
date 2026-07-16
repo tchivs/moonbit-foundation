@@ -19,6 +19,17 @@ impl @io.Reader for GeneratedShortReader with fn read(self, destination) {
 }
 
 ///|
+struct GeneratedShortWriter {
+  mut calls : Int
+}
+
+///|
+impl @io.Writer for GeneratedShortWriter with fn write(self, _source) {
+  self.calls = self.calls + 1
+  @io.WriteOutcome::Progress(1UL)
+}
+
+///|
 fn consume_generated_short_progress(length : UInt64) -> Unit raise {
   let budget = @budget.Budget::new(
     @budget.ResourceLimits::new(
@@ -41,6 +52,10 @@ fn consume_generated_short_progress(length : UInt64) -> Unit raise {
     .unwrap()
   inspect(completed == length, content="true")
   inspect(reader.calls.to_uint64() == length, content="true")
+  let writer = GeneratedShortWriter::{ calls: 0 }
+  let written = @io.write_all(writer as &@io.Writer, destination.view()).unwrap()
+  inspect(written == length, content="true")
+  inspect(writer.calls.to_uint64() == length, content="true")
 }
 
 ///|
