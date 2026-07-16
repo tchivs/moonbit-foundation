@@ -4,9 +4,9 @@ milestone: v0.1
 milestone_name: milestone
 current_phase: 1
 current_phase_name: Foundation Charter and Reproducible Workspace
-status: executing
-stopped_at: Completed 01-07-PLAN.md
-last_updated: "2026-07-16T08:23:00.000Z"
+status: blocked
+stopped_at: Plan 01-08 Task 2 — authentic RFC acceptance evidence unavailable
+last_updated: "2026-07-16T17:30:45.791+08:00"
 last_activity: 2026-07-16
 last_activity_desc: Completed 01-07 deterministic Required/LLVM quality controller and pinned read-only CI
 progress:
@@ -30,7 +30,7 @@ See `.planning/PROJECT.md` (updated 2026-07-16).
 
 Phase: 1 (Foundation Charter and Reproducible Workspace) — EXECUTING
 Plan: 8 of 8
-Status: Ready to execute
+Status: Blocked at the authentic RFC acceptance evidence gate
 Last activity: 2026-07-16 — Completed 01-07 deterministic Required/LLVM quality controller and pinned read-only CI
 
 Progress: [█████████░] 88%
@@ -91,12 +91,13 @@ Progress: [█████████░] 88%
 
 ### Blockers
 
-None. Plan 01-08 is ready for final RFC acceptance evidence and exact qualification.
+- Plan 01-08 cannot record RFC 0001 as Accepted until one complete D-03 route has authentic public evidence: either two distinct maintainer approvals, or an eligible project-lead approval with a public review interval of at least seven elapsed days; both routes also require completion of the two mandatory manual edge reviews and disposition of every blocking objection.
+- Required quality, four-target tests, policy validation, and the exact `1/9/16/29/17/5` closed-world source audit pass, but they cannot substitute for the missing governance authority evidence.
 
 ## Session Continuity
 
 **Resume file:** None
 
-Last session: 2026-07-16T08:23:00.000Z
-Stopped at: Completed 01-07-PLAN.md
-Resume with: Execute Plan 01-08 — record authentic RFC acceptance evidence and run final exact qualification.
+Last session: 2026-07-16T17:30:45.791+08:00
+Stopped at: Resumed Plan 01-08; authentic D-03 acceptance evidence remains unavailable, so RFC 0001 stays Proposed.
+Resume with: Supply one authentic D-03 evidence bundle, then execute Plan 01-08 Tasks 2-3.
