@@ -24,7 +24,7 @@ function New-TestManifest([string]$Path, [string]$Digest) {
   }
 }
 
-function Invoke-FixtureCase([string]$Name, [scriptblock]$Arrange, [bool]$ShouldPass) {
+function Invoke-FixtureCase([string]$Name, [scriptblock]$Arrange, [bool]$ShouldPass, [string]$ExpectedFailurePattern) {
   $root = Join-Path ([System.IO.Path]::GetTempPath()) ('mnf-fixture-' + [guid]::NewGuid().ToString('N'))
   [void](New-Item -ItemType Directory -Force -Path (Join-Path $root 'fixtures'))
   try {
@@ -35,20 +35,25 @@ function Invoke-FixtureCase([string]$Name, [scriptblock]$Arrange, [bool]$ShouldP
     if ($Arrange) { & $Arrange $root $manifest }
     Write-TestJson -Path (Join-Path $root 'fixtures/manifest.json') -Value $manifest
     $passed = $true
+    $failure = $null
     try { Assert-FixtureManifest -ManifestPath (Join-Path $root 'fixtures/manifest.json') -RepositoryRoot $root }
-    catch { $passed = $false }
-    if ($passed -ne $ShouldPass) { throw "Fixture case '$Name' expected pass=$ShouldPass but got pass=$passed." }
+    catch { $passed = $false; $failure = $_.Exception.Message }
+    if ($ShouldPass -and -not $passed) { throw "Fixture case '$Name' expected success but failed: $failure" }
+    if (-not $ShouldPass -and ($passed -or $failure -cnotmatch $ExpectedFailurePattern)) { throw "Fixture case '$Name' expected failure '$ExpectedFailurePattern'; got '$failure'." }
     Write-Host "PASS: $Name"
   } finally {
     Remove-Item -LiteralPath $root -Recurse -Force -ErrorAction SilentlyContinue
   }
 }
 
-Invoke-FixtureCase 'valid fixture digest' $null $true
-Invoke-FixtureCase 'mismatched fixture digest' { param($root,$manifest) $manifest.records[0].sha256='0' * 64 } $false
-Invoke-FixtureCase 'missing fixture file' { param($root,$manifest) $manifest.records[0].path='fixtures/missing.bin' } $false
-Invoke-FixtureCase 'parent traversal fixture path' { param($root,$manifest) $manifest.records[0].path='../outside.bin' } $false
-Invoke-FixtureCase 'rooted fixture path' { param($root,$manifest) $manifest.records[0].path=(Join-Path $root 'fixtures/valid.bin') } $false
+Invoke-FixtureCase 'valid fixture digest' $null $true $null
+Invoke-FixtureCase 'mismatched fixture digest' { param($root,$manifest) $manifest.records[0].sha256='0' * 64 } $false 'SHA-256 does not match'
+Invoke-FixtureCase 'missing fixture file' { param($root,$manifest) $manifest.records[0].path='fixtures/missing.bin' } $false 'component.*does not exist'
+Invoke-FixtureCase 'parent traversal fixture path' { param($root,$manifest) $manifest.records[0].path='../outside.bin' } $false 'parent traversal'
+Invoke-FixtureCase 'rooted fixture path' { param($root,$manifest) $manifest.records[0].path=(Join-Path $root 'fixtures/valid.bin') } $false 'repository-relative'
+Invoke-FixtureCase 'external fixture requires immutable confirmation policy' { param($root,$manifest) $manifest.external_requires_confirmed_redistribution=$false;$manifest.records[0].origin='external';$manifest.records[0].redistribution_status='unconfirmed' } $false 'must always require confirmed redistribution'
+Invoke-FixtureCase 'allowed origin set is canonical' { param($root,$manifest) $manifest.allowed_origins+=@('unknown') } $false 'Fixture allowed origins count mismatch'
+Invoke-FixtureCase 'redistribution status set is canonical' { param($root,$manifest) $manifest.allowed_redistribution_statuses=@('unconfirmed') } $false 'Fixture redistribution statuses count mismatch'
 
 $external = Join-Path ([System.IO.Path]::GetTempPath()) ('mnf-fixture-external-' + [guid]::NewGuid().ToString('N') + '.bin')
 try {
@@ -59,7 +64,7 @@ try {
     [void](New-Item -ItemType SymbolicLink -Path $link -Target $external -ErrorAction Stop)
     $manifest.records[0].path='fixtures/link.bin'
     $manifest.records[0].sha256=(Get-FileHash -LiteralPath $external -Algorithm SHA256).Hash.ToLowerInvariant()
-  } $false
+  } $false 'symbolic link or reparse point'
 } finally {
   Remove-Item -LiteralPath $external -Force -ErrorAction SilentlyContinue
 }

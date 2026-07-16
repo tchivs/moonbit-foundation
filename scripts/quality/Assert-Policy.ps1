@@ -255,7 +255,11 @@ function Assert-FixtureManifest {
   )
   $fixtureManifest = Read-QualityJson -Path $ManifestPath
   Assert-Condition ($fixtureManifest.schema_version -ceq '1.0.0') 'Fixture manifest schema_version must be 1.0.0.'
+  Assert-Condition ($fixtureManifest.preferred_origin -ceq 'generated') 'Fixture preferred_origin must be generated.'
   Assert-ExactSet 'Fixture required fields' @($fixtureManifest.required_record_fields) @('id','path','origin','source','author','retrieval_date','sha256','license','redistribution_status','expected_use')
+  Assert-ExactSet 'Fixture allowed origins' @($fixtureManifest.allowed_origins) @('generated','external')
+  Assert-ExactSet 'Fixture redistribution statuses' @($fixtureManifest.allowed_redistribution_statuses) @('confirmed','not-applicable','unconfirmed')
+  Assert-Condition ($fixtureManifest.external_requires_confirmed_redistribution -eq $true) 'External fixtures must always require confirmed redistribution.'
   $fixtureIds = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::Ordinal)
   foreach ($record in @($fixtureManifest.records)) {
     foreach ($field in @($fixtureManifest.required_record_fields)) {
@@ -266,7 +270,7 @@ function Assert-FixtureManifest {
     Assert-Condition (@($fixtureManifest.allowed_redistribution_statuses) -ccontains $record.redistribution_status) "Fixture '$($record.id)' has invalid redistribution status."
     Assert-Condition ([string]$record.sha256 -cmatch '^[0-9a-f]{64}$') "Fixture '$($record.id)' has invalid SHA-256."
     Assert-Condition ([string]$record.retrieval_date -cmatch '^\d{4}-\d{2}-\d{2}$') "Fixture '$($record.id)' has invalid retrieval date."
-    if ($record.origin -ceq 'external' -and $fixtureManifest.external_requires_confirmed_redistribution) {
+    if ($record.origin -ceq 'external') {
       Assert-Condition ($record.redistribution_status -ceq 'confirmed') "External fixture '$($record.id)' lacks confirmed redistribution."
     }
     $fixturePath = Resolve-RepositoryLeafFile -RepositoryRoot $RepositoryRoot -RelativePath ([string]$record.path) -Label "Fixture '$($record.id)' path"
