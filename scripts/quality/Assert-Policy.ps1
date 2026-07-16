@@ -254,6 +254,34 @@ function Resolve-RfcEvidenceFile {
   return $resolved
 }
 
+function Resolve-RfcArtifactReference {
+  [CmdletBinding()]
+  param(
+    [Parameter(Mandatory)][string]$Reference,
+    [Parameter(Mandatory)][ValidateSet('implementation','qualification')][string]$Purpose,
+    [Parameter(Mandatory)][string]$RfcId,
+    [Parameter(Mandatory)][string]$RepositoryRoot
+  )
+  if ($Purpose -ceq 'implementation') {
+    $commitMatch = [regex]::Match($Reference, '^commit:(?<sha>[0-9a-f]{7,40})$')
+    Assert-Condition $commitMatch.Success "Implementation evidence '$Reference' must use commit:<sha>."
+    $sha = $commitMatch.Groups['sha'].Value
+    $canonicalSha = (& git -C $RepositoryRoot rev-parse --verify "$sha`^{commit}" 2>$null) -join ''
+    Assert-Condition ($LASTEXITCODE -eq 0 -and $canonicalSha -cmatch '^[0-9a-f]{40}$') "Implementation commit '$sha' does not exist in the repository."
+    return [pscustomobject]@{ kind='commit'; target="commit:$canonicalSha" }
+  }
+
+  $reportMatch = [regex]::Match($Reference, '^report:(?<path>reports/[A-Za-z0-9._/-]+[.]md)#(?<anchor>[a-z0-9][a-z0-9-]*)$')
+  Assert-Condition $reportMatch.Success "Qualification evidence '$Reference' must use report:reports/<file>.md#<anchor>."
+  $reportPath = $reportMatch.Groups['path'].Value
+  $reportFile = Resolve-RepositoryLeafFile -RepositoryRoot $RepositoryRoot -RelativePath $reportPath -Label 'Qualification report'
+  $anchor = $reportMatch.Groups['anchor'].Value
+  $section = Get-MarkdownSectionByAnchor -Text (Get-Content -LiteralPath $reportFile -Raw) -Anchor $anchor
+  Assert-Condition ($section -cmatch "(?m)^- \*\*RFC:\*\* $([regex]::Escape($RfcId))\s*$") "Qualification report '$Reference' does not bind RFC $RfcId."
+  Assert-Condition ($section -cmatch '(?m)^- \*\*Disposition:\*\* qualified\s*$') "Qualification report '$Reference' does not record a qualified disposition."
+  return [pscustomobject]@{ kind='report'; target=('file:' + [System.IO.Path]::GetFullPath($reportFile).ToLowerInvariant()) }
+}
+
 function Assert-FixtureManifest {
   [CmdletBinding()]
   param(
@@ -423,6 +451,10 @@ function Assert-RfcAcceptanceState {
     Assert-Condition ($qualificationEvidence.Count -gt 0) 'Implemented RFC qualification evidence requires at least one reference.'
     Assert-ReferencesInLedgerRow -Label 'Implemented RFC implementation and qualification evidence' -References @($implementationEvidence + $qualificationEvidence) -LedgerRow $transitionRow
     Assert-ExactSet 'Implemented RFC transition evidence' $transitionEvidence @($implementationEvidence + $qualificationEvidence)
+    $implementationArtifacts = @($implementationEvidence | ForEach-Object { Resolve-RfcArtifactReference -Reference ([string]$_) -Purpose implementation -RfcId ([string]$rfc.id) -RepositoryRoot $RepositoryRoot })
+    $qualificationArtifacts = @($qualificationEvidence | ForEach-Object { Resolve-RfcArtifactReference -Reference ([string]$_) -Purpose qualification -RfcId ([string]$rfc.id) -RepositoryRoot $RepositoryRoot })
+    $overlap = @($implementationArtifacts.target | Where-Object { $qualificationArtifacts.target -ccontains $_ })
+    Assert-Condition ($overlap.Count -eq 0) 'Implementation and qualification evidence must identify distinct artifacts.'
   }
   Assert-NullOrEmpty 'rejection_disposition' $rfc.rejection_disposition
   Assert-NullOrEmpty 'superseded_by' $rfc.superseded_by

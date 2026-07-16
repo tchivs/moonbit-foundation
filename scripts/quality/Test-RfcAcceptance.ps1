@@ -21,6 +21,7 @@ function New-TestRepository {
   [void](New-Item -ItemType Directory -Force -Path (Join-Path $root 'docs/rfcs'))
   [void](New-Item -ItemType Directory -Force -Path (Join-Path $root 'policy'))
   [void](New-Item -ItemType Directory -Force -Path (Join-Path $root 'reviews'))
+  [void](New-Item -ItemType Directory -Force -Path (Join-Path $root 'reports'))
   @'
 # Decision 0001
 
@@ -62,6 +63,20 @@ No second approval and no seven-day public review are claimed.
 - **Role:** maintainer
 - **Disposition:** approved
 '@ | Set-Content -LiteralPath (Join-Path $root 'reviews/rfc-0001.md') -Encoding utf8
+  @'
+# RFC 0001 qualification
+
+## Qualification
+
+- **RFC:** 0001
+- **Disposition:** qualified
+'@ | Set-Content -LiteralPath (Join-Path $root 'reports/rfc-0001-qualification.md') -Encoding utf8
+  'implementation marker' | Set-Content -LiteralPath (Join-Path $root 'implementation.txt') -Encoding utf8
+  & git -C $root init -q
+  & git -C $root config user.name 'MNF Test'
+  & git -C $root config user.email 'mnf-test@example.invalid'
+  & git -C $root add implementation.txt
+  & git -C $root commit -q -m 'test implementation evidence'
   return $root
 }
 
@@ -184,12 +199,25 @@ $outsideTransition = Copy-TestObject $accepted
 Invoke-AcceptanceCase 'ledger ignores transition-like table outside section' $outsideTransition $roster $true { param($root) $path=Join-Path $root 'docs/rfcs/0001-moonbit-native-foundation.md'; Add-Content -LiteralPath $path -Value @('','## Appendix','','| From | To | Evidence |','|---|---|---|','| Accepted | Implemented | forged |') }
 $multipleLedgerTables = Copy-TestObject $accepted
 Invoke-AcceptanceCase 'ledger rejects multiple tables in transition section' $multipleLedgerTables $roster $false { param($root) $path=Join-Path $root 'docs/rfcs/0001-moonbit-native-foundation.md'; Add-Content -LiteralPath $path -Value @('','Separate table follows.','','| Extra | Table | Here |','|---|---|---|','| a | b | c |') } 'exactly one Markdown table'
-$implemented = Copy-TestObject $accepted; $implemented.rfc.current_foundation_rfc.status='Implemented'; $implemented.rfc.current_foundation_rfc.transition.from='Accepted'; $implemented.rfc.current_foundation_rfc.transition.to='Implemented'; $implemented.rfc.current_foundation_rfc.transition.evidence=@('commit:implementation','report:qualification'); $implemented.rfc.current_foundation_rfc.implementation_evidence=@('commit:implementation'); $implemented.rfc.current_foundation_rfc.qualification_evidence=@('report:qualification')
-Invoke-AcceptanceCase 'implemented requires implementation evidence' $implemented $roster $true $null
+$implemented = Copy-TestObject $accepted; $implemented.rfc.current_foundation_rfc.status='Implemented'; $implemented.rfc.current_foundation_rfc.transition.from='Accepted'; $implemented.rfc.current_foundation_rfc.transition.to='Implemented'; $implemented.rfc.current_foundation_rfc.transition.evidence=@('commit:0000000','report:reports/rfc-0001-qualification.md#qualification'); $implemented.rfc.current_foundation_rfc.implementation_evidence=@('commit:0000000'); $implemented.rfc.current_foundation_rfc.qualification_evidence=@('report:reports/rfc-0001-qualification.md#qualification')
+$arrangeValidImplemented = { param($root,$policy,$caseRoster) $sha=(& git -C $root rev-parse HEAD).Trim(); $i=$policy.rfc.current_foundation_rfc; $i.implementation_evidence=@("commit:$sha"); $i.qualification_evidence=@('report:reports/rfc-0001-qualification.md#qualification'); $i.transition.evidence=@($i.implementation_evidence + $i.qualification_evidence); Write-TestState $root $policy $caseRoster }
+Invoke-AcceptanceCase 'implemented resolves commit and qualification report evidence' $implemented $roster $true $arrangeValidImplemented
 $implementedMissingAcceptanceRow = Copy-TestObject $implemented
 Invoke-AcceptanceCase 'implemented preserves historical acceptance row' $implementedMissingAcceptanceRow $roster $false { param($root) $path=Join-Path $root 'docs/rfcs/0001-moonbit-native-foundation.md'; (Get-Content $path | Where-Object { $_ -cnotmatch '^\| Proposed \| Accepted \|' }) | Set-Content -LiteralPath $path } 'ledger row count mismatch'
-$missingImplementation = Copy-TestObject $implemented; $missingImplementation.rfc.current_foundation_rfc.implementation_evidence=@(); $missingImplementation.rfc.current_foundation_rfc.transition.evidence=@('report:qualification')
+$missingImplementation = Copy-TestObject $implemented; $missingImplementation.rfc.current_foundation_rfc.implementation_evidence=@(); $missingImplementation.rfc.current_foundation_rfc.transition.evidence=@('report:reports/rfc-0001-qualification.md#qualification')
 Invoke-AcceptanceCase 'implemented rejects missing implementation evidence' $missingImplementation $roster $false $null 'implementation.*requires at least one'
+$missingCommit = Copy-TestObject $implemented
+Invoke-AcceptanceCase 'implemented rejects nonexistent commit evidence' $missingCommit $roster $false $null 'Implementation commit.*does not exist'
+$unknownImplementation = Copy-TestObject $implemented; $unknownImplementation.rfc.current_foundation_rfc.implementation_evidence=@('ticket:123'); $unknownImplementation.rfc.current_foundation_rfc.transition.evidence=@('ticket:123','report:reports/rfc-0001-qualification.md#qualification')
+Invoke-AcceptanceCase 'implemented rejects unknown implementation scheme' $unknownImplementation $roster $false $null 'must use commit:<sha>'
+$unknownQualification = Copy-TestObject $implemented; $unknownQualification.rfc.current_foundation_rfc.qualification_evidence=@('repository:reports/rfc-0001-qualification.md'); $unknownQualification.rfc.current_foundation_rfc.transition.evidence=@('commit:0000000','repository:reports/rfc-0001-qualification.md')
+Invoke-AcceptanceCase 'implemented rejects unknown qualification scheme' $unknownQualification $roster $false { param($root,$policy,$caseRoster) $sha=(& git -C $root rev-parse HEAD).Trim(); $policy.rfc.current_foundation_rfc.implementation_evidence=@("commit:$sha"); $policy.rfc.current_foundation_rfc.transition.evidence=@("commit:$sha",'repository:reports/rfc-0001-qualification.md'); Write-TestState $root $policy $caseRoster } 'must use report:reports'
+$missingReport = Copy-TestObject $implemented; $missingReport.rfc.current_foundation_rfc.qualification_evidence=@('report:reports/missing.md#qualification'); $missingReport.rfc.current_foundation_rfc.transition.evidence=@('commit:0000000','report:reports/missing.md#qualification')
+Invoke-AcceptanceCase 'implemented rejects missing qualification report' $missingReport $roster $false { param($root,$policy,$caseRoster) $sha=(& git -C $root rev-parse HEAD).Trim(); $policy.rfc.current_foundation_rfc.implementation_evidence=@("commit:$sha"); $policy.rfc.current_foundation_rfc.transition.evidence=@("commit:$sha",'report:reports/missing.md#qualification'); Write-TestState $root $policy $caseRoster } 'Qualification report component.*does not exist'
+$missingReportAnchor = Copy-TestObject $implemented; $missingReportAnchor.rfc.current_foundation_rfc.qualification_evidence=@('report:reports/rfc-0001-qualification.md#missing'); $missingReportAnchor.rfc.current_foundation_rfc.transition.evidence=@('commit:0000000','report:reports/rfc-0001-qualification.md#missing')
+Invoke-AcceptanceCase 'implemented rejects missing qualification anchor' $missingReportAnchor $roster $false { param($root,$policy,$caseRoster) $sha=(& git -C $root rev-parse HEAD).Trim(); $policy.rfc.current_foundation_rfc.implementation_evidence=@("commit:$sha"); $policy.rfc.current_foundation_rfc.transition.evidence=@("commit:$sha",'report:reports/rfc-0001-qualification.md#missing'); Write-TestState $root $policy $caseRoster } 'Markdown anchor.*does not identify'
+$unqualifiedReport = Copy-TestObject $implemented
+Invoke-AcceptanceCase 'implemented rejects unqualified report disposition' $unqualifiedReport $roster $false { param($root,$policy,$caseRoster) & $arrangeValidImplemented $root $policy $caseRoster; $path=Join-Path $root 'reports/rfc-0001-qualification.md'; (Get-Content -Raw $path).Replace('**Disposition:** qualified','**Disposition:** rejected') | Set-Content -LiteralPath $path } 'does not record a qualified disposition'
 $superseded = Copy-TestObject $proposed; $superseded.rfc.current_foundation_rfc.status='Superseded'; $superseded.rfc.current_foundation_rfc.transition.from='Proposed'; $superseded.rfc.current_foundation_rfc.transition.to='Superseded'; $superseded.rfc.current_foundation_rfc.transition.evidence=@('docs/rfcs/0002-replacement.md'); $superseded.rfc.current_foundation_rfc.superseded_by='0002'; $superseded.rfc.current_foundation_rfc.supersession_evidence=@('docs/rfcs/0002-replacement.md')
 Invoke-AcceptanceCase 'superseded requires existing replacement RFC' $superseded $roster $true { param($root) '# RFC 0002' | Set-Content -LiteralPath (Join-Path $root 'docs/rfcs/0002-replacement.md') }
 Invoke-AcceptanceCase 'superseded rejects missing replacement RFC' $superseded $roster $false $null 'must identify exactly one existing RFC file'
