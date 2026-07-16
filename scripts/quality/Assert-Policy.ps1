@@ -86,17 +86,23 @@ function Get-RequiredProperty {
 
 function Get-RfcTransitionLedgerRow {
   param([string]$RfcText, [string]$From, [string]$To)
-  $escapedFrom = [regex]::Escape($From)
-  $escapedTo = [regex]::Escape($To)
-  $match = [regex]::Match($RfcText, "(?m)^\|\s*$escapedFrom\s*\|\s*$escapedTo\s*\|[^\r\n]+\|\s*$")
-  Assert-Condition $match.Success "RFC transition ledger lacks exact '$From -> $To' row."
-  return $match.Value
+  $matches = @(Get-RfcTransitionLedgerRows -RfcText $RfcText | Where-Object { $_.from -ceq $From -and $_.to -ceq $To })
+  Assert-Condition ($matches.Count -eq 1) "RFC transition ledger lacks exact '$From -> $To' row."
+  return $matches[0]
 }
 
 function Get-RfcTransitionLedgerRows {
   param([string]$RfcText)
+  $sectionMatches = @([regex]::Matches($RfcText, '(?ms)^##\s+Transition history\s*\r?\n(?<body>.*?)(?=^##\s+|\z)'))
+  Assert-Condition ($sectionMatches.Count -eq 1) 'RFC must contain exactly one Transition history section.'
+  $section = $sectionMatches[0].Groups['body'].Value
+  $tableBlocks = @([regex]::Matches($section, '(?ms)(?:^\|[^\r\n]+\|\s*\r?\n){2,}'))
+  Assert-Condition ($tableBlocks.Count -eq 1) 'RFC Transition history section must contain exactly one Markdown table.'
+  $table = $tableBlocks[0].Value
+  Assert-Condition ($table -cmatch '(?m)^\|\s*From\s*\|\s*To\s*\|\s*Evidence\s*\|\s*$') 'RFC Transition history table must use the From, To, and Evidence columns.'
+  Assert-Condition ($table -cmatch '(?m)^\|\s*:?-{3,}:?\s*\|\s*:?-{3,}:?\s*\|\s*:?-{3,}:?\s*\|\s*$') 'RFC Transition history table lacks a valid separator row.'
   $rows = [System.Collections.Generic.List[object]]::new()
-  foreach ($match in [regex]::Matches($RfcText, '(?m)^\|\s*(?<from>[^|]+?)\s*\|\s*(?<to>[^|]+?)\s*\|\s*(?<evidence>[^\r\n|]+?)\s*\|\s*$')) {
+  foreach ($match in [regex]::Matches($table, '(?m)^\|\s*(?<from>[^|]+?)\s*\|\s*(?<to>[^|]+?)\s*\|\s*(?<evidence>[^\r\n|]+?)\s*\|\s*$')) {
     $from = $match.Groups['from'].Value.Trim()
     $to = $match.Groups['to'].Value.Trim()
     if ($from -ceq 'From' -or $from -cmatch '^-+$') { continue }

@@ -163,9 +163,15 @@ $proposedReviewed.rfc.current_foundation_rfc.edge_reviews = @(
 Invoke-AcceptanceCase 'proposed with completed edge reviews' $proposedReviewed $roster $true $null
 
 $missingLedger = Copy-TestObject $accepted
-Invoke-AcceptanceCase 'accepted requires transition ledger row' $missingLedger $roster $false { param($root) @('# RFC 0001','','- **Status:** Accepted') | Set-Content -LiteralPath (Join-Path $root 'docs/rfcs/0001-moonbit-native-foundation.md') } 'RFC transition ledger lacks exact'
+Invoke-AcceptanceCase 'accepted requires transition ledger row' $missingLedger $roster $false { param($root) @('# RFC 0001','','- **Status:** Accepted') | Set-Content -LiteralPath (Join-Path $root 'docs/rfcs/0001-moonbit-native-foundation.md') } 'exactly one Transition history section'
 $illegalPrior = Copy-TestObject $accepted; $illegalPrior.rfc.current_foundation_rfc.transition.from='Draft'
 Invoke-AcceptanceCase 'accepted rejects illegal prior state' $illegalPrior $roster $false $null 'Illegal RFC transition'
+$unrelatedTable = Copy-TestObject $accepted
+Invoke-AcceptanceCase 'ledger ignores unrelated three-column table' $unrelatedTable $roster $true { param($root) $path=Join-Path $root 'docs/rfcs/0001-moonbit-native-foundation.md'; Add-Content -LiteralPath $path -Value @('','## Appendix','','| Name | Value | Note |','|---|---|---|','| alpha | beta | gamma |') }
+$outsideTransition = Copy-TestObject $accepted
+Invoke-AcceptanceCase 'ledger ignores transition-like table outside section' $outsideTransition $roster $true { param($root) $path=Join-Path $root 'docs/rfcs/0001-moonbit-native-foundation.md'; Add-Content -LiteralPath $path -Value @('','## Appendix','','| From | To | Evidence |','|---|---|---|','| Accepted | Implemented | forged |') }
+$multipleLedgerTables = Copy-TestObject $accepted
+Invoke-AcceptanceCase 'ledger rejects multiple tables in transition section' $multipleLedgerTables $roster $false { param($root) $path=Join-Path $root 'docs/rfcs/0001-moonbit-native-foundation.md'; Add-Content -LiteralPath $path -Value @('','Separate table follows.','','| Extra | Table | Here |','|---|---|---|','| a | b | c |') } 'exactly one Markdown table'
 $implemented = Copy-TestObject $accepted; $implemented.rfc.current_foundation_rfc.status='Implemented'; $implemented.rfc.current_foundation_rfc.transition.from='Accepted'; $implemented.rfc.current_foundation_rfc.transition.to='Implemented'; $implemented.rfc.current_foundation_rfc.transition.evidence=@('commit:implementation','report:qualification'); $implemented.rfc.current_foundation_rfc.implementation_evidence=@('commit:implementation'); $implemented.rfc.current_foundation_rfc.qualification_evidence=@('report:qualification')
 Invoke-AcceptanceCase 'implemented requires implementation evidence' $implemented $roster $true $null
 $implementedMissingAcceptanceRow = Copy-TestObject $implemented
