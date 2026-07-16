@@ -197,6 +197,14 @@
       "id": "0001",
       "status": "Accepted",
       "path": "docs/rfcs/0001-moonbit-native-foundation.md",
+      "transition": {
+        "from": "Proposed",
+        "to": "Accepted",
+        "evidence": [
+          "docs/governance/decisions/0001-sole-owner-bootstrap.md#owner-instruction",
+          "docs/governance/decisions/0001-sole-owner-bootstrap.md#edge-review-results"
+        ]
+      },
       "acceptance_route": "sole-project-owner-bootstrap",
       "authority": "sole-project-owner",
       "approvers": [],
@@ -229,7 +237,12 @@
       "acceptance_evidence": [
         "docs/governance/decisions/0001-sole-owner-bootstrap.md#owner-instruction",
         "docs/governance/decisions/0001-sole-owner-bootstrap.md#edge-review-results"
-      ]
+      ],
+      "implementation_evidence": [],
+      "qualification_evidence": [],
+      "rejection_disposition": null,
+      "superseded_by": null,
+      "supersession_evidence": []
     },
     "accepted_evidence_fields": [
       "acceptance_route",

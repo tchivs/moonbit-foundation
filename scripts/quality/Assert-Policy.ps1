@@ -73,6 +73,37 @@ function Assert-NullOrEmpty {
   Assert-Condition ($null -eq $Value -or $count -eq 0 -or [string]::IsNullOrWhiteSpace($text)) "$Label must be empty for this RFC state or route."
 }
 
+function Get-RequiredProperty {
+  param([object]$Object, [string]$Name, [string]$Context)
+  if ($Object -is [System.Collections.IDictionary]) {
+    Assert-Condition ($Object.Contains($Name)) "$Context is missing required property '$Name'."
+    return $Object[$Name]
+  }
+  $property = $Object.PSObject.Properties[$Name]
+  Assert-Condition ($null -ne $property) "$Context is missing required property '$Name'."
+  return $property.Value
+}
+
+function Get-RfcTransitionLedgerRow {
+  param([string]$RfcText, [string]$From, [string]$To)
+  $escapedFrom = [regex]::Escape($From)
+  $escapedTo = [regex]::Escape($To)
+  $match = [regex]::Match($RfcText, "(?m)^\|\s*$escapedFrom\s*\|\s*$escapedTo\s*\|[^\r\n]+\|\s*$")
+  Assert-Condition $match.Success "RFC transition ledger lacks exact '$From -> $To' row."
+  return $match.Value
+}
+
+function Assert-ReferencesInLedgerRow {
+  param([string]$Label, [object[]]$References, [string]$LedgerRow)
+  Assert-Condition ($References.Count -gt 0) "$Label requires at least one evidence reference."
+  $strings = @($References | ForEach-Object { [string]$_ })
+  Assert-Condition (@($strings | Where-Object { [string]::IsNullOrWhiteSpace($_) }).Count -eq 0) "$Label contains an empty evidence reference."
+  Assert-Condition (@($strings | Group-Object -CaseSensitive | Where-Object Count -ne 1).Count -eq 0) "$Label contains duplicate evidence references."
+  foreach ($reference in $strings) {
+    Assert-Condition ($LedgerRow.Contains($reference, [System.StringComparison]::Ordinal)) "$Label reference '$reference' is not bound to the RFC transition ledger row."
+  }
+}
+
 function Resolve-RfcEvidenceFile {
   [CmdletBinding()]
   param(
@@ -143,7 +174,24 @@ function Assert-RfcAcceptanceState {
   $indexText = Get-Content -LiteralPath $indexPath -Raw
   Assert-Condition ($indexText -cmatch "(?m)^\|[^\r\n]*RFC 0001[^\r\n]*\|\s*$([regex]::Escape([string]$rfc.status))\s*\|") 'RFC index status does not match policy.'
 
-  if ($rfc.status -notin @('Accepted','Implemented')) {
+  $transition = Get-RequiredProperty $rfc 'transition' 'Foundation RFC'
+  $transitionFrom = [string](Get-RequiredProperty $transition 'from' 'Foundation RFC transition')
+  $transitionTo = [string](Get-RequiredProperty $transition 'to' 'Foundation RFC transition')
+  $transitionEvidence = @(Get-RequiredProperty $transition 'evidence' 'Foundation RFC transition')
+  Assert-Condition ($transitionTo -ceq [string]$rfc.status) 'RFC transition target does not match current status.'
+  $legalPriorStates = @{
+    'Draft' = @('—')
+    'Proposed' = @('Draft')
+    'Accepted' = @('Proposed')
+    'Implemented' = @('Accepted')
+    'Rejected' = @('Draft','Proposed')
+    'Superseded' = @('Proposed','Accepted','Implemented')
+  }
+  Assert-Condition (@($legalPriorStates[[string]$rfc.status]) -ccontains $transitionFrom) "Illegal RFC transition '$transitionFrom -> $($rfc.status)'."
+  $transitionRow = Get-RfcTransitionLedgerRow -RfcText $rfcText -From $transitionFrom -To ([string]$rfc.status)
+  Assert-ReferencesInLedgerRow -Label 'RFC transition' -References $transitionEvidence -LedgerRow $transitionRow
+
+  if ($rfc.status -in @('Draft','Proposed')) {
     Assert-NullOrEmpty 'acceptance_route' $rfc.acceptance_route
     Assert-NullOrEmpty 'authority' $rfc.authority
     Assert-Condition (@($rfc.approvers).Count -eq 0) 'Proposed RFC must not record approvers.'
@@ -160,6 +208,39 @@ function Assert-RfcAcceptanceState {
       $completed = $review.status -ceq 'completed' -and -not [string]::IsNullOrWhiteSpace([string]$review.disposition) -and [string]$review.disposition -cne 'unresolved'
       Assert-Condition ($pending -or $completed) 'Proposed RFC edge-review records must be pending or completed with a resolved disposition.'
     }
+    Assert-NullOrEmpty 'implementation_evidence' $rfc.implementation_evidence
+    Assert-NullOrEmpty 'qualification_evidence' $rfc.qualification_evidence
+    Assert-NullOrEmpty 'rejection_disposition' $rfc.rejection_disposition
+    Assert-NullOrEmpty 'superseded_by' $rfc.superseded_by
+    Assert-NullOrEmpty 'supersession_evidence' $rfc.supersession_evidence
+    return
+  }
+
+  if ($rfc.status -ceq 'Rejected') {
+    Assert-NullOrEmpty 'acceptance_route' $rfc.acceptance_route
+    Assert-NullOrEmpty 'authority' $rfc.authority
+    Assert-Condition (@($rfc.approvers).Count -eq 0 -and @($rfc.acceptance_evidence).Count -eq 0) 'Rejected RFC must not assert acceptance evidence.'
+    Assert-Condition (-not [string]::IsNullOrWhiteSpace([string]$rfc.rejection_disposition)) 'Rejected RFC requires a rejecting disposition.'
+    Assert-ReferencesInLedgerRow -Label 'Rejected RFC transition' -References $transitionEvidence -LedgerRow $transitionRow
+    Assert-NullOrEmpty 'implementation_evidence' $rfc.implementation_evidence
+    Assert-NullOrEmpty 'qualification_evidence' $rfc.qualification_evidence
+    Assert-NullOrEmpty 'superseded_by' $rfc.superseded_by
+    Assert-NullOrEmpty 'supersession_evidence' $rfc.supersession_evidence
+    return
+  }
+
+  if ($rfc.status -ceq 'Superseded') {
+    $replacementId = [string]$rfc.superseded_by
+    Assert-Condition ($replacementId -cmatch '^\d{4}$' -and $replacementId -cne [string]$rfc.id) 'Superseded RFC requires a distinct four-digit replacement RFC id.'
+    $replacement = @(Get-ChildItem -LiteralPath (Join-Path $RepositoryRoot 'docs/rfcs') -File | Where-Object Name -CLike "$replacementId-*.md")
+    Assert-Condition ($replacement.Count -eq 1) "Superseded RFC replacement '$replacementId' must identify exactly one existing RFC file."
+    $supersessionEvidence = @($rfc.supersession_evidence)
+    Assert-ReferencesInLedgerRow -Label 'Superseded RFC transition' -References $supersessionEvidence -LedgerRow $transitionRow
+    Assert-ExactSet 'Superseded RFC transition evidence' $transitionEvidence $supersessionEvidence
+    Assert-Condition (@($supersessionEvidence | Where-Object { ([string]$_) -cmatch "(?:^|/)${replacementId}-[^#]+[.]md(?:#|$)" }).Count -gt 0) 'Supersession evidence must reference the replacement RFC.'
+    Assert-NullOrEmpty 'implementation_evidence' $rfc.implementation_evidence
+    Assert-NullOrEmpty 'qualification_evidence' $rfc.qualification_evidence
+    Assert-NullOrEmpty 'rejection_disposition' $rfc.rejection_disposition
     return
   }
 
@@ -167,6 +248,21 @@ function Assert-RfcAcceptanceState {
   Assert-Condition ($rfc.blocking_objections -ceq 'none') 'Accepted RFC must have zero unresolved blocking objections.'
   Assert-Condition (-not [string]::IsNullOrWhiteSpace([string]$rfc.objection_disposition)) 'Accepted RFC requires an objection disposition.'
   Assert-Condition (@($rfc.acceptance_evidence).Count -gt 0) 'Accepted RFC requires acceptance evidence.'
+
+  if ($rfc.status -ceq 'Accepted') {
+    Assert-ExactSet 'Accepted RFC transition evidence' $transitionEvidence @($rfc.acceptance_evidence)
+    Assert-NullOrEmpty 'implementation_evidence' $rfc.implementation_evidence
+    Assert-NullOrEmpty 'qualification_evidence' $rfc.qualification_evidence
+  } else {
+    $implementationEvidence = @($rfc.implementation_evidence)
+    $qualificationEvidence = @($rfc.qualification_evidence)
+    Assert-ReferencesInLedgerRow -Label 'Implemented RFC implementation evidence' -References $implementationEvidence -LedgerRow $transitionRow
+    Assert-ReferencesInLedgerRow -Label 'Implemented RFC qualification evidence' -References $qualificationEvidence -LedgerRow $transitionRow
+    Assert-ExactSet 'Implemented RFC transition evidence' $transitionEvidence @($implementationEvidence + $qualificationEvidence)
+  }
+  Assert-NullOrEmpty 'rejection_disposition' $rfc.rejection_disposition
+  Assert-NullOrEmpty 'superseded_by' $rfc.superseded_by
+  Assert-NullOrEmpty 'supersession_evidence' $rfc.supersession_evidence
 
   switch -CaseSensitive ([string]$rfc.acceptance_route) {
     'maintainer' {
