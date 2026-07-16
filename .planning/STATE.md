@@ -5,15 +5,15 @@ milestone_name: milestone
 current_phase: 4
 current_phase_name: Image Model, Views, and Operations
 status: executing
-stopped_at: Completed 04-05-PLAN.md
-last_updated: "2026-07-16T21:56:10.560Z"
+stopped_at: Completed 04-06-PLAN.md
+last_updated: "2026-07-16T22:14:22.469Z"
 last_activity: 2026-07-17
 last_activity_desc: Phase 4 execution started
 progress:
   total_phases: 4
   completed_phases: 3
   total_plans: 32
-  completed_plans: 29
+  completed_plans: 30
 ---
 
 # Project State
@@ -29,11 +29,11 @@ See `.planning/PROJECT.md` (updated 2026-07-16).
 ## Current Position
 
 Phase: 4 (Image Model, Views, and Operations) — EXECUTING
-Plan: 6 of 8
+Plan: 7 of 8
 Status: Ready to execute
 Last activity: 2026-07-17 — Phase 4 execution started
 
-Progress: [█████████░] 91% (1/5 phases; 8/8 currently planned plans complete)
+Progress: [█████████░] 94% (1/5 phases; 8/8 currently planned plans complete)
 
 ## Performance Metrics
 
@@ -74,6 +74,7 @@ Progress: [█████████░] 91% (1/5 phases; 8/8 currently planne
 | Phase 04 P03 | 38min | 3 tasks | 9 files |
 | Phase 04 P04 | 6min | 2 tasks | 5 files |
 | Phase 04 P05 | 24min | 2 tasks | 12 files |
+| Phase 04 P06 | 10min | 2 tasks | 8 files |
 
 ## Accumulated Context
 
@@ -164,6 +165,8 @@ Progress: [█████████░] 91% (1/5 phases; 8/8 currently planne
 - [Phase 04]: Author the eight Exif source-to-destination mappings literally in generator data and test production orientation code only against that independent oracle.
 - [Phase 04]: Apply orientation through one fresh scalar-charged operation allocation and normalize only orientation to TopLeft while preserving alpha, color, opaque metadata, and profile.
 - [Phase 04]: Order the shared image fixture record before color-owned records so both deterministic generators agree regardless of invocation order.
+- [Phase 04]: Nearest resize preflights checked maximum coordinate products before one scalar charge.
+- [Phase 04]: RGBA alpha removal uses separate strict and explicitly lossy named operations.
 
 ### Pending Decisions
 
@@ -184,6 +187,6 @@ None. Phase 01 is independently verified and complete; Phase 02 is ready for con
 
 **Resume file:** None
 
-Last session: 2026-07-16T21:56:10.544Z
-Stopped at: Completed 04-05-PLAN.md
+Last session: 2026-07-16T22:14:22.451Z
+Stopped at: Completed 04-06-PLAN.md
 Resume with: Discuss Phase 02, then plan and execute it through the active auto chain.
