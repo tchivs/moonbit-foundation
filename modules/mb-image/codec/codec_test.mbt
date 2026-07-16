@@ -54,13 +54,44 @@ impl @codec.ImageDecoder for PrefixDecoder with fn probe(
 ///|
 impl @codec.ImageDecoder for PrefixDecoder with fn decode(
   _self,
-  _reader,
+  reader,
   _options,
   _limits,
   _budget,
   _diagnostics,
 ) {
+  let scratch_budget = @budget.Budget::new(
+    @budget.ResourceLimits::new(
+      bytes=3UL,
+      allocations=1UL,
+      allocation_size=3UL,
+      width=0UL,
+      height=0UL,
+      pixels=0UL,
+      depth=0UL,
+      work=0UL,
+    ),
+  )
+  let scratch = @bytes.OwnedBytes::new(3UL, scratch_budget).unwrap()
+  match scratch.with_mut(0UL, 3UL, fn(lease) { @io.read_exact(reader, lease) }) {
+    Err(error) => return Err(error)
+    Ok(_) => ()
+  }
   Err(@codec.capability_unavailable("codec-decode", "test-probe-only"))
+}
+
+///|
+struct ShortProgressReader {
+  mut next : Byte
+  mut calls : Int
+}
+
+///|
+impl @io.Reader for ShortProgressReader with fn read(self, destination) {
+  self.calls = self.calls + 1
+  ignore(destination.set(0UL, self.next))
+  self.next = (self.next.to_int() + 1).to_byte()
+  @io.ReadOutcome::Progress(1UL)
 }
 
 ///|
@@ -68,25 +99,85 @@ test "probe uses only caller-owned prefix bytes" {
   let decoder = PrefixDecoder::{  }
   let diagnostics = @error.Diagnostics::new()
   inspect(
-    decoder.probe(prefix_view(b""), codec_limits(), diagnostics).unwrap() ==
+    @codec.ImageDecoder::probe(
+      decoder,
+      prefix_view(b""),
+      codec_limits(),
+      diagnostics,
+    ).unwrap() ==
     @codec.ProbeOutcome::NeedMore(2UL),
     content="true",
   )
   inspect(
-    decoder.probe(prefix_view(b"M"), codec_limits(), diagnostics).unwrap() ==
+    @codec.ImageDecoder::probe(
+      decoder,
+      prefix_view(b"M"),
+      codec_limits(),
+      diagnostics,
+    ).unwrap() ==
     @codec.ProbeOutcome::NeedMore(2UL),
     content="true",
   )
   inspect(
-    decoder.probe(prefix_view(b"MN"), codec_limits(), diagnostics).unwrap() ==
+    @codec.ImageDecoder::probe(
+      decoder,
+      prefix_view(b"MN"),
+      codec_limits(),
+      diagnostics,
+    ).unwrap() ==
     @codec.ProbeOutcome::Match,
     content="true",
   )
   inspect(
-    decoder.probe(prefix_view(b"NO"), codec_limits(), diagnostics).unwrap() ==
+    @codec.ImageDecoder::probe(
+      decoder,
+      prefix_view(b"NO"),
+      codec_limits(),
+      diagnostics,
+    ).unwrap() ==
     @codec.ProbeOutcome::NoMatch,
     content="true",
   )
+}
+
+///|
+test "decode accepts a non-seeking short-progress reader" {
+  let reader = ShortProgressReader::{ next: b'A', calls: 0 }
+  let decoder = PrefixDecoder::{  }
+  let output_budget = @budget.Budget::new(
+    @budget.ResourceLimits::new(
+      bytes=64UL,
+      allocations=4UL,
+      allocation_size=64UL,
+      width=8UL,
+      height=8UL,
+      pixels=64UL,
+      depth=0UL,
+      work=128UL,
+    ),
+  )
+  let result = @codec.ImageDecoder::decode(
+    decoder,
+    reader as &@io.Reader,
+    @codec.DecodeOptions::new(
+      require_complete_input=true,
+      preserve_opaque_metadata=true,
+    ),
+    codec_limits(),
+    output_budget,
+    @error.Diagnostics::new(),
+  )
+  match result {
+    Err(error) => {
+      inspect(
+        error.code() == @error.ErrorCode::CapabilityUnavailable,
+        content="true",
+      )
+      inspect(error.context() == Some("test-probe-only"), content="true")
+    }
+    Ok(_) => fail("the test decoder intentionally has no concrete codec")
+  }
+  inspect(reader.calls, content="3")
 }
 
 ///|
@@ -111,4 +202,3 @@ test "codec options and limits are explicit and inspectable" {
   inspect(encode.lossless_required(), content="true")
   inspect(encode.preserve_opaque_metadata(), content="true")
 }
-
