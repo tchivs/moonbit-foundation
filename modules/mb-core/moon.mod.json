@@ -1,0 +1,8 @@
+{
+  "name": "moonbit-foundation/mb-core",
+  "version": "0.1.0",
+  "license": "Apache-2.0",
+  "readme": "README.mbt.md",
+  "preferred-target": "native",
+  "supported-targets": "+js+wasm+wasm-gc+native"
+}

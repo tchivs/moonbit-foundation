@@ -1,0 +1,12 @@
+{
+  "name": "moonbit-foundation/mb-image",
+  "version": "0.1.0",
+  "license": "Apache-2.0",
+  "readme": "README.mbt.md",
+  "preferred-target": "native",
+  "supported-targets": "+js+wasm+wasm-gc+native",
+  "deps": {
+    "moonbit-foundation/mb-core": "0.1.0",
+    "moonbit-foundation/mb-color": "0.1.0"
+  }
+}
