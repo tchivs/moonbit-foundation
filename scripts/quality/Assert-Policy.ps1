@@ -318,6 +318,7 @@ function Assert-RfcAcceptanceState {
     Assert-NullOrEmpty 'public_review_url' $rfc.public_review_url
     Assert-NullOrEmpty 'public_review_started_at' $rfc.public_review_started_at
     Assert-NullOrEmpty 'public_review_ended_at' $rfc.public_review_ended_at
+    Assert-NullOrEmpty 'public_review_evidence' $rfc.public_review_evidence
     Assert-NullOrEmpty 'decision_evidence_path' $rfc.decision_evidence_path
     Assert-Condition (@($rfc.decision_evidence_anchors).Count -eq 0) 'Proposed RFC must not record decision evidence anchors.'
     Assert-Condition (@($rfc.acceptance_evidence).Count -eq 0) 'Proposed RFC must not record acceptance evidence.'
@@ -399,6 +400,7 @@ function Assert-RfcAcceptanceState {
       Assert-Condition ($rfc.authority -ceq 'maintainers') 'Maintainer route authority must be maintainers.'
       Assert-NullOrEmpty 'project_lead' $rfc.project_lead; Assert-NullOrEmpty 'project_owner' $rfc.project_owner
       Assert-NullOrEmpty 'public_review_url' $rfc.public_review_url; Assert-NullOrEmpty 'public_review_started_at' $rfc.public_review_started_at; Assert-NullOrEmpty 'public_review_ended_at' $rfc.public_review_ended_at
+      Assert-NullOrEmpty 'public_review_evidence' $rfc.public_review_evidence
       Assert-NullOrEmpty 'decision_evidence_path' $rfc.decision_evidence_path
       Assert-Condition (@($rfc.decision_evidence_anchors).Count -eq 0 -and @($rfc.edge_reviews).Count -eq 0) 'Maintainer route must not assert sole-owner evidence.'
     }
@@ -410,7 +412,20 @@ function Assert-RfcAcceptanceState {
       $leadApprovals = @($rfc.approval_records)
       Assert-Condition ($leadApprovals.Count -eq 1 -and [string]$leadApprovals[0].identity -ceq [string]$rfc.project_lead -and [string]$leadApprovals[0].role -ceq 'project-lead') 'Project-lead route requires one approval record bound to the canonical project lead.'
       Assert-ApprovalReference -Reference ([string]$leadApprovals[0].reference) -Identity ([string]$rfc.project_lead)
-      Assert-Condition (@($rfc.acceptance_evidence) -ccontains [string]$leadApprovals[0].reference) 'Project-lead approval reference must be part of acceptance evidence.'
+      $reviewEvidence = Get-RequiredProperty $rfc 'public_review_evidence' 'Project-lead RFC'
+      Assert-Condition ($null -ne $reviewEvidence) 'Project-lead route requires structured public-review evidence.'
+      $locationReference = [string](Get-RequiredProperty $reviewEvidence 'location_reference' 'Public-review evidence')
+      $opened = Get-RequiredProperty $reviewEvidence 'opened' 'Public-review evidence'
+      $closed = Get-RequiredProperty $reviewEvidence 'closed' 'Public-review evidence'
+      $openedAt = [string](Get-RequiredProperty $opened 'at' 'Public-review opening evidence')
+      $openedReference = [string](Get-RequiredProperty $opened 'reference' 'Public-review opening evidence')
+      $closedAt = [string](Get-RequiredProperty $closed 'at' 'Public-review closing evidence')
+      $closedReference = [string](Get-RequiredProperty $closed 'reference' 'Public-review closing evidence')
+      Assert-Condition ($locationReference -ceq [string]$rfc.public_review_url) 'Public-review location evidence must equal the declared review URL.'
+      Assert-Condition ($openedAt -ceq [string]$rfc.public_review_started_at -and $closedAt -ceq [string]$rfc.public_review_ended_at) 'Public-review opening and closing evidence must bind the declared interval values.'
+      foreach ($reference in @($locationReference,$openedReference,$closedReference)) { Assert-ApprovalReference -Reference $reference -Identity 'public-review' }
+      $expectedLeadEvidence = @([string]$leadApprovals[0].reference,$locationReference,$openedReference,$closedReference)
+      Assert-ExactSet 'Project-lead acceptance evidence' @($rfc.acceptance_evidence) $expectedLeadEvidence
       $started = ConvertFrom-RfcTimestamp -Value ([string]$rfc.public_review_started_at) -Label 'Public review start'
       $ended = ConvertFrom-RfcTimestamp -Value ([string]$rfc.public_review_ended_at) -Label 'Public review end'
       Assert-Condition ($started -le $ended) 'Public review start must not follow its end.'
@@ -429,7 +444,7 @@ function Assert-RfcAcceptanceState {
       Assert-Condition ([string]$rfc.project_owner -ceq [string]$sole.identity -and [string]$rfc.authority -ceq [string]$sole.identity) 'Sole-owner authority must match the canonical project owner.'
       Assert-Condition (@($rfc.approvers).Count -eq 0) 'Sole-owner route must not assert a multi-approver list.'
       Assert-Condition (@($rfc.approval_records).Count -eq 0) 'Sole-owner route must not assert maintainer or project-lead approval records.'
-      Assert-NullOrEmpty 'project_lead' $rfc.project_lead; Assert-NullOrEmpty 'public_review_url' $rfc.public_review_url; Assert-NullOrEmpty 'public_review_started_at' $rfc.public_review_started_at; Assert-NullOrEmpty 'public_review_ended_at' $rfc.public_review_ended_at
+      Assert-NullOrEmpty 'project_lead' $rfc.project_lead; Assert-NullOrEmpty 'public_review_url' $rfc.public_review_url; Assert-NullOrEmpty 'public_review_started_at' $rfc.public_review_started_at; Assert-NullOrEmpty 'public_review_ended_at' $rfc.public_review_ended_at; Assert-NullOrEmpty 'public_review_evidence' $rfc.public_review_evidence
       $expectedDecision = $canonicalDecisionPath
       $decisionFile = Resolve-RfcEvidenceFile -RepositoryRoot $RepositoryRoot -RelativePath ([string]$rfc.decision_evidence_path) -ExpectedRelativePath $expectedDecision
       Assert-ExactSet 'Sole-owner decision anchors' @($rfc.decision_evidence_anchors) $canonicalDecisionAnchors
