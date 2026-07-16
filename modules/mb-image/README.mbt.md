@@ -1,58 +1,262 @@
+---
+moonbit:
+  import:
+    - path: moonbit-foundation/mb-core/budget
+      alias: budget
+    - path: moonbit-foundation/mb-core/bytes
+      alias: bytes
+    - path: moonbit-foundation/mb-core/error
+      alias: error
+    - path: moonbit-foundation/mb-core/io
+      alias: io
+    - path: moonbit-foundation/mb-color/model
+      alias: color
+    - path: moonbit-foundation/mb-color/profile
+      alias: profile
+    - path: moonbit-foundation/mb-image/metadata
+      alias: metadata
+    - path: moonbit-foundation/mb-image/model
+      alias: model
+    - path: moonbit-foundation/mb-image/storage
+      alias: storage
+    - path: moonbit-foundation/mb-image/ops
+      alias: ops
+    - path: moonbit-foundation/mb-image/codec
+      alias: codec
+---
+
 # mb-image
 
-Portable image foundations for MoonBit Native Foundation.
+Portable, explicit image foundations for MoonBit Native Foundation.
 
-`mb-image` is an independently versioned MoonBit module. Its Phase 1 package is
-a buildable private scaffold only; public image contracts begin in Phase 4.
+`mb-image` is an independently versioned `0.1.0` candidate module. No API is
+stable and no public release is claimed. Publication remains blocked until the
+intended `moonbit-foundation` mooncakes.io namespace is verified.
 
-## Status
+The module has five independently consumable public packages, in exact
+publication order: `metadata`, `model`, `storage`, `ops`, and `codec`. There is
+no root facade or prelude.
 
-The module has candidate status. No API is stable yet, and the current package
-intentionally exposes no public domain API.
+## Explicit descriptor and storage
 
-Public publication is blocked until ownership of the intended
-`moonbit-foundation` mooncakes.io namespace is verified. The local manifest uses
-the final intended name `moonbit-foundation/mb-image` so consumers do not inherit
-a later rename.
+Descriptors name positive dimensions, component type, channel order, packed or
+planar layout, plane range, row stride, logical row bytes, subsampling,
+endianness, color and transfer identity, alpha mode, profile, Exif orientation,
+and bounded opaque metadata. Construction rejects overflow, short rows,
+out-of-storage ranges, and overlapping planes before allocation or access.
+Padding is allowed; negative strides and bottom-up addressing are not.
 
-## Initial scope
+The model can describe packed or planar `U8`, `U16`, and `F32` storage. Phase 4
+reference operations deliberately accept only packed encoded-sRGB `Rgb8`,
+straight `Rgba8`, and premultiplied `Rgba8`.
 
-`mb-image` owns image storage, pixel formats, image views, transforms, and codec
-interfaces.
+```mbt check
+///|
+fn readme_budget(bytes : UInt64, work : UInt64) -> @budget.Budget {
+  @budget.Budget::new(
+    @budget.ResourceLimits::new(
+      bytes~,
+      allocations=1UL,
+      allocation_size=bytes,
+      width=16UL,
+      height=16UL,
+      pixels=256UL,
+      depth=0UL,
+      work~,
+    ),
+  )
+}
 
-It does not own byte and stream foundations, color semantics, SVG, font, PDF,
-GUI, system codec implementations, or application concepts. It depends on
-`mb-core` and `mb-color`; this Phase 1 scaffold introduces none of the deferred
-image or codec contracts.
+///|
+fn readme_metadata() -> @model.ImageMetadata {
+  let opaque = @metadata.OpaqueMetadata::from_entries(
+    [("example", "id", "raw", b"mnf")],
+    @metadata.MetadataLimits::new(
+      max_entries=1UL,
+      max_token_bytes=16UL,
+      max_value_bytes=3UL,
+      max_total_bytes=32UL,
+      max_disposition_fields=8UL,
+    ),
+    readme_budget(3UL, 0UL),
+  ).unwrap()
+  @model.ImageMetadata::new(
+    @color.ColorSpaceIdentity::Srgb,
+    @color.TransferIdentity::EncodedSrgb,
+    None,
+    @profile.ProfileIdentity::builtin_srgb(),
+    @model.Orientation::TopRight,
+    opaque,
+  )
+}
 
-## Supported targets
+///|
+fn readme_image() -> @storage.OwnedImage {
+  let plane = @model.PlaneDescriptor::new(
+    1UL, 14UL, 8UL, 6UL, 1UL, 1UL, 2UL, 2UL,
+  ).unwrap()
+  let descriptor = @model.ImageDescriptor::new(
+    2UL,
+    2UL,
+    @model.ImageFormat::rgb8(),
+    [plane],
+    16UL,
+    readme_metadata(),
+  ).unwrap()
+  @storage.OwnedImage::new(descriptor, readme_budget(16UL, 0UL)).unwrap()
+}
 
-The module manifest and root package both declare the same support set:
+///|
+test "descriptor validation is explicit and allocation is caller-bounded" {
+  let image = readme_image()
+  inspect(image.descriptor().width(), content="2")
+  inspect(image.view().row_stride(), content="8")
+  inspect(image.metadata().orientation().code(), content="2")
+  inspect(image.metadata().opaque_metadata().entry(0).unwrap().canonical_key(), content="example:id:raw")
+  inspect(
+    @model.PlaneDescriptor::new(
+      0UL, 5UL, 5UL, 6UL, 1UL, 1UL, 2UL, 1UL,
+    ) is Err(_),
+    content="true",
+  )
+}
+```
 
-| Target | Status |
-| --- | --- |
-| `js` | Required |
-| `wasm` | Required |
-| `wasm-gc` | Required |
-| `native` | Required and preferred |
+Budget ordering is fail-closed: pure descriptor and capability validation,
+checked row/range arithmetic, containment and overlap checks, allocator
+approval, then one atomic charge for bytes, allocation count, maximum
+allocation, dimensions, pixels, and work. Invalid or unsupported input consumes
+no budget.
 
-Native-only system codec adapters, when introduced, remain isolated leaf
-packages and do not narrow this portable root package.
+## Retained views, crops, and deterministic operations
 
-## Design commitments
+Immutable views retain backing storage. A representable half-open crop is
+zero-copy and preserves its parent stride; a zero-area immutable crop is the
+canonical backing-free empty view. Mutable views exist only inside
+`with_mut_view`; descendants share one lease, become stale when the callback
+ends, and split only across proven byte-disjoint regions. Raw mutable backing is
+never exposed.
 
-- Implement image algorithms and shared data models in MoonBit.
-- Keep the public dependency graph acyclic, with `mb-image` depending only on
-  `mb-core` and `mb-color`.
-- Require deterministic checks and tests across every declared target.
-- Keep native FFI narrow, documented, replaceable, and outside portable packages.
-- Mark public APIs experimental, candidate, or stable with their corresponding
-  compatibility promise.
-- Release this module on its own version and changelog lifecycle rather than in
-  lockstep with `mb-core` or `mb-color`.
+Copy, horizontal and vertical flips, Exif-orientation application, integer-floor
+nearest resize, and named pixel conversions always produce fresh storage.
+Ordinary copy, crop, flips, and resize use stored coordinates and preserve the
+orientation field. `apply_orientation` performs the selected one of all eight
+Exif mappings and normalizes it to `TopLeft`. Nearest resize maps
+`min(source_extent - 1, floor(destination * source_extent / destination_extent))`
+with checked integers and performs no filtering or hidden color conversion.
 
-## Next step
+```mbt check
+///|
+test "views and operations expose lifetime and metadata disposition" {
+  let image = readme_image()
+  image.with_mut_view(fn(view) {
+    view.set_byte(0UL, 0UL, 0UL, b'R')
+  }).unwrap()
+  let crop = image.view().crop(
+    @model.Rect::new(0UL, 0UL, 1UL, 2UL).unwrap(),
+  ).unwrap()
+  inspect(crop.row_stride(), content="8")
+  inspect(crop.get_byte(0UL, 0UL, 0UL).unwrap() == b'R', content="true")
 
-Phase 4 replaces the private scaffold with explicit image storage and view
-contracts. Until then, this checked document intentionally contains no
-fabricated public example API.
+  let copied = @ops.copy_image(image.view(), readme_budget(12UL, 12UL)).unwrap()
+  inspect(copied.image().view().row_stride(), content="6")
+  inspect(copied.disposition().preserved_length(), content="5")
+  let horizontal = @ops.flip_horizontal(
+    image.view(),
+    readme_budget(12UL, 12UL),
+  ).unwrap()
+  inspect(horizontal.image().metadata().orientation().code(), content="2")
+  let oriented = @ops.apply_orientation(
+    image.view(),
+    readme_budget(12UL, 12UL),
+  ).unwrap()
+  inspect(oriented.image().metadata().orientation().code(), content="1")
+  inspect(oriented.disposition().transformed(0).unwrap().value(), content="orientation")
+  let resized = @ops.resize_nearest(
+    image.view(),
+    1UL,
+    1UL,
+    readme_budget(3UL, 3UL),
+  ).unwrap()
+  inspect(resized.image().descriptor().pixel_count(), content="1")
+  let rgba = @ops.rgb8_to_straight_rgba8(
+    image.view(),
+    readme_budget(16UL, 16UL),
+  ).unwrap()
+  inspect(rgba.image().descriptor().format().channel_count(), content="4")
+  inspect(rgba.disposition().transformed(0).unwrap().value(), content="alpha")
+}
+```
+
+Each operation returns a machine-readable metadata disposition. Copy and crop
+preserve all fields; flips and resize preserve metadata and stored orientation;
+orientation application transforms only orientation; format and alpha
+conversions update those fields, preserving color/profile identity, and the
+explicit lossy alpha-drop operation reports the discarded field.
+
+## Prefix, Reader, and Writer codec contracts
+
+Probe input is a caller-owned immutable prefix and yields `Match`, `NoMatch`, or
+the minimum total `NeedMore` length. Decode consumes only an `mb-core/io.Reader`;
+encode consumes only an `mb-core/io.Writer`. Options, limits, budgets,
+diagnostics, byte progress, and metadata disposition are explicit. Neither
+contract requires seeking, paths, URLs, filesystem access, a registry, ambient
+selection, or a concrete codec.
+
+```mbt check
+///|
+fn readme_codec_edges(
+  _prefix : @bytes.ByteView,
+  _reader : &@io.Reader,
+  _writer : &@io.Writer,
+) -> Unit {
+  ()
+}
+
+///|
+test "codec policy is explicit without selecting a backend" {
+  let limits = @codec.CodecLimits::new(
+    max_probe_bytes=16UL,
+    max_input_bytes=1024UL,
+    max_output_bytes=1024UL,
+    max_width=16UL,
+    max_height=16UL,
+    max_pixels=256UL,
+    max_work=4096UL,
+  )
+  let decode = @codec.DecodeOptions::new(
+    require_complete_input=true,
+    preserve_opaque_metadata=true,
+  )
+  let encode = @codec.EncodeOptions::new(
+    lossless_required=true,
+    preserve_opaque_metadata=true,
+  )
+  inspect(limits.max_probe_bytes(), content="16")
+  inspect(decode.require_complete_input(), content="true")
+  inspect(encode.lossless_required(), content="true")
+  inspect(@codec.ProbeOutcome::NeedMore(2UL) == @codec.ProbeOutcome::NeedMore(2UL), content="true")
+}
+```
+
+## Exact dependency DAG and targets
+
+- `metadata -> mb-core/error + budget + bytes`
+- `model -> metadata + mb-core/error + checked + budget + mb-color/model + profile`
+- `storage -> model + metadata + mb-core/error + checked + budget + bytes + mb-color/model + profile`
+- `ops -> storage + model + metadata + mb-core/error + checked + budget + bytes + mb-color/model + alpha + profile`
+- `codec -> storage + model + metadata + mb-core/error + budget + bytes + io`
+
+Every package and example is checked independently on `js`, `wasm`, `wasm-gc`,
+and `native`; native is preferred but has no wider portable contract.
+
+Phase 5 owns the first bounded PPM P6 implementation. Phase 4 intentionally
+defers YUV and arbitrary format conversions, advanced resampling, animation,
+tiled/GPU storage, native/system codecs, registries, filesystem/URL policy, and
+rendering. No behavior for those features is fabricated here.
+
+Generated adversarial evidence is reproduced by
+`scripts/fixtures/Generate-ImageVectors.ps1`, registered with source, license,
+digest, and use in `fixtures/manifest.json`, and embedded as exactly five
+package-local tables. The eight orientation equations are standards-literal
+generator data independent of production mapping code.

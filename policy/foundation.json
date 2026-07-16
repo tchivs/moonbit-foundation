@@ -801,10 +801,7 @@
         "codec/contracts.mbt",
         "codec/moon.pkg",
         "codec/reference_vectors_wbtest.mbt",
-        "moon.mod.json",
-        "moon.pkg",
-        "scaffold.mbt",
-        "scaffold_wbtest.mbt"
+        "moon.mod.json"
       ],
       "public_packages": [
         {
@@ -1156,21 +1153,6 @@
             "pub(open) trait ImageEncoder {",
             "  fn encode(Self, @storage.ImageView, &@io.Writer, EncodeOptions, CodecLimits, @budget.Budget, @error.Diagnostics) -> Result[EncodeResult, @error.CoreError]",
             "}"
-          ],
-          "supported_targets": [
-            "js",
-            "wasm",
-            "wasm-gc",
-            "native"
-          ]
-        },
-        {
-          "name": "moonbit-foundation/mb-image",
-          "path": ".",
-          "stability": "candidate",
-          "allowed_imports": [],
-          "semantic_interface": [
-            "package \"moonbit-foundation/mb-image\""
           ],
           "supported_targets": [
             "js",
