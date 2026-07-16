@@ -5,15 +5,15 @@ milestone_name: milestone
 current_phase: 4
 current_phase_name: Image Model, Views, and Operations
 status: executing
-stopped_at: Phase 4 context gathered
-last_updated: "2026-07-16T20:36:30.677Z"
+stopped_at: Completed 04-01-PLAN.md
+last_updated: "2026-07-16T20:47:02.727Z"
 last_activity: 2026-07-17
 last_activity_desc: Phase 4 execution started
 progress:
   total_phases: 4
   completed_phases: 3
   total_plans: 32
-  completed_plans: 24
+  completed_plans: 25
 ---
 
 # Project State
@@ -29,11 +29,11 @@ See `.planning/PROJECT.md` (updated 2026-07-16).
 ## Current Position
 
 Phase: 4 (Image Model, Views, and Operations) — EXECUTING
-Plan: 1 of 8
-Status: Executing Phase 4
+Plan: 2 of 8
+Status: Ready to execute
 Last activity: 2026-07-17 — Phase 4 execution started
 
-Progress: [██████████] 100% (1/5 phases; 8/8 currently planned plans complete)
+Progress: [████████░░] 78% (1/5 phases; 8/8 currently planned plans complete)
 
 ## Performance Metrics
 
@@ -69,6 +69,7 @@ Progress: [██████████] 100% (1/5 phases; 8/8 currently plann
 | Phase 03 P06 | 14min | 2 tasks | 7 files |
 | Phase 03 P07 | 10min | 3 tasks | 8 files |
 | Phase 03 P08 | 7min | 2 tasks | 4 files |
+| Phase 04 P01 | 10min | 2 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -146,6 +147,8 @@ Progress: [██████████] 100% (1/5 phases; 8/8 currently plann
 - [Phase 03]: Use shared exact classifiers for positive policy and synthetic color negative fixtures. — The same sequence, set, interface, publication, provenance, and source rules must fail closed.
 - [Phase 03]: Derive allocation rejection for every successful canonical profile payload, and bytes plus allocation-size rejection only for nonempty payloads. — Only dimensions with a strictly smaller valid limit can be independently underfunded.
 - [Phase 03]: Keep generated profile payload order canonical and use compact local byte bindings for formatter-clean byte-stable MoonBit. — Generator check mode must own the exact formatter-clean artifact bytes.
+- [Phase 04]: Pack opaque metadata into one retained allocation after pure collection validation. — Prevents duplicate and caller-limit failures from partially consuming storage budget.
+- [Phase 04]: Use the namespace/key/tag tuple as the canonical metadata identity and reject duplicates. — Provides stable backend-independent ordering and unambiguous operation disposition.
 
 ### Pending Decisions
 
@@ -164,8 +167,8 @@ None. Phase 01 is independently verified and complete; Phase 02 is ready for con
 
 ## Session Continuity
 
-**Resume file:** .planning/phases/04-image-model-views-and-operations/04-CONTEXT.md
+**Resume file:** None
 
-Last session: 2026-07-16T19:58:11.873Z
-Stopped at: Phase 4 context gathered
+Last session: 2026-07-16T20:47:02.708Z
+Stopped at: Completed 04-01-PLAN.md
 Resume with: Discuss Phase 02, then plan and execute it through the active auto chain.
