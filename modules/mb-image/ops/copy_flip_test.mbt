@@ -64,14 +64,7 @@ fn padded_image(
     format,
     [
       @model.PlaneDescriptor::new(
-        start,
-        plane_length,
-        stride,
-        row_bytes,
-        1UL,
-        1UL,
-        width,
-        height,
+        start, plane_length, stride, row_bytes, 1UL, 1UL, width, height,
       ).unwrap(),
     ],
     storage_length,
@@ -82,37 +75,36 @@ fn padded_image(
     operation_limits(storage_length, 0UL),
   ).unwrap()
   image
-    .with_mut_view(fn(view) {
-      for y = 0UL; y < height; y = y + 1UL {
-        for x = 0UL; x < width; x = x + 1UL {
-          for channel = 0UL; channel < channels; channel = channel + 1UL {
-            let value = ((y * width + x) * channels + channel + 1UL).to_byte()
-            match view.set_byte(x, y, channel, value) {
-              Err(error) => return Err(error)
-              Ok(_) => ()
-            }
+  .with_mut_view(fn(view) {
+    for y = 0UL; y < height; y = y + 1UL {
+      for x = 0UL; x < width; x = x + 1UL {
+        for channel = 0UL; channel < channels; channel = channel + 1UL {
+          let value = ((y * width + x) * channels + channel + 1UL).to_byte()
+          match view.set_byte(x, y, channel, value) {
+            Err(error) => return Err(error)
+            Ok(_) => ()
           }
         }
       }
-      Ok(())
-    })
-    .unwrap()
+    }
+    Ok(())
+  })
+  .unwrap()
   image
 }
 
 ///|
 test "copy packs logical rows for every supported U8 format" {
-  for alpha in [
-    None,
-    Some(@color.AlphaMode::Straight),
-    Some(@color.AlphaMode::Premultiplied),
-  ] {
+  for
+    alpha in [
+      None,
+      Some(@color.AlphaMode::Straight),
+      Some(@color.AlphaMode::Premultiplied),
+    ] {
     let channels = if alpha is None { 3UL } else { 4UL }
     let source = padded_image(channels, alpha, @model.Orientation::RightBottom)
-    let result = @ops.copy_image(
-      source.view(),
-      operation_limits(2UL * 2UL * channels, 2UL * 2UL * channels),
-    ).unwrap()
+    let budget = operation_limits(2UL * 2UL * channels, 2UL * 2UL * channels)
+    let result = @ops.copy_image(source.view(), budget).unwrap()
     let output = result.image()
     inspect(output.storage_length() == 4UL * channels, content="true")
     inspect(output.view().row_stride() == 2UL * channels, content="true")
@@ -125,6 +117,24 @@ test "copy packs logical rows for every supported U8 format" {
     inspect(result.disposition().transformed_length(), content="0")
     inspect(result.disposition().discarded_length(), content="0")
     inspect(result.disposition().is_lossy(), content="false")
+    inspect(result.disposition().preserved(0).unwrap().value(), content="alpha")
+    inspect(result.disposition().preserved(1).unwrap().value(), content="color")
+    inspect(
+      result.disposition().preserved(2).unwrap().value(),
+      content="opaque",
+    )
+    inspect(
+      result.disposition().preserved(3).unwrap().value(),
+      content="orientation",
+    )
+    inspect(
+      result.disposition().preserved(4).unwrap().value(),
+      content="profile",
+    )
+    inspect(budget.remaining().bytes(), content="0")
+    inspect(budget.remaining().allocations(), content="0")
+    inspect(budget.remaining().work(), content="0")
+    inspect(budget.remaining().pixels(), content="60")
     for y = 0UL; y < 2UL; y = y + 1UL {
       for x = 0UL; x < 2UL; x = x + 1UL {
         for channel = 0UL; channel < channels; channel = channel + 1UL {
@@ -146,10 +156,7 @@ test "horizontal and vertical flips are exact stored-coordinate permutations" {
     source.view(),
     operation_limits(12UL, 12UL),
   ).unwrap()
-  let vertical = @ops.flip_vertical(
-    source.view(),
-    operation_limits(12UL, 12UL),
-  ).unwrap()
+  let vertical = @ops.flip_vertical(source.view(), operation_limits(12UL, 12UL)).unwrap()
   for y = 0UL; y < 2UL; y = y + 1UL {
     for x = 0UL; x < 2UL; x = x + 1UL {
       for channel = 0UL; channel < 3UL; channel = channel + 1UL {
@@ -167,7 +174,8 @@ test "horizontal and vertical flips are exact stored-coordinate permutations" {
     }
   }
   inspect(
-    horizontal.image().metadata().orientation() == @model.Orientation::BottomLeft,
+    horizontal.image().metadata().orientation() ==
+    @model.Orientation::BottomLeft,
     content="true",
   )
   inspect(horizontal.disposition().preserved_length(), content="5")
@@ -177,13 +185,14 @@ test "horizontal and vertical flips are exact stored-coordinate permutations" {
 ///|
 test "fresh output does not alias source backing" {
   let source = padded_image(3UL, None, @model.Orientation::TopLeft)
-  let result = @ops.copy_image(
-    source.view(),
-    operation_limits(12UL, 12UL),
-  ).unwrap()
-  source
-    .with_mut_view(fn(view) { view.set_byte(0UL, 0UL, 0UL, b'Z') })
-    .unwrap()
-  inspect(source.view().get_byte(0UL, 0UL, 0UL).unwrap() == b'Z', content="true")
-  inspect(result.image().view().get_byte(0UL, 0UL, 0UL).unwrap() == b'\x01', content="true")
+  let result = @ops.copy_image(source.view(), operation_limits(12UL, 12UL)).unwrap()
+  source.with_mut_view(fn(view) { view.set_byte(0UL, 0UL, 0UL, b'Z') }).unwrap()
+  inspect(
+    source.view().get_byte(0UL, 0UL, 0UL).unwrap() == b'Z',
+    content="true",
+  )
+  inspect(
+    result.image().view().get_byte(0UL, 0UL, 0UL).unwrap() == b'\x01',
+    content="true",
+  )
 }

@@ -54,79 +54,138 @@ fn wb_padded_image() -> @storage.OwnedImage {
     wb_operation_limits(16UL, 0UL),
   ).unwrap()
   image
-    .with_mut_view(fn(view) {
-      for y = 0UL; y < 2UL; y = y + 1UL {
-        for x = 0UL; x < 2UL; x = x + 1UL {
-          for channel = 0UL; channel < 3UL; channel = channel + 1UL {
-            match
-              view.set_byte(
-                x,
-                y,
-                channel,
-                ((y * 2UL + x) * 3UL + channel + 1UL).to_byte(),
-              ) {
-              Err(error) => return Err(error)
-              Ok(_) => ()
-            }
+  .with_mut_view(fn(view) {
+    for y = 0UL; y < 2UL; y = y + 1UL {
+      for x = 0UL; x < 2UL; x = x + 1UL {
+        for channel = 0UL; channel < 3UL; channel = channel + 1UL {
+          match
+            view.set_byte(
+              x,
+              y,
+              channel,
+              ((y * 2UL + x) * 3UL + channel + 1UL).to_byte(),
+            ) {
+            Err(error) => return Err(error)
+            Ok(_) => ()
           }
         }
       }
-      Ok(())
-    })
-    .unwrap()
+    }
+    Ok(())
+  })
+  .unwrap()
   image
 }
 
 ///|
-fn unsupported_planar_image() -> @storage.OwnedImage {
+fn unsupported_image(
+  component : @model.ComponentType,
+  channels : @model.ChannelOrder,
+  layout : @model.PlaneLayout,
+) -> @storage.OwnedImage {
   let format = @model.ImageFormat::new(
-    @model.ComponentType::U16,
-    @model.ChannelOrder::Rgb,
-    @model.PlaneLayout::Planar,
+    component,
+    channels,
+    layout,
     @model.Endianness::Little,
   ).unwrap()
+  let bytes_per_component = match component {
+    @model.ComponentType::U8 => 1UL
+    @model.ComponentType::U16 => 2UL
+    @model.ComponentType::F32 => 4UL
+  }
+  let channel_count = match channels {
+    @model.ChannelOrder::Gray => 1UL
+    @model.ChannelOrder::Rgb => 3UL
+    @model.ChannelOrder::Rgba => 4UL
+  }
+  let plane_count = if layout == @model.PlaneLayout::Planar {
+    channel_count
+  } else {
+    1UL
+  }
+  let plane_row_bytes = if layout == @model.PlaneLayout::Planar {
+    bytes_per_component
+  } else {
+    bytes_per_component * channel_count
+  }
+  let planes : Array[@model.PlaneDescriptor] = []
+  for index = 0UL; index < plane_count; index = index + 1UL {
+    planes.push(
+      @model.PlaneDescriptor::new(
+        index * plane_row_bytes,
+        plane_row_bytes,
+        plane_row_bytes,
+        plane_row_bytes,
+        1UL,
+        1UL,
+        1UL,
+        1UL,
+      ).unwrap(),
+    )
+  }
+  let storage_length = plane_count * plane_row_bytes
   let descriptor = @model.ImageDescriptor::new(
     1UL,
     1UL,
     format,
-    [
-      @model.PlaneDescriptor::new(0UL, 2UL, 2UL, 2UL, 1UL, 1UL, 1UL, 1UL).unwrap(),
-      @model.PlaneDescriptor::new(2UL, 2UL, 2UL, 2UL, 1UL, 1UL, 1UL, 1UL).unwrap(),
-      @model.PlaneDescriptor::new(4UL, 2UL, 2UL, 2UL, 1UL, 1UL, 1UL, 1UL).unwrap(),
-    ],
-    6UL,
+    planes,
+    storage_length,
     unsupported_metadata(),
   ).unwrap()
-  @storage.OwnedImage::new(descriptor, wb_operation_limits(6UL, 0UL)).unwrap()
+  @storage.OwnedImage::new(descriptor, wb_operation_limits(storage_length, 0UL)).unwrap()
 }
 
 ///|
 test "unsupported formats reject before output charge with operation token" {
-  let source = unsupported_planar_image()
+  let sources = [
+    unsupported_image(
+      @model.ComponentType::U8,
+      @model.ChannelOrder::Rgb,
+      @model.PlaneLayout::Planar,
+    ).view(),
+    unsupported_image(
+      @model.ComponentType::U16,
+      @model.ChannelOrder::Rgb,
+      @model.PlaneLayout::Packed,
+    ).view(),
+    unsupported_image(
+      @model.ComponentType::F32,
+      @model.ChannelOrder::Rgb,
+      @model.PlaneLayout::Packed,
+    ).view(),
+    unsupported_image(
+      @model.ComponentType::U8,
+      @model.ChannelOrder::Gray,
+      @model.PlaneLayout::Packed,
+    ).view(),
+  ]
   let operations = [
     ("image-copy-format", copy_image),
     ("image-flip-horizontal-format", flip_horizontal),
     ("image-flip-vertical-format", flip_vertical),
   ]
-  for item in operations {
-    let (token, operation) = item
-    let budget = wb_operation_limits(6UL, 6UL)
-    let before = budget.remaining()
-    match operation(source.view(), budget) {
-      Err(error) => {
-        inspect(
-          error.code() == @error.ErrorCode::CapabilityUnavailable,
-          content="true",
-        )
-        inspect(error.context() == Some(token), content="true")
+  for source in sources {
+    for item in operations {
+      let (token, operation) = item
+      let budget = wb_operation_limits(6UL, 6UL)
+      let before = budget.remaining()
+      match operation(source, budget) {
+        Err(error) => {
+          inspect(
+            error.code() == @error.ErrorCode::CapabilityUnavailable,
+            content="true",
+          )
+          inspect(error.context() == Some(token), content="true")
+        }
+        Ok(_) => fail("unsupported operation must reject")
       }
-      Ok(_) => fail("unsupported operation must reject")
+      let after = budget.remaining()
+      inspect(after.bytes() == before.bytes(), content="true")
+      inspect(after.allocations() == before.allocations(), content="true")
+      inspect(after.pixels() == before.pixels(), content="true")
+      inspect(after.work() == before.work(), content="true")
     }
-    let after = budget.remaining()
-    inspect(after.bytes() == before.bytes(), content="true")
-    inspect(after.allocations() == before.allocations(), content="true")
-    inspect(after.pixels() == before.pixels(), content="true")
-    inspect(after.work() == before.work(), content="true")
   }
 }
 
@@ -149,18 +208,18 @@ test "single-axis flips preserve exact pixels" {
     .view()
     .crop(@model.Rect::new(0UL, 0UL, 1UL, 2UL).unwrap())
     .unwrap()
-  let horizontal = flip_horizontal(
-    one_by_two,
-    wb_operation_limits(6UL, 6UL),
-  ).unwrap()
-  inspect(horizontal.image().view().get_byte(0UL, 1UL, 0UL).unwrap() == b'\x07', content="true")
+  let horizontal = flip_horizontal(one_by_two, wb_operation_limits(6UL, 6UL)).unwrap()
+  inspect(
+    horizontal.image().view().get_byte(0UL, 1UL, 0UL).unwrap() == b'\x07',
+    content="true",
+  )
   let two_by_one = wb_padded_image()
     .view()
     .crop(@model.Rect::new(0UL, 0UL, 2UL, 1UL).unwrap())
     .unwrap()
-  let vertical = flip_vertical(
-    two_by_one,
-    wb_operation_limits(6UL, 6UL),
-  ).unwrap()
-  inspect(vertical.image().view().get_byte(1UL, 0UL, 2UL).unwrap() == b'\x06', content="true")
+  let vertical = flip_vertical(two_by_one, wb_operation_limits(6UL, 6UL)).unwrap()
+  inspect(
+    vertical.image().view().get_byte(1UL, 0UL, 2UL).unwrap() == b'\x06',
+    content="true",
+  )
 }
