@@ -171,7 +171,14 @@ function Render-OpsMoon([object]$Data) {
   }
   foreach ($line in @('  ]','}','','///|','fn generated_resize_axis_vectors() -> Array[(UInt64, UInt64, Array[UInt64])] {','  [')) { $lines.Add($line) }
   foreach ($item in $Data.resize) { $lines.Add(('    ({0}UL, {1}UL, [{2}]),' -f $item.source, $item.destination, ((@($item.map) | ForEach-Object { "${_}UL" }) -join ', '))) }
-  foreach ($line in @('  ]','}','','///|','fn generated_conversion_case_count() -> Int {','  3','}','','///|','test "generated operation vector tables are complete" {','  inspect(generated_orientation_vectors().length(), content="8")','  inspect(generated_resize_axis_vectors().length(), content="3")','  inspect(generated_conversion_case_count(), content="3")','}')) { $lines.Add($line) }
+  foreach ($line in @('  ]','}','','///|','fn generated_conversion_vectors() -> Array[(Array[Byte], Array[Byte], Bool)] {','  [')) { $lines.Add($line) }
+  foreach ($item in $Data.conversion) {
+    $source = (@($item.source) | ForEach-Object { "b''\x$([Convert]::ToString([int]$_, 16).PadLeft(2, '0'))''" }) -join ', '
+    $expected = (@($item.expected) | ForEach-Object { "b''\x$([Convert]::ToString([int]$_, 16).PadLeft(2, '0'))''" }) -join ', '
+    $lossy = if ($item.lossy) { 'true' } else { 'false' }
+    $lines.Add(('    ([{0}], [{1}], {2}),' -f $source, $expected, $lossy))
+  }
+  foreach ($line in @('  ]','}','','///|','test "generated operation vector tables are complete" {','  inspect(generated_orientation_vectors().length(), content="8")','  inspect(generated_resize_axis_vectors().length(), content="3")','  inspect(generated_conversion_vectors().length(), content="3")','}')) { $lines.Add($line) }
   Join-Lines $lines.ToArray()
 }
 

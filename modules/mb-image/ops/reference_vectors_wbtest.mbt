@@ -122,13 +122,17 @@ fn generated_resize_axis_vectors() -> Array[(UInt64, UInt64, Array[UInt64])] {
 }
 
 ///|
-fn generated_conversion_case_count() -> Int {
-  3
+fn generated_conversion_vectors() -> Array[(Array[Byte], Array[Byte], Bool)] {
+  [
+    ([b''\x01'', b''\x02'', b''\x03''], [b''\x01'', b''\x02'', b''\x03'', b''\xff''], false),
+    ([b''\x04'', b''\x05'', b''\x06'', b''\xff''], [b''\x04'', b''\x05'', b''\x06''], false),
+    ([b''\x07'', b''\x08'', b''\x09'', b''\x0a''], [b''\x07'', b''\x08'', b''\x09''], true),
+  ]
 }
 
 ///|
 test "generated operation vector tables are complete" {
   inspect(generated_orientation_vectors().length(), content="8")
   inspect(generated_resize_axis_vectors().length(), content="3")
-  inspect(generated_conversion_case_count(), content="3")
+  inspect(generated_conversion_vectors().length(), content="3")
 }
