@@ -93,7 +93,7 @@
     {
       "id": "D-03",
       "source": ".planning/phases/01-foundation-charter-and-reproducible-workspace/01-CONTEXT.md#rfc-governance-and-acceptance",
-      "description": "Acceptance requires two maintainer approvals with no unresolved blocking objection. Until the project has two maintainers, the project lead may accept after a minimum seven-day public review window; this bootstrap exception must be explicit.",
+      "description": "Acceptance requires one complete evidenced route with no unresolved blocker: two maintainers, a seven-day project-lead review while fewer than two maintainers exist, or sole-project-owner-bootstrap while the canonical roster contains exactly one unique maintainer who is the project owner; the sole-owner route requires both mandatory edge reviews and expires when another maintainer is added.",
       "covering_plan": "01-01",
       "status": "covered"
     },
@@ -340,7 +340,7 @@
     {
       "id": "RESEARCH-PITFALL-01",
       "source": ".planning/phases/01-foundation-charter-and-reproducible-workspace/01-RESEARCH.md#pitfall-1-governance-declared-but-not-accepted",
-      "description": "RFC 0001 may contain correct prose but remain Draft, lack approval or review evidence, or retain blocking questions. Record explicit Proposed and Accepted transitions and authentic route evidence; the seven-day bootstrap interval is real elapsed time and must never be fabricated.",
+      "description": "RFC 0001 may contain correct prose but lack authentic route evidence or retain blocking questions. Record explicit transitions and route-specific evidence; never fabricate the seven-day project-lead interval, and consume the sole owner's existing conditional preauthorization only after both mandatory edge reviews pass.",
       "covering_plan": "01-01,01-08",
       "status": "covered"
     },

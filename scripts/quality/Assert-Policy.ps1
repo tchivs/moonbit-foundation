@@ -66,9 +66,150 @@ function Assert-AcyclicDependencyGraph {
   }
 }
 
+function Assert-NullOrEmpty {
+  param([string]$Label, [object]$Value)
+  $count = if ($null -eq $Value) { 0 } else { @($Value).Count }
+  $text = if ($null -eq $Value) { '' } else { [string]$Value }
+  Assert-Condition ($null -eq $Value -or $count -eq 0 -or [string]::IsNullOrWhiteSpace($text)) "$Label must be empty for this RFC state or route."
+}
+
+function Resolve-RfcEvidenceFile {
+  [CmdletBinding()]
+  param(
+    [Parameter(Mandatory)][string]$RepositoryRoot,
+    [Parameter(Mandatory)][string]$RelativePath,
+    [Parameter(Mandatory)][string]$ExpectedRelativePath
+  )
+
+  Assert-Condition (-not [System.IO.Path]::IsPathRooted($RelativePath)) 'RFC evidence path must be repository-relative.'
+  $segments = @($RelativePath -split '[\\/]')
+  Assert-Condition (-not ($segments -ccontains '..')) 'RFC evidence path must not contain a parent traversal segment.'
+  Assert-Condition ($RelativePath.Replace('\','/') -ceq $ExpectedRelativePath.Replace('\','/')) 'RFC evidence path does not identify the canonical decision artifact.'
+
+  $rootFull = [System.IO.Path]::GetFullPath($RepositoryRoot).TrimEnd([System.IO.Path]::DirectorySeparatorChar, [System.IO.Path]::AltDirectorySeparatorChar)
+  $rootPrefix = $rootFull + [System.IO.Path]::DirectorySeparatorChar
+  $fullPath = [System.IO.Path]::GetFullPath((Join-Path $rootFull $RelativePath))
+  Assert-Condition ($fullPath.StartsWith($rootPrefix, [System.StringComparison]::OrdinalIgnoreCase)) 'RFC evidence path escapes the repository root.'
+  Assert-Condition (Test-Path -LiteralPath $fullPath -PathType Leaf) 'RFC evidence path must resolve to an existing leaf file.'
+  return $fullPath
+}
+
+function Assert-RfcAcceptanceState {
+  [CmdletBinding()]
+  param(
+    [Parameter(Mandatory)][object]$Policy,
+    [Parameter(Mandatory)][string]$RosterPath,
+    [Parameter(Mandatory)][string]$RepositoryRoot
+  )
+
+  $rfcPolicy = $Policy.rfc
+  $rfc = $rfcPolicy.current_foundation_rfc
+  Assert-Condition (@($rfcPolicy.allowed_statuses) -ccontains $rfc.status) "RFC status '$($rfc.status)' is not allowed."
+  Assert-ExactSet 'RFC acceptance routes' @($rfcPolicy.acceptance_routes) @('maintainer','project-lead-public-review','sole-project-owner-bootstrap')
+
+  $roster = Read-QualityJson -Path $RosterPath
+  Assert-Condition ($roster.schema_version -ceq '1.0.0') 'Maintainer roster schema_version must be 1.0.0.'
+  $maintainers = @($roster.maintainers)
+  $identities = @($maintainers | ForEach-Object { [string]$_.identity })
+  Assert-Condition (@($identities | Where-Object { [string]::IsNullOrWhiteSpace($_) }).Count -eq 0) 'Maintainer identities must be non-empty.'
+  $identityGroups = @($identities | Group-Object -CaseSensitive)
+  Assert-Condition (@($identityGroups | Where-Object Count -ne 1).Count -eq 0) 'Maintainer roster contains duplicate identities.'
+  foreach ($maintainer in $maintainers) {
+    Assert-Condition (@($maintainer.roles) -ccontains 'maintainer') "Roster identity '$($maintainer.identity)' lacks the maintainer role."
+    Assert-Condition (-not [string]::IsNullOrWhiteSpace([string]$maintainer.evidence)) "Roster identity '$($maintainer.identity)' lacks evidence."
+  }
+
+  $rfcPath = Join-Path $RepositoryRoot ([string]$rfc.path)
+  Assert-Condition (Test-Path -LiteralPath $rfcPath -PathType Leaf) 'Foundation RFC path does not exist.'
+  $rfcText = Get-Content -LiteralPath $rfcPath -Raw
+  Assert-Condition ($rfcText -cmatch "(?m)^- \*\*Status:\*\* $([regex]::Escape([string]$rfc.status))\s*$") 'RFC header status does not match policy.'
+  $indexPath = Join-Path $RepositoryRoot 'docs/rfcs/README.md'
+  Assert-Condition (Test-Path -LiteralPath $indexPath -PathType Leaf) 'RFC index does not exist.'
+  $indexText = Get-Content -LiteralPath $indexPath -Raw
+  Assert-Condition ($indexText -cmatch "(?m)^\|[^\r\n]*RFC 0001[^\r\n]*\|\s*$([regex]::Escape([string]$rfc.status))\s*\|") 'RFC index status does not match policy.'
+
+  if ($rfc.status -notin @('Accepted','Implemented')) {
+    Assert-NullOrEmpty 'acceptance_route' $rfc.acceptance_route
+    Assert-NullOrEmpty 'authority' $rfc.authority
+    Assert-Condition (@($rfc.approvers).Count -eq 0) 'Proposed RFC must not record approvers.'
+    Assert-NullOrEmpty 'project_lead' $rfc.project_lead
+    Assert-NullOrEmpty 'public_review_url' $rfc.public_review_url
+    Assert-NullOrEmpty 'public_review_started_at' $rfc.public_review_started_at
+    Assert-NullOrEmpty 'public_review_ended_at' $rfc.public_review_ended_at
+    Assert-NullOrEmpty 'decision_evidence_path' $rfc.decision_evidence_path
+    Assert-Condition (@($rfc.decision_evidence_anchors).Count -eq 0) 'Proposed RFC must not record decision evidence anchors.'
+    Assert-Condition (@($rfc.acceptance_evidence).Count -eq 0) 'Proposed RFC must not record acceptance evidence.'
+    Assert-NullOrEmpty 'objection_disposition' $rfc.objection_disposition
+    foreach ($review in @($rfc.edge_reviews)) {
+      Assert-Condition ($review.status -ceq 'pending' -and $null -eq $review.disposition) 'Proposed RFC edge-review records may only be pending and undispositioned.'
+    }
+    return
+  }
+
+  Assert-Condition (@($rfcPolicy.acceptance_routes) -ccontains $rfc.acceptance_route) 'Accepted RFC has an unknown acceptance route.'
+  Assert-Condition ($rfc.blocking_objections -ceq 'none') 'Accepted RFC must have zero unresolved blocking objections.'
+  Assert-Condition (-not [string]::IsNullOrWhiteSpace([string]$rfc.objection_disposition)) 'Accepted RFC requires an objection disposition.'
+  Assert-Condition (@($rfc.acceptance_evidence).Count -gt 0) 'Accepted RFC requires acceptance evidence.'
+
+  switch -CaseSensitive ([string]$rfc.acceptance_route) {
+    'maintainer' {
+      $approvers = @($rfc.approvers | ForEach-Object { [string]$_ })
+      Assert-Condition ($approvers.Count -ge 2 -and @($approvers | Select-Object -Unique).Count -eq $approvers.Count) 'Maintainer route requires two distinct approvals.'
+      foreach ($approver in $approvers) { Assert-Condition ($identities -ccontains $approver) "Approver '$approver' is not a canonical maintainer." }
+      Assert-Condition ($rfc.authority -ceq 'maintainers') 'Maintainer route authority must be maintainers.'
+      Assert-NullOrEmpty 'project_lead' $rfc.project_lead; Assert-NullOrEmpty 'project_owner' $rfc.project_owner
+      Assert-NullOrEmpty 'public_review_url' $rfc.public_review_url; Assert-NullOrEmpty 'public_review_started_at' $rfc.public_review_started_at; Assert-NullOrEmpty 'public_review_ended_at' $rfc.public_review_ended_at
+      Assert-NullOrEmpty 'decision_evidence_path' $rfc.decision_evidence_path
+      Assert-Condition (@($rfc.decision_evidence_anchors).Count -eq 0 -and @($rfc.edge_reviews).Count -eq 0) 'Maintainer route must not assert sole-owner evidence.'
+    }
+    'project-lead-public-review' {
+      Assert-Condition ($rfc.authority -ceq 'project-lead') 'Project-lead route authority must be project-lead.'
+      $lead = @($maintainers | Where-Object { [string]$_.identity -ceq [string]$rfc.project_lead -and @($_.roles) -ccontains 'project-lead' })
+      Assert-Condition ($lead.Count -eq 1 -and $identities.Count -lt 2) 'Project-lead route requires an eligible project lead while fewer than two maintainers exist.'
+      Assert-Condition ([string]$rfc.public_review_url -cmatch '^https?://') 'Project-lead route requires a public review URL.'
+      $started = [DateTimeOffset]::Parse([string]$rfc.public_review_started_at)
+      $ended = [DateTimeOffset]::Parse([string]$rfc.public_review_ended_at)
+      Assert-Condition ($ended -ge $started.AddDays(7)) 'Project-lead route requires seven elapsed days of public review.'
+      Assert-Condition (@($rfc.approvers).Count -eq 0) 'Project-lead route must not assert maintainer approvals.'
+      Assert-NullOrEmpty 'project_owner' $rfc.project_owner; Assert-NullOrEmpty 'decision_evidence_path' $rfc.decision_evidence_path
+      Assert-Condition (@($rfc.decision_evidence_anchors).Count -eq 0 -and @($rfc.edge_reviews).Count -eq 0) 'Project-lead route must not assert sole-owner evidence.'
+    }
+    'sole-project-owner-bootstrap' {
+      Assert-Condition ($identities.Count -eq 1 -and $identityGroups.Count -eq 1) 'Sole-owner route requires exactly one unique canonical maintainer.'
+      $sole = $maintainers[0]
+      Assert-Condition (@($sole.roles) -ccontains 'project-owner') 'Sole canonical maintainer must have the project-owner role.'
+      Assert-Condition ([string]$rfc.project_owner -ceq [string]$sole.identity -and [string]$rfc.authority -ceq [string]$sole.identity) 'Sole-owner authority must match the canonical project owner.'
+      Assert-Condition (@($rfc.approvers).Count -eq 0) 'Sole-owner route must not assert a multi-approver list.'
+      Assert-NullOrEmpty 'project_lead' $rfc.project_lead; Assert-NullOrEmpty 'public_review_url' $rfc.public_review_url; Assert-NullOrEmpty 'public_review_started_at' $rfc.public_review_started_at; Assert-NullOrEmpty 'public_review_ended_at' $rfc.public_review_ended_at
+      $expectedDecision = [string]$rfcPolicy.sole_owner_bootstrap.decision_path
+      $decisionFile = Resolve-RfcEvidenceFile -RepositoryRoot $RepositoryRoot -RelativePath ([string]$rfc.decision_evidence_path) -ExpectedRelativePath $expectedDecision
+      Assert-ExactSet 'Sole-owner decision anchors' @($rfc.decision_evidence_anchors) @($rfcPolicy.sole_owner_bootstrap.required_anchors)
+      $decisionText = Get-Content -LiteralPath $decisionFile -Raw
+      $headingByAnchor = @{
+        'owner-instruction'='Owner instruction'; 'conversation-context-and-interpretation'='Conversation context and interpretation'
+        'authorization-and-conditions'='Authorization and conditions'; 'edge-review-results'='Edge review results'
+      }
+      foreach ($anchor in @($rfcPolicy.sole_owner_bootstrap.required_anchors)) {
+        Assert-Condition ($headingByAnchor.ContainsKey([string]$anchor)) "Unknown required decision anchor '$anchor'."
+        Assert-Condition ($decisionText -cmatch "(?m)^## $([regex]::Escape($headingByAnchor[[string]$anchor]))\s*$") "Decision artifact lacks required anchor '$anchor'."
+      }
+      Assert-Condition ($decisionText.Contains('现在只有我一个人开发，跳过') -and $decisionText -cmatch 'preauthoriz') 'Decision artifact does not preserve the authentic conditional preauthorization.'
+      $reviews = @($rfc.edge_reviews)
+      Assert-ExactSet 'Sole-owner edge review IDs' @($reviews.id) @($rfcPolicy.sole_owner_bootstrap.mandatory_edge_reviews)
+      foreach ($review in $reviews) {
+        Assert-Condition ($review.status -ceq 'completed') "Edge review '$($review.id)' is not completed."
+        Assert-Condition (-not [string]::IsNullOrWhiteSpace([string]$review.disposition) -and [string]$review.disposition -cne 'unresolved') "Edge review '$($review.id)' lacks a resolved disposition."
+      }
+    }
+  }
+}
+
 function Assert-FoundationPolicy {
   [CmdletBinding()]
-  param([Parameter(Mandatory)][string]$PolicyPath)
+  param(
+    [Parameter(Mandatory)][string]$PolicyPath,
+    [string]$MaintainersPath
+  )
 
   $policy = Read-QualityJson -Path $PolicyPath
   $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
@@ -137,16 +278,8 @@ function Assert-FoundationPolicy {
   Assert-Condition ($policy.publication.lockstep_versions_required -eq $false -and $policy.publication.independent_versions -eq $true) 'Independent versioning policy drifted.'
   Assert-Condition (-not [string]::IsNullOrWhiteSpace($policy.publication.block_reason)) 'Publication block requires a reason.'
 
-  $rfc = $policy.rfc.current_foundation_rfc
-  Assert-Condition (@($policy.rfc.allowed_statuses) -ccontains $rfc.status) "RFC status '$($rfc.status)' is not allowed."
-  $rfcText = Get-Content -LiteralPath (Join-Path $repoRoot ([string]$rfc.path)) -Raw
-  Assert-Condition ($rfcText -cmatch "(?m)^- \*\*Status:\*\* $([regex]::Escape([string]$rfc.status))\s*$") 'RFC header status does not match policy.'
-  if ($rfc.status -in @('Accepted', 'Implemented')) {
-    foreach ($field in @($policy.rfc.accepted_evidence_fields)) {
-      $value = $rfc.$field
-      Assert-Condition ($null -ne $value -and @($value).Count -gt 0 -and -not [string]::IsNullOrWhiteSpace([string]$value)) "Accepted RFC lacks evidence field '$field'."
-    }
-  }
+  if ([string]::IsNullOrWhiteSpace($MaintainersPath)) { $MaintainersPath = Join-Path $repoRoot ([string]$policy.rfc.maintainer_roster_path) }
+  Assert-RfcAcceptanceState -Policy $policy -RosterPath $MaintainersPath -RepositoryRoot $repoRoot
 
   $fixtureManifest = Read-QualityJson -Path (Join-Path $repoRoot 'fixtures/manifest.json')
   Assert-Condition ($fixtureManifest.schema_version -ceq '1.0.0') 'Fixture manifest schema_version must be 1.0.0.'

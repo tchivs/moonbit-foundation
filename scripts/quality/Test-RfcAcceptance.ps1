@@ -147,7 +147,7 @@ $lead=Copy-TestObject $accepted
 $l=$lead.rfc.current_foundation_rfc;$l.acceptance_route='project-lead-public-review';$l.authority='project-lead';$l.approvers=@();$l.project_lead='lead';$l.project_owner=$null;$l.public_review_url='https://example.invalid/review/1';$l.public_review_started_at='2026-07-01T00:00:00Z';$l.public_review_ended_at='2026-07-08T00:00:00Z';$l.decision_evidence_path=$null;$l.decision_evidence_anchors=@();$l.edge_reviews=@();$l.acceptance_evidence=@('https://example.invalid/review/1')
 $leadRoster=[pscustomobject]@{schema_version='1.0.0';maintainers=@([pscustomobject]@{identity='lead';roles=@('maintainer','project-lead');evidence='local'})}
 Invoke-AcceptanceCase 'project lead seven-day route' $lead $leadRoster $true $null
-$short=Copy-TestObject $lead;$short.rfc.current_foundation_rfc.public_review_ended_at='2026-07-07T23:59:59Z'
+$short=Copy-TestObject $lead;$short.rfc.current_foundation_rfc.public_review_ended_at='2026-07-07T00:00:00Z'
 Invoke-AcceptanceCase 'project lead route needs seven elapsed days' $short $leadRoster $false $null
 
 $mismatch=Copy-TestObject $accepted
