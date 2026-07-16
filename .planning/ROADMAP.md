@@ -92,6 +92,18 @@ Plans:
 
 **Requirements:** IMAG-01, IMAG-02, IMAG-03, IMAG-04, IMAG-05, IMAG-06, IMAG-07
 
+**Plans:** 8 plans
+
+Plans:
+- [ ] 04-01-PLAN.md — Establish bounded core-only opaque metadata and disposition values.
+- [ ] 04-02-PLAN.md — Define explicit validated image descriptors and image metadata.
+- [ ] 04-03-PLAN.md — Implement owned storage, retained views, and zero-copy crop lifetimes.
+- [ ] 04-04-PLAN.md — Add fresh-output copy and exact horizontal/vertical flips.
+- [ ] 04-05-PLAN.md — Generate image evidence and implement all eight orientation transforms.
+- [ ] 04-06-PLAN.md — Add integer nearest resize and closed U8 pixel conversions.
+- [ ] 04-07-PLAN.md — Define prefix/Reader/Writer backend-neutral codec contracts.
+- [ ] 04-08-PLAN.md — Remove the scaffold and close docs, policy, fixtures, and Required qualification.
+
 **Success Criteria:**
 
 1. Public image descriptions make dimensions, format, component representation, channel/plane layout, stride, endianness, color space, alpha mode, and orientation inspectable.
