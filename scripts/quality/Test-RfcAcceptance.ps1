@@ -116,7 +116,7 @@ function Write-TestState([string]$Root, [object]$Policy, [object]$Roster) {
   if ($hasImplementedHistory) { $rows.Add('| Accepted | Implemented | ' + (@($rfc.implementation_evidence) + @($rfc.qualification_evidence) -join '; ') + ' |') }
   if ($status -in @('Rejected','Superseded')) { $rows.Add("| $($rfc.transition.from) | $status | " + (@($rfc.transition.evidence) -join '; ') + ' |') }
   @("# RFC 0001", "", "- **Status:** $status", "", "## Transition history", "", "| From | To | Evidence |", "|---|---|---|") + @($rows) | Set-Content -LiteralPath (Join-Path $Root 'docs/rfcs/0001-moonbit-native-foundation.md') -Encoding utf8
-  @("# RFC index", "", "| RFC | Status |", "|---|---|", "| [RFC 0001](0001-moonbit-native-foundation.md) | $status |") | Set-Content -LiteralPath (Join-Path $Root 'docs/rfcs/README.md') -Encoding utf8
+  @("# RFC index", "", "| RFC | Title | Status | Scope |", "|---|---|---|---|", "| [RFC 0001](0001-moonbit-native-foundation.md) | Foundation | $status | Charter |") | Set-Content -LiteralPath (Join-Path $Root 'docs/rfcs/README.md') -Encoding utf8
   Write-TestJson (Join-Path $Root 'policy/maintainers.json') $Roster
 }
 
@@ -242,7 +242,13 @@ Invoke-AcceptanceCase 'project lead rejects malformed offset' $malformedOffset $
 $mismatch=Copy-TestObject $accepted
 Invoke-AcceptanceCase 'RFC status mismatch' $mismatch $roster $false { param($root) '# RFC 0001`n`n- **Status:** Proposed' | Set-Content -LiteralPath (Join-Path $root 'docs/rfcs/0001-moonbit-native-foundation.md') } 'RFC header status does not match policy'
 $indexMismatch=Copy-TestObject $accepted
-Invoke-AcceptanceCase 'RFC index status mismatch' $indexMismatch $roster $false { param($root) '| RFC 0001 | Proposed |' | Set-Content -LiteralPath (Join-Path $root 'docs/rfcs/README.md') } 'RFC index status does not match policy'
+Invoke-AcceptanceCase 'RFC index status mismatch' $indexMismatch $roster $false { param($root) '| [RFC 0001](0001-moonbit-native-foundation.md) | Foundation | Proposed | Charter |' | Set-Content -LiteralPath (Join-Path $root 'docs/rfcs/README.md') } 'index row must link the canonical RFC and match policy status'
+$alternateRfc=Copy-TestObject $accepted;$alternateRfc.rfc.current_foundation_rfc.path='docs/rfcs/alternate.md'
+Invoke-AcceptanceCase 'RFC policy path is canonical' $alternateRfc $roster $false { param($root) Copy-Item (Join-Path $root 'docs/rfcs/0001-moonbit-native-foundation.md') (Join-Path $root 'docs/rfcs/alternate.md') } 'Foundation RFC policy path differs'
+$alternateRoster=Copy-TestObject $accepted;$alternateRoster.rfc.maintainer_roster_path='policy/alternate.json'
+Invoke-AcceptanceCase 'roster policy path is canonical' $alternateRoster $roster $false { param($root,$p,$r) Write-TestJson (Join-Path $root 'policy/alternate.json') $r } 'maintainer roster path differs'
+$wrongIndexLink=Copy-TestObject $accepted
+Invoke-AcceptanceCase 'RFC index link is canonical' $wrongIndexLink $roster $false { param($root) $path=Join-Path $root 'docs/rfcs/README.md'; (Get-Content -Raw $path).Replace('(0001-moonbit-native-foundation.md)','(alternate.md)') | Set-Content -LiteralPath $path } 'index row must link the canonical RFC'
 $fileAnchorMissing=Copy-TestObject $accepted
 Invoke-AcceptanceCase 'decision file missing anchor' $fileAnchorMissing $roster $false { param($root) (Get-Content -Raw (Join-Path $root 'docs/governance/decisions/0001-sole-owner-bootstrap.md')).Replace('## Edge review results','## Missing') | Set-Content -LiteralPath (Join-Path $root 'docs/governance/decisions/0001-sole-owner-bootstrap.md') } 'lacks required anchor'
 $artifactEdgeMissing=Copy-TestObject $accepted
@@ -258,6 +264,21 @@ try {
 }
 if (-not $arrangeFailureWasRejected) { throw 'Acceptance harness counted an arrange/setup exception as a successful negative validation.' }
 Write-Host 'PASS: harness rejects arrange/setup exceptions'
+
+$externalRoster = Join-Path ([System.IO.Path]::GetTempPath()) ('mnf-roster-external-' + [guid]::NewGuid().ToString('N') + '.json')
+$externalRfc = Join-Path ([System.IO.Path]::GetTempPath()) ('mnf-rfc-external-' + [guid]::NewGuid().ToString('N') + '.md')
+try {
+  Invoke-AcceptanceCase 'canonical roster rejects symlink' $accepted $roster $false {
+    param($root)
+    $canonical=Join-Path $root 'policy/maintainers.json';Copy-Item $canonical $externalRoster;Remove-Item $canonical;[void](New-Item -ItemType SymbolicLink -Path $canonical -Target $externalRoster -ErrorAction Stop)
+  } 'Canonical maintainer roster component.*symbolic link or reparse point'
+  Invoke-AcceptanceCase 'canonical RFC rejects symlink' $accepted $roster $false {
+    param($root)
+    $canonical=Join-Path $root 'docs/rfcs/0001-moonbit-native-foundation.md';Copy-Item $canonical $externalRfc;Remove-Item $canonical;[void](New-Item -ItemType SymbolicLink -Path $canonical -Target $externalRfc -ErrorAction Stop)
+  } 'Canonical foundation RFC component.*symbolic link or reparse point'
+} finally {
+  Remove-Item $externalRoster,$externalRfc -Force -ErrorAction SilentlyContinue
+}
 
 $linkRoot = New-TestRepository
 $externalDecision = Join-Path ([System.IO.Path]::GetTempPath()) ("mnf-rfc-external-" + [guid]::NewGuid().ToString('N') + '.md')

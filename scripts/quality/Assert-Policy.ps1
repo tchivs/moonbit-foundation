@@ -290,6 +290,9 @@ function Assert-RfcAcceptanceState {
 
   $rfcPolicy = $Policy.rfc
   $rfc = $rfcPolicy.current_foundation_rfc
+  $canonicalRosterPath = 'policy/maintainers.json'
+  $canonicalRfcPath = 'docs/rfcs/0001-moonbit-native-foundation.md'
+  $canonicalIndexPath = 'docs/rfcs/README.md'
   $canonicalDecisionPath = 'docs/governance/decisions/0001-sole-owner-bootstrap.md'
   $canonicalDecisionAnchors = @('owner-instruction','conversation-context-and-interpretation','authorization-and-conditions','edge-review-results')
   $canonicalEdgeReviewIds = @('EDGE-GOV-01-UNCLASSIFIED','EDGE-GOV-02-UNCLASSIFIED')
@@ -299,9 +302,10 @@ function Assert-RfcAcceptanceState {
   Assert-ExactSet 'Sole-owner policy decision anchors' @($rfcPolicy.sole_owner_bootstrap.required_anchors) $canonicalDecisionAnchors
   Assert-ExactSet 'Sole-owner policy edge review IDs' @($rfcPolicy.sole_owner_bootstrap.mandatory_edge_reviews) $canonicalEdgeReviewIds
 
-  $expectedRosterPath = [System.IO.Path]::GetFullPath((Join-Path $RepositoryRoot ([string]$rfcPolicy.maintainer_roster_path)))
-  Assert-Condition ([System.IO.Path]::GetFullPath($RosterPath) -ceq $expectedRosterPath) 'RFC acceptance must use the canonical maintainer roster path.'
-  $roster = Read-QualityJson -Path $RosterPath
+  Assert-Condition ([string]$rfcPolicy.maintainer_roster_path -ceq $canonicalRosterPath) 'RFC policy maintainer roster path differs from the canonical artifact.'
+  $canonicalRosterFile = Resolve-RepositoryLeafFile -RepositoryRoot $RepositoryRoot -RelativePath $canonicalRosterPath -Label 'Canonical maintainer roster'
+  Assert-Condition ([System.IO.Path]::GetFullPath($RosterPath) -ceq $canonicalRosterFile) 'RFC acceptance must use the canonical maintainer roster path.'
+  $roster = Read-QualityJson -Path $canonicalRosterFile
   Assert-Condition ($roster.schema_version -ceq '1.0.0') 'Maintainer roster schema_version must be 1.0.0.'
   $maintainers = @($roster.maintainers)
   $identities = @($maintainers | ForEach-Object { [string]$_.identity })
@@ -313,14 +317,14 @@ function Assert-RfcAcceptanceState {
     Assert-Condition (-not [string]::IsNullOrWhiteSpace([string]$maintainer.evidence)) "Roster identity '$($maintainer.identity)' lacks evidence."
   }
 
-  $rfcPath = Join-Path $RepositoryRoot ([string]$rfc.path)
-  Assert-Condition (Test-Path -LiteralPath $rfcPath -PathType Leaf) 'Foundation RFC path does not exist.'
+  Assert-Condition ([string]$rfc.path -ceq $canonicalRfcPath) 'Foundation RFC policy path differs from the canonical artifact.'
+  $rfcPath = Resolve-RepositoryLeafFile -RepositoryRoot $RepositoryRoot -RelativePath $canonicalRfcPath -Label 'Canonical foundation RFC'
   $rfcText = Get-Content -LiteralPath $rfcPath -Raw
   Assert-Condition ($rfcText -cmatch "(?m)^- \*\*Status:\*\* $([regex]::Escape([string]$rfc.status))\s*$") 'RFC header status does not match policy.'
-  $indexPath = Join-Path $RepositoryRoot 'docs/rfcs/README.md'
-  Assert-Condition (Test-Path -LiteralPath $indexPath -PathType Leaf) 'RFC index does not exist.'
+  $indexPath = Resolve-RepositoryLeafFile -RepositoryRoot $RepositoryRoot -RelativePath $canonicalIndexPath -Label 'Canonical RFC index'
   $indexText = Get-Content -LiteralPath $indexPath -Raw
-  Assert-Condition ($indexText -cmatch "(?m)^\|[^\r\n]*RFC 0001[^\r\n]*\|\s*$([regex]::Escape([string]$rfc.status))\s*\|") 'RFC index status does not match policy.'
+  $indexRowPattern = "(?m)^\|\s*\[RFC 0001\]\(0001-moonbit-native-foundation[.]md\)\s*\|[^\r\n|]+\|\s*$([regex]::Escape([string]$rfc.status))\s*\|[^\r\n|]+\|\s*$"
+  Assert-Condition ($indexText -cmatch $indexRowPattern) 'RFC index row must link the canonical RFC and match policy status.'
 
   $transition = Get-RequiredProperty $rfc 'transition' 'Foundation RFC'
   $transitionFrom = [string](Get-RequiredProperty $transition 'from' 'Foundation RFC transition')
