@@ -1,6 +1,7 @@
 # MoonBit build artifacts
 _build/
 target/
+pkg.generated.mbti
 
 # Editor and operating-system files
 .DS_Store
