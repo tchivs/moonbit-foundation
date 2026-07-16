@@ -22,13 +22,13 @@ MNF v0.1 is a contract-and-conformance milestone delivered as five horizontal la
 
 **Requirements:** GOV-01, GOV-02, GOV-03, GOV-04, WORK-01, WORK-02, WORK-03, WORK-04, WORK-05
 
-**Plans:** 1/8 plans executed
+**Plans:** 2/8 plans executed
 
 Plans:
 **Wave 1**
 
 - [x] 01-01-PLAN.md — Establish the canonical charter and auditable RFC lifecycle.
-- [ ] 01-02-PLAN.md — Single-source compatibility, licensing, publication, target, toolchain, and source-audit policy.
+- [x] 01-02-PLAN.md — Single-source compatibility, licensing, publication, target, toolchain, and source-audit policy.
 - [ ] 01-03-PLAN.md — Create the three-member workspace manifests and package target contracts.
 
 **Wave 2** *(blocked on Wave 1 completion)*
@@ -120,7 +120,7 @@ Plans:
 
 | Phase | Name | Requirements | Status |
 |------:|------|-------------:|--------|
-| 1 | Foundation Charter and Reproducible Workspace | 9 | In Progress (1/8 plans) |
+| 1 | Foundation Charter and Reproducible Workspace | 9 | In Progress (2/8 plans) |
 | 2 | Bounded Core Primitives | 8 | Not started |
 | 3 | Reference Color Semantics | 5 | Not started |
 | 4 | Image Model, Views, and Operations | 7 | Not started |

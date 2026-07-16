@@ -5,15 +5,15 @@ milestone_name: milestone
 current_phase: 1
 current_phase_name: Foundation Charter and Reproducible Workspace
 status: executing
-stopped_at: Completed 01-01-PLAN.md
-last_updated: "2026-07-16T07:14:12.992Z"
+stopped_at: Completed 01-02-PLAN.md
+last_updated: "2026-07-16T07:29:20.026Z"
 last_activity: 2026-07-16
-last_activity_desc: Completed 01-01 foundation charter and RFC lifecycle
+last_activity_desc: Completed 01-02 single-source foundation policy and source audit
 progress:
   total_phases: 1
   completed_phases: 0
   total_plans: 8
-  completed_plans: 1
+  completed_plans: 2
 ---
 
 # Project State
@@ -29,23 +29,24 @@ See `.planning/PROJECT.md` (updated 2026-07-16).
 ## Current Position
 
 Phase: 1 (Foundation Charter and Reproducible Workspace) — EXECUTING
-Plan: 2 of 8
+Plan: 3 of 8
 Status: Ready to execute
-Last activity: 2026-07-16 — Completed 01-01 foundation charter and RFC lifecycle
+Last activity: 2026-07-16 — Completed 01-02 single-source foundation policy and source audit
 
-Progress: [█░░░░░░░░░] 13%
+Progress: [███░░░░░░░] 25%
 
 ## Performance Metrics
 
 **Velocity:**
 
 - Phases completed: 0
-- Plans completed: 1
-- Requirements validated: 2/36
+- Plans completed: 2
+- Requirements validated: 6/36
 
 | Phase | Plan | Duration | Notes |
 |-------|------|----------|-------|
 | Phase 01 P01 | 4 min | 2 tasks | 3 files |
+| Phase 01 P02 | 10min | 3 tasks | 9 files |
 
 ## Accumulated Context
 
@@ -58,20 +59,23 @@ Progress: [█░░░░░░░░░] 13%
 - Reserve independent consumption and release qualification for a final explicit gate.
 - Keep RFC 0001 Proposed until an authorized acceptance route has authentic evidence.
 - Require accepted RFCs for new modules, public dependency-direction changes, and breaking architectural boundaries.
+- [Phase 01]: Machine-compared foundation facts have one owner in policy/foundation.json.
+- [Phase 01]: All three v0.1 modules start independently at 0.1.0 candidate while namespace publication stays blocked.
+- [Phase 01]: External fixtures require complete provenance and confirmed redistribution; generated fixtures are preferred.
 
 ### Pending Decisions
 
-- Resolve the mooncakes.io owner/namespace, project and fixture licenses, RFC acceptance authority, and stability-label policy in Phase 1.
+- Resolve mooncakes.io namespace ownership and RFC acceptance authority with authentic evidence in Phase 1.
 - Finalize numeric/tolerance, image lifetime/layout, resource-budget, and PPM subset details before their respective candidate APIs stabilize.
 
 ### Blockers
 
-None. Plan 01-02 is ready to execute.
+None. Plan 01-03 is ready to execute.
 
 ## Session Continuity
 
 **Resume file:** None
 
-Last session: 2026-07-16T07:14:12.967Z
-Stopped at: Completed 01-01-PLAN.md
-Resume with: Execute Plan 01-02 — single-source compatibility, licensing, publication, target, toolchain, and source-audit policy.
+Last session: 2026-07-16T07:29:20.006Z
+Stopped at: Completed 01-02-PLAN.md
+Resume with: Execute Plan 01-03 — three-member workspace manifests and package target contracts.

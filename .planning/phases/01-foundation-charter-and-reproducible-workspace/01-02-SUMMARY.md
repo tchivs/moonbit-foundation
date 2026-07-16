@@ -138,7 +138,21 @@ Each task was committed atomically:
 
 ## Deviations from Plan
 
-None - plan executed exactly as written.
+### Auto-fixed Issues
+
+**1. [Rule 1 - Bug] Repaired malformed generated roadmap and stale state fields**
+
+- **Found during:** Post-summary GSD state synchronization
+- **Issue:** `roadmap.update-plan-progress` rewrote the Phase 1 table row with shifted columns, while generic state handlers left the activity, velocity, decision phase labels, pending-decision text, blocker, and resume text stale.
+- **Fix:** Restored the four-column roadmap row and synchronized the affected state fields with the completed Plan 01-02 facts.
+- **Files modified:** `.planning/ROADMAP.md`, `.planning/STATE.md`
+- **Verification:** Re-read both files and checked the 2/8 plan count, 6/36 validated requirements, next-plan pointer, and intact progress-table schema.
+- **Committed in:** final state-sync commit
+
+---
+
+**Total deviations:** 1 auto-fixed (1 bug).
+**Impact on plan:** The repair only corrected generated planning metadata; production policy artifacts and scope were unchanged.
 
 ## Issues Encountered
 

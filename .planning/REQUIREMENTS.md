@@ -10,14 +10,14 @@
 
 - [x] **GOV-01**: A contributor can read an accepted foundation RFC that defines MNF's vision, principles, terminology, architectural layers, dependency direction, and v0.1 boundaries.
 - [x] **GOV-02**: A contributor can follow a documented RFC lifecycle with named statuses, acceptance authority, review expectations, and rules for breaking architectural changes.
-- [ ] **GOV-03**: A package consumer can distinguish experimental, candidate, and stable public APIs and understand the compatibility promise of each status.
-- [ ] **GOV-04**: A contributor can identify the chosen project license, fixture licensing rules, mooncakes.io owner/namespace, and module naming policy before public release.
+- [x] **GOV-03**: A package consumer can distinguish experimental, candidate, and stable public APIs and understand the compatibility promise of each status.
+- [x] **GOV-04**: A contributor can identify the chosen project license, fixture licensing rules, mooncakes.io owner/namespace, and module naming policy before public release.
 
 ### Workspace and Portability
 
 - [ ] **WORK-01**: A developer can clone the repository and operate `mb-core`, `mb-color`, and `mb-image` as three independently publishable MoonBit modules in one workspace.
-- [ ] **WORK-02**: A developer can reproduce the v0.1 development environment from a checked-in toolchain policy that records the exact `moon`, `moonc`, and `moonrun` baseline.
-- [ ] **WORK-03**: A consumer can inspect every public package's explicit supported-target declaration and determine whether it supports `native`, `wasm`, `wasm-gc`, or `js`.
+- [x] **WORK-02**: A developer can reproduce the v0.1 development environment from a checked-in toolchain policy that records the exact `moon`, `moonc`, and `moonrun` baseline.
+- [x] **WORK-03**: A consumer can inspect every public package's explicit supported-target declaration and determine whether it supports `native`, `wasm`, `wasm-gc`, or `js`.
 - [ ] **WORK-04**: A maintainer can run root-level format, check, test, documentation, package-content, and dependency-DAG validation without manually entering each module.
 - [ ] **WORK-05**: A maintainer can verify portable package behavior on every declared target while LLVM remains clearly non-blocking and experimental.
 - [ ] **WORK-06**: A release can qualify each module independently and in dependency order without requiring consumers to install unrelated MNF layers.
@@ -114,11 +114,11 @@
 |-------------|-------|--------|
 | GOV-01 | Phase 1 | Complete |
 | GOV-02 | Phase 1 | Complete |
-| GOV-03 | Phase 1 | Pending |
-| GOV-04 | Phase 1 | Pending |
+| GOV-03 | Phase 1 | Complete |
+| GOV-04 | Phase 1 | Complete |
 | WORK-01 | Phase 1 | Pending |
-| WORK-02 | Phase 1 | Pending |
-| WORK-03 | Phase 1 | Pending |
+| WORK-02 | Phase 1 | Complete |
+| WORK-03 | Phase 1 | Complete |
 | WORK-04 | Phase 1 | Pending |
 | WORK-05 | Phase 1 | Pending |
 | WORK-06 | Phase 5 | Pending |
