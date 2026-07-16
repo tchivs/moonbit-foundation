@@ -22,7 +22,7 @@ MNF v0.1 is a contract-and-conformance milestone delivered as five horizontal la
 
 **Requirements:** GOV-01, GOV-02, GOV-03, GOV-04, WORK-01, WORK-02, WORK-03, WORK-04, WORK-05
 
-**Plans:** 6/8 plans executed
+**Plans:** 7/8 plans executed
 
 Plans:
 **Wave 1**
@@ -39,7 +39,7 @@ Plans:
 
 **Wave 3** *(blocked on Wave 2 completion)*
 
-- [ ] 01-07-PLAN.md — Implement fail-closed policy/source-audit validation and pinned required/LLVM quality lanes.
+- [x] 01-07-PLAN.md — Implement fail-closed policy/source-audit validation and pinned required/LLVM quality lanes.
 
 **Wave 4** *(blocked on Wave 3 completion)*
 
@@ -120,7 +120,7 @@ Plans:
 
 | Phase | Name | Requirements | Status |
 |------:|------|-------------:|--------|
-| 1 | Foundation Charter and Reproducible Workspace | 9 | In Progress (6/8 plans) |
+| 1 | Foundation Charter and Reproducible Workspace | 9 | In Progress (7/8 plans) |
 | 2 | Bounded Core Primitives | 8 | Not started |
 | 3 | Reference Color Semantics | 5 | Not started |
 | 4 | Image Model, Views, and Operations | 7 | Not started |
