@@ -485,7 +485,13 @@
         "transfer/reference_vectors_wbtest.mbt",
         "transfer/transfer.mbt",
         "transfer/transfer_test.mbt",
-        "transfer/transfer_wbtest.mbt"
+        "transfer/transfer_wbtest.mbt",
+        "quantize",
+        "quantize/moon.pkg",
+        "quantize/quantize.mbt",
+        "quantize/quantize_test.mbt",
+        "quantize/quantize_wbtest.mbt",
+        "quantize/reference_vectors_wbtest.mbt"
       ],
       "public_packages": [
         {
@@ -587,6 +593,34 @@
             "pub fn encode_absolute_tolerance() -> Double",
             "pub fn encode_srgb(@model.LinearSrgbComponent) -> @model.EncodedSrgbComponent",
             "pub fn roundtrip_absolute_tolerance() -> Double"
+          ],
+          "supported_targets": [
+            "js",
+            "wasm",
+            "wasm-gc",
+            "native"
+          ]
+        },
+        {
+          "name": "moonbit-foundation/mb-color/quantize",
+          "path": "quantize",
+          "stability": "candidate",
+          "allowed_imports": [
+            "moonbit-foundation/mb-color/model",
+            "moonbit-foundation/mb-core/error",
+            "moonbit-foundation/mb-core/checked"
+          ],
+          "semantic_interface": [
+            "package \"moonbit-foundation/mb-color/quantize\"",
+            "import {",
+            "  \"moonbit-foundation/mb-color/model\",",
+            "  \"moonbit-foundation/mb-core/error\",",
+            "}",
+            "pub fn dequantize_alpha(@model.EncodedAlpha8) -> @model.NormalizedAlpha",
+            "pub fn dequantize_encoded_srgb(@model.EncodedSrgb8Component) -> @model.EncodedSrgbComponent",
+            "pub fn quantize_alpha(@model.NormalizedAlpha) -> @model.EncodedAlpha8",
+            "pub fn quantize_encoded_srgb(@model.EncodedSrgbComponent) -> @model.EncodedSrgb8Component",
+            "pub fn round_ratio_ties_even(UInt64, UInt64) -> Result[UInt64, @error.CoreError]"
           ],
           "supported_targets": [
             "js",
