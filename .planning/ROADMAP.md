@@ -22,6 +22,29 @@ MNF v0.1 is a contract-and-conformance milestone delivered as five horizontal la
 
 **Requirements:** GOV-01, GOV-02, GOV-03, GOV-04, WORK-01, WORK-02, WORK-03, WORK-04, WORK-05
 
+**Plans:** 8 plans
+
+Plans:
+**Wave 1**
+
+- [ ] 01-01-PLAN.md — Establish the canonical charter and auditable RFC lifecycle.
+- [ ] 01-02-PLAN.md — Single-source compatibility, licensing, publication, target, toolchain, and source-audit policy.
+- [ ] 01-03-PLAN.md — Create the three-member workspace manifests and package target contracts.
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
+- [ ] 01-04-PLAN.md — Add the private mb-core build, test, documentation, and release-ledger surface.
+- [ ] 01-05-PLAN.md — Add the private mb-color build, test, documentation, and release-ledger surface.
+- [ ] 01-06-PLAN.md — Add the private mb-image build, test, documentation, and release-ledger surface.
+
+**Wave 3** *(blocked on Wave 2 completion)*
+
+- [ ] 01-07-PLAN.md — Implement fail-closed policy/source-audit validation and pinned required/LLVM quality lanes.
+
+**Wave 4** *(blocked on Wave 3 completion)*
+
+- [ ] 01-08-PLAN.md — Record authentic RFC acceptance and run final exact qualification.
+
 **Success Criteria:**
 
 1. A contributor can follow the accepted foundation RFC from architectural principles through v0.1 boundaries and the documented RFC lifecycle, including who accepts breaking changes.
@@ -107,4 +130,3 @@ MNF v0.1 is a contract-and-conformance milestone delivered as five horizontal la
 
 ---
 *Roadmap created: 2026-07-16*
-

@@ -400,22 +400,19 @@ The action documents the exact-version input form; the tag-to-commit resolution 
 |---|-------|---------|---------------|
 | — | None. Recommendations are derived from locked decisions, current official documentation, repository inspection, and local CLI probes. | — | — |
 
-## Open Questions
+## Open Questions (RESOLVED)
 
-1. **Has the minimum seven-day public review window for RFC 0001 already elapsed with public evidence?**
-   - What we know: the RFC was created on 2026-07-16 and is currently Draft. [VERIFIED: repository inspection]
-   - What's unclear: whether an external discussion started earlier or two maintainer approvals are available.
-   - Recommendation: planning must include an acceptance checkpoint that records real evidence; implementation can scaffold before acceptance, but Phase 1 cannot be complete until the locked acceptance rule is met.
+1. **Authentic RFC acceptance evidence — resolved fail-closed.**
+   - Disposition: RFC 0001 remains Proposed unless a human supplies authentic evidence for one complete D-03 route: either two maintainer approvals with no unresolved blocking objection, or project-lead acceptance after at least seven elapsed days of public review with no unresolved blocking objection.
+   - Planning consequence: Plan 01-08 is non-autonomous and contains an explicit evidence-handoff checkpoint. Automation validates supplied evidence and never fabricates dates, approvers, elapsed time, review links, or acceptance.
 
-2. **Is `moonbit-foundation` ownership already verifiable on mooncakes.io?**
-   - What we know: publication is explicitly blocked until verified, while manifests must use final names. [VERIFIED: CONTEXT.md]
-   - What's unclear: current external ownership state was not part of this research task.
-   - Recommendation: keep `publication.blocked=true`; do not make Phase 1 depend on actual publishing.
+2. **mooncakes.io namespace ownership — resolved as a publication block.**
+   - Disposition: manifests use the final `moonbit-foundation/mb-*` names, while `publication.blocked=true` remains mandatory until independently verified ownership evidence exists.
+   - Planning consequence: Phase 1 does not publish and does not depend on namespace acquisition; validation fails if publication is enabled without ownership evidence.
 
-3. **Does the pinned setup action successfully fetch the exact requested bundle on all selected CI runners?**
-   - What we know: its README documents exact version inputs and cross-platform runner support. [CITED: https://github.com/hustcer/setup-moonbit]
-   - What's unclear: the specific 20260713 bundle has not been exercised in this repository's CI.
-   - Recommendation: make the first CI implementation task run the action plus the three-binary gate; if setup cannot fetch it, use the official installer/archive mechanism but keep the same fail-closed policy.
+3. **Exact CI bundle availability — resolved with a documented installer fallback.**
+   - Disposition: first use the full-SHA-pinned setup action with the exact version input. If an actual CI run proves that bundle unavailable through the action, replace only the setup step with the official exact-version archive/installer documented by MoonBit.
+   - Planning consequence: both paths must run the same independent `moon`, `moonc`, and `moonrun` identity gate before build work; no floating version or best-effort downgrade is allowed.
 
 ## Environment Availability
 
