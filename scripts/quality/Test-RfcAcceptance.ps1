@@ -64,6 +64,41 @@ No second approval and no seven-day public review are claimed.
 - **Disposition:** approved
 '@ | Set-Content -LiteralPath (Join-Path $root 'reviews/rfc-0001.md') -Encoding utf8
   @'
+# External evidence verifications
+
+## Review location
+
+- **External-Reference:** https://reviews.moonbit-foundation.org/rfc/1
+- **Method:** manual
+- **Verified-By:** test-reviewer
+- **Verified-At:** 2026-07-08T01:00:00Z
+- **Disposition:** verified
+
+## Review opened
+
+- **External-Reference:** https://reviews.moonbit-foundation.org/rfc/1#opened
+- **Method:** manual
+- **Verified-By:** test-reviewer
+- **Verified-At:** 2026-07-08T01:00:00Z
+- **Disposition:** verified
+
+## Review closed
+
+- **External-Reference:** https://reviews.moonbit-foundation.org/rfc/1#closed
+- **Method:** manual
+- **Verified-By:** test-reviewer
+- **Verified-At:** 2026-07-08T01:00:00Z
+- **Disposition:** verified
+
+## Lead approval verification
+
+- **External-Reference:** https://reviews.moonbit-foundation.org/rfc/1#lead-approval
+- **Method:** manual
+- **Verified-By:** test-reviewer
+- **Verified-At:** 2026-07-08T01:00:00Z
+- **Disposition:** verified
+'@ | Set-Content -LiteralPath (Join-Path $root 'reviews/external-verification.md') -Encoding utf8
+  @'
 # RFC 0001 qualification
 
 ## Qualification
@@ -98,6 +133,7 @@ function New-TestPolicy([string]$Status = 'Accepted', [string]$Route = 'sole-pro
     acceptance_route = $Route; authority = 'sole-project-owner'; approvers = @(); approval_records = @()
     project_lead = $null; project_owner = 'sole-project-owner'
     public_review_url = $null; public_review_started_at = $null; public_review_ended_at = $null; public_review_evidence = $null
+    external_evidence_verifications = @()
     decision_evidence_path = 'docs/governance/decisions/0001-sole-owner-bootstrap.md'
     decision_evidence_anchors = @('owner-instruction','conversation-context-and-interpretation','authorization-and-conditions','edge-review-results')
     edge_reviews = @(
@@ -296,14 +332,30 @@ $duplicateIdentityCommit = Copy-TestObject $maintainer
 Invoke-AcceptanceCase 'maintainer route rejects duplicate approval identity trailer' $duplicateIdentityCommit $maintainerRoster $false { param($root,$policy,$caseRoster) Set-TestMaintainerCommitApproval $root $policy $caseRoster "Approve RFC 0001`n`nApproval-Identity: alice`nApproval-Identity: mallory`nApproval-Role: maintainer`nApproval-Disposition: approved" } 'exactly one Approval-Identity trailer'
 
 $lead=Copy-TestObject $accepted
-$l=$lead.rfc.current_foundation_rfc;$l.acceptance_route='project-lead-public-review';$l.authority='project-lead';$l.approvers=@();$l.approval_records=@([pscustomobject]@{identity='lead';role='project-lead';reference='https://reviews.invalid/rfc/1#lead-approval'});$l.project_lead='lead';$l.project_owner=$null;$l.public_review_url='https://reviews.invalid/rfc/1';$l.public_review_started_at='2026-07-01T00:00:00Z';$l.public_review_ended_at='2026-07-08T00:00:00Z';$l.public_review_evidence=[pscustomobject]@{location_reference='https://reviews.invalid/rfc/1';opened=[pscustomobject]@{at='2026-07-01T00:00:00Z';reference='https://reviews.invalid/rfc/1#opened'};closed=[pscustomobject]@{at='2026-07-08T00:00:00Z';reference='https://reviews.invalid/rfc/1#closed'}};$l.decision_evidence_path=$null;$l.decision_evidence_anchors=@();$l.edge_reviews=@();$l.acceptance_evidence=@('https://reviews.invalid/rfc/1','https://reviews.invalid/rfc/1#opened','https://reviews.invalid/rfc/1#closed','https://reviews.invalid/rfc/1#lead-approval');$l.transition.evidence=@($l.acceptance_evidence)
+$l=$lead.rfc.current_foundation_rfc;$l.acceptance_route='project-lead-public-review';$l.authority='project-lead';$l.approvers=@();$l.approval_records=@([pscustomobject]@{identity='lead';role='project-lead';reference='https://reviews.moonbit-foundation.org/rfc/1#lead-approval'});$l.project_lead='lead';$l.project_owner=$null;$l.public_review_url='https://reviews.moonbit-foundation.org/rfc/1';$l.public_review_started_at='2026-07-01T00:00:00Z';$l.public_review_ended_at='2026-07-08T00:00:00Z';$l.public_review_evidence=[pscustomobject]@{location_reference='https://reviews.moonbit-foundation.org/rfc/1';opened=[pscustomobject]@{at='2026-07-01T00:00:00Z';reference='https://reviews.moonbit-foundation.org/rfc/1#opened'};closed=[pscustomobject]@{at='2026-07-08T00:00:00Z';reference='https://reviews.moonbit-foundation.org/rfc/1#closed'}};$l.decision_evidence_path=$null;$l.decision_evidence_anchors=@();$l.edge_reviews=@();$l.acceptance_evidence=@('https://reviews.moonbit-foundation.org/rfc/1','https://reviews.moonbit-foundation.org/rfc/1#opened','https://reviews.moonbit-foundation.org/rfc/1#closed','https://reviews.moonbit-foundation.org/rfc/1#lead-approval');$l.transition.evidence=@($l.acceptance_evidence)
+$l.external_evidence_verifications=@(
+  [pscustomobject]@{reference='https://reviews.moonbit-foundation.org/rfc/1';verification_reference='reviews/external-verification.md#review-location';verified_at='2026-07-08T01:00:00Z';verified_by='test-reviewer';method='manual'},
+  [pscustomobject]@{reference='https://reviews.moonbit-foundation.org/rfc/1#opened';verification_reference='reviews/external-verification.md#review-opened';verified_at='2026-07-08T01:00:00Z';verified_by='test-reviewer';method='manual'},
+  [pscustomobject]@{reference='https://reviews.moonbit-foundation.org/rfc/1#closed';verification_reference='reviews/external-verification.md#review-closed';verified_at='2026-07-08T01:00:00Z';verified_by='test-reviewer';method='manual'},
+  [pscustomobject]@{reference='https://reviews.moonbit-foundation.org/rfc/1#lead-approval';verification_reference='reviews/external-verification.md#lead-approval-verification';verified_at='2026-07-08T01:00:00Z';verified_by='test-reviewer';method='manual'}
+)
 $leadRoster=[pscustomobject]@{schema_version='1.0.0';maintainers=@([pscustomobject]@{identity='lead';roles=@('maintainer','project-lead');evidence='local'})}
 Invoke-AcceptanceCase 'project lead seven-day route' $lead $leadRoster $true $null
-$leadMissingLocation=Copy-TestObject $lead;$leadMissingLocation.rfc.current_foundation_rfc.acceptance_evidence=@($leadMissingLocation.rfc.current_foundation_rfc.acceptance_evidence|Where-Object{$_ -cne 'https://reviews.invalid/rfc/1'});$leadMissingLocation.rfc.current_foundation_rfc.transition.evidence=@($leadMissingLocation.rfc.current_foundation_rfc.acceptance_evidence)
+$reservedLead = ((Copy-TestObject $lead | ConvertTo-Json -Depth 30).Replace('reviews.moonbit-foundation.org','reviews.invalid') | ConvertFrom-Json -DateKind String)
+Invoke-AcceptanceCase 'project lead rejects reserved invalid HTTPS host' $reservedLead $leadRoster $false $null 'reserved non-evidentiary HTTPS host'
+$exampleLead = ((Copy-TestObject $lead | ConvertTo-Json -Depth 30).Replace('reviews.moonbit-foundation.org','example.com') | ConvertFrom-Json -DateKind String)
+Invoke-AcceptanceCase 'project lead rejects reserved example HTTPS host' $exampleLead $leadRoster $false $null 'placeholder evidence|reserved non-evidentiary HTTPS host'
+$missingExternalVerification = Copy-TestObject $lead; $missingExternalVerification.rfc.current_foundation_rfc.external_evidence_verifications=@($missingExternalVerification.rfc.current_foundation_rfc.external_evidence_verifications | Select-Object -Skip 1)
+Invoke-AcceptanceCase 'project lead requires external verification record' $missingExternalVerification $leadRoster $false $null 'requires exactly one verification record'
+$futureExternalVerification = Copy-TestObject $lead; $futureExternalVerification.rfc.current_foundation_rfc.external_evidence_verifications[0].verified_at='2099-01-01T00:00:00Z'
+Invoke-AcceptanceCase 'project lead rejects future external verification' $futureExternalVerification $leadRoster $false $null 'verification timestamp must have elapsed'
+$missingVerificationAnchor = Copy-TestObject $lead; $missingVerificationAnchor.rfc.current_foundation_rfc.external_evidence_verifications[0].verification_reference='reviews/external-verification.md#missing'
+Invoke-AcceptanceCase 'project lead rejects missing verification anchor' $missingVerificationAnchor $leadRoster $false $null 'Markdown anchor.*does not identify'
+$leadMissingLocation=Copy-TestObject $lead;$leadMissingLocation.rfc.current_foundation_rfc.acceptance_evidence=@($leadMissingLocation.rfc.current_foundation_rfc.acceptance_evidence|Where-Object{$_ -cne 'https://reviews.moonbit-foundation.org/rfc/1'});$leadMissingLocation.rfc.current_foundation_rfc.transition.evidence=@($leadMissingLocation.rfc.current_foundation_rfc.acceptance_evidence)
 Invoke-AcceptanceCase 'project lead binds review location in ledger' $leadMissingLocation $leadRoster $false $null 'Project-lead acceptance evidence count mismatch'
-$leadMissingOpen=Copy-TestObject $lead;$leadMissingOpen.rfc.current_foundation_rfc.acceptance_evidence=@($leadMissingOpen.rfc.current_foundation_rfc.acceptance_evidence|Where-Object{$_ -cne 'https://reviews.invalid/rfc/1#opened'});$leadMissingOpen.rfc.current_foundation_rfc.transition.evidence=@($leadMissingOpen.rfc.current_foundation_rfc.acceptance_evidence)
+$leadMissingOpen=Copy-TestObject $lead;$leadMissingOpen.rfc.current_foundation_rfc.acceptance_evidence=@($leadMissingOpen.rfc.current_foundation_rfc.acceptance_evidence|Where-Object{$_ -cne 'https://reviews.moonbit-foundation.org/rfc/1#opened'});$leadMissingOpen.rfc.current_foundation_rfc.transition.evidence=@($leadMissingOpen.rfc.current_foundation_rfc.acceptance_evidence)
 Invoke-AcceptanceCase 'project lead binds review opening in ledger' $leadMissingOpen $leadRoster $false $null 'Project-lead acceptance evidence count mismatch'
-$leadMissingClose=Copy-TestObject $lead;$leadMissingClose.rfc.current_foundation_rfc.acceptance_evidence=@($leadMissingClose.rfc.current_foundation_rfc.acceptance_evidence|Where-Object{$_ -cne 'https://reviews.invalid/rfc/1#closed'});$leadMissingClose.rfc.current_foundation_rfc.transition.evidence=@($leadMissingClose.rfc.current_foundation_rfc.acceptance_evidence)
+$leadMissingClose=Copy-TestObject $lead;$leadMissingClose.rfc.current_foundation_rfc.acceptance_evidence=@($leadMissingClose.rfc.current_foundation_rfc.acceptance_evidence|Where-Object{$_ -cne 'https://reviews.moonbit-foundation.org/rfc/1#closed'});$leadMissingClose.rfc.current_foundation_rfc.transition.evidence=@($leadMissingClose.rfc.current_foundation_rfc.acceptance_evidence)
 Invoke-AcceptanceCase 'project lead binds review closing in ledger' $leadMissingClose $leadRoster $false $null 'Project-lead acceptance evidence count mismatch'
 $short=Copy-TestObject $lead;$short.rfc.current_foundation_rfc.public_review_ended_at='2026-07-07T00:00:00Z';$short.rfc.current_foundation_rfc.public_review_evidence.closed.at='2026-07-07T00:00:00Z'
 Invoke-AcceptanceCase 'project lead route needs seven elapsed days' $short $leadRoster $false $null 'requires seven elapsed days'

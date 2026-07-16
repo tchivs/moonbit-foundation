@@ -186,14 +186,41 @@ function Get-MarkdownSectionByAnchor {
 }
 
 function Assert-ApprovalReference {
-  param([string]$Reference, [string]$Identity, [string]$Role, [string]$RepositoryRoot)
+  param([string]$Reference, [string]$Identity, [string]$Role, [string]$RepositoryRoot, [object[]]$ExternalVerifications = @(), [DateTimeOffset]$Now = [DateTimeOffset]::UtcNow)
   Assert-Condition (-not [string]::IsNullOrWhiteSpace($Reference)) "Approval for '$Identity' requires a reference."
   $isHttps = $Reference -cmatch '^https://[^\s]+$'
   $repositoryMatch = [regex]::Match($Reference, '^(?<path>(?:docs|reviews|[.]planning)/[^\s#]+)#(?<anchor>[^\s#]+)$')
   $commitMatch = [regex]::Match($Reference, '^commit:(?<sha>[0-9a-f]{7,40})$')
   Assert-Condition ($isHttps -or $repositoryMatch.Success -or $commitMatch.Success) "Approval for '$Identity' must use an HTTPS review URL or stable repository reference."
   Assert-Condition ($Reference -cnotmatch '(?i)(placeholder|example|todo|tbd|dummy|fake)') "Approval for '$Identity' uses placeholder evidence."
-  if ($isHttps) { return }
+  if ($isHttps) {
+    $uri = [uri]$Reference
+    $evidenceHost = $uri.DnsSafeHost.ToLowerInvariant()
+    $reserved = $evidenceHost -in @('localhost','example.com','example.net','example.org') -or $evidenceHost -cmatch '[.](?:invalid|test|example)$'
+    Assert-Condition (-not $reserved) "Approval for '$Identity' uses a reserved non-evidentiary HTTPS host '$evidenceHost'."
+    $records = @($ExternalVerifications | Where-Object { [string]$_.reference -ceq $Reference })
+    Assert-Condition ($records.Count -eq 1) "External evidence '$Reference' requires exactly one verification record."
+    $record = $records[0]
+    Assert-Condition ([string]$record.method -ceq 'manual') "External evidence '$Reference' verification method must be manual."
+    Assert-Condition (-not [string]::IsNullOrWhiteSpace([string]$record.verified_by)) "External evidence '$Reference' requires verified_by."
+    $verifiedAtText = [string]$record.verified_at
+    $verifiedAt = ConvertFrom-RfcTimestamp -Value $verifiedAtText -Label "External evidence '$Reference' verification timestamp"
+    Assert-Condition ($verifiedAt -le $Now) "External evidence '$Reference' verification timestamp must have elapsed."
+    $verificationMatch = [regex]::Match([string]$record.verification_reference, '^(?<path>(?:docs|reviews|[.]planning)/[^\s#]+)#(?<anchor>[^\s#]+)$')
+    Assert-Condition $verificationMatch.Success "External evidence '$Reference' verification_reference must identify a repository Markdown anchor."
+    $verificationFile = Resolve-RepositoryLeafFile -RepositoryRoot $RepositoryRoot -RelativePath $verificationMatch.Groups['path'].Value -Label "External evidence '$Reference' verification"
+    $section = Get-MarkdownSectionByAnchor -Text (Get-Content -LiteralPath $verificationFile -Raw) -Anchor $verificationMatch.Groups['anchor'].Value
+    foreach ($binding in @(
+      [pscustomobject]@{ label='External-Reference'; value=$Reference },
+      [pscustomobject]@{ label='Method'; value='manual' },
+      [pscustomobject]@{ label='Verified-By'; value=[string]$record.verified_by },
+      [pscustomobject]@{ label='Verified-At'; value=$verifiedAtText },
+      [pscustomobject]@{ label='Disposition'; value='verified' }
+    )) {
+      Assert-Condition ($section -cmatch "(?m)^- \*\*$([regex]::Escape($binding.label)):\*\* $([regex]::Escape([string]$binding.value))\s*$") "External evidence verification artifact does not bind $($binding.label) for '$Reference'."
+    }
+    return
+  }
   if ($repositoryMatch.Success) {
     $approvalFile = Resolve-RepositoryLeafFile -RepositoryRoot $RepositoryRoot -RelativePath $repositoryMatch.Groups['path'].Value -Label "Approval for '$Identity'"
     $section = Get-MarkdownSectionByAnchor -Text (Get-Content -LiteralPath $approvalFile -Raw) -Anchor $repositoryMatch.Groups['anchor'].Value
@@ -375,6 +402,7 @@ function Assert-RfcAcceptanceState {
   $transitionFrom = [string](Get-RequiredProperty $transition 'from' 'Foundation RFC transition')
   $transitionTo = [string](Get-RequiredProperty $transition 'to' 'Foundation RFC transition')
   $transitionEvidence = @(Get-RequiredProperty $transition 'evidence' 'Foundation RFC transition')
+  $externalVerifications = @(Get-RequiredProperty $rfc 'external_evidence_verifications' 'Foundation RFC')
   Assert-Condition ($transitionTo -ceq [string]$rfc.status) 'RFC transition target does not match current status.'
   $legalPriorStates = @{
     'Draft' = @('—')
@@ -478,7 +506,7 @@ function Assert-RfcAcceptanceState {
       Assert-Condition (@($approvalRecords.reference | Group-Object -CaseSensitive | Where-Object Count -ne 1).Count -eq 0) 'Maintainer approval references must be distinct.'
       foreach ($approval in $approvalRecords) {
         Assert-Condition ([string]$approval.role -ceq 'maintainer') "Approval for '$($approval.identity)' must record the maintainer role."
-        Assert-ApprovalReference -Reference ([string]$approval.reference) -Identity ([string]$approval.identity) -Role 'maintainer' -RepositoryRoot $RepositoryRoot
+        Assert-ApprovalReference -Reference ([string]$approval.reference) -Identity ([string]$approval.identity) -Role 'maintainer' -RepositoryRoot $RepositoryRoot -ExternalVerifications $externalVerifications -Now $Now
       }
       Assert-ExactSet 'Maintainer acceptance evidence' @($rfc.acceptance_evidence) @($approvalRecords.reference)
       Assert-Condition ($rfc.authority -ceq 'maintainers') 'Maintainer route authority must be maintainers.'
@@ -495,7 +523,7 @@ function Assert-RfcAcceptanceState {
       Assert-Condition ([string]$rfc.public_review_url -cmatch '^https?://') 'Project-lead route requires a public review URL.'
       $leadApprovals = @($rfc.approval_records)
       Assert-Condition ($leadApprovals.Count -eq 1 -and [string]$leadApprovals[0].identity -ceq [string]$rfc.project_lead -and [string]$leadApprovals[0].role -ceq 'project-lead') 'Project-lead route requires one approval record bound to the canonical project lead.'
-      Assert-ApprovalReference -Reference ([string]$leadApprovals[0].reference) -Identity ([string]$rfc.project_lead) -Role 'project-lead' -RepositoryRoot $RepositoryRoot
+      Assert-ApprovalReference -Reference ([string]$leadApprovals[0].reference) -Identity ([string]$rfc.project_lead) -Role 'project-lead' -RepositoryRoot $RepositoryRoot -ExternalVerifications $externalVerifications -Now $Now
       $reviewEvidence = Get-RequiredProperty $rfc 'public_review_evidence' 'Project-lead RFC'
       Assert-Condition ($null -ne $reviewEvidence) 'Project-lead route requires structured public-review evidence.'
       $locationReference = [string](Get-RequiredProperty $reviewEvidence 'location_reference' 'Public-review evidence')
@@ -507,7 +535,7 @@ function Assert-RfcAcceptanceState {
       $closedReference = [string](Get-RequiredProperty $closed 'reference' 'Public-review closing evidence')
       Assert-Condition ($locationReference -ceq [string]$rfc.public_review_url) 'Public-review location evidence must equal the declared review URL.'
       Assert-Condition ($openedAt -ceq [string]$rfc.public_review_started_at -and $closedAt -ceq [string]$rfc.public_review_ended_at) 'Public-review opening and closing evidence must bind the declared interval values.'
-      foreach ($reference in @($locationReference,$openedReference,$closedReference)) { Assert-ApprovalReference -Reference $reference -Identity 'public-review' -Role 'evidence' -RepositoryRoot $RepositoryRoot }
+      foreach ($reference in @($locationReference,$openedReference,$closedReference)) { Assert-ApprovalReference -Reference $reference -Identity 'public-review' -Role 'evidence' -RepositoryRoot $RepositoryRoot -ExternalVerifications $externalVerifications -Now $Now }
       $expectedLeadEvidence = @([string]$leadApprovals[0].reference,$locationReference,$openedReference,$closedReference)
       Assert-ExactSet 'Project-lead acceptance evidence' @($rfc.acceptance_evidence) $expectedLeadEvidence
       $started = ConvertFrom-RfcTimestamp -Value ([string]$rfc.public_review_started_at) -Label 'Public review start'
@@ -567,6 +595,8 @@ function Assert-RfcAcceptanceState {
       Assert-ExactSet 'Sole-owner acceptance evidence' @($rfc.acceptance_evidence) $expectedAcceptanceEvidence
     }
   }
+  $httpsAcceptanceReferences = @($rfc.acceptance_evidence | ForEach-Object { [string]$_ } | Where-Object { $_ -cmatch '^https://' })
+  Assert-ExactSet 'External evidence verification references' @($externalVerifications | ForEach-Object { [string]$_.reference }) $httpsAcceptanceReferences
 }
 
 function Assert-FoundationPolicy {
