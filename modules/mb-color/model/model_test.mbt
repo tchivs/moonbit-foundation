@@ -115,10 +115,7 @@ test "non-finite and out-of-range normalized values are rejected without clampin
     ),
     content="true",
   )
-  inspect(
-    @model.LinearSrgbComponent::new(nan) is Err(_),
-    content="true",
-  )
+  inspect(@model.LinearSrgbComponent::new(nan) is Err(_), content="true")
   inspect(@model.LinearSrgbComponent::new(-1.0) is Err(_), content="true")
   inspect(@model.NormalizedAlpha::new(infinity) is Err(_), content="true")
   inspect(@model.NormalizedAlpha::new(2.0) is Err(_), content="true")
@@ -172,15 +169,21 @@ test "encoded alpha is distinct from color transfer identity" {
 
 ///|
 test "closed identity vocabulary names every supported state" {
-  inspect(@model.ColorSpaceIdentity::Srgb == @model.ColorSpaceIdentity::Srgb, content="true")
+  inspect(
+    @model.ColorSpaceIdentity::Srgb == @model.ColorSpaceIdentity::Srgb,
+    content="true",
+  )
   inspect(
     @model.TransferIdentity::EncodedSrgb != @model.TransferIdentity::LinearSrgb,
     content="true",
   )
   inspect(
     @model.ComponentRepresentation::NormalizedDouble !=
-      @model.ComponentRepresentation::Encoded8,
+    @model.ComponentRepresentation::Encoded8,
     content="true",
   )
-  inspect(@model.AlphaMode::Straight != @model.AlphaMode::Premultiplied, content="true")
+  inspect(
+    @model.AlphaMode::Straight != @model.AlphaMode::Premultiplied,
+    content="true",
+  )
 }
