@@ -34,10 +34,22 @@ function Get-CompactTargetSet {
 function Get-PackageImportSet {
   param([string]$Text, [string]$Label)
   $imports = [System.Collections.Generic.List[string]]::new()
-  foreach ($match in [regex]::Matches($Text, '(?m)^\s*import\s+"(?<name>[^"]+)"(?:\s+as\s+\w+)?\s*$')) {
+  $singlePattern = '(?m)^\s*import\s+"(?<name>[^"]+)"(?:\s+as\s+\w+)?\s*$'
+  foreach ($match in [regex]::Matches($Text, $singlePattern)) {
     $imports.Add($match.Groups['name'].Value)
   }
-  $unparsed = @($Text -split '\r?\n' | Where-Object { $_ -cmatch '^\s*import\b' -and $_ -cnotmatch '^\s*import\s+"[^"]+"(?:\s+as\s+\w+)?\s*$' })
+  $blockPattern = '(?ms)^\s*import\s*\{\s*\r?\n(?<body>.*?)^\s*\}(?:\s+for\s+"[^"]+")?\s*$'
+  foreach ($block in [regex]::Matches($Text, $blockPattern)) {
+    $bodyLines = @($block.Groups['body'].Value -split '\r?\n' | Where-Object { -not [string]::IsNullOrWhiteSpace($_) })
+    foreach ($line in $bodyLines) {
+      $entry = [regex]::Match($line, '^\s*"(?<name>[^"]+)"(?:\s+as\s+\w+)?\s*,?\s*$')
+      Assert-Condition $entry.Success "$Label contains an unsupported import entry: $line."
+      $imports.Add($entry.Groups['name'].Value)
+    }
+  }
+  $recognized = [regex]::Replace($Text, $blockPattern, '')
+  $recognized = [regex]::Replace($recognized, $singlePattern, '')
+  $unparsed = @($recognized -split '\r?\n' | Where-Object { $_ -cmatch '^\s*import\b' })
   Assert-Condition ($unparsed.Count -eq 0) "$Label contains an unsupported import declaration: $($unparsed -join ' | ')."
   return @($imports)
 }
