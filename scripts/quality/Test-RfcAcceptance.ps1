@@ -163,4 +163,22 @@ Invoke-AcceptanceCase 'RFC index status mismatch' $indexMismatch $roster $false 
 $fileAnchorMissing=Copy-TestObject $accepted
 Invoke-AcceptanceCase 'decision file missing anchor' $fileAnchorMissing $roster $false { param($root) (Get-Content -Raw (Join-Path $root 'docs/governance/decisions/0001-sole-owner-bootstrap.md')).Replace('## Edge review results','## Missing') | Set-Content -LiteralPath (Join-Path $root 'docs/governance/decisions/0001-sole-owner-bootstrap.md') }
 
+$linkRoot = New-TestRepository
+$externalDecision = Join-Path ([System.IO.Path]::GetTempPath()) ("mnf-rfc-external-" + [guid]::NewGuid().ToString('N') + '.md')
+try {
+  Write-TestState $linkRoot $accepted $roster
+  $canonicalDecision = Join-Path $linkRoot 'docs/governance/decisions/0001-sole-owner-bootstrap.md'
+  Copy-Item -LiteralPath $canonicalDecision -Destination $externalDecision
+  Remove-Item -LiteralPath $canonicalDecision -Force
+  [void](New-Item -ItemType SymbolicLink -Path $canonicalDecision -Target $externalDecision -ErrorAction Stop)
+  $linkAccepted = $true
+  try { Assert-RfcAcceptanceState -Policy $accepted -RosterPath (Join-Path $linkRoot 'policy/maintainers.json') -RepositoryRoot $linkRoot }
+  catch { $linkAccepted = $false }
+  if ($linkAccepted) { throw 'RFC acceptance case canonical decision symlink escape expected rejection but was accepted.' }
+  Write-Host 'PASS: canonical decision symlink escape'
+} finally {
+  Remove-Item -LiteralPath $linkRoot -Recurse -Force -ErrorAction SilentlyContinue
+  Remove-Item -LiteralPath $externalDecision -Force -ErrorAction SilentlyContinue
+}
+
 Write-Host 'RFC acceptance route matrix passed.'

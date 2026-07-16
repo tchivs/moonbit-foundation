@@ -90,6 +90,19 @@ function Resolve-RfcEvidenceFile {
   $rootPrefix = $rootFull + [System.IO.Path]::DirectorySeparatorChar
   $fullPath = [System.IO.Path]::GetFullPath((Join-Path $rootFull $RelativePath))
   Assert-Condition ($fullPath.StartsWith($rootPrefix, [System.StringComparison]::OrdinalIgnoreCase)) 'RFC evidence path escapes the repository root.'
+  $currentPath = $rootFull
+  for ($index = 0; $index -lt $segments.Count; $index++) {
+    $segment = [string]$segments[$index]
+    Assert-Condition (-not [string]::IsNullOrWhiteSpace($segment) -and $segment -cne '.') 'RFC evidence path contains an invalid segment.'
+    $currentPath = Join-Path $currentPath $segment
+    Assert-Condition (Test-Path -LiteralPath $currentPath) "RFC evidence path component '$segment' does not exist."
+    $item = Get-Item -LiteralPath $currentPath -Force
+    $isReparsePoint = ($item.Attributes -band [System.IO.FileAttributes]::ReparsePoint) -ne 0
+    Assert-Condition (-not $isReparsePoint) "RFC evidence path component '$segment' must not be a symbolic link or reparse point."
+    if ($index -lt ($segments.Count - 1)) {
+      Assert-Condition ($item.PSIsContainer) "RFC evidence ancestor '$segment' must be a directory."
+    }
+  }
   Assert-Condition (Test-Path -LiteralPath $fullPath -PathType Leaf) 'RFC evidence path must resolve to an existing leaf file.'
   return $fullPath
 }
