@@ -90,10 +90,17 @@ function New-TestPolicy([string]$Status = 'Accepted', [string]$Route = 'sole-pro
 
 function Write-TestState([string]$Root, [object]$Policy, [object]$Roster) {
   $status = [string]$Policy.rfc.current_foundation_rfc.status
-  $transition = $Policy.rfc.current_foundation_rfc.transition
-  $evidence = @($transition.evidence) -join '; '
-  @("# RFC 0001", "", "- **Status:** $status", "", "## Transition history", "", "| From | To | Evidence |", "|---|---|---|", "| $($transition.from) | $($transition.to) | $evidence |") | Set-Content -LiteralPath (Join-Path $Root 'docs/rfcs/0001-moonbit-native-foundation.md') -Encoding utf8
-  @("# RFC index", "", "| RFC | Status |", "|---|---|", "| RFC 0001 | $status |") | Set-Content -LiteralPath (Join-Path $Root 'docs/rfcs/README.md') -Encoding utf8
+  $rfc = $Policy.rfc.current_foundation_rfc
+  $rows = [System.Collections.Generic.List[string]]::new()
+  $rows.Add('| — | Draft | repository:initial-draft |')
+  if ($status -cne 'Draft' -and -not ($status -ceq 'Rejected' -and [string]$rfc.transition.from -ceq 'Draft')) { $rows.Add('| Draft | Proposed | repository:proposed-revision |') }
+  $hasAcceptedHistory = $status -in @('Accepted','Implemented') -or ($status -ceq 'Superseded' -and [string]$rfc.transition.from -in @('Accepted','Implemented'))
+  $hasImplementedHistory = $status -ceq 'Implemented' -or ($status -ceq 'Superseded' -and [string]$rfc.transition.from -ceq 'Implemented')
+  if ($hasAcceptedHistory) { $rows.Add('| Proposed | Accepted | ' + (@($rfc.acceptance_evidence) -join '; ') + ' |') }
+  if ($hasImplementedHistory) { $rows.Add('| Accepted | Implemented | ' + (@($rfc.implementation_evidence) + @($rfc.qualification_evidence) -join '; ') + ' |') }
+  if ($status -in @('Rejected','Superseded')) { $rows.Add("| $($rfc.transition.from) | $status | " + (@($rfc.transition.evidence) -join '; ') + ' |') }
+  @("# RFC 0001", "", "- **Status:** $status", "", "## Transition history", "", "| From | To | Evidence |", "|---|---|---|") + @($rows) | Set-Content -LiteralPath (Join-Path $Root 'docs/rfcs/0001-moonbit-native-foundation.md') -Encoding utf8
+  @("# RFC index", "", "| RFC | Status |", "|---|---|", "| [RFC 0001](0001-moonbit-native-foundation.md) | $status |") | Set-Content -LiteralPath (Join-Path $Root 'docs/rfcs/README.md') -Encoding utf8
   Write-TestJson (Join-Path $Root 'policy/maintainers.json') $Roster
 }
 
@@ -140,8 +147,10 @@ $illegalPrior = Copy-TestObject $accepted; $illegalPrior.rfc.current_foundation_
 Invoke-AcceptanceCase 'accepted rejects illegal prior state' $illegalPrior $roster $false $null 'Illegal RFC transition'
 $implemented = Copy-TestObject $accepted; $implemented.rfc.current_foundation_rfc.status='Implemented'; $implemented.rfc.current_foundation_rfc.transition.from='Accepted'; $implemented.rfc.current_foundation_rfc.transition.to='Implemented'; $implemented.rfc.current_foundation_rfc.transition.evidence=@('commit:implementation','report:qualification'); $implemented.rfc.current_foundation_rfc.implementation_evidence=@('commit:implementation'); $implemented.rfc.current_foundation_rfc.qualification_evidence=@('report:qualification')
 Invoke-AcceptanceCase 'implemented requires implementation evidence' $implemented $roster $true $null
+$implementedMissingAcceptanceRow = Copy-TestObject $implemented
+Invoke-AcceptanceCase 'implemented preserves historical acceptance row' $implementedMissingAcceptanceRow $roster $false { param($root) $path=Join-Path $root 'docs/rfcs/0001-moonbit-native-foundation.md'; (Get-Content $path | Where-Object { $_ -cnotmatch '^\| Proposed \| Accepted \|' }) | Set-Content -LiteralPath $path } 'ledger row count mismatch'
 $missingImplementation = Copy-TestObject $implemented; $missingImplementation.rfc.current_foundation_rfc.implementation_evidence=@(); $missingImplementation.rfc.current_foundation_rfc.transition.evidence=@('report:qualification')
-Invoke-AcceptanceCase 'implemented rejects missing implementation evidence' $missingImplementation $roster $false $null 'implementation evidence requires at least one'
+Invoke-AcceptanceCase 'implemented rejects missing implementation evidence' $missingImplementation $roster $false $null 'implementation.*requires at least one'
 $superseded = Copy-TestObject $proposed; $superseded.rfc.current_foundation_rfc.status='Superseded'; $superseded.rfc.current_foundation_rfc.transition.from='Proposed'; $superseded.rfc.current_foundation_rfc.transition.to='Superseded'; $superseded.rfc.current_foundation_rfc.transition.evidence=@('docs/rfcs/0002-replacement.md'); $superseded.rfc.current_foundation_rfc.superseded_by='0002'; $superseded.rfc.current_foundation_rfc.supersession_evidence=@('docs/rfcs/0002-replacement.md')
 Invoke-AcceptanceCase 'superseded requires existing replacement RFC' $superseded $roster $true { param($root) '# RFC 0002' | Set-Content -LiteralPath (Join-Path $root 'docs/rfcs/0002-replacement.md') }
 Invoke-AcceptanceCase 'superseded rejects missing replacement RFC' $superseded $roster $false $null 'must identify exactly one existing RFC file'
@@ -185,7 +194,7 @@ Invoke-AcceptanceCase 'maintainer route rejects duplicate evidence' $duplicateAp
 $unboundApproval=Copy-TestObject $maintainer;$unboundApproval.rfc.current_foundation_rfc.approval_records[1].identity='mallory'
 Invoke-AcceptanceCase 'maintainer route rejects unbound identity' $unboundApproval $maintainerRoster $false $null 'Maintainer approval identities mismatch'
 $unboundLedger=Copy-TestObject $maintainer;$unboundLedger.rfc.current_foundation_rfc.transition.evidence=@('reviews/rfc-0001.md#alice-approval','reviews/rfc-0001.md#different')
-Invoke-AcceptanceCase 'maintainer route rejects evidence unbound from ledger' $unboundLedger $maintainerRoster $false $null 'Accepted RFC transition evidence mismatch'
+Invoke-AcceptanceCase 'maintainer route rejects evidence unbound from ledger' $unboundLedger $maintainerRoster $false $null 'not bound to the RFC transition ledger row'
 
 $lead=Copy-TestObject $accepted
 $l=$lead.rfc.current_foundation_rfc;$l.acceptance_route='project-lead-public-review';$l.authority='project-lead';$l.approvers=@();$l.approval_records=@([pscustomobject]@{identity='lead';role='project-lead';reference='https://reviews.invalid/rfc/1#lead-approval'});$l.project_lead='lead';$l.project_owner=$null;$l.public_review_url='https://reviews.invalid/rfc/1';$l.public_review_started_at='2026-07-01T00:00:00Z';$l.public_review_ended_at='2026-07-08T00:00:00Z';$l.decision_evidence_path=$null;$l.decision_evidence_anchors=@();$l.edge_reviews=@();$l.acceptance_evidence=@('https://reviews.invalid/rfc/1','https://reviews.invalid/rfc/1#lead-approval');$l.transition.evidence=@('https://reviews.invalid/rfc/1','https://reviews.invalid/rfc/1#lead-approval')

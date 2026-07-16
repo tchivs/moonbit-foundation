@@ -93,6 +93,53 @@ function Get-RfcTransitionLedgerRow {
   return $match.Value
 }
 
+function Get-RfcTransitionLedgerRows {
+  param([string]$RfcText)
+  $rows = [System.Collections.Generic.List[object]]::new()
+  foreach ($match in [regex]::Matches($RfcText, '(?m)^\|\s*(?<from>[^|]+?)\s*\|\s*(?<to>[^|]+?)\s*\|\s*(?<evidence>[^\r\n|]+?)\s*\|\s*$')) {
+    $from = $match.Groups['from'].Value.Trim()
+    $to = $match.Groups['to'].Value.Trim()
+    if ($from -ceq 'From' -or $from -cmatch '^-+$') { continue }
+    $rows.Add([pscustomobject]@{ from=$from; to=$to; evidence=$match.Groups['evidence'].Value.Trim(); text=$match.Value })
+  }
+  return @($rows)
+}
+
+function Assert-RfcLifecycleLedger {
+  param([object]$Rfc, [string]$RfcText)
+  $status = [string]$Rfc.status
+  $latestFrom = [string]$Rfc.transition.from
+  $expectedPairs = [System.Collections.Generic.List[object]]::new()
+  $expectedPairs.Add([pscustomobject]@{ from='—'; to='Draft' })
+  if ($status -cne 'Draft' -and -not ($status -ceq 'Rejected' -and $latestFrom -ceq 'Draft')) {
+    $expectedPairs.Add([pscustomobject]@{ from='Draft'; to='Proposed' })
+  }
+  $hasAcceptedHistory = $status -in @('Accepted','Implemented') -or ($status -ceq 'Superseded' -and $latestFrom -in @('Accepted','Implemented'))
+  $hasImplementedHistory = $status -ceq 'Implemented' -or ($status -ceq 'Superseded' -and $latestFrom -ceq 'Implemented')
+  if ($hasAcceptedHistory) { $expectedPairs.Add([pscustomobject]@{ from='Proposed'; to='Accepted' }) }
+  if ($hasImplementedHistory) { $expectedPairs.Add([pscustomobject]@{ from='Accepted'; to='Implemented' }) }
+  if ($status -in @('Rejected','Superseded')) { $expectedPairs.Add([pscustomobject]@{ from=$latestFrom; to=$status }) }
+
+  $rows = @(Get-RfcTransitionLedgerRows -RfcText $RfcText)
+  Assert-Condition ($rows.Count -eq $expectedPairs.Count) "RFC transition ledger row count mismatch: expected $($expectedPairs.Count), got $($rows.Count)."
+  for ($index=0; $index -lt $expectedPairs.Count; $index++) {
+    $expected = $expectedPairs[$index]
+    $actual = $rows[$index]
+    Assert-Condition ($actual.from -ceq $expected.from -and $actual.to -ceq $expected.to) "RFC transition ledger is not a complete ordered chain at row $($index + 1): expected '$($expected.from) -> $($expected.to)', got '$($actual.from) -> $($actual.to)'."
+    Assert-Condition (-not [string]::IsNullOrWhiteSpace([string]$actual.evidence)) "RFC transition ledger row '$($actual.from) -> $($actual.to)' has empty evidence."
+  }
+
+  if ($hasAcceptedHistory) {
+    $acceptedRow = @($rows | Where-Object { $_.from -ceq 'Proposed' -and $_.to -ceq 'Accepted' })[0]
+    Assert-ReferencesInLedgerRow -Label 'Historical RFC acceptance' -References @($Rfc.acceptance_evidence) -LedgerRow $acceptedRow.text
+  }
+  if ($hasImplementedHistory) {
+    $implementedRow = @($rows | Where-Object { $_.from -ceq 'Accepted' -and $_.to -ceq 'Implemented' })[0]
+    Assert-ReferencesInLedgerRow -Label 'Historical RFC implementation' -References @($Rfc.implementation_evidence) -LedgerRow $implementedRow.text
+    Assert-ReferencesInLedgerRow -Label 'Historical RFC qualification' -References @($Rfc.qualification_evidence) -LedgerRow $implementedRow.text
+  }
+}
+
 function Assert-ReferencesInLedgerRow {
   param([string]$Label, [object[]]$References, [string]$LedgerRow)
   Assert-Condition ($References.Count -gt 0) "$Label requires at least one evidence reference."
@@ -261,6 +308,7 @@ function Assert-RfcAcceptanceState {
   Assert-Condition (@($legalPriorStates[[string]$rfc.status]) -ccontains $transitionFrom) "Illegal RFC transition '$transitionFrom -> $($rfc.status)'."
   $transitionRow = Get-RfcTransitionLedgerRow -RfcText $rfcText -From $transitionFrom -To ([string]$rfc.status)
   Assert-ReferencesInLedgerRow -Label 'RFC transition' -References $transitionEvidence -LedgerRow $transitionRow
+  Assert-RfcLifecycleLedger -Rfc $rfc -RfcText $rfcText
 
   if ($rfc.status -in @('Draft','Proposed')) {
     Assert-NullOrEmpty 'acceptance_route' $rfc.acceptance_route
