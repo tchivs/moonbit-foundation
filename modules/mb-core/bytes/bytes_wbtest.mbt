@@ -8,7 +8,7 @@ fn expect_lease(result : Result[MutByteLease, @error.CoreError]) -> MutByteLease
 
 ///|
 test "exclusive lease mutates and rejects an overlapping acquisition" {
-  let owner = LeaseOwner::new(4)
+  let owner = LeaseOwner::from_backing(FixedArray::make(4, b'\x00'))
   let lease = expect_lease(owner.acquire_mut(0UL, 4UL))
   inspect(lease.set(1UL, b'\x2a') is Ok(_), content="true")
   match lease.get(1UL) {
@@ -27,7 +27,7 @@ test "exclusive lease mutates and rejects an overlapping acquisition" {
 
 ///|
 test "callback cleanup invalidates stale handles and permits reacquisition" {
-  let owner = LeaseOwner::new(2)
+  let owner = LeaseOwner::from_backing(FixedArray::make(2, b'\x00'))
   let mut retained : MutByteLease? = None
   let result = owner.with_mut(0UL, 2UL, fn(lease) {
     retained = Some(lease)
@@ -49,7 +49,7 @@ test "callback cleanup invalidates stale handles and permits reacquisition" {
 
 ///|
 test "checked split consumes parent and yields disjoint active children" {
-  let owner = LeaseOwner::new(4)
+  let owner = LeaseOwner::from_backing(FixedArray::make(4, b'\x00'))
   let parent = expect_lease(owner.acquire_mut(0UL, 4UL))
   let (left, right) = match parent.split_mut(2UL) {
     Ok(children) => children
@@ -76,7 +76,7 @@ test "checked split consumes parent and yields disjoint active children" {
 
 ///|
 test "split validates relative bounds without consuming the parent" {
-  let owner = LeaseOwner::new(3)
+  let owner = LeaseOwner::from_backing(FixedArray::make(3, b'\x00'))
   let parent = expect_lease(owner.acquire_mut(0UL, 3UL))
   match parent.split_mut(4UL) {
     Err(error) => inspect(error.code() == @error.ErrorCode::InvalidRange, content="true")

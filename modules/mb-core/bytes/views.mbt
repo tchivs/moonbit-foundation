@@ -24,25 +24,25 @@ fn lease_range_error(
 }
 
 ///|
-struct LeaseOwner {
+priv struct LeaseOwner {
   backing : FixedArray[Byte]
-  priv mut leased : Bool
+  mut leased : Bool
 }
 
 ///|
-fn LeaseOwner::new(length : Int) -> LeaseOwner {
-  { backing: FixedArray::make(length, b'\x00'), leased: false }
+fn LeaseOwner::from_backing(backing : FixedArray[Byte]) -> LeaseOwner {
+  { backing, leased: false }
 }
 
 ///|
 struct LeaseGroup {
   owner : LeaseOwner
-  priv mut live_handles : Int
+  mut live_handles : Int
 }
 
 ///|
 struct LeaseState {
-  priv mut active : Bool
+  mut active : Bool
 }
 
 ///|
@@ -95,7 +95,7 @@ fn LeaseOwner::acquire_mut(
 }
 
 ///|
-fn LeaseOwner::with_mut[T](
+fn[T] LeaseOwner::with_mut(
   self : LeaseOwner,
   start : UInt64,
   length : UInt64,
@@ -108,6 +108,66 @@ fn LeaseOwner::with_mut[T](
       body(lease)
     }
   }
+}
+
+///|
+/// An opaque retained immutable byte window. The backing allocation remains
+/// reachable through the view, while its representation stays private.
+pub struct ByteView {
+  priv backing : FixedArray[Byte]
+  priv start : Int
+  priv length_value : Int
+}
+
+///|
+pub fn ByteView::length(self : ByteView) -> UInt64 {
+  self.length_value.to_uint64()
+}
+
+///|
+pub fn ByteView::get(
+  self : ByteView,
+  index : UInt64,
+) -> Result[Byte, @error.CoreError] {
+  let index_value = match @checked.checked_narrow_int(index) {
+    Ok(value) => value
+    Err(error) => return Err(error)
+  }
+  if index_value < 0 || index_value >= self.length_value {
+    Err(lease_range_error("byte_view_get", index, self.length()))
+  } else {
+    Ok(self.backing[self.start + index_value])
+  }
+}
+
+///|
+/// Create a zero-copy retained subview after validating the requested window
+/// relative to the current view.
+pub fn ByteView::subview(
+  self : ByteView,
+  relative_start : UInt64,
+  length : UInt64,
+) -> Result[ByteView, @error.CoreError] {
+  let current = match @checked.CheckedRange::from_start_length(
+    self.start.to_uint64(),
+    self.length(),
+  ) {
+    Ok(range) => range
+    Err(error) => return Err(error)
+  }
+  let window = match current.subrange(relative_start, length) {
+    Ok(range) => range
+    Err(_) => return Err(lease_range_error("byte_subview", length, self.length()))
+  }
+  let start = match @checked.checked_narrow_int(window.start()) {
+    Ok(value) => value
+    Err(error) => return Err(error)
+  }
+  let view_length = match @checked.checked_narrow_int(window.length()) {
+    Ok(value) => value
+    Err(error) => return Err(error)
+  }
+  Ok({ backing: self.backing, start, length_value: view_length })
 }
 
 ///|
