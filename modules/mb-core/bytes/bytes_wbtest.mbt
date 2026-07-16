@@ -85,3 +85,32 @@ test "split validates relative bounds without consuming the parent" {
   inspect(parent.set(2UL, b'\x09') is Ok(_), content="true")
   parent.release()
 }
+
+///|
+test "retained view shares owned backing without exposing it" {
+  let budget = @budget.Budget::new(
+    @budget.ResourceLimits::new(
+      bytes=2UL,
+      allocations=1UL,
+      allocation_size=2UL,
+      width=0UL,
+      height=0UL,
+      pixels=0UL,
+      depth=0UL,
+      work=0UL,
+    ),
+  )
+  let owned = match OwnedBytes::new(2UL, budget) {
+    Ok(value) => value
+    Err(_) => fail("owned storage must construct")
+  }
+  let before = owned.view()
+  inspect(
+    owned.with_mut(0UL, 2UL, fn(lease) { lease.set(1UL, b'\x2a') }) is Ok(_),
+    content="true",
+  )
+  match before.get(1UL) {
+    Ok(value) => inspect(value == b'\x2a', content="true")
+    Err(_) => fail("view must retain the shared backing")
+  }
+}
