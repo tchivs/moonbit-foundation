@@ -5,15 +5,15 @@ milestone_name: milestone
 current_phase: 02
 current_phase_name: Bounded Core Primitives
 status: executing
-stopped_at: Completed 02-04-PLAN.md
-last_updated: "2026-07-16T15:22:19.440Z"
+stopped_at: Completed 02-05-PLAN.md
+last_updated: "2026-07-16T15:42:01.719Z"
 last_activity: 2026-07-16
 last_activity_desc: Phase 02 execution started
 progress:
   total_phases: 2
   completed_phases: 1
   total_plans: 15
-  completed_plans: 12
+  completed_plans: 13
 ---
 
 # Project State
@@ -29,11 +29,11 @@ See `.planning/PROJECT.md` (updated 2026-07-16).
 ## Current Position
 
 Phase: 02 (Bounded Core Primitives) — EXECUTING
-Plan: 5 of 7
+Plan: 6 of 7
 Status: Ready to execute
 Last activity: 2026-07-16 — Phase 02 execution started
 
-Progress: [████████░░] 80% (1/5 phases; 8/8 currently planned plans complete)
+Progress: [█████████░] 87% (1/5 phases; 8/8 currently planned plans complete)
 
 ## Performance Metrics
 
@@ -57,6 +57,7 @@ Progress: [████████░░] 80% (1/5 phases; 8/8 currently planne
 | Phase 02 P02 | 13min | 3 tasks | 9 files |
 | Phase 02 P03 | 7min | 2 tasks | 5 files |
 | Phase 02 P04 | 10min | 3 tasks | 6 files |
+| Phase 02 P05 | 10min | 3 tasks | 8 files |
 
 ## Accumulated Context
 
@@ -103,6 +104,9 @@ Progress: [████████░░] 80% (1/5 phases; 8/8 currently planne
 - [Phase 02]: Use callback-scoped runtime lease groups so split consumes the parent and final child release restores owner availability.
 - [Phase 02]: Keep built-in physical OOM unrecoverable while exposing deterministic injected allocator rejection before budget charge and allocation.
 - [Phase 02]: Retain zero-copy immutable views over owned backing and copy external immutable Bytes into independent storage.
+- [Phase 02]: Use an opaque ReadWindow so bounded adapters can narrow writable access without consuming the caller lease or exposing a larger destination.
+- [Phase 02]: Keep bounded stream adapters non-seeking and expose seeking only through separately implemented Seeker capabilities.
+- [Phase 02]: Reject zero progress after one transition for non-empty exact operations while zero-length operations bypass the backend.
 
 ### Pending Decisions
 
@@ -123,6 +127,6 @@ None. Phase 01 is independently verified and complete; Phase 02 is ready for con
 
 **Resume file:** None
 
-Last session: 2026-07-16T15:22:19.423Z
-Stopped at: Completed 02-04-PLAN.md
+Last session: 2026-07-16T15:42:01.699Z
+Stopped at: Completed 02-05-PLAN.md
 Resume with: Discuss Phase 02, then plan and execute it through the active auto chain.
