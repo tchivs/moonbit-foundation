@@ -743,6 +743,28 @@ function Assert-FoundationPolicy {
       Assert-Condition (@($colorImports.profile | Where-Object { $_ -clike 'moonbit-foundation/mb-color/*' }).Count -eq 0) 'mb-color profile must remain independent of every color package.'
     }
 
+    if ($module.name -ceq 'moonbit-foundation/mb-image') {
+      $imagePackagePaths = @('metadata', 'model', 'storage', 'ops', 'codec')
+      $imagePackageNames = @($imagePackagePaths | ForEach-Object { "moonbit-foundation/mb-image/$_" })
+      Assert-ExactSequence 'mb-image publication package order' @($packages.name) $imagePackageNames
+      Assert-ExactSequence 'mb-image public package paths' @($packages.path) $imagePackagePaths
+      foreach ($removedRootFile in @('moon.pkg', 'scaffold.mbt', 'scaffold_wbtest.mbt')) {
+        Assert-Condition (-not (Test-Path -LiteralPath (Join-Path $repoRoot "modules/mb-image/$removedRootFile"))) "Obsolete mb-image root scaffold file remains: $removedRootFile."
+      }
+
+      $imageImports = @{}
+      foreach ($imagePackage in $packages) {
+        $imageImports[[string]$imagePackage.path] = @($imagePackage.allowed_imports)
+      }
+      Assert-ExactSet 'mb-image metadata DAG edges' $imageImports.metadata @('moonbit-foundation/mb-core/error', 'moonbit-foundation/mb-core/budget', 'moonbit-foundation/mb-core/bytes')
+      Assert-ExactSet 'mb-image model DAG edges' $imageImports.model @('moonbit-foundation/mb-core/error', 'moonbit-foundation/mb-core/checked', 'moonbit-foundation/mb-core/budget', 'moonbit-foundation/mb-color/model', 'moonbit-foundation/mb-color/profile', 'moonbit-foundation/mb-image/metadata')
+      Assert-ExactSet 'mb-image storage DAG edges' $imageImports.storage @('moonbit-foundation/mb-core/error', 'moonbit-foundation/mb-core/checked', 'moonbit-foundation/mb-core/budget', 'moonbit-foundation/mb-core/bytes', 'moonbit-foundation/mb-color/model', 'moonbit-foundation/mb-color/profile', 'moonbit-foundation/mb-image/metadata', 'moonbit-foundation/mb-image/model')
+      Assert-ExactSet 'mb-image ops DAG edges' $imageImports.ops @('moonbit-foundation/mb-core/error', 'moonbit-foundation/mb-core/checked', 'moonbit-foundation/mb-core/budget', 'moonbit-foundation/mb-core/bytes', 'moonbit-foundation/mb-color/alpha', 'moonbit-foundation/mb-color/model', 'moonbit-foundation/mb-color/profile', 'moonbit-foundation/mb-image/metadata', 'moonbit-foundation/mb-image/model', 'moonbit-foundation/mb-image/storage')
+      Assert-ExactSet 'mb-image codec DAG edges' $imageImports.codec @('moonbit-foundation/mb-core/error', 'moonbit-foundation/mb-core/budget', 'moonbit-foundation/mb-core/bytes', 'moonbit-foundation/mb-core/io', 'moonbit-foundation/mb-image/metadata', 'moonbit-foundation/mb-image/model', 'moonbit-foundation/mb-image/storage')
+      Assert-Condition (-not ($imageImports.codec -ccontains 'moonbit-foundation/mb-core/host')) 'mb-image codec must remain independent of host policy.'
+      Assert-Condition (-not ($imageImports.codec -ccontains 'moonbit-foundation/mb-image/ops')) 'mb-image codec must remain independent of image operations.'
+    }
+
     $modulePath = Join-Path $repoRoot ([string]$module.path)
     $manifest = Read-QualityJson -Path (Join-Path $modulePath 'moon.mod.json')
     Assert-Condition ($manifest.name -ceq $module.name) "Manifest name drift in $($module.path)."

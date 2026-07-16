@@ -314,6 +314,207 @@ function Assert-ColorQualificationNegativeFixtures {
   Write-Host 'Color topology, DAG, interface, publication, generated-vector, target, source, README, digest, and redistribution negatives all fail closed.'
 }
 
+function Assert-ImageSourceTextProhibitions {
+  [CmdletBinding()]
+  param(
+    [Parameter(Mandatory)][string]$RelativePath,
+    [Parameter(Mandatory)][string]$Text
+  )
+
+  $publicLines = @($Text -split '\r?\n' | Where-Object { $_ -cmatch '^\s*pub(?:\([^)]*\))?\s' })
+  foreach ($line in $publicLines) {
+    if ($line -cmatch '\b(?:FixedArray|MutArrayView|MutByteLease|OwnedBytes)\b') {
+      throw "Raw mutable or backing storage escaped through a public image declaration in $RelativePath`: $line"
+    }
+    if ($line -cmatch '(?i)\b(?:default|implicit|ambient)\w*\s*\(') {
+      throw "Hidden default or ambient image policy surface found in $RelativePath`: $line"
+    }
+  }
+  if ($Text -cmatch '(?m)UInt64[^\r\n]*[.]to_int\s*\(') {
+    throw "Unchecked UInt64-to-Int narrowing found in '$RelativePath'."
+  }
+  if ($RelativePath -like 'modules/mb-image/ops/*' -and $Text -cmatch '(?i)\bDouble\b|[.]to_double\s*\(|\b(?:round|floor|ceil)\s*\(') {
+    throw "Floating-point image operation mapping found in '$RelativePath'."
+  }
+  if ($RelativePath -like 'modules/mb-image/codec/*' -and $Text -cmatch '(?i)\bSeeker\b|https?://|\b(?:path|url|filesystem|registry|global_codec)\b|@(?:fs|http)\b') {
+    throw "Host path, URL, registry, filesystem, or seeking policy found in '$RelativePath'."
+  }
+  if ($RelativePath -like 'modules/mb-image/codec/*' -and $Text -cmatch '(?i)\b(?:Ppm|Png|Jpeg|Gif|Webp|Bmp|Tiff)(?:Decoder|Encoder|Codec)\b') {
+    throw "Concrete codec implementation found in Phase 4 source '$RelativePath'."
+  }
+}
+
+function Assert-ImageReadmeContract {
+  [CmdletBinding()]
+  param([Parameter(Mandatory)][string]$Readme)
+
+  $normalized = [regex]::Replace($Readme, '\s+', ' ')
+  foreach ($requiredPhrase in @(
+    'There is no root facade or prelude',
+    'reference operations deliberately accept only packed encoded-sRGB',
+    'Invalid or unsupported input consumes no budget',
+    'Raw mutable backing is never exposed',
+    'performs no filtering or hidden color conversion',
+    'Neither contract requires seeking, paths, URLs, filesystem access, a registry',
+    'Phase 5 owns the first bounded PPM P6 implementation',
+    'exactly five package-local tables'
+  )) {
+    if (-not $normalized.Contains($requiredPhrase)) {
+      throw "mb-image README lacks required exact contract statement: $requiredPhrase"
+    }
+  }
+  foreach ($token in @('metadata', 'model', 'storage', 'ops', 'codec', 'js', 'wasm', 'wasm-gc', 'native', 'floor(destination * source_extent / destination_extent)')) {
+    if (-not $Readme.Contains($token)) { throw "mb-image README lacks required contract token: $token" }
+  }
+}
+
+function Assert-ImagePortableProhibitions {
+  [CmdletBinding()]
+  param()
+
+  $imageRoot = 'modules/mb-image'
+  $sourceFiles = @(Get-ChildItem -LiteralPath $imageRoot -Recurse -File -Filter '*.mbt' | Where-Object { $_.Name -notmatch '(?:_test|_wbtest)[.]mbt$' })
+  if ($sourceFiles.Count -eq 0) { throw 'No mb-image production MoonBit sources were found for prohibition scanning.' }
+  foreach ($sourceFile in $sourceFiles) {
+    $relative = [System.IO.Path]::GetRelativePath((Resolve-Path '.').Path, $sourceFile.FullName).Replace('\', '/')
+    Assert-ImageSourceTextProhibitions -RelativePath $relative -Text (Get-Content -LiteralPath $sourceFile.FullName -Raw)
+  }
+  Assert-ImageReadmeContract -Readme (Get-Content -LiteralPath (Join-Path $imageRoot 'README.mbt.md') -Raw)
+  Write-Host 'mb-image prohibitions verified: no root facade, raw backing, unchecked narrowing, floating mapping, hidden defaults, host paths, URLs, registries, seeking, or concrete codec.'
+}
+
+function Get-ImageCanonicalCaseSets {
+  $fixture = Get-Content -LiteralPath 'fixtures/image/operation-vectors.json' -Raw | ConvertFrom-Json
+  @{
+    metadata = @($fixture.metadata_vectors.id | ForEach-Object { [string]$_ })
+    model = @($fixture.descriptor_plane_vectors.id | ForEach-Object { [string]$_ })
+    storage = @($fixture.crop_lease_vectors.id | ForEach-Object { [string]$_ })
+    ops = @($fixture.orientation_vectors.id + $fixture.resize_vectors.id + $fixture.conversion_vectors.id | ForEach-Object { [string]$_ })
+    codec = @($fixture.codec_vectors.id | ForEach-Object { [string]$_ })
+  }
+}
+
+function Assert-ImageGeneratedEvidence {
+  [CmdletBinding()]
+  param(
+    [string[]]$TablePaths,
+    [hashtable]$CaseSets,
+    [hashtable]$ConsumerTexts,
+    [string]$GeneratorText
+  )
+
+  $expectedTables = @(
+    'modules/mb-image/metadata/reference_vectors_wbtest.mbt',
+    'modules/mb-image/model/reference_vectors_wbtest.mbt',
+    'modules/mb-image/storage/reference_vectors_wbtest.mbt',
+    'modules/mb-image/ops/reference_vectors_wbtest.mbt',
+    'modules/mb-image/codec/reference_vectors_wbtest.mbt'
+  )
+  if ($null -eq $TablePaths) { $TablePaths = $expectedTables }
+  Assert-ExactSequence 'mb-image generated package-local tables' @($TablePaths) $expectedTables
+
+  $expectedCases = @{
+    metadata = @('canonical-order', 'duplicate-key', 'orientation-disposition')
+    model = @('packed-padded', 'short-row', 'one-byte-short')
+    storage = @('crop-edge', 'empty-crop', 'lease-stale', 'lease-overlap')
+    ops = @('orientation-top-left', 'orientation-top-right', 'orientation-bottom-right', 'orientation-bottom-left', 'orientation-left-top', 'orientation-right-top', 'orientation-right-bottom', 'orientation-left-bottom', 'upscale-2-to-5', 'downscale-5-to-2', 'unit-axis', 'rgb-to-rgba', 'opaque-rgba-to-rgb', 'lossy-rgba-to-rgb')
+    codec = @('empty-prefix', 'short-prefix', 'non-match', 'short-progress')
+  }
+  if ($null -eq $CaseSets) { $CaseSets = Get-ImageCanonicalCaseSets }
+  foreach ($package in @('metadata', 'model', 'storage', 'ops', 'codec')) {
+    Assert-ExactSequence "mb-image $package canonical case IDs" @($CaseSets[$package]) @($expectedCases[$package])
+    $tablePath = "modules/mb-image/$package/reference_vectors_wbtest.mbt"
+    $tableText = Get-Content -LiteralPath $tablePath -Raw
+    foreach ($id in @($expectedCases[$package])) {
+      if (-not $tableText.Contains('"' + $id + '"')) { throw "Generated $package table lacks canonical case ID '$id'." }
+    }
+  }
+
+  if ($null -eq $ConsumerTexts) {
+    $ConsumerTexts = @{
+      metadata = Get-Content -LiteralPath 'modules/mb-image/metadata/metadata_wbtest.mbt' -Raw
+      model = Get-Content -LiteralPath 'modules/mb-image/model/model_wbtest.mbt' -Raw
+      storage = Get-Content -LiteralPath 'modules/mb-image/storage/storage_wbtest.mbt' -Raw
+      ops = (Get-Content -LiteralPath 'modules/mb-image/ops/orientation_wbtest.mbt' -Raw) + (Get-Content -LiteralPath 'modules/mb-image/ops/resize_convert_wbtest.mbt' -Raw)
+      codec = Get-Content -LiteralPath 'modules/mb-image/codec/codec_wbtest.mbt' -Raw
+    }
+  }
+  $consumerFunctions = @{
+    metadata = @('generated_metadata_case_ids')
+    model = @('generated_model_case_ids')
+    storage = @('generated_storage_case_ids')
+    ops = @('generated_ops_case_ids', 'generated_orientation_vectors', 'generated_resize_axis_vectors', 'generated_conversion_vectors')
+    codec = @('generated_codec_cases')
+  }
+  foreach ($package in @('metadata', 'model', 'storage', 'ops', 'codec')) {
+    foreach ($function in @($consumerFunctions[$package])) {
+      if (-not ([string]$ConsumerTexts[$package]).Contains("$function(")) { throw "Behavioral $package tests do not consume generated function '$function'." }
+    }
+  }
+
+  if ([string]::IsNullOrEmpty($GeneratorText)) { $GeneratorText = Get-Content -LiteralPath 'scripts/fixtures/Generate-ImageVectors.ps1' -Raw }
+  if (-not $GeneratorText.Contains('Standards-literal Exif oracle') -or -not $GeneratorText.Contains('intentionally authored here and are never obtained from production code')) {
+    throw 'The orientation oracle is not explicitly generator-owned and standards-literal.'
+  }
+  if ($GeneratorText -cmatch '(?i)Get-Content[^\r\n]*(?:orientation[.]mbt|modules[/\\]mb-image[/\\]ops)') {
+    throw 'The orientation oracle reads production mapping source and is not independent.'
+  }
+  Write-Host 'Exactly five package-local image tables, canonical case IDs, behavioral consumers, and the independent orientation oracle are verified.'
+}
+
+function Assert-ImageQualificationNegativeFixtures {
+  [CmdletBinding()]
+  param()
+
+  function Confirm-ImageRejected([string]$Name, [scriptblock]$Action, [string]$ExpectedPattern) {
+    $failure = $null
+    try { & $Action } catch { $failure = $_.Exception.Message }
+    if ($null -eq $failure -or $failure -cnotmatch $ExpectedPattern) {
+      throw "Required image quality accepted negative fixture '$Name' or failed for the wrong reason: '$failure'."
+    }
+    Write-Host "Image negative fixture rejected: $Name"
+  }
+
+  $packageSpine = @('metadata', 'model', 'storage', 'ops', 'codec')
+  Confirm-ImageRejected 'root facade topology' { Assert-ExactSequence 'negative image package spine' @('.', 'metadata', 'model', 'storage', 'ops', 'codec') $packageSpine } 'count mismatch'
+  Confirm-ImageRejected 'extra public package' { Assert-ExactSequence 'negative image package spine' @('metadata', 'model', 'storage', 'ops', 'codec', 'extra') $packageSpine } 'count mismatch'
+  Confirm-ImageRejected 'missing public package' { Assert-ExactSequence 'negative image package spine' @('metadata', 'model', 'storage', 'ops') $packageSpine } 'count mismatch'
+  Confirm-ImageRejected 'reverse codec to ops edge' { Assert-ExactSet 'negative image imports' @('moonbit-foundation/mb-image/storage', 'moonbit-foundation/mb-image/ops') @('moonbit-foundation/mb-image/storage') } 'count mismatch'
+  Confirm-ImageRejected 'semantic interface drift' { Assert-ExactSequence 'negative image interface' @('package "fixture"', 'pub fn unexpected() -> Unit') @('package "fixture"') } 'count mismatch'
+  Confirm-ImageRejected 'publication drift' { Assert-ExactSet 'negative image publication' @('metadata/moon.pkg', 'unexpected.mbt') @('metadata/moon.pkg') } 'count mismatch'
+  Confirm-ImageRejected 'missing required target' { Assert-ExactSet 'negative image targets' @('js', 'wasm', 'native') @('js', 'wasm', 'wasm-gc', 'native') } 'count mismatch'
+  Confirm-ImageRejected 'raw mutable backing' { Assert-ImageSourceTextProhibitions -RelativePath 'modules/mb-image/storage/fixture.mbt' -Text 'pub fn backing() -> MutArrayView[Byte] { abort("fixture") }' } 'Raw mutable'
+  Confirm-ImageRejected 'ambient limits' { Assert-ImageSourceTextProhibitions -RelativePath 'modules/mb-image/model/fixture.mbt' -Text 'pub fn ambient_limits() -> Unit { () }' } 'Hidden default or ambient'
+  Confirm-ImageRejected 'unchecked narrowing' { Assert-ImageSourceTextProhibitions -RelativePath 'modules/mb-image/model/fixture.mbt' -Text 'fn narrow(value : UInt64) -> Int { value.to_int() }' } 'Unchecked UInt64'
+  Confirm-ImageRejected 'floating resize' { Assert-ImageSourceTextProhibitions -RelativePath 'modules/mb-image/ops/fixture.mbt' -Text 'fn resize(value : Double) -> Double { value.floor() }' } 'Floating-point'
+  Confirm-ImageRejected 'hidden default' { Assert-ImageSourceTextProhibitions -RelativePath 'modules/mb-image/ops/fixture.mbt' -Text 'pub fn default_format() -> Unit { () }' } 'Hidden default'
+  Confirm-ImageRejected 'host path codec policy' { Assert-ImageSourceTextProhibitions -RelativePath 'modules/mb-image/codec/fixture.mbt' -Text 'fn decode_path(path : String) -> Unit { ignore(path) }' } 'Host path'
+  Confirm-ImageRejected 'URL codec policy' { Assert-ImageSourceTextProhibitions -RelativePath 'modules/mb-image/codec/fixture.mbt' -Text 'fn decode() -> String { "https://fixture" }' } 'Host path'
+  Confirm-ImageRejected 'codec registry' { Assert-ImageSourceTextProhibitions -RelativePath 'modules/mb-image/codec/fixture.mbt' -Text 'fn registry() -> Unit { () }' } 'Host path'
+  Confirm-ImageRejected 'codec seeker dependency' { Assert-ImageSourceTextProhibitions -RelativePath 'modules/mb-image/codec/fixture.mbt' -Text 'fn decode(reader : &Seeker) -> Unit { () }' } 'Host path'
+  Confirm-ImageRejected 'concrete codec' { Assert-ImageSourceTextProhibitions -RelativePath 'modules/mb-image/codec/fixture.mbt' -Text 'struct PpmDecoder {}' } 'Concrete codec'
+  Confirm-ImageRejected 'missing rootless README statement' { Assert-ImageReadmeContract -Readme 'candidate js wasm wasm-gc native' } 'root facade'
+
+  $tables = @('modules/mb-image/metadata/reference_vectors_wbtest.mbt', 'modules/mb-image/model/reference_vectors_wbtest.mbt', 'modules/mb-image/storage/reference_vectors_wbtest.mbt', 'modules/mb-image/ops/reference_vectors_wbtest.mbt')
+  Confirm-ImageRejected 'deleted generated table' { Assert-ImageGeneratedEvidence -TablePaths $tables } 'count mismatch'
+  $deletedCases = Get-ImageCanonicalCaseSets
+  $deletedCases.metadata = @($deletedCases.metadata | Select-Object -Skip 1)
+  Confirm-ImageRejected 'deleted canonical case' { Assert-ImageGeneratedEvidence -CaseSets $deletedCases } 'count mismatch'
+  $addedCases = Get-ImageCanonicalCaseSets
+  $addedCases.codec = @($addedCases.codec) + @('unexpected-case')
+  Confirm-ImageRejected 'added canonical case' { Assert-ImageGeneratedEvidence -CaseSets $addedCases } 'count mismatch'
+  $consumers = @{
+    metadata = ''
+    model = Get-Content -LiteralPath 'modules/mb-image/model/model_wbtest.mbt' -Raw
+    storage = Get-Content -LiteralPath 'modules/mb-image/storage/storage_wbtest.mbt' -Raw
+    ops = (Get-Content -LiteralPath 'modules/mb-image/ops/orientation_wbtest.mbt' -Raw) + (Get-Content -LiteralPath 'modules/mb-image/ops/resize_convert_wbtest.mbt' -Raw)
+    codec = Get-Content -LiteralPath 'modules/mb-image/codec/codec_wbtest.mbt' -Raw
+  }
+  Confirm-ImageRejected 'removed generated consumer' { Assert-ImageGeneratedEvidence -ConsumerTexts $consumers } 'do not consume'
+  Confirm-ImageRejected 'production-derived orientation oracle' { Assert-ImageGeneratedEvidence -GeneratorText 'Get-Content modules/mb-image/ops/orientation.mbt' } 'not explicitly generator-owned'
+  Write-Host 'Image topology, DAG, interface, publication, targets, source, README, generated-table, case, consumer, and oracle negatives all fail closed.'
+}
+
 function Get-TrackedDiffSnapshot {
   $output = @(& git diff --binary --no-ext-diff HEAD -- 2>&1 | ForEach-Object { $_.ToString() })
   if ($LASTEXITCODE -ne 0) { throw "Unable to capture tracked diff (exit $LASTEXITCODE)." }
@@ -360,12 +561,25 @@ function Invoke-RequiredQuality {
   Invoke-QualityStage 'COLR fail-closed negative fixtures' {
     Assert-ColorQualificationNegativeFixtures
   }
+  Invoke-QualityStage 'IMAG deterministic generated evidence' {
+    & ./scripts/fixtures/Generate-ImageVectors.ps1 -Check
+    Assert-ImageGeneratedEvidence
+  }
+  Invoke-QualityStage 'IMAG portable source and documentation prohibitions' {
+    Assert-ImagePortableProhibitions
+  }
+  Invoke-QualityStage 'IMAG fail-closed negative fixtures' {
+    Assert-ImageQualificationNegativeFixtures
+  }
   foreach ($target in $requiredTargets) {
     Invoke-QualityStage "CORE literate README check target $target" {
       Invoke-MoonCommand -Context "mb-core README check target $target" -Arguments @('-C', 'modules/mb-core', 'check', 'README.mbt.md', '--target', $target, '--frozen')
     }
     Invoke-QualityStage "COLR literate README check target $target" {
       Invoke-MoonCommand -Context "mb-color README check target $target" -Arguments @('-C', 'modules/mb-color', 'check', 'README.mbt.md', '--target', $target, '--frozen')
+    }
+    Invoke-QualityStage "IMAG literate README check target $target" {
+      Invoke-MoonCommand -Context "mb-image README check target $target" -Arguments @('-C', 'modules/mb-image', 'check', 'README.mbt.md', '--target', $target, '--frozen')
     }
     Invoke-QualityStage "WORK-05 check target $target" {
       Invoke-MoonCommand -Context "workspace check target $target" -Arguments @('check', '--target', $target, '--deny-warn', '--frozen')
