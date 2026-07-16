@@ -25,7 +25,7 @@
 ### Core Primitives
 
 - [x] **CORE-01**: A library author can perform checked addition, multiplication, alignment, casts, ranges, offsets, dimensions, and allocation-size calculations with structured overflow failure.
-- [ ] **CORE-02**: A library author can create owned byte storage and validated immutable or mutable byte views without accessing outside the declared range.
+- [x] **CORE-02**: A library author can create owned byte storage and validated immutable or mutable byte views without accessing outside the declared range.
 - [ ] **CORE-03**: A library author can read and write through backend-neutral interfaces that distinguish exact, partial, end-of-stream, and failed operations.
 - [ ] **CORE-04**: A parser can use bounded sub-readers and in-memory reader/writer implementations without requiring filesystem access or full-input buffering.
 - [ ] **CORE-05**: A consumer can use seek only when the supplied capability supports it, without forcing seekability into every stream.
@@ -123,7 +123,7 @@
 | WORK-05 | Phase 1 | Complete |
 | WORK-06 | Phase 5 | Pending |
 | CORE-01 | Phase 2 | Complete |
-| CORE-02 | Phase 2 | Pending |
+| CORE-02 | Phase 2 | Complete |
 | CORE-03 | Phase 2 | Pending |
 | CORE-04 | Phase 2 | Pending |
 | CORE-05 | Phase 2 | Pending |
