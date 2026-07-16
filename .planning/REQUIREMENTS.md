@@ -18,8 +18,8 @@
 - [x] **WORK-01**: A developer can clone the repository and operate `mb-core`, `mb-color`, and `mb-image` as three independently publishable MoonBit modules in one workspace.
 - [x] **WORK-02**: A developer can reproduce the v0.1 development environment from a checked-in toolchain policy that records the exact `moon`, `moonc`, and `moonrun` baseline.
 - [x] **WORK-03**: A consumer can inspect every public package's explicit supported-target declaration and determine whether it supports `native`, `wasm`, `wasm-gc`, or `js`.
-- [ ] **WORK-04**: A maintainer can run root-level format, check, test, documentation, package-content, and dependency-DAG validation without manually entering each module.
-- [ ] **WORK-05**: A maintainer can verify portable package behavior on every declared target while LLVM remains clearly non-blocking and experimental.
+- [x] **WORK-04**: A maintainer can run root-level format, check, test, documentation, package-content, and dependency-DAG validation without manually entering each module.
+- [x] **WORK-05**: A maintainer can verify portable package behavior on every declared target while LLVM remains clearly non-blocking and experimental.
 - [ ] **WORK-06**: A release can qualify each module independently and in dependency order without requiring consumers to install unrelated MNF layers.
 
 ### Core Primitives
@@ -119,8 +119,8 @@
 | WORK-01 | Phase 1 | Complete |
 | WORK-02 | Phase 1 | Complete |
 | WORK-03 | Phase 1 | Complete |
-| WORK-04 | Phase 1 | Pending |
-| WORK-05 | Phase 1 | Pending |
+| WORK-04 | Phase 1 | Complete |
+| WORK-05 | Phase 1 | Complete |
 | WORK-06 | Phase 5 | Pending |
 | CORE-01 | Phase 2 | Pending |
 | CORE-02 | Phase 2 | Pending |
