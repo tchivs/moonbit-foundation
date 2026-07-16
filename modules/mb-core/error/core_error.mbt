@@ -15,6 +15,11 @@ pub(all) enum ErrorCode {
   InvalidRange
   InvalidEncoding
   ArithmeticOverflow
+  ArithmeticUnderflow
+  InvalidAlignment
+  InvalidOffset
+  NarrowingFailed
+  InvalidDimensions
   AllocationFailed
   BudgetExceeded
   UnexpectedEndOfStream
@@ -170,6 +175,11 @@ fn ErrorCode::token(self : ErrorCode) -> String {
     InvalidRange => "invalid-range"
     InvalidEncoding => "invalid-encoding"
     ArithmeticOverflow => "arithmetic-overflow"
+    ArithmeticUnderflow => "arithmetic-underflow"
+    InvalidAlignment => "invalid-alignment"
+    InvalidOffset => "invalid-offset"
+    NarrowingFailed => "narrowing-failed"
+    InvalidDimensions => "invalid-dimensions"
     AllocationFailed => "allocation-failed"
     BudgetExceeded => "budget-exceeded"
     UnexpectedEndOfStream => "unexpected-end-of-stream"
