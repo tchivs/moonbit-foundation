@@ -102,7 +102,7 @@ function Invoke-AcceptanceCase([string]$Name, [object]$Policy, [object]$Roster, 
     if ($Arrange) { & $Arrange $root $Policy $Roster }
     $passed = $true
     $failureMessage = $null
-    try { Assert-RfcAcceptanceState -Policy $Policy -RosterPath (Join-Path $root 'policy/maintainers.json') -RepositoryRoot $root }
+    try { Assert-RfcAcceptanceState -Policy $Policy -RosterPath (Join-Path $root 'policy/maintainers.json') -RepositoryRoot $root -Now ([DateTimeOffset]'2026-07-16T00:00:00Z') }
     catch { $passed = $false; $failureMessage = $_.Exception.Message }
     if ($passed -ne $ShouldPass) { throw "RFC acceptance case '$Name' expected pass=$ShouldPass but got pass=$passed. Validation result: $failureMessage" }
     Write-Host "PASS: $Name"
@@ -174,6 +174,16 @@ $leadRoster=[pscustomobject]@{schema_version='1.0.0';maintainers=@([pscustomobje
 Invoke-AcceptanceCase 'project lead seven-day route' $lead $leadRoster $true $null
 $short=Copy-TestObject $lead;$short.rfc.current_foundation_rfc.public_review_ended_at='2026-07-07T00:00:00Z'
 Invoke-AcceptanceCase 'project lead route needs seven elapsed days' $short $leadRoster $false $null
+$boundary=Copy-TestObject $lead;$boundary.rfc.current_foundation_rfc.public_review_started_at='2026-07-09T00:00:00+00:00';$boundary.rfc.current_foundation_rfc.public_review_ended_at='2026-07-16T00:00:00+00:00'
+Invoke-AcceptanceCase 'project lead exact seven-day elapsed boundary' $boundary $leadRoster $true $null
+$futureStart=Copy-TestObject $lead;$futureStart.rfc.current_foundation_rfc.public_review_started_at='2099-01-01T00:00:00Z';$futureStart.rfc.current_foundation_rfc.public_review_ended_at='2099-01-08T00:00:00Z'
+Invoke-AcceptanceCase 'project lead rejects future review window' $futureStart $leadRoster $false $null
+$futureEnd=Copy-TestObject $lead;$futureEnd.rfc.current_foundation_rfc.public_review_started_at='2026-07-10T00:00:00Z';$futureEnd.rfc.current_foundation_rfc.public_review_ended_at='2026-07-17T00:00:00Z'
+Invoke-AcceptanceCase 'project lead rejects future review end' $futureEnd $leadRoster $false $null
+$reversed=Copy-TestObject $lead;$reversed.rfc.current_foundation_rfc.public_review_started_at='2026-07-10T00:00:00Z';$reversed.rfc.current_foundation_rfc.public_review_ended_at='2026-07-09T00:00:00Z'
+Invoke-AcceptanceCase 'project lead rejects reversed window' $reversed $leadRoster $false $null
+$malformedOffset=Copy-TestObject $lead;$malformedOffset.rfc.current_foundation_rfc.public_review_started_at='2026-07-01T00:00:00+99:00'
+Invoke-AcceptanceCase 'project lead rejects malformed offset' $malformedOffset $leadRoster $false $null
 
 $mismatch=Copy-TestObject $accepted
 Invoke-AcceptanceCase 'RFC status mismatch' $mismatch $roster $false { param($root) '# RFC 0001`n`n- **Status:** Proposed' | Set-Content -LiteralPath (Join-Path $root 'docs/rfcs/0001-moonbit-native-foundation.md') }

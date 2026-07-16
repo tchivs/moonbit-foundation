@@ -104,6 +104,15 @@ function Assert-ReferencesInLedgerRow {
   }
 }
 
+function ConvertFrom-RfcTimestamp {
+  param([string]$Value, [string]$Label)
+  Assert-Condition ($Value -cmatch '^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:Z|[+-]\d{2}:\d{2})$') "$Label must be an RFC 3339 timestamp with an explicit offset."
+  $parsed = [DateTimeOffset]::MinValue
+  $valid = [DateTimeOffset]::TryParse($Value, [System.Globalization.CultureInfo]::InvariantCulture, [System.Globalization.DateTimeStyles]::None, [ref]$parsed)
+  Assert-Condition $valid "$Label is not a valid timestamp."
+  return $parsed
+}
+
 function Resolve-RfcEvidenceFile {
   [CmdletBinding()]
   param(
@@ -143,7 +152,8 @@ function Assert-RfcAcceptanceState {
   param(
     [Parameter(Mandatory)][object]$Policy,
     [Parameter(Mandatory)][string]$RosterPath,
-    [Parameter(Mandatory)][string]$RepositoryRoot
+    [Parameter(Mandatory)][string]$RepositoryRoot,
+    [DateTimeOffset]$Now = [DateTimeOffset]::UtcNow
   )
 
   $rfcPolicy = $Policy.rfc
@@ -280,9 +290,11 @@ function Assert-RfcAcceptanceState {
       $lead = @($maintainers | Where-Object { [string]$_.identity -ceq [string]$rfc.project_lead -and @($_.roles) -ccontains 'project-lead' })
       Assert-Condition ($lead.Count -eq 1 -and $identities.Count -lt 2) 'Project-lead route requires an eligible project lead while fewer than two maintainers exist.'
       Assert-Condition ([string]$rfc.public_review_url -cmatch '^https?://') 'Project-lead route requires a public review URL.'
-      $started = [DateTimeOffset]::Parse([string]$rfc.public_review_started_at)
-      $ended = [DateTimeOffset]::Parse([string]$rfc.public_review_ended_at)
-      Assert-Condition ($ended -ge $started.AddDays(7)) 'Project-lead route requires seven elapsed days of public review.'
+      $started = ConvertFrom-RfcTimestamp -Value ([string]$rfc.public_review_started_at) -Label 'Public review start'
+      $ended = ConvertFrom-RfcTimestamp -Value ([string]$rfc.public_review_ended_at) -Label 'Public review end'
+      Assert-Condition ($started -le $ended) 'Public review start must not follow its end.'
+      Assert-Condition ($ended -le $Now) 'Public review end must have elapsed before acceptance.'
+      Assert-Condition (($ended - $started).TotalDays -ge 7) 'Project-lead route requires seven elapsed days of public review.'
       Assert-Condition (@($rfc.approvers).Count -eq 0) 'Project-lead route must not assert maintainer approvals.'
       Assert-NullOrEmpty 'project_owner' $rfc.project_owner; Assert-NullOrEmpty 'decision_evidence_path' $rfc.decision_evidence_path
       Assert-Condition (@($rfc.decision_evidence_anchors).Count -eq 0 -and @($rfc.edge_reviews).Count -eq 0) 'Project-lead route must not assert sole-owner evidence.'
