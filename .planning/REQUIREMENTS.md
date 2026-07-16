@@ -29,7 +29,7 @@
 - [ ] **CORE-03**: A library author can read and write through backend-neutral interfaces that distinguish exact, partial, end-of-stream, and failed operations.
 - [ ] **CORE-04**: A parser can use bounded sub-readers and in-memory reader/writer implementations without requiring filesystem access or full-input buffering.
 - [ ] **CORE-05**: A consumer can use seek only when the supplied capability supports it, without forcing seekability into every stream.
-- [ ] **CORE-06**: A tool can receive machine-readable errors and diagnostics with stable categories/codes, source offsets or context, and deterministic human-readable rendering.
+- [x] **CORE-06**: A tool can receive machine-readable errors and diagnostics with stable categories/codes, source offsets or context, and deterministic human-readable rendering.
 - [ ] **CORE-07**: A caller can set safe resource budgets for bytes, allocations, dimensions/pixels, nesting, and work, and receives a structured limit error before prohibited work or allocation occurs.
 - [ ] **CORE-08**: A portable package can receive host capabilities such as files, logging, clocks, cancellation, or resource resolution explicitly rather than reading ambient process state.
 
@@ -127,7 +127,7 @@
 | CORE-03 | Phase 2 | Pending |
 | CORE-04 | Phase 2 | Pending |
 | CORE-05 | Phase 2 | Pending |
-| CORE-06 | Phase 2 | Pending |
+| CORE-06 | Phase 2 | Complete |
 | CORE-07 | Phase 2 | Pending |
 | CORE-08 | Phase 2 | Pending |
 | COLR-01 | Phase 3 | Pending |
