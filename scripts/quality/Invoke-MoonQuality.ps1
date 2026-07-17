@@ -601,6 +601,9 @@ function Invoke-RequiredQuality {
   Invoke-QualityStage 'IMAG fail-closed negative fixtures' {
     Assert-ImageQualificationNegativeFixtures
   }
+  Invoke-QualityStage 'QUAL-02 public example consumers and source isolation' {
+    & ./scripts/quality/Test-PublicExamples.ps1 -Example all -Mode qualify -Report artifacts/release-qualification/examples.json
+  }
   foreach ($target in $requiredTargets) {
     Invoke-QualityStage "CORE literate README check target $target" {
       Invoke-MoonCommand -Context "mb-core README check target $target" -Arguments @('-C', 'modules/mb-core', 'check', 'README.mbt.md', '--target', $target, '--frozen')
