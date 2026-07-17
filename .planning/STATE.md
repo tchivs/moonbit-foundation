@@ -5,16 +5,16 @@ milestone_name: Publication & Compatibility
 current_phase: 6
 current_phase_name: Namespace Authority and Compatibility Contract
 status: executing
-stopped_at: Completed 06-15-PLAN.md
-last_updated: "2026-07-17T12:14:29.806Z"
+stopped_at: Completed 06-16-PLAN.md
+last_updated: "2026-07-17T12:19:38.909Z"
 last_activity: 2026-07-17
-last_activity_desc: canonical shared routes and collective validators reconciled
+last_activity_desc: anchored mb-core budget and bytes baseline batch regenerated
 progress:
   total_phases: 4
   completed_phases: 0
   total_plans: 25
-  completed_plans: 13
-  percent: 0
+  completed_plans: 14
+  percent: 56
 ---
 
 # Project State
@@ -30,16 +30,16 @@ See `.planning/PROJECT.md` (updated 2026-07-17).
 ## Current Position
 
 Phase: 6 (Namespace Authority and Compatibility Contract) — EXECUTING
-Plan: 13 of 25 complete; next 06-15
+Plan: 14 of 25 complete; next 06-17
 Status: Executing credential-free personal namespace migration
-Last activity: 2026-07-17 — canonical shared routes and collective validators reconciled
+Last activity: 2026-07-17 — anchored mb-core budget and bytes baseline batch regenerated
 
 ## Progress
 
-Current milestone: [█████░░░░░] 48% of planned Phase 6 work
+Current milestone: [██████░░░░] 56% of planned Phase 6 work
 
 - v0.2 phases completed: 0/4
-- v0.2 plans completed: 12/25
+- v0.2 plans completed: 14/25
 - v0.2 requirements mapped: 21/21
 - Historical total: 5 completed phases, 41 completed plans, 36/36 v0.1 requirements validated
 
@@ -80,13 +80,13 @@ Current milestone: [█████░░░░░] 48% of planned Phase 6 work
 
 **Resume file:** None
 
-Last session: 2026-07-17T12:14:29.783Z
-Stopped at: Completed 06-15-PLAN.md
+Last session: 2026-07-17T12:19:38.889Z
+Stopped at: Completed 06-16-PLAN.md
 Resume with: `/gsd-execute-phase 6`
 
 ## Operator Next Steps
 
-- Execute 06-15 to capture the immutable 06-14 source boundary and start bounded canonical baseline regeneration.
+- Execute 06-17 to regenerate the next bounded canonical baseline batch.
 - Resume revised 06-01 only after the credential-free chain through 06-11; execute 06-06 only after both complete.
 
 ## Performance Metrics
@@ -102,3 +102,4 @@ Resume with: `/gsd-execute-phase 6`
 | Phase 06 P10 | 18m | 2 tasks | 12 files |
 | Phase 06 P14 | 16m | 3 tasks | 7 files |
 | Phase 06 P15 | 25min | 1 tasks | 3 files |
+| Phase 06 P16 | 4min | 1 tasks | 12 files |
