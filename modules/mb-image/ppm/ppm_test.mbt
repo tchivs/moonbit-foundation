@@ -1,5 +1,8 @@
 ///|
-fn encode_budget(bytes? : UInt64 = 128UL, work? : UInt64 = 128UL) -> @budget.Budget {
+fn encode_budget(
+  bytes? : UInt64 = 128UL,
+  work? : UInt64 = 128UL,
+) -> @budget.Budget {
   @budget.Budget::new(
     @budget.ResourceLimits::new(
       bytes~,
@@ -78,13 +81,22 @@ fn encode_image(
     length,
     encode_metadata(orientation~, with_opaque~),
   ).unwrap()
-  let image = @storage.OwnedImage::new(descriptor, encode_budget(bytes=length, work=0UL)).unwrap()
+  let image = @storage.OwnedImage::new(
+    descriptor,
+    encode_budget(bytes=length, work=0UL),
+  ).unwrap()
   image
   .with_mut_view(fn(view) {
     for y = 0UL; y < height; y = y + 1UL {
       for x = 0UL; x < width; x = x + 1UL {
         for channel = 0UL; channel < 3UL; channel = channel + 1UL {
-          match view.set_byte(x, y, channel, ((y * width + x) * 3UL + channel + 1UL).to_byte()) {
+          match
+            view.set_byte(
+              x,
+              y,
+              channel,
+              ((y * width + x) * 3UL + channel + 1UL).to_byte(),
+            ) {
             Ok(_) => ()
             Err(error) => return Err(error)
           }
@@ -98,13 +110,21 @@ fn encode_image(
 }
 
 ///|
-fn encode_ppm(image : @storage.OwnedImage) -> (@codec.EncodeResult, @io.MemoryWriter) {
-  let writer = @io.MemoryWriter::new(256UL, encode_budget(bytes=256UL, work=0UL)).unwrap()
+fn encode_ppm(
+  image : @storage.OwnedImage,
+) -> (@codec.EncodeResult, @io.MemoryWriter) {
+  let writer = @io.MemoryWriter::new(
+    256UL,
+    encode_budget(bytes=256UL, work=0UL),
+  ).unwrap()
   let result = @codec.ImageEncoder::encode(
     PpmEncoder::new(),
     image.view(),
     writer as &@io.Writer,
-    @codec.EncodeOptions::new(lossless_required=true, preserve_opaque_metadata=false),
+    @codec.EncodeOptions::new(
+      lossless_required=true,
+      preserve_opaque_metadata=false,
+    ),
     encode_limits(),
     encode_budget(),
     @error.Diagnostics::new(),
@@ -124,7 +144,9 @@ fn writer_prefix(writer : @io.MemoryWriter) -> Bytes {
 ///|
 test "canonical encoder writes the exact header and logical rows" {
   let (tight_result, tight_writer) = encode_ppm(encode_image(2UL, 2UL))
-  let (padded_result, padded_writer) = encode_ppm(encode_image(2UL, 2UL, stride_extra=2UL))
+  let (padded_result, padded_writer) = encode_ppm(
+    encode_image(2UL, 2UL, stride_extra=2UL),
+  )
   let expected = b"P6\n2 2\n255\n\x01\x02\x03\x04\x05\x06\x07\x08\x09\x0a\x0b\x0c"
   inspect(writer_prefix(tight_writer) == expected, content="true")
   inspect(writer_prefix(padded_writer) == expected, content="true")
@@ -134,21 +156,31 @@ test "canonical encoder writes the exact header and logical rows" {
 
 ///|
 test "unsupported orientation and opaque metadata fail before output" {
-  for image in [
-    encode_image(1UL, 1UL, orientation=@model.Orientation::TopRight),
-    encode_image(1UL, 1UL, with_opaque=true),
-  ] {
-    let writer = @io.MemoryWriter::new(64UL, encode_budget(bytes=64UL, work=0UL)).unwrap()
+  for
+    image in [
+      encode_image(1UL, 1UL, orientation=@model.Orientation::TopRight),
+      encode_image(1UL, 1UL, with_opaque=true),
+    ] {
+    let writer = @io.MemoryWriter::new(
+      64UL,
+      encode_budget(bytes=64UL, work=0UL),
+    ).unwrap()
     let error = @codec.ImageEncoder::encode(
       PpmEncoder::new(),
       image.view(),
       writer as &@io.Writer,
-      @codec.EncodeOptions::new(lossless_required=true, preserve_opaque_metadata=false),
+      @codec.EncodeOptions::new(
+        lossless_required=true,
+        preserve_opaque_metadata=false,
+      ),
       encode_limits(),
       encode_budget(),
       @error.Diagnostics::new(),
     ).unwrap_err()
-    inspect(error.code() == @error.ErrorCode::CapabilityUnavailable, content="true")
+    inspect(
+      error.code() == @error.ErrorCode::CapabilityUnavailable,
+      content="true",
+    )
     inspect(writer.position(), content="0")
   }
 }
@@ -168,11 +200,77 @@ test "zero writer progress remains structured" {
     PpmEncoder::new(),
     encode_image(1UL, 1UL).view(),
     writer as &@io.Writer,
-    @codec.EncodeOptions::new(lossless_required=true, preserve_opaque_metadata=false),
+    @codec.EncodeOptions::new(
+      lossless_required=true,
+      preserve_opaque_metadata=false,
+    ),
     encode_limits(),
     encode_budget(),
     @error.Diagnostics::new(),
   ).unwrap_err()
   inspect(error.code() == @error.ErrorCode::NoProgress, content="true")
   inspect(error.completed() == Some(0UL), content="true")
+}
+
+///|
+struct ScriptWriter {
+  mut completed : UInt64
+  chunk : UInt64
+  fail_at : UInt64
+}
+
+///|
+impl @io.Writer for ScriptWriter with fn write(self, source) {
+  if self.completed >= self.fail_at {
+    return @io.WriteOutcome::Failed(
+      @error.CoreError::new(
+        @error.ErrorCategory::Host,
+        @error.ErrorCode::HostOperationFailed,
+        operation="scripted-write",
+        context="scripted",
+      ),
+      0UL,
+    )
+  }
+  let count = if source.length() < self.chunk {
+    source.length()
+  } else {
+    self.chunk
+  }
+  self.completed = self.completed + count
+  @io.WriteOutcome::Progress(count)
+}
+
+///|
+test "short progress succeeds and later failure reports total completed" {
+  let short = ScriptWriter::{ completed: 0UL, chunk: 1UL, fail_at: 64UL }
+  let result = @codec.ImageEncoder::encode(
+    PpmEncoder::new(),
+    encode_image(1UL, 1UL).view(),
+    short as &@io.Writer,
+    @codec.EncodeOptions::new(
+      lossless_required=true,
+      preserve_opaque_metadata=false,
+    ),
+    encode_limits(),
+    encode_budget(),
+    @error.Diagnostics::new(),
+  ).unwrap()
+  inspect(result.bytes_written(), content="14")
+  let failed = ScriptWriter::{ completed: 0UL, chunk: 1UL, fail_at: 11UL }
+  let error = @codec.ImageEncoder::encode(
+    PpmEncoder::new(),
+    encode_image(1UL, 1UL).view(),
+    failed as &@io.Writer,
+    @codec.EncodeOptions::new(
+      lossless_required=true,
+      preserve_opaque_metadata=false,
+    ),
+    encode_limits(),
+    encode_budget(),
+    @error.Diagnostics::new(),
+  ).unwrap_err()
+  inspect(error.code() == @error.ErrorCode::HostOperationFailed, content="true")
+  inspect(error.requested() == Some(14UL), content="true")
+  inspect(error.completed() == Some(11UL), content="true")
 }
