@@ -5,16 +5,16 @@ milestone_name: Publication & Compatibility
 current_phase: 6
 current_phase_name: Namespace Authority and Compatibility Contract
 status: executing
-stopped_at: Completed 06-18-PLAN.md
-last_updated: "2026-07-17T12:34:20.577Z"
+stopped_at: Completed 06-19-PLAN.md
+last_updated: "2026-07-17T12:42:36.806Z"
 last_activity: 2026-07-17
-last_activity_desc: anchored mb-core host and io baseline batch regenerated
+last_activity_desc: anchored mb-color model and alpha baseline batch regenerated
 progress:
   total_phases: 4
   completed_phases: 0
   total_plans: 25
-  completed_plans: 16
-  percent: 64
+  completed_plans: 17
+  percent: 68
 ---
 
 # Project State
@@ -30,16 +30,16 @@ See `.planning/PROJECT.md` (updated 2026-07-17).
 ## Current Position
 
 Phase: 6 (Namespace Authority and Compatibility Contract) — EXECUTING
-Plan: 16 of 25 complete; next 06-19
+Plan: 17 of 25 complete; next 06-20
 Status: Executing credential-free personal namespace migration
-Last activity: 2026-07-17 — anchored mb-core host and io baseline batch regenerated
+Last activity: 2026-07-17 — anchored mb-color model and alpha baseline batch regenerated
 
 ## Progress
 
-Current milestone: [██████░░░░] 64% of planned Phase 6 work
+Current milestone: [███████░░░] 68% of planned Phase 6 work
 
 - v0.2 phases completed: 0/4
-- v0.2 plans completed: 16/25
+- v0.2 plans completed: 17/25
 - v0.2 requirements mapped: 21/21
 - Historical total: 5 completed phases, 41 completed plans, 36/36 v0.1 requirements validated
 
@@ -68,6 +68,7 @@ Current milestone: [██████░░░░] 64% of planned Phase 6 work
 - [Phase 06]: Bind public-interface baseline batches to the immutable completed 06-14 source snapshot. — Later HEAD and obsolete manifest metadata must never influence compatibility evidence.
 - [Phase 06]: Use canonical policy order error then checked at the generator boundary while preserving the plan-owned twelve-file output set. — The exact-package generator rejects out-of-order inventory requests, and package order does not alter batch membership or output ownership.
 - [Phase 06]: Use canonical policy order io then host at the generator boundary while preserving the plan-owned twelve-file output set. — Exact-package ordering is a validation constraint and does not broaden batch membership or file ownership.
+- [Phase 06]: Use canonical policy order model then alpha at the generator boundary while preserving the plan-owned twelve-file output set. — Exact-package ordering is a validation constraint and does not broaden batch membership or file ownership.
 
 ### Pending Decisions
 
@@ -82,8 +83,8 @@ Current milestone: [██████░░░░] 64% of planned Phase 6 work
 
 **Resume file:** None
 
-Last session: 2026-07-17T12:34:20.554Z
-Stopped at: Completed 06-18-PLAN.md
+Last session: 2026-07-17T12:42:36.785Z
+Stopped at: Completed 06-19-PLAN.md
 Resume with: `/gsd-execute-phase 6`
 
 ## Operator Next Steps
@@ -107,3 +108,4 @@ Resume with: `/gsd-execute-phase 6`
 | Phase 06 P16 | 4min | 1 tasks | 12 files |
 | Phase 06 P17 | 2min | 1 tasks | 12 files |
 | Phase 06 P18 | 4min | 1 tasks | 12 files |
+| Phase 06 P19 | 2min | 1 tasks | 12 files |
