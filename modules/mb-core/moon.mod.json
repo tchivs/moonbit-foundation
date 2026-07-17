@@ -1,5 +1,5 @@
 {
-  "name": "moonbit-foundation/mb-core",
+  "name": "tchivs/mb-core",
   "version": "0.1.0",
   "description": "Portable checked arithmetic, bounded storage, resource budgets, backend-neutral I/O, and explicit host capability contracts for MoonBit Native Foundation.",
   "license": "Apache-2.0",

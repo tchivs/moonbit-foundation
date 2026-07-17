@@ -1,5 +1,5 @@
 {
-  "name": "moonbit-foundation/mb-image",
+  "name": "tchivs/mb-image",
   "version": "0.1.0",
   "description": "Portable explicit image descriptions, safe owned storage and views, deterministic operations, codec contracts, and a strict bounded PPM P6 reference subset for MoonBit Native Foundation.",
   "license": "Apache-2.0",
@@ -8,7 +8,7 @@
   "preferred-target": "native",
   "supported-targets": "+js+wasm+wasm-gc+native",
   "deps": {
-    "moonbit-foundation/mb-core": "0.1.0",
-    "moonbit-foundation/mb-color": "0.1.0"
+    "tchivs/mb-core": "0.1.0",
+    "tchivs/mb-color": "0.1.0"
   }
 }

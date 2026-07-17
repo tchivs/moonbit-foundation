@@ -1,5 +1,5 @@
 {
-  "name": "moonbit-foundation/mb-color",
+  "name": "tchivs/mb-color",
   "version": "0.1.0",
   "description": "Portable explicit color identities, reference sRGB transfer, deterministic quantization, alpha semantics, and bounded profile metadata for MoonBit Native Foundation.",
   "license": "Apache-2.0",
@@ -8,6 +8,6 @@
   "preferred-target": "native",
   "supported-targets": "+js+wasm+wasm-gc+native",
   "deps": {
-    "moonbit-foundation/mb-core": "0.1.0"
+    "tchivs/mb-core": "0.1.0"
   }
 }
