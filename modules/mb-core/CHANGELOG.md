@@ -30,3 +30,7 @@ stable API, registry publication, or permanent toolchain floor is claimed.
 
 Deferred: color/image semantics, concrete codecs, production host adapters,
 registry publication, LLVM support, and performance claims.
+
+Change class: exact
+Migration: not-required
+RFC: not-required; impacts: none
