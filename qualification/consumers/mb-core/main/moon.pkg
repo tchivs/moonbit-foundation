@@ -1,10 +1,10 @@
 import {
-  "moonbit-foundation/mb-core/budget",
-  "moonbit-foundation/mb-core/bytes",
-  "moonbit-foundation/mb-core/checked",
-  "moonbit-foundation/mb-core/error",
-  "moonbit-foundation/mb-core/host",
-  "moonbit-foundation/mb-core/io",
+  "tchivs/mb-core/budget",
+  "tchivs/mb-core/bytes",
+  "tchivs/mb-core/checked",
+  "tchivs/mb-core/error",
+  "tchivs/mb-core/host",
+  "tchivs/mb-core/io",
 }
 
 supported_targets = "+js+wasm+wasm-gc+native"

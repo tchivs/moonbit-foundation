@@ -5,6 +5,6 @@
   "preferred-target": "native",
   "supported-targets": "+js+wasm+wasm-gc+native",
   "deps": {
-    "moonbit-foundation/mb-core": "0.1.0"
+    "tchivs/mb-core": "0.1.0"
   }
 }
