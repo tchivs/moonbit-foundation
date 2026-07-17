@@ -101,8 +101,9 @@ function Read-NormalizedInterface {
       continue
     }
     if ($line -ceq 'import {') { $inImports = $true; continue }
-    if ($line -cmatch '^(?:pub(?:\([^)]*\))?|priv|internal)\s+') {
-      $identity = Get-CompatibilityDeclarationIdentity -Header $line
+    if ($line -cmatch '^(?:pub(?:\([^)]*\))?|priv|internal)\s+' -or $line -cmatch '^type\s+') {
+      $identityHeader = if ($line -cmatch '^type\s+') { "internal $line" } else { $line }
+      $identity = Get-CompatibilityDeclarationIdentity -Header $identityHeader
       $block = [Collections.Generic.List[string]]::new()
       $block.Add($line)
       $depth = ([regex]::Matches($line, '\{')).Count - ([regex]::Matches($line, '\}')).Count
@@ -191,7 +192,13 @@ function Read-CompatibilityTree {
     )
     Assert-CompatibilityClosedProperties -Label "$Role package toolchain" -Value $document.toolchain -Expected @('moon','moonc','moonrun')
     if ([string]$document.package -cne $packageName -or [string]$document.module -cne [string]$entry.module -or
-        [string]$document.raw_sha256 -cne [string]$entry.raw_sha256 -or $document.two_run_equal -ne $true) {
+        [string]$document.raw_path -cne [string]$entry.raw_path -or [string]$document.raw_sha256 -cne [string]$entry.raw_sha256 -or
+        [string]$document.source_commit -cne [string]$manifest.source_commit -or
+        [string]$document.schema_version -cne 'mnf-public-interface-baseline-package/1' -or
+        [string]$document.normalization_schema_version -cne 'moon-mbti-lossless-lines/1' -or
+        [string]$document.claim_scope -cne 'public-interface-text-only; no behavioral, semantic, resource, layout, or performance compatibility claim' -or
+        ($document.toolchain | ConvertTo-Json -Compress) -cne ($manifest.toolchain | ConvertTo-Json -Compress) -or
+        $document.two_run_equal -ne $true) {
       Throw-CompatibilityRule -Id $missingRule -Message "$Role package '$packageName' identity or completion failed."
     }
     if (@($document.records).Count -ne $targets.Count) {
@@ -204,6 +211,10 @@ function Read-CompatibilityTree {
       $target = [string]$record.target
       if ($records.ContainsKey($target)) { Throw-CompatibilityRule -Id 'COMP02-DUPLICATE-RECORD' -Message "$Role package-target '$packageName|$target' is duplicated." }
       if ($targets -cnotcontains $target) { Throw-CompatibilityRule -Id $missingRule -Message "$Role package-target '$packageName|$target' is not declared." }
+      $normalizedRelative = [string]$record.normalized_path
+      if ([IO.Path]::IsPathRooted($normalizedRelative) -or $normalizedRelative -cmatch '(^|/)[.][.](/|$)|\\') {
+        Throw-CompatibilityRule -Id 'COMP02-INPUT-CLOSED' -Message "$Role normalized path '$normalizedRelative' is unsafe."
+      }
       if ([string]$record.target_inspection.status -cne 'pass' -or $record.target_inspection.matches_canonical -ne $true -or
           [string]$record.target_inspection.raw_sha256 -cne [string]$document.raw_sha256) {
         Throw-CompatibilityRule -Id 'COMP02-TARGET-DIVERGENCE' -Message "$Role package-target '$packageName|$target' diverged."
@@ -264,11 +275,11 @@ function Get-CanonicalVersion {
 }
 
 function Test-VersionSufficient {
-  param([Parameter(Mandatory)]$Baseline, [Parameter(Mandatory)]$Candidate, [Parameter(Mandatory)][ValidateSet('exact','additive','incompatible')][string]$Class)
+  param([Parameter(Mandatory)]$Baseline, [Parameter(Mandatory)]$Candidate, [Parameter(Mandatory)][ValidateSet('patch','minor')][string]$MinimumIncrement)
   if (-not [string]::IsNullOrEmpty([string]$Candidate.suffix)) { return $false }
   if ($Candidate.major -gt $Baseline.major) { return $true }
   if ($Candidate.major -lt $Baseline.major) { return $false }
-  if ($Class -ceq 'exact') {
+  if ($MinimumIncrement -ceq 'patch') {
     return ($Candidate.minor -gt $Baseline.minor -or ($Candidate.minor -eq $Baseline.minor -and $Candidate.patch -gt $Baseline.patch))
   }
   return ($Candidate.minor -gt $Baseline.minor)
@@ -303,6 +314,19 @@ function Invoke-PublicInterfaceComparison {
     if ([string]$policy.schema_version -cne 'mnf-public-compatibility-policy/1' -or [string]$policy.claim_scope -cne $script:CompatibilityClaimScope) {
       Throw-CompatibilityRule -Id 'COMP02-INPUT-CLOSED' -Message 'compatibility policy identity or claim scope drifted.'
     }
+    if ((@($policy.classification_precedence | ForEach-Object { [string]$_ }) -join ',') -cne 'unknown,incompatible,additive,exact') {
+      Throw-CompatibilityRule -Id 'COMP02-INPUT-CLOSED' -Message 'compatibility policy precedence drifted.'
+    }
+    Assert-CompatibilityClosedProperties -Label 'compatibility controlled facts' -Value $policy.controlled_facts -Expected @('public_api','supported_targets','minimum_toolchain','dependency_floors')
+    Assert-CompatibilityClosedProperties -Label 'compatibility version rules' -Value $policy.version_rules -Expected @('exact','additive','incompatible','unknown')
+    foreach ($policyClass in @('exact','additive','incompatible','unknown')) {
+      Assert-CompatibilityClosedProperties -Label "compatibility version rule $policyClass" -Value $policy.version_rules.$policyClass -Expected @(
+        'minimum_increment','release_allowed','changelog_required','added_surface_report_required','migration_required'
+      )
+    }
+    Assert-CompatibilityClosedProperties -Label 'compatibility RFC condition' -Value $policy.rfc_condition -Expected @(
+      'trigger_impacts','accepted_rfc_required_when_triggered','not_required_for_ordinary_incompatible_api_delta'
+    )
     $facts = Read-CandidateReleaseFacts -Path $CandidateReleasePath
     $baselineVersion = [string]$facts.baseline_version; $candidateVersion = [string]$facts.candidate_version
     $baselineSemVer = Get-CanonicalVersion $baselineVersion; $candidateSemVer = Get-CanonicalVersion $candidateVersion
@@ -316,13 +340,24 @@ function Invoke-PublicInterfaceComparison {
     if (($baseline.manifest.toolchain | ConvertTo-Json -Compress) -cne ($candidate.manifest.toolchain | ConvertTo-Json -Compress)) {
       Throw-CompatibilityRule -Id 'COMP02-TOOLCHAIN-MISMATCH' -Message 'candidate generation toolchain differs from the approved baseline toolchain.'
     }
+    $candidateManifestTargets = @($candidate.manifest.targets | ForEach-Object { [string]$_ } | Sort-Object -CaseSensitive)
+    $candidateFactTargets = @($facts.supported_targets | ForEach-Object { [string]$_ } | Sort-Object -CaseSensitive)
+    if (($candidateManifestTargets -join "`n") -cne ($candidateFactTargets -join "`n")) {
+      Throw-CompatibilityRule -Id 'COMP02-TARGET-DIVERGENCE' -Message 'candidate generated targets differ from declared supported targets.'
+    }
     foreach ($packageName in @($baseline.packages.Keys)) {
       if (-not $candidate.packages.ContainsKey($packageName)) { Throw-CompatibilityRule -Id 'COMP02-INCOMPLETE-CANDIDATE' -Message "candidate package '$packageName' is missing." }
     }
     foreach ($packageName in @($candidate.packages.Keys)) {
       if (-not $baseline.packages.ContainsKey($packageName)) { Add-CompatibilityChange $added "package:$packageName"; continue }
       foreach ($target in @($baseline.targets)) {
-        if (-not $candidate.packages[$packageName].records.ContainsKey($target)) { Throw-CompatibilityRule -Id 'COMP02-INCOMPLETE-CANDIDATE' -Message "candidate target '$packageName|$target' is missing." }
+        if (-not $candidate.packages[$packageName].records.ContainsKey($target)) {
+          if (@($facts.supported_targets | ForEach-Object { [string]$_ }) -cnotcontains $target) {
+            Add-CompatibilityChange $factChanges "supported-target-removed:$target"
+            continue
+          }
+          Throw-CompatibilityRule -Id 'COMP02-INCOMPLETE-CANDIDATE' -Message "candidate target '$packageName|$target' is missing."
+        }
         $before = $baseline.packages[$packageName].records[$target]
         $after = $candidate.packages[$packageName].records[$target]
         $beforeImports = @($before.imports | Sort-Object -CaseSensitive); $afterImports = @($after.imports | Sort-Object -CaseSensitive)
@@ -347,8 +382,8 @@ function Invoke-PublicInterfaceComparison {
       if ([string]$facts.minimum_toolchain.$name -cne [string]$profile.minimum_toolchain.$name) { Add-CompatibilityChange $factChanges "minimum-toolchain:$name" }
     }
     foreach ($module in @('mb-core','mb-color','mb-image')) {
-      $expectedNames = @($profile.dependency_floors.$module.PSObject.Properties.Name | Sort-Object -CaseSensitive)
-      $actualNames = @($facts.dependency_floors.$module.PSObject.Properties.Name | Sort-Object -CaseSensitive)
+      $expectedNames = @($profile.dependency_floors.$module.PSObject.Properties | ForEach-Object { $_.Name } | Sort-Object -CaseSensitive)
+      $actualNames = @($facts.dependency_floors.$module.PSObject.Properties | ForEach-Object { $_.Name } | Sort-Object -CaseSensitive)
       if (($expectedNames -join "`n") -cne ($actualNames -join "`n")) { Add-CompatibilityChange $factChanges "dependency-floor-set:$module"; continue }
       foreach ($name in $expectedNames) { if ([string]$facts.dependency_floors.$module.$name -cne [string]$profile.dependency_floors.$module.$name) { Add-CompatibilityChange $factChanges "dependency-floor:${module}:$name" } }
     }
@@ -366,16 +401,20 @@ function Invoke-PublicInterfaceComparison {
       $null = $classificationRules.Add('COMP02-CLASS-ADDITIVE')
       if (@($factChanges | Where-Object { $_ -clike 'supported-target-added:*' }).Count -ne 0) { $null = $classificationRules.Add('COMP02-SUPPORTED-TARGET-ADDED') }
     } else { $classification = 'exact'; $null = $classificationRules.Add('COMP02-CLASS-EXACT') }
-    if (-not (Test-VersionSufficient -Baseline $baselineSemVer -Candidate $candidateSemVer -Class $classification)) { $null = $blockingRules.Add('COMP03-VERSION-INSUFFICIENT') }
-    if ($facts.evidence.changelog_present -ne $true) { $null = $blockingRules.Add('COMP04-CHANGELOG-REQUIRED') }
+    $classPolicy = $policy.version_rules.$classification
+    if ($classPolicy.release_allowed -ne $true) { $null = $blockingRules.Add('COMP02-INTERRUPTED-RESULT') }
+    if (-not (Test-VersionSufficient -Baseline $baselineSemVer -Candidate $candidateSemVer -MinimumIncrement ([string]$classPolicy.minimum_increment))) { $null = $blockingRules.Add('COMP03-VERSION-INSUFFICIENT') }
+    if ($classPolicy.changelog_required -eq $true -and $facts.evidence.changelog_present -ne $true) { $null = $blockingRules.Add('COMP04-CHANGELOG-REQUIRED') }
     elseif ([string]$facts.evidence.change_class -cne $classification) { $null = $blockingRules.Add('COMP04-CHANGE-CLASS-MISMATCH') }
-    if ($classification -ceq 'additive' -and $facts.evidence.added_surface_report_present -ne $true) { $null = $blockingRules.Add('COMP04-ADDED-SURFACE-REPORT-REQUIRED') }
-    if ($classification -ceq 'incompatible' -and $facts.evidence.migration_present -ne $true) { $null = $blockingRules.Add('COMP04-MIGRATION-REQUIRED') }
+    if ($classPolicy.added_surface_report_required -eq $true -and $facts.evidence.added_surface_report_present -ne $true) { $null = $blockingRules.Add('COMP04-ADDED-SURFACE-REPORT-REQUIRED') }
+    if ($classPolicy.migration_required -eq $true -and $facts.evidence.migration_present -ne $true) { $null = $blockingRules.Add('COMP04-MIGRATION-REQUIRED') }
     $rfcImpacts = @($facts.evidence.rfc_impacts | ForEach-Object { [string]$_ })
-    if ($rfcImpacts.Count -gt 0 -and $facts.evidence.rfc_present -ne $true) { $null = $blockingRules.Add('COMP04-RFC-REQUIRED') }
+    $triggeredImpacts = @($rfcImpacts | Where-Object { @($policy.rfc_condition.trigger_impacts | ForEach-Object { [string]$_ }) -ccontains $_ })
+    if ($policy.rfc_condition.accepted_rfc_required_when_triggered -eq $true -and $triggeredImpacts.Count -gt 0 -and $facts.evidence.rfc_present -ne $true) { $null = $blockingRules.Add('COMP04-RFC-REQUIRED') }
     $releaseAuthorized = $blockingRules.Count -eq 0
   } catch {
     $message = $_.Exception.Message
+    Write-Verbose "Compatibility classification failed closed: $message"
     $rule = if ($message -cmatch '^(?<id>COMP(?:02|03|04)-[A-Z0-9-]+):') { [string]$Matches.id } else { 'COMP02-INPUT-CLOSED' }
     $classification = 'unknown'; $releaseAuthorized = $false
     $null = $classificationRules.Add($rule); $null = $blockingRules.Add($rule)
