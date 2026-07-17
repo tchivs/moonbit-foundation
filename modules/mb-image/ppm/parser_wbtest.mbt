@@ -82,3 +82,141 @@ test "decoder and encoder values have no behavior stubs" {
   let _decoder = PpmDecoder::new(limits)
   let _encoder = PpmEncoder::new()
 }
+
+///|
+fn parser_limits(
+  header? : UInt64 = 128UL,
+  token? : UInt64 = 20UL,
+  comment? : UInt64 = 32UL,
+  comments? : UInt64 = 4UL,
+) -> PpmParserLimits {
+  PpmParserLimits::new(
+    max_header_bytes=header,
+    max_token_bytes=token,
+    max_comment_bytes=comment,
+    max_comments=comments,
+  ).unwrap()
+}
+
+///|
+fn parse_header_bytes(
+  source : Bytes,
+  limits? : PpmParserLimits = parser_limits(),
+) -> Result[PpmHeader, @error.CoreError] {
+  let parser = PpmHeaderParser::new(limits)
+  for byte in source {
+    match parser.feed(byte) {
+      Err(error) => return Err(error)
+      Ok(HeaderProgress::Continue) => ()
+      Ok(HeaderProgress::Complete(header)) => return Ok(header)
+    }
+  }
+  Err(ppm_header_error(@error.ErrorCode::UnexpectedEndOfStream, "header-eof"))
+}
+
+///|
+fn assert_error(
+  source : Bytes,
+  category : @error.ErrorCategory,
+  code : @error.ErrorCode,
+  context : String,
+  limits? : PpmParserLimits = parser_limits(),
+) -> Unit raise {
+  let error = parse_header_bytes(source, limits~).unwrap_err()
+  inspect(error.category() == category, content="true")
+  inspect(error.code() == code, content="true")
+  inspect(error.operation() == Some("ppm-header"), content="true")
+  inspect(error.context() == Some(context), content="true")
+}
+
+///|
+test "bounded parser accepts strict headers and stops at the raster separator" {
+  let header = parse_header_bytes(b"P6\n# one\n 2\t#two\r\n3\n255\nXYZ").unwrap()
+  inspect(header.width(), content="2")
+  inspect(header.height(), content="3")
+  inspect(header.maxval(), content="255")
+  inspect(header.bytes_consumed(), content="25")
+}
+
+///|
+test "strict decimal and comment positions fail with stable classifications" {
+  for item in [
+    (b"P5\n1 1\n255\n", "ppm-magic"),
+    (b"P6+1 1\n255\n", "ppm-separator"),
+    (b"P6\n+1 1\n255\n", "decimal-syntax"),
+    (b"P6\n-1 1\n255\n", "decimal-syntax"),
+    (b"P6\nÙ¡ 1\n255\n", "decimal-syntax"),
+    (b"P6\n0 1\n255\n", "width-zero"),
+    (b"P6\n1 0\n255\n", "height-zero"),
+    (b"P6\n1#x\n 1\n255\n", "decimal-syntax"),
+    (b"P6\n1 1\n255#x\n", "ppm-maxval"),
+  ] {
+    let (source, context) = item
+    assert_error(
+      source,
+      @error.ErrorCategory::Data,
+      @error.ErrorCode::InvalidEncoding,
+      context,
+    )
+  }
+}
+
+///|
+test "overflow unsupported maxval and every ceiling have exact errors" {
+  assert_error(
+    b"P6\n18446744073709551616 1\n255\n",
+    @error.ErrorCategory::InvalidInput,
+    @error.ErrorCode::ArithmeticOverflow,
+    "decimal-overflow",
+  )
+  for value in [b"0", b"1", b"254", b"256", b"65535"] {
+    assert_error(
+      b"P6\n1 1\n" + value + b"\n",
+      @error.ErrorCategory::Capability,
+      @error.ErrorCode::CapabilityUnavailable,
+      "ppm-maxval",
+    )
+  }
+  assert_error(
+    b"P6\n1 1\n255\n",
+    @error.ErrorCategory::Resource,
+    @error.ErrorCode::BudgetExceeded,
+    "header-bytes",
+    limits=parser_limits(header=10UL),
+  )
+  assert_error(
+    b"P6\n123 1\n255\n",
+    @error.ErrorCategory::Resource,
+    @error.ErrorCode::BudgetExceeded,
+    "token-bytes",
+    limits=parser_limits(token=2UL),
+  )
+  assert_error(
+    b"P6\n#abc\n1 1\n255\n",
+    @error.ErrorCategory::Resource,
+    @error.ErrorCode::BudgetExceeded,
+    "comment-bytes",
+    limits=parser_limits(comment=2UL),
+  )
+  assert_error(
+    b"P6\n#a\n#b\n1 1\n255\n",
+    @error.ErrorCategory::Resource,
+    @error.ErrorCode::BudgetExceeded,
+    "comments",
+    limits=parser_limits(comments=1UL),
+  )
+}
+
+///|
+test "completion never examines the first raster byte" {
+  for raster in [b'#', b' ', b'\n', b'\x00'] {
+    let parser = PpmHeaderParser::new(parser_limits())
+    let source = b"P6\n1 1\n255\n"
+    for byte in source {
+      ignore(parser.feed(byte).unwrap())
+    }
+    inspect(parser.is_complete(), content="true")
+    inspect(parser.bytes_consumed(), content="13")
+    ignore(raster)
+  }
+}
