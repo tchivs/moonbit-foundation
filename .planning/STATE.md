@@ -1,18 +1,18 @@
 ---
 gsd_state_version: 1.0
 milestone: v0.1
-milestone_name: milestone
-current_phase: 5
-status: completed
-stopped_at: Completed 05-08-PLAN.md
-last_updated: "2026-07-17T03:29:49.849Z"
+milestone_name: Foundation
+status: Awaiting next milestone
+stopped_at: Phase 5 independently verified and completed
+last_updated: "2026-07-17T03:39:41.254Z"
 last_activity: 2026-07-17
-last_activity_desc: Phase 5 complete
+last_activity_desc: Milestone v0.1 completed and archived
 progress:
   total_phases: 5
   completed_phases: 5
   total_plans: 41
   completed_plans: 41
+current_phase: 5
 current_phase_name: Reference Codec and Release Qualification
 ---
 
@@ -20,28 +20,26 @@ current_phase_name: Reference Codec and Release Qualification
 
 ## Project Reference
 
-See `.planning/PROJECT.md` (updated 2026-07-16).
+See `.planning/PROJECT.md` (updated 2026-07-17).
 
 **Core value:** MoonBit developers can reuse stable, high-performance native infrastructure contracts instead of rebuilding incompatible foundations for every graphics, document, media, or automation product.
 
-**Current focus:** Phase 5 — Reference Codec and Release Qualification
+**Current focus:** Planning the next milestone; v0.1 is archived.
 
 ## Current Position
 
-Phase: 5
-Plan: Not started
-Status: Milestone complete
-Last activity: 2026-07-17 — Phase 5 complete
-
-Progress: [██████████] 100% (5/5 phases; 41/41 plans complete)
+Phase: Milestone v0.1 complete
+Plan: —
+Status: Awaiting next milestone
+Last activity: 2026-07-17 — Milestone v0.1 completed and archived
 
 ## Performance Metrics
 
 **Velocity:**
 
-- Phases completed: 1
-- Plans completed: 8
-- Requirements validated: 9/36
+- Phases completed: 5
+- Plans completed: 41
+- Requirements validated: 36/36
 
 | Phase | Plan | Duration | Notes |
 |-------|------|----------|-------|
@@ -214,7 +212,7 @@ Progress: [██████████] 100% (5/5 phases; 41/41 plans complet
 
 ### Blockers
 
-None. All five v0.1 phases are independently verified and complete; milestone audit is next.
+None. v0.1 passed milestone audit and is archived.
 
 ### Quick Tasks Completed
 
@@ -226,6 +224,10 @@ None. All five v0.1 phases are independently verified and complete; milestone au
 
 **Resume file:** None
 
-Last session: 2026-07-17T03:34:00Z
-Stopped at: Phase 5 independently verified and completed
-Resume with: Audit and complete the v0.1 milestone.
+Last session: 2026-07-17T04:00:00Z
+Stopped at: v0.1 milestone audited, completed, and archived
+Resume with: Start a new milestone only after selecting its RFC-led scope.
+
+## Operator Next Steps
+
+- Start the next milestone with /gsd-new-milestone

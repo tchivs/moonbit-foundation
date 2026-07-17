@@ -16,12 +16,14 @@ MoonBit developers can reuse stable, high-performance native infrastructure cont
 
 - [x] Publish an accepted foundation RFC defining vision, terminology, layering, module boundaries, portability, and governance. — Validated in Phase 1: Foundation Charter and Reproducible Workspace.
 - [x] Establish a reproducible multi-module repository and CI quality contract for Native and portable targets. — Validated in Phase 1: Foundation Charter and Reproducible Workspace.
+- [x] Implement and validate the first reusable contracts in `mb-core`, `mb-color`, and `mb-image`. — Validated across Phases 2-4 and the Phase 5 release-candidate gate.
+- [x] Keep native-specific code behind narrow adapters while implementing core data models and algorithms in MoonBit. — Validated by the four-target portable packages and injected Native CLI-shaped example.
+- [x] Provide generated API documentation, examples, benchmarks, and conformance tests for every candidate public package. — Validated by the closed Phase 5 documentation, benchmark, fixture, and release selectors.
 
 ### Active
 
-- [ ] Implement and validate the first reusable contracts in `mb-core`, `mb-color`, and `mb-image`.
-- [ ] Keep native-specific code behind narrow adapters while implementing core data models and algorithms in MoonBit.
-- [ ] Provide generated API documentation, examples, benchmarks, and conformance tests for every stable public package.
+- [ ] Verify the mooncakes.io owner namespace before publication, then publish and independently resolve `mb-core`, `mb-color`, and `mb-image` in dependency order.
+- [ ] Define the next RFC-led milestone before adding new modules or widening architectural boundaries.
 
 ### Out of Scope
 
@@ -38,6 +40,16 @@ The project replaces an earlier application-oriented direction centered on build
 MoonBit currently supports `wasm`, `wasm-gc`, `js`, and `native`, with LLVM still experimental. The C-backed Native path supports C FFI and native stubs; therefore portability must be expressed package-by-package rather than assumed globally. A MoonBit module is the publishing unit and can contain multiple packages, so MNF can start as a coordinated workspace while preserving future independent release boundaries.
 
 The local baseline at initialization is `moon 0.1.20260713`, `moonc v0.10.4`, and `moonrun 0.1.20260713`. These are development baselines, not permanent minimum versions.
+
+## Current State
+
+v0.1 shipped on 2026-07-17 as a verified release-candidate foundation: five phases, 41 plans, and 36/36 requirements complete. The repository contains independently publishable `mb-core`, `mb-color`, and `mb-image` modules; strict bounded PPM P6 proves the public stack end to end across `js`, `wasm`, `wasm-gc`, and `native`.
+
+The locked qualification baseline passed 19/19 selectors twice at one unchanged HEAD with identical canonical evidence. Exact `mb-core` artifact consumption succeeds outside `moon.work`; downstream color/image registry resolution remains intentionally blocked until namespace ownership and dependency publication are real.
+
+## Next Milestone Goals
+
+No next milestone is opened automatically. The next cycle should first resolve whether to publish the v0.1 candidates or draft an RFC for the next ecosystem layer; new graphics, document, media, AI, or integration modules remain gated by that decision.
 
 ## Constraints
 
@@ -56,10 +68,12 @@ The local baseline at initialization is `moon 0.1.20260713`, `moonc v0.10.4`, an
 |----------|-----------|---------|
 | Treat MNF as an RFC/Whitepaper-led foundation | The product is a long-lived ecosystem contract, not one application or an unstructured library bundle | ✓ Validated in Phase 1 |
 | Use horizontal-layer planning | Infrastructure dependencies require shared contracts before higher-level modules | ✓ Validated in Phase 1 |
-| Scope the first implementation milestone to `mb-core`, `mb-color`, and `mb-image` | These modules establish reusable data, color, and image contracts needed by all later graphics/document work | — Pending |
-| Prefer Pure MoonBit without banning narrow FFI adapters | This advances MoonBit-native capability while remaining practical for OS, codec, and hardware integration | — Pending |
+| Scope the first implementation milestone to `mb-core`, `mb-color`, and `mb-image` | These modules establish reusable data, color, and image contracts needed by all later graphics/document work | ✓ Validated in v0.1 |
+| Prefer Pure MoonBit without banning narrow FFI adapters | This advances MoonBit-native capability while remaining practical for OS, codec, and hardware integration | ✓ Validated in v0.1 |
 | Make target support explicit per package | Native-specific integration must not accidentally contaminate portable packages | ✓ Validated in Phase 1 |
 | Use an RFC gate for new modules and breaking boundaries | Ecosystem coherence needs reviewable architectural decisions | ✓ Validated in Phase 1 |
+| Use checked budgets, explicit capabilities, and forward-only I/O as shared safety contracts | Untrusted binary and image processing must fail before prohibited access, allocation, or work | ✓ Validated in Phases 2-5 |
+| Treat deterministic evidence and honest blocked outcomes as release requirements | Candidate qualification must not depend on fabricated publication or noisy marketing claims | ✓ Validated in Phase 5 |
 
 ## Evolution
 
@@ -79,4 +93,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update toolchain, compatibility, benchmark, and adoption context.
 
 ---
-*Last updated: 2026-07-16 after Phase 1 completion*
+*Last updated: 2026-07-17 after v0.1 milestone completion*
