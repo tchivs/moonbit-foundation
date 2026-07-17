@@ -5,16 +5,16 @@ milestone_name: Publication & Compatibility
 current_phase: 6
 current_phase_name: Namespace Authority and Compatibility Contract
 status: executing
-stopped_at: Completed 06-23-PLAN.md
-last_updated: "2026-07-17T13:20:54.944Z"
+stopped_at: Completed 06-24-PLAN.md
+last_updated: "2026-07-17T13:28:57.071Z"
 last_activity: 2026-07-17
-last_activity_desc: anchored mb-image ops and PPM baseline batch regenerated
+last_activity_desc: anchored mb-image storage baseline batch regenerated
 progress:
   total_phases: 4
   completed_phases: 0
   total_plans: 25
-  completed_plans: 21
-  percent: 84
+  completed_plans: 22
+  percent: 88
 ---
 
 # Project State
@@ -30,16 +30,16 @@ See `.planning/PROJECT.md` (updated 2026-07-17).
 ## Current Position
 
 Phase: 6 (Namespace Authority and Compatibility Contract) — EXECUTING
-Plan: 21 of 25 complete; next 06-24
+Plan: 22 of 25 complete; next 06-11
 Status: Executing credential-free personal namespace migration
-Last activity: 2026-07-17 — anchored mb-image ops and PPM baseline batch regenerated
+Last activity: 2026-07-17 — anchored mb-image storage baseline batch regenerated
 
 ## Progress
 
-Current milestone: [████████░░] 84% of planned Phase 6 work
+Current milestone: [█████████░] 88% of planned Phase 6 work
 
 - v0.2 phases completed: 0/4
-- v0.2 plans completed: 21/25
+- v0.2 plans completed: 22/25
 - v0.2 requirements mapped: 21/21
 - Historical total: 5 completed phases, 41 completed plans, 36/36 v0.1 requirements validated
 
@@ -73,6 +73,7 @@ Current milestone: [████████░░] 84% of planned Phase 6 work
 - [Phase 06]: Preserve canonical global package order by generating mb-color/transfer before mb-image/codec without broadening the twelve-file ownership boundary. — The exact-package generator enforces policy order while plan ownership remains limited to the enumerated outputs.
 - [Phase 06]: Preserve canonical package order by generating mb-image/metadata before mb-image/model without broadening the twelve-file ownership boundary. — Exact-package ordering is a validation constraint while plan ownership remains limited to the twelve enumerated outputs.
 - [Phase 06]: Preserve canonical package order by generating mb-image/ops before mb-image/ppm without broadening the twelve-file ownership boundary. — Exact-package ordering is a validation constraint while plan ownership remains limited to the twelve enumerated outputs.
+- [Phase 06]: Keep the final package batch limited to mb-image/storage while preserving the six-file ownership boundary. — Exact-package generation and protected-file hashing complete the anchored package tree without manifest or cross-batch mutation.
 
 ### Pending Decisions
 
@@ -87,13 +88,13 @@ Current milestone: [████████░░] 84% of planned Phase 6 work
 
 **Resume file:** None
 
-Last session: 2026-07-17T13:20:54.920Z
-Stopped at: Completed 06-23-PLAN.md
+Last session: 2026-07-17T13:28:57.051Z
+Stopped at: Completed 06-24-PLAN.md
 Resume with: `/gsd-execute-phase 6`
 
 ## Operator Next Steps
 
-- Execute 06-24 to finalize the complete anchored public-interface baseline tree.
+- Execute 06-11 to finalize the complete anchored public-interface baseline tree.
 - Resume revised 06-01 only after the credential-free chain through 06-11; execute 06-06 only after both complete.
 
 ## Performance Metrics
@@ -117,3 +118,4 @@ Resume with: `/gsd-execute-phase 6`
 | Phase 06 P21 | 4min | 1 tasks | 12 files |
 | Phase 06 P22 | 4min | 1 tasks | 12 files |
 | Phase 06 P23 | 3min | 1 tasks | 12 files |
+| Phase 06 P24 | 5min | 1 tasks | 6 files |
