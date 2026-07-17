@@ -43,6 +43,200 @@ function Get-ReleaseSha256 {
   return (Get-FileHash -LiteralPath $Path -Algorithm SHA256).Hash.ToLowerInvariant()
 }
 
+function Get-ReleaseTextSha256 {
+  param([Parameter(Mandatory)][string]$Text)
+  $algorithm = [Security.Cryptography.SHA256]::Create()
+  try {
+    $bytes = [Text.UTF8Encoding]::new($false).GetBytes($Text)
+    return ([Convert]::ToHexString($algorithm.ComputeHash($bytes))).ToLowerInvariant()
+  } finally { $algorithm.Dispose() }
+}
+
+function Assert-StaticRequirementLedger {
+  param([Parameter(Mandatory)][string]$Path)
+  $ledger = Read-ReleaseJson -Path $Path
+  Assert-ReleaseClosedProperties -Label 'v0.1 requirement ledger' -Object $ledger -Expected @(
+    'schema_version', 'candidate', 'required_entrypoint', 'selectors', 'requirements', 'artifact_contracts', 'allowed_blocked_outcomes'
+  )
+  if ($ledger.schema_version -cne '1.0.0' -or $ledger.candidate -cne 'v0.1' -or
+      $ledger.required_entrypoint -cne 'pwsh -NoProfile -File scripts/quality.ps1 -Lane Required -EvidenceDirectory <untracked-evidence-directory>') {
+    throw 'Static requirement ledger identity or Required entrypoint drifted.'
+  }
+  $forbiddenProperties = [Collections.Generic.List[string]]::new()
+  function Find-DynamicProperty([object]$Value, [string]$At) {
+    if ($null -eq $Value) { return }
+    if ($Value -is [string] -or $Value -is [ValueType]) { return }
+    if ($Value -is [Collections.IEnumerable] -and $Value -isnot [Management.Automation.PSCustomObject]) {
+      $index = 0
+      foreach ($item in $Value) { Find-DynamicProperty -Value $item -At "$At[$index]"; $index++ }
+      return
+    }
+    foreach ($property in @($Value.PSObject.Properties)) {
+      if ($property.Name -cmatch '^(?:run(?:_?id)?|timestamp|commit|result|environment|digest|sha256|head)$') {
+        $forbiddenProperties.Add("$At.$($property.Name)")
+      }
+      Find-DynamicProperty -Value $property.Value -At "$At.$($property.Name)"
+    }
+  }
+  Find-DynamicProperty -Value $ledger -At '$'
+  if ($forbiddenProperties.Count -ne 0) {
+    throw "Static requirement ledger contains dynamic evidence properties: $($forbiddenProperties -join ', ')."
+  }
+
+  $selectorIds = @($ledger.selectors | ForEach-Object { [string]$_.id })
+  if ($selectorIds.Count -ne 19 -or @($selectorIds | Sort-Object -Unique).Count -ne $selectorIds.Count) {
+    throw 'Static requirement ledger must contain exactly 19 unique ordered selectors.'
+  }
+  foreach ($selector in @($ledger.selectors)) {
+    Assert-ReleaseClosedProperties -Label "selector $($selector.id)" -Object $selector -Expected @('id', 'focused_command', 'proves', 'policy_rule_ids')
+    if ([string]::IsNullOrWhiteSpace([string]$selector.focused_command) -or @($selector.proves).Count -eq 0) {
+      throw "Selector '$($selector.id)' lacks an executable focused command or requirement ownership."
+    }
+  }
+  $requirementIds = @('WORK-06', 'QUAL-01', 'QUAL-02', 'QUAL-03', 'QUAL-04', 'QUAL-05', 'QUAL-06')
+  Assert-ReleaseExactSet -Label 'ledger requirement IDs' -Actual @($ledger.requirements.PSObject.Properties.Name) -Expected $requirementIds
+  foreach ($id in $requirementIds) {
+    $mapped = @($ledger.requirements.$id | ForEach-Object { [string]$_ })
+    if ($mapped.Count -eq 0) { throw "Requirement '$id' has no selectors." }
+    foreach ($selectorId in $mapped) {
+      if ($selectorIds -cnotcontains $selectorId) { throw "Requirement '$id' references unknown selector '$selectorId'." }
+      $owner = @($ledger.selectors | Where-Object { [string]$_.id -ceq $selectorId })[0]
+      if (@($owner.proves | ForEach-Object { [string]$_ }) -cnotcontains $id) {
+        throw "Selector '$selectorId' does not reciprocally claim requirement '$id'."
+      }
+    }
+  }
+  Assert-ReleaseExactSequence -Label 'artifact contracts' -Actual @($ledger.artifact_contracts.id) -Expected @(
+    'foundation-policy', 'fixture-manifest', 'example-consumers', 'benchmark-baseline', 'release-packages'
+  )
+  foreach ($artifact in @($ledger.artifact_contracts)) {
+    $properties = @($artifact.PSObject.Properties.Name)
+    if ($properties.Count -ne 3 -or $properties -cnotcontains 'id' -or $properties -cnotcontains 'schema' -or
+        (($properties -ccontains 'tracked_path') -eq ($properties -ccontains 'dynamic_path'))) {
+      throw "Artifact contract '$($artifact.id)' is not a closed tracked-or-dynamic schema mapping."
+    }
+  }
+  Assert-ReleaseExactSequence -Label 'allowed blocked outcomes' -Actual @($ledger.allowed_blocked_outcomes) -Expected @(
+    'mb-color.artifact_consumer=blocked_unpublished_dependency',
+    'mb-color.registry_resolution=blocked_unpublished_namespace',
+    'mb-image.artifact_consumer=blocked_unpublished_dependency',
+    'mb-image.registry_resolution=blocked_unpublished_namespace'
+  )
+  return $ledger
+}
+
+function Get-RequiredRunStableObject {
+  param([Parameter(Mandatory)][object]$Report)
+  return [ordered]@{
+    schema_version = [string]$Report.schema_version
+    head = [string]$Report.head
+    ledger_sha256 = [string]$Report.ledger_sha256
+    selector_order = @($Report.selector_order)
+    selectors = @($Report.selectors)
+    artifacts = @($Report.artifacts)
+    publication = $Report.publication
+    tracked_diff_unchanged = [bool]$Report.tracked_diff_unchanged
+  }
+}
+
+function Write-RequiredQualificationReport {
+  param(
+    [Parameter(Mandatory)][string]$RepoRoot,
+    [Parameter(Mandatory)][string]$EvidenceDirectory,
+    [Parameter(Mandatory)][string]$StartedUtc
+  )
+  $ledgerPath = Join-Path $RepoRoot 'release\qualification\v0.1-requirements.json'
+  $ledger = Assert-StaticRequirementLedger -Path $ledgerPath
+  $absoluteEvidence = if ([IO.Path]::IsPathRooted($EvidenceDirectory)) { [IO.Path]::GetFullPath($EvidenceDirectory) } else { [IO.Path]::GetFullPath((Join-Path $RepoRoot $EvidenceDirectory)) }
+  $null = New-Item -ItemType Directory -Force -Path $absoluteEvidence
+  $head = (& git -C $RepoRoot rev-parse HEAD).Trim()
+  if ($LASTEXITCODE -ne 0 -or $head -cnotmatch '^[0-9a-f]{40}$') { throw 'Unable to identify Required report HEAD.' }
+  $artifacts = [Collections.Generic.List[object]]::new()
+  foreach ($contract in @($ledger.artifact_contracts)) {
+    $schemaPath = Join-Path $RepoRoot ([string]$contract.schema)
+    $evidencePath = if ($null -ne $contract.PSObject.Properties['tracked_path']) {
+      Join-Path $RepoRoot ([string]$contract.tracked_path)
+    } else {
+      Join-Path $absoluteEvidence ([string]$contract.dynamic_path)
+    }
+    if (-not (Test-Path -LiteralPath $schemaPath -PathType Leaf) -or -not (Test-Path -LiteralPath $evidencePath -PathType Leaf)) {
+      throw "Required artifact '$($contract.id)' is missing its schema or evidence."
+    }
+    $artifacts.Add([ordered]@{
+      id = [string]$contract.id
+      schema_sha256 = Get-ReleaseSha256 -Path $schemaPath
+      evidence_sha256 = Get-ReleaseSha256 -Path $evidencePath
+    })
+  }
+  $releaseReport = Read-ReleaseJson -Path (Join-Path $absoluteEvidence 'release\report.json')
+  if ($releaseReport.head -cne $head) { throw 'Nested release report HEAD differs from Required report HEAD.' }
+  Assert-ReleaseCandidateOutcomes -ReportPath (Join-Path $absoluteEvidence 'release\report.json')
+  $selectors = @($ledger.selectors | ForEach-Object { [ordered]@{ id = [string]$_.id; status = 'pass' } })
+  $stable = [ordered]@{
+    schema_version = '1.0.0'
+    head = $head
+    ledger_sha256 = Get-ReleaseSha256 -Path $ledgerPath
+    selector_order = @($ledger.selectors.id)
+    selectors = $selectors
+    artifacts = @($artifacts)
+    publication = [ordered]@{
+      performed = $false
+      credentials_read = $false
+      namespace_verified = $false
+      blocked_reason = 'unverified_mooncakes_owner_namespace'
+    }
+    tracked_diff_unchanged = $true
+  }
+  $digest = Get-ReleaseTextSha256 -Text ($stable | ConvertTo-Json -Depth 100 -Compress)
+  $report = [ordered]@{}
+  foreach ($entry in $stable.GetEnumerator()) { $report[$entry.Key] = $entry.Value }
+  $report.deterministic_evidence_digest = $digest
+  $report.run_local = [ordered]@{
+    started_utc = $StartedUtc
+    completed_utc = [DateTime]::UtcNow.ToString('o')
+    evidence_directory = $absoluteEvidence
+    os = [Environment]::OSVersion.VersionString
+    powershell = $PSVersionTable.PSVersion.ToString()
+  }
+  $path = Join-Path $absoluteEvidence 'report.json'
+  [IO.File]::WriteAllText($path, (($report | ConvertTo-Json -Depth 100) + "`n"), [Text.UTF8Encoding]::new($false))
+  return $path
+}
+
+function Assert-RequiredQualificationReport {
+  param([Parameter(Mandatory)][string]$Path, [Parameter(Mandatory)][string]$LedgerPath)
+  $ledger = Assert-StaticRequirementLedger -Path $LedgerPath
+  $report = Read-ReleaseJson -Path $Path
+  Assert-ReleaseClosedProperties -Label 'Required run report' -Object $report -Expected @(
+    'schema_version', 'head', 'ledger_sha256', 'selector_order', 'selectors', 'artifacts', 'publication',
+    'tracked_diff_unchanged', 'deterministic_evidence_digest', 'run_local'
+  )
+  if ($report.schema_version -cne '1.0.0' -or $report.head -cnotmatch '^[0-9a-f]{40}$' -or
+      $report.ledger_sha256 -cne (Get-ReleaseSha256 -Path $LedgerPath) -or $report.tracked_diff_unchanged -ne $true) {
+    throw "Required run report identity or static-ledger binding failed: $Path"
+  }
+  Assert-ReleaseExactSequence -Label 'Required selector order' -Actual @($report.selector_order) -Expected @($ledger.selectors.id)
+  Assert-ReleaseExactSequence -Label 'Required selector result order' -Actual @($report.selectors.id) -Expected @($ledger.selectors.id)
+  if (@($report.selectors | Where-Object { [string]$_.status -cne 'pass' }).Count -ne 0) { throw 'Required run report contains a non-passing selector.' }
+  Assert-ReleaseExactSequence -Label 'Required artifact order' -Actual @($report.artifacts.id) -Expected @($ledger.artifact_contracts.id)
+  foreach ($artifact in @($report.artifacts)) {
+    Assert-ReleaseClosedProperties -Label "Required artifact $($artifact.id)" -Object $artifact -Expected @('id', 'schema_sha256', 'evidence_sha256')
+    if ([string]$artifact.schema_sha256 -cnotmatch '^[0-9a-f]{64}$' -or [string]$artifact.evidence_sha256 -cnotmatch '^[0-9a-f]{64}$') {
+      throw "Required artifact '$($artifact.id)' has an invalid digest."
+    }
+  }
+  Assert-ReleaseClosedProperties -Label 'Required publication result' -Object $report.publication -Expected @('performed', 'credentials_read', 'namespace_verified', 'blocked_reason')
+  if ($report.publication.performed -ne $false -or $report.publication.credentials_read -ne $false -or
+      $report.publication.namespace_verified -ne $false -or $report.publication.blocked_reason -cne 'unverified_mooncakes_owner_namespace') {
+    throw 'Required run report fabricated publication or credential evidence.'
+  }
+  Assert-ReleaseClosedProperties -Label 'Required run-local fields' -Object $report.run_local -Expected @('started_utc', 'completed_utc', 'evidence_directory', 'os', 'powershell')
+  $stable = Get-RequiredRunStableObject -Report $report
+  $expectedDigest = Get-ReleaseTextSha256 -Text ($stable | ConvertTo-Json -Depth 100 -Compress)
+  if ($report.deterministic_evidence_digest -cne $expectedDigest) { throw 'Required run canonical deterministic evidence digest is invalid.' }
+  return $report
+}
+
 function Assert-ReleaseTrackedSnapshot {
   param([Parameter(Mandatory)][string]$Before, [Parameter(Mandatory)][string]$After)
   if ($Before -cne $After) {

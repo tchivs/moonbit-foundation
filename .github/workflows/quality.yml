@@ -23,7 +23,7 @@ jobs:
           version: 0.1.20260713+75c7e1f
       - name: Run required quality lane
         shell: pwsh
-        run: ./scripts/quality.ps1 -Lane Required
+        run: ./scripts/quality.ps1 -Lane Required -EvidenceDirectory artifacts/release-qualification/ci-required
 
   llvm-experimental:
     name: LLVM experimental (non-blocking)

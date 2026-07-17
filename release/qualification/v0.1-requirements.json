@@ -1,0 +1,143 @@
+{
+  "schema_version": "1.0.0",
+  "candidate": "v0.1",
+  "required_entrypoint": "pwsh -NoProfile -File scripts/quality.ps1 -Lane Required -EvidenceDirectory <untracked-evidence-directory>",
+  "selectors": [
+    {
+      "id": "policy.foundation",
+      "focused_command": "pwsh -NoProfile -File scripts/quality/Test-ReleaseQualification.ps1 -Focused",
+      "proves": ["WORK-06", "QUAL-04", "QUAL-06"],
+      "policy_rule_ids": ["REL01-MODULE-ORDER", "REL08-MISSING-VERSION", "REL09-WRONG-STATUS", "REL10-MISSING-LICENSE"]
+    },
+    {
+      "id": "policy.negatives",
+      "focused_command": "pwsh -NoProfile -File scripts/quality/Test-ReleaseQualificationNegative.ps1",
+      "proves": ["QUAL-01", "QUAL-03", "QUAL-06"],
+      "policy_rule_ids": ["REL02-FABRICATED-REGISTRY-PASS", "REL03-PATH-SUBSTITUTION", "REL04-HIGHER-LAYER-DEPENDENCY", "REL05-ARCHIVE-ENTRY", "REL11-MISSING-PROVENANCE", "REL12-PROVENANCE-CHECKSUM", "REL13-ARTIFACT-DIGEST", "REL14-TRACKED-SOURCE-MUTATION", "PPM01-MISSING-IMPORT", "PPM02-EXTRA-IMPORT", "PPM03-WRONG-TARGET", "PPM04-MISSING-INTERFACE", "PPM05-EXTRA-INTERFACE", "PPM06-WRONG-PUBLICATION-ORDER", "PPM07-UNREGISTERED-CONTENT"]
+    },
+    {
+      "id": "module.mb-core.format",
+      "focused_command": "pwsh -NoProfile -File scripts/quality/Test-ReleaseQualification.ps1 -Focused",
+      "proves": ["WORK-06"],
+      "policy_rule_ids": []
+    },
+    {
+      "id": "module.mb-core.targets",
+      "focused_command": "pwsh -NoProfile -File scripts/quality/Test-ReleaseQualification.ps1 -Focused",
+      "proves": ["WORK-06", "QUAL-06"],
+      "policy_rule_ids": []
+    },
+    {
+      "id": "module.mb-core.docs",
+      "focused_command": "pwsh -NoProfile -File scripts/quality/Test-ReleaseQualification.ps1 -Focused",
+      "proves": ["WORK-06", "QUAL-04"],
+      "policy_rule_ids": []
+    },
+    {
+      "id": "module.mb-core.interface-contents-dag",
+      "focused_command": "pwsh -NoProfile -File scripts/quality/Test-ReleaseQualification.ps1 -Focused",
+      "proves": ["WORK-06", "QUAL-06"],
+      "policy_rule_ids": ["REL04-HIGHER-LAYER-DEPENDENCY", "REL05-ARCHIVE-ENTRY"]
+    },
+    {
+      "id": "module.mb-color.format",
+      "focused_command": "pwsh -NoProfile -File scripts/quality/Test-ReleaseQualification.ps1 -Focused",
+      "proves": ["WORK-06"],
+      "policy_rule_ids": []
+    },
+    {
+      "id": "module.mb-color.targets",
+      "focused_command": "pwsh -NoProfile -File scripts/quality/Test-ReleaseQualification.ps1 -Focused",
+      "proves": ["WORK-06", "QUAL-06"],
+      "policy_rule_ids": []
+    },
+    {
+      "id": "module.mb-color.docs",
+      "focused_command": "pwsh -NoProfile -File scripts/quality/Test-ReleaseQualification.ps1 -Focused",
+      "proves": ["WORK-06", "QUAL-04"],
+      "policy_rule_ids": []
+    },
+    {
+      "id": "module.mb-color.interface-contents-dag",
+      "focused_command": "pwsh -NoProfile -File scripts/quality/Test-ReleaseQualification.ps1 -Focused",
+      "proves": ["WORK-06", "QUAL-06"],
+      "policy_rule_ids": ["REL03-PATH-SUBSTITUTION", "REL04-HIGHER-LAYER-DEPENDENCY", "REL05-ARCHIVE-ENTRY"]
+    },
+    {
+      "id": "module.mb-image.format",
+      "focused_command": "pwsh -NoProfile -File scripts/quality/Test-ReleaseQualification.ps1 -Focused",
+      "proves": ["WORK-06", "QUAL-01"],
+      "policy_rule_ids": []
+    },
+    {
+      "id": "module.mb-image.targets",
+      "focused_command": "pwsh -NoProfile -File scripts/quality/Test-ReleaseQualification.ps1 -Focused",
+      "proves": ["WORK-06", "QUAL-01", "QUAL-02", "QUAL-03", "QUAL-06"],
+      "policy_rule_ids": ["PPM03-WRONG-TARGET"]
+    },
+    {
+      "id": "module.mb-image.docs",
+      "focused_command": "pwsh -NoProfile -File scripts/quality/Test-ReleaseQualification.ps1 -Focused",
+      "proves": ["WORK-06", "QUAL-04"],
+      "policy_rule_ids": []
+    },
+    {
+      "id": "module.mb-image.interface-contents-dag",
+      "focused_command": "pwsh -NoProfile -File scripts/quality/Test-ReleaseQualification.ps1 -Focused",
+      "proves": ["WORK-06", "QUAL-01", "QUAL-06"],
+      "policy_rule_ids": ["PPM01-MISSING-IMPORT", "PPM02-EXTRA-IMPORT", "PPM04-MISSING-INTERFACE", "PPM05-EXTRA-INTERFACE", "PPM06-WRONG-PUBLICATION-ORDER", "PPM07-UNREGISTERED-CONTENT"]
+    },
+    {
+      "id": "fixtures.deterministic-provenance",
+      "focused_command": "pwsh -NoProfile -File scripts/quality/Test-FixturePolicy.ps1",
+      "proves": ["QUAL-01", "QUAL-03", "QUAL-04", "QUAL-06"],
+      "policy_rule_ids": ["REL11-MISSING-PROVENANCE", "REL12-PROVENANCE-CHECKSUM"]
+    },
+    {
+      "id": "examples.public-consumers",
+      "focused_command": "pwsh -NoProfile -File scripts/quality/Test-PublicExamples.ps1 -Example all -Mode qualify",
+      "proves": ["QUAL-02", "QUAL-03", "QUAL-04"],
+      "policy_rule_ids": ["REL02-FABRICATED-REGISTRY-PASS"]
+    },
+    {
+      "id": "benchmark.static",
+      "focused_command": "pwsh -NoProfile -File scripts/quality/Test-BenchmarkQualification.ps1",
+      "proves": ["QUAL-05"],
+      "policy_rule_ids": []
+    },
+    {
+      "id": "release.packages-consumers",
+      "focused_command": "pwsh -NoProfile -File scripts/quality/Invoke-ReleaseQualification.ps1 -Check -OutputDirectory <untracked-evidence-directory>/release",
+      "proves": ["WORK-06", "QUAL-06"],
+      "policy_rule_ids": ["REL01-MODULE-ORDER", "REL02-FABRICATED-REGISTRY-PASS", "REL03-PATH-SUBSTITUTION", "REL04-HIGHER-LAYER-DEPENDENCY", "REL05-ARCHIVE-ENTRY", "REL08-MISSING-VERSION", "REL09-WRONG-STATUS", "REL10-MISSING-LICENSE", "REL11-MISSING-PROVENANCE", "REL12-PROVENANCE-CHECKSUM", "REL13-ARTIFACT-DIGEST"]
+    },
+    {
+      "id": "tracked.read-only",
+      "focused_command": "git diff --exit-code && git diff --cached --exit-code",
+      "proves": ["WORK-06", "QUAL-06"],
+      "policy_rule_ids": ["REL14-TRACKED-SOURCE-MUTATION"]
+    }
+  ],
+  "requirements": {
+    "WORK-06": ["policy.foundation", "module.mb-core.format", "module.mb-core.targets", "module.mb-core.docs", "module.mb-core.interface-contents-dag", "module.mb-color.format", "module.mb-color.targets", "module.mb-color.docs", "module.mb-color.interface-contents-dag", "module.mb-image.format", "module.mb-image.targets", "module.mb-image.docs", "module.mb-image.interface-contents-dag", "release.packages-consumers", "tracked.read-only"],
+    "QUAL-01": ["policy.negatives", "module.mb-image.format", "module.mb-image.targets", "module.mb-image.interface-contents-dag", "fixtures.deterministic-provenance"],
+    "QUAL-02": ["module.mb-image.targets", "examples.public-consumers"],
+    "QUAL-03": ["policy.negatives", "module.mb-image.targets", "fixtures.deterministic-provenance", "examples.public-consumers"],
+    "QUAL-04": ["policy.foundation", "module.mb-core.docs", "module.mb-color.docs", "module.mb-image.docs", "fixtures.deterministic-provenance", "examples.public-consumers"],
+    "QUAL-05": ["benchmark.static"],
+    "QUAL-06": ["policy.foundation", "policy.negatives", "module.mb-core.targets", "module.mb-core.interface-contents-dag", "module.mb-color.targets", "module.mb-color.interface-contents-dag", "module.mb-image.targets", "module.mb-image.interface-contents-dag", "fixtures.deterministic-provenance", "release.packages-consumers", "tracked.read-only"]
+  },
+  "artifact_contracts": [
+    { "id": "foundation-policy", "schema": "policy/foundation.json", "tracked_path": "policy/foundation.json" },
+    { "id": "fixture-manifest", "schema": "fixtures/manifest.json", "tracked_path": "fixtures/manifest.json" },
+    { "id": "example-consumers", "schema": "release/qualification/example-consumers-schema.json", "dynamic_path": "examples/report.json" },
+    { "id": "benchmark-baseline", "schema": "release/qualification/benchmark-schema.json", "tracked_path": "release/qualification/ppm-native-release-baseline.json" },
+    { "id": "release-packages", "schema": "release/qualification/package-schema.json", "dynamic_path": "release/report.json" }
+  ],
+  "allowed_blocked_outcomes": [
+    "mb-color.artifact_consumer=blocked_unpublished_dependency",
+    "mb-color.registry_resolution=blocked_unpublished_namespace",
+    "mb-image.artifact_consumer=blocked_unpublished_dependency",
+    "mb-image.registry_resolution=blocked_unpublished_namespace"
+  ]
+}

@@ -551,12 +551,34 @@ function Get-TrackedDiffSnapshot {
 }
 
 function Invoke-RequiredQuality {
+  param([Parameter(Mandatory)][string]$EvidenceDirectory)
   $policyPath = 'policy/foundation.json'
   $auditPath = 'policy/phase-01-source-audit.json'
   $requiredTargets = @('js', 'wasm', 'wasm-gc', 'native')
   $modules = @('mb-core', 'mb-color', 'mb-image')
   $policy = Read-QualityJson -Path $policyPath
   $initialTrackedDiff = Get-TrackedDiffSnapshot
+  $startedUtc = [DateTime]::UtcNow.ToString('o')
+  $absoluteEvidence = if ([IO.Path]::IsPathRooted($EvidenceDirectory)) { [IO.Path]::GetFullPath($EvidenceDirectory) } else { [IO.Path]::GetFullPath((Join-Path (Resolve-Path '.').Path $EvidenceDirectory)) }
+
+  Invoke-QualityStage 'Static WORK-06 and QUAL-01..06 requirement ledger' {
+    $null = Assert-StaticRequirementLedger -Path 'release/qualification/v0.1-requirements.json'
+  }
+  Invoke-QualityStage 'Governance acceptance fail-closed matrix' {
+    & ./scripts/quality/Test-RfcAcceptance.ps1
+  }
+  Invoke-QualityStage 'Fixture provenance fail-closed matrix' {
+    & ./scripts/quality/Test-FixturePolicy.ps1
+  }
+  Invoke-QualityStage 'Source inventory fail-closed matrix' {
+    & ./scripts/quality/Test-SourceAudit.ps1
+  }
+  Invoke-QualityStage 'QUAL-05 benchmark static qualification' {
+    & ./scripts/quality/Test-BenchmarkQualification.ps1
+  }
+  Invoke-QualityStage 'Release and PPM fail-closed negative matrix' {
+    & ./scripts/quality/Test-ReleaseQualificationNegative.ps1
+  }
 
   Invoke-QualityStage 'D-14 exact toolchain identity' {
     Assert-Toolchain -PolicyPath $policyPath
@@ -567,13 +589,15 @@ function Invoke-RequiredQuality {
   Invoke-QualityStage 'Exact Phase 1 source inventory (1/9/16/29/17/5)' {
     Assert-PhaseSourceAudit -AuditPath $auditPath
   }
-  Invoke-QualityStage 'WORK-04 format check' {
+  foreach ($module in $modules) {
+    Invoke-QualityStage "WORK-04 independent format check for $module" {
     # The pinned toolchain's unscoped formatter always proposes the explicitly
     # deferred moon.mod.json -> moon.mod migration. Enumerating every MoonBit
     # source preserves the locked compatibility floor while remaining fail-closed.
-    $sourceFiles = @(Get-ChildItem -LiteralPath 'modules' -Recurse -File | Where-Object { $_.Name -match '[.]mbt(?:[.]md)?$' } | ForEach-Object { $_.FullName })
-    if ($sourceFiles.Count -eq 0) { throw 'No MoonBit source files were found for formatting.' }
-    Invoke-MoonCommand -Context 'workspace MoonBit source format check' -Arguments (@('fmt', '--check') + $sourceFiles)
+      $sourceFiles = @(Get-ChildItem -LiteralPath "modules/$module" -Recurse -File | Where-Object { $_.Name -match '[.]mbt(?:[.]md)?$' } | ForEach-Object { $_.FullName })
+      if ($sourceFiles.Count -eq 0) { throw "No MoonBit source files were found for $module formatting." }
+      Invoke-MoonCommand -Context "$module MoonBit source format check" -Arguments (@('fmt', '--check') + $sourceFiles)
+    }
   }
   Invoke-QualityStage 'CORE portable source and documentation prohibitions' {
     Assert-CorePortableProhibitions
@@ -602,7 +626,7 @@ function Invoke-RequiredQuality {
     Assert-ImageQualificationNegativeFixtures
   }
   Invoke-QualityStage 'QUAL-02 public example consumers and source isolation' {
-    & ./scripts/quality/Test-PublicExamples.ps1 -Example all -Mode qualify -Report artifacts/release-qualification/examples.json
+    & ./scripts/quality/Test-PublicExamples.ps1 -Example all -Mode qualify -Report (Join-Path $absoluteEvidence 'examples/report.json')
   }
   Invoke-QualityStage 'QUAL-04 exact candidate documentation and claim qualification' {
     & ./scripts/quality/Test-CandidateDocumentation.ps1
@@ -623,6 +647,14 @@ function Invoke-RequiredQuality {
     Invoke-QualityStage "WORK-05 test target $target" {
       Invoke-MoonCommand -Context "workspace test target $target" -Arguments @('test', '--target', $target, '--frozen')
     }
+    foreach ($module in $modules) {
+      Invoke-QualityStage "WORK-06 independent $module check target $target" {
+        Invoke-MoonCommand -Context "$module independent check target $target" -Arguments @('-C', "modules/$module", 'check', '--target', $target, '--deny-warn', '--frozen')
+      }
+      Invoke-QualityStage "WORK-06 independent $module test target $target" {
+        Invoke-MoonCommand -Context "$module independent test target $target" -Arguments @('-C', "modules/$module", 'test', '--target', $target, '--frozen')
+      }
+    }
   }
   foreach ($module in $modules) {
     Invoke-QualityStage "WORK-04 documentation generation for $module" {
@@ -641,12 +673,16 @@ function Invoke-RequiredQuality {
       Assert-PackageList -ModulePolicy $modulePolicy -Output $packageOutput
     }
   }
+  Invoke-QualityStage 'WORK-06 and QUAL-06 deterministic release packages and consumers' {
+    & ./scripts/quality/Invoke-ReleaseQualification.ps1 -Check -OutputDirectory (Join-Path $absoluteEvidence 'release')
+  }
   Invoke-QualityStage 'Read-only tracked checkout proof' {
     $finalTrackedDiff = Get-TrackedDiffSnapshot
-    if ($finalTrackedDiff -cne $initialTrackedDiff) {
-      throw 'Required quality commands changed tracked files.'
-    }
+    Assert-ReleaseTrackedSnapshot -Before $initialTrackedDiff -After $finalTrackedDiff
   }
+  $requiredReport = Write-RequiredQualificationReport -RepoRoot (Resolve-Path '.').Path -EvidenceDirectory $absoluteEvidence -StartedUtc $startedUtc
+  $null = Assert-RequiredQualificationReport -Path $requiredReport -LedgerPath 'release/qualification/v0.1-requirements.json'
+  Write-Host "Required qualification report: $requiredReport"
   Write-Host 'Required quality lane passed.'
 }
 
@@ -667,13 +703,16 @@ function Invoke-LlvmExperimentalQuality {
 
 function Invoke-MoonQuality {
   [CmdletBinding()]
-  param([Parameter(Mandatory)][ValidateSet('Required', 'LlvmExperimental')][string]$Lane)
+  param(
+    [Parameter(Mandatory)][ValidateSet('Required', 'LlvmExperimental')][string]$Lane,
+    [string]$EvidenceDirectory = 'artifacts/release-qualification/current'
+  )
 
   if ($PSVersionTable.PSVersion.Major -lt 7) {
     throw "PowerShell 7 or newer is required; found $($PSVersionTable.PSVersion)."
   }
   switch ($Lane) {
-    'Required' { Invoke-RequiredQuality }
+    'Required' { Invoke-RequiredQuality -EvidenceDirectory $EvidenceDirectory }
     'LlvmExperimental' { Invoke-LlvmExperimentalQuality }
     default { throw "Unsupported quality lane '$Lane'." }
   }

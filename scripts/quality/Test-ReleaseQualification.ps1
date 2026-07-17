@@ -1,83 +1,41 @@
 [CmdletBinding()]
-param()
+param(
+  [switch]$Focused,
+  [string]$StaticLedger = 'release/qualification/v0.1-requirements.json',
+  [string[]]$VerifyTwoRuns
+)
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
-$runner = Join-Path $repoRoot 'scripts\quality\Invoke-ReleaseQualification.ps1'
-$policy = Join-Path $repoRoot 'policy\release-qualification.json'
-$tempRoot = Join-Path ([IO.Path]::GetTempPath()) ('mnf-release-negative-' + [Guid]::NewGuid().ToString('N'))
+. (Join-Path $PSScriptRoot 'ReleaseQualification.Common.ps1')
+$ledgerPath = if ([IO.Path]::IsPathRooted($StaticLedger)) { [IO.Path]::GetFullPath($StaticLedger) } else { [IO.Path]::GetFullPath((Join-Path $repoRoot $StaticLedger)) }
+$ledger = Assert-StaticRequirementLedger -Path $ledgerPath
+Write-Host "Static v0.1 requirement ledger passed: $(@($ledger.selectors).Count) selectors, $(@($ledger.requirements.PSObject.Properties).Count) requirements, $(@($ledger.artifact_contracts).Count) artifact contracts."
 
-function Invoke-ExpectedPolicyFailure {
-  param(
-    [Parameter(Mandatory)][string]$Id,
-    [Parameter(Mandatory)][scriptblock]$Mutate
-  )
-
-  $copy = Join-Path $tempRoot "$Id.json"
-  $record = Get-Content -LiteralPath $policy -Raw | ConvertFrom-Json -Depth 100
-  & $Mutate $record
-  [IO.File]::WriteAllText($copy, (($record | ConvertTo-Json -Depth 100) + "`n"), [Text.UTF8Encoding]::new($false))
-  & pwsh -NoProfile -File $runner -Check -StaticOnly -PolicyPath $copy *> $null
-  if ($LASTEXITCODE -eq 0) {
-    throw "Release qualification negative unexpectedly passed: $Id"
-  }
-  Write-Host "Release qualification negative rejected: $Id"
+if ($Focused) {
+  $focusedDirectory = 'artifacts/release-qualification/focused'
+  & (Join-Path $repoRoot 'scripts\quality.ps1') -Lane Required -EvidenceDirectory $focusedDirectory
+  if ($LASTEXITCODE -ne 0) { throw 'Focused release qualification failed.' }
+  $report = Assert-RequiredQualificationReport -Path (Join-Path $repoRoot "$focusedDirectory\report.json") -LedgerPath $ledgerPath
+  Write-Host "Focused release qualification passed at HEAD $($report.head) with digest $($report.deterministic_evidence_digest)."
 }
 
-if (-not (Test-Path -LiteralPath $runner -PathType Leaf)) {
-  throw "Release qualification runner is missing: $runner"
-}
-if (-not (Test-Path -LiteralPath $policy -PathType Leaf)) {
-  throw "Release qualification policy is missing: $policy"
-}
-
-$null = New-Item -ItemType Directory -Force -Path $tempRoot
-try {
-  & pwsh -NoProfile -File $runner -Check -StaticOnly -PolicyPath $policy
-  if ($LASTEXITCODE -ne 0) { throw 'Static release qualification policy validation failed.' }
-
-  Invoke-ExpectedPolicyFailure 'REL01-MODULE-ORDER' {
-    param($p)
-    [Array]::Reverse($p.module_order)
+if ($null -ne $VerifyTwoRuns -and $VerifyTwoRuns.Count -ne 0) {
+  $runPaths = @($VerifyTwoRuns | ForEach-Object { $_ -split ',' } | Where-Object { -not [string]::IsNullOrWhiteSpace($_) })
+  if ($runPaths.Count -ne 2) { throw "-VerifyTwoRuns requires exactly two report paths; got $($runPaths.Count)." }
+  $reports = @()
+  foreach ($path in $runPaths) {
+    $absolute = if ([IO.Path]::IsPathRooted($path)) { [IO.Path]::GetFullPath($path) } else { [IO.Path]::GetFullPath((Join-Path $repoRoot $path)) }
+    $reports += Assert-RequiredQualificationReport -Path $absolute -LedgerPath $ledgerPath
   }
-  Invoke-ExpectedPolicyFailure 'REL02-FABRICATED-REGISTRY-PASS' {
-    param($p)
-    $p.modules.'mb-color'.registry_resolution = 'pass'
+  if ($reports[0].head -cne $reports[1].head) { throw 'Required reports name different committed HEADs.' }
+  if ($reports[0].deterministic_evidence_digest -cne $reports[1].deterministic_evidence_digest) {
+    throw 'Required reports have different canonical deterministic evidence digests.'
   }
-  Invoke-ExpectedPolicyFailure 'REL03-PATH-SUBSTITUTION' {
-    param($p)
-    $p.modules.'mb-color'.dependencies.'moonbit-foundation/mb-core' = @{ path = '..\mb-core' }
-  }
-  Invoke-ExpectedPolicyFailure 'REL04-HIGHER-LAYER-DEPENDENCY' {
-    param($p)
-    $p.modules.'mb-core'.dependencies | Add-Member NoteProperty 'moonbit-foundation/mb-color' '0.1.0'
-  }
-  Invoke-ExpectedPolicyFailure 'REL05-ARCHIVE-ENTRY' {
-    param($p)
-    $p.modules.'mb-image'.package_allowlist += '_build/forbidden.bin'
-  }
-  Invoke-ExpectedPolicyFailure 'REL06-METADATA' {
-    param($p)
-    $p.modules.'mb-core'.manifest.repository = ''
-  }
-  Invoke-ExpectedPolicyFailure 'REL07-POSTPUBLISH-ORDER' {
-    param($p)
-    [Array]::Reverse($p.post_publish_order)
-  }
-
-  & pwsh -NoProfile -File $runner -Check -OutputDirectory 'artifacts/release-qualification/required'
-  if ($LASTEXITCODE -ne 0) { throw 'Dynamic release qualification failed.' }
-  Write-Host 'Release qualification passed: closed policy negatives, deterministic packages, exact core artifact consumer, and honest downstream blockers.'
-} finally {
-  if (Test-Path -LiteralPath $tempRoot) {
-    $tempBase = [IO.Path]::GetFullPath([IO.Path]::GetTempPath()).TrimEnd([IO.Path]::DirectorySeparatorChar)
-    $full = [IO.Path]::GetFullPath($tempRoot)
-    if (-not $full.StartsWith($tempBase + [IO.Path]::DirectorySeparatorChar, [StringComparison]::OrdinalIgnoreCase) -or
-        -not (Split-Path -Leaf $full).StartsWith('mnf-release-negative-', [StringComparison]::Ordinal)) {
-      throw "Refusing to remove unverified release-negative path: $full"
-    }
-    Remove-Item -LiteralPath $full -Recurse -Force
-  }
+  $stableA = Get-RequiredRunStableObject -Report $reports[0] | ConvertTo-Json -Depth 100 -Compress
+  $stableB = Get-RequiredRunStableObject -Report $reports[1] | ConvertTo-Json -Depth 100 -Compress
+  if ($stableA -cne $stableB) { throw 'Required reports differ outside the declared run-local fields.' }
+  Write-Host "Two-run qualification passed at HEAD $($reports[0].head) with canonical digest $($reports[0].deterministic_evidence_digest)."
 }
