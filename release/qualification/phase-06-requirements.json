@@ -1,0 +1,78 @@
+{
+  "schema_version": "1.0.0",
+  "phase": "06",
+  "required_entrypoint": "pwsh -NoProfile -File scripts/quality.ps1 -Lane Required -EvidenceDirectory <untracked-evidence-directory>",
+  "selectors": [
+    { "id": "phase06.reg.authority", "focused_command": "pwsh -NoProfile -File scripts/quality/Test-RegistryAuthority.ps1", "proves": ["REG-01"], "rule_ids": ["REG01-CLOSED-CONTRACT", "REG01-MOONCAKES-AUTHORITY", "REG01-IDENTITY-TOKEN", "REG01-UNSAFE-EVIDENCE", "REG01-FACT-ORDER", "REG01-IDENTITY", "REG01-CREDENTIAL-FREE"], "artifact_ids": ["registry-authority-observation", "identity-closure"] },
+    { "id": "phase06.reg.capabilities", "focused_command": "pwsh -NoProfile -File scripts/quality/Test-RegistryAuthority.ps1", "proves": ["REG-02"], "rule_ids": ["REG02-CAPABILITY-STATE", "REG02-NO-MUTATION"], "artifact_ids": ["registry-capability-matrix"] },
+    { "id": "phase06.reg.readiness-rejection", "focused_command": "pwsh -NoProfile -File scripts/quality/Test-RegistryAuthority.ps1 -AssertPublishReady", "expected_outcome": "reject:REG03-REQUIRED-FACT-UNKNOWN", "proves": ["REG-03"], "rule_ids": ["REG03-REQUIRED-FACT-UNKNOWN"], "artifact_ids": ["registry-authority-observation", "registry-capability-matrix"] },
+    { "id": "phase06.comp.baseline", "focused_command": "pwsh -NoProfile -File scripts/quality/Test-PublicInterfaceBaseline.ps1 -ToolingOnly", "proves": ["COMP-01"], "rule_ids": ["COMP01-ADJACENCY", "COMP01-EMPTY", "COMP01-ENCODING", "COMP01-ORDERING", "COMP01-IDENTITY-HISTORY-IMMUTABLE", "COMP01-PHASE01-AUDIT-IMMUTABLE"], "artifact_ids": ["public-interface-baseline", "identity-closure", "phase-01-source-audit"] },
+    { "id": "phase06.comp.classification", "focused_command": "pwsh -NoProfile -File scripts/quality/Test-PublicCompatibility.ps1", "proves": ["COMP-02"], "rule_ids": ["COMP02-ADJACENCY", "COMP02-EMPTY", "COMP02-ORDERING", "COMP02-NO-SEMANTIC-CLAIM"], "artifact_ids": ["compatibility-policy", "compatibility-suite"] },
+    { "id": "phase06.comp.version-policy", "focused_command": "pwsh -NoProfile -File scripts/quality/Test-PublicCompatibility.ps1", "proves": ["COMP-03"], "rule_ids": ["COMP03-BOUNDARY", "COMP03-PRECISION", "COMP03-CONCURRENCY"], "artifact_ids": ["compatibility-policy", "compatibility-suite"] },
+    { "id": "phase06.comp.release-gate", "focused_command": "pwsh -NoProfile -File scripts/quality/Test-PublicCompatibility.ps1", "proves": ["COMP-04"], "rule_ids": ["COMP04-UNCLASSIFIED"], "artifact_ids": ["compatibility-policy", "compatibility-suite"] },
+    { "id": "phase06.prov.source-documentation", "focused_command": "pwsh -NoProfile -File scripts/quality/Test-CandidateDocumentation.ps1", "proves": ["PROV-03"], "rule_ids": ["PROV03-ADJACENCY", "PROV03-EMPTY", "PROV03-ORDERING", "PROV03-NO-POLICY-OVERRIDE", "PROV03-REPOSITORY-LIVENESS"], "artifact_ids": ["candidate-documentation-suite"] }
+  ],
+  "requirements": {
+    "REG-01": ["phase06.reg.authority"],
+    "REG-02": ["phase06.reg.capabilities"],
+    "REG-03": ["phase06.reg.readiness-rejection"],
+    "COMP-01": ["phase06.comp.baseline"],
+    "COMP-02": ["phase06.comp.classification"],
+    "COMP-03": ["phase06.comp.version-policy"],
+    "COMP-04": ["phase06.comp.release-gate"],
+    "PROV-03": ["phase06.prov.source-documentation"]
+  },
+  "artifact_contracts": [
+    { "id": "registry-authority-observation", "tracked_path": "release/registry/authority-observation.json", "sha256": "77298011d3b74e2ad5552448c145fa913edfad349b117bbf876e73b74ec2085f" },
+    { "id": "registry-capability-matrix", "tracked_path": "release/registry/capability-matrix.json", "sha256": "c34b2a5abf557ba6bbed1d067abf791b267f7872979dd60c7c2aee65a5a64a12" },
+    { "id": "public-interface-baseline", "tracked_path": "compatibility/baselines/0.1.0/manifest.json", "sha256": "87d80ef4b992af13961437f504a512f57e2e6de8eaf6c1f343f0e6b8eff72e26" },
+    { "id": "identity-closure", "tracked_path": "scripts/quality/Test-IdentityMigration.ps1", "sha256": "454cb28c36d938ece94290be7d9e3015b2491b65265afa1d382351600e8a7c76" },
+    { "id": "compatibility-policy", "tracked_path": "policy/compatibility.json", "sha256": "881a30a35d175ba7e8a56f8b003743321465ed901d717da83a561315834021da" },
+    { "id": "compatibility-suite", "tracked_path": "scripts/quality/Test-PublicCompatibility.ps1", "sha256": "6c491f3cc9cde97e317e5eef859c2f93000305e84cccb3c5915a9dd122138f1d" },
+    { "id": "candidate-documentation-suite", "tracked_path": "scripts/quality/Test-CandidateDocumentation.ps1", "sha256": "2f575ac719a8006c14c0e89e6c3b1dbd4c60f981fae41462df23fa42632b5f81" },
+    { "id": "phase-01-source-audit", "tracked_path": "policy/phase-01-source-audit.json", "sha256": "52f118333892cfe1044b8105a6ea5d03f1ab087d3f7875d13b79c4e5b7640a7a" }
+  ],
+  "edge_probes": [
+    { "id": "EDGE-REG-01-BOUNDARY", "requirement_id": "REG-01", "selector_id": "phase06.reg.authority", "rule_id": "REG01-CLOSED-CONTRACT", "artifact_id": "registry-authority-observation", "evidence_id": "EDGE-REG-01-BOUNDARY" },
+    { "id": "EDGE-REG-01-ADJACENCY", "requirement_id": "REG-01", "selector_id": "phase06.reg.authority", "rule_id": "REG01-MOONCAKES-AUTHORITY", "artifact_id": "registry-authority-observation", "evidence_id": "EDGE-REG-01-ADJACENCY" },
+    { "id": "EDGE-REG-01-EMPTY", "requirement_id": "REG-01", "selector_id": "phase06.reg.authority", "rule_id": "REG01-IDENTITY-TOKEN", "artifact_id": "registry-authority-observation", "evidence_id": "EDGE-REG-01-EMPTY" },
+    { "id": "EDGE-REG-01-ENCODING", "requirement_id": "REG-01", "selector_id": "phase06.reg.authority", "rule_id": "REG01-UNSAFE-EVIDENCE", "artifact_id": "registry-authority-observation", "evidence_id": "EDGE-REG-01-ENCODING" },
+    { "id": "EDGE-REG-01-ORDERING", "requirement_id": "REG-01", "selector_id": "phase06.reg.authority", "rule_id": "REG01-FACT-ORDER", "artifact_id": "registry-authority-observation", "evidence_id": "EDGE-REG-01-ORDERING" },
+    { "id": "EDGE-REG-01-PRECISION", "requirement_id": "REG-01", "selector_id": "phase06.reg.authority", "rule_id": "REG01-IDENTITY", "artifact_id": "registry-authority-observation", "evidence_id": "EDGE-REG-01-PRECISION" },
+    { "id": "EDGE-REG-02-UNCLASSIFIED", "requirement_id": "REG-02", "selector_id": "phase06.reg.capabilities", "rule_id": "REG02-CAPABILITY-STATE", "artifact_id": "registry-capability-matrix", "evidence_id": "EDGE-REG-02-UNCLASSIFIED" },
+    { "id": "EDGE-REG-03-UNCLASSIFIED", "requirement_id": "REG-03", "selector_id": "phase06.reg.readiness-rejection", "rule_id": "REG03-REQUIRED-FACT-UNKNOWN", "artifact_id": "registry-authority-observation", "evidence_id": "EDGE-REG-03-UNCLASSIFIED" },
+    { "id": "EDGE-COMP-01-ADJACENCY", "requirement_id": "COMP-01", "selector_id": "phase06.comp.baseline", "rule_id": "COMP01-ADJACENCY", "artifact_id": "public-interface-baseline", "evidence_id": "EDGE-COMP-01-ADJACENCY" },
+    { "id": "EDGE-COMP-01-EMPTY", "requirement_id": "COMP-01", "selector_id": "phase06.comp.baseline", "rule_id": "COMP01-EMPTY", "artifact_id": "public-interface-baseline", "evidence_id": "EDGE-COMP-01-EMPTY" },
+    { "id": "EDGE-COMP-01-ENCODING", "requirement_id": "COMP-01", "selector_id": "phase06.comp.baseline", "rule_id": "COMP01-ENCODING", "artifact_id": "public-interface-baseline", "evidence_id": "EDGE-COMP-01-ENCODING" },
+    { "id": "EDGE-COMP-01-ORDERING", "requirement_id": "COMP-01", "selector_id": "phase06.comp.baseline", "rule_id": "COMP01-ORDERING", "artifact_id": "public-interface-baseline", "evidence_id": "EDGE-COMP-01-ORDERING" },
+    { "id": "EDGE-COMP-02-ADJACENCY", "requirement_id": "COMP-02", "selector_id": "phase06.comp.classification", "rule_id": "COMP02-ADJACENCY", "artifact_id": "compatibility-suite", "evidence_id": "EDGE-COMP-02-ADJACENCY" },
+    { "id": "EDGE-COMP-02-EMPTY", "requirement_id": "COMP-02", "selector_id": "phase06.comp.classification", "rule_id": "COMP02-EMPTY", "artifact_id": "compatibility-suite", "evidence_id": "EDGE-COMP-02-EMPTY" },
+    { "id": "EDGE-COMP-02-ORDERING", "requirement_id": "COMP-02", "selector_id": "phase06.comp.classification", "rule_id": "COMP02-ORDERING", "artifact_id": "compatibility-suite", "evidence_id": "EDGE-COMP-02-ORDERING" },
+    { "id": "EDGE-COMP-03-BOUNDARY", "requirement_id": "COMP-03", "selector_id": "phase06.comp.version-policy", "rule_id": "COMP03-BOUNDARY", "artifact_id": "compatibility-policy", "evidence_id": "EDGE-COMP-03-BOUNDARY" },
+    { "id": "EDGE-COMP-03-PRECISION", "requirement_id": "COMP-03", "selector_id": "phase06.comp.version-policy", "rule_id": "COMP03-PRECISION", "artifact_id": "compatibility-policy", "evidence_id": "EDGE-COMP-03-PRECISION" },
+    { "id": "EDGE-COMP-03-CONCURRENCY", "requirement_id": "COMP-03", "selector_id": "phase06.comp.version-policy", "rule_id": "COMP03-CONCURRENCY", "artifact_id": "compatibility-policy", "evidence_id": "EDGE-COMP-03-CONCURRENCY" },
+    { "id": "EDGE-COMP-04-UNCLASSIFIED", "requirement_id": "COMP-04", "selector_id": "phase06.comp.release-gate", "rule_id": "COMP04-UNCLASSIFIED", "artifact_id": "compatibility-suite", "evidence_id": "EDGE-COMP-04-UNCLASSIFIED" },
+    { "id": "EDGE-PROV-03-ADJACENCY", "requirement_id": "PROV-03", "selector_id": "phase06.prov.source-documentation", "rule_id": "PROV03-ADJACENCY", "artifact_id": "candidate-documentation-suite", "evidence_id": "EDGE-PROV-03-ADJACENCY" },
+    { "id": "EDGE-PROV-03-EMPTY", "requirement_id": "PROV-03", "selector_id": "phase06.prov.source-documentation", "rule_id": "PROV03-EMPTY", "artifact_id": "candidate-documentation-suite", "evidence_id": "EDGE-PROV-03-EMPTY" },
+    { "id": "EDGE-PROV-03-ORDERING", "requirement_id": "PROV-03", "selector_id": "phase06.prov.source-documentation", "rule_id": "PROV03-ORDERING", "artifact_id": "candidate-documentation-suite", "evidence_id": "EDGE-PROV-03-ORDERING" }
+  ],
+  "prohibitions": [
+    { "id": "PROH-REG-CREDENTIALS", "requirement_id": "REG-01", "selector_id": "phase06.reg.authority", "rule_id": "REG01-CREDENTIAL-FREE", "artifact_id": "registry-authority-observation", "evidence_id": "PROH-REG-CREDENTIALS" },
+    { "id": "PROH-REG-MUTATION", "requirement_id": "REG-02", "selector_id": "phase06.reg.capabilities", "rule_id": "REG02-NO-MUTATION", "artifact_id": "registry-capability-matrix", "evidence_id": "PROH-REG-MUTATION" },
+    { "id": "PROH-COMP-SEMANTICS", "requirement_id": "COMP-02", "selector_id": "phase06.comp.classification", "rule_id": "COMP02-NO-SEMANTIC-CLAIM", "artifact_id": "compatibility-policy", "evidence_id": "PROH-COMP-SEMANTICS" },
+    { "id": "PROH-PROV-POLICY-OVERRIDE", "requirement_id": "PROV-03", "selector_id": "phase06.prov.source-documentation", "rule_id": "PROV03-NO-POLICY-OVERRIDE", "artifact_id": "candidate-documentation-suite", "evidence_id": "PROH-PROV-POLICY-OVERRIDE" },
+    { "id": "PROH-IDENTITY-HISTORY-REWRITE", "requirement_id": "COMP-01", "selector_id": "phase06.comp.baseline", "rule_id": "COMP01-IDENTITY-HISTORY-IMMUTABLE", "artifact_id": "identity-closure", "evidence_id": "PROH-IDENTITY-HISTORY-REWRITE" },
+    { "id": "PROH-REPOSITORY-LIVE-CLAIM", "requirement_id": "PROV-03", "selector_id": "phase06.prov.source-documentation", "rule_id": "PROV03-REPOSITORY-LIVENESS", "artifact_id": "candidate-documentation-suite", "evidence_id": "PROH-REPOSITORY-LIVE-CLAIM" },
+    { "id": "PROH-PHASE06-HISTORY", "requirement_id": "COMP-01", "selector_id": "phase06.comp.baseline", "rule_id": "COMP01-PHASE01-AUDIT-IMMUTABLE", "artifact_id": "phase-01-source-audit", "evidence_id": "PROH-PHASE06-HISTORY" }
+  ],
+  "evidence": [
+    { "id": "EDGE-REG-01-BOUNDARY", "status": "pass" }, { "id": "EDGE-REG-01-ADJACENCY", "status": "pass" }, { "id": "EDGE-REG-01-EMPTY", "status": "pass" }, { "id": "EDGE-REG-01-ENCODING", "status": "pass" }, { "id": "EDGE-REG-01-ORDERING", "status": "pass" }, { "id": "EDGE-REG-01-PRECISION", "status": "pass" },
+    { "id": "EDGE-REG-02-UNCLASSIFIED", "status": "pass" }, { "id": "EDGE-REG-03-UNCLASSIFIED", "status": "pass" },
+    { "id": "EDGE-COMP-01-ADJACENCY", "status": "pass" }, { "id": "EDGE-COMP-01-EMPTY", "status": "pass" }, { "id": "EDGE-COMP-01-ENCODING", "status": "pass" }, { "id": "EDGE-COMP-01-ORDERING", "status": "pass" },
+    { "id": "EDGE-COMP-02-ADJACENCY", "status": "pass" }, { "id": "EDGE-COMP-02-EMPTY", "status": "pass" }, { "id": "EDGE-COMP-02-ORDERING", "status": "pass" },
+    { "id": "EDGE-COMP-03-BOUNDARY", "status": "pass" }, { "id": "EDGE-COMP-03-PRECISION", "status": "pass" }, { "id": "EDGE-COMP-03-CONCURRENCY", "status": "pass" }, { "id": "EDGE-COMP-04-UNCLASSIFIED", "status": "pass" },
+    { "id": "EDGE-PROV-03-ADJACENCY", "status": "pass" }, { "id": "EDGE-PROV-03-EMPTY", "status": "pass" }, { "id": "EDGE-PROV-03-ORDERING", "status": "pass" },
+    { "id": "PROH-REG-CREDENTIALS", "status": "pass" }, { "id": "PROH-REG-MUTATION", "status": "pass" }, { "id": "PROH-COMP-SEMANTICS", "status": "pass" }, { "id": "PROH-PROV-POLICY-OVERRIDE", "status": "pass" }, { "id": "PROH-IDENTITY-HISTORY-REWRITE", "status": "pass" }, { "id": "PROH-REPOSITORY-LIVE-CLAIM", "status": "pass" }, { "id": "PROH-PHASE06-HISTORY", "status": "pass" }
+  ],
+  "phase_07_handoff": "The isolated publisher must validate the actual authenticated publish seam before any production mutation."
+}
