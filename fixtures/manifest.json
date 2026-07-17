@@ -37,6 +37,18 @@
       "expected_use": "IMAG-05 and IMAG-07 descriptor, plane, crop, lease, orientation, resize, conversion, metadata disposition, and non-seeking codec conformance"
     },
     {
+      "id": "ppm-p6-conformance-vectors",
+      "path": "fixtures/ppm/cases.json",
+      "origin": "generated",
+      "source": "https://netpbm.sourceforge.net/doc/ppm.html plus repository-derived adversarial schedules",
+      "author": "MoonBit Native Foundation project generator",
+      "retrieval_date": "2026-07-17",
+      "sha256": "6e1f367c78839e8e06237a784ebe75732ee3fd2a27d3dc56434c7e6e12676967",
+      "license": "Apache-2.0",
+      "redistribution_status": "not-applicable",
+      "expected_use": "QUAL-01 and QUAL-03 strict P6 canonical, adversarial, progress, and metamorphic conformance"
+    },
+    {
       "id": "color-srgb-reference-vectors",
       "path": "fixtures/color/srgb-reference-vectors.json",
       "origin": "generated",
@@ -59,18 +71,6 @@
       "license": "Apache-2.0",
       "redistribution_status": "not-applicable",
       "expected_use": "COLR-04 project-derived quantization, alpha, profile-limit, and adversarial conformance cases"
-    },
-    {
-      "id": "ppm-p6-conformance-vectors",
-      "path": "fixtures/ppm/cases.json",
-      "origin": "generated",
-      "source": "https://netpbm.sourceforge.net/doc/ppm.html plus repository-derived adversarial schedules",
-      "author": "MoonBit Native Foundation project generator",
-      "retrieval_date": "2026-07-17",
-      "sha256": "6e1f367c78839e8e06237a784ebe75732ee3fd2a27d3dc56434c7e6e12676967",
-      "license": "Apache-2.0",
-      "redistribution_status": "not-applicable",
-      "expected_use": "QUAL-01 and QUAL-03 strict P6 canonical, adversarial, progress, and metamorphic conformance"
     }
   ]
 }

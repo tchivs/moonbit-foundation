@@ -492,12 +492,20 @@ function Assert-ImageQualificationNegativeFixtures {
     Write-Host "Image negative fixture rejected: $Name"
   }
 
-  $packageSpine = @('metadata', 'model', 'storage', 'ops', 'codec')
-  Confirm-ImageRejected 'root facade topology' { Assert-ExactSequence 'negative image package spine' @('.', 'metadata', 'model', 'storage', 'ops', 'codec') $packageSpine } 'count mismatch'
-  Confirm-ImageRejected 'extra public package' { Assert-ExactSequence 'negative image package spine' @('metadata', 'model', 'storage', 'ops', 'codec', 'extra') $packageSpine } 'count mismatch'
-  Confirm-ImageRejected 'missing public package' { Assert-ExactSequence 'negative image package spine' @('metadata', 'model', 'storage', 'ops') $packageSpine } 'count mismatch'
+  $packageSpine = @('metadata', 'model', 'storage', 'ops', 'codec', 'ppm')
+  Confirm-ImageRejected 'root facade topology' { Assert-ExactSequence 'negative image package spine' @('.', 'metadata', 'model', 'storage', 'ops', 'codec', 'ppm') $packageSpine } 'count mismatch'
+  Confirm-ImageRejected 'extra public package' { Assert-ExactSequence 'negative image package spine' @('metadata', 'model', 'storage', 'ops', 'codec', 'ppm', 'extra') $packageSpine } 'count mismatch'
+  Confirm-ImageRejected 'missing public package' { Assert-ExactSequence 'negative image package spine' @('metadata', 'model', 'storage', 'ops', 'codec') $packageSpine } 'count mismatch'
   Confirm-ImageRejected 'reverse codec to ops edge' { Assert-ExactSet 'negative image imports' @('moonbit-foundation/mb-image/storage', 'moonbit-foundation/mb-image/ops') @('moonbit-foundation/mb-image/storage') } 'count mismatch'
   Confirm-ImageRejected 'semantic interface drift' { Assert-ExactSequence 'negative image interface' @('package "fixture"', 'pub fn unexpected() -> Unit') @('package "fixture"') } 'count mismatch'
+  $ppmImports = @('moonbit-foundation/mb-core/budget', 'moonbit-foundation/mb-core/bytes', 'moonbit-foundation/mb-core/checked', 'moonbit-foundation/mb-core/error', 'moonbit-foundation/mb-core/io', 'moonbit-foundation/mb-color/model', 'moonbit-foundation/mb-color/profile', 'moonbit-foundation/mb-image/codec', 'moonbit-foundation/mb-image/metadata', 'moonbit-foundation/mb-image/model', 'moonbit-foundation/mb-image/storage')
+  Confirm-ImageRejected 'ppm missing import' { Assert-ExactSet 'negative ppm imports' @($ppmImports | Select-Object -Skip 1) $ppmImports } 'count mismatch'
+  Confirm-ImageRejected 'ppm extra import' { Assert-ExactSet 'negative ppm imports' @($ppmImports + 'moonbit-foundation/mb-image/ops') $ppmImports } 'count mismatch'
+  Confirm-ImageRejected 'ppm wrong target' { Assert-ExactSet 'negative ppm targets' @('js', 'wasm', 'native') @('js', 'wasm', 'wasm-gc', 'native') } 'count mismatch'
+  Confirm-ImageRejected 'ppm missing interface' { Assert-ExactSequence 'negative ppm interface' @('PpmDecoder') @('PpmDecoder', 'PpmEncoder') } 'count mismatch'
+  Confirm-ImageRejected 'ppm extra interface' { Assert-ExactSequence 'negative ppm interface' @('PpmDecoder', 'PpmEncoder', 'PpmRegistry') @('PpmDecoder', 'PpmEncoder') } 'count mismatch'
+  Confirm-ImageRejected 'ppm wrong production order' { Assert-ExactSequence 'negative ppm source order' @('moon.pkg', 'ppm.mbt', 'parser.mbt', 'encode.mbt', 'decode.mbt', 'generated_vectors.mbt') @('moon.pkg', 'ppm.mbt', 'parser.mbt', 'decode.mbt', 'encode.mbt', 'generated_vectors.mbt') } 'mismatch at index'
+  Confirm-ImageRejected 'ppm unregistered production content' { Assert-ExactSet 'negative ppm contents' @('moon.pkg', 'ppm.mbt', 'parser.mbt', 'decode.mbt', 'encode.mbt', 'generated_vectors.mbt', 'registry.mbt') @('moon.pkg', 'ppm.mbt', 'parser.mbt', 'decode.mbt', 'encode.mbt', 'generated_vectors.mbt') } 'count mismatch'
   Confirm-ImageRejected 'publication drift' { Assert-ExactSet 'negative image publication' @('metadata/moon.pkg', 'unexpected.mbt') @('metadata/moon.pkg') } 'count mismatch'
   Confirm-ImageRejected 'missing required target' { Assert-ExactSet 'negative image targets' @('js', 'wasm', 'native') @('js', 'wasm', 'wasm-gc', 'native') } 'count mismatch'
   Confirm-ImageRejected 'raw mutable backing' { Assert-ImageSourceTextProhibitions -RelativePath 'modules/mb-image/storage/fixture.mbt' -Text 'pub fn backing() -> MutArrayView[Byte] { abort("fixture") }' } 'Raw mutable'
@@ -584,6 +592,7 @@ function Invoke-RequiredQuality {
   }
   Invoke-QualityStage 'IMAG deterministic generated evidence' {
     & ./scripts/fixtures/Generate-ImageVectors.ps1 -Check
+    & ./scripts/fixtures/Generate-PpmVectors.ps1 -Check
     Assert-ImageGeneratedEvidence
   }
   Invoke-QualityStage 'IMAG portable source and documentation prohibitions' {

@@ -94,7 +94,8 @@ $record = [ordered]@{
   license='Apache-2.0'; redistribution_status='not-applicable'
   expected_use='QUAL-01 and QUAL-03 strict P6 canonical, adversarial, progress, and metamorphic conformance'
 }
-$records = @($manifest.records | Where-Object { $_.id -cne $record.id }) + @($record)
+$colorIds = @('color-srgb-reference-vectors', 'color-derived-edge-vectors')
+$records = @($manifest.records | Where-Object { $_.id -cne $record.id -and $_.id -cnotin $colorIds }) + @($record) + @($manifest.records | Where-Object { $_.id -cin $colorIds })
 $ordered = [ordered]@{
   schema_version=$manifest.schema_version; preferred_origin=$manifest.preferred_origin
   required_record_fields=@($manifest.required_record_fields); allowed_origins=@($manifest.allowed_origins)

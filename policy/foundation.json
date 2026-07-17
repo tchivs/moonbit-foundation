@@ -805,10 +805,14 @@
         "ppm/decode.mbt",
         "ppm/decode_test.mbt",
         "ppm/decode_wbtest.mbt",
+        "ppm/encode.mbt",
+        "ppm/generated_vectors.mbt",
         "ppm/moon.pkg",
         "ppm/parser.mbt",
         "ppm/parser_wbtest.mbt",
         "ppm/ppm.mbt",
+        "ppm/ppm_test.mbt",
+        "ppm/reference_vectors_wbtest.mbt",
         "moon.mod.json"
       ],
       "public_packages": [
@@ -1186,6 +1190,14 @@
             "moonbit-foundation/mb-image/model",
             "moonbit-foundation/mb-image/storage"
           ],
+          "production_sources": [
+            "moon.pkg",
+            "ppm.mbt",
+            "parser.mbt",
+            "decode.mbt",
+            "encode.mbt",
+            "generated_vectors.mbt"
+          ],
           "semantic_interface": [
             "package \"moonbit-foundation/mb-image/ppm\"",
             "import {",
@@ -1194,6 +1206,7 @@
             "  \"moonbit-foundation/mb-core/error\",",
             "  \"moonbit-foundation/mb-core/io\",",
             "  \"moonbit-foundation/mb-image/codec\",",
+            "  \"moonbit-foundation/mb-image/storage\",",
             "}",
             "pub struct PpmDecoder {",
             "}",
@@ -1202,6 +1215,7 @@
             "pub struct PpmEncoder {",
             "}",
             "pub fn PpmEncoder::new() -> Self",
+            "pub impl @codec.ImageEncoder for PpmEncoder",
             "pub struct PpmParserLimits {",
             "}",
             "pub fn PpmParserLimits::max_comment_bytes(Self) -> UInt64",
