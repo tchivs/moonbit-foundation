@@ -305,7 +305,8 @@ artifact-consumer or publication pass.
 Every package and example is checked independently on `js`, `wasm`, `wasm-gc`,
 and `native`; native is preferred but has no wider portable contract.
 
-The candidate intentionally defers YUV and arbitrary format conversions,
+Phase 5 owns the first bounded PPM P6 implementation: the MNF strict PPM
+P6/sRGB subset documented above. The candidate intentionally defers YUV and arbitrary format conversions,
 advanced resampling, animation, tiled/GPU storage, PNG/JPEG/WebP, wider PPM
 variants, native/system codecs, registries, filesystem/URL policy, rendering,
 publication, signed releases, and performance claims. LLVM is experimental and
