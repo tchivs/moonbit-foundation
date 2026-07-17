@@ -1,12 +1,16 @@
 # Changelog
 
-All notable changes to `moonbit-foundation/mb-core` will be recorded in this
+All notable changes to `tchivs/mb-core` will be recorded in this
 file. This module follows an independent release lifecycle.
 
 ## 0.1.0 candidate (unpublished) - 2026-07-17
 
-Compatibility status: candidate. Public changes require migration notes; no
-stable API, registry publication, or permanent toolchain floor is claimed.
+Compatibility status: candidate. Incompatible pre-1.0 changes require a minor
+release plus a migration note; no stable API, registry publication, or permanent
+toolchain floor is claimed.
+
+The unpublished bootstrap identity correction uses the canonical personal
+namespace without changing `0.1.0`; no migration note or SemVer bump is required.
 
 ### Added
 

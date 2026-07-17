@@ -1,17 +1,17 @@
 ---
 moonbit:
   import:
-    - path: moonbit-foundation/mb-core/error
+    - path: tchivs/mb-core/error
       alias: error
-    - path: moonbit-foundation/mb-core/checked
+    - path: tchivs/mb-core/checked
       alias: checked
-    - path: moonbit-foundation/mb-core/budget
+    - path: tchivs/mb-core/budget
       alias: budget
-    - path: moonbit-foundation/mb-core/bytes
+    - path: tchivs/mb-core/bytes
       alias: bytes
-    - path: moonbit-foundation/mb-core/io
+    - path: tchivs/mb-core/io
       alias: io
-    - path: moonbit-foundation/mb-core/host
+    - path: tchivs/mb-core/host
       alias: host
 ---
 
@@ -21,28 +21,29 @@ Portable safety and capability foundations for MoonBit Native Foundation.
 
 `mb-core` is an independently versioned candidate module. Its public package
 spine is deliberately acyclic and ordered as `error -> checked -> budget ->
-bytes -> io -> host`. No API is stable yet; candidate changes require migration
-notes.
+bytes -> io -> host`. No API is stable yet; exact, additive, and incompatible
+changes follow the project compatibility policy.
 
-Public publication remains blocked until ownership of the intended
-`moonbit-foundation` mooncakes.io namespace is verified. The module already uses
-its final intended name so consumers do not inherit a later rename.
+Public publication remains blocked until the authenticated `tchivs` Mooncakes
+account and exact personal namespace authority are verified. The unpublished
+bootstrap correction keeps version `0.1.0` and requires no migration note.
 
 ## 0.1.0 candidate contract
 
 | Field | Exact value |
 | --- | --- |
-| Module | `moonbit-foundation/mb-core` |
+| Module | `tchivs/mb-core` |
 | Version/status | `0.1.0` candidate; no stable API or public release is claimed |
 | License | Apache-2.0 ([repository license](../../LICENSE)) |
-| Repository metadata | `https://github.com/moonbit-foundation/moonbit-foundation` |
+| Repository metadata | `https://github.com/tchivs/moonbit-foundation` (intended; not verified live) |
 | Direct module dependencies | none |
 | Required targets | `+js+wasm+wasm-gc+native` |
 
 The runnable examples in this document import the six public packages directly;
 `moon check README.mbt.md --frozen --target <target>` checks them on each required
-target. Candidate compatibility means every public change requires migration
-notes. It does not establish the stable Semantic Versioning gate.
+target. For this pre-1.0 candidate, additive public surface requires a minor
+release and incompatible change requires a minor release plus a migration note.
+It does not establish the stable Semantic Versioning gate.
 
 ## Checked failures and deterministic diagnostics
 
@@ -293,8 +294,8 @@ Package imports are listed in policy order, and the shared support, security,
 changelog, compatibility, migration, and RFC routes remain explicit.
 
 <!-- mnf-publication-source:v1 -->
-01|install|moon add moonbit-foundation/mb-core@0.1.0
-02|imports|moonbit-foundation/mb-core/error,moonbit-foundation/mb-core/checked,moonbit-foundation/mb-core/budget,moonbit-foundation/mb-core/bytes,moonbit-foundation/mb-core/io,moonbit-foundation/mb-core/host
+01|install|moon add tchivs/mb-core@0.1.0
+02|imports|tchivs/mb-core/error,tchivs/mb-core/checked,tchivs/mb-core/budget,tchivs/mb-core/bytes,tchivs/mb-core/io,tchivs/mb-core/host
 03|status|candidate
 04|targets|js,wasm,wasm-gc,native
 05|toolchain|moon=0.1.20260713;moonc=0.10.4;moonrun=0.1.20260713

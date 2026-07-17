@@ -1,17 +1,17 @@
 ---
 moonbit:
   import:
-    - path: moonbit-foundation/mb-color/model
+    - path: tchivs/mb-color/model
       alias: model
-    - path: moonbit-foundation/mb-color/transfer
+    - path: tchivs/mb-color/transfer
       alias: transfer
-    - path: moonbit-foundation/mb-color/quantize
+    - path: tchivs/mb-color/quantize
       alias: quantize
-    - path: moonbit-foundation/mb-color/alpha
+    - path: tchivs/mb-color/alpha
       alias: alpha
-    - path: moonbit-foundation/mb-color/profile
+    - path: tchivs/mb-color/profile
       alias: profile
-    - path: moonbit-foundation/mb-core/budget
+    - path: tchivs/mb-core/budget
       alias: budget
 ---
 
@@ -20,25 +20,26 @@ moonbit:
 Portable, explicit reference color semantics for MoonBit Native Foundation.
 
 `mb-color` is an independently versioned `0.1.0` candidate module. No API is
-stable and no public release is claimed. Publication remains blocked until
-ownership of the intended `moonbit-foundation` mooncakes.io namespace is
-verified.
+stable and no public release is claimed. Publication remains blocked until the
+authenticated `tchivs` Mooncakes account and exact personal namespace authority
+are verified. The unpublished bootstrap correction requires no migration note.
 
 ## 0.1.0 candidate contract
 
 | Field | Exact value |
 | --- | --- |
-| Module | `moonbit-foundation/mb-color` |
+| Module | `tchivs/mb-color` |
 | Version/status | `0.1.0` candidate; no stable API or public release is claimed |
 | License | Apache-2.0 ([repository license](../../LICENSE)) |
-| Repository metadata | `https://github.com/moonbit-foundation/moonbit-foundation` |
-| Direct module dependency | `moonbit-foundation/mb-core = 0.1.0` |
+| Repository metadata | `https://github.com/tchivs/moonbit-foundation` (intended; not verified live) |
+| Direct module dependency | `tchivs/mb-core = 0.1.0` |
 | Required targets | `+js+wasm+wasm-gc+native` |
 
 The runnable examples below import public packages directly and are checked by
 `moon check README.mbt.md --frozen --target <target>` for every required target.
-Candidate compatibility requires migration notes for public changes; it is not
-a stable Semantic Versioning promise.
+Additive public surface requires a minor release; incompatible pre-1.0 change
+requires a minor release plus a migration note. This is not a stable Semantic
+Versioning promise.
 
 The module has five independently consumable public packages, in publication
 order: `model`, `transfer`, `quantize`, `alpha`, and `profile`. This order is a
@@ -300,8 +301,8 @@ Package imports are listed in policy order, and the shared support, security,
 changelog, compatibility, migration, and RFC routes remain explicit.
 
 <!-- mnf-publication-source:v1 -->
-01|install|moon add moonbit-foundation/mb-color@0.1.0
-02|imports|moonbit-foundation/mb-color/model,moonbit-foundation/mb-color/transfer,moonbit-foundation/mb-color/quantize,moonbit-foundation/mb-color/alpha,moonbit-foundation/mb-color/profile
+01|install|moon add tchivs/mb-color@0.1.0
+02|imports|tchivs/mb-color/model,tchivs/mb-color/transfer,tchivs/mb-color/quantize,tchivs/mb-color/alpha,tchivs/mb-color/profile
 03|status|candidate
 04|targets|js,wasm,wasm-gc,native
 05|toolchain|moon=0.1.20260713;moonc=0.10.4;moonrun=0.1.20260713

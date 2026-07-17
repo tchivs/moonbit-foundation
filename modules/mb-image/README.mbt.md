@@ -1,29 +1,29 @@
 ---
 moonbit:
   import:
-    - path: moonbit-foundation/mb-core/budget
+    - path: tchivs/mb-core/budget
       alias: budget
-    - path: moonbit-foundation/mb-core/bytes
+    - path: tchivs/mb-core/bytes
       alias: bytes
-    - path: moonbit-foundation/mb-core/error
+    - path: tchivs/mb-core/error
       alias: error
-    - path: moonbit-foundation/mb-core/io
+    - path: tchivs/mb-core/io
       alias: io
-    - path: moonbit-foundation/mb-color/model
+    - path: tchivs/mb-color/model
       alias: color
-    - path: moonbit-foundation/mb-color/profile
+    - path: tchivs/mb-color/profile
       alias: profile
-    - path: moonbit-foundation/mb-image/metadata
+    - path: tchivs/mb-image/metadata
       alias: metadata
-    - path: moonbit-foundation/mb-image/model
+    - path: tchivs/mb-image/model
       alias: model
-    - path: moonbit-foundation/mb-image/storage
+    - path: tchivs/mb-image/storage
       alias: storage
-    - path: moonbit-foundation/mb-image/ops
+    - path: tchivs/mb-image/ops
       alias: ops
-    - path: moonbit-foundation/mb-image/codec
+    - path: tchivs/mb-image/codec
       alias: codec
-    - path: moonbit-foundation/mb-image/ppm
+    - path: tchivs/mb-image/ppm
       alias: ppm
 ---
 
@@ -33,7 +33,8 @@ Portable, explicit image foundations for MoonBit Native Foundation.
 
 `mb-image` is an independently versioned `0.1.0` candidate module. No API is
 stable and no public release is claimed. Publication remains blocked until the
-intended `moonbit-foundation` mooncakes.io namespace is verified.
+authenticated `tchivs` Mooncakes account and exact personal namespace authority
+are verified. The unpublished bootstrap correction requires no migration note.
 
 The module has six independently consumable public packages, in exact
 publication order: `metadata`, `model`, `storage`, `ops`, `codec`, and `ppm`.
@@ -43,16 +44,17 @@ There is no root facade or prelude.
 
 | Field | Exact value |
 | --- | --- |
-| Module | `moonbit-foundation/mb-image` |
+| Module | `tchivs/mb-image` |
 | Version/status | `0.1.0` candidate; no stable API or public release is claimed |
 | License | Apache-2.0 ([repository license](../../LICENSE)) |
-| Repository metadata | `https://github.com/moonbit-foundation/moonbit-foundation` |
-| Direct module dependencies | `moonbit-foundation/mb-core = 0.1.0`; `moonbit-foundation/mb-color = 0.1.0` |
+| Repository metadata | `https://github.com/tchivs/moonbit-foundation` (intended; not verified live) |
+| Direct module dependencies | `tchivs/mb-core = 0.1.0`; `tchivs/mb-color = 0.1.0` |
 | Required targets | `+js+wasm+wasm-gc+native` |
 
 The literate examples in this document are checked on every required target.
-Candidate compatibility requires migration notes for public changes; it is not
-a stable Semantic Versioning promise.
+Additive public surface requires a minor release; incompatible pre-1.0 change
+requires a minor release plus a migration note. This is not a stable Semantic
+Versioning promise.
 
 ## Explicit descriptor and storage
 
@@ -337,8 +339,8 @@ Package imports are listed in policy order, and the shared support, security,
 changelog, compatibility, migration, and RFC routes remain explicit.
 
 <!-- mnf-publication-source:v1 -->
-01|install|moon add moonbit-foundation/mb-image@0.1.0
-02|imports|moonbit-foundation/mb-image/metadata,moonbit-foundation/mb-image/model,moonbit-foundation/mb-image/storage,moonbit-foundation/mb-image/ops,moonbit-foundation/mb-image/codec,moonbit-foundation/mb-image/ppm
+01|install|moon add tchivs/mb-image@0.1.0
+02|imports|tchivs/mb-image/metadata,tchivs/mb-image/model,tchivs/mb-image/storage,tchivs/mb-image/ops,tchivs/mb-image/codec,tchivs/mb-image/ppm
 03|status|candidate
 04|targets|js,wasm,wasm-gc,native
 05|toolchain|moon=0.1.20260713;moonc=0.10.4;moonrun=0.1.20260713

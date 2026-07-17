@@ -1,12 +1,15 @@
 # Changelog
 
-All notable changes to `moonbit-foundation/mb-color` will be recorded in this
+All notable changes to `tchivs/mb-color` will be recorded in this
 file. This module follows an independent release lifecycle.
 
 ## 0.1.0 candidate (unpublished) - 2026-07-17
 
-Compatibility status: candidate. Public changes require migration notes; no
-stable API or registry publication is claimed.
+Compatibility status: candidate. Incompatible pre-1.0 changes require a minor
+release plus a migration note; no stable API or registry publication is claimed.
+
+The unpublished bootstrap identity correction uses the canonical personal
+namespace without changing `0.1.0`; no migration note or SemVer bump is required.
 
 ### Added
 
@@ -22,7 +25,7 @@ stable API or registry publication is claimed.
   publication order, dependency DAG, provenance boundaries, and publication
   block documentation.
 - Exact Apache-2.0, repository, description, four-target, and
-  `moonbit-foundation/mb-core = 0.1.0` candidate manifest metadata.
+  `tchivs/mb-core = 0.1.0` candidate manifest metadata.
 
 ### Removed
 
