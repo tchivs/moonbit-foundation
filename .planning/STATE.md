@@ -5,16 +5,16 @@ milestone_name: Publication & Compatibility
 current_phase: 6
 current_phase_name: Namespace Authority and Compatibility Contract
 status: executing
-stopped_at: Completed 06-07-PLAN.md; ready for 06-12
-last_updated: "2026-07-17T10:04:53.685Z"
+stopped_at: Completed 06-12-PLAN.md; ready for 06-08
+last_updated: "2026-07-17T10:14:01.118Z"
 last_activity: 2026-07-17
-last_activity_desc: canonical personal namespace policy rebased and closed
+last_activity_desc: canonical module roots and bounded bytes package rebased
 progress:
   total_phases: 4
   completed_phases: 0
   total_plans: 24
-  completed_plans: 5
-  percent: 0
+  completed_plans: 6
+  percent: 25
 ---
 
 # Project State
@@ -30,16 +30,16 @@ See `.planning/PROJECT.md` (updated 2026-07-17).
 ## Current Position
 
 Phase: 6 (Namespace Authority and Compatibility Contract) — EXECUTING
-Plan: 5 of 24 complete; next 06-12
+Plan: 6 of 24 complete; next 06-08
 Status: Executing credential-free personal namespace migration
-Last activity: 2026-07-17 — canonical `tchivs/*` policy and blocked authority seed closed
+Last activity: 2026-07-17 — canonical module roots and bounded bytes package rebased
 
 ## Progress
 
-Current milestone: [██░░░░░░░░] 21% of planned Phase 6 work
+Current milestone: [███░░░░░░░] 25% of planned Phase 6 work
 
 - v0.2 phases completed: 0/4
-- v0.2 plans completed: 5/24
+- v0.2 plans completed: 6/24
 - v0.2 requirements mapped: 21/21
 - Historical total: 5 completed phases, 41 completed plans, 36/36 v0.1 requirements validated
 
@@ -56,6 +56,8 @@ Current milestone: [██░░░░░░░░] 21% of planned Phase 6 work
 - v0.2 adds no new module family and closes with immutable provenance and a milestone audit.
 - [Phase 06]: Use tchivs as the canonical initial personal Mooncakes owner while preserving MoonBit Native Foundation branding. — Official username-prefixed namespace rules and the locked personal-identity decision require the personal owner before publication.
 - [Phase 06]: Keep the tracked authority seed unknown-first until fresh sanitized external proof exists. — Prior local authentication cannot prove the exact Mooncakes account, namespace, repository liveness, or module authority.
+- [Phase 06]: Keep the unpublished tchivs module family at 0.1.0 while rebasing roots and exact dependency floors. — The owner correction precedes publication and is not a SemVer release break.
+- [Phase 06]: Use disposable complete-import overlays only for transitional wave verification; never broaden tracked plan scope. — The main moon.work intentionally contains later-wave old-owner members until their owning plans execute.
 
 ### Pending Decisions
 
@@ -68,15 +70,15 @@ Current milestone: [██░░░░░░░░] 21% of planned Phase 6 work
 
 ## Session Continuity
 
-**Resume file:** .planning/phases/06-namespace-authority-and-compatibility-contract/06-12-PLAN.md
+**Resume file:** .planning/phases/06-namespace-authority-and-compatibility-contract/06-08-PLAN.md
 
-Last session: 2026-07-17T10:04:53.658Z
-Stopped at: Completed 06-07-PLAN.md; ready for 06-12
+Last session: 2026-07-17T10:14:01.094Z
+Stopped at: Completed 06-12-PLAN.md; ready for 06-08
 Resume with: `/gsd-execute-phase 6`
 
 ## Operator Next Steps
 
-- Execute 06-12 next to rebase the three module roots against the closed personal-namespace policy.
+- Execute 06-08 next to rebase the remaining 15 package files and close the active 17-package source graph.
 - Resume revised 06-01 only after the credential-free chain through 06-11; execute 06-06 only after both complete.
 
 ## Performance Metrics
@@ -84,3 +86,4 @@ Resume with: `/gsd-execute-phase 6`
 | Phase | Plan | Duration | Notes |
 |-------|------|----------|-------|
 | Phase 06 P07 | 8m | 2 tasks | 9 files |
+| Phase 06 P12 | 12m | 2 tasks | 4 files |
