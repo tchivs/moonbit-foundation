@@ -148,7 +148,12 @@ fn decode_scripted(
   fail_at? : Int = -1,
   no_progress_at? : Int = -1,
 ) -> Result[@codec.DecodeResult, @error.CoreError] {
-  let reader = DecodeScriptReader::{ source, cursor: 0, fail_at, no_progress_at }
+  let reader = DecodeScriptReader::{
+    source,
+    cursor: 0,
+    fail_at,
+    no_progress_at,
+  }
   @codec.ImageDecoder::decode(
     PpmDecoder::new(decode_parser_limits()),
     reader as &@io.Reader,
