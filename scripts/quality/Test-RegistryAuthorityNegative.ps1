@@ -66,6 +66,17 @@ try {
     @{ id = 'REG01-FACT-ORDER'; observation = { param($o) $o.facts += [pscustomobject]@{ id='authenticated_account'; state='unknown'; source='not_observed'; disposition='block_publication' } }; capability = $null },
     @{ id = 'REG01-CLOSED-CONTRACT'; observation = { param($o) $o | Add-Member -NotePropertyName unexpected -NotePropertyValue 'field' }; capability = $null },
     @{ id = 'REG01-IDENTITY'; observation = { param($o) $o.intended_owner = 'MoonBit-Foundation' }; capability = $null },
+    @{ id = 'REG01-IDENTITY'; observation = { param($o) $o.intended_owner = ('moonbit' + '-foundation') }; capability = $null },
+    @{ id = 'REG01-MOONCAKES-AUTHORITY'; observation = {
+      param($o)
+      $o.session_authentication = [pscustomobject]@{ state='safely_observed'; authenticated=$true; source='moon_auth_status' }
+      $o.authenticated_account = [pscustomobject]@{ state='safely_observed'; value='tchivs'; source='github_identity' }
+      $o.namespace_authority = [pscustomobject]@{ state='safely_observed'; namespace='tchivs'; exact_module_identities=@('tchivs/mb-core','tchivs/mb-color','tchivs/mb-image'); source='github_identity' }
+    }; capability = $null },
+    @{ id = 'REG01-MOONCAKES-AUTHORITY'; observation = {
+      param($o)
+      $o.namespace_authority = [pscustomobject]@{ state='safely_observed'; namespace='tchivs'; exact_module_identities=@('tchivs/mb-core','tchivs/mb-color','tchivs/mb-image'); source='authenticated_read_only_registry' }
+    }; capability = $null },
     @{ id = 'REG01-FRESHNESS'; observation = { param($o) $o.observed_at_utc = [DateTimeOffset]::UtcNow.AddHours(-25).ToString('o'); $o.freshness.status = 'stale' }; capability = $null },
     @{ id = 'REG01-STABLE-DIGEST'; observation = { param($o) $o.stable_sha256 = ('0' * 64) }; capability = $null },
     @{ id = 'REG01-UNSAFE-EVIDENCE'; observation = { param($o) $o.sanitized_result.reason = 'Authorization: Bearer redacted' }; capability = $null },
