@@ -23,7 +23,7 @@ The original external-authority attempt was deferred before the personal namespa
 
 ## Work still pending
 
-- The credential-free personal-namespace remediation chain 06-07 -> 06-12 -> 06-08 -> 06-09 -> 06-13 -> 06-10 -> 06-14 -> 06-15 -> 06-16 -> 06-17 -> 06-18 -> 06-19 -> 06-20 -> 06-21 -> 06-22 -> 06-23 -> 06-24 -> 06-11 must complete first.
+- The credential-free personal-namespace remediation chain 06-07 -> 06-12 -> 06-08 -> 06-09 -> 06-25 -> 06-13 -> 06-10 -> 06-14 -> 06-15 -> 06-16 -> 06-17 -> 06-18 -> 06-19 -> 06-20 -> 06-21 -> 06-22 -> 06-23 -> 06-24 -> 06-11 must complete first.
 - Task 3 has not captured an authoritative Mooncakes account identity.
 - Authority over `tchivs` and the exact `tchivs/mb-core`, `tchivs/mb-color`, and `tchivs/mb-image` identities remains unknown.
 - REG-01, REG-02, and REG-03 remain pending.
