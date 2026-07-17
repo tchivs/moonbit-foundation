@@ -124,7 +124,7 @@ function Assert-CoreConsumerDefinition {
   $manifestPath = Join-Path $repoRoot 'qualification\consumers\mb-core\moon.mod.json'
   $consumer = Read-ReleaseJson -Path $manifestPath
   if ($consumer.name -cne 'mnf-qualification/mb-core-consumer' -or $consumer.version -cne '0.0.0' -or
-      [string]$consumer.deps.'moonbit-foundation/mb-core' -cne '0.1.0') { throw 'mb-core consumer manifest must use the exact named 0.1.0 dependency.' }
+      [string]$consumer.deps.'tchivs/mb-core' -cne '0.1.0') { throw 'mb-core consumer manifest must use the exact tchivs/mb-core 0.1.0 dependency.' }
   $raw = Get-Content -LiteralPath $manifestPath -Raw
   if ($raw -cmatch '"path"\s*:|(?:^|[\\/])[.][.](?:[\\/]|$)') { throw 'mb-core consumer manifest contains a path substitution.' }
 }
@@ -179,7 +179,10 @@ function Invoke-SourceIsolation {
 function Invoke-RegistryProbe {
   param([string]$ShortName, [string]$WorkingRoot)
   $probeRoot = Join-Path $WorkingRoot "$ShortName-registry-probe"
-  $moduleName = "moonbit-foundation/$ShortName"
+  $moduleName = [string]$policy.modules.$ShortName.manifest.name
+  if ($moduleName -cne "tchivs/$ShortName" -or [string]$policy.modules.$ShortName.manifest.version -cne '0.1.0') {
+    throw "$ShortName registry probe requires the exact canonical tchivs identity at 0.1.0."
+  }
   $manifestObject = [ordered]@{
     name = "mnf-qualification/$ShortName-registry-probe"
     version = '0.0.0'
