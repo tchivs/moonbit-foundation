@@ -1,0 +1,4 @@
+CHANGELOG.md
+README.mbt.md
+moon.mod.json
+unexpected-package/forbidden.mbt

@@ -1,0 +1,25 @@
+{
+  "schema_version": "1.0.0",
+  "modules": {
+    "mb-core": {
+      "artifact_consumer": "pass",
+      "registry_resolution": "not_required_no_dependencies"
+    },
+    "mb-color": {
+      "source_isolation": "pass",
+      "artifact_consumer": "blocked_unpublished_dependency",
+      "registry_resolution": "pass"
+    },
+    "mb-image": {
+      "source_isolation": "pass",
+      "artifact_consumer": "blocked_unpublished_dependency",
+      "registry_resolution": "blocked_unpublished_namespace"
+    }
+  },
+  "publication": {
+    "performed": false,
+    "credentials_read": false,
+    "namespace_verified": false,
+    "blocked_reason": "unverified_mooncakes_owner_namespace"
+  }
+}
