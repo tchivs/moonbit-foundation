@@ -8,13 +8,13 @@ status: executing
 stopped_at: Completed 06-21-PLAN.md
 last_updated: "2026-07-17T13:04:13.442Z"
 last_activity: 2026-07-17
-last_activity_desc: anchored mb-color quantize and profile baseline batch regenerated
+last_activity_desc: anchored mb-color transfer and mb-image codec baseline batch regenerated
 progress:
   total_phases: 4
   completed_phases: 0
   total_plans: 25
   completed_plans: 19
-  percent: 0
+  percent: 76
 ---
 
 # Project State
@@ -30,16 +30,16 @@ See `.planning/PROJECT.md` (updated 2026-07-17).
 ## Current Position
 
 Phase: 6 (Namespace Authority and Compatibility Contract) — EXECUTING
-Plan: 19 of 25 complete; next 06-21
+Plan: 19 of 25 complete; next 06-22
 Status: Executing credential-free personal namespace migration
-Last activity: 2026-07-17 — anchored mb-color quantize and profile baseline batch regenerated
+Last activity: 2026-07-17 — anchored mb-color transfer and mb-image codec baseline batch regenerated
 
 ## Progress
 
-Current milestone: [███████░░░] 72% of planned Phase 6 work
+Current milestone: [████████░░] 76% of planned Phase 6 work
 
 - v0.2 phases completed: 0/4
-- v0.2 plans completed: 18/25
+- v0.2 plans completed: 19/25
 - v0.2 requirements mapped: 21/21
 - Historical total: 5 completed phases, 41 completed plans, 36/36 v0.1 requirements validated
 
@@ -91,7 +91,7 @@ Resume with: `/gsd-execute-phase 6`
 
 ## Operator Next Steps
 
-- Execute 06-21 to regenerate the final bounded mb-color baseline batch.
+- Execute 06-22 to regenerate the first bounded mb-image baseline batch.
 - Resume revised 06-01 only after the credential-free chain through 06-11; execute 06-06 only after both complete.
 
 ## Performance Metrics
