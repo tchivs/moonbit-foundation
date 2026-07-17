@@ -1,13 +1,13 @@
 import {
   "moonbitlang/core/bench",
-  "moonbit-foundation/mb-core/budget",
-  "moonbit-foundation/mb-core/bytes",
-  "moonbit-foundation/mb-core/error",
-  "moonbit-foundation/mb-core/io",
-  "moonbit-foundation/mb-image/codec",
-  "moonbit-foundation/mb-image/ops",
-  "moonbit-foundation/mb-image/ppm",
-  "moonbit-foundation/mb-image/storage",
+  "tchivs/mb-core/budget",
+  "tchivs/mb-core/bytes",
+  "tchivs/mb-core/error",
+  "tchivs/mb-core/io",
+  "tchivs/mb-image/codec",
+  "tchivs/mb-image/ops",
+  "tchivs/mb-image/ppm",
+  "tchivs/mb-image/storage",
 }
 
 supported_targets = "+native"
