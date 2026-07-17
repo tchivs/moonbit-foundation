@@ -1,5 +1,10 @@
 Set-StrictMode -Version Latest
 
+function Throw-ReleaseRule {
+  param([Parameter(Mandatory)][string]$Id, [Parameter(Mandatory)][string]$Message)
+  throw "$Id`: $Message"
+}
+
 function Read-ReleaseJson {
   param([Parameter(Mandatory)][string]$Path)
   if (-not (Test-Path -LiteralPath $Path -PathType Leaf)) { throw "Required JSON is missing: $Path" }
@@ -36,6 +41,138 @@ function Get-ReleaseTrackedDiffSnapshot {
 function Get-ReleaseSha256 {
   param([Parameter(Mandatory)][string]$Path)
   return (Get-FileHash -LiteralPath $Path -Algorithm SHA256).Hash.ToLowerInvariant()
+}
+
+function Assert-ReleaseTrackedSnapshot {
+  param([Parameter(Mandatory)][string]$Before, [Parameter(Mandatory)][string]$After)
+  if ($Before -cne $After) {
+    Throw-ReleaseRule -Id 'REL14-TRACKED-SOURCE-MUTATION' -Message 'tracked source differs from the captured baseline.'
+  }
+}
+
+function Assert-ReleaseHashedArtifact {
+  param([Parameter(Mandatory)][string]$Path, [Parameter(Mandatory)][string]$ExpectedSha256)
+  if ((Get-ReleaseSha256 -Path $Path) -cne $ExpectedSha256.ToLowerInvariant()) {
+    Throw-ReleaseRule -Id 'REL13-ARTIFACT-DIGEST' -Message "artifact bytes no longer match the recorded SHA-256: $Path"
+  }
+}
+
+function Assert-ReleaseManifestDependencies {
+  param(
+    [Parameter(Mandatory)][ValidateSet('mb-core', 'mb-color', 'mb-image')][string]$ShortName,
+    [Parameter(Mandatory)][string]$ManifestPath,
+    [Parameter(Mandatory)][string]$PolicyPath
+  )
+  $manifest = Read-ReleaseJson -Path $ManifestPath
+  $policy = Read-ReleaseJson -Path $PolicyPath
+  $expected = $policy.modules.$ShortName.dependencies
+  $actual = if ($null -ne $manifest.PSObject.Properties['deps']) { $manifest.deps } else { [pscustomobject]@{} }
+  $actualNames = @($actual.PSObject.Properties | ForEach-Object { $_.Name })
+  $expectedNames = @($expected.PSObject.Properties | ForEach-Object { $_.Name })
+  try { Assert-ReleaseExactSet -Label "$ShortName manifest dependency names" -Actual $actualNames -Expected $expectedNames } catch {
+    Throw-ReleaseRule -Id 'REL03-PATH-SUBSTITUTION' -Message $_.Exception.Message
+  }
+  foreach ($name in $expectedNames) {
+    $value = $actual.$name
+    if ($value -isnot [string] -or [string]$value -cne [string]$expected.$name) {
+      Throw-ReleaseRule -Id 'REL03-PATH-SUBSTITUTION' -Message "$ShortName dependency '$name' is not the exact scalar named version requirement."
+    }
+  }
+  $raw = Get-Content -LiteralPath $ManifestPath -Raw
+  if ($raw -cmatch '"path"\s*:|(?:^|[\\/])[.][.](?:[\\/]|$)') {
+    Throw-ReleaseRule -Id 'REL03-PATH-SUBSTITUTION' -Message "$ShortName manifest contains a workspace/path substitution."
+  }
+}
+
+function Assert-ReleaseModuleImports {
+  param(
+    [Parameter(Mandatory)][ValidateSet('mb-core', 'mb-color', 'mb-image')][string]$ShortName,
+    [Parameter(Mandatory)][string]$PackagePath
+  )
+  $raw = Get-Content -LiteralPath $PackagePath -Raw
+  $imports = @([regex]::Matches($raw, '"([^"]+)"') | ForEach-Object { $_.Groups[1].Value })
+  $forbidden = @(switch ($ShortName) {
+    'mb-core' { @($imports | Where-Object { $_ -cmatch '^moonbit-foundation/(?:mb-color|mb-image)(?:/|$)' }) }
+    'mb-color' { @($imports | Where-Object { $_ -cmatch '^moonbit-foundation/mb-image(?:/|$)' }) }
+    default { @() }
+  })
+  if ($forbidden.Count -ne 0) {
+    Throw-ReleaseRule -Id 'REL04-HIGHER-LAYER-DEPENDENCY' -Message "$ShortName imports a higher release layer: $($forbidden -join ', ')"
+  }
+}
+
+function Assert-ReleasePackageList {
+  param(
+    [Parameter(Mandatory)][ValidateSet('mb-core', 'mb-color', 'mb-image')][string]$ShortName,
+    [Parameter(Mandatory)][string]$ListPath,
+    [Parameter(Mandatory)][string]$PolicyPath
+  )
+  $policy = Read-ReleaseJson -Path $PolicyPath
+  $actual = @(Get-Content -LiteralPath $ListPath | Where-Object { -not [string]::IsNullOrWhiteSpace($_) } | ForEach-Object { $_.Replace('\', '/') })
+  try { Assert-ReleaseExactSet -Label "$ShortName package inventory" -Actual $actual -Expected @($policy.modules.$ShortName.package_allowlist) } catch {
+    Throw-ReleaseRule -Id 'REL05-ARCHIVE-ENTRY' -Message $_.Exception.Message
+  }
+}
+
+function Assert-ReleaseCandidateOutcomes {
+  param([Parameter(Mandatory)][string]$ReportPath)
+  $report = Read-ReleaseJson -Path $ReportPath
+  if ($report.publication.performed -ne $false -or $report.publication.credentials_read -ne $false -or
+      $report.publication.namespace_verified -ne $false -or
+      $report.modules.'mb-color'.source_isolation -cne 'pass' -or
+      $report.modules.'mb-image'.source_isolation -cne 'pass' -or
+      $report.modules.'mb-color'.artifact_consumer -cne 'blocked_unpublished_dependency' -or
+      $report.modules.'mb-image'.artifact_consumer -cne 'blocked_unpublished_dependency' -or
+      $report.modules.'mb-color'.registry_resolution -cne 'blocked_unpublished_namespace' -or
+      $report.modules.'mb-image'.registry_resolution -cne 'blocked_unpublished_namespace') {
+    Throw-ReleaseRule -Id 'REL02-FABRICATED-REGISTRY-PASS' -Message 'candidate report fabricated publication or downstream registry/artifact success.'
+  }
+}
+
+function Assert-PpmQualificationContract {
+  param([Parameter(Mandatory)][string]$FoundationPath)
+  $foundation = Read-ReleaseJson -Path $FoundationPath
+  $image = @($foundation.modules | Where-Object { [string]$_.path -ceq 'modules/mb-image' })
+  if ($image.Count -ne 1) { Throw-ReleaseRule -Id 'PPM06-WRONG-PUBLICATION-ORDER' -Message 'mb-image policy owner is missing or duplicated.' }
+  $expectedPackageOrder = @(
+    'moonbit-foundation/mb-image/metadata', 'moonbit-foundation/mb-image/model',
+    'moonbit-foundation/mb-image/storage', 'moonbit-foundation/mb-image/ops',
+    'moonbit-foundation/mb-image/codec', 'moonbit-foundation/mb-image/ppm'
+  )
+  try { Assert-ReleaseExactSequence -Label 'PPM publication order' -Actual @($image[0].public_packages.name) -Expected $expectedPackageOrder } catch {
+    Throw-ReleaseRule -Id 'PPM06-WRONG-PUBLICATION-ORDER' -Message $_.Exception.Message
+  }
+  $ppm = @($image[0].public_packages | Where-Object { [string]$_.path -ceq 'ppm' })
+  if ($ppm.Count -ne 1) { Throw-ReleaseRule -Id 'PPM07-UNREGISTERED-CONTENT' -Message 'PPM package owner is missing or duplicated.' }
+  $expectedImports = @(
+    'moonbit-foundation/mb-core/budget', 'moonbit-foundation/mb-core/bytes',
+    'moonbit-foundation/mb-core/checked', 'moonbit-foundation/mb-core/error',
+    'moonbit-foundation/mb-core/io', 'moonbit-foundation/mb-color/model',
+    'moonbit-foundation/mb-color/profile', 'moonbit-foundation/mb-image/codec',
+    'moonbit-foundation/mb-image/metadata', 'moonbit-foundation/mb-image/model',
+    'moonbit-foundation/mb-image/storage'
+  )
+  $actualImports = @($ppm[0].allowed_imports)
+  if ($actualImports.Count -lt $expectedImports.Count) { Throw-ReleaseRule -Id 'PPM01-MISSING-IMPORT' -Message 'PPM import allowlist is incomplete.' }
+  if ($actualImports.Count -gt $expectedImports.Count) { Throw-ReleaseRule -Id 'PPM02-EXTRA-IMPORT' -Message 'PPM import allowlist contains an extra edge.' }
+  try { Assert-ReleaseExactSequence -Label 'PPM imports' -Actual $actualImports -Expected $expectedImports } catch {
+    Throw-ReleaseRule -Id 'PPM02-EXTRA-IMPORT' -Message $_.Exception.Message
+  }
+  try { Assert-ReleaseExactSequence -Label 'PPM targets' -Actual @($ppm[0].supported_targets) -Expected @('js', 'wasm', 'wasm-gc', 'native') } catch {
+    Throw-ReleaseRule -Id 'PPM03-WRONG-TARGET' -Message $_.Exception.Message
+  }
+  $canonical = Read-ReleaseJson -Path (Join-Path (Split-Path -Parent (Split-Path -Parent $PSScriptRoot)) 'policy\foundation.json')
+  $canonicalPpm = @((@($canonical.modules | Where-Object { [string]$_.path -ceq 'modules/mb-image' })[0]).public_packages | Where-Object { [string]$_.path -ceq 'ppm' })[0]
+  $actualInterface = @($ppm[0].semantic_interface)
+  $expectedInterface = @($canonicalPpm.semantic_interface)
+  if ($actualInterface.Count -lt $expectedInterface.Count) { Throw-ReleaseRule -Id 'PPM04-MISSING-INTERFACE' -Message 'PPM semantic interface is incomplete.' }
+  if ($actualInterface.Count -gt $expectedInterface.Count) { Throw-ReleaseRule -Id 'PPM05-EXTRA-INTERFACE' -Message 'PPM semantic interface contains an unregistered declaration.' }
+  try { Assert-ReleaseExactSequence -Label 'PPM semantic interface' -Actual $actualInterface -Expected $expectedInterface } catch {
+    Throw-ReleaseRule -Id 'PPM05-EXTRA-INTERFACE' -Message $_.Exception.Message
+  }
+  try { Assert-ReleaseExactSequence -Label 'PPM production sources' -Actual @($ppm[0].production_sources) -Expected @('moon.pkg', 'ppm.mbt', 'parser.mbt', 'decode.mbt', 'encode.mbt', 'generated_vectors.mbt') } catch {
+    Throw-ReleaseRule -Id 'PPM07-UNREGISTERED-CONTENT' -Message $_.Exception.Message
+  }
 }
 
 function Remove-ReleaseTemp {
@@ -85,12 +222,19 @@ function Assert-ReleasePolicy {
     'schema_version', 'module_order', 'required_targets', 'candidate_status', 'license', 'repository',
     'fixture_manifest', 'fixture_records', 'forbidden_archive_patterns', 'post_publish_order', 'publication', 'modules'
   )
-  if ($policy.schema_version -cne '1.0.0' -or $policy.candidate_status -cne 'candidate' -or
-      $policy.license -cne 'Apache-2.0' -or $policy.repository -cne 'https://github.com/moonbit-foundation/moonbit-foundation' -or
-      $policy.fixture_manifest -cne 'fixtures/manifest.json') {
-    throw 'Release policy identity, candidate status, license, repository, or fixture manifest drifted.'
+  if ($policy.candidate_status -cne 'candidate') {
+    Throw-ReleaseRule -Id 'REL09-WRONG-STATUS' -Message 'release policy candidate status drifted.'
   }
-  Assert-ReleaseExactSequence -Label 'release module order' -Actual @($policy.module_order) -Expected @('mb-core', 'mb-color', 'mb-image')
+  if ($policy.license -cne 'Apache-2.0') {
+    Throw-ReleaseRule -Id 'REL10-MISSING-LICENSE' -Message 'release policy license is missing or drifted.'
+  }
+  if ($policy.schema_version -cne '1.0.0' -or $policy.repository -cne 'https://github.com/moonbit-foundation/moonbit-foundation' -or
+      $policy.fixture_manifest -cne 'fixtures/manifest.json') {
+    throw 'Release policy identity, repository, or fixture manifest drifted.'
+  }
+  try { Assert-ReleaseExactSequence -Label 'release module order' -Actual @($policy.module_order) -Expected @('mb-core', 'mb-color', 'mb-image') } catch {
+    Throw-ReleaseRule -Id 'REL01-MODULE-ORDER' -Message $_.Exception.Message
+  }
   Assert-ReleaseExactSequence -Label 'release targets' -Actual @($policy.required_targets) -Expected @('js', 'wasm', 'wasm-gc', 'native')
   Assert-ReleaseExactSequence -Label 'post-publication order' -Actual @($policy.post_publish_order) -Expected @(
     'publish:moonbit-foundation/mb-core@0.1.0', 'resolve:moonbit-foundation/mb-core@0.1.0',
@@ -104,11 +248,13 @@ function Assert-ReleasePolicy {
   }
 
   $fixtureIds = @($fixtures.records | ForEach-Object { [string]$_.id })
-  Assert-ReleaseExactSequence -Label 'fixture provenance records' -Actual @($policy.fixture_records) -Expected $fixtureIds
+  try { Assert-ReleaseExactSequence -Label 'fixture provenance records' -Actual @($policy.fixture_records) -Expected $fixtureIds } catch {
+    Throw-ReleaseRule -Id 'REL11-MISSING-PROVENANCE' -Message $_.Exception.Message
+  }
   foreach ($record in @($fixtures.records)) {
     $fixturePath = Join-Path $RepoRoot ([string]$record.path)
     if (-not (Test-Path -LiteralPath $fixturePath -PathType Leaf) -or (Get-ReleaseSha256 -Path $fixturePath) -cne ([string]$record.sha256).ToLowerInvariant()) {
-      throw "Fixture provenance bytes drifted for '$($record.id)'."
+      Throw-ReleaseRule -Id 'REL12-PROVENANCE-CHECKSUM' -Message "fixture provenance bytes drifted for '$($record.id)'."
     }
   }
 
@@ -126,6 +272,9 @@ function Assert-ReleasePolicy {
 
   foreach ($shortName in @('mb-core', 'mb-color', 'mb-image')) {
     $module = $policy.modules.$shortName
+    if ($null -eq $module.manifest.PSObject.Properties['version'] -or [string]::IsNullOrWhiteSpace([string]$module.manifest.version)) {
+      Throw-ReleaseRule -Id 'REL08-MISSING-VERSION' -Message "$shortName manifest version is missing."
+    }
     Assert-ReleaseClosedProperties -Label "$shortName release policy" -Object $module -Expected @(
       'manifest', 'dependencies', 'public_packages', 'package_allowlist', 'source_isolation', 'artifact_consumer', 'registry_resolution'
     )
@@ -137,6 +286,10 @@ function Assert-ReleasePolicy {
     $foundationModule = $foundationModule[0]
     $manifestPath = Join-Path $RepoRoot "modules\$shortName\moon.mod.json"
     $manifest = Read-ReleaseJson -Path $manifestPath
+    Assert-ReleaseManifestDependencies -ShortName $shortName -ManifestPath $manifestPath -PolicyPath $PolicyPath
+    foreach ($packageManifest in @(Get-ChildItem -LiteralPath (Join-Path $RepoRoot "modules\$shortName") -Recurse -File -Filter 'moon.pkg')) {
+      Assert-ReleaseModuleImports -ShortName $shortName -PackagePath $packageManifest.FullName
+    }
     foreach ($field in @('name', 'version', 'description', 'license', 'repository', 'readme', 'preferred-target', 'supported-targets')) {
       if ([string]$module.manifest.$field -cne [string]$manifest.$field) { throw "$shortName manifest field '$field' drifted from release policy." }
     }

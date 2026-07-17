@@ -1,5 +1,10 @@
 Set-StrictMode -Version Latest
 
+$releaseHelper = Join-Path $PSScriptRoot 'ReleaseQualification.Common.ps1'
+if (-not (Get-Command Assert-PpmQualificationContract -ErrorAction SilentlyContinue)) {
+  . $releaseHelper
+}
+
 $toolchainHelper = Join-Path $PSScriptRoot 'Assert-Toolchain.ps1'
 if (-not (Get-Command Read-QualityJson -ErrorAction SilentlyContinue)) {
   . $toolchainHelper
@@ -683,6 +688,7 @@ function Assert-FoundationPolicy {
   )
 
   $policy = Read-QualityJson -Path $PolicyPath
+  Assert-PpmQualificationContract -FoundationPath $PolicyPath
   $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
   Assert-Condition ($policy.schema_version -ceq '1.0.0') 'Foundation policy schema_version must be 1.0.0.'
   Assert-Condition ($policy.license -ceq 'Apache-2.0') 'Foundation policy license must be Apache-2.0.'

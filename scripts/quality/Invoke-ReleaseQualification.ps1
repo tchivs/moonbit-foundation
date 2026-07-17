@@ -111,6 +111,7 @@ function Assert-ByteIdenticalFiles {
   $leftBytes = [IO.File]::ReadAllBytes($Left)
   $rightBytes = [IO.File]::ReadAllBytes($Right)
   if (-not [Linq.Enumerable]::SequenceEqual([byte[]]$leftBytes, [byte[]]$rightBytes)) { throw "$Label bytes differ." }
+  Assert-ReleaseHashedArtifact -Path $Right -ExpectedSha256 (Get-ReleaseSha256 -Path $Left)
 }
 
 function Write-TempText {
@@ -304,7 +305,7 @@ try {
   }
 
   $finalDiff = Get-ReleaseTrackedDiffSnapshot
-  if ($finalDiff -cne $initialDiff) { throw 'Release qualification changed tracked repository files.' }
+  Assert-ReleaseTrackedSnapshot -Before $initialDiff -After $finalDiff
   $report = [ordered]@{
     schema_version = '1.0.0'
     head = $head
@@ -322,6 +323,7 @@ try {
   }
   $reportPath = Write-ReleaseReport -Report $report -Directory $OutputDirectory
   Assert-WrittenReleaseReport -Path $reportPath -ExpectedHead $head
+  Assert-ReleaseCandidateOutcomes -ReportPath $reportPath
   Write-Host "Release qualification report: $reportPath"
   Write-Host 'Post-publication contract: mb-core publish/resolve, then mb-color publish/resolve, then mb-image publish/resolve.'
 } finally {
