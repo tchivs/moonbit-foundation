@@ -40,7 +40,7 @@ The latest official MoonBit documentation observed during research identifies th
 | Closed package inventory | `moon -C <module> package --frozen --list` | Reuse the existing exact allowlist and deterministic-ZIP checks before any remote write. |
 | Publish | `moon -C <module> publish --frozen` | Execute exactly once per not-yet-observed module version, only after preflight. `--frozen` prevents dependency synchronization during the write. |
 | Refresh registry | `moon update` | Run in a clean consumer environment after each successful or ambiguous publication response. |
-| Exact registry dependency | `moon add moonbit-foundation/<module>@0.1.0` or an exact `deps` entry | Prefer generating a disposable consumer with the exact version and then asserting that the manifest was not rewritten unexpectedly. |
+| Exact registry dependency | `moon add tchivs/<module>@0.1.0` or an exact `deps` entry | Prefer generating a disposable consumer with the exact version and then asserting that the manifest was not rewritten unexpectedly. |
 | Dependency graph | `moon tree` | Record the resolved graph for each clean consumer. This supplements, but does not replace, compilation and tests. |
 | Consumer verification | `moon check --target <js|wasm|wasm-gc|native> --deny-warn --frozen` and `moon test --target <...> --frozen` | Run outside the repository and without `moon.work`, path dependencies, copied source, or publisher credentials. |
 | Public interface generation | `moon -C <module> info --target all --frozen` | Generate canonical `pkg.generated.mbti` files and inspect backend differences. The installed CLI writes the canonical-backend form while checking requested target interfaces. |
@@ -48,9 +48,9 @@ The latest official MoonBit documentation observed during research identifies th
 The module publication DAG is fixed by committed manifests:
 
 ```text
-moonbit-foundation/mb-core@0.1.0
-  -> moonbit-foundation/mb-color@0.1.0
-       -> moonbit-foundation/mb-image@0.1.0
+tchivs/mb-core@0.1.0
+  -> tchivs/mb-color@0.1.0
+       -> tchivs/mb-image@0.1.0
 ```
 
 Publication and verification must therefore be a six-step transaction log, not three independent parallel jobs:
@@ -60,6 +60,8 @@ publish core -> resolve/test core
              -> publish color -> resolve/test color
                               -> publish image -> resolve/test image
 ```
+
+The registry owner is an operational personal namespace; the project brand remains **MoonBit Native Foundation**. The unpublished bootstrap correction keeps `0.1.0` and requires no migration note. `https://github.com/tchivs/moonbit-foundation` is intended metadata only until a read-only existence check proves it live. Any later organization namespace is a new identity family requiring explicit forward migration; do not assume rename, transfer, overwrite, delete, unpublish, or yank support.
 
 ### GitHub Actions and Provenance
 

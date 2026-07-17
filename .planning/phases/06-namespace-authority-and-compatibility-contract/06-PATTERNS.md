@@ -87,7 +87,7 @@ Use for `policy/registry-authority.json` and `policy/compatibility.json`. It own
 ],
 "candidate_status": "candidate",
 "license": "Apache-2.0",
-"repository": "https://github.com/moonbit-foundation/moonbit-foundation"
+"repository": "https://github.com/tchivs/moonbit-foundation"
 ```
 
 **Honest blocked external outcome** (`policy/release-qualification.json:44-49`):
@@ -107,19 +107,19 @@ Use for `policy/registry-authority.json` and `policy/compatibility.json`. It own
 "modules": {
   "mb-core": {
     "manifest": {
-      "name": "moonbit-foundation/mb-core",
+      "name": "tchivs/mb-core",
       "version": "0.1.0",
       "preferred-target": "native",
       "supported-targets": "+js+wasm+wasm-gc+native"
     },
     "dependencies": {},
     "public_packages": [
-      "moonbit-foundation/mb-core/error",
-      "moonbit-foundation/mb-core/checked",
-      "moonbit-foundation/mb-core/budget",
-      "moonbit-foundation/mb-core/bytes",
-      "moonbit-foundation/mb-core/io",
-      "moonbit-foundation/mb-core/host"
+      "tchivs/mb-core/error",
+      "tchivs/mb-core/checked",
+      "tchivs/mb-core/budget",
+      "tchivs/mb-core/bytes",
+      "tchivs/mb-core/io",
+      "tchivs/mb-core/host"
     ]
   }
 }
@@ -478,7 +478,7 @@ These are existing modification targets rather than additional analogs.
 
 1. Do not edit `release/qualification/v0.1-requirements.json` or reinterpret the locked v0.1 report. Add a separate Phase 6 selector/artifact contract and aggregate it at the Required orchestration layer.
 2. Do not call the operator observation collector from Required or CI.
-3. Do not rewrite `moonbit-foundation/*` identities until sanitized authority evidence proves a mismatch and a later explicit decision authorizes a rename.
+3. Keep active positive identities on `tchivs/*`; fresh sanitized authority evidence must still prove the personal namespace before publication. A future organization owner requires new identities and an explicit forward migration rather than an assumed rename.
 4. Do not make real `mb-core`, `mb-color`, or `mb-image` publication a Phase 6 acceptance step.
 5. Do not infer behavior, resource limits, semantics, or registry artifact byte identity from `.mbti` text equality.
 6. Do not add a second approver, quorum, or team ceremony; explicit sole-maintainer intent plus machine verification remains the governance model.

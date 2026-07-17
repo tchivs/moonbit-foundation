@@ -2,13 +2,17 @@
 
 ## Status
 
-Public publication is blocked. The authoritative block flag, reason, intended owner namespace, module identities, versions, and dependency edges are owned by [`policy/foundation.json`](../../policy/foundation.json).
+Public publication is blocked. [`policy/registry-authority.json`](../../policy/registry-authority.json) owns the intended personal owner and exact module identities; [`policy/release-qualification.json`](../../policy/release-qualification.json) owns the candidate versions, dependency graph, repository metadata, and publication blocker. Prose cannot clear either machine gate.
 
 ## Publication boundary
 
 The monorepo coordinates three modules; it is not a consumer-facing umbrella. Each module has its own manifest, `0.1.0` starting version, changelog, documentation, tests, and publication lifecycle. Releases are independent and do not require lockstep versions.
 
-The final intended identities are `moonbit-foundation/mb-core`, `moonbit-foundation/mb-color`, and `moonbit-foundation/mb-image`. Local manifests use those names to avoid a later rename, but `PROH-GOV-04-NAMESPACE-PUBLISH` forbids publishing under them until ownership of the intended mooncakes.io namespace is verified and the canonical block is cleared.
+The initial canonical identities are `tchivs/mb-core`, `tchivs/mb-color`, and `tchivs/mb-image`. They use the sole maintainer's personal Mooncakes namespace while the project brand remains **MoonBit Native Foundation**. No version was published under the superseded bootstrap owner, so this correction keeps `0.1.0` and requires no migration note. Publication remains forbidden until the authenticated `tchivs` Mooncakes account, exact namespace authority, version availability, observation, and resolution facts are current and the machine-owned block is cleared.
+
+`https://github.com/tchivs/moonbit-foundation` is intended repository metadata, not a verified-live source, support, or security route. Release readiness requires a later read-only existence check; this policy does not authorize repository creation or external writes.
+
+If an organization namespace becomes available later, its modules are new identities and require an explicit forward migration and publication plan. Automation must not assume rename, transfer, overwrite, delete, unpublish, or yank behavior.
 
 No `mnf/all`, equivalent umbrella module, self-edge, reverse edge, cycle, or undeclared public dependency may be introduced. Allowed public edges point inward and downward exactly as recorded in the canonical policy.
 

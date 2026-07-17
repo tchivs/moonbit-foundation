@@ -44,7 +44,7 @@ The foundation succeeds when independently built products can exchange data thro
 - **Host adapter:** A narrow leaf package that supplies explicit operating-system, runtime, device, or foreign-library capabilities to portable contracts.
 - **Native-only package:** A package whose documented purpose requires Native facilities and whose supported target is explicitly `native`.
 - **Public boundary:** A module responsibility, public dependency edge, data contract, or portability seam on which downstream consumers may rely.
-- **Candidate API:** A v0.1 public API under qualification; it is not yet stable and changes require documented migration notes.
+- **Candidate API:** A v0.1 public API under qualification; it is not yet stable and follows the executable four-class compatibility and version policy.
 
 ## 4. Principles
 
@@ -108,24 +108,24 @@ MoonBit targets: native / wasm / wasm-gc / js
 Arrows point from a consumer toward a dependency. Dependencies may point inward and downward only. Lower layers never import document, integration, or application layers. The v0.1 allowed public module edges are:
 
 ```text
-moonbit-foundation/mb-color -> moonbit-foundation/mb-core
-moonbit-foundation/mb-image -> moonbit-foundation/mb-color
-moonbit-foundation/mb-image -> moonbit-foundation/mb-core
+tchivs/mb-color -> tchivs/mb-core
+tchivs/mb-image -> tchivs/mb-color
+tchivs/mb-image -> tchivs/mb-core
 ```
 
 No reverse edge, self-edge, cycle, or undeclared public edge is permitted.
 
 ## 6. Module boundaries
 
-### 6.1 `moonbit-foundation/mb-core`
+### 6.1 `tchivs/mb-core`
 
 Owns checked arithmetic and ranges, byte containers and validated views, bounded readers and writers, backend-neutral stream behavior, structured errors and diagnostics, resource budgets, and explicit host-capability boundaries. It does not own color, image, codec, SVG, font, PDF, GUI, or application concepts. It depends on no other MNF module.
 
-### 6.2 `moonbit-foundation/mb-color`
+### 6.2 `tchivs/mb-color`
 
 Owns component representations, color-space identity, transfer functions, deterministic reference conversions, alpha conventions, and bounded profile identity or opaque metadata seams. It does not own image storage, pixel layout, codec selection, rendering, or host I/O. It depends only on `mb-core`.
 
-### 6.3 `moonbit-foundation/mb-image`
+### 6.3 `tchivs/mb-image`
 
 Owns image dimensions and descriptions, pixel and plane layout, stride and endianness, owned storage and validated immutable or mutable views, metadata behavior, deterministic foundational transforms, and codec-facing contracts. It does not own filesystem policy, a global codec registry, GUI state, document models, or system codec implementations. It depends on `mb-core` and `mb-color`.
 
@@ -136,6 +136,10 @@ Owns image dimensions and descriptions, pixel and plane layout, stride and endia
 ## 7. Repository and publication model
 
 The initial implementation uses one repository and one MoonBit workspace for coordinated contract changes. `mb-core`, `mb-color`, and `mb-image` remain separate modules with their own manifest, version, changelog, documentation, tests, and publication lifecycle. The monorepo is a coordination mechanism, not a consumer dependency or a promise of lockstep versions.
+
+The initial registry identities use the sole maintainer's personal `tchivs` namespace. This operational owner does not rename MoonBit Native Foundation. Because no module was published under the superseded bootstrap owner, the correction retains candidate version `0.1.0` without a migration note. `https://github.com/tchivs/moonbit-foundation` is intended repository metadata and must not be described as live until a read-only existence check proves it.
+
+A future organization namespace would create new module identities and requires an explicit forward migration and publication plan. This charter does not assume that the registry supports rename, transfer, overwrite, delete, unpublish, or yank operations.
 
 Every publishable module must expose its identity, stability status, supported targets, direct dependencies, documentation, examples, conformance evidence, and release history. Public publication remains subject to the repository's publication and compatibility policies.
 
@@ -162,7 +166,7 @@ Canvas, SVG, font, text layout, PDF, GPU, AI inference, and MCP integration impl
 
 A public package cannot be called stable until it has formatting and static checks, public and internal tests, declared-target CI, public API documentation and runnable examples, relevant conformance and adversarial evidence, reproducible benchmark baselines for performance-sensitive work, compatibility metadata, and a security/resource-limit review for untrusted inputs.
 
-v0.1 packages begin as candidate unless explicitly marked experimental. Stable APIs follow Semantic Versioning. Experimental APIs carry no compatibility promise; candidate changes require migration notes. Detailed executable policy is maintained separately, but it cannot override this charter's architecture or governance gate.
+v0.1 packages begin as candidate unless explicitly marked experimental. Stable APIs follow Semantic Versioning. Experimental APIs carry no compatibility promise. For pre-1.0 candidates, exact changes are patch-eligible, additive public surface requires a minor release, and incompatible change requires a minor release plus a migration note. RFC evidence is additionally required only for boundary, architecture, or governance impact. Detailed executable policy is maintained separately, but it cannot override this charter's architecture or governance gate.
 
 ## 11. Governance and RFC-required changes
 
