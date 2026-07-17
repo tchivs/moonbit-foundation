@@ -40,10 +40,10 @@ function New-DefaultFacts {
     minimum_toolchain = [pscustomobject][ordered]@{ moon = '0.1.20260713'; moonc = '0.10.4'; moonrun = '0.1.20260713' }
     dependency_floors = [pscustomobject][ordered]@{
       'mb-core' = [pscustomobject][ordered]@{}
-      'mb-color' = [pscustomobject][ordered]@{ 'moonbit-foundation/mb-core' = '0.1.0' }
+      'mb-color' = [pscustomobject][ordered]@{ 'tchivs/mb-core' = '0.1.0' }
       'mb-image' = [pscustomobject][ordered]@{
-        'moonbit-foundation/mb-core' = '0.1.0'
-        'moonbit-foundation/mb-color' = '0.1.0'
+        'tchivs/mb-core' = '0.1.0'
+        'tchivs/mb-color' = '0.1.0'
       }
     }
     evidence = [pscustomobject][ordered]@{
@@ -291,7 +291,7 @@ try {
   Assert-ClassificationRule 'minimum toolchain drift' $result 'incompatible' 'COMP03-MINIMUM-TOOLCHAIN-DRIFT'; Assert-Authorized 'minimum toolchain drift with migration' $result 'incompatible'
 
   $case = New-TestCase 'dependency-floor-drift'
-  $case.facts.dependency_floors.'mb-color'.'moonbit-foundation/mb-core' = '0.2.0'; $case.facts.candidate_version = '0.2.0'; $case.facts.evidence.change_class = 'incompatible'; $case.facts.evidence.migration_present = $true; Save-TestFacts $case
+  $case.facts.dependency_floors.'mb-color'.'tchivs/mb-core' = '0.2.0'; $case.facts.candidate_version = '0.2.0'; $case.facts.evidence.change_class = 'incompatible'; $case.facts.evidence.migration_present = $true; Save-TestFacts $case
   $result = Invoke-TestCase $case
   Assert-ClassificationRule 'dependency floor drift' $result 'incompatible' 'COMP03-DEPENDENCY-FLOOR-DRIFT'; Assert-Authorized 'dependency floor drift with migration' $result 'incompatible'
 

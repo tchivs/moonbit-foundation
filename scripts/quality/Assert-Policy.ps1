@@ -717,7 +717,7 @@ function Assert-FoundationPolicy {
   Assert-ExactSet 'Stability labels' @($policy.stability.allowed_labels) @('experimental', 'candidate', 'stable')
   Assert-Condition ($policy.stability.default_label -ceq 'candidate') 'Default stability label must be candidate.'
 
-  $expectedModules = @('moonbit-foundation/mb-core', 'moonbit-foundation/mb-color', 'moonbit-foundation/mb-image')
+  $expectedModules = @('tchivs/mb-core', 'tchivs/mb-color', 'tchivs/mb-image')
   $expectedPaths = @('modules/mb-core', 'modules/mb-color', 'modules/mb-image')
   Assert-ExactSet 'Policy modules' @($policy.modules.name) $expectedModules
   Assert-ExactSet 'Policy module paths' @($policy.modules.path) $expectedPaths
@@ -736,9 +736,9 @@ function Assert-FoundationPolicy {
     Assert-ExactSet "Public package names for $($module.name)" @($packages.name) @($packages | ForEach-Object { [string]$_.name })
     Assert-ExactSet "Public package paths for $($module.name)" @($packages.path) @($packages | ForEach-Object { [string]$_.path })
 
-    if ($module.name -ceq 'moonbit-foundation/mb-core') {
+    if ($module.name -ceq 'tchivs/mb-core') {
       $corePackagePaths = @('error', 'checked', 'budget', 'bytes', 'io', 'host')
-      $corePackageNames = @($corePackagePaths | ForEach-Object { "moonbit-foundation/mb-core/$_" })
+      $corePackageNames = @($corePackagePaths | ForEach-Object { "tchivs/mb-core/$_" })
       Assert-ExactSequence 'mb-core public package spine' @($packages.name) $corePackageNames
       Assert-ExactSequence 'mb-core public package paths' @($packages.path) $corePackagePaths
       foreach ($removedRootFile in @('moon.pkg', 'scaffold.mbt', 'scaffold_wbtest.mbt')) {
@@ -746,9 +746,9 @@ function Assert-FoundationPolicy {
       }
     }
 
-    if ($module.name -ceq 'moonbit-foundation/mb-color') {
+    if ($module.name -ceq 'tchivs/mb-color') {
       $colorPackagePaths = @('model', 'transfer', 'quantize', 'alpha', 'profile')
-      $colorPackageNames = @($colorPackagePaths | ForEach-Object { "moonbit-foundation/mb-color/$_" })
+      $colorPackageNames = @($colorPackagePaths | ForEach-Object { "tchivs/mb-color/$_" })
       Assert-ExactSequence 'mb-color publication package order' @($packages.name) $colorPackageNames
       Assert-ExactSequence 'mb-color public package paths' @($packages.path) $colorPackagePaths
       foreach ($removedRootFile in @('moon.pkg', 'scaffold.mbt', 'scaffold_wbtest.mbt')) {
@@ -759,18 +759,18 @@ function Assert-FoundationPolicy {
       foreach ($colorPackage in $packages) {
         $colorImports[[string]$colorPackage.path] = @($colorPackage.allowed_imports)
       }
-      Assert-ExactSet 'mb-color model DAG edges' $colorImports.model @('moonbit-foundation/mb-core/error')
-      Assert-ExactSet 'mb-color transfer DAG edges' $colorImports.transfer @('moonbit-foundation/mb-color/model', 'moonbitlang/core/math')
-      Assert-ExactSet 'mb-color quantize DAG edges' $colorImports.quantize @('moonbit-foundation/mb-color/model', 'moonbit-foundation/mb-core/error', 'moonbit-foundation/mb-core/checked')
-      Assert-Condition (-not ($colorImports.quantize -ccontains 'moonbit-foundation/mb-color/transfer')) 'mb-color quantize must remain independent of transfer.'
-      Assert-ExactSet 'mb-color alpha DAG edges' $colorImports.alpha @('moonbit-foundation/mb-color/model', 'moonbit-foundation/mb-color/quantize', 'moonbit-foundation/mb-core/error', 'moonbit-foundation/mb-core/checked')
-      Assert-ExactSet 'mb-color profile DAG edges' $colorImports.profile @('moonbit-foundation/mb-core/error', 'moonbit-foundation/mb-core/budget', 'moonbit-foundation/mb-core/bytes')
-      Assert-Condition (@($colorImports.profile | Where-Object { $_ -clike 'moonbit-foundation/mb-color/*' }).Count -eq 0) 'mb-color profile must remain independent of every color package.'
+      Assert-ExactSet 'mb-color model DAG edges' $colorImports.model @('tchivs/mb-core/error')
+      Assert-ExactSet 'mb-color transfer DAG edges' $colorImports.transfer @('tchivs/mb-color/model', 'moonbitlang/core/math')
+      Assert-ExactSet 'mb-color quantize DAG edges' $colorImports.quantize @('tchivs/mb-color/model', 'tchivs/mb-core/error', 'tchivs/mb-core/checked')
+      Assert-Condition (-not ($colorImports.quantize -ccontains 'tchivs/mb-color/transfer')) 'mb-color quantize must remain independent of transfer.'
+      Assert-ExactSet 'mb-color alpha DAG edges' $colorImports.alpha @('tchivs/mb-color/model', 'tchivs/mb-color/quantize', 'tchivs/mb-core/error', 'tchivs/mb-core/checked')
+      Assert-ExactSet 'mb-color profile DAG edges' $colorImports.profile @('tchivs/mb-core/error', 'tchivs/mb-core/budget', 'tchivs/mb-core/bytes')
+      Assert-Condition (@($colorImports.profile | Where-Object { $_ -clike 'tchivs/mb-color/*' }).Count -eq 0) 'mb-color profile must remain independent of every color package.'
     }
 
-    if ($module.name -ceq 'moonbit-foundation/mb-image') {
+    if ($module.name -ceq 'tchivs/mb-image') {
       $imagePackagePaths = @('metadata', 'model', 'storage', 'ops', 'codec', 'ppm')
-      $imagePackageNames = @($imagePackagePaths | ForEach-Object { "moonbit-foundation/mb-image/$_" })
+      $imagePackageNames = @($imagePackagePaths | ForEach-Object { "tchivs/mb-image/$_" })
       Assert-ExactSequence 'mb-image publication package order' @($packages.name) $imagePackageNames
       Assert-ExactSequence 'mb-image public package paths' @($packages.path) $imagePackagePaths
       foreach ($removedRootFile in @('moon.pkg', 'scaffold.mbt', 'scaffold_wbtest.mbt')) {
@@ -781,16 +781,16 @@ function Assert-FoundationPolicy {
       foreach ($imagePackage in $packages) {
         $imageImports[[string]$imagePackage.path] = @($imagePackage.allowed_imports)
       }
-      Assert-ExactSet 'mb-image metadata DAG edges' $imageImports.metadata @('moonbit-foundation/mb-core/error', 'moonbit-foundation/mb-core/budget', 'moonbit-foundation/mb-core/bytes')
-      Assert-ExactSet 'mb-image model DAG edges' $imageImports.model @('moonbit-foundation/mb-core/error', 'moonbit-foundation/mb-core/checked', 'moonbit-foundation/mb-core/budget', 'moonbit-foundation/mb-color/model', 'moonbit-foundation/mb-color/profile', 'moonbit-foundation/mb-image/metadata')
-      Assert-ExactSet 'mb-image storage DAG edges' $imageImports.storage @('moonbit-foundation/mb-core/error', 'moonbit-foundation/mb-core/checked', 'moonbit-foundation/mb-core/budget', 'moonbit-foundation/mb-core/bytes', 'moonbit-foundation/mb-color/model', 'moonbit-foundation/mb-color/profile', 'moonbit-foundation/mb-image/metadata', 'moonbit-foundation/mb-image/model')
-      Assert-ExactSet 'mb-image ppm DAG edges' $imageImports.ppm @('moonbit-foundation/mb-core/budget', 'moonbit-foundation/mb-core/bytes', 'moonbit-foundation/mb-core/checked', 'moonbit-foundation/mb-core/error', 'moonbit-foundation/mb-core/io', 'moonbit-foundation/mb-color/model', 'moonbit-foundation/mb-color/profile', 'moonbit-foundation/mb-image/codec', 'moonbit-foundation/mb-image/metadata', 'moonbit-foundation/mb-image/model', 'moonbit-foundation/mb-image/storage')
+      Assert-ExactSet 'mb-image metadata DAG edges' $imageImports.metadata @('tchivs/mb-core/error', 'tchivs/mb-core/budget', 'tchivs/mb-core/bytes')
+      Assert-ExactSet 'mb-image model DAG edges' $imageImports.model @('tchivs/mb-core/error', 'tchivs/mb-core/checked', 'tchivs/mb-core/budget', 'tchivs/mb-color/model', 'tchivs/mb-color/profile', 'tchivs/mb-image/metadata')
+      Assert-ExactSet 'mb-image storage DAG edges' $imageImports.storage @('tchivs/mb-core/error', 'tchivs/mb-core/checked', 'tchivs/mb-core/budget', 'tchivs/mb-core/bytes', 'tchivs/mb-color/model', 'tchivs/mb-color/profile', 'tchivs/mb-image/metadata', 'tchivs/mb-image/model')
+      Assert-ExactSet 'mb-image ppm DAG edges' $imageImports.ppm @('tchivs/mb-core/budget', 'tchivs/mb-core/bytes', 'tchivs/mb-core/checked', 'tchivs/mb-core/error', 'tchivs/mb-core/io', 'tchivs/mb-color/model', 'tchivs/mb-color/profile', 'tchivs/mb-image/codec', 'tchivs/mb-image/metadata', 'tchivs/mb-image/model', 'tchivs/mb-image/storage')
       $ppmPolicy = @($packages | Where-Object { $_.path -ceq 'ppm' })[0]
       Assert-ExactSequence 'mb-image ppm production source order' @($ppmPolicy.production_sources) @('moon.pkg', 'ppm.mbt', 'parser.mbt', 'decode.mbt', 'encode.mbt', 'generated_vectors.mbt')
-      Assert-ExactSet 'mb-image ops DAG edges' $imageImports.ops @('moonbit-foundation/mb-core/error', 'moonbit-foundation/mb-core/checked', 'moonbit-foundation/mb-core/budget', 'moonbit-foundation/mb-core/bytes', 'moonbit-foundation/mb-color/alpha', 'moonbit-foundation/mb-color/model', 'moonbit-foundation/mb-color/profile', 'moonbit-foundation/mb-image/metadata', 'moonbit-foundation/mb-image/model', 'moonbit-foundation/mb-image/storage')
-      Assert-ExactSet 'mb-image codec DAG edges' $imageImports.codec @('moonbit-foundation/mb-core/error', 'moonbit-foundation/mb-core/budget', 'moonbit-foundation/mb-core/bytes', 'moonbit-foundation/mb-core/io', 'moonbit-foundation/mb-image/metadata', 'moonbit-foundation/mb-image/model', 'moonbit-foundation/mb-image/storage')
-      Assert-Condition (-not ($imageImports.codec -ccontains 'moonbit-foundation/mb-core/host')) 'mb-image codec must remain independent of host policy.'
-      Assert-Condition (-not ($imageImports.codec -ccontains 'moonbit-foundation/mb-image/ops')) 'mb-image codec must remain independent of image operations.'
+      Assert-ExactSet 'mb-image ops DAG edges' $imageImports.ops @('tchivs/mb-core/error', 'tchivs/mb-core/checked', 'tchivs/mb-core/budget', 'tchivs/mb-core/bytes', 'tchivs/mb-color/alpha', 'tchivs/mb-color/model', 'tchivs/mb-color/profile', 'tchivs/mb-image/metadata', 'tchivs/mb-image/model', 'tchivs/mb-image/storage')
+      Assert-ExactSet 'mb-image codec DAG edges' $imageImports.codec @('tchivs/mb-core/error', 'tchivs/mb-core/budget', 'tchivs/mb-core/bytes', 'tchivs/mb-core/io', 'tchivs/mb-image/metadata', 'tchivs/mb-image/model', 'tchivs/mb-image/storage')
+      Assert-Condition (-not ($imageImports.codec -ccontains 'tchivs/mb-core/host')) 'mb-image codec must remain independent of host policy.'
+      Assert-Condition (-not ($imageImports.codec -ccontains 'tchivs/mb-image/ops')) 'mb-image codec must remain independent of image operations.'
 
       $storagePolicy = @($packages | Where-Object { $_.path -ceq 'storage' })[0]
       $storageInterface = @($storagePolicy.semantic_interface)
@@ -856,7 +856,7 @@ function Assert-FoundationPolicy {
 
   Assert-Condition ($policy.publication.blocked -eq $true) 'Public publication must remain blocked.'
   Assert-Condition ($policy.publication.owner_verified -eq $false) 'Owner namespace must remain unverified.'
-  Assert-Condition ($policy.publication.intended_owner_namespace -ceq 'moonbit-foundation') 'Intended owner namespace drifted.'
+  Assert-Condition ($policy.publication.intended_owner_namespace -ceq 'tchivs') 'Intended owner namespace drifted.'
   Assert-Condition ($policy.publication.umbrella_module_allowed -eq $false) 'Umbrella modules must remain forbidden.'
   Assert-Condition ($policy.publication.lockstep_versions_required -eq $false -and $policy.publication.independent_versions -eq $true) 'Independent versioning policy drifted.'
   Assert-Condition (-not [string]::IsNullOrWhiteSpace($policy.publication.block_reason)) 'Publication block requires a reason.'

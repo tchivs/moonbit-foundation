@@ -250,7 +250,7 @@ function Read-CandidateReleaseFacts {
   if ($facts.complete -ne $true) { Throw-CompatibilityRule -Id 'COMP02-INTERRUPTED-RESULT' -Message 'candidate release facts are incomplete.' }
   foreach ($module in @('mb-core','mb-color','mb-image')) {
     foreach ($property in @($facts.dependency_floors.$module.PSObject.Properties)) {
-      if ($property.Name -cnotmatch '^moonbit-foundation/mb-(core|color|image)$' -or [string]$property.Value -cnotmatch '^(0|[1-9][0-9]*)[.](0|[1-9][0-9]*)[.](0|[1-9][0-9]*)$') {
+      if ($property.Name -cnotmatch '^tchivs/mb-(core|color|image)$' -or [string]$property.Value -cnotmatch '^(0|[1-9][0-9]*)[.](0|[1-9][0-9]*)[.](0|[1-9][0-9]*)$') {
         Throw-CompatibilityRule -Id 'COMP02-INPUT-CLOSED' -Message "invalid dependency floor '$module.$($property.Name)'."
       }
     }

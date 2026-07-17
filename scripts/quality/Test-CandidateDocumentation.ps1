@@ -13,9 +13,9 @@ $requiredTargets = @('js', 'wasm', 'wasm-gc', 'native')
 $compactTargets = '+js+wasm+wasm-gc+native'
 $candidateDocument = 'docs/release/v0.1-candidate.md'
 $moduleRows = @(
-  [pscustomobject][ordered]@{ short = 'mb-core'; name = 'moonbit-foundation/mb-core'; path = 'modules/mb-core'; fixtures = @() },
-  [pscustomobject][ordered]@{ short = 'mb-color'; name = 'moonbit-foundation/mb-color'; path = 'modules/mb-color'; fixtures = @('color-srgb-reference-vectors', 'color-derived-edge-vectors') },
-  [pscustomobject][ordered]@{ short = 'mb-image'; name = 'moonbit-foundation/mb-image'; path = 'modules/mb-image'; fixtures = @('image-operation-vectors', 'ppm-p6-conformance-vectors') }
+  [pscustomobject][ordered]@{ short = 'mb-core'; name = 'tchivs/mb-core'; path = 'modules/mb-core'; fixtures = @() },
+  [pscustomobject][ordered]@{ short = 'mb-color'; name = 'tchivs/mb-color'; path = 'modules/mb-color'; fixtures = @('color-srgb-reference-vectors', 'color-derived-edge-vectors') },
+  [pscustomobject][ordered]@{ short = 'mb-image'; name = 'tchivs/mb-image'; path = 'modules/mb-image'; fixtures = @('image-operation-vectors', 'ppm-p6-conformance-vectors') }
 )
 [array]$selectedRows = if ($Module -ceq 'all') { $moduleRows } else { $moduleRows | Where-Object short -ceq $Module }
 
@@ -266,7 +266,7 @@ function Assert-PublicationSourceContract {
     }
 
     $expectedImports = @($modulePolicy.public_packages | ForEach-Object { [string]$_ })
-    $documentImports = @([regex]::Matches($readme, '(?m)^\s*- path: (?<path>moonbit-foundation/' + [regex]::Escape($row.short) + '/[^\s]+)\s*$') | ForEach-Object { $_.Groups['path'].Value })
+    $documentImports = @([regex]::Matches($readme, '(?m)^\s*- path: (?<path>tchivs/' + [regex]::Escape($row.short) + '/[^\s]+)\s*$') | ForEach-Object { $_.Groups['path'].Value })
     if (($documentImports -join "`n") -cne ($expectedImports -join "`n")) {
       Fail-Rule 'PROV03-IMPORT-ORDER' "$readmeRelative own-package imports must appear exactly once in policy order."
     }
@@ -454,7 +454,7 @@ if ($ContractSelfTest) {
     $p = Join-Path $root 'policy/compatibility.json'
     $j = Get-Content -Raw $p | ConvertFrom-Json -Depth 100
     $floors = $j.baseline_profiles.'0.1.0'.dependency_floors.PSObject.Properties[$row.short].Value
-    $floors | Add-Member NoteProperty 'moonbit-foundation/mb-unexpected' '9.9.9'
+    $floors | Add-Member NoteProperty 'tchivs/mb-unexpected' '9.9.9'
     & $writeUtf8 $p (($j | ConvertTo-Json -Depth 100) + "`n")
   }
   Invoke-SourceNegativeCase 'missing migration' 'COMP04-MIGRATION-REQUIRED' { param($root,$row) $rp=Join-Path $root "$($row.path)/README.mbt.md"; $cp=Join-Path $root "$($row.path)/CHANGELOG.md"; & $writeUtf8 $rp ((Get-Content -Raw $rp).Replace('06|class|exact','06|class|incompatible')); & $writeUtf8 $cp ((Get-Content -Raw $cp).Replace('Change class: exact','Change class: incompatible')) }
@@ -474,8 +474,8 @@ Assert-PublicationSourceContract -Root $repoRoot
 if ($Module -ceq 'all') {
   Invoke-NegativeCase 'missing changelog' 'QUAL04-DOC-REQUIRED' { param($root) Remove-Item -LiteralPath (Join-Path $root 'modules/mb-core/CHANGELOG.md') }
   Invoke-NegativeCase 'missing support target' 'QUAL04-SUPPORT-MATRIX' { param($root) $p=Join-Path $root 'modules/mb-color/README.mbt.md'; & $writeUtf8 $p ((Get-Content -Raw $p).Replace('`wasm-gc`', '`wasm_gc`')) }
-  Invoke-NegativeCase 'manifest repository drift' 'QUAL04-MANIFEST-METADATA' { param($root) $p=Join-Path $root 'modules/mb-image/moon.mod.json'; & $writeUtf8 $p ((Get-Content -Raw $p).Replace('https://github.com/moonbit-foundation/moonbit-foundation', 'https://invalid.example/mismatch')) }
-  Invoke-NegativeCase 'package DAG omission' 'QUAL04-PACKAGE-DAG' { param($root) $p=Join-Path $root $candidateDocument; & $writeUtf8 $p ((Get-Content -Raw $p).Replace('moonbit-foundation/mb-image/ppm->[', 'moonbit-foundation/mb-image/ppm-omitted->[')) }
+  Invoke-NegativeCase 'manifest repository drift' 'QUAL04-MANIFEST-METADATA' { param($root) $p=Join-Path $root 'modules/mb-image/moon.mod.json'; & $writeUtf8 $p ((Get-Content -Raw $p).Replace('https://github.com/tchivs/moonbit-foundation', 'https://invalid.example/mismatch')) }
+  Invoke-NegativeCase 'package DAG omission' 'QUAL04-PACKAGE-DAG' { param($root) $p=Join-Path $root $candidateDocument; & $writeUtf8 $p ((Get-Content -Raw $p).Replace('tchivs/mb-image/ppm->[', 'tchivs/mb-image/ppm-omitted->[')) }
   Invoke-NegativeCase 'fixture digest drift' 'QUAL04-FIXTURE-PROVENANCE' { param($root) $p=Join-Path $root $candidateDocument; & $writeUtf8 $p ((Get-Content -Raw $p).Replace('6e1f367c78839e8e06237a784ebe75732ee3fd2a27d3dc56434c7e6e12676967', ('0' * 64))) }
   Invoke-NegativeCase 'missing runnable example' 'QUAL04-EXAMPLE-RUNNABLE' { param($root) Remove-Item -LiteralPath (Join-Path $root 'examples/ppm-portable/main/main.mbt') }
   foreach ($claim in @('stable', 'full-ppm-conformance', 'published', 'llvm-required', 'performance-superiority')) {
