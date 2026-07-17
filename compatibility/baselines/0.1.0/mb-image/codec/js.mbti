@@ -1,14 +1,14 @@
 // Generated using `moon info`, DON'T EDIT IT
-package "moonbit-foundation/mb-image/codec"
+package "tchivs/mb-image/codec"
 
 import {
-  "moonbit-foundation/mb-core/budget",
-  "moonbit-foundation/mb-core/bytes",
-  "moonbit-foundation/mb-core/error",
-  "moonbit-foundation/mb-core/io",
-  "moonbit-foundation/mb-image/metadata",
-  "moonbit-foundation/mb-image/model",
-  "moonbit-foundation/mb-image/storage",
+  "tchivs/mb-core/budget",
+  "tchivs/mb-core/bytes",
+  "tchivs/mb-core/error",
+  "tchivs/mb-core/io",
+  "tchivs/mb-image/metadata",
+  "tchivs/mb-image/model",
+  "tchivs/mb-image/storage",
 }
 
 // Values
