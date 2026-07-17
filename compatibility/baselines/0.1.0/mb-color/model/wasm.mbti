@@ -1,0 +1,75 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "moonbit-foundation/mb-color/model"
+
+import {
+  "moonbit-foundation/mb-core/error",
+}
+
+// Values
+
+// Errors
+
+// Types and methods
+pub(all) enum AlphaMode {
+  Straight
+  Premultiplied
+} derive(Eq)
+
+pub(all) enum ColorSpaceIdentity {
+  Srgb
+} derive(Eq)
+
+pub(all) enum ComponentRepresentation {
+  NormalizedDouble
+  Encoded8
+} derive(Eq)
+
+pub struct EncodedAlpha8 {
+  // private fields
+}
+pub fn EncodedAlpha8::from_byte(Byte) -> Self
+pub fn EncodedAlpha8::new(UInt64) -> Result[Self, @error.CoreError]
+pub fn EncodedAlpha8::value(Self) -> Byte
+
+pub struct EncodedSrgb8Component {
+  // private fields
+}
+pub fn EncodedSrgb8Component::from_byte(Byte) -> Self
+pub fn EncodedSrgb8Component::new(UInt64) -> Result[Self, @error.CoreError]
+pub fn EncodedSrgb8Component::representation(Self) -> ComponentRepresentation
+pub fn EncodedSrgb8Component::space(Self) -> ColorSpaceIdentity
+pub fn EncodedSrgb8Component::transfer(Self) -> TransferIdentity
+pub fn EncodedSrgb8Component::value(Self) -> Byte
+
+pub struct EncodedSrgbComponent {
+  // private fields
+}
+pub fn EncodedSrgbComponent::new(Double) -> Result[Self, @error.CoreError]
+pub fn EncodedSrgbComponent::representation(Self) -> ComponentRepresentation
+pub fn EncodedSrgbComponent::space(Self) -> ColorSpaceIdentity
+pub fn EncodedSrgbComponent::transfer(Self) -> TransferIdentity
+pub fn EncodedSrgbComponent::value(Self) -> Double
+
+pub struct LinearSrgbComponent {
+  // private fields
+}
+pub fn LinearSrgbComponent::new(Double) -> Result[Self, @error.CoreError]
+pub fn LinearSrgbComponent::representation(Self) -> ComponentRepresentation
+pub fn LinearSrgbComponent::space(Self) -> ColorSpaceIdentity
+pub fn LinearSrgbComponent::transfer(Self) -> TransferIdentity
+pub fn LinearSrgbComponent::value(Self) -> Double
+
+pub struct NormalizedAlpha {
+  // private fields
+}
+pub fn NormalizedAlpha::new(Double) -> Result[Self, @error.CoreError]
+pub fn NormalizedAlpha::value(Self) -> Double
+
+pub(all) enum TransferIdentity {
+  EncodedSrgb
+  LinearSrgb
+} derive(Eq)
+
+// Type aliases
+
+// Traits

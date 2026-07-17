@@ -1,0 +1,55 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "moonbit-foundation/mb-core/checked"
+
+import {
+  "moonbit-foundation/mb-core/error",
+}
+
+// Values
+pub fn align_up(UInt64, UInt64) -> Result[UInt64, @error.CoreError]
+
+pub fn checked_add(UInt64, UInt64) -> Result[UInt64, @error.CoreError]
+
+pub fn checked_allocation_size(UInt64, UInt64) -> Result[Int, @error.CoreError]
+
+pub fn checked_mul(UInt64, UInt64) -> Result[UInt64, @error.CoreError]
+
+pub fn checked_narrow_int(UInt64) -> Result[Int, @error.CoreError]
+
+pub fn checked_sub(UInt64, UInt64) -> Result[UInt64, @error.CoreError]
+
+// Errors
+
+// Types and methods
+pub struct CheckedOffset {
+  // private fields
+}
+pub fn CheckedOffset::advance(Self, UInt64) -> Result[Self, @error.CoreError]
+pub fn CheckedOffset::new(UInt64) -> Self
+pub fn CheckedOffset::retreat(Self, UInt64) -> Result[Self, @error.CoreError]
+pub fn CheckedOffset::value(Self) -> UInt64
+
+pub struct CheckedRange {
+  // private fields
+}
+pub fn CheckedRange::end(Self) -> UInt64
+pub fn CheckedRange::from_start_length(UInt64, UInt64) -> Result[Self, @error.CoreError]
+pub fn CheckedRange::is_empty(Self) -> Bool
+pub fn CheckedRange::length(Self) -> UInt64
+pub fn CheckedRange::overlaps(Self, Self) -> Bool
+pub fn CheckedRange::start(Self) -> UInt64
+pub fn CheckedRange::subrange(Self, UInt64, UInt64) -> Result[Self, @error.CoreError]
+
+pub struct Dimensions {
+  // private fields
+}
+pub fn Dimensions::allocation_size(Self, UInt64) -> Result[Int, @error.CoreError]
+pub fn Dimensions::height(Self) -> UInt64
+pub fn Dimensions::new(UInt64, UInt64) -> Result[Self, @error.CoreError]
+pub fn Dimensions::pixel_count(Self) -> UInt64
+pub fn Dimensions::width(Self) -> UInt64
+
+// Type aliases
+
+// Traits
+

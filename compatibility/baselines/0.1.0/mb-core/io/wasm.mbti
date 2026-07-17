@@ -1,0 +1,91 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "moonbit-foundation/mb-core/io"
+
+import {
+  "moonbit-foundation/mb-core/budget",
+  "moonbit-foundation/mb-core/bytes",
+  "moonbit-foundation/mb-core/error",
+}
+
+// Values
+pub fn checked_seek_position(SeekOrigin, Int64, UInt64, UInt64) -> Result[UInt64, @error.CoreError]
+
+pub fn read_exact(&Reader, @bytes.MutByteLease) -> Result[UInt64, @error.CoreError]
+
+pub fn write_all(&Writer, @bytes.ByteView) -> Result[UInt64, @error.CoreError]
+
+// Errors
+
+// Types and methods
+pub struct BoundedReader {
+  // private fields
+}
+pub fn BoundedReader::new(&Reader, UInt64) -> Self
+pub fn BoundedReader::position(Self) -> UInt64
+pub fn BoundedReader::remaining(Self) -> UInt64
+pub impl Reader for BoundedReader
+
+pub struct BoundedWriter {
+  // private fields
+}
+pub fn BoundedWriter::new(&Writer, UInt64) -> Self
+pub fn BoundedWriter::position(Self) -> UInt64
+pub fn BoundedWriter::remaining(Self) -> UInt64
+pub impl Writer for BoundedWriter
+
+pub struct MemoryReader {
+  // private fields
+}
+pub fn MemoryReader::new(@bytes.ByteView) -> Self
+pub fn MemoryReader::position(Self) -> UInt64
+pub impl Reader for MemoryReader
+pub impl Seeker for MemoryReader
+
+pub struct MemoryWriter {
+  // private fields
+}
+pub fn MemoryWriter::capacity(Self) -> UInt64
+pub fn MemoryWriter::new(UInt64, @budget.Budget) -> Result[Self, @error.CoreError]
+pub fn MemoryWriter::position(Self) -> UInt64
+pub fn MemoryWriter::view(Self) -> @bytes.ByteView
+pub impl Seeker for MemoryWriter
+pub impl Writer for MemoryWriter
+
+pub(all) enum ReadOutcome {
+  Progress(UInt64)
+  EndOfStream
+  Failed(@error.CoreError, UInt64)
+}
+
+pub struct ReadWindow {
+  // private fields
+}
+pub fn ReadWindow::get(Self, UInt64) -> Result[Byte, @error.CoreError]
+pub fn ReadWindow::length(Self) -> UInt64
+pub fn ReadWindow::set(Self, UInt64, Byte) -> Result[Unit, @error.CoreError]
+
+pub(all) enum SeekOrigin {
+  Start
+  Current
+  End
+} derive(Eq)
+
+pub(all) enum WriteOutcome {
+  Progress(UInt64)
+  Failed(@error.CoreError, UInt64)
+}
+
+// Type aliases
+
+// Traits
+pub(open) trait Reader {
+  fn read(Self, ReadWindow) -> ReadOutcome
+}
+
+pub(open) trait Seeker {
+  fn seek(Self, SeekOrigin, Int64) -> Result[UInt64, @error.CoreError]
+}
+
+pub(open) trait Writer {
+  fn write(Self, @bytes.ByteView) -> WriteOutcome
+}

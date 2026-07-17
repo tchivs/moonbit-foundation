@@ -1,0 +1,54 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "moonbit-foundation/mb-core/budget"
+
+import {
+  "moonbit-foundation/mb-core/error",
+}
+
+// Values
+pub fn[T] with_depth(Budget, (BudgetScope) -> Result[T, @error.CoreError]) -> Result[T, @error.CoreError]
+
+// Errors
+
+// Types and methods
+pub struct Budget {
+  // private fields
+}
+pub fn Budget::charge(Self, ResourceCharge) -> Result[Unit, @error.CoreError]
+pub fn Budget::child(Self, ResourceLimits) -> Result[Self, @error.CoreError]
+pub fn Budget::current_depth(Self) -> UInt64
+pub fn Budget::enter_depth(Self) -> Result[BudgetScope, @error.CoreError]
+pub fn Budget::new(ResourceLimits) -> Self
+pub fn Budget::remaining(Self) -> ResourceLimits
+
+pub struct BudgetScope {
+  // private fields
+}
+pub fn BudgetScope::budget(Self) -> Budget
+pub fn BudgetScope::leave(Self) -> Unit
+
+type BudgetWindow
+
+pub struct ResourceCharge {
+  // private fields
+}
+pub fn ResourceCharge::bytes(UInt64) -> Self
+pub fn ResourceCharge::new(bytes~ : UInt64, allocations~ : UInt64, allocation_size~ : UInt64, width~ : UInt64, height~ : UInt64, pixels~ : UInt64, work~ : UInt64) -> Self
+pub fn ResourceCharge::none() -> Self
+
+pub struct ResourceLimits {
+  // private fields
+}
+pub fn ResourceLimits::allocation_size(Self) -> UInt64
+pub fn ResourceLimits::allocations(Self) -> UInt64
+pub fn ResourceLimits::bytes(Self) -> UInt64
+pub fn ResourceLimits::depth(Self) -> UInt64
+pub fn ResourceLimits::height(Self) -> UInt64
+pub fn ResourceLimits::new(bytes~ : UInt64, allocations~ : UInt64, allocation_size~ : UInt64, width~ : UInt64, height~ : UInt64, pixels~ : UInt64, depth~ : UInt64, work~ : UInt64) -> Self
+pub fn ResourceLimits::pixels(Self) -> UInt64
+pub fn ResourceLimits::width(Self) -> UInt64
+pub fn ResourceLimits::work(Self) -> UInt64
+
+// Type aliases
+
+// Traits

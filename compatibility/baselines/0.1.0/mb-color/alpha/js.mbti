@@ -1,0 +1,77 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "moonbit-foundation/mb-color/alpha"
+
+import {
+  "moonbit-foundation/mb-color/model",
+  "moonbit-foundation/mb-core/error",
+}
+
+// Values
+pub fn premultiply_encoded(StraightEncodedSrgba8) -> Result[PremultipliedEncodedSrgba8, @error.CoreError]
+
+pub fn premultiply_normalized(StraightNormalizedSrgba) -> Result[PremultipliedNormalizedSrgba, @error.CoreError]
+
+pub fn unpremultiply_encoded(PremultipliedEncodedSrgba8) -> Result[StraightEncodedSrgba8, @error.CoreError]
+
+pub fn unpremultiply_normalized(PremultipliedNormalizedSrgba) -> Result[StraightNormalizedSrgba, @error.CoreError]
+
+// Errors
+
+// Types and methods
+type NormalizedRgb
+
+pub struct PremultipliedEncodedSrgba8 {
+  // private fields
+}
+pub fn PremultipliedEncodedSrgba8::a(Self) -> @model.EncodedAlpha8
+pub fn PremultipliedEncodedSrgba8::alpha_mode(Self) -> @model.AlphaMode
+pub fn PremultipliedEncodedSrgba8::b(Self) -> @model.EncodedSrgb8Component
+pub fn PremultipliedEncodedSrgba8::g(Self) -> @model.EncodedSrgb8Component
+pub fn PremultipliedEncodedSrgba8::new(@model.EncodedSrgb8Component, @model.EncodedSrgb8Component, @model.EncodedSrgb8Component, @model.EncodedAlpha8) -> Result[Self, @error.CoreError]
+pub fn PremultipliedEncodedSrgba8::r(Self) -> @model.EncodedSrgb8Component
+pub fn PremultipliedEncodedSrgba8::representation(Self) -> @model.ComponentRepresentation
+pub fn PremultipliedEncodedSrgba8::space(Self) -> @model.ColorSpaceIdentity
+pub fn PremultipliedEncodedSrgba8::transfer(Self) -> @model.TransferIdentity
+
+pub struct PremultipliedNormalizedSrgba {
+  // private fields
+}
+pub fn PremultipliedNormalizedSrgba::alpha(Self) -> @model.NormalizedAlpha
+pub fn PremultipliedNormalizedSrgba::alpha_mode(Self) -> @model.AlphaMode
+pub fn PremultipliedNormalizedSrgba::encoded(@model.EncodedSrgbComponent, @model.EncodedSrgbComponent, @model.EncodedSrgbComponent, @model.NormalizedAlpha) -> Result[Self, @error.CoreError]
+pub fn PremultipliedNormalizedSrgba::encoded_rgb(Self) -> (@model.EncodedSrgbComponent, @model.EncodedSrgbComponent, @model.EncodedSrgbComponent)?
+pub fn PremultipliedNormalizedSrgba::linear(@model.LinearSrgbComponent, @model.LinearSrgbComponent, @model.LinearSrgbComponent, @model.NormalizedAlpha) -> Result[Self, @error.CoreError]
+pub fn PremultipliedNormalizedSrgba::linear_rgb(Self) -> (@model.LinearSrgbComponent, @model.LinearSrgbComponent, @model.LinearSrgbComponent)?
+pub fn PremultipliedNormalizedSrgba::representation(Self) -> @model.ComponentRepresentation
+pub fn PremultipliedNormalizedSrgba::space(Self) -> @model.ColorSpaceIdentity
+pub fn PremultipliedNormalizedSrgba::transfer(Self) -> @model.TransferIdentity
+
+pub struct StraightEncodedSrgba8 {
+  // private fields
+}
+pub fn StraightEncodedSrgba8::a(Self) -> @model.EncodedAlpha8
+pub fn StraightEncodedSrgba8::alpha_mode(Self) -> @model.AlphaMode
+pub fn StraightEncodedSrgba8::b(Self) -> @model.EncodedSrgb8Component
+pub fn StraightEncodedSrgba8::g(Self) -> @model.EncodedSrgb8Component
+pub fn StraightEncodedSrgba8::new(@model.EncodedSrgb8Component, @model.EncodedSrgb8Component, @model.EncodedSrgb8Component, @model.EncodedAlpha8) -> Self
+pub fn StraightEncodedSrgba8::r(Self) -> @model.EncodedSrgb8Component
+pub fn StraightEncodedSrgba8::representation(Self) -> @model.ComponentRepresentation
+pub fn StraightEncodedSrgba8::space(Self) -> @model.ColorSpaceIdentity
+pub fn StraightEncodedSrgba8::transfer(Self) -> @model.TransferIdentity
+
+pub struct StraightNormalizedSrgba {
+  // private fields
+}
+pub fn StraightNormalizedSrgba::alpha(Self) -> @model.NormalizedAlpha
+pub fn StraightNormalizedSrgba::alpha_mode(Self) -> @model.AlphaMode
+pub fn StraightNormalizedSrgba::encoded(@model.EncodedSrgbComponent, @model.EncodedSrgbComponent, @model.EncodedSrgbComponent, @model.NormalizedAlpha) -> Self
+pub fn StraightNormalizedSrgba::encoded_rgb(Self) -> (@model.EncodedSrgbComponent, @model.EncodedSrgbComponent, @model.EncodedSrgbComponent)?
+pub fn StraightNormalizedSrgba::linear(@model.LinearSrgbComponent, @model.LinearSrgbComponent, @model.LinearSrgbComponent, @model.NormalizedAlpha) -> Self
+pub fn StraightNormalizedSrgba::linear_rgb(Self) -> (@model.LinearSrgbComponent, @model.LinearSrgbComponent, @model.LinearSrgbComponent)?
+pub fn StraightNormalizedSrgba::representation(Self) -> @model.ComponentRepresentation
+pub fn StraightNormalizedSrgba::space(Self) -> @model.ColorSpaceIdentity
+pub fn StraightNormalizedSrgba::transfer(Self) -> @model.TransferIdentity
+
+// Type aliases
+
+// Traits

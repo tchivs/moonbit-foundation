@@ -1,0 +1,43 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "moonbit-foundation/mb-image/ops"
+
+import {
+  "moonbit-foundation/mb-core/budget",
+  "moonbit-foundation/mb-core/error",
+  "moonbit-foundation/mb-image/metadata",
+  "moonbit-foundation/mb-image/storage",
+}
+
+// Values
+pub fn apply_orientation(@storage.ImageView, @budget.Budget) -> Result[ImageOperationResult, @error.CoreError]
+
+pub fn copy_image(@storage.ImageView, @budget.Budget) -> Result[ImageOperationResult, @error.CoreError]
+
+pub fn drop_straight_rgba8_alpha(@storage.ImageView, @budget.Budget) -> Result[ImageOperationResult, @error.CoreError]
+
+pub fn flip_horizontal(@storage.ImageView, @budget.Budget) -> Result[ImageOperationResult, @error.CoreError]
+
+pub fn flip_vertical(@storage.ImageView, @budget.Budget) -> Result[ImageOperationResult, @error.CoreError]
+
+pub fn premultiplied_rgba8_to_straight(@storage.ImageView, @budget.Budget) -> Result[ImageOperationResult, @error.CoreError]
+
+pub fn resize_nearest(@storage.ImageView, UInt64, UInt64, @budget.Budget) -> Result[ImageOperationResult, @error.CoreError]
+
+pub fn rgb8_to_straight_rgba8(@storage.ImageView, @budget.Budget) -> Result[ImageOperationResult, @error.CoreError]
+
+pub fn straight_rgba8_to_premultiplied(@storage.ImageView, @budget.Budget) -> Result[ImageOperationResult, @error.CoreError]
+
+pub fn straight_rgba8_to_rgb8(@storage.ImageView, @budget.Budget) -> Result[ImageOperationResult, @error.CoreError]
+
+// Errors
+
+// Types and methods
+pub struct ImageOperationResult {
+  // private fields
+}
+pub fn ImageOperationResult::disposition(Self) -> @metadata.MetadataDisposition
+pub fn ImageOperationResult::image(Self) -> @storage.OwnedImage
+
+// Type aliases
+
+// Traits

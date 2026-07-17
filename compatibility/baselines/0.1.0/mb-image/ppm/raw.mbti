@@ -1,0 +1,41 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "moonbit-foundation/mb-image/ppm"
+
+import {
+  "moonbit-foundation/mb-core/budget",
+  "moonbit-foundation/mb-core/bytes",
+  "moonbit-foundation/mb-core/error",
+  "moonbit-foundation/mb-core/io",
+  "moonbit-foundation/mb-image/codec",
+  "moonbit-foundation/mb-image/storage",
+}
+
+// Values
+
+// Errors
+
+// Types and methods
+pub struct PpmDecoder {
+  // private fields
+}
+pub fn PpmDecoder::new(PpmParserLimits) -> Self
+pub impl @codec.ImageDecoder for PpmDecoder
+
+pub struct PpmEncoder {
+}
+pub fn PpmEncoder::new() -> Self
+pub impl @codec.ImageEncoder for PpmEncoder
+
+pub struct PpmParserLimits {
+  // private fields
+}
+pub fn PpmParserLimits::max_comment_bytes(Self) -> UInt64
+pub fn PpmParserLimits::max_comments(Self) -> UInt64
+pub fn PpmParserLimits::max_header_bytes(Self) -> UInt64
+pub fn PpmParserLimits::max_token_bytes(Self) -> UInt64
+pub fn PpmParserLimits::new(max_header_bytes~ : UInt64, max_token_bytes~ : UInt64, max_comment_bytes~ : UInt64, max_comments~ : UInt64) -> Result[Self, @error.CoreError]
+
+// Type aliases
+
+// Traits
+

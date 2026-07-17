@@ -1,0 +1,56 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "moonbit-foundation/mb-image/storage"
+
+import {
+  "moonbit-foundation/mb-core/budget",
+  "moonbit-foundation/mb-core/bytes",
+  "moonbit-foundation/mb-core/error",
+  "moonbit-foundation/mb-image/model",
+}
+
+// Values
+
+// Errors
+
+// Types and methods
+pub struct ImageView {
+  // private fields
+}
+pub fn ImageView::crop(Self, @model.Rect) -> Result[Self, @error.CoreError]
+pub fn ImageView::format(Self) -> @model.ImageFormat
+pub fn ImageView::get_byte(Self, UInt64, UInt64, UInt64) -> Result[Byte, @error.CoreError]
+pub fn ImageView::height(Self) -> UInt64
+pub fn ImageView::is_empty(Self) -> Bool
+pub fn ImageView::metadata(Self) -> @model.ImageMetadata
+pub fn ImageView::row_bytes(Self) -> UInt64
+pub fn ImageView::row_stride(Self) -> UInt64
+pub fn ImageView::storage_length(Self) -> UInt64
+pub fn ImageView::width(Self) -> UInt64
+
+pub struct MutImageView {
+  // private fields
+}
+pub fn MutImageView::crop(Self, @model.Rect) -> Result[Self, @error.CoreError]
+pub fn MutImageView::format(Self) -> @model.ImageFormat
+pub fn MutImageView::get_byte(Self, UInt64, UInt64, UInt64) -> Result[Byte, @error.CoreError]
+pub fn MutImageView::height(Self) -> UInt64
+pub fn MutImageView::metadata(Self) -> @model.ImageMetadata
+pub fn MutImageView::set_byte(Self, UInt64, UInt64, UInt64, Byte) -> Result[Unit, @error.CoreError]
+pub fn MutImageView::split_disjoint(Self, @model.Rect, @model.Rect) -> Result[(Self, Self), @error.CoreError]
+pub fn MutImageView::width(Self) -> UInt64
+
+pub struct OwnedImage {
+  // private fields
+}
+pub fn OwnedImage::descriptor(Self) -> @model.ImageDescriptor
+pub fn OwnedImage::metadata(Self) -> @model.ImageMetadata
+pub fn OwnedImage::new(@model.ImageDescriptor, @budget.Budget) -> Result[Self, @error.CoreError]
+pub fn OwnedImage::new_operation(@model.ImageDescriptor, @budget.Budget, &@bytes.Allocator, UInt64) -> Result[Self, @error.CoreError]
+pub fn OwnedImage::new_with_allocator(@model.ImageDescriptor, @budget.Budget, &@bytes.Allocator) -> Result[Self, @error.CoreError]
+pub fn OwnedImage::storage_length(Self) -> UInt64
+pub fn OwnedImage::view(Self) -> ImageView
+pub fn[T] OwnedImage::with_mut_view(Self, (MutImageView) -> Result[T, @error.CoreError]) -> Result[T, @error.CoreError]
+
+// Type aliases
+
+// Traits

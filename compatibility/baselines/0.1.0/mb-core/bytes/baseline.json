@@ -1,0 +1,62 @@
+{
+  "schema_version": "mnf-public-interface-baseline-package/1",
+  "normalization_schema_version": "moon-mbti-lossless-lines/1",
+  "source_commit": "935e74495a8dd4dc586033a02be2e0aa8e983adb",
+  "toolchain": {
+    "moon": "moon 0.1.20260713 (75c7e1f 2026-07-13)",
+    "moonc": "v0.10.4+2cc641edf (2026-07-15)",
+    "moonrun": "moonrun 0.1.20260713 (75c7e1f 2026-07-13)"
+  },
+  "module": "mb-core",
+  "package": "moonbit-foundation/mb-core/bytes",
+  "raw_path": "mb-core/bytes/raw.mbti",
+  "raw_sha256": "227a3845d4e3b3cc59c242b0b316320cd180bd8c49d6c8cfd44a8f45099a9ea5",
+  "records": [
+    {
+      "target": "js",
+      "normalized_path": "mb-core/bytes/js.mbti",
+      "normalized_sha256": "4ad86cf16baae5da1c7df534f65050b8d834f5c736b6ed5a39780f655a316ae7",
+      "target_inspection": {
+        "command": "moon -C modules/mb-core info --target js --frozen",
+        "status": "pass",
+        "raw_sha256": "227a3845d4e3b3cc59c242b0b316320cd180bd8c49d6c8cfd44a8f45099a9ea5",
+        "matches_canonical": true
+      }
+    },
+    {
+      "target": "wasm",
+      "normalized_path": "mb-core/bytes/wasm.mbti",
+      "normalized_sha256": "4ad86cf16baae5da1c7df534f65050b8d834f5c736b6ed5a39780f655a316ae7",
+      "target_inspection": {
+        "command": "moon -C modules/mb-core info --target wasm --frozen",
+        "status": "pass",
+        "raw_sha256": "227a3845d4e3b3cc59c242b0b316320cd180bd8c49d6c8cfd44a8f45099a9ea5",
+        "matches_canonical": true
+      }
+    },
+    {
+      "target": "wasm-gc",
+      "normalized_path": "mb-core/bytes/wasm-gc.mbti",
+      "normalized_sha256": "4ad86cf16baae5da1c7df534f65050b8d834f5c736b6ed5a39780f655a316ae7",
+      "target_inspection": {
+        "command": "moon -C modules/mb-core info --target wasm-gc --frozen",
+        "status": "pass",
+        "raw_sha256": "227a3845d4e3b3cc59c242b0b316320cd180bd8c49d6c8cfd44a8f45099a9ea5",
+        "matches_canonical": true
+      }
+    },
+    {
+      "target": "native",
+      "normalized_path": "mb-core/bytes/native.mbti",
+      "normalized_sha256": "4ad86cf16baae5da1c7df534f65050b8d834f5c736b6ed5a39780f655a316ae7",
+      "target_inspection": {
+        "command": "moon -C modules/mb-core info --target native --frozen",
+        "status": "pass",
+        "raw_sha256": "227a3845d4e3b3cc59c242b0b316320cd180bd8c49d6c8cfd44a8f45099a9ea5",
+        "matches_canonical": true
+      }
+    }
+  ],
+  "two_run_equal": true,
+  "claim_scope": "public-interface-text-only; no behavioral, semantic, resource, layout, or performance compatibility claim"
+}

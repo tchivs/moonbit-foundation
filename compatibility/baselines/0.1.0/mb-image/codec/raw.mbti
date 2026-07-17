@@ -1,0 +1,79 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "moonbit-foundation/mb-image/codec"
+
+import {
+  "moonbit-foundation/mb-core/budget",
+  "moonbit-foundation/mb-core/bytes",
+  "moonbit-foundation/mb-core/error",
+  "moonbit-foundation/mb-core/io",
+  "moonbit-foundation/mb-image/metadata",
+  "moonbit-foundation/mb-image/model",
+  "moonbit-foundation/mb-image/storage",
+}
+
+// Values
+pub fn capability_unavailable(String, String) -> @error.CoreError
+
+// Errors
+
+// Types and methods
+pub struct CodecLimits {
+  // private fields
+}
+pub fn CodecLimits::max_height(Self) -> UInt64
+pub fn CodecLimits::max_input_bytes(Self) -> UInt64
+pub fn CodecLimits::max_output_bytes(Self) -> UInt64
+pub fn CodecLimits::max_pixels(Self) -> UInt64
+pub fn CodecLimits::max_probe_bytes(Self) -> UInt64
+pub fn CodecLimits::max_width(Self) -> UInt64
+pub fn CodecLimits::max_work(Self) -> UInt64
+pub fn CodecLimits::new(max_probe_bytes~ : UInt64, max_input_bytes~ : UInt64, max_output_bytes~ : UInt64, max_width~ : UInt64, max_height~ : UInt64, max_pixels~ : UInt64, max_work~ : UInt64) -> Self
+
+pub struct DecodeOptions {
+  // private fields
+}
+pub fn DecodeOptions::new(require_complete_input~ : Bool, preserve_opaque_metadata~ : Bool) -> Self
+pub fn DecodeOptions::preserve_opaque_metadata(Self) -> Bool
+pub fn DecodeOptions::require_complete_input(Self) -> Bool
+
+pub struct DecodeResult {
+  // private fields
+}
+pub fn DecodeResult::bytes_read(Self) -> UInt64
+pub fn DecodeResult::descriptor(Self) -> @model.ImageDescriptor
+pub fn DecodeResult::disposition(Self) -> @metadata.MetadataDisposition
+pub fn DecodeResult::image(Self) -> @storage.OwnedImage
+pub fn DecodeResult::new(@storage.OwnedImage, @metadata.MetadataDisposition, UInt64) -> Self
+
+pub struct EncodeOptions {
+  // private fields
+}
+pub fn EncodeOptions::lossless_required(Self) -> Bool
+pub fn EncodeOptions::new(lossless_required~ : Bool, preserve_opaque_metadata~ : Bool) -> Self
+pub fn EncodeOptions::preserve_opaque_metadata(Self) -> Bool
+
+pub struct EncodeResult {
+  // private fields
+}
+pub fn EncodeResult::bytes_written(Self) -> UInt64
+pub fn EncodeResult::disposition(Self) -> @metadata.MetadataDisposition
+pub fn EncodeResult::new(@metadata.MetadataDisposition, UInt64) -> Self
+
+pub(all) enum ProbeOutcome {
+  Match
+  NoMatch
+  NeedMore(UInt64)
+} derive(Eq)
+
+// Type aliases
+
+// Traits
+pub(open) trait ImageDecoder {
+  fn probe(Self, @bytes.ByteView, CodecLimits, @error.Diagnostics) -> Result[ProbeOutcome, @error.CoreError]
+  fn decode(Self, &@io.Reader, DecodeOptions, CodecLimits, @budget.Budget, @error.Diagnostics) -> Result[DecodeResult, @error.CoreError]
+}
+
+pub(open) trait ImageEncoder {
+  fn encode(Self, @storage.ImageView, &@io.Writer, EncodeOptions, CodecLimits, @budget.Budget, @error.Diagnostics) -> Result[EncodeResult, @error.CoreError]
+}
+

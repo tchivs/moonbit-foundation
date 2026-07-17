@@ -1,0 +1,46 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "moonbit-foundation/mb-color/profile"
+
+import {
+  "moonbit-foundation/mb-core/budget",
+  "moonbit-foundation/mb-core/bytes",
+  "moonbit-foundation/mb-core/error",
+}
+
+// Values
+
+// Errors
+
+// Types and methods
+pub struct OpaqueProfile {
+  // private fields
+}
+pub fn OpaqueProfile::from_bytes(ProfileFormatTag, Bytes, ProfileLimits, @budget.Budget) -> Result[Self, @error.CoreError]
+pub fn OpaqueProfile::length(Self) -> UInt64
+pub fn OpaqueProfile::tag(Self) -> ProfileFormatTag
+pub fn OpaqueProfile::view(Self) -> @bytes.ByteView
+
+pub struct ProfileFormatTag {
+  // private fields
+}
+pub fn ProfileFormatTag::icc() -> Self
+pub fn ProfileFormatTag::new(String) -> Result[Self, @error.CoreError]
+pub fn ProfileFormatTag::value(Self) -> String
+
+pub struct ProfileIdentity {
+  // private fields
+}
+pub fn ProfileIdentity::builtin_srgb() -> Self
+pub fn ProfileIdentity::is_builtin_srgb(Self) -> Bool
+pub fn ProfileIdentity::opaque(OpaqueProfile) -> Self
+pub fn ProfileIdentity::opaque_profile(Self) -> OpaqueProfile?
+
+pub struct ProfileLimits {
+  // private fields
+}
+pub fn ProfileLimits::max_payload_bytes(Self) -> UInt64
+pub fn ProfileLimits::new(UInt64) -> Self
+
+// Type aliases
+
+// Traits

@@ -1,0 +1,27 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "moonbit-foundation/mb-color/quantize"
+
+import {
+  "moonbit-foundation/mb-color/model",
+  "moonbit-foundation/mb-core/error",
+}
+
+// Values
+pub fn dequantize_alpha(@model.EncodedAlpha8) -> @model.NormalizedAlpha
+
+pub fn dequantize_encoded_srgb(@model.EncodedSrgb8Component) -> @model.EncodedSrgbComponent
+
+pub fn quantize_alpha(@model.NormalizedAlpha) -> @model.EncodedAlpha8
+
+pub fn quantize_encoded_srgb(@model.EncodedSrgbComponent) -> @model.EncodedSrgb8Component
+
+pub fn round_ratio_ties_even(UInt64, UInt64) -> Result[UInt64, @error.CoreError]
+
+// Errors
+
+// Types and methods
+
+// Type aliases
+
+// Traits
+

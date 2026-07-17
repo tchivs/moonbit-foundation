@@ -1,0 +1,26 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "moonbit-foundation/mb-color/transfer"
+
+import {
+  "moonbit-foundation/mb-color/model",
+}
+
+// Values
+pub fn decode_absolute_tolerance() -> Double
+
+pub fn decode_srgb(@model.EncodedSrgbComponent) -> @model.LinearSrgbComponent
+
+pub fn encode_absolute_tolerance() -> Double
+
+pub fn encode_srgb(@model.LinearSrgbComponent) -> @model.EncodedSrgbComponent
+
+pub fn roundtrip_absolute_tolerance() -> Double
+
+// Errors
+
+// Types and methods
+
+// Type aliases
+
+// Traits
+

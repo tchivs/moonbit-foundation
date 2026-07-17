@@ -1,0 +1,62 @@
+{
+  "schema_version": "mnf-public-interface-baseline-package/1",
+  "normalization_schema_version": "moon-mbti-lossless-lines/1",
+  "source_commit": "935e74495a8dd4dc586033a02be2e0aa8e983adb",
+  "toolchain": {
+    "moon": "moon 0.1.20260713 (75c7e1f 2026-07-13)",
+    "moonc": "v0.10.4+2cc641edf (2026-07-15)",
+    "moonrun": "moonrun 0.1.20260713 (75c7e1f 2026-07-13)"
+  },
+  "module": "mb-color",
+  "package": "moonbit-foundation/mb-color/model",
+  "raw_path": "mb-color/model/raw.mbti",
+  "raw_sha256": "bdedabd9e300bdfb88df606a489d2ae029dafbfe27ac47aeafd59851cd5e7856",
+  "records": [
+    {
+      "target": "js",
+      "normalized_path": "mb-color/model/js.mbti",
+      "normalized_sha256": "177ac102da477710f4aa462ccc5cbea2a7d16fb1da48a789711339a43cc01845",
+      "target_inspection": {
+        "command": "moon -C modules/mb-color info --target js --frozen",
+        "status": "pass",
+        "raw_sha256": "bdedabd9e300bdfb88df606a489d2ae029dafbfe27ac47aeafd59851cd5e7856",
+        "matches_canonical": true
+      }
+    },
+    {
+      "target": "wasm",
+      "normalized_path": "mb-color/model/wasm.mbti",
+      "normalized_sha256": "177ac102da477710f4aa462ccc5cbea2a7d16fb1da48a789711339a43cc01845",
+      "target_inspection": {
+        "command": "moon -C modules/mb-color info --target wasm --frozen",
+        "status": "pass",
+        "raw_sha256": "bdedabd9e300bdfb88df606a489d2ae029dafbfe27ac47aeafd59851cd5e7856",
+        "matches_canonical": true
+      }
+    },
+    {
+      "target": "wasm-gc",
+      "normalized_path": "mb-color/model/wasm-gc.mbti",
+      "normalized_sha256": "177ac102da477710f4aa462ccc5cbea2a7d16fb1da48a789711339a43cc01845",
+      "target_inspection": {
+        "command": "moon -C modules/mb-color info --target wasm-gc --frozen",
+        "status": "pass",
+        "raw_sha256": "bdedabd9e300bdfb88df606a489d2ae029dafbfe27ac47aeafd59851cd5e7856",
+        "matches_canonical": true
+      }
+    },
+    {
+      "target": "native",
+      "normalized_path": "mb-color/model/native.mbti",
+      "normalized_sha256": "177ac102da477710f4aa462ccc5cbea2a7d16fb1da48a789711339a43cc01845",
+      "target_inspection": {
+        "command": "moon -C modules/mb-color info --target native --frozen",
+        "status": "pass",
+        "raw_sha256": "bdedabd9e300bdfb88df606a489d2ae029dafbfe27ac47aeafd59851cd5e7856",
+        "matches_canonical": true
+      }
+    }
+  ],
+  "two_run_equal": true,
+  "claim_scope": "public-interface-text-only; no behavioral, semantic, resource, layout, or performance compatibility claim"
+}

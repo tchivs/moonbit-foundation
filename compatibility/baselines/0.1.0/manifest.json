@@ -1,0 +1,159 @@
+{
+  "schema_version": "mnf-public-interface-baseline-manifest/1",
+  "normalization_schema_version": "moon-mbti-lossless-lines/1",
+  "baseline_version": "0.1.0",
+  "source_commit": "935e74495a8dd4dc586033a02be2e0aa8e983adb",
+  "toolchain": {
+    "moon": "moon 0.1.20260713 (75c7e1f 2026-07-13)",
+    "moonc": "v0.10.4+2cc641edf (2026-07-15)",
+    "moonrun": "moonrun 0.1.20260713 (75c7e1f 2026-07-13)"
+  },
+  "targets": [
+    "js",
+    "wasm",
+    "wasm-gc",
+    "native"
+  ],
+  "package_count": 17,
+  "record_count": 68,
+  "packages": [
+    {
+      "module": "mb-core",
+      "package": "moonbit-foundation/mb-core/error",
+      "baseline_path": "mb-core/error/baseline.json",
+      "baseline_sha256": "a3d11b46a34176cd7293a2137f23af7f2fbf281aa002f80f46f5e35da904f3bc",
+      "raw_path": "mb-core/error/raw.mbti",
+      "raw_sha256": "77d9428bede033d9b99a28e3f860495499a5dcca8283370868c6e5f116128971"
+    },
+    {
+      "module": "mb-core",
+      "package": "moonbit-foundation/mb-core/checked",
+      "baseline_path": "mb-core/checked/baseline.json",
+      "baseline_sha256": "68c948115ccd3d95401d02a1bb4b7ab7d7057a2ac967e8f04d7a976b2f50a724",
+      "raw_path": "mb-core/checked/raw.mbti",
+      "raw_sha256": "ba3f9b5a993bde17127419f12654bb83a8b76f359488c3d9ff41b15a49b3b59b"
+    },
+    {
+      "module": "mb-core",
+      "package": "moonbit-foundation/mb-core/budget",
+      "baseline_path": "mb-core/budget/baseline.json",
+      "baseline_sha256": "f5628309cdecae95bd1bdad6f5d4cf2f957c8bf0cb891f4ffd9270d5a97549b1",
+      "raw_path": "mb-core/budget/raw.mbti",
+      "raw_sha256": "805893bb3b6d853c4a5b0cb722753b000ddbe600565b34bb9aa27eac17e9c614"
+    },
+    {
+      "module": "mb-core",
+      "package": "moonbit-foundation/mb-core/bytes",
+      "baseline_path": "mb-core/bytes/baseline.json",
+      "baseline_sha256": "b659ce3757236f08afb124eb37967f2a965b052a233e7b685346bdfe36b66b99",
+      "raw_path": "mb-core/bytes/raw.mbti",
+      "raw_sha256": "227a3845d4e3b3cc59c242b0b316320cd180bd8c49d6c8cfd44a8f45099a9ea5"
+    },
+    {
+      "module": "mb-core",
+      "package": "moonbit-foundation/mb-core/io",
+      "baseline_path": "mb-core/io/baseline.json",
+      "baseline_sha256": "c9c8002d20659ab0e30da5e6705f6196b8e865f23b5ca25255714b47f6c4db43",
+      "raw_path": "mb-core/io/raw.mbti",
+      "raw_sha256": "6c610fa59de27935faacaf8b0380d7c4d0dd50aab7bf3892a7d5a97e09a7f61e"
+    },
+    {
+      "module": "mb-core",
+      "package": "moonbit-foundation/mb-core/host",
+      "baseline_path": "mb-core/host/baseline.json",
+      "baseline_sha256": "6667374ba3ed9cfb53a13757de0a4e7e5e165e90a43a42dfdad7e7767c75788d",
+      "raw_path": "mb-core/host/raw.mbti",
+      "raw_sha256": "7d4ef2edf06f977da8a02cb1970fde561828d6b96542c658506cdbf3182772e2"
+    },
+    {
+      "module": "mb-color",
+      "package": "moonbit-foundation/mb-color/model",
+      "baseline_path": "mb-color/model/baseline.json",
+      "baseline_sha256": "c10e1b74b98cd6c58a1b269dba3919cbaf1cd4a2e0cc7f79336e254f9b3877c5",
+      "raw_path": "mb-color/model/raw.mbti",
+      "raw_sha256": "bdedabd9e300bdfb88df606a489d2ae029dafbfe27ac47aeafd59851cd5e7856"
+    },
+    {
+      "module": "mb-color",
+      "package": "moonbit-foundation/mb-color/transfer",
+      "baseline_path": "mb-color/transfer/baseline.json",
+      "baseline_sha256": "70b42baf72761ffc4242ab4a114e41dfc5d1eeb0a7f4f6090f013150bb7e1bc6",
+      "raw_path": "mb-color/transfer/raw.mbti",
+      "raw_sha256": "60950b166e8979a83674e92c04a2e1d89c4ef7d148467d734e889f93a00b0de2"
+    },
+    {
+      "module": "mb-color",
+      "package": "moonbit-foundation/mb-color/quantize",
+      "baseline_path": "mb-color/quantize/baseline.json",
+      "baseline_sha256": "8d34cdbeac555d10a2b23188f62e53578fe0c1d713e5e9fdfce78a57119e4df4",
+      "raw_path": "mb-color/quantize/raw.mbti",
+      "raw_sha256": "603d6e696e724a233f548c074a820791ed164575fac065becd2099f6f418b672"
+    },
+    {
+      "module": "mb-color",
+      "package": "moonbit-foundation/mb-color/alpha",
+      "baseline_path": "mb-color/alpha/baseline.json",
+      "baseline_sha256": "cb3e0b3a59c157aa2d4ae29d9f0a7057d837884b5854f650fa5bd75744bd1ec4",
+      "raw_path": "mb-color/alpha/raw.mbti",
+      "raw_sha256": "526a5347e361a92dc3e211f9411cca4ea22f33e653878fc180451138e5e77553"
+    },
+    {
+      "module": "mb-color",
+      "package": "moonbit-foundation/mb-color/profile",
+      "baseline_path": "mb-color/profile/baseline.json",
+      "baseline_sha256": "9b9b7eaf145e9e7444b1d8a803dc6fb97e889fe6b0742da0428c3b11d2ee068b",
+      "raw_path": "mb-color/profile/raw.mbti",
+      "raw_sha256": "458a9306c35697ecbdb8a1e9eb015e1c6a5983d25ad6e979eaa634e4873712b8"
+    },
+    {
+      "module": "mb-image",
+      "package": "moonbit-foundation/mb-image/metadata",
+      "baseline_path": "mb-image/metadata/baseline.json",
+      "baseline_sha256": "1212ce425c83fefb92cc8d66bfd8b91c80b60107a7fd637b789e9b69ccc20b5d",
+      "raw_path": "mb-image/metadata/raw.mbti",
+      "raw_sha256": "6a3da7f1d4a2bbbdc5716494dfe403cbc3e2e92bff087bc4e304d3e50c24e189"
+    },
+    {
+      "module": "mb-image",
+      "package": "moonbit-foundation/mb-image/model",
+      "baseline_path": "mb-image/model/baseline.json",
+      "baseline_sha256": "21eb77c5c98b96a3d427d5ff5cbf0c9d4802f8001d2867bcd436f429db24fb57",
+      "raw_path": "mb-image/model/raw.mbti",
+      "raw_sha256": "7c37838203b19744b078c147196e4ab16e65ca586e8d95cf770f0f3d844bf621"
+    },
+    {
+      "module": "mb-image",
+      "package": "moonbit-foundation/mb-image/storage",
+      "baseline_path": "mb-image/storage/baseline.json",
+      "baseline_sha256": "09f5c81b3c5366ca91b1308d24e936569dd8631156a96f4497ddddeabec122fe",
+      "raw_path": "mb-image/storage/raw.mbti",
+      "raw_sha256": "572f8164c859e744860c35f2db1b14e23f09b4d87851c28d633e7761c0448f87"
+    },
+    {
+      "module": "mb-image",
+      "package": "moonbit-foundation/mb-image/ops",
+      "baseline_path": "mb-image/ops/baseline.json",
+      "baseline_sha256": "29ca82eccb2327f9ff1df21cb38d56c28fd5414606a47dfee2a47d28682e1c8b",
+      "raw_path": "mb-image/ops/raw.mbti",
+      "raw_sha256": "06606ec6acc7b3b0aa4aed1cf9181e85daa7ec8ca2fc70b09d4278c749fa62bb"
+    },
+    {
+      "module": "mb-image",
+      "package": "moonbit-foundation/mb-image/codec",
+      "baseline_path": "mb-image/codec/baseline.json",
+      "baseline_sha256": "80a5cfb6b16938ef3d4f44217bbb7162df94431c3b11d3853f8d80403e3b51e9",
+      "raw_path": "mb-image/codec/raw.mbti",
+      "raw_sha256": "b1ead948d12c41d5f1596ea44f274e37fe16e326473e90ebbe55a39e3369191b"
+    },
+    {
+      "module": "mb-image",
+      "package": "moonbit-foundation/mb-image/ppm",
+      "baseline_path": "mb-image/ppm/baseline.json",
+      "baseline_sha256": "8f05686994e9c74ab08eaa491a2ff43d6a2d779a3f3e6b42cebba6394647d0cf",
+      "raw_path": "mb-image/ppm/raw.mbti",
+      "raw_sha256": "fbb0676e83aadf6c55e60546ab330ed392fe446e8e09a239cae89e06837f2274"
+    }
+  ],
+  "two_run_equal": true,
+  "claim_scope": "public-interface-text-only; no behavioral, semantic, resource, layout, or performance compatibility claim"
+}

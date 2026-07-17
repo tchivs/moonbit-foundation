@@ -1,0 +1,78 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "moonbit-foundation/mb-core/error"
+
+// Values
+pub fn map_host_failure(String, String) -> CoreError
+
+pub fn render_diagnostic(Diagnostic) -> String
+
+pub fn render_error(CoreError) -> String
+
+// Errors
+
+// Types and methods
+pub struct CoreError {
+  // private fields
+}
+pub fn CoreError::category(Self) -> ErrorCategory
+pub fn CoreError::code(Self) -> ErrorCode
+pub fn CoreError::completed(Self) -> UInt64?
+pub fn CoreError::context(Self) -> String?
+pub fn CoreError::limit(Self) -> UInt64?
+pub fn CoreError::new(ErrorCategory, ErrorCode, operation? : String, requested? : UInt64, completed? : UInt64, range_start? : UInt64, range_end? : UInt64, source_offset? : UInt64, limit? : UInt64, context? : String) -> Self
+pub fn CoreError::operation(Self) -> String?
+pub fn CoreError::range_end(Self) -> UInt64?
+pub fn CoreError::range_start(Self) -> UInt64?
+pub fn CoreError::requested(Self) -> UInt64?
+pub fn CoreError::source_offset(Self) -> UInt64?
+
+pub struct Diagnostic {
+  // private fields
+}
+pub fn Diagnostic::error(Self) -> CoreError
+pub fn Diagnostic::new(DiagnosticSeverity, CoreError) -> Self
+pub fn Diagnostic::severity(Self) -> DiagnosticSeverity
+
+pub(all) enum DiagnosticSeverity {
+  Note
+  Warning
+  Error
+} derive(Eq)
+
+pub struct Diagnostics {
+  // private fields
+}
+pub fn Diagnostics::length(Self) -> Int
+pub fn Diagnostics::new() -> Self
+pub fn Diagnostics::push(Self, Diagnostic) -> Unit
+pub fn Diagnostics::render(Self) -> String
+
+pub(all) enum ErrorCategory {
+  InvalidInput
+  Data
+  State
+  Resource
+  Capability
+  Host
+} derive(Eq)
+
+pub(all) enum ErrorCode {
+  InvalidRange
+  InvalidEncoding
+  ArithmeticOverflow
+  ArithmeticUnderflow
+  InvalidAlignment
+  InvalidOffset
+  NarrowingFailed
+  InvalidDimensions
+  AllocationFailed
+  BudgetExceeded
+  UnexpectedEndOfStream
+  NoProgress
+  CapabilityUnavailable
+  HostOperationFailed
+} derive(Eq)
+
+// Type aliases
+
+// Traits

@@ -1,0 +1,62 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "moonbit-foundation/mb-image/metadata"
+
+import {
+  "moonbit-foundation/mb-core/budget",
+  "moonbit-foundation/mb-core/bytes",
+  "moonbit-foundation/mb-core/error",
+}
+
+// Values
+
+// Errors
+
+// Types and methods
+pub struct DispositionField {
+  // private fields
+}
+pub fn DispositionField::new(String, MetadataLimits) -> Result[Self, @error.CoreError]
+pub fn DispositionField::value(Self) -> String
+
+pub struct MetadataDisposition {
+  // private fields
+}
+pub fn MetadataDisposition::discarded(Self, Int) -> Result[DispositionField, @error.CoreError]
+pub fn MetadataDisposition::discarded_length(Self) -> Int
+pub fn MetadataDisposition::is_lossy(Self) -> Bool
+pub fn MetadataDisposition::new(Array[DispositionField], Array[DispositionField], Array[DispositionField], Bool, MetadataLimits) -> Result[Self, @error.CoreError]
+pub fn MetadataDisposition::preserved(Self, Int) -> Result[DispositionField, @error.CoreError]
+pub fn MetadataDisposition::preserved_length(Self) -> Int
+pub fn MetadataDisposition::transformed(Self, Int) -> Result[DispositionField, @error.CoreError]
+pub fn MetadataDisposition::transformed_length(Self) -> Int
+
+pub struct MetadataEntry {
+  // private fields
+}
+pub fn MetadataEntry::canonical_key(Self) -> String
+pub fn MetadataEntry::key(Self) -> String
+pub fn MetadataEntry::namespace(Self) -> String
+pub fn MetadataEntry::tag(Self) -> String
+pub fn MetadataEntry::value(Self) -> @bytes.ByteView
+
+pub struct MetadataLimits {
+  // private fields
+}
+pub fn MetadataLimits::max_disposition_fields(Self) -> UInt64
+pub fn MetadataLimits::max_entries(Self) -> UInt64
+pub fn MetadataLimits::max_token_bytes(Self) -> UInt64
+pub fn MetadataLimits::max_total_bytes(Self) -> UInt64
+pub fn MetadataLimits::max_value_bytes(Self) -> UInt64
+pub fn MetadataLimits::new(max_entries~ : UInt64, max_token_bytes~ : UInt64, max_value_bytes~ : UInt64, max_total_bytes~ : UInt64, max_disposition_fields~ : UInt64) -> Self
+
+pub struct OpaqueMetadata {
+  // private fields
+}
+pub fn OpaqueMetadata::entry(Self, Int) -> Result[MetadataEntry, @error.CoreError]
+pub fn OpaqueMetadata::from_entries(Array[(String, String, String, Bytes)], MetadataLimits, @budget.Budget) -> Result[Self, @error.CoreError]
+pub fn OpaqueMetadata::length(Self) -> Int
+pub fn OpaqueMetadata::storage_length(Self) -> UInt64
+
+// Type aliases
+
+// Traits

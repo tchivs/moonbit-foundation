@@ -1,0 +1,51 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "moonbit-foundation/mb-core/bytes"
+
+import {
+  "moonbit-foundation/mb-core/budget",
+  "moonbit-foundation/mb-core/error",
+}
+
+// Values
+
+// Errors
+
+// Types and methods
+pub struct ByteView {
+  // private fields
+}
+pub fn ByteView::get(Self, UInt64) -> Result[Byte, @error.CoreError]
+pub fn ByteView::length(Self) -> UInt64
+pub fn ByteView::subview(Self, UInt64, UInt64) -> Result[Self, @error.CoreError]
+
+type LeaseGroup
+
+type LeaseState
+
+pub struct MutByteLease {
+  // private fields
+}
+pub fn MutByteLease::get(Self, UInt64) -> Result[Byte, @error.CoreError]
+pub fn MutByteLease::length(Self) -> UInt64
+pub fn MutByteLease::release(Self) -> Unit
+pub fn MutByteLease::set(Self, UInt64, Byte) -> Result[Unit, @error.CoreError]
+pub fn MutByteLease::split_mut(Self, UInt64) -> Result[(Self, Self), @error.CoreError]
+
+pub struct OwnedBytes {
+  // private fields
+}
+pub fn OwnedBytes::from_bytes(Bytes, @budget.Budget) -> Result[Self, @error.CoreError]
+pub fn OwnedBytes::length(Self) -> UInt64
+pub fn OwnedBytes::new(UInt64, @budget.Budget) -> Result[Self, @error.CoreError]
+pub fn OwnedBytes::new_with_allocator(UInt64, @budget.Budget, &Allocator) -> Result[Self, @error.CoreError]
+pub fn OwnedBytes::new_with_allocator_and_charge(UInt64, @budget.Budget, &Allocator, UInt64, UInt64, UInt64, UInt64) -> Result[Self, @error.CoreError]
+pub fn OwnedBytes::view(Self) -> ByteView
+pub fn[T] OwnedBytes::with_mut(Self, UInt64, UInt64, (MutByteLease) -> Result[T, @error.CoreError]) -> Result[T, @error.CoreError]
+
+// Type aliases
+
+// Traits
+pub(open) trait Allocator {
+  fn approve(Self, UInt64) -> Result[Unit, @error.CoreError]
+}
+

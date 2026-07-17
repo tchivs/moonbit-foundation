@@ -1,0 +1,119 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "moonbit-foundation/mb-image/model"
+
+import {
+  "moonbit-foundation/mb-color/profile",
+  "moonbit-foundation/mb-core/checked",
+  "moonbit-foundation/mb-core/error",
+  "moonbit-foundation/mb-image/metadata",
+}
+
+// Values
+
+// Errors
+
+// Types and methods
+pub(all) enum ChannelOrder {
+  Gray
+  Rgb
+  Rgba
+} derive(Eq)
+
+pub(all) enum ComponentType {
+  U8
+  U16
+  F32
+} derive(Eq)
+
+pub(all) enum Endianness {
+  Little
+  Big
+} derive(Eq)
+
+pub struct ImageDescriptor {
+  // private fields
+}
+pub fn ImageDescriptor::display_height(Self) -> UInt64
+pub fn ImageDescriptor::display_width(Self) -> UInt64
+pub fn ImageDescriptor::format(Self) -> ImageFormat
+pub fn ImageDescriptor::height(Self) -> UInt64
+pub fn ImageDescriptor::metadata(Self) -> ImageMetadata
+pub fn ImageDescriptor::new(UInt64, UInt64, ImageFormat, Array[PlaneDescriptor], UInt64, ImageMetadata) -> Result[Self, @error.CoreError]
+pub fn ImageDescriptor::pixel_count(Self) -> UInt64
+pub fn ImageDescriptor::plane(Self, Int) -> Result[PlaneDescriptor, @error.CoreError]
+pub fn ImageDescriptor::plane_count(Self) -> Int
+pub fn ImageDescriptor::storage_length(Self) -> UInt64
+pub fn ImageDescriptor::supports_reference_operations(Self) -> Bool
+pub fn ImageDescriptor::width(Self) -> UInt64
+
+pub struct ImageFormat {
+  // private fields
+}
+pub fn ImageFormat::bytes_per_component(Self) -> UInt64
+pub fn ImageFormat::channel_count(Self) -> UInt64
+pub fn ImageFormat::channels(Self) -> ChannelOrder
+pub fn ImageFormat::component(Self) -> ComponentType
+pub fn ImageFormat::endianness(Self) -> Endianness
+pub fn ImageFormat::layout(Self) -> PlaneLayout
+pub fn ImageFormat::new(ComponentType, ChannelOrder, PlaneLayout, Endianness) -> Result[Self, @error.CoreError]
+pub fn ImageFormat::rgb8() -> Self
+pub fn ImageFormat::rgba8() -> Self
+
+pub struct ImageMetadata {
+  // private fields
+}
+pub fn ImageMetadata::alpha(Self) -> @moonbit-foundation/mb-color/model.AlphaMode?
+pub fn ImageMetadata::new(@moonbit-foundation/mb-color/model.ColorSpaceIdentity, @moonbit-foundation/mb-color/model.TransferIdentity, @moonbit-foundation/mb-color/model.AlphaMode?, @profile.ProfileIdentity, Orientation, @metadata.OpaqueMetadata) -> Self
+pub fn ImageMetadata::opaque_metadata(Self) -> @metadata.OpaqueMetadata
+pub fn ImageMetadata::orientation(Self) -> Orientation
+pub fn ImageMetadata::profile(Self) -> @profile.ProfileIdentity
+pub fn ImageMetadata::space(Self) -> @moonbit-foundation/mb-color/model.ColorSpaceIdentity
+pub fn ImageMetadata::transfer(Self) -> @moonbit-foundation/mb-color/model.TransferIdentity
+
+pub(all) enum Orientation {
+  TopLeft
+  TopRight
+  BottomRight
+  BottomLeft
+  LeftTop
+  RightTop
+  RightBottom
+  LeftBottom
+} derive(Eq)
+pub fn Orientation::code(Self) -> Int
+pub fn Orientation::display_height(Self, UInt64, UInt64) -> UInt64
+pub fn Orientation::display_width(Self, UInt64, UInt64) -> UInt64
+
+pub struct PlaneDescriptor {
+  // private fields
+}
+pub fn PlaneDescriptor::extent_height(Self) -> UInt64
+pub fn PlaneDescriptor::extent_width(Self) -> UInt64
+pub fn PlaneDescriptor::new(UInt64, UInt64, UInt64, UInt64, UInt64, UInt64, UInt64, UInt64) -> Result[Self, @error.CoreError]
+pub fn PlaneDescriptor::range(Self) -> @checked.CheckedRange
+pub fn PlaneDescriptor::row_bytes(Self) -> UInt64
+pub fn PlaneDescriptor::row_stride(Self) -> UInt64
+pub fn PlaneDescriptor::subsample_x(Self) -> UInt64
+pub fn PlaneDescriptor::subsample_y(Self) -> UInt64
+
+pub(all) enum PlaneLayout {
+  Packed
+  Planar
+} derive(Eq)
+
+pub struct Rect {
+  // private fields
+}
+pub fn Rect::bottom(Self) -> UInt64
+pub fn Rect::height(Self) -> UInt64
+pub fn Rect::is_empty(Self) -> Bool
+pub fn Rect::new(UInt64, UInt64, UInt64, UInt64) -> Result[Self, @error.CoreError]
+pub fn Rect::right(Self) -> UInt64
+pub fn Rect::width(Self) -> UInt64
+pub fn Rect::x(Self) -> UInt64
+pub fn Rect::y(Self) -> UInt64
+
+// Type aliases
+
+// Traits
+
