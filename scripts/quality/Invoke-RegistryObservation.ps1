@@ -163,32 +163,32 @@ foreach ($identity in $expectedIdentities) {
     $manifestAbsent.Add($identity)
   }
 }
-$namespaceObserved = (
+$namespaceEvidenceObserved = (
   $accountState -ceq 'safely_observed' -and [string]$accountValue -ceq $owner -and
   $remoteAccountExists -and $manifestAbsent.Count -eq $expectedIdentities.Count
 )
-if ($namespaceObserved) {
-  $reason = 'read_only_namespace_proven_publish_seam_unproven'
+if ($namespaceEvidenceObserved) {
+  $reason = 'namespace_identity_observed_current_token_authority_unproven'
 }
 
 $head = (& git -C $repoRoot rev-parse HEAD).Trim()
 if ($LASTEXITCODE -ne 0 -or $head -cnotmatch '^[0-9a-f]{40}$') { throw 'REGOBS06-SOURCE-COMMIT: unable to bind source commit.' }
 $factStates = [ordered]@{
   authenticated_account = $accountState
-  namespace_authority = if ($namespaceObserved) { 'safely_observed' } else { 'unknown' }
-  canonical_module_identities = if ($namespaceObserved) { 'safely_observed' } else { 'unknown' }
+  namespace_authority = 'unknown'
+  canonical_module_identities = if ($namespaceEvidenceObserved) { 'safely_observed' } else { 'unknown' }
   pinned_toolchain = 'documented'
-  exact_version_availability = if ($namespaceObserved) { 'safely_observed' } else { 'unknown' }
+  exact_version_availability = if ($namespaceEvidenceObserved) { 'safely_observed' } else { 'unknown' }
   authenticated_publish_seam = 'unknown'
   registry_observation = if ($remoteAccountExists) { 'safely_observed' } else { 'unknown' }
   registry_resolution = if ($manifestAbsent.Count -eq $expectedIdentities.Count) { 'safely_observed' } else { 'unknown' }
 }
 $factSources = [ordered]@{
   authenticated_account = if ($accountState -ceq 'safely_observed') { 'moon_auth_status' } else { 'not_observed' }
-  namespace_authority = if ($namespaceObserved) { 'official_user_record_and_namespace_contract' } else { 'not_observed' }
-  canonical_module_identities = if ($namespaceObserved) { 'personal_namespace_contract' } else { 'not_observed' }
+  namespace_authority = 'not_observed'
+  canonical_module_identities = if ($namespaceEvidenceObserved) { 'personal_namespace_contract' } else { 'not_observed' }
   pinned_toolchain = 'policy/registry-authority.json'
-  exact_version_availability = if ($namespaceObserved) { 'official_manifest_absence_0.1.0' } else { 'not_observed' }
+  exact_version_availability = if ($namespaceEvidenceObserved) { 'official_manifest_absence_0.1.0' } else { 'not_observed' }
   authenticated_publish_seam = 'not_observed'
   registry_observation = if ($remoteAccountExists) { 'official_user_endpoint' } else { 'not_observed' }
   registry_resolution = if ($manifestAbsent.Count -eq $expectedIdentities.Count) { 'official_manifest_endpoints' } else { 'not_observed' }
@@ -220,10 +220,10 @@ $observation = [ordered]@{
   session_authentication = [ordered]@{ state = [string]$auth.session_state; authenticated = $auth.session_authenticated; source = if ($auth.session_state -ceq 'safely_observed') { 'moon_auth_status' } else { 'not_observed' } }
   authenticated_account = [ordered]@{ state = $accountState; value = $accountValue; source = $accountSource }
   namespace_authority = [ordered]@{
-    state = if ($namespaceObserved) { 'safely_observed' } else { 'unknown' }
+    state = 'unknown'
     namespace = $owner
-    exact_module_identities = if ($namespaceObserved) { $expectedIdentities } else { @() }
-    source = if ($namespaceObserved) { 'authenticated_read_only_registry' } else { 'not_observed' }
+    exact_module_identities = @()
+    source = 'not_observed'
   }
   facts = $facts
   sanitized_result = [ordered]@{ outcome = 'unknown'; reason = $reason }
