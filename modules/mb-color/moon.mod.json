@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "description": "Portable explicit color identities, reference sRGB transfer, deterministic quantization, alpha semantics, and bounded profile metadata for MoonBit Native Foundation.",
   "license": "Apache-2.0",
-  "repository": "https://github.com/moonbit-foundation/moonbit-foundation",
+  "repository": "https://github.com/tchivs/moonbit-foundation",
   "readme": "README.mbt.md",
   "preferred-target": "native",
   "supported-targets": "+js+wasm+wasm-gc+native",
