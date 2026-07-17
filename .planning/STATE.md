@@ -5,15 +5,15 @@ milestone_name: milestone
 current_phase: 5
 current_phase_name: Reference Codec and Release Qualification
 status: executing
-stopped_at: Completed 05-01-PLAN.md
-last_updated: "2026-07-17T00:16:45.609Z"
+stopped_at: Completed 05-02-PLAN.md
+last_updated: "2026-07-17T00:37:44.617Z"
 last_activity: 2026-07-17
 last_activity_desc: Phase 5 execution started
 progress:
   total_phases: 5
   completed_phases: 4
   total_plans: 41
-  completed_plans: 34
+  completed_plans: 35
 ---
 
 # Project State
@@ -29,11 +29,11 @@ See `.planning/PROJECT.md` (updated 2026-07-16).
 ## Current Position
 
 Phase: 5 (Reference Codec and Release Qualification) — EXECUTING
-Plan: 2 of 8
+Plan: 3 of 8
 Status: Ready to execute
 Last activity: 2026-07-17 — Phase 5 execution started
 
-Progress: [████████░░] 83% (1/5 phases; 8/8 currently planned plans complete)
+Progress: [█████████░] 85% (1/5 phases; 8/8 currently planned plans complete)
 
 ## Performance Metrics
 
@@ -79,6 +79,7 @@ Progress: [████████░░] 83% (1/5 phases; 8/8 currently planne
 | Phase 04 P08 | 36min | 3 tasks | 16 files |
 | Phase 04 P09 | 25min | 3 tasks | 11 files |
 | Phase 05 P01 | 35min | 2 tasks | 6 files |
+| Phase 05 P02 | 35min | 2 tasks | 7 files |
 
 ## Accumulated Context
 
@@ -182,6 +183,8 @@ Progress: [████████░░] 83% (1/5 phases; 8/8 currently planne
 - [Phase ?]: Phase 05 Plan 01 keeps PpmDecoder and PpmEncoder behavior-free until their complete trait implementations in Plans 02 and 03.
 - [Phase ?]: Phase 05 Plan 01 uses one-byte strict P6 header transitions with independent header, token, comment-byte, and comment-count ceilings.
 - [Phase ?]: Phase 05 Plan 01 freezes PPM parser failures as Data/InvalidEncoding, InvalidInput/ArithmeticOverflow, Capability/CapabilityUnavailable, or Resource/BudgetExceeded with bounded context.
+- [Phase ?]: Phase 05 decode work is exact header bytes plus payload bytes and shares the single descriptor-derived output charge.
+- [Phase ?]: Phase 05 strict P6 always performs a one-byte EOF probe and rejects trailing or concatenated data.
 
 ### Pending Decisions
 
@@ -202,6 +205,6 @@ None. Phase 01 is independently verified and complete; Phase 02 is ready for con
 
 **Resume file:** None
 
-Last session: 2026-07-17T00:16:45.589Z
-Stopped at: Completed 05-01-PLAN.md
+Last session: 2026-07-17T00:37:44.598Z
+Stopped at: Completed 05-02-PLAN.md
 Resume with: Discuss Phase 02, then plan and execute it through the active auto chain.
