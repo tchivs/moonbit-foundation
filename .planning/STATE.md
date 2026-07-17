@@ -5,15 +5,15 @@ milestone_name: milestone
 current_phase: 5
 current_phase_name: Reference Codec and Release Qualification
 status: executing
-stopped_at: Completed 05-05-PLAN.md
-last_updated: "2026-07-17T01:38:47.241Z"
+stopped_at: Completed 05-06-PLAN.md
+last_updated: "2026-07-17T02:20:10.700Z"
 last_activity: 2026-07-17
 last_activity_desc: Phase 5 execution started
 progress:
   total_phases: 5
   completed_phases: 4
   total_plans: 41
-  completed_plans: 38
+  completed_plans: 39
 ---
 
 # Project State
@@ -29,11 +29,11 @@ See `.planning/PROJECT.md` (updated 2026-07-16).
 ## Current Position
 
 Phase: 5 (Reference Codec and Release Qualification) — EXECUTING
-Plan: 6 of 8
+Plan: 7 of 8
 Status: Ready to execute
 Last activity: 2026-07-17 — Phase 5 execution started
 
-Progress: [█████████░] 93% (1/5 phases; 8/8 currently planned plans complete)
+Progress: [██████████] 95% (1/5 phases; 8/8 currently planned plans complete)
 
 ## Performance Metrics
 
@@ -83,6 +83,7 @@ Progress: [█████████░] 93% (1/5 phases; 8/8 currently planne
 | Phase 05 P03 | 52min | 3 tasks | 11 files |
 | Phase 05 P04 | 18min | 2 tasks | 13 files |
 | Phase 05 P05 | 18min | 2 tasks | 13 files |
+| Phase 05 P06 | 40min | 2 tasks | 10 files |
 
 ## Accumulated Context
 
@@ -195,6 +196,9 @@ Progress: [█████████░] 93% (1/5 phases; 8/8 currently planne
 - [Phase ?]: Phase 05 Plan 04 reports downstream no-workspace resolution only as blocked_unpublished_namespace before publication.
 - [Phase 05]: Candidate docs embed policy-derived exact public DAG fingerprints and compare manifest repository/description facts.
 - [Phase 05]: Source isolation pass remains separate from blocked_unpublished_namespace until registry publication exists.
+- [Phase 05]: Benchmark evidence lives in an isolated nested workspace so release topology remains exactly five members while workloads consume only public named dependencies.
+- [Phase 05]: Seven independent one-sample MoonBit invocations provide raw cross-run variance after each workload passes untimed correctness checks.
+- [Phase 05]: Comparable local hardware alone gates at max(4 times baseline median, baseline median plus 5ms); hosted and different-hardware timing is informational.
 
 ### Pending Decisions
 
@@ -215,6 +219,6 @@ None. Phase 01 is independently verified and complete; Phase 02 is ready for con
 
 **Resume file:** None
 
-Last session: 2026-07-17T01:38:47.225Z
-Stopped at: Completed 05-05-PLAN.md
+Last session: 2026-07-17T02:20:10.700Z
+Stopped at: Completed 05-06-PLAN.md
 Resume with: Discuss Phase 02, then plan and execute it through the active auto chain.
