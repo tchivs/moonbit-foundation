@@ -9,37 +9,37 @@
 ### Registry Authority
 
 - [ ] **REG-01**: The sole maintainer can verify the authenticated Mooncakes owner namespace and the final names of all three modules using repository-bound evidence that contains no credential material.
-- [ ] **REG-02**: The sole maintainer can run a disposable live probe that records the pinned toolchain's current authentication, token-scope, dry-run, version-immutability, propagation, and artifact-identity behavior before any production publication.
-- [ ] **REG-03**: The release gate refuses to publish when namespace authority, module identity, toolchain identity, version availability, or required registry semantics are unknown or have drifted from the recorded contract.
+- [ ] **REG-02**: The sole maintainer can produce a credential-redacted registry capability matrix that marks authentication, token scope, dry-run, version immutability, propagation, artifact identity, and destructive recovery semantics as documented, safely observed, or unknown without polluting a production module version.
+- [ ] **REG-03**: The release gate refuses to publish unless namespace authority, canonical module identity, pinned toolchain identity, exact version availability, an authenticated publish seam, and registry observation/resolution are known and current; other unknown capabilities receive an explicit fail-closed or forward-only disposition.
 
 ### Compatibility Contract
 
-- [ ] **COMP-01**: The sole maintainer can reproducibly generate canonical public semantic-interface baselines for every public package in `mb-core`, `mb-color`, and `mb-image` across `js`, `wasm`, `wasm-gc`, and `native` with the pinned toolchain.
+- [ ] **COMP-01**: The sole maintainer can reproducibly generate canonical public-interface baselines for every public package in `mb-core`, `mb-color`, and `mb-image` across `js`, `wasm`, `wasm-gc`, and `native` with the pinned toolchain, without claiming behavioral compatibility from interface text alone.
 - [ ] **COMP-02**: The compatibility gate classifies every candidate public-interface delta as exact, additive, incompatible, or unknown using deterministic, documented rules.
-- [ ] **COMP-03**: The candidate-version policy permits patch releases only without incompatible public-interface deltas, requires a minor release for additive public API, and requires both a minor release and migration note for an incompatible pre-1.0 change.
-- [ ] **COMP-04**: The release gate fails closed on incompatible or unknown deltas unless the required version change, changelog entry, migration evidence, and RFC evidence are present.
+- [ ] **COMP-03**: The candidate-version policy governs public-interface, supported-target, minimum-toolchain, and dependency-floor changes; it permits patch releases only without incompatible deltas, requires a minor release for additive public API, and requires both a minor release and migration note for an incompatible pre-1.0 change.
+- [ ] **COMP-04**: The release gate fails closed on incompatible or unknown deltas unless the required version change, changelog entry, and migration evidence are present, plus RFC evidence when module boundaries, architecture, or governance rules require it.
 
 ### Release Control
 
-- [ ] **REL-01**: The credential-free Required path produces an immutable release intent that binds the source commit and tag, ordered module versions, exact dependency versions, package inventory, archive digests, interface-baseline digests, and qualification evidence.
-- [ ] **REL-02**: The credentialed publisher accepts only an authorized exact release intent from a trusted ref and exposes a least-privilege Mooncakes credential only to the isolated publication step.
-- [ ] **REL-03**: A monotonic release journal prevents concurrent, replayed, duplicate, or dependency-order-violating publication transitions while preserving completed module checkpoints.
-- [ ] **REL-04**: After an ambiguous timeout or failed publication, the release workflow re-observes the registry and compares external state with the authorized intent before retrying any mutation.
-- [ ] **REL-05**: Partial or mismatched releases have a documented forward-only recovery path using a corrected version and advisory; automation does not assume overwrite, delete, unpublish, or yank support.
+- [ ] **REL-01**: The credential-free Required path produces an immutable release intent that binds one authorized release tag/ref name to an exact source commit, ordered module versions, exact dependency versions, package inventory, archive digests, interface-baseline digests, and qualification evidence.
+- [ ] **REL-02**: The credentialed publisher accepts only the sole maintainer's explicit authorization of one exact intent from a protected trusted ref; all third-party actions are full-SHA pinned, default permissions are read-only, and a least-privilege Mooncakes credential is exposed only to the isolated publication step.
+- [ ] **REL-03**: A release-wide global serialization lock and monotonic journal prevent concurrent, replayed, duplicate, cancelled-in-progress, or dependency-order-violating publication transitions while preserving completed module checkpoints.
+- [ ] **REL-04**: Credential-free negative rehearsals cover timeout, partial success, existing-version mismatch, invalid credential, and evidence failure; after an ambiguous or failed publication the real workflow re-observes and compares registry state with the authorized intent before retrying any mutation.
+- [ ] **REL-05**: Recovery preserves a correctly published checkpoint and continues downstream, re-observes an unknown outcome, re-authorizes a corrected unpublished intent, and stops with incident evidence plus a forward corrected version and advisory when published content mismatches intent; automation never assumes overwrite, delete, unpublish, or yank support.
 
 ### Registry Distribution
 
-- [ ] **DIST-01**: After `mb-core` publication, a fresh registry-only consumer resolves its exact version and passes a stable public-API assertion on all four supported targets before `mb-color` may publish.
-- [ ] **DIST-02**: After `mb-color` publication, a fresh registry-only consumer resolves its exact version plus the intended published `mb-core` dependency and passes a stable public-API assertion on all four targets before `mb-image` may publish.
+- [ ] **DIST-01**: After `mb-core` publication, a fresh registry-only consumer resolves its exact version and passes a deterministic public behavioral assertion on all four supported targets before `mb-color` may publish.
+- [ ] **DIST-02**: After `mb-color` publication, a fresh registry-only consumer resolves its exact version plus the intended published `mb-core` dependency and passes a deterministic public behavioral assertion on all four targets before `mb-image` may publish.
 - [ ] **DIST-03**: After `mb-image` publication, a fresh registry-only consumer resolves the exact full dependency graph and passes the bounded PPM public stack on all four supported targets.
-- [ ] **DIST-04**: Every distribution proof starts outside the repository with no `moon.work`, path dependency, copied source, or warm-cache-only success, and records the resolved dependency graph, toolchain, target results, and behavioral assertion.
+- [ ] **DIST-04**: Every distribution proof starts outside the repository with an isolated cold Moon home, no publisher credential, `moon.work`, path dependency, copied source, or Git fallback, and records registry-visible metadata, the strongest available package identity, resolved dependencies, toolchain, target results, and behavioral assertion.
 
 ### Provenance and Closure
 
 - [ ] **PROV-01**: Every published module version has an immutable ledger entry linking its registry identity, source commit and tag, package inventory, exact dependency graph, archive digest, interface-baseline digest, pinned toolchain, qualification report, and consumer proof.
-- [ ] **PROV-02**: Standard artifact provenance for every qualified archive verifies successfully against the expected repository, workflow identity, source ref, and SHA-256 digest; provenance is not treated as proof of compatibility or correctness.
-- [ ] **PROV-03**: Every module README and changelog documents its exact install/import commands, candidate status, supported targets and toolchain, public-interface change class, support route, security-reporting route, and migration note when required.
-- [ ] **PROV-04**: Final milestone closure repeats the full credential-free Required gate from the release source, verifies all ledger and registry evidence, detects no tracked mutation or secret leakage, and confirms that no new module family entered v0.2.
+- [ ] **PROV-02**: Standard artifact provenance and a closed evidence manifest for every qualified archive verify outside the producer job against the expected repository, workflow identity, source ref, and SHA-256 digest; provenance is not treated as proof of compatibility or correctness.
+- [ ] **PROV-03**: Each module's published documentation set collectively provides exact install/import commands, candidate status, supported targets and toolchain, public-interface change class, support and security-reporting routes, changelog, and migration note when required, and the registry renders the intended public metadata.
+- [ ] **PROV-04**: Final closure verifies immutable release tag/assets, rehearses provenance and recovery failures, repeats the full credential-free Required gate from the release source, proves publication/verification did not mutate that source or leak secrets, validates all ledger and registry evidence, and confirms that no new module family entered v0.2.
 
 ## Future Requirements
 
@@ -72,28 +72,28 @@
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| REG-01 | TBD | Pending |
-| REG-02 | TBD | Pending |
-| REG-03 | TBD | Pending |
-| COMP-01 | TBD | Pending |
-| COMP-02 | TBD | Pending |
-| COMP-03 | TBD | Pending |
-| COMP-04 | TBD | Pending |
-| REL-01 | TBD | Pending |
-| REL-02 | TBD | Pending |
-| REL-03 | TBD | Pending |
-| REL-04 | TBD | Pending |
-| REL-05 | TBD | Pending |
-| DIST-01 | TBD | Pending |
-| DIST-02 | TBD | Pending |
-| DIST-03 | TBD | Pending |
-| DIST-04 | TBD | Pending |
-| PROV-01 | TBD | Pending |
-| PROV-02 | TBD | Pending |
-| PROV-03 | TBD | Pending |
-| PROV-04 | TBD | Pending |
+| REG-01 | Phase 6 | Pending |
+| REG-02 | Phase 6 | Pending |
+| REG-03 | Phase 6 | Pending |
+| COMP-01 | Phase 6 | Pending |
+| COMP-02 | Phase 6 | Pending |
+| COMP-03 | Phase 6 | Pending |
+| COMP-04 | Phase 6 | Pending |
+| REL-01 | Phase 7 | Pending |
+| REL-02 | Phase 7 | Pending |
+| REL-03 | Phase 7 | Pending |
+| REL-04 | Phase 7 | Pending |
+| REL-05 | Phase 7 | Pending |
+| DIST-01 | Phase 8 | Pending |
+| DIST-02 | Phase 8 | Pending |
+| DIST-03 | Phase 8 | Pending |
+| DIST-04 | Phase 8 | Pending |
+| PROV-01 | Phase 9 | Pending |
+| PROV-02 | Phase 9 | Pending |
+| PROV-03 | Phase 6 | Pending |
+| PROV-04 | Phase 9 | Pending |
 
-**Coverage:** 0/20 requirements mapped (roadmap pending)
+**Coverage:** 20/20 requirements mapped exactly once
 
 ---
 *Requirements defined: 2026-07-17*

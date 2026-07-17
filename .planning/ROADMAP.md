@@ -3,6 +3,7 @@
 ## Milestones
 
 - ✅ **v0.1 Foundation** — Phases 1-5, 41 plans, 36/36 requirements (shipped 2026-07-17). Full history: [v0.1 roadmap](./milestones/v0.1-ROADMAP.md).
+- 🚧 **v0.2 Publication & Compatibility** — Phases 6-9, 20 requirements (planning).
 
 ## Phases
 
@@ -17,10 +18,105 @@
 
 </details>
 
+### 🚧 v0.2 Publication & Compatibility (In Progress)
+
+**Milestone goal:** Publish the three v0.1 modules through a fail-closed, compatibility-aware, recoverable release path and prove exact registry consumption with immutable evidence.
+
+- [ ] **Phase 6: Namespace Authority and Compatibility Contract** — Verify registry authority and establish deterministic public-interface, versioning, and publication-documentation contracts.
+- [ ] **Phase 7: Release Safety, Intent, and Recovery Automation** — Bind publication to an exact credential-free intent and a resumable, forward-only state machine.
+- [ ] **Phase 8: Ordered Mooncakes Publication and Registry Consumers** — Publish the three modules in dependency order and prove cold registry-only consumption.
+- [ ] **Phase 9: Provenance, Immutable Closure, and Milestone Audit** — Close the source-to-registry evidence chain and audit the completed milestone.
+
+## Phase Details
+
+### Phase 6: Namespace Authority and Compatibility Contract
+
+**Goal:** The sole maintainer has a verified, fail-closed registry authority contract and a machine-checkable compatibility contract before any credentialed production publication.
+
+**Depends on:** Phase 5
+
+**Requirements:** REG-01, REG-02, REG-03, COMP-01, COMP-02, COMP-03, COMP-04, PROV-03
+
+**Success Criteria:**
+
+1. The sole maintainer can inspect sanitized repository-bound authority evidence and a credential-redacted capability matrix that classifies current authentication, token scope, dry-run, immutability, propagation, artifact identity, and destructive-recovery semantics as documented, safely observed, or unknown without consuming a production module version.
+2. A release gate rejects missing or drifted namespace authority, canonical module identity, pinned toolchain identity, exact version availability, authenticated publish seam, or registry observation and resolution; every other unknown capability has an explicit fail-closed or forward-only disposition.
+3. Canonical public-interface baselines for every public package are reproducibly generated across `js`, `wasm`, `wasm-gc`, and `native` and remain identical across clean runs with the pinned toolchain without being presented as behavioral compatibility proof.
+4. Candidate deltas, including supported-target, minimum-toolchain, and dependency-floor changes, are deterministically classified and the gate enforces the required version, changelog, migration, and conditional RFC evidence.
+5. Each module's publication documentation contract covers exact install and import commands, candidate status, targets and toolchain, change class, changelog, support and security routes, migration notes when required, and intended registry-rendered metadata.
+
+**Plans:** TBD
+
+### Phase 7: Release Safety, Intent, and Recovery Automation
+
+**Goal:** The sole maintainer can authorize one exact credential-free release intent and safely execute or resume an isolated publisher state machine.
+
+**Depends on:** Phase 6
+
+**Requirements:** REL-01, REL-02, REL-03, REL-04, REL-05
+
+**Success Criteria:**
+
+1. Required produces an immutable, credential-free release intent binding one authorized release tag/ref to the exact source commit, ordered module versions and dependencies, package inventories and archive digests, interface-baseline digests, and qualification evidence.
+2. The publisher accepts only the sole maintainer's explicit authorization of that exact intent from a protected trusted ref; third-party actions are full-SHA pinned, default permissions are read-only, and the least-privilege Mooncakes credential reaches only the isolated mutation step.
+3. A release-wide serialization lock and monotonic journal prevent concurrent, replayed, duplicate, cancelled-in-progress, and dependency-order-violating transitions while preserving completed checkpoints.
+4. Credential-free negative rehearsals cover timeout, partial success, existing-version mismatch, invalid credential, and evidence failure; ambiguous real failures trigger registry re-observation before any retry, and mismatches stop with incident evidence plus a forward corrected version and advisory.
+
+**Plans:** TBD
+
+### Phase 8: Ordered Mooncakes Publication and Registry Consumers
+
+**Goal:** All three modules are genuinely published and independently consumable from Mooncakes in strict dependency order.
+
+**Depends on:** Phase 7
+
+**Requirements:** DIST-01, DIST-02, DIST-03, DIST-04
+
+**Success Criteria:**
+
+1. `mb-core` is published first, then a fresh cold registry-only consumer resolves its exact version and passes a deterministic public behavioral assertion across all four supported targets before `mb-color` publication begins.
+2. `mb-color` is published next, then a fresh consumer resolves its exact version and intended published `mb-core` dependency and passes across all four targets before `mb-image` publication begins.
+3. `mb-image` is published last, then a fresh consumer resolves the exact full dependency graph and passes the bounded PPM public stack across all four targets.
+4. Every proof runs outside the repository with an isolated cold Moon home and no publisher credential, `moon.work`, path dependency, copied source, Git fallback, or warm-cache-only success, and records registry metadata, strongest available package identity, resolved graph, toolchain, target results, and behavioral assertion.
+
+**Plans:** TBD
+
+### Phase 9: Provenance, Immutable Closure, and Milestone Audit
+
+**Goal:** Published versions have verified immutable provenance and documentation, and milestone closure proves the complete evidence chain without broadening v0.2 scope.
+
+**Depends on:** Phase 8
+
+**Requirements:** PROV-01, PROV-02, PROV-04
+
+**Success Criteria:**
+
+1. Every module version has an immutable ledger entry linking registry identity, source commit and tag, package inventory, exact dependencies, archive and interface digests, pinned toolchain, qualification report, and consumer proof.
+2. Standard artifact provenance and a closed evidence manifest verify outside the producer job against the expected repository, workflow identity, source ref, and archive digest while remaining explicitly separate from compatibility and correctness evidence.
+3. Closure verifies immutable release tags and assets and rehearses provenance and recovery failures so broken identity, evidence, or recovery paths fail closed.
+4. Final closure reruns credential-free Required from the release source, verifies ledger and registry evidence, proves publication and verification caused no source mutation or secret leakage, confirms no new module family entered v0.2, and passes the milestone audit.
+
+**Plans:** TBD
+
+## Progress
+
+**Execution order:** 6 → 7 → 8 → 9
+
+| Phase | Milestone | Plans Complete | Status | Completed |
+|-------|-----------|----------------|--------|-----------|
+| 1. Foundation Charter and Reproducible Workspace | v0.1 | 8/8 | Complete | 2026-07-16 |
+| 2. Bounded Core Primitives | v0.1 | 8/8 | Complete | 2026-07-17 |
+| 3. Reference Color Semantics | v0.1 | 8/8 | Complete | 2026-07-17 |
+| 4. Image Model, Views, and Operations | v0.1 | 9/9 | Complete | 2026-07-17 |
+| 5. Reference Codec and Release Qualification | v0.1 | 8/8 | Complete | 2026-07-17 |
+| 6. Namespace Authority and Compatibility Contract | v0.2 | 0/TBD | Not started | — |
+| 7. Release Safety, Intent, and Recovery Automation | v0.2 | 0/TBD | Not started | — |
+| 8. Ordered Mooncakes Publication and Registry Consumers | v0.2 | 0/TBD | Not started | — |
+| 9. Provenance, Immutable Closure, and Milestone Audit | v0.2 | 0/TBD | Not started | — |
+
 ## Stable Audit Anchors
 
 - **phase-1-foundation-charter-and-reproducible-workspace:** Archived with its complete source inventory under `.planning/milestones/v0.1-phases/`.
 
-## Next Milestone
-
-No next milestone is active. Use `/gsd-new-milestone` after deciding whether the next cycle is candidate publication or a new RFC-led ecosystem layer.
+---
+*Roadmap updated: 2026-07-17 for v0.2 Publication & Compatibility*
