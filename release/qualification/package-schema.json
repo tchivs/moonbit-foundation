@@ -1,0 +1,100 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://moonbit-foundation.invalid/schemas/release-qualification-1.0.0.json",
+  "title": "MNF deterministic release qualification report",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "head", "module_order", "copies", "modules", "post_publish_order", "publication", "tracked_diff_unchanged"],
+  "properties": {
+    "schema_version": { "const": "1.0.0" },
+    "head": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+    "module_order": { "const": ["mb-core", "mb-color", "mb-image"] },
+    "copies": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["copy_a", "copy_b"],
+      "properties": {
+        "copy_a": { "$ref": "#/$defs/copy" },
+        "copy_b": { "$ref": "#/$defs/copy" }
+      }
+    },
+    "modules": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["mb-core", "mb-color", "mb-image"],
+      "properties": {
+        "mb-core": { "$ref": "#/$defs/coreModule" },
+        "mb-color": { "$ref": "#/$defs/downstreamModule" },
+        "mb-image": { "$ref": "#/$defs/downstreamModule" }
+      }
+    },
+    "post_publish_order": {
+      "const": [
+        "publish:moonbit-foundation/mb-core@0.1.0",
+        "resolve:moonbit-foundation/mb-core@0.1.0",
+        "publish:moonbit-foundation/mb-color@0.1.0",
+        "resolve:moonbit-foundation/mb-color@0.1.0",
+        "publish:moonbit-foundation/mb-image@0.1.0",
+        "resolve:moonbit-foundation/mb-image@0.1.0"
+      ]
+    },
+    "publication": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["performed", "credentials_read", "namespace_verified", "blocked_reason"],
+      "properties": {
+        "performed": { "const": false },
+        "credentials_read": { "const": false },
+        "namespace_verified": { "const": false },
+        "blocked_reason": { "const": "unverified_mooncakes_owner_namespace" }
+      }
+    },
+    "tracked_diff_unchanged": { "const": true }
+  },
+  "$defs": {
+    "copy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["head", "clean", "moon_work_unchanged"],
+      "properties": {
+        "head": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+        "clean": { "const": true },
+        "moon_work_unchanged": { "const": true }
+      }
+    },
+    "package": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["ordered_list", "archive_entries", "sha256", "size", "zip_bytes_equal", "manifest_exact"],
+      "properties": {
+        "ordered_list": { "type": "array", "minItems": 1, "items": { "type": "string" }, "uniqueItems": true },
+        "archive_entries": { "type": "array", "minItems": 1, "items": { "type": "string" }, "uniqueItems": true },
+        "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+        "size": { "type": "integer", "minimum": 1 },
+        "zip_bytes_equal": { "const": true },
+        "manifest_exact": { "const": true }
+      }
+    },
+    "coreModule": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["package", "artifact_consumer", "registry_resolution"],
+      "properties": {
+        "package": { "$ref": "#/$defs/package" },
+        "artifact_consumer": { "const": "pass" },
+        "registry_resolution": { "const": "not_required_no_dependencies" }
+      }
+    },
+    "downstreamModule": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["package", "source_isolation", "artifact_consumer", "registry_resolution"],
+      "properties": {
+        "package": { "$ref": "#/$defs/package" },
+        "source_isolation": { "const": "pass" },
+        "artifact_consumer": { "const": "blocked_unpublished_dependency" },
+        "registry_resolution": { "const": "blocked_unpublished_namespace" }
+      }
+    }
+  }
+}
