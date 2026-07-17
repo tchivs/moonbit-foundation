@@ -5,16 +5,16 @@ milestone_name: Publication & Compatibility
 current_phase: 6
 current_phase_name: Namespace Authority and Compatibility Contract
 status: executing
-stopped_at: Completed 06-09-PLAN.md; ready for 06-10
-last_updated: "2026-07-17T10:45:05.459Z"
+stopped_at: Completed 06-25-PLAN.md; resume 06-13 Task 2
+last_updated: "2026-07-17T11:07:52.881Z"
 last_activity: 2026-07-17
-last_activity_desc: canonical examples and benchmark qualified with explicit native runtime gap
+last_activity_desc: canonical metadata prerequisite repaired for resumed release qualification
 progress:
   total_phases: 4
   completed_phases: 0
-  total_plans: 24
-  completed_plans: 8
-  percent: 33
+  total_plans: 25
+  completed_plans: 9
+  percent: 36
 ---
 
 # Project State
@@ -30,16 +30,16 @@ See `.planning/PROJECT.md` (updated 2026-07-17).
 ## Current Position
 
 Phase: 6 (Namespace Authority and Compatibility Contract) — EXECUTING
-Plan: 8 of 24 complete; next 06-10
+Plan: 9 of 25 complete; next 06-13
 Status: Executing credential-free personal namespace migration
-Last activity: 2026-07-17 — canonical examples and benchmark qualified with an explicit native runtime gap
+Last activity: 2026-07-17 — canonical metadata prerequisite repaired for resumed release qualification
 
 ## Progress
 
-Current milestone: [███░░░░░░░] 33% of planned Phase 6 work
+Current milestone: [████░░░░░░] 36% of planned Phase 6 work
 
 - v0.2 phases completed: 0/4
-- v0.2 plans completed: 8/24
+- v0.2 plans completed: 9/25
 - v0.2 requirements mapped: 21/21
 - Historical total: 5 completed phases, 41 completed plans, 36/36 v0.1 requirements validated
 
@@ -60,6 +60,7 @@ Current milestone: [███░░░░░░░] 33% of planned Phase 6 work
 - [Phase 06]: Use disposable complete-import overlays only for transitional wave verification; never broaden tracked plan scope. — The main moon.work intentionally contains later-wave old-owner members until their owning plans execute.
 - [Phase 06]: Use disposable modules-only workspaces for staged source-graph verification while example consumers remain owned by 06-09. — Moon parent-workspace discovery otherwise resolves intentionally unmigrated example identities before module checks.
 - [Phase 06]: Keep native runtime verification fail-closed by default; compile-only requires explicit opt-in. — This machine lacks a system C compiler, and compile-only evidence must never be equivalent to linking or runtime-output proof.
+- [Phase 06]: Treat the tchivs GitHub repository URL as intended metadata only until an explicit external liveness gate verifies it. — Plan 06-25 is credential-free and cannot create, authenticate to, or prove the repository.
 
 ### Pending Decisions
 
@@ -72,15 +73,15 @@ Current milestone: [███░░░░░░░] 33% of planned Phase 6 work
 
 ## Session Continuity
 
-**Resume file:** .planning/phases/06-namespace-authority-and-compatibility-contract/06-10-PLAN.md
+**Resume file:** .planning/phases/06-namespace-authority-and-compatibility-contract/06-13-PLAN.md
 
-Last session: 2026-07-17T10:45:05.438Z
-Stopped at: Completed 06-09-PLAN.md; ready for 06-10
+Last session: 2026-07-17T11:07:52.851Z
+Stopped at: Completed 06-25-PLAN.md; resume 06-13 Task 2
 Resume with: `/gsd-execute-phase 6`
 
 ## Operator Next Steps
 
-- Execute 06-10 next to migrate active public documentation onto the canonical source graph.
+- Resume 06-13 at Task 2 using the canonical four-file prerequisite repair while preserving partial commit `9f05754`.
 - Resume revised 06-01 only after the credential-free chain through 06-11; execute 06-06 only after both complete.
 
 ## Performance Metrics
@@ -91,3 +92,4 @@ Resume with: `/gsd-execute-phase 6`
 | Phase 06 P12 | 12m | 2 tasks | 4 files |
 | Phase 06 P08 | 18m | 3 tasks | 15 files |
 | Phase 06 P09 | 18m | 2 tasks | 8 files |
+| Phase 06 P25 | 13m | 2 tasks | 4 files |
