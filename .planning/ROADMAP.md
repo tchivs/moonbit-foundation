@@ -45,7 +45,7 @@
 4. Candidate deltas, including supported-target, minimum-toolchain, and dependency-floor changes, are deterministically classified and the gate enforces the required version, changelog, migration, and conditional RFC evidence.
 5. Before publication, each module's source documentation contract covers exact install and import commands, candidate status, targets and toolchain, change class, changelog, support and security routes, migration notes when required, and the intended registry metadata source; actual Mooncakes rendering proof is deferred to PROV-05 after publication.
 
-**Plans:** 10/25 plans executed
+**Plans:** 11/25 plans executed
 **Completed foundation**
 
 - [x] 06-02-PLAN.md — Define baseline contracts and mechanically generate 17-package × 4-target interface evidence.
@@ -88,7 +88,7 @@
 
 **Wave 11 — public documentation truth** *(depends on Wave 10)*
 
-- [ ] 06-10-PLAN.md — Reconcile the explicit project, research, and module documentation set while preserving branding.
+- [x] 06-10-PLAN.md — Reconcile the explicit project, research, and module documentation set while preserving branding.
 
 **Wave 12 — shared routes and collective validators** *(depends on Wave 11)*
 
@@ -209,7 +209,7 @@
 | 3. Reference Color Semantics | v0.1 | 8/8 | Complete | 2026-07-17 |
 | 4. Image Model, Views, and Operations | v0.1 | 9/9 | Complete | 2026-07-17 |
 | 5. Reference Codec and Release Qualification | v0.1 | 8/8 | Complete | 2026-07-17 |
-| 6. Namespace Authority and Compatibility Contract | v0.2 | 10/25 | In Progress|  |
+| 6. Namespace Authority and Compatibility Contract | v0.2 | 11/25 | In Progress |  |
 | 7. Release Safety, Intent, and Recovery Automation | v0.2 | 0/TBD | Not started | — |
 | 8. Ordered Mooncakes Publication and Registry Consumers | v0.2 | 0/TBD | Not started | — |
 | 9. Provenance, Immutable Closure, and Milestone Audit | v0.2 | 0/TBD | Not started | — |
