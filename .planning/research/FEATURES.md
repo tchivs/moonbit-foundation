@@ -1,280 +1,197 @@
-# Feature Landscape: MoonBit Native Foundation
+# Feature Landscape
 
-**Research date:** 2026-07-16  
-**Scope:** RFC-led MoonBit infrastructure for graphics, image, color, documents, font/text, AI/automation, CLI/MCP, Native, and WebAssembly consumers  
-**Decision horizon:** v0.1 Foundation, with later-module boundaries recorded to avoid foundational lock-in
+**Domain:** High-integrity MoonBit library publication and compatibility
+**Milestone:** v0.2 Publication & Compatibility
+**Researched:** 2026-07-17
+**Overall confidence:** MEDIUM — official MoonBit, GitHub, SLSA, Sigstore, and SemVer sources establish the mechanics and security model; mooncakes.io does not publicly document several recovery and immutability behaviors, so those must be proven against the live registry.
 
-## Executive conclusion
+## Executive Recommendation
 
-MNF should compete first on **coherent contracts, portability discipline, and evidence**, not on format count. The credible v0.1 product is a small but end-to-end usable substrate: bounded byte/stream operations, structured diagnostics, explicit color and alpha semantics, checked image storage/views, deterministic transforms, and one deliberately simple reference codec. It must build and test against an explicit MoonBit target matrix and remain usable without a GUI, filesystem, network, or process-global state.
+v0.2 should do one thing exceptionally well: turn the already-qualified `0.1.0` candidates into three genuinely consumable registry modules whose published bytes, dependency graph, source revision, public interfaces, and recovery state can be independently verified. Do not add library features or a new module family.
 
-The strongest differentiator is not "implemented in MoonBit" alone. It is that the same well-specified models can be used by Native CLI tools and portable Wasm consumers, while host access and foreign code stay behind narrow capability adapters. MoonBit officially supports `wasm`, `wasm-gc`, `js`, and `native`; the build system can declare supported targets per package and `--target all` covers those four targets but not experimental LLVM. That makes package-level portability a buildable contract rather than a marketing claim. [MoonBit documentation](https://docs.moonbitlang.com/en/latest/) · [package configuration](https://docs.moonbitlang.com/en/latest/toolchain/moon/package.html)
+The minimum credible sequence is: verify the owner namespace and exact public names; freeze normalized public-interface baselines; qualify immutable package inputs; publish `mb-core`, then consume it outside the workspace; publish `mb-color`, then consume it against the registry `mb-core`; publish `mb-image`, then consume the complete registry graph; finally attach provenance and close the release ledger. Each step must be resumable without republishing an already-successful version.
 
-Conversely, attempting PNG, ICC, SVG, font shaping, PDF, GPU, AI runtimes, or MCP transport completeness in v0.1 would obscure the foundation and multiply conformance/security obligations before its core types are proven. Those domains should influence interfaces now but be implemented in later milestones.
+The strongest differentiator is not merely automation. It is a fail-closed evidence chain from source commit to deterministic package digest to registry resolution to clean four-target external consumers. Automation should minimize credential exposure and human error, but the mooncakes token remains a protected, isolated credential unless and until the registry officially supports a tokenless/OIDC publishing flow.
 
-## Product lens
+## Table Stakes
 
-MNF is not a consumer feature checklist. Its "users" are library and application authors, and its value is measured by whether independently developed components can share data without importing a monolith or translating between incompatible representations.
+Features users expect. Missing = the publication milestone is not credible.
 
-Three feature classes matter:
+| Feature | Why Expected | Complexity | Notes |
+|---------|--------------|------------|-------|
+| Verified owner namespace and canonical module names | Mooncakes requires published module names to begin with the publishing username; a package cannot be consumed under a placeholder identity | Med | Prove authority with the real authenticated account before changing all manifests; record identity, not the token |
+| Exact version and dependency manifests | Moon uses SemVer and minimal version selection; downstream results depend on declared versions | Med | Preserve independent versions; publish only exact named registry dependencies, never paths or workspace-only assumptions |
+| Dependency-ordered publication | `mb-color` needs published `mb-core`; `mb-image` needs published lower layers | Med | Hard order: core → core consumer → color → color consumer → image → full consumer |
+| Package-content preflight | Registry publication is effectively an external mutation; accidental files or missing docs cannot be corrected by pretending the upload did not happen | Low | Gate `moon package --list --frozen`, deterministic archive digests, license, README, API docs, changelog, support, and provenance inputs |
+| Clean external registry consumers | A monorepo build does not prove real distribution | High | Create fresh projects without `moon.work`, path dependencies, copied sources, or warm local module caches; add exact versions and import public packages |
+| Four-target compatibility consumers | MNF promises `js`, `wasm`, `wasm-gc`, and `native` portability | Med | External consumers must check/test every claimed target, not just Native |
+| Public API baselines | Candidate evolution needs a precise, reviewable public surface | Med | Generate `moon info --target all --no-alias`; normalize and freeze `.mbti` output per module/package/target |
+| Candidate-version change rules | SemVer alone permits broad change during major zero and does not define MoonBit-specific source compatibility | Med | MNF policy: patch = no incompatible public-interface delta; additive candidate API = minor; incompatible change = minor plus migration note until 1.0 |
+| Metadata and discovery completeness | Mooncakes displays README and manifest metadata | Low | Require SPDX license, description, keywords, repository, homepage, supported targets, install/import snippet, and exact-version example |
+| Changelog and migration notes | Consumers must understand what changed and whether action is required | Low | One changelog per independent module; link every interface delta to a version classification and migration note when incompatible |
+| Support and security contact | Published foundations need an actionable maintenance path | Low | State support scope, issue location, vulnerability-reporting path, supported toolchain/targets, and response expectations without promising an organization-sized SLA |
+| Least-privilege release job | Publication credentials must not be exposed to untrusted code or unrelated jobs | Med | Protected tag/manual environment; read-only by default; isolate the mooncakes token only in the publish step; pin actions to full SHAs |
+| Artifact provenance and digest binding | Consumers need evidence that an artifact came from the intended source and builder | Med | Attest the exact deterministic package archives/digests with source commit, builder identity, parameters, and resolved dependencies |
+| Post-publication verification | A successful CLI exit is not proof that registry content resolves correctly | High | Query the registry, add the exact version in a clean consumer, verify metadata and interfaces, and compare the observed artifact/digest when the registry exposes it |
+| Safe retry and recovery state machine | Network and registry failures can leave partial success across three modules | High | Persist states such as `qualified`, `published`, `registry_verified`, `consumer_verified`; re-observe external state before every retry |
+| Immutable release ledger | Publication evidence must survive CI log expiry and distinguish facts from intentions | Med | Record source/tag, module/version, package digest, API baseline digest, registry URL/identity, provenance identity, consumer result, and recovery disposition |
 
-1. **Foundation behavior:** byte access, limits, errors, color, pixels, storage, views, transforms, codecs, target declarations.
-2. **Ecosystem behavior:** publication boundaries, versioning, documentation, conformance fixtures, benchmarks, governance.
-3. **Deferred domain behavior:** drawing, scene/document parsing, fonts/text, AI adapters, MCP exposure, GPU acceleration.
+## External-Consumer Expectations
 
-The first two belong in v0.1. The third must have clear dependency boundaries, but not implementations.
+An external-consumer proof is valid only if all of the following are true:
 
-## Table stakes
+1. It starts from a newly created directory outside the MNF repository and does not inherit `moon.work`.
+2. It resolves the exact published module version through mooncakes.io using the documented `moon add`/manifest flow.
+3. It imports and exercises only public package names and public APIs.
+4. It checks or tests `js`, `wasm`, `wasm-gc`, and `native` with the pinned compatibility toolchain.
+5. For `mb-color` and `mb-image`, its dependency tree shows the intended published lower-layer versions rather than local substitution.
+6. It records module/version, resolved dependency tree, toolchain, target results, and a stable behavioral assertion.
+7. It runs once from a deliberately clean module cache or isolated Moon home; a warm-cache rerun may supplement but never replace this proof.
 
-These are minimum expectations for a reusable infrastructure foundation. Missing any of them makes adoption risky even if demos work.
-
-| Capability | Minimum credible behavior | Why it is table stakes | v0.1 disposition |
-|---|---|---|---|
-| Explicit target support | Every public package declares supported backends; CI exercises each declared backend | MoonBit packages can be filtered and validated by backend, and reachable dependencies must support the selected backend | **Ship** |
-| Reproducible multi-module workspace | One `moon.work`, independently identifiable modules/packages, workspace-wide check/test, module-local publication | MoonBit workspaces are designed for multiple modules in one repository while publication remains module-scoped | **Ship** |
-| Stable byte model | Owned bytes plus immutable/mutable views or slices; offsets and lengths use checked arithmetic | Every image/document/font parser depends on safe byte ranges | **Ship** |
-| Bounded stream abstractions | Reader, writer, seek where available, exact/partial reads, bounded sub-readers, in-memory implementations | Parsers must not assume a filesystem or full buffering; Wasm host I/O varies | **Ship** |
-| Structured errors and diagnostics | Machine-readable category/code, byte offset/context, deterministic rendering, no process termination for recoverable input failures | CLI, IDE, agent, and MCP consumers need errors they can inspect, not scrape | **Ship** |
-| Resource budgets | Explicit limits for allocation, dimensions, pixel count, bytes consumed, nesting/recursion hooks | Untrusted media and documents can trigger oversized allocations before later parsers exist | **Ship** |
-| Explicit color semantics | Component type, color-space identity, transfer function, alpha convention; conversion errors are visible | "RGBA" is not interoperable unless color space and alpha representation are known | **Ship, narrow set** |
-| Explicit image layout | Dimensions, pixel format, channel order, bit depth, endianness, planes, row stride, color space, alpha representation | Consumers need to interpret and share image memory without guessing | **Ship** |
-| Checked image storage and views | Overflow-safe allocation, owned storage, borrowed crop/view, row access, bounds validation | Copy-only images are expensive; unconstrained views are unsafe | **Ship** |
-| Deterministic reference operations | Crop/view, copy, nearest-neighbor resize, orientation/flip, basic pixel conversion with specified rounding | A data model needs executable semantics and cross-target golden tests | **Ship** |
-| Codec boundary | Probe/decode/encode contracts accept streams/options/limits and return metadata/diagnostics; codecs are separate dependencies | Format support must not turn `mb-image` into a monolith | **Ship interface** |
-| Minimal reference codec | One simple, auditable codec or fixture adapter proving streaming, limits, image construction, and round-trip behavior | Without an end-to-end path the abstractions remain speculative | **Ship PPM P6 subset** |
-| Documentation and runnable examples | Public API docs, Native CLI example, portable/in-memory example, compatibility matrix | Infrastructure adoption depends on discoverability and proven composition | **Ship** |
-| Conformance and benchmark harness | Golden/property/negative/limit tests plus declared benchmark workloads and environment | Correctness and performance must be evidence-backed | **Ship harness + baselines** |
-| Versioning and changelog | Per-publishable-unit version, stability marker, changelog; stable APIs obey SemVer | Independent publication requires explicit compatibility expectations | **Ship process** |
-
-### Standards-derived details that must shape the table stakes
-
-- **Color and alpha:** CSS Color 4 standardizes multiple RGB and device-independent spaces, distinguishes color-space conversion from interpolation, and specifies premultiplication for interpolation with alpha. MNF does not need CSS syntax in v0.1, but it must not collapse color space, transfer function, and alpha representation into an unlabeled tuple. [CSS Color Module Level 4](https://www.w3.org/TR/css-color-4/)
-- **Image formats are richer than pixel buffers:** PNG supports grayscale, truecolor, indexed color, optional alpha, 1–16-bit samples, streaming, integrity checking, and embedded color information. These requirements justify extensible pixel/metadata/codec contracts, while simultaneously showing why full PNG is not a suitable "minimal codec" milestone item. [PNG Specification, Third Edition](https://www.w3.org/TR/png-3/)
-- **Reference codec choice:** Netpbm describes PPM as a deliberately simple lowest-common-denominator RGB format that is easy to write and analyze, while also documenting its inefficiency and weak metadata. A strict, bounded P6 subset is useful as a harness adapter, not as a flagship production codec. [Netpbm PPM specification](https://netpbm.sourceforge.net/doc/ppm.html)
-- **Host capability separation:** MoonBit's FFI documentation notes that the outside world differs across C, JavaScript, Wasm, and WasmGC hosts, and Wasm interactions depend on imports from a host. Therefore filesystem, clock, environment, logging sinks, and similar facilities must be injected capabilities rather than assumptions in portable packages. [MoonBit FFI documentation](https://docs.moonbitlang.com/en/latest/language/ffi.html)
+The final v0.2 proof should include three small consumers, not one oversized showcase: a core-only consumer, a color consumer that proves registry `mb-core`, and an image/PPM consumer that proves the full graph. This localizes failures and gives each independently publishable module its own adoption contract.
 
 ## Differentiators
 
-These features could make MNF the preferred MoonBit substrate rather than merely another utility library. They should be designed into v0.1 where inexpensive, but each must remain evidence-backed.
+Features that set MNF apart. Not universally expected, but high value for a foundation.
 
-| Differentiator | User-visible value | v0.1 action | Proof required |
-|---|---|---|---|
-| One contract across Native and portable targets | Algorithms and data models compose in CLI/server and browser/Wasm contexts | Keep `mb-core`, `mb-color`, and computational `mb-image` packages portable; isolate host adapters | Same conformance vectors pass on every declared target |
-| Capability-oriented host boundary | Library authors can supply memory, filesystem, Wasm host, or test doubles without forking parsers | Define minimal reader/writer/logging contracts and in-memory implementations | No portable package imports native stubs or assumes a path |
-| Resource safety as API, not patch | Downstream parsers inherit budgets and checked range operations by construction | Make limits mandatory/default-safe in readers, image constructors, and codec options | Adversarial tests reject overflow and excessive dimensions before allocation |
-| Representation transparency | FFI, GPU, and encoder adapters can inspect exact layout and transfer ownership deliberately | Expose validated layout descriptors; distinguish storage from view | Round-trip layout tests and documented ownership/lifetime rules |
-| Deterministic headless semantics | CI, CLI, MCP, IDE, and AI tools receive reproducible results without UI state | Specify rounding, conversion, ordering, diagnostics, and metadata preservation behavior | Cross-target golden hashes/values |
-| Reference implementation before acceleration | Later SIMD/GPU/native paths can be validated against a portable truth implementation | Keep simple MoonBit reference algorithms | Differential tests compare optimized adapters with reference results |
-| Conformance kit as a product | Third-party codecs or adapters can claim compatibility without joining the monorepo | Publish reusable fixtures, test helpers, and required behavior | External/example adapter runs the same kit |
-| Honest package-level portability | Consumers can select dependencies without discovering backend failures late | Generate a support matrix from package declarations and CI | Matrix links to passing CI jobs |
-| AI/automation-ready errors and operations | Agents can discover failures, retry safely, and serialize options/results | Use typed option/result records and stable diagnostic identifiers | JSON/tool mapping can be added later without changing core semantics |
-| RFC-governed boundaries | Contributors can extend the ecosystem without creating overlapping modules | Require RFCs for new modules and boundary-breaking changes | Accepted RFC records dependency and portability impact |
+| Feature | Value Proposition | Complexity | Notes |
+|---------|-------------------|------------|-------|
+| Source-to-registry evidence chain | A consumer can trace a resolved version to one commit, deterministic package digest, API baseline, and attested build | High | Prefer standard GitHub/SLSA attestations over a custom signature format |
+| Fail-closed compatibility classifier | Public-interface changes cannot silently pass under the wrong candidate version | High | Start with normalized `.mbti` exact/additive/removal/change rules; ambiguous syntax changes require review rather than optimistic classification |
+| Registry-real target matrix | Portability claims are proven from published packages, not workspace sources | Med | Run the same public conformance slice against all four targets after each dependency layer publishes |
+| Resumable monotonic release orchestration | A failed third publication can resume without mutating the first two releases | High | Observe-before-act and immutable per-module checkpoints make partial success recoverable |
+| Consumer-readable release manifest | Downstream automation can verify versions, targets, digests, interfaces, support status, and evidence links | Med | Keep schema small and versioned; it summarizes authoritative artifacts rather than becoming another package manager |
+| Recovery rehearsal before credentials | Failure modes are tested without risking registry mutations | Med | Exercise bad version, stale dependency, digest mismatch, missing evidence, interrupted step, and already-published-state handling in a local/fake seam |
 
-### Differentiators that are explicitly later
+## Provenance, Support, Changelog, and Recovery Contract
 
-- **Full ICC color management:** ICC publishes profile-format specifications, and proper profile parsing/transform behavior is a substantial standards and conformance domain. v0.1 should reserve profile identity/opaque metadata hooks and implement verified foundational conversions only. [International Color Consortium specifications](https://www.color.org/specification/ICC1v43_2010-12.pdf)
-- **Production PNG codec:** PNG is a strong first major image codec after the image contract stabilizes because it tests streaming, checksums, filtering, compression, multiple pixel models, alpha, and color metadata. That breadth is precisely why it belongs after v0.1.
-- **CPU reference canvas:** A deterministic headless renderer will be a major ecosystem differentiator in the Graphics program, but it depends on stable color/image semantics.
-- **Composable text pipeline:** Separating font containers, shaping-facing runs, bidi/script concerns, and layout can avoid GUI lock-in; implementation requires dedicated standards/corpus research.
-- **Automation adapters:** MCP and CLI bindings should wrap the same deterministic operations, not define parallel business APIs. MCP transport/tool implementation remains optional and above the core.
+### Provenance
 
-## Anti-features
+- Subject: each exact deterministic module archive, identified by SHA-256.
+- Source: repository URL, immutable commit, and protected release tag/ref.
+- Build: pinned MoonBit toolchain, workflow identity, declared parameters, and resolved dependencies.
+- Signer/builder: use GitHub artifact attestations or a compatible Sigstore identity; consumers must verify the expected repository/workflow identity, not merely that a signature exists.
+- Verification: publish the verification command and retain the attestation/evidence link in the release ledger.
+- Boundary: provenance proves origin and process claims; it does not prove correctness, compatibility, or registry equality without the separate qualification and consumer evidence.
 
-These are attractive-sounding capabilities that would weaken MNF if included or promised at this stage.
+### Support and changelog
 
-| Anti-feature | Why to reject | Safer alternative |
-|---|---|---|
-| "Supports every MoonBit target" at ecosystem level | Native adapters and host facilities cannot honestly share one support claim; LLVM remains outside `--target all` and experimental | Declare and test support per package |
-| "100% Pure MoonBit, zero foreign code" | OS, codec, device, and accelerator integration may require narrow FFI; purity claims invite hidden wrappers | Pure MoonBit reference/data layers plus documented replaceable adapters |
-| Umbrella module that imports everything | Increases build size, couples release cadence, and makes lightweight consumers pay for unused formats | Independent modules/packages with optional convenience bundles only after adoption evidence |
-| Universal `Image` that silently canonicalizes | Erases stride, planes, color space, alpha mode, precision, and metadata; forces costly copies | Explicit format/layout descriptor and fallible conversions |
-| Implicit sRGB or implicit alpha mode | Produces subtly wrong compositing/conversion across SVG, PNG, canvas, and UI consumers | Require color space and alpha representation in relevant types |
-| Ambient filesystem/global logger/default runtime | Breaks Wasm portability, tests, embedding, and deterministic automation | Pass capabilities and sinks explicitly |
-| Unbounded `read_all` as the parser foundation | Makes malformed or huge media an allocation hazard | Bounded readers, subranges, streaming, and explicit budgets |
-| Exceptions/process exit as recoverable parser behavior | Prevents libraries, IDEs, servers, and agents from controlling failures | Typed results plus structured diagnostics |
-| Full PNG/ICC/SVG/PDF/font stack in v0.1 | Each is a major conformance and security program; parallel implementation would freeze weak foundation contracts | One minimal codec, domain-informed interfaces, staged RFCs |
-| GUI/window/event-loop integration in core | Locks infrastructure to one application model and makes headless use second-class | Adapters above MNF, with canvas producing buffers/commands |
-| GPU-first rendering contract | Hardware APIs can distort data ownership and semantics before a CPU truth model exists | Portable CPU reference semantics, optional acceleration later |
-| Bundled AI inference runtime | Couples MNF to model formats/providers and introduces large native dependencies | Later `mb-ai` adapter contracts over stable images/tensors/streams |
-| MCP-specific types in core modules | Protocol evolution would leak into foundational APIs | Map typed deterministic operations in a separate `mb-mcp` layer |
-| Marketing performance claims | "Native" does not prove speed or memory behavior | Versioned benchmark workloads with environment and regression thresholds |
-| Stable 1.0 APIs before usage evidence | Premature compatibility freezes poor boundaries | Mark experimental APIs, graduate small interfaces based on examples/conformance |
+- Every module README must show exact install/import commands, current candidate status, supported targets/toolchain, documentation link, issue tracker, and security-reporting route.
+- Every published version gets an immutable changelog entry. Entries distinguish additive public API, compatible fix, incompatible candidate change, documentation/evidence-only change, and dependency-floor change.
+- An incompatible candidate change requires a migration note and a minor-version bump; removing or changing a public declaration in a patch release fails closed.
+- Do not claim stable `1.0`, long-term support, guaranteed response times, or compatibility beyond the tested toolchain/targets.
 
-## Feature dependencies
+### Retry and recovery
 
-The critical path is horizontal; higher-level modules should consume foundation semantics rather than redefine them.
+- Preflight is repeatable and side-effect free; publishing is a separate protected transition.
+- Before acting, query the registry. If the exact name/version exists, verify it against expected metadata/artifact evidence and advance only on a match; mismatch is an incident, never an overwrite attempt.
+- Never auto-increment a version merely to escape a failed publish. Diagnose whether the version is absent, successfully published, or published with unexpected content.
+- If core succeeds and color/image fail, preserve core as a valid published release, correct downstream manifests/evidence, and resume in order.
+- Because official mooncakes documentation reviewed here does not specify yank/delete/overwrite guarantees, v0.2 must discover and document the live behavior before relying on any of them. The default recovery is forward-only publication of a corrected new version plus an advisory, not destructive mutation.
+- Credential rotation, registry outage, partial upload, post-publish verification failure, and provenance failure each need a runbook with an explicit stop/continue rule.
+
+## Anti-Features
+
+Features to explicitly NOT build.
+
+| Anti-Feature | Why Avoid | What to Do Instead |
+|--------------|-----------|-------------------|
+| New module families or new image features | They dilute the publication milestone and create new compatibility surface before distribution works | Freeze `mb-core`, `mb-color`, and `mb-image` except compatibility/release fixes |
+| Monolithic all-modules release | It defeats independent versioning and makes partial recovery harder | Publish and verify each module as its own transition |
+| Workspace consumer presented as publication proof | Workspace substitution can hide missing or incorrect registry dependencies | Use isolated registry-only consumers without `moon.work` |
+| Automated publishing on every merge | It expands credential exposure and converts ordinary source changes into irreversible external mutations | Protected release tag/manual approval after qualification |
+| Long-lived credential in build/test jobs | Any dependency or action in those jobs could exfiltrate it | Inject the token only into the isolated publish step/environment |
+| Unpinned third-party actions | Tags can move and make the release builder non-reproducible | Pin full commit SHAs and record them in provenance |
+| Custom cryptographic signing scheme | It creates unverifiable maintenance risk and weak consumer tooling | Use GitHub artifact attestations/Sigstore-compatible standards |
+| Compatibility by source diff or test pass alone | Private edits look breaking while public semantic changes can escape tests | Compare normalized generated public interfaces and run external consumers |
+| Optimistic compatibility classification | MoonBit type/interface nuances may exceed a first classifier | Fail closed on unknown deltas and require explicit policy review |
+| Registry overwrite/yank/delete automation | Public recovery semantics are not documented strongly enough to assume safe destructive operations | Verify live capabilities; prefer forward fixes and advisories |
+| General-purpose release platform | A reusable multi-ecosystem engine is much larger than MNF v0.2 | Implement a small MNF-specific orchestrator with clear seams |
+| Broad SBOM or dependency-vulnerability program | Useful later, but three source modules with known dependencies do not justify delaying real publication | Record exact resolved dependencies/provenance now; add SBOMs when native/transitive dependencies expand |
+| Stable 1.0 promise | Three newly published candidates lack real consumer feedback | Retain candidate rules and collect adoption evidence first |
+
+## Feature Dependencies
 
 ```text
-RFC / governance / publication policy
-        │
-        ├──────────────► workspace + target-aware CI
-        │                         │
-        ▼                         ▼
-checked arithmetic ─────► byte storage/views ─────► bounded streams
-        │                         │                       │
-        │                         └───────────────┬───────┘
-        │                                         ▼
-        │                              diagnostics + resource budgets
-        │                                         │
-        ▼                                         ▼
-color component types ──► transfer functions ─► color conversions
-        │                                         │
-        └────────────────────┬────────────────────┘
-                             ▼
-                  image format/layout descriptor
-                             │
-           ┌─────────────────┼──────────────────┐
-           ▼                 ▼                  ▼
-     owned storage      borrowed views    pixel conversion
-           │                 │                  │
-           └─────────────────┼──────────────────┘
-                             ▼
-                       codec interface
-                             │
-                             ▼
-                   bounded PPM fixture codec
-                             │
-                             ▼
-              examples + conformance + benchmarks
+live namespace authority
+  → canonical module identities
+    → exact manifests + dependency versions
+      → normalized public-interface baselines
+        → deterministic package qualification
+          → protected credential boundary + release ledger
+            → publish mb-core
+              → clean core consumer
+                → publish mb-color
+                  → clean color consumer against registry core
+                    → publish mb-image
+                      → clean image consumer against full registry graph
+                        → provenance verification + final compatibility closure
 ```
 
-### Downstream dependency map
+Cross-cutting dependencies:
 
-| Later capability | Foundation contracts it requires | Boundary that must be preserved now |
-|---|---|---|
-| `mb-canvas` | color conversion, alpha mode, image views, checked dimensions, deterministic rounding | Canvas must not own windowing or redefine pixels/colors |
-| `mb-svg` | bounded streams, diagnostics, color, image/codec access, later canvas/text | Parse/resource resolution/rendering must be separable; recursion/external-resource limits explicit |
-| `mb-font` | bounded random access, checked offsets, byte views, diagnostics | Font data access must not require UI or text layout |
-| `mb-text` | font glyph contracts plus explicit script/direction/language metadata | Shaping-facing runs stay separate from block layout |
-| `mb-layout` | shaped runs, metrics, deterministic measurement | No GUI widget/event concepts |
-| `mb-pdf` | bounded seekable streams, diagnostics, filters, color, image, font/text, later canvas | Object parsing, generation, content interpretation, and rendering stay separable |
-| production codecs | codec SPI, streams, budgets, metadata, image layouts | Each codec is optional and separately testable |
-| `mb-effects` | images/views, color, alpha/compositing rules | CPU reference results precede acceleration |
-| `mb-gpu` | explicit layouts, ownership transfer, reference rendering semantics | GPU resources do not become the canonical image model |
-| `mb-ai` | image/tensor interchange, streams, deterministic preprocessing | No provider/model runtime leaks into lower layers |
-| `mb-mcp` / CLI | typed operations/options/results, diagnostics, serialization adapters | Transport and presentation remain outside core |
+```text
+support/changelog policy → package qualification → publication
+safe retry model → every external mutation
+negative recovery rehearsal → credentialed workflow enablement
+exact artifact digest → provenance attestation → post-publication evidence
+public API baseline → version classifier → manifest/changelog approval
+```
 
-## Realistic v0.1 Foundation scope
+## Minimal v0.2 Recommendation
 
-### Must ship
+Prioritize:
 
-#### 1. Charter and repository contract
+1. **Identity and compatibility freeze:** verify the live namespace; choose final names; generate normalized per-target `.mbti` baselines; codify strict major-zero change rules.
+2. **Release safety and evidence:** retain the v0.1 Required gate, qualify exact archives, isolate credentials, pin workflow dependencies, implement monotonic checkpoints, and rehearse recovery negatives.
+3. **Layered real publication:** publish core → color → image, stopping after each for a clean exact-version four-target consumer.
+4. **Provenance and closeout:** attest exact package digests, verify expected identity, publish support/changelog/recovery material, and freeze a machine-readable release ledger.
 
-- RFC 0001 accepted with terminology, dependency direction, portability classes, stability labels, RFC lifecycle, and contribution rules.
-- One MoonBit workspace containing independently identifiable `mb-core`, `mb-color`, and `mb-image` publishable units (or a documented interim package layout with an explicit split plan).
-- Per-package `supported-targets`; workspace `check` and `test` across all declared targets. MoonBit officially supports multi-module workspaces through `moon.work`, workspace-wide commands, and module-scoped publishing. [MoonBit workspace documentation](https://docs.moonbitlang.com/en/latest/toolchain/moon/workspace.html)
-- Generated API docs, changelog, license, examples, and target matrix.
-- Experimental versus stable API annotation/policy. Stable public APIs use SemVer; incompatible public API changes require a major version after 1.0. [Semantic Versioning 2.0.0](https://semver.org/)
+Defer:
 
-#### 2. `mb-core` candidate contracts
+- **Any new graphics/document/media/AI/MCP module:** distribution and compatibility must be proven first.
+- **`1.0.0` stability:** wait for external usage and at least one intentionally managed compatibility evolution.
+- **Generic release tooling:** keep the workflow specific to these three modules until reuse pressure is real.
+- **Automatic destructive registry recovery:** no reliance until mooncakes documents or live tests prove exact semantics.
+- **Full SBOM/vulnerability automation:** revisit when native adapters or meaningful transitive dependencies appear.
+- **Signing beyond exact release artifacts:** attest the artifacts consumers can actually obtain; avoid evidence volume without a verifier use case.
 
-- Checked integer operations needed for `offset + length`, `width * height`, `stride * rows`, and narrowing conversions.
-- Owned byte buffer and range-validated read-only/mutable views.
-- Reader/writer interfaces with partial and exact operations; seek as a separate capability.
-- Bounded sub-reader/window; in-memory reader/writer; explicit end-of-input behavior.
-- Resource budget types covering at least maximum bytes, allocation, dimensions/pixels, and a generic nesting counter for future parsers.
-- Structured error/diagnostic type with stable code/category, offset/range when known, cause/context, and deterministic text formatting.
-- Pluggable logging/diagnostic sink interface with a no-op default passed explicitly where needed; no process-global configuration.
-- Native filesystem adapter as a separate host-adapted package only if schedule permits; it is not required to prove portable core semantics.
+## Acceptance Evidence
 
-#### 3. `mb-color` candidate contracts
+v0.2 is feature-complete only when:
 
-- Clearly named scalar/component conventions and finite/range validation behavior.
-- `sRGB` encoded and linear-sRGB identities; XYZ D65 only if required as an explicit conversion pivot.
-- Verified sRGB transfer encode/decode and sRGB ↔ linear-sRGB conversion.
-- Straight/unassociated and premultiplied/associated alpha represented distinctly or carried as an explicit descriptor.
-- Premultiply/unpremultiply with specified zero-alpha and rounding behavior.
-- Reference conversion vectors sourced from standards or independently generated high-precision fixtures.
-- Opaque profile/color-space identifier and metadata hooks sufficient for later ICC/PNG integration, without an ICC parser.
+1. The authenticated namespace and three final module names are recorded without exposing credentials.
+2. Every published module/version is observable on mooncakes.io with correct metadata, exact dependencies, README, license, and changelog.
+3. `mb-core`, `mb-color`, and `mb-image` each pass a fresh registry-only consumer; the complete graph passes all four supported targets.
+4. Generated public-interface baselines are frozen, reproducible, and linked to version-policy decisions; negative deltas fail the gate.
+5. The exact qualified archive digest is bound to source/build provenance and verification succeeds for the expected repository/workflow identity.
+6. A rerun at any completed checkpoint performs no duplicate mutation and detects mismatched external state.
+7. Recovery documentation covers partial publication, registry outage, invalid credential, provenance failure, unexpected existing version, and post-publication consumer failure.
+8. No new module family or unrelated public feature entered the milestone.
 
-#### 4. `mb-image` candidate contracts
+## Open Gaps Requiring Live Validation
 
-- Non-negative, checked dimensions and pixel count.
-- Extensible pixel-format descriptor supporting at minimum grayscale 8-bit, RGB8, RGBA8, and BGRA8 if a concrete Native adapter needs it; unsupported combinations fail explicitly.
-- Channel order, component depth/type, packed versus planar form, plane count, row stride, endianness where relevant, color-space identity, and alpha representation are explicit.
-- Owned contiguous storage plus validated borrowed immutable/mutable views; crop/view without copy when layout permits.
-- Row and pixel access that cannot escape declared plane/stride bounds.
-- Deterministic copy, horizontal/vertical flip, 90-degree orientation transforms, nearest-neighbor resize, and the minimal pixel-format conversions required by examples.
-- Metadata container with namespaced/typed extension points and a documented preservation policy; avoid committing to arbitrary mutable string maps as the only model.
-- Codec interface separated from registry/policy: probe, header/info, decode, encode, options, limits, diagnostics, and stream ownership rules.
-- Strict bounded PPM P6 fixture adapter supporting one image, 8-bit RGB, declared limits, comments/whitespace per the chosen subset, round-trip tests, malformed input tests, and rejection of unsupported variants. The adapter must be labeled test/reference quality because PPM is inefficient and metadata-poor.
+- Whether mooncakes supports organizations distinct from usernames and how authority is administered.
+- Whether an already-published version is immutable, replaceable, deletable, or yankable, and what consumers observe after each operation.
+- Whether `moon publish` has a supported noninteractive/dry-run mode in the pinned toolchain beyond `moon package --list --frozen`.
+- Whether the registry exposes a canonical downloadable artifact digest that can be compared directly with the locally qualified archive.
+- The precise token scope/rotation/revocation model and whether mooncakes supports OIDC or narrower publish-only credentials.
+- Whether generated `.mbti` output is byte-stable across clean machines for all targets; normalization must be proven before it becomes the compatibility authority.
 
-#### 5. Evidence and usability
+These gaps are not reasons to broaden scope. They are explicit first-phase experiments and stop conditions.
 
-- Cross-target conformance vectors for checked ranges, stream behavior, sRGB transfer, alpha operations, layout validation, views, transforms, and PPM round trip.
-- Property tests for range/view invariants and color round-trip tolerances where tool support permits.
-- Negative fixtures for truncation, overflow, impossible stride, excessive dimensions, invalid headers, and allocation-budget rejection.
-- Native CLI example: decode PPM from an adapter or memory, transform/convert, encode result, print structured diagnostics.
-- Portable example operating entirely on in-memory streams; a Wasm host demo is optional, but the package must build/test for every claimed portable target.
-- Benchmark baselines for byte scanning/copy, color conversion, image copy/view creation, and nearest-neighbor resize. Record toolchain, backend, CPU/runtime, input shape, warmup/repetition, and allocation assumptions; set regression gates only after variance is understood.
+## Sources
 
-### Should ship if capacity remains
+- [MoonBit: Use and publish packages](https://docs.moonbitlang.com/en/latest/toolchain/moon/package-manage-tour.html) — publishing, SemVer, minimal version selection, metadata, external imports (MEDIUM, official/current)
+- [MoonBit: Module Configuration](https://docs.moonbitlang.com/en/latest/toolchain/moon/module.html) — namespace-prefixed names, versions, dependencies, package contents, metadata (MEDIUM, official/current)
+- [MoonBit: Workspace Support](https://docs.moonbitlang.com/en/latest/toolchain/moon/workspace.html) — workspace substitution, version sync, module-scoped publishing (MEDIUM, official/current)
+- [MoonBit: Command-Line Help](https://docs.moonbitlang.com/en/latest/toolchain/moon/commands.html) — `moon publish`, `moon package`, `moon add`, and `moon info` `.mbti` generation (MEDIUM, official/current)
+- [Semantic Versioning 2.0.0](https://semver.org/) — public API and version semantics, including major-zero limits (MEDIUM, primary specification)
+- [GitHub: Using artifact attestations](https://docs.github.com/en/actions/how-tos/secure-your-work/use-artifact-attestations/use-artifact-attestations) — OIDC permissions, artifact provenance, and verification (MEDIUM, official/current)
+- [GitHub Actions: Secure use reference](https://docs.github.com/en/actions/reference/security/secure-use) — least privilege, full-SHA pinning, and credential isolation rationale (MEDIUM, official/current)
+- [SLSA v1.2 Provenance](https://slsa.dev/spec/v1.2/provenance) — provenance subject, build definition, dependencies, builder, and verification model (MEDIUM, primary/current)
+- [Sigstore: Signing blobs](https://docs.sigstore.dev/cosign/signing/signing_with_blobs/) and [verifying signatures](https://docs.sigstore.dev/cosign/verifying/verify/) — standard keyless signing and identity-aware verification (MEDIUM, official/current)
 
-- Cancellation/cooperative work-budget hook designed for future long operations.
-- Read-only image view over externally owned memory with a documented lifetime discipline that works safely in MoonBit's actual ownership/GC model.
-- Simple codec registry in a separate convenience package, provided it does not rely on global mutation or codec name guessing.
-- Native file adapter and a Native-only microbenchmark comparing stream/file strategies.
-- Machine-readable manifest for package maturity, targets, conformance level, and benchmark links.
+## Recommended Decision
 
-### Explicitly not in v0.1
-
-- Full PNG/APNG, JPEG, WebP, TIFF, EXR, or production codec coverage.
-- ICC profile parsing or full color-management engine; CMYK, spot colors, HDR tone mapping, gamut mapping, and display calibration.
-- General resampling kernels, convolution/effects suite, compositing engine, or canvas/path rasterizer.
-- SVG/XML, PDF, OpenType/font parsing, shaping, bidi, line/block layout.
-- GPU resources, shader APIs, SIMD promises, or platform-specific zero-copy claims.
-- AI model loading/inference, tensor runtime ownership, OCR, MCP server/transport, IDE integration, GUI/windowing.
-- Broad async I/O framework, networking stack, process management, or general-purpose standard-library replacement.
-- Stable 1.0 designation for all APIs.
-
-## Acceptance evidence for v0.1
-
-v0.1 should be considered complete only when all of the following are observable:
-
-1. A clean checkout can run documented workspace checks/tests for the declared target matrix.
-2. No portable foundation package reaches a native stub, path-based filesystem API, browser API, or required ambient global.
-3. Invalid byte ranges, image dimensions, stride calculations, and allocation sizes fail before memory access/allocation.
-4. The same color and image conformance vectors pass on Native and every claimed portable backend within documented numeric tolerances.
-5. A bounded PPM P6 sample travels through stream → codec → image view/transform → codec, and malformed/oversized inputs produce structured failures.
-6. Consumers can depend on each publishable unit without pulling in deferred graphics/document/AI integrations.
-7. Public APIs, support status, examples, changelogs, fixtures, and benchmark methodology are published and linked from the package documentation.
-8. At least one downstream-shaped spike—such as a tiny headless image CLI and an in-memory Wasm-oriented example—uses only public contracts, with resulting contract changes resolved before candidate stabilization.
-
-## Prioritization
-
-| Priority | Theme | Rationale |
-|---|---|---|
-| P0 | Checked bytes, budgets, diagnostics, target-aware workspace | All later safety, portability, and parsing work depends on these |
-| P0 | Explicit color/alpha and image layout/storage/view contracts | These are the interoperability center of graphics, documents, AI preprocessing, and codecs |
-| P0 | Cross-target conformance and minimal end-to-end codec | Validates that contracts are executable rather than architectural prose |
-| P1 | Deterministic transforms/conversions and benchmarks | Establish useful behavior and performance baselines without widening domains |
-| P1 | Publication, docs, examples, SemVer/maturity policy | Turns internal packages into adoptable infrastructure |
-| P2 | Host file adapter, cancellation hook, external-memory view | Valuable extensions, but they must not delay portable core validation |
-| Deferred | Production formats, canvas, SVG, fonts/text, PDF, GPU, AI, MCP | Depend on validated foundation semantics and deserve separate RFC/conformance programs |
-
-## Open feature decisions before implementation freezes
-
-1. **Publication granularity:** three coordinated modules versus one initial module with independent packages. Decide using actual MoonBit registry/versioning workflow; preserve acyclic boundaries either way.
-2. **Minimum toolchain:** use the local July 2026 baseline for development, but declare a minimum only after CI proves it.
-3. **Numeric model:** exact component types and tolerance/rounding rules for color conversions across backends.
-4. **Borrowed/external memory:** which safe lifetime patterns MoonBit exposes consistently enough for public APIs; do not emulate Rust terminology without language-level proof.
-5. **PPM subset:** exact grammar leniency, maximum values, multi-image behavior, and metadata/color semantics. The recommendation here is a strict single-image P6, max value 255 subset with explicit sRGB interpretation for MNF fixtures, clearly documented as narrower than Netpbm PPM.
-6. **Compatibility maturity:** naming and graduation criteria for experimental, candidate, and stable APIs before 1.0.
-7. **Fixture licensing:** which official/third-party vectors and corpora may be redistributed; generate original fixtures when rights are unclear.
-
-## Primary sources
-
-- MoonBit, [Documentation overview and supported backends](https://docs.moonbitlang.com/en/latest/)
-- MoonBit, [Workspace Support](https://docs.moonbitlang.com/en/latest/toolchain/moon/workspace.html)
-- MoonBit, [Package Configuration](https://docs.moonbitlang.com/en/latest/toolchain/moon/package.html)
-- MoonBit, [Managing Projects with Packages](https://docs.moonbitlang.com/en/latest/language/packages.html)
-- MoonBit, [Foreign Function Interface](https://docs.moonbitlang.com/en/latest/language/ffi.html)
-- W3C, [CSS Color Module Level 4](https://www.w3.org/TR/css-color-4/)
-- W3C, [Portable Network Graphics Specification, Third Edition](https://www.w3.org/TR/png-3/)
-- International Color Consortium, [ICC.1 profile format specification](https://www.color.org/specification/ICC1v43_2010-12.pdf)
-- Netpbm, [PPM Format Specification](https://netpbm.sourceforge.net/doc/ppm.html)
-- Semantic Versioning, [Semantic Versioning 2.0.0](https://semver.org/)
-
-## Recommended decision
-
-Approve v0.1 as a **contract-and-conformance milestone** for `mb-core`, `mb-color`, and `mb-image`. Treat the bounded PPM path and two downstream-shaped examples as vertical proofs, not as a change to horizontal-layer planning. Reject format-count and integration-count as v0.1 success metrics. The milestone succeeds when later modules can depend on the foundation without needing to reinterpret bytes, color, alpha, pixels, errors, resource limits, or target support.
+Approve v0.2 as a **publication-integrity milestone**, not a feature release. The optimal plan is the smallest real chain that proves independently resolvable modules: freeze interfaces and candidate rules, build a protected resumable release workflow, publish and externally verify one dependency layer at a time, then bind the resulting artifacts to standard provenance. Any proposal that adds a new module family, claims 1.0 stability, or treats a workspace build as registry evidence should be rejected for this milestone.

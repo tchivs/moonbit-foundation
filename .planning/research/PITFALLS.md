@@ -1,403 +1,302 @@
-# MoonBit Native Foundation: Pitfalls and Failure Modes
+# Domain Pitfalls
 
-**Research date:** 2026-07-16  
-**Scope:** MNF architecture, with concrete gates for v0.1 Foundation (`mb-core`, `mb-color`, `mb-image`)  
-**Confidence:** High for the v0.1 risks and controls; medium for later PDF/SVG/font details because their implementation designs are intentionally deferred.
+**Domain:** High-integrity MoonBit registry publication and compatibility
+**Milestone:** v0.2 Publication & Compatibility
+**Researched:** 2026-07-17
+**Overall confidence:** MEDIUM — failure controls are strongly supported by current MoonBit, GitHub, SLSA, and SemVer documentation; mooncakes.io recovery, immutability, propagation, and credential semantics are incompletely documented and must be measured rather than assumed.
 
-## Executive assessment
+## Executive Assessment
 
-MNF's largest risk is not failure to implement enough features. It is publishing the wrong foundational contracts and then forcing every later module either to preserve them or to fork them. The v0.1 milestone should therefore optimize for **bounded behavior, explicit representation, target conformance, and reversible APIs**, not breadth or headline benchmark numbers.
+The dangerous transition in v0.2 is from deterministic local evidence to irreversible external state. v0.1 deliberately represented registry-dependent checks as blocked; v0.2 must replace those blockers with authentic publication and consumer evidence without weakening the existing Required gate or pretending uncertain mooncakes behavior is known.
 
-The release must be stopped if any of these are true:
+The dominant failure pattern is **false confidence across boundaries**: workspace substitution looks like registry resolution, a publish timeout looks like failure, a generated attestation looks like verified provenance, a raw `.mbti` diff looks like semantic compatibility, and matching version strings look like one release state. Every boundary therefore needs observe-before-act logic and evidence from the system on the far side of that boundary.
 
-- dimensions, strides, offsets, decompressed sizes, or allocation sizes can be computed without checked arithmetic;
-- image storage does not state channel order, alpha convention, color space, endianness, ownership, and row-stride rules;
-- an FFI function lacks an explicit ownership/lifetime contract and a backend-specific test;
-- a package is called portable without executing the same conformance vectors on every claimed target;
-- parser defaults allow unbounded allocation, decompression, nesting, object count, or work;
-- a stable module is released without a compatibility policy and an independently usable dependency surface.
+Recommended phase ownership used below:
 
-## Risk map
+1. **Phase A — Identity & Compatibility Contract:** live namespace facts, final names, version rules, normalized API baselines.
+2. **Phase B — Release Safety & Recovery:** package manifest, credential boundary, concurrency, retry model, negative rehearsals.
+3. **Phase C — Ordered Publication & Consumers:** core → color → image, registry observation, clean external consumers.
+4. **Phase D — Provenance & Closure:** attestations, immutable release/tag binding, final ledger, incident/recovery verification.
 
-| Priority | Failure mode | Earliest prevention point | Primary phase |
-|---|---|---|---|
-| Critical | Unchecked size, stride, and offset arithmetic | `mb-core` API design | Program 1: Foundation |
-| Critical | Unbounded processing of hostile formats | Bounded stream/limit contracts | Program 1, enforced in Programs 2-3 |
-| High | Toolchain and FFI semantic drift | Reproducible workspace/CI | Program 1 |
-| High | Incorrect alpha, transfer, or color-space semantics | `mb-color`/`mb-image` contracts | Program 1 |
-| High | Native/Wasm/JS behavioral divergence | Cross-target conformance harness | Program 1 and every later program |
-| High | FFI ownership and lifetime bugs | Native adapter policy | Program 1 and Program 4 |
-| High | Wrong publication granularity | Repository and release design | Program 1 |
-| Medium | Governance and versioning gridlock | RFC and stability policy | Program 1, then continuous |
-| Medium | Misleading performance claims | Benchmark policy | Program 1, then continuous |
-| Medium | Premature ecosystem breadth | Milestone scope gates | Every program |
+No phase should add a new module family.
 
-## 1. Toolchain and public-API drift
+## Critical Pitfalls
 
-### Failure mode
+### Pitfall 1: Workspace substitution masquerades as registry success
 
-MNF follows the newest MoonBit toolchain implicitly, uses compiler/runtime behavior as if it were a stable language contract, or exposes representations whose ABI is still unstable. A routine toolchain update then changes FFI ownership behavior, generated C assumptions, warning policy, manifest behavior, or backend results. Consumers cannot reproduce releases, and maintainers either freeze indefinitely or break downstream code unexpectedly.
+**What goes wrong:** `moon check`, `moon test`, `moon info`, and downstream examples pass because `moon.work` resolves local members. The published manifest is missing a dependency, names the wrong module/version, or references a version that does not exist.
 
-This is an immediate risk, not a hypothetical one. The current MoonBit FFI documentation says that C and Wasm use reference counting, Wasm-GC and JavaScript reuse host GC, payload-carrying `struct`/`enum` layout is currently unstable, and the default FFI parameter convention is migrating from `#owned` to `#borrow`. Those facts make an unpinned `latest` build and representation-dependent ABI unsafe foundations. [MoonBit FFI documentation](https://docs.moonbitlang.com/en/latest/language/ffi.html)
+**Why it happens:** MoonBit workspaces intentionally resolve members locally, and `moon work sync` can update member dependency versions. That is excellent for development but it is not a mooncakes consumer proof.
 
-### Detection signals
+**Consequences:** `mb-color` or `mb-image` publishes successfully yet fails for every real user, or resolves a different dependency graph than the one qualified in v0.1.
 
-- CI starts failing after a toolchain update with no MNF source change.
-- Generated public API output changes between toolchain versions.
-- Native tests pass while one of `wasm`, `wasm-gc`, or `js` changes results.
-- FFI declarations rely on an omitted ownership annotation or compiler default.
-- Native adapters pass MoonBit `struct` or `enum` payload layouts directly across the C ABI.
-- contributors cannot identify the exact compiler/runtime used to produce a published artifact.
+**Warning signs:** Consumer directory is under the repository; `moon.work` is discoverable in an ancestor; manifests contain paths; dependency tree omits a registry version; test passes with network/cache disabled but no isolated registry fixture was established.
 
-### Prevention
+**Prevention:** Phase A freezes exact canonical names and dependency versions. Phase C creates a fresh directory outside the repository with no path dependency or workspace file, isolates Moon home/cache, adds the exact published version, and imports only public packages.
 
-1. Pin exact `moon`, `moonc`, and `moonrun` versions in required CI and record them in release provenance.
-2. Add a non-blocking forward-compatibility job for the selected newer toolchain; promote it only after API snapshots and all target tests pass.
-3. Require `#borrow`/`#owned` to be explicit on every reference-counted FFI parameter even if a compiler default exists.
-4. Use opaque handles and explicit C-compatible scalar/buffer boundaries; never make an unstable MoonBit aggregate layout part of a native ABI.
-5. Snapshot documented public APIs and classify diffs before upgrading the compatibility floor.
-6. Treat toolchain-floor changes as reviewed compatibility changes, not dependency housekeeping.
+**Detection:** Record `moon tree`, manifests, module cache provenance, and four-target results. Deliberately rename/remove the workspace file in a copy and prove the consumer still resolves from the registry.
 
-### Phase mapping
+**Owner:** Phase A for manifest rules; Phase C for authoritative proof.
 
-- **Program 1:** mandatory toolchain policy, API snapshots, explicit FFI lint/review, and upgrade playbook.
-- **Programs 2-4:** each new backend-sensitive capability proves compatibility before the pinned floor moves.
+### Pitfall 2: A publish timeout is treated as a failed publication
 
-## 2. Package granularity and dependency collapse
+**What goes wrong:** Network response is lost after the registry accepts an upload. Automation immediately retries, increments the version, or overwrites local evidence without first observing external state.
 
-### Failure mode
+**Why it happens:** Distributed mutations have an unknown-outcome state. Exit status alone cannot distinguish “not accepted” from “accepted but response lost” or “accepted but not yet visible.”
 
-The repository becomes either a monolith, where a user needing checked arithmetic pulls image and color code, or a cloud of tiny modules with synchronized releases and circular conceptual dependencies. A physical folder is mistaken for a release boundary. Codec, host adapter, and convenience APIs creep into core modules, making target support and SemVer promises impossible to state independently.
+**Consequences:** Duplicate/conflicting attempts, skipped versions, partial dependency chains, or an incident where local digest and registry content disagree.
 
-MoonBit distinguishes a project/module from packages inside it, and a module is the unit published to mooncakes.io. Workspaces coordinate multiple modules, but publication remains member-specific. Version selection relies on each module declaring dependency requirements and following Semantic Versioning. [MoonBit packages](https://docs.moonbitlang.com/en/latest/language/packages.html), [workspace support](https://docs.moonbitlang.com/en/latest/toolchain/moon/workspace.html), [package publication](https://docs.moonbitlang.com/en/stable/toolchain/moon/package-manage-tour.html)
+**Warning signs:** Retry loop calls `moon publish` directly; a timeout is classified as `failed`; no `(module, version, expected digest)` checkpoint exists; version bump is suggested automatically after any error.
 
-### Detection signals
+**Prevention:** Phase B defines monotonic states: `qualified → publish_attempted → registry_observed → consumer_verified`. After any ambiguous outcome, query registry state with bounded backoff before another mutation. Never auto-bump to escape uncertainty.
 
-- adding a codec requires a release of `mb-core` despite no core contract change;
-- `mb-core` imports color/image/domain concepts or contains platform codec glue;
-- applications import an umbrella package because individual contracts are not usable;
-- most releases bump all modules together, or workspace members frequently contain stale dependency versions;
-- a dependency graph contains cycles, optional dependencies masquerading as required ones, or duplicate primitive types;
-- a module has no single dominant responsibility describable in one sentence.
+**Detection:** Negative rehearsal terminates the client after request submission and verifies that resumption observes before acting. Audit logs show one mutation attempt per observed-absent state.
 
-### Prevention
+**Owner:** Phase B designs and tests the state machine; Phase C uses it.
 
-1. Make publication, target support, compatibility, and ownership the tests for a module boundary; use packages for cohesive internal subdivision.
-2. Keep `mb-core`, `mb-color`, and `mb-image` independently publishable workspace members with acyclic dependencies (`core <- color <- image`, with image also using core).
-3. Put codecs and host adapters in opt-in packages/modules so the image model stays portable and lightweight.
-4. Run a dependency-boundary test in CI and fail on forbidden imports or cycles.
-5. Maintain a small integration fixture that consumes each module alone from its public API.
-6. Require an RFC before creating a new top-level module; a new directory alone is not sufficient justification.
+### Pitfall 3: Partial success violates dependency order
 
-### Phase mapping
+**What goes wrong:** Jobs publish modules in parallel, or continue to `mb-color`/`mb-image` before the lower-layer registry package is visible and independently consumable.
 
-- **Program 1:** settle the three foundation publication boundaries and release them independently.
-- **Programs 2-3:** validate proposed modules against actual dependency pressure before publication.
-- **Program 4:** GPU/AI/MCP stay optional adapters and cannot become transitive requirements of lower layers.
+**Why it happens:** The monorepo makes the modules appear like one build unit, while mooncakes publishes modules independently and Moon uses declared dependency versions.
 
-## 3. C FFI ownership, lifetime, and thread bugs
+**Consequences:** Downstream upload rejection, registry packages pointing to unavailable dependencies, misleading “release complete” status, and difficult recovery.
 
-### Failure mode
+**Warning signs:** Matrix strategy covers all modules; no per-module registry consumer checkpoint; `needs` relationships stop at build jobs; downstream publish starts while registry propagation is unresolved.
 
-A native adapter leaks, double-frees, retains borrowed memory, drops owned memory twice, invokes callbacks on an unsupported thread, or allows a native library to outlive MoonBit storage. The code often appears correct in short tests and fails under errors, cancellation, asynchronous callbacks, or repeated creation/destruction.
+**Prevention:** Phase C serializes core publish → core consumer → color publish → color consumer → image publish → full consumer. Partial success is valid state: preserve a verified core release and resume downstream later.
 
-MoonBit's documented owned calling convention makes the callee responsible for dropping parameters; storing a reference requires incrementing it, and external object finalization is C-backend-specific. External types represent pointers but do not receive automatic reference counting. The ongoing move toward borrowed defaults raises the cost of relying on inference. [MoonBit FFI lifetime and calling conventions](https://docs.moonbitlang.com/en/latest/language/ffi.html), [MoonBit ownership attributes](https://docs.moonbitlang.com/en/stable/language/attributes.html)
+**Detection:** Release ledger cannot advance a module unless every declared MNF dependency has `consumer_verified`. Synthetic missing-dependency cases must fail before credentials are exposed.
 
-### Detection signals
+**Owner:** Phase C.
 
-- process memory or native handle counts grow during create/use/drop loops;
-- crashes appear only on error paths, shutdown, callback, or cancellation;
-- a C function stores `Bytes`, `String`, `FixedArray`, or abstract data without an explicit retain/release pair;
-- an `#external` value has no documented destructor owner;
-- FFI tests exercise return values but not lifetime, repetition, failure injection, or concurrency;
-- native code receives a pointer into movable/temporary storage beyond the call duration.
+### Pitfall 4: Credentialed jobs execute untrusted or mutable code
 
-### Prevention
+**What goes wrong:** A mooncakes token is available to pull-request code, a mutable third-party action, a broad reusable workflow, or an earlier build step that does not need it.
 
-1. Every adapter gets an ownership table covering parameters, return values, retained state, finalizer, callback thread, and error cleanup.
-2. Wrap foreign resources in one opaque owner with idempotent close semantics; distinguish borrowed views from owned buffers in names and types.
-3. Keep FFI calls leaf-like and small; copy at uncertain lifetime boundaries rather than exposing long-lived raw pointers.
-4. Add stress tests for repeated allocation/release, injected native failures, callback teardown, cancellation, and process exit.
-5. Run native sanitizers or leak tooling on C stubs when the build permits it, while retaining MoonBit-level lifecycle tests as the required gate.
-6. Never claim a portable package based on a native adapter; split portable contracts from the adapter package.
+**Why it happens:** Repository-level secrets, broad `GITHUB_TOKEN` permissions, unsafe `pull_request_target`/`workflow_run` patterns, and action tags make release convenience override isolation.
 
-### Phase mapping
+**Consequences:** Registry takeover, malicious publication, token leakage, and inability to trust any release produced by the workflow.
 
-- **Program 1:** define the FFI contract template and prove it with any initial file/codec adapter.
-- **Programs 2-3:** apply it to font, image, and document integrations.
-- **Program 4:** re-audit thread/device/callback lifetimes for GPU and AI runtimes.
+**Warning signs:** Secret at repository scope; publish job checks out an untrusted ref; `permissions: write-all`; action uses `@vN`; secret appears in environment before qualification; self-hosted runner retains state.
 
-## 4. Image and color correctness that looks visually plausible
+**Prevention:** Phase B uses a dedicated environment and job, trusted tag/manual trigger, full-SHA action pins, read-only default permissions, and injects the registry token only at the final publish step. OIDC is used for GitHub attestations where supported; it must not be claimed for mooncakes unless live documentation proves support.
 
-### Failure mode
+**Detection:** Static workflow policy, fork-event negative tests, permission snapshot, secret-canary/redaction review, and verified absence of the credential from build/test jobs.
 
-Pixels look acceptable in one viewer but are mathematically wrong. Typical causes are treating encoded sRGB samples as linear light, applying transfer functions to alpha, mixing straight and premultiplied alpha, ignoring profile precedence, losing precision during repeated conversions, silently swapping channel order, or assuming all untagged images have the same color meaning. Visual spot checks miss these errors, and downstream compositing bakes them into every later graphics and PDF API.
+**Owner:** Phase B; re-audited in Phase D.
 
-The PNG Third Edition states that alpha is a linear fraction of opacity and is not gamma-corrected. It also defines precedence among color signaling (`cICP`, `iCCP`, `sRGB`, then `cHRM`/`gAMA`). These are examples of semantics that must be represented explicitly rather than inferred from an `RGBA` label. [W3C PNG Third Edition, color spaces and alpha](https://www.w3.org/TR/png-3/)
+### Pitfall 5: Concurrent or cancelled workflows split one release
 
-### Detection signals
+**What goes wrong:** Two manual/tag runs publish different modules for the same intended release, or `cancel-in-progress` kills a job after an external mutation but before its checkpoint is recorded.
 
-- compositing produces dark or bright fringes around translucent edges;
-- encode/decode or straight/premultiplied round trips drift more than declared tolerances;
-- the same fixture differs from a trusted reference implementation or across targets;
-- API names say `RGBA8` without defining byte order, transfer function, alpha representation, or color space;
-- ICC/sRGB/gamma metadata is discarded or contradictory metadata is accepted without a defined precedence/error;
-- tests compare screenshots by eye or exact bytes where a numeric/colorimetric tolerance is required.
+**Why it happens:** CI concurrency defaults are designed for replaceable builds, not irreversible ordered publication.
 
-### Prevention
+**Consequences:** Unrecorded successful publication, duplicated attempts, tag/version ambiguity, or downstream modules qualified against a different source state.
 
-1. Make channel order, component encoding, bit depth, transfer function, alpha mode, color-space identity, and endianness explicit in the type/descriptor contract.
-2. Define CPU reference operations in linear-light terms where appropriate and specify exactly when encode/decode transfer functions occur.
-3. Keep alpha separate from color transfer; add canonical tests for transparent colors, zero alpha, full alpha, and premultiply/unpremultiply edge cases.
-4. Use standards-derived vectors plus differential tests against at least two mature implementations when licensing permits.
-5. Test invariants and error bounds: identity, monotonicity, neutral-axis preservation, round trips, clipping, NaN/non-finite handling, and multiple bit depths.
-6. Preserve unknown or unsupported metadata deliberately, or emit a structured diagnostic; never silently reinterpret it.
+**Warning signs:** Concurrency key excludes release identity; publication runs can overlap; cancellation is enabled for release jobs; checkpoint is written only at workflow end.
 
-### Phase mapping
+**Prevention:** Phase B defines one release-wide concurrency group and disables cancellation after mutation begins. Write each checkpoint immediately after re-observing external state. A new run resumes; it does not supersede.
 
-- **Program 1:** blocking for `mb-color` and `mb-image`; publish no stable image representation without these contracts.
-- **Programs 2-3:** canvas blending, SVG paint, PDF color, and rendering reuse the same conformance suite.
-- **Program 4:** accelerated paths must match CPU reference semantics within declared tolerances.
+**Detection:** Start two synthetic runs and confirm only one reaches the credential boundary. Cancel after a fake publish and prove resume performs observation first.
 
-## 5. Untrusted-format parsing and asymmetric resource use
+**Owner:** Phase B.
 
-### Failure mode
+### Pitfall 6: Tag, manifest, baseline, changelog, and artifact describe different commits
 
-A small input triggers huge allocation, decompression, recursion, object creation, reference resolution, CPU work, or repeated seeks. The parser may be memory-safe yet still be an effective denial-of-service primitive. Later SVG, font, and PDF work magnifies this risk through nested structures, filters, object graphs, and external resources.
+**What goes wrong:** A tag points to one commit while packages, `.mbti` baselines, dependency versions, changelogs, or attestations were generated from another. Late “metadata-only” commits invalidate the frozen release relation.
 
-OWASP explicitly recommends size limits that account for the result after decompression and identifies parser exploits and decompression bombs as file-processing threats. [OWASP File Upload Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/File_Upload_Cheat_Sheet.html), [OWASP malicious-file testing](https://owasp.org/www-project-web-security-testing-guide/latest/4-Web_Application_Security_Testing/10-Business_Logic_Testing/09-Test_Upload_of_Malicious_Files)
+**Why it happens:** Independent module versions plus one repository create several identifiers, and evidence is often generated at different times.
 
-### Detection signals
+**Consequences:** SemVer claims cannot be audited, consumers cannot reconstruct the release, and provenance attests the wrong bytes or source.
 
-- a parse API has no `Limits`/budget parameter and defaults to available memory;
-- compressed size is checked but expanded bytes, pixels, nodes, objects, nesting, or work are not;
-- malformed input causes panic/process termination rather than a structured failure;
-- parsing requires buffering the whole file even when streaming is possible;
-- cancellation is checked only between files, not during long decode/resolve loops;
-- corpus tests contain malformed syntax but no resource-exhaustion fixtures.
+**Warning signs:** Dirty worktree during qualification; baseline generated before final source changes; tag created before dependency sync; package digest absent from the release manifest; changelog version differs by case/prefix.
 
-### Prevention
+**Prevention:** Phase A defines one canonical module/version/tag grammar. Phase B freezes a machine-readable release manifest at an exact clean commit; all artifacts and baselines are generated from it. Phase D creates immutable releases only after all assets are ready.
 
-1. Define a shared, safe-by-default resource-budget model in `mb-core`: input bytes, output bytes, allocation total, dimensions, object/node count, nesting/recursion, decompressed bytes, work units, seeks, and optional deadline/cancellation.
-2. Charge budgets monotonically before allocation or work; do not refund them in a way that enables repeated amplification.
-3. Separate syntax parsing from resource fetching, decompression, rendering, and filesystem/network access.
-4. Return structured limit-exceeded errors that identify the budget, never partial success that downstream code mistakes for a complete document.
-5. Add adversarial fixtures for truncation, cycles, deeply nested input, high compression ratio, repeated references, duplicate metadata, and pathological dimensions.
-6. Fuzz when the toolchain permits, but do not wait for fuzzing: property, mutation, corpus, differential, and strict budget tests are v0.1 requirements.
+**Detection:** Closed-set gate compares manifest version, tag, changelog heading, dependency versions, API baseline digest, archive digest, source commit, and attestation subject.
 
-### Phase mapping
+**Owner:** Phase A policy, Phase B enforcement, Phase D final binding.
 
-- **Program 1:** bounded readers/writers and the common budget/error contract.
-- **Program 2:** mandatory for SVG and font parsing before feature completeness.
-- **Program 3:** mandatory for every PDF/filter/image codec path, with parser and renderer budgets tested separately.
+### Pitfall 7: Provenance exists but is not meaningfully verified
 
-## 6. Integer, stride, plane, and size overflow
+**What goes wrong:** The workflow emits an attestation and calls the release “proven,” while no consumer checks the exact artifact digest, trusted repository/workflow identity, builder, source ref, parameters, or resolved dependencies.
 
-### Failure mode
+**Why it happens:** Signature generation is visible and easy; expectation-based verification is the security boundary. SLSA explicitly requires matching the subject digest and trusted signer-builder expectations.
 
-`width * bytes_per_pixel`, `stride * height`, plane offsets, chunk lengths, decompressed lengths, or FFI narrowing wrap or truncate. The result can under-allocate storage, accept overlapping planes, read beyond input, loop indefinitely, or bypass a resource limit. Signed/unsigned conversion and negative stride add further ambiguity.
+**Consequences:** A valid attestation for the wrong artifact or untrusted workflow passes; registry substitution remains undetected; provenance is confused with correctness or compatibility.
 
-MITRE classifies overflow in allocation, copying, offset, and concatenation calculations as security-critical; its examples include oversized image dimensions leading to incorrect allocation and downstream memory corruption or denial of service. [CWE-190: Integer Overflow or Wraparound](https://cwe.mitre.org/data/definitions/190.html)
+**Warning signs:** Verification only tests “signature valid”; no expected repository/workflow is supplied; attested subject is a directory/glob with unstable contents; local archive and registry artifact are never compared.
 
-### Detection signals
+**Prevention:** Phase D verifies signature, exact SHA-256 subject, expected repository/workflow/builder identity, source commit/tag, build type, external parameters, and resolved dependencies. Keep correctness, API compatibility, registry equality, and provenance as distinct evidence fields.
 
-- raw `+` or `*` combines any untrusted dimension, length, stride, offset, count, or element size;
-- size validation occurs after allocation or after narrowing to a C integer type;
-- tests cover maximum individual fields but not their products/sums;
-- image views allow `offset + (height - 1) * stride + row_bytes` without one canonical checked validator;
-- negative dimensions/strides or zero-sized images have undocumented semantics;
-- native and Wasm builds use different integer widths or casts at boundaries without explicit range checks.
+**Detection:** Negative attestations with wrong subject, repository, workflow, commit, or parameter must fail. Verification must run outside the producer job against downloaded assets.
 
-### Prevention
+**Owner:** Phase D.
 
-1. Put checked add, multiply, align, cast, range, and slice computations in `mb-core`; format code must not reimplement them casually.
-2. Validate in a wide, non-negative size domain before narrowing; check both arithmetic representability and configured resource budgets.
-3. Centralize image-layout validation, including zero dimensions, row bytes, stride sign/policy, plane count, last reachable byte, overlap, alignment, and total allocation.
-4. Test boundary neighborhoods, not just maxima: `max-1`, `max`, `max+1`, products near overflow, and mixed zero/huge fields.
-5. Check all values again at FFI boundaries against the exact C ABI type and library limit.
-6. Make invalid layout construction impossible through public constructors; do not rely on codec authors to remember every invariant.
+### Pitfall 8: `.mbti` text equality is mistaken for semantic compatibility
 
-### Phase mapping
+**What goes wrong:** Raw generated-interface diffs reject harmless formatting/ordering/alias/toolchain changes, or pass changes in behavior, error contracts, representation, resource limits, trait coherence, and documentation not captured by declarations.
 
-- **Program 1:** critical exit gate for `mb-core` and `mb-image`.
-- **Programs 2-4:** reuse the same helpers for path counts, glyph tables, object offsets, texture sizes, and tensor shapes.
+**Why it happens:** Official `moon info` generates public `.mbti` interfaces, but reviewed official docs do not define byte stability or provide a semantic compatibility verdict.
 
-## 7. Cross-target semantic divergence
+**Consequences:** False positives block releases; false negatives ship breaking candidate changes under the wrong version.
 
-### Failure mode
+**Warning signs:** Baseline is one unnormalized text file; target/toolchain identity missing; unknown grammar is ignored; “no diff” is the only compatibility evidence; behavior contracts have no consumer tests.
 
-Code compiles on every target but does not mean the same thing. Native becomes the de facto specification while JS/Wasm receive different overflow, floating-point edge, ownership, scheduling, filesystem, or error behavior. Golden files are produced by one backend and merely consumed by the others, so shared bugs or nondeterminism go unnoticed.
+**Prevention:** Phase A pins the toolchain and generates per-target, `--no-alias` baselines; normalization removes only proven nonsemantic variance. Phase B classifier recognizes a deliberately small set of additions/removals/signature changes and fails closed on unknown syntax. Phase C consumers cover documented behavior.
 
-MoonBit currently targets `wasm`, `wasm-gc`, `js`, and `native`; memory management differs across those families, so target support has to be demonstrated rather than inferred from shared source. [MoonBit backend overview](https://docs.moonbitlang.com/en/latest/), [MoonBit FFI documentation](https://docs.moonbitlang.com/en/latest/language/ffi.html)
+**Detection:** Corpus of compatible, incompatible, target-specific, alias, ordering, documentation, and behavioral changes with expected classifications. Reproduce baselines on two clean machines before freezing the format.
 
-### Detection signals
+**Owner:** Phase A baseline design; Phase B classifier; Phase C behavioral backstop.
 
-- CI runs `check` on portable targets but tests only Native;
-- serialization, error variants, hashes, or rendered pixels differ by target without a documented allowance;
-- core packages use host filesystem, wall clock, locale, environment, or global mutable state directly;
-- tests depend on map iteration order, platform paths, native endianness, or unspecified floating-point formatting;
-- backend-specific files contain algorithm logic rather than narrow capability adapters;
-- a bug fix is guarded by a target conditional instead of correcting the shared contract.
+## Moderate Pitfalls
 
-### Prevention
+### Pitfall 9: Cache warmth hides registry or dependency failure
 
-1. Run identical conformance vectors and public examples on every claimed target; compiling is not target support.
-2. Define canonical byte order, numeric conversions, serialization, error taxonomy, and deterministic ordering in lower-layer contracts.
-3. Inject filesystem, clock, randomness, cancellation, and host capabilities through explicit adapters.
-4. Compare target-produced normalized artifacts against a checked-in normative fixture, and add cross-target differential jobs.
-5. Separate exact invariants from tolerance-based floating-point/rendering comparisons; record the tolerance rationale.
-6. Downgrade a package's advertised target matrix immediately when conformance cannot be maintained.
+**What goes wrong:** A consumer succeeds using a locally cached candidate or stale registry index even though a clean machine cannot resolve the release.
 
-### Phase mapping
+**Warning signs:** First-install evidence has no isolated cache path, registry update, or resolved artifact timestamps.
 
-- **Program 1:** establish the harness and use `mb-core`, `mb-color`, and `mb-image` as proof.
-- **Programs 2-4:** every new module declares its target matrix and earns each target independently.
+**Prevention:** Phase C isolates Moon home/cache and records registry update/install/tree evidence. Run a cold consumer first, then a warm rerun only as secondary evidence.
 
-## 8. Benchmark misuse and performance theater
+**Detection:** Unexpected success while registry reports absence; dependency files predate publication; network-disabled run is presented as first install.
 
-### Failure mode
+**Owner:** Phase C.
 
-MNF optimizes toy loops, compares unlike workloads, reports the best run, hides allocation or conversion costs, or changes correctness for a headline speedup. A benchmark becomes an API-design driver before representative consumers exist. Results are not reproducible because hardware, toolchain, build mode, inputs, warmup, repetition, and variance are absent.
+### Pitfall 10: Registry propagation delay is confused with permanent failure
 
-Established benchmark rules emphasize that a result is an observation under stated conditions and that reporting must be meaningful, comparable, and reproducible. [SPEC CPU 2026 run rules](https://www.spec.org/cpu2026/docs/runrules.html), [IETF RFC 8239 benchmarking methodology](https://www.rfc-editor.org/info/rfc8239/)
+**What goes wrong:** Immediate post-publish lookup fails, so automation republishes, rolls forward, or marks a valid release broken.
 
-### Detection signals
+**Warning signs:** One lookup controls mutation; no timestamped observation series or distinct propagation state exists.
 
-- a PR claims “faster” without raw data, baseline commit, environment, or correctness comparison;
-- only minimum/best time is reported, with no repetitions or dispersion;
-- benchmark setup excludes costs that the public API necessarily imposes;
-- fixtures are tiny, compress unusually well, or represent only one pixel format;
-- results from different targets, hardware, toolchains, or build modes appear in one ranking;
-- microbenchmark gains increase allocations, memory footprint, tail latency, or output error elsewhere.
+**Prevention:** Phase B defines bounded exponential polling and distinguishes `not_yet_observed` from `rejected` and `mismatch`. Phase C stops safely when the observation window expires.
 
-### Prevention
+**Detection:** Time-series registry observations are retained; recovery never mutates solely because one lookup missed.
 
-1. Version the benchmark corpus and record toolchain, commit, target, build flags, CPU/OS, workload parameters, repetitions, warmup policy, and raw samples.
-2. Report median plus dispersion/percentiles and allocation/peak-memory data where relevant; never publish only the best run.
-3. Pair every performance test with a correctness oracle and resource-limit assertion.
-4. Maintain separate microbenchmarks, representative pipelines, and adversarial/worst-case workloads; do not generalize across them.
-5. Compare only like-for-like semantics, including color conversion, validation, allocation ownership, and output quality.
-6. Treat early v0.1 measurements as baselines for regression detection, not competitive marketing claims.
+**Owner:** Phase B policy; Phase C observation.
 
-### Phase mapping
+### Pitfall 11: SemVer major-zero ambiguity becomes an excuse for arbitrary breakage
 
-- **Program 1:** define the benchmark manifest and baseline a few core operations only.
-- **Programs 2-3:** add end-to-end rendering/document workloads after real pipelines exist.
-- **Program 4:** require CPU reference correctness before claiming accelerator wins.
+**What goes wrong:** Because SemVer says `0.y.z` is initial development, incompatible changes ship in patch releases without migration notes.
 
-## 9. Governance, stability labels, and versioning deadlock
+**Warning signs:** Version decision cites only “0.x may change”; classifier permits removals in patches; changelog lacks migration classification.
 
-### Failure mode
+**Prevention:** Phase A adopts a stricter MNF candidate contract: patch forbids incompatible public changes; additive public API uses minor; incompatible candidate change uses minor plus migration note. Released bytes are never modified regardless of major zero.
 
-Everything remains “experimental” forever, or draft APIs become stable by widespread use without an explicit decision. Conversely, maintainers use a major-version bump to excuse avoidable churn. Cross-module releases become inconsistent, RFC decisions have no owner, and downstream users cannot tell whether a behavior is guaranteed or incidental.
+**Detection:** Version-classification negatives and changelog/baseline cross-check.
 
-MoonBit publication uses `MAJOR.MINOR.PATCH`, and its minimal version selection assumes that modules declare their requirements and follow Semantic Versioning. Breaking a low-level module therefore has dependency-graph consequences beyond one repository. [MoonBit package publication and SemVer](https://docs.moonbitlang.com/en/stable/toolchain/moon/package-manage-tour.html), [Semantic Versioning 2.0.0](https://semver.org/spec/v2.0.0.html)
+**Owner:** Phase A.
 
-### Detection signals
+### Pitfall 12: Documentation claims capabilities that the registry has not proven
 
-- there is no named decision maker or deadline for moving RFC 0001 from Draft;
-- “stable,” “experimental,” and “internal” are not machine- or documentation-visible;
-- public symbols disappear or change semantics without an API-diff review and migration note;
-- modules publish incompatible dependency ranges or require lockstep upgrades without stated reason;
-- rejected designs and compatibility decisions are discussed repeatedly because no decision record exists;
-- convenience APIs grow faster than tested primitive contracts.
+**What goes wrong:** README or release notes claim organization namespaces, immutable mooncakes versions, yanking, token scopes, OIDC, registry digests, or successful publication based on analogy rather than evidence.
 
-### Prevention
+**Warning signs:** A mooncakes claim cites GitHub/npm behavior, lacks an official URL or live observation, or changes from “unknown” straight to “supported.”
 
-1. Define RFC states, required reviewers, decision authority, response windows, and an appeal/revision path before accepting RFC 0001.
-2. Give every public API an explicit stability class; stable API changes require an API diff, SemVer classification, migration note, and downstream fixture test.
-3. Keep module changelogs and compatibility floors independent, with a release manifest recording the tested set.
-4. Establish a short deprecation policy and a security exception path; do not promise indefinite compatibility before community validation.
-5. Record rejected alternatives and rationale in RFCs so implementation cannot silently reopen architecture.
-6. Publish compatibility tests as reusable artifacts where practical, so alternate implementations can validate the contract.
+**Prevention:** Phase A labels each registry behavior `documented`, `observed`, or `unknown`. Unknowns become experiments and stop conditions. GitHub release immutability must not be projected onto mooncakes.
 
-### Phase mapping
+**Detection:** Claims gate requires a source or captured live observation for every external-state statement.
 
-- **Program 1:** blocking governance deliverable and release policy.
-- **Programs 2-4:** RFC gate for new top-level modules and any breaking lower-layer boundary.
+**Owner:** Phase A classification; Phase D final claims audit.
 
-## 10. Premature breadth and foundation-by-checklist
+### Pitfall 13: Recovery destroys evidence
 
-### Failure mode
+**What goes wrong:** Logs/checkpoints are overwritten during retry, tags are moved, assets are replaced, or a version is deleted before the mismatch is investigated.
 
-The project tries to demonstrate canvas, SVG, fonts, PDF, GPU, AI, and MCP before proving the three foundation contracts. Each module exists, but none is dependable. Thin wrappers create impressive demos while forcing unstable pixel, stream, color, and error types into public use. Maintainer attention fragments, and defects in the lowest layer multiply across every downstream prototype.
+**Warning signs:** A single `latest.json` is the only record; retries reuse artifact paths; remediation begins before evidence snapshot.
 
-### Detection signals
+**Prevention:** Append-only attempt records, immutable release assets, forward corrections, and incident snapshots before any supported registry remediation. SemVer requires new versions for modified released contents.
 
-- roadmap progress is measured by package count, format count, or demo count rather than exit criteria;
-- Program 2 implementation lands while v0.1 still has unresolved ownership, layout, or target-conformance questions;
-- the same primitive is duplicated because the foundation API is not ready;
-- more than one reference codec is pursued before the codec boundary and limits are validated;
-- GPU/AI work changes `mb-image` storage semantics instead of adapting to a CPU reference model;
-- documentation promises future modules as if they were committed compatibility contracts.
+**Detection:** Every retry preserves prior attempt ID, observed state, digest, and decision; final ledger links all attempts.
 
-### Prevention
+**Owner:** Phase B storage model; Phase D immutable closure.
 
-1. Enforce the RFC's v0.1 exit condition: coherent models, bounded operations, target-aware CI, conformance fixtures, docs, and reproducible baselines—not skeletons.
-2. Use one minimal reference codec/fixture adapter to test the image boundary; defer format breadth.
-3. Require at least two small independent consumer examples for a candidate stable primitive before freezing it.
-4. Keep later module documents as boundary proposals until foundation contracts are validated in use.
-5. Set explicit work-in-progress limits and stop new-module work when critical foundation defects remain.
-6. Prefer deleting or redesigning an experimental API over preserving it merely because a demo already uses it.
+### Pitfall 14: Solo-maintainer workflow invents a nonexistent second reviewer
 
-### Phase mapping
+**What goes wrong:** The plan depends on team approval, CODEOWNERS quorum, or separation of duties that cannot exist for the current sole developer, leading to bypasses or permanently blocked releases.
 
-- **Program 1:** strict scope limited to RFC/process, repository contract, `mb-core`, `mb-color`, and `mb-image`.
-- **Program 2:** starts only after Foundation exit gates pass; delivers one headless reference pipeline before breadth.
-- **Program 3:** starts only after graphics contracts survive real fixtures.
-- **Program 4:** remains optional and cannot redefine lower layers without an RFC.
+**Warning signs:** Required reviewer has no eligible second actor; success evidence says “independent approval” when the same maintainer initiated it.
 
-## Required phase gates
+**Prevention:** Phase B uses controls that work for one maintainer: explicit manual dispatch/tag intent, protected environment secret timing, concurrency, immutable evidence, deterministic negative tests, and independent machine verification. Do not claim human independence that did not occur.
 
-### Program 1: Foundation
+**Detection:** Every required approval maps to an available actor; no gate requires a second person unless the project actually gains one.
 
-- Exact required toolchain pin plus forward-compatibility lane.
-- Public API snapshot and stability classification.
-- Checked arithmetic and canonical image-layout constructor tests.
-- Shared resource-budget and structured limit-error contracts.
-- Explicit image/color representation and standards-derived conformance vectors.
-- Identical tests on every advertised target, not check-only jobs.
-- FFI ownership table and lifecycle stress test for every native stub.
-- Independently consumable workspace modules with an acyclic dependency check.
-- Benchmark manifest and raw baseline data; no comparative marketing claim.
-- Accepted RFC/governance and release/compatibility policy.
+**Owner:** Phase B.
 
-### Program 2: Graphics
+## Minor Pitfalls
 
-- Foundation gates remain green against the current supported toolchain floor.
-- Canvas/SVG/font/text parsers and rasterizers inherit budgets and structured errors.
-- Headless CPU reference rendering provides the semantic oracle.
-- Golden/differential fixtures cover alpha, color, clipping, transforms, text boundaries, and hostile nesting.
-- No window system, GPU, filesystem, or network dependency leaks into portable contracts.
+### Pitfall 15: Package listing and registry payload diverge
 
-### Program 3: Documents
+**What goes wrong:** Qualification hashes a custom archive while `moon publish` uploads a differently selected file set.
 
-- Parser, decompressor, resolver, and renderer have separate enforceable budgets.
-- Offset/xref/object/stream arithmetic uses shared checked helpers.
-- Generation-only use does not pull parsing/rendering dependencies.
-- Adversarial, corpus, differential, and cancellation tests are release gates.
-- Representative end-to-end benchmarks report memory and tail behavior as well as throughput.
+**Warning signs:** Digest input was not produced by the official package path; package inventory and attestation subject differ.
 
-### Program 4: Advanced
+**Prevention:** Phase B derives the qualified subject from the exact official packaging path and checks `moon package --list --frozen`; record both file inventory and digest. If mooncakes does not expose the uploaded digest, state that equality is unproven and use the strongest observable substitute.
 
-- CPU reference behavior remains normative for GPU/AI accelerated operations.
-- Device/model/native resources have explicit owner, thread, cancellation, and teardown contracts.
-- GPU, AI, MCP, and Wasm optimization remain optional modules/adapters.
-- Acceleration or integration cannot change a lower-layer stable contract without a new RFC and migration plan.
+**Detection:** Repackage twice in clean copies, compare inventories/digests, and bind the same digest into the release ledger.
 
-## Practical review checklist
+**Owner:** Phase B; Phase C confirms the strongest registry-visible identity.
 
-Before accepting any new primitive or module, reviewers should be able to answer:
+### Pitfall 16: Version checks ignore build metadata precedence
 
-1. What exact representation and invariants are public?
-2. Which inputs control allocation, offsets, recursion, decompression, or work, and where are they checked?
-3. Who owns each buffer/resource across every FFI call and failure path?
-4. Which targets run the same behavioral tests, and what differences are explicitly allowed?
-5. What standard, fixture, property, or independent implementation is the correctness oracle?
-6. Can a consumer use this module without unrelated formats, host runtimes, or future layers?
-7. What API stability class applies, and what would a breaking change require?
-8. Is a performance result reproducible, representative, and paired with correctness/resource evidence?
-9. Which roadmap exit criterion does this work satisfy?
-10. What is deliberately deferred so the current contract can be validated first?
+**What goes wrong:** Two versions differing only in SemVer build metadata are treated as ordered releases even though build metadata does not affect precedence.
 
-If any answer is “implicit,” “platform-dependent,” or “we will add limits/tests later,” the API is not ready to become a foundation contract.
+**Warning signs:** Release identity relies on `+commit` to distinguish registry revisions of otherwise equal versions.
+
+**Prevention:** Phase A rejects ambiguous release identity schemes and uses normal `MAJOR.MINOR.PATCH` candidate versions for registry publication.
+
+**Detection:** Version-policy negative fixtures reject equal-precedence release identities.
+
+**Owner:** Phase A.
+
+### Pitfall 17: Required gate is weakened to make publication pass
+
+**What goes wrong:** Existing selectors, target coverage, deterministic packages, or honest blocked-state checks are deleted rather than evolved to authenticated outcomes.
+
+**Warning signs:** Selector count drops without replacement mapping; registry success bypasses package/source-isolation checks; old negative cases disappear.
+
+**Prevention:** Phase B adds authenticated result states and negative cases while retaining all applicable v0.1 Required guarantees. A new passing path must replace blockers with stronger evidence, not skip them.
+
+**Detection:** Requirement/selector traceability compares v0.1 and v0.2 gates and rejects any unmapped removal.
+
+**Owner:** Phase B, independently rechecked in Phase D.
+
+## Phase-Specific Warnings
+
+| Phase | Highest-risk failure | Mandatory mitigation | Exit evidence |
+|------|----------------------|----------------------|---------------|
+| Phase A — Identity & Compatibility Contract | Wrong namespace/name or unstable API baseline | Live authority observation; final names; pinned normalized per-target `.mbti`; strict candidate rules | Namespace fact record, baseline reproducibility, compatibility negative corpus |
+| Phase B — Release Safety & Recovery | Token exposure, overlapping runs, ambiguous retry, payload drift | Isolated credential job, full-SHA pins, no unsafe triggers, monotonic state machine, exact package inventory, recovery rehearsal | Workflow policy negatives and mutation-free recovery simulations |
+| Phase C — Ordered Publication & Consumers | Workspace/cache false positive or partial dependency chain | Serial core→color→image checkpoints, cold registry-only consumers, bounded propagation observation | Exact-version dependency trees and four-target external consumer results |
+| Phase D — Provenance & Closure | Attestation without expectations or tag/artifact mismatch | Exact subject verification, trusted identity checks, immutable tag/assets, closed release ledger | External attestation verification and all-identifiers consistency gate |
+
+## Unknown Official Semantics — Do Not Convert to Negative Claims
+
+The reviewed official sources did **not** establish the following mooncakes behaviors. The correct conclusion is “unknown pending live validation,” not “unsupported”:
+
+- organization namespace creation/delegation beyond the documented username prefix;
+- token scopes, publish-only credentials, rotation/revocation guarantees, or OIDC publishing;
+- whether a published module version can be overwritten, deleted, or yanked;
+- registry propagation timing and consistency model;
+- a canonical registry-side digest for the exact uploaded package;
+- a noninteractive or dry-run `moon publish` mode in the pinned toolchain;
+- an official semantic compatibility comparator for `.mbti` files.
+
+Phase A should resolve identity/compatibility unknowns; Phase B should resolve credential and dry-run mechanics without publishing; Phase C should measure publication/propagation/recovery behavior with the real namespace. Until observed, gates must fail closed or report an honest blocked state.
+
+## Sources
+
+- [MoonBit: Workspace Support](https://docs.moonbitlang.com/en/latest/toolchain/moon/workspace.html) — local workspace resolution, version sync, module-scoped publication
+- [MoonBit: Module Configuration](https://docs.moonbitlang.com/en/latest/toolchain/moon/module.html) — names, versions, dependencies, package include/exclude, metadata
+- [MoonBit: Use and publish packages](https://docs.moonbitlang.com/en/latest/toolchain/moon/package-manage-tour.html) — account token, SemVer, minimal version selection, external package use
+- [MoonBit: Command-Line Help](https://docs.moonbitlang.com/en/latest/toolchain/moon/commands.html) — `--frozen`, `moon package --list`, `moon publish`, and `moon info`
+- [Semantic Versioning 2.0.0](https://semver.org/) — released-content immutability, public API, major-zero limits, and forward correction
+- [GitHub Actions: Secure use reference](https://docs.github.com/en/actions/reference/security/secure-use) — untrusted triggers, least privilege, secrets, full-SHA action pins
+- [GitHub: Deployments and environments](https://docs.github.com/en/actions/reference/workflows-and-actions/deployments-and-environments) — environment secrets and protection timing
+- [GitHub Actions workflow syntax](https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-syntax) — concurrency and cancellation behavior
+- [GitHub: Using artifact attestations](https://docs.github.com/en/actions/how-tos/secure-your-work/use-artifact-attestations/use-artifact-attestations) — attestation generation and consumer verification
+- [GitHub: Immutable releases](https://docs.github.com/en/code-security/concepts/supply-chain-security/immutable-releases) — tag/asset immutability and draft-first publication; applies to GitHub, not mooncakes
+- [SLSA v1.2: Verifying artifacts](https://slsa.dev/spec/v1.2/verifying-artifacts) — subject digest, signature, trusted builder, parameters, and consumer-side verification
+
+All source-backed findings are **MEDIUM confidence** under the configured research confidence classifier. Project-specific mitigations are reasoned recommendations grounded in those primary sources and the verified v0.1 repository state.

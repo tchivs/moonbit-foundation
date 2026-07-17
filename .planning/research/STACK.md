@@ -1,187 +1,231 @@
-# MoonBit Native Foundation: Toolchain and Repository Stack
+# Technology Stack
 
-**Research date:** 2026-07-16  
-**Scope:** v0.1 Foundation (`mb-core`, `mb-color`, `mb-image`)  
-**Recommendation confidence:** High for toolchain/build/test mechanics; medium for registry namespace and long-term compatibility floor because those are governance decisions not yet made.
+**Project:** MoonBit Native Foundation — v0.2 Publication & Compatibility
+**Researched:** 2026-07-17
+**Overall confidence:** MEDIUM — MoonBit CLI behavior was verified locally and recommendations are grounded in current official MoonBit and GitHub documentation, but Mooncakes does not publicly document several authority, token, and retry semantics that must be probed before the first write.
 
-## Executive recommendation
+## Executive Recommendation
 
-Build MNF as a **Moon workspace containing three independently publishable MoonBit modules from day one**, not as one module containing all three libraries. Use the current Native backend as the default, but require portable modules to pass `wasm`, `wasm-gc`, `js`, and `native` checks/tests. Keep LLVM outside the required matrix because it is not included by `--target all` and remains experimental in the current toolchain documentation.
+Keep the existing MoonBit + PowerShell 7 quality system as the release authority. Do not add a general-purpose release framework. Extend the closed `Required` pipeline with three project-owned layers:
 
-Pin the initial developer and CI baseline to the versions verified locally on 2026-07-16:
+1. a read-only publication preflight that proves namespace authority, exact manifests, dependency order, package bytes, and clean registry consumer definitions;
+2. a single serialized publication workflow that performs `mb-core` → verify → `mb-color` → verify → `mb-image` → verify and records every remote observation;
+3. a compatibility gate that generates canonical `.mbti` files with the pinned toolchain and compares them with committed per-module baselines under an explicit SemVer change policy.
 
-| Component | Verified version | Policy |
-|---|---:|---|
-| `moon` | `0.1.20260713` (`75c7e1f`, 2026-07-13) | Exact CI pin for the v0.1 development line |
-| `moonc` | `v0.10.4+2cc641edf` (2026-07-15) | Record in CI logs; comes with the pinned toolchain |
-| `moonrun` | `0.1.20260713` (`75c7e1f`, 2026-07-13) | Record in CI logs; comes with the pinned toolchain |
+Use GitHub Actions as the remote orchestrator and provenance issuer only. Use a protected `mooncakes-production` environment, least-privilege workflow permissions, a repository-wide publication concurrency group, SHA-pinned actions, and GitHub artifact attestations for the exact candidate ZIPs and release evidence manifest. GitHub OIDC must **not** be described as Mooncakes authentication: no official Mooncakes trusted-publishing/OIDC interface was found.
 
-Do not declare these permanent minimum supported versions yet. Put them in a root toolchain policy document and CI configuration, then declare a public compatibility floor only when the first release candidate is tested. MoonBit is pre-1.0 and its FFI ownership defaults are explicitly in transition, so silently following `latest` would make reproducibility and ABI review unreliable.
+Until a disposable credential test proves a documented non-interactive authentication mechanism, the safest first publication is an operator-approved job or an isolated manual step using `moon login`, with the resulting credential never committed or included in evidence. CI publication may use an environment-scoped secret containing the exact validated credential representation only after the schema, file location, token scope, revocation, and cleanup behavior are tested. Read-only post-publication verification must never require publisher credentials.
 
-## Repository and workspace model
+## Recommended Stack
 
-Use this layout:
+### Core Toolchain
 
-```text
-moonbit-foundation/
-├── moon.work
-├── modules/
-│   ├── core/
-│   │   ├── moon.mod.json
-│   │   └── src/.../moon.pkg
-│   ├── color/
-│   │   ├── moon.mod.json
-│   │   └── src/.../moon.pkg
-│   └── image/
-│       ├── moon.mod.json
-│       └── src/.../moon.pkg
-├── docs/
-├── fixtures/
-└── .github/workflows/
-```
+| Technology | Verified version | Purpose | Policy |
+|---|---:|---|---|
+| `moon` | `0.1.20260713` (`75c7e1f`, 2026-07-13) | Package, publish, registry resolution, interface generation | Keep the exact v0.1 pin for the v0.2 publication line until all candidates are published and verified. Record `moon version` in every evidence bundle. |
+| `moonc` | `v0.10.4+2cc641edf` | Compile and type-check four-target consumers | Comes with the pinned toolchain; record, do not install independently. |
+| `moonrun` | `0.1.20260713` (`75c7e1f`) | Execute target tests where required | Comes with the pinned toolchain; record, do not install independently. |
+| PowerShell | `7.6.3` locally verified | Closed release state machine, JSON evidence, hashing, cleanup | Continue the existing `Set-StrictMode -Version Latest` / `$ErrorActionPreference = 'Stop'` pattern. Require PowerShell 7 in CI. |
+| Git | repository-compatible current release | Clean clones, immutable HEAD/tag identity, tracked-diff assertions | Release only from an exact commit and annotated tag; reject dirty or detached evidence inputs that do not match the tag. |
+| GitHub CLI | `2.96.0` locally verified | Verify GitHub attestations and inspect workflow/release state | Supporting verifier only; do not make it the Mooncakes publisher. |
 
-`moon.work` should list `modules/core`, `modules/color`, and `modules/image`. A MoonBit **module is the publication and versioning unit**, while a package is a namespace/compilation unit inside a module. A workspace lets root-level `moon check`, `moon test`, `moon info`, and `moon clean` operate across members; publication remains module-specific with `moon -C modules/core publish`. Workspace dependencies resolve locally, and `moon work sync` aligns member dependency versions before release.
+The latest official MoonBit documentation observed during research identifies the compiler documentation line as v0.10.4, matching the installed compiler. The local `moon` build is the authoritative command surface for implementation because it is newer than some rendered command-reference pages.
 
-Recommended eventual registry identities are `<owner>/mnf-core`, `<owner>/mnf-color`, and `<owner>/mnf-image`. The `<owner>` value must remain a placeholder until the mooncakes.io organization/username is decided because published module names must start with the owning username. Each module may contain focused subpackages (for example checked arithmetic, streams, color conversions, pixel storage, codecs), but adding subpackages must not turn one module into a catch-all.
+### Registry and Package Operations
 
-Keep `moon.mod.json` for v0.1 manifests and use the current `moon.pkg` DSL for package files. The docs describe a newer `moon.mod` syntax, but the official project/publishing tour still generates `moon.mod.json`, while local `moon` advertises rollout feature flags for the new module/package formats. JSON at the publication boundary is therefore the lower-risk choice until the new module format is no longer rollout-sensitive. This is a repository-format choice only; it does not prevent later mechanical migration.
-
-### Alternatives rejected
-
-- **One module with `core`, `color`, and `image` packages:** rejected because module-level versioning and `moon publish` would couple all releases and prevent consumers from selecting independent module lifecycles.
-- **Three repositories immediately:** rejected because v0.1 requires frequent cross-contract changes; `moon.work` gives local coordination without sacrificing publication boundaries.
-- **Path dependencies in `moon.mod.json`:** rejected for new work; official guidance recommends workspace resolution, and the new `moon.mod` syntax deprecates local dependency configuration.
-- **Adopt `moon.mod` immediately:** deferred until its rollout status is stable across the declared compatibility floor.
-
-Sources: [Workspace Support](https://docs.moonbitlang.com/en/latest/toolchain/moon/workspace.html), [Module Configuration](https://docs.moonbitlang.com/en/latest/toolchain/moon/module.html), [Use and publish packages](https://docs.moonbitlang.com/en/stable/toolchain/moon/package-manage-tour.html).
-
-## Targets and portability
-
-Set `"preferred-target": "native"` in all three module manifests to make the primary developer path explicit. Declare support rather than inheriting it accidentally:
-
-- `mnf-core`: `"supported-targets": "+js+wasm+wasm-gc+native"` for portable data and algorithms; native host adapters belong in separate native-only packages.
-- `mnf-color`: the same four-target set.
-- `mnf-image`: the same four-target set for image models, transforms, and pure reference codecs; any system codec adapter is a separate package with `"supported-targets": "native"`.
-
-Package-level `supported-targets` narrows the module declaration by intersection. Use package metadata for capability boundaries, and use per-file `targets` only when a package truly needs backend-specific source files. Omitting `supported-targets` means all backends, which is too permissive for MNF's explicit portability promise.
-
-Required PR validation:
-
-```powershell
-moon fmt --check
-moon check --target all --deny-warn --frozen
-moon test --target all --frozen
-moon info --frozen
-```
-
-`--target all` currently expands to `wasm`, `wasm-gc`, `js`, and `native`, explicitly excluding LLVM. Add LLVM only as a non-blocking experimental job after it can build meaningful MNF packages; do not advertise LLVM support based on a successful type-check alone.
-
-Sources: [MoonBit documentation target overview](https://docs.moonbitlang.com/en/latest/), [Package Configuration: supported targets](https://docs.moonbitlang.com/en/latest/toolchain/moon/package.html), [Module Configuration: preferred and supported targets](https://docs.moonbitlang.com/en/latest/toolchain/moon/module.html).
-
-## Native FFI and host adapters
-
-Use C FFI only in packages whose names make the host boundary obvious, such as a future `io/native` or codec-specific `codec/png/native`. Portable public types must not expose C pointers, `#external` types, C struct layout, or foreign-library error codes.
-
-Native adapters should follow these mandatory rules:
-
-1. Declare the package as native-only and list C wrapper files with `native-stub` in `moon.pkg`.
-2. Keep `extern "C"` declarations and their stubs together in the adapter package.
-3. Annotate reference-counted arguments explicitly with `#borrow` or `#owned`; do not depend on the current default because the official FFI docs state that the default is migrating from owned to borrowed.
-4. Document ownership, cleanup, callback lifetime, thread affinity, error mapping, integer-width conversion, and buffer-length validation next to every boundary.
-5. Use `moonbit_make_external_object` only for native resources whose finalizer semantics are appropriate; the finalizer releases the external resource and must not drop the MoonBit object itself.
-6. Avoid exposing payload-bearing MoonBit struct/enum layouts to C because the documented C representation is unstable. Prefer scalars, `Bytes`, opaque abstract types, and narrow wrapper functions.
-7. Require sanitizer-backed C compilation in a dedicated Linux CI job once the first stub lands; until then the main matrix remains pure MoonBit.
-
-MoonBit currently uses reference counting for C/native and Wasm backends, while Wasm GC and JavaScript reuse their host GC. That makes cross-backend conformance tests essential: portable behavior cannot be inferred from native success.
-
-### Alternatives rejected
-
-- **Wrap mature C libraries as the core implementation:** rejected because it violates MNF's MoonBit-native purpose and contaminates portable packages.
-- **Ban all C:** rejected because OS integration and mature codecs may require narrow adapters.
-- **Rely on implicit FFI ownership convention:** rejected because the documented default is changing and mistakes produce leaks or memory errors.
-
-Sources: [MoonBit FFI](https://docs.moonbitlang.com/en/latest/language/ffi.html), [MoonBit attributes: borrow and owned](https://docs.moonbitlang.com/en/stable/language/attributes.html), [Package Configuration: native stubs and link options](https://docs.moonbitlang.com/en/latest/toolchain/moon/package.html).
-
-## Testing, documentation, and benchmarks
-
-Use MoonBit's built-in test modes as separate evidence layers:
-
-- `*_test.mbt` black-box tests validate only the public API and are mandatory for every public package.
-- `*_wbtest.mbt` and inline tests cover internal invariants, parsers, checked arithmetic, and representation logic.
-- Snapshot tests are appropriate for structured diagnostics and small deterministic textual forms. Binary image expectations should use checked fixture bytes or digests plus semantic assertions, not opaque snapshots alone.
-- Literate `.mbt.md` and `mbt check` examples should be used for public API documentation; document tests are black-box tests.
-- Conformance fixtures and adversarial limit tests live in repository-level `fixtures/`, with provenance/license metadata; packages should consume them through test helpers rather than embed large duplicated data.
-
-Run branch coverage on the native target initially:
-
-```powershell
-moon test --target native --enable-coverage --frozen
-moon coverage report -f cobertura
-```
-
-Coverage is a diagnostic and trend signal, not the acceptance definition. For parsing and conversion code, require boundary, property/metamorphic, known-vector, differential, and resource-limit tests even when line/branch coverage is high.
-
-Use built-in benchmark blocks (`test (b : @bench.T)`) and execute performance gates with `moon bench --target native --release --frozen`. CI should compile benchmarks on every PR but run comparative measurements on a pinned runner or scheduled dedicated host; shared hosted runners are too noisy for regression thresholds. Every result must record toolchain version, target, optimization mode, OS/architecture, input corpus, and iteration statistics.
-
-Sources: [Writing Tests](https://docs.moonbitlang.com/en/stable/language/tests.html), [Comments and Documentation](https://docs.moonbitlang.com/en/latest/language/docs.html), [Measuring code coverage](https://docs.moonbitlang.com/en/stable/toolchain/moon/coverage.html), [Writing Benchmarks](https://docs.moonbitlang.com/en/latest/language/benchmarks.html).
-
-## CI and release pipeline
-
-Use GitHub Actions with a pinned MoonBit toolchain, but treat the setup action as third-party infrastructure. The official MoonBit curated list points to `hustcer/setup-moonbit`; pin its full commit SHA in production workflows, pass the exact toolchain version `0.1.20260713+75c7e1f` if accepted by the action, and print `moon version`, `moonc -v`, and `moonrun --version` at the start of every job. Verify the exact accepted version syntax during CI implementation; if the action cannot install the exact build, use the official installer in a cacheable bootstrap job and fail when the resulting version differs from the policy file.
-
-Recommended jobs:
-
-1. **quality:** `moon fmt --check`, `moon check --target all --deny-warn --frozen`, `moon info --frozen`.
-2. **test matrix:** Ubuntu, Windows, and macOS for `native`; Ubuntu for `wasm`, `wasm-gc`, and `js`. Promote all OS/target combinations only when backend behavior or native stubs justify the cost.
-3. **coverage:** native/Linux Cobertura artifact and trend reporting.
-4. **package dry run:** per member, `moon -C modules/<name> package --frozen --list`; inspect that fixtures, generated artifacts, credentials, and unrelated modules are excluded.
-5. **bench build:** `moon bench --target native --release --build-only --frozen`; scheduled benchmarks run separately.
-
-Publication should be a protected, tag-driven, manual-approval workflow. Before publishing a module: ensure the module's SemVer increased, changelog exists, workspace dependency versions are aligned with `moon work sync`, the repository tag identifies the module and version (for example `mnf-core-v0.1.0`), package dry-run passes, and then execute `moon -C modules/core publish --frozen`. Never run publication from pull-request code or expose mooncakes credentials to forked workflows.
-
-Moon's package manager follows Semantic Versioning and minimal version selection. Therefore each module must declare the lowest dependency version it actually supports and test against that resolved graph; do not use unconstrained/latest dependencies in release manifests.
-
-Sources: [official MoonBit curated tooling list](https://github.com/moonbitlang/awesome-moonbit), [Moon command reference](https://docs.moonbitlang.com/en/latest/toolchain/moon/commands.html), [Use and publish packages](https://docs.moonbitlang.com/en/stable/toolchain/moon/package-manage-tour.html), [official download instructions](https://www.moonbitlang.com/download/).
-
-## Dependency policy
-
-Keep the v0.1 dependency graph intentionally small:
-
-```text
-mnf-core
-└── moonbitlang/core only
-
-mnf-color
-├── mnf-core
-└── moonbitlang/core
-
-mnf-image
-├── mnf-core
-├── mnf-color
-└── moonbitlang/core
-```
-
-Prefer the standard library before adding ecosystem modules. Any new external dependency requires a short decision record covering license, supported targets, maintenance status, transitive graph, native code, and whether MNF can expose it without leaking its API. Import core packages explicitly in `moon.pkg` where required; current documentation warns that ordinary aliases such as `@json` and `@test` should import their corresponding `moonbitlang/core/...` packages rather than relying on implicit availability (the prelude is the exception).
-
-## Immediate implementation checklist
-
-1. Decide the mooncakes.io owner/namespace before creating publishable module names.
-2. Add a checked-in toolchain policy containing the exact three verified versions above.
-3. Initialize `moon.work` with three module members and JSON module manifests.
-4. Set Native as preferred; declare exact four-backend support for portable packages and native-only support for adapters.
-5. Establish root commands for format, check, test, info, coverage, package dry-run, and benchmark build.
-6. Add black-box API tests before stabilizing any public type; use white-box tests for invariants.
-7. Keep FFI absent from the first portable contracts. The first native stub must trigger a separate adapter package and FFI review checklist.
-8. Re-evaluate the compatibility floor and `moon.mod` format at the v0.1 release candidate, not opportunistically mid-phase.
-
-## Confidence and watch items
-
-| Topic | Confidence | Watch item |
+| Operation | Exact command surface | Use |
 |---|---|---|
-| Workspace and publication unit | High | Workspace commands are current and locally present |
-| Four required production targets | High | `--target all` behavior is explicitly documented and locally exposed |
-| Native FFI rules | High | Ownership default is actively migrating; explicit annotations are mandatory |
-| `moon.mod.json` over `moon.mod` | Medium | Revisit after rollout flags disappear and compatibility floor is chosen |
-| Exact CI installation method | Medium | Third-party action must be SHA-pinned and exact-version syntax verified during workflow implementation |
-| Registry module names | Low until governance decision | mooncakes owner/organization is unresolved |
+| Authentication identity | `moon whoami` | Record only the expected username/owner match; never record the token or credential file. A successful result is necessary but not sufficient proof that the owner namespace is writable. |
+| Interactive authentication | `moon login` | Approved bootstrap/probe only. Official docs say it writes an API token to `~/.moon/credentials.json`. |
+| Closed package inventory | `moon -C <module> package --frozen --list` | Reuse the existing exact allowlist and deterministic-ZIP checks before any remote write. |
+| Publish | `moon -C <module> publish --frozen` | Execute exactly once per not-yet-observed module version, only after preflight. `--frozen` prevents dependency synchronization during the write. |
+| Refresh registry | `moon update` | Run in a clean consumer environment after each successful or ambiguous publication response. |
+| Exact registry dependency | `moon add moonbit-foundation/<module>@0.1.0` or an exact `deps` entry | Prefer generating a disposable consumer with the exact version and then asserting that the manifest was not rewritten unexpectedly. |
+| Dependency graph | `moon tree` | Record the resolved graph for each clean consumer. This supplements, but does not replace, compilation and tests. |
+| Consumer verification | `moon check --target <js|wasm|wasm-gc|native> --deny-warn --frozen` and `moon test --target <...> --frozen` | Run outside the repository and without `moon.work`, path dependencies, copied source, or publisher credentials. |
+| Public interface generation | `moon -C <module> info --target all --frozen` | Generate canonical `pkg.generated.mbti` files and inspect backend differences. The installed CLI writes the canonical-backend form while checking requested target interfaces. |
 
+The module publication DAG is fixed by committed manifests:
+
+```text
+moonbit-foundation/mb-core@0.1.0
+  -> moonbit-foundation/mb-color@0.1.0
+       -> moonbit-foundation/mb-image@0.1.0
+```
+
+Publication and verification must therefore be a six-step transaction log, not three independent parallel jobs:
+
+```text
+publish core -> resolve/test core
+             -> publish color -> resolve/test color
+                              -> publish image -> resolve/test image
+```
+
+### GitHub Actions and Provenance
+
+| Technology | Version / pin policy | Purpose | Why |
+|---|---|---|---|
+| GitHub Actions environments | Current hosted service | Protect the Mooncakes publisher credential and restrict publication refs | Environment secrets are unavailable until protection rules pass. For a sole owner, use tag restrictions plus an explicit environment approval if the plan supports it; do not invent a second reviewer. |
+| Workflow `concurrency` | `group: mnf-mooncakes-production`, `cancel-in-progress: false` | Serialize all publication attempts | A running registry write must never be canceled by a newer run. One stable cross-workflow group prevents two versions from racing. |
+| `actions/checkout` | Pin full SHA; `v5` resolved to `93cb6efe18208431cddfb8368fd83d5badbf9bfd` on 2026-07-17 | Exact source checkout | GitHub states a full commit SHA is the immutable way to consume an action. Re-resolve and review the SHA when implementing. |
+| `actions/attest` | Pin full SHA; `v4` resolved to `36051bcae73b7c2a8a6945a48cbf80953c6baa35` on 2026-07-17 | Sign provenance for candidate ZIPs and the closed release evidence manifest | Official GitHub support; requires only `id-token: write`, `contents: read`, and `attestations: write` for non-container artifacts. |
+| `gh attestation verify` | GitHub CLI `2.96.0` locally verified | Independent provenance verification | Makes the attestation useful; merely generating it is not a completed control. |
+
+Workflow permissions should default to:
+
+```yaml
+permissions:
+  contents: read
+```
+
+Only the attestation job adds:
+
+```yaml
+permissions:
+  contents: read
+  id-token: write
+  attestations: write
+```
+
+The Mooncakes publish job does not need `contents: write`, `packages: write`, or GitHub OIDC unless a later, official Mooncakes integration explicitly requires them. Publication evidence should contain candidate SHA-256 values, module/version, source commit/tag, tool versions, ordered step outcomes, registry observations, consumer result digests, and attestation references. It must not contain credential paths copied from the runner, token values, authorization headers, or an unredacted environment dump.
+
+### Compatibility Baseline
+
+Use `moon info`, not a third-party semantic-release engine, as the source of public API facts. Direct testing on the pinned toolchain generated six `mb-core` `.mbti` files with byte-identical SHA-256 values across two consecutive runs. The official and local CLI expose interface generation but no documented semantic compatibility diff command.
+
+Add a project-owned compatibility tree such as:
+
+```text
+compatibility/
+  0.1.0/
+    toolchain.json
+    mb-core/<package>.mbti
+    mb-color/<package>.mbti
+    mb-image/<package>.mbti
+    manifest.json
+```
+
+The gate should:
+
+1. generate interfaces in a clean clone with the exact toolchain;
+2. normalize only declared transport differences (UTF-8 without BOM and LF); never sort or rewrite declarations unless the generator itself proves nondeterministic;
+3. require the exact closed package set and hash every baseline file;
+4. compare generated interfaces with the last published baseline;
+5. classify changes under a repository-owned policy: removal/signature/visibility/type-contract change = breaking; additive public declaration = backward-compatible feature; no public interface change = patch-eligible;
+6. require an explicit reviewed change record and matching version bump for every accepted delta;
+7. run clean registry consumers against both the declared minimum dependency versions and the newly published versions.
+
+For `0.x`, SemVer permits rapid evolution, but MNF's stated stability policy is stricter than relying on SemVer's permissive interpretation. Treat any incompatible published API change as requiring an explicit compatibility decision and at least a minor-version bump until 1.0; never silently replace `0.1.0` or reinterpret an unchanged version.
+
+## Credential and Retry Contract
+
+The publication runner must be fail-closed and journaled. Store state after each network step in ignored evidence and, after the run, seal the redacted journal into the release evidence manifest.
+
+| Observed state | Action |
+|---|---|
+| Version is absent; preflight and candidate digest match | Permit one publish attempt. |
+| Publish returns success | Refresh registry, resolve the exact version in a clean consumer, verify module identity/API/tests, then mark remotely verified. |
+| Publish times out, disconnects, or returns an unclassified error | Do **not** immediately retry. Refresh/query the registry from a credential-free clean environment. If the exact version resolves and passes, treat the write as successful; if absence is proven repeatedly, allow an operator-approved retry; if state remains ambiguous, stop. |
+| Exact version already resolves and its observable package/interface evidence matches the candidate | Skip the write and continue post-publication verification, recording `already_present_matching`. This is recovery, not republishing. |
+| Exact version resolves but differs from the candidate, or ownership is unexpected | Hard stop. Never overwrite, delete, or publish a replacement under the same version. |
+| Core post-verification fails | Stop before color. |
+| Color post-verification fails | Stop before image. |
+| Credential cleanup cannot be proven | Fail the workflow even if publication succeeded, and rotate/revoke the credential. |
+
+Because current official public documentation does not define Mooncakes duplicate-publish responses, immutable version guarantees, organization delegation, token scope, or an authority-check API, the implementation must capture and classify real responses using a disposable namespace/version before enabling production automation. Negative claims about these behaviors are intentionally not encoded as facts.
+
+## Integration with the Existing Required Pipeline
+
+Keep `pwsh -NoProfile -File scripts/quality.ps1 -Lane Required` credential-free, deterministic, and safe on every pull request. Extend it only with static/read-only checks:
+
+- exact release policy schema and module DAG;
+- candidate package bytes and allowlists;
+- generated `.mbti` compatibility comparison;
+- publish workflow policy linting (permissions, environment, concurrency, SHA pins, allowed commands, secret names but never secret values);
+- clean consumer definitions and redacted evidence schema;
+- negative fixtures for path substitution, source copying, fabricated registry success, retry-after-ambiguity, out-of-order publish, and interface change without version classification.
+
+Place real network behavior in a separate explicit lane, for example:
+
+```powershell
+pwsh -NoProfile -File scripts/publication.ps1 -Lane Preflight -Version 0.1.0
+pwsh -NoProfile -File scripts/publication.ps1 -Lane Publish -Version 0.1.0
+pwsh -NoProfile -File scripts/publication.ps1 -Lane Verify -Version 0.1.0
+```
+
+`Preflight` may use authenticated identity but must not write. `Publish` is the only credential-bearing lane and must require the protected environment. `Verify` must use a fresh credential-free home/cache and prove external registry consumption. The existing `Required` run must pass at the same source HEAD before publication, and again after adding only immutable/redacted publication evidence; the release workflow must never weaken or bypass its selectors.
+
+## What Not to Add
+
+| Rejected addition | Why not |
+|---|---|
+| `dijdzv/moon-release` or another general release bot | It adds an unneeded third-party executable and its own compatibility heuristics to a repository that already has a closed qualification state machine. Its public documentation is useful ecosystem evidence, not a reason to delegate the release authority. |
+| npm trusted publishing / generic GitHub OIDC for Mooncakes | Mooncakes OIDC support is not documented. GitHub OIDC tokens are audience-bound and do not authenticate to arbitrary registries without registry-side trust. |
+| A custom package registry client | `moon publish`, `moon update`, and `moon add` are the supported contract. Reimplementing private APIs would be fragile and could mishandle credentials or server semantics. |
+| Floating action tags in committed workflows | GitHub recommends full commit SHAs for immutable action consumption. Human-readable tags may be kept in comments only. |
+| Automatic retry loops around `moon publish` | Publication is a non-idempotent remote write until exact server semantics are proven. Observe remote state before any retry. |
+| Parallel publication jobs | `mb-color` depends on published `mb-core`; `mb-image` depends on both. Parallelism violates the manifest DAG and makes recovery ambiguous. |
+| Binary-only API snapshots or documentation HTML diffs | `.mbti` is the compiler-generated public interface. HTML and compiled artifacts are noisier and less reviewable as the compatibility source of truth. |
+| Immediate migration from `moon.mod.json` to `moon.mod` | It is unrelated to distribution/compatibility and would introduce manifest churn during the first real publication. Retain the proven JSON manifests for v0.2. |
+| New graphics/document/media modules | Explicitly outside the milestone; publication and compatibility must become real first. |
+
+## Installation and Bootstrap
+
+No new language package or global release framework is required. CI should install the exact MoonBit toolchain using a reviewed, checksum-verified mechanism and assert versions before running the existing gates.
+
+```powershell
+moon version
+$PSVersionTable.PSVersion
+git --version
+gh --version
+
+pwsh -NoProfile -File scripts/quality.ps1 -Lane Required
+moon -C modules/mb-core package --frozen --list
+moon -C modules/mb-color package --frozen --list
+moon -C modules/mb-image package --frozen --list
+```
+
+Before production publication, separately prove these live prerequisites:
+
+```powershell
+moon whoami
+moon -C modules/mb-core publish --dry-run
+moon -C modules/mb-color publish --dry-run
+moon -C modules/mb-image publish --dry-run
+```
+
+`--dry-run` is a common `moon` option in the installed CLI, but its publication fidelity must be tested; it cannot prove remote namespace write authority because a real write is intentionally absent.
+
+## Confidence and Open Gaps
+
+| Topic | Confidence | Evidence / gap |
+|---|---|---|
+| Installed MoonBit command surface and versions | HIGH for observed local behavior | Directly executed `moon version` and command help on 2026-07-17. |
+| Module naming, SemVer, dependency metadata, minimal version selection | MEDIUM | Current official MoonBit docs, cross-checked with committed manifests and local CLI. |
+| `.mbti` as compatibility input | MEDIUM-HIGH | Official `moon info` contract plus repeatable local generation; semantic classification remains project-owned. |
+| GitHub environments, concurrency, SHA pins, attestations | MEDIUM-HIGH | Current official GitHub documentation and live tag resolution. Repository plan/visibility constraints still need confirmation. |
+| Mooncakes namespace authority and organization delegation | LOW until live proof | Official docs state username-prefixed names but do not document organization/owner delegation or an authority API. |
+| Mooncakes non-interactive auth, token scope, expiry, revocation | LOW until disposable-token test | Official docs only document interactive `moon login` and `~/.moon/credentials.json`. |
+| Duplicate publication, immutable versions, ambiguous-write recovery | LOW until live probe | No authoritative public contract found. The recommended state machine is deliberately conservative. |
+| Registry artifact digest/API equivalence to local ZIP | LOW until post-publication inspection | Prove observable package/interface equivalence through clean consumers; do not claim registry byte identity without an official digest endpoint. |
+
+Required phase-specific research before the first production write:
+
+1. authenticate a disposable account/namespace and record sanitized `whoami`, allowed module prefixes, and permission failures;
+2. publish a disposable version, then repeat the exact request to classify duplicate behavior and prove whether versions are immutable;
+3. interrupt or simulate failure after request dispatch, then validate the read-before-retry recovery algorithm;
+4. validate the exact credential representation, CI injection, filesystem location, log redaction, cleanup, revocation, and least available scope;
+5. confirm whether the real repository is public and has a configured GitHub remote so public attestations and environment protections are available as planned.
+
+## Sources
+
+- [MoonBit: Use and publish packages](https://docs.moonbitlang.com/en/latest/toolchain/moon/package-manage-tour.html) — official; login credential location, module publication, SemVer, minimal version selection, metadata. **Confidence: MEDIUM.**
+- [MoonBit: Command-line help for moon](https://docs.moonbitlang.com/en/latest/toolchain/moon/commands.html) — official; `moon info`, `add`, `login`, `publish`, `package`, and `update` surfaces. Cross-checked against installed commands. **Confidence: MEDIUM-HIGH.**
+- [MoonBit: Module configuration](https://docs.moonbitlang.com/en/latest/toolchain/moon/module.html) — official; publication names, versions, `deps`, include/exclude, source and target metadata. **Confidence: MEDIUM.**
+- [MoonBit: Package configuration](https://docs.moonbitlang.com/en/latest/toolchain/moon/package.html) — official; target behavior and `.mbti` diagnostics. **Confidence: MEDIUM.**
+- [GitHub: Deployments and environments](https://docs.github.com/en/actions/reference/workflows-and-actions/deployments-and-environments) — official; protection rules, branch/tag restrictions, and environment-secret availability. **Confidence: MEDIUM-HIGH.**
+- [GitHub: Workflow syntax](https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-syntax) — official; concurrency behavior. **Confidence: MEDIUM-HIGH.**
+- [GitHub: Secure use reference](https://docs.github.com/en/actions/reference/security/secure-use) — official; least privilege and full-SHA action pinning. **Confidence: MEDIUM-HIGH.**
+- [GitHub: Using artifact attestations](https://docs.github.com/en/actions/how-tos/secure-your-work/use-artifact-attestations/use-artifact-attestations) — official; `actions/attest`, permissions, subjects, and verification. **Confidence: MEDIUM-HIGH.**
+- [GitHub: OpenID Connect reference](https://docs.github.com/en/actions/reference/security/oidc) — official; OIDC audience/subject and `id-token: write`. Used to bound, not claim, Mooncakes support. **Confidence: MEDIUM-HIGH.**
+- Local verification on 2026-07-17 — `moon 0.1.20260713`, `moonc v0.10.4`, PowerShell `7.6.3`, GitHub CLI `2.96.0`; repeated `moon info --target all --frozen` produced stable `mb-core` interface files. **Confidence: HIGH for this pinned machine snapshot.**
