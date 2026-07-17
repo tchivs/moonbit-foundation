@@ -13,7 +13,7 @@
   ],
   "candidate_status": "candidate",
   "license": "Apache-2.0",
-  "repository": "https://github.com/moonbit-foundation/moonbit-foundation",
+  "repository": "https://github.com/tchivs/moonbit-foundation",
   "fixture_manifest": "fixtures/manifest.json",
   "fixture_records": [
     "image-operation-vectors",
@@ -34,12 +34,12 @@
     "(^|/)qualification-consumer(/|$)"
   ],
   "post_publish_order": [
-    "publish:moonbit-foundation/mb-core@0.1.0",
-    "resolve:moonbit-foundation/mb-core@0.1.0",
-    "publish:moonbit-foundation/mb-color@0.1.0",
-    "resolve:moonbit-foundation/mb-color@0.1.0",
-    "publish:moonbit-foundation/mb-image@0.1.0",
-    "resolve:moonbit-foundation/mb-image@0.1.0"
+    "publish:tchivs/mb-core@0.1.0",
+    "resolve:tchivs/mb-core@0.1.0",
+    "publish:tchivs/mb-color@0.1.0",
+    "resolve:tchivs/mb-color@0.1.0",
+    "publish:tchivs/mb-image@0.1.0",
+    "resolve:tchivs/mb-image@0.1.0"
   ],
   "publication": {
     "performed": false,
@@ -50,23 +50,23 @@
   "modules": {
     "mb-core": {
       "manifest": {
-        "name": "moonbit-foundation/mb-core",
+        "name": "tchivs/mb-core",
         "version": "0.1.0",
         "description": "Portable checked arithmetic, bounded storage, resource budgets, backend-neutral I/O, and explicit host capability contracts for MoonBit Native Foundation.",
         "license": "Apache-2.0",
-        "repository": "https://github.com/moonbit-foundation/moonbit-foundation",
+        "repository": "https://github.com/tchivs/moonbit-foundation",
         "readme": "README.mbt.md",
         "preferred-target": "native",
         "supported-targets": "+js+wasm+wasm-gc+native"
       },
       "dependencies": {},
       "public_packages": [
-        "moonbit-foundation/mb-core/error",
-        "moonbit-foundation/mb-core/checked",
-        "moonbit-foundation/mb-core/budget",
-        "moonbit-foundation/mb-core/bytes",
-        "moonbit-foundation/mb-core/io",
-        "moonbit-foundation/mb-core/host"
+        "tchivs/mb-core/error",
+        "tchivs/mb-core/checked",
+        "tchivs/mb-core/budget",
+        "tchivs/mb-core/bytes",
+        "tchivs/mb-core/io",
+        "tchivs/mb-core/host"
       ],
       "package_allowlist": [
         "CHANGELOG.md", "README.mbt.md", "budget", "budget/budget.mbt", "budget/budget_test.mbt", "budget/budget_wbtest.mbt", "budget/moon.pkg",
@@ -82,24 +82,24 @@
     },
     "mb-color": {
       "manifest": {
-        "name": "moonbit-foundation/mb-color",
+        "name": "tchivs/mb-color",
         "version": "0.1.0",
         "description": "Portable explicit color identities, reference sRGB transfer, deterministic quantization, alpha semantics, and bounded profile metadata for MoonBit Native Foundation.",
         "license": "Apache-2.0",
-        "repository": "https://github.com/moonbit-foundation/moonbit-foundation",
+        "repository": "https://github.com/tchivs/moonbit-foundation",
         "readme": "README.mbt.md",
         "preferred-target": "native",
         "supported-targets": "+js+wasm+wasm-gc+native"
       },
       "dependencies": {
-        "moonbit-foundation/mb-core": "0.1.0"
+        "tchivs/mb-core": "0.1.0"
       },
       "public_packages": [
-        "moonbit-foundation/mb-color/model",
-        "moonbit-foundation/mb-color/transfer",
-        "moonbit-foundation/mb-color/quantize",
-        "moonbit-foundation/mb-color/alpha",
-        "moonbit-foundation/mb-color/profile"
+        "tchivs/mb-color/model",
+        "tchivs/mb-color/transfer",
+        "tchivs/mb-color/quantize",
+        "tchivs/mb-color/alpha",
+        "tchivs/mb-color/profile"
       ],
       "package_allowlist": [
         "CHANGELOG.md", "README.mbt.md", "model", "model/components.mbt", "model/identities.mbt", "model/model_test.mbt", "model/model_wbtest.mbt", "model/moon.pkg", "moon.mod.json",
@@ -114,26 +114,26 @@
     },
     "mb-image": {
       "manifest": {
-        "name": "moonbit-foundation/mb-image",
+        "name": "tchivs/mb-image",
         "version": "0.1.0",
         "description": "Portable explicit image descriptions, safe owned storage and views, deterministic operations, codec contracts, and a strict bounded PPM P6 reference subset for MoonBit Native Foundation.",
         "license": "Apache-2.0",
-        "repository": "https://github.com/moonbit-foundation/moonbit-foundation",
+        "repository": "https://github.com/tchivs/moonbit-foundation",
         "readme": "README.mbt.md",
         "preferred-target": "native",
         "supported-targets": "+js+wasm+wasm-gc+native"
       },
       "dependencies": {
-        "moonbit-foundation/mb-core": "0.1.0",
-        "moonbit-foundation/mb-color": "0.1.0"
+        "tchivs/mb-core": "0.1.0",
+        "tchivs/mb-color": "0.1.0"
       },
       "public_packages": [
-        "moonbit-foundation/mb-image/metadata",
-        "moonbit-foundation/mb-image/model",
-        "moonbit-foundation/mb-image/storage",
-        "moonbit-foundation/mb-image/ops",
-        "moonbit-foundation/mb-image/codec",
-        "moonbit-foundation/mb-image/ppm"
+        "tchivs/mb-image/metadata",
+        "tchivs/mb-image/model",
+        "tchivs/mb-image/storage",
+        "tchivs/mb-image/ops",
+        "tchivs/mb-image/codec",
+        "tchivs/mb-image/ppm"
       ],
       "package_allowlist": [
         "CHANGELOG.md", "README.mbt.md",

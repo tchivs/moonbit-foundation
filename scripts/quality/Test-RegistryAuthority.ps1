@@ -100,7 +100,7 @@ if ($policy.schema_version -cne '1.0.0' -or $observation.schema_version -cne '1.
 }
 
 $expectedModules = @('mb-core', 'mb-color', 'mb-image')
-$expectedIdentities = @('moonbit-foundation/mb-core', 'moonbit-foundation/mb-color', 'moonbit-foundation/mb-image')
+$expectedIdentities = @('tchivs/mb-core', 'tchivs/mb-color', 'tchivs/mb-image')
 $expectedVersions = @('0.1.0', '0.1.0', '0.1.0')
 Assert-RegistrySequence 'registry module order' @($policy.module_order.module) $expectedModules 'REG01-IDENTITY'
 Assert-RegistrySequence 'registry module identities' @($policy.module_order.identity) $expectedIdentities 'REG01-IDENTITY'
@@ -108,7 +108,7 @@ Assert-RegistrySequence 'registry module versions' @($policy.module_order.versio
 foreach ($module in @($policy.module_order)) {
   Assert-RegistryClosed "registry module $($module.module)" $module @('module', 'identity', 'version') 'REG01-CLOSED-CONTRACT'
 }
-if ($policy.intended_owner -cne 'moonbit-foundation' -or $observation.intended_owner -cne $policy.intended_owner -or
+if ($policy.intended_owner -cne 'tchivs' -or $observation.intended_owner -cne $policy.intended_owner -or
     $observation.namespace_authority.namespace -cne $policy.intended_owner) {
   Fail-RegistryRule -Id 'REG01-IDENTITY' -Message 'intended owner or namespace identity drifted.'
 }

@@ -29,11 +29,11 @@
   ],
   "modules": [
     {
-      "name": "moonbit-foundation/mb-core",
+      "name": "tchivs/mb-core",
       "path": "modules/mb-core",
       "version": "0.1.0",
       "description": "Portable checked arithmetic, bounded storage, resource budgets, backend-neutral I/O, and explicit host capability contracts for MoonBit Native Foundation.",
-      "repository": "https://github.com/moonbit-foundation/moonbit-foundation",
+      "repository": "https://github.com/tchivs/moonbit-foundation",
       "stability": "candidate",
       "preferred_target": "native",
       "supported_targets": [
@@ -88,12 +88,12 @@
       ],
       "public_packages": [
         {
-          "name": "moonbit-foundation/mb-core/error",
+          "name": "tchivs/mb-core/error",
           "path": "error",
           "stability": "candidate",
           "allowed_imports": [],
           "semantic_interface": [
-            "package \"moonbit-foundation/mb-core/error\"",
+            "package \"tchivs/mb-core/error\"",
             "pub fn map_host_failure(String, String) -> CoreError",
             "pub fn render_diagnostic(Diagnostic) -> String",
             "pub fn render_error(CoreError) -> String",
@@ -159,16 +159,16 @@
           ]
         },
         {
-          "name": "moonbit-foundation/mb-core/checked",
+          "name": "tchivs/mb-core/checked",
           "path": "checked",
           "stability": "candidate",
           "allowed_imports": [
-            "moonbit-foundation/mb-core/error"
+            "tchivs/mb-core/error"
           ],
           "semantic_interface": [
-            "package \"moonbit-foundation/mb-core/checked\"",
+            "package \"tchivs/mb-core/checked\"",
             "import {",
-            "  \"moonbit-foundation/mb-core/error\",",
+            "  \"tchivs/mb-core/error\",",
             "}",
             "pub fn align_up(UInt64, UInt64) -> Result[UInt64, @error.CoreError]",
             "pub fn checked_add(UInt64, UInt64) -> Result[UInt64, @error.CoreError]",
@@ -207,17 +207,17 @@
           ]
         },
         {
-          "name": "moonbit-foundation/mb-core/budget",
+          "name": "tchivs/mb-core/budget",
           "path": "budget",
           "stability": "candidate",
           "allowed_imports": [
-            "moonbit-foundation/mb-core/checked",
-            "moonbit-foundation/mb-core/error"
+            "tchivs/mb-core/checked",
+            "tchivs/mb-core/error"
           ],
           "semantic_interface": [
-            "package \"moonbit-foundation/mb-core/budget\"",
+            "package \"tchivs/mb-core/budget\"",
             "import {",
-            "  \"moonbit-foundation/mb-core/error\",",
+            "  \"tchivs/mb-core/error\",",
             "}",
             "pub fn[T] with_depth(Budget, (BudgetScope) -> Result[T, @error.CoreError]) -> Result[T, @error.CoreError]",
             "pub struct Budget {",
@@ -258,19 +258,19 @@
           ]
         },
         {
-          "name": "moonbit-foundation/mb-core/bytes",
+          "name": "tchivs/mb-core/bytes",
           "path": "bytes",
           "stability": "candidate",
           "allowed_imports": [
-            "moonbit-foundation/mb-core/budget",
-            "moonbit-foundation/mb-core/checked",
-            "moonbit-foundation/mb-core/error"
+            "tchivs/mb-core/budget",
+            "tchivs/mb-core/checked",
+            "tchivs/mb-core/error"
           ],
           "semantic_interface": [
-            "package \"moonbit-foundation/mb-core/bytes\"",
+            "package \"tchivs/mb-core/bytes\"",
             "import {",
-            "  \"moonbit-foundation/mb-core/budget\",",
-            "  \"moonbit-foundation/mb-core/error\",",
+            "  \"tchivs/mb-core/budget\",",
+            "  \"tchivs/mb-core/error\",",
             "}",
             "pub struct ByteView {",
             "}",
@@ -307,21 +307,21 @@
           ]
         },
         {
-          "name": "moonbit-foundation/mb-core/io",
+          "name": "tchivs/mb-core/io",
           "path": "io",
           "stability": "candidate",
           "allowed_imports": [
-            "moonbit-foundation/mb-core/budget",
-            "moonbit-foundation/mb-core/bytes",
-            "moonbit-foundation/mb-core/checked",
-            "moonbit-foundation/mb-core/error"
+            "tchivs/mb-core/budget",
+            "tchivs/mb-core/bytes",
+            "tchivs/mb-core/checked",
+            "tchivs/mb-core/error"
           ],
           "semantic_interface": [
-            "package \"moonbit-foundation/mb-core/io\"",
+            "package \"tchivs/mb-core/io\"",
             "import {",
-            "  \"moonbit-foundation/mb-core/budget\",",
-            "  \"moonbit-foundation/mb-core/bytes\",",
-            "  \"moonbit-foundation/mb-core/error\",",
+            "  \"tchivs/mb-core/budget\",",
+            "  \"tchivs/mb-core/bytes\",",
+            "  \"tchivs/mb-core/error\",",
             "}",
             "pub fn checked_seek_position(SeekOrigin, Int64, UInt64, UInt64) -> Result[UInt64, @error.CoreError]",
             "pub fn read_exact(&Reader, @bytes.MutByteLease) -> Result[UInt64, @error.CoreError]",
@@ -389,17 +389,17 @@
           ]
         },
         {
-          "name": "moonbit-foundation/mb-core/host",
+          "name": "tchivs/mb-core/host",
           "path": "host",
           "stability": "candidate",
           "allowed_imports": [
-            "moonbit-foundation/mb-core/checked",
-            "moonbit-foundation/mb-core/error"
+            "tchivs/mb-core/checked",
+            "tchivs/mb-core/error"
           ],
           "semantic_interface": [
-            "package \"moonbit-foundation/mb-core/host\"",
+            "package \"tchivs/mb-core/host\"",
             "import {",
-            "  \"moonbit-foundation/mb-core/error\",",
+            "  \"tchivs/mb-core/error\",",
             "}",
             "pub struct FakeCancellation {",
             "}",
@@ -456,11 +456,11 @@
       ]
     },
     {
-      "name": "moonbit-foundation/mb-color",
+      "name": "tchivs/mb-color",
       "path": "modules/mb-color",
       "version": "0.1.0",
       "description": "Portable explicit color identities, reference sRGB transfer, deterministic quantization, alpha semantics, and bounded profile metadata for MoonBit Native Foundation.",
-      "repository": "https://github.com/moonbit-foundation/moonbit-foundation",
+      "repository": "https://github.com/tchivs/moonbit-foundation",
       "stability": "candidate",
       "preferred_target": "native",
       "supported_targets": [
@@ -470,7 +470,7 @@
         "native"
       ],
       "direct_dependencies": [
-        "moonbit-foundation/mb-core"
+        "tchivs/mb-core"
       ],
       "publication_files": [
         "CHANGELOG.md",
@@ -509,16 +509,16 @@
       ],
       "public_packages": [
         {
-          "name": "moonbit-foundation/mb-color/model",
+          "name": "tchivs/mb-color/model",
           "path": "model",
           "stability": "candidate",
           "allowed_imports": [
-            "moonbit-foundation/mb-core/error"
+            "tchivs/mb-core/error"
           ],
           "semantic_interface": [
-            "package \"moonbit-foundation/mb-color/model\"",
+            "package \"tchivs/mb-color/model\"",
             "import {",
-            "  \"moonbit-foundation/mb-core/error\",",
+            "  \"tchivs/mb-core/error\",",
             "}",
             "pub(all) enum AlphaMode {",
             "  Straight",
@@ -575,17 +575,17 @@
           ]
         },
         {
-          "name": "moonbit-foundation/mb-color/transfer",
+          "name": "tchivs/mb-color/transfer",
           "path": "transfer",
           "stability": "candidate",
           "allowed_imports": [
-            "moonbit-foundation/mb-color/model",
+            "tchivs/mb-color/model",
             "moonbitlang/core/math"
           ],
           "semantic_interface": [
-            "package \"moonbit-foundation/mb-color/transfer\"",
+            "package \"tchivs/mb-color/transfer\"",
             "import {",
-            "  \"moonbit-foundation/mb-color/model\",",
+            "  \"tchivs/mb-color/model\",",
             "}",
             "pub fn decode_absolute_tolerance() -> Double",
             "pub fn decode_srgb(@model.EncodedSrgbComponent) -> @model.LinearSrgbComponent",
@@ -601,19 +601,19 @@
           ]
         },
         {
-          "name": "moonbit-foundation/mb-color/quantize",
+          "name": "tchivs/mb-color/quantize",
           "path": "quantize",
           "stability": "candidate",
           "allowed_imports": [
-            "moonbit-foundation/mb-color/model",
-            "moonbit-foundation/mb-core/error",
-            "moonbit-foundation/mb-core/checked"
+            "tchivs/mb-color/model",
+            "tchivs/mb-core/error",
+            "tchivs/mb-core/checked"
           ],
           "semantic_interface": [
-            "package \"moonbit-foundation/mb-color/quantize\"",
+            "package \"tchivs/mb-color/quantize\"",
             "import {",
-            "  \"moonbit-foundation/mb-color/model\",",
-            "  \"moonbit-foundation/mb-core/error\",",
+            "  \"tchivs/mb-color/model\",",
+            "  \"tchivs/mb-core/error\",",
             "}",
             "pub fn dequantize_alpha(@model.EncodedAlpha8) -> @model.NormalizedAlpha",
             "pub fn dequantize_encoded_srgb(@model.EncodedSrgb8Component) -> @model.EncodedSrgbComponent",
@@ -629,20 +629,20 @@
           ]
         },
         {
-          "name": "moonbit-foundation/mb-color/alpha",
+          "name": "tchivs/mb-color/alpha",
           "path": "alpha",
           "stability": "candidate",
           "allowed_imports": [
-            "moonbit-foundation/mb-color/model",
-            "moonbit-foundation/mb-color/quantize",
-            "moonbit-foundation/mb-core/error",
-            "moonbit-foundation/mb-core/checked"
+            "tchivs/mb-color/model",
+            "tchivs/mb-color/quantize",
+            "tchivs/mb-core/error",
+            "tchivs/mb-core/checked"
           ],
           "semantic_interface": [
-            "package \"moonbit-foundation/mb-color/alpha\"",
+            "package \"tchivs/mb-color/alpha\"",
             "import {",
-            "  \"moonbit-foundation/mb-color/model\",",
-            "  \"moonbit-foundation/mb-core/error\",",
+            "  \"tchivs/mb-color/model\",",
+            "  \"tchivs/mb-core/error\",",
             "}",
             "pub fn premultiply_encoded(StraightEncodedSrgba8) -> Result[PremultipliedEncodedSrgba8, @error.CoreError]",
             "pub fn premultiply_normalized(StraightNormalizedSrgba) -> Result[PremultipliedNormalizedSrgba, @error.CoreError]",
@@ -702,20 +702,20 @@
           ]
         },
         {
-          "name": "moonbit-foundation/mb-color/profile",
+          "name": "tchivs/mb-color/profile",
           "path": "profile",
           "stability": "candidate",
           "allowed_imports": [
-            "moonbit-foundation/mb-core/error",
-            "moonbit-foundation/mb-core/budget",
-            "moonbit-foundation/mb-core/bytes"
+            "tchivs/mb-core/error",
+            "tchivs/mb-core/budget",
+            "tchivs/mb-core/bytes"
           ],
           "semantic_interface": [
-            "package \"moonbit-foundation/mb-color/profile\"",
+            "package \"tchivs/mb-color/profile\"",
             "import {",
-            "  \"moonbit-foundation/mb-core/budget\",",
-            "  \"moonbit-foundation/mb-core/bytes\",",
-            "  \"moonbit-foundation/mb-core/error\",",
+            "  \"tchivs/mb-core/budget\",",
+            "  \"tchivs/mb-core/bytes\",",
+            "  \"tchivs/mb-core/error\",",
             "}",
             "pub struct OpaqueProfile {",
             "}",
@@ -749,11 +749,11 @@
       ]
     },
     {
-      "name": "moonbit-foundation/mb-image",
+      "name": "tchivs/mb-image",
       "path": "modules/mb-image",
       "version": "0.1.0",
       "description": "Portable explicit image descriptions, safe owned storage and views, deterministic operations, codec contracts, and a strict bounded PPM P6 reference subset for MoonBit Native Foundation.",
-      "repository": "https://github.com/moonbit-foundation/moonbit-foundation",
+      "repository": "https://github.com/tchivs/moonbit-foundation",
       "stability": "candidate",
       "preferred_target": "native",
       "supported_targets": [
@@ -763,8 +763,8 @@
         "native"
       ],
       "direct_dependencies": [
-        "moonbit-foundation/mb-core",
-        "moonbit-foundation/mb-color"
+        "tchivs/mb-core",
+        "tchivs/mb-color"
       ],
       "publication_files": [
         "CHANGELOG.md",
@@ -823,20 +823,20 @@
       ],
       "public_packages": [
         {
-          "name": "moonbit-foundation/mb-image/metadata",
+          "name": "tchivs/mb-image/metadata",
           "path": "metadata",
           "stability": "candidate",
           "allowed_imports": [
-            "moonbit-foundation/mb-core/error",
-            "moonbit-foundation/mb-core/budget",
-            "moonbit-foundation/mb-core/bytes"
+            "tchivs/mb-core/error",
+            "tchivs/mb-core/budget",
+            "tchivs/mb-core/bytes"
           ],
           "semantic_interface": [
-            "package \"moonbit-foundation/mb-image/metadata\"",
+            "package \"tchivs/mb-image/metadata\"",
             "import {",
-            "  \"moonbit-foundation/mb-core/budget\",",
-            "  \"moonbit-foundation/mb-core/bytes\",",
-            "  \"moonbit-foundation/mb-core/error\",",
+            "  \"tchivs/mb-core/budget\",",
+            "  \"tchivs/mb-core/bytes\",",
+            "  \"tchivs/mb-core/error\",",
             "}",
             "pub struct DispositionField {",
             "}",
@@ -882,24 +882,24 @@
           ]
         },
         {
-          "name": "moonbit-foundation/mb-image/model",
+          "name": "tchivs/mb-image/model",
           "path": "model",
           "stability": "candidate",
           "allowed_imports": [
-            "moonbit-foundation/mb-core/error",
-            "moonbit-foundation/mb-core/checked",
-            "moonbit-foundation/mb-core/budget",
-            "moonbit-foundation/mb-color/model",
-            "moonbit-foundation/mb-color/profile",
-            "moonbit-foundation/mb-image/metadata"
+            "tchivs/mb-core/error",
+            "tchivs/mb-core/checked",
+            "tchivs/mb-core/budget",
+            "tchivs/mb-color/model",
+            "tchivs/mb-color/profile",
+            "tchivs/mb-image/metadata"
           ],
           "semantic_interface": [
-            "package \"moonbit-foundation/mb-image/model\"",
+            "package \"tchivs/mb-image/model\"",
             "import {",
-            "  \"moonbit-foundation/mb-color/profile\",",
-            "  \"moonbit-foundation/mb-core/checked\",",
-            "  \"moonbit-foundation/mb-core/error\",",
-            "  \"moonbit-foundation/mb-image/metadata\",",
+            "  \"tchivs/mb-color/profile\",",
+            "  \"tchivs/mb-core/checked\",",
+            "  \"tchivs/mb-core/error\",",
+            "  \"tchivs/mb-image/metadata\",",
             "}",
             "pub(all) enum ChannelOrder {",
             "  Gray",
@@ -942,13 +942,13 @@
             "pub fn ImageFormat::rgba8() -> Self",
             "pub struct ImageMetadata {",
             "}",
-            "pub fn ImageMetadata::alpha(Self) -> @moonbit-foundation/mb-color/model.AlphaMode?",
-            "pub fn ImageMetadata::new(@moonbit-foundation/mb-color/model.ColorSpaceIdentity, @moonbit-foundation/mb-color/model.TransferIdentity, @moonbit-foundation/mb-color/model.AlphaMode?, @profile.ProfileIdentity, Orientation, @metadata.OpaqueMetadata) -> Self",
+            "pub fn ImageMetadata::alpha(Self) -> @tchivs/mb-color/model.AlphaMode?",
+            "pub fn ImageMetadata::new(@tchivs/mb-color/model.ColorSpaceIdentity, @tchivs/mb-color/model.TransferIdentity, @tchivs/mb-color/model.AlphaMode?, @profile.ProfileIdentity, Orientation, @metadata.OpaqueMetadata) -> Self",
             "pub fn ImageMetadata::opaque_metadata(Self) -> @metadata.OpaqueMetadata",
             "pub fn ImageMetadata::orientation(Self) -> Orientation",
             "pub fn ImageMetadata::profile(Self) -> @profile.ProfileIdentity",
-            "pub fn ImageMetadata::space(Self) -> @moonbit-foundation/mb-color/model.ColorSpaceIdentity",
-            "pub fn ImageMetadata::transfer(Self) -> @moonbit-foundation/mb-color/model.TransferIdentity",
+            "pub fn ImageMetadata::space(Self) -> @tchivs/mb-color/model.ColorSpaceIdentity",
+            "pub fn ImageMetadata::transfer(Self) -> @tchivs/mb-color/model.TransferIdentity",
             "pub(all) enum Orientation {",
             "  TopLeft",
             "  TopRight",
@@ -995,26 +995,26 @@
           ]
         },
         {
-          "name": "moonbit-foundation/mb-image/storage",
+          "name": "tchivs/mb-image/storage",
           "path": "storage",
           "stability": "candidate",
           "allowed_imports": [
-            "moonbit-foundation/mb-core/error",
-            "moonbit-foundation/mb-core/checked",
-            "moonbit-foundation/mb-core/budget",
-            "moonbit-foundation/mb-core/bytes",
-            "moonbit-foundation/mb-color/model",
-            "moonbit-foundation/mb-color/profile",
-            "moonbit-foundation/mb-image/metadata",
-            "moonbit-foundation/mb-image/model"
+            "tchivs/mb-core/error",
+            "tchivs/mb-core/checked",
+            "tchivs/mb-core/budget",
+            "tchivs/mb-core/bytes",
+            "tchivs/mb-color/model",
+            "tchivs/mb-color/profile",
+            "tchivs/mb-image/metadata",
+            "tchivs/mb-image/model"
           ],
           "semantic_interface": [
-            "package \"moonbit-foundation/mb-image/storage\"",
+            "package \"tchivs/mb-image/storage\"",
             "import {",
-            "  \"moonbit-foundation/mb-core/budget\",",
-            "  \"moonbit-foundation/mb-core/bytes\",",
-            "  \"moonbit-foundation/mb-core/error\",",
-            "  \"moonbit-foundation/mb-image/model\",",
+            "  \"tchivs/mb-core/budget\",",
+            "  \"tchivs/mb-core/bytes\",",
+            "  \"tchivs/mb-core/error\",",
+            "  \"tchivs/mb-image/model\",",
             "}",
             "pub struct ImageView {",
             "}",
@@ -1057,28 +1057,28 @@
           ]
         },
         {
-          "name": "moonbit-foundation/mb-image/ops",
+          "name": "tchivs/mb-image/ops",
           "path": "ops",
           "stability": "candidate",
           "allowed_imports": [
-            "moonbit-foundation/mb-core/error",
-            "moonbit-foundation/mb-core/checked",
-            "moonbit-foundation/mb-core/budget",
-            "moonbit-foundation/mb-core/bytes",
-            "moonbit-foundation/mb-color/alpha",
-            "moonbit-foundation/mb-color/model",
-            "moonbit-foundation/mb-color/profile",
-            "moonbit-foundation/mb-image/metadata",
-            "moonbit-foundation/mb-image/model",
-            "moonbit-foundation/mb-image/storage"
+            "tchivs/mb-core/error",
+            "tchivs/mb-core/checked",
+            "tchivs/mb-core/budget",
+            "tchivs/mb-core/bytes",
+            "tchivs/mb-color/alpha",
+            "tchivs/mb-color/model",
+            "tchivs/mb-color/profile",
+            "tchivs/mb-image/metadata",
+            "tchivs/mb-image/model",
+            "tchivs/mb-image/storage"
           ],
           "semantic_interface": [
-            "package \"moonbit-foundation/mb-image/ops\"",
+            "package \"tchivs/mb-image/ops\"",
             "import {",
-            "  \"moonbit-foundation/mb-core/budget\",",
-            "  \"moonbit-foundation/mb-core/error\",",
-            "  \"moonbit-foundation/mb-image/metadata\",",
-            "  \"moonbit-foundation/mb-image/storage\",",
+            "  \"tchivs/mb-core/budget\",",
+            "  \"tchivs/mb-core/error\",",
+            "  \"tchivs/mb-image/metadata\",",
+            "  \"tchivs/mb-image/storage\",",
             "}",
             "pub fn apply_orientation(@storage.ImageView, @budget.Budget) -> Result[ImageOperationResult, @error.CoreError]",
             "pub fn copy_image(@storage.ImageView, @budget.Budget) -> Result[ImageOperationResult, @error.CoreError]",
@@ -1103,28 +1103,28 @@
           ]
         },
         {
-          "name": "moonbit-foundation/mb-image/codec",
+          "name": "tchivs/mb-image/codec",
           "path": "codec",
           "stability": "candidate",
           "allowed_imports": [
-            "moonbit-foundation/mb-core/io",
-            "moonbit-foundation/mb-core/error",
-            "moonbit-foundation/mb-core/budget",
-            "moonbit-foundation/mb-core/bytes",
-            "moonbit-foundation/mb-image/model",
-            "moonbit-foundation/mb-image/storage",
-            "moonbit-foundation/mb-image/metadata"
+            "tchivs/mb-core/io",
+            "tchivs/mb-core/error",
+            "tchivs/mb-core/budget",
+            "tchivs/mb-core/bytes",
+            "tchivs/mb-image/model",
+            "tchivs/mb-image/storage",
+            "tchivs/mb-image/metadata"
           ],
           "semantic_interface": [
-            "package \"moonbit-foundation/mb-image/codec\"",
+            "package \"tchivs/mb-image/codec\"",
             "import {",
-            "  \"moonbit-foundation/mb-core/budget\",",
-            "  \"moonbit-foundation/mb-core/bytes\",",
-            "  \"moonbit-foundation/mb-core/error\",",
-            "  \"moonbit-foundation/mb-core/io\",",
-            "  \"moonbit-foundation/mb-image/metadata\",",
-            "  \"moonbit-foundation/mb-image/model\",",
-            "  \"moonbit-foundation/mb-image/storage\",",
+            "  \"tchivs/mb-core/budget\",",
+            "  \"tchivs/mb-core/bytes\",",
+            "  \"tchivs/mb-core/error\",",
+            "  \"tchivs/mb-core/io\",",
+            "  \"tchivs/mb-image/metadata\",",
+            "  \"tchivs/mb-image/model\",",
+            "  \"tchivs/mb-image/storage\",",
             "}",
             "pub fn capability_unavailable(String, String) -> @error.CoreError",
             "pub struct CodecLimits {",
@@ -1180,21 +1180,21 @@
           ]
         },
         {
-          "name": "moonbit-foundation/mb-image/ppm",
+          "name": "tchivs/mb-image/ppm",
           "path": "ppm",
           "stability": "candidate",
           "allowed_imports": [
-            "moonbit-foundation/mb-core/budget",
-            "moonbit-foundation/mb-core/bytes",
-            "moonbit-foundation/mb-core/checked",
-            "moonbit-foundation/mb-core/error",
-            "moonbit-foundation/mb-core/io",
-            "moonbit-foundation/mb-color/model",
-            "moonbit-foundation/mb-color/profile",
-            "moonbit-foundation/mb-image/codec",
-            "moonbit-foundation/mb-image/metadata",
-            "moonbit-foundation/mb-image/model",
-            "moonbit-foundation/mb-image/storage"
+            "tchivs/mb-core/budget",
+            "tchivs/mb-core/bytes",
+            "tchivs/mb-core/checked",
+            "tchivs/mb-core/error",
+            "tchivs/mb-core/io",
+            "tchivs/mb-color/model",
+            "tchivs/mb-color/profile",
+            "tchivs/mb-image/codec",
+            "tchivs/mb-image/metadata",
+            "tchivs/mb-image/model",
+            "tchivs/mb-image/storage"
           ],
           "production_sources": [
             "moon.pkg",
@@ -1205,14 +1205,14 @@
             "generated_vectors.mbt"
           ],
           "semantic_interface": [
-            "package \"moonbit-foundation/mb-image/ppm\"",
+            "package \"tchivs/mb-image/ppm\"",
             "import {",
-            "  \"moonbit-foundation/mb-core/budget\",",
-            "  \"moonbit-foundation/mb-core/bytes\",",
-            "  \"moonbit-foundation/mb-core/error\",",
-            "  \"moonbit-foundation/mb-core/io\",",
-            "  \"moonbit-foundation/mb-image/codec\",",
-            "  \"moonbit-foundation/mb-image/storage\",",
+            "  \"tchivs/mb-core/budget\",",
+            "  \"tchivs/mb-core/bytes\",",
+            "  \"tchivs/mb-core/error\",",
+            "  \"tchivs/mb-core/io\",",
+            "  \"tchivs/mb-image/codec\",",
+            "  \"tchivs/mb-image/storage\",",
             "}",
             "pub struct PpmDecoder {",
             "}",
@@ -1242,16 +1242,16 @@
   ],
   "allowed_dependency_edges": [
     {
-      "from": "moonbit-foundation/mb-color",
-      "to": "moonbit-foundation/mb-core"
+      "from": "tchivs/mb-color",
+      "to": "tchivs/mb-core"
     },
     {
-      "from": "moonbit-foundation/mb-image",
-      "to": "moonbit-foundation/mb-core"
+      "from": "tchivs/mb-image",
+      "to": "tchivs/mb-core"
     },
     {
-      "from": "moonbit-foundation/mb-image",
-      "to": "moonbit-foundation/mb-color"
+      "from": "tchivs/mb-image",
+      "to": "tchivs/mb-color"
     }
   ],
   "stability": {
@@ -1384,9 +1384,9 @@
   },
   "publication": {
     "blocked": true,
-    "intended_owner_namespace": "moonbit-foundation",
+    "intended_owner_namespace": "tchivs",
     "owner_verified": false,
-    "block_reason": "The intended mooncakes.io owner namespace has not been verified.",
+    "block_reason": "The intended personal mooncakes.io owner namespace and repository metadata have not been verified.",
     "umbrella_module_allowed": false,
     "lockstep_versions_required": false,
     "independent_versions": true

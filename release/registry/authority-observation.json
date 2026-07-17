@@ -1,25 +1,23 @@
 {
   "schema_version": "1.0.0",
-  "source_commit": "7a5a2065eb31b3cdeaf63fac19462d44fec98de8",
-  "observed_at_utc": "2026-07-17T06:40:35.1299097Z",
+  "source_commit": "e4179b7a0df97c1f8709ce715382cbe49f0e660b",
+  "observed_at_utc": null,
   "credentials_read": false,
   "publication_mutation_performed": false,
   "command": {
-    "id": "moon_auth_status",
-    "arguments": [
-      "whoami"
-    ]
+    "id": "none",
+    "arguments": []
   },
   "toolchain": {
     "moon": "0.1.20260713 (75c7e1f 2026-07-13)",
     "moonc": "v0.10.4+2cc641edf (2026-07-15)",
     "moonrun": "0.1.20260713 (75c7e1f 2026-07-13)"
   },
-  "intended_owner": "moonbit-foundation",
+  "intended_owner": "tchivs",
   "session_authentication": {
-    "state": "safely_observed",
-    "authenticated": true,
-    "source": "moon_auth_status"
+    "state": "unknown",
+    "authenticated": null,
+    "source": "not_observed"
   },
   "authenticated_account": {
     "state": "unknown",
@@ -28,7 +26,7 @@
   },
   "namespace_authority": {
     "state": "unknown",
-    "namespace": "moonbit-foundation",
+    "namespace": "tchivs",
     "exact_module_identities": [],
     "source": "not_observed"
   },
@@ -84,16 +82,16 @@
   ],
   "sanitized_result": {
     "outcome": "unknown",
-    "reason": "session_authenticated_identity_not_observed"
+    "reason": "authority_not_observed"
   },
   "freshness": {
-    "status": "current",
+    "status": "not_observed",
     "max_age_hours": 24
   },
-  "stable_sha256": "e4365e3b0ddaf6d578eab6485d5d87ca2ad9f635e3c98fd61613f6024e509954",
+  "stable_sha256": "c3466ca19c5c0da128170f9f416dbacb857a5974ac26331b8c198afd27aaa48b",
   "run_local": {
-    "captured_by": "operator_collector",
-    "started_utc": "2026-07-17T06:40:35.0607424Z",
-    "completed_utc": "2026-07-17T06:40:35.1299097Z"
+    "captured_by": "tracked_seed",
+    "started_utc": null,
+    "completed_utc": null
   }
 }

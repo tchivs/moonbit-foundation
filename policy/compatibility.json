@@ -29,11 +29,11 @@
       "dependency_floors": {
         "mb-core": {},
         "mb-color": {
-          "moonbit-foundation/mb-core": "0.1.0"
+          "tchivs/mb-core": "0.1.0"
         },
         "mb-image": {
-          "moonbit-foundation/mb-core": "0.1.0",
-          "moonbit-foundation/mb-color": "0.1.0"
+          "tchivs/mb-core": "0.1.0",
+          "tchivs/mb-color": "0.1.0"
         }
       }
     }

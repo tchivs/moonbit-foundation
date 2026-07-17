@@ -21,7 +21,7 @@
       }
     },
     "toolchain": { "$ref": "#/$defs/toolchain" },
-    "intended_owner": { "const": "moonbit-foundation" },
+    "intended_owner": { "const": "tchivs" },
     "session_authentication": { "$ref": "#/$defs/session" },
     "authenticated_account": { "$ref": "#/$defs/account" },
     "namespace_authority": { "$ref": "#/$defs/authority" },
@@ -98,11 +98,11 @@
       "required": ["state", "namespace", "exact_module_identities", "source"],
       "properties": {
         "state": { "enum": ["safely_observed", "unknown"] },
-        "namespace": { "const": "moonbit-foundation" },
+        "namespace": { "const": "tchivs" },
         "exact_module_identities": {
           "type": "array",
           "maxItems": 3,
-          "items": { "enum": ["moonbit-foundation/mb-core", "moonbit-foundation/mb-color", "moonbit-foundation/mb-image"] },
+          "items": { "enum": ["tchivs/mb-core", "tchivs/mb-color", "tchivs/mb-image"] },
           "uniqueItems": true
         },
         "source": { "enum": ["authenticated_read_only_registry", "not_observed"] }

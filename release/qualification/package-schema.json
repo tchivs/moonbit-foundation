@@ -30,12 +30,12 @@
     },
     "post_publish_order": {
       "const": [
-        "publish:moonbit-foundation/mb-core@0.1.0",
-        "resolve:moonbit-foundation/mb-core@0.1.0",
-        "publish:moonbit-foundation/mb-color@0.1.0",
-        "resolve:moonbit-foundation/mb-color@0.1.0",
-        "publish:moonbit-foundation/mb-image@0.1.0",
-        "resolve:moonbit-foundation/mb-image@0.1.0"
+        "publish:tchivs/mb-core@0.1.0",
+        "resolve:tchivs/mb-core@0.1.0",
+        "publish:tchivs/mb-color@0.1.0",
+        "resolve:tchivs/mb-color@0.1.0",
+        "publish:tchivs/mb-image@0.1.0",
+        "resolve:tchivs/mb-image@0.1.0"
       ]
     },
     "publication": {

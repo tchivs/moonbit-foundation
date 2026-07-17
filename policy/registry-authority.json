@@ -1,20 +1,20 @@
 {
   "schema_version": "1.0.0",
-  "intended_owner": "moonbit-foundation",
+  "intended_owner": "tchivs",
   "module_order": [
     {
       "module": "mb-core",
-      "identity": "moonbit-foundation/mb-core",
+      "identity": "tchivs/mb-core",
       "version": "0.1.0"
     },
     {
       "module": "mb-color",
-      "identity": "moonbit-foundation/mb-color",
+      "identity": "tchivs/mb-color",
       "version": "0.1.0"
     },
     {
       "module": "mb-image",
-      "identity": "moonbit-foundation/mb-image",
+      "identity": "tchivs/mb-image",
       "version": "0.1.0"
     }
   ],
