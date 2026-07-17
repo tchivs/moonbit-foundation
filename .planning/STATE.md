@@ -3,17 +3,17 @@ gsd_state_version: 1.0
 milestone: v0.1
 milestone_name: milestone
 current_phase: 5
-current_phase_name: Reference Codec and Release Qualification
-status: verifying
+status: completed
 stopped_at: Completed 05-08-PLAN.md
-last_updated: "2026-07-17T03:11:43.970Z"
+last_updated: "2026-07-17T03:29:49.849Z"
 last_activity: 2026-07-17
-last_activity_desc: Phase 5 execution started
+last_activity_desc: Phase 5 complete
 progress:
   total_phases: 5
   completed_phases: 5
   total_plans: 41
   completed_plans: 41
+current_phase_name: Reference Codec and Release Qualification
 ---
 
 # Project State
@@ -28,12 +28,12 @@ See `.planning/PROJECT.md` (updated 2026-07-16).
 
 ## Current Position
 
-Phase: 5 (Reference Codec and Release Qualification) — EXECUTING
-Plan: 8 of 8
-Status: Phase complete — ready for verification
-Last activity: 2026-07-17 — Phase 5 execution started
+Phase: 5
+Plan: Not started
+Status: Milestone complete
+Last activity: 2026-07-17 — Phase 5 complete
 
-Progress: [██████████] 100% (4/5 phases; 40/41 plans complete)
+Progress: [██████████] 100% (5/5 phases; 41/41 plans complete)
 
 ## Performance Metrics
 
@@ -211,11 +211,10 @@ Progress: [██████████] 100% (4/5 phases; 40/41 plans complet
 ### Pending Decisions
 
 - Resolve mooncakes.io namespace ownership before publication.
-- Finalize numeric/tolerance, image lifetime/layout, resource-budget, and PPM subset details before their respective candidate APIs stabilize.
 
 ### Blockers
 
-None. Phase 01 is independently verified and complete; Phase 02 is ready for context discussion and planning.
+None. All five v0.1 phases are independently verified and complete; milestone audit is next.
 
 ### Quick Tasks Completed
 
@@ -227,6 +226,6 @@ None. Phase 01 is independently verified and complete; Phase 02 is ready for con
 
 **Resume file:** None
 
-Last session: 2026-07-17T03:11:43.950Z
-Stopped at: Completed 05-08-PLAN.md
-Resume with: Execute 05-08-PLAN.md, then verify and complete Phase 5.
+Last session: 2026-07-17T03:34:00Z
+Stopped at: Phase 5 independently verified and completed
+Resume with: Audit and complete the v0.1 milestone.

@@ -10,7 +10,7 @@ MNF v0.1 is a contract-and-conformance milestone delivered as five horizontal la
 - [x] **Phase 2: Bounded Core Primitives** — Deliver the checked byte, stream, diagnostic, budget, and host-capability contracts that every higher layer relies on. (completed 2026-07-17)
 - [x] **Phase 3: Reference Color Semantics** — Define explicit color and alpha representation and verify deterministic reference conversions across declared targets. (completed 2026-07-17)
 - [x] **Phase 4: Image Model, Views, and Operations** — Build safe image representation, storage/view rules, deterministic transforms, metadata behavior, and codec-facing contracts. (completed 2026-07-17)
-- [ ] **Phase 5: Reference Codec and Release Qualification** — Prove the public stack end to end with bounded PPM P6, conformance evidence, documentation, benchmarks, and independent module release checks.
+- [x] **Phase 5: Reference Codec and Release Qualification** — Prove the public stack end to end with bounded PPM P6, conformance evidence, documentation, benchmarks, and independent module release checks. (completed 2026-07-17)
 
 ## Phase Details
 
@@ -122,7 +122,7 @@ Plans:
 
 **Requirements:** WORK-06, QUAL-01, QUAL-02, QUAL-03, QUAL-04, QUAL-05, QUAL-06
 
-**Plans:** 8/8 plans executed
+**Plans:** 8/8 plans complete
 
 Plans:
 
@@ -151,7 +151,7 @@ Plans:
 | 2 | 8/8 | Complete    | 2026-07-17 |
 | 3 | 8/8 | Complete    | 2026-07-17 |
 | 4 | 9/9 | Complete    | 2026-07-17 |
-| 5 | 8/8 | In Progress|  |
+| 5 | 8/8 | Complete    | 2026-07-17 |
 
 **v0.1 coverage:** 36/36 requirements mapped exactly once.
 
