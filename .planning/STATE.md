@@ -5,16 +5,16 @@ milestone_name: Publication & Compatibility
 current_phase: 6
 current_phase_name: Namespace Authority and Compatibility Contract
 status: executing
-stopped_at: Completed 06-14-PLAN.md
-last_updated: "2026-07-17T11:57:27.416Z"
+stopped_at: Completed 06-15-PLAN.md
+last_updated: "2026-07-17T12:14:29.806Z"
 last_activity: 2026-07-17
 last_activity_desc: canonical shared routes and collective validators reconciled
 progress:
   total_phases: 4
   completed_phases: 0
   total_plans: 25
-  completed_plans: 12
-  percent: 48
+  completed_plans: 13
+  percent: 0
 ---
 
 # Project State
@@ -30,7 +30,7 @@ See `.planning/PROJECT.md` (updated 2026-07-17).
 ## Current Position
 
 Phase: 6 (Namespace Authority and Compatibility Contract) — EXECUTING
-Plan: 12 of 25 complete; next 06-15
+Plan: 13 of 25 complete; next 06-15
 Status: Executing credential-free personal namespace migration
 Last activity: 2026-07-17 — canonical shared routes and collective validators reconciled
 
@@ -65,6 +65,7 @@ Current milestone: [█████░░░░░] 48% of planned Phase 6 work
 - [Phase 06]: Require real native compilation, linking, and runtime execution for release qualification; compile-only is not equivalent. — Plan 06-13 produced full native evidence with the explicitly configured Clang and LLVM-MinGW sysroot.
 - [Phase 06]: Keep intended GitHub and reporting routes unverified until read-only existence proof succeeds. — Repository metadata cannot establish external route liveness or Mooncakes authority.
 - [Phase 06]: A tracked authority seed cannot infer account, namespace, module, timestamp, or freshness evidence. — Only fresh sanitized external observation can advance publication authority.
+- [Phase 06]: Bind public-interface baseline batches to the immutable completed 06-14 source snapshot. — Later HEAD and obsolete manifest metadata must never influence compatibility evidence.
 
 ### Pending Decisions
 
@@ -79,8 +80,8 @@ Current milestone: [█████░░░░░] 48% of planned Phase 6 work
 
 **Resume file:** None
 
-Last session: 2026-07-17T11:57:27.393Z
-Stopped at: Completed 06-14-PLAN.md
+Last session: 2026-07-17T12:14:29.783Z
+Stopped at: Completed 06-15-PLAN.md
 Resume with: `/gsd-execute-phase 6`
 
 ## Operator Next Steps
@@ -100,3 +101,4 @@ Resume with: `/gsd-execute-phase 6`
 | Phase 06 P13 | 39m | 3 tasks | 7 files |
 | Phase 06 P10 | 18m | 2 tasks | 12 files |
 | Phase 06 P14 | 16m | 3 tasks | 7 files |
+| Phase 06 P15 | 25min | 1 tasks | 3 files |
