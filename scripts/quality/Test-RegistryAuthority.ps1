@@ -162,6 +162,17 @@ if ($observation.authenticated_account.state -ceq 'safely_observed') {
 if ($observation.namespace_authority.state -ceq 'unknown' -and @($observation.namespace_authority.exact_module_identities).Count -ne 0) {
   Fail-RegistryRule -Id 'REG01-STATE' -Message 'unknown namespace authority must not carry module authorization.'
 }
+if ([string]$observation.authenticated_account.source -cmatch '(?i)github' -or
+    [string]$observation.namespace_authority.source -cmatch '(?i)github') {
+  Fail-RegistryRule -Id 'REG01-MOONCAKES-AUTHORITY' -Message 'GitHub identity is repository metadata and cannot prove Mooncakes account or namespace authority.'
+}
+if ($observation.namespace_authority.state -ceq 'safely_observed') {
+  if ($observation.authenticated_account.state -cne 'safely_observed' -or
+      [string]$observation.authenticated_account.value -cne [string]$policy.intended_owner) {
+    Fail-RegistryRule -Id 'REG01-MOONCAKES-AUTHORITY' -Message 'namespace authority requires the exact safely observed Mooncakes account.'
+  }
+  Assert-RegistrySequence 'observed namespace module identities' @($observation.namespace_authority.exact_module_identities) $expectedIdentities 'REG01-MOONCAKES-AUTHORITY'
+}
 
 Assert-RegistrySequence 'required authority fact order' @($observation.facts.id) @($policy.required_current_facts) 'REG01-FACT-ORDER'
 foreach ($fact in @($observation.facts)) {
@@ -197,6 +208,32 @@ if ([int]$observation.freshness.max_age_hours -ne [int]$policy.observation_polic
   Fail-RegistryRule -Id 'REG01-FRESHNESS' -Message 'freshness threshold drifted from policy.'
 }
 
+if ([string]$observation.run_local.captured_by -ceq 'tracked_seed') {
+  $trackedSeedOverclaim = (
+    $null -ne $observation.observed_at_utc -or
+    [string]$observation.command.id -cne 'none' -or @($observation.command.arguments).Count -ne 0 -or
+    [string]$observation.session_authentication.state -cne 'unknown' -or $null -ne $observation.session_authentication.authenticated -or [string]$observation.session_authentication.source -cne 'not_observed' -or
+    [string]$observation.authenticated_account.state -cne 'unknown' -or $null -ne $observation.authenticated_account.value -or [string]$observation.authenticated_account.source -cne 'not_observed' -or
+    [string]$observation.namespace_authority.state -cne 'unknown' -or @($observation.namespace_authority.exact_module_identities).Count -ne 0 -or [string]$observation.namespace_authority.source -cne 'not_observed' -or
+    [string]$observation.sanitized_result.outcome -cne 'unknown' -or [string]$observation.sanitized_result.reason -cne 'authority_not_observed' -or
+    [string]$observation.freshness.status -cne 'not_observed' -or $null -ne $observation.run_local.started_utc -or $null -ne $observation.run_local.completed_utc
+  )
+  if ($trackedSeedOverclaim) {
+    Fail-RegistryRule -Id 'REG01-TRACKED-SEED-OVERCLAIM' -Message 'tracked seed cannot fabricate account, namespace, module, command, timestamp, or freshness evidence.'
+  }
+  foreach ($fact in @($observation.facts)) {
+    $isPinnedToolchain = [string]$fact.id -ceq 'pinned_toolchain'
+    $validTrackedFact = if ($isPinnedToolchain) {
+      [string]$fact.state -ceq 'documented' -and [string]$fact.source -ceq 'policy/registry-authority.json' -and [string]$fact.disposition -ceq 'allow'
+    } else {
+      [string]$fact.state -ceq 'unknown' -and [string]$fact.source -ceq 'not_observed' -and [string]$fact.disposition -ceq 'block_publication'
+    }
+    if (-not $validTrackedFact) {
+      Fail-RegistryRule -Id 'REG01-TRACKED-SEED-OVERCLAIM' -Message "tracked seed fact '$($fact.id)' is not exact unknown-first evidence."
+    }
+  }
+}
+
 Assert-RegistrySequence 'capability order' @($matrix.capabilities.id) @($policy.capability_order) 'REG02-CAPABILITY-ORDER'
 foreach ($capability in @($matrix.capabilities)) {
   Assert-RegistryClosed "capability $($capability.id)" $capability @('id', 'state', 'source', 'required_for_publish', 'disposition') 'REG02-CAPABILITY-CLOSED'
@@ -212,6 +249,35 @@ foreach ($capability in @($matrix.capabilities)) {
   }
   if ($capability.state -ceq 'unknown' -and $capability.required_for_publish -eq $true -and $capability.disposition -cne 'block_publication') {
     Fail-RegistryRule -Id 'REG02-CAPABILITY-DISPOSITION' -Message "required unknown capability '$($capability.id)' must block publication."
+  }
+}
+
+$destructiveRecovery = @($matrix.capabilities | Where-Object { [string]$_.id -ceq 'destructive_recovery' })
+if ($destructiveRecovery.Count -ne 1 -or [string]$destructiveRecovery[0].state -cne 'unknown' -or
+    [string]$destructiveRecovery[0].source.kind -cne 'not_observed' -or
+    $destructiveRecovery[0].required_for_publish -ne $false -or
+    [string]$destructiveRecovery[0].disposition -cne 'forward_only_recovery') {
+  Fail-RegistryRule -Id 'REG02-FORWARD-ONLY-RECOVERY' -Message 'rename, transfer, overwrite, delete, unpublish, and yank remain unobserved and cannot replace forward-only recovery.'
+}
+
+$intendedRepository = 'https://github.com/tchivs/moonbit-foundation'
+$supportText = Get-Content -LiteralPath (Join-Path $repoRoot 'docs\support.md') -Raw
+$securityText = Get-Content -LiteralPath (Join-Path $repoRoot 'SECURITY.md') -Raw
+foreach ($route in @(
+  [pscustomobject]@{ label = 'support'; text = $supportText },
+  [pscustomobject]@{ label = 'security'; text = $securityText }
+)) {
+  if (-not $route.text.Contains($intendedRepository, [StringComparison]::Ordinal) -or
+      $route.text -cnotmatch '(?i)\bunverified\b' -or $route.text -cnotmatch '(?i)\bnot operational\b' -or
+      $route.text -cnotmatch '(?i)read-only.+existence proof' -or
+      $route.text -cmatch 'https://github[.]com/tchivs/moonbit-foundation/(?:issues/new|security/advisories/new)') {
+    Fail-RegistryRule -Id 'REG01-REPOSITORY-LIVENESS' -Message "$($route.label) route must keep intended repository metadata distinct from verified-live reporting infrastructure."
+  }
+}
+$projectText = Get-Content -LiteralPath (Join-Path $repoRoot 'README.md') -Raw
+foreach ($term in @('rename', 'transfer', 'overwrite', 'delete', 'unpublish', 'yank')) {
+  if ($projectText -cnotmatch ('(?i)does not assume[^\r\n]+' + [regex]::Escape($term))) {
+    Fail-RegistryRule -Id 'REG02-FORWARD-ONLY-RECOVERY' -Message "project policy omits forward-only '$term' recovery semantics."
   }
 }
 
