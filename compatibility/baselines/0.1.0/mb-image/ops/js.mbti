@@ -1,11 +1,11 @@
 // Generated using `moon info`, DON'T EDIT IT
-package "moonbit-foundation/mb-image/ops"
+package "tchivs/mb-image/ops"
 
 import {
-  "moonbit-foundation/mb-core/budget",
-  "moonbit-foundation/mb-core/error",
-  "moonbit-foundation/mb-image/metadata",
-  "moonbit-foundation/mb-image/storage",
+  "tchivs/mb-core/budget",
+  "tchivs/mb-core/error",
+  "tchivs/mb-image/metadata",
+  "tchivs/mb-image/storage",
 }
 
 // Values
