@@ -1,8 +1,8 @@
 // Generated using `moon info`, DON'T EDIT IT
-package "moonbit-foundation/mb-core/host"
+package "tchivs/mb-core/host"
 
 import {
-  "moonbit-foundation/mb-core/error",
+  "tchivs/mb-core/error",
 }
 
 // Values
