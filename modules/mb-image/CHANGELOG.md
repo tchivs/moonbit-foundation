@@ -28,3 +28,7 @@ stable API or registry publication is claimed.
 Deferred: wider/full PPM behavior, PNG/JPEG/WebP, production codec breadth,
 registries/filesystem policy, publication, LLVM support, and performance
 claims.
+
+Change class: exact
+Migration: not-required
+RFC: not-required; impacts: none
