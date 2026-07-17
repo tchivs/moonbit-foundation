@@ -2,7 +2,8 @@
   "schema_version": "mnf-public-interface-baseline-manifest/1",
   "normalization_schema_version": "moon-mbti-lossless-lines/1",
   "baseline_version": "0.1.0",
-  "source_commit": "935e74495a8dd4dc586033a02be2e0aa8e983adb",
+  "source_snapshot_sha256": "7fc93ca072bb10fbfb213ae067d94ab0e50e3907635d6c43a5f7f2716424d9b0",
+  "source_commit": "b81cff59d4d1bd371b250ed0fd314ca1a6a008e7",
   "toolchain": {
     "moon": "moon 0.1.20260713 (75c7e1f 2026-07-13)",
     "moonc": "v0.10.4+2cc641edf (2026-07-15)",
@@ -19,139 +20,139 @@
   "packages": [
     {
       "module": "mb-core",
-      "package": "moonbit-foundation/mb-core/error",
+      "package": "tchivs/mb-core/error",
       "baseline_path": "mb-core/error/baseline.json",
-      "baseline_sha256": "a3d11b46a34176cd7293a2137f23af7f2fbf281aa002f80f46f5e35da904f3bc",
+      "baseline_sha256": "014d7c8258b9bac207b7996f114b82e90d5619de89f63811ba37e0e0824c3cf6",
       "raw_path": "mb-core/error/raw.mbti",
-      "raw_sha256": "77d9428bede033d9b99a28e3f860495499a5dcca8283370868c6e5f116128971"
+      "raw_sha256": "4eec7d88a775165888c64a800167718a1df4f53f7a8f3c72b83bad0f2b1685b3"
     },
     {
       "module": "mb-core",
-      "package": "moonbit-foundation/mb-core/checked",
+      "package": "tchivs/mb-core/checked",
       "baseline_path": "mb-core/checked/baseline.json",
-      "baseline_sha256": "68c948115ccd3d95401d02a1bb4b7ab7d7057a2ac967e8f04d7a976b2f50a724",
+      "baseline_sha256": "2787f3d98e95c98be5deb1df72a8b44150b6a3fbd2e3c3c27a8644607df8ef0e",
       "raw_path": "mb-core/checked/raw.mbti",
-      "raw_sha256": "ba3f9b5a993bde17127419f12654bb83a8b76f359488c3d9ff41b15a49b3b59b"
+      "raw_sha256": "e3c68cffd537b531948591cbf61eae557a7a894eec983c0df6d5898b3ffd9717"
     },
     {
       "module": "mb-core",
-      "package": "moonbit-foundation/mb-core/budget",
+      "package": "tchivs/mb-core/budget",
       "baseline_path": "mb-core/budget/baseline.json",
-      "baseline_sha256": "f5628309cdecae95bd1bdad6f5d4cf2f957c8bf0cb891f4ffd9270d5a97549b1",
+      "baseline_sha256": "a7e9b41c783e0e83b75d340bfb13d54f510bb59c915ef38f558d29d004f52b73",
       "raw_path": "mb-core/budget/raw.mbti",
-      "raw_sha256": "805893bb3b6d853c4a5b0cb722753b000ddbe600565b34bb9aa27eac17e9c614"
+      "raw_sha256": "b6f8b9497bf696b7033002096cfb4401be1e7b0088956d8a1d27ac6e17738503"
     },
     {
       "module": "mb-core",
-      "package": "moonbit-foundation/mb-core/bytes",
+      "package": "tchivs/mb-core/bytes",
       "baseline_path": "mb-core/bytes/baseline.json",
-      "baseline_sha256": "b659ce3757236f08afb124eb37967f2a965b052a233e7b685346bdfe36b66b99",
+      "baseline_sha256": "ce732acba22bbad811ede972c33e6a0c1cb29cef7626e6201c105ee67a98b558",
       "raw_path": "mb-core/bytes/raw.mbti",
-      "raw_sha256": "227a3845d4e3b3cc59c242b0b316320cd180bd8c49d6c8cfd44a8f45099a9ea5"
+      "raw_sha256": "8f8e948e7794bcf4464924e6aa145fa8961314c5273a316a1e356fec4a9f5b6f"
     },
     {
       "module": "mb-core",
-      "package": "moonbit-foundation/mb-core/io",
+      "package": "tchivs/mb-core/io",
       "baseline_path": "mb-core/io/baseline.json",
-      "baseline_sha256": "c9c8002d20659ab0e30da5e6705f6196b8e865f23b5ca25255714b47f6c4db43",
+      "baseline_sha256": "fdc12fbfd1b8d0c21c1a8fa755da5d5426c2f88ba89903ed6296b25107eb0efb",
       "raw_path": "mb-core/io/raw.mbti",
-      "raw_sha256": "6c610fa59de27935faacaf8b0380d7c4d0dd50aab7bf3892a7d5a97e09a7f61e"
+      "raw_sha256": "c99815372dc50acf6f347ff5ff70af4e79d9e366ff9d04998f9a471a79cfd9c2"
     },
     {
       "module": "mb-core",
-      "package": "moonbit-foundation/mb-core/host",
+      "package": "tchivs/mb-core/host",
       "baseline_path": "mb-core/host/baseline.json",
-      "baseline_sha256": "6667374ba3ed9cfb53a13757de0a4e7e5e165e90a43a42dfdad7e7767c75788d",
+      "baseline_sha256": "30ddf8e4132c8f9fab877bd7b1b0ee7c8429cd79aa678678eb3022b134fb3882",
       "raw_path": "mb-core/host/raw.mbti",
-      "raw_sha256": "7d4ef2edf06f977da8a02cb1970fde561828d6b96542c658506cdbf3182772e2"
+      "raw_sha256": "86e4b291ec01bc121c1b937dbb2d5f5d7b7257cda98d64652c60c8a35236465b"
     },
     {
       "module": "mb-color",
-      "package": "moonbit-foundation/mb-color/model",
+      "package": "tchivs/mb-color/model",
       "baseline_path": "mb-color/model/baseline.json",
-      "baseline_sha256": "c10e1b74b98cd6c58a1b269dba3919cbaf1cd4a2e0cc7f79336e254f9b3877c5",
+      "baseline_sha256": "adb7b2fc9eb4af64fa103c1bec94f5d66fe3468c43c18e967caf5235ecdbb7bf",
       "raw_path": "mb-color/model/raw.mbti",
-      "raw_sha256": "bdedabd9e300bdfb88df606a489d2ae029dafbfe27ac47aeafd59851cd5e7856"
+      "raw_sha256": "f9203bba3cc8af08ba28f13d5a09f2f4bc21aa21222f45cca5e60349472fd0e0"
     },
     {
       "module": "mb-color",
-      "package": "moonbit-foundation/mb-color/transfer",
+      "package": "tchivs/mb-color/transfer",
       "baseline_path": "mb-color/transfer/baseline.json",
-      "baseline_sha256": "70b42baf72761ffc4242ab4a114e41dfc5d1eeb0a7f4f6090f013150bb7e1bc6",
+      "baseline_sha256": "222b20695c010901e85de21c1810e599fae4370b261d1e9484706a0c951acc9b",
       "raw_path": "mb-color/transfer/raw.mbti",
-      "raw_sha256": "60950b166e8979a83674e92c04a2e1d89c4ef7d148467d734e889f93a00b0de2"
+      "raw_sha256": "a88a18e2a9ace3b65a3aa2e008415ebb511fd89bca6b5ee03b3b4e8a1f67362d"
     },
     {
       "module": "mb-color",
-      "package": "moonbit-foundation/mb-color/quantize",
+      "package": "tchivs/mb-color/quantize",
       "baseline_path": "mb-color/quantize/baseline.json",
-      "baseline_sha256": "8d34cdbeac555d10a2b23188f62e53578fe0c1d713e5e9fdfce78a57119e4df4",
+      "baseline_sha256": "b0bb986ab467a435f43eca7e436f1e405dda2838e95b71bedac9aaefb20705ef",
       "raw_path": "mb-color/quantize/raw.mbti",
-      "raw_sha256": "603d6e696e724a233f548c074a820791ed164575fac065becd2099f6f418b672"
+      "raw_sha256": "7d6b5a54194b9f21c8f2bd774ce90a94eca464066615f7d73009091dc7e2b63d"
     },
     {
       "module": "mb-color",
-      "package": "moonbit-foundation/mb-color/alpha",
+      "package": "tchivs/mb-color/alpha",
       "baseline_path": "mb-color/alpha/baseline.json",
-      "baseline_sha256": "cb3e0b3a59c157aa2d4ae29d9f0a7057d837884b5854f650fa5bd75744bd1ec4",
+      "baseline_sha256": "9277f8107e0f738c2154c1aabd2b2e821db779f8f29c45969abd5833cca64e71",
       "raw_path": "mb-color/alpha/raw.mbti",
-      "raw_sha256": "526a5347e361a92dc3e211f9411cca4ea22f33e653878fc180451138e5e77553"
+      "raw_sha256": "46b61234b0a7c84f4f61eac09a70c410b2ab789b672b32fda0ab2eab08fd1cfc"
     },
     {
       "module": "mb-color",
-      "package": "moonbit-foundation/mb-color/profile",
+      "package": "tchivs/mb-color/profile",
       "baseline_path": "mb-color/profile/baseline.json",
-      "baseline_sha256": "9b9b7eaf145e9e7444b1d8a803dc6fb97e889fe6b0742da0428c3b11d2ee068b",
+      "baseline_sha256": "8bb44f852cc65b97d80cf87d5b60cc2b0d1a30dd386343be10e5d518097b5dbc",
       "raw_path": "mb-color/profile/raw.mbti",
-      "raw_sha256": "458a9306c35697ecbdb8a1e9eb015e1c6a5983d25ad6e979eaa634e4873712b8"
+      "raw_sha256": "e327bbdb9fa1e9250dd3acac180faf26f9ed4239510f83b382e54539e5081c44"
     },
     {
       "module": "mb-image",
-      "package": "moonbit-foundation/mb-image/metadata",
+      "package": "tchivs/mb-image/metadata",
       "baseline_path": "mb-image/metadata/baseline.json",
-      "baseline_sha256": "1212ce425c83fefb92cc8d66bfd8b91c80b60107a7fd637b789e9b69ccc20b5d",
+      "baseline_sha256": "1ff457db66352cc63183a2ca9181f6d5c79f2589d157af94239f61a839cf33f7",
       "raw_path": "mb-image/metadata/raw.mbti",
-      "raw_sha256": "6a3da7f1d4a2bbbdc5716494dfe403cbc3e2e92bff087bc4e304d3e50c24e189"
+      "raw_sha256": "afe539ae5a26c7010460f582112c8a1d2a194495d5b6f22596e13df2264bde9f"
     },
     {
       "module": "mb-image",
-      "package": "moonbit-foundation/mb-image/model",
+      "package": "tchivs/mb-image/model",
       "baseline_path": "mb-image/model/baseline.json",
-      "baseline_sha256": "21eb77c5c98b96a3d427d5ff5cbf0c9d4802f8001d2867bcd436f429db24fb57",
+      "baseline_sha256": "ba32140bfec52124b04b582fba1de16637bfd3c910f9b22d4b75bfa80f94da45",
       "raw_path": "mb-image/model/raw.mbti",
-      "raw_sha256": "7c37838203b19744b078c147196e4ab16e65ca586e8d95cf770f0f3d844bf621"
+      "raw_sha256": "0e224aeceba17384fe63e60e1fde41e258aa577ca7cab6f9f2f0762fbe2cef91"
     },
     {
       "module": "mb-image",
-      "package": "moonbit-foundation/mb-image/storage",
+      "package": "tchivs/mb-image/storage",
       "baseline_path": "mb-image/storage/baseline.json",
-      "baseline_sha256": "09f5c81b3c5366ca91b1308d24e936569dd8631156a96f4497ddddeabec122fe",
+      "baseline_sha256": "718f9a410efdad697fc319c8d6ff80e7cdee259cc5bb6b1a1dea93d062c1bb2f",
       "raw_path": "mb-image/storage/raw.mbti",
-      "raw_sha256": "572f8164c859e744860c35f2db1b14e23f09b4d87851c28d633e7761c0448f87"
+      "raw_sha256": "5a7bb30e3e42de01efbf7d7797fe6038236799908ef22156b65b811c6d6dc025"
     },
     {
       "module": "mb-image",
-      "package": "moonbit-foundation/mb-image/ops",
+      "package": "tchivs/mb-image/ops",
       "baseline_path": "mb-image/ops/baseline.json",
-      "baseline_sha256": "29ca82eccb2327f9ff1df21cb38d56c28fd5414606a47dfee2a47d28682e1c8b",
+      "baseline_sha256": "37872c3f91879a297d70ab8b089a781aff01fad02ff11dfb64186aa8e7736b8a",
       "raw_path": "mb-image/ops/raw.mbti",
-      "raw_sha256": "06606ec6acc7b3b0aa4aed1cf9181e85daa7ec8ca2fc70b09d4278c749fa62bb"
+      "raw_sha256": "4b89c3db569d42f7e12e415f7a87b7021c4b4860bb2ca8ad075eebe56e76945f"
     },
     {
       "module": "mb-image",
-      "package": "moonbit-foundation/mb-image/codec",
+      "package": "tchivs/mb-image/codec",
       "baseline_path": "mb-image/codec/baseline.json",
-      "baseline_sha256": "80a5cfb6b16938ef3d4f44217bbb7162df94431c3b11d3853f8d80403e3b51e9",
+      "baseline_sha256": "ad9027e8d061e553aef2a0725bf6125395765e7b3af0f613159cb81f3af95d7d",
       "raw_path": "mb-image/codec/raw.mbti",
-      "raw_sha256": "b1ead948d12c41d5f1596ea44f274e37fe16e326473e90ebbe55a39e3369191b"
+      "raw_sha256": "31b8018e181a3634a3bff3f6ce9543ea6bebdf8a1d21641eef2ca27b6c8f033a"
     },
     {
       "module": "mb-image",
-      "package": "moonbit-foundation/mb-image/ppm",
+      "package": "tchivs/mb-image/ppm",
       "baseline_path": "mb-image/ppm/baseline.json",
-      "baseline_sha256": "8f05686994e9c74ab08eaa491a2ff43d6a2d779a3f3e6b42cebba6394647d0cf",
+      "baseline_sha256": "923a9e6177c27c03fc16b88203cdba3e904d026f95ad8308b9e056af0f4b4bab",
       "raw_path": "mb-image/ppm/raw.mbti",
-      "raw_sha256": "fbb0676e83aadf6c55e60546ab330ed392fe446e8e09a239cae89e06837f2274"
+      "raw_sha256": "5a4ddb128476ca4fa1c5a09e8e15aa7246be37db1447864d5a3097022d1301c0"
     }
   ],
   "two_run_equal": true,
