@@ -1,9 +1,9 @@
 // Generated using `moon info`, DON'T EDIT IT
-package "moonbit-foundation/mb-color/quantize"
+package "tchivs/mb-color/quantize"
 
 import {
-  "moonbit-foundation/mb-color/model",
-  "moonbit-foundation/mb-core/error",
+  "tchivs/mb-color/model",
+  "tchivs/mb-core/error",
 }
 
 // Values

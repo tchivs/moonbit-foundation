@@ -1,10 +1,10 @@
 // Generated using `moon info`, DON'T EDIT IT
-package "moonbit-foundation/mb-color/profile"
+package "tchivs/mb-color/profile"
 
 import {
-  "moonbit-foundation/mb-core/budget",
-  "moonbit-foundation/mb-core/bytes",
-  "moonbit-foundation/mb-core/error",
+  "tchivs/mb-core/budget",
+  "tchivs/mb-core/bytes",
+  "tchivs/mb-core/error",
 }
 
 // Values
