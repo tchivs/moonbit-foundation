@@ -1,11 +1,11 @@
 // Generated using `moon info`, DON'T EDIT IT
-package "moonbit-foundation/mb-image/model"
+package "tchivs/mb-image/model"
 
 import {
-  "moonbit-foundation/mb-color/profile",
-  "moonbit-foundation/mb-core/checked",
-  "moonbit-foundation/mb-core/error",
-  "moonbit-foundation/mb-image/metadata",
+  "tchivs/mb-color/profile",
+  "tchivs/mb-core/checked",
+  "tchivs/mb-core/error",
+  "tchivs/mb-image/metadata",
 }
 
 // Values
@@ -62,13 +62,13 @@ pub fn ImageFormat::rgba8() -> Self
 pub struct ImageMetadata {
   // private fields
 }
-pub fn ImageMetadata::alpha(Self) -> @moonbit-foundation/mb-color/model.AlphaMode?
-pub fn ImageMetadata::new(@moonbit-foundation/mb-color/model.ColorSpaceIdentity, @moonbit-foundation/mb-color/model.TransferIdentity, @moonbit-foundation/mb-color/model.AlphaMode?, @profile.ProfileIdentity, Orientation, @metadata.OpaqueMetadata) -> Self
+pub fn ImageMetadata::alpha(Self) -> @tchivs/mb-color/model.AlphaMode?
+pub fn ImageMetadata::new(@tchivs/mb-color/model.ColorSpaceIdentity, @tchivs/mb-color/model.TransferIdentity, @tchivs/mb-color/model.AlphaMode?, @profile.ProfileIdentity, Orientation, @metadata.OpaqueMetadata) -> Self
 pub fn ImageMetadata::opaque_metadata(Self) -> @metadata.OpaqueMetadata
 pub fn ImageMetadata::orientation(Self) -> Orientation
 pub fn ImageMetadata::profile(Self) -> @profile.ProfileIdentity
-pub fn ImageMetadata::space(Self) -> @moonbit-foundation/mb-color/model.ColorSpaceIdentity
-pub fn ImageMetadata::transfer(Self) -> @moonbit-foundation/mb-color/model.TransferIdentity
+pub fn ImageMetadata::space(Self) -> @tchivs/mb-color/model.ColorSpaceIdentity
+pub fn ImageMetadata::transfer(Self) -> @tchivs/mb-color/model.TransferIdentity
 
 pub(all) enum Orientation {
   TopLeft
