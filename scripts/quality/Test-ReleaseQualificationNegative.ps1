@@ -78,7 +78,7 @@ try {
 
   $ppmCases = @(
     @{ id = 'PPM01-MISSING-IMPORT'; mutate = { param($p) $ppm = @($p.modules | Where-Object path -ceq 'modules/mb-image')[0].public_packages | Where-Object path -ceq 'ppm'; $ppm.allowed_imports = @($ppm.allowed_imports | Select-Object -Skip 1) } },
-    @{ id = 'PPM02-EXTRA-IMPORT'; mutate = { param($p) $ppm = @($p.modules | Where-Object path -ceq 'modules/mb-image')[0].public_packages | Where-Object path -ceq 'ppm'; $ppm.allowed_imports += 'moonbit-foundation/mb-image/ops' } },
+    @{ id = 'PPM02-EXTRA-IMPORT'; mutate = { param($p) $ppm = @($p.modules | Where-Object path -ceq 'modules/mb-image')[0].public_packages | Where-Object path -ceq 'ppm'; $ppm.allowed_imports += 'tchivs/mb-image/ops' } },
     @{ id = 'PPM03-WRONG-TARGET'; mutate = { param($p) $ppm = @($p.modules | Where-Object path -ceq 'modules/mb-image')[0].public_packages | Where-Object path -ceq 'ppm'; $ppm.supported_targets = @('js', 'wasm', 'native') } },
     @{ id = 'PPM04-MISSING-INTERFACE'; mutate = { param($p) $ppm = @($p.modules | Where-Object path -ceq 'modules/mb-image')[0].public_packages | Where-Object path -ceq 'ppm'; $ppm.semantic_interface = @($ppm.semantic_interface | Select-Object -SkipLast 1) } },
     @{ id = 'PPM05-EXTRA-INTERFACE'; mutate = { param($p) $ppm = @($p.modules | Where-Object path -ceq 'modules/mb-image')[0].public_packages | Where-Object path -ceq 'ppm'; $ppm.semantic_interface += 'pub fn forbidden_registry() -> Unit' } },

@@ -1,5 +1,5 @@
 import {
-  "moonbit-foundation/mb-color/model",
+  "tchivs/mb-color/model",
 }
 
 supported_targets = "+js+wasm+wasm-gc+native"
