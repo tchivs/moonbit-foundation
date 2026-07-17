@@ -4,16 +4,16 @@ milestone: v0.1
 milestone_name: milestone
 current_phase: 5
 current_phase_name: Reference Codec and Release Qualification
-status: executing
-stopped_at: Completed 05-07-PLAN.md
-last_updated: "2026-07-17T02:47:25.335Z"
+status: verifying
+stopped_at: Completed 05-08-PLAN.md
+last_updated: "2026-07-17T03:11:43.970Z"
 last_activity: 2026-07-17
 last_activity_desc: Phase 5 execution started
 progress:
   total_phases: 5
-  completed_phases: 4
+  completed_phases: 5
   total_plans: 41
-  completed_plans: 40
+  completed_plans: 41
 ---
 
 # Project State
@@ -30,10 +30,10 @@ See `.planning/PROJECT.md` (updated 2026-07-16).
 
 Phase: 5 (Reference Codec and Release Qualification) — EXECUTING
 Plan: 8 of 8
-Status: Ready to execute
+Status: Phase complete — ready for verification
 Last activity: 2026-07-17 — Phase 5 execution started
 
-Progress: [██████████] 98% (4/5 phases; 40/41 plans complete)
+Progress: [██████████] 100% (4/5 phases; 40/41 plans complete)
 
 ## Performance Metrics
 
@@ -85,6 +85,7 @@ Progress: [██████████] 98% (4/5 phases; 40/41 plans complete
 | Phase 05 P05 | 18min | 2 tasks | 13 files |
 | Phase 05 P06 | 40min | 2 tasks | 10 files |
 | Phase 05 P07 | 49min | 2 tasks | 11 files |
+| Phase 05 P08 | 1h | 3 tasks | 13 files |
 
 ## Accumulated Context
 
@@ -203,6 +204,9 @@ Progress: [██████████] 98% (4/5 phases; 40/41 plans complete
 - [Phase 05]: Treat the foundation publication inventory as a closed set while comparing the packer actual ordered list exactly across two clean copies.
 - [Phase 05]: Qualify mb-core from the exact extracted ZIP with no moon.work; keep downstream artifact and registry outcomes blocked until published dependencies resolve.
 - [Phase 05]: Publish and independently resolve exact 0.1.0 modules strictly mb-core then mb-color then mb-image; Required never publishes or reads credentials.
+- [Phase 05]: Freeze nineteen ordered selectors and reciprocal mappings for all seven Phase 5 requirements before final qualification.
+- [Phase 05]: Use tracked and cached diff equality as the source-mutation gate while preserving unrelated zero-content EOL status entries.
+- [Phase 05]: Keep dynamic Required evidence untracked and compare canonical reports while excluding only closed run-local fields.
 
 ### Pending Decisions
 
@@ -223,6 +227,6 @@ None. Phase 01 is independently verified and complete; Phase 02 is ready for con
 
 **Resume file:** None
 
-Last session: 2026-07-17T02:47:25.312Z
-Stopped at: Completed 05-07-PLAN.md
+Last session: 2026-07-17T03:11:43.950Z
+Stopped at: Completed 05-08-PLAN.md
 Resume with: Execute 05-08-PLAN.md, then verify and complete Phase 5.

@@ -122,7 +122,7 @@ Plans:
 
 **Requirements:** WORK-06, QUAL-01, QUAL-02, QUAL-03, QUAL-04, QUAL-05, QUAL-06
 
-**Plans:** 7/8 plans executed
+**Plans:** 8/8 plans executed
 
 Plans:
 
@@ -133,7 +133,7 @@ Plans:
 - [x] 05-05-PLAN.md — Complete candidate docs, support matrices, changelogs, provenance, and qualification metadata.
 - [x] 05-06-PLAN.md — Capture reproducible correctness-gated benchmark records and environment evidence.
 - [x] 05-07-PLAN.md — Prove deterministic packages, exact core artifact consumption, and honest downstream blockers.
-- [ ] 05-08-PLAN.md — Close exact policy negatives and two clean deterministic Required runs.
+- [x] 05-08-PLAN.md — Close exact policy negatives and two clean deterministic Required runs.
 
 **Success Criteria:**
 
@@ -151,7 +151,7 @@ Plans:
 | 2 | 8/8 | Complete    | 2026-07-17 |
 | 3 | 8/8 | Complete    | 2026-07-17 |
 | 4 | 9/9 | Complete    | 2026-07-17 |
-| 5 | 7/8 | In Progress|  |
+| 5 | 8/8 | In Progress|  |
 
 **v0.1 coverage:** 36/36 requirements mapped exactly once.
 
