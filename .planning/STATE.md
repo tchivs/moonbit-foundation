@@ -5,16 +5,16 @@ milestone_name: Publication & Compatibility
 current_phase: 6
 current_phase_name: Namespace Authority and Compatibility Contract
 status: executing
-stopped_at: Completed 06-16-PLAN.md
-last_updated: "2026-07-17T12:19:38.909Z"
+stopped_at: Completed 06-17-PLAN.md
+last_updated: "2026-07-17T12:27:09.782Z"
 last_activity: 2026-07-17
-last_activity_desc: anchored mb-core budget and bytes baseline batch regenerated
+last_activity_desc: anchored mb-core checked and error baseline batch regenerated
 progress:
   total_phases: 4
   completed_phases: 0
   total_plans: 25
-  completed_plans: 14
-  percent: 56
+  completed_plans: 15
+  percent: 60
 ---
 
 # Project State
@@ -30,13 +30,13 @@ See `.planning/PROJECT.md` (updated 2026-07-17).
 ## Current Position
 
 Phase: 6 (Namespace Authority and Compatibility Contract) — EXECUTING
-Plan: 14 of 25 complete; next 06-17
+Plan: 15 of 25 complete; next 06-18
 Status: Executing credential-free personal namespace migration
-Last activity: 2026-07-17 — anchored mb-core budget and bytes baseline batch regenerated
+Last activity: 2026-07-17 — anchored mb-core checked and error baseline batch regenerated
 
 ## Progress
 
-Current milestone: [██████░░░░] 56% of planned Phase 6 work
+Current milestone: [██████░░░░] 60% of planned Phase 6 work
 
 - v0.2 phases completed: 0/4
 - v0.2 plans completed: 14/25
@@ -66,6 +66,7 @@ Current milestone: [██████░░░░] 56% of planned Phase 6 work
 - [Phase 06]: Keep intended GitHub and reporting routes unverified until read-only existence proof succeeds. — Repository metadata cannot establish external route liveness or Mooncakes authority.
 - [Phase 06]: A tracked authority seed cannot infer account, namespace, module, timestamp, or freshness evidence. — Only fresh sanitized external observation can advance publication authority.
 - [Phase 06]: Bind public-interface baseline batches to the immutable completed 06-14 source snapshot. — Later HEAD and obsolete manifest metadata must never influence compatibility evidence.
+- [Phase 06]: Use canonical policy order error then checked at the generator boundary while preserving the plan-owned twelve-file output set. — The exact-package generator rejects out-of-order inventory requests, and package order does not alter batch membership or output ownership.
 
 ### Pending Decisions
 
@@ -80,13 +81,13 @@ Current milestone: [██████░░░░] 56% of planned Phase 6 work
 
 **Resume file:** None
 
-Last session: 2026-07-17T12:19:38.889Z
-Stopped at: Completed 06-16-PLAN.md
+Last session: 2026-07-17T12:27:09.759Z
+Stopped at: Completed 06-17-PLAN.md
 Resume with: `/gsd-execute-phase 6`
 
 ## Operator Next Steps
 
-- Execute 06-17 to regenerate the next bounded canonical baseline batch.
+- Execute 06-18 to regenerate the next bounded canonical baseline batch.
 - Resume revised 06-01 only after the credential-free chain through 06-11; execute 06-06 only after both complete.
 
 ## Performance Metrics
@@ -103,3 +104,4 @@ Resume with: `/gsd-execute-phase 6`
 | Phase 06 P14 | 16m | 3 tasks | 7 files |
 | Phase 06 P15 | 25min | 1 tasks | 3 files |
 | Phase 06 P16 | 4min | 1 tasks | 12 files |
+| Phase 06 P17 | 2min | 1 tasks | 12 files |
