@@ -314,6 +314,31 @@ function Resolve-RepositoryLeafFile {
   return $fullPath
 }
 
+function Resolve-PhaseSourceAuditFile {
+  [CmdletBinding()]
+  param(
+    [Parameter(Mandatory)][string]$RepositoryRoot,
+    [Parameter(Mandatory)][string]$RelativePath,
+    [Parameter(Mandatory)][string]$Label
+  )
+
+  $normalized = $RelativePath.Replace('\','/')
+  $activePath = Join-Path $RepositoryRoot $RelativePath
+  if (Test-Path -LiteralPath $activePath -PathType Leaf) {
+    return Resolve-RepositoryLeafFile -RepositoryRoot $RepositoryRoot -RelativePath $RelativePath -Label $Label
+  }
+
+  $archivedPath = if ($normalized -ceq '.planning/REQUIREMENTS.md') {
+    '.planning/milestones/v0.1-REQUIREMENTS.md'
+  } elseif ($normalized.StartsWith('.planning/phases/01-foundation-charter-and-reproducible-workspace/', [System.StringComparison]::Ordinal)) {
+    $normalized.Replace('.planning/phases/', '.planning/milestones/v0.1-phases/')
+  } else {
+    $null
+  }
+  Assert-Condition (-not [string]::IsNullOrWhiteSpace($archivedPath)) "$Label does not exist and has no canonical milestone archive mapping."
+  return Resolve-RepositoryLeafFile -RepositoryRoot $RepositoryRoot -RelativePath $archivedPath -Label "$Label archived source"
+}
+
 function Resolve-RfcEvidenceFile {
   [CmdletBinding()]
   param(
@@ -937,7 +962,7 @@ function Assert-PhaseSourceAudit {
     $sourceMatch = [regex]::Match([string]$item.source, '^(?<path>[^#]+)#(?<anchor>[^#]+)$')
     Assert-Condition $sourceMatch.Success "Source audit '$($item.id)' must use a repository path plus Markdown anchor."
     $sourcePath = $sourceMatch.Groups['path'].Value
-    $sourceFile = Resolve-RepositoryLeafFile -RepositoryRoot $RepositoryRoot -RelativePath $sourcePath -Label "Source audit '$($item.id)' source"
+    $sourceFile = Resolve-PhaseSourceAuditFile -RepositoryRoot $RepositoryRoot -RelativePath $sourcePath -Label "Source audit '$($item.id)' source"
     if (-not $anchorCache.ContainsKey($sourceFile)) {
       $anchorCache[$sourceFile] = [pscustomobject]@{ anchors=(Get-MarkdownAnchorSet -Path $sourceFile); text=(Get-Content -LiteralPath $sourceFile -Raw) }
     }
@@ -957,7 +982,7 @@ function Assert-PhaseSourceAudit {
   }
 
   foreach ($plan in $allowedPlans) {
-    $planFile = Resolve-RepositoryLeafFile -RepositoryRoot $RepositoryRoot -RelativePath ".planning/phases/01-foundation-charter-and-reproducible-workspace/$plan-PLAN.md" -Label "Phase 01 plan '$plan'"
+    $planFile = Resolve-PhaseSourceAuditFile -RepositoryRoot $RepositoryRoot -RelativePath ".planning/phases/01-foundation-charter-and-reproducible-workspace/$plan-PLAN.md" -Label "Phase 01 plan '$plan'"
     $planText = Get-Content -LiteralPath $planFile -Raw
     $markerIds = @(Get-PhaseSourceAuditMarkerIds -PlanText $planText -Plan $plan)
     Assert-ExactSet "Phase 01 plan '$plan' reciprocal source-audit IDs" $markerIds @($planCoverage[$plan])

@@ -17,7 +17,10 @@
 
 </details>
 
+## Stable Audit Anchors
+
+- **phase-1-foundation-charter-and-reproducible-workspace:** Archived with its complete source inventory under `.planning/milestones/v0.1-phases/`.
+
 ## Next Milestone
 
 No next milestone is active. Use `/gsd-new-milestone` after deciding whether the next cycle is candidate publication or a new RFC-led ecosystem layer.
-
