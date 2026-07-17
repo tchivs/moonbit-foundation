@@ -22,8 +22,9 @@ MoonBit developers can reuse stable, high-performance native infrastructure cont
 
 ### Active
 
-- [ ] Verify the mooncakes.io owner namespace before publication, then publish and independently resolve `mb-core`, `mb-color`, and `mb-image` in dependency order.
-- [ ] Define the next RFC-led milestone before adding new modules or widening architectural boundaries.
+- [ ] Verify the mooncakes.io owner namespace and publish `mb-core`, `mb-color`, and `mb-image` in strict dependency order with independent registry consumers.
+- [ ] Automate auditable, credential-minimal, repeatable release qualification and provenance without weakening the existing Required gate.
+- [ ] Freeze machine-checkable public API compatibility baselines and candidate-version change rules before ecosystem expansion.
 
 ### Out of Scope
 
@@ -47,9 +48,17 @@ v0.1 shipped on 2026-07-17 as a verified release-candidate foundation: five phas
 
 The locked qualification baseline passed 19/19 selectors twice at one unchanged HEAD with identical canonical evidence. Exact `mb-core` artifact consumption succeeds outside `moon.work`; downstream color/image registry resolution remains intentionally blocked until namespace ownership and dependency publication are real.
 
-## Next Milestone Goals
+## Current Milestone: v0.2 Publication & Compatibility
 
-No next milestone is opened automatically. The next cycle should first resolve whether to publish the v0.1 candidates or draft an RFC for the next ecosystem layer; new graphics, document, media, AI, or integration modules remain gated by that decision.
+**Goal:** Turn the verified 0.1.0 candidate modules into genuinely published, independently resolvable ecosystem foundations with auditable release automation and machine-checked compatibility baselines.
+
+**Target features:**
+
+- Verify registry namespace authority, publish in core → color → image order, and prove clean external consumers against the real registry.
+- Add credential-minimal release automation, immutable provenance, safe retry/recovery rules, and post-publication verification.
+- Establish semantic-interface compatibility baselines and candidate-version evolution gates for future module work.
+
+No new graphics, document, media, AI, or integration module is added in v0.2. Distribution and compatibility must be real before the ecosystem surface expands.
 
 ## Constraints
 
@@ -74,6 +83,7 @@ No next milestone is opened automatically. The next cycle should first resolve w
 | Use an RFC gate for new modules and breaking boundaries | Ecosystem coherence needs reviewable architectural decisions | ✓ Validated in Phase 1 |
 | Use checked budgets, explicit capabilities, and forward-only I/O as shared safety contracts | Untrusted binary and image processing must fail before prohibited access, allocation, or work | ✓ Validated in Phases 2-5 |
 | Treat deterministic evidence and honest blocked outcomes as release requirements | Candidate qualification must not depend on fabricated publication or noisy marketing claims | ✓ Validated in Phase 5 |
+| Complete publication and compatibility before adding the next module family | Unpublished foundations cannot provide a dependable ecosystem contract to downstream authors | — Pending in v0.2 |
 
 ## Evolution
 
@@ -93,4 +103,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update toolchain, compatibility, benchmark, and adoption context.
 
 ---
-*Last updated: 2026-07-17 after v0.1 milestone completion*
+*Last updated: 2026-07-17 at v0.2 milestone start*
