@@ -1,0 +1,84 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://moonbit-foundation.example/compatibility/comparison-schema.json",
+  "title": "MoonBit Native Foundation public compatibility comparison result",
+  "description": "A closed four-class result over public-interface text and declared release facts. It does not claim behavioral, semantic, resource, representation-layout, performance, or full compatibility.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "baseline_version",
+    "candidate_version",
+    "classification",
+    "release_authorized",
+    "classification_rule_ids",
+    "blocking_rule_ids",
+    "changes",
+    "evidence",
+    "complete",
+    "claim_scope"
+  ],
+  "properties": {
+    "schema_version": { "const": "mnf-public-compatibility-comparison/1" },
+    "baseline_version": { "$ref": "#/$defs/semver" },
+    "candidate_version": { "$ref": "#/$defs/semver" },
+    "classification": { "enum": ["exact", "additive", "incompatible", "unknown"] },
+    "release_authorized": { "type": "boolean" },
+    "classification_rule_ids": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": { "$ref": "#/$defs/rule_id" }
+    },
+    "blocking_rule_ids": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": { "$ref": "#/$defs/rule_id" }
+    },
+    "changes": { "$ref": "#/$defs/changes" },
+    "evidence": { "$ref": "#/$defs/evidence" },
+    "complete": { "type": "boolean" },
+    "claim_scope": { "const": "public-interface-text-and-declared-release-facts-only; no behavioral, semantic, resource, representation-layout, performance, or full compatibility claim" }
+  },
+  "$defs": {
+    "semver": {
+      "type": "string",
+      "pattern": "^(0|[1-9][0-9]*)[.](0|[1-9][0-9]*)[.](0|[1-9][0-9]*)(?:-[0-9A-Za-z-]+(?:[.][0-9A-Za-z-]+)*)?(?:[+][0-9A-Za-z-]+(?:[.][0-9A-Za-z-]+)*)?$"
+    },
+    "rule_id": {
+      "type": "string",
+      "pattern": "^COMP(02|03|04)-[A-Z0-9-]+$"
+    },
+    "string_set": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "changes": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["added", "removed", "changed", "fact_changes"],
+      "properties": {
+        "added": { "$ref": "#/$defs/string_set" },
+        "removed": { "$ref": "#/$defs/string_set" },
+        "changed": { "$ref": "#/$defs/string_set" },
+        "fact_changes": { "$ref": "#/$defs/string_set" }
+      }
+    },
+    "evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["changelog", "added_surface_report", "migration", "rfc", "rfc_impacts"],
+      "properties": {
+        "changelog": { "type": "boolean" },
+        "added_surface_report": { "type": "boolean" },
+        "migration": { "type": "boolean" },
+        "rfc": { "type": "boolean" },
+        "rfc_impacts": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "enum": ["boundary", "architecture", "governance"] }
+        }
+      }
+    }
+  }
+}

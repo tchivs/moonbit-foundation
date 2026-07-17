@@ -1,0 +1,108 @@
+{
+  "schema_version": "mnf-public-compatibility-policy/1",
+  "classification_precedence": [
+    "unknown",
+    "incompatible",
+    "additive",
+    "exact"
+  ],
+  "claim_scope": "public-interface-text-and-declared-release-facts-only; no behavioral, semantic, resource, representation-layout, performance, or full compatibility claim",
+  "controlled_facts": {
+    "public_api": "lossless normalized public declarations and imports",
+    "supported_targets": "the exact declared target set and per-target normalized interface",
+    "minimum_toolchain": "the declared minimum moon, moonc, and moonrun floors",
+    "dependency_floors": "the exact named direct module dependency floors"
+  },
+  "baseline_profiles": {
+    "0.1.0": {
+      "supported_targets": [
+        "js",
+        "wasm",
+        "wasm-gc",
+        "native"
+      ],
+      "minimum_toolchain": {
+        "moon": "0.1.20260713",
+        "moonc": "0.10.4",
+        "moonrun": "0.1.20260713"
+      },
+      "dependency_floors": {
+        "mb-core": {},
+        "mb-color": {
+          "moonbit-foundation/mb-core": "0.1.0"
+        },
+        "mb-image": {
+          "moonbit-foundation/mb-core": "0.1.0",
+          "moonbit-foundation/mb-color": "0.1.0"
+        }
+      }
+    }
+  },
+  "version_rules": {
+    "exact": {
+      "minimum_increment": "patch",
+      "release_allowed": true,
+      "changelog_required": true,
+      "added_surface_report_required": false,
+      "migration_required": false
+    },
+    "additive": {
+      "minimum_increment": "minor",
+      "release_allowed": true,
+      "changelog_required": true,
+      "added_surface_report_required": true,
+      "migration_required": false
+    },
+    "incompatible": {
+      "minimum_increment": "minor",
+      "release_allowed": true,
+      "changelog_required": true,
+      "added_surface_report_required": false,
+      "migration_required": true
+    },
+    "unknown": {
+      "minimum_increment": "none",
+      "release_allowed": false,
+      "changelog_required": false,
+      "added_surface_report_required": false,
+      "migration_required": false
+    }
+  },
+  "rfc_condition": {
+    "trigger_impacts": [
+      "boundary",
+      "architecture",
+      "governance"
+    ],
+    "accepted_rfc_required_when_triggered": true,
+    "not_required_for_ordinary_incompatible_api_delta": true
+  },
+  "rule_ids": {
+    "COMP02-CLASS-EXACT": "All represented declarations, targets, toolchain, and dependency floors are exact.",
+    "COMP02-CLASS-ADDITIVE": "All baseline declarations remain exact and only represented public surface or supported targets were added.",
+    "COMP02-INPUT-CLOSED": "Every policy, release-fact, manifest, package, record, and evidence object is closed.",
+    "COMP02-MISSING-BASELINE": "A missing or unsupported baseline is unknown.",
+    "COMP02-INCOMPLETE-CANDIDATE": "A partial candidate package or target inventory is unknown.",
+    "COMP02-UNKNOWN-SYNTAX": "Unrepresented normalized interface syntax is unknown.",
+    "COMP02-AMBIGUOUS-MATCH": "Duplicate declaration identities or otherwise ambiguous matching are unknown.",
+    "COMP02-DUPLICATE-RECORD": "Duplicate package or package-target records are unknown.",
+    "COMP02-TARGET-DIVERGENCE": "Per-target interface divergence is unknown.",
+    "COMP02-TOOLCHAIN-MISMATCH": "Generation toolchain drift without an approved baseline migration is unknown.",
+    "COMP02-INTERRUPTED-RESULT": "An interrupted or incomplete comparison cannot authorize release.",
+    "COMP02-DECLARATION-REMOVED": "A removed public declaration is incompatible.",
+    "COMP02-DECLARATION-CHANGED": "A changed public declaration kind, signature, constraints, or identity is incompatible.",
+    "COMP02-VISIBILITY-CHANGED": "Reduced public visibility is incompatible.",
+    "COMP02-IMPORT-CHANGED": "A changed normalized public import set is incompatible.",
+    "COMP02-SUPPORTED-TARGET-REMOVED": "Removing a supported target is incompatible.",
+    "COMP02-SUPPORTED-TARGET-ADDED": "Adding a fully represented supported target is additive.",
+    "COMP03-MINIMUM-TOOLCHAIN-DRIFT": "Changing a declared minimum toolchain floor is incompatible and policy-visible.",
+    "COMP03-DEPENDENCY-FLOOR-DRIFT": "Changing a direct dependency floor is incompatible and policy-visible.",
+    "COMP03-VERSION-NONCANONICAL": "Baseline and candidate versions must be canonical SemVer without numeric overflow assumptions.",
+    "COMP03-VERSION-INSUFFICIENT": "The candidate version must satisfy the class-owned minimum increment.",
+    "COMP04-CHANGELOG-REQUIRED": "Every releasable class requires a matching changelog change-class entry.",
+    "COMP04-ADDED-SURFACE-REPORT-REQUIRED": "An additive class requires an exact added-surface report.",
+    "COMP04-MIGRATION-REQUIRED": "An incompatible pre-1.0 class requires a migration note.",
+    "COMP04-RFC-REQUIRED": "An accepted RFC is required only when boundary, architecture, or governance impact is declared.",
+    "COMP04-CHANGE-CLASS-MISMATCH": "Recorded changelog change class must equal the computed class."
+  }
+}
