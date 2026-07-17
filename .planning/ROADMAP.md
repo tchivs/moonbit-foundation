@@ -46,12 +46,11 @@
 5. Before publication, each module's source documentation contract covers exact install and import commands, candidate status, targets and toolchain, change class, changelog, support and security routes, migration notes when required, and the intended registry metadata source; actual Mooncakes rendering proof is deferred to PROV-05 after publication.
 
 **Plans:** 1/6 plans executed
-**Wave 1**
+**Completed foundation**
 
-- [ ] 06-01-PLAN.md — Freeze authority/capability contracts, capture sanitized read-only namespace proof, and enforce readiness.
 - [x] 06-02-PLAN.md — Define baseline contracts and mechanically generate 17-package × 4-target interface evidence.
 
-**Wave 2** *(blocked on Wave 1 completion)*
+**Wave 2** *(depends on 06-02)*
 
 - [ ] 06-03-PLAN.md — Implement four-class comparison, version/evidence policy enforcement, and exact negatives.
 
@@ -63,7 +62,11 @@
 
 - [ ] 06-05-PLAN.md — Complete the three bounded module publication-documentation sets.
 
-**Wave 5** *(blocked on Wave 4 completion)*
+**Wave 5 — deferred external checkpoint** *(resume after Wave 4 when the exact account identity exists)*
+
+- [ ] 06-01-PLAN.md — Freeze authority/capability contracts, capture sanitized read-only namespace proof, and enforce readiness. Contract work is retained; live authority proof is deferred by the sole maintainer. See `06-01-DEFERRED.md`.
+
+**Wave 6** *(blocked on Waves 2-5 completion)*
 
 - [ ] 06-06-PLAN.md — Freeze reciprocal Phase 6 coverage and integrate all credential-free gates into Required.
 

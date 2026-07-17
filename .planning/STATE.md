@@ -3,18 +3,18 @@ gsd_state_version: 1.0
 milestone: v0.2
 milestone_name: Publication & Compatibility
 current_phase: 6
-current_phase_name: first phase of v0.2
-status: planning
-stopped_at: Phase 6 context gathered
-last_updated: "2026-07-17T05:03:17.504Z"
+current_phase_name: Namespace Authority and Compatibility Contract
+status: executing
+stopped_at: Plan 06-03 executing after 06-01 mark-and-skip
+last_updated: "2026-07-17T07:05:00+08:00"
 last_activity: 2026-07-17
-last_activity_desc: v0.2 roadmap revised with 21/21 requirements mapped
+last_activity_desc: External authority checkpoint deferred; credential-free chain resumed
 progress:
   total_phases: 4
   completed_phases: 0
-  total_plans: 0
-  completed_plans: 0
-  percent: 0
+  total_plans: 6
+  completed_plans: 1
+  percent: 17
 ---
 
 # Project State
@@ -25,21 +25,21 @@ See `.planning/PROJECT.md` (updated 2026-07-17).
 
 **Core value:** MoonBit developers can reuse stable, high-performance native infrastructure contracts instead of rebuilding incompatible foundations for every graphics, document, media, or automation product.
 
-**Current focus:** Phase 6 — Namespace Authority and Compatibility Contract.
+**Current focus:** Phase 6 — Namespace Authority and Compatibility Contract
 
 ## Current Position
 
-Phase: 6 of 9 (first phase of v0.2)
-Plan: 0 of TBD
-Status: Ready to discuss and plan
-Last activity: 2026-07-17 — v0.2 roadmap revised with 21/21 requirements mapped
+Phase: 6 (Namespace Authority and Compatibility Contract) — EXECUTING
+Plan: 3 of 6
+Status: Executing independent credential-free chain; 06-01 external authority checkpoint deferred
+Last activity: 2026-07-17 — sole maintainer marked external account creation as skipped for this run
 
 ## Progress
 
-Current milestone: [░░░░░░░░░░] 0%
+Current milestone: [██░░░░░░░░] 17%
 
 - v0.2 phases completed: 0/4
-- v0.2 plans completed: 0/TBD
+- v0.2 plans completed: 1/6
 - v0.2 requirements mapped: 21/21
 - Historical total: 5 completed phases, 41 completed plans, 36/36 v0.1 requirements validated
 
@@ -61,16 +61,19 @@ Current milestone: [░░░░░░░░░░] 0%
 
 ### Blockers
 
-None. Unknown registry facts are Phase 6 work and remain fail-closed until verified.
+- Plan 06-01 is deferred at an external authority checkpoint: the exact `moonbit-foundation` GitHub/Mooncakes identity does not yet exist or cannot be authoritatively observed. REG-01 through REG-03 remain fail-closed. See `06-01-DEFERRED.md`.
+- Plans 06-03 through 06-05 may continue independently; plan 06-06 and Phase 7 remain blocked on 06-01 completion.
 
 ## Session Continuity
 
 **Resume file:** .planning/phases/06-namespace-authority-and-compatibility-contract/06-CONTEXT.md
 
 Last session: 2026-07-17T05:03:17.486Z
-Stopped at: Phase 6 context gathered
-Resume with: `/gsd-discuss-phase 6`
+Stopped at: Plan 06-03 executing after 06-01 mark-and-skip
+Resume with: `/gsd-execute-phase 6`
 
 ## Operator Next Steps
 
-- Run `/gsd-discuss-phase 6`, then `/gsd-plan-phase 6`.
+- Execute plans 06-03, 06-04, and 06-05 in dependency order.
+- Resume 06-01 only when the exact external identity and sanitized authority proof are available.
+- Execute 06-06 only after 06-01 completes.
