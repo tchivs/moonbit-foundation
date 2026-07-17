@@ -29,7 +29,9 @@ key-files:
     - modules/mb-image/ppm/ppm.mbt
     - modules/mb-image/ppm/parser.mbt
     - modules/mb-image/ppm/parser_wbtest.mbt
-  modified: []
+  modified:
+    - policy/foundation.json
+    - scripts/quality/Assert-Policy.ps1
 
 key-decisions:
   - "Keep PpmDecoder and PpmEncoder behavior-free in Plan 01; complete codec trait implementations remain exclusively in Plans 02 and 03."
@@ -71,7 +73,7 @@ coverage:
         status: pass
     human_judgment: false
 
-duration: 25min
+duration: 35min
 completed: 2026-07-17
 status: complete
 ---
@@ -82,10 +84,10 @@ status: complete
 
 ## Performance
 
-- **Duration:** 25 min
-- **Completed:** 2026-07-17T00:15:45Z
+- **Duration:** 35 min
+- **Completed:** 2026-07-17T00:22:00Z
 - **Tasks:** 2
-- **Files modified:** 4
+- **Files modified:** 6
 
 ## Accomplishments
 
@@ -93,6 +95,7 @@ status: complete
 - Added a forward-only parser for positive ASCII width/height and maxval 255 with bounded whitespace/comments, checked full-width decimal arithmetic, and no allocation seam.
 - Proved exact structured error classes, all four independent ceilings, first-raster-byte isolation, chunk-schedule equivalence, and unchanged authoritative budgets on failure.
 - Passed 9/9 focused PPM tests on each of js, wasm, wasm-gc, and native plus the full mb-image four-target deny-warning check.
+- Registered the current parser-only package contents, interface, imports, target set, publication order, and exact DAG so every plan retains a green Required baseline.
 
 ## Task Commits
 
@@ -100,6 +103,8 @@ status: complete
 2. **Task 1 GREEN: Define strict PPM codec values** - `75e8c84` (feat)
 3. **Task 2 RED: Add failing bounded header parser tests** - `4e37f21` (test)
 4. **Task 2 GREEN: Implement bounded P6 header parser** - `fde14f0` (feat)
+5. **Rule 3: Register the transitional parser-only package** - `2585918` (chore)
+6. **Rule 3: Extend exact image qualification for ppm** - `288bb7d` (fix)
 
 ## Files Created/Modified
 
@@ -107,6 +112,8 @@ status: complete
 - `modules/mb-image/ppm/ppm.mbt` - Public parser limits and codec values plus package-private prefix recognition.
 - `modules/mb-image/ppm/parser.mbt` - Closed byte-state grammar, counters, checked decimal accumulation, header result, and error matrix.
 - `modules/mb-image/ppm/parser_wbtest.mbt` - Contract, transition, adversarial grammar, ceiling, chunk, raster-boundary, and budget evidence.
+- `policy/foundation.json` - Transitional exact package contents, public interface, allowed imports, targets, and publication order.
+- `scripts/quality/Assert-Policy.ps1` - Six-package image spine and closed ppm dependency assertion.
 
 ## Decisions Made
 
@@ -117,11 +124,29 @@ status: complete
 
 ## Deviations from Plan
 
-None - plan execution stayed within the four declared PPM files and added no decoder/encoder trait method, option type, placeholder, registry, seeker, host, filesystem, storage, or operations dependency.
+### Auto-fixed Issues
+
+**1. [Rule 3 - Blocking] Registered the parser-only package before later codec methods land**
+- **Found during:** Full Required verification after Task 2
+- **Issue:** Exact package contents rejected the new `ppm` directory because Plan 01 had not registered its transitional public boundary.
+- **Fix:** Added the current five package paths, five exact allowed imports, 17-line semantic interface, four targets, and publication position to foundation policy.
+- **Files modified:** `policy/foundation.json`
+- **Verification:** Required package allowlist and interface classifier pass exactly.
+- **Committed in:** `2585918`
+
+**2. [Rule 3 - Blocking] Extended the hardcoded image package-spine gate**
+- **Found during:** First Required rerun after transitional policy registration
+- **Issue:** The general policy gate still required the Phase 4 five-package image spine and rejected the now-authoritative sixth `ppm` package.
+- **Fix:** Extended the exact spine to `metadata, model, storage, ops, codec, ppm` and added an exact parser-only dependency assertion.
+- **Files modified:** `scripts/quality/Assert-Policy.ps1`
+- **Verification:** Targeted policy validation and the complete Required lane pass.
+- **Committed in:** `288bb7d`
+
+**Total deviations:** 2 auto-fixed blocking qualification gaps. **Impact:** The package remains parser-only; Plans 02 and 03 will atomically update the same exact policy entry as complete decoder/encoder behavior lands.
 
 ## Issues Encountered
 
-- The full Required lane reached the existing mb-image package allowlist after all 183 workspace tests passed per target, then rejected the new `ppm` package as unregistered. This is an expected staged integration point: Plan 05-03 explicitly owns `policy/foundation.json` and the image quality scripts alongside completed encode/evidence. Plan 01 did not broaden into those later-plan files.
+- The first two Required attempts exposed the transitional package-registration and hardcoded package-spine gaps; both were closed under Rule 3 and the final complete run exited 0.
 - The Required lane's expected missing-README negative emitted its usual canonicalization error while the enclosing negative check continued normally.
 
 ## User Setup Required
@@ -132,18 +157,18 @@ None.
 
 - `moon -C modules/mb-image check --frozen --deny-warn --target all`: passed.
 - `moon test --frozen --target all --package moonbit-foundation/mb-image/ppm`: 9/9 passed on each required target.
-- `pwsh -NoProfile -File ./scripts/quality.ps1 -Lane Required`: all governance, generated evidence, source negatives, documentation, and 183/183 tests per target passed through interface checks; stopped at the intentionally not-yet-updated mb-image package allowlist for `ppm`, owned by Plan 05-03.
+- `pwsh -NoProfile -File ./scripts/quality.ps1 -Lane Required`: passed end to end with 183/183 workspace tests per target, the exact 17-line ppm interface, six-package image publication order, closed parser-only imports, package contents, and read-only proof.
 
 ## Self-Check: PASSED
 
 - All four planned PPM files exist.
-- Commits `53d2b7c`, `75e8c84`, `4e37f21`, and `fde14f0` resolve in repository history.
+- Commits `53d2b7c`, `75e8c84`, `4e37f21`, `fde14f0`, `2585918`, and `288bb7d` resolve in repository history.
 - No TODO, FIXME, placeholder decode/encode method, trait implementation, external dependency, or new host/network/filesystem/security surface was introduced.
 
 ## Next Phase Readiness
 
 - Plan 05-02 can implement the complete `ImageDecoder` trait over this parser without changing its limits, prefix semantics, or stable error vocabulary.
-- Plan 05-03 remains responsible for the complete encoder, generated corpus, policy/interface registration, and Required-lane package allowlist closure.
+- Plans 05-02 and 05-03 must update the already-registered ppm interface and contents atomically as the complete decoder, encoder, and generated corpus land.
 
 ---
 *Phase: 05-reference-codec-and-release-qualification*
