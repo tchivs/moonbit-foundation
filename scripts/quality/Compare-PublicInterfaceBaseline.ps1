@@ -143,13 +143,16 @@ function Read-CompatibilityTree {
   $manifestPath = Join-Path $Root 'manifest.json'
   $manifest = Read-CompatibilityJson -Path $manifestPath -MissingRule $missingRule
   Assert-CompatibilityClosedProperties -Label "$Role manifest" -Value $manifest -Expected @(
-    'schema_version','normalization_schema_version','baseline_version','source_commit','toolchain','targets',
+    'schema_version','normalization_schema_version','baseline_version','source_snapshot_sha256','source_commit','toolchain','targets',
     'package_count','record_count','packages','two_run_equal','claim_scope'
   )
   Assert-CompatibilityClosedProperties -Label "$Role toolchain" -Value $manifest.toolchain -Expected @('moon','moonc','moonrun')
   if ([string]$manifest.schema_version -cne 'mnf-public-interface-baseline-manifest/1' -or
       [string]$manifest.normalization_schema_version -cne 'moon-mbti-lossless-lines/1') {
     Throw-CompatibilityRule -Id 'COMP02-INPUT-CLOSED' -Message "$Role manifest schema identity drifted."
+  }
+  if ([string]$manifest.source_snapshot_sha256 -cnotmatch '^[0-9a-f]{64}$') {
+    Throw-CompatibilityRule -Id 'COMP02-INPUT-CLOSED' -Message "$Role manifest source snapshot digest is missing or malformed."
   }
   if ($manifest.two_run_equal -ne $true) {
     Throw-CompatibilityRule -Id 'COMP02-INTERRUPTED-RESULT' -Message "$Role generation is not a completed equal two-run result."
@@ -187,12 +190,13 @@ function Read-CompatibilityTree {
     }
     $document = Read-CompatibilityJson -Path $documentPath -MissingRule $missingRule
     Assert-CompatibilityClosedProperties -Label "$Role package document" -Value $document -Expected @(
-      'schema_version','normalization_schema_version','source_commit','toolchain','module','package','raw_path',
+      'schema_version','normalization_schema_version','source_snapshot_sha256','source_commit','toolchain','module','package','raw_path',
       'raw_sha256','records','two_run_equal','claim_scope'
     )
     Assert-CompatibilityClosedProperties -Label "$Role package toolchain" -Value $document.toolchain -Expected @('moon','moonc','moonrun')
     if ([string]$document.package -cne $packageName -or [string]$document.module -cne [string]$entry.module -or
         [string]$document.raw_path -cne [string]$entry.raw_path -or [string]$document.raw_sha256 -cne [string]$entry.raw_sha256 -or
+        [string]$document.source_snapshot_sha256 -cne [string]$manifest.source_snapshot_sha256 -or
         [string]$document.source_commit -cne [string]$manifest.source_commit -or
         [string]$document.schema_version -cne 'mnf-public-interface-baseline-package/1' -or
         [string]$document.normalization_schema_version -cne 'moon-mbti-lossless-lines/1' -or
