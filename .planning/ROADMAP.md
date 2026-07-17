@@ -3,7 +3,7 @@
 ## Milestones
 
 - ✅ **v0.1 Foundation** — Phases 1-5, 41 plans, 36/36 requirements (shipped 2026-07-17). Full history: [v0.1 roadmap](./milestones/v0.1-ROADMAP.md).
-- 🚧 **v0.2 Publication & Compatibility** — Phases 6-9, 20 requirements (planning).
+- 🚧 **v0.2 Publication & Compatibility** — Phases 6-9, 21 requirements (planning).
 
 ## Phases
 
@@ -43,9 +43,29 @@
 2. A release gate rejects missing or drifted namespace authority, canonical module identity, pinned toolchain identity, exact version availability, authenticated publish seam, or registry observation and resolution; every other unknown capability has an explicit fail-closed or forward-only disposition.
 3. Canonical public-interface baselines for every public package are reproducibly generated across `js`, `wasm`, `wasm-gc`, and `native` and remain identical across clean runs with the pinned toolchain without being presented as behavioral compatibility proof.
 4. Candidate deltas, including supported-target, minimum-toolchain, and dependency-floor changes, are deterministically classified and the gate enforces the required version, changelog, migration, and conditional RFC evidence.
-5. Each module's publication documentation contract covers exact install and import commands, candidate status, targets and toolchain, change class, changelog, support and security routes, migration notes when required, and intended registry-rendered metadata.
+5. Before publication, each module's source documentation contract covers exact install and import commands, candidate status, targets and toolchain, change class, changelog, support and security routes, migration notes when required, and the intended registry metadata source; actual Mooncakes rendering proof is deferred to PROV-05 after publication.
 
-**Plans:** TBD
+**Plans:** 6 plans
+**Wave 1**
+
+- [ ] 06-01-PLAN.md — Freeze authority/capability contracts, capture sanitized read-only namespace proof, and enforce readiness.
+- [ ] 06-02-PLAN.md — Define baseline contracts and mechanically generate 17-package × 4-target interface evidence.
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
+- [ ] 06-03-PLAN.md — Implement four-class comparison, version/evidence policy enforcement, and exact negatives.
+
+**Wave 3** *(blocked on Wave 2 completion)*
+
+- [ ] 06-04-PLAN.md — Establish shared support/security routes and the collective source-document validator.
+
+**Wave 4** *(blocked on Wave 3 completion)*
+
+- [ ] 06-05-PLAN.md — Complete the three bounded module publication-documentation sets.
+
+**Wave 5** *(blocked on Wave 4 completion)*
+
+- [ ] 06-06-PLAN.md — Freeze reciprocal Phase 6 coverage and integrate all credential-free gates into Required.
 
 ### Phase 7: Release Safety, Intent, and Recovery Automation
 
@@ -70,7 +90,7 @@
 
 **Depends on:** Phase 7
 
-**Requirements:** DIST-01, DIST-02, DIST-03, DIST-04
+**Requirements:** DIST-01, DIST-02, DIST-03, DIST-04, PROV-05
 
 **Success Criteria:**
 
@@ -78,6 +98,7 @@
 2. `mb-color` is published next, then a fresh consumer resolves its exact version and intended published `mb-core` dependency and passes across all four targets before `mb-image` publication begins.
 3. `mb-image` is published last, then a fresh consumer resolves the exact full dependency graph and passes the bounded PPM public stack across all four targets.
 4. Every proof runs outside the repository with an isolated cold Moon home and no publisher credential, `moon.work`, path dependency, copied source, Git fallback, or warm-cache-only success, and records registry metadata, strongest available package identity, resolved graph, toolchain, target results, and behavioral assertion.
+5. After publication, credential-redacted read-only Mooncakes observation proves that each module page renders the intended qualified public metadata; missing, drifted, or ambiguous rendering blocks PROV-05 without registry mutation.
 
 **Plans:** TBD
 

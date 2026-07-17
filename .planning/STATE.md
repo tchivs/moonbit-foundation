@@ -8,7 +8,7 @@ status: planning
 stopped_at: Phase 6 context gathered
 last_updated: "2026-07-17T05:03:17.504Z"
 last_activity: 2026-07-17
-last_activity_desc: v0.2 roadmap created with 20/20 requirements mapped
+last_activity_desc: v0.2 roadmap revised with 21/21 requirements mapped
 progress:
   total_phases: 4
   completed_phases: 0
@@ -32,7 +32,7 @@ See `.planning/PROJECT.md` (updated 2026-07-17).
 Phase: 6 of 9 (first phase of v0.2)
 Plan: 0 of TBD
 Status: Ready to discuss and plan
-Last activity: 2026-07-17 — v0.2 roadmap created with 20/20 requirements mapped
+Last activity: 2026-07-17 — v0.2 roadmap revised with 21/21 requirements mapped
 
 ## Progress
 
@@ -40,7 +40,7 @@ Current milestone: [░░░░░░░░░░] 0%
 
 - v0.2 phases completed: 0/4
 - v0.2 plans completed: 0/TBD
-- v0.2 requirements mapped: 20/20
+- v0.2 requirements mapped: 21/21
 - Historical total: 5 completed phases, 41 completed plans, 36/36 v0.1 requirements validated
 
 ## Accumulated Context

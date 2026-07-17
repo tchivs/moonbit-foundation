@@ -38,8 +38,9 @@
 
 - [ ] **PROV-01**: Every published module version has an immutable ledger entry linking its registry identity, source commit and tag, package inventory, exact dependency graph, archive digest, interface-baseline digest, pinned toolchain, qualification report, and consumer proof.
 - [ ] **PROV-02**: Standard artifact provenance and a closed evidence manifest for every qualified archive verify outside the producer job against the expected repository, workflow identity, source ref, and SHA-256 digest; provenance is not treated as proof of compatibility or correctness.
-- [ ] **PROV-03**: Each module's published documentation set collectively provides exact install/import commands, candidate status, supported targets and toolchain, public-interface change class, support and security-reporting routes, changelog, and migration note when required, and the registry renders the intended public metadata.
+- [ ] **PROV-03**: Before publication, each module's source documentation set collectively provides exact install/import commands, candidate status, supported targets and toolchain, public-interface change class, support and security-reporting routes, changelog, migration note when required, and the intended registry metadata source.
 - [ ] **PROV-04**: Final closure verifies immutable release tag/assets, rehearses provenance and recovery failures, repeats the full credential-free Required gate from the release source, proves publication/verification did not mutate that source or leak secrets, validates all ledger and registry evidence, and confirms that no new module family entered v0.2.
+- [ ] **PROV-05**: After publication, read-only Mooncakes observation proves that each published module page renders the intended public metadata from the qualified source documentation without credential disclosure or registry mutation.
 
 ## Future Requirements
 
@@ -92,8 +93,9 @@
 | PROV-02 | Phase 9 | Pending |
 | PROV-03 | Phase 6 | Pending |
 | PROV-04 | Phase 9 | Pending |
+| PROV-05 | Phase 8 | Pending |
 
-**Coverage:** 20/20 requirements mapped exactly once
+**Coverage:** 21/21 requirements mapped exactly once
 
 ---
 *Requirements defined: 2026-07-17*
