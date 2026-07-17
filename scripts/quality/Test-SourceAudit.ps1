@@ -40,7 +40,9 @@ Assert-ExactSet 'CRLF source-audit marker fixture' $crlfIds @('A','B')
 Write-Host 'PASS: LF and CRLF source-audit markers'
 
 Invoke-AuditCase 'canonical source audit' $null $null
-Invoke-AuditCase 'missing source anchor' { param($a) $a.goals[0].source='.planning/ROADMAP.md#missing-anchor' } 'anchor.*does not exist'
+Invoke-AuditCase 'mutable active requirements path' { param($a) $a.requirements[0].source='.planning/REQUIREMENTS.md#charter-and-governance' } 'canonical v0.1 milestone archive'
+Invoke-AuditCase 'mutable active phase path' { param($a) $a.decisions[0].source='.planning/phases/01-foundation-charter-and-reproducible-workspace/01-CONTEXT.md#rfc-governance-and-acceptance' } 'canonical v0.1 milestone archive'
+Invoke-AuditCase 'missing source anchor' { param($a) $a.goals[0].source='.planning/milestones/v0.1-ROADMAP.md#missing-anchor' } 'anchor.*does not exist'
 Invoke-AuditCase 'unknown covering plan' { param($a) $a.goals[0].covering_plan='99-99' } 'unknown Phase 01 plan'
 Invoke-AuditCase 'duplicate covering plan id' { param($a) $a.goals[0].covering_plan='01-08,01-08' } 'duplicate covering plan IDs'
 Invoke-AuditCase 'known id mapped to wrong plan' { param($a) $a.goals[0].covering_plan='01-01' } 'reciprocal source-audit IDs.*mismatch'

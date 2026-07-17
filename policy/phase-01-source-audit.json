@@ -4,7 +4,7 @@
   "goals": [
     {
       "id": "GOAL-01",
-      "source": ".planning/ROADMAP.md#phase-1-foundation-charter-and-reproducible-workspace",
+      "source": ".planning/milestones/v0.1-ROADMAP.md#phase-1-foundation-charter-and-reproducible-workspace",
       "description": "Contributors and consumers have an accepted architectural charter, explicit governance and compatibility rules, and a reproducible multi-module workspace with enforceable target and quality policies.",
       "covering_plan": "01-08",
       "status": "covered"
@@ -13,63 +13,63 @@
   "requirements": [
     {
       "id": "GOV-01",
-      "source": ".planning/REQUIREMENTS.md#charter-and-governance",
+      "source": ".planning/milestones/v0.1-REQUIREMENTS.md#charter-and-governance",
       "description": "A contributor can read an accepted foundation RFC that defines MNF's vision, principles, terminology, architectural layers, dependency direction, and v0.1 boundaries.",
       "covering_plan": "01-01",
       "status": "covered"
     },
     {
       "id": "GOV-02",
-      "source": ".planning/REQUIREMENTS.md#charter-and-governance",
+      "source": ".planning/milestones/v0.1-REQUIREMENTS.md#charter-and-governance",
       "description": "A contributor can follow a documented RFC lifecycle with named statuses, acceptance authority, review expectations, and rules for breaking architectural changes.",
       "covering_plan": "01-01",
       "status": "covered"
     },
     {
       "id": "GOV-03",
-      "source": ".planning/REQUIREMENTS.md#charter-and-governance",
+      "source": ".planning/milestones/v0.1-REQUIREMENTS.md#charter-and-governance",
       "description": "A package consumer can distinguish experimental, candidate, and stable public APIs and understand the compatibility promise of each status.",
       "covering_plan": "01-02",
       "status": "covered"
     },
     {
       "id": "GOV-04",
-      "source": ".planning/REQUIREMENTS.md#charter-and-governance",
+      "source": ".planning/milestones/v0.1-REQUIREMENTS.md#charter-and-governance",
       "description": "A contributor can identify the chosen project license, fixture licensing rules, mooncakes.io owner/namespace, and module naming policy before public release.",
       "covering_plan": "01-02",
       "status": "covered"
     },
     {
       "id": "WORK-01",
-      "source": ".planning/REQUIREMENTS.md#workspace-and-portability",
+      "source": ".planning/milestones/v0.1-REQUIREMENTS.md#workspace-and-portability",
       "description": "A developer can clone the repository and operate mb-core, mb-color, and mb-image as three independently publishable MoonBit modules in one workspace.",
       "covering_plan": "01-03",
       "status": "covered"
     },
     {
       "id": "WORK-02",
-      "source": ".planning/REQUIREMENTS.md#workspace-and-portability",
+      "source": ".planning/milestones/v0.1-REQUIREMENTS.md#workspace-and-portability",
       "description": "A developer can reproduce the v0.1 development environment from a checked-in toolchain policy that records the exact moon, moonc, and moonrun baseline.",
       "covering_plan": "01-02",
       "status": "covered"
     },
     {
       "id": "WORK-03",
-      "source": ".planning/REQUIREMENTS.md#workspace-and-portability",
+      "source": ".planning/milestones/v0.1-REQUIREMENTS.md#workspace-and-portability",
       "description": "A consumer can inspect every public package's explicit supported-target declaration and determine whether it supports native, wasm, wasm-gc, or js.",
       "covering_plan": "01-02",
       "status": "covered"
     },
     {
       "id": "WORK-04",
-      "source": ".planning/REQUIREMENTS.md#workspace-and-portability",
+      "source": ".planning/milestones/v0.1-REQUIREMENTS.md#workspace-and-portability",
       "description": "A maintainer can run root-level format, check, test, documentation, package-content, and dependency-DAG validation without manually entering each module.",
       "covering_plan": "01-07",
       "status": "covered"
     },
     {
       "id": "WORK-05",
-      "source": ".planning/REQUIREMENTS.md#workspace-and-portability",
+      "source": ".planning/milestones/v0.1-REQUIREMENTS.md#workspace-and-portability",
       "description": "A maintainer can verify portable package behavior on every declared target while LLVM remains clearly non-blocking and experimental.",
       "covering_plan": "01-07",
       "status": "covered"
@@ -78,112 +78,112 @@
   "decisions": [
     {
       "id": "D-01",
-      "source": ".planning/phases/01-foundation-charter-and-reproducible-workspace/01-CONTEXT.md#rfc-governance-and-acceptance",
+      "source": ".planning/milestones/v0.1-phases/01-foundation-charter-and-reproducible-workspace/01-CONTEXT.md#rfc-governance-and-acceptance",
       "description": "RFC 0001 is the architectural charter and must define vision, terminology, layer boundaries, dependency direction, portability policy, v0.1 scope, and governance.",
       "covering_plan": "01-01",
       "status": "covered"
     },
     {
       "id": "D-02",
-      "source": ".planning/phases/01-foundation-charter-and-reproducible-workspace/01-CONTEXT.md#rfc-governance-and-acceptance",
+      "source": ".planning/milestones/v0.1-phases/01-foundation-charter-and-reproducible-workspace/01-CONTEXT.md#rfc-governance-and-acceptance",
       "description": "Use the lifecycle Draft -> Proposed -> Accepted -> Implemented, with Rejected and Superseded terminal states; every transition is recorded in the RFC header and repository history.",
       "covering_plan": "01-01",
       "status": "covered"
     },
     {
       "id": "D-03",
-      "source": ".planning/phases/01-foundation-charter-and-reproducible-workspace/01-CONTEXT.md#rfc-governance-and-acceptance",
+      "source": ".planning/milestones/v0.1-phases/01-foundation-charter-and-reproducible-workspace/01-CONTEXT.md#rfc-governance-and-acceptance",
       "description": "Acceptance requires one complete evidenced route with no unresolved blocker: two maintainers, a seven-day project-lead review while fewer than two maintainers exist, or sole-project-owner-bootstrap while the canonical roster contains exactly one unique maintainer who is the project owner; the sole-owner route requires both mandatory edge reviews and expires when another maintainer is added.",
       "covering_plan": "01-01",
       "status": "covered"
     },
     {
       "id": "D-04",
-      "source": ".planning/phases/01-foundation-charter-and-reproducible-workspace/01-CONTEXT.md#rfc-governance-and-acceptance",
+      "source": ".planning/milestones/v0.1-phases/01-foundation-charter-and-reproducible-workspace/01-CONTEXT.md#rfc-governance-and-acceptance",
       "description": "New modules, public dependency-direction changes, and breaking architectural changes require an accepted RFC. Implementation PRs may not silently redefine an accepted boundary.",
       "covering_plan": "01-01",
       "status": "covered"
     },
     {
       "id": "D-05",
-      "source": ".planning/phases/01-foundation-charter-and-reproducible-workspace/01-CONTEXT.md#licensing-namespace-and-naming",
+      "source": ".planning/milestones/v0.1-phases/01-foundation-charter-and-reproducible-workspace/01-CONTEXT.md#licensing-namespace-and-naming",
       "description": "License project-authored source, documentation, and generated fixtures under Apache-2.0 to provide a permissive license with an explicit patent grant.",
       "covering_plan": "01-02",
       "status": "covered"
     },
     {
       "id": "D-06",
-      "source": ".planning/phases/01-foundation-charter-and-reproducible-workspace/01-CONTEXT.md#licensing-namespace-and-naming",
+      "source": ".planning/milestones/v0.1-phases/01-foundation-charter-and-reproducible-workspace/01-CONTEXT.md#licensing-namespace-and-naming",
       "description": "Maintain a fixture manifest recording source, author, retrieval date, SHA-256, SPDX/license, redistribution status, and expected use. Prefer generated fixtures; do not commit externally sourced fixtures without confirmed redistribution permission.",
       "covering_plan": "01-02",
       "status": "covered"
     },
     {
       "id": "D-07",
-      "source": ".planning/phases/01-foundation-charter-and-reproducible-workspace/01-CONTEXT.md#licensing-namespace-and-naming",
+      "source": ".planning/milestones/v0.1-phases/01-foundation-charter-and-reproducible-workspace/01-CONTEXT.md#licensing-namespace-and-naming",
       "description": "Reserve moonbit-foundation as the intended mooncakes.io owner namespace and use moonbit-foundation/mb-core, moonbit-foundation/mb-color, and moonbit-foundation/mb-image. Public publication is blocked until ownership is verified; local manifests still use these final intended names to avoid a later rename.",
       "covering_plan": "01-02",
       "status": "covered"
     },
     {
       "id": "D-08",
-      "source": ".planning/phases/01-foundation-charter-and-reproducible-workspace/01-CONTEXT.md#licensing-namespace-and-naming",
+      "source": ".planning/milestones/v0.1-phases/01-foundation-charter-and-reproducible-workspace/01-CONTEXT.md#licensing-namespace-and-naming",
       "description": "Keep module names domain-specific and independently publishable. Do not add an umbrella mnf/all module or package, and do not force lockstep versions.",
       "covering_plan": "01-02",
       "status": "covered"
     },
     {
       "id": "D-09",
-      "source": ".planning/phases/01-foundation-charter-and-reproducible-workspace/01-CONTEXT.md#api-stability-and-compatibility",
+      "source": ".planning/milestones/v0.1-phases/01-foundation-charter-and-reproducible-workspace/01-CONTEXT.md#api-stability-and-compatibility",
       "description": "Public APIs are labeled experimental, candidate, or stable. Experimental APIs have no compatibility promise; candidate APIs require documented migration notes for changes; stable APIs follow Semantic Versioning.",
       "covering_plan": "01-02",
       "status": "covered"
     },
     {
       "id": "D-10",
-      "source": ".planning/phases/01-foundation-charter-and-reproducible-workspace/01-CONTEXT.md#api-stability-and-compatibility",
+      "source": ".planning/milestones/v0.1-phases/01-foundation-charter-and-reproducible-workspace/01-CONTEXT.md#api-stability-and-compatibility",
       "description": "v0.1 packages begin as candidate unless explicitly marked experimental. No package is called stable before its contract, conformance evidence, and release policy meet the stable gate.",
       "covering_plan": "01-02",
       "status": "covered"
     },
     {
       "id": "D-11",
-      "source": ".planning/phases/01-foundation-charter-and-reproducible-workspace/01-CONTEXT.md#api-stability-and-compatibility",
+      "source": ".planning/milestones/v0.1-phases/01-foundation-charter-and-reproducible-workspace/01-CONTEXT.md#api-stability-and-compatibility",
       "description": "Stable breaking changes require an accepted RFC, a major-version change, a migration guide, and compatibility qualification of direct dependants. Stable removals require at least one prior minor release of deprecation unless a documented security exception applies.",
       "covering_plan": "01-02",
       "status": "covered"
     },
     {
       "id": "D-12",
-      "source": ".planning/phases/01-foundation-charter-and-reproducible-workspace/01-CONTEXT.md#api-stability-and-compatibility",
+      "source": ".planning/milestones/v0.1-phases/01-foundation-charter-and-reproducible-workspace/01-CONTEXT.md#api-stability-and-compatibility",
       "description": "Stability status and supported targets must be visible in package documentation and checked metadata, not inferred from repository location or version number alone.",
       "covering_plan": "01-02",
       "status": "covered"
     },
     {
       "id": "D-13",
-      "source": ".planning/phases/01-foundation-charter-and-reproducible-workspace/01-CONTEXT.md#workspace-toolchain-and-quality-contract",
+      "source": ".planning/milestones/v0.1-phases/01-foundation-charter-and-reproducible-workspace/01-CONTEXT.md#workspace-toolchain-and-quality-contract",
       "description": "Use one moon.work with three member modules under modules/mb-core, modules/mb-color, and modules/mb-image; each module has its own manifest, version, changelog, and publication lifecycle.",
       "covering_plan": "01-03",
       "status": "covered"
     },
     {
       "id": "D-14",
-      "source": ".planning/phases/01-foundation-charter-and-reproducible-workspace/01-CONTEXT.md#workspace-toolchain-and-quality-contract",
+      "source": ".planning/milestones/v0.1-phases/01-foundation-charter-and-reproducible-workspace/01-CONTEXT.md#workspace-toolchain-and-quality-contract",
       "description": "Pin the v0.1 development baseline exactly to moon 0.1.20260713 (75c7e1f), recording the bundled moonc v0.10.4+2cc641edf and moonrun 0.1.20260713 in checked-in policy and CI logs.",
       "covering_plan": "01-02",
       "status": "covered"
     },
     {
       "id": "D-15",
-      "source": ".planning/phases/01-foundation-charter-and-reproducible-workspace/01-CONTEXT.md#workspace-toolchain-and-quality-contract",
+      "source": ".planning/milestones/v0.1-phases/01-foundation-charter-and-reproducible-workspace/01-CONTEXT.md#workspace-toolchain-and-quality-contract",
       "description": "Use moon.mod.json for the v0.1 compatibility floor while moon.mod rollout remains transitional. Every public package declares +js+wasm+wasm-gc+native; native-only leaf adapters declare native. Avoid a restrictive module-level target intersection.",
       "covering_plan": "01-02",
       "status": "covered"
     },
     {
       "id": "D-16",
-      "source": ".planning/phases/01-foundation-charter-and-reproducible-workspace/01-CONTEXT.md#workspace-toolchain-and-quality-contract",
+      "source": ".planning/milestones/v0.1-phases/01-foundation-charter-and-reproducible-workspace/01-CONTEXT.md#workspace-toolchain-and-quality-contract",
       "description": "Provide one root PowerShell 7 quality entry point that runs formatting checks, workspace checks, tests, documentation checks, package-content inspection, explicit target-matrix checks, and dependency-DAG/metadata validation. CI invokes the same entry point and treats LLVM as experimental and non-blocking.",
       "covering_plan": "01-07",
       "status": "covered"
@@ -192,203 +192,203 @@
   "research_items": [
     {
       "id": "RESEARCH-PATTERN-01",
-      "source": ".planning/phases/01-foundation-charter-and-reproducible-workspace/01-RESEARCH.md#pattern-1-machine-readable-policy-human-readable-explanation",
+      "source": ".planning/milestones/v0.1-phases/01-foundation-charter-and-reproducible-workspace/01-RESEARCH.md#pattern-1-machine-readable-policy-human-readable-explanation",
       "description": "policy/foundation.json owns values that automation compares: module names, paths, versions, public package paths, stability, required targets, allowed dependency edges, tool versions, and publication.blocked=true with the namespace-ownership reason. Prose documents link to and explain those values; quality validation rejects drift and separate JSON owners for the same facts.",
       "covering_plan": "01-02",
       "status": "covered"
     },
     {
       "id": "RESEARCH-PATTERN-02",
-      "source": ".planning/phases/01-foundation-charter-and-reproducible-workspace/01-RESEARCH.md#pattern-2-independently-publishable-workspace-members",
+      "source": ".planning/milestones/v0.1-phases/01-foundation-charter-and-reproducible-workspace/01-RESEARCH.md#pattern-2-independently-publishable-workspace-members",
       "description": "moon.work lists exactly the three locked member paths. Each member uses its final intended registry name, own version, changelog and README, and normal module dependencies resolved locally by the workspace; per-module packaging remains independent and the validator rejects self-edges, unknown modules, cycles, and reverse edges.",
       "covering_plan": "01-03",
       "status": "covered"
     },
     {
       "id": "RESEARCH-PATTERN-03",
-      "source": ".planning/phases/01-foundation-charter-and-reproducible-workspace/01-RESEARCH.md#pattern-3-empty-public-surface-real-build-surface",
+      "source": ".planning/milestones/v0.1-phases/01-foundation-charter-and-reproducible-workspace/01-RESEARCH.md#pattern-3-empty-public-surface-real-build-surface",
       "description": "Give each root package a package-private scaffold definition and basic test but no public domain API. moon info should expose an empty or intentionally minimal interface while format, check, test, docs, and package commands exercise a real package, avoiding placeholder compatibility debt.",
       "covering_plan": "01-04,01-05,01-06",
       "status": "covered"
     },
     {
       "id": "RESEARCH-PATTERN-04",
-      "source": ".planning/phases/01-foundation-charter-and-reproducible-workspace/01-RESEARCH.md#pattern-4-one-quality-entry-point-with-two-lanes",
+      "source": ".planning/milestones/v0.1-phases/01-foundation-charter-and-reproducible-workspace/01-RESEARCH.md#pattern-4-one-quality-entry-point-with-two-lanes",
       "description": "scripts/quality.ps1 accepts Required or LlvmExperimental. Required validates PowerShell and exact tools, policy and metadata, formatting, explicit js/wasm/wasm-gc/native checks and tests, docs/info, and package contents in fixed order; LLVM runs separately and non-blocking.",
       "covering_plan": "01-07",
       "status": "covered"
     },
     {
       "id": "RESEARCH-PATTERN-05",
-      "source": ".planning/phases/01-foundation-charter-and-reproducible-workspace/01-RESEARCH.md#pattern-5-documentation-as-executable-evidence",
+      "source": ".planning/milestones/v0.1-phases/01-foundation-charter-and-reproducible-workspace/01-RESEARCH.md#pattern-5-documentation-as-executable-evidence",
       "description": "Put module usage and status documentation in .mbt.md so Moon checks mbt check fences through moon check and runs document tests through moon test; run moon doc --frozen as a separate generation gate.",
       "covering_plan": "01-04,01-05,01-06,01-07",
       "status": "covered"
     },
     {
       "id": "RESEARCH-ANTI-01",
-      "source": ".planning/phases/01-foundation-charter-and-reproducible-workspace/01-RESEARCH.md#anti-patterns-to-avoid",
+      "source": ".planning/milestones/v0.1-phases/01-foundation-charter-and-reproducible-workspace/01-RESEARCH.md#anti-patterns-to-avoid",
       "description": "Do not create a second RFC 0001; update the existing Draft in place and preserve history.",
       "covering_plan": "01-01",
       "status": "covered"
     },
     {
       "id": "RESEARCH-ANTI-02",
-      "source": ".planning/phases/01-foundation-charter-and-reproducible-workspace/01-RESEARCH.md#anti-patterns-to-avoid",
+      "source": ".planning/milestones/v0.1-phases/01-foundation-charter-and-reproducible-workspace/01-RESEARCH.md#anti-patterns-to-avoid",
       "description": "Do not leave resolved questions in the accepted RFC; namespace, module count and names, license, acceptance authority, and compatibility labels are locked.",
       "covering_plan": "01-01",
       "status": "covered"
     },
     {
       "id": "RESEARCH-ANTI-03",
-      "source": ".planning/phases/01-foundation-charter-and-reproducible-workspace/01-RESEARCH.md#anti-patterns-to-avoid",
+      "source": ".planning/milestones/v0.1-phases/01-foundation-charter-and-reproducible-workspace/01-RESEARCH.md#anti-patterns-to-avoid",
       "description": "Do not track latest toolchains or movable action tags; exact reproducibility requires the action commit, exact toolchain input, and post-install identity checks.",
       "covering_plan": "01-07",
       "status": "covered"
     },
     {
       "id": "RESEARCH-ANTI-04",
-      "source": ".planning/phases/01-foundation-charter-and-reproducible-workspace/01-RESEARCH.md#anti-patterns-to-avoid",
+      "source": ".planning/milestones/v0.1-phases/01-foundation-charter-and-reproducible-workspace/01-RESEARCH.md#anti-patterns-to-avoid",
       "description": "Do not use path dependencies for workspace members; declare normal module dependencies and let moon.work resolve local members.",
       "covering_plan": "01-03",
       "status": "covered"
     },
     {
       "id": "RESEARCH-ANTI-05",
-      "source": ".planning/phases/01-foundation-charter-and-reproducible-workspace/01-RESEARCH.md#anti-patterns-to-avoid",
+      "source": ".planning/milestones/v0.1-phases/01-foundation-charter-and-reproducible-workspace/01-RESEARCH.md#anti-patterns-to-avoid",
       "description": "Do not rely only on --target all logs; explicitly loop required targets so evidence identifies the failing backend and policy is compared target by target.",
       "covering_plan": "01-07",
       "status": "covered"
     },
     {
       "id": "RESEARCH-ANTI-06",
-      "source": ".planning/phases/01-foundation-charter-and-reproducible-workspace/01-RESEARCH.md#anti-patterns-to-avoid",
+      "source": ".planning/milestones/v0.1-phases/01-foundation-charter-and-reproducible-workspace/01-RESEARCH.md#anti-patterns-to-avoid",
       "description": "Do not treat module-level target metadata as sufficient; every public package must carry explicit support metadata.",
       "covering_plan": "01-03",
       "status": "covered"
     },
     {
       "id": "RESEARCH-ANTI-07",
-      "source": ".planning/phases/01-foundation-charter-and-reproducible-workspace/01-RESEARCH.md#anti-patterns-to-avoid",
+      "source": ".planning/milestones/v0.1-phases/01-foundation-charter-and-reproducible-workspace/01-RESEARCH.md#anti-patterns-to-avoid",
       "description": "Do not run moon work sync inside the quality gate because it mutates manifests and can hide drift; synchronize during scaffolding or release preparation and validate with frozen state.",
       "covering_plan": "01-07",
       "status": "covered"
     },
     {
       "id": "RESEARCH-ANTI-08",
-      "source": ".planning/phases/01-foundation-charter-and-reproducible-workspace/01-RESEARCH.md#anti-patterns-to-avoid",
+      "source": ".planning/milestones/v0.1-phases/01-foundation-charter-and-reproducible-workspace/01-RESEARCH.md#anti-patterns-to-avoid",
       "description": "Do not publish to test the scaffold; packaging is permitted but publication remains blocked until namespace ownership is verified.",
       "covering_plan": "01-02,01-03",
       "status": "covered"
     },
     {
       "id": "RESEARCH-ANTI-09",
-      "source": ".planning/phases/01-foundation-charter-and-reproducible-workspace/01-RESEARCH.md#anti-patterns-to-avoid",
+      "source": ".planning/milestones/v0.1-phases/01-foundation-charter-and-reproducible-workspace/01-RESEARCH.md#anti-patterns-to-avoid",
       "description": "Do not expose placeholder public APIs; use a real package with no fake domain contract.",
       "covering_plan": "01-04,01-05,01-06",
       "status": "covered"
     },
     {
       "id": "RESEARCH-DONT-HAND-ROLL-01",
-      "source": ".planning/phases/01-foundation-charter-and-reproducible-workspace/01-RESEARCH.md#dont-hand-roll",
+      "source": ".planning/milestones/v0.1-phases/01-foundation-charter-and-reproducible-workspace/01-RESEARCH.md#dont-hand-roll",
       "description": "Do not build custom workspace orchestration that enters modules for check, test, or info; use moon.work and root Moon commands because workspace context is built into Moon.",
       "covering_plan": "01-03,01-07",
       "status": "covered"
     },
     {
       "id": "RESEARCH-DONT-HAND-ROLL-02",
-      "source": ".planning/phases/01-foundation-charter-and-reproducible-workspace/01-RESEARCH.md#dont-hand-roll",
+      "source": ".planning/milestones/v0.1-phases/01-foundation-charter-and-reproducible-workspace/01-RESEARCH.md#dont-hand-roll",
       "description": "Do not build a regex parser for moon.mod.json or policy; use PowerShell ConvertFrom-Json to avoid quoting and ordering errors.",
       "covering_plan": "01-07",
       "status": "covered"
     },
     {
       "id": "RESEARCH-DONT-HAND-ROLL-03",
-      "source": ".planning/phases/01-foundation-charter-and-reproducible-workspace/01-RESEARCH.md#dont-hand-roll",
+      "source": ".planning/milestones/v0.1-phases/01-foundation-charter-and-reproducible-workspace/01-RESEARCH.md#dont-hand-roll",
       "description": "Do not assume what target all means; use an explicit required target array plus Moon commands because all currently excludes LLVM and may evolve.",
       "covering_plan": "01-02,01-07",
       "status": "covered"
     },
     {
       "id": "RESEARCH-DONT-HAND-ROLL-04",
-      "source": ".planning/phases/01-foundation-charter-and-reproducible-workspace/01-RESEARCH.md#dont-hand-roll",
+      "source": ".planning/milestones/v0.1-phases/01-foundation-charter-and-reproducible-workspace/01-RESEARCH.md#dont-hand-roll",
       "description": "Do not build a separate Markdown code-fence runner; use Moon .mbt.md and document tests integrated with moon check and moon test.",
       "covering_plan": "01-04,01-05,01-06",
       "status": "covered"
     },
     {
       "id": "RESEARCH-DONT-HAND-ROLL-05",
-      "source": ".planning/phases/01-foundation-charter-and-reproducible-workspace/01-RESEARCH.md#dont-hand-roll",
+      "source": ".planning/milestones/v0.1-phases/01-foundation-charter-and-reproducible-workspace/01-RESEARCH.md#dont-hand-roll",
       "description": "Do not use a home-grown file walker as the package source of truth; use moon package --frozen --list because it reports Moon's actual publication selection.",
       "covering_plan": "01-07",
       "status": "covered"
     },
     {
       "id": "RESEARCH-DONT-HAND-ROLL-06",
-      "source": ".planning/phases/01-foundation-charter-and-reproducible-workspace/01-RESEARCH.md#dont-hand-roll",
+      "source": ".planning/milestones/v0.1-phases/01-foundation-charter-and-reproducible-workspace/01-RESEARCH.md#dont-hand-roll",
       "description": "Do not create custom version grammar; use SemVer-compliant module versions and documented policy because Mooncakes publication requires SemVer.",
       "covering_plan": "01-02,01-03",
       "status": "covered"
     },
     {
       "id": "RESEARCH-DONT-HAND-ROLL-07",
-      "source": ".planning/phases/01-foundation-charter-and-reproducible-workspace/01-RESEARCH.md#dont-hand-roll",
+      "source": ".planning/milestones/v0.1-phases/01-foundation-charter-and-reproducible-workspace/01-RESEARCH.md#dont-hand-roll",
       "description": "Do not invent license labels; use the SPDX identifier Apache-2.0 because Moon module metadata expects an SPDX value.",
       "covering_plan": "01-02,01-03",
       "status": "covered"
     },
     {
       "id": "RESEARCH-PITFALL-01",
-      "source": ".planning/phases/01-foundation-charter-and-reproducible-workspace/01-RESEARCH.md#pitfall-1-governance-declared-but-not-accepted",
+      "source": ".planning/milestones/v0.1-phases/01-foundation-charter-and-reproducible-workspace/01-RESEARCH.md#pitfall-1-governance-declared-but-not-accepted",
       "description": "RFC 0001 may contain correct prose but lack authentic route evidence or retain blocking questions. Record explicit transitions and route-specific evidence; never fabricate the seven-day project-lead interval, and consume the sole owner's existing conditional preauthorization only after both mandatory edge reviews pass.",
       "covering_plan": "01-01,01-08",
       "status": "covered"
     },
     {
       "id": "RESEARCH-PITFALL-02",
-      "source": ".planning/phases/01-foundation-charter-and-reproducible-workspace/01-RESEARCH.md#pitfall-2-name-drift-from-earlier-research",
+      "source": ".planning/milestones/v0.1-phases/01-foundation-charter-and-reproducible-workspace/01-RESEARCH.md#pitfall-2-name-drift-from-earlier-research",
       "description": "Earlier research may use mnf-core examples or shorter filesystem names. Treat CONTEXT.md as authoritative and assert the exact moonbit-foundation/mb-* identities and modules/mb-* paths in foundation.json.",
       "covering_plan": "01-02,01-03",
       "status": "covered"
     },
     {
       "id": "RESEARCH-PITFALL-03",
-      "source": ".planning/phases/01-foundation-charter-and-reproducible-workspace/01-RESEARCH.md#pitfall-3-toolchain-setup-succeeds-with-the-wrong-bundle",
+      "source": ".planning/milestones/v0.1-phases/01-foundation-charter-and-reproducible-workspace/01-RESEARCH.md#pitfall-3-toolchain-setup-succeeds-with-the-wrong-bundle",
       "description": "CI may install moon but silently receive a different moonc or moonrun build. Compare normalized output from all three commands before any build and print all identities to CI logs.",
       "covering_plan": "01-02,01-07",
       "status": "covered"
     },
     {
       "id": "RESEARCH-PITFALL-04",
-      "source": ".planning/phases/01-foundation-charter-and-reproducible-workspace/01-RESEARCH.md#pitfall-4-package-target-metadata-is-accidentally-broader-or-narrower",
+      "source": ".planning/milestones/v0.1-phases/01-foundation-charter-and-reproducible-workspace/01-RESEARCH.md#pitfall-4-package-target-metadata-is-accidentally-broader-or-narrower",
       "description": "Omitting supported-targets claims all backends, while a restrictive module declaration can silently narrow package declarations. Keep the module and each Phase 1 public package on the full portable set, reserve native for leaf adapters, and validate normalized sets rather than string order.",
       "covering_plan": "01-03,01-07",
       "status": "covered"
     },
     {
       "id": "RESEARCH-PITFALL-05",
-      "source": ".planning/phases/01-foundation-charter-and-reproducible-workspace/01-RESEARCH.md#pitfall-5-quality-checks-mutate-the-checkout",
+      "source": ".planning/milestones/v0.1-phases/01-foundation-charter-and-reproducible-workspace/01-RESEARCH.md#pitfall-5-quality-checks-mutate-the-checkout",
       "description": "Formatting or dependency synchronization can repair files in CI and hide drift. Use moon fmt --check, frozen commands, non-mutating metadata validation, and a clean tracked-diff assertion.",
       "covering_plan": "01-07",
       "status": "covered"
     },
     {
       "id": "RESEARCH-PITFALL-06",
-      "source": ".planning/phases/01-foundation-charter-and-reproducible-workspace/01-RESEARCH.md#pitfall-6-packaging-pulls-unrelated-workspace-content",
+      "source": ".planning/milestones/v0.1-phases/01-foundation-charter-and-reproducible-workspace/01-RESEARCH.md#pitfall-6-packaging-pulls-unrelated-workspace-content",
       "description": "A module package may include root fixtures, other modules, generated _build content, or credentials. Run moon -C <module> package --frozen --list for each member and compare the result with allowed publication patterns.",
       "covering_plan": "01-07",
       "status": "covered"
     },
     {
       "id": "RESEARCH-PITFALL-07",
-      "source": ".planning/phases/01-foundation-charter-and-reproducible-workspace/01-RESEARCH.md#pitfall-7-llvm-becomes-a-de-facto-gate",
+      "source": ".planning/milestones/v0.1-phases/01-foundation-charter-and-reproducible-workspace/01-RESEARCH.md#pitfall-7-llvm-becomes-a-de-facto-gate",
       "description": "An experimental LLVM failure may block Phase 1 or be advertised as support after a shallow check. Keep LLVM out of required metadata, run it in an isolated continue-on-error job, and label the result experimental and non-blocking.",
       "covering_plan": "01-02,01-07",
       "status": "covered"
     },
     {
       "id": "RESEARCH-PITFALL-08",
-      "source": ".planning/phases/01-foundation-charter-and-reproducible-workspace/01-RESEARCH.md#pitfall-8-ci-supply-chain-drift",
+      "source": ".planning/milestones/v0.1-phases/01-foundation-charter-and-reproducible-workspace/01-RESEARCH.md#pitfall-8-ci-supply-chain-drift",
       "description": "A movable setup action ref can execute changed code or a pull request may receive publication credentials. Pin the action to the researched full SHA, grant read-only workflow permissions, configure no Mooncakes token in Phase 1, and retain an independent version gate.",
       "covering_plan": "01-07",
       "status": "covered"
@@ -397,119 +397,119 @@
   "edge_items": [
     {
       "id": "EDGE-GOV-03-ADJACENCY",
-      "source": ".planning/REQUIREMENTS.md#GOV-03",
+      "source": ".planning/milestones/v0.1-REQUIREMENTS.md#GOV-03",
       "description": "Review the compatibility promise at each adjacent stability transition: experimental to candidate and candidate to stable.",
       "covering_plan": "01-02",
       "status": "covered"
     },
     {
       "id": "EDGE-GOV-03-EMPTY",
-      "source": ".planning/REQUIREMENTS.md#GOV-03",
+      "source": ".planning/milestones/v0.1-REQUIREMENTS.md#GOV-03",
       "description": "Reject an empty or missing stability label, migration note, stable-gate evidence, or checked metadata value.",
       "covering_plan": "01-02",
       "status": "covered"
     },
     {
       "id": "EDGE-GOV-03-ORDERING",
-      "source": ".planning/REQUIREMENTS.md#GOV-03",
+      "source": ".planning/milestones/v0.1-REQUIREMENTS.md#GOV-03",
       "description": "Enforce ordered promotion and removal rules so stable cannot precede qualification and removal cannot precede required deprecation except for a documented security exception.",
       "covering_plan": "01-02",
       "status": "covered"
     },
     {
       "id": "EDGE-WORK-03-ADJACENCY",
-      "source": ".planning/REQUIREMENTS.md#WORK-03",
+      "source": ".planning/milestones/v0.1-REQUIREMENTS.md#WORK-03",
       "description": "Compare each public package target declaration with its adjacent module and canonical policy declarations so intersections cannot silently narrow support.",
       "covering_plan": "01-03,01-07",
       "status": "covered"
     },
     {
       "id": "EDGE-WORK-03-EMPTY",
-      "source": ".planning/REQUIREMENTS.md#WORK-03",
+      "source": ".planning/milestones/v0.1-REQUIREMENTS.md#WORK-03",
       "description": "Reject an absent or empty public-package supported-target declaration rather than interpreting omission as all backends.",
       "covering_plan": "01-03,01-07",
       "status": "covered"
     },
     {
       "id": "EDGE-WORK-03-ORDERING",
-      "source": ".planning/REQUIREMENTS.md#WORK-03",
+      "source": ".planning/milestones/v0.1-REQUIREMENTS.md#WORK-03",
       "description": "Compare target declarations as exact normalized sets so source ordering neither creates false drift nor conceals a missing or extra target.",
       "covering_plan": "01-03,01-07",
       "status": "covered"
     },
     {
       "id": "EDGE-WORK-04-ADJACENCY",
-      "source": ".planning/REQUIREMENTS.md#WORK-04",
+      "source": ".planning/milestones/v0.1-REQUIREMENTS.md#WORK-04",
       "description": "Verify each adjacent quality stage hands a validated checkout to the next stage: toolchain, policy, format, target checks and tests, docs/info, then package inspection.",
       "covering_plan": "01-07",
       "status": "covered"
     },
     {
       "id": "EDGE-WORK-04-EMPTY",
-      "source": ".planning/REQUIREMENTS.md#WORK-04",
+      "source": ".planning/milestones/v0.1-REQUIREMENTS.md#WORK-04",
       "description": "Reject an empty workspace member set, package inventory, target loop, validation stage, or package-content result.",
       "covering_plan": "01-07",
       "status": "covered"
     },
     {
       "id": "EDGE-WORK-04-ORDERING",
-      "source": ".planning/REQUIREMENTS.md#WORK-04",
+      "source": ".planning/milestones/v0.1-REQUIREMENTS.md#WORK-04",
       "description": "Enforce the fixed non-mutating quality-stage order so version and policy drift fails before build work and package inspection follows successful qualification.",
       "covering_plan": "01-07",
       "status": "covered"
     },
     {
       "id": "EDGE-WORK-05-ADJACENCY",
-      "source": ".planning/REQUIREMENTS.md#WORK-05",
+      "source": ".planning/milestones/v0.1-REQUIREMENTS.md#WORK-05",
       "description": "Run check and test as an adjacent pair for every declared required target so no backend receives only partial evidence.",
       "covering_plan": "01-07",
       "status": "covered"
     },
     {
       "id": "EDGE-WORK-05-EMPTY",
-      "source": ".planning/REQUIREMENTS.md#WORK-05",
+      "source": ".planning/milestones/v0.1-REQUIREMENTS.md#WORK-05",
       "description": "Reject an empty required-target set or a required target with no check and test evidence.",
       "covering_plan": "01-07",
       "status": "covered"
     },
     {
       "id": "EDGE-WORK-05-ORDERING",
-      "source": ".planning/REQUIREMENTS.md#WORK-05",
+      "source": ".planning/milestones/v0.1-REQUIREMENTS.md#WORK-05",
       "description": "Keep LLVM after and outside the required target lane so experimental results cannot mask or block required support.",
       "covering_plan": "01-07",
       "status": "covered"
     },
     {
       "id": "EDGE-GOV-01-UNCLASSIFIED",
-      "source": ".planning/phases/01-foundation-charter-and-reproducible-workspace/01-01-PLAN.md#assumptions",
+      "source": ".planning/milestones/v0.1-phases/01-foundation-charter-and-reproducible-workspace/01-01-PLAN.md#assumptions",
       "description": "Manually review the accepted charter for an omitted architectural boundary case.",
       "covering_plan": "01-01",
       "status": "covered"
     },
     {
       "id": "EDGE-GOV-02-UNCLASSIFIED",
-      "source": ".planning/phases/01-foundation-charter-and-reproducible-workspace/01-01-PLAN.md#assumptions",
+      "source": ".planning/milestones/v0.1-phases/01-foundation-charter-and-reproducible-workspace/01-01-PLAN.md#assumptions",
       "description": "Manually review lifecycle and acceptance authority for an omitted transition or authority case.",
       "covering_plan": "01-01",
       "status": "covered"
     },
     {
       "id": "EDGE-GOV-04-UNCLASSIFIED",
-      "source": ".planning/phases/01-foundation-charter-and-reproducible-workspace/01-02-PLAN.md#assumptions",
+      "source": ".planning/milestones/v0.1-phases/01-foundation-charter-and-reproducible-workspace/01-02-PLAN.md#assumptions",
       "description": "Manually review licensing, namespace, and naming policy for an omitted pre-publication case.",
       "covering_plan": "01-02",
       "status": "covered"
     },
     {
       "id": "EDGE-WORK-01-UNCLASSIFIED",
-      "source": ".planning/phases/01-foundation-charter-and-reproducible-workspace/01-03-PLAN.md#assumptions",
+      "source": ".planning/milestones/v0.1-phases/01-foundation-charter-and-reproducible-workspace/01-03-PLAN.md#assumptions",
       "description": "Manually review independent package and publication behavior from each member after scaffolding.",
       "covering_plan": "01-03",
       "status": "covered"
     },
     {
       "id": "EDGE-WORK-02-UNCLASSIFIED",
-      "source": ".planning/phases/01-foundation-charter-and-reproducible-workspace/01-07-PLAN.md#assumptions",
+      "source": ".planning/milestones/v0.1-phases/01-foundation-charter-and-reproducible-workspace/01-07-PLAN.md#assumptions",
       "description": "Manually compare normalized output from all three binaries with policy and CI logs on the pinned runner.",
       "covering_plan": "01-07",
       "status": "covered"
@@ -518,35 +518,35 @@
   "prohibitions": [
     {
       "id": "PROH-GOV-02-EVIDENCE",
-      "source": ".planning/phases/01-foundation-charter-and-reproducible-workspace/01-01-PLAN.md#prohibitions",
+      "source": ".planning/milestones/v0.1-phases/01-foundation-charter-and-reproducible-workspace/01-01-PLAN.md#prohibitions",
       "description": "MUST NOT mark an RFC Accepted without authentic authority, approval or elapsed-review evidence, and objection disposition.",
       "covering_plan": "01-01,01-08",
       "status": "covered"
     },
     {
       "id": "PROH-GOV-03-PREMATURE-STABLE",
-      "source": ".planning/phases/01-foundation-charter-and-reproducible-workspace/01-02-PLAN.md#prohibitions",
+      "source": ".planning/milestones/v0.1-phases/01-foundation-charter-and-reproducible-workspace/01-02-PLAN.md#prohibitions",
       "description": "MUST NOT call an API stable before its contract, conformance evidence, and release-policy gate pass.",
       "covering_plan": "01-02",
       "status": "covered"
     },
     {
       "id": "PROH-GOV-04-EXTERNAL-FIXTURE",
-      "source": ".planning/phases/01-foundation-charter-and-reproducible-workspace/01-02-PLAN.md#prohibitions",
+      "source": ".planning/milestones/v0.1-phases/01-foundation-charter-and-reproducible-workspace/01-02-PLAN.md#prohibitions",
       "description": "MUST NOT commit an external fixture without confirmed redistribution and complete provenance.",
       "covering_plan": "01-02,01-07",
       "status": "covered"
     },
     {
       "id": "PROH-GOV-04-NAMESPACE-PUBLISH",
-      "source": ".planning/phases/01-foundation-charter-and-reproducible-workspace/01-02-PLAN.md#prohibitions",
+      "source": ".planning/milestones/v0.1-phases/01-foundation-charter-and-reproducible-workspace/01-02-PLAN.md#prohibitions",
       "description": "MUST NOT publish under the intended namespace while ownership is unverified.",
       "covering_plan": "01-02,01-07",
       "status": "covered"
     },
     {
       "id": "PROH-WORK-05-LLVM-SUPPORT",
-      "source": ".planning/phases/01-foundation-charter-and-reproducible-workspace/01-07-PLAN.md#prohibitions",
+      "source": ".planning/milestones/v0.1-phases/01-foundation-charter-and-reproducible-workspace/01-07-PLAN.md#prohibitions",
       "description": "MUST NOT advertise LLVM as required support or allow its experimental result to block or mask the required target lane.",
       "covering_plan": "01-07",
       "status": "covered"
