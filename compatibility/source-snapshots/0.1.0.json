@@ -1,0 +1,15 @@
+{
+  "baseline_version": "0.1.0",
+  "canonical_modules": [
+    "tchivs/mb-core",
+    "tchivs/mb-color",
+    "tchivs/mb-image"
+  ],
+  "toolchain": {
+    "moon": "moon 0.1.20260713 (75c7e1f 2026-07-13)",
+    "moonc": "v0.10.4+2cc641edf (2026-07-15)",
+    "moonrun": "moonrun 0.1.20260713 (75c7e1f 2026-07-13)"
+  },
+  "source_commit": "b81cff59d4d1bd371b250ed0fd314ca1a6a008e7",
+  "module_tree_sha256": "68fc76ed536153aaaf7b8c744e6f4ed6eb2a575ca5d94d51b975d18e3d0f3c36"
+}
