@@ -1,0 +1,48 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://moonbit-foundation.invalid/schemas/example-consumers-1.0.0.json",
+  "title": "MNF public example consumer qualification",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "workspace_examples",
+    "source_audit",
+    "source_isolation",
+    "registry_resolution"
+  ],
+  "properties": {
+    "schema_version": { "const": "1.0.0" },
+    "workspace_examples": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["portable", "native"],
+      "properties": {
+        "portable": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["status", "targets", "digest"],
+          "properties": {
+            "status": { "const": "pass" },
+            "targets": { "const": ["js", "wasm", "wasm-gc", "native"] },
+            "digest": { "const": "rolling257-mod1000000007:806175100" }
+          }
+        },
+        "native": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["status", "target", "digest", "short_progress"],
+          "properties": {
+            "status": { "const": "pass" },
+            "target": { "const": "native" },
+            "digest": { "const": "rolling257-mod1000000007:806175100" },
+            "short_progress": { "const": "pass" }
+          }
+        }
+      }
+    },
+    "source_audit": { "const": "pass" },
+    "source_isolation": { "const": "pass" },
+    "registry_resolution": { "const": "blocked_unpublished_namespace" }
+  }
+}

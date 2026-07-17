@@ -15,6 +15,22 @@ $ErrorActionPreference = 'Stop'
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
 $portableRoot = Join-Path $repoRoot 'examples\ppm-portable'
 $nativeRoot = Join-Path $repoRoot 'examples\ppm-native-cli'
+$schemaPath = Join-Path $repoRoot 'release\qualification\example-consumers-schema.json'
+
+function Assert-QualificationSchema {
+  if (-not (Test-Path -LiteralPath $schemaPath -PathType Leaf)) {
+    throw "Example-consumer qualification schema is missing: $schemaPath"
+  }
+  $schema = Get-Content -LiteralPath $schemaPath -Raw | ConvertFrom-Json -Depth 100
+  if ($schema.properties.schema_version.const -cne '1.0.0' -or
+      $schema.properties.source_audit.const -cne 'pass' -or
+      $schema.properties.source_isolation.const -cne 'pass' -or
+      $schema.properties.registry_resolution.const -cne 'blocked_unpublished_namespace') {
+    throw 'Example-consumer qualification schema does not freeze the required independent outcomes.'
+  }
+}
+
+Assert-QualificationSchema
 
 function Assert-ExampleSource {
   param([Parameter(Mandatory)][string]$Root, [Parameter(Mandatory)][string[]]$Files)
