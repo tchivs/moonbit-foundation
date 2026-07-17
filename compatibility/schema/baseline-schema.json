@@ -1,0 +1,74 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://moonbit-foundation.example/compatibility/baseline-schema.json",
+  "title": "MoonBit Native Foundation public interface baseline package",
+  "description": "A closed, mechanical public-interface text record. It does not establish behavioral, semantic, resource, layout, or performance compatibility.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "normalization_schema_version",
+    "source_commit",
+    "toolchain",
+    "module",
+    "package",
+    "raw_path",
+    "raw_sha256",
+    "records",
+    "two_run_equal",
+    "claim_scope"
+  ],
+  "properties": {
+    "schema_version": { "const": "mnf-public-interface-baseline-package/1" },
+    "normalization_schema_version": { "const": "moon-mbti-lossless-lines/1" },
+    "source_commit": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+    "toolchain": { "$ref": "#/$defs/toolchain" },
+    "module": { "enum": ["mb-core", "mb-color", "mb-image"] },
+    "package": { "type": "string", "pattern": "^moonbit-foundation/mb-(core|color|image)/[a-z][a-z0-9-]*$" },
+    "raw_path": { "type": "string", "pattern": "^mb-(core|color|image)/[a-z][a-z0-9-]*/raw[.]mbti$" },
+    "raw_sha256": { "$ref": "#/$defs/sha256" },
+    "records": {
+      "type": "array",
+      "minItems": 4,
+      "maxItems": 4,
+      "items": { "$ref": "#/$defs/record" }
+    },
+    "two_run_equal": { "const": true },
+    "claim_scope": { "const": "public-interface-text-only; no behavioral, semantic, resource, layout, or performance compatibility claim" }
+  },
+  "$defs": {
+    "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "toolchain": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["moon", "moonc", "moonrun"],
+      "properties": {
+        "moon": { "type": "string", "minLength": 1 },
+        "moonc": { "type": "string", "minLength": 1 },
+        "moonrun": { "type": "string", "minLength": 1 }
+      }
+    },
+    "inspection": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["command", "status", "raw_sha256", "matches_canonical"],
+      "properties": {
+        "command": { "type": "string", "pattern": "^moon -C modules/mb-(core|color|image) info --target (js|wasm|wasm-gc|native) --frozen$" },
+        "status": { "const": "pass" },
+        "raw_sha256": { "$ref": "#/$defs/sha256" },
+        "matches_canonical": { "const": true }
+      }
+    },
+    "record": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["target", "normalized_path", "normalized_sha256", "target_inspection"],
+      "properties": {
+        "target": { "enum": ["js", "wasm", "wasm-gc", "native"] },
+        "normalized_path": { "type": "string", "pattern": "^mb-(core|color|image)/[a-z][a-z0-9-]*/(js|wasm|wasm-gc|native)[.]mbti$" },
+        "normalized_sha256": { "$ref": "#/$defs/sha256" },
+        "target_inspection": { "$ref": "#/$defs/inspection" }
+      }
+    }
+  }
+}
