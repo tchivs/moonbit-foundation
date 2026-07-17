@@ -1,7 +1,7 @@
 {
   "schema_version": "1.0.0",
-  "source_commit": "d392c31e10de95566a70d2ae42a5a40d156fb0c7",
-  "observed_at_utc": "2026-07-17T14:41:04.7840971Z",
+  "source_commit": "e8857a7217847b895217d1727bb4b05bb97da9b3",
+  "observed_at_utc": "2026-07-17T14:44:43.0660666Z",
   "credentials_read": false,
   "publication_mutation_performed": false,
   "command": {
@@ -27,14 +27,10 @@
     "source": "moon_auth_status"
   },
   "namespace_authority": {
-    "state": "safely_observed",
+    "state": "unknown",
     "namespace": "tchivs",
-    "exact_module_identities": [
-      "tchivs/mb-core",
-      "tchivs/mb-color",
-      "tchivs/mb-image"
-    ],
-    "source": "authenticated_read_only_registry"
+    "exact_module_identities": [],
+    "source": "not_observed"
   },
   "facts": [
     {
@@ -45,13 +41,13 @@
     },
     {
       "id": "namespace_authority",
-      "state": "safely_observed",
-      "source": "official_user_record_and_namespace_contract",
-      "disposition": "allow"
+      "state": "unknown",
+      "source": "not_observed",
+      "disposition": "block_publication"
     },
     {
       "id": "canonical_module_identities",
-      "state": "safely_observed",
+      "state": "documented",
       "source": "personal_namespace_contract",
       "disposition": "allow"
     },
@@ -88,16 +84,16 @@
   ],
   "sanitized_result": {
     "outcome": "unknown",
-    "reason": "read_only_namespace_proven_publish_seam_unproven"
+    "reason": "namespace_identity_observed_current_token_authority_unproven"
   },
   "freshness": {
     "status": "current",
     "max_age_hours": 24
   },
-  "stable_sha256": "6fe5e0cf2f98bd7eea40288844f1d68167183f450fe354dd28f06f8832b4d28c",
+  "stable_sha256": "2075c29ea130f9ac2d85e7861d76fc48c6f9ced5d3c2374652787c8e5b283591",
   "run_local": {
     "captured_by": "operator_collector",
-    "started_utc": "2026-07-17T14:41:04.7079993Z",
-    "completed_utc": "2026-07-17T14:41:04.7840971Z"
+    "started_utc": "2026-07-17T14:44:42.9965339Z",
+    "completed_utc": "2026-07-17T14:44:43.0660666Z"
   }
 }
