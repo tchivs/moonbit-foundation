@@ -17,11 +17,26 @@ fn test_prefix(value : Bytes) -> @bytes.ByteView {
 
 ///|
 test "strict P6 prefix probe is pure and closed" {
-  inspect(probe_ppm_prefix(test_prefix(b"")), content="NeedMore(2)")
-  inspect(probe_ppm_prefix(test_prefix(b"P")), content="NeedMore(2)")
-  inspect(probe_ppm_prefix(test_prefix(b"P6")), content="Match")
-  inspect(probe_ppm_prefix(test_prefix(b"P5")), content="NoMatch")
-  inspect(probe_ppm_prefix(test_prefix(b"XP")), content="NoMatch")
+  inspect(
+    _probe_ppm_prefix(test_prefix(b"")) == @codec.ProbeOutcome::NeedMore(2UL),
+    content="true",
+  )
+  inspect(
+    _probe_ppm_prefix(test_prefix(b"P")) == @codec.ProbeOutcome::NeedMore(2UL),
+    content="true",
+  )
+  inspect(
+    _probe_ppm_prefix(test_prefix(b"P6")) == @codec.ProbeOutcome::Match,
+    content="true",
+  )
+  inspect(
+    _probe_ppm_prefix(test_prefix(b"P5")) == @codec.ProbeOutcome::NoMatch,
+    content="true",
+  )
+  inspect(
+    _probe_ppm_prefix(test_prefix(b"XP")) == @codec.ProbeOutcome::NoMatch,
+    content="true",
+  )
 }
 
 ///|
@@ -51,7 +66,7 @@ test "parser limits are explicit and reject every zero ceiling" {
     ).unwrap_err()
     inspect(error.category() == @error.ErrorCategory::Resource, content="true")
     inspect(error.code() == @error.ErrorCode::BudgetExceeded, content="true")
-    inspect(error.operation(), content="Some(\"ppm-limits\")")
+    inspect(error.operation() == Some("ppm-limits"), content="true")
     inspect(error.context() == Some(context), content="true")
   }
 }
