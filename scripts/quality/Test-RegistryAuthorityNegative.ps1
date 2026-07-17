@@ -75,6 +75,7 @@ try {
     }; capability = $null },
     @{ id = 'REG01-MOONCAKES-AUTHORITY'; observation = {
       param($o)
+      $o.authenticated_account = [pscustomobject]@{ state='unknown'; value=$null; source='not_observed' }
       $o.namespace_authority = [pscustomobject]@{ state='safely_observed'; namespace='tchivs'; exact_module_identities=@('tchivs/mb-core','tchivs/mb-color','tchivs/mb-image'); source='authenticated_read_only_registry' }
     }; capability = $null },
     @{ id = 'REG01-FRESHNESS'; observation = { param($o) $o.observed_at_utc = [DateTimeOffset]::UtcNow.AddHours(-25).ToString('o'); $o.freshness.status = 'stale' }; capability = $null },
@@ -84,7 +85,12 @@ try {
     @{ id = 'REG01-UNSAFE-EVIDENCE'; observation = { param($o) $o.sanitized_result.reason = 'C:\Users\operator\credentials.json' }; capability = $null },
     @{ id = 'REG01-UNSAFE-EVIDENCE'; observation = { param($o) $o.authenticated_account.value = ([char]27 + '[32mmoonbit-foundation') }; capability = $null },
     @{ id = 'REG02-CAPABILITY-STATE'; observation = $null; capability = { param($m) $m.capabilities[0].state = 'assumed' } },
-    @{ id = 'REG03-REQUIRED-UNKNOWN-DISPOSITION'; observation = { param($o) $o.facts[1].disposition = 'allow' }; capability = $null },
+    @{ id = 'REG03-REQUIRED-UNKNOWN-DISPOSITION'; observation = {
+      param($o)
+      $o.facts[1].state = 'unknown'
+      $o.facts[1].source = 'not_observed'
+      $o.facts[1].disposition = 'allow'
+    }; capability = $null },
     @{ id = 'REG02-CAPABILITY-CLOSED'; observation = $null; capability = { param($m) $m.capabilities[5].PSObject.Properties.Remove('disposition') } }
   )
   foreach ($case in $cases) {

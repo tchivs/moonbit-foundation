@@ -75,6 +75,18 @@ function Get-RegistryStableDigest {
   return Get-ReleaseTextSha256 -Text ($stable | ConvertTo-Json -Depth 100 -Compress)
 }
 
+function Invoke-OfficialRegistryGet {
+  param([Parameter(Mandatory)][uri]$Uri)
+  try {
+    $response = Invoke-WebRequest -Uri $Uri -Method Get -Headers @{ Accept = 'application/json' } -SkipHttpErrorCheck
+  } catch {
+    return [ordered]@{ status_code = 0; json = $null }
+  }
+  $projectedJson = $null
+  try { $projectedJson = $response.Content | ConvertFrom-Json -Depth 20 } catch { }
+  return [ordered]@{ status_code = [int]$response.StatusCode; json = $projectedJson }
+}
+
 function Assert-ObservationShape {
   param(
     [Parameter(Mandatory)][object]$Observation,
@@ -133,17 +145,53 @@ $accountSource = [string]$auth.account_source
 $reason = [string]$auth.reason
 Assert-SafeProjectedScalar -Label 'authenticated account' -Value $accountValue -Policy $policy
 
+$owner = [string]$policy.intended_owner
+$expectedIdentities = @($policy.module_order | ForEach-Object { [string]$_.identity })
+$remoteAccount = Invoke-OfficialRegistryGet -Uri ([uri]"https://mooncakes.io/api/v0/user/$owner")
+$remoteAccountExists = (
+  $remoteAccount.status_code -eq 200 -and $null -ne $remoteAccount.json -and
+  [string]$remoteAccount.json.username -ceq $owner -and
+  $null -ne $remoteAccount.json.PSObject.Properties['modules'] -and
+  $remoteAccount.json.modules -is [Collections.IEnumerable] -and
+  $remoteAccount.json.modules -isnot [string]
+)
+$manifestAbsent = [Collections.Generic.List[string]]::new()
+foreach ($identity in $expectedIdentities) {
+  $manifest = Invoke-OfficialRegistryGet -Uri ([uri]"https://mooncakes.io/api/v0/manifest/$identity")
+  if ($manifest.status_code -eq 404 -and $null -ne $manifest.json -and
+      [string]$manifest.json.detail -ceq 'Package not found') {
+    $manifestAbsent.Add($identity)
+  }
+}
+$namespaceObserved = (
+  $accountState -ceq 'safely_observed' -and [string]$accountValue -ceq $owner -and
+  $remoteAccountExists -and $manifestAbsent.Count -eq $expectedIdentities.Count
+)
+if ($namespaceObserved) {
+  $reason = 'read_only_namespace_proven_publish_seam_unproven'
+}
+
 $head = (& git -C $repoRoot rev-parse HEAD).Trim()
 if ($LASTEXITCODE -ne 0 -or $head -cnotmatch '^[0-9a-f]{40}$') { throw 'REGOBS06-SOURCE-COMMIT: unable to bind source commit.' }
 $factStates = [ordered]@{
   authenticated_account = $accountState
-  namespace_authority = 'unknown'
-  canonical_module_identities = 'unknown'
+  namespace_authority = if ($namespaceObserved) { 'safely_observed' } else { 'unknown' }
+  canonical_module_identities = if ($namespaceObserved) { 'safely_observed' } else { 'unknown' }
   pinned_toolchain = 'documented'
-  exact_version_availability = 'unknown'
+  exact_version_availability = if ($namespaceObserved) { 'safely_observed' } else { 'unknown' }
   authenticated_publish_seam = 'unknown'
-  registry_observation = 'unknown'
-  registry_resolution = 'unknown'
+  registry_observation = if ($remoteAccountExists) { 'safely_observed' } else { 'unknown' }
+  registry_resolution = if ($manifestAbsent.Count -eq $expectedIdentities.Count) { 'safely_observed' } else { 'unknown' }
+}
+$factSources = [ordered]@{
+  authenticated_account = if ($accountState -ceq 'safely_observed') { 'moon_auth_status' } else { 'not_observed' }
+  namespace_authority = if ($namespaceObserved) { 'official_user_record_and_namespace_contract' } else { 'not_observed' }
+  canonical_module_identities = if ($namespaceObserved) { 'personal_namespace_contract' } else { 'not_observed' }
+  pinned_toolchain = 'policy/registry-authority.json'
+  exact_version_availability = if ($namespaceObserved) { 'official_manifest_absence_0.1.0' } else { 'not_observed' }
+  authenticated_publish_seam = 'not_observed'
+  registry_observation = if ($remoteAccountExists) { 'official_user_endpoint' } else { 'not_observed' }
+  registry_resolution = if ($manifestAbsent.Count -eq $expectedIdentities.Count) { 'official_manifest_endpoints' } else { 'not_observed' }
 }
 $facts = @($policy.required_current_facts | ForEach-Object {
   $id = [string]$_
@@ -151,7 +199,7 @@ $facts = @($policy.required_current_facts | ForEach-Object {
   [ordered]@{
     id = $id
     state = $state
-    source = if ($id -ceq 'pinned_toolchain') { 'policy/registry-authority.json' } elseif ($id -ceq 'authenticated_account' -and $state -ceq 'safely_observed') { 'moon_auth_status' } else { 'not_observed' }
+    source = [string]$factSources[$id]
     disposition = if ($state -ceq 'unknown') { 'block_publication' } else { 'allow' }
   }
 })
@@ -172,10 +220,10 @@ $observation = [ordered]@{
   session_authentication = [ordered]@{ state = [string]$auth.session_state; authenticated = $auth.session_authenticated; source = if ($auth.session_state -ceq 'safely_observed') { 'moon_auth_status' } else { 'not_observed' } }
   authenticated_account = [ordered]@{ state = $accountState; value = $accountValue; source = $accountSource }
   namespace_authority = [ordered]@{
-    state = 'unknown'
-    namespace = [string]$policy.intended_owner
-    exact_module_identities = @()
-    source = 'not_observed'
+    state = if ($namespaceObserved) { 'safely_observed' } else { 'unknown' }
+    namespace = $owner
+    exact_module_identities = if ($namespaceObserved) { $expectedIdentities } else { @() }
+    source = if ($namespaceObserved) { 'authenticated_read_only_registry' } else { 'not_observed' }
   }
   facts = $facts
   sanitized_result = [ordered]@{ outcome = 'unknown'; reason = $reason }
@@ -199,4 +247,4 @@ try {
 }
 
 Write-Host "Registry observation written with outcome '$($observation.sanitized_result.outcome)' and no raw command output."
-if ($observation.namespace_authority.state -cne 'safely_observed') { exit 3 }
+if (@($observation.facts | Where-Object { [string]$_.state -ceq 'unknown' }).Count -ne 0) { exit 3 }
