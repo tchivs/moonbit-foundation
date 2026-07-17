@@ -1,0 +1,814 @@
+{
+  "schema_version": 1,
+  "policy": "catastrophic-regression-only",
+  "benchmark_commit": "2d9c183e72c0a0be2a1004d21389787b020fc4ee",
+  "benchmark_source_sha256": "2c092d79d9ab5e9da7a2d2e6008564db4c56f117cd8ecf832c43f4a9f723da66",
+  "captured_at": "2026-07-17T02:06:58.2918148Z",
+  "target": "native",
+  "optimization": "release",
+  "frozen": true,
+  "warmup_invocations": 1,
+  "captured_invocations": 7,
+  "environment": {
+    "moon": "moon 0.1.20260713 (75c7e1f 2026-07-13) ~\\.moon\\bin\\moon.exe",
+    "moonc": "v0.10.4+2cc641edf (2026-07-15)",
+    "moonrun": "moonrun 0.1.20260713 (75c7e1f 2026-07-13)",
+    "os": "Microsoft Windows 10.0.22631",
+    "runtime": "PowerShell 7.6.3",
+    "architecture": "X64",
+    "cpu": "Intel(R) Xeon(R) Platinum 8378C CPU @ 2.80GHz",
+    "logical_cores": 8,
+    "memory_bytes": 34358808576,
+    "hardware_fingerprint": "81b406556cc52e970670b9ed03e016f29b4a03e96c1f909670dc6069a2824269"
+  },
+  "workloads": [
+    {
+      "name": "ppm/decode/64x64",
+      "corpus_sha256": "18fe2107238aef3a3c39da53c4a2435ad1f3ff6210f7069e8f816a32e3f882d1",
+      "correctness_sha256": "0bc57784e70d023d498868b42320ff008e8d1f68d051aa4c952d7ac016b9c459",
+      "correctness": "passed-before-timing",
+      "samples_ms": [
+        47.42,
+        44.15,
+        39.71,
+        37.64,
+        59.79,
+        43.97,
+        43.57
+      ],
+      "aggregate": {
+        "mean_ms": 45.178571429,
+        "median_ms": 43.97,
+        "standard_deviation_ms": 7.192117047,
+        "coefficient_of_variation": 0.159193105,
+        "min_ms": 37.64,
+        "max_ms": 59.79
+      },
+      "threshold": {
+        "kind": "max-multiplier-or-additive",
+        "multiplier": 4,
+        "additive_ms": 5,
+        "baseline_median_ms": 43.97
+      }
+    },
+    {
+      "name": "ppm/decode/256x256",
+      "corpus_sha256": "6fe0c15babe48042575df790d7c70d4bdecca5dfb4967ef2879cd1132bd26ce9",
+      "correctness_sha256": "c77092f1e40a55da2081360f8d00d23460644661c87c4883a967181d83410937",
+      "correctness": "passed-before-timing",
+      "samples_ms": [
+        605.59,
+        641.19,
+        597.84,
+        685.75,
+        822.45,
+        634.16,
+        610.85
+      ],
+      "aggregate": {
+        "mean_ms": 656.832857143,
+        "median_ms": 634.16,
+        "standard_deviation_ms": 78.787062541,
+        "coefficient_of_variation": 0.119949941,
+        "min_ms": 597.84,
+        "max_ms": 822.45
+      },
+      "threshold": {
+        "kind": "max-multiplier-or-additive",
+        "multiplier": 4,
+        "additive_ms": 5,
+        "baseline_median_ms": 634.16
+      }
+    },
+    {
+      "name": "ppm/decode/1024x1024",
+      "corpus_sha256": "d44b0fb447205ce54fc829053d52c4d7ecc2c9400d892b23e1be56c17c9f0806",
+      "correctness_sha256": "a587536c55ec09707a29d221003fcdcdc9eb206e8e2f7efdc0d0a1d27bd170db",
+      "correctness": "passed-before-timing",
+      "samples_ms": [
+        10960.0,
+        10570.0,
+        10320.0,
+        11410.0,
+        12180.0,
+        10370.0,
+        10630.0
+      ],
+      "aggregate": {
+        "mean_ms": 10920.0,
+        "median_ms": 10630.0,
+        "standard_deviation_ms": 670.621602197,
+        "coefficient_of_variation": 0.061412235,
+        "min_ms": 10320.0,
+        "max_ms": 12180.0
+      },
+      "threshold": {
+        "kind": "max-multiplier-or-additive",
+        "multiplier": 4,
+        "additive_ms": 5,
+        "baseline_median_ms": 10630.0
+      }
+    },
+    {
+      "name": "ppm/encode/64x64",
+      "corpus_sha256": "18fe2107238aef3a3c39da53c4a2435ad1f3ff6210f7069e8f816a32e3f882d1",
+      "correctness_sha256": "18fe2107238aef3a3c39da53c4a2435ad1f3ff6210f7069e8f816a32e3f882d1",
+      "correctness": "passed-before-timing",
+      "samples_ms": [
+        15.86,
+        12.35,
+        15.4,
+        12.88,
+        9.29,
+        13.32,
+        11.01
+      ],
+      "aggregate": {
+        "mean_ms": 12.872857143,
+        "median_ms": 12.88,
+        "standard_deviation_ms": 2.312644333,
+        "coefficient_of_variation": 0.179652761,
+        "min_ms": 9.29,
+        "max_ms": 15.86
+      },
+      "threshold": {
+        "kind": "max-multiplier-or-additive",
+        "multiplier": 4,
+        "additive_ms": 5,
+        "baseline_median_ms": 12.88
+      }
+    },
+    {
+      "name": "ppm/encode/256x256",
+      "corpus_sha256": "6fe0c15babe48042575df790d7c70d4bdecca5dfb4967ef2879cd1132bd26ce9",
+      "correctness_sha256": "6fe0c15babe48042575df790d7c70d4bdecca5dfb4967ef2879cd1132bd26ce9",
+      "correctness": "passed-before-timing",
+      "samples_ms": [
+        227.34,
+        152.95,
+        204.57,
+        179.32,
+        161.4,
+        209.98,
+        240.85
+      ],
+      "aggregate": {
+        "mean_ms": 196.63,
+        "median_ms": 204.57,
+        "standard_deviation_ms": 33.137365616,
+        "coefficient_of_variation": 0.1685265,
+        "min_ms": 152.95,
+        "max_ms": 240.85
+      },
+      "threshold": {
+        "kind": "max-multiplier-or-additive",
+        "multiplier": 4,
+        "additive_ms": 5,
+        "baseline_median_ms": 204.57
+      }
+    },
+    {
+      "name": "ppm/encode/1024x1024",
+      "corpus_sha256": "d44b0fb447205ce54fc829053d52c4d7ecc2c9400d892b23e1be56c17c9f0806",
+      "correctness_sha256": "d44b0fb447205ce54fc829053d52c4d7ecc2c9400d892b23e1be56c17c9f0806",
+      "correctness": "passed-before-timing",
+      "samples_ms": [
+        3200.0,
+        3140.0,
+        3380.0,
+        3140.0,
+        3190.0,
+        3300.0,
+        3350.0
+      ],
+      "aggregate": {
+        "mean_ms": 3242.857142857,
+        "median_ms": 3200.0,
+        "standard_deviation_ms": 99.450873251,
+        "coefficient_of_variation": 0.03066767,
+        "min_ms": 3140.0,
+        "max_ms": 3380.0
+      },
+      "threshold": {
+        "kind": "max-multiplier-or-additive",
+        "multiplier": 4,
+        "additive_ms": 5,
+        "baseline_median_ms": 3200.0
+      }
+    },
+    {
+      "name": "ppm/reject/header-token-limit",
+      "corpus_sha256": "0f5b4c053b836e3314c7f1b198e16f05b68f9d396a368051a0470ecddec824c5",
+      "correctness_sha256": "f20686e61cb003e143ebe9616bc030272a9e1786781535030150ac68ee6c8f0a",
+      "correctness": "passed-before-timing",
+      "samples_ms": [
+        0.033,
+        0.02851,
+        0.04311,
+        0.02717,
+        0.02613,
+        0.03553,
+        0.02725
+      ],
+      "aggregate": {
+        "mean_ms": 0.031528571,
+        "median_ms": 0.02851,
+        "standard_deviation_ms": 0.006162598,
+        "coefficient_of_variation": 0.195460744,
+        "min_ms": 0.02613,
+        "max_ms": 0.04311
+      },
+      "threshold": {
+        "kind": "max-multiplier-or-additive",
+        "multiplier": 4,
+        "additive_ms": 5,
+        "baseline_median_ms": 0.02851
+      }
+    },
+    {
+      "name": "ppm/pipeline/decode-flip-encode/256x256",
+      "corpus_sha256": "6fe0c15babe48042575df790d7c70d4bdecca5dfb4967ef2879cd1132bd26ce9",
+      "correctness_sha256": "9f3db69dcb93bfd660e2f7e8edf9394a975ccd3b6dd7f5fe220d705b9299e938",
+      "correctness": "passed-before-timing",
+      "samples_ms": [
+        1210.0,
+        1030.0,
+        1180.0,
+        1280.0,
+        1130.0,
+        1120.0,
+        1060.0
+      ],
+      "aggregate": {
+        "mean_ms": 1144.285714286,
+        "median_ms": 1130.0,
+        "standard_deviation_ms": 86.575043143,
+        "coefficient_of_variation": 0.07565859,
+        "min_ms": 1030.0,
+        "max_ms": 1280.0
+      },
+      "threshold": {
+        "kind": "max-multiplier-or-additive",
+        "multiplier": 4,
+        "additive_ms": 5,
+        "baseline_median_ms": 1130.0
+      }
+    }
+  ],
+  "raw_runs": [
+    {
+      "index": 1,
+      "captured_at": "2026-07-17T01:59:59.6737338Z",
+      "output_sha256": "9c3a7ca5e4c304f3c7f9261371506a1000efc86afbf481fa1a189a6ad046c1b7",
+      "summaries": [
+        {
+          "name": "ppm/decode/64x64",
+          "mean_ms": 47.42,
+          "sigma_ms": 0.0,
+          "min_ms": 47.42,
+          "max_ms": 47.42,
+          "batch_size": 1,
+          "runs": 3
+        },
+        {
+          "name": "ppm/decode/256x256",
+          "mean_ms": 605.59,
+          "sigma_ms": 0.0,
+          "min_ms": 605.59,
+          "max_ms": 605.59,
+          "batch_size": 1,
+          "runs": 1
+        },
+        {
+          "name": "ppm/decode/1024x1024",
+          "mean_ms": 10960.0,
+          "sigma_ms": 0.0,
+          "min_ms": 10960.0,
+          "max_ms": 10960.0,
+          "batch_size": 1,
+          "runs": 1
+        },
+        {
+          "name": "ppm/encode/64x64",
+          "mean_ms": 15.86,
+          "sigma_ms": 0.0,
+          "min_ms": 15.86,
+          "max_ms": 15.86,
+          "batch_size": 1,
+          "runs": 8
+        },
+        {
+          "name": "ppm/encode/256x256",
+          "mean_ms": 227.34,
+          "sigma_ms": 0.0,
+          "min_ms": 227.34,
+          "max_ms": 227.34,
+          "batch_size": 1,
+          "runs": 1
+        },
+        {
+          "name": "ppm/encode/1024x1024",
+          "mean_ms": 3200.0,
+          "sigma_ms": 0.0,
+          "min_ms": 3200.0,
+          "max_ms": 3200.0,
+          "batch_size": 1,
+          "runs": 1
+        },
+        {
+          "name": "ppm/reject/header-token-limit",
+          "mean_ms": 0.033,
+          "sigma_ms": 0.0,
+          "min_ms": 0.033,
+          "max_ms": 0.033,
+          "batch_size": 1,
+          "runs": 3700
+        },
+        {
+          "name": "ppm/pipeline/decode-flip-encode/256x256",
+          "mean_ms": 1210.0,
+          "sigma_ms": 0.0,
+          "min_ms": 1210.0,
+          "max_ms": 1210.0,
+          "batch_size": 1,
+          "runs": 1
+        }
+      ]
+    },
+    {
+      "index": 2,
+      "captured_at": "2026-07-17T02:01:07.0028739Z",
+      "output_sha256": "b1bb1edd5aed9a37a6d72ebd1fa7fd7bd4f980283807777236c0be571a23e96d",
+      "summaries": [
+        {
+          "name": "ppm/decode/64x64",
+          "mean_ms": 44.15,
+          "sigma_ms": 0.0,
+          "min_ms": 44.15,
+          "max_ms": 44.15,
+          "batch_size": 1,
+          "runs": 3
+        },
+        {
+          "name": "ppm/decode/256x256",
+          "mean_ms": 641.19,
+          "sigma_ms": 0.0,
+          "min_ms": 641.19,
+          "max_ms": 641.19,
+          "batch_size": 1,
+          "runs": 1
+        },
+        {
+          "name": "ppm/decode/1024x1024",
+          "mean_ms": 10570.0,
+          "sigma_ms": 0.0,
+          "min_ms": 10570.0,
+          "max_ms": 10570.0,
+          "batch_size": 1,
+          "runs": 1
+        },
+        {
+          "name": "ppm/encode/64x64",
+          "mean_ms": 12.35,
+          "sigma_ms": 0.0,
+          "min_ms": 12.35,
+          "max_ms": 12.35,
+          "batch_size": 1,
+          "runs": 7
+        },
+        {
+          "name": "ppm/encode/256x256",
+          "mean_ms": 152.95,
+          "sigma_ms": 0.0,
+          "min_ms": 152.95,
+          "max_ms": 152.95,
+          "batch_size": 1,
+          "runs": 1
+        },
+        {
+          "name": "ppm/encode/1024x1024",
+          "mean_ms": 3140.0,
+          "sigma_ms": 0.0,
+          "min_ms": 3140.0,
+          "max_ms": 3140.0,
+          "batch_size": 1,
+          "runs": 1
+        },
+        {
+          "name": "ppm/reject/header-token-limit",
+          "mean_ms": 0.02851,
+          "sigma_ms": 0.0,
+          "min_ms": 0.02851,
+          "max_ms": 0.02851,
+          "batch_size": 1,
+          "runs": 3293
+        },
+        {
+          "name": "ppm/pipeline/decode-flip-encode/256x256",
+          "mean_ms": 1030.0,
+          "sigma_ms": 0.0,
+          "min_ms": 1030.0,
+          "max_ms": 1030.0,
+          "batch_size": 1,
+          "runs": 1
+        }
+      ]
+    },
+    {
+      "index": 3,
+      "captured_at": "2026-07-17T02:02:16.9456586Z",
+      "output_sha256": "f0e2a42315554348ea59429e7ed6cfbf9c6c6d14eeb2de71514d10860c4e1931",
+      "summaries": [
+        {
+          "name": "ppm/decode/64x64",
+          "mean_ms": 39.71,
+          "sigma_ms": 0.0,
+          "min_ms": 39.71,
+          "max_ms": 39.71,
+          "batch_size": 1,
+          "runs": 3
+        },
+        {
+          "name": "ppm/decode/256x256",
+          "mean_ms": 597.84,
+          "sigma_ms": 0.0,
+          "min_ms": 597.84,
+          "max_ms": 597.84,
+          "batch_size": 1,
+          "runs": 1
+        },
+        {
+          "name": "ppm/decode/1024x1024",
+          "mean_ms": 10320.0,
+          "sigma_ms": 0.0,
+          "min_ms": 10320.0,
+          "max_ms": 10320.0,
+          "batch_size": 1,
+          "runs": 1
+        },
+        {
+          "name": "ppm/encode/64x64",
+          "mean_ms": 15.4,
+          "sigma_ms": 0.0,
+          "min_ms": 15.4,
+          "max_ms": 15.4,
+          "batch_size": 1,
+          "runs": 7
+        },
+        {
+          "name": "ppm/encode/256x256",
+          "mean_ms": 204.57,
+          "sigma_ms": 0.0,
+          "min_ms": 204.57,
+          "max_ms": 204.57,
+          "batch_size": 1,
+          "runs": 1
+        },
+        {
+          "name": "ppm/encode/1024x1024",
+          "mean_ms": 3380.0,
+          "sigma_ms": 0.0,
+          "min_ms": 3380.0,
+          "max_ms": 3380.0,
+          "batch_size": 1,
+          "runs": 1
+        },
+        {
+          "name": "ppm/reject/header-token-limit",
+          "mean_ms": 0.04311,
+          "sigma_ms": 0.0,
+          "min_ms": 0.04311,
+          "max_ms": 0.04311,
+          "batch_size": 1,
+          "runs": 2914
+        },
+        {
+          "name": "ppm/pipeline/decode-flip-encode/256x256",
+          "mean_ms": 1180.0,
+          "sigma_ms": 0.0,
+          "min_ms": 1180.0,
+          "max_ms": 1180.0,
+          "batch_size": 1,
+          "runs": 1
+        }
+      ]
+    },
+    {
+      "index": 4,
+      "captured_at": "2026-07-17T02:03:27.9835626Z",
+      "output_sha256": "238bc00b12207756540cb1424b87a78c81088088a2907cce4977faab7df41c91",
+      "summaries": [
+        {
+          "name": "ppm/decode/64x64",
+          "mean_ms": 37.64,
+          "sigma_ms": 0.0,
+          "min_ms": 37.64,
+          "max_ms": 37.64,
+          "batch_size": 1,
+          "runs": 2
+        },
+        {
+          "name": "ppm/decode/256x256",
+          "mean_ms": 685.75,
+          "sigma_ms": 0.0,
+          "min_ms": 685.75,
+          "max_ms": 685.75,
+          "batch_size": 1,
+          "runs": 1
+        },
+        {
+          "name": "ppm/decode/1024x1024",
+          "mean_ms": 11410.0,
+          "sigma_ms": 0.0,
+          "min_ms": 11410.0,
+          "max_ms": 11410.0,
+          "batch_size": 1,
+          "runs": 1
+        },
+        {
+          "name": "ppm/encode/64x64",
+          "mean_ms": 12.88,
+          "sigma_ms": 0.0,
+          "min_ms": 12.88,
+          "max_ms": 12.88,
+          "batch_size": 1,
+          "runs": 9
+        },
+        {
+          "name": "ppm/encode/256x256",
+          "mean_ms": 179.32,
+          "sigma_ms": 0.0,
+          "min_ms": 179.32,
+          "max_ms": 179.32,
+          "batch_size": 1,
+          "runs": 1
+        },
+        {
+          "name": "ppm/encode/1024x1024",
+          "mean_ms": 3140.0,
+          "sigma_ms": 0.0,
+          "min_ms": 3140.0,
+          "max_ms": 3140.0,
+          "batch_size": 1,
+          "runs": 1
+        },
+        {
+          "name": "ppm/reject/header-token-limit",
+          "mean_ms": 0.02717,
+          "sigma_ms": 0.0,
+          "min_ms": 0.02717,
+          "max_ms": 0.02717,
+          "batch_size": 1,
+          "runs": 3018
+        },
+        {
+          "name": "ppm/pipeline/decode-flip-encode/256x256",
+          "mean_ms": 1280.0,
+          "sigma_ms": 0.0,
+          "min_ms": 1280.0,
+          "max_ms": 1280.0,
+          "batch_size": 1,
+          "runs": 1
+        }
+      ]
+    },
+    {
+      "index": 5,
+      "captured_at": "2026-07-17T02:04:35.5178250Z",
+      "output_sha256": "2a8dadf010b1bc0f87688bed9b8d47d321717eed8d0a65bf770e2b2b224b417b",
+      "summaries": [
+        {
+          "name": "ppm/decode/64x64",
+          "mean_ms": 59.79,
+          "sigma_ms": 0.0,
+          "min_ms": 59.79,
+          "max_ms": 59.79,
+          "batch_size": 1,
+          "runs": 2
+        },
+        {
+          "name": "ppm/decode/256x256",
+          "mean_ms": 822.45,
+          "sigma_ms": 0.0,
+          "min_ms": 822.45,
+          "max_ms": 822.45,
+          "batch_size": 1,
+          "runs": 1
+        },
+        {
+          "name": "ppm/decode/1024x1024",
+          "mean_ms": 12180.0,
+          "sigma_ms": 0.0,
+          "min_ms": 12180.0,
+          "max_ms": 12180.0,
+          "batch_size": 1,
+          "runs": 1
+        },
+        {
+          "name": "ppm/encode/64x64",
+          "mean_ms": 9.29,
+          "sigma_ms": 0.0,
+          "min_ms": 9.29,
+          "max_ms": 9.29,
+          "batch_size": 1,
+          "runs": 9
+        },
+        {
+          "name": "ppm/encode/256x256",
+          "mean_ms": 161.4,
+          "sigma_ms": 0.0,
+          "min_ms": 161.4,
+          "max_ms": 161.4,
+          "batch_size": 1,
+          "runs": 1
+        },
+        {
+          "name": "ppm/encode/1024x1024",
+          "mean_ms": 3190.0,
+          "sigma_ms": 0.0,
+          "min_ms": 3190.0,
+          "max_ms": 3190.0,
+          "batch_size": 1,
+          "runs": 1
+        },
+        {
+          "name": "ppm/reject/header-token-limit",
+          "mean_ms": 0.02613,
+          "sigma_ms": 0.0,
+          "min_ms": 0.02613,
+          "max_ms": 0.02613,
+          "batch_size": 1,
+          "runs": 3521
+        },
+        {
+          "name": "ppm/pipeline/decode-flip-encode/256x256",
+          "mean_ms": 1130.0,
+          "sigma_ms": 0.0,
+          "min_ms": 1130.0,
+          "max_ms": 1130.0,
+          "batch_size": 1,
+          "runs": 1
+        }
+      ]
+    },
+    {
+      "index": 6,
+      "captured_at": "2026-07-17T02:05:44.3709207Z",
+      "output_sha256": "038d699cb9c378a43e340ec7e37b956d433d1e57e15f83ad11368f3c14eaaec6",
+      "summaries": [
+        {
+          "name": "ppm/decode/64x64",
+          "mean_ms": 43.97,
+          "sigma_ms": 0.0,
+          "min_ms": 43.97,
+          "max_ms": 43.97,
+          "batch_size": 1,
+          "runs": 3
+        },
+        {
+          "name": "ppm/decode/256x256",
+          "mean_ms": 634.16,
+          "sigma_ms": 0.0,
+          "min_ms": 634.16,
+          "max_ms": 634.16,
+          "batch_size": 1,
+          "runs": 1
+        },
+        {
+          "name": "ppm/decode/1024x1024",
+          "mean_ms": 10370.0,
+          "sigma_ms": 0.0,
+          "min_ms": 10370.0,
+          "max_ms": 10370.0,
+          "batch_size": 1,
+          "runs": 1
+        },
+        {
+          "name": "ppm/encode/64x64",
+          "mean_ms": 13.32,
+          "sigma_ms": 0.0,
+          "min_ms": 13.32,
+          "max_ms": 13.32,
+          "batch_size": 1,
+          "runs": 7
+        },
+        {
+          "name": "ppm/encode/256x256",
+          "mean_ms": 209.98,
+          "sigma_ms": 0.0,
+          "min_ms": 209.98,
+          "max_ms": 209.98,
+          "batch_size": 1,
+          "runs": 1
+        },
+        {
+          "name": "ppm/encode/1024x1024",
+          "mean_ms": 3300.0,
+          "sigma_ms": 0.0,
+          "min_ms": 3300.0,
+          "max_ms": 3300.0,
+          "batch_size": 1,
+          "runs": 1
+        },
+        {
+          "name": "ppm/reject/header-token-limit",
+          "mean_ms": 0.03553,
+          "sigma_ms": 0.0,
+          "min_ms": 0.03553,
+          "max_ms": 0.03553,
+          "batch_size": 1,
+          "runs": 3932
+        },
+        {
+          "name": "ppm/pipeline/decode-flip-encode/256x256",
+          "mean_ms": 1120.0,
+          "sigma_ms": 0.0,
+          "min_ms": 1120.0,
+          "max_ms": 1120.0,
+          "batch_size": 1,
+          "runs": 1
+        }
+      ]
+    },
+    {
+      "index": 7,
+      "captured_at": "2026-07-17T02:06:52.6352017Z",
+      "output_sha256": "b8bb9c2c393c882ded6f873a1e237837dee74befcaa12475ff5ae4bc00eb8aa0",
+      "summaries": [
+        {
+          "name": "ppm/decode/64x64",
+          "mean_ms": 43.57,
+          "sigma_ms": 0.0,
+          "min_ms": 43.57,
+          "max_ms": 43.57,
+          "batch_size": 1,
+          "runs": 3
+        },
+        {
+          "name": "ppm/decode/256x256",
+          "mean_ms": 610.85,
+          "sigma_ms": 0.0,
+          "min_ms": 610.85,
+          "max_ms": 610.85,
+          "batch_size": 1,
+          "runs": 1
+        },
+        {
+          "name": "ppm/decode/1024x1024",
+          "mean_ms": 10630.0,
+          "sigma_ms": 0.0,
+          "min_ms": 10630.0,
+          "max_ms": 10630.0,
+          "batch_size": 1,
+          "runs": 1
+        },
+        {
+          "name": "ppm/encode/64x64",
+          "mean_ms": 11.01,
+          "sigma_ms": 0.0,
+          "min_ms": 11.01,
+          "max_ms": 11.01,
+          "batch_size": 1,
+          "runs": 8
+        },
+        {
+          "name": "ppm/encode/256x256",
+          "mean_ms": 240.85,
+          "sigma_ms": 0.0,
+          "min_ms": 240.85,
+          "max_ms": 240.85,
+          "batch_size": 1,
+          "runs": 1
+        },
+        {
+          "name": "ppm/encode/1024x1024",
+          "mean_ms": 3350.0,
+          "sigma_ms": 0.0,
+          "min_ms": 3350.0,
+          "max_ms": 3350.0,
+          "batch_size": 1,
+          "runs": 1
+        },
+        {
+          "name": "ppm/reject/header-token-limit",
+          "mean_ms": 0.02725,
+          "sigma_ms": 0.0,
+          "min_ms": 0.02725,
+          "max_ms": 0.02725,
+          "batch_size": 1,
+          "runs": 3681
+        },
+        {
+          "name": "ppm/pipeline/decode-flip-encode/256x256",
+          "mean_ms": 1060.0,
+          "sigma_ms": 0.0,
+          "min_ms": 1060.0,
+          "max_ms": 1060.0,
+          "batch_size": 1,
+          "runs": 1
+        }
+      ]
+    }
+  ],
+  "claim": "local catastrophic-regression evidence only; not a performance or marketing claim; hosted timing is informational"
+}

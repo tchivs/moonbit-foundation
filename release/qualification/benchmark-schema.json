@@ -1,0 +1,96 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/moonbit-foundation/moonbit-foundation/release/qualification/benchmark-schema.json",
+  "title": "MNF PPM native release benchmark evidence",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "policy", "benchmark_commit", "benchmark_source_sha256",
+    "captured_at", "target", "optimization", "frozen", "warmup_invocations",
+    "captured_invocations", "environment", "workloads", "raw_runs", "claim"
+  ],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "policy": { "const": "catastrophic-regression-only" },
+    "benchmark_commit": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+    "benchmark_source_sha256": { "$ref": "#/$defs/sha256" },
+    "captured_at": { "type": "string", "format": "date-time" },
+    "target": { "const": "native" },
+    "optimization": { "const": "release" },
+    "frozen": { "const": true },
+    "warmup_invocations": { "const": 1 },
+    "captured_invocations": { "const": 7 },
+    "environment": { "$ref": "#/$defs/environment" },
+    "workloads": {
+      "type": "array", "minItems": 8, "maxItems": 8,
+      "items": { "$ref": "#/$defs/workload" }
+    },
+    "raw_runs": {
+      "type": "array", "minItems": 7, "maxItems": 7,
+      "items": { "$ref": "#/$defs/rawRun" }
+    },
+    "claim": { "const": "local catastrophic-regression evidence only; not a performance or marketing claim; hosted timing is informational" }
+  },
+  "$defs": {
+    "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "environment": {
+      "type": "object", "additionalProperties": false,
+      "required": ["moon", "moonc", "moonrun", "os", "runtime", "architecture", "cpu", "logical_cores", "memory_bytes", "hardware_fingerprint"],
+      "properties": {
+        "moon": { "type": "string" }, "moonc": { "type": "string" },
+        "moonrun": { "type": "string" }, "os": { "type": "string" },
+        "runtime": { "type": "string" }, "architecture": { "type": "string" },
+        "cpu": { "type": "string" }, "logical_cores": { "type": "integer", "minimum": 1 },
+        "memory_bytes": { "type": "integer", "minimum": 1 }, "hardware_fingerprint": { "$ref": "#/$defs/sha256" }
+      }
+    },
+    "aggregate": {
+      "type": "object", "additionalProperties": false,
+      "required": ["mean_ms", "median_ms", "standard_deviation_ms", "coefficient_of_variation", "min_ms", "max_ms"],
+      "properties": {
+        "mean_ms": { "type": "number", "minimum": 0 }, "median_ms": { "type": "number", "minimum": 0 },
+        "standard_deviation_ms": { "type": "number", "minimum": 0 }, "coefficient_of_variation": { "type": "number", "minimum": 0 },
+        "min_ms": { "type": "number", "minimum": 0 }, "max_ms": { "type": "number", "minimum": 0 }
+      }
+    },
+    "workload": {
+      "type": "object", "additionalProperties": false,
+      "required": ["name", "corpus_sha256", "correctness_sha256", "correctness", "samples_ms", "aggregate", "threshold"],
+      "properties": {
+        "name": { "type": "string" }, "corpus_sha256": { "$ref": "#/$defs/sha256" },
+        "correctness_sha256": { "$ref": "#/$defs/sha256" },
+        "correctness": { "const": "passed-before-timing" },
+        "samples_ms": { "type": "array", "minItems": 7, "maxItems": 7, "items": { "type": "number", "minimum": 0 } },
+        "aggregate": { "$ref": "#/$defs/aggregate" },
+        "threshold": {
+          "type": "object", "additionalProperties": false,
+          "required": ["kind", "multiplier", "additive_ms", "baseline_median_ms"],
+          "properties": {
+            "kind": { "const": "max-multiplier-or-additive" }, "multiplier": { "const": 4 },
+            "additive_ms": { "const": 5 }, "baseline_median_ms": { "type": "number", "minimum": 0 }
+          }
+        }
+      }
+    },
+    "summary": {
+      "type": "object", "additionalProperties": false,
+      "required": ["name", "mean_ms", "sigma_ms", "min_ms", "max_ms", "batch_size", "runs"],
+      "properties": {
+        "name": { "type": "string" }, "mean_ms": { "type": "number", "minimum": 0 },
+        "sigma_ms": { "type": "number", "minimum": 0 }, "min_ms": { "type": "number", "minimum": 0 },
+        "max_ms": { "type": "number", "minimum": 0 }, "batch_size": { "type": "integer", "minimum": 1 },
+        "runs": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "rawRun": {
+      "type": "object", "additionalProperties": false,
+      "required": ["index", "captured_at", "output_sha256", "summaries"],
+      "properties": {
+        "index": { "type": "integer", "minimum": 1, "maximum": 7 },
+        "captured_at": { "type": "string", "format": "date-time" },
+        "output_sha256": { "$ref": "#/$defs/sha256" },
+        "summaries": { "type": "array", "minItems": 8, "maxItems": 8, "items": { "$ref": "#/$defs/summary" } }
+      }
+    }
+  }
+}

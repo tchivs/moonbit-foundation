@@ -16,3 +16,4 @@ Thumbs.db
 
 # Dynamic local release-qualification evidence
 artifacts/release-qualification/*.json
+artifacts/benchmarks/
