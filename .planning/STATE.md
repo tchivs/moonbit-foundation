@@ -5,16 +5,16 @@ milestone_name: Publication & Compatibility
 current_phase: 6
 current_phase_name: Namespace Authority and Compatibility Contract
 status: executing
-stopped_at: Completed 06-08-PLAN.md; ready for 06-09
-last_updated: "2026-07-17T10:25:12.094Z"
+stopped_at: Completed 06-09-PLAN.md; ready for 06-10
+last_updated: "2026-07-17T10:45:05.459Z"
 last_activity: 2026-07-17
-last_activity_desc: canonical 17-package source graph closed on four targets
+last_activity_desc: canonical examples and benchmark qualified with explicit native runtime gap
 progress:
   total_phases: 4
   completed_phases: 0
   total_plans: 24
-  completed_plans: 7
-  percent: 29
+  completed_plans: 8
+  percent: 33
 ---
 
 # Project State
@@ -30,16 +30,16 @@ See `.planning/PROJECT.md` (updated 2026-07-17).
 ## Current Position
 
 Phase: 6 (Namespace Authority and Compatibility Contract) — EXECUTING
-Plan: 7 of 24 complete; next 06-09
+Plan: 8 of 24 complete; next 06-10
 Status: Executing credential-free personal namespace migration
-Last activity: 2026-07-17 — canonical 17-package source graph closed on four targets
+Last activity: 2026-07-17 — canonical examples and benchmark qualified with an explicit native runtime gap
 
 ## Progress
 
-Current milestone: [███░░░░░░░] 29% of planned Phase 6 work
+Current milestone: [███░░░░░░░] 33% of planned Phase 6 work
 
 - v0.2 phases completed: 0/4
-- v0.2 plans completed: 7/24
+- v0.2 plans completed: 8/24
 - v0.2 requirements mapped: 21/21
 - Historical total: 5 completed phases, 41 completed plans, 36/36 v0.1 requirements validated
 
@@ -59,6 +59,7 @@ Current milestone: [███░░░░░░░] 29% of planned Phase 6 work
 - [Phase 06]: Keep the unpublished tchivs module family at 0.1.0 while rebasing roots and exact dependency floors. — The owner correction precedes publication and is not a SemVer release break.
 - [Phase 06]: Use disposable complete-import overlays only for transitional wave verification; never broaden tracked plan scope. — The main moon.work intentionally contains later-wave old-owner members until their owning plans execute.
 - [Phase 06]: Use disposable modules-only workspaces for staged source-graph verification while example consumers remain owned by 06-09. — Moon parent-workspace discovery otherwise resolves intentionally unmigrated example identities before module checks.
+- [Phase 06]: Keep native runtime verification fail-closed by default; compile-only requires explicit opt-in. — This machine lacks a system C compiler, and compile-only evidence must never be equivalent to linking or runtime-output proof.
 
 ### Pending Decisions
 
@@ -71,15 +72,15 @@ Current milestone: [███░░░░░░░] 29% of planned Phase 6 work
 
 ## Session Continuity
 
-**Resume file:** .planning/phases/06-namespace-authority-and-compatibility-contract/06-09-PLAN.md
+**Resume file:** .planning/phases/06-namespace-authority-and-compatibility-contract/06-10-PLAN.md
 
-Last session: 2026-07-17T10:25:12.069Z
-Stopped at: Completed 06-08-PLAN.md; ready for 06-09
+Last session: 2026-07-17T10:45:05.438Z
+Stopped at: Completed 06-09-PLAN.md; ready for 06-10
 Resume with: `/gsd-execute-phase 6`
 
 ## Operator Next Steps
 
-- Execute 06-09 next to migrate the example and benchmark consumer layer onto the canonical source graph.
+- Execute 06-10 next to migrate active public documentation onto the canonical source graph.
 - Resume revised 06-01 only after the credential-free chain through 06-11; execute 06-06 only after both complete.
 
 ## Performance Metrics
@@ -89,3 +90,4 @@ Resume with: `/gsd-execute-phase 6`
 | Phase 06 P07 | 8m | 2 tasks | 9 files |
 | Phase 06 P12 | 12m | 2 tasks | 4 files |
 | Phase 06 P08 | 18m | 3 tasks | 15 files |
+| Phase 06 P09 | 18m | 2 tasks | 8 files |
