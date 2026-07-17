@@ -557,6 +557,9 @@ function Invoke-RequiredQuality {
   $requiredTargets = @('js', 'wasm', 'wasm-gc', 'native')
   $modules = @('mb-core', 'mb-color', 'mb-image')
   $policy = Read-QualityJson -Path $policyPath
+  Invoke-QualityStage 'Phase 6 exact identity and immutable-history closure' {
+    & ./scripts/quality/Test-IdentityMigration.ps1
+  }
   $initialTrackedDiff = Get-TrackedDiffSnapshot
   $startedUtc = [DateTime]::UtcNow.ToString('o')
   $absoluteEvidence = if ([IO.Path]::IsPathRooted($EvidenceDirectory)) { [IO.Path]::GetFullPath($EvidenceDirectory) } else { [IO.Path]::GetFullPath((Join-Path (Resolve-Path '.').Path $EvidenceDirectory)) }
