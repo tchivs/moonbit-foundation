@@ -744,7 +744,7 @@ function Assert-FoundationPolicy {
     }
 
     if ($module.name -ceq 'moonbit-foundation/mb-image') {
-      $imagePackagePaths = @('metadata', 'model', 'storage', 'ops', 'codec')
+      $imagePackagePaths = @('metadata', 'model', 'storage', 'ops', 'codec', 'ppm')
       $imagePackageNames = @($imagePackagePaths | ForEach-Object { "moonbit-foundation/mb-image/$_" })
       Assert-ExactSequence 'mb-image publication package order' @($packages.name) $imagePackageNames
       Assert-ExactSequence 'mb-image public package paths' @($packages.path) $imagePackagePaths
@@ -759,6 +759,7 @@ function Assert-FoundationPolicy {
       Assert-ExactSet 'mb-image metadata DAG edges' $imageImports.metadata @('moonbit-foundation/mb-core/error', 'moonbit-foundation/mb-core/budget', 'moonbit-foundation/mb-core/bytes')
       Assert-ExactSet 'mb-image model DAG edges' $imageImports.model @('moonbit-foundation/mb-core/error', 'moonbit-foundation/mb-core/checked', 'moonbit-foundation/mb-core/budget', 'moonbit-foundation/mb-color/model', 'moonbit-foundation/mb-color/profile', 'moonbit-foundation/mb-image/metadata')
       Assert-ExactSet 'mb-image storage DAG edges' $imageImports.storage @('moonbit-foundation/mb-core/error', 'moonbit-foundation/mb-core/checked', 'moonbit-foundation/mb-core/budget', 'moonbit-foundation/mb-core/bytes', 'moonbit-foundation/mb-color/model', 'moonbit-foundation/mb-color/profile', 'moonbit-foundation/mb-image/metadata', 'moonbit-foundation/mb-image/model')
+      Assert-ExactSet 'mb-image ppm DAG edges' $imageImports.ppm @('moonbit-foundation/mb-core/budget', 'moonbit-foundation/mb-core/bytes', 'moonbit-foundation/mb-core/checked', 'moonbit-foundation/mb-core/error', 'moonbit-foundation/mb-image/codec')
       Assert-ExactSet 'mb-image ops DAG edges' $imageImports.ops @('moonbit-foundation/mb-core/error', 'moonbit-foundation/mb-core/checked', 'moonbit-foundation/mb-core/budget', 'moonbit-foundation/mb-core/bytes', 'moonbit-foundation/mb-color/alpha', 'moonbit-foundation/mb-color/model', 'moonbit-foundation/mb-color/profile', 'moonbit-foundation/mb-image/metadata', 'moonbit-foundation/mb-image/model', 'moonbit-foundation/mb-image/storage')
       Assert-ExactSet 'mb-image codec DAG edges' $imageImports.codec @('moonbit-foundation/mb-core/error', 'moonbit-foundation/mb-core/budget', 'moonbit-foundation/mb-core/bytes', 'moonbit-foundation/mb-core/io', 'moonbit-foundation/mb-image/metadata', 'moonbit-foundation/mb-image/model', 'moonbit-foundation/mb-image/storage')
       Assert-Condition (-not ($imageImports.codec -ccontains 'moonbit-foundation/mb-core/host')) 'mb-image codec must remain independent of host policy.'
