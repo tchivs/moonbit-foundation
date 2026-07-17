@@ -20,7 +20,7 @@
 - [x] **WORK-03**: A consumer can inspect every public package's explicit supported-target declaration and determine whether it supports `native`, `wasm`, `wasm-gc`, or `js`.
 - [x] **WORK-04**: A maintainer can run root-level format, check, test, documentation, package-content, and dependency-DAG validation without manually entering each module.
 - [x] **WORK-05**: A maintainer can verify portable package behavior on every declared target while LLVM remains clearly non-blocking and experimental.
-- [ ] **WORK-06**: A release can qualify each module independently and in dependency order without requiring consumers to install unrelated MNF layers.
+- [x] **WORK-06**: A release can qualify each module independently and in dependency order without requiring consumers to install unrelated MNF layers.
 
 ### Core Primitives
 
@@ -58,7 +58,7 @@
 - [x] **QUAL-03**: A maintainer can run black-box API tests, internal invariant tests, conformance vectors, adversarial limit fixtures, and applicable property or metamorphic tests for stable candidate behavior.
 - [x] **QUAL-04**: A consumer can access runnable API documentation, examples, support matrices, changelogs, and fixture provenance for every release candidate module.
 - [x] **QUAL-05**: A maintainer can reproduce benchmark baselines that record toolchain, target, optimization mode, hardware/runtime, corpus, repetitions, variance, and correctness assumptions without treating noisy hosted results as marketing claims.
-- [ ] **QUAL-06**: A release process verifies packaged contents, clean-consumer dependency resolution outside workspace substitution, target conformance, module independence, compatibility metadata, and release provenance before publishing in dependency order.
+- [x] **QUAL-06**: A release process verifies packaged contents, clean-consumer dependency resolution outside workspace substitution, target conformance, module independence, compatibility metadata, and release provenance before publishing in dependency order.
 
 ## v2 Requirements
 
@@ -121,7 +121,7 @@
 | WORK-03 | Phase 1 | Complete |
 | WORK-04 | Phase 1 | Complete |
 | WORK-05 | Phase 1 | Complete |
-| WORK-06 | Phase 5 | Pending |
+| WORK-06 | Phase 5 | Complete |
 | CORE-01 | Phase 2 | Complete |
 | CORE-02 | Phase 2 | Complete |
 | CORE-03 | Phase 2 | Complete |
@@ -147,7 +147,7 @@
 | QUAL-03 | Phase 5 | Complete |
 | QUAL-04 | Phase 5 | Complete |
 | QUAL-05 | Phase 5 | Complete |
-| QUAL-06 | Phase 5 | Pending |
+| QUAL-06 | Phase 5 | Complete |
 
 **Coverage:**
 
