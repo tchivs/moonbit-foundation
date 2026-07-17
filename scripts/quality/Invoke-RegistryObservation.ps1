@@ -77,14 +77,17 @@ function Get-RegistryStableDigest {
 
 function Invoke-OfficialRegistryGet {
   param([Parameter(Mandatory)][uri]$Uri)
-  try {
-    $response = Invoke-WebRequest -Uri $Uri -Method Get -Headers @{ Accept = 'application/json' } -SkipHttpErrorCheck
-  } catch {
-    return [ordered]@{ status_code = 0; json = $null }
+  foreach ($attempt in 1..3) {
+    try {
+      $response = Invoke-WebRequest -Uri $Uri -Method Get -Headers @{ Accept = 'application/json' } -SkipHttpErrorCheck -TimeoutSec 15
+      $projectedJson = $null
+      try { $projectedJson = $response.Content | ConvertFrom-Json -Depth 20 } catch { }
+      return [ordered]@{ status_code = [int]$response.StatusCode; json = $projectedJson }
+    } catch {
+      if ($attempt -lt 3) { Start-Sleep -Seconds 1 }
+    }
   }
-  $projectedJson = $null
-  try { $projectedJson = $response.Content | ConvertFrom-Json -Depth 20 } catch { }
-  return [ordered]@{ status_code = [int]$response.StatusCode; json = $projectedJson }
+  return [ordered]@{ status_code = 0; json = $null }
 }
 
 function Assert-ObservationShape {
@@ -176,7 +179,7 @@ if ($LASTEXITCODE -ne 0 -or $head -cnotmatch '^[0-9a-f]{40}$') { throw 'REGOBS06
 $factStates = [ordered]@{
   authenticated_account = $accountState
   namespace_authority = 'unknown'
-  canonical_module_identities = if ($namespaceEvidenceObserved) { 'safely_observed' } else { 'unknown' }
+  canonical_module_identities = 'documented'
   pinned_toolchain = 'documented'
   exact_version_availability = if ($namespaceEvidenceObserved) { 'safely_observed' } else { 'unknown' }
   authenticated_publish_seam = 'unknown'
@@ -186,7 +189,7 @@ $factStates = [ordered]@{
 $factSources = [ordered]@{
   authenticated_account = if ($accountState -ceq 'safely_observed') { 'moon_auth_status' } else { 'not_observed' }
   namespace_authority = 'not_observed'
-  canonical_module_identities = if ($namespaceEvidenceObserved) { 'personal_namespace_contract' } else { 'not_observed' }
+  canonical_module_identities = 'personal_namespace_contract'
   pinned_toolchain = 'policy/registry-authority.json'
   exact_version_availability = if ($namespaceEvidenceObserved) { 'official_manifest_absence_0.1.0' } else { 'not_observed' }
   authenticated_publish_seam = 'not_observed'
