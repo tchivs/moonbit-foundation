@@ -1,0 +1,112 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://moonbit-foundation.invalid/schemas/registry-authority-observation-1.0.0.json",
+  "title": "MNF credential-redacted registry authority observation",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "source_commit", "observed_at_utc", "credentials_read", "publication_mutation_performed", "command", "toolchain", "intended_owner", "authenticated_account", "namespace_authority", "facts", "sanitized_result", "freshness", "stable_sha256", "run_local"],
+  "properties": {
+    "schema_version": { "const": "1.0.0" },
+    "source_commit": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+    "observed_at_utc": { "type": ["string", "null"], "format": "date-time" },
+    "credentials_read": { "const": false },
+    "publication_mutation_performed": { "const": false },
+    "command": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "arguments"],
+      "properties": {
+        "id": { "enum": ["none", "moon_cli_help", "moon_auth_status"] },
+        "arguments": { "type": "array", "items": { "type": "string" }, "maxItems": 2 }
+      }
+    },
+    "toolchain": { "$ref": "#/$defs/toolchain" },
+    "intended_owner": { "const": "moonbit-foundation" },
+    "authenticated_account": { "$ref": "#/$defs/account" },
+    "namespace_authority": { "$ref": "#/$defs/authority" },
+    "facts": {
+      "type": "array",
+      "minItems": 8,
+      "maxItems": 8,
+      "items": { "$ref": "#/$defs/fact" }
+    },
+    "sanitized_result": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["outcome", "reason"],
+      "properties": {
+        "outcome": { "enum": ["safely_observed", "unknown"] },
+        "reason": { "type": "string", "minLength": 1, "maxLength": 160 }
+      }
+    },
+    "freshness": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "max_age_hours"],
+      "properties": {
+        "status": { "enum": ["current", "stale", "not_observed"] },
+        "max_age_hours": { "const": 24 }
+      }
+    },
+    "stable_sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "run_local": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["captured_by", "started_utc", "completed_utc"],
+      "properties": {
+        "captured_by": { "enum": ["tracked_seed", "operator_collector"] },
+        "started_utc": { "type": ["string", "null"], "format": "date-time" },
+        "completed_utc": { "type": ["string", "null"], "format": "date-time" }
+      }
+    }
+  },
+  "$defs": {
+    "toolchain": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["moon", "moonc", "moonrun"],
+      "properties": {
+        "moon": { "type": "string" },
+        "moonc": { "type": "string" },
+        "moonrun": { "type": "string" }
+      }
+    },
+    "account": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["state", "value", "source"],
+      "properties": {
+        "state": { "enum": ["safely_observed", "unknown"] },
+        "value": { "type": ["string", "null"], "maxLength": 100 },
+        "source": { "enum": ["moon_auth_status", "not_observed"] }
+      }
+    },
+    "authority": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["state", "namespace", "exact_module_identities", "source"],
+      "properties": {
+        "state": { "enum": ["safely_observed", "unknown"] },
+        "namespace": { "const": "moonbit-foundation" },
+        "exact_module_identities": {
+          "type": "array",
+          "maxItems": 3,
+          "items": { "enum": ["moonbit-foundation/mb-core", "moonbit-foundation/mb-color", "moonbit-foundation/mb-image"] },
+          "uniqueItems": true
+        },
+        "source": { "enum": ["authenticated_read_only_registry", "not_observed"] }
+      }
+    },
+    "fact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "state", "source", "disposition"],
+      "properties": {
+        "id": { "enum": ["authenticated_account", "namespace_authority", "canonical_module_identities", "pinned_toolchain", "exact_version_availability", "authenticated_publish_seam", "registry_observation", "registry_resolution"] },
+        "state": { "enum": ["documented", "safely_observed", "unknown"] },
+        "source": { "type": "string", "minLength": 1, "maxLength": 120 },
+        "disposition": { "enum": ["allow", "block_publication", "require_read_only_query", "forward_only_recovery"] }
+      }
+    }
+  }
+}

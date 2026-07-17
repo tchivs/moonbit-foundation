@@ -1,0 +1,92 @@
+{
+  "schema_version": "1.0.0",
+  "intended_owner": "moonbit-foundation",
+  "module_order": [
+    {
+      "module": "mb-core",
+      "identity": "moonbit-foundation/mb-core",
+      "version": "0.1.0"
+    },
+    {
+      "module": "mb-color",
+      "identity": "moonbit-foundation/mb-color",
+      "version": "0.1.0"
+    },
+    {
+      "module": "mb-image",
+      "identity": "moonbit-foundation/mb-image",
+      "version": "0.1.0"
+    }
+  ],
+  "pinned_toolchain": {
+    "moon": "0.1.20260713 (75c7e1f 2026-07-13)",
+    "moonc": "v0.10.4+2cc641edf (2026-07-15)",
+    "moonrun": "0.1.20260713 (75c7e1f 2026-07-13)"
+  },
+  "required_current_facts": [
+    "authenticated_account",
+    "namespace_authority",
+    "canonical_module_identities",
+    "pinned_toolchain",
+    "exact_version_availability",
+    "authenticated_publish_seam",
+    "registry_observation",
+    "registry_resolution"
+  ],
+  "observation_policy": {
+    "max_age_hours": 24,
+    "states": [
+      "documented",
+      "safely_observed",
+      "unknown"
+    ],
+    "dispositions": [
+      "allow",
+      "block_publication",
+      "require_read_only_query",
+      "forward_only_recovery"
+    ],
+    "allowlisted_commands": [
+      {
+        "id": "none",
+        "arguments": []
+      },
+      {
+        "id": "moon_cli_help",
+        "arguments": [
+          "--help"
+        ]
+      },
+      {
+        "id": "moon_auth_status",
+        "arguments": [
+          "login",
+          "--status"
+        ]
+      }
+    ],
+    "forbidden_value_patterns": [
+      "(?i)authorization\\s*:",
+      "(?i)bearer\\s+",
+      "(?i)(token|secret|password|cookie)\\s*[:=]",
+      "(?i)(credentials?|cookies?)\\.(json|txt|db)",
+      "(?i)[A-Z]:\\\\Users\\\\[^\\\\]+\\\\"
+    ]
+  },
+  "capability_order": [
+    "cli_surfaces",
+    "namespace_authority",
+    "token_lifecycle",
+    "dry_run_fidelity",
+    "exact_version_availability",
+    "version_immutability",
+    "registry_propagation",
+    "artifact_identity",
+    "destructive_recovery",
+    "registry_render_metadata"
+  ],
+  "publication_readiness": {
+    "status": "blocked",
+    "owning_rule": "REG03-REQUIRED-FACT-UNKNOWN"
+  }
+}

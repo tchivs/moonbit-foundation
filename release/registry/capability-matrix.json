@@ -1,0 +1,22 @@
+{
+  "schema_version": "1.0.0",
+  "source_commit": "7a96d3e876830073e5a11650332f97b792ebb9fc",
+  "observed_at_utc": null,
+  "capabilities": [
+    { "id": "cli_surfaces", "state": "documented", "source": { "kind": "official_documentation", "reference": "MoonBit package management documentation and pinned CLI help" }, "required_for_publish": true, "disposition": "allow" },
+    { "id": "namespace_authority", "state": "unknown", "source": { "kind": "not_observed", "reference": "authenticated namespace authorization not yet observed" }, "required_for_publish": true, "disposition": "block_publication" },
+    { "id": "token_lifecycle", "state": "unknown", "source": { "kind": "not_observed", "reference": "scope expiry revocation and noninteractive behavior not observed" }, "required_for_publish": true, "disposition": "block_publication" },
+    { "id": "dry_run_fidelity", "state": "unknown", "source": { "kind": "not_observed", "reference": "dry-run equivalence to publication not observed" }, "required_for_publish": true, "disposition": "block_publication" },
+    { "id": "exact_version_availability", "state": "unknown", "source": { "kind": "not_observed", "reference": "0.1.0 availability for all three identities not observed" }, "required_for_publish": true, "disposition": "block_publication" },
+    { "id": "version_immutability", "state": "unknown", "source": { "kind": "not_observed", "reference": "duplicate version semantics not observed" }, "required_for_publish": false, "disposition": "require_read_only_query" },
+    { "id": "registry_propagation", "state": "unknown", "source": { "kind": "not_observed", "reference": "registry propagation guarantees not observed" }, "required_for_publish": false, "disposition": "require_read_only_query" },
+    { "id": "artifact_identity", "state": "unknown", "source": { "kind": "not_observed", "reference": "registry artifact digest identity not observed" }, "required_for_publish": true, "disposition": "block_publication" },
+    { "id": "destructive_recovery", "state": "unknown", "source": { "kind": "not_observed", "reference": "overwrite delete unpublish and yank are intentionally unprobed" }, "required_for_publish": false, "disposition": "forward_only_recovery" },
+    { "id": "registry_render_metadata", "state": "unknown", "source": { "kind": "not_observed", "reference": "registry-side metadata rendering not observed" }, "required_for_publish": false, "disposition": "require_read_only_query" }
+  ],
+  "stable_sha256": "d32e2439162c4a65e3689570fc79627e3348c00ae1ab78f8eb5654fd51f342dd",
+  "run_local": {
+    "generated_by": "tracked_seed",
+    "completed_utc": null
+  }
+}
