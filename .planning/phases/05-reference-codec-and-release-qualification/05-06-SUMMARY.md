@@ -191,7 +191,7 @@ None.
 
 - All eight created artifacts and two intended integrations exist; dynamic evidence is ignored.
 - Commits `cdef444`, `2d9c183`, `fbecf00`, `dc511b8`, and `3427c12` resolve in repository history.
-- Baseline commit/source identities, seven sample counts, eight workload order, environment keys, correctness digests, threshold constants, and non-marketing claim all validate fail-closed.
+- Baseline commit/source identities, seven sample counts, eight workload order, environment keys, correctness digests, threshold constants, and non-marketing claim all validate strictly.
 
 ## Next Phase Readiness
 
