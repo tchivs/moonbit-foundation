@@ -1,8 +1,8 @@
 // Generated using `moon info`, DON'T EDIT IT
-package "moonbit-foundation/mb-core/budget"
+package "tchivs/mb-core/budget"
 
 import {
-  "moonbit-foundation/mb-core/error",
+  "tchivs/mb-core/error",
 }
 
 // Values
