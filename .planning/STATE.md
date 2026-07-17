@@ -5,15 +5,15 @@ milestone_name: Publication & Compatibility
 current_phase: 6
 current_phase_name: Namespace Authority and Compatibility Contract
 status: executing
-stopped_at: Phase 6 personal namespace context gathered
-last_updated: "2026-07-17T08:04:23.974Z"
+stopped_at: Completed 06-07-PLAN.md; ready for 06-12
+last_updated: "2026-07-17T10:04:53.685Z"
 last_activity: 2026-07-17
-last_activity_desc: completed all three module publication source contracts and full validator
+last_activity_desc: canonical personal namespace policy rebased and closed
 progress:
   total_phases: 4
   completed_phases: 0
-  total_plans: 6
-  completed_plans: 4
+  total_plans: 24
+  completed_plans: 5
   percent: 0
 ---
 
@@ -30,16 +30,16 @@ See `.planning/PROJECT.md` (updated 2026-07-17).
 ## Current Position
 
 Phase: 6 (Namespace Authority and Compatibility Contract) — EXECUTING
-Plan: 1 of 6 deferred; plan 6 blocked on plan 1
-Status: Independent credential-free chain complete; external authority checkpoint remains deferred
-Last activity: 2026-07-17 — completed all three module publication source contracts and full validator
+Plan: 5 of 24 complete; next 06-12
+Status: Executing credential-free personal namespace migration
+Last activity: 2026-07-17 — canonical `tchivs/*` policy and blocked authority seed closed
 
 ## Progress
 
-Current milestone: [███████░░░] 67%
+Current milestone: [██░░░░░░░░] 21% of planned Phase 6 work
 
 - v0.2 phases completed: 0/4
-- v0.2 plans completed: 4/6
+- v0.2 plans completed: 5/24
 - v0.2 requirements mapped: 21/21
 - Historical total: 5 completed phases, 41 completed plans, 36/36 v0.1 requirements validated
 
@@ -54,6 +54,8 @@ Current milestone: [███████░░░] 67%
 - Recovery is monotonic and forward-only; automation assumes no overwrite, delete, unpublish, or yank capability.
 - The project has one maintainer, so the workflow uses sole-owner authorization and introduces no multi-person approval or team ceremony.
 - v0.2 adds no new module family and closes with immutable provenance and a milestone audit.
+- [Phase 06]: Use tchivs as the canonical initial personal Mooncakes owner while preserving MoonBit Native Foundation branding. — Official username-prefixed namespace rules and the locked personal-identity decision require the personal owner before publication.
+- [Phase 06]: Keep the tracked authority seed unknown-first until fresh sanitized external proof exists. — Prior local authentication cannot prove the exact Mooncakes account, namespace, repository liveness, or module authority.
 
 ### Pending Decisions
 
@@ -61,18 +63,24 @@ Current milestone: [███████░░░] 67%
 
 ### Blockers
 
-- Plan 06-01 is deferred at an external authority checkpoint: the exact `moonbit-foundation` GitHub/Mooncakes identity does not yet exist or cannot be authoritatively observed. REG-01 through REG-03 remain fail-closed. See `06-01-DEFERRED.md`.
-- Plans 06-03 through 06-05 may continue independently; plan 06-06 and Phase 7 remain blocked on 06-01 completion.
+- Live Mooncakes authority for `tchivs` and the exact three personal module identities remains unobserved. REG-01 through REG-03 stay fail-closed until the credential-free migration chain completes and revised plan 06-01 reaches its human OAuth checkpoint.
+- Plan 06-06 and Phase 7 remain blocked until both the credential-free chain through 06-11 and revised plan 06-01 complete.
 
 ## Session Continuity
 
-**Resume file:** .planning/phases/06-namespace-authority-and-compatibility-contract/06-CONTEXT.md
+**Resume file:** .planning/phases/06-namespace-authority-and-compatibility-contract/06-12-PLAN.md
 
-Last session: 2026-07-17T08:04:23.954Z
-Stopped at: Phase 6 personal namespace context gathered
+Last session: 2026-07-17T10:04:53.658Z
+Stopped at: Completed 06-07-PLAN.md; ready for 06-12
 Resume with: `/gsd-execute-phase 6`
 
 ## Operator Next Steps
 
-- Resume 06-01 only when the exact external identity and sanitized authority proof are available.
-- Execute 06-06 only after 06-01 completes.
+- Execute 06-12 next to rebase the three module roots against the closed personal-namespace policy.
+- Resume revised 06-01 only after the credential-free chain through 06-11; execute 06-06 only after both complete.
+
+## Performance Metrics
+
+| Phase | Plan | Duration | Notes |
+|-------|------|----------|-------|
+| Phase 06 P07 | 8m | 2 tasks | 9 files |
