@@ -700,7 +700,7 @@ function Assert-FoundationPolicy {
 
   $workText = Get-Content -LiteralPath (Join-Path $repoRoot 'moon.work') -Raw
   $workMembers = @([regex]::Matches($workText, '"\./([^"\r\n]+)"') | ForEach-Object { $_.Groups[1].Value })
-  Assert-ExactSet 'moon.work members' $workMembers $expectedPaths
+  Assert-ExactSet 'moon.work members' $workMembers @($expectedPaths + 'examples/ppm-portable')
 
   foreach ($module in $policy.modules) {
     Assert-Condition ($module.version -ceq '0.1.0') "Policy version drift for $($module.name)."

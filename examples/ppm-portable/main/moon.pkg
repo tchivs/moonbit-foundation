@@ -1,0 +1,13 @@
+import {
+  "moonbit-foundation/mb-core/budget",
+  "moonbit-foundation/mb-core/bytes",
+  "moonbit-foundation/mb-core/error",
+  "moonbit-foundation/mb-core/io",
+  "moonbit-foundation/mb-image/codec",
+  "moonbit-foundation/mb-image/ops",
+  "moonbit-foundation/mb-image/ppm",
+}
+
+supported_targets = "+js+wasm+wasm-gc+native"
+
+pkgtype(kind: "executable")

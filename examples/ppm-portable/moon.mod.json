@@ -1,0 +1,11 @@
+{
+  "name": "moonbit-foundation/ppm-portable-example",
+  "version": "0.1.0",
+  "license": "Apache-2.0",
+  "preferred-target": "native",
+  "supported-targets": "+js+wasm+wasm-gc+native",
+  "deps": {
+    "moonbit-foundation/mb-core": "0.1.0",
+    "moonbit-foundation/mb-image": "0.1.0"
+  }
+}
