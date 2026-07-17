@@ -153,7 +153,8 @@ $observation = [ordered]@{
   run_local = [ordered]@{ captured_by = 'operator_collector'; started_utc = $startedUtc; completed_utc = $completedUtc }
 }
 $observation.stable_sha256 = Get-RegistryStableDigest -Observation $observation
-Assert-ObservationShape -Observation ([pscustomobject]$observation) -Policy $policy
+$projectedObservation = $observation | ConvertTo-Json -Depth 100 | ConvertFrom-Json -Depth 100
+Assert-ObservationShape -Observation $projectedObservation -Policy $policy
 
 $absoluteOutput = if ([IO.Path]::IsPathRooted($OutputPath)) { [IO.Path]::GetFullPath($OutputPath) } else { [IO.Path]::GetFullPath((Join-Path $repoRoot $OutputPath)) }
 $parent = Split-Path -Parent $absoluteOutput
