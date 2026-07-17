@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "policy": "catastrophic-regression-only",
-  "benchmark_commit": "2d9c183e72c0a0be2a1004d21389787b020fc4ee",
+  "benchmark_commit": "dc511b84220f67f8d06be30029557ca9850e9e39",
   "benchmark_source_sha256": "2c092d79d9ab5e9da7a2d2e6008564db4c56f117cd8ecf832c43f4a9f723da66",
   "captured_at": "2026-07-17T02:06:58.2918148Z",
   "target": "native",
