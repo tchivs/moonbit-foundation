@@ -32,3 +32,7 @@ stable API or registry publication is claimed.
 Deferred: additional color spaces, gamut/CSS/interpolation features, full ICC
 parsing or transforms, registry publication, LLVM support, and performance
 claims.
+
+Change class: exact
+Migration: not-required
+RFC: not-required; impacts: none

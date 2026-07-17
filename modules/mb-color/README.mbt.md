@@ -290,3 +290,29 @@ Deferred scope includes additional color spaces, gamut mapping, CSS parsing,
 interpolation, image layout/rendering, full ICC parsing or transforms, registry
 publication, and performance claims. LLVM is experimental and is not part of
 the support matrix.
+
+## Publication source contract
+
+The records below are the exact pre-publication source intent for the `0.1.0`
+candidate. The install command becomes usable only after registry publication;
+it is not evidence that Mooncakes currently renders or resolves this module.
+Package imports are listed in policy order, and the shared support, security,
+changelog, compatibility, migration, and RFC routes remain explicit.
+
+<!-- mnf-publication-source:v1 -->
+01|install|moon add moonbit-foundation/mb-color@0.1.0
+02|imports|moonbit-foundation/mb-color/model,moonbit-foundation/mb-color/transfer,moonbit-foundation/mb-color/quantize,moonbit-foundation/mb-color/alpha,moonbit-foundation/mb-color/profile
+03|status|candidate
+04|targets|js,wasm,wasm-gc,native
+05|toolchain|moon=0.1.20260713;moonc=0.10.4;moonrun=0.1.20260713
+06|class|exact
+07|support|docs/support.md
+08|security|SECURITY.md
+09|changelog|CHANGELOG.md
+10|migration|not-required
+11|rfc|not-required
+12|impacts|none
+13|registry-source|moon.mod.json
+14|registry-render|unknown;proof=PROV-05;phase=8
+15|ambiguity|none
+<!-- /mnf-publication-source -->
