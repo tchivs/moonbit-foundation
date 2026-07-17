@@ -35,6 +35,22 @@
   ],
   "observation_policy": {
     "max_age_hours": 24,
+    "username_pattern": "[a-z0-9][a-z0-9_-]{2,38}",
+    "reserved_identity_tokens": [
+      "in",
+      "logged",
+      "already",
+      "status",
+      "authenticated",
+      "unauthenticated",
+      "unknown",
+      "true",
+      "false",
+      "yes",
+      "no",
+      "user",
+      "username"
+    ],
     "states": [
       "documented",
       "safely_observed",

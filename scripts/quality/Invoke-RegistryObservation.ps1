@@ -1,6 +1,7 @@
 [CmdletBinding()]
 param(
   [switch]$CaptureAuthority,
+  [switch]$LibraryOnly,
   [string]$OutputPath = 'release/registry/authority-observation.json'
 )
 
@@ -23,9 +24,46 @@ function Assert-SafeProjectedScalar {
       throw "REGOBS01-UNSAFE-PROJECTION: $Label matches a forbidden secret, header, cookie, or credential-path shape."
     }
   }
-  if ($text -match '[\r\n]') {
+  if ($text -match '[\x00-\x1f\x7f]') {
     throw "REGOBS01-UNSAFE-PROJECTION: $Label must be one sanitized scalar."
   }
+}
+
+function Get-SanitizedAuthenticationProjection {
+  param(
+    [Parameter(Mandatory)][string]$Text,
+    [Parameter(Mandatory)][int]$ExitCode,
+    [Parameter(Mandatory)][object]$Policy
+  )
+  $projection = [ordered]@{
+    session_state = if ($ExitCode -eq 0) { 'safely_observed' } else { 'unknown' }
+    session_authenticated = if ($ExitCode -eq 0) { $true } else { $null }
+    account_state = 'unknown'
+    account_value = $null
+    account_source = 'not_observed'
+    reason = if ($ExitCode -eq 0) { 'session_authenticated_identity_not_observed' } else { 'authentication_unavailable' }
+  }
+  if ($ExitCode -ne 0 -or $Text -match '[\x00-\x1f\x7f]') { return $projection }
+
+  $strict = [string]$Policy.observation_policy.username_pattern
+  $candidate = $null
+  foreach ($pattern in @(
+    "^(?i:username)\s*:\s*(?<username>$strict)\s*$",
+    "^(?i:logged\s+in\s+as)\s+(?<username>$strict)\s*[.!]?\s*$"
+  )) {
+    $match = [regex]::Match($Text.Trim(), $pattern)
+    if ($match.Success) {
+      if ($null -ne $candidate) { return $projection }
+      $candidate = $match.Groups['username'].Value
+    }
+  }
+  if ($null -eq $candidate -or @($Policy.observation_policy.reserved_identity_tokens) -ccontains $candidate) { return $projection }
+
+  $projection.account_state = 'safely_observed'
+  $projection.account_value = $candidate
+  $projection.account_source = 'moon_auth_status'
+  $projection.reason = 'authenticated_identity_observed_namespace_authority_unproven'
+  return $projection
 }
 
 function Get-RegistryStableDigest {
@@ -44,7 +82,7 @@ function Assert-ObservationShape {
   )
   Assert-ReleaseClosedProperties -Label 'registry authority observation' -Object $Observation -Expected @(
     'schema_version', 'source_commit', 'observed_at_utc', 'credentials_read', 'publication_mutation_performed',
-    'command', 'toolchain', 'intended_owner', 'authenticated_account', 'namespace_authority', 'facts',
+    'command', 'toolchain', 'intended_owner', 'session_authentication', 'authenticated_account', 'namespace_authority', 'facts',
     'sanitized_result', 'freshness', 'stable_sha256', 'run_local'
   )
   Assert-ReleaseClosedProperties -Label 'registry observation command' -Object $Observation.command -Expected @('id', 'arguments')
@@ -62,6 +100,8 @@ function Assert-ObservationShape {
     Assert-SafeProjectedScalar -Label ([string]$scalar[0]) -Value $scalar[1] -Policy $Policy
   }
 }
+
+if ($LibraryOnly) { return }
 
 if (-not $CaptureAuthority) {
   throw 'REGOBS04-EXPLICIT-CAPTURE-REQUIRED: pass -CaptureAuthority for the operator-only read-only observation.'
@@ -86,21 +126,11 @@ $commandExit = $LASTEXITCODE
 $completedUtc = [DateTime]::UtcNow.ToString('o')
 $joined = ($captured -join ' ').Trim()
 
-$accountState = 'unknown'
-$accountValue = $null
-$accountSource = 'not_observed'
-$reason = 'authentication_unavailable'
-if ($commandExit -eq 0) {
-  $match = [regex]::Match($joined, '(?i)(?:logged\s+in\s+as\s+|username\s*:\s*)?([a-z0-9](?:[a-z0-9._-]{0,98}[a-z0-9])?)\.?$')
-  if ($match.Success) {
-    $accountState = 'safely_observed'
-    $accountValue = $match.Groups[1].Value
-    $accountSource = 'moon_auth_status'
-    $reason = 'authenticated_identity_observed_namespace_authority_unproven'
-  } else {
-    $reason = 'authenticated_identity_output_ambiguous'
-  }
-}
+$auth = Get-SanitizedAuthenticationProjection -Text $joined -ExitCode $commandExit -Policy $policy
+$accountState = [string]$auth.account_state
+$accountValue = $auth.account_value
+$accountSource = [string]$auth.account_source
+$reason = [string]$auth.reason
 Assert-SafeProjectedScalar -Label 'authenticated account' -Value $accountValue -Policy $policy
 
 $head = (& git -C $repoRoot rev-parse HEAD).Trim()
@@ -139,6 +169,7 @@ $observation = [ordered]@{
     moonrun = [string]$policy.pinned_toolchain.moonrun
   }
   intended_owner = [string]$policy.intended_owner
+  session_authentication = [ordered]@{ state = [string]$auth.session_state; authenticated = $auth.session_authenticated; source = if ($auth.session_state -ceq 'safely_observed') { 'moon_auth_status' } else { 'not_observed' } }
   authenticated_account = [ordered]@{ state = $accountState; value = $accountValue; source = $accountSource }
   namespace_authority = [ordered]@{
     state = 'unknown'

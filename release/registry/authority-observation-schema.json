@@ -4,7 +4,7 @@
   "title": "MNF credential-redacted registry authority observation",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schema_version", "source_commit", "observed_at_utc", "credentials_read", "publication_mutation_performed", "command", "toolchain", "intended_owner", "authenticated_account", "namespace_authority", "facts", "sanitized_result", "freshness", "stable_sha256", "run_local"],
+  "required": ["schema_version", "source_commit", "observed_at_utc", "credentials_read", "publication_mutation_performed", "command", "toolchain", "intended_owner", "session_authentication", "authenticated_account", "namespace_authority", "facts", "sanitized_result", "freshness", "stable_sha256", "run_local"],
   "properties": {
     "schema_version": { "const": "1.0.0" },
     "source_commit": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
@@ -22,6 +22,7 @@
     },
     "toolchain": { "$ref": "#/$defs/toolchain" },
     "intended_owner": { "const": "moonbit-foundation" },
+    "session_authentication": { "$ref": "#/$defs/session" },
     "authenticated_account": { "$ref": "#/$defs/account" },
     "namespace_authority": { "$ref": "#/$defs/authority" },
     "facts": {
@@ -71,13 +72,23 @@
         "moonrun": { "type": "string" }
       }
     },
+    "session": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["state", "authenticated", "source"],
+      "properties": {
+        "state": { "enum": ["safely_observed", "unknown"] },
+        "authenticated": { "type": ["boolean", "null"] },
+        "source": { "enum": ["moon_auth_status", "not_observed"] }
+      }
+    },
     "account": {
       "type": "object",
       "additionalProperties": false,
       "required": ["state", "value", "source"],
       "properties": {
         "state": { "enum": ["safely_observed", "unknown"] },
-        "value": { "type": ["string", "null"], "maxLength": 100 },
+        "value": { "type": ["string", "null"], "pattern": "^[a-z0-9][a-z0-9_-]{2,38}$" },
         "source": { "enum": ["moon_auth_status", "not_observed"] }
       }
     },

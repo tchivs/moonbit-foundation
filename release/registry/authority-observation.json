@@ -1,12 +1,14 @@
 {
   "schema_version": "1.0.0",
-  "source_commit": "7a96d3e876830073e5a11650332f97b792ebb9fc",
-  "observed_at_utc": null,
+  "source_commit": "7a5a2065eb31b3cdeaf63fac19462d44fec98de8",
+  "observed_at_utc": "2026-07-17T06:40:35.1299097Z",
   "credentials_read": false,
   "publication_mutation_performed": false,
   "command": {
-    "id": "none",
-    "arguments": []
+    "id": "moon_auth_status",
+    "arguments": [
+      "whoami"
+    ]
   },
   "toolchain": {
     "moon": "0.1.20260713 (75c7e1f 2026-07-13)",
@@ -14,6 +16,11 @@
     "moonrun": "0.1.20260713 (75c7e1f 2026-07-13)"
   },
   "intended_owner": "moonbit-foundation",
+  "session_authentication": {
+    "state": "safely_observed",
+    "authenticated": true,
+    "source": "moon_auth_status"
+  },
   "authenticated_account": {
     "state": "unknown",
     "value": null,
@@ -26,27 +33,67 @@
     "source": "not_observed"
   },
   "facts": [
-    { "id": "authenticated_account", "state": "unknown", "source": "not_observed", "disposition": "block_publication" },
-    { "id": "namespace_authority", "state": "unknown", "source": "not_observed", "disposition": "block_publication" },
-    { "id": "canonical_module_identities", "state": "unknown", "source": "not_observed", "disposition": "block_publication" },
-    { "id": "pinned_toolchain", "state": "documented", "source": "policy/registry-authority.json", "disposition": "allow" },
-    { "id": "exact_version_availability", "state": "unknown", "source": "not_observed", "disposition": "block_publication" },
-    { "id": "authenticated_publish_seam", "state": "unknown", "source": "not_observed", "disposition": "block_publication" },
-    { "id": "registry_observation", "state": "unknown", "source": "not_observed", "disposition": "block_publication" },
-    { "id": "registry_resolution", "state": "unknown", "source": "not_observed", "disposition": "block_publication" }
+    {
+      "id": "authenticated_account",
+      "state": "unknown",
+      "source": "not_observed",
+      "disposition": "block_publication"
+    },
+    {
+      "id": "namespace_authority",
+      "state": "unknown",
+      "source": "not_observed",
+      "disposition": "block_publication"
+    },
+    {
+      "id": "canonical_module_identities",
+      "state": "unknown",
+      "source": "not_observed",
+      "disposition": "block_publication"
+    },
+    {
+      "id": "pinned_toolchain",
+      "state": "documented",
+      "source": "policy/registry-authority.json",
+      "disposition": "allow"
+    },
+    {
+      "id": "exact_version_availability",
+      "state": "unknown",
+      "source": "not_observed",
+      "disposition": "block_publication"
+    },
+    {
+      "id": "authenticated_publish_seam",
+      "state": "unknown",
+      "source": "not_observed",
+      "disposition": "block_publication"
+    },
+    {
+      "id": "registry_observation",
+      "state": "unknown",
+      "source": "not_observed",
+      "disposition": "block_publication"
+    },
+    {
+      "id": "registry_resolution",
+      "state": "unknown",
+      "source": "not_observed",
+      "disposition": "block_publication"
+    }
   ],
   "sanitized_result": {
     "outcome": "unknown",
-    "reason": "operator_observation_required"
+    "reason": "session_authenticated_identity_not_observed"
   },
   "freshness": {
-    "status": "not_observed",
+    "status": "current",
     "max_age_hours": 24
   },
-  "stable_sha256": "1d33df553e507a66a7a265a63d46e33454ef390cc1b5563dbd01c840757da6e1",
+  "stable_sha256": "e4365e3b0ddaf6d578eab6485d5d87ca2ad9f635e3c98fd61613f6024e509954",
   "run_local": {
-    "captured_by": "tracked_seed",
-    "started_utc": null,
-    "completed_utc": null
+    "captured_by": "operator_collector",
+    "started_utc": "2026-07-17T06:40:35.0607424Z",
+    "completed_utc": "2026-07-17T06:40:35.1299097Z"
   }
 }
