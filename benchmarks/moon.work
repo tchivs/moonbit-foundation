@@ -1,0 +1,6 @@
+members = [
+  "../modules/mb-core",
+  "../modules/mb-color",
+  "../modules/mb-image",
+  "./ppm",
+]

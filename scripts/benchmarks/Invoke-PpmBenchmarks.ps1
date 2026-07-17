@@ -142,7 +142,7 @@ function Convert-BenchmarkOutput([string]$Text) {
 }
 
 function Invoke-BenchmarkRun([string]$OutputPath) {
-  $lines = @(& moon bench --release --target native --frozen benchmarks/ppm 2>&1 | ForEach-Object { "$_" })
+  $lines = @(& moon -C benchmarks bench --release --target native --frozen ppm 2>&1 | ForEach-Object { "$_" })
   $code = $LASTEXITCODE
   $text = $lines -join "`n"
   [IO.File]::WriteAllText($OutputPath, $text + "`n", [Text.UTF8Encoding]::new($false))

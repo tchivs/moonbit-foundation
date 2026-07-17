@@ -4,5 +4,4 @@ members = [
   "./modules/mb-image",
   "./examples/ppm-portable",
   "./examples/ppm-native-cli",
-  "./benchmarks/ppm",
 ]
