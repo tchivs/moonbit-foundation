@@ -32,6 +32,8 @@
       "name": "moonbit-foundation/mb-core",
       "path": "modules/mb-core",
       "version": "0.1.0",
+      "description": "Portable checked arithmetic, bounded storage, resource budgets, backend-neutral I/O, and explicit host capability contracts for MoonBit Native Foundation.",
+      "repository": "https://github.com/moonbit-foundation/moonbit-foundation",
       "stability": "candidate",
       "preferred_target": "native",
       "supported_targets": [
@@ -457,6 +459,8 @@
       "name": "moonbit-foundation/mb-color",
       "path": "modules/mb-color",
       "version": "0.1.0",
+      "description": "Portable explicit color identities, reference sRGB transfer, deterministic quantization, alpha semantics, and bounded profile metadata for MoonBit Native Foundation.",
+      "repository": "https://github.com/moonbit-foundation/moonbit-foundation",
       "stability": "candidate",
       "preferred_target": "native",
       "supported_targets": [
@@ -748,6 +752,8 @@
       "name": "moonbit-foundation/mb-image",
       "path": "modules/mb-image",
       "version": "0.1.0",
+      "description": "Portable explicit image descriptions, safe owned storage and views, deterministic operations, codec contracts, and a strict bounded PPM P6 reference subset for MoonBit Native Foundation.",
+      "repository": "https://github.com/moonbit-foundation/moonbit-foundation",
       "stability": "candidate",
       "preferred_target": "native",
       "supported_targets": [

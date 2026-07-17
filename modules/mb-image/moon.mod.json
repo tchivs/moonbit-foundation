@@ -1,7 +1,9 @@
 {
   "name": "moonbit-foundation/mb-image",
   "version": "0.1.0",
+  "description": "Portable explicit image descriptions, safe owned storage and views, deterministic operations, codec contracts, and a strict bounded PPM P6 reference subset for MoonBit Native Foundation.",
   "license": "Apache-2.0",
+  "repository": "https://github.com/moonbit-foundation/moonbit-foundation",
   "readme": "README.mbt.md",
   "preferred-target": "native",
   "supported-targets": "+js+wasm+wasm-gc+native",

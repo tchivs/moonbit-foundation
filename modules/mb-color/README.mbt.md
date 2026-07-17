@@ -24,6 +24,22 @@ stable and no public release is claimed. Publication remains blocked until
 ownership of the intended `moonbit-foundation` mooncakes.io namespace is
 verified.
 
+## 0.1.0 candidate contract
+
+| Field | Exact value |
+| --- | --- |
+| Module | `moonbit-foundation/mb-color` |
+| Version/status | `0.1.0` candidate; no stable API or public release is claimed |
+| License | Apache-2.0 ([repository license](../../LICENSE)) |
+| Repository metadata | `https://github.com/moonbit-foundation/moonbit-foundation` |
+| Direct module dependency | `moonbit-foundation/mb-core = 0.1.0` |
+| Required targets | `+js+wasm+wasm-gc+native` |
+
+The runnable examples below import public packages directly and are checked by
+`moon check README.mbt.md --frozen --target <target>` for every required target.
+Candidate compatibility requires migration notes for public changes; it is not
+a stable Semantic Versioning promise.
+
 The module has five independently consumable public packages, in publication
 order: `model`, `transfer`, `quantize`, `alpha`, and `profile`. This order is a
 release sequence, not an implied dependency chain.
@@ -257,3 +273,20 @@ Every public package and every example above is checked on the same matrix:
 Core algorithms and models are implemented in MoonBit, require no GUI,
 filesystem, ambient host state, or native adapter, and keep their own changelog
 and version lifecycle.
+
+## Candidate evidence and deferred scope
+
+The exact fixture identities are `color-srgb-reference-vectors` with SHA-256
+`ecc7c7d693ea13067a731dc5456677a74222f9ca28163939ab616222a3e00331`
+and `color-derived-edge-vectors` with SHA-256
+`e4f879895414fb0f78cbdd80dba2805e6c8c68202a16a5764b7b93760fe547c7`.
+Their sources, authorship, retrieval date, Apache-2.0 license, redistribution
+status, and expected use are recorded in
+[`fixtures/manifest.json`](../../fixtures/manifest.json). See the
+[0.1.0 candidate changelog](CHANGELOG.md) for the unpublished compatibility
+record.
+
+Deferred scope includes additional color spaces, gamut mapping, CSS parsing,
+interpolation, image layout/rendering, full ICC parsing or transforms, registry
+publication, and performance claims. LLVM is experimental and is not part of
+the support matrix.

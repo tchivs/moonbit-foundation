@@ -3,7 +3,10 @@
 All notable changes to `moonbit-foundation/mb-core` will be recorded in this
 file. This module follows an independent release lifecycle.
 
-## Unreleased
+## 0.1.0 candidate (unpublished) - 2026-07-17
+
+Compatibility status: candidate. Public changes require migration notes; no
+stable API, registry publication, or permanent toolchain floor is claimed.
 
 ### Added
 
@@ -18,9 +21,12 @@ file. This module follows an independent release lifecycle.
 - Executable public examples covering the complete Phase 2 contract spine and
   the distinction between structured allocator/budget rejection and
   unrecoverable physical runtime OOM.
+- Exact Apache-2.0, repository, description, four-target, and zero-dependency
+  candidate manifest metadata plus runnable literate documentation.
 
 ### Removed
 
 - The private Phase 1 root scaffold package and its white-box probe.
 
-No public release is claimed by this entry.
+Deferred: color/image semantics, concrete codecs, production host adapters,
+registry publication, LLVM support, and performance claims.

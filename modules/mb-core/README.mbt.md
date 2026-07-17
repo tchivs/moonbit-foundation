@@ -28,6 +28,22 @@ Public publication remains blocked until ownership of the intended
 `moonbit-foundation` mooncakes.io namespace is verified. The module already uses
 its final intended name so consumers do not inherit a later rename.
 
+## 0.1.0 candidate contract
+
+| Field | Exact value |
+| --- | --- |
+| Module | `moonbit-foundation/mb-core` |
+| Version/status | `0.1.0` candidate; no stable API or public release is claimed |
+| License | Apache-2.0 ([repository license](../../LICENSE)) |
+| Repository metadata | `https://github.com/moonbit-foundation/moonbit-foundation` |
+| Direct module dependencies | none |
+| Required targets | `+js+wasm+wasm-gc+native` |
+
+The runnable examples in this document import the six public packages directly;
+`moon check README.mbt.md --frozen --target <target>` checks them on each required
+target. Candidate compatibility means every public change requires migration
+notes. It does not establish the stable Semantic Versioning gate.
+
 ## Checked failures and deterministic diagnostics
 
 Caller-controlled arithmetic, ranges, offsets, dimensions, and backend
@@ -254,3 +270,16 @@ layers compose these contracts without reversing the dependency spine.
 Core algorithms and shared data models remain MoonBit-native. The module keeps
 its own version and changelog lifecycle rather than releasing in lockstep with
 `mb-color` or `mb-image`.
+
+## Candidate evidence and deferred scope
+
+The exact public package DAG, semantic interfaces, publication inventory, and
+target declarations are machine-compared with `policy/foundation.json`. The
+[0.1.0 candidate changelog](CHANGELOG.md) records this unpublished candidate.
+Generated fixtures used by dependent color/image conformance are listed in
+[`fixtures/manifest.json`](../../fixtures/manifest.json); `mb-core` itself ships
+no runtime fixture loader and requires no filesystem state.
+
+Deferred scope includes color and image semantics, concrete codecs, GUI/network
+policy, native system adapters, registry publication, and a permanent minimum
+toolchain floor. LLVM is experimental and is not part of the support matrix.

@@ -23,6 +23,8 @@ moonbit:
       alias: ops
     - path: moonbit-foundation/mb-image/codec
       alias: codec
+    - path: moonbit-foundation/mb-image/ppm
+      alias: ppm
 ---
 
 # mb-image
@@ -33,9 +35,24 @@ Portable, explicit image foundations for MoonBit Native Foundation.
 stable and no public release is claimed. Publication remains blocked until the
 intended `moonbit-foundation` mooncakes.io namespace is verified.
 
-The module has five independently consumable public packages, in exact
-publication order: `metadata`, `model`, `storage`, `ops`, and `codec`. There is
-no root facade or prelude.
+The module has six independently consumable public packages, in exact
+publication order: `metadata`, `model`, `storage`, `ops`, `codec`, and `ppm`.
+There is no root facade or prelude.
+
+## 0.1.0 candidate contract
+
+| Field | Exact value |
+| --- | --- |
+| Module | `moonbit-foundation/mb-image` |
+| Version/status | `0.1.0` candidate; no stable API or public release is claimed |
+| License | Apache-2.0 ([repository license](../../LICENSE)) |
+| Repository metadata | `https://github.com/moonbit-foundation/moonbit-foundation` |
+| Direct module dependencies | `moonbit-foundation/mb-core = 0.1.0`; `moonbit-foundation/mb-color = 0.1.0` |
+| Required targets | `+js+wasm+wasm-gc+native` |
+
+The literate examples in this document are checked on every required target.
+Candidate compatibility requires migration notes for public changes; it is not
+a stable Semantic Versioning promise.
 
 ## Explicit descriptor and storage
 
@@ -239,6 +256,43 @@ test "codec policy is explicit without selecting a backend" {
 }
 ```
 
+## MNF strict PPM P6/sRGB subset
+
+The concrete `ppm` package implements the **MNF strict PPM P6/sRGB subset** over
+the public codec contracts. It accepts one binary P6 image with positive decimal
+dimensions, `maxval` exactly `255`, and exactly `width * height * 3` encoded-sRGB
+RGB bytes. Decode requires EOF after that raster. Encode emits only
+`P6\n<width> <height>\n255\n` plus tight logical RGB rows. This intentionally does
+not claim full Netpbm colorimetry, arbitrary maxval scaling, multi-image PPM, P3,
+or 16-bit PPM conformance.
+
+```mbt check
+///|
+test "strict P6 construction keeps parser ceilings explicit" {
+  let parser_limits = @ppm.PpmParserLimits::new(
+    max_header_bytes=128UL,
+    max_token_bytes=20UL,
+    max_comment_bytes=64UL,
+    max_comments=4UL,
+  ).unwrap()
+  let decoder = @ppm.PpmDecoder::new(parser_limits)
+  let encoder = @ppm.PpmEncoder::new()
+  inspect(parser_limits.max_header_bytes(), content="128")
+  ignore(decoder)
+  ignore(encoder)
+}
+```
+
+Two standalone consumers use only public APIs:
+
+- [portable in-memory decode-transform-encode example](../../examples/ppm-portable/main/main.mbt), executed on `js`, `wasm`, `wasm-gc`, and `native`;
+- [Native CLI-shaped injected adapter](../../examples/ppm-native-cli/main/adapter.mbt), whose Reader, Writer, limits, budget, diagnostics, options, and transform are supplied explicitly.
+
+Their copied-source qualification records `source_isolation: pass`. The
+unchanged named-dependency no-workspace probe records
+`registry_resolution: blocked_unpublished_namespace`; it is not reported as an
+artifact-consumer or publication pass.
+
 ## Exact dependency DAG and targets
 
 - `metadata -> mb-core/error + budget + bytes`
@@ -246,17 +300,29 @@ test "codec policy is explicit without selecting a backend" {
 - `storage -> model + metadata + mb-core/error + checked + budget + bytes + mb-color/model + profile`
 - `ops -> storage + model + metadata + mb-core/error + checked + budget + bytes + mb-color/model + alpha + profile`
 - `codec -> storage + model + metadata + mb-core/error + budget + bytes + io`
+- `ppm -> codec + storage + model + metadata + mb-core/error + checked + budget + bytes + io + mb-color/model + profile`
 
 Every package and example is checked independently on `js`, `wasm`, `wasm-gc`,
 and `native`; native is preferred but has no wider portable contract.
 
-Phase 5 owns the first bounded PPM P6 implementation. Phase 4 intentionally
-defers YUV and arbitrary format conversions, advanced resampling, animation,
-tiled/GPU storage, native/system codecs, registries, filesystem/URL policy, and
-rendering. No behavior for those features is fabricated here.
+The candidate intentionally defers YUV and arbitrary format conversions,
+advanced resampling, animation, tiled/GPU storage, PNG/JPEG/WebP, wider PPM
+variants, native/system codecs, registries, filesystem/URL policy, rendering,
+publication, signed releases, and performance claims. LLVM is experimental and
+is not part of the support matrix. No behavior for those features is fabricated
+here.
 
 Generated adversarial evidence is reproduced by
 `scripts/fixtures/Generate-ImageVectors.ps1`, registered with source, license,
 digest, and use in `fixtures/manifest.json`, and embedded as exactly five
 package-local tables. The eight orientation equations are standards-literal
 generator data independent of production mapping code.
+
+The strict P6 corpus is fixture `ppm-p6-conformance-vectors`, SHA-256
+`6e1f367c78839e8e06237a784ebe75732ee3fd2a27d3dc56434c7e6e12676967`,
+generated from the cited Netpbm PPM specification plus repository-derived
+adversarial schedules. The image corpus is `image-operation-vectors`, SHA-256
+`c3ee7dc53faf0c06cce457857d5c23a381002208cf9e10569f2dad758f85c52b`.
+Exact provenance, license, redistribution status, and expected use are in
+[`fixtures/manifest.json`](../../fixtures/manifest.json); the unpublished
+[0.1.0 candidate changelog](CHANGELOG.md) records the release boundary.
