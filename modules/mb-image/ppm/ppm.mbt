@@ -94,8 +94,7 @@ pub fn PpmEncoder::new() -> PpmEncoder {
 fn _probe_ppm_prefix(prefix : @bytes.ByteView) -> @codec.ProbeOutcome {
   if prefix.length() < 2UL {
     @codec.ProbeOutcome::NeedMore(2UL)
-  } else if prefix.get(0UL).unwrap() == b'P' &&
-    prefix.get(1UL).unwrap() == b'6' {
+  } else if prefix.get(0UL).unwrap() == b'P' && prefix.get(1UL).unwrap() == b'6' {
     @codec.ProbeOutcome::Match
   } else {
     @codec.ProbeOutcome::NoMatch
