@@ -1,58 +1,59 @@
 {
   "schema_version": "mnf-public-interface-baseline-package/1",
   "normalization_schema_version": "moon-mbti-lossless-lines/1",
-  "source_commit": "935e74495a8dd4dc586033a02be2e0aa8e983adb",
+  "source_snapshot_sha256": "7fc93ca072bb10fbfb213ae067d94ab0e50e3907635d6c43a5f7f2716424d9b0",
+  "source_commit": "b81cff59d4d1bd371b250ed0fd314ca1a6a008e7",
   "toolchain": {
     "moon": "moon 0.1.20260713 (75c7e1f 2026-07-13)",
     "moonc": "v0.10.4+2cc641edf (2026-07-15)",
     "moonrun": "moonrun 0.1.20260713 (75c7e1f 2026-07-13)"
   },
   "module": "mb-core",
-  "package": "moonbit-foundation/mb-core/checked",
+  "package": "tchivs/mb-core/checked",
   "raw_path": "mb-core/checked/raw.mbti",
-  "raw_sha256": "ba3f9b5a993bde17127419f12654bb83a8b76f359488c3d9ff41b15a49b3b59b",
+  "raw_sha256": "e3c68cffd537b531948591cbf61eae557a7a894eec983c0df6d5898b3ffd9717",
   "records": [
     {
       "target": "js",
       "normalized_path": "mb-core/checked/js.mbti",
-      "normalized_sha256": "1476c2bb1aa4de58d2173474eb0e654ddefc4a77e1c26efbcc12a1c59560b310",
+      "normalized_sha256": "33d4b07dfc04b86f25aa1e2de92198111b6e36d6a365771b90c108b57e8c7fb9",
       "target_inspection": {
         "command": "moon -C modules/mb-core info --target js --frozen",
         "status": "pass",
-        "raw_sha256": "ba3f9b5a993bde17127419f12654bb83a8b76f359488c3d9ff41b15a49b3b59b",
+        "raw_sha256": "e3c68cffd537b531948591cbf61eae557a7a894eec983c0df6d5898b3ffd9717",
         "matches_canonical": true
       }
     },
     {
       "target": "wasm",
       "normalized_path": "mb-core/checked/wasm.mbti",
-      "normalized_sha256": "1476c2bb1aa4de58d2173474eb0e654ddefc4a77e1c26efbcc12a1c59560b310",
+      "normalized_sha256": "33d4b07dfc04b86f25aa1e2de92198111b6e36d6a365771b90c108b57e8c7fb9",
       "target_inspection": {
         "command": "moon -C modules/mb-core info --target wasm --frozen",
         "status": "pass",
-        "raw_sha256": "ba3f9b5a993bde17127419f12654bb83a8b76f359488c3d9ff41b15a49b3b59b",
+        "raw_sha256": "e3c68cffd537b531948591cbf61eae557a7a894eec983c0df6d5898b3ffd9717",
         "matches_canonical": true
       }
     },
     {
       "target": "wasm-gc",
       "normalized_path": "mb-core/checked/wasm-gc.mbti",
-      "normalized_sha256": "1476c2bb1aa4de58d2173474eb0e654ddefc4a77e1c26efbcc12a1c59560b310",
+      "normalized_sha256": "33d4b07dfc04b86f25aa1e2de92198111b6e36d6a365771b90c108b57e8c7fb9",
       "target_inspection": {
         "command": "moon -C modules/mb-core info --target wasm-gc --frozen",
         "status": "pass",
-        "raw_sha256": "ba3f9b5a993bde17127419f12654bb83a8b76f359488c3d9ff41b15a49b3b59b",
+        "raw_sha256": "e3c68cffd537b531948591cbf61eae557a7a894eec983c0df6d5898b3ffd9717",
         "matches_canonical": true
       }
     },
     {
       "target": "native",
       "normalized_path": "mb-core/checked/native.mbti",
-      "normalized_sha256": "1476c2bb1aa4de58d2173474eb0e654ddefc4a77e1c26efbcc12a1c59560b310",
+      "normalized_sha256": "33d4b07dfc04b86f25aa1e2de92198111b6e36d6a365771b90c108b57e8c7fb9",
       "target_inspection": {
         "command": "moon -C modules/mb-core info --target native --frozen",
         "status": "pass",
-        "raw_sha256": "ba3f9b5a993bde17127419f12654bb83a8b76f359488c3d9ff41b15a49b3b59b",
+        "raw_sha256": "e3c68cffd537b531948591cbf61eae557a7a894eec983c0df6d5898b3ffd9717",
         "matches_canonical": true
       }
     }

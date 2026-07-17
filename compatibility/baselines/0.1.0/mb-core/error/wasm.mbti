@@ -1,5 +1,5 @@
 // Generated using `moon info`, DON'T EDIT IT
-package "moonbit-foundation/mb-core/error"
+package "tchivs/mb-core/error"
 
 // Values
 pub fn map_host_failure(String, String) -> CoreError
