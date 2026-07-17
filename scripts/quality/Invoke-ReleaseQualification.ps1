@@ -12,6 +12,8 @@ $ErrorActionPreference = 'Stop'
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
 . (Join-Path $PSScriptRoot 'ReleaseQualification.Common.ps1')
 
+if (-not $Check) { throw 'Release qualification is evidence-only and requires -Check.' }
+
 $absolutePolicy = if ([IO.Path]::IsPathRooted($PolicyPath)) { $PolicyPath } else { Join-Path $repoRoot $PolicyPath }
 $policy = Assert-ReleasePolicy `
   -PolicyPath $absolutePolicy `
@@ -23,4 +25,305 @@ $policy = Assert-ReleasePolicy `
 Write-Host 'Release policy: pass (closed modules, manifests, dependencies, contents, provenance, outcomes, and post-publication order).'
 if ($StaticOnly) { return }
 
-throw 'Dynamic release qualification is not implemented yet.'
+function Invoke-ReleaseNativeCommand {
+  param(
+    [Parameter(Mandatory)][string]$Context,
+    [Parameter(Mandatory)][string]$Command,
+    [Parameter(Mandatory)][string[]]$Arguments,
+    [switch]$ExpectFailure
+  )
+  $output = @(& $Command @Arguments 2>&1 | ForEach-Object { $_.ToString().TrimEnd() })
+  $exitCode = $LASTEXITCODE
+  if (-not $ExpectFailure -and $exitCode -ne 0) { throw "$Context failed (exit $exitCode): $($output -join [Environment]::NewLine)" }
+  if ($ExpectFailure -and $exitCode -eq 0) { throw "$Context unexpectedly succeeded." }
+  return [pscustomobject]@{ exit_code = $exitCode; output = $output }
+}
+
+function New-CleanReleaseClone {
+  param([string]$Destination, [string]$ExpectedHead)
+  $null = Invoke-ReleaseNativeCommand -Context "clean clone $Destination" -Command 'git' -Arguments @('clone', '--quiet', '--no-hardlinks', $repoRoot, $Destination)
+  $head = (& git -C $Destination rev-parse HEAD).Trim()
+  if ($LASTEXITCODE -ne 0 -or $head -cne $ExpectedHead) { throw "Clean clone HEAD drifted: expected $ExpectedHead, got $head." }
+  $status = @(& git -C $Destination status --porcelain=v1 --untracked-files=all)
+  if ($LASTEXITCODE -ne 0 -or $status.Count -ne 0) { throw "Clean clone is not clean: $($status -join ', ')." }
+  & git -C $Destination diff --quiet HEAD -- moon.work
+  if ($LASTEXITCODE -ne 0) { throw 'Clean clone changed the checked moon.work.' }
+  return [ordered]@{ head = $head; clean = $true; moon_work_unchanged = $true }
+}
+
+function Get-PackageList {
+  param([object]$ModulePolicy, [string]$CopyRoot, [string]$ShortName)
+  $result = Invoke-ReleaseNativeCommand -Context "package $ShortName" -Command 'moon' -Arguments @('-C', (Join-Path $CopyRoot "modules\$ShortName"), 'package', '--frozen', '--list')
+  $expected = @($ModulePolicy.package_allowlist | ForEach-Object { [string]$_ })
+  $actual = [Collections.Generic.List[string]]::new()
+  foreach ($raw in @($result.output | Where-Object { $_ -ne '' })) {
+    $line = [regex]::Replace([string]$raw, "`e\[[0-9;]*[A-Za-z]", '')
+    $normalized = $line.Replace('\', '/')
+    if ($expected -ccontains $normalized) { $actual.Add($normalized); continue }
+    if ($line -ceq 'Running moon check ...' -or $line -ceq 'Check passed' -or
+        $line -cmatch '^Finished[.] moon: .+$' -or $line -cmatch '^Package to .+[.]zip$') { continue }
+    throw "Package list for $ShortName contained unrecognized output '$line'."
+  }
+  Assert-ReleaseExactSet -Label "$ShortName closed package inventory" -Actual @($actual) -Expected $expected
+  return @($actual)
+}
+
+function Get-ZipEvidence {
+  param([string]$ZipPath, [object]$ModulePolicy, [string]$SourceManifest)
+  Add-Type -AssemblyName System.IO.Compression.FileSystem
+  $archive = [IO.Compression.ZipFile]::OpenRead($ZipPath)
+  try {
+    $entries = [Collections.Generic.List[string]]::new()
+    $seen = [Collections.Generic.HashSet[string]]::new([StringComparer]::Ordinal)
+    foreach ($entry in $archive.Entries) {
+      $name = $entry.FullName.Replace('\', '/').TrimEnd('/')
+      if ([string]::IsNullOrEmpty($name) -or [IO.Path]::IsPathRooted($name) -or $name -match '(^|/)\.\.(/|$)') {
+        throw "Archive contains an empty, absolute, or traversal entry: '$($entry.FullName)'."
+      }
+      if (-not $seen.Add($name)) { throw "Archive contains duplicate normalized entry '$name'." }
+      foreach ($pattern in @($policy.forbidden_archive_patterns)) { if ($name -match [string]$pattern) { throw "Archive contains forbidden entry '$name'." } }
+      $entries.Add($name)
+    }
+    Assert-ReleaseExactSet -Label "archive entries for $($ModulePolicy.manifest.name)" -Actual @($entries) -Expected @($ModulePolicy.package_allowlist)
+    $manifestEntry = @($archive.Entries | Where-Object { $_.FullName.Replace('\', '/').TrimEnd('/') -ceq 'moon.mod.json' })
+    if ($manifestEntry.Count -ne 1) { throw 'Package archive must contain exactly one root moon.mod.json.' }
+    $stream = $manifestEntry[0].Open()
+    try {
+      $memory = [IO.MemoryStream]::new()
+      try { $stream.CopyTo($memory); $archiveManifestBytes = $memory.ToArray() } finally { $memory.Dispose() }
+    } finally { $stream.Dispose() }
+    $sourceBytes = [IO.File]::ReadAllBytes($SourceManifest)
+    if (-not [Linq.Enumerable]::SequenceEqual([byte[]]$archiveManifestBytes, [byte[]]$sourceBytes)) { throw 'Packaged moon.mod.json bytes differ from committed source manifest.' }
+    return [ordered]@{
+      archive_entries = @($entries)
+      sha256 = Get-ReleaseSha256 -Path $ZipPath
+      size = (Get-Item -LiteralPath $ZipPath).Length
+      manifest_exact = $true
+    }
+  } finally { $archive.Dispose() }
+}
+
+function Assert-ByteIdenticalFiles {
+  param([string]$Left, [string]$Right, [string]$Label)
+  $leftInfo = Get-Item -LiteralPath $Left
+  $rightInfo = Get-Item -LiteralPath $Right
+  if ($leftInfo.Length -ne $rightInfo.Length) { throw "$Label sizes differ." }
+  $leftBytes = [IO.File]::ReadAllBytes($Left)
+  $rightBytes = [IO.File]::ReadAllBytes($Right)
+  if (-not [Linq.Enumerable]::SequenceEqual([byte[]]$leftBytes, [byte[]]$rightBytes)) { throw "$Label bytes differ." }
+}
+
+function Write-TempText {
+  param([string]$Path, [string]$Text)
+  $null = New-Item -ItemType Directory -Force -Path (Split-Path -Parent $Path)
+  [IO.File]::WriteAllText($Path, $Text, [Text.UTF8Encoding]::new($false))
+}
+
+function Assert-CoreConsumerDefinition {
+  $manifestPath = Join-Path $repoRoot 'qualification\consumers\mb-core\moon.mod.json'
+  $consumer = Read-ReleaseJson -Path $manifestPath
+  if ($consumer.name -cne 'mnf-qualification/mb-core-consumer' -or $consumer.version -cne '0.0.0' -or
+      [string]$consumer.deps.'moonbit-foundation/mb-core' -cne '0.1.0') { throw 'mb-core consumer manifest must use the exact named 0.1.0 dependency.' }
+  $raw = Get-Content -LiteralPath $manifestPath -Raw
+  if ($raw -cmatch '"path"\s*:|(?:^|[\\/])[.][.](?:[\\/]|$)') { throw 'mb-core consumer manifest contains a path substitution.' }
+}
+
+function Invoke-CoreArtifactConsumer {
+  param([string]$ZipPath, [string]$WorkingRoot)
+  Assert-CoreConsumerDefinition
+  $artifactRoot = Join-Path $WorkingRoot 'mb-core-artifact'
+  [IO.Compression.ZipFile]::ExtractToDirectory($ZipPath, $artifactRoot)
+  if (@(Get-ChildItem -LiteralPath $artifactRoot -Recurse -File -Filter 'moon.work').Count -ne 0) { throw 'Extracted core artifact unexpectedly contains moon.work.' }
+  $consumerRoot = Join-Path $repoRoot 'qualification\consumers\mb-core\main'
+  $consumerPackage = Join-Path $artifactRoot 'qualification-consumer'
+  $null = New-Item -ItemType Directory -Force -Path $consumerPackage
+  Copy-Item -LiteralPath (Join-Path $consumerRoot 'moon.pkg') -Destination $consumerPackage
+  Copy-Item -LiteralPath (Join-Path $consumerRoot 'main.mbt') -Destination $consumerPackage
+  foreach ($target in @($policy.required_targets)) {
+    $null = Invoke-ReleaseNativeCommand -Context "core artifact consumer check $target" -Command 'moon' -Arguments @('-C', $artifactRoot, 'check', '--target', [string]$target, '--deny-warn', '--frozen', 'qualification-consumer')
+    $null = Invoke-ReleaseNativeCommand -Context "core artifact consumer test $target" -Command 'moon' -Arguments @('-C', $artifactRoot, 'test', '--target', [string]$target, '--frozen', 'qualification-consumer')
+  }
+  return 'pass'
+}
+
+function Get-ConsumerPackageText {
+  param([string[]]$Imports)
+  $lines = [Collections.Generic.List[string]]::new()
+  $lines.Add('import {')
+  foreach ($import in $Imports) { $lines.Add('  "' + $import + '",') }
+  $lines.Add('}')
+  $lines.Add('')
+  $lines.Add('supported_targets = "+js+wasm+wasm-gc+native"')
+  return ($lines -join "`n") + "`n"
+}
+
+function Invoke-SourceIsolation {
+  param([string]$ShortName, [string]$CloneRoot)
+  & git -C $CloneRoot diff --quiet HEAD -- moon.work modules/mb-core/moon.mod.json modules/mb-color/moon.mod.json modules/mb-image/moon.mod.json
+  if ($LASTEXITCODE -ne 0) { throw 'Source-isolation clone changed a workspace or module manifest.' }
+  $consumerPath = Join-Path $CloneRoot "modules\$ShortName\qualification-consumer"
+  $imports = @($policy.modules.$ShortName.public_packages | ForEach-Object { [string]$_ })
+  Write-TempText -Path (Join-Path $consumerPath 'moon.pkg') -Text (Get-ConsumerPackageText -Imports $imports)
+  Copy-Item -LiteralPath (Join-Path $repoRoot 'qualification\consumers\downstream-public\main.mbt') -Destination (Join-Path $consumerPath 'main.mbt')
+  foreach ($target in @($policy.required_targets)) {
+    $packagePath = "modules/$ShortName/qualification-consumer"
+    $null = Invoke-ReleaseNativeCommand -Context "$ShortName source consumer check $target" -Command 'moon' -Arguments @('-C', $CloneRoot, 'check', '--target', [string]$target, '--frozen', $packagePath)
+    $null = Invoke-ReleaseNativeCommand -Context "$ShortName source consumer test $target" -Command 'moon' -Arguments @('-C', $CloneRoot, 'test', '--target', [string]$target, '--frozen', $packagePath)
+  }
+  & git -C $CloneRoot diff --quiet HEAD -- moon.work modules/mb-core/moon.mod.json modules/mb-color/moon.mod.json modules/mb-image/moon.mod.json
+  if ($LASTEXITCODE -ne 0) { throw 'Source-isolation qualification rewrote a workspace or module manifest.' }
+  return 'pass'
+}
+
+function Invoke-RegistryProbe {
+  param([string]$ShortName, [string]$WorkingRoot)
+  $probeRoot = Join-Path $WorkingRoot "$ShortName-registry-probe"
+  $moduleName = "moonbit-foundation/$ShortName"
+  $manifestObject = [ordered]@{
+    name = "mnf-qualification/$ShortName-registry-probe"
+    version = '0.0.0'
+    license = 'Apache-2.0'
+    'preferred-target' = 'native'
+    'supported-targets' = '+js+wasm+wasm-gc+native'
+    deps = [ordered]@{ $moduleName = '0.1.0' }
+  }
+  $manifestPath = Join-Path $probeRoot 'moon.mod.json'
+  Write-TempText -Path $manifestPath -Text (($manifestObject | ConvertTo-Json -Depth 10) + "`n")
+  Write-TempText -Path (Join-Path $probeRoot 'main\moon.pkg') -Text (Get-ConsumerPackageText -Imports @($policy.modules.$ShortName.public_packages | ForEach-Object { [string]$_ }))
+  Copy-Item -LiteralPath (Join-Path $repoRoot 'qualification\consumers\downstream-public\main.mbt') -Destination (Join-Path $probeRoot 'main\main.mbt')
+  if (Test-Path -LiteralPath (Join-Path $probeRoot 'moon.work')) { throw 'Registry probe must not contain moon.work.' }
+  $before = Get-ReleaseSha256 -Path $manifestPath
+  $probe = Invoke-ReleaseNativeCommand -Context "$ShortName unchanged registry probe" -Command 'moon' -Arguments @('-C', $probeRoot, 'check', '--target', 'native', '--frozen') -ExpectFailure
+  if ((Get-ReleaseSha256 -Path $manifestPath) -cne $before) { throw "$ShortName registry probe rewrote its named-dependency manifest." }
+  $text = $probe.output -join "`n"
+  $escapedName = [regex]::Escape($moduleName)
+  if ($text -notmatch "Failed to resolve registry dependency ``$escapedName``" -or $text -notmatch 'module was not found in the registry') {
+    throw "$ShortName registry probe failed for an unrelated reason: $text"
+  }
+  return 'blocked_unpublished_namespace'
+}
+
+function Write-ReleaseReport {
+  param([object]$Report, [string]$Directory)
+  $absolute = if ([IO.Path]::IsPathRooted($Directory)) { $Directory } else { Join-Path $repoRoot $Directory }
+  $null = New-Item -ItemType Directory -Force -Path $absolute
+  $path = Join-Path $absolute 'report.json'
+  [IO.File]::WriteAllText($path, (($Report | ConvertTo-Json -Depth 100) + "`n"), [Text.UTF8Encoding]::new($false))
+  return $path
+}
+
+function Assert-WrittenReleaseReport {
+  param([string]$Path, [string]$ExpectedHead)
+  $report = Read-ReleaseJson -Path $Path
+  Assert-ReleaseClosedProperties -Label 'release report' -Object $report -Expected @(
+    'schema_version', 'head', 'module_order', 'copies', 'modules', 'post_publish_order', 'publication', 'tracked_diff_unchanged'
+  )
+  if ($report.schema_version -cne '1.0.0' -or $report.head -cne $ExpectedHead -or $report.tracked_diff_unchanged -ne $true) {
+    throw 'Release report identity or read-only evidence drifted.'
+  }
+  Assert-ReleaseExactSequence -Label 'report module order' -Actual @($report.module_order) -Expected @($policy.module_order)
+  Assert-ReleaseExactSequence -Label 'report post-publication order' -Actual @($report.post_publish_order) -Expected @($policy.post_publish_order)
+  Assert-ReleaseClosedProperties -Label 'report copies' -Object $report.copies -Expected @('copy_a', 'copy_b')
+  foreach ($copy in @($report.copies.copy_a, $report.copies.copy_b)) {
+    Assert-ReleaseClosedProperties -Label 'report clean copy' -Object $copy -Expected @('head', 'clean', 'moon_work_unchanged')
+    if ($copy.head -cne $ExpectedHead -or $copy.clean -ne $true -or $copy.moon_work_unchanged -ne $true) { throw 'Release report clean-copy evidence drifted.' }
+  }
+  Assert-ReleaseClosedProperties -Label 'report modules' -Object $report.modules -Expected @('mb-core', 'mb-color', 'mb-image')
+  foreach ($shortName in @($policy.module_order)) {
+    $module = $report.modules.$shortName
+    $package = $module.package
+    Assert-ReleaseExactSequence -Label "$shortName report ordered list" -Actual @($package.ordered_list) -Expected @($moduleReports[$shortName].package.ordered_list)
+    Assert-ReleaseExactSequence -Label "$shortName report archive entries" -Actual @($package.archive_entries) -Expected @($moduleReports[$shortName].package.archive_entries)
+    if ([string]$package.sha256 -cnotmatch '^[0-9a-f]{64}$' -or [Int64]$package.size -le 0 -or
+        $package.zip_bytes_equal -ne $true -or $package.manifest_exact -ne $true) { throw "$shortName report package evidence is incomplete." }
+  }
+  if ($report.modules.'mb-core'.artifact_consumer -cne 'pass' -or
+      $report.modules.'mb-color'.source_isolation -cne 'pass' -or $report.modules.'mb-image'.source_isolation -cne 'pass' -or
+      $report.modules.'mb-color'.registry_resolution -cne 'blocked_unpublished_namespace' -or
+      $report.modules.'mb-image'.registry_resolution -cne 'blocked_unpublished_namespace' -or
+      $report.modules.'mb-color'.artifact_consumer -cne 'blocked_unpublished_dependency' -or
+      $report.modules.'mb-image'.artifact_consumer -cne 'blocked_unpublished_dependency') {
+    throw 'Release report fabricated or omitted a consumer outcome.'
+  }
+  if ($report.publication.performed -ne $false -or $report.publication.credentials_read -ne $false -or
+      $report.publication.namespace_verified -ne $false -or $report.publication.blocked_reason -cne 'unverified_mooncakes_owner_namespace') {
+    throw 'Release report fabricated publication, credential, or namespace evidence.'
+  }
+}
+
+$initialDiff = Get-ReleaseTrackedDiffSnapshot
+$head = (& git -C $repoRoot rev-parse HEAD).Trim()
+if ($LASTEXITCODE -ne 0 -or $head -cnotmatch '^[0-9a-f]{40}$') { throw 'Unable to identify the committed release-qualification HEAD.' }
+$tempRoot = Join-Path ([IO.Path]::GetTempPath()) ('mnf-release-qualification-' + [Guid]::NewGuid().ToString('N'))
+$null = New-Item -ItemType Directory -Force -Path $tempRoot
+try {
+  $copyA = Join-Path $tempRoot 'copy-a'
+  $copyB = Join-Path $tempRoot 'copy-b'
+  $copySource = Join-Path $tempRoot 'source-isolation'
+  $copyAEvidence = New-CleanReleaseClone -Destination $copyA -ExpectedHead $head
+  $copyBEvidence = New-CleanReleaseClone -Destination $copyB -ExpectedHead $head
+  $null = New-CleanReleaseClone -Destination $copySource -ExpectedHead $head
+  $moduleReports = [ordered]@{}
+
+  foreach ($shortName in @($policy.module_order)) {
+    $modulePolicy = $policy.modules.$shortName
+    $listA = Get-PackageList -ModulePolicy $modulePolicy -CopyRoot $copyA -ShortName $shortName
+    $listB = Get-PackageList -ModulePolicy $modulePolicy -CopyRoot $copyB -ShortName $shortName
+    Assert-ReleaseExactSequence -Label "$shortName clean-copy package lists" -Actual $listA -Expected $listB
+    $archiveName = ([string]$modulePolicy.manifest.name).Replace('/', '-') + '-' + [string]$modulePolicy.manifest.version + '.zip'
+    $zipA = Join-Path $copyA "_build\publish\$archiveName"
+    $zipB = Join-Path $copyB "_build\publish\$archiveName"
+    if (-not (Test-Path -LiteralPath $zipA -PathType Leaf) -or -not (Test-Path -LiteralPath $zipB -PathType Leaf)) { throw "$shortName package ZIP is missing." }
+    Assert-ByteIdenticalFiles -Left $zipA -Right $zipB -Label "$shortName clean-copy ZIP"
+    $zipEvidenceA = Get-ZipEvidence -ZipPath $zipA -ModulePolicy $modulePolicy -SourceManifest (Join-Path $copyA "modules\$shortName\moon.mod.json")
+    $zipEvidenceB = Get-ZipEvidence -ZipPath $zipB -ModulePolicy $modulePolicy -SourceManifest (Join-Path $copyB "modules\$shortName\moon.mod.json")
+    if ($zipEvidenceA.sha256 -cne $zipEvidenceB.sha256 -or $zipEvidenceA.size -ne $zipEvidenceB.size) { throw "$shortName ZIP hash or size differs across clean copies." }
+    $packageReport = [ordered]@{
+      ordered_list = $listA
+      archive_entries = $zipEvidenceA.archive_entries
+      sha256 = $zipEvidenceA.sha256
+      size = $zipEvidenceA.size
+      zip_bytes_equal = $true
+      manifest_exact = $true
+    }
+    if ($shortName -ceq 'mb-core') {
+      $moduleReports[$shortName] = [ordered]@{
+        package = $packageReport
+        artifact_consumer = Invoke-CoreArtifactConsumer -ZipPath $zipA -WorkingRoot $tempRoot
+        registry_resolution = 'not_required_no_dependencies'
+      }
+    } else {
+      $moduleReports[$shortName] = [ordered]@{
+        package = $packageReport
+        source_isolation = Invoke-SourceIsolation -ShortName $shortName -CloneRoot $copySource
+        artifact_consumer = 'blocked_unpublished_dependency'
+        registry_resolution = Invoke-RegistryProbe -ShortName $shortName -WorkingRoot $tempRoot
+      }
+    }
+    Write-Host "$shortName package: list/hash/bytes/archive/manifest pass ($($zipEvidenceA.sha256), $($zipEvidenceA.size) bytes)."
+  }
+
+  $finalDiff = Get-ReleaseTrackedDiffSnapshot
+  if ($finalDiff -cne $initialDiff) { throw 'Release qualification changed tracked repository files.' }
+  $report = [ordered]@{
+    schema_version = '1.0.0'
+    head = $head
+    module_order = @($policy.module_order)
+    copies = [ordered]@{ copy_a = $copyAEvidence; copy_b = $copyBEvidence }
+    modules = $moduleReports
+    post_publish_order = @($policy.post_publish_order)
+    publication = [ordered]@{
+      performed = $false
+      credentials_read = $false
+      namespace_verified = $false
+      blocked_reason = 'unverified_mooncakes_owner_namespace'
+    }
+    tracked_diff_unchanged = $true
+  }
+  $reportPath = Write-ReleaseReport -Report $report -Directory $OutputDirectory
+  Assert-WrittenReleaseReport -Path $reportPath -ExpectedHead $head
+  Write-Host "Release qualification report: $reportPath"
+  Write-Host 'Post-publication contract: mb-core publish/resolve, then mb-color publish/resolve, then mb-image publish/resolve.'
+} finally {
+  Remove-ReleaseTemp -Path $tempRoot
+}

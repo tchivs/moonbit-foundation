@@ -15,5 +15,5 @@ Thumbs.db
 .moon/credentials.json
 
 # Dynamic local release-qualification evidence
-artifacts/release-qualification/*.json
+artifacts/release-qualification/
 artifacts/benchmarks/

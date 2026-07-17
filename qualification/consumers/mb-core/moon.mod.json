@@ -1,0 +1,10 @@
+{
+  "name": "mnf-qualification/mb-core-consumer",
+  "version": "0.0.0",
+  "license": "Apache-2.0",
+  "preferred-target": "native",
+  "supported-targets": "+js+wasm+wasm-gc+native",
+  "deps": {
+    "moonbit-foundation/mb-core": "0.1.0"
+  }
+}
