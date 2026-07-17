@@ -45,7 +45,7 @@
 4. Candidate deltas, including supported-target, minimum-toolchain, and dependency-floor changes, are deterministically classified and the gate enforces the required version, changelog, migration, and conditional RFC evidence.
 5. Before publication, each module's source documentation contract covers exact install and import commands, candidate status, targets and toolchain, change class, changelog, support and security routes, migration notes when required, and the intended registry metadata source; actual Mooncakes rendering proof is deferred to PROV-05 after publication.
 
-**Plans:** 4/6 plans executed
+**Plans:** 4/24 plans executed
 **Completed foundation**
 
 - [x] 06-02-PLAN.md — Define baseline contracts and mechanically generate 17-package × 4-target interface evidence.
@@ -62,13 +62,85 @@
 
 - [x] 06-05-PLAN.md — Complete the three bounded module publication-documentation sets.
 
-**Wave 5 — deferred external checkpoint** *(resume after Wave 4 when the exact account identity exists)*
+**Wave 5 — canonical personal identity authority** *(depends on Wave 4)*
 
-- [ ] 06-01-PLAN.md — Freeze authority/capability contracts, capture sanitized read-only namespace proof, and enforce readiness. Contract work is retained; live authority proof is deferred by the sole maintainer. See `06-01-DEFERRED.md`.
+- [ ] 06-07-PLAN.md — Rebase closed policies, schemas, and the blocked authority seed to canonical `tchivs/*` 0.1.0 truth.
 
-**Wave 6** *(blocked on Waves 2-5 completion)*
+**Wave 6 — canonical module roots** *(depends on Wave 5)*
 
-- [ ] 06-06-PLAN.md — Freeze reciprocal Phase 6 coverage and integrate all credential-free gates into Required.
+- [ ] 06-12-PLAN.md — Rebase the three module manifests and one bounded root-adjacent smoke package.
+
+**Wave 7 — active module source graph** *(depends on Wave 6)*
+
+- [ ] 06-08-PLAN.md — Rebase the remaining 15 explicit package files and close the 17-package graph on all four targets.
+
+**Wave 8 — examples and benchmark** *(depends on Wave 7)*
+
+- [ ] 06-09-PLAN.md — Rebase both public examples and the bounded benchmark with executable qualification.
+
+**Wave 9 — package consumers and release qualification** *(depends on Wave 8)*
+
+- [ ] 06-13-PLAN.md — Rebase isolated package consumers and retain exact positive/negative release-qualification ownership.
+
+**Wave 10 — public documentation truth** *(depends on Wave 9)*
+
+- [ ] 06-10-PLAN.md — Reconcile the explicit project, research, and module documentation set while preserving branding.
+
+**Wave 11 — shared routes and collective validators** *(depends on Wave 10)*
+
+- [ ] 06-14-PLAN.md — Reconcile support/security routes and collective source, compatibility, and authority validators.
+
+**Wave 12 — baseline batch tooling** *(depends on Wave 11)*
+
+- [ ] 06-15-PLAN.md — Add deterministic exact-package batching and guarded manifest finalization semantics.
+
+**Wave 13 — baseline batch 1** *(depends on Wave 12)*
+
+- [ ] 06-16-PLAN.md — Regenerate the bounded mb-core budget and bytes baseline outputs.
+
+**Wave 14 — baseline batch 2** *(depends on Wave 13)*
+
+- [ ] 06-17-PLAN.md — Regenerate the bounded mb-core checked and error baseline outputs.
+
+**Wave 15 — baseline batch 3** *(depends on Wave 14)*
+
+- [ ] 06-18-PLAN.md — Regenerate the bounded mb-core host and io baseline outputs.
+
+**Wave 16 — baseline batch 4** *(depends on Wave 15)*
+
+- [ ] 06-19-PLAN.md — Regenerate the bounded mb-color alpha and model baseline outputs.
+
+**Wave 17 — baseline batch 5** *(depends on Wave 16)*
+
+- [ ] 06-20-PLAN.md — Regenerate the bounded mb-color profile and quantize baseline outputs.
+
+**Wave 18 — baseline batch 6** *(depends on Wave 17)*
+
+- [ ] 06-21-PLAN.md — Regenerate the bounded mb-color transfer and mb-image codec baseline outputs.
+
+**Wave 19 — baseline batch 7** *(depends on Wave 18)*
+
+- [ ] 06-22-PLAN.md — Regenerate the bounded mb-image metadata and model baseline outputs.
+
+**Wave 20 — baseline batch 8** *(depends on Wave 19)*
+
+- [ ] 06-23-PLAN.md — Regenerate the bounded mb-image ops and ppm baseline outputs.
+
+**Wave 21 — baseline batch 9** *(depends on Wave 20)*
+
+- [ ] 06-24-PLAN.md — Regenerate the bounded mb-image storage baseline outputs.
+
+**Wave 22 — final manifest, history, and full-suite closure** *(depends on Wave 21)*
+
+- [ ] 06-11-PLAN.md — Finalize the single exact 103-file-tree manifest, enforce immutable identity/history classification, and run the full credential-free suite.
+
+**Wave 23 — external identity checkpoint** *(depends on Wave 22)*
+
+- [ ] 06-01-PLAN.md — Complete one human Mooncakes OAuth checkpoint, capture sanitized read-only personal-namespace proof, and enforce readiness without external repository creation or publication.
+
+**Wave 24** *(blocked on Waves 2-23 completion)*
+
+- [ ] 06-06-PLAN.md — Freeze reciprocal requirement, 22-edge, and seven-prohibition coverage and integrate all credential-free gates into Required.
 
 ### Phase 7: Release Safety, Intent, and Recovery Automation
 
@@ -133,7 +205,7 @@
 | 3. Reference Color Semantics | v0.1 | 8/8 | Complete | 2026-07-17 |
 | 4. Image Model, Views, and Operations | v0.1 | 9/9 | Complete | 2026-07-17 |
 | 5. Reference Codec and Release Qualification | v0.1 | 8/8 | Complete | 2026-07-17 |
-| 6. Namespace Authority and Compatibility Contract | v0.2 | 4/6 | In Progress|  |
+| 6. Namespace Authority and Compatibility Contract | v0.2 | 4/24 | In Progress|  |
 | 7. Release Safety, Intent, and Recovery Automation | v0.2 | 0/TBD | Not started | — |
 | 8. Ordered Mooncakes Publication and Registry Consumers | v0.2 | 0/TBD | Not started | — |
 | 9. Provenance, Immutable Closure, and Milestone Audit | v0.2 | 0/TBD | Not started | — |

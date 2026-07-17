@@ -1,16 +1,16 @@
 ---
 phase: 06-namespace-authority-and-compatibility-contract
 plan: "01"
-status: deferred
+status: superseded
 decision_date: 2026-07-17
 decision: mark-and-skip
-resume_after: 06-05
+resume_after: 06-11
 requirements_pending: [REG-01, REG-02, REG-03]
 ---
 
-# 06-01 External Authority Checkpoint Deferred
+# 06-01 External Authority Checkpoint Replanned
 
-The sole maintainer chose to skip creating or registering the external GitHub and Mooncakes identity during the current local-development run. This is a scheduling decision, not evidence of registry authority and not a waiver of the fail-closed publication contract.
+The original external-authority attempt was deferred before the personal namespace decision. The retained commits remain historical implementation evidence, but this marker is superseded by the revised 06-01 plan and must not cause that plan to be skipped.
 
 ## Completed work retained
 
@@ -23,15 +23,16 @@ The sole maintainer chose to skip creating or registering the external GitHub an
 
 ## Work still pending
 
-- Task 3 has not captured an authoritative account identity.
-- Authority over `moonbit-foundation` and the exact `mb-core`, `mb-color`, and `mb-image` identities remains unknown.
+- The credential-free personal-namespace remediation chain 06-07 -> 06-12 -> 06-08 -> 06-09 -> 06-13 -> 06-10 -> 06-14 -> 06-15 -> 06-16 -> 06-17 -> 06-18 -> 06-19 -> 06-20 -> 06-21 -> 06-22 -> 06-23 -> 06-24 -> 06-11 must complete first.
+- Task 3 has not captured an authoritative Mooncakes account identity.
+- Authority over `tchivs` and the exact `tchivs/mb-core`, `tchivs/mb-color`, and `tchivs/mb-image` identities remains unknown.
 - REG-01, REG-02, and REG-03 remain pending.
 - No `06-01-SUMMARY.md` may be created and no production publication may run until the checkpoint is satisfied.
 
 ## Safe continuation
 
-Plans 06-03, 06-04, and 06-05 form an independent credential-free chain rooted in completed plan 06-02 and may execute now. Plan 06-06 keeps its hard dependency on 06-01 and must not execute until this checkpoint resumes and completes.
+Plans 06-02 through 06-05 remain completed historical work. Execute the explicit credential-free chain through 06-11 next, then resume the revised 06-01 human OAuth and sanitized observation checkpoint. Plan 06-06 remains blocked until both complete.
 
 ## Resume condition
 
-Resume 06-01 only after the exact `moonbit-foundation` GitHub/Mooncakes identity exists and an allowlisted, credential-redacted read-only observation can prove the authenticated account, namespace authority, and all three canonical module identities.
+Resume 06-01 after 06-11. The sole maintainer completes `moon register` or `moon login` through GitHub OAuth as `tchivs`; the executor then uses only the allowlisted, credential-redacted read-only collector to prove the exact account, namespace authority, and three canonical module identities. Creation or push of `tchivs/moonbit-foundation` remains a separate explicit authorization boundary.
