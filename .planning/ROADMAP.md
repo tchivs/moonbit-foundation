@@ -122,11 +122,11 @@ Plans:
 
 **Requirements:** WORK-06, QUAL-01, QUAL-02, QUAL-03, QUAL-04, QUAL-05, QUAL-06
 
-**Plans:** 8 plans
+**Plans:** 1/8 plans executed
 
 Plans:
 
-- [ ] 05-01-PLAN.md — Define PPM options and prove the bounded incremental header parser.
+- [x] 05-01-PLAN.md — Define PPM options and prove the bounded incremental header parser.
 - [ ] 05-02-PLAN.md — Decode through one atomic allocation, exact payload fill, and strict EOF probe.
 - [ ] 05-03-PLAN.md — Emit canonical P6 and generate conformance, adversarial, and metamorphic evidence.
 - [ ] 05-04-PLAN.md — Qualify portable and Native CLI-shaped public stream-transform-stream examples.
@@ -151,7 +151,7 @@ Plans:
 | 2 | 8/8 | Complete    | 2026-07-17 |
 | 3 | 8/8 | Complete    | 2026-07-17 |
 | 4 | 9/9 | Complete    | 2026-07-17 |
-| 5 | Reference Codec and Release Qualification | 7 | Not started |
+| 5 | 1/8 | In Progress|  |
 
 **v0.1 coverage:** 36/36 requirements mapped exactly once.
 
