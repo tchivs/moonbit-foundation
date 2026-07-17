@@ -6,6 +6,8 @@ param(
   [string]$Mode = 'workspace',
   [ValidateSet('all', 'js', 'wasm', 'wasm-gc', 'native')]
   [string]$Target = 'all',
+  [ValidateSet('runtime', 'compile-only')]
+  [string]$NativeVerification = 'runtime',
   [string]$Report
 )
 
@@ -59,6 +61,26 @@ function Invoke-MoonExample {
   if ($semantic.Count -ne 1 -or $semantic[0] -cne $Expected) {
     throw "Public example output drifted on ${RunTarget}: '$($semantic -join ' | ')'"
   }
+}
+
+function Invoke-MoonExampleVerification {
+  param(
+    [Parameter(Mandatory)][string]$WorkingRoot,
+    [Parameter(Mandatory)][string]$Package,
+    [Parameter(Mandatory)][string]$RunTarget,
+    [Parameter(Mandatory)][string]$Expected
+  )
+
+  if ($RunTarget -ceq 'native' -and $NativeVerification -ceq 'compile-only') {
+    $output = @(& moon -C $WorkingRoot check $Package --target native --frozen 2>&1 | ForEach-Object { $_.ToString().TrimEnd() })
+    if ($LASTEXITCODE -ne 0) {
+      throw "Public example compile-only native verification failed (exit $LASTEXITCODE): $($output -join [Environment]::NewLine)"
+    }
+    Write-Host "native_compile_only: pass ($Package); linking and runtime output not verified"
+    return
+  }
+
+  Invoke-MoonExample -WorkingRoot $WorkingRoot -Package $Package -RunTarget $RunTarget -Expected $Expected
 }
 
 function Assert-NamedDependencies {
@@ -121,9 +143,9 @@ function Invoke-SourceIsolation {
     Copy-SourceTree -Source $nativeRoot -Destination (Join-Path $root 'examples\ppm-native-cli')
     Copy-Item -LiteralPath (Join-Path $repoRoot 'moon.work') -Destination (Join-Path $root 'moon.work')
     foreach ($runTarget in @('js', 'wasm', 'wasm-gc', 'native')) {
-      Invoke-MoonExample -WorkingRoot $root -Package 'examples/ppm-portable/main' -RunTarget $runTarget -Expected 'example=portable bytes_read=17 bytes_written=17 width=2 height=1 transform=flip_horizontal disposition=5 digest=806175100'
+      Invoke-MoonExampleVerification -WorkingRoot $root -Package 'examples/ppm-portable/main' -RunTarget $runTarget -Expected 'example=portable bytes_read=17 bytes_written=17 width=2 height=1 transform=flip_horizontal disposition=5 digest=806175100'
     }
-    Invoke-MoonExample -WorkingRoot $root -Package 'examples/ppm-native-cli/main' -RunTarget 'native' -Expected 'example=native bytes_read=17 bytes_written=17 transform=flip_horizontal disposition=5 digest=806175100 short_progress=pass'
+    Invoke-MoonExampleVerification -WorkingRoot $root -Package 'examples/ppm-native-cli/main' -RunTarget 'native' -Expected 'example=native bytes_read=17 bytes_written=17 transform=flip_horizontal disposition=5 digest=806175100 short_progress=pass'
     return 'pass'
   } finally {
     Remove-QualifiedTemp -Path $root
@@ -145,8 +167,8 @@ function Invoke-RegistryResolutionProbe {
       throw 'Registry probe fabricated a downstream dependency-resolution pass.'
     }
     $text = $output -join "`n"
-    if ($text -cnotmatch 'Failed to resolve registry dependency `moonbit-foundation/mb-core`' -or
-        $text -cnotmatch 'Failed to resolve registry dependency `moonbit-foundation/mb-image`' -or
+    if ($text -cnotmatch 'Failed to resolve registry dependency `tchivs/mb-core`' -or
+        $text -cnotmatch 'Failed to resolve registry dependency `tchivs/mb-image`' -or
         $text -cnotmatch 'module was not found in the registry') {
       throw "Registry probe failed for an unrelated reason: $text"
     }
@@ -182,17 +204,45 @@ function Write-QualificationReport {
     source_isolation = $SourceIsolation
     registry_resolution = $RegistryResolution
   }
+  if ($NativeVerification -ceq 'compile-only') {
+    $reportObject.workspace_examples.portable.status = 'partial_native_compile_only'
+    $reportObject.workspace_examples.portable.targets = @('js', 'wasm', 'wasm-gc')
+    $reportObject.workspace_examples.portable.native_compile = 'pass'
+    $reportObject.workspace_examples.portable.linking_verified = $false
+    $reportObject.workspace_examples.portable.runtime_output_verified = $false
+    $reportObject.workspace_examples.native.status = 'compile_only'
+    $reportObject.workspace_examples.native.Remove('digest')
+    $reportObject.workspace_examples.native.Remove('short_progress')
+    $reportObject.workspace_examples.native.compile = 'pass'
+    $reportObject.workspace_examples.native.linking_verified = $false
+    $reportObject.workspace_examples.native.runtime_output_verified = $false
+    $reportObject.source_isolation = 'pass_with_native_compile_only'
+    $reportObject.qualification_eligible = $false
+    $reportObject.incomplete_reason = 'native_linking_and_runtime_output_not_verified'
+  }
   $absolute = if ([System.IO.Path]::IsPathRooted($Path)) { $Path } else { Join-Path $repoRoot $Path }
   New-Item -ItemType Directory -Path (Split-Path -Parent $absolute) -Force | Out-Null
   $json = $reportObject | ConvertTo-Json -Depth 20
   [System.IO.File]::WriteAllText($absolute, $json + "`n", [System.Text.UTF8Encoding]::new($false))
   $roundTrip = Get-Content -LiteralPath $absolute -Raw | ConvertFrom-Json -Depth 20
-  if ($roundTrip.source_audit -cne 'pass' -or
-      $roundTrip.source_isolation -cne 'pass' -or
-      $roundTrip.registry_resolution -cne 'blocked_unpublished_namespace' -or
-      $roundTrip.workspace_examples.portable.digest -cne 'rolling257-mod1000000007:806175100' -or
-      $roundTrip.workspace_examples.native.short_progress -cne 'pass') {
-    throw 'Written example-consumer report does not conform to the frozen qualification outcomes.'
+  if ($NativeVerification -ceq 'compile-only') {
+    if ($roundTrip.qualification_eligible -ne $false -or
+        $roundTrip.incomplete_reason -cne 'native_linking_and_runtime_output_not_verified' -or
+        $roundTrip.workspace_examples.portable.native_compile -cne 'pass' -or
+        $roundTrip.workspace_examples.portable.linking_verified -ne $false -or
+        $roundTrip.workspace_examples.portable.runtime_output_verified -ne $false -or
+        $roundTrip.workspace_examples.native.status -cne 'compile_only' -or
+        $roundTrip.workspace_examples.native.compile -cne 'pass' -or
+        $roundTrip.workspace_examples.native.linking_verified -ne $false -or
+        $roundTrip.workspace_examples.native.runtime_output_verified -ne $false) {
+      throw 'Compile-only report did not preserve the explicit native runtime qualification gap.'
+    }
+  } elseif ($roundTrip.source_audit -cne 'pass' -or
+            $roundTrip.source_isolation -cne 'pass' -or
+            $roundTrip.registry_resolution -cne 'blocked_unpublished_namespace' -or
+            $roundTrip.workspace_examples.portable.digest -cne 'rolling257-mod1000000007:806175100' -or
+            $roundTrip.workspace_examples.native.short_progress -cne 'pass') {
+    throw 'Written example-consumer report does not conform to the frozen runtime qualification outcomes.'
   }
 }
 
@@ -224,32 +274,32 @@ function Assert-PublicImports {
 if ($Example -in @('portable', 'all')) {
   Assert-ExampleSource -Root $portableRoot -Files @('moon.mod.json', 'main\moon.pkg', 'main\main.mbt')
   Assert-PublicImports -Root $portableRoot -AllowedImports @(
-    'moonbit-foundation/mb-core/budget',
-    'moonbit-foundation/mb-core/bytes',
-    'moonbit-foundation/mb-core/error',
-    'moonbit-foundation/mb-core/io',
-    'moonbit-foundation/mb-image/codec',
-    'moonbit-foundation/mb-image/ops',
-    'moonbit-foundation/mb-image/ppm'
+    'tchivs/mb-core/budget',
+    'tchivs/mb-core/bytes',
+    'tchivs/mb-core/error',
+    'tchivs/mb-core/io',
+    'tchivs/mb-image/codec',
+    'tchivs/mb-image/ops',
+    'tchivs/mb-image/ppm'
   )
   $targets = if ($Target -ceq 'all') { @('js', 'wasm', 'wasm-gc', 'native') } else { @($Target) }
   foreach ($runTarget in $targets) {
-    Invoke-MoonExample -WorkingRoot $repoRoot -Package 'examples/ppm-portable/main' -RunTarget $runTarget -Expected 'example=portable bytes_read=17 bytes_written=17 width=2 height=1 transform=flip_horizontal disposition=5 digest=806175100'
+    Invoke-MoonExampleVerification -WorkingRoot $repoRoot -Package 'examples/ppm-portable/main' -RunTarget $runTarget -Expected 'example=portable bytes_read=17 bytes_written=17 width=2 height=1 transform=flip_horizontal disposition=5 digest=806175100'
   }
 }
 if ($Example -in @('native', 'all')) {
   Assert-ExampleSource -Root $nativeRoot -Files @('moon.mod.json', 'main\moon.pkg', 'main\adapter.mbt', 'main\main.mbt')
-  Assert-NamedDependencies -Manifest (Join-Path $nativeRoot 'moon.mod.json') -Expected @('moonbit-foundation/mb-core', 'moonbit-foundation/mb-image')
+  Assert-NamedDependencies -Manifest (Join-Path $nativeRoot 'moon.mod.json') -Expected @('tchivs/mb-core', 'tchivs/mb-image')
   Assert-PublicImports -Root $nativeRoot -AllowedImports @(
-    'moonbit-foundation/mb-core/budget',
-    'moonbit-foundation/mb-core/bytes',
-    'moonbit-foundation/mb-core/error',
-    'moonbit-foundation/mb-core/io',
-    'moonbit-foundation/mb-image/codec',
-    'moonbit-foundation/mb-image/ops',
-    'moonbit-foundation/mb-image/ppm'
+    'tchivs/mb-core/budget',
+    'tchivs/mb-core/bytes',
+    'tchivs/mb-core/error',
+    'tchivs/mb-core/io',
+    'tchivs/mb-image/codec',
+    'tchivs/mb-image/ops',
+    'tchivs/mb-image/ppm'
   )
-  Invoke-MoonExample -WorkingRoot $repoRoot -Package 'examples/ppm-native-cli/main' -RunTarget 'native' -Expected 'example=native bytes_read=17 bytes_written=17 transform=flip_horizontal disposition=5 digest=806175100 short_progress=pass'
+  Invoke-MoonExampleVerification -WorkingRoot $repoRoot -Package 'examples/ppm-native-cli/main' -RunTarget 'native' -Expected 'example=native bytes_read=17 bytes_written=17 transform=flip_horizontal disposition=5 digest=806175100 short_progress=pass'
 }
 
 if ($Mode -ceq 'qualify') {
@@ -267,4 +317,4 @@ if ($Mode -ceq 'qualify') {
 }
 
 Write-Host 'workspace_examples: pass'
-  Assert-NamedDependencies -Manifest (Join-Path $portableRoot 'moon.mod.json') -Expected @('moonbit-foundation/mb-core', 'moonbit-foundation/mb-image')
+  Assert-NamedDependencies -Manifest (Join-Path $portableRoot 'moon.mod.json') -Expected @('tchivs/mb-core', 'tchivs/mb-image')
