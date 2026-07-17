@@ -5,15 +5,15 @@ milestone_name: milestone
 current_phase: 5
 current_phase_name: Reference Codec and Release Qualification
 status: executing
-stopped_at: Completed 05-03-PLAN.md
-last_updated: "2026-07-17T01:00:49.949Z"
+stopped_at: Completed 05-04-PLAN.md
+last_updated: "2026-07-17T01:19:12.851Z"
 last_activity: 2026-07-17
 last_activity_desc: Phase 5 execution started
 progress:
   total_phases: 5
   completed_phases: 4
   total_plans: 41
-  completed_plans: 36
+  completed_plans: 37
 ---
 
 # Project State
@@ -29,11 +29,11 @@ See `.planning/PROJECT.md` (updated 2026-07-16).
 ## Current Position
 
 Phase: 5 (Reference Codec and Release Qualification) — EXECUTING
-Plan: 4 of 8
+Plan: 5 of 8
 Status: Ready to execute
 Last activity: 2026-07-17 — Phase 5 execution started
 
-Progress: [█████████░] 88% (1/5 phases; 8/8 currently planned plans complete)
+Progress: [█████████░] 90% (1/5 phases; 8/8 currently planned plans complete)
 
 ## Performance Metrics
 
@@ -81,6 +81,7 @@ Progress: [█████████░] 88% (1/5 phases; 8/8 currently planne
 | Phase 05 P01 | 35min | 2 tasks | 6 files |
 | Phase 05 P02 | 35min | 2 tasks | 7 files |
 | Phase 05 P03 | 52min | 3 tasks | 11 files |
+| Phase 05 P04 | 18min | 2 tasks | 13 files |
 
 ## Accumulated Context
 
@@ -188,6 +189,9 @@ Progress: [█████████░] 88% (1/5 phases; 8/8 currently planne
 - [Phase ?]: Phase 05 strict P6 always performs a one-byte EOF probe and rejects trailing or concatenated data.
 - [Phase 05]: Accept validated padded packed RGB views but emit only logical row bytes, making tight and padded sources byte-identical.
 - [Phase 05]: Charge encode work once before output and use private bounded row/header owners so caller budget state is deterministic.
+- [Phase ?]: Phase 05 Plan 04 uses rolling257 modulo 1000000007 as the exact portable canonical-output digest.
+- [Phase ?]: Phase 05 Plan 04 keeps public examples as named-dependency nonpublication workspace members and proves copied-source isolation separately.
+- [Phase ?]: Phase 05 Plan 04 reports downstream no-workspace resolution only as blocked_unpublished_namespace before publication.
 
 ### Pending Decisions
 
@@ -208,6 +212,6 @@ None. Phase 01 is independently verified and complete; Phase 02 is ready for con
 
 **Resume file:** None
 
-Last session: 2026-07-17T01:00:49.931Z
-Stopped at: Completed 05-03-PLAN.md
+Last session: 2026-07-17T01:19:12.829Z
+Stopped at: Completed 05-04-PLAN.md
 Resume with: Discuss Phase 02, then plan and execute it through the active auto chain.

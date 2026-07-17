@@ -54,7 +54,7 @@
 ### Reference Proof and Release Evidence
 
 - [x] **QUAL-01**: A developer can decode and encode a strict, bounded PPM P6 reference subset through the public codec interfaces, with malformed or oversized inputs producing structured failures.
-- [ ] **QUAL-02**: A Native CLI-shaped example and an in-memory portable example can execute the complete stream-to-image-to-transform-to-stream path using only public APIs.
+- [x] **QUAL-02**: A Native CLI-shaped example and an in-memory portable example can execute the complete stream-to-image-to-transform-to-stream path using only public APIs.
 - [x] **QUAL-03**: A maintainer can run black-box API tests, internal invariant tests, conformance vectors, adversarial limit fixtures, and applicable property or metamorphic tests for stable candidate behavior.
 - [ ] **QUAL-04**: A consumer can access runnable API documentation, examples, support matrices, changelogs, and fixture provenance for every release candidate module.
 - [ ] **QUAL-05**: A maintainer can reproduce benchmark baselines that record toolchain, target, optimization mode, hardware/runtime, corpus, repetitions, variance, and correctness assumptions without treating noisy hosted results as marketing claims.
@@ -143,7 +143,7 @@
 | IMAG-06 | Phase 4 | Complete |
 | IMAG-07 | Phase 4 | Complete |
 | QUAL-01 | Phase 5 | Complete |
-| QUAL-02 | Phase 5 | Pending |
+| QUAL-02 | Phase 5 | Complete |
 | QUAL-03 | Phase 5 | Complete |
 | QUAL-04 | Phase 5 | Pending |
 | QUAL-05 | Phase 5 | Pending |
