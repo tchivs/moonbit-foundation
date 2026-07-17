@@ -14,7 +14,7 @@
 
 ### Compatibility Contract
 
-- [ ] **COMP-01**: The sole maintainer can reproducibly generate canonical public-interface baselines for every public package in `mb-core`, `mb-color`, and `mb-image` across `js`, `wasm`, `wasm-gc`, and `native` with the pinned toolchain, without claiming behavioral compatibility from interface text alone.
+- [x] **COMP-01**: The sole maintainer can reproducibly generate canonical public-interface baselines for every public package in `mb-core`, `mb-color`, and `mb-image` across `js`, `wasm`, `wasm-gc`, and `native` with the pinned toolchain, without claiming behavioral compatibility from interface text alone.
 - [ ] **COMP-02**: The compatibility gate classifies every candidate public-interface delta as exact, additive, incompatible, or unknown using deterministic, documented rules.
 - [ ] **COMP-03**: The candidate-version policy governs public-interface, supported-target, minimum-toolchain, and dependency-floor changes; it permits patch releases only without incompatible deltas, requires a minor release for additive public API, and requires both a minor release and migration note for an incompatible pre-1.0 change.
 - [ ] **COMP-04**: The release gate fails closed on incompatible or unknown deltas unless the required version change, changelog entry, and migration evidence are present, plus RFC evidence when module boundaries, architecture, or governance rules require it.
@@ -76,7 +76,7 @@
 | REG-01 | Phase 6 | Pending |
 | REG-02 | Phase 6 | Pending |
 | REG-03 | Phase 6 | Pending |
-| COMP-01 | Phase 6 | Pending |
+| COMP-01 | Phase 6 | Complete |
 | COMP-02 | Phase 6 | Pending |
 | COMP-03 | Phase 6 | Pending |
 | COMP-04 | Phase 6 | Pending |
