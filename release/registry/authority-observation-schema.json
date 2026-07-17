@@ -17,7 +17,7 @@
       "required": ["id", "arguments"],
       "properties": {
         "id": { "enum": ["none", "moon_cli_help", "moon_auth_status"] },
-        "arguments": { "type": "array", "items": { "type": "string" }, "maxItems": 2 }
+        "arguments": { "type": "array", "items": { "type": "string" }, "maxItems": 1 }
       }
     },
     "toolchain": { "$ref": "#/$defs/toolchain" },

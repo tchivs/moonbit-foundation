@@ -60,8 +60,7 @@
       {
         "id": "moon_auth_status",
         "arguments": [
-          "login",
-          "--status"
+          "whoami"
         ]
       }
     ],
