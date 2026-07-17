@@ -1,16 +1,18 @@
 # Phase 6: Namespace Authority and Compatibility Contract — Research
 
 **Researched:** 2026-07-17  
-**Status:** Ready for planning with explicit live-registry unknowns  
-**Overall confidence:** HIGH for repository and pinned local CLI behavior; MEDIUM for documented Mooncakes behavior; LOW/unknown for unobserved authenticated and destructive registry semantics.
+**Domain:** Pre-publication Mooncakes identity correction, registry-authority evidence, and compatibility/release qualification
+**Confidence:** HIGH for repository and local environment facts; HIGH for cited username-namespace rules; LOW/unknown for unobserved Mooncakes account and destructive-registry semantics
 
 <user_constraints>
-## User Constraints (Locked)
+## User Constraints (from CONTEXT.md)
+
+### Locked Decisions
 
 ### Registry Authority Evidence
 
 - **D-01:** A credential-redacted machine-readable contract is authoritative for namespace identity, canonical module names, pinned toolchain, exact version availability, publish seam, registry observation, and resolution facts. Human-readable prose may explain those facts but cannot override them.
-- **D-02:** Keep the current `moonbit-foundation/*` manifest identities unchanged until the authenticated owner evidence proves that namespace. A mismatch is a fail-closed planning input, not permission to guess or silently rewrite names.
+- **D-02:** The authenticated personal GitHub identity `tchivs` is the intended initial Mooncakes owner. Canonical unpublished module identities are `tchivs/mb-core`, `tchivs/mb-color`, and `tchivs/mb-image`; `moonbit-foundation/*` is no longer an intended registry identity.
 - **D-03:** Evidence records identity, timestamp, toolchain, command shape, sanitized result, and evidence digest. Tokens, cookies, authorization headers, credential paths, and secret-derived values are never recorded.
 
 ### Safe Capability Probing
@@ -31,301 +33,321 @@
 - **D-11:** For pre-1.0 modules: patches contain no incompatible delta; additive public API requires a minor release; incompatible changes require a minor release plus migration note. RFC evidence is additionally required only for module-boundary, architecture, or governance changes.
 - **D-12:** Before publication, each module's documentation set must collectively provide exact install/import commands, candidate status, supported targets/toolchain, change class, changelog, support route, security-reporting route, and any migration note, using metadata that Mooncakes can render.
 
-### Agent Discretion
+### Personal Namespace Transition
+
+- **D-13:** Because no `moonbit-foundation/*` version has been published, the identity change is a pre-publication bootstrap correction, not a SemVer release break. Keep candidate version `0.1.0`, rewrite every active canonical module/package/dependency identity, and regenerate the 0.1.0 interface baselines from clean pinned-toolchain runs.
+- **D-14:** Preserve archived v0.1 planning and verification artifacts as historical evidence. Active policies, source modules, generated baselines, qualification consumers, release documents, and owning tests must use `tchivs/*`; negative fixtures may retain an old identity only when explicitly proving drift rejection.
+- **D-15:** Project branding remains **MoonBit Native Foundation**. The registry owner is an operational personal namespace and does not rename the foundation or add a new module family.
+- **D-16:** If an organization namespace becomes available later, treat it as new module identities with an explicit migration and forward-only publication plan. Never assume Mooncakes supports rename, transfer, overwrite, delete, unpublish, or yank.
+- **D-17:** `https://github.com/tchivs/moonbit-foundation` is intended repository metadata but is currently unproven because the remote repository does not exist. Source documents must not claim that route is live; external repository creation requires separate authorization, and release readiness requires a later read-only existence check.
+- **D-18:** The Mooncakes user record for `tchivs` is currently absent. Replanning must keep publication fail-closed until `moon register` or `moon login` completes and the sanitized collector proves the exact authenticated account, namespace, and three module identities without persisting credentials or raw output.
+
+### the agent's Discretion
 
 - Exact JSON schema filenames and directory layout, provided authority facts, observations, baselines, and policy are separately versioned and machine-validated.
 - Normalization mechanics and diagnostic wording, provided output is deterministic, reviewable, and fails closed on unknown syntax.
 - Whether read-only observations are captured directly by PowerShell or a small helper, provided the existing credential-free Required boundary remains intact.
 
-### Deferred Ideas
+### Deferred Ideas (OUT OF SCOPE)
 
 - Mooncakes OIDC or narrower publish federation — adopt only after official support is verified.
 - Destructive registry recovery automation — no overwrite, delete, unpublish, or yank assumptions in v0.2.
 - New module families and 1.0 stability — wait until publication and compatibility evolution are proven.
+- Optional migration from `tchivs/*` to a future organization-owned namespace — only after that namespace exists and a separate migration RFC/release plan is accepted.
 </user_constraints>
 
 <phase_requirements>
 ## Phase Requirements
 
-| Requirement | Research support |
-|---|---|
-| REG-01 | Define a redacted authority observation artifact binding authenticated identity, intended namespace, three module identities, toolchain, time, sanitized command result, and digest. Current namespace authority remains `unknown` until that artifact is captured. [VERIFIED: `.planning/REQUIREMENTS.md`, `06-CONTEXT.md`] |
-| REG-02 | Model authentication, token scope, dry-run, version immutability, propagation, artifact identity, and destructive recovery as closed capability records with `documented`, `safely_observed`, or `unknown`. [VERIFIED: `.planning/REQUIREMENTS.md`, `06-CONTEXT.md`] |
-| REG-03 | Make namespace authority, canonical names, pinned toolchain, version availability, authenticated publish seam, registry observation, and resolution mandatory-current facts; all other unknowns get fail-closed or forward-only dispositions. [VERIFIED: `.planning/REQUIREMENTS.md`, `06-CONTEXT.md`] |
-| COMP-01 | Generate canonical raw `.mbti`, run all four target inspections, normalize deterministically per package/target record, and prove two clean normalized runs match. [VERIFIED: local `moon info --help` and clean-copy probe] |
-| COMP-02 | Use only `exact`, `additive`, `incompatible`, and `unknown`; ambiguity is `unknown`. [VERIFIED: `06-CONTEXT.md`] |
-| COMP-03 | Centralize API, supported-target, minimum-toolchain, and dependency-floor consequences in one compatibility policy. [VERIFIED: `.planning/REQUIREMENTS.md`] |
-| COMP-04 | Require version/changelog/migration evidence, plus RFC evidence only for boundary, architecture, or governance changes. [VERIFIED: `.planning/REQUIREMENTS.md`, `docs/governance/rfc-process.md`] |
-| PROV-03 | Machine-check each module's install/import, candidate status, targets/toolchain, change class, changelog, support/security routes, migration evidence, and renderable metadata. [VERIFIED: `.planning/REQUIREMENTS.md`] |
+| ID | Description | Research Support |
+|---|---|---|
+| REG-01 | Verify the authenticated Mooncakes owner namespace and all three final module names with credential-free repository evidence. | The intended owner is `tchivs`; the repo already has a redacted observation schema/collector, but the Mooncakes account and exact identity proof remain human-gated. [VERIFIED: `06-CONTEXT.md`, local read-only probes] |
+| REG-02 | Produce a redacted capability matrix without consuming a production version. | Retain the existing closed matrix and refresh only documented/read-only facts; mutation-only and destructive semantics remain `unknown` with explicit dispositions. [VERIFIED: `release/registry/capability-matrix.json`, D-04 through D-06] |
+| REG-03 | Fail closed unless authority, canonical identities, toolchain, exact version availability, authenticated publish seam, observation, and resolution are current. | First migrate active truth to `tchivs/*`, then require a fresh sanitized observation; repository migration alone cannot satisfy live authority. [VERIFIED: `policy/registry-authority.json`, D-18] |
+| COMP-01 | Reproducibly generate baselines for every public package and four targets without behavioral claims. | The current 17-package/68-record baseline is identity-bound to `moonbit-foundation/*` and must be regenerated twice after the source migration. [VERIFIED: `compatibility/baselines/0.1.0/manifest.json`, D-07 through D-09, D-13] |
+| COMP-02 | Classify deltas as exact, additive, incompatible, or unknown. | Preserve the completed comparator and re-run its positive/negative suite against regenerated identities; parser ambiguity remains fail-closed. [VERIFIED: completed 06-03 summary, D-08] |
+| COMP-03 | Govern API, supported-target, toolchain-floor, and dependency-floor changes. | Preserve the completed machine policy; treat this unpublished owner correction as identity rebasing, not a SemVer delta. [VERIFIED: D-10, D-11, D-13] |
+| COMP-04 | Enforce version/changelog/migration and conditional RFC evidence. | Revalidate the completed gate after identity migration; do not fabricate a migration note for an unpublished identity, but retain future forward-migration rules. [VERIFIED: D-11, D-13, D-16] |
+| PROV-03 | Qualify install/import, candidate status, targets/toolchain, change class, support/security routes, changelog, migration, and intended metadata. | Rewrite active module documentation to `tchivs/*`, keep branding, and mark the intended GitHub repository route as not yet live until read-only verification succeeds. [VERIFIED: D-12, D-14, D-15, D-17] |
 </phase_requirements>
 
 ## Summary
 
-Phase 6 should add two deliberately separated planes: an operator-run, credential-redacted **observation plane** that may invoke safe authenticated/read-only commands, and the existing credential-free **Required validation plane** that validates tracked policy, schemas, observations, baselines, documentation, and fail-closed outcomes without materializing credentials. This preserves the v0.1 contract that records `performed=false`, `credentials_read=false`, and `namespace_verified=false` honestly until authenticated evidence exists. [VERIFIED: `scripts/quality/ReleaseQualification.Common.ps1`, `release/qualification/package-schema.json`]
+Phase 6 must now repair a pre-publication identity assumption before resuming live authority proof. Official MoonBit documentation says a Mooncakes module name must begin with the publishing username, and the official tutorial instructs users to authenticate/register with an existing GitHub account and use `<github account>/<project>` as the module name. MoonBit's official Mooncakes introduction likewise describes an independent `<username>/<package_name>` namespace per user. Those rules directly support `tchivs/mb-core`, `tchivs/mb-color`, and `tchivs/mb-image` as the locked initial identities. [CITED: https://docs.moonbitlang.com/en/stable/toolchain/moon/module.html; https://docs.moonbitlang.com/en/stable/tutorial/tour.html; https://www.moonbitlang.com/blog/intro-to-mooncakes]
 
-The compatibility source is the pinned compiler's public interface output, but the comparison authority is a project-owned normalized model. `moon info --target <target>` inspects backend-specific interfaces while writing `pkg.generated.mbti` from the canonical preferred backend; it does not produce a different raw file for each requested target. Therefore each package/target record should reference the canonical raw digest and additionally record that target's inspection command and no-divergence result. Any reported divergence is `unknown` or `incompatible`, never silently folded into equality. [VERIFIED: installed `moon 0.1.20260713` help and clean-copy target probe]
+This is not a three-manifest edit. A targeted audit found 161 active repository files outside archived v0.1 milestone material that contain the old canonical module family, plus 306 generated `_build` files. The old values span manifests, `moon.pkg` imports, policies, schemas, qualification consumers, examples, benchmark consumers, documentation, compatibility baselines, and owning tests. Completed Phase 6 summaries must remain truthful historical records; the correction needs a new remediation plan that changes active truth sources and regenerates derived evidence. [VERIFIED: local `rg` audit on 2026-07-17; D-13/D-14]
 
-Authenticated namespace ownership, token scope/revocation, duplicate-version behavior, propagation guarantees, registry artifact digest, overwrite/delete/yank semantics, and Mooncakes OIDC are currently **unknown**. They must not be inferred from a local credential file, a workspace resolution success, or generic registry practice. Required release facts block; destructive/optional unknowns select no-retry-without-query and forward-only recovery. [CITED: https://docs.moonbitlang.com/en/latest/toolchain/moon/package-manage-tour.html]
+The repo-local migration can proceed without Mooncakes credentials. Live authority cannot: the authenticated GitHub CLI identity is `tchivs`, but the intended GitHub repository does not yet exist and `https://mooncakes.io/api/v0/users/tchivs` returned HTTP 404 during a read-only probe. No login, registration, external repository creation, or publication was performed. The plan must therefore finish all credential-free identity work first, then stop at a narrowly defined human OAuth/account-registration checkpoint, and only afterward run the sanitized read-only collector. [VERIFIED: local `gh api user`, `gh repo view`, and Mooncakes read-only HTTP probe on 2026-07-17]
+
+**Primary recommendation:** add an explicit personal-namespace remediation plan before the revised 06-01 authority checkpoint; regenerate all active 0.1.0 identity-bound evidence, then require the user to register/login to Mooncakes and separately authorize/create the GitHub repository before REG-01 through REG-03 can become green.
 
 ## Architectural Responsibility Map
 
-| Component | Owns | Must not own |
+| Capability | Primary Tier | Secondary Tier | Rationale |
+|---|---|---|---|
+| Canonical unpublished identities | Repository policy | Module manifests/import graph | Policy owns exact identities; manifests and imports consume them. [VERIFIED: current architecture] |
+| Source identity migration | Source/configuration | Tests and examples | Every active package path and dependency edge must move atomically. [VERIFIED: local audit] |
+| Interface baseline regeneration | Build/evidence | Compatibility gate | Generated evidence is identity-bound and must follow source truth. [VERIFIED: baseline manifest/schema] |
+| Authenticated account registration | External Mooncakes/GitHub OAuth | Human operator | It cannot be satisfied by repository edits or credential-free CI. [CITED: official tutorial] |
+| Authority observation | Operator-only collector | Repository evidence validator | Collector may observe a session; Required validates only sanitized tracked evidence. [VERIFIED: existing collector/validator boundary] |
+| Publication readiness | Credential-free release gate | External read-only checks | Missing or stale required facts block; publication remains out of scope. [VERIFIED: REG-03/D-06] |
+| Project branding | Documentation/governance | Registry metadata | MoonBit Native Foundation remains the product identity while `tchivs` is the initial registry owner. [VERIFIED: D-15] |
+
+## Project Constraints (from AGENTS.md)
+
+- Core algorithms and shared data models remain MoonBit; Phase 6 automation follows the existing PowerShell qualification seam. [VERIFIED: `AGENTS.md`, `scripts/quality/`]
+- Native remains primary, with `js`, `wasm`, `wasm-gc`, and `native` supported through explicit boundaries and conformance tests. [VERIFIED: `AGENTS.md`, active policy]
+- Public module dependencies remain acyclic and ordered `mb-core` → `mb-color` → `mb-image`. [VERIFIED: `AGENTS.md`, `policy/release-qualification.json`]
+- FFI remains small, isolated, documented, and replaceable; this phase adds none. [VERIFIED: `AGENTS.md`]
+- Public API stability, deterministic automation, reproducible performance claims, and RFC-governed boundary changes remain mandatory. [VERIFIED: `AGENTS.md`]
+- Code discovery should prefer the project knowledge graph, but no `.planning/graphs/graph.json` was present and the injected graph MCP tools were unavailable, so targeted `rg` was the documented fallback. [VERIFIED: local environment, `AGENTS.md`]
+- GSD planning/execution artifacts must remain synchronized; this research modifies only `06-RESEARCH.md`. [VERIFIED: `AGENTS.md`, assigned scope]
+- Sole-owner governance remains in force; do not add team approvals, quorum, or separation of duties. [VERIFIED: requirements out-of-scope and context]
+
+## Standard Stack
+
+No external package installation is required. Reuse the pinned project toolchain and existing repository helpers. [VERIFIED: local environment and existing implementation]
+
+| Tool/component | Verified version/state | Purpose | Planning rule |
+|---|---|---|---|
+| `moon` | `0.1.20260713 (75c7e1f 2026-07-13)` | Check, info, package, dry-run surfaces | Keep the exact CI/tool evidence pin. [VERIFIED: local CLI] |
+| `moonc` | `v0.10.4+2cc641edf (2026-07-15)` | Compiler identity in baselines | Record with every regenerated baseline. [VERIFIED: local CLI] |
+| `moonrun` | `0.1.20260713 (75c7e1f 2026-07-13)` | Runtime identity | Record in evidence triplet. [VERIFIED: local CLI] |
+| PowerShell | `7.6.3` | Deterministic policy, schema, hashing, and negative tests | Reuse strict-mode helpers; no new runtime. [VERIFIED: local runtime] |
+| Git | `2.54.0.windows.1` | Source binding and clean-copy generation | Preserve user-dirty files and bind evidence to a commit. [VERIFIED: local CLI] |
+| GitHub CLI | `2.96.0`; authenticated as `tchivs` | Read-only identity/repository observation | Do not create the absent repo without explicit authorization. [VERIFIED: local CLI] |
+| Mooncakes | user `tchivs` absent at probed endpoint | Future account/namespace authority | Human registration/login is blocking; do not automate OAuth. [VERIFIED: read-only HTTP 404] |
+
+## Package Legitimacy Audit
+
+Not applicable: this phase installs no external npm, PyPI, Cargo, or Mooncakes dependency. [VERIFIED: implementation scope]
+
+## Architecture Patterns
+
+### System flow
+
+```text
+locked identity policy (tchivs/*)
+        ↓
+active manifests/imports/docs/consumers/tests migrate atomically
+        ↓
+clean pinned-toolchain checks + two-run baseline regeneration
+        ↓
+credential-free compatibility/documentation/Required gates
+        ↓
+human Mooncakes register/login (+ separately authorized GitHub repo setup)
+        ↓
+operator-only sanitized read-only observation
+        ↓
+credential-free authority validator
+        ↓
+REG-01..03 green or fail-closed blocker
+```
+
+### Pattern 1: Policy-first identity rebasing
+
+Update the exact identity owner in `policy/registry-authority.json`, then make manifests, dependencies, package imports, examples, qualification consumers, release policy, documentation, and tests agree with that owner. Do not use a blind replacement for the project brand or for negative fixtures. [VERIFIED: D-14/D-15]
+
+Identity mapping:
+
+| Old active identity | New canonical identity |
+|---|---|
+| `moonbit-foundation/mb-core` | `tchivs/mb-core` |
+| `moonbit-foundation/mb-color` | `tchivs/mb-color` |
+| `moonbit-foundation/mb-image` | `tchivs/mb-image` |
+
+The string `MoonBit Native Foundation`, RFC titles, and project-level names remain unchanged. The old owner string is permitted only in archived v0.1 evidence and explicit negative drift fixtures. [VERIFIED: D-14/D-15]
+
+### Pattern 2: Regenerate identity-bound evidence
+
+After all active sources compile under `tchivs/*`, run the existing baseline generator from clean copies twice with the pinned toolchain. Replace the active `compatibility/baselines/0.1.0` manifest, raw `.mbti` evidence, normalized baseline records, and digests as one generated set. Keep version `0.1.0`, package count 17, target count 4, and record count 68 unless the generator proves an intentional structural change. [VERIFIED: D-07 through D-09, D-13]
+
+### Pattern 3: Human external checkpoint, machine verification afterward
+
+Repository work must never invoke interactive `moon register` or `moon login`. The user performs OAuth/account creation outside Required; afterward the existing allowlisted collector records only sanitized identity, namespace, module identities, toolchain, timestamp, command shape, and stable digest. Raw output and credentials never enter git. [VERIFIED: D-03, D-18]
+
+### Pattern 4: Honest repository metadata
+
+`https://github.com/tchivs/moonbit-foundation` is the intended route, not a currently live source URL. Until separately authorized creation and read-only existence verification, active source documents and release evidence must distinguish `intended` from `verified_live`; they must not silently replace one false live URL with another. [VERIFIED: D-17 and local GitHub read-only probe]
+
+## Runtime State Inventory
+
+This is a rename/migration phase; all five runtime-state categories were checked explicitly.
+
+| Category | Items Found | Action Required |
 |---|---|---|
-| `policy/registry-authority.json` | Intended identities, required fact freshness, capability dispositions, observation references | Credentials or fabricated live results |
-| Authority observation schema/artifact | Sanitized authenticated/read-only facts and their digest | Tokens, cookies, headers, credential paths, destructive probes |
-| `policy/compatibility.json` | Four change classes and version/evidence consequences | Compiler/interface generation or behavioral compatibility claims |
-| Baseline generator | Canonical raw capture, target inspections, normalization, digests | Registry publication or policy decisions |
-| Compatibility comparator | Structural delta classification and ambiguity handling | Automatic version rewriting |
-| Documentation qualification | Manifest/README/changelog/support/security/migration consistency | Alternate policy truth |
-| Existing Required orchestrator | Credential-free validation and deterministic report binding | Authentication or publication |
+| Stored data | No application database, Redis store, or service datastore is part of this repository. Tracked JSON policies/evidence and compatibility records are files, not hidden runtime data. | **Code/data-file edit:** migrate active tracked JSON. **Data migration:** none outside tracked files. Preserve archived v0.1 files. [VERIFIED: repository architecture and targeted inventory] |
+| Live service config | GitHub CLI is authenticated as `tchivs`; `tchivs/moonbit-foundation` does not exist. The Mooncakes `tchivs` user endpoint returned 404. A local Moon session previously reported authenticated state, but the exact account was not safely parseable. | **External human action:** register/login Mooncakes via GitHub OAuth. **Separate authorization:** create the GitHub repo only if the user authorizes it. **Read-only verification:** prove both routes afterward. No service-side rename exists because nothing was published. [VERIFIED: local probes and current observation] |
+| OS-registered state | No Windows Scheduled Task with `moonbit`, `mooncakes`, or `mnf` in its task name/path was found. The project is not installed as a service. | **OS migration:** none. Recheck only if later publisher automation registers a runner/service. [VERIFIED: local task inventory] |
+| Secrets and env vars | No environment-variable names matching Moon/registry/token/publish were present in the current process, and the repository search found no configured publisher secret name. The local Moon home has a registry directory; credential contents were not inspected. | **Code edit:** none now. Phase 7 must choose and validate an isolated secret contract. **Secret migration:** none known; never inspect or persist local credentials for Phase 6. [VERIFIED: name-only environment scan and repository scan] |
+| Build artifacts / installed packages | 306 `_build` files contain old canonical package identities. `C:\Users\Admin\.moon\registry` exists and may contain cached registry/index state, but it was not searched for credential material or mutated. | **Build migration:** clean/regenerate repository build outputs after source migration; do not commit `_build`. **Installed/cache migration:** do not rewrite global registry state; later cold-consumer proofs must use an isolated Moon home. [VERIFIED: local `rg` count and Moon-home directory listing] |
 
-[VERIFIED: existing `policy/release-qualification.json`, `ReleaseQualification.Common.ps1`, and locked decisions]
+Canonical answer: after every tracked active file is updated, stale `_build` outputs and external identity state still remain. `_build` is safely regenerated; Mooncakes account/repository state is verified through read-only observations, not edited as local data. [VERIFIED: runtime inventory]
 
-## Project Constraints
+## Active Source Migration Surface
 
-- Core/shared implementation remains MoonBit; Phase 6 automation may be PowerShell because it operates the existing qualification boundary. [VERIFIED: `AGENTS.md`, existing `scripts/quality/*.ps1`]
-- Portable public packages keep `js`, `wasm`, `wasm-gc`, and `native`; LLVM remains outside Required. [VERIFIED: `AGENTS.md`, three module manifests]
-- Public package dependencies remain acyclic and independently versioned in order `mb-core` → `mb-color` → `mb-image`. [VERIFIED: `policy/release-qualification.json`]
-- Required remains deterministic, credential-free, and honest about blocked external outcomes. [VERIFIED: `release/qualification/package-schema.json`, `ReleaseQualification.Common.ps1`]
-- Semantic Versioning governs stable releases; this milestone intentionally applies the stricter D-11 candidate policy before 1.0. [CITED: https://semver.org/]
-- No production publication, registry mutation, identity rewrite, new module family, or fabricated second approver is in scope. [VERIFIED: `06-CONTEXT.md`, sole-owner governance decision]
+The planner must enumerate files from generators/policies rather than hard-code the 161-file audit snapshot, but the following categories are mandatory. [VERIFIED: local audit]
 
-## Environment Availability
+| Category | Required handling |
+|---|---|
+| Module manifests and `moon.pkg` imports | Rewrite module names and all inter-module package imports to `tchivs/*`; keep versions `0.1.0`. |
+| Examples, benchmarks, qualification consumers | Rewrite dependency identities and package imports; prove all four targets where currently required. |
+| Policy, registry authority, schemas, qualification reports | Make `tchivs` and the three exact identities canonical; keep publication blocked until fresh authority evidence. |
+| Baselines | Regenerate all 17 packages × 4 targets; never string-edit digests. |
+| Active release/docs/RFC references | Update registry identity examples while preserving foundation branding and archived milestone history. |
+| Tests and negative fixtures | Update positive expected truth; retain old identity only in named negative drift cases. |
+| Repository URL | Represent the `tchivs` route as intended/unverified until it exists; do not claim support/security links are live through an absent repo. |
+| Historical planning | Do not edit `.planning/milestones/v0.1-*`; completed Phase 6 summaries remain historical and a new remediation summary records the correction. |
 
-| Dependency/capability | Availability | Planning consequence |
-|---|---|---|
-| `moon 0.1.20260713 (75c7e1f)` | Available locally | Pin exact CLI identity in baseline and authority evidence. [VERIFIED: local CLI] |
-| `moonc v0.10.4` / bundled `moonrun` | Available locally | Record the complete toolchain triplet, not only `moon`. [VERIFIED: local toolchain] |
-| PowerShell 7.6.3 | Available locally | Reuse strict-mode JSON, hashing, negative-test, and orchestration patterns. [VERIFIED: local runtime] |
-| Git 2.54.0.windows.1 | Available locally | Bind observations/baselines to commit and retain tracked-diff checks. [VERIFIED: local CLI] |
-| Node 22.23.1 | Available for GSD tooling | Not required in the Phase 6 product contract. [VERIFIED: local CLI] |
-| Official MoonBit documentation | Available | Establishes documented CLI/manifest behavior only. [CITED: https://docs.moonbitlang.com/en/latest/toolchain/moon/commands.html] |
-| Authenticated Mooncakes identity/namespace | Unknown; intentionally not probed by reading credentials | Planning may proceed; production release remains blocked until a sanitized operator observation is captured. [VERIFIED: research boundary] |
-| Scratch namespace safe for mutation | Unknown | Do not plan a mutation probe as an acceptance dependency. [VERIFIED: D-05] |
+## Compatibility and Versioning Consequences
 
-No new package or external runtime dependency is required. [VERIFIED: repository patterns and local CLI]
+- Keep candidate version `0.1.0`: no old Mooncakes identity was published, so there is no consumer-visible SemVer contract to bump. [VERIFIED: D-13]
+- Regenerate, do not compare-and-approve, the active 0.1.0 baselines because package identity is part of baseline identity. [VERIFIED: D-09/D-13]
+- Preserve the four-class comparator and candidate policy; the identity correction is a bootstrap rebase, not a fifth delta class. [VERIFIED: D-08/D-13]
+- A future move from `tchivs/*` to an organization namespace is a new identity family with explicit migration and forward publication. Do not assume registry transfer/rename semantics. [VERIFIED: D-16]
+- Interface text remains evidence of public surface only, never behavioral, resource, layout, or performance compatibility. [VERIFIED: COMP-01/D-08]
 
-## Recommended Architecture
-
-### 1. Authority facts and observations
-
-Use separate versioned files so policy cannot be confused with a live observation:
-
-- `policy/registry-authority.json`: intended namespace/module identities, required capabilities, maximum observation age, and unknown dispositions.
-- `release/registry/authority-observation-schema.json`: closed schema for sanitized live evidence.
-- `release/registry/capability-matrix-schema.json`: closed records for `documented|safely_observed|unknown`.
-- `release/registry/authority-observation.json`: tracked sanitized evidence only after an operator deliberately captures it; before then, either omit it and report a precise blocker or use an explicit schema-valid `unknown` state.
-- `scripts/quality/Invoke-RegistryObservation.ps1`: operator-only seam that invokes allowed commands, captures stdout/stderr, rejects secret-shaped or path-shaped fields, and emits sanitized JSON; it must never open a credentials file.
-- `scripts/quality/Test-RegistryAuthority.ps1`: credential-free validator used by Required.
-
-[VERIFIED: D-01 through D-06 and existing closed-schema patterns]
-
-Each observation should contain: schema version, source commit, UTC observation time, `moon`/`moonc`/`moonrun` identities, command identifier plus allowlisted argument shape, sanitized identity/namespace/result, exact module/version facts, and SHA-256 over a stable object that excludes run-local paths/timestamps where repeatability is expected. Never store raw environment dumps or command output before redaction. [VERIFIED: D-03 and `Get-RequiredRunStableObject` pattern]
-
-Initial capability dispositions:
+## Registry Capability Matrix Recommendation
 
 | Capability | Current state | Disposition |
 |---|---|---|
-| CLI login/whoami/publish/package surfaces | `documented` | May inform an allowlist; documentation alone does not prove current authority. [CITED: https://docs.moonbitlang.com/en/latest/toolchain/moon/commands.html] |
-| Username-prefixed module identity and SemVer version | `documented` | Canonical identity remains provisional until authenticated namespace proof. [CITED: https://docs.moonbitlang.com/en/latest/toolchain/moon/module.html] |
-| Authenticated `moonbit-foundation` authority | `unknown` | Blocks REG-01/REG-03 and publication. |
-| Token scope, expiry, revocation, non-interactive auth | `unknown` | Blocks unattended publisher design; no credential inspection. |
-| Dry-run fidelity | `unknown` | Dry-run can be evidence only after safely observed; never proof that publication will succeed. |
-| Exact version availability | `unknown` until read-only observation | Blocks the corresponding module publish intent. |
-| Version immutability / duplicate behavior | `unknown` | Never retry blindly; query state and correct forward. |
-| Propagation timing/guarantee | `unknown` | Poll with a bounded timeout; timeout is ambiguous, not failure proof. |
-| Registry artifact digest/byte identity | `unknown` | Do not claim byte identity; use consumer/interface/metadata evidence unless a canonical digest is exposed. |
-| Delete/unpublish/yank/overwrite | `unknown` | No destructive recovery automation; forward-only release. |
-| Mooncakes OIDC | `unknown` | Deferred; do not use generic GitHub OIDC as registry auth. |
+| Username-prefixed module identity | `documented` | `tchivs/*` is the only planned initial owner family. [CITED: official module docs/tutorial/blog] |
+| CLI `login`, `register`, `publish`, package surfaces | `documented` and locally help-observed | Allowlist command shapes only; help does not prove account authority. [CITED: official command docs; VERIFIED: pinned CLI help] |
+| GitHub identity `tchivs` | `safely_observed` | Useful external identity input, not Mooncakes authority proof. [VERIFIED: `gh api user`] |
+| Mooncakes account/namespace authority | `unknown` | Block REG-01/03 until human registration/login and sanitized exact proof. [VERIFIED: HTTP 404 and D-18] |
+| Exact `0.1.0` availability for three identities | `unknown` | Require a safe read-only query after account creation. |
+| Authenticated publish seam/token lifecycle | `unknown` | Block the Phase 7 publisher design until safely observed/documented. |
+| Dry-run fidelity | `unknown` | Never treat CLI `--dry-run` presence as semantic equivalence to publication. [VERIFIED: help exposes flag; fidelity unobserved] |
+| Immutability/duplicate behavior | `unknown` | Query before retry; forward correction on mismatch. |
+| Propagation and artifact identity | `unknown` | Bounded read-only observation; timeout is ambiguous. |
+| Delete/unpublish/yank/overwrite/transfer/rename | `unknown` | No destructive automation; forward-only recovery. |
+| Rendered metadata | `unknown` pre-publication | PROV-05 remains a post-publication read-only proof. |
 
-[VERIFIED: reviewed official documentation and research boundary; unknown rows are explicit absence-of-proof statements]
+## Don't Hand-Roll
 
-### 2. Interface baselines
-
-Recommended layout:
-
-```text
-compatibility/
-  schema/
-    baseline-schema.json
-    comparison-schema.json
-  baselines/0.1.0/
-    mb-core/<package>/raw.mbti
-    mb-core/<package>/baseline.json
-    mb-color/<package>/...
-    mb-image/<package>/...
-policy/compatibility.json
-scripts/quality/New-PublicInterfaceBaseline.ps1
-scripts/quality/Compare-PublicInterfaceBaseline.ps1
-scripts/quality/Test-PublicCompatibility.ps1
-```
-
-[ASSUMED: exact filenames are agent discretion; responsibilities are locked]
-
-Generation algorithm:
-
-1. Verify exact toolchain and clean isolated copy; run with `--frozen`. [VERIFIED: existing quality conventions]
-2. Run `moon info` for the module and preserve every canonical `pkg.generated.mbti` as UTF-8 raw evidence before normalization. [VERIFIED: local CLI]
-3. Independently invoke target inspection for `js`, `wasm`, `wasm-gc`, and `native`; record exit code and sanitized difference status for each target. Do not describe the canonical raw file as target-generated. [VERIFIED: local `moon info --help`]
-4. Parse only a closed, versioned subset of known `.mbti` syntax. Canonicalize line endings, representation fields, declaration ordering rules, and JSON serialization explicitly. Unknown syntax returns `unknown`; it is never dropped. [VERIFIED: D-07/D-08]
-5. Emit one record per module/package/target containing toolchain, module/package, target, normalization schema, canonical raw digest, normalized digest, and target inspection result. [VERIFIED: D-09]
-6. Repeat in a second independent clean copy and require identical normalized records. Keep both run summaries, but commit one canonical baseline. [VERIFIED: D-09]
-
-The local research probe ran `moon info --target js|wasm|wasm-gc|native|all --frozen` in a clean copy. All invocations exited successfully, emitted no target-difference warning, and the six `mb-core` raw interface files produced the same combined SHA-256 `0ffef8be8360f62a817769457c0f3033f46e219b995e6c1bcde522ecd4125f8a`. This is evidence for this pinned machine snapshot only, not a cross-machine stability guarantee. [VERIFIED: local clean-copy probe]
-
-### 3. Deterministic comparison rules
-
-The normalized model should preserve package identity/imports plus each public type, alias, trait, method, function, error, visibility, generic constraint, parameter, and return signature exposed by the current grammar. If a declaration cannot be represented losslessly, the whole affected package/target is `unknown`. [ASSUMED: parser field list must be reconciled with actual generated grammar during implementation]
-
-Classification precedence:
-
-1. `unknown`: parse failure, unrecognized syntax, target divergence, missing baseline, toolchain mismatch without an approved baseline migration, or ambiguous matching.
-2. `incompatible`: removed/renamed public declaration; changed kind, signature, constraints, visibility, identity, supported target, or dependency floor contrary to policy.
-3. `additive`: old normalized declarations remain exact and only permitted public declarations were added.
-4. `exact`: normalized structures and all policy-controlled compatibility facts match.
-
-[VERIFIED: D-08, D-10, D-11; detailed declaration matching is project-owned]
-
-Do not infer runtime behavior, numeric tolerances, resource budgets, representation layout, performance, or semantic equivalence from `.mbti`. Those remain owned by conformance tests and other phase evidence. [VERIFIED: COMP-01 and D-08]
-
-### 4. Candidate version and evidence policy
-
-`policy/compatibility.json` should be the only owner of consequences:
-
-| Delta | Minimum pre-1.0 version action | Required evidence |
-|---|---|---|
-| `exact` | Patch permitted | Changelog/change-class entry; all other gates pass |
-| `additive` | Minor required | Changelog and exact added-surface report |
-| `incompatible` | Minor required | Changelog plus migration note; RFC only when boundary/architecture/governance is affected |
-| `unknown` | No release | Resolve ambiguity and regenerate evidence |
-
-[VERIFIED: D-10/D-11]
-
-Supported-target removal is incompatible; adding a required target is at least additive and must be checked for architecture implications. Raising a minimum toolchain or dependency floor is policy-controlled and must not be hidden inside manifest drift. Dependency direction or module-boundary changes additionally route through the accepted RFC process. [VERIFIED: COMP-03/COMP-04, `docs/governance/rfc-process.md`]
-
-### 5. Registry-renderable publication documentation
-
-Extend the canonical policy with a per-module documentation contract and validate the collective set rather than requiring every fact in every file:
-
-- `moon.mod.json`: exact name/version, description, Apache-2.0 license, repository, README path, preferred/supported targets, exact dependency floors; add only metadata fields confirmed supported by the pinned toolchain/documentation.
-- `README.mbt.md`: exact install command, exact public-package import examples, candidate status, supported targets, pinned toolchain/minimum floor, current compatibility class, support route, security-reporting route, changelog and migration links.
-- `CHANGELOG.md`: version, candidate/publication status, change class, additions/removals, and migration link when required.
-- Project-owned support/security documents: stable public routes referenced identically by all modules.
-- Migration note: required for incompatible changes; absent only when policy says not applicable.
-
-[VERIFIED: existing manifests/readmes/changelogs, PROV-03, D-12; Mooncakes renders manifest/README metadata per official docs]
-
-Because actual registry rendering has not been observed safely, `registry_renders_intended_metadata` remains `unknown` and blocks the final PROV-03 publication claim until a read-only registry page/API observation is captured after a non-production-safe opportunity or the real publication in its later phase. Phase 6 can fully validate renderable source metadata without claiming rendered equality. [VERIFIED: requirement boundary and absence of observation]
-
-## Integration with Existing Quality Architecture
-
-Reuse these established mechanisms:
-
-- `Read-ReleaseJson`, `Assert-ReleaseExactSequence`, `Assert-ReleaseExactSet`, and `Assert-ReleaseClosedProperties` for closed input validation. [VERIFIED: `ReleaseQualification.Common.ps1`]
-- `Get-ReleaseSha256` / `Get-ReleaseTextSha256` and UTF-8-no-BOM JSON with a trailing newline for content identity. [VERIFIED: `ReleaseQualification.Common.ps1`, `Invoke-ReleaseQualification.ps1`]
-- Stable-object digests that exclude run-local metadata while retaining a separate run-local section. [VERIFIED: `Get-RequiredRunStableObject`]
-- Rule-owned negative fixtures and exact rejection diagnostics for unknown syntax, unexpected properties, stale observations, target drift, incompatible delta, insufficient version bump, missing migration/RFC, and documentation mismatch. [VERIFIED: `Test-ReleaseQualificationNegative.ps1`]
-- Tracked-diff snapshots so generators and validators cannot mutate source during Required. [VERIFIED: `Assert-ReleaseTrackedSnapshot`]
-
-Do not alter the meaning or schema of the locked v0.1 Required report. Add new Phase 6 selectors/artifacts beside it, and let the top-level Required lane aggregate both contracts. [VERIFIED: `release/qualification/v0.1-requirements.json`, phase context]
-
-## Exact Planning Tasks
-
-1. **Authority contracts:** add registry authority policy, observation schema, capability schema, credential-free validator, and negative fixtures; keep all required live facts `unknown` until sanitized evidence exists.
-2. **Safe observation seam:** add an operator-only allowlisted PowerShell collector that never reads credential files and refuses secret-shaped output; do not invoke it in Required.
-3. **Baseline schema/generator:** capture canonical raw interfaces and four target inspections for all 17 current public packages, then prove two-clean-run normalized equality. [VERIFIED: `policy/release-qualification.json` currently lists 6+5+6 packages]
-4. **Comparator/policy:** implement the four-class structural comparator and centralized API/target/toolchain/dependency-floor consequences with ambiguity negatives.
-5. **Documentation qualification:** complete install/import, toolchain, change-class, support/security, changelog, and migration contracts across all three modules; validate renderable source metadata while retaining registry-render result as `unknown`.
-6. **Required integration:** add selectors/artifact digests without weakening the existing credential-free report or blocked publication truth.
+| Problem | Don't Build | Use Instead | Why |
+|---|---|---|---|
+| Namespace allocation | A fake organization/alias layer | Official personal username namespace | Mooncakes names are username-prefixed. [CITED: official docs] |
+| Identity migration | Blind global search/replace | Policy-driven category audit plus exact negative fixtures | Branding, history, and drift fixtures intentionally differ. [VERIFIED: D-14/D-15] |
+| Baseline migration | String-editing `.mbti`/JSON/digests | Existing clean-run generator | Digests and normalized records must derive from real source/toolchain output. [VERIFIED: D-07/D-09] |
+| OAuth automation | Scripted browser/token scraping | Human `moon register`/`moon login`, then sanitized collector | Credentials/raw auth output are forbidden evidence. [VERIFIED: D-03/D-18] |
+| Registry recovery | Delete/overwrite/yank assumptions | Query-first, monotonic forward-only recovery | Destructive semantics are unverified. [VERIFIED: D-16] |
+| Approval workflow | Fabricated second reviewer | Sole-owner intent plus independent machine gates | Multi-person approval is out of scope. [VERIFIED: project constraints] |
 
 ## Common Pitfalls
 
-- Treating `moon whoami` success as proof of authority over `moonbit-foundation`; identity and namespace authorization are separate facts. [VERIFIED: REG-01/D-01]
-- Reading or hashing the credentials file to prove authentication; credential paths and secret-derived values are forbidden evidence. [VERIFIED: D-03]
-- Treating `moon publish --dry-run` as a registry authority or immutability guarantee. [VERIFIED: current capability is unknown]
-- Testing duplicate/delete/yank/overwrite against a production identity. [VERIFIED: D-05]
-- Treating workspace dependency resolution as registry resolution. [VERIFIED: existing qualification distinguishes artifact and registry outcomes]
-- Claiming four raw target baselines when `moon info --target` writes the canonical backend interface. [VERIFIED: local CLI help]
-- Normalizing away unknown syntax or comments/attributes whose meaning is uncertain. [VERIFIED: D-08]
-- Calling textual equality behavioral compatibility. [VERIFIED: COMP-01]
-- Allowing README/changelog prose to override policy JSON. [VERIFIED: existing policy ownership pattern]
-- Changing a baseline and implementation together without an independently reviewable delta report. [ASSUMED: recommended review control]
+- Replacing the project brand `MoonBit Native Foundation` with `tchivs`. The namespace is operational ownership, not branding. [VERIFIED: D-15]
+- Editing archived v0.1 artifacts or completed plan summaries to make history look as if it always used the new owner. [VERIFIED: D-14]
+- Updating manifests while leaving `moon.pkg`, examples, qualification consumers, policies, tests, or baseline package identities on the old owner. [VERIFIED: local 161-file audit]
+- String-editing generated baseline digests instead of regenerating two clean runs. [VERIFIED: D-07/D-09/D-13]
+- Claiming the intended GitHub repository/support/security route is live before it exists. [VERIFIED: D-17]
+- Treating the GitHub login `tchivs`, a local authenticated Moon session, or a credential file as Mooncakes namespace authority. [VERIFIED: REG-01/D-03/D-18]
+- Running interactive OAuth or publication inside Required. [VERIFIED: D-06/D-18]
+- Treating a `--dry-run` flag as proof of version availability, immutability, or publication authorization. [VERIFIED: local help vs. unobserved semantics]
+- Introducing team approvals for a single-maintainer project. [VERIFIED: requirements out of scope]
+- Assuming a future organization namespace can rename or absorb published personal modules. [VERIFIED: D-16]
+
+## Concrete Planning Recommendation
+
+Preserve the four completed Phase 6 summaries and add a new remediation plan rather than rewriting completed history. The optimal dependency sequence is:
+
+1. **New personal-namespace remediation plan (credential-free):** depend on completed 06-05; rewrite all active truth sources to `tchivs/*`, update intended/unverified repository metadata semantics, regenerate 17-package/68-record 0.1.0 baselines twice, clean stale builds, run module/example/benchmark/qualification/compatibility/documentation negatives, and prove archived v0.1 planning files are untouched.
+2. **Revise/resume 06-01 authority plan:** depend on the remediation. Its repository contract tasks run automatically, then it reaches one explicit human checkpoint for Mooncakes GitHub OAuth registration/login. GitHub repository creation remains a separate authorization boundary. After human action, run only sanitized read-only collectors; no publication.
+3. **Revise 06-06 integration plan:** depend on the remediation and completed 06-01. Re-freeze reciprocal coverage and integrate authority, compatibility, candidate documentation, and identity-drift negatives into credential-free Required.
+4. **Do not advance Phase 7** until REG-01 through REG-03 are current and green. If human registration is not yet done, Phase 6 remains honestly blocked after all repo-local work completes.
+
+This ordering isolates the broad deterministic migration from the narrow external checkpoint, avoids falsifying completed work, and gives the user one precise action when automation reaches the actual boundary. [VERIFIED: current plan state, D-13 through D-18]
+
+## Environment Availability
+
+| Dependency | Required By | Available | Version/state | Fallback |
+|---|---|---|---|---|
+| Pinned MoonBit toolchain | Source migration and baselines | Yes | exact versions above | None; mismatch blocks evidence |
+| PowerShell | Validators/generators | Yes | 7.6.3 | None needed |
+| Git | clean copies/history protection | Yes | 2.54.0.windows.1 | None needed |
+| GitHub CLI identity | Intended owner proof | Yes | `tchivs` | Browser/GitHub website only if later authorized |
+| GitHub repository | Metadata-live verification | No | absent | Keep route explicitly intended/unverified |
+| Mooncakes account `tchivs` | REG-01/03 | No/unknown | HTTP 404 at read-only endpoint | Human `moon register` or `moon login` |
+| Safe production namespace mutation | Not required in Phase 6 | Intentionally unavailable | — | Do not mutate |
+
+**Missing dependency with no automated fallback:** the human-created/authenticated Mooncakes `tchivs` account and a sanitized exact namespace observation. This blocks final Phase 6 authority requirements, not the repo-local remediation. [VERIFIED: D-18]
+
+**Missing dependency with a safe fallback:** the absent GitHub repository can remain explicitly unverified during local migration; it must be created only under separate authorization before release metadata is declared live. [VERIFIED: D-17]
+
+## Validation Architecture
+
+Skipped because `.planning/config.json` explicitly sets `workflow.nyquist_validation` to `false`. Existing tests still form mandatory task verification; no Wave 0 test-framework installation is needed. [VERIFIED: project config]
 
 ## Security Domain
 
-Phase 6 touches authentication evidence and namespace authorization, but does not implement credential storage or a publisher. [VERIFIED: phase boundary]
+Security enforcement is not disabled, and this phase handles authentication evidence even though it does not implement credential storage or publication. [VERIFIED: config and phase boundary]
 
-| Area | Required treatment |
-|---|---|
-| Authentication (V2) | Invoke only allowed status/read-only commands through the operator seam; never open or copy credentials; sanitize before persistence. |
-| Session lifecycle (V3) | Token expiry/revocation/non-interactive lifecycle is `unknown`; do not claim unattended readiness. |
-| Access control (V4) | Prove exact owner namespace and canonical module identities; mismatch blocks and never triggers an automatic rename. |
-| Input validation (V5) | Closed schemas, exact enums/sets, allowlisted command shapes, strict paths, and rejection of extra properties. |
-| Cryptography (V6) | Use platform SHA-256 only for integrity; no custom cryptography and no claim that a digest authenticates registry authority. |
-
-[VERIFIED: D-01 through D-06 and repository helper patterns]
-
-STRIDE-focused threats and controls:
-
-- **Spoofing:** fabricated username/namespace → bind sanitized command result, toolchain, time, commit, and evidence digest; retain `unknown` without proof.
-- **Tampering:** edited observation/baseline → closed schema, SHA-256, tracked review, stable-object recomputation.
-- **Repudiation:** unclear operator/run → record non-secret identity, UTC time, command identifier, and source commit.
-- **Information disclosure:** token/path/header leakage → allowlist output fields, reject secret/path shapes, never preserve raw auth output.
-- **Denial/ambiguity:** propagation timeout or partial response → bounded polling and `unknown`, never blind retry.
-- **Elevation of privilege:** local login mistaken for namespace authority → require explicit namespace authorization evidence.
-
-[VERIFIED: security analysis against locked evidence contract]
-
-## Claim Provenance
-
-| Claim family | Confidence | Source |
+| ASVS category | Applies | Standard control |
 |---|---|---|
-| Existing schema, hashing, deterministic-report, negative-test, and credential-free patterns | HIGH | Repository files inspected directly. |
-| Installed CLI behavior and canonical-target interface behavior | HIGH for this machine | Local help and clean-copy execution on 2026-07-17. |
-| MoonBit naming, publishing, SemVer, manifest, README, and command surfaces | MEDIUM | Official MoonBit documentation linked below. |
-| Released-content immutability and SemVer vocabulary | MEDIUM | SemVer 2.0.0 specification. |
-| Authenticated namespace authority and unobserved Mooncakes semantics | Unknown | Deliberately no credential read, production mutation, or unsupported inference. |
+| V2 Authentication | Yes | Human OAuth through official CLI plus sanitized post-auth observation; never persist raw output. |
+| V3 Session Management | Yes, observational only | Token expiry/revocation/non-interactive lifecycle stays `unknown` until documented or safely observed. |
+| V4 Access Control | Yes | Exact account, namespace, and three identities must match policy or publication blocks. |
+| V5 Input Validation | Yes | Closed JSON schemas, exact enums/sets, allowlisted command shapes, forbidden-value patterns, freshness checks. |
+| V6 Cryptography | Integrity only | Platform SHA-256 for evidence identity; no custom crypto and no claim that a digest proves authority. |
 
-## Open Unknowns
+Threat controls:
 
-These do not block Phase 6 planning or credential-free implementation, but required ones block publication:
+- **Spoofing:** GitHub/local-session identity mistaken for Mooncakes authority → require exact sanitized Mooncakes account/namespace evidence. [VERIFIED: REG-01]
+- **Tampering:** identity or baseline records edited manually → regenerate/recompute and validate closed schemas/digests. [VERIFIED: existing helpers]
+- **Repudiation:** unclear operator/run → record source commit, UTC time, command id/arguments, toolchain, and stable digest without secrets. [VERIFIED: D-03]
+- **Information disclosure:** credential/header/path leakage → allowlist fields, reject secret/path patterns, never persist raw auth output. [VERIFIED: policy/collector]
+- **Denial/ambiguity:** registry timeout or absent account → retain `unknown`, bounded retry only for read-only observation, no mutation. [VERIFIED: D-04/D-16]
+- **Elevation of privilege:** invented organization ownership → use the verified personal account namespace only. [CITED: official namespace rules]
 
-1. Does the authenticated account have authority over the exact `moonbit-foundation` owner namespace and all three names? **Required; blocks release.**
-2. What are the real token scope, expiry, revocation, and non-interactive authentication semantics? **Required for the Phase 7 unattended publisher; currently unknown.**
-3. Does dry-run contact the registry and faithfully check namespace/version availability? **Unknown; do not rely on it alone.**
-4. Are published versions immutable, and what exact response represents duplicate/ambiguous publication? **Unknown; forward-only/no-blind-retry.**
-5. What propagation signal and bound are reliable after publication? **Unknown; bounded observation and ambiguity state.**
-6. Does Mooncakes expose a canonical artifact digest? **Unknown; do not claim byte identity.**
-7. What delete/unpublish/yank/overwrite semantics exist? **Unknown and intentionally not probed; no destructive recovery.**
-8. Does Mooncakes render every intended manifest/README field exactly? **Unknown until safe registry-side observation.**
-9. Is `.mbti` normalization stable across supported clean machines on the pinned toolchain? **Phase 6 must prove two clean runs; current research proves only the local snapshot.**
+## Source Provenance
 
-## Sources
+### Primary — HIGH confidence
 
-### Primary repository sources
+- [MoonBit module configuration](https://docs.moonbitlang.com/en/stable/toolchain/moon/module.html) — published module names must begin with the username; module metadata and SemVer rules.
+- [MoonBit beginner tour](https://docs.moonbitlang.com/en/stable/tutorial/tour.html) — `moon login`, existing GitHub account, and `<github account>/<project>` publication naming.
+- [Introducing Mooncakes](https://www.moonbitlang.com/blog/intro-to-mooncakes) — independent per-user `<username>/<package_name>` namespaces and integrated commands.
+- [Moon command reference](https://docs.moonbitlang.com/en/latest/toolchain/moon/commands.html) — current documented `login`, `register`, `publish`, `package`, and `info` surfaces.
+- Repository policy, manifests, schemas, scripts, completed plan summaries, and active baseline files inspected on 2026-07-17.
+- Local read-only CLI/HTTP probes and targeted identity/runtime inventory on 2026-07-17.
 
-- `.planning/phases/06-namespace-authority-and-compatibility-contract/06-CONTEXT.md`
-- `.planning/REQUIREMENTS.md`, `.planning/ROADMAP.md`, `.planning/research/SUMMARY.md`
-- `policy/release-qualification.json`
-- `release/qualification/package-schema.json`, `release/qualification/v0.1-requirements.json`
-- `scripts/quality/ReleaseQualification.Common.ps1`
-- `scripts/quality/Invoke-ReleaseQualification.ps1`
-- `scripts/quality/Test-ReleaseQualification.ps1`
-- `scripts/quality/Test-ReleaseQualificationNegative.ps1`
-- `modules/mb-{core,color,image}/moon.mod.json`, `README.mbt.md`, and `CHANGELOG.md`
-- `docs/policies/{publication,api-stability,targets}.md`
-- `docs/governance/rfc-process.md` and sole-owner bootstrap decision
+### Secondary — MEDIUM confidence
 
-### Official external sources
+- None required for the locked identity decision; planning relies on official sources and repository evidence.
 
-- [MoonBit: Use and publish packages](https://docs.moonbitlang.com/en/latest/toolchain/moon/package-manage-tour.html)
-- [MoonBit: Command-line help](https://docs.moonbitlang.com/en/latest/toolchain/moon/commands.html)
-- [MoonBit: Module configuration](https://docs.moonbitlang.com/en/latest/toolchain/moon/module.html)
-- [MoonBit: Package configuration](https://docs.moonbitlang.com/en/latest/toolchain/moon/package.html)
-- [Semantic Versioning 2.0.0](https://semver.org/)
+### Tertiary — LOW/unknown
 
-## Research Metadata
+- Token scope/lifecycle, dry-run fidelity, duplicate-version handling, propagation guarantees, artifact digest semantics, destructive recovery, namespace transfer/rename, and exact rendered metadata remain unobserved and are not inferred.
 
-**Nyquist validation architecture:** intentionally omitted because `.planning/config.json` sets `workflow.nyquist_validation=false`. [VERIFIED: project configuration]
+## Assumptions Log
 
-**Research conclusion:** Ready for plan generation. Plan around the credential-free contract now; preserve authenticated and registry-side facts as explicit `unknown` until a later safe operator observation supplies evidence.
+| # | Claim | Section | Risk if Wrong |
+|---|---|---|---|
+| — | None. All prescriptive identity decisions are locked in CONTEXT or supported by official/current repository evidence; unobserved registry semantics are explicitly `unknown`. | — | — |
+
+## Open Questions
+
+1. **When will the user complete Mooncakes GitHub OAuth registration/login?**
+   - Known: current read-only user lookup returned 404; repository work can proceed.
+   - Unknown: exact post-login CLI/API identity surface.
+   - Recommendation: stop only after repo-local remediation, ask for the human action, then run the sanitized collector.
+2. **Should Codex later create `tchivs/moonbit-foundation`?**
+   - Known: it is intended metadata and currently absent.
+   - Unknown: the user has not authorized external repo creation/push in this task.
+   - Recommendation: keep metadata explicitly unverified and request separate authorization when release readiness needs it.
+3. **Which Mooncakes semantics are safely observable without mutation after registration?**
+   - Known: CLI help and official docs expose surfaces, not semantic guarantees.
+   - Unknown: exact account/version/artifact endpoints and token lifecycle.
+   - Recommendation: capture only allowlisted read-only evidence; retain all other capabilities as `unknown` with current dispositions.
+
+## Metadata
+
+**Confidence breakdown:**
+
+- Identity decision: HIGH — locked by user context and supported by three official MoonBit/Mooncakes sources.
+- Migration surface: HIGH — repository files and local generated artifacts were directly audited.
+- Toolchain/baseline architecture: HIGH — existing implementation and pinned local tools were inspected.
+- External account/repository state: HIGH for the 2026-07-17 snapshot — read-only probes; must be refreshed before release.
+- Unobserved registry semantics: LOW/unknown — deliberately not inferred or mutation-tested.
+
+**Research date:** 2026-07-17
+**Valid until:** Re-run external account/repository observations immediately before resuming 06-01; repository findings remain valid until the remediation changes active identity sources.
