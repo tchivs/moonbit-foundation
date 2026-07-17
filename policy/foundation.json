@@ -801,6 +801,11 @@
         "codec/contracts.mbt",
         "codec/moon.pkg",
         "codec/reference_vectors_wbtest.mbt",
+        "ppm",
+        "ppm/moon.pkg",
+        "ppm/parser.mbt",
+        "ppm/parser_wbtest.mbt",
+        "ppm/ppm.mbt",
         "moon.mod.json"
       ],
       "public_packages": [
@@ -1153,6 +1158,43 @@
             "pub(open) trait ImageEncoder {",
             "  fn encode(Self, @storage.ImageView, &@io.Writer, EncodeOptions, CodecLimits, @budget.Budget, @error.Diagnostics) -> Result[EncodeResult, @error.CoreError]",
             "}"
+          ],
+          "supported_targets": [
+            "js",
+            "wasm",
+            "wasm-gc",
+            "native"
+          ]
+        },
+        {
+          "name": "moonbit-foundation/mb-image/ppm",
+          "path": "ppm",
+          "stability": "candidate",
+          "allowed_imports": [
+            "moonbit-foundation/mb-core/budget",
+            "moonbit-foundation/mb-core/bytes",
+            "moonbit-foundation/mb-core/checked",
+            "moonbit-foundation/mb-core/error",
+            "moonbit-foundation/mb-image/codec"
+          ],
+          "semantic_interface": [
+            "package \"moonbit-foundation/mb-image/ppm\"",
+            "import {",
+            "  \"moonbit-foundation/mb-core/error\",",
+            "}",
+            "pub struct PpmDecoder {",
+            "}",
+            "pub fn PpmDecoder::new(PpmParserLimits) -> Self",
+            "pub struct PpmEncoder {",
+            "}",
+            "pub fn PpmEncoder::new() -> Self",
+            "pub struct PpmParserLimits {",
+            "}",
+            "pub fn PpmParserLimits::max_comment_bytes(Self) -> UInt64",
+            "pub fn PpmParserLimits::max_comments(Self) -> UInt64",
+            "pub fn PpmParserLimits::max_header_bytes(Self) -> UInt64",
+            "pub fn PpmParserLimits::max_token_bytes(Self) -> UInt64",
+            "pub fn PpmParserLimits::new(max_header_bytes~ : UInt64, max_token_bytes~ : UInt64, max_comment_bytes~ : UInt64, max_comments~ : UInt64) -> Result[Self, @error.CoreError]"
           ],
           "supported_targets": [
             "js",
