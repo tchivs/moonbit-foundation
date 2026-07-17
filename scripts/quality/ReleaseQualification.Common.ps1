@@ -286,8 +286,8 @@ function Assert-ReleaseModuleImports {
   $raw = Get-Content -LiteralPath $PackagePath -Raw
   $imports = @([regex]::Matches($raw, '"([^"]+)"') | ForEach-Object { $_.Groups[1].Value })
   $forbidden = @(switch ($ShortName) {
-    'mb-core' { @($imports | Where-Object { $_ -cmatch '^moonbit-foundation/(?:mb-color|mb-image)(?:/|$)' }) }
-    'mb-color' { @($imports | Where-Object { $_ -cmatch '^moonbit-foundation/mb-image(?:/|$)' }) }
+    'mb-core' { @($imports | Where-Object { $_ -cmatch '^tchivs/(?:mb-color|mb-image)(?:/|$)' }) }
+    'mb-color' { @($imports | Where-Object { $_ -cmatch '^tchivs/mb-image(?:/|$)' }) }
     default { @() }
   })
   if ($forbidden.Count -ne 0) {
@@ -329,9 +329,9 @@ function Assert-PpmQualificationContract {
   $image = @($foundation.modules | Where-Object { [string]$_.path -ceq 'modules/mb-image' })
   if ($image.Count -ne 1) { Throw-ReleaseRule -Id 'PPM06-WRONG-PUBLICATION-ORDER' -Message 'mb-image policy owner is missing or duplicated.' }
   $expectedPackageOrder = @(
-    'moonbit-foundation/mb-image/metadata', 'moonbit-foundation/mb-image/model',
-    'moonbit-foundation/mb-image/storage', 'moonbit-foundation/mb-image/ops',
-    'moonbit-foundation/mb-image/codec', 'moonbit-foundation/mb-image/ppm'
+    'tchivs/mb-image/metadata', 'tchivs/mb-image/model',
+    'tchivs/mb-image/storage', 'tchivs/mb-image/ops',
+    'tchivs/mb-image/codec', 'tchivs/mb-image/ppm'
   )
   try { Assert-ReleaseExactSequence -Label 'PPM publication order' -Actual @($image[0].public_packages.name) -Expected $expectedPackageOrder } catch {
     Throw-ReleaseRule -Id 'PPM06-WRONG-PUBLICATION-ORDER' -Message $_.Exception.Message
@@ -339,12 +339,12 @@ function Assert-PpmQualificationContract {
   $ppm = @($image[0].public_packages | Where-Object { [string]$_.path -ceq 'ppm' })
   if ($ppm.Count -ne 1) { Throw-ReleaseRule -Id 'PPM07-UNREGISTERED-CONTENT' -Message 'PPM package owner is missing or duplicated.' }
   $expectedImports = @(
-    'moonbit-foundation/mb-core/budget', 'moonbit-foundation/mb-core/bytes',
-    'moonbit-foundation/mb-core/checked', 'moonbit-foundation/mb-core/error',
-    'moonbit-foundation/mb-core/io', 'moonbit-foundation/mb-color/model',
-    'moonbit-foundation/mb-color/profile', 'moonbit-foundation/mb-image/codec',
-    'moonbit-foundation/mb-image/metadata', 'moonbit-foundation/mb-image/model',
-    'moonbit-foundation/mb-image/storage'
+    'tchivs/mb-core/budget', 'tchivs/mb-core/bytes',
+    'tchivs/mb-core/checked', 'tchivs/mb-core/error',
+    'tchivs/mb-core/io', 'tchivs/mb-color/model',
+    'tchivs/mb-color/profile', 'tchivs/mb-image/codec',
+    'tchivs/mb-image/metadata', 'tchivs/mb-image/model',
+    'tchivs/mb-image/storage'
   )
   $actualImports = @($ppm[0].allowed_imports)
   if ($actualImports.Count -lt $expectedImports.Count) { Throw-ReleaseRule -Id 'PPM01-MISSING-IMPORT' -Message 'PPM import allowlist is incomplete.' }
@@ -422,7 +422,7 @@ function Assert-ReleasePolicy {
   if ($policy.license -cne 'Apache-2.0') {
     Throw-ReleaseRule -Id 'REL10-MISSING-LICENSE' -Message 'release policy license is missing or drifted.'
   }
-  if ($policy.schema_version -cne '1.0.0' -or $policy.repository -cne 'https://github.com/moonbit-foundation/moonbit-foundation' -or
+  if ($policy.schema_version -cne '1.0.0' -or $policy.repository -cne 'https://github.com/tchivs/moonbit-foundation' -or
       $policy.fixture_manifest -cne 'fixtures/manifest.json') {
     throw 'Release policy identity, repository, or fixture manifest drifted.'
   }
@@ -431,9 +431,9 @@ function Assert-ReleasePolicy {
   }
   Assert-ReleaseExactSequence -Label 'release targets' -Actual @($policy.required_targets) -Expected @('js', 'wasm', 'wasm-gc', 'native')
   Assert-ReleaseExactSequence -Label 'post-publication order' -Actual @($policy.post_publish_order) -Expected @(
-    'publish:moonbit-foundation/mb-core@0.1.0', 'resolve:moonbit-foundation/mb-core@0.1.0',
-    'publish:moonbit-foundation/mb-color@0.1.0', 'resolve:moonbit-foundation/mb-color@0.1.0',
-    'publish:moonbit-foundation/mb-image@0.1.0', 'resolve:moonbit-foundation/mb-image@0.1.0'
+    'publish:tchivs/mb-core@0.1.0', 'resolve:tchivs/mb-core@0.1.0',
+    'publish:tchivs/mb-color@0.1.0', 'resolve:tchivs/mb-color@0.1.0',
+    'publish:tchivs/mb-image@0.1.0', 'resolve:tchivs/mb-image@0.1.0'
   )
   Assert-ReleaseClosedProperties -Label 'publication policy' -Object $policy.publication -Expected @('performed', 'credentials_read', 'namespace_verified', 'blocked_reason')
   if ($policy.publication.performed -ne $false -or $policy.publication.credentials_read -ne $false -or
@@ -455,8 +455,8 @@ function Assert-ReleasePolicy {
   Assert-ReleaseClosedProperties -Label 'release modules' -Object $policy.modules -Expected @('mb-core', 'mb-color', 'mb-image')
   $expectedDependencies = @{
     'mb-core' = [ordered]@{}
-    'mb-color' = [ordered]@{ 'moonbit-foundation/mb-core' = '0.1.0' }
-    'mb-image' = [ordered]@{ 'moonbit-foundation/mb-core' = '0.1.0'; 'moonbit-foundation/mb-color' = '0.1.0' }
+    'mb-color' = [ordered]@{ 'tchivs/mb-core' = '0.1.0' }
+    'mb-image' = [ordered]@{ 'tchivs/mb-core' = '0.1.0'; 'tchivs/mb-color' = '0.1.0' }
   }
   $expectedOutcomes = @{
     'mb-core' = @('not_required_leaf_artifact_consumer', 'pass', 'not_required_no_dependencies')
