@@ -8,9 +8,9 @@
 
 ### Registry Authority
 
-- [ ] **REG-01**: The sole maintainer can verify the authenticated Mooncakes owner namespace and the final names of all three modules using repository-bound evidence that contains no credential material.
-- [ ] **REG-02**: The sole maintainer can produce a credential-redacted registry capability matrix that marks authentication, token scope, dry-run, version immutability, propagation, artifact identity, and destructive recovery semantics as documented, safely observed, or unknown without polluting a production module version.
-- [ ] **REG-03**: The release gate refuses to publish unless namespace authority, canonical module identity, pinned toolchain identity, exact version availability, an authenticated publish seam, and registry observation/resolution are known and current; other unknown capabilities receive an explicit fail-closed or forward-only disposition.
+- [x] **REG-01**: The sole maintainer can verify the authenticated Mooncakes owner namespace and the final names of all three modules using repository-bound evidence that contains no credential material.
+- [x] **REG-02**: The sole maintainer can produce a credential-redacted registry capability matrix that marks authentication, token scope, dry-run, version immutability, propagation, artifact identity, and destructive recovery semantics as documented, safely observed, or unknown without polluting a production module version.
+- [x] **REG-03**: The release gate refuses to publish unless namespace authority, canonical module identity, pinned toolchain identity, exact version availability, an authenticated publish seam, and registry observation/resolution are known and current; other unknown capabilities receive an explicit fail-closed or forward-only disposition.
 
 ### Compatibility Contract
 
@@ -73,9 +73,9 @@
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| REG-01 | Phase 6 | Pending |
-| REG-02 | Phase 6 | Pending |
-| REG-03 | Phase 6 | Pending |
+| REG-01 | Phase 6 | Complete |
+| REG-02 | Phase 6 | Complete |
+| REG-03 | Phase 6 | Complete |
 | COMP-01 | Phase 6 | Complete |
 | COMP-02 | Phase 6 | Complete |
 | COMP-03 | Phase 6 | Complete |

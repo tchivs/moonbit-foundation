@@ -5,16 +5,16 @@ milestone_name: Publication & Compatibility
 current_phase: 6
 current_phase_name: Namespace Authority and Compatibility Contract
 status: executing
-stopped_at: Completed 06-24-PLAN.md
-last_updated: "2026-07-17T13:28:57.071Z"
+stopped_at: Completed 06-11-PLAN.md
+last_updated: "2026-07-17T13:59:12.000Z"
 last_activity: 2026-07-17
-last_activity_desc: anchored mb-image storage baseline batch regenerated
+last_activity_desc: finalized anchored baseline and exact identity history closure
 progress:
   total_phases: 4
   completed_phases: 0
   total_plans: 25
-  completed_plans: 22
-  percent: 88
+  completed_plans: 23
+  percent: 92
 ---
 
 # Project State
@@ -30,16 +30,16 @@ See `.planning/PROJECT.md` (updated 2026-07-17).
 ## Current Position
 
 Phase: 6 (Namespace Authority and Compatibility Contract) — EXECUTING
-Plan: 22 of 25 complete; next 06-11
+Plan: 23 of 25 complete; next 06-01
 Status: Executing credential-free personal namespace migration
-Last activity: 2026-07-17 — anchored mb-image storage baseline batch regenerated
+Last activity: 2026-07-17 — finalized anchored baseline and exact identity history closure
 
 ## Progress
 
-Current milestone: [█████████░] 88% of planned Phase 6 work
+Current milestone: [█████████░] 92% of planned Phase 6 work
 
 - v0.2 phases completed: 0/4
-- v0.2 plans completed: 22/25
+- v0.2 plans completed: 23/25
 - v0.2 requirements mapped: 21/21
 - Historical total: 5 completed phases, 41 completed plans, 36/36 v0.1 requirements validated
 
@@ -74,6 +74,7 @@ Current milestone: [█████████░] 88% of planned Phase 6 work
 - [Phase 06]: Preserve canonical package order by generating mb-image/metadata before mb-image/model without broadening the twelve-file ownership boundary. — Exact-package ordering is a validation constraint while plan ownership remains limited to the twelve enumerated outputs.
 - [Phase 06]: Preserve canonical package order by generating mb-image/ops before mb-image/ppm without broadening the twelve-file ownership boundary. — Exact-package ordering is a validation constraint while plan ownership remains limited to the twelve enumerated outputs.
 - [Phase 06]: Keep the final package batch limited to mb-image/storage while preserving the six-file ownership boundary. — Exact-package generation and protected-file hashing complete the anchored package tree without manifest or cross-batch mutation.
+- [Phase 06]: Close active old-identity inventory at 105 exact occurrence records with content-addressed contexts and preserve fail-closed authority. — Final compatibility evidence must distinguish immutable history, explicit mappings, source audit, and named negative fixtures without broad allowlists.
 
 ### Pending Decisions
 
@@ -82,20 +83,20 @@ Current milestone: [█████████░] 88% of planned Phase 6 work
 ### Blockers
 
 - Live Mooncakes authority for `tchivs` and the exact three personal module identities remains unobserved. REG-01 through REG-03 stay fail-closed until the credential-free migration chain completes and revised plan 06-01 reaches its human OAuth checkpoint.
-- Plan 06-06 and Phase 7 remain blocked until both the credential-free chain through 06-11 and revised plan 06-01 complete.
+- Plan 06-06 and Phase 7 remain blocked until revised plan 06-01 completes its human OAuth checkpoint.
 
 ## Session Continuity
 
 **Resume file:** None
 
-Last session: 2026-07-17T13:28:57.051Z
-Stopped at: Completed 06-24-PLAN.md
+Last session: 2026-07-17T13:59:12.000Z
+Stopped at: Completed 06-11-PLAN.md
 Resume with: `/gsd-execute-phase 6`
 
 ## Operator Next Steps
 
-- Execute 06-11 to finalize the complete anchored public-interface baseline tree.
-- Resume revised 06-01 only after the credential-free chain through 06-11; execute 06-06 only after both complete.
+- Resume revised 06-01 for the single human Mooncakes OAuth checkpoint and sanitized read-only authority proof.
+- Execute 06-06 only after 06-01 completes.
 
 ## Performance Metrics
 
@@ -119,3 +120,4 @@ Resume with: `/gsd-execute-phase 6`
 | Phase 06 P22 | 4min | 1 tasks | 12 files |
 | Phase 06 P23 | 3min | 1 tasks | 12 files |
 | Phase 06 P24 | 5min | 1 tasks | 6 files |
+| Phase 06 P11 | 28min | 3 tasks | 4 files |
