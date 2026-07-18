@@ -6,13 +6,13 @@ current_phase: 08
 current_phase_name: Ordered Mooncakes Publication and Registry Consumers
 status: executing
 stopped_at: Completed 08-04-PLAN.md
-last_updated: "2026-07-18T11:53:00.307Z"
-last_activity: 2026-07-18
-last_activity_desc: Phase 08 execution started
+last_updated: "2026-07-19T02:08:40+08:00"
+last_activity: 2026-07-19
+last_activity_desc: Phase 08 remaining work replanned as Plans 05-08 after checker revision
 progress:
   total_phases: 4
   completed_phases: 2
-  total_plans: 34
+  total_plans: 36
   completed_plans: 32
   percent: 50
 ---
@@ -30,9 +30,9 @@ See `.planning/PROJECT.md` (updated 2026-07-17).
 ## Current Position
 
 Phase: 08 (Ordered Mooncakes Publication and Registry Consumers) — EXECUTING
-Plan: 5 of 6
-Status: Executing Wave 5 — preflight and authorization checkpoint
-Last activity: 2026-07-18 — Phase 08 execution started
+Plan: 5 of 8
+Status: Ready for Wave 5 — static intent/ref/prepared/publisher/actor contracts; completed Plans 08-01..08-04 will not be reexecuted
+Last activity: 2026-07-19 — remaining Phase 08 work replanned; Plans 01-04 remain complete
 
 ## Progress
 
@@ -41,6 +41,7 @@ Current milestone: [█████░░░░░] 50% of v0.2 phases complete
 - v0.2 phases completed: 2/4
 - Phase 6 plans completed: 25/25
 - Phase 7 plans completed: 3/3
+- Phase 8 plans completed: 4/8
 - v0.2 requirements mapped: 21/21
 - Historical total: 5 completed phases, 41 completed plans, 36/36 v0.1 requirements validated
 

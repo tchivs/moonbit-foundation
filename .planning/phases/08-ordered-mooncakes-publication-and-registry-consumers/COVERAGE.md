@@ -4,27 +4,31 @@
 
 Phase 8 integrates only the Mooncakes capabilities required to publish one dependency-safe module per authorized run, observe it through credential-free structured surfaces, and prove exact cold registry consumption. The canonical semantic order is `tchivs/mb-core@0.1.0` -> `tchivs/mb-color@0.1.0` -> `tchivs/mb-image@0.1.0`. Normalized graph serialization is deterministic but never changes node/edge equality.
 
+The failed attempt on protected `modules-v0.1.0` is immutable historical evidence, not a reusable release input. The corrected pre-publication attempt uses monotonic ref `modules-v0.1.0-r1` with a fresh initial intent/root/genesis journal/prepared manifest while retaining module version `0.1.0`; `modules-correction-N` remains reserved for published-content mismatch recovery that advances module versions. The corrected implementation is committed and pushed before r1 is created. PublisherDryRun separately proves isolated exact `moon whoami == tchivs` through closed sanitized actor evidence; actor mismatch, parse ambiguity, stderr, raw-output persistence, or secret-shaped content blocks AuthorizationPacket acceptance.
+
 The assumption-delta detector phrase `Git fallback` maps to the noun **registry-only dependency source**, decision **no-change**, because an alternate source is prohibited rather than generalized into an identity model.
 
 ## Multi-Source Coverage Audit
 
 | Source | ID | Feature / requirement | Plan | Status | Notes |
 |---|---|---|---|---|---|
-| GOAL | - | Three genuine publications and cold consumption in strict dependency order | 08-01..08-06 | COVERED | Reversible seam, explicit core checkpoint, and three one-module runs. |
-| REQ | DIST-01 | Core exact publication and four-target cold proof before color | 08-03, 08-04, 08-05, 08-06 | COVERED | Explicit first mutation plus exact one-node proof. |
-| REQ | DIST-02 | Color exact publication and core-color proof before image | 08-03, 08-04, 08-06 | COVERED | Verified core checkpoint is a hard predecessor. |
-| REQ | DIST-03 | Image exact publication and full-graph PPM proof | 08-03, 08-04, 08-06 | COVERED | Third separate run and exact three-node proof. |
-| REQ | DIST-04 | Outside-checkout, cold, no-credential registry-only evidence | 08-01, 08-02, 08-03, 08-06 | COVERED | Closed proof rejects all alternate state/source paths. |
-| REQ | PROV-05 | Read-only exact public metadata observation | 08-02, 08-04, 08-06 | COVERED | Structured surfaces only; no SPA authority. |
-| CONTEXT | D-01..D-04 | Deterministic bundle, one-step adapter, secret isolation, explicit first mutation | 08-01, 08-04, 08-05 | COVERED | Autonomous work stops before tag/dispatch/publish. |
-| CONTEXT | D-05..D-07 | One mutation per run, strict predecessor proof, idempotent resume | 08-04, 08-06 | COVERED | Core/color/image are separate runs. |
-| CONTEXT | D-08..D-12 | Exact cold registry consumers and four targets | 08-03, 08-06 | COVERED | Empty homes and exact graphs are mandatory. |
-| CONTEXT | D-13..D-15 | Bounded polling, ambiguity stop, forward-only retry | 08-02, 08-04, 08-06 | COVERED | No automated republish. |
-| CONTEXT | D-16..D-19 | Structured metadata, sanitized artifacts, fresh pre-core observation | 08-02, 08-05, 08-06 | COVERED | Phase 9 immutable closure excluded. |
+| GOAL | - | Three genuine publications and cold consumption in strict dependency order | 08-01..08-08 | COVERED | Static contracts, hosted integration, explicit r1 core checkpoint, and ordered closure are separate sequential plans. |
+| REQ | DIST-01 | Core exact publication and four-target cold proof before color | 08-03, 08-04, 08-05, 08-06, 08-07, 08-08 | COVERED | Exact absent publishes once; exact-existing checkpoints without republish; both require one-node cold proof. |
+| REQ | DIST-02 | Color exact publication and core-color proof before image | 08-03, 08-04, 08-06, 08-08 | COVERED | Verified published-now or exact-existing core authority is a hard predecessor. |
+| REQ | DIST-03 | Image exact publication and full-graph PPM proof | 08-03, 08-04, 08-06, 08-08 | COVERED | Image uses the same closed outcome switch and exact three-node proof. |
+| REQ | DIST-04 | Outside-checkout, cold, no-credential registry-only evidence | 08-01, 08-02, 08-03, 08-06, 08-08 | COVERED | Closed proof rejects all alternate state/source paths for published-now and exact-existing authority. |
+| REQ | PROV-05 | Read-only exact public metadata observation | 08-02, 08-04, 08-06, 08-08 | COVERED | Structured surfaces only; no SPA authority. |
+| CONTEXT | D-01..D-04 | Deterministic bundle, one-step adapter, secret isolation, explicit first mutation | 08-01, 08-04, 08-05, 08-06, 08-07 | COVERED | Static and hosted contracts are committed before exact-HEAD push/r1; literal authorization gates PublishOne. |
+| CONTEXT | D-05..D-07 | One mutation per run, strict predecessor proof, idempotent resume | 08-04, 08-06, 08-08 | COVERED | Closed absent/exact switch permits no republish of exact-existing content. |
+| CONTEXT | D-08..D-12 | Exact cold registry consumers and four targets | 08-03, 08-06, 08-08 | COVERED | Empty homes and exact graphs are mandatory for both authority kinds. |
+| CONTEXT | D-13..D-15 | Bounded polling, ambiguity stop, forward-only retry | 08-02, 08-04, 08-05, 08-06, 08-07, 08-08 | COVERED | Mismatch records forward correction; unknown/disagreement/timeout stop; exact never republishes. |
+| CONTEXT | D-16..D-19 | Structured metadata, sanitized artifacts, fresh pre-core observation | 08-02, 08-05, 08-06, 08-07, 08-08 | COVERED | Actor and public observations are sanitized, packet-bound, and freshly selected from the clean clone. |
 | RESEARCH | Prepared bundle is complete before secret access | 08-01, 08-04 | COVERED | Publisher repeats validation. |
 | RESEARCH | Cold consumer is a separate trust domain | 08-03 | COVERED | No checkout/workspace/cache/credential inheritance. |
-| RESEARCH | Structured observation precedes presentation | 08-02, 08-06 | COVERED | Closed projection and exact comparison. |
-| RESEARCH | Public surface shape is freshness-sensitive | 08-02, 08-05 | COVERED | Detect and sanitize live structured shape; unknown blocks. |
+| RESEARCH | Structured observation precedes presentation | 08-02, 08-06, 08-08 | COVERED | Closed projection and exact comparison. |
+| RESEARCH | Public surface shape is freshness-sensitive | 08-02, 08-06, 08-07, 08-08 | COVERED | Detect and sanitize live structured shape; unknown blocks. |
+| DEBUG | hosted-toolchain-setup-failure | Preserve failed run and prove corrected setup before credentials | 08-05, 08-06, 08-07 | COVERED | Run 29652468948/1 and old ref/SHA/intent are indexed negative evidence; HostedPreflight must pass first on r1. |
+| DEBUG | publisher actor identity | Prove the credential resolves to exactly `tchivs` without persisting raw authentication output | 08-05, 08-06, 08-07, 08-08 | COVERED | Isolated exact parse, closed sanitized match, packet enforcement, and reciprocal actor digest. |
 
 ## Requirement Adjacency and Edge Rules
 
@@ -64,6 +68,7 @@ The assumption-delta detector phrase `Git fallback` maps to the noun **registry-
 6. No Phase 9 immutable ledger, artifact provenance closure, GitHub release closure, or milestone audit in Phase 8.
 7. No release tag creation, live dispatch, secret read, or publish call during autonomous preparation/seam implementation tasks.
 8. No destructive overwrite/delete/unpublish/yank/transfer/rename operation and no organization migration.
+9. No retarget/delete/recreate of `modules-v0.1.0`, no rerun of 29652468948, and no reuse of its intent digest, root, or journal as current authorization.
 
 ## Artifacts This Phase Produces
 
