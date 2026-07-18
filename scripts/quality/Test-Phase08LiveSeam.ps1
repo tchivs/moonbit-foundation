@@ -221,7 +221,7 @@ foreach ($required in @(
   'Invoke-MooncakesLiveMutation','Invoke-ColdRegistryConsumer','MOONCAKES_TOKEN','InitializeBoundary','PrepareAttempt',
   'PublisherDryRun','HostedPreflight','MaterializePublicSurface','ObserveOnly','IndexSanitizedArtifact',
   'AssembleAuthorizationPacket','SelectExactExistingAuthority','SelectPublishedNowAuthority','PublishOne',
-  'refs/tags/modules-v0.1.0-r3','historical_r2_sha256','historical_history_set_sha256','publish --frozen --dry-run','native_runtime_verified','whoami.stdout','whoami.stderr',
+  'refs/tags/modules-v0.1.0-r3','historical_attempts_sha256:','historical_r2_sha256','historical_history_set_sha256','publish --frozen --dry-run','native_runtime_verified','whoami.stdout','whoami.stderr',
   'exact_existing','published_now'
 )) {
   if ($workflow.IndexOf($required,[StringComparison]::Ordinal) -lt 0) { throw "P08-WORKFLOW-MISSING: '$required'." }
@@ -438,9 +438,16 @@ function New-R3HandoffFixture {
   param([Parameter(Mandatory)][string]$Root,[Parameter(Mandatory)][ValidateSet('mutation_authorized','exact_existing')][string]$Variant)
   $null=New-Item -ItemType Directory -Path $Root
   $paths=[ordered]@{}
-  foreach($name in @('boundary-locator','index','attempt-zero','r1','r2')){
+  foreach($name in @('boundary-locator','index')){
     $paths[$name]=Join-Path $Root "$name.json"
     [IO.File]::WriteAllText($paths[$name],'{}',[Text.UTF8Encoding]::new($false))
+  }
+  $control=Get-Content -LiteralPath (Join-Path (Split-Path -Parent (Split-Path -Parent $PSScriptRoot)) 'policy/release-control.json') -Raw|ConvertFrom-Json -Depth 100
+  $history=@($control.initial_attempt_family.terminal_negative_history)
+  for($i=0;$i -lt 3;$i++){
+    $name=@('attempt-zero','r1','r2')[$i];$paths[$name]=Join-Path $Root "$name.json"
+    $projection=[ordered]@{};foreach($property in $history[$i].PSObject.Properties){if($property.Name -cne 'record_sha256'){$projection[$property.Name]=$property.Value}}
+    [IO.File]::WriteAllText($paths[$name],($projection|ConvertTo-Json -Depth 30 -Compress),[Text.UTF8Encoding]::new($false))
   }
   $packetPath=$null;$receiptPath=$null;$exactPath=$null
   if($Variant -ceq 'mutation_authorized'){

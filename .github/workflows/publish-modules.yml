@@ -28,16 +28,7 @@ on:
       prepared_manifest_sha256:
         required: true
         type: string
-      historical_attempt_zero_sha256:
-        required: true
-        type: string
-      historical_r1_sha256:
-        required: true
-        type: string
-      historical_r2_sha256:
-        required: true
-        type: string
-      historical_history_set_sha256:
+      historical_attempts_sha256:
         required: true
         type: string
       target_module:
@@ -135,10 +126,7 @@ jobs:
           ROOT_INTENT_SHA256: ${{ inputs.root_intent_sha256 }}
           INTENT_SHA256: ${{ inputs.intent_sha256 }}
           EXPECTED_PREPARED_MANIFEST_SHA256: ${{ inputs.prepared_manifest_sha256 }}
-          HISTORICAL_ATTEMPT_ZERO_SHA256: ${{ inputs.historical_attempt_zero_sha256 }}
-          HISTORICAL_R1_SHA256: ${{ inputs.historical_r1_sha256 }}
-          HISTORICAL_R2_SHA256: ${{ inputs.historical_r2_sha256 }}
-          HISTORICAL_HISTORY_SET_SHA256: ${{ inputs.historical_history_set_sha256 }}
+          HISTORICAL_HISTORY_SET_SHA256: ${{ inputs.historical_attempts_sha256 }}
           OPERATION_MODE: ${{ inputs.operation_mode }}
           TARGET_MODULE: ${{ inputs.target_module }}
           AUTHORIZATION_PACKET_SHA256: ${{ inputs.authorization_packet_sha256 }}
@@ -165,6 +153,9 @@ jobs:
           if ($env:RUN_MODE -ceq 'resume' -and -not $paired) { throw 'P07-WORKFLOW-RESUME-PAIR' }
           if ($env:PRIOR_RUN_ID -ceq $env:CURRENT_RUN_ID) { throw 'P07-WORKFLOW-CURRENT-RUN-PRIOR' }
           if ($env:RELEASE_REF -cne 'refs/tags/modules-v0.1.0-r3' -or $env:ROOT_INTENT_SHA256 -cne $env:INTENT_SHA256) { throw 'P08-WORKFLOW-R3-ROOT' }
+          $env:HISTORICAL_ATTEMPT_ZERO_SHA256='b9bda5378ea339f4cdd42c417c1cc0cf8caabbd51ab11d453cd45ddae77d9b52'
+          $env:HISTORICAL_R1_SHA256='cba047dae2e6b4e1bbf0248653ed7848f144971b54a0a4ed30ef42ab97325653'
+          $env:HISTORICAL_R2_SHA256='aae8bee66e7dbfca7f3f22f1b52071e7888ae3ec8feee513d1c5d8eba6111609'
           $history=@($env:HISTORICAL_ATTEMPT_ZERO_SHA256,$env:HISTORICAL_R1_SHA256,$env:HISTORICAL_R2_SHA256)
           $expectedHistory=@('b9bda5378ea339f4cdd42c417c1cc0cf8caabbd51ab11d453cd45ddae77d9b52','cba047dae2e6b4e1bbf0248653ed7848f144971b54a0a4ed30ef42ab97325653','aae8bee66e7dbfca7f3f22f1b52071e7888ae3ec8feee513d1c5d8eba6111609')
           $historySet=([Convert]::ToHexString([Security.Cryptography.SHA256]::HashData([Text.UTF8Encoding]::new($false).GetBytes(($history -join "`n"))))).ToLowerInvariant()
@@ -296,10 +287,10 @@ jobs:
           EXPECTED_MANIFEST_SHA256: ${{ inputs.prepared_manifest_sha256 }}
           EXPECTED_SOURCE_SHA: ${{ inputs.source_sha }}
           EXPECTED_RELEASE_REF: ${{ inputs.release_ref }}
-          EXPECTED_HISTORICAL_ATTEMPT_ZERO_SHA256: ${{ inputs.historical_attempt_zero_sha256 }}
-          EXPECTED_HISTORICAL_R1_SHA256: ${{ inputs.historical_r1_sha256 }}
-          EXPECTED_HISTORICAL_R2_SHA256: ${{ inputs.historical_r2_sha256 }}
-          EXPECTED_HISTORICAL_HISTORY_SET_SHA256: ${{ inputs.historical_history_set_sha256 }}
+          EXPECTED_HISTORICAL_ATTEMPT_ZERO_SHA256: b9bda5378ea339f4cdd42c417c1cc0cf8caabbd51ab11d453cd45ddae77d9b52
+          EXPECTED_HISTORICAL_R1_SHA256: cba047dae2e6b4e1bbf0248653ed7848f144971b54a0a4ed30ef42ab97325653
+          EXPECTED_HISTORICAL_R2_SHA256: aae8bee66e7dbfca7f3f22f1b52071e7888ae3ec8feee513d1c5d8eba6111609
+          EXPECTED_HISTORICAL_HISTORY_SET_SHA256: ${{ inputs.historical_attempts_sha256 }}
           EXPECTED_ROOT_INTENT_SHA256: ${{ inputs.root_intent_sha256 }}
           EXPECTED_INTENT_SHA256: ${{ inputs.intent_sha256 }}
           EXPECTED_TARGET_MODULE: ${{ inputs.target_module }}
@@ -514,10 +505,10 @@ jobs:
           EXPECTED_ACTOR: ${{ github.actor }}
           EXPECTED_RUN_ID: ${{ github.run_id }}
           EXPECTED_RUN_ATTEMPT: ${{ github.run_attempt }}
-          EXPECTED_HISTORICAL_ATTEMPT_ZERO_SHA256: ${{ inputs.historical_attempt_zero_sha256 }}
-          EXPECTED_HISTORICAL_R1_SHA256: ${{ inputs.historical_r1_sha256 }}
-          EXPECTED_HISTORICAL_R2_SHA256: ${{ inputs.historical_r2_sha256 }}
-          EXPECTED_HISTORICAL_HISTORY_SET_SHA256: ${{ inputs.historical_history_set_sha256 }}
+          EXPECTED_HISTORICAL_ATTEMPT_ZERO_SHA256: b9bda5378ea339f4cdd42c417c1cc0cf8caabbd51ab11d453cd45ddae77d9b52
+          EXPECTED_HISTORICAL_R1_SHA256: cba047dae2e6b4e1bbf0248653ed7848f144971b54a0a4ed30ef42ab97325653
+          EXPECTED_HISTORICAL_R2_SHA256: aae8bee66e7dbfca7f3f22f1b52071e7888ae3ec8feee513d1c5d8eba6111609
+          EXPECTED_HISTORICAL_HISTORY_SET_SHA256: ${{ inputs.historical_attempts_sha256 }}
         run: |
           $manifest='prepared/prepared-bundle.json'
           if ((Get-FileHash -Algorithm SHA256 $manifest).Hash.ToLowerInvariant() -cne $env:EXPECTED_MANIFEST_SHA256) { throw 'P07-WORKFLOW-MANIFEST-DIGEST' }

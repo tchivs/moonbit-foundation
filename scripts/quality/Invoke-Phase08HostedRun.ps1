@@ -44,6 +44,7 @@ param(
   [string]$ActiveAttemptPath,
   [string]$AttemptZeroHistoryPath,
   [string]$R1HistoryPath,
+  [string]$R2HistoryPath,
   [ValidateSet('mutation_authorized','exact_existing')][string]$AuthorityVariant,
   [string]$HandoffPath,
   [string]$TempRoot,
@@ -99,12 +100,12 @@ function Write-P08AuthorizationReceipt {
   )
   if($Response -cne 'authorize-core'){Throw-P08HostedRule 'P08-RECEIPT-LITERAL' 'Only the exact literal authorize-core may be persisted.'}
   $packet=Get-Content -LiteralPath $PacketPath -Raw|ConvertFrom-Json -Depth 100
-  if($packet.schema_version -cne 'mnf-phase08-mutation-authorization-packet/1' -or $packet.release_ref -cne 'refs/tags/modules-v0.1.0-r2' -or
+  if($packet.schema_version -cne 'mnf-phase08-mutation-authorization-packet/1' -or $packet.release_ref -cne 'refs/tags/modules-v0.1.0-r3' -or
       $packet.boundary_sha -cne $BoundarySha -or $packet.packet_sha256 -cnotmatch '^[0-9a-f]{64}$' -or
       $packet.packet_sha256 -cne (Get-P08SelfExcludingDigest $packet 'packet_sha256')){
-    Throw-P08HostedRule 'P08-RECEIPT-PACKET' 'Authorization packet is not the exact digest-bound r2 packet.'
+    Throw-P08HostedRule 'P08-RECEIPT-PACKET' 'Authorization packet is not the exact digest-bound r3 packet.'
   }
-  $receipt=New-ReleaseAuthorizationReceipt -BoundarySha $BoundarySha -PacketSha256 ([string]$packet.packet_sha256) -CreatedAt $CreatedAt
+  $receipt=New-ReleaseAuthorizationReceipt -BoundarySha $BoundarySha -SourceSha $BoundarySha -PacketSha256 ([string]$packet.packet_sha256) -CreatedAt $CreatedAt
   Write-P08ExclusiveJson -Path $ReceiptPath -Value $receipt
   $reload=Get-Content -LiteralPath $ReceiptPath -Raw|ConvertFrom-Json -Depth 30
   $null=Assert-ReleaseAuthorizationReceipt -Receipt $reload -ExpectedBoundarySha $BoundarySha -ExpectedPacketSha256 ([string]$packet.packet_sha256)
@@ -118,7 +119,7 @@ function Write-P08ActiveAttempt {
     [Parameter(Mandatory)][object]$UpdatedAt
   )
   $root=[IO.Path]::GetFullPath([string]$Bindings.execution_root)
-  $pathFields=@('boundary_locator_path','artifact_index_path','attempt_zero_history_path','r1_history_path')
+  $pathFields=@('boundary_locator_path','artifact_index_path','attempt_zero_history_path','r1_history_path','r2_history_path')
   foreach($name in $pathFields){$null=Test-P08SafePath ([string]$Bindings.$name) $root;if(-not(Test-Path -LiteralPath ([string]$Bindings.$name) -PathType Leaf)){Throw-P08HostedRule 'P08-ACTIVE-FILE' "Active attempt file '$name' is missing."}}
   $packet=$Bindings.mutation_authorization_packet_path;$receipt=$Bindings.authorization_receipt_path;$exact=$Bindings.exact_existing_authority_path
   if($AuthorityVariant -ceq 'mutation_authorized'){
@@ -126,11 +127,13 @@ function Write-P08ActiveAttempt {
   }elseif($null-ne$packet-or$null-ne$receipt-or[string]::IsNullOrWhiteSpace([string]$exact)){Throw-P08HostedRule 'P08-ACTIVE-BRANCH' 'Exact active attempt forbids packet/receipt and requires exact authority.'}
   foreach($candidate in @($packet,$receipt,$exact)|Where-Object{$null-ne$_}){$null=Test-P08SafePath ([string]$candidate) $root;if(-not(Test-Path -LiteralPath ([string]$candidate) -PathType Leaf)){Throw-P08HostedRule 'P08-ACTIVE-FILE' 'Authority file is missing.'}}
   $value=[pscustomobject][ordered]@{
-    schema_version='mnf-phase08-active-attempt/1';release_ref='refs/tags/modules-v0.1.0-r2';boundary_sha=[string]$Bindings.boundary_sha;execution_root=$root
+    schema_version='mnf-phase08-active-attempt/1';release_ref='refs/tags/modules-v0.1.0-r3';boundary_sha=[string]$Bindings.boundary_sha;execution_root=$root
     boundary_locator_path=[IO.Path]::GetFullPath([string]$Bindings.boundary_locator_path);boundary_locator_sha256=Get-P08Sha256 ([string]$Bindings.boundary_locator_path)
     artifact_root=[IO.Path]::GetFullPath([string]$Bindings.artifact_root);artifact_index_path=[IO.Path]::GetFullPath([string]$Bindings.artifact_index_path);artifact_index_sha256=Get-P08Sha256 ([string]$Bindings.artifact_index_path)
     attempt_zero_history_path=[IO.Path]::GetFullPath([string]$Bindings.attempt_zero_history_path);attempt_zero_history_sha256=Get-P08Sha256 ([string]$Bindings.attempt_zero_history_path)
     r1_history_path=[IO.Path]::GetFullPath([string]$Bindings.r1_history_path);r1_history_sha256=Get-P08Sha256 ([string]$Bindings.r1_history_path)
+    r2_history_path=[IO.Path]::GetFullPath([string]$Bindings.r2_history_path);r2_history_sha256=Get-P08Sha256 ([string]$Bindings.r2_history_path)
+    historical_history_set_sha256=[string]$Bindings.historical_history_set_sha256
     authority_variant=$AuthorityVariant
     mutation_authorization_packet_path=if($null-eq$packet){$null}else{[IO.Path]::GetFullPath([string]$packet)};mutation_authorization_packet_sha256=if($null-eq$packet){$null}else{Get-P08Sha256 ([string]$packet)}
     authorization_receipt_path=if($null-eq$receipt){$null}else{[IO.Path]::GetFullPath([string]$receipt)};authorization_receipt_sha256=if($null-eq$receipt){$null}else{Get-P08Sha256 ([string]$receipt)}
@@ -144,13 +147,15 @@ function Write-P08ActiveAttempt {
 
 function Open-P08ActiveAttempt([Parameter(Mandatory)][string]$Path) {
   $value=Get-Content -LiteralPath $Path -Raw|ConvertFrom-Json -Depth 50
-  $names=@('schema_version','release_ref','boundary_sha','execution_root','boundary_locator_path','boundary_locator_sha256','artifact_root','artifact_index_path','artifact_index_sha256','attempt_zero_history_path','attempt_zero_history_sha256','r1_history_path','r1_history_sha256','authority_variant','mutation_authorization_packet_path','mutation_authorization_packet_sha256','authorization_receipt_path','authorization_receipt_sha256','exact_existing_authority_path','exact_existing_authority_sha256','updated_at_utc','active_attempt_sha256')
-  if((@($value.PSObject.Properties.Name)-join ',')-cne($names-join ',')-or$value.schema_version-cne'mnf-phase08-active-attempt/1'-or$value.release_ref-cne'refs/tags/modules-v0.1.0-r2'){Throw-P08HostedRule 'P08-ACTIVE-CLOSED' 'Active attempt shape drifted.'}
+  $names=@('schema_version','release_ref','boundary_sha','execution_root','boundary_locator_path','boundary_locator_sha256','artifact_root','artifact_index_path','artifact_index_sha256','attempt_zero_history_path','attempt_zero_history_sha256','r1_history_path','r1_history_sha256','r2_history_path','r2_history_sha256','historical_history_set_sha256','authority_variant','mutation_authorization_packet_path','mutation_authorization_packet_sha256','authorization_receipt_path','authorization_receipt_sha256','exact_existing_authority_path','exact_existing_authority_sha256','updated_at_utc','active_attempt_sha256')
+  if((@($value.PSObject.Properties.Name)-join ',')-cne($names-join ',')-or$value.schema_version-cne'mnf-phase08-active-attempt/1'-or$value.release_ref-cne'refs/tags/modules-v0.1.0-r3'){Throw-P08HostedRule 'P08-ACTIVE-CLOSED' 'Active attempt shape drifted.'}
+  $history=Get-ReleaseInitialHistoryBinding
+  if($value.attempt_zero_history_sha256-cne$history.historical_attempt_zero_sha256-or$value.r1_history_sha256-cne$history.historical_r1_sha256-or$value.r2_history_sha256-cne$history.historical_r2_sha256-or$value.historical_history_set_sha256-cne$history.historical_history_set_sha256){Throw-P08HostedRule 'P08-ACTIVE-DIGEST' 'Active attempt history family drifted.'}
   $expectedActiveDigest=Get-P08ObjectDigest (Get-P08ActiveAttemptProjection $value)
   $canonicalActiveUtc=ConvertTo-ReleaseCanonicalUtc $value.updated_at_utc
   if($value.updated_at_utc -is [string] -and [string]$value.updated_at_utc -cne $canonicalActiveUtc){Throw-P08HostedRule 'P08-ACTIVE-DIGEST' 'Active attempt UTC is not canonical Z.'}
   if([string]$value.active_attempt_sha256 -cne $expectedActiveDigest){Throw-P08HostedRule 'P08-ACTIVE-DIGEST' 'Active attempt digest drifted.'}
-  foreach($pair in @(@('boundary_locator_path','boundary_locator_sha256'),@('artifact_index_path','artifact_index_sha256'),@('attempt_zero_history_path','attempt_zero_history_sha256'),@('r1_history_path','r1_history_sha256'),@('mutation_authorization_packet_path','mutation_authorization_packet_sha256'),@('authorization_receipt_path','authorization_receipt_sha256'),@('exact_existing_authority_path','exact_existing_authority_sha256'))){
+  foreach($pair in @(@('boundary_locator_path','boundary_locator_sha256'),@('artifact_index_path','artifact_index_sha256'),@('attempt_zero_history_path','attempt_zero_history_sha256'),@('r1_history_path','r1_history_sha256'),@('r2_history_path','r2_history_sha256'),@('mutation_authorization_packet_path','mutation_authorization_packet_sha256'),@('authorization_receipt_path','authorization_receipt_sha256'),@('exact_existing_authority_path','exact_existing_authority_sha256'))){
     $p=$value.($pair[0]);$d=$value.($pair[1]);if($null-eq$p){if($null-ne$d){Throw-P08HostedRule 'P08-ACTIVE-DIGEST' 'Null active path has a digest.'};continue};$null=Test-P08SafePath ([string]$p) ([string]$value.execution_root);if((Get-P08Sha256 ([string]$p))-cne[string]$d){Throw-P08HostedRule 'P08-ACTIVE-DIGEST' "Active digest drifted for $($pair[0])."}
   }
   $value
@@ -166,6 +171,7 @@ function Write-P08HostedHandoff {
     artifact_root=$active.artifact_root;artifact_index_path=$active.artifact_index_path;artifact_index_sha256=$active.artifact_index_sha256
     attempt_zero_history_path=$active.attempt_zero_history_path;attempt_zero_history_sha256=$active.attempt_zero_history_sha256
     r1_history_path=$active.r1_history_path;r1_history_sha256=$active.r1_history_sha256
+    r2_history_path=$active.r2_history_path;r2_history_sha256=$active.r2_history_sha256;historical_history_set_sha256=$active.historical_history_set_sha256
     mutation_authorization_packet_path=$active.mutation_authorization_packet_path;mutation_authorization_packet_sha256=$active.mutation_authorization_packet_sha256
     authorization_receipt_path=$active.authorization_receipt_path;authorization_receipt_sha256=$active.authorization_receipt_sha256
     exact_existing_authority_path=$active.exact_existing_authority_path;exact_existing_authority_sha256=$active.exact_existing_authority_sha256
@@ -554,15 +560,15 @@ function New-P08PreparedAttempt {
   }
   $missing=@($prepareBindings.GetEnumerator()|Where-Object{[string]::IsNullOrWhiteSpace([string]$_.Value)}|ForEach-Object Key)
   if($missing.Count -ne 0){Throw-P08HostedRule 'P08-PREPARE-MISSING-BINDING' ('PrepareAttempt requires: '+($missing-join ', ')+'.')}
-  if($ReleaseRef -cne 'refs/tags/modules-v0.1.0-r2'){Throw-P08HostedRule 'P08-PREPARE-R2-BINDING' 'PrepareAttempt requires the exact r2 release ref.'}
+  if($ReleaseRef -cne 'refs/tags/modules-v0.1.0-r3'){Throw-P08HostedRule 'P08-PREPARE-R3-BINDING' 'PrepareAttempt requires the exact r3 release ref.'}
   $executionRoot=[IO.Path]::GetFullPath([string]$Boundary.execution_root)
   $control=Get-Content -LiteralPath (Join-Path $executionRoot 'policy/release-control.json') -Raw|ConvertFrom-Json -Depth 100
   $historicalPolicy=$control.historical_initial_attempt
   $history=@($control.initial_attempt_family.terminal_negative_history)
-  if($control.initial_attempt_family.current_attempt -cne 'r2' -or $history.Count -ne 2 -or $history[0].attempt -cne 'attempt_zero' -or $history[1].attempt -cne 'r1' -or
-      $history[0].release_ref -cne 'refs/tags/modules-v0.1.0' -or $history[1].release_ref -cne 'refs/tags/modules-v0.1.0-r1' -or
-      $history[0].mutation_performed -ne $false -or $history[1].mutation_performed -ne $false -or $history[0].authority_acquired -ne $false -or $history[1].authority_acquired -ne $false){
-    Throw-P08HostedRule 'P08-PREPARE-HISTORY' 'The exact two-entry terminal-negative history is required.'
+  if($control.initial_attempt_family.current_attempt -cne 'r3' -or $history.Count -ne 3 -or ($history.attempt -join ',') -cne 'attempt_zero,r1,r2' -or
+      ($history.release_ref -join ',') -cne 'refs/tags/modules-v0.1.0,refs/tags/modules-v0.1.0-r1,refs/tags/modules-v0.1.0-r2' -or
+      @($history|Where-Object{$_.mutation_performed-ne$false-or$_.authority_acquired-ne$false}).Count -ne 0){
+    Throw-P08HostedRule 'P08-PREPARE-HISTORY' 'The exact three-entry terminal-negative history is required.'
   }
   if([string]$HistoricalRunId -cne [string]$historicalPolicy.run_id -or $HistoricalRunAttempt -ne [int]$historicalPolicy.run_attempt -or
       $HistoricalReleaseRef -cne [string]$historicalPolicy.release_ref -or $HistoricalSourceSha -cne [string]$historicalPolicy.source_sha -or
@@ -570,7 +576,7 @@ function New-P08PreparedAttempt {
     Throw-P08HostedRule 'P08-PREPARE-HISTORICAL-BINDING' 'Historical failed-attempt binding differs from release control.'
   }
   $resolvedRef=((Invoke-P08Git $executionRoot @('rev-parse',"$ReleaseRef^{}"))-join '').Trim()
-  if($resolvedRef -cne [string]$Boundary.boundary_sha){Throw-P08HostedRule 'P08-PREPARE-REF' 'The r2 ref does not peel to the durable boundary.'}
+  if($resolvedRef -cne [string]$Boundary.boundary_sha){Throw-P08HostedRule 'P08-PREPARE-REF' 'The r3 ref does not peel to the durable boundary.'}
   $stateRoot=[IO.Path]::GetFullPath([string]$Boundary.state_root)
   $locatorPath=Join-Path $stateRoot 'phase-08-live-locator.json'
   if(Test-Path -LiteralPath $locatorPath){Throw-P08HostedRule 'P08-PREPARE-EXISTS' 'An active attempt locator already exists.'}
@@ -586,7 +592,7 @@ function New-P08PreparedAttempt {
         $binding.release_ref -cne $ReleaseRef -or $binding.source_sha -cne [string]$Boundary.boundary_sha -or
         $binding.root_intent_sha256 -cne $intentDigest -or $binding.intent_sha256 -cne $intentDigest -or
         $binding.credentials_read -ne $false -or $binding.publication_performed -ne $false){
-      Throw-P08HostedRule 'P08-PREPARE-INTENT-BINDING' 'Fresh r2 intent/root binding is invalid.'
+      Throw-P08HostedRule 'P08-PREPARE-INTENT-BINDING' 'Fresh r3 intent/root binding is invalid.'
     }
     $artifactRoot=Join-Path $stateRoot "artifacts/$intentDigest"
     if(Test-Path -LiteralPath $artifactRoot){Throw-P08HostedRule 'P08-PREPARE-PARTIAL' 'Fresh attempt artifact root already exists.'}
@@ -594,19 +600,14 @@ function New-P08PreparedAttempt {
     $inputRoot=Join-Path $workRoot 'prepared-input'
     $preparedRoot=Join-Path $stageRoot 'prepared'
     $null=New-Item -ItemType Directory -Force $inputRoot
-    $attemptZero=[pscustomobject][ordered]@{
-      schema_version='mnf-phase08-historical-negative/1';attempt='attempt_zero';repository='tchivs/moonbit-foundation';workflow='publish-modules.yml'
-      run_id=[string]$history[0].run_id;run_attempt=[int]$history[0].run_attempt;release_ref=[string]$history[0].release_ref;source_sha=[string]$history[0].source_sha
-      classification='terminal_historical_failure';disposition=[string]$history[0].reason;current_authority=$false;retry_or_reuse='forbidden';mutation_count=0
-    }
-    $r1Negative=[pscustomobject][ordered]@{
-      schema_version='mnf-phase08-historical-negative/1';attempt='r1';repository='tchivs/moonbit-foundation';workflow='publish-modules.yml'
-      run_id=$null;run_attempt=$null;release_ref=[string]$history[1].release_ref;source_sha=[string]$history[1].source_sha
-      classification='terminal_local_preparation_failure';disposition=[string]$history[1].reason;current_authority=$false;retry_or_reuse='forbidden';mutation_count=0
-    }
+    $historyProjections=@()
+    foreach($record in $history){$projection=[ordered]@{};foreach($property in $record.PSObject.Properties){if($property.Name -cne 'record_sha256'){$projection[$property.Name]=$property.Value}};$historyProjections+=,[pscustomobject]$projection}
+    $attemptZero=$historyProjections[0];$r1Negative=$historyProjections[1];$r2Negative=$historyProjections[2]
     $attemptZeroPath=Join-Path $stageRoot 'historical/attempt-zero.json';Write-P08ExclusiveJson $attemptZeroPath $attemptZero
     $r1HistoryPath=Join-Path $stageRoot 'historical/r1.json';Write-P08ExclusiveJson $r1HistoryPath $r1Negative
-    $attemptZeroDigest=Get-P08Sha256 $attemptZeroPath;$r1HistoryDigest=Get-P08Sha256 $r1HistoryPath
+    $r2HistoryPath=Join-Path $stageRoot 'historical/r2.json';Write-P08ExclusiveJson $r2HistoryPath $r2Negative
+    $attemptZeroDigest=Get-P08Sha256 $attemptZeroPath;$r1HistoryDigest=Get-P08Sha256 $r1HistoryPath;$r2HistoryDigest=Get-P08Sha256 $r2HistoryPath
+    $historySet=([Convert]::ToHexString([Security.Cryptography.SHA256]::HashData([Text.UTF8Encoding]::new($false).GetBytes((@($attemptZeroDigest,$r1HistoryDigest,$r2HistoryDigest)-join"`n"))))).ToLowerInvariant()
     foreach($module in @('mb-core','mb-color','mb-image')){Copy-P08PreparedInput -Source ([string]$materials.archive_paths[$module]) -InputRoot $inputRoot -RelativePath "archives/$module.zip"}
     Copy-P08PreparedInput -Source $intentPath -InputRoot $inputRoot -RelativePath 'intent/current.json'
     Copy-P08PreparedInput -Source (Join-Path $qualificationRoot 'intent/intent.sha256') -InputRoot $inputRoot -RelativePath 'intent/current.sha256'
@@ -627,10 +628,10 @@ function New-P08PreparedAttempt {
       repository='tchivs/moonbit-foundation';actor='tchivs';release_ref=$ReleaseRef;source_sha=[string]$Boundary.boundary_sha
       root_intent_sha256=$intentDigest;intent_sha256=$intentDigest;intent_kind='initial';correction_sequence=0
       predecessor_intent_sha256=$null;authorization_valid=$true;evidence_valid=$true;dry_run_passed=$true;authority_account='tchivs'
-      historical_attempt_zero_sha256=$attemptZeroDigest;historical_r1_sha256=$r1HistoryDigest
+      historical_attempt_zero_sha256=$attemptZeroDigest;historical_r1_sha256=$r1HistoryDigest;historical_r2_sha256=$r2HistoryDigest;historical_history_set_sha256=$historySet
     }
     [IO.File]::WriteAllText((Join-Path $inputRoot 'request.json'),(Get-P08CanonicalJson $request),[Text.UTF8Encoding]::new($false))
-    $bundleArgs=@{Repository='tchivs/moonbit-foundation';Actor='tchivs';RunId='1';RunAttempt=1;ReleaseRef=$ReleaseRef;SourceSha=[string]$Boundary.boundary_sha;RootIntentSha256=$intentDigest;IntentSha256=$intentDigest;RunMode='start';HistoricalAttemptZeroSha256=$attemptZeroDigest;HistoricalR1Sha256=$r1HistoryDigest}
+    $bundleArgs=@{Repository='tchivs/moonbit-foundation';Actor='tchivs';RunId='1';RunAttempt=1;ReleaseRef=$ReleaseRef;SourceSha=[string]$Boundary.boundary_sha;RootIntentSha256=$intentDigest;IntentSha256=$intentDigest;RunMode='start';HistoricalAttemptZeroSha256=$attemptZeroDigest;HistoricalR1Sha256=$r1HistoryDigest;HistoricalR2Sha256=$r2HistoryDigest;HistoricalHistorySetSha256=$historySet}
     $prepared=& (Join-Path $executionRoot 'scripts/quality/New-PreparedReleaseBundle.ps1') -InputRoot $inputRoot -OutputRoot $preparedRoot @bundleArgs
     & (Join-Path $executionRoot 'scripts/quality/New-PreparedReleaseBundle.ps1') -ValidateOnly -OutputRoot $preparedRoot @bundleArgs|Out-Null
     if($prepared.manifest_sha256 -cne (Get-P08Sha256 (Join-Path $preparedRoot 'prepared-bundle.json'))){Throw-P08HostedRule 'P08-PREPARE-MANIFEST' 'Prepared manifest digest drifted.'}
@@ -640,7 +641,7 @@ function New-P08PreparedAttempt {
       journal_sequence=0;prior_record_sha256=('0'*64);root_intent_sha256=$intentDigest;intent_sha256=$intentDigest;intent_kind='initial'
       correction_sequence=0;predecessor_intent_sha256=$null;state='intent_authorized';module=$null;operation='authorize'
       observation=ConvertTo-PublisherSanitizedObservation -Status not_observed -Identity not_applicable -ReasonCode none -ReobservationRequired $false
-      outcome='accepted';recorded_at_utc=$commitTime;run_identity=[pscustomobject][ordered]@{repository='tchivs/moonbit-foundation';run_id='1';artifact_name='publisher-genesis-r2';artifact_sequence=0}
+      outcome='accepted';recorded_at_utc=$commitTime;run_identity=[pscustomobject][ordered]@{repository='tchivs/moonbit-foundation';run_id='1';artifact_name='publisher-genesis-r3';artifact_sequence=0}
     }
     $genesis=(Resolve-PublisherTransition -Records @() -Command $genesisCommand).record
     $journalPath=Join-Path $stageRoot 'journal/genesis.json';Write-P08ExclusiveJson $journalPath $genesis
@@ -652,6 +653,7 @@ function New-P08PreparedAttempt {
       New-P08PrepareIndexRecord -LogicalKey 'prepare|bundle|manifest' -Kind 'PreparedManifest' -RelativePath 'prepared/prepared-bundle.json' -AbsolutePath (Join-Path $preparedRoot 'prepared-bundle.json') -ContentDigest $preparedDigest -Binding $indexBinding
       New-P08PrepareIndexRecord -LogicalKey 'prepare|historical|attempt-zero' -Kind 'HistoricalNegative' -RelativePath 'historical/attempt-zero.json' -AbsolutePath $attemptZeroPath -ContentDigest $attemptZeroDigest -Binding $indexBinding
       New-P08PrepareIndexRecord -LogicalKey 'prepare|historical|r1' -Kind 'HistoricalNegative' -RelativePath 'historical/r1.json' -AbsolutePath $r1HistoryPath -ContentDigest $r1HistoryDigest -Binding $indexBinding
+      New-P08PrepareIndexRecord -LogicalKey 'prepare|historical|r2' -Kind 'HistoricalNegative' -RelativePath 'historical/r2.json' -AbsolutePath $r2HistoryPath -ContentDigest $r2HistoryDigest -Binding $indexBinding
     )
     $index=[pscustomobject][ordered]@{schema_version='mnf-phase08-artifact-index/2';boundary_sha=[string]$Boundary.boundary_sha;prepared_manifest_sha256=$preparedDigest;records=$records}
     Write-P08ExclusiveJson (Join-Path $stageRoot 'index.json') $index
@@ -670,7 +672,7 @@ function New-P08PreparedAttempt {
       mode='PrepareAttempt';locator_path=[IO.Path]::GetFullPath($locatorPath);artifact_root=[IO.Path]::GetFullPath($artifactRoot)
       index_path=[IO.Path]::GetFullPath((Join-Path $artifactRoot 'index.json'));root_intent_sha256=$intentDigest;intent_sha256=$intentDigest
       prepared_manifest_sha256=$preparedDigest;historical_record_path=[IO.Path]::GetFullPath((Join-Path $artifactRoot 'historical/attempt-zero.json'))
-      attempt_zero_history_path=[IO.Path]::GetFullPath((Join-Path $artifactRoot 'historical/attempt-zero.json'));r1_history_path=[IO.Path]::GetFullPath((Join-Path $artifactRoot 'historical/r1.json'))
+      attempt_zero_history_path=[IO.Path]::GetFullPath((Join-Path $artifactRoot 'historical/attempt-zero.json'));r1_history_path=[IO.Path]::GetFullPath((Join-Path $artifactRoot 'historical/r1.json'));r2_history_path=[IO.Path]::GetFullPath((Join-Path $artifactRoot 'historical/r2.json'));historical_history_set_sha256=$historySet
       genesis_record_path=[IO.Path]::GetFullPath((Join-Path $artifactRoot 'journal/genesis.json'));prepared_root=[IO.Path]::GetFullPath((Join-Path $artifactRoot 'prepared'))
       toolchain_root=[string]$materials.toolchain_root;native_toolchain_bin=[string]$materials.native_toolchain_bin;mutation_count=0
     }
@@ -686,7 +688,7 @@ function Open-P08BoundaryStore {
   $names=@('schema_version','repository','workflow','release_ref','boundary_sha','execution_root','source_sha','root_intent_sha256','intent_sha256','prepared_manifest_sha256','artifact_root','index_path','mutation_authorization_packet_path','mutation_authorization_packet_sha256','created_at_utc','locator_sha256')
   if ((@($value.PSObject.Properties.Name)-join ',') -cne ($names-join ',') -or $value.schema_version -cne 'mnf-phase08-live-locator/2') { Throw-P08HostedRule 'P08-BOUNDARY-LOCATOR-CLOSED' 'Locator field inventory drifted.' }
   if ([IO.Path]::GetFullPath([string]$value.artifact_root) -cne [IO.Path]::GetFullPath($Artifacts) -or
-      $value.repository -cne $Repository -or $value.workflow -cne $Workflow -or $value.release_ref -cne 'refs/tags/modules-v0.1.0-r2' -or
+      $value.repository -cne $Repository -or $value.workflow -cne $Workflow -or $value.release_ref -cne 'refs/tags/modules-v0.1.0-r3' -or
       $value.source_sha -cne $SourceSha -or $value.boundary_sha -cne $BoundarySha -or $value.source_sha -cne $value.boundary_sha -or
       $value.root_intent_sha256 -cne $RootIntentSha256 -or $value.intent_sha256 -cne $IntentSha256 -or $value.prepared_manifest_sha256 -cne $PreparedManifestSha256) {
     Throw-P08HostedRule 'P08-BOUNDARY-BINDING' 'Locator binding drifted.'
@@ -799,9 +801,16 @@ function Select-P08Artifact([object]$Response,[string]$Prefix) {
 }
 
 function Invoke-P08HostedDispatch {
-  param([string]$Operation,[string]$Repo,[string]$WorkflowPath,[string]$Ref,[string]$Sha,[string]$RootIntent,[string]$CurrentIntent,[string]$PreparedDigest,[string]$Module,[string]$PriorId,[string]$PriorArtifact,[string]$Packet,[string]$AttemptZeroHistory,[string]$R1History)
+  param([string]$Operation,[string]$Repo,[string]$WorkflowPath,[string]$Ref,[string]$Sha,[string]$RootIntent,[string]$CurrentIntent,[string]$PreparedDigest,[string]$Module,[string]$PriorId,[string]$PriorArtifact,[string]$Packet,[string]$Receipt,[string]$AttemptZeroHistory,[string]$R1History,[string]$R2History)
   $before=@{}; foreach($run in @(Get-P08Runs $Repo $WorkflowPath)){ $before[[string]$run.databaseId]=$true }
-  if([string]::IsNullOrWhiteSpace($AttemptZeroHistory)-or[string]::IsNullOrWhiteSpace($R1History)){Throw-P08HostedRule 'P08-HOSTED-HISTORY' 'Both terminal-negative history files are required for dispatch.'}
+  if([string]::IsNullOrWhiteSpace($AttemptZeroHistory)-or[string]::IsNullOrWhiteSpace($R1History)-or[string]::IsNullOrWhiteSpace($R2History)){Throw-P08HostedRule 'P08-HOSTED-HISTORY' 'All three terminal-negative history files are required for dispatch.'}
+  $history=Get-ReleaseInitialHistoryBinding
+  $historyFiles=@($AttemptZeroHistory,$R1History,$R2History);$historyDigests=@($historyFiles|ForEach-Object{Get-P08Sha256 $_})
+  if(($historyDigests-join',')-cne(@($history.historical_attempt_zero_sha256,$history.historical_r1_sha256,$history.historical_r2_sha256)-join',')){Throw-P08HostedRule 'P08-HOSTED-HISTORY' 'Individual terminal-negative history files drifted.'}
+  $computedSet=([Convert]::ToHexString([Security.Cryptography.SHA256]::HashData([Text.UTF8Encoding]::new($false).GetBytes(($historyDigests-join"`n"))))).ToLowerInvariant()
+  if($computedSet-cne$history.historical_history_set_sha256){Throw-P08HostedRule 'P08-HOSTED-HISTORY' 'Ordered terminal-negative history set drifted.'}
+  $hasPacket=-not[string]::IsNullOrWhiteSpace($Packet);$hasReceipt=-not[string]::IsNullOrWhiteSpace($Receipt)
+  if($hasPacket-ne$hasReceipt-or($Operation-ceq'PublishOne'-and(-not$hasPacket))-or($Operation-cne'PublishOne'-and$hasPacket)){Throw-P08HostedRule 'P08-HOSTED-AUTHORITY' 'Packet and receipt must form the exact PublishOne resume pair.'}
   $fields=@(
     ('operation_mode='+$Operation),
     ('run_mode='+$(if([string]::IsNullOrWhiteSpace($PriorId)){'start'}else{'resume'})),
@@ -810,13 +819,13 @@ function Invoke-P08HostedDispatch {
     ('root_intent_sha256='+$RootIntent),
     ('intent_sha256='+$CurrentIntent),
     ('prepared_manifest_sha256='+$PreparedDigest),
-    ('historical_attempt_zero_sha256='+(Get-P08Sha256 $AttemptZeroHistory)),
-    ('historical_r1_sha256='+(Get-P08Sha256 $R1History)),
+    ('historical_attempts_sha256='+$computedSet),
     ('target_module='+$Module),
     ('live_authorization='+$(if($Operation -ceq 'PublishOne'){'true'}else{'false'})),
     ('prior_run_id='+$PriorId),
     ('prior_artifact_name='+$PriorArtifact),
-    ('authorization_packet_sha256='+$(if([string]::IsNullOrWhiteSpace($Packet)){''}else{Get-P08Sha256 $Packet}))
+    ('authorization_packet_sha256='+$(if($hasPacket){Get-P08Sha256 $Packet}else{''})),
+    ('authorization_receipt_sha256='+$(if($hasReceipt){Get-P08Sha256 $Receipt}else{''}))
   )
   $dispatchRef=if($Ref.StartsWith('refs/tags/',[StringComparison]::Ordinal)){$Ref.Substring(10)}else{$Ref}
   $args=@('workflow','run',$WorkflowPath,'--repo',$Repo,'--ref',$dispatchRef); foreach($field in $fields){$args+=@('-f',$field)}
@@ -894,9 +903,9 @@ $Repository=[string]$boundary.repository
 $Workflow=[string]$boundary.workflow
 $BoundarySha=[string]$boundary.boundary_sha
 $ExecutionRoot=[string]$boundary.execution_root
-if ($ReleaseRef -cne 'refs/tags/modules-v0.1.0-r2' -or $SourceSha -cnotmatch '^[0-9a-f]{40}$' -or $RootIntentSha256 -cnotmatch '^[0-9a-f]{64}$' -or
+if ($ReleaseRef -cne 'refs/tags/modules-v0.1.0-r3' -or $SourceSha -cnotmatch '^[0-9a-f]{40}$' -or $RootIntentSha256 -cnotmatch '^[0-9a-f]{64}$' -or
     $IntentSha256 -cnotmatch '^[0-9a-f]{64}$' -or $PreparedManifestSha256 -cnotmatch '^[0-9a-f]{64}$') {
-  Throw-P08HostedRule 'P08-HOSTED-R2-BINDING' 'Only the exact r2 release binding is accepted.'
+  Throw-P08HostedRule 'P08-HOSTED-R3-BINDING' 'Only the exact r3 release binding is accepted.'
 }
 $store=Open-P08BoundaryStore -Locator $LocatorPath -Artifacts $ArtifactRoot -Operation $Mode
 switch ($Mode) {
@@ -928,15 +937,16 @@ switch ($Mode) {
     $observation=Get-Content -LiteralPath $ObservationRecordPath -Raw | ConvertFrom-Json -Depth 100
     if ($observation.outcome -cne 'absent') { Throw-P08HostedRule 'P08-PACKET-ABSENT' 'Only confirmed absent core can assemble mutation authorization.' }
     $records=@($store.index.records);foreach($kind in @('HostedPreflight','PublisherDryRun','Observation')){if(@($records|Where-Object kind -ceq $kind).Count -ne 1){Throw-P08HostedRule 'P08-PACKET-EVIDENCE' "Exactly one $kind record is required."}}
-    $packet=[pscustomobject][ordered]@{schema_version='mnf-phase08-mutation-authorization-packet/1';repository=$Repository;release_ref=$ReleaseRef;boundary_sha=$BoundarySha;source_sha=$SourceSha;execution_root=[string]$store.locator.execution_root;locator_sha256=[string]$store.locator.locator_sha256;root_intent_sha256=$RootIntentSha256;intent_sha256=$IntentSha256;prepared_manifest_sha256=$PreparedManifestSha256;target_module='mb-core';observation_sha256=(Get-P08Sha256 $ObservationRecordPath);hosted_preflight_sha256=[string](@($records|Where-Object kind -ceq 'HostedPreflight')[0].file_sha256);publisher_dry_run_sha256=[string](@($records|Where-Object kind -ceq 'PublisherDryRun')[0].file_sha256);actor='tchivs';mutation_count=0;packet_sha256=''}
+    $history=Get-ReleaseInitialHistoryBinding
+    $packet=[pscustomobject][ordered]@{schema_version='mnf-phase08-mutation-authorization-packet/1';repository=$Repository;release_ref=$ReleaseRef;boundary_sha=$BoundarySha;source_sha=$SourceSha;execution_root=[string]$store.locator.execution_root;locator_sha256=[string]$store.locator.locator_sha256;root_intent_sha256=$RootIntentSha256;intent_sha256=$IntentSha256;prepared_manifest_sha256=$PreparedManifestSha256;historical_attempt_zero_sha256=$history.historical_attempt_zero_sha256;historical_r1_sha256=$history.historical_r1_sha256;historical_r2_sha256=$history.historical_r2_sha256;historical_history_set_sha256=$history.historical_history_set_sha256;target_module='mb-core';observation_sha256=(Get-P08Sha256 $ObservationRecordPath);hosted_preflight_sha256=[string](@($records|Where-Object kind -ceq 'HostedPreflight')[0].file_sha256);publisher_dry_run_sha256=[string](@($records|Where-Object kind -ceq 'PublisherDryRun')[0].file_sha256);actor='tchivs';mutation_count=0;packet_sha256=''}
     $packet.packet_sha256=Get-P08SelfExcludingDigest $packet 'packet_sha256'
     $packetPath=Join-Path $ArtifactRoot 'authorization/mutation-authorization-packet.json';Write-P08ExclusiveJson $packetPath $packet
     [pscustomobject][ordered]@{packet_path=$packetPath;packet_sha256=[string]$packet.packet_sha256};return
   }
   'PersistAuthorizationReceipt' {
     if($TargetModule -cne 'mb-core' -or [string]::IsNullOrWhiteSpace($MutationAuthorizationPacketPath) -or
-       [string]::IsNullOrWhiteSpace($AttemptZeroHistoryPath) -or [string]::IsNullOrWhiteSpace($R1HistoryPath)){
-      Throw-P08HostedRule 'P08-RECEIPT-BINDINGS' 'Core packet and both terminal-negative histories are required.'
+       [string]::IsNullOrWhiteSpace($AttemptZeroHistoryPath) -or [string]::IsNullOrWhiteSpace($R1HistoryPath) -or [string]::IsNullOrWhiteSpace($R2HistoryPath)){
+      Throw-P08HostedRule 'P08-RECEIPT-BINDINGS' 'Core packet and all three terminal-negative histories are required.'
     }
     $receiptFull=Join-Path $ArtifactRoot 'authorization/authorization-receipt.json'
     $activeFull=Join-Path $ArtifactRoot 'active-attempt.json'
@@ -944,26 +954,26 @@ switch ($Mode) {
     $receipt=Write-P08AuthorizationReceipt -PacketPath $MutationAuthorizationPacketPath -ReceiptPath $receiptFull -BoundarySha $BoundarySha -Response $AuthorizationResponse -CreatedAt $stamp
     $bindings=[pscustomobject][ordered]@{
       boundary_sha=$BoundarySha;execution_root=$ExecutionRoot;boundary_locator_path=$BoundaryLocatorPath;artifact_root=$ArtifactRoot;artifact_index_path=[string]$store.locator.index_path
-      attempt_zero_history_path=$AttemptZeroHistoryPath;r1_history_path=$R1HistoryPath;mutation_authorization_packet_path=$MutationAuthorizationPacketPath
+      attempt_zero_history_path=$AttemptZeroHistoryPath;r1_history_path=$R1HistoryPath;r2_history_path=$R2HistoryPath;historical_history_set_sha256=(Get-ReleaseInitialHistoryBinding).historical_history_set_sha256;mutation_authorization_packet_path=$MutationAuthorizationPacketPath
       authorization_receipt_path=$receiptFull;exact_existing_authority_path=$null
     }
     $active=Write-P08ActiveAttempt -Path $activeFull -Bindings $bindings -AuthorityVariant mutation_authorized -UpdatedAt $stamp
     [pscustomobject][ordered]@{receipt_path=$receiptFull;receipt_sha256=[string]$receipt.receipt_sha256;active_attempt_path=$activeFull;active_attempt_sha256=[string]$active.active_attempt_sha256};return
   }
   'WriteHandoff' {
-    if([string]::IsNullOrWhiteSpace($AttemptZeroHistoryPath) -or [string]::IsNullOrWhiteSpace($R1HistoryPath)){Throw-P08HostedRule 'P08-HANDOFF-HISTORY' 'Both terminal-negative histories are required.'}
+    if([string]::IsNullOrWhiteSpace($AttemptZeroHistoryPath) -or [string]::IsNullOrWhiteSpace($R1HistoryPath) -or [string]::IsNullOrWhiteSpace($R2HistoryPath)){Throw-P08HostedRule 'P08-HANDOFF-HISTORY' 'All three terminal-negative histories are required.'}
     $activeFull=Join-Path $ArtifactRoot 'active-attempt.json'
     $stamp=if($null-eq$CreatedAt){[DateTime]::UtcNow}else{$CreatedAt}
     if(-not(Test-Path -LiteralPath $activeFull -PathType Leaf)){
       if($AuthorityVariant -cne 'exact_existing' -or [string]::IsNullOrWhiteSpace($ExactExistingAuthorityPath)){Throw-P08HostedRule 'P08-HANDOFF-ACTIVE' 'Only an exact-existing branch may create a packet-free active attempt.'}
       $bindings=[pscustomobject][ordered]@{
         boundary_sha=$BoundarySha;execution_root=$ExecutionRoot;boundary_locator_path=$BoundaryLocatorPath;artifact_root=$ArtifactRoot;artifact_index_path=[string]$store.locator.index_path
-        attempt_zero_history_path=$AttemptZeroHistoryPath;r1_history_path=$R1HistoryPath;mutation_authorization_packet_path=$null
+        attempt_zero_history_path=$AttemptZeroHistoryPath;r1_history_path=$R1HistoryPath;r2_history_path=$R2HistoryPath;historical_history_set_sha256=(Get-ReleaseInitialHistoryBinding).historical_history_set_sha256;mutation_authorization_packet_path=$null
         authorization_receipt_path=$null;exact_existing_authority_path=$ExactExistingAuthorityPath
       }
       $null=Write-P08ActiveAttempt -Path $activeFull -Bindings $bindings -AuthorityVariant exact_existing -UpdatedAt $stamp
     }
-    $fixed=[IO.Path]::GetFullPath((Join-Path ([IO.Path]::GetTempPath()) 'mnf-phase08-r2-handoff.json'))
+    $fixed=[IO.Path]::GetFullPath((Join-Path ([IO.Path]::GetTempPath()) 'mnf-phase08-r3-handoff.json'))
     Write-P08HostedHandoff -ActiveAttemptPath $activeFull -HandoffPath $fixed -CreatedAt $stamp;return
   }
   'SelectExactExistingAuthority' {
@@ -988,7 +998,7 @@ switch ($Mode) {
     if ($TargetModule -cne 'mb-core' -and [string]::IsNullOrWhiteSpace($PriorAuthorityRecordPath)) { Throw-P08HostedRule 'P08-PREDECESSOR-REQUIRED' 'Successor PublishOne requires explicit predecessor authority.' }
   }
 }
-$run=Invoke-P08HostedDispatch -Operation $Mode -Repo $Repository -WorkflowPath $Workflow -Ref $ReleaseRef -Sha $SourceSha -RootIntent $RootIntentSha256 -CurrentIntent $IntentSha256 -PreparedDigest $PreparedManifestSha256 -Module $TargetModule -PriorId $PriorRunId -PriorArtifact $PriorArtifactName -Packet $MutationAuthorizationPacketPath -AttemptZeroHistory $AttemptZeroHistoryPath -R1History $R1HistoryPath
+$run=Invoke-P08HostedDispatch -Operation $Mode -Repo $Repository -WorkflowPath $Workflow -Ref $ReleaseRef -Sha $SourceSha -RootIntent $RootIntentSha256 -CurrentIntent $IntentSha256 -PreparedDigest $PreparedManifestSha256 -Module $TargetModule -PriorId $PriorRunId -PriorArtifact $PriorArtifactName -Packet $MutationAuthorizationPacketPath -Receipt $AuthorizationReceiptPath -AttemptZeroHistory $AttemptZeroHistoryPath -R1History $R1HistoryPath -R2History $R2HistoryPath
 $prefix=if($Mode -ceq 'PublisherDryRun'){'mnf-publisher-dry-run-'}elseif($Mode -ceq 'HostedPreflight'){'mnf-hosted-preflight-'}else{'mnf-checkpoint-'}
 $kind=if($Mode -ceq 'PublisherDryRun'){'PublisherDryRun'}elseif($Mode -ceq 'HostedPreflight'){'HostedPreflight'}else{'PublishOne'}
 $artifact=Receive-P08HostedArtifact -Run $run -Repo $Repository -Prefix $prefix -StoreKind $kind -Store $store -Operation $Mode -PreparedDigest $PreparedManifestSha256 -Module $TargetModule
