@@ -81,3 +81,36 @@ if ($ReducerOnly) { return }
 if (-not (Test-Path -LiteralPath (Join-Path $PSScriptRoot 'Invoke-ReleasePublisher.ps1'))) {
   throw 'PUB00-MISSING-CONTROLLER: Invoke-ReleasePublisher.ps1 is required.'
 }
+. (Join-Path $PSScriptRoot 'Invoke-ReleasePublisher.ps1') -LibraryOnly
+
+$root = 'a' * 64
+$base = [pscustomobject]@{
+  repository='tchivs/moonbit-foundation'; actor='tchivs'; release_ref='refs/tags/modules-v0.1.0'
+  source_sha=('1'*40); root_intent_sha256=$root; intent_sha256=$root; intent_kind='initial'
+  correction_sequence=0; predecessor_intent_sha256=$null; authorization_valid=$true
+  evidence_valid=$true; dry_run_passed=$true; authority_account='tchivs'
+}
+
+$ambiguous = Invoke-PublisherRehearsal -Request $base -Scenario timeout
+if ($ambiguous.reobserved -ne $true -or $ambiguous.disposition -cne 'fresh_authorization_required' -or $ambiguous.mutation_count -ne 0) { throw 'Timeout did not re-observe absent and stop for fresh authorization.' }
+$partial = Invoke-PublisherRehearsal -Request $base -Scenario partial_success
+if ($partial.reobserved -ne $true -or $partial.disposition -cne 'checkpoint_verified' -or $partial.mutation_count -ne 0) { throw 'Partial success did not re-observe exact match without republishing.' }
+$mismatch = Invoke-PublisherRehearsal -Request $base -Scenario existing_mismatch
+if ($mismatch.disposition -cne 'incident_opened' -or $mismatch.destructive_recovery_available -ne $false) { throw 'Mismatch did not terminate forward-only.' }
+$unknown = Invoke-PublisherRehearsal -Request $base -Scenario unknown
+if ($unknown.disposition -cne 'unknown_stopped' -or $unknown.reobserved -ne $true) { throw 'Unknown observation did not stop.' }
+$auth = Invoke-PublisherRehearsal -Request $base -Scenario invalid_credential
+if ($auth.disposition -cne 'authentication_rejected' -or $auth.mutation_count -ne 0) { throw 'Invalid auth reached mutation.' }
+$evidence = Invoke-PublisherRehearsal -Request $base -Scenario evidence_failure
+if ($evidence.disposition -cne 'evidence_rejected' -or $evidence.mutation_count -ne 0) { throw 'Invalid evidence reached mutation.' }
+
+$correctionA = $base.PSObject.Copy(); $correctionA.intent_kind='forward_correction'; $correctionA.intent_sha256=('b'*64); $correctionA.correction_sequence=1; $correctionA.predecessor_intent_sha256=$root; $correctionA.release_ref='refs/tags/modules-correction-1'; $correctionA.source_sha=('2'*40)
+$correctionB = $base.PSObject.Copy(); $correctionB.intent_kind='forward_correction'; $correctionB.intent_sha256=('c'*64); $correctionB.correction_sequence=1; $correctionB.predecessor_intent_sha256=$root; $correctionB.release_ref='refs/tags/modules-correction-1'; $correctionB.source_sha=('3'*40)
+$race = Invoke-PublisherCorrectionRaceRehearsal -First $correctionA -Second $correctionB
+if ($race.first -cne 'accepted' -or $race.second -cne 'stale_fork' -or $race.first_lock -cne $race.second_lock -or $race.mutation_count -ne 0) { throw 'Competing corrections were not serialized on immutable root.' }
+
+Confirm-PublisherRule 'PUB11-CORRECTION-SEQUENCE' { $bad=$correctionA.PSObject.Copy(); $bad.correction_sequence=2; Assert-PublisherCorrectionRequest -Request $bad -LatestIntentSha256 $root -LatestCorrectionSequence 0 }
+Confirm-PublisherRule 'PUB10-STALE-FORK' { Assert-PublisherCorrectionRequest -Request $correctionB -LatestIntentSha256 $correctionA.intent_sha256 -LatestCorrectionSequence 1 }
+Confirm-PublisherRule 'PUB04-ROOT' { $bad=$correctionA.PSObject.Copy(); $bad.root_intent_sha256=('d'*64); Assert-PublisherCorrectionRequest -Request $bad -LatestIntentSha256 $root -LatestCorrectionSequence 0 -ExpectedRoot $root }
+
+Write-Host 'Publisher controller recovery rehearsal matrix passed.'
