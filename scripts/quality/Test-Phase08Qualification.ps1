@@ -44,6 +44,13 @@ function Assert-P08R3Contract {
   }
   $qualification=Get-Content -LiteralPath (Join-Path $PSScriptRoot 'Invoke-ReleaseQualification.ps1') -Raw
   if($qualification.IndexOf('refs/tags/modules-v0.1.0-r3',[StringComparison]::Ordinal) -lt 0){Throw-P08Qualification 'P08-R3-QUALIFICATION' 'Qualification does not emit r3 initial identity.'}
+  $hosted=Get-Content -LiteralPath (Join-Path $PSScriptRoot 'Invoke-Phase08HostedRun.ps1') -Raw
+  foreach($required in @('refs/tags/modules-v0.1.0-r3','R2HistoryPath','historical_attempts_sha256','authorization_receipt_sha256','mnf-phase08-r3-handoff.json')){
+    if($hosted.IndexOf($required,[StringComparison]::Ordinal) -lt 0){Throw-P08Qualification 'P08-R3-HOSTED' "Missing hosted r3 seam '$required'."}
+  }
+  if($hosted.IndexOf('mnf-phase08-r2-handoff.json',[StringComparison]::Ordinal) -ge 0){Throw-P08Qualification 'P08-R3-HOSTED' 'Hosted production path still names the r2 handoff.'}
+  $qualificationSource=Get-Content -LiteralPath $PSCommandPath -Raw
+  if($qualificationSource.IndexOf("clone','--no-tags'",[StringComparison]::Ordinal) -lt 0){Throw-P08Qualification 'P08-R3-NO-TAGS' 'Qualification fixture clone must exclude permanent tags.'}
   function Confirm-R2Failure([string]$Id,[scriptblock]$Action){$failure=$null;try{&$Action}catch{$failure=$_.Exception.Message};if($null -eq $failure -or -not $failure.StartsWith("$Id`: ",[StringComparison]::Ordinal)){Throw-P08Qualification 'P08-R2-NEGATIVE' "Expected $Id, got '$failure'."}}
   function Write-R2File([string]$Path,[string]$Text){$null=New-Item -ItemType Directory -Force -Path (Split-Path -Parent $Path);[IO.File]::WriteAllText($Path,$Text,[Text.UTF8Encoding]::new($false))}
   $temp=Join-Path ([IO.Path]::GetTempPath()) ('mnf-phase08-r2-contract-'+[Guid]::NewGuid().ToString('N'))
