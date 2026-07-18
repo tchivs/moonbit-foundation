@@ -71,7 +71,18 @@ function New-LiveVerifiedChain {
 
 function New-LiveProof {
   param([ValidateSet('mb-core','mb-color')][string]$Module)
-  [pscustomobject][ordered]@{ schema_version='1.0.0'; evidence_mode='live_registry'; module=$Module; verified=$true; content_sha256=('b'*64) }
+  $outputDigest='c'*64
+  [pscustomobject][ordered]@{
+    schema_version='1.0.0'; evidence_mode='live_registry'; policy_sha256=('b'*64); module=$Module
+    identity="tchivs/$Module"; version='0.1.0'; dependency_source='registry_only'
+    isolation=[pscustomobject][ordered]@{ consumer_root_outside_checkout=$true }
+    observation=[pscustomobject][ordered]@{ outcome='exact'; content_sha256=('d'*64); strongest_identity=('sha256:' + ('e'*64)) }
+    archive_sha256=('e'*64); downloaded_manifest_sha256=('f'*64)
+    resolved_graph=[pscustomobject][ordered]@{ nodes=@(); edges=@() }
+    toolchain=[pscustomobject][ordered]@{ moon_version='pinned'; moonc_version='pinned'; moonrun_version='pinned'; root_sha256=('1'*64) }
+    targets=@('js','wasm','wasm-gc','native' | ForEach-Object { [pscustomobject][ordered]@{ name=$_; check='pass'; test='pass'; runtime='pass'; output_sha256=$outputDigest } })
+    behavior=[pscustomobject][ordered]@{ result='pass'; output_sha256=$outputDigest }; verified=$true; content_sha256=('2'*64)
+  }
 }
 
 $request = New-LiveTestRequest
@@ -84,6 +95,70 @@ if ((Resolve-MooncakesLiveMutationTarget -Request $request -Records $colorChain 
 Confirm-LiveRule 'LIVE04-INCOMPLETE-PROOF' { Resolve-MooncakesLiveMutationTarget -Request $request -Records $coreChain -Proofs @() }
 $duplicateProofs = @((New-LiveProof mb-core),(New-LiveProof mb-core))
 Confirm-LiveRule 'LIVE05-AMBIGUOUS' { Resolve-MooncakesLiveMutationTarget -Request $request -Records $coreChain -Proofs $duplicateProofs }
+
+$fixtureRoot=Join-Path ([IO.Path]::GetTempPath()) ('mnf-live-seam-' + [Guid]::NewGuid().ToString('N'))
+$sentinel='fixture-token-never-persist'
+$calls=[Collections.Generic.List[object]]::new()
+try {
+  $null=New-Item -ItemType Directory -Path (Join-Path $fixtureRoot 'prepared/archives') -Force
+  $source=Join-Path $fixtureRoot 'source'; $null=New-Item -ItemType Directory -Path $source
+  [IO.File]::WriteAllText((Join-Path $source 'moon.mod.json'),'{}',[Text.UTF8Encoding]::new($false))
+  foreach($module in @('mb-core','mb-color','mb-image')) {
+    Compress-Archive -Path (Join-Path $source '*') -DestinationPath (Join-Path $fixtureRoot "prepared/archives/$module.zip")
+  }
+  $manifest=[pscustomobject][ordered]@{
+    repository=$request.repository; actor=$request.actor; release_ref=$request.release_ref; source_sha=$request.source_sha
+    root_intent_sha256=$request.root_intent_sha256; intent_sha256=$request.intent_sha256
+    payloads=@('mb-core','mb-color','mb-image' | ForEach-Object { [pscustomobject][ordered]@{ path="archives/$_.zip"; role='exact_source_archive'; size=1; sha256=('3'*64) } })
+  }
+  [IO.File]::WriteAllText((Join-Path $fixtureRoot 'prepared/prepared-bundle.json'),($manifest | ConvertTo-Json -Depth 20),[Text.UTF8Encoding]::new($false))
+  $validatorCalls=0
+  $validator={ param($root,$prepared,$boundRequest) $script:validatorCalls++; if ($prepared.source_sha -cne $boundRequest.source_sha) { throw 'fixture binding drift' } }
+  $fakePublish={
+    param($context)
+    $script:calls.Add($context)
+    $credential=Get-Content -LiteralPath $context.credential_path -Raw | ConvertFrom-Json
+    if ($credential.username -cne 'tchivs' -or $credential.token -cne $script:sentinel) { throw 'credential was not exact during child call' }
+    if ($context.environment.MOON_HOME -cne $context.moon_home -or $context.environment.MOON_TOOLCHAIN_ROOT -cne [IO.Path]::GetFullPath((Join-Path $script:fixtureRoot 'toolchain'))) { throw 'child environment was not isolated' }
+    if (($context.arguments -join ' ') -cne "-C $($context.working_directory) publish --frozen") { throw 'publish arguments drifted' }
+    if (($context.arguments -join ' ').Contains($script:sentinel,[StringComparison]::Ordinal)) { throw 'secret entered command arguments' }
+    'attempted'
+  }
+  $result=Invoke-MooncakesLiveMutation -Request $request -Records @() -Proofs @() -PreparedRoot (Join-Path $fixtureRoot 'prepared') -ToolchainRoot (Join-Path $fixtureRoot 'toolchain') -CredentialToken $sentinel -Authorized $true -PublishCommand $fakePublish -PreparedValidator $validator
+  if ($result.module -cne 'mb-core' -or $result.mutation_count -ne 1 -or $calls.Count -ne 1 -or $validatorCalls -ne 1 -or
+      $result.raw_output_persisted -ne $false -or $result.credential_state_removed -ne $true) { throw 'Eligible adapter did not make exactly one sanitized call.' }
+  if (Test-Path -LiteralPath $calls[0].moon_home) { throw 'Credential state survived the successful fake child.' }
+  if (($result | ConvertTo-Json -Compress).Contains($sentinel,[StringComparison]::Ordinal)) { throw 'Secret entered adapter diagnostics.' }
+
+  $colorResult=Invoke-MooncakesLiveMutation -Request $request -Records $coreChain -Proofs @((New-LiveProof mb-core)) -PreparedRoot (Join-Path $fixtureRoot 'prepared') -ToolchainRoot (Join-Path $fixtureRoot 'toolchain') -CredentialToken $sentinel -Authorized $true -PublishCommand $fakePublish -PreparedValidator $validator
+  $imageResult=Invoke-MooncakesLiveMutation -Request $request -Records $colorChain -Proofs @((New-LiveProof mb-core),(New-LiveProof mb-color)) -PreparedRoot (Join-Path $fixtureRoot 'prepared') -ToolchainRoot (Join-Path $fixtureRoot 'toolchain') -CredentialToken $sentinel -Authorized $true -PublishCommand $fakePublish -PreparedValidator $validator
+  if ($colorResult.module -cne 'mb-color' -or $imageResult.module -cne 'mb-image' -or $calls.Count -ne 3 -or $validatorCalls -ne 3) { throw 'Eligible downstream states did not make one dependency-safe call each.' }
+
+  $before=$calls.Count
+  Confirm-LiveRule 'LIVE01-AUTHORIZATION' {
+    Invoke-MooncakesLiveMutation -Request $request -Records @() -Proofs @() -PreparedRoot (Join-Path $fixtureRoot 'prepared') -ToolchainRoot (Join-Path $fixtureRoot 'toolchain') -CredentialToken $sentinel -Authorized $false -PublishCommand $fakePublish -PreparedValidator $validator
+  }
+  if ($calls.Count -ne $before) { throw 'Unauthorized path reached fake publish.' }
+
+  $preflightRecords=@($coreChain | Select-Object -First 2)
+  $stopped=Invoke-MooncakesLiveMutation -Request $request -Records $preflightRecords -Proofs @() -PreparedRoot (Join-Path $fixtureRoot 'prepared') -ToolchainRoot (Join-Path $fixtureRoot 'toolchain') -CredentialToken $sentinel -Authorized $true -PublishCommand $fakePublish -PreparedValidator $validator
+  if ($stopped.mutation_count -ne 0 -or $calls.Count -ne $before) { throw 'Incomplete journal reached fake publish.' }
+
+  $failureHome=$null
+  $failingPublish={ param($context) $script:failureHome=$context.moon_home; throw 'fixture child failed' }
+  try {
+    Invoke-MooncakesLiveMutation -Request $request -Records @() -Proofs @() -PreparedRoot (Join-Path $fixtureRoot 'prepared') -ToolchainRoot (Join-Path $fixtureRoot 'toolchain') -CredentialToken $sentinel -Authorized $true -PublishCommand $failingPublish -PreparedValidator $validator
+    throw 'Failing fake publish unexpectedly passed.'
+  } catch {
+    if ($_.Exception.Message -cne 'fixture child failed') { throw }
+  }
+  if ([string]::IsNullOrWhiteSpace($failureHome) -or (Test-Path -LiteralPath $failureHome)) { throw 'Credential state survived the failing fake child.' }
+
+  $preparedText=Get-Content -LiteralPath (Join-Path $fixtureRoot 'prepared/prepared-bundle.json') -Raw
+  if ($preparedText.Contains($sentinel,[StringComparison]::Ordinal)) { throw 'Secret entered prepared payloads.' }
+} finally {
+  if (Test-Path -LiteralPath $fixtureRoot) { Remove-Item -LiteralPath $fixtureRoot -Recurse -Force }
+}
 
 Write-Host 'Phase 8 live adapter fixtures: PASS.'
 if ($AdapterOnly) { return }
