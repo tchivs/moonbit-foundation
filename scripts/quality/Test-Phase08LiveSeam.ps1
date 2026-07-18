@@ -217,6 +217,24 @@ if ($AdapterOnly) { return }
 
 $workflowPath = Join-Path (Split-Path -Parent $PSScriptRoot) '..\.github\workflows\publish-modules.yml'
 $workflow = Get-Content -LiteralPath $workflowPath -Raw
+$expectedDispatchInputs=@(
+  'operation_mode','run_mode','release_ref','source_sha','root_intent_sha256','intent_sha256','prepared_manifest_sha256',
+  'historical_attempts_sha256','target_module','live_authorization','prior_run_id','prior_artifact_name',
+  'authorization_packet_sha256','authorization_receipt_sha256'
+)
+$dispatchInputMatch=[regex]::Match($workflow,'(?ms)^\s{4}inputs:\r?\n(?<body>.*?)(?=^permissions:)')
+if(-not $dispatchInputMatch.Success){throw 'P08-WORKFLOW-DISPATCH-INPUTS: workflow_dispatch input block is missing.'}
+$dispatchInputBlock=$dispatchInputMatch.Groups['body'].Value
+$actualDispatchInputs=@([regex]::Matches($dispatchInputBlock,'(?m)^\s{6}([a-z0-9_]+):\s*$')|ForEach-Object{$_.Groups[1].Value})
+if(($actualDispatchInputs-join ',') -cne ($expectedDispatchInputs-join ',')){
+  throw "P08-WORKFLOW-DISPATCH-PARITY: expected exact 14 inputs '$($expectedDispatchInputs-join ',')', got '$($actualDispatchInputs-join ',')'."
+}
+$receiptInputMatch=[regex]::Match($dispatchInputBlock,"(?ms)^\s{6}authorization_receipt_sha256:\r?\n(?<body>(?:^\s{8}.*\r?\n?)+)")
+if(-not $receiptInputMatch.Success -or $receiptInputMatch.Groups['body'].Value.IndexOf('required: false',[StringComparison]::Ordinal) -lt 0 -or
+    $receiptInputMatch.Groups['body'].Value.IndexOf("default: ''",[StringComparison]::Ordinal) -lt 0 -or
+    $receiptInputMatch.Groups['body'].Value.IndexOf('type: string',[StringComparison]::Ordinal) -lt 0){
+  throw 'P08-WORKFLOW-RECEIPT-OPTIONAL: start must accept an explicitly empty authorization receipt digest.'
+}
 foreach ($required in @(
   'Invoke-MooncakesLiveMutation','Invoke-ColdRegistryConsumer','MOONCAKES_TOKEN','InitializeBoundary','PrepareAttempt',
   'PublisherDryRun','HostedPreflight','MaterializePublicSurface','ObserveOnly','IndexSanitizedArtifact',
@@ -247,6 +265,22 @@ $observerStart=$workflow.IndexOf("  observe_registry:",[StringComparison]::Ordin
 $consumerStart=$workflow.IndexOf("  cold_consumer:",[StringComparison]::Ordinal)
 if ($publisherStart -lt 0 -or $observerStart -le $publisherStart -or $consumerStart -le $observerStart) { throw 'P08-WORKFLOW-ORDER: publisher observation and consumer jobs are not ordered.' }
 $publisherBlock=$workflow.Substring($publisherStart,$observerStart-$publisherStart)
+$prepareStart=$workflow.IndexOf("  prepare:",[StringComparison]::Ordinal)
+$dryRunStart=$workflow.IndexOf("  publisher_dry_run:",[StringComparison]::Ordinal)
+if($prepareStart -lt 0 -or $dryRunStart -le $prepareStart){throw 'P08-WORKFLOW-PREPARE: prepare job block is missing.'}
+$prepareBlock=$workflow.Substring($prepareStart,$dryRunStart-$prepareStart)
+$propagationContracts=@(
+  @($prepareBlock,'AUTHORIZATION_PACKET_SHA256: ${{ inputs.authorization_packet_sha256 }}'),
+  @($prepareBlock,'AUTHORIZATION_RECEIPT_SHA256: ${{ inputs.authorization_receipt_sha256 }}'),
+  @($prepareBlock,'P08-WORKFLOW-AUTHORITY-PAIR'),
+  @($publisherBlock,'EXPECTED_AUTHORIZATION_PACKET_SHA256: ${{ inputs.authorization_packet_sha256 }}'),
+  @($publisherBlock,'EXPECTED_AUTHORIZATION_RECEIPT_SHA256: ${{ inputs.authorization_receipt_sha256 }}'),
+  @($publisherBlock,'AUTHORIZATION_PACKET_SHA256: ${{ inputs.authorization_packet_sha256 }}'),
+  @($publisherBlock,'AUTHORIZATION_RECEIPT_SHA256: ${{ inputs.authorization_receipt_sha256 }}')
+)
+foreach($contract in $propagationContracts){
+  if(([string]$contract[0]).IndexOf([string]$contract[1],[StringComparison]::Ordinal) -lt 0){throw "P08-WORKFLOW-RECEIPT-PROPAGATION: missing '$($contract[1])'."}
+}
 $observerBlock=$workflow.Substring($observerStart,$consumerStart-$observerStart)
 $consumerBlock=$workflow.Substring($consumerStart)
 if (@([regex]::Matches($workflow,[regex]::Escape('${{ secrets.MOONCAKES_TOKEN }}'))).Count -ne 2) { throw 'P08-WORKFLOW-SECRET: secret mapping must occur exactly once in each isolated publisher mode.' }

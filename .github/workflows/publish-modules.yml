@@ -35,27 +35,9 @@ on:
         required: true
         type: choice
         options: [mb-core, mb-color, mb-image]
-      authorization_packet_sha256:
-        required: false
-        default: ''
-        type: string
-      mutation_authorization_packet_sha256:
-        required: false
-        default: ''
-        type: string
-      exact_existing_authority_sha256:
-        required: false
-        default: ''
-        type: string
-      prior_authority_record_sha256:
-        required: false
-        default: ''
-        type: string
-      observation_phase:
-        required: false
-        default: exact-existing
-        type: choice
-        options: [exact-existing, post-publish]
+      live_authorization:
+        required: true
+        type: boolean
       prior_run_id:
         required: false
         default: ''
@@ -64,9 +46,14 @@ on:
         required: false
         default: ''
         type: string
-      live_authorization:
-        required: true
-        type: boolean
+      authorization_packet_sha256:
+        required: false
+        default: ''
+        type: string
+      authorization_receipt_sha256:
+        required: false
+        default: ''
+        type: string
 
 permissions: {}
 
@@ -130,9 +117,7 @@ jobs:
           OPERATION_MODE: ${{ inputs.operation_mode }}
           TARGET_MODULE: ${{ inputs.target_module }}
           AUTHORIZATION_PACKET_SHA256: ${{ inputs.authorization_packet_sha256 }}
-          MUTATION_AUTHORIZATION_PACKET_SHA256: ${{ inputs.mutation_authorization_packet_sha256 }}
-          EXACT_EXISTING_AUTHORITY_SHA256: ${{ inputs.exact_existing_authority_sha256 }}
-          PRIOR_AUTHORITY_RECORD_SHA256: ${{ inputs.prior_authority_record_sha256 }}
+          AUTHORIZATION_RECEIPT_SHA256: ${{ inputs.authorization_receipt_sha256 }}
           PRIOR_RUN_ID: ${{ inputs.prior_run_id }}
           PRIOR_ARTIFACT_NAME: ${{ inputs.prior_artifact_name }}
           DISPATCH_ACTOR: ${{ github.actor }}
@@ -144,10 +129,12 @@ jobs:
           if ((git rev-parse HEAD).Trim() -cne $env:SOURCE_SHA) { throw 'P07-WORKFLOW-SOURCE' }
           if ($env:OPERATION_MODE -cnotin @('InitializeBoundary','PrepareAttempt','HostedPreflight','PublisherDryRun','MaterializePublicSurface','ObserveOnly','IndexSanitizedArtifact','AssembleAuthorizationPacket','SelectExactExistingAuthority','SelectPublishedNowAuthority','PublishOne')) { throw 'P08-WORKFLOW-MODE' }
           if ($env:TARGET_MODULE -cnotin @('mb-core','mb-color','mb-image')) { throw 'P08-WORKFLOW-MODULE' }
-          if ($env:OPERATION_MODE -ceq 'PublishOne' -and $env:TARGET_MODULE -ceq 'mb-core' -and $env:MUTATION_AUTHORIZATION_PACKET_SHA256 -notmatch '^[0-9a-f]{64}$') { throw 'P08-WORKFLOW-AUTHORIZATION' }
-          if ($env:OPERATION_MODE -ceq 'PublishOne' -and $env:TARGET_MODULE -cne 'mb-core' -and $env:PRIOR_AUTHORITY_RECORD_SHA256 -notmatch '^[0-9a-f]{64}$') { throw 'P08-WORKFLOW-PREDECESSOR-AUTHORITY' }
-          if ($env:OPERATION_MODE -ceq 'PublishOne' -and $env:EXACT_EXISTING_AUTHORITY_SHA256 -match '^[0-9a-f]{64}$') { throw 'P08-WORKFLOW-NO-REPUBLISH' }
-          if ($env:OPERATION_MODE -cne 'PublishOne' -and (-not [string]::IsNullOrEmpty($env:AUTHORIZATION_PACKET_SHA256))) { throw 'P08-WORKFLOW-UNEXPECTED-AUTHORIZATION' }
+          $hasAuthorizationPacket=-not [string]::IsNullOrEmpty($env:AUTHORIZATION_PACKET_SHA256)
+          $hasAuthorizationReceipt=-not [string]::IsNullOrEmpty($env:AUTHORIZATION_RECEIPT_SHA256)
+          if ($hasAuthorizationPacket -ne $hasAuthorizationReceipt) { throw 'P08-WORKFLOW-AUTHORITY-PAIR' }
+          if ($env:OPERATION_MODE -ceq 'PublishOne' -and
+              ($env:AUTHORIZATION_PACKET_SHA256 -notmatch '^[0-9a-f]{64}$' -or $env:AUTHORIZATION_RECEIPT_SHA256 -notmatch '^[0-9a-f]{64}$')) { throw 'P08-WORKFLOW-AUTHORIZATION' }
+          if ($env:OPERATION_MODE -cne 'PublishOne' -and $hasAuthorizationPacket) { throw 'P08-WORKFLOW-UNEXPECTED-AUTHORIZATION' }
           $paired = -not [string]::IsNullOrEmpty($env:PRIOR_RUN_ID) -and -not [string]::IsNullOrEmpty($env:PRIOR_ARTIFACT_NAME)
           if ($env:RUN_MODE -ceq 'start' -and $paired) { throw 'P07-WORKFLOW-START-PRIOR' }
           if ($env:RUN_MODE -ceq 'resume' -and -not $paired) { throw 'P07-WORKFLOW-RESUME-PAIR' }
@@ -422,9 +409,8 @@ jobs:
           persist-credentials: false
       - name: MaterializePublicSurface and ObserveOnly without publisher authority
         shell: pwsh
-        env:
-          OBSERVATION_PHASE: ${{ inputs.observation_phase }}
         run: |
+          $env:OBSERVATION_PHASE='exact-existing'
           if ($env:OBSERVATION_PHASE -cne 'exact-existing') { throw 'P08-EXACT-OBSERVATION-PHASE' }
           $surfaceRoot=Join-Path $PWD 'sanitized-exact-existing/surfaces/${{ inputs.target_module }}/exact-existing'
           New-Item -ItemType Directory -Force $surfaceRoot | Out-Null
@@ -509,7 +495,11 @@ jobs:
           EXPECTED_HISTORICAL_R1_SHA256: cba047dae2e6b4e1bbf0248653ed7848f144971b54a0a4ed30ef42ab97325653
           EXPECTED_HISTORICAL_R2_SHA256: aae8bee66e7dbfca7f3f22f1b52071e7888ae3ec8feee513d1c5d8eba6111609
           EXPECTED_HISTORICAL_HISTORY_SET_SHA256: ${{ inputs.historical_attempts_sha256 }}
+          EXPECTED_AUTHORIZATION_PACKET_SHA256: ${{ inputs.authorization_packet_sha256 }}
+          EXPECTED_AUTHORIZATION_RECEIPT_SHA256: ${{ inputs.authorization_receipt_sha256 }}
         run: |
+          if ($env:EXPECTED_AUTHORIZATION_PACKET_SHA256 -notmatch '^[0-9a-f]{64}$' -or
+              $env:EXPECTED_AUTHORIZATION_RECEIPT_SHA256 -notmatch '^[0-9a-f]{64}$') { throw 'P08-WORKFLOW-AUTHORIZATION' }
           $manifest='prepared/prepared-bundle.json'
           if ((Get-FileHash -Algorithm SHA256 $manifest).Hash.ToLowerInvariant() -cne $env:EXPECTED_MANIFEST_SHA256) { throw 'P07-WORKFLOW-MANIFEST-DIGEST' }
           if ($env:EXPECTED_ARTIFACT_NAME -cne "mnf-prepared-$env:EXPECTED_ROOT_INTENT_SHA256-$env:EXPECTED_INTENT_SHA256-$env:EXPECTED_MANIFEST_SHA256") { throw 'P07-WORKFLOW-ARTIFACT-NAME' }
@@ -531,7 +521,11 @@ jobs:
         shell: pwsh
         env:
           MOONCAKES_TOKEN: ${{ secrets.MOONCAKES_TOKEN }}
+          AUTHORIZATION_PACKET_SHA256: ${{ inputs.authorization_packet_sha256 }}
+          AUTHORIZATION_RECEIPT_SHA256: ${{ inputs.authorization_receipt_sha256 }}
         run: |
+          if ($env:AUTHORIZATION_PACKET_SHA256 -notmatch '^[0-9a-f]{64}$' -or
+              $env:AUTHORIZATION_RECEIPT_SHA256 -notmatch '^[0-9a-f]{64}$') { throw 'P08-WORKFLOW-AUTHORIZATION' }
           $moonCommand=(Get-Command moon -CommandType Application -ErrorAction Stop).Source
           $toolchainRoot=Split-Path -Parent (Split-Path -Parent $moonCommand)
           $proofPaths=@()
