@@ -3,6 +3,7 @@ param([switch]$ReducerOnly)
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
+$repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
 $common = Join-Path $PSScriptRoot 'ReleasePublisher.Common.ps1'
 if (-not (Test-Path -LiteralPath $common -PathType Leaf)) {
   throw 'PUB00-MISSING-REDUCER: ReleasePublisher.Common.ps1 is required.'
@@ -15,6 +16,15 @@ function Confirm-PublisherRule {
   try { & $Action } catch { $failure = $_.Exception.Message }
   if ($null -eq $failure -or -not $failure.StartsWith("$Id`: ", [StringComparison]::Ordinal)) {
     throw "Publisher negative '$Id' passed or failed for the wrong reason: '$failure'."
+  }
+}
+
+function Confirm-LiveRule {
+  param([string]$Id, [scriptblock]$Action)
+  $failure = $null
+  try { & $Action } catch { $failure = $_.Exception.Message }
+  if ($null -eq $failure -or -not $failure.StartsWith("$Id`: ", [StringComparison]::Ordinal)) {
+    throw "Live negative '$Id' passed or failed for the wrong reason: '$failure'."
   }
 }
 
@@ -102,7 +112,7 @@ $base = [pscustomobject]@{
   evidence_valid=$true; dry_run_passed=$true; authority_account='tchivs'
 }
 
-if (-not (Assert-PublisherRequest $base)) { throw 'Exact r1 publisher request was not accepted.' }
+Assert-PublisherRequest $base
 Confirm-PublisherRule 'PUB04-ROOT' { $bad=$base.PSObject.Copy(); $bad.release_ref='refs/tags/modules-v0.1.0'; Assert-PublisherRequest $bad }
 Confirm-PublisherRule 'PUB04-ROOT' { $bad=$base.PSObject.Copy(); $bad.source_sha='198436a45b7403a3c28c98d5fa0d5ed6a958455f'; Assert-PublisherRequest $bad }
 Confirm-PublisherRule 'PUB04-ROOT' { $bad=$base.PSObject.Copy(); $bad.predecessor_intent_sha256=('8'*64); Assert-PublisherRequest $bad }
@@ -120,6 +130,25 @@ $exactExisting = [pscustomobject][ordered]@{
 if (-not (Assert-PublisherExactExistingCheckpoint -Checkpoint $exactExisting -Request $base)) { throw 'Exact-existing checkpoint was not accepted.' }
 Confirm-PublisherRule 'PUB15-EXACT-EXISTING' { $bad=$exactExisting.PSObject.Copy(); $bad.mutation_count=1; Assert-PublisherExactExistingCheckpoint -Checkpoint $bad -Request $base }
 Confirm-PublisherRule 'PUB15-EXACT-EXISTING' { $bad=$exactExisting.PSObject.Copy(); $bad.intent_sha256=('b'*64); Assert-PublisherExactExistingCheckpoint -Checkpoint $bad -Request $base }
+
+$preparedSchema=Get-Content -LiteralPath (Join-Path $repoRoot 'release/prepared/schema.json') -Raw | ConvertFrom-Json -Depth 100
+if ($preparedSchema.properties.release_ref.pattern -cne '^refs/tags/modules-(v0[.]1[.]0-r1|correction-[1-9][0-9]*)$') {
+  throw 'PREP09-BINDING: prepared schema still accepts the terminal attempt-zero ref.'
+}
+. (Join-Path $PSScriptRoot 'Invoke-MooncakesLiveMutation.ps1') -LibraryOnly
+Assert-LiveRequest $base
+Confirm-LiveRule 'LIVE02-BINDING' { $bad=$base.PSObject.Copy(); $bad.release_ref='refs/tags/modules-v0.1.0'; Assert-LiveRequest $bad }
+Confirm-LiveRule 'LIVE01-AUTHORIZATION' { $bad=$base.PSObject.Copy(); $bad.actor_evidence=($actorEvidence | ConvertTo-Json -Compress | ConvertFrom-Json); $bad.actor_evidence.actor_match=$false; Assert-LiveRequest $bad }
+$preparedRoot=Join-Path ([IO.Path]::GetTempPath()) ('mnf-r1-prepared-' + [Guid]::NewGuid().ToString('N'))
+$null=New-Item -ItemType Directory -Path $preparedRoot
+try {
+  $manifest=[pscustomobject][ordered]@{ repository=$base.repository; actor=$base.actor; release_ref=$base.release_ref; source_sha=$base.source_sha; root_intent_sha256=$base.root_intent_sha256; intent_sha256=$base.intent_sha256 }
+  $manifestPath=Join-Path $preparedRoot 'prepared-bundle.json'
+  [IO.File]::WriteAllText($manifestPath,($manifest|ConvertTo-Json -Compress),[Text.UTF8Encoding]::new($false))
+  $bound=$base.PSObject.Copy(); $bound.prepared_manifest_sha256=(Get-FileHash -LiteralPath $manifestPath -Algorithm SHA256).Hash.ToLowerInvariant()
+  $null=Invoke-PreparedLiveValidation -Root $preparedRoot -Request $bound -Validator { param($root,$value,$request) }
+  Confirm-LiveRule 'LIVE06-PREPARED' { Invoke-PreparedLiveValidation -Root $preparedRoot -Request $base -Validator { param($root,$value,$request) } }
+} finally { Remove-Item -LiteralPath $preparedRoot -Recurse -Force }
 
 $ambiguous = Invoke-PublisherRehearsal -Request $base -Scenario timeout
 if ($ambiguous.reobserved -ne $true -or $ambiguous.disposition -cne 'fresh_authorization_required' -or $ambiguous.mutation_count -ne 0) { throw 'Timeout did not re-observe absent and stop for fresh authorization.' }

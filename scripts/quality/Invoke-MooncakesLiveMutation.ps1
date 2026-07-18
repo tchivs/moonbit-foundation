@@ -23,7 +23,7 @@ function Throw-LiveRule {
 function Assert-LiveRequest {
   param([object]$Request)
   Assert-PublisherClosedProperties 'live request' $Request @(
-    'repository','actor','release_ref','source_sha','root_intent_sha256','intent_sha256','intent_kind',
+    'repository','actor','actor_evidence','release_ref','source_sha','root_intent_sha256','intent_sha256','intent_kind','prepared_manifest_sha256',
     'correction_sequence','predecessor_intent_sha256','authorization_valid','evidence_valid','dry_run_passed','authority_account'
   )
   if ($Request.repository -cne 'tchivs/moonbit-foundation' -or $Request.actor -cne 'tchivs' -or
@@ -31,8 +31,19 @@ function Assert-LiveRequest {
       $Request.evidence_valid -ne $true -or $Request.dry_run_passed -ne $true) {
     Throw-LiveRule 'LIVE01-AUTHORIZATION' 'Exact actor, repository, authority, qualification, and dry-run authorization are required.'
   }
-  if ($Request.release_ref -cne 'refs/tags/modules-v0.1.0' -or $Request.source_sha -cnotmatch '^[0-9a-f]{40}$' -or
+  $actor=$Request.actor_evidence
+  $actorFields=@('expected_actor','observed_actor','actor_check_classification','actor_exit_code','actor_stdout_line_count','actor_stderr_empty','actor_match','actor_raw_output_persisted','credential_state_removed','mutation_performed','command_classification')
+  try { Assert-PublisherClosedProperties 'live actor evidence' $actor $actorFields } catch { Throw-LiveRule 'LIVE01-AUTHORIZATION' $_.Exception.Message }
+  if ($actor.expected_actor -cne 'tchivs' -or $actor.observed_actor -cne 'tchivs' -or $actor.actor_check_classification -cne 'moon_whoami_exact' -or
+      [int]$actor.actor_exit_code -ne 0 -or [int]$actor.actor_stdout_line_count -ne 1 -or $actor.actor_stderr_empty -ne $true -or
+      $actor.actor_match -ne $true -or $actor.actor_raw_output_persisted -ne $false -or $actor.credential_state_removed -ne $true -or
+      $actor.mutation_performed -ne $false -or $actor.command_classification -cne 'moon_whoami_dry_run_only') {
+    Throw-LiveRule 'LIVE01-AUTHORIZATION' 'Live actor evidence is not the exact sanitized dry-run projection.'
+  }
+  if ($Request.release_ref -cne 'refs/tags/modules-v0.1.0-r1' -or $Request.source_sha -cnotmatch '^[0-9a-f]{40}$' -or
+      $Request.source_sha -ceq '198436a45b7403a3c28c98d5fa0d5ed6a958455f' -or
       $Request.root_intent_sha256 -cnotmatch '^[0-9a-f]{64}$' -or $Request.intent_sha256 -cnotmatch '^[0-9a-f]{64}$' -or
+      $Request.prepared_manifest_sha256 -cnotmatch '^[0-9a-f]{64}$' -or
       $Request.intent_kind -cne 'initial' -or [int]$Request.correction_sequence -ne 0 -or
       $null -ne $Request.predecessor_intent_sha256 -or $Request.root_intent_sha256 -cne $Request.intent_sha256) {
     Throw-LiveRule 'LIVE02-BINDING' 'Only the exact qualified initial release binding is eligible.'
@@ -144,24 +155,27 @@ function Invoke-PreparedLiveValidation {
   $manifestPath=Join-Path $Root 'prepared-bundle.json'
   if (-not (Test-Path -LiteralPath $manifestPath -PathType Leaf)) { Throw-LiveRule 'LIVE06-PREPARED' 'Prepared manifest is missing.' }
   $manifest=Get-Content -LiteralPath $manifestPath -Raw | ConvertFrom-Json -Depth 100
-  if ($null -ne $Validator) { & $Validator $Root $manifest $Request | Out-Null; return $manifest }
-  $validatorPath=Join-Path $Root 'scripts/quality/New-PreparedReleaseBundle.ps1'
-  if (-not (Test-Path -LiteralPath $validatorPath -PathType Leaf)) { Throw-LiveRule 'LIVE06-PREPARED' 'Bundled prepared validator is missing.' }
-  $args=@{
-    ValidateOnly=$true; OutputRoot=$Root; Repository=[string]$manifest.repository; Actor=[string]$manifest.actor
-    RunId=[string]$manifest.run_id; RunAttempt=[int]$manifest.run_attempt; ReleaseRef=[string]$manifest.release_ref
-    SourceSha=[string]$manifest.source_sha; RootIntentSha256=[string]$manifest.root_intent_sha256
-    IntentSha256=[string]$manifest.intent_sha256; RunMode=[string]$manifest.run_mode
+  $manifestDigest=(Get-FileHash -LiteralPath $manifestPath -Algorithm SHA256).Hash.ToLowerInvariant()
+  if ($null -ne $Validator) { & $Validator $Root $manifest $Request | Out-Null } else {
+    $validatorPath=Join-Path $Root 'scripts/quality/New-PreparedReleaseBundle.ps1'
+    if (-not (Test-Path -LiteralPath $validatorPath -PathType Leaf)) { Throw-LiveRule 'LIVE06-PREPARED' 'Bundled prepared validator is missing.' }
+    $args=@{
+      ValidateOnly=$true; OutputRoot=$Root; Repository=[string]$manifest.repository; Actor=[string]$manifest.actor
+      RunId=[string]$manifest.run_id; RunAttempt=[int]$manifest.run_attempt; ReleaseRef=[string]$manifest.release_ref
+      SourceSha=[string]$manifest.source_sha; RootIntentSha256=[string]$manifest.root_intent_sha256
+      IntentSha256=[string]$manifest.intent_sha256; RunMode=[string]$manifest.run_mode
+    }
+    if ($manifest.run_mode -ceq 'resume') {
+      $args.PriorRunId=[string]$manifest.journal_binding.prior_run_id
+      $args.PriorArtifactName=[string]$manifest.journal_binding.prior_artifact_name
+      $args.PriorTerminalRecordSha256=[string]$manifest.journal_binding.terminal_record_sha256
+    }
+    & $validatorPath @args | Out-Null
   }
-  if ($manifest.run_mode -ceq 'resume') {
-    $args.PriorRunId=[string]$manifest.journal_binding.prior_run_id
-    $args.PriorArtifactName=[string]$manifest.journal_binding.prior_artifact_name
-    $args.PriorTerminalRecordSha256=[string]$manifest.journal_binding.terminal_record_sha256
-  }
-  & $validatorPath @args | Out-Null
   if ($manifest.repository -cne $Request.repository -or $manifest.actor -cne $Request.actor -or
       $manifest.release_ref -cne $Request.release_ref -or $manifest.source_sha -cne $Request.source_sha -or
-      $manifest.root_intent_sha256 -cne $Request.root_intent_sha256 -or $manifest.intent_sha256 -cne $Request.intent_sha256) {
+      $manifest.root_intent_sha256 -cne $Request.root_intent_sha256 -or $manifest.intent_sha256 -cne $Request.intent_sha256 -or
+      $manifestDigest -cne $Request.prepared_manifest_sha256) {
     Throw-LiveRule 'LIVE06-PREPARED' 'Prepared manifest and authorized request disagree.'
   }
   return $manifest
@@ -173,10 +187,10 @@ function Invoke-MooncakesLiveMutation {
     [string]$CredentialToken,[bool]$Authorized,[scriptblock]$PublishCommand,[scriptblock]$PreparedValidator
   )
   if (-not $Authorized) { Throw-LiveRule 'LIVE01-AUTHORIZATION' 'Explicit live authorization is required.' }
-  if ([string]::IsNullOrWhiteSpace($CredentialToken)) { Throw-LiveRule 'LIVE07-CREDENTIAL' 'The step-scoped credential is unavailable.' }
   $target=Resolve-MooncakesLiveMutationTarget -Request $Request -Records $Records -Proofs $Proofs
   if ($null -eq $target) { return [pscustomobject][ordered]@{ classification='not_eligible'; module=$null; mutation_count=0; reobservation_required=$false; raw_output_persisted=$false; credential_state_removed=$true } }
   $manifest=Invoke-PreparedLiveValidation -Root $PreparedRoot -Request $Request -Validator $PreparedValidator
+  if ([string]::IsNullOrWhiteSpace($CredentialToken)) { Throw-LiveRule 'LIVE07-CREDENTIAL' 'The step-scoped credential is unavailable.' }
   $archiveRelative="archives/$target.zip"
   $archiveRecords=@($manifest.payloads | Where-Object { $_.path -ceq $archiveRelative -and $_.role -ceq 'exact_source_archive' })
   if ($archiveRecords.Count -ne 1) { Throw-LiveRule 'LIVE06-PREPARED' "Exact prepared archive for '$target' is missing or ambiguous." }

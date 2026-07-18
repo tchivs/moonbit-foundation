@@ -20,16 +20,50 @@ $liveAdapterPath = Join-Path $PSScriptRoot 'Invoke-MooncakesLiveMutation.ps1'
 function Assert-PublisherRequest {
   param([object]$Request)
   Assert-PublisherClosedProperties 'publisher request' $Request @(
-    'repository','actor','release_ref','source_sha','root_intent_sha256','intent_sha256','intent_kind',
+    'repository','actor','actor_evidence','release_ref','source_sha','root_intent_sha256','intent_sha256','intent_kind','prepared_manifest_sha256',
     'correction_sequence','predecessor_intent_sha256','authorization_valid','evidence_valid','dry_run_passed','authority_account'
   )
   if ($Request.repository -cne 'tchivs/moonbit-foundation' -or $Request.actor -cne 'tchivs' -or $Request.authority_account -cne 'tchivs') { Throw-PublisherRule 'PUB12-AUTH' 'Actor, account, or repository binding is invalid.' }
   if ($Request.source_sha -cnotmatch '^[0-9a-f]{40}$' -or $Request.root_intent_sha256 -cnotmatch '^[0-9a-f]{64}$' -or $Request.intent_sha256 -cnotmatch '^[0-9a-f]{64}$') { Throw-PublisherRule 'PUB01-CLOSED' 'Request digest is invalid.' }
+  if ($Request.prepared_manifest_sha256 -cnotmatch '^[0-9a-f]{64}$') { Throw-PublisherRule 'PUB13-EVIDENCE' 'Prepared manifest digest is invalid.' }
+  $actorFields=@('expected_actor','observed_actor','actor_check_classification','actor_exit_code','actor_stdout_line_count','actor_stderr_empty','actor_match','actor_raw_output_persisted','credential_state_removed','mutation_performed','command_classification')
+  try { Assert-PublisherClosedProperties 'actor evidence' $Request.actor_evidence $actorFields } catch { Throw-PublisherRule 'PUB12-ACTOR' $_.Exception.Message }
+  $actor=$Request.actor_evidence
+  if ($actor.expected_actor -cne 'tchivs' -or $actor.observed_actor -cne 'tchivs' -or
+      $actor.actor_check_classification -cne 'moon_whoami_exact' -or [int]$actor.actor_exit_code -ne 0 -or
+      [int]$actor.actor_stdout_line_count -ne 1 -or $actor.actor_stderr_empty -ne $true -or $actor.actor_match -ne $true -or
+      $actor.actor_raw_output_persisted -ne $false -or $actor.credential_state_removed -ne $true -or
+      $actor.mutation_performed -ne $false -or $actor.command_classification -cne 'moon_whoami_dry_run_only' -or
+      [string]$actor.observed_actor -cmatch '(?i)(token|secret|password|cookie|authorization|bearer)|[\r\n]') {
+    Throw-PublisherRule 'PUB12-ACTOR' 'Actor evidence is not the exact closed sanitized tchivs dry-run projection.'
+  }
   if ($Request.authorization_valid -ne $true) { Throw-PublisherRule 'PUB12-AUTH' 'Fresh exact authorization is required.' }
   if ($Request.evidence_valid -ne $true -or $Request.dry_run_passed -ne $true) { Throw-PublisherRule 'PUB13-EVIDENCE' 'Qualification, archive, identity, or dry-run evidence failed.' }
   if ($Request.intent_kind -ceq 'initial') {
-    if ($Request.release_ref -cne 'refs/tags/modules-v0.1.0' -or $Request.root_intent_sha256 -cne $Request.intent_sha256 -or [int]$Request.correction_sequence -ne 0 -or $null -ne $Request.predecessor_intent_sha256) { Throw-PublisherRule 'PUB04-ROOT' 'Initial request binding is invalid.' }
+    if ($Request.release_ref -cne 'refs/tags/modules-v0.1.0-r1' -or $Request.source_sha -ceq '198436a45b7403a3c28c98d5fa0d5ed6a958455f' -or $Request.root_intent_sha256 -cne $Request.intent_sha256 -or [int]$Request.correction_sequence -ne 0 -or $null -ne $Request.predecessor_intent_sha256) { Throw-PublisherRule 'PUB04-ROOT' 'Initial request binding is invalid.' }
   }
+}
+
+function Assert-PublisherExactExistingCheckpoint {
+  param([object]$Checkpoint,[object]$Request)
+  Assert-PublisherRequest $Request | Out-Null
+  Assert-PublisherClosedProperties 'exact-existing checkpoint' $Checkpoint @(
+    'classification','repository','release_ref','source_sha','root_intent_sha256','intent_sha256','prepared_manifest_sha256',
+    'observation_sha256','cold_proof_sha256','reducer_record_sha256','mutation_authorization_required',
+    'mutation_authorization_used','publisher_dry_run_used','mutation_count','mutation_performed'
+  )
+  foreach($field in @('root_intent_sha256','intent_sha256','prepared_manifest_sha256','observation_sha256','cold_proof_sha256','reducer_record_sha256')) {
+    if ([string]$Checkpoint.$field -cnotmatch '^[0-9a-f]{64}$') { Throw-PublisherRule 'PUB15-EXACT-EXISTING' "Checkpoint digest '$field' is invalid." }
+  }
+  if ($Checkpoint.classification -cne 'exact_existing_verified' -or $Checkpoint.repository -cne $Request.repository -or
+      $Checkpoint.release_ref -cne $Request.release_ref -or $Checkpoint.source_sha -cne $Request.source_sha -or
+      $Checkpoint.root_intent_sha256 -cne $Request.root_intent_sha256 -or $Checkpoint.intent_sha256 -cne $Request.intent_sha256 -or
+      $Checkpoint.prepared_manifest_sha256 -cne $Request.prepared_manifest_sha256 -or
+      $Checkpoint.mutation_authorization_required -ne $false -or $Checkpoint.mutation_authorization_used -ne $false -or
+      $Checkpoint.publisher_dry_run_used -ne $false -or [int]$Checkpoint.mutation_count -ne 0 -or $Checkpoint.mutation_performed -ne $false) {
+    Throw-PublisherRule 'PUB15-EXACT-EXISTING' 'Exact-existing checkpoint is drifted or mutation-authorized.'
+  }
+  return $true
 }
 
 function Assert-PublisherCorrectionRequest {
