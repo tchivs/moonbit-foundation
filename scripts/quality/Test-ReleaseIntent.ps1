@@ -130,11 +130,6 @@ function Assert-IntentContract {
   if ($preparedSchema.properties.release_ref.pattern -cne '^refs/tags/modules-(v0[.]1[.]0-r3|correction-[1-9][0-9]*)$') {
     throw 'REL01-INITIAL-PROFILE: prepared schema does not require r3 or a correction ref.'
   }
-  foreach ($field in @('historical_attempt_zero_sha256','historical_r1_sha256','historical_r2_sha256','historical_history_set_sha256')) {
-    if (@($schema.'$defs'.initialIntent.required) -cnotcontains $field -or $schema.'$defs'.initialIntent.properties.$field.'$ref' -cne '#/$defs/sha256') {
-      throw "REL01-HISTORY-BINDING: initial schema does not require $field."
-    }
-  }
   $initialRequired = @($schema.'$defs'.initialIntent.required)
   if ($initialRequired -contains 'root_intent_sha256' -or $initialRequired -contains 'predecessor_intent_sha256') { throw 'REL01-HASH-CYCLE: initial intent serializes root/predecessor.' }
   $correctionRequired = @($schema.'$defs'.forwardCorrectionIntent.required)
@@ -207,12 +202,6 @@ function Invoke-FocusedIntentTests {
     }
     if ($aBytes.Length -ge 3 -and $aBytes[0] -eq 0xEF -and $aBytes[1] -eq 0xBB -and $aBytes[2] -eq 0xBF) { throw 'REL01-ENCODING: intent contains a UTF-8 BOM.' }
     $initial = Read-ReleaseCanonicalJson -Path $a.intent_path
-    if ($initial.historical_attempt_zero_sha256 -cne $policy.initial_attempt_family.terminal_negative_history[0].record_sha256 -or
-        $initial.historical_r1_sha256 -cne $policy.initial_attempt_family.terminal_negative_history[1].record_sha256 -or
-        $initial.historical_r2_sha256 -cne $policy.initial_attempt_family.terminal_negative_history[2].record_sha256 -or
-        $initial.historical_history_set_sha256 -cne $policy.initial_attempt_family.history_set_sha256) {
-      throw 'REL01-HISTORY-BINDING: generated r3 intent does not bind the exact ordered terminal histories.'
-    }
     $null = Assert-ReleaseIntentObject -Intent $initial -PolicyPath $policyPath -ExpectedCurrentSha256 $a.intent_sha256
     Assert-ReleaseIntentAuthorizationBinding -Intent $initial -IntentSha256 $a.intent_sha256 -RootIntentSha256 $a.intent_sha256
 

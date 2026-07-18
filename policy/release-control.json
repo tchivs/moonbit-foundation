@@ -16,7 +16,8 @@
         "run_attempt": 1,
         "mutation_performed": false,
         "authority_acquired": false,
-        "reason": "terminal_setup_failure"
+        "reason": "terminal_setup_failure",
+        "record_sha256": "b9bda5378ea339f4cdd42c417c1cc0cf8caabbd51ab11d453cd45ddae77d9b52"
       },
       {
         "attempt": "r1",
@@ -27,11 +28,30 @@
         "run_attempt": null,
         "mutation_performed": false,
         "authority_acquired": false,
-        "reason": "terminal_local_preparation_failure"
+        "reason": "terminal_local_preparation_failure",
+        "record_sha256": "cba047dae2e6b4e1bbf0248653ed7848f144971b54a0a4ed30ef42ab97325653"
+      },
+      {
+        "attempt": "r2",
+        "release_ref": "refs/tags/modules-v0.1.0-r2",
+        "source_sha": "73a3af920fc3938f49e93d14f16f79f116475f1e",
+        "hosted_run_present": false,
+        "run_id": null,
+        "run_attempt": null,
+        "mutation_performed": false,
+        "authority_acquired": false,
+        "prepare_attempt_completed": true,
+        "registry_disposition": "confirmed_absent",
+        "hosted_preflight_dispatched": false,
+        "failure_stage": "before_hosted_preflight_dispatch",
+        "reason": "terminal_hosted_field_construction_failure",
+        "record_sha256": "aae8bee66e7dbfca7f3f22f1b52071e7888ae3ec8feee513d1c5d8eba6111609"
       }
     ],
+    "history_set_profile": "sha256-of-lf-joined-record-sha256-in-canonical-attempt-order",
+    "history_set_sha256": "f04b431490910eb7da8125a09c5575ea0b9f0138708bb14b8f36834ea038185c",
     "reuse": "forbidden",
-    "current_attempt": "r2"
+    "current_attempt": "r3"
   },
   "historical_initial_attempt": {
     "release_ref": "refs/tags/modules-v0.1.0",
@@ -44,7 +64,7 @@
   },
   "initial_profile": {
     "intent_kind": "initial",
-    "release_ref": "refs/tags/modules-v0.1.0-r2",
+    "release_ref": "refs/tags/modules-v0.1.0-r3",
     "correction_sequence": 0,
     "predecessor": "forbidden",
     "serialized_root_intent_sha256": "forbidden",
