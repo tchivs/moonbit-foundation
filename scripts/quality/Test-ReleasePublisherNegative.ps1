@@ -88,12 +88,38 @@ if (-not (Test-Path -LiteralPath (Join-Path $PSScriptRoot 'Invoke-ReleasePublish
 . (Join-Path $PSScriptRoot 'Invoke-ReleasePublisher.ps1') -LibraryOnly
 
 $root = 'a' * 64
+$actorEvidence = [pscustomobject][ordered]@{
+  expected_actor='tchivs'; observed_actor='tchivs'; actor_check_classification='moon_whoami_exact'
+  actor_exit_code=0; actor_stdout_line_count=1; actor_stderr_empty=$true; actor_match=$true
+  actor_raw_output_persisted=$false; credential_state_removed=$true; mutation_performed=$false
+  command_classification='moon_whoami_dry_run_only'
+}
 $base = [pscustomobject]@{
-  repository='tchivs/moonbit-foundation'; actor='tchivs'; release_ref='refs/tags/modules-v0.1.0'
+  repository='tchivs/moonbit-foundation'; actor='tchivs'; actor_evidence=$actorEvidence; release_ref='refs/tags/modules-v0.1.0-r1'
   source_sha=('1'*40); root_intent_sha256=$root; intent_sha256=$root; intent_kind='initial'
+  prepared_manifest_sha256=('9'*64)
   correction_sequence=0; predecessor_intent_sha256=$null; authorization_valid=$true
   evidence_valid=$true; dry_run_passed=$true; authority_account='tchivs'
 }
+
+if (-not (Assert-PublisherRequest $base)) { throw 'Exact r1 publisher request was not accepted.' }
+Confirm-PublisherRule 'PUB04-ROOT' { $bad=$base.PSObject.Copy(); $bad.release_ref='refs/tags/modules-v0.1.0'; Assert-PublisherRequest $bad }
+Confirm-PublisherRule 'PUB04-ROOT' { $bad=$base.PSObject.Copy(); $bad.source_sha='198436a45b7403a3c28c98d5fa0d5ed6a958455f'; Assert-PublisherRequest $bad }
+Confirm-PublisherRule 'PUB04-ROOT' { $bad=$base.PSObject.Copy(); $bad.predecessor_intent_sha256=('8'*64); Assert-PublisherRequest $bad }
+Confirm-PublisherRule 'PUB13-EVIDENCE' { $bad=$base.PSObject.Copy(); $bad.prepared_manifest_sha256=''; Assert-PublisherRequest $bad }
+Confirm-PublisherRule 'PUB12-ACTOR' { $bad=$base.PSObject.Copy(); $bad.actor_evidence=($actorEvidence | ConvertTo-Json -Compress | ConvertFrom-Json); $bad.actor_evidence.actor_stdout_line_count=2; Assert-PublisherRequest $bad }
+Confirm-PublisherRule 'PUB12-ACTOR' { $bad=$base.PSObject.Copy(); $bad.actor_evidence=($actorEvidence | ConvertTo-Json -Compress | ConvertFrom-Json); $bad.actor_evidence.actor_stderr_empty=$false; Assert-PublisherRequest $bad }
+
+$exactExisting = [pscustomobject][ordered]@{
+  classification='exact_existing_verified'; repository='tchivs/moonbit-foundation'; release_ref='refs/tags/modules-v0.1.0-r1'
+  source_sha=('1'*40); root_intent_sha256=$root; intent_sha256=$root; prepared_manifest_sha256=('9'*64)
+  observation_sha256=('6'*64); cold_proof_sha256=('7'*64); reducer_record_sha256=('8'*64)
+  mutation_authorization_required=$false; mutation_authorization_used=$false; publisher_dry_run_used=$false
+  mutation_count=0; mutation_performed=$false
+}
+if (-not (Assert-PublisherExactExistingCheckpoint -Checkpoint $exactExisting -Request $base)) { throw 'Exact-existing checkpoint was not accepted.' }
+Confirm-PublisherRule 'PUB15-EXACT-EXISTING' { $bad=$exactExisting.PSObject.Copy(); $bad.mutation_count=1; Assert-PublisherExactExistingCheckpoint -Checkpoint $bad -Request $base }
+Confirm-PublisherRule 'PUB15-EXACT-EXISTING' { $bad=$exactExisting.PSObject.Copy(); $bad.intent_sha256=('b'*64); Assert-PublisherExactExistingCheckpoint -Checkpoint $bad -Request $base }
 
 $ambiguous = Invoke-PublisherRehearsal -Request $base -Scenario timeout
 if ($ambiguous.reobserved -ne $true -or $ambiguous.disposition -cne 'fresh_authorization_required' -or $ambiguous.mutation_count -ne 0) { throw 'Timeout did not re-observe absent and stop for fresh authorization.' }
