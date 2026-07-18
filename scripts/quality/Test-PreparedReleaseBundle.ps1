@@ -71,6 +71,10 @@ $null = New-Item -ItemType Directory -Force -Path $tempRoot
 try {
   $sourceSha = '1' * 40
   $intentSha = '2' * 64
+  $attemptZeroSha = 'b9bda5378ea339f4cdd42c417c1cc0cf8caabbd51ab11d453cd45ddae77d9b52'
+  $r1Sha = 'cba047dae2e6b4e1bbf0248653ed7848f144971b54a0a4ed30ef42ab97325653'
+  $r2Sha = 'aae8bee66e7dbfca7f3f22f1b52071e7888ae3ec8feee513d1c5d8eba6111609'
+  $historySetSha = 'f04b431490910eb7da8125a09c5575ea0b9f0138708bb14b8f36834ea038185c'
   $inputRoot = Join-Path $tempRoot 'input'
   $toolchain = [ordered]@{
     moon = '0.1.20260713 (75c7e1f 2026-07-13)'
@@ -92,8 +96,8 @@ try {
     repository='tchivs/moonbit-foundation'; actor='tchivs'; release_ref='refs/tags/modules-v0.1.0-r3'; source_sha=$sourceSha
     root_intent_sha256=$intentSha; intent_sha256=$intentSha; intent_kind='initial'; correction_sequence=0
     predecessor_intent_sha256=$null; authorization_valid=$true; evidence_valid=$true; dry_run_passed=$true; authority_account='tchivs'
-    historical_attempt_zero_sha256=('a'*64); historical_r1_sha256=('b'*64); historical_r2_sha256=('c'*64)
-    historical_history_set_sha256=('d'*64)
+    historical_attempt_zero_sha256=$attemptZeroSha; historical_r1_sha256=$r1Sha; historical_r2_sha256=$r2Sha
+    historical_history_set_sha256=$historySetSha
   })
   foreach ($module in @('mb-core','mb-color','mb-image')) {
     Write-Utf8NoBom -Path (Join-Path $inputRoot "archives\$module.zip") -Text "deterministic-$module-archive"
@@ -116,7 +120,7 @@ try {
   $common = @{
     InputRoot=$inputRoot; Repository='tchivs/moonbit-foundation'; Actor='tchivs'; RunId='1001'; RunAttempt=1
     ReleaseRef='refs/tags/modules-v0.1.0-r3'; SourceSha=$sourceSha; RootIntentSha256=$intentSha; IntentSha256=$intentSha
-    HistoricalAttemptZeroSha256=('a'*64); HistoricalR1Sha256=('b'*64); HistoricalR2Sha256=('c'*64); HistoricalHistorySetSha256=('d'*64)
+    HistoricalAttemptZeroSha256=$attemptZeroSha; HistoricalR1Sha256=$r1Sha; HistoricalR2Sha256=$r2Sha; HistoricalHistorySetSha256=$historySetSha
     RunMode='start'
   }
   $validation = @{} + $common
@@ -168,6 +172,12 @@ try {
   }
   Invoke-MutatedCase 'journal' 'PREP10-JOURNAL-BINDING' {
     param($r) $p=Join-Path $r 'request.json'; $m=Get-Content $p -Raw|ConvertFrom-Json -Depth 100; $m.intent_sha256='f'*64; Write-JsonFixture -Path $p -Value $m
+  }
+  Invoke-MutatedCase 'old-root' 'PREP10-JOURNAL-BINDING' {
+    param($r) $p=Join-Path $r 'request.json'; $m=Get-Content $p -Raw|ConvertFrom-Json -Depth 100; $m.root_intent_sha256='e'*64; Write-JsonFixture -Path $p -Value $m
+  }
+  Invoke-MutatedCase 'correction-lane' 'PREP10-JOURNAL-BINDING' {
+    param($r) $p=Join-Path $r 'request.json'; $m=Get-Content $p -Raw|ConvertFrom-Json -Depth 100; $m.intent_kind='forward_correction';$m.correction_sequence=1;$m.predecessor_intent_sha256='e'*64; Write-JsonFixture -Path $p -Value $m
   }
   Invoke-MutatedCase 'history-substitution' 'PREP14-HISTORICAL-BINDING' {
     param($r) $p=Join-Path $r 'request.json'; $m=Get-Content $p -Raw|ConvertFrom-Json -Depth 100; $m.historical_r1_sha256='c'*64; Write-JsonFixture -Path $p -Value $m

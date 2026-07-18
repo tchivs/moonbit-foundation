@@ -51,6 +51,12 @@ function Assert-P08R3Contract {
   try{
     $paths=[ordered]@{}
     foreach($name in @('boundary','active','index','attempt-zero','r1','r2','packet','exact')){$paths[$name]=Join-Path $temp "$name.json";Write-R2File $paths[$name] "fixture-$name"}
+    $control=Get-Content -LiteralPath (Join-Path $repoRoot 'policy/release-control.json') -Raw|ConvertFrom-Json -Depth 100
+    $history=@($control.initial_attempt_family.terminal_negative_history)
+    for($i=0;$i -lt $history.Count;$i++){
+      $projection=[ordered]@{};foreach($property in $history[$i].PSObject.Properties){if($property.Name -cne 'record_sha256'){$projection[$property.Name]=$property.Value}}
+      Write-R2File $paths[@('attempt-zero','r1','r2')[$i]] ($projection|ConvertTo-Json -Depth 30 -Compress)
+    }
     $packetSha=Get-P08QualificationSha $paths.packet
     $receiptA=New-ReleaseAuthorizationReceipt -BoundarySha ('1'*40) -SourceSha ('2'*40) -PacketSha256 $packetSha -CreatedAt '2026-07-19T08:00:00+08:00'
     $receiptB=New-ReleaseAuthorizationReceipt -BoundarySha ('1'*40) -SourceSha ('2'*40) -PacketSha256 $packetSha -CreatedAt '2026-07-19T00:00:00Z'
@@ -67,7 +73,7 @@ function Assert-P08R3Contract {
       attempt_zero_history_path=[IO.Path]::GetFullPath($paths.'attempt-zero');attempt_zero_history_sha256=Get-P08QualificationSha $paths.'attempt-zero'
       r1_history_path=[IO.Path]::GetFullPath($paths.r1);r1_history_sha256=Get-P08QualificationSha $paths.r1
       r2_history_path=[IO.Path]::GetFullPath($paths.r2);r2_history_sha256=Get-P08QualificationSha $paths.r2
-      historical_history_set_sha256=('d'*64)
+      historical_history_set_sha256=[string]$control.initial_attempt_family.history_set_sha256
       mutation_authorization_packet_path=[IO.Path]::GetFullPath($paths.packet);mutation_authorization_packet_sha256=$packetSha
       authorization_receipt_path=[IO.Path]::GetFullPath($receiptPath);authorization_receipt_sha256=Get-P08QualificationSha $receiptPath
       exact_existing_authority_path=$null;exact_existing_authority_sha256=$null
