@@ -220,8 +220,63 @@ if ($IsolationOnly) {
 foreach ($moduleName in @('mb-core', 'mb-color', 'mb-image')) {
     Assert-True (Test-Path -LiteralPath (Join-Path $templateRoot "$moduleName\main\main.mbt") -PathType Leaf) "$moduleName behavior template must exist"
 }
+
+$behaviorContracts = [ordered]@{
+    'mb-core' = [pscustomobject][ordered]@{
+        dependencies = [ordered]@{ 'tchivs/mb-core' = '0.1.0' }
+        imports = @('tchivs/mb-core/error', 'tchivs/mb-core/checked', 'tchivs/mb-core/budget', 'tchivs/mb-core/bytes', 'tchivs/mb-core/io', 'tchivs/mb-core/host')
+        output = 'consumer=mb-core sum=42 bytes=4 position=0 clock=42'
+    }
+    'mb-color' = [pscustomobject][ordered]@{
+        dependencies = [ordered]@{ 'tchivs/mb-core' = '0.1.0'; 'tchivs/mb-color' = '0.1.0' }
+        imports = @('tchivs/mb-core/checked', 'tchivs/mb-color/model', 'tchivs/mb-color/quantize')
+        output = 'consumer=mb-color sum=128 encoded=128 alpha=128 roundtrip=128'
+    }
+    'mb-image' = [pscustomobject][ordered]@{
+        dependencies = [ordered]@{ 'tchivs/mb-core' = '0.1.0'; 'tchivs/mb-color' = '0.1.0'; 'tchivs/mb-image' = '0.1.0' }
+        imports = @('tchivs/mb-core/budget', 'tchivs/mb-core/bytes', 'tchivs/mb-core/error', 'tchivs/mb-core/io', 'tchivs/mb-color/model', 'tchivs/mb-image/codec', 'tchivs/mb-image/ppm')
+        output = 'consumer=mb-image bytes_read=17 bytes_written=17 width=2 height=1 digest=237717273'
+    }
+}
+
+$manifestScratch = Join-Path ([IO.Path]::GetTempPath()) ("mnf-cold-manifest-test-{0}" -f [guid]::NewGuid().ToString('N'))
+$null = New-Item -ItemType Directory -Path $manifestScratch
+try {
+    foreach ($moduleName in @($behaviorContracts.Keys)) {
+        $contract = $behaviorContracts[$moduleName]
+        $templatePath = Join-Path $templateRoot "$moduleName\main\main.mbt"
+        $source = Get-Content -Raw -LiteralPath $templatePath
+        Assert-True ($source -cmatch [regex]::Escape("println(`"$($contract.output)`")")) "$moduleName deterministic output contract"
+        Assert-True ($source -cnotmatch '(?i)(?:workspace|path dependency|git dependency|copied source|modules[/\\]mb-)') "$moduleName template must not reference an alternate source"
+
+        $manifest = [pscustomobject][ordered]@{
+            name = "mnf-registry-consumer/$moduleName"
+            version = '0.0.0'
+            preferred_target = 'native'
+            supported_targets = '+js+wasm+wasm-gc+native'
+            deps = [pscustomobject]$contract.dependencies
+        }
+        $manifestPath = Join-Path $manifestScratch "$moduleName-moon.mod.json"
+        $manifest | ConvertTo-Json -Depth 20 | Set-Content -LiteralPath $manifestPath -Encoding utf8NoBOM
+        $roundTrip = Get-Content -Raw -LiteralPath $manifestPath | ConvertFrom-Json -Depth 20
+        Assert-Sequence @($roundTrip.deps.PSObject.Properties.Name) @($contract.dependencies.Keys) "$moduleName generated dependency floors"
+        foreach ($dependency in @($contract.dependencies.Keys)) {
+            Assert-Equal ([string]$roundTrip.deps.$dependency) '0.1.0' "$moduleName $dependency dependency floor"
+        }
+        $manifestRaw = Get-Content -Raw -LiteralPath $manifestPath
+        Assert-True ($manifestRaw -cnotmatch '(?i)"(?:path|git|workspace|local)"\s*:') "$moduleName generated manifest must be registry-only"
+
+        $packageImports = @($contract.imports | ForEach-Object { "  `"$_`"," }) -join [Environment]::NewLine
+        Assert-True (-not [string]::IsNullOrWhiteSpace($packageImports)) "$moduleName public import set must be nonempty"
+        $expectedDigest = ([Convert]::ToHexString([Security.Cryptography.SHA256]::HashData([Text.UTF8Encoding]::new($false).GetBytes($contract.output)))).ToLowerInvariant()
+        Assert-True ($expectedDigest -cmatch '^[0-9a-f]{64}$') "$moduleName behavior digest must be deterministic"
+    }
+}
+finally {
+    Remove-Item -LiteralPath $manifestScratch -Recurse -Force -ErrorAction SilentlyContinue
+}
 if ($BehaviorOnly) {
-    Write-Host 'Cold registry consumer behavior selector: PASS'
+    Write-Host 'Cold registry consumer behavior selector: PASS (3 cumulative registry-only manifests and deterministic public outputs).'
     exit 0
 }
 
