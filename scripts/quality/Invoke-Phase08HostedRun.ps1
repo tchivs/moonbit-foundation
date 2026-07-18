@@ -324,7 +324,7 @@ function Get-P08BoundaryLocatorProjection([object]$Locator) {
   foreach($property in $Locator.PSObject.Properties) {
     if($property.Name -ceq 'locator_sha256'){continue}
     $projection[$property.Name]=if($property.Name -ceq 'created_at_utc'){
-      if($property.Value -is [DateTime]){([DateTime]$property.Value).ToString('yyyy-MM-ddTHH:mm:ssZ')}
+      if($property.Value -is [DateTime]){([DateTime]$property.Value).ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ssZ')}
       else{([DateTimeOffset]::Parse([string]$property.Value)).UtcDateTime.ToString('yyyy-MM-ddTHH:mm:ssZ')}
     }else{$property.Value}
   }

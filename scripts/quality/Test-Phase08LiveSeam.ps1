@@ -271,6 +271,19 @@ if ($publisherBlock.IndexOf("inputs.operation_mode == 'PublishOne'",[StringCompa
 $hostedPath=Join-Path $PSScriptRoot 'Invoke-Phase08HostedRun.ps1'
 if (-not (Test-Path -LiteralPath $hostedPath -PathType Leaf)) { throw 'P08-HOSTED-HELPER-MISSING: hosted helper is required.' }
 . $hostedPath -Mode PublisherDryRun -Repository tchivs/moonbit-foundation -Workflow publish-modules.yml -ReleaseRef refs/tags/modules-v0.1.0 -SourceSha ('1'*40) -RootIntentSha256 ('a'*64) -IntentSha256 ('a'*64) -PreparedManifestSha256 ('b'*64) -TargetModule mb-core -LocatorPath (Join-Path ([IO.Path]::GetTempPath()) 'unused-locator.json') -ArtifactRoot (Join-Path ([IO.Path]::GetTempPath()) 'unused-root') -LibraryOnly
+$offsetTimestamp='2026-07-19T04:08:31+08:00'
+$locatorTimeFixture=[pscustomobject][ordered]@{schema_version='fixture';created_at_utc=$offsetTimestamp;locator_sha256=''}
+$expectedLocatorTime='2026-07-18T20:08:31Z'
+$locatorTimeFixture.locator_sha256=Get-P08ObjectDigest (Get-P08BoundaryLocatorProjection $locatorTimeFixture)
+$reloadedLocatorTimeFixture=(Get-P08CanonicalJson $locatorTimeFixture)|ConvertFrom-Json -Depth 100
+$stringTime=(Get-P08BoundaryLocatorProjection $locatorTimeFixture).created_at_utc
+$reloadedTime=(Get-P08BoundaryLocatorProjection $reloadedLocatorTimeFixture).created_at_utc
+$offsetTime=(Get-P08BoundaryLocatorProjection ([pscustomobject][ordered]@{created_at_utc=[DateTimeOffset]::Parse($offsetTimestamp);locator_sha256=''})).created_at_utc
+$reloadedLocatorDigest=Get-P08ObjectDigest (Get-P08BoundaryLocatorProjection $reloadedLocatorTimeFixture)
+if($stringTime -cne $expectedLocatorTime -or $reloadedTime -cne $expectedLocatorTime -or $offsetTime -cne $expectedLocatorTime -or
+    $reloadedLocatorDigest -cne $locatorTimeFixture.locator_sha256){
+  throw 'P08-BOUNDARY-LOCATOR-TIME: locator time projection or digest changed after JSON reload.'
+}
 Confirm-LiveRule 'P08-STORE-PATH' {
   Open-P08ArtifactStore -Locator (Join-Path ([IO.Path]::GetTempPath()) 'wrong-locator.json') -Root (Join-Path ([IO.Path]::GetTempPath()) 'wrong-root') -Repo tchivs/moonbit-foundation -WorkflowPath publish-modules.yml -Ref refs/tags/modules-v0.1.0 -Sha ('1'*40) -RootIntent ('a'*64) -CurrentIntent ('a'*64)
 }
