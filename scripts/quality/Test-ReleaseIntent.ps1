@@ -129,7 +129,7 @@ function Assert-IntentContract {
   if ($policy.schema_version -cne 'mnf-release-control/1' -or $policy.repository -cne 'tchivs/moonbit-foundation' -or
       $policy.owner -cne 'tchivs' -or $policy.sole_maintainer -cne 'tchivs') { throw 'REL01-POLICY-IDENTITY: release-control identity drifted.' }
   $history = @($policy.initial_attempt_family.terminal_negative_history)
-  if ($history.Count -ne 3) { throw 'REL01-HISTORICAL-ATTEMPT: exact attempt-zero/r1/r2 history is required.' }
+  if ($history.Count -ne 4) { throw 'REL01-HISTORICAL-ATTEMPT: exact attempt-zero/r1/r2/r3 history is required.' }
   $attemptZero = $history[0]
   if ($attemptZero.attempt -cne 'attempt_zero' -or $attemptZero.release_ref -cne 'refs/tags/modules-v0.1.0' -or
       $attemptZero.source_sha -cne '198436a45b7403a3c28c98d5fa0d5ed6a958455f' -or
@@ -156,16 +156,29 @@ function Assert-IntentContract {
       $r2.reason -cne 'terminal_hosted_field_construction_failure') {
     throw 'REL01-HISTORICAL-ATTEMPT: protected r2 evidence drifted.'
   }
-  if (($history.attempt -join ',') -cne 'attempt_zero,r1,r2') { throw 'REL01-HISTORY-ORDER: terminal history order drifted.' }
+  $r3 = $history[3]
+  if ($r3.attempt -cne 'r3' -or $r3.release_ref -cne 'refs/tags/modules-v0.1.0-r3' -or
+      $r3.source_sha -cne '67b1fbc9dd62288d19018c46a44c1e3293212b76' -or
+      $r3.hosted_run_present -ne $false -or $null -ne $r3.run_id -or $null -ne $r3.run_attempt -or
+      $r3.mutation_performed -ne $false -or $r3.authority_acquired -ne $false -or
+      $r3.prepare_attempt_completed -ne $true -or $r3.registry_disposition -cne 'confirmed_absent' -or
+      $r3.controller_input_count -ne 14 -or $r3.workflow_input_count -ne 17 -or
+      $r3.missing_workflow_input -cne 'authorization_receipt_sha256' -or
+      $r3.hosted_preflight_dispatched -ne $false -or $r3.failure_stage -cne 'before_gh_run_creation' -or
+      $r3.reason -cne 'terminal_workflow_dispatch_input_parity_failure') {
+    throw 'REL01-HISTORICAL-ATTEMPT: protected r3 evidence drifted.'
+  }
+  if (($history.attempt -join ',') -cne 'attempt_zero,r1,r2,r3') { throw 'REL01-HISTORY-ORDER: terminal history order drifted.' }
   foreach ($record in $history) {
     if ($record.record_sha256 -cne (Get-IntentHistoryRecordSha256 $record)) { throw "REL01-HISTORY-DIGEST: $($record.attempt) record digest drifted." }
   }
-  if (@($history.record_sha256 | Select-Object -Unique).Count -ne 3) { throw 'REL01-HISTORY-DIGEST: terminal history digests are not distinct.' }
+  if (@($history.record_sha256 | Select-Object -Unique).Count -ne 4) { throw 'REL01-HISTORY-DIGEST: terminal history digests are not distinct.' }
   if ($policy.initial_attempt_family.history_set_profile -cne 'sha256-of-lf-joined-record-sha256-in-canonical-attempt-order' -or
       $policy.initial_attempt_family.history_set_sha256 -cne (Get-IntentHistorySetSha256 $history)) {
     throw 'REL01-HISTORY-SET: ordered terminal history set drifted.'
   }
-  if ($policy.initial_profile.release_ref -cne 'refs/tags/modules-v0.1.0-r3' -or $policy.initial_profile.correction_sequence -ne 0 -or
+  if ($policy.initial_attempt_family.current_attempt -cne 'r4' -or
+      $policy.initial_profile.release_ref -cne 'refs/tags/modules-v0.1.0-r4' -or $policy.initial_profile.correction_sequence -ne 0 -or
       $policy.initial_profile.serialized_root_intent_sha256 -cne 'forbidden') { throw 'REL01-INITIAL-PROFILE: initial root/ref contract drifted.' }
   if ($policy.correction_profile.release_ref_pattern -cne '^refs/tags/modules-correction-[1-9][0-9]*$' -or
       $policy.correction_profile.sequence_rule -cne 'predecessor_sequence_plus_one' -or
@@ -175,11 +188,11 @@ function Assert-IntentContract {
       $policy.authority_semantics.credentials_read -ne $false -or $policy.authority_semantics.publication_performed -ne $false) { throw 'REL02-AUTHORITY-CONFLATION: digest or credential semantics drifted.' }
   if (@($schema.oneOf).Count -ne 2 -or $schema.'$defs'.initialIntent.additionalProperties -ne $false -or
       $schema.'$defs'.forwardCorrectionIntent.additionalProperties -ne $false) { throw 'REL01-CLOSED-SCHEMA: intent oneOf branches are not closed.' }
-  if ($schema.'$defs'.initialIntent.properties.release_ref.const -cne 'refs/tags/modules-v0.1.0-r3') {
-    throw 'REL01-INITIAL-PROFILE: initial schema does not require r3.'
+  if ($schema.'$defs'.initialIntent.properties.release_ref.const -cne 'refs/tags/modules-v0.1.0-r4') {
+    throw 'REL01-INITIAL-PROFILE: initial schema does not require r4.'
   }
-  if ($preparedSchema.properties.release_ref.pattern -cne '^refs/tags/modules-(v0[.]1[.]0-r3|correction-[1-9][0-9]*)$') {
-    throw 'REL01-INITIAL-PROFILE: prepared schema does not require r3 or a correction ref.'
+  if ($preparedSchema.properties.release_ref.pattern -cne '^refs/tags/modules-(v0[.]1[.]0-r4|correction-[1-9][0-9]*)$') {
+    throw 'REL01-INITIAL-PROFILE: prepared schema does not require r4 or a correction ref.'
   }
   $initialRequired = @($schema.'$defs'.initialIntent.required)
   if ($initialRequired -contains 'root_intent_sha256' -or $initialRequired -contains 'predecessor_intent_sha256') { throw 'REL01-HASH-CYCLE: initial intent serializes root/predecessor.' }
@@ -238,7 +251,7 @@ function Invoke-FocusedIntentTests {
     $common = @{
       Check = $true
       IntentKind = 'initial'
-      ReleaseRef = 'refs/tags/modules-v0.1.0-r3'
+      ReleaseRef = 'refs/tags/modules-v0.1.0-r4'
       SourceSha = $head
       QualificationRootSha256 = ('4' * 64)
       RequiredStableSha256 = ('5' * 64)
@@ -292,7 +305,7 @@ function Invoke-FocusedIntentTests {
       ConvertTo-ReleaseCanonicalJson -Value $copy -Profile ReleaseIntent | Out-Null
     }
     Confirm-IntentRule 'REL01-TERMINAL-MISMATCH' { Assert-ReleaseIntentRecovery -IntentKind initial -ObservedMismatch }
-    foreach ($oldRef in @('refs/tags/modules-v0.1.0','refs/tags/modules-v0.1.0-r1','refs/tags/modules-v0.1.0-r2')) {
+    foreach ($oldRef in @('refs/tags/modules-v0.1.0','refs/tags/modules-v0.1.0-r1','refs/tags/modules-v0.1.0-r2','refs/tags/modules-v0.1.0-r3')) {
       Confirm-IntentRule 'REL01-REF' {
         $old = ($initial | ConvertTo-Json -Depth 100 | ConvertFrom-Json -Depth 100); $old.release_ref = $oldRef
         Assert-ReleaseIntentObject -Intent $old -PolicyPath $policyPath
