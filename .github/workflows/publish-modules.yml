@@ -1,0 +1,164 @@
+name: Publish MNF modules
+
+on:
+  workflow_dispatch:
+    inputs:
+      run_mode:
+        required: true
+        type: choice
+        options: [start, resume]
+      release_ref:
+        required: true
+        type: string
+      source_sha:
+        required: true
+        type: string
+      root_intent_sha256:
+        required: true
+        type: string
+      intent_sha256:
+        required: true
+        type: string
+      prior_run_id:
+        required: false
+        default: ''
+        type: string
+      prior_artifact_name:
+        required: false
+        default: ''
+        type: string
+      live_authorization:
+        required: true
+        type: boolean
+
+permissions: {}
+
+concurrency:
+  group: mnf-release-${{ github.repository }}-${{ inputs.root_intent_sha256 }}
+  cancel-in-progress: false
+
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: read
+    outputs:
+      prepared_artifact_name: ${{ steps.bundle.outputs.artifact_name }}
+      prepared_manifest_sha256: ${{ steps.bundle.outputs.manifest_sha256 }}
+    steps:
+      - name: Check out exact source without persisted credentials
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ inputs.source_sha }}
+          persist-credentials: false
+      - name: Set up exact MoonBit toolchain
+        uses: hustcer/setup-moonbit@bdc8c076af1f4c5012a6ac3451a2009ec75bf921
+        with:
+          version: 0.1.20260713+75c7e1f
+      - name: Download exact prior checkpoint for resume
+        if: ${{ inputs.run_mode == 'resume' }}
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: ${{ inputs.prior_artifact_name }}
+          run-id: ${{ inputs.prior_run_id }}
+          github-token: ${{ github.token }}
+          path: prior
+      - name: Validate dispatch and prepare exact payload
+        id: bundle
+        shell: pwsh
+        env:
+          RUN_MODE: ${{ inputs.run_mode }}
+          RELEASE_REF: ${{ inputs.release_ref }}
+          SOURCE_SHA: ${{ inputs.source_sha }}
+          ROOT_INTENT_SHA256: ${{ inputs.root_intent_sha256 }}
+          INTENT_SHA256: ${{ inputs.intent_sha256 }}
+          PRIOR_RUN_ID: ${{ inputs.prior_run_id }}
+          PRIOR_ARTIFACT_NAME: ${{ inputs.prior_artifact_name }}
+          DISPATCH_ACTOR: ${{ github.actor }}
+          DISPATCH_REPOSITORY: ${{ github.repository }}
+          CURRENT_RUN_ID: ${{ github.run_id }}
+          CURRENT_RUN_ATTEMPT: ${{ github.run_attempt }}
+        run: |
+          if ($env:DISPATCH_ACTOR -cne 'tchivs' -or $env:DISPATCH_REPOSITORY -cne 'tchivs/moonbit-foundation') { throw 'P07-WORKFLOW-AUTH' }
+          if ((git rev-parse HEAD).Trim() -cne $env:SOURCE_SHA) { throw 'P07-WORKFLOW-SOURCE' }
+          $paired = -not [string]::IsNullOrEmpty($env:PRIOR_RUN_ID) -and -not [string]::IsNullOrEmpty($env:PRIOR_ARTIFACT_NAME)
+          if ($env:RUN_MODE -ceq 'start' -and $paired) { throw 'P07-WORKFLOW-START-PRIOR' }
+          if ($env:RUN_MODE -ceq 'resume' -and -not $paired) { throw 'P07-WORKFLOW-RESUME-PAIR' }
+          if ($env:PRIOR_RUN_ID -ceq $env:CURRENT_RUN_ID) { throw 'P07-WORKFLOW-CURRENT-RUN-PRIOR' }
+          if ($env:RELEASE_REF -ceq 'refs/tags/modules-v0.1.0' -and $env:ROOT_INTENT_SHA256 -cne $env:INTENT_SHA256) { throw 'P07-WORKFLOW-INITIAL-ROOT' }
+          if ($env:RELEASE_REF -cmatch '^refs/tags/modules-correction-' -and $env:RUN_MODE -cne 'start') { throw 'P07-WORKFLOW-CORRECTION-RESUME' }
+          ./scripts/quality/Test-ReleaseIntent.ps1 -ContractOnly
+          ./scripts/quality/Test-ReleasePublisherNegative.ps1 -ReducerOnly
+          New-Item -ItemType Directory -Force prepared | Out-Null
+          $manifest = Join-Path $PWD 'prepared/prepared-bundle.json'
+          if (-not (Test-Path release/prepared/schema.json)) { throw 'P07-WORKFLOW-PREPARED-SCHEMA' }
+          '{}' | Set-Content -NoNewline -Encoding utf8 $manifest
+          $digest=(Get-FileHash -Algorithm SHA256 $manifest).Hash.ToLowerInvariant()
+          $name="mnf-prepared-$env:ROOT_INTENT_SHA256-$env:INTENT_SHA256-$digest"
+          "manifest_sha256=$digest" >> $env:GITHUB_OUTPUT
+          "artifact_name=$name" >> $env:GITHUB_OUTPUT
+      - name: Upload exact prepared bundle
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: ${{ steps.bundle.outputs.artifact_name }}
+          path: prepared
+          if-no-files-found: error
+          retention-days: 7
+
+  publisher:
+    needs: prepare
+    runs-on: ubuntu-latest
+    environment: mooncakes-production
+    permissions:
+      actions: read
+    steps:
+      - name: Download exact current-run prepared bundle
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: ${{ needs.prepare.outputs.prepared_artifact_name }}
+          run-id: ${{ github.run_id }}
+          github-token: ${{ github.token }}
+          path: prepared
+      - name: Verify manifest hash inventory digests and bindings
+        id: verify
+        shell: pwsh
+        env:
+          EXPECTED_MANIFEST_SHA256: ${{ needs.prepare.outputs.prepared_manifest_sha256 }}
+          EXPECTED_ARTIFACT_NAME: ${{ needs.prepare.outputs.prepared_artifact_name }}
+          EXPECTED_ROOT_INTENT_SHA256: ${{ inputs.root_intent_sha256 }}
+          EXPECTED_INTENT_SHA256: ${{ inputs.intent_sha256 }}
+          EXPECTED_SOURCE_SHA: ${{ inputs.source_sha }}
+          EXPECTED_RELEASE_REF: ${{ inputs.release_ref }}
+          EXPECTED_RUN_MODE: ${{ inputs.run_mode }}
+        run: |
+          $manifest='prepared/prepared-bundle.json'
+          if ((Get-FileHash -Algorithm SHA256 $manifest).Hash.ToLowerInvariant() -cne $env:EXPECTED_MANIFEST_SHA256) { throw 'P07-WORKFLOW-MANIFEST-DIGEST' }
+          if ($env:EXPECTED_ARTIFACT_NAME -cne "mnf-prepared-$env:EXPECTED_ROOT_INTENT_SHA256-$env:EXPECTED_INTENT_SHA256-$env:EXPECTED_MANIFEST_SHA256") { throw 'P07-WORKFLOW-ARTIFACT-NAME' }
+          $payload=Get-Content $manifest -Raw | ConvertFrom-Json -Depth 100
+          if ($null -eq $payload -or @($payload.payloads).Count -lt 11) { throw 'P07-WORKFLOW-EXACT-INVENTORY' }
+          foreach ($entry in @($payload.payloads)) {
+            if ([IO.Path]::IsPathRooted($entry.path) -or $entry.path -match '(^|/)[.][.]?(/|$)') { throw 'P07-WORKFLOW-PAYLOAD-PATH' }
+            if ((Get-FileHash -Algorithm SHA256 (Join-Path prepared $entry.path)).Hash.ToLowerInvariant() -cne $entry.sha256) { throw 'P07-WORKFLOW-PAYLOAD-DIGEST' }
+          }
+          if ($payload.root_intent_sha256 -cne $env:EXPECTED_ROOT_INTENT_SHA256 -or $payload.intent_sha256 -cne $env:EXPECTED_INTENT_SHA256 -or $payload.source_sha -cne $env:EXPECTED_SOURCE_SHA -or $payload.release_ref -cne $env:EXPECTED_RELEASE_REF -or $payload.run_mode -cne $env:EXPECTED_RUN_MODE) { throw 'P07-WORKFLOW-BINDING' }
+      - name: LiveOneStep
+        if: ${{ inputs.live_authorization }}
+        shell: pwsh
+        env:
+          MOONCAKES_TOKEN: ${{ secrets.MOONCAKES_TOKEN }}
+        run: |
+          $moonHome=Join-Path $env:RUNNER_TEMP ([Guid]::NewGuid().ToString('N'))
+          try {
+            New-Item -ItemType Directory -Force $moonHome | Out-Null
+            ./prepared/scripts/quality/Invoke-ReleasePublisher.ps1 -Mode LiveOneStep -RequestPath ./prepared/request.json -ExplicitLiveAuthorization
+          } finally {
+            if (Test-Path $moonHome) { Remove-Item -LiteralPath $moonHome -Recurse -Force }
+          }
+      - name: Upload sanitized checkpoint
+        if: ${{ always() }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: mnf-checkpoint-${{ inputs.root_intent_sha256 }}-${{ inputs.intent_sha256 }}-${{ github.run_id }}
+          path: prepared/sanitized-checkpoint
+          if-no-files-found: error
