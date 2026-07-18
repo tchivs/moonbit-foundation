@@ -48,6 +48,8 @@ v0.1 shipped on 2026-07-17 as a verified release-candidate foundation: five phas
 
 The locked qualification baseline passed 19/19 selectors twice at one unchanged HEAD with identical canonical evidence. Exact `mb-core` artifact consumption succeeds outside `moon.work`; downstream color/image registry resolution remains intentionally blocked until namespace ownership and dependency publication are real.
 
+Phase 6 completed on 2026-07-18 with 25/25 plans and 8/8 requirements verified. The active module identities are `tchivs/mb-core`, `tchivs/mb-color`, and `tchivs/mb-image`; deterministic compatibility baselines, reciprocal requirement/edge/prohibition evidence, and the real credential-free Required lane now pass. Publication remains deliberately blocked until Phase 7 proves the authenticated publish seam before any registry mutation.
+
 ## Current Milestone: v0.2 Publication & Compatibility
 
 **Goal:** Turn the verified 0.1.0 candidate modules into genuinely published, independently resolvable ecosystem foundations with auditable release automation and machine-checked compatibility baselines.
@@ -83,6 +85,7 @@ No new graphics, document, media, AI, or integration module is added in v0.2. Di
 | Use an RFC gate for new modules and breaking boundaries | Ecosystem coherence needs reviewable architectural decisions | ✓ Validated in Phase 1 |
 | Use checked budgets, explicit capabilities, and forward-only I/O as shared safety contracts | Untrusted binary and image processing must fail before prohibited access, allocation, or work | ✓ Validated in Phases 2-5 |
 | Treat deterministic evidence and honest blocked outcomes as release requirements | Candidate qualification must not depend on fabricated publication or noisy marketing claims | ✓ Validated in Phase 5 |
+| Keep unknown live registry authority fail-closed and prove it only inside the isolated publisher | Public account identity and module-name availability do not prove current-token publication authority | ✓ Validated in Phase 6 |
 | Complete publication and compatibility before adding the next module family | Unpublished foundations cannot provide a dependable ecosystem contract to downstream authors | — Pending in v0.2 |
 
 ## Evolution
@@ -103,4 +106,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update toolchain, compatibility, benchmark, and adoption context.
 
 ---
-*Last updated: 2026-07-17 at v0.2 milestone start*
+*Last updated: 2026-07-18 after Phase 6 completion*
