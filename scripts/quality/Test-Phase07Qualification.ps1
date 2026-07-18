@@ -95,7 +95,10 @@ function Assert-P07HostedSettings {
   if (($secretNames -join ',') -cne 'MOONCAKES_TOKEN') { throw 'P07-HOSTED-SECRET-NAME: exact environment secret name is missing or extra names exist.' }
   $rulesets=@(& gh api "repos/$repo/rulesets" 2>$null | ConvertFrom-Json -Depth 100)
   $matches=@($rulesets | Where-Object { $_.target -ceq 'tag' -and $_.enforcement -ceq 'active' })
-  $valid=@($matches | Where-Object {
+  $details=@($matches | ForEach-Object {
+    & gh api "repos/$repo/rulesets/$($_.id)" 2>$null | ConvertFrom-Json -Depth 100
+  })
+  $valid=@($details | Where-Object {
     (@($_.conditions.ref_name.include) -join ',') -ceq 'refs/tags/modules-v0.1.0,refs/tags/modules-correction-*' -and
     @($_.conditions.ref_name.exclude).Count -eq 0 -and @($_.bypass_actors).Count -eq 0 -and
     @($_.rules.type) -ccontains 'deletion' -and @($_.rules.type) -ccontains 'non_fast_forward' -and @($_.rules.type) -cnotcontains 'creation'
