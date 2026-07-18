@@ -1,0 +1,148 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/tchivs/moonbit-foundation/release/qualification/phase-08-authority-schema.json",
+  "title": "Phase 8 hosted mutation and module authority records",
+  "oneOf": [
+    { "$ref": "#/$defs/mutationAuthorizationPacket" },
+    { "$ref": "#/$defs/exactExistingAuthority" },
+    { "$ref": "#/$defs/moduleAuthority" }
+  ],
+  "$defs": {
+    "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "sha1": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+    "module": { "enum": ["mb-core", "mb-color", "mb-image"] },
+    "targets": {
+      "type": "array",
+      "prefixItems": [
+        { "const": "js" }, { "const": "wasm" }, { "const": "wasm-gc" }, { "const": "native" }
+      ],
+      "items": false,
+      "minItems": 4,
+      "maxItems": 4
+    },
+    "mutationAuthorizationPacket": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version", "repository", "release_ref", "boundary_sha", "source_sha", "execution_root",
+        "locator_sha256", "root_intent_sha256", "intent_sha256", "prepared_manifest_sha256", "target_module",
+        "observation_sha256", "hosted_preflight_sha256", "publisher_dry_run_sha256", "actor", "mutation_count", "packet_sha256"
+      ],
+      "properties": {
+        "schema_version": { "const": "mnf-phase08-mutation-authorization-packet/1" },
+        "repository": { "const": "tchivs/moonbit-foundation" },
+        "release_ref": { "const": "refs/tags/modules-v0.1.0-r1" },
+        "boundary_sha": { "$ref": "#/$defs/sha1" },
+        "source_sha": { "$ref": "#/$defs/sha1" },
+        "execution_root": { "type": "string", "minLength": 1 },
+        "locator_sha256": { "$ref": "#/$defs/sha256" },
+        "root_intent_sha256": { "$ref": "#/$defs/sha256" },
+        "intent_sha256": { "$ref": "#/$defs/sha256" },
+        "prepared_manifest_sha256": { "$ref": "#/$defs/sha256" },
+        "target_module": { "const": "mb-core" },
+        "observation_sha256": { "$ref": "#/$defs/sha256" },
+        "hosted_preflight_sha256": { "$ref": "#/$defs/sha256" },
+        "publisher_dry_run_sha256": { "$ref": "#/$defs/sha256" },
+        "actor": { "const": "tchivs" },
+        "mutation_count": { "const": 0 },
+        "packet_sha256": { "$ref": "#/$defs/sha256" }
+      }
+    },
+    "exactExistingAuthority": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version", "source", "module", "repository", "release_ref", "boundary_sha", "source_sha",
+        "execution_root", "locator_sha256", "artifact_root", "index_path", "root_intent_sha256", "intent_sha256",
+        "prepared_manifest_sha256", "observation_sha256", "observation_content_sha256", "archive_sha256",
+        "downloaded_manifest_sha256", "cold_proof_sha256", "cold_content_sha256", "targets", "native_runtime",
+        "toolchain_root_sha256", "predecessor_authority_sha256", "reducer_state", "reducer_record_sha256",
+        "historical_negative_run", "mutation_authorization_required", "mutation_authorization_used",
+        "publisher_dry_run_used", "mutation_count", "authorization_packet_sha256", "authority_sha256"
+      ],
+      "properties": {
+        "schema_version": { "const": "mnf-phase08-exact-existing-authority/1" },
+        "source": { "const": "exact_existing" },
+        "module": { "$ref": "#/$defs/module" },
+        "repository": { "const": "tchivs/moonbit-foundation" },
+        "release_ref": { "const": "refs/tags/modules-v0.1.0-r1" },
+        "boundary_sha": { "$ref": "#/$defs/sha1" },
+        "source_sha": { "$ref": "#/$defs/sha1" },
+        "execution_root": { "type": "string", "minLength": 1 },
+        "locator_sha256": { "$ref": "#/$defs/sha256" },
+        "artifact_root": { "type": "string", "minLength": 1 },
+        "index_path": { "type": "string", "minLength": 1 },
+        "root_intent_sha256": { "$ref": "#/$defs/sha256" },
+        "intent_sha256": { "$ref": "#/$defs/sha256" },
+        "prepared_manifest_sha256": { "$ref": "#/$defs/sha256" },
+        "observation_sha256": { "$ref": "#/$defs/sha256" },
+        "observation_content_sha256": { "$ref": "#/$defs/sha256" },
+        "archive_sha256": { "$ref": "#/$defs/sha256" },
+        "downloaded_manifest_sha256": { "$ref": "#/$defs/sha256" },
+        "cold_proof_sha256": { "$ref": "#/$defs/sha256" },
+        "cold_content_sha256": { "$ref": "#/$defs/sha256" },
+        "targets": { "$ref": "#/$defs/targets" },
+        "native_runtime": { "const": "pass" },
+        "toolchain_root_sha256": { "$ref": "#/$defs/sha256" },
+        "predecessor_authority_sha256": { "oneOf": [{ "$ref": "#/$defs/sha256" }, { "type": "null" }] },
+        "reducer_state": { "enum": ["core_checkpoint_verified", "color_checkpoint_verified", "image_checkpoint_verified"] },
+        "reducer_record_sha256": { "$ref": "#/$defs/sha256" },
+        "historical_negative_run": { "const": "29652468948/1" },
+        "mutation_authorization_required": { "const": false },
+        "mutation_authorization_used": { "const": false },
+        "publisher_dry_run_used": { "const": false },
+        "mutation_count": { "const": 0 },
+        "authorization_packet_sha256": { "type": "null" },
+        "authority_sha256": { "$ref": "#/$defs/sha256" }
+      }
+    },
+    "moduleAuthority": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version", "source", "module", "repository", "release_ref", "boundary_sha", "source_sha",
+        "execution_root", "locator_sha256", "artifact_root", "index_path", "root_intent_sha256", "intent_sha256",
+        "prepared_manifest_sha256", "observation_sha256", "observation_content_sha256", "archive_sha256",
+        "downloaded_manifest_sha256", "cold_proof_sha256", "cold_content_sha256", "targets", "native_runtime",
+        "toolchain_root_sha256", "predecessor_authority_sha256", "reducer_state", "reducer_record_sha256",
+        "historical_negative_run", "mutation_authorization_required", "mutation_authorization_used",
+        "publisher_dry_run_used", "mutation_count", "authorization_packet_sha256", "authority_sha256"
+      ],
+      "properties": {
+        "schema_version": { "const": "mnf-phase08-module-authority/1" },
+        "source": { "const": "published_now" },
+        "module": { "$ref": "#/$defs/module" },
+        "repository": { "const": "tchivs/moonbit-foundation" },
+        "release_ref": { "const": "refs/tags/modules-v0.1.0-r1" },
+        "boundary_sha": { "$ref": "#/$defs/sha1" },
+        "source_sha": { "$ref": "#/$defs/sha1" },
+        "execution_root": { "type": "string", "minLength": 1 },
+        "locator_sha256": { "$ref": "#/$defs/sha256" },
+        "artifact_root": { "type": "string", "minLength": 1 },
+        "index_path": { "type": "string", "minLength": 1 },
+        "root_intent_sha256": { "$ref": "#/$defs/sha256" },
+        "intent_sha256": { "$ref": "#/$defs/sha256" },
+        "prepared_manifest_sha256": { "$ref": "#/$defs/sha256" },
+        "observation_sha256": { "$ref": "#/$defs/sha256" },
+        "observation_content_sha256": { "$ref": "#/$defs/sha256" },
+        "archive_sha256": { "$ref": "#/$defs/sha256" },
+        "downloaded_manifest_sha256": { "$ref": "#/$defs/sha256" },
+        "cold_proof_sha256": { "$ref": "#/$defs/sha256" },
+        "cold_content_sha256": { "$ref": "#/$defs/sha256" },
+        "targets": { "$ref": "#/$defs/targets" },
+        "native_runtime": { "const": "pass" },
+        "toolchain_root_sha256": { "$ref": "#/$defs/sha256" },
+        "predecessor_authority_sha256": { "oneOf": [{ "$ref": "#/$defs/sha256" }, { "type": "null" }] },
+        "reducer_state": { "enum": ["core_checkpoint_verified", "color_checkpoint_verified", "image_checkpoint_verified"] },
+        "reducer_record_sha256": { "$ref": "#/$defs/sha256" },
+        "historical_negative_run": { "const": "29652468948/1" },
+        "mutation_authorization_required": { "const": true },
+        "mutation_authorization_used": { "const": true },
+        "publisher_dry_run_used": { "type": "boolean" },
+        "mutation_count": { "const": 1 },
+        "authorization_packet_sha256": { "oneOf": [{ "$ref": "#/$defs/sha256" }, { "type": "null" }] },
+        "authority_sha256": { "$ref": "#/$defs/sha256" }
+      }
+    }
+  }
+}

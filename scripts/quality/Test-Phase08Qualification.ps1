@@ -98,6 +98,43 @@ function Assert-P08FixtureContract {
   }
   if (@([regex]::Matches($workflow,[regex]::Escape('${{ secrets.MOONCAKES_TOKEN }}'))).Count -ne 2) { Throw-P08Qualification 'P08-QUAL-SECRET' 'Secret must occur once in dry-run and once in PublishOne, each in isolated jobs.' }
   if ($workflow.IndexOf('moon publish --frozen`n',[StringComparison]::Ordinal) -ge 0) { Throw-P08Qualification 'P08-QUAL-NONDRY' 'An unclassified inline non-dry command is forbidden.' }
+  $schema=Get-Content -LiteralPath $authoritySchema -Raw | ConvertFrom-Json -Depth 100
+  foreach($definition in @('mutationAuthorizationPacket','exactExistingAuthority','moduleAuthority')) {
+    if ($null -eq $schema.'$defs'.PSObject.Properties[$definition] -or $schema.'$defs'.$definition.additionalProperties -ne $false) { Throw-P08Qualification 'P08-QUAL-AUTHORITY-SCHEMA' "Authority definition '$definition' is missing or open." }
+  }
+
+  $boundary='1'*40
+  . (Join-Path $PSScriptRoot 'Invoke-Phase08HostedRun.ps1') -Mode InitializeBoundary -Repository tchivs/moonbit-foundation -Workflow publish-modules.yml `
+    -ReleaseRef refs/tags/modules-v0.1.0-r1 -SourceSha $boundary -RootIntentSha256 ('a'*64) -IntentSha256 ('a'*64) `
+    -PreparedManifestSha256 ('b'*64) -TargetModule mb-core -LocatorPath $LocatorPath -ArtifactRoot $ArtifactRoot -LibraryOnly
+
+  function Confirm-P08FixtureFailure([string]$Id,[scriptblock]$Action) {
+    $failure=$null;try{& $Action}catch{$failure=$_.Exception.Message}
+    if ($null -eq $failure -or -not $failure.StartsWith("$Id`: ",[StringComparison]::Ordinal)) { Throw-P08Qualification 'P08-QUAL-NEGATIVE' "Expected $Id, got '$failure'." }
+  }
+  $cases=@{
+    absent='mutation_candidate';exact='exact_existing';mismatch='terminal_forward_correction';unknown='terminal_stop'
+  }
+  foreach($outcome in @('absent','exact','mismatch','unknown')) {
+    $decision=Resolve-P08ObservationOutcome -Observation ([pscustomobject]@{outcome=$outcome}) -Module mb-core
+    if ($decision.classification -cne $cases[$outcome] -or ($outcome -cne 'absent' -and $decision.may_assemble_packet)) { Throw-P08Qualification 'P08-QUAL-OUTCOME' "Closed outcome '$outcome' drifted." }
+  }
+  foreach($reason in @('disagreement','timeout')) {
+    $decision=Resolve-P08ObservationOutcome -Observation ([pscustomobject]@{outcome='unknown';reason=$reason}) -Module mb-core
+    if ($decision.classification -cne 'terminal_stop' -or -not $decision.terminal) { Throw-P08Qualification 'P08-QUAL-OUTCOME' "$reason did not stop." }
+  }
+  Confirm-P08FixtureFailure 'P08-OUTCOME-CLOSED' { Resolve-P08ObservationOutcome -Observation ([pscustomobject]@{outcome='retry'}) -Module mb-core }
+  Confirm-P08FixtureFailure 'P08-PREDECESSOR-REQUIRED' { Resolve-P08ObservationOutcome -Observation ([pscustomobject]@{outcome='absent'}) -Module mb-color }
+  Confirm-P08FixtureFailure 'P08-AUTHORITY-BOTH' { Select-P08AuthorityUnion -MutationPacketPath 'packet.json' -ExactAuthorityPath 'exact.json' }
+  Confirm-P08FixtureFailure 'P08-AUTHORITY-NEITHER' { Select-P08AuthorityUnion -MutationPacketPath '' -ExactAuthorityPath '' }
+
+  $script:GitCommand={param($root,$arguments) switch($arguments[0]){'status'{''};'rev-parse'{if($arguments[1] -ceq 'HEAD'){$script:boundary}else{'2'*40}};'hash-object'{'2'*40}}}
+  $script:boundary=$boundary
+  $boundaryResult=Assert-P08ExecutionBoundary -Root $repoRoot -Boundary $boundary -RelativePaths @('scripts/quality/Invoke-Phase08HostedRun.ps1')
+  if ($boundaryResult.execution_root -cne [IO.Path]::GetFullPath($repoRoot)) { Throw-P08Qualification 'P08-QUAL-BOUNDARY' 'Execution root was not canonicalized.' }
+  $script:GitCommand={param($root,$arguments) if($arguments[0] -ceq 'status'){' M drift'}elseif($arguments[1] -ceq 'HEAD'){$script:boundary}else{'2'*40}}
+  Confirm-P08FixtureFailure 'P08-BOUNDARY-DIRTY' { Assert-P08ExecutionBoundary -Root $repoRoot -Boundary $boundary -RelativePaths @() }
+  $script:GitCommand=$null
   Write-Host 'Phase 8 qualification fixtures/static contract: PASS.'
 }
 
@@ -138,9 +175,58 @@ function Assert-P08AuthorizationPacket {
   $packet
 }
 
+function Assert-P08AuthorityFile {
+  param([Parameter(Mandatory)][string]$Path,[string[]]$AllowedSchemas)
+  if (-not (Test-Path -LiteralPath $Path -PathType Leaf)) { Throw-P08Qualification 'P08-QUAL-AUTHORITY-FILE' "Missing authority file '$Path'." }
+  $schemaPath=Join-Path $repoRoot 'release/qualification/phase-08-authority-schema.json'
+  $json=Get-Content -LiteralPath $Path -Raw
+  if (-not ($json|Test-Json -SchemaFile $schemaPath -ErrorAction Stop)) { Throw-P08Qualification 'P08-QUAL-AUTHORITY-SCHEMA' 'Authority record failed its closed schema.' }
+  $record=$json|ConvertFrom-Json -Depth 100
+  if ($AllowedSchemas -cnotcontains [string]$record.schema_version -or $record.repository -cne 'tchivs/moonbit-foundation' -or $record.release_ref -cne 'refs/tags/modules-v0.1.0-r1' -or
+      $record.boundary_sha -cne $record.source_sha -or $record.root_intent_sha256 -cne $record.intent_sha256 -or $record.prepared_manifest_sha256 -cnotmatch '^[0-9a-f]{64}$') {
+    Throw-P08Qualification 'P08-QUAL-AUTHORITY-BINDING' 'Authority record binding drifted.'
+  }
+  if ($record.schema_version -ceq 'mnf-phase08-exact-existing-authority/1' -and
+      ($record.source -cne 'exact_existing' -or $record.mutation_authorization_required -ne $false -or $record.mutation_authorization_used -ne $false -or
+       $record.publisher_dry_run_used -ne $false -or [int]$record.mutation_count -ne 0 -or $null -ne $record.authorization_packet_sha256)) {
+    Throw-P08Qualification 'P08-QUAL-EXACT-NO-MUTATION' 'Exact-existing authority contains mutation or dry-run authorization.'
+  }
+  if ((@($record.targets)-join ',') -cne 'js,wasm,wasm-gc,native' -or $record.native_runtime -cne 'pass') { Throw-P08Qualification 'P08-QUAL-AUTHORITY-COLD' 'Authority does not bind the exact four-target native proof.' }
+  $record
+}
+
+function Assert-P08AuthorityUnionSelector {
+  $packetPath=if(-not [string]::IsNullOrWhiteSpace($MutationAuthorizationPacketPath)){$MutationAuthorizationPacketPath}else{$PacketPath}
+  $hasPacket=-not [string]::IsNullOrWhiteSpace($packetPath);$hasExact=-not [string]::IsNullOrWhiteSpace($ExactExistingAuthorityPath)
+  if($hasPacket -and $hasExact){Throw-P08Qualification 'P08-QUAL-AUTHORITY-BOTH' 'AuthorityUnion rejects both variants.'}
+  if(-not $hasPacket -and -not $hasExact){Throw-P08Qualification 'P08-QUAL-AUTHORITY-NEITHER' 'AuthorityUnion rejects neither variant.'}
+  if($hasPacket){
+    $json=Get-Content -LiteralPath $packetPath -Raw
+    if(-not ($json|Test-Json -SchemaFile (Join-Path $repoRoot 'release/qualification/phase-08-authority-schema.json') -ErrorAction Stop)){Throw-P08Qualification 'P08-QUAL-PACKET-SCHEMA' 'MutationAuthorizationPacket failed schema.'}
+    $record=$json|ConvertFrom-Json -Depth 100
+    if($record.schema_version -cne 'mnf-phase08-mutation-authorization-packet/1' -or $record.target_module -cne 'mb-core' -or [int]$record.mutation_count -ne 0){Throw-P08Qualification 'P08-QUAL-PACKET-BINDING' 'MutationAuthorizationPacket drifted.'}
+    Write-Host 'Phase 8 MutationAuthorizationPacket selector: PASS.';return $record
+  }
+  $record=Assert-P08AuthorityFile -Path $ExactExistingAuthorityPath -AllowedSchemas @('mnf-phase08-exact-existing-authority/1')
+  Write-Host 'Phase 8 ExactExistingAuthority selector: PASS.';return $record
+}
+
 if (-not ($FixtureOnly -or $CoreColorArtifacts -or $LiveArtifacts -or $AuthorizationPacket -or $MutationAuthorizationPacket -or $ExactExistingAuthority -or $AuthorityUnion -or $ReciprocalArtifacts)) { Throw-P08Qualification 'P08-QUAL-SELECTOR' 'Choose a selector.' }
 if ($FixtureOnly) { Assert-P08FixtureContract; return }
 if ($AuthorizationPacket) { Assert-P08AuthorizationPacket; return }
+if ($MutationAuthorizationPacket -or $ExactExistingAuthority -or $AuthorityUnion) { Assert-P08AuthorityUnionSelector; return }
+if ($CoreColorArtifacts -or $LiveArtifacts -or $ReciprocalArtifacts) {
+  $paths=@($CoreAuthorityRecordPath,$ColorAuthorityRecordPath,$ImageAuthorityRecordPath | Where-Object {-not [string]::IsNullOrWhiteSpace($_)})
+  $minimum=if($ReciprocalArtifacts){3}elseif($CoreColorArtifacts){2}else{1}
+  if($paths.Count -lt $minimum){Throw-P08Qualification 'P08-QUAL-AUTHORITY-PATHS' "Selector requires at least $minimum explicit normalized authority records."}
+  $expected=@('mb-core','mb-color','mb-image')
+  for($i=0;$i -lt $paths.Count;$i++){
+    $record=Assert-P08AuthorityFile -Path $paths[$i] -AllowedSchemas @('mnf-phase08-exact-existing-authority/1','mnf-phase08-module-authority/1')
+    if($record.module -cne $expected[$i]){Throw-P08Qualification 'P08-QUAL-AUTHORITY-ORDER' 'Authority records are not in canonical predecessor order.'}
+    if($i -gt 0 -and [string]$record.predecessor_authority_sha256 -cne (Get-P08QualificationSha $paths[$i-1])){Throw-P08Qualification 'P08-QUAL-PREDECESSOR' 'Successor authority does not bind the unique predecessor file.'}
+  }
+  Write-Host 'Phase 8 normalized authority artifacts selector: PASS.';return
+}
 $store=Open-P08QualificationStore
 $requiredKinds=if($CoreColorArtifacts){@('publisher-dry-run','hosted-preflight')}else{@('publisher-dry-run','hosted-preflight','absence-observation')}
 foreach($kind in $requiredKinds) { if (@($store.index.records|Where-Object kind -ceq $kind).Count -ne 1) { Throw-P08Qualification 'P08-QUAL-LIVE-ARTIFACT' "Expected one '$kind' record." } }

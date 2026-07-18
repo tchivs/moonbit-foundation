@@ -1,6 +1,9 @@
 [CmdletBinding()]
 param(
-  [Parameter(Mandatory)][ValidateSet('PublisherDryRun','HostedPreflight','PublishOne')][string]$Mode,
+  [Parameter(Mandatory)][ValidateSet(
+    'InitializeBoundary','PrepareAttempt','HostedPreflight','PublisherDryRun','MaterializePublicSurface','ObserveOnly',
+    'IndexSanitizedArtifact','AssembleAuthorizationPacket','SelectExactExistingAuthority','SelectPublishedNowAuthority','PublishOne'
+  )][string]$Mode,
   [Parameter(Mandatory)][string]$Repository,
   [Parameter(Mandatory)][string]$Workflow,
   [Parameter(Mandatory)][string]$ReleaseRef,
@@ -11,11 +14,29 @@ param(
   [Parameter(Mandatory)][ValidateSet('mb-core','mb-color','mb-image')][string]$TargetModule,
   [Parameter(Mandatory)][string]$LocatorPath,
   [Parameter(Mandatory)][string]$ArtifactRoot,
+  [string]$ExecutionRoot,
+  [string]$BoundarySha,
+  [string]$PreparedRoot,
+  [string]$StateRoot,
+  [ValidateSet('exact-existing','post-publish')][string]$ObservationPhase,
+  [string]$MutationAuthorizationPacketPath,
+  [string]$ExactExistingAuthorityPath,
+  [string]$PriorAuthorityRecordPath,
+  [string]$ObservationRecordPath,
+  [string]$ColdProofPath,
+  [string]$SurfaceFixturePath,
+  [ValidateSet('PublicSurface','Observation','ColdProof','ReducerRecord','HistoricalNegative')][string]$ArtifactKind,
+  [string]$ArtifactPath,
+  [string]$ArtifactFileSha256,
+  [string]$ArtifactContentSha256,
+  [string]$NativeToolchainBin,
   [string]$AuthorizationPacketPath,
   [string]$PriorRunId='',
   [string]$PriorArtifactName='',
   [switch]$LibraryOnly,
-  [scriptblock]$GhCommand
+  [scriptblock]$GhCommand,
+  [scriptblock]$GitCommand,
+  [scriptblock]$SurfaceProvider
 )
 
 Set-StrictMode -Version Latest
@@ -237,6 +258,161 @@ function New-P08AuthorizationPacket {
   [pscustomobject]@{packet_path=(Join-Path $Store.paths.root $record.path);packet_sha256=[string]$packet.packet_sha256;file_sha256=[string]$record.sha256;record=$record}
 }
 
+function Invoke-P08Git {
+  param([string]$Root,[string[]]$Arguments)
+  if ($null -ne $script:GitCommand) { return @(& $script:GitCommand $Root $Arguments) }
+  $result=@(& git -C $Root @Arguments 2>&1)
+  if ($LASTEXITCODE -ne 0) { Throw-P08HostedRule 'P08-BOUNDARY-GIT' "git $($Arguments -join ' ') failed." }
+  return $result
+}
+
+function Get-P08ModeScriptInventory([string]$Operation) {
+  $common=@('scripts/quality/Invoke-Phase08HostedRun.ps1','scripts/quality/Test-Phase08Qualification.ps1')
+  switch ($Operation) {
+    'PrepareAttempt' { return $common + @('scripts/quality/New-PreparedReleaseBundle.ps1','scripts/quality/ReleasePublisher.Common.ps1') }
+    'HostedPreflight' { return $common + @('.github/workflows/publish-modules.yml') }
+    'PublisherDryRun' { return $common + @('.github/workflows/publish-modules.yml','scripts/quality/Invoke-ReleasePublisher.ps1') }
+    'MaterializePublicSurface' { return $common + @('scripts/quality/Get-MooncakesObservation.ps1','policy/phase-08-distribution.json') }
+    'ObserveOnly' { return $common + @('scripts/quality/Get-MooncakesObservation.ps1','scripts/quality/Invoke-ColdRegistryConsumer.ps1') }
+    'PublishOne' { return $common + @('.github/workflows/publish-modules.yml','scripts/quality/Invoke-ReleasePublisher.ps1','scripts/quality/Invoke-MooncakesLiveMutation.ps1') }
+    default { return $common }
+  }
+}
+
+function Assert-P08ExecutionBoundary {
+  param([Parameter(Mandatory)][string]$Root,[Parameter(Mandatory)][string]$Boundary,[string[]]$RelativePaths=@())
+  $rootFull=[IO.Path]::GetFullPath($Root)
+  if (-not (Test-Path -LiteralPath $rootFull -PathType Container)) { Throw-P08HostedRule 'P08-BOUNDARY-ROOT' 'Execution root is missing.' }
+  if ($Boundary -cnotmatch '^[0-9a-f]{40}$') { Throw-P08HostedRule 'P08-BOUNDARY-SHA' 'Boundary SHA is invalid.' }
+  $status=((Invoke-P08Git $rootFull @('status','--porcelain=v1','--untracked-files=all')) -join "`n").Trim()
+  if (-not [string]::IsNullOrEmpty($status)) { Throw-P08HostedRule 'P08-BOUNDARY-DIRTY' 'Execution root is not clean.' }
+  $head=((Invoke-P08Git $rootFull @('rev-parse','HEAD')) -join '').Trim()
+  if ($head -cne $Boundary) { Throw-P08HostedRule 'P08-BOUNDARY-HEAD' 'Execution root HEAD differs from the durable boundary.' }
+  foreach($relative in @($RelativePaths | Sort-Object -Unique)) {
+    if ([IO.Path]::IsPathRooted($relative) -or $relative -match '(^|/)[.][.](/|$)') { Throw-P08HostedRule 'P08-BOUNDARY-PATH' "Invalid boundary path '$relative'." }
+    $absolute=Test-P08SafePath (Join-Path $rootFull $relative) $rootFull
+    if (-not (Test-Path -LiteralPath $absolute -PathType Leaf)) { Throw-P08HostedRule 'P08-BOUNDARY-FILE' "Boundary file '$relative' is missing." }
+    $expected=((Invoke-P08Git $rootFull @('rev-parse',"$Boundary`:$relative")) -join '').Trim()
+    $actual=((Invoke-P08Git $rootFull @('hash-object','--',$absolute)) -join '').Trim()
+    if ($expected -cnotmatch '^[0-9a-f]{40}$' -or $actual -cne $expected) { Throw-P08HostedRule 'P08-BOUNDARY-BLOB' "Boundary blob drifted for '$relative'." }
+  }
+  [pscustomobject][ordered]@{execution_root=$rootFull;boundary_sha=$Boundary;verified_paths=@($RelativePaths)}
+}
+
+function Get-P08BoundaryLocatorProjection([object]$Locator) {
+  $projection=[ordered]@{}
+  foreach($property in $Locator.PSObject.Properties) { if($property.Name -cne 'locator_sha256'){$projection[$property.Name]=$property.Value} }
+  [pscustomobject]$projection
+}
+
+function New-P08BoundaryLocator {
+  param([string]$Root,[string]$Boundary,[string]$Locator,[string]$Artifacts)
+  $null=Assert-P08ExecutionBoundary -Root $Root -Boundary $Boundary -RelativePaths (Get-P08ModeScriptInventory 'InitializeBoundary')
+  $artifactFull=[IO.Path]::GetFullPath($Artifacts); $locatorFull=[IO.Path]::GetFullPath($Locator)
+  if (Test-Path -LiteralPath $locatorFull) { Throw-P08HostedRule 'P08-BOUNDARY-LOCATOR-EXISTS' 'Boundary locator is immutable.' }
+  $indexFull=Join-Path $artifactFull 'index.json'
+  $null=New-Item -ItemType Directory -Force $artifactFull
+  $index=[pscustomobject][ordered]@{schema_version='mnf-phase08-artifact-index/2';repository=$Repository;release_ref=$ReleaseRef;boundary_sha=$Boundary;source_sha=$SourceSha;root_intent_sha256=$RootIntentSha256;intent_sha256=$IntentSha256;prepared_manifest_sha256=$PreparedManifestSha256;records=@()}
+  Write-P08ExclusiveJson $indexFull $index
+  $value=[pscustomobject][ordered]@{
+    schema_version='mnf-phase08-live-locator/2';repository=$Repository;workflow=$Workflow;release_ref=$ReleaseRef
+    boundary_sha=$Boundary;execution_root=[IO.Path]::GetFullPath($Root);source_sha=$SourceSha
+    root_intent_sha256=$RootIntentSha256;intent_sha256=$IntentSha256;prepared_manifest_sha256=$PreparedManifestSha256
+    artifact_root=$artifactFull;index_path=$indexFull;mutation_authorization_packet_path=$null;mutation_authorization_packet_sha256=$null
+    created_at_utc=[DateTime]::UtcNow.ToString('o');locator_sha256=''
+  }
+  $value.locator_sha256=Get-P08ObjectDigest (Get-P08BoundaryLocatorProjection $value)
+  Write-P08ExclusiveJson $locatorFull $value
+  $value
+}
+
+function Open-P08BoundaryStore {
+  param([string]$Locator,[string]$Artifacts,[string]$Operation)
+  if (-not (Test-Path -LiteralPath $Locator -PathType Leaf)) { Throw-P08HostedRule 'P08-BOUNDARY-LOCATOR' 'Durable locator is missing.' }
+  $value=Get-Content -LiteralPath $Locator -Raw | ConvertFrom-Json -Depth 100
+  $names=@('schema_version','repository','workflow','release_ref','boundary_sha','execution_root','source_sha','root_intent_sha256','intent_sha256','prepared_manifest_sha256','artifact_root','index_path','mutation_authorization_packet_path','mutation_authorization_packet_sha256','created_at_utc','locator_sha256')
+  if ((@($value.PSObject.Properties.Name)-join ',') -cne ($names-join ',') -or $value.schema_version -cne 'mnf-phase08-live-locator/2') { Throw-P08HostedRule 'P08-BOUNDARY-LOCATOR-CLOSED' 'Locator field inventory drifted.' }
+  if ([IO.Path]::GetFullPath([string]$value.artifact_root) -cne [IO.Path]::GetFullPath($Artifacts) -or
+      $value.repository -cne $Repository -or $value.workflow -cne $Workflow -or $value.release_ref -cne 'refs/tags/modules-v0.1.0-r1' -or
+      $value.source_sha -cne $SourceSha -or $value.boundary_sha -cne $BoundarySha -or $value.source_sha -cne $value.boundary_sha -or
+      $value.root_intent_sha256 -cne $RootIntentSha256 -or $value.intent_sha256 -cne $IntentSha256 -or $value.prepared_manifest_sha256 -cne $PreparedManifestSha256) {
+    Throw-P08HostedRule 'P08-BOUNDARY-BINDING' 'Locator binding drifted.'
+  }
+  if ($value.locator_sha256 -cne (Get-P08ObjectDigest (Get-P08BoundaryLocatorProjection $value))) { Throw-P08HostedRule 'P08-BOUNDARY-LOCATOR-DIGEST' 'Locator digest drifted.' }
+  $null=Assert-P08ExecutionBoundary -Root ([string]$value.execution_root) -Boundary ([string]$value.boundary_sha) -RelativePaths (Get-P08ModeScriptInventory $Operation)
+  $index=Get-Content -LiteralPath ([string]$value.index_path) -Raw | ConvertFrom-Json -Depth 100
+  if ($index.schema_version -cne 'mnf-phase08-artifact-index/2' -or $index.boundary_sha -cne $value.boundary_sha -or $index.prepared_manifest_sha256 -cne $value.prepared_manifest_sha256) { Throw-P08HostedRule 'P08-STORE-INDEX' 'Artifact index binding drifted.' }
+  $seen=@{};$logical=@{}
+  foreach($record in @($index.records)) {
+    $recordNames=@('logical_key','kind','module','observation_phase','path','file_sha256','content_sha256','source_sha','root_intent_sha256','intent_sha256','prepared_manifest_sha256','prior_authority_sha256')
+    if ((@($record.PSObject.Properties.Name)-join ',') -cne ($recordNames-join ',')) { Throw-P08HostedRule 'P08-STORE-RECORD-CLOSED' 'Indexed artifact fields drifted.' }
+    if ($seen.ContainsKey([string]$record.path) -or $logical.ContainsKey([string]$record.logical_key)) { Throw-P08HostedRule 'P08-STORE-DUPLICATE' 'Duplicate indexed artifact.' }
+    $seen[[string]$record.path]=$true;$logical[[string]$record.logical_key]=$true
+    $absolute=Test-P08SafePath (Join-Path ([string]$value.artifact_root) ([string]$record.path)) ([string]$value.artifact_root)
+    if ((Get-P08Sha256 $absolute) -cne [string]$record.file_sha256) { Throw-P08HostedRule 'P08-STORE-INDEX-DIGEST' 'Indexed artifact digest drifted.' }
+  }
+  [pscustomobject]@{locator=$value;index=$index;paths=[pscustomobject]@{locator=[IO.Path]::GetFullPath($Locator);root=[IO.Path]::GetFullPath($Artifacts);index=[IO.Path]::GetFullPath([string]$value.index_path)}}
+}
+
+function Add-P08SanitizedArtifact {
+  param([object]$Store,[string]$Kind,[string]$Module,[string]$Phase,[string]$SourcePath,[string]$FileDigest,[string]$ContentDigest,[string]$PriorAuthorityPath)
+  if ($FileDigest -cnotmatch '^[0-9a-f]{64}$' -or $ContentDigest -cnotmatch '^[0-9a-f]{64}$' -or (Get-P08Sha256 $SourcePath) -cne $FileDigest) { Throw-P08HostedRule 'P08-INDEX-DIGEST' 'Sanitized artifact digest is invalid.' }
+  $sourceFull=[IO.Path]::GetFullPath($SourcePath);$root=[IO.Path]::GetFullPath([string]$Store.locator.artifact_root)
+  $relative=[IO.Path]::GetRelativePath($root,$sourceFull).Replace('\','/')
+  $null=Test-P08SafePath $sourceFull $root
+  $priorDigest=$null
+  if (-not [string]::IsNullOrWhiteSpace($PriorAuthorityPath)) { $priorDigest=Get-P08Sha256 $PriorAuthorityPath }
+  $logical="$Kind|$Module|$Phase"
+  if (@($Store.index.records|Where-Object {$_.logical_key -ceq $logical -or $_.path -ceq $relative}).Count -ne 0) { Throw-P08HostedRule 'P08-STORE-DUPLICATE' 'Duplicate indexed artifact.' }
+  $record=[pscustomobject][ordered]@{logical_key=$logical;kind=$Kind;module=$Module;observation_phase=$Phase;path=$relative;file_sha256=$FileDigest;content_sha256=$ContentDigest;source_sha=[string]$Store.locator.source_sha;root_intent_sha256=[string]$Store.locator.root_intent_sha256;intent_sha256=[string]$Store.locator.intent_sha256;prepared_manifest_sha256=[string]$Store.locator.prepared_manifest_sha256;prior_authority_sha256=$priorDigest}
+  $Store.index.records=@($Store.index.records)+@($record);Write-P08ReplaceJson ([string]$Store.locator.index_path) $Store.index
+  $record
+}
+
+function Resolve-P08ObservationOutcome {
+  param([Parameter(Mandatory)][object]$Observation,[Parameter(Mandatory)][string]$Module,[string]$PriorAuthorityPath)
+  if ([string]$Observation.outcome -cnotin @('absent','exact','mismatch','unknown')) { Throw-P08HostedRule 'P08-OUTCOME-CLOSED' 'Observation outcome is outside the closed switch.' }
+  if ($Module -cne 'mb-core' -and [string]::IsNullOrWhiteSpace($PriorAuthorityPath)) { Throw-P08HostedRule 'P08-PREDECESSOR-REQUIRED' 'Successor outcome requires explicit predecessor authority.' }
+  switch ([string]$Observation.outcome) {
+    'absent' { [pscustomobject][ordered]@{classification='mutation_candidate';module=$Module;may_assemble_packet=($Module -ceq 'mb-core');may_publish=$false;terminal=$false} }
+    'exact' { [pscustomobject][ordered]@{classification='exact_existing';module=$Module;may_assemble_packet=$false;may_publish=$false;terminal=$false} }
+    'mismatch' { [pscustomobject][ordered]@{classification='terminal_forward_correction';module=$Module;may_assemble_packet=$false;may_publish=$false;terminal=$true} }
+    default { [pscustomobject][ordered]@{classification='terminal_stop';module=$Module;may_assemble_packet=$false;may_publish=$false;terminal=$true} }
+  }
+}
+
+function Select-P08AuthorityUnion {
+  param([string]$MutationPacketPath,[string]$ExactAuthorityPath)
+  $hasPacket=-not [string]::IsNullOrWhiteSpace($MutationPacketPath)
+  $hasExact=-not [string]::IsNullOrWhiteSpace($ExactAuthorityPath)
+  if ($hasPacket -and $hasExact) { Throw-P08HostedRule 'P08-AUTHORITY-BOTH' 'AuthorityUnion accepts exactly one authority variant.' }
+  if (-not $hasPacket -and -not $hasExact) { Throw-P08HostedRule 'P08-AUTHORITY-NEITHER' 'AuthorityUnion requires one authority variant.' }
+  $path=if($hasPacket){$MutationPacketPath}else{$ExactAuthorityPath}
+  if (-not (Test-Path -LiteralPath $path -PathType Leaf)) { Throw-P08HostedRule 'P08-AUTHORITY-FILE' 'Authority record is missing.' }
+  $record=Get-Content -LiteralPath $path -Raw | ConvertFrom-Json -Depth 100
+  if ($hasPacket -and $record.schema_version -cne 'mnf-phase08-mutation-authorization-packet/1') { Throw-P08HostedRule 'P08-AUTHORITY-PACKET' 'MutationAuthorizationPacket schema drifted.' }
+  if ($hasExact -and $record.schema_version -cne 'mnf-phase08-exact-existing-authority/1') { Throw-P08HostedRule 'P08-AUTHORITY-EXACT' 'ExactExistingAuthority schema drifted.' }
+  [pscustomobject][ordered]@{variant=if($hasPacket){'MutationAuthorizationPacket'}else{'ExactExistingAuthority'};path=[IO.Path]::GetFullPath($path);sha256=Get-P08Sha256 $path;record=$record}
+}
+
+function New-P08ExactExistingAuthority {
+  param([object]$Store,[string]$Module,[string]$ObservationPath,[string]$ColdPath,[string]$PriorAuthorityPath)
+  $observation=Get-Content -LiteralPath $ObservationPath -Raw | ConvertFrom-Json -Depth 100
+  $cold=Get-Content -LiteralPath $ColdPath -Raw | ConvertFrom-Json -Depth 100
+  if ($observation.outcome -cne 'exact' -or $cold.evidence_mode -cne 'live_registry' -or $cold.verified -ne $true -or (@($cold.targets.name)-join ',') -cne 'js,wasm,wasm-gc,native' -or $cold.targets[3].runtime -cne 'pass') { Throw-P08HostedRule 'P08-EXACT-EVIDENCE' 'Exact-existing authority requires exact observation and real four-target cold proof.' }
+  $priorDigest=if([string]::IsNullOrWhiteSpace($PriorAuthorityPath)){$null}else{Get-P08Sha256 $PriorAuthorityPath}
+  [pscustomobject][ordered]@{
+    schema_version='mnf-phase08-exact-existing-authority/1';source='exact_existing';module=$Module;repository=[string]$Store.locator.repository
+    release_ref=[string]$Store.locator.release_ref;boundary_sha=[string]$Store.locator.boundary_sha;source_sha=[string]$Store.locator.source_sha
+    execution_root=[string]$Store.locator.execution_root;locator_sha256=[string]$Store.locator.locator_sha256;artifact_root=[string]$Store.locator.artifact_root;index_path=[string]$Store.locator.index_path
+    root_intent_sha256=[string]$Store.locator.root_intent_sha256;intent_sha256=[string]$Store.locator.intent_sha256;prepared_manifest_sha256=[string]$Store.locator.prepared_manifest_sha256
+    observation_sha256=Get-P08Sha256 $ObservationPath;observation_content_sha256=[string]$observation.content_sha256;archive_sha256=[string]$cold.archive_sha256;downloaded_manifest_sha256=[string]$cold.downloaded_manifest_sha256
+    cold_proof_sha256=Get-P08Sha256 $ColdPath;cold_content_sha256=[string]$cold.content_sha256;targets=@($cold.targets.name);native_runtime='pass';toolchain_root_sha256=[string]$cold.toolchain.root_sha256
+    predecessor_authority_sha256=$priorDigest;reducer_state=("$($Module.Replace('mb-',''))_checkpoint_verified");reducer_record_sha256=('0'*64);historical_negative_run='29652468948/1'
+    mutation_authorization_required=$false;mutation_authorization_used=$false;publisher_dry_run_used=$false;mutation_count=0;authorization_packet_sha256=$null;authority_sha256=''
+  }
+}
+
 function Invoke-P08Gh([string[]]$Arguments) {
   if ($null -ne $script:GhCommand) { return (& $script:GhCommand $Arguments) }
   $output=& gh @Arguments 2>&1; if ($LASTEXITCODE -ne 0) { Throw-P08HostedRule 'P08-HOSTED-GH' 'GitHub CLI operation failed.' }; $output
@@ -301,12 +477,80 @@ function Receive-P08HostedArtifact {
 
 if ($LibraryOnly) { return }
 $script:GhCommand=$GhCommand
-$store=Open-P08ArtifactStore -Locator $LocatorPath -Root $ArtifactRoot -Repo $Repository -WorkflowPath $Workflow -Ref $ReleaseRef -Sha $SourceSha -RootIntent $RootIntentSha256 -CurrentIntent $IntentSha256
-if ($Mode -ceq 'PublishOne') {
-  if ([string]::IsNullOrWhiteSpace($AuthorizationPacketPath) -or -not (Test-Path -LiteralPath $AuthorizationPacketPath -PathType Leaf)) { Throw-P08HostedRule 'P08-HOSTED-AUTHORIZATION' 'PublishOne requires the unchanged authorization packet.' }
+$script:GitCommand=$GitCommand
+if ($ReleaseRef -cne 'refs/tags/modules-v0.1.0-r1' -or $SourceSha -cnotmatch '^[0-9a-f]{40}$' -or $RootIntentSha256 -cnotmatch '^[0-9a-f]{64}$' -or
+    $IntentSha256 -cnotmatch '^[0-9a-f]{64}$' -or $PreparedManifestSha256 -cnotmatch '^[0-9a-f]{64}$') {
+  Throw-P08HostedRule 'P08-HOSTED-R1-BINDING' 'Only the exact r1 release binding is accepted.'
 }
-$run=Invoke-P08HostedDispatch -Operation $Mode -Repo $Repository -WorkflowPath $Workflow -Ref $ReleaseRef -Sha $SourceSha -RootIntent $RootIntentSha256 -CurrentIntent $IntentSha256 -PreparedDigest $PreparedManifestSha256 -Module $TargetModule -PriorId $PriorRunId -PriorArtifact $PriorArtifactName -Packet $AuthorizationPacketPath
+if ($Mode -ceq 'InitializeBoundary') {
+  if ([string]::IsNullOrWhiteSpace($ExecutionRoot) -or [string]::IsNullOrWhiteSpace($BoundarySha) -or $SourceSha -cne $BoundarySha) { Throw-P08HostedRule 'P08-BOUNDARY-INITIALIZE' 'InitializeBoundary requires identical execution/source boundary SHA.' }
+  New-P08BoundaryLocator -Root $ExecutionRoot -Boundary $BoundarySha -Locator $LocatorPath -Artifacts $ArtifactRoot
+  return
+}
+$store=Open-P08BoundaryStore -Locator $LocatorPath -Artifacts $ArtifactRoot -Operation $Mode
+switch ($Mode) {
+  'PrepareAttempt' {
+    if ([string]::IsNullOrWhiteSpace($PreparedRoot) -or [string]::IsNullOrWhiteSpace($StateRoot)) { Throw-P08HostedRule 'P08-PREPARE-PATHS' 'PrepareAttempt requires explicit prepared and state roots.' }
+    [pscustomobject][ordered]@{mode=$Mode;prepared_root=[IO.Path]::GetFullPath($PreparedRoot);state_root=[IO.Path]::GetFullPath($StateRoot);historical_negative_run='29652468948/1';mutation_count=0}
+    return
+  }
+  'MaterializePublicSurface' {
+    if ([string]::IsNullOrWhiteSpace($ObservationPhase) -or $null -eq $SurfaceProvider) { Throw-P08HostedRule 'P08-SURFACE-PARAMETERS' 'MaterializePublicSurface requires a phase and structured provider.' }
+    if ($TargetModule -cne 'mb-core' -and [string]::IsNullOrWhiteSpace($PriorAuthorityRecordPath)) { Throw-P08HostedRule 'P08-PREDECESSOR-REQUIRED' 'Successor surface materialization requires predecessor authority.' }
+    $value=& $SurfaceProvider $TargetModule $ObservationPhase
+    Assert-P08NoSecretShape $value
+    if ((@($value.PSObject.Properties.Name)-join ',') -cne 'schema_version,attempts' -or $value.schema_version -cne '1.0.0') { Throw-P08HostedRule 'P08-SURFACE-CLOSED' 'Structured public surface projection is not closed.' }
+    $path=Join-Path $ArtifactRoot "surfaces/$TargetModule/$ObservationPhase/public-surface.json"
+    Write-P08ExclusiveJson $path $value
+    $digest=Get-P08Sha256 $path
+    $record=Add-P08SanitizedArtifact -Store $store -Kind PublicSurface -Module $TargetModule -Phase $ObservationPhase -SourcePath $path -FileDigest $digest -ContentDigest $digest -PriorAuthorityPath $PriorAuthorityRecordPath
+    [pscustomobject][ordered]@{fixture_path=[IO.Path]::GetFullPath($path);file_sha256=$digest;index_record=$record};return
+  }
+  'IndexSanitizedArtifact' {
+    if ([string]::IsNullOrWhiteSpace($ObservationPhase) -or [string]::IsNullOrWhiteSpace($ArtifactPath)) { Throw-P08HostedRule 'P08-INDEX-PARAMETERS' 'IndexSanitizedArtifact requires phase and path.' }
+    Add-P08SanitizedArtifact -Store $store -Kind $ArtifactKind -Module $TargetModule -Phase $ObservationPhase -SourcePath $ArtifactPath -FileDigest $ArtifactFileSha256 -ContentDigest $ArtifactContentSha256 -PriorAuthorityPath $PriorAuthorityRecordPath
+    return
+  }
+  'ObserveOnly' {
+    if ([string]::IsNullOrWhiteSpace($ObservationRecordPath)) { Throw-P08HostedRule 'P08-OBSERVE-PATH' 'ObserveOnly requires an indexed observation record.' }
+    $observation=Get-Content -LiteralPath $ObservationRecordPath -Raw | ConvertFrom-Json -Depth 100
+    Resolve-P08ObservationOutcome -Observation $observation -Module $TargetModule -PriorAuthorityPath $PriorAuthorityRecordPath
+    return
+  }
+  'AssembleAuthorizationPacket' {
+    if ($TargetModule -cne 'mb-core' -or [string]::IsNullOrWhiteSpace($ObservationRecordPath)) { Throw-P08HostedRule 'P08-PACKET-CORE-ONLY' 'MutationAuthorizationPacket is core-entry only.' }
+    $observation=Get-Content -LiteralPath $ObservationRecordPath -Raw | ConvertFrom-Json -Depth 100
+    if ($observation.outcome -cne 'absent') { Throw-P08HostedRule 'P08-PACKET-ABSENT' 'Only confirmed absent core can assemble mutation authorization.' }
+    $records=@($store.index.records);foreach($kind in @('HostedPreflight','PublisherDryRun','Observation')){if(@($records|Where-Object kind -ceq $kind).Count -ne 1){Throw-P08HostedRule 'P08-PACKET-EVIDENCE' "Exactly one $kind record is required."}}
+    $packet=[pscustomobject][ordered]@{schema_version='mnf-phase08-mutation-authorization-packet/1';repository=$Repository;release_ref=$ReleaseRef;boundary_sha=$BoundarySha;source_sha=$SourceSha;execution_root=[string]$store.locator.execution_root;locator_sha256=[string]$store.locator.locator_sha256;root_intent_sha256=$RootIntentSha256;intent_sha256=$IntentSha256;prepared_manifest_sha256=$PreparedManifestSha256;target_module='mb-core';observation_sha256=(Get-P08Sha256 $ObservationRecordPath);hosted_preflight_sha256=[string](@($records|Where-Object kind -ceq 'HostedPreflight')[0].file_sha256);publisher_dry_run_sha256=[string](@($records|Where-Object kind -ceq 'PublisherDryRun')[0].file_sha256);actor='tchivs';mutation_count=0;packet_sha256=''}
+    $packet.packet_sha256=Get-P08ObjectDigest $packet
+    $packetPath=Join-Path $ArtifactRoot 'authorization/mutation-authorization-packet.json';Write-P08ExclusiveJson $packetPath $packet
+    [pscustomobject][ordered]@{packet_path=$packetPath;packet_sha256=[string]$packet.packet_sha256};return
+  }
+  'SelectExactExistingAuthority' {
+    if ([string]::IsNullOrWhiteSpace($ObservationRecordPath) -or [string]::IsNullOrWhiteSpace($ColdProofPath)) { Throw-P08HostedRule 'P08-EXACT-PATHS' 'Exact-existing selection requires observation and cold proof.' }
+    $record=New-P08ExactExistingAuthority -Store $store -Module $TargetModule -ObservationPath $ObservationRecordPath -ColdPath $ColdProofPath -PriorAuthorityPath $PriorAuthorityRecordPath
+    $record.authority_sha256=Get-P08ObjectDigest $record
+    $path=Join-Path $ArtifactRoot "authority/$TargetModule/exact-existing.json";Write-P08ExclusiveJson $path $record
+    [pscustomobject][ordered]@{authority_path=$path;authority_sha256=[string]$record.authority_sha256;source='exact_existing'};return
+  }
+  'SelectPublishedNowAuthority' {
+    if ([string]::IsNullOrWhiteSpace($ObservationRecordPath) -or [string]::IsNullOrWhiteSpace($ColdProofPath)) { Throw-P08HostedRule 'P08-PUBLISHED-PATHS' 'Published-now selection requires observation and cold proof.' }
+    if ($TargetModule -ceq 'mb-core') { $null=Select-P08AuthorityUnion -MutationPacketPath $MutationAuthorizationPacketPath -ExactAuthorityPath '' }
+    elseif ([string]::IsNullOrWhiteSpace($PriorAuthorityRecordPath)) { Throw-P08HostedRule 'P08-PREDECESSOR-REQUIRED' 'Published successor requires explicit predecessor authority.' }
+    $base=New-P08ExactExistingAuthority -Store $store -Module $TargetModule -ObservationPath $ObservationRecordPath -ColdPath $ColdProofPath -PriorAuthorityPath $PriorAuthorityRecordPath
+    $base.schema_version='mnf-phase08-module-authority/1';$base.source='published_now';$base.mutation_authorization_required=$true;$base.mutation_authorization_used=$true;$base.mutation_count=1;$base.authorization_packet_sha256=if($TargetModule -ceq 'mb-core'){Get-P08Sha256 $MutationAuthorizationPacketPath}else{$null};$base.authority_sha256=Get-P08ObjectDigest $base
+    $path=Join-Path $ArtifactRoot "authority/$TargetModule/published-now.json";Write-P08ExclusiveJson $path $base
+    [pscustomobject][ordered]@{authority_path=$path;authority_sha256=[string]$base.authority_sha256;source='published_now'};return
+  }
+  'PublishOne' {
+    $union=Select-P08AuthorityUnion -MutationPacketPath $MutationAuthorizationPacketPath -ExactAuthorityPath $ExactExistingAuthorityPath
+    if ($union.variant -ceq 'ExactExistingAuthority') { Throw-P08HostedRule 'P08-NO-REPUBLISH' 'Exact-existing authority cannot reach PublishOne.' }
+    if ($TargetModule -cne 'mb-core' -and [string]::IsNullOrWhiteSpace($PriorAuthorityRecordPath)) { Throw-P08HostedRule 'P08-PREDECESSOR-REQUIRED' 'Successor PublishOne requires explicit predecessor authority.' }
+  }
+}
+$run=Invoke-P08HostedDispatch -Operation $Mode -Repo $Repository -WorkflowPath $Workflow -Ref $ReleaseRef -Sha $SourceSha -RootIntent $RootIntentSha256 -CurrentIntent $IntentSha256 -PreparedDigest $PreparedManifestSha256 -Module $TargetModule -PriorId $PriorRunId -PriorArtifact $PriorArtifactName -Packet $MutationAuthorizationPacketPath
 $prefix=if($Mode -ceq 'PublisherDryRun'){'mnf-publisher-dry-run-'}elseif($Mode -ceq 'HostedPreflight'){'mnf-hosted-preflight-'}else{'mnf-checkpoint-'}
-$kind=if($Mode -ceq 'PublisherDryRun'){'publisher-dry-run'}elseif($Mode -ceq 'HostedPreflight'){'hosted-preflight'}else{'publish-one'}
+$kind=if($Mode -ceq 'PublisherDryRun'){'PublisherDryRun'}elseif($Mode -ceq 'HostedPreflight'){'HostedPreflight'}else{'PublishOne'}
 $artifact=Receive-P08HostedArtifact -Run $run -Repo $Repository -Prefix $prefix -StoreKind $kind -Store $store -Operation $Mode -PreparedDigest $PreparedManifestSha256 -Module $TargetModule
-[pscustomobject][ordered]@{ mode=$Mode; run_id=[string]$run.databaseId; run_attempt=[int]$run.attempt; conclusion=[string]$run.conclusion; artifact_name=[string]$artifact.record.artifact_name; artifact_sha256=[string]$artifact.record.sha256; artifact_path=[string]$artifact.record.path; evidence=$artifact.value }
+[pscustomobject][ordered]@{mode=$Mode;run_id=[string]$run.databaseId;run_attempt=[int]$run.attempt;conclusion=[string]$run.conclusion;artifact_name=[string]$artifact.record.artifact_name;artifact_sha256=[string]$artifact.record.sha256;artifact_path=[string]$artifact.record.path;evidence=$artifact.value}
