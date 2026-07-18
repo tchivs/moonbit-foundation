@@ -4,9 +4,18 @@ param(
   [switch]$CoreColorArtifacts,
   [switch]$LiveArtifacts,
   [switch]$AuthorizationPacket,
+  [switch]$MutationAuthorizationPacket,
+  [switch]$ExactExistingAuthority,
+  [switch]$AuthorityUnion,
+  [switch]$ReciprocalArtifacts,
   [Parameter(Mandatory)][string]$LocatorPath,
   [Parameter(Mandatory)][string]$ArtifactRoot,
-  [string]$PacketPath
+  [string]$PacketPath,
+  [string]$MutationAuthorizationPacketPath,
+  [string]$ExactExistingAuthorityPath,
+  [string]$CoreAuthorityRecordPath,
+  [string]$ColorAuthorityRecordPath,
+  [string]$ImageAuthorityRecordPath
 )
 
 Set-StrictMode -Version Latest
@@ -73,7 +82,15 @@ function Open-P08QualificationStore {
 function Assert-P08FixtureContract {
   $helper=Get-Content -LiteralPath (Join-Path $PSScriptRoot 'Invoke-Phase08HostedRun.ps1') -Raw
   $workflow=Get-Content -LiteralPath (Join-Path $repoRoot '.github/workflows/publish-modules.yml') -Raw
-  foreach($required in @('PublisherDryRun','HostedPreflight','PublishOne','LocatorPath','ArtifactRoot','P08-HOSTED-AMBIGUOUS-RUN','P08-HOSTED-AMBIGUOUS-ARTIFACT','P08-STORE-UNINDEXED','P08-STORE-RESUME-DRIFT')) {
+  $authoritySchema=Join-Path $repoRoot 'release/qualification/phase-08-authority-schema.json'
+  if (-not (Test-Path -LiteralPath $authoritySchema -PathType Leaf)) { Throw-P08Qualification 'P08-QUAL-AUTHORITY-SCHEMA' 'Closed authority schema is missing.' }
+  foreach($required in @(
+    'InitializeBoundary','PrepareAttempt','PublisherDryRun','HostedPreflight','MaterializePublicSurface','ObserveOnly',
+    'IndexSanitizedArtifact','AssembleAuthorizationPacket','SelectExactExistingAuthority','SelectPublishedNowAuthority','PublishOne',
+    'Assert-P08ExecutionBoundary','execution_root','boundary_sha','MutationAuthorizationPacketPath','ExactExistingAuthorityPath',
+    'PriorAuthorityRecordPath','refs/tags/modules-v0.1.0-r1','P08-HOSTED-AMBIGUOUS-RUN','P08-HOSTED-AMBIGUOUS-ARTIFACT',
+    'P08-STORE-UNINDEXED','P08-STORE-RESUME-DRIFT','P08-AUTHORITY-BOTH','P08-AUTHORITY-NEITHER'
+  )) {
     if ($helper.IndexOf($required,[StringComparison]::Ordinal) -lt 0) { Throw-P08Qualification 'P08-QUAL-HELPER' "Missing helper contract '$required'." }
   }
   foreach($required in @('operation_mode:','prepared_manifest_sha256:','target_module:','PublisherDryRun','HostedPreflight','PublishOne','publish --frozen --dry-run','native_runtime_verified')) {
@@ -121,7 +138,7 @@ function Assert-P08AuthorizationPacket {
   $packet
 }
 
-if (-not ($FixtureOnly -or $CoreColorArtifacts -or $LiveArtifacts -or $AuthorizationPacket)) { Throw-P08Qualification 'P08-QUAL-SELECTOR' 'Choose a selector.' }
+if (-not ($FixtureOnly -or $CoreColorArtifacts -or $LiveArtifacts -or $AuthorizationPacket -or $MutationAuthorizationPacket -or $ExactExistingAuthority -or $AuthorityUnion -or $ReciprocalArtifacts)) { Throw-P08Qualification 'P08-QUAL-SELECTOR' 'Choose a selector.' }
 if ($FixtureOnly) { Assert-P08FixtureContract; return }
 if ($AuthorizationPacket) { Assert-P08AuthorizationPacket; return }
 $store=Open-P08QualificationStore
