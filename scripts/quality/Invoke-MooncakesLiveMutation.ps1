@@ -82,6 +82,22 @@ function Assert-LiveProof {
       $Proof.behavior.result -cne 'pass') {
     Throw-LiveRule 'LIVE04-INCOMPLETE-PROOF' "Exact live four-target proof for '$ExpectedModule' is required."
   }
+  $isolationNames=@('consumer_root_outside_checkout','moon_home_initially_empty','credentials_absent','workspace_absent','source_copy_absent','alternate_dependency_source_absent','local_dependency_absent','path_dependency_absent','git_dependency_absent','registry_cache_initially_empty','registry_index_cache_absent','archive_cache_absent','mooncakes_state_absent','target_output_initially_absent','pinned_toolchain_explicit','ambient_toolchain_ignored')
+  if ((@($Proof.isolation.PSObject.Properties.Name) -join ',') -cne ($isolationNames -join ',') -or
+      @($Proof.isolation.PSObject.Properties.Value | Where-Object { $_ -ne $true }).Count -ne 0) {
+    Throw-LiveRule 'LIVE04-INCOMPLETE-PROOF' 'Cold proof isolation evidence is incomplete.'
+  }
+  if ((@($Proof.targets.name) -join ',') -cne 'js,wasm,wasm-gc,native' -or
+      $Proof.observation.strongest_identity -cne "sha256:$($Proof.archive_sha256)" -or
+      $Proof.behavior.output_sha256 -cne $Proof.targets[0].output_sha256 -or
+      @($Proof.targets | Where-Object { $_.output_sha256 -cne $Proof.behavior.output_sha256 }).Count -ne 0) {
+    Throw-LiveRule 'LIVE04-INCOMPLETE-PROOF' 'Cold proof graph target or artifact evidence is incomplete.'
+  }
+  $projection=[ordered]@{}
+  foreach($property in $Proof.PSObject.Properties){ if($property.Name -cne 'content_sha256'){ $projection[$property.Name]=$property.Value } }
+  $json=([pscustomobject]$projection | ConvertTo-Json -Depth 100 -Compress)
+  $digest=([Convert]::ToHexString([Security.Cryptography.SHA256]::HashData([Text.UTF8Encoding]::new($false).GetBytes($json)))).ToLowerInvariant()
+  if ($Proof.content_sha256 -cne $digest) { Throw-LiveRule 'LIVE04-INCOMPLETE-PROOF' 'Cold proof content digest is invalid.' }
 }
 
 function Resolve-MooncakesLiveMutationTarget {

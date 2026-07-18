@@ -29,7 +29,9 @@ function Assert-P07Workflow {
   $uses=@([regex]::Matches($text,'(?m)^\s*uses:\s*[^@\r\n]+@([0-9a-f]{40})\s*$'))
   if ($uses.Count -lt 6) { throw 'P07-WORKFLOW-ACTION-PIN: action coverage is incomplete.' }
   if (@([regex]::Matches($text,'secrets[.]MOONCAKES_TOKEN')).Count -ne 1) { throw 'P07-WORKFLOW-SECRET: Mooncakes secret must occur exactly once.' }
-  $publisher=$text.Substring($text.IndexOf('  publisher:',[StringComparison]::Ordinal))
+  $publisherStart=$text.IndexOf('  publisher:',[StringComparison]::Ordinal)
+  $nextJob=$text.IndexOf('  observe_registry:',[StringComparison]::Ordinal)
+  $publisher=if($nextJob -gt $publisherStart){$text.Substring($publisherStart,$nextJob-$publisherStart)}else{$text.Substring($publisherStart)}
   if ($publisher.Contains('actions/checkout@') -or -not [regex]::IsMatch($publisher,'permissions:\s*\r?\n\s+actions: read')) { throw 'P07-WORKFLOW-PUBLISHER-PERMISSIONS: publisher privilege drifted.' }
   Write-Host 'Phase 7 workflow/schema static contract passed.'
 }

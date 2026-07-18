@@ -115,6 +115,7 @@ jobs:
           Copy-FixedPreparedInput (Join-Path $qualificationRoot 'release-intent-binding.json') 'intent/root-binding.json'
           Copy-FixedPreparedInput 'scripts/quality/New-PreparedReleaseBundle.ps1' 'scripts/quality/New-PreparedReleaseBundle.ps1'
           Copy-FixedPreparedInput 'scripts/quality/Invoke-ReleasePublisher.ps1' 'scripts/quality/Invoke-ReleasePublisher.ps1'
+          Copy-FixedPreparedInput 'scripts/quality/Invoke-MooncakesLiveMutation.ps1' 'scripts/quality/Invoke-MooncakesLiveMutation.ps1'
           Copy-FixedPreparedInput 'scripts/quality/ReleasePublisher.Common.ps1' 'scripts/quality/ReleasePublisher.Common.ps1'
           Copy-FixedPreparedInput 'policy/release-qualification.json' 'policy/release-qualification.json'
           Copy-FixedPreparedInput 'release/prepared/schema.json' 'schemas/prepared.json'
@@ -172,7 +173,15 @@ jobs:
     environment: mooncakes-production
     permissions:
       actions: read
+    outputs:
+      target_module: ${{ steps.live.outputs.target_module }}
+      classification: ${{ steps.live.outputs.classification }}
+      reobservation_required: ${{ steps.live.outputs.reobservation_required }}
     steps:
+      - name: Set up exact MoonBit toolchain
+        uses: hustcer/setup-moonbit@bdc8c076af1f4c5012a6ac3451a2009ec75bf921
+        with:
+          version: 0.1.20260713+75c7e1f
       - name: Download exact current-run prepared bundle
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
         with:
@@ -180,6 +189,14 @@ jobs:
           run-id: ${{ github.run_id }}
           github-token: ${{ github.token }}
           path: prepared
+      - name: Download exact prior verified checkpoint for resume
+        if: ${{ inputs.run_mode == 'resume' }}
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: ${{ inputs.prior_artifact_name }}
+          run-id: ${{ inputs.prior_run_id }}
+          github-token: ${{ github.token }}
+          path: prior
       - name: Verify manifest hash inventory digests and bindings
         id: verify
         shell: pwsh
@@ -202,7 +219,7 @@ jobs:
           if ((Get-FileHash -Algorithm SHA256 $manifest).Hash.ToLowerInvariant() -cne $env:EXPECTED_MANIFEST_SHA256) { throw 'P07-WORKFLOW-MANIFEST-DIGEST' }
           if ($env:EXPECTED_ARTIFACT_NAME -cne "mnf-prepared-$env:EXPECTED_ROOT_INTENT_SHA256-$env:EXPECTED_INTENT_SHA256-$env:EXPECTED_MANIFEST_SHA256") { throw 'P07-WORKFLOW-ARTIFACT-NAME' }
           $payload=Get-Content $manifest -Raw | ConvertFrom-Json -Depth 100
-          if ($null -eq $payload -or @($payload.payloads).Count -ne 17) { throw 'P07-WORKFLOW-EXACT-INVENTORY' }
+          if ($null -eq $payload -or @($payload.payloads).Count -ne 18) { throw 'P07-WORKFLOW-EXACT-INVENTORY' }
           $validationArgs = @{
             Repository=$env:EXPECTED_REPOSITORY; Actor=$env:EXPECTED_ACTOR; RunId=$env:EXPECTED_RUN_ID; RunAttempt=[int]$env:EXPECTED_RUN_ATTEMPT
             ReleaseRef=$env:EXPECTED_RELEASE_REF; SourceSha=$env:EXPECTED_SOURCE_SHA; RootIntentSha256=$env:EXPECTED_ROOT_INTENT_SHA256
@@ -212,22 +229,104 @@ jobs:
           # Shared validation subsumes P07-WORKFLOW-PAYLOAD-DIGEST and P07-WORKFLOW-BINDING.
           ./prepared/scripts/quality/New-PreparedReleaseBundle.ps1 -ValidateOnly -OutputRoot prepared @validationArgs | Out-Null
       - name: LiveOneStep
+        id: live
         if: ${{ inputs.live_authorization }}
         shell: pwsh
         env:
           MOONCAKES_TOKEN: ${{ secrets.MOONCAKES_TOKEN }}
         run: |
-          $moonHome=Join-Path $env:RUNNER_TEMP ([Guid]::NewGuid().ToString('N'))
-          try {
-            New-Item -ItemType Directory -Force $moonHome | Out-Null
-            ./prepared/scripts/quality/Invoke-ReleasePublisher.ps1 -Mode LiveOneStep -RequestPath ./prepared/request.json -ExplicitLiveAuthorization
-          } finally {
-            if (Test-Path $moonHome) { Remove-Item -LiteralPath $moonHome -Recurse -Force }
+          $moonCommand=(Get-Command moon -CommandType Application -ErrorAction Stop).Source
+          $toolchainRoot=Split-Path -Parent (Split-Path -Parent $moonCommand)
+          $proofPaths=@()
+          if (Test-Path -LiteralPath prior) {
+            $proofPaths=@(Get-ChildItem prior -Recurse -File -Filter 'cold-proof-*.json' | Sort-Object FullName | Select-Object -ExpandProperty FullName)
           }
+          $result=./prepared/scripts/quality/Invoke-ReleasePublisher.ps1 -Mode LiveOneStep -RequestPath ./prepared/request.json -PreparedRoot ./prepared -ToolchainRoot $toolchainRoot -JournalRoot ./prior -ProofPaths $proofPaths -ExplicitLiveAuthorization
+          if ($result.mutation_count -ne 1 -or $result.raw_output_persisted -ne $false -or $result.credential_state_removed -ne $true) { throw 'P08-WORKFLOW-LIVE-OUTCOME' }
+          $checkpoint=Join-Path $PWD 'prepared/sanitized-checkpoint'
+          New-Item -ItemType Directory -Force $checkpoint | Out-Null
+          $outcome=[pscustomobject][ordered]@{
+            schema_version='mnf-live-mutation-outcome/1'; module=[string]$result.module; classification=[string]$result.classification
+            mutation_count=[int]$result.mutation_count; reobservation_required=[bool]$result.reobservation_required
+            raw_output_persisted=$false; credential_state_removed=$true
+          }
+          [IO.File]::WriteAllText((Join-Path $checkpoint 'mutation-outcome.json'),($outcome | ConvertTo-Json -Compress),[Text.UTF8Encoding]::new($false))
+          "target_module=$($result.module)" >> $env:GITHUB_OUTPUT
+          "classification=$($result.classification)" >> $env:GITHUB_OUTPUT
+          "reobservation_required=$($result.reobservation_required.ToString().ToLowerInvariant())" >> $env:GITHUB_OUTPUT
       - name: Upload sanitized checkpoint
         if: ${{ always() }}
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: mnf-checkpoint-${{ inputs.root_intent_sha256 }}-${{ inputs.intent_sha256 }}-${{ github.run_id }}
           path: prepared/sanitized-checkpoint
+          if-no-files-found: error
+
+  observe_registry:
+    needs: publisher
+    if: ${{ needs.publisher.outputs.reobservation_required == 'true' }}
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+    steps:
+      - name: Check out exact observer source without persisted credentials
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ inputs.source_sha }}
+          persist-credentials: false
+      - name: Download sanitized mutation checkpoint
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: mnf-checkpoint-${{ inputs.root_intent_sha256 }}-${{ inputs.intent_sha256 }}-${{ github.run_id }}
+          run-id: ${{ github.run_id }}
+          github-token: ${{ github.token }}
+          path: publisher-checkpoint
+      - name: Reduce bounded credential-free public surfaces
+        shell: pwsh
+        run: |
+          $surfaceRecords=Join-Path $env:RUNNER_TEMP 'structured-public-surfaces.json'
+          if (-not (Test-Path -LiteralPath $surfaceRecords -PathType Leaf)) { throw 'P08-WORKFLOW-PUBLIC-SURFACES-UNAVAILABLE' }
+          ./scripts/quality/Get-MooncakesObservation.ps1 -FixturePath $surfaceRecords -OutputPath ./registry-observation.json -Module '${{ needs.publisher.outputs.target_module }}'
+      - name: Upload sanitized registry observation
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: mnf-observation-${{ inputs.root_intent_sha256 }}-${{ inputs.intent_sha256 }}-${{ github.run_id }}
+          path: registry-observation.json
+          if-no-files-found: error
+
+  cold_consumer:
+    needs: [publisher, observe_registry]
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+    steps:
+      - name: Check out exact cold-consumer source without persisted credentials
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ inputs.source_sha }}
+          persist-credentials: false
+      - name: Set up exact MoonBit toolchain
+        uses: hustcer/setup-moonbit@bdc8c076af1f4c5012a6ac3451a2009ec75bf921
+        with:
+          version: 0.1.20260713+75c7e1f
+      - name: Download exact sanitized observation
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: mnf-observation-${{ inputs.root_intent_sha256 }}-${{ inputs.intent_sha256 }}-${{ github.run_id }}
+          run-id: ${{ github.run_id }}
+          github-token: ${{ github.token }}
+          path: observation
+      - name: Execute cold registry-only four-target proof
+        shell: pwsh
+        run: |
+          $moonCommand=(Get-Command moon -CommandType Application -ErrorAction Stop).Source
+          $toolchainRoot=Split-Path -Parent (Split-Path -Parent $moonCommand)
+          ./scripts/quality/Invoke-ColdRegistryConsumer.ps1 -Module '${{ needs.publisher.outputs.target_module }}' -OutputPath ./cold-proof.json -ToolchainRoot $toolchainRoot -ObservationFixturePath ./observation/registry-observation.json
+      - name: Upload exact cold proof
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: mnf-cold-proof-${{ inputs.root_intent_sha256 }}-${{ inputs.intent_sha256 }}-${{ github.run_id }}
+          path: cold-proof.json
           if-no-files-found: error

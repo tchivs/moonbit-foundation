@@ -44,7 +44,7 @@ function New-LiveTestCommand {
 }
 
 function New-LiveVerifiedChain {
-  param([ValidateSet('core','color')][string]$Through)
+  param([ValidateSet('core','color','image')][string]$Through)
   $records = [Collections.Generic.List[object]]::new()
   $states = @(
     @('intent_authorized','authorize',$null), @('preflight_passed','preflight',$null),
@@ -55,6 +55,13 @@ function New-LiveVerifiedChain {
     $states += @(
       @('color_mutation_attempted','attempt_mutation','mb-color'), @('color_registry_observed','observe_registry','mb-color'),
       @('color_checkpoint_verified','verify_checkpoint','mb-color')
+    )
+  }
+  if ($Through -ceq 'image') {
+    $states += @(
+      @('color_mutation_attempted','attempt_mutation','mb-color'), @('color_registry_observed','observe_registry','mb-color'),
+      @('color_checkpoint_verified','verify_checkpoint','mb-color'), @('image_mutation_attempted','attempt_mutation','mb-image'),
+      @('image_registry_observed','observe_registry','mb-image'), @('image_checkpoint_verified','verify_checkpoint','mb-image')
     )
   }
   $prior = '0' * 64
@@ -70,19 +77,25 @@ function New-LiveVerifiedChain {
 }
 
 function New-LiveProof {
-  param([ValidateSet('mb-core','mb-color')][string]$Module)
+  param([ValidateSet('mb-core','mb-color','mb-image')][string]$Module)
   $outputDigest='c'*64
-  [pscustomobject][ordered]@{
+  $isolation=[ordered]@{}
+  foreach($name in @('consumer_root_outside_checkout','moon_home_initially_empty','credentials_absent','workspace_absent','source_copy_absent','alternate_dependency_source_absent','local_dependency_absent','path_dependency_absent','git_dependency_absent','registry_cache_initially_empty','registry_index_cache_absent','archive_cache_absent','mooncakes_state_absent','target_output_initially_absent','pinned_toolchain_explicit','ambient_toolchain_ignored')){ $isolation[$name]=$true }
+  $proof=[pscustomobject][ordered]@{
     schema_version='1.0.0'; evidence_mode='live_registry'; policy_sha256=('b'*64); module=$Module
     identity="tchivs/$Module"; version='0.1.0'; dependency_source='registry_only'
-    isolation=[pscustomobject][ordered]@{ consumer_root_outside_checkout=$true }
+    isolation=[pscustomobject]$isolation
     observation=[pscustomobject][ordered]@{ outcome='exact'; content_sha256=('d'*64); strongest_identity=('sha256:' + ('e'*64)) }
     archive_sha256=('e'*64); downloaded_manifest_sha256=('f'*64)
     resolved_graph=[pscustomobject][ordered]@{ nodes=@(); edges=@() }
     toolchain=[pscustomobject][ordered]@{ moon_version='pinned'; moonc_version='pinned'; moonrun_version='pinned'; root_sha256=('1'*64) }
     targets=@('js','wasm','wasm-gc','native' | ForEach-Object { [pscustomobject][ordered]@{ name=$_; check='pass'; test='pass'; runtime='pass'; output_sha256=$outputDigest } })
-    behavior=[pscustomobject][ordered]@{ result='pass'; output_sha256=$outputDigest }; verified=$true; content_sha256=('2'*64)
+    behavior=[pscustomobject][ordered]@{ result='pass'; output_sha256=$outputDigest }; verified=$true; content_sha256=''
   }
+  $projection=[ordered]@{}; foreach($property in $proof.PSObject.Properties){ if($property.Name -cne 'content_sha256'){ $projection[$property.Name]=$property.Value } }
+  $json=([pscustomobject]$projection | ConvertTo-Json -Depth 100 -Compress)
+  $proof.content_sha256=([Convert]::ToHexString([Security.Cryptography.SHA256]::HashData([Text.UTF8Encoding]::new($false).GetBytes($json)))).ToLowerInvariant()
+  $proof
 }
 
 $request = New-LiveTestRequest
@@ -143,6 +156,13 @@ try {
   $preflightRecords=@($coreChain | Select-Object -First 2)
   $stopped=Invoke-MooncakesLiveMutation -Request $request -Records $preflightRecords -Proofs @() -PreparedRoot (Join-Path $fixtureRoot 'prepared') -ToolchainRoot (Join-Path $fixtureRoot 'toolchain') -CredentialToken $sentinel -Authorized $true -PublishCommand $fakePublish -PreparedValidator $validator
   if ($stopped.mutation_count -ne 0 -or $calls.Count -ne $before) { throw 'Incomplete journal reached fake publish.' }
+  $imageChain=New-LiveVerifiedChain -Through image
+  $replay=Invoke-MooncakesLiveMutation -Request $request -Records $imageChain -Proofs @((New-LiveProof mb-core),(New-LiveProof mb-color),(New-LiveProof mb-image)) -PreparedRoot (Join-Path $fixtureRoot 'prepared') -ToolchainRoot (Join-Path $fixtureRoot 'toolchain') -CredentialToken $sentinel -Authorized $true -PublishCommand $fakePublish -PreparedValidator $validator
+  if ($replay.mutation_count -ne 0 -or $calls.Count -ne $before) { throw 'Verified replay reached fake publish.' }
+
+  $contaminated=New-LiveProof mb-core; $contaminated | Add-Member token $sentinel
+  Confirm-LiveRule 'LIVE04-INCOMPLETE-PROOF' { Resolve-MooncakesLiveMutationTarget -Request $request -Records $coreChain -Proofs @($contaminated) }
+  if ($calls.Count -ne $before) { throw 'Contaminated proof reached fake publish.' }
 
   $failureHome=$null
   $failingPublish={ param($context) $script:failureHome=$context.moon_home; throw 'fixture child failed' }
@@ -182,4 +202,22 @@ $workflow = Get-Content -LiteralPath $workflowPath -Raw
 foreach ($required in @('Invoke-MooncakesLiveMutation','Invoke-ColdRegistryConsumer','MOONCAKES_TOKEN')) {
   if ($workflow.IndexOf($required,[StringComparison]::Ordinal) -lt 0) { throw "P08-WORKFLOW-MISSING: '$required'." }
 }
+$publisherStart=$workflow.IndexOf("  publisher:",[StringComparison]::Ordinal)
+$observerStart=$workflow.IndexOf("  observe_registry:",[StringComparison]::Ordinal)
+$consumerStart=$workflow.IndexOf("  cold_consumer:",[StringComparison]::Ordinal)
+if ($publisherStart -lt 0 -or $observerStart -le $publisherStart -or $consumerStart -le $observerStart) { throw 'P08-WORKFLOW-ORDER: publisher observation and consumer jobs are not ordered.' }
+$publisherBlock=$workflow.Substring($publisherStart,$observerStart-$publisherStart)
+$observerBlock=$workflow.Substring($observerStart,$consumerStart-$observerStart)
+$consumerBlock=$workflow.Substring($consumerStart)
+if (@([regex]::Matches($workflow,[regex]::Escape('${{ secrets.MOONCAKES_TOKEN }}'))).Count -ne 1) { throw 'P08-WORKFLOW-SECRET: secret mapping must occur exactly once.' }
+foreach($block in @($observerBlock,$consumerBlock)) {
+  if ($block.IndexOf('MOONCAKES_TOKEN',[StringComparison]::Ordinal) -ge 0 -or $block.IndexOf('environment:',[StringComparison]::Ordinal) -ge 0) { throw 'P08-WORKFLOW-SECRET: downstream job can access publisher authority.' }
+}
+if ($publisherBlock.IndexOf('Invoke-ReleasePublisher.ps1 -Mode LiveOneStep',[StringComparison]::Ordinal) -lt 0 -or
+    $publisherBlock.IndexOf('foreach ($module',[StringComparison]::OrdinalIgnoreCase) -ge 0 -or
+    $observerBlock.IndexOf('needs: publisher',[StringComparison]::Ordinal) -lt 0 -or
+    $consumerBlock.IndexOf('needs: [publisher, observe_registry]',[StringComparison]::Ordinal) -lt 0) { throw 'P08-WORKFLOW-ORDER: one-step dependency chain drifted.' }
+$adapterSource=Get-Content -LiteralPath $adapterPath -Raw
+if (@([regex]::Matches($adapterSource,"publish','--frozen",[Text.RegularExpressions.RegexOptions]::CultureInvariant)).Count -ne 1 -or
+    $adapterSource.IndexOf('foreach($module',[StringComparison]::OrdinalIgnoreCase) -ge 0) { throw 'P08-WORKFLOW-LOOP: adapter is not structurally one-module.' }
 Write-Host 'Phase 8 live workflow fixtures: PASS.'
