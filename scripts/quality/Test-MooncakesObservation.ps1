@@ -30,7 +30,7 @@ function Assert-Sequence {
 
 function Assert-ClosedObjectSchema {
     param($Schema, [string]$Path)
-    if ($Schema.type -eq 'object') {
+    if (($Schema.PSObject.Properties.Name -contains 'type') -and $Schema.type -eq 'object') {
         Assert-True ($Schema.PSObject.Properties.Name -contains 'additionalProperties') "$Path must declare additionalProperties"
         Assert-Equal $Schema.additionalProperties $false "$Path must be closed"
     }
@@ -44,7 +44,7 @@ function Assert-ClosedObjectSchema {
     }
     if ($Schema.PSObject.Properties.Name -contains '$defs') {
         foreach ($definition in $Schema.'$defs'.PSObject.Properties) {
-            Assert-ClosedObjectSchema $definition.Value "$Path.#/$defs/$($definition.Name)"
+            Assert-ClosedObjectSchema $definition.Value "$Path.#/`$defs/$($definition.Name)"
         }
     }
 }
@@ -67,7 +67,7 @@ Assert-Sequence $policy.polling.states @('pending', 'exact', 'absent', 'mismatch
 Assert-Equal $policy.polling.interval_seconds 15 'polling interval'
 Assert-Equal $policy.polling.max_attempts 20 'polling attempt bound'
 Assert-Sequence $policy.terminal_dispositions @('exact_match', 'confirmed_absent', 'mismatch_incident', 'timeout_unknown', 'observation_unknown') 'terminal dispositions'
-Assert-Equal $policy.mutation_authority false 'observation must never authorize mutation'
+Assert-Equal $policy.mutation_authority $false 'observation must never authorize mutation'
 
 Assert-Sequence ($policy.graph.nodes | ForEach-Object { $_.identity }) @('tchivs/mb-core@0.1.0', 'tchivs/mb-color@0.1.0', 'tchivs/mb-image@0.1.0') 'exact graph nodes'
 Assert-Sequence ($policy.graph.edges | ForEach-Object { "$($_.from)->$($_.to)" }) @('tchivs/mb-color@0.1.0->tchivs/mb-core@0.1.0', 'tchivs/mb-image@0.1.0->tchivs/mb-core@0.1.0', 'tchivs/mb-image@0.1.0->tchivs/mb-color@0.1.0') 'exact graph edges'
@@ -139,7 +139,7 @@ try {
     $agreement = Invoke-Fixture 'agreement' $base
     Assert-Equal $agreement.outcome 'exact' 'agreement outcome'
     Assert-Equal $agreement.terminal_disposition 'exact_match' 'agreement disposition'
-    Assert-Equal $agreement.mutation_authorized false 'agreement cannot authorize mutation'
+    Assert-Equal $agreement.mutation_authorized $false 'agreement cannot authorize mutation'
     Assert-True ($agreement.content_sha256 -cmatch '^[0-9a-f]{64}$') 'agreement content digest'
     Assert-True (-not (($agreement | ConvertTo-Json -Depth 100) -cmatch '(?i)token|secret|password|cookie|raw_body')) 'observation projection must exclude secret/raw fields'
 
@@ -157,7 +157,7 @@ try {
         & $case.mutate $fixture
         $result = Invoke-Fixture $case.name $fixture
         Assert-Equal $result.outcome $case.expected "$($case.name) outcome"
-        Assert-Equal $result.mutation_authorized false "$($case.name) cannot authorize mutation"
+        Assert-Equal $result.mutation_authorized $false "$($case.name) cannot authorize mutation"
     }
 
     $timeout = ($base | ConvertTo-Json -Depth 100 | ConvertFrom-Json -Depth 100)
