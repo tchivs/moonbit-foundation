@@ -5,15 +5,15 @@ milestone_name: Publication & Compatibility
 current_phase: 08
 current_phase_name: Ordered Mooncakes Publication and Registry Consumers
 status: executing
-stopped_at: Completed 08-03-PLAN.md
-last_updated: "2026-07-18T11:07:55.316Z"
+stopped_at: Completed 08-04-PLAN.md
+last_updated: "2026-07-18T11:53:00.307Z"
 last_activity: 2026-07-18
 last_activity_desc: Phase 08 execution started
 progress:
   total_phases: 4
   completed_phases: 2
   total_plans: 34
-  completed_plans: 31
+  completed_plans: 32
   percent: 50
 ---
 
@@ -30,8 +30,8 @@ See `.planning/PROJECT.md` (updated 2026-07-17).
 ## Current Position
 
 Phase: 08 (Ordered Mooncakes Publication and Registry Consumers) — EXECUTING
-Plan: 4 of 6
-Status: Executing Wave 4
+Plan: 5 of 6
+Status: Executing Wave 5 — preflight and authorization checkpoint
 Last activity: 2026-07-18 — Phase 08 execution started
 
 ## Progress
@@ -91,6 +91,9 @@ Current milestone: [█████░░░░░] 50% of v0.2 phases complete
 - [Phase 08]: Treat every missing, weak, ambiguous, secret-shaped, or disagreeing fact as non-mutating unknown or mismatch evidence.
 - [Phase 08]: Keep fixture evidence explicitly distinct from live registry evidence. — Unavailable registry versions must never be represented by fixture-generated live proof.
 - [Phase 08]: Compare resolved graphs semantically but serialize accepted proofs in canonical policy order. — Dependency tree line ordering is not semantic evidence, while proof identity must remain deterministic.
+- [Phase 08]: Replay every supplied checkpoint through the Phase 7 reducer before deriving the next module.
+- [Phase 08]: Expose the token only through one temporary credentials file under a child-only MOON_HOME and persist only an allowlisted classification.
+- [Phase 08]: Carry the tracked live adapter as the eighteenth exact prepared payload so the publisher remains artifact-only.
 
 ### Pending Decisions
 
@@ -105,8 +108,8 @@ None
 
 **Resume file:** None
 
-Last session: 2026-07-18T11:07:55.300Z
-Stopped at: Completed 08-03-PLAN.md
+Last session: 2026-07-18T11:53:00.294Z
+Stopped at: Completed 08-04-PLAN.md
 Resume with: `/gsd-execute-phase 8`
 
 ## Operator Next Steps
@@ -145,3 +148,4 @@ Resume with: `/gsd-execute-phase 8`
 | Phase 08 P01 | 24min | 2 tasks | 3 files |
 | Phase 08 P02 | 15min | 2 tasks | 4 files |
 | Phase 08 P03 | 28min | 3 tasks | 6 files |
+| Phase 08 P04 | 29min | 3 tasks | 7 files |
