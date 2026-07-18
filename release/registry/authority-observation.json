@@ -1,7 +1,7 @@
 {
   "schema_version": "1.0.0",
-  "source_commit": "e8857a7217847b895217d1727bb4b05bb97da9b3",
-  "observed_at_utc": "2026-07-17T14:44:43.0660666Z",
+  "source_commit": "7cae3f2aa01be721b1f105abbcfc8945b7745832",
+  "observed_at_utc": "2026-07-18T16:01:01.7099519Z",
   "credentials_read": false,
   "publication_mutation_performed": false,
   "command": {
@@ -90,10 +90,10 @@
     "status": "current",
     "max_age_hours": 24
   },
-  "stable_sha256": "2075c29ea130f9ac2d85e7861d76fc48c6f9ced5d3c2374652787c8e5b283591",
+  "stable_sha256": "1d25664d66046602adb31acc6699c544c4818a45c22c2ad57e470f4975a6d8d8",
   "run_local": {
     "captured_by": "operator_collector",
-    "started_utc": "2026-07-17T14:44:42.9965339Z",
-    "completed_utc": "2026-07-17T14:44:43.0660666Z"
+    "started_utc": "2026-07-18T16:01:01.6735325Z",
+    "completed_utc": "2026-07-18T16:01:01.7099519Z"
   }
 }

@@ -28,7 +28,7 @@ function Assert-P07Workflow {
   )) { if (-not $text.Contains($required)) { throw "P07-WORKFLOW-STRUCTURE: missing '$required'." } }
   $uses=@([regex]::Matches($text,'(?m)^\s*uses:\s*[^@\r\n]+@([0-9a-f]{40})\s*$'))
   if ($uses.Count -lt 6) { throw 'P07-WORKFLOW-ACTION-PIN: action coverage is incomplete.' }
-  if (@([regex]::Matches($text,'secrets[.]MOONCAKES_TOKEN')).Count -ne 1) { throw 'P07-WORKFLOW-SECRET: Mooncakes secret must occur exactly once.' }
+  if (@([regex]::Matches($text,'secrets[.]MOONCAKES_TOKEN')).Count -ne 2) { throw 'P07-WORKFLOW-SECRET: Mooncakes secret must occur once per isolated publisher mode.' }
   $publisherStart=$text.IndexOf('  publisher:',[StringComparison]::Ordinal)
   $nextJob=$text.IndexOf('  observe_registry:',[StringComparison]::Ordinal)
   $publisher=if($nextJob -gt $publisherStart){$text.Substring($publisherStart,$nextJob-$publisherStart)}else{$text.Substring($publisherStart)}

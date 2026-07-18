@@ -1,7 +1,10 @@
 [CmdletBinding()]
 param(
   [switch]$AdapterOnly,
-  [switch]$WorkflowOnly
+  [switch]$WorkflowOnly,
+  [switch]$PreflightOnly,
+  [string]$LocatorPath,
+  [string]$ArtifactRoot
 )
 
 Set-StrictMode -Version Latest
@@ -199,7 +202,7 @@ if ($AdapterOnly) { return }
 
 $workflowPath = Join-Path (Split-Path -Parent $PSScriptRoot) '..\.github\workflows\publish-modules.yml'
 $workflow = Get-Content -LiteralPath $workflowPath -Raw
-foreach ($required in @('Invoke-MooncakesLiveMutation','Invoke-ColdRegistryConsumer','MOONCAKES_TOKEN')) {
+foreach ($required in @('Invoke-MooncakesLiveMutation','Invoke-ColdRegistryConsumer','MOONCAKES_TOKEN','PublisherDryRun','HostedPreflight','PublishOne','publish --frozen --dry-run','native_runtime_verified')) {
   if ($workflow.IndexOf($required,[StringComparison]::Ordinal) -lt 0) { throw "P08-WORKFLOW-MISSING: '$required'." }
 }
 $publisherStart=$workflow.IndexOf("  publisher:",[StringComparison]::Ordinal)
@@ -209,7 +212,7 @@ if ($publisherStart -lt 0 -or $observerStart -le $publisherStart -or $consumerSt
 $publisherBlock=$workflow.Substring($publisherStart,$observerStart-$publisherStart)
 $observerBlock=$workflow.Substring($observerStart,$consumerStart-$observerStart)
 $consumerBlock=$workflow.Substring($consumerStart)
-if (@([regex]::Matches($workflow,[regex]::Escape('${{ secrets.MOONCAKES_TOKEN }}'))).Count -ne 1) { throw 'P08-WORKFLOW-SECRET: secret mapping must occur exactly once.' }
+if (@([regex]::Matches($workflow,[regex]::Escape('${{ secrets.MOONCAKES_TOKEN }}'))).Count -ne 2) { throw 'P08-WORKFLOW-SECRET: secret mapping must occur exactly once in each isolated publisher mode.' }
 foreach($block in @($observerBlock,$consumerBlock)) {
   if ($block.IndexOf('MOONCAKES_TOKEN',[StringComparison]::Ordinal) -ge 0 -or $block.IndexOf('environment:',[StringComparison]::Ordinal) -ge 0) { throw 'P08-WORKFLOW-SECRET: downstream job can access publisher authority.' }
 }
@@ -220,4 +223,67 @@ if ($publisherBlock.IndexOf('Invoke-ReleasePublisher.ps1 -Mode LiveOneStep',[Str
 $adapterSource=Get-Content -LiteralPath $adapterPath -Raw
 if (@([regex]::Matches($adapterSource,"publish','--frozen",[Text.RegularExpressions.RegexOptions]::CultureInvariant)).Count -ne 1 -or
     $adapterSource.IndexOf('foreach($module',[StringComparison]::OrdinalIgnoreCase) -ge 0) { throw 'P08-WORKFLOW-LOOP: adapter is not structurally one-module.' }
+
+$dryStart=$workflow.IndexOf('  publisher_dry_run:',[StringComparison]::Ordinal)
+$preflightStart=$workflow.IndexOf('  hosted_preflight:',[StringComparison]::Ordinal)
+if ($dryStart -lt 0 -or $preflightStart -le $dryStart -or $publisherStart -le $preflightStart) { throw 'P08-WORKFLOW-MODES: hosted modes are missing or ambiguously ordered.' }
+$dryBlock=$workflow.Substring($dryStart,$preflightStart-$dryStart)
+$preflightBlock=$workflow.Substring($preflightStart,$publisherStart-$preflightStart)
+if ($dryBlock.IndexOf("inputs.operation_mode == 'PublisherDryRun'",[StringComparison]::Ordinal) -lt 0 -or
+    $dryBlock.IndexOf('publish --frozen --dry-run',[StringComparison]::Ordinal) -lt 0 -or
+    $dryBlock.IndexOf('credential_state_removed=$true',[StringComparison]::Ordinal) -lt 0 -or
+    $dryBlock.IndexOf('mutation_performed=$false',[StringComparison]::Ordinal) -lt 0) { throw 'P08-WORKFLOW-DRYRUN: isolated dry-run contract drifted.' }
+if ($dryBlock.IndexOf('moon publish --frozen`n',[StringComparison]::Ordinal) -ge 0) { throw 'P08-WORKFLOW-NONDRY: dry-run mode exposes a non-dry command.' }
+if ($preflightBlock.IndexOf('MOONCAKES_TOKEN',[StringComparison]::Ordinal) -ge 0 -or
+    $preflightBlock.IndexOf('environment: mooncakes-production',[StringComparison]::Ordinal) -ge 0 -or
+    $preflightBlock.IndexOf('native_runtime_verified=$true',[StringComparison]::Ordinal) -lt 0 -or
+    $preflightBlock.IndexOf('compile_only=$false',[StringComparison]::Ordinal) -lt 0) { throw 'P08-WORKFLOW-PREFLIGHT: secret-free native runtime contract drifted.' }
+if ($publisherBlock.IndexOf("inputs.operation_mode == 'PublishOne'",[StringComparison]::Ordinal) -lt 0 -or
+    $publisherBlock.IndexOf('inputs.live_authorization == true',[StringComparison]::Ordinal) -lt 0) { throw 'P08-WORKFLOW-PUBLISHONE: irreversible job reachability is not explicit.' }
+
+$hostedPath=Join-Path $PSScriptRoot 'Invoke-Phase08HostedRun.ps1'
+if (-not (Test-Path -LiteralPath $hostedPath -PathType Leaf)) { throw 'P08-HOSTED-HELPER-MISSING: hosted helper is required.' }
+. $hostedPath -Mode PublisherDryRun -Repository tchivs/moonbit-foundation -Workflow publish-modules.yml -ReleaseRef refs/tags/modules-v0.1.0 -SourceSha ('1'*40) -RootIntentSha256 ('a'*64) -IntentSha256 ('a'*64) -PreparedManifestSha256 ('b'*64) -TargetModule mb-core -LocatorPath (Join-Path ([IO.Path]::GetTempPath()) 'unused-locator.json') -ArtifactRoot (Join-Path ([IO.Path]::GetTempPath()) 'unused-root') -LibraryOnly
+Confirm-LiveRule 'P08-STORE-PATH' {
+  Open-P08ArtifactStore -Locator (Join-Path ([IO.Path]::GetTempPath()) 'wrong-locator.json') -Root (Join-Path ([IO.Path]::GetTempPath()) 'wrong-root') -Repo tchivs/moonbit-foundation -WorkflowPath publish-modules.yml -Ref refs/tags/modules-v0.1.0 -Sha ('1'*40) -RootIntent ('a'*64) -CurrentIntent ('a'*64)
+}
+$runFixture={param([string]$id)[pscustomobject]@{databaseId=$id;headBranch='modules-v0.1.0';headSha=('1'*40);displayTitle='bound';status='completed';conclusion='success'}}
+Confirm-LiveRule 'P08-HOSTED-AMBIGUOUS-RUN' { Select-P08NewRun -Before @{} -Runs @((&$runFixture '1001'),(&$runFixture '1002')) -Sha ('1'*40) -Title 'bound' -DispatchRef 'modules-v0.1.0' }
+if ($null -ne (Select-P08NewRun -Before @{} -Runs @((&$runFixture '1001')) -Sha ('2'*40) -Title 'bound' -DispatchRef 'modules-v0.1.0')) { throw 'Stale run was selected.' }
+Confirm-LiveRule 'P08-HOSTED-AMBIGUOUS-ARTIFACT' { Select-P08Artifact -Response ([pscustomobject]@{artifacts=@()}) -Prefix 'mnf-hosted-preflight-' }
+Confirm-LiveRule 'P08-HOSTED-AMBIGUOUS-ARTIFACT' { Select-P08Artifact -Response ([pscustomobject]@{artifacts=@([pscustomobject]@{name='mnf-hosted-preflight-a';expired=$false},[pscustomobject]@{name='mnf-hosted-preflight-b';expired=$false})}) -Prefix 'mnf-hosted-preflight-' }
+$fixtureStore=[pscustomobject]@{locator=[pscustomobject]@{repository='tchivs/moonbit-foundation';workflow='publish-modules.yml';release_ref='refs/tags/modules-v0.1.0';source_sha=('1'*40);root_intent_sha256=('a'*64);intent_sha256=('a'*64)}}
+$fixtureRun=[pscustomobject]@{databaseId='1001';attempt=1}
+$now=[DateTime]::UtcNow.ToString('o')
+$dryEvidence=[pscustomobject][ordered]@{
+  schema_version='mnf-publisher-dry-run/1';mode='PublisherDryRun';repository='tchivs/moonbit-foundation';workflow='publish-modules.yml';run_id='1001';run_attempt=1
+  release_ref='refs/tags/modules-v0.1.0';source_sha=('1'*40);root_intent_sha256=('a'*64);intent_sha256=('a'*64);prepared_manifest_sha256=('b'*64)
+  target_module='mb-core';module_identity='tchivs/mb-core@0.1.0';module_manifest_sha256=('d'*64);archive_sha256=('c'*64);command_classification='moon_publish_frozen_dry_run'
+  exit_code=0;mutation_performed=$false;raw_output_persisted=$false;credential_state_removed=$true;started_at_utc=$now;completed_at_utc=$now
+}
+Assert-P08HostedEvidence -Operation PublisherDryRun -Evidence $dryEvidence -Run $fixtureRun -Store $fixtureStore -PreparedDigest ('b'*64) -Module mb-core
+$bad=$dryEvidence.PSObject.Copy();$bad.exit_code=1
+Confirm-LiveRule 'P08-HOSTED-DRYRUN-EVIDENCE' { Assert-P08HostedEvidence -Operation PublisherDryRun -Evidence $bad -Run $fixtureRun -Store $fixtureStore -PreparedDigest ('b'*64) -Module mb-core }
+$bad=$dryEvidence.PSObject.Copy();$bad.credential_state_removed=$false
+Confirm-LiveRule 'P08-HOSTED-DRYRUN-EVIDENCE' { Assert-P08HostedEvidence -Operation PublisherDryRun -Evidence $bad -Run $fixtureRun -Store $fixtureStore -PreparedDigest ('b'*64) -Module mb-core }
+$bad=$dryEvidence.PSObject.Copy();$bad.command_classification='moon_publish_frozen'
+Confirm-LiveRule 'P08-HOSTED-DRYRUN-EVIDENCE' { Assert-P08HostedEvidence -Operation PublisherDryRun -Evidence $bad -Run $fixtureRun -Store $fixtureStore -PreparedDigest ('b'*64) -Module mb-core }
+$bad=$dryEvidence.PSObject.Copy();$bad.intent_sha256=('d'*64)
+Confirm-LiveRule 'P08-HOSTED-EVIDENCE-BINDING' { Assert-P08HostedEvidence -Operation PublisherDryRun -Evidence $bad -Run $fixtureRun -Store $fixtureStore -PreparedDigest ('b'*64) -Module mb-core }
+$bad=$dryEvidence.PSObject.Copy();$bad.started_at_utc=[DateTime]::UtcNow.AddDays(-1).ToString('o')
+Confirm-LiveRule 'P08-HOSTED-EVIDENCE-STALE' { Assert-P08HostedEvidence -Operation PublisherDryRun -Evidence $bad -Run $fixtureRun -Store $fixtureStore -PreparedDigest ('b'*64) -Module mb-core }
+$bad=$dryEvidence.PSObject.Copy();$bad | Add-Member note 'Bearer fixture-secret-value'
+Confirm-LiveRule 'P08-HOSTED-SECRET-SHAPE' { Assert-P08HostedEvidence -Operation PublisherDryRun -Evidence $bad -Run $fixtureRun -Store $fixtureStore -PreparedDigest ('b'*64) -Module mb-core }
+$native=[pscustomobject][ordered]@{
+  schema_version='mnf-hosted-preflight/1';mode='HostedPreflight';repository='tchivs/moonbit-foundation';workflow='publish-modules.yml';run_id='1001';run_attempt=1
+  release_ref='refs/tags/modules-v0.1.0';source_sha=('1'*40);root_intent_sha256=('a'*64);intent_sha256=('a'*64);prepared_manifest_sha256=('b'*64);target_module='mb-core'
+  native_runtime_verified=$true;compile_only=$false;exit_code=0;sentinel_match=$true;expected_sentinel_sha256=('e'*64);observed_sentinel_sha256=('e'*64)
+  toolchain_identity='moon 0.1.20260713 (75c7e1f)';linker_identity='clang fixture';runtime_identity='linux fixture';raw_output_persisted=$false;started_at_utc=$now;completed_at_utc=$now
+}
+Assert-P08HostedEvidence -Operation HostedPreflight -Evidence $native -Run $fixtureRun -Store $fixtureStore -PreparedDigest ('b'*64) -Module mb-core
+$bad=$native.PSObject.Copy();$bad.compile_only=$true
+Confirm-LiveRule 'P08-HOSTED-PREFLIGHT-EVIDENCE' { Assert-P08HostedEvidence -Operation HostedPreflight -Evidence $bad -Run $fixtureRun -Store $fixtureStore -PreparedDigest ('b'*64) -Module mb-core }
+$bad=$native.PSObject.Copy();$bad.observed_sentinel_sha256=('f'*64)
+Confirm-LiveRule 'P08-HOSTED-PREFLIGHT-EVIDENCE' { Assert-P08HostedEvidence -Operation HostedPreflight -Evidence $bad -Run $fixtureRun -Store $fixtureStore -PreparedDigest ('b'*64) -Module mb-core }
+if ($PreflightOnly -and ([string]::IsNullOrWhiteSpace($LocatorPath) -or [string]::IsNullOrWhiteSpace($ArtifactRoot))) { throw 'P08-PREFLIGHT-PATHS: explicit locator and artifact root are required.' }
 Write-Host 'Phase 8 live workflow fixtures: PASS.'

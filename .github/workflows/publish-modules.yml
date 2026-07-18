@@ -1,8 +1,14 @@
 name: Publish MNF modules
 
+run-name: MNF ${{ inputs.operation_mode }} ${{ inputs.target_module }} ${{ inputs.root_intent_sha256 }} ${{ inputs.intent_sha256 }} ${{ inputs.prepared_manifest_sha256 }}
+
 on:
   workflow_dispatch:
     inputs:
+      operation_mode:
+        required: true
+        type: choice
+        options: [PublisherDryRun, HostedPreflight, PublishOne]
       run_mode:
         required: true
         type: choice
@@ -18,6 +24,17 @@ on:
         type: string
       intent_sha256:
         required: true
+        type: string
+      prepared_manifest_sha256:
+        required: true
+        type: string
+      target_module:
+        required: true
+        type: choice
+        options: [mb-core, mb-color, mb-image]
+      authorization_packet_sha256:
+        required: false
+        default: ''
         type: string
       prior_run_id:
         required: false
@@ -73,6 +90,10 @@ jobs:
           SOURCE_SHA: ${{ inputs.source_sha }}
           ROOT_INTENT_SHA256: ${{ inputs.root_intent_sha256 }}
           INTENT_SHA256: ${{ inputs.intent_sha256 }}
+          EXPECTED_PREPARED_MANIFEST_SHA256: ${{ inputs.prepared_manifest_sha256 }}
+          OPERATION_MODE: ${{ inputs.operation_mode }}
+          TARGET_MODULE: ${{ inputs.target_module }}
+          AUTHORIZATION_PACKET_SHA256: ${{ inputs.authorization_packet_sha256 }}
           PRIOR_RUN_ID: ${{ inputs.prior_run_id }}
           PRIOR_ARTIFACT_NAME: ${{ inputs.prior_artifact_name }}
           DISPATCH_ACTOR: ${{ github.actor }}
@@ -82,6 +103,10 @@ jobs:
         run: |
           if ($env:DISPATCH_ACTOR -cne 'tchivs' -or $env:DISPATCH_REPOSITORY -cne 'tchivs/moonbit-foundation') { throw 'P07-WORKFLOW-AUTH' }
           if ((git rev-parse HEAD).Trim() -cne $env:SOURCE_SHA) { throw 'P07-WORKFLOW-SOURCE' }
+          if ($env:OPERATION_MODE -cnotin @('PublisherDryRun','HostedPreflight','PublishOne')) { throw 'P08-WORKFLOW-MODE' }
+          if ($env:TARGET_MODULE -cnotin @('mb-core','mb-color','mb-image')) { throw 'P08-WORKFLOW-MODULE' }
+          if ($env:OPERATION_MODE -ceq 'PublishOne' -and ($env:AUTHORIZATION_PACKET_SHA256 -notmatch '^[0-9a-f]{64}$' -or $env:TARGET_MODULE -cne 'mb-core')) { throw 'P08-WORKFLOW-AUTHORIZATION' }
+          if ($env:OPERATION_MODE -cne 'PublishOne' -and (-not [string]::IsNullOrEmpty($env:AUTHORIZATION_PACKET_SHA256))) { throw 'P08-WORKFLOW-UNEXPECTED-AUTHORIZATION' }
           $paired = -not [string]::IsNullOrEmpty($env:PRIOR_RUN_ID) -and -not [string]::IsNullOrEmpty($env:PRIOR_ARTIFACT_NAME)
           if ($env:RUN_MODE -ceq 'start' -and $paired) { throw 'P07-WORKFLOW-START-PRIOR' }
           if ($env:RUN_MODE -ceq 'resume' -and -not $paired) { throw 'P07-WORKFLOW-RESUME-PAIR' }
@@ -150,13 +175,16 @@ jobs:
           }
 
           $bundleArgs = @{
-            Repository=$env:DISPATCH_REPOSITORY; Actor=$env:DISPATCH_ACTOR; RunId=$env:CURRENT_RUN_ID
-            RunAttempt=[int]$env:CURRENT_RUN_ATTEMPT; ReleaseRef=$env:RELEASE_REF; SourceSha=$env:SOURCE_SHA
+            # The prepared digest must exist before dispatch. Use a stable preparation identity;
+            # the actual GitHub run id/attempt are bound separately in each sanitized live artifact.
+            Repository=$env:DISPATCH_REPOSITORY; Actor=$env:DISPATCH_ACTOR; RunId='1'
+            RunAttempt=1; ReleaseRef=$env:RELEASE_REF; SourceSha=$env:SOURCE_SHA
             RootIntentSha256=$env:ROOT_INTENT_SHA256; IntentSha256=$env:INTENT_SHA256; RunMode=$env:RUN_MODE
             PriorRunId=$env:PRIOR_RUN_ID; PriorArtifactName=$env:PRIOR_ARTIFACT_NAME; PriorTerminalRecordSha256=$priorTerminal
           }
           $result = ./scripts/quality/New-PreparedReleaseBundle.ps1 -InputRoot $inputRoot -OutputRoot $preparedRoot @bundleArgs
           ./scripts/quality/New-PreparedReleaseBundle.ps1 -ValidateOnly -OutputRoot $preparedRoot @bundleArgs | Out-Null
+          if ($result.manifest_sha256 -cne $env:EXPECTED_PREPARED_MANIFEST_SHA256) { throw 'P08-WORKFLOW-PREPARED-BINDING' }
           "manifest_sha256=$($result.manifest_sha256)" >> $env:GITHUB_OUTPUT
           "artifact_name=$($result.artifact_name)" >> $env:GITHUB_OUTPUT
       - name: Upload exact prepared bundle
@@ -167,7 +195,130 @@ jobs:
           if-no-files-found: error
           retention-days: 7
 
+  publisher_dry_run:
+    if: ${{ inputs.operation_mode == 'PublisherDryRun' && inputs.live_authorization == false }}
+    needs: prepare
+    runs-on: ubuntu-latest
+    environment: mooncakes-production
+    permissions:
+      actions: read
+    steps:
+      - name: Set up exact MoonBit toolchain
+        uses: hustcer/setup-moonbit@bdc8c076af1f4c5012a6ac3451a2009ec75bf921
+        with:
+          version: 0.1.20260713+75c7e1f
+      - name: Download exact prepared bundle for dry run
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: ${{ needs.prepare.outputs.prepared_artifact_name }}
+          run-id: ${{ github.run_id }}
+          github-token: ${{ github.token }}
+          path: prepared
+      - name: PublisherDryRun
+        shell: pwsh
+        env:
+          MOONCAKES_TOKEN: ${{ secrets.MOONCAKES_TOKEN }}
+          EXPECTED_MANIFEST_SHA256: ${{ inputs.prepared_manifest_sha256 }}
+          EXPECTED_SOURCE_SHA: ${{ inputs.source_sha }}
+          EXPECTED_RELEASE_REF: ${{ inputs.release_ref }}
+          EXPECTED_ROOT_INTENT_SHA256: ${{ inputs.root_intent_sha256 }}
+          EXPECTED_INTENT_SHA256: ${{ inputs.intent_sha256 }}
+          EXPECTED_TARGET_MODULE: ${{ inputs.target_module }}
+        run: |
+          if ($env:EXPECTED_TARGET_MODULE -cne 'mb-core') { throw 'P08-DRYRUN-CORE-ONLY' }
+          $manifestPath='prepared/prepared-bundle.json'
+          if ((Get-FileHash -Algorithm SHA256 $manifestPath).Hash.ToLowerInvariant() -cne $env:EXPECTED_MANIFEST_SHA256) { throw 'P08-DRYRUN-PREPARED-DIGEST' }
+          $manifest=Get-Content -LiteralPath $manifestPath -Raw | ConvertFrom-Json -Depth 100
+          if ($manifest.source_sha -cne $env:EXPECTED_SOURCE_SHA -or $manifest.release_ref -cne $env:EXPECTED_RELEASE_REF -or $manifest.root_intent_sha256 -cne $env:EXPECTED_ROOT_INTENT_SHA256 -or $manifest.intent_sha256 -cne $env:EXPECTED_INTENT_SHA256) { throw 'P08-DRYRUN-PREPARED-BINDING' }
+          $archive=Join-Path $PWD 'prepared/archives/mb-core.zip'
+          $archiveRecord=@($manifest.payloads | Where-Object path -ceq 'archives/mb-core.zip')
+          if ($archiveRecord.Count -ne 1 -or (Get-FileHash -Algorithm SHA256 $archive).Hash.ToLowerInvariant() -cne [string]$archiveRecord[0].sha256) { throw 'P08-DRYRUN-ARCHIVE' }
+          $isolated=Join-Path $env:RUNNER_TEMP ('publisher-dry-run-' + [Guid]::NewGuid().ToString('N'))
+          $moonHome=Join-Path $isolated 'moon-home'; $source=Join-Path $isolated 'source'; $raw=Join-Path $isolated 'raw.log'
+          $credentialRemoved=$false; $exitCode=-1; $started=[DateTime]::UtcNow.ToString('o')
+          try {
+            New-Item -ItemType Directory -Force $moonHome,$source | Out-Null
+            [IO.File]::WriteAllText((Join-Path $moonHome 'credentials.json'),([pscustomobject][ordered]@{username='tchivs';token=$env:MOONCAKES_TOKEN}|ConvertTo-Json -Compress),[Text.UTF8Encoding]::new($false))
+            Expand-Archive -LiteralPath $archive -DestinationPath $source
+            $moduleManifest=Join-Path $source 'moon.mod.json'
+            if (-not (Test-Path -LiteralPath $moduleManifest -PathType Leaf)) { throw 'P08-DRYRUN-MODULE-MANIFEST' }
+            $moduleManifestSha256=(Get-FileHash -LiteralPath $moduleManifest -Algorithm SHA256).Hash.ToLowerInvariant()
+            $priorHome=$env:MOON_HOME; $env:MOON_HOME=$moonHome
+            try {
+              $whoami=@(& moon whoami 2>&1); if ($LASTEXITCODE -ne 0 -or (($whoami -join "`n").Trim() -cne 'tchivs')) { throw 'P08-DRYRUN-ACCOUNT' }
+              & moon -C $source publish --frozen --dry-run *> $raw; $exitCode=$LASTEXITCODE
+            } finally { $env:MOON_HOME=$priorHome }
+            if ($exitCode -ne 0) { throw 'P08-DRYRUN-NONZERO' }
+          } finally {
+            if (Test-Path -LiteralPath $isolated) { Remove-Item -LiteralPath $isolated -Recurse -Force }
+            $credentialRemoved=-not (Test-Path -LiteralPath $isolated)
+          }
+          if (-not $credentialRemoved) { throw 'P08-DRYRUN-TEARDOWN' }
+          $checkpoint=Join-Path $PWD 'sanitized-dry-run'; New-Item -ItemType Directory -Force $checkpoint | Out-Null
+          $evidence=[pscustomobject][ordered]@{
+            schema_version='mnf-publisher-dry-run/1'; mode='PublisherDryRun'; repository='${{ github.repository }}'; workflow='publish-modules.yml'
+            run_id='${{ github.run_id }}'; run_attempt=[int]'${{ github.run_attempt }}'; release_ref=$env:EXPECTED_RELEASE_REF; source_sha=$env:EXPECTED_SOURCE_SHA
+            root_intent_sha256=$env:EXPECTED_ROOT_INTENT_SHA256; intent_sha256=$env:EXPECTED_INTENT_SHA256; prepared_manifest_sha256=$env:EXPECTED_MANIFEST_SHA256
+            target_module='mb-core'; module_identity='tchivs/mb-core@0.1.0'; module_manifest_sha256=$moduleManifestSha256; archive_sha256=[string]$archiveRecord[0].sha256
+            command_classification='moon_publish_frozen_dry_run'; exit_code=0; mutation_performed=$false; raw_output_persisted=$false; credential_state_removed=$true
+            started_at_utc=$started; completed_at_utc=[DateTime]::UtcNow.ToString('o')
+          }
+          [IO.File]::WriteAllText((Join-Path $checkpoint 'publisher-dry-run.json'),($evidence|ConvertTo-Json -Depth 30 -Compress),[Text.UTF8Encoding]::new($false))
+      - name: Upload sanitized PublisherDryRun evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: mnf-publisher-dry-run-${{ inputs.root_intent_sha256 }}-${{ inputs.intent_sha256 }}-${{ github.run_id }}
+          path: sanitized-dry-run/publisher-dry-run.json
+          if-no-files-found: error
+
+  hosted_preflight:
+    if: ${{ inputs.operation_mode == 'HostedPreflight' && inputs.live_authorization == false }}
+    needs: prepare
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Check out exact source for secret-free native preflight
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ inputs.source_sha }}
+          persist-credentials: false
+      - name: Set up exact MoonBit toolchain
+        uses: hustcer/setup-moonbit@bdc8c076af1f4c5012a6ac3451a2009ec75bf921
+        with:
+          version: 0.1.20260713+75c7e1f
+      - name: HostedPreflight
+        shell: pwsh
+        env:
+          EXPECTED_SENTINEL: example=portable bytes_read=17 bytes_written=17 width=2 height=1 transform=flip_horizontal disposition=5 digest=806175100
+        run: |
+          $raw=Join-Path $env:RUNNER_TEMP ('native-preflight-' + [Guid]::NewGuid().ToString('N') + '.log')
+          $started=[DateTime]::UtcNow.ToString('o')
+          try { & moon -C examples/ppm-portable run --target native --frozen *> $raw; $exitCode=$LASTEXITCODE; $lines=@(Get-Content -LiteralPath $raw | Where-Object { $_ -and $_ -notmatch '^(Finished|Warning:)' }); $observed=[string]$lines[-1] } finally { if(Test-Path $raw){Remove-Item $raw -Force} }
+          if ($exitCode -ne 0 -or $observed -cne $env:EXPECTED_SENTINEL) { throw 'P08-PREFLIGHT-NATIVE-SENTINEL' }
+          $sha={param([string]$v)([Convert]::ToHexString([Security.Cryptography.SHA256]::HashData([Text.UTF8Encoding]::new($false).GetBytes($v)))).ToLowerInvariant()}
+          $toolchainIdentity=((& moon version) -join ' ').Trim()
+          if ($toolchainIdentity -notmatch '0[.]1[.]20260713' -or $toolchainIdentity -notmatch '75c7e1f') { throw 'P08-PREFLIGHT-TOOLCHAIN' }
+          $checkpoint=Join-Path $PWD 'sanitized-preflight'; New-Item -ItemType Directory -Force $checkpoint | Out-Null
+          $evidence=[pscustomobject][ordered]@{
+            schema_version='mnf-hosted-preflight/1'; mode='HostedPreflight'; repository='${{ github.repository }}'; workflow='publish-modules.yml'
+            run_id='${{ github.run_id }}'; run_attempt=[int]'${{ github.run_attempt }}'; release_ref='${{ inputs.release_ref }}'; source_sha='${{ inputs.source_sha }}'
+            root_intent_sha256='${{ inputs.root_intent_sha256 }}'; intent_sha256='${{ inputs.intent_sha256 }}'; prepared_manifest_sha256='${{ inputs.prepared_manifest_sha256 }}'
+            target_module='${{ inputs.target_module }}'; native_runtime_verified=$true; compile_only=$false; exit_code=0; sentinel_match=$true
+            expected_sentinel_sha256=(& $sha $env:EXPECTED_SENTINEL); observed_sentinel_sha256=(& $sha $observed)
+            toolchain_identity=$toolchainIdentity; linker_identity=((& clang --version | Select-Object -First 1) -join ' ').Trim(); runtime_identity=((& uname -a) -join ' ').Trim()
+            raw_output_persisted=$false; started_at_utc=$started; completed_at_utc=[DateTime]::UtcNow.ToString('o')
+          }
+          [IO.File]::WriteAllText((Join-Path $checkpoint 'hosted-preflight.json'),($evidence|ConvertTo-Json -Depth 30 -Compress),[Text.UTF8Encoding]::new($false))
+      - name: Upload sanitized hosted preflight evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: mnf-hosted-preflight-${{ inputs.root_intent_sha256 }}-${{ inputs.intent_sha256 }}-${{ github.run_id }}
+          path: sanitized-preflight/hosted-preflight.json
+          if-no-files-found: error
+
   publisher:
+    if: ${{ inputs.operation_mode == 'PublishOne' && inputs.live_authorization == true }}
     needs: prepare
     runs-on: ubuntu-latest
     environment: mooncakes-production
@@ -221,7 +372,7 @@ jobs:
           $payload=Get-Content $manifest -Raw | ConvertFrom-Json -Depth 100
           if ($null -eq $payload -or @($payload.payloads).Count -ne 18) { throw 'P07-WORKFLOW-EXACT-INVENTORY' }
           $validationArgs = @{
-            Repository=$env:EXPECTED_REPOSITORY; Actor=$env:EXPECTED_ACTOR; RunId=$env:EXPECTED_RUN_ID; RunAttempt=[int]$env:EXPECTED_RUN_ATTEMPT
+            Repository=$env:EXPECTED_REPOSITORY; Actor=$env:EXPECTED_ACTOR; RunId='1'; RunAttempt=1
             ReleaseRef=$env:EXPECTED_RELEASE_REF; SourceSha=$env:EXPECTED_SOURCE_SHA; RootIntentSha256=$env:EXPECTED_ROOT_INTENT_SHA256
             IntentSha256=$env:EXPECTED_INTENT_SHA256; RunMode=$env:EXPECTED_RUN_MODE; PriorRunId=$env:EXPECTED_PRIOR_RUN_ID
             PriorArtifactName=$env:EXPECTED_PRIOR_ARTIFACT_NAME; PriorTerminalRecordSha256=$payload.journal_binding.terminal_record_sha256

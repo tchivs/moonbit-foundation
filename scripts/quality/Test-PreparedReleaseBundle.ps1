@@ -45,9 +45,9 @@ function Assert-WorkflowOnly {
     if (-not $source.Contains($required, [StringComparison]::Ordinal)) { throw "PREP20-WORKFLOW-WIRING: missing '$required'." }
   }
   $prepareStart = $source.IndexOf('  prepare:', [StringComparison]::Ordinal)
-  $publisherStart = $source.IndexOf('  publisher:', [StringComparison]::Ordinal)
-  if ($prepareStart -lt 0 -or $publisherStart -le $prepareStart) { throw 'PREP20-WORKFLOW-WIRING: prepare/publisher jobs are not distinct.' }
-  $prepare = $source.Substring($prepareStart, $publisherStart - $prepareStart)
+  $nextJob = $source.IndexOf('  publisher_dry_run:', [StringComparison]::Ordinal)
+  if ($prepareStart -lt 0 -or $nextJob -le $prepareStart) { throw 'PREP20-WORKFLOW-WIRING: prepare and hosted jobs are not distinct.' }
+  $prepare = $source.Substring($prepareStart, $nextJob - $prepareStart)
   foreach ($forbidden in @('environment:','secrets.','MOONCAKES_TOKEN','moon publish','workflow_dispatch','git tag','git push','LiveOneStep','Invoke-ReleasePublisher.ps1 -Mode Live')) {
     if ($prepare.IndexOf($forbidden, [StringComparison]::OrdinalIgnoreCase) -ge 0) { throw "PREP21-WORKFLOW-REVERSIBLE: prepare contains '$forbidden'." }
   }
