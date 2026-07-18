@@ -8,8 +8,9 @@ param(
   [switch]$ExactExistingAuthority,
   [switch]$AuthorityUnion,
   [switch]$ReciprocalArtifacts,
-  [Parameter(Mandatory)][string]$LocatorPath,
-  [Parameter(Mandatory)][string]$ArtifactRoot,
+  [switch]$R2ContractOnly,
+  [string]$LocatorPath,
+  [string]$ArtifactRoot,
   [string]$PacketPath,
   [string]$MutationAuthorizationPacketPath,
   [string]$ExactExistingAuthorityPath,
@@ -29,6 +30,18 @@ function Get-P08QualificationSha([string]$Path) {
 }
 function Assert-P08ClosedNames([object]$Value,[string[]]$Names,[string]$Id) {
   if ((@($Value.PSObject.Properties.Name) -join ',') -cne ($Names -join ',')) { Throw-P08Qualification $Id 'Closed field inventory drifted.' }
+}
+function Assert-P08R2Contract {
+  . (Join-Path $PSScriptRoot 'ReleaseQualification.Common.ps1')
+  foreach($command in @('New-ReleaseAuthorizationReceipt','Assert-ReleaseAuthorizationReceipt','New-ReleasePhase08Handoff','Assert-ReleasePhase08Handoff')) {
+    if($null -eq (Get-Command $command -CommandType Function -ErrorAction SilentlyContinue)){Throw-P08Qualification 'P08-R2-COMPOSITION' "Missing $command."}
+  }
+  $prepared=Get-Content -LiteralPath (Join-Path $PSScriptRoot 'New-PreparedReleaseBundle.ps1') -Raw
+  foreach($required in @('refs/tags/modules-v0.1.0-r2','HistoricalAttemptZeroSha256','HistoricalR1Sha256','PREP14-HISTORICAL-BINDING')){
+    if($prepared.IndexOf($required,[StringComparison]::Ordinal) -lt 0){Throw-P08Qualification 'P08-R2-PREPARED' "Missing prepared r2 contract '$required'."}
+  }
+  $qualification=Get-Content -LiteralPath (Join-Path $PSScriptRoot 'Invoke-ReleaseQualification.ps1') -Raw
+  if($qualification.IndexOf('refs/tags/modules-v0.1.0-r2',[StringComparison]::Ordinal) -lt 0){Throw-P08Qualification 'P08-R2-QUALIFICATION' 'Qualification does not emit r2 initial identity.'}
 }
 function Get-P08ExpectedPaths([string]$RootIntent) {
   $base=[IO.Path]::GetFullPath((Join-Path ([IO.Path]::GetTempPath()) 'mnf-phase08'))
@@ -363,7 +376,8 @@ function Assert-P08AuthorityUnionSelector {
   Write-Host 'Phase 8 ExactExistingAuthority selector: PASS.';return $record
 }
 
-if (-not ($FixtureOnly -or $CoreColorArtifacts -or $LiveArtifacts -or $AuthorizationPacket -or $MutationAuthorizationPacket -or $ExactExistingAuthority -or $AuthorityUnion -or $ReciprocalArtifacts)) { Throw-P08Qualification 'P08-QUAL-SELECTOR' 'Choose a selector.' }
+if (-not ($FixtureOnly -or $CoreColorArtifacts -or $LiveArtifacts -or $AuthorizationPacket -or $MutationAuthorizationPacket -or $ExactExistingAuthority -or $AuthorityUnion -or $ReciprocalArtifacts -or $R2ContractOnly)) { $R2ContractOnly=$true }
+if($R2ContractOnly){Assert-P08R2Contract;Write-Host 'Phase 8 r2 receipt/handoff composition: PASS.';return}
 if ($FixtureOnly) { Assert-P08FixtureContract; return }
 if ($AuthorizationPacket) { Assert-P08AuthorizationPacket; return }
 if ($MutationAuthorizationPacket -or $ExactExistingAuthority -or $AuthorityUnion) { Assert-P08AuthorityUnionSelector; return }
