@@ -5,15 +5,15 @@ milestone_name: Publication & Compatibility
 current_phase: 08
 current_phase_name: Ordered Mooncakes Publication and Registry Consumers
 status: executing
-stopped_at: Completed 08-01-PLAN.md
-last_updated: "2026-07-18T10:04:38.994Z"
+stopped_at: Completed 08-02-PLAN.md
+last_updated: "2026-07-18T10:30:24.705Z"
 last_activity: 2026-07-18
 last_activity_desc: Phase 08 execution started
 progress:
   total_phases: 4
   completed_phases: 2
   total_plans: 34
-  completed_plans: 29
+  completed_plans: 30
   percent: 50
 ---
 
@@ -30,8 +30,8 @@ See `.planning/PROJECT.md` (updated 2026-07-17).
 ## Current Position
 
 Phase: 08 (Ordered Mooncakes Publication and Registry Consumers) — EXECUTING
-Plan: 2 of 6
-Status: Executing Wave 2
+Plan: 3 of 6
+Status: Executing Wave 3
 Last activity: 2026-07-18 — Phase 08 execution started
 
 ## Progress
@@ -86,6 +86,9 @@ Current milestone: [█████░░░░░] 50% of v0.2 phases complete
 - [Phase 07]: Treat mismatch as terminal for the current intent and allow only a newly qualified, newly authorized, unpublished forward correction.
 - [Phase 08]: Use one fixed ordered 17-payload inventory and treat the manifest digest as artifact identity without self-reference.
 - [Phase 08]: Carry the prepared validator inside the bundle so the publisher reruns identical closed validation before secret materialization.
+- [Phase 08]: Bound registry propagation observation to 20 attempts at a fixed 15-second cadence.
+- [Phase 08]: Accept only structured caller-supplied surface records and persist only the closed sanitized projection.
+- [Phase 08]: Treat every missing, weak, ambiguous, secret-shaped, or disagreeing fact as non-mutating unknown or mismatch evidence.
 
 ### Pending Decisions
 
@@ -100,8 +103,8 @@ None
 
 **Resume file:** None
 
-Last session: 2026-07-18T10:04:38.980Z
-Stopped at: Completed 08-01-PLAN.md
+Last session: 2026-07-18T10:30:24.687Z
+Stopped at: Completed 08-02-PLAN.md
 Resume with: `/gsd-execute-phase 8`
 
 ## Operator Next Steps
@@ -138,3 +141,4 @@ Resume with: `/gsd-execute-phase 8`
 | Phase 07 P02 | 13min | 2 tasks | 5 files |
 | Phase 07 P03 | 20min | 3 tasks | 8 files |
 | Phase 08 P01 | 24min | 2 tasks | 3 files |
+| Phase 08 P02 | 15min | 2 tasks | 4 files |
