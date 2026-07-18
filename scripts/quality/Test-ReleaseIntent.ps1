@@ -32,30 +32,55 @@ function Get-IntentHistorySetSha256 {
 }
 
 function Assert-Phase08AttemptSchemas {
+  $policy = Read-IntentJson -Path $policyPath
+  $history = @($policy.initial_attempt_family.terminal_negative_history)
+  $historyFields = [ordered]@{
+    historical_attempt_zero_sha256 = [string]$history[0].record_sha256
+    historical_r1_sha256 = [string]$history[1].record_sha256
+    historical_r2_sha256 = [string]$history[2].record_sha256
+    historical_history_set_sha256 = [string]$policy.initial_attempt_family.history_set_sha256
+  }
   $authority = Read-IntentJson -Path (Join-Path $repoRoot 'release\qualification\phase-08-authority-schema.json')
   $receipt = Read-IntentJson -Path (Join-Path $repoRoot 'release\qualification\phase-08-authorization-receipt-schema.json')
   $handoff = Read-IntentJson -Path (Join-Path $repoRoot 'release\qualification\phase-08-handoff-schema.json')
   foreach ($branch in @('mutationAuthorizationPacket','exactExistingAuthority','moduleAuthority')) {
-    if ($authority.'$defs'.$branch.properties.release_ref.const -cne 'refs/tags/modules-v0.1.0-r2') {
-      throw "REL04-AUTHORITY-REF: $branch does not require r2."
+    $schemaBranch = $authority.'$defs'.$branch
+    if ($schemaBranch.properties.release_ref.const -cne 'refs/tags/modules-v0.1.0-r3') {
+      throw "REL04-AUTHORITY-REF: $branch does not require r3."
+    }
+    foreach ($entry in $historyFields.GetEnumerator()) {
+      if (@($schemaBranch.required) -cnotcontains $entry.Key -or $schemaBranch.properties.($entry.Key).const -cne $entry.Value) {
+        throw "REL04-AUTHORITY-HISTORY: $branch does not bind $($entry.Key)."
+      }
     }
   }
-  $receiptFields = @('schema_version','release_ref','boundary_sha','packet_sha256','response','created_at_utc','receipt_sha256')
+  $receiptFields = @('schema_version','release_ref','boundary_sha','source_sha','packet_sha256','historical_attempt_zero_sha256','historical_r1_sha256','historical_r2_sha256','historical_history_set_sha256','response','created_at_utc','receipt_sha256')
   if ($receipt.type -cne 'object' -or $receipt.additionalProperties -ne $false -or
       (@($receipt.required) -join ',') -cne ($receiptFields -join ',') -or
-      $receipt.properties.release_ref.const -cne 'refs/tags/modules-v0.1.0-r2' -or
+      $receipt.properties.release_ref.const -cne 'refs/tags/modules-v0.1.0-r3' -or
       $receipt.properties.response.const -cne 'authorize-core' -or
       $receipt.properties.created_at_utc.pattern -cne '^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$') {
-    throw 'REL04-RECEIPT-SCHEMA: authorization receipt is not the exact closed r2 contract.'
+    throw 'REL04-RECEIPT-SCHEMA: authorization receipt is not the exact closed r3 contract.'
+  }
+  foreach ($entry in $historyFields.GetEnumerator()) {
+    if ($receipt.properties.($entry.Key).const -cne $entry.Value) { throw "REL04-RECEIPT-HISTORY: receipt does not bind $($entry.Key)." }
   }
   if (@($handoff.oneOf).Count -ne 2) { throw 'REL04-HANDOFF-SCHEMA: handoff must expose two exclusive branches.' }
   $mutation = $handoff.'$defs'.mutationHandoff; $exact = $handoff.'$defs'.exactExistingHandoff
   foreach ($branch in @($mutation,$exact)) {
     if ($branch.type -cne 'object' -or $branch.additionalProperties -ne $false -or
-      $branch.properties.release_ref.const -cne 'refs/tags/modules-v0.1.0-r2' -or
+      $branch.properties.release_ref.const -cne 'refs/tags/modules-v0.1.0-r3' -or
         $branch.properties.created_at_utc.'$ref' -cne '#/$defs/utc' -or
         $handoff.'$defs'.utc.pattern -cne '^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$') {
-      throw 'REL04-HANDOFF-SCHEMA: handoff branch is not closed, r2-bound, and UTC-canonical.'
+      throw 'REL04-HANDOFF-SCHEMA: handoff branch is not closed, r3-bound, and UTC-canonical.'
+    }
+    foreach ($entry in $historyFields.GetEnumerator()) {
+      if (@($branch.required) -cnotcontains $entry.Key -or $branch.properties.($entry.Key).const -cne $entry.Value) {
+        throw "REL04-HANDOFF-HISTORY: handoff branch does not bind $($entry.Key)."
+      }
+    }
+    foreach ($field in @('r2_history_path','r2_history_sha256')) {
+      if (@($branch.required) -cnotcontains $field) { throw "REL04-HANDOFF-HISTORY: handoff branch omits $field." }
     }
   }
   foreach ($field in @('mutation_authorization_packet_path','mutation_authorization_packet_sha256','authorization_receipt_path','authorization_receipt_sha256')) {
