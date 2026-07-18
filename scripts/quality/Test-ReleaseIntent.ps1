@@ -19,10 +19,49 @@ function Read-IntentJson {
   try { return Get-Content -LiteralPath $Path -Raw | ConvertFrom-Json -Depth 100 } catch { throw "REL01-INVALID-JSON: $Path" }
 }
 
+function Assert-Phase08AttemptSchemas {
+  $authority = Read-IntentJson -Path (Join-Path $repoRoot 'release\qualification\phase-08-authority-schema.json')
+  $receipt = Read-IntentJson -Path (Join-Path $repoRoot 'release\qualification\phase-08-authorization-receipt-schema.json')
+  $handoff = Read-IntentJson -Path (Join-Path $repoRoot 'release\qualification\phase-08-handoff-schema.json')
+  foreach ($branch in @('mutationAuthorizationPacket','exactExistingAuthority','moduleAuthority')) {
+    if ($authority.'$defs'.$branch.properties.release_ref.const -cne 'refs/tags/modules-v0.1.0-r2') {
+      throw "REL04-AUTHORITY-REF: $branch does not require r2."
+    }
+  }
+  $receiptFields = @('schema_version','release_ref','boundary_sha','packet_sha256','response','created_at_utc','receipt_sha256')
+  if ($receipt.type -cne 'object' -or $receipt.additionalProperties -ne $false -or
+      (@($receipt.required) -join ',') -cne ($receiptFields -join ',') -or
+      $receipt.properties.release_ref.const -cne 'refs/tags/modules-v0.1.0-r2' -or
+      $receipt.properties.response.const -cne 'authorize-core' -or
+      $receipt.properties.created_at_utc.pattern -cne '^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$') {
+    throw 'REL04-RECEIPT-SCHEMA: authorization receipt is not the exact closed r2 contract.'
+  }
+  if (@($handoff.oneOf).Count -ne 2) { throw 'REL04-HANDOFF-SCHEMA: handoff must expose two exclusive branches.' }
+  $mutation = $handoff.'$defs'.mutationHandoff; $exact = $handoff.'$defs'.exactExistingHandoff
+  foreach ($branch in @($mutation,$exact)) {
+    if ($branch.type -cne 'object' -or $branch.additionalProperties -ne $false -or
+        $branch.properties.release_ref.const -cne 'refs/tags/modules-v0.1.0-r2' -or
+        $branch.properties.created_at_utc.pattern -cne '^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$') {
+      throw 'REL04-HANDOFF-SCHEMA: handoff branch is not closed, r2-bound, and UTC-canonical.'
+    }
+  }
+  foreach ($field in @('mutation_authorization_packet_path','mutation_authorization_packet_sha256','authorization_receipt_path','authorization_receipt_sha256')) {
+    if (@($mutation.required) -cnotcontains $field -or $mutation.properties.$field.'$ref' -eq $null -and $mutation.properties.$field.type -eq $null) {
+      throw "REL04-HANDOFF-MUTATION: mutation handoff is missing $field."
+    }
+    if ($exact.properties.$field.type -cne 'null') { throw "REL04-HANDOFF-EXACT: exact-existing does not forbid $field." }
+  }
+  if (@($exact.required) -cnotcontains 'exact_existing_authority_path' -or $mutation.properties.exact_existing_authority_path.type -cne 'null') {
+    throw 'REL04-HANDOFF-BRANCH: exact-existing authority path is not exclusive.'
+  }
+  if (@($mutation.required) -ccontains 'stop' -or @($exact.required) -ccontains 'stop') { throw 'REL04-HANDOFF-STOP: stop cannot be eligible.' }
+}
+
 function Assert-IntentContract {
   $policy = Read-IntentJson -Path $policyPath
   $schema = Read-IntentJson -Path $schemaPath
   $preparedSchema = Read-IntentJson -Path (Join-Path $repoRoot 'release\prepared\schema.json')
+  Assert-Phase08AttemptSchemas
   if ($policy.schema_version -cne 'mnf-release-control/1' -or $policy.repository -cne 'tchivs/moonbit-foundation' -or
       $policy.owner -cne 'tchivs' -or $policy.sole_maintainer -cne 'tchivs') { throw 'REL01-POLICY-IDENTITY: release-control identity drifted.' }
   $history = @($policy.initial_attempt_family.terminal_negative_history)
