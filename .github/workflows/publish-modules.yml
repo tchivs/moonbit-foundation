@@ -569,7 +569,7 @@ jobs:
             schema_version='1.0.0'
             attempts=@([pscustomobject][ordered]@{
               attempt=1;observed_at_utc=$observedAt;surfaces=[pscustomobject][ordered]@{
-                publish_preflight=[pscustomobject][ordered]@{classification='unknown';status='not_available'}
+                publish_preflight=[pscustomobject][ordered]@{classification='unknown';status='unobserved_credential_free'}
                 authenticated_account=[pscustomobject][ordered]@{classification='unknown';status='credential_free'}
                 public_user=[pscustomobject][ordered]@{classification='unknown';owner=''}
                 public_module=[pscustomobject][ordered]@{classification='unknown';identity='';version=''}

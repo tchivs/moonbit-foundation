@@ -24,6 +24,8 @@ param(
   [string]$PriorAuthorityRecordPath,
   [string]$ObservationRecordPath,
   [string]$ColdProofPath,
+  [string]$ReducerRecordPath,
+  [string]$HistoricalNegativeRecordPath,
   [string]$SurfaceFixturePath,
   [ValidateSet('PublicSurface','Observation','ColdProof','ReducerRecord','HistoricalNegative')][string]$ArtifactKind,
   [string]$ArtifactPath,
@@ -56,6 +58,12 @@ function Get-P08CanonicalJson([object]$Value) {
 function Get-P08ObjectDigest([object]$Value) {
   $bytes=[Text.UTF8Encoding]::new($false).GetBytes((Get-P08CanonicalJson $Value))
   ([Convert]::ToHexString([Security.Cryptography.SHA256]::HashData($bytes))).ToLowerInvariant()
+}
+
+function Get-P08SelfExcludingDigest([object]$Value,[string]$DigestProperty) {
+  $projection=[ordered]@{}
+  foreach($property in $Value.PSObject.Properties){if($property.Name -cne $DigestProperty){$projection[$property.Name]=$property.Value}}
+  Get-P08ObjectDigest ([pscustomobject]$projection)
 }
 
 function Test-P08SafePath([string]$Path,[string]$Root,[switch]$AllowRoot) {
@@ -398,10 +406,18 @@ function Select-P08AuthorityUnion {
 }
 
 function New-P08ExactExistingAuthority {
-  param([object]$Store,[string]$Module,[string]$ObservationPath,[string]$ColdPath,[string]$PriorAuthorityPath)
+  param([object]$Store,[string]$Module,[string]$ObservationPath,[string]$ColdPath,[string]$PriorAuthorityPath,[string]$ReducerPath,[string]$HistoricalNegativePath)
   $observation=Get-Content -LiteralPath $ObservationPath -Raw | ConvertFrom-Json -Depth 100
   $cold=Get-Content -LiteralPath $ColdPath -Raw | ConvertFrom-Json -Depth 100
   if ($observation.outcome -cne 'exact' -or $cold.evidence_mode -cne 'live_registry' -or $cold.verified -ne $true -or (@($cold.targets.name)-join ',') -cne 'js,wasm,wasm-gc,native' -or $cold.targets[3].runtime -cne 'pass') { Throw-P08HostedRule 'P08-EXACT-EVIDENCE' 'Exact-existing authority requires exact observation and real four-target cold proof.' }
+  if ([string]::IsNullOrWhiteSpace($ReducerPath) -or [string]::IsNullOrWhiteSpace($HistoricalNegativePath)) { Throw-P08HostedRule 'P08-EXACT-REDUCER' 'Exact-existing authority requires explicit reducer and historical-negative records.' }
+  $reducer=Get-Content -LiteralPath $ReducerPath -Raw|ConvertFrom-Json -Depth 100
+  $expectedState="$($Module.Replace('mb-',''))_checkpoint_verified"
+  if ($reducer.schema_version -cne 'mnf-release-journal-record/1' -or $reducer.state -cne $expectedState -or $reducer.module -cne $Module -or
+      $reducer.root_intent_sha256 -cne [string]$Store.locator.root_intent_sha256 -or $reducer.intent_sha256 -cne [string]$Store.locator.intent_sha256 -or
+      $reducer.observation.status -cne 'exact_match' -or $reducer.record_sha256 -cnotmatch '^[0-9a-f]{64}$') { Throw-P08HostedRule 'P08-EXACT-REDUCER' 'Reducer record is not the exact verified checkpoint.' }
+  $historical=Get-Content -LiteralPath $HistoricalNegativePath -Raw|ConvertFrom-Json -Depth 100
+  if ([string]$historical.run_id -cne '29652468948' -or [int]$historical.run_attempt -ne 1 -or [string]$historical.classification -cne 'terminal_historical_failure') { Throw-P08HostedRule 'P08-EXACT-HISTORICAL' 'Historical failed hosted attempt is not the indexed terminal negative.' }
   $priorDigest=if([string]::IsNullOrWhiteSpace($PriorAuthorityPath)){$null}else{Get-P08Sha256 $PriorAuthorityPath}
   [pscustomobject][ordered]@{
     schema_version='mnf-phase08-exact-existing-authority/1';source='exact_existing';module=$Module;repository=[string]$Store.locator.repository
@@ -410,7 +426,7 @@ function New-P08ExactExistingAuthority {
     root_intent_sha256=[string]$Store.locator.root_intent_sha256;intent_sha256=[string]$Store.locator.intent_sha256;prepared_manifest_sha256=[string]$Store.locator.prepared_manifest_sha256
     observation_sha256=Get-P08Sha256 $ObservationPath;observation_content_sha256=[string]$observation.content_sha256;archive_sha256=[string]$cold.archive_sha256;downloaded_manifest_sha256=[string]$cold.downloaded_manifest_sha256
     cold_proof_sha256=Get-P08Sha256 $ColdPath;cold_content_sha256=[string]$cold.content_sha256;targets=@($cold.targets.name);native_runtime='pass';toolchain_root_sha256=[string]$cold.toolchain.root_sha256
-    predecessor_authority_sha256=$priorDigest;reducer_state=("$($Module.Replace('mb-',''))_checkpoint_verified");reducer_record_sha256=('0'*64);historical_negative_run='29652468948/1'
+    predecessor_authority_sha256=$priorDigest;reducer_state=$expectedState;reducer_record_sha256=[string]$reducer.record_sha256;historical_negative_run='29652468948/1';historical_negative_sha256=Get-P08Sha256 $HistoricalNegativePath
     mutation_authorization_required=$false;mutation_authorization_used=$false;publisher_dry_run_used=$false;mutation_count=0;authorization_packet_sha256=$null;authority_sha256=''
   }
 }
@@ -525,14 +541,14 @@ switch ($Mode) {
     if ($observation.outcome -cne 'absent') { Throw-P08HostedRule 'P08-PACKET-ABSENT' 'Only confirmed absent core can assemble mutation authorization.' }
     $records=@($store.index.records);foreach($kind in @('HostedPreflight','PublisherDryRun','Observation')){if(@($records|Where-Object kind -ceq $kind).Count -ne 1){Throw-P08HostedRule 'P08-PACKET-EVIDENCE' "Exactly one $kind record is required."}}
     $packet=[pscustomobject][ordered]@{schema_version='mnf-phase08-mutation-authorization-packet/1';repository=$Repository;release_ref=$ReleaseRef;boundary_sha=$BoundarySha;source_sha=$SourceSha;execution_root=[string]$store.locator.execution_root;locator_sha256=[string]$store.locator.locator_sha256;root_intent_sha256=$RootIntentSha256;intent_sha256=$IntentSha256;prepared_manifest_sha256=$PreparedManifestSha256;target_module='mb-core';observation_sha256=(Get-P08Sha256 $ObservationRecordPath);hosted_preflight_sha256=[string](@($records|Where-Object kind -ceq 'HostedPreflight')[0].file_sha256);publisher_dry_run_sha256=[string](@($records|Where-Object kind -ceq 'PublisherDryRun')[0].file_sha256);actor='tchivs';mutation_count=0;packet_sha256=''}
-    $packet.packet_sha256=Get-P08ObjectDigest $packet
+    $packet.packet_sha256=Get-P08SelfExcludingDigest $packet 'packet_sha256'
     $packetPath=Join-Path $ArtifactRoot 'authorization/mutation-authorization-packet.json';Write-P08ExclusiveJson $packetPath $packet
     [pscustomobject][ordered]@{packet_path=$packetPath;packet_sha256=[string]$packet.packet_sha256};return
   }
   'SelectExactExistingAuthority' {
     if ([string]::IsNullOrWhiteSpace($ObservationRecordPath) -or [string]::IsNullOrWhiteSpace($ColdProofPath)) { Throw-P08HostedRule 'P08-EXACT-PATHS' 'Exact-existing selection requires observation and cold proof.' }
-    $record=New-P08ExactExistingAuthority -Store $store -Module $TargetModule -ObservationPath $ObservationRecordPath -ColdPath $ColdProofPath -PriorAuthorityPath $PriorAuthorityRecordPath
-    $record.authority_sha256=Get-P08ObjectDigest $record
+    $record=New-P08ExactExistingAuthority -Store $store -Module $TargetModule -ObservationPath $ObservationRecordPath -ColdPath $ColdProofPath -PriorAuthorityPath $PriorAuthorityRecordPath -ReducerPath $ReducerRecordPath -HistoricalNegativePath $HistoricalNegativeRecordPath
+    $record.authority_sha256=Get-P08SelfExcludingDigest $record 'authority_sha256'
     $path=Join-Path $ArtifactRoot "authority/$TargetModule/exact-existing.json";Write-P08ExclusiveJson $path $record
     [pscustomobject][ordered]@{authority_path=$path;authority_sha256=[string]$record.authority_sha256;source='exact_existing'};return
   }
@@ -540,8 +556,8 @@ switch ($Mode) {
     if ([string]::IsNullOrWhiteSpace($ObservationRecordPath) -or [string]::IsNullOrWhiteSpace($ColdProofPath)) { Throw-P08HostedRule 'P08-PUBLISHED-PATHS' 'Published-now selection requires observation and cold proof.' }
     if ($TargetModule -ceq 'mb-core') { $null=Select-P08AuthorityUnion -MutationPacketPath $MutationAuthorizationPacketPath -ExactAuthorityPath '' }
     elseif ([string]::IsNullOrWhiteSpace($PriorAuthorityRecordPath)) { Throw-P08HostedRule 'P08-PREDECESSOR-REQUIRED' 'Published successor requires explicit predecessor authority.' }
-    $base=New-P08ExactExistingAuthority -Store $store -Module $TargetModule -ObservationPath $ObservationRecordPath -ColdPath $ColdProofPath -PriorAuthorityPath $PriorAuthorityRecordPath
-    $base.schema_version='mnf-phase08-module-authority/1';$base.source='published_now';$base.mutation_authorization_required=$true;$base.mutation_authorization_used=$true;$base.mutation_count=1;$base.authorization_packet_sha256=if($TargetModule -ceq 'mb-core'){Get-P08Sha256 $MutationAuthorizationPacketPath}else{$null};$base.authority_sha256=Get-P08ObjectDigest $base
+    $base=New-P08ExactExistingAuthority -Store $store -Module $TargetModule -ObservationPath $ObservationRecordPath -ColdPath $ColdProofPath -PriorAuthorityPath $PriorAuthorityRecordPath -ReducerPath $ReducerRecordPath -HistoricalNegativePath $HistoricalNegativeRecordPath
+    $base.schema_version='mnf-phase08-module-authority/1';$base.source='published_now';$base.mutation_authorization_required=$true;$base.mutation_authorization_used=$true;$base.mutation_count=1;$base.authorization_packet_sha256=if($TargetModule -ceq 'mb-core'){Get-P08Sha256 $MutationAuthorizationPacketPath}else{$null};$base.authority_sha256=Get-P08SelfExcludingDigest $base 'authority_sha256'
     $path=Join-Path $ArtifactRoot "authority/$TargetModule/published-now.json";Write-P08ExclusiveJson $path $base
     [pscustomobject][ordered]@{authority_path=$path;authority_sha256=[string]$base.authority_sha256;source='published_now'};return
   }
