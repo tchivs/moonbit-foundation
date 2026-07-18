@@ -119,7 +119,7 @@ try {
                     public_module = [ordered]@{ classification = 'exact'; identity = 'tchivs/mb-core'; version = '0.1.0' }
                     registry_index = [ordered]@{ classification = 'exact'; identity = 'tchivs/mb-core'; version = '0.1.0'; dependencies = [ordered]@{}; checksum = 'sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa' }
                     archive = [ordered]@{ classification = 'exact'; sha256 = 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa' }
-                    downloaded_manifest = [ordered]@{ classification = 'exact'; metadata = $policy.modules[0].metadata; dependencies = [ordered]@{}; packages = $policy.modules[0].public_packages }
+                    downloaded_manifest = [ordered]@{ classification = 'exact'; metadata = $policy.modules[0].metadata; dependencies = [ordered]@{}; packages = $policy.modules[0].public_packages; manifest_sha256 = $policy.modules[0].manifest_sha256 }
                     versioned_assets = [ordered]@{ classification = 'exact'; readme_sha256 = $policy.modules[0].readme_sha256 }
                 }
             }
@@ -137,17 +137,20 @@ try {
     }
 
     $agreement = Invoke-Fixture 'agreement' $base
-    Assert-Equal $agreement.outcome 'exact' 'agreement outcome'
+    Assert-Equal $agreement.outcome 'exact' "agreement outcome ($($agreement.reason))"
     Assert-Equal $agreement.terminal_disposition 'exact_match' 'agreement disposition'
     Assert-Equal $agreement.mutation_authorized $false 'agreement cannot authorize mutation'
     Assert-True ($agreement.content_sha256 -cmatch '^[0-9a-f]{64}$') 'agreement content digest'
     Assert-True (-not (($agreement | ConvertTo-Json -Depth 100) -cmatch '(?i)token|secret|password|cookie|raw_body')) 'observation projection must exclude secret/raw fields'
+    $agreementRepeat = Invoke-Fixture 'agreement-repeat' $base
+    Assert-Equal $agreementRepeat.content_sha256 $agreement.content_sha256 'agreement content digest must be deterministic'
 
     $cases = @(
         @{ name = 'empty'; expected = 'unknown'; mutate = { param($x) $x.attempts[0].surfaces.public_module.identity = '' } },
         @{ name = 'adjacent'; expected = 'mismatch'; mutate = { param($x) $x.attempts[0].surfaces.public_module.version = '0.1.1' } },
         @{ name = 'drifted'; expected = 'mismatch'; mutate = { param($x) $x.attempts[0].surfaces.downloaded_manifest.metadata.description = 'drifted' } },
         @{ name = 'ambiguous'; expected = 'unknown'; mutate = { param($x) $x.attempts[0].surfaces.registry_index.classification = 'unknown' } },
+        @{ name = 'reordered-surface'; expected = 'unknown'; mutate = { param($x) $module = $x.attempts[0].surfaces.public_module; $x.attempts[0].surfaces.public_module = [pscustomobject][ordered]@{ version = $module.version; identity = $module.identity; classification = $module.classification } } },
         @{ name = 'weaker-checksum'; expected = 'unknown'; mutate = { param($x) $x.attempts[0].surfaces.registry_index.checksum = 'etag:abc' } },
         @{ name = 'conflicting-checksum'; expected = 'mismatch'; mutate = { param($x) $x.attempts[0].surfaces.archive.sha256 = ('b' * 64) } },
         @{ name = 'secret-bearing'; expected = 'unknown'; mutate = { param($x) $x.attempts[0].surfaces.public_user | Add-Member -NotePropertyName token -NotePropertyValue 'secret-value' } }
