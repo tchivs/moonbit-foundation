@@ -2,18 +2,18 @@
 gsd_state_version: 1.0
 milestone: v0.2
 milestone_name: Publication & Compatibility
-current_phase: 8
+current_phase: 08
 current_phase_name: Ordered Mooncakes Publication and Registry Consumers
 status: executing
-stopped_at: Phase 8 context gathered
-last_updated: "2026-07-18T09:30:42.967Z"
+stopped_at: Completed 08-01-PLAN.md
+last_updated: "2026-07-18T10:04:38.994Z"
 last_activity: 2026-07-18
-last_activity_desc: Phase 7 completed with hosted handoff verified
+last_activity_desc: Phase 08 execution started
 progress:
   total_phases: 4
   completed_phases: 2
-  total_plans: 28
-  completed_plans: 28
+  total_plans: 34
+  completed_plans: 29
   percent: 50
 ---
 
@@ -25,14 +25,14 @@ See `.planning/PROJECT.md` (updated 2026-07-17).
 
 **Core value:** MoonBit developers can reuse stable, high-performance native infrastructure contracts instead of rebuilding incompatible foundations for every graphics, document, media, or automation product.
 
-**Current focus:** Phase 8 — Ordered Mooncakes Publication and Registry Consumers
+**Current focus:** Phase 08 — Ordered Mooncakes Publication and Registry Consumers
 
 ## Current Position
 
-Phase: 8 (Ordered Mooncakes Publication and Registry Consumers) — READY TO PLAN
-Plan: not yet planned
-Status: Ready to execute
-Last activity: 2026-07-18 — Phase 7 completed with hosted handoff verified
+Phase: 08 (Ordered Mooncakes Publication and Registry Consumers) — EXECUTING
+Plan: 2 of 6
+Status: Executing Wave 2
+Last activity: 2026-07-18 — Phase 08 execution started
 
 ## Progress
 
@@ -84,6 +84,8 @@ Current milestone: [█████░░░░░] 50% of v0.2 phases complete
 - [Phase 07]: Serialize publication by repository plus immutable root, preserve verified checkpoints, and permit only monotonic dependency-safe transitions.
 - [Phase 07]: Keep Required credential-free and non-publishing; the Mooncakes secret is confined to one environment-gated LiveOneStep after prepared-bundle revalidation.
 - [Phase 07]: Treat mismatch as terminal for the current intent and allow only a newly qualified, newly authorized, unpublished forward correction.
+- [Phase 08]: Use one fixed ordered 17-payload inventory and treat the manifest digest as artifact identity without self-reference.
+- [Phase 08]: Carry the prepared validator inside the bundle so the publisher reruns identical closed validation before secret materialization.
 
 ### Pending Decisions
 
@@ -96,11 +98,11 @@ None
 
 ## Session Continuity
 
-**Resume file:** .planning/phases/08-ordered-mooncakes-publication-and-registry-consumers/08-CONTEXT.md
+**Resume file:** None
 
-Last session: 2026-07-18T06:07:08.653Z
-Stopped at: Phase 8 context gathered
-Resume with: `/gsd-discuss-phase 8`
+Last session: 2026-07-18T10:04:38.980Z
+Stopped at: Completed 08-01-PLAN.md
+Resume with: `/gsd-execute-phase 8`
 
 ## Operator Next Steps
 
@@ -135,3 +137,4 @@ Resume with: `/gsd-discuss-phase 8`
 | Phase 07 P01 | 13min | 3 tasks | 7 files |
 | Phase 07 P02 | 13min | 2 tasks | 5 files |
 | Phase 07 P03 | 20min | 3 tasks | 8 files |
+| Phase 08 P01 | 24min | 2 tasks | 3 files |
