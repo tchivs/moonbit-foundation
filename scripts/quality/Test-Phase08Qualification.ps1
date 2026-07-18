@@ -112,6 +112,52 @@ function Assert-P08FixtureContract {
     $failure=$null;try{& $Action}catch{$failure=$_.Exception.Message}
     if ($null -eq $failure -or -not $failure.StartsWith("$Id`: ",[StringComparison]::Ordinal)) { Throw-P08Qualification 'P08-QUAL-NEGATIVE' "Expected $Id, got '$failure'." }
   }
+
+  $boundaryState=Join-Path ([IO.Path]::GetTempPath()) ('mnf-phase08-boundary-fixture-' + [Guid]::NewGuid().ToString('N'))
+  $dispatchProbe=[pscustomobject]@{called=$false}
+  $ghFixture={ $dispatchProbe.called=$true }.GetNewClosure()
+  $gitFixture={
+    param($root,$arguments)
+    switch($arguments[0]) {
+      'status' { '' }
+      'rev-parse' { if($arguments[1] -ceq 'HEAD'){$boundary}else{'2'*40} }
+      'hash-object' { '2'*40 }
+    }
+  }.GetNewClosure()
+  try {
+    $initialized=& (Join-Path $PSScriptRoot 'Invoke-Phase08HostedRun.ps1') -Mode InitializeBoundary -Repository tchivs/moonbit-foundation `
+      -Workflow publish-modules.yml -BoundarySha $boundary -ExecutionRoot $repoRoot -StateRoot $boundaryState -GitCommand $gitFixture
+    $boundaryLocatorPath=Join-Path $boundaryState 'boundary-locator.json'
+    $boundaryLocator=Get-Content -LiteralPath $boundaryLocatorPath -Raw | ConvertFrom-Json -Depth 100
+    $boundaryNames=@('schema_version','repository','workflow','boundary_sha','execution_root','state_root','locator_path','artifact_root','index_path','created_at_utc','locator_sha256')
+    if ((@($boundaryLocator.PSObject.Properties.Name)-join ',') -cne ($boundaryNames-join ',') -or
+        $boundaryLocator.schema_version -cne 'mnf-phase08-boundary-locator/1' -or $boundaryLocator.boundary_sha -cne $boundary -or
+        $boundaryLocator.execution_root -cne [IO.Path]::GetFullPath($repoRoot) -or $boundaryLocator.state_root -cne [IO.Path]::GetFullPath($boundaryState) -or
+        $boundaryLocator.locator_path -cne [IO.Path]::GetFullPath($boundaryLocatorPath) -or -not (Test-Path -LiteralPath ([string]$boundaryLocator.artifact_root) -PathType Container)) {
+      Throw-P08Qualification 'P08-QUAL-BOUNDARY-INITIALIZE' 'Minimal InitializeBoundary did not create the exact durable boundary binding.'
+    }
+    if ($boundaryLocator.locator_sha256 -cne (Get-P08ObjectDigest (Get-P08BoundaryLocatorProjection $boundaryLocator))) {
+      Throw-P08Qualification 'P08-QUAL-BOUNDARY-DIGEST' 'Boundary locator digest drifted.'
+    }
+    $boundaryIndex=Get-Content -LiteralPath ([string]$boundaryLocator.index_path) -Raw | ConvertFrom-Json -Depth 100
+    if ((@($boundaryIndex.PSObject.Properties.Name)-join ',') -cne 'schema_version,repository,workflow,boundary_sha,records' -or
+        $boundaryIndex.schema_version -cne 'mnf-phase08-boundary-index/1' -or @($boundaryIndex.records).Count -ne 0 -or $boundaryIndex.boundary_sha -cne $boundary -or
+        @(Get-ChildItem -LiteralPath ([string]$boundaryLocator.artifact_root) -Recurse -File).Count -ne 1) {
+      Throw-P08Qualification 'P08-QUAL-BOUNDARY-INDEX' 'Boundary root/index is not closed, empty, and boundary-bound.'
+    }
+    foreach($laterMode in @('PrepareAttempt','HostedPreflight','PublisherDryRun','MaterializePublicSurface','ObserveOnly','IndexSanitizedArtifact','AssembleAuthorizationPacket','SelectExactExistingAuthority','SelectPublishedNowAuthority','PublishOne')) {
+      $laterFailure=$null
+      try {
+        & (Join-Path $PSScriptRoot 'Invoke-Phase08HostedRun.ps1') -Mode $laterMode -Repository tchivs/moonbit-foundation `
+          -Workflow publish-modules.yml -GhCommand $ghFixture -GitCommand $gitFixture
+      } catch { $laterFailure=$_.Exception.Message }
+      if ($null -eq $laterFailure -or $dispatchProbe.called -or $laterFailure -notmatch 'P08-HOSTED-MISSING-BINDING') {
+        Throw-P08Qualification 'P08-QUAL-LATER-MODE-OPEN' "Incomplete $laterMode did not fail closed before dispatch: '$laterFailure'."
+      }
+    }
+  } finally {
+    if (Test-Path -LiteralPath $boundaryState) { Remove-Item -LiteralPath $boundaryState -Recurse -Force }
+  }
   $cases=@{
     absent='mutation_candidate';exact='exact_existing';mismatch='terminal_forward_correction';unknown='terminal_stop'
   }

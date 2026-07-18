@@ -6,14 +6,14 @@ param(
   )][string]$Mode,
   [Parameter(Mandatory)][string]$Repository,
   [Parameter(Mandatory)][string]$Workflow,
-  [Parameter(Mandatory)][string]$ReleaseRef,
-  [Parameter(Mandatory)][string]$SourceSha,
-  [Parameter(Mandatory)][string]$RootIntentSha256,
-  [Parameter(Mandatory)][string]$IntentSha256,
-  [Parameter(Mandatory)][string]$PreparedManifestSha256,
-  [Parameter(Mandatory)][ValidateSet('mb-core','mb-color','mb-image')][string]$TargetModule,
-  [Parameter(Mandatory)][string]$LocatorPath,
-  [Parameter(Mandatory)][string]$ArtifactRoot,
+  [string]$ReleaseRef,
+  [string]$SourceSha,
+  [string]$RootIntentSha256,
+  [string]$IntentSha256,
+  [string]$PreparedManifestSha256,
+  [ValidateSet('mb-core','mb-color','mb-image')][string]$TargetModule,
+  [string]$LocatorPath,
+  [string]$ArtifactRoot,
   [string]$ExecutionRoot,
   [string]$BoundarySha,
   [string]$PreparedRoot,
@@ -316,20 +316,21 @@ function Get-P08BoundaryLocatorProjection([object]$Locator) {
 }
 
 function New-P08BoundaryLocator {
-  param([string]$Root,[string]$Boundary,[string]$Locator,[string]$Artifacts)
+  param([string]$Root,[string]$Boundary,[string]$State)
   $null=Assert-P08ExecutionBoundary -Root $Root -Boundary $Boundary -RelativePaths (Get-P08ModeScriptInventory 'InitializeBoundary')
-  $artifactFull=[IO.Path]::GetFullPath($Artifacts); $locatorFull=[IO.Path]::GetFullPath($Locator)
-  if (Test-Path -LiteralPath $locatorFull) { Throw-P08HostedRule 'P08-BOUNDARY-LOCATOR-EXISTS' 'Boundary locator is immutable.' }
+  $stateFull=[IO.Path]::GetFullPath($State)
+  $locatorFull=Join-Path $stateFull 'boundary-locator.json'
+  $artifactFull=Join-Path $stateFull 'boundary-artifacts'
   $indexFull=Join-Path $artifactFull 'index.json'
+  if (Test-Path -LiteralPath $locatorFull) { Throw-P08HostedRule 'P08-BOUNDARY-LOCATOR-EXISTS' 'Boundary locator is immutable.' }
+  if (Test-Path -LiteralPath $artifactFull) { Throw-P08HostedRule 'P08-BOUNDARY-PARTIAL' 'Boundary artifact root exists without its locator.' }
   $null=New-Item -ItemType Directory -Force $artifactFull
-  $index=[pscustomobject][ordered]@{schema_version='mnf-phase08-artifact-index/2';repository=$Repository;release_ref=$ReleaseRef;boundary_sha=$Boundary;source_sha=$SourceSha;root_intent_sha256=$RootIntentSha256;intent_sha256=$IntentSha256;prepared_manifest_sha256=$PreparedManifestSha256;records=@()}
+  $index=[pscustomobject][ordered]@{schema_version='mnf-phase08-boundary-index/1';repository=$Repository;workflow=$Workflow;boundary_sha=$Boundary;records=@()}
   Write-P08ExclusiveJson $indexFull $index
   $value=[pscustomobject][ordered]@{
-    schema_version='mnf-phase08-live-locator/2';repository=$Repository;workflow=$Workflow;release_ref=$ReleaseRef
-    boundary_sha=$Boundary;execution_root=[IO.Path]::GetFullPath($Root);source_sha=$SourceSha
-    root_intent_sha256=$RootIntentSha256;intent_sha256=$IntentSha256;prepared_manifest_sha256=$PreparedManifestSha256
-    artifact_root=$artifactFull;index_path=$indexFull;mutation_authorization_packet_path=$null;mutation_authorization_packet_sha256=$null
-    created_at_utc=[DateTime]::UtcNow.ToString('o');locator_sha256=''
+    schema_version='mnf-phase08-boundary-locator/1';repository=$Repository;workflow=$Workflow;boundary_sha=$Boundary
+    execution_root=[IO.Path]::GetFullPath($Root);state_root=$stateFull;locator_path=$locatorFull
+    artifact_root=$artifactFull;index_path=$indexFull;created_at_utc=[DateTime]::UtcNow.ToString('o');locator_sha256=''
   }
   $value.locator_sha256=Get-P08ObjectDigest (Get-P08BoundaryLocatorProjection $value)
   Write-P08ExclusiveJson $locatorFull $value
@@ -496,14 +497,23 @@ function Receive-P08HostedArtifact {
 if ($LibraryOnly) { return }
 $script:GhCommand=$GhCommand
 $script:GitCommand=$GitCommand
+if ($Mode -ceq 'InitializeBoundary') {
+  if ($Repository -cne 'tchivs/moonbit-foundation' -or $Workflow -cne 'publish-modules.yml' -or [string]::IsNullOrWhiteSpace($ExecutionRoot) -or
+      [string]::IsNullOrWhiteSpace($BoundarySha) -or [string]::IsNullOrWhiteSpace($StateRoot)) {
+    Throw-P08HostedRule 'P08-BOUNDARY-INITIALIZE' 'InitializeBoundary requires the exact repository/workflow plus boundary SHA, execution root, and state root.'
+  }
+  New-P08BoundaryLocator -Root $ExecutionRoot -Boundary $BoundarySha -State $StateRoot
+  return
+}
+$laterBindings=[ordered]@{
+  ReleaseRef=$ReleaseRef;SourceSha=$SourceSha;RootIntentSha256=$RootIntentSha256;IntentSha256=$IntentSha256
+  PreparedManifestSha256=$PreparedManifestSha256;TargetModule=$TargetModule;LocatorPath=$LocatorPath;ArtifactRoot=$ArtifactRoot
+}
+$missingBindings=@($laterBindings.GetEnumerator() | Where-Object { [string]::IsNullOrWhiteSpace([string]$_.Value) } | ForEach-Object Key)
+if ($missingBindings.Count -ne 0) { Throw-P08HostedRule 'P08-HOSTED-MISSING-BINDING' ('Mode ' + $Mode + ' requires: ' + ($missingBindings -join ', ') + '.') }
 if ($ReleaseRef -cne 'refs/tags/modules-v0.1.0-r1' -or $SourceSha -cnotmatch '^[0-9a-f]{40}$' -or $RootIntentSha256 -cnotmatch '^[0-9a-f]{64}$' -or
     $IntentSha256 -cnotmatch '^[0-9a-f]{64}$' -or $PreparedManifestSha256 -cnotmatch '^[0-9a-f]{64}$') {
   Throw-P08HostedRule 'P08-HOSTED-R1-BINDING' 'Only the exact r1 release binding is accepted.'
-}
-if ($Mode -ceq 'InitializeBoundary') {
-  if ([string]::IsNullOrWhiteSpace($ExecutionRoot) -or [string]::IsNullOrWhiteSpace($BoundarySha) -or $SourceSha -cne $BoundarySha) { Throw-P08HostedRule 'P08-BOUNDARY-INITIALIZE' 'InitializeBoundary requires identical execution/source boundary SHA.' }
-  New-P08BoundaryLocator -Root $ExecutionRoot -Boundary $BoundarySha -Locator $LocatorPath -Artifacts $ArtifactRoot
-  return
 }
 $store=Open-P08BoundaryStore -Locator $LocatorPath -Artifacts $ArtifactRoot -Operation $Mode
 switch ($Mode) {
