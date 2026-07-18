@@ -22,6 +22,7 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference='Stop'
 $repoRoot=Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
+$productionHandoff=[IO.Path]::GetFullPath((Join-Path ([IO.Path]::GetTempPath()) 'mnf-phase08-r2-handoff.json'))
 
 function Throw-P08Qualification([string]$Id,[string]$Message) { throw "$Id`: $Message" }
 function Get-P08QualificationSha([string]$Path) {
@@ -32,6 +33,7 @@ function Assert-P08ClosedNames([object]$Value,[string[]]$Names,[string]$Id) {
   if ((@($Value.PSObject.Properties.Name) -join ',') -cne ($Names -join ',')) { Throw-P08Qualification $Id 'Closed field inventory drifted.' }
 }
 function Assert-P08R2Contract {
+  if(Test-Path -LiteralPath $productionHandoff){Throw-P08Qualification 'P08-FIXED-HANDOFF-PREEXISTING' 'Production fixed handoff must be absent before qualification fixtures.'}
   . (Join-Path $PSScriptRoot 'ReleaseQualification.Common.ps1')
   foreach($command in @('New-ReleaseAuthorizationReceipt','Assert-ReleaseAuthorizationReceipt','New-ReleasePhase08Handoff','Assert-ReleasePhase08Handoff')) {
     if($null -eq (Get-Command $command -CommandType Function -ErrorAction SilentlyContinue)){Throw-P08Qualification 'P08-R2-COMPOSITION' "Missing $command."}
@@ -93,6 +95,7 @@ function Assert-P08R2Contract {
     $badReceipt=$receiptA|ConvertTo-Json -Depth 20|ConvertFrom-Json -Depth 20;$badReceipt.packet_sha256='f'*64
     Confirm-R2Failure 'REL04-RECEIPT-BINDING' {Assert-ReleaseAuthorizationReceipt $badReceipt -ExpectedBoundarySha ('1'*40) -ExpectedPacketSha256 $packetSha|Out-Null}
   }finally{if(Test-Path -LiteralPath $temp){Remove-Item -LiteralPath $temp -Recurse -Force}}
+  if(Test-Path -LiteralPath $productionHandoff){Throw-P08Qualification 'P08-FIXED-HANDOFF-CREATED' 'Qualification fixtures touched the production fixed handoff.'}
 }
 function Get-P08ExpectedPaths([string]$RootIntent) {
   $base=[IO.Path]::GetFullPath((Join-Path ([IO.Path]::GetTempPath()) 'mnf-phase08'))
@@ -152,7 +155,7 @@ function Assert-P08FixtureContract {
     'InitializeBoundary','PrepareAttempt','PublisherDryRun','HostedPreflight','MaterializePublicSurface','ObserveOnly',
     'IndexSanitizedArtifact','AssembleAuthorizationPacket','SelectExactExistingAuthority','SelectPublishedNowAuthority','PublishOne',
     'Assert-P08ExecutionBoundary','execution_root','boundary_sha','MutationAuthorizationPacketPath','ExactExistingAuthorityPath',
-    'PriorAuthorityRecordPath','refs/tags/modules-v0.1.0-r1','P08-HOSTED-AMBIGUOUS-RUN','P08-HOSTED-AMBIGUOUS-ARTIFACT',
+    'PriorAuthorityRecordPath','refs/tags/modules-v0.1.0-r2','P08-HOSTED-AMBIGUOUS-RUN','P08-HOSTED-AMBIGUOUS-ARTIFACT',
     'P08-STORE-UNINDEXED','P08-STORE-RESUME-DRIFT','P08-AUTHORITY-BOTH','P08-AUTHORITY-NEITHER'
   )) {
     if ($helper.IndexOf($required,[StringComparison]::Ordinal) -lt 0) { Throw-P08Qualification 'P08-QUAL-HELPER' "Missing helper contract '$required'." }
@@ -169,7 +172,7 @@ function Assert-P08FixtureContract {
 
   $boundary='1'*40
   . (Join-Path $PSScriptRoot 'Invoke-Phase08HostedRun.ps1') -Mode InitializeBoundary -Repository tchivs/moonbit-foundation -Workflow publish-modules.yml `
-    -ReleaseRef refs/tags/modules-v0.1.0-r1 -SourceSha $boundary -RootIntentSha256 ('a'*64) -IntentSha256 ('a'*64) `
+    -ReleaseRef refs/tags/modules-v0.1.0-r2 -SourceSha $boundary -RootIntentSha256 ('a'*64) -IntentSha256 ('a'*64) `
     -PreparedManifestSha256 ('b'*64) -TargetModule mb-core -LocatorPath $LocatorPath -ArtifactRoot $ArtifactRoot -LibraryOnly
 
   function Confirm-P08FixtureFailure([string]$Id,[scriptblock]$Action) {
@@ -242,8 +245,8 @@ function Assert-P08FixtureContract {
     & git -C $prepareExecutionRoot commit --quiet --allow-empty -m 'test: prepare attempt fixture boundary'
     if($LASTEXITCODE){Throw-P08Qualification 'P08-QUAL-PREPARE-COMMIT' 'Unable to create the local-only PrepareAttempt fixture boundary.'}
     $prepareBoundary=(& git -C $prepareExecutionRoot rev-parse HEAD).Trim()
-    & git -C $prepareExecutionRoot tag modules-v0.1.0-r1 $prepareBoundary
-    if($LASTEXITCODE){Throw-P08Qualification 'P08-QUAL-PREPARE-TAG' 'Unable to create the local-only r1 fixture tag.'}
+    & git -C $prepareExecutionRoot tag modules-v0.1.0-r2 $prepareBoundary
+    if($LASTEXITCODE){Throw-P08Qualification 'P08-QUAL-PREPARE-TAG' 'Unable to create the local-only r2 fixture tag.'}
     $prepareHosted=Join-Path $prepareExecutionRoot 'scripts/quality/Invoke-Phase08HostedRun.ps1'
     $prepareBoundaryLocator=& $prepareHosted -Mode InitializeBoundary -Repository tchivs/moonbit-foundation -Workflow publish-modules.yml `
       -BoundarySha $prepareBoundary -ExecutionRoot $prepareExecutionRoot -StateRoot $prepareStateRoot
@@ -261,11 +264,11 @@ function Assert-P08FixtureContract {
         $archiveDigests[$module]=(Get-FileHash -LiteralPath $archivePath -Algorithm SHA256).Hash.ToLowerInvariant()
       }
       $intent=& (Join-Path ([string]$Context.execution_root) 'scripts/quality/New-ReleaseIntent.ps1') -Check -IntentKind initial `
-        -ReleaseRef refs/tags/modules-v0.1.0-r1 -SourceSha ([string]$Context.boundary_sha) -SourceRoot ([string]$Context.execution_root) `
+        -ReleaseRef refs/tags/modules-v0.1.0-r2 -SourceSha ([string]$Context.boundary_sha) -SourceRoot ([string]$Context.execution_root) `
         -QualificationRootSha256 ('3'*64) -RequiredStableSha256 ('4'*64) -ArchiveSha256ByModule $archiveDigests `
         -OutputDirectory (Join-Path $qualificationRoot 'intent')
       $binding=[pscustomobject][ordered]@{
-        schema_version='mnf-release-intent-binding/1';intent_kind='initial';release_ref='refs/tags/modules-v0.1.0-r1'
+        schema_version='mnf-release-intent-binding/1';intent_kind='initial';release_ref='refs/tags/modules-v0.1.0-r2'
         source_sha=[string]$Context.boundary_sha;root_intent_sha256=[string]$intent.intent_sha256;intent_sha256=[string]$intent.intent_sha256
         qualification_root_sha256=('3'*64);required_stable_sha256=('4'*64);phase_06_ledger_sha256=('5'*64);interface_manifest_sha256=('6'*64)
         credentials_read=$false;publication_performed=$false
@@ -281,21 +284,21 @@ function Assert-P08FixtureContract {
       }
     }.GetNewClosure()
     $prepared=& $prepareHosted -Mode PrepareAttempt -BoundaryLocatorPath ([string]$prepareBoundaryLocator.locator_path) `
-      -ReleaseRef refs/tags/modules-v0.1.0-r1 -HistoricalRunId 29652468948 -HistoricalRunAttempt 1 `
+      -ReleaseRef refs/tags/modules-v0.1.0-r2 -HistoricalRunId 29652468948 -HistoricalRunAttempt 1 `
       -HistoricalReleaseRef refs/tags/modules-v0.1.0 -HistoricalSourceSha 198436a45b7403a3c28c98d5fa0d5ed6a958455f `
       -PrepareProvider $prepareProvider
-    $preparedNames=@('mode','locator_path','artifact_root','index_path','root_intent_sha256','intent_sha256','prepared_manifest_sha256','historical_record_path','genesis_record_path','prepared_root','toolchain_root','native_toolchain_bin','mutation_count')
+    $preparedNames=@('mode','locator_path','artifact_root','index_path','root_intent_sha256','intent_sha256','prepared_manifest_sha256','historical_record_path','attempt_zero_history_path','r1_history_path','genesis_record_path','prepared_root','toolchain_root','native_toolchain_bin','mutation_count')
     if((@($prepared.PSObject.Properties.Name)-join ',') -cne ($preparedNames-join ',') -or $prepared.mode -cne 'PrepareAttempt' -or
         $prepared.root_intent_sha256 -cne $prepared.intent_sha256 -or $prepared.root_intent_sha256 -cnotmatch '^[0-9a-f]{64}$' -or
         $prepared.prepared_manifest_sha256 -cnotmatch '^[0-9a-f]{64}$' -or [int]$prepared.mutation_count -ne 0){
-      Throw-P08Qualification 'P08-QUAL-PREPARE-RESULT' 'PrepareAttempt did not return the exact fresh r1 binding.'
+      Throw-P08Qualification 'P08-QUAL-PREPARE-RESULT' 'PrepareAttempt did not return the exact fresh r2 binding.'
     }
     $prepareLocator=Get-Content -LiteralPath ([string]$prepared.locator_path) -Raw|ConvertFrom-Json -Depth 100
     $prepareIndex=Get-Content -LiteralPath ([string]$prepared.index_path) -Raw|ConvertFrom-Json -Depth 100
     if($prepareLocator.schema_version -cne 'mnf-phase08-live-locator/2' -or $prepareLocator.boundary_sha -cne $prepareBoundary -or
-        $prepareLocator.release_ref -cne 'refs/tags/modules-v0.1.0-r1' -or $prepareLocator.root_intent_sha256 -cne $prepared.root_intent_sha256 -or
+        $prepareLocator.release_ref -cne 'refs/tags/modules-v0.1.0-r2' -or $prepareLocator.root_intent_sha256 -cne $prepared.root_intent_sha256 -or
         $prepareLocator.prepared_manifest_sha256 -cne $prepared.prepared_manifest_sha256 -or $prepareIndex.schema_version -cne 'mnf-phase08-artifact-index/2' -or
-        @($prepareIndex.records|Where-Object kind -ceq 'HistoricalNegative').Count -ne 1 -or @($prepareIndex.records|Where-Object kind -ceq 'GenesisJournal').Count -ne 1 -or
+        @($prepareIndex.records|Where-Object kind -ceq 'HistoricalNegative').Count -ne 2 -or @($prepareIndex.records|Where-Object kind -ceq 'GenesisJournal').Count -ne 1 -or
         @($prepareIndex.records|Where-Object kind -ceq 'PreparedManifest').Count -ne 1){
       Throw-P08Qualification 'P08-QUAL-PREPARE-STORE' 'PrepareAttempt locator/index/store evidence is incomplete.'
     }
@@ -308,21 +311,22 @@ function Assert-P08FixtureContract {
       Throw-P08Qualification 'P08-QUAL-PREPARE-EVIDENCE' 'PrepareAttempt historical or genesis evidence drifted.'
     }
     & (Join-Path $prepareExecutionRoot 'scripts/quality/New-PreparedReleaseBundle.ps1') -ValidateOnly -OutputRoot ([string]$prepared.prepared_root) `
-      -Repository tchivs/moonbit-foundation -Actor tchivs -RunId 1 -RunAttempt 1 -ReleaseRef refs/tags/modules-v0.1.0-r1 `
-      -SourceSha $prepareBoundary -RootIntentSha256 ([string]$prepared.root_intent_sha256) -IntentSha256 ([string]$prepared.intent_sha256) -RunMode start | Out-Null
+      -Repository tchivs/moonbit-foundation -Actor tchivs -RunId 1 -RunAttempt 1 -ReleaseRef refs/tags/modules-v0.1.0-r2 `
+      -SourceSha $prepareBoundary -RootIntentSha256 ([string]$prepared.root_intent_sha256) -IntentSha256 ([string]$prepared.intent_sha256) -RunMode start `
+      -HistoricalAttemptZeroSha256 (Get-P08QualificationSha ([string]$prepared.attempt_zero_history_path)) -HistoricalR1Sha256 (Get-P08QualificationSha ([string]$prepared.r1_history_path)) | Out-Null
 
     $missingState=Join-Path $prepareFixtureRoot 'missing-state'
     $missingBoundary=& $prepareHosted -Mode InitializeBoundary -Repository tchivs/moonbit-foundation -Workflow publish-modules.yml `
       -BoundarySha $prepareBoundary -ExecutionRoot $prepareExecutionRoot -StateRoot $missingState
     Confirm-P08FixtureFailure 'P08-PREPARE-MISSING-BINDING' {
-      & $prepareHosted -Mode PrepareAttempt -BoundaryLocatorPath ([string]$missingBoundary.locator_path) -ReleaseRef refs/tags/modules-v0.1.0-r1 `
+      & $prepareHosted -Mode PrepareAttempt -BoundaryLocatorPath ([string]$missingBoundary.locator_path) -ReleaseRef refs/tags/modules-v0.1.0-r2 `
         -HistoricalRunAttempt 1 -HistoricalReleaseRef refs/tags/modules-v0.1.0 -HistoricalSourceSha 198436a45b7403a3c28c98d5fa0d5ed6a958455f -PrepareProvider $prepareProvider
     }
     $mismatchState=Join-Path $prepareFixtureRoot 'mismatch-state'
     $mismatchBoundary=& $prepareHosted -Mode InitializeBoundary -Repository tchivs/moonbit-foundation -Workflow publish-modules.yml `
       -BoundarySha $prepareBoundary -ExecutionRoot $prepareExecutionRoot -StateRoot $mismatchState
     Confirm-P08FixtureFailure 'P08-PREPARE-HISTORICAL-BINDING' {
-      & $prepareHosted -Mode PrepareAttempt -BoundaryLocatorPath ([string]$mismatchBoundary.locator_path) -ReleaseRef refs/tags/modules-v0.1.0-r1 `
+      & $prepareHosted -Mode PrepareAttempt -BoundaryLocatorPath ([string]$mismatchBoundary.locator_path) -ReleaseRef refs/tags/modules-v0.1.0-r2 `
         -HistoricalRunId 29652468948 -HistoricalRunAttempt 1 -HistoricalReleaseRef refs/tags/modules-v0.1.0 -HistoricalSourceSha ('9'*40) -PrepareProvider $prepareProvider
     }
   } finally {
@@ -398,7 +402,7 @@ function Assert-P08AuthorityFile {
   $json=Get-Content -LiteralPath $Path -Raw
   if (-not ($json|Test-Json -SchemaFile $schemaPath -ErrorAction Stop)) { Throw-P08Qualification 'P08-QUAL-AUTHORITY-SCHEMA' 'Authority record failed its closed schema.' }
   $record=$json|ConvertFrom-Json -Depth 100
-  if ($AllowedSchemas -cnotcontains [string]$record.schema_version -or $record.repository -cne 'tchivs/moonbit-foundation' -or $record.release_ref -cne 'refs/tags/modules-v0.1.0-r1' -or
+  if ($AllowedSchemas -cnotcontains [string]$record.schema_version -or $record.repository -cne 'tchivs/moonbit-foundation' -or $record.release_ref -cne 'refs/tags/modules-v0.1.0-r2' -or
       $record.boundary_sha -cne $record.source_sha -or $record.root_intent_sha256 -cne $record.intent_sha256 -or $record.prepared_manifest_sha256 -cnotmatch '^[0-9a-f]{64}$') {
     Throw-P08Qualification 'P08-QUAL-AUTHORITY-BINDING' 'Authority record binding drifted.'
   }

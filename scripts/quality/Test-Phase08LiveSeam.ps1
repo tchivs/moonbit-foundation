@@ -361,8 +361,11 @@ function New-R2HandoffFixture {
     mutation_authorization_packet_path=$packetPath;authorization_receipt_path=$receiptPath;exact_existing_authority_path=$exactPath
   }
   $null=Write-P08ActiveAttempt -Path $activePath -Bindings $bindings -AuthorityVariant $Variant -UpdatedAt '2026-07-19T00:00:00Z'
-  [pscustomobject]@{root=$Root;active_path=$activePath;handoff_path=(Join-Path $Root 'handoff.json')}
+  [pscustomobject]@{root=$Root;active_path=$activePath;handoff_path=(Join-Path $Root 'handoff.json');packet_path=$packetPath}
 }
+
+Confirm-LiveRule 'P08-HANDOFF-PRODUCTION-OVERRIDE' {& $hostedPath -Mode WriteHandoff -HandoffPath (Join-Path ([IO.Path]::GetTempPath()) 'caller.json')}
+Confirm-LiveRule 'P08-HANDOFF-PRODUCTION-OVERRIDE' {& $hostedPath -Mode WriteHandoff -TempRoot (Join-Path ([IO.Path]::GetTempPath()) 'caller-root')}
 
 $handoffParent=Join-Path ([IO.Path]::GetTempPath()) ('mnf-r2-handoff-fixtures-'+[Guid]::NewGuid().ToString('N'))
 $null=New-Item -ItemType Directory -Path $handoffParent
@@ -371,8 +374,11 @@ try{
     $ownedRoot=Join-Path $handoffParent ([Guid]::NewGuid().ToString('N'))
     try{
       $fixture=New-R2HandoffFixture -Root $ownedRoot -Variant $variant
+      if($variant -ceq 'mutation_authorized'){
+        Confirm-LiveRule 'P08-RECEIPT-LITERAL' {Write-P08AuthorizationReceipt -PacketPath $fixture.packet_path -ReceiptPath (Join-Path $ownedRoot 'nonliteral.json') -BoundarySha ('1'*40) -Response 'authorize-core ' -CreatedAt '2026-07-19T00:00:00Z'}
+      }
       $handoff=Write-P08HostedHandoff -ActiveAttemptPath $fixture.active_path -HandoffPath $fixture.handoff_path -CreatedAt '2026-07-19T08:00:00+08:00'
-      if($handoff.authority_variant -cne $variant -or $handoff.created_at_utc -cne '2026-07-19T00:00:00Z'){throw 'P08-R2-HANDOFF-FIXTURE: hosted handoff branch or UTC projection drifted.'}
+      if($handoff.authority_variant -cne $variant -or (ConvertTo-ReleaseCanonicalUtc $handoff.created_at_utc) -cne '2026-07-19T00:00:00Z'){throw 'P08-R2-HANDOFF-FIXTURE: hosted handoff branch or UTC projection drifted.'}
     }finally{
       $ownedFull=[IO.Path]::GetFullPath($ownedRoot);$parentFull=[IO.Path]::GetFullPath($handoffParent).TrimEnd([IO.Path]::DirectorySeparatorChar)
       if(-not $ownedFull.StartsWith($parentFull+[IO.Path]::DirectorySeparatorChar,[StringComparison]::Ordinal)){throw 'P08-R2-FIXTURE-OWNERSHIP: fixture root escaped its owned parent.'}

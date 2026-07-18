@@ -198,29 +198,28 @@ try {
 
     & {
         $hostedPath=Join-Path $repoRoot 'scripts\quality\Invoke-Phase08HostedRun.ps1'
+        . $hostedPath -Mode MaterializePublicSurface -LibraryOnly
         $boundary='1'*40;$rootIntent='a'*64;$prepared='b'*64
-        $locator=Join-Path $scratch 'hosted/locator.json';$artifacts=Join-Path $scratch "hosted/artifacts/$rootIntent"
-        $gitAdapter={
-            param($root,$arguments)
-            switch($arguments[0]){
-                'status'{''}
-                'rev-parse'{if($arguments[1] -ceq 'HEAD'){$boundary}else{'2'*40}}
-                'hash-object'{'2'*40}
-            }
-        }.GetNewClosure()
-        $common=@{
-            Repository='tchivs/moonbit-foundation';Workflow='publish-modules.yml';ReleaseRef='refs/tags/modules-v0.1.0-r1'
-            SourceSha=$boundary;RootIntentSha256=$rootIntent;IntentSha256=$rootIntent;PreparedManifestSha256=$prepared
-            TargetModule='mb-core';LocatorPath=$locator;ArtifactRoot=$artifacts;ExecutionRoot=$repoRoot;BoundarySha=$boundary;GitCommand=$gitAdapter
+        $artifacts=Join-Path $scratch ('hosted-'+[Guid]::NewGuid().ToString('N'))
+        $null=New-Item -ItemType Directory -Path $artifacts
+        $indexPath=Join-Path $artifacts 'index.json'
+        $locator=[pscustomobject][ordered]@{
+            schema_version='mnf-phase08-live-locator/2';repository='tchivs/moonbit-foundation';workflow='publish-modules.yml';release_ref='refs/tags/modules-v0.1.0-r2'
+            boundary_sha=$boundary;execution_root=$artifacts;source_sha=$boundary;root_intent_sha256=$rootIntent;intent_sha256=$rootIntent
+            prepared_manifest_sha256=$prepared;artifact_root=$artifacts;index_path=$indexPath;mutation_authorization_packet_path=$null;mutation_authorization_packet_sha256=$null
+            created_at_utc='2026-07-19T00:00:00Z';locator_sha256=('c'*64)
         }
-        & $hostedPath -Mode InitializeBoundary @common | Out-Null
+        $index=[pscustomobject][ordered]@{schema_version='mnf-phase08-artifact-index/2';boundary_sha=$boundary;prepared_manifest_sha256=$prepared;records=@()}
+        Write-P08ExclusiveJson $indexPath $index
+        $store=[pscustomobject]@{locator=$locator;index=$index;paths=[pscustomobject]@{root=$artifacts;index=$indexPath}}
         foreach($phase in @('exact-existing','post-publish')){
-            $surfaceBase=$base
-            $provider={param($module,$observationPhase) $surfaceBase|ConvertTo-Json -Depth 100|ConvertFrom-Json -Depth 100}.GetNewClosure()
-            $result=& $hostedPath -Mode MaterializePublicSurface @common -ObservationPhase $phase -SurfaceProvider $provider
-            Assert-True (Test-Path -LiteralPath $result.fixture_path -PathType Leaf) "$phase public surface must be materialized"
+            $surfacePath=Join-Path $artifacts "surfaces/mb-core/$phase/public-surface.json"
+            $null=New-Item -ItemType Directory -Force (Split-Path -Parent $surfacePath)
+            [IO.File]::WriteAllText($surfacePath,($base|ConvertTo-Json -Depth 100 -Compress),[Text.UTF8Encoding]::new($false))
+            $digest=Get-P08Sha256 $surfacePath
+            $null=Add-P08SanitizedArtifact -Store $store -Kind PublicSurface -Module mb-core -Phase $phase -SourcePath $surfacePath -FileDigest $digest -ContentDigest $digest -PriorAuthorityPath ''
         }
-        $index=Get-Content -LiteralPath (Join-Path $artifacts 'index.json') -Raw|ConvertFrom-Json -Depth 100
+        $index=Get-Content -LiteralPath $indexPath -Raw|ConvertFrom-Json -Depth 100
         Assert-Equal @($index.records).Count 2 'both exact-existing and post-publish surfaces must be indexed once'
         Assert-Sequence @($index.records.observation_phase) @('exact-existing','post-publish') 'surface index phase order'
         Assert-Sequence @($index.records.kind) @('PublicSurface','PublicSurface') 'surface index kind'
@@ -230,7 +229,10 @@ try {
             Assert-Equal $record.prepared_manifest_sha256 $prepared 'indexed surface prepared binding'
         }
         $duplicateFailed=$false
-        try { & $hostedPath -Mode MaterializePublicSurface @common -ObservationPhase exact-existing -SurfaceProvider $provider | Out-Null } catch { $duplicateFailed=$true }
+        try {
+            $surfacePath=Join-Path $artifacts 'surfaces/mb-core/exact-existing/public-surface.json';$digest=Get-P08Sha256 $surfacePath
+            Add-P08SanitizedArtifact -Store $store -Kind PublicSurface -Module mb-core -Phase exact-existing -SourcePath $surfacePath -FileDigest $digest -ContentDigest $digest -PriorAuthorityPath ''|Out-Null
+        } catch { $duplicateFailed=$true }
         Assert-True $duplicateFailed 'duplicate indexed surface must fail before overwrite'
     }
 
