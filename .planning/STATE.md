@@ -5,16 +5,16 @@ milestone_name: Publication & Compatibility
 current_phase: 6
 current_phase_name: Namespace Authority and Compatibility Contract
 status: executing
-stopped_at: Completed 06-01-PLAN.md
-last_updated: "2026-07-17T15:02:53.560Z"
+stopped_at: Completed 06-06-PLAN.md
+last_updated: "2026-07-18T01:51:18.143Z"
 last_activity: 2026-07-17
 last_activity_desc: completed fail-closed sanitized registry authority contract
 progress:
   total_phases: 4
-  completed_phases: 0
+  completed_phases: 1
   total_plans: 25
-  completed_plans: 24
-  percent: 96
+  completed_plans: 25
+  percent: 25
 ---
 
 # Project State
@@ -30,7 +30,7 @@ See `.planning/PROJECT.md` (updated 2026-07-17).
 ## Current Position
 
 Phase: 6 (Namespace Authority and Compatibility Contract) — EXECUTING
-Plan: 24 of 25 complete; next 06-06
+Plan: 25 of 25 complete; next 06-06
 Status: Executing final credential-free Phase 6 integration
 Last activity: 2026-07-17 — completed fail-closed sanitized registry authority contract
 
@@ -77,6 +77,8 @@ Current milestone: [██████████] 96% of planned Phase 6 work
 - [Phase 06]: Close active old-identity inventory at 105 exact occurrence records with content-addressed contexts and preserve fail-closed authority. — Final compatibility evidence must distinguish immutable history, explicit mappings, source audit, and named negative fixtures without broad allowlists.
 - [Phase 06]: Account identity, public account presence, documented namespace syntax, and version absence do not prove current-token namespace or publish authority.
 - [Phase 06]: Phase 6 satisfies REG-03 by proving the readiness gate rejects unknown required authority; Phase 7 validates the authenticated publish seam before mutation.
+- [Phase 06]: Required treats REG03-REQUIRED-FACT-UNKNOWN as the only valid publish-readiness outcome until Phase 7 proves the authenticated seam. — Account identity, public presence, and version absence cannot prove current-token namespace or publication authority.
+- [Phase 06]: Source-isolation consumers prebuild public packages in canonical module and package order before consumer check and test on every target. — Explicit topological construction removes incremental Native interface ordering dependence while preserving source-only isolation and manifest immutability.
 
 ### Pending Decisions
 
@@ -90,8 +92,8 @@ Current milestone: [██████████] 96% of planned Phase 6 work
 
 **Resume file:** None
 
-Last session: 2026-07-17T15:02:53.537Z
-Stopped at: Completed 06-01-PLAN.md
+Last session: 2026-07-18T01:51:18.124Z
+Stopped at: Completed 06-06-PLAN.md
 Resume with: `/gsd-execute-phase 6`
 
 ## Operator Next Steps
@@ -123,3 +125,4 @@ Resume with: `/gsd-execute-phase 6`
 | Phase 06 P24 | 5min | 1 tasks | 6 files |
 | Phase 06 P11 | 28min | 3 tasks | 4 files |
 | Phase 06 P01 | 50min | 2 tasks | 4 files |
+| Phase 06 P06 | 10h 31m | 2 tasks | 4 files |
