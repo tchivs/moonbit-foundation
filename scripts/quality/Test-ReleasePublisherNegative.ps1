@@ -99,6 +99,12 @@ $mismatch = Invoke-PublisherRehearsal -Request $base -Scenario existing_mismatch
 if ($mismatch.disposition -cne 'incident_opened' -or $mismatch.destructive_recovery_available -ne $false) { throw 'Mismatch did not terminate forward-only.' }
 $unknown = Invoke-PublisherRehearsal -Request $base -Scenario unknown
 if ($unknown.disposition -cne 'unknown_stopped' -or $unknown.reobserved -ne $true) { throw 'Unknown observation did not stop.' }
+$exact = Invoke-PublisherRehearsal -Request $base -Scenario existing_exact
+if ($exact.disposition -cne 'idempotent_checkpoint' -or $exact.mutation_count -ne 0) { throw 'Exact replay attempted republish.' }
+$nonzero = Invoke-PublisherRehearsal -Request $base -Scenario nonzero
+if ($nonzero.disposition -cne 'fresh_authorization_required' -or $nonzero.reobserved -ne $true) { throw 'Nonzero outcome did not re-observe.' }
+$cancelled = Invoke-PublisherRehearsal -Request $base -Scenario cancelled
+if ($cancelled.disposition -cne 'unknown_stopped' -or $cancelled.reobserved -ne $true) { throw 'Interrupted run did not re-observe and stop.' }
 $auth = Invoke-PublisherRehearsal -Request $base -Scenario invalid_credential
 if ($auth.disposition -cne 'authentication_rejected' -or $auth.mutation_count -ne 0) { throw 'Invalid auth reached mutation.' }
 $evidence = Invoke-PublisherRehearsal -Request $base -Scenario evidence_failure
@@ -112,5 +118,6 @@ if ($race.first -cne 'accepted' -or $race.second -cne 'stale_fork' -or $race.fir
 Confirm-PublisherRule 'PUB11-CORRECTION-SEQUENCE' { $bad=$correctionA.PSObject.Copy(); $bad.correction_sequence=2; Assert-PublisherCorrectionRequest -Request $bad -LatestIntentSha256 $root -LatestCorrectionSequence 0 }
 Confirm-PublisherRule 'PUB10-STALE-FORK' { Assert-PublisherCorrectionRequest -Request $correctionB -LatestIntentSha256 $correctionA.intent_sha256 -LatestCorrectionSequence 1 }
 Confirm-PublisherRule 'PUB04-ROOT' { $bad=$correctionA.PSObject.Copy(); $bad.root_intent_sha256=('d'*64); Assert-PublisherCorrectionRequest -Request $bad -LatestIntentSha256 $root -LatestCorrectionSequence 0 -ExpectedRoot $root }
+Confirm-PublisherRule 'PUB14-LIVE-GUARD' { Invoke-PublisherLiveOneStep -Request $base -Adapter $null -Authorized $false }
 
 Write-Host 'Publisher controller recovery rehearsal matrix passed.'

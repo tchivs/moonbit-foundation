@@ -9,7 +9,7 @@ function Assert-PublisherClosedProperties {
   param([string]$Label, [object]$Object, [string[]]$Expected)
   if ($null -eq $Object) { Throw-PublisherRule 'PUB01-CLOSED' "$Label is null." }
   $actual = @($Object.PSObject.Properties.Name)
-  if ($actual.Count -ne $Expected.Count) { Throw-PublisherRule 'PUB01-CLOSED' "$Label property count is invalid." }
+  if ($actual.Count -ne $Expected.Count) { Throw-PublisherRule 'PUB01-CLOSED' "$Label property count is invalid: $($actual -join ',')." }
   for ($i = 0; $i -lt $Expected.Count; $i++) {
     if ($actual[$i] -cne $Expected[$i]) { Throw-PublisherRule 'PUB01-CLOSED' "$Label property '$($actual[$i])' is not '$($Expected[$i])'." }
   }
