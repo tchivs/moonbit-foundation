@@ -31,7 +31,7 @@ See `.planning/PROJECT.md` (updated 2026-07-17).
 
 Phase: 08 (Ordered Mooncakes Publication and Registry Consumers) — EXECUTING
 Plan: 4 of 6
-Status: Executing Wave 3
+Status: Executing Wave 4
 Last activity: 2026-07-18 — Phase 08 execution started
 
 ## Progress

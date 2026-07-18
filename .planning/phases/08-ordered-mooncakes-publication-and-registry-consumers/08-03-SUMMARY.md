@@ -31,7 +31,7 @@ key-decisions:
 patterns-established:
   - "Cold consumer boundary: fresh external root, empty MOON_HOME, explicit toolchain, cleared child environment, and finally-bounded teardown."
   - "Distribution proof gate: exact observation, archive/manifest identity, graph, toolchain, four target runtimes, and behavior digest before verified output."
-requirements-completed: [DIST-01, DIST-02, DIST-03, DIST-04]
+requirements-completed: []
 coverage:
   - id: D1
     description: Closed cold-isolation and exact graph proof semantics

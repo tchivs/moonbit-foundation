@@ -23,7 +23,7 @@ key-files:
 key-decisions:
   - "Use one fixed ordered 17-payload inventory and treat the manifest digest as artifact identity without self-reference."
   - "Carry the prepared validator inside the bundle so the publisher reruns the identical closed validation before secret materialization."
-requirements-completed: [DIST-04]
+requirements-completed: []
 duration: 24min
 completed: 2026-07-18
 status: complete

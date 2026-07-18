@@ -21,7 +21,7 @@ key_decisions:
   - "Bound registry propagation observation to 20 attempts at a fixed 15-second cadence."
   - "Accept only structured caller-supplied surface records and persist only the closed sanitized projection."
   - "Treat every missing, weak, ambiguous, secret-shaped, or disagreeing fact as non-mutating unknown or mismatch evidence."
-requirements_completed: [DIST-04, PROV-05]
+requirements_completed: []
 metrics:
   duration: 15min
   completed: 2026-07-18
