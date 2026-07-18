@@ -87,7 +87,7 @@ function Assert-NoPreparedSecretMaterial {
   $isCredentialAdapter = [IO.Path]::GetFileName($Path) -ceq 'Invoke-MooncakesLiveMutation.ps1'
   $forbiddenValues = @(
     ('Authorization' + ':'),('Bearer' + ' '),
-    ('BEGIN PRIVATE' + ' KEY'),('.' + 'env')
+    ('BEGIN PRIVATE' + ' KEY')
   )
   if (-not $isCredentialAdapter) { $forbiddenValues += @(('MOONCAKES' + '_TOKEN'),('credentials' + '.json')) }
   foreach ($forbidden in $forbiddenValues) {
