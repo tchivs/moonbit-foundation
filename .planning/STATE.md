@@ -6,13 +6,13 @@ current_phase: 08
 current_phase_name: Ordered Mooncakes Publication and Registry Consumers
 status: executing
 stopped_at: Completed 08-06-PLAN.md
-last_updated: "2026-07-18T19:22:31.292Z"
+last_updated: "2026-07-18T21:10:51.943Z"
 last_activity: 2026-07-19
-last_activity_desc: Plan 08-06 hosted static seam completed locally; live distribution requirements remain pending
+last_activity_desc: Phase 8 forward-correction replanned and independently verified; Wave 7 r2 contracts are ready
 progress:
   total_phases: 4
   completed_phases: 2
-  total_plans: 36
+  total_plans: 38
   completed_plans: 34
   percent: 50
 ---
@@ -30,9 +30,9 @@ See `.planning/PROJECT.md` (updated 2026-07-17).
 ## Current Position
 
 Phase: 08 (Ordered Mooncakes Publication and Registry Consumers) — EXECUTING
-Plan: 7 of 8
-Status: Ready for Wave 7 — verify the exact static completion HEAD before any separately authorized external action
-Last activity: 2026-07-19 — Plan 08-06 completed locally; no live distribution requirement was claimed
+Plan: 7 of 10
+Status: Ready for Wave 7 — implement the r2 initial forward-retry contracts before any external action
+Last activity: 2026-07-19 — r2 forward-correction plans passed independent verification; no live distribution requirement was claimed
 
 ## Progress
 
@@ -41,7 +41,7 @@ Current milestone: [█████░░░░░] 50% of v0.2 phases complete
 - v0.2 phases completed: 2/4
 - Phase 6 plans completed: 25/25
 - Phase 7 plans completed: 3/3
-- Phase 8 plans completed: 6/8
+- Phase 8 plans completed: 6/10
 - v0.2 requirements mapped: 21/21
 - Historical total: 5 completed phases, 42 completed plans, 36/36 v0.1 requirements validated
 
@@ -95,7 +95,7 @@ Current milestone: [█████░░░░░] 50% of v0.2 phases complete
 - [Phase 08]: Replay every supplied checkpoint through the Phase 7 reducer before deriving the next module.
 - [Phase 08]: Expose the token only through one temporary credentials file under a child-only MOON_HOME and persist only an allowlisted classification.
 - [Phase 08]: Carry the tracked live adapter as the eighteenth exact prepared payload so the publisher remains artifact-only.
-- [Phase 08]: Keep refs/tags/modules-v0.1.0, source 198436a, and run 29652468948/1 as terminal historical evidence; only refs/tags/modules-v0.1.0-r1 may be current initial authority.
+- [Phase 08]: Keep refs/tags/modules-v0.1.0 and refs/tags/modules-v0.1.0-r1 as immutable terminal historical evidence; only refs/tags/modules-v0.1.0-r2 may be current initial forward-retry authority.
 - [Phase 08]: Require the exact closed tchivs whoami projection and prepared-manifest digest before publisher or live mutation eligibility.
 - [Phase 08]: Represent exact-existing registry authority as a bound zero-mutation checkpoint that cannot enter the mutation adapter.
 - [Phase 08]: Bind every hosted helper use to one clean r1 execution root, HEAD, and exact Git blob before any operation.
