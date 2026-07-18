@@ -31,7 +31,7 @@ function Write-JsonFixture {
 function Copy-PreparedTree {
   param([Parameter(Mandatory)][string]$Source, [Parameter(Mandatory)][string]$Destination)
   $null = New-Item -ItemType Directory -Force -Path $Destination
-  Copy-Item -LiteralPath (Join-Path $Source '*') -Destination $Destination -Recurse -Force
+  Get-ChildItem -LiteralPath $Source -Force | Copy-Item -Destination $Destination -Recurse -Force
 }
 
 function Assert-WorkflowOnly {
@@ -114,6 +114,8 @@ try {
     ReleaseRef='refs/tags/modules-v0.1.0'; SourceSha=$sourceSha; RootIntentSha256=$intentSha; IntentSha256=$intentSha
     RunMode='start'
   }
+  $validation = @{} + $common
+  $validation.Remove('InputRoot')
   $outA = Join-Path $tempRoot 'out-a'
   $outB = Join-Path $tempRoot 'out-b'
   $a = & $generator @common -OutputRoot $outA
@@ -128,20 +130,22 @@ try {
   if (@($manifestA.payloads).Count -ne 16 -or (@($manifestA.payloads.sha256) -join ',') -cne (@($manifestB.payloads.sha256) -join ',')) {
     throw 'PREP01-DETERMINISM: payload inventory or digests differ.'
   }
-  & $generator -ValidateOnly -OutputRoot $outA @common | Out-Null
+  & $generator -ValidateOnly -OutputRoot $outA @validation | Out-Null
 
   function Invoke-MutatedCase {
     param([string]$Name,[string]$Rule,[scriptblock]$Mutate)
     $caseRoot = Join-Path $tempRoot $Name
     Copy-PreparedTree -Source $outA -Destination $caseRoot
     & $Mutate $caseRoot
-    Confirm-PreparedRule $Rule { & $generator -ValidateOnly -OutputRoot $caseRoot @common | Out-Null }
+    Confirm-PreparedRule $Rule { & $generator -ValidateOnly -OutputRoot $caseRoot @validation | Out-Null }
   }
 
   Invoke-MutatedCase 'missing' 'PREP04-MISSING-PAYLOAD' { param($r) Remove-Item -LiteralPath (Join-Path $r 'archives\mb-core.zip') -Force }
   Invoke-MutatedCase 'empty' 'PREP05-EMPTY-PAYLOAD' { param($r) [IO.File]::WriteAllBytes((Join-Path $r 'archives\mb-core.zip'),[byte[]]@()) }
   Invoke-MutatedCase 'extra' 'PREP06-EXTRA-PAYLOAD' { param($r) Write-Utf8NoBom -Path (Join-Path $r 'unexpected.txt') -Text 'extra' }
-  Invoke-MutatedCase 'digest' 'PREP07-PAYLOAD-DIGEST' { param($r) Write-Utf8NoBom -Path (Join-Path $r 'archives\mb-core.zip') -Text 'drift' }
+  Invoke-MutatedCase 'digest' 'PREP07-PAYLOAD-DIGEST' {
+    param($r) $p=Join-Path $r 'archives\mb-core.zip'; $bytes=[IO.File]::ReadAllBytes($p); $bytes[0]=$bytes[0] -bxor 1; [IO.File]::WriteAllBytes($p,$bytes)
+  }
   Invoke-MutatedCase 'size' 'PREP08-PAYLOAD-SIZE' {
     param($r) $p=Join-Path $r 'prepared-bundle.json'; $m=Get-Content $p -Raw|ConvertFrom-Json -Depth 100; $m.payloads[0].size++; Write-JsonFixture -Path $p -Value $m
   }
