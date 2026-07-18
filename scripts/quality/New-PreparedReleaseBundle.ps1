@@ -84,10 +84,12 @@ function Assert-NoPreparedSecretMaterial {
   param([Parameter(Mandatory)][string]$Path)
   $bytes = [IO.File]::ReadAllBytes($Path)
   $text = [Text.Encoding]::UTF8.GetString($bytes)
+  $isCredentialAdapter = [IO.Path]::GetFileName($Path) -ceq 'Invoke-MooncakesLiveMutation.ps1'
   $forbiddenValues = @(
-    ('MOONCAKES' + '_TOKEN'),('credentials' + '.json'),('Authorization' + ':'),('Bearer' + ' '),
+    ('Authorization' + ':'),('Bearer' + ' '),
     ('BEGIN PRIVATE' + ' KEY'),('.' + 'env')
   )
+  if (-not $isCredentialAdapter) { $forbiddenValues += @(('MOONCAKES' + '_TOKEN'),('credentials' + '.json')) }
   foreach ($forbidden in $forbiddenValues) {
     if ($text.IndexOf($forbidden,[StringComparison]::OrdinalIgnoreCase) -ge 0) {
       Throw-PreparedRule 'PREP13-SECRET-MATERIAL' "Forbidden secret material in '$Path'."

@@ -99,7 +99,7 @@ try {
   $fixtureFiles = [ordered]@{
     'scripts/quality/New-PreparedReleaseBundle.ps1' = 'prepared validator'
     'scripts/quality/Invoke-ReleasePublisher.ps1' = 'publisher controller'
-    'scripts/quality/Invoke-MooncakesLiveMutation.ps1' = 'live mutation adapter'
+    'scripts/quality/Invoke-MooncakesLiveMutation.ps1' = 'structural adapter markers: MOONCAKES_TOKEN credentials.json'
     'scripts/quality/ReleasePublisher.Common.ps1' = 'publisher common'
     'policy/release-qualification.json' = '{"schema_version":"1.0.0"}'
     'schemas/prepared.json' = '{"title":"prepared"}'
