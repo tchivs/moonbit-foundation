@@ -23,7 +23,7 @@
 **Milestone goal:** Publish the three v0.1 modules through a fail-closed, compatibility-aware, recoverable release path and prove exact registry consumption with immutable evidence.
 
 - [x] **Phase 6: Namespace Authority and Compatibility Contract** — Verify registry authority and establish deterministic public-interface, versioning, and publication-documentation contracts. (completed 2026-07-18)
-- [ ] **Phase 7: Release Safety, Intent, and Recovery Automation** — Bind publication to an exact credential-free intent and a resumable, forward-only state machine.
+- [x] **Phase 7: Release Safety, Intent, and Recovery Automation** — Bind publication to an exact credential-free intent and a resumable, forward-only state machine. (completed 2026-07-18)
 - [ ] **Phase 8: Ordered Mooncakes Publication and Registry Consumers** — Publish the three modules in dependency order and prove cold registry-only consumption.
 - [ ] **Phase 9: Provenance, Immutable Closure, and Milestone Audit** — Close the source-to-registry evidence chain and audit the completed milestone.
 
@@ -161,11 +161,11 @@
 3. A release-wide serialization lock and monotonic journal prevent concurrent, replayed, duplicate, cancelled-in-progress, and dependency-order-violating transitions while preserving completed checkpoints.
 4. Credential-free negative rehearsals cover timeout, partial success, existing-version mismatch, invalid credential, and evidence failure; ambiguous real failures trigger registry re-observation before any retry, and mismatches stop with incident evidence plus a forward corrected version and advisory.
 
-**Plans:** 2/3 plans executed
+**Plans:** 3/3 plans complete
 
 - [x] 07-01-PLAN.md
 - [x] 07-02-PLAN.md
-- [ ] 07-03-PLAN.md
+- [x] 07-03-PLAN.md
 
 ### Phase 8: Ordered Mooncakes Publication and Registry Consumers
 
@@ -214,7 +214,7 @@
 | 4. Image Model, Views, and Operations | v0.1 | 9/9 | Complete | 2026-07-17 |
 | 5. Reference Codec and Release Qualification | v0.1 | 8/8 | Complete | 2026-07-17 |
 | 6. Namespace Authority and Compatibility Contract | v0.2 | 25/25 | Complete    | 2026-07-18 |
-| 7. Release Safety, Intent, and Recovery Automation | v0.2 | 2/3 | In Progress|  |
+| 7. Release Safety, Intent, and Recovery Automation | v0.2 | 3/3 | Complete | 2026-07-18 |
 | 8. Ordered Mooncakes Publication and Registry Consumers | v0.2 | 0/TBD | Not started | — |
 | 9. Provenance, Immutable Closure, and Milestone Audit | v0.2 | 0/TBD | Not started | — |
 
@@ -223,4 +223,4 @@
 - **phase-1-foundation-charter-and-reproducible-workspace:** Archived with its complete source inventory under `.planning/milestones/v0.1-phases/`.
 
 ---
-*Roadmap updated: 2026-07-17 for v0.2 Publication & Compatibility*
+*Roadmap updated: 2026-07-18 after Phase 7 completion*

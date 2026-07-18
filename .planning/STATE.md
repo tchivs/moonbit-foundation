@@ -2,19 +2,19 @@
 gsd_state_version: 1.0
 milestone: v0.2
 milestone_name: Publication & Compatibility
-current_phase: 7
-current_phase_name: Release Safety, Intent, and Recovery Automation
-status: executing
-stopped_at: Phase 7 context gathered
-last_updated: "2026-07-18T03:34:56.547Z"
+current_phase: 8
+current_phase_name: Ordered Mooncakes Publication and Registry Consumers
+status: ready_to_plan
+stopped_at: Phase 7 complete
+last_updated: "2026-07-18T04:30:00.000Z"
 last_activity: 2026-07-18
 last_activity_desc: Phase 7 execution started
 progress:
   total_phases: 4
-  completed_phases: 1
+  completed_phases: 2
   total_plans: 28
-  completed_plans: 25
-  percent: 25
+  completed_plans: 28
+  percent: 50
 ---
 
 # Project State
@@ -25,22 +25,22 @@ See `.planning/PROJECT.md` (updated 2026-07-17).
 
 **Core value:** MoonBit developers can reuse stable, high-performance native infrastructure contracts instead of rebuilding incompatible foundations for every graphics, document, media, or automation product.
 
-**Current focus:** Phase 7 — Release Safety, Intent, and Recovery Automation
+**Current focus:** Phase 8 — Ordered Mooncakes Publication and Registry Consumers
 
 ## Current Position
 
-Phase: 7 (Release Safety, Intent, and Recovery Automation) — EXECUTING
-Plan: 1 of 3
-Status: Executing Phase 7
-Last activity: 2026-07-18 — Phase 7 execution started
+Phase: 8 (Ordered Mooncakes Publication and Registry Consumers) — READY TO PLAN
+Plan: not yet planned
+Status: Phase 7 complete; Phase 8 planning ready
+Last activity: 2026-07-18 — Phase 7 completed with hosted handoff verified
 
 ## Progress
 
-Current milestone: [███░░░░░░░] 25% of v0.2 phases complete
+Current milestone: [█████░░░░░] 50% of v0.2 phases complete
 
-- v0.2 phases completed: 1/4
+- v0.2 phases completed: 2/4
 - Phase 6 plans completed: 25/25
-- Phase 7 plans: not yet planned
+- Phase 7 plans completed: 3/3
 - v0.2 requirements mapped: 21/21
 - Historical total: 5 completed phases, 41 completed plans, 36/36 v0.1 requirements validated
 
@@ -80,11 +80,15 @@ Current milestone: [███░░░░░░░] 25% of v0.2 phases complete
 - [Phase 06]: Phase 6 satisfies REG-03 by proving the readiness gate rejects unknown required authority; Phase 7 validates the authenticated publish seam before mutation.
 - [Phase 06]: Required treats REG03-REQUIRED-FACT-UNKNOWN as the only valid publish-readiness outcome until Phase 7 proves the authenticated seam. — Account identity, public presence, and version absence cannot prove current-token namespace or publication authority.
 - [Phase 06]: Source-isolation consumers prebuild public packages in canonical module and package order before consumer check and test on every target. — Explicit topological construction removes incremental Native interface ordering dependence while preserving source-only isolation and manifest immutability.
+- [Phase 07]: Authorize exact canonical release-intent digests separately from content identity and retain one immutable initial root across forward corrections.
+- [Phase 07]: Serialize publication by repository plus immutable root, preserve verified checkpoints, and permit only monotonic dependency-safe transitions.
+- [Phase 07]: Keep Required credential-free and non-publishing; the Mooncakes secret is confined to one environment-gated LiveOneStep after prepared-bundle revalidation.
+- [Phase 07]: Treat mismatch as terminal for the current intent and allow only a newly qualified, newly authorized, unpublished forward correction.
 
 ### Pending Decisions
 
-- Define the exact Phase 7 release intent, isolated publisher authorization boundary, monotonic recovery journal, and safe first live publish-seam proof.
-- Treat the now-live public GitHub repository `tchivs/moonbit-foundation` as a verified source route without conflating it with Mooncakes authority.
+- Plan the explicit Phase 8 first irreversible publish checkpoint and registry-only consumer sequence.
+- Preserve the distinction between verified local account/environment readiness and authority proven by successful exact publication plus read-only registry observation.
 
 ### Blockers
 
@@ -92,16 +96,16 @@ None
 
 ## Session Continuity
 
-**Resume file:** .planning/phases/07-release-safety-intent-and-recovery-automation/07-CONTEXT.md
+**Resume file:** .planning/ROADMAP.md
 
 Last session: 2026-07-18T02:18:50.152Z
-Stopped at: Phase 7 context gathered
-Resume with: `/gsd-discuss-phase 7`
+Stopped at: Phase 7 complete
+Resume with: `/gsd-discuss-phase 8`
 
 ## Operator Next Steps
 
-- Discuss Phase 7 and lock the sole-maintainer release authorization, isolation, and recovery decisions.
-- Plan Phase 7 before implementing the isolated publisher and validating the authenticated Mooncakes publish seam.
+- Discuss and plan Phase 8 ordered publication and cold registry-only consumers.
+- Keep the first irreversible Mooncakes mutation behind an explicit Phase 8 authorization checkpoint.
 
 ## Performance Metrics
 
@@ -128,3 +132,6 @@ Resume with: `/gsd-discuss-phase 7`
 | Phase 06 P11 | 28min | 3 tasks | 4 files |
 | Phase 06 P01 | 50min | 2 tasks | 4 files |
 | Phase 06 P06 | 10h 31m | 2 tasks | 4 files |
+| Phase 07 P01 | 13min | 3 tasks | 7 files |
+| Phase 07 P02 | 13min | 2 tasks | 5 files |
+| Phase 07 P03 | 20min | 3 tasks | 8 files |
