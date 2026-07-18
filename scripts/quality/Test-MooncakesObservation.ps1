@@ -102,6 +102,18 @@ if ($SchemaOnly) {
 }
 
 Assert-True (Test-Path -LiteralPath $observerPath -PathType Leaf) 'observer must exist'
+$observerSource=Get-Content -LiteralPath $observerPath -Raw
+foreach($binding in @(
+    '[Parameter(Mandatory)][string]$FixturePath',
+    '[Parameter(Mandatory)][string]$PolicyPath',
+    '[Parameter(Mandatory)][string]$SchemaPath'
+)) {
+    Assert-True ($observerSource.Contains($binding,[StringComparison]::Ordinal)) "observer must require explicit clone-rooted binding $binding"
+}
+$hostedSource=Get-Content -LiteralPath (Join-Path $repoRoot 'scripts\quality\Invoke-Phase08HostedRun.ps1') -Raw
+foreach($binding in @('MaterializePublicSurface','IndexSanitizedArtifact','surfaces/$TargetModule/$ObservationPhase/public-surface.json','exact-existing','post-publish')) {
+    Assert-True ($hostedSource.Contains($binding,[StringComparison]::Ordinal)) "hosted materialization/index binding missing $binding"
+}
 
 $scratch = Join-Path ([System.IO.Path]::GetTempPath()) ("mnf-observation-test-{0}" -f [guid]::NewGuid().ToString('N'))
 New-Item -ItemType Directory -Path $scratch | Out-Null

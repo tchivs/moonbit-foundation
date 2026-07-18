@@ -283,6 +283,14 @@ if ($BehaviorOnly) {
 
 Assert-True (Test-Path -LiteralPath $runnerPath -PathType Leaf) 'cold registry consumer runner must exist'
 $runnerSource = Get-Content -Raw -LiteralPath $runnerPath
+foreach($binding in @(
+    '[Parameter(Mandatory, ParameterSetName = ''Live'')][string]$ToolchainRoot',
+    '[Parameter(Mandatory, ParameterSetName = ''Live'')][string]$ObservationFixturePath',
+    '[Parameter(Mandatory)][string]$PolicyPath',
+    '[Parameter(Mandatory)][string]$SchemaPath'
+)) {
+    Assert-True ($runnerSource.Contains($binding,[StringComparison]::Ordinal)) "cold runner must require explicit production binding $binding"
+}
 foreach ($requiredPattern in @(
     '[.]Environment[.]Clear[(][)]',
     'MOON_HOME',
