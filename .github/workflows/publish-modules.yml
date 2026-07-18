@@ -72,7 +72,22 @@ jobs:
       - name: Set up exact MoonBit toolchain
         uses: hustcer/setup-moonbit@bdc8c076af1f4c5012a6ac3451a2009ec75bf921
         with:
-          version: 0.1.20260713+75c7e1f
+          version: latest
+      - name: Verify exact MoonBit toolchain
+        shell: pwsh
+        run: |
+          $expectedHashes=@{
+            moon='50913178bee7e904850fc37d5b16adda7e6c1616d2704994714b70ac86f9a7ab'
+            moonc='31633647318a571d6aac9a2144a0e1ba3c946ea806d1409778894fe76e604511'
+            moonrun='44b7d5427837c8c0f7379a9d4fa9f3e1aac0f433041b3ffe16e78e1c5f151ab4'
+          }
+          foreach($command in @('moon','moonc','moonrun')) {
+            $path=(Get-Command $command -CommandType Application -ErrorAction Stop).Source
+            if ((Get-FileHash -LiteralPath $path -Algorithm SHA256).Hash.ToLowerInvariant() -cne $expectedHashes[$command]) { throw 'P08-TOOLCHAIN-BINARY-DIGEST' }
+          }
+          if ([string]@(& moon version)[0] -cne 'moon 0.1.20260713 (75c7e1f 2026-07-13)' -or
+              [string]@(& moonc -v)[0] -cne 'v0.10.4+2cc641edf (2026-07-15)' -or
+              [string]@(& moonrun --version)[0] -cne 'moonrun 0.1.20260713 (75c7e1f 2026-07-13)') { throw 'P08-TOOLCHAIN-IDENTITY' }
       - name: Download exact prior checkpoint for resume
         if: ${{ inputs.run_mode == 'resume' }}
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
@@ -206,7 +221,22 @@ jobs:
       - name: Set up exact MoonBit toolchain
         uses: hustcer/setup-moonbit@bdc8c076af1f4c5012a6ac3451a2009ec75bf921
         with:
-          version: 0.1.20260713+75c7e1f
+          version: latest
+      - name: Verify exact MoonBit toolchain
+        shell: pwsh
+        run: |
+          $expectedHashes=@{
+            moon='50913178bee7e904850fc37d5b16adda7e6c1616d2704994714b70ac86f9a7ab'
+            moonc='31633647318a571d6aac9a2144a0e1ba3c946ea806d1409778894fe76e604511'
+            moonrun='44b7d5427837c8c0f7379a9d4fa9f3e1aac0f433041b3ffe16e78e1c5f151ab4'
+          }
+          foreach($command in @('moon','moonc','moonrun')) {
+            $path=(Get-Command $command -CommandType Application -ErrorAction Stop).Source
+            if ((Get-FileHash -LiteralPath $path -Algorithm SHA256).Hash.ToLowerInvariant() -cne $expectedHashes[$command]) { throw 'P08-TOOLCHAIN-BINARY-DIGEST' }
+          }
+          if ([string]@(& moon version)[0] -cne 'moon 0.1.20260713 (75c7e1f 2026-07-13)' -or
+              [string]@(& moonc -v)[0] -cne 'v0.10.4+2cc641edf (2026-07-15)' -or
+              [string]@(& moonrun --version)[0] -cne 'moonrun 0.1.20260713 (75c7e1f 2026-07-13)') { throw 'P08-TOOLCHAIN-IDENTITY' }
       - name: Download exact prepared bundle for dry run
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
         with:
@@ -286,7 +316,22 @@ jobs:
       - name: Set up exact MoonBit toolchain
         uses: hustcer/setup-moonbit@bdc8c076af1f4c5012a6ac3451a2009ec75bf921
         with:
-          version: 0.1.20260713+75c7e1f
+          version: latest
+      - name: Verify exact MoonBit toolchain
+        shell: pwsh
+        run: |
+          $expectedHashes=@{
+            moon='50913178bee7e904850fc37d5b16adda7e6c1616d2704994714b70ac86f9a7ab'
+            moonc='31633647318a571d6aac9a2144a0e1ba3c946ea806d1409778894fe76e604511'
+            moonrun='44b7d5427837c8c0f7379a9d4fa9f3e1aac0f433041b3ffe16e78e1c5f151ab4'
+          }
+          foreach($command in @('moon','moonc','moonrun')) {
+            $path=(Get-Command $command -CommandType Application -ErrorAction Stop).Source
+            if ((Get-FileHash -LiteralPath $path -Algorithm SHA256).Hash.ToLowerInvariant() -cne $expectedHashes[$command]) { throw 'P08-TOOLCHAIN-BINARY-DIGEST' }
+          }
+          if ([string]@(& moon version)[0] -cne 'moon 0.1.20260713 (75c7e1f 2026-07-13)' -or
+              [string]@(& moonc -v)[0] -cne 'v0.10.4+2cc641edf (2026-07-15)' -or
+              [string]@(& moonrun --version)[0] -cne 'moonrun 0.1.20260713 (75c7e1f 2026-07-13)') { throw 'P08-TOOLCHAIN-IDENTITY' }
       - name: HostedPreflight
         shell: pwsh
         env:
@@ -332,7 +377,22 @@ jobs:
       - name: Set up exact MoonBit toolchain
         uses: hustcer/setup-moonbit@bdc8c076af1f4c5012a6ac3451a2009ec75bf921
         with:
-          version: 0.1.20260713+75c7e1f
+          version: latest
+      - name: Verify exact MoonBit toolchain
+        shell: pwsh
+        run: |
+          $expectedHashes=@{
+            moon='50913178bee7e904850fc37d5b16adda7e6c1616d2704994714b70ac86f9a7ab'
+            moonc='31633647318a571d6aac9a2144a0e1ba3c946ea806d1409778894fe76e604511'
+            moonrun='44b7d5427837c8c0f7379a9d4fa9f3e1aac0f433041b3ffe16e78e1c5f151ab4'
+          }
+          foreach($command in @('moon','moonc','moonrun')) {
+            $path=(Get-Command $command -CommandType Application -ErrorAction Stop).Source
+            if ((Get-FileHash -LiteralPath $path -Algorithm SHA256).Hash.ToLowerInvariant() -cne $expectedHashes[$command]) { throw 'P08-TOOLCHAIN-BINARY-DIGEST' }
+          }
+          if ([string]@(& moon version)[0] -cne 'moon 0.1.20260713 (75c7e1f 2026-07-13)' -or
+              [string]@(& moonc -v)[0] -cne 'v0.10.4+2cc641edf (2026-07-15)' -or
+              [string]@(& moonrun --version)[0] -cne 'moonrun 0.1.20260713 (75c7e1f 2026-07-13)') { throw 'P08-TOOLCHAIN-IDENTITY' }
       - name: Download exact current-run prepared bundle
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
         with:
@@ -461,7 +521,22 @@ jobs:
       - name: Set up exact MoonBit toolchain
         uses: hustcer/setup-moonbit@bdc8c076af1f4c5012a6ac3451a2009ec75bf921
         with:
-          version: 0.1.20260713+75c7e1f
+          version: latest
+      - name: Verify exact MoonBit toolchain
+        shell: pwsh
+        run: |
+          $expectedHashes=@{
+            moon='50913178bee7e904850fc37d5b16adda7e6c1616d2704994714b70ac86f9a7ab'
+            moonc='31633647318a571d6aac9a2144a0e1ba3c946ea806d1409778894fe76e604511'
+            moonrun='44b7d5427837c8c0f7379a9d4fa9f3e1aac0f433041b3ffe16e78e1c5f151ab4'
+          }
+          foreach($command in @('moon','moonc','moonrun')) {
+            $path=(Get-Command $command -CommandType Application -ErrorAction Stop).Source
+            if ((Get-FileHash -LiteralPath $path -Algorithm SHA256).Hash.ToLowerInvariant() -cne $expectedHashes[$command]) { throw 'P08-TOOLCHAIN-BINARY-DIGEST' }
+          }
+          if ([string]@(& moon version)[0] -cne 'moon 0.1.20260713 (75c7e1f 2026-07-13)' -or
+              [string]@(& moonc -v)[0] -cne 'v0.10.4+2cc641edf (2026-07-15)' -or
+              [string]@(& moonrun --version)[0] -cne 'moonrun 0.1.20260713 (75c7e1f 2026-07-13)') { throw 'P08-TOOLCHAIN-IDENTITY' }
       - name: Download exact sanitized observation
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
         with:

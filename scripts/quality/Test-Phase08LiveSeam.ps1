@@ -205,6 +205,19 @@ $workflow = Get-Content -LiteralPath $workflowPath -Raw
 foreach ($required in @('Invoke-MooncakesLiveMutation','Invoke-ColdRegistryConsumer','MOONCAKES_TOKEN','PublisherDryRun','HostedPreflight','PublishOne','publish --frozen --dry-run','native_runtime_verified')) {
   if ($workflow.IndexOf($required,[StringComparison]::Ordinal) -lt 0) { throw "P08-WORKFLOW-MISSING: '$required'." }
 }
+$setupCount=@([regex]::Matches($workflow,'(?m)^\s+version: latest\s*$')).Count
+$verifyCount=@([regex]::Matches($workflow,'(?m)^\s+- name: Verify exact MoonBit toolchain\s*$')).Count
+if ($setupCount -ne 5 -or $verifyCount -ne $setupCount -or $workflow.Contains('version: 0.1.20260713+75c7e1f')) {
+  throw 'P08-WORKFLOW-TOOLCHAIN-ROUTE: each hosted setup must use the reachable channel and immediately verify the exact pin.'
+}
+foreach($pin in @(
+  '50913178bee7e904850fc37d5b16adda7e6c1616d2704994714b70ac86f9a7ab',
+  '31633647318a571d6aac9a2144a0e1ba3c946ea806d1409778894fe76e604511',
+  '44b7d5427837c8c0f7379a9d4fa9f3e1aac0f433041b3ffe16e78e1c5f151ab4',
+  '0.1.20260713', '75c7e1f', 'v0.10.4+2cc641edf'
+)) {
+  if (@([regex]::Matches($workflow,[regex]::Escape($pin))).Count -lt $verifyCount) { throw "P08-WORKFLOW-TOOLCHAIN-PIN: '$pin' is not enforced after every setup." }
+}
 $publisherStart=$workflow.IndexOf("  publisher:",[StringComparison]::Ordinal)
 $observerStart=$workflow.IndexOf("  observe_registry:",[StringComparison]::Ordinal)
 $consumerStart=$workflow.IndexOf("  cold_consumer:",[StringComparison]::Ordinal)
