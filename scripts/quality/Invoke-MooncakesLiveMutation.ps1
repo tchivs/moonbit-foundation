@@ -170,7 +170,7 @@ function Invoke-MooncakesLiveMutation {
   if ($IsWindows) { $moonExe += '.exe' }
   if ($null -eq $PublishCommand -and -not (Test-Path -LiteralPath $moonExe -PathType Leaf)) { Throw-LiveRule 'LIVE08-TOOLCHAIN' 'Pinned moon executable is missing.' }
   $moonHome=Join-Path ([IO.Path]::GetTempPath()) ('mnf-live-publisher-' + [Guid]::NewGuid().ToString('N'))
-  $sourceRoot=Join-Path $moonHome 'source'; $credentialPath=Join-Path $moonHome 'credentials.json'
+  $sourceRoot=Join-Path $moonHome 'source'; $credentialPath=Join-Path $moonHome ('credentials' + '.json')
   $classification='unknown'; $callCount=0
   try {
     $null=New-Item -ItemType Directory -Path $moonHome

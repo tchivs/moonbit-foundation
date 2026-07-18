@@ -35,6 +35,7 @@ $inventory = @(
   [pscustomobject]@{ path='request.json'; role='journal_or_genesis' }
   [pscustomobject]@{ path='scripts/quality/New-PreparedReleaseBundle.ps1'; role='publisher_script' }
   [pscustomobject]@{ path='scripts/quality/Invoke-ReleasePublisher.ps1'; role='publisher_script' }
+  [pscustomobject]@{ path='scripts/quality/Invoke-MooncakesLiveMutation.ps1'; role='publisher_script' }
   [pscustomobject]@{ path='scripts/quality/ReleasePublisher.Common.ps1'; role='publisher_common' }
   [pscustomobject]@{ path='policy/release-qualification.json'; role='release_policy' }
   [pscustomobject]@{ path='schemas/prepared.json'; role='contract_schema' }

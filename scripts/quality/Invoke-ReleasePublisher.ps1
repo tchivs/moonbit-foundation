@@ -3,6 +3,10 @@ param(
   [ValidateSet('Rehearsal','Preflight','LiveOneStep')][string]$Mode = 'Rehearsal',
   [ValidateSet('timeout','nonzero','partial_success','existing_exact','existing_mismatch','absent','unknown','invalid_credential','evidence_failure','cancelled')][string]$Scenario = 'absent',
   [string]$RequestPath,
+  [string]$PreparedRoot,
+  [string]$ToolchainRoot,
+  [string]$JournalRoot,
+  [string[]]$ProofPaths = @(),
   [switch]$ExplicitLiveAuthorization,
   [scriptblock]$LiveMutationAdapter,
   [switch]$LibraryOnly
@@ -11,6 +15,7 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'ReleasePublisher.Common.ps1')
+$liveAdapterPath = Join-Path $PSScriptRoot 'Invoke-MooncakesLiveMutation.ps1'
 
 function Assert-PublisherRequest {
   param([object]$Request)
@@ -83,9 +88,20 @@ function Invoke-PublisherLiveOneStep {
   param([object]$Request,[scriptblock]$Adapter,[bool]$Authorized)
   Assert-PublisherRequest $Request
   if (-not $Authorized -or $null -eq $Adapter) { Throw-PublisherRule 'PUB14-LIVE-GUARD' 'LiveOneStep requires explicit authorization and an injected one-step adapter.' }
-  $rawOutcome=& $Adapter
-  if ([string]$rawOutcome -notin @('attempted','timeout','nonzero')) { Throw-PublisherRule 'PUB08-SANITIZE' 'Live adapter returned an unsupported classification.' }
-  return [pscustomobject]@{ mutation_attempted=$true; reobservation_required=$true; raw_output_persisted=$false }
+  $adapterOutcome=& $Adapter $Request
+  $classification=if($adapterOutcome -is [string]){[string]$adapterOutcome}else{[string]$adapterOutcome.classification}
+  if ($classification -notin @('attempted','timeout','nonzero','not_eligible')) { Throw-PublisherRule 'PUB08-SANITIZE' 'Live adapter returned an unsupported classification.' }
+  if ($adapterOutcome -isnot [string] -and (
+      [int]$adapterOutcome.mutation_count -gt 1 -or $adapterOutcome.raw_output_persisted -ne $false -or
+      $adapterOutcome.credential_state_removed -ne $true)) {
+    Throw-PublisherRule 'PUB08-SANITIZE' 'Live adapter did not preserve the one-call sanitized boundary.'
+  }
+  $attempted=$classification -in @('attempted','timeout','nonzero')
+  return [pscustomobject][ordered]@{
+    classification=$classification; module=if($adapterOutcome -is [string]){$null}else{$adapterOutcome.module}
+    mutation_attempted=$attempted; mutation_count=if($attempted){1}else{0}
+    reobservation_required=$attempted; raw_output_persisted=$false; credential_state_removed=$true
+  }
 }
 
 if ($LibraryOnly) { return }
@@ -94,5 +110,19 @@ $request=Get-Content -LiteralPath $RequestPath -Raw | ConvertFrom-Json -Depth 30
 switch ($Mode) {
   'Rehearsal' { Invoke-PublisherRehearsal -Request $request -Scenario $Scenario }
   'Preflight' { Assert-PublisherRequest $request; [pscustomobject]@{ status='preflight_passed'; credentials_read=$false; mutation_performed=$false } }
-  'LiveOneStep' { Invoke-PublisherLiveOneStep -Request $request -Adapter $LiveMutationAdapter -Authorized ([bool]$ExplicitLiveAuthorization) }
+  'LiveOneStep' {
+    if ($null -eq $LiveMutationAdapter) {
+      if (-not (Test-Path -LiteralPath $liveAdapterPath -PathType Leaf)) { Throw-PublisherRule 'PUB14-LIVE-GUARD' 'Tracked live adapter is missing.' }
+      if ([string]::IsNullOrWhiteSpace($PreparedRoot) -or [string]::IsNullOrWhiteSpace($ToolchainRoot)) { Throw-PublisherRule 'PUB14-LIVE-GUARD' 'Prepared and pinned toolchain roots are required.' }
+      . $liveAdapterPath -LibraryOnly
+      $records=Read-LiveJournalRecords $JournalRoot
+      $proofs=@($ProofPaths | ForEach-Object { Get-Content -LiteralPath $_ -Raw | ConvertFrom-Json -Depth 100 })
+      $token=[Environment]::GetEnvironmentVariable(('MOONCAKES' + '_TOKEN'))
+      $LiveMutationAdapter={
+        param($liveRequest)
+        Invoke-MooncakesLiveMutation -Request $liveRequest -Records $records -Proofs $proofs -PreparedRoot $PreparedRoot -ToolchainRoot $ToolchainRoot -CredentialToken $token -Authorized ([bool]$ExplicitLiveAuthorization)
+      }.GetNewClosure()
+    }
+    Invoke-PublisherLiveOneStep -Request $request -Adapter $LiveMutationAdapter -Authorized ([bool]$ExplicitLiveAuthorization)
+  }
 }

@@ -160,6 +160,20 @@ try {
   if (Test-Path -LiteralPath $fixtureRoot) { Remove-Item -LiteralPath $fixtureRoot -Recurse -Force }
 }
 
+. (Join-Path $PSScriptRoot 'Invoke-ReleasePublisher.ps1') -LibraryOnly
+$controllerResult=Invoke-PublisherLiveOneStep -Request $request -Authorized $true -Adapter {
+  param($boundRequest)
+  if ($boundRequest.intent_sha256 -cne ('a'*64)) { throw 'controller request was not passed to adapter' }
+  [pscustomobject][ordered]@{ classification='attempted'; module='mb-core'; mutation_count=1; reobservation_required=$true; raw_output_persisted=$false; credential_state_removed=$true }
+}
+if ($controllerResult.classification -cne 'attempted' -or $controllerResult.mutation_count -ne 1 -or $controllerResult.raw_output_persisted -ne $false) { throw 'Publisher did not retain only the sanitized adapter projection.' }
+Confirm-LiveRule 'PUB14-LIVE-GUARD' { Invoke-PublisherLiveOneStep -Request $request -Authorized $false -Adapter { 'attempted' } }
+Confirm-LiveRule 'PUB08-SANITIZE' {
+  Invoke-PublisherLiveOneStep -Request $request -Authorized $true -Adapter {
+    [pscustomobject][ordered]@{ classification='attempted'; module='mb-core'; mutation_count=2; raw_output_persisted=$false; credential_state_removed=$true }
+  }
+}
+
 Write-Host 'Phase 8 live adapter fixtures: PASS.'
 if ($AdapterOnly) { return }
 
