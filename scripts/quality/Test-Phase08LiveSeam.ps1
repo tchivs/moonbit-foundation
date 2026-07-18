@@ -2,6 +2,7 @@
 param(
   [switch]$AdapterOnly,
   [switch]$WorkflowOnly,
+  [switch]$HostedFieldsOnly,
   [switch]$PreflightOnly,
   [string]$LocatorPath,
   [string]$ArtifactRoot
@@ -274,6 +275,91 @@ if ($publisherBlock.IndexOf("inputs.operation_mode == 'PublishOne'",[StringCompa
 $hostedPath=Join-Path $PSScriptRoot 'Invoke-Phase08HostedRun.ps1'
 if (-not (Test-Path -LiteralPath $hostedPath -PathType Leaf)) { throw 'P08-HOSTED-HELPER-MISSING: hosted helper is required.' }
 . $hostedPath -Mode PublisherDryRun -Repository tchivs/moonbit-foundation -Workflow publish-modules.yml -ReleaseRef refs/tags/modules-v0.1.0-r2 -SourceSha ('1'*40) -RootIntentSha256 ('a'*64) -IntentSha256 ('a'*64) -PreparedManifestSha256 ('b'*64) -TargetModule mb-core -LocatorPath (Join-Path ([IO.Path]::GetTempPath()) 'unused-locator.json') -ArtifactRoot (Join-Path ([IO.Path]::GetTempPath()) 'unused-root') -LibraryOnly
+
+function Assert-P08HostedDispatchFields {
+  param(
+    [Parameter(Mandatory)][ValidateSet('HostedPreflight','PublishOne')][string]$Operation,
+    [AllowEmptyString()][string]$PriorId,
+    [AllowEmptyString()][string]$PriorArtifact,
+    [AllowEmptyString()][string]$Packet,
+    [Parameter(Mandatory)][string[]]$ExpectedFields,
+    [Parameter(Mandatory)][string]$AttemptZeroHistory,
+    [Parameter(Mandatory)][string]$R1History
+  )
+  $script:p08HostedFieldsDispatched=$false
+  $script:p08HostedFieldsArguments=$null
+  $script:p08HostedFieldsRunId=if($Operation -ceq 'HostedPreflight'){'1001'}else{'1002'}
+  $script:p08HostedFieldsTitle="MNF $Operation mb-core $('a'*64) $('b'*64) $('c'*64)"
+  $script:p08HostedFieldsGh={
+    param([string[]]$CommandArguments)
+    if($CommandArguments[0] -ceq 'run' -and $CommandArguments[1] -ceq 'list'){
+      if(-not $script:p08HostedFieldsDispatched){return '[]'}
+      $run=[pscustomobject][ordered]@{
+        databaseId=$script:p08HostedFieldsRunId;headBranch='modules-v0.1.0-r2';headSha=('1'*40);status='completed';conclusion='success'
+        displayTitle=$script:p08HostedFieldsTitle;workflowName='publish-modules';url='https://fixture.invalid/run';createdAt='2026-07-19T00:00:00Z';updatedAt='2026-07-19T00:00:01Z'
+      }
+      return (ConvertTo-Json -InputObject @($run) -Depth 10 -Compress)
+    }
+    if($CommandArguments[0] -ceq 'workflow' -and $CommandArguments[1] -ceq 'run'){
+      $script:p08HostedFieldsArguments=[string[]]@($CommandArguments)
+      $script:p08HostedFieldsDispatched=$true
+      return
+    }
+    if($CommandArguments[0] -ceq 'run' -and $CommandArguments[1] -ceq 'view'){
+      return ([pscustomobject][ordered]@{
+        databaseId=$script:p08HostedFieldsRunId;attempt=1;headBranch='modules-v0.1.0-r2';headSha=('1'*40);event='workflow_dispatch'
+        status='completed';conclusion='success';displayTitle=$script:p08HostedFieldsTitle;workflowName='publish-modules';url='https://fixture.invalid/run'
+        createdAt='2026-07-19T00:00:00Z';updatedAt='2026-07-19T00:00:01Z'
+      }|ConvertTo-Json -Depth 10 -Compress)
+    }
+    throw "P08-HOSTED-FIELDS-BOUNDARY: unexpected gh fixture call '$($CommandArguments -join ' ')'."
+  }
+  $script:GhCommand=$script:p08HostedFieldsGh
+  try{
+    $null=Invoke-P08HostedDispatch -Operation $Operation -Repo 'tchivs/moonbit-foundation' -WorkflowPath 'publish-modules.yml' `
+      -Ref 'refs/tags/modules-v0.1.0-r2' -Sha ('1'*40) -RootIntent ('a'*64) -CurrentIntent ('b'*64) -PreparedDigest ('c'*64) `
+      -Module 'mb-core' -PriorId $PriorId -PriorArtifact $PriorArtifact -Packet $Packet -AttemptZeroHistory $AttemptZeroHistory -R1History $R1History
+  }finally{
+    $script:GhCommand=$null
+  }
+  if(-not $script:p08HostedFieldsDispatched -or $null -eq $script:p08HostedFieldsArguments){throw 'P08-HOSTED-FIELDS-DISPATCH: fake dispatch was not reached exactly once.'}
+  $expectedPrefix=@('workflow','run','publish-modules.yml','--repo','tchivs/moonbit-foundation','--ref','modules-v0.1.0-r2')
+  $actualPrefix=@($script:p08HostedFieldsArguments[0..6])
+  if(($actualPrefix -join ',') -cne ($expectedPrefix -join ',')){throw 'P08-HOSTED-FIELDS-PREFIX: dispatch prefix drifted.'}
+  $actualFields=[Collections.Generic.List[string]]::new()
+  for($i=7;$i -lt $script:p08HostedFieldsArguments.Count;$i+=2){
+    if($script:p08HostedFieldsArguments[$i] -cne '-f' -or $i+1 -ge $script:p08HostedFieldsArguments.Count){throw 'P08-HOSTED-FIELDS-SHAPE: dispatch fields are not ordered -f pairs.'}
+    $actualFields.Add($script:p08HostedFieldsArguments[$i+1])
+  }
+  if((@($actualFields)-join ',') -cne ($ExpectedFields-join ',')){throw "P08-HOSTED-FIELDS-ORDER: expected '$($ExpectedFields -join ',')', got '$(@($actualFields) -join ',')'."}
+}
+
+$hostedFieldsRoot=Join-Path ([IO.Path]::GetTempPath()) ('mnf-p08-hosted-fields-'+[Guid]::NewGuid().ToString('N'))
+try{
+  $null=New-Item -ItemType Directory -Path $hostedFieldsRoot
+  $attemptZeroHistory=Join-Path $hostedFieldsRoot 'attempt-zero.json'
+  $r1History=Join-Path $hostedFieldsRoot 'r1.json'
+  $packet=Join-Path $hostedFieldsRoot 'packet.json'
+  [IO.File]::WriteAllText($attemptZeroHistory,'{"attempt":0}',[Text.UTF8Encoding]::new($false))
+  [IO.File]::WriteAllText($r1History,'{"attempt":1}',[Text.UTF8Encoding]::new($false))
+  [IO.File]::WriteAllText($packet,'{"authorization":"fixture"}',[Text.UTF8Encoding]::new($false))
+  $attemptZeroDigest=(Get-FileHash -LiteralPath $attemptZeroHistory -Algorithm SHA256).Hash.ToLowerInvariant()
+  $r1Digest=(Get-FileHash -LiteralPath $r1History -Algorithm SHA256).Hash.ToLowerInvariant()
+  $packetDigest=(Get-FileHash -LiteralPath $packet -Algorithm SHA256).Hash.ToLowerInvariant()
+  $commonFields=@(
+    'release_ref=refs/tags/modules-v0.1.0-r2',('source_sha='+('1'*40)),('root_intent_sha256='+('a'*64)),('intent_sha256='+('b'*64)),
+    ('prepared_manifest_sha256='+('c'*64)),('historical_attempt_zero_sha256='+$attemptZeroDigest),('historical_r1_sha256='+$r1Digest),'target_module=mb-core'
+  )
+  Assert-P08HostedDispatchFields -Operation HostedPreflight -PriorId '' -PriorArtifact '' -Packet '' -AttemptZeroHistory $attemptZeroHistory -R1History $r1History -ExpectedFields (@(
+    'operation_mode=HostedPreflight','run_mode=start')+$commonFields+@('live_authorization=false','prior_run_id=','prior_artifact_name=','authorization_packet_sha256='))
+  Assert-P08HostedDispatchFields -Operation PublishOne -PriorId '9001' -PriorArtifact 'mnf-checkpoint-9001-1' -Packet $packet -AttemptZeroHistory $attemptZeroHistory -R1History $r1History -ExpectedFields (@(
+    'operation_mode=PublishOne','run_mode=resume')+$commonFields+@('live_authorization=true','prior_run_id=9001','prior_artifact_name=mnf-checkpoint-9001-1',('authorization_packet_sha256='+$packetDigest)))
+}finally{
+  if(Test-Path -LiteralPath $hostedFieldsRoot){Remove-Item -LiteralPath $hostedFieldsRoot -Recurse -Force}
+}
+Write-Host 'Phase 8 hosted dispatch field fixtures: PASS.'
+if($HostedFieldsOnly){return}
+
 $offsetTimestamp='2026-07-19T04:08:31+08:00'
 $locatorTimeFixture=[pscustomobject][ordered]@{schema_version='fixture';created_at_utc=$offsetTimestamp;locator_sha256=''}
 $expectedLocatorTime='2026-07-18T20:08:31Z'

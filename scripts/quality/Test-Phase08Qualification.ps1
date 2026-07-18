@@ -234,7 +234,7 @@ function Assert-P08FixtureContract {
   try {
     $prepareExecutionRoot=Join-Path $prepareFixtureRoot 'execution'
     $prepareStateRoot=Join-Path $prepareFixtureRoot 'state'
-    & git clone --quiet --no-hardlinks $repoRoot $prepareExecutionRoot
+    & git clone --quiet --no-hardlinks --no-tags $repoRoot $prepareExecutionRoot
     if($LASTEXITCODE){Throw-P08Qualification 'P08-QUAL-PREPARE-CLONE' 'Unable to create the local-only PrepareAttempt execution clone.'}
     foreach($relative in @('scripts/quality/Invoke-Phase08HostedRun.ps1','scripts/quality/New-PreparedReleaseBundle.ps1')){
       Copy-Item -LiteralPath (Join-Path $repoRoot $relative) -Destination (Join-Path $prepareExecutionRoot $relative) -Force

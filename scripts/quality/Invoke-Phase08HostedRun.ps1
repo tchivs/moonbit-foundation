@@ -802,7 +802,22 @@ function Invoke-P08HostedDispatch {
   param([string]$Operation,[string]$Repo,[string]$WorkflowPath,[string]$Ref,[string]$Sha,[string]$RootIntent,[string]$CurrentIntent,[string]$PreparedDigest,[string]$Module,[string]$PriorId,[string]$PriorArtifact,[string]$Packet,[string]$AttemptZeroHistory,[string]$R1History)
   $before=@{}; foreach($run in @(Get-P08Runs $Repo $WorkflowPath)){ $before[[string]$run.databaseId]=$true }
   if([string]::IsNullOrWhiteSpace($AttemptZeroHistory)-or[string]::IsNullOrWhiteSpace($R1History)){Throw-P08HostedRule 'P08-HOSTED-HISTORY' 'Both terminal-negative history files are required for dispatch.'}
-  $fields=@('operation_mode='+$Operation,'run_mode='+(if([string]::IsNullOrWhiteSpace($PriorId)){'start'}else{'resume'}),'release_ref='+$Ref,'source_sha='+$Sha,'root_intent_sha256='+$RootIntent,'intent_sha256='+$CurrentIntent,'prepared_manifest_sha256='+$PreparedDigest,'historical_attempt_zero_sha256='+(Get-P08Sha256 $AttemptZeroHistory),'historical_r1_sha256='+(Get-P08Sha256 $R1History),'target_module='+$Module,'live_authorization='+(if($Operation -ceq 'PublishOne'){'true'}else{'false'}),'prior_run_id='+$PriorId,'prior_artifact_name='+$PriorArtifact,'authorization_packet_sha256='+(if([string]::IsNullOrWhiteSpace($Packet)){''}else{Get-P08Sha256 $Packet}))
+  $fields=@(
+    ('operation_mode='+$Operation),
+    ('run_mode='+$(if([string]::IsNullOrWhiteSpace($PriorId)){'start'}else{'resume'})),
+    ('release_ref='+$Ref),
+    ('source_sha='+$Sha),
+    ('root_intent_sha256='+$RootIntent),
+    ('intent_sha256='+$CurrentIntent),
+    ('prepared_manifest_sha256='+$PreparedDigest),
+    ('historical_attempt_zero_sha256='+(Get-P08Sha256 $AttemptZeroHistory)),
+    ('historical_r1_sha256='+(Get-P08Sha256 $R1History)),
+    ('target_module='+$Module),
+    ('live_authorization='+$(if($Operation -ceq 'PublishOne'){'true'}else{'false'})),
+    ('prior_run_id='+$PriorId),
+    ('prior_artifact_name='+$PriorArtifact),
+    ('authorization_packet_sha256='+$(if([string]::IsNullOrWhiteSpace($Packet)){''}else{Get-P08Sha256 $Packet}))
+  )
   $dispatchRef=if($Ref.StartsWith('refs/tags/',[StringComparison]::Ordinal)){$Ref.Substring(10)}else{$Ref}
   $args=@('workflow','run',$WorkflowPath,'--repo',$Repo,'--ref',$dispatchRef); foreach($field in $fields){$args+=@('-f',$field)}
   $null=Invoke-P08Gh $args
