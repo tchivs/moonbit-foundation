@@ -5,15 +5,15 @@ milestone_name: Publication & Compatibility
 current_phase: 08
 current_phase_name: Ordered Mooncakes Publication and Registry Consumers
 status: executing
-stopped_at: Completed 08-04-PLAN.md
-last_updated: "2026-07-19T02:08:40+08:00"
+stopped_at: Completed 08-05-PLAN.md
+last_updated: "2026-07-18T18:57:32.923Z"
 last_activity: 2026-07-19
-last_activity_desc: Phase 08 remaining work replanned as Plans 05-08 after checker revision
+last_activity_desc: Plan 08-05 static r1 authority boundary completed; Plan 08-06 is next
 progress:
   total_phases: 4
   completed_phases: 2
   total_plans: 36
-  completed_plans: 32
+  completed_plans: 33
   percent: 50
 ---
 
@@ -30,9 +30,9 @@ See `.planning/PROJECT.md` (updated 2026-07-17).
 ## Current Position
 
 Phase: 08 (Ordered Mooncakes Publication and Registry Consumers) — EXECUTING
-Plan: 5 of 8
-Status: Ready for Wave 5 — static intent/ref/prepared/publisher/actor contracts; completed Plans 08-01..08-04 will not be reexecuted
-Last activity: 2026-07-19 — remaining Phase 08 work replanned; Plans 01-04 remain complete
+Plan: 6 of 8
+Status: Ready for Wave 6 — clean-clone hosted controller, observation, and cold-proof fixture contracts
+Last activity: 2026-07-19 — Plan 08-05 completed locally; no live distribution requirement was claimed
 
 ## Progress
 
@@ -41,9 +41,9 @@ Current milestone: [█████░░░░░] 50% of v0.2 phases complete
 - v0.2 phases completed: 2/4
 - Phase 6 plans completed: 25/25
 - Phase 7 plans completed: 3/3
-- Phase 8 plans completed: 4/8
+- Phase 8 plans completed: 5/8
 - v0.2 requirements mapped: 21/21
-- Historical total: 5 completed phases, 41 completed plans, 36/36 v0.1 requirements validated
+- Historical total: 5 completed phases, 42 completed plans, 36/36 v0.1 requirements validated
 
 ## Accumulated Context
 
@@ -95,6 +95,9 @@ Current milestone: [█████░░░░░] 50% of v0.2 phases complete
 - [Phase 08]: Replay every supplied checkpoint through the Phase 7 reducer before deriving the next module.
 - [Phase 08]: Expose the token only through one temporary credentials file under a child-only MOON_HOME and persist only an allowlisted classification.
 - [Phase 08]: Carry the tracked live adapter as the eighteenth exact prepared payload so the publisher remains artifact-only.
+- [Phase 08]: Keep refs/tags/modules-v0.1.0, source 198436a, and run 29652468948/1 as terminal historical evidence; only refs/tags/modules-v0.1.0-r1 may be current initial authority.
+- [Phase 08]: Require the exact closed tchivs whoami projection and prepared-manifest digest before publisher or live mutation eligibility.
+- [Phase 08]: Represent exact-existing registry authority as a bound zero-mutation checkpoint that cannot enter the mutation adapter.
 
 ### Pending Decisions
 
@@ -109,8 +112,8 @@ None
 
 **Resume file:** None
 
-Last session: 2026-07-18T11:53:00.294Z
-Stopped at: Completed 08-04-PLAN.md
+Last session: 2026-07-18T18:57:32.910Z
+Stopped at: Completed 08-05-PLAN.md
 Resume with: `/gsd-execute-phase 8`
 
 ## Operator Next Steps
@@ -150,3 +153,4 @@ Resume with: `/gsd-execute-phase 8`
 | Phase 08 P02 | 15min | 2 tasks | 4 files |
 | Phase 08 P03 | 28min | 3 tasks | 6 files |
 | Phase 08 P04 | 29min | 3 tasks | 7 files |
+| Phase 08 P05 | 9min | 2 tasks | 10 files |
