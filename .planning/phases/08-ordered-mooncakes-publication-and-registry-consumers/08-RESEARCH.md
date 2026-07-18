@@ -202,14 +202,11 @@ The token may only materialize in the publisher step's temporary Moon state. Nev
 | A1 | Structured public surface field names and response formats will be discovered by a credential-free preflight rather than assumed. | Observation implementation | Incorrect projection could fail legitimate observations; implementation must add fixtures from sanitized samples. |
 | A2 | Pinned hosted Moon installation can expose a stable `MOON_TOOLCHAIN_ROOT` path to the publisher and consumer processes. | Environment | A missing path must fail closed before publish, not fall back to ambient tooling. |
 
-## Open Questions
+## Open Questions (RESOLVED)
 
-1. Which public API/index/archive/assets endpoints and field names are currently exposed by Mooncakes?
-   - Recommendation: implement one credential-free discovery/projection selector that records only sanitized allowlisted data; accept no endpoint by training-data assumption.
-2. What minimum ephemeral file shape does the pinned CLI require under `MOON_HOME` for token authentication?
-   - Recommendation: implement it only in the publisher step with the secret streamed into the required local state; test redaction and teardown without exposing the token.
-3. Does the hosted native runner satisfy real runtime proof for the pinned MoonBit toolchain?
-   - Recommendation: verify before the first core checkpoint; reject compile-only substitution.
+1. **Public API/index/archive/assets endpoint and field shape:** Resolve at execution time through the credential-free discovery/projection selector because these freshness-sensitive live shapes are not stable project facts. The existing authority observation verifies official user and manifest surfaces, while D-16/D-17 require structured API, index, archive, manifest, asset, and documentation agreement. The selector must accept an endpoint/field mapping only after a current successful structured response can be projected into the closed schema and independently agrees with the registry index, downloaded manifest/archive digest, and versioned assets/docs. Unknown shape, HTML-only response, empty field, disagreement, or unavailable required surface deterministically yields `unknown` and blocks authorization/publication; there is no guessed endpoint fallback.
+2. **Minimum ephemeral Moon credential state:** The pinned Moon source and Phase 7 research verify that the CLI reads `$MOON_HOME/credentials.json`; the validated record contains the exact actor `tchivs` and the environment token, and `moon whoami` is local-only identity evidence. Create only that file beneath a newly exported isolated `MOON_HOME` inside the publisher step, bind `MOON_TOOLCHAIN_ROOT`, run `moon whoami` plus `moon publish --frozen --dry-run` for preflight and the single authorized non-dry-run command only after the checkpoint, then remove the entire home in `finally`. Any parse failure, actor mismatch, missing teardown, or credential-path/log/artifact match fails closed; no ambient credentials or alternate file shape is permitted.
+3. **Hosted native runtime capability:** Resolve with a deterministic hosted preflight before `authorize-core`: use the pinned toolchain and configured system linker/runtime to compile and execute the cold consumer's native test binary, capture its expected behavioral sentinel and zero exit in the sanitized target report, and distinguish this from `--build-only`. Phase 6 proves this standard on LLVM-MinGW UCRT Clang, but the current hosted runner must independently reproduce it. Missing compiler/linker/runtime, compile-only evidence, nonzero exit, absent sentinel, toolchain drift, or target-report ambiguity blocks the checkpoint; no portable-target result substitutes for native execution.
 
 ## Metadata
 

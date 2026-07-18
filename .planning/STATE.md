@@ -4,9 +4,9 @@ milestone: v0.2
 milestone_name: Publication & Compatibility
 current_phase: 8
 current_phase_name: Ordered Mooncakes Publication and Registry Consumers
-status: ready_to_plan
+status: executing
 stopped_at: Phase 8 context gathered
-last_updated: "2026-07-18T06:07:08.677Z"
+last_updated: "2026-07-18T09:30:42.967Z"
 last_activity: 2026-07-18
 last_activity_desc: Phase 7 completed with hosted handoff verified
 progress:
@@ -31,7 +31,7 @@ See `.planning/PROJECT.md` (updated 2026-07-17).
 
 Phase: 8 (Ordered Mooncakes Publication and Registry Consumers) — READY TO PLAN
 Plan: not yet planned
-Status: Phase 7 complete; Phase 8 planning ready
+Status: Ready to execute
 Last activity: 2026-07-18 — Phase 7 completed with hosted handoff verified
 
 ## Progress
