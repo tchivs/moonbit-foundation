@@ -581,7 +581,7 @@ jobs:
             })
           }
           [IO.File]::WriteAllText($surfaceRecords,($surface|ConvertTo-Json -Depth 50 -Compress),[Text.UTF8Encoding]::new($false))
-          ./scripts/quality/Get-MooncakesObservation.ps1 -FixturePath $surfaceRecords -OutputPath ./registry-observation.json -Module '${{ needs.publisher.outputs.target_module }}'
+          ./scripts/quality/Get-MooncakesObservation.ps1 -FixturePath $surfaceRecords -OutputPath ./registry-observation.json -Module '${{ needs.publisher.outputs.target_module }}' -PolicyPath ./policy/phase-08-distribution.json -SchemaPath ./release/registry/module-observation-schema.json
       - name: Upload sanitized registry observation
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
@@ -632,7 +632,7 @@ jobs:
         run: |
           $moonCommand=(Get-Command moon -CommandType Application -ErrorAction Stop).Source
           $toolchainRoot=Split-Path -Parent (Split-Path -Parent $moonCommand)
-          ./scripts/quality/Invoke-ColdRegistryConsumer.ps1 -Module '${{ needs.publisher.outputs.target_module }}' -OutputPath ./cold-proof.json -ToolchainRoot $toolchainRoot -ObservationFixturePath ./observation/registry-observation.json
+          ./scripts/quality/Invoke-ColdRegistryConsumer.ps1 -Module '${{ needs.publisher.outputs.target_module }}' -OutputPath ./cold-proof.json -ToolchainRoot $toolchainRoot -ObservationFixturePath ./observation/registry-observation.json -PolicyPath ./policy/phase-08-distribution.json -SchemaPath ./release/consumers/proof-schema.json
       - name: Upload exact cold proof
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:

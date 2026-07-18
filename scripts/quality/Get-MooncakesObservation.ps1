@@ -3,16 +3,14 @@ param(
     [Parameter(Mandatory)][string]$FixturePath,
     [Parameter(Mandatory)][string]$OutputPath,
     [ValidateSet('mb-core', 'mb-color', 'mb-image')][string]$Module = 'mb-core',
-    [string]$PolicyPath,
-    [string]$SchemaPath
+    [Parameter(Mandatory)][string]$PolicyPath,
+    [Parameter(Mandatory)][string]$SchemaPath
 )
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
-if ([string]::IsNullOrWhiteSpace($PolicyPath)) { $PolicyPath = Join-Path $repoRoot 'policy\phase-08-distribution.json' }
-if ([string]::IsNullOrWhiteSpace($SchemaPath)) { $SchemaPath = Join-Path $repoRoot 'release\registry\module-observation-schema.json' }
 
 function Get-Utf8Sha256 {
     param([Parameter(Mandatory)][string]$Text)
@@ -189,6 +187,11 @@ for ($index = 0; $index -lt $attempts.Count; $index++) {
         break
     }
     try { $null = [datetimeoffset]::Parse([string]$attempt.observed_at_utc) } catch { $attemptShapeValid = $false; break }
+    if ($index -gt 0) {
+        $priorTime=[datetimeoffset]::Parse([string]$attempts[$index-1].observed_at_utc)
+        $currentTime=[datetimeoffset]::Parse([string]$attempt.observed_at_utc)
+        if (($currentTime-$priorTime).TotalSeconds -ne [int]$policy.polling.interval_seconds) { $attemptShapeValid=$false;break }
+    }
 }
 if (-not $attemptShapeValid) {
     $result = New-SanitizedResult $policy $expectedModule $policySha256 'unknown' 'malformed_attempt_sequence' 'observation_unknown' $attempts.Count $fallbackTime $fallbackTime @(

@@ -189,6 +189,51 @@ try {
     Assert-Equal $timeoutResult.terminal_disposition 'timeout_unknown' 'bounded timeout disposition'
     Assert-Equal $timeoutResult.attempt_count $policy.polling.max_attempts 'bounded timeout attempt count'
 
+    $cadence=($base|ConvertTo-Json -Depth 100|ConvertFrom-Json -Depth 100)
+    $second=($cadence.attempts[0]|ConvertTo-Json -Depth 100|ConvertFrom-Json -Depth 100)
+    $second.attempt=2;$second.observed_at_utc='2026-07-18T00:00:14.0000000Z';$cadence.attempts=@($cadence.attempts[0],$second)
+    $cadenceResult=Invoke-Fixture 'wrong-cadence' $cadence
+    Assert-Equal $cadenceResult.outcome 'unknown' 'non-15-second cadence must stop unknown'
+    Assert-Equal $cadenceResult.reason 'malformed_attempt_sequence' 'non-15-second cadence reason'
+
+    & {
+        $hostedPath=Join-Path $repoRoot 'scripts\quality\Invoke-Phase08HostedRun.ps1'
+        $boundary='1'*40;$rootIntent='a'*64;$prepared='b'*64
+        $locator=Join-Path $scratch 'hosted/locator.json';$artifacts=Join-Path $scratch "hosted/artifacts/$rootIntent"
+        $gitAdapter={
+            param($root,$arguments)
+            switch($arguments[0]){
+                'status'{''}
+                'rev-parse'{if($arguments[1] -ceq 'HEAD'){$boundary}else{'2'*40}}
+                'hash-object'{'2'*40}
+            }
+        }.GetNewClosure()
+        $common=@{
+            Repository='tchivs/moonbit-foundation';Workflow='publish-modules.yml';ReleaseRef='refs/tags/modules-v0.1.0-r1'
+            SourceSha=$boundary;RootIntentSha256=$rootIntent;IntentSha256=$rootIntent;PreparedManifestSha256=$prepared
+            TargetModule='mb-core';LocatorPath=$locator;ArtifactRoot=$artifacts;ExecutionRoot=$repoRoot;BoundarySha=$boundary;GitCommand=$gitAdapter
+        }
+        & $hostedPath -Mode InitializeBoundary @common | Out-Null
+        foreach($phase in @('exact-existing','post-publish')){
+            $surfaceBase=$base
+            $provider={param($module,$observationPhase) $surfaceBase|ConvertTo-Json -Depth 100|ConvertFrom-Json -Depth 100}.GetNewClosure()
+            $result=& $hostedPath -Mode MaterializePublicSurface @common -ObservationPhase $phase -SurfaceProvider $provider
+            Assert-True (Test-Path -LiteralPath $result.fixture_path -PathType Leaf) "$phase public surface must be materialized"
+        }
+        $index=Get-Content -LiteralPath (Join-Path $artifacts 'index.json') -Raw|ConvertFrom-Json -Depth 100
+        Assert-Equal @($index.records).Count 2 'both exact-existing and post-publish surfaces must be indexed once'
+        Assert-Sequence @($index.records.observation_phase) @('exact-existing','post-publish') 'surface index phase order'
+        Assert-Sequence @($index.records.kind) @('PublicSurface','PublicSurface') 'surface index kind'
+        foreach($record in @($index.records)){
+            Assert-True ($record.file_sha256 -cmatch '^[0-9a-f]{64}$' -and $record.content_sha256 -cmatch '^[0-9a-f]{64}$') 'indexed surface digests must be strong'
+            Assert-Equal $record.source_sha $boundary 'indexed surface source binding'
+            Assert-Equal $record.prepared_manifest_sha256 $prepared 'indexed surface prepared binding'
+        }
+        $duplicateFailed=$false
+        try { & $hostedPath -Mode MaterializePublicSurface @common -ObservationPhase exact-existing -SurfaceProvider $provider | Out-Null } catch { $duplicateFailed=$true }
+        Assert-True $duplicateFailed 'duplicate indexed surface must fail before overwrite'
+    }
+
     Write-Host 'Mooncakes observation selector: PASS'
 }
 finally {

@@ -6,16 +6,14 @@ param(
     [Parameter(Mandatory, ParameterSetName = 'Live')][string]$ObservationFixturePath,
     [Parameter(ParameterSetName = 'Live')][string]$NativeToolchainBin,
     [Parameter(Mandatory, ParameterSetName = 'Fixture')][string]$FixturePath,
-    [string]$PolicyPath,
-    [string]$SchemaPath
+    [Parameter(Mandatory)][string]$PolicyPath,
+    [Parameter(Mandatory)][string]$SchemaPath
 )
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
-if ([string]::IsNullOrWhiteSpace($PolicyPath)) { $PolicyPath = Join-Path $repoRoot 'policy\phase-08-distribution.json' }
-if ([string]::IsNullOrWhiteSpace($SchemaPath)) { $SchemaPath = Join-Path $repoRoot 'release\consumers\proof-schema.json' }
 $observerPath = Join-Path $PSScriptRoot 'Get-MooncakesObservation.ps1'
 $observationSchemaPath = Join-Path $repoRoot 'release\registry\module-observation-schema.json'
 $templateRoot = Join-Path $repoRoot 'qualification\registry-consumers'
