@@ -22,7 +22,7 @@
 
 **Milestone goal:** Publish the three v0.1 modules through a fail-closed, compatibility-aware, recoverable release path and prove exact registry consumption with immutable evidence.
 
-- [ ] **Phase 6: Namespace Authority and Compatibility Contract** — Verify registry authority and establish deterministic public-interface, versioning, and publication-documentation contracts.
+- [x] **Phase 6: Namespace Authority and Compatibility Contract** — Verify registry authority and establish deterministic public-interface, versioning, and publication-documentation contracts. (completed 2026-07-18)
 - [ ] **Phase 7: Release Safety, Intent, and Recovery Automation** — Bind publication to an exact credential-free intent and a resumable, forward-only state machine.
 - [ ] **Phase 8: Ordered Mooncakes Publication and Registry Consumers** — Publish the three modules in dependency order and prove cold registry-only consumption.
 - [ ] **Phase 9: Provenance, Immutable Closure, and Milestone Audit** — Close the source-to-registry evidence chain and audit the completed milestone.
@@ -45,7 +45,7 @@
 4. Candidate deltas, including supported-target, minimum-toolchain, and dependency-floor changes, are deterministically classified and the gate enforces the required version, changelog, migration, and conditional RFC evidence.
 5. Before publication, each module's source documentation contract covers exact install and import commands, candidate status, targets and toolchain, change class, changelog, support and security routes, migration notes when required, and the intended registry metadata source; actual Mooncakes rendering proof is deferred to PROV-05 after publication.
 
-**Plans:** 25/25 plans executed
+**Plans:** 25/25 plans complete
 **Completed foundation**
 
 - [x] 06-02-PLAN.md — Define baseline contracts and mechanically generate 17-package × 4-target interface evidence.
@@ -209,7 +209,7 @@
 | 3. Reference Color Semantics | v0.1 | 8/8 | Complete | 2026-07-17 |
 | 4. Image Model, Views, and Operations | v0.1 | 9/9 | Complete | 2026-07-17 |
 | 5. Reference Codec and Release Qualification | v0.1 | 8/8 | Complete | 2026-07-17 |
-| 6. Namespace Authority and Compatibility Contract | v0.2 | 25/25 | In Progress|  |
+| 6. Namespace Authority and Compatibility Contract | v0.2 | 25/25 | Complete    | 2026-07-18 |
 | 7. Release Safety, Intent, and Recovery Automation | v0.2 | 0/TBD | Not started | — |
 | 8. Ordered Mooncakes Publication and Registry Consumers | v0.2 | 0/TBD | Not started | — |
 | 9. Provenance, Immutable Closure, and Milestone Audit | v0.2 | 0/TBD | Not started | — |
