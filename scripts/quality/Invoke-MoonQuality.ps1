@@ -589,6 +589,32 @@ function Add-Phase06QualificationEvidence {
   [IO.File]::WriteAllText($ReportPath, (($report | ConvertTo-Json -Depth 100) + "`n"), [Text.UTF8Encoding]::new($false))
 }
 
+function Add-Phase07QualificationEvidence {
+  param(
+    [Parameter(Mandatory)][string]$ReportPath,
+    [Parameter(Mandatory)][string]$LedgerPath
+  )
+  $report = Get-Content -LiteralPath $ReportPath -Raw | ConvertFrom-Json -Depth 100
+  $ledger = Get-Content -LiteralPath $LedgerPath -Raw | ConvertFrom-Json -Depth 100
+  $report | Add-Member -NotePropertyName phase_07 -NotePropertyValue ([ordered]@{
+    requirement_order = @($ledger.requirement_order)
+    selector_order = @($ledger.selectors.id)
+    edge_evidence = @($ledger.edge_probes.id)
+    prohibition_evidence = @($ledger.prohibitions.id)
+    workflow_static_validation = 'pass'
+    intent_contract = 'pass'
+    recovery_rehearsal = 'pass'
+    canonical_root_lock = 'pass'
+    prepared_bundle_substitution = 'rejected'
+    credentials_read = $false
+    publication_performed = $false
+    network_performed = $false
+    hosted_settings_checked = $false
+    phase_08_handoff = [string]$ledger.phase_08_handoff
+  })
+  [IO.File]::WriteAllText($ReportPath, (($report | ConvertTo-Json -Depth 100) + [Environment]::NewLine), [Text.UTF8Encoding]::new($false))
+}
+
 function Invoke-RequiredQuality {
   param([Parameter(Mandatory)][string]$EvidenceDirectory)
   $wingetPackages = Join-Path $env:LOCALAPPDATA 'Microsoft\WinGet\Packages'
@@ -742,6 +768,18 @@ function Invoke-RequiredQuality {
   Invoke-QualityStage 'Phase 6 reciprocal requirement, edge, and prohibition ledger' {
     & ./scripts/quality/Test-Phase06Qualification.ps1 -LedgerOnly
   }
+  Invoke-QualityStage 'Phase 7 immutable release intent contract' {
+    & ./scripts/quality/Test-ReleaseIntent.ps1 -ContractOnly
+  }
+  Invoke-QualityStage 'Phase 7 publisher recovery rehearsal' {
+    & ./scripts/quality/Test-ReleasePublisherNegative.ps1
+  }
+  Invoke-QualityStage 'Phase 7 isolated workflow and prepared-bundle contract' {
+    & ./scripts/quality/Test-Phase07Qualification.ps1 -WorkflowOnly
+  }
+  Invoke-QualityStage 'Phase 7 reciprocal requirement, edge, and prohibition ledger' {
+    & ./scripts/quality/Test-Phase07Qualification.ps1 -LedgerOnly
+  }
   Invoke-QualityStage 'Read-only tracked checkout proof' {
     $finalTrackedDiff = Get-TrackedDiffSnapshot
     Assert-ReleaseTrackedSnapshot -Before $initialTrackedDiff -After $finalTrackedDiff
@@ -749,6 +787,7 @@ function Invoke-RequiredQuality {
   $requiredReport = Write-RequiredQualificationReport -RepoRoot (Resolve-Path '.').Path -EvidenceDirectory $absoluteEvidence -StartedUtc $startedUtc
   $null = Assert-RequiredQualificationReport -Path $requiredReport -LedgerPath 'release/qualification/v0.1-requirements.json'
   Add-Phase06QualificationEvidence -ReportPath $requiredReport -LedgerPath 'release/qualification/phase-06-requirements.json'
+  Add-Phase07QualificationEvidence -ReportPath $requiredReport -LedgerPath 'release/qualification/phase-07-requirements.json'
   Write-Host "Required qualification report: $requiredReport"
   Write-Host 'Required quality lane passed.'
 }
