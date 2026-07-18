@@ -90,14 +90,74 @@ jobs:
           if ($env:RELEASE_REF -cmatch '^refs/tags/modules-correction-' -and $env:RUN_MODE -cne 'start') { throw 'P07-WORKFLOW-CORRECTION-RESUME' }
           ./scripts/quality/Test-ReleaseIntent.ps1 -ContractOnly
           ./scripts/quality/Test-ReleasePublisherNegative.ps1 -ReducerOnly
-          New-Item -ItemType Directory -Force prepared | Out-Null
-          $manifest = Join-Path $PWD 'prepared/prepared-bundle.json'
-          if (-not (Test-Path release/prepared/schema.json)) { throw 'P07-WORKFLOW-PREPARED-SCHEMA' }
-          '{}' | Set-Content -NoNewline -Encoding utf8 $manifest
-          $digest=(Get-FileHash -Algorithm SHA256 $manifest).Hash.ToLowerInvariant()
-          $name="mnf-prepared-$env:ROOT_INTENT_SHA256-$env:INTENT_SHA256-$digest"
-          "manifest_sha256=$digest" >> $env:GITHUB_OUTPUT
-          "artifact_name=$name" >> $env:GITHUB_OUTPUT
+          if ($env:RELEASE_REF -cne 'refs/tags/modules-v0.1.0') { throw 'P08-PREPARED-CORRECTION-NOT-QUALIFIED' }
+
+          $qualificationRoot = Join-Path $env:RUNNER_TEMP 'qualification'
+          ./scripts/quality/Invoke-ReleaseQualification.ps1 -Check -OutputDirectory $qualificationRoot
+          $inputRoot = Join-Path $env:RUNNER_TEMP 'prepared-input'
+          $preparedRoot = Join-Path $PWD 'prepared'
+          New-Item -ItemType Directory -Force $inputRoot | Out-Null
+
+          function Copy-FixedPreparedInput([string]$Source,[string]$RelativePath) {
+            if (-not (Test-Path -LiteralPath $Source -PathType Leaf)) { throw "P08-PREPARED-INPUT-MISSING: $RelativePath" }
+            $destination = Join-Path $inputRoot $RelativePath
+            New-Item -ItemType Directory -Force (Split-Path -Parent $destination) | Out-Null
+            Copy-Item -LiteralPath $Source -Destination $destination
+          }
+
+          foreach ($module in @('mb-core','mb-color','mb-image')) {
+            & moon -C "modules/$module" package --frozen --list | Out-Host
+            if ($LASTEXITCODE -ne 0) { throw "P08-PREPARED-PACKAGE: $module" }
+            Copy-FixedPreparedInput "_build/publish/tchivs-$module-0.1.0.zip" "archives/$module.zip"
+          }
+          Copy-FixedPreparedInput (Join-Path $qualificationRoot 'intent/intent.json') 'intent/current.json'
+          Copy-FixedPreparedInput (Join-Path $qualificationRoot 'intent/intent.sha256') 'intent/current.sha256'
+          Copy-FixedPreparedInput (Join-Path $qualificationRoot 'release-intent-binding.json') 'intent/root-binding.json'
+          Copy-FixedPreparedInput 'scripts/quality/New-PreparedReleaseBundle.ps1' 'scripts/quality/New-PreparedReleaseBundle.ps1'
+          Copy-FixedPreparedInput 'scripts/quality/Invoke-ReleasePublisher.ps1' 'scripts/quality/Invoke-ReleasePublisher.ps1'
+          Copy-FixedPreparedInput 'scripts/quality/ReleasePublisher.Common.ps1' 'scripts/quality/ReleasePublisher.Common.ps1'
+          Copy-FixedPreparedInput 'policy/release-qualification.json' 'policy/release-qualification.json'
+          Copy-FixedPreparedInput 'release/prepared/schema.json' 'schemas/prepared.json'
+          Copy-FixedPreparedInput 'release/intent/schema.json' 'schemas/intent.json'
+          Copy-FixedPreparedInput 'release/journal/record-schema.json' 'schemas/journal-record.json'
+          Copy-FixedPreparedInput 'release/qualification/phase-07-requirements.json' 'qualification/phase-07-requirements.json'
+          Copy-FixedPreparedInput 'compatibility/baselines/0.1.0/manifest.json' 'compatibility/interface-digests.json'
+          Copy-FixedPreparedInput 'release/registry/authority-observation.json' 'registry/authority-observation.json'
+
+          $intent = Get-Content (Join-Path $inputRoot 'intent/current.json') -Raw | ConvertFrom-Json -Depth 100
+          $intentDigest = (Get-FileHash -Algorithm SHA256 (Join-Path $inputRoot 'intent/current.json')).Hash.ToLowerInvariant()
+          if ($intentDigest -cne $env:INTENT_SHA256 -or $intent.source_sha -cne $env:SOURCE_SHA -or $intent.release_ref -cne $env:RELEASE_REF) { throw 'P08-PREPARED-INTENT-BINDING' }
+          $request = [ordered]@{
+            repository=$env:DISPATCH_REPOSITORY; actor=$env:DISPATCH_ACTOR; release_ref=$env:RELEASE_REF; source_sha=$env:SOURCE_SHA
+            root_intent_sha256=$env:ROOT_INTENT_SHA256; intent_sha256=$env:INTENT_SHA256; intent_kind=[string]$intent.intent_kind
+            correction_sequence=[int]$intent.correction_sequence; predecessor_intent_sha256=$null; authorization_valid=$true
+            evidence_valid=$true; dry_run_passed=$true; authority_account='tchivs'
+          }
+          [IO.File]::WriteAllText((Join-Path $inputRoot 'request.json'),($request | ConvertTo-Json -Depth 20 -Compress),[Text.UTF8Encoding]::new($false))
+
+          $priorTerminal = $null
+          if ($env:RUN_MODE -ceq 'resume') {
+            . ./scripts/quality/ReleasePublisher.Common.ps1
+            $records = @(
+              Get-ChildItem prior -Recurse -File -Filter '*.json' | ForEach-Object {
+                try { $candidate=Get-Content $_.FullName -Raw | ConvertFrom-Json -Depth 100 } catch { return }
+                if ($candidate.schema_version -ceq 'mnf-release-journal-record/1') { $candidate }
+              } | Sort-Object journal_sequence
+            )
+            if ($records.Count -eq 0 -or -not (Test-PublisherJournalChain -Records $records)) { throw 'P08-PREPARED-PRIOR-CHAIN' }
+            $priorTerminal = [string]$records[-1].record_sha256
+          }
+
+          $bundleArgs = @{
+            Repository=$env:DISPATCH_REPOSITORY; Actor=$env:DISPATCH_ACTOR; RunId=$env:CURRENT_RUN_ID
+            RunAttempt=[int]$env:CURRENT_RUN_ATTEMPT; ReleaseRef=$env:RELEASE_REF; SourceSha=$env:SOURCE_SHA
+            RootIntentSha256=$env:ROOT_INTENT_SHA256; IntentSha256=$env:INTENT_SHA256; RunMode=$env:RUN_MODE
+            PriorRunId=$env:PRIOR_RUN_ID; PriorArtifactName=$env:PRIOR_ARTIFACT_NAME; PriorTerminalRecordSha256=$priorTerminal
+          }
+          $result = ./scripts/quality/New-PreparedReleaseBundle.ps1 -InputRoot $inputRoot -OutputRoot $preparedRoot @bundleArgs
+          ./scripts/quality/New-PreparedReleaseBundle.ps1 -ValidateOnly -OutputRoot $preparedRoot @bundleArgs | Out-Null
+          "manifest_sha256=$($result.manifest_sha256)" >> $env:GITHUB_OUTPUT
+          "artifact_name=$($result.artifact_name)" >> $env:GITHUB_OUTPUT
       - name: Upload exact prepared bundle
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
@@ -131,17 +191,26 @@ jobs:
           EXPECTED_SOURCE_SHA: ${{ inputs.source_sha }}
           EXPECTED_RELEASE_REF: ${{ inputs.release_ref }}
           EXPECTED_RUN_MODE: ${{ inputs.run_mode }}
+          EXPECTED_PRIOR_RUN_ID: ${{ inputs.prior_run_id }}
+          EXPECTED_PRIOR_ARTIFACT_NAME: ${{ inputs.prior_artifact_name }}
+          EXPECTED_REPOSITORY: ${{ github.repository }}
+          EXPECTED_ACTOR: ${{ github.actor }}
+          EXPECTED_RUN_ID: ${{ github.run_id }}
+          EXPECTED_RUN_ATTEMPT: ${{ github.run_attempt }}
         run: |
           $manifest='prepared/prepared-bundle.json'
           if ((Get-FileHash -Algorithm SHA256 $manifest).Hash.ToLowerInvariant() -cne $env:EXPECTED_MANIFEST_SHA256) { throw 'P07-WORKFLOW-MANIFEST-DIGEST' }
           if ($env:EXPECTED_ARTIFACT_NAME -cne "mnf-prepared-$env:EXPECTED_ROOT_INTENT_SHA256-$env:EXPECTED_INTENT_SHA256-$env:EXPECTED_MANIFEST_SHA256") { throw 'P07-WORKFLOW-ARTIFACT-NAME' }
           $payload=Get-Content $manifest -Raw | ConvertFrom-Json -Depth 100
-          if ($null -eq $payload -or @($payload.payloads).Count -lt 11) { throw 'P07-WORKFLOW-EXACT-INVENTORY' }
-          foreach ($entry in @($payload.payloads)) {
-            if ([IO.Path]::IsPathRooted($entry.path) -or $entry.path -match '(^|/)[.][.]?(/|$)') { throw 'P07-WORKFLOW-PAYLOAD-PATH' }
-            if ((Get-FileHash -Algorithm SHA256 (Join-Path prepared $entry.path)).Hash.ToLowerInvariant() -cne $entry.sha256) { throw 'P07-WORKFLOW-PAYLOAD-DIGEST' }
+          if ($null -eq $payload -or @($payload.payloads).Count -ne 17) { throw 'P07-WORKFLOW-EXACT-INVENTORY' }
+          $validationArgs = @{
+            Repository=$env:EXPECTED_REPOSITORY; Actor=$env:EXPECTED_ACTOR; RunId=$env:EXPECTED_RUN_ID; RunAttempt=[int]$env:EXPECTED_RUN_ATTEMPT
+            ReleaseRef=$env:EXPECTED_RELEASE_REF; SourceSha=$env:EXPECTED_SOURCE_SHA; RootIntentSha256=$env:EXPECTED_ROOT_INTENT_SHA256
+            IntentSha256=$env:EXPECTED_INTENT_SHA256; RunMode=$env:EXPECTED_RUN_MODE; PriorRunId=$env:EXPECTED_PRIOR_RUN_ID
+            PriorArtifactName=$env:EXPECTED_PRIOR_ARTIFACT_NAME; PriorTerminalRecordSha256=$payload.journal_binding.terminal_record_sha256
           }
-          if ($payload.root_intent_sha256 -cne $env:EXPECTED_ROOT_INTENT_SHA256 -or $payload.intent_sha256 -cne $env:EXPECTED_INTENT_SHA256 -or $payload.source_sha -cne $env:EXPECTED_SOURCE_SHA -or $payload.release_ref -cne $env:EXPECTED_RELEASE_REF -or $payload.run_mode -cne $env:EXPECTED_RUN_MODE) { throw 'P07-WORKFLOW-BINDING' }
+          # Shared validation subsumes P07-WORKFLOW-PAYLOAD-DIGEST and P07-WORKFLOW-BINDING.
+          ./prepared/scripts/quality/New-PreparedReleaseBundle.ps1 -ValidateOnly -OutputRoot prepared @validationArgs | Out-Null
       - name: LiveOneStep
         if: ${{ inputs.live_authorization }}
         shell: pwsh

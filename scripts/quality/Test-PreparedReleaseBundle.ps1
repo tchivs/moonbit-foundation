@@ -97,6 +97,7 @@ try {
     Write-Utf8NoBom -Path (Join-Path $inputRoot "archives\$module.zip") -Text "deterministic-$module-archive"
   }
   $fixtureFiles = [ordered]@{
+    'scripts/quality/New-PreparedReleaseBundle.ps1' = 'prepared validator'
     'scripts/quality/Invoke-ReleasePublisher.ps1' = 'publisher controller'
     'scripts/quality/ReleasePublisher.Common.ps1' = 'publisher common'
     'policy/release-qualification.json' = '{"schema_version":"1.0.0"}'
@@ -127,7 +128,7 @@ try {
   }
   $manifestA = Get-Content -LiteralPath $a.manifest_path -Raw | ConvertFrom-Json -Depth 100
   $manifestB = Get-Content -LiteralPath $b.manifest_path -Raw | ConvertFrom-Json -Depth 100
-  if (@($manifestA.payloads).Count -ne 16 -or (@($manifestA.payloads.sha256) -join ',') -cne (@($manifestB.payloads.sha256) -join ',')) {
+  if (@($manifestA.payloads).Count -ne 17 -or (@($manifestA.payloads.sha256) -join ',') -cne (@($manifestB.payloads.sha256) -join ',')) {
     throw 'PREP01-DETERMINISM: payload inventory or digests differ.'
   }
   & $generator -ValidateOnly -OutputRoot $outA @validation | Out-Null

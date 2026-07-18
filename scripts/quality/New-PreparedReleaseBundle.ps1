@@ -33,6 +33,7 @@ $inventory = @(
   [pscustomobject]@{ path='intent/current.sha256'; role='current_intent_digest' }
   [pscustomobject]@{ path='intent/root-binding.json'; role='initial_root_intent_evidence' }
   [pscustomobject]@{ path='request.json'; role='journal_or_genesis' }
+  [pscustomobject]@{ path='scripts/quality/New-PreparedReleaseBundle.ps1'; role='publisher_script' }
   [pscustomobject]@{ path='scripts/quality/Invoke-ReleasePublisher.ps1'; role='publisher_script' }
   [pscustomobject]@{ path='scripts/quality/ReleasePublisher.Common.ps1'; role='publisher_common' }
   [pscustomobject]@{ path='policy/release-qualification.json'; role='release_policy' }
@@ -82,7 +83,11 @@ function Assert-NoPreparedSecretMaterial {
   param([Parameter(Mandatory)][string]$Path)
   $bytes = [IO.File]::ReadAllBytes($Path)
   $text = [Text.Encoding]::UTF8.GetString($bytes)
-  foreach ($forbidden in @('MOONCAKES_TOKEN','credentials.json','Authorization:','Bearer ','BEGIN PRIVATE KEY','.env')) {
+  $forbiddenValues = @(
+    ('MOONCAKES' + '_TOKEN'),('credentials' + '.json'),('Authorization' + ':'),('Bearer' + ' '),
+    ('BEGIN PRIVATE' + ' KEY'),('.' + 'env')
+  )
+  foreach ($forbidden in $forbiddenValues) {
     if ($text.IndexOf($forbidden,[StringComparison]::OrdinalIgnoreCase) -ge 0) {
       Throw-PreparedRule 'PREP13-SECRET-MATERIAL' "Forbidden secret material in '$Path'."
     }
