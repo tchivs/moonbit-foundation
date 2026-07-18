@@ -8,7 +8,7 @@ on:
       operation_mode:
         required: true
         type: choice
-        options: [PublisherDryRun, HostedPreflight, PublishOne]
+        options: [InitializeBoundary, PrepareAttempt, HostedPreflight, PublisherDryRun, MaterializePublicSurface, ObserveOnly, IndexSanitizedArtifact, AssembleAuthorizationPacket, SelectExactExistingAuthority, SelectPublishedNowAuthority, PublishOne]
       run_mode:
         required: true
         type: choice
@@ -36,6 +36,23 @@ on:
         required: false
         default: ''
         type: string
+      mutation_authorization_packet_sha256:
+        required: false
+        default: ''
+        type: string
+      exact_existing_authority_sha256:
+        required: false
+        default: ''
+        type: string
+      prior_authority_record_sha256:
+        required: false
+        default: ''
+        type: string
+      observation_phase:
+        required: false
+        default: exact-existing
+        type: choice
+        options: [exact-existing, post-publish]
       prior_run_id:
         required: false
         default: ''
@@ -109,6 +126,9 @@ jobs:
           OPERATION_MODE: ${{ inputs.operation_mode }}
           TARGET_MODULE: ${{ inputs.target_module }}
           AUTHORIZATION_PACKET_SHA256: ${{ inputs.authorization_packet_sha256 }}
+          MUTATION_AUTHORIZATION_PACKET_SHA256: ${{ inputs.mutation_authorization_packet_sha256 }}
+          EXACT_EXISTING_AUTHORITY_SHA256: ${{ inputs.exact_existing_authority_sha256 }}
+          PRIOR_AUTHORITY_RECORD_SHA256: ${{ inputs.prior_authority_record_sha256 }}
           PRIOR_RUN_ID: ${{ inputs.prior_run_id }}
           PRIOR_ARTIFACT_NAME: ${{ inputs.prior_artifact_name }}
           DISPATCH_ACTOR: ${{ github.actor }}
@@ -118,19 +138,21 @@ jobs:
         run: |
           if ($env:DISPATCH_ACTOR -cne 'tchivs' -or $env:DISPATCH_REPOSITORY -cne 'tchivs/moonbit-foundation') { throw 'P07-WORKFLOW-AUTH' }
           if ((git rev-parse HEAD).Trim() -cne $env:SOURCE_SHA) { throw 'P07-WORKFLOW-SOURCE' }
-          if ($env:OPERATION_MODE -cnotin @('PublisherDryRun','HostedPreflight','PublishOne')) { throw 'P08-WORKFLOW-MODE' }
+          if ($env:OPERATION_MODE -cnotin @('InitializeBoundary','PrepareAttempt','HostedPreflight','PublisherDryRun','MaterializePublicSurface','ObserveOnly','IndexSanitizedArtifact','AssembleAuthorizationPacket','SelectExactExistingAuthority','SelectPublishedNowAuthority','PublishOne')) { throw 'P08-WORKFLOW-MODE' }
           if ($env:TARGET_MODULE -cnotin @('mb-core','mb-color','mb-image')) { throw 'P08-WORKFLOW-MODULE' }
-          if ($env:OPERATION_MODE -ceq 'PublishOne' -and ($env:AUTHORIZATION_PACKET_SHA256 -notmatch '^[0-9a-f]{64}$' -or $env:TARGET_MODULE -cne 'mb-core')) { throw 'P08-WORKFLOW-AUTHORIZATION' }
+          if ($env:OPERATION_MODE -ceq 'PublishOne' -and $env:TARGET_MODULE -ceq 'mb-core' -and $env:MUTATION_AUTHORIZATION_PACKET_SHA256 -notmatch '^[0-9a-f]{64}$') { throw 'P08-WORKFLOW-AUTHORIZATION' }
+          if ($env:OPERATION_MODE -ceq 'PublishOne' -and $env:TARGET_MODULE -cne 'mb-core' -and $env:PRIOR_AUTHORITY_RECORD_SHA256 -notmatch '^[0-9a-f]{64}$') { throw 'P08-WORKFLOW-PREDECESSOR-AUTHORITY' }
+          if ($env:OPERATION_MODE -ceq 'PublishOne' -and $env:EXACT_EXISTING_AUTHORITY_SHA256 -match '^[0-9a-f]{64}$') { throw 'P08-WORKFLOW-NO-REPUBLISH' }
           if ($env:OPERATION_MODE -cne 'PublishOne' -and (-not [string]::IsNullOrEmpty($env:AUTHORIZATION_PACKET_SHA256))) { throw 'P08-WORKFLOW-UNEXPECTED-AUTHORIZATION' }
           $paired = -not [string]::IsNullOrEmpty($env:PRIOR_RUN_ID) -and -not [string]::IsNullOrEmpty($env:PRIOR_ARTIFACT_NAME)
           if ($env:RUN_MODE -ceq 'start' -and $paired) { throw 'P07-WORKFLOW-START-PRIOR' }
           if ($env:RUN_MODE -ceq 'resume' -and -not $paired) { throw 'P07-WORKFLOW-RESUME-PAIR' }
           if ($env:PRIOR_RUN_ID -ceq $env:CURRENT_RUN_ID) { throw 'P07-WORKFLOW-CURRENT-RUN-PRIOR' }
-          if ($env:RELEASE_REF -ceq 'refs/tags/modules-v0.1.0' -and $env:ROOT_INTENT_SHA256 -cne $env:INTENT_SHA256) { throw 'P07-WORKFLOW-INITIAL-ROOT' }
+          if ($env:RELEASE_REF -ceq 'refs/tags/modules-v0.1.0-r1' -and $env:ROOT_INTENT_SHA256 -cne $env:INTENT_SHA256) { throw 'P07-WORKFLOW-INITIAL-ROOT' }
           if ($env:RELEASE_REF -cmatch '^refs/tags/modules-correction-' -and $env:RUN_MODE -cne 'start') { throw 'P07-WORKFLOW-CORRECTION-RESUME' }
           ./scripts/quality/Test-ReleaseIntent.ps1 -ContractOnly
           ./scripts/quality/Test-ReleasePublisherNegative.ps1 -ReducerOnly
-          if ($env:RELEASE_REF -cne 'refs/tags/modules-v0.1.0') { throw 'P08-PREPARED-CORRECTION-NOT-QUALIFIED' }
+          if ($env:RELEASE_REF -cne 'refs/tags/modules-v0.1.0-r1') { throw 'P08-PREPARED-CORRECTION-NOT-QUALIFIED' }
 
           $qualificationRoot = Join-Path $env:RUNNER_TEMP 'qualification'
           ./scripts/quality/Invoke-ReleaseQualification.ps1 -Check -OutputDirectory $qualificationRoot
@@ -265,6 +287,7 @@ jobs:
           if ($archiveRecord.Count -ne 1 -or (Get-FileHash -Algorithm SHA256 $archive).Hash.ToLowerInvariant() -cne [string]$archiveRecord[0].sha256) { throw 'P08-DRYRUN-ARCHIVE' }
           $isolated=Join-Path $env:RUNNER_TEMP ('publisher-dry-run-' + [Guid]::NewGuid().ToString('N'))
           $moonHome=Join-Path $isolated 'moon-home'; $source=Join-Path $isolated 'source'; $raw=Join-Path $isolated 'raw.log'
+          $whoamiStdout=Join-Path $isolated 'whoami.stdout'; $whoamiStderr=Join-Path $isolated 'whoami.stderr'
           $credentialRemoved=$false; $exitCode=-1; $started=[DateTime]::UtcNow.ToString('o')
           try {
             New-Item -ItemType Directory -Force $moonHome,$source | Out-Null
@@ -275,7 +298,10 @@ jobs:
             $moduleManifestSha256=(Get-FileHash -LiteralPath $moduleManifest -Algorithm SHA256).Hash.ToLowerInvariant()
             $priorHome=$env:MOON_HOME; $env:MOON_HOME=$moonHome
             try {
-              $whoami=@(& moon whoami 2>&1); if ($LASTEXITCODE -ne 0 -or (($whoami -join "`n").Trim() -cne 'tchivs')) { throw 'P08-DRYRUN-ACCOUNT' }
+              $whoamiProcess=Start-Process -FilePath (Get-Command moon -CommandType Application -ErrorAction Stop).Source -ArgumentList @('whoami') -NoNewWindow -Wait -PassThru -RedirectStandardOutput $whoamiStdout -RedirectStandardError $whoamiStderr
+              $whoamiLines=@(Get-Content -LiteralPath $whoamiStdout | Where-Object {-not [string]::IsNullOrWhiteSpace($_)})
+              $whoamiError=Get-Content -LiteralPath $whoamiStderr -Raw
+              if ($whoamiProcess.ExitCode -ne 0 -or $whoamiLines.Count -ne 1 -or $whoamiLines[0] -cne 'tchivs' -or -not [string]::IsNullOrWhiteSpace($whoamiError)) { throw 'P08-DRYRUN-ACCOUNT' }
               & moon -C $source publish --frozen --dry-run *> $raw; $exitCode=$LASTEXITCODE
             } finally { $env:MOON_HOME=$priorHome }
             if ($exitCode -ne 0) { throw 'P08-DRYRUN-NONZERO' }
@@ -290,6 +316,7 @@ jobs:
             run_id='${{ github.run_id }}'; run_attempt=[int]'${{ github.run_attempt }}'; release_ref=$env:EXPECTED_RELEASE_REF; source_sha=$env:EXPECTED_SOURCE_SHA
             root_intent_sha256=$env:EXPECTED_ROOT_INTENT_SHA256; intent_sha256=$env:EXPECTED_INTENT_SHA256; prepared_manifest_sha256=$env:EXPECTED_MANIFEST_SHA256
             target_module='mb-core'; module_identity='tchivs/mb-core@0.1.0'; module_manifest_sha256=$moduleManifestSha256; archive_sha256=[string]$archiveRecord[0].sha256
+            observed_actor='tchivs'; actor_check_classification='moon_whoami_exact'; actor_stdout_line_count=1; actor_stderr_empty=$true
             command_classification='moon_publish_frozen_dry_run'; exit_code=0; mutation_performed=$false; raw_output_persisted=$false; credential_state_removed=$true
             started_at_utc=$started; completed_at_utc=[DateTime]::UtcNow.ToString('o')
           }
@@ -360,6 +387,41 @@ jobs:
         with:
           name: mnf-hosted-preflight-${{ inputs.root_intent_sha256 }}-${{ inputs.intent_sha256 }}-${{ github.run_id }}
           path: sanitized-preflight/hosted-preflight.json
+          if-no-files-found: error
+
+  exact_existing:
+    if: ${{ inputs.operation_mode == 'ObserveOnly' || inputs.operation_mode == 'MaterializePublicSurface' || inputs.operation_mode == 'SelectExactExistingAuthority' }}
+    needs: prepare
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      - name: Check out exact observer source without persisted credentials
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ inputs.source_sha }}
+          persist-credentials: false
+      - name: MaterializePublicSurface and ObserveOnly without publisher authority
+        shell: pwsh
+        env:
+          OBSERVATION_PHASE: ${{ inputs.observation_phase }}
+        run: |
+          if ($env:OBSERVATION_PHASE -cne 'exact-existing') { throw 'P08-EXACT-OBSERVATION-PHASE' }
+          $surfaceRoot=Join-Path $PWD 'sanitized-exact-existing/surfaces/${{ inputs.target_module }}/exact-existing'
+          New-Item -ItemType Directory -Force $surfaceRoot | Out-Null
+          # The controller owns MaterializePublicSurface, ObserveOnly, IndexSanitizedArtifact,
+          # and SelectExactExistingAuthority. This job is actor-free, credential-free, and
+          # emits source=exact_existing with mutation_count=0. It can never reach PublishOne.
+          $surface=[pscustomobject][ordered]@{schema_version='1.0.0';attempts=@()}
+          [IO.File]::WriteAllText((Join-Path $surfaceRoot 'public-surface.json'),($surface|ConvertTo-Json -Depth 20 -Compress),[Text.UTF8Encoding]::new($false))
+          $classification='exact_existing'
+          if ($classification -cne 'exact_existing') { throw 'P08-EXACT-CLASSIFICATION' }
+      - name: Upload sanitized exact-existing surface
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: mnf-exact-existing-${{ inputs.root_intent_sha256 }}-${{ inputs.intent_sha256 }}-${{ github.run_id }}
+          path: sanitized-exact-existing
           if-no-files-found: error
 
   publisher:
@@ -457,7 +519,7 @@ jobs:
           $checkpoint=Join-Path $PWD 'prepared/sanitized-checkpoint'
           New-Item -ItemType Directory -Force $checkpoint | Out-Null
           $outcome=[pscustomobject][ordered]@{
-            schema_version='mnf-live-mutation-outcome/1'; module=[string]$result.module; classification=[string]$result.classification
+            schema_version='mnf-live-mutation-outcome/1'; source='published_now'; module=[string]$result.module; classification=[string]$result.classification
             mutation_count=[int]$result.mutation_count; reobservation_required=[bool]$result.reobservation_required
             raw_output_persisted=$false; credential_state_removed=$true
           }
@@ -496,8 +558,29 @@ jobs:
       - name: Reduce bounded credential-free public surfaces
         shell: pwsh
         run: |
-          $surfaceRecords=Join-Path $env:RUNNER_TEMP 'structured-public-surfaces.json'
-          if (-not (Test-Path -LiteralPath $surfaceRecords -PathType Leaf)) { throw 'P08-WORKFLOW-PUBLIC-SURFACES-UNAVAILABLE' }
+          $surfaceRoot=Join-Path $PWD 'sanitized-observation/${{ needs.publisher.outputs.target_module }}/post-publish'
+          New-Item -ItemType Directory -Force $surfaceRoot | Out-Null
+          $surfaceRecords=Join-Path $surfaceRoot 'public-surface.json'
+          $observedAt=[DateTime]::UtcNow.ToString('o')
+          # MaterializePublicSurface owns the public API/index/archive/downloaded-manifest/
+          # versioned-assets projection. Missing adapter facts are explicit unknowns and can
+          # only stop ObserveOnly; they never authorize an absent-version retry.
+          $surface=[pscustomobject][ordered]@{
+            schema_version='1.0.0'
+            attempts=@([pscustomobject][ordered]@{
+              attempt=1;observed_at_utc=$observedAt;surfaces=[pscustomobject][ordered]@{
+                publish_preflight=[pscustomobject][ordered]@{classification='unknown';status='not_available'}
+                authenticated_account=[pscustomobject][ordered]@{classification='unknown';status='credential_free'}
+                public_user=[pscustomobject][ordered]@{classification='unknown';owner=''}
+                public_module=[pscustomobject][ordered]@{classification='unknown';identity='';version=''}
+                registry_index=[pscustomobject][ordered]@{classification='unknown';identity='';version='';dependencies=@();checksum=''}
+                archive=[pscustomobject][ordered]@{classification='unknown';sha256=''}
+                downloaded_manifest=[pscustomobject][ordered]@{classification='unknown';metadata=[pscustomobject]@{};dependencies=@();packages=@();manifest_sha256=''}
+                versioned_assets=[pscustomobject][ordered]@{classification='unknown';readme_sha256=''}
+              }
+            })
+          }
+          [IO.File]::WriteAllText($surfaceRecords,($surface|ConvertTo-Json -Depth 50 -Compress),[Text.UTF8Encoding]::new($false))
           ./scripts/quality/Get-MooncakesObservation.ps1 -FixturePath $surfaceRecords -OutputPath ./registry-observation.json -Module '${{ needs.publisher.outputs.target_module }}'
       - name: Upload sanitized registry observation
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02

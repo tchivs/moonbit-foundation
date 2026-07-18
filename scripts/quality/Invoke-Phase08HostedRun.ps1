@@ -176,6 +176,8 @@ function Assert-P08HostedEvidence {
   }
   if ($Operation -ceq 'PublisherDryRun') {
     if ([string]$Evidence.schema_version -cne 'mnf-publisher-dry-run/1' -or [string]$Evidence.command_classification -cne 'moon_publish_frozen_dry_run' -or
+        [string]$Evidence.observed_actor -cne 'tchivs' -or [string]$Evidence.actor_check_classification -cne 'moon_whoami_exact' -or
+        [int]$Evidence.actor_stdout_line_count -ne 1 -or $Evidence.actor_stderr_empty -ne $true -or
         [int]$Evidence.exit_code -ne 0 -or $Evidence.mutation_performed -ne $false -or $Evidence.credential_state_removed -ne $true -or
         $Evidence.raw_output_persisted -ne $false -or [string]$Evidence.module_identity -cne 'tchivs/mb-core@0.1.0' -or
         [string]$Evidence.module_manifest_sha256 -notmatch '^[0-9a-f]{64}$' -or [string]$Evidence.archive_sha256 -notmatch '^[0-9a-f]{64}$') { Throw-P08HostedRule 'P08-HOSTED-DRYRUN-EVIDENCE' 'PublisherDryRun evidence is incomplete or mutation-indicating.' }

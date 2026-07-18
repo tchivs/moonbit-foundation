@@ -286,6 +286,7 @@ $dryEvidence=[pscustomobject][ordered]@{
   schema_version='mnf-publisher-dry-run/1';mode='PublisherDryRun';repository='tchivs/moonbit-foundation';workflow='publish-modules.yml';run_id='1001';run_attempt=1
   release_ref='refs/tags/modules-v0.1.0';source_sha=('1'*40);root_intent_sha256=('a'*64);intent_sha256=('a'*64);prepared_manifest_sha256=('b'*64)
   target_module='mb-core';module_identity='tchivs/mb-core@0.1.0';module_manifest_sha256=('d'*64);archive_sha256=('c'*64);command_classification='moon_publish_frozen_dry_run'
+  observed_actor='tchivs';actor_check_classification='moon_whoami_exact';actor_stdout_line_count=1;actor_stderr_empty=$true
   exit_code=0;mutation_performed=$false;raw_output_persisted=$false;credential_state_removed=$true;started_at_utc=$now;completed_at_utc=$now
 }
 Assert-P08HostedEvidence -Operation PublisherDryRun -Evidence $dryEvidence -Run $fixtureRun -Store $fixtureStore -PreparedDigest ('b'*64) -Module mb-core
@@ -294,6 +295,8 @@ Confirm-LiveRule 'P08-HOSTED-DRYRUN-EVIDENCE' { Assert-P08HostedEvidence -Operat
 $bad=$dryEvidence.PSObject.Copy();$bad.credential_state_removed=$false
 Confirm-LiveRule 'P08-HOSTED-DRYRUN-EVIDENCE' { Assert-P08HostedEvidence -Operation PublisherDryRun -Evidence $bad -Run $fixtureRun -Store $fixtureStore -PreparedDigest ('b'*64) -Module mb-core }
 $bad=$dryEvidence.PSObject.Copy();$bad.command_classification='moon_publish_frozen'
+Confirm-LiveRule 'P08-HOSTED-DRYRUN-EVIDENCE' { Assert-P08HostedEvidence -Operation PublisherDryRun -Evidence $bad -Run $fixtureRun -Store $fixtureStore -PreparedDigest ('b'*64) -Module mb-core }
+$bad=$dryEvidence.PSObject.Copy();$bad.actor_stdout_line_count=2
 Confirm-LiveRule 'P08-HOSTED-DRYRUN-EVIDENCE' { Assert-P08HostedEvidence -Operation PublisherDryRun -Evidence $bad -Run $fixtureRun -Store $fixtureStore -PreparedDigest ('b'*64) -Module mb-core }
 $bad=$dryEvidence.PSObject.Copy();$bad.intent_sha256=('d'*64)
 Confirm-LiveRule 'P08-HOSTED-EVIDENCE-BINDING' { Assert-P08HostedEvidence -Operation PublisherDryRun -Evidence $bad -Run $fixtureRun -Store $fixtureStore -PreparedDigest ('b'*64) -Module mb-core }
