@@ -27,9 +27,13 @@ function Confirm-LiveRule {
 
 function New-LiveTestRequest {
   [pscustomobject][ordered]@{
-    repository='tchivs/moonbit-foundation'; actor='tchivs'; release_ref='refs/tags/modules-v0.1.0'
+    repository='tchivs/moonbit-foundation'; actor='tchivs'; actor_evidence=[pscustomobject][ordered]@{
+      expected_actor='tchivs';observed_actor='tchivs';actor_check_classification='moon_whoami_exact';actor_exit_code=0
+      actor_stdout_line_count=1;actor_stderr_empty=$true;actor_match=$true;actor_raw_output_persisted=$false
+      credential_state_removed=$true;mutation_performed=$false;command_classification='moon_whoami_dry_run_only'
+    }; release_ref='refs/tags/modules-v0.1.0-r1'
     source_sha=('1'*40); root_intent_sha256=('a'*64); intent_sha256=('a'*64); intent_kind='initial'
-    correction_sequence=0; predecessor_intent_sha256=$null; authorization_valid=$true
+    prepared_manifest_sha256=('b'*64);correction_sequence=0; predecessor_intent_sha256=$null; authorization_valid=$true
     evidence_valid=$true; dry_run_passed=$true; authority_account='tchivs'
   }
 }
@@ -128,6 +132,7 @@ try {
     payloads=@('mb-core','mb-color','mb-image' | ForEach-Object { [pscustomobject][ordered]@{ path="archives/$_.zip"; role='exact_source_archive'; size=1; sha256=('3'*64) } })
   }
   [IO.File]::WriteAllText((Join-Path $fixtureRoot 'prepared/prepared-bundle.json'),($manifest | ConvertTo-Json -Depth 20),[Text.UTF8Encoding]::new($false))
+  $request.prepared_manifest_sha256=(Get-FileHash -LiteralPath (Join-Path $fixtureRoot 'prepared/prepared-bundle.json') -Algorithm SHA256).Hash.ToLowerInvariant()
   $validatorCalls=0
   $validator={ param($root,$prepared,$boundRequest) $script:validatorCalls++; if ($prepared.source_sha -cne $boundRequest.source_sha) { throw 'fixture binding drift' } }
   $fakePublish={
@@ -202,8 +207,17 @@ if ($AdapterOnly) { return }
 
 $workflowPath = Join-Path (Split-Path -Parent $PSScriptRoot) '..\.github\workflows\publish-modules.yml'
 $workflow = Get-Content -LiteralPath $workflowPath -Raw
-foreach ($required in @('Invoke-MooncakesLiveMutation','Invoke-ColdRegistryConsumer','MOONCAKES_TOKEN','PublisherDryRun','HostedPreflight','PublishOne','publish --frozen --dry-run','native_runtime_verified')) {
+foreach ($required in @(
+  'Invoke-MooncakesLiveMutation','Invoke-ColdRegistryConsumer','MOONCAKES_TOKEN','InitializeBoundary','PrepareAttempt',
+  'PublisherDryRun','HostedPreflight','MaterializePublicSurface','ObserveOnly','IndexSanitizedArtifact',
+  'AssembleAuthorizationPacket','SelectExactExistingAuthority','SelectPublishedNowAuthority','PublishOne',
+  'refs/tags/modules-v0.1.0-r1','publish --frozen --dry-run','native_runtime_verified','whoami.stdout','whoami.stderr',
+  'exact_existing','published_now'
+)) {
   if ($workflow.IndexOf($required,[StringComparison]::Ordinal) -lt 0) { throw "P08-WORKFLOW-MISSING: '$required'." }
+}
+if ($workflow.IndexOf("Join-Path `$env:RUNNER_TEMP 'structured-public-surfaces.json'",[StringComparison]::Ordinal) -ge 0) {
+  throw 'P08-WORKFLOW-AMBIENT-SURFACE: observer still depends on an undeclared runner-temp file.'
 }
 $setupCount=@([regex]::Matches($workflow,'(?m)^\s+version: latest\s*$')).Count
 $verifyCount=@([regex]::Matches($workflow,'(?m)^\s+- name: Verify exact MoonBit toolchain\s*$')).Count
