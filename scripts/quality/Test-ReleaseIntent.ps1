@@ -173,7 +173,45 @@ function Invoke-FocusedIntentTests {
   }
 }
 
+function Invoke-QualificationIntegrationTests {
+  $source = Get-Content -LiteralPath (Join-Path $PSScriptRoot 'Invoke-ReleaseQualification.ps1') -Raw
+  $archivePosition = $source.IndexOf('Assert-ReleaseTrackedSnapshot -Before $initialDiff -After $finalDiff', [StringComparison]::Ordinal)
+  $reportPosition = $source.IndexOf('Assert-WrittenReleaseReport -Path $reportPath', [StringComparison]::Ordinal)
+  $intentPosition = $source.IndexOf('Write-InitialReleaseIntentBinding -ReleaseReport $report', [StringComparison]::Ordinal)
+  if ($archivePosition -lt 0 -or $reportPosition -le $archivePosition -or $intentPosition -le $reportPosition) {
+    throw 'REL01-INTEGRATION-ORDER: intent generation is not after tracked-diff and report validation.'
+  }
+  foreach ($forbidden in @('moon login','moon publish','credentials.json','MOONCAKES_TOKEN','Authorization:','Bearer ')) {
+    if ($source.IndexOf($forbidden, [StringComparison]::OrdinalIgnoreCase) -ge 0) { throw "REL01-INTEGRATION-CREDENTIAL: qualification contains forbidden '$forbidden'." }
+  }
+  $tempRoot = Join-Path ([IO.Path]::GetTempPath()) ('mnf-intent-integration-' + [Guid]::NewGuid().ToString('N'))
+  $null = New-Item -ItemType Directory -Force -Path $tempRoot
+  try {
+    $result = & (Join-Path $PSScriptRoot 'Invoke-ReleaseQualification.ps1') -Check -IntentIntegrationOnly -OutputDirectory $tempRoot
+    $binding = Get-Content -LiteralPath $result.binding_path -Raw | ConvertFrom-Json -Depth 100
+    $intent = Read-ReleaseCanonicalJson -Path $result.intent_path
+    if ($binding.schema_version -cne 'mnf-release-intent-binding/1' -or $binding.intent_kind -cne 'initial' -or
+        $binding.release_ref -cne 'refs/tags/modules-v0.1.0' -or $binding.root_intent_sha256 -cne $binding.intent_sha256 -or
+        $binding.intent_sha256 -cne $result.intent_sha256) { throw 'REL01-INITIAL-ROOT-BINDING: integration binding drifted.' }
+    if ($null -ne $intent.PSObject.Properties['root_intent_sha256']) { throw 'REL01-HASH-CYCLE: integration serialized initial root inside intent.' }
+    if ($binding.credentials_read -ne $false -or $binding.publication_performed -ne $false -or
+        $intent.credentials_read -ne $false -or $intent.publication_performed -ne $false) { throw 'REL01-INTEGRATION-MUTATION: integration crossed credential/publication boundary.' }
+    foreach ($field in @('qualification_root_sha256','required_stable_sha256','phase_06_ledger_sha256','interface_manifest_sha256')) {
+      if ([string]$binding.$field -cnotmatch '^[0-9a-f]{64}$') { throw "REL01-INTEGRATION-EVIDENCE: missing $field." }
+    }
+    Write-Host 'Release intent qualification integration passed: one-way initial root/current binding after stable credential-free evidence.'
+  } finally {
+    if (Test-Path -LiteralPath $tempRoot) {
+      $tempBase = [IO.Path]::GetFullPath([IO.Path]::GetTempPath()).TrimEnd([IO.Path]::DirectorySeparatorChar)
+      $full = [IO.Path]::GetFullPath($tempRoot)
+      if (-not $full.StartsWith($tempBase + [IO.Path]::DirectorySeparatorChar, [StringComparison]::OrdinalIgnoreCase) -or
+          -not (Split-Path -Leaf $full).StartsWith('mnf-intent-integration-', [StringComparison]::Ordinal)) { throw "Refusing to remove unverified integration path: $full" }
+      Remove-Item -LiteralPath $full -Recurse -Force
+    }
+  }
+}
+
 if (-not ($ContractOnly -or $Focused -or $QualificationIntegration)) { throw 'REL01-SELECTOR-REQUIRED: choose -ContractOnly, -Focused, or -QualificationIntegration.' }
 Assert-IntentContract
 if ($Focused) { Invoke-FocusedIntentTests }
-if ($QualificationIntegration) { throw 'REL01-INTEGRATION-NOT-IMPLEMENTED: qualification integration belongs to Task 3.' }
+if ($QualificationIntegration) { Invoke-QualificationIntegrationTests }

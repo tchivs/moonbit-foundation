@@ -2,6 +2,7 @@
 param(
   [switch]$Check,
   [switch]$StaticOnly,
+  [switch]$IntentIntegrationOnly,
   [string]$PolicyPath = 'policy/release-qualification.json',
   [string]$OutputDirectory = 'artifacts/release-qualification/current'
 )
@@ -271,6 +272,83 @@ function Assert-WrittenReleaseReport {
   }
 }
 
+function Write-InitialReleaseIntentBinding {
+  param(
+    [Parameter(Mandatory)][object]$ReleaseReport,
+    [Parameter(Mandatory)][string]$SourceRoot,
+    [Parameter(Mandatory)][string]$Directory
+  )
+  $absolute = if ([IO.Path]::IsPathRooted($Directory)) { [IO.Path]::GetFullPath($Directory) } else { [IO.Path]::GetFullPath((Join-Path $repoRoot $Directory)) }
+  $null = New-Item -ItemType Directory -Force -Path $absolute
+  $phase06LedgerPath = Join-Path $repoRoot 'release\qualification\phase-06-requirements.json'
+  $interfaceManifestPath = Join-Path $repoRoot 'compatibility\baselines\0.1.0\manifest.json'
+  $releaseStableText = $ReleaseReport | ConvertTo-Json -Depth 100 -Compress
+  $qualificationRoot = Get-ReleaseTextSha256 -Text $releaseStableText
+  $phase06Digest = Get-ReleaseSha256 -Path $phase06LedgerPath
+  $interfaceDigest = Get-ReleaseSha256 -Path $interfaceManifestPath
+  $requiredProjection = [ordered]@{
+    release_qualification_sha256 = $qualificationRoot
+    phase_06_ledger_sha256 = $phase06Digest
+    interface_manifest_sha256 = $interfaceDigest
+  }
+  $requiredStable = Get-ReleaseTextSha256 -Text ($requiredProjection | ConvertTo-Json -Depth 10 -Compress)
+  $archives = [ordered]@{}
+  foreach ($shortName in @($policy.module_order)) {
+    $digest = [string]$ReleaseReport.modules.$shortName.package.sha256
+    if ($digest -cnotmatch '^[0-9a-f]{64}$') { Throw-ReleaseRule -Id 'REL01-EVIDENCE' -Message "qualified archive digest is missing for $shortName." }
+    $archives[$shortName] = $digest
+  }
+  $intentResult = & (Join-Path $PSScriptRoot 'New-ReleaseIntent.ps1') `
+    -Check -IntentKind initial -ReleaseRef 'refs/tags/modules-v0.1.0' -SourceSha ([string]$ReleaseReport.head) -SourceRoot $SourceRoot `
+    -QualificationRootSha256 $qualificationRoot -RequiredStableSha256 $requiredStable -ArchiveSha256ByModule $archives `
+    -OutputDirectory (Join-Path $absolute 'intent')
+  if ($intentResult.root_intent_sha256 -cne $intentResult.intent_sha256 -or $intentResult.credentials_read -ne $false -or $intentResult.publication_performed -ne $false) {
+    Throw-ReleaseRule -Id 'REL01-INITIAL-ROOT-BINDING' -Message 'initial intent root/current or mutation boundary drifted.'
+  }
+  $intent = Read-ReleaseCanonicalJson -Path $intentResult.intent_path
+  if ($null -ne $intent.PSObject.Properties['root_intent_sha256']) { Throw-ReleaseRule -Id 'REL01-HASH-CYCLE' -Message 'initial intent serialized its root digest.' }
+  $binding = [ordered]@{
+    schema_version = 'mnf-release-intent-binding/1'
+    intent_kind = 'initial'
+    release_ref = 'refs/tags/modules-v0.1.0'
+    source_sha = [string]$ReleaseReport.head
+    root_intent_sha256 = [string]$intentResult.intent_sha256
+    intent_sha256 = [string]$intentResult.intent_sha256
+    qualification_root_sha256 = $qualificationRoot
+    required_stable_sha256 = $requiredStable
+    phase_06_ledger_sha256 = $phase06Digest
+    interface_manifest_sha256 = $interfaceDigest
+    credentials_read = $false
+    publication_performed = $false
+  }
+  $bindingPath = Join-Path $absolute 'release-intent-binding.json'
+  [IO.File]::WriteAllText($bindingPath, (($binding | ConvertTo-Json -Depth 10 -Compress)), [Text.UTF8Encoding]::new($false))
+  return [pscustomobject]@{ binding_path = $bindingPath; intent_path = $intentResult.intent_path; intent_sha256 = $intentResult.intent_sha256 }
+}
+
+if ($IntentIntegrationOnly) {
+  $integrationTemp = Join-Path ([IO.Path]::GetTempPath()) ('mnf-release-qualification-' + [Guid]::NewGuid().ToString('N'))
+  $null = New-Item -ItemType Directory -Force -Path $integrationTemp
+  try {
+    $integrationSource = Join-Path $integrationTemp 'clean-source'
+    $head = (& git -C $repoRoot rev-parse HEAD).Trim()
+    $null = New-CleanReleaseClone -Destination $integrationSource -ExpectedHead $head
+    $fixtureReport = [ordered]@{
+      schema_version = '1.0.0'
+      head = $head
+      module_order = @($policy.module_order)
+      modules = [ordered]@{
+        'mb-core' = [ordered]@{ package = [ordered]@{ sha256 = ('1' * 64) } }
+        'mb-color' = [ordered]@{ package = [ordered]@{ sha256 = ('2' * 64) } }
+        'mb-image' = [ordered]@{ package = [ordered]@{ sha256 = ('3' * 64) } }
+      }
+      publication = [ordered]@{ performed = $false; credentials_read = $false; namespace_verified = $false; blocked_reason = 'unverified_mooncakes_owner_namespace' }
+      tracked_diff_unchanged = $true
+    }
+    return Write-InitialReleaseIntentBinding -ReleaseReport $fixtureReport -SourceRoot $integrationSource -Directory $OutputDirectory
+  } finally { Remove-ReleaseTemp -Path $integrationTemp }
+}
+
 $initialDiff = Get-ReleaseTrackedDiffSnapshot
 $head = (& git -C $repoRoot rev-parse HEAD).Trim()
 if ($LASTEXITCODE -ne 0 -or $head -cnotmatch '^[0-9a-f]{40}$') { throw 'Unable to identify the committed release-qualification HEAD.' }
@@ -343,7 +421,11 @@ try {
   $reportPath = Write-ReleaseReport -Report $report -Directory $OutputDirectory
   Assert-WrittenReleaseReport -Path $reportPath -ExpectedHead $head
   Assert-ReleaseCandidateOutcomes -ReportPath $reportPath
+  $intentSource = Join-Path $tempRoot 'intent-source'
+  $null = New-CleanReleaseClone -Destination $intentSource -ExpectedHead $head
+  $intentBinding = Write-InitialReleaseIntentBinding -ReleaseReport $report -SourceRoot $intentSource -Directory $OutputDirectory
   Write-Host "Release qualification report: $reportPath"
+  Write-Host "Release intent binding: $($intentBinding.binding_path) ($($intentBinding.intent_sha256))"
   Write-Host 'Post-publication contract: mb-core publish/resolve, then mb-color publish/resolve, then mb-image publish/resolve.'
 } finally {
   Remove-ReleaseTemp -Path $tempRoot
