@@ -19,7 +19,7 @@
   },
   "artifact_contracts": [
     { "id": "release-intent", "path": "release/intent/schema.json", "sha256": "18c17d87be13d32ca5f11de27379cd7d4d535d73785719b118e13c1f02862a01" },
-    { "id": "publisher-workflow", "path": ".github/workflows/publish-modules.yml", "sha256": "526f25eed27278bb2f4006a90b469f95d104d83617eb0a286f63cdbcf99875c0" },
+    { "id": "publisher-workflow", "path": ".github/workflows/publish-modules.yml", "sha256": "8c9e2f6e574c9055ca2d4efcab0d3264b097d8a8cdba623f2aed5bf47c95c207" },
     { "id": "prepared-schema", "path": "release/prepared/schema.json", "sha256": "edb4cfa33b50571e526c4784db3331dee999e41175e96420a6525694b5b32e18" },
     { "id": "publisher-journal", "path": "release/journal/record-schema.json", "sha256": "a48d41a4f62f49d6cc686b6ecd2326b5c3b397e221ce0a21214aa0b200e65ecd" },
     { "id": "publisher-rehearsal", "path": "scripts/quality/Test-ReleasePublisherNegative.ps1", "sha256": "62e680c99a36630f7baa66cba962a301be1b649e61d3e7e9202acbd0b45b9cee" },
