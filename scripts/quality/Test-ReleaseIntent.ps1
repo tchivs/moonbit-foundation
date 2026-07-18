@@ -100,7 +100,7 @@ function Invoke-FocusedIntentTests {
     $common = @{
       Check = $true
       IntentKind = 'initial'
-      ReleaseRef = 'refs/tags/modules-v0.1.0'
+      ReleaseRef = 'refs/tags/modules-v0.1.0-r1'
       SourceSha = $head
       QualificationRootSha256 = ('4' * 64)
       RequiredStableSha256 = ('5' * 64)
@@ -221,7 +221,7 @@ function Invoke-QualificationIntegrationTests {
     $binding = Get-Content -LiteralPath $result.binding_path -Raw | ConvertFrom-Json -Depth 100
     $intent = Read-ReleaseCanonicalJson -Path $result.intent_path
     if ($binding.schema_version -cne 'mnf-release-intent-binding/1' -or $binding.intent_kind -cne 'initial' -or
-        $binding.release_ref -cne 'refs/tags/modules-v0.1.0' -or $binding.root_intent_sha256 -cne $binding.intent_sha256 -or
+        $binding.release_ref -cne 'refs/tags/modules-v0.1.0-r1' -or $binding.root_intent_sha256 -cne $binding.intent_sha256 -or
         $binding.intent_sha256 -cne $result.intent_sha256) { throw 'REL01-INITIAL-ROOT-BINDING: integration binding drifted.' }
     if ($null -ne $intent.PSObject.Properties['root_intent_sha256']) { throw 'REL01-HASH-CYCLE: integration serialized initial root inside intent.' }
     if ($binding.credentials_read -ne $false -or $binding.publication_performed -ne $false -or

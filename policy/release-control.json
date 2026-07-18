@@ -5,13 +5,35 @@
   "owner": "tchivs",
   "sole_maintainer": "tchivs",
   "publisher_environment": "mooncakes-production",
+  "historical_initial_attempt": {
+    "release_ref": "refs/tags/modules-v0.1.0",
+    "source_sha": "198436a45b7403a3c28c98d5fa0d5ed6a958455f",
+    "run_id": "29652468948",
+    "run_attempt": 1,
+    "disposition": "terminal_setup_failure",
+    "current_authority": false,
+    "retry_or_reuse": "forbidden"
+  },
   "initial_profile": {
     "intent_kind": "initial",
-    "release_ref": "refs/tags/modules-v0.1.0",
+    "release_ref": "refs/tags/modules-v0.1.0-r1",
     "correction_sequence": 0,
     "predecessor": "forbidden",
     "serialized_root_intent_sha256": "forbidden",
     "dispatch_root_binding": "root_intent_sha256_equals_intent_sha256"
+  },
+  "actor_policy": {
+    "expected_actor": "tchivs",
+    "observed_actor": "tchivs",
+    "actor_check_classification": "moon_whoami_exact",
+    "actor_exit_code": 0,
+    "actor_stdout_line_count": 1,
+    "actor_stderr_empty": true,
+    "actor_match": true,
+    "actor_raw_output_persisted": false,
+    "credential_state_removed": true,
+    "mutation_performed": false,
+    "command_classification": "moon_whoami_dry_run_only"
   },
   "correction_profile": {
     "intent_kind": "forward_correction",

@@ -163,6 +163,30 @@ function Test-ReleaseSha256Text {
   return $Value -is [string] -and [string]$Value -cmatch '^[0-9a-f]{64}$'
 }
 
+function Assert-ReleaseActorEvidence {
+  param([Parameter(Mandatory)][object]$Evidence, [Parameter(Mandatory)][object]$Policy)
+  $fields = @(
+    'expected_actor','observed_actor','actor_check_classification','actor_exit_code','actor_stdout_line_count',
+    'actor_stderr_empty','actor_match','actor_raw_output_persisted','credential_state_removed','mutation_performed',
+    'command_classification'
+  )
+  try { Assert-ReleaseClosedProperties -Label 'publisher actor evidence' -Object $Evidence -Expected $fields } catch {
+    Throw-ReleaseRule -Id 'REL03-ACTOR' -Message $_.Exception.Message
+  }
+  $expected = $Policy.actor_policy
+  foreach ($field in $fields) {
+    if ($null -eq $expected.PSObject.Properties[$field] -or [string]$Evidence.$field -cne [string]$expected.$field) {
+      Throw-ReleaseRule -Id 'REL03-ACTOR' -Message "actor evidence field '$field' is not the exact sanitized policy value."
+    }
+  }
+  foreach ($value in @($Evidence.expected_actor,$Evidence.observed_actor)) {
+    if ([string]$value -cmatch '(?i)(token|secret|password|cookie|authorization|bearer)|[\r\n]') {
+      Throw-ReleaseRule -Id 'REL03-ACTOR' -Message 'actor evidence contains a secret-shaped or multiline value.'
+    }
+  }
+  return $true
+}
+
 function Assert-ReleaseIntentObject {
   param(
     [Parameter(Mandatory)][object]$Intent,
@@ -214,6 +238,7 @@ function Assert-ReleaseIntentObject {
   $current = Get-ReleaseCanonicalSha256 -Value $Intent -Profile ReleaseIntent
   if ($kind -ceq 'initial') {
     if ($Intent.release_ref -cne $policy.initial_profile.release_ref -or $Intent.correction_sequence -ne 0) { Throw-ReleaseRule -Id 'REL01-REF' -Message 'initial ref or sequence drifted.' }
+    if ($Intent.source_sha -ceq $policy.historical_initial_attempt.source_sha) { Throw-ReleaseRule -Id 'REL01-HISTORICAL-SOURCE' -Message 'terminal attempt-zero source cannot be current r1 authority.' }
   } else {
     if ($Intent.release_ref -cnotmatch $policy.correction_profile.release_ref_pattern) { Throw-ReleaseRule -Id 'REL01-CORRECTION-TAG' -Message 'correction tag is noncanonical.' }
     if (-not (Test-ReleaseSha256Text $Intent.root_intent_sha256) -or $Intent.root_intent_sha256 -ceq $current) { Throw-ReleaseRule -Id 'REL01-ROOT-DRIFT' -Message 'correction root is invalid or conflated with current digest.' }

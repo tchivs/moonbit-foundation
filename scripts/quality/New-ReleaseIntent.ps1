@@ -52,6 +52,7 @@ foreach ($digest in @($QualificationRootSha256,$RequiredStableSha256)) { if (-no
 
 if ($IntentKind -ceq 'initial') {
   if ($ReleaseRef -cne $control.initial_profile.release_ref) { Throw-ReleaseRule -Id 'REL01-REF' -Message 'initial release ref is not the dedicated immutable tag.' }
+  if ($SourceSha -ceq $control.historical_initial_attempt.source_sha) { Throw-ReleaseRule -Id 'REL01-HISTORICAL-SOURCE' -Message 'the terminal attempt-zero source cannot be reused as r1 current authority.' }
   if ($CorrectionSequence -ne 0 -or -not [string]::IsNullOrEmpty($RootIntentSha256) -or -not [string]::IsNullOrEmpty($PredecessorIntentSha256)) {
     Throw-ReleaseRule -Id 'REL01-HASH-CYCLE' -Message 'initial intent must not serialize root, predecessor, or a correction sequence.'
   }
