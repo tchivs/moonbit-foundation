@@ -60,6 +60,12 @@ function Invoke-FocusedIntentTests {
   $null = New-Item -ItemType Directory -Force -Path $tempRoot
   try {
     $head = (& git -C $repoRoot rev-parse HEAD).Trim()
+    $cloneA = Join-Path $tempRoot 'source-a'
+    $cloneB = Join-Path $tempRoot 'source-b'
+    & git clone --quiet --no-hardlinks $repoRoot $cloneA
+    if ($LASTEXITCODE -ne 0) { throw 'REL01-TEST-CLONE: unable to create clean source A.' }
+    & git clone --quiet --no-hardlinks $repoRoot $cloneB
+    if ($LASTEXITCODE -ne 0) { throw 'REL01-TEST-CLONE: unable to create clean source B.' }
     $archives = [ordered]@{ 'mb-core' = ('1' * 64); 'mb-color' = ('2' * 64); 'mb-image' = ('3' * 64) }
     $common = @{
       Check = $true
@@ -70,8 +76,8 @@ function Invoke-FocusedIntentTests {
       RequiredStableSha256 = ('5' * 64)
       ArchiveSha256ByModule = $archives
     }
-    $a = & $generator @common -OutputDirectory (Join-Path $tempRoot 'initial-a')
-    $b = & $generator @common -OutputDirectory (Join-Path $tempRoot 'initial-b')
+    $a = & $generator @common -SourceRoot $cloneA -OutputDirectory (Join-Path $tempRoot 'initial-a')
+    $b = & $generator @common -SourceRoot $cloneB -OutputDirectory (Join-Path $tempRoot 'initial-b')
     $aBytes = [IO.File]::ReadAllBytes($a.intent_path)
     $bBytes = [IO.File]::ReadAllBytes($b.intent_path)
     if (-not [Linq.Enumerable]::SequenceEqual([byte[]]$aBytes, [byte[]]$bBytes) -or $a.intent_sha256 -cne $b.intent_sha256) {
@@ -79,7 +85,7 @@ function Invoke-FocusedIntentTests {
     }
     if ($aBytes.Length -ge 3 -and $aBytes[0] -eq 0xEF -and $aBytes[1] -eq 0xBB -and $aBytes[2] -eq 0xBF) { throw 'REL01-ENCODING: intent contains a UTF-8 BOM.' }
     $initial = Read-ReleaseCanonicalJson -Path $a.intent_path
-    Assert-ReleaseIntentObject -Intent $initial -PolicyPath $policyPath -ExpectedCurrentSha256 $a.intent_sha256
+    $null = Assert-ReleaseIntentObject -Intent $initial -PolicyPath $policyPath -ExpectedCurrentSha256 $a.intent_sha256
     Assert-ReleaseIntentAuthorizationBinding -Intent $initial -IntentSha256 $a.intent_sha256 -RootIntentSha256 $a.intent_sha256
 
     $reordered = [ordered]@{}
@@ -90,10 +96,18 @@ function Invoke-FocusedIntentTests {
 
     foreach ($case in @(
       @{ id='REL01-EMPTY'; mutate={ param($x) $x.source_sha = '' } },
+      @{ id='REL01-DIGEST'; mutate={ param($x) $x.source_sha = ('f' * 40) } },
       @{ id='REL01-UNKNOWN-PROPERTY'; mutate={ param($x) $x | Add-Member -NotePropertyName unexpected -NotePropertyValue 'x' } },
       @{ id='REL01-MODULE-ORDER'; mutate={ param($x) [Array]::Reverse($x.modules) } },
       @{ id='REL01-AUTHORITY-CONFLATION'; mutate={ param($x) $x.credentials_read = $true } },
-      @{ id='REL01-REF'; mutate={ param($x) $x.release_ref = 'refs/heads/main' } }
+      @{ id='REL01-REF'; mutate={ param($x) $x.release_ref = 'refs/heads/main' } },
+      @{ id='REL01-TOOLCHAIN'; mutate={ param($x) $x.toolchain.moon = 'moon latest' } },
+      @{ id='REL01-PACKAGE-INVENTORY'; mutate={ param($x) $x.modules[0].public_packages += 'tchivs/mb-core/extra' } },
+      @{ id='REL01-DIGEST'; mutate={ param($x) $x.modules[0].archive_sha256 = ('f' * 64) } },
+      @{ id='REL01-DIGEST'; mutate={ param($x) $x.modules[0].interface_sha256 = ('f' * 64) } },
+      @{ id='REL01-DIGEST'; mutate={ param($x) $x.evidence.qualification_root_sha256 = ('f' * 64) } },
+      @{ id='REL01-INITIAL-VERSION'; mutate={ param($x) $x.modules[0].version = '0.1.1' } },
+      @{ id='REL01-DEPENDENCY-CLOSURE'; mutate={ param($x) $x.modules[1].dependencies[0].version = '0.1.1' } }
     )) {
       Confirm-IntentRule $case.id {
         $copy = ($initial | ConvertTo-Json -Depth 100 | ConvertFrom-Json -Depth 100)
@@ -105,6 +119,10 @@ function Invoke-FocusedIntentTests {
     $bomPath = Join-Path $tempRoot 'bom.json'
     [IO.File]::WriteAllBytes($bomPath, [byte[]](0xEF,0xBB,0xBF) + [Text.UTF8Encoding]::new($false).GetBytes('{}'))
     Confirm-IntentRule 'REL01-ENCODING' { Read-ReleaseCanonicalJson -Path $bomPath | Out-Null }
+    Confirm-IntentRule 'REL01-CONTROLLED-ASCII' {
+      $copy = ($initial | ConvertTo-Json -Depth 100 | ConvertFrom-Json -Depth 100); $copy.owner = "tchivs$([char]0x301)"
+      ConvertTo-ReleaseCanonicalJson -Value $copy -Profile ReleaseIntent | Out-Null
+    }
     Confirm-IntentRule 'REL01-TERMINAL-MISMATCH' { Assert-ReleaseIntentRecovery -IntentKind initial -ObservedMismatch }
 
     $correctionCommon = @{
@@ -112,6 +130,7 @@ function Invoke-FocusedIntentTests {
       IntentKind = 'forward_correction'
       RootIntentSha256 = $a.intent_sha256
       PredecessorIntentSha256 = $a.intent_sha256
+      PredecessorSourceSha = $head
       PredecessorSequence = 0
       CorrectionSequence = 1
       QualificationRootSha256 = ('6' * 64)
@@ -122,19 +141,26 @@ function Invoke-FocusedIntentTests {
       VersionAbsenceSha256 = ('b' * 64)
       CorrectedVersions = [ordered]@{ 'mb-core'='0.1.1'; 'mb-color'='0.1.1'; 'mb-image'='0.1.1' }
     }
-    $candidateA = & $generator @correctionCommon -ReleaseRef 'refs/tags/modules-correction-1' -SourceSha ('b' * 40) -ArchiveSha256ByModule ([ordered]@{ 'mb-core'=('c'*64); 'mb-color'=('d'*64); 'mb-image'=('e'*64) }) -OutputDirectory (Join-Path $tempRoot 'correction-a')
-    $candidateB = & $generator @correctionCommon -ReleaseRef 'refs/tags/modules-correction-2' -SourceSha ('c' * 40) -ArchiveSha256ByModule ([ordered]@{ 'mb-core'=('d'*64); 'mb-color'=('e'*64); 'mb-image'=('f'*64) }) -OutputDirectory (Join-Path $tempRoot 'correction-b')
+    foreach ($entry in @(@($cloneA,'candidate-a'),@($cloneB,'candidate-b'))) {
+      $root = $entry[0]; Set-Content -LiteralPath (Join-Path $root "$($entry[1]).txt") -Value $entry[1] -NoNewline
+      & git -C $root config user.name 'MNF Intent Test'; & git -C $root config user.email 'intent-test@invalid.local'
+      & git -C $root add -- "$($entry[1]).txt"; & git -C $root commit --quiet -m $entry[1]
+      if ($LASTEXITCODE -ne 0) { throw 'REL01-TEST-COMMIT: unable to create correction source.' }
+    }
+    $sourceA = (& git -C $cloneA rev-parse HEAD).Trim(); $sourceB = (& git -C $cloneB rev-parse HEAD).Trim()
+    $candidateA = & $generator @correctionCommon -ReleaseRef 'refs/tags/modules-correction-1' -SourceSha $sourceA -SourceRoot $cloneA -ArchiveSha256ByModule ([ordered]@{ 'mb-core'=('c'*64); 'mb-color'=('d'*64); 'mb-image'=('e'*64) }) -OutputDirectory (Join-Path $tempRoot 'correction-a')
+    $candidateB = & $generator @correctionCommon -ReleaseRef 'refs/tags/modules-correction-2' -SourceSha $sourceB -SourceRoot $cloneB -ArchiveSha256ByModule ([ordered]@{ 'mb-core'=('d'*64); 'mb-color'=('e'*64); 'mb-image'=('f'*64) }) -OutputDirectory (Join-Path $tempRoot 'correction-b')
     if ($candidateA.intent_sha256 -ceq $candidateB.intent_sha256) { throw 'REL01-CORRECTION-DIGEST: distinct corrections share a digest.' }
     $correctionA = Read-ReleaseCanonicalJson -Path $candidateA.intent_path
     $correctionB = Read-ReleaseCanonicalJson -Path $candidateB.intent_path
     if ($correctionA.root_intent_sha256 -cne $a.intent_sha256 -or $correctionB.root_intent_sha256 -cne $a.intent_sha256) { throw 'REL01-ROOT-DRIFT: correction root changed.' }
-    Assert-ReleaseIntentObject -Intent $correctionA -PolicyPath $policyPath -ExpectedCurrentSha256 $candidateA.intent_sha256 -ExpectedRootSha256 $a.intent_sha256 -ExpectedPredecessorSha256 $a.intent_sha256 -ExpectedPredecessorSequence 0 -AuthorizedSuccessorSha256 $candidateA.intent_sha256
+    $null = Assert-ReleaseIntentObject -Intent $correctionA -PolicyPath $policyPath -ExpectedCurrentSha256 $candidateA.intent_sha256 -ExpectedRootSha256 $a.intent_sha256 -ExpectedPredecessorSha256 $a.intent_sha256 -ExpectedPredecessorSequence 0 -AuthorizedSuccessorSha256 $candidateA.intent_sha256
     Confirm-IntentRule 'REL01-STALE-FORK' {
       Assert-ReleaseIntentObject -Intent $correctionB -PolicyPath $policyPath -ExpectedCurrentSha256 $candidateB.intent_sha256 -ExpectedRootSha256 $a.intent_sha256 -ExpectedPredecessorSha256 $a.intent_sha256 -ExpectedPredecessorSequence 0 -AuthorizedSuccessorSha256 $candidateA.intent_sha256
     }
-    Confirm-IntentRule 'REL01-CORRECTION-TAG' { & $generator @correctionCommon -ReleaseRef 'refs/tags/modules-correction-0' -SourceSha ('d'*40) -ArchiveSha256ByModule $archives -OutputDirectory (Join-Path $tempRoot 'bad-tag') | Out-Null }
+    Confirm-IntentRule 'REL01-CORRECTION-TAG' { & $generator @correctionCommon -ReleaseRef 'refs/tags/modules-correction-0' -SourceSha $sourceA -SourceRoot $cloneA -ArchiveSha256ByModule $archives -OutputDirectory (Join-Path $tempRoot 'bad-tag') | Out-Null }
     $nonconsecutive = @{} + $correctionCommon; $nonconsecutive.CorrectionSequence = 2
-    Confirm-IntentRule 'REL01-SEQUENCE' { & $generator @nonconsecutive -ReleaseRef 'refs/tags/modules-correction-3' -SourceSha ('e'*40) -ArchiveSha256ByModule $archives -OutputDirectory (Join-Path $tempRoot 'bad-sequence') | Out-Null }
+    Confirm-IntentRule 'REL01-SEQUENCE' { & $generator @nonconsecutive -ReleaseRef 'refs/tags/modules-correction-3' -SourceSha $sourceA -SourceRoot $cloneA -ArchiveSha256ByModule $archives -OutputDirectory (Join-Path $tempRoot 'bad-sequence') | Out-Null }
     Write-Host 'Release intent focused tests passed: deterministic initial/correction bytes, canonical equality, terminal mismatch, monotonic root, and stale-fork rejection.'
   } finally {
     if (Test-Path -LiteralPath $tempRoot) {

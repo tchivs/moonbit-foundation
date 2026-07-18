@@ -52,6 +52,202 @@ function Get-ReleaseTextSha256 {
   } finally { $algorithm.Dispose() }
 }
 
+function Get-ReleaseCanonicalPropertyOrder {
+  param([Parameter(Mandatory)][object]$Object, [Parameter(Mandatory)][string]$Path)
+  $actual = @($Object.PSObject.Properties.Name)
+  $orders = @{
+    '$.initial' = @('schema_version','intent_kind','repository','owner','release_ref','source_sha','correction_sequence','toolchain','modules','evidence','tracked_source_clean','credentials_read','publication_performed')
+    '$.forward_correction' = @('schema_version','intent_kind','repository','owner','release_ref','source_sha','root_intent_sha256','predecessor_intent_sha256','correction_sequence','toolchain','modules','evidence','correction_evidence','tracked_source_clean','credentials_read','publication_performed')
+    'toolchain' = @('moon','moonc','moonrun')
+    'module' = @('module','identity','version','dependencies','public_packages','archive_sha256','interface_sha256')
+    'dependency' = @('identity','version')
+    'evidence' = @('qualification_root_sha256','required_stable_sha256','phase_06_ledger_sha256','release_policy_sha256','compatibility_policy_sha256')
+    'correction_evidence' = @('superseded_intent_sha256','incident_sha256','advisory_sha256','compatibility_result_sha256','version_absence_sha256')
+  }
+  $kind = if ($Path -ceq '$') {
+    if ($null -eq $Object.PSObject.Properties['intent_kind']) { Throw-ReleaseRule -Id 'REL01-UNKNOWN-PROPERTY' -Message 'canonical root lacks intent_kind.' }
+    '$.' + [string]$Object.intent_kind
+  } elseif ($Path -cmatch '[.]toolchain$') { 'toolchain' }
+    elseif ($Path -cmatch '[.]modules\[[0-9]+\]$') { 'module' }
+    elseif ($Path -cmatch '[.]dependencies\[[0-9]+\]$') { 'dependency' }
+    elseif ($Path -cmatch '[.]evidence$') { 'evidence' }
+    elseif ($Path -cmatch '[.]correction_evidence$') { 'correction_evidence' }
+    else { Throw-ReleaseRule -Id 'REL01-UNSUPPORTED-SHAPE' -Message "unsupported canonical object at $Path." }
+  $expected = @($orders[$kind])
+  if ($expected.Count -eq 0) { Throw-ReleaseRule -Id 'REL01-UNSUPPORTED-SHAPE' -Message "unsupported canonical object at $Path." }
+  try { Assert-ReleaseExactSet -Label "canonical properties at $Path" -Actual $actual -Expected $expected } catch {
+    Throw-ReleaseRule -Id 'REL01-UNKNOWN-PROPERTY' -Message $_.Exception.Message
+  }
+  return $expected
+}
+
+function ConvertTo-ReleaseCanonicalValue {
+  param([AllowNull()][object]$Value, [Parameter(Mandatory)][string]$Path)
+  if ($null -eq $Value) { return $null }
+  if ($Value -is [string]) {
+    if ([string]::IsNullOrEmpty($Value)) { Throw-ReleaseRule -Id 'REL01-EMPTY' -Message "empty canonical string at $Path." }
+    if ([string]$Value -cmatch '[^\x20-\x7e]') { Throw-ReleaseRule -Id 'REL01-CONTROLLED-ASCII' -Message "unexpected Unicode/control value at $Path." }
+    return [string]$Value
+  }
+  if ($Value -is [bool]) { return [bool]$Value }
+  if ($Value -is [byte] -or $Value -is [sbyte] -or $Value -is [int16] -or $Value -is [uint16] -or
+      $Value -is [int32] -or $Value -is [uint32] -or $Value -is [int64] -or $Value -is [uint64]) {
+    $number = [Int64]$Value
+    if ($number -lt 0 -or $number -gt [Int32]::MaxValue) { Throw-ReleaseRule -Id 'REL01-NUMBER' -Message "integer outside canonical range at $Path." }
+    return $number
+  }
+  if ($Value -is [float] -or $Value -is [double] -or $Value -is [decimal]) { Throw-ReleaseRule -Id 'REL01-NUMBER' -Message "floating-point value at $Path." }
+  if ($Value -is [Collections.IDictionary]) {
+    $object = [pscustomobject]$Value
+    $order = Get-ReleaseCanonicalPropertyOrder -Object $object -Path $Path
+    $result = [ordered]@{}
+    foreach ($name in $order) {
+      $child = $Value[$name]
+      if ($name -cin @('modules','dependencies','public_packages')) {
+        $items = [Collections.Generic.List[object]]::new(); $index = 0
+        foreach ($item in @($child)) { $items.Add((ConvertTo-ReleaseCanonicalValue -Value $item -Path "$Path.$name[$index]")); $index++ }
+        $result[$name] = [object[]]$items.ToArray()
+      } else { $result[$name] = ConvertTo-ReleaseCanonicalValue -Value $child -Path "$Path.$name" }
+    }
+    return $result
+  }
+  if ($Value -is [Management.Automation.PSCustomObject]) {
+    $order = Get-ReleaseCanonicalPropertyOrder -Object $Value -Path $Path
+    $result = [ordered]@{}
+    foreach ($name in $order) {
+      $child = $Value.$name
+      if ($name -cin @('modules','dependencies','public_packages')) {
+        $items = [Collections.Generic.List[object]]::new(); $index = 0
+        foreach ($item in @($child)) { $items.Add((ConvertTo-ReleaseCanonicalValue -Value $item -Path "$Path.$name[$index]")); $index++ }
+        $result[$name] = [object[]]$items.ToArray()
+      } else { $result[$name] = ConvertTo-ReleaseCanonicalValue -Value $child -Path "$Path.$name" }
+    }
+    return $result
+  }
+  if ($Value -is [Collections.IEnumerable]) {
+    $items = [Collections.Generic.List[object]]::new()
+    $index = 0
+    foreach ($item in $Value) { $items.Add((ConvertTo-ReleaseCanonicalValue -Value $item -Path "$Path[$index]")); $index++ }
+    return @($items)
+  }
+  Throw-ReleaseRule -Id 'REL01-UNSUPPORTED-SHAPE' -Message "unsupported canonical value type '$($Value.GetType().FullName)' at $Path."
+}
+
+function ConvertTo-ReleaseCanonicalJson {
+  param([Parameter(Mandatory)][object]$Value, [ValidateSet('ReleaseIntent')][string]$Profile = 'ReleaseIntent')
+  if ($Profile -cne 'ReleaseIntent') { Throw-ReleaseRule -Id 'REL01-CANONICAL-PROFILE' -Message "unsupported canonical profile '$Profile'." }
+  $canonical = ConvertTo-ReleaseCanonicalValue -Value $Value -Path '$'
+  return ($canonical | ConvertTo-Json -Depth 100 -Compress)
+}
+
+function Get-ReleaseCanonicalSha256 {
+  param([Parameter(Mandatory)][object]$Value, [ValidateSet('ReleaseIntent')][string]$Profile = 'ReleaseIntent')
+  return Get-ReleaseTextSha256 -Text (ConvertTo-ReleaseCanonicalJson -Value $Value -Profile $Profile)
+}
+
+function Read-ReleaseCanonicalJson {
+  param([Parameter(Mandatory)][string]$Path)
+  if (-not (Test-Path -LiteralPath $Path -PathType Leaf)) { Throw-ReleaseRule -Id 'REL01-MISSING-INTENT' -Message $Path }
+  $bytes = [IO.File]::ReadAllBytes($Path)
+  if ($bytes.Length -ge 3 -and $bytes[0] -eq 0xEF -and $bytes[1] -eq 0xBB -and $bytes[2] -eq 0xBF) { Throw-ReleaseRule -Id 'REL01-ENCODING' -Message 'UTF-8 BOM is forbidden.' }
+  try { $text = [Text.UTF8Encoding]::new($false, $true).GetString($bytes) } catch { Throw-ReleaseRule -Id 'REL01-ENCODING' -Message 'invalid UTF-8.' }
+  if ([string]::IsNullOrEmpty($text) -or $text.Trim() -cne $text) { Throw-ReleaseRule -Id 'REL01-ENCODING' -Message 'empty or non-compact canonical bytes.' }
+  try { $value = $text | ConvertFrom-Json -Depth 100 } catch { Throw-ReleaseRule -Id 'REL01-INVALID-JSON' -Message $_.Exception.Message }
+  $canonical = ConvertTo-ReleaseCanonicalJson -Value $value -Profile ReleaseIntent
+  if ($canonical -cne $text) { Throw-ReleaseRule -Id 'REL01-NONCANONICAL' -Message 'intent bytes are not the canonical schema-order projection.' }
+  return $value
+}
+
+function Test-ReleaseSha256Text {
+  param([AllowNull()][object]$Value)
+  return $Value -is [string] -and [string]$Value -cmatch '^[0-9a-f]{64}$'
+}
+
+function Assert-ReleaseIntentObject {
+  param(
+    [Parameter(Mandatory)][object]$Intent,
+    [Parameter(Mandatory)][string]$PolicyPath,
+    [string]$ExpectedCurrentSha256,
+    [string]$ExpectedRootSha256,
+    [string]$ExpectedPredecessorSha256,
+    [int]$ExpectedPredecessorSequence = -1,
+    [string]$AuthorizedSuccessorSha256
+  )
+  $policy = Read-ReleaseJson -Path $PolicyPath
+  $kind = [string]$Intent.intent_kind
+  if ($kind -cnotin @('initial','forward_correction')) { Throw-ReleaseRule -Id 'REL01-INTENT-KIND' -Message 'unknown intent kind.' }
+  $null = ConvertTo-ReleaseCanonicalJson -Value $Intent -Profile ReleaseIntent
+  if ($Intent.schema_version -cne 'mnf-release-intent/1' -or $Intent.repository -cne $policy.repository -or $Intent.owner -cne $policy.owner) {
+    Throw-ReleaseRule -Id 'REL01-IDENTITY' -Message 'intent identity drifted.'
+  }
+  foreach ($tool in @('moon','moonc','moonrun')) {
+    if ([string]$Intent.toolchain.$tool -cne [string]$policy.pinned_toolchain.$tool) { Throw-ReleaseRule -Id 'REL01-TOOLCHAIN' -Message "pinned $tool identity drifted." }
+  }
+  if ([string]$Intent.source_sha -cnotmatch '^[0-9a-f]{40}$') { Throw-ReleaseRule -Id 'REL01-EMPTY' -Message 'source SHA is missing or malformed.' }
+  if ($Intent.tracked_source_clean -ne $true) { Throw-ReleaseRule -Id 'REL01-DIRTY-SOURCE' -Message 'source is not qualified clean.' }
+  if ($Intent.credentials_read -ne $false -or $Intent.publication_performed -ne $false) { Throw-ReleaseRule -Id 'REL01-AUTHORITY-CONFLATION' -Message 'intent fabricated credentials or publication.' }
+  foreach ($field in @('qualification_root_sha256','required_stable_sha256','phase_06_ledger_sha256','release_policy_sha256','compatibility_policy_sha256')) {
+    if (-not (Test-ReleaseSha256Text $Intent.evidence.$field)) { Throw-ReleaseRule -Id 'REL01-EVIDENCE' -Message "missing or malformed evidence $field." }
+  }
+  try { Assert-ReleaseExactSequence -Label 'intent module order' -Actual @($Intent.modules.module) -Expected @($policy.module_order.module) } catch {
+    Throw-ReleaseRule -Id 'REL01-MODULE-ORDER' -Message $_.Exception.Message
+  }
+  for ($i = 0; $i -lt $policy.module_order.Count; $i++) {
+    $expected = $policy.module_order[$i]
+    $module = $Intent.modules[$i]
+    if ($module.identity -cne $expected.identity -or -not (Test-ReleaseSha256Text $module.archive_sha256) -or -not (Test-ReleaseSha256Text $module.interface_sha256)) {
+      Throw-ReleaseRule -Id 'REL01-MODULE-BINDING' -Message "module binding drifted for $($expected.module)."
+    }
+    if (@($module.public_packages).Count -eq 0) { Throw-ReleaseRule -Id 'REL01-EMPTY' -Message "package inventory is empty for $($expected.module)." }
+    $releasePolicy = Read-ReleaseJson -Path (Join-Path (Split-Path -Parent $PolicyPath) 'release-qualification.json')
+    try { Assert-ReleaseExactSequence -Label "$($expected.module) public packages" -Actual @($module.public_packages) -Expected @($releasePolicy.modules.$($expected.module).public_packages) } catch {
+      Throw-ReleaseRule -Id 'REL01-PACKAGE-INVENTORY' -Message $_.Exception.Message
+    }
+    if ($kind -ceq 'initial') {
+      if ($module.version -cne $expected.initial_version) { Throw-ReleaseRule -Id 'REL01-INITIAL-VERSION' -Message "initial version drifted for $($expected.module)." }
+      $deps = @($module.dependencies | ForEach-Object { "$($_.identity)@$($_.version)" })
+      try { Assert-ReleaseExactSequence -Label "$($expected.module) initial dependencies" -Actual $deps -Expected @($expected.initial_dependencies) } catch {
+        Throw-ReleaseRule -Id 'REL01-DEPENDENCY-CLOSURE' -Message $_.Exception.Message
+      }
+    }
+  }
+  $current = Get-ReleaseCanonicalSha256 -Value $Intent -Profile ReleaseIntent
+  if ($kind -ceq 'initial') {
+    if ($Intent.release_ref -cne $policy.initial_profile.release_ref -or $Intent.correction_sequence -ne 0) { Throw-ReleaseRule -Id 'REL01-REF' -Message 'initial ref or sequence drifted.' }
+  } else {
+    if ($Intent.release_ref -cnotmatch $policy.correction_profile.release_ref_pattern) { Throw-ReleaseRule -Id 'REL01-CORRECTION-TAG' -Message 'correction tag is noncanonical.' }
+    if (-not (Test-ReleaseSha256Text $Intent.root_intent_sha256) -or $Intent.root_intent_sha256 -ceq $current) { Throw-ReleaseRule -Id 'REL01-ROOT-DRIFT' -Message 'correction root is invalid or conflated with current digest.' }
+    if (-not [string]::IsNullOrEmpty($ExpectedRootSha256) -and $Intent.root_intent_sha256 -cne $ExpectedRootSha256) { Throw-ReleaseRule -Id 'REL01-ROOT-DRIFT' -Message 'immutable root changed.' }
+    if (-not [string]::IsNullOrEmpty($ExpectedPredecessorSha256) -and $Intent.predecessor_intent_sha256 -cne $ExpectedPredecessorSha256) { Throw-ReleaseRule -Id 'REL01-STALE-PREDECESSOR' -Message 'predecessor is not latest.' }
+    if ($ExpectedPredecessorSequence -ge 0 -and $Intent.correction_sequence -ne ($ExpectedPredecessorSequence + 1)) { Throw-ReleaseRule -Id 'REL01-SEQUENCE' -Message 'correction sequence is not predecessor plus one.' }
+    if (-not [string]::IsNullOrEmpty($AuthorizedSuccessorSha256) -and $current -cne $AuthorizedSuccessorSha256) { Throw-ReleaseRule -Id 'REL01-STALE-FORK' -Message 'candidate is not the selected successor.' }
+    foreach ($field in @('superseded_intent_sha256','incident_sha256','advisory_sha256','compatibility_result_sha256','version_absence_sha256')) {
+      if (-not (Test-ReleaseSha256Text $Intent.correction_evidence.$field)) { Throw-ReleaseRule -Id 'REL01-CORRECTION-EVIDENCE' -Message "missing correction evidence $field." }
+    }
+    if ($Intent.correction_evidence.superseded_intent_sha256 -cne $Intent.predecessor_intent_sha256) { Throw-ReleaseRule -Id 'REL01-STALE-PREDECESSOR' -Message 'superseded digest differs from predecessor.' }
+    $versions = @{}; foreach ($module in @($Intent.modules)) { $versions[[string]$module.identity] = [string]$module.version }
+    foreach ($module in @($Intent.modules)) {
+      if ([string]$module.version -cnotmatch '^0[.]([1-9][0-9]*|0)[.]([0-9]+)$' -or [version]$module.version -le [version]'0.1.0') { Throw-ReleaseRule -Id 'REL01-FORWARD-VERSION' -Message "correction version is not forward for $($module.module)." }
+      foreach ($dep in @($module.dependencies)) {
+        if (-not $versions.ContainsKey([string]$dep.identity) -or $dep.version -cne $versions[[string]$dep.identity]) { Throw-ReleaseRule -Id 'REL01-DEPENDENCY-CLOSURE' -Message "stale correction dependency in $($module.module)." }
+      }
+    }
+  }
+  if (-not [string]::IsNullOrEmpty($ExpectedCurrentSha256) -and $current -cne $ExpectedCurrentSha256) { Throw-ReleaseRule -Id 'REL01-DIGEST' -Message 'current intent digest mismatch.' }
+  return $current
+}
+
+function Assert-ReleaseIntentAuthorizationBinding {
+  param([Parameter(Mandatory)][object]$Intent, [Parameter(Mandatory)][string]$IntentSha256, [Parameter(Mandatory)][string]$RootIntentSha256)
+  if ($Intent.intent_kind -ceq 'initial' -and $IntentSha256 -cne $RootIntentSha256) { Throw-ReleaseRule -Id 'REL01-INITIAL-ROOT-BINDING' -Message 'initial root must equal current intent digest.' }
+  if ($Intent.intent_kind -ceq 'forward_correction' -and $Intent.root_intent_sha256 -cne $RootIntentSha256) { Throw-ReleaseRule -Id 'REL01-ROOT-DRIFT' -Message 'correction root binding drifted.' }
+}
+
+function Assert-ReleaseIntentRecovery {
+  param([ValidateSet('initial','forward_correction')][string]$IntentKind, [switch]$ObservedMismatch)
+  if ($ObservedMismatch) { Throw-ReleaseRule -Id 'REL01-TERMINAL-MISMATCH' -Message "$IntentKind intent is terminal after mismatch; create a fresh forward correction." }
+}
+
 function Assert-StaticRequirementLedger {
   param([Parameter(Mandatory)][string]$Path)
   $ledger = Read-ReleaseJson -Path $Path
