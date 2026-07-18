@@ -28,6 +28,12 @@ on:
       prepared_manifest_sha256:
         required: true
         type: string
+      historical_attempt_zero_sha256:
+        required: true
+        type: string
+      historical_r1_sha256:
+        required: true
+        type: string
       target_module:
         required: true
         type: choice
@@ -123,6 +129,8 @@ jobs:
           ROOT_INTENT_SHA256: ${{ inputs.root_intent_sha256 }}
           INTENT_SHA256: ${{ inputs.intent_sha256 }}
           EXPECTED_PREPARED_MANIFEST_SHA256: ${{ inputs.prepared_manifest_sha256 }}
+          HISTORICAL_ATTEMPT_ZERO_SHA256: ${{ inputs.historical_attempt_zero_sha256 }}
+          HISTORICAL_R1_SHA256: ${{ inputs.historical_r1_sha256 }}
           OPERATION_MODE: ${{ inputs.operation_mode }}
           TARGET_MODULE: ${{ inputs.target_module }}
           AUTHORIZATION_PACKET_SHA256: ${{ inputs.authorization_packet_sha256 }}
@@ -148,11 +156,11 @@ jobs:
           if ($env:RUN_MODE -ceq 'start' -and $paired) { throw 'P07-WORKFLOW-START-PRIOR' }
           if ($env:RUN_MODE -ceq 'resume' -and -not $paired) { throw 'P07-WORKFLOW-RESUME-PAIR' }
           if ($env:PRIOR_RUN_ID -ceq $env:CURRENT_RUN_ID) { throw 'P07-WORKFLOW-CURRENT-RUN-PRIOR' }
-          if ($env:RELEASE_REF -ceq 'refs/tags/modules-v0.1.0-r1' -and $env:ROOT_INTENT_SHA256 -cne $env:INTENT_SHA256) { throw 'P07-WORKFLOW-INITIAL-ROOT' }
-          if ($env:RELEASE_REF -cmatch '^refs/tags/modules-correction-' -and $env:RUN_MODE -cne 'start') { throw 'P07-WORKFLOW-CORRECTION-RESUME' }
+          if ($env:RELEASE_REF -cne 'refs/tags/modules-v0.1.0-r2' -or $env:ROOT_INTENT_SHA256 -cne $env:INTENT_SHA256) { throw 'P08-WORKFLOW-R2-ROOT' }
+          if ($env:HISTORICAL_ATTEMPT_ZERO_SHA256 -notmatch '^[0-9a-f]{64}$' -or $env:HISTORICAL_R1_SHA256 -notmatch '^[0-9a-f]{64}$' -or $env:HISTORICAL_ATTEMPT_ZERO_SHA256 -ceq $env:HISTORICAL_R1_SHA256) { throw 'P08-WORKFLOW-HISTORY' }
           ./scripts/quality/Test-ReleaseIntent.ps1 -ContractOnly
           ./scripts/quality/Test-ReleasePublisherNegative.ps1 -ReducerOnly
-          if ($env:RELEASE_REF -cne 'refs/tags/modules-v0.1.0-r1') { throw 'P08-PREPARED-CORRECTION-NOT-QUALIFIED' }
+          if ($env:RELEASE_REF -cne 'refs/tags/modules-v0.1.0-r2') { throw 'P08-PREPARED-NON-R2' }
 
           $qualificationRoot = Join-Path $env:RUNNER_TEMP 'qualification'
           ./scripts/quality/Invoke-ReleaseQualification.ps1 -Check -OutputDirectory $qualificationRoot
@@ -195,6 +203,7 @@ jobs:
             root_intent_sha256=$env:ROOT_INTENT_SHA256; intent_sha256=$env:INTENT_SHA256; intent_kind=[string]$intent.intent_kind
             correction_sequence=[int]$intent.correction_sequence; predecessor_intent_sha256=$null; authorization_valid=$true
             evidence_valid=$true; dry_run_passed=$true; authority_account='tchivs'
+            historical_attempt_zero_sha256=$env:HISTORICAL_ATTEMPT_ZERO_SHA256; historical_r1_sha256=$env:HISTORICAL_R1_SHA256
           }
           [IO.File]::WriteAllText((Join-Path $inputRoot 'request.json'),($request | ConvertTo-Json -Depth 20 -Compress),[Text.UTF8Encoding]::new($false))
 
@@ -218,6 +227,7 @@ jobs:
             RunAttempt=1; ReleaseRef=$env:RELEASE_REF; SourceSha=$env:SOURCE_SHA
             RootIntentSha256=$env:ROOT_INTENT_SHA256; IntentSha256=$env:INTENT_SHA256; RunMode=$env:RUN_MODE
             PriorRunId=$env:PRIOR_RUN_ID; PriorArtifactName=$env:PRIOR_ARTIFACT_NAME; PriorTerminalRecordSha256=$priorTerminal
+            HistoricalAttemptZeroSha256=$env:HISTORICAL_ATTEMPT_ZERO_SHA256; HistoricalR1Sha256=$env:HISTORICAL_R1_SHA256
           }
           $result = ./scripts/quality/New-PreparedReleaseBundle.ps1 -InputRoot $inputRoot -OutputRoot $preparedRoot @bundleArgs
           ./scripts/quality/New-PreparedReleaseBundle.ps1 -ValidateOnly -OutputRoot $preparedRoot @bundleArgs | Out-Null
@@ -273,6 +283,8 @@ jobs:
           EXPECTED_MANIFEST_SHA256: ${{ inputs.prepared_manifest_sha256 }}
           EXPECTED_SOURCE_SHA: ${{ inputs.source_sha }}
           EXPECTED_RELEASE_REF: ${{ inputs.release_ref }}
+          EXPECTED_HISTORICAL_ATTEMPT_ZERO_SHA256: ${{ inputs.historical_attempt_zero_sha256 }}
+          EXPECTED_HISTORICAL_R1_SHA256: ${{ inputs.historical_r1_sha256 }}
           EXPECTED_ROOT_INTENT_SHA256: ${{ inputs.root_intent_sha256 }}
           EXPECTED_INTENT_SHA256: ${{ inputs.intent_sha256 }}
           EXPECTED_TARGET_MODULE: ${{ inputs.target_module }}
@@ -498,6 +510,7 @@ jobs:
             ReleaseRef=$env:EXPECTED_RELEASE_REF; SourceSha=$env:EXPECTED_SOURCE_SHA; RootIntentSha256=$env:EXPECTED_ROOT_INTENT_SHA256
             IntentSha256=$env:EXPECTED_INTENT_SHA256; RunMode=$env:EXPECTED_RUN_MODE; PriorRunId=$env:EXPECTED_PRIOR_RUN_ID
             PriorArtifactName=$env:EXPECTED_PRIOR_ARTIFACT_NAME; PriorTerminalRecordSha256=$payload.journal_binding.terminal_record_sha256
+            HistoricalAttemptZeroSha256=$env:EXPECTED_HISTORICAL_ATTEMPT_ZERO_SHA256; HistoricalR1Sha256=$env:EXPECTED_HISTORICAL_R1_SHA256
           }
           # Shared validation subsumes P07-WORKFLOW-PAYLOAD-DIGEST and P07-WORKFLOW-BINDING.
           ./prepared/scripts/quality/New-PreparedReleaseBundle.ps1 -ValidateOnly -OutputRoot prepared @validationArgs | Out-Null

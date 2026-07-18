@@ -24,7 +24,7 @@ function Assert-LiveRequest {
   param([object]$Request)
   Assert-PublisherClosedProperties 'live request' $Request @(
     'repository','actor','actor_evidence','release_ref','source_sha','root_intent_sha256','intent_sha256','intent_kind','prepared_manifest_sha256',
-    'correction_sequence','predecessor_intent_sha256','authorization_valid','evidence_valid','dry_run_passed','authority_account'
+    'historical_attempt_zero_sha256','historical_r1_sha256','correction_sequence','predecessor_intent_sha256','authorization_valid','evidence_valid','dry_run_passed','authority_account'
   )
   if ($Request.repository -cne 'tchivs/moonbit-foundation' -or $Request.actor -cne 'tchivs' -or
       $Request.authority_account -cne 'tchivs' -or $Request.authorization_valid -ne $true -or
@@ -40,10 +40,12 @@ function Assert-LiveRequest {
       $actor.mutation_performed -ne $false -or $actor.command_classification -cne 'moon_whoami_dry_run_only') {
     Throw-LiveRule 'LIVE01-AUTHORIZATION' 'Live actor evidence is not the exact sanitized dry-run projection.'
   }
-  if ($Request.release_ref -cne 'refs/tags/modules-v0.1.0-r1' -or $Request.source_sha -cnotmatch '^[0-9a-f]{40}$' -or
-      $Request.source_sha -ceq '198436a45b7403a3c28c98d5fa0d5ed6a958455f' -or
+  if ($Request.release_ref -cne 'refs/tags/modules-v0.1.0-r2' -or $Request.source_sha -cnotmatch '^[0-9a-f]{40}$' -or
+      $Request.source_sha -cin @('198436a45b7403a3c28c98d5fa0d5ed6a958455f','09548df948f58ec1bdfff7494757596c03e4c9bd') -or
       $Request.root_intent_sha256 -cnotmatch '^[0-9a-f]{64}$' -or $Request.intent_sha256 -cnotmatch '^[0-9a-f]{64}$' -or
       $Request.prepared_manifest_sha256 -cnotmatch '^[0-9a-f]{64}$' -or
+      $Request.historical_attempt_zero_sha256 -cnotmatch '^[0-9a-f]{64}$' -or $Request.historical_r1_sha256 -cnotmatch '^[0-9a-f]{64}$' -or
+      $Request.historical_attempt_zero_sha256 -ceq $Request.historical_r1_sha256 -or
       $Request.intent_kind -cne 'initial' -or [int]$Request.correction_sequence -ne 0 -or
       $null -ne $Request.predecessor_intent_sha256 -or $Request.root_intent_sha256 -cne $Request.intent_sha256) {
     Throw-LiveRule 'LIVE02-BINDING' 'Only the exact qualified initial release binding is eligible.'
@@ -164,6 +166,8 @@ function Invoke-PreparedLiveValidation {
       RunId=[string]$manifest.run_id; RunAttempt=[int]$manifest.run_attempt; ReleaseRef=[string]$manifest.release_ref
       SourceSha=[string]$manifest.source_sha; RootIntentSha256=[string]$manifest.root_intent_sha256
       IntentSha256=[string]$manifest.intent_sha256; RunMode=[string]$manifest.run_mode
+      HistoricalAttemptZeroSha256=[string]$Request.historical_attempt_zero_sha256
+      HistoricalR1Sha256=[string]$Request.historical_r1_sha256
     }
     if ($manifest.run_mode -ceq 'resume') {
       $args.PriorRunId=[string]$manifest.journal_binding.prior_run_id
