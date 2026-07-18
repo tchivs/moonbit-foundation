@@ -94,6 +94,7 @@ status: complete
 3. **Task 2 RED: failing behavior and manifest contracts** - `aabbaaf`
 4. **Task 2 GREEN: deterministic public behavior templates** - `4460178`
 5. **Task 3: disposable four-target runner and adversarial fixtures** - `a1f5de4`
+6. **Task 3 follow-up: canonical published graph extraction** - `fed83ac`
 
 ## Files Created
 
@@ -130,7 +131,15 @@ status: complete
 - **Verification:** Full selector asserts every fixture proof is non-live and all negative fixtures fail before output.
 - **Committed in:** `a1f5de4`
 
-**Total deviations:** 2 auto-fixed: 1 blocking reference correction and 1 missing critical evidence distinction. **Impact:** Both preserve the planned fail-closed boundary without broadening publication scope.
+**3. [Rule 1 - Bug] Excluded the disposable consumer root from resolved graph evidence**
+- **Found during:** Final real-path review
+- **Issue:** Raw `moon tree` includes the generated consumer as its root, which would add an extra node and direct edges to an otherwise exact registry graph.
+- **Fix:** Filter normalized tree output to canonical published module nodes and edges before exact comparison and proof emission.
+- **Files modified:** `scripts/quality/Invoke-ColdRegistryConsumer.ps1`, `scripts/quality/Test-ColdRegistryConsumer.ps1`
+- **Verification:** All isolation, behavior, and full adversarial selectors pass after the correction.
+- **Committed in:** `fed83ac`
+
+**Total deviations:** 3 auto-fixed: 1 bug, 1 blocking reference correction, and 1 missing critical evidence distinction. **Impact:** All preserve the planned fail-closed boundary without broadening publication scope.
 
 ## Issues Encountered
 
@@ -152,7 +161,7 @@ None - no credentials or external configuration were accessed or changed.
 ## Self-Check: PASSED
 
 - All six declared files exist.
-- Commits `7990e13`, `4ed10d5`, `aabbaaf`, `4460178`, and `a1f5de4` exist in history.
+- Commits `7990e13`, `4ed10d5`, `aabbaaf`, `4460178`, `a1f5de4`, and `fed83ac` exist in history.
 - Isolation, behavior, full adversarial, upstream observation, schema, and MoonBit formatting checks pass.
 - Stub and threat-surface scans found no incomplete implementation or unmodeled trust boundary.
 
