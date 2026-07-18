@@ -550,8 +550,56 @@ function Get-TrackedDiffSnapshot {
   return ($output -join "`n")
 }
 
+function Invoke-Phase06PublishReadinessRejection {
+  $failure = $null
+  try {
+    & ./scripts/quality/Test-RegistryAuthority.ps1 -AssertPublishReady
+  } catch {
+    $failure = $_.Exception.Message
+  }
+  if ([string]::IsNullOrWhiteSpace($failure) -or $failure -cnotmatch 'REG03-REQUIRED-FACT-UNKNOWN') {
+    throw "Phase 6 publish-ready assertion did not fail solely on REG03-REQUIRED-FACT-UNKNOWN: '$failure'"
+  }
+  $otherRule = [regex]::Matches($failure, '(?:REG|COMP|PROV)[0-9]{2}-[A-Z0-9-]+') | ForEach-Object { $_.Value } | Where-Object { $_ -cne 'REG03-REQUIRED-FACT-UNKNOWN' }
+  if (@($otherRule).Count -ne 0) {
+    throw "Phase 6 publish-ready assertion reported an unexpected rule: $($otherRule -join ', ')"
+  }
+  Write-Host 'Publish readiness rejected exactly by REG03-REQUIRED-FACT-UNKNOWN.'
+}
+
+function Add-Phase06QualificationEvidence {
+  param(
+    [Parameter(Mandatory)][string]$ReportPath,
+    [Parameter(Mandatory)][string]$LedgerPath
+  )
+  $report = Get-Content -LiteralPath $ReportPath -Raw | ConvertFrom-Json -Depth 100
+  $ledger = Get-Content -LiteralPath $LedgerPath -Raw | ConvertFrom-Json -Depth 100
+  $report | Add-Member -NotePropertyName phase_06 -NotePropertyValue ([ordered]@{
+    requirement_order = @($ledger.requirements.PSObject.Properties.Name)
+    selector_order = @($ledger.selectors.id)
+    edge_evidence = @($ledger.edge_probes.id)
+    prohibition_evidence = @($ledger.prohibitions.id)
+    identity = 'tchivs/*@0.1.0'
+    authority_validation = 'pass_blocked'
+    publish_ready = $false
+    publish_ready_rejection = 'REG03-REQUIRED-FACT-UNKNOWN'
+    observation_selector = $null
+    phase_07_handoff = [string]$ledger.phase_07_handoff
+  })
+  [IO.File]::WriteAllText($ReportPath, (($report | ConvertTo-Json -Depth 100) + "`n"), [Text.UTF8Encoding]::new($false))
+}
+
 function Invoke-RequiredQuality {
   param([Parameter(Mandatory)][string]$EvidenceDirectory)
+  $wingetPackages = Join-Path $env:LOCALAPPDATA 'Microsoft\WinGet\Packages'
+  $llvmMingwBins = @(
+    Get-ChildItem -LiteralPath $wingetPackages -Directory -Filter 'MartinStorsjo.LLVM-MinGW.UCRT_*' -ErrorAction SilentlyContinue |
+      ForEach-Object { Get-ChildItem -LiteralPath $_.FullName -Directory -Filter 'llvm-mingw-*-ucrt-x86_64' -ErrorAction SilentlyContinue } |
+      ForEach-Object { Join-Path $_.FullName 'bin' } |
+      Where-Object { Test-Path -LiteralPath (Join-Path $_ 'clang.exe') -PathType Leaf }
+  )
+  if ($llvmMingwBins.Count -ne 1) { throw "Required Native qualification needs exactly one complete LLVM-MinGW UCRT toolchain; found $($llvmMingwBins.Count)." }
+  $env:Path = "$($llvmMingwBins[0]);$env:Path"
   $policyPath = 'policy/foundation.json'
   $auditPath = 'policy/phase-01-source-audit.json'
   $requiredTargets = @('js', 'wasm', 'wasm-gc', 'native')
@@ -578,6 +626,18 @@ function Invoke-RequiredQuality {
   }
   Invoke-QualityStage 'QUAL-05 benchmark static qualification' {
     & ./scripts/quality/Test-BenchmarkQualification.ps1
+  }
+  Invoke-QualityStage 'Phase 6 sanitized registry authority contract' {
+    & ./scripts/quality/Test-RegistryAuthority.ps1
+  }
+  Invoke-QualityStage 'Phase 6 explicit publish-ready rejection' {
+    Invoke-Phase06PublishReadinessRejection
+  }
+  Invoke-QualityStage 'Phase 6 regenerated public interface baseline' {
+    & ./scripts/quality/Test-PublicInterfaceBaseline.ps1 -ToolingOnly
+  }
+  Invoke-QualityStage 'Phase 6 compatibility policy and negative matrix' {
+    & ./scripts/quality/Test-PublicCompatibility.ps1
   }
   Invoke-QualityStage 'Release and PPM fail-closed negative matrix' {
     & ./scripts/quality/Test-ReleaseQualificationNegative.ps1
@@ -679,12 +739,16 @@ function Invoke-RequiredQuality {
   Invoke-QualityStage 'WORK-06 and QUAL-06 deterministic release packages and consumers' {
     & ./scripts/quality/Invoke-ReleaseQualification.ps1 -Check -OutputDirectory (Join-Path $absoluteEvidence 'release')
   }
+  Invoke-QualityStage 'Phase 6 reciprocal requirement, edge, and prohibition ledger' {
+    & ./scripts/quality/Test-Phase06Qualification.ps1 -LedgerOnly
+  }
   Invoke-QualityStage 'Read-only tracked checkout proof' {
     $finalTrackedDiff = Get-TrackedDiffSnapshot
     Assert-ReleaseTrackedSnapshot -Before $initialTrackedDiff -After $finalTrackedDiff
   }
   $requiredReport = Write-RequiredQualificationReport -RepoRoot (Resolve-Path '.').Path -EvidenceDirectory $absoluteEvidence -StartedUtc $startedUtc
   $null = Assert-RequiredQualificationReport -Path $requiredReport -LedgerPath 'release/qualification/v0.1-requirements.json'
+  Add-Phase06QualificationEvidence -ReportPath $requiredReport -LedgerPath 'release/qualification/phase-06-requirements.json'
   Write-Host "Required qualification report: $requiredReport"
   Write-Host 'Required quality lane passed.'
 }

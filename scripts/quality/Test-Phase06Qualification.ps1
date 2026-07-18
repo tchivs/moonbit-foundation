@@ -1,5 +1,9 @@
 [CmdletBinding()]
-param([switch]$LedgerOnly)
+param(
+  [switch]$LedgerOnly,
+  [switch]$Focused,
+  [string]$ReportPath
+)
 
 $ErrorActionPreference = 'Stop'
 $repoRoot = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
@@ -143,3 +147,70 @@ foreach ($forbidden in @('dynamic_path','PROV-05','credential_path','authorizati
 if ($ledger.phase_07_handoff -cnotmatch 'before any production mutation') { throw 'Phase 7 authenticated-publish seam handoff is missing.' }
 
 Write-Host 'Phase 6 reciprocal ledger passed: 8 requirements, 22 edges, 7 prohibitions, exact declaration ownership, and content-addressed artifacts.'
+
+if ($LedgerOnly) { exit 0 }
+
+$requiredSource = (Get-Content -LiteralPath (Join-Path $repoRoot 'scripts/quality.ps1') -Raw) +
+  (Get-Content -LiteralPath (Join-Path $repoRoot 'scripts/quality/Invoke-MoonQuality.ps1') -Raw)
+foreach ($forbiddenPattern in @(
+  'Invoke-RegistryObservation',
+  'Get-Content[^\r\n]*(?:credentials|token|cookie|authorization)',
+  'Get-ChildItem[^\r\n]*(?:env:|credentials)',
+  'moon\s+(?:login|publish)',
+  '(?:gh|git)\s+(?:repo\s+create|push)',
+  '(?:repository_verified_live|CaptureAuthority)'
+)) {
+  if ($requiredSource -cmatch $forbiddenPattern) { throw "Required orchestration crosses a credential, observation, publication, repository-mutation, or live-claim boundary: $forbiddenPattern" }
+}
+
+function Invoke-FocusedChecked {
+  param([string]$Label, [scriptblock]$Action)
+  Write-Host "==> $Label"
+  & $Action
+}
+
+if ($Focused) {
+  $wingetPackages = Join-Path $env:LOCALAPPDATA 'Microsoft\WinGet\Packages'
+  $llvmMingwBins = @(
+    Get-ChildItem -LiteralPath $wingetPackages -Directory -Filter 'MartinStorsjo.LLVM-MinGW.UCRT_*' -ErrorAction SilentlyContinue |
+      ForEach-Object { Get-ChildItem -LiteralPath $_.FullName -Directory -Filter 'llvm-mingw-*-ucrt-x86_64' -ErrorAction SilentlyContinue } |
+      ForEach-Object { Join-Path $_.FullName 'bin' } |
+      Where-Object { Test-Path -LiteralPath (Join-Path $_ 'clang.exe') -PathType Leaf }
+  )
+  if ($llvmMingwBins.Count -ne 1) { throw "Focused Native qualification needs exactly one complete LLVM-MinGW UCRT toolchain; found $($llvmMingwBins.Count)." }
+  $env:Path = "$($llvmMingwBins[0]);$env:Path"
+  Invoke-FocusedChecked 'Phase 6 exact identity closure' { & (Join-Path $repoRoot 'scripts/quality/Test-IdentityMigration.ps1') }
+  Invoke-FocusedChecked 'Phase 6 sanitized authority validation' { & (Join-Path $repoRoot 'scripts/quality/Test-RegistryAuthority.ps1') }
+  $publishReadyFailure = $null
+  try { & (Join-Path $repoRoot 'scripts/quality/Test-RegistryAuthority.ps1') -AssertPublishReady } catch { $publishReadyFailure = $_.Exception.Message }
+  if ([string]::IsNullOrWhiteSpace($publishReadyFailure) -or $publishReadyFailure -cnotmatch 'REG03-REQUIRED-FACT-UNKNOWN') {
+    throw "Publish-ready assertion did not reject on REG03-REQUIRED-FACT-UNKNOWN: '$publishReadyFailure'"
+  }
+  $unexpectedRules = @([regex]::Matches($publishReadyFailure, '(?:REG|COMP|PROV)[0-9]{2}-[A-Z0-9-]+') | ForEach-Object { $_.Value } | Where-Object { $_ -cne 'REG03-REQUIRED-FACT-UNKNOWN' })
+  if ($unexpectedRules.Count -ne 0) { throw "Publish-ready assertion included unexpected rules: $($unexpectedRules -join ', ')" }
+  Invoke-FocusedChecked 'Phase 6 regenerated baseline' { & (Join-Path $repoRoot 'scripts/quality/Test-PublicInterfaceBaseline.ps1') -ToolingOnly }
+  Invoke-FocusedChecked 'Phase 6 compatibility policy and negatives' { & (Join-Path $repoRoot 'scripts/quality/Test-PublicCompatibility.ps1') }
+  Invoke-FocusedChecked 'Phase 6 source documentation' { & (Join-Path $repoRoot 'scripts/quality/Test-CandidateDocumentation.ps1') }
+  Invoke-FocusedChecked 'Phase 6 benchmark qualification' { & (Join-Path $repoRoot 'scripts/quality/Test-BenchmarkQualification.ps1') }
+  Write-Host 'Phase 6 focused qualification passed with truthful publish-readiness rejection.'
+}
+
+if (-not [string]::IsNullOrWhiteSpace($ReportPath)) {
+  $report = Read-ReleaseJson -Path $ReportPath
+  if ($report.publication.credentials_read -ne $false -or $report.publication.performed -ne $false) { throw 'Required report crossed the credential or publication boundary.' }
+  if ($report.tracked_diff_unchanged -ne $true) { throw 'Required report does not prove unchanged tracked state.' }
+  Assert-ReleaseClosedProperties -Label 'Phase 6 dynamic evidence' -Object $report.phase_06 -Expected @(
+    'requirement_order','selector_order','edge_evidence','prohibition_evidence','identity','authority_validation',
+    'publish_ready','publish_ready_rejection','observation_selector','phase_07_handoff'
+  )
+  Assert-ExactSequence 'dynamic Phase 6 requirements' @($report.phase_06.requirement_order) $expectedRequirements
+  Assert-ExactSequence 'dynamic Phase 6 selectors' @($report.phase_06.selector_order) @($ledger.selectors.id)
+  Assert-ExactSequence 'dynamic Phase 6 edges' @($report.phase_06.edge_evidence) $expectedEdges
+  Assert-ExactSequence 'dynamic Phase 6 prohibitions' @($report.phase_06.prohibition_evidence) $expectedProhibitions
+  if ($report.phase_06.identity -cne 'tchivs/*@0.1.0' -or $report.phase_06.authority_validation -cne 'pass_blocked' -or
+      $report.phase_06.publish_ready -ne $false -or $report.phase_06.publish_ready_rejection -cne 'REG03-REQUIRED-FACT-UNKNOWN' -or
+      $null -ne $report.phase_06.observation_selector) { throw 'Required report fabricated identity, authority, readiness, or observation evidence.' }
+  Write-Host 'Phase 6 dynamic Required evidence passed: 22 edges, 7 prohibitions, credential-free and non-publishing.'
+}
+
+exit 0

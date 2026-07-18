@@ -166,7 +166,23 @@ function Invoke-SourceIsolation {
   $imports = @($policy.modules.$ShortName.public_packages | ForEach-Object { [string]$_ })
   Write-TempText -Path (Join-Path $consumerPath 'moon.pkg') -Text (Get-ConsumerPackageText -Imports $imports)
   Copy-Item -LiteralPath (Join-Path $repoRoot 'qualification\consumers\downstream-public\main.mbt') -Destination (Join-Path $consumerPath 'main.mbt')
+  $moduleIndex = [Array]::IndexOf([object[]]@($policy.module_order), $ShortName)
+  if ($moduleIndex -lt 1) { throw "Source-isolation module '$ShortName' is not a downstream module in the canonical order." }
+  $dependencyOrder = @($policy.module_order | Select-Object -First ($moduleIndex + 1))
   foreach ($target in @($policy.required_targets)) {
+    foreach ($dependency in $dependencyOrder) {
+      $modulePrefix = "tchivs/$dependency/"
+      foreach ($publicPackage in @($policy.modules.$dependency.public_packages)) {
+        $packageName = [string]$publicPackage
+        if (-not $packageName.StartsWith($modulePrefix, [StringComparison]::Ordinal)) {
+          throw "Source-isolation package '$packageName' is outside canonical module '$dependency'."
+        }
+        $packagePath = "modules/$dependency/" + $packageName.Substring($modulePrefix.Length)
+        $null = Invoke-ReleaseNativeCommand -Context "$ShortName source dependency $packageName check $target" -Command 'moon' -Arguments @(
+          '-C', $CloneRoot, 'check', '--target', [string]$target, '--deny-warn', '--frozen', $packagePath
+        )
+      }
+    }
     $packagePath = "modules/$ShortName/qualification-consumer"
     $null = Invoke-ReleaseNativeCommand -Context "$ShortName source consumer check $target" -Command 'moon' -Arguments @('-C', $CloneRoot, 'check', '--target', [string]$target, '--frozen', $packagePath)
     $null = Invoke-ReleaseNativeCommand -Context "$ShortName source consumer test $target" -Command 'moon' -Arguments @('-C', $CloneRoot, 'test', '--target', [string]$target, '--frozen', $packagePath)
