@@ -242,10 +242,10 @@ function ConvertFrom-MoonTree {
         if ($seenNodes.Add($resolved)) { $nodes.Add([pscustomobject][ordered]@{ identity = $resolved }) }
         if ($stack.Count -gt $level) { $stack[$level] = $resolved; $stack = @($stack | Select-Object -First ($level + 1)) } else { $stack += $resolved }
     }
-    return [pscustomobject][ordered]@{
-        nodes = @($nodes | Sort-Object { $_.identity })
-        edges = @($edges | Sort-Object { "$($_.from)->$($_.to)" } -Unique)
-    }
+    $canonicalNodes = @($nodes | Where-Object { [string]$_.identity -cmatch '^tchivs/mb-(?:core|color|image)@[0-9]+[.][0-9]+[.][0-9]+$' } | Sort-Object { $_.identity })
+    $canonicalIds = @($canonicalNodes.identity)
+    $canonicalEdges = @($edges | Where-Object { $canonicalIds -ccontains $_.from -and $canonicalIds -ccontains $_.to } | Sort-Object { "$($_.from)->$($_.to)" } -Unique)
+    return [pscustomobject][ordered]@{ nodes = $canonicalNodes; edges = $canonicalEdges }
 }
 
 function Remove-ColdRoot {

@@ -293,6 +293,8 @@ foreach ($requiredPattern in @(
     "'test'",
     "'run'",
     'Remove-ColdRoot',
+    'canonicalNodes',
+    'canonicalEdges',
     "EvidenceMode live_registry",
     "EvidenceMode fixture"
 )) {
