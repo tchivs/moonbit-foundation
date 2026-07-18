@@ -6,13 +6,13 @@ current_phase: 08
 current_phase_name: Ordered Mooncakes Publication and Registry Consumers
 status: executing
 stopped_at: Completed 08-10-PLAN.md
-last_updated: "2026-07-18T23:14:19.124Z"
+last_updated: "2026-07-18T23:52:34.505Z"
 last_activity: 2026-07-19
-last_activity_desc: Plan 08-10 integrated the r3 publisher and hosted seam with exact 14-field, UTC, LF, no-tags, and fixed-handoff regressions
+last_activity_desc: Phase 8 r4 forward-correction replanned and independently verified; Wave 11 static contracts are ready
 progress:
   total_phases: 4
   completed_phases: 2
-  total_plans: 40
+  total_plans: 42
   completed_plans: 38
   percent: 50
 ---
@@ -30,9 +30,9 @@ See `.planning/PROJECT.md` (updated 2026-07-17).
 ## Current Position
 
 Phase: 08 (Ordered Mooncakes Publication and Registry Consumers) — EXECUTING
-Plan: 11 of 12
-Status: Ready for Wave 11 — establish one clean r3 boundary and stop at the guarded non-mutating authority handoff
-Last activity: 2026-07-19 — Plan 08-10 integrated the r3 publisher and hosted seam without any live action
+Plan: 11 of 14
+Status: Ready for Wave 11 — implement r4 initial forward-retry contracts before any further external action
+Last activity: 2026-07-19 — r4 forward-correction plans passed independent verification; r3 remains terminal with no hosted run or registry mutation
 
 ## Progress
 
@@ -41,7 +41,7 @@ Current milestone: [█████░░░░░] 50% of v0.2 phases complete
 - v0.2 phases completed: 2/4
 - Phase 6 plans completed: 25/25
 - Phase 7 plans completed: 3/3
-- Phase 8 plans completed: 10/12
+- Phase 8 plans completed: 10/14
 - v0.2 requirements mapped: 21/21
 - Historical total: 5 completed phases, 43 completed plans, 36/36 v0.1 requirements validated
 
@@ -95,13 +95,13 @@ Current milestone: [█████░░░░░] 50% of v0.2 phases complete
 - [Phase 08]: Replay every supplied checkpoint through the Phase 7 reducer before deriving the next module.
 - [Phase 08]: Expose the token only through one temporary credentials file under a child-only MOON_HOME and persist only an allowlisted classification.
 - [Phase 08]: Carry the tracked live adapter as the eighteenth exact prepared payload so the publisher remains artifact-only.
-- [Phase 08]: Keep refs/tags/modules-v0.1.0, refs/tags/modules-v0.1.0-r1, and refs/tags/modules-v0.1.0-r2 as immutable terminal historical evidence; only refs/tags/modules-v0.1.0-r3 may be current initial forward-retry authority.
+- [Phase 08]: Keep refs/tags/modules-v0.1.0 and refs/tags/modules-v0.1.0-r1 through refs/tags/modules-v0.1.0-r3 as immutable terminal historical evidence; only refs/tags/modules-v0.1.0-r4 may be current initial forward-retry authority.
 - [Phase 08]: Require the exact closed tchivs whoami projection and prepared-manifest digest before publisher or live mutation eligibility.
 - [Phase 08]: Represent exact-existing registry authority as a bound zero-mutation checkpoint that cannot enter the mutation adapter.
 - [Phase 08]: Bind every hosted helper use to one clean r1 execution root, HEAD, and exact Git blob before any operation.
 - [Phase 08]: Accept exactly one core-entry authority variant: absent may yield a MutationAuthorizationPacket, while exact yields zero-mutation ExactExistingAuthority.
 - [Phase 08]: Keep DIST-01 through DIST-04 and PROV-05 pending until live publication and registry-only evidence exist.
-- [Phase 08]: Only refs/tags/modules-v0.1.0-r3 is current initial retry; attempt zero, r1, and r2 are immutable terminal-negative history.
+- [Phase 08]: Only refs/tags/modules-v0.1.0-r4 is current initial retry; attempt zero, r1, r2, and r3 are immutable terminal-negative history.
 - [Phase 08]: Prepared r2 identity binds both terminal-negative digests through the digest-covered request payload without importing prior state containers.
 - [Phase 08]: Mutation handoff requires packet plus literal receipt; exact-existing handoff forbids both variants' mutation evidence.
 - [Phase 08]: Publisher and live adapter accept only r2 plus two distinct terminal-negative history digests.
