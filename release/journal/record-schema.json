@@ -1,0 +1,49 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://moonbit-foundation.invalid/schemas/release-journal-record-1.json",
+  "title": "MNF content-addressed publisher journal record",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "journal_sequence", "prior_record_sha256", "root_intent_sha256", "intent_sha256", "intent_kind", "correction_sequence", "predecessor_intent_sha256", "state", "module", "operation", "observation", "outcome", "recorded_at_utc", "run_identity", "record_sha256"],
+  "properties": {
+    "schema_version": { "const": "mnf-release-journal-record/1" },
+    "journal_sequence": { "type": "integer", "minimum": 0, "maximum": 2147483647 },
+    "prior_record_sha256": { "$ref": "#/$defs/sha256" },
+    "root_intent_sha256": { "$ref": "#/$defs/sha256" },
+    "intent_sha256": { "$ref": "#/$defs/sha256" },
+    "intent_kind": { "enum": ["initial", "forward_correction"] },
+    "correction_sequence": { "type": "integer", "minimum": 0, "maximum": 2147483647 },
+    "predecessor_intent_sha256": { "oneOf": [{ "$ref": "#/$defs/sha256" }, { "type": "null" }] },
+    "state": { "enum": ["intent_authorized", "preflight_passed", "core_mutation_attempted", "core_registry_observed", "core_checkpoint_verified", "color_mutation_attempted", "color_registry_observed", "color_checkpoint_verified", "image_mutation_attempted", "image_registry_observed", "image_checkpoint_verified", "handoff_ready", "terminal_mismatch", "stopped_absent", "stopped_unknown", "stopped_invalid_auth"] },
+    "module": { "type": ["string", "null"], "enum": [null, "mb-core", "mb-color", "mb-image"] },
+    "operation": { "enum": ["authorize", "preflight", "attempt_mutation", "observe_registry", "verify_checkpoint", "handoff", "stop", "corrected_genesis"] },
+    "observation": { "$ref": "#/$defs/observation" },
+    "outcome": { "enum": ["accepted", "mutation_pending_observation", "checkpoint_verified", "idempotent_checkpoint", "fresh_authorization_required", "incident_opened", "unknown_stopped", "authentication_rejected", "handoff_ready"] },
+    "recorded_at_utc": { "type": "string", "format": "date-time" },
+    "run_identity": { "$ref": "#/$defs/runIdentity" },
+    "record_sha256": { "$ref": "#/$defs/sha256" }
+  },
+  "$defs": {
+    "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "observation": {
+      "type": "object", "additionalProperties": false,
+      "required": ["status", "identity", "reason_code", "reobservation_required"],
+      "properties": {
+        "status": { "enum": ["not_observed", "absent", "exact_match", "mismatch", "unknown"] },
+        "identity": { "enum": ["not_applicable", "exact", "insufficient"] },
+        "reason_code": { "enum": ["none", "ambiguous_result", "registry_absent", "registry_exact_match", "registry_mismatch", "authentication_failed", "evidence_invalid", "artifact_expired", "cancelled_or_interrupted"] },
+        "reobservation_required": { "type": "boolean" }
+      }
+    },
+    "runIdentity": {
+      "type": "object", "additionalProperties": false,
+      "required": ["repository", "run_id", "artifact_name", "artifact_sequence"],
+      "properties": {
+        "repository": { "const": "tchivs/moonbit-foundation" },
+        "run_id": { "type": "string", "pattern": "^[1-9][0-9]*$" },
+        "artifact_name": { "type": "string", "pattern": "^publisher-[a-z0-9-]+$" },
+        "artifact_sequence": { "type": "integer", "minimum": 0, "maximum": 2147483647 }
+      }
+    }
+  }
+}
