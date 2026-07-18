@@ -74,10 +74,13 @@ function Assert-Phase08AttemptSchemas {
         $handoff.'$defs'.utc.pattern -cne '^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$') {
       throw 'REL04-HANDOFF-SCHEMA: handoff branch is not closed, r3-bound, and UTC-canonical.'
     }
-    foreach ($entry in $historyFields.GetEnumerator()) {
-      if (@($branch.required) -cnotcontains $entry.Key -or $branch.properties.($entry.Key).const -cne $entry.Value) {
-        throw "REL04-HANDOFF-HISTORY: handoff branch does not bind $($entry.Key)."
-      }
+    foreach ($entry in ([ordered]@{
+      attempt_zero_history_sha256=$historyFields.historical_attempt_zero_sha256
+      r1_history_sha256=$historyFields.historical_r1_sha256
+      r2_history_sha256=$historyFields.historical_r2_sha256
+      historical_history_set_sha256=$historyFields.historical_history_set_sha256
+    }).GetEnumerator()) {
+      if (@($branch.required) -cnotcontains $entry.Key -or $branch.properties.($entry.Key).const -cne $entry.Value) { throw "REL04-HANDOFF-HISTORY: handoff branch does not bind $($entry.Key)." }
     }
     foreach ($field in @('r2_history_path','r2_history_sha256')) {
       if (@($branch.required) -cnotcontains $field) { throw "REL04-HANDOFF-HISTORY: handoff branch omits $field." }
@@ -93,6 +96,29 @@ function Assert-Phase08AttemptSchemas {
     throw 'REL04-HANDOFF-BRANCH: exact-existing authority path is not exclusive.'
   }
   if (@($mutation.required) -ccontains 'stop' -or @($exact.required) -ccontains 'stop') { throw 'REL04-HANDOFF-STOP: stop cannot be eligible.' }
+
+  $receiptFixture = [pscustomobject][ordered]@{
+    schema_version='mnf-phase08-authorization-receipt/1';release_ref='refs/tags/modules-v0.1.0-r3'
+    boundary_sha=('1'*40);source_sha=('2'*40);packet_sha256=('3'*64)
+    historical_attempt_zero_sha256=$historyFields.historical_attempt_zero_sha256
+    historical_r1_sha256=$historyFields.historical_r1_sha256
+    historical_r2_sha256=$historyFields.historical_r2_sha256
+    historical_history_set_sha256=$historyFields.historical_history_set_sha256
+    response='authorize-core';created_at_utc='2026-07-19T00:00:00Z';receipt_sha256=('4'*64)
+  }
+  $receiptSchemaPath = Join-Path $repoRoot 'release\qualification\phase-08-authorization-receipt-schema.json'
+  if (-not (($receiptFixture | ConvertTo-Json -Depth 30 -Compress) | Test-Json -SchemaFile $receiptSchemaPath -ErrorAction Stop)) { throw 'REL04-RECEIPT-SCHEMA: valid r3 receipt fixture failed.' }
+  foreach ($mutate in @(
+    { param($x) $x.release_ref='refs/tags/modules-v0.1.0-r2' },
+    { param($x) $x.historical_r1_sha256=$x.historical_attempt_zero_sha256 },
+    { param($x) $t=$x.historical_r1_sha256;$x.historical_r1_sha256=$x.historical_r2_sha256;$x.historical_r2_sha256=$t },
+    { param($x) $x.historical_history_set_sha256=('f'*64) },
+    { param($x) $x.created_at_utc='2026-07-19T08:00:00+08:00' },
+    { param($x) $x|Add-Member unexpected x }
+  )) {
+    $bad=$receiptFixture|ConvertTo-Json -Depth 30|ConvertFrom-Json -Depth 30;&$mutate $bad
+    if (($bad|ConvertTo-Json -Depth 30 -Compress)|Test-Json -SchemaFile $receiptSchemaPath -ErrorAction SilentlyContinue) { throw 'REL04-RECEIPT-NEGATIVE: invalid replacement/mix/order/aggregate/UTC/unknown fixture passed.' }
+  }
 }
 
 function Assert-IntentContract {
