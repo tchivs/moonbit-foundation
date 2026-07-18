@@ -161,10 +161,10 @@
 3. A release-wide serialization lock and monotonic journal prevent concurrent, replayed, duplicate, cancelled-in-progress, and dependency-order-violating transitions while preserving completed checkpoints.
 4. Credential-free negative rehearsals cover timeout, partial success, existing-version mismatch, invalid credential, and evidence failure; ambiguous real failures trigger registry re-observation before any retry, and mismatches stop with incident evidence plus a forward corrected version and advisory.
 
-**Plans:** 1/3 plans executed
+**Plans:** 2/3 plans executed
 
 - [x] 07-01-PLAN.md
-- [ ] 07-02-PLAN.md
+- [x] 07-02-PLAN.md
 - [ ] 07-03-PLAN.md
 
 ### Phase 8: Ordered Mooncakes Publication and Registry Consumers
@@ -214,7 +214,7 @@
 | 4. Image Model, Views, and Operations | v0.1 | 9/9 | Complete | 2026-07-17 |
 | 5. Reference Codec and Release Qualification | v0.1 | 8/8 | Complete | 2026-07-17 |
 | 6. Namespace Authority and Compatibility Contract | v0.2 | 25/25 | Complete    | 2026-07-18 |
-| 7. Release Safety, Intent, and Recovery Automation | v0.2 | 1/3 | In Progress|  |
+| 7. Release Safety, Intent, and Recovery Automation | v0.2 | 2/3 | In Progress|  |
 | 8. Ordered Mooncakes Publication and Registry Consumers | v0.2 | 0/TBD | Not started | — |
 | 9. Provenance, Immutable Closure, and Milestone Audit | v0.2 | 0/TBD | Not started | — |
 
