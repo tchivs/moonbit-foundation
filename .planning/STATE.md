@@ -5,15 +5,15 @@ milestone_name: Publication & Compatibility
 current_phase: 08
 current_phase_name: Ordered Mooncakes Publication and Registry Consumers
 status: executing
-stopped_at: Completed 08-06-PLAN.md
-last_updated: "2026-07-18T21:10:51.943Z"
+stopped_at: Completed 08-07-PLAN.md
+last_updated: "2026-07-18T21:27:32.979Z"
 last_activity: 2026-07-19
-last_activity_desc: Phase 8 forward-correction replanned and independently verified; Wave 7 r2 contracts are ready
+last_activity_desc: Plan 08-07 completed the credential-free r2 attempt, receipt, prepared-history, and handoff contracts
 progress:
   total_phases: 4
   completed_phases: 2
   total_plans: 38
-  completed_plans: 34
+  completed_plans: 35
   percent: 50
 ---
 
@@ -30,9 +30,9 @@ See `.planning/PROJECT.md` (updated 2026-07-17).
 ## Current Position
 
 Phase: 08 (Ordered Mooncakes Publication and Registry Consumers) — EXECUTING
-Plan: 7 of 10
-Status: Ready for Wave 7 — implement the r2 initial forward-retry contracts before any external action
-Last activity: 2026-07-19 — r2 forward-correction plans passed independent verification; no live distribution requirement was claimed
+Plan: 8 of 10
+Status: Ready for Wave 8 — wire the static r2 contracts into the hosted and publisher seams
+Last activity: 2026-07-19 — Plan 08-07 completed all static r2 contract suites; no live distribution requirement was claimed
 
 ## Progress
 
@@ -101,6 +101,9 @@ Current milestone: [█████░░░░░] 50% of v0.2 phases complete
 - [Phase 08]: Bind every hosted helper use to one clean r1 execution root, HEAD, and exact Git blob before any operation.
 - [Phase 08]: Accept exactly one core-entry authority variant: absent may yield a MutationAuthorizationPacket, while exact yields zero-mutation ExactExistingAuthority.
 - [Phase 08]: Keep DIST-01 through DIST-04 and PROV-05 pending until live publication and registry-only evidence exist.
+- [Phase 08]: Only refs/tags/modules-v0.1.0-r2 is current initial retry; attempt zero and r1 are immutable terminal-negative history.
+- [Phase 08]: Prepared r2 identity binds both terminal-negative digests through the digest-covered request payload without importing prior state containers.
+- [Phase 08]: Mutation handoff requires packet plus literal receipt; exact-existing handoff forbids both variants' mutation evidence.
 
 ### Pending Decisions
 
@@ -115,13 +118,13 @@ None
 
 **Resume file:** None
 
-Last session: 2026-07-18T19:22:31.276Z
-Stopped at: Completed 08-06-PLAN.md
+Last session: 2026-07-18T21:27:32.963Z
+Stopped at: Completed 08-07-PLAN.md
 Resume with: `/gsd-execute-phase 8`
 
 ## Operator Next Steps
 
-- Execute Plan 08-07 against the exact committed 08-06 static seam and completion tracking.
+- Execute Plan 08-08 against the exact committed 08-07 r2 contracts and completion tracking.
 - Keep every live dispatch, registry observation, and irreversible Mooncakes mutation behind its separately authorized checkpoint.
 
 ## Performance Metrics
@@ -158,3 +161,4 @@ Resume with: `/gsd-execute-phase 8`
 | Phase 08 P04 | 29min | 3 tasks | 7 files |
 | Phase 08 P05 | 9min | 2 tasks | 10 files |
 | Phase 08 P06 | 20min | 3 tasks | 9 files |
+| Phase 08 P07 | 13min | 3 tasks | 13 files |
