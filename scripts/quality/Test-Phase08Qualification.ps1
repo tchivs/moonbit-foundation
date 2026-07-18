@@ -8,7 +8,7 @@ param(
   [switch]$ExactExistingAuthority,
   [switch]$AuthorityUnion,
   [switch]$ReciprocalArtifacts,
-  [switch]$R2ContractOnly,
+  [switch]$R3ContractOnly,
   [string]$LocatorPath,
   [string]$ArtifactRoot,
   [string]$PacketPath,
@@ -22,7 +22,7 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference='Stop'
 $repoRoot=Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
-$productionHandoff=[IO.Path]::GetFullPath((Join-Path ([IO.Path]::GetTempPath()) 'mnf-phase08-r2-handoff.json'))
+$productionHandoff=[IO.Path]::GetFullPath((Join-Path ([IO.Path]::GetTempPath()) 'mnf-phase08-r3-handoff.json'))
 
 function Throw-P08Qualification([string]$Id,[string]$Message) { throw "$Id`: $Message" }
 function Get-P08QualificationSha([string]$Path) {
@@ -32,40 +32,42 @@ function Get-P08QualificationSha([string]$Path) {
 function Assert-P08ClosedNames([object]$Value,[string[]]$Names,[string]$Id) {
   if ((@($Value.PSObject.Properties.Name) -join ',') -cne ($Names -join ',')) { Throw-P08Qualification $Id 'Closed field inventory drifted.' }
 }
-function Assert-P08R2Contract {
+function Assert-P08R3Contract {
   if(Test-Path -LiteralPath $productionHandoff){Throw-P08Qualification 'P08-FIXED-HANDOFF-PREEXISTING' 'Production fixed handoff must be absent before qualification fixtures.'}
   . (Join-Path $PSScriptRoot 'ReleaseQualification.Common.ps1')
   foreach($command in @('New-ReleaseAuthorizationReceipt','Assert-ReleaseAuthorizationReceipt','New-ReleasePhase08Handoff','Assert-ReleasePhase08Handoff')) {
     if($null -eq (Get-Command $command -CommandType Function -ErrorAction SilentlyContinue)){Throw-P08Qualification 'P08-R2-COMPOSITION' "Missing $command."}
   }
   $prepared=Get-Content -LiteralPath (Join-Path $PSScriptRoot 'New-PreparedReleaseBundle.ps1') -Raw
-  foreach($required in @('refs/tags/modules-v0.1.0-r2','HistoricalAttemptZeroSha256','HistoricalR1Sha256','PREP14-HISTORICAL-BINDING')){
-    if($prepared.IndexOf($required,[StringComparison]::Ordinal) -lt 0){Throw-P08Qualification 'P08-R2-PREPARED' "Missing prepared r2 contract '$required'."}
+  foreach($required in @('refs/tags/modules-v0.1.0-r3','HistoricalAttemptZeroSha256','HistoricalR1Sha256','HistoricalR2Sha256','HistoricalHistorySetSha256','PREP14-HISTORICAL-BINDING')){
+    if($prepared.IndexOf($required,[StringComparison]::Ordinal) -lt 0){Throw-P08Qualification 'P08-R3-PREPARED' "Missing prepared r3 contract '$required'."}
   }
   $qualification=Get-Content -LiteralPath (Join-Path $PSScriptRoot 'Invoke-ReleaseQualification.ps1') -Raw
-  if($qualification.IndexOf('refs/tags/modules-v0.1.0-r2',[StringComparison]::Ordinal) -lt 0){Throw-P08Qualification 'P08-R2-QUALIFICATION' 'Qualification does not emit r2 initial identity.'}
+  if($qualification.IndexOf('refs/tags/modules-v0.1.0-r3',[StringComparison]::Ordinal) -lt 0){Throw-P08Qualification 'P08-R3-QUALIFICATION' 'Qualification does not emit r3 initial identity.'}
   function Confirm-R2Failure([string]$Id,[scriptblock]$Action){$failure=$null;try{&$Action}catch{$failure=$_.Exception.Message};if($null -eq $failure -or -not $failure.StartsWith("$Id`: ",[StringComparison]::Ordinal)){Throw-P08Qualification 'P08-R2-NEGATIVE' "Expected $Id, got '$failure'."}}
   function Write-R2File([string]$Path,[string]$Text){$null=New-Item -ItemType Directory -Force -Path (Split-Path -Parent $Path);[IO.File]::WriteAllText($Path,$Text,[Text.UTF8Encoding]::new($false))}
   $temp=Join-Path ([IO.Path]::GetTempPath()) ('mnf-phase08-r2-contract-'+[Guid]::NewGuid().ToString('N'))
   $null=New-Item -ItemType Directory -Force -Path $temp
   try{
     $paths=[ordered]@{}
-    foreach($name in @('boundary','active','index','attempt-zero','r1','packet','exact')){$paths[$name]=Join-Path $temp "$name.json";Write-R2File $paths[$name] "fixture-$name"}
+    foreach($name in @('boundary','active','index','attempt-zero','r1','r2','packet','exact')){$paths[$name]=Join-Path $temp "$name.json";Write-R2File $paths[$name] "fixture-$name"}
     $packetSha=Get-P08QualificationSha $paths.packet
-    $receiptA=New-ReleaseAuthorizationReceipt -BoundarySha ('1'*40) -PacketSha256 $packetSha -CreatedAt '2026-07-19T08:00:00+08:00'
-    $receiptB=New-ReleaseAuthorizationReceipt -BoundarySha ('1'*40) -PacketSha256 $packetSha -CreatedAt '2026-07-19T00:00:00Z'
-    $receiptChanged=New-ReleaseAuthorizationReceipt -BoundarySha ('1'*40) -PacketSha256 $packetSha -CreatedAt '2026-07-19T00:00:01Z'
+    $receiptA=New-ReleaseAuthorizationReceipt -BoundarySha ('1'*40) -SourceSha ('2'*40) -PacketSha256 $packetSha -CreatedAt '2026-07-19T08:00:00+08:00'
+    $receiptB=New-ReleaseAuthorizationReceipt -BoundarySha ('1'*40) -SourceSha ('2'*40) -PacketSha256 $packetSha -CreatedAt '2026-07-19T00:00:00Z'
+    $receiptChanged=New-ReleaseAuthorizationReceipt -BoundarySha ('1'*40) -SourceSha ('2'*40) -PacketSha256 $packetSha -CreatedAt '2026-07-19T00:00:01Z'
     if($receiptA.created_at_utc -cne '2026-07-19T00:00:00Z' -or $receiptA.receipt_sha256 -cne $receiptB.receipt_sha256 -or $receiptA.receipt_sha256 -ceq $receiptChanged.receipt_sha256){Throw-P08Qualification 'P08-R2-UTC' 'UTC equivalence or changed-instant identity drifted.'}
     $receiptPath=Join-Path $temp 'receipt.json';Write-R2File $receiptPath ($receiptA|ConvertTo-Json -Depth 20 -Compress)
     $receiptReload=Get-Content -LiteralPath $receiptPath -Raw|ConvertFrom-Json -Depth 20
     $null=Assert-ReleaseAuthorizationReceipt -Receipt $receiptReload -ExpectedBoundarySha ('1'*40) -ExpectedPacketSha256 $packetSha
     $bindings=[ordered]@{
-      schema_version='mnf-phase08-handoff/1';release_ref='refs/tags/modules-v0.1.0-r2';boundary_sha=('1'*40);execution_root=[IO.Path]::GetFullPath($temp)
+      schema_version='mnf-phase08-handoff/1';release_ref='refs/tags/modules-v0.1.0-r3';boundary_sha=('1'*40);execution_root=[IO.Path]::GetFullPath($temp)
       boundary_locator_path=[IO.Path]::GetFullPath($paths.boundary);boundary_locator_sha256=Get-P08QualificationSha $paths.boundary
       active_attempt_path=[IO.Path]::GetFullPath($paths.active);active_attempt_sha256=Get-P08QualificationSha $paths.active
       artifact_root=[IO.Path]::GetFullPath($temp);artifact_index_path=[IO.Path]::GetFullPath($paths.index);artifact_index_sha256=Get-P08QualificationSha $paths.index
       attempt_zero_history_path=[IO.Path]::GetFullPath($paths.'attempt-zero');attempt_zero_history_sha256=Get-P08QualificationSha $paths.'attempt-zero'
       r1_history_path=[IO.Path]::GetFullPath($paths.r1);r1_history_sha256=Get-P08QualificationSha $paths.r1
+      r2_history_path=[IO.Path]::GetFullPath($paths.r2);r2_history_sha256=Get-P08QualificationSha $paths.r2
+      historical_history_set_sha256=('d'*64)
       mutation_authorization_packet_path=[IO.Path]::GetFullPath($paths.packet);mutation_authorization_packet_sha256=$packetSha
       authorization_receipt_path=[IO.Path]::GetFullPath($receiptPath);authorization_receipt_sha256=Get-P08QualificationSha $receiptPath
       exact_existing_authority_path=$null;exact_existing_authority_sha256=$null
@@ -431,8 +433,8 @@ function Assert-P08AuthorityUnionSelector {
   Write-Host 'Phase 8 ExactExistingAuthority selector: PASS.';return $record
 }
 
-if (-not ($FixtureOnly -or $CoreColorArtifacts -or $LiveArtifacts -or $AuthorizationPacket -or $MutationAuthorizationPacket -or $ExactExistingAuthority -or $AuthorityUnion -or $ReciprocalArtifacts -or $R2ContractOnly)) { $R2ContractOnly=$true }
-if($R2ContractOnly){Assert-P08R2Contract;Write-Host 'Phase 8 r2 receipt/handoff composition: PASS.';return}
+if (-not ($FixtureOnly -or $CoreColorArtifacts -or $LiveArtifacts -or $AuthorizationPacket -or $MutationAuthorizationPacket -or $ExactExistingAuthority -or $AuthorityUnion -or $ReciprocalArtifacts -or $R3ContractOnly)) { $R3ContractOnly=$true }
+if($R3ContractOnly){Assert-P08R3Contract;Write-Host 'Phase 8 r3 receipt/handoff composition: PASS.';return}
 if ($FixtureOnly) { Assert-P08FixtureContract; return }
 if ($AuthorizationPacket) { Assert-P08AuthorizationPacket; return }
 if ($MutationAuthorizationPacket -or $ExactExistingAuthority -or $AuthorityUnion) { Assert-P08AuthorityUnionSelector; return }

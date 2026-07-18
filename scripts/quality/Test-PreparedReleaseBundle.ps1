@@ -79,20 +79,21 @@ try {
   }
   $intent = [ordered]@{
     schema_version='mnf-release-intent/1'; intent_kind='initial'; repository='tchivs/moonbit-foundation'; owner='tchivs'
-    release_ref='refs/tags/modules-v0.1.0-r2'; source_sha=$sourceSha; correction_sequence=0; toolchain=$toolchain
+    release_ref='refs/tags/modules-v0.1.0-r3'; source_sha=$sourceSha; correction_sequence=0; toolchain=$toolchain
     modules=@(); evidence=[ordered]@{}; tracked_source_clean=$true; credentials_read=$false; publication_performed=$false
   }
   Write-JsonFixture -Path (Join-Path $inputRoot 'intent\current.json') -Value $intent
   $intentSha = (Get-FileHash -LiteralPath (Join-Path $inputRoot 'intent\current.json') -Algorithm SHA256).Hash.ToLowerInvariant()
   Write-Utf8NoBom -Path (Join-Path $inputRoot 'intent\current.sha256') -Text $intentSha
   Write-JsonFixture -Path (Join-Path $inputRoot 'intent\root-binding.json') -Value ([ordered]@{
-    root_intent_sha256=$intentSha; intent_sha256=$intentSha; source_sha=$sourceSha; release_ref='refs/tags/modules-v0.1.0-r2'
+    root_intent_sha256=$intentSha; intent_sha256=$intentSha; source_sha=$sourceSha; release_ref='refs/tags/modules-v0.1.0-r3'
   })
   Write-JsonFixture -Path (Join-Path $inputRoot 'request.json') -Value ([ordered]@{
-    repository='tchivs/moonbit-foundation'; actor='tchivs'; release_ref='refs/tags/modules-v0.1.0-r2'; source_sha=$sourceSha
+    repository='tchivs/moonbit-foundation'; actor='tchivs'; release_ref='refs/tags/modules-v0.1.0-r3'; source_sha=$sourceSha
     root_intent_sha256=$intentSha; intent_sha256=$intentSha; intent_kind='initial'; correction_sequence=0
     predecessor_intent_sha256=$null; authorization_valid=$true; evidence_valid=$true; dry_run_passed=$true; authority_account='tchivs'
-    historical_attempt_zero_sha256=('a'*64); historical_r1_sha256=('b'*64)
+    historical_attempt_zero_sha256=('a'*64); historical_r1_sha256=('b'*64); historical_r2_sha256=('c'*64)
+    historical_history_set_sha256=('d'*64)
   })
   foreach ($module in @('mb-core','mb-color','mb-image')) {
     Write-Utf8NoBom -Path (Join-Path $inputRoot "archives\$module.zip") -Text "deterministic-$module-archive"
@@ -114,8 +115,8 @@ try {
 
   $common = @{
     InputRoot=$inputRoot; Repository='tchivs/moonbit-foundation'; Actor='tchivs'; RunId='1001'; RunAttempt=1
-    ReleaseRef='refs/tags/modules-v0.1.0-r2'; SourceSha=$sourceSha; RootIntentSha256=$intentSha; IntentSha256=$intentSha
-    HistoricalAttemptZeroSha256=('a'*64); HistoricalR1Sha256=('b'*64)
+    ReleaseRef='refs/tags/modules-v0.1.0-r3'; SourceSha=$sourceSha; RootIntentSha256=$intentSha; IntentSha256=$intentSha
+    HistoricalAttemptZeroSha256=('a'*64); HistoricalR1Sha256=('b'*64); HistoricalR2Sha256=('c'*64); HistoricalHistorySetSha256=('d'*64)
     RunMode='start'
   }
   $validation = @{} + $common
@@ -171,11 +172,20 @@ try {
   Invoke-MutatedCase 'history-substitution' 'PREP14-HISTORICAL-BINDING' {
     param($r) $p=Join-Path $r 'request.json'; $m=Get-Content $p -Raw|ConvertFrom-Json -Depth 100; $m.historical_r1_sha256='c'*64; Write-JsonFixture -Path $p -Value $m
   }
+  Invoke-MutatedCase 'history-missing-r2' 'PREP10-JOURNAL-BINDING' {
+    param($r) $p=Join-Path $r 'request.json'; $m=Get-Content $p -Raw|ConvertFrom-Json -Depth 100; $m.PSObject.Properties.Remove('historical_r2_sha256'); Write-JsonFixture -Path $p -Value $m
+  }
+  Invoke-MutatedCase 'history-order-mix' 'PREP14-HISTORICAL-BINDING' {
+    param($r) $p=Join-Path $r 'request.json'; $m=Get-Content $p -Raw|ConvertFrom-Json -Depth 100; $t=$m.historical_r1_sha256;$m.historical_r1_sha256=$m.historical_r2_sha256;$m.historical_r2_sha256=$t; Write-JsonFixture -Path $p -Value $m
+  }
+  Invoke-MutatedCase 'history-aggregate' 'PREP14-HISTORICAL-BINDING' {
+    param($r) $p=Join-Path $r 'request.json'; $m=Get-Content $p -Raw|ConvertFrom-Json -Depth 100; $m.historical_history_set_sha256='f'*64; Write-JsonFixture -Path $p -Value $m
+  }
   Invoke-MutatedCase 'reused-state' 'PREP10-JOURNAL-BINDING' {
     param($r) $p=Join-Path $r 'request.json'; $m=Get-Content $p -Raw|ConvertFrom-Json -Depth 100; $m|Add-Member -NotePropertyName locator_path -NotePropertyValue 'old.json'; Write-JsonFixture -Path $p -Value $m
   }
-  $legacy=@{}+$common;$legacy.ReleaseRef='refs/tags/modules-v0.1.0-r1'
-  Confirm-PreparedRule 'PREP09-BINDING' { & $generator @legacy -OutputRoot (Join-Path $tempRoot 'legacy-r1') | Out-Null }
+  $legacy=@{}+$common;$legacy.ReleaseRef='refs/tags/modules-v0.1.0-r2'
+  Confirm-PreparedRule 'PREP09-BINDING' { & $generator @legacy -OutputRoot (Join-Path $tempRoot 'legacy-r2') | Out-Null }
   Invoke-MutatedCase 'toolchain' 'PREP11-TOOLCHAIN' {
     param($r) $p=Join-Path $r 'prepared-bundle.json'; $m=Get-Content $p -Raw|ConvertFrom-Json -Depth 100; $m.toolchain.moon='latest'; Write-JsonFixture -Path $p -Value $m
   }
