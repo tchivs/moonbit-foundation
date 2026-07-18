@@ -26,7 +26,7 @@
 
 ### Serialization and Monotonic Journal
 
-- **D-10:** Use one release-wide GitHub Actions concurrency group derived from repository plus intent digest, with `cancel-in-progress: false`. A newer dispatch cannot cancel or supersede an in-progress publication.
+- **D-10:** Use one release-wide GitHub Actions concurrency group derived from repository plus `root_intent_sha256`, where the root is literally the canonical initial intent digest, with `cancel-in-progress: false`. Initial dispatch requires `root_intent_sha256 == intent_sha256`; every correction retains that root while binding its own current digest, exact predecessor, and monotonic successor sequence. A newer dispatch cannot cancel or supersede an in-progress publication.
 - **D-11:** The publisher state machine is strictly monotonic: intent authorized → preflight passed → core mutation attempted → core registry state observed → core checkpoint verified → color attempted/observed/verified → image attempted/observed/verified → handoff ready. No transition may skip dependency order or move backward.
 - **D-12:** Every transition appends a closed-schema, content-addressed journal record containing sequence number, prior-record digest, intent digest, sanitized observation, outcome, and timestamp. Raw credentials, headers, cookies, local credential paths, and unredacted CLI output are prohibited.
 - **D-13:** Preserve completed checkpoints as GitHub workflow artifacts named by intent digest and sequence. Resume requires the exact prior run/artifact identity and verifies the full digest chain; registry re-observation remains authoritative when artifact state and external state disagree or an artifact expires.
@@ -60,7 +60,7 @@
 |----|-------------|------------------|
 | REL-01 | Required produces an immutable release intent binding the exact release ref, source, modules, dependencies, inventory, archives, interfaces, and qualification evidence. | Use an acyclic stable-evidence projection, a closed MNF canonical-JSON profile, and SHA-256 from the existing qualification helper seam. [VERIFIED: repository inspection] |
 | REL-02 | Only the sole maintainer may authorize the exact intent from a protected ref, with SHA-pinned actions, read-only permissions, and isolated credential access. | Use `workflow_dispatch`, exact context/input validation, a protected tag, `permissions: {}`/`contents: read`, and a `mooncakes-production` environment whose secret is mapped only into one mutation step. [CITED: https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-syntax] |
-| REL-03 | A global lock and monotonic journal prevent concurrency, replay, duplication, cancellation, and dependency-order violations. | Use repository-plus-intent concurrency with `cancel-in-progress: false` and `queue: max`, then enforce replay/order in a pure state reducer and hash-chained records; GitHub concurrency alone is insufficient. [CITED: https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-syntax] |
+| REL-03 | A global lock and monotonic journal prevent concurrency, replay, duplication, cancellation, and dependency-order violations. | Use repository-plus-`root_intent_sha256` concurrency with `cancel-in-progress: false` and `queue: max`; require initial root/current equality and correction root/predecessor/sequence binding, then enforce replay/order in a pure state reducer and hash-chained records. GitHub concurrency alone is insufficient. [CITED: https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-syntax] |
 | REL-04 | Credential-free negative rehearsals cover ambiguous and failed outcomes and require registry re-observation before retry. | Separate the deterministic state engine from live command adapters; fixtures inject sanitized observer/mutator results without network or credentials. [VERIFIED: repository negative-test pattern] |
 | REL-05 | Recovery preserves correct checkpoints, re-observes ambiguity, re-authorizes corrections, and never assumes destructive recovery. | Make registry observation authoritative, require exact archive/metadata comparison, and terminate mismatches with incident evidence plus a new unpublished version path. [VERIFIED: Phase 6 forward-only policy] |
 </phase_requirements>
@@ -163,6 +163,8 @@ release/
 ├── journal/
 │   ├── record-schema.json                       # closed hash-chain record
 │   └── state-schema.json                        # allowed monotonic states/outcomes
+├── prepared/
+│   └── schema.json                              # closed content-addressed cross-job manifest
 └── qualification/
     └── phase-07-requirements.json               # reciprocal REL-01..05 coverage
 scripts/quality/
@@ -201,14 +203,20 @@ Use the locked group identity and enable the official queue mode:
 ```yaml
 # Source: GitHub workflow syntax documentation
 concurrency:
-  group: mnf-release-${{ github.repository }}-${{ inputs.intent_sha256 }}
+  group: mnf-release-${{ github.repository }}-${{ inputs.root_intent_sha256 }}
   cancel-in-progress: false
   queue: max
 ```
 
-GitHub documents that the default permits only one pending run and may replace an older pending run; `queue: max` retains a queue, while the reducer still rejects replay/duplicates and assumes no execution ordering from dispatch time alone. [CITED: https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-syntax]
+`root_intent_sha256` is not a separate lineage projection: it is the canonical initial `intent_sha256`. Initial dispatch must prove equality; a correction must carry the same immutable root while its current canonical intent binds the exact predecessor and previous sequence+1. This keeps every correction in one repository-wide release family lock while preserving a distinct current authorization identity. GitHub documents that the default permits only one pending run and may replace an older pending run; `queue: max` retains a queue, while the reducer still rejects replay/duplicates and assumes no execution ordering from dispatch time alone. [CITED: https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-syntax]
 
-### Pattern 6: Step-Scoped Credential Hydration
+### Pattern 6: Content-Addressed Prepared-Bundle Trust Boundary
+
+Treat the prepare/publisher job edge as an untrusted file-transfer boundary. The secret-free prepare job checks out the exact source SHA, validates root/current intent and journal bindings, and emits one closed `release/prepared/schema.json` manifest plus an exact payload inventory. The schema follows the repository's closed package and authority-observation contracts: `additionalProperties: false`, stable ordered roles, path/size/SHA-256 for every payload, sanitized observation fields only, and no raw output or credential material. The manifest binds repository, actor, run/attempt, ref, source SHA, `root_intent_sha256`, current `intent_sha256`, mode, prior-chain/genesis identity, toolchain, qualification artifacts, and the exact source/scripts/policy/schema payload. After canonical writing, prepare hashes the manifest and uploads `mnf-prepared-<root-intent>-<current-intent>-<manifest-sha256>`; the manifest never hashes itself.
+
+The publisher has `actions: read` only, performs no checkout, and downloads only that exact job-output artifact from the current `github.run_id`. A trusted inline verifier must compare the downloaded manifest bytes with the prepare-job digest, reject missing/extra/duplicate/path-escaping files, recompute every payload digest, and revalidate actor/ref/source/root/current/mode/journal bindings before the workflow may reference the Mooncakes secret. The GitHub token is confined to pinned official exact-run download actions; no `uses:` action receives the Mooncakes credential. This makes the content-addressed bundle—not ambient workspace state—the sole cross-job qualification input. [VERIFIED: closed package/authority-observation schemas and D-02, D-07, D-10 through D-13]
+
+### Pattern 7: Step-Scoped Credential Hydration
 
 Use environment `mooncakes-production`. Preparation jobs have no environment and no secret. The publisher job validates all non-secret facts first; only one PowerShell mutation step maps `secrets.MOONCAKES_TOKEN`, creates an ephemeral `$MOON_HOME/credentials.json` with username `tchivs`, runs credentialed preflight/one authorized mutation, sanitizes the result, and removes the entire ephemeral home in `finally`. No action or later step receives the secret environment variable. [VERIFIED: pinned Moon credentials source and D-06 through D-08]
 
@@ -240,9 +248,9 @@ Use environment `mooncakes-production`. Preparation jobs have no environment and
 **What goes wrong:** The intent binds `report.json`, then `report.json` embeds the intent digest, so neither digest can be computed first.  
 **How to avoid:** Bind the stable qualification projection and evidence digests; let the final wrapper point one-way to the intent. [VERIFIED: existing report writer]
 
-### Pitfall 2: A Different Intent Escapes the Lock
-**What goes wrong:** Different input digests create different concurrency groups.  
-**How to avoid:** Only one intent can validate against the protected `refs/tags/modules-v0.1.0` target and exact 0.1.0 coordinates; reject every other digest before secret access, and let registry observation arbitrate any stale run. [VERIFIED: D-03, D-06, D-10]
+### Pitfall 2: A Corrected Intent Escapes the Initial Lock
+**What goes wrong:** Keying concurrency by the current `intent_sha256` lets each forward correction create a different concurrency group.
+**How to avoid:** Key by repository plus `root_intent_sha256`, require initial root/current equality, and require every correction to bind the immutable initial digest, its own current digest, exact predecessor, and sequence+1 before secret access. [VERIFIED: D-03, D-06, D-10]
 
 ### Pitfall 3: Secret Is Isolated in YAML but Persists on Disk
 **What goes wrong:** `$MOON_HOME/credentials.json` survives into later steps or artifacts.  
@@ -329,24 +337,26 @@ The implementation must ensure that checkout/setup/download and all non-secret v
 
 | # | Claim | Section | Risk if Wrong |
 |---|-------|---------|---------------|
-| — | None. All implementation-driving claims were verified from repository state, local pinned tools, official source, or official GitHub/MoonBit documentation. | — | — |
+| A-01 | Mooncakes credential scope/lifecycle remains externally unknown; Plan 07-02 `EDGE-REL05-CREDENTIAL-SCOPE` and Plan 07-03 step-scoped isolation own the fail-closed disposition. | Resolved dispositions | No narrower server-side scope may be claimed; exposure remains minimized. |
+| A-02 | Current-token remote namespace/publish authority remains externally unknown until Phase 8; Plan 07-03 `EDGE-REL04-REMOTE-AUTHORITY` and D-09 own the explicit live checkpoint. | Resolved dispositions | Phase 7 cannot claim publish readiness or run an incidental mutation. |
+| A-03 | Immutable Mooncakes artifact identity remains externally unknown; Plan 07-02 `EDGE-REL04-REGISTRY-IDENTITY` owns insufficient-identity blocking and incident recovery. | Resolved dispositions | Exact match cannot be checkpointed when the strongest observation is insufficient. |
 
-## Open Questions
+## Resolved by Fail-Closed Disposition (External Facts Remain Unknown)
 
-1. **Mooncakes-side credential scope and lifecycle remain unknown.**
+1. **RESOLVED-DISPOSITION: Mooncakes-side credential scope and lifecycle remain unknown.**
    - What we know: the pinned CLI uses a token-bearing `credentials.json`; current local identity is `tchivs`. [VERIFIED: pinned source and local probe]
    - What's unclear: official publish-only scope, expiry, revocation, and noninteractive credential contract are not documented in the inspected sources. [VERIFIED: Phase 6 capability matrix]
-   - Recommendation: describe the credential as least-exposed, not falsely publish-only; keep the capability fact explicit and fail closed wherever the live preflight cannot safely observe it.
+   - Resolution owner: Plan 07-02 assumption `EDGE-REL05-CREDENTIAL-SCOPE` plus Plan 07-03 Task 1. Describe the credential as least-exposed, never falsely publish-only; fail closed wherever preflight cannot safely observe it and confine it to one isolated mutation step. This resolves planning behavior, not the external fact.
 
-2. **Definitive remote namespace/publish authority cannot be completed in Phase 7 rehearsal.**
+2. **RESOLVED-DISPOSITION: definitive remote namespace/publish authority cannot be completed in Phase 7 rehearsal.**
    - What we know: local login and public account observation succeeded, but current-token remote authority is not proven. [VERIFIED: authority observation]
    - What's unclear: the first production publish response until the explicit Phase 8 checkpoint.
-   - Recommendation: implement the one-time bootstrap transition but do not execute it during ordinary Phase 7 verification.
+   - Resolution owner: Plan 07-03 assumption `EDGE-REL04-REMOTE-AUTHORITY`, Task 2 Required boundary, and Task 3 infrastructure-only checkpoint. Implement the bootstrap transition but do not execute it in Phase 7; only Phase 8 may establish the fact through explicit mutation plus re-observation.
 
-3. **Registry artifact identity remains unknown.**
+3. **RESOLVED-DISPOSITION: registry artifact identity remains unknown.**
    - What we know: the project has qualified archive SHA-256 values. [VERIFIED: release qualification]
    - What's unclear: whether Mooncakes exposes an equivalent immutable artifact digest before/after publish. [VERIFIED: Phase 6 capability matrix]
-   - Recommendation: compare the strongest safely observable metadata/content identity and block mismatch/insufficient identity; Phase 8 owns the live proof.
+   - Resolution owner: Plan 07-02 assumption `EDGE-REL04-REGISTRY-IDENTITY` and Task 2 recovery matrix. Compare the strongest safely observable metadata/content identity; mismatch becomes an incident and insufficient identity remains blocked. Phase 8 owns the live proof.
 
 ## Environment Availability
 
