@@ -24,7 +24,14 @@ function Assert-IntentContract {
   $schema = Read-IntentJson -Path $schemaPath
   if ($policy.schema_version -cne 'mnf-release-control/1' -or $policy.repository -cne 'tchivs/moonbit-foundation' -or
       $policy.owner -cne 'tchivs' -or $policy.sole_maintainer -cne 'tchivs') { throw 'REL01-POLICY-IDENTITY: release-control identity drifted.' }
-  if ($policy.initial_profile.release_ref -cne 'refs/tags/modules-v0.1.0' -or $policy.initial_profile.correction_sequence -ne 0 -or
+  if ($policy.historical_initial_attempt.release_ref -cne 'refs/tags/modules-v0.1.0' -or
+      $policy.historical_initial_attempt.source_sha -cne '198436a45b7403a3c28c98d5fa0d5ed6a958455f' -or
+      $policy.historical_initial_attempt.run_id -cne '29652468948' -or
+      $policy.historical_initial_attempt.run_attempt -ne 1 -or
+      $policy.historical_initial_attempt.disposition -cne 'terminal_setup_failure') {
+    throw 'REL01-HISTORICAL-ATTEMPT: protected attempt-zero evidence drifted.'
+  }
+  if ($policy.initial_profile.release_ref -cne 'refs/tags/modules-v0.1.0-r1' -or $policy.initial_profile.correction_sequence -ne 0 -or
       $policy.initial_profile.serialized_root_intent_sha256 -cne 'forbidden') { throw 'REL01-INITIAL-PROFILE: initial root/ref contract drifted.' }
   if ($policy.correction_profile.release_ref_pattern -cne '^refs/tags/modules-correction-[1-9][0-9]*$' -or
       $policy.correction_profile.sequence_rule -cne 'predecessor_sequence_plus_one' -or
@@ -34,6 +41,9 @@ function Assert-IntentContract {
       $policy.authority_semantics.credentials_read -ne $false -or $policy.authority_semantics.publication_performed -ne $false) { throw 'REL02-AUTHORITY-CONFLATION: digest or credential semantics drifted.' }
   if (@($schema.oneOf).Count -ne 2 -or $schema.'$defs'.initialIntent.additionalProperties -ne $false -or
       $schema.'$defs'.forwardCorrectionIntent.additionalProperties -ne $false) { throw 'REL01-CLOSED-SCHEMA: intent oneOf branches are not closed.' }
+  if ($schema.'$defs'.initialIntent.properties.release_ref.const -cne 'refs/tags/modules-v0.1.0-r1') {
+    throw 'REL01-INITIAL-PROFILE: initial schema does not require r1.'
+  }
   $initialRequired = @($schema.'$defs'.initialIntent.required)
   if ($initialRequired -contains 'root_intent_sha256' -or $initialRequired -contains 'predecessor_intent_sha256') { throw 'REL01-HASH-CYCLE: initial intent serializes root/predecessor.' }
   $correctionRequired = @($schema.'$defs'.forwardCorrectionIntent.required)
@@ -41,6 +51,26 @@ function Assert-IntentContract {
     if ($correctionRequired -cnotcontains $required) { throw "REL01-CORRECTION-EVIDENCE: missing $required." }
   }
   if ($schema.'$defs'.forwardCorrectionIntent.properties.release_ref.pattern -cne '^refs/tags/modules-correction-[1-9][0-9]*$') { throw 'REL01-CORRECTION-TAG: correction tag pattern drifted.' }
+  $actor = [pscustomobject][ordered]@{
+    expected_actor='tchivs'; observed_actor='tchivs'; actor_check_classification='moon_whoami_exact'
+    actor_exit_code=0; actor_stdout_line_count=1; actor_stderr_empty=$true; actor_match=$true
+    actor_raw_output_persisted=$false; credential_state_removed=$true; mutation_performed=$false
+    command_classification='moon_whoami_dry_run_only'
+  }
+  Assert-ReleaseActorEvidence -Evidence $actor -Policy $policy
+  foreach ($mutation in @(
+    { param($x) $x.observed_actor='other' },
+    { param($x) $x.actor_stdout_line_count=2 },
+    { param($x) $x.actor_stderr_empty=$false },
+    { param($x) $x.actor_exit_code=1 },
+    { param($x) $x.actor_raw_output_persisted=$true },
+    { param($x) $x.credential_state_removed=$false },
+    { param($x) $x.mutation_performed=$true }
+  )) {
+    $bad = $actor | ConvertTo-Json -Compress | ConvertFrom-Json
+    & $mutation $bad
+    Confirm-IntentRule 'REL03-ACTOR' { Assert-ReleaseActorEvidence -Evidence $bad -Policy $policy }
+  }
   Write-Host 'Release intent contracts passed: closed initial root, monotonic correction profile, credential-free authority semantics.'
 }
 
