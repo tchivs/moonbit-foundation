@@ -5,15 +5,15 @@ milestone_name: Publication & Compatibility
 current_phase: 08
 current_phase_name: Ordered Mooncakes Publication and Registry Consumers
 status: executing
-stopped_at: Completed 08-07-PLAN.md
-last_updated: "2026-07-18T21:27:32.979Z"
+stopped_at: Completed 08-08-PLAN.md
+last_updated: "2026-07-18T21:50:33.784Z"
 last_activity: 2026-07-19
-last_activity_desc: Plan 08-07 completed the credential-free r2 attempt, receipt, prepared-history, and handoff contracts
+last_activity_desc: Plan 08-08 wired the credential-free r2 publisher/hosted seam and UTC-stable fixed-handoff contract
 progress:
   total_phases: 4
   completed_phases: 2
   total_plans: 38
-  completed_plans: 35
+  completed_plans: 36
   percent: 50
 ---
 
@@ -30,9 +30,9 @@ See `.planning/PROJECT.md` (updated 2026-07-17).
 ## Current Position
 
 Phase: 08 (Ordered Mooncakes Publication and Registry Consumers) — EXECUTING
-Plan: 8 of 10
-Status: Ready for Wave 8 — wire the static r2 contracts into the hosted and publisher seams
-Last activity: 2026-07-19 — Plan 08-07 completed all static r2 contract suites; no live distribution requirement was claimed
+Plan: 9 of 10
+Status: Ready for Wave 9 — run the separately guarded r2 live core-entry decision flow
+Last activity: 2026-07-19 — Plan 08-08 completed the static r2 publisher/hosted seam; no live effect occurred
 
 ## Progress
 
@@ -41,7 +41,7 @@ Current milestone: [█████░░░░░] 50% of v0.2 phases complete
 - v0.2 phases completed: 2/4
 - Phase 6 plans completed: 25/25
 - Phase 7 plans completed: 3/3
-- Phase 8 plans completed: 6/10
+- Phase 8 plans completed: 8/10
 - v0.2 requirements mapped: 21/21
 - Historical total: 5 completed phases, 42 completed plans, 36/36 v0.1 requirements validated
 
@@ -104,6 +104,8 @@ Current milestone: [█████░░░░░] 50% of v0.2 phases complete
 - [Phase 08]: Only refs/tags/modules-v0.1.0-r2 is current initial retry; attempt zero and r1 are immutable terminal-negative history.
 - [Phase 08]: Prepared r2 identity binds both terminal-negative digests through the digest-covered request payload without importing prior state containers.
 - [Phase 08]: Mutation handoff requires packet plus literal receipt; exact-existing handoff forbids both variants' mutation evidence.
+- [Phase 08]: Publisher and live adapter accept only r2 plus two distinct terminal-negative history digests.
+- [Phase 08]: Production fixed r2 handoff path is internal and non-overridable; only LibraryOnly fixtures inject paths.
 
 ### Pending Decisions
 
@@ -118,13 +120,13 @@ None
 
 **Resume file:** None
 
-Last session: 2026-07-18T21:27:32.963Z
-Stopped at: Completed 08-07-PLAN.md
+Last session: 2026-07-18T21:50:33.767Z
+Stopped at: Completed 08-08-PLAN.md
 Resume with: `/gsd-execute-phase 8`
 
 ## Operator Next Steps
 
-- Execute Plan 08-08 against the exact committed 08-07 r2 contracts and completion tracking.
+- Execute Plan 08-09 against the exact committed 08-08 r2 publisher/hosted seam.
 - Keep every live dispatch, registry observation, and irreversible Mooncakes mutation behind its separately authorized checkpoint.
 
 ## Performance Metrics
@@ -162,3 +164,4 @@ Resume with: `/gsd-execute-phase 8`
 | Phase 08 P05 | 9min | 2 tasks | 10 files |
 | Phase 08 P06 | 20min | 3 tasks | 9 files |
 | Phase 08 P07 | 13min | 3 tasks | 13 files |
+| Phase 08 P08 | 18min | 2 tasks | 8 files |
