@@ -1,0 +1,92 @@
+{
+  "schema_version": "mnf-release-control/1",
+  "repository": "tchivs/moonbit-foundation",
+  "repository_url": "https://github.com/tchivs/moonbit-foundation",
+  "owner": "tchivs",
+  "sole_maintainer": "tchivs",
+  "publisher_environment": "mooncakes-production",
+  "initial_profile": {
+    "intent_kind": "initial",
+    "release_ref": "refs/tags/modules-v0.1.0",
+    "correction_sequence": 0,
+    "predecessor": "forbidden",
+    "serialized_root_intent_sha256": "forbidden",
+    "dispatch_root_binding": "root_intent_sha256_equals_intent_sha256"
+  },
+  "correction_profile": {
+    "intent_kind": "forward_correction",
+    "release_ref_pattern": "^refs/tags/modules-correction-[1-9][0-9]*$",
+    "minimum_sequence": 1,
+    "sequence_rule": "predecessor_sequence_plus_one",
+    "root_rule": "immutable_initial_intent_sha256",
+    "predecessor_rule": "exact_latest_authorized_predecessor",
+    "successor_rule": "one_authorized_successor_per_predecessor",
+    "version_rule": "policy_qualified_forward_unpublished",
+    "dependency_rule": "exact_forward_dependency_closure",
+    "required_evidence": [
+      "superseded_intent_sha256",
+      "incident_sha256",
+      "advisory_sha256",
+      "compatibility_result_sha256",
+      "version_absence_sha256"
+    ]
+  },
+  "canonical_profile": {
+    "encoding": "utf-8-without-bom",
+    "layout": "compact-json-no-trailing-whitespace",
+    "object_order": "schema-order",
+    "array_order": "policy-order",
+    "allowed_scalar_types": ["string", "boolean", "null", "bounded_integer"],
+    "numbers_forbidden": ["floating_point", "negative_integer", "integer_above_2147483647"],
+    "unexpected_unicode": "reject",
+    "unknown_properties": "reject"
+  },
+  "pinned_toolchain": {
+    "moon": "0.1.20260713 (75c7e1f 2026-07-13)",
+    "moonc": "v0.10.4+2cc641edf (2026-07-15)",
+    "moonrun": "0.1.20260713 (75c7e1f 2026-07-13)"
+  },
+  "module_order": [
+    {
+      "module": "mb-core",
+      "identity": "tchivs/mb-core",
+      "initial_version": "0.1.0",
+      "initial_dependencies": []
+    },
+    {
+      "module": "mb-color",
+      "identity": "tchivs/mb-color",
+      "initial_version": "0.1.0",
+      "initial_dependencies": ["tchivs/mb-core@0.1.0"]
+    },
+    {
+      "module": "mb-image",
+      "identity": "tchivs/mb-image",
+      "initial_version": "0.1.0",
+      "initial_dependencies": ["tchivs/mb-core@0.1.0", "tchivs/mb-color@0.1.0"]
+    }
+  ],
+  "authority_semantics": {
+    "intent_sha256": "content_identity_only",
+    "authorization": "separate_exact_manual_github_dispatch",
+    "local_login": "not_remote_publication_authority",
+    "dry_run": "command_readiness_only",
+    "public_account": "not_remote_publication_authority",
+    "production_mutation": "forbidden_during_required",
+    "credentials_read": false,
+    "publication_performed": false
+  },
+  "terminal_mismatch": {
+    "old_intent_resume": "forbidden",
+    "old_intent_mutation": "forbidden",
+    "recovery": "fresh_forward_correction_from_genesis",
+    "destructive_recovery": "unsupported_and_forbidden"
+  },
+  "forbidden_evidence_patterns": [
+    "(?i)authorization\\s*:",
+    "(?i)bearer\\s+",
+    "(?i)(token|secret|password|cookie)\\s*[:=]",
+    "(?i)(credentials?|cookies?)\\.(json|txt|db)",
+    "(?i)[A-Z]:\\\\Users\\\\[^\\\\]+\\\\"
+  ]
+}
