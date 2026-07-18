@@ -5,15 +5,15 @@ milestone_name: Publication & Compatibility
 current_phase: 08
 current_phase_name: Ordered Mooncakes Publication and Registry Consumers
 status: executing
-stopped_at: Completed 08-08-PLAN.md
-last_updated: "2026-07-18T22:35:46.841Z"
+stopped_at: Completed 08-09-PLAN.md
+last_updated: "2026-07-18T22:54:37.535Z"
 last_activity: 2026-07-19
-last_activity_desc: Phase 8 r3 forward-correction replanned and independently verified; Wave 9 static contracts are ready
+last_activity_desc: Phase 8 Plan 09 completed the static r3 attempt family and three-history contracts; Wave 10 hosted integration is next
 progress:
   total_phases: 4
   completed_phases: 2
   total_plans: 40
-  completed_plans: 36
+  completed_plans: 37
   percent: 50
 ---
 
@@ -30,9 +30,9 @@ See `.planning/PROJECT.md` (updated 2026-07-17).
 ## Current Position
 
 Phase: 08 (Ordered Mooncakes Publication and Registry Consumers) — EXECUTING
-Plan: 9 of 12
-Status: Ready for Wave 9 — implement r3 initial forward-retry contracts before any further external action
-Last activity: 2026-07-19 — r3 forward-correction plans passed independent verification; r2 remains terminal with no hosted run or registry mutation
+Plan: 10 of 12
+Status: Ready for Wave 10 — integrate the static r3 contracts into the guarded hosted seam
+Last activity: 2026-07-19 — Plan 08-09 completed static r3 attempt, history-set, prepared, authority, receipt, and handoff contracts
 
 ## Progress
 
@@ -41,9 +41,9 @@ Current milestone: [█████░░░░░] 50% of v0.2 phases complete
 - v0.2 phases completed: 2/4
 - Phase 6 plans completed: 25/25
 - Phase 7 plans completed: 3/3
-- Phase 8 plans completed: 8/12
+- Phase 8 plans completed: 9/12
 - v0.2 requirements mapped: 21/21
-- Historical total: 5 completed phases, 42 completed plans, 36/36 v0.1 requirements validated
+- Historical total: 5 completed phases, 43 completed plans, 36/36 v0.1 requirements validated
 
 ## Accumulated Context
 
@@ -106,6 +106,9 @@ Current milestone: [█████░░░░░] 50% of v0.2 phases complete
 - [Phase 08]: Mutation handoff requires packet plus literal receipt; exact-existing handoff forbids both variants' mutation evidence.
 - [Phase 08]: Publisher and live adapter accept only r2 plus two distinct terminal-negative history digests.
 - [Phase 08]: Production fixed r2 handoff path is internal and non-overridable; only LibraryOnly fixtures inject paths.
+- [Phase 08]: r3 is the sole current initial retry; attempt-zero, r1, and r2 remain immutable terminal-negative history and are never correction predecessors.
+- [Phase 08]: Eligibility binds three exact record digests and the SHA-256 of their LF-joined canonical order; individual evidence is never replaced by the aggregate.
+- [Phase 08]: DIST-01 remains pending because Plan 08-09 performs no tag, dispatch, publication, registry observation, or cold consumer proof.
 
 ### Pending Decisions
 
@@ -120,13 +123,13 @@ None
 
 **Resume file:** None
 
-Last session: 2026-07-18T21:50:33.767Z
-Stopped at: Completed 08-08-PLAN.md
+Last session: 2026-07-18T22:54:37.520Z
+Stopped at: Completed 08-09-PLAN.md
 Resume with: `/gsd-execute-phase 8`
 
 ## Operator Next Steps
 
-- Execute Plan 08-09 to extend the static attempt family and evidence chain to r3 before any further live action.
+- Execute Plan 08-10 to integrate the static r3 family into the guarded hosted seam without publishing.
 - Keep every live dispatch, registry observation, and irreversible Mooncakes mutation behind its separately authorized checkpoint.
 
 ## Performance Metrics
@@ -165,3 +168,4 @@ Resume with: `/gsd-execute-phase 8`
 | Phase 08 P06 | 20min | 3 tasks | 9 files |
 | Phase 08 P07 | 13min | 3 tasks | 13 files |
 | Phase 08 P08 | 18min | 2 tasks | 8 files |
+| Phase 08 P09 | 16min | 3 tasks | 13 files |
