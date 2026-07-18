@@ -1,0 +1,203 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/tchivs/moonbit-foundation/release/consumers/proof-schema.json",
+  "title": "Verified Cold Registry Consumer Proof",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "policy_sha256",
+    "module",
+    "identity",
+    "version",
+    "dependency_source",
+    "isolation",
+    "observation",
+    "archive_sha256",
+    "downloaded_manifest_sha256",
+    "resolved_graph",
+    "toolchain",
+    "targets",
+    "behavior",
+    "verified",
+    "content_sha256"
+  ],
+  "properties": {
+    "schema_version": { "const": "1.0.0" },
+    "policy_sha256": { "$ref": "#/$defs/sha256" },
+    "module": { "enum": ["mb-core", "mb-color", "mb-image"] },
+    "identity": { "type": "string", "pattern": "^tchivs/mb-(core|color|image)$" },
+    "version": { "const": "0.1.0" },
+    "dependency_source": { "const": "registry_only" },
+    "isolation": { "$ref": "#/$defs/isolation" },
+    "observation": { "$ref": "#/$defs/observation" },
+    "archive_sha256": { "$ref": "#/$defs/sha256" },
+    "downloaded_manifest_sha256": { "$ref": "#/$defs/sha256" },
+    "resolved_graph": { "$ref": "#/$defs/graph" },
+    "toolchain": { "$ref": "#/$defs/toolchain" },
+    "targets": {
+      "type": "array",
+      "minItems": 4,
+      "maxItems": 4,
+      "prefixItems": [
+        { "$ref": "#/$defs/jsTarget" },
+        { "$ref": "#/$defs/wasmTarget" },
+        { "$ref": "#/$defs/wasmGcTarget" },
+        { "$ref": "#/$defs/nativeTarget" }
+      ],
+      "items": false
+    },
+    "behavior": { "$ref": "#/$defs/behavior" },
+    "verified": { "const": true },
+    "content_sha256": { "$ref": "#/$defs/sha256" }
+  },
+  "$defs": {
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "isolation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "consumer_root_outside_checkout",
+        "moon_home_initially_empty",
+        "credentials_absent",
+        "workspace_absent",
+        "source_copy_absent",
+        "alternate_dependency_source_absent",
+        "local_dependency_absent",
+        "path_dependency_absent",
+        "git_dependency_absent",
+        "registry_cache_initially_empty",
+        "registry_index_cache_absent",
+        "archive_cache_absent",
+        "mooncakes_state_absent",
+        "target_output_initially_absent",
+        "pinned_toolchain_explicit",
+        "ambient_toolchain_ignored"
+      ],
+      "properties": {
+        "consumer_root_outside_checkout": { "const": true },
+        "moon_home_initially_empty": { "const": true },
+        "credentials_absent": { "const": true },
+        "workspace_absent": { "const": true },
+        "source_copy_absent": { "const": true },
+        "alternate_dependency_source_absent": { "const": true },
+        "local_dependency_absent": { "const": true },
+        "path_dependency_absent": { "const": true },
+        "git_dependency_absent": { "const": true },
+        "registry_cache_initially_empty": { "const": true },
+        "registry_index_cache_absent": { "const": true },
+        "archive_cache_absent": { "const": true },
+        "mooncakes_state_absent": { "const": true },
+        "target_output_initially_absent": { "const": true },
+        "pinned_toolchain_explicit": { "const": true },
+        "ambient_toolchain_ignored": { "const": true }
+      }
+    },
+    "observation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["outcome", "content_sha256", "strongest_identity"],
+      "properties": {
+        "outcome": { "const": "exact" },
+        "content_sha256": { "$ref": "#/$defs/sha256" },
+        "strongest_identity": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" }
+      }
+    },
+    "graphNode": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["identity"],
+      "properties": {
+        "identity": { "type": "string", "pattern": "^tchivs/mb-(core|color|image)@0[.]1[.]0$" }
+      }
+    },
+    "graphEdge": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["from", "to"],
+      "properties": {
+        "from": { "type": "string", "pattern": "^tchivs/mb-(color|image)@0[.]1[.]0$" },
+        "to": { "type": "string", "pattern": "^tchivs/mb-(core|color)@0[.]1[.]0$" }
+      }
+    },
+    "graph": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["nodes", "edges"],
+      "properties": {
+        "nodes": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 3,
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/graphNode" }
+        },
+        "edges": {
+          "type": "array",
+          "maxItems": 3,
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/graphEdge" }
+        }
+      }
+    },
+    "toolchain": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["moon_version", "moonc_version", "moonrun_version", "root_sha256"],
+      "properties": {
+        "moon_version": { "type": "string", "minLength": 1 },
+        "moonc_version": { "type": "string", "minLength": 1 },
+        "moonrun_version": { "type": "string", "minLength": 1 },
+        "root_sha256": { "$ref": "#/$defs/sha256" }
+      }
+    },
+    "target": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "check", "test", "runtime", "output_sha256"],
+      "properties": {
+        "name": { "enum": ["js", "wasm", "wasm-gc", "native"] },
+        "check": { "const": "pass" },
+        "test": { "const": "pass" },
+        "runtime": { "const": "pass" },
+        "output_sha256": { "$ref": "#/$defs/sha256" }
+      }
+    },
+    "jsTarget": {
+      "allOf": [
+        { "$ref": "#/$defs/target" },
+        { "type": "object", "properties": { "name": { "const": "js" } } }
+      ]
+    },
+    "wasmTarget": {
+      "allOf": [
+        { "$ref": "#/$defs/target" },
+        { "type": "object", "properties": { "name": { "const": "wasm" } } }
+      ]
+    },
+    "wasmGcTarget": {
+      "allOf": [
+        { "$ref": "#/$defs/target" },
+        { "type": "object", "properties": { "name": { "const": "wasm-gc" } } }
+      ]
+    },
+    "nativeTarget": {
+      "allOf": [
+        { "$ref": "#/$defs/target" },
+        { "type": "object", "properties": { "name": { "const": "native" } } }
+      ]
+    },
+    "behavior": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["result", "output_sha256"],
+      "properties": {
+        "result": { "const": "pass" },
+        "output_sha256": { "$ref": "#/$defs/sha256" }
+      }
+    }
+  }
+}

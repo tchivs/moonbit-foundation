@@ -53,7 +53,12 @@ function Test-ColdIsolation {
         $State.workspace_absent -eq $true -and
         $State.source_copy_absent -eq $true -and
         $State.alternate_dependency_source_absent -eq $true -and
+        $State.local_dependency_absent -eq $true -and
+        $State.path_dependency_absent -eq $true -and
+        $State.git_dependency_absent -eq $true -and
         $State.registry_cache_initially_empty -eq $true -and
+        $State.registry_index_cache_absent -eq $true -and
+        $State.archive_cache_absent -eq $true -and
         $State.mooncakes_state_absent -eq $true -and
         $State.target_output_initially_absent -eq $true -and
         $State.pinned_toolchain_explicit -eq $true -and
@@ -83,7 +88,12 @@ $cleanIsolation = [pscustomobject][ordered]@{
     workspace_absent = $true
     source_copy_absent = $true
     alternate_dependency_source_absent = $true
+    local_dependency_absent = $true
+    path_dependency_absent = $true
+    git_dependency_absent = $true
     registry_cache_initially_empty = $true
+    registry_index_cache_absent = $true
+    archive_cache_absent = $true
     mooncakes_state_absent = $true
     target_output_initially_absent = $true
     pinned_toolchain_explicit = $true
@@ -97,8 +107,13 @@ $contaminationFixtures = @(
     @{ name = 'credential material'; property = 'credentials_absent' },
     @{ name = 'moon.work discovery'; property = 'workspace_absent' },
     @{ name = 'copied module source'; property = 'source_copy_absent' },
-    @{ name = 'local/path/Git dependency'; property = 'alternate_dependency_source_absent' },
-    @{ name = 'registry/index/archive cache'; property = 'registry_cache_initially_empty' },
+    @{ name = 'alternate dependency source'; property = 'alternate_dependency_source_absent' },
+    @{ name = 'local dependency'; property = 'local_dependency_absent' },
+    @{ name = 'path dependency'; property = 'path_dependency_absent' },
+    @{ name = 'Git dependency'; property = 'git_dependency_absent' },
+    @{ name = 'registry cache'; property = 'registry_cache_initially_empty' },
+    @{ name = 'registry index cache'; property = 'registry_index_cache_absent' },
+    @{ name = 'archive cache'; property = 'archive_cache_absent' },
     @{ name = '.mooncakes state'; property = 'mooncakes_state_absent' },
     @{ name = 'target output'; property = 'target_output_initially_absent' },
     @{ name = 'ambient toolchain'; property = 'pinned_toolchain_explicit' },
@@ -177,6 +192,24 @@ foreach ($requiredFact in @($schema.required)) {
     $missing = Copy-JsonObject $baseProof
     $missing.PSObject.Properties.Remove([string]$requiredFact)
     Assert-True (-not ($missing | ConvertTo-Json -Depth 100 | Test-Json -SchemaFile $schemaPath -ErrorAction SilentlyContinue)) "missing $requiredFact must fail schema"
+}
+
+$emptyFactFixtures = @(
+    @{ name = 'identity'; mutate = { param($x) $x.identity = '' } },
+    @{ name = 'observation'; mutate = { param($x) $x.observation.strongest_identity = '' } },
+    @{ name = 'archive digest'; mutate = { param($x) $x.archive_sha256 = '' } },
+    @{ name = 'manifest digest'; mutate = { param($x) $x.downloaded_manifest_sha256 = '' } },
+    @{ name = 'toolchain identity'; mutate = { param($x) $x.toolchain.moon_version = '' } },
+    @{ name = 'toolchain root digest'; mutate = { param($x) $x.toolchain.root_sha256 = '' } },
+    @{ name = 'target result'; mutate = { param($x) $x.targets[0].runtime = '' } },
+    @{ name = 'target output digest'; mutate = { param($x) $x.targets[0].output_sha256 = '' } },
+    @{ name = 'behavior result'; mutate = { param($x) $x.behavior.result = '' } },
+    @{ name = 'behavior digest'; mutate = { param($x) $x.behavior.output_sha256 = '' } }
+)
+foreach ($fixture in $emptyFactFixtures) {
+    $empty = Copy-JsonObject $baseProof
+    & $fixture.mutate $empty
+    Assert-True (-not ($empty | ConvertTo-Json -Depth 100 | Test-Json -SchemaFile $schemaPath -ErrorAction SilentlyContinue)) "empty $($fixture.name) must fail schema"
 }
 
 if ($IsolationOnly) {
