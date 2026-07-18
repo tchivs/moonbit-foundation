@@ -46,12 +46,31 @@
         "failure_stage": "before_hosted_preflight_dispatch",
         "reason": "terminal_hosted_field_construction_failure",
         "record_sha256": "aae8bee66e7dbfca7f3f22f1b52071e7888ae3ec8feee513d1c5d8eba6111609"
+      },
+      {
+        "attempt": "r3",
+        "release_ref": "refs/tags/modules-v0.1.0-r3",
+        "source_sha": "67b1fbc9dd62288d19018c46a44c1e3293212b76",
+        "hosted_run_present": false,
+        "run_id": null,
+        "run_attempt": null,
+        "mutation_performed": false,
+        "authority_acquired": false,
+        "prepare_attempt_completed": true,
+        "registry_disposition": "confirmed_absent",
+        "controller_input_count": 14,
+        "workflow_input_count": 17,
+        "missing_workflow_input": "authorization_receipt_sha256",
+        "hosted_preflight_dispatched": false,
+        "failure_stage": "before_gh_run_creation",
+        "reason": "terminal_workflow_dispatch_input_parity_failure",
+        "record_sha256": "cf29473b2b07ff9aa8fd8a4810ddc45f6aacd2fd4b74048f5d29b3b6fa939d41"
       }
     ],
     "history_set_profile": "sha256-of-lf-joined-record-sha256-in-canonical-attempt-order",
-    "history_set_sha256": "f04b431490910eb7da8125a09c5575ea0b9f0138708bb14b8f36834ea038185c",
+    "history_set_sha256": "1646412aae84a40c5012aeae4f374c3b5c03bf3c3027c914bc0765ea0aa2493e",
     "reuse": "forbidden",
-    "current_attempt": "r3"
+    "current_attempt": "r4"
   },
   "historical_initial_attempt": {
     "release_ref": "refs/tags/modules-v0.1.0",
@@ -64,7 +83,7 @@
   },
   "initial_profile": {
     "intent_kind": "initial",
-    "release_ref": "refs/tags/modules-v0.1.0-r3",
+    "release_ref": "refs/tags/modules-v0.1.0-r4",
     "correction_sequence": 0,
     "predecessor": "forbidden",
     "serialized_root_intent_sha256": "forbidden",

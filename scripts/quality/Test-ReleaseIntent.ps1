@@ -34,11 +34,12 @@ function Get-IntentHistorySetSha256 {
 function Assert-Phase08AttemptSchemas {
   $policy = Read-IntentJson -Path $policyPath
   $history = @($policy.initial_attempt_family.terminal_negative_history)
+  $phase08History = @($history[0..2])
   $historyFields = [ordered]@{
     historical_attempt_zero_sha256 = [string]$history[0].record_sha256
     historical_r1_sha256 = [string]$history[1].record_sha256
     historical_r2_sha256 = [string]$history[2].record_sha256
-    historical_history_set_sha256 = [string]$policy.initial_attempt_family.history_set_sha256
+    historical_history_set_sha256 = Get-IntentHistorySetSha256 $phase08History
   }
   $authority = Read-IntentJson -Path (Join-Path $repoRoot 'release\qualification\phase-08-authority-schema.json')
   $receipt = Read-IntentJson -Path (Join-Path $repoRoot 'release\qualification\phase-08-authorization-receipt-schema.json')
