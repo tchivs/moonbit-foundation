@@ -42,6 +42,57 @@ function Assert-P08R2Contract {
   }
   $qualification=Get-Content -LiteralPath (Join-Path $PSScriptRoot 'Invoke-ReleaseQualification.ps1') -Raw
   if($qualification.IndexOf('refs/tags/modules-v0.1.0-r2',[StringComparison]::Ordinal) -lt 0){Throw-P08Qualification 'P08-R2-QUALIFICATION' 'Qualification does not emit r2 initial identity.'}
+  function Confirm-R2Failure([string]$Id,[scriptblock]$Action){$failure=$null;try{&$Action}catch{$failure=$_.Exception.Message};if($null -eq $failure -or -not $failure.StartsWith("$Id`: ",[StringComparison]::Ordinal)){Throw-P08Qualification 'P08-R2-NEGATIVE' "Expected $Id, got '$failure'."}}
+  function Write-R2File([string]$Path,[string]$Text){$null=New-Item -ItemType Directory -Force -Path (Split-Path -Parent $Path);[IO.File]::WriteAllText($Path,$Text,[Text.UTF8Encoding]::new($false))}
+  $temp=Join-Path ([IO.Path]::GetTempPath()) ('mnf-phase08-r2-contract-'+[Guid]::NewGuid().ToString('N'))
+  $null=New-Item -ItemType Directory -Force -Path $temp
+  try{
+    $paths=[ordered]@{}
+    foreach($name in @('boundary','active','index','attempt-zero','r1','packet','exact')){$paths[$name]=Join-Path $temp "$name.json";Write-R2File $paths[$name] "fixture-$name"}
+    $packetSha=Get-P08QualificationSha $paths.packet
+    $receiptA=New-ReleaseAuthorizationReceipt -BoundarySha ('1'*40) -PacketSha256 $packetSha -CreatedAt '2026-07-19T08:00:00+08:00'
+    $receiptB=New-ReleaseAuthorizationReceipt -BoundarySha ('1'*40) -PacketSha256 $packetSha -CreatedAt '2026-07-19T00:00:00Z'
+    $receiptChanged=New-ReleaseAuthorizationReceipt -BoundarySha ('1'*40) -PacketSha256 $packetSha -CreatedAt '2026-07-19T00:00:01Z'
+    if($receiptA.created_at_utc -cne '2026-07-19T00:00:00Z' -or $receiptA.receipt_sha256 -cne $receiptB.receipt_sha256 -or $receiptA.receipt_sha256 -ceq $receiptChanged.receipt_sha256){Throw-P08Qualification 'P08-R2-UTC' 'UTC equivalence or changed-instant identity drifted.'}
+    $receiptPath=Join-Path $temp 'receipt.json';Write-R2File $receiptPath ($receiptA|ConvertTo-Json -Depth 20 -Compress)
+    $receiptReload=Get-Content -LiteralPath $receiptPath -Raw|ConvertFrom-Json -Depth 20
+    $null=Assert-ReleaseAuthorizationReceipt -Receipt $receiptReload -ExpectedBoundarySha ('1'*40) -ExpectedPacketSha256 $packetSha
+    $bindings=[ordered]@{
+      schema_version='mnf-phase08-handoff/1';release_ref='refs/tags/modules-v0.1.0-r2';boundary_sha=('1'*40);execution_root=[IO.Path]::GetFullPath($temp)
+      boundary_locator_path=[IO.Path]::GetFullPath($paths.boundary);boundary_locator_sha256=Get-P08QualificationSha $paths.boundary
+      active_attempt_path=[IO.Path]::GetFullPath($paths.active);active_attempt_sha256=Get-P08QualificationSha $paths.active
+      artifact_root=[IO.Path]::GetFullPath($temp);artifact_index_path=[IO.Path]::GetFullPath($paths.index);artifact_index_sha256=Get-P08QualificationSha $paths.index
+      attempt_zero_history_path=[IO.Path]::GetFullPath($paths.'attempt-zero');attempt_zero_history_sha256=Get-P08QualificationSha $paths.'attempt-zero'
+      r1_history_path=[IO.Path]::GetFullPath($paths.r1);r1_history_sha256=Get-P08QualificationSha $paths.r1
+      mutation_authorization_packet_path=[IO.Path]::GetFullPath($paths.packet);mutation_authorization_packet_sha256=$packetSha
+      authorization_receipt_path=[IO.Path]::GetFullPath($receiptPath);authorization_receipt_sha256=Get-P08QualificationSha $receiptPath
+      exact_existing_authority_path=$null;exact_existing_authority_sha256=$null
+    }
+    $mutation=New-ReleasePhase08Handoff -Bindings $bindings -AuthorityVariant mutation_authorized -CreatedAt '2026-07-19T08:00:00+08:00'
+    $mutationPath=Join-Path $temp 'mutation-handoff.json';Write-R2File $mutationPath ($mutation|ConvertTo-Json -Depth 30 -Compress)
+    $mutationJson=Get-Content -LiteralPath $mutationPath -Raw
+    if(-not($mutationJson|Test-Json -SchemaFile (Join-Path $repoRoot 'release/qualification/phase-08-handoff-schema.json') -ErrorAction Stop)){Throw-P08Qualification 'P08-R2-SCHEMA' 'Mutation handoff failed schema.'}
+    $null=Assert-ReleasePhase08Handoff -Handoff ($mutationJson|ConvertFrom-Json -Depth 30)
+    $exactBindings=[ordered]@{};foreach($entry in $bindings.GetEnumerator()){$exactBindings[$entry.Key]=$entry.Value}
+    $exactBindings.mutation_authorization_packet_path=$null;$exactBindings.mutation_authorization_packet_sha256=$null;$exactBindings.authorization_receipt_path=$null;$exactBindings.authorization_receipt_sha256=$null
+    $exactBindings.exact_existing_authority_path=[IO.Path]::GetFullPath($paths.exact);$exactBindings.exact_existing_authority_sha256=Get-P08QualificationSha $paths.exact
+    $exact=New-ReleasePhase08Handoff -Bindings $exactBindings -AuthorityVariant exact_existing -CreatedAt '2026-07-19T00:00:00Z'
+    $exactJson=$exact|ConvertTo-Json -Depth 30 -Compress
+    if(-not($exactJson|Test-Json -SchemaFile (Join-Path $repoRoot 'release/qualification/phase-08-handoff-schema.json') -ErrorAction Stop)){Throw-P08Qualification 'P08-R2-SCHEMA' 'Exact-existing handoff failed schema.'}
+    $null=Assert-ReleasePhase08Handoff -Handoff ($exactJson|ConvertFrom-Json -Depth 30)
+    foreach($case in @(
+      @{id='REL04-HANDOFF-CLOSED';mutate={param($x)$x|Add-Member unexpected x}},
+      @{id='REL04-HANDOFF-PATH';mutate={param($x)$x.boundary_locator_path='relative.json'}},
+      @{id='REL04-HANDOFF-PATH';mutate={param($x)$x.boundary_locator_path=[IO.Path]::GetFullPath((Join-Path $temp '..\escape.json'))}},
+      @{id='REL04-HANDOFF-DIGEST';mutate={param($x)$x.r1_history_sha256='f'*64}},
+      @{id='REL04-HANDOFF-BRANCH';mutate={param($x)$x.authorization_receipt_path=$null;$x.authorization_receipt_sha256=$null}},
+      @{id='REL04-HANDOFF-BRANCH';mutate={param($x)$x.authority_variant='stop'}}
+    )){$copy=$mutation|ConvertTo-Json -Depth 30|ConvertFrom-Json -Depth 30;&$case.mutate $copy;Confirm-R2Failure $case.id {Assert-ReleasePhase08Handoff $copy|Out-Null}}
+    $receiptOnExact=$exact|ConvertTo-Json -Depth 30|ConvertFrom-Json -Depth 30;$receiptOnExact.authorization_receipt_path=[IO.Path]::GetFullPath($receiptPath);$receiptOnExact.authorization_receipt_sha256=Get-P08QualificationSha $receiptPath
+    Confirm-R2Failure 'REL04-HANDOFF-BRANCH' {Assert-ReleasePhase08Handoff $receiptOnExact|Out-Null}
+    $badReceipt=$receiptA|ConvertTo-Json -Depth 20|ConvertFrom-Json -Depth 20;$badReceipt.packet_sha256='f'*64
+    Confirm-R2Failure 'REL04-RECEIPT-BINDING' {Assert-ReleaseAuthorizationReceipt $badReceipt -ExpectedBoundarySha ('1'*40) -ExpectedPacketSha256 $packetSha|Out-Null}
+  }finally{if(Test-Path -LiteralPath $temp){Remove-Item -LiteralPath $temp -Recurse -Force}}
 }
 function Get-P08ExpectedPaths([string]$RootIntent) {
   $base=[IO.Path]::GetFullPath((Join-Path ([IO.Path]::GetTempPath()) 'mnf-phase08'))

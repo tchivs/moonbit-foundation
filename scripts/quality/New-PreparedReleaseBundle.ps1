@@ -10,6 +10,8 @@ param(
   [Parameter(Mandatory)][string]$SourceSha,
   [Parameter(Mandatory)][string]$RootIntentSha256,
   [Parameter(Mandatory)][string]$IntentSha256,
+  [Parameter(Mandatory)][string]$HistoricalAttemptZeroSha256,
+  [Parameter(Mandatory)][string]$HistoricalR1Sha256,
   [Parameter(Mandatory)][ValidateSet('start','resume')][string]$RunMode,
   [string]$PriorRunId,
   [string]$PriorArtifactName,
@@ -106,9 +108,11 @@ function Assert-PreparedBindings {
     Throw-PreparedRule 'PREP09-BINDING' 'Manifest dispatch binding drifted.'
   }
   if ($Repository -cne 'tchivs/moonbit-foundation' -or $Actor -cne 'tchivs' -or $RunId -cnotmatch '^[1-9][0-9]*$' -or
-      $RunAttempt -lt 1 -or $ReleaseRef -cnotmatch '^refs/tags/modules-(v0[.]1[.]0-r1|correction-[1-9][0-9]*)$' -or
-      $SourceSha -cnotmatch '^[0-9a-f]{40}$' -or $SourceSha -ceq '198436a45b7403a3c28c98d5fa0d5ed6a958455f' -or $RootIntentSha256 -cnotmatch '^[0-9a-f]{64}$' -or
+      $RunAttempt -lt 1 -or $ReleaseRef -cnotmatch '^refs/tags/modules-(v0[.]1[.]0-r2|correction-[1-9][0-9]*)$' -or
+      $SourceSha -cnotmatch '^[0-9a-f]{40}$' -or $SourceSha -cin @('198436a45b7403a3c28c98d5fa0d5ed6a958455f','09548df948f58ec1bdfff7494757596c03e4c9bd') -or $RootIntentSha256 -cnotmatch '^[0-9a-f]{64}$' -or
       $IntentSha256 -cnotmatch '^[0-9a-f]{64}$') { Throw-PreparedRule 'PREP09-BINDING' 'Expected dispatch binding is invalid.' }
+  if ($HistoricalAttemptZeroSha256 -cnotmatch '^[0-9a-f]{64}$' -or $HistoricalR1Sha256 -cnotmatch '^[0-9a-f]{64}$' -or
+      $HistoricalAttemptZeroSha256 -ceq $HistoricalR1Sha256) { Throw-PreparedRule 'PREP14-HISTORICAL-BINDING' 'Both distinct historical-negative digests are required.' }
 }
 
 function Assert-PreparedToolchain {
@@ -122,6 +126,13 @@ function Assert-PreparedToolchain {
 function Assert-PreparedJournalBinding {
   param([Parameter(Mandatory)][string]$Root)
   $request = Read-PreparedJson -Path (Join-Path $Root 'request.json') -Rule 'PREP10-JOURNAL-BINDING'
+  try {
+    Assert-PreparedClosedProperties 'request' $request @(
+      'repository','actor','release_ref','source_sha','root_intent_sha256','intent_sha256','intent_kind','correction_sequence',
+      'predecessor_intent_sha256','authorization_valid','evidence_valid','dry_run_passed','authority_account',
+      'historical_attempt_zero_sha256','historical_r1_sha256'
+    )
+  } catch { Throw-PreparedRule 'PREP10-JOURNAL-BINDING' $_.Exception.Message }
   foreach ($pair in @(
     @('repository',$Repository),@('actor',$Actor),@('release_ref',$ReleaseRef),@('source_sha',$SourceSha),
     @('root_intent_sha256',$RootIntentSha256),@('intent_sha256',$IntentSha256)
@@ -130,6 +141,15 @@ function Assert-PreparedJournalBinding {
   }
   if ($request.authorization_valid -ne $true -or $request.evidence_valid -ne $true -or $request.dry_run_passed -ne $true -or
       $request.authority_account -cne 'tchivs') { Throw-PreparedRule 'PREP10-JOURNAL-BINDING' 'Request authority evidence is incomplete.' }
+  if ([string]$request.historical_attempt_zero_sha256 -cne $HistoricalAttemptZeroSha256 -or
+      [string]$request.historical_r1_sha256 -cne $HistoricalR1Sha256) {
+    Throw-PreparedRule 'PREP14-HISTORICAL-BINDING' 'Request terminal-negative history binding drifted.'
+  }
+  if ($ReleaseRef -ceq 'refs/tags/modules-v0.1.0-r2' -and
+      ($request.intent_kind -cne 'initial' -or [int]$request.correction_sequence -ne 0 -or $null -ne $request.predecessor_intent_sha256 -or
+       [string]$request.root_intent_sha256 -cne [string]$request.intent_sha256)) {
+    Throw-PreparedRule 'PREP10-JOURNAL-BINDING' 'r2 must be a fresh initial root with no predecessor.'
+  }
 }
 
 function Assert-PreparedIntentBinding {

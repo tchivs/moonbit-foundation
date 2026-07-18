@@ -163,6 +163,111 @@ function Test-ReleaseSha256Text {
   return $Value -is [string] -and [string]$Value -cmatch '^[0-9a-f]{64}$'
 }
 
+function ConvertTo-ReleaseCanonicalUtc {
+  param([Parameter(Mandatory)][object]$Value)
+  try {
+    $instant = if ($Value -is [DateTimeOffset]) { $Value } elseif ($Value -is [DateTime]) { [DateTimeOffset]$Value } else {
+      [DateTimeOffset]::Parse([string]$Value,[Globalization.CultureInfo]::InvariantCulture,[Globalization.DateTimeStyles]::RoundtripKind)
+    }
+  } catch { Throw-ReleaseRule -Id 'REL04-UTC' -Message 'timestamp is invalid.' }
+  return $instant.UtcDateTime.ToString('yyyy-MM-ddTHH:mm:ssZ',[Globalization.CultureInfo]::InvariantCulture)
+}
+
+function Get-ReleaseAuthorizationReceiptProjection {
+  param([Parameter(Mandatory)][object]$Receipt)
+  return [pscustomobject][ordered]@{
+    schema_version=[string]$Receipt.schema_version;release_ref=[string]$Receipt.release_ref;boundary_sha=[string]$Receipt.boundary_sha
+    packet_sha256=[string]$Receipt.packet_sha256;response=[string]$Receipt.response;created_at_utc=(ConvertTo-ReleaseCanonicalUtc $Receipt.created_at_utc)
+  }
+}
+
+function New-ReleaseAuthorizationReceipt {
+  param([Parameter(Mandatory)][string]$BoundarySha,[Parameter(Mandatory)][string]$PacketSha256,[Parameter(Mandatory)][object]$CreatedAt)
+  $value=[pscustomobject][ordered]@{
+    schema_version='mnf-phase08-authorization-receipt/1';release_ref='refs/tags/modules-v0.1.0-r2';boundary_sha=$BoundarySha
+    packet_sha256=$PacketSha256;response='authorize-core';created_at_utc=(ConvertTo-ReleaseCanonicalUtc $CreatedAt);receipt_sha256=''
+  }
+  $value.receipt_sha256=Get-ReleaseTextSha256 -Text ((Get-ReleaseAuthorizationReceiptProjection $value)|ConvertTo-Json -Depth 20 -Compress)
+  $null=Assert-ReleaseAuthorizationReceipt -Receipt $value -ExpectedBoundarySha $BoundarySha -ExpectedPacketSha256 $PacketSha256
+  return $value
+}
+
+function Assert-ReleaseAuthorizationReceipt {
+  param([Parameter(Mandatory)][object]$Receipt,[string]$ExpectedBoundarySha,[string]$ExpectedPacketSha256)
+  try { Assert-ReleaseExactSequence -Label 'authorization receipt properties' -Actual @($Receipt.PSObject.Properties.Name) -Expected @('schema_version','release_ref','boundary_sha','packet_sha256','response','created_at_utc','receipt_sha256') } catch {
+    Throw-ReleaseRule -Id 'REL04-RECEIPT-CLOSED' -Message $_.Exception.Message
+  }
+  if ($Receipt.schema_version -cne 'mnf-phase08-authorization-receipt/1' -or $Receipt.release_ref -cne 'refs/tags/modules-v0.1.0-r2' -or
+      $Receipt.boundary_sha -cnotmatch '^[0-9a-f]{40}$' -or $Receipt.packet_sha256 -cnotmatch '^[0-9a-f]{64}$' -or $Receipt.response -cne 'authorize-core') {
+    Throw-ReleaseRule -Id 'REL04-RECEIPT-BINDING' -Message 'receipt identity, response, or digest binding drifted.'
+  }
+  $receiptUtc=ConvertTo-ReleaseCanonicalUtc $Receipt.created_at_utc
+  if ($Receipt.created_at_utc -is [string] -and [string]$Receipt.created_at_utc -cne $receiptUtc) { Throw-ReleaseRule -Id 'REL04-UTC' -Message 'receipt time is not canonical UTC Z.' }
+  if (-not [string]::IsNullOrEmpty($ExpectedBoundarySha) -and $Receipt.boundary_sha -cne $ExpectedBoundarySha -or
+      -not [string]::IsNullOrEmpty($ExpectedPacketSha256) -and $Receipt.packet_sha256 -cne $ExpectedPacketSha256) { Throw-ReleaseRule -Id 'REL04-RECEIPT-BINDING' -Message 'receipt does not bind the expected packet/boundary.' }
+  $digest=Get-ReleaseTextSha256 -Text ((Get-ReleaseAuthorizationReceiptProjection $Receipt)|ConvertTo-Json -Depth 20 -Compress)
+  if ($Receipt.receipt_sha256 -cne $digest) { Throw-ReleaseRule -Id 'REL04-RECEIPT-DIGEST' -Message 'receipt digest drifted.' }
+  return $digest
+}
+
+function Get-ReleasePhase08HandoffProjection {
+  param([Parameter(Mandatory)][object]$Handoff)
+  $projection=[ordered]@{}
+  foreach($name in @('schema_version','release_ref','boundary_sha','execution_root','boundary_locator_path','boundary_locator_sha256','active_attempt_path','active_attempt_sha256','artifact_root','artifact_index_path','artifact_index_sha256','attempt_zero_history_path','attempt_zero_history_sha256','r1_history_path','r1_history_sha256','authority_variant','mutation_authorization_packet_path','mutation_authorization_packet_sha256','authorization_receipt_path','authorization_receipt_sha256','exact_existing_authority_path','exact_existing_authority_sha256','created_at_utc')){$projection[$name]=if($name -ceq 'created_at_utc'){ConvertTo-ReleaseCanonicalUtc $Handoff.$name}else{$Handoff.$name}}
+  return [pscustomobject]$projection
+}
+
+function Assert-ReleasePhase08RootedPath {
+  param([Parameter(Mandatory)][string]$Path,[Parameter(Mandatory)][string]$Root)
+  if (-not [IO.Path]::IsPathRooted($Path)) { Throw-ReleaseRule -Id 'REL04-HANDOFF-PATH' -Message "relative path '$Path' is forbidden." }
+  $full=[IO.Path]::GetFullPath($Path);$rootFull=[IO.Path]::GetFullPath($Root).TrimEnd([IO.Path]::DirectorySeparatorChar,[IO.Path]::AltDirectorySeparatorChar)
+  if ($full -cne $rootFull -and -not $full.StartsWith($rootFull+[IO.Path]::DirectorySeparatorChar,[StringComparison]::Ordinal)) { Throw-ReleaseRule -Id 'REL04-HANDOFF-PATH' -Message "path '$full' escapes execution root." }
+  return $full
+}
+
+function New-ReleasePhase08Handoff {
+  param([Parameter(Mandatory)][Collections.IDictionary]$Bindings,[Parameter(Mandatory)][ValidateSet('mutation_authorized','exact_existing')][string]$AuthorityVariant,[Parameter(Mandatory)][object]$CreatedAt)
+  $value=[ordered]@{}
+  foreach($name in @('schema_version','release_ref','boundary_sha','execution_root','boundary_locator_path','boundary_locator_sha256','active_attempt_path','active_attempt_sha256','artifact_root','artifact_index_path','artifact_index_sha256','attempt_zero_history_path','attempt_zero_history_sha256','r1_history_path','r1_history_sha256')){
+    if(-not $Bindings.Contains($name)){Throw-ReleaseRule -Id 'REL04-HANDOFF-CLOSED' -Message "missing binding '$name'."};$value[$name]=$Bindings[$name]
+  }
+  $value.authority_variant=$AuthorityVariant
+  foreach($name in @('mutation_authorization_packet_path','mutation_authorization_packet_sha256','authorization_receipt_path','authorization_receipt_sha256','exact_existing_authority_path','exact_existing_authority_sha256')){
+    if(-not $Bindings.Contains($name)){Throw-ReleaseRule -Id 'REL04-HANDOFF-CLOSED' -Message "missing authority binding '$name'."};$value[$name]=$Bindings[$name]
+  }
+  $value.created_at_utc=ConvertTo-ReleaseCanonicalUtc $CreatedAt;$value.handoff_sha256=''
+  $result=[pscustomobject]$value
+  $result.handoff_sha256=Get-ReleaseTextSha256 -Text ((Get-ReleasePhase08HandoffProjection $result)|ConvertTo-Json -Depth 30 -Compress)
+  $null=Assert-ReleasePhase08Handoff -Handoff $result
+  return $result
+}
+
+function Assert-ReleasePhase08Handoff {
+  param([Parameter(Mandatory)][object]$Handoff)
+  $fields=@('schema_version','release_ref','boundary_sha','execution_root','boundary_locator_path','boundary_locator_sha256','active_attempt_path','active_attempt_sha256','artifact_root','artifact_index_path','artifact_index_sha256','attempt_zero_history_path','attempt_zero_history_sha256','r1_history_path','r1_history_sha256','authority_variant','mutation_authorization_packet_path','mutation_authorization_packet_sha256','authorization_receipt_path','authorization_receipt_sha256','exact_existing_authority_path','exact_existing_authority_sha256','created_at_utc','handoff_sha256')
+  try { Assert-ReleaseExactSequence -Label 'phase 8 handoff properties' -Actual @($Handoff.PSObject.Properties.Name) -Expected $fields } catch { Throw-ReleaseRule -Id 'REL04-HANDOFF-CLOSED' -Message $_.Exception.Message }
+  if ($Handoff.schema_version -cne 'mnf-phase08-handoff/1' -or $Handoff.release_ref -cne 'refs/tags/modules-v0.1.0-r2' -or $Handoff.boundary_sha -cnotmatch '^[0-9a-f]{40}$') { Throw-ReleaseRule -Id 'REL04-HANDOFF-BINDING' -Message 'handoff identity drifted.' }
+  $handoffUtc=ConvertTo-ReleaseCanonicalUtc $Handoff.created_at_utc
+  if ($Handoff.created_at_utc -is [string] -and [string]$Handoff.created_at_utc -cne $handoffUtc) { Throw-ReleaseRule -Id 'REL04-UTC' -Message 'handoff time is not canonical UTC Z.' }
+  $root=Assert-ReleasePhase08RootedPath $Handoff.execution_root $Handoff.execution_root
+  $filePairs=@('boundary_locator_path','boundary_locator_sha256','active_attempt_path','active_attempt_sha256','artifact_index_path','artifact_index_sha256','attempt_zero_history_path','attempt_zero_history_sha256','r1_history_path','r1_history_sha256')
+  $null=Assert-ReleasePhase08RootedPath $Handoff.artifact_root $root
+  for($i=0;$i -lt $filePairs.Count;$i+=2){$pathName=$filePairs[$i];$digestName=$filePairs[$i+1];$path=Assert-ReleasePhase08RootedPath ([string]$Handoff.$pathName) $root;if(-not(Test-Path -LiteralPath $path -PathType Leaf)-or(Get-ReleaseSha256 $path)-cne [string]$Handoff.$digestName){Throw-ReleaseRule -Id 'REL04-HANDOFF-DIGEST' -Message "digest drifted for $pathName."}}
+  if ($Handoff.authority_variant -ceq 'mutation_authorized') {
+    if ([string]::IsNullOrWhiteSpace([string]$Handoff.mutation_authorization_packet_path) -or [string]::IsNullOrWhiteSpace([string]$Handoff.authorization_receipt_path) -or
+        $null -ne $Handoff.exact_existing_authority_path -or $null -ne $Handoff.exact_existing_authority_sha256) { Throw-ReleaseRule -Id 'REL04-HANDOFF-BRANCH' -Message 'mutation branch requires packet+receipt and forbids exact-existing.' }
+    $filePairs=@('mutation_authorization_packet_path','mutation_authorization_packet_sha256','authorization_receipt_path','authorization_receipt_sha256')
+  } elseif ($Handoff.authority_variant -ceq 'exact_existing') {
+    if ($null -ne $Handoff.mutation_authorization_packet_path -or $null -ne $Handoff.mutation_authorization_packet_sha256 -or $null -ne $Handoff.authorization_receipt_path -or $null -ne $Handoff.authorization_receipt_sha256 -or
+        [string]::IsNullOrWhiteSpace([string]$Handoff.exact_existing_authority_path)) { Throw-ReleaseRule -Id 'REL04-HANDOFF-BRANCH' -Message 'exact-existing forbids packet/receipt and requires exact authority.' }
+    $filePairs=@('exact_existing_authority_path','exact_existing_authority_sha256')
+  } else { Throw-ReleaseRule -Id 'REL04-HANDOFF-BRANCH' -Message 'stop or unknown authority is ineligible.' }
+  for($i=0;$i -lt $filePairs.Count;$i+=2){$pathName=$filePairs[$i];$digestName=$filePairs[$i+1];$path=Assert-ReleasePhase08RootedPath ([string]$Handoff.$pathName) $root;if(-not(Test-Path -LiteralPath $path -PathType Leaf)-or(Get-ReleaseSha256 $path)-cne [string]$Handoff.$digestName){Throw-ReleaseRule -Id 'REL04-HANDOFF-DIGEST' -Message "digest drifted for $pathName."}}
+  $digest=Get-ReleaseTextSha256 -Text ((Get-ReleasePhase08HandoffProjection $Handoff)|ConvertTo-Json -Depth 30 -Compress)
+  if($Handoff.handoff_sha256 -cne $digest){Throw-ReleaseRule -Id 'REL04-HANDOFF-DIGEST' -Message 'handoff digest drifted.'}
+  return $digest
+}
+
 function Assert-ReleaseActorEvidence {
   param([Parameter(Mandatory)][object]$Evidence, [Parameter(Mandatory)][object]$Policy)
   $fields = @(
