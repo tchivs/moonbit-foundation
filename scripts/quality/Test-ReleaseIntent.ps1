@@ -40,8 +40,9 @@ function Assert-Phase08AttemptSchemas {
   $mutation = $handoff.'$defs'.mutationHandoff; $exact = $handoff.'$defs'.exactExistingHandoff
   foreach ($branch in @($mutation,$exact)) {
     if ($branch.type -cne 'object' -or $branch.additionalProperties -ne $false -or
-        $branch.properties.release_ref.const -cne 'refs/tags/modules-v0.1.0-r2' -or
-        $branch.properties.created_at_utc.pattern -cne '^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$') {
+      $branch.properties.release_ref.const -cne 'refs/tags/modules-v0.1.0-r2' -or
+        $branch.properties.created_at_utc.'$ref' -cne '#/$defs/utc' -or
+        $handoff.'$defs'.utc.pattern -cne '^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$') {
       throw 'REL04-HANDOFF-SCHEMA: handoff branch is not closed, r2-bound, and UTC-canonical.'
     }
   }

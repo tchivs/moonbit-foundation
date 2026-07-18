@@ -1,0 +1,77 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/tchivs/moonbit-foundation/release/qualification/phase-08-handoff-schema.json",
+  "title": "Phase 8 deterministic r2 live handoff",
+  "oneOf": [
+    { "$ref": "#/$defs/mutationHandoff" },
+    { "$ref": "#/$defs/exactExistingHandoff" }
+  ],
+  "$defs": {
+    "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "sha1": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+    "absolutePath": { "type": "string", "pattern": "^(?:[A-Za-z]:\\\\|/)" },
+    "utc": { "type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$" },
+    "mutationHandoff": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_version", "release_ref", "boundary_sha", "execution_root", "boundary_locator_path", "boundary_locator_sha256", "active_attempt_path", "active_attempt_sha256", "artifact_root", "artifact_index_path", "artifact_index_sha256", "attempt_zero_history_path", "attempt_zero_history_sha256", "r1_history_path", "r1_history_sha256", "authority_variant", "mutation_authorization_packet_path", "mutation_authorization_packet_sha256", "authorization_receipt_path", "authorization_receipt_sha256", "exact_existing_authority_path", "exact_existing_authority_sha256", "created_at_utc", "handoff_sha256"],
+      "properties": {
+        "schema_version": { "const": "mnf-phase08-handoff/1" },
+        "release_ref": { "const": "refs/tags/modules-v0.1.0-r2" },
+        "boundary_sha": { "$ref": "#/$defs/sha1" },
+        "execution_root": { "$ref": "#/$defs/absolutePath" },
+        "boundary_locator_path": { "$ref": "#/$defs/absolutePath" },
+        "boundary_locator_sha256": { "$ref": "#/$defs/sha256" },
+        "active_attempt_path": { "$ref": "#/$defs/absolutePath" },
+        "active_attempt_sha256": { "$ref": "#/$defs/sha256" },
+        "artifact_root": { "$ref": "#/$defs/absolutePath" },
+        "artifact_index_path": { "$ref": "#/$defs/absolutePath" },
+        "artifact_index_sha256": { "$ref": "#/$defs/sha256" },
+        "attempt_zero_history_path": { "$ref": "#/$defs/absolutePath" },
+        "attempt_zero_history_sha256": { "$ref": "#/$defs/sha256" },
+        "r1_history_path": { "$ref": "#/$defs/absolutePath" },
+        "r1_history_sha256": { "$ref": "#/$defs/sha256" },
+        "authority_variant": { "const": "mutation_authorized" },
+        "mutation_authorization_packet_path": { "$ref": "#/$defs/absolutePath" },
+        "mutation_authorization_packet_sha256": { "$ref": "#/$defs/sha256" },
+        "authorization_receipt_path": { "$ref": "#/$defs/absolutePath" },
+        "authorization_receipt_sha256": { "$ref": "#/$defs/sha256" },
+        "exact_existing_authority_path": { "type": "null" },
+        "exact_existing_authority_sha256": { "type": "null" },
+        "created_at_utc": { "$ref": "#/$defs/utc" },
+        "handoff_sha256": { "$ref": "#/$defs/sha256" }
+      }
+    },
+    "exactExistingHandoff": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_version", "release_ref", "boundary_sha", "execution_root", "boundary_locator_path", "boundary_locator_sha256", "active_attempt_path", "active_attempt_sha256", "artifact_root", "artifact_index_path", "artifact_index_sha256", "attempt_zero_history_path", "attempt_zero_history_sha256", "r1_history_path", "r1_history_sha256", "authority_variant", "mutation_authorization_packet_path", "mutation_authorization_packet_sha256", "authorization_receipt_path", "authorization_receipt_sha256", "exact_existing_authority_path", "exact_existing_authority_sha256", "created_at_utc", "handoff_sha256"],
+      "properties": {
+        "schema_version": { "const": "mnf-phase08-handoff/1" },
+        "release_ref": { "const": "refs/tags/modules-v0.1.0-r2" },
+        "boundary_sha": { "$ref": "#/$defs/sha1" },
+        "execution_root": { "$ref": "#/$defs/absolutePath" },
+        "boundary_locator_path": { "$ref": "#/$defs/absolutePath" },
+        "boundary_locator_sha256": { "$ref": "#/$defs/sha256" },
+        "active_attempt_path": { "$ref": "#/$defs/absolutePath" },
+        "active_attempt_sha256": { "$ref": "#/$defs/sha256" },
+        "artifact_root": { "$ref": "#/$defs/absolutePath" },
+        "artifact_index_path": { "$ref": "#/$defs/absolutePath" },
+        "artifact_index_sha256": { "$ref": "#/$defs/sha256" },
+        "attempt_zero_history_path": { "$ref": "#/$defs/absolutePath" },
+        "attempt_zero_history_sha256": { "$ref": "#/$defs/sha256" },
+        "r1_history_path": { "$ref": "#/$defs/absolutePath" },
+        "r1_history_sha256": { "$ref": "#/$defs/sha256" },
+        "authority_variant": { "const": "exact_existing" },
+        "mutation_authorization_packet_path": { "type": "null" },
+        "mutation_authorization_packet_sha256": { "type": "null" },
+        "authorization_receipt_path": { "type": "null" },
+        "authorization_receipt_sha256": { "type": "null" },
+        "exact_existing_authority_path": { "$ref": "#/$defs/absolutePath" },
+        "exact_existing_authority_sha256": { "$ref": "#/$defs/sha256" },
+        "created_at_utc": { "$ref": "#/$defs/utc" },
+        "handoff_sha256": { "$ref": "#/$defs/sha256" }
+      }
+    }
+  }
+}

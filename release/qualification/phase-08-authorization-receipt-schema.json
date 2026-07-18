@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/tchivs/moonbit-foundation/release/qualification/phase-08-authorization-receipt-schema.json",
+  "title": "Phase 8 literal core mutation authorization receipt",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "release_ref", "boundary_sha", "packet_sha256", "response", "created_at_utc", "receipt_sha256"],
+  "properties": {
+    "schema_version": { "const": "mnf-phase08-authorization-receipt/1" },
+    "release_ref": { "const": "refs/tags/modules-v0.1.0-r2" },
+    "boundary_sha": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+    "packet_sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "response": { "const": "authorize-core" },
+    "created_at_utc": { "type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$" },
+    "receipt_sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
+  }
+}
