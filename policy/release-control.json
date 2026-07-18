@@ -5,6 +5,34 @@
   "owner": "tchivs",
   "sole_maintainer": "tchivs",
   "publisher_environment": "mooncakes-production",
+  "initial_attempt_family": {
+    "terminal_negative_history": [
+      {
+        "attempt": "attempt_zero",
+        "release_ref": "refs/tags/modules-v0.1.0",
+        "source_sha": "198436a45b7403a3c28c98d5fa0d5ed6a958455f",
+        "hosted_run_present": true,
+        "run_id": "29652468948",
+        "run_attempt": 1,
+        "mutation_performed": false,
+        "authority_acquired": false,
+        "reason": "terminal_setup_failure"
+      },
+      {
+        "attempt": "r1",
+        "release_ref": "refs/tags/modules-v0.1.0-r1",
+        "source_sha": "09548df948f58ec1bdfff7494757596c03e4c9bd",
+        "hosted_run_present": false,
+        "run_id": null,
+        "run_attempt": null,
+        "mutation_performed": false,
+        "authority_acquired": false,
+        "reason": "terminal_local_preparation_failure"
+      }
+    ],
+    "reuse": "forbidden",
+    "current_attempt": "r2"
+  },
   "historical_initial_attempt": {
     "release_ref": "refs/tags/modules-v0.1.0",
     "source_sha": "198436a45b7403a3c28c98d5fa0d5ed6a958455f",
@@ -16,7 +44,7 @@
   },
   "initial_profile": {
     "intent_kind": "initial",
-    "release_ref": "refs/tags/modules-v0.1.0-r1",
+    "release_ref": "refs/tags/modules-v0.1.0-r2",
     "correction_sequence": 0,
     "predecessor": "forbidden",
     "serialized_root_intent_sha256": "forbidden",

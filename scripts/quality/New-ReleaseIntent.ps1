@@ -52,9 +52,15 @@ foreach ($digest in @($QualificationRootSha256,$RequiredStableSha256)) { if (-no
 
 if ($IntentKind -ceq 'initial') {
   if ($ReleaseRef -cne $control.initial_profile.release_ref) { Throw-ReleaseRule -Id 'REL01-REF' -Message 'initial release ref is not the dedicated immutable tag.' }
-  if ($SourceSha -ceq $control.historical_initial_attempt.source_sha) { Throw-ReleaseRule -Id 'REL01-HISTORICAL-SOURCE' -Message 'the terminal attempt-zero source cannot be reused as r1 current authority.' }
+  if (@($control.initial_attempt_family.terminal_negative_history.source_sha) -ccontains $SourceSha) { Throw-ReleaseRule -Id 'REL01-HISTORICAL-SOURCE' -Message 'a terminal-negative source cannot be reused as r2 current authority.' }
   if ($CorrectionSequence -ne 0 -or -not [string]::IsNullOrEmpty($RootIntentSha256) -or -not [string]::IsNullOrEmpty($PredecessorIntentSha256)) {
     Throw-ReleaseRule -Id 'REL01-HASH-CYCLE' -Message 'initial intent must not serialize root, predecessor, or a correction sequence.'
+  }
+  if (-not [string]::IsNullOrEmpty($PredecessorSourceSha) -or $PredecessorSequence -ne -1 -or
+      -not [string]::IsNullOrEmpty($IncidentSha256) -or -not [string]::IsNullOrEmpty($AdvisorySha256) -or
+      -not [string]::IsNullOrEmpty($CompatibilityResultSha256) -or -not [string]::IsNullOrEmpty($VersionAbsenceSha256) -or
+      $null -ne $CorrectedVersions) {
+    Throw-ReleaseRule -Id 'REL01-CORRECTION-EVIDENCE' -Message 'initial r2 cannot carry correction-lane evidence.'
   }
 } else {
   if ($ReleaseRef -cnotmatch $control.correction_profile.release_ref_pattern) { Throw-ReleaseRule -Id 'REL01-CORRECTION-TAG' -Message 'correction tag is noncanonical.' }

@@ -170,8 +170,10 @@ function Invoke-FocusedIntentTests {
     }
     Confirm-IntentRule 'REL01-TERMINAL-MISMATCH' { Assert-ReleaseIntentRecovery -IntentKind initial -ObservedMismatch }
     foreach ($oldRef in @('refs/tags/modules-v0.1.0','refs/tags/modules-v0.1.0-r1')) {
-      $old = @{} + $common; $old.ReleaseRef = $oldRef
-      Confirm-IntentRule 'REL01-REF' { & $generator @old -SourceRoot $cloneA -OutputDirectory (Join-Path $tempRoot ('old-' + ($oldRef -replace '[^a-z0-9]','-'))) | Out-Null }
+      Confirm-IntentRule 'REL01-REF' {
+        $old = ($initial | ConvertTo-Json -Depth 100 | ConvertFrom-Json -Depth 100); $old.release_ref = $oldRef
+        Assert-ReleaseIntentObject -Intent $old -PolicyPath $policyPath
+      }
     }
     foreach ($badInitial in @(
       @{ id='REL01-HASH-CYCLE'; values=@{ RootIntentSha256=('a'*64) } },
