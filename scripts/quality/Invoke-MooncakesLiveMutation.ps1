@@ -24,7 +24,8 @@ function Assert-LiveRequest {
   param([object]$Request)
   Assert-PublisherClosedProperties 'live request' $Request @(
     'repository','actor','actor_evidence','release_ref','source_sha','root_intent_sha256','intent_sha256','intent_kind','prepared_manifest_sha256',
-    'historical_attempt_zero_sha256','historical_r1_sha256','correction_sequence','predecessor_intent_sha256','authorization_valid','evidence_valid','dry_run_passed','authority_account'
+    'historical_attempt_zero_sha256','historical_r1_sha256','historical_r2_sha256','historical_history_set_sha256',
+    'correction_sequence','predecessor_intent_sha256','authorization_valid','evidence_valid','dry_run_passed','authority_account'
   )
   if ($Request.repository -cne 'tchivs/moonbit-foundation' -or $Request.actor -cne 'tchivs' -or
       $Request.authority_account -cne 'tchivs' -or $Request.authorization_valid -ne $true -or
@@ -40,12 +41,16 @@ function Assert-LiveRequest {
       $actor.mutation_performed -ne $false -or $actor.command_classification -cne 'moon_whoami_dry_run_only') {
     Throw-LiveRule 'LIVE01-AUTHORIZATION' 'Live actor evidence is not the exact sanitized dry-run projection.'
   }
-  if ($Request.release_ref -cne 'refs/tags/modules-v0.1.0-r2' -or $Request.source_sha -cnotmatch '^[0-9a-f]{40}$' -or
-      $Request.source_sha -cin @('198436a45b7403a3c28c98d5fa0d5ed6a958455f','09548df948f58ec1bdfff7494757596c03e4c9bd') -or
+  $history=@([string]$Request.historical_attempt_zero_sha256,[string]$Request.historical_r1_sha256,[string]$Request.historical_r2_sha256)
+  $expectedHistory=@('b9bda5378ea339f4cdd42c417c1cc0cf8caabbd51ab11d453cd45ddae77d9b52','cba047dae2e6b4e1bbf0248653ed7848f144971b54a0a4ed30ef42ab97325653','aae8bee66e7dbfca7f3f22f1b52071e7888ae3ec8feee513d1c5d8eba6111609')
+  $historySet=([Convert]::ToHexString([Security.Cryptography.SHA256]::HashData([Text.UTF8Encoding]::new($false).GetBytes(($history -join "`n"))))).ToLowerInvariant()
+  if ($Request.release_ref -cne 'refs/tags/modules-v0.1.0-r3' -or $Request.source_sha -cnotmatch '^[0-9a-f]{40}$' -or
+      $Request.source_sha -cin @('198436a45b7403a3c28c98d5fa0d5ed6a958455f','09548df948f58ec1bdfff7494757596c03e4c9bd','73a3af920fc3938f49e93d14f16f79f116475f1e') -or
       $Request.root_intent_sha256 -cnotmatch '^[0-9a-f]{64}$' -or $Request.intent_sha256 -cnotmatch '^[0-9a-f]{64}$' -or
       $Request.prepared_manifest_sha256 -cnotmatch '^[0-9a-f]{64}$' -or
-      $Request.historical_attempt_zero_sha256 -cnotmatch '^[0-9a-f]{64}$' -or $Request.historical_r1_sha256 -cnotmatch '^[0-9a-f]{64}$' -or
-      $Request.historical_attempt_zero_sha256 -ceq $Request.historical_r1_sha256 -or
+      @($history | Where-Object { $_ -cnotmatch '^[0-9a-f]{64}$' }).Count -ne 0 -or (@($history | Select-Object -Unique)).Count -ne 3 -or
+      ($history -join ',') -cne ($expectedHistory -join ',') -or $Request.historical_history_set_sha256 -cne $historySet -or
+      $historySet -cne 'f04b431490910eb7da8125a09c5575ea0b9f0138708bb14b8f36834ea038185c' -or
       $Request.intent_kind -cne 'initial' -or [int]$Request.correction_sequence -ne 0 -or
       $null -ne $Request.predecessor_intent_sha256 -or $Request.root_intent_sha256 -cne $Request.intent_sha256) {
     Throw-LiveRule 'LIVE02-BINDING' 'Only the exact qualified initial release binding is eligible.'
@@ -168,6 +173,8 @@ function Invoke-PreparedLiveValidation {
       IntentSha256=[string]$manifest.intent_sha256; RunMode=[string]$manifest.run_mode
       HistoricalAttemptZeroSha256=[string]$Request.historical_attempt_zero_sha256
       HistoricalR1Sha256=[string]$Request.historical_r1_sha256
+      HistoricalR2Sha256=[string]$Request.historical_r2_sha256
+      HistoricalHistorySetSha256=[string]$Request.historical_history_set_sha256
     }
     if ($manifest.run_mode -ceq 'resume') {
       $args.PriorRunId=[string]$manifest.journal_binding.prior_run_id
@@ -179,6 +186,10 @@ function Invoke-PreparedLiveValidation {
   if ($manifest.repository -cne $Request.repository -or $manifest.actor -cne $Request.actor -or
       $manifest.release_ref -cne $Request.release_ref -or $manifest.source_sha -cne $Request.source_sha -or
       $manifest.root_intent_sha256 -cne $Request.root_intent_sha256 -or $manifest.intent_sha256 -cne $Request.intent_sha256 -or
+      $manifest.historical_attempt_zero_sha256 -cne $Request.historical_attempt_zero_sha256 -or
+      $manifest.historical_r1_sha256 -cne $Request.historical_r1_sha256 -or
+      $manifest.historical_r2_sha256 -cne $Request.historical_r2_sha256 -or
+      $manifest.historical_history_set_sha256 -cne $Request.historical_history_set_sha256 -or
       $manifestDigest -cne $Request.prepared_manifest_sha256) {
     Throw-LiveRule 'LIVE06-PREPARED' 'Prepared manifest and authorized request disagree.'
   }
