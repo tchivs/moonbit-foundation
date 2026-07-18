@@ -22,16 +22,28 @@ function Read-IntentJson {
 function Assert-IntentContract {
   $policy = Read-IntentJson -Path $policyPath
   $schema = Read-IntentJson -Path $schemaPath
+  $preparedSchema = Read-IntentJson -Path (Join-Path $repoRoot 'release\prepared\schema.json')
   if ($policy.schema_version -cne 'mnf-release-control/1' -or $policy.repository -cne 'tchivs/moonbit-foundation' -or
       $policy.owner -cne 'tchivs' -or $policy.sole_maintainer -cne 'tchivs') { throw 'REL01-POLICY-IDENTITY: release-control identity drifted.' }
-  if ($policy.historical_initial_attempt.release_ref -cne 'refs/tags/modules-v0.1.0' -or
-      $policy.historical_initial_attempt.source_sha -cne '198436a45b7403a3c28c98d5fa0d5ed6a958455f' -or
-      $policy.historical_initial_attempt.run_id -cne '29652468948' -or
-      $policy.historical_initial_attempt.run_attempt -ne 1 -or
-      $policy.historical_initial_attempt.disposition -cne 'terminal_setup_failure') {
+  $history = @($policy.initial_attempt_family.terminal_negative_history)
+  if ($history.Count -ne 2) { throw 'REL01-HISTORICAL-ATTEMPT: exact attempt-zero/r1 history is required.' }
+  $attemptZero = $history[0]
+  if ($attemptZero.attempt -cne 'attempt_zero' -or $attemptZero.release_ref -cne 'refs/tags/modules-v0.1.0' -or
+      $attemptZero.source_sha -cne '198436a45b7403a3c28c98d5fa0d5ed6a958455f' -or
+      $attemptZero.hosted_run_present -ne $true -or $attemptZero.run_id -cne '29652468948' -or
+      $attemptZero.run_attempt -ne 1 -or $attemptZero.mutation_performed -ne $false -or
+      $attemptZero.authority_acquired -ne $false -or $attemptZero.reason -cne 'terminal_setup_failure') {
     throw 'REL01-HISTORICAL-ATTEMPT: protected attempt-zero evidence drifted.'
   }
-  if ($policy.initial_profile.release_ref -cne 'refs/tags/modules-v0.1.0-r1' -or $policy.initial_profile.correction_sequence -ne 0 -or
+  $r1 = $history[1]
+  if ($r1.attempt -cne 'r1' -or $r1.release_ref -cne 'refs/tags/modules-v0.1.0-r1' -or
+      $r1.source_sha -cne '09548df948f58ec1bdfff7494757596c03e4c9bd' -or
+      $r1.hosted_run_present -ne $false -or $null -ne $r1.run_id -or $null -ne $r1.run_attempt -or
+      $r1.mutation_performed -ne $false -or $r1.authority_acquired -ne $false -or
+      $r1.reason -cne 'terminal_local_preparation_failure') {
+    throw 'REL01-HISTORICAL-ATTEMPT: protected r1 evidence drifted.'
+  }
+  if ($policy.initial_profile.release_ref -cne 'refs/tags/modules-v0.1.0-r2' -or $policy.initial_profile.correction_sequence -ne 0 -or
       $policy.initial_profile.serialized_root_intent_sha256 -cne 'forbidden') { throw 'REL01-INITIAL-PROFILE: initial root/ref contract drifted.' }
   if ($policy.correction_profile.release_ref_pattern -cne '^refs/tags/modules-correction-[1-9][0-9]*$' -or
       $policy.correction_profile.sequence_rule -cne 'predecessor_sequence_plus_one' -or
@@ -41,8 +53,11 @@ function Assert-IntentContract {
       $policy.authority_semantics.credentials_read -ne $false -or $policy.authority_semantics.publication_performed -ne $false) { throw 'REL02-AUTHORITY-CONFLATION: digest or credential semantics drifted.' }
   if (@($schema.oneOf).Count -ne 2 -or $schema.'$defs'.initialIntent.additionalProperties -ne $false -or
       $schema.'$defs'.forwardCorrectionIntent.additionalProperties -ne $false) { throw 'REL01-CLOSED-SCHEMA: intent oneOf branches are not closed.' }
-  if ($schema.'$defs'.initialIntent.properties.release_ref.const -cne 'refs/tags/modules-v0.1.0-r1') {
-    throw 'REL01-INITIAL-PROFILE: initial schema does not require r1.'
+  if ($schema.'$defs'.initialIntent.properties.release_ref.const -cne 'refs/tags/modules-v0.1.0-r2') {
+    throw 'REL01-INITIAL-PROFILE: initial schema does not require r2.'
+  }
+  if ($preparedSchema.properties.release_ref.pattern -cne '^refs/tags/modules-(v0[.]1[.]0-r2|correction-[1-9][0-9]*)$') {
+    throw 'REL01-INITIAL-PROFILE: prepared schema does not require r2 or a correction ref.'
   }
   $initialRequired = @($schema.'$defs'.initialIntent.required)
   if ($initialRequired -contains 'root_intent_sha256' -or $initialRequired -contains 'predecessor_intent_sha256') { throw 'REL01-HASH-CYCLE: initial intent serializes root/predecessor.' }
@@ -100,7 +115,7 @@ function Invoke-FocusedIntentTests {
     $common = @{
       Check = $true
       IntentKind = 'initial'
-      ReleaseRef = 'refs/tags/modules-v0.1.0-r1'
+      ReleaseRef = 'refs/tags/modules-v0.1.0-r2'
       SourceSha = $head
       QualificationRootSha256 = ('4' * 64)
       RequiredStableSha256 = ('5' * 64)
@@ -154,6 +169,19 @@ function Invoke-FocusedIntentTests {
       ConvertTo-ReleaseCanonicalJson -Value $copy -Profile ReleaseIntent | Out-Null
     }
     Confirm-IntentRule 'REL01-TERMINAL-MISMATCH' { Assert-ReleaseIntentRecovery -IntentKind initial -ObservedMismatch }
+    foreach ($oldRef in @('refs/tags/modules-v0.1.0','refs/tags/modules-v0.1.0-r1')) {
+      $old = @{} + $common; $old.ReleaseRef = $oldRef
+      Confirm-IntentRule 'REL01-REF' { & $generator @old -SourceRoot $cloneA -OutputDirectory (Join-Path $tempRoot ('old-' + ($oldRef -replace '[^a-z0-9]','-'))) | Out-Null }
+    }
+    foreach ($badInitial in @(
+      @{ id='REL01-HASH-CYCLE'; values=@{ RootIntentSha256=('a'*64) } },
+      @{ id='REL01-HASH-CYCLE'; values=@{ PredecessorIntentSha256=('b'*64) } },
+      @{ id='REL01-HASH-CYCLE'; values=@{ CorrectionSequence=1 } },
+      @{ id='REL01-CORRECTION-EVIDENCE'; values=@{ IncidentSha256=('c'*64) } }
+    )) {
+      $bad = @{} + $common; foreach ($entry in $badInitial.values.GetEnumerator()) { $bad[$entry.Key] = $entry.Value }
+      Confirm-IntentRule $badInitial.id { & $generator @bad -SourceRoot $cloneA -OutputDirectory (Join-Path $tempRoot ('bad-initial-' + $badInitial.id)) | Out-Null }
+    }
 
     $correctionCommon = @{
       Check = $true
@@ -241,7 +269,7 @@ function Invoke-QualificationIntegrationTests {
   }
 }
 
-if (-not ($ContractOnly -or $Focused -or $QualificationIntegration)) { throw 'REL01-SELECTOR-REQUIRED: choose -ContractOnly, -Focused, or -QualificationIntegration.' }
+if (-not ($ContractOnly -or $Focused -or $QualificationIntegration)) { $ContractOnly = $true; $Focused = $true }
 Assert-IntentContract
 if ($Focused) { Invoke-FocusedIntentTests }
 if ($QualificationIntegration) { Invoke-QualificationIntegrationTests }
