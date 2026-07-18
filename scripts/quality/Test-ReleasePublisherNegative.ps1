@@ -72,6 +72,10 @@ Confirm-PublisherRule 'PUB05-INTENT' { $c = New-TestCommand -Sequence 2 -Prior $
 Confirm-PublisherRule 'PUB06-ORDER' { Resolve-PublisherTransition -Records @($record0, $record1) -Command (New-TestCommand -Sequence 2 -Prior $record1.record_sha256 -State 'color_mutation_attempted' -Operation 'attempt_mutation' -Module 'mb-color') }
 Confirm-PublisherRule 'PUB01-CLOSED' { $c = New-TestCommand -Sequence 2 -Prior $record1.record_sha256 -State 'core_mutation_attempted' -Operation 'attempt_mutation' -Module 'mb-core'; $c | Add-Member unexpected 'x'; Resolve-PublisherTransition -Records @($record0, $record1) -Command $c }
 
+$mismatchCommand = New-TestCommand -Sequence 2 -Prior $record1.record_sha256 -State 'terminal_mismatch' -Operation 'stop' -ObservationStatus 'mismatch' -Outcome 'incident_opened'
+$terminal = (Resolve-PublisherTransition -Records @($record0,$record1) -Command $mismatchCommand).record
+Confirm-PublisherRule 'PUB09-TERMINAL' { Resolve-PublisherTransition -Records @($record0,$record1,$terminal) -Command (New-TestCommand -Sequence 3 -Prior $terminal.record_sha256 -State 'core_mutation_attempted' -Operation 'attempt_mutation' -Module 'mb-core') }
+
 $secret = ConvertTo-PublisherSanitizedObservation -Status unknown -Identity insufficient -ReasonCode ambiguous_result -ReobservationRequired $true
 if (($secret.PSObject.Properties.Name -join ',') -cne 'status,identity,reason_code,reobservation_required') { throw 'Sanitized observation is not closed.' }
 
@@ -119,5 +123,7 @@ Confirm-PublisherRule 'PUB11-CORRECTION-SEQUENCE' { $bad=$correctionA.PSObject.C
 Confirm-PublisherRule 'PUB10-STALE-FORK' { Assert-PublisherCorrectionRequest -Request $correctionB -LatestIntentSha256 $correctionA.intent_sha256 -LatestCorrectionSequence 1 }
 Confirm-PublisherRule 'PUB04-ROOT' { $bad=$correctionA.PSObject.Copy(); $bad.root_intent_sha256=('d'*64); Assert-PublisherCorrectionRequest -Request $bad -LatestIntentSha256 $root -LatestCorrectionSequence 0 -ExpectedRoot $root }
 Confirm-PublisherRule 'PUB14-LIVE-GUARD' { Invoke-PublisherLiveOneStep -Request $base -Adapter $null -Authorized $false }
+$correction2=$correctionA.PSObject.Copy(); $correction2.intent_sha256=('d'*64); $correction2.correction_sequence=2; $correction2.predecessor_intent_sha256=$correctionA.intent_sha256; $correction2.release_ref='refs/tags/modules-correction-2'; $correction2.source_sha=('4'*40)
+if (-not (Assert-PublisherCorrectionRequest -Request $correction2 -LatestIntentSha256 $correctionA.intent_sha256 -LatestCorrectionSequence 1 -ExpectedRoot $root)) { throw 'Sequence+2 correction was not accepted after naming sequence+1.' }
 
 Write-Host 'Publisher controller recovery rehearsal matrix passed.'
