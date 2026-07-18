@@ -79,17 +79,17 @@ try {
   }
   $intent = [ordered]@{
     schema_version='mnf-release-intent/1'; intent_kind='initial'; repository='tchivs/moonbit-foundation'; owner='tchivs'
-    release_ref='refs/tags/modules-v0.1.0'; source_sha=$sourceSha; correction_sequence=0; toolchain=$toolchain
+    release_ref='refs/tags/modules-v0.1.0-r1'; source_sha=$sourceSha; correction_sequence=0; toolchain=$toolchain
     modules=@(); evidence=[ordered]@{}; tracked_source_clean=$true; credentials_read=$false; publication_performed=$false
   }
   Write-JsonFixture -Path (Join-Path $inputRoot 'intent\current.json') -Value $intent
   $intentSha = (Get-FileHash -LiteralPath (Join-Path $inputRoot 'intent\current.json') -Algorithm SHA256).Hash.ToLowerInvariant()
   Write-Utf8NoBom -Path (Join-Path $inputRoot 'intent\current.sha256') -Text $intentSha
   Write-JsonFixture -Path (Join-Path $inputRoot 'intent\root-binding.json') -Value ([ordered]@{
-    root_intent_sha256=$intentSha; intent_sha256=$intentSha; source_sha=$sourceSha; release_ref='refs/tags/modules-v0.1.0'
+    root_intent_sha256=$intentSha; intent_sha256=$intentSha; source_sha=$sourceSha; release_ref='refs/tags/modules-v0.1.0-r1'
   })
   Write-JsonFixture -Path (Join-Path $inputRoot 'request.json') -Value ([ordered]@{
-    repository='tchivs/moonbit-foundation'; actor='tchivs'; release_ref='refs/tags/modules-v0.1.0'; source_sha=$sourceSha
+    repository='tchivs/moonbit-foundation'; actor='tchivs'; release_ref='refs/tags/modules-v0.1.0-r1'; source_sha=$sourceSha
     root_intent_sha256=$intentSha; intent_sha256=$intentSha; intent_kind='initial'; correction_sequence=0
     predecessor_intent_sha256=$null; authorization_valid=$true; evidence_valid=$true; dry_run_passed=$true; authority_account='tchivs'
   })
@@ -113,7 +113,7 @@ try {
 
   $common = @{
     InputRoot=$inputRoot; Repository='tchivs/moonbit-foundation'; Actor='tchivs'; RunId='1001'; RunAttempt=1
-    ReleaseRef='refs/tags/modules-v0.1.0'; SourceSha=$sourceSha; RootIntentSha256=$intentSha; IntentSha256=$intentSha
+    ReleaseRef='refs/tags/modules-v0.1.0-r1'; SourceSha=$sourceSha; RootIntentSha256=$intentSha; IntentSha256=$intentSha
     RunMode='start'
   }
   $validation = @{} + $common

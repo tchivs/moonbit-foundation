@@ -106,8 +106,8 @@ function Assert-PreparedBindings {
     Throw-PreparedRule 'PREP09-BINDING' 'Manifest dispatch binding drifted.'
   }
   if ($Repository -cne 'tchivs/moonbit-foundation' -or $Actor -cne 'tchivs' -or $RunId -cnotmatch '^[1-9][0-9]*$' -or
-      $RunAttempt -lt 1 -or $ReleaseRef -cnotmatch '^refs/tags/modules-(v0[.]1[.]0|correction-[1-9][0-9]*)$' -or
-      $SourceSha -cnotmatch '^[0-9a-f]{40}$' -or $RootIntentSha256 -cnotmatch '^[0-9a-f]{64}$' -or
+      $RunAttempt -lt 1 -or $ReleaseRef -cnotmatch '^refs/tags/modules-(v0[.]1[.]0-r1|correction-[1-9][0-9]*)$' -or
+      $SourceSha -cnotmatch '^[0-9a-f]{40}$' -or $SourceSha -ceq '198436a45b7403a3c28c98d5fa0d5ed6a958455f' -or $RootIntentSha256 -cnotmatch '^[0-9a-f]{64}$' -or
       $IntentSha256 -cnotmatch '^[0-9a-f]{64}$') { Throw-PreparedRule 'PREP09-BINDING' 'Expected dispatch binding is invalid.' }
 }
 

@@ -136,8 +136,11 @@ function Assert-P08FixtureContract {
         $boundaryLocator.locator_path -cne [IO.Path]::GetFullPath($boundaryLocatorPath) -or -not (Test-Path -LiteralPath ([string]$boundaryLocator.artifact_root) -PathType Container)) {
       Throw-P08Qualification 'P08-QUAL-BOUNDARY-INITIALIZE' 'Minimal InitializeBoundary did not create the exact durable boundary binding.'
     }
-    if ($boundaryLocator.locator_sha256 -cne (Get-P08ObjectDigest (Get-P08BoundaryLocatorProjection $boundaryLocator))) {
-      Throw-P08Qualification 'P08-QUAL-BOUNDARY-DIGEST' 'Boundary locator digest drifted.'
+    $boundaryLocatorDigest=Get-P08ObjectDigest (Get-P08BoundaryLocatorProjection $boundaryLocator)
+    if ($boundaryLocator.locator_sha256 -cne $boundaryLocatorDigest) {
+      $memoryProjection=Get-P08CanonicalJson (Get-P08BoundaryLocatorProjection $initialized)
+      $diskProjection=Get-P08CanonicalJson (Get-P08BoundaryLocatorProjection $boundaryLocator)
+      Throw-P08Qualification 'P08-QUAL-BOUNDARY-DIGEST' "Boundary locator digest drifted: stored=$($boundaryLocator.locator_sha256), calculated=$boundaryLocatorDigest, memory=$memoryProjection, disk=$diskProjection."
     }
     $boundaryIndex=Get-Content -LiteralPath ([string]$boundaryLocator.index_path) -Raw | ConvertFrom-Json -Depth 100
     if ((@($boundaryIndex.PSObject.Properties.Name)-join ',') -cne 'schema_version,repository,workflow,boundary_sha,records' -or
@@ -151,12 +154,115 @@ function Assert-P08FixtureContract {
         & (Join-Path $PSScriptRoot 'Invoke-Phase08HostedRun.ps1') -Mode $laterMode -Repository tchivs/moonbit-foundation `
           -Workflow publish-modules.yml -GhCommand $ghFixture -GitCommand $gitFixture
       } catch { $laterFailure=$_.Exception.Message }
-      if ($null -eq $laterFailure -or $dispatchProbe.called -or $laterFailure -notmatch 'P08-HOSTED-MISSING-BINDING') {
+      $expectedMissing=if($laterMode -ceq 'PrepareAttempt'){'P08-PREPARE-MISSING-BINDING'}else{'P08-HOSTED-MISSING-BINDING'}
+      if ($null -eq $laterFailure -or $dispatchProbe.called -or $laterFailure -notmatch $expectedMissing) {
         Throw-P08Qualification 'P08-QUAL-LATER-MODE-OPEN' "Incomplete $laterMode did not fail closed before dispatch: '$laterFailure'."
       }
     }
   } finally {
     if (Test-Path -LiteralPath $boundaryState) { Remove-Item -LiteralPath $boundaryState -Recurse -Force }
+  }
+
+  $prepareFixtureRoot=Join-Path ([IO.Path]::GetTempPath()) ('mnf-phase08-prepare-fixture-' + [Guid]::NewGuid().ToString('N'))
+  try {
+    $prepareExecutionRoot=Join-Path $prepareFixtureRoot 'execution'
+    $prepareStateRoot=Join-Path $prepareFixtureRoot 'state'
+    & git clone --quiet --no-hardlinks $repoRoot $prepareExecutionRoot
+    if($LASTEXITCODE){Throw-P08Qualification 'P08-QUAL-PREPARE-CLONE' 'Unable to create the local-only PrepareAttempt execution clone.'}
+    foreach($relative in @('scripts/quality/Invoke-Phase08HostedRun.ps1','scripts/quality/New-PreparedReleaseBundle.ps1')){
+      Copy-Item -LiteralPath (Join-Path $repoRoot $relative) -Destination (Join-Path $prepareExecutionRoot $relative) -Force
+    }
+    & git -C $prepareExecutionRoot config user.name 'MNF fixture'
+    & git -C $prepareExecutionRoot config user.email 'fixture@moonbit-foundation.invalid'
+    & git -C $prepareExecutionRoot add -- scripts/quality/Invoke-Phase08HostedRun.ps1 scripts/quality/New-PreparedReleaseBundle.ps1
+    & git -C $prepareExecutionRoot commit --quiet --allow-empty -m 'test: prepare attempt fixture boundary'
+    if($LASTEXITCODE){Throw-P08Qualification 'P08-QUAL-PREPARE-COMMIT' 'Unable to create the local-only PrepareAttempt fixture boundary.'}
+    $prepareBoundary=(& git -C $prepareExecutionRoot rev-parse HEAD).Trim()
+    & git -C $prepareExecutionRoot tag modules-v0.1.0-r1 $prepareBoundary
+    if($LASTEXITCODE){Throw-P08Qualification 'P08-QUAL-PREPARE-TAG' 'Unable to create the local-only r1 fixture tag.'}
+    $prepareHosted=Join-Path $prepareExecutionRoot 'scripts/quality/Invoke-Phase08HostedRun.ps1'
+    $prepareBoundaryLocator=& $prepareHosted -Mode InitializeBoundary -Repository tchivs/moonbit-foundation -Workflow publish-modules.yml `
+      -BoundarySha $prepareBoundary -ExecutionRoot $prepareExecutionRoot -StateRoot $prepareStateRoot
+
+    $prepareProvider={
+      param($Context)
+      $qualificationRoot=Join-Path ([string]$Context.work_root) 'qualification'
+      $archivePaths=@{}
+      $archiveDigests=@{}
+      foreach($module in @('mb-core','mb-color','mb-image')){
+        $archivePath=Join-Path ([string]$Context.work_root) "archives/$module.zip"
+        $null=New-Item -ItemType Directory -Force (Split-Path -Parent $archivePath)
+        [IO.File]::WriteAllText($archivePath,"fixture archive $module",[Text.UTF8Encoding]::new($false))
+        $archivePaths[$module]=$archivePath
+        $archiveDigests[$module]=(Get-FileHash -LiteralPath $archivePath -Algorithm SHA256).Hash.ToLowerInvariant()
+      }
+      $intent=& (Join-Path ([string]$Context.execution_root) 'scripts/quality/New-ReleaseIntent.ps1') -Check -IntentKind initial `
+        -ReleaseRef refs/tags/modules-v0.1.0-r1 -SourceSha ([string]$Context.boundary_sha) -SourceRoot ([string]$Context.execution_root) `
+        -QualificationRootSha256 ('3'*64) -RequiredStableSha256 ('4'*64) -ArchiveSha256ByModule $archiveDigests `
+        -OutputDirectory (Join-Path $qualificationRoot 'intent')
+      $binding=[pscustomobject][ordered]@{
+        schema_version='mnf-release-intent-binding/1';intent_kind='initial';release_ref='refs/tags/modules-v0.1.0-r1'
+        source_sha=[string]$Context.boundary_sha;root_intent_sha256=[string]$intent.intent_sha256;intent_sha256=[string]$intent.intent_sha256
+        qualification_root_sha256=('3'*64);required_stable_sha256=('4'*64);phase_06_ledger_sha256=('5'*64);interface_manifest_sha256=('6'*64)
+        credentials_read=$false;publication_performed=$false
+      }
+      $null=New-Item -ItemType Directory -Force $qualificationRoot
+      [IO.File]::WriteAllText((Join-Path $qualificationRoot 'release-intent-binding.json'),($binding|ConvertTo-Json -Depth 20 -Compress),[Text.UTF8Encoding]::new($false))
+      $moonPath=(Get-Command moon -CommandType Application -ErrorAction Stop).Source
+      [pscustomobject][ordered]@{
+        qualification_root=$qualificationRoot
+        archive_paths=$archivePaths
+        toolchain_root=Split-Path -Parent (Split-Path -Parent $moonPath)
+        native_toolchain_bin=''
+      }
+    }.GetNewClosure()
+    $prepared=& $prepareHosted -Mode PrepareAttempt -BoundaryLocatorPath ([string]$prepareBoundaryLocator.locator_path) `
+      -ReleaseRef refs/tags/modules-v0.1.0-r1 -HistoricalRunId 29652468948 -HistoricalRunAttempt 1 `
+      -HistoricalReleaseRef refs/tags/modules-v0.1.0 -HistoricalSourceSha 198436a45b7403a3c28c98d5fa0d5ed6a958455f `
+      -PrepareProvider $prepareProvider
+    $preparedNames=@('mode','locator_path','artifact_root','index_path','root_intent_sha256','intent_sha256','prepared_manifest_sha256','historical_record_path','genesis_record_path','prepared_root','toolchain_root','native_toolchain_bin','mutation_count')
+    if((@($prepared.PSObject.Properties.Name)-join ',') -cne ($preparedNames-join ',') -or $prepared.mode -cne 'PrepareAttempt' -or
+        $prepared.root_intent_sha256 -cne $prepared.intent_sha256 -or $prepared.root_intent_sha256 -cnotmatch '^[0-9a-f]{64}$' -or
+        $prepared.prepared_manifest_sha256 -cnotmatch '^[0-9a-f]{64}$' -or [int]$prepared.mutation_count -ne 0){
+      Throw-P08Qualification 'P08-QUAL-PREPARE-RESULT' 'PrepareAttempt did not return the exact fresh r1 binding.'
+    }
+    $prepareLocator=Get-Content -LiteralPath ([string]$prepared.locator_path) -Raw|ConvertFrom-Json -Depth 100
+    $prepareIndex=Get-Content -LiteralPath ([string]$prepared.index_path) -Raw|ConvertFrom-Json -Depth 100
+    if($prepareLocator.schema_version -cne 'mnf-phase08-live-locator/2' -or $prepareLocator.boundary_sha -cne $prepareBoundary -or
+        $prepareLocator.release_ref -cne 'refs/tags/modules-v0.1.0-r1' -or $prepareLocator.root_intent_sha256 -cne $prepared.root_intent_sha256 -or
+        $prepareLocator.prepared_manifest_sha256 -cne $prepared.prepared_manifest_sha256 -or $prepareIndex.schema_version -cne 'mnf-phase08-artifact-index/2' -or
+        @($prepareIndex.records|Where-Object kind -ceq 'HistoricalNegative').Count -ne 1 -or @($prepareIndex.records|Where-Object kind -ceq 'GenesisJournal').Count -ne 1 -or
+        @($prepareIndex.records|Where-Object kind -ceq 'PreparedManifest').Count -ne 1){
+      Throw-P08Qualification 'P08-QUAL-PREPARE-STORE' 'PrepareAttempt locator/index/store evidence is incomplete.'
+    }
+    $historical=Get-Content -LiteralPath ([string]$prepared.historical_record_path) -Raw|ConvertFrom-Json -Depth 100
+    $genesis=Get-Content -LiteralPath ([string]$prepared.genesis_record_path) -Raw|ConvertFrom-Json -Depth 100
+    if([string]$historical.run_id -cne '29652468948' -or [int]$historical.run_attempt -ne 1 -or
+        $historical.release_ref -cne 'refs/tags/modules-v0.1.0' -or $historical.source_sha -cne '198436a45b7403a3c28c98d5fa0d5ed6a958455f' -or
+        $historical.classification -cne 'terminal_historical_failure' -or $genesis.schema_version -cne 'mnf-release-journal-record/1' -or
+        $genesis.journal_sequence -ne 0 -or $genesis.state -cne 'intent_authorized' -or $genesis.root_intent_sha256 -cne $prepared.root_intent_sha256){
+      Throw-P08Qualification 'P08-QUAL-PREPARE-EVIDENCE' 'PrepareAttempt historical or genesis evidence drifted.'
+    }
+    & (Join-Path $prepareExecutionRoot 'scripts/quality/New-PreparedReleaseBundle.ps1') -ValidateOnly -OutputRoot ([string]$prepared.prepared_root) `
+      -Repository tchivs/moonbit-foundation -Actor tchivs -RunId 1 -RunAttempt 1 -ReleaseRef refs/tags/modules-v0.1.0-r1 `
+      -SourceSha $prepareBoundary -RootIntentSha256 ([string]$prepared.root_intent_sha256) -IntentSha256 ([string]$prepared.intent_sha256) -RunMode start | Out-Null
+
+    $missingState=Join-Path $prepareFixtureRoot 'missing-state'
+    $missingBoundary=& $prepareHosted -Mode InitializeBoundary -Repository tchivs/moonbit-foundation -Workflow publish-modules.yml `
+      -BoundarySha $prepareBoundary -ExecutionRoot $prepareExecutionRoot -StateRoot $missingState
+    Confirm-P08FixtureFailure 'P08-PREPARE-MISSING-BINDING' {
+      & $prepareHosted -Mode PrepareAttempt -BoundaryLocatorPath ([string]$missingBoundary.locator_path) -ReleaseRef refs/tags/modules-v0.1.0-r1 `
+        -HistoricalRunAttempt 1 -HistoricalReleaseRef refs/tags/modules-v0.1.0 -HistoricalSourceSha 198436a45b7403a3c28c98d5fa0d5ed6a958455f -PrepareProvider $prepareProvider
+    }
+    $mismatchState=Join-Path $prepareFixtureRoot 'mismatch-state'
+    $mismatchBoundary=& $prepareHosted -Mode InitializeBoundary -Repository tchivs/moonbit-foundation -Workflow publish-modules.yml `
+      -BoundarySha $prepareBoundary -ExecutionRoot $prepareExecutionRoot -StateRoot $mismatchState
+    Confirm-P08FixtureFailure 'P08-PREPARE-HISTORICAL-BINDING' {
+      & $prepareHosted -Mode PrepareAttempt -BoundaryLocatorPath ([string]$mismatchBoundary.locator_path) -ReleaseRef refs/tags/modules-v0.1.0-r1 `
+        -HistoricalRunId 29652468948 -HistoricalRunAttempt 1 -HistoricalReleaseRef refs/tags/modules-v0.1.0 -HistoricalSourceSha ('9'*40) -PrepareProvider $prepareProvider
+    }
+  } finally {
+    if(Test-Path -LiteralPath $prepareFixtureRoot){Remove-Item -LiteralPath $prepareFixtureRoot -Recurse -Force}
   }
   $cases=@{
     absent='mutation_candidate';exact='exact_existing';mismatch='terminal_forward_correction';unknown='terminal_stop'

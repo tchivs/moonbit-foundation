@@ -4,8 +4,8 @@ param(
     'InitializeBoundary','PrepareAttempt','HostedPreflight','PublisherDryRun','MaterializePublicSurface','ObserveOnly',
     'IndexSanitizedArtifact','AssembleAuthorizationPacket','SelectExactExistingAuthority','SelectPublishedNowAuthority','PublishOne'
   )][string]$Mode,
-  [Parameter(Mandatory)][string]$Repository,
-  [Parameter(Mandatory)][string]$Workflow,
+  [string]$Repository,
+  [string]$Workflow,
   [string]$ReleaseRef,
   [string]$SourceSha,
   [string]$RootIntentSha256,
@@ -16,6 +16,11 @@ param(
   [string]$ArtifactRoot,
   [string]$ExecutionRoot,
   [string]$BoundarySha,
+  [string]$BoundaryLocatorPath,
+  [string]$HistoricalRunId,
+  [int]$HistoricalRunAttempt,
+  [string]$HistoricalReleaseRef,
+  [string]$HistoricalSourceSha,
   [string]$PreparedRoot,
   [string]$StateRoot,
   [ValidateSet('exact-existing','post-publish')][string]$ObservationPhase,
@@ -25,7 +30,7 @@ param(
   [string]$ObservationRecordPath,
   [string]$ColdProofPath,
   [string]$ReducerRecordPath,
-  [string]$HistoricalNegativeRecordPath,
+  [Alias('HistoricalRecordPath')][string]$HistoricalNegativeRecordPath,
   [string]$SurfaceFixturePath,
   [ValidateSet('PublicSurface','Observation','ColdProof','ReducerRecord','HistoricalNegative')][string]$ArtifactKind,
   [string]$ArtifactPath,
@@ -38,7 +43,8 @@ param(
   [switch]$LibraryOnly,
   [scriptblock]$GhCommand,
   [scriptblock]$GitCommand,
-  [scriptblock]$SurfaceProvider
+  [scriptblock]$SurfaceProvider,
+  [scriptblock]$PrepareProvider
 )
 
 Set-StrictMode -Version Latest
@@ -279,7 +285,11 @@ function Invoke-P08Git {
 function Get-P08ModeScriptInventory([string]$Operation) {
   $common=@('scripts/quality/Invoke-Phase08HostedRun.ps1','scripts/quality/Test-Phase08Qualification.ps1')
   switch ($Operation) {
-    'PrepareAttempt' { return $common + @('scripts/quality/New-PreparedReleaseBundle.ps1','scripts/quality/ReleasePublisher.Common.ps1') }
+    'PrepareAttempt' { return $common + @(
+      'scripts/quality/Invoke-ReleaseQualification.ps1','scripts/quality/New-ReleaseIntent.ps1',
+      'scripts/quality/New-PreparedReleaseBundle.ps1','scripts/quality/ReleasePublisher.Common.ps1',
+      'policy/release-control.json','release/journal/record-schema.json'
+    ) }
     'HostedPreflight' { return $common + @('.github/workflows/publish-modules.yml') }
     'PublisherDryRun' { return $common + @('.github/workflows/publish-modules.yml','scripts/quality/Invoke-ReleasePublisher.ps1') }
     'MaterializePublicSurface' { return $common + @('scripts/quality/Get-MooncakesObservation.ps1','policy/phase-08-distribution.json') }
@@ -311,7 +321,13 @@ function Assert-P08ExecutionBoundary {
 
 function Get-P08BoundaryLocatorProjection([object]$Locator) {
   $projection=[ordered]@{}
-  foreach($property in $Locator.PSObject.Properties) { if($property.Name -cne 'locator_sha256'){$projection[$property.Name]=$property.Value} }
+  foreach($property in $Locator.PSObject.Properties) {
+    if($property.Name -ceq 'locator_sha256'){continue}
+    $projection[$property.Name]=if($property.Name -ceq 'created_at_utc'){
+      if($property.Value -is [DateTime]){([DateTime]$property.Value).ToString('yyyy-MM-ddTHH:mm:ssZ')}
+      else{([DateTimeOffset]::Parse([string]$property.Value)).UtcDateTime.ToString('yyyy-MM-ddTHH:mm:ssZ')}
+    }else{$property.Value}
+  }
   [pscustomobject]$projection
 }
 
@@ -335,6 +351,210 @@ function New-P08BoundaryLocator {
   $value.locator_sha256=Get-P08ObjectDigest (Get-P08BoundaryLocatorProjection $value)
   Write-P08ExclusiveJson $locatorFull $value
   $value
+}
+
+function Open-P08BoundaryLocator {
+  param([Parameter(Mandatory)][string]$Locator,[Parameter(Mandatory)][string]$Operation)
+  $locatorFull=[IO.Path]::GetFullPath($Locator)
+  if(-not (Test-Path -LiteralPath $locatorFull -PathType Leaf)){Throw-P08HostedRule 'P08-BOUNDARY-LOCATOR' 'Durable boundary locator is missing.'}
+  $value=Get-Content -LiteralPath $locatorFull -Raw|ConvertFrom-Json -Depth 100
+  $names=@('schema_version','repository','workflow','boundary_sha','execution_root','state_root','locator_path','artifact_root','index_path','created_at_utc','locator_sha256')
+  if((@($value.PSObject.Properties.Name)-join ',') -cne ($names-join ',') -or $value.schema_version -cne 'mnf-phase08-boundary-locator/1'){
+    Throw-P08HostedRule 'P08-BOUNDARY-LOCATOR-CLOSED' 'Boundary locator field inventory drifted.'
+  }
+  if($value.repository -cne 'tchivs/moonbit-foundation' -or $value.workflow -cne 'publish-modules.yml' -or
+      $value.boundary_sha -cnotmatch '^[0-9a-f]{40}$' -or [IO.Path]::GetFullPath([string]$value.locator_path) -cne $locatorFull -or
+      [IO.Path]::GetFullPath([string]$value.state_root) -cne [IO.Path]::GetFullPath((Split-Path -Parent $locatorFull))){
+    Throw-P08HostedRule 'P08-BOUNDARY-LOCATOR-BINDING' 'Boundary locator binding drifted.'
+  }
+  if($value.locator_sha256 -cne (Get-P08ObjectDigest (Get-P08BoundaryLocatorProjection $value))){Throw-P08HostedRule 'P08-BOUNDARY-LOCATOR-DIGEST' 'Boundary locator digest drifted.'}
+  $index=Get-Content -LiteralPath ([string]$value.index_path) -Raw|ConvertFrom-Json -Depth 100
+  if((@($index.PSObject.Properties.Name)-join ',') -cne 'schema_version,repository,workflow,boundary_sha,records' -or
+      $index.schema_version -cne 'mnf-phase08-boundary-index/1' -or $index.repository -cne $value.repository -or
+      $index.workflow -cne $value.workflow -or $index.boundary_sha -cne $value.boundary_sha -or @($index.records).Count -ne 0){
+    Throw-P08HostedRule 'P08-BOUNDARY-INDEX' 'Boundary index binding drifted.'
+  }
+  $null=Assert-P08ExecutionBoundary -Root ([string]$value.execution_root) -Boundary ([string]$value.boundary_sha) -RelativePaths (Get-P08ModeScriptInventory $Operation)
+  $value
+}
+
+function Copy-P08PreparedInput {
+  param([Parameter(Mandatory)][string]$Source,[Parameter(Mandatory)][string]$InputRoot,[Parameter(Mandatory)][string]$RelativePath)
+  if(-not (Test-Path -LiteralPath $Source -PathType Leaf)){Throw-P08HostedRule 'P08-PREPARE-INPUT' "Missing prepared input '$RelativePath'."}
+  $destination=Test-P08SafePath (Join-Path $InputRoot $RelativePath) $InputRoot
+  $null=New-Item -ItemType Directory -Force (Split-Path -Parent $destination)
+  Copy-Item -LiteralPath $Source -Destination $destination
+}
+
+function Get-P08PrepareMaterials {
+  param([Parameter(Mandatory)][object]$Boundary,[Parameter(Mandatory)][string]$WorkRoot)
+  $context=[pscustomobject][ordered]@{execution_root=[string]$Boundary.execution_root;boundary_sha=[string]$Boundary.boundary_sha;work_root=[IO.Path]::GetFullPath($WorkRoot)}
+  if($null -ne $script:PrepareProvider){$result=& $script:PrepareProvider $context}
+  else {
+    $qualificationRoot=Join-Path $WorkRoot 'qualification'
+    & (Join-Path ([string]$Boundary.execution_root) 'scripts/quality/Invoke-ReleaseQualification.ps1') -Check -OutputDirectory $qualificationRoot
+    if($LASTEXITCODE){Throw-P08HostedRule 'P08-PREPARE-QUALIFICATION' 'Release qualification failed.'}
+    $archivePaths=@{}
+    foreach($module in @('mb-core','mb-color','mb-image')){
+      & moon -C (Join-Path ([string]$Boundary.execution_root) "modules/$module") package --frozen --list
+      if($LASTEXITCODE){Throw-P08HostedRule 'P08-PREPARE-PACKAGE' "Packaging failed for '$module'."}
+      $archivePaths[$module]=Join-Path ([string]$Boundary.execution_root) "_build/publish/tchivs-$module-0.1.0.zip"
+    }
+    $moonPath=(Get-Command moon -CommandType Application -ErrorAction Stop).Source
+    $clang=Get-Command clang.exe -CommandType Application -ErrorAction SilentlyContinue
+    $result=[pscustomobject][ordered]@{
+      qualification_root=$qualificationRoot
+      archive_paths=$archivePaths
+      toolchain_root=Split-Path -Parent (Split-Path -Parent $moonPath)
+      native_toolchain_bin=if($null -eq $clang){''}else{Split-Path -Parent $clang.Source}
+    }
+  }
+  if($null -eq $result -or [string]::IsNullOrWhiteSpace([string]$result.qualification_root) -or
+      [string]::IsNullOrWhiteSpace([string]$result.toolchain_root) -or $null -eq $result.archive_paths){
+    Throw-P08HostedRule 'P08-PREPARE-PROVIDER' 'Prepare material provider returned an incomplete contract.'
+  }
+  $qualificationFull=[IO.Path]::GetFullPath([string]$result.qualification_root)
+  foreach($relative in @('intent/intent.json','intent/intent.sha256','release-intent-binding.json')){
+    if(-not (Test-Path -LiteralPath (Join-Path $qualificationFull $relative) -PathType Leaf)){Throw-P08HostedRule 'P08-PREPARE-QUALIFICATION' "Qualification output '$relative' is missing."}
+  }
+  foreach($module in @('mb-core','mb-color','mb-image')){
+    if(-not $result.archive_paths.ContainsKey($module) -or -not (Test-Path -LiteralPath ([string]$result.archive_paths[$module]) -PathType Leaf)){
+      Throw-P08HostedRule 'P08-PREPARE-ARCHIVE' "Prepared archive '$module' is missing."
+    }
+  }
+  [pscustomobject][ordered]@{
+    qualification_root=$qualificationFull;archive_paths=$result.archive_paths
+    toolchain_root=[IO.Path]::GetFullPath([string]$result.toolchain_root)
+    native_toolchain_bin=if([string]::IsNullOrWhiteSpace([string]$result.native_toolchain_bin)){''}else{[IO.Path]::GetFullPath([string]$result.native_toolchain_bin)}
+  }
+}
+
+function New-P08PrepareIndexRecord {
+  param([string]$LogicalKey,[string]$Kind,[string]$RelativePath,[string]$AbsolutePath,[string]$ContentDigest,[object]$Binding)
+  [pscustomobject][ordered]@{
+    logical_key=$LogicalKey;kind=$Kind;module=$null;observation_phase='prepare';path=$RelativePath
+    file_sha256=Get-P08Sha256 $AbsolutePath;content_sha256=$ContentDigest;source_sha=[string]$Binding.source_sha
+    root_intent_sha256=[string]$Binding.root_intent_sha256;intent_sha256=[string]$Binding.intent_sha256
+    prepared_manifest_sha256=[string]$Binding.prepared_manifest_sha256;prior_authority_sha256=$null
+  }
+}
+
+function New-P08PreparedAttempt {
+  param([Parameter(Mandatory)][object]$Boundary)
+  $prepareBindings=[ordered]@{
+    BoundaryLocatorPath=$BoundaryLocatorPath;ReleaseRef=$ReleaseRef;HistoricalRunId=$HistoricalRunId
+    HistoricalRunAttempt=if($HistoricalRunAttempt -lt 1){''}else{[string]$HistoricalRunAttempt}
+    HistoricalReleaseRef=$HistoricalReleaseRef;HistoricalSourceSha=$HistoricalSourceSha
+  }
+  $missing=@($prepareBindings.GetEnumerator()|Where-Object{[string]::IsNullOrWhiteSpace([string]$_.Value)}|ForEach-Object Key)
+  if($missing.Count -ne 0){Throw-P08HostedRule 'P08-PREPARE-MISSING-BINDING' ('PrepareAttempt requires: '+($missing-join ', ')+'.')}
+  if($ReleaseRef -cne 'refs/tags/modules-v0.1.0-r1'){Throw-P08HostedRule 'P08-PREPARE-R1-BINDING' 'PrepareAttempt requires the exact r1 release ref.'}
+  $executionRoot=[IO.Path]::GetFullPath([string]$Boundary.execution_root)
+  $control=Get-Content -LiteralPath (Join-Path $executionRoot 'policy/release-control.json') -Raw|ConvertFrom-Json -Depth 100
+  $historicalPolicy=$control.historical_initial_attempt
+  if([string]$HistoricalRunId -cne [string]$historicalPolicy.run_id -or $HistoricalRunAttempt -ne [int]$historicalPolicy.run_attempt -or
+      $HistoricalReleaseRef -cne [string]$historicalPolicy.release_ref -or $HistoricalSourceSha -cne [string]$historicalPolicy.source_sha -or
+      $historicalPolicy.disposition -cne 'terminal_setup_failure' -or $historicalPolicy.current_authority -ne $false -or $historicalPolicy.retry_or_reuse -cne 'forbidden'){
+    Throw-P08HostedRule 'P08-PREPARE-HISTORICAL-BINDING' 'Historical failed-attempt binding differs from release control.'
+  }
+  $resolvedRef=((Invoke-P08Git $executionRoot @('rev-parse',"$ReleaseRef^{}"))-join '').Trim()
+  if($resolvedRef -cne [string]$Boundary.boundary_sha){Throw-P08HostedRule 'P08-PREPARE-REF' 'The r1 ref does not peel to the durable boundary.'}
+  $stateRoot=[IO.Path]::GetFullPath([string]$Boundary.state_root)
+  $locatorPath=Join-Path $stateRoot 'phase-08-live-locator.json'
+  if(Test-Path -LiteralPath $locatorPath){Throw-P08HostedRule 'P08-PREPARE-EXISTS' 'An active attempt locator already exists.'}
+  $workRoot=Join-Path $stateRoot ('.prepare-'+[Guid]::NewGuid().ToString('N'))
+  $null=New-Item -ItemType Directory -Force $workRoot
+  try {
+    $materials=Get-P08PrepareMaterials -Boundary $Boundary -WorkRoot $workRoot
+    $qualificationRoot=[string]$materials.qualification_root
+    $intentPath=Join-Path $qualificationRoot 'intent/intent.json'
+    $intentDigest=(Get-Content -LiteralPath (Join-Path $qualificationRoot 'intent/intent.sha256') -Raw).Trim()
+    $binding=Get-Content -LiteralPath (Join-Path $qualificationRoot 'release-intent-binding.json') -Raw|ConvertFrom-Json -Depth 100
+    if($intentDigest -cnotmatch '^[0-9a-f]{64}$' -or (Get-P08Sha256 $intentPath) -cne $intentDigest -or
+        $binding.release_ref -cne $ReleaseRef -or $binding.source_sha -cne [string]$Boundary.boundary_sha -or
+        $binding.root_intent_sha256 -cne $intentDigest -or $binding.intent_sha256 -cne $intentDigest -or
+        $binding.credentials_read -ne $false -or $binding.publication_performed -ne $false){
+      Throw-P08HostedRule 'P08-PREPARE-INTENT-BINDING' 'Fresh r1 intent/root binding is invalid.'
+    }
+    $artifactRoot=Join-Path $stateRoot "artifacts/$intentDigest"
+    if(Test-Path -LiteralPath $artifactRoot){Throw-P08HostedRule 'P08-PREPARE-PARTIAL' 'Fresh attempt artifact root already exists.'}
+    $stageRoot=Join-Path $workRoot 'store'
+    $inputRoot=Join-Path $workRoot 'prepared-input'
+    $preparedRoot=Join-Path $stageRoot 'prepared'
+    $null=New-Item -ItemType Directory -Force $inputRoot
+    foreach($module in @('mb-core','mb-color','mb-image')){Copy-P08PreparedInput -Source ([string]$materials.archive_paths[$module]) -InputRoot $inputRoot -RelativePath "archives/$module.zip"}
+    Copy-P08PreparedInput -Source $intentPath -InputRoot $inputRoot -RelativePath 'intent/current.json'
+    Copy-P08PreparedInput -Source (Join-Path $qualificationRoot 'intent/intent.sha256') -InputRoot $inputRoot -RelativePath 'intent/current.sha256'
+    Copy-P08PreparedInput -Source (Join-Path $qualificationRoot 'release-intent-binding.json') -InputRoot $inputRoot -RelativePath 'intent/root-binding.json'
+    foreach($pair in @(
+      @('scripts/quality/New-PreparedReleaseBundle.ps1','scripts/quality/New-PreparedReleaseBundle.ps1'),
+      @('scripts/quality/Invoke-ReleasePublisher.ps1','scripts/quality/Invoke-ReleasePublisher.ps1'),
+      @('scripts/quality/Invoke-MooncakesLiveMutation.ps1','scripts/quality/Invoke-MooncakesLiveMutation.ps1'),
+      @('scripts/quality/ReleasePublisher.Common.ps1','scripts/quality/ReleasePublisher.Common.ps1'),
+      @('policy/release-qualification.json','policy/release-qualification.json'),
+      @('release/prepared/schema.json','schemas/prepared.json'),@('release/intent/schema.json','schemas/intent.json'),
+      @('release/journal/record-schema.json','schemas/journal-record.json'),
+      @('release/qualification/phase-07-requirements.json','qualification/phase-07-requirements.json'),
+      @('compatibility/baselines/0.1.0/manifest.json','compatibility/interface-digests.json'),
+      @('release/registry/authority-observation.json','registry/authority-observation.json')
+    )){Copy-P08PreparedInput -Source (Join-Path $executionRoot $pair[0]) -InputRoot $inputRoot -RelativePath $pair[1]}
+    $request=[pscustomobject][ordered]@{
+      repository='tchivs/moonbit-foundation';actor='tchivs';release_ref=$ReleaseRef;source_sha=[string]$Boundary.boundary_sha
+      root_intent_sha256=$intentDigest;intent_sha256=$intentDigest;intent_kind='initial';correction_sequence=0
+      predecessor_intent_sha256=$null;authorization_valid=$true;evidence_valid=$true;dry_run_passed=$true;authority_account='tchivs'
+    }
+    [IO.File]::WriteAllText((Join-Path $inputRoot 'request.json'),(Get-P08CanonicalJson $request),[Text.UTF8Encoding]::new($false))
+    $bundleArgs=@{Repository='tchivs/moonbit-foundation';Actor='tchivs';RunId='1';RunAttempt=1;ReleaseRef=$ReleaseRef;SourceSha=[string]$Boundary.boundary_sha;RootIntentSha256=$intentDigest;IntentSha256=$intentDigest;RunMode='start'}
+    $prepared=& (Join-Path $executionRoot 'scripts/quality/New-PreparedReleaseBundle.ps1') -InputRoot $inputRoot -OutputRoot $preparedRoot @bundleArgs
+    & (Join-Path $executionRoot 'scripts/quality/New-PreparedReleaseBundle.ps1') -ValidateOnly -OutputRoot $preparedRoot @bundleArgs|Out-Null
+    if($prepared.manifest_sha256 -cne (Get-P08Sha256 (Join-Path $preparedRoot 'prepared-bundle.json'))){Throw-P08HostedRule 'P08-PREPARE-MANIFEST' 'Prepared manifest digest drifted.'}
+    . (Join-Path $executionRoot 'scripts/quality/ReleasePublisher.Common.ps1')
+    $commitTime=((Invoke-P08Git $executionRoot @('show','-s','--format=%cI',[string]$Boundary.boundary_sha))-join '').Trim()
+    $genesisCommand=[pscustomobject][ordered]@{
+      journal_sequence=0;prior_record_sha256=('0'*64);root_intent_sha256=$intentDigest;intent_sha256=$intentDigest;intent_kind='initial'
+      correction_sequence=0;predecessor_intent_sha256=$null;state='intent_authorized';module=$null;operation='authorize'
+      observation=ConvertTo-PublisherSanitizedObservation -Status not_observed -Identity not_applicable -ReasonCode none -ReobservationRequired $false
+      outcome='accepted';recorded_at_utc=$commitTime;run_identity=[pscustomobject][ordered]@{repository='tchivs/moonbit-foundation';run_id='1';artifact_name='publisher-genesis-r1';artifact_sequence=0}
+    }
+    $genesis=(Resolve-PublisherTransition -Records @() -Command $genesisCommand).record
+    $journalPath=Join-Path $stageRoot 'journal/genesis.json';Write-P08ExclusiveJson $journalPath $genesis
+    $historical=[pscustomobject][ordered]@{
+      schema_version='mnf-phase08-historical-negative/1';repository='tchivs/moonbit-foundation';workflow='publish-modules.yml'
+      run_id=[string]$HistoricalRunId;run_attempt=$HistoricalRunAttempt;release_ref=$HistoricalReleaseRef;source_sha=$HistoricalSourceSha
+      classification='terminal_historical_failure';disposition='terminal_setup_failure';current_authority=$false;retry_or_reuse='forbidden';mutation_count=0
+    }
+    $historicalPath=Join-Path $stageRoot "historical/run-$HistoricalRunId-$HistoricalRunAttempt.json";Write-P08ExclusiveJson $historicalPath $historical
+    $preparedDigest=[string]$prepared.manifest_sha256
+    $indexBinding=[pscustomobject]@{source_sha=[string]$Boundary.boundary_sha;root_intent_sha256=$intentDigest;intent_sha256=$intentDigest;prepared_manifest_sha256=$preparedDigest}
+    $records=@(
+      New-P08PrepareIndexRecord -LogicalKey 'prepare|intent|root-current' -Kind 'ReleaseIntent' -RelativePath 'prepared/intent/current.json' -AbsolutePath (Join-Path $preparedRoot 'intent/current.json') -ContentDigest $intentDigest -Binding $indexBinding
+      New-P08PrepareIndexRecord -LogicalKey 'prepare|journal|genesis' -Kind 'GenesisJournal' -RelativePath 'journal/genesis.json' -AbsolutePath $journalPath -ContentDigest ([string]$genesis.record_sha256) -Binding $indexBinding
+      New-P08PrepareIndexRecord -LogicalKey 'prepare|bundle|manifest' -Kind 'PreparedManifest' -RelativePath 'prepared/prepared-bundle.json' -AbsolutePath (Join-Path $preparedRoot 'prepared-bundle.json') -ContentDigest $preparedDigest -Binding $indexBinding
+      New-P08PrepareIndexRecord -LogicalKey "prepare|historical|$HistoricalRunId|$HistoricalRunAttempt" -Kind 'HistoricalNegative' -RelativePath "historical/run-$HistoricalRunId-$HistoricalRunAttempt.json" -AbsolutePath $historicalPath -ContentDigest (Get-P08Sha256 $historicalPath) -Binding $indexBinding
+    )
+    $index=[pscustomobject][ordered]@{schema_version='mnf-phase08-artifact-index/2';boundary_sha=[string]$Boundary.boundary_sha;prepared_manifest_sha256=$preparedDigest;records=$records}
+    Write-P08ExclusiveJson (Join-Path $stageRoot 'index.json') $index
+    $null=New-Item -ItemType Directory -Force (Split-Path -Parent $artifactRoot)
+    [IO.Directory]::Move($stageRoot,$artifactRoot)
+    $locator=[pscustomobject][ordered]@{
+      schema_version='mnf-phase08-live-locator/2';repository='tchivs/moonbit-foundation';workflow='publish-modules.yml';release_ref=$ReleaseRef
+      boundary_sha=[string]$Boundary.boundary_sha;execution_root=$executionRoot;source_sha=[string]$Boundary.boundary_sha
+      root_intent_sha256=$intentDigest;intent_sha256=$intentDigest;prepared_manifest_sha256=$preparedDigest;artifact_root=[IO.Path]::GetFullPath($artifactRoot)
+      index_path=[IO.Path]::GetFullPath((Join-Path $artifactRoot 'index.json'));mutation_authorization_packet_path=$null;mutation_authorization_packet_sha256=$null
+      created_at_utc=$commitTime;locator_sha256=''
+    }
+    $locator.locator_sha256=Get-P08ObjectDigest (Get-P08BoundaryLocatorProjection $locator)
+    Write-P08ExclusiveJson $locatorPath $locator
+    [pscustomobject][ordered]@{
+      mode='PrepareAttempt';locator_path=[IO.Path]::GetFullPath($locatorPath);artifact_root=[IO.Path]::GetFullPath($artifactRoot)
+      index_path=[IO.Path]::GetFullPath((Join-Path $artifactRoot 'index.json'));root_intent_sha256=$intentDigest;intent_sha256=$intentDigest
+      prepared_manifest_sha256=$preparedDigest;historical_record_path=[IO.Path]::GetFullPath((Join-Path $artifactRoot "historical/run-$HistoricalRunId-$HistoricalRunAttempt.json"))
+      genesis_record_path=[IO.Path]::GetFullPath((Join-Path $artifactRoot 'journal/genesis.json'));prepared_root=[IO.Path]::GetFullPath((Join-Path $artifactRoot 'prepared'))
+      toolchain_root=[string]$materials.toolchain_root;native_toolchain_bin=[string]$materials.native_toolchain_bin;mutation_count=0
+    }
+  } finally {
+    if(Test-Path -LiteralPath $workRoot){Remove-Item -LiteralPath $workRoot -Recurse -Force}
+  }
 }
 
 function Open-P08BoundaryStore {
@@ -497,6 +717,7 @@ function Receive-P08HostedArtifact {
 if ($LibraryOnly) { return }
 $script:GhCommand=$GhCommand
 $script:GitCommand=$GitCommand
+$script:PrepareProvider=$PrepareProvider
 if ($Mode -ceq 'InitializeBoundary') {
   if ($Repository -cne 'tchivs/moonbit-foundation' -or $Workflow -cne 'publish-modules.yml' -or [string]::IsNullOrWhiteSpace($ExecutionRoot) -or
       [string]::IsNullOrWhiteSpace($BoundarySha) -or [string]::IsNullOrWhiteSpace($StateRoot)) {
@@ -505,23 +726,39 @@ if ($Mode -ceq 'InitializeBoundary') {
   New-P08BoundaryLocator -Root $ExecutionRoot -Boundary $BoundarySha -State $StateRoot
   return
 }
+if($Mode -ceq 'PrepareAttempt'){
+  if([string]::IsNullOrWhiteSpace($BoundaryLocatorPath)){Throw-P08HostedRule 'P08-PREPARE-MISSING-BINDING' 'PrepareAttempt requires: BoundaryLocatorPath.'}
+  $boundary=Open-P08BoundaryLocator -Locator $BoundaryLocatorPath -Operation $Mode
+  if((-not [string]::IsNullOrWhiteSpace($Repository) -and $Repository -cne [string]$boundary.repository) -or
+      (-not [string]::IsNullOrWhiteSpace($Workflow) -and $Workflow -cne [string]$boundary.workflow) -or
+      (-not [string]::IsNullOrWhiteSpace($BoundarySha) -and $BoundarySha -cne [string]$boundary.boundary_sha) -or
+      (-not [string]::IsNullOrWhiteSpace($ExecutionRoot) -and [IO.Path]::GetFullPath($ExecutionRoot) -cne [IO.Path]::GetFullPath([string]$boundary.execution_root))){
+    Throw-P08HostedRule 'P08-PREPARE-BOUNDARY-BINDING' 'Caller-supplied boundary fields disagree with the durable locator.'
+  }
+  New-P08PreparedAttempt -Boundary $boundary
+  return
+}
 $laterBindings=[ordered]@{
   ReleaseRef=$ReleaseRef;SourceSha=$SourceSha;RootIntentSha256=$RootIntentSha256;IntentSha256=$IntentSha256
-  PreparedManifestSha256=$PreparedManifestSha256;TargetModule=$TargetModule;LocatorPath=$LocatorPath;ArtifactRoot=$ArtifactRoot
+  PreparedManifestSha256=$PreparedManifestSha256;TargetModule=$TargetModule;BoundaryLocatorPath=$BoundaryLocatorPath;LocatorPath=$LocatorPath;ArtifactRoot=$ArtifactRoot
 }
 $missingBindings=@($laterBindings.GetEnumerator() | Where-Object { [string]::IsNullOrWhiteSpace([string]$_.Value) } | ForEach-Object Key)
 if ($missingBindings.Count -ne 0) { Throw-P08HostedRule 'P08-HOSTED-MISSING-BINDING' ('Mode ' + $Mode + ' requires: ' + ($missingBindings -join ', ') + '.') }
+$boundary=Open-P08BoundaryLocator -Locator $BoundaryLocatorPath -Operation $Mode
+if((-not [string]::IsNullOrWhiteSpace($Repository) -and $Repository -cne [string]$boundary.repository) -or
+    (-not [string]::IsNullOrWhiteSpace($Workflow) -and $Workflow -cne [string]$boundary.workflow) -or
+    (-not [string]::IsNullOrWhiteSpace($BoundarySha) -and $BoundarySha -cne [string]$boundary.boundary_sha) -or
+    $SourceSha -cne [string]$boundary.boundary_sha){Throw-P08HostedRule 'P08-HOSTED-BOUNDARY-BINDING' 'Later-mode binding disagrees with the durable boundary.'}
+$Repository=[string]$boundary.repository
+$Workflow=[string]$boundary.workflow
+$BoundarySha=[string]$boundary.boundary_sha
+$ExecutionRoot=[string]$boundary.execution_root
 if ($ReleaseRef -cne 'refs/tags/modules-v0.1.0-r1' -or $SourceSha -cnotmatch '^[0-9a-f]{40}$' -or $RootIntentSha256 -cnotmatch '^[0-9a-f]{64}$' -or
     $IntentSha256 -cnotmatch '^[0-9a-f]{64}$' -or $PreparedManifestSha256 -cnotmatch '^[0-9a-f]{64}$') {
   Throw-P08HostedRule 'P08-HOSTED-R1-BINDING' 'Only the exact r1 release binding is accepted.'
 }
 $store=Open-P08BoundaryStore -Locator $LocatorPath -Artifacts $ArtifactRoot -Operation $Mode
 switch ($Mode) {
-  'PrepareAttempt' {
-    if ([string]::IsNullOrWhiteSpace($PreparedRoot) -or [string]::IsNullOrWhiteSpace($StateRoot)) { Throw-P08HostedRule 'P08-PREPARE-PATHS' 'PrepareAttempt requires explicit prepared and state roots.' }
-    [pscustomobject][ordered]@{mode=$Mode;prepared_root=[IO.Path]::GetFullPath($PreparedRoot);state_root=[IO.Path]::GetFullPath($StateRoot);historical_negative_run='29652468948/1';mutation_count=0}
-    return
-  }
   'MaterializePublicSurface' {
     if ([string]::IsNullOrWhiteSpace($ObservationPhase) -or $null -eq $SurfaceProvider) { Throw-P08HostedRule 'P08-SURFACE-PARAMETERS' 'MaterializePublicSurface requires a phase and structured provider.' }
     if ($TargetModule -cne 'mb-core' -and [string]::IsNullOrWhiteSpace($PriorAuthorityRecordPath)) { Throw-P08HostedRule 'P08-PREDECESSOR-REQUIRED' 'Successor surface materialization requires predecessor authority.' }
