@@ -6,6 +6,7 @@
   "additionalProperties": false,
   "required": [
     "schema_version",
+    "evidence_mode",
     "policy_sha256",
     "module",
     "identity",
@@ -24,6 +25,7 @@
   ],
   "properties": {
     "schema_version": { "const": "1.0.0" },
+    "evidence_mode": { "enum": ["fixture", "live_registry"] },
     "policy_sha256": { "$ref": "#/$defs/sha256" },
     "module": { "enum": ["mb-core", "mb-color", "mb-image"] },
     "identity": { "type": "string", "pattern": "^tchivs/mb-(core|color|image)$" },
