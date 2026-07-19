@@ -36,7 +36,7 @@ try{
     $recordPath=Join-Path $attemptRoot 'record.json';$projection=[ordered]@{};foreach($p in $record.PSObject.Properties){if($p.Name-cne'record_sha256'){$projection[$p.Name]=$p.Value}}
     [IO.File]::WriteAllText($recordPath,(([pscustomobject]$projection)|ConvertTo-Json -Depth 100 -Compress),[Text.UTF8Encoding]::new($false))
     if($record.attempt-ceq'attempt_zero'){$execution=$null;$state=$null;$immutable=@([pscustomobject][ordered]@{path=[IO.Path]::GetFullPath($recordPath);sha256=[string]$record.record_sha256})}
-    else{$execution=Join-Path $attemptRoot 'execution';$state=Join-Path $attemptRoot 'state';$null=New-Item -ItemType Directory -Force $execution,$state;$immutable=@([pscustomobject][ordered]@{path=[IO.Path]::GetFullPath($recordPath);sha256=[string]$record.record_sha256})}
+    else{$execution=Join-Path $attemptRoot 'execution';$state=$attemptRoot;$null=New-Item -ItemType Directory -Force $execution;$immutable=@([pscustomobject][ordered]@{path=[IO.Path]::GetFullPath($recordPath);sha256=[string]$record.record_sha256})}
     $histories.Add([pscustomobject][ordered]@{attempt=[string]$record.attempt;release_ref=[string]$record.release_ref;source_sha=[string]$record.source_sha;tag_object_sha=if($record.attempt-ceq'attempt_zero'){$null}else{$tagObject};peel_sha=[string]$record.source_sha;record_sha256=[string]$record.record_sha256;record=$record;execution_root=if($null-eq$execution){$null}else{[IO.Path]::GetFullPath($execution)};state_root=if($null-eq$state){$null}else{[IO.Path]::GetFullPath($state)};immutable_files=$immutable})
   }
   foreach($record in $records){$null=Resolve-R8RemoteTag $record @($remoteRows)}
