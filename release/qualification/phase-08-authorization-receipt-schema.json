@@ -4,10 +4,10 @@
   "title": "Phase 8 literal core mutation authorization receipt",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schema_version", "release_ref", "boundary_sha", "source_sha", "packet_sha256", "historical_attempt_zero_sha256", "historical_r1_sha256", "historical_r2_sha256", "historical_r3_sha256", "historical_r4_sha256", "historical_r5_sha256", "historical_r6_sha256", "historical_r7_sha256", "historical_r8_sha256", "historical_r9_sha256", "historical_r10_sha256", "historical_history_set_sha256", "response", "created_at_utc", "receipt_sha256"],
+  "required": ["schema_version", "release_ref", "boundary_sha", "source_sha", "packet_sha256", "historical_attempt_zero_sha256", "historical_r1_sha256", "historical_r2_sha256", "historical_r3_sha256", "historical_r4_sha256", "historical_r5_sha256", "historical_r6_sha256", "historical_r7_sha256", "historical_r8_sha256", "historical_r9_sha256", "historical_r10_sha256", "historical_r11_sha256", "historical_history_set_sha256", "response", "created_at_utc", "receipt_sha256"],
   "properties": {
     "schema_version": { "const": "mnf-phase08-authorization-receipt/1" },
-    "release_ref": { "const": "refs/tags/modules-v0.1.0-r11" },
+    "release_ref": { "const": "refs/tags/modules-v0.1.0-r12" },
     "boundary_sha": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
     "source_sha": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
     "packet_sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
@@ -22,7 +22,8 @@
     "historical_r8_sha256": { "const": "8a7729234a62425d0082a7b7a4615f2757ab4bc59938925b8ca031e2e00c10c8" },
     "historical_r9_sha256": { "const": "6edf89e7afb98dca1e81e3d5db9ff8a47f96dbfb2919bdaeb176c76c52c581ec" },
     "historical_r10_sha256": { "const": "1d524890dd5f0c11e58bcd2884c2d4623e02759a5ff801f2554fcc2ae654895f" },
-    "historical_history_set_sha256": { "const": "45330d06dec5aca59c07d592ca851c4441cf43d0e35014f9734b2746c293a41d" },
+    "historical_r11_sha256": { "const": "def1bf53a3305c72360bebb651f56d28cdcaac83150e76e3c3134962ade4e9d1" },
+    "historical_history_set_sha256": { "const": "5394421289924d7712034b43d7e732a7ff7aec3276d1ddab4846861788d8a4be" },
     "response": { "const": "authorize-core" },
     "created_at_utc": { "type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$" },
     "receipt_sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
