@@ -9,8 +9,12 @@ $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
 if (-not (Get-Command ConvertTo-ReleaseCanonicalZip -ErrorAction SilentlyContinue)) {
   throw 'REL-XPLAT-CANONICALIZER: deterministic ZIP canonicalizer is missing.'
 }
-$moduleRelative = 'modules/mb-core'
-$archiveName = 'tchivs-mb-core-0.1.0.zip'
+$moduleRelatives = @('modules/mb-core', 'modules/mb-color', 'modules/mb-image')
+$archiveNames = [ordered]@{
+  'mb-core' = 'tchivs-mb-core-0.1.0.zip'
+  'mb-color' = 'tchivs-mb-color-0.1.0.zip'
+  'mb-image' = 'tchivs-mb-image-0.1.0.zip'
+}
 
 function Invoke-Native {
   param(
@@ -51,6 +55,47 @@ function Get-ZipEntryDigestMap {
   } finally { $archive.Dispose() }
 }
 
+function Get-CanonicalZipMetadata {
+  param([Parameter(Mandatory)][string]$Path)
+  $bytes = [IO.File]::ReadAllBytes($Path)
+  $eocdOffset = -1
+  for ($candidate = $bytes.Length - 22; $candidate -ge [Math]::Max(0, $bytes.Length - 65557); $candidate--) {
+    if ($bytes[$candidate] -eq 0x50 -and $bytes[$candidate + 1] -eq 0x4b -and $bytes[$candidate + 2] -eq 0x05 -and $bytes[$candidate + 3] -eq 0x06) {
+      $commentLength = [BitConverter]::ToUInt16($bytes, $candidate + 20)
+      if ($candidate + 22 + $commentLength -eq $bytes.Length) { $eocdOffset = $candidate; break }
+    }
+  }
+  if ($eocdOffset -lt 0) { throw 'REL-XPLAT-METADATA: end-of-central-directory is missing.' }
+  $count = [int][BitConverter]::ToUInt16($bytes, $eocdOffset + 10)
+  $offset = [int][BitConverter]::ToUInt32($bytes, $eocdOffset + 16)
+  $result = [Collections.Generic.List[object]]::new()
+  for ($index = 0; $index -lt $count; $index++) {
+    if ($bytes[$offset] -ne 0x50 -or $bytes[$offset + 1] -ne 0x4b -or $bytes[$offset + 2] -ne 0x01 -or $bytes[$offset + 3] -ne 0x02) { throw "REL-XPLAT-METADATA: central entry $index is malformed." }
+    $nameLength = [BitConverter]::ToUInt16($bytes, $offset + 28)
+    $extraLength = [BitConverter]::ToUInt16($bytes, $offset + 30)
+    $commentLength = [BitConverter]::ToUInt16($bytes, $offset + 32)
+    $name = [Text.Encoding]::UTF8.GetString($bytes, $offset + 46, $nameLength)
+    $localOffset = [int][BitConverter]::ToUInt32($bytes, $offset + 42)
+    if ($bytes[$localOffset] -ne 0x50 -or $bytes[$localOffset + 1] -ne 0x4b -or $bytes[$localOffset + 2] -ne 0x03 -or $bytes[$localOffset + 3] -ne 0x04) { throw "REL-XPLAT-METADATA: local entry '$name' is malformed." }
+    $localNameLength = [BitConverter]::ToUInt16($bytes, $localOffset + 26)
+    $localName = [Text.Encoding]::UTF8.GetString($bytes, $localOffset + 30, $localNameLength)
+    $result.Add([pscustomobject][ordered]@{
+      name = $name
+      local_name = $localName
+      made_by = [BitConverter]::ToUInt16($bytes, $offset + 4)
+      central_method = [BitConverter]::ToUInt16($bytes, $offset + 10)
+      local_method = [BitConverter]::ToUInt16($bytes, $localOffset + 8)
+      central_time = [BitConverter]::ToUInt16($bytes, $offset + 12)
+      central_date = [BitConverter]::ToUInt16($bytes, $offset + 14)
+      local_time = [BitConverter]::ToUInt16($bytes, $localOffset + 10)
+      local_date = [BitConverter]::ToUInt16($bytes, $localOffset + 12)
+      external_attributes = ('{0:x8}' -f [BitConverter]::ToUInt32($bytes, $offset + 38))
+    })
+    $offset += 46 + $nameLength + $extraLength + $commentLength
+  }
+  return @($result)
+}
+
 function Set-ZipContainerVariant {
   param([Parameter(Mandatory)][string]$Path)
   $bytes=[IO.File]::ReadAllBytes($Path);$count=0
@@ -83,79 +128,97 @@ function Assert-CanonicalizerRejectsUnsafePath {
   }
 }
 
-$attributeOutput = @(Invoke-Native -Context 'read release checkout attributes' -Command 'git' -Arguments @(
-  '-C', $repoRoot, 'check-attr', 'text', 'eol', '--', "$moduleRelative/moon.mod.json"
-))
-if (($attributeOutput -join "`n") -notmatch '(?m): text: (auto|set)$' -or
-    ($attributeOutput -join "`n") -notmatch '(?m): eol: lf$') {
-  throw 'REL-XPLAT-EOL: release inputs must be committed with text=auto and eol=lf before packaging.'
+foreach ($moduleRelative in $moduleRelatives) {
+  $attributeOutput = @(Invoke-Native -Context "read $moduleRelative checkout attributes" -Command 'git' -Arguments @(
+    '-C', $repoRoot, 'check-attr', 'text', 'eol', '--', "$moduleRelative/moon.mod.json"
+  ))
+  if (($attributeOutput -join "`n") -notmatch '(?m): text: (auto|set)$' -or
+      ($attributeOutput -join "`n") -notmatch '(?m): eol: lf$') {
+    throw "REL-XPLAT-EOL: $moduleRelative release inputs must be committed with text=auto and eol=lf before packaging."
+  }
 }
 
 $tempRoot = Join-Path ([IO.Path]::GetTempPath()) ('mnf-cross-platform-archive-' + [Guid]::NewGuid().ToString('N'))
-$fixtureRoot = Join-Path $tempRoot 'fixture'
 $crlfRoot = Join-Path $tempRoot 'autocrlf-true'
 $lfRoot = Join-Path $tempRoot 'autocrlf-false'
-$null = New-Item -ItemType Directory -Force -Path $fixtureRoot
+$null = New-Item -ItemType Directory -Force -Path $tempRoot
 try {
   foreach ($unsafeName in @('./moon.mod.json', 'pkg//file.mbt', 'pkg/./file.mbt')) {
     Assert-CanonicalizerRejectsUnsafePath -Name $unsafeName
   }
 
-  $tracked = @(Invoke-Native -Context 'list mb-core release inputs' -Command 'git' -Arguments @(
-    '-C', $repoRoot, 'ls-files', '--', $moduleRelative
-  ) | Where-Object { -not [string]::IsNullOrWhiteSpace($_) })
-  if ($tracked.Count -eq 0) { throw 'REL-XPLAT-INPUT: mb-core has no tracked release inputs.' }
+  $null = Invoke-Native -Context 'clone release tree with autocrlf=true' -Command 'git' -Arguments @('-c', 'core.autocrlf=true', 'clone', '--quiet', '--no-hardlinks', $repoRoot, $crlfRoot)
+  $null = Invoke-Native -Context 'clone release tree with autocrlf=false' -Command 'git' -Arguments @('-c', 'core.autocrlf=false', 'clone', '--quiet', '--no-hardlinks', $repoRoot, $lfRoot)
+  $tracked = @(Invoke-Native -Context 'list all module release inputs' -Command 'git' -Arguments @('-C', $repoRoot, 'ls-files', '--', 'modules') | Where-Object { -not [string]::IsNullOrWhiteSpace($_) })
+  if ($tracked.Count -eq 0) { throw 'REL-XPLAT-INPUT: module release inputs are missing.' }
   foreach ($relative in $tracked) {
-    $source = Join-Path $repoRoot $relative
-    $destination = Join-Path $fixtureRoot $relative
-    $null = New-Item -ItemType Directory -Force -Path (Split-Path -Parent $destination)
-    Copy-Item -LiteralPath $source -Destination $destination
+    $crlfFile = Join-Path $crlfRoot $relative
+    $lfFile = Join-Path $lfRoot $relative
+    if (-not (Test-Path -LiteralPath $crlfFile -PathType Leaf) -or -not (Test-Path -LiteralPath $lfFile -PathType Leaf)) { throw "REL-XPLAT-INPUT: clone omitted '$relative'." }
+    if ((Get-ReleaseSha256 -Path $crlfFile) -cne (Get-ReleaseSha256 -Path $lfFile)) { throw "REL-XPLAT-EOL: '$relative' payload bytes differ across core.autocrlf policies." }
   }
-  Copy-Item -LiteralPath (Join-Path $repoRoot '.gitattributes') -Destination (Join-Path $fixtureRoot '.gitattributes')
-  Copy-Item -LiteralPath (Join-Path $repoRoot '.gitignore') -Destination (Join-Path $fixtureRoot '.gitignore')
 
-  $null = Invoke-Native -Context 'initialize package fixture' -Command 'git' -Arguments @('-C', $fixtureRoot, 'init', '--quiet')
-  $null = Invoke-Native -Context 'configure fixture identity' -Command 'git' -Arguments @('-C', $fixtureRoot, 'config', 'user.name', 'MNF Determinism Test')
-  $null = Invoke-Native -Context 'configure fixture email' -Command 'git' -Arguments @('-C', $fixtureRoot, 'config', 'user.email', 'determinism@example.invalid')
-  $null = Invoke-Native -Context 'stage package fixture' -Command 'git' -Arguments @('-C', $fixtureRoot, 'add', '--', '.gitattributes', '.gitignore', $moduleRelative)
-  $null = Invoke-Native -Context 'commit package fixture' -Command 'git' -Arguments @('-C', $fixtureRoot, 'commit', '--quiet', '-m', 'fixture')
-
-  $null = Invoke-Native -Context 'clone autocrlf=true fixture' -Command 'git' -Arguments @('-c', 'core.autocrlf=true', 'clone', '--quiet', '--no-hardlinks', $fixtureRoot, $crlfRoot)
-  $null = Invoke-Native -Context 'clone autocrlf=false fixture' -Command 'git' -Arguments @('-c', 'core.autocrlf=false', 'clone', '--quiet', '--no-hardlinks', $fixtureRoot, $lfRoot)
-  $null = Invoke-Native -Context 'package autocrlf=true fixture' -Command 'moon' -Arguments @('-C', (Join-Path $crlfRoot $moduleRelative), 'package', '--frozen', '--list')
-  $null = Invoke-Native -Context 'package autocrlf=false fixture' -Command 'moon' -Arguments @('-C', (Join-Path $lfRoot $moduleRelative), 'package', '--frozen', '--list')
-
-  $crlfArchives = @(Get-ChildItem -LiteralPath $crlfRoot -Recurse -File -Filter $archiveName)
-  $lfArchives = @(Get-ChildItem -LiteralPath $lfRoot -Recurse -File -Filter $archiveName)
-  if ($crlfArchives.Count -ne 1 -or $lfArchives.Count -ne 1) { throw 'REL-XPLAT-ARCHIVE: expected exactly one mb-core package archive per clone.' }
-  $crlfArchive = $crlfArchives[0].FullName
-  $lfArchive = $lfArchives[0].FullName
-  $sourceEntries = Get-ZipEntryDigestMap -Path $crlfArchive
-  Set-ZipContainerVariant -Path $lfArchive
-  if((Get-FileHash -LiteralPath $crlfArchive -Algorithm SHA256).Hash-ceq(Get-FileHash -LiteralPath $lfArchive -Algorithm SHA256).Hash){throw 'REL-XPLAT-VARIANT: host metadata variant did not change raw ZIP identity.'}
-  $null = ConvertTo-ReleaseCanonicalZip -Path $crlfArchive
-  $null = ConvertTo-ReleaseCanonicalZip -Path $lfArchive
-  $crlfDigest = (Get-FileHash -LiteralPath $crlfArchive -Algorithm SHA256).Hash.ToLowerInvariant()
-  $lfDigest = (Get-FileHash -LiteralPath $lfArchive -Algorithm SHA256).Hash.ToLowerInvariant()
-  $null = ConvertTo-ReleaseCanonicalZip -Path $crlfArchive
-  if((Get-FileHash -LiteralPath $crlfArchive -Algorithm SHA256).Hash.ToLowerInvariant()-cne$crlfDigest){throw 'REL-XPLAT-IDEMPOTENT: canonical ZIP identity changed on a second pass.'}
-  $crlfEntries = Get-ZipEntryDigestMap -Path $crlfArchive
-  $lfEntries = Get-ZipEntryDigestMap -Path $lfArchive
-  if (($crlfEntries.Keys -join "`n") -cne ($lfEntries.Keys -join "`n")) { throw 'REL-XPLAT-INVENTORY: ZIP entry order differs across checkout policies.' }
-  foreach ($name in $crlfEntries.Keys) {
-    $left = $crlfEntries[$name]
-    $right = $lfEntries[$name]
-    $source = $sourceEntries[$name]
-    if($left.sha256-cne$source.sha256-or$left.length-ne$source.length){throw "REL-XPLAT-PAYLOAD: canonical ZIP entry '$name' changed source payload provenance."}
-    if($left.length-ne0-and$left.length-ne$left.compressed_length){throw "REL-XPLAT-COMPRESSION: canonical ZIP entry '$name' is not stored deterministically."}
-    if (($left | ConvertTo-Json -Compress) -cne ($right | ConvertTo-Json -Compress)) {
-      throw "REL-XPLAT-ENTRY: ZIP entry '$name' differs across checkout policies."
+  $canonicalArchives = [ordered]@{}
+  $canonicalDigests = [Collections.Generic.List[string]]::new()
+  foreach ($moduleRelative in $moduleRelatives) {
+    $shortName = Split-Path -Leaf $moduleRelative
+    $archiveName = $archiveNames[$shortName]
+    $null = Invoke-Native -Context "package $shortName with autocrlf=true" -Command 'moon' -Arguments @('-C', (Join-Path $crlfRoot $moduleRelative), 'package', '--frozen', '--list')
+    $null = Invoke-Native -Context "package $shortName with autocrlf=false" -Command 'moon' -Arguments @('-C', (Join-Path $lfRoot $moduleRelative), 'package', '--frozen', '--list')
+    $crlfArchives = @(Get-ChildItem -LiteralPath $crlfRoot -Recurse -File -Filter $archiveName)
+    $lfArchives = @(Get-ChildItem -LiteralPath $lfRoot -Recurse -File -Filter $archiveName)
+    if ($crlfArchives.Count -ne 1 -or $lfArchives.Count -ne 1) { throw "REL-XPLAT-ARCHIVE: expected exactly one $shortName package archive per clone." }
+    $crlfArchive = $crlfArchives[0].FullName
+    $lfArchive = $lfArchives[0].FullName
+    $sourceEntries = Get-ZipEntryDigestMap -Path $crlfArchive
+    $otherSourceEntries = Get-ZipEntryDigestMap -Path $lfArchive
+    if (($sourceEntries.Keys -join "`n") -cne ($otherSourceEntries.Keys -join "`n")) { throw "REL-XPLAT-INVENTORY: raw $shortName entry order differs across checkout policies." }
+    foreach ($name in $sourceEntries.Keys) {
+      if ($sourceEntries[$name].sha256 -cne $otherSourceEntries[$name].sha256 -or $sourceEntries[$name].length -ne $otherSourceEntries[$name].length) { throw "REL-XPLAT-PAYLOAD: raw $shortName entry '$name' differs across checkout policies." }
     }
+    Set-ZipContainerVariant -Path $lfArchive
+    if ((Get-ReleaseSha256 -Path $crlfArchive) -ceq (Get-ReleaseSha256 -Path $lfArchive)) { throw "REL-XPLAT-VARIANT: $shortName host metadata variant did not change raw ZIP identity." }
+    $null = ConvertTo-ReleaseCanonicalZip -Path $crlfArchive
+    $null = ConvertTo-ReleaseCanonicalZip -Path $lfArchive
+    $crlfDigest = Get-ReleaseSha256 -Path $crlfArchive
+    $lfDigest = Get-ReleaseSha256 -Path $lfArchive
+    $null = Assert-ReleaseCanonicalZip -Path $crlfArchive
+    if ($crlfDigest -cne $lfDigest) { throw "REL-XPLAT-BYTES: $shortName canonical bytes differ ($crlfDigest vs $lfDigest)." }
+    $crlfEntries = Get-ZipEntryDigestMap -Path $crlfArchive
+    $lfEntries = Get-ZipEntryDigestMap -Path $lfArchive
+    if (($crlfEntries.Keys -join "`n") -cne ($sourceEntries.Keys -join "`n")) { throw "REL-XPLAT-INVENTORY: $shortName canonicalization changed original entry order." }
+    foreach ($name in $crlfEntries.Keys) {
+      $left = $crlfEntries[$name]
+      $right = $lfEntries[$name]
+      $source = $sourceEntries[$name]
+      if ($left.sha256 -cne $source.sha256 -or $left.length -ne $source.length) { throw "REL-XPLAT-PAYLOAD: canonical $shortName entry '$name' changed payload provenance." }
+      if ($left.length -ne 0 -and $left.length -ne $left.compressed_length) { throw "REL-XPLAT-COMPRESSION: canonical $shortName entry '$name' is not stored." }
+      if (($left | ConvertTo-Json -Compress) -cne ($right | ConvertTo-Json -Compress)) { throw "REL-XPLAT-ENTRY: canonical $shortName entry '$name' differs across checkout policies." }
+    }
+    $metadata = @(Get-CanonicalZipMetadata -Path $crlfArchive)
+    if (($metadata.name -join "`n") -cne ($crlfEntries.Keys -join "`n")) { throw "REL-XPLAT-METADATA: $shortName central order differs from archive order." }
+    foreach ($entry in $metadata) {
+      $expectedAttributes = if ($entry.name.EndsWith('/', [StringComparison]::Ordinal)) { '41ed0000' } else { '81a40000' }
+      if ($entry.local_name -cne $entry.name -or $entry.made_by -ne 0x0314 -or $entry.central_method -ne 0 -or $entry.local_method -ne 0 -or $entry.central_time -ne 0 -or $entry.local_time -ne 0 -or $entry.central_date -ne 0x21 -or $entry.local_date -ne 0x21 -or $entry.external_attributes -cne $expectedAttributes) { throw "REL-XPLAT-METADATA: canonical metadata drifted for $shortName entry '$($entry.name)'." }
+    }
+    $canonicalArchives[$shortName] = $crlfArchive
+    $canonicalDigests.Add("$shortName=$crlfDigest")
   }
-  if ($crlfDigest -cne $lfDigest) { throw "REL-XPLAT-BYTES: archive bytes differ ($crlfDigest vs $lfDigest)." }
-  $consumerRoot=Join-Path $tempRoot 'canonical-consumer';Expand-Archive -LiteralPath $crlfArchive -DestinationPath $consumerRoot
-  $null=Invoke-Native -Context 'check canonical archive source' -Command 'moon' -Arguments @('-C',$consumerRoot,'check','--frozen','--target','all')
-  Write-Host "Cross-platform release archive passed: $crlfDigest"
+
+  $consumerRoot = Join-Path $tempRoot 'canonical-consumer'
+  $null = New-Item -ItemType Directory -Force -Path (Join-Path $consumerRoot 'modules')
+  [IO.File]::WriteAllText(
+    (Join-Path $consumerRoot 'moon.work'),
+    "members = [`n  `"./modules/mb-core`",`n  `"./modules/mb-color`",`n  `"./modules/mb-image`",`n]`n",
+    [Text.UTF8Encoding]::new($false)
+  )
+  foreach ($shortName in $archiveNames.Keys) {
+    $destination = Join-Path $consumerRoot "modules/$shortName"
+    $null = New-Item -ItemType Directory -Force -Path $destination
+    Expand-Archive -LiteralPath $canonicalArchives[$shortName] -DestinationPath $destination
+  }
+  $null = Invoke-Native -Context 'check three canonical archive sources' -Command 'moon' -Arguments @('-C', $consumerRoot, 'check', '--frozen', '--deny-warn', '--target', 'all')
+  Write-Host "Cross-platform release archives passed: $($canonicalDigests -join ', ')"
 } finally {
   if (Test-Path -LiteralPath $tempRoot) { Remove-Item -LiteralPath $tempRoot -Recurse -Force }
 }

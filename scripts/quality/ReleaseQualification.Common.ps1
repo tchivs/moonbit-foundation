@@ -54,10 +54,21 @@ function ConvertTo-ReleaseCanonicalZip {
   try {
     foreach ($entry in $source.Entries) {
       $name = [string]$entry.FullName
-      if ([string]::IsNullOrEmpty($name) -or $name.Contains('\') -or [IO.Path]::IsPathRooted($name) -or $name -match '(^|/)[.][.](/|$)' -or -not $seen.Add($name)) { Throw-ReleaseRule -Id 'REL-XPLAT-ENTRY' -Message "Archive path is unsafe or duplicated: '$name'." }
+      $isDirectory = $name.EndsWith('/', [StringComparison]::Ordinal)
+      $pathBody = if ($isDirectory) { $name.Substring(0, $name.Length - 1) } else { $name }
+      $segments = @($pathBody.Split('/'))
+      if (
+        [string]::IsNullOrEmpty($pathBody) -or
+        $name.Contains('\') -or
+        $name.Contains(':') -or
+        [IO.Path]::IsPathRooted($name) -or
+        @($segments | Where-Object { [string]::IsNullOrEmpty($_) -or $_ -ceq '.' -or $_ -ceq '..' }).Count -ne 0 -or
+        -not $seen.Add($name)
+      ) { Throw-ReleaseRule -Id 'REL-XPLAT-ENTRY' -Message "Archive path is unsafe, noncanonical, or duplicated: '$name'." }
       $stream = $entry.Open();$memory = [IO.MemoryStream]::new()
       try { $stream.CopyTo($memory);$bytes = $memory.ToArray() } finally { $memory.Dispose();$stream.Dispose() }
-      $records.Add([pscustomobject][ordered]@{name=$name;is_directory=$name.EndsWith('/',[StringComparison]::Ordinal);bytes=[byte[]]$bytes})
+      if ($isDirectory -and $bytes.Length -ne 0) { Throw-ReleaseRule -Id 'REL-XPLAT-PAYLOAD' -Message "Directory entry '$name' carries payload bytes." }
+      $records.Add([pscustomobject][ordered]@{name=$name;is_directory=$isDirectory;bytes=[byte[]]$bytes})
     }
   } finally { $source.Dispose() }
   $before = Get-ReleaseSha256 -Path $full;$temporary = "$full.canonical-$([Guid]::NewGuid().ToString('N'))"
@@ -75,19 +86,49 @@ function ConvertTo-ReleaseCanonicalZip {
         }
       } finally { $archive.Dispose() }
     } finally { $file.Dispose() }
-    $bytes = [IO.File]::ReadAllBytes($temporary);$centralCount=0
-    for($offset=0;$offset-le$bytes.Length-46;$offset++){
-      if($bytes[$offset]-ne0x50-or$bytes[$offset+1]-ne0x4b-or$bytes[$offset+2]-ne0x01-or$bytes[$offset+3]-ne0x02){continue}
+    $bytes = [IO.File]::ReadAllBytes($temporary)
+    $eocdOffset = -1
+    for ($candidate = $bytes.Length - 22; $candidate -ge [Math]::Max(0, $bytes.Length - 65557); $candidate--) {
+      if ($bytes[$candidate] -eq 0x50 -and $bytes[$candidate + 1] -eq 0x4b -and $bytes[$candidate + 2] -eq 0x05 -and $bytes[$candidate + 3] -eq 0x06) {
+        $commentLength = [BitConverter]::ToUInt16($bytes, $candidate + 20)
+        if ($candidate + 22 + $commentLength -eq $bytes.Length) { $eocdOffset = $candidate; break }
+      }
+    }
+    if ($eocdOffset -lt 0) { Throw-ReleaseRule -Id 'REL-XPLAT-ARCHIVE' -Message 'Canonical ZIP end-of-central-directory is missing.' }
+    if ([BitConverter]::ToUInt16($bytes, $eocdOffset + 4) -ne 0 -or [BitConverter]::ToUInt16($bytes, $eocdOffset + 6) -ne 0) { Throw-ReleaseRule -Id 'REL-XPLAT-ARCHIVE' -Message 'Canonical ZIP unexpectedly spans multiple disks.' }
+    $centralCount = [int][BitConverter]::ToUInt16($bytes, $eocdOffset + 10)
+    $centralSize = [int][BitConverter]::ToUInt32($bytes, $eocdOffset + 12)
+    $offset = [int][BitConverter]::ToUInt32($bytes, $eocdOffset + 16)
+    $centralEnd = $offset + $centralSize
+    for ($index = 0; $index -lt $centralCount; $index++) {
+      if ($offset + 46 -gt $eocdOffset -or $bytes[$offset] -ne 0x50 -or $bytes[$offset + 1] -ne 0x4b -or $bytes[$offset + 2] -ne 0x01 -or $bytes[$offset + 3] -ne 0x02) { Throw-ReleaseRule -Id 'REL-XPLAT-ARCHIVE' -Message "Canonical ZIP central entry $index is missing or malformed." }
       $nameLength=[BitConverter]::ToUInt16($bytes,$offset+28);$extraLength=[BitConverter]::ToUInt16($bytes,$offset+30);$commentLength=[BitConverter]::ToUInt16($bytes,$offset+32)
       if($offset+46+$nameLength+$extraLength+$commentLength-gt$bytes.Length){Throw-ReleaseRule -Id 'REL-XPLAT-ARCHIVE' -Message 'Canonical ZIP central directory is truncated.'}
       $name=[Text.Encoding]::UTF8.GetString($bytes,$offset+46,$nameLength);$bytes[$offset+4]=0x14;$bytes[$offset+5]=0x03
       $attributes=if($name.EndsWith('/',[StringComparison]::Ordinal)){[uint32]::Parse('41ED0000',[Globalization.NumberStyles]::HexNumber)}else{[uint32]::Parse('81A40000',[Globalization.NumberStyles]::HexNumber)};[BitConverter]::GetBytes($attributes).CopyTo($bytes,$offset+38)
-      $centralCount++;$offset += 45+$nameLength+$extraLength+$commentLength
+      $offset += 46+$nameLength+$extraLength+$commentLength
     }
     if($centralCount-ne$records.Count){Throw-ReleaseRule -Id 'REL-XPLAT-ARCHIVE' -Message "Canonical ZIP central count drifted: $centralCount vs $($records.Count)."}
+    if ($offset -ne $centralEnd -or $centralEnd -ne $eocdOffset) { Throw-ReleaseRule -Id 'REL-XPLAT-ARCHIVE' -Message 'Canonical ZIP central-directory extent drifted.' }
     [IO.File]::WriteAllBytes($temporary,$bytes);[IO.File]::Move($temporary,$full,$true)
   } finally { if(Test-Path -LiteralPath $temporary){Remove-Item -LiteralPath $temporary -Force} }
   [pscustomobject][ordered]@{path=$full;entry_count=$records.Count;source_sha256=$before;canonical_sha256=Get-ReleaseSha256 -Path $full}
+}
+
+function Assert-ReleaseCanonicalZip {
+  param([Parameter(Mandatory)][string]$Path)
+  $full = [IO.Path]::GetFullPath($Path)
+  if (-not (Test-Path -LiteralPath $full -PathType Leaf)) { Throw-ReleaseRule -Id 'REL-XPLAT-ARCHIVE' -Message "Archive is missing: $full" }
+  $before = Get-ReleaseSha256 -Path $full
+  $probe = Join-Path ([IO.Path]::GetTempPath()) ('mnf-canonical-zip-probe-' + [Guid]::NewGuid().ToString('N') + '.zip')
+  try {
+    Copy-Item -LiteralPath $full -Destination $probe
+    $result = ConvertTo-ReleaseCanonicalZip -Path $probe
+    if ($result.canonical_sha256 -cne $before) { Throw-ReleaseRule -Id 'REL-XPLAT-NONCANONICAL' -Message "Archive bytes are not canonical: $full" }
+    return [pscustomobject][ordered]@{path=$full;entry_count=$result.entry_count;canonical_sha256=$before}
+  } finally {
+    if (Test-Path -LiteralPath $probe) { Remove-Item -LiteralPath $probe -Force }
+  }
 }
 
 function Get-ReleaseTextSha256 {
