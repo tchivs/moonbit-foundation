@@ -307,6 +307,8 @@ Invoke-AcceptanceCase 'superseded from Implemented preserves implementation hist
 $supersededImplementedMissingEvidence = Copy-TestObject $supersededImplemented; $supersededImplementedMissingEvidence.rfc.current_foundation_rfc.implementation_evidence=@()
 Invoke-AcceptanceCase 'superseded from Implemented rejects erased implementation history' $supersededImplementedMissingEvidence $roster $false { param($root) Write-TestReplacementRfc $root } 'implementation and qualification.*requires at least one|implementation evidence requires at least one'
 
+$driveRootedPath = if ($IsWindows) { 'C:\outside.md' } else { '/outside.md' }
+$uncRootedPath = if ($IsWindows) { '\\server\share\outside.md' } else { '//server/share/outside.md' }
 $cases = @(
   @{ n='duplicate roster identity'; e='duplicate identities'; mutate={ param($p,$r) $r.maintainers=@($r.maintainers[0],(Copy-TestObject $r.maintainers[0])) } },
   @{ n='zero maintainers'; e='exactly one unique canonical maintainer'; mutate={ param($p,$r) $r.maintainers=@() } },
@@ -316,8 +318,8 @@ $cases = @(
   @{ n='mutable canonical decision path'; e='policy decision path differs'; mutate={ param($p,$r) $p.rfc.sole_owner_bootstrap.decision_path='docs/governance/decisions/attacker.md'; $p.rfc.current_foundation_rfc.decision_evidence_path='docs/governance/decisions/attacker.md' } },
   @{ n='mutable canonical anchor set'; e='policy decision anchors count mismatch'; mutate={ param($p,$r) $p.rfc.sole_owner_bootstrap.required_anchors=@('owner-instruction') } },
   @{ n='mutable canonical edge ids'; e='policy edge review IDs count mismatch'; mutate={ param($p,$r) $p.rfc.sole_owner_bootstrap.mandatory_edge_reviews=@('FAKE'); $p.rfc.current_foundation_rfc.edge_reviews=@([pscustomobject]@{id='FAKE';status='completed';disposition='no-omission-found'}) } },
-  @{ n='drive rooted path'; e='must be repository-relative'; mutate={ param($p,$r) $p.rfc.current_foundation_rfc.decision_evidence_path='C:\outside.md' } },
-  @{ n='UNC rooted path'; e='must be repository-relative'; mutate={ param($p,$r) $p.rfc.current_foundation_rfc.decision_evidence_path='\\server\share\outside.md' } },
+  @{ n='drive rooted path'; e='must be repository-relative'; mutate={ param($p,$r) $p.rfc.current_foundation_rfc.decision_evidence_path=$driveRootedPath } },
+  @{ n='UNC rooted path'; e='must be repository-relative'; mutate={ param($p,$r) $p.rfc.current_foundation_rfc.decision_evidence_path=$uncRootedPath } },
   @{ n='parent traversal'; e='must not contain a parent traversal'; mutate={ param($p,$r) $p.rfc.current_foundation_rfc.decision_evidence_path='../outside.md' } },
   @{ n='sibling prefix escape'; e='must not contain a parent traversal'; mutate={ param($p,$r) $p.rfc.current_foundation_rfc.decision_evidence_path='../repo-escape/outside.md' } },
   @{ n='wrong decision artifact'; e='does not identify the canonical decision artifact'; arrange={ param($root) '# wrong' | Set-Content -LiteralPath (Join-Path $root 'docs/governance/decisions/wrong.md') }; mutate={ param($p,$r) $p.rfc.current_foundation_rfc.decision_evidence_path='docs/governance/decisions/wrong.md' } },
