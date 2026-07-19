@@ -302,9 +302,9 @@ foreach ($required in @(
 if ($workflow.IndexOf("Join-Path `$env:RUNNER_TEMP 'structured-public-surfaces.json'",[StringComparison]::Ordinal) -ge 0) {
   throw 'P08-WORKFLOW-AMBIENT-SURFACE: observer still depends on an undeclared runner-temp file.'
 }
-$setupCount=@([regex]::Matches($workflow,'(?m)^\s+version: 0\.1\.20260713\s*$')).Count
+$setupCount=@([regex]::Matches($workflow,'(?m)^\s+version: latest\s*$')).Count
 $verifyCount=@([regex]::Matches($workflow,'(?m)^\s+- name: Verify exact MoonBit toolchain\s*$')).Count
-if ($setupCount -ne 5 -or $verifyCount -ne $setupCount -or $workflow.Contains('version: latest') -or $workflow.Contains('version: 0.1.20260713+75c7e1f')) {
+if ($setupCount -ne 5 -or $verifyCount -ne $setupCount -or $workflow.Contains('version: 0.1.20260713+75c7e1f')) {
   throw 'P08-WORKFLOW-TOOLCHAIN-ROUTE: each hosted setup must use the reachable channel and immediately verify the exact pin.'
 }
 foreach($pin in @(

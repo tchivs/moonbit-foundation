@@ -20,8 +20,7 @@ jobs:
       - name: Set up exact MoonBit toolchain
         uses: hustcer/setup-moonbit@bdc8c076af1f4c5012a6ac3451a2009ec75bf921
         with:
-          # The action's suffixed version URL returns 403; the base release URL is stable.
-          version: 0.1.20260713
+          version: latest
       - name: Verify exact MoonBit toolchain
         shell: pwsh
         run: |
@@ -55,7 +54,7 @@ jobs:
       - name: Set up exact MoonBit toolchain
         uses: hustcer/setup-moonbit@bdc8c076af1f4c5012a6ac3451a2009ec75bf921
         with:
-          version: 0.1.20260713
+          version: latest
       - name: Verify exact MoonBit toolchain
         shell: pwsh
         run: |
