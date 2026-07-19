@@ -71,7 +71,7 @@ function Assert-P08R4Contract {
     if($receiptA.created_at_utc -cne '2026-07-19T00:00:00Z' -or $receiptA.receipt_sha256 -cne $receiptB.receipt_sha256 -or $receiptA.receipt_sha256 -ceq $receiptChanged.receipt_sha256){Throw-P08Qualification 'P08-R2-UTC' 'UTC equivalence or changed-instant identity drifted.'}
     $receiptPath=Join-Path $temp 'receipt.json';Write-R2File $receiptPath ($receiptA|ConvertTo-Json -Depth 20 -Compress)
     $receiptReload=Get-Content -LiteralPath $receiptPath -Raw|ConvertFrom-Json -Depth 20
-    $null=Assert-ReleaseAuthorizationReceipt -Receipt $receiptReload -ExpectedBoundarySha ('1'*40) -ExpectedPacketSha256 $packetSha
+    $null=Assert-ReleaseAuthorizationReceipt -Receipt $receiptReload -ExpectedBoundarySha ('1'*40) -ExpectedSourceSha ('2'*40) -ExpectedPacketSha256 $packetSha
     $bindings=[ordered]@{
       schema_version='mnf-phase08-handoff/1';release_ref='refs/tags/modules-v0.1.0-r4';boundary_sha=('1'*40);execution_root=[IO.Path]::GetFullPath($temp)
       boundary_locator_path=[IO.Path]::GetFullPath($paths.boundary);boundary_locator_sha256=Get-P08QualificationSha $paths.boundary
@@ -103,13 +103,17 @@ function Assert-P08R4Contract {
       @{id='REL04-HANDOFF-PATH';mutate={param($x)$x.boundary_locator_path='relative.json'}},
       @{id='REL04-HANDOFF-PATH';mutate={param($x)$x.boundary_locator_path=[IO.Path]::GetFullPath((Join-Path $temp '..\escape.json'))}},
       @{id='REL04-HANDOFF-DIGEST';mutate={param($x)$x.r1_history_sha256='f'*64}},
+      @{id='REL04-HISTORY-BINDING';mutate={param($x)$x.r3_history_path=$x.r2_history_path;$x.r3_history_sha256=$x.r2_history_sha256}},
+      @{id='REL04-HISTORY-BINDING';mutate={param($x)$x.historical_history_set_sha256='f'*64}},
       @{id='REL04-HANDOFF-BRANCH';mutate={param($x)$x.authorization_receipt_path=$null;$x.authorization_receipt_sha256=$null}},
       @{id='REL04-HANDOFF-BRANCH';mutate={param($x)$x.authority_variant='stop'}}
     )){$copy=$mutation|ConvertTo-Json -Depth 30|ConvertFrom-Json -Depth 30;&$case.mutate $copy;Confirm-R2Failure $case.id {Assert-ReleasePhase08Handoff $copy|Out-Null}}
     $receiptOnExact=$exact|ConvertTo-Json -Depth 30|ConvertFrom-Json -Depth 30;$receiptOnExact.authorization_receipt_path=[IO.Path]::GetFullPath($receiptPath);$receiptOnExact.authorization_receipt_sha256=Get-P08QualificationSha $receiptPath
     Confirm-R2Failure 'REL04-HANDOFF-BRANCH' {Assert-ReleasePhase08Handoff $receiptOnExact|Out-Null}
     $badReceipt=$receiptA|ConvertTo-Json -Depth 20|ConvertFrom-Json -Depth 20;$badReceipt.packet_sha256='f'*64
-    Confirm-R2Failure 'REL04-RECEIPT-BINDING' {Assert-ReleaseAuthorizationReceipt $badReceipt -ExpectedBoundarySha ('1'*40) -ExpectedPacketSha256 $packetSha|Out-Null}
+    Confirm-R2Failure 'REL04-RECEIPT-BINDING' {Assert-ReleaseAuthorizationReceipt $badReceipt -ExpectedBoundarySha ('1'*40) -ExpectedSourceSha ('2'*40) -ExpectedPacketSha256 $packetSha|Out-Null}
+    $mixedReceipt=$receiptA|ConvertTo-Json -Depth 20|ConvertFrom-Json -Depth 20;$mixedReceipt.historical_r3_sha256=$mixedReceipt.historical_r2_sha256
+    Confirm-R2Failure 'REL04-HISTORY-BINDING' {Assert-ReleaseAuthorizationReceipt $mixedReceipt|Out-Null}
   }finally{if(Test-Path -LiteralPath $temp){Remove-Item -LiteralPath $temp -Recurse -Force}}
   if(Test-Path -LiteralPath $productionHandoff){Throw-P08Qualification 'P08-FIXED-HANDOFF-CREATED' 'Qualification fixtures touched the production fixed handoff.'}
 }

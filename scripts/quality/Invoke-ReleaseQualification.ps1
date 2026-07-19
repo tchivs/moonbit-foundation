@@ -299,7 +299,7 @@ function Write-InitialReleaseIntentBinding {
     $archives[$shortName] = $digest
   }
   $intentResult = & (Join-Path $PSScriptRoot 'New-ReleaseIntent.ps1') `
-    -Check -IntentKind initial -ReleaseRef 'refs/tags/modules-v0.1.0-r3' -SourceSha ([string]$ReleaseReport.head) -SourceRoot $SourceRoot `
+    -Check -IntentKind initial -ReleaseRef 'refs/tags/modules-v0.1.0-r4' -SourceSha ([string]$ReleaseReport.head) -SourceRoot $SourceRoot `
     -QualificationRootSha256 $qualificationRoot -RequiredStableSha256 $requiredStable -ArchiveSha256ByModule $archives `
     -OutputDirectory (Join-Path $absolute 'intent')
   if ($intentResult.root_intent_sha256 -cne $intentResult.intent_sha256 -or $intentResult.credentials_read -ne $false -or $intentResult.publication_performed -ne $false) {
@@ -310,7 +310,7 @@ function Write-InitialReleaseIntentBinding {
   $binding = [ordered]@{
     schema_version = 'mnf-release-intent-binding/1'
     intent_kind = 'initial'
-    release_ref = 'refs/tags/modules-v0.1.0-r3'
+    release_ref = 'refs/tags/modules-v0.1.0-r4'
     source_sha = [string]$ReleaseReport.head
     root_intent_sha256 = [string]$intentResult.intent_sha256
     intent_sha256 = [string]$intentResult.intent_sha256
