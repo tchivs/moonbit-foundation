@@ -62,6 +62,27 @@ function Set-ZipContainerVariant {
   if($count-eq0){throw 'REL-XPLAT-VARIANT: no central entries found.'};[IO.File]::WriteAllBytes($Path,$bytes)
 }
 
+function Assert-CanonicalizerRejectsUnsafePath {
+  param([Parameter(Mandatory)][string]$Name)
+  $fixturePath = Join-Path $tempRoot ('unsafe-' + [Guid]::NewGuid().ToString('N') + '.zip')
+  $file = [IO.File]::Open($fixturePath, [IO.FileMode]::CreateNew, [IO.FileAccess]::ReadWrite, [IO.FileShare]::None)
+  try {
+    $archive = [IO.Compression.ZipArchive]::new($file, [IO.Compression.ZipArchiveMode]::Create, $true)
+    try {
+      $entry = $archive.CreateEntry($Name, [IO.Compression.CompressionLevel]::NoCompression)
+      $stream = $entry.Open()
+      try { $stream.WriteByte(0x41) } finally { $stream.Dispose() }
+    } finally { $archive.Dispose() }
+  } finally { $file.Dispose() }
+
+  try {
+    $null = ConvertTo-ReleaseCanonicalZip -Path $fixturePath
+    throw "REL-XPLAT-UNSAFE-ACCEPTED: canonicalizer accepted noncanonical path '$Name'."
+  } catch {
+    if ($_.Exception.Message -notmatch '^REL-XPLAT-ENTRY:') { throw }
+  }
+}
+
 $attributeOutput = @(Invoke-Native -Context 'read release checkout attributes' -Command 'git' -Arguments @(
   '-C', $repoRoot, 'check-attr', 'text', 'eol', '--', "$moduleRelative/moon.mod.json"
 ))
@@ -76,6 +97,10 @@ $crlfRoot = Join-Path $tempRoot 'autocrlf-true'
 $lfRoot = Join-Path $tempRoot 'autocrlf-false'
 $null = New-Item -ItemType Directory -Force -Path $fixtureRoot
 try {
+  foreach ($unsafeName in @('./moon.mod.json', 'pkg//file.mbt', 'pkg/./file.mbt')) {
+    Assert-CanonicalizerRejectsUnsafePath -Name $unsafeName
+  }
+
   $tracked = @(Invoke-Native -Context 'list mb-core release inputs' -Command 'git' -Arguments @(
     '-C', $repoRoot, 'ls-files', '--', $moduleRelative
   ) | Where-Object { -not [string]::IsNullOrWhiteSpace($_) })
