@@ -324,6 +324,10 @@
 
 - [ ] 08-35-PLAN.md — Wire static r13 hosted and publisher seams; later plans separately create the r13 boundary and authorize publication.
 
+**Wave 36** *(blocked on Wave 35 completion)*
+
+- [ ] 08-36-PLAN.md — Repair the static r13 thirteen-history HostedDispatch integration before any later r13 boundary or authorization plan.
+
 ### Phase 9: Provenance, Immutable Closure, and Milestone Audit
 
 **Goal:** Published versions have verified immutable provenance and documentation, and milestone closure proves the complete evidence chain without broadening v0.2 scope.

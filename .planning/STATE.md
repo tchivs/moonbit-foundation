@@ -4,8 +4,8 @@ milestone: v0.2
 milestone_name: Publication & Compatibility
 current_phase: 08
 current_phase_name: Ordered Mooncakes Publication and Registry Consumers
-status: executing — active static-only recovery is 08-34 then 08-35; obsolete r12 authority is quarantined
-stopped_at: Completed 08-34-PLAN.md
+status: executing — required next static integration is 08-36 after 08-35 and before any r13 boundary or authorization; obsolete r12 authority is quarantined
+stopped_at: Awaiting required 08-36-PLAN.md static HostedDispatch integration after 08-35
 last_updated: "2026-07-19T14:03:12.986Z"
 last_activity: 2026-07-19
 last_activity_desc: corrected the misdiagnosed timeout narrative (deterministic REL01-REF), recorded the tag-before-script-fix ordering invariant for r13+
@@ -30,8 +30,8 @@ See `.planning/PROJECT.md` (updated 2026-07-17).
 ## Current Position
 
 Phase: 08 (Ordered Mooncakes Publication and Registry Consumers) — EXECUTING
-Plan: 34 of 35 (08-33 quarantined; the completed static recovery route now advances to 08-35)
-Status: r12 publish-blocked (REL01-REF) — its boundary commit (5e7b19cd) declared policy release_ref=r12 but Invoke-ReleaseQualification.ps1 still hardcoded r9; the fix (d55f63a) landed 26 min after the immutable tag. 08-33 cannot run on r12. r12 is immutable terminal evidence only; forward path is r13+, starting with 08-34 then 08-35. Do not retry r12.
+Plan: 36 of 36 (08-33 quarantined; 08-36 is the mandatory static integration after 08-35)
+Status: r12 publish-blocked (REL01-REF) — its boundary commit (5e7b19cd) declared policy release_ref=r12 but Invoke-ReleaseQualification.ps1 still hardcoded r9; the fix (d55f63a) landed 26 min after the immutable tag. 08-33 cannot run on r12. r12 is immutable terminal evidence only; forward path is r13+, through 08-34 then 08-35 then mandatory 08-36. Do not create an r13 boundary or seek authorization until 08-36 passes.
 Last activity: 2026-07-19 — corrected the misdiagnosed timeout narrative (deterministic REL01-REF), recorded the tag-before-script-fix ordering invariant for r13+
 
 ## Progress
@@ -41,7 +41,7 @@ Current milestone: [█████░░░░░] 50% of v0.2 phases complete
 - v0.2 phases completed: 2/4
 - Phase 6 plans completed: 25/25
 - Phase 7 plans completed: 3/3
-- Phase 8 plans completed: 33/35 (08-33 quarantined; 08-34 complete and static r13 recovery proceeds through 08-35)
+- Phase 8 plans completed: 33/36 (08-33 quarantined; 08-34 complete, 08-35 precedes mandatory 08-36 static integration)
 - v0.2 requirements mapped: 21/21
 - Historical total: 5 completed phases, 43 completed plans, 36/36 v0.1 requirements validated
 
@@ -170,17 +170,17 @@ None
 
 ## Session Continuity
 
-**Resume file:** 08-35-PLAN.md
+**Resume file:** 08-36-PLAN.md
 
 Last session: 2026-07-19T14:03:12.970Z
 Stopped at: Completed 08-34-PLAN.md
-Resume with: `/gsd-execute-phase 8` to continue the static r13 recovery route; a later plan must separately create and verify an immutable r13 boundary, and a still-later r13-specific plan may request explicit publication authorization
+Resume with: `/gsd-execute-phase 8` to complete mandatory 08-36 static HostedDispatch integration after 08-35; do not create an r13 boundary or seek authorization until 08-36 passes.
 
 ## Operator Next Steps
 
 - 08-32 is reconciled as satisfied-by-prior-run (immutable r12 tag 57b76c9f / peel 5e7b19cd already exists locally+remotely, ancestor of HEAD).
 - 08-33 is quarantined and obsolete: it was scoped to r12 authority and is not publication authority. r12 is immutable terminal REL01-REF evidence only.
-- The active route is static r13 recovery through 08-34 then 08-35. A later plan must separately create and verify an immutable r13 boundary; only a distinct later r13 plan may request explicit authorization for any publication.
+- The active route is static r13 recovery through 08-34, then 08-35, then required integration follow-up 08-36. Only after 08-36 passes may a later plan separately create and verify an immutable r13 boundary; only a distinct later r13 plan may request explicit authorization for any publication.
 - A current-HEAD eight-path baseline must be recaptured before any future pre-live or publisher run that evaluates the baseline against working-tree content (the captured baseline is stale vs current HEAD).
 - Watch: two non-baseline files appeared modified mid-session (`release/qualification/phase-06-requirements.json`, `release/registry/authority-observation.json`) — investigate whether a sibling process is editing release artifacts.
 
