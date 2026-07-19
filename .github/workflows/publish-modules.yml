@@ -281,7 +281,6 @@ jobs:
           EXPECTED_HISTORICAL_R2_SHA256: aae8bee66e7dbfca7f3f22f1b52071e7888ae3ec8feee513d1c5d8eba6111609
           EXPECTED_HISTORICAL_R3_SHA256: cf29473b2b07ff9aa8fd8a4810ddc45f6aacd2fd4b74048f5d29b3b6fa939d41
           EXPECTED_HISTORICAL_R4_SHA256: d9b045bc65df87dc2701144ea7716defc67acb84ec9ea8e7ffdafd0118ba0906
-          EXPECTED_HISTORICAL_R4_SHA256: d9b045bc65df87dc2701144ea7716defc67acb84ec9ea8e7ffdafd0118ba0906
           EXPECTED_HISTORICAL_HISTORY_SET_SHA256: ${{ inputs.historical_attempts_sha256 }}
           EXPECTED_ROOT_INTENT_SHA256: ${{ inputs.root_intent_sha256 }}
           EXPECTED_INTENT_SHA256: ${{ inputs.intent_sha256 }}
@@ -500,6 +499,7 @@ jobs:
           EXPECTED_HISTORICAL_R1_SHA256: cba047dae2e6b4e1bbf0248653ed7848f144971b54a0a4ed30ef42ab97325653
           EXPECTED_HISTORICAL_R2_SHA256: aae8bee66e7dbfca7f3f22f1b52071e7888ae3ec8feee513d1c5d8eba6111609
           EXPECTED_HISTORICAL_R3_SHA256: cf29473b2b07ff9aa8fd8a4810ddc45f6aacd2fd4b74048f5d29b3b6fa939d41
+          EXPECTED_HISTORICAL_R4_SHA256: d9b045bc65df87dc2701144ea7716defc67acb84ec9ea8e7ffdafd0118ba0906
           EXPECTED_HISTORICAL_HISTORY_SET_SHA256: ${{ inputs.historical_attempts_sha256 }}
           EXPECTED_AUTHORIZATION_PACKET_SHA256: ${{ inputs.authorization_packet_sha256 }}
           EXPECTED_AUTHORIZATION_RECEIPT_SHA256: ${{ inputs.authorization_receipt_sha256 }}

@@ -219,6 +219,36 @@ if ($AdapterOnly) { return }
 
 $workflowPath = Join-Path (Split-Path -Parent $PSScriptRoot) '..\.github\workflows\publish-modules.yml'
 $workflow = Get-Content -LiteralPath $workflowPath -Raw
+
+function Assert-P08WorkflowMappingKeyUniqueness {
+  param([Parameter(Mandatory)][string]$Source)
+  $lines=[regex]::Split($Source,'\r?\n')
+  $jobsSeen=[Collections.Generic.HashSet[string]]::new([StringComparer]::Ordinal)
+  $jobsFound=$false
+  foreach($line in $lines){
+    if($line -ceq 'jobs:'){$jobsFound=$true;continue}
+    if($jobsFound -and $line -cmatch '^  (?<key>[A-Za-z_][A-Za-z0-9_-]*):\s*$' -and -not $jobsSeen.Add($Matches.key)){
+      throw "P08-WORKFLOW-DUPLICATE-JOB-KEY: '$($Matches.key)'."
+    }
+  }
+  if(-not $jobsFound -or $jobsSeen.Count -eq 0){throw 'P08-WORKFLOW-JOBS: jobs mapping is missing or empty.'}
+
+  for($i=0;$i -lt $lines.Count;$i++){
+    if($lines[$i] -cnotmatch '^(?<indent> *)env:\s*$'){continue}
+    $childIndent=$Matches.indent.Length+2
+    $envSeen=[Collections.Generic.HashSet[string]]::new([StringComparer]::Ordinal)
+    for($j=$i+1;$j -lt $lines.Count;$j++){
+      if([string]::IsNullOrWhiteSpace($lines[$j]) -or $lines[$j] -cmatch '^\s*#'){continue}
+      $leading=[regex]::Match($lines[$j],'^ *').Value.Length
+      if($leading -le ($childIndent-2)){break}
+      if($leading -eq $childIndent -and $lines[$j] -cmatch ('^ {'+$childIndent+'}(?<key>[A-Za-z_][A-Za-z0-9_]*):')){
+        if(-not $envSeen.Add($Matches.key)){throw "P08-WORKFLOW-DUPLICATE-ENV-KEY: '$($Matches.key)'."}
+      }
+    }
+  }
+}
+
+Assert-P08WorkflowMappingKeyUniqueness -Source $workflow
 $expectedDispatchInputs=@(
   'operation_mode','run_mode','release_ref','source_sha','root_intent_sha256','intent_sha256','prepared_manifest_sha256',
   'historical_attempts_sha256','target_module','live_authorization','prior_run_id','prior_artifact_name',
@@ -228,7 +258,11 @@ $dispatchInputMatch=[regex]::Match($workflow,'(?ms)^\s{4}inputs:\r?\n(?<body>.*?
 if(-not $dispatchInputMatch.Success){throw 'P08-WORKFLOW-DISPATCH-INPUTS: workflow_dispatch input block is missing.'}
 $dispatchInputBlock=$dispatchInputMatch.Groups['body'].Value
 $actualDispatchInputs=@([regex]::Matches($dispatchInputBlock,'(?m)^\s{6}([a-z0-9_]+):\s*$')|ForEach-Object{$_.Groups[1].Value})
-if(($actualDispatchInputs-join ',') -cne ($expectedDispatchInputs-join ',')){
+$dispatchInputsSeen=[Collections.Generic.HashSet[string]]::new([StringComparer]::Ordinal)
+foreach($dispatchInput in $actualDispatchInputs){
+  if(-not $dispatchInputsSeen.Add($dispatchInput)){throw "P08-WORKFLOW-DUPLICATE-DISPATCH-INPUT: '$dispatchInput'."}
+}
+if($actualDispatchInputs.Count -ne 14 -or ($actualDispatchInputs-join ',') -cne ($expectedDispatchInputs-join ',')){
   throw "P08-WORKFLOW-DISPATCH-PARITY: expected exact 14 inputs '$($expectedDispatchInputs-join ',')', got '$($actualDispatchInputs-join ',')'."
 }
 $receiptInputMatch=[regex]::Match($dispatchInputBlock,"(?ms)^\s{6}authorization_receipt_sha256:\r?\n(?<body>(?:^\s{8}.*\r?\n?)+)")
@@ -302,6 +336,12 @@ $preflightStart=$workflow.IndexOf('  hosted_preflight:',[StringComparison]::Ordi
 if ($dryStart -lt 0 -or $preflightStart -le $dryStart -or $publisherStart -le $preflightStart) { throw 'P08-WORKFLOW-MODES: hosted modes are missing or ambiguously ordered.' }
 $dryBlock=$workflow.Substring($dryStart,$preflightStart-$dryStart)
 $preflightBlock=$workflow.Substring($preflightStart,$publisherStart-$preflightStart)
+$expectedR4Env='EXPECTED_HISTORICAL_R4_SHA256: d9b045bc65df87dc2701144ea7716defc67acb84ec9ea8e7ffdafd0118ba0906'
+foreach($contract in @(@('PublisherDryRun',$dryBlock),@('publisher verify',$publisherBlock))){
+  if(@([regex]::Matches([string]$contract[1],('(?m)^\s+'+[regex]::Escape($expectedR4Env)+'\s*$'))).Count -ne 1){
+    throw "P08-WORKFLOW-R4-PROPAGATION: $($contract[0]) must map the exact R4 digest once."
+  }
+}
 if ($dryBlock.IndexOf("inputs.operation_mode == 'PublisherDryRun'",[StringComparison]::Ordinal) -lt 0 -or
     $dryBlock.IndexOf('publish --frozen --dry-run',[StringComparison]::Ordinal) -lt 0 -or
     $dryBlock.IndexOf('credential_state_removed=$true',[StringComparison]::Ordinal) -lt 0 -or
