@@ -136,7 +136,7 @@ Confirm-PublisherRule 'PUB12-ACTOR' { $bad=$base.PSObject.Copy(); $bad.actor_evi
 Confirm-PublisherRule 'PUB12-ACTOR' { $bad=$base.PSObject.Copy(); $bad.actor_evidence=($actorEvidence | ConvertTo-Json -Compress | ConvertFrom-Json); $bad.actor_evidence.actor_stderr_empty=$false; Assert-PublisherRequest $bad }
 
 $exactExisting = [pscustomobject][ordered]@{
-  classification='exact_existing_verified'; repository='tchivs/moonbit-foundation'; release_ref='refs/tags/modules-v0.1.0-r4'
+  classification='exact_existing_verified'; repository='tchivs/moonbit-foundation'; release_ref='refs/tags/modules-v0.1.0-r5'
   source_sha=('1'*40); root_intent_sha256=$root; intent_sha256=$root; prepared_manifest_sha256=('9'*64)
   observation_sha256=('6'*64); cold_proof_sha256=('7'*64); reducer_record_sha256=('8'*64)
   mutation_authorization_required=$false; mutation_authorization_used=$false; publisher_dry_run_used=$false
