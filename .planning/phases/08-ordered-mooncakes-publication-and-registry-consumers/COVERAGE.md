@@ -104,7 +104,7 @@ The assumption-delta detector phrase `Git fallback` maps to the noun **registry-
 | REQ | DIST-04 | Isolated credential-free registry evidence | 08-29..08-33 | COVERED | Remote clone plus fresh empty homes and no local fallback. |
 | REQ | PROV-05 | Structured public metadata | 08-33 | COVERED | Closed sanitized observations and identity agreement. |
 | RESEARCH | Prepared before secret; one-module publisher; cold consumer; structured observation | 08-30..08-33 | COVERED | Existing verified architecture remains intact. |
-| CONTEXT | D-01 | Deterministic prepared/ref binding | 08-29, 08-30, 08-32 | COVERED | Wrapper derives canonical clone-policy ref before r12 tag use. |
+| CONTEXT | D-01 | Deterministic prepared/ref binding | 08-29, 08-30, 08-32 | COVERED | After remote r12 tag verification, the required no-local/no-tags clone explicitly fetches the tag and wrapper derives its canonical clone-policy ref. |
 | CONTEXT | D-02..D-03 | Single adapter and secret isolation | 08-31..08-33 | COVERED | One module/run and publisher-only temporary Moon home. |
 | CONTEXT | D-04 | Explicit first core authorization | 08-32 | COVERED | Same-turn confirmed-absent-only decision; exact has no receipt/handoff. |
 | CONTEXT | D-05..D-07 | Ordering, predecessor, immutable recovery | 08-30..08-33 | COVERED | r11 terminal, r12 sole current, sequential checkpoints. |
