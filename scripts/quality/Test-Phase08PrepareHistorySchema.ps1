@@ -18,9 +18,9 @@ if($r8.attempt -cne 'r8' -or $r8.reason -cne 'terminal_pre_locator_canonical_arc
 
 . $hosted -Mode PrepareAttempt -LibraryOnly
 $BoundaryLocatorPath='strict-mode-history-schema-probe'
-$ReleaseRef='refs/tags/modules-v0.1.0-r10'
-$HistoricalReleaseRef='refs/tags/modules-v0.1.0-r9'
-$HistoricalSourceSha='4158dff7d3b6629861d4f5325573c45f3e3e3436'
+$ReleaseRef='refs/tags/modules-v0.1.0-r11'
+$HistoricalReleaseRef='refs/tags/modules-v0.1.0-r10'
+$HistoricalSourceSha='d49edc53fb4ffca375e562a23789fb76bf8c41e2'
 $script:GitCommand={param($Root,[string[]]$Arguments);throw 'P08-PREPARE-HISTORY-SCHEMA-GIT: legacy r8 schema was accepted before any git read.'}
 $probeState=Join-Path ([IO.Path]::GetTempPath()) ('mnf-p08-history-schema-'+[Guid]::NewGuid().ToString('N'))
 $boundary=[pscustomobject]@{execution_root=$repoRoot;state_root=$probeState;boundary_sha=('a'*40)}
@@ -48,19 +48,19 @@ function Confirm-P08PrepareHistoryBindingFailure([object]$Policy,[string]$Label)
 }
 
 $unexpectedField=$control|ConvertTo-Json -Depth 100|ConvertFrom-Json -Depth 100
-$unexpectedField.initial_attempt_family.terminal_negative_history[9] | Add-Member -NotePropertyName prepare_job_id -NotePropertyValue 'unexpected'
+$unexpectedField.initial_attempt_family.terminal_negative_history[10] | Add-Member -NotePropertyName prepare_job_id -NotePropertyValue 'unexpected'
 Confirm-P08PrepareHistoryBindingFailure -Policy $unexpectedField -Label 'FIELD'
 $digestDrift=$control|ConvertTo-Json -Depth 100|ConvertFrom-Json -Depth 100
-$digestDrift.initial_attempt_family.terminal_negative_history[9].record_sha256=('0'*64)
+$digestDrift.initial_attempt_family.terminal_negative_history[10].record_sha256=('0'*64)
 Confirm-P08PrepareHistoryBindingFailure -Policy $digestDrift -Label 'DIGEST'
 
 $preAuthorizationRoot=Join-Path ([IO.Path]::GetTempPath()) ('mnf-p08-preauthorization-'+[Guid]::NewGuid().ToString('N'))
 try{
   $null=New-Item -ItemType Directory -Path $preAuthorizationRoot
-  $packet=[pscustomobject][ordered]@{schema_version='mnf-phase08-mutation-authorization-packet/1';release_ref='refs/tags/modules-v0.1.0-r10';packet_sha256=''}
+  $packet=[pscustomobject][ordered]@{schema_version='mnf-phase08-mutation-authorization-packet/1';release_ref='refs/tags/modules-v0.1.0-r11';packet_sha256=''}
   $packet.packet_sha256=Get-P08SelfExcludingDigest $packet 'packet_sha256'
   $packetPath=Join-Path $preAuthorizationRoot 'packet.json';[IO.File]::WriteAllText($packetPath,($packet|ConvertTo-Json -Compress),[Text.UTF8Encoding]::new($false))
-  $projection=[pscustomobject][ordered]@{schema_version='mnf-phase08-pre-authorization/1';release_ref='refs/tags/modules-v0.1.0-r10';active_attempt_path=$null;authority_variant='confirmed_absent';exact_existing_authority_path=$null;exact_existing_authority_sha256=$null;mutation_authorization_packet_path=$packetPath;mutation_authorization_packet_sha256=(Get-P08Sha256 $packetPath);authorization_receipt_path=$null;authorization_receipt_sha256=$null;fixed_handoff_path=[IO.Path]::GetFullPath((Join-Path ([IO.Path]::GetTempPath()) 'mnf-phase08-r10-handoff.json'));fixed_handoff_sha256=$null;observation_path=$null;observation_sha256=$null;mutation_count=0;output_write_count=0}
+  $projection=[pscustomobject][ordered]@{schema_version='mnf-phase08-pre-authorization/1';release_ref='refs/tags/modules-v0.1.0-r11';active_attempt_path=$null;authority_variant='confirmed_absent';exact_existing_authority_path=$null;exact_existing_authority_sha256=$null;mutation_authorization_packet_path=$packetPath;mutation_authorization_packet_sha256=(Get-P08Sha256 $packetPath);authorization_receipt_path=$null;authorization_receipt_sha256=$null;fixed_handoff_path=[IO.Path]::GetFullPath((Join-Path ([IO.Path]::GetTempPath()) 'mnf-phase08-r11-handoff.json'));fixed_handoff_sha256=$null;observation_path=$null;observation_sha256=$null;mutation_count=0;output_write_count=0}
   $projectionPath=Join-Path $preAuthorizationRoot 'projection.json';[IO.File]::WriteAllText($projectionPath,($projection|ConvertTo-Json -Compress),[Text.UTF8Encoding]::new($false))
   & $hosted -Mode ValidatePreAuthorization -PreAuthorizationPath $projectionPath|Out-Null
   $mixed=$projection.PSObject.Copy();$mixed.authorization_receipt_path=$packetPath;$mixed.authorization_receipt_sha256=(Get-P08Sha256 $packetPath);$mixedPath=Join-Path $preAuthorizationRoot 'mixed.json';[IO.File]::WriteAllText($mixedPath,($mixed|ConvertTo-Json -Compress),[Text.UTF8Encoding]::new($false))

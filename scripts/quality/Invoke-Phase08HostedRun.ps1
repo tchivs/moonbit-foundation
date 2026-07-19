@@ -200,7 +200,7 @@ function Write-P08HostedHandoff {
 function Assert-P08PreAuthorization {
   param([Parameter(Mandatory)][object]$Projection,[Parameter(Mandatory)][string]$ExpectedHandoffPath)
   $names=@('schema_version','release_ref','active_attempt_path','authority_variant','exact_existing_authority_path','exact_existing_authority_sha256','mutation_authorization_packet_path','mutation_authorization_packet_sha256','authorization_receipt_path','authorization_receipt_sha256','fixed_handoff_path','fixed_handoff_sha256','observation_path','observation_sha256','mutation_count','output_write_count')
-  if((@($Projection.PSObject.Properties.Name)-join ',') -cne ($names-join ',') -or $Projection.schema_version -cne 'mnf-phase08-pre-authorization/1' -or $Projection.release_ref -cne 'refs/tags/modules-v0.1.0-r10'){
+  if((@($Projection.PSObject.Properties.Name)-join ',') -cne ($names-join ',') -or $Projection.schema_version -cne 'mnf-phase08-pre-authorization/1' -or $Projection.release_ref -cne 'refs/tags/modules-v0.1.0-r11'){
     Throw-P08HostedRule 'P08-PREAUTH-CLOSED' 'Pre-authorization projection shape drifted.'
   }
   if([IO.Path]::GetFullPath([string]$Projection.fixed_handoff_path) -cne [IO.Path]::GetFullPath($ExpectedHandoffPath) -or $null -ne $Projection.fixed_handoff_sha256 -or (Test-Path -LiteralPath $ExpectedHandoffPath)){
@@ -221,7 +221,7 @@ function Assert-P08PreAuthorization {
     if($Projection.authority_variant -cne 'exact_existing' -or $null -ne $Projection.mutation_authorization_packet_sha256){Throw-P08HostedRule 'P08-PREAUTH-EXACT' 'Exact-existing authority forbids packet, receipt, and handoff.'}
   }else{
     $packet=Get-Content -LiteralPath ([string]$Projection.mutation_authorization_packet_path) -Raw|ConvertFrom-Json -Depth 100
-    if($Projection.authority_variant -cne 'confirmed_absent' -or $null -ne $Projection.exact_existing_authority_sha256 -or $packet.release_ref -cne 'refs/tags/modules-v0.1.0-r10' -or $packet.packet_sha256 -cne (Get-P08SelfExcludingDigest $packet 'packet_sha256')){Throw-P08HostedRule 'P08-PREAUTH-ABSENT' 'Confirmed-absent authority requires one digest-valid r10 packet only.'}
+    if($Projection.authority_variant -cne 'confirmed_absent' -or $null -ne $Projection.exact_existing_authority_sha256 -or $packet.release_ref -cne 'refs/tags/modules-v0.1.0-r11' -or $packet.packet_sha256 -cne (Get-P08SelfExcludingDigest $packet 'packet_sha256')){Throw-P08HostedRule 'P08-PREAUTH-ABSENT' 'Confirmed-absent authority requires one digest-valid r11 packet only.'}
   }
   $Projection
 }
@@ -656,7 +656,7 @@ function New-P08PreparedAttempt {
     Throw-P08HostedRule 'P08-PREPARE-HISTORY' 'The exact eleven-entry terminal-negative history is required.'
   }
   $historicalPolicy=$history[10]
-  if($historicalPolicy.attempt -cne 'r10' -or $historicalPolicy.release_ref -cne 'refs/tags/modules-v0.1.0-r10' -or
+  if($historicalPolicy.PSObject.Properties.Name -ccontains 'prepare_job_id' -or $historicalPolicy.attempt -cne 'r10' -or $historicalPolicy.release_ref -cne 'refs/tags/modules-v0.1.0-r10' -or
       $historicalPolicy.source_sha -cne 'd49edc53fb4ffca375e562a23789fb76bf8c41e2' -or $historicalPolicy.tag_object_sha -cne '0546025c61d08a0973a2bb6040cbb19104ae64d1' -or
       $historicalPolicy.tag_peeled_source_sha -cne 'd49edc53fb4ffca375e562a23789fb76bf8c41e2' -or $historicalPolicy.failure_code -cne 'REL01-REF' -or
       $historicalPolicy.record_sha256 -cne '1d524890dd5f0c11e58bcd2884c2d4623e02759a5ff801f2554fcc2ae654895f'){
@@ -985,7 +985,7 @@ $script:GitCommand=$GitCommand
 $script:PrepareProvider=$PrepareProvider
 if($Mode -ceq 'ValidatePreAuthorization'){
   if([string]::IsNullOrWhiteSpace($PreAuthorizationPath) -or -not(Test-Path -LiteralPath $PreAuthorizationPath -PathType Leaf)){Throw-P08HostedRule 'P08-PREAUTH-PATH' 'ValidatePreAuthorization requires one readable projection.'}
-  $fixed=if([string]::IsNullOrWhiteSpace($HandoffPath)){[IO.Path]::GetFullPath((Join-Path ([IO.Path]::GetTempPath()) 'mnf-phase08-r10-handoff.json'))}else{[IO.Path]::GetFullPath($HandoffPath)}
+  $fixed=if([string]::IsNullOrWhiteSpace($HandoffPath)){[IO.Path]::GetFullPath((Join-Path ([IO.Path]::GetTempPath()) 'mnf-phase08-r11-handoff.json'))}else{[IO.Path]::GetFullPath($HandoffPath)}
   Assert-P08PreAuthorization -Projection (Get-Content -LiteralPath $PreAuthorizationPath -Raw|ConvertFrom-Json -Depth 100) -ExpectedHandoffPath $fixed
   return
 }
