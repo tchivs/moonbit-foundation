@@ -27,19 +27,26 @@ try{
   $histories=[Collections.Generic.List[object]]::new()
   foreach($record in @($policy.initial_attempt_family.terminal_negative_history)){
     $attemptRoot=Join-Path $root ([string]$record.attempt);$execution=Join-Path $attemptRoot 'execution';$state=Join-Path $attemptRoot 'state';$store=Join-Path $state 'store'
-    $null=New-Item -ItemType Directory -Force $execution,$store
+    $null=New-Item -ItemType Directory -Force $attemptRoot
+    $historicalArtifact=Join-Path $attemptRoot 'historical.json'
+    $historicalProjection=[ordered]@{};foreach($property in $record.PSObject.Properties){if($property.Name-cne'record_sha256'){$historicalProjection[$property.Name]=$property.Value}}
+    [IO.File]::WriteAllText($historicalArtifact,(([pscustomobject]$historicalProjection)|ConvertTo-Json -Depth 100 -Compress),[Text.UTF8Encoding]::new($false))
+    if($record.attempt-cne'attempt_zero'){$null=New-Item -ItemType Directory -Force $execution,$store}
     $boundary=Join-Path $state 'boundary-locator.json';$index=Join-Path $store 'index.json';$active=Join-Path $state 'phase-08-live-locator.json'
-    [IO.File]::WriteAllText($boundary,'{"kind":"boundary"}',[Text.UTF8Encoding]::new($false));[IO.File]::WriteAllText($index,'{"kind":"index"}',[Text.UTF8Encoding]::new($false));[IO.File]::WriteAllText($active,'{"kind":"active"}',[Text.UTF8Encoding]::new($false))
+    if($record.attempt-cne'attempt_zero'){
+      [IO.File]::WriteAllText($boundary,'{"kind":"boundary"}',[Text.UTF8Encoding]::new($false));[IO.File]::WriteAllText($index,'{"kind":"index"}',[Text.UTF8Encoding]::new($false));[IO.File]::WriteAllText($active,'{"kind":"active"}',[Text.UTF8Encoding]::new($false))
+    }
     $histories.Add([pscustomobject][ordered]@{
       attempt=[string]$record.attempt;release_ref=[string]$record.release_ref;source_sha=[string]$record.source_sha
       tag_object_sha=if($record.attempt-ceq'r5'){'4a11582cf9aeae15802cf4f6d7394b013ece63ac'}else{$null};peel_sha=[string]$record.source_sha
-      record_sha256=[string]$record.record_sha256;record=$record;execution_root=[IO.Path]::GetFullPath($execution);state_root=[IO.Path]::GetFullPath($state)
-      boundary_locator_path=[IO.Path]::GetFullPath($boundary);active_locator_path=[IO.Path]::GetFullPath($active);index_path=[IO.Path]::GetFullPath($index);store_root=[IO.Path]::GetFullPath($store)
-      immutable_files=@(
+      record_sha256=[string]$record.record_sha256;record=$record
+      execution_root=if($record.attempt-ceq'attempt_zero'){$null}else{[IO.Path]::GetFullPath($execution)};state_root=if($record.attempt-ceq'attempt_zero'){$null}else{[IO.Path]::GetFullPath($state)}
+      boundary_locator_path=if($record.attempt-ceq'attempt_zero'){$null}else{[IO.Path]::GetFullPath($boundary)};active_locator_path=if($record.attempt-ceq'attempt_zero'){$null}else{[IO.Path]::GetFullPath($active)};index_path=if($record.attempt-ceq'attempt_zero'){$null}else{[IO.Path]::GetFullPath($index)};store_root=if($record.attempt-ceq'attempt_zero'){$null}else{[IO.Path]::GetFullPath($store)}
+      immutable_files=if($record.attempt-ceq'attempt_zero'){@([pscustomobject][ordered]@{path=[IO.Path]::GetFullPath($historicalArtifact);sha256=(Get-FileHash $historicalArtifact -Algorithm SHA256).Hash.ToLowerInvariant()})}else{@(
         [pscustomobject][ordered]@{path=[IO.Path]::GetFullPath($boundary);sha256=(Get-FileHash $boundary -Algorithm SHA256).Hash.ToLowerInvariant()},
         [pscustomobject][ordered]@{path=[IO.Path]::GetFullPath($active);sha256=(Get-FileHash $active -Algorithm SHA256).Hash.ToLowerInvariant()},
         [pscustomobject][ordered]@{path=[IO.Path]::GetFullPath($index);sha256=(Get-FileHash $index -Algorithm SHA256).Hash.ToLowerInvariant()}
-      )
+      )}
     })
   }
   $context=[pscustomobject][ordered]@{
@@ -54,6 +61,9 @@ try{
   if($before-cne$after-or(@($result.PSObject.Properties.Name)-join',')-cne'schema_version,repository,head_sha,historical_attempt_zero_sha256,historical_r1_sha256,historical_r2_sha256,historical_r3_sha256,historical_r4_sha256,historical_r5_sha256,historical_history_set_sha256,r5_terminal_disposition,r5_publish_run_count,r5_downstream_effect_count,summary_08_15_commit,summary_08_16_commit,r6_local_absent,r6_remote_absent,handoff_absent,filesystem_writes,git_writes,network_calls'){throw 'P08-R6-POSITIVE: output or zero-write boundary drifted.'}
 
   $bad=Copy-R6Context $context;$bad.histories[0].peel_sha=('9'*40);Confirm-R6Failure 'P08-R6-HISTORY' {Assert-Phase08R6PreLive $bad}
+  $bad=Copy-R6Context $context;$bad.histories[0].state_root=[IO.Path]::GetFullPath($root);Confirm-R6Failure 'P08-R6-HISTORICAL-ROOT' {Assert-Phase08R6PreLive $bad}
+  $bad=Copy-R6Context $context;$bad.histories[0].immutable_files[0].sha256=('9'*64);Confirm-R6Failure 'P08-R6-HISTORICAL-ARTIFACT' {Assert-Phase08R6PreLive $bad}
+  $bad=Copy-R6Context $context;$bad.histories[1].state_root=$null;Confirm-R6Failure 'P08-R6-PATH' {Assert-Phase08R6PreLive $bad}
   $bad=Copy-R6Context $context;$bad.histories[5].tag_object_sha=('9'*40);Confirm-R6Failure 'P08-R6-TAG' {Assert-Phase08R6PreLive $bad}
   $bad=Copy-R6Context $context;$bad.histories[5].record.hosted_run_present=$true;Confirm-R6Failure 'P08-R6-HISTORY-DIGEST' {Assert-Phase08R6PreLive $bad}
   $bad=Copy-R6Context $context;$bad.histories[5].record.registry_disposition='unknown';$bad.histories[5].record_sha256=Get-R6PreLiveRecordDigest $bad.histories[5].record;Confirm-R6Failure 'P08-R6-HISTORY' {Assert-Phase08R6PreLive $bad}

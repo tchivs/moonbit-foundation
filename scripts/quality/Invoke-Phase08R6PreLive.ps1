@@ -48,12 +48,18 @@ function Assert-Phase08R6PreLive {
     if((Get-R6PreLiveRecordDigest $record)-cne$item.record_sha256){Throw-R6PreLive 'P08-R6-HISTORY-DIGEST' "History '$($item.attempt)' record digest drifted."}
     if($item.attempt-ceq'r5' -and $item.tag_object_sha-cne'4a11582cf9aeae15802cf4f6d7394b013ece63ac'){Throw-R6PreLive 'P08-R6-TAG' 'r5 annotated tag object drifted.'}
     if($null-ne$item.tag_object_sha-and$item.tag_object_sha-cnotmatch'^[0-9a-f]{40}$'){Throw-R6PreLive 'P08-R6-TAG' "History '$($item.attempt)' tag object is invalid."}
-    foreach($directory in @($item.execution_root,$item.state_root,$item.store_root)){if(-not(Test-Path -LiteralPath $directory -PathType Container)){Throw-R6PreLive 'P08-R6-PATH' "Missing immutable directory '$directory'."}}
-    foreach($path in @($item.boundary_locator_path,$item.index_path)){ $null=Assert-R6Contained $path $item.state_root;if(-not(Test-Path -LiteralPath $path -PathType Leaf)){Throw-R6PreLive 'P08-R6-PATH' "Missing immutable path '$path'."}}
-    if($null-ne$item.active_locator_path){$null=Assert-R6Contained $item.active_locator_path $item.state_root;if(-not(Test-Path -LiteralPath $item.active_locator_path -PathType Leaf)){Throw-R6PreLive 'P08-R6-PATH' 'Active locator is missing.'}}
+    if($item.attempt-ceq'attempt_zero'){
+      if($null-ne$item.execution_root-or$null-ne$item.state_root-or$null-ne$item.boundary_locator_path-or$null-ne$item.active_locator_path-or$null-ne$item.index_path-or$null-ne$item.store_root){Throw-R6PreLive 'P08-R6-HISTORICAL-ROOT' 'attempt_zero must not claim a Phase 8 local root, locator, index, or store.'}
+      if($record.hosted_run_present-ne$true-or[string]$record.run_id-cne'29652468948'-or[int]$record.run_attempt-ne1-or$record.mutation_performed-ne$false-or$record.authority_acquired-ne$false-or$record.reason-cne'terminal_setup_failure'){Throw-R6PreLive 'P08-R6-HISTORY' 'attempt_zero terminal hosted evidence drifted.'}
+      if(@($item.immutable_files).Count-ne1-or[string]$item.immutable_files[0].sha256-cne[string]$item.record_sha256){Throw-R6PreLive 'P08-R6-HISTORICAL-ARTIFACT' 'attempt_zero requires exactly one digest-bound terminal artifact.'}
+    }else{
+      foreach($directory in @($item.execution_root,$item.state_root,$item.store_root)){if([string]::IsNullOrWhiteSpace([string]$directory)-or-not(Test-Path -LiteralPath $directory -PathType Container)){Throw-R6PreLive 'P08-R6-PATH' "Missing immutable directory '$directory'."}}
+      foreach($path in @($item.boundary_locator_path,$item.index_path)){if([string]::IsNullOrWhiteSpace([string]$path)){Throw-R6PreLive 'P08-R6-PATH' 'Persisted history path is missing.'};$null=Assert-R6Contained $path $item.state_root;if(-not(Test-Path -LiteralPath $path -PathType Leaf)){Throw-R6PreLive 'P08-R6-PATH' "Missing immutable path '$path'."}}
+      if($null-ne$item.active_locator_path){$null=Assert-R6Contained $item.active_locator_path $item.state_root;if(-not(Test-Path -LiteralPath $item.active_locator_path -PathType Leaf)){Throw-R6PreLive 'P08-R6-PATH' 'Active locator is missing.'}}
+    }
     foreach($file in @($item.immutable_files)){
       if((@($file.PSObject.Properties.Name)-join',')-cne'path,sha256'){Throw-R6PreLive 'P08-R6-PATH-CLOSED' 'Immutable file binding is not closed.'}
-      $null=Assert-R6Contained $file.path $item.state_root
+      if($item.attempt-cne'attempt_zero'){$null=Assert-R6Contained $file.path $item.state_root}
       if((Get-R6PreLiveSha $file.path)-cne$file.sha256){Throw-R6PreLive 'P08-R6-PATH-DIGEST' "Immutable file '$($file.path)' drifted."}
     }
     $digests.Add([string]$item.record_sha256)
@@ -99,7 +105,7 @@ function Find-R6HistoricalBoundary([object]$Record){
     if($boundary.boundary_sha-cne$Record.source_sha){continue}
     $activePath=Join-Path $directory.FullName 'phase-08-live-locator.json';$active=$null
     if(Test-Path -LiteralPath $activePath -PathType Leaf){try{$active=Get-Content -LiteralPath $activePath -Raw|ConvertFrom-Json -Depth 100}catch{continue}}
-    if($null-ne$active-and$active.release_ref-cne$Record.release_ref){continue}
+    if($null-eq$active-or$active.release_ref-cne$Record.release_ref){continue}
     $candidates.Add([pscustomobject]@{directory=$directory.FullName;boundary_path=$boundaryPath;boundary=$boundary;active_path=if($null-eq$active){$null}else{$activePath};active=$active})
   }
   if($candidates.Count-ne1){Throw-R6PreLive 'P08-R6-HISTORICAL-ROOT' "Expected one immutable state root for '$($Record.attempt)', got $($candidates.Count)."}
@@ -111,13 +117,26 @@ function New-Phase08R6ProductionContext([string]$ExpectedRepository,[string]$Exp
   $remoteUrl=Invoke-R6PreLiveGit @('config','--get',"remote.$ExpectedRemote.url")
   if($ExpectedRepository-cne'tchivs/moonbit-foundation'-or$ExpectedRemote-cne'origin'-or$remoteUrl.lines.Count-ne1){Throw-R6PreLive 'P08-R6-REMOTE' 'Canonical repository remote is missing.'}
   $policy=Read-ReleaseJson (Join-Path $repoRoot 'policy/release-control.json');$histories=[Collections.Generic.List[object]]::new()
+  $foundByAttempt=@{}
+  foreach($persistedRecord in @($policy.initial_attempt_family.terminal_negative_history|Where-Object{$_.attempt-cne'attempt_zero'})){$foundByAttempt[[string]$persistedRecord.attempt]=Find-R6HistoricalBoundary $persistedRecord}
+  $r5Found=$foundByAttempt.r5;$r5IndexPath=[string]$r5Found.active.index_path;$r5StoreRoot=Split-Path -Parent $r5IndexPath
+  $r5Index=Get-Content -LiteralPath $r5IndexPath -Raw|ConvertFrom-Json -Depth 100
+  $attemptZeroRecord=@($policy.initial_attempt_family.terminal_negative_history)[0]
+  $attemptZeroEntries=@($r5Index.records|Where-Object{$_.logical_key-ceq'prepare|historical|attempt-zero'-and$_.kind-ceq'HistoricalNegative'-and$_.path-ceq'historical/attempt-zero.json'-and$_.file_sha256-ceq$attemptZeroRecord.record_sha256-and$_.content_sha256-ceq$attemptZeroRecord.record_sha256})
+  if($attemptZeroEntries.Count-ne1){Throw-R6PreLive 'P08-R6-HISTORICAL-ARTIFACT' "Expected one r5-indexed attempt_zero artifact, got $($attemptZeroEntries.Count)."}
+  $attemptZeroArtifact=[IO.Path]::GetFullPath((Join-Path $r5StoreRoot ([string]$attemptZeroEntries[0].path)));$null=Assert-R6Contained $attemptZeroArtifact ([string]$r5Found.directory)
+  if((Get-R6PreLiveSha $attemptZeroArtifact)-cne[string]$attemptZeroRecord.record_sha256){Throw-R6PreLive 'P08-R6-HISTORICAL-ARTIFACT' 'attempt_zero terminal artifact digest drifted.'}
   foreach($record in @($policy.initial_attempt_family.terminal_negative_history)){
     $object=(Invoke-R6PreLiveGit @('rev-parse',$record.release_ref)).lines[0]
     $peel=(Invoke-R6PreLiveGit @('rev-parse',"$($record.release_ref)^{}" )).lines[0]
     $type=(Invoke-R6PreLiveGit @('cat-file','-t',$object)).lines[0]
     $tagObject=if($type-ceq'tag'){$object}else{$null}
     if($record.attempt-ceq'r5'-and$tagObject-cne$record.tag_object_sha){Throw-R6PreLive 'P08-R6-TAG' 'r5 tag object drifted.'}
-    $found=Find-R6HistoricalBoundary $record;$boundary=$found.boundary
+    if($record.attempt-ceq'attempt_zero'){
+      $histories.Add([pscustomobject][ordered]@{attempt=[string]$record.attempt;release_ref=[string]$record.release_ref;source_sha=[string]$record.source_sha;tag_object_sha=$tagObject;peel_sha=$peel;record_sha256=[string]$record.record_sha256;record=$record;execution_root=$null;state_root=$null;boundary_locator_path=$null;active_locator_path=$null;index_path=$null;store_root=$null;immutable_files=@([pscustomobject][ordered]@{path=$attemptZeroArtifact;sha256=[string]$record.record_sha256})})
+      continue
+    }
+    $found=$foundByAttempt[[string]$record.attempt];$boundary=$found.boundary
     if($boundary.repository-cne$ExpectedRepository-or$boundary.execution_root-cne[IO.Path]::GetFullPath([string]$boundary.execution_root)-or$boundary.state_root-cne[IO.Path]::GetFullPath([string]$found.directory)){Throw-R6PreLive 'P08-R6-HISTORICAL-BINDING' "Boundary '$($record.attempt)' drifted."}
     $indexPath=if($null-ne$found.active){[string]$found.active.index_path}else{[string]$boundary.index_path};$storeRoot=Split-Path -Parent $indexPath
     $immutable=[Collections.Generic.List[object]]::new()
