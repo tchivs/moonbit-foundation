@@ -4,7 +4,7 @@
 
 Phase 8 integrates only the Mooncakes capabilities required to publish one dependency-safe module per authorized run, observe it through credential-free structured surfaces, and prove exact cold registry consumption. The canonical semantic order is `tchivs/mb-core@0.1.0` -> `tchivs/mb-color@0.1.0` -> `tchivs/mb-image@0.1.0`. Normalized graph serialization is deterministic but never changes node/edge equality.
 
-Attempt-zero, r1 at `09548df948f58ec1bdfff7494757596c03e4c9bd`, r2 at `73a3af920fc3938f49e93d14f16f79f116475f1e`, and r3 at `67b1fbc9dd62288d19018c46a44c1e3293212b76` are four distinct immutable terminal-negative histories. r3 had no hosted run, mutation, or authority: PrepareAttempt and confirmed_absent completed, then workflow/controller 17-versus-14 input parity and missing receipt declaration failed before GitHub run creation. The new retry uses `modules-v0.1.0-r4` with fresh initial root/genesis/prepared/store, module `0.1.0`, `intent_kind: initial`, sequence 0, and no predecessor. Every eligibility artifact binds four individual history digests plus the canonical ordered set. Correction-N remains for published-content mismatch. Only absent may preflight/dry and needs packet plus literal receipt; exact-existing needs neither.
+Attempt-zero, r1, r2, r3, and r4 at `ee4a8eb9b8dca5d69b404c9a4a1cd81608a5462a` are five distinct immutable terminal-negative histories. r4's only hosted run `29667231047/1` failed during credential-free HostedPreflight qualification because a valid clean empty tracked snapshot could not bind to `Before`; PublisherDryRun, packet, receipt, handoff, and mutation remained zero. The retry uses `modules-v0.1.0-r5` with fresh initial root/genesis/prepared/store, module `0.1.0`, sequence 0, root=current, and no predecessor. Every eligibility artifact binds five individual digests plus the ordered set. Only absent may preflight/dry and needs packet+literal receipt; exact needs neither.
 
 The assumption-delta detector phrase `Git fallback` maps to the noun **registry-only dependency source**, decision **no-change**, because an alternate source is prohibited rather than generalized into an identity model.
 
@@ -12,26 +12,27 @@ The assumption-delta detector phrase `Git fallback` maps to the noun **registry-
 
 | Source | ID | Feature / requirement | Plan | Status | Notes |
 |---|---|---|---|---|---|
-| GOAL | - | Three genuine publications and cold consumption in strict dependency order | 08-01..08-14 | COVERED | r4 contracts, parity seam, AuthorityUnion, and ordered closure are sequential; four prior attempts remain terminal. |
-| REQ | DIST-01 | Core exact publication and four-target cold proof before color | 08-03..08-14 | COVERED | r4 union: absent packet+receipt, exact neither; both bind four histories and core cold proof. |
-| REQ | DIST-02 | Color exact publication and core-color proof before image | 08-03, 08-04, 08-06, 08-14 | COVERED | Verified r4 core is predecessor. |
-| REQ | DIST-03 | Image exact publication and full-graph PPM proof | 08-03, 08-04, 08-06, 08-14 | COVERED | Closed switch and exact graph. |
-| REQ | DIST-04 | Outside-checkout cold credential-free evidence | 08-01, 08-02, 08-03, 08-06, 08-14 | COVERED | Alternate state/source rejected. |
-| REQ | PROV-05 | Read-only exact public metadata | 08-02, 08-04, 08-06, 08-14 | COVERED | Structured surfaces only. |
-| CONTEXT | D-01..D-04 | Bundle, adapter, isolation, first mutation | 08-01, 08-04..08-13 | COVERED | r4 exact code precedes tag; absent receipt versus exact branch; preflight mutation-only. |
-| CONTEXT | D-05..D-07 | One mutation/run, predecessor, resume | 08-04, 08-06, 08-08, 08-10, 08-12, 08-14 | COVERED | No exact republish. |
-| CONTEXT | D-08..D-12 | Exact four-target cold consumers | 08-03, 08-06, 08-14 | COVERED | Empty homes and exact graphs. |
-| CONTEXT | D-13..D-15 | Polling, ambiguity stop, forward retry | 08-02, 08-04..08-14 | COVERED | Ambiguity stops; r4 remains initial. |
-| CONTEXT | D-16..D-19 | Structured metadata, sanitized evidence, fresh core observation | 08-02, 08-05, 08-06, 08-08, 08-10, 08-12, 08-13, 08-14 | COVERED | Fresh observations feed r4 union. |
+| GOAL | - | Three genuine publications and cold consumption in strict dependency order | 08-01..08-16 | COVERED | r5 contracts, seam, union, closure sequential; five attempts terminal. |
+| REQ | DIST-01 | Core exact publication and four-target cold proof before color | 08-03..08-16 | COVERED | r5 union binds five histories; absent packet+receipt, exact neither. |
+| REQ | DIST-02 | Color exact publication and core-color proof before image | 08-03, 08-04, 08-06, 08-16 | COVERED | Verified r5 core predecessor. |
+| REQ | DIST-03 | Image exact publication and full-graph PPM proof | 08-03, 08-04, 08-06, 08-16 | COVERED | Closed switch/exact graph. |
+| REQ | DIST-04 | Outside-checkout cold credential-free evidence | 08-01, 08-02, 08-03, 08-06, 08-16 | COVERED | Alternate state rejected. |
+| REQ | PROV-05 | Read-only exact public metadata | 08-02, 08-04, 08-06, 08-16 | COVERED | Structured only. |
+| CONTEXT | D-01..D-04 | Bundle, adapter, isolation, first mutation | 08-01, 08-04..08-15 | COVERED | r5 code precedes tag; absent receipt vs exact. |
+| CONTEXT | D-05..D-07 | One mutation/run, predecessor, resume | 08-04, 08-06, 08-08, 08-10, 08-12, 08-14, 08-16 | COVERED | No exact republish. |
+| CONTEXT | D-08..D-12 | Exact four-target cold consumers | 08-03, 08-06, 08-16 | COVERED | Empty homes/exact graphs. |
+| CONTEXT | D-13..D-15 | Polling, ambiguity stop, forward retry | 08-02, 08-04..08-16 | COVERED | r5 remains initial. |
+| CONTEXT | D-16..D-19 | Structured metadata, sanitized evidence, fresh core observation | 08-02, 08-05, 08-06, 08-08, 08-10, 08-12, 08-14, 08-15, 08-16 | COVERED | Fresh observation feeds r5 union. |
 | RESEARCH | Prepared bundle is complete before secret access | 08-01, 08-04 | COVERED | Publisher repeats validation. |
 | RESEARCH | Cold consumer is a separate trust domain | 08-03 | COVERED | No checkout/workspace/cache/credential inheritance. |
 | RESEARCH | Structured observation precedes presentation | 08-02, 08-06, 08-11, 08-12 | COVERED | Closed projection and exact comparison. |
 | RESEARCH | Public surface shape is freshness-sensitive | 08-02, 08-06, 08-11, 08-12 | COVERED | Unknown shape blocks. |
-| DEBUG | hosted setup/field/parity failures | Preserve attempts and exact corrected contracts | 08-05..08-13 | COVERED | Four histories bind exact stages; r3 stopped before run creation; r4 preserves exact14 receipt parity. |
+| DEBUG | hosted setup/field/parity/snapshot failures | Preserve attempts and corrected contracts | 08-05..08-15 | COVERED | Five histories bind stages; r4 run failed on empty clean snapshot; r5 preserves snapshot and exact14 fixes. |
 | DEBUG | publisher actor identity | Prove exact `tchivs` without raw authentication output | 08-05, 08-06, 08-08, 08-10, 08-11, 08-12 | COVERED | Exact parse, sanitized packet/receipt, reciprocal digest. |
-| DEBUG | fresh authorization continuation | Revalidate untrusted checkpoint state before receipt | 08-08, 08-10, 08-12, 08-13, 08-14 | COVERED | Dynamic human-action requires same-turn verbatim user literal; continuation reloads disk/remote state and re-proves LF boundary, four histories/set, actor, dry run, and absence. |
-| TEST | fixed handoff/tag isolation | Production path/tags are non-overridable and tests never inherit them | 08-08, 08-10, 08-12, 08-13 | COVERED | r4 LibraryOnly GUID roots plus no-tags clones, owned cleanup, fixed-path absence/collision fail-close, and production override rejection. |
-| TEST | hosted exact14 receipt parity | Controller/workflow declarations/propagation and start/resume values | 08-10, 08-12, 08-14 | COVERED | Prevents 17-vs-14 drift, missing receipt, ungrouped-if, and vector collapse. |
+| DEBUG | fresh authorization continuation | Revalidate untrusted checkpoint before receipt | 08-08, 08-10, 08-12, 08-14, 08-15, 08-16 | COVERED | Same-turn verbatim user literal; reload LF boundary, five histories/set, actor, dry run, absence. |
+| TEST | fixed handoff/tag isolation | Production path/tags non-overridable | 08-08, 08-10, 08-12, 08-14, 08-15 | COVERED | r5 LibraryOnly GUID/no-tags/owned cleanup/fixed absence. |
+| TEST | hosted exact14 receipt parity | Controller/workflow declarations/propagation | 08-10, 08-12, 08-14, 08-16 | COVERED | Prevents parity/receipt/vector drift. |
+| TEST | clean tracked snapshot | Equal empty clean state passes; unequal nonempty drift fails | 08-13, 08-14, 08-15, 08-16 | COVERED | Preserves clean checkout and mutation detection. |
 
 ## Requirement Adjacency and Edge Rules
 

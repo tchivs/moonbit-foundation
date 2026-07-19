@@ -183,7 +183,7 @@
 4. Every proof runs outside the repository with an isolated cold Moon home and no publisher credential, `moon.work`, path dependency, copied source, Git fallback, or warm-cache-only success, and records registry metadata, strongest available package identity, resolved graph, toolchain, target results, and behavioral assertion.
 5. After publication, credential-redacted read-only Mooncakes observation proves that each module page renders the intended qualified public metadata; missing, drifted, or ambiguous rendering blocks PROV-05 without registry mutation.
 
-**Plans:** 12/14 plans executed
+**Plans:** 12/16 plans executed
 **Wave 1**
 
 - [x] 08-01-PLAN.md
@@ -234,11 +234,19 @@
 
 **Wave 13** *(blocked on Wave 12 completion)*
 
-- [ ] 08-13-PLAN.md — Establish the LF-clean r4 boundary and non-mutating AuthorityUnion handoff.
+- [ ] 08-13-PLAN.md — Define r5 attempt-family and five-history prepared/authority contracts.
 
 **Wave 14** *(blocked on Wave 13 completion)*
 
-- [ ] 08-14-PLAN.md — Publish or recover core/color/image in order and close reciprocal evidence.
+- [ ] 08-14-PLAN.md — Wire r5 hosted seam and preserve snapshot/exact14/isolation regressions.
+
+**Wave 15** *(blocked on Wave 14 completion)*
+
+- [ ] 08-15-PLAN.md — Establish the LF-clean r5 boundary and non-mutating AuthorityUnion handoff.
+
+**Wave 16** *(blocked on Wave 15 completion)*
+
+- [ ] 08-16-PLAN.md — Publish or recover core/color/image in order and close reciprocal evidence.
 
 ### Phase 9: Provenance, Immutable Closure, and Milestone Audit
 
@@ -270,7 +278,7 @@
 | 5. Reference Codec and Release Qualification | v0.1 | 8/8 | Complete | 2026-07-17 |
 | 6. Namespace Authority and Compatibility Contract | v0.2 | 25/25 | Complete    | 2026-07-18 |
 | 7. Release Safety, Intent, and Recovery Automation | v0.2 | 3/3 | Complete | 2026-07-18 |
-| 8. Ordered Mooncakes Publication and Registry Consumers | v0.2 | 12/14 | In Progress|  |
+| 8. Ordered Mooncakes Publication and Registry Consumers | v0.2 | 12/16 | In Progress|  |
 | 9. Provenance, Immutable Closure, and Milestone Audit | v0.2 | 0/TBD | Not started | — |
 
 ## Stable Audit Anchors
