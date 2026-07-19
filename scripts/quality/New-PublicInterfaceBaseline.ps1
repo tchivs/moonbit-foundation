@@ -79,13 +79,24 @@ function Get-ModuleTreeSha256 {
   param([Parameter(Mandatory)][string]$RepoRoot, [Parameter(Mandatory)][string]$Commit)
   $paths = @(& git -C $RepoRoot ls-tree -r --name-only $Commit -- modules/mb-core modules/mb-color modules/mb-image | Sort-Object)
   if ($LASTEXITCODE -ne 0 -or $paths.Count -eq 0) { throw 'Unable to enumerate anchored module tree.' }
-  $temporary = Join-Path ([IO.Path]::GetTempPath()) ('mnf-source-tree-' + [guid]::NewGuid().ToString('N'))
+  $zip = Join-Path ([IO.Path]::GetTempPath()) ('mnf-source-tree-' + [guid]::NewGuid().ToString('N') + '.zip')
+  $archive = $null
+  $stream = $null
   try {
-    New-CleanArchiveCopy -RepoRoot $RepoRoot -Commit $Commit -Destination $temporary
+    & git -C $RepoRoot archive --format=zip $Commit -o $zip
+    if ($LASTEXITCODE -ne 0) { throw "git archive failed for '$Commit'." }
+    $stream = [IO.File]::OpenRead($zip)
+    $archive = [IO.Compression.ZipArchive]::new($stream, [IO.Compression.ZipArchiveMode]::Read, $false)
     $hasher = [Security.Cryptography.SHA256]::Create()
     foreach ($path in $paths) {
       $pathBytes = [Text.Encoding]::UTF8.GetBytes([string]$path)
-      $fileBytes = [IO.File]::ReadAllBytes((Join-Path $temporary $path))
+      $entry = $archive.GetEntry(([string]$path).Replace('\','/'))
+      if ($null -eq $entry) { throw "Anchored module tree entry '$path' is missing." }
+      $entryStream = $entry.Open()
+      try {
+        $buffer = [IO.MemoryStream]::new()
+        try { $entryStream.CopyTo($buffer); $fileBytes = $buffer.ToArray() } finally { $buffer.Dispose() }
+      } finally { $entryStream.Dispose() }
       $lengthBytes = [BitConverter]::GetBytes([UInt64]$fileBytes.Length)
       if ([BitConverter]::IsLittleEndian) { [Array]::Reverse($lengthBytes) }
       $null = $hasher.TransformBlock($pathBytes, 0, $pathBytes.Length, $null, 0)
@@ -95,7 +106,11 @@ function Get-ModuleTreeSha256 {
     }
     $null = $hasher.TransformFinalBlock([byte[]]::new(0), 0, 0)
     [Convert]::ToHexString($hasher.Hash).ToLowerInvariant()
-  } finally { if (Test-Path -LiteralPath $temporary) { Remove-Item -LiteralPath $temporary -Recurse -Force } }
+  } finally {
+    if ($null -ne $archive) { $archive.Dispose() }
+    if ($null -ne $stream) { $stream.Dispose() }
+    if (Test-Path -LiteralPath $zip) { Remove-Item -LiteralPath $zip -Force }
+  }
 }
 
 function Assert-SourceSnapshot {
