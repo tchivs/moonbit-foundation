@@ -264,14 +264,14 @@ function ConvertTo-ReleaseCanonicalUtc {
 function Get-ReleaseInitialHistoryBinding {
   $policy = Read-ReleaseJson -Path (Join-Path $PSScriptRoot '..\..\policy\release-control.json')
   $history = @($policy.initial_attempt_family.terminal_negative_history)
-  if ($history.Count -ne 10 -or ($history.attempt -join ',') -cne 'attempt_zero,r1,r2,r3,r4,r5,r6,r7,r8,r9') { Throw-ReleaseRule -Id 'REL04-HISTORY-BINDING' -Message 'canonical ten-attempt history is missing or reordered.' }
+  if ($history.Count -ne 11 -or ($history.attempt -join ',') -cne 'attempt_zero,r1,r2,r3,r4,r5,r6,r7,r8,r9,r10') { Throw-ReleaseRule -Id 'REL04-HISTORY-BINDING' -Message 'canonical eleven-attempt history is missing or reordered.' }
   $digests = @($history.record_sha256)
-  if (@($digests | Where-Object { -not (Test-ReleaseSha256Text $_) } | Select-Object -Unique).Count -ne 0 -or @($digests | Select-Object -Unique).Count -ne 10) { Throw-ReleaseRule -Id 'REL04-HISTORY-BINDING' -Message 'history record digests are missing or duplicated.' }
+  if (@($digests | Where-Object { -not (Test-ReleaseSha256Text $_) } | Select-Object -Unique).Count -ne 0 -or @($digests | Select-Object -Unique).Count -ne 11) { Throw-ReleaseRule -Id 'REL04-HISTORY-BINDING' -Message 'history record digests are missing or duplicated.' }
   $set = Get-ReleaseTextSha256 -Text ($digests -join "`n")
   if ($set -cne [string]$policy.initial_attempt_family.history_set_sha256) { Throw-ReleaseRule -Id 'REL04-HISTORY-BINDING' -Message 'ordered history-set digest drifted.' }
   return [pscustomobject][ordered]@{
     historical_attempt_zero_sha256=[string]$digests[0];historical_r1_sha256=[string]$digests[1]
-    historical_r2_sha256=[string]$digests[2];historical_r3_sha256=[string]$digests[3];historical_r4_sha256=[string]$digests[4];historical_r5_sha256=[string]$digests[5];historical_r6_sha256=[string]$digests[6];historical_r7_sha256=[string]$digests[7];historical_r8_sha256=[string]$digests[8];historical_r9_sha256=[string]$digests[9];historical_history_set_sha256=$set
+    historical_r2_sha256=[string]$digests[2];historical_r3_sha256=[string]$digests[3];historical_r4_sha256=[string]$digests[4];historical_r5_sha256=[string]$digests[5];historical_r6_sha256=[string]$digests[6];historical_r7_sha256=[string]$digests[7];historical_r8_sha256=[string]$digests[8];historical_r9_sha256=[string]$digests[9];historical_r10_sha256=[string]$digests[10];historical_history_set_sha256=$set
   }
 }
 
@@ -325,9 +325,9 @@ function New-ReleaseAuthorizationReceipt {
   param([Parameter(Mandatory)][string]$BoundarySha,[Parameter(Mandatory)][string]$SourceSha,[Parameter(Mandatory)][string]$PacketSha256,[Parameter(Mandatory)][object]$CreatedAt)
   $history=Get-ReleaseInitialHistoryBinding
   $value=[pscustomobject][ordered]@{
-    schema_version='mnf-phase08-authorization-receipt/1';release_ref='refs/tags/modules-v0.1.0-r10';boundary_sha=$BoundarySha;source_sha=$SourceSha
+    schema_version='mnf-phase08-authorization-receipt/1';release_ref='refs/tags/modules-v0.1.0-r11';boundary_sha=$BoundarySha;source_sha=$SourceSha
     packet_sha256=$PacketSha256;historical_attempt_zero_sha256=$history.historical_attempt_zero_sha256;historical_r1_sha256=$history.historical_r1_sha256
-    historical_r2_sha256=$history.historical_r2_sha256;historical_r3_sha256=$history.historical_r3_sha256;historical_r4_sha256=$history.historical_r4_sha256;historical_r5_sha256=$history.historical_r5_sha256;historical_r6_sha256=$history.historical_r6_sha256;historical_r7_sha256=$history.historical_r7_sha256;historical_r8_sha256=$history.historical_r8_sha256;historical_r9_sha256=$history.historical_r9_sha256;historical_history_set_sha256=$history.historical_history_set_sha256
+    historical_r2_sha256=$history.historical_r2_sha256;historical_r3_sha256=$history.historical_r3_sha256;historical_r4_sha256=$history.historical_r4_sha256;historical_r5_sha256=$history.historical_r5_sha256;historical_r6_sha256=$history.historical_r6_sha256;historical_r7_sha256=$history.historical_r7_sha256;historical_r8_sha256=$history.historical_r8_sha256;historical_r9_sha256=$history.historical_r9_sha256;historical_r10_sha256=$history.historical_r10_sha256;historical_history_set_sha256=$history.historical_history_set_sha256
     response='authorize-core';created_at_utc=(ConvertTo-ReleaseCanonicalUtc $CreatedAt);receipt_sha256=''
   }
   $value.receipt_sha256=Get-ReleaseTextSha256 -Text ((Get-ReleaseAuthorizationReceiptProjection $value)|ConvertTo-Json -Depth 20 -Compress)
@@ -337,17 +337,17 @@ function New-ReleaseAuthorizationReceipt {
 
 function Assert-ReleaseAuthorizationReceipt {
   param([Parameter(Mandatory)][object]$Receipt,[string]$ExpectedBoundarySha,[string]$ExpectedSourceSha,[string]$ExpectedPacketSha256)
-  try { Assert-ReleaseExactSequence -Label 'authorization receipt properties' -Actual @($Receipt.PSObject.Properties.Name) -Expected @('schema_version','release_ref','boundary_sha','source_sha','packet_sha256','historical_attempt_zero_sha256','historical_r1_sha256','historical_r2_sha256','historical_r3_sha256','historical_r4_sha256','historical_r5_sha256','historical_r6_sha256','historical_r7_sha256','historical_r8_sha256','historical_r9_sha256','historical_history_set_sha256','response','created_at_utc','receipt_sha256') } catch {
+  try { Assert-ReleaseExactSequence -Label 'authorization receipt properties' -Actual @($Receipt.PSObject.Properties.Name) -Expected @('schema_version','release_ref','boundary_sha','source_sha','packet_sha256','historical_attempt_zero_sha256','historical_r1_sha256','historical_r2_sha256','historical_r3_sha256','historical_r4_sha256','historical_r5_sha256','historical_r6_sha256','historical_r7_sha256','historical_r8_sha256','historical_r9_sha256','historical_r10_sha256','historical_history_set_sha256','response','created_at_utc','receipt_sha256') } catch {
     Throw-ReleaseRule -Id 'REL04-RECEIPT-CLOSED' -Message $_.Exception.Message
   }
-  if ($Receipt.schema_version -cne 'mnf-phase08-authorization-receipt/1' -or $Receipt.release_ref -cne 'refs/tags/modules-v0.1.0-r10' -or
+  if ($Receipt.schema_version -cne 'mnf-phase08-authorization-receipt/1' -or $Receipt.release_ref -cne 'refs/tags/modules-v0.1.0-r11' -or
       $Receipt.boundary_sha -cnotmatch '^[0-9a-f]{40}$' -or $Receipt.source_sha -cnotmatch '^[0-9a-f]{40}$' -or $Receipt.packet_sha256 -cnotmatch '^[0-9a-f]{64}$' -or $Receipt.response -cne 'authorize-core') {
     Throw-ReleaseRule -Id 'REL04-RECEIPT-BINDING' -Message 'receipt identity, response, or digest binding drifted.'
   }
   $receiptUtc=ConvertTo-ReleaseCanonicalUtc $Receipt.created_at_utc
   if ($Receipt.created_at_utc -is [string] -and [string]$Receipt.created_at_utc -cne $receiptUtc) { Throw-ReleaseRule -Id 'REL04-UTC' -Message 'receipt time is not canonical UTC Z.' }
   $history=Get-ReleaseInitialHistoryBinding
-  foreach($name in @('historical_attempt_zero_sha256','historical_r1_sha256','historical_r2_sha256','historical_r3_sha256','historical_r4_sha256','historical_r5_sha256','historical_r6_sha256','historical_r7_sha256','historical_r8_sha256','historical_r9_sha256','historical_history_set_sha256')){if([string]$Receipt.$name -cne [string]$history.$name){Throw-ReleaseRule -Id 'REL04-HISTORY-BINDING' -Message "receipt history binding drifted for $name."}}
+  foreach($name in @('historical_attempt_zero_sha256','historical_r1_sha256','historical_r2_sha256','historical_r3_sha256','historical_r4_sha256','historical_r5_sha256','historical_r6_sha256','historical_r7_sha256','historical_r8_sha256','historical_r9_sha256','historical_r10_sha256','historical_history_set_sha256')){if([string]$Receipt.$name -cne [string]$history.$name){Throw-ReleaseRule -Id 'REL04-HISTORY-BINDING' -Message "receipt history binding drifted for $name."}}
   if (-not [string]::IsNullOrEmpty($ExpectedBoundarySha) -and $Receipt.boundary_sha -cne $ExpectedBoundarySha -or
       -not [string]::IsNullOrEmpty($ExpectedSourceSha) -and $Receipt.source_sha -cne $ExpectedSourceSha -or
       -not [string]::IsNullOrEmpty($ExpectedPacketSha256) -and $Receipt.packet_sha256 -cne $ExpectedPacketSha256) { Throw-ReleaseRule -Id 'REL04-RECEIPT-BINDING' -Message 'receipt does not bind the expected packet/boundary.' }

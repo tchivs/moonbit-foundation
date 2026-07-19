@@ -38,15 +38,15 @@ function Get-InitialHistoryRecordSha256 {
 function Assert-InitialAttemptFamily {
   param([Parameter(Mandatory)][object]$Control)
   $history = @($Control.initial_attempt_family.terminal_negative_history)
-  if ($history.Count -ne 10 -or ($history.attempt -join ',') -cne 'attempt_zero,r1,r2,r3,r4,r5,r6,r7,r8,r9') {
-    Throw-ReleaseRule -Id 'REL01-HISTORY-ORDER' -Message 'attempt-zero and r1 through r9 are required in canonical order.'
+  if ($history.Count -ne 11 -or ($history.attempt -join ',') -cne 'attempt_zero,r1,r2,r3,r4,r5,r6,r7,r8,r9,r10') {
+    Throw-ReleaseRule -Id 'REL01-HISTORY-ORDER' -Message 'attempt-zero and r1 through r10 are required in canonical order.'
   }
   foreach ($record in $history) {
     if ($record.record_sha256 -cne (Get-InitialHistoryRecordSha256 $record)) {
       Throw-ReleaseRule -Id 'REL01-HISTORY-DIGEST' -Message "terminal history digest drifted for $($record.attempt)."
     }
   }
-  if (@($history.record_sha256 | Select-Object -Unique).Count -ne 10) {
+  if (@($history.record_sha256 | Select-Object -Unique).Count -ne 11) {
     Throw-ReleaseRule -Id 'REL01-HISTORY-DIGEST' -Message 'terminal history digests must be distinct.'
   }
   $setDigest = Get-ReleaseTextSha256 -Text ((@($history.record_sha256) -join "`n"))
