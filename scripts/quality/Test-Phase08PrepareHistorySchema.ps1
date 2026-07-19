@@ -9,25 +9,26 @@ $hosted=Join-Path $PSScriptRoot 'Invoke-Phase08HostedRun.ps1'
 if(-not(Test-Path -LiteralPath $hosted -PathType Leaf)){throw 'P08-PREPARE-HISTORY-SCHEMA-MISSING: hosted runner is required.'}
 
 $control=Get-Content -LiteralPath (Join-Path $repoRoot 'policy/release-control.json') -Raw|ConvertFrom-Json -Depth 100
-$r8=@($control.initial_attempt_family.terminal_negative_history)[8]
-if($r8.attempt -cne 'r8' -or $r8.reason -cne 'terminal_pre_locator_canonical_archive_failure' -or
-    $r8.failure_code -cne 'PREP15-CANONICAL-ARCHIVE' -or $r8.failure_detail -cne 'REL-XPLAT-NONCANONICAL' -or
-    $r8.PSObject.Properties.Name -ccontains 'prepare_job_id' -or $r8.PSObject.Properties.Name -ccontains 'prepare_attempt_completed'){
-  throw 'P08-PREPARE-HISTORY-SCHEMA-R8: expected the protected r8 pre-locator legacy shape.'
+$r11=@($control.initial_attempt_family.terminal_negative_history)[11]
+if($r11.attempt -cne 'r11' -or $r11.reason -cne 'terminal_noncanonical_caller_ref_boundary_failure' -or
+    $r11.tag_object_sha -cne '735ad67910dca97a95cfc1d4e94f6b003bcc3f30' -or $r11.tag_peeled_source_sha -cne '30479a2546e0fc6416a9a26b10e39ed1f686c860' -or
+    $r11.canonical_clone_policy_ref_verified -ne $true -or $r11.canonical_provider_call_count -ne 1 -or $r11.noncanonical_caller_ref_rejected -ne $true -or $r11.noncanonical_provider_call_count -ne 0 -or
+    $r11.PSObject.Properties.Name -ccontains 'active_attempt_path'){
+  throw 'P08-PREPARE-HISTORY-SCHEMA-R11: expected the protected r11 canonical-wrapper terminal shape.'
 }
 
 . $hosted -Mode PrepareAttempt -LibraryOnly
 $BoundaryLocatorPath='strict-mode-history-schema-probe'
-$ReleaseRef='refs/tags/modules-v0.1.0-r11'
-$HistoricalReleaseRef='refs/tags/modules-v0.1.0-r10'
-$HistoricalSourceSha='d49edc53fb4ffca375e562a23789fb76bf8c41e2'
-$script:GitCommand={param($Root,[string[]]$Arguments);throw 'P08-PREPARE-HISTORY-SCHEMA-GIT: legacy r8 schema was accepted before any git read.'}
+$ReleaseRef='refs/tags/modules-v0.1.0-r12'
+$HistoricalReleaseRef='refs/tags/modules-v0.1.0-r11'
+$HistoricalSourceSha='30479a2546e0fc6416a9a26b10e39ed1f686c860'
+$script:GitCommand={param($Root,[string[]]$Arguments);throw 'P08-PREPARE-HISTORY-SCHEMA-GIT: exact r12 history was accepted before any git read.'}
 $probeState=Join-Path ([IO.Path]::GetTempPath()) ('mnf-p08-history-schema-'+[Guid]::NewGuid().ToString('N'))
 $boundary=[pscustomobject]@{execution_root=$repoRoot;state_root=$probeState;boundary_sha=('a'*40)}
 $failure=$null
 try{New-P08PreparedAttempt -Boundary $boundary}catch{$failure=$_.Exception.Message}
 if($failure -notmatch '^P08-PREPARE-HISTORY-SCHEMA-GIT:'){
-  throw "P08-PREPARE-HISTORY-SCHEMA: expected the pre-git sentinel after accepting exact legacy r8 history, got '$failure'."
+  throw "P08-PREPARE-HISTORY-SCHEMA: expected the pre-git sentinel after accepting exact r11 terminal history, got '$failure'."
 }
 if(Test-Path -LiteralPath (Join-Path $probeState 'phase-08-live-locator.json')){
   throw 'P08-PREPARE-HISTORY-SCHEMA: active locator was written before the controlled git sentinel.'
@@ -48,19 +49,19 @@ function Confirm-P08PrepareHistoryBindingFailure([object]$Policy,[string]$Label)
 }
 
 $unexpectedField=$control|ConvertTo-Json -Depth 100|ConvertFrom-Json -Depth 100
-$unexpectedField.initial_attempt_family.terminal_negative_history[10] | Add-Member -NotePropertyName prepare_job_id -NotePropertyValue 'unexpected'
+$unexpectedField.initial_attempt_family.terminal_negative_history[11] | Add-Member -NotePropertyName active_attempt_path -NotePropertyValue 'unexpected'
 Confirm-P08PrepareHistoryBindingFailure -Policy $unexpectedField -Label 'FIELD'
 $digestDrift=$control|ConvertTo-Json -Depth 100|ConvertFrom-Json -Depth 100
-$digestDrift.initial_attempt_family.terminal_negative_history[10].record_sha256=('0'*64)
+$digestDrift.initial_attempt_family.terminal_negative_history[11].record_sha256=('0'*64)
 Confirm-P08PrepareHistoryBindingFailure -Policy $digestDrift -Label 'DIGEST'
 
 $preAuthorizationRoot=Join-Path ([IO.Path]::GetTempPath()) ('mnf-p08-preauthorization-'+[Guid]::NewGuid().ToString('N'))
 try{
   $null=New-Item -ItemType Directory -Path $preAuthorizationRoot
-  $packet=[pscustomobject][ordered]@{schema_version='mnf-phase08-mutation-authorization-packet/1';release_ref='refs/tags/modules-v0.1.0-r11';packet_sha256=''}
+  $packet=[pscustomobject][ordered]@{schema_version='mnf-phase08-mutation-authorization-packet/1';release_ref='refs/tags/modules-v0.1.0-r12';packet_sha256=''}
   $packet.packet_sha256=Get-P08SelfExcludingDigest $packet 'packet_sha256'
   $packetPath=Join-Path $preAuthorizationRoot 'packet.json';[IO.File]::WriteAllText($packetPath,($packet|ConvertTo-Json -Compress),[Text.UTF8Encoding]::new($false))
-  $projection=[pscustomobject][ordered]@{schema_version='mnf-phase08-pre-authorization/1';release_ref='refs/tags/modules-v0.1.0-r11';active_attempt_path=$null;authority_variant='confirmed_absent';exact_existing_authority_path=$null;exact_existing_authority_sha256=$null;mutation_authorization_packet_path=$packetPath;mutation_authorization_packet_sha256=(Get-P08Sha256 $packetPath);authorization_receipt_path=$null;authorization_receipt_sha256=$null;fixed_handoff_path=[IO.Path]::GetFullPath((Join-Path ([IO.Path]::GetTempPath()) 'mnf-phase08-r11-handoff.json'));fixed_handoff_sha256=$null;observation_path=$null;observation_sha256=$null;mutation_count=0;output_write_count=0}
+  $projection=[pscustomobject][ordered]@{schema_version='mnf-phase08-pre-authorization/1';release_ref='refs/tags/modules-v0.1.0-r12';active_attempt_path=$null;authority_variant='mutation_authorized';exact_existing_authority_path=$null;exact_existing_authority_sha256=$null;mutation_authorization_packet_path=$packetPath;mutation_authorization_packet_sha256=(Get-P08Sha256 $packetPath);authorization_receipt_path=$null;authorization_receipt_sha256=$null;fixed_handoff_path=[IO.Path]::GetFullPath((Join-Path ([IO.Path]::GetTempPath()) 'mnf-phase08-r12-handoff.json'));fixed_handoff_sha256=$null;observation_path=$null;observation_sha256=$null;mutation_count=0;output_write_count=0}
   $projectionPath=Join-Path $preAuthorizationRoot 'projection.json';[IO.File]::WriteAllText($projectionPath,($projection|ConvertTo-Json -Compress),[Text.UTF8Encoding]::new($false))
   & $hosted -Mode ValidatePreAuthorization -PreAuthorizationPath $projectionPath|Out-Null
   $mixed=$projection.PSObject.Copy();$mixed.authorization_receipt_path=$packetPath;$mixed.authorization_receipt_sha256=(Get-P08Sha256 $packetPath);$mixedPath=Join-Path $preAuthorizationRoot 'mixed.json';[IO.File]::WriteAllText($mixedPath,($mixed|ConvertTo-Json -Compress),[Text.UTF8Encoding]::new($false))
@@ -68,4 +69,4 @@ try{
   if($failure -notmatch '^P08-PREAUTH-ZERO-MUTATION:'){throw "P08-PREAUTH-RECEIPT: mixed pre-authorization was not rejected, got '$failure'."}
 }finally{if(Test-Path -LiteralPath $preAuthorizationRoot){Remove-Item -LiteralPath $preAuthorizationRoot -Recurse -Force}}
 
-Write-Host 'Phase 8 PrepareAttempt legacy r8 history schema: PASS.'
+Write-Host 'Phase 8 PrepareAttempt r11 terminal history schema: PASS.'
