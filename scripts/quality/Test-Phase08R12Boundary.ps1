@@ -55,7 +55,7 @@ try {
   $state=Join-Path $root 'canonical-state'
   Confirm-P08R12Failure 'P08-R12-PROVIDER' {
     & $wrapper -CloneRoot $clone -StateRoot $state -ExpectedTagObject $tagObject -ExpectedPeeledSourceSha $peeled `
-      -HistoricalReleaseRef refs/tags/modules-v0.1.0-r10 -HistoricalSourceSha d49edc53fb4ffca375e562a23789fb76bf8c41e2 -PrepareProvider $provider
+      -HistoricalReleaseRef refs/tags/modules-v0.1.0-r11 -HistoricalSourceSha 30479a2546e0fc6416a9a26b10e39ed1f686c860 -PrepareProvider $provider
   }
   if($probe.calls -ne 1 -or $probe.release_ref -cne $canonicalRef -or $probe.execution_root -cne [IO.Path]::GetFullPath($clone) -or
       $probe.control_policy_path -cne (Join-Path ([IO.Path]::GetFullPath($clone)) 'policy/release-control.json')){
@@ -66,7 +66,7 @@ try {
   $before=$probe.calls
   Confirm-P08R12Failure 'P08-R12-TAG' {
     & $wrapper -CloneRoot $clone -StateRoot $rejectedState -ExpectedTagObject ('0'*40) -ExpectedPeeledSourceSha $peeled `
-      -HistoricalReleaseRef refs/tags/modules-v0.1.0-r10 -HistoricalSourceSha d49edc53fb4ffca375e562a23789fb76bf8c41e2 -PrepareProvider $provider
+      -HistoricalReleaseRef refs/tags/modules-v0.1.0-r11 -HistoricalSourceSha 30479a2546e0fc6416a9a26b10e39ed1f686c860 -PrepareProvider $provider
   }
   if($probe.calls -ne $before -or (Test-Path -LiteralPath $rejectedState)){
     Throw-P08R12Boundary 'P08-R12-NEGATIVE' 'A tag-identity mismatch reached provider or created boundary state.'
