@@ -43,6 +43,7 @@ function Invoke-ReleaseNativeCommand {
 function New-CleanReleaseClone {
   param([string]$Destination, [string]$ExpectedHead)
   $null = Invoke-ReleaseNativeCommand -Context "clean clone $Destination" -Command 'git' -Arguments @('clone', '--quiet', '--no-hardlinks', $repoRoot, $Destination)
+  $null = Invoke-ReleaseNativeCommand -Context "checkout release boundary $Destination" -Command 'git' -Arguments @('-C', $Destination, 'checkout', '--quiet', '--detach', $ExpectedHead)
   $head = (& git -C $Destination rev-parse HEAD).Trim()
   if ($LASTEXITCODE -ne 0 -or $head -cne $ExpectedHead) { throw "Clean clone HEAD drifted: expected $ExpectedHead, got $head." }
   $status = @(& git -C $Destination status --porcelain=v1 --untracked-files=all)
@@ -350,7 +351,8 @@ if ($IntentIntegrationOnly) {
 }
 
 $initialDiff = Get-ReleaseTrackedDiffSnapshot
-$head = (& git -C $repoRoot rev-parse HEAD).Trim()
+$releaseRef = 'refs/tags/modules-v0.1.0-r12'
+$head = (& git -C $repoRoot rev-parse "$releaseRef^{commit}" 2>$null).Trim()
 if ($LASTEXITCODE -ne 0 -or $head -cnotmatch '^[0-9a-f]{40}$') { throw 'Unable to identify the committed release-qualification HEAD.' }
 $tempRoot = Join-Path ([IO.Path]::GetTempPath()) ('mnf-release-qualification-' + [Guid]::NewGuid().ToString('N'))
 $null = New-Item -ItemType Directory -Force -Path $tempRoot
