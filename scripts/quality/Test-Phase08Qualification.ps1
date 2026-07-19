@@ -44,6 +44,9 @@ function Assert-P08R8Contract {
   }
   $qualification=Get-Content -LiteralPath (Join-Path $PSScriptRoot 'Invoke-ReleaseQualification.ps1') -Raw
   if($qualification.IndexOf('refs/tags/modules-v0.1.0-r8',[StringComparison]::Ordinal) -lt 0){Throw-P08Qualification 'P08-R8-QUALIFICATION' 'Qualification does not emit r8 initial identity.'}
+  $canonicalPosition=$qualification.IndexOf('ConvertTo-ReleaseCanonicalZip -Path $zipA',[StringComparison]::Ordinal)
+  $digestPosition=$qualification.IndexOf('$zipEvidenceA = Get-ZipEvidence',[StringComparison]::Ordinal)
+  if($canonicalPosition -lt 0 -or $digestPosition -le $canonicalPosition){Throw-P08Qualification 'P08-R8-CANONICAL-ARCHIVE' 'Canonical ZIP bytes are not established before qualification digest evidence.'}
   $hosted=Get-Content -LiteralPath (Join-Path $PSScriptRoot 'Invoke-Phase08HostedRun.ps1') -Raw
   foreach($required in @('refs/tags/modules-v0.1.0-r7','R6HistoryPath','historical_attempts_sha256','authorization_receipt_sha256','mnf-phase08-r7-handoff.json')){
     if($hosted.IndexOf($required,[StringComparison]::Ordinal) -lt 0){Throw-P08Qualification 'P08-R7-HOSTED' "Missing hosted r7 seam '$required'."}
