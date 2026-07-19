@@ -301,6 +301,9 @@ function Assert-P08FixtureContract {
     & git -C $prepareExecutionRoot tag -a ($prepareReleaseRef.Substring('refs/tags/'.Length)) -m 'fixture-only initial qualification tag' $prepareBoundary
     if($LASTEXITCODE){Throw-P08Qualification 'P08-QUAL-PREPARE-TAG' 'Unable to create the disposable fixture tag.'}
     $prepareTagObject=(& git -C $prepareExecutionRoot rev-parse $prepareReleaseRef).Trim()
+    # The explicit post-checkout tag fetch must target a disposable remote that owns the fixture tag.
+    & git -C $prepareExecutionRoot remote set-url origin $prepareExecutionRoot
+    if($LASTEXITCODE){Throw-P08Qualification 'P08-QUAL-PREPARE-ORIGIN' 'Unable to bind the disposable fixture tag remote.'}
     $r8Policy=@((Get-Content -LiteralPath (Join-Path $prepareExecutionRoot 'policy/release-control.json') -Raw|ConvertFrom-Json -Depth 100).initial_attempt_family.terminal_negative_history)[8]
     if($r8Policy.PSObject.Properties.Name -ccontains 'prepare_job_id' -or $r8Policy.PSObject.Properties.Name -ccontains 'prepare_attempt_completed'){
       Throw-P08Qualification 'P08-QUAL-PREPARE-R8-LEGACY-SCHEMA' 'The protected r8 pre-locator record must omit post-r8 prepare fields.'
@@ -308,7 +311,7 @@ function Assert-P08FixtureContract {
     $prepareGit={
       param($Root,[string[]]$Arguments)
       if([IO.Path]::GetFullPath($Root) -cne [IO.Path]::GetFullPath($prepareExecutionRoot)){Throw-P08Qualification 'P08-QUAL-PREPARE-GIT' 'PrepareAttempt queried an unexpected execution root.'}
-      if(($Arguments -join ' ') -ceq 'rev-parse refs/tags/modules-v0.1.0-r12^{}'){return $prepareBoundary}
+      if(($Arguments -join ' ') -ceq 'rev-parse refs/tags/modules-v0.1.0-r13^{}'){return $prepareBoundary}
       if(($Arguments -join ' ') -ceq "show -s --format=%cI $prepareBoundary"){return '2026-07-19T00:00:00Z'}
       return @(& git -C $Root @Arguments 2>&1)
     }.GetNewClosure()
@@ -336,12 +339,12 @@ function Assert-P08FixtureContract {
         $archiveDigests[$module]=(Get-FileHash -LiteralPath $canonicalProbe -Algorithm SHA256).Hash.ToLowerInvariant()
       }
       $intent=& (Join-Path ([string]$Context.execution_root) 'scripts/quality/New-ReleaseIntent.ps1') -Check -IntentKind initial `
-        -ReleaseRef refs/tags/modules-v0.1.0-r12 -SourceSha ([string]$Context.boundary_sha) -SourceRoot ([string]$Context.execution_root) `
+        -ReleaseRef refs/tags/modules-v0.1.0-r13 -SourceSha ([string]$Context.boundary_sha) -SourceRoot ([string]$Context.execution_root) `
         -ControlPolicyPath ([string]$Context.control_policy_path) `
         -QualificationRootSha256 ('3'*64) -RequiredStableSha256 ('4'*64) -ArchiveSha256ByModule $archiveDigests `
         -OutputDirectory (Join-Path $qualificationRoot 'intent')
       $binding=[pscustomobject][ordered]@{
-        schema_version='mnf-release-intent-binding/1';intent_kind='initial';release_ref='refs/tags/modules-v0.1.0-r12'
+        schema_version='mnf-release-intent-binding/1';intent_kind='initial';release_ref='refs/tags/modules-v0.1.0-r13'
         source_sha=[string]$Context.boundary_sha;root_intent_sha256=[string]$intent.intent_sha256;intent_sha256=[string]$intent.intent_sha256
         qualification_root_sha256=('3'*64);required_stable_sha256=('4'*64);phase_06_ledger_sha256=('5'*64);interface_manifest_sha256=('6'*64)
         credentials_read=$false;publication_performed=$false
@@ -357,56 +360,54 @@ function Assert-P08FixtureContract {
       }
     }.GetNewClosure()
     $prepared=& $prepareHosted -Mode PrepareAttempt -BoundaryLocatorPath ([string]$prepareBoundaryLocator.locator_path) `
-      -ReleaseRef refs/tags/modules-v0.1.0-r12 `
-      -HistoricalReleaseRef refs/tags/modules-v0.1.0-r11 -HistoricalSourceSha 30479a2546e0fc6416a9a26b10e39ed1f686c860 `
+      -ReleaseRef refs/tags/modules-v0.1.0-r13 `
+      -HistoricalReleaseRef refs/tags/modules-v0.1.0-r12 -HistoricalSourceSha 5e7b19cdc74ec11d5c524ff34a36c266b15bba39 `
       -PrepareProvider $prepareProvider -GitCommand $prepareGit
-    $preparedNames=@('mode','locator_path','artifact_root','index_path','root_intent_sha256','intent_sha256','prepared_manifest_sha256','historical_record_path','attempt_zero_history_path','r1_history_path','r2_history_path','r3_history_path','r4_history_path','r5_history_path','r6_history_path','r7_history_path','r8_history_path','r9_history_path','r10_history_path','r11_history_path','historical_history_set_sha256','genesis_record_path','prepared_root','toolchain_root','native_toolchain_bin','mutation_count')
+    $preparedNames=@('mode','locator_path','artifact_root','index_path','root_intent_sha256','intent_sha256','prepared_manifest_sha256','historical_record_path','attempt_zero_history_path','r1_history_path','r2_history_path','r3_history_path','r4_history_path','r5_history_path','r6_history_path','r7_history_path','r8_history_path','r9_history_path','r10_history_path','r11_history_path','r12_history_path','historical_history_set_sha256','genesis_record_path','prepared_root','toolchain_root','native_toolchain_bin','mutation_count')
     if((@($prepared.PSObject.Properties.Name)-join ',') -cne ($preparedNames-join ',') -or $prepared.mode -cne 'PrepareAttempt' -or
         $prepared.root_intent_sha256 -cne $prepared.intent_sha256 -or $prepared.root_intent_sha256 -cnotmatch '^[0-9a-f]{64}$' -or
         $prepared.prepared_manifest_sha256 -cnotmatch '^[0-9a-f]{64}$' -or [int]$prepared.mutation_count -ne 0){
-      Throw-P08Qualification 'P08-QUAL-PREPARE-RESULT' 'PrepareAttempt did not return the exact fresh r12 binding.'
+      Throw-P08Qualification 'P08-QUAL-PREPARE-RESULT' 'PrepareAttempt did not return the exact fresh r13 binding.'
     }
     $prepareLocator=Get-Content -LiteralPath ([string]$prepared.locator_path) -Raw|ConvertFrom-Json -Depth 100
     $prepareIndex=Get-Content -LiteralPath ([string]$prepared.index_path) -Raw|ConvertFrom-Json -Depth 100
     if($prepareLocator.schema_version -cne 'mnf-phase08-live-locator/2' -or $prepareLocator.boundary_sha -cne $prepareBoundary -or
-        $prepareLocator.release_ref -cne 'refs/tags/modules-v0.1.0-r12' -or $prepareLocator.root_intent_sha256 -cne $prepared.root_intent_sha256 -or
+        $prepareLocator.release_ref -cne 'refs/tags/modules-v0.1.0-r13' -or $prepareLocator.root_intent_sha256 -cne $prepared.root_intent_sha256 -or
         $prepareLocator.prepared_manifest_sha256 -cne $prepared.prepared_manifest_sha256 -or $prepareIndex.schema_version -cne 'mnf-phase08-artifact-index/2' -or
-        @($prepareIndex.records|Where-Object kind -ceq 'HistoricalNegative').Count -ne 12 -or @($prepareIndex.records|Where-Object kind -ceq 'GenesisJournal').Count -ne 1 -or
+        @($prepareIndex.records|Where-Object kind -ceq 'HistoricalNegative').Count -ne 13 -or @($prepareIndex.records|Where-Object kind -ceq 'GenesisJournal').Count -ne 1 -or
         @($prepareIndex.records|Where-Object kind -ceq 'PreparedManifest').Count -ne 1){
       Throw-P08Qualification 'P08-QUAL-PREPARE-STORE' 'PrepareAttempt locator/index/store evidence is incomplete.'
     }
     $historical=Get-Content -LiteralPath ([string]$prepared.historical_record_path) -Raw|ConvertFrom-Json -Depth 100
     $genesis=Get-Content -LiteralPath ([string]$prepared.genesis_record_path) -Raw|ConvertFrom-Json -Depth 100
     if($null -ne $historical.run_id -or $null -ne $historical.run_attempt -or $historical.hosted_run_present -ne $false -or
-        $historical.release_ref -cne 'refs/tags/modules-v0.1.0-r11' -or $historical.source_sha -cne '30479a2546e0fc6416a9a26b10e39ed1f686c860' -or
-        $historical.tag_object_sha -cne '735ad67910dca97a95cfc1d4e94f6b003bcc3f30' -or $historical.tag_peeled_source_sha -cne '30479a2546e0fc6416a9a26b10e39ed1f686c860' -or
-        $historical.reason -cne 'terminal_noncanonical_caller_ref_boundary_failure' -or $historical.noncanonical_caller_failure_code -cne 'P08-PREPARE-REF' -or
-        $historical.canonical_clone_policy_ref_verified -ne $true -or [int]$historical.canonical_provider_call_count -ne 1 -or
-        $historical.noncanonical_caller_ref_rejected -ne $true -or [int]$historical.noncanonical_provider_call_count -ne 0 -or
-        [int]$historical.boundary_locator_count -ne 0 -or [int]$historical.active_attempt_count -ne 0 -or [int]$historical.publish_one_count -ne 0 -or
+        $historical.release_ref -cne 'refs/tags/modules-v0.1.0-r12' -or $historical.source_sha -cne '5e7b19cdc74ec11d5c524ff34a36c266b15bba39' -or
+        $historical.tag_object_sha -cne '57b76c9f9044d3190acc1e4c3fb7ada516f4dece' -or $historical.tag_peeled_source_sha -cne '5e7b19cdc74ec11d5c524ff34a36c266b15bba39' -or
+        $historical.reason -cne 'terminal_tag_before_script_ref_agreement_failure' -or $historical.failure_code -cne 'REL01-REF' -or
+        $historical.clean_clone_tag_verified -ne $true -or
         $historical.mutation_performed -ne $false -or $historical.authority_acquired -ne $false -or $genesis.schema_version -cne 'mnf-release-journal-record/1' -or
         $genesis.journal_sequence -ne 0 -or $genesis.state -cne 'intent_authorized' -or $genesis.root_intent_sha256 -cne $prepared.root_intent_sha256){
       Throw-P08Qualification 'P08-QUAL-PREPARE-EVIDENCE' 'PrepareAttempt historical or genesis evidence drifted.'
     }
     & (Join-Path $prepareExecutionRoot 'scripts/quality/New-PreparedReleaseBundle.ps1') -ValidateOnly -OutputRoot ([string]$prepared.prepared_root) `
-      -Repository tchivs/moonbit-foundation -Actor tchivs -RunId 1 -RunAttempt 1 -ReleaseRef refs/tags/modules-v0.1.0-r12 `
+      -Repository tchivs/moonbit-foundation -Actor tchivs -RunId 1 -RunAttempt 1 -ReleaseRef refs/tags/modules-v0.1.0-r13 `
       -SourceSha $prepareBoundary -RootIntentSha256 ([string]$prepared.root_intent_sha256) -IntentSha256 ([string]$prepared.intent_sha256) -RunMode start `
       -HistoricalAttemptZeroSha256 (Get-P08QualificationSha ([string]$prepared.attempt_zero_history_path)) -HistoricalR1Sha256 (Get-P08QualificationSha ([string]$prepared.r1_history_path)) `
-      -HistoricalR2Sha256 (Get-P08QualificationSha ([string]$prepared.r2_history_path)) -HistoricalR3Sha256 (Get-P08QualificationSha ([string]$prepared.r3_history_path)) -HistoricalR4Sha256 (Get-P08QualificationSha ([string]$prepared.r4_history_path)) -HistoricalR5Sha256 (Get-P08QualificationSha ([string]$prepared.r5_history_path)) -HistoricalR6Sha256 (Get-P08QualificationSha ([string]$prepared.r6_history_path)) -HistoricalR7Sha256 (Get-P08QualificationSha ([string]$prepared.r7_history_path)) -HistoricalR8Sha256 (Get-P08QualificationSha ([string]$prepared.r8_history_path)) -HistoricalR9Sha256 (Get-P08QualificationSha ([string]$prepared.r9_history_path)) -HistoricalR10Sha256 (Get-P08QualificationSha ([string]$prepared.r10_history_path)) -HistoricalR11Sha256 (Get-P08QualificationSha ([string]$prepared.r11_history_path)) -HistoricalHistorySetSha256 ([string]$prepared.historical_history_set_sha256) | Out-Null
+      -HistoricalR2Sha256 (Get-P08QualificationSha ([string]$prepared.r2_history_path)) -HistoricalR3Sha256 (Get-P08QualificationSha ([string]$prepared.r3_history_path)) -HistoricalR4Sha256 (Get-P08QualificationSha ([string]$prepared.r4_history_path)) -HistoricalR5Sha256 (Get-P08QualificationSha ([string]$prepared.r5_history_path)) -HistoricalR6Sha256 (Get-P08QualificationSha ([string]$prepared.r6_history_path)) -HistoricalR7Sha256 (Get-P08QualificationSha ([string]$prepared.r7_history_path)) -HistoricalR8Sha256 (Get-P08QualificationSha ([string]$prepared.r8_history_path)) -HistoricalR9Sha256 (Get-P08QualificationSha ([string]$prepared.r9_history_path)) -HistoricalR10Sha256 (Get-P08QualificationSha ([string]$prepared.r10_history_path)) -HistoricalR11Sha256 (Get-P08QualificationSha ([string]$prepared.r11_history_path)) -HistoricalR12Sha256 (Get-P08QualificationSha ([string]$prepared.r12_history_path)) -HistoricalHistorySetSha256 ([string]$prepared.historical_history_set_sha256) | Out-Null
 
     $missingState=Join-Path $prepareFixtureRoot 'missing-state'
     $missingBoundary=& $prepareHosted -Mode InitializeBoundary -Repository tchivs/moonbit-foundation -Workflow publish-modules.yml `
       -BoundarySha $prepareBoundary -ExecutionRoot $prepareExecutionRoot -StateRoot $missingState
     Confirm-P08FixtureFailure 'P08-PREPARE-MISSING-BINDING' {
-      & $prepareHosted -Mode PrepareAttempt -BoundaryLocatorPath ([string]$missingBoundary.locator_path) -ReleaseRef refs/tags/modules-v0.1.0-r12 `
-        -HistoricalReleaseRef refs/tags/modules-v0.1.0-r11 -PrepareProvider $prepareProvider
+      & $prepareHosted -Mode PrepareAttempt -BoundaryLocatorPath ([string]$missingBoundary.locator_path) -ReleaseRef refs/tags/modules-v0.1.0-r13 `
+        -HistoricalReleaseRef refs/tags/modules-v0.1.0-r12 -PrepareProvider $prepareProvider
     }
     $mismatchState=Join-Path $prepareFixtureRoot 'mismatch-state'
     $mismatchBoundary=& $prepareHosted -Mode InitializeBoundary -Repository tchivs/moonbit-foundation -Workflow publish-modules.yml `
       -BoundarySha $prepareBoundary -ExecutionRoot $prepareExecutionRoot -StateRoot $mismatchState
     Confirm-P08FixtureFailure 'P08-PREPARE-HISTORICAL-BINDING' {
-      & $prepareHosted -Mode PrepareAttempt -BoundaryLocatorPath ([string]$mismatchBoundary.locator_path) -ReleaseRef refs/tags/modules-v0.1.0-r12 `
-        -HistoricalReleaseRef refs/tags/modules-v0.1.0-r11 -HistoricalSourceSha ('9'*40) -PrepareProvider $prepareProvider
+      & $prepareHosted -Mode PrepareAttempt -BoundaryLocatorPath ([string]$mismatchBoundary.locator_path) -ReleaseRef refs/tags/modules-v0.1.0-r13 `
+        -HistoricalReleaseRef refs/tags/modules-v0.1.0-r12 -HistoricalSourceSha ('9'*40) -PrepareProvider $prepareProvider
     }
 
     # This is intentionally a local-only Git fixture: the tag exists only in the disposable
@@ -448,7 +449,7 @@ function Assert-P08FixtureContract {
     $fetchedBoundary=& (Join-Path $fetchedExecutionRoot 'scripts/quality/Invoke-Phase08HostedRun.ps1') -Mode InitializeBoundary -Repository tchivs/moonbit-foundation -Workflow publish-modules.yml `
       -BoundarySha $prepareBoundary -ExecutionRoot $fetchedExecutionRoot -StateRoot $fetchedStateRoot
     $fetchedPrepared=& (Join-Path $fetchedExecutionRoot 'scripts/quality/Invoke-Phase08HostedRun.ps1') -Mode PrepareAttempt -BoundaryLocatorPath ([string]$fetchedBoundary.locator_path) `
-      -ReleaseRef $cloneReleaseRef -HistoricalReleaseRef refs/tags/modules-v0.1.0-r11 -HistoricalSourceSha 30479a2546e0fc6416a9a26b10e39ed1f686c860 -PrepareProvider $cloneProvider
+      -ReleaseRef $cloneReleaseRef -HistoricalReleaseRef refs/tags/modules-v0.1.0-r12 -HistoricalSourceSha 5e7b19cdc74ec11d5c524ff34a36c266b15bba39 -PrepareProvider $cloneProvider
     if($cloneProbe.provider_calls -ne 1 -or [string]$fetchedPrepared.mode -cne 'PrepareAttempt' -or -not(Test-Path -LiteralPath ([string]$fetchedPrepared.locator_path))){
       Throw-P08Qualification 'P08-QUAL-PREPARE-CLONE-POSITIVE' 'Fetched clean-clone fixture did not cross the initial-ref seam into PrepareAttempt.'
     }
@@ -456,8 +457,8 @@ function Assert-P08FixtureContract {
     $wrappedExecutionRoot=New-P08FetchedQualificationClone -Name 'wrapped-execution' -FetchTag
     $wrappedStateRoot=Join-Path $prepareFixtureRoot 'wrapped-state'
     $wrapped=& (Join-Path $wrappedExecutionRoot 'scripts/quality/Invoke-Phase08R12Boundary.ps1') -CloneRoot $wrappedExecutionRoot -StateRoot $wrappedStateRoot `
-      -ExpectedTagObject $prepareTagObject -ExpectedPeeledSourceSha $prepareBoundary -HistoricalReleaseRef refs/tags/modules-v0.1.0-r11 `
-      -HistoricalSourceSha 30479a2546e0fc6416a9a26b10e39ed1f686c860 -PrepareProvider $cloneProvider
+      -ExpectedTagObject $prepareTagObject -ExpectedPeeledSourceSha $prepareBoundary -HistoricalReleaseRef refs/tags/modules-v0.1.0-r12 `
+      -HistoricalSourceSha 5e7b19cdc74ec11d5c524ff34a36c266b15bba39 -PrepareProvider $cloneProvider
     if($cloneProbe.provider_calls -ne 2 -or $wrapped.release_ref -cne $cloneReleaseRef -or $wrapped.boundary_sha -cne $prepareBoundary -or $wrapped.mutation_count -ne 0){
       Throw-P08Qualification 'P08-QUAL-PREPARE-WRAPPER' 'FixtureOnly did not invoke the canonical r12 boundary wrapper with clone-policy identity.'
     }
@@ -468,12 +469,24 @@ function Assert-P08FixtureContract {
       $hosted=Join-Path $root 'scripts/quality/Invoke-Phase08HostedRun.ps1'
       $boundary=& $hosted -Mode InitializeBoundary -Repository tchivs/moonbit-foundation -Workflow publish-modules.yml -BoundarySha $prepareBoundary -ExecutionRoot $root -StateRoot $state
       $before=$cloneProbe.provider_calls;$failure=$null
-      try{& $hosted -Mode PrepareAttempt -BoundaryLocatorPath ([string]$boundary.locator_path) -ReleaseRef $cloneReleaseRef -HistoricalReleaseRef refs/tags/modules-v0.1.0-r11 -HistoricalSourceSha 30479a2546e0fc6416a9a26b10e39ed1f686c860 -PrepareProvider $cloneProvider}catch{$failure=$_.Exception.Message}
+      try{& $hosted -Mode PrepareAttempt -BoundaryLocatorPath ([string]$boundary.locator_path) -ReleaseRef $cloneReleaseRef -HistoricalReleaseRef refs/tags/modules-v0.1.0-r12 -HistoricalSourceSha 5e7b19cdc74ec11d5c524ff34a36c266b15bba39 -PrepareProvider $cloneProvider}catch{$failure=$_.Exception.Message}
       if($failure -notmatch "^$ExpectedId`:" -or $cloneProbe.provider_calls -ne $before -or (Test-Path -LiteralPath (Join-Path $state 'phase-08-live-locator.json'))){
         Throw-P08Qualification 'P08-QUAL-PREPARE-CLONE-REF' "'$Name' crossed provider or locator state before the clone-local release-ref gate: $failure"
       }
     }
-    Confirm-P08CloneRefFailure -Name 'missing-tag' -ExpectedId 'P08-PREPARE-REF' -Arrange { New-P08FetchedQualificationClone -Name 'missing-tag-execution' }
+    Confirm-P08CloneRefFailure -Name 'missing-tag' -ExpectedId 'P08-PREPARE-REF' -Arrange {
+      $missingOrigin=Join-Path $prepareFixtureRoot 'missing-tag-origin.git'
+      & git clone --quiet --bare $cloneOrigin $missingOrigin
+      if($LASTEXITCODE){Throw-P08Qualification 'P08-QUAL-PREPARE-ORIGIN' 'Unable to create the tagless disposable fixture origin.'}
+      & git -C $missingOrigin update-ref -d $cloneReleaseRef
+      if($LASTEXITCODE){Throw-P08Qualification 'P08-QUAL-PREPARE-ORIGIN' 'Unable to remove the policy tag from the tagless disposable fixture origin.'}
+      $root=Join-Path $prepareFixtureRoot 'missing-tag-execution'
+      & git clone --quiet --no-tags $missingOrigin $root
+      if($LASTEXITCODE){Throw-P08Qualification 'P08-QUAL-PREPARE-CLONE' 'Unable to clone the tagless disposable fixture origin.'}
+      & git -C $root checkout --quiet --detach $prepareBoundary
+      if($LASTEXITCODE){Throw-P08Qualification 'P08-QUAL-PREPARE-CHECKOUT' 'Unable to check out the tagless fixture boundary.'}
+      $root
+    }
     Confirm-P08CloneRefFailure -Name 'peel-drift' -ExpectedId 'P08-PREPARE-REF' -Arrange {
       $root=New-P08FetchedQualificationClone -Name 'peel-drift-execution' -FetchTag
       & git -C $root tag -f $cloneTagName "$prepareBoundary^" | Out-Null

@@ -38,20 +38,20 @@ function Get-InitialHistoryRecordSha256 {
 function Assert-InitialAttemptFamily {
   param([Parameter(Mandatory)][object]$Control)
   $history = @($Control.initial_attempt_family.terminal_negative_history)
-  if ($history.Count -ne 12 -or ($history.attempt -join ',') -cne 'attempt_zero,r1,r2,r3,r4,r5,r6,r7,r8,r9,r10,r11') {
-    Throw-ReleaseRule -Id 'REL01-HISTORY-ORDER' -Message 'attempt-zero and r1 through r11 are required in canonical order.'
+  if ($history.Count -ne 13 -or ($history.attempt -join ',') -cne 'attempt_zero,r1,r2,r3,r4,r5,r6,r7,r8,r9,r10,r11,r12') {
+    Throw-ReleaseRule -Id 'REL01-HISTORY-ORDER' -Message 'attempt-zero and r1 through r12 are required in canonical order.'
   }
   foreach ($record in $history) {
     if ($record.record_sha256 -cne (Get-InitialHistoryRecordSha256 $record)) {
       Throw-ReleaseRule -Id 'REL01-HISTORY-DIGEST' -Message "terminal history digest drifted for $($record.attempt)."
     }
   }
-  if (@($history.record_sha256 | Select-Object -Unique).Count -ne 12) {
+  if (@($history.record_sha256 | Select-Object -Unique).Count -ne 13) {
     Throw-ReleaseRule -Id 'REL01-HISTORY-DIGEST' -Message 'terminal history digests must be distinct.'
   }
   $setDigest = Get-ReleaseTextSha256 -Text ((@($history.record_sha256) -join "`n"))
   if ($Control.initial_attempt_family.history_set_profile -cne 'sha256-of-lf-joined-record-sha256-in-canonical-attempt-order' -or
-      $Control.initial_attempt_family.history_set_sha256 -cne $setDigest -or $Control.initial_attempt_family.current_attempt -cne 'r12') {
+      $Control.initial_attempt_family.history_set_sha256 -cne $setDigest -or $Control.initial_attempt_family.current_attempt -cne 'r13') {
     Throw-ReleaseRule -Id 'REL01-HISTORY-SET' -Message 'ordered terminal history set or current attempt drifted.'
   }
   return $history
@@ -82,7 +82,7 @@ foreach ($digest in @($QualificationRootSha256,$RequiredStableSha256)) { if (-no
 if ($IntentKind -ceq 'initial') {
   $cloneBinding = Assert-ReleaseInitialCloneBinding -SourceRoot $absoluteSourceRoot -ControlPolicyPath $absoluteControlPolicyPath -ReleaseRef $ReleaseRef -SourceSha $SourceSha
   $control = $cloneBinding.control
-  if (@($control.initial_attempt_family.terminal_negative_history.source_sha) -ccontains $SourceSha) { Throw-ReleaseRule -Id 'REL01-HISTORICAL-SOURCE' -Message 'a terminal-negative source cannot be reused as r12 current authority.' }
+  if (@($control.initial_attempt_family.terminal_negative_history.source_sha) -ccontains $SourceSha) { Throw-ReleaseRule -Id 'REL01-HISTORICAL-SOURCE' -Message 'a terminal-negative source cannot be reused as r13 current authority.' }
   if ($CorrectionSequence -ne 0 -or -not [string]::IsNullOrEmpty($RootIntentSha256) -or -not [string]::IsNullOrEmpty($PredecessorIntentSha256)) {
     Throw-ReleaseRule -Id 'REL01-HASH-CYCLE' -Message 'initial intent must not serialize root, predecessor, or a correction sequence.'
   }

@@ -9,26 +9,25 @@ $hosted=Join-Path $PSScriptRoot 'Invoke-Phase08HostedRun.ps1'
 if(-not(Test-Path -LiteralPath $hosted -PathType Leaf)){throw 'P08-PREPARE-HISTORY-SCHEMA-MISSING: hosted runner is required.'}
 
 $control=Get-Content -LiteralPath (Join-Path $repoRoot 'policy/release-control.json') -Raw|ConvertFrom-Json -Depth 100
-$r11=@($control.initial_attempt_family.terminal_negative_history)[11]
-if($r11.attempt -cne 'r11' -or $r11.reason -cne 'terminal_noncanonical_caller_ref_boundary_failure' -or
-    $r11.tag_object_sha -cne '735ad67910dca97a95cfc1d4e94f6b003bcc3f30' -or $r11.tag_peeled_source_sha -cne '30479a2546e0fc6416a9a26b10e39ed1f686c860' -or
-    $r11.canonical_clone_policy_ref_verified -ne $true -or $r11.canonical_provider_call_count -ne 1 -or $r11.noncanonical_caller_ref_rejected -ne $true -or $r11.noncanonical_provider_call_count -ne 0 -or
-    $r11.PSObject.Properties.Name -ccontains 'active_attempt_path'){
-  throw 'P08-PREPARE-HISTORY-SCHEMA-R11: expected the protected r11 canonical-wrapper terminal shape.'
+$r12=@($control.initial_attempt_family.terminal_negative_history)[12]
+if($r12.attempt -cne 'r12' -or $r12.reason -cne 'terminal_tag_before_script_ref_agreement_failure' -or
+    $r12.tag_object_sha -cne '57b76c9f9044d3190acc1e4c3fb7ada516f4dece' -or $r12.tag_peeled_source_sha -cne '5e7b19cdc74ec11d5c524ff34a36c266b15bba39' -or
+    $r12.failure_code -cne 'REL01-REF' -or $r12.PSObject.Properties.Name -ccontains 'active_attempt_path'){
+  throw 'P08-PREPARE-HISTORY-SCHEMA-R12: expected immutable r12 REL01-REF terminal shape.'
 }
 
 . $hosted -Mode PrepareAttempt -LibraryOnly
 $BoundaryLocatorPath='strict-mode-history-schema-probe'
-$ReleaseRef='refs/tags/modules-v0.1.0-r12'
-$HistoricalReleaseRef='refs/tags/modules-v0.1.0-r11'
-$HistoricalSourceSha='30479a2546e0fc6416a9a26b10e39ed1f686c860'
+$ReleaseRef='refs/tags/modules-v0.1.0-r13'
+$HistoricalReleaseRef='refs/tags/modules-v0.1.0-r12'
+$HistoricalSourceSha='5e7b19cdc74ec11d5c524ff34a36c266b15bba39'
 $script:GitCommand={param($Root,[string[]]$Arguments);throw 'P08-PREPARE-HISTORY-SCHEMA-GIT: exact r12 history was accepted before any git read.'}
 $probeState=Join-Path ([IO.Path]::GetTempPath()) ('mnf-p08-history-schema-'+[Guid]::NewGuid().ToString('N'))
 $boundary=[pscustomobject]@{execution_root=$repoRoot;state_root=$probeState;boundary_sha=('a'*40)}
 $failure=$null
 try{New-P08PreparedAttempt -Boundary $boundary}catch{$failure=$_.Exception.Message}
 if($failure -notmatch '^P08-PREPARE-HISTORY-SCHEMA-GIT:'){
-  throw "P08-PREPARE-HISTORY-SCHEMA: expected the pre-git sentinel after accepting exact r11 terminal history, got '$failure'."
+  throw "P08-PREPARE-HISTORY-SCHEMA: expected the pre-git sentinel after accepting exact r12 terminal history, got '$failure'."
 }
 if(Test-Path -LiteralPath (Join-Path $probeState 'phase-08-live-locator.json')){
   throw 'P08-PREPARE-HISTORY-SCHEMA: active locator was written before the controlled git sentinel.'
@@ -49,10 +48,10 @@ function Confirm-P08PrepareHistoryBindingFailure([object]$Policy,[string]$Label)
 }
 
 $unexpectedField=$control|ConvertTo-Json -Depth 100|ConvertFrom-Json -Depth 100
-$unexpectedField.initial_attempt_family.terminal_negative_history[11] | Add-Member -NotePropertyName active_attempt_path -NotePropertyValue 'unexpected'
+$unexpectedField.initial_attempt_family.terminal_negative_history[12] | Add-Member -NotePropertyName active_attempt_path -NotePropertyValue 'unexpected'
 Confirm-P08PrepareHistoryBindingFailure -Policy $unexpectedField -Label 'FIELD'
 $digestDrift=$control|ConvertTo-Json -Depth 100|ConvertFrom-Json -Depth 100
-$digestDrift.initial_attempt_family.terminal_negative_history[11].record_sha256=('0'*64)
+$digestDrift.initial_attempt_family.terminal_negative_history[12].record_sha256=('0'*64)
 Confirm-P08PrepareHistoryBindingFailure -Policy $digestDrift -Label 'DIGEST'
 
 $preAuthorizationRoot=Join-Path ([IO.Path]::GetTempPath()) ('mnf-p08-preauthorization-'+[Guid]::NewGuid().ToString('N'))
