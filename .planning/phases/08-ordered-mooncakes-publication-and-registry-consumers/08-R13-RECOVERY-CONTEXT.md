@@ -19,3 +19,10 @@ immutable r13 boundary. Only a distinct, still-later r13-specific plan may seek
 explicit authorization and attempt one ordered module operation. No r13 tag,
 authorization, registry observation, cold-consumer proof, registry mutation, or
 publication is asserted by this record.
+
+## Update 2026-07-19
+
+Plan 08-36 has passed; Plan 08-37 is now authorized to create and verify the
+immutable r13 boundary as the non-publishing prerequisite for any future
+authorize-core/publication plan. No r13 authorization, registry observation, or
+publication is asserted by 08-37.

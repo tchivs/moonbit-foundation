@@ -300,7 +300,7 @@ function Write-InitialReleaseIntentBinding {
     $archives[$shortName] = $digest
   }
   $intentResult = & (Join-Path $PSScriptRoot 'New-ReleaseIntent.ps1') `
-    -Check -IntentKind initial -ReleaseRef 'refs/tags/modules-v0.1.0-r12' -SourceSha ([string]$ReleaseReport.head) -SourceRoot $SourceRoot `
+    -Check -IntentKind initial -ReleaseRef 'refs/tags/modules-v0.1.0-r13' -SourceSha ([string]$ReleaseReport.head) -SourceRoot $SourceRoot `
     -QualificationRootSha256 $qualificationRoot -RequiredStableSha256 $requiredStable -ArchiveSha256ByModule $archives `
     -OutputDirectory (Join-Path $absolute 'intent')
   if ($intentResult.root_intent_sha256 -cne $intentResult.intent_sha256 -or $intentResult.credentials_read -ne $false -or $intentResult.publication_performed -ne $false) {
@@ -311,7 +311,7 @@ function Write-InitialReleaseIntentBinding {
   $binding = [ordered]@{
     schema_version = 'mnf-release-intent-binding/1'
     intent_kind = 'initial'
-    release_ref = 'refs/tags/modules-v0.1.0-r12'
+    release_ref = 'refs/tags/modules-v0.1.0-r13'
     source_sha = [string]$ReleaseReport.head
     root_intent_sha256 = [string]$intentResult.intent_sha256
     intent_sha256 = [string]$intentResult.intent_sha256
@@ -351,7 +351,7 @@ if ($IntentIntegrationOnly) {
 }
 
 $initialDiff = Get-ReleaseTrackedDiffSnapshot
-$releaseRef = 'refs/tags/modules-v0.1.0-r12'
+$releaseRef = 'refs/tags/modules-v0.1.0-r13'
 $head = (& git -C $repoRoot rev-parse "$releaseRef^{commit}" 2>$null).Trim()
 if ($LASTEXITCODE -ne 0 -or $head -cnotmatch '^[0-9a-f]{40}$') { throw 'Unable to identify the committed release-qualification HEAD.' }
 $tempRoot = Join-Path ([IO.Path]::GetTempPath()) ('mnf-release-qualification-' + [Guid]::NewGuid().ToString('N'))
