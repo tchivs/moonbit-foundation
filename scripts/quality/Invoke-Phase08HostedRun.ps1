@@ -534,6 +534,30 @@ function Open-P08BoundaryLocator {
   $value
 }
 
+function Assert-P08PrepareCloneRefBeforeBoundary {
+  param([Parameter(Mandatory)][string]$Locator,[Parameter(Mandatory)][string]$ReleaseRef)
+  $locatorFull=[IO.Path]::GetFullPath($Locator)
+  if(-not(Test-Path -LiteralPath $locatorFull -PathType Leaf)){Throw-P08HostedRule 'P08-PREPARE-MISSING-BINDING' 'PrepareAttempt requires a readable boundary locator.'}
+  $value=Get-Content -LiteralPath $locatorFull -Raw|ConvertFrom-Json -Depth 100
+  $names=@('schema_version','repository','workflow','boundary_sha','execution_root','state_root','locator_path','artifact_root','index_path','created_at_utc','locator_sha256')
+  if((@($value.PSObject.Properties.Name)-join ',') -cne ($names-join ',') -or $value.schema_version -cne 'mnf-phase08-boundary-locator/1' -or
+      $value.repository -cne 'tchivs/moonbit-foundation' -or $value.workflow -cne 'publish-modules.yml' -or
+      $value.boundary_sha -cnotmatch '^[0-9a-f]{40}$' -or [IO.Path]::GetFullPath([string]$value.locator_path) -cne $locatorFull -or
+      $value.locator_sha256 -cne (Get-P08ObjectDigest (Get-P08BoundaryLocatorProjection $value))){
+    Throw-P08HostedRule 'P08-PREPARE-REF' 'PrepareAttempt boundary locator is not safe for clone-local ref validation.'
+  }
+  $root=[IO.Path]::GetFullPath([string]$value.execution_root)
+  $policyPath=Join-Path $root 'policy/release-control.json'
+  if(-not(Test-Path -LiteralPath $policyPath -PathType Leaf)){Throw-P08HostedRule 'P08-PREPARE-REF' 'Clone-local release-control policy is missing.'}
+  $control=Get-Content -LiteralPath $policyPath -Raw|ConvertFrom-Json -Depth 100
+  if($ReleaseRef -cne [string]$control.initial_profile.release_ref){Throw-P08HostedRule 'P08-PREPARE-REF' 'PrepareAttempt release ref differs from the clone policy-selected immutable tag.'}
+  $head=(@(& git -C $root rev-parse HEAD 2>$null)-join '').Trim()
+  $peeled=(@(& git -C $root rev-parse --verify "$ReleaseRef^{}" 2>$null)-join '').Trim()
+  if($LASTEXITCODE -ne 0 -or $head -cne [string]$value.boundary_sha -or $peeled -cne [string]$value.boundary_sha){
+    Throw-P08HostedRule 'P08-PREPARE-REF' 'Clone-local policy-selected release tag is absent or does not peel to the durable boundary.'
+  }
+}
+
 function Copy-P08PreparedInput {
   param([Parameter(Mandatory)][string]$Source,[Parameter(Mandatory)][string]$InputRoot,[Parameter(Mandatory)][string]$RelativePath)
   if(-not (Test-Path -LiteralPath $Source -PathType Leaf)){Throw-P08HostedRule 'P08-PREPARE-INPUT' "Missing prepared input '$RelativePath'."}
@@ -556,7 +580,12 @@ function Copy-P08CanonicalPreparedArchive {
 
 function Get-P08PrepareMaterials {
   param([Parameter(Mandatory)][object]$Boundary,[Parameter(Mandatory)][string]$WorkRoot)
-  $context=[pscustomobject][ordered]@{execution_root=[string]$Boundary.execution_root;boundary_sha=[string]$Boundary.boundary_sha;work_root=[IO.Path]::GetFullPath($WorkRoot)}
+  $controlPolicyPath=Join-Path ([string]$Boundary.execution_root) 'policy/release-control.json'
+  if(-not(Test-Path -LiteralPath $controlPolicyPath -PathType Leaf)){Throw-P08HostedRule 'P08-PREPARE-REF' 'Clone-local release-control policy is missing.'}
+  $context=[pscustomobject][ordered]@{
+    execution_root=[string]$Boundary.execution_root;source_root=[string]$Boundary.execution_root;boundary_sha=[string]$Boundary.boundary_sha
+    control_policy_path=[IO.Path]::GetFullPath($controlPolicyPath);release_ref=[string]$ReleaseRef;work_root=[IO.Path]::GetFullPath($WorkRoot)
+  }
   if($null -ne $script:PrepareProvider){$result=& $script:PrepareProvider $context}
   else {
     $qualificationRoot=Join-Path $WorkRoot 'qualification'
@@ -615,9 +644,10 @@ function New-P08PreparedAttempt {
   }
   $missing=@($prepareBindings.GetEnumerator()|Where-Object{[string]::IsNullOrWhiteSpace([string]$_.Value)}|ForEach-Object Key)
   if($missing.Count -ne 0){Throw-P08HostedRule 'P08-PREPARE-MISSING-BINDING' ('PrepareAttempt requires: '+($missing-join ', ')+'.')}
-  if($ReleaseRef -cne 'refs/tags/modules-v0.1.0-r10'){Throw-P08HostedRule 'P08-PREPARE-R10-BINDING' 'PrepareAttempt requires the exact r10 release ref.'}
   $executionRoot=[IO.Path]::GetFullPath([string]$Boundary.execution_root)
-  $control=Get-Content -LiteralPath (Join-Path $executionRoot 'policy/release-control.json') -Raw|ConvertFrom-Json -Depth 100
+  $controlPolicyPath=Join-Path $executionRoot 'policy/release-control.json'
+  $control=Get-Content -LiteralPath $controlPolicyPath -Raw|ConvertFrom-Json -Depth 100
+  if($ReleaseRef -cne [string]$control.initial_profile.release_ref){Throw-P08HostedRule 'P08-PREPARE-REF' 'PrepareAttempt requires the clone policy-selected immutable release ref.'}
   $history=@($control.initial_attempt_family.terminal_negative_history)
   if($control.initial_attempt_family.current_attempt -cne 'r10' -or $history.Count -ne 10 -or ($history.attempt -join ',') -cne 'attempt_zero,r1,r2,r3,r4,r5,r6,r7,r8,r9' -or
       ($history.release_ref -join ',') -cne 'refs/tags/modules-v0.1.0,refs/tags/modules-v0.1.0-r1,refs/tags/modules-v0.1.0-r2,refs/tags/modules-v0.1.0-r3,refs/tags/modules-v0.1.0-r4,refs/tags/modules-v0.1.0-r5,refs/tags/modules-v0.1.0-r6,refs/tags/modules-v0.1.0-r7,refs/tags/modules-v0.1.0-r8,refs/tags/modules-v0.1.0-r9' -or
@@ -651,7 +681,7 @@ function New-P08PreparedAttempt {
     Throw-P08HostedRule 'P08-PREPARE-HISTORICAL-BINDING' 'Historical failed-attempt binding differs from release control.'
   }
   $resolvedRef=((Invoke-P08Git $executionRoot @('rev-parse',"$ReleaseRef^{}"))-join '').Trim()
-  if($resolvedRef -cne [string]$Boundary.boundary_sha){Throw-P08HostedRule 'P08-PREPARE-REF' 'The r10 ref does not peel to the durable boundary.'}
+  if($resolvedRef -cne [string]$Boundary.boundary_sha){Throw-P08HostedRule 'P08-PREPARE-REF' 'The clone-local policy-selected release ref does not peel to the durable boundary.'}
   $stateRoot=[IO.Path]::GetFullPath([string]$Boundary.state_root)
   $locatorPath=Join-Path $stateRoot 'phase-08-live-locator.json'
   if(Test-Path -LiteralPath $locatorPath){Throw-P08HostedRule 'P08-PREPARE-EXISTS' 'An active attempt locator already exists.'}
@@ -974,6 +1004,7 @@ if ($Mode -ceq 'InitializeBoundary') {
 }
 if($Mode -ceq 'PrepareAttempt'){
   if([string]::IsNullOrWhiteSpace($BoundaryLocatorPath)){Throw-P08HostedRule 'P08-PREPARE-MISSING-BINDING' 'PrepareAttempt requires: BoundaryLocatorPath.'}
+  Assert-P08PrepareCloneRefBeforeBoundary -Locator $BoundaryLocatorPath -ReleaseRef $ReleaseRef
   $boundary=Open-P08BoundaryLocator -Locator $BoundaryLocatorPath -Operation $Mode
   if((-not [string]::IsNullOrWhiteSpace($Repository) -and $Repository -cne [string]$boundary.repository) -or
       (-not [string]::IsNullOrWhiteSpace($Workflow) -and $Workflow -cne [string]$boundary.workflow) -or

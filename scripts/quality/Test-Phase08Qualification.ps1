@@ -336,6 +336,7 @@ function Assert-P08FixtureContract {
       }
       $intent=& (Join-Path ([string]$Context.execution_root) 'scripts/quality/New-ReleaseIntent.ps1') -Check -IntentKind initial `
         -ReleaseRef refs/tags/modules-v0.1.0-r10 -SourceSha ([string]$Context.boundary_sha) -SourceRoot ([string]$Context.execution_root) `
+        -ControlPolicyPath ([string]$Context.control_policy_path) `
         -QualificationRootSha256 ('3'*64) -RequiredStableSha256 ('4'*64) -ArchiveSha256ByModule $archiveDigests `
         -OutputDirectory (Join-Path $qualificationRoot 'intent')
       $binding=[pscustomobject][ordered]@{
@@ -464,7 +465,7 @@ function Assert-P08FixtureContract {
     Confirm-P08CloneRefFailure -Name 'missing-tag' -ExpectedId 'P08-PREPARE-REF' -Arrange { New-P08FetchedQualificationClone -Name 'missing-tag-execution' }
     Confirm-P08CloneRefFailure -Name 'peel-drift' -ExpectedId 'P08-PREPARE-REF' -Arrange {
       $root=New-P08FetchedQualificationClone -Name 'peel-drift-execution' -FetchTag
-      & git -C $root tag -f $cloneTagName "$prepareBoundary^"
+      & git -C $root tag -f $cloneTagName "$prepareBoundary^" | Out-Null
       if($LASTEXITCODE){Throw-P08Qualification 'P08-QUAL-PREPARE-DRIFT' 'Unable to create local tag peel drift.'}
       $root
     }
