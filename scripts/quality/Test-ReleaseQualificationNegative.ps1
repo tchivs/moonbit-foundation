@@ -51,6 +51,26 @@ function New-MutatedFoundation {
   return $path
 }
 
+function New-NegativeZip {
+  param([Parameter(Mandatory)][string]$Path,[Parameter(Mandatory)][string]$EntryName)
+  Add-Type -AssemblyName System.IO.Compression.FileSystem
+  $file=[IO.File]::Open($Path,[IO.FileMode]::CreateNew,[IO.FileAccess]::ReadWrite,[IO.FileShare]::None)
+  try{
+    $archive=[IO.Compression.ZipArchive]::new($file,[IO.Compression.ZipArchiveMode]::Create,$true)
+    try{$entry=$archive.CreateEntry($EntryName,[IO.Compression.CompressionLevel]::Optimal);$stream=$entry.Open();try{$stream.WriteByte(0x41)}finally{$stream.Dispose()}}finally{$archive.Dispose()}
+  }finally{$file.Dispose()}
+}
+
+function Set-NegativeZipMetadataVariant {
+  param([Parameter(Mandatory)][string]$Path)
+  $bytes=[IO.File]::ReadAllBytes($Path);$changed=$false
+  for($offset=0;$offset-le$bytes.Length-46;$offset++){
+    if($bytes[$offset]-eq0x50-and$bytes[$offset+1]-eq0x4b-and$bytes[$offset+2]-eq0x01-and$bytes[$offset+3]-eq0x02){$bytes[$offset+5]=0;$changed=$true;break}
+  }
+  if(-not$changed){throw 'REL-XPLAT-TEST: central entry is missing.'}
+  [IO.File]::WriteAllBytes($Path,$bytes)
+}
+
 $null = New-Item -ItemType Directory -Force -Path $tempRoot
 try {
   $fixtureHashes = @{}
@@ -127,6 +147,13 @@ try {
   Confirm-ExactRule 'REL14-TRACKED-SOURCE-MUTATION' {
     Assert-ReleaseTrackedSnapshot -Before 'clean-a' -After 'changed-b'
   }
+  $unsafeZip=Join-Path $tempRoot 'unsafe-path.zip';New-NegativeZip -Path $unsafeZip -EntryName './moon.mod.json'
+  Confirm-ExactRule 'REL-XPLAT-ENTRY' { ConvertTo-ReleaseCanonicalZip -Path $unsafeZip | Out-Null }
+  $metadataZip=Join-Path $tempRoot 'metadata-drift.zip';New-NegativeZip -Path $metadataZip -EntryName 'moon.mod.json';$null=ConvertTo-ReleaseCanonicalZip -Path $metadataZip
+  $canonicalDigest=Get-ReleaseSha256 -Path $metadataZip;$null=Assert-ReleaseCanonicalZip -Path $metadataZip
+  Set-NegativeZipMetadataVariant -Path $metadataZip
+  if((Get-ReleaseSha256 -Path $metadataZip)-ceq$canonicalDigest){throw 'REL-XPLAT-TEST: metadata drift did not change raw identity.'}
+  Confirm-ExactRule 'REL-XPLAT-NONCANONICAL' { Assert-ReleaseCanonicalZip -Path $metadataZip | Out-Null }
 
   foreach ($relative in $fixtureHashes.Keys) {
     if ((Get-ReleaseSha256 -Path (Join-Path $negativeRoot $relative)) -cne $fixtureHashes[$relative]) {

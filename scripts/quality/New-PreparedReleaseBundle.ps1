@@ -28,6 +28,7 @@ param(
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
+. (Join-Path $PSScriptRoot 'ReleaseQualification.Common.ps1')
 
 $expectedToolchain = [ordered]@{
   moon = '0.1.20260713 (75c7e1f 2026-07-13)'
@@ -129,6 +130,7 @@ function Assert-PreparedBindings {
       $RunAttempt -lt 1 -or $ReleaseRef -cnotmatch '^refs/tags/modules-(v0[.]1[.]0-r8|correction-[1-9][0-9]*)$' -or
       $SourceSha -cnotmatch '^[0-9a-f]{40}$' -or $SourceSha -cin @('198436a45b7403a3c28c98d5fa0d5ed6a958455f','09548df948f58ec1bdfff7494757596c03e4c9bd','73a3af920fc3938f49e93d14f16f79f116475f1e','67b1fbc9dd62288d19018c46a44c1e3293212b76','ee4a8eb9b8dca5d69b404c9a4a1cd81608a5462a','df105f06205298f1f82ac2f2cdca214d69d42e15','c05cacbc3cfc583205c612f4bf293a4e251ec079','195e08dc1f3a1dc561d98cc660af679926ae0198') -or $RootIntentSha256 -cnotmatch '^[0-9a-f]{64}$' -or
       $IntentSha256 -cnotmatch '^[0-9a-f]{64}$') { Throw-PreparedRule 'PREP09-BINDING' 'Expected dispatch binding is invalid.' }
+  if ($ReleaseRef -ceq 'refs/tags/modules-v0.1.0-r8' -and $RunMode -cne 'start') { Throw-PreparedRule 'PREP10-JOURNAL-BINDING' 'r8 must start from a fresh genesis and cannot resume prior state or artifacts.' }
   $history = @($HistoricalAttemptZeroSha256,$HistoricalR1Sha256,$HistoricalR2Sha256,$HistoricalR3Sha256,$HistoricalR4Sha256,$HistoricalR5Sha256,$HistoricalR6Sha256,$HistoricalR7Sha256)
   if (@($history | Where-Object { $_ -cnotmatch '^[0-9a-f]{64}$' }).Count -ne 0 -or @($history | Select-Object -Unique).Count -ne 8 -or
       $HistoricalHistorySetSha256 -cnotmatch '^[0-9a-f]{64}$') { Throw-PreparedRule 'PREP14-HISTORICAL-BINDING' 'Eight distinct historical-negative digests and their ordered set are required.' }
@@ -201,6 +203,26 @@ function Assert-PreparedIntentBinding {
   }
   $predecessor = if ($null -ne $intent.PSObject.Properties['predecessor_intent_sha256']) { $intent.predecessor_intent_sha256 } else { $null }
   if ([string]$Manifest.predecessor_intent_sha256 -cne [string]$predecessor) { Throw-PreparedRule 'PREP09-BINDING' 'Predecessor intent drifted.' }
+  Assert-PreparedCanonicalArchives -Root $Root -Intent $intent -Manifest $Manifest
+}
+
+function Assert-PreparedCanonicalArchives {
+  param([Parameter(Mandatory)][string]$Root,[Parameter(Mandatory)][object]$Intent,[Parameter(Mandatory)][object]$Manifest)
+  $expectedModules = @('mb-core','mb-color','mb-image')
+  $modules = @($Intent.modules)
+  if ($modules.Count -ne $expectedModules.Count -or ($modules.module -join ',') -cne ($expectedModules -join ',')) {
+    Throw-PreparedRule 'PREP16-ARCHIVE-INTENT' 'Intent module archive order is not exactly mb-core, mb-color, mb-image.'
+  }
+  foreach ($module in $modules) {
+    $shortName = [string]$module.module
+    $relativePath = "archives/$shortName.zip"
+    $archivePath = Join-Path $Root $relativePath
+    if ([string]$module.archive_sha256 -cnotmatch '^[0-9a-f]{64}$') { Throw-PreparedRule 'PREP16-ARCHIVE-INTENT' "$shortName intent archive digest is invalid." }
+    try { $canonical = Assert-ReleaseCanonicalZip -Path $archivePath } catch { Throw-PreparedRule 'PREP15-CANONICAL-ARCHIVE' "$shortName prepared archive is not canonical: $($_.Exception.Message)" }
+    if ([string]$canonical.canonical_sha256 -cne [string]$module.archive_sha256) { Throw-PreparedRule 'PREP16-ARCHIVE-INTENT' "$shortName canonical archive digest disagrees with the qualified intent." }
+    $payload = @($Manifest.payloads | Where-Object { [string]$_.path -ceq $relativePath })
+    if ($payload.Count -ne 1 -or [string]$payload[0].sha256 -cne [string]$module.archive_sha256) { Throw-PreparedRule 'PREP16-ARCHIVE-INTENT' "$shortName prepared payload evidence disagrees with the qualified intent." }
+  }
 }
 
 function Test-PreparedReleaseBundle {
@@ -257,6 +279,12 @@ function Test-PreparedReleaseBundle {
     $length = (Get-Item -LiteralPath $path).Length
     if ($length -le 0) { Throw-PreparedRule 'PREP05-EMPTY-PAYLOAD' "Empty '$($entry.path)'." }
     Assert-NoPreparedSecretMaterial $path
+  }
+  foreach ($entry in @($payloads | Where-Object { [string]$_.role -ceq 'exact_source_archive' })) {
+    $path = Join-Path $absoluteRoot ([string]$entry.path)
+    $length = (Get-Item -LiteralPath $path).Length
+    if ([Int64]$entry.size -ne $length) { Throw-PreparedRule 'PREP08-PAYLOAD-SIZE' "Size drifted for '$($entry.path)'." }
+    if ([string]$entry.sha256 -cne (Get-PreparedSha256 $path)) { Throw-PreparedRule 'PREP07-PAYLOAD-DIGEST' "Digest drifted for '$($entry.path)'." }
   }
   Assert-PreparedJournalBinding -Root $absoluteRoot
   Assert-PreparedIntentBinding -Root $absoluteRoot -Manifest $manifest

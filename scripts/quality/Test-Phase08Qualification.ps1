@@ -39,7 +39,7 @@ function Assert-P08R8Contract {
     if($null -eq (Get-Command $command -CommandType Function -ErrorAction SilentlyContinue)){Throw-P08Qualification 'P08-R2-COMPOSITION' "Missing $command."}
   }
   $prepared=Get-Content -LiteralPath (Join-Path $PSScriptRoot 'New-PreparedReleaseBundle.ps1') -Raw
-  foreach($required in @('refs/tags/modules-v0.1.0-r8','HistoricalAttemptZeroSha256','HistoricalR1Sha256','HistoricalR2Sha256','HistoricalR3Sha256','HistoricalR4Sha256','HistoricalR5Sha256','HistoricalR6Sha256','HistoricalR7Sha256','HistoricalHistorySetSha256','PREP14-HISTORICAL-BINDING')){
+  foreach($required in @('refs/tags/modules-v0.1.0-r8','HistoricalAttemptZeroSha256','HistoricalR1Sha256','HistoricalR2Sha256','HistoricalR3Sha256','HistoricalR4Sha256','HistoricalR5Sha256','HistoricalR6Sha256','HistoricalR7Sha256','HistoricalHistorySetSha256','PREP14-HISTORICAL-BINDING','Assert-ReleaseCanonicalZip','PREP15-CANONICAL-ARCHIVE','PREP16-ARCHIVE-INTENT','r8 must start from a fresh genesis')){
     if($prepared.IndexOf($required,[StringComparison]::Ordinal) -lt 0){Throw-P08Qualification 'P08-R8-PREPARED' "Missing prepared r8 contract '$required'."}
   }
   $qualification=Get-Content -LiteralPath (Join-Path $PSScriptRoot 'Invoke-ReleaseQualification.ps1') -Raw
