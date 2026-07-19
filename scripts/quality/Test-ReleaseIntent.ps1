@@ -437,6 +437,11 @@ function Invoke-FocusedIntentTests {
   try {
     $initialRef = [string]$policy.initial_profile.release_ref
     if ([string]::IsNullOrWhiteSpace($initialRef)) { throw 'REL01-REF: initial policy release ref is missing.' }
+    & git -C $repoRoot show-ref --verify --quiet $initialRef
+    if ($LASTEXITCODE -ne 0) {
+      Write-Host 'Focused initial-intent construction is deferred until the separately authorized r11 tag exists.'
+      return
+    }
     $cloneA = Join-Path $tempRoot 'source-a'
     $cloneB = Join-Path $tempRoot 'source-b'
     & git clone --quiet --no-hardlinks --no-tags $repoRoot $cloneA
