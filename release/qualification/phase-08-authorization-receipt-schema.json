@@ -4,10 +4,10 @@
   "title": "Phase 8 literal core mutation authorization receipt",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schema_version", "release_ref", "boundary_sha", "source_sha", "packet_sha256", "historical_attempt_zero_sha256", "historical_r1_sha256", "historical_r2_sha256", "historical_r3_sha256", "historical_r4_sha256", "historical_r5_sha256", "historical_r6_sha256", "historical_history_set_sha256", "response", "created_at_utc", "receipt_sha256"],
+  "required": ["schema_version", "release_ref", "boundary_sha", "source_sha", "packet_sha256", "historical_attempt_zero_sha256", "historical_r1_sha256", "historical_r2_sha256", "historical_r3_sha256", "historical_r4_sha256", "historical_r5_sha256", "historical_r6_sha256", "historical_r7_sha256", "historical_history_set_sha256", "response", "created_at_utc", "receipt_sha256"],
   "properties": {
     "schema_version": { "const": "mnf-phase08-authorization-receipt/1" },
-    "release_ref": { "const": "refs/tags/modules-v0.1.0-r7" },
+    "release_ref": { "const": "refs/tags/modules-v0.1.0-r8" },
     "boundary_sha": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
     "source_sha": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
     "packet_sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
@@ -18,7 +18,8 @@
     "historical_r4_sha256": { "const": "d9b045bc65df87dc2701144ea7716defc67acb84ec9ea8e7ffdafd0118ba0906" },
     "historical_r5_sha256": { "const": "1239b63f983bef86ac44c731171093ad67759de9cce7c15610b92f5df6214843" },
     "historical_r6_sha256": { "const": "3f9c0d9916dbccfa9144488d2967ee1a7fb3fd1d9936f8cc4139c2734f2d0ad4" },
-    "historical_history_set_sha256": { "const": "93523aa11f0ab84736d7fa3b1cb500ade23043a4d01a3e07d205400436900334" },
+    "historical_r7_sha256": { "const": "baf5d4921c75b2ba4a64cd234663a1b7086d6c45a653edd1ce4a63f56882933f" },
+    "historical_history_set_sha256": { "const": "48de74c184100e34651e9e050e6949b252414746d13f78e04855fd28b69c8580" },
     "response": { "const": "authorize-core" },
     "created_at_utc": { "type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$" },
     "receipt_sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" }

@@ -138,6 +138,43 @@ function Assert-Phase08AttemptSchemas {
     $bad=$receiptFixture|ConvertTo-Json -Depth 30|ConvertFrom-Json -Depth 30;&$mutate $bad
     if (($bad|ConvertTo-Json -Depth 30 -Compress)|Test-Json -SchemaFile $receiptSchemaPath -ErrorAction SilentlyContinue) { throw 'REL04-RECEIPT-NEGATIVE: invalid replacement/mix/order/aggregate/UTC/unknown fixture passed.' }
   }
+
+  $handoffSchemaPath = Join-Path $repoRoot 'release\qualification\phase-08-handoff-schema.json'
+  $handoffBase = [ordered]@{
+    schema_version='mnf-phase08-handoff/1';release_ref='refs/tags/modules-v0.1.0-r8';boundary_sha=('1'*40)
+    execution_root='C:\mnf-phase08-r8\source';boundary_locator_path='C:\mnf-phase08-r8\boundary-locator.json';boundary_locator_sha256=('1'*64)
+    active_attempt_path='C:\mnf-phase08-r8\attempt.json';active_attempt_sha256=('2'*64);artifact_root='C:\mnf-phase08-r8\artifacts'
+    artifact_index_path='C:\mnf-phase08-r8\index.json';artifact_index_sha256=('3'*64)
+    attempt_zero_history_path='C:\mnf-phase08-r8\history\attempt-zero.json';attempt_zero_history_sha256=$historyFields.historical_attempt_zero_sha256
+    r1_history_path='C:\mnf-phase08-r8\history\r1.json';r1_history_sha256=$historyFields.historical_r1_sha256
+    r2_history_path='C:\mnf-phase08-r8\history\r2.json';r2_history_sha256=$historyFields.historical_r2_sha256
+    r3_history_path='C:\mnf-phase08-r8\history\r3.json';r3_history_sha256=$historyFields.historical_r3_sha256
+    r4_history_path='C:\mnf-phase08-r8\history\r4.json';r4_history_sha256=$historyFields.historical_r4_sha256
+    r5_history_path='C:\mnf-phase08-r8\history\r5.json';r5_history_sha256=$historyFields.historical_r5_sha256
+    r6_history_path='C:\mnf-phase08-r8\history\r6.json';r6_history_sha256=$historyFields.historical_r6_sha256
+    r7_history_path='C:\mnf-phase08-r8\history\r7.json';r7_history_sha256=$historyFields.historical_r7_sha256
+    historical_history_set_sha256=$historyFields.historical_history_set_sha256
+    authority_variant='mutation_authorized';mutation_authorization_packet_path='C:\mnf-phase08-r8\packet.json';mutation_authorization_packet_sha256=('4'*64)
+    authorization_receipt_path='C:\mnf-phase08-r8\receipt.json';authorization_receipt_sha256=('5'*64)
+    exact_existing_authority_path=$null;exact_existing_authority_sha256=$null;created_at_utc='2026-07-19T00:00:00Z';handoff_sha256=('6'*64)
+  }
+  if (-not (($handoffBase | ConvertTo-Json -Depth 30 -Compress) | Test-Json -SchemaFile $handoffSchemaPath -ErrorAction Stop)) { throw 'REL04-HANDOFF-SCHEMA: valid r8 mutation handoff failed.' }
+  $exactFixture = $handoffBase | ConvertTo-Json -Depth 30 | ConvertFrom-Json -Depth 30
+  $exactFixture.authority_variant='exact_existing';$exactFixture.mutation_authorization_packet_path=$null;$exactFixture.mutation_authorization_packet_sha256=$null
+  $exactFixture.authorization_receipt_path=$null;$exactFixture.authorization_receipt_sha256=$null
+  $exactFixture.exact_existing_authority_path='C:\mnf-phase08-r8\exact-existing.json';$exactFixture.exact_existing_authority_sha256=('7'*64)
+  if (-not (($exactFixture | ConvertTo-Json -Depth 30 -Compress) | Test-Json -SchemaFile $handoffSchemaPath -ErrorAction Stop)) { throw 'REL04-HANDOFF-SCHEMA: valid r8 exact-existing handoff failed.' }
+  foreach ($mutate in @(
+    { param($x) $x.release_ref='refs/tags/modules-v0.1.0-r7' },
+    { param($x) $x.authority_variant='stop' },
+    { param($x) $x.authorization_receipt_path=$null },
+    { param($x) $t=$x.r6_history_sha256;$x.r6_history_sha256=$x.r7_history_sha256;$x.r7_history_sha256=$t },
+    { param($x) $x.historical_history_set_sha256=('f'*64) },
+    { param($x) $x.created_at_utc='2026-07-19T08:00:00+08:00' }
+  )) {
+    $bad=$handoffBase|ConvertTo-Json -Depth 30|ConvertFrom-Json -Depth 30;&$mutate $bad
+    if (($bad|ConvertTo-Json -Depth 30 -Compress)|Test-Json -SchemaFile $handoffSchemaPath -ErrorAction SilentlyContinue) { throw 'REL04-HANDOFF-NEGATIVE: stale-r7/stop/receipt/history/set/UTC fixture passed.' }
+  }
 }
 
 function Assert-IntentContract {
