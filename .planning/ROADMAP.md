@@ -322,7 +322,7 @@
 
 **Wave 35** *(blocked on Wave 34 completion)*
 
-- [ ] 08-35-PLAN.md — Wire static r13 hosted and publisher seams; later plans separately create the r13 boundary and authorize publication.
+- [x] 08-35-PLAN.md — Wire static r13 hosted and publisher seams; later plans separately create the r13 boundary and authorize publication.
 
 **Wave 36** *(blocked on Wave 35 completion)*
 
