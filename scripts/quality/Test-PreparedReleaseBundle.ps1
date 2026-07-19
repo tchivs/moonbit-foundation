@@ -127,7 +127,8 @@ try {
   $r6Sha = '3f9c0d9916dbccfa9144488d2967ee1a7fb3fd1d9936f8cc4139c2734f2d0ad4'
   $r7Sha = 'baf5d4921c75b2ba4a64cd234663a1b7086d6c45a653edd1ce4a63f56882933f'
   $r8Sha = '8a7729234a62425d0082a7b7a4615f2757ab4bc59938925b8ca031e2e00c10c8'
-  $historySetSha = '39e45ed9aecf1788d106a043dd4b421243a577b66534d0748ca61937a0de86a8'
+  $r9Sha = '6edf89e7afb98dca1e81e3d5db9ff8a47f96dbfb2919bdaeb176c76c52c581ec'
+  $historySetSha = 'ea679099fbb3201708368847e0530c024e08fa9da5fd9100391cab61f1a1e7ee'
   $inputRoot = Join-Path $tempRoot 'input'
   $toolchain = [ordered]@{
     moon = '0.1.20260713 (75c7e1f 2026-07-13)'
@@ -147,20 +148,20 @@ try {
   )
   $intent = [ordered]@{
     schema_version='mnf-release-intent/1'; intent_kind='initial'; repository='tchivs/moonbit-foundation'; owner='tchivs'
-    release_ref='refs/tags/modules-v0.1.0-r9'; source_sha=$sourceSha; correction_sequence=0; toolchain=$toolchain
+    release_ref='refs/tags/modules-v0.1.0-r10'; source_sha=$sourceSha; correction_sequence=0; toolchain=$toolchain
     modules=$modules; evidence=[ordered]@{}; tracked_source_clean=$true; credentials_read=$false; publication_performed=$false
   }
   Write-JsonFixture -Path (Join-Path $inputRoot 'intent\current.json') -Value $intent
   $intentSha = (Get-FileHash -LiteralPath (Join-Path $inputRoot 'intent\current.json') -Algorithm SHA256).Hash.ToLowerInvariant()
   Write-Utf8NoBom -Path (Join-Path $inputRoot 'intent\current.sha256') -Text $intentSha
   Write-JsonFixture -Path (Join-Path $inputRoot 'intent\root-binding.json') -Value ([ordered]@{
-    root_intent_sha256=$intentSha; intent_sha256=$intentSha; source_sha=$sourceSha; release_ref='refs/tags/modules-v0.1.0-r9'
+    root_intent_sha256=$intentSha; intent_sha256=$intentSha; source_sha=$sourceSha; release_ref='refs/tags/modules-v0.1.0-r10'
   })
   Write-JsonFixture -Path (Join-Path $inputRoot 'request.json') -Value ([ordered]@{
-    repository='tchivs/moonbit-foundation'; actor='tchivs'; release_ref='refs/tags/modules-v0.1.0-r9'; source_sha=$sourceSha
+    repository='tchivs/moonbit-foundation'; actor='tchivs'; release_ref='refs/tags/modules-v0.1.0-r10'; source_sha=$sourceSha
     root_intent_sha256=$intentSha; intent_sha256=$intentSha; intent_kind='initial'; correction_sequence=0
     predecessor_intent_sha256=$null; authorization_valid=$true; evidence_valid=$true; dry_run_passed=$true; authority_account='tchivs'
-    historical_attempt_zero_sha256=$attemptZeroSha; historical_r1_sha256=$r1Sha; historical_r2_sha256=$r2Sha; historical_r3_sha256=$r3Sha; historical_r4_sha256=$r4Sha; historical_r5_sha256=$r5Sha; historical_r6_sha256=$r6Sha; historical_r7_sha256=$r7Sha; historical_r8_sha256=$r8Sha
+    historical_attempt_zero_sha256=$attemptZeroSha; historical_r1_sha256=$r1Sha; historical_r2_sha256=$r2Sha; historical_r3_sha256=$r3Sha; historical_r4_sha256=$r4Sha; historical_r5_sha256=$r5Sha; historical_r6_sha256=$r6Sha; historical_r7_sha256=$r7Sha; historical_r8_sha256=$r8Sha; historical_r9_sha256=$r9Sha
     historical_history_set_sha256=$historySetSha
   })
   $fixtureFiles = [ordered]@{
@@ -180,8 +181,8 @@ try {
 
   $common = @{
     InputRoot=$inputRoot; Repository='tchivs/moonbit-foundation'; Actor='tchivs'; RunId='1001'; RunAttempt=1
-    ReleaseRef='refs/tags/modules-v0.1.0-r9'; SourceSha=$sourceSha; RootIntentSha256=$intentSha; IntentSha256=$intentSha
-    HistoricalAttemptZeroSha256=$attemptZeroSha; HistoricalR1Sha256=$r1Sha; HistoricalR2Sha256=$r2Sha; HistoricalR3Sha256=$r3Sha; HistoricalR4Sha256=$r4Sha; HistoricalR5Sha256=$r5Sha; HistoricalR6Sha256=$r6Sha; HistoricalR7Sha256=$r7Sha; HistoricalR8Sha256=$r8Sha; HistoricalHistorySetSha256=$historySetSha
+    ReleaseRef='refs/tags/modules-v0.1.0-r10'; SourceSha=$sourceSha; RootIntentSha256=$intentSha; IntentSha256=$intentSha
+    HistoricalAttemptZeroSha256=$attemptZeroSha; HistoricalR1Sha256=$r1Sha; HistoricalR2Sha256=$r2Sha; HistoricalR3Sha256=$r3Sha; HistoricalR4Sha256=$r4Sha; HistoricalR5Sha256=$r5Sha; HistoricalR6Sha256=$r6Sha; HistoricalR7Sha256=$r7Sha; HistoricalR8Sha256=$r8Sha; HistoricalR9Sha256=$r9Sha; HistoricalHistorySetSha256=$historySetSha
     RunMode='start'
   }
   $validation = @{} + $common

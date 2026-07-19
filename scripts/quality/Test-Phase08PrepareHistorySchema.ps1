@@ -18,9 +18,9 @@ if($r8.attempt -cne 'r8' -or $r8.reason -cne 'terminal_pre_locator_canonical_arc
 
 . $hosted -Mode PrepareAttempt -LibraryOnly
 $BoundaryLocatorPath='strict-mode-history-schema-probe'
-$ReleaseRef='refs/tags/modules-v0.1.0-r9'
-$HistoricalReleaseRef='refs/tags/modules-v0.1.0-r8'
-$HistoricalSourceSha='8d0f050a2ea2a5f136d87f913987d59ea99a13d4'
+$ReleaseRef='refs/tags/modules-v0.1.0-r10'
+$HistoricalReleaseRef='refs/tags/modules-v0.1.0-r9'
+$HistoricalSourceSha='4158dff7d3b6629861d4f5325573c45f3e3e3436'
 $script:GitCommand={param($Root,[string[]]$Arguments);throw 'P08-PREPARE-HISTORY-SCHEMA-GIT: legacy r8 schema was accepted before any git read.'}
 $probeState=Join-Path ([IO.Path]::GetTempPath()) ('mnf-p08-history-schema-'+[Guid]::NewGuid().ToString('N'))
 $boundary=[pscustomobject]@{execution_root=$repoRoot;state_root=$probeState;boundary_sha=('a'*40)}
@@ -48,10 +48,10 @@ function Confirm-P08PrepareHistoryBindingFailure([object]$Policy,[string]$Label)
 }
 
 $unexpectedField=$control|ConvertTo-Json -Depth 100|ConvertFrom-Json -Depth 100
-$unexpectedField.initial_attempt_family.terminal_negative_history[8] | Add-Member -NotePropertyName prepare_job_id -NotePropertyValue 'unexpected'
+$unexpectedField.initial_attempt_family.terminal_negative_history[9] | Add-Member -NotePropertyName prepare_job_id -NotePropertyValue 'unexpected'
 Confirm-P08PrepareHistoryBindingFailure -Policy $unexpectedField -Label 'FIELD'
 $digestDrift=$control|ConvertTo-Json -Depth 100|ConvertFrom-Json -Depth 100
-$digestDrift.initial_attempt_family.terminal_negative_history[8].record_sha256=('0'*64)
+$digestDrift.initial_attempt_family.terminal_negative_history[9].record_sha256=('0'*64)
 Confirm-P08PrepareHistoryBindingFailure -Policy $digestDrift -Label 'DIGEST'
 
 Write-Host 'Phase 8 PrepareAttempt legacy r8 history schema: PASS.'

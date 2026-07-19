@@ -583,35 +583,35 @@ function New-P08PreparedAttempt {
   }
   $missing=@($prepareBindings.GetEnumerator()|Where-Object{[string]::IsNullOrWhiteSpace([string]$_.Value)}|ForEach-Object Key)
   if($missing.Count -ne 0){Throw-P08HostedRule 'P08-PREPARE-MISSING-BINDING' ('PrepareAttempt requires: '+($missing-join ', ')+'.')}
-  if($ReleaseRef -cne 'refs/tags/modules-v0.1.0-r9'){Throw-P08HostedRule 'P08-PREPARE-R9-BINDING' 'PrepareAttempt requires the exact r9 release ref.'}
+  if($ReleaseRef -cne 'refs/tags/modules-v0.1.0-r10'){Throw-P08HostedRule 'P08-PREPARE-R10-BINDING' 'PrepareAttempt requires the exact r10 release ref.'}
   $executionRoot=[IO.Path]::GetFullPath([string]$Boundary.execution_root)
   $control=Get-Content -LiteralPath (Join-Path $executionRoot 'policy/release-control.json') -Raw|ConvertFrom-Json -Depth 100
   $history=@($control.initial_attempt_family.terminal_negative_history)
-  if($control.initial_attempt_family.current_attempt -cne 'r9' -or $history.Count -ne 9 -or ($history.attempt -join ',') -cne 'attempt_zero,r1,r2,r3,r4,r5,r6,r7,r8' -or
-      ($history.release_ref -join ',') -cne 'refs/tags/modules-v0.1.0,refs/tags/modules-v0.1.0-r1,refs/tags/modules-v0.1.0-r2,refs/tags/modules-v0.1.0-r3,refs/tags/modules-v0.1.0-r4,refs/tags/modules-v0.1.0-r5,refs/tags/modules-v0.1.0-r6,refs/tags/modules-v0.1.0-r7,refs/tags/modules-v0.1.0-r8' -or
+  if($control.initial_attempt_family.current_attempt -cne 'r10' -or $history.Count -ne 10 -or ($history.attempt -join ',') -cne 'attempt_zero,r1,r2,r3,r4,r5,r6,r7,r8,r9' -or
+      ($history.release_ref -join ',') -cne 'refs/tags/modules-v0.1.0,refs/tags/modules-v0.1.0-r1,refs/tags/modules-v0.1.0-r2,refs/tags/modules-v0.1.0-r3,refs/tags/modules-v0.1.0-r4,refs/tags/modules-v0.1.0-r5,refs/tags/modules-v0.1.0-r6,refs/tags/modules-v0.1.0-r7,refs/tags/modules-v0.1.0-r8,refs/tags/modules-v0.1.0-r9' -or
       @($history|Where-Object{$_.mutation_performed-ne$false-or$_.authority_acquired-ne$false}).Count -ne 0){
-    Throw-P08HostedRule 'P08-PREPARE-HISTORY' 'The exact nine-entry terminal-negative history is required.'
+    Throw-P08HostedRule 'P08-PREPARE-HISTORY' 'The exact ten-entry terminal-negative history is required.'
   }
-  $historicalPolicy=$history[8]
-  $r8LegacyProperties=@(
-    'attempt','release_ref','source_sha','tag_object_sha','hosted_run_present','run_id','run_attempt',
-    'boundary_locator_count','active_attempt_count','prepared_artifact_upload_count','publisher_dry_run_count',
-    'exact_existing_authority_count','hosted_preflight_downstream_count','publisher_count','observation_count',
-    'cold_consumer_count','authorization_packet_count','authorization_receipt_count','handoff_count','publish_one_count',
-    'mutation_count','successor_count','credential_accessed','mutation_performed','authority_acquired','failure_stage',
-    'failure_code','failure_detail','reason','record_sha256'
+  $historicalPolicy=$history[9]
+  $r9Properties=@(
+    'attempt','release_ref','source_sha','tag_object_sha','tag_peeled_source_sha','hosted_run_present','run_id','run_attempt',
+    'prepare_attempt_completed','active_locator_created','locator_count','boundary_locator_count','active_attempt_count',
+    'prepared_artifact_upload_count','publisher_dry_run_count','exact_existing_authority_count','hosted_preflight_downstream_count',
+    'publisher_count','observation_count','cold_consumer_count','hosted_preflight_dispatched','credential_accessed','failure_stage',
+    'failure_code','failure_detail','authorization_packet_count','authorization_receipt_count','handoff_count','publish_one_count',
+    'mutation_count','successor_count','mutation_performed','authority_acquired','reason','record_sha256'
   )
-  if((@($historicalPolicy.PSObject.Properties.Name)-join ',') -cne ($r8LegacyProperties-join ',') -or
-      [string]$historicalPolicy.record_sha256 -cne '8a7729234a62425d0082a7b7a4615f2757ab4bc59938925b8ca031e2e00c10c8'){
-    Throw-P08HostedRule 'P08-PREPARE-HISTORICAL-BINDING' 'Historical r8 record is not the exact protected pre-locator terminal schema.'
+  if((@($historicalPolicy.PSObject.Properties.Name)-join ',') -cne ($r9Properties-join ',') -or [string]$historicalPolicy.record_sha256 -cne '6edf89e7afb98dca1e81e3d5db9ff8a47f96dbfb2919bdaeb176c76c52c581ec'){
+    Throw-P08HostedRule 'P08-PREPARE-HISTORICAL-BINDING' 'Historical r9 record is not the exact protected pre-locator StrictMode terminal schema.'
   }
   if(-not [string]::IsNullOrWhiteSpace($HistoricalRunId) -or $HistoricalRunAttempt -ne 0 -or $historicalPolicy.hosted_run_present -ne $false -or
       $null -ne $historicalPolicy.run_id -or $null -ne $historicalPolicy.run_attempt -or
       $HistoricalReleaseRef -cne [string]$historicalPolicy.release_ref -or $HistoricalSourceSha -cne [string]$historicalPolicy.source_sha -or
-      $historicalPolicy.reason -cne 'terminal_pre_locator_canonical_archive_failure' -or
+      $historicalPolicy.tag_object_sha -cne '79d4fa715c6d306e5435d5920c5f92111d5ce13a' -or $historicalPolicy.tag_peeled_source_sha -cne '4158dff7d3b6629861d4f5325573c45f3e3e3436' -or
+      $historicalPolicy.reason -cne 'terminal_pre_locator_strict_mode_history_schema_failure' -or
       $historicalPolicy.credential_accessed -ne $false -or
-      $historicalPolicy.failure_stage -cne 'prepared_bundle_raw_archive_validation_before_locator' -or $historicalPolicy.failure_code -cne 'PREP15-CANONICAL-ARCHIVE' -or
-      $historicalPolicy.failure_detail -cne 'REL-XPLAT-NONCANONICAL' -or
+      $historicalPolicy.failure_stage -cne 'pre_locator_strict_mode_history_schema_failure' -or $historicalPolicy.failure_code -cne 'P08-PREPARE-HISTORY-SCHEMA' -or
+      $historicalPolicy.failure_detail -cne 'r8_legacy_history_field_access_under_strictmode' -or
       @('prepared_artifact_upload_count','publisher_dry_run_count','exact_existing_authority_count','hosted_preflight_downstream_count',
         'publisher_count','observation_count','cold_consumer_count','authorization_packet_count','authorization_receipt_count',
         'handoff_count','publish_one_count','mutation_count','successor_count').Where({[int]$historicalPolicy.$_ -ne 0}).Count -ne 0 -or
@@ -619,7 +619,7 @@ function New-P08PreparedAttempt {
     Throw-P08HostedRule 'P08-PREPARE-HISTORICAL-BINDING' 'Historical failed-attempt binding differs from release control.'
   }
   $resolvedRef=((Invoke-P08Git $executionRoot @('rev-parse',"$ReleaseRef^{}"))-join '').Trim()
-  if($resolvedRef -cne [string]$Boundary.boundary_sha){Throw-P08HostedRule 'P08-PREPARE-REF' 'The r8 ref does not peel to the durable boundary.'}
+  if($resolvedRef -cne [string]$Boundary.boundary_sha){Throw-P08HostedRule 'P08-PREPARE-REF' 'The r10 ref does not peel to the durable boundary.'}
   $stateRoot=[IO.Path]::GetFullPath([string]$Boundary.state_root)
   $locatorPath=Join-Path $stateRoot 'phase-08-live-locator.json'
   if(Test-Path -LiteralPath $locatorPath){Throw-P08HostedRule 'P08-PREPARE-EXISTS' 'An active attempt locator already exists.'}
@@ -635,7 +635,7 @@ function New-P08PreparedAttempt {
         $binding.release_ref -cne $ReleaseRef -or $binding.source_sha -cne [string]$Boundary.boundary_sha -or
         $binding.root_intent_sha256 -cne $intentDigest -or $binding.intent_sha256 -cne $intentDigest -or
         $binding.credentials_read -ne $false -or $binding.publication_performed -ne $false){
-      Throw-P08HostedRule 'P08-PREPARE-INTENT-BINDING' 'Fresh r8 intent/root binding is invalid.'
+      Throw-P08HostedRule 'P08-PREPARE-INTENT-BINDING' 'Fresh r10 intent/root binding is invalid.'
     }
     $artifactRoot=Join-Path $stateRoot "artifacts/$intentDigest"
     if(Test-Path -LiteralPath $artifactRoot){Throw-P08HostedRule 'P08-PREPARE-PARTIAL' 'Fresh attempt artifact root already exists.'}
@@ -645,7 +645,7 @@ function New-P08PreparedAttempt {
     $null=New-Item -ItemType Directory -Force $inputRoot
     $historyProjections=@()
     foreach($record in $history){$projection=[ordered]@{};foreach($property in $record.PSObject.Properties){if($property.Name -cne 'record_sha256'){$projection[$property.Name]=$property.Value}};$historyProjections+=,[pscustomobject]$projection}
-    $attemptZero=$historyProjections[0];$r1Negative=$historyProjections[1];$r2Negative=$historyProjections[2];$r3Negative=$historyProjections[3];$r4Negative=$historyProjections[4];$r5Negative=$historyProjections[5];$r6Negative=$historyProjections[6];$r7Negative=$historyProjections[7];$r8Negative=$historyProjections[8]
+    $attemptZero=$historyProjections[0];$r1Negative=$historyProjections[1];$r2Negative=$historyProjections[2];$r3Negative=$historyProjections[3];$r4Negative=$historyProjections[4];$r5Negative=$historyProjections[5];$r6Negative=$historyProjections[6];$r7Negative=$historyProjections[7];$r8Negative=$historyProjections[8];$r9Negative=$historyProjections[9]
     $attemptZeroPath=Join-Path $stageRoot 'historical/attempt-zero.json';Write-P08ExclusiveJson $attemptZeroPath $attemptZero
     $r1HistoryPath=Join-Path $stageRoot 'historical/r1.json';Write-P08ExclusiveJson $r1HistoryPath $r1Negative
     $r2HistoryPath=Join-Path $stageRoot 'historical/r2.json';Write-P08ExclusiveJson $r2HistoryPath $r2Negative
@@ -655,8 +655,9 @@ function New-P08PreparedAttempt {
     $r6HistoryPath=Join-Path $stageRoot 'historical/r6.json';Write-P08ExclusiveJson $r6HistoryPath $r6Negative
     $r7HistoryPath=Join-Path $stageRoot 'historical/r7.json';Write-P08ExclusiveJson $r7HistoryPath $r7Negative
     $r8HistoryPath=Join-Path $stageRoot 'historical/r8.json';Write-P08ExclusiveJson $r8HistoryPath $r8Negative
-    $attemptZeroDigest=Get-P08Sha256 $attemptZeroPath;$r1HistoryDigest=Get-P08Sha256 $r1HistoryPath;$r2HistoryDigest=Get-P08Sha256 $r2HistoryPath;$r3HistoryDigest=Get-P08Sha256 $r3HistoryPath;$r4HistoryDigest=Get-P08Sha256 $r4HistoryPath;$r5HistoryDigest=Get-P08Sha256 $r5HistoryPath;$r6HistoryDigest=Get-P08Sha256 $r6HistoryPath;$r7HistoryDigest=Get-P08Sha256 $r7HistoryPath;$r8HistoryDigest=Get-P08Sha256 $r8HistoryPath
-    $historySet=([Convert]::ToHexString([Security.Cryptography.SHA256]::HashData([Text.UTF8Encoding]::new($false).GetBytes((@($attemptZeroDigest,$r1HistoryDigest,$r2HistoryDigest,$r3HistoryDigest,$r4HistoryDigest,$r5HistoryDigest,$r6HistoryDigest,$r7HistoryDigest,$r8HistoryDigest)-join"`n"))))).ToLowerInvariant()
+    $r9HistoryPath=Join-Path $stageRoot 'historical/r9.json';Write-P08ExclusiveJson $r9HistoryPath $r9Negative
+    $attemptZeroDigest=Get-P08Sha256 $attemptZeroPath;$r1HistoryDigest=Get-P08Sha256 $r1HistoryPath;$r2HistoryDigest=Get-P08Sha256 $r2HistoryPath;$r3HistoryDigest=Get-P08Sha256 $r3HistoryPath;$r4HistoryDigest=Get-P08Sha256 $r4HistoryPath;$r5HistoryDigest=Get-P08Sha256 $r5HistoryPath;$r6HistoryDigest=Get-P08Sha256 $r6HistoryPath;$r7HistoryDigest=Get-P08Sha256 $r7HistoryPath;$r8HistoryDigest=Get-P08Sha256 $r8HistoryPath;$r9HistoryDigest=Get-P08Sha256 $r9HistoryPath
+    $historySet=([Convert]::ToHexString([Security.Cryptography.SHA256]::HashData([Text.UTF8Encoding]::new($false).GetBytes((@($attemptZeroDigest,$r1HistoryDigest,$r2HistoryDigest,$r3HistoryDigest,$r4HistoryDigest,$r5HistoryDigest,$r6HistoryDigest,$r7HistoryDigest,$r8HistoryDigest,$r9HistoryDigest)-join"`n"))))).ToLowerInvariant()
     $canonicalArchives=[ordered]@{}
     foreach($module in @('mb-core','mb-color','mb-image')){$canonicalArchives[$module]=Copy-P08CanonicalPreparedArchive -Source ([string]$materials.archive_paths[$module]) -InputRoot $inputRoot -Module $module}
     Copy-P08PreparedInput -Source $intentPath -InputRoot $inputRoot -RelativePath 'intent/current.json'
@@ -678,10 +679,10 @@ function New-P08PreparedAttempt {
       repository='tchivs/moonbit-foundation';actor='tchivs';release_ref=$ReleaseRef;source_sha=[string]$Boundary.boundary_sha
       root_intent_sha256=$intentDigest;intent_sha256=$intentDigest;intent_kind='initial';correction_sequence=0
       predecessor_intent_sha256=$null;authorization_valid=$true;evidence_valid=$true;dry_run_passed=$true;authority_account='tchivs'
-      historical_attempt_zero_sha256=$attemptZeroDigest;historical_r1_sha256=$r1HistoryDigest;historical_r2_sha256=$r2HistoryDigest;historical_r3_sha256=$r3HistoryDigest;historical_r4_sha256=$r4HistoryDigest;historical_r5_sha256=$r5HistoryDigest;historical_r6_sha256=$r6HistoryDigest;historical_r7_sha256=$r7HistoryDigest;historical_r8_sha256=$r8HistoryDigest;historical_history_set_sha256=$historySet
+      historical_attempt_zero_sha256=$attemptZeroDigest;historical_r1_sha256=$r1HistoryDigest;historical_r2_sha256=$r2HistoryDigest;historical_r3_sha256=$r3HistoryDigest;historical_r4_sha256=$r4HistoryDigest;historical_r5_sha256=$r5HistoryDigest;historical_r6_sha256=$r6HistoryDigest;historical_r7_sha256=$r7HistoryDigest;historical_r8_sha256=$r8HistoryDigest;historical_r9_sha256=$r9HistoryDigest;historical_history_set_sha256=$historySet
     }
     [IO.File]::WriteAllText((Join-Path $inputRoot 'request.json'),(Get-P08CanonicalJson $request),[Text.UTF8Encoding]::new($false))
-    $bundleArgs=@{Repository='tchivs/moonbit-foundation';Actor='tchivs';RunId='1';RunAttempt=1;ReleaseRef=$ReleaseRef;SourceSha=[string]$Boundary.boundary_sha;RootIntentSha256=$intentDigest;IntentSha256=$intentDigest;RunMode='start';HistoricalAttemptZeroSha256=$attemptZeroDigest;HistoricalR1Sha256=$r1HistoryDigest;HistoricalR2Sha256=$r2HistoryDigest;HistoricalR3Sha256=$r3HistoryDigest;HistoricalR4Sha256=$r4HistoryDigest;HistoricalR5Sha256=$r5HistoryDigest;HistoricalR6Sha256=$r6HistoryDigest;HistoricalR7Sha256=$r7HistoryDigest;HistoricalR8Sha256=$r8HistoryDigest;HistoricalHistorySetSha256=$historySet}
+    $bundleArgs=@{Repository='tchivs/moonbit-foundation';Actor='tchivs';RunId='1';RunAttempt=1;ReleaseRef=$ReleaseRef;SourceSha=[string]$Boundary.boundary_sha;RootIntentSha256=$intentDigest;IntentSha256=$intentDigest;RunMode='start';HistoricalAttemptZeroSha256=$attemptZeroDigest;HistoricalR1Sha256=$r1HistoryDigest;HistoricalR2Sha256=$r2HistoryDigest;HistoricalR3Sha256=$r3HistoryDigest;HistoricalR4Sha256=$r4HistoryDigest;HistoricalR5Sha256=$r5HistoryDigest;HistoricalR6Sha256=$r6HistoryDigest;HistoricalR7Sha256=$r7HistoryDigest;HistoricalR8Sha256=$r8HistoryDigest;HistoricalR9Sha256=$r9HistoryDigest;HistoricalHistorySetSha256=$historySet}
     $prepared=& (Join-Path $executionRoot 'scripts/quality/New-PreparedReleaseBundle.ps1') -InputRoot $inputRoot -OutputRoot $preparedRoot @bundleArgs
     & (Join-Path $executionRoot 'scripts/quality/New-PreparedReleaseBundle.ps1') -ValidateOnly -OutputRoot $preparedRoot @bundleArgs|Out-Null
     if($prepared.manifest_sha256 -cne (Get-P08Sha256 (Join-Path $preparedRoot 'prepared-bundle.json'))){Throw-P08HostedRule 'P08-PREPARE-MANIFEST' 'Prepared manifest digest drifted.'}
@@ -691,7 +692,7 @@ function New-P08PreparedAttempt {
       journal_sequence=0;prior_record_sha256=('0'*64);root_intent_sha256=$intentDigest;intent_sha256=$intentDigest;intent_kind='initial'
       correction_sequence=0;predecessor_intent_sha256=$null;state='intent_authorized';module=$null;operation='authorize'
       observation=ConvertTo-PublisherSanitizedObservation -Status not_observed -Identity not_applicable -ReasonCode none -ReobservationRequired $false
-      outcome='accepted';recorded_at_utc=$commitTime;run_identity=[pscustomobject][ordered]@{repository='tchivs/moonbit-foundation';run_id='1';artifact_name='publisher-genesis-r9';artifact_sequence=0}
+      outcome='accepted';recorded_at_utc=$commitTime;run_identity=[pscustomobject][ordered]@{repository='tchivs/moonbit-foundation';run_id='1';artifact_name='publisher-genesis-r10';artifact_sequence=0}
     }
     $genesis=(Resolve-PublisherTransition -Records @() -Command $genesisCommand).record
     $journalPath=Join-Path $stageRoot 'journal/genesis.json';Write-P08ExclusiveJson $journalPath $genesis
@@ -710,6 +711,7 @@ function New-P08PreparedAttempt {
       New-P08PrepareIndexRecord -LogicalKey 'prepare|historical|r6' -Kind 'HistoricalNegative' -RelativePath 'historical/r6.json' -AbsolutePath $r6HistoryPath -ContentDigest $r6HistoryDigest -Binding $indexBinding
       New-P08PrepareIndexRecord -LogicalKey 'prepare|historical|r7' -Kind 'HistoricalNegative' -RelativePath 'historical/r7.json' -AbsolutePath $r7HistoryPath -ContentDigest $r7HistoryDigest -Binding $indexBinding
       New-P08PrepareIndexRecord -LogicalKey 'prepare|historical|r8' -Kind 'HistoricalNegative' -RelativePath 'historical/r8.json' -AbsolutePath $r8HistoryPath -ContentDigest $r8HistoryDigest -Binding $indexBinding
+      New-P08PrepareIndexRecord -LogicalKey 'prepare|historical|r9' -Kind 'HistoricalNegative' -RelativePath 'historical/r9.json' -AbsolutePath $r9HistoryPath -ContentDigest $r9HistoryDigest -Binding $indexBinding
     )
     $index=[pscustomobject][ordered]@{schema_version='mnf-phase08-artifact-index/2';boundary_sha=[string]$Boundary.boundary_sha;prepared_manifest_sha256=$preparedDigest;records=$records}
     Write-P08ExclusiveJson (Join-Path $stageRoot 'index.json') $index
@@ -727,8 +729,8 @@ function New-P08PreparedAttempt {
     [pscustomobject][ordered]@{
       mode='PrepareAttempt';locator_path=[IO.Path]::GetFullPath($locatorPath);artifact_root=[IO.Path]::GetFullPath($artifactRoot)
       index_path=[IO.Path]::GetFullPath((Join-Path $artifactRoot 'index.json'));root_intent_sha256=$intentDigest;intent_sha256=$intentDigest
-      prepared_manifest_sha256=$preparedDigest;historical_record_path=[IO.Path]::GetFullPath((Join-Path $artifactRoot 'historical/r8.json'))
-      attempt_zero_history_path=[IO.Path]::GetFullPath((Join-Path $artifactRoot 'historical/attempt-zero.json'));r1_history_path=[IO.Path]::GetFullPath((Join-Path $artifactRoot 'historical/r1.json'));r2_history_path=[IO.Path]::GetFullPath((Join-Path $artifactRoot 'historical/r2.json'));r3_history_path=[IO.Path]::GetFullPath((Join-Path $artifactRoot 'historical/r3.json'));r4_history_path=[IO.Path]::GetFullPath((Join-Path $artifactRoot 'historical/r4.json'));r5_history_path=[IO.Path]::GetFullPath((Join-Path $artifactRoot 'historical/r5.json'));r6_history_path=[IO.Path]::GetFullPath((Join-Path $artifactRoot 'historical/r6.json'));r7_history_path=[IO.Path]::GetFullPath((Join-Path $artifactRoot 'historical/r7.json'));r8_history_path=[IO.Path]::GetFullPath((Join-Path $artifactRoot 'historical/r8.json'));historical_history_set_sha256=$historySet
+      prepared_manifest_sha256=$preparedDigest;historical_record_path=[IO.Path]::GetFullPath((Join-Path $artifactRoot 'historical/r9.json'))
+      attempt_zero_history_path=[IO.Path]::GetFullPath((Join-Path $artifactRoot 'historical/attempt-zero.json'));r1_history_path=[IO.Path]::GetFullPath((Join-Path $artifactRoot 'historical/r1.json'));r2_history_path=[IO.Path]::GetFullPath((Join-Path $artifactRoot 'historical/r2.json'));r3_history_path=[IO.Path]::GetFullPath((Join-Path $artifactRoot 'historical/r3.json'));r4_history_path=[IO.Path]::GetFullPath((Join-Path $artifactRoot 'historical/r4.json'));r5_history_path=[IO.Path]::GetFullPath((Join-Path $artifactRoot 'historical/r5.json'));r6_history_path=[IO.Path]::GetFullPath((Join-Path $artifactRoot 'historical/r6.json'));r7_history_path=[IO.Path]::GetFullPath((Join-Path $artifactRoot 'historical/r7.json'));r8_history_path=[IO.Path]::GetFullPath((Join-Path $artifactRoot 'historical/r8.json'));r9_history_path=[IO.Path]::GetFullPath((Join-Path $artifactRoot 'historical/r9.json'));historical_history_set_sha256=$historySet
       genesis_record_path=[IO.Path]::GetFullPath((Join-Path $artifactRoot 'journal/genesis.json'));prepared_root=[IO.Path]::GetFullPath((Join-Path $artifactRoot 'prepared'))
       toolchain_root=[string]$materials.toolchain_root;native_toolchain_bin=[string]$materials.native_toolchain_bin;mutation_count=0
     }
