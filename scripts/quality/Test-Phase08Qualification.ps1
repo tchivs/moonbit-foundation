@@ -396,15 +396,15 @@ function Assert-P08FixtureContract {
     $missingBoundary=& $prepareHosted -Mode InitializeBoundary -Repository tchivs/moonbit-foundation -Workflow publish-modules.yml `
       -BoundarySha $prepareBoundary -ExecutionRoot $prepareExecutionRoot -StateRoot $missingState
     Confirm-P08FixtureFailure 'P08-PREPARE-MISSING-BINDING' {
-      & $prepareHosted -Mode PrepareAttempt -BoundaryLocatorPath ([string]$missingBoundary.locator_path) -ReleaseRef refs/tags/modules-v0.1.0-r10 `
-        -HistoricalReleaseRef refs/tags/modules-v0.1.0-r9 -PrepareProvider $prepareProvider
+      & $prepareHosted -Mode PrepareAttempt -BoundaryLocatorPath ([string]$missingBoundary.locator_path) -ReleaseRef refs/tags/modules-v0.1.0-r11 `
+        -HistoricalReleaseRef refs/tags/modules-v0.1.0-r10 -PrepareProvider $prepareProvider
     }
     $mismatchState=Join-Path $prepareFixtureRoot 'mismatch-state'
     $mismatchBoundary=& $prepareHosted -Mode InitializeBoundary -Repository tchivs/moonbit-foundation -Workflow publish-modules.yml `
       -BoundarySha $prepareBoundary -ExecutionRoot $prepareExecutionRoot -StateRoot $mismatchState
     Confirm-P08FixtureFailure 'P08-PREPARE-HISTORICAL-BINDING' {
-      & $prepareHosted -Mode PrepareAttempt -BoundaryLocatorPath ([string]$mismatchBoundary.locator_path) -ReleaseRef refs/tags/modules-v0.1.0-r10 `
-        -HistoricalReleaseRef refs/tags/modules-v0.1.0-r9 -HistoricalSourceSha ('9'*40) -PrepareProvider $prepareProvider
+      & $prepareHosted -Mode PrepareAttempt -BoundaryLocatorPath ([string]$mismatchBoundary.locator_path) -ReleaseRef refs/tags/modules-v0.1.0-r11 `
+        -HistoricalReleaseRef refs/tags/modules-v0.1.0-r10 -HistoricalSourceSha ('9'*40) -PrepareProvider $prepareProvider
     }
 
     # This is intentionally a local-only Git fixture: the tag exists only in the disposable
@@ -446,7 +446,7 @@ function Assert-P08FixtureContract {
     $fetchedBoundary=& (Join-Path $fetchedExecutionRoot 'scripts/quality/Invoke-Phase08HostedRun.ps1') -Mode InitializeBoundary -Repository tchivs/moonbit-foundation -Workflow publish-modules.yml `
       -BoundarySha $prepareBoundary -ExecutionRoot $fetchedExecutionRoot -StateRoot $fetchedStateRoot
     $fetchedPrepared=& (Join-Path $fetchedExecutionRoot 'scripts/quality/Invoke-Phase08HostedRun.ps1') -Mode PrepareAttempt -BoundaryLocatorPath ([string]$fetchedBoundary.locator_path) `
-      -ReleaseRef $cloneReleaseRef -HistoricalReleaseRef refs/tags/modules-v0.1.0-r9 -HistoricalSourceSha 4158dff7d3b6629861d4f5325573c45f3e3e3436 -PrepareProvider $cloneProvider
+      -ReleaseRef $cloneReleaseRef -HistoricalReleaseRef refs/tags/modules-v0.1.0-r10 -HistoricalSourceSha d49edc53fb4ffca375e562a23789fb76bf8c41e2 -PrepareProvider $cloneProvider
     if($cloneProbe.provider_calls -ne 1 -or [string]$fetchedPrepared.mode -cne 'PrepareAttempt' -or -not(Test-Path -LiteralPath ([string]$fetchedPrepared.locator_path))){
       Throw-P08Qualification 'P08-QUAL-PREPARE-CLONE-POSITIVE' 'Fetched clean-clone fixture did not cross the initial-ref seam into PrepareAttempt.'
     }
@@ -457,7 +457,7 @@ function Assert-P08FixtureContract {
       $hosted=Join-Path $root 'scripts/quality/Invoke-Phase08HostedRun.ps1'
       $boundary=& $hosted -Mode InitializeBoundary -Repository tchivs/moonbit-foundation -Workflow publish-modules.yml -BoundarySha $prepareBoundary -ExecutionRoot $root -StateRoot $state
       $before=$cloneProbe.provider_calls;$failure=$null
-      try{& $hosted -Mode PrepareAttempt -BoundaryLocatorPath ([string]$boundary.locator_path) -ReleaseRef $cloneReleaseRef -HistoricalReleaseRef refs/tags/modules-v0.1.0-r9 -HistoricalSourceSha 4158dff7d3b6629861d4f5325573c45f3e3e3436 -PrepareProvider $cloneProvider}catch{$failure=$_.Exception.Message}
+      try{& $hosted -Mode PrepareAttempt -BoundaryLocatorPath ([string]$boundary.locator_path) -ReleaseRef $cloneReleaseRef -HistoricalReleaseRef refs/tags/modules-v0.1.0-r10 -HistoricalSourceSha d49edc53fb4ffca375e562a23789fb76bf8c41e2 -PrepareProvider $cloneProvider}catch{$failure=$_.Exception.Message}
       if($failure -notmatch "^$ExpectedId`:" -or $cloneProbe.provider_calls -ne $before -or (Test-Path -LiteralPath (Join-Path $state 'phase-08-live-locator.json'))){
         Throw-P08Qualification 'P08-QUAL-PREPARE-CLONE-REF' "'$Name' crossed provider or locator state before the clone-local release-ref gate: $failure"
       }
