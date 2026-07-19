@@ -589,7 +589,10 @@ function Assert-RequiredQualificationReport {
 }
 
 function Assert-ReleaseTrackedSnapshot {
-  param([Parameter(Mandatory)][string]$Before, [Parameter(Mandatory)][string]$After)
+  param(
+    [Parameter(Mandatory)][AllowEmptyString()][string]$Before,
+    [Parameter(Mandatory)][AllowEmptyString()][string]$After
+  )
   if ($Before -cne $After) {
     Throw-ReleaseRule -Id 'REL14-TRACKED-SOURCE-MUTATION' -Message 'tracked source differs from the captured baseline.'
   }

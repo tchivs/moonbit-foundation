@@ -123,6 +123,7 @@ try {
     [IO.File]::WriteAllBytes($artifact, [byte[]](1, 2, 4))
     Assert-ReleaseHashedArtifact -Path $artifact -ExpectedSha256 $expected
   }
+  Assert-ReleaseTrackedSnapshot -Before '' -After ''
   Confirm-ExactRule 'REL14-TRACKED-SOURCE-MUTATION' {
     Assert-ReleaseTrackedSnapshot -Before 'clean-a' -After 'changed-b'
   }
