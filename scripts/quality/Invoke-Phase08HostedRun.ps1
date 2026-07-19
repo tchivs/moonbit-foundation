@@ -577,11 +577,18 @@ function New-P08PreparedAttempt {
     Throw-P08HostedRule 'P08-PREPARE-HISTORY' 'The exact seven-entry terminal-negative history is required.'
   }
   $historicalPolicy=$history[6]
-  if(-not [string]::IsNullOrWhiteSpace($HistoricalRunId) -or $HistoricalRunAttempt -ne 0 -or $historicalPolicy.hosted_run_present -ne $false -or $null -ne $historicalPolicy.run_id -or $null -ne $historicalPolicy.run_attempt -or
+  if($HistoricalRunId -cne '29671691604' -or $HistoricalRunAttempt -ne 1 -or $historicalPolicy.hosted_run_present -ne $true -or
+      [string]$historicalPolicy.run_id -cne $HistoricalRunId -or [int]$historicalPolicy.run_attempt -ne $HistoricalRunAttempt -or
       $HistoricalReleaseRef -cne [string]$historicalPolicy.release_ref -or $HistoricalSourceSha -cne [string]$historicalPolicy.source_sha -or
-      $historicalPolicy.reason -cne 'terminal_workflow_duplicate_environment_key' -or $historicalPolicy.hosted_preflight_dispatch_attempted -ne $true -or $historicalPolicy.hosted_preflight_dispatched -ne $false -or
-      $historicalPolicy.failure_stage -cne 'hosted_dispatch_validation_before_run_creation' -or $historicalPolicy.validation_error -cne 'duplicate_workflow_environment_key' -or
-      [int]$historicalPolicy.publish_run_count -ne 0 -or [int]$historicalPolicy.mutation_count -ne 0 -or [int]$historicalPolicy.authorization_receipt_count -ne 0){
+      $historicalPolicy.reason -cne 'terminal_cross_platform_prepared_intent_binding_failure' -or
+      [string]$historicalPolicy.prepare_job_id -cne '88151792308' -or $historicalPolicy.prepare_attempt_completed -ne $true -or
+      $historicalPolicy.hosted_preflight_dispatched -ne $true -or $historicalPolicy.credential_accessed -ne $false -or
+      $historicalPolicy.failure_stage -cne 'hosted_preflight_prepare_job' -or $historicalPolicy.failure_code -cne 'P08-PREPARED-INTENT-BINDING' -or
+      $historicalPolicy.failure_detail -cne 'windows_linux_eol_dependent_zip_bytes' -or
+      @('prepared_artifact_upload_count','publisher_dry_run_count','exact_existing_authority_count','hosted_preflight_downstream_count',
+        'publisher_count','observation_count','cold_consumer_count','authorization_packet_count','authorization_receipt_count',
+        'handoff_count','publish_one_count','mutation_count','successor_count').Where({[int]$historicalPolicy.$_ -ne 0}).Count -ne 0 -or
+      $historicalPolicy.mutation_performed -ne $false -or $historicalPolicy.authority_acquired -ne $false){
     Throw-P08HostedRule 'P08-PREPARE-HISTORICAL-BINDING' 'Historical failed-attempt binding differs from release control.'
   }
   $resolvedRef=((Invoke-P08Git $executionRoot @('rev-parse',"$ReleaseRef^{}"))-join '').Trim()
