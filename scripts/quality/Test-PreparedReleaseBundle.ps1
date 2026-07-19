@@ -6,6 +6,7 @@ $ErrorActionPreference = 'Stop'
 
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
 $generator = Join-Path $PSScriptRoot 'New-PreparedReleaseBundle.ps1'
+. (Join-Path $PSScriptRoot 'ReleaseQualification.Common.ps1')
 
 function Confirm-PreparedRule {
   param([Parameter(Mandatory)][string]$Id, [Parameter(Mandatory)][scriptblock]$Action)
@@ -32,6 +33,52 @@ function Copy-PreparedTree {
   param([Parameter(Mandatory)][string]$Source, [Parameter(Mandatory)][string]$Destination)
   $null = New-Item -ItemType Directory -Force -Path $Destination
   Get-ChildItem -LiteralPath $Source -Force | Copy-Item -Destination $Destination -Recurse -Force
+}
+
+function New-CanonicalPreparedArchive {
+  param([Parameter(Mandatory)][string]$Path,[Parameter(Mandatory)][string]$Module)
+  $parent = Split-Path -Parent $Path
+  if (-not (Test-Path -LiteralPath $parent)) { $null = New-Item -ItemType Directory -Force -Path $parent }
+  Add-Type -AssemblyName System.IO.Compression.FileSystem
+  $file = [IO.File]::Open($Path,[IO.FileMode]::CreateNew,[IO.FileAccess]::ReadWrite,[IO.FileShare]::None)
+  try {
+    $archive = [IO.Compression.ZipArchive]::new($file,[IO.Compression.ZipArchiveMode]::Create,$true)
+    try {
+      foreach ($record in @(
+        [pscustomobject]@{name='moon.mod.json';bytes=[Text.UTF8Encoding]::new($false).GetBytes("{`"name`":`"tchivs/$Module`",`"version`":`"0.1.0`"}")},
+        [pscustomobject]@{name='src/';bytes=[byte[]]@()},
+        [pscustomobject]@{name='src/value.mbt';bytes=[byte[]]@(0x50,0x4b,0x01,0x02,0x0a)}
+      )) {
+        $entry = $archive.CreateEntry($record.name,[IO.Compression.CompressionLevel]::Optimal)
+        if ($record.bytes.Length -ne 0) { $stream=$entry.Open();try{$stream.Write($record.bytes,0,$record.bytes.Length)}finally{$stream.Dispose()} }
+      }
+    } finally { $archive.Dispose() }
+  } finally { $file.Dispose() }
+  $null = ConvertTo-ReleaseCanonicalZip -Path $Path
+  $null = Assert-ReleaseCanonicalZip -Path $Path
+}
+
+function Set-PreparedZipMetadataVariant {
+  param([Parameter(Mandatory)][string]$Path)
+  $bytes=[IO.File]::ReadAllBytes($Path);$changed=$false
+  for($offset=0;$offset-le$bytes.Length-46;$offset++){
+    if($bytes[$offset]-ne0x50-or$bytes[$offset+1]-ne0x4b-or$bytes[$offset+2]-ne0x01-or$bytes[$offset+3]-ne0x02){continue}
+    $bytes[$offset+5]=0; $bytes[$offset+38]=0; $bytes[$offset+39]=0; $bytes[$offset+40]=0; $bytes[$offset+41]=0; $changed=$true; break
+  }
+  if(-not$changed){throw 'PREP-TEST-ZIP: central entry is missing.'}
+  [IO.File]::WriteAllBytes($Path,$bytes)
+}
+
+function Update-PreparedPayloadEvidence {
+  param([Parameter(Mandatory)][string]$Root,[Parameter(Mandatory)][string]$RelativePath)
+  $manifestPath=Join-Path $Root 'prepared-bundle.json'
+  $manifest=Get-Content -LiteralPath $manifestPath -Raw|ConvertFrom-Json -Depth 100
+  $entry=@($manifest.payloads|Where-Object{[string]$_.path-ceq$RelativePath})
+  if($entry.Count-ne1){throw "PREP-TEST-MANIFEST: payload '$RelativePath' is missing."}
+  $payloadPath=Join-Path $Root $RelativePath
+  $entry[0].size=[Int64](Get-Item -LiteralPath $payloadPath).Length
+  $entry[0].sha256=(Get-FileHash -LiteralPath $payloadPath -Algorithm SHA256).Hash.ToLowerInvariant()
+  Write-JsonFixture -Path $manifestPath -Value $manifest
 }
 
 function Assert-WorkflowOnly {
@@ -86,10 +133,21 @@ try {
     moonc = 'v0.10.4+2cc641edf (2026-07-15)'
     moonrun = '0.1.20260713 (75c7e1f 2026-07-13)'
   }
+  $archiveDigests = [ordered]@{}
+  foreach ($module in @('mb-core','mb-color','mb-image')) {
+    $archivePath = Join-Path $inputRoot "archives\$module.zip"
+    New-CanonicalPreparedArchive -Path $archivePath -Module $module
+    $archiveDigests[$module] = (Get-FileHash -LiteralPath $archivePath -Algorithm SHA256).Hash.ToLowerInvariant()
+  }
+  $modules = @(
+    [ordered]@{module='mb-core';identity='tchivs/mb-core';version='0.1.0';dependencies=@();public_packages=@('tchivs/mb-core/error');archive_sha256=$archiveDigests['mb-core'];interface_sha256=('a'*64)}
+    [ordered]@{module='mb-color';identity='tchivs/mb-color';version='0.1.0';dependencies=@([ordered]@{identity='tchivs/mb-core';version='0.1.0'});public_packages=@('tchivs/mb-color/model');archive_sha256=$archiveDigests['mb-color'];interface_sha256=('b'*64)}
+    [ordered]@{module='mb-image';identity='tchivs/mb-image';version='0.1.0';dependencies=@([ordered]@{identity='tchivs/mb-core';version='0.1.0'},[ordered]@{identity='tchivs/mb-color';version='0.1.0'});public_packages=@('tchivs/mb-image/model');archive_sha256=$archiveDigests['mb-image'];interface_sha256=('c'*64)}
+  )
   $intent = [ordered]@{
     schema_version='mnf-release-intent/1'; intent_kind='initial'; repository='tchivs/moonbit-foundation'; owner='tchivs'
     release_ref='refs/tags/modules-v0.1.0-r8'; source_sha=$sourceSha; correction_sequence=0; toolchain=$toolchain
-    modules=@(); evidence=[ordered]@{}; tracked_source_clean=$true; credentials_read=$false; publication_performed=$false
+    modules=$modules; evidence=[ordered]@{}; tracked_source_clean=$true; credentials_read=$false; publication_performed=$false
   }
   Write-JsonFixture -Path (Join-Path $inputRoot 'intent\current.json') -Value $intent
   $intentSha = (Get-FileHash -LiteralPath (Join-Path $inputRoot 'intent\current.json') -Algorithm SHA256).Hash.ToLowerInvariant()
@@ -104,9 +162,6 @@ try {
     historical_attempt_zero_sha256=$attemptZeroSha; historical_r1_sha256=$r1Sha; historical_r2_sha256=$r2Sha; historical_r3_sha256=$r3Sha; historical_r4_sha256=$r4Sha; historical_r5_sha256=$r5Sha; historical_r6_sha256=$r6Sha; historical_r7_sha256=$r7Sha
     historical_history_set_sha256=$historySetSha
   })
-  foreach ($module in @('mb-core','mb-color','mb-image')) {
-    Write-Utf8NoBom -Path (Join-Path $inputRoot "archives\$module.zip") -Text "deterministic-$module-archive"
-  }
   $fixtureFiles = [ordered]@{
     'scripts/quality/New-PreparedReleaseBundle.ps1' = 'prepared validator'
     'scripts/quality/Invoke-ReleasePublisher.ps1' = 'publisher controller'
@@ -144,6 +199,10 @@ try {
   if (@($manifestA.payloads).Count -ne 18 -or (@($manifestA.payloads.sha256) -join ',') -cne (@($manifestB.payloads.sha256) -join ',')) {
     throw 'PREP01-DETERMINISM: payload inventory or digests differ.'
   }
+  for ($index=0; $index -lt $modules.Count; $index++) {
+    $payload=@($manifestA.payloads|Where-Object{[string]$_.path-ceq"archives/$($modules[$index].module).zip"})
+    if($payload.Count-ne1-or[string]$payload[0].sha256-cne[string]$modules[$index].archive_sha256){throw "PREP16-ARCHIVE-INTENT: $($modules[$index].module) prepared archive is not intent-bound."}
+  }
   & $generator -ValidateOnly -OutputRoot $outA @validation | Out-Null
 
   function Invoke-MutatedCase {
@@ -159,6 +218,15 @@ try {
   Invoke-MutatedCase 'extra' 'PREP06-EXTRA-PAYLOAD' { param($r) Write-Utf8NoBom -Path (Join-Path $r 'unexpected.txt') -Text 'extra' }
   Invoke-MutatedCase 'digest' 'PREP07-PAYLOAD-DIGEST' {
     param($r) $p=Join-Path $r 'archives\mb-core.zip'; $bytes=[IO.File]::ReadAllBytes($p); $bytes[0]=$bytes[0] -bxor 1; [IO.File]::WriteAllBytes($p,$bytes)
+  }
+  Invoke-MutatedCase 'noncanonical-archive' 'PREP15-CANONICAL-ARCHIVE' {
+    param($r) $p=Join-Path $r 'archives\mb-core.zip'; Set-PreparedZipMetadataVariant -Path $p; Update-PreparedPayloadEvidence -Root $r -RelativePath 'archives/mb-core.zip'
+  }
+  Invoke-MutatedCase 'archive-intent-mismatch' 'PREP16-ARCHIVE-INTENT' {
+    param($r)
+    $core=Join-Path $r 'archives\mb-core.zip';$color=Join-Path $r 'archives\mb-color.zip';$swap=Join-Path $r 'archives\swap.zip'
+    Move-Item -LiteralPath $core -Destination $swap;Move-Item -LiteralPath $color -Destination $core;Move-Item -LiteralPath $swap -Destination $color
+    Update-PreparedPayloadEvidence -Root $r -RelativePath 'archives/mb-core.zip';Update-PreparedPayloadEvidence -Root $r -RelativePath 'archives/mb-color.zip'
   }
   Invoke-MutatedCase 'size' 'PREP08-PAYLOAD-SIZE' {
     param($r) $p=Join-Path $r 'prepared-bundle.json'; $m=Get-Content $p -Raw|ConvertFrom-Json -Depth 100; $m.payloads[0].size++; Write-JsonFixture -Path $p -Value $m
@@ -201,6 +269,8 @@ try {
   }
   $legacy=@{}+$common;$legacy.ReleaseRef='refs/tags/modules-v0.1.0-r7'
   Confirm-PreparedRule 'PREP09-BINDING' { & $generator @legacy -OutputRoot (Join-Path $tempRoot 'legacy-r7') | Out-Null }
+  $resume=@{}+$common;$resume.RunMode='resume';$resume.PriorRunId='999';$resume.PriorArtifactName='mnf-checkpoint-r7';$resume.PriorTerminalRecordSha256='d'*64
+  Confirm-PreparedRule 'PREP10-JOURNAL-BINDING' { & $generator @resume -OutputRoot (Join-Path $tempRoot 'r8-resume') | Out-Null }
   Invoke-MutatedCase 'toolchain' 'PREP11-TOOLCHAIN' {
     param($r) $p=Join-Path $r 'prepared-bundle.json'; $m=Get-Content $p -Raw|ConvertFrom-Json -Depth 100; $m.toolchain.moon='latest'; Write-JsonFixture -Path $p -Value $m
   }
