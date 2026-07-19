@@ -21,13 +21,13 @@ function Assert-PublisherRequest {
   param([object]$Request)
   Assert-PublisherClosedProperties 'publisher request' $Request @(
     'repository','actor','actor_evidence','release_ref','source_sha','root_intent_sha256','intent_sha256','intent_kind','prepared_manifest_sha256',
-    'historical_attempt_zero_sha256','historical_r1_sha256','historical_r2_sha256','historical_r3_sha256','historical_r4_sha256','historical_r5_sha256','historical_r6_sha256','historical_history_set_sha256',
+    'historical_attempt_zero_sha256','historical_r1_sha256','historical_r2_sha256','historical_r3_sha256','historical_r4_sha256','historical_r5_sha256','historical_r6_sha256','historical_r7_sha256','historical_history_set_sha256',
     'correction_sequence','predecessor_intent_sha256','authorization_valid','evidence_valid','dry_run_passed','authority_account'
   )
   if ($Request.repository -cne 'tchivs/moonbit-foundation' -or $Request.actor -cne 'tchivs' -or $Request.authority_account -cne 'tchivs') { Throw-PublisherRule 'PUB12-AUTH' 'Actor, account, or repository binding is invalid.' }
   if ($Request.source_sha -cnotmatch '^[0-9a-f]{40}$' -or $Request.root_intent_sha256 -cnotmatch '^[0-9a-f]{64}$' -or $Request.intent_sha256 -cnotmatch '^[0-9a-f]{64}$') { Throw-PublisherRule 'PUB01-CLOSED' 'Request digest is invalid.' }
   if ($Request.prepared_manifest_sha256 -cnotmatch '^[0-9a-f]{64}$') { Throw-PublisherRule 'PUB13-EVIDENCE' 'Prepared manifest digest is invalid.' }
-  $history=@([string]$Request.historical_attempt_zero_sha256,[string]$Request.historical_r1_sha256,[string]$Request.historical_r2_sha256,[string]$Request.historical_r3_sha256,[string]$Request.historical_r4_sha256,[string]$Request.historical_r5_sha256,[string]$Request.historical_r6_sha256)
+  $history=@([string]$Request.historical_attempt_zero_sha256,[string]$Request.historical_r1_sha256,[string]$Request.historical_r2_sha256,[string]$Request.historical_r3_sha256,[string]$Request.historical_r4_sha256,[string]$Request.historical_r5_sha256,[string]$Request.historical_r6_sha256,[string]$Request.historical_r7_sha256)
   $expectedHistory=@(
     'b9bda5378ea339f4cdd42c417c1cc0cf8caabbd51ab11d453cd45ddae77d9b52',
     'cba047dae2e6b4e1bbf0248653ed7848f144971b54a0a4ed30ef42ab97325653',
@@ -35,13 +35,14 @@ function Assert-PublisherRequest {
     'cf29473b2b07ff9aa8fd8a4810ddc45f6aacd2fd4b74048f5d29b3b6fa939d41',
     'd9b045bc65df87dc2701144ea7716defc67acb84ec9ea8e7ffdafd0118ba0906',
     '1239b63f983bef86ac44c731171093ad67759de9cce7c15610b92f5df6214843',
-    '3f9c0d9916dbccfa9144488d2967ee1a7fb3fd1d9936f8cc4139c2734f2d0ad4'
+    '3f9c0d9916dbccfa9144488d2967ee1a7fb3fd1d9936f8cc4139c2734f2d0ad4',
+    'baf5d4921c75b2ba4a64cd234663a1b7086d6c45a653edd1ce4a63f56882933f'
   )
   $historySet=([Convert]::ToHexString([Security.Cryptography.SHA256]::HashData([Text.UTF8Encoding]::new($false).GetBytes(($history -join "`n"))))).ToLowerInvariant()
-  if (@($history | Where-Object { $_ -cnotmatch '^[0-9a-f]{64}$' }).Count -ne 0 -or (@($history | Select-Object -Unique)).Count -ne 7 -or
+  if (@($history | Where-Object { $_ -cnotmatch '^[0-9a-f]{64}$' }).Count -ne 0 -or (@($history | Select-Object -Unique)).Count -ne 8 -or
       ($history -join ',') -cne ($expectedHistory -join ',') -or $Request.historical_history_set_sha256 -cne $historySet -or
-      $historySet -cne '93523aa11f0ab84736d7fa3b1cb500ade23043a4d01a3e07d205400436900334') {
-    Throw-PublisherRule 'PUB16-HISTORY' 'The exact seven terminal-negative histories and their ordered set digest are required.'
+      $historySet -cne '48de74c184100e34651e9e050e6949b252414746d13f78e04855fd28b69c8580') {
+    Throw-PublisherRule 'PUB16-HISTORY' 'The exact eight terminal-negative histories and their ordered set digest are required.'
   }
   $actorFields=@('expected_actor','observed_actor','actor_check_classification','actor_exit_code','actor_stdout_line_count','actor_stderr_empty','actor_match','actor_raw_output_persisted','credential_state_removed','mutation_performed','command_classification')
   try { Assert-PublisherClosedProperties 'actor evidence' $Request.actor_evidence $actorFields } catch { Throw-PublisherRule 'PUB12-ACTOR' $_.Exception.Message }
@@ -57,7 +58,7 @@ function Assert-PublisherRequest {
   if ($Request.authorization_valid -ne $true) { Throw-PublisherRule 'PUB12-AUTH' 'Fresh exact authorization is required.' }
   if ($Request.evidence_valid -ne $true -or $Request.dry_run_passed -ne $true) { Throw-PublisherRule 'PUB13-EVIDENCE' 'Qualification, archive, identity, or dry-run evidence failed.' }
   if ($Request.intent_kind -ceq 'initial') {
-    if ($Request.release_ref -cne 'refs/tags/modules-v0.1.0-r7' -or $Request.source_sha -cin @('198436a45b7403a3c28c98d5fa0d5ed6a958455f','09548df948f58ec1bdfff7494757596c03e4c9bd','73a3af920fc3938f49e93d14f16f79f116475f1e','67b1fbc9dd62288d19018c46a44c1e3293212b76','ee4a8eb9b8dca5d69b404c9a4a1cd81608a5462a','df105f06205298f1f82ac2f2cdca214d69d42e15','c05cacbc3cfc583205c612f4bf293a4e251ec079') -or $Request.root_intent_sha256 -cne $Request.intent_sha256 -or [int]$Request.correction_sequence -ne 0 -or $null -ne $Request.predecessor_intent_sha256) { Throw-PublisherRule 'PUB04-ROOT' 'Initial r7 request binding is invalid.' }
+    if ($Request.release_ref -cne 'refs/tags/modules-v0.1.0-r8' -or $Request.source_sha -cin @('198436a45b7403a3c28c98d5fa0d5ed6a958455f','09548df948f58ec1bdfff7494757596c03e4c9bd','73a3af920fc3938f49e93d14f16f79f116475f1e','67b1fbc9dd62288d19018c46a44c1e3293212b76','ee4a8eb9b8dca5d69b404c9a4a1cd81608a5462a','df105f06205298f1f82ac2f2cdca214d69d42e15','c05cacbc3cfc583205c612f4bf293a4e251ec079','195e08dc1f3a1dc561d98cc660af679926ae0198') -or $Request.root_intent_sha256 -cne $Request.intent_sha256 -or [int]$Request.correction_sequence -ne 0 -or $null -ne $Request.predecessor_intent_sha256) { Throw-PublisherRule 'PUB04-ROOT' 'Initial r8 request binding is invalid.' }
   }
 }
 
