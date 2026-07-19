@@ -5,15 +5,15 @@ milestone_name: Publication & Compatibility
 current_phase: 08
 current_phase_name: Ordered Mooncakes Publication and Registry Consumers
 status: executing
-stopped_at: Completed 08-28-PLAN.md
-last_updated: "2026-07-19T10:35:38.818Z"
+stopped_at: Completed 08-31-PLAN.md
+last_updated: "2026-07-19T11:45:43.428Z"
 last_activity: 2026-07-19
 last_activity_desc: r9 is immutable pre-locator terminal evidence and the reviewed r10 forward-retry plan is ready
 progress:
   total_phases: 4
   completed_phases: 2
-  total_plans: 58
-  completed_plans: 56
+  total_plans: 61
+  completed_plans: 59
   percent: 50
 ---
 
@@ -153,6 +153,8 @@ Current milestone: [█████░░░░░] 50% of v0.2 phases complete
 - [Phase 08]: r10 is the sole current forward retry; it binds ten individual terminal-history digests plus their LF-ordered set, including r9's exact partial-terminal evidence.
 - [Phase ?]: r10 is the sole current retry; r9 is immutable pre-locator StrictMode terminal evidence bound by ten individual history digests plus an LF-ordered set.
 - [Phase ?]: r11 is the sole current retry; r10 is immutable clean-clone REL01-REF terminal evidence bound by eleven individual digests and their LF-ordered aggregate.
+- [Phase ?]: r12 pre-live is credential-free and zero-write: it binds immutable r11 tag/peel and canonical-wrapper evidence, r12 absence, and an absent handoff.
+- [Phase ?]: Publisher, live adapter, HostedRun, and workflow require twelve individual history digests plus the canonical LF aggregate; stale r11 authority cannot reach the adapter.
 
 ### Pending Decisions
 
@@ -167,8 +169,8 @@ None
 
 **Resume file:** None
 
-Last session: 2026-07-19T10:35:38.797Z
-Stopped at: Completed 08-28-PLAN.md
+Last session: 2026-07-19T11:45:43.411Z
+Stopped at: Completed 08-31-PLAN.md
 Resume with: `/gsd-execute-phase 8`
 
 ## Operator Next Steps
@@ -227,3 +229,4 @@ Resume with: `/gsd-execute-phase 8`
 | Phase 08 P21 | 24min | 3 tasks | 10 files |
 | Phase 08 P24 | 54min | 2 tasks | 13 files |
 | Phase 08 P27 | 45min | 2 tasks | 12 files |
+| Phase 08 P31 | 10min | 2 tasks | 10 files |
