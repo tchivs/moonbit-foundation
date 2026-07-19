@@ -10,7 +10,7 @@ param(
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
-$productionHandoff=[IO.Path]::GetFullPath((Join-Path ([IO.Path]::GetTempPath()) 'mnf-phase08-r3-handoff.json'))
+$productionHandoff=[IO.Path]::GetFullPath((Join-Path ([IO.Path]::GetTempPath()) 'mnf-phase08-r4-handoff.json'))
 if(Test-Path -LiteralPath $productionHandoff){throw 'P08-FIXED-HANDOFF-PREEXISTING: production fixed handoff must be absent before static fixtures.'}
 
 $adapterPath = Join-Path $PSScriptRoot 'Invoke-MooncakesLiveMutation.ps1'
@@ -34,13 +34,14 @@ function New-LiveTestRequest {
       expected_actor='tchivs';observed_actor='tchivs';actor_check_classification='moon_whoami_exact';actor_exit_code=0
       actor_stdout_line_count=1;actor_stderr_empty=$true;actor_match=$true;actor_raw_output_persisted=$false
       credential_state_removed=$true;mutation_performed=$false;command_classification='moon_whoami_dry_run_only'
-    }; release_ref='refs/tags/modules-v0.1.0-r3'
+    }; release_ref='refs/tags/modules-v0.1.0-r4'
     source_sha=('1'*40); root_intent_sha256=('a'*64); intent_sha256=('a'*64); intent_kind='initial'
     prepared_manifest_sha256=('b'*64)
     historical_attempt_zero_sha256='b9bda5378ea339f4cdd42c417c1cc0cf8caabbd51ab11d453cd45ddae77d9b52'
     historical_r1_sha256='cba047dae2e6b4e1bbf0248653ed7848f144971b54a0a4ed30ef42ab97325653'
     historical_r2_sha256='aae8bee66e7dbfca7f3f22f1b52071e7888ae3ec8feee513d1c5d8eba6111609'
-    historical_history_set_sha256='f04b431490910eb7da8125a09c5575ea0b9f0138708bb14b8f36834ea038185c'
+    historical_r3_sha256='cf29473b2b07ff9aa8fd8a4810ddc45f6aacd2fd4b74048f5d29b3b6fa939d41'
+    historical_history_set_sha256='1646412aae84a40c5012aeae4f374c3b5c03bf3c3027c914bc0765ea0aa2493e'
     correction_sequence=0; predecessor_intent_sha256=$null; authorization_valid=$true
     evidence_valid=$true; dry_run_passed=$true; authority_account='tchivs'
   }
@@ -138,7 +139,7 @@ try {
     repository=$request.repository; actor=$request.actor; release_ref=$request.release_ref; source_sha=$request.source_sha
     root_intent_sha256=$request.root_intent_sha256; intent_sha256=$request.intent_sha256
     historical_attempt_zero_sha256=$request.historical_attempt_zero_sha256;historical_r1_sha256=$request.historical_r1_sha256
-    historical_r2_sha256=$request.historical_r2_sha256;historical_history_set_sha256=$request.historical_history_set_sha256
+    historical_r2_sha256=$request.historical_r2_sha256;historical_r3_sha256=$request.historical_r3_sha256;historical_history_set_sha256=$request.historical_history_set_sha256
     payloads=@('mb-core','mb-color','mb-image' | ForEach-Object { [pscustomobject][ordered]@{ path="archives/$_.zip"; role='exact_source_archive'; size=1; sha256=('3'*64) } })
   }
   [IO.File]::WriteAllText((Join-Path $fixtureRoot 'prepared/prepared-bundle.json'),($manifest | ConvertTo-Json -Depth 20),[Text.UTF8Encoding]::new($false))
@@ -239,7 +240,7 @@ foreach ($required in @(
   'Invoke-MooncakesLiveMutation','Invoke-ColdRegistryConsumer','MOONCAKES_TOKEN','InitializeBoundary','PrepareAttempt',
   'PublisherDryRun','HostedPreflight','MaterializePublicSurface','ObserveOnly','IndexSanitizedArtifact',
   'AssembleAuthorizationPacket','SelectExactExistingAuthority','SelectPublishedNowAuthority','PublishOne',
-  'refs/tags/modules-v0.1.0-r3','historical_attempts_sha256:','historical_r2_sha256','historical_history_set_sha256','publish --frozen --dry-run','native_runtime_verified','whoami.stdout','whoami.stderr',
+  'refs/tags/modules-v0.1.0-r4','historical_attempts_sha256:','historical_r3_sha256','historical_history_set_sha256','publish --frozen --dry-run','native_runtime_verified','whoami.stdout','whoami.stderr',
   'exact_existing','published_now'
 )) {
   if ($workflow.IndexOf($required,[StringComparison]::Ordinal) -lt 0) { throw "P08-WORKFLOW-MISSING: '$required'." }
