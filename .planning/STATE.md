@@ -4,16 +4,16 @@ milestone: v0.2
 milestone_name: Publication & Compatibility
 current_phase: 08
 current_phase_name: Ordered Mooncakes Publication and Registry Consumers
-status: executing
-stopped_at: Completed 08-31-PLAN.md
-last_updated: "2026-07-19T11:45:43.428Z"
+status: executing — 08-32 satisfied-by-prior-run; only 08-33 (publication) remains and is NOT operator-authorized
+stopped_at: 08-32-SUMMARY.md committed (satisfied-by-prior-run); 08-33 awaits explicit authorize-core
+last_updated: "2026-07-19T20:30:00.000Z"
 last_activity: 2026-07-19
-last_activity_desc: r9 is immutable pre-locator terminal evidence and the reviewed r10 forward-retry plan is ready
+last_activity_desc: 08-32 reconciled — immutable r12 tag already exists locally+remotely; 08-33 publication NOT dispatched
 progress:
   total_phases: 4
   completed_phases: 2
   total_plans: 61
-  completed_plans: 59
+  completed_plans: 60
   percent: 50
 ---
 
@@ -30,9 +30,9 @@ See `.planning/PROJECT.md` (updated 2026-07-17).
 ## Current Position
 
 Phase: 08 (Ordered Mooncakes Publication and Registry Consumers) — EXECUTING
-Plan: 27 of 27
-Status: Ready for Wave 24 — execute r10 static contracts; no publication action is authorized
-Last activity: 2026-07-19 — r9 is immutable pre-locator terminal evidence and the reviewed r10 forward-retry plan is ready
+Plan: 32 of 33 (only 08-33 remains)
+Status: 08-32 satisfied-by-prior-run — immutable r12 tag already exists locally+remotely; 08-33 publication NOT dispatched and NOT operator-authorized
+Last activity: 2026-07-19 — 08-32 reconciled as satisfied-by-prior-run; r12 tag object 57b76c9f (peel 5e7b19cd) treated as immutable
 
 ## Progress
 
@@ -41,7 +41,7 @@ Current milestone: [█████░░░░░] 50% of v0.2 phases complete
 - v0.2 phases completed: 2/4
 - Phase 6 plans completed: 25/25
 - Phase 7 plans completed: 3/3
-- Phase 8 plans completed: 21/27
+- Phase 8 plans completed: 32/33 (only 08-33 remains; NOT operator-authorized)
 - v0.2 requirements mapped: 21/21
 - Historical total: 5 completed phases, 43 completed plans, 36/36 v0.1 requirements validated
 
@@ -169,14 +169,17 @@ None
 
 **Resume file:** None
 
-Last session: 2026-07-19T11:45:43.411Z
-Stopped at: Completed 08-31-PLAN.md
-Resume with: `/gsd-execute-phase 8`
+Last session: 2026-07-19T20:30:00Z
+Stopped at: 08-32-SUMMARY.md committed (satisfied-by-prior-run); 08-33 awaits explicit authorize-core
+Resume with: `/gsd-execute-phase 8` ONLY after operator explicitly authorizes 08-33 publication
 
 ## Operator Next Steps
 
-- Execute Plans 08-24 and 08-25 to advance static r10 contracts and its zero-write pre-live seam.
-- Do not create r10 or perform any release action until the planned static gates pass; keep every irreversible Mooncakes mutation behind its separately authorized checkpoint.
+- 08-32 is reconciled as satisfied-by-prior-run (immutable r12 tag 57b76c9f / peel 5e7b19cd already exists locally+remotely, ancestor of HEAD).
+- 08-33 is the only remaining Phase 8 plan. It performs the real Mooncakes publication and requires explicit same-turn `authorize-core` authorization.
+- Do NOT dispatch 08-33 without explicit operator authorization — it mutates the public registry irreversibly.
+- A current-HEAD eight-path baseline must be recaptured before any future pre-live or publisher run that evaluates the baseline against working-tree content (the captured baseline is stale vs current HEAD).
+- Watch: two non-baseline files appeared modified mid-session (`release/qualification/phase-06-requirements.json`, `release/registry/authority-observation.json`) — investigate whether a sibling process is editing release artifacts.
 
 ## Performance Metrics
 
