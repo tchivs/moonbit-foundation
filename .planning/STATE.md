@@ -5,14 +5,14 @@ milestone_name: Publication & Compatibility
 current_phase: 08
 current_phase_name: Ordered Mooncakes Publication and Registry Consumers
 status: executing
-stopped_at: Completed 08-21-PLAN.md
-last_updated: "2026-07-19T06:28:45.175Z"
+stopped_at: Planned r9 forward-retry path; ready for 08-22-PLAN.md
+last_updated: "2026-07-19T08:00:00.000Z"
 last_activity: 2026-07-19
-last_activity_desc: r8 publisher, exact14 hosted seam, and zero-write pre-live selector are closed over eight immutable histories
+last_activity_desc: r8 canonical-copy preparation repair is committed; r9 contracts, seam, authority, and closure plans are validated over nine immutable histories
 progress:
   total_phases: 4
   completed_phases: 2
-  total_plans: 51
+  total_plans: 53
   completed_plans: 49
   percent: 50
 ---
@@ -30,9 +30,9 @@ See `.planning/PROJECT.md` (updated 2026-07-17).
 ## Current Position
 
 Phase: 08 (Ordered Mooncakes Publication and Registry Consumers) — EXECUTING
-Plan: 22 of 23
-Status: Ready for Wave 22 — execute the clean non-publishing r8 hosted preflight
-Last activity: 2026-07-19 — r8 publisher, exact14 hosted seam, and zero-write pre-live selector are closed over eight immutable histories
+Plan: 22 of 25
+Status: Ready for Wave 22 — execute r9 static contracts; no publication action is authorized
+Last activity: 2026-07-19 — r8 canonical-copy preparation repair is committed; the r9 forward-retry plan passed structure and decision coverage gates
 
 ## Progress
 
@@ -41,7 +41,7 @@ Current milestone: [█████░░░░░] 50% of v0.2 phases complete
 - v0.2 phases completed: 2/4
 - Phase 6 plans completed: 25/25
 - Phase 7 plans completed: 3/3
-- Phase 8 plans completed: 20/23
+- Phase 8 plans completed: 21/25
 - v0.2 requirements mapped: 21/21
 - Historical total: 5 completed phases, 43 completed plans, 36/36 v0.1 requirements validated
 
@@ -95,13 +95,13 @@ Current milestone: [█████░░░░░] 50% of v0.2 phases complete
 - [Phase 08]: Replay every supplied checkpoint through the Phase 7 reducer before deriving the next module.
 - [Phase 08]: Expose the token only through one temporary credentials file under a child-only MOON_HOME and persist only an allowlisted classification.
 - [Phase 08]: Carry the tracked live adapter as the eighteenth exact prepared payload so the publisher remains artifact-only.
-- [Phase 08]: Keep refs/tags/modules-v0.1.0 and refs/tags/modules-v0.1.0-r1 through refs/tags/modules-v0.1.0-r7 as immutable terminal historical evidence; only refs/tags/modules-v0.1.0-r8 may be current initial forward-retry authority.
+- [Phase 08]: Keep refs/tags/modules-v0.1.0 and refs/tags/modules-v0.1.0-r1 through refs/tags/modules-v0.1.0-r8 as immutable terminal historical evidence; only refs/tags/modules-v0.1.0-r9 may be current initial forward-retry authority.
 - [Phase 08]: Require the exact closed tchivs whoami projection and prepared-manifest digest before publisher or live mutation eligibility.
 - [Phase 08]: Represent exact-existing registry authority as a bound zero-mutation checkpoint that cannot enter the mutation adapter.
 - [Phase 08]: Bind every hosted helper use to one clean r1 execution root, HEAD, and exact Git blob before any operation.
 - [Phase 08]: Accept exactly one core-entry authority variant: absent may yield a MutationAuthorizationPacket, while exact yields zero-mutation ExactExistingAuthority.
 - [Phase 08]: Keep DIST-01 through DIST-04 and PROV-05 pending until live publication and registry-only evidence exist.
-- [Phase 08]: Only refs/tags/modules-v0.1.0-r8 is current initial retry; attempt zero and r1 through r7 are immutable terminal-negative history.
+- [Phase 08]: Only refs/tags/modules-v0.1.0-r9 is current initial retry; attempt zero and r1 through r8 are immutable terminal-negative history.
 - [Phase 08]: Prepared r2 identity binds both terminal-negative digests through the digest-covered request payload without importing prior state containers.
 - [Phase 08]: Mutation handoff requires packet plus literal receipt; exact-existing handoff forbids both variants' mutation evidence.
 - [Phase 08]: Publisher and live adapter accept only r2 plus two distinct terminal-negative history digests.
@@ -112,7 +112,7 @@ Current milestone: [█████░░░░░] 50% of v0.2 phases complete
 - [Phase 08]: The hosted dispatch carries one canonical historical_attempts_sha256 field while the workflow deterministically expands and validates the three exact record digests before credentials.
 - [Phase 08]: The start vector carries empty packet and receipt fields; a PublishOne resume requires both digests as one closed authority pair.
 - [Phase 08]: DIST-01 remains pending because Plan 08-10 performs no push, tag, hosted dispatch, publication, registry observation, or cold consumer proof.
-- [Phase 08]: Only refs/tags/modules-v0.1.0-r8 is current initial retry; attempt-zero and r1 through r7 are eight immutable terminal-negative histories.
+- [Phase 08]: Only refs/tags/modules-v0.1.0-r9 is current initial retry; attempt-zero and r1 through r8 are nine immutable terminal-negative histories.
 - [Phase 08]: Eligibility carries all four individual record digests plus the SHA-256 of their canonical LF-joined order; the aggregate never replaces individual evidence.
 - [Phase 08]: DIST-01 remains pending because Plan 08-11 performs no push, tag, hosted dispatch, registry observation, mutation, or publication.
 - [Phase 08]: Publisher, adapter, workflow, and hosted controller accept only r4 and bind four individual terminal-negative history digests plus their canonical LF-ordered set.
@@ -126,19 +126,19 @@ Current milestone: [█████░░░░░] 50% of v0.2 phases complete
 - [Phase 08]: The hosted dispatch remains exactly 14 ordered fields; five individual histories are recomputed into the canonical aggregate before dispatch.
 - [Phase 08]: Production uses only the non-overridable fixed %TEMP%/mnf-phase08-r5-handoff.json path; LibraryOnly fixtures use GUID-owned roots.
 - [Phase 08]: DIST-01 remains pending because Plan 08-14 performs no push, tag, dispatch, registry observation, mutation, or publication.
-- [Phase 08]: Only refs/tags/modules-v0.1.0-r8 is current initial authority; attempt-zero and r1 through r7 remain immutable terminal-negative history.
+- [Phase 08]: Only refs/tags/modules-v0.1.0-r9 is current initial authority; attempt-zero and r1 through r8 remain immutable terminal-negative history.
 - [Phase 08]: The r5 terminal record binds exact source/tag, successful preparation and absence, duplicate-env pre-run rejection, no hosted run, and zero downstream effects.
 - [Phase 08]: DIST-01 remains pending because Plan 08-15 performs no external publication or registry-consumer action.
 - [Phase 08]: Publisher, adapter, workflow, and hosted controller accept only r6 and bind six immutable terminal histories.
 - [Phase 08]: The r6 pre-live selector is read-only and emits one closed sanitized result before any live action.
-- [Phase 08]: Only refs/tags/modules-v0.1.0-r8 is current initial authority; attempt-zero and r1 through r7 remain immutable terminal-negative evidence.
+- [Phase 08]: Only refs/tags/modules-v0.1.0-r9 is current initial authority; attempt-zero and r1 through r8 remain immutable terminal-negative evidence.
 - [Phase 08]: The r6 terminal record binds run 29671691604/1, prepare job 88151792308, P08-PREPARED-INTENT-BINDING, and explicit zero downstream effects.
 - [Phase 08]: Every r7 prepared, authority, receipt, and handoff contract binds seven individual history digests plus their canonical LF-ordered set.
 - [Phase 08]: DIST-01 remains pending because Plan 08-17 performs no external publication or registry-consumer action.
 - [Phase 08]: Publisher, adapter, workflow, and hosted controller accept only r7 and bind seven immutable histories.
 - [Phase 08]: The r7 pre-live selector trusts one remote-tag query, preserves rootless attempt-zero, and requires rooted r1-r6 evidence plus exact r6 downstream-zero failure.
 - [Phase 08]: DIST-01 remains pending because Plan 08-18 performs no external publication or registry-consumer action.
-- [Phase 08]: Only refs/tags/modules-v0.1.0-r8 is current initial authority; attempt-zero and r1 through r7 remain immutable terminal-negative evidence.
+- [Phase 08]: Only refs/tags/modules-v0.1.0-r9 is current initial authority; attempt-zero and r1 through r8 remain immutable terminal-negative evidence.
 - [Phase 08]: The r7 record binds source 195e08d, tag object 52a47cd, run 29673849108/1, prepare job 88157456895, P08-PREPARED-INTENT-BINDING, raw cross-OS moon ZIP-container drift, and zero downstream effects.
 - [Phase 08]: Every r8 intent, prepared, authority, receipt, and handoff contract carries eight individual history digests plus their canonical LF-ordered set digest.
 - [Phase 08]: DIST-01 remains pending because Plan 08-19 performs no tag creation, hosted dispatch, registry observation, credential access, mutation, or publication.
@@ -148,10 +148,12 @@ Current milestone: [█████░░░░░] 50% of v0.2 phases complete
 - [Phase 08]: Publisher, workflow, and hosted seams accept only r8 with eight ordered histories while exact14 remains unchanged.
 - [Phase 08]: The r8 selector binds exact r7 terminal evidence, canonical archives, committed ancestry, and r8 absence without persistent output.
 - [Phase 08]: DIST-01 remains pending because 08-21 intentionally performs no external release action.
+- [Phase 08]: r8 is immutable pre-live terminal evidence: source 8d0f050, tag object 20907c7, and PREP15-CANONICAL-ARCHIVE / REL-XPLAT-NONCANONICAL occurred before locator, run, credential, packet, receipt, handoff, mutation, or successor effects.
+- [Phase 08]: r9 is the sole current forward retry; it binds nine individual terminal-history digests plus their LF-ordered set and the canonical-copy PrepareAttempt seam while raw archive provenance remains unchanged.
 
 ### Pending Decisions
 
-- Plan the explicit Phase 8 first irreversible publish checkpoint and registry-only consumer sequence.
+- Execute r9 static contracts and hosted/pre-live seam before creating an r9 boundary.
 - Preserve the distinction between verified local account/environment readiness and authority proven by successful exact publication plus read-only registry observation.
 
 ### Blockers
@@ -163,13 +165,13 @@ None
 **Resume file:** None
 
 Last session: 2026-07-19T06:28:45.160Z
-Stopped at: Completed 08-21-PLAN.md
+Stopped at: Planned r9 forward-retry path; ready for 08-22-PLAN.md
 Resume with: `/gsd-execute-phase 8`
 
 ## Operator Next Steps
 
-- Execute Plan 08-21 to integrate the canonical r8 prepared contract through publisher, workflow, hosted, and zero-write pre-live seams.
-- Keep every irreversible Mooncakes mutation behind its separately authorized checkpoint.
+- Execute Plans 08-22 and 08-23 to advance static r9 contracts and its zero-write pre-live seam.
+- Do not create r9 or perform any release action until the planned static gates pass; keep every irreversible Mooncakes mutation behind its separately authorized checkpoint.
 
 ## Performance Metrics
 
