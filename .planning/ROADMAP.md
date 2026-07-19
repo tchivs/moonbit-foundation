@@ -183,7 +183,7 @@
 4. Every proof runs outside the repository with an isolated cold Moon home and no publisher credential, `moon.work`, path dependency, copied source, Git fallback, or warm-cache-only success, and records registry metadata, strongest available package identity, resolved graph, toolchain, target results, and behavioral assertion.
 5. After publication, credential-redacted read-only Mooncakes observation proves that each module page renders the intended qualified public metadata; missing, drifted, or ambiguous rendering blocks PROV-05 without registry mutation.
 
-**Plans:** 32/33 plans executed
+**Plans:** 32/35 plans executed; 08-33 is quarantined as obsolete r12 authority.
 **Wave 1**
 
 - [x] 08-01-PLAN.md
@@ -312,9 +312,17 @@
 
 - [x] 08-32-PLAN.md — Establish canonical r12 non-publishing boundary and stop at absent-only dynamic `authorize-core`.
 
-**Wave 33** *(blocked on Wave 32 completion)*
+**Wave 33** *(quarantined; do not execute)*
 
-- [ ] 08-33-PLAN.md — After r12 authorization, publish or recognize core, color, and image in order with cold proofs and closure.
+- [ ] 08-33-PLAN.md — Obsolete r12 publication route; superseded by r13 forward recovery and never reusable for release authority.
+
+**Wave 34** *(blocked on Wave 32 completion)*
+
+- [ ] 08-34-PLAN.md — Quarantine r12 publication routing, enforce the eight-path dirty baseline, and establish static r13 contracts.
+
+**Wave 35** *(blocked on Wave 34 completion)*
+
+- [ ] 08-35-PLAN.md — Wire static r13 hosted and publisher seams; later plans separately create the r13 boundary and authorize publication.
 
 ### Phase 9: Provenance, Immutable Closure, and Milestone Audit
 

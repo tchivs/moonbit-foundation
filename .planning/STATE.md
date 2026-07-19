@@ -8,7 +8,7 @@ status: executing — 08-32 satisfied-by-prior-run; only 08-33 (publication) rem
 stopped_at: 08-32-SUMMARY.md committed (satisfied-by-prior-run); 08-33 awaits explicit authorize-core
 last_updated: "2026-07-19T20:30:00.000Z"
 last_activity: 2026-07-19
-last_activity_desc: 08-32 reconciled — immutable r12 tag already exists locally+remotely; 08-33 publication NOT dispatched
+last_activity_desc: r12 publish-blocked by REL01-REF (tag-before-script-fix); corrected misdiagnosed timeout; recorded ordering invariant for r13+
 progress:
   total_phases: 4
   completed_phases: 2
@@ -31,8 +31,8 @@ See `.planning/PROJECT.md` (updated 2026-07-17).
 
 Phase: 08 (Ordered Mooncakes Publication and Registry Consumers) — EXECUTING
 Plan: 32 of 33 (only 08-33 remains)
-Status: 08-32 satisfied-by-prior-run — immutable r12 tag already exists locally+remotely; 08-33 publication NOT dispatched and NOT operator-authorized
-Last activity: 2026-07-19 — 08-32 reconciled as satisfied-by-prior-run; r12 tag object 57b76c9f (peel 5e7b19cd) treated as immutable
+Status: r12 publish-blocked (REL01-REF) — its boundary commit (5e7b19cd) declared policy release_ref=r12 but Invoke-ReleaseQualification.ps1 still hardcoded r9; the fix (d55f63a) landed 26 min after the immutable tag. 08-33 cannot run on r12. Forward path is r13+; do NOT retry r12.
+Last activity: 2026-07-19 — corrected the misdiagnosed timeout narrative (deterministic REL01-REF), recorded the tag-before-script-fix ordering invariant for r13+
 
 ## Progress
 
@@ -155,6 +155,8 @@ Current milestone: [█████░░░░░] 50% of v0.2 phases complete
 - [Phase ?]: r11 is the sole current retry; r10 is immutable clean-clone REL01-REF terminal evidence bound by eleven individual digests and their LF-ordered aggregate.
 - [Phase ?]: r12 pre-live is credential-free and zero-write: it binds immutable r11 tag/peel and canonical-wrapper evidence, r12 absence, and an absent handoff.
 - [Phase ?]: Publisher, live adapter, HostedRun, and workflow require twelve individual history digests plus the canonical LF aggregate; stale r11 authority cannot reach the adapter.
+- [Phase ?]: r12 (object 57b76c9f, peel 5e7b19cd) is publish-blocked terminal evidence — its boundary commit declared policy release_ref=r12 but Invoke-ReleaseQualification.ps1 still hardcoded r9, so its own qualification throws REL01-REF deterministically; the r12 script fix (d55f63a) landed 26 min after the immutable tag. r13+ must be the forward retry; do not retry r12.
+- [Phase ?]: Order tag creation after script/policy ref agreement — before creating any future boundary tag rN, verify at the candidate commit that (1) Invoke-ReleaseQualification.ps1 references refs/tags/modules-v0.1.0-rN on every -ReleaseRef, (2) policy/release-control.json declares current_attempt=rN and release_ref=refs/tags/modules-v0.1.0-rN, (3) the boundary wrapper completes PrepareAttempt (not just InitializeBoundary) in a disposable clone. This closes the gap that let r12 tag a self-inconsistent commit.
 
 ### Pending Decisions
 
@@ -176,8 +178,8 @@ Resume with: `/gsd-execute-phase 8` ONLY after operator explicitly authorizes 08
 ## Operator Next Steps
 
 - 08-32 is reconciled as satisfied-by-prior-run (immutable r12 tag 57b76c9f / peel 5e7b19cd already exists locally+remotely, ancestor of HEAD).
-- 08-33 is the only remaining Phase 8 plan. It performs the real Mooncakes publication and requires explicit same-turn `authorize-core` authorization.
-- Do NOT dispatch 08-33 without explicit operator authorization — it mutates the public registry irreversibly.
+- 08-33 is quarantined and obsolete: it was scoped to r12 authority and must never be dispatched, resumed, or used for publication. r12 is immutable terminal REL01-REF evidence only.
+- The active route is static r13 recovery through 08-34 then 08-35. A later plan must separately create and verify an immutable r13 boundary; only a distinct later r13 plan may request explicit authorization for any publication.
 - A current-HEAD eight-path baseline must be recaptured before any future pre-live or publisher run that evaluates the baseline against working-tree content (the captured baseline is stale vs current HEAD).
 - Watch: two non-baseline files appeared modified mid-session (`release/qualification/phase-06-requirements.json`, `release/registry/authority-observation.json`) — investigate whether a sibling process is editing release artifacts.
 
