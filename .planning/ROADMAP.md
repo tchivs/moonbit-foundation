@@ -183,7 +183,7 @@
 4. Every proof runs outside the repository with an isolated cold Moon home and no publisher credential, `moon.work`, path dependency, copied source, Git fallback, or warm-cache-only success, and records registry metadata, strongest available package identity, resolved graph, toolchain, target results, and behavioral assertion.
 5. After publication, credential-redacted read-only Mooncakes observation proves that each module page renders the intended qualified public metadata; missing, drifted, or ambiguous rendering blocks PROV-05 without registry mutation.
 
-**Plans:** 21/25 plans executed
+**Plans:** 21/27 plans executed
 **Wave 1**
 
 - [x] 08-01-PLAN.md
@@ -278,11 +278,19 @@
 
 **Wave 24** *(blocked on Wave 23 completion)*
 
-- [ ] 08-24-PLAN.md — Establish r9 boundary and non-mutating nine-history AuthorityUnion handoff.
+- [ ] 08-24-PLAN.md — Advance static contracts to the sole r10 retry while preserving r9 as immutable pre-locator terminal evidence.
 
 **Wave 25** *(blocked on Wave 24 completion)*
 
-- [ ] 08-25-PLAN.md — Publish or recover core/color/image in order and close reciprocal r9 evidence.
+- [ ] 08-25-PLAN.md — Wire r10 hosted, publisher, and credential-free zero-write seams with ten-history regression coverage.
+
+**Wave 26** *(blocked on Wave 25 completion)*
+
+- [ ] 08-26-PLAN.md — Create the unique r10 non-publishing boundary, qualify it, and stop at the dynamic `authorize-core` decision.
+
+**Wave 27** *(blocked on Wave 26 completion)*
+
+- [ ] 08-27-PLAN.md — After the r10 receipt, publish or recognize core, color, and image one module per run with exact cold proofs and reciprocal closure.
 
 ### Phase 9: Provenance, Immutable Closure, and Milestone Audit
 
@@ -314,7 +322,7 @@
 | 5. Reference Codec and Release Qualification | v0.1 | 8/8 | Complete | 2026-07-17 |
 | 6. Namespace Authority and Compatibility Contract | v0.2 | 25/25 | Complete    | 2026-07-18 |
 | 7. Release Safety, Intent, and Recovery Automation | v0.2 | 3/3 | Complete | 2026-07-18 |
-| 8. Ordered Mooncakes Publication and Registry Consumers | v0.2 | 21/25 | In Progress|  |
+| 8. Ordered Mooncakes Publication and Registry Consumers | v0.2 | 21/27 | In Progress|  |
 | 9. Provenance, Immutable Closure, and Milestone Audit | v0.2 | 0/TBD | Not started | — |
 
 ## Stable Audit Anchors

@@ -150,5 +150,16 @@ Phase 8 makes the Phase 7 control plane genuinely executable, performs the first
 
 ---
 
+## Forward Recovery Addendum — r10
+
+**Recorded:** 2026-07-19
+**Status:** Locked planning fact for the forward recovery plans 08-24 through 08-27.
+
+- The already-pushed `modules-v0.1.0-r9` tag is immutable terminal evidence. Its peeled commit is `4158dff`; it must not be retagged, moved, reused as a current attempt, or re-executed.
+- r9 stopped after `InitializeBoundary` and before active-locator creation because the protected r8 terminal record predates later history fields under PowerShell StrictMode. Commit `3a761ae` narrowly recognizes only the verified legacy-r8 inventory/digest/stage; it is locally committed and is not a publication, credential, dispatch, or registry event.
+- r10 is the sole forward retry. Its history family is attempt-zero plus r1 through r9. r9 must be carried as exact partial terminal evidence with no locator, hosted run, credential access, packet, receipt, handoff, PublishOne, registry mutation, or successor.
+- No plan may infer Mooncakes authorization from a tag, local authentication state, a dry run, or a previous observation. A future blocking `authorize-core` decision is required only after completed static and non-publishing r10 qualification has fresh sanitized evidence.
+- The recovery sequence is monotonic: static r10 contracts → r10 hosted/zero-write seam → unique r10 non-publishing boundary and authorization checkpoint → separately ordered core, color, and image publication/proof. A stop or any ambiguity ends without retrying r9 or mutating the registry.
+
 *Phase: 8-ordered-mooncakes-publication-and-registry-consumers*
 *Context gathered: 2026-07-18*

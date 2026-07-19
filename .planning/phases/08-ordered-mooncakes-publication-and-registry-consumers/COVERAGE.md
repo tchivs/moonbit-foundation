@@ -2,11 +2,11 @@
 
 ## Scope Contract
 
-**Execution status:** 21/25 plans executed; 08-22 through 08-25 are the r9 forward-correction path.
+**Execution status:** 21/27 plans executed; 08-22 and 08-23 are complete r9 static/seam work. The unexecuted r9 boundary/closure prompts were superseded before execution by the r10 forward-recovery plans 08-24 through 08-27.
 
 Phase 8 integrates only the Mooncakes capabilities required to publish one dependency-safe module per authorized run, observe it through credential-free structured surfaces, and prove exact cold registry consumption. The canonical semantic order is `tchivs/mb-core@0.1.0` -> `tchivs/mb-color@0.1.0` -> `tchivs/mb-image@0.1.0`. Normalized graph serialization is deterministic but never changes node/edge equality.
 
-Attempt-zero and r1 through r8 are nine distinct immutable terminal-negative histories. r8 is fixed at source `8d0f050a2ea2a5f136d87f913987d59ea99a13d4` and annotated tag object `20907c7bbd11b91d4482dd113d149b3a107c9672`: its local PrepareAttempt stopped with `PREP15-CANONICAL-ARCHIVE / REL-XPLAT-NONCANONICAL` before a live locator, active attempt, hosted run, secret, packet, receipt, handoff, PublishOne, mutation, or successor existed. The next retry is `modules-v0.1.0-r9`, initial 0.1.0, sequence 0, root=current, no predecessor, and fresh state. It binds the canonical-copy seam version and actual PrepareAttempt fixture: raw archive provenance stays untouched while derived temporary copies are canonicalized before prepared/intent hashing. Every eligibility artifact binds nine individual digests plus their canonical set. Only absent may preflight/dry and requires packet plus same-turn literal receipt; exact-existing requires neither.
+Attempt-zero through r9 are ten distinct immutable terminal histories. r8 remains the protected pre-locator canonical-archive terminal record. r9 is the already-pushed immutable tag whose peeled commit is `4158dff`; it stopped after boundary initialization and before active-locator creation when the later reader dereferenced r8 fields absent under StrictMode. The narrowly scoped `3a761ae` fix preserves that exact r8 evidence; it does not change r9 into a runnable authority. The only current retry is `modules-v0.1.0-r10`, with fresh roots and no predecessor. Every r10 eligibility artifact binds ten individual digests plus their canonical set. Absent may proceed only through completed non-publishing qualification and the same-turn explicit `authorize-core` receipt; exact-existing requires neither packet nor receipt.
 
 The assumption-delta detector phrase `Git fallback` maps to the noun **registry-only dependency source**, decision **no-change**, because an alternate source is prohibited rather than generalized into an identity model.
 
@@ -36,6 +36,40 @@ The assumption-delta detector phrase `Git fallback` maps to the noun **registry-
 | TEST | hosted exact14 receipt parity | Controller/workflow declarations/propagation | 08-10, 08-12, 08-14, 08-16, 08-18, 08-21, 08-23, 08-25 | COVERED | Prevents parity, receipt, vector, and duplicate-key drift. |
 | TEST | clean tracked snapshot | Equal empty clean state passes; unequal nonempty drift fails | 08-13..08-25 | COVERED | Preserves clean checkout and mutation detection. |
 | TEST | cross-platform prepared archive identity | Canonical container plus LF payload identity | 08-18, 08-20, 08-21, 08-22, 08-23 | COVERED | Fixed attrs/stored/order/path/payload canonicalization prevents r7 recurrence. |
+
+## R10 Forward-Recovery Source Audit
+
+| Source | ID | Feature / requirement | Plan | Status | Notes |
+|---|---|---|---|---|---|
+| GOAL | - | Publish three modules in strict dependency order with independent registry consumption | 08-24..08-27 | COVERED | Static/seam work precedes one r10 boundary; core, color, and image proof follow in order. |
+| REQ | DIST-01 | Exact core authority and four-target cold proof before color | 08-24, 08-25, 08-26, 08-27 | COVERED | r10 packet/receipt or exact-existing authority is revalidated before one core run. |
+| REQ | DIST-02 | Exact color plus core proof before image | 08-27 | COVERED | Core checkpoint digest gates color; color checkpoint gates image. |
+| REQ | DIST-03 | Exact full graph and bounded PPM proof for image | 08-27 | COVERED | Image uses a distinct run and cold full-graph consumer. |
+| REQ | DIST-04 | Credential-free outside-checkout cold evidence | 08-25, 08-26, 08-27 | COVERED | New homes/roots, no workspace/source/Git/cache/credential inheritance, normalized evidence. |
+| REQ | PROV-05 | Read-only structured public metadata proof | 08-27 | COVERED | Closed sanitized projection and archive/index/manifest agreement block drift. |
+| RESEARCH | Complete prepared bundle before secret access | 08-24, 08-25, 08-26 | COVERED | r10 prepared validation precedes publisher-only dry run. |
+| RESEARCH | One journal-selected mutation and bounded recovery | 08-25, 08-26, 08-27 | COVERED | One module per run; unknown/mismatch halts without automatic retry. |
+| RESEARCH | Cold consumer as separate trust domain | 08-27 | COVERED | Each proof is newly rooted outside the checkout. |
+| RESEARCH | Fresh structured registry observation | 08-26, 08-27 | COVERED | No endpoint/field shape is guessed; disagreement is terminal. |
+| CONTEXT | D-01 | Deterministic prepared bundle and exact binding | 08-24..08-26 | COVERED | r10 has fresh source/state with r9 only as history. |
+| CONTEXT | D-02 | One next-module live adapter | 08-25, 08-27 | COVERED | Publisher remains module-scoped and journal-selected. |
+| CONTEXT | D-03 | Publisher-only ephemeral secret state | 08-25, 08-26, 08-27 | COVERED | Dry/publish secret handling stays in temporary publisher Moon home. |
+| CONTEXT | D-04 | Explicit first-core authorization | 08-26 | COVERED | Blocking dynamic `authorize-core` decision follows all non-publishing qualification. |
+| CONTEXT | D-05 | One module mutation per run, ordered | 08-27 | COVERED | Separate core, color, and image tasks/runs. |
+| CONTEXT | D-06 | Predecessor evidence gates successor | 08-27 | COVERED | Exact observation plus four-target cold proof creates each successor gate. |
+| CONTEXT | D-07 | Immutable intent/journal resume | 08-24..08-27 | COVERED | r9 is terminal evidence; r10 is unique current retry with full revalidation. |
+| CONTEXT | D-08 | New isolated consumer environment | 08-27 | COVERED | Each module proof uses a new external root and empty Moon home. |
+| CONTEXT | D-09 | Resolution graph is exact evidence | 08-27 | COVERED | Normalized graph equality is required independently of manifest floors. |
+| CONTEXT | D-10 | Record registry/index/archive/manifest identity | 08-27 | COVERED | Closed sanitized observations retain only digest-bound fields. |
+| CONTEXT | D-11 | Four target public behavior | 08-27 | COVERED | Core, color, and full PPM paths include real native execution. |
+| CONTEXT | D-12 | Consumers never receive publisher secret | 08-25, 08-27 | COVERED | Workflow and cold-root isolation are tested and rechecked. |
+| CONTEXT | D-13 | Bounded polling with deterministic record | 08-26, 08-27 | COVERED | Fresh observation timing/classification is sanitized and bounded. |
+| CONTEXT | D-14 | Ambiguity stops | 08-24..08-27 | COVERED | No automatic retry or downstream advance follows any uncertainty. |
+| CONTEXT | D-15 | Forward-only recovery | 08-24..08-27 | COVERED | r9 cannot be rerun; r10 is the only recovery continuation. |
+| CONTEXT | D-16 | Structured surfaces, no SPA authority | 08-26, 08-27 | COVERED | Public API/index/archive/assets projection is closed and sanitized. |
+| CONTEXT | D-17 | Exact qualified metadata comparison | 08-27 | COVERED | Missing, drifted, or ambiguous fields block successor and PROV-05. |
+| CONTEXT | D-18 | No raw live output persistence | 08-24..08-27 | COVERED | Artifacts are sanitized, normalized, and content-addressed. |
+| CONTEXT | D-19 | Fresh core absence observation | 08-26, 08-27 | COVERED | It is re-observed immediately before any core mutation decision. |
 
 ## Requirement Adjacency and Edge Rules
 
