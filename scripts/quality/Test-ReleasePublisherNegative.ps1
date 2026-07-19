@@ -105,7 +105,7 @@ $actorEvidence = [pscustomobject][ordered]@{
   command_classification='moon_whoami_dry_run_only'
 }
 $base = [pscustomobject]@{
-  repository='tchivs/moonbit-foundation'; actor='tchivs'; actor_evidence=$actorEvidence; release_ref='refs/tags/modules-v0.1.0-r6'
+  repository='tchivs/moonbit-foundation'; actor='tchivs'; actor_evidence=$actorEvidence; release_ref='refs/tags/modules-v0.1.0-r7'
   source_sha=('1'*40); root_intent_sha256=$root; intent_sha256=$root; intent_kind='initial'
   prepared_manifest_sha256=('9'*64)
   historical_attempt_zero_sha256='b9bda5378ea339f4cdd42c417c1cc0cf8caabbd51ab11d453cd45ddae77d9b52'
@@ -114,13 +114,14 @@ $base = [pscustomobject]@{
   historical_r3_sha256='cf29473b2b07ff9aa8fd8a4810ddc45f6aacd2fd4b74048f5d29b3b6fa939d41'
   historical_r4_sha256='d9b045bc65df87dc2701144ea7716defc67acb84ec9ea8e7ffdafd0118ba0906'
   historical_r5_sha256='1239b63f983bef86ac44c731171093ad67759de9cce7c15610b92f5df6214843'
-  historical_history_set_sha256='faed8af741e3e2f80d385fcc496649e12bf32889d6dff424fad3c8916acf9c0a'
+  historical_r6_sha256='3f9c0d9916dbccfa9144488d2967ee1a7fb3fd1d9936f8cc4139c2734f2d0ad4'
+  historical_history_set_sha256='93523aa11f0ab84736d7fa3b1cb500ade23043a4d01a3e07d205400436900334'
   correction_sequence=0; predecessor_intent_sha256=$null; authorization_valid=$true
   evidence_valid=$true; dry_run_passed=$true; authority_account='tchivs'
 }
 
 Assert-PublisherRequest $base
-Confirm-PublisherRule 'PUB04-ROOT' { $bad=$base.PSObject.Copy(); $bad.release_ref='refs/tags/modules-v0.1.0-r5'; Assert-PublisherRequest $bad }
+Confirm-PublisherRule 'PUB04-ROOT' { $bad=$base.PSObject.Copy(); $bad.release_ref='refs/tags/modules-v0.1.0-r6'; Assert-PublisherRequest $bad }
 Confirm-PublisherRule 'PUB04-ROOT' { $bad=$base.PSObject.Copy(); $bad.source_sha='198436a45b7403a3c28c98d5fa0d5ed6a958455f'; Assert-PublisherRequest $bad }
 Confirm-PublisherRule 'PUB04-ROOT' { $bad=$base.PSObject.Copy(); $bad.predecessor_intent_sha256=('8'*64); Assert-PublisherRequest $bad }
 Confirm-PublisherRule 'PUB16-HISTORY' { $bad=$base.PSObject.Copy(); $bad.historical_r1_sha256=$bad.historical_attempt_zero_sha256; Assert-PublisherRequest $bad }
@@ -133,13 +134,15 @@ Confirm-PublisherRule 'PUB16-HISTORY' { $bad=$base.PSObject.Copy(); $bad.histori
 Confirm-PublisherRule 'PUB16-HISTORY' { $bad=$base.PSObject.Copy(); $bad.historical_r4_sha256=('8'*64); Assert-PublisherRequest $bad }
 Confirm-PublisherRule 'PUB16-HISTORY' { $bad=$base.PSObject.Copy(); $bad.historical_r5_sha256=$bad.historical_r4_sha256; Assert-PublisherRequest $bad }
 Confirm-PublisherRule 'PUB16-HISTORY' { $bad=$base.PSObject.Copy(); $bad.historical_r5_sha256=('8'*64); Assert-PublisherRequest $bad }
+Confirm-PublisherRule 'PUB16-HISTORY' { $bad=$base.PSObject.Copy(); $bad.historical_r6_sha256=$bad.historical_r5_sha256; Assert-PublisherRequest $bad }
+Confirm-PublisherRule 'PUB16-HISTORY' { $bad=$base.PSObject.Copy(); $bad.historical_r6_sha256=('8'*64); Assert-PublisherRequest $bad }
 Confirm-PublisherRule 'PUB16-HISTORY' { $bad=$base.PSObject.Copy(); $bad.historical_history_set_sha256=('8'*64); Assert-PublisherRequest $bad }
 Confirm-PublisherRule 'PUB13-EVIDENCE' { $bad=$base.PSObject.Copy(); $bad.prepared_manifest_sha256=''; Assert-PublisherRequest $bad }
 Confirm-PublisherRule 'PUB12-ACTOR' { $bad=$base.PSObject.Copy(); $bad.actor_evidence=($actorEvidence | ConvertTo-Json -Compress | ConvertFrom-Json); $bad.actor_evidence.actor_stdout_line_count=2; Assert-PublisherRequest $bad }
 Confirm-PublisherRule 'PUB12-ACTOR' { $bad=$base.PSObject.Copy(); $bad.actor_evidence=($actorEvidence | ConvertTo-Json -Compress | ConvertFrom-Json); $bad.actor_evidence.actor_stderr_empty=$false; Assert-PublisherRequest $bad }
 
 $exactExisting = [pscustomobject][ordered]@{
-  classification='exact_existing_verified'; repository='tchivs/moonbit-foundation'; release_ref='refs/tags/modules-v0.1.0-r6'
+  classification='exact_existing_verified'; repository='tchivs/moonbit-foundation'; release_ref='refs/tags/modules-v0.1.0-r7'
   source_sha=('1'*40); root_intent_sha256=$root; intent_sha256=$root; prepared_manifest_sha256=('9'*64)
   observation_sha256=('6'*64); cold_proof_sha256=('7'*64); reducer_record_sha256=('8'*64)
   mutation_authorization_required=$false; mutation_authorization_used=$false; publisher_dry_run_used=$false
@@ -150,12 +153,12 @@ Confirm-PublisherRule 'PUB15-EXACT-EXISTING' { $bad=$exactExisting.PSObject.Copy
 Confirm-PublisherRule 'PUB15-EXACT-EXISTING' { $bad=$exactExisting.PSObject.Copy(); $bad.intent_sha256=('b'*64); Assert-PublisherExactExistingCheckpoint -Checkpoint $bad -Request $base }
 
 $preparedSchema=Get-Content -LiteralPath (Join-Path $repoRoot 'release/prepared/schema.json') -Raw | ConvertFrom-Json -Depth 100
-if ($preparedSchema.properties.release_ref.pattern -cne '^refs/tags/modules-(v0[.]1[.]0-r6|correction-[1-9][0-9]*)$') {
-  throw 'PREP09-BINDING: prepared schema does not require the sole-current r6 ref.'
+if ($preparedSchema.properties.release_ref.pattern -cne '^refs/tags/modules-(v0[.]1[.]0-r7|correction-[1-9][0-9]*)$') {
+  throw 'PREP09-BINDING: prepared schema does not require the sole-current r7 ref.'
 }
 . (Join-Path $PSScriptRoot 'Invoke-MooncakesLiveMutation.ps1') -LibraryOnly
 Assert-LiveRequest $base
-Confirm-LiveRule 'LIVE02-BINDING' { $bad=$base.PSObject.Copy(); $bad.release_ref='refs/tags/modules-v0.1.0-r5'; Assert-LiveRequest $bad }
+Confirm-LiveRule 'LIVE02-BINDING' { $bad=$base.PSObject.Copy(); $bad.release_ref='refs/tags/modules-v0.1.0-r6'; Assert-LiveRequest $bad }
 Confirm-LiveRule 'LIVE02-BINDING' { $bad=$base.PSObject.Copy(); $bad.historical_r1_sha256=$bad.historical_attempt_zero_sha256; Assert-LiveRequest $bad }
 Confirm-LiveRule 'LIVE02-BINDING' { $bad=$base.PSObject.Copy(); $bad.historical_r2_sha256=('8'*64); Assert-LiveRequest $bad }
 Confirm-LiveRule 'LIVE02-BINDING' { $bad=$base.PSObject.Copy(); $bad.historical_r3_sha256=$bad.historical_r2_sha256; Assert-LiveRequest $bad }
@@ -163,13 +166,15 @@ Confirm-LiveRule 'LIVE02-BINDING' { $bad=$base.PSObject.Copy(); $bad.historical_
 Confirm-LiveRule 'LIVE02-BINDING' { $bad=$base.PSObject.Copy(); $bad.historical_r4_sha256=('8'*64); Assert-LiveRequest $bad }
 Confirm-LiveRule 'LIVE02-BINDING' { $bad=$base.PSObject.Copy(); $bad.historical_r5_sha256=$bad.historical_r4_sha256; Assert-LiveRequest $bad }
 Confirm-LiveRule 'LIVE02-BINDING' { $bad=$base.PSObject.Copy(); $bad.historical_r5_sha256=('8'*64); Assert-LiveRequest $bad }
+Confirm-LiveRule 'LIVE02-BINDING' { $bad=$base.PSObject.Copy(); $bad.historical_r6_sha256=$bad.historical_r5_sha256; Assert-LiveRequest $bad }
+Confirm-LiveRule 'LIVE02-BINDING' { $bad=$base.PSObject.Copy(); $bad.historical_r6_sha256=('8'*64); Assert-LiveRequest $bad }
 Confirm-LiveRule 'LIVE02-BINDING' { $bad=$base.PSObject.Copy(); $bad.historical_history_set_sha256=('8'*64); Assert-LiveRequest $bad }
 Confirm-LiveRule 'LIVE02-BINDING' { $bad=$base.PSObject.Copy(); $bad.intent_kind='forward_correction'; $bad.correction_sequence=1; $bad.predecessor_intent_sha256=$root; Assert-LiveRequest $bad }
 Confirm-LiveRule 'LIVE01-AUTHORIZATION' { $bad=$base.PSObject.Copy(); $bad.actor_evidence=($actorEvidence | ConvertTo-Json -Compress | ConvertFrom-Json); $bad.actor_evidence.actor_match=$false; Assert-LiveRequest $bad }
 $preparedRoot=Join-Path ([IO.Path]::GetTempPath()) ('mnf-r2-prepared-' + [Guid]::NewGuid().ToString('N'))
 $null=New-Item -ItemType Directory -Path $preparedRoot
 try {
-  $manifest=[pscustomobject][ordered]@{ repository=$base.repository; actor=$base.actor; release_ref=$base.release_ref; source_sha=$base.source_sha; root_intent_sha256=$base.root_intent_sha256; intent_sha256=$base.intent_sha256; historical_attempt_zero_sha256=$base.historical_attempt_zero_sha256; historical_r1_sha256=$base.historical_r1_sha256; historical_r2_sha256=$base.historical_r2_sha256; historical_r3_sha256=$base.historical_r3_sha256; historical_r4_sha256=$base.historical_r4_sha256; historical_r5_sha256=$base.historical_r5_sha256; historical_history_set_sha256=$base.historical_history_set_sha256 }
+  $manifest=[pscustomobject][ordered]@{ repository=$base.repository; actor=$base.actor; release_ref=$base.release_ref; source_sha=$base.source_sha; root_intent_sha256=$base.root_intent_sha256; intent_sha256=$base.intent_sha256; historical_attempt_zero_sha256=$base.historical_attempt_zero_sha256; historical_r1_sha256=$base.historical_r1_sha256; historical_r2_sha256=$base.historical_r2_sha256; historical_r3_sha256=$base.historical_r3_sha256; historical_r4_sha256=$base.historical_r4_sha256; historical_r5_sha256=$base.historical_r5_sha256; historical_r6_sha256=$base.historical_r6_sha256; historical_history_set_sha256=$base.historical_history_set_sha256 }
   $manifestPath=Join-Path $preparedRoot 'prepared-bundle.json'
   [IO.File]::WriteAllText($manifestPath,($manifest|ConvertTo-Json -Compress),[Text.UTF8Encoding]::new($false))
   $bound=$base.PSObject.Copy(); $bound.prepared_manifest_sha256=(Get-FileHash -LiteralPath $manifestPath -Algorithm SHA256).Hash.ToLowerInvariant()
@@ -212,10 +217,10 @@ if (-not (Assert-PublisherCorrectionRequest -Request $correction2 -LatestIntentS
 
 $workflow=Get-Content -LiteralPath (Join-Path $repoRoot '.github/workflows/publish-modules.yml') -Raw
 foreach($required in @(
-  'refs/tags/modules-v0.1.0-r6','historical_r5_sha256','historical_history_set_sha256',
-  'EXPECTED_HISTORICAL_R5_SHA256','EXPECTED_HISTORICAL_HISTORY_SET_SHA256','P08-WORKFLOW-R6-ROOT'
+  'refs/tags/modules-v0.1.0-r7','historical_r6_sha256','historical_history_set_sha256',
+  'EXPECTED_HISTORICAL_R6_SHA256','EXPECTED_HISTORICAL_HISTORY_SET_SHA256','P08-WORKFLOW-R7-ROOT'
 )){
-  if($workflow.IndexOf($required,[StringComparison]::Ordinal) -lt 0){throw "P08-WORKFLOW-R6-STATIC: missing '$required'."}
+  if($workflow.IndexOf($required,[StringComparison]::Ordinal) -lt 0){throw "P08-WORKFLOW-R7-STATIC: missing '$required'."}
 }
 
 Write-Host 'Publisher controller recovery rehearsal matrix passed.'
