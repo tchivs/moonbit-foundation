@@ -287,8 +287,17 @@ function Assert-P08FixtureContract {
     & git -C $prepareExecutionRoot commit --quiet --allow-empty -m 'test: prepare attempt fixture boundary'
     if($LASTEXITCODE){Throw-P08Qualification 'P08-QUAL-PREPARE-COMMIT' 'Unable to create the local-only PrepareAttempt fixture boundary.'}
     $prepareBoundary=(& git -C $prepareExecutionRoot rev-parse HEAD).Trim()
-    & git -C $prepareExecutionRoot tag modules-v0.1.0-r9 $prepareBoundary
-    if($LASTEXITCODE){Throw-P08Qualification 'P08-QUAL-PREPARE-TAG' 'Unable to create the local-only r9 fixture tag.'}
+    $r8Policy=@((Get-Content -LiteralPath (Join-Path $prepareExecutionRoot 'policy/release-control.json') -Raw|ConvertFrom-Json -Depth 100).initial_attempt_family.terminal_negative_history)[8]
+    if($r8Policy.PSObject.Properties.Name -ccontains 'prepare_job_id' -or $r8Policy.PSObject.Properties.Name -ccontains 'prepare_attempt_completed'){
+      Throw-P08Qualification 'P08-QUAL-PREPARE-R8-LEGACY-SCHEMA' 'The protected r8 pre-locator record must omit post-r8 prepare fields.'
+    }
+    $prepareGit={
+      param($Root,[string[]]$Arguments)
+      if([IO.Path]::GetFullPath($Root) -cne [IO.Path]::GetFullPath($prepareExecutionRoot)){Throw-P08Qualification 'P08-QUAL-PREPARE-GIT' 'PrepareAttempt queried an unexpected execution root.'}
+      if(($Arguments -join ' ') -ceq 'rev-parse refs/tags/modules-v0.1.0-r9^{}'){return $prepareBoundary}
+      if(($Arguments -join ' ') -ceq "show -s --format=%cI $prepareBoundary"){return '2026-07-19T00:00:00Z'}
+      return @(& git -C $Root @Arguments 2>&1)
+    }.GetNewClosure()
     $prepareHosted=Join-Path $prepareExecutionRoot 'scripts/quality/Invoke-Phase08HostedRun.ps1'
     $prepareBoundaryLocator=& $prepareHosted -Mode InitializeBoundary -Repository tchivs/moonbit-foundation -Workflow publish-modules.yml `
       -BoundarySha $prepareBoundary -ExecutionRoot $prepareExecutionRoot -StateRoot $prepareStateRoot
@@ -335,7 +344,7 @@ function Assert-P08FixtureContract {
     $prepared=& $prepareHosted -Mode PrepareAttempt -BoundaryLocatorPath ([string]$prepareBoundaryLocator.locator_path) `
       -ReleaseRef refs/tags/modules-v0.1.0-r9 `
       -HistoricalReleaseRef refs/tags/modules-v0.1.0-r8 -HistoricalSourceSha 8d0f050a2ea2a5f136d87f913987d59ea99a13d4 `
-      -PrepareProvider $prepareProvider
+      -PrepareProvider $prepareProvider -GitCommand $prepareGit
     $preparedNames=@('mode','locator_path','artifact_root','index_path','root_intent_sha256','intent_sha256','prepared_manifest_sha256','historical_record_path','attempt_zero_history_path','r1_history_path','r2_history_path','r3_history_path','r4_history_path','r5_history_path','r6_history_path','r7_history_path','r8_history_path','historical_history_set_sha256','genesis_record_path','prepared_root','toolchain_root','native_toolchain_bin','mutation_count')
     if((@($prepared.PSObject.Properties.Name)-join ',') -cne ($preparedNames-join ',') -or $prepared.mode -cne 'PrepareAttempt' -or
         $prepared.root_intent_sha256 -cne $prepared.intent_sha256 -or $prepared.root_intent_sha256 -cnotmatch '^[0-9a-f]{64}$' -or

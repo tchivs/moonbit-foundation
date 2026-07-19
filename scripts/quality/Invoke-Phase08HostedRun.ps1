@@ -593,13 +593,24 @@ function New-P08PreparedAttempt {
     Throw-P08HostedRule 'P08-PREPARE-HISTORY' 'The exact nine-entry terminal-negative history is required.'
   }
   $historicalPolicy=$history[8]
+  $r8LegacyProperties=@(
+    'attempt','release_ref','source_sha','tag_object_sha','hosted_run_present','run_id','run_attempt',
+    'boundary_locator_count','active_attempt_count','prepared_artifact_upload_count','publisher_dry_run_count',
+    'exact_existing_authority_count','hosted_preflight_downstream_count','publisher_count','observation_count',
+    'cold_consumer_count','authorization_packet_count','authorization_receipt_count','handoff_count','publish_one_count',
+    'mutation_count','successor_count','credential_accessed','mutation_performed','authority_acquired','failure_stage',
+    'failure_code','failure_detail','reason','record_sha256'
+  )
+  if((@($historicalPolicy.PSObject.Properties.Name)-join ',') -cne ($r8LegacyProperties-join ',') -or
+      [string]$historicalPolicy.record_sha256 -cne '8a7729234a62425d0082a7b7a4615f2757ab4bc59938925b8ca031e2e00c10c8'){
+    Throw-P08HostedRule 'P08-PREPARE-HISTORICAL-BINDING' 'Historical r8 record is not the exact protected pre-locator terminal schema.'
+  }
   if(-not [string]::IsNullOrWhiteSpace($HistoricalRunId) -or $HistoricalRunAttempt -ne 0 -or $historicalPolicy.hosted_run_present -ne $false -or
       $null -ne $historicalPolicy.run_id -or $null -ne $historicalPolicy.run_attempt -or
       $HistoricalReleaseRef -cne [string]$historicalPolicy.release_ref -or $HistoricalSourceSha -cne [string]$historicalPolicy.source_sha -or
       $historicalPolicy.reason -cne 'terminal_pre_locator_canonical_archive_failure' -or
-      $null -ne $historicalPolicy.prepare_job_id -or $historicalPolicy.prepare_attempt_completed -ne $false -or
-      $historicalPolicy.hosted_preflight_dispatched -ne $false -or $historicalPolicy.credential_accessed -ne $false -or
-      $historicalPolicy.failure_stage -cne 'prepare_attempt_local_canonical_archive_validation' -or $historicalPolicy.failure_code -cne 'PREP15-CANONICAL-ARCHIVE' -or
+      $historicalPolicy.credential_accessed -ne $false -or
+      $historicalPolicy.failure_stage -cne 'prepared_bundle_raw_archive_validation_before_locator' -or $historicalPolicy.failure_code -cne 'PREP15-CANONICAL-ARCHIVE' -or
       $historicalPolicy.failure_detail -cne 'REL-XPLAT-NONCANONICAL' -or
       @('prepared_artifact_upload_count','publisher_dry_run_count','exact_existing_authority_count','hosted_preflight_downstream_count',
         'publisher_count','observation_count','cold_consumer_count','authorization_packet_count','authorization_receipt_count',
