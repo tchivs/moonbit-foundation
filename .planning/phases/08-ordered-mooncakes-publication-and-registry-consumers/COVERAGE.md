@@ -70,6 +70,7 @@ The assumption-delta detector phrase `Git fallback` maps to the noun **registry-
 | CONTEXT | D-17 | Exact qualified metadata comparison | 08-27 | COVERED | Missing, drifted, or ambiguous fields block successor and PROV-05. |
 | CONTEXT | D-18 | No raw live output persistence | 08-24..08-27 | COVERED | Artifacts are sanitized, normalized, and content-addressed. |
 | CONTEXT | D-19 | Fresh core absence observation | 08-26, 08-27 | COVERED | It is re-observed immediately before any core mutation decision. |
+| RECOVERY | R10 worktree boundary | Enumerated user-dirty paths remain unchanged while every other drift fails closed | 08-26 | COVERED | Content/status baseline is recorded before actions and compared after each task; all release artifacts originate from exact committed HEAD or its clean clone. |
 
 ## Requirement Adjacency and Edge Rules
 
