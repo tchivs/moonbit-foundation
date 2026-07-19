@@ -1,8 +1,20 @@
 # Phase 08 r13 Forward-Recovery Route
 
-**Status:** Locked route for Plans 08-34 and 08-35.
+## Authority Status
 
-- `08-33-PLAN.md` is **quarantined and obsolete**. It was written for r12 authority and must never be executed, resumed, amended, or used to authorize publication.
-- r12 is immutable terminal `REL01-REF` evidence. It is history only; it is not a reusable release boundary, prepared source, handoff, receipt, dispatch, credential, or publication authority.
-- Plan 08-34 establishes routing, a fail-closed eight-path dirty-baseline guard, and static r13 contracts. Plan 08-35 wires static r13 hosted and publisher seams.
-- No r13 tag, authorization, dispatch, registry observation, consumer proof, or publication is implied by these plans. A later plan must separately establish and verify an immutable r13 boundary. Only a still-later r13-specific plan, after fresh qualification, may request explicit operator authorization for one ordered operation.
+Plan 08-33 is quarantined as obsolete r12 publication routing. It must never be
+executed, resumed, dispatched, or reused as publication authority. Its r12 scope
+cannot be repaired in place because r12 is immutable terminal `REL01-REF`
+evidence.
+
+## Active Route
+
+The active recovery route is static-only: Plan 08-34 then Plan 08-35. Neither
+plan creates a tag, observes Mooncakes, reads credentials, dispatches a hosted
+workflow, or publishes.
+
+After those static plans, a separate later plan must create and verify an
+immutable r13 boundary. Only a distinct, still-later r13-specific plan may seek
+explicit authorization and attempt one ordered module operation. No r13 tag,
+authorization, registry observation, cold-consumer proof, registry mutation, or
+publication is asserted by this record.

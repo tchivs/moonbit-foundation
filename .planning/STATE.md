@@ -4,8 +4,8 @@ milestone: v0.2
 milestone_name: Publication & Compatibility
 current_phase: 08
 current_phase_name: Ordered Mooncakes Publication and Registry Consumers
-status: executing — 08-32 satisfied-by-prior-run; only 08-33 (publication) remains and is NOT operator-authorized
-stopped_at: 08-32-SUMMARY.md committed (satisfied-by-prior-run); 08-33 awaits explicit authorize-core
+status: executing — active static-only recovery is 08-34 then 08-35; obsolete r12 authority is quarantined
+stopped_at: 08-34 r13 static recovery in progress; no r13 boundary or publication authorization exists
 last_updated: "2026-07-19T20:30:00.000Z"
 last_activity: 2026-07-19
 last_activity_desc: r12 publish-blocked by REL01-REF (tag-before-script-fix); corrected misdiagnosed timeout; recorded ordering invariant for r13+
@@ -30,8 +30,8 @@ See `.planning/PROJECT.md` (updated 2026-07-17).
 ## Current Position
 
 Phase: 08 (Ordered Mooncakes Publication and Registry Consumers) — EXECUTING
-Plan: 32 of 33 (only 08-33 remains)
-Status: r12 publish-blocked (REL01-REF) — its boundary commit (5e7b19cd) declared policy release_ref=r12 but Invoke-ReleaseQualification.ps1 still hardcoded r9; the fix (d55f63a) landed 26 min after the immutable tag. 08-33 cannot run on r12. Forward path is r13+; do NOT retry r12.
+Plan: 32 of 35 (08-33 quarantined; the static-only recovery route is 08-34 then 08-35)
+Status: r12 publish-blocked (REL01-REF) — its boundary commit (5e7b19cd) declared policy release_ref=r12 but Invoke-ReleaseQualification.ps1 still hardcoded r9; the fix (d55f63a) landed 26 min after the immutable tag. 08-33 cannot run on r12. r12 is immutable terminal evidence only; forward path is r13+, starting with 08-34 then 08-35. Do not retry r12.
 Last activity: 2026-07-19 — corrected the misdiagnosed timeout narrative (deterministic REL01-REF), recorded the tag-before-script-fix ordering invariant for r13+
 
 ## Progress
@@ -41,7 +41,7 @@ Current milestone: [█████░░░░░] 50% of v0.2 phases complete
 - v0.2 phases completed: 2/4
 - Phase 6 plans completed: 25/25
 - Phase 7 plans completed: 3/3
-- Phase 8 plans completed: 32/33 (only 08-33 remains; NOT operator-authorized)
+- Phase 8 plans completed: 32/35 (08-33 quarantined; static r13 recovery proceeds through 08-34 then 08-35)
 - v0.2 requirements mapped: 21/21
 - Historical total: 5 completed phases, 43 completed plans, 36/36 v0.1 requirements validated
 
@@ -172,13 +172,13 @@ None
 **Resume file:** None
 
 Last session: 2026-07-19T20:30:00Z
-Stopped at: 08-32-SUMMARY.md committed (satisfied-by-prior-run); 08-33 awaits explicit authorize-core
-Resume with: `/gsd-execute-phase 8` ONLY after operator explicitly authorizes 08-33 publication
+Stopped at: 08-34 r13 static recovery in progress; obsolete r12 routing is quarantined
+Resume with: `/gsd-execute-phase 8` to continue the static r13 recovery route; a later plan must separately create and verify an immutable r13 boundary, and a still-later r13-specific plan may request explicit publication authorization
 
 ## Operator Next Steps
 
 - 08-32 is reconciled as satisfied-by-prior-run (immutable r12 tag 57b76c9f / peel 5e7b19cd already exists locally+remotely, ancestor of HEAD).
-- 08-33 is quarantined and obsolete: it was scoped to r12 authority and must never be dispatched, resumed, or used for publication. r12 is immutable terminal REL01-REF evidence only.
+- 08-33 is quarantined and obsolete: it was scoped to r12 authority and is not publication authority. r12 is immutable terminal REL01-REF evidence only.
 - The active route is static r13 recovery through 08-34 then 08-35. A later plan must separately create and verify an immutable r13 boundary; only a distinct later r13 plan may request explicit authorization for any publication.
 - A current-HEAD eight-path baseline must be recaptured before any future pre-live or publisher run that evaluates the baseline against working-tree content (the captured baseline is stale vs current HEAD).
 - Watch: two non-baseline files appeared modified mid-session (`release/qualification/phase-06-requirements.json`, `release/registry/authority-observation.json`) — investigate whether a sibling process is editing release artifacts.
