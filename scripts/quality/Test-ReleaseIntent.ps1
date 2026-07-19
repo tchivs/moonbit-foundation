@@ -34,8 +34,8 @@ function Get-IntentHistorySetSha256 {
 function Assert-Phase08AttemptSchemas {
   $policy = Read-IntentJson -Path $policyPath
   $history = @($policy.initial_attempt_family.terminal_negative_history)
-  if ($history.Count -ne 10 -or ($history.attempt -join ',') -cne 'attempt_zero,r1,r2,r3,r4,r5,r6,r7,r8,r9') {
-    throw 'REL04-HISTORY-ORDER: authority requires attempt-zero through r9 in canonical order.'
+  if ($history.Count -ne 11 -or ($history.attempt -join ',') -cne 'attempt_zero,r1,r2,r3,r4,r5,r6,r7,r8,r9,r10') {
+    throw 'REL04-HISTORY-ORDER: authority requires attempt-zero through r10 in canonical order.'
   }
   $historyFields = [ordered]@{
     historical_attempt_zero_sha256 = [string]$history[0].record_sha256
@@ -48,6 +48,7 @@ function Assert-Phase08AttemptSchemas {
     historical_r7_sha256 = [string]$history[7].record_sha256
     historical_r8_sha256 = [string]$history[8].record_sha256
     historical_r9_sha256 = [string]$history[9].record_sha256
+    historical_r10_sha256 = [string]$history[10].record_sha256
     historical_history_set_sha256 = [string]$policy.initial_attempt_family.history_set_sha256
   }
   $authority = Read-IntentJson -Path (Join-Path $repoRoot 'release\qualification\phase-08-authority-schema.json')
@@ -55,8 +56,8 @@ function Assert-Phase08AttemptSchemas {
   $handoff = Read-IntentJson -Path (Join-Path $repoRoot 'release\qualification\phase-08-handoff-schema.json')
   foreach ($branch in @('mutationAuthorizationPacket','exactExistingAuthority','moduleAuthority')) {
     $schemaBranch = $authority.'$defs'.$branch
-    if ($schemaBranch.properties.release_ref.const -cne 'refs/tags/modules-v0.1.0-r10') {
-      throw "REL04-AUTHORITY-REF: $branch does not require r10."
+    if ($schemaBranch.properties.release_ref.const -cne 'refs/tags/modules-v0.1.0-r11') {
+      throw "REL04-AUTHORITY-REF: $branch does not require r11."
     }
     foreach ($entry in $historyFields.GetEnumerator()) {
       if (@($schemaBranch.required) -cnotcontains $entry.Key -or $schemaBranch.properties.($entry.Key).const -cne $entry.Value) {
@@ -64,13 +65,13 @@ function Assert-Phase08AttemptSchemas {
       }
     }
   }
-  $receiptFields = @('schema_version','release_ref','boundary_sha','source_sha','packet_sha256','historical_attempt_zero_sha256','historical_r1_sha256','historical_r2_sha256','historical_r3_sha256','historical_r4_sha256','historical_r5_sha256','historical_r6_sha256','historical_r7_sha256','historical_r8_sha256','historical_r9_sha256','historical_history_set_sha256','response','created_at_utc','receipt_sha256')
+  $receiptFields = @('schema_version','release_ref','boundary_sha','source_sha','packet_sha256','historical_attempt_zero_sha256','historical_r1_sha256','historical_r2_sha256','historical_r3_sha256','historical_r4_sha256','historical_r5_sha256','historical_r6_sha256','historical_r7_sha256','historical_r8_sha256','historical_r9_sha256','historical_r10_sha256','historical_history_set_sha256','response','created_at_utc','receipt_sha256')
   if ($receipt.type -cne 'object' -or $receipt.additionalProperties -ne $false -or
       (@($receipt.required) -join ',') -cne ($receiptFields -join ',') -or
-       $receipt.properties.release_ref.const -cne 'refs/tags/modules-v0.1.0-r10' -or
+       $receipt.properties.release_ref.const -cne 'refs/tags/modules-v0.1.0-r11' -or
       $receipt.properties.response.const -cne 'authorize-core' -or
       $receipt.properties.created_at_utc.pattern -cne '^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$') {
-    throw 'REL04-RECEIPT-SCHEMA: authorization receipt is not the exact closed r10 contract.'
+    throw 'REL04-RECEIPT-SCHEMA: authorization receipt is not the exact closed r11 contract.'
   }
   foreach ($entry in $historyFields.GetEnumerator()) {
     if ($receipt.properties.($entry.Key).const -cne $entry.Value) { throw "REL04-RECEIPT-HISTORY: receipt does not bind $($entry.Key)." }
@@ -79,7 +80,7 @@ function Assert-Phase08AttemptSchemas {
   $mutation = $handoff.'$defs'.mutationHandoff; $exact = $handoff.'$defs'.exactExistingHandoff
   foreach ($branch in @($mutation,$exact)) {
     if ($branch.type -cne 'object' -or $branch.additionalProperties -ne $false -or
-      $branch.properties.release_ref.const -cne 'refs/tags/modules-v0.1.0-r10' -or
+      $branch.properties.release_ref.const -cne 'refs/tags/modules-v0.1.0-r11' -or
         $branch.properties.created_at_utc.'$ref' -cne '#/$defs/utc' -or
         $handoff.'$defs'.utc.pattern -cne '^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$') {
       throw 'REL04-HANDOFF-SCHEMA: handoff branch is not closed, r9-bound, and UTC-canonical.'
@@ -95,11 +96,12 @@ function Assert-Phase08AttemptSchemas {
       r7_history_sha256=$historyFields.historical_r7_sha256
       r8_history_sha256=$historyFields.historical_r8_sha256
       r9_history_sha256=$historyFields.historical_r9_sha256
+      r10_history_sha256=$historyFields.historical_r10_sha256
       historical_history_set_sha256=$historyFields.historical_history_set_sha256
     }).GetEnumerator()) {
       if (@($branch.required) -cnotcontains $entry.Key -or $branch.properties.($entry.Key).const -cne $entry.Value) { throw "REL04-HANDOFF-HISTORY: handoff branch does not bind $($entry.Key)." }
     }
-    foreach ($field in @('r2_history_path','r2_history_sha256','r3_history_path','r3_history_sha256','r4_history_path','r4_history_sha256','r5_history_path','r5_history_sha256','r6_history_path','r6_history_sha256','r7_history_path','r7_history_sha256','r8_history_path','r8_history_sha256','r9_history_path','r9_history_sha256')) {
+    foreach ($field in @('r2_history_path','r2_history_sha256','r3_history_path','r3_history_sha256','r4_history_path','r4_history_sha256','r5_history_path','r5_history_sha256','r6_history_path','r6_history_sha256','r7_history_path','r7_history_sha256','r8_history_path','r8_history_sha256','r9_history_path','r9_history_sha256','r10_history_path','r10_history_sha256')) {
       if (@($branch.required) -cnotcontains $field) { throw "REL04-HANDOFF-HISTORY: handoff branch omits $field." }
     }
   }
@@ -115,7 +117,7 @@ function Assert-Phase08AttemptSchemas {
   if (@($mutation.required) -ccontains 'stop' -or @($exact.required) -ccontains 'stop') { throw 'REL04-HANDOFF-STOP: stop cannot be eligible.' }
 
   $receiptFixture = [pscustomobject][ordered]@{
-    schema_version='mnf-phase08-authorization-receipt/1';release_ref='refs/tags/modules-v0.1.0-r10'
+    schema_version='mnf-phase08-authorization-receipt/1';release_ref='refs/tags/modules-v0.1.0-r11'
     boundary_sha=('1'*40);source_sha=('2'*40);packet_sha256=('3'*64)
     historical_attempt_zero_sha256=$historyFields.historical_attempt_zero_sha256
     historical_r1_sha256=$historyFields.historical_r1_sha256
@@ -127,13 +129,14 @@ function Assert-Phase08AttemptSchemas {
     historical_r7_sha256=$historyFields.historical_r7_sha256
     historical_r8_sha256=$historyFields.historical_r8_sha256
     historical_r9_sha256=$historyFields.historical_r9_sha256
+    historical_r10_sha256=$historyFields.historical_r10_sha256
     historical_history_set_sha256=$historyFields.historical_history_set_sha256
     response='authorize-core';created_at_utc='2026-07-19T00:00:00Z';receipt_sha256=('4'*64)
   }
   $receiptSchemaPath = Join-Path $repoRoot 'release\qualification\phase-08-authorization-receipt-schema.json'
   if (-not (($receiptFixture | ConvertTo-Json -Depth 30 -Compress) | Test-Json -SchemaFile $receiptSchemaPath -ErrorAction Stop)) { throw 'REL04-RECEIPT-SCHEMA: valid r9 receipt fixture failed.' }
   foreach ($mutate in @(
-    { param($x) $x.release_ref='refs/tags/modules-v0.1.0-r7' },
+    { param($x) $x.release_ref='refs/tags/modules-v0.1.0-r10' },
     { param($x) $x.historical_r1_sha256=$x.historical_attempt_zero_sha256 },
     { param($x) $t=$x.historical_r2_sha256;$x.historical_r2_sha256=$x.historical_r3_sha256;$x.historical_r3_sha256=$t },
     { param($x) $x.historical_r4_sha256=$x.historical_r3_sha256 },
@@ -142,6 +145,7 @@ function Assert-Phase08AttemptSchemas {
     { param($x) $x.historical_r7_sha256=$x.historical_r6_sha256 },
     { param($x) $x.historical_r8_sha256=$x.historical_r7_sha256 },
     { param($x) $x.historical_r9_sha256=$x.historical_r8_sha256 },
+    { param($x) $x.historical_r10_sha256=$x.historical_r9_sha256 },
     { param($x) $x.historical_history_set_sha256=('f'*64) },
     { param($x) $x.created_at_utc='2026-07-19T08:00:00+08:00' },
     { param($x) $x|Add-Member unexpected x }
@@ -152,37 +156,39 @@ function Assert-Phase08AttemptSchemas {
 
   $handoffSchemaPath = Join-Path $repoRoot 'release\qualification\phase-08-handoff-schema.json'
   $handoffBase = [ordered]@{
-    schema_version='mnf-phase08-handoff/1';release_ref='refs/tags/modules-v0.1.0-r10';boundary_sha=('1'*40)
-    execution_root='C:\mnf-phase08-r9\source';boundary_locator_path='C:\mnf-phase08-r9\boundary-locator.json';boundary_locator_sha256=('1'*64)
-    active_attempt_path='C:\mnf-phase08-r9\attempt.json';active_attempt_sha256=('2'*64);artifact_root='C:\mnf-phase08-r9\artifacts'
-    artifact_index_path='C:\mnf-phase08-r9\index.json';artifact_index_sha256=('3'*64)
-    attempt_zero_history_path='C:\mnf-phase08-r9\history\attempt-zero.json';attempt_zero_history_sha256=$historyFields.historical_attempt_zero_sha256
-    r1_history_path='C:\mnf-phase08-r9\history\r1.json';r1_history_sha256=$historyFields.historical_r1_sha256
-    r2_history_path='C:\mnf-phase08-r9\history\r2.json';r2_history_sha256=$historyFields.historical_r2_sha256
-    r3_history_path='C:\mnf-phase08-r9\history\r3.json';r3_history_sha256=$historyFields.historical_r3_sha256
-    r4_history_path='C:\mnf-phase08-r9\history\r4.json';r4_history_sha256=$historyFields.historical_r4_sha256
-    r5_history_path='C:\mnf-phase08-r9\history\r5.json';r5_history_sha256=$historyFields.historical_r5_sha256
-    r6_history_path='C:\mnf-phase08-r9\history\r6.json';r6_history_sha256=$historyFields.historical_r6_sha256
-    r7_history_path='C:\mnf-phase08-r9\history\r7.json';r7_history_sha256=$historyFields.historical_r7_sha256
-    r8_history_path='C:\mnf-phase08-r9\history\r8.json';r8_history_sha256=$historyFields.historical_r8_sha256
-    r9_history_path='C:\mnf-phase08-r10\history\r9.json';r9_history_sha256=$historyFields.historical_r9_sha256
+    schema_version='mnf-phase08-handoff/1';release_ref='refs/tags/modules-v0.1.0-r11';boundary_sha=('1'*40)
+    execution_root='C:\mnf-phase08-r11\source';boundary_locator_path='C:\mnf-phase08-r11\boundary-locator.json';boundary_locator_sha256=('1'*64)
+    active_attempt_path='C:\mnf-phase08-r11\attempt.json';active_attempt_sha256=('2'*64);artifact_root='C:\mnf-phase08-r11\artifacts'
+    artifact_index_path='C:\mnf-phase08-r11\index.json';artifact_index_sha256=('3'*64)
+    attempt_zero_history_path='C:\mnf-phase08-r11\history\attempt-zero.json';attempt_zero_history_sha256=$historyFields.historical_attempt_zero_sha256
+    r1_history_path='C:\mnf-phase08-r11\history\r1.json';r1_history_sha256=$historyFields.historical_r1_sha256
+    r2_history_path='C:\mnf-phase08-r11\history\r2.json';r2_history_sha256=$historyFields.historical_r2_sha256
+    r3_history_path='C:\mnf-phase08-r11\history\r3.json';r3_history_sha256=$historyFields.historical_r3_sha256
+    r4_history_path='C:\mnf-phase08-r11\history\r4.json';r4_history_sha256=$historyFields.historical_r4_sha256
+    r5_history_path='C:\mnf-phase08-r11\history\r5.json';r5_history_sha256=$historyFields.historical_r5_sha256
+    r6_history_path='C:\mnf-phase08-r11\history\r6.json';r6_history_sha256=$historyFields.historical_r6_sha256
+    r7_history_path='C:\mnf-phase08-r11\history\r7.json';r7_history_sha256=$historyFields.historical_r7_sha256
+    r8_history_path='C:\mnf-phase08-r11\history\r8.json';r8_history_sha256=$historyFields.historical_r8_sha256
+    r9_history_path='C:\mnf-phase08-r11\history\r9.json';r9_history_sha256=$historyFields.historical_r9_sha256
+    r10_history_path='C:\mnf-phase08-r11\history\r10.json';r10_history_sha256=$historyFields.historical_r10_sha256
     historical_history_set_sha256=$historyFields.historical_history_set_sha256
     authority_variant='mutation_authorized';mutation_authorization_packet_path='C:\mnf-phase08-r9\packet.json';mutation_authorization_packet_sha256=('4'*64)
     authorization_receipt_path='C:\mnf-phase08-r9\receipt.json';authorization_receipt_sha256=('5'*64)
     exact_existing_authority_path=$null;exact_existing_authority_sha256=$null;created_at_utc='2026-07-19T00:00:00Z';handoff_sha256=('6'*64)
   }
-  if (-not (($handoffBase | ConvertTo-Json -Depth 30 -Compress) | Test-Json -SchemaFile $handoffSchemaPath -ErrorAction Stop)) { throw 'REL04-HANDOFF-SCHEMA: valid r9 mutation handoff failed.' }
+  if (-not (($handoffBase | ConvertTo-Json -Depth 30 -Compress) | Test-Json -SchemaFile $handoffSchemaPath -ErrorAction Stop)) { throw 'REL04-HANDOFF-SCHEMA: valid r11 mutation handoff failed.' }
   $exactFixture = $handoffBase | ConvertTo-Json -Depth 30 | ConvertFrom-Json -Depth 30
   $exactFixture.authority_variant='exact_existing';$exactFixture.mutation_authorization_packet_path=$null;$exactFixture.mutation_authorization_packet_sha256=$null
   $exactFixture.authorization_receipt_path=$null;$exactFixture.authorization_receipt_sha256=$null
-  $exactFixture.exact_existing_authority_path='C:\mnf-phase08-r9\exact-existing.json';$exactFixture.exact_existing_authority_sha256=('7'*64)
-  if (-not (($exactFixture | ConvertTo-Json -Depth 30 -Compress) | Test-Json -SchemaFile $handoffSchemaPath -ErrorAction Stop)) { throw 'REL04-HANDOFF-SCHEMA: valid r9 exact-existing handoff failed.' }
+  $exactFixture.exact_existing_authority_path='C:\mnf-phase08-r11\exact-existing.json';$exactFixture.exact_existing_authority_sha256=('7'*64)
+  if (-not (($exactFixture | ConvertTo-Json -Depth 30 -Compress) | Test-Json -SchemaFile $handoffSchemaPath -ErrorAction Stop)) { throw 'REL04-HANDOFF-SCHEMA: valid r11 exact-existing handoff failed.' }
   foreach ($mutate in @(
-    { param($x) $x.release_ref='refs/tags/modules-v0.1.0-r7' },
+    { param($x) $x.release_ref='refs/tags/modules-v0.1.0-r10' },
     { param($x) $x.authority_variant='stop' },
     { param($x) $x.authorization_receipt_path=$null },
     { param($x) $t=$x.r7_history_sha256;$x.r7_history_sha256=$x.r8_history_sha256;$x.r8_history_sha256=$t },
     { param($x) $x.r9_history_sha256=$x.r8_history_sha256 },
+    { param($x) $x.r10_history_sha256=$x.r9_history_sha256 },
     { param($x) $x.historical_history_set_sha256=('f'*64) },
     { param($x) $x.created_at_utc='2026-07-19T08:00:00+08:00' }
   )) {
@@ -199,7 +205,7 @@ function Assert-IntentContract {
   if ($policy.schema_version -cne 'mnf-release-control/1' -or $policy.repository -cne 'tchivs/moonbit-foundation' -or
       $policy.owner -cne 'tchivs' -or $policy.sole_maintainer -cne 'tchivs') { throw 'REL01-POLICY-IDENTITY: release-control identity drifted.' }
   $history = @($policy.initial_attempt_family.terminal_negative_history)
-  if ($history.Count -ne 10) { throw 'REL01-HISTORICAL-ATTEMPT: exact attempt-zero/r1/r2/r3/r4/r5/r6/r7/r8/r9 history is required.' }
+  if ($history.Count -ne 11) { throw 'REL01-HISTORICAL-ATTEMPT: exact attempt-zero/r1/r2/r3/r4/r5/r6/r7/r8/r9/r10 history is required.' }
   $r9 = $history[9]
   if ($r9.attempt -cne 'r9' -or $r9.release_ref -cne 'refs/tags/modules-v0.1.0-r9' -or
       $r9.source_sha -cne '4158dff7d3b6629861d4f5325573c45f3e3e3436' -or
@@ -214,10 +220,26 @@ function Assert-IntentContract {
       $r9.successor_count -ne 0 -or $r9.record_sha256 -cne (Get-IntentHistoryRecordSha256 -Record $r9)) {
     throw 'REL01-HISTORICAL-R9: protected r9 pre-locator StrictMode terminal evidence drifted.'
   }
-  if ($policy.initial_attempt_family.current_attempt -cne 'r10' -or
-      $policy.initial_profile.release_ref -cne 'refs/tags/modules-v0.1.0-r10' -or
+  $r10 = $history[10]
+  if ($r10.attempt -cne 'r10' -or $r10.release_ref -cne 'refs/tags/modules-v0.1.0-r10' -or
+      $r10.source_sha -cne 'd49edc53fb4ffca375e562a23789fb76bf8c41e2' -or
+      $r10.tag_object_sha -cne '0546025c61d08a0973a2bb6040cbb19104ae64d1' -or
+      $r10.tag_peeled_source_sha -cne 'd49edc53fb4ffca375e562a23789fb76bf8c41e2' -or
+      $r10.clean_clone_tag_verified -ne $true -or $r10.hosted_run_present -ne $false -or
+      $null -ne $r10.run_id -or $null -ne $r10.run_attempt -or $r10.prepare_attempt_completed -ne $false -or
+      $r10.failure_stage -cne 'prepare_attempt_initial_release_ref_binding' -or $r10.failure_code -cne 'REL01-REF' -or
+      $r10.prepared_bundle_count -ne 0 -or $r10.publisher_dry_run_count -ne 0 -or $r10.observation_count -ne 0 -or
+      $r10.authorization_packet_count -ne 0 -or $r10.authorization_receipt_count -ne 0 -or $r10.handoff_count -ne 0 -or
+      $r10.publish_one_count -ne 0 -or $r10.registry_operation_count -ne 0 -or $r10.credential_accessed -ne $false -or
+      $r10.publication_performed -ne $false -or $r10.mutation_count -ne 0 -or $r10.successor_count -ne 0 -or
+      $r10.authority_acquired -ne $false -or $r10.reason -cne 'terminal_clean_clone_initial_release_ref_binding_failure' -or
+      $r10.record_sha256 -cne (Get-IntentHistoryRecordSha256 -Record $r10)) {
+    throw 'REL01-HISTORICAL-R10: protected r10 clean-clone REL01-REF terminal evidence drifted.'
+  }
+  if ($policy.initial_attempt_family.current_attempt -cne 'r11' -or
+      $policy.initial_profile.release_ref -cne 'refs/tags/modules-v0.1.0-r11' -or
       $policy.initial_attempt_family.history_set_sha256 -cne (Get-IntentHistorySetSha256 -History $history)) {
-    throw 'REL01-R10-BINDING: r10 must be the sole initial retry bound to all ten terminal histories.'
+    throw 'REL01-R11-BINDING: r11 must be the sole initial retry bound to all eleven terminal histories.'
   }
   $attemptZero = $history[0]
   if ($attemptZero.attempt -cne 'attempt_zero' -or $attemptZero.release_ref -cne 'refs/tags/modules-v0.1.0' -or
@@ -341,17 +363,17 @@ function Assert-IntentContract {
       $r8.reason -cne 'terminal_pre_locator_canonical_archive_failure') {
     throw 'REL01-HISTORICAL-ATTEMPT: protected r8 pre-locator canonical-copy seam failure evidence drifted.'
   }
-  if (($history.attempt -join ',') -cne 'attempt_zero,r1,r2,r3,r4,r5,r6,r7,r8,r9') { throw 'REL01-HISTORY-ORDER: terminal history order drifted.' }
+  if (($history.attempt -join ',') -cne 'attempt_zero,r1,r2,r3,r4,r5,r6,r7,r8,r9,r10') { throw 'REL01-HISTORY-ORDER: terminal history order drifted.' }
   foreach ($record in $history) {
     if ($record.record_sha256 -cne (Get-IntentHistoryRecordSha256 $record)) { throw "REL01-HISTORY-DIGEST: $($record.attempt) record digest drifted." }
   }
-  if (@($history.record_sha256 | Select-Object -Unique).Count -ne 10) { throw 'REL01-HISTORY-DIGEST: terminal history digests are not distinct.' }
+  if (@($history.record_sha256 | Select-Object -Unique).Count -ne 11) { throw 'REL01-HISTORY-DIGEST: terminal history digests are not distinct.' }
   if ($policy.initial_attempt_family.history_set_profile -cne 'sha256-of-lf-joined-record-sha256-in-canonical-attempt-order' -or
       $policy.initial_attempt_family.history_set_sha256 -cne (Get-IntentHistorySetSha256 $history)) {
     throw 'REL01-HISTORY-SET: ordered terminal history set drifted.'
   }
-  if ($policy.initial_attempt_family.current_attempt -cne 'r10' -or
-      $policy.initial_profile.release_ref -cne 'refs/tags/modules-v0.1.0-r10' -or $policy.initial_profile.correction_sequence -ne 0 -or
+  if ($policy.initial_attempt_family.current_attempt -cne 'r11' -or
+      $policy.initial_profile.release_ref -cne 'refs/tags/modules-v0.1.0-r11' -or $policy.initial_profile.correction_sequence -ne 0 -or
       $policy.initial_profile.serialized_root_intent_sha256 -cne 'forbidden') { throw 'REL01-INITIAL-PROFILE: initial root/ref contract drifted.' }
   if ($policy.correction_profile.release_ref_pattern -cne '^refs/tags/modules-correction-[1-9][0-9]*$' -or
       $policy.correction_profile.sequence_rule -cne 'predecessor_sequence_plus_one' -or
@@ -361,11 +383,11 @@ function Assert-IntentContract {
       $policy.authority_semantics.credentials_read -ne $false -or $policy.authority_semantics.publication_performed -ne $false) { throw 'REL02-AUTHORITY-CONFLATION: digest or credential semantics drifted.' }
   if (@($schema.oneOf).Count -ne 2 -or $schema.'$defs'.initialIntent.additionalProperties -ne $false -or
       $schema.'$defs'.forwardCorrectionIntent.additionalProperties -ne $false) { throw 'REL01-CLOSED-SCHEMA: intent oneOf branches are not closed.' }
-  if ($schema.'$defs'.initialIntent.properties.release_ref.const -cne 'refs/tags/modules-v0.1.0-r10') {
-    throw 'REL01-INITIAL-PROFILE: initial schema does not require r10.'
+  if ($schema.'$defs'.initialIntent.properties.release_ref.const -cne 'refs/tags/modules-v0.1.0-r11') {
+    throw 'REL01-INITIAL-PROFILE: initial schema does not require r11.'
   }
-  if ($preparedSchema.properties.release_ref.pattern -cne '^refs/tags/modules-(v0[.]1[.]0-r10|correction-[1-9][0-9]*)$') {
-    throw 'REL01-INITIAL-PROFILE: prepared schema does not require r10 or a correction ref.'
+  if ($preparedSchema.properties.release_ref.pattern -cne '^refs/tags/modules-(v0[.]1[.]0-r11|correction-[1-9][0-9]*)$') {
+    throw 'REL01-INITIAL-PROFILE: prepared schema does not require r11 or a correction ref.'
   }
   $initialRequired = @($schema.'$defs'.initialIntent.required)
   if ($initialRequired -contains 'root_intent_sha256' -or $initialRequired -contains 'predecessor_intent_sha256') { throw 'REL01-HASH-CYCLE: initial intent serializes root/predecessor.' }
@@ -500,7 +522,7 @@ function Invoke-FocusedIntentTests {
       ConvertTo-ReleaseCanonicalJson -Value $copy -Profile ReleaseIntent | Out-Null
     }
     Confirm-IntentRule 'REL01-TERMINAL-MISMATCH' { Assert-ReleaseIntentRecovery -IntentKind initial -ObservedMismatch }
-    foreach ($oldRef in @('refs/tags/modules-v0.1.0','refs/tags/modules-v0.1.0-r1','refs/tags/modules-v0.1.0-r2','refs/tags/modules-v0.1.0-r3','refs/tags/modules-v0.1.0-r4','refs/tags/modules-v0.1.0-r5','refs/tags/modules-v0.1.0-r6','refs/tags/modules-v0.1.0-r7','refs/tags/modules-v0.1.0-r8','refs/tags/modules-v0.1.0-r9')) {
+    foreach ($oldRef in @('refs/tags/modules-v0.1.0','refs/tags/modules-v0.1.0-r1','refs/tags/modules-v0.1.0-r2','refs/tags/modules-v0.1.0-r3','refs/tags/modules-v0.1.0-r4','refs/tags/modules-v0.1.0-r5','refs/tags/modules-v0.1.0-r6','refs/tags/modules-v0.1.0-r7','refs/tags/modules-v0.1.0-r8','refs/tags/modules-v0.1.0-r9','refs/tags/modules-v0.1.0-r10')) {
       Confirm-IntentRule 'REL01-REF' {
         $old = ($initial | ConvertTo-Json -Depth 100 | ConvertFrom-Json -Depth 100); $old.release_ref = $oldRef
         Assert-ReleaseIntentObject -Intent $old -PolicyPath $policyPath
