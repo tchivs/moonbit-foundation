@@ -5,15 +5,15 @@ milestone_name: Publication & Compatibility
 current_phase: 08
 current_phase_name: Ordered Mooncakes Publication and Registry Consumers
 status: executing
-stopped_at: Completed 08-17-PLAN.md
-last_updated: "2026-07-19T04:12:45.986Z"
+stopped_at: Completed 08-18-PLAN.md
+last_updated: "2026-07-19T04:31:52.813Z"
 last_activity: 2026-07-19
-last_activity_desc: Phase 8 Plan 08-17 completed r7 static contracts with seven immutable terminal histories and zero external effects
+last_activity_desc: Phase 8 Plan 08-18 completed the r7 hosted seam and zero-write seven-history pre-live selector
 progress:
   total_phases: 4
   completed_phases: 2
   total_plans: 48
-  completed_plans: 45
+  completed_plans: 46
   percent: 50
 ---
 
@@ -30,9 +30,9 @@ See `.planning/PROJECT.md` (updated 2026-07-17).
 ## Current Position
 
 Phase: 08 (Ordered Mooncakes Publication and Registry Consumers) — EXECUTING
-Plan: 18 of 20
-Status: Ready for Wave 18 — wire the r7 hosted seam and zero-write pre-live selector
-Last activity: 2026-07-19 — Plan 08-17 closed r7 intent, prepared, authority, receipt, and handoff contracts over seven immutable histories
+Plan: 19 of 20
+Status: Ready for Wave 19 — establish the LF-clean r7 boundary and non-mutating AuthorityUnion handoff
+Last activity: 2026-07-19 — Plan 08-18 completed the r7 hosted seam and zero-write seven-history pre-live selector
 
 ## Progress
 
@@ -135,6 +135,9 @@ Current milestone: [█████░░░░░] 50% of v0.2 phases complete
 - [Phase 08]: The r6 terminal record binds run 29671691604/1, prepare job 88151792308, P08-PREPARED-INTENT-BINDING, and explicit zero downstream effects.
 - [Phase 08]: Every r7 prepared, authority, receipt, and handoff contract binds seven individual history digests plus their canonical LF-ordered set.
 - [Phase 08]: DIST-01 remains pending because Plan 08-17 performs no external publication or registry-consumer action.
+- [Phase 08]: Publisher, adapter, workflow, and hosted controller accept only r7 and bind seven immutable histories.
+- [Phase 08]: The r7 pre-live selector trusts one remote-tag query, preserves rootless attempt-zero, and requires rooted r1-r6 evidence plus exact r6 downstream-zero failure.
+- [Phase 08]: DIST-01 remains pending because Plan 08-18 performs no external publication or registry-consumer action.
 
 ### Pending Decisions
 
@@ -149,13 +152,13 @@ None
 
 **Resume file:** None
 
-Last session: 2026-07-19T04:12:45.969Z
-Stopped at: Completed 08-17-PLAN.md
+Last session: 2026-07-19T04:31:52.798Z
+Stopped at: Completed 08-18-PLAN.md
 Resume with: `/gsd-execute-phase 8`
 
 ## Operator Next Steps
 
-- Execute Plan 08-18 to advance the publisher/workflow/controller to r7 and add the committed zero-write r7 selector.
+- Execute Plan 08-19 to establish the LF-clean r7 boundary and non-mutating seven-history AuthorityUnion handoff.
 - Keep every irreversible Mooncakes mutation behind its separately authorized checkpoint.
 
 ## Performance Metrics
@@ -203,3 +206,4 @@ Resume with: `/gsd-execute-phase 8`
 | Phase 08 P15 | 10min | 3 tasks | 13 files |
 | Phase 08 P16 | 25min | 3 tasks | 10 files |
 | Phase 08 P17 | 14min | 3 tasks | 13 files |
+| Phase 08 P18 | 32min | 3 tasks | 10 files |
