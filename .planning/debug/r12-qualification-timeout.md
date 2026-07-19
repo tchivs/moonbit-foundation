@@ -1,11 +1,75 @@
 ---
-status: investigating
-trigger: "Non-publishing r12 preauthorization recovery timed out while qualifying the three module packages; its agent left an unexpected root-level qualification.log, which was removed after its originating process was terminated."
+status: resolved-incorrect
+supersedes_hypothesis: "executor budget timeout"
+correct_root_cause: "REL01-REF — r12 boundary tag (5e7b19cd) internally inconsistent: policy declares r12 but Invoke-ReleaseQualification.ps1 still hardcodes r9"
 created: 2026-07-19T21:35:00+08:00
-updated: 2026-07-19T21:35:00+08:00
+updated: 2026-07-19T22:10:00+08:00
 phase: "08"
 plan: "32/33"
 ---
+
+# r12 Qualification — Corrected Diagnosis
+
+> **⚠ CORRECTION (2026-07-19T22:10):** The original `status: investigating` hypothesis below ("executor budget timeout") is **wrong**. A deterministic reproduction with `Set-PSBreakpoint` inside the boundary clone proved the failure is `REL01-REF`, not a timeout. The original timeout narrative and its recommended fix ("re-run with larger budget") will NOT resolve the issue. The verified root cause and the evidence that overturns the original hypothesis are recorded in the `Corrected Diagnosis` section. The original text is preserved verbatim below it for audit traceability — do not act on the original `Resolution` block.
+
+## Corrected Diagnosis (2026-07-19T22:10, verified)
+
+### Root cause
+
+`REL01-REF: initial release ref is not the clone policy-selected immutable tag.` — thrown from `Assert-ReleaseInitialCloneBinding` at `scripts/quality/ReleaseQualification.Common.ps1:301`, called during `Write-InitialReleaseIntentBinding` in `New-ReleaseIntent.ps1:83`.
+
+The r12 boundary tag (`refs/tags/modules-v0.1.0-r12`, object `57b76c9f`, peel `5e7b19cd`) is **internally inconsistent**:
+
+- `policy/release-control.json` at commit `5e7b19cd` declares `initial_profile.release_ref = refs/tags/modules-v0.1.0-r12` and `initial_attempt_family.current_attempt = r12` (terminal_negative_history count 12).
+- `scripts/quality/Invoke-ReleaseQualification.ps1` at the **same commit** still hardcodes the r9 release ref (lines 302, 313: `-ReleaseRef 'refs/tags/modules-v0.1.0-r9'`).
+- The boundary wrapper `Invoke-Phase08R12Boundary.ps1` correctly derives r12 from clone-local policy → invokes the boundary-local qualifier → qualifier passes r9 to `New-ReleaseIntent.ps1` → `Assert-ReleaseInitialCloneBinding` compares `policy.release_ref (r12)` vs. `ReleaseRef (r9)` → throws `REL01-REF`.
+
+### Why this is deterministic, not a timeout
+
+The throw occurs **after** all three module packages (mb-core, mb-color, mb-image) qualify successfully. `Write-InitialReleaseIntentBinding` is the last step before the `finally` block in `Invoke-ReleaseQualification.ps1`. Package timing is irrelevant to this failure; it throws in seconds once intent binding runs.
+
+### Timeline (the smoking gun)
+
+| Time (2026-07-19 +08:00) | Event |
+|---|---|
+| 19:53:11 | commit `5e7b19cd` "fix(ci): use reachable MoonBit toolchain channel" — policy already says r12, qualifier script still says r9 |
+| **19:56:43** | **r12 tag created** (object `57b76c9f`, peel `5e7b19cd`) — 3.5 min after the inconsistent commit |
+| 20:22:24 | commit `d55f63a` "fix(ci): bind qualification to r12 release ref" — qualifier updated to r12, **26 min after the tag** |
+| 20:27:31 | commit `4ff551c` "fix(ci): qualify immutable r12 source boundary" |
+
+The tag was created at a commit where policy and qualifier disagreed. The fix landed 26 minutes later, but the tag is immutable and cannot be re-pointed.
+
+### Process defect this exposes
+
+There is **no hard gate preventing tag creation before the qualification script matches the target ref**. The r10/r11 tags were created under the same wrapper but happened to land on commits where script and policy agreed (or the mismatch was not exercised). r12 exposed the gap because the wrapper delegated to a qualifier that still hardcoded the predecessor ref.
+
+### Recommended corrective ordering invariant (for r13+)
+
+Before creating any future boundary tag `rN`:
+1. Verify `scripts/quality/Invoke-ReleaseQualification.ps1` at the candidate commit references `refs/tags/modules-v0.1.0-rN` (not `r{N-1}`) on every `-ReleaseRef` argument.
+2. Verify `policy/release-control.json` at the candidate commit declares `current_attempt = rN` and `release_ref = refs/tags/modules-v0.1.0-rN`.
+3. Run the boundary wrapper end-to-end against the candidate commit in a disposable clone and require `PrepareAttempt` to complete (not just `InitializeBoundary`).
+4. Only then create and push the `rN` tag.
+
+This should be enforced by a new PreLive check that runs the qualifier's intent-binding step **before** tag creation, not only by the post-tag selector that currently exists.
+
+### Consequence for r12
+
+r12 is publish-blocked terminal evidence. It cannot pass its own qualification. Per Phase 08 invariants the tag is immutable (local == remote, ancestor of HEAD), so it cannot be fixed in place. The forward path is r13 (or later), not a retry of r12.
+
+### Evidence overturning the original hypothesis
+
+- Deterministic reproduction with `Set-PSBreakpoint` inside the boundary clone captured: `policy.initial_profile.release_ref = 'refs/tags/modules-v0.1.0-r12'`, `ReleaseRef = 'refs/tags/modules-v0.1.0-r9'`.
+- The throw is `REL01-REF`, not a timeout exit code.
+- All three module packages complete successfully before the throw (the original narrative claimed image did not complete due to timeout).
+- `git show 5e7b19cd:scripts/quality/Invoke-ReleaseQualification.ps1` line 302 confirms `r9`; `git show 5e7b19cd:policy/release-control.json` confirms `r12`.
+- `git show HEAD:scripts/quality/Invoke-ReleaseQualification.ps1` line 302 confirms the fix to `r12` landed later (commit `d55f63a`).
+
+---
+
+# Original Diagnosis (SUPERSEDED — preserved verbatim for audit, DO NOT ACT ON IT)
+
+> The `hypothesis`, `expecting`, `Resolution.root_cause`, and `Resolution.fix` fields below are **incorrect**. They are retained only so the audit trail shows what was originally claimed and how it was overturned.
 
 ## Current Focus
 
@@ -65,7 +129,7 @@ reproduction: "Execute the canonical r12 non-publishing qualification path from 
   found: "The execution environment rejected the explicit recursive deletion of the verified temporary diagnostic clone at C:/Users/Admin/AppData/Local/Temp/mnf-r12-image-package-diag-bounded."
   implication: "No further temporary diagnostic artifacts should be created by this session; the existing temporary clone requires cleanup by an environment-authorized process."
 
-## Resolution
+## Resolution (SUPERSEDED — root_cause and fix are wrong)
 
 root_cause: "The recovery executor imposed a timeout on a long sequential qualification workload and redirected its output to a repository-root log. The canonical qualifier had progressed through core and color; its remaining mb-image source-isolation stage alone invokes 76 MoonBit commands. The first mb-image package command completes in 1.19 seconds, so no command-level package hang was reproduced."
 fix: "No source change is justified. Re-run only the non-publishing qualifier under an explicit whole-process timeout budget that covers all stages, pass an absolute temporary OutputDirectory, and capture output in the executor instead of redirecting to a repository file."
