@@ -33,6 +33,9 @@ try {
   $null=New-Item -ItemType Directory -Path $root
   & git clone --quiet --no-local --no-tags $repoRoot $clone
   if($LASTEXITCODE -ne 0){Throw-P08R12Boundary 'P08-R12-CLONE' 'Unable to create the disposable boundary clone.'}
+  & git -C $clone config user.name 'MNF r12 boundary fixture'
+  & git -C $clone config user.email 'r12-boundary-fixture@moonbit-foundation.invalid'
+  if($LASTEXITCODE -ne 0){Throw-P08R12Boundary 'P08-R12-GIT' 'Unable to configure the disposable clone identity.'}
   $policy=Get-Content -LiteralPath (Join-Path $clone 'policy/release-control.json') -Raw|ConvertFrom-Json -Depth 100
   $canonicalRef=[string]$policy.initial_profile.release_ref
   $tagName=$canonicalRef.Substring('refs/tags/'.Length)
