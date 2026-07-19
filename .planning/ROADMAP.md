@@ -183,7 +183,7 @@
 4. Every proof runs outside the repository with an isolated cold Moon home and no publisher credential, `moon.work`, path dependency, copied source, Git fallback, or warm-cache-only success, and records registry metadata, strongest available package identity, resolved graph, toolchain, target results, and behavioral assertion.
 5. After publication, credential-redacted read-only Mooncakes observation proves that each module page renders the intended qualified public metadata; missing, drifted, or ambiguous rendering blocks PROV-05 without registry mutation.
 
-**Plans:** 21/27 plans executed
+**Plans:** 24/27 plans executed
 **Wave 1**
 
 - [x] 08-01-PLAN.md
@@ -270,15 +270,15 @@
 
 **Wave 22** *(blocked on Wave 21 completion)*
 
-- [ ] 08-22-PLAN.md — Define r9 attempt-family and nine-history contracts, including r8's PREP15 no-run terminal evidence.
+- [x] 08-22-PLAN.md — Define r9 attempt-family and nine-history contracts, including r8's PREP15 no-run terminal evidence.
 
 **Wave 23** *(blocked on Wave 22 completion)*
 
-- [ ] 08-23-PLAN.md — Wire r9 canonical prepared-copy hosted and zero-write pre-live seams.
+- [x] 08-23-PLAN.md — Wire r9 canonical prepared-copy hosted and zero-write pre-live seams.
 
 **Wave 24** *(blocked on Wave 23 completion)*
 
-- [ ] 08-24-PLAN.md — Advance static contracts to the sole r10 retry while preserving r9 as immutable pre-locator terminal evidence.
+- [x] 08-24-PLAN.md — Advance static contracts to the sole r10 retry while preserving r9 as immutable pre-locator terminal evidence.
 
 **Wave 25** *(blocked on Wave 24 completion)*
 
@@ -322,7 +322,7 @@
 | 5. Reference Codec and Release Qualification | v0.1 | 8/8 | Complete | 2026-07-17 |
 | 6. Namespace Authority and Compatibility Contract | v0.2 | 25/25 | Complete    | 2026-07-18 |
 | 7. Release Safety, Intent, and Recovery Automation | v0.2 | 3/3 | Complete | 2026-07-18 |
-| 8. Ordered Mooncakes Publication and Registry Consumers | v0.2 | 21/27 | In Progress|  |
+| 8. Ordered Mooncakes Publication and Registry Consumers | v0.2 | 24/27 | In Progress|  |
 | 9. Provenance, Immutable Closure, and Milestone Audit | v0.2 | 0/TBD | Not started | — |
 
 ## Stable Audit Anchors

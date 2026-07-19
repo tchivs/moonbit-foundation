@@ -5,15 +5,15 @@ milestone_name: Publication & Compatibility
 current_phase: 08
 current_phase_name: Ordered Mooncakes Publication and Registry Consumers
 status: executing
-stopped_at: Planned r10 forward-retry path; ready for 08-24-PLAN.md
-last_updated: "2026-07-19T09:15:00.000Z"
+stopped_at: Completed 08-24-PLAN.md
+last_updated: "2026-07-19T08:51:37.850Z"
 last_activity: 2026-07-19
-last_activity_desc: r9 is immutable pre-locator terminal evidence; r10's reviewed ten-history forward-recovery plan is ready for static execution
+last_activity_desc: r9 is immutable pre-locator terminal evidence and the reviewed r10 forward-retry plan is ready
 progress:
   total_phases: 4
   completed_phases: 2
   total_plans: 55
-  completed_plans: 49
+  completed_plans: 52
   percent: 50
 ---
 
@@ -30,7 +30,7 @@ See `.planning/PROJECT.md` (updated 2026-07-17).
 ## Current Position
 
 Phase: 08 (Ordered Mooncakes Publication and Registry Consumers) — EXECUTING
-Plan: 24 of 27
+Plan: 25 of 27
 Status: Ready for Wave 24 — execute r10 static contracts; no publication action is authorized
 Last activity: 2026-07-19 — r9 is immutable pre-locator terminal evidence and the reviewed r10 forward-retry plan is ready
 
@@ -151,6 +151,7 @@ Current milestone: [█████░░░░░] 50% of v0.2 phases complete
 - [Phase 08]: r8 is immutable pre-live terminal evidence: source 8d0f050, tag object 20907c7, and PREP15-CANONICAL-ARCHIVE / REL-XPLAT-NONCANONICAL occurred before locator, run, credential, packet, receipt, handoff, mutation, or successor effects.
 - [Phase 08]: r9 is immutable terminal evidence: its remote annotated tag peels to 4158dff and its PrepareAttempt stopped under StrictMode before a locator, run, credential, packet, receipt, handoff, mutation, or successor effect.
 - [Phase 08]: r10 is the sole current forward retry; it binds ten individual terminal-history digests plus their LF-ordered set, including r9's exact partial-terminal evidence.
+- [Phase ?]: r10 is the sole current retry; r9 is immutable pre-locator StrictMode terminal evidence bound by ten individual history digests plus an LF-ordered set.
 
 ### Pending Decisions
 
@@ -165,8 +166,8 @@ None
 
 **Resume file:** None
 
-Last session: 2026-07-19T06:28:45.160Z
-Stopped at: Planned r9 forward-retry path; ready for 08-22-PLAN.md
+Last session: 2026-07-19T08:51:37.834Z
+Stopped at: Completed 08-24-PLAN.md
 Resume with: `/gsd-execute-phase 8`
 
 ## Operator Next Steps
@@ -223,3 +224,4 @@ Resume with: `/gsd-execute-phase 8`
 | Phase 08 P19 | 13min | 3 tasks | 13 files |
 | Phase 08 P20 | 15min | 2 tasks | 6 files |
 | Phase 08 P21 | 24min | 3 tasks | 10 files |
+| Phase 08 P24 | 54min | 2 tasks | 13 files |
