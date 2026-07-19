@@ -183,7 +183,7 @@
 4. Every proof runs outside the repository with an isolated cold Moon home and no publisher credential, `moon.work`, path dependency, copied source, Git fallback, or warm-cache-only success, and records registry metadata, strongest available package identity, resolved graph, toolchain, target results, and behavioral assertion.
 5. After publication, credential-redacted read-only Mooncakes observation proves that each module page renders the intended qualified public metadata; missing, drifted, or ambiguous rendering blocks PROV-05 without registry mutation.
 
-**Plans:** 14/16 plans executed
+**Plans:** 14/18 plans executed
 **Wave 1**
 
 - [x] 08-01-PLAN.md
@@ -242,11 +242,19 @@
 
 **Wave 15** *(blocked on Wave 14 completion)*
 
-- [ ] 08-15-PLAN.md — Establish the LF-clean r5 boundary and non-mutating AuthorityUnion handoff.
+- [ ] 08-15-PLAN.md — Define r6 attempt-family and six-history prepared/authority contracts, including r5's pre-run no-run terminal evidence.
 
 **Wave 16** *(blocked on Wave 15 completion)*
 
-- [ ] 08-16-PLAN.md — Publish or recover core/color/image in order and close reciprocal evidence.
+- [ ] 08-16-PLAN.md — Wire the r6 hosted seam and preserve unique env-key, exact14, snapshot, UTC/LF/no-tags, and isolation regressions.
+
+**Wave 17** *(blocked on Wave 16 completion)*
+
+- [ ] 08-17-PLAN.md — Establish the LF-clean r6 boundary and non-mutating six-history AuthorityUnion handoff.
+
+**Wave 18** *(blocked on Wave 17 completion)*
+
+- [ ] 08-18-PLAN.md — Publish or recover core/color/image in order and close reciprocal r6 evidence.
 
 ### Phase 9: Provenance, Immutable Closure, and Milestone Audit
 
@@ -278,7 +286,7 @@
 | 5. Reference Codec and Release Qualification | v0.1 | 8/8 | Complete | 2026-07-17 |
 | 6. Namespace Authority and Compatibility Contract | v0.2 | 25/25 | Complete    | 2026-07-18 |
 | 7. Release Safety, Intent, and Recovery Automation | v0.2 | 3/3 | Complete | 2026-07-18 |
-| 8. Ordered Mooncakes Publication and Registry Consumers | v0.2 | 14/16 | In Progress|  |
+| 8. Ordered Mooncakes Publication and Registry Consumers | v0.2 | 14/18 | In Progress|  |
 | 9. Provenance, Immutable Closure, and Milestone Audit | v0.2 | 0/TBD | Not started | — |
 
 ## Stable Audit Anchors
