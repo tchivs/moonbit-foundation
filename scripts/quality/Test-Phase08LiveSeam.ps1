@@ -10,6 +10,13 @@ param(
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
+$publisherSource=Get-Content -LiteralPath (Join-Path $PSScriptRoot 'Invoke-ReleasePublisher.ps1') -Raw
+$adapterSource=Get-Content -LiteralPath (Join-Path $PSScriptRoot 'Invoke-MooncakesLiveMutation.ps1') -Raw
+foreach($source in @($publisherSource,$adapterSource)){
+  foreach($required in @('refs/tags/modules-v0.1.0-r12','historical_r11_sha256')){
+    if($source.IndexOf($required,[StringComparison]::Ordinal)-lt 0){throw "P08-LIVE-R12-STATIC: missing '$required'."}
+  }
+}
 $productionHandoff=[IO.Path]::GetFullPath((Join-Path ([IO.Path]::GetTempPath()) 'mnf-phase08-r11-handoff.json'))
 if(Test-Path -LiteralPath $productionHandoff){throw 'P08-FIXED-HANDOFF-PREEXISTING: production fixed handoff must be absent before static fixtures.'}
 $hostedSource=Get-Content -LiteralPath (Join-Path $PSScriptRoot 'Invoke-Phase08HostedRun.ps1') -Raw

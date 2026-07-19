@@ -4,6 +4,10 @@ param([switch]$ReducerOnly)
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
+$publisherSource=Get-Content -LiteralPath (Join-Path $PSScriptRoot 'Invoke-ReleasePublisher.ps1') -Raw
+foreach($required in @('refs/tags/modules-v0.1.0-r12','historical_r11_sha256','exact twelve terminal-negative histories')){
+  if($publisherSource.IndexOf($required,[StringComparison]::Ordinal)-lt 0){throw "PUB-R12-STATIC: missing '$required'."}
+}
 $common = Join-Path $PSScriptRoot 'ReleasePublisher.Common.ps1'
 if (-not (Test-Path -LiteralPath $common -PathType Leaf)) {
   throw 'PUB00-MISSING-REDUCER: ReleasePublisher.Common.ps1 is required.'
