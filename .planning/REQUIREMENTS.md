@@ -29,10 +29,10 @@
 
 ### Registry Distribution
 
-- [ ] **DIST-01**: After `mb-core` publication, a fresh registry-only consumer resolves its exact version and passes a deterministic public behavioral assertion on all four supported targets before `mb-color` may publish.
+- [x] **DIST-01**: After `mb-core` publication, a fresh registry-only consumer resolves its exact version and passes a deterministic public behavioral assertion on all four supported targets before `mb-color` may publish.
 - [ ] **DIST-02**: After `mb-color` publication, a fresh registry-only consumer resolves its exact version plus the intended published `mb-core` dependency and passes a deterministic public behavioral assertion on all four targets before `mb-image` may publish.
 - [ ] **DIST-03**: After `mb-image` publication, a fresh registry-only consumer resolves the exact full dependency graph and passes the bounded PPM public stack on all four supported targets.
-- [ ] **DIST-04**: Every distribution proof starts outside the repository with an isolated cold Moon home, no publisher credential, `moon.work`, path dependency, copied source, or Git fallback, and records registry-visible metadata, the strongest available package identity, resolved dependencies, toolchain, target results, and behavioral assertion.
+- [x] **DIST-04**: Every distribution proof starts outside the repository with an isolated cold Moon home, no publisher credential, `moon.work`, path dependency, copied source, or Git fallback, and records registry-visible metadata, the strongest available package identity, resolved dependencies, toolchain, target results, and behavioral assertion.
 
 ### Provenance and Closure
 
@@ -85,10 +85,10 @@
 | REL-03 | Phase 7 | Pending |
 | REL-04 | Phase 7 | Pending |
 | REL-05 | Phase 7 | Pending |
-| DIST-01 | Phase 8 | Pending |
+| DIST-01 | Phase 8 | Complete |
 | DIST-02 | Phase 8 | Pending |
 | DIST-03 | Phase 8 | Pending |
-| DIST-04 | Phase 8 | Pending |
+| DIST-04 | Phase 8 | Complete |
 | PROV-01 | Phase 9 | Pending |
 | PROV-02 | Phase 9 | Pending |
 | PROV-03 | Phase 6 | Complete |
