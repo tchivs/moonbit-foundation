@@ -372,6 +372,8 @@ try {
     $zipA = Join-Path $copyA "_build\publish\$archiveName"
     $zipB = Join-Path $copyB "_build\publish\$archiveName"
     if (-not (Test-Path -LiteralPath $zipA -PathType Leaf) -or -not (Test-Path -LiteralPath $zipB -PathType Leaf)) { throw "$shortName package ZIP is missing." }
+    $null = ConvertTo-ReleaseCanonicalZip -Path $zipA
+    $null = ConvertTo-ReleaseCanonicalZip -Path $zipB
     Assert-ByteIdenticalFiles -Left $zipA -Right $zipB -Label "$shortName clean-copy ZIP"
     $zipEvidenceA = Get-ZipEvidence -ZipPath $zipA -ModulePolicy $modulePolicy -SourceManifest (Join-Path $copyA "modules\$shortName\moon.mod.json")
     $zipEvidenceB = Get-ZipEvidence -ZipPath $zipB -ModulePolicy $modulePolicy -SourceManifest (Join-Path $copyB "modules\$shortName\moon.mod.json")

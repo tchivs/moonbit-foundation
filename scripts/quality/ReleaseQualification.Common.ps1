@@ -43,6 +43,53 @@ function Get-ReleaseSha256 {
   return (Get-FileHash -LiteralPath $Path -Algorithm SHA256).Hash.ToLowerInvariant()
 }
 
+function ConvertTo-ReleaseCanonicalZip {
+  param([Parameter(Mandatory)][string]$Path)
+  Add-Type -AssemblyName System.IO.Compression.FileSystem
+  $full = [IO.Path]::GetFullPath($Path)
+  if (-not (Test-Path -LiteralPath $full -PathType Leaf)) { Throw-ReleaseRule -Id 'REL-XPLAT-ARCHIVE' -Message "Archive is missing: $full" }
+  $records = [Collections.Generic.List[object]]::new()
+  $seen = [Collections.Generic.HashSet[string]]::new([StringComparer]::Ordinal)
+  $source = [IO.Compression.ZipFile]::OpenRead($full)
+  try {
+    foreach ($entry in $source.Entries) {
+      $name = [string]$entry.FullName
+      if ([string]::IsNullOrEmpty($name) -or $name.Contains('\') -or [IO.Path]::IsPathRooted($name) -or $name -match '(^|/)[.][.](/|$)' -or -not $seen.Add($name)) { Throw-ReleaseRule -Id 'REL-XPLAT-ENTRY' -Message "Archive path is unsafe or duplicated: '$name'." }
+      $stream = $entry.Open();$memory = [IO.MemoryStream]::new()
+      try { $stream.CopyTo($memory);$bytes = $memory.ToArray() } finally { $memory.Dispose();$stream.Dispose() }
+      $records.Add([pscustomobject][ordered]@{name=$name;is_directory=$name.EndsWith('/',[StringComparison]::Ordinal);bytes=[byte[]]$bytes})
+    }
+  } finally { $source.Dispose() }
+  $before = Get-ReleaseSha256 -Path $full;$temporary = "$full.canonical-$([Guid]::NewGuid().ToString('N'))"
+  try {
+    $file = [IO.File]::Open($temporary,[IO.FileMode]::CreateNew,[IO.FileAccess]::ReadWrite,[IO.FileShare]::None)
+    try {
+      $archive = [IO.Compression.ZipArchive]::new($file,[IO.Compression.ZipArchiveMode]::Create,$true,[Text.UTF8Encoding]::new($false))
+      try {
+        foreach ($record in $records) {
+          $entry = $archive.CreateEntry([string]$record.name,[IO.Compression.CompressionLevel]::NoCompression)
+          $entry.LastWriteTime = [DateTimeOffset]::new(1980,1,1,0,0,0,[TimeSpan]::Zero)
+          $attributes = if ($record.is_directory) { [uint32]::Parse('41ED0000',[Globalization.NumberStyles]::HexNumber) } else { [uint32]::Parse('81A40000',[Globalization.NumberStyles]::HexNumber) }
+          $entry.ExternalAttributes = [BitConverter]::ToInt32([BitConverter]::GetBytes($attributes),0)
+          if (-not $record.is_directory) { $output = $entry.Open();try { $output.Write([byte[]]$record.bytes,0,$record.bytes.Length) } finally { $output.Dispose() } }
+        }
+      } finally { $archive.Dispose() }
+    } finally { $file.Dispose() }
+    $bytes = [IO.File]::ReadAllBytes($temporary);$centralCount=0
+    for($offset=0;$offset-le$bytes.Length-46;$offset++){
+      if($bytes[$offset]-ne0x50-or$bytes[$offset+1]-ne0x4b-or$bytes[$offset+2]-ne0x01-or$bytes[$offset+3]-ne0x02){continue}
+      $nameLength=[BitConverter]::ToUInt16($bytes,$offset+28);$extraLength=[BitConverter]::ToUInt16($bytes,$offset+30);$commentLength=[BitConverter]::ToUInt16($bytes,$offset+32)
+      if($offset+46+$nameLength+$extraLength+$commentLength-gt$bytes.Length){Throw-ReleaseRule -Id 'REL-XPLAT-ARCHIVE' -Message 'Canonical ZIP central directory is truncated.'}
+      $name=[Text.Encoding]::UTF8.GetString($bytes,$offset+46,$nameLength);$bytes[$offset+4]=0x14;$bytes[$offset+5]=0x03
+      $attributes=if($name.EndsWith('/',[StringComparison]::Ordinal)){[uint32]::Parse('41ED0000',[Globalization.NumberStyles]::HexNumber)}else{[uint32]::Parse('81A40000',[Globalization.NumberStyles]::HexNumber)};[BitConverter]::GetBytes($attributes).CopyTo($bytes,$offset+38)
+      $centralCount++;$offset += 45+$nameLength+$extraLength+$commentLength
+    }
+    if($centralCount-ne$records.Count){Throw-ReleaseRule -Id 'REL-XPLAT-ARCHIVE' -Message "Canonical ZIP central count drifted: $centralCount vs $($records.Count)."}
+    [IO.File]::WriteAllBytes($temporary,$bytes);[IO.File]::Move($temporary,$full,$true)
+  } finally { if(Test-Path -LiteralPath $temporary){Remove-Item -LiteralPath $temporary -Force} }
+  [pscustomobject][ordered]@{path=$full;entry_count=$records.Count;source_sha256=$before;canonical_sha256=Get-ReleaseSha256 -Path $full}
+}
+
 function Get-ReleaseTextSha256 {
   param([Parameter(Mandatory)][string]$Text)
   $algorithm = [Security.Cryptography.SHA256]::Create()
