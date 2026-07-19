@@ -139,7 +139,7 @@ jobs:
           if ($env:RUN_MODE -ceq 'start' -and $paired) { throw 'P07-WORKFLOW-START-PRIOR' }
           if ($env:RUN_MODE -ceq 'resume' -and -not $paired) { throw 'P07-WORKFLOW-RESUME-PAIR' }
           if ($env:PRIOR_RUN_ID -ceq $env:CURRENT_RUN_ID) { throw 'P07-WORKFLOW-CURRENT-RUN-PRIOR' }
-          if ($env:RELEASE_REF -cne 'refs/tags/modules-v0.1.0-r11' -or $env:ROOT_INTENT_SHA256 -cne $env:INTENT_SHA256) { throw 'P08-WORKFLOW-R11-ROOT' }
+          if ($env:RELEASE_REF -cne 'refs/tags/modules-v0.1.0-r12' -or $env:ROOT_INTENT_SHA256 -cne $env:INTENT_SHA256) { throw 'P08-WORKFLOW-R12-ROOT' }
           $env:HISTORICAL_ATTEMPT_ZERO_SHA256='b9bda5378ea339f4cdd42c417c1cc0cf8caabbd51ab11d453cd45ddae77d9b52'
           $env:HISTORICAL_R1_SHA256='cba047dae2e6b4e1bbf0248653ed7848f144971b54a0a4ed30ef42ab97325653'
           $env:HISTORICAL_R2_SHA256='aae8bee66e7dbfca7f3f22f1b52071e7888ae3ec8feee513d1c5d8eba6111609'
@@ -151,13 +151,14 @@ jobs:
           $env:HISTORICAL_R8_SHA256='8a7729234a62425d0082a7b7a4615f2757ab4bc59938925b8ca031e2e00c10c8'
           $env:HISTORICAL_R9_SHA256='6edf89e7afb98dca1e81e3d5db9ff8a47f96dbfb2919bdaeb176c76c52c581ec'
           $env:HISTORICAL_R10_SHA256='1d524890dd5f0c11e58bcd2884c2d4623e02759a5ff801f2554fcc2ae654895f'
-          $history=@($env:HISTORICAL_ATTEMPT_ZERO_SHA256,$env:HISTORICAL_R1_SHA256,$env:HISTORICAL_R2_SHA256,$env:HISTORICAL_R3_SHA256,$env:HISTORICAL_R4_SHA256,$env:HISTORICAL_R5_SHA256,$env:HISTORICAL_R6_SHA256,$env:HISTORICAL_R7_SHA256,$env:HISTORICAL_R8_SHA256,$env:HISTORICAL_R9_SHA256,$env:HISTORICAL_R10_SHA256)
-          $expectedHistory=@('b9bda5378ea339f4cdd42c417c1cc0cf8caabbd51ab11d453cd45ddae77d9b52','cba047dae2e6b4e1bbf0248653ed7848f144971b54a0a4ed30ef42ab97325653','aae8bee66e7dbfca7f3f22f1b52071e7888ae3ec8feee513d1c5d8eba6111609','cf29473b2b07ff9aa8fd8a4810ddc45f6aacd2fd4b74048f5d29b3b6fa939d41','d9b045bc65df87dc2701144ea7716defc67acb84ec9ea8e7ffdafd0118ba0906','1239b63f983bef86ac44c731171093ad67759de9cce7c15610b92f5df6214843','3f9c0d9916dbccfa9144488d2967ee1a7fb3fd1d9936f8cc4139c2734f2d0ad4','baf5d4921c75b2ba4a64cd234663a1b7086d6c45a653edd1ce4a63f56882933f','8a7729234a62425d0082a7b7a4615f2757ab4bc59938925b8ca031e2e00c10c8','6edf89e7afb98dca1e81e3d5db9ff8a47f96dbfb2919bdaeb176c76c52c581ec','1d524890dd5f0c11e58bcd2884c2d4623e02759a5ff801f2554fcc2ae654895f')
+          $env:HISTORICAL_R11_SHA256='def1bf53a3305c72360bebb651f56d28cdcaac83150e76e3c3134962ade4e9d1'
+          $history=@($env:HISTORICAL_ATTEMPT_ZERO_SHA256,$env:HISTORICAL_R1_SHA256,$env:HISTORICAL_R2_SHA256,$env:HISTORICAL_R3_SHA256,$env:HISTORICAL_R4_SHA256,$env:HISTORICAL_R5_SHA256,$env:HISTORICAL_R6_SHA256,$env:HISTORICAL_R7_SHA256,$env:HISTORICAL_R8_SHA256,$env:HISTORICAL_R9_SHA256,$env:HISTORICAL_R10_SHA256,$env:HISTORICAL_R11_SHA256)
+          $expectedHistory=@('b9bda5378ea339f4cdd42c417c1cc0cf8caabbd51ab11d453cd45ddae77d9b52','cba047dae2e6b4e1bbf0248653ed7848f144971b54a0a4ed30ef42ab97325653','aae8bee66e7dbfca7f3f22f1b52071e7888ae3ec8feee513d1c5d8eba6111609','cf29473b2b07ff9aa8fd8a4810ddc45f6aacd2fd4b74048f5d29b3b6fa939d41','d9b045bc65df87dc2701144ea7716defc67acb84ec9ea8e7ffdafd0118ba0906','1239b63f983bef86ac44c731171093ad67759de9cce7c15610b92f5df6214843','3f9c0d9916dbccfa9144488d2967ee1a7fb3fd1d9936f8cc4139c2734f2d0ad4','baf5d4921c75b2ba4a64cd234663a1b7086d6c45a653edd1ce4a63f56882933f','8a7729234a62425d0082a7b7a4615f2757ab4bc59938925b8ca031e2e00c10c8','6edf89e7afb98dca1e81e3d5db9ff8a47f96dbfb2919bdaeb176c76c52c581ec','1d524890dd5f0c11e58bcd2884c2d4623e02759a5ff801f2554fcc2ae654895f','def1bf53a3305c72360bebb651f56d28cdcaac83150e76e3c3134962ade4e9d1')
           $historySet=([Convert]::ToHexString([Security.Cryptography.SHA256]::HashData([Text.UTF8Encoding]::new($false).GetBytes(($history -join "`n"))))).ToLowerInvariant()
-          if (($history -join ',') -cne ($expectedHistory -join ',') -or $env:HISTORICAL_HISTORY_SET_SHA256 -cne $historySet -or $historySet -cne '45330d06dec5aca59c07d592ca851c4441cf43d0e35014f9734b2746c293a41d') { throw 'P08-WORKFLOW-HISTORY' }
+          if (($history -join ',') -cne ($expectedHistory -join ',') -or $env:HISTORICAL_HISTORY_SET_SHA256 -cne $historySet -or $historySet -cne '5394421289924d7712034b43d7e732a7ff7aec3276d1ddab4846861788d8a4be') { throw 'P08-WORKFLOW-HISTORY' }
           ./scripts/quality/Test-ReleaseIntent.ps1 -ContractOnly
           ./scripts/quality/Test-ReleasePublisherNegative.ps1 -ReducerOnly
-          if ($env:RELEASE_REF -cne 'refs/tags/modules-v0.1.0-r11') { throw 'P08-PREPARED-NON-R11' }
+          if ($env:RELEASE_REF -cne 'refs/tags/modules-v0.1.0-r12') { throw 'P08-PREPARED-NON-R12' }
 
           $qualificationRoot = Join-Path $env:RUNNER_TEMP 'qualification'
           ./scripts/quality/Invoke-ReleaseQualification.ps1 -Check -OutputDirectory $qualificationRoot
@@ -201,7 +202,7 @@ jobs:
             correction_sequence=[int]$intent.correction_sequence; predecessor_intent_sha256=$null; authorization_valid=$true
             evidence_valid=$true; dry_run_passed=$true; authority_account='tchivs'
             historical_attempt_zero_sha256=$env:HISTORICAL_ATTEMPT_ZERO_SHA256; historical_r1_sha256=$env:HISTORICAL_R1_SHA256
-            historical_r2_sha256=$env:HISTORICAL_R2_SHA256; historical_r3_sha256=$env:HISTORICAL_R3_SHA256; historical_r4_sha256=$env:HISTORICAL_R4_SHA256; historical_r5_sha256=$env:HISTORICAL_R5_SHA256; historical_r6_sha256=$env:HISTORICAL_R6_SHA256; historical_r7_sha256=$env:HISTORICAL_R7_SHA256; historical_r8_sha256=$env:HISTORICAL_R8_SHA256; historical_r9_sha256=$env:HISTORICAL_R9_SHA256; historical_r10_sha256=$env:HISTORICAL_R10_SHA256; historical_history_set_sha256=$env:HISTORICAL_HISTORY_SET_SHA256
+            historical_r2_sha256=$env:HISTORICAL_R2_SHA256; historical_r3_sha256=$env:HISTORICAL_R3_SHA256; historical_r4_sha256=$env:HISTORICAL_R4_SHA256; historical_r5_sha256=$env:HISTORICAL_R5_SHA256; historical_r6_sha256=$env:HISTORICAL_R6_SHA256; historical_r7_sha256=$env:HISTORICAL_R7_SHA256; historical_r8_sha256=$env:HISTORICAL_R8_SHA256; historical_r9_sha256=$env:HISTORICAL_R9_SHA256; historical_r10_sha256=$env:HISTORICAL_R10_SHA256; historical_r11_sha256=$env:HISTORICAL_R11_SHA256; historical_history_set_sha256=$env:HISTORICAL_HISTORY_SET_SHA256
           }
           [IO.File]::WriteAllText((Join-Path $inputRoot 'request.json'),($request | ConvertTo-Json -Depth 20 -Compress),[Text.UTF8Encoding]::new($false))
 
@@ -226,7 +227,7 @@ jobs:
             RootIntentSha256=$env:ROOT_INTENT_SHA256; IntentSha256=$env:INTENT_SHA256; RunMode=$env:RUN_MODE
             PriorRunId=$env:PRIOR_RUN_ID; PriorArtifactName=$env:PRIOR_ARTIFACT_NAME; PriorTerminalRecordSha256=$priorTerminal
             HistoricalAttemptZeroSha256=$env:HISTORICAL_ATTEMPT_ZERO_SHA256; HistoricalR1Sha256=$env:HISTORICAL_R1_SHA256
-            HistoricalR2Sha256=$env:HISTORICAL_R2_SHA256; HistoricalR3Sha256=$env:HISTORICAL_R3_SHA256; HistoricalR4Sha256=$env:HISTORICAL_R4_SHA256; HistoricalR5Sha256=$env:HISTORICAL_R5_SHA256; HistoricalR6Sha256=$env:HISTORICAL_R6_SHA256; HistoricalR7Sha256=$env:HISTORICAL_R7_SHA256; HistoricalR8Sha256=$env:HISTORICAL_R8_SHA256; HistoricalR9Sha256=$env:HISTORICAL_R9_SHA256; HistoricalR10Sha256=$env:HISTORICAL_R10_SHA256; HistoricalHistorySetSha256=$env:HISTORICAL_HISTORY_SET_SHA256
+            HistoricalR2Sha256=$env:HISTORICAL_R2_SHA256; HistoricalR3Sha256=$env:HISTORICAL_R3_SHA256; HistoricalR4Sha256=$env:HISTORICAL_R4_SHA256; HistoricalR5Sha256=$env:HISTORICAL_R5_SHA256; HistoricalR6Sha256=$env:HISTORICAL_R6_SHA256; HistoricalR7Sha256=$env:HISTORICAL_R7_SHA256; HistoricalR8Sha256=$env:HISTORICAL_R8_SHA256; HistoricalR9Sha256=$env:HISTORICAL_R9_SHA256; HistoricalR10Sha256=$env:HISTORICAL_R10_SHA256; HistoricalR11Sha256=$env:HISTORICAL_R11_SHA256; HistoricalHistorySetSha256=$env:HISTORICAL_HISTORY_SET_SHA256
           }
           $result = ./scripts/quality/New-PreparedReleaseBundle.ps1 -InputRoot $inputRoot -OutputRoot $preparedRoot @bundleArgs
           ./scripts/quality/New-PreparedReleaseBundle.ps1 -ValidateOnly -OutputRoot $preparedRoot @bundleArgs | Out-Null
@@ -292,6 +293,8 @@ jobs:
           EXPECTED_HISTORICAL_R7_SHA256: baf5d4921c75b2ba4a64cd234663a1b7086d6c45a653edd1ce4a63f56882933f
           EXPECTED_HISTORICAL_R8_SHA256: 8a7729234a62425d0082a7b7a4615f2757ab4bc59938925b8ca031e2e00c10c8
           EXPECTED_HISTORICAL_R9_SHA256: 6edf89e7afb98dca1e81e3d5db9ff8a47f96dbfb2919bdaeb176c76c52c581ec
+          EXPECTED_HISTORICAL_R10_SHA256: 1d524890dd5f0c11e58bcd2884c2d4623e02759a5ff801f2554fcc2ae654895f
+          EXPECTED_HISTORICAL_R11_SHA256: def1bf53a3305c72360bebb651f56d28cdcaac83150e76e3c3134962ade4e9d1
           EXPECTED_HISTORICAL_HISTORY_SET_SHA256: ${{ inputs.historical_attempts_sha256 }}
           EXPECTED_ROOT_INTENT_SHA256: ${{ inputs.root_intent_sha256 }}
           EXPECTED_INTENT_SHA256: ${{ inputs.intent_sha256 }}
@@ -301,7 +304,7 @@ jobs:
           $manifestPath='prepared/prepared-bundle.json'
           if ((Get-FileHash -Algorithm SHA256 $manifestPath).Hash.ToLowerInvariant() -cne $env:EXPECTED_MANIFEST_SHA256) { throw 'P08-DRYRUN-PREPARED-DIGEST' }
           $manifest=Get-Content -LiteralPath $manifestPath -Raw | ConvertFrom-Json -Depth 100
-          if ($manifest.source_sha -cne $env:EXPECTED_SOURCE_SHA -or $manifest.release_ref -cne $env:EXPECTED_RELEASE_REF -or $manifest.root_intent_sha256 -cne $env:EXPECTED_ROOT_INTENT_SHA256 -or $manifest.intent_sha256 -cne $env:EXPECTED_INTENT_SHA256 -or $manifest.historical_attempt_zero_sha256 -cne $env:EXPECTED_HISTORICAL_ATTEMPT_ZERO_SHA256 -or $manifest.historical_r1_sha256 -cne $env:EXPECTED_HISTORICAL_R1_SHA256 -or $manifest.historical_r2_sha256 -cne $env:EXPECTED_HISTORICAL_R2_SHA256 -or $manifest.historical_r3_sha256 -cne $env:EXPECTED_HISTORICAL_R3_SHA256 -or $manifest.historical_r4_sha256 -cne $env:EXPECTED_HISTORICAL_R4_SHA256 -or $manifest.historical_r5_sha256 -cne $env:EXPECTED_HISTORICAL_R5_SHA256 -or $manifest.historical_r6_sha256 -cne $env:EXPECTED_HISTORICAL_R6_SHA256 -or $manifest.historical_r7_sha256 -cne $env:EXPECTED_HISTORICAL_R7_SHA256 -or $manifest.historical_r8_sha256 -cne $env:EXPECTED_HISTORICAL_R8_SHA256 -or $manifest.historical_r9_sha256 -cne $env:EXPECTED_HISTORICAL_R9_SHA256 -or $manifest.historical_history_set_sha256 -cne $env:EXPECTED_HISTORICAL_HISTORY_SET_SHA256) { throw 'P08-DRYRUN-PREPARED-BINDING' }
+          if ($manifest.source_sha -cne $env:EXPECTED_SOURCE_SHA -or $manifest.release_ref -cne $env:EXPECTED_RELEASE_REF -or $manifest.root_intent_sha256 -cne $env:EXPECTED_ROOT_INTENT_SHA256 -or $manifest.intent_sha256 -cne $env:EXPECTED_INTENT_SHA256 -or $manifest.historical_attempt_zero_sha256 -cne $env:EXPECTED_HISTORICAL_ATTEMPT_ZERO_SHA256 -or $manifest.historical_r1_sha256 -cne $env:EXPECTED_HISTORICAL_R1_SHA256 -or $manifest.historical_r2_sha256 -cne $env:EXPECTED_HISTORICAL_R2_SHA256 -or $manifest.historical_r3_sha256 -cne $env:EXPECTED_HISTORICAL_R3_SHA256 -or $manifest.historical_r4_sha256 -cne $env:EXPECTED_HISTORICAL_R4_SHA256 -or $manifest.historical_r5_sha256 -cne $env:EXPECTED_HISTORICAL_R5_SHA256 -or $manifest.historical_r6_sha256 -cne $env:EXPECTED_HISTORICAL_R6_SHA256 -or $manifest.historical_r7_sha256 -cne $env:EXPECTED_HISTORICAL_R7_SHA256 -or $manifest.historical_r8_sha256 -cne $env:EXPECTED_HISTORICAL_R8_SHA256 -or $manifest.historical_r9_sha256 -cne $env:EXPECTED_HISTORICAL_R9_SHA256 -or $manifest.historical_r10_sha256 -cne $env:EXPECTED_HISTORICAL_R10_SHA256 -or $manifest.historical_r11_sha256 -cne $env:EXPECTED_HISTORICAL_R11_SHA256 -or $manifest.historical_history_set_sha256 -cne $env:EXPECTED_HISTORICAL_HISTORY_SET_SHA256) { throw 'P08-DRYRUN-PREPARED-BINDING' }
           . ./scripts/quality/ReleaseQualification.Common.ps1
           foreach ($module in @('mb-core','mb-color','mb-image')) { Assert-ReleaseCanonicalZip -Path (Join-Path $PWD "prepared/archives/$module.zip") | Out-Null }
           $archive=Join-Path $PWD 'prepared/archives/mb-core.zip'
@@ -518,6 +521,8 @@ jobs:
           EXPECTED_HISTORICAL_R7_SHA256: baf5d4921c75b2ba4a64cd234663a1b7086d6c45a653edd1ce4a63f56882933f
           EXPECTED_HISTORICAL_R8_SHA256: 8a7729234a62425d0082a7b7a4615f2757ab4bc59938925b8ca031e2e00c10c8
           EXPECTED_HISTORICAL_R9_SHA256: 6edf89e7afb98dca1e81e3d5db9ff8a47f96dbfb2919bdaeb176c76c52c581ec
+          EXPECTED_HISTORICAL_R10_SHA256: 1d524890dd5f0c11e58bcd2884c2d4623e02759a5ff801f2554fcc2ae654895f
+          EXPECTED_HISTORICAL_R11_SHA256: def1bf53a3305c72360bebb651f56d28cdcaac83150e76e3c3134962ade4e9d1
           EXPECTED_HISTORICAL_HISTORY_SET_SHA256: ${{ inputs.historical_attempts_sha256 }}
           EXPECTED_AUTHORIZATION_PACKET_SHA256: ${{ inputs.authorization_packet_sha256 }}
           EXPECTED_AUTHORIZATION_RECEIPT_SHA256: ${{ inputs.authorization_receipt_sha256 }}
@@ -535,7 +540,7 @@ jobs:
             IntentSha256=$env:EXPECTED_INTENT_SHA256; RunMode=$env:EXPECTED_RUN_MODE; PriorRunId=$env:EXPECTED_PRIOR_RUN_ID
             PriorArtifactName=$env:EXPECTED_PRIOR_ARTIFACT_NAME; PriorTerminalRecordSha256=$payload.journal_binding.terminal_record_sha256
             HistoricalAttemptZeroSha256=$env:EXPECTED_HISTORICAL_ATTEMPT_ZERO_SHA256; HistoricalR1Sha256=$env:EXPECTED_HISTORICAL_R1_SHA256
-            HistoricalR2Sha256=$env:EXPECTED_HISTORICAL_R2_SHA256; HistoricalR3Sha256=$env:EXPECTED_HISTORICAL_R3_SHA256; HistoricalR4Sha256=$env:EXPECTED_HISTORICAL_R4_SHA256; HistoricalR5Sha256=$env:EXPECTED_HISTORICAL_R5_SHA256; HistoricalR6Sha256=$env:EXPECTED_HISTORICAL_R6_SHA256; HistoricalR7Sha256=$env:EXPECTED_HISTORICAL_R7_SHA256; HistoricalR8Sha256=$env:EXPECTED_HISTORICAL_R8_SHA256; HistoricalR9Sha256=$env:EXPECTED_HISTORICAL_R9_SHA256; HistoricalHistorySetSha256=$env:EXPECTED_HISTORICAL_HISTORY_SET_SHA256
+            HistoricalR2Sha256=$env:EXPECTED_HISTORICAL_R2_SHA256; HistoricalR3Sha256=$env:EXPECTED_HISTORICAL_R3_SHA256; HistoricalR4Sha256=$env:EXPECTED_HISTORICAL_R4_SHA256; HistoricalR5Sha256=$env:EXPECTED_HISTORICAL_R5_SHA256; HistoricalR6Sha256=$env:EXPECTED_HISTORICAL_R6_SHA256; HistoricalR7Sha256=$env:EXPECTED_HISTORICAL_R7_SHA256; HistoricalR8Sha256=$env:EXPECTED_HISTORICAL_R8_SHA256; HistoricalR9Sha256=$env:EXPECTED_HISTORICAL_R9_SHA256; HistoricalR10Sha256=$env:EXPECTED_HISTORICAL_R10_SHA256; HistoricalR11Sha256=$env:EXPECTED_HISTORICAL_R11_SHA256; HistoricalHistorySetSha256=$env:EXPECTED_HISTORICAL_HISTORY_SET_SHA256
           }
           # Shared validation subsumes P07-WORKFLOW-PAYLOAD-DIGEST and P07-WORKFLOW-BINDING.
           ./prepared/scripts/quality/New-PreparedReleaseBundle.ps1 -ValidateOnly -OutputRoot prepared @validationArgs | Out-Null
