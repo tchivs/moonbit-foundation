@@ -5,15 +5,15 @@ milestone_name: Publication & Compatibility
 current_phase: 08
 current_phase_name: Ordered Mooncakes Publication and Registry Consumers
 status: executing
-stopped_at: Completed 08-15-PLAN.md
-last_updated: "2026-07-19T02:35:18.244Z"
+stopped_at: Completed 08-16-PLAN.md
+last_updated: "2026-07-19T02:59:36.776Z"
 last_activity: 2026-07-19
-last_activity_desc: Phase 8 r6 static contracts completed with six immutable histories; Wave 16 hosted seam integration is ready
+last_activity_desc: Phase 8 r6 hosted seam and zero-write pre-live selector passed the complete static matrix
 progress:
   total_phases: 4
   completed_phases: 2
   total_plans: 46
-  completed_plans: 43
+  completed_plans: 44
   percent: 50
 ---
 
@@ -30,9 +30,9 @@ See `.planning/PROJECT.md` (updated 2026-07-17).
 ## Current Position
 
 Phase: 08 (Ordered Mooncakes Publication and Registry Consumers) — EXECUTING
-Plan: 16 of 18
-Status: Ready for Wave 16 — integrate r6 into the hosted seam and pre-live zero-write selector
-Last activity: 2026-07-19 — r6 intent, prepared, authority, receipt, and handoff contracts passed their static suites with six histories
+Plan: 17 of 18
+Status: Ready for Wave 17 — run the committed pre-live selector before any live action
+Last activity: 2026-07-19 — r6 hosted seam and zero-write pre-live selector passed the complete static matrix
 
 ## Progress
 
@@ -129,6 +129,8 @@ Current milestone: [█████░░░░░] 50% of v0.2 phases complete
 - [Phase 08]: Only refs/tags/modules-v0.1.0-r6 is current initial authority; attempt-zero and r1 through r5 remain immutable terminal-negative history.
 - [Phase 08]: The r5 terminal record binds exact source/tag, successful preparation and absence, duplicate-env pre-run rejection, no hosted run, and zero downstream effects.
 - [Phase 08]: DIST-01 remains pending because Plan 08-15 performs no external publication or registry-consumer action.
+- [Phase 08]: Publisher, adapter, workflow, and hosted controller accept only r6 and bind six immutable terminal histories.
+- [Phase 08]: The r6 pre-live selector is read-only and emits one closed sanitized result before any live action.
 
 ### Pending Decisions
 
@@ -143,14 +145,14 @@ None
 
 **Resume file:** None
 
-Last session: 2026-07-19T02:35:18.230Z
-Stopped at: Completed 08-15-PLAN.md
+Last session: 2026-07-19T02:59:36.756Z
+Stopped at: Completed 08-16-PLAN.md
 Resume with: `/gsd-execute-phase 8`
 
 ## Operator Next Steps
 
-- Execute Plan 08-16 to advance the publisher/workflow/hosted controller to r6 and add the credential-free pre-live selector.
-- Keep every live dispatch, registry observation, and irreversible Mooncakes mutation behind its separately authorized checkpoint.
+- Execute Plan 08-17 by running the committed zero-write selector before any tag, dispatch, registry observation, or mutation.
+- Keep every irreversible Mooncakes mutation behind its separately authorized checkpoint.
 
 ## Performance Metrics
 
@@ -195,3 +197,4 @@ Resume with: `/gsd-execute-phase 8`
 | Phase 08 P13 | 9min | 3 tasks | 13 files |
 | Phase 08 P14 | 17min | 2 tasks | 8 files |
 | Phase 08 P15 | 10min | 3 tasks | 13 files |
+| Phase 08 P16 | 25min | 3 tasks | 10 files |
