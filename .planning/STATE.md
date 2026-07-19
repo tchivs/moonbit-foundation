@@ -5,15 +5,15 @@ milestone_name: Publication & Compatibility
 current_phase: 08
 current_phase_name: Ordered Mooncakes Publication and Registry Consumers
 status: executing
-stopped_at: Completed 08-20-PLAN.md
-last_updated: "2026-07-19T06:00:56.313Z"
+stopped_at: Completed 08-21-PLAN.md
+last_updated: "2026-07-19T06:28:45.175Z"
 last_activity: 2026-07-19
-last_activity_desc: Canonical three-module ZIP and prepared identity are closed; r8 hosted seam integration is next
+last_activity_desc: r8 publisher, exact14 hosted seam, and zero-write pre-live selector are closed over eight immutable histories
 progress:
   total_phases: 4
   completed_phases: 2
   total_plans: 51
-  completed_plans: 48
+  completed_plans: 49
   percent: 50
 ---
 
@@ -30,9 +30,9 @@ See `.planning/PROJECT.md` (updated 2026-07-17).
 ## Current Position
 
 Phase: 08 (Ordered Mooncakes Publication and Registry Consumers) — EXECUTING
-Plan: 21 of 23
-Status: Ready for Wave 21 — wire canonical r8 prepared identity through publisher, workflow, hosted, and zero-write pre-live seams
-Last activity: 2026-07-19 — canonical ZIP and prepared identity are closed over all three modules and eight immutable terminal-negative histories
+Plan: 22 of 23
+Status: Ready for Wave 22 — execute the clean non-publishing r8 hosted preflight
+Last activity: 2026-07-19 — r8 publisher, exact14 hosted seam, and zero-write pre-live selector are closed over eight immutable histories
 
 ## Progress
 
@@ -145,6 +145,9 @@ Current milestone: [█████░░░░░] 50% of v0.2 phases complete
 - [Phase 08]: Canonical ZIP identity uses EOCD-bounded central-directory parsing with safe ordered paths, exact payloads, fixed Unix metadata, and stored compression. — Host/runtime ZIP container bytes must not influence r8 release identity.
 - [Phase 08]: Prepared archive validation canonicalizes only a disposable copy and requires exact core-color-image digest agreement across intent, manifest, and bytes. — Validation must reject raw or recompressed payloads rather than silently repairing them.
 - [Phase 08]: DIST-01 remains pending after Plan 08-20. — This plan performed no tag, hosted dispatch, registry observation, credential access, mutation, or publication.
+- [Phase 08]: Publisher, workflow, and hosted seams accept only r8 with eight ordered histories while exact14 remains unchanged.
+- [Phase 08]: The r8 selector binds exact r7 terminal evidence, canonical archives, committed ancestry, and r8 absence without persistent output.
+- [Phase 08]: DIST-01 remains pending because 08-21 intentionally performs no external release action.
 
 ### Pending Decisions
 
@@ -159,8 +162,8 @@ None
 
 **Resume file:** None
 
-Last session: 2026-07-19T06:00:56.298Z
-Stopped at: Completed 08-20-PLAN.md
+Last session: 2026-07-19T06:28:45.160Z
+Stopped at: Completed 08-21-PLAN.md
 Resume with: `/gsd-execute-phase 8`
 
 ## Operator Next Steps
@@ -216,3 +219,4 @@ Resume with: `/gsd-execute-phase 8`
 | Phase 08 P18 | 32min | 3 tasks | 10 files |
 | Phase 08 P19 | 13min | 3 tasks | 13 files |
 | Phase 08 P20 | 15min | 2 tasks | 6 files |
+| Phase 08 P21 | 24min | 3 tasks | 10 files |
