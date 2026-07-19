@@ -34,6 +34,9 @@ function Get-IntentHistorySetSha256 {
 function Assert-Phase08AttemptSchemas {
   $policy = Read-IntentJson -Path $policyPath
   $history = @($policy.initial_attempt_family.terminal_negative_history)
+  if ($history.Count -ne 9 -or ($history.attempt -join ',') -cne 'attempt_zero,r1,r2,r3,r4,r5,r6,r7,r8') {
+    throw 'REL04-HISTORY-ORDER: authority requires attempt-zero through r8 in canonical order.'
+  }
   $historyFields = [ordered]@{
     historical_attempt_zero_sha256 = [string]$history[0].record_sha256
     historical_r1_sha256 = [string]$history[1].record_sha256
@@ -43,6 +46,7 @@ function Assert-Phase08AttemptSchemas {
     historical_r5_sha256 = [string]$history[5].record_sha256
     historical_r6_sha256 = [string]$history[6].record_sha256
     historical_r7_sha256 = [string]$history[7].record_sha256
+    historical_r8_sha256 = [string]$history[8].record_sha256
     historical_history_set_sha256 = [string]$policy.initial_attempt_family.history_set_sha256
   }
   $authority = Read-IntentJson -Path (Join-Path $repoRoot 'release\qualification\phase-08-authority-schema.json')
@@ -50,8 +54,8 @@ function Assert-Phase08AttemptSchemas {
   $handoff = Read-IntentJson -Path (Join-Path $repoRoot 'release\qualification\phase-08-handoff-schema.json')
   foreach ($branch in @('mutationAuthorizationPacket','exactExistingAuthority','moduleAuthority')) {
     $schemaBranch = $authority.'$defs'.$branch
-    if ($schemaBranch.properties.release_ref.const -cne 'refs/tags/modules-v0.1.0-r8') {
-      throw "REL04-AUTHORITY-REF: $branch does not require r8."
+    if ($schemaBranch.properties.release_ref.const -cne 'refs/tags/modules-v0.1.0-r9') {
+      throw "REL04-AUTHORITY-REF: $branch does not require r9."
     }
     foreach ($entry in $historyFields.GetEnumerator()) {
       if (@($schemaBranch.required) -cnotcontains $entry.Key -or $schemaBranch.properties.($entry.Key).const -cne $entry.Value) {
@@ -59,10 +63,10 @@ function Assert-Phase08AttemptSchemas {
       }
     }
   }
-  $receiptFields = @('schema_version','release_ref','boundary_sha','source_sha','packet_sha256','historical_attempt_zero_sha256','historical_r1_sha256','historical_r2_sha256','historical_r3_sha256','historical_r4_sha256','historical_r5_sha256','historical_r6_sha256','historical_r7_sha256','historical_history_set_sha256','response','created_at_utc','receipt_sha256')
+  $receiptFields = @('schema_version','release_ref','boundary_sha','source_sha','packet_sha256','historical_attempt_zero_sha256','historical_r1_sha256','historical_r2_sha256','historical_r3_sha256','historical_r4_sha256','historical_r5_sha256','historical_r6_sha256','historical_r7_sha256','historical_r8_sha256','historical_history_set_sha256','response','created_at_utc','receipt_sha256')
   if ($receipt.type -cne 'object' -or $receipt.additionalProperties -ne $false -or
       (@($receipt.required) -join ',') -cne ($receiptFields -join ',') -or
-      $receipt.properties.release_ref.const -cne 'refs/tags/modules-v0.1.0-r8' -or
+       $receipt.properties.release_ref.const -cne 'refs/tags/modules-v0.1.0-r9' -or
       $receipt.properties.response.const -cne 'authorize-core' -or
       $receipt.properties.created_at_utc.pattern -cne '^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$') {
     throw 'REL04-RECEIPT-SCHEMA: authorization receipt is not the exact closed r8 contract.'
@@ -300,8 +304,8 @@ function Assert-IntentContract {
       $policy.initial_attempt_family.history_set_sha256 -cne (Get-IntentHistorySetSha256 $history)) {
     throw 'REL01-HISTORY-SET: ordered terminal history set drifted.'
   }
-  if ($policy.initial_attempt_family.current_attempt -cne 'r8' -or
-      $policy.initial_profile.release_ref -cne 'refs/tags/modules-v0.1.0-r8' -or $policy.initial_profile.correction_sequence -ne 0 -or
+  if ($policy.initial_attempt_family.current_attempt -cne 'r9' -or
+      $policy.initial_profile.release_ref -cne 'refs/tags/modules-v0.1.0-r9' -or $policy.initial_profile.correction_sequence -ne 0 -or
       $policy.initial_profile.serialized_root_intent_sha256 -cne 'forbidden') { throw 'REL01-INITIAL-PROFILE: initial root/ref contract drifted.' }
   if ($policy.correction_profile.release_ref_pattern -cne '^refs/tags/modules-correction-[1-9][0-9]*$' -or
       $policy.correction_profile.sequence_rule -cne 'predecessor_sequence_plus_one' -or
@@ -311,11 +315,11 @@ function Assert-IntentContract {
       $policy.authority_semantics.credentials_read -ne $false -or $policy.authority_semantics.publication_performed -ne $false) { throw 'REL02-AUTHORITY-CONFLATION: digest or credential semantics drifted.' }
   if (@($schema.oneOf).Count -ne 2 -or $schema.'$defs'.initialIntent.additionalProperties -ne $false -or
       $schema.'$defs'.forwardCorrectionIntent.additionalProperties -ne $false) { throw 'REL01-CLOSED-SCHEMA: intent oneOf branches are not closed.' }
-  if ($schema.'$defs'.initialIntent.properties.release_ref.const -cne 'refs/tags/modules-v0.1.0-r8') {
-    throw 'REL01-INITIAL-PROFILE: initial schema does not require r8.'
+  if ($schema.'$defs'.initialIntent.properties.release_ref.const -cne 'refs/tags/modules-v0.1.0-r9') {
+    throw 'REL01-INITIAL-PROFILE: initial schema does not require r9.'
   }
-  if ($preparedSchema.properties.release_ref.pattern -cne '^refs/tags/modules-(v0[.]1[.]0-r8|correction-[1-9][0-9]*)$') {
-    throw 'REL01-INITIAL-PROFILE: prepared schema does not require r8 or a correction ref.'
+  if ($preparedSchema.properties.release_ref.pattern -cne '^refs/tags/modules-(v0[.]1[.]0-r9|correction-[1-9][0-9]*)$') {
+    throw 'REL01-INITIAL-PROFILE: prepared schema does not require r9 or a correction ref.'
   }
   $initialRequired = @($schema.'$defs'.initialIntent.required)
   if ($initialRequired -contains 'root_intent_sha256' -or $initialRequired -contains 'predecessor_intent_sha256') { throw 'REL01-HASH-CYCLE: initial intent serializes root/predecessor.' }
