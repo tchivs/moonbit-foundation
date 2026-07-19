@@ -413,25 +413,34 @@ function Invoke-FocusedIntentTests {
   $tempRoot = Join-Path ([IO.Path]::GetTempPath()) ('mnf-release-intent-' + [Guid]::NewGuid().ToString('N'))
   $null = New-Item -ItemType Directory -Force -Path $tempRoot
   try {
-    $head = (& git -C $repoRoot rev-parse HEAD).Trim()
+    $initialRef = [string]$policy.initial_profile.release_ref
+    if ([string]::IsNullOrWhiteSpace($initialRef)) { throw 'REL01-REF: initial policy release ref is missing.' }
     $cloneA = Join-Path $tempRoot 'source-a'
     $cloneB = Join-Path $tempRoot 'source-b'
-    & git clone --quiet --no-hardlinks $repoRoot $cloneA
+    & git clone --quiet --no-hardlinks --no-tags $repoRoot $cloneA
     if ($LASTEXITCODE -ne 0) { throw 'REL01-TEST-CLONE: unable to create clean source A.' }
-    & git clone --quiet --no-hardlinks $repoRoot $cloneB
+    & git clone --quiet --no-hardlinks --no-tags $repoRoot $cloneB
     if ($LASTEXITCODE -ne 0) { throw 'REL01-TEST-CLONE: unable to create clean source B.' }
+    foreach ($clone in @($cloneA, $cloneB)) {
+      & git -C $clone fetch --quiet --no-tags origin "$initialRef`:$initialRef"
+      if ($LASTEXITCODE -ne 0) { throw 'REL01-TEST-FETCH: unable to fetch the policy-selected initial tag.' }
+      & git -C $clone checkout --quiet --detach $initialRef
+      if ($LASTEXITCODE -ne 0) { throw 'REL01-TEST-CHECKOUT: unable to check out the fetched initial tag.' }
+    }
+    $head = (& git -C $cloneA rev-parse HEAD).Trim()
+    if ($head -cne ((& git -C $cloneB rev-parse HEAD).Trim())) { throw 'REL01-TEST-CLONE: fetched initial tags do not peel identically.' }
     $archives = [ordered]@{ 'mb-core' = ('1' * 64); 'mb-color' = ('2' * 64); 'mb-image' = ('3' * 64) }
     $common = @{
       Check = $true
       IntentKind = 'initial'
-      ReleaseRef = 'refs/tags/modules-v0.1.0-r10'
+      ReleaseRef = $initialRef
       SourceSha = $head
       QualificationRootSha256 = ('4' * 64)
       RequiredStableSha256 = ('5' * 64)
       ArchiveSha256ByModule = $archives
     }
-    $a = & $generator @common -SourceRoot $cloneA -OutputDirectory (Join-Path $tempRoot 'initial-a')
-    $b = & $generator @common -SourceRoot $cloneB -OutputDirectory (Join-Path $tempRoot 'initial-b')
+    $a = & $generator @common -SourceRoot $cloneA -ControlPolicyPath (Join-Path $cloneA 'policy/release-control.json') -OutputDirectory (Join-Path $tempRoot 'initial-a')
+    $b = & $generator @common -SourceRoot $cloneB -ControlPolicyPath (Join-Path $cloneB 'policy/release-control.json') -OutputDirectory (Join-Path $tempRoot 'initial-b')
     $aBytes = [IO.File]::ReadAllBytes($a.intent_path)
     $bBytes = [IO.File]::ReadAllBytes($b.intent_path)
     if (-not [Linq.Enumerable]::SequenceEqual([byte[]]$aBytes, [byte[]]$bBytes) -or $a.intent_sha256 -cne $b.intent_sha256) {
@@ -441,6 +450,19 @@ function Invoke-FocusedIntentTests {
     $initial = Read-ReleaseCanonicalJson -Path $a.intent_path
     $null = Assert-ReleaseIntentObject -Intent $initial -PolicyPath $policyPath -ExpectedCurrentSha256 $a.intent_sha256
     Assert-ReleaseIntentAuthorizationBinding -Intent $initial -IntentSha256 $a.intent_sha256 -RootIntentSha256 $a.intent_sha256
+
+    & git -C $cloneB tag -d ($initialRef.Substring('refs/tags/'.Length)) | Out-Null
+    Confirm-IntentRule 'REL01-REF' {
+      & $generator @common -SourceRoot $cloneB -ControlPolicyPath (Join-Path $cloneB 'policy/release-control.json') -OutputDirectory (Join-Path $tempRoot 'missing-clone-tag') | Out-Null
+    }
+    & git -C $cloneB fetch --quiet --no-tags origin "$initialRef`:$initialRef"
+    if ($LASTEXITCODE -ne 0) { throw 'REL01-TEST-FETCH: unable to restore the policy-selected initial tag.' }
+    $ambientPolicyRoot = Join-Path $tempRoot 'ambient-policy'
+    $null = New-Item -ItemType Directory -Force -Path $ambientPolicyRoot
+    Copy-Item -LiteralPath (Join-Path $cloneA 'policy/release-control.json') -Destination (Join-Path $ambientPolicyRoot 'release-control.json')
+    Confirm-IntentRule 'REL01-REF' {
+      & $generator @common -SourceRoot $cloneA -ControlPolicyPath (Join-Path $ambientPolicyRoot 'release-control.json') -OutputDirectory (Join-Path $tempRoot 'ambient-policy') | Out-Null
+    }
 
     $reordered = [ordered]@{}
     foreach ($property in @($initial.PSObject.Properties.Name) | Sort-Object -Descending) { $reordered[$property] = $initial.$property }
