@@ -5,15 +5,15 @@ milestone_name: Publication & Compatibility
 current_phase: 08
 current_phase_name: Ordered Mooncakes Publication and Registry Consumers
 status: executing
-stopped_at: Completed 08-19-PLAN.md
-last_updated: "2026-07-19T05:41:25.295Z"
+stopped_at: Completed 08-20-PLAN.md
+last_updated: "2026-07-19T06:00:56.313Z"
 last_activity: 2026-07-19
-last_activity_desc: Phase 8 r8 intent, eight-history authority, receipt, handoff, and prepared qualification contracts completed; Wave 20 is ready
+last_activity_desc: Canonical three-module ZIP and prepared identity are closed; r8 hosted seam integration is next
 progress:
   total_phases: 4
   completed_phases: 2
   total_plans: 51
-  completed_plans: 47
+  completed_plans: 48
   percent: 50
 ---
 
@@ -30,9 +30,9 @@ See `.planning/PROJECT.md` (updated 2026-07-17).
 ## Current Position
 
 Phase: 08 (Ordered Mooncakes Publication and Registry Consumers) — EXECUTING
-Plan: 20 of 23
-Status: Ready for Wave 20 — close canonical archive and prepared-qualification regressions from the committed r8 contract boundary
-Last activity: 2026-07-19 — r8 is the sole current initial contract; attempt-zero and r1 through r7 are eight immutable terminal-negative histories
+Plan: 21 of 23
+Status: Ready for Wave 21 — wire canonical r8 prepared identity through publisher, workflow, hosted, and zero-write pre-live seams
+Last activity: 2026-07-19 — canonical ZIP and prepared identity are closed over all three modules and eight immutable terminal-negative histories
 
 ## Progress
 
@@ -41,7 +41,7 @@ Current milestone: [█████░░░░░] 50% of v0.2 phases complete
 - v0.2 phases completed: 2/4
 - Phase 6 plans completed: 25/25
 - Phase 7 plans completed: 3/3
-- Phase 8 plans completed: 19/23
+- Phase 8 plans completed: 20/23
 - v0.2 requirements mapped: 21/21
 - Historical total: 5 completed phases, 43 completed plans, 36/36 v0.1 requirements validated
 
@@ -142,6 +142,9 @@ Current milestone: [█████░░░░░] 50% of v0.2 phases complete
 - [Phase 08]: The r7 record binds source 195e08d, tag object 52a47cd, run 29673849108/1, prepare job 88157456895, P08-PREPARED-INTENT-BINDING, raw cross-OS moon ZIP-container drift, and zero downstream effects.
 - [Phase 08]: Every r8 intent, prepared, authority, receipt, and handoff contract carries eight individual history digests plus their canonical LF-ordered set digest.
 - [Phase 08]: DIST-01 remains pending because Plan 08-19 performs no tag creation, hosted dispatch, registry observation, credential access, mutation, or publication.
+- [Phase 08]: Canonical ZIP identity uses EOCD-bounded central-directory parsing with safe ordered paths, exact payloads, fixed Unix metadata, and stored compression. — Host/runtime ZIP container bytes must not influence r8 release identity.
+- [Phase 08]: Prepared archive validation canonicalizes only a disposable copy and requires exact core-color-image digest agreement across intent, manifest, and bytes. — Validation must reject raw or recompressed payloads rather than silently repairing them.
+- [Phase 08]: DIST-01 remains pending after Plan 08-20. — This plan performed no tag, hosted dispatch, registry observation, credential access, mutation, or publication.
 
 ### Pending Decisions
 
@@ -156,13 +159,13 @@ None
 
 **Resume file:** None
 
-Last session: 2026-07-19T05:41:25.280Z
-Stopped at: Completed 08-19-PLAN.md
+Last session: 2026-07-19T06:00:56.298Z
+Stopped at: Completed 08-20-PLAN.md
 Resume with: `/gsd-execute-phase 8`
 
 ## Operator Next Steps
 
-- Execute Plan 08-20 to close canonical archive and prepared-qualification regressions from the committed r8/eight-history boundary.
+- Execute Plan 08-21 to integrate the canonical r8 prepared contract through publisher, workflow, hosted, and zero-write pre-live seams.
 - Keep every irreversible Mooncakes mutation behind its separately authorized checkpoint.
 
 ## Performance Metrics
@@ -212,3 +215,4 @@ Resume with: `/gsd-execute-phase 8`
 | Phase 08 P17 | 14min | 3 tasks | 13 files |
 | Phase 08 P18 | 32min | 3 tasks | 10 files |
 | Phase 08 P19 | 13min | 3 tasks | 13 files |
+| Phase 08 P20 | 15min | 2 tasks | 6 files |
