@@ -10,7 +10,7 @@ param(
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
-$productionHandoff=[IO.Path]::GetFullPath((Join-Path ([IO.Path]::GetTempPath()) 'mnf-phase08-r6-handoff.json'))
+$productionHandoff=[IO.Path]::GetFullPath((Join-Path ([IO.Path]::GetTempPath()) 'mnf-phase08-r7-handoff.json'))
 if(Test-Path -LiteralPath $productionHandoff){throw 'P08-FIXED-HANDOFF-PREEXISTING: production fixed handoff must be absent before static fixtures.'}
 
 $adapterPath = Join-Path $PSScriptRoot 'Invoke-MooncakesLiveMutation.ps1'
@@ -34,7 +34,7 @@ function New-LiveTestRequest {
       expected_actor='tchivs';observed_actor='tchivs';actor_check_classification='moon_whoami_exact';actor_exit_code=0
       actor_stdout_line_count=1;actor_stderr_empty=$true;actor_match=$true;actor_raw_output_persisted=$false
       credential_state_removed=$true;mutation_performed=$false;command_classification='moon_whoami_dry_run_only'
-    }; release_ref='refs/tags/modules-v0.1.0-r6'
+    }; release_ref='refs/tags/modules-v0.1.0-r7'
     source_sha=('1'*40); root_intent_sha256=('a'*64); intent_sha256=('a'*64); intent_kind='initial'
     prepared_manifest_sha256=('b'*64)
     historical_attempt_zero_sha256='b9bda5378ea339f4cdd42c417c1cc0cf8caabbd51ab11d453cd45ddae77d9b52'
@@ -43,7 +43,8 @@ function New-LiveTestRequest {
     historical_r3_sha256='cf29473b2b07ff9aa8fd8a4810ddc45f6aacd2fd4b74048f5d29b3b6fa939d41'
     historical_r4_sha256='d9b045bc65df87dc2701144ea7716defc67acb84ec9ea8e7ffdafd0118ba0906'
     historical_r5_sha256='1239b63f983bef86ac44c731171093ad67759de9cce7c15610b92f5df6214843'
-    historical_history_set_sha256='faed8af741e3e2f80d385fcc496649e12bf32889d6dff424fad3c8916acf9c0a'
+    historical_r6_sha256='3f9c0d9916dbccfa9144488d2967ee1a7fb3fd1d9936f8cc4139c2734f2d0ad4'
+    historical_history_set_sha256='93523aa11f0ab84736d7fa3b1cb500ade23043a4d01a3e07d205400436900334'
     correction_sequence=0; predecessor_intent_sha256=$null; authorization_valid=$true
     evidence_valid=$true; dry_run_passed=$true; authority_account='tchivs'
   }
@@ -141,7 +142,7 @@ try {
     repository=$request.repository; actor=$request.actor; release_ref=$request.release_ref; source_sha=$request.source_sha
     root_intent_sha256=$request.root_intent_sha256; intent_sha256=$request.intent_sha256
     historical_attempt_zero_sha256=$request.historical_attempt_zero_sha256;historical_r1_sha256=$request.historical_r1_sha256
-    historical_r2_sha256=$request.historical_r2_sha256;historical_r3_sha256=$request.historical_r3_sha256;historical_r4_sha256=$request.historical_r4_sha256;historical_r5_sha256=$request.historical_r5_sha256;historical_history_set_sha256=$request.historical_history_set_sha256
+    historical_r2_sha256=$request.historical_r2_sha256;historical_r3_sha256=$request.historical_r3_sha256;historical_r4_sha256=$request.historical_r4_sha256;historical_r5_sha256=$request.historical_r5_sha256;historical_r6_sha256=$request.historical_r6_sha256;historical_history_set_sha256=$request.historical_history_set_sha256
     payloads=@('mb-core','mb-color','mb-image' | ForEach-Object { [pscustomobject][ordered]@{ path="archives/$_.zip"; role='exact_source_archive'; size=1; sha256=('3'*64) } })
   }
   [IO.File]::WriteAllText((Join-Path $fixtureRoot 'prepared/prepared-bundle.json'),($manifest | ConvertTo-Json -Depth 20),[Text.UTF8Encoding]::new($false))
@@ -276,7 +277,7 @@ foreach ($required in @(
   'Invoke-MooncakesLiveMutation','Invoke-ColdRegistryConsumer','MOONCAKES_TOKEN','InitializeBoundary','PrepareAttempt',
   'PublisherDryRun','HostedPreflight','MaterializePublicSurface','ObserveOnly','IndexSanitizedArtifact',
   'AssembleAuthorizationPacket','SelectExactExistingAuthority','SelectPublishedNowAuthority','PublishOne',
-  'refs/tags/modules-v0.1.0-r6','historical_attempts_sha256:','historical_r5_sha256','historical_history_set_sha256','publish --frozen --dry-run','native_runtime_verified','whoami.stdout','whoami.stderr',
+  'refs/tags/modules-v0.1.0-r7','historical_attempts_sha256:','historical_r6_sha256','historical_history_set_sha256','publish --frozen --dry-run','native_runtime_verified','whoami.stdout','whoami.stderr',
   'exact_existing','published_now'
 )) {
   if ($workflow.IndexOf($required,[StringComparison]::Ordinal) -lt 0) { throw "P08-WORKFLOW-MISSING: '$required'." }
@@ -339,12 +340,16 @@ $dryBlock=$workflow.Substring($dryStart,$preflightStart-$dryStart)
 $preflightBlock=$workflow.Substring($preflightStart,$publisherStart-$preflightStart)
 $expectedR4Env='EXPECTED_HISTORICAL_R4_SHA256: d9b045bc65df87dc2701144ea7716defc67acb84ec9ea8e7ffdafd0118ba0906'
 $expectedR5Env='EXPECTED_HISTORICAL_R5_SHA256: 1239b63f983bef86ac44c731171093ad67759de9cce7c15610b92f5df6214843'
+$expectedR6Env='EXPECTED_HISTORICAL_R6_SHA256: 3f9c0d9916dbccfa9144488d2967ee1a7fb3fd1d9936f8cc4139c2734f2d0ad4'
 foreach($contract in @(@('PublisherDryRun',$dryBlock),@('publisher verify',$publisherBlock))){
   if(@([regex]::Matches([string]$contract[1],('(?m)^\s+'+[regex]::Escape($expectedR4Env)+'\s*$'))).Count -ne 1){
     throw "P08-WORKFLOW-R4-PROPAGATION: $($contract[0]) must map the exact R4 digest once."
   }
   if(@([regex]::Matches([string]$contract[1],('(?m)^\s+'+[regex]::Escape($expectedR5Env)+'\s*$'))).Count -ne 1){
     throw "P08-WORKFLOW-R5-PROPAGATION: $($contract[0]) must map the exact R5 digest once."
+  }
+  if(@([regex]::Matches([string]$contract[1],('(?m)^\s+'+[regex]::Escape($expectedR6Env)+'\s*$'))).Count -ne 1){
+    throw "P08-WORKFLOW-R6-PROPAGATION: $($contract[0]) must map the exact R6 digest once."
   }
 }
 if ($dryBlock.IndexOf("inputs.operation_mode == 'PublisherDryRun'",[StringComparison]::Ordinal) -lt 0 -or
@@ -358,6 +363,8 @@ if ($preflightBlock.IndexOf('MOONCAKES_TOKEN',[StringComparison]::Ordinal) -ge 0
     $preflightBlock.IndexOf('compile_only=$false',[StringComparison]::Ordinal) -lt 0) { throw 'P08-WORKFLOW-PREFLIGHT: secret-free native runtime contract drifted.' }
 if ($publisherBlock.IndexOf("inputs.operation_mode == 'PublishOne'",[StringComparison]::Ordinal) -lt 0 -or
     $publisherBlock.IndexOf('inputs.live_authorization == true',[StringComparison]::Ordinal) -lt 0) { throw 'P08-WORKFLOW-PUBLISHONE: irreversible job reachability is not explicit.' }
+
+if($WorkflowOnly){return}
 
 $hostedPath=Join-Path $PSScriptRoot 'Invoke-Phase08HostedRun.ps1'
 if (-not (Test-Path -LiteralPath $hostedPath -PathType Leaf)) { throw 'P08-HOSTED-HELPER-MISSING: hosted helper is required.' }
