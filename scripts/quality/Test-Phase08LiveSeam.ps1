@@ -583,15 +583,15 @@ function New-R9HandoffFixture {
   }
   $control=Get-Content -LiteralPath (Join-Path (Split-Path -Parent (Split-Path -Parent $PSScriptRoot)) 'policy/release-control.json') -Raw|ConvertFrom-Json -Depth 100
   $history=@($control.initial_attempt_family.terminal_negative_history)
-  for($i=0;$i -lt 12;$i++){
-    $name=@('attempt-zero','r1','r2','r3','r4','r5','r6','r7','r8','r9','r10','r11')[$i];$paths[$name]=Join-Path $Root "$name.json"
+  for($i=0;$i -lt 13;$i++){
+    $name=@('attempt-zero','r1','r2','r3','r4','r5','r6','r7','r8','r9','r10','r11','r12')[$i];$paths[$name]=Join-Path $Root "$name.json"
     $projection=[ordered]@{};foreach($property in $history[$i].PSObject.Properties){if($property.Name -cne 'record_sha256'){$projection[$property.Name]=$property.Value}}
     [IO.File]::WriteAllText($paths[$name],($projection|ConvertTo-Json -Depth 30 -Compress),[Text.UTF8Encoding]::new($false))
   }
   $packetPath=$null;$receiptPath=$null;$exactPath=$null
   if($Variant -ceq 'mutation_authorized'){
     $packetPath=Join-Path $Root 'packet.json'
-    $packet=[pscustomobject][ordered]@{schema_version='mnf-phase08-mutation-authorization-packet/1';release_ref='refs/tags/modules-v0.1.0-r12';boundary_sha=('1'*40);packet_sha256=''}
+    $packet=[pscustomobject][ordered]@{schema_version='mnf-phase08-mutation-authorization-packet/1';release_ref='refs/tags/modules-v0.1.0-r13';boundary_sha=('1'*40);packet_sha256=''}
     $packet.packet_sha256=Get-P08SelfExcludingDigest $packet 'packet_sha256'
     [IO.File]::WriteAllText($packetPath,(Get-P08CanonicalJson $packet),[Text.UTF8Encoding]::new($false))
     $receiptPath=Join-Path $Root 'authorization-receipt.json'
@@ -602,10 +602,10 @@ function New-R9HandoffFixture {
   }
   $activePath=Join-Path $Root 'active-attempt.json'
   $bindings=[pscustomobject][ordered]@{
-    release_ref='refs/tags/modules-v0.1.0-r12';boundary_sha=('1'*40);execution_root=[IO.Path]::GetFullPath($Root)
+    release_ref='refs/tags/modules-v0.1.0-r13';boundary_sha=('1'*40);execution_root=[IO.Path]::GetFullPath($Root)
     boundary_locator_path=[IO.Path]::GetFullPath($paths.'boundary-locator');artifact_root=[IO.Path]::GetFullPath($Root);artifact_index_path=[IO.Path]::GetFullPath($paths.index)
-    attempt_zero_history_path=[IO.Path]::GetFullPath($paths.'attempt-zero');r1_history_path=[IO.Path]::GetFullPath($paths.r1);r2_history_path=[IO.Path]::GetFullPath($paths.r2);r3_history_path=[IO.Path]::GetFullPath($paths.r3);r4_history_path=[IO.Path]::GetFullPath($paths.r4);r5_history_path=[IO.Path]::GetFullPath($paths.r5);r6_history_path=[IO.Path]::GetFullPath($paths.r6);r7_history_path=[IO.Path]::GetFullPath($paths.r7);r8_history_path=[IO.Path]::GetFullPath($paths.r8);r9_history_path=[IO.Path]::GetFullPath($paths.r9);r10_history_path=[IO.Path]::GetFullPath($paths.r10);r11_history_path=[IO.Path]::GetFullPath($paths.r11)
-    historical_history_set_sha256='5394421289924d7712034b43d7e732a7ff7aec3276d1ddab4846861788d8a4be'
+    attempt_zero_history_path=[IO.Path]::GetFullPath($paths.'attempt-zero');r1_history_path=[IO.Path]::GetFullPath($paths.r1);r2_history_path=[IO.Path]::GetFullPath($paths.r2);r3_history_path=[IO.Path]::GetFullPath($paths.r3);r4_history_path=[IO.Path]::GetFullPath($paths.r4);r5_history_path=[IO.Path]::GetFullPath($paths.r5);r6_history_path=[IO.Path]::GetFullPath($paths.r6);r7_history_path=[IO.Path]::GetFullPath($paths.r7);r8_history_path=[IO.Path]::GetFullPath($paths.r8);r9_history_path=[IO.Path]::GetFullPath($paths.r9);r10_history_path=[IO.Path]::GetFullPath($paths.r10);r11_history_path=[IO.Path]::GetFullPath($paths.r11);r12_history_path=[IO.Path]::GetFullPath($paths.r12)
+    historical_history_set_sha256='961780e02672005c9dfb19299fc81a0531fb58081de3ee2a78274dda88f630e5'
     mutation_authorization_packet_path=$packetPath;authorization_receipt_path=$receiptPath;exact_existing_authority_path=$exactPath
   }
   $null=Write-P08ActiveAttempt -Path $activePath -Bindings $bindings -AuthorityVariant $Variant -UpdatedAt '2026-07-19T00:00:00Z'
