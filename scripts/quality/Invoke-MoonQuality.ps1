@@ -617,13 +617,19 @@ function Add-Phase07QualificationEvidence {
 
 function Invoke-RequiredQuality {
   param([Parameter(Mandatory)][string]$EvidenceDirectory)
-  $wingetPackages = Join-Path $env:LOCALAPPDATA 'Microsoft\WinGet\Packages'
-  $llvmMingwBins = @(
-    Get-ChildItem -LiteralPath $wingetPackages -Directory -Filter 'MartinStorsjo.LLVM-MinGW.UCRT_*' -ErrorAction SilentlyContinue |
-      ForEach-Object { Get-ChildItem -LiteralPath $_.FullName -Directory -Filter 'llvm-mingw-*-ucrt-x86_64' -ErrorAction SilentlyContinue } |
-      ForEach-Object { Join-Path $_.FullName 'bin' } |
-      Where-Object { Test-Path -LiteralPath (Join-Path $_ 'clang.exe') -PathType Leaf }
-  )
+  $llvmMingwBins = @()
+  if ($IsWindows -and -not [string]::IsNullOrWhiteSpace($env:LOCALAPPDATA)) {
+    $wingetPackages = Join-Path $env:LOCALAPPDATA 'Microsoft\WinGet\Packages'
+    $llvmMingwBins = @(
+      Get-ChildItem -LiteralPath $wingetPackages -Directory -Filter 'MartinStorsjo.LLVM-MinGW.UCRT_*' -ErrorAction SilentlyContinue |
+        ForEach-Object { Get-ChildItem -LiteralPath $_.FullName -Directory -Filter 'llvm-mingw-*-ucrt-x86_64' -ErrorAction SilentlyContinue } |
+        ForEach-Object { Join-Path $_.FullName 'bin' } |
+        Where-Object { Test-Path -LiteralPath (Join-Path $_ 'clang.exe') -PathType Leaf }
+    )
+  } else {
+    $clang = Get-Command clang -CommandType Application -ErrorAction SilentlyContinue
+    if ($null -ne $clang) { $llvmMingwBins = @([IO.Path]::GetDirectoryName($clang.Source)) }
+  }
   if ($llvmMingwBins.Count -ne 1) { throw "Required Native qualification needs exactly one complete LLVM-MinGW UCRT toolchain; found $($llvmMingwBins.Count)." }
   $env:Path = "$($llvmMingwBins[0]);$env:Path"
   $policyPath = 'policy/foundation.json'
