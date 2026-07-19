@@ -5,15 +5,15 @@ milestone_name: Publication & Compatibility
 current_phase: 08
 current_phase_name: Ordered Mooncakes Publication and Registry Consumers
 status: executing — active static-only recovery is 08-34 then 08-35; obsolete r12 authority is quarantined
-stopped_at: 08-34 r13 static recovery in progress; no r13 boundary or publication authorization exists
-last_updated: "2026-07-19T20:30:00.000Z"
+stopped_at: Completed 08-34-PLAN.md
+last_updated: "2026-07-19T14:03:12.986Z"
 last_activity: 2026-07-19
-last_activity_desc: r12 publish-blocked by REL01-REF (tag-before-script-fix); corrected misdiagnosed timeout; recorded ordering invariant for r13+
+last_activity_desc: corrected the misdiagnosed timeout narrative (deterministic REL01-REF), recorded the tag-before-script-fix ordering invariant for r13+
 progress:
   total_phases: 4
   completed_phases: 2
-  total_plans: 61
-  completed_plans: 60
+  total_plans: 63
+  completed_plans: 61
   percent: 50
 ---
 
@@ -30,7 +30,7 @@ See `.planning/PROJECT.md` (updated 2026-07-17).
 ## Current Position
 
 Phase: 08 (Ordered Mooncakes Publication and Registry Consumers) — EXECUTING
-Plan: 32 of 35 (08-33 quarantined; the static-only recovery route is 08-34 then 08-35)
+Plan: 33 of 35 (08-33 quarantined; the static-only recovery route is 08-34 then 08-35)
 Status: r12 publish-blocked (REL01-REF) — its boundary commit (5e7b19cd) declared policy release_ref=r12 but Invoke-ReleaseQualification.ps1 still hardcoded r9; the fix (d55f63a) landed 26 min after the immutable tag. 08-33 cannot run on r12. r12 is immutable terminal evidence only; forward path is r13+, starting with 08-34 then 08-35. Do not retry r12.
 Last activity: 2026-07-19 — corrected the misdiagnosed timeout narrative (deterministic REL01-REF), recorded the tag-before-script-fix ordering invariant for r13+
 
@@ -157,6 +157,7 @@ Current milestone: [█████░░░░░] 50% of v0.2 phases complete
 - [Phase ?]: Publisher, live adapter, HostedRun, and workflow require twelve individual history digests plus the canonical LF aggregate; stale r11 authority cannot reach the adapter.
 - [Phase ?]: r12 (object 57b76c9f, peel 5e7b19cd) is publish-blocked terminal evidence — its boundary commit declared policy release_ref=r12 but Invoke-ReleaseQualification.ps1 still hardcoded r9, so its own qualification throws REL01-REF deterministically; the r12 script fix (d55f63a) landed 26 min after the immutable tag. r13+ must be the forward retry; do not retry r12.
 - [Phase ?]: Order tag creation after script/policy ref agreement — before creating any future boundary tag rN, verify at the candidate commit that (1) Invoke-ReleaseQualification.ps1 references refs/tags/modules-v0.1.0-rN on every -ReleaseRef, (2) policy/release-control.json declares current_attempt=rN and release_ref=refs/tags/modules-v0.1.0-rN, (3) the boundary wrapper completes PrepareAttempt (not just InitializeBoundary) in a disposable clone. This closes the gap that let r12 tag a self-inconsistent commit.
+- [Phase ?]: Quarantine 08-33 permanently; advance only through static r13 recovery before any separate boundary or authorization step.
 
 ### Pending Decisions
 
@@ -169,10 +170,10 @@ None
 
 ## Session Continuity
 
-**Resume file:** None
+**Resume file:** 08-35-PLAN.md
 
-Last session: 2026-07-19T20:30:00Z
-Stopped at: 08-34 r13 static recovery in progress; obsolete r12 routing is quarantined
+Last session: 2026-07-19T14:03:12.970Z
+Stopped at: Completed 08-34-PLAN.md
 Resume with: `/gsd-execute-phase 8` to continue the static r13 recovery route; a later plan must separately create and verify an immutable r13 boundary, and a still-later r13-specific plan may request explicit publication authorization
 
 ## Operator Next Steps
@@ -235,3 +236,4 @@ Resume with: `/gsd-execute-phase 8` to continue the static r13 recovery route; a
 | Phase 08 P24 | 54min | 2 tasks | 13 files |
 | Phase 08 P27 | 45min | 2 tasks | 12 files |
 | Phase 08 P31 | 10min | 2 tasks | 10 files |
+| Phase 08 P34 | 0h 35m | 3 tasks | 11 files |
