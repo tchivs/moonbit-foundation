@@ -10,8 +10,13 @@ param(
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
-$productionHandoff=[IO.Path]::GetFullPath((Join-Path ([IO.Path]::GetTempPath()) 'mnf-phase08-r7-handoff.json'))
+$productionHandoff=[IO.Path]::GetFullPath((Join-Path ([IO.Path]::GetTempPath()) 'mnf-phase08-r8-handoff.json'))
 if(Test-Path -LiteralPath $productionHandoff){throw 'P08-FIXED-HANDOFF-PREEXISTING: production fixed handoff must be absent before static fixtures.'}
+$hostedSource=Get-Content -LiteralPath (Join-Path $PSScriptRoot 'Invoke-Phase08HostedRun.ps1') -Raw
+foreach($required in @('refs/tags/modules-v0.1.0-r8','R7HistoryPath','historical_r7_sha256','mnf-phase08-r8-handoff.json','29673849108','88157456895')){
+  if($hostedSource.IndexOf($required,[StringComparison]::Ordinal) -lt 0){throw "P08-R8-HOSTED-STATIC: missing '$required'."}
+}
+if($hostedSource.IndexOf('mnf-phase08-r7-handoff.json',[StringComparison]::Ordinal) -ge 0){throw 'P08-R8-HOSTED-STATIC: prior fixed handoff remains reachable.'}
 
 $adapterPath = Join-Path $PSScriptRoot 'Invoke-MooncakesLiveMutation.ps1'
 if (-not (Test-Path -LiteralPath $adapterPath -PathType Leaf)) {
@@ -277,7 +282,7 @@ foreach ($required in @(
   'Invoke-MooncakesLiveMutation','Invoke-ColdRegistryConsumer','MOONCAKES_TOKEN','InitializeBoundary','PrepareAttempt',
   'PublisherDryRun','HostedPreflight','MaterializePublicSurface','ObserveOnly','IndexSanitizedArtifact',
   'AssembleAuthorizationPacket','SelectExactExistingAuthority','SelectPublishedNowAuthority','PublishOne',
-  'refs/tags/modules-v0.1.0-r7','historical_attempts_sha256:','historical_r6_sha256','historical_history_set_sha256','publish --frozen --dry-run','native_runtime_verified','whoami.stdout','whoami.stderr',
+  'refs/tags/modules-v0.1.0-r8','historical_attempts_sha256:','historical_r7_sha256','historical_history_set_sha256','publish --frozen --dry-run','native_runtime_verified','whoami.stdout','whoami.stderr',
   'exact_existing','published_now'
 )) {
   if ($workflow.IndexOf($required,[StringComparison]::Ordinal) -lt 0) { throw "P08-WORKFLOW-MISSING: '$required'." }

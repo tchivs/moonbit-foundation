@@ -48,10 +48,10 @@ function Assert-P08R8Contract {
   $digestPosition=$qualification.IndexOf('$zipEvidenceA = Get-ZipEvidence',[StringComparison]::Ordinal)
   if($canonicalPosition -lt 0 -or $digestPosition -le $canonicalPosition){Throw-P08Qualification 'P08-R8-CANONICAL-ARCHIVE' 'Canonical ZIP bytes are not established before qualification digest evidence.'}
   $hosted=Get-Content -LiteralPath (Join-Path $PSScriptRoot 'Invoke-Phase08HostedRun.ps1') -Raw
-  foreach($required in @('refs/tags/modules-v0.1.0-r7','R6HistoryPath','historical_attempts_sha256','authorization_receipt_sha256','mnf-phase08-r7-handoff.json')){
-    if($hosted.IndexOf($required,[StringComparison]::Ordinal) -lt 0){Throw-P08Qualification 'P08-R7-HOSTED' "Missing hosted r7 seam '$required'."}
+  foreach($required in @('refs/tags/modules-v0.1.0-r8','R7HistoryPath','historical_r7_sha256','historical_attempts_sha256','authorization_receipt_sha256','mnf-phase08-r8-handoff.json','29673849108','88157456895')){
+    if($hosted.IndexOf($required,[StringComparison]::Ordinal) -lt 0){Throw-P08Qualification 'P08-R8-HOSTED' "Missing hosted r8 seam '$required'."}
   }
-  if($hosted.IndexOf('mnf-phase08-r6-handoff.json',[StringComparison]::Ordinal) -ge 0){Throw-P08Qualification 'P08-R7-HOSTED' 'Hosted production path still names the r6 handoff.'}
+  if($hosted.IndexOf('mnf-phase08-r7-handoff.json',[StringComparison]::Ordinal) -ge 0){Throw-P08Qualification 'P08-R8-HOSTED' 'Hosted production path still names the r7 handoff.'}
   $qualificationSource=Get-Content -LiteralPath $PSCommandPath -Raw
   if($qualificationSource -cnotmatch '(?m)^\s*& git -c core[.]autocrlf=false clone --quiet --no-hardlinks --no-tags [$]repoRoot [$]prepareExecutionRoot\s*$'){Throw-P08Qualification 'P08-R5-LF-NO-TAGS' 'Qualification fixture clone must force LF-safe checkout behavior and exclude permanent tags.'}
   function Confirm-R2Failure([string]$Id,[scriptblock]$Action){$failure=$null;try{&$Action}catch{$failure=$_.Exception.Message};if($null -eq $failure -or -not $failure.StartsWith("$Id`: ",[StringComparison]::Ordinal)){Throw-P08Qualification 'P08-R2-NEGATIVE' "Expected $Id, got '$failure'."}}
