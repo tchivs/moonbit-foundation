@@ -13,14 +13,14 @@ $ErrorActionPreference = 'Stop'
 $publisherSource=Get-Content -LiteralPath (Join-Path $PSScriptRoot 'Invoke-ReleasePublisher.ps1') -Raw
 $adapterSource=Get-Content -LiteralPath (Join-Path $PSScriptRoot 'Invoke-MooncakesLiveMutation.ps1') -Raw
 foreach($source in @($publisherSource,$adapterSource)){
-  foreach($required in @('refs/tags/modules-v0.1.0-r12','historical_r11_sha256')){
-    if($source.IndexOf($required,[StringComparison]::Ordinal)-lt 0){throw "P08-LIVE-R12-STATIC: missing '$required'."}
+  foreach($required in @('refs/tags/modules-v0.1.0-r13','historical_r12_sha256')){
+    if($source.IndexOf($required,[StringComparison]::Ordinal)-lt 0){throw "P08-LIVE-R13-STATIC: missing '$required'."}
   }
 }
 $productionHandoff=[IO.Path]::GetFullPath((Join-Path ([IO.Path]::GetTempPath()) 'mnf-phase08-r12-handoff.json'))
 if(Test-Path -LiteralPath $productionHandoff){throw 'P08-FIXED-HANDOFF-PREEXISTING: production fixed handoff must be absent before static fixtures.'}
 $hostedSource=Get-Content -LiteralPath (Join-Path $PSScriptRoot 'Invoke-Phase08HostedRun.ps1') -Raw
-foreach($required in @('refs/tags/modules-v0.1.0-r12','R11HistoryPath','historical_r11_sha256','mnf-phase08-r12-handoff.json','Copy-P08CanonicalPreparedArchive','ValidatePreAuthorization')){
+foreach($required in @("current_attempt -cne 'r13'",'R12HistoryPath','historical_r12_sha256','mnf-phase08-r12-handoff.json','Copy-P08CanonicalPreparedArchive','ValidatePreAuthorization')){
   if($hostedSource.IndexOf($required,[StringComparison]::Ordinal) -lt 0){throw "P08-R10-HOSTED-STATIC: missing '$required'."}
 }
 if($hostedSource.IndexOf('mnf-phase08-r9-handoff.json',[StringComparison]::Ordinal) -ge 0){throw 'P08-R10-HOSTED-STATIC: prior fixed handoff remains reachable.'}
@@ -46,7 +46,7 @@ function New-LiveTestRequest {
       expected_actor='tchivs';observed_actor='tchivs';actor_check_classification='moon_whoami_exact';actor_exit_code=0
       actor_stdout_line_count=1;actor_stderr_empty=$true;actor_match=$true;actor_raw_output_persisted=$false
       credential_state_removed=$true;mutation_performed=$false;command_classification='moon_whoami_dry_run_only'
-    }; release_ref='refs/tags/modules-v0.1.0-r12'
+    }; release_ref='refs/tags/modules-v0.1.0-r13'
     source_sha=('1'*40); root_intent_sha256=('a'*64); intent_sha256=('a'*64); intent_kind='initial'
     prepared_manifest_sha256=('b'*64)
     historical_attempt_zero_sha256='b9bda5378ea339f4cdd42c417c1cc0cf8caabbd51ab11d453cd45ddae77d9b52'
@@ -61,7 +61,8 @@ function New-LiveTestRequest {
     historical_r9_sha256='6edf89e7afb98dca1e81e3d5db9ff8a47f96dbfb2919bdaeb176c76c52c581ec'
     historical_r10_sha256='1d524890dd5f0c11e58bcd2884c2d4623e02759a5ff801f2554fcc2ae654895f'
     historical_r11_sha256='def1bf53a3305c72360bebb651f56d28cdcaac83150e76e3c3134962ade4e9d1'
-    historical_history_set_sha256='5394421289924d7712034b43d7e732a7ff7aec3276d1ddab4846861788d8a4be'
+    historical_r12_sha256='92397fbdfc679f154382928ee6f94c57e46b40b7c5f7e8d65759b0165d6c96a8'
+    historical_history_set_sha256='961780e02672005c9dfb19299fc81a0531fb58081de3ee2a78274dda88f630e5'
     correction_sequence=0; predecessor_intent_sha256=$null; authorization_valid=$true
     evidence_valid=$true; dry_run_passed=$true; authority_account='tchivs'
   }
@@ -159,7 +160,7 @@ try {
     repository=$request.repository; actor=$request.actor; release_ref=$request.release_ref; source_sha=$request.source_sha
     root_intent_sha256=$request.root_intent_sha256; intent_sha256=$request.intent_sha256
     historical_attempt_zero_sha256=$request.historical_attempt_zero_sha256;historical_r1_sha256=$request.historical_r1_sha256
-    historical_r2_sha256=$request.historical_r2_sha256;historical_r3_sha256=$request.historical_r3_sha256;historical_r4_sha256=$request.historical_r4_sha256;historical_r5_sha256=$request.historical_r5_sha256;historical_r6_sha256=$request.historical_r6_sha256;historical_r7_sha256=$request.historical_r7_sha256;historical_r8_sha256=$request.historical_r8_sha256;historical_r9_sha256=$request.historical_r9_sha256;historical_r10_sha256=$request.historical_r10_sha256;historical_r11_sha256=$request.historical_r11_sha256;historical_history_set_sha256=$request.historical_history_set_sha256
+    historical_r2_sha256=$request.historical_r2_sha256;historical_r3_sha256=$request.historical_r3_sha256;historical_r4_sha256=$request.historical_r4_sha256;historical_r5_sha256=$request.historical_r5_sha256;historical_r6_sha256=$request.historical_r6_sha256;historical_r7_sha256=$request.historical_r7_sha256;historical_r8_sha256=$request.historical_r8_sha256;historical_r9_sha256=$request.historical_r9_sha256;historical_r10_sha256=$request.historical_r10_sha256;historical_r11_sha256=$request.historical_r11_sha256;historical_r12_sha256=$request.historical_r12_sha256;historical_history_set_sha256=$request.historical_history_set_sha256
     payloads=@('mb-core','mb-color','mb-image' | ForEach-Object { [pscustomobject][ordered]@{ path="archives/$_.zip"; role='exact_source_archive'; size=1; sha256=('3'*64) } })
   }
   [IO.File]::WriteAllText((Join-Path $fixtureRoot 'prepared/prepared-bundle.json'),($manifest | ConvertTo-Json -Depth 20),[Text.UTF8Encoding]::new($false))
@@ -294,7 +295,7 @@ foreach ($required in @(
   'Invoke-MooncakesLiveMutation','Invoke-ColdRegistryConsumer','MOONCAKES_TOKEN','InitializeBoundary','PrepareAttempt',
   'PublisherDryRun','HostedPreflight','MaterializePublicSurface','ObserveOnly','IndexSanitizedArtifact',
   'AssembleAuthorizationPacket','SelectExactExistingAuthority','SelectPublishedNowAuthority','PublishOne',
-  'refs/tags/modules-v0.1.0-r12','historical_attempts_sha256:','historical_r11_sha256','historical_history_set_sha256','publish --frozen --dry-run','native_runtime_verified','whoami.stdout','whoami.stderr',
+  'refs/tags/modules-v0.1.0-r13','historical_attempts_sha256:','historical_r12_sha256','historical_history_set_sha256','publish --frozen --dry-run','native_runtime_verified','whoami.stdout','whoami.stderr',
   'exact_existing','published_now'
 )) {
   if ($workflow.IndexOf($required,[StringComparison]::Ordinal) -lt 0) { throw "P08-WORKFLOW-MISSING: '$required'." }
@@ -421,7 +422,7 @@ function Assert-P08HostedDispatchFields {
     if($CommandArguments[0] -ceq 'run' -and $CommandArguments[1] -ceq 'list'){
       if(-not $script:p08HostedFieldsDispatched){return '[]'}
       $run=[pscustomobject][ordered]@{
-        databaseId=$script:p08HostedFieldsRunId;headBranch='modules-v0.1.0-r12';headSha=('1'*40);status='completed';conclusion='success'
+        databaseId=$script:p08HostedFieldsRunId;headBranch='modules-v0.1.0-r13';headSha=('1'*40);status='completed';conclusion='success'
         displayTitle=$script:p08HostedFieldsTitle;workflowName='publish-modules';url='https://fixture.invalid/run';createdAt='2026-07-19T00:00:00Z';updatedAt='2026-07-19T00:00:01Z'
       }
       return (ConvertTo-Json -InputObject @($run) -Depth 10 -Compress)
@@ -433,7 +434,7 @@ function Assert-P08HostedDispatchFields {
     }
     if($CommandArguments[0] -ceq 'run' -and $CommandArguments[1] -ceq 'view'){
       return ([pscustomobject][ordered]@{
-        databaseId=$script:p08HostedFieldsRunId;attempt=1;headBranch='modules-v0.1.0-r12';headSha=('1'*40);event='workflow_dispatch'
+        databaseId=$script:p08HostedFieldsRunId;attempt=1;headBranch='modules-v0.1.0-r13';headSha=('1'*40);event='workflow_dispatch'
         status='completed';conclusion='success';displayTitle=$script:p08HostedFieldsTitle;workflowName='publish-modules';url='https://fixture.invalid/run'
         createdAt='2026-07-19T00:00:00Z';updatedAt='2026-07-19T00:00:01Z'
       }|ConvertTo-Json -Depth 10 -Compress)
@@ -443,14 +444,14 @@ function Assert-P08HostedDispatchFields {
   $script:GhCommand=$script:p08HostedFieldsGh
   try{
     $null=Invoke-P08HostedDispatch -Operation $Operation -Repo 'tchivs/moonbit-foundation' -WorkflowPath 'publish-modules.yml' `
-      -Ref 'refs/tags/modules-v0.1.0-r12' -Sha ('1'*40) -RootIntent ('a'*64) -CurrentIntent ('b'*64) -PreparedDigest ('c'*64) `
+      -Ref 'refs/tags/modules-v0.1.0-r13' -Sha ('1'*40) -RootIntent ('a'*64) -CurrentIntent ('b'*64) -PreparedDigest ('c'*64) `
       -Module 'mb-core' -PriorId $PriorId -PriorArtifact $PriorArtifact -Packet $Packet -Receipt $Receipt `
       -AttemptZeroHistory $AttemptZeroHistory -R1History $R1History -R2History $R2History -R3History $R3History -R4History $R4History -R5History $R5History -R6History $R6History -R7History $R7History -R8History $R8History -R9History $R9History -R10History $R10History -R11History $R11History
   }finally{
     $script:GhCommand=$null
   }
   if(-not $script:p08HostedFieldsDispatched -or $null -eq $script:p08HostedFieldsArguments){throw 'P08-HOSTED-FIELDS-DISPATCH: fake dispatch was not reached exactly once.'}
-  $expectedPrefix=@('workflow','run','publish-modules.yml','--repo','tchivs/moonbit-foundation','--ref','modules-v0.1.0-r12')
+  $expectedPrefix=@('workflow','run','publish-modules.yml','--repo','tchivs/moonbit-foundation','--ref','modules-v0.1.0-r13')
   $actualPrefix=@($script:p08HostedFieldsArguments[0..6])
   if(($actualPrefix -join ',') -cne ($expectedPrefix -join ',')){throw 'P08-HOSTED-FIELDS-PREFIX: dispatch prefix drifted.'}
   $actualFields=[Collections.Generic.List[string]]::new()
@@ -489,7 +490,7 @@ try{
   $packetDigest=(Get-FileHash -LiteralPath $packet -Algorithm SHA256).Hash.ToLowerInvariant()
   $receiptDigest=(Get-FileHash -LiteralPath $receipt -Algorithm SHA256).Hash.ToLowerInvariant()
   $commonFields=@(
-    'release_ref=refs/tags/modules-v0.1.0-r12',('source_sha='+('1'*40)),('root_intent_sha256='+('a'*64)),('intent_sha256='+('b'*64)),
+    'release_ref=refs/tags/modules-v0.1.0-r13',('source_sha='+('1'*40)),('root_intent_sha256='+('a'*64)),('intent_sha256='+('b'*64)),
     ('prepared_manifest_sha256='+('c'*64)),('historical_attempts_sha256='+[string]$control.initial_attempt_family.history_set_sha256),'target_module=mb-core'
   )
   Assert-P08HostedDispatchFields -Operation HostedPreflight -PriorId '' -PriorArtifact '' -Packet '' -Receipt '' -AttemptZeroHistory $attemptZeroHistory -R1History $r1History -R2History $r2History -R3History $r3History -R4History $r4History -R5History $r5History -R6History $r6History -R7History $r7History -R8History $r8History -R9History $r9History -R10History $r10History -R11History $r11History -ExpectedFields (@(

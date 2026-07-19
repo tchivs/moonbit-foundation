@@ -24,7 +24,7 @@ function Assert-LiveRequest {
   param([object]$Request)
   Assert-PublisherClosedProperties 'live request' $Request @(
     'repository','actor','actor_evidence','release_ref','source_sha','root_intent_sha256','intent_sha256','intent_kind','prepared_manifest_sha256',
-    'historical_attempt_zero_sha256','historical_r1_sha256','historical_r2_sha256','historical_r3_sha256','historical_r4_sha256','historical_r5_sha256','historical_r6_sha256','historical_r7_sha256','historical_r8_sha256','historical_r9_sha256','historical_r10_sha256','historical_r11_sha256','historical_history_set_sha256',
+    'historical_attempt_zero_sha256','historical_r1_sha256','historical_r2_sha256','historical_r3_sha256','historical_r4_sha256','historical_r5_sha256','historical_r6_sha256','historical_r7_sha256','historical_r8_sha256','historical_r9_sha256','historical_r10_sha256','historical_r11_sha256','historical_r12_sha256','historical_history_set_sha256',
     'correction_sequence','predecessor_intent_sha256','authorization_valid','evidence_valid','dry_run_passed','authority_account'
   )
   if ($Request.repository -cne 'tchivs/moonbit-foundation' -or $Request.actor -cne 'tchivs' -or
@@ -41,16 +41,16 @@ function Assert-LiveRequest {
       $actor.mutation_performed -ne $false -or $actor.command_classification -cne 'moon_whoami_dry_run_only') {
     Throw-LiveRule 'LIVE01-AUTHORIZATION' 'Live actor evidence is not the exact sanitized dry-run projection.'
   }
-  $history=@([string]$Request.historical_attempt_zero_sha256,[string]$Request.historical_r1_sha256,[string]$Request.historical_r2_sha256,[string]$Request.historical_r3_sha256,[string]$Request.historical_r4_sha256,[string]$Request.historical_r5_sha256,[string]$Request.historical_r6_sha256,[string]$Request.historical_r7_sha256,[string]$Request.historical_r8_sha256,[string]$Request.historical_r9_sha256,[string]$Request.historical_r10_sha256,[string]$Request.historical_r11_sha256)
-  $expectedHistory=@('b9bda5378ea339f4cdd42c417c1cc0cf8caabbd51ab11d453cd45ddae77d9b52','cba047dae2e6b4e1bbf0248653ed7848f144971b54a0a4ed30ef42ab97325653','aae8bee66e7dbfca7f3f22f1b52071e7888ae3ec8feee513d1c5d8eba6111609','cf29473b2b07ff9aa8fd8a4810ddc45f6aacd2fd4b74048f5d29b3b6fa939d41','d9b045bc65df87dc2701144ea7716defc67acb84ec9ea8e7ffdafd0118ba0906','1239b63f983bef86ac44c731171093ad67759de9cce7c15610b92f5df6214843','3f9c0d9916dbccfa9144488d2967ee1a7fb3fd1d9936f8cc4139c2734f2d0ad4','baf5d4921c75b2ba4a64cd234663a1b7086d6c45a653edd1ce4a63f56882933f','8a7729234a62425d0082a7b7a4615f2757ab4bc59938925b8ca031e2e00c10c8','6edf89e7afb98dca1e81e3d5db9ff8a47f96dbfb2919bdaeb176c76c52c581ec','1d524890dd5f0c11e58bcd2884c2d4623e02759a5ff801f2554fcc2ae654895f','def1bf53a3305c72360bebb651f56d28cdcaac83150e76e3c3134962ade4e9d1')
+  $history=@([string]$Request.historical_attempt_zero_sha256,[string]$Request.historical_r1_sha256,[string]$Request.historical_r2_sha256,[string]$Request.historical_r3_sha256,[string]$Request.historical_r4_sha256,[string]$Request.historical_r5_sha256,[string]$Request.historical_r6_sha256,[string]$Request.historical_r7_sha256,[string]$Request.historical_r8_sha256,[string]$Request.historical_r9_sha256,[string]$Request.historical_r10_sha256,[string]$Request.historical_r11_sha256,[string]$Request.historical_r12_sha256)
+  $expectedHistory=@('b9bda5378ea339f4cdd42c417c1cc0cf8caabbd51ab11d453cd45ddae77d9b52','cba047dae2e6b4e1bbf0248653ed7848f144971b54a0a4ed30ef42ab97325653','aae8bee66e7dbfca7f3f22f1b52071e7888ae3ec8feee513d1c5d8eba6111609','cf29473b2b07ff9aa8fd8a4810ddc45f6aacd2fd4b74048f5d29b3b6fa939d41','d9b045bc65df87dc2701144ea7716defc67acb84ec9ea8e7ffdafd0118ba0906','1239b63f983bef86ac44c731171093ad67759de9cce7c15610b92f5df6214843','3f9c0d9916dbccfa9144488d2967ee1a7fb3fd1d9936f8cc4139c2734f2d0ad4','baf5d4921c75b2ba4a64cd234663a1b7086d6c45a653edd1ce4a63f56882933f','8a7729234a62425d0082a7b7a4615f2757ab4bc59938925b8ca031e2e00c10c8','6edf89e7afb98dca1e81e3d5db9ff8a47f96dbfb2919bdaeb176c76c52c581ec','1d524890dd5f0c11e58bcd2884c2d4623e02759a5ff801f2554fcc2ae654895f','def1bf53a3305c72360bebb651f56d28cdcaac83150e76e3c3134962ade4e9d1','92397fbdfc679f154382928ee6f94c57e46b40b7c5f7e8d65759b0165d6c96a8')
   $historySet=([Convert]::ToHexString([Security.Cryptography.SHA256]::HashData([Text.UTF8Encoding]::new($false).GetBytes(($history -join "`n"))))).ToLowerInvariant()
-  if ($Request.release_ref -cne 'refs/tags/modules-v0.1.0-r12' -or $Request.source_sha -cnotmatch '^[0-9a-f]{40}$' -or
-      $Request.source_sha -cin @('198436a45b7403a3c28c98d5fa0d5ed6a958455f','09548df948f58ec1bdfff7494757596c03e4c9bd','73a3af920fc3938f49e93d14f16f79f116475f1e','67b1fbc9dd62288d19018c46a44c1e3293212b76','ee4a8eb9b8dca5d69b404c9a4a1cd81608a5462a','df105f06205298f1f82ac2f2cdca214d69d42e15','c05cacbc3cfc583205c612f4bf293a4e251ec079','195e08dc1f3a1dc561d98cc660af679926ae0198','8d0f050a2ea2a5f136d87f913987d59ea99a13d4','4158dff7d3b6629861d4f5325573c45f3e3e3436') -or
+  if ($Request.release_ref -cne 'refs/tags/modules-v0.1.0-r13' -or $Request.source_sha -cnotmatch '^[0-9a-f]{40}$' -or
+      $Request.source_sha -cin @('198436a45b7403a3c28c98d5fa0d5ed6a958455f','09548df948f58ec1bdfff7494757596c03e4c9bd','73a3af920fc3938f49e93d14f16f79f116475f1e','67b1fbc9dd62288d19018c46a44c1e3293212b76','ee4a8eb9b8dca5d69b404c9a4a1cd81608a5462a','df105f06205298f1f82ac2f2cdca214d69d42e15','c05cacbc3cfc583205c612f4bf293a4e251ec079','195e08dc1f3a1dc561d98cc660af679926ae0198','8d0f050a2ea2a5f136d87f913987d59ea99a13d4','4158dff7d3b6629861d4f5325573c45f3e3e3436','d49edc53fb4ffca375e562a23789fb76bf8c41e2','30479a2546e0fc6416a9a26b10e39ed1f686c860','5e7b19cdc74ec11d5c524ff34a36c266b15bba39') -or
       $Request.root_intent_sha256 -cnotmatch '^[0-9a-f]{64}$' -or $Request.intent_sha256 -cnotmatch '^[0-9a-f]{64}$' -or
       $Request.prepared_manifest_sha256 -cnotmatch '^[0-9a-f]{64}$' -or
-      @($history | Where-Object { $_ -cnotmatch '^[0-9a-f]{64}$' }).Count -ne 0 -or (@($history | Select-Object -Unique)).Count -ne 12 -or
+      @($history | Where-Object { $_ -cnotmatch '^[0-9a-f]{64}$' }).Count -ne 0 -or (@($history | Select-Object -Unique)).Count -ne 13 -or
       ($history -join ',') -cne ($expectedHistory -join ',') -or $Request.historical_history_set_sha256 -cne $historySet -or
-      $historySet -cne '5394421289924d7712034b43d7e732a7ff7aec3276d1ddab4846861788d8a4be' -or
+      $historySet -cne '961780e02672005c9dfb19299fc81a0531fb58081de3ee2a78274dda88f630e5' -or
       $Request.intent_kind -cne 'initial' -or [int]$Request.correction_sequence -ne 0 -or
       $null -ne $Request.predecessor_intent_sha256 -or $Request.root_intent_sha256 -cne $Request.intent_sha256) {
     Throw-LiveRule 'LIVE02-BINDING' 'Only the exact qualified initial release binding is eligible.'
@@ -183,6 +183,7 @@ function Invoke-PreparedLiveValidation {
       HistoricalR9Sha256=[string]$Request.historical_r9_sha256
       HistoricalR10Sha256=[string]$Request.historical_r10_sha256
       HistoricalR11Sha256=[string]$Request.historical_r11_sha256
+      HistoricalR12Sha256=[string]$Request.historical_r12_sha256
       HistoricalHistorySetSha256=[string]$Request.historical_history_set_sha256
     }
     if ($manifest.run_mode -ceq 'resume') {
@@ -207,6 +208,7 @@ function Invoke-PreparedLiveValidation {
       $manifest.historical_r9_sha256 -cne $Request.historical_r9_sha256 -or
       $manifest.historical_r10_sha256 -cne $Request.historical_r10_sha256 -or
       $manifest.historical_r11_sha256 -cne $Request.historical_r11_sha256 -or
+      $manifest.historical_r12_sha256 -cne $Request.historical_r12_sha256 -or
       $manifest.historical_history_set_sha256 -cne $Request.historical_history_set_sha256 -or
       $manifestDigest -cne $Request.prepared_manifest_sha256) {
     Throw-LiveRule 'LIVE06-PREPARED' 'Prepared manifest and authorized request disagree.'
