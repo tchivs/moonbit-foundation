@@ -361,7 +361,7 @@ if ($publisherBlock.IndexOf("inputs.operation_mode == 'PublishOne'",[StringCompa
 
 $hostedPath=Join-Path $PSScriptRoot 'Invoke-Phase08HostedRun.ps1'
 if (-not (Test-Path -LiteralPath $hostedPath -PathType Leaf)) { throw 'P08-HOSTED-HELPER-MISSING: hosted helper is required.' }
-. $hostedPath -Mode PublisherDryRun -Repository tchivs/moonbit-foundation -Workflow publish-modules.yml -ReleaseRef refs/tags/modules-v0.1.0-r5 -SourceSha ('1'*40) -RootIntentSha256 ('a'*64) -IntentSha256 ('a'*64) -PreparedManifestSha256 ('b'*64) -TargetModule mb-core -LocatorPath (Join-Path ([IO.Path]::GetTempPath()) 'unused-locator.json') -ArtifactRoot (Join-Path ([IO.Path]::GetTempPath()) 'unused-root') -LibraryOnly
+. $hostedPath -Mode PublisherDryRun -Repository tchivs/moonbit-foundation -Workflow publish-modules.yml -ReleaseRef refs/tags/modules-v0.1.0-r6 -SourceSha ('1'*40) -RootIntentSha256 ('a'*64) -IntentSha256 ('a'*64) -PreparedManifestSha256 ('b'*64) -TargetModule mb-core -LocatorPath (Join-Path ([IO.Path]::GetTempPath()) 'unused-locator.json') -ArtifactRoot (Join-Path ([IO.Path]::GetTempPath()) 'unused-root') -LibraryOnly
 
 function Assert-P08HostedDispatchFields {
   param(
@@ -375,7 +375,8 @@ function Assert-P08HostedDispatchFields {
     [Parameter(Mandatory)][string]$R1History,
     [Parameter(Mandatory)][string]$R2History,
     [Parameter(Mandatory)][string]$R3History,
-    [Parameter(Mandatory)][string]$R4History
+    [Parameter(Mandatory)][string]$R4History,
+    [Parameter(Mandatory)][string]$R5History
   )
   $script:p08HostedFieldsDispatched=$false
   $script:p08HostedFieldsArguments=$null
@@ -386,7 +387,7 @@ function Assert-P08HostedDispatchFields {
     if($CommandArguments[0] -ceq 'run' -and $CommandArguments[1] -ceq 'list'){
       if(-not $script:p08HostedFieldsDispatched){return '[]'}
       $run=[pscustomobject][ordered]@{
-        databaseId=$script:p08HostedFieldsRunId;headBranch='modules-v0.1.0-r5';headSha=('1'*40);status='completed';conclusion='success'
+        databaseId=$script:p08HostedFieldsRunId;headBranch='modules-v0.1.0-r6';headSha=('1'*40);status='completed';conclusion='success'
         displayTitle=$script:p08HostedFieldsTitle;workflowName='publish-modules';url='https://fixture.invalid/run';createdAt='2026-07-19T00:00:00Z';updatedAt='2026-07-19T00:00:01Z'
       }
       return (ConvertTo-Json -InputObject @($run) -Depth 10 -Compress)
@@ -398,7 +399,7 @@ function Assert-P08HostedDispatchFields {
     }
     if($CommandArguments[0] -ceq 'run' -and $CommandArguments[1] -ceq 'view'){
       return ([pscustomobject][ordered]@{
-        databaseId=$script:p08HostedFieldsRunId;attempt=1;headBranch='modules-v0.1.0-r5';headSha=('1'*40);event='workflow_dispatch'
+        databaseId=$script:p08HostedFieldsRunId;attempt=1;headBranch='modules-v0.1.0-r6';headSha=('1'*40);event='workflow_dispatch'
         status='completed';conclusion='success';displayTitle=$script:p08HostedFieldsTitle;workflowName='publish-modules';url='https://fixture.invalid/run'
         createdAt='2026-07-19T00:00:00Z';updatedAt='2026-07-19T00:00:01Z'
       }|ConvertTo-Json -Depth 10 -Compress)
@@ -408,14 +409,14 @@ function Assert-P08HostedDispatchFields {
   $script:GhCommand=$script:p08HostedFieldsGh
   try{
     $null=Invoke-P08HostedDispatch -Operation $Operation -Repo 'tchivs/moonbit-foundation' -WorkflowPath 'publish-modules.yml' `
-      -Ref 'refs/tags/modules-v0.1.0-r5' -Sha ('1'*40) -RootIntent ('a'*64) -CurrentIntent ('b'*64) -PreparedDigest ('c'*64) `
+      -Ref 'refs/tags/modules-v0.1.0-r6' -Sha ('1'*40) -RootIntent ('a'*64) -CurrentIntent ('b'*64) -PreparedDigest ('c'*64) `
       -Module 'mb-core' -PriorId $PriorId -PriorArtifact $PriorArtifact -Packet $Packet -Receipt $Receipt `
-      -AttemptZeroHistory $AttemptZeroHistory -R1History $R1History -R2History $R2History -R3History $R3History -R4History $R4History
+      -AttemptZeroHistory $AttemptZeroHistory -R1History $R1History -R2History $R2History -R3History $R3History -R4History $R4History -R5History $R5History
   }finally{
     $script:GhCommand=$null
   }
   if(-not $script:p08HostedFieldsDispatched -or $null -eq $script:p08HostedFieldsArguments){throw 'P08-HOSTED-FIELDS-DISPATCH: fake dispatch was not reached exactly once.'}
-  $expectedPrefix=@('workflow','run','publish-modules.yml','--repo','tchivs/moonbit-foundation','--ref','modules-v0.1.0-r5')
+  $expectedPrefix=@('workflow','run','publish-modules.yml','--repo','tchivs/moonbit-foundation','--ref','modules-v0.1.0-r6')
   $actualPrefix=@($script:p08HostedFieldsArguments[0..6])
   if(($actualPrefix -join ',') -cne ($expectedPrefix -join ',')){throw 'P08-HOSTED-FIELDS-PREFIX: dispatch prefix drifted.'}
   $actualFields=[Collections.Generic.List[string]]::new()
@@ -434,25 +435,26 @@ try{
   $r2History=Join-Path $hostedFieldsRoot 'r2.json'
   $r3History=Join-Path $hostedFieldsRoot 'r3.json'
   $r4History=Join-Path $hostedFieldsRoot 'r4.json'
+  $r5History=Join-Path $hostedFieldsRoot 'r5.json'
   $packet=Join-Path $hostedFieldsRoot 'packet.json'
   $receipt=Join-Path $hostedFieldsRoot 'receipt.json'
   $control=Get-Content -LiteralPath (Join-Path (Split-Path -Parent (Split-Path -Parent $PSScriptRoot)) 'policy/release-control.json') -Raw|ConvertFrom-Json -Depth 100
   $history=@($control.initial_attempt_family.terminal_negative_history)
-  for($i=0;$i -lt 5;$i++){
+  for($i=0;$i -lt 6;$i++){
     $projection=[ordered]@{};foreach($property in $history[$i].PSObject.Properties){if($property.Name -cne 'record_sha256'){$projection[$property.Name]=$property.Value}}
-    [IO.File]::WriteAllText(@($attemptZeroHistory,$r1History,$r2History,$r3History,$r4History)[$i],($projection|ConvertTo-Json -Depth 30 -Compress),[Text.UTF8Encoding]::new($false))
+    [IO.File]::WriteAllText(@($attemptZeroHistory,$r1History,$r2History,$r3History,$r4History,$r5History)[$i],($projection|ConvertTo-Json -Depth 30 -Compress),[Text.UTF8Encoding]::new($false))
   }
   [IO.File]::WriteAllText($packet,'{"authorization":"fixture"}',[Text.UTF8Encoding]::new($false))
   [IO.File]::WriteAllText($receipt,'{"receipt":"fixture"}',[Text.UTF8Encoding]::new($false))
   $packetDigest=(Get-FileHash -LiteralPath $packet -Algorithm SHA256).Hash.ToLowerInvariant()
   $receiptDigest=(Get-FileHash -LiteralPath $receipt -Algorithm SHA256).Hash.ToLowerInvariant()
   $commonFields=@(
-    'release_ref=refs/tags/modules-v0.1.0-r5',('source_sha='+('1'*40)),('root_intent_sha256='+('a'*64)),('intent_sha256='+('b'*64)),
+    'release_ref=refs/tags/modules-v0.1.0-r6',('source_sha='+('1'*40)),('root_intent_sha256='+('a'*64)),('intent_sha256='+('b'*64)),
     ('prepared_manifest_sha256='+('c'*64)),('historical_attempts_sha256='+[string]$control.initial_attempt_family.history_set_sha256),'target_module=mb-core'
   )
-  Assert-P08HostedDispatchFields -Operation HostedPreflight -PriorId '' -PriorArtifact '' -Packet '' -Receipt '' -AttemptZeroHistory $attemptZeroHistory -R1History $r1History -R2History $r2History -R3History $r3History -R4History $r4History -ExpectedFields (@(
+  Assert-P08HostedDispatchFields -Operation HostedPreflight -PriorId '' -PriorArtifact '' -Packet '' -Receipt '' -AttemptZeroHistory $attemptZeroHistory -R1History $r1History -R2History $r2History -R3History $r3History -R4History $r4History -R5History $r5History -ExpectedFields (@(
     'operation_mode=HostedPreflight','run_mode=start')+$commonFields+@('live_authorization=false','prior_run_id=','prior_artifact_name=','authorization_packet_sha256=','authorization_receipt_sha256='))
-  Assert-P08HostedDispatchFields -Operation PublishOne -PriorId '9001' -PriorArtifact 'mnf-checkpoint-9001-1' -Packet $packet -Receipt $receipt -AttemptZeroHistory $attemptZeroHistory -R1History $r1History -R2History $r2History -R3History $r3History -R4History $r4History -ExpectedFields (@(
+  Assert-P08HostedDispatchFields -Operation PublishOne -PriorId '9001' -PriorArtifact 'mnf-checkpoint-9001-1' -Packet $packet -Receipt $receipt -AttemptZeroHistory $attemptZeroHistory -R1History $r1History -R2History $r2History -R3History $r3History -R4History $r4History -R5History $r5History -ExpectedFields (@(
     'operation_mode=PublishOne','run_mode=resume')+$commonFields+@('live_authorization=true','prior_run_id=9001','prior_artifact_name=mnf-checkpoint-9001-1',('authorization_packet_sha256='+$packetDigest),('authorization_receipt_sha256='+$receiptDigest)))
 }finally{
   if(Test-Path -LiteralPath $hostedFieldsRoot){Remove-Item -LiteralPath $hostedFieldsRoot -Recurse -Force}
@@ -519,7 +521,7 @@ $bad=$native.PSObject.Copy();$bad.observed_sentinel_sha256=('f'*64)
 Confirm-LiveRule 'P08-HOSTED-PREFLIGHT-EVIDENCE' { Assert-P08HostedEvidence -Operation HostedPreflight -Evidence $bad -Run $fixtureRun -Store $fixtureStore -PreparedDigest ('b'*64) -Module mb-core }
 if ($PreflightOnly -and ([string]::IsNullOrWhiteSpace($LocatorPath) -or [string]::IsNullOrWhiteSpace($ArtifactRoot))) { throw 'P08-PREFLIGHT-PATHS: explicit locator and artifact root are required.' }
 
-function New-R5HandoffFixture {
+function New-R6HandoffFixture {
   param([Parameter(Mandatory)][string]$Root,[Parameter(Mandatory)][ValidateSet('mutation_authorized','exact_existing')][string]$Variant)
   $null=New-Item -ItemType Directory -Path $Root
   $paths=[ordered]@{}
@@ -529,15 +531,15 @@ function New-R5HandoffFixture {
   }
   $control=Get-Content -LiteralPath (Join-Path (Split-Path -Parent (Split-Path -Parent $PSScriptRoot)) 'policy/release-control.json') -Raw|ConvertFrom-Json -Depth 100
   $history=@($control.initial_attempt_family.terminal_negative_history)
-  for($i=0;$i -lt 5;$i++){
-    $name=@('attempt-zero','r1','r2','r3','r4')[$i];$paths[$name]=Join-Path $Root "$name.json"
+  for($i=0;$i -lt 6;$i++){
+    $name=@('attempt-zero','r1','r2','r3','r4','r5')[$i];$paths[$name]=Join-Path $Root "$name.json"
     $projection=[ordered]@{};foreach($property in $history[$i].PSObject.Properties){if($property.Name -cne 'record_sha256'){$projection[$property.Name]=$property.Value}}
     [IO.File]::WriteAllText($paths[$name],($projection|ConvertTo-Json -Depth 30 -Compress),[Text.UTF8Encoding]::new($false))
   }
   $packetPath=$null;$receiptPath=$null;$exactPath=$null
   if($Variant -ceq 'mutation_authorized'){
     $packetPath=Join-Path $Root 'packet.json'
-    $packet=[pscustomobject][ordered]@{schema_version='mnf-phase08-mutation-authorization-packet/1';release_ref='refs/tags/modules-v0.1.0-r5';boundary_sha=('1'*40);packet_sha256=''}
+    $packet=[pscustomobject][ordered]@{schema_version='mnf-phase08-mutation-authorization-packet/1';release_ref='refs/tags/modules-v0.1.0-r6';boundary_sha=('1'*40);packet_sha256=''}
     $packet.packet_sha256=Get-P08SelfExcludingDigest $packet 'packet_sha256'
     [IO.File]::WriteAllText($packetPath,(Get-P08CanonicalJson $packet),[Text.UTF8Encoding]::new($false))
     $receiptPath=Join-Path $Root 'authorization-receipt.json'
@@ -548,10 +550,10 @@ function New-R5HandoffFixture {
   }
   $activePath=Join-Path $Root 'active-attempt.json'
   $bindings=[pscustomobject][ordered]@{
-    release_ref='refs/tags/modules-v0.1.0-r5';boundary_sha=('1'*40);execution_root=[IO.Path]::GetFullPath($Root)
+    release_ref='refs/tags/modules-v0.1.0-r6';boundary_sha=('1'*40);execution_root=[IO.Path]::GetFullPath($Root)
     boundary_locator_path=[IO.Path]::GetFullPath($paths.'boundary-locator');artifact_root=[IO.Path]::GetFullPath($Root);artifact_index_path=[IO.Path]::GetFullPath($paths.index)
-    attempt_zero_history_path=[IO.Path]::GetFullPath($paths.'attempt-zero');r1_history_path=[IO.Path]::GetFullPath($paths.r1);r2_history_path=[IO.Path]::GetFullPath($paths.r2);r3_history_path=[IO.Path]::GetFullPath($paths.r3);r4_history_path=[IO.Path]::GetFullPath($paths.r4)
-    historical_history_set_sha256='cdf78268b443dd3bc81026cbfda2a8a6a6ced3af6daeaa2351b658823649b2be'
+    attempt_zero_history_path=[IO.Path]::GetFullPath($paths.'attempt-zero');r1_history_path=[IO.Path]::GetFullPath($paths.r1);r2_history_path=[IO.Path]::GetFullPath($paths.r2);r3_history_path=[IO.Path]::GetFullPath($paths.r3);r4_history_path=[IO.Path]::GetFullPath($paths.r4);r5_history_path=[IO.Path]::GetFullPath($paths.r5)
+    historical_history_set_sha256='faed8af741e3e2f80d385fcc496649e12bf32889d6dff424fad3c8916acf9c0a'
     mutation_authorization_packet_path=$packetPath;authorization_receipt_path=$receiptPath;exact_existing_authority_path=$exactPath
   }
   $null=Write-P08ActiveAttempt -Path $activePath -Bindings $bindings -AuthorityVariant $Variant -UpdatedAt '2026-07-19T00:00:00Z'
@@ -561,18 +563,18 @@ function New-R5HandoffFixture {
 Confirm-LiveRule 'P08-HANDOFF-PRODUCTION-OVERRIDE' {& $hostedPath -Mode WriteHandoff -HandoffPath (Join-Path ([IO.Path]::GetTempPath()) 'caller.json')}
 Confirm-LiveRule 'P08-HANDOFF-PRODUCTION-OVERRIDE' {& $hostedPath -Mode WriteHandoff -TempRoot (Join-Path ([IO.Path]::GetTempPath()) 'caller-root')}
 
-$handoffParent=Join-Path ([IO.Path]::GetTempPath()) ('mnf-r5-handoff-fixtures-'+[Guid]::NewGuid().ToString('N'))
+$handoffParent=Join-Path ([IO.Path]::GetTempPath()) ('mnf-r6-handoff-fixtures-'+[Guid]::NewGuid().ToString('N'))
 $null=New-Item -ItemType Directory -Path $handoffParent
 try{
   foreach($variant in @('mutation_authorized','exact_existing')){
     $ownedRoot=Join-Path $handoffParent ([Guid]::NewGuid().ToString('N'))
     try{
-      $fixture=New-R5HandoffFixture -Root $ownedRoot -Variant $variant
+      $fixture=New-R6HandoffFixture -Root $ownedRoot -Variant $variant
       if($variant -ceq 'mutation_authorized'){
         Confirm-LiveRule 'P08-RECEIPT-LITERAL' {Write-P08AuthorizationReceipt -PacketPath $fixture.packet_path -ReceiptPath (Join-Path $ownedRoot 'nonliteral.json') -BoundarySha ('1'*40) -Response 'authorize-core ' -CreatedAt '2026-07-19T00:00:00Z'}
       }
       $handoff=Write-P08HostedHandoff -ActiveAttemptPath $fixture.active_path -HandoffPath $fixture.handoff_path -CreatedAt '2026-07-19T08:00:00+08:00'
-      if($handoff.authority_variant -cne $variant -or (ConvertTo-ReleaseCanonicalUtc $handoff.created_at_utc) -cne '2026-07-19T00:00:00Z'){throw 'P08-R5-HANDOFF-FIXTURE: hosted handoff branch or UTC projection drifted.'}
+      if($handoff.authority_variant -cne $variant -or (ConvertTo-ReleaseCanonicalUtc $handoff.created_at_utc) -cne '2026-07-19T00:00:00Z'){throw 'P08-R6-HANDOFF-FIXTURE: hosted handoff branch or UTC projection drifted.'}
     }finally{
       $ownedFull=[IO.Path]::GetFullPath($ownedRoot);$parentFull=[IO.Path]::GetFullPath($handoffParent).TrimEnd([IO.Path]::DirectorySeparatorChar)
       if(-not $ownedFull.StartsWith($parentFull+[IO.Path]::DirectorySeparatorChar,[StringComparison]::Ordinal)){throw 'P08-R4-FIXTURE-OWNERSHIP: fixture root escaped its owned parent.'}
@@ -581,7 +583,7 @@ try{
   }
   $collisionRoot=Join-Path $handoffParent ([Guid]::NewGuid().ToString('N'))
   try{
-    $collision=New-R5HandoffFixture -Root $collisionRoot -Variant exact_existing
+    $collision=New-R6HandoffFixture -Root $collisionRoot -Variant exact_existing
     [IO.File]::WriteAllText($collision.handoff_path,'collision',[Text.UTF8Encoding]::new($false))
     Confirm-LiveRule 'P08-STORE-COLLISION' {Write-P08HostedHandoff -ActiveAttemptPath $collision.active_path -HandoffPath $collision.handoff_path -CreatedAt '2026-07-19T00:00:00Z'}
   }finally{
