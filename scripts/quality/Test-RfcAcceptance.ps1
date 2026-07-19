@@ -268,6 +268,8 @@ Invoke-AcceptanceCase 'implemented preserves historical acceptance row' $impleme
 $missingImplementation = Copy-TestObject $implemented; $missingImplementation.rfc.current_foundation_rfc.implementation_evidence=@(); $missingImplementation.rfc.current_foundation_rfc.transition.evidence=@('report:reports/rfc-0001-qualification.md#qualification')
 Invoke-AcceptanceCase 'implemented rejects missing implementation evidence' $missingImplementation $roster $false $null 'implementation.*requires at least one'
 $missingCommit = Copy-TestObject $implemented
+$missingCommit.rfc.current_foundation_rfc.implementation_evidence=@('commit:ffffffffffffffffffffffffffffffffffffffff')
+$missingCommit.rfc.current_foundation_rfc.transition.evidence=@('commit:ffffffffffffffffffffffffffffffffffffffff','report:reports/rfc-0001-qualification.md#qualification')
 Invoke-AcceptanceCase 'implemented rejects nonexistent commit evidence' $missingCommit $roster $false $null 'Implementation commit.*does not exist'
 $unknownImplementation = Copy-TestObject $implemented; $unknownImplementation.rfc.current_foundation_rfc.implementation_evidence=@('ticket:123'); $unknownImplementation.rfc.current_foundation_rfc.transition.evidence=@('ticket:123','report:reports/rfc-0001-qualification.md#qualification')
 Invoke-AcceptanceCase 'implemented rejects unknown implementation scheme' $unknownImplementation $roster $false $null 'must use commit:<sha>'
