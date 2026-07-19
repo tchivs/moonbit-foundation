@@ -6,7 +6,7 @@ $ErrorActionPreference = 'Stop'
 
 $guard = Join-Path $PSScriptRoot 'Assert-Phase08R13DirtyBaseline.ps1'
 $root = Join-Path ([IO.Path]::GetTempPath()) ('mnf-r13-baseline-test-' + [Guid]::NewGuid().ToString('N'))
-$baseline = Join-Path $root 'baseline.json'
+$baseline = Join-Path ([IO.Path]::GetTempPath()) ('mnf-r13-baseline-' + [Guid]::NewGuid().ToString('N') + '.json')
 $protected = @(
   '.planning/config.json',
   'docs/governance/decisions/0001-sole-owner-bootstrap.md',
@@ -72,4 +72,5 @@ try {
   Write-Host 'Phase 08 r13 dirty-baseline tests passed.'
 } finally {
   if (Test-Path -LiteralPath $root) { Remove-Item -LiteralPath $root -Recurse -Force }
+  if (Test-Path -LiteralPath $baseline) { Remove-Item -LiteralPath $baseline -Force }
 }
