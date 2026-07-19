@@ -97,6 +97,14 @@ function Get-ModuleTreeSha256 {
         $buffer = [IO.MemoryStream]::new()
         try { $entryStream.CopyTo($buffer); $fileBytes = $buffer.ToArray() } finally { $buffer.Dispose() }
       } finally { $entryStream.Dispose() }
+      $normalized = [IO.MemoryStream]::new()
+      try {
+        for ($index = 0; $index -lt $fileBytes.Length; $index++) {
+          if ($fileBytes[$index] -eq 13 -and $index + 1 -lt $fileBytes.Length -and $fileBytes[$index + 1] -eq 10) { continue }
+          $normalized.WriteByte($fileBytes[$index])
+        }
+        $fileBytes = $normalized.ToArray()
+      } finally { $normalized.Dispose() }
       $lengthBytes = [BitConverter]::GetBytes([UInt64]$fileBytes.Length)
       if ([BitConverter]::IsLittleEndian) { [Array]::Reverse($lengthBytes) }
       $null = $hasher.TransformBlock($pathBytes, 0, $pathBytes.Length, $null, 0)
