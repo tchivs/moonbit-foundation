@@ -54,7 +54,7 @@ The assumption-delta detector phrase `Git fallback` maps to the noun **registry-
 | CONTEXT | D-01 | Deterministic prepared bundle and exact binding | 08-24..08-26 | COVERED | r10 has fresh source/state with r9 only as history. |
 | CONTEXT | D-02 | One next-module live adapter | 08-25, 08-27 | COVERED | Publisher remains module-scoped and journal-selected. |
 | CONTEXT | D-03 | Publisher-only ephemeral secret state | 08-25, 08-26, 08-27 | COVERED | Dry/publish secret handling stays in temporary publisher Moon home. |
-| CONTEXT | D-04 | Explicit first-core authorization | 08-26 | COVERED | Blocking dynamic `authorize-core` decision follows all non-publishing qualification. |
+| CONTEXT | D-04 | Explicit first-core authorization | 08-25, 08-26 | COVERED | Closed pre-authorization distinguishes exact-existing from absent; the blocking dynamic `authorize-core` decision is emitted only after the absent branch’s non-publishing qualification. |
 | CONTEXT | D-05 | One module mutation per run, ordered | 08-27 | COVERED | Separate core, color, and image tasks/runs. |
 | CONTEXT | D-06 | Predecessor evidence gates successor | 08-27 | COVERED | Exact observation plus four-target cold proof creates each successor gate. |
 | CONTEXT | D-07 | Immutable intent/journal resume | 08-24..08-27 | COVERED | r9 is terminal evidence; r10 is unique current retry with full revalidation. |
