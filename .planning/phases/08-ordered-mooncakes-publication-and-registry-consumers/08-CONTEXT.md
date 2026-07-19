@@ -172,5 +172,15 @@ Phase 8 makes the Phase 7 control plane genuinely executable, performs the first
 - The existing exact six-path user-dirty baseline remains allowed only when status and content hashes are unchanged; all other worktree drift fails closed, and release artifacts originate only from exact committed HEAD or its clean clone.
 - No plan infers Mooncakes authority. A future `authorize-core` decision is emitted only for a completed r11 confirmed-absent, non-publishing qualification; exact-existing needs no receipt or handoff.
 
+## Forward Recovery Addendum — r12
+
+**Recorded:** 2026-07-19
+**Status:** Locked planning fact for r12 plans 08-29 through 08-33.
+
+- `modules-v0.1.0-r11` is immutable: tag object `735ad679` peels to source `30479a`. A real disposable remote clone proves the clone policy’s canonical `refs/tags/modules-v0.1.0-r11` reaches the PrepareAttempt provider; the original failure was a caller-supplied noncanonical ref, not tag resolution.
+- Commit `508eccc` adds the real remote-clone regression. r12 must include it and use a non-overridable boundary wrapper that derives the release ref from clone-local policy; no manual ref is allowed in its boundary path.
+- r12 is the only current retry. Its immutable history is attempt-zero plus r1 through r11. r11 must never be retagged, reused as current state, or reduced to a generic ref-failure record.
+- The exact six-path user-dirty baseline persists unchanged, and all release artifacts derive only from exact committed HEAD or a fresh no-local/no-tags clone. Mooncakes authority continues to require completed non-publishing evidence and a same-turn absent-only `authorize-core` decision.
+
 *Phase: 8-ordered-mooncakes-publication-and-registry-consumers*
 *Context gathered: 2026-07-18*

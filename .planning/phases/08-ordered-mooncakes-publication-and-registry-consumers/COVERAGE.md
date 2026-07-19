@@ -2,11 +2,11 @@
 
 ## Scope Contract
 
-**Execution status:** 24/30 plans executed; r10 static/seam plans 08-24/25 are complete, while r10 itself is immutable REL01-REF terminal evidence. The incomplete r10 boundary/closure prompts are superseded by r11 plans 08-26 through 08-30.
+**Execution status:** 27/33 plans executed; r11 static/seam plans 08-26 through 08-28 are complete, while r11 is immutable terminal evidence with a canonical remote-clone provider path and a distinct noncanonical caller mismatch. The incomplete r11 boundary/closure prompts are superseded by r12 plans 08-29 through 08-33.
 
 Phase 8 integrates only the Mooncakes capabilities required to publish one dependency-safe module per authorized run, observe it through credential-free structured surfaces, and prove exact cold registry consumption. The canonical semantic order is `tchivs/mb-core@0.1.0` -> `tchivs/mb-color@0.1.0` -> `tchivs/mb-image@0.1.0`. Normalized graph serialization is deterministic but never changes node/edge equality.
 
-Attempt-zero through r10 are eleven distinct immutable terminal histories. r8 remains protected canonical-archive evidence and r9 remains immutable StrictMode evidence. r10 has tag object `0546025` and peeled source `d49edc5`; its clean-clone PrepareAttempt stopped at REL01-REF after tag verification and before prepared/authority/hosted/registry/credential effects. r11 is the only current retry, with fresh roots and no predecessor. Every r11 eligibility artifact binds eleven individual digests plus their canonical set. Confirmed absence may proceed only through completed non-publishing qualification and the same-turn explicit `authorize-core` receipt; exact-existing requires neither packet nor receipt.
+Attempt-zero through r11 are twelve distinct immutable terminal histories. r8 remains protected canonical-archive evidence, r9 remains StrictMode evidence, r10 remains REL01-REF evidence, and r11 has tag object `735ad679` with peeled source `30479a`. The canonical clone-policy ref reached its provider; only an external noncanonical ref failed. r12 is the only current retry with fresh roots and no predecessor. Every r12 eligibility artifact binds twelve individual digests plus their canonical set. Confirmed absence may proceed only through completed non-publishing qualification and same-turn `authorize-core`; exact-existing requires neither packet nor receipt.
 
 The assumption-delta detector phrase `Git fallback` maps to the noun **registry-only dependency source**, decision **no-change**, because an alternate source is prohibited rather than generalized into an identity model.
 
@@ -92,6 +92,27 @@ The assumption-delta detector phrase `Git fallback` maps to the noun **registry-
 | CONTEXT | D-16..D-19 | Structured metadata, sanitized evidence, fresh core observation | 08-28..08-30 | COVERED | No raw persistence; fresh observation precedes any core mutation. |
 | RECOVERY | r10 REL01-REF terminal evidence | Preserve immutable tag/peel/failure with no inferred facts | 08-26..08-29 | COVERED | Eleven-history policy consumes only attested facts. |
 | RECOVERY | User-dirty baseline | Exact six path status/content baseline | 08-29, 08-30 | COVERED | All other drift stops; artifacts use committed SHA or clean clone. |
+
+## R12 Forward-Recovery Source Audit
+
+| Source | ID | Feature / requirement | Plan | Status | Notes |
+|---|---|---|---|---|---|
+| GOAL | - | Dependency-ordered publication and independent cold consumption | 08-29..08-33 | COVERED | Canonical remote-ref gate precedes r12 contract, seam, boundary, and closure. |
+| REQ | DIST-01 | Core exact authority and cold proof before color | 08-29..08-33 | COVERED | Absent receipt or exact authority is revalidated before one core run. |
+| REQ | DIST-02 | Color plus core proof before image | 08-33 | COVERED | Core checkpoint gates color. |
+| REQ | DIST-03 | Full graph and PPM proof | 08-33 | COVERED | Image follows color in one distinct run. |
+| REQ | DIST-04 | Isolated credential-free registry evidence | 08-29..08-33 | COVERED | Remote clone plus fresh empty homes and no local fallback. |
+| REQ | PROV-05 | Structured public metadata | 08-33 | COVERED | Closed sanitized observations and identity agreement. |
+| RESEARCH | Prepared before secret; one-module publisher; cold consumer; structured observation | 08-30..08-33 | COVERED | Existing verified architecture remains intact. |
+| CONTEXT | D-01 | Deterministic prepared/ref binding | 08-29, 08-30, 08-32 | COVERED | Wrapper derives canonical clone-policy ref before r12 tag use. |
+| CONTEXT | D-02..D-03 | Single adapter and secret isolation | 08-31..08-33 | COVERED | One module/run and publisher-only temporary Moon home. |
+| CONTEXT | D-04 | Explicit first core authorization | 08-32 | COVERED | Same-turn confirmed-absent-only decision; exact has no receipt/handoff. |
+| CONTEXT | D-05..D-07 | Ordering, predecessor, immutable recovery | 08-30..08-33 | COVERED | r11 terminal, r12 sole current, sequential checkpoints. |
+| CONTEXT | D-08..D-12 | Exact cold graph/targets and no consumer secret | 08-31, 08-33 | COVERED | Fresh external consumer roots and four targets. |
+| CONTEXT | D-13..D-15 | Bounded observation and forward-only stop | 08-30..08-33 | COVERED | Unknown/mismatch blocks retry and successors. |
+| CONTEXT | D-16..D-19 | Structured metadata, sanitized evidence, fresh observation | 08-31..08-33 | COVERED | No raw output; fresh core observation before decision. |
+| RECOVERY | r11 canonical-ref evidence | Preserve object/peel, canonical provider path, and distinct caller mismatch | 08-29..08-32 | COVERED | No retag/reuse; wrapper closes external invocation boundary. |
+| RECOVERY | User-dirty baseline | Six exact paths unchanged, all other drift blocked | 08-32, 08-33 | COVERED | Committed SHA/fresh clone artifacts only. |
 
 ## Requirement Adjacency and Edge Rules
 

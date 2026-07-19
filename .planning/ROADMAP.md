@@ -183,7 +183,7 @@
 4. Every proof runs outside the repository with an isolated cold Moon home and no publisher credential, `moon.work`, path dependency, copied source, Git fallback, or warm-cache-only success, and records registry metadata, strongest available package identity, resolved graph, toolchain, target results, and behavioral assertion.
 5. After publication, credential-redacted read-only Mooncakes observation proves that each module page renders the intended qualified public metadata; missing, drifted, or ambiguous rendering blocks PROV-05 without registry mutation.
 
-**Plans:** 28/30 plans executed
+**Plans:** 28/33 plans executed
 **Wave 1**
 
 - [x] 08-01-PLAN.md
@@ -298,11 +298,23 @@
 
 **Wave 29** *(blocked on Wave 28 completion)*
 
-- [ ] 08-29-PLAN.md — Establish the unique r11 non-publishing boundary and stop at an absent-only dynamic `authorize-core` decision.
+- [ ] 08-29-PLAN.md — Integrate the real remote-clone ref gate and non-overridable canonical clone-policy r12 boundary invocation.
 
 **Wave 30** *(blocked on Wave 29 completion)*
 
-- [ ] 08-30-PLAN.md — After r11 authorization, publish or recognize core, color, and image in order with cold proofs and reciprocal closure.
+- [ ] 08-30-PLAN.md — Bind r12 static contracts to twelve immutable histories including distinct r11 remote-ref evidence.
+
+**Wave 31** *(blocked on Wave 30 completion)*
+
+- [ ] 08-31-PLAN.md — Wire r12 hosted, publisher, and zero-write seams with canonical-wrapper coverage.
+
+**Wave 32** *(blocked on Wave 31 completion)*
+
+- [ ] 08-32-PLAN.md — Establish canonical r12 non-publishing boundary and stop at absent-only dynamic `authorize-core`.
+
+**Wave 33** *(blocked on Wave 32 completion)*
+
+- [ ] 08-33-PLAN.md — After r12 authorization, publish or recognize core, color, and image in order with cold proofs and closure.
 
 ### Phase 9: Provenance, Immutable Closure, and Milestone Audit
 
@@ -334,7 +346,7 @@
 | 5. Reference Codec and Release Qualification | v0.1 | 8/8 | Complete | 2026-07-17 |
 | 6. Namespace Authority and Compatibility Contract | v0.2 | 25/25 | Complete    | 2026-07-18 |
 | 7. Release Safety, Intent, and Recovery Automation | v0.2 | 3/3 | Complete | 2026-07-18 |
-| 8. Ordered Mooncakes Publication and Registry Consumers | v0.2 | 28/30 | In Progress|  |
+| 8. Ordered Mooncakes Publication and Registry Consumers | v0.2 | 28/33 | In Progress|  |
 | 9. Provenance, Immutable Closure, and Milestone Audit | v0.2 | 0/TBD | Not started | — |
 
 ## Stable Audit Anchors
