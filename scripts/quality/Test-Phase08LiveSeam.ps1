@@ -499,6 +499,15 @@ try{
     'operation_mode=HostedPreflight','run_mode=start')+$commonFields+@('live_authorization=false','prior_run_id=','prior_artifact_name=','authorization_packet_sha256=','authorization_receipt_sha256='))
   Assert-P08HostedDispatchFields -Operation PublishOne -PriorId '9001' -PriorArtifact 'mnf-checkpoint-9001-1' -Packet $packet -Receipt $receipt -AttemptZeroHistory $attemptZeroHistory -R1History $r1History -R2History $r2History -R3History $r3History -R4History $r4History -R5History $r5History -R6History $r6History -R7History $r7History -R8History $r8History -R9History $r9History -R10History $r10History -R11History $r11History -R12History $r12History -ExpectedFields (@(
     'operation_mode=PublishOne','run_mode=resume')+$commonFields+@('live_authorization=true','prior_run_id=9001','prior_artifact_name=mnf-checkpoint-9001-1',('authorization_packet_sha256='+$packetDigest),('authorization_receipt_sha256='+$receiptDigest)))
+  $script:GhCommand={param([string[]]$CommandArguments);throw 'P08-HOSTED-HISTORY-PROVIDER: malformed history reached provider fixture.'}
+  $failure=$null
+  try{
+    $null=Invoke-P08HostedDispatch -Operation HostedPreflight -Repo 'tchivs/moonbit-foundation' -WorkflowPath 'publish-modules.yml' `
+      -Ref 'refs/tags/modules-v0.1.0-r13' -Sha ('1'*40) -RootIntent ('a'*64) -CurrentIntent ('b'*64) -PreparedDigest ('c'*64) `
+      -Module 'mb-core' -PriorId '' -PriorArtifact '' -Packet '' -Receipt '' `
+      -AttemptZeroHistory $attemptZeroHistory -R1History $r1History -R2History $r2History -R3History $r3History -R4History $r4History -R5History $r5History -R6History $r6History -R7History $r7History -R8History $r8History -R9History $r9History -R10History $r10History -R11History $r11History -R12History ''
+  }catch{$failure=$_.Exception.Message}finally{$script:GhCommand=$null}
+  if($failure -notmatch '^P08-HOSTED-HISTORY:'){throw "P08-HOSTED-HISTORY-REJECT: expected missing r12 rejection before provider access, got '$failure'."}
 }finally{
   if(Test-Path -LiteralPath $hostedFieldsRoot){Remove-Item -LiteralPath $hostedFieldsRoot -Recurse -Force}
 }
