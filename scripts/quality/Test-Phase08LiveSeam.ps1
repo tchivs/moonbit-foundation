@@ -411,7 +411,8 @@ function Assert-P08HostedDispatchFields {
     [Parameter(Mandatory)][string]$R8History,
     [Parameter(Mandatory)][string]$R9History,
     [Parameter(Mandatory)][string]$R10History,
-    [Parameter(Mandatory)][string]$R11History
+    [Parameter(Mandatory)][string]$R11History,
+    [Parameter(Mandatory)][string]$R12History
   )
   $script:p08HostedFieldsDispatched=$false
   $script:p08HostedFieldsArguments=$null
@@ -446,7 +447,7 @@ function Assert-P08HostedDispatchFields {
     $null=Invoke-P08HostedDispatch -Operation $Operation -Repo 'tchivs/moonbit-foundation' -WorkflowPath 'publish-modules.yml' `
       -Ref 'refs/tags/modules-v0.1.0-r13' -Sha ('1'*40) -RootIntent ('a'*64) -CurrentIntent ('b'*64) -PreparedDigest ('c'*64) `
       -Module 'mb-core' -PriorId $PriorId -PriorArtifact $PriorArtifact -Packet $Packet -Receipt $Receipt `
-      -AttemptZeroHistory $AttemptZeroHistory -R1History $R1History -R2History $R2History -R3History $R3History -R4History $R4History -R5History $R5History -R6History $R6History -R7History $R7History -R8History $R8History -R9History $R9History -R10History $R10History -R11History $R11History
+      -AttemptZeroHistory $AttemptZeroHistory -R1History $R1History -R2History $R2History -R3History $R3History -R4History $R4History -R5History $R5History -R6History $R6History -R7History $R7History -R8History $R8History -R9History $R9History -R10History $R10History -R11History $R11History -R12History $R12History
   }finally{
     $script:GhCommand=$null
   }
@@ -477,13 +478,14 @@ try{
   $r9History=Join-Path $hostedFieldsRoot 'r9.json'
   $r10History=Join-Path $hostedFieldsRoot 'r10.json'
   $r11History=Join-Path $hostedFieldsRoot 'r11.json'
+  $r12History=Join-Path $hostedFieldsRoot 'r12.json'
   $packet=Join-Path $hostedFieldsRoot 'packet.json'
   $receipt=Join-Path $hostedFieldsRoot 'receipt.json'
   $control=Get-Content -LiteralPath (Join-Path (Split-Path -Parent (Split-Path -Parent $PSScriptRoot)) 'policy/release-control.json') -Raw|ConvertFrom-Json -Depth 100
   $history=@($control.initial_attempt_family.terminal_negative_history)
-  for($i=0;$i -lt 12;$i++){
+  for($i=0;$i -lt 13;$i++){
     $projection=[ordered]@{};foreach($property in $history[$i].PSObject.Properties){if($property.Name -cne 'record_sha256'){$projection[$property.Name]=$property.Value}}
-    [IO.File]::WriteAllText(@($attemptZeroHistory,$r1History,$r2History,$r3History,$r4History,$r5History,$r6History,$r7History,$r8History,$r9History,$r10History,$r11History)[$i],($projection|ConvertTo-Json -Depth 30 -Compress),[Text.UTF8Encoding]::new($false))
+    [IO.File]::WriteAllText(@($attemptZeroHistory,$r1History,$r2History,$r3History,$r4History,$r5History,$r6History,$r7History,$r8History,$r9History,$r10History,$r11History,$r12History)[$i],($projection|ConvertTo-Json -Depth 30 -Compress),[Text.UTF8Encoding]::new($false))
   }
   [IO.File]::WriteAllText($packet,'{"authorization":"fixture"}',[Text.UTF8Encoding]::new($false))
   [IO.File]::WriteAllText($receipt,'{"receipt":"fixture"}',[Text.UTF8Encoding]::new($false))
@@ -493,9 +495,9 @@ try{
     'release_ref=refs/tags/modules-v0.1.0-r13',('source_sha='+('1'*40)),('root_intent_sha256='+('a'*64)),('intent_sha256='+('b'*64)),
     ('prepared_manifest_sha256='+('c'*64)),('historical_attempts_sha256='+[string]$control.initial_attempt_family.history_set_sha256),'target_module=mb-core'
   )
-  Assert-P08HostedDispatchFields -Operation HostedPreflight -PriorId '' -PriorArtifact '' -Packet '' -Receipt '' -AttemptZeroHistory $attemptZeroHistory -R1History $r1History -R2History $r2History -R3History $r3History -R4History $r4History -R5History $r5History -R6History $r6History -R7History $r7History -R8History $r8History -R9History $r9History -R10History $r10History -R11History $r11History -ExpectedFields (@(
+  Assert-P08HostedDispatchFields -Operation HostedPreflight -PriorId '' -PriorArtifact '' -Packet '' -Receipt '' -AttemptZeroHistory $attemptZeroHistory -R1History $r1History -R2History $r2History -R3History $r3History -R4History $r4History -R5History $r5History -R6History $r6History -R7History $r7History -R8History $r8History -R9History $r9History -R10History $r10History -R11History $r11History -R12History $r12History -ExpectedFields (@(
     'operation_mode=HostedPreflight','run_mode=start')+$commonFields+@('live_authorization=false','prior_run_id=','prior_artifact_name=','authorization_packet_sha256=','authorization_receipt_sha256='))
-  Assert-P08HostedDispatchFields -Operation PublishOne -PriorId '9001' -PriorArtifact 'mnf-checkpoint-9001-1' -Packet $packet -Receipt $receipt -AttemptZeroHistory $attemptZeroHistory -R1History $r1History -R2History $r2History -R3History $r3History -R4History $r4History -R5History $r5History -R6History $r6History -R7History $r7History -R8History $r8History -R9History $r9History -R10History $r10History -R11History $r11History -ExpectedFields (@(
+  Assert-P08HostedDispatchFields -Operation PublishOne -PriorId '9001' -PriorArtifact 'mnf-checkpoint-9001-1' -Packet $packet -Receipt $receipt -AttemptZeroHistory $attemptZeroHistory -R1History $r1History -R2History $r2History -R3History $r3History -R4History $r4History -R5History $r5History -R6History $r6History -R7History $r7History -R8History $r8History -R9History $r9History -R10History $r10History -R11History $r11History -R12History $r12History -ExpectedFields (@(
     'operation_mode=PublishOne','run_mode=resume')+$commonFields+@('live_authorization=true','prior_run_id=9001','prior_artifact_name=mnf-checkpoint-9001-1',('authorization_packet_sha256='+$packetDigest),('authorization_receipt_sha256='+$receiptDigest)))
 }finally{
   if(Test-Path -LiteralPath $hostedFieldsRoot){Remove-Item -LiteralPath $hostedFieldsRoot -Recurse -Force}
