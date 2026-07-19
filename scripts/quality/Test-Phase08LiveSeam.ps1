@@ -10,13 +10,13 @@ param(
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
-$productionHandoff=[IO.Path]::GetFullPath((Join-Path ([IO.Path]::GetTempPath()) 'mnf-phase08-r8-handoff.json'))
+$productionHandoff=[IO.Path]::GetFullPath((Join-Path ([IO.Path]::GetTempPath()) 'mnf-phase08-r9-handoff.json'))
 if(Test-Path -LiteralPath $productionHandoff){throw 'P08-FIXED-HANDOFF-PREEXISTING: production fixed handoff must be absent before static fixtures.'}
 $hostedSource=Get-Content -LiteralPath (Join-Path $PSScriptRoot 'Invoke-Phase08HostedRun.ps1') -Raw
-foreach($required in @('refs/tags/modules-v0.1.0-r8','R7HistoryPath','historical_r7_sha256','mnf-phase08-r8-handoff.json','29673849108','88157456895')){
+foreach($required in @('refs/tags/modules-v0.1.0-r9','R8HistoryPath','historical_r8_sha256','mnf-phase08-r9-handoff.json','Copy-P08CanonicalPreparedArchive','8a7729234a62425d0082a7b7a4615f2757ab4bc59938925b8ca031e2e00c10c8')){
   if($hostedSource.IndexOf($required,[StringComparison]::Ordinal) -lt 0){throw "P08-R8-HOSTED-STATIC: missing '$required'."}
 }
-if($hostedSource.IndexOf('mnf-phase08-r7-handoff.json',[StringComparison]::Ordinal) -ge 0){throw 'P08-R8-HOSTED-STATIC: prior fixed handoff remains reachable.'}
+if($hostedSource.IndexOf('mnf-phase08-r8-handoff.json',[StringComparison]::Ordinal) -ge 0){throw 'P08-R9-HOSTED-STATIC: prior fixed handoff remains reachable.'}
 
 $adapterPath = Join-Path $PSScriptRoot 'Invoke-MooncakesLiveMutation.ps1'
 if (-not (Test-Path -LiteralPath $adapterPath -PathType Leaf)) {
@@ -39,7 +39,7 @@ function New-LiveTestRequest {
       expected_actor='tchivs';observed_actor='tchivs';actor_check_classification='moon_whoami_exact';actor_exit_code=0
       actor_stdout_line_count=1;actor_stderr_empty=$true;actor_match=$true;actor_raw_output_persisted=$false
       credential_state_removed=$true;mutation_performed=$false;command_classification='moon_whoami_dry_run_only'
-    }; release_ref='refs/tags/modules-v0.1.0-r8'
+    }; release_ref='refs/tags/modules-v0.1.0-r9'
     source_sha=('1'*40); root_intent_sha256=('a'*64); intent_sha256=('a'*64); intent_kind='initial'
     prepared_manifest_sha256=('b'*64)
     historical_attempt_zero_sha256='b9bda5378ea339f4cdd42c417c1cc0cf8caabbd51ab11d453cd45ddae77d9b52'
@@ -50,7 +50,8 @@ function New-LiveTestRequest {
     historical_r5_sha256='1239b63f983bef86ac44c731171093ad67759de9cce7c15610b92f5df6214843'
     historical_r6_sha256='3f9c0d9916dbccfa9144488d2967ee1a7fb3fd1d9936f8cc4139c2734f2d0ad4'
     historical_r7_sha256='baf5d4921c75b2ba4a64cd234663a1b7086d6c45a653edd1ce4a63f56882933f'
-    historical_history_set_sha256='48de74c184100e34651e9e050e6949b252414746d13f78e04855fd28b69c8580'
+    historical_r8_sha256='8a7729234a62425d0082a7b7a4615f2757ab4bc59938925b8ca031e2e00c10c8'
+    historical_history_set_sha256='39e45ed9aecf1788d106a043dd4b421243a577b66534d0748ca61937a0de86a8'
     correction_sequence=0; predecessor_intent_sha256=$null; authorization_valid=$true
     evidence_valid=$true; dry_run_passed=$true; authority_account='tchivs'
   }

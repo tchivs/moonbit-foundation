@@ -105,7 +105,7 @@ $actorEvidence = [pscustomobject][ordered]@{
   command_classification='moon_whoami_dry_run_only'
 }
 $base = [pscustomobject]@{
-  repository='tchivs/moonbit-foundation'; actor='tchivs'; actor_evidence=$actorEvidence; release_ref='refs/tags/modules-v0.1.0-r8'
+  repository='tchivs/moonbit-foundation'; actor='tchivs'; actor_evidence=$actorEvidence; release_ref='refs/tags/modules-v0.1.0-r9'
   source_sha=('1'*40); root_intent_sha256=$root; intent_sha256=$root; intent_kind='initial'
   prepared_manifest_sha256=('9'*64)
   historical_attempt_zero_sha256='b9bda5378ea339f4cdd42c417c1cc0cf8caabbd51ab11d453cd45ddae77d9b52'
@@ -116,13 +116,14 @@ $base = [pscustomobject]@{
   historical_r5_sha256='1239b63f983bef86ac44c731171093ad67759de9cce7c15610b92f5df6214843'
   historical_r6_sha256='3f9c0d9916dbccfa9144488d2967ee1a7fb3fd1d9936f8cc4139c2734f2d0ad4'
   historical_r7_sha256='baf5d4921c75b2ba4a64cd234663a1b7086d6c45a653edd1ce4a63f56882933f'
-  historical_history_set_sha256='48de74c184100e34651e9e050e6949b252414746d13f78e04855fd28b69c8580'
+  historical_r8_sha256='8a7729234a62425d0082a7b7a4615f2757ab4bc59938925b8ca031e2e00c10c8'
+  historical_history_set_sha256='39e45ed9aecf1788d106a043dd4b421243a577b66534d0748ca61937a0de86a8'
   correction_sequence=0; predecessor_intent_sha256=$null; authorization_valid=$true
   evidence_valid=$true; dry_run_passed=$true; authority_account='tchivs'
 }
 
 Assert-PublisherRequest $base
-Confirm-PublisherRule 'PUB04-ROOT' { $bad=$base.PSObject.Copy(); $bad.release_ref='refs/tags/modules-v0.1.0-r7'; Assert-PublisherRequest $bad }
+Confirm-PublisherRule 'PUB04-ROOT' { $bad=$base.PSObject.Copy(); $bad.release_ref='refs/tags/modules-v0.1.0-r8'; Assert-PublisherRequest $bad }
 Confirm-PublisherRule 'PUB04-ROOT' { $bad=$base.PSObject.Copy(); $bad.source_sha='198436a45b7403a3c28c98d5fa0d5ed6a958455f'; Assert-PublisherRequest $bad }
 Confirm-PublisherRule 'PUB04-ROOT' { $bad=$base.PSObject.Copy(); $bad.predecessor_intent_sha256=('8'*64); Assert-PublisherRequest $bad }
 Confirm-PublisherRule 'PUB16-HISTORY' { $bad=$base.PSObject.Copy(); $bad.historical_r1_sha256=$bad.historical_attempt_zero_sha256; Assert-PublisherRequest $bad }
@@ -139,6 +140,8 @@ Confirm-PublisherRule 'PUB16-HISTORY' { $bad=$base.PSObject.Copy(); $bad.histori
 Confirm-PublisherRule 'PUB16-HISTORY' { $bad=$base.PSObject.Copy(); $bad.historical_r6_sha256=('8'*64); Assert-PublisherRequest $bad }
 Confirm-PublisherRule 'PUB16-HISTORY' { $bad=$base.PSObject.Copy(); $bad.historical_r7_sha256=$bad.historical_r6_sha256; Assert-PublisherRequest $bad }
 Confirm-PublisherRule 'PUB16-HISTORY' { $bad=$base.PSObject.Copy(); $bad.historical_r7_sha256=('8'*64); Assert-PublisherRequest $bad }
+Confirm-PublisherRule 'PUB16-HISTORY' { $bad=$base.PSObject.Copy(); $bad.historical_r8_sha256=$bad.historical_r7_sha256; Assert-PublisherRequest $bad }
+Confirm-PublisherRule 'PUB16-HISTORY' { $bad=$base.PSObject.Copy(); $bad.historical_r8_sha256=('8'*64); Assert-PublisherRequest $bad }
 Confirm-PublisherRule 'PUB16-HISTORY' { $bad=$base.PSObject.Copy(); $bad.historical_history_set_sha256=('8'*64); Assert-PublisherRequest $bad }
 Confirm-PublisherRule 'PUB13-EVIDENCE' { $bad=$base.PSObject.Copy(); $bad.prepared_manifest_sha256=''; Assert-PublisherRequest $bad }
 Confirm-PublisherRule 'PUB12-ACTOR' { $bad=$base.PSObject.Copy(); $bad.actor_evidence=($actorEvidence | ConvertTo-Json -Compress | ConvertFrom-Json); $bad.actor_evidence.actor_stdout_line_count=2; Assert-PublisherRequest $bad }
