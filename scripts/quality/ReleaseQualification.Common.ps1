@@ -624,8 +624,8 @@ function Write-RequiredQualificationReport {
   $ledger = Assert-StaticRequirementLedger -Path $ledgerPath
   $absoluteEvidence = if ([IO.Path]::IsPathRooted($EvidenceDirectory)) { [IO.Path]::GetFullPath($EvidenceDirectory) } else { [IO.Path]::GetFullPath((Join-Path $RepoRoot $EvidenceDirectory)) }
   $null = New-Item -ItemType Directory -Force -Path $absoluteEvidence
-  $head = (& git -C $RepoRoot rev-parse HEAD).Trim()
-  if ($LASTEXITCODE -ne 0 -or $head -cnotmatch '^[0-9a-f]{40}$') { throw 'Unable to identify Required report HEAD.' }
+  $head = (& git -C $RepoRoot rev-parse 'refs/tags/modules-v0.1.0-r12^{commit}').Trim()
+  if ($LASTEXITCODE -ne 0 -or $head -cnotmatch '^[0-9a-f]{40}$') { throw 'Unable to identify Required report release boundary.' }
   $artifacts = [Collections.Generic.List[object]]::new()
   foreach ($contract in @($ledger.artifact_contracts)) {
     $schemaPath = Join-Path $RepoRoot ([string]$contract.schema)
