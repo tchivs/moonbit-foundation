@@ -45,10 +45,10 @@ function Assert-P08R6Contract {
   $qualification=Get-Content -LiteralPath (Join-Path $PSScriptRoot 'Invoke-ReleaseQualification.ps1') -Raw
   if($qualification.IndexOf('refs/tags/modules-v0.1.0-r6',[StringComparison]::Ordinal) -lt 0){Throw-P08Qualification 'P08-R6-QUALIFICATION' 'Qualification does not emit r6 initial identity.'}
   $hosted=Get-Content -LiteralPath (Join-Path $PSScriptRoot 'Invoke-Phase08HostedRun.ps1') -Raw
-  foreach($required in @('refs/tags/modules-v0.1.0-r5','R4HistoryPath','historical_attempts_sha256','authorization_receipt_sha256','mnf-phase08-r5-handoff.json')){
-    if($hosted.IndexOf($required,[StringComparison]::Ordinal) -lt 0){Throw-P08Qualification 'P08-R5-HOSTED' "Missing hosted r5 seam '$required'."}
+  foreach($required in @('refs/tags/modules-v0.1.0-r6','R5HistoryPath','historical_attempts_sha256','authorization_receipt_sha256','mnf-phase08-r6-handoff.json')){
+    if($hosted.IndexOf($required,[StringComparison]::Ordinal) -lt 0){Throw-P08Qualification 'P08-R6-HOSTED' "Missing hosted r6 seam '$required'."}
   }
-  if($hosted.IndexOf('mnf-phase08-r4-handoff.json',[StringComparison]::Ordinal) -ge 0){Throw-P08Qualification 'P08-R5-HOSTED' 'Hosted production path still names the r4 handoff.'}
+  if($hosted.IndexOf('mnf-phase08-r5-handoff.json',[StringComparison]::Ordinal) -ge 0){Throw-P08Qualification 'P08-R6-HOSTED' 'Hosted production path still names the r5 handoff.'}
   $qualificationSource=Get-Content -LiteralPath $PSCommandPath -Raw
   if($qualificationSource -cnotmatch '(?m)^\s*& git -c core[.]autocrlf=false clone --quiet --no-hardlinks --no-tags [$]repoRoot [$]prepareExecutionRoot\s*$'){Throw-P08Qualification 'P08-R5-LF-NO-TAGS' 'Qualification fixture clone must force LF-safe checkout behavior and exclude permanent tags.'}
   function Confirm-R2Failure([string]$Id,[scriptblock]$Action){$failure=$null;try{&$Action}catch{$failure=$_.Exception.Message};if($null -eq $failure -or -not $failure.StartsWith("$Id`: ",[StringComparison]::Ordinal)){Throw-P08Qualification 'P08-R2-NEGATIVE' "Expected $Id, got '$failure'."}}
