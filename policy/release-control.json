@@ -65,12 +65,34 @@
         "failure_stage": "before_gh_run_creation",
         "reason": "terminal_workflow_dispatch_input_parity_failure",
         "record_sha256": "cf29473b2b07ff9aa8fd8a4810ddc45f6aacd2fd4b74048f5d29b3b6fa939d41"
+      },
+      {
+        "attempt": "r4",
+        "release_ref": "refs/tags/modules-v0.1.0-r4",
+        "source_sha": "ee4a8eb9b8dca5d69b404c9a4a1cd81608a5462a",
+        "hosted_run_present": true,
+        "run_id": "29667231047",
+        "run_attempt": 1,
+        "mutation_performed": false,
+        "authority_acquired": false,
+        "prepare_attempt_completed": true,
+        "registry_disposition": "confirmed_absent",
+        "hosted_preflight_dispatched": true,
+        "credential_accessed": false,
+        "failure_stage": "credential_free_qualification_clean_snapshot_before_binding",
+        "publisher_dry_run_count": 0,
+        "authorization_packet_count": 0,
+        "authorization_receipt_count": 0,
+        "handoff_count": 0,
+        "mutation_count": 0,
+        "reason": "terminal_clean_snapshot_binding_failure",
+        "record_sha256": "d9b045bc65df87dc2701144ea7716defc67acb84ec9ea8e7ffdafd0118ba0906"
       }
     ],
     "history_set_profile": "sha256-of-lf-joined-record-sha256-in-canonical-attempt-order",
-    "history_set_sha256": "1646412aae84a40c5012aeae4f374c3b5c03bf3c3027c914bc0765ea0aa2493e",
+    "history_set_sha256": "cdf78268b443dd3bc81026cbfda2a8a6a6ced3af6daeaa2351b658823649b2be",
     "reuse": "forbidden",
-    "current_attempt": "r4"
+    "current_attempt": "r5"
   },
   "historical_initial_attempt": {
     "release_ref": "refs/tags/modules-v0.1.0",
@@ -83,7 +105,7 @@
   },
   "initial_profile": {
     "intent_kind": "initial",
-    "release_ref": "refs/tags/modules-v0.1.0-r4",
+    "release_ref": "refs/tags/modules-v0.1.0-r5",
     "correction_sequence": 0,
     "predecessor": "forbidden",
     "serialized_root_intent_sha256": "forbidden",

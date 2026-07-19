@@ -34,21 +34,21 @@ function Get-IntentHistorySetSha256 {
 function Assert-Phase08AttemptSchemas {
   $policy = Read-IntentJson -Path $policyPath
   $history = @($policy.initial_attempt_family.terminal_negative_history)
+  $phase08History = @($history[0..3])
   $historyFields = [ordered]@{
     historical_attempt_zero_sha256 = [string]$history[0].record_sha256
     historical_r1_sha256 = [string]$history[1].record_sha256
     historical_r2_sha256 = [string]$history[2].record_sha256
     historical_r3_sha256 = [string]$history[3].record_sha256
-    historical_r4_sha256 = [string]$history[4].record_sha256
-    historical_history_set_sha256 = [string]$policy.initial_attempt_family.history_set_sha256
+    historical_history_set_sha256 = Get-IntentHistorySetSha256 $phase08History
   }
   $authority = Read-IntentJson -Path (Join-Path $repoRoot 'release\qualification\phase-08-authority-schema.json')
   $receipt = Read-IntentJson -Path (Join-Path $repoRoot 'release\qualification\phase-08-authorization-receipt-schema.json')
   $handoff = Read-IntentJson -Path (Join-Path $repoRoot 'release\qualification\phase-08-handoff-schema.json')
   foreach ($branch in @('mutationAuthorizationPacket','exactExistingAuthority','moduleAuthority')) {
     $schemaBranch = $authority.'$defs'.$branch
-    if ($schemaBranch.properties.release_ref.const -cne 'refs/tags/modules-v0.1.0-r5') {
-      throw "REL04-AUTHORITY-REF: $branch does not require r5."
+    if ($schemaBranch.properties.release_ref.const -cne 'refs/tags/modules-v0.1.0-r4') {
+      throw "REL04-AUTHORITY-REF: $branch does not require r4."
     }
     foreach ($entry in $historyFields.GetEnumerator()) {
       if (@($schemaBranch.required) -cnotcontains $entry.Key -or $schemaBranch.properties.($entry.Key).const -cne $entry.Value) {
@@ -56,13 +56,13 @@ function Assert-Phase08AttemptSchemas {
       }
     }
   }
-  $receiptFields = @('schema_version','release_ref','boundary_sha','source_sha','packet_sha256','historical_attempt_zero_sha256','historical_r1_sha256','historical_r2_sha256','historical_r3_sha256','historical_r4_sha256','historical_history_set_sha256','response','created_at_utc','receipt_sha256')
+  $receiptFields = @('schema_version','release_ref','boundary_sha','source_sha','packet_sha256','historical_attempt_zero_sha256','historical_r1_sha256','historical_r2_sha256','historical_r3_sha256','historical_history_set_sha256','response','created_at_utc','receipt_sha256')
   if ($receipt.type -cne 'object' -or $receipt.additionalProperties -ne $false -or
       (@($receipt.required) -join ',') -cne ($receiptFields -join ',') -or
-      $receipt.properties.release_ref.const -cne 'refs/tags/modules-v0.1.0-r5' -or
+      $receipt.properties.release_ref.const -cne 'refs/tags/modules-v0.1.0-r4' -or
       $receipt.properties.response.const -cne 'authorize-core' -or
       $receipt.properties.created_at_utc.pattern -cne '^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$') {
-    throw 'REL04-RECEIPT-SCHEMA: authorization receipt is not the exact closed r5 contract.'
+    throw 'REL04-RECEIPT-SCHEMA: authorization receipt is not the exact closed r4 contract.'
   }
   foreach ($entry in $historyFields.GetEnumerator()) {
     if ($receipt.properties.($entry.Key).const -cne $entry.Value) { throw "REL04-RECEIPT-HISTORY: receipt does not bind $($entry.Key)." }
@@ -71,22 +71,21 @@ function Assert-Phase08AttemptSchemas {
   $mutation = $handoff.'$defs'.mutationHandoff; $exact = $handoff.'$defs'.exactExistingHandoff
   foreach ($branch in @($mutation,$exact)) {
     if ($branch.type -cne 'object' -or $branch.additionalProperties -ne $false -or
-      $branch.properties.release_ref.const -cne 'refs/tags/modules-v0.1.0-r5' -or
+      $branch.properties.release_ref.const -cne 'refs/tags/modules-v0.1.0-r4' -or
         $branch.properties.created_at_utc.'$ref' -cne '#/$defs/utc' -or
         $handoff.'$defs'.utc.pattern -cne '^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$') {
-      throw 'REL04-HANDOFF-SCHEMA: handoff branch is not closed, r5-bound, and UTC-canonical.'
+      throw 'REL04-HANDOFF-SCHEMA: handoff branch is not closed, r4-bound, and UTC-canonical.'
     }
     foreach ($entry in ([ordered]@{
       attempt_zero_history_sha256=$historyFields.historical_attempt_zero_sha256
       r1_history_sha256=$historyFields.historical_r1_sha256
       r2_history_sha256=$historyFields.historical_r2_sha256
       r3_history_sha256=$historyFields.historical_r3_sha256
-      r4_history_sha256=$historyFields.historical_r4_sha256
       historical_history_set_sha256=$historyFields.historical_history_set_sha256
     }).GetEnumerator()) {
       if (@($branch.required) -cnotcontains $entry.Key -or $branch.properties.($entry.Key).const -cne $entry.Value) { throw "REL04-HANDOFF-HISTORY: handoff branch does not bind $($entry.Key)." }
     }
-    foreach ($field in @('r2_history_path','r2_history_sha256','r3_history_path','r3_history_sha256','r4_history_path','r4_history_sha256')) {
+    foreach ($field in @('r2_history_path','r2_history_sha256','r3_history_path','r3_history_sha256')) {
       if (@($branch.required) -cnotcontains $field) { throw "REL04-HANDOFF-HISTORY: handoff branch omits $field." }
     }
   }
@@ -102,23 +101,21 @@ function Assert-Phase08AttemptSchemas {
   if (@($mutation.required) -ccontains 'stop' -or @($exact.required) -ccontains 'stop') { throw 'REL04-HANDOFF-STOP: stop cannot be eligible.' }
 
   $receiptFixture = [pscustomobject][ordered]@{
-    schema_version='mnf-phase08-authorization-receipt/1';release_ref='refs/tags/modules-v0.1.0-r5'
+    schema_version='mnf-phase08-authorization-receipt/1';release_ref='refs/tags/modules-v0.1.0-r4'
     boundary_sha=('1'*40);source_sha=('2'*40);packet_sha256=('3'*64)
     historical_attempt_zero_sha256=$historyFields.historical_attempt_zero_sha256
     historical_r1_sha256=$historyFields.historical_r1_sha256
     historical_r2_sha256=$historyFields.historical_r2_sha256
     historical_r3_sha256=$historyFields.historical_r3_sha256
-    historical_r4_sha256=$historyFields.historical_r4_sha256
     historical_history_set_sha256=$historyFields.historical_history_set_sha256
     response='authorize-core';created_at_utc='2026-07-19T00:00:00Z';receipt_sha256=('4'*64)
   }
   $receiptSchemaPath = Join-Path $repoRoot 'release\qualification\phase-08-authorization-receipt-schema.json'
-  if (-not (($receiptFixture | ConvertTo-Json -Depth 30 -Compress) | Test-Json -SchemaFile $receiptSchemaPath -ErrorAction Stop)) { throw 'REL04-RECEIPT-SCHEMA: valid r5 receipt fixture failed.' }
+  if (-not (($receiptFixture | ConvertTo-Json -Depth 30 -Compress) | Test-Json -SchemaFile $receiptSchemaPath -ErrorAction Stop)) { throw 'REL04-RECEIPT-SCHEMA: valid r4 receipt fixture failed.' }
   foreach ($mutate in @(
-    { param($x) $x.release_ref='refs/tags/modules-v0.1.0-r4' },
+    { param($x) $x.release_ref='refs/tags/modules-v0.1.0-r3' },
     { param($x) $x.historical_r1_sha256=$x.historical_attempt_zero_sha256 },
     { param($x) $t=$x.historical_r2_sha256;$x.historical_r2_sha256=$x.historical_r3_sha256;$x.historical_r3_sha256=$t },
-    { param($x) $x.historical_r4_sha256=$x.historical_r3_sha256 },
     { param($x) $x.historical_history_set_sha256=('f'*64) },
     { param($x) $x.created_at_utc='2026-07-19T08:00:00+08:00' },
     { param($x) $x|Add-Member unexpected x }
