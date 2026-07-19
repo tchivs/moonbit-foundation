@@ -296,6 +296,10 @@ function Assert-P08FixtureContract {
     & git -C $prepareExecutionRoot commit --quiet --allow-empty -m 'test: prepare attempt fixture boundary'
     if($LASTEXITCODE){Throw-P08Qualification 'P08-QUAL-PREPARE-COMMIT' 'Unable to create the local-only PrepareAttempt fixture boundary.'}
     $prepareBoundary=(& git -C $prepareExecutionRoot rev-parse HEAD).Trim()
+    $prepareControl=Get-Content -LiteralPath (Join-Path $prepareExecutionRoot 'policy/release-control.json') -Raw|ConvertFrom-Json -Depth 100
+    $prepareReleaseRef=[string]$prepareControl.initial_profile.release_ref
+    & git -C $prepareExecutionRoot tag -a ($prepareReleaseRef.Substring('refs/tags/'.Length)) -m 'fixture-only initial qualification tag' $prepareBoundary
+    if($LASTEXITCODE){Throw-P08Qualification 'P08-QUAL-PREPARE-TAG' 'Unable to create the disposable fixture tag.'}
     $r8Policy=@((Get-Content -LiteralPath (Join-Path $prepareExecutionRoot 'policy/release-control.json') -Raw|ConvertFrom-Json -Depth 100).initial_attempt_family.terminal_negative_history)[8]
     if($r8Policy.PSObject.Properties.Name -ccontains 'prepare_job_id' -or $r8Policy.PSObject.Properties.Name -ccontains 'prepare_attempt_completed'){
       Throw-P08Qualification 'P08-QUAL-PREPARE-R8-LEGACY-SCHEMA' 'The protected r8 pre-locator record must omit post-r8 prepare fields.'
@@ -400,6 +404,69 @@ function Assert-P08FixtureContract {
     Confirm-P08FixtureFailure 'P08-PREPARE-HISTORICAL-BINDING' {
       & $prepareHosted -Mode PrepareAttempt -BoundaryLocatorPath ([string]$mismatchBoundary.locator_path) -ReleaseRef refs/tags/modules-v0.1.0-r10 `
         -HistoricalReleaseRef refs/tags/modules-v0.1.0-r9 -HistoricalSourceSha ('9'*40) -PrepareProvider $prepareProvider
+    }
+
+    # This is intentionally a local-only Git fixture: the tag exists only in the disposable
+    # bare repository and is fetched into each disposable execution clone.
+    $clonePolicy=Get-Content -LiteralPath (Join-Path $prepareExecutionRoot 'policy/release-control.json') -Raw|ConvertFrom-Json -Depth 100
+    $cloneReleaseRef=[string]$clonePolicy.initial_profile.release_ref
+    $cloneTagName=$cloneReleaseRef.Substring('refs/tags/'.Length)
+    $cloneOrigin=Join-Path $prepareFixtureRoot 'clone-origin.git'
+    & git clone --quiet --bare $prepareExecutionRoot $cloneOrigin
+    if($LASTEXITCODE){Throw-P08Qualification 'P08-QUAL-PREPARE-ORIGIN' 'Unable to create the disposable fixture origin.'}
+
+    function New-P08FetchedQualificationClone([string]$Name,[switch]$FetchTag){
+      $destination=Join-Path $prepareFixtureRoot $Name
+      & git clone --quiet --no-tags $cloneOrigin $destination
+      if($LASTEXITCODE){Throw-P08Qualification 'P08-QUAL-PREPARE-CLONE' "Unable to create fixture clone '$Name'."}
+      if($FetchTag){
+        & git -C $destination fetch --quiet --no-tags origin "$cloneReleaseRef`:$cloneReleaseRef"
+        if($LASTEXITCODE){Throw-P08Qualification 'P08-QUAL-PREPARE-FETCH' "Unable to fetch the policy-selected tag into '$Name'."}
+      }
+      & git -C $destination checkout --quiet --detach $prepareBoundary
+      if($LASTEXITCODE){Throw-P08Qualification 'P08-QUAL-PREPARE-CHECKOUT' "Unable to check out the fixture boundary in '$Name'."}
+      $destination
+    }
+
+    $cloneProbe=[pscustomobject]@{provider_calls=0}
+    $cloneProvider={
+      param($Context)
+      $cloneProbe.provider_calls++
+      if([string]$Context.execution_root -cne [string]$Context.source_root -or
+          [string]$Context.control_policy_path -cne (Join-Path ([string]$Context.execution_root) 'policy/release-control.json') -or
+          [string]$Context.release_ref -cne $cloneReleaseRef){
+        Throw-P08Qualification 'P08-QUAL-PREPARE-CLONE-CONTEXT' 'PrepareAttempt did not pass its clone-local policy/ref context to the provider.'
+      }
+      & $prepareProvider $Context
+    }.GetNewClosure()
+
+    $fetchedExecutionRoot=New-P08FetchedQualificationClone -Name 'fetched-execution' -FetchTag
+    $fetchedStateRoot=Join-Path $prepareFixtureRoot 'fetched-state'
+    $fetchedBoundary=& (Join-Path $fetchedExecutionRoot 'scripts/quality/Invoke-Phase08HostedRun.ps1') -Mode InitializeBoundary -Repository tchivs/moonbit-foundation -Workflow publish-modules.yml `
+      -BoundarySha $prepareBoundary -ExecutionRoot $fetchedExecutionRoot -StateRoot $fetchedStateRoot
+    $fetchedPrepared=& (Join-Path $fetchedExecutionRoot 'scripts/quality/Invoke-Phase08HostedRun.ps1') -Mode PrepareAttempt -BoundaryLocatorPath ([string]$fetchedBoundary.locator_path) `
+      -ReleaseRef $cloneReleaseRef -HistoricalReleaseRef refs/tags/modules-v0.1.0-r9 -HistoricalSourceSha 4158dff7d3b6629861d4f5325573c45f3e3e3436 -PrepareProvider $cloneProvider
+    if($cloneProbe.provider_calls -ne 1 -or [string]$fetchedPrepared.mode -cne 'PrepareAttempt' -or -not(Test-Path -LiteralPath ([string]$fetchedPrepared.locator_path))){
+      Throw-P08Qualification 'P08-QUAL-PREPARE-CLONE-POSITIVE' 'Fetched clean-clone fixture did not cross the initial-ref seam into PrepareAttempt.'
+    }
+
+    function Confirm-P08CloneRefFailure([string]$Name,[string]$ExpectedId,[scriptblock]$Arrange){
+      $root=& $Arrange
+      $state=Join-Path $prepareFixtureRoot ("$Name-state")
+      $hosted=Join-Path $root 'scripts/quality/Invoke-Phase08HostedRun.ps1'
+      $boundary=& $hosted -Mode InitializeBoundary -Repository tchivs/moonbit-foundation -Workflow publish-modules.yml -BoundarySha $prepareBoundary -ExecutionRoot $root -StateRoot $state
+      $before=$cloneProbe.provider_calls;$failure=$null
+      try{& $hosted -Mode PrepareAttempt -BoundaryLocatorPath ([string]$boundary.locator_path) -ReleaseRef $cloneReleaseRef -HistoricalReleaseRef refs/tags/modules-v0.1.0-r9 -HistoricalSourceSha 4158dff7d3b6629861d4f5325573c45f3e3e3436 -PrepareProvider $cloneProvider}catch{$failure=$_.Exception.Message}
+      if($failure -notmatch "^$ExpectedId`:" -or $cloneProbe.provider_calls -ne $before -or (Test-Path -LiteralPath (Join-Path $state 'phase-08-live-locator.json'))){
+        Throw-P08Qualification 'P08-QUAL-PREPARE-CLONE-REF' "'$Name' crossed provider or locator state before the clone-local release-ref gate: $failure"
+      }
+    }
+    Confirm-P08CloneRefFailure -Name 'missing-tag' -ExpectedId 'P08-PREPARE-REF' -Arrange { New-P08FetchedQualificationClone -Name 'missing-tag-execution' }
+    Confirm-P08CloneRefFailure -Name 'peel-drift' -ExpectedId 'P08-PREPARE-REF' -Arrange {
+      $root=New-P08FetchedQualificationClone -Name 'peel-drift-execution' -FetchTag
+      & git -C $root tag -f $cloneTagName "$prepareBoundary^"
+      if($LASTEXITCODE){Throw-P08Qualification 'P08-QUAL-PREPARE-DRIFT' 'Unable to create local tag peel drift.'}
+      $root
     }
   } finally {
     if(Test-Path -LiteralPath $prepareFixtureRoot){Remove-Item -LiteralPath $prepareFixtureRoot -Recurse -Force}
