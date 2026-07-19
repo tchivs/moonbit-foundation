@@ -87,12 +87,38 @@
         "mutation_count": 0,
         "reason": "terminal_clean_snapshot_binding_failure",
         "record_sha256": "d9b045bc65df87dc2701144ea7716defc67acb84ec9ea8e7ffdafd0118ba0906"
+      },
+      {
+        "attempt": "r5",
+        "release_ref": "refs/tags/modules-v0.1.0-r5",
+        "source_sha": "df105f06205298f1f82ac2f2cdca214d69d42e15",
+        "tag_object_sha": "4a11582cf9aeae15802cf4f6d7394b013ece63ac",
+        "hosted_run_present": false,
+        "run_id": null,
+        "run_attempt": null,
+        "mutation_performed": false,
+        "authority_acquired": false,
+        "prepare_attempt_completed": true,
+        "registry_disposition": "confirmed_absent",
+        "hosted_preflight_dispatch_attempted": true,
+        "hosted_preflight_dispatched": false,
+        "failure_stage": "hosted_dispatch_validation_before_run_creation",
+        "validation_error": "duplicate_workflow_environment_key",
+        "publish_run_count": 0,
+        "publisher_dry_run_count": 0,
+        "authorization_packet_count": 0,
+        "authorization_receipt_count": 0,
+        "handoff_count": 0,
+        "publish_one_count": 0,
+        "mutation_count": 0,
+        "reason": "terminal_workflow_duplicate_environment_key",
+        "record_sha256": "1239b63f983bef86ac44c731171093ad67759de9cce7c15610b92f5df6214843"
       }
     ],
     "history_set_profile": "sha256-of-lf-joined-record-sha256-in-canonical-attempt-order",
-    "history_set_sha256": "cdf78268b443dd3bc81026cbfda2a8a6a6ced3af6daeaa2351b658823649b2be",
+    "history_set_sha256": "faed8af741e3e2f80d385fcc496649e12bf32889d6dff424fad3c8916acf9c0a",
     "reuse": "forbidden",
-    "current_attempt": "r5"
+    "current_attempt": "r6"
   },
   "historical_initial_attempt": {
     "release_ref": "refs/tags/modules-v0.1.0",
@@ -105,7 +131,7 @@
   },
   "initial_profile": {
     "intent_kind": "initial",
-    "release_ref": "refs/tags/modules-v0.1.0-r5",
+    "release_ref": "refs/tags/modules-v0.1.0-r6",
     "correction_sequence": 0,
     "predecessor": "forbidden",
     "serialized_root_intent_sha256": "forbidden",
