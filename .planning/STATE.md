@@ -6,13 +6,13 @@ current_phase: 08
 current_phase_name: Ordered Mooncakes Publication and Registry Consumers
 status: executing
 stopped_at: Completed 08-16-PLAN.md
-last_updated: "2026-07-19T02:59:36.776Z"
+last_updated: "2026-07-19T03:57:57.072Z"
 last_activity: 2026-07-19
-last_activity_desc: Phase 8 r6 hosted seam and zero-write pre-live selector passed the complete static matrix
+last_activity_desc: Phase 8 r7 forward-correction replanned and independently verified; Wave 17 static contracts are ready
 progress:
   total_phases: 4
   completed_phases: 2
-  total_plans: 46
+  total_plans: 48
   completed_plans: 44
   percent: 50
 ---
@@ -30,9 +30,9 @@ See `.planning/PROJECT.md` (updated 2026-07-17).
 ## Current Position
 
 Phase: 08 (Ordered Mooncakes Publication and Registry Consumers) — EXECUTING
-Plan: 17 of 18
-Status: Ready for Wave 17 — run the committed pre-live selector before any live action
-Last activity: 2026-07-19 — r6 hosted seam and zero-write pre-live selector passed the complete static matrix
+Plan: 17 of 20
+Status: Ready for Wave 17 — implement r7 initial forward-retry contracts before any further external action
+Last activity: 2026-07-19 — r7 forward-correction plans passed independent verification; r6 remains terminal after cross-platform prepared intent mismatch and no registry mutation
 
 ## Progress
 
@@ -41,7 +41,7 @@ Current milestone: [█████░░░░░] 50% of v0.2 phases complete
 - v0.2 phases completed: 2/4
 - Phase 6 plans completed: 25/25
 - Phase 7 plans completed: 3/3
-- Phase 8 plans completed: 15/18
+- Phase 8 plans completed: 16/20
 - v0.2 requirements mapped: 21/21
 - Historical total: 5 completed phases, 43 completed plans, 36/36 v0.1 requirements validated
 
@@ -95,13 +95,13 @@ Current milestone: [█████░░░░░] 50% of v0.2 phases complete
 - [Phase 08]: Replay every supplied checkpoint through the Phase 7 reducer before deriving the next module.
 - [Phase 08]: Expose the token only through one temporary credentials file under a child-only MOON_HOME and persist only an allowlisted classification.
 - [Phase 08]: Carry the tracked live adapter as the eighteenth exact prepared payload so the publisher remains artifact-only.
-- [Phase 08]: Keep refs/tags/modules-v0.1.0 and refs/tags/modules-v0.1.0-r1 through refs/tags/modules-v0.1.0-r5 as immutable terminal historical evidence; only refs/tags/modules-v0.1.0-r6 may be current initial forward-retry authority.
+- [Phase 08]: Keep refs/tags/modules-v0.1.0 and refs/tags/modules-v0.1.0-r1 through refs/tags/modules-v0.1.0-r6 as immutable terminal historical evidence; only refs/tags/modules-v0.1.0-r7 may be current initial forward-retry authority.
 - [Phase 08]: Require the exact closed tchivs whoami projection and prepared-manifest digest before publisher or live mutation eligibility.
 - [Phase 08]: Represent exact-existing registry authority as a bound zero-mutation checkpoint that cannot enter the mutation adapter.
 - [Phase 08]: Bind every hosted helper use to one clean r1 execution root, HEAD, and exact Git blob before any operation.
 - [Phase 08]: Accept exactly one core-entry authority variant: absent may yield a MutationAuthorizationPacket, while exact yields zero-mutation ExactExistingAuthority.
 - [Phase 08]: Keep DIST-01 through DIST-04 and PROV-05 pending until live publication and registry-only evidence exist.
-- [Phase 08]: Only refs/tags/modules-v0.1.0-r6 is current initial retry; attempt zero and r1 through r5 are immutable terminal-negative history.
+- [Phase 08]: Only refs/tags/modules-v0.1.0-r7 is current initial retry; attempt zero and r1 through r6 are immutable terminal-negative history.
 - [Phase 08]: Prepared r2 identity binds both terminal-negative digests through the digest-covered request payload without importing prior state containers.
 - [Phase 08]: Mutation handoff requires packet plus literal receipt; exact-existing handoff forbids both variants' mutation evidence.
 - [Phase 08]: Publisher and live adapter accept only r2 plus two distinct terminal-negative history digests.
@@ -112,7 +112,7 @@ Current milestone: [█████░░░░░] 50% of v0.2 phases complete
 - [Phase 08]: The hosted dispatch carries one canonical historical_attempts_sha256 field while the workflow deterministically expands and validates the three exact record digests before credentials.
 - [Phase 08]: The start vector carries empty packet and receipt fields; a PublishOne resume requires both digests as one closed authority pair.
 - [Phase 08]: DIST-01 remains pending because Plan 08-10 performs no push, tag, hosted dispatch, publication, registry observation, or cold consumer proof.
-- [Phase 08]: Only refs/tags/modules-v0.1.0-r6 is current initial retry; attempt-zero and r1 through r5 are six immutable terminal-negative histories.
+- [Phase 08]: Only refs/tags/modules-v0.1.0-r7 is current initial retry; attempt-zero and r1 through r6 are seven immutable terminal-negative histories.
 - [Phase 08]: Eligibility carries all four individual record digests plus the SHA-256 of their canonical LF-joined order; the aggregate never replaces individual evidence.
 - [Phase 08]: DIST-01 remains pending because Plan 08-11 performs no push, tag, hosted dispatch, registry observation, mutation, or publication.
 - [Phase 08]: Publisher, adapter, workflow, and hosted controller accept only r4 and bind four individual terminal-negative history digests plus their canonical LF-ordered set.
@@ -126,7 +126,7 @@ Current milestone: [█████░░░░░] 50% of v0.2 phases complete
 - [Phase 08]: The hosted dispatch remains exactly 14 ordered fields; five individual histories are recomputed into the canonical aggregate before dispatch.
 - [Phase 08]: Production uses only the non-overridable fixed %TEMP%/mnf-phase08-r5-handoff.json path; LibraryOnly fixtures use GUID-owned roots.
 - [Phase 08]: DIST-01 remains pending because Plan 08-14 performs no push, tag, dispatch, registry observation, mutation, or publication.
-- [Phase 08]: Only refs/tags/modules-v0.1.0-r6 is current initial authority; attempt-zero and r1 through r5 remain immutable terminal-negative history.
+- [Phase 08]: Only refs/tags/modules-v0.1.0-r7 is current initial authority; attempt-zero and r1 through r6 remain immutable terminal-negative history.
 - [Phase 08]: The r5 terminal record binds exact source/tag, successful preparation and absence, duplicate-env pre-run rejection, no hosted run, and zero downstream effects.
 - [Phase 08]: DIST-01 remains pending because Plan 08-15 performs no external publication or registry-consumer action.
 - [Phase 08]: Publisher, adapter, workflow, and hosted controller accept only r6 and bind six immutable terminal histories.

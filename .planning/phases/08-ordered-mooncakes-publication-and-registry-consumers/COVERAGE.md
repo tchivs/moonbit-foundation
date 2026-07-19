@@ -2,9 +2,11 @@
 
 ## Scope Contract
 
+**Execution status:** 16/20 plans executed; 08-17 through 08-20 are the r7 forward-correction path.
+
 Phase 8 integrates only the Mooncakes capabilities required to publish one dependency-safe module per authorized run, observe it through credential-free structured surfaces, and prove exact cold registry consumption. The canonical semantic order is `tchivs/mb-core@0.1.0` -> `tchivs/mb-color@0.1.0` -> `tchivs/mb-image@0.1.0`. Normalized graph serialization is deterministic but never changes node/edge equality.
 
-Attempt-zero and r1 through r5 are six distinct immutable terminal-negative histories. r4's only hosted run `29667231047/1` failed during credential-free HostedPreflight qualification because a valid clean empty tracked snapshot could not bind to `Before`; PublisherDryRun, packet, receipt, handoff, and mutation remained zero. r5 is fixed at source `df105f06205298f1f82ac2f2cdca214d69d42e15` and annotated tag object `4a11582cf9aeae15802cf4f6d7394b013ece63ac`: PrepareAttempt completed, a fresh credential-free observation proved core absent, and HostedPreflight dispatch was rejected before run creation because the immutable workflow contained a duplicate environment key. r5 therefore has no hosted run and zero PublisherDryRun, packet, receipt, handoff, PublishOne, mutation, or successor effects. The next retry is `modules-v0.1.0-r6` with a fresh initial root/genesis/prepared/index/store, module `0.1.0`, sequence 0, root=current, and no predecessor. Every eligibility artifact binds six individual digests plus their canonical ordered set. Only absent may preflight/dry and requires packet plus same-turn literal receipt; exact-existing requires neither.
+Attempt-zero and r1 through r6 are seven distinct immutable terminal-negative histories. r4's only hosted run `29667231047/1` failed during credential-free HostedPreflight qualification because a valid clean empty tracked snapshot could not bind to `Before`; all downstream effects remained zero. r5 is fixed at source `df105f06205298f1f82ac2f2cdca214d69d42e15` and annotated tag object `4a11582cf9aeae15802cf4f6d7394b013ece63ac`: PrepareAttempt completed, fresh credential-free observation proved core absent, and HostedPreflight dispatch was rejected before run creation because the immutable workflow contained a duplicate environment key. r6 is fixed at source `c05cacbc3cfc583205c612f4bf293a4e251ec079` and annotated tag object `cdff825cc870a50c0393d5347f21351011092149`: HostedPreflight run `29671691604/1` failed in prepare job `88151792308` with `P08-PREPARED-INTENT-BINDING` because Windows/Linux EOL-dependent source bytes produced different package ZIP and derived intent bytes; dry-run, exact-existing, hosted-preflight, publisher, observation, cold-consumer, packet, receipt, handoff, PublishOne, mutation, and successor effects are zero. The next retry is `modules-v0.1.0-r7` with a fresh initial root/genesis/prepared/index/store, module `0.1.0`, sequence 0, root=current, and no predecessor. Every eligibility artifact binds seven individual digests plus their canonical ordered set. Only absent may preflight/dry and requires packet plus same-turn literal receipt; exact-existing requires neither.
 
 The assumption-delta detector phrase `Git fallback` maps to the noun **registry-only dependency source**, decision **no-change**, because an alternate source is prohibited rather than generalized into an identity model.
 
@@ -12,27 +14,28 @@ The assumption-delta detector phrase `Git fallback` maps to the noun **registry-
 
 | Source | ID | Feature / requirement | Plan | Status | Notes |
 |---|---|---|---|---|---|
-| GOAL | - | Three genuine publications and cold consumption in strict dependency order | 08-01..08-18 | COVERED | r6 contracts, seam, union, and closure are sequential; six attempts are terminal evidence. |
-| REQ | DIST-01 | Core exact publication and four-target cold proof before color | 08-03..08-18 | COVERED | r6 union binds six histories; absent requires packet+receipt, exact-existing requires neither. |
-| REQ | DIST-02 | Color exact publication and core-color proof before image | 08-03, 08-04, 08-06, 08-18 | COVERED | Verified r6 core predecessor. |
-| REQ | DIST-03 | Image exact publication and full-graph PPM proof | 08-03, 08-04, 08-06, 08-18 | COVERED | Closed branch switch and exact graph. |
-| REQ | DIST-04 | Outside-checkout cold credential-free evidence | 08-01, 08-02, 08-03, 08-06, 08-18 | COVERED | Alternate state and warm/local sources are rejected. |
-| REQ | PROV-05 | Read-only exact public metadata | 08-02, 08-04, 08-06, 08-18 | COVERED | Structured surfaces only. |
-| CONTEXT | D-01..D-04 | Bundle, adapter, isolation, first mutation | 08-01, 08-04..08-17 | COVERED | r6 code precedes tag; absent receipt versus exact-existing. |
-| CONTEXT | D-05..D-07 | One mutation/run, predecessor, resume | 08-04, 08-06, 08-08, 08-10, 08-12, 08-14, 08-16, 08-18 | COVERED | No exact republish. |
+| GOAL | - | Three genuine publications and cold consumption in strict dependency order | 08-01..08-20 | COVERED | r7 contracts, seam, union, and closure are sequential; seven attempts are terminal evidence. |
+| REQ | DIST-01 | Core exact publication and four-target cold proof before color | 08-03..08-20 | COVERED | r7 union binds seven histories; absent requires packet+receipt, exact-existing requires neither. |
+| REQ | DIST-02 | Color exact publication and core-color proof before image | 08-03, 08-04, 08-06, 08-20 | COVERED | Verified r7 core predecessor. |
+| REQ | DIST-03 | Image exact publication and full-graph PPM proof | 08-03, 08-04, 08-06, 08-20 | COVERED | Closed branch switch and exact graph. |
+| REQ | DIST-04 | Outside-checkout cold credential-free evidence | 08-01, 08-02, 08-03, 08-06, 08-20 | COVERED | Alternate state and warm/local sources are rejected. |
+| REQ | PROV-05 | Read-only exact public metadata | 08-02, 08-04, 08-06, 08-20 | COVERED | Structured surfaces only. |
+| CONTEXT | D-01..D-04 | Bundle, adapter, isolation, first mutation | 08-01, 08-04..08-19 | COVERED | r7 code precedes tag; absent receipt versus exact-existing. |
+| CONTEXT | D-05..D-07 | One mutation/run, predecessor, resume | 08-04, 08-06, 08-08, 08-10, 08-12, 08-14, 08-16, 08-18, 08-20 | COVERED | No exact republish. |
 | CONTEXT | D-08..D-12 | Exact four-target cold consumers | 08-03, 08-06, 08-18 | COVERED | Empty homes and exact graphs. |
-| CONTEXT | D-13..D-15 | Polling, ambiguity stop, forward retry | 08-02, 08-04..08-18 | COVERED | r6 remains initial and r5 is immutable terminal evidence. |
-| CONTEXT | D-16..D-19 | Structured metadata, sanitized evidence, fresh core observation | 08-02, 08-05, 08-06, 08-08, 08-10, 08-12, 08-14, 08-15, 08-16, 08-17, 08-18 | COVERED | Fresh observation feeds the r6 union and every successor. |
+| CONTEXT | D-13..D-15 | Polling, ambiguity stop, forward retry | 08-02, 08-04..08-20 | COVERED | r7 remains initial and r6 is immutable terminal evidence. |
+| CONTEXT | D-16..D-19 | Structured metadata, sanitized evidence, fresh core observation | 08-02, 08-05, 08-06, 08-08, 08-10, 08-12, 08-14, 08-15, 08-16, 08-17, 08-18, 08-19, 08-20 | COVERED | Fresh observation feeds the r7 union and every successor. |
 | RESEARCH | Prepared bundle is complete before secret access | 08-01, 08-04 | COVERED | Publisher repeats validation. |
 | RESEARCH | Cold consumer is a separate trust domain | 08-03 | COVERED | No checkout/workspace/cache/credential inheritance. |
 | RESEARCH | Structured observation precedes presentation | 08-02, 08-06, 08-11, 08-12 | COVERED | Closed projection and exact comparison. |
 | RESEARCH | Public surface shape is freshness-sensitive | 08-02, 08-06, 08-11, 08-12 | COVERED | Unknown shape blocks. |
-| DEBUG | hosted setup/field/parity/snapshot/workflow-key failures | Preserve attempts and corrected contracts | 08-05..08-17 | COVERED | Six histories bind stages; r4 had one failed run; r5 failed before run creation; r6 preserves every correction. |
+| DEBUG | hosted setup/field/parity/snapshot/workflow-key/cross-platform failures | Preserve attempts and corrected contracts | 08-05..08-19 | COVERED | Seven histories bind stages; r4 and r6 had failed runs; r5 failed before run creation; r7 preserves every correction. |
 | DEBUG | publisher actor identity | Prove exact `tchivs` without raw authentication output | 08-05, 08-06, 08-08, 08-10, 08-11, 08-12 | COVERED | Exact parse, sanitized packet/receipt, reciprocal digest. |
-| DEBUG | fresh authorization continuation | Revalidate untrusted checkpoint before receipt | 08-08, 08-10, 08-12, 08-14, 08-16, 08-17, 08-18 | COVERED | Same-turn verbatim user literal; reload LF boundary, six histories/set, actor, dry run, absence, locator, active state, packet, and hosted receipts. |
-| TEST | fixed handoff/tag isolation | Production path/tags non-overridable | 08-08, 08-10, 08-12, 08-14, 08-16, 08-17 | COVERED | r6 LibraryOnly GUID/no-tags/owned cleanup/fixed absence. |
-| TEST | hosted exact14 receipt parity | Controller/workflow declarations/propagation | 08-10, 08-12, 08-14, 08-16, 08-18 | COVERED | Prevents parity, receipt, vector, and duplicate-key drift. |
-| TEST | clean tracked snapshot | Equal empty clean state passes; unequal nonempty drift fails | 08-13, 08-14, 08-15, 08-16, 08-17, 08-18 | COVERED | Preserves clean checkout and mutation detection. |
+| DEBUG | fresh authorization continuation | Revalidate untrusted checkpoint before receipt | 08-08, 08-10, 08-12, 08-14, 08-16, 08-18, 08-19, 08-20 | COVERED | Same-turn verbatim user literal; reload LF boundary, seven histories/set, actor, dry run, absence, locator, active state, packet, and hosted receipts. |
+| TEST | fixed handoff/tag isolation | Production path/tags non-overridable | 08-08, 08-10, 08-12, 08-14, 08-16, 08-18, 08-19 | COVERED | r7 LibraryOnly GUID/no-tags/owned cleanup/fixed absence. |
+| TEST | hosted exact14 receipt parity | Controller/workflow declarations/propagation | 08-10, 08-12, 08-14, 08-16, 08-18, 08-20 | COVERED | Prevents parity, receipt, vector, and duplicate-key drift. |
+| TEST | clean tracked snapshot | Equal empty clean state passes; unequal nonempty drift fails | 08-13..08-20 | COVERED | Preserves clean checkout and mutation detection. |
+| TEST | cross-platform prepared archive identity | Opposing checkout policies produce exact ZIP bytes | 08-18, 08-19, 08-20 | COVERED | Committed LF policy and dual-clone package regression prevent r6 recurrence. |
 
 ## Requirement Adjacency and Edge Rules
 
