@@ -211,12 +211,40 @@
         "failure_detail": "REL-XPLAT-NONCANONICAL",
         "reason": "terminal_pre_locator_canonical_archive_failure",
         "record_sha256": "8a7729234a62425d0082a7b7a4615f2757ab4bc59938925b8ca031e2e00c10c8"
+      },
+      {
+        "attempt": "r9",
+        "release_ref": "refs/tags/modules-v0.1.0-r9",
+        "source_sha": "4158dff7d3b6629861d4f5325573c45f3e3e3436",
+        "tag_object_sha": "79d4fa715c6d306e5435d5920c5f92111d5ce13a",
+        "tag_peeled_source_sha": "4158dff7d3b6629861d4f5325573c45f3e3e3436",
+        "hosted_run_present": false,
+        "run_id": null,
+        "run_attempt": null,
+        "prepare_attempt_completed": false,
+        "active_locator_created": false,
+        "locator_count": 0,
+        "hosted_preflight_dispatched": false,
+        "credential_accessed": false,
+        "failure_stage": "pre_locator_strict_mode_history_schema_failure",
+        "failure_code": "P08-PREPARE-HISTORY-SCHEMA",
+        "failure_detail": "r8_legacy_history_field_access_under_strictmode",
+        "authorization_packet_count": 0,
+        "authorization_receipt_count": 0,
+        "handoff_count": 0,
+        "publish_one_count": 0,
+        "mutation_count": 0,
+        "successor_count": 0,
+        "mutation_performed": false,
+        "authority_acquired": false,
+        "reason": "terminal_pre_locator_strict_mode_history_schema_failure",
+        "record_sha256": "cc629ec12f16b1aa521ba352bdfdad320c1f9f26c6e875217fcff55ca9206ac5"
       }
     ],
     "history_set_profile": "sha256-of-lf-joined-record-sha256-in-canonical-attempt-order",
-    "history_set_sha256": "39e45ed9aecf1788d106a043dd4b421243a577b66534d0748ca61937a0de86a8",
+    "history_set_sha256": "69feee50b840e1fb17fcae3a3d57de5dd227cbbc4028d74b8000a685e8191787",
     "reuse": "forbidden",
-    "current_attempt": "r9"
+    "current_attempt": "r10"
   },
   "historical_initial_attempt": {
     "release_ref": "refs/tags/modules-v0.1.0",
@@ -229,7 +257,7 @@
   },
   "initial_profile": {
     "intent_kind": "initial",
-    "release_ref": "refs/tags/modules-v0.1.0-r9",
+    "release_ref": "refs/tags/modules-v0.1.0-r10",
     "correction_sequence": 0,
     "predecessor": "forbidden",
     "serialized_root_intent_sha256": "forbidden",
