@@ -4,16 +4,16 @@ milestone: v0.2
 milestone_name: Publication & Compatibility
 current_phase: 08
 current_phase_name: Ordered Mooncakes Publication and Registry Consumers
-status: executing — required next static integration is 08-36 after 08-35 and before any r13 boundary or authorization; obsolete r12 authority is quarantined
-stopped_at: Awaiting required 08-36-PLAN.md static HostedDispatch integration after 08-35
-last_updated: "2026-07-19T14:03:12.986Z"
+status: ready_for_verification — 08-36 static HostedDispatch integration is complete; a later r13 boundary remains required before authorization
+stopped_at: Completed 08-36-PLAN.md
+last_updated: "2026-07-19T14:49:36.246Z"
 last_activity: 2026-07-19
 last_activity_desc: corrected the misdiagnosed timeout narrative (deterministic REL01-REF), recorded the tag-before-script-fix ordering invariant for r13+
 progress:
   total_phases: 4
   completed_phases: 2
-  total_plans: 63
-  completed_plans: 61
+  total_plans: 64
+  completed_plans: 62
   percent: 50
 ---
 
@@ -29,9 +29,9 @@ See `.planning/PROJECT.md` (updated 2026-07-17).
 
 ## Current Position
 
-Phase: 08 (Ordered Mooncakes Publication and Registry Consumers) — EXECUTING
-Plan: 36 of 36 (08-33 quarantined; 08-36 is the mandatory static integration after 08-35)
-Status: r12 publish-blocked (REL01-REF) — its boundary commit (5e7b19cd) declared policy release_ref=r12 but Invoke-ReleaseQualification.ps1 still hardcoded r9; the fix (d55f63a) landed 26 min after the immutable tag. 08-33 cannot run on r12. r12 is immutable terminal evidence only; forward path is r13+, through 08-34 then 08-35 then mandatory 08-36. Do not create an r13 boundary or seek authorization until 08-36 passes.
+Phase: 08 (Ordered Mooncakes Publication and Registry Consumers) — READY FOR VERIFICATION
+Plan: 36 of 36 (08-33 quarantined; 08-36 static HostedDispatch integration complete)
+Status: r12 remains immutable publish-blocked REL01-REF evidence. The static r13 route through 08-34, 08-35, and 08-36 is complete; a separate later plan must create and verify an r13 boundary before any authorization.
 Last activity: 2026-07-19 — corrected the misdiagnosed timeout narrative (deterministic REL01-REF), recorded the tag-before-script-fix ordering invariant for r13+
 
 ## Progress
@@ -41,7 +41,7 @@ Current milestone: [█████░░░░░] 50% of v0.2 phases complete
 - v0.2 phases completed: 2/4
 - Phase 6 plans completed: 25/25
 - Phase 7 plans completed: 3/3
-- Phase 8 plans completed: 33/36 (08-33 quarantined; 08-34 complete, 08-35 precedes mandatory 08-36 static integration)
+- Phase 8 plans completed: 34/36 (08-33 quarantined; 08-34, 08-35, and 08-36 static integration complete)
 - v0.2 requirements mapped: 21/21
 - Historical total: 5 completed phases, 43 completed plans, 36/36 v0.1 requirements validated
 
@@ -158,6 +158,7 @@ Current milestone: [█████░░░░░] 50% of v0.2 phases complete
 - [Phase ?]: r12 (object 57b76c9f, peel 5e7b19cd) is publish-blocked terminal evidence — its boundary commit declared policy release_ref=r12 but Invoke-ReleaseQualification.ps1 still hardcoded r9, so its own qualification throws REL01-REF deterministically; the r12 script fix (d55f63a) landed 26 min after the immutable tag. r13+ must be the forward retry; do not retry r12.
 - [Phase ?]: Order tag creation after script/policy ref agreement — before creating any future boundary tag rN, verify at the candidate commit that (1) Invoke-ReleaseQualification.ps1 references refs/tags/modules-v0.1.0-rN on every -ReleaseRef, (2) policy/release-control.json declares current_attempt=rN and release_ref=refs/tags/modules-v0.1.0-rN, (3) the boundary wrapper completes PrepareAttempt (not just InitializeBoundary) in a disposable clone. This closes the gap that let r12 tag a self-inconsistent commit.
 - [Phase ?]: Quarantine 08-33 permanently; advance only through static r13 recovery before any separate boundary or authorization step.
+- [Phase ?]: HostedDispatch validates attempt-zero plus r1 through r12 and the canonical LF aggregate before provider access.
 
 ### Pending Decisions
 
@@ -170,17 +171,17 @@ None
 
 ## Session Continuity
 
-**Resume file:** 08-36-PLAN.md
+**Resume file:** None
 
-Last session: 2026-07-19T14:03:12.970Z
-Stopped at: Completed 08-34-PLAN.md
-Resume with: `/gsd-execute-phase 8` to complete mandatory 08-36 static HostedDispatch integration after 08-35; do not create an r13 boundary or seek authorization until 08-36 passes.
+Last session: 2026-07-19T14:49:36.231Z
+Stopped at: Completed 08-36-PLAN.md
+Resume with: a separate later r13 boundary plan; do not seek authorization until that immutable boundary passes.
 
 ## Operator Next Steps
 
 - 08-32 is reconciled as satisfied-by-prior-run (immutable r12 tag 57b76c9f / peel 5e7b19cd already exists locally+remotely, ancestor of HEAD).
 - 08-33 is quarantined and obsolete: it was scoped to r12 authority and is not publication authority. r12 is immutable terminal REL01-REF evidence only.
-- The active route is static r13 recovery through 08-34, then 08-35, then required integration follow-up 08-36. Only after 08-36 passes may a later plan separately create and verify an immutable r13 boundary; only a distinct later r13 plan may request explicit authorization for any publication.
+- The static r13 recovery route through 08-34, 08-35, and 08-36 is complete. A later plan must separately create and verify an immutable r13 boundary; only a distinct later r13 plan may request explicit authorization for any publication.
 - A current-HEAD eight-path baseline must be recaptured before any future pre-live or publisher run that evaluates the baseline against working-tree content (the captured baseline is stale vs current HEAD).
 - Watch: two non-baseline files appeared modified mid-session (`release/qualification/phase-06-requirements.json`, `release/registry/authority-observation.json`) — investigate whether a sibling process is editing release artifacts.
 
@@ -237,3 +238,4 @@ Resume with: `/gsd-execute-phase 8` to complete mandatory 08-36 static HostedDis
 | Phase 08 P27 | 45min | 2 tasks | 12 files |
 | Phase 08 P31 | 10min | 2 tasks | 10 files |
 | Phase 08 P34 | 0h 35m | 3 tasks | 11 files |
+| Phase 08 P36 | 25min | 2 tasks | 2 files |
