@@ -25,6 +25,20 @@ function Invoke-R6PreLiveGit([string[]]$Arguments,[switch]$AllowFailure){
   if($code-ne0-and-not$AllowFailure){Throw-R6PreLive 'P08-R6-GIT' "git $($Arguments-join' ') failed."}
   [pscustomobject]@{exit_code=$code;lines=$output}
 }
+function Resolve-R6RemoteTag([object]$Record,[string[]]$RemoteRows){
+  $base=[Collections.Generic.List[string]]::new();$peeled=[Collections.Generic.List[string]]::new()
+  foreach($row in @($RemoteRows)){
+    if($row-cnotmatch'^(?<sha>[0-9a-f]{40})\t(?<ref>refs/tags/[^\s]+?)(?<peel>\^\{\})?$'){Throw-R6PreLive 'P08-R6-REMOTE-TAG' "Malformed remote tag row '$row'."}
+    if($Matches.ref-cne[string]$Record.release_ref){continue}
+    if(-not$Matches.ContainsKey('peel')-or[string]::IsNullOrEmpty([string]$Matches['peel'])){$base.Add($Matches.sha)}else{$peeled.Add($Matches.sha)}
+  }
+  if($base.Count-ne1-or$peeled.Count-gt1){Throw-R6PreLive 'P08-R6-REMOTE-TAG' "Remote tag '$($Record.release_ref)' must have one object row and at most one peeled row."}
+  $tagObject=if($peeled.Count-eq1){$base[0]}else{$null};$peel=if($peeled.Count-eq1){$peeled[0]}else{$base[0]}
+  if($peel-cne[string]$Record.source_sha){Throw-R6PreLive 'P08-R6-REMOTE-TAG' "Remote tag '$($Record.release_ref)' peeled source drifted."}
+  $expectedTagObject=$Record.PSObject.Properties['tag_object_sha']
+  if($null-ne$expectedTagObject-and$tagObject-cne[string]$expectedTagObject.Value){Throw-R6PreLive 'P08-R6-REMOTE-TAG' "Remote tag '$($Record.release_ref)' object drifted."}
+  [pscustomobject][ordered]@{release_ref=[string]$Record.release_ref;tag_object_sha=$tagObject;peel_sha=$peel}
+}
 function Assert-R6Contained([string]$Path,[string]$Root){
   $full=[IO.Path]::GetFullPath($Path);$base=[IO.Path]::GetFullPath($Root).TrimEnd([IO.Path]::DirectorySeparatorChar,[IO.Path]::AltDirectorySeparatorChar)
   if($full -cne $base -and -not $full.StartsWith($base+[IO.Path]::DirectorySeparatorChar,[StringComparison]::Ordinal)){Throw-R6PreLive 'P08-R6-PATH-ESCAPE' "'$full' escapes '$base'."}
@@ -112,10 +126,11 @@ function Find-R6HistoricalBoundary([object]$Record){
   $candidates[0]
 }
 
-function New-Phase08R6ProductionContext([string]$ExpectedRepository,[string]$ExpectedRemote){
+function New-Phase08R6ProductionContext([string]$ExpectedRepository,[string]$ExpectedRemote,[AllowNull()][string[]]$RemoteTagRows=$null){
   $repoRoot=(Invoke-R6PreLiveGit @('rev-parse','--show-toplevel')).lines[0];$head=(Invoke-R6PreLiveGit @('rev-parse','HEAD')).lines[0]
   $remoteUrl=Invoke-R6PreLiveGit @('config','--get',"remote.$ExpectedRemote.url")
   if($ExpectedRepository-cne'tchivs/moonbit-foundation'-or$ExpectedRemote-cne'origin'-or$remoteUrl.lines.Count-ne1){Throw-R6PreLive 'P08-R6-REMOTE' 'Canonical repository remote is missing.'}
+  if($null-eq$RemoteTagRows){$RemoteTagRows=@((Invoke-R6PreLiveGit @('ls-remote','--tags',$ExpectedRemote)).lines)}
   $policy=Read-ReleaseJson (Join-Path $repoRoot 'policy/release-control.json');$histories=[Collections.Generic.List[object]]::new()
   $foundByAttempt=@{}
   foreach($persistedRecord in @($policy.initial_attempt_family.terminal_negative_history|Where-Object{$_.attempt-cne'attempt_zero'})){$foundByAttempt[[string]$persistedRecord.attempt]=Find-R6HistoricalBoundary $persistedRecord}
@@ -127,10 +142,7 @@ function New-Phase08R6ProductionContext([string]$ExpectedRepository,[string]$Exp
   $attemptZeroArtifact=[IO.Path]::GetFullPath((Join-Path $r5StoreRoot ([string]$attemptZeroEntries[0].path)));$null=Assert-R6Contained $attemptZeroArtifact ([string]$r5Found.directory)
   if((Get-R6PreLiveSha $attemptZeroArtifact)-cne[string]$attemptZeroRecord.record_sha256){Throw-R6PreLive 'P08-R6-HISTORICAL-ARTIFACT' 'attempt_zero terminal artifact digest drifted.'}
   foreach($record in @($policy.initial_attempt_family.terminal_negative_history)){
-    $object=(Invoke-R6PreLiveGit @('rev-parse',$record.release_ref)).lines[0]
-    $peel=(Invoke-R6PreLiveGit @('rev-parse',"$($record.release_ref)^{}" )).lines[0]
-    $type=(Invoke-R6PreLiveGit @('cat-file','-t',$object)).lines[0]
-    $tagObject=if($type-ceq'tag'){$object}else{$null}
+    $remoteTag=Resolve-R6RemoteTag $record $RemoteTagRows;$peel=[string]$remoteTag.peel_sha;$tagObject=$remoteTag.tag_object_sha
     if($record.attempt-ceq'r5'-and$tagObject-cne$record.tag_object_sha){Throw-R6PreLive 'P08-R6-TAG' 'r5 tag object drifted.'}
     if($record.attempt-ceq'attempt_zero'){
       $histories.Add([pscustomobject][ordered]@{attempt=[string]$record.attempt;release_ref=[string]$record.release_ref;source_sha=[string]$record.source_sha;tag_object_sha=$tagObject;peel_sha=$peel;record_sha256=[string]$record.record_sha256;record=$record;execution_root=$null;state_root=$null;boundary_locator_path=$null;active_locator_path=$null;index_path=$null;store_root=$null;immutable_files=@([pscustomobject][ordered]@{path=$attemptZeroArtifact;sha256=[string]$record.record_sha256})})
@@ -155,7 +167,7 @@ function New-Phase08R6ProductionContext([string]$ExpectedRepository,[string]$Exp
   $summaries=[ordered]@{}
   foreach($id in @('08-15','08-16')){$relative=".planning/phases/08-ordered-mooncakes-publication-and-registry-consumers/$id-SUMMARY.md";$commit=((Invoke-R6PreLiveGit @('log','-1','--format=%H','--',$relative)).lines|Select-Object -First 1);$cat=Invoke-R6PreLiveGit @('cat-file','-e',"HEAD:$relative") -AllowFailure;$ancestor=Invoke-R6PreLiveGit @('merge-base','--is-ancestor',$commit,$head) -AllowFailure;$summaries["plan_$($id.Replace('-','_'))"]=[pscustomobject][ordered]@{commit_sha=$commit;committed_at_head=($cat.exit_code-eq0);ancestor_of_head=($ancestor.exit_code-eq0)}}
   $r6Ref='refs/tags/modules-v0.1.0-r6';$r6Local=(Invoke-R6PreLiveGit @('show-ref','--verify','--quiet',$r6Ref) -AllowFailure).exit_code-ne0
-  $r6Remote=(Invoke-R6PreLiveGit @('show-ref','--verify','--quiet',"refs/remotes/$ExpectedRemote/tags/modules-v0.1.0-r6") -AllowFailure).exit_code-ne0
+  $r6Remote=@($RemoteTagRows|Where-Object{$_-cmatch'\trefs/tags/modules-v0\.1\.0-r6(?:\^\{\})?$'}).Count-eq0
   $handoffPath=Join-Path ([IO.Path]::GetTempPath()) 'mnf-phase08-r6-handoff.json'
   [pscustomobject][ordered]@{
     schema_version='mnf-phase08-r6-pre-live-context/1';repository=$ExpectedRepository;remote=$ExpectedRemote;head_sha=$head;histories=@($histories)

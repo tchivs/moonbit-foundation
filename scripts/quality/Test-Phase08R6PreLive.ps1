@@ -7,7 +7,9 @@ $selector=Join-Path $PSScriptRoot 'Invoke-Phase08R6PreLive.ps1'
 if(-not(Test-Path -LiteralPath $selector -PathType Leaf)){throw 'P08-R6-PRELIVE-MISSING: selector is required.'}
 . $selector -Check -Repository tchivs/moonbit-foundation -Remote origin -LibraryOnly
 if(-not(Get-Command Assert-Phase08R6PreLive -ErrorAction SilentlyContinue)){throw 'P08-R6-PRELIVE-API: validator function is missing.'}
+if(-not(Get-Command Resolve-R6RemoteTag -ErrorAction SilentlyContinue)){throw 'P08-R6-REMOTE-TAG-API: remote tag resolver is missing.'}
 $source=Get-Content -LiteralPath $selector -Raw
+if($source-cnotmatch'Invoke-R6PreLiveGit\s+@\(''ls-remote'',''--tags'',\$ExpectedRemote\)'-or$source-cmatch'refs/remotes/\$ExpectedRemote/tags'){throw 'P08-R6-REMOTE-TAG-SURFACE: production must read exact remote tags without local remote-tracking refs.'}
 foreach($forbidden in @('git push','git fetch','git tag ','git checkout','git reset','gh ','MOONCAKES_TOKEN','StateRoot','PublishOne -','Invoke-MooncakesLiveMutation')){
   if($source.IndexOf($forbidden,[StringComparison]::OrdinalIgnoreCase)-ge0){throw "P08-R6-STATIC-ZERO-WRITE: forbidden selector surface '$forbidden'."}
 }
@@ -24,6 +26,25 @@ $root=Join-Path ([IO.Path]::GetTempPath()) ('mnf-r6-prelive-fixtures-'+[Guid]::N
 $null=New-Item -ItemType Directory -Path $root
 try{
   $policy=Get-Content -LiteralPath (Join-Path $PSScriptRoot '..\..\policy\release-control.json') -Raw|ConvertFrom-Json -Depth 100
+  $remoteRows=[Collections.Generic.List[string]]::new()
+  for($tagIndex=0;$tagIndex-lt 6;$tagIndex++){
+    $tagRecord=@($policy.initial_attempt_family.terminal_negative_history)[$tagIndex]
+    if($tagRecord.attempt-ceq'attempt_zero'){$remoteRows.Add("$($tagRecord.source_sha)`t$($tagRecord.release_ref)");continue}
+    $tagObject=if($tagRecord.attempt-ceq'r5'){[string]$tagRecord.tag_object_sha}else{('{0:x40}' -f ($tagIndex+1))}
+    $remoteRows.Add("$tagObject`t$($tagRecord.release_ref)");$remoteRows.Add("$($tagRecord.source_sha)`t$($tagRecord.release_ref)^{}")
+  }
+  foreach($tagRecord in @($policy.initial_attempt_family.terminal_negative_history)){
+    $resolved=Resolve-R6RemoteTag $tagRecord @($remoteRows)
+    if($resolved.peel_sha-cne$tagRecord.source_sha-or($tagRecord.attempt-ceq'r5'-and$resolved.tag_object_sha-cne$tagRecord.tag_object_sha)){throw 'P08-R6-REMOTE-TAG-POSITIVE: exact remote binding drifted.'}
+  }
+  $tagRecord=@($policy.initial_attempt_family.terminal_negative_history)[1]
+  Confirm-R6Failure 'P08-R6-REMOTE-TAG' {Resolve-R6RemoteTag $tagRecord @($remoteRows|Where-Object{$_-notmatch([regex]::Escape($tagRecord.release_ref)+'(?:\^\{\})?$')})}
+  Confirm-R6Failure 'P08-R6-REMOTE-TAG' {Resolve-R6RemoteTag $tagRecord @($remoteRows+@($remoteRows|Where-Object{$_-cmatch("`t$([regex]::Escape($tagRecord.release_ref))$")}))}
+  $driftRows=@($remoteRows|ForEach-Object{if($_-cmatch("`t$([regex]::Escape($tagRecord.release_ref))\^\{\}$")){('9'*40)+"`t$($tagRecord.release_ref)^{}"}else{$_}})
+  Confirm-R6Failure 'P08-R6-REMOTE-TAG' {Resolve-R6RemoteTag $tagRecord $driftRows}
+  $r5Record=@($policy.initial_attempt_family.terminal_negative_history)[5]
+  $objectDriftRows=@($remoteRows|ForEach-Object{if($_-cmatch("`t$([regex]::Escape($r5Record.release_ref))$")){('9'*40)+"`t$($r5Record.release_ref)"}else{$_}})
+  Confirm-R6Failure 'P08-R6-REMOTE-TAG' {Resolve-R6RemoteTag $r5Record $objectDriftRows}
   $histories=[Collections.Generic.List[object]]::new()
   foreach($record in @($policy.initial_attempt_family.terminal_negative_history)){
     $attemptRoot=Join-Path $root ([string]$record.attempt);$execution=Join-Path $attemptRoot 'execution';$state=Join-Path $attemptRoot 'state';$store=Join-Path $state 'store'

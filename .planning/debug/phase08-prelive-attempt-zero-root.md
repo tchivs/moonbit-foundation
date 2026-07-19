@@ -28,13 +28,13 @@ updated: 2026-07-19
       - "The RED fixture represented attempt_zero with null local-root fields plus its digest-valid terminal artifact and failed at the uniform Test-Path root loop."
     falsification_test: "A stage-aware selector must accept exactly one rootless attempt_zero terminal artifact while rejecting any claimed attempt_zero root, any artifact digest drift, and any missing r1-r5 root."
     fix_rationale: "Bind attempt_zero to the r5-indexed canonical HistoricalNegative artifact and validate its immutable tag/peel/run/digest without inventing a local root; keep active-locator/root/store containment mandatory for r1-r5."
-    blind_spots: "The production selector cannot finish in this checkout until the pre-existing missing local r1 and r4 tag refs are restored by the owning live workflow; this debug session is forbidden from fetching or recreating refs."
+    blind_spots: "The production `git ls-remote --tags origin` call was intentionally not executed during debug; deterministic injected rows cover its exact output contract."
 - tdd_checkpoint:
     test_file: "scripts/quality/Test-Phase08R6PreLive.ps1"
     test_name: "attempt_zero explicit root absence with immutable terminal artifact"
     status: green
     failure_output: "RED exited 1 at Invoke-Phase08R6PreLive.ps1:51 because Test-Path received a null attempt_zero root; GREEN exits 0."
-- next_action: Restore the already-published local r1/r4 refs through the owning live workflow, then rerun the read-only production selector; do not create or move r6.
+- next_action: From the committed clean tree, rerun the read-only production selector so `git ls-remote --tags origin` verifies the live remote rows; do not fetch, recreate local refs, or create/move r6.
 
 ## Evidence
 
@@ -57,7 +57,19 @@ updated: 2026-07-19
 - timestamp: 2026-07-19
   checked: read-only production selector after GREEN
   found: It advanced beyond attempt_zero discovery but stopped at local `refs/tags/modules-v0.1.0-r1` absence; local r1 and r4 refs were already absent, and this session did not fetch or recreate them.
-  implication: Code-level GREEN is complete; production verification awaits restoration of pre-existing local refs by the owning workflow.
+  implication: The selector incorrectly treated local tag refs as remote authority despite its required `-Remote origin` contract.
+- timestamp: 2026-07-19
+  checked: second-layer TDD RED for remote tag authority
+  found: Deterministic remote rows could not be validated because no remote tag resolver existed; production used local `rev-parse`/`cat-file` and a noncanonical remote-tracking r6 ref.
+  implication: Exact remote object/peeled resolution must be injectable for fixtures and use `git ls-remote --tags origin` only in production.
+- timestamp: 2026-07-19
+  checked: second-layer GREEN remote-row matrix
+  found: Lightweight attempt_zero and annotated r1-r5 rows resolved exactly; missing row, duplicate row, peeled-source drift, and r5 tag-object drift all failed closed. Static checks require the production `ls-remote --tags` call and reject remote-tracking ref dependence.
+  implication: Historical tag authority now follows `-Remote origin` without fetching, recreating, or writing local refs.
+- timestamp: 2026-07-19
+  checked: second-layer adjacent regression matrix
+  found: R6PreLive, LiveSeam, ReleasePublisherNegative, Phase08Qualification, MooncakesObservation, and `git diff --check` all passed without an actual network call.
+  implication: The remote-authority correction preserves root, digest, no-run, downstream-zero, committed-clean, and r6-absence invariants.
 
 
 ## Eliminated
@@ -65,7 +77,7 @@ updated: 2026-07-19
 
 ## Resolution
 
-- root_cause: The pre-live selector treated attempt_zero like r1-r5 and required a Phase 8 StateRoot even though attempt_zero predates local root persistence and is represented by immutable tag/source/run plus a digest-bound terminal artifact.
-- fix: Added an exact rootless attempt_zero branch backed by the canonical r5-indexed HistoricalNegative artifact, while requiring an active release locator and the existing root/index/store containment for every r1-r5 history.
-- verification: RED reproduced the null-root failure. GREEN and all adjacent local suites passed, including negative proofs against fabricated attempt_zero roots, artifact drift, and missing r1 roots. Production rerun is blocked only by pre-existing absent local r1/r4 refs.
+- root_cause: The pre-live selector both treated rootless attempt_zero like root-backed r1-r5 and resolved historical tags from local refs instead of the required remote authority, so it failed on valid absence and then on legitimately missing local r1/r4 refs.
+- fix: Added an exact rootless attempt_zero branch backed by the canonical r5-indexed terminal artifact; retained strict active-locator/root/store containment for r1-r5; and replaced local tag authority with fail-closed parsing of one read-only `git ls-remote --tags origin` result, injectable in fixtures.
+- verification: Two RED/GREEN cycles reproduced the null-root and missing remote-resolver gaps. Focused and adjacent suites pass, including negative proofs for fabricated roots, artifact drift, missing persisted roots, and missing/duplicate/mismatched/peeled-drift remote tags. No actual network or external mutation occurred during debug.
 - files_changed: [scripts/quality/Invoke-Phase08R6PreLive.ps1, scripts/quality/Test-Phase08R6PreLive.ps1, .planning/debug/phase08-prelive-attempt-zero-root.md]
