@@ -32,7 +32,8 @@ jobs:
           }
           foreach($command in @('moon','moonc','moonrun')) {
             $path=(Get-Command $command -CommandType Application -ErrorAction Stop).Source
-            if ((Get-FileHash -LiteralPath $path -Algorithm SHA256).Hash.ToLowerInvariant() -cne $expectedHashes[$command]) { throw 'P08-TOOLCHAIN-BINARY-DIGEST' }
+            $actual=(Get-FileHash -LiteralPath $path -Algorithm SHA256).Hash.ToLowerInvariant()
+            if ($actual -cne $expectedHashes[$command]) { throw "P08-TOOLCHAIN-BINARY-DIGEST: $command path=$path actual=$actual expected=$($expectedHashes[$command])" }
           }
           if ([string]@(& moon version)[0] -cne 'moon 0.1.20260713 (75c7e1f 2026-07-13)' -or
               [string]@(& moonc -v)[0] -cne 'v0.10.4+2cc641edf (2026-07-15)' -or
@@ -65,7 +66,8 @@ jobs:
           }
           foreach($command in @('moon','moonc','moonrun')) {
             $path=(Get-Command $command -CommandType Application -ErrorAction Stop).Source
-            if ((Get-FileHash -LiteralPath $path -Algorithm SHA256).Hash.ToLowerInvariant() -cne $expectedHashes[$command]) { throw 'P08-TOOLCHAIN-BINARY-DIGEST' }
+            $actual=(Get-FileHash -LiteralPath $path -Algorithm SHA256).Hash.ToLowerInvariant()
+            if ($actual -cne $expectedHashes[$command]) { throw "P08-TOOLCHAIN-BINARY-DIGEST: $command path=$path actual=$actual expected=$($expectedHashes[$command])" }
           }
           if ([string]@(& moon version)[0] -cne 'moon 0.1.20260713 (75c7e1f 2026-07-13)' -or
               [string]@(& moonc -v)[0] -cne 'v0.10.4+2cc641edf (2026-07-15)' -or
