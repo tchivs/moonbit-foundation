@@ -5,15 +5,15 @@ milestone_name: Publication & Compatibility
 current_phase: 08
 current_phase_name: Ordered Mooncakes Publication and Registry Consumers
 status: executing
-stopped_at: Completed 08-14-PLAN.md
-last_updated: "2026-07-19T02:22:13.109Z"
+stopped_at: Completed 08-15-PLAN.md
+last_updated: "2026-07-19T02:35:18.244Z"
 last_activity: 2026-07-19
-last_activity_desc: Phase 8 r6 forward-correction replanned and independently verified; Wave 15 static contracts are ready
+last_activity_desc: Phase 8 r6 static contracts completed with six immutable histories; Wave 16 hosted seam integration is ready
 progress:
   total_phases: 4
   completed_phases: 2
   total_plans: 46
-  completed_plans: 42
+  completed_plans: 43
   percent: 50
 ---
 
@@ -30,9 +30,9 @@ See `.planning/PROJECT.md` (updated 2026-07-17).
 ## Current Position
 
 Phase: 08 (Ordered Mooncakes Publication and Registry Consumers) — EXECUTING
-Plan: 15 of 18
-Status: Ready for Wave 15 — implement r6 initial forward-retry contracts before any further external action
-Last activity: 2026-07-19 — r6 forward-correction plans passed independent verification; r5 remains terminal with no hosted run or registry mutation
+Plan: 16 of 18
+Status: Ready for Wave 16 — integrate r6 into the hosted seam and pre-live zero-write selector
+Last activity: 2026-07-19 — r6 intent, prepared, authority, receipt, and handoff contracts passed their static suites with six histories
 
 ## Progress
 
@@ -41,7 +41,7 @@ Current milestone: [█████░░░░░] 50% of v0.2 phases complete
 - v0.2 phases completed: 2/4
 - Phase 6 plans completed: 25/25
 - Phase 7 plans completed: 3/3
-- Phase 8 plans completed: 14/18
+- Phase 8 plans completed: 15/18
 - v0.2 requirements mapped: 21/21
 - Historical total: 5 completed phases, 43 completed plans, 36/36 v0.1 requirements validated
 
@@ -126,6 +126,9 @@ Current milestone: [█████░░░░░] 50% of v0.2 phases complete
 - [Phase 08]: The hosted dispatch remains exactly 14 ordered fields; five individual histories are recomputed into the canonical aggregate before dispatch.
 - [Phase 08]: Production uses only the non-overridable fixed %TEMP%/mnf-phase08-r5-handoff.json path; LibraryOnly fixtures use GUID-owned roots.
 - [Phase 08]: DIST-01 remains pending because Plan 08-14 performs no push, tag, dispatch, registry observation, mutation, or publication.
+- [Phase 08]: Only refs/tags/modules-v0.1.0-r6 is current initial authority; attempt-zero and r1 through r5 remain immutable terminal-negative history.
+- [Phase 08]: The r5 terminal record binds exact source/tag, successful preparation and absence, duplicate-env pre-run rejection, no hosted run, and zero downstream effects.
+- [Phase 08]: DIST-01 remains pending because Plan 08-15 performs no external publication or registry-consumer action.
 
 ### Pending Decisions
 
@@ -140,13 +143,13 @@ None
 
 **Resume file:** None
 
-Last session: 2026-07-19T01:35:56.434Z
-Stopped at: Completed 08-14-PLAN.md
+Last session: 2026-07-19T02:35:18.230Z
+Stopped at: Completed 08-15-PLAN.md
 Resume with: `/gsd-execute-phase 8`
 
 ## Operator Next Steps
 
-- Execute Plan 08-15 to establish the LF-clean r5 boundary and select a non-mutating AuthorityUnion handoff.
+- Execute Plan 08-16 to advance the publisher/workflow/hosted controller to r6 and add the credential-free pre-live selector.
 - Keep every live dispatch, registry observation, and irreversible Mooncakes mutation behind its separately authorized checkpoint.
 
 ## Performance Metrics
@@ -191,3 +194,4 @@ Resume with: `/gsd-execute-phase 8`
 | Phase 08 P12 | 15min | 2 tasks | 8 files |
 | Phase 08 P13 | 9min | 3 tasks | 13 files |
 | Phase 08 P14 | 17min | 2 tasks | 8 files |
+| Phase 08 P15 | 10min | 3 tasks | 13 files |
