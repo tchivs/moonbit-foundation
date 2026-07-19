@@ -50,7 +50,7 @@ function Assert-P08R5Contract {
   }
   if($hosted.IndexOf('mnf-phase08-r4-handoff.json',[StringComparison]::Ordinal) -ge 0){Throw-P08Qualification 'P08-R5-HOSTED' 'Hosted production path still names the r4 handoff.'}
   $qualificationSource=Get-Content -LiteralPath $PSCommandPath -Raw
-  if($qualificationSource.IndexOf("clone','--no-tags'",[StringComparison]::Ordinal) -lt 0){Throw-P08Qualification 'P08-R4-NO-TAGS' 'Qualification fixture clone must exclude permanent tags.'}
+  if($qualificationSource -cnotmatch '(?m)^\s*& git -c core[.]autocrlf=false clone --quiet --no-hardlinks --no-tags [$]repoRoot [$]prepareExecutionRoot\s*$'){Throw-P08Qualification 'P08-R5-LF-NO-TAGS' 'Qualification fixture clone must force LF-safe checkout behavior and exclude permanent tags.'}
   function Confirm-R2Failure([string]$Id,[scriptblock]$Action){$failure=$null;try{&$Action}catch{$failure=$_.Exception.Message};if($null -eq $failure -or -not $failure.StartsWith("$Id`: ",[StringComparison]::Ordinal)){Throw-P08Qualification 'P08-R2-NEGATIVE' "Expected $Id, got '$failure'."}}
   function Write-R2File([string]$Path,[string]$Text){$null=New-Item -ItemType Directory -Force -Path (Split-Path -Parent $Path);[IO.File]::WriteAllText($Path,$Text,[Text.UTF8Encoding]::new($false))}
   $temp=Join-Path ([IO.Path]::GetTempPath()) ('mnf-phase08-r2-contract-'+[Guid]::NewGuid().ToString('N'))
