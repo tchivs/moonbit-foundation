@@ -5,15 +5,15 @@ milestone_name: Publication & Compatibility
 current_phase: 08
 current_phase_name: Ordered Mooncakes Publication and Registry Consumers
 status: executing
-stopped_at: Completed 08-11-PLAN.md
-last_updated: "2026-07-19T00:06:32.564Z"
+stopped_at: Completed 08-12-PLAN.md
+last_updated: "2026-07-19T00:24:02.107Z"
 last_activity: 2026-07-19
-last_activity_desc: Phase 8 Plan 08-11 completed r4 four-history static contracts; Wave 12 hosted seam integration is next
+last_activity_desc: Phase 8 Plan 08-12 completed the r4 exact14 publisher, workflow, controller, receipt, and handoff seam
 progress:
   total_phases: 4
   completed_phases: 2
   total_plans: 42
-  completed_plans: 39
+  completed_plans: 40
   percent: 50
 ---
 
@@ -30,9 +30,9 @@ See `.planning/PROJECT.md` (updated 2026-07-17).
 ## Current Position
 
 Phase: 08 (Ordered Mooncakes Publication and Registry Consumers) — EXECUTING
-Plan: 12 of 14
-Status: Ready for Wave 12 — wire r4/four-history identity through publisher, workflow, and hosted controller without live action
-Last activity: 2026-07-19 — Plan 08-11 completed r4 intent, authority, receipt, handoff, prepared, and qualification contracts
+Plan: 13 of 14
+Status: Ready for Wave 13 — establish the LF-clean r4 boundary and non-mutating AuthorityUnion handoff
+Last activity: 2026-07-19 — Plan 08-12 completed r4 exact14 hosted seam integration without live action
 
 ## Progress
 
@@ -41,7 +41,7 @@ Current milestone: [█████░░░░░] 50% of v0.2 phases complete
 - v0.2 phases completed: 2/4
 - Phase 6 plans completed: 25/25
 - Phase 7 plans completed: 3/3
-- Phase 8 plans completed: 10/14
+- Phase 8 plans completed: 12/14
 - v0.2 requirements mapped: 21/21
 - Historical total: 5 completed phases, 43 completed plans, 36/36 v0.1 requirements validated
 
@@ -115,6 +115,10 @@ Current milestone: [█████░░░░░] 50% of v0.2 phases complete
 - [Phase 08]: Only refs/tags/modules-v0.1.0-r4 is current initial retry; attempt-zero, r1, r2, and r3 are four immutable terminal-negative histories.
 - [Phase 08]: Eligibility carries all four individual record digests plus the SHA-256 of their canonical LF-joined order; the aggregate never replaces individual evidence.
 - [Phase 08]: DIST-01 remains pending because Plan 08-11 performs no push, tag, hosted dispatch, registry observation, mutation, or publication.
+- [Phase 08]: Publisher, adapter, workflow, and hosted controller accept only r4 and bind four individual terminal-negative history digests plus their canonical LF-ordered set.
+- [Phase 08]: The hosted dispatch contract remains exactly 14 ordered fields with an empty start packet/receipt pair and a valid paired PublishOne resume.
+- [Phase 08]: Production uses only the non-overridable fixed %TEMP%/mnf-phase08-r4-handoff.json path; LibraryOnly GUID fixtures may inject owned paths.
+- [Phase 08]: DIST-01 remains pending because Plan 08-12 performs no push, tag, dispatch, registry observation, mutation, or publication.
 
 ### Pending Decisions
 
@@ -129,13 +133,13 @@ None
 
 **Resume file:** None
 
-Last session: 2026-07-19T00:06:32.553Z
-Stopped at: Completed 08-11-PLAN.md
+Last session: 2026-07-19T00:24:02.094Z
+Stopped at: Completed 08-12-PLAN.md
 Resume with: `/gsd-execute-phase 8`
 
 ## Operator Next Steps
 
-- Execute Plan 08-12 to integrate r4 and four-history identity across the static publisher/workflow/controller seam while preserving exact 14-field receipt parity.
+- Execute Plan 08-13 to establish a fresh LF-clean r4 boundary and a non-mutating AuthorityUnion handoff.
 - Keep every live dispatch, registry observation, and irreversible Mooncakes mutation behind its separately authorized checkpoint.
 
 ## Performance Metrics
@@ -177,3 +181,4 @@ Resume with: `/gsd-execute-phase 8`
 | Phase 08 P09 | 16min | 3 tasks | 13 files |
 | Phase 08 P10 | 16min | 2 tasks | 8 files |
 | Phase 08 P11 | 10min | 3 tasks | 13 files |
+| Phase 08 P12 | 15min | 2 tasks | 8 files |
