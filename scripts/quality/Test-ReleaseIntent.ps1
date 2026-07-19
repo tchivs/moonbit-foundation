@@ -42,7 +42,7 @@ function Assert-Phase08AttemptSchemas {
     historical_r4_sha256 = [string]$history[4].record_sha256
     historical_r5_sha256 = [string]$history[5].record_sha256
     historical_r6_sha256 = [string]$history[6].record_sha256
-    historical_history_set_sha256 = [string]$policy.initial_attempt_family.history_set_sha256
+    historical_history_set_sha256 = Get-IntentHistorySetSha256 @($history[0..6])
   }
   $authority = Read-IntentJson -Path (Join-Path $repoRoot 'release\qualification\phase-08-authority-schema.json')
   $receipt = Read-IntentJson -Path (Join-Path $repoRoot 'release\qualification\phase-08-authorization-receipt-schema.json')
