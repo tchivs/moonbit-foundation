@@ -22,6 +22,7 @@ param(
   [Parameter(Mandatory)][string]$HistoricalR9Sha256,
   [Parameter(Mandatory)][string]$HistoricalR10Sha256,
   [Parameter(Mandatory)][string]$HistoricalR11Sha256,
+  [Parameter(Mandatory)][string]$HistoricalR12Sha256,
   [Parameter(Mandatory)][string]$HistoricalHistorySetSha256,
   [Parameter(Mandatory)][ValidateSet('start','resume')][string]$RunMode,
   [string]$PriorRunId,
@@ -52,7 +53,8 @@ $expectedInitialHistory = [ordered]@{
   r9 = '6edf89e7afb98dca1e81e3d5db9ff8a47f96dbfb2919bdaeb176c76c52c581ec'
   r10 = '1d524890dd5f0c11e58bcd2884c2d4623e02759a5ff801f2554fcc2ae654895f'
   r11 = 'def1bf53a3305c72360bebb651f56d28cdcaac83150e76e3c3134962ade4e9d1'
-  set = '5394421289924d7712034b43d7e732a7ff7aec3276d1ddab4846861788d8a4be'
+  r12 = '92397fbdfc679f154382928ee6f94c57e46b40b7c5f7e8d65759b0165d6c96a8'
+  set = '961780e02672005c9dfb19299fc81a0531fb58081de3ee2a78274dda88f630e5'
 }
 $inventory = @(
   [pscustomobject]@{ path='archives/mb-core.zip'; role='exact_source_archive' }
@@ -135,16 +137,16 @@ function Assert-PreparedBindings {
     Throw-PreparedRule 'PREP09-BINDING' 'Manifest dispatch binding drifted.'
   }
   if ($Repository -cne 'tchivs/moonbit-foundation' -or $Actor -cne 'tchivs' -or $RunId -cnotmatch '^[1-9][0-9]*$' -or
-      $RunAttempt -lt 1 -or $ReleaseRef -cnotmatch '^refs/tags/modules-(v0[.]1[.]0-r12|correction-[1-9][0-9]*)$' -or
+      $RunAttempt -lt 1 -or $ReleaseRef -cnotmatch '^refs/tags/modules-(v0[.]1[.]0-r13|correction-[1-9][0-9]*)$' -or
        $SourceSha -cnotmatch '^[0-9a-f]{40}$' -or $SourceSha -cin @('198436a45b7403a3c28c98d5fa0d5ed6a958455f','09548df948f58ec1bdfff7494757596c03e4c9bd','73a3af920fc3938f49e93d14f16f79f116475f1e','67b1fbc9dd62288d19018c46a44c1e3293212b76','ee4a8eb9b8dca5d69b404c9a4a1cd81608a5462a','df105f06205298f1f82ac2f2cdca214d69d42e15','c05cacbc3cfc583205c612f4bf293a4e251ec079','195e08dc1f3a1dc561d98cc660af679926ae0198','8d0f050a2ea2a5f136d87f913987d59ea99a13d4','4158dff7d3b6629861d4f5325573c45f3e3e3436','d49edc53fb4ffca375e562a23789fb76bf8c41e2','30479a2546e0fc6416a9a26b10e39ed1f686c860') -or $RootIntentSha256 -cnotmatch '^[0-9a-f]{64}$' -or
       $IntentSha256 -cnotmatch '^[0-9a-f]{64}$') { Throw-PreparedRule 'PREP09-BINDING' 'Expected dispatch binding is invalid.' }
-  if ($ReleaseRef -ceq 'refs/tags/modules-v0.1.0-r12' -and $RunMode -cne 'start') { Throw-PreparedRule 'PREP10-JOURNAL-BINDING' 'r12 must start from a fresh genesis and cannot resume prior state or artifacts.' }
-  $history = @($HistoricalAttemptZeroSha256,$HistoricalR1Sha256,$HistoricalR2Sha256,$HistoricalR3Sha256,$HistoricalR4Sha256,$HistoricalR5Sha256,$HistoricalR6Sha256,$HistoricalR7Sha256,$HistoricalR8Sha256,$HistoricalR9Sha256,$HistoricalR10Sha256,$HistoricalR11Sha256)
-  if (@($history | Where-Object { $_ -cnotmatch '^[0-9a-f]{64}$' }).Count -ne 0 -or @($history | Select-Object -Unique).Count -ne 12 -or
-      $HistoricalHistorySetSha256 -cnotmatch '^[0-9a-f]{64}$') { Throw-PreparedRule 'PREP14-HISTORICAL-BINDING' 'Twelve distinct historical-negative digests and their ordered set are required.' }
+  if ($ReleaseRef -ceq 'refs/tags/modules-v0.1.0-r13' -and $RunMode -cne 'start') { Throw-PreparedRule 'PREP10-JOURNAL-BINDING' 'r13 must start from a fresh genesis and cannot resume prior state or artifacts.' }
+  $history = @($HistoricalAttemptZeroSha256,$HistoricalR1Sha256,$HistoricalR2Sha256,$HistoricalR3Sha256,$HistoricalR4Sha256,$HistoricalR5Sha256,$HistoricalR6Sha256,$HistoricalR7Sha256,$HistoricalR8Sha256,$HistoricalR9Sha256,$HistoricalR10Sha256,$HistoricalR11Sha256,$HistoricalR12Sha256)
+  if (@($history | Where-Object { $_ -cnotmatch '^[0-9a-f]{64}$' }).Count -ne 0 -or @($history | Select-Object -Unique).Count -ne 13 -or
+      $HistoricalHistorySetSha256 -cnotmatch '^[0-9a-f]{64}$') { Throw-PreparedRule 'PREP14-HISTORICAL-BINDING' 'Thirteen distinct historical-negative digests and their ordered set are required.' }
   $expectedSet = [Convert]::ToHexString([Security.Cryptography.SHA256]::HashData([Text.Encoding]::UTF8.GetBytes(($history -join "`n")))).ToLowerInvariant()
   if ($HistoricalHistorySetSha256 -cne $expectedSet -or $HistoricalAttemptZeroSha256 -cne $expectedInitialHistory.attempt_zero -or
-      $HistoricalR1Sha256 -cne $expectedInitialHistory.r1 -or $HistoricalR2Sha256 -cne $expectedInitialHistory.r2 -or $HistoricalR3Sha256 -cne $expectedInitialHistory.r3 -or $HistoricalR4Sha256 -cne $expectedInitialHistory.r4 -or $HistoricalR5Sha256 -cne $expectedInitialHistory.r5 -or $HistoricalR6Sha256 -cne $expectedInitialHistory.r6 -or $HistoricalR7Sha256 -cne $expectedInitialHistory.r7 -or $HistoricalR8Sha256 -cne $expectedInitialHistory.r8 -or $HistoricalR9Sha256 -cne $expectedInitialHistory.r9 -or $HistoricalR10Sha256 -cne $expectedInitialHistory.r10 -or $HistoricalR11Sha256 -cne $expectedInitialHistory.r11 -or
+      $HistoricalR1Sha256 -cne $expectedInitialHistory.r1 -or $HistoricalR2Sha256 -cne $expectedInitialHistory.r2 -or $HistoricalR3Sha256 -cne $expectedInitialHistory.r3 -or $HistoricalR4Sha256 -cne $expectedInitialHistory.r4 -or $HistoricalR5Sha256 -cne $expectedInitialHistory.r5 -or $HistoricalR6Sha256 -cne $expectedInitialHistory.r6 -or $HistoricalR7Sha256 -cne $expectedInitialHistory.r7 -or $HistoricalR8Sha256 -cne $expectedInitialHistory.r8 -or $HistoricalR9Sha256 -cne $expectedInitialHistory.r9 -or $HistoricalR10Sha256 -cne $expectedInitialHistory.r10 -or $HistoricalR11Sha256 -cne $expectedInitialHistory.r11 -or $HistoricalR12Sha256 -cne $expectedInitialHistory.r12 -or
       $HistoricalHistorySetSha256 -cne $expectedInitialHistory.set) { Throw-PreparedRule 'PREP14-HISTORICAL-BINDING' 'Exact ordered historical-negative family drifted.' }
 }
 
@@ -163,7 +165,7 @@ function Assert-PreparedJournalBinding {
     Assert-PreparedClosedProperties 'request' $request @(
       'repository','actor','release_ref','source_sha','root_intent_sha256','intent_sha256','intent_kind','correction_sequence',
       'predecessor_intent_sha256','authorization_valid','evidence_valid','dry_run_passed','authority_account',
-      'historical_attempt_zero_sha256','historical_r1_sha256','historical_r2_sha256','historical_r3_sha256','historical_r4_sha256','historical_r5_sha256','historical_r6_sha256','historical_r7_sha256','historical_r8_sha256','historical_r9_sha256','historical_r10_sha256','historical_r11_sha256','historical_history_set_sha256'
+      'historical_attempt_zero_sha256','historical_r1_sha256','historical_r2_sha256','historical_r3_sha256','historical_r4_sha256','historical_r5_sha256','historical_r6_sha256','historical_r7_sha256','historical_r8_sha256','historical_r9_sha256','historical_r10_sha256','historical_r11_sha256','historical_r12_sha256','historical_history_set_sha256'
     )
   } catch { Throw-PreparedRule 'PREP10-JOURNAL-BINDING' $_.Exception.Message }
   foreach ($pair in @(
@@ -184,14 +186,14 @@ function Assert-PreparedJournalBinding {
       [string]$request.historical_r7_sha256 -cne $HistoricalR7Sha256 -or
       [string]$request.historical_r8_sha256 -cne $HistoricalR8Sha256 -or
       [string]$request.historical_r9_sha256 -cne $HistoricalR9Sha256 -or
-      [string]$request.historical_r10_sha256 -cne $HistoricalR10Sha256 -or [string]$request.historical_r11_sha256 -cne $HistoricalR11Sha256 -or
+      [string]$request.historical_r10_sha256 -cne $HistoricalR10Sha256 -or [string]$request.historical_r11_sha256 -cne $HistoricalR11Sha256 -or [string]$request.historical_r12_sha256 -cne $HistoricalR12Sha256 -or
       [string]$request.historical_history_set_sha256 -cne $HistoricalHistorySetSha256) {
     Throw-PreparedRule 'PREP14-HISTORICAL-BINDING' 'Request terminal-negative history binding drifted.'
   }
-  if ($ReleaseRef -ceq 'refs/tags/modules-v0.1.0-r12' -and
+  if ($ReleaseRef -ceq 'refs/tags/modules-v0.1.0-r13' -and
       ($request.intent_kind -cne 'initial' -or [int]$request.correction_sequence -ne 0 -or $null -ne $request.predecessor_intent_sha256 -or
        [string]$request.root_intent_sha256 -cne [string]$request.intent_sha256)) {
-    Throw-PreparedRule 'PREP10-JOURNAL-BINDING' 'r12 must be a fresh initial root with no predecessor.'
+    Throw-PreparedRule 'PREP10-JOURNAL-BINDING' 'r13 must be a fresh initial root with no predecessor.'
   }
 }
 

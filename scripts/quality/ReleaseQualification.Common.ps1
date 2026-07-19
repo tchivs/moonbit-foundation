@@ -264,14 +264,14 @@ function ConvertTo-ReleaseCanonicalUtc {
 function Get-ReleaseInitialHistoryBinding {
   $policy = Read-ReleaseJson -Path (Join-Path $PSScriptRoot '..\..\policy\release-control.json')
   $history = @($policy.initial_attempt_family.terminal_negative_history)
-  if ($history.Count -ne 12 -or ($history.attempt -join ',') -cne 'attempt_zero,r1,r2,r3,r4,r5,r6,r7,r8,r9,r10,r11') { Throw-ReleaseRule -Id 'REL04-HISTORY-BINDING' -Message 'canonical twelve-attempt history is missing or reordered.' }
+  if ($history.Count -ne 13 -or ($history.attempt -join ',') -cne 'attempt_zero,r1,r2,r3,r4,r5,r6,r7,r8,r9,r10,r11,r12') { Throw-ReleaseRule -Id 'REL04-HISTORY-BINDING' -Message 'canonical thirteen-attempt history is missing or reordered.' }
   $digests = @($history.record_sha256)
-  if (@($digests | Where-Object { -not (Test-ReleaseSha256Text $_) } | Select-Object -Unique).Count -ne 0 -or @($digests | Select-Object -Unique).Count -ne 12) { Throw-ReleaseRule -Id 'REL04-HISTORY-BINDING' -Message 'history record digests are missing or duplicated.' }
+  if (@($digests | Where-Object { -not (Test-ReleaseSha256Text $_) } | Select-Object -Unique).Count -ne 0 -or @($digests | Select-Object -Unique).Count -ne 13) { Throw-ReleaseRule -Id 'REL04-HISTORY-BINDING' -Message 'history record digests are missing or duplicated.' }
   $set = Get-ReleaseTextSha256 -Text ($digests -join "`n")
   if ($set -cne [string]$policy.initial_attempt_family.history_set_sha256) { Throw-ReleaseRule -Id 'REL04-HISTORY-BINDING' -Message 'ordered history-set digest drifted.' }
   return [pscustomobject][ordered]@{
     historical_attempt_zero_sha256=[string]$digests[0];historical_r1_sha256=[string]$digests[1]
-    historical_r2_sha256=[string]$digests[2];historical_r3_sha256=[string]$digests[3];historical_r4_sha256=[string]$digests[4];historical_r5_sha256=[string]$digests[5];historical_r6_sha256=[string]$digests[6];historical_r7_sha256=[string]$digests[7];historical_r8_sha256=[string]$digests[8];historical_r9_sha256=[string]$digests[9];historical_r10_sha256=[string]$digests[10];historical_r11_sha256=[string]$digests[11];historical_history_set_sha256=$set
+    historical_r2_sha256=[string]$digests[2];historical_r3_sha256=[string]$digests[3];historical_r4_sha256=[string]$digests[4];historical_r5_sha256=[string]$digests[5];historical_r6_sha256=[string]$digests[6];historical_r7_sha256=[string]$digests[7];historical_r8_sha256=[string]$digests[8];historical_r9_sha256=[string]$digests[9];historical_r10_sha256=[string]$digests[10];historical_r11_sha256=[string]$digests[11];historical_r12_sha256=[string]$digests[12];historical_history_set_sha256=$set
   }
 }
 
@@ -303,6 +303,14 @@ function Assert-ReleaseInitialCloneBinding {
   $head = (& git -C $sourceFull rev-parse HEAD 2>$null).Trim()
   if ($LASTEXITCODE -ne 0 -or $head -cne $SourceSha) {
     Throw-ReleaseRule -Id 'REL01-SOURCE' -Message 'clone HEAD does not equal the bound source SHA.'
+  }
+  $null = & git -C $sourceFull fetch --no-tags origin "$ReleaseRef`:$ReleaseRef" 2>$null
+  if ($LASTEXITCODE -ne 0) {
+    Throw-ReleaseRule -Id 'REL01-REF' -Message 'clone-local policy-selected release tag could not be explicitly fetched after checkout.'
+  }
+  $tagObject = (& git -C $sourceFull rev-parse --verify $ReleaseRef 2>$null).Trim()
+  if ($LASTEXITCODE -ne 0 -or $tagObject -cnotmatch '^[0-9a-f]{40}$') {
+    Throw-ReleaseRule -Id 'REL01-REF' -Message 'clone-local fetched release tag object is absent or malformed.'
   }
   $peeled = (@(& git -C $sourceFull rev-parse --verify "$ReleaseRef^{}" 2>$null) -join '').Trim()
   if ($LASTEXITCODE -ne 0 -or $peeled -cnotmatch '^[0-9a-f]{40}$' -or $peeled -cne $SourceSha) {

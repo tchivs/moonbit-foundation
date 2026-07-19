@@ -556,8 +556,11 @@ function Assert-P08PrepareCloneRefBeforeBoundary {
   $control=Get-Content -LiteralPath $policyPath -Raw|ConvertFrom-Json -Depth 100
   if($ReleaseRef -cne [string]$control.initial_profile.release_ref){Throw-P08HostedRule 'P08-PREPARE-REF' 'PrepareAttempt release ref differs from the clone policy-selected immutable tag.'}
   $head=(@(& git -C $root rev-parse HEAD 2>$null)-join '').Trim()
+  $null=& git -C $root fetch --no-tags origin "$ReleaseRef`:$ReleaseRef" 2>$null
+  if($LASTEXITCODE -ne 0){Throw-P08HostedRule 'P08-PREPARE-REF' 'PrepareAttempt could not fetch the exact clone-policy tag after checkout.'}
+  $tagObject=(@(& git -C $root rev-parse --verify $ReleaseRef 2>$null)-join '').Trim()
   $peeled=(@(& git -C $root rev-parse --verify "$ReleaseRef^{}" 2>$null)-join '').Trim()
-  if($LASTEXITCODE -ne 0 -or $head -cne [string]$value.boundary_sha -or $peeled -cne [string]$value.boundary_sha){
+  if($LASTEXITCODE -ne 0 -or $tagObject -cnotmatch '^[0-9a-f]{40}$' -or $head -cne [string]$value.boundary_sha -or $peeled -cne [string]$value.boundary_sha){
     Throw-P08HostedRule 'P08-PREPARE-REF' 'Clone-local policy-selected release tag is absent or does not peel to the durable boundary.'
   }
 }
