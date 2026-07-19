@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/tchivs/moonbit-foundation/release/qualification/phase-08-handoff-schema.json",
-  "title": "Phase 8 deterministic r5 live handoff",
+  "title": "Phase 8 deterministic r6 live handoff",
   "oneOf": [
     { "$ref": "#/$defs/mutationHandoff" },
     { "$ref": "#/$defs/exactExistingHandoff" }
@@ -14,10 +14,10 @@
     "mutationHandoff": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["schema_version", "release_ref", "boundary_sha", "execution_root", "boundary_locator_path", "boundary_locator_sha256", "active_attempt_path", "active_attempt_sha256", "artifact_root", "artifact_index_path", "artifact_index_sha256", "attempt_zero_history_path", "attempt_zero_history_sha256", "r1_history_path", "r1_history_sha256", "r2_history_path", "r2_history_sha256", "r3_history_path", "r3_history_sha256", "r4_history_path", "r4_history_sha256", "historical_history_set_sha256", "authority_variant", "mutation_authorization_packet_path", "mutation_authorization_packet_sha256", "authorization_receipt_path", "authorization_receipt_sha256", "exact_existing_authority_path", "exact_existing_authority_sha256", "created_at_utc", "handoff_sha256"],
+      "required": ["schema_version", "release_ref", "boundary_sha", "execution_root", "boundary_locator_path", "boundary_locator_sha256", "active_attempt_path", "active_attempt_sha256", "artifact_root", "artifact_index_path", "artifact_index_sha256", "attempt_zero_history_path", "attempt_zero_history_sha256", "r1_history_path", "r1_history_sha256", "r2_history_path", "r2_history_sha256", "r3_history_path", "r3_history_sha256", "r4_history_path", "r4_history_sha256", "r5_history_path", "r5_history_sha256", "historical_history_set_sha256", "authority_variant", "mutation_authorization_packet_path", "mutation_authorization_packet_sha256", "authorization_receipt_path", "authorization_receipt_sha256", "exact_existing_authority_path", "exact_existing_authority_sha256", "created_at_utc", "handoff_sha256"],
       "properties": {
         "schema_version": { "const": "mnf-phase08-handoff/1" },
-        "release_ref": { "const": "refs/tags/modules-v0.1.0-r5" },
+        "release_ref": { "const": "refs/tags/modules-v0.1.0-r6" },
         "boundary_sha": { "$ref": "#/$defs/sha1" },
         "execution_root": { "$ref": "#/$defs/absolutePath" },
         "boundary_locator_path": { "$ref": "#/$defs/absolutePath" },
@@ -37,7 +37,9 @@
         "r3_history_sha256": { "const": "cf29473b2b07ff9aa8fd8a4810ddc45f6aacd2fd4b74048f5d29b3b6fa939d41" },
         "r4_history_path": { "$ref": "#/$defs/absolutePath" },
         "r4_history_sha256": { "const": "d9b045bc65df87dc2701144ea7716defc67acb84ec9ea8e7ffdafd0118ba0906" },
-        "historical_history_set_sha256": { "const": "cdf78268b443dd3bc81026cbfda2a8a6a6ced3af6daeaa2351b658823649b2be" },
+        "r5_history_path": { "$ref": "#/$defs/absolutePath" },
+        "r5_history_sha256": { "const": "1239b63f983bef86ac44c731171093ad67759de9cce7c15610b92f5df6214843" },
+        "historical_history_set_sha256": { "const": "faed8af741e3e2f80d385fcc496649e12bf32889d6dff424fad3c8916acf9c0a" },
         "authority_variant": { "const": "mutation_authorized" },
         "mutation_authorization_packet_path": { "$ref": "#/$defs/absolutePath" },
         "mutation_authorization_packet_sha256": { "$ref": "#/$defs/sha256" },
@@ -52,10 +54,10 @@
     "exactExistingHandoff": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["schema_version", "release_ref", "boundary_sha", "execution_root", "boundary_locator_path", "boundary_locator_sha256", "active_attempt_path", "active_attempt_sha256", "artifact_root", "artifact_index_path", "artifact_index_sha256", "attempt_zero_history_path", "attempt_zero_history_sha256", "r1_history_path", "r1_history_sha256", "r2_history_path", "r2_history_sha256", "r3_history_path", "r3_history_sha256", "r4_history_path", "r4_history_sha256", "historical_history_set_sha256", "authority_variant", "mutation_authorization_packet_path", "mutation_authorization_packet_sha256", "authorization_receipt_path", "authorization_receipt_sha256", "exact_existing_authority_path", "exact_existing_authority_sha256", "created_at_utc", "handoff_sha256"],
+      "required": ["schema_version", "release_ref", "boundary_sha", "execution_root", "boundary_locator_path", "boundary_locator_sha256", "active_attempt_path", "active_attempt_sha256", "artifact_root", "artifact_index_path", "artifact_index_sha256", "attempt_zero_history_path", "attempt_zero_history_sha256", "r1_history_path", "r1_history_sha256", "r2_history_path", "r2_history_sha256", "r3_history_path", "r3_history_sha256", "r4_history_path", "r4_history_sha256", "r5_history_path", "r5_history_sha256", "historical_history_set_sha256", "authority_variant", "mutation_authorization_packet_path", "mutation_authorization_packet_sha256", "authorization_receipt_path", "authorization_receipt_sha256", "exact_existing_authority_path", "exact_existing_authority_sha256", "created_at_utc", "handoff_sha256"],
       "properties": {
         "schema_version": { "const": "mnf-phase08-handoff/1" },
-        "release_ref": { "const": "refs/tags/modules-v0.1.0-r5" },
+        "release_ref": { "const": "refs/tags/modules-v0.1.0-r6" },
         "boundary_sha": { "$ref": "#/$defs/sha1" },
         "execution_root": { "$ref": "#/$defs/absolutePath" },
         "boundary_locator_path": { "$ref": "#/$defs/absolutePath" },
@@ -75,7 +77,9 @@
         "r3_history_sha256": { "const": "cf29473b2b07ff9aa8fd8a4810ddc45f6aacd2fd4b74048f5d29b3b6fa939d41" },
         "r4_history_path": { "$ref": "#/$defs/absolutePath" },
         "r4_history_sha256": { "const": "d9b045bc65df87dc2701144ea7716defc67acb84ec9ea8e7ffdafd0118ba0906" },
-        "historical_history_set_sha256": { "const": "cdf78268b443dd3bc81026cbfda2a8a6a6ced3af6daeaa2351b658823649b2be" },
+        "r5_history_path": { "$ref": "#/$defs/absolutePath" },
+        "r5_history_sha256": { "const": "1239b63f983bef86ac44c731171093ad67759de9cce7c15610b92f5df6214843" },
+        "historical_history_set_sha256": { "const": "faed8af741e3e2f80d385fcc496649e12bf32889d6dff424fad3c8916acf9c0a" },
         "authority_variant": { "const": "exact_existing" },
         "mutation_authorization_packet_path": { "type": "null" },
         "mutation_authorization_packet_sha256": { "type": "null" },
