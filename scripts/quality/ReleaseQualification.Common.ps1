@@ -275,6 +275,42 @@ function Get-ReleaseInitialHistoryBinding {
   }
 }
 
+function Assert-ReleaseInitialCloneBinding {
+  param(
+    [Parameter(Mandatory)][string]$SourceRoot,
+    [Parameter(Mandatory)][string]$ControlPolicyPath,
+    [Parameter(Mandatory)][string]$ReleaseRef,
+    [Parameter(Mandatory)][string]$SourceSha
+  )
+  if ([string]::IsNullOrWhiteSpace($SourceRoot) -or [string]::IsNullOrWhiteSpace($ControlPolicyPath) -or
+      [string]::IsNullOrWhiteSpace($ReleaseRef) -or $SourceSha -cnotmatch '^[0-9a-f]{40}$') {
+    Throw-ReleaseRule -Id 'REL01-REF' -Message 'initial qualification requires explicit clone source, policy, ref, and SHA binding.'
+  }
+  $sourceFull = [IO.Path]::GetFullPath($SourceRoot)
+  $policyFull = [IO.Path]::GetFullPath($ControlPolicyPath)
+  $expectedPolicy = Join-Path $sourceFull 'policy/release-control.json'
+  if ($policyFull -cne $expectedPolicy -or -not (Test-Path -LiteralPath $policyFull -PathType Leaf)) {
+    Throw-ReleaseRule -Id 'REL01-REF' -Message 'initial qualification policy is not the clone-local release-control policy.'
+  }
+  $gitRoot = (& git -C $sourceFull rev-parse --show-toplevel 2>$null).Trim()
+  if ($LASTEXITCODE -ne 0 -or [IO.Path]::GetFullPath($gitRoot) -cne $sourceFull) {
+    Throw-ReleaseRule -Id 'REL01-REF' -Message 'initial qualification source root is not the exact clone root.'
+  }
+  $policy = Read-ReleaseJson -Path $policyFull
+  if ([string]$policy.initial_profile.release_ref -cne $ReleaseRef) {
+    Throw-ReleaseRule -Id 'REL01-REF' -Message 'initial release ref is not the clone policy-selected immutable tag.'
+  }
+  $head = (& git -C $sourceFull rev-parse HEAD 2>$null).Trim()
+  if ($LASTEXITCODE -ne 0 -or $head -cne $SourceSha) {
+    Throw-ReleaseRule -Id 'REL01-SOURCE' -Message 'clone HEAD does not equal the bound source SHA.'
+  }
+  $peeled = (@(& git -C $sourceFull rev-parse --verify "$ReleaseRef^{}" 2>$null) -join '').Trim()
+  if ($LASTEXITCODE -ne 0 -or $peeled -cnotmatch '^[0-9a-f]{40}$' -or $peeled -cne $SourceSha) {
+    Throw-ReleaseRule -Id 'REL01-REF' -Message 'clone-local dedicated release tag is absent or does not peel to the bound source SHA.'
+  }
+  return [pscustomobject]@{ source_root = $sourceFull; control_policy_path = $policyFull; control = $policy }
+}
+
 function Get-ReleaseAuthorizationReceiptProjection {
   param([Parameter(Mandatory)][object]$Receipt)
   return [pscustomobject][ordered]@{

@@ -6,6 +6,7 @@ param(
   [Parameter(Mandatory)][string]$OutputDirectory,
   [string]$SourceSha,
   [string]$SourceRoot,
+  [string]$ControlPolicyPath,
   [Parameter(Mandatory)][string]$QualificationRootSha256,
   [Parameter(Mandatory)][string]$RequiredStableSha256,
   [Parameter(Mandatory)][hashtable]$ArchiveSha256ByModule,
@@ -27,15 +28,6 @@ $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
 . (Join-Path $PSScriptRoot 'ReleaseQualification.Common.ps1')
 
 if (-not $Check) { Throw-ReleaseRule -Id 'REL01-CHECK-REQUIRED' -Message 'intent generation is evidence-only and requires -Check.' }
-$releasePolicyPath = Join-Path $repoRoot 'policy\release-qualification.json'
-$controlPolicyPath = Join-Path $repoRoot 'policy\release-control.json'
-$compatibilityPolicyPath = Join-Path $repoRoot 'policy\compatibility.json'
-$baselineManifestPath = Join-Path $repoRoot 'compatibility\baselines\0.1.0\manifest.json'
-$phase06LedgerPath = Join-Path $repoRoot 'release\qualification\phase-06-requirements.json'
-$releasePolicy = Read-ReleaseJson -Path $releasePolicyPath
-$control = Read-ReleaseJson -Path $controlPolicyPath
-$baseline = Read-ReleaseJson -Path $baselineManifestPath
-
 function Get-InitialHistoryRecordSha256 {
   param([Parameter(Mandatory)][object]$Record)
   $projection = [ordered]@{}
@@ -65,24 +57,31 @@ function Assert-InitialAttemptFamily {
   return $history
 }
 
-$initialHistory = @(Assert-InitialAttemptFamily -Control $control)
-
 if ([string]::IsNullOrEmpty($SourceSha)) {
   $SourceSha = (& git -C $repoRoot rev-parse HEAD).Trim()
   if ($LASTEXITCODE -ne 0) { Throw-ReleaseRule -Id 'REL01-SOURCE' -Message 'unable to resolve source HEAD.' }
 }
 if ($SourceSha -cnotmatch '^[0-9a-f]{40}$') { Throw-ReleaseRule -Id 'REL01-EMPTY' -Message 'source SHA is missing or malformed.' }
 $absoluteSourceRoot = if ([string]::IsNullOrEmpty($SourceRoot)) { $repoRoot } elseif ([IO.Path]::IsPathRooted($SourceRoot)) { [IO.Path]::GetFullPath($SourceRoot) } else { [IO.Path]::GetFullPath((Join-Path $repoRoot $SourceRoot)) }
+$absoluteControlPolicyPath = if ([string]::IsNullOrEmpty($ControlPolicyPath)) { Join-Path $absoluteSourceRoot 'policy/release-control.json' } elseif ([IO.Path]::IsPathRooted($ControlPolicyPath)) { [IO.Path]::GetFullPath($ControlPolicyPath) } else { [IO.Path]::GetFullPath((Join-Path $absoluteSourceRoot $ControlPolicyPath)) }
+$releasePolicyPath = Join-Path $absoluteSourceRoot 'policy/release-qualification.json'
+$controlPolicyPath = $absoluteControlPolicyPath
+$compatibilityPolicyPath = Join-Path $absoluteSourceRoot 'policy/compatibility.json'
+$baselineManifestPath = Join-Path $absoluteSourceRoot 'compatibility/baselines/0.1.0/manifest.json'
+$phase06LedgerPath = Join-Path $absoluteSourceRoot 'release/qualification/phase-06-requirements.json'
+$releasePolicy = Read-ReleaseJson -Path $releasePolicyPath
+$baseline = Read-ReleaseJson -Path $baselineManifestPath
+$control = Read-ReleaseJson -Path $controlPolicyPath
+$initialHistory = @(Assert-InitialAttemptFamily -Control $control)
 $observedSourceSha = (& git -C $absoluteSourceRoot rev-parse HEAD 2>$null).Trim()
 if ($LASTEXITCODE -ne 0 -or $observedSourceSha -cne $SourceSha) { Throw-ReleaseRule -Id 'REL01-SOURCE' -Message 'source root HEAD does not equal the bound source SHA.' }
 $sourceStatus = @(& git -C $absoluteSourceRoot status --porcelain=v1 --untracked-files=all 2>$null)
 if ($LASTEXITCODE -ne 0 -or $sourceStatus.Count -ne 0) { Throw-ReleaseRule -Id 'REL01-DIRTY-SOURCE' -Message 'source root is not a clean Git checkout.' }
-$resolvedRef = (& git -C $absoluteSourceRoot rev-parse "$ReleaseRef^{}" 2>$null).Trim()
-if ($LASTEXITCODE -eq 0 -and $resolvedRef -cne $SourceSha) { Throw-ReleaseRule -Id 'REL01-REF-TARGET' -Message 'existing release ref does not peel to the bound source SHA.' }
 foreach ($digest in @($QualificationRootSha256,$RequiredStableSha256)) { if (-not (Test-ReleaseSha256Text $digest)) { Throw-ReleaseRule -Id 'REL01-EVIDENCE' -Message 'qualification digest is missing or malformed.' } }
 
 if ($IntentKind -ceq 'initial') {
-  if ($ReleaseRef -cne $control.initial_profile.release_ref) { Throw-ReleaseRule -Id 'REL01-REF' -Message 'initial release ref is not the dedicated immutable tag.' }
+  $cloneBinding = Assert-ReleaseInitialCloneBinding -SourceRoot $absoluteSourceRoot -ControlPolicyPath $absoluteControlPolicyPath -ReleaseRef $ReleaseRef -SourceSha $SourceSha
+  $control = $cloneBinding.control
   if (@($control.initial_attempt_family.terminal_negative_history.source_sha) -ccontains $SourceSha) { Throw-ReleaseRule -Id 'REL01-HISTORICAL-SOURCE' -Message 'a terminal-negative source cannot be reused as r10 current authority.' }
   if ($CorrectionSequence -ne 0 -or -not [string]::IsNullOrEmpty($RootIntentSha256) -or -not [string]::IsNullOrEmpty($PredecessorIntentSha256)) {
     Throw-ReleaseRule -Id 'REL01-HASH-CYCLE' -Message 'initial intent must not serialize root, predecessor, or a correction sequence.'

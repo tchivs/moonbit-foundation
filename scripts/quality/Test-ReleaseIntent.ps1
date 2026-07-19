@@ -513,7 +513,7 @@ function Invoke-FocusedIntentTests {
       @{ id='REL01-CORRECTION-EVIDENCE'; values=@{ IncidentSha256=('c'*64) } }
     )) {
       $bad = @{} + $common; foreach ($entry in $badInitial.values.GetEnumerator()) { $bad[$entry.Key] = $entry.Value }
-      Confirm-IntentRule $badInitial.id { & $generator @bad -SourceRoot $cloneA -OutputDirectory (Join-Path $tempRoot ('bad-initial-' + $badInitial.id)) | Out-Null }
+      Confirm-IntentRule $badInitial.id { & $generator @bad -SourceRoot $cloneA -ControlPolicyPath (Join-Path $cloneA 'policy/release-control.json') -OutputDirectory (Join-Path $tempRoot ('bad-initial-' + $badInitial.id)) | Out-Null }
     }
 
     $correctionCommon = @{
