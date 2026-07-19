@@ -1,11 +1,11 @@
 [CmdletBinding()]
 param(
-  [Parameter(Mandatory)][string]$Remote,
-  [Parameter(Mandatory)][ValidatePattern('^refs/tags/modules-v0[.]1[.]0-r[1-9][0-9]*$')][string]$ReleaseRef,
-  [Parameter(Mandatory)][ValidatePattern('^[0-9a-f]{40}$')][string]$ExpectedTagObject,
-  [Parameter(Mandatory)][ValidatePattern('^[0-9a-f]{40}$')][string]$ExpectedPeeledSourceSha,
-  [Parameter(Mandatory)][string]$HistoricalReleaseRef,
-  [Parameter(Mandatory)][ValidatePattern('^[0-9a-f]{40}$')][string]$HistoricalSourceSha
+  [string]$Remote='https://github.com/tchivs/moonbit-foundation.git',
+  [ValidatePattern('^refs/tags/modules-v0[.]1[.]0-r[1-9][0-9]*$')][string]$ReleaseRef='refs/tags/modules-v0.1.0-r11',
+  [ValidatePattern('^[0-9a-f]{40}$')][string]$ExpectedTagObject='735ad67910dca97a95cfc1d4e94f6b003bcc3f30',
+  [ValidatePattern('^[0-9a-f]{40}$')][string]$ExpectedPeeledSourceSha='30479a2546e0fc6416a9a26b10e39ed1f686c860',
+  [string]$HistoricalReleaseRef='refs/tags/modules-v0.1.0-r10',
+  [ValidatePattern('^[0-9a-f]{40}$')][string]$HistoricalSourceSha='d49edc53fb4ffca375e562a23789fb76bf8c41e2'
 )
 
 Set-StrictMode -Version Latest
@@ -57,6 +57,7 @@ try {
   $state=Join-Path $root 'canonical-state'
   $boundary=& $hosted -Mode InitializeBoundary -Repository tchivs/moonbit-foundation -Workflow publish-modules.yml `
     -BoundarySha $head -ExecutionRoot $clone -StateRoot $state
+  if([string]$boundary.boundary_sha -cne $head){Throw-P08RemoteCloneRef 'P08-REMOTE-BOUNDARY' 'InitializeBoundary SHA differs from the detached clone HEAD.'}
   $failure=$null
   try {
     & $hosted -Mode PrepareAttempt -BoundaryLocatorPath ([string]$boundary.locator_path) -ReleaseRef $policyRef `
