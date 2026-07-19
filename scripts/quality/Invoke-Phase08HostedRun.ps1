@@ -205,7 +205,7 @@ function Write-P08HostedHandoff {
 function Assert-P08PreAuthorization {
   param([Parameter(Mandatory)][object]$Projection,[Parameter(Mandatory)][string]$ExpectedHandoffPath)
   $names=@('schema_version','release_ref','active_attempt_path','authority_variant','exact_existing_authority_path','exact_existing_authority_sha256','mutation_authorization_packet_path','mutation_authorization_packet_sha256','authorization_receipt_path','authorization_receipt_sha256','fixed_handoff_path','fixed_handoff_sha256','observation_path','observation_sha256','mutation_count','output_write_count')
-  if((@($Projection.PSObject.Properties.Name)-join ',') -cne ($names-join ',') -or $Projection.schema_version -cne 'mnf-phase08-pre-authorization/1' -or $Projection.release_ref -cne 'refs/tags/modules-v0.1.0-r12'){
+  if((@($Projection.PSObject.Properties.Name)-join ',') -cne ($names-join ',') -or $Projection.schema_version -cne 'mnf-phase08-pre-authorization/1' -or $Projection.release_ref -cne 'refs/tags/modules-v0.1.0-r13'){
     Throw-P08HostedRule 'P08-PREAUTH-CLOSED' 'Pre-authorization projection shape drifted.'
   }
   if([IO.Path]::GetFullPath([string]$Projection.fixed_handoff_path) -cne [IO.Path]::GetFullPath($ExpectedHandoffPath) -or $null -ne $Projection.fixed_handoff_sha256 -or (Test-Path -LiteralPath $ExpectedHandoffPath)){
@@ -226,7 +226,7 @@ function Assert-P08PreAuthorization {
     if($Projection.authority_variant -cne 'exact_existing' -or $null -ne $Projection.mutation_authorization_packet_sha256){Throw-P08HostedRule 'P08-PREAUTH-EXACT' 'Exact-existing authority forbids packet, receipt, and handoff.'}
   }else{
     $packet=Get-Content -LiteralPath ([string]$Projection.mutation_authorization_packet_path) -Raw|ConvertFrom-Json -Depth 100
-    if($Projection.authority_variant -cne 'confirmed_absent' -or $null -ne $Projection.exact_existing_authority_sha256 -or $packet.release_ref -cne 'refs/tags/modules-v0.1.0-r12' -or $packet.packet_sha256 -cne (Get-P08SelfExcludingDigest $packet 'packet_sha256')){Throw-P08HostedRule 'P08-PREAUTH-ABSENT' 'Confirmed-absent authority requires one digest-valid r12 packet only.'}
+    if($Projection.authority_variant -cne 'confirmed_absent' -or $null -ne $Projection.exact_existing_authority_sha256 -or $packet.release_ref -cne 'refs/tags/modules-v0.1.0-r13' -or $packet.packet_sha256 -cne (Get-P08SelfExcludingDigest $packet 'packet_sha256')){Throw-P08HostedRule 'P08-PREAUTH-ABSENT' 'Confirmed-absent authority requires one digest-valid r13 packet only.'}
   }
   $Projection
 }
@@ -1039,9 +1039,9 @@ if($LibraryOnly){return}
 $Workflow=[string]$boundary.workflow
 $BoundarySha=[string]$boundary.boundary_sha
 $ExecutionRoot=[string]$boundary.execution_root
-if ($ReleaseRef -cne 'refs/tags/modules-v0.1.0-r12' -or $SourceSha -cnotmatch '^[0-9a-f]{40}$' -or $RootIntentSha256 -cnotmatch '^[0-9a-f]{64}$' -or
+if ($ReleaseRef -cne 'refs/tags/modules-v0.1.0-r13' -or $SourceSha -cnotmatch '^[0-9a-f]{40}$' -or $RootIntentSha256 -cnotmatch '^[0-9a-f]{64}$' -or
     $IntentSha256 -cnotmatch '^[0-9a-f]{64}$' -or $PreparedManifestSha256 -cnotmatch '^[0-9a-f]{64}$') {
-  Throw-P08HostedRule 'P08-HOSTED-R12-BINDING' 'Only the exact r12 release binding is accepted.'
+  Throw-P08HostedRule 'P08-HOSTED-R13-BINDING' 'Only the exact r13 release binding is accepted.'
 }
 $store=Open-P08BoundaryStore -Locator $LocatorPath -Artifacts $ArtifactRoot -Operation $Mode -ReleaseRef $ReleaseRef
 switch ($Mode) {
