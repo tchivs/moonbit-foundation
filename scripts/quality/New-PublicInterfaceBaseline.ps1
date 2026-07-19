@@ -112,7 +112,8 @@ function Assert-SourceSnapshot {
   if ([string]$snapshot.module_tree_sha256 -cnotmatch '^[0-9a-f]{64}$') { throw 'Source snapshot module-tree digest is invalid.' }
   & git -C $RepoRoot cat-file -e "$($snapshot.source_commit)^{commit}" 2>$null
   if ($LASTEXITCODE -ne 0) { throw 'Source snapshot commit does not exist.' }
-  if ((Get-ModuleTreeSha256 -RepoRoot $RepoRoot -Commit $snapshot.source_commit) -cne [string]$snapshot.module_tree_sha256) { throw 'Source snapshot module-tree digest mismatch.' }
+  $actualModuleTreeSha = Get-ModuleTreeSha256 -RepoRoot $RepoRoot -Commit $snapshot.source_commit
+  if ($actualModuleTreeSha -cne [string]$snapshot.module_tree_sha256) { throw "Source snapshot module-tree digest mismatch: actual=$actualModuleTreeSha expected=$($snapshot.module_tree_sha256)." }
   $expected = [ordered]@{
     moon = 'moon 0.1.20260713 (75c7e1f 2026-07-13)'
     moonc = 'v0.10.4+2cc641edf (2026-07-15)'
