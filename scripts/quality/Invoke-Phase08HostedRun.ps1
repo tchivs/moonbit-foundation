@@ -508,6 +508,18 @@ function Copy-P08PreparedInput {
   Copy-Item -LiteralPath $Source -Destination $destination
 }
 
+function Copy-P08CanonicalPreparedArchive {
+  param([Parameter(Mandatory)][string]$Source,[Parameter(Mandatory)][string]$InputRoot,[Parameter(Mandatory)][string]$Module)
+  $sourceFull=[IO.Path]::GetFullPath($Source)
+  $sourceDigest=Get-P08Sha256 $sourceFull
+  $relativePath="archives/$Module.zip"
+  Copy-P08PreparedInput -Source $sourceFull -InputRoot $InputRoot -RelativePath $relativePath
+  $derivedPath=Test-P08SafePath (Join-Path $InputRoot $relativePath) $InputRoot
+  try { $canonical=ConvertTo-ReleaseCanonicalZip -Path $derivedPath } catch { Throw-P08HostedRule 'P08-PREPARE-CANONICAL-ARCHIVE' "$Module archive cannot be canonicalized: $($_.Exception.Message)" }
+  if((Get-P08Sha256 $sourceFull) -cne $sourceDigest){Throw-P08HostedRule 'P08-PREPARE-ARCHIVE-PROVENANCE' "$Module source archive changed while deriving canonical prepared bytes."}
+  [pscustomobject][ordered]@{source_path=$sourceFull;source_sha256=$sourceDigest;prepared_path=$derivedPath;canonical_sha256=[string]$canonical.canonical_sha256}
+}
+
 function Get-P08PrepareMaterials {
   param([Parameter(Mandatory)][object]$Boundary,[Parameter(Mandatory)][string]$WorkRoot)
   $context=[pscustomobject][ordered]@{execution_root=[string]$Boundary.execution_root;boundary_sha=[string]$Boundary.boundary_sha;work_root=[IO.Path]::GetFullPath($WorkRoot)}
@@ -631,7 +643,8 @@ function New-P08PreparedAttempt {
     $r7HistoryPath=Join-Path $stageRoot 'historical/r7.json';Write-P08ExclusiveJson $r7HistoryPath $r7Negative
     $attemptZeroDigest=Get-P08Sha256 $attemptZeroPath;$r1HistoryDigest=Get-P08Sha256 $r1HistoryPath;$r2HistoryDigest=Get-P08Sha256 $r2HistoryPath;$r3HistoryDigest=Get-P08Sha256 $r3HistoryPath;$r4HistoryDigest=Get-P08Sha256 $r4HistoryPath;$r5HistoryDigest=Get-P08Sha256 $r5HistoryPath;$r6HistoryDigest=Get-P08Sha256 $r6HistoryPath;$r7HistoryDigest=Get-P08Sha256 $r7HistoryPath
     $historySet=([Convert]::ToHexString([Security.Cryptography.SHA256]::HashData([Text.UTF8Encoding]::new($false).GetBytes((@($attemptZeroDigest,$r1HistoryDigest,$r2HistoryDigest,$r3HistoryDigest,$r4HistoryDigest,$r5HistoryDigest,$r6HistoryDigest,$r7HistoryDigest)-join"`n"))))).ToLowerInvariant()
-    foreach($module in @('mb-core','mb-color','mb-image')){Copy-P08PreparedInput -Source ([string]$materials.archive_paths[$module]) -InputRoot $inputRoot -RelativePath "archives/$module.zip"}
+    $canonicalArchives=[ordered]@{}
+    foreach($module in @('mb-core','mb-color','mb-image')){$canonicalArchives[$module]=Copy-P08CanonicalPreparedArchive -Source ([string]$materials.archive_paths[$module]) -InputRoot $inputRoot -Module $module}
     Copy-P08PreparedInput -Source $intentPath -InputRoot $inputRoot -RelativePath 'intent/current.json'
     Copy-P08PreparedInput -Source (Join-Path $qualificationRoot 'intent/intent.sha256') -InputRoot $inputRoot -RelativePath 'intent/current.sha256'
     Copy-P08PreparedInput -Source (Join-Path $qualificationRoot 'release-intent-binding.json') -InputRoot $inputRoot -RelativePath 'intent/root-binding.json'
