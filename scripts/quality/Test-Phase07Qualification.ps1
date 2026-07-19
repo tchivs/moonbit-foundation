@@ -23,7 +23,7 @@ function Assert-P07Workflow {
     'root_intent_sha256:','intent_sha256:','prior_run_id:','prior_artifact_name:',
     'run-id: ${{ github.run_id }}','needs.prepare.outputs.prepared_artifact_name',
     'needs.prepare.outputs.prepared_manifest_sha256','environment: mooncakes-production',
-    'P07-WORKFLOW-INITIAL-ROOT','P07-WORKFLOW-CORRECTION-RESUME','P07-WORKFLOW-MANIFEST-DIGEST',
+    'P08-WORKFLOW-R12-ROOT','P08-PREPARED-NON-R12','P07-WORKFLOW-MANIFEST-DIGEST',
     'P07-WORKFLOW-EXACT-INVENTORY','P07-WORKFLOW-PAYLOAD-DIGEST','P07-WORKFLOW-BINDING'
   )) { if (-not $text.Contains($required)) { throw "P07-WORKFLOW-STRUCTURE: missing '$required'." } }
   $uses=@([regex]::Matches($text,'(?m)^\s*uses:\s*[^@\r\n]+@([0-9a-f]{40})\s*$'))
