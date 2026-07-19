@@ -804,13 +804,13 @@ function New-P08PreparedAttempt {
 }
 
 function Open-P08BoundaryStore {
-  param([string]$Locator,[string]$Artifacts,[string]$Operation)
+  param([string]$Locator,[string]$Artifacts,[string]$Operation,[string]$ReleaseRef)
   if (-not (Test-Path -LiteralPath $Locator -PathType Leaf)) { Throw-P08HostedRule 'P08-BOUNDARY-LOCATOR' 'Durable locator is missing.' }
   $value=Get-Content -LiteralPath $Locator -Raw | ConvertFrom-Json -Depth 100
   $names=@('schema_version','repository','workflow','release_ref','boundary_sha','execution_root','source_sha','root_intent_sha256','intent_sha256','prepared_manifest_sha256','artifact_root','index_path','mutation_authorization_packet_path','mutation_authorization_packet_sha256','created_at_utc','locator_sha256')
   if ((@($value.PSObject.Properties.Name)-join ',') -cne ($names-join ',') -or $value.schema_version -cne 'mnf-phase08-live-locator/2') { Throw-P08HostedRule 'P08-BOUNDARY-LOCATOR-CLOSED' 'Locator field inventory drifted.' }
   if ([IO.Path]::GetFullPath([string]$value.artifact_root) -cne [IO.Path]::GetFullPath($Artifacts) -or
-      $value.repository -cne $Repository -or $value.workflow -cne $Workflow -or $value.release_ref -cne 'refs/tags/modules-v0.1.0-r10' -or
+      $value.repository -cne $Repository -or $value.workflow -cne $Workflow -or $value.release_ref -cne $ReleaseRef -or
       $value.source_sha -cne $SourceSha -or $value.boundary_sha -cne $BoundarySha -or $value.source_sha -cne $value.boundary_sha -or
       $value.root_intent_sha256 -cne $RootIntentSha256 -or $value.intent_sha256 -cne $IntentSha256 -or $value.prepared_manifest_sha256 -cne $PreparedManifestSha256) {
     Throw-P08HostedRule 'P08-BOUNDARY-BINDING' 'Locator binding drifted.'
@@ -1037,7 +1037,7 @@ if ($ReleaseRef -cne 'refs/tags/modules-v0.1.0-r12' -or $SourceSha -cnotmatch '^
     $IntentSha256 -cnotmatch '^[0-9a-f]{64}$' -or $PreparedManifestSha256 -cnotmatch '^[0-9a-f]{64}$') {
   Throw-P08HostedRule 'P08-HOSTED-R12-BINDING' 'Only the exact r12 release binding is accepted.'
 }
-$store=Open-P08BoundaryStore -Locator $LocatorPath -Artifacts $ArtifactRoot -Operation $Mode
+$store=Open-P08BoundaryStore -Locator $LocatorPath -Artifacts $ArtifactRoot -Operation $Mode -ReleaseRef $ReleaseRef
 switch ($Mode) {
   'MaterializePublicSurface' {
     if ([string]::IsNullOrWhiteSpace($ObservationPhase) -or $null -eq $SurfaceProvider) { Throw-P08HostedRule 'P08-SURFACE-PARAMETERS' 'MaterializePublicSurface requires a phase and structured provider.' }
