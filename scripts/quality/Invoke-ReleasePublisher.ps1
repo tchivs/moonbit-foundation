@@ -21,13 +21,13 @@ function Assert-PublisherRequest {
   param([object]$Request)
   Assert-PublisherClosedProperties 'publisher request' $Request @(
     'repository','actor','actor_evidence','release_ref','source_sha','root_intent_sha256','intent_sha256','intent_kind','prepared_manifest_sha256',
-    'historical_attempt_zero_sha256','historical_r1_sha256','historical_r2_sha256','historical_r3_sha256','historical_r4_sha256','historical_r5_sha256','historical_r6_sha256','historical_r7_sha256','historical_r8_sha256','historical_r9_sha256','historical_history_set_sha256',
+    'historical_attempt_zero_sha256','historical_r1_sha256','historical_r2_sha256','historical_r3_sha256','historical_r4_sha256','historical_r5_sha256','historical_r6_sha256','historical_r7_sha256','historical_r8_sha256','historical_r9_sha256','historical_r10_sha256','historical_history_set_sha256',
     'correction_sequence','predecessor_intent_sha256','authorization_valid','evidence_valid','dry_run_passed','authority_account'
   )
   if ($Request.repository -cne 'tchivs/moonbit-foundation' -or $Request.actor -cne 'tchivs' -or $Request.authority_account -cne 'tchivs') { Throw-PublisherRule 'PUB12-AUTH' 'Actor, account, or repository binding is invalid.' }
   if ($Request.source_sha -cnotmatch '^[0-9a-f]{40}$' -or $Request.root_intent_sha256 -cnotmatch '^[0-9a-f]{64}$' -or $Request.intent_sha256 -cnotmatch '^[0-9a-f]{64}$') { Throw-PublisherRule 'PUB01-CLOSED' 'Request digest is invalid.' }
   if ($Request.prepared_manifest_sha256 -cnotmatch '^[0-9a-f]{64}$') { Throw-PublisherRule 'PUB13-EVIDENCE' 'Prepared manifest digest is invalid.' }
-  $history=@([string]$Request.historical_attempt_zero_sha256,[string]$Request.historical_r1_sha256,[string]$Request.historical_r2_sha256,[string]$Request.historical_r3_sha256,[string]$Request.historical_r4_sha256,[string]$Request.historical_r5_sha256,[string]$Request.historical_r6_sha256,[string]$Request.historical_r7_sha256,[string]$Request.historical_r8_sha256,[string]$Request.historical_r9_sha256)
+  $history=@([string]$Request.historical_attempt_zero_sha256,[string]$Request.historical_r1_sha256,[string]$Request.historical_r2_sha256,[string]$Request.historical_r3_sha256,[string]$Request.historical_r4_sha256,[string]$Request.historical_r5_sha256,[string]$Request.historical_r6_sha256,[string]$Request.historical_r7_sha256,[string]$Request.historical_r8_sha256,[string]$Request.historical_r9_sha256,[string]$Request.historical_r10_sha256)
   $expectedHistory=@(
     'b9bda5378ea339f4cdd42c417c1cc0cf8caabbd51ab11d453cd45ddae77d9b52',
     'cba047dae2e6b4e1bbf0248653ed7848f144971b54a0a4ed30ef42ab97325653',
@@ -38,13 +38,13 @@ function Assert-PublisherRequest {
     '3f9c0d9916dbccfa9144488d2967ee1a7fb3fd1d9936f8cc4139c2734f2d0ad4',
     'baf5d4921c75b2ba4a64cd234663a1b7086d6c45a653edd1ce4a63f56882933f',
     '8a7729234a62425d0082a7b7a4615f2757ab4bc59938925b8ca031e2e00c10c8',
-    '6edf89e7afb98dca1e81e3d5db9ff8a47f96dbfb2919bdaeb176c76c52c581ec'
+    '6edf89e7afb98dca1e81e3d5db9ff8a47f96dbfb2919bdaeb176c76c52c581ec','1d524890dd5f0c11e58bcd2884c2d4623e02759a5ff801f2554fcc2ae654895f'
   )
   $historySet=([Convert]::ToHexString([Security.Cryptography.SHA256]::HashData([Text.UTF8Encoding]::new($false).GetBytes(($history -join "`n"))))).ToLowerInvariant()
-  if (@($history | Where-Object { $_ -cnotmatch '^[0-9a-f]{64}$' }).Count -ne 0 -or (@($history | Select-Object -Unique)).Count -ne 10 -or
+  if (@($history | Where-Object { $_ -cnotmatch '^[0-9a-f]{64}$' }).Count -ne 0 -or (@($history | Select-Object -Unique)).Count -ne 11 -or
       ($history -join ',') -cne ($expectedHistory -join ',') -or $Request.historical_history_set_sha256 -cne $historySet -or
-      $historySet -cne 'ea679099fbb3201708368847e0530c024e08fa9da5fd9100391cab61f1a1e7ee') {
-    Throw-PublisherRule 'PUB16-HISTORY' 'The exact ten terminal-negative histories and their ordered set digest are required.'
+      $historySet -cne '45330d06dec5aca59c07d592ca851c4441cf43d0e35014f9734b2746c293a41d') {
+    Throw-PublisherRule 'PUB16-HISTORY' 'The exact eleven terminal-negative histories and their ordered set digest are required.'
   }
   $actorFields=@('expected_actor','observed_actor','actor_check_classification','actor_exit_code','actor_stdout_line_count','actor_stderr_empty','actor_match','actor_raw_output_persisted','credential_state_removed','mutation_performed','command_classification')
   try { Assert-PublisherClosedProperties 'actor evidence' $Request.actor_evidence $actorFields } catch { Throw-PublisherRule 'PUB12-ACTOR' $_.Exception.Message }
@@ -60,7 +60,7 @@ function Assert-PublisherRequest {
   if ($Request.authorization_valid -ne $true) { Throw-PublisherRule 'PUB12-AUTH' 'Fresh exact authorization is required.' }
   if ($Request.evidence_valid -ne $true -or $Request.dry_run_passed -ne $true) { Throw-PublisherRule 'PUB13-EVIDENCE' 'Qualification, archive, identity, or dry-run evidence failed.' }
   if ($Request.intent_kind -ceq 'initial') {
-    if ($Request.release_ref -cne 'refs/tags/modules-v0.1.0-r10' -or $Request.source_sha -cin @('198436a45b7403a3c28c98d5fa0d5ed6a958455f','09548df948f58ec1bdfff7494757596c03e4c9bd','73a3af920fc3938f49e93d14f16f79f116475f1e','67b1fbc9dd62288d19018c46a44c1e3293212b76','ee4a8eb9b8dca5d69b404c9a4a1cd81608a5462a','df105f06205298f1f82ac2f2cdca214d69d42e15','c05cacbc3cfc583205c612f4bf293a4e251ec079','195e08dc1f3a1dc561d98cc660af679926ae0198','8d0f050a2ea2a5f136d87f913987d59ea99a13d4','4158dff7d3b6629861d4f5325573c45f3e3e3436') -or $Request.root_intent_sha256 -cne $Request.intent_sha256 -or [int]$Request.correction_sequence -ne 0 -or $null -ne $Request.predecessor_intent_sha256) { Throw-PublisherRule 'PUB04-ROOT' 'Initial r10 request binding is invalid.' }
+    if ($Request.release_ref -cne 'refs/tags/modules-v0.1.0-r11' -or $Request.source_sha -cin @('198436a45b7403a3c28c98d5fa0d5ed6a958455f','09548df948f58ec1bdfff7494757596c03e4c9bd','73a3af920fc3938f49e93d14f16f79f116475f1e','67b1fbc9dd62288d19018c46a44c1e3293212b76','ee4a8eb9b8dca5d69b404c9a4a1cd81608a5462a','df105f06205298f1f82ac2f2cdca214d69d42e15','c05cacbc3cfc583205c612f4bf293a4e251ec079','195e08dc1f3a1dc561d98cc660af679926ae0198','8d0f050a2ea2a5f136d87f913987d59ea99a13d4','4158dff7d3b6629861d4f5325573c45f3e3e3436','d49edc53fb4ffca375e562a23789fb76bf8c41e2') -or $Request.root_intent_sha256 -cne $Request.intent_sha256 -or [int]$Request.correction_sequence -ne 0 -or $null -ne $Request.predecessor_intent_sha256) { Throw-PublisherRule 'PUB04-ROOT' 'Initial r11 request binding is invalid.' }
   }
 }
 
