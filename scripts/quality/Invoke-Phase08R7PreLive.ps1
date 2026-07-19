@@ -51,7 +51,7 @@ function Assert-Phase08R7PreLive {
   if((@($Context.PSObject.Properties.Name)-join ',')-cne($expectedContext-join ',')){Throw-R7PreLive 'P08-R7-CLOSED' 'Pre-live context field inventory drifted.'}
   if($Context.schema_version -cne 'mnf-phase08-r7-pre-live-context/1' -or $Context.repository -cne 'tchivs/moonbit-foundation' -or $Context.remote -cne 'origin' -or $Context.head_sha -cnotmatch '^[0-9a-f]{40}$'){Throw-R7PreLive 'P08-R7-BINDING' 'Repository, remote, or HEAD binding drifted.'}
   $policy=Read-ReleaseJson (Join-Path $PSScriptRoot '..\..\policy\release-control.json')
-  $expected=@($policy.initial_attempt_family.terminal_negative_history);$actual=@($Context.histories)
+  $expected=@($policy.initial_attempt_family.terminal_negative_history|Select-Object -First 7);$actual=@($Context.histories)
   if($expected.Count-ne 7-or$actual.Count-ne 7-or($actual.attempt-join',')-cne'attempt_zero,r1,r2,r3,r4,r5,r6'){Throw-R7PreLive 'P08-R7-HISTORY' 'Exactly seven ordered histories are required.'}
   $digests=[Collections.Generic.List[string]]::new()
   for($i=0;$i-lt 7;$i++){
@@ -80,7 +80,8 @@ function Assert-Phase08R7PreLive {
     $digests.Add([string]$item.record_sha256)
   }
   $set=Get-ReleaseTextSha256 -Text ($digests-join"`n")
-  if($set-cne$Context.historical_history_set_sha256-or$set-cne$policy.initial_attempt_family.history_set_sha256){Throw-R7PreLive 'P08-R7-HISTORY-SET' 'Canonical history-set digest drifted.'}
+  $expectedSet=Get-ReleaseTextSha256 -Text (@($expected.record_sha256)-join"`n")
+  if($set-cne$Context.historical_history_set_sha256-or$set-cne$expectedSet){Throw-R7PreLive 'P08-R7-HISTORY-SET' 'Canonical history-set digest drifted.'}
   $r6=$actual[6].record
   if($r6.source_sha-cne'c05cacbc3cfc583205c612f4bf293a4e251ec079'-or$r6.tag_object_sha-cne'cdff825cc870a50c0393d5347f21351011092149'-or$r6.hosted_run_present-ne$true-or[string]$r6.run_id-cne'29671691604'-or[int]$r6.run_attempt-ne1-or[string]$r6.prepare_job_id-cne'88151792308'-or$r6.prepare_attempt_completed-ne$true-or$r6.hosted_preflight_dispatched-ne$true-or$r6.credential_accessed-ne$false-or$r6.failure_stage-cne'hosted_preflight_prepare_job'-or$r6.failure_code-cne'P08-PREPARED-INTENT-BINDING'-or$r6.failure_detail-cne'windows_linux_eol_dependent_zip_bytes'-or$r6.mutation_performed-ne$false-or$r6.authority_acquired-ne$false-or$r6.reason-cne'terminal_cross_platform_prepared_intent_binding_failure'){Throw-R7PreLive 'P08-R7-R6-TERMINAL' 'r6 exact hosted prepare failure drifted.'}
   foreach($count in @('prepared_artifact_upload_count','publisher_dry_run_count','exact_existing_authority_count','hosted_preflight_downstream_count','publisher_count','observation_count','cold_consumer_count','authorization_packet_count','authorization_receipt_count','handoff_count','publish_one_count','mutation_count','successor_count')){if([int]$r6.$count-ne0){Throw-R7PreLive 'P08-R7-DOWNSTREAM' "r6 downstream count '$count' is nonzero."}}
@@ -127,22 +128,22 @@ function Find-R7HistoricalBoundary([object]$Record){
   $candidates[0]
 }
 
-function New-Phase08R7ProductionContext([string]$ExpectedRepository,[string]$ExpectedRemote,[AllowNull()][string[]]$RemoteTagRows=$null){
+function New-Phase08R7ProductionContext([string]$ExpectedRepository,[string]$ExpectedRemote,[AllowNull()][string[]]$RemoteTagRows=$null,[ValidateSet(7,8)][int]$HistoryCount=7){
   $repoRoot=(Invoke-R7PreLiveGit @('rev-parse','--show-toplevel')).lines[0];$head=(Invoke-R7PreLiveGit @('rev-parse','HEAD')).lines[0]
   $remoteUrl=Invoke-R7PreLiveGit @('config','--get',"remote.$ExpectedRemote.url")
   if($ExpectedRepository-cne'tchivs/moonbit-foundation'-or$ExpectedRemote-cne'origin'-or$remoteUrl.lines.Count-ne1){Throw-R7PreLive 'P08-R7-REMOTE' 'Canonical repository remote is missing.'}
   if($null-eq$RemoteTagRows){$RemoteTagRows=@((Invoke-R7PreLiveGit @('ls-remote','--tags',$ExpectedRemote)).lines)}
-  $policy=Read-ReleaseJson (Join-Path $repoRoot 'policy/release-control.json');$histories=[Collections.Generic.List[object]]::new()
+  $policy=Read-ReleaseJson (Join-Path $repoRoot 'policy/release-control.json');$records=@($policy.initial_attempt_family.terminal_negative_history|Select-Object -First $HistoryCount);$historySet=Get-ReleaseTextSha256 -Text (@($records.record_sha256)-join"`n");$histories=[Collections.Generic.List[object]]::new()
   $foundByAttempt=@{}
-  foreach($persistedRecord in @($policy.initial_attempt_family.terminal_negative_history|Where-Object{$_.attempt-cne'attempt_zero'})){$foundByAttempt[[string]$persistedRecord.attempt]=Find-R7HistoricalBoundary $persistedRecord}
+  foreach($persistedRecord in @($records|Where-Object{$_.attempt-cne'attempt_zero'})){$foundByAttempt[[string]$persistedRecord.attempt]=Find-R7HistoricalBoundary $persistedRecord}
   $r5Found=$foundByAttempt.r5;$r5IndexPath=[string]$r5Found.active.index_path;$r5StoreRoot=Split-Path -Parent $r5IndexPath
   $r5Index=Get-Content -LiteralPath $r5IndexPath -Raw|ConvertFrom-Json -Depth 100
-  $attemptZeroRecord=@($policy.initial_attempt_family.terminal_negative_history)[0]
+  $attemptZeroRecord=$records[0]
   $attemptZeroEntries=@($r5Index.records|Where-Object{$_.logical_key-ceq'prepare|historical|attempt-zero'-and$_.kind-ceq'HistoricalNegative'-and$_.path-ceq'historical/attempt-zero.json'-and$_.file_sha256-ceq$attemptZeroRecord.record_sha256-and$_.content_sha256-ceq$attemptZeroRecord.record_sha256})
   if($attemptZeroEntries.Count-ne1){Throw-R7PreLive 'P08-R7-HISTORICAL-ARTIFACT' "Expected one r5-indexed attempt_zero artifact, got $($attemptZeroEntries.Count)."}
   $attemptZeroArtifact=[IO.Path]::GetFullPath((Join-Path $r5StoreRoot ([string]$attemptZeroEntries[0].path)));$null=Assert-R7Contained $attemptZeroArtifact ([string]$r5Found.directory)
   if((Get-R7PreLiveSha $attemptZeroArtifact)-cne[string]$attemptZeroRecord.record_sha256){Throw-R7PreLive 'P08-R7-HISTORICAL-ARTIFACT' 'attempt_zero terminal artifact digest drifted.'}
-  foreach($record in @($policy.initial_attempt_family.terminal_negative_history)){
+  foreach($record in $records){
     $remoteTag=Resolve-R7RemoteTag $record $RemoteTagRows;$peel=[string]$remoteTag.peel_sha;$tagObject=$remoteTag.tag_object_sha
     if($record.attempt-cin @('r5','r6')-and$tagObject-cne$record.tag_object_sha){Throw-R7PreLive 'P08-R7-TAG' "$($record.attempt) tag object drifted."}
     if($record.attempt-ceq'attempt_zero'){
@@ -172,7 +173,7 @@ function New-Phase08R7ProductionContext([string]$ExpectedRepository,[string]$Exp
   $handoffPath=Join-Path ([IO.Path]::GetTempPath()) 'mnf-phase08-r7-handoff.json'
   [pscustomobject][ordered]@{
     schema_version='mnf-phase08-r7-pre-live-context/1';repository=$ExpectedRepository;remote=$ExpectedRemote;head_sha=$head;histories=@($histories)
-    historical_history_set_sha256=[string]$policy.initial_attempt_family.history_set_sha256;owned_paths_clean=$clean;summaries=[pscustomobject]$summaries
+    historical_history_set_sha256=$historySet;owned_paths_clean=$clean;summaries=[pscustomobject]$summaries
     r7_local_absent=$r7Local;r7_remote_absent=$r7Remote;handoff_absent=(-not(Test-Path -LiteralPath $handoffPath));output_write_attempted=$false
   }
 }

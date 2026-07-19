@@ -26,30 +26,32 @@ $root=Join-Path ([IO.Path]::GetTempPath()) ('mnf-r7-prelive-fixtures-'+[Guid]::N
 $null=New-Item -ItemType Directory -Path $root
 try{
   $policy=Get-Content -LiteralPath (Join-Path $PSScriptRoot '..\..\policy\release-control.json') -Raw|ConvertFrom-Json -Depth 100
+  $records=@($policy.initial_attempt_family.terminal_negative_history|Select-Object -First 7)
+  $historySet=Get-ReleaseTextSha256 -Text (@($records.record_sha256)-join"`n")
   $remoteRows=[Collections.Generic.List[string]]::new()
   for($tagIndex=0;$tagIndex-lt 7;$tagIndex++){
-    $tagRecord=@($policy.initial_attempt_family.terminal_negative_history)[$tagIndex]
+    $tagRecord=$records[$tagIndex]
     if($tagRecord.attempt-ceq'attempt_zero'){$remoteRows.Add("$($tagRecord.source_sha)`t$($tagRecord.release_ref)");continue}
     $tagObject=if($tagRecord.attempt-cin @('r5','r6')){[string]$tagRecord.tag_object_sha}else{('{0:x40}' -f ($tagIndex+1))}
     $remoteRows.Add("$tagObject`t$($tagRecord.release_ref)");$remoteRows.Add("$($tagRecord.source_sha)`t$($tagRecord.release_ref)^{}")
   }
-  foreach($tagRecord in @($policy.initial_attempt_family.terminal_negative_history)){
+  foreach($tagRecord in $records){
     $resolved=Resolve-R7RemoteTag $tagRecord @($remoteRows)
     if($resolved.peel_sha-cne$tagRecord.source_sha-or($tagRecord.attempt-cin @('r5','r6')-and$resolved.tag_object_sha-cne$tagRecord.tag_object_sha)){throw 'P08-R7-REMOTE-TAG-POSITIVE: exact remote binding drifted.'}
   }
-  $tagRecord=@($policy.initial_attempt_family.terminal_negative_history)[1]
+  $tagRecord=$records[1]
   Confirm-R7Failure 'P08-R7-REMOTE-TAG' {Resolve-R7RemoteTag $tagRecord @($remoteRows|Where-Object{$_-notmatch([regex]::Escape($tagRecord.release_ref)+'(?:\^\{\})?$')})}
   Confirm-R7Failure 'P08-R7-REMOTE-TAG' {Resolve-R7RemoteTag $tagRecord @($remoteRows+@($remoteRows|Where-Object{$_-cmatch("`t$([regex]::Escape($tagRecord.release_ref))$")}))}
   $driftRows=@($remoteRows|ForEach-Object{if($_-cmatch("`t$([regex]::Escape($tagRecord.release_ref))\^\{\}$")){('9'*40)+"`t$($tagRecord.release_ref)^{}"}else{$_}})
   Confirm-R7Failure 'P08-R7-REMOTE-TAG' {Resolve-R7RemoteTag $tagRecord $driftRows}
-  $r5Record=@($policy.initial_attempt_family.terminal_negative_history)[5]
+  $r5Record=$records[5]
   $objectDriftRows=@($remoteRows|ForEach-Object{if($_-cmatch("`t$([regex]::Escape($r5Record.release_ref))$")){('9'*40)+"`t$($r5Record.release_ref)"}else{$_}})
   Confirm-R7Failure 'P08-R7-REMOTE-TAG' {Resolve-R7RemoteTag $r5Record $objectDriftRows}
-  $r6Record=@($policy.initial_attempt_family.terminal_negative_history)[6]
+  $r6Record=$records[6]
   $r6ObjectDriftRows=@($remoteRows|ForEach-Object{if($_-cmatch("`t$([regex]::Escape($r6Record.release_ref))$")){('8'*40)+"`t$($r6Record.release_ref)"}else{$_}})
   Confirm-R7Failure 'P08-R7-REMOTE-TAG' {Resolve-R7RemoteTag $r6Record $r6ObjectDriftRows}
   $histories=[Collections.Generic.List[object]]::new()
-  foreach($record in @($policy.initial_attempt_family.terminal_negative_history)){
+  foreach($record in $records){
     $attemptRoot=Join-Path $root ([string]$record.attempt);$execution=Join-Path $attemptRoot 'execution';$state=Join-Path $attemptRoot 'state';$store=Join-Path $state 'store'
     $null=New-Item -ItemType Directory -Force $attemptRoot
     $historicalArtifact=Join-Path $attemptRoot 'historical.json'
@@ -75,7 +77,7 @@ try{
   }
   $context=[pscustomobject][ordered]@{
     schema_version='mnf-phase08-r7-pre-live-context/1';repository='tchivs/moonbit-foundation';remote='origin';head_sha=('a'*40);histories=@($histories)
-    historical_history_set_sha256=[string]$policy.initial_attempt_family.history_set_sha256;owned_paths_clean=$true
+    historical_history_set_sha256=$historySet;owned_paths_clean=$true
     summaries=[pscustomobject][ordered]@{plan_08_17=[pscustomobject][ordered]@{commit_sha=('b'*40);committed_at_head=$true;ancestor_of_head=$true};plan_08_18=[pscustomobject][ordered]@{commit_sha=('c'*40);committed_at_head=$true;ancestor_of_head=$true}}
     r7_local_absent=$true;r7_remote_absent=$true;handoff_absent=$true;output_write_attempted=$false
   }

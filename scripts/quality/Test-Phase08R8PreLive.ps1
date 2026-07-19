@@ -5,6 +5,13 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference='Stop'
 $selector=Join-Path $PSScriptRoot 'Invoke-Phase08R8PreLive.ps1'
 if(-not(Test-Path -LiteralPath $selector -PathType Leaf)){throw 'P08-R8-PRELIVE-MISSING: selector is required.'}
+$r7Library=Join-Path $PSScriptRoot 'Invoke-Phase08R7PreLive.Library.psm1'
+if(-not(Test-Path -LiteralPath $r7Library -PathType Leaf)){throw 'P08-R8-R7-MODULE-MISSING: functions-only R7 module is required.'}
+$LibraryOnly=$false
+$r7Module=Import-Module -Name $r7Library -Force -PassThru
+if($LibraryOnly-ne$false){throw 'P08-R8-R7-MODULE-SCOPE: R7 module import contaminated caller invocation state.'}
+if(-not(Get-Command New-Phase08R7ProductionContext -CommandType Function -ErrorAction SilentlyContinue)){throw 'P08-R8-R7-MODULE-API: R7 production context function is missing.'}
+Remove-Module -Name $r7Module.Name -Force
 . $selector -Check -Repository tchivs/moonbit-foundation -Remote origin -LibraryOnly
 foreach($command in @('Assert-Phase08R8PreLive','Resolve-R8RemoteTag')){
   if(-not(Get-Command $command -CommandType Function -ErrorAction SilentlyContinue)){throw "P08-R8-PRELIVE-API: $command is missing."}
@@ -48,10 +55,16 @@ try{
   $summary=[pscustomobject][ordered]@{commit_sha=('a'*40);committed_at_head=$true;ancestor_of_head=$true}
   $context=[pscustomobject][ordered]@{schema_version='mnf-phase08-r8-pre-live-context/1';repository='tchivs/moonbit-foundation';remote='origin';head_sha=('b'*40);histories=@($histories);historical_history_set_sha256=[string]$policy.initial_attempt_family.history_set_sha256;canonical_archives=$archives;owned_paths_clean=$true;summaries=[pscustomobject][ordered]@{plan_08_19=$summary;plan_08_20=$summary;plan_08_21=$summary};r8_local_absent=$true;r8_remote_absent=$true;handoff_absent=$true;output_write_attempted=$false}
   $before=@(Get-ChildItem $root -Recurse -File|Sort-Object FullName|ForEach-Object{"$($_.FullName)|$((Get-FileHash $_.FullName -Algorithm SHA256).Hash)"})-join"`n"
-  $result=Assert-Phase08R8PreLive $context
+  $results=@(Assert-Phase08R8PreLive $context)
+  if($results.Count-ne1){throw "P08-R8-RESULT-COUNT: expected one sanitized result object, got $($results.Count)."}
+  $result=$results[0]
   $after=@(Get-ChildItem $root -Recurse -File|Sort-Object FullName|ForEach-Object{"$($_.FullName)|$((Get-FileHash $_.FullName -Algorithm SHA256).Hash)"})-join"`n"
-  $expected='schema_version,repository,head_sha,historical_attempt_zero_sha256,historical_r1_sha256,historical_r2_sha256,historical_r3_sha256,historical_r4_sha256,historical_r5_sha256,historical_r6_sha256,historical_r7_sha256,historical_history_set_sha256,r7_terminal_disposition,r7_run_id,r7_run_attempt,r7_prepare_job_id,r7_downstream_effect_count,canonical_core_sha256,canonical_color_sha256,canonical_image_sha256,summary_08_19_commit,summary_08_20_commit,summary_08_21_commit,r8_local_absent,r8_remote_absent,handoff_absent,filesystem_writes,git_writes,network_calls'
+  if($null-eq$result.PSObject.Properties['result_sha256']){throw 'P08-R8-RESULT-DIGEST: sanitized result digest is missing.'}
+  $expected='schema_version,repository,head_sha,historical_attempt_zero_sha256,historical_r1_sha256,historical_r2_sha256,historical_r3_sha256,historical_r4_sha256,historical_r5_sha256,historical_r6_sha256,historical_r7_sha256,historical_history_set_sha256,r7_terminal_disposition,r7_run_id,r7_run_attempt,r7_prepare_job_id,r7_downstream_effect_count,canonical_core_sha256,canonical_color_sha256,canonical_image_sha256,summary_08_19_commit,summary_08_20_commit,summary_08_21_commit,r8_local_absent,r8_remote_absent,handoff_absent,filesystem_writes,git_writes,network_calls,result_sha256'
   if($before-cne$after-or(@($result.PSObject.Properties.Name)-join',')-cne$expected){throw 'P08-R8-POSITIVE: result or zero-write boundary drifted.'}
+  $resultProjection=[ordered]@{};foreach($property in $result.PSObject.Properties){if($property.Name-cne'result_sha256'){$resultProjection[$property.Name]=$property.Value}}
+  $expectedResultSha256=Get-ReleaseTextSha256 -Text (([pscustomobject]$resultProjection)|ConvertTo-Json -Depth 100 -Compress)
+  if($result.result_sha256-cne$expectedResultSha256){throw 'P08-R8-RESULT-DIGEST: sanitized result digest drifted.'}
   $bad=Copy-R8Context $context;$bad.histories[7].record.run_id='29673849109';$bad.histories[7].record_sha256=Get-R8PreLiveRecordDigest $bad.histories[7].record;Confirm-R8Failure 'P08-R8-R7-TERMINAL' {Assert-Phase08R8PreLive $bad}
   $bad=Copy-R8Context $context;$bad.histories[7].record.publisher_dry_run_count=1;$bad.histories[7].record_sha256=Get-R8PreLiveRecordDigest $bad.histories[7].record;Confirm-R8Failure 'P08-R8-DOWNSTREAM' {Assert-Phase08R8PreLive $bad}
   $bad=Copy-R8Context $context;$bad.canonical_archives.core.sha256=('9'*64);Confirm-R8Failure 'P08-R8-CANONICAL-ARCHIVE' {Assert-Phase08R8PreLive $bad}
