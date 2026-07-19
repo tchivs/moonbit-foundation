@@ -46,20 +46,20 @@ function Get-InitialHistoryRecordSha256 {
 function Assert-InitialAttemptFamily {
   param([Parameter(Mandatory)][object]$Control)
   $history = @($Control.initial_attempt_family.terminal_negative_history)
-  if ($history.Count -ne 8 -or ($history.attempt -join ',') -cne 'attempt_zero,r1,r2,r3,r4,r5,r6,r7') {
-    Throw-ReleaseRule -Id 'REL01-HISTORY-ORDER' -Message 'attempt-zero and r1 through r7 are required in canonical order.'
+  if ($history.Count -ne 9 -or ($history.attempt -join ',') -cne 'attempt_zero,r1,r2,r3,r4,r5,r6,r7,r8') {
+    Throw-ReleaseRule -Id 'REL01-HISTORY-ORDER' -Message 'attempt-zero and r1 through r8 are required in canonical order.'
   }
   foreach ($record in $history) {
     if ($record.record_sha256 -cne (Get-InitialHistoryRecordSha256 $record)) {
       Throw-ReleaseRule -Id 'REL01-HISTORY-DIGEST' -Message "terminal history digest drifted for $($record.attempt)."
     }
   }
-  if (@($history.record_sha256 | Select-Object -Unique).Count -ne 8) {
+  if (@($history.record_sha256 | Select-Object -Unique).Count -ne 9) {
     Throw-ReleaseRule -Id 'REL01-HISTORY-DIGEST' -Message 'terminal history digests must be distinct.'
   }
   $setDigest = Get-ReleaseTextSha256 -Text ((@($history.record_sha256) -join "`n"))
   if ($Control.initial_attempt_family.history_set_profile -cne 'sha256-of-lf-joined-record-sha256-in-canonical-attempt-order' -or
-      $Control.initial_attempt_family.history_set_sha256 -cne $setDigest -or $Control.initial_attempt_family.current_attempt -cne 'r8') {
+      $Control.initial_attempt_family.history_set_sha256 -cne $setDigest -or $Control.initial_attempt_family.current_attempt -cne 'r9') {
     Throw-ReleaseRule -Id 'REL01-HISTORY-SET' -Message 'ordered terminal history set or current attempt drifted.'
   }
   return $history
@@ -83,7 +83,7 @@ foreach ($digest in @($QualificationRootSha256,$RequiredStableSha256)) { if (-no
 
 if ($IntentKind -ceq 'initial') {
   if ($ReleaseRef -cne $control.initial_profile.release_ref) { Throw-ReleaseRule -Id 'REL01-REF' -Message 'initial release ref is not the dedicated immutable tag.' }
-  if (@($control.initial_attempt_family.terminal_negative_history.source_sha) -ccontains $SourceSha) { Throw-ReleaseRule -Id 'REL01-HISTORICAL-SOURCE' -Message 'a terminal-negative source cannot be reused as r8 current authority.' }
+  if (@($control.initial_attempt_family.terminal_negative_history.source_sha) -ccontains $SourceSha) { Throw-ReleaseRule -Id 'REL01-HISTORICAL-SOURCE' -Message 'a terminal-negative source cannot be reused as r9 current authority.' }
   if ($CorrectionSequence -ne 0 -or -not [string]::IsNullOrEmpty($RootIntentSha256) -or -not [string]::IsNullOrEmpty($PredecessorIntentSha256)) {
     Throw-ReleaseRule -Id 'REL01-HASH-CYCLE' -Message 'initial intent must not serialize root, predecessor, or a correction sequence.'
   }
@@ -91,7 +91,7 @@ if ($IntentKind -ceq 'initial') {
       -not [string]::IsNullOrEmpty($IncidentSha256) -or -not [string]::IsNullOrEmpty($AdvisorySha256) -or
       -not [string]::IsNullOrEmpty($CompatibilityResultSha256) -or -not [string]::IsNullOrEmpty($VersionAbsenceSha256) -or
       $null -ne $CorrectedVersions) {
-    Throw-ReleaseRule -Id 'REL01-CORRECTION-EVIDENCE' -Message 'initial r8 cannot carry correction-lane evidence.'
+    Throw-ReleaseRule -Id 'REL01-CORRECTION-EVIDENCE' -Message 'initial r9 cannot carry correction-lane evidence.'
   }
 } else {
   if ($ReleaseRef -cnotmatch $control.correction_profile.release_ref_pattern) { Throw-ReleaseRule -Id 'REL01-CORRECTION-TAG' -Message 'correction tag is noncanonical.' }

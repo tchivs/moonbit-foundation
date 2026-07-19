@@ -75,7 +75,7 @@
         "intent_kind": { "const": "initial" },
         "repository": { "const": "tchivs/moonbit-foundation" },
         "owner": { "const": "tchivs" },
-        "release_ref": { "const": "refs/tags/modules-v0.1.0-r8" },
+        "release_ref": { "const": "refs/tags/modules-v0.1.0-r9" },
         "source_sha": { "$ref": "#/$defs/sourceSha" },
         "correction_sequence": { "const": 0 },
         "toolchain": { "$ref": "#/$defs/toolchain" },
