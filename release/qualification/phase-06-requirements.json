@@ -23,7 +23,7 @@
     "PROV-03": ["phase06.prov.source-documentation"]
   },
   "artifact_contracts": [
-    { "id": "registry-authority-observation", "tracked_path": "release/registry/authority-observation.json", "sha256": "7c752348b38e14d8df5b491e7bbb347d9e516f3cee49fe67554fc20b8eb3da83" },
+    { "id": "registry-authority-observation", "tracked_path": "release/registry/authority-observation.json", "sha256": "bd4f53faf3eb570dd9d5d7eec7547c7301ea34b51de9ba7c421b6d80dcfca838" },
     { "id": "registry-capability-matrix", "tracked_path": "release/registry/capability-matrix.json", "sha256": "c34b2a5abf557ba6bbed1d067abf791b267f7872979dd60c7c2aee65a5a64a12" },
     { "id": "public-interface-baseline", "tracked_path": "compatibility/baselines/0.1.0/manifest.json", "sha256": "87d80ef4b992af13961437f504a512f57e2e6de8eaf6c1f343f0e6b8eff72e26" },
     { "id": "identity-closure", "tracked_path": "scripts/quality/Test-IdentityMigration.ps1", "sha256": "454cb28c36d938ece94290be7d9e3015b2491b65265afa1d382351600e8a7c76" },
