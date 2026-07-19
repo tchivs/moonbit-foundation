@@ -30,7 +30,7 @@ See `.planning/PROJECT.md` (updated 2026-07-17).
 ## Current Position
 
 Phase: 08 (Ordered Mooncakes Publication and Registry Consumers) — EXECUTING
-Plan: 33 of 35 (08-33 quarantined; the static-only recovery route is 08-34 then 08-35)
+Plan: 34 of 35 (08-33 quarantined; the completed static recovery route now advances to 08-35)
 Status: r12 publish-blocked (REL01-REF) — its boundary commit (5e7b19cd) declared policy release_ref=r12 but Invoke-ReleaseQualification.ps1 still hardcoded r9; the fix (d55f63a) landed 26 min after the immutable tag. 08-33 cannot run on r12. r12 is immutable terminal evidence only; forward path is r13+, starting with 08-34 then 08-35. Do not retry r12.
 Last activity: 2026-07-19 — corrected the misdiagnosed timeout narrative (deterministic REL01-REF), recorded the tag-before-script-fix ordering invariant for r13+
 
@@ -41,7 +41,7 @@ Current milestone: [█████░░░░░] 50% of v0.2 phases complete
 - v0.2 phases completed: 2/4
 - Phase 6 plans completed: 25/25
 - Phase 7 plans completed: 3/3
-- Phase 8 plans completed: 32/35 (08-33 quarantined; static r13 recovery proceeds through 08-34 then 08-35)
+- Phase 8 plans completed: 33/35 (08-33 quarantined; 08-34 complete and static r13 recovery proceeds through 08-35)
 - v0.2 requirements mapped: 21/21
 - Historical total: 5 completed phases, 43 completed plans, 36/36 v0.1 requirements validated
 
