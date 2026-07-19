@@ -2,11 +2,11 @@
 
 ## Scope Contract
 
-**Execution status:** 21/27 plans executed; 08-22 and 08-23 are complete r9 static/seam work. The unexecuted r9 boundary/closure prompts were superseded before execution by the r10 forward-recovery plans 08-24 through 08-27.
+**Execution status:** 24/30 plans executed; r10 static/seam plans 08-24/25 are complete, while r10 itself is immutable REL01-REF terminal evidence. The incomplete r10 boundary/closure prompts are superseded by r11 plans 08-26 through 08-30.
 
 Phase 8 integrates only the Mooncakes capabilities required to publish one dependency-safe module per authorized run, observe it through credential-free structured surfaces, and prove exact cold registry consumption. The canonical semantic order is `tchivs/mb-core@0.1.0` -> `tchivs/mb-color@0.1.0` -> `tchivs/mb-image@0.1.0`. Normalized graph serialization is deterministic but never changes node/edge equality.
 
-Attempt-zero through r9 are ten distinct immutable terminal histories. r8 remains the protected pre-locator canonical-archive terminal record. r9 is the already-pushed immutable tag whose peeled commit is `4158dff`; it stopped after boundary initialization and before active-locator creation when the later reader dereferenced r8 fields absent under StrictMode. The narrowly scoped `3a761ae` fix preserves that exact r8 evidence; it does not change r9 into a runnable authority. The only current retry is `modules-v0.1.0-r10`, with fresh roots and no predecessor. Every r10 eligibility artifact binds ten individual digests plus their canonical set. Absent may proceed only through completed non-publishing qualification and the same-turn explicit `authorize-core` receipt; exact-existing requires neither packet nor receipt.
+Attempt-zero through r10 are eleven distinct immutable terminal histories. r8 remains protected canonical-archive evidence and r9 remains immutable StrictMode evidence. r10 has tag object `0546025` and peeled source `d49edc5`; its clean-clone PrepareAttempt stopped at REL01-REF after tag verification and before prepared/authority/hosted/registry/credential effects. r11 is the only current retry, with fresh roots and no predecessor. Every r11 eligibility artifact binds eleven individual digests plus their canonical set. Confirmed absence may proceed only through completed non-publishing qualification and the same-turn explicit `authorize-core` receipt; exact-existing requires neither packet nor receipt.
 
 The assumption-delta detector phrase `Git fallback` maps to the noun **registry-only dependency source**, decision **no-change**, because an alternate source is prohibited rather than generalized into an identity model.
 
@@ -71,6 +71,27 @@ The assumption-delta detector phrase `Git fallback` maps to the noun **registry-
 | CONTEXT | D-18 | No raw live output persistence | 08-24..08-27 | COVERED | Artifacts are sanitized, normalized, and content-addressed. |
 | CONTEXT | D-19 | Fresh core absence observation | 08-26, 08-27 | COVERED | It is re-observed immediately before any core mutation decision. |
 | RECOVERY | R10 worktree boundary | Enumerated user-dirty paths remain unchanged while every other drift fails closed | 08-26 | COVERED | Content/status baseline is recorded before actions and compared after each task; all release artifacts originate from exact committed HEAD or its clean clone. |
+
+## R11 Forward-Recovery Source Audit
+
+| Source | ID | Feature / requirement | Plan | Status | Notes |
+|---|---|---|---|---|---|
+| GOAL | - | Three dependency-ordered publications and real cold registry consumption | 08-26..08-30 | COVERED | Pre-tag ref repair, r11 contracts/seam, one non-publishing boundary, then ordered closure. |
+| REQ | DIST-01 | Core exact authority and cold four-target proof before color | 08-26..08-30 | COVERED | r11 receipt/exact authority is revalidated before one core run. |
+| REQ | DIST-02 | Color plus core proof before image | 08-30 | COVERED | Core checkpoint digest gates color. |
+| REQ | DIST-03 | Exact full graph and PPM proof | 08-30 | COVERED | Image follows color in a distinct run. |
+| REQ | DIST-04 | Isolated credential-free registry evidence | 08-28..08-30 | COVERED | Clean clone, empty homes, no workspace/source/Git/cache/credential inheritance. |
+| REQ | PROV-05 | Structured public metadata proof | 08-30 | COVERED | Closed sanitized public projections block drift. |
+| RESEARCH | Prepared before secret, one-module publisher, cold consumer, structured observation | 08-26..08-30 | COVERED | Existing research patterns are preserved and sequenced. |
+| CONTEXT | D-01 | Deterministic prepared bundle and exact source/tag binding | 08-26, 08-27, 08-29 | COVERED | Actual clone-local tag fixture is mandatory before r11 tag. |
+| CONTEXT | D-02..D-03 | Single adapter and publisher-only secret state | 08-28..08-30 | COVERED | No loop; only publisher temporary Moon home can materialize credential. |
+| CONTEXT | D-04 | Explicit first-core authorization | 08-29 | COVERED | Same-turn absent-only `authorize-core`; exact skips receipt/handoff. |
+| CONTEXT | D-05..D-07 | One run, predecessor gate, immutable resume | 08-27..08-30 | COVERED | r10 is terminal, r11 sole current, each successor requires proof. |
+| CONTEXT | D-08..D-12 | Cold exact graph/targets and credential isolation | 08-28, 08-30 | COVERED | New external consumer root per module and four real targets. |
+| CONTEXT | D-13..D-15 | Bounded observation and forward-only stop | 08-27..08-30 | COVERED | Unknown/mismatch never retries or advances. |
+| CONTEXT | D-16..D-19 | Structured metadata, sanitized evidence, fresh core observation | 08-28..08-30 | COVERED | No raw persistence; fresh observation precedes any core mutation. |
+| RECOVERY | r10 REL01-REF terminal evidence | Preserve immutable tag/peel/failure with no inferred facts | 08-26..08-29 | COVERED | Eleven-history policy consumes only attested facts. |
+| RECOVERY | User-dirty baseline | Exact six path status/content baseline | 08-29, 08-30 | COVERED | All other drift stops; artifacts use committed SHA or clean clone. |
 
 ## Requirement Adjacency and Edge Rules
 

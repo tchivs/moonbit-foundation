@@ -183,7 +183,7 @@
 4. Every proof runs outside the repository with an isolated cold Moon home and no publisher credential, `moon.work`, path dependency, copied source, Git fallback, or warm-cache-only success, and records registry metadata, strongest available package identity, resolved graph, toolchain, target results, and behavioral assertion.
 5. After publication, credential-redacted read-only Mooncakes observation proves that each module page renders the intended qualified public metadata; missing, drifted, or ambiguous rendering blocks PROV-05 without registry mutation.
 
-**Plans:** 24/27 plans executed
+**Plans:** 24/30 plans executed
 **Wave 1**
 
 - [x] 08-01-PLAN.md
@@ -282,15 +282,27 @@
 
 **Wave 25** *(blocked on Wave 24 completion)*
 
-- [ ] 08-25-PLAN.md — Wire r10 hosted, publisher, and credential-free zero-write seams with ten-history regression coverage.
+- [x] 08-25-PLAN.md — Wire r10 hosted, publisher, and credential-free zero-write seams with ten-history regression coverage.
 
 **Wave 26** *(blocked on Wave 25 completion)*
 
-- [ ] 08-26-PLAN.md — Create the unique r10 non-publishing boundary, qualify it, and stop at the dynamic `authorize-core` decision.
+- [ ] 08-26-PLAN.md — Repair clean-clone initial tag/ref binding with a real PrepareAttempt fixture before any r11 tag exists.
 
 **Wave 27** *(blocked on Wave 26 completion)*
 
-- [ ] 08-27-PLAN.md — After the r10 receipt, publish or recognize core, color, and image one module per run with exact cold proofs and reciprocal closure.
+- [ ] 08-27-PLAN.md — Bind r11 static contracts to eleven immutable histories including r10 REL01-REF terminal evidence.
+
+**Wave 28** *(blocked on Wave 27 completion)*
+
+- [ ] 08-28-PLAN.md — Wire r11 hosted, publisher, and credential-free zero-write seams with eleven-history coverage.
+
+**Wave 29** *(blocked on Wave 28 completion)*
+
+- [ ] 08-29-PLAN.md — Establish the unique r11 non-publishing boundary and stop at an absent-only dynamic `authorize-core` decision.
+
+**Wave 30** *(blocked on Wave 29 completion)*
+
+- [ ] 08-30-PLAN.md — After r11 authorization, publish or recognize core, color, and image in order with cold proofs and reciprocal closure.
 
 ### Phase 9: Provenance, Immutable Closure, and Milestone Audit
 
@@ -322,7 +334,7 @@
 | 5. Reference Codec and Release Qualification | v0.1 | 8/8 | Complete | 2026-07-17 |
 | 6. Namespace Authority and Compatibility Contract | v0.2 | 25/25 | Complete    | 2026-07-18 |
 | 7. Release Safety, Intent, and Recovery Automation | v0.2 | 3/3 | Complete | 2026-07-18 |
-| 8. Ordered Mooncakes Publication and Registry Consumers | v0.2 | 24/27 | In Progress|  |
+| 8. Ordered Mooncakes Publication and Registry Consumers | v0.2 | 24/30 | In Progress|  |
 | 9. Provenance, Immutable Closure, and Milestone Audit | v0.2 | 0/TBD | Not started | — |
 
 ## Stable Audit Anchors

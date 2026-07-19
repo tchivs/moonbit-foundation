@@ -161,5 +161,16 @@ Phase 8 makes the Phase 7 control plane genuinely executable, performs the first
 - No plan may infer Mooncakes authorization from a tag, local authentication state, a dry run, or a previous observation. A future blocking `authorize-core` decision is required only after completed static and non-publishing r10 qualification has fresh sanitized evidence.
 - The recovery sequence is monotonic: static r10 contracts → r10 hosted/zero-write seam → unique r10 non-publishing boundary and authorization checkpoint → separately ordered core, color, and image publication/proof. A stop or any ambiguity ends without retrying r9 or mutating the registry.
 
+## Forward Recovery Addendum — r11
+
+**Recorded:** 2026-07-19
+**Status:** Locked planning fact for the r11 recovery plans 08-26 through 08-30.
+
+- `modules-v0.1.0-r10` is immutable terminal evidence: tag object `0546025` peels to `d49edc5`. After clean-clone and fetch/tag verification, its PrepareAttempt stopped at `REL01-REF` because the initial release ref was not bound as the dedicated immutable tag. It produced no prepared bundle, packet, receipt, handoff, hosted run, dry run, observation, PublishOne call, registry operation, credential access, or publication.
+- r11 is the sole permitted forward retry. Its immutable family is attempt-zero plus r1 through r10. r10 must be represented only by attested checkpoint facts; do not infer unrecorded locator or active-attempt facts.
+- Before an r11 tag may be created, the real clean-clone `InitializeBoundary → PrepareAttempt` fixture must prove the clone-local policy, fetched dedicated tag, tag peel, and source SHA bind together. A direct intent-builder test is not sufficient.
+- The existing exact six-path user-dirty baseline remains allowed only when status and content hashes are unchanged; all other worktree drift fails closed, and release artifacts originate only from exact committed HEAD or its clean clone.
+- No plan infers Mooncakes authority. A future `authorize-core` decision is emitted only for a completed r11 confirmed-absent, non-publishing qualification; exact-existing needs no receipt or handoff.
+
 *Phase: 8-ordered-mooncakes-publication-and-registry-consumers*
 *Context gathered: 2026-07-18*
