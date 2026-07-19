@@ -180,7 +180,7 @@ Phase 8 makes the Phase 7 control plane genuinely executable, performs the first
 - `modules-v0.1.0-r11` is immutable: tag object `735ad679` peels to source `30479a`. A real disposable remote clone proves the clone policy’s canonical `refs/tags/modules-v0.1.0-r11` reaches the PrepareAttempt provider; the original failure was a caller-supplied noncanonical ref, not tag resolution.
 - Commit `508eccc` adds the real remote-clone regression. r12 must include it and use a non-overridable boundary wrapper that derives the release ref from clone-local policy; no manual ref is allowed in its boundary path.
 - r12 is the only current retry. Its immutable history is attempt-zero plus r1 through r11. r11 must never be retagged, reused as current state, or reduced to a generic ref-failure record.
-- The exact six-path user-dirty baseline persists unchanged, and all release artifacts derive only from exact committed HEAD or a fresh no-local/no-tags clone. Mooncakes authority continues to require completed non-publishing evidence and a same-turn absent-only `authorize-core` decision.
+- The exact eight-path user-dirty baseline persists unchanged: the original six paths plus `.github/workflows/quality.yml` and `.planning/quick/260719-fix-github-actions-ci/PLAN.md`. All release artifacts derive only from exact committed HEAD or a fresh no-local/no-tags clone, and no baseline path may enter artifacts. Mooncakes authority continues to require completed non-publishing evidence and a same-turn absent-only `authorize-core` decision.
 
 *Phase: 8-ordered-mooncakes-publication-and-registry-consumers*
 *Context gathered: 2026-07-18*

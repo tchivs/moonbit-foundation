@@ -112,7 +112,7 @@ The assumption-delta detector phrase `Git fallback` maps to the noun **registry-
 | CONTEXT | D-13..D-15 | Bounded observation and forward-only stop | 08-30..08-33 | COVERED | Unknown/mismatch blocks retry and successors. |
 | CONTEXT | D-16..D-19 | Structured metadata, sanitized evidence, fresh observation | 08-31..08-33 | COVERED | No raw output; fresh core observation before decision. |
 | RECOVERY | r11 canonical-ref evidence | Preserve object/peel, canonical provider path, and distinct caller mismatch | 08-29..08-32 | COVERED | No retag/reuse; wrapper closes external invocation boundary. |
-| RECOVERY | User-dirty baseline | Six exact paths unchanged, all other drift blocked | 08-32, 08-33 | COVERED | Committed SHA/fresh clone artifacts only. |
+| RECOVERY | User-dirty baseline | Eight exact paths unchanged, all other drift blocked | 08-32, 08-33 | COVERED | Includes `quality.yml` and quick-plan dirties; committed SHA/fresh clone artifacts only and no baseline path may enter artifacts. |
 
 ## Requirement Adjacency and Edge Rules
 
