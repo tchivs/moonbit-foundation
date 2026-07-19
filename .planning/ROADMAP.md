@@ -183,7 +183,7 @@
 4. Every proof runs outside the repository with an isolated cold Moon home and no publisher credential, `moon.work`, path dependency, copied source, Git fallback, or warm-cache-only success, and records registry metadata, strongest available package identity, resolved graph, toolchain, target results, and behavioral assertion.
 5. After publication, credential-redacted read-only Mooncakes observation proves that each module page renders the intended qualified public metadata; missing, drifted, or ambiguous rendering blocks PROV-05 without registry mutation.
 
-**Plans:** 18/23 plans executed
+**Plans:** 19/23 plans executed
 **Wave 1**
 
 - [x] 08-01-PLAN.md
@@ -258,7 +258,7 @@
 
 **Wave 19** *(blocked on Wave 18 completion)*
 
-- [ ] 08-19-PLAN.md — Define r8 attempt-family and eight-history contracts, including r7's cross-OS raw ZIP-container failure.
+- [x] 08-19-PLAN.md — Define r8 attempt-family and eight-history contracts, including r7's cross-OS raw ZIP-container failure.
 
 **Wave 20** *(blocked on Wave 19 completion)*
 
@@ -306,7 +306,7 @@
 | 5. Reference Codec and Release Qualification | v0.1 | 8/8 | Complete | 2026-07-17 |
 | 6. Namespace Authority and Compatibility Contract | v0.2 | 25/25 | Complete    | 2026-07-18 |
 | 7. Release Safety, Intent, and Recovery Automation | v0.2 | 3/3 | Complete | 2026-07-18 |
-| 8. Ordered Mooncakes Publication and Registry Consumers | v0.2 | 18/23 | In Progress|  |
+| 8. Ordered Mooncakes Publication and Registry Consumers | v0.2 | 19/23 | In Progress|  |
 | 9. Provenance, Immutable Closure, and Milestone Audit | v0.2 | 0/TBD | Not started | — |
 
 ## Stable Audit Anchors

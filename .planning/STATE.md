@@ -5,15 +5,15 @@ milestone_name: Publication & Compatibility
 current_phase: 08
 current_phase_name: Ordered Mooncakes Publication and Registry Consumers
 status: executing
-stopped_at: Completed 08-18-PLAN.md
-last_updated: "2026-07-19T05:25:14.454Z"
+stopped_at: Completed 08-19-PLAN.md
+last_updated: "2026-07-19T05:41:25.295Z"
 last_activity: 2026-07-19
-last_activity_desc: Phase 8 r8 forward-correction replanned and independently verified; Wave 19 static contracts are ready
+last_activity_desc: Phase 8 r8 intent, eight-history authority, receipt, handoff, and prepared qualification contracts completed; Wave 20 is ready
 progress:
   total_phases: 4
   completed_phases: 2
   total_plans: 51
-  completed_plans: 46
+  completed_plans: 47
   percent: 50
 ---
 
@@ -30,9 +30,9 @@ See `.planning/PROJECT.md` (updated 2026-07-17).
 ## Current Position
 
 Phase: 08 (Ordered Mooncakes Publication and Registry Consumers) — EXECUTING
-Plan: 19 of 23
-Status: Ready for Wave 19 — implement r8 initial forward-retry contracts before any further external action
-Last activity: 2026-07-19 — r8 forward-correction plans passed independent verification; r7 remains terminal after hosted cross-platform intent mismatch and no registry mutation
+Plan: 20 of 23
+Status: Ready for Wave 20 — close canonical archive and prepared-qualification regressions from the committed r8 contract boundary
+Last activity: 2026-07-19 — r8 is the sole current initial contract; attempt-zero and r1 through r7 are eight immutable terminal-negative histories
 
 ## Progress
 
@@ -41,7 +41,7 @@ Current milestone: [█████░░░░░] 50% of v0.2 phases complete
 - v0.2 phases completed: 2/4
 - Phase 6 plans completed: 25/25
 - Phase 7 plans completed: 3/3
-- Phase 8 plans completed: 18/23
+- Phase 8 plans completed: 19/23
 - v0.2 requirements mapped: 21/21
 - Historical total: 5 completed phases, 43 completed plans, 36/36 v0.1 requirements validated
 
@@ -138,6 +138,10 @@ Current milestone: [█████░░░░░] 50% of v0.2 phases complete
 - [Phase 08]: Publisher, adapter, workflow, and hosted controller accept only r7 and bind seven immutable histories.
 - [Phase 08]: The r7 pre-live selector trusts one remote-tag query, preserves rootless attempt-zero, and requires rooted r1-r6 evidence plus exact r6 downstream-zero failure.
 - [Phase 08]: DIST-01 remains pending because Plan 08-18 performs no external publication or registry-consumer action.
+- [Phase 08]: Only refs/tags/modules-v0.1.0-r8 is current initial authority; attempt-zero and r1 through r7 remain immutable terminal-negative evidence.
+- [Phase 08]: The r7 record binds source 195e08d, tag object 52a47cd, run 29673849108/1, prepare job 88157456895, P08-PREPARED-INTENT-BINDING, raw cross-OS moon ZIP-container drift, and zero downstream effects.
+- [Phase 08]: Every r8 intent, prepared, authority, receipt, and handoff contract carries eight individual history digests plus their canonical LF-ordered set digest.
+- [Phase 08]: DIST-01 remains pending because Plan 08-19 performs no tag creation, hosted dispatch, registry observation, credential access, mutation, or publication.
 
 ### Pending Decisions
 
@@ -152,13 +156,13 @@ None
 
 **Resume file:** None
 
-Last session: 2026-07-19T04:31:52.798Z
-Stopped at: Completed 08-18-PLAN.md
+Last session: 2026-07-19T05:41:25.280Z
+Stopped at: Completed 08-19-PLAN.md
 Resume with: `/gsd-execute-phase 8`
 
 ## Operator Next Steps
 
-- Execute Plan 08-19 to establish the LF-clean r7 boundary and non-mutating seven-history AuthorityUnion handoff.
+- Execute Plan 08-20 to close canonical archive and prepared-qualification regressions from the committed r8/eight-history boundary.
 - Keep every irreversible Mooncakes mutation behind its separately authorized checkpoint.
 
 ## Performance Metrics
@@ -207,3 +211,4 @@ Resume with: `/gsd-execute-phase 8`
 | Phase 08 P16 | 25min | 3 tasks | 10 files |
 | Phase 08 P17 | 14min | 3 tasks | 13 files |
 | Phase 08 P18 | 32min | 3 tasks | 10 files |
+| Phase 08 P19 | 13min | 3 tasks | 13 files |
