@@ -204,7 +204,7 @@ try {
         $null=New-Item -ItemType Directory -Path $artifacts
         $indexPath=Join-Path $artifacts 'index.json'
         $locator=[pscustomobject][ordered]@{
-            schema_version='mnf-phase08-live-locator/2';repository='tchivs/moonbit-foundation';workflow='publish-modules.yml';release_ref='refs/tags/modules-v0.1.0-r6'
+            schema_version='mnf-phase08-live-locator/2';repository='tchivs/moonbit-foundation';workflow='publish-modules.yml';release_ref='refs/tags/modules-v0.1.0-r7'
             boundary_sha=$boundary;execution_root=$artifacts;source_sha=$boundary;root_intent_sha256=$rootIntent;intent_sha256=$rootIntent
             prepared_manifest_sha256=$prepared;artifact_root=$artifacts;index_path=$indexPath;mutation_authorization_packet_path=$null;mutation_authorization_packet_sha256=$null
             created_at_utc='2026-07-19T00:00:00Z';locator_sha256=('c'*64)
