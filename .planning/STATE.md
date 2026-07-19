@@ -5,15 +5,15 @@ milestone_name: Publication & Compatibility
 current_phase: 08
 current_phase_name: Ordered Mooncakes Publication and Registry Consumers
 status: executing
-stopped_at: Completed 08-16-PLAN.md
-last_updated: "2026-07-19T03:57:57.072Z"
+stopped_at: Completed 08-17-PLAN.md
+last_updated: "2026-07-19T04:12:45.986Z"
 last_activity: 2026-07-19
-last_activity_desc: Phase 8 r7 forward-correction replanned and independently verified; Wave 17 static contracts are ready
+last_activity_desc: Phase 8 Plan 08-17 completed r7 static contracts with seven immutable terminal histories and zero external effects
 progress:
   total_phases: 4
   completed_phases: 2
   total_plans: 48
-  completed_plans: 44
+  completed_plans: 45
   percent: 50
 ---
 
@@ -30,9 +30,9 @@ See `.planning/PROJECT.md` (updated 2026-07-17).
 ## Current Position
 
 Phase: 08 (Ordered Mooncakes Publication and Registry Consumers) — EXECUTING
-Plan: 17 of 20
-Status: Ready for Wave 17 — implement r7 initial forward-retry contracts before any further external action
-Last activity: 2026-07-19 — r7 forward-correction plans passed independent verification; r6 remains terminal after cross-platform prepared intent mismatch and no registry mutation
+Plan: 18 of 20
+Status: Ready for Wave 18 — wire the r7 hosted seam and zero-write pre-live selector
+Last activity: 2026-07-19 — Plan 08-17 closed r7 intent, prepared, authority, receipt, and handoff contracts over seven immutable histories
 
 ## Progress
 
@@ -41,7 +41,7 @@ Current milestone: [█████░░░░░] 50% of v0.2 phases complete
 - v0.2 phases completed: 2/4
 - Phase 6 plans completed: 25/25
 - Phase 7 plans completed: 3/3
-- Phase 8 plans completed: 16/20
+- Phase 8 plans completed: 17/20
 - v0.2 requirements mapped: 21/21
 - Historical total: 5 completed phases, 43 completed plans, 36/36 v0.1 requirements validated
 
@@ -131,6 +131,10 @@ Current milestone: [█████░░░░░] 50% of v0.2 phases complete
 - [Phase 08]: DIST-01 remains pending because Plan 08-15 performs no external publication or registry-consumer action.
 - [Phase 08]: Publisher, adapter, workflow, and hosted controller accept only r6 and bind six immutable terminal histories.
 - [Phase 08]: The r6 pre-live selector is read-only and emits one closed sanitized result before any live action.
+- [Phase 08]: Only refs/tags/modules-v0.1.0-r7 is current initial authority; attempt-zero and r1 through r6 remain immutable terminal-negative evidence.
+- [Phase 08]: The r6 terminal record binds run 29671691604/1, prepare job 88151792308, P08-PREPARED-INTENT-BINDING, and explicit zero downstream effects.
+- [Phase 08]: Every r7 prepared, authority, receipt, and handoff contract binds seven individual history digests plus their canonical LF-ordered set.
+- [Phase 08]: DIST-01 remains pending because Plan 08-17 performs no external publication or registry-consumer action.
 
 ### Pending Decisions
 
@@ -145,13 +149,13 @@ None
 
 **Resume file:** None
 
-Last session: 2026-07-19T02:59:36.756Z
-Stopped at: Completed 08-16-PLAN.md
+Last session: 2026-07-19T04:12:45.969Z
+Stopped at: Completed 08-17-PLAN.md
 Resume with: `/gsd-execute-phase 8`
 
 ## Operator Next Steps
 
-- Execute Plan 08-17 by running the committed zero-write selector before any tag, dispatch, registry observation, or mutation.
+- Execute Plan 08-18 to advance the publisher/workflow/controller to r7 and add the committed zero-write r7 selector.
 - Keep every irreversible Mooncakes mutation behind its separately authorized checkpoint.
 
 ## Performance Metrics
@@ -198,3 +202,4 @@ Resume with: `/gsd-execute-phase 8`
 | Phase 08 P14 | 17min | 2 tasks | 8 files |
 | Phase 08 P15 | 10min | 3 tasks | 13 files |
 | Phase 08 P16 | 25min | 3 tasks | 10 files |
+| Phase 08 P17 | 14min | 3 tasks | 13 files |
