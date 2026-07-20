@@ -32,7 +32,7 @@ See `.planning/PROJECT.md` (updated 2026-07-20).
 Phase: 22 of 22 (Canonical PNG Encode and Portable Evidence)
 Plan: Not started
 Status: Milestone complete
-Last activity: 2026-07-21 — Phase 22 complete
+Last activity: 2026-07-21 — Completed quick task 260721-37p: bounded grayscale PNG decode
 
 Progress: [███████░░░] 67%
 
@@ -62,6 +62,12 @@ None.
 
 - PNG compatibility claims must remain limited to non-interlaced 8-bit truecolour RGB/RGBA and explicitly reject unsupported semantic inputs.
 - Correctness depends on preserving preflight limits, CRC/Adler validation, atomic image visibility, and arbitrary IDAT-boundary handling.
+
+### Quick Tasks Completed
+
+| # | Description | Date | Commit | Status | Directory |
+|---|-------------|------|--------|--------|-----------|
+| 260721-37p | Decode non-interlaced 8-bit grayscale PNG as RGB8 with complete filter, resource-boundary, and four-target tests | 2026-07-21 | 51dc49e | Verified | [260721-37p-validate-decode-non-interlaced-8-bit-gra](./quick/260721-37p-validate-decode-non-interlaced-8-bit-gra/) |
 
 ## Deferred Items
 
