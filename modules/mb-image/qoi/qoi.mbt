@@ -12,9 +12,10 @@ pub fn QoiDecoder::new() -> QoiDecoder {
 fn _probe_qoi_prefix(prefix : @bytes.ByteView) -> @codec.ProbeOutcome {
   if prefix.length() < 4UL {
     @codec.ProbeOutcome::NeedMore(4UL)
-  } else if
-    prefix.get(0UL).unwrap() == b'q' && prefix.get(1UL).unwrap() == b'o' &&
-    prefix.get(2UL).unwrap() == b'i' && prefix.get(3UL).unwrap() == b'f' {
+  } else if prefix.get(0UL).unwrap() == b'q' &&
+    prefix.get(1UL).unwrap() == b'o' &&
+    prefix.get(2UL).unwrap() == b'i' &&
+    prefix.get(3UL).unwrap() == b'f' {
     @codec.ProbeOutcome::Match
   } else {
     @codec.ProbeOutcome::NoMatch
