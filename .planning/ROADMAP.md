@@ -44,7 +44,7 @@ Publication, registry-consumer proof, provenance closure, and any release automa
 
 **Milestone goal:** Add strict, bounded QOI 1.0 interchange to the existing portable image contracts without foreign codec dependencies.
 
-- [ ] **Phase 13: QOI Format Core and Safe Decode** - Users can identify and decode valid QOI images while hostile input fails deterministically before unsafe work.
+- [x] **Phase 13: QOI Format Core and Safe Decode** - Users can identify and decode valid QOI images while hostile input fails deterministically before unsafe work. (completed 2026-07-20)
 - [ ] **Phase 14: Canonical QOI Encode and Four-Target Vectors** - Users can create lossless canonical QOI output proven by specification-derived vectors on every supported target.
 - [ ] **Phase 15: Public QOI Processing Example** - Users can run a documented portable QOI decode-process-encode workflow with deterministic evidence.
 
@@ -132,7 +132,7 @@ Plans:
 | 10. Alpha-Correct Pixel Processing | v0.3 | 2/2 | Complete   | 2026-07-20 |
 | 11. Portable Processing Pipeline Evidence | v0.3 | 3/3 | Complete   | 2026-07-20 |
 | 12. Strict PPM End-to-End Filter Coverage | v0.3 | 1/1 | Complete   | 2026-07-20 |
-| 13. QOI Format Core and Safe Decode | v0.4 | 0/TBD | Not started | - |
+| 13. QOI Format Core and Safe Decode | v0.4 | 1/1 | Complete    | 2026-07-20 |
 | 14. Canonical QOI Encode and Four-Target Vectors | v0.4 | 0/TBD | Not started | - |
 | 15. Public QOI Processing Example | v0.4 | 0/TBD | Not started | - |
 
@@ -161,7 +161,8 @@ Plans:
 **Plans**: 1 plan
 
 Plans:
-- [ ] 13-01-PLAN.md — Implement the independent bounded QOI decoder and prove generated vectors and hostile-input behavior across all portable targets.
+
+- [x] 13-01-PLAN.md — Implement the independent bounded QOI decoder and prove generated vectors and hostile-input behavior across all portable targets.
 
 ### Phase 14: Canonical QOI Encode and Four-Target Vectors
 
