@@ -1,0 +1,62 @@
+# Requirements: v0.5 QOI Streaming I/O
+
+**Defined:** 2026-07-20
+**Milestone:** v0.5 QOI Streaming I/O
+**Core Value:** MoonBit developers can reuse stable, high-performance native infrastructure contracts instead of rebuilding incompatible foundations for every graphics, document, media, or automation product.
+
+## v0.5 Requirements
+
+### Streaming Decode
+
+- [ ] **QSTR-01**: A library user can feed a QOI decoder arbitrary caller-owned byte chunks and receive deterministic non-terminal input-needed progress until a complete RGB or RGBA image is available.
+- [ ] **QSTR-02**: A library user can explicitly finish a streaming QOI decode and receives typed deterministic errors for incomplete tokens, incomplete or invalid end markers, trailing data, run overrun, and repeated use after a terminal result.
+- [ ] **QSTR-03**: A library user receives the same bounded dimensions, pixel, input-byte, work, diagnostics, and output-visibility guarantees from streaming QOI decode as from the existing eager decoder.
+
+### Streaming Encode
+
+- [ ] **QSTR-04**: A library user can pull canonical QOI bytes into arbitrary caller-owned output capacities and receive deterministic non-terminal output-needed progress without duplicated, dropped, or reordered bytes.
+- [ ] **QSTR-05**: A streaming QOI encoder preserves eager preflight semantics: incompatible input, limits, budget, or setup errors occur before its first output byte, while a completed stream reports exact total bytes.
+
+### Portable Evidence
+
+- [ ] **QSTR-06**: Maintainers can prove streaming QOI decoding and encoding against generated vectors, hostile chunk boundaries, and output capacities on js, wasm, wasm-gc, and native.
+- [ ] **QSTR-07**: A library user can run one public portable streaming QOI example that decodes chunked bytes, applies an existing image operation, and writes canonical QOI output with deterministic evidence.
+
+## Future Requirements
+
+### QOI Follow-up
+
+- **QOI-07**: Maintainers can reproduce native QOI decode/encode benchmark baselines after streaming behavior is frozen.
+- **CODEC-02**: A library user can decode and encode a heavyweight lossless interchange format with an independently reviewed scope and security model.
+
+## Out of Scope
+
+| Feature | Reason |
+|---------|--------|
+| Changing `@io.Reader` EOF semantics | Existing forward-only I/O intentionally treats EOF as terminal; temporary input absence belongs to the new caller-chunk API. |
+| PNG/DEFLATE or another heavyweight codec | Streaming QOI is the focused continuation of the proven portable codec. |
+| FFI-backed codecs or native-only adapters | v0.5 must remain pure MoonBit and four-target portable. |
+| Registry, credentials, publication, or release automation | Code and test evidence remain the milestone priority. |
+| Streaming transform of an image before it is fully decoded | The first streaming contract preserves safe owned-image output visibility and does not expose partial images. |
+
+## Traceability
+
+| Requirement | Phase | Status |
+|-------------|-------|--------|
+| QSTR-01 | TBD | Pending |
+| QSTR-02 | TBD | Pending |
+| QSTR-03 | TBD | Pending |
+| QSTR-04 | TBD | Pending |
+| QSTR-05 | TBD | Pending |
+| QSTR-06 | TBD | Pending |
+| QSTR-07 | TBD | Pending |
+
+**Coverage:**
+
+- v0.5 requirements: 7 total
+- Mapped to phases: 0
+- Unmapped: 7 ⚠️
+
+---
+*Requirements defined: 2026-07-20*
+*Last updated: 2026-07-20 after v0.5 scope definition*
