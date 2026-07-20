@@ -32,7 +32,7 @@ See `.planning/PROJECT.md` (updated 2026-07-20).
 Phase: 22 of 22 (Canonical PNG Encode and Portable Evidence)
 Plan: Not started
 Status: Milestone complete
-Last activity: 2026-07-21 — Completed quick task 260721-5j4: bounded low-bit grayscale PNG decode
+Last activity: 2026-07-21 — Completed quick task 260721-661: bounded low-bit indexed PNG decode
 
 Progress: [███████░░░] 67%
 
@@ -71,6 +71,7 @@ None.
 | 260721-3xb | Decode non-interlaced 8-bit indexed PNG with validated PLTE as RGB8 under bounded filters and budgets | 2026-07-21 | acd83dc | Verified | [260721-3xb-validate-decode-non-interlaced-8-bit-ind](./quick/260721-3xb-validate-decode-non-interlaced-8-bit-ind/) |
 | 260721-4vk | Decode PNG tRNS transparency for grayscale, RGB, and indexed PLTE into bounded RGBA8 | 2026-07-21 | 21e5556 | Verified | [260721-4vk-validate-decode-png-trns-transparency-fo](./quick/260721-4vk-validate-decode-png-trns-transparency-fo/) |
 | 260721-5j4 | Decode non-interlaced low-bit-depth grayscale PNG with packed filters and tRNS into RGB8/RGBA8 | 2026-07-21 | a2a22e1 | Verified | [260721-5j4-validate-decode-non-interlaced-low-bit-d](./quick/260721-5j4-validate-decode-non-interlaced-low-bit-d/) |
+| 260721-661 | Decode non-interlaced low-bit-depth indexed PNG with PLTE/tRNS into RGB8/RGBA8 | 2026-07-21 | e956784 | Verified | [260721-661-implement-bounded-non-interlaced-low-bit](./quick/260721-661-implement-bounded-non-interlaced-low-bit/) |
 
 ## Deferred Items
 
