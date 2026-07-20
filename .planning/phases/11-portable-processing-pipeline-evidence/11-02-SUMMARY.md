@@ -89,7 +89,17 @@ status: complete
 
 ## Deviations from Plan
 
-None - plan executed exactly as written.
+### Auto-fixed Issues
+
+**1. [Rule 3 - Blocking] Added a white-box-local compatible RGB image helper**
+- **Found during:** Task 2
+- **Issue:** White-box test compilation does not expose black-box `resize_convert_image`, so the planned composed setup could not construct its RGB inputs.
+- **Fix:** Added a small local owned-RGB fixture helper using existing model/storage contracts; it is test-only and does not add production behavior.
+- **Files modified:** `modules/mb-image/ops/processing_pipeline_wbtest.mbt`
+- **Verification:** All four verbose target suites pass and list the new white-box test.
+- **Commit:** `f41abc3`
+
+**Total deviations:** 1 auto-fixed blocking issue.
 
 ## Known Stubs
 
