@@ -212,7 +212,7 @@ test "PNG grayscale IHDR accepts low depths and computes packed row bytes" {
       pixels=256UL, depth=0UL, work=512UL,
     ))
     inspect(_png_preflight_ihdr(ihdr, limits, budget) is Ok(_), content="true")
-    inspect(_png_grayscale_row_bytes(width, depth) == row_bytes, content="true")
+    inspect(_png_grayscale_row_bytes(width, depth).unwrap() == row_bytes, content="true")
   }
 }
 

@@ -228,6 +228,50 @@ fn _png_limit_value(
   }
 }
 
+///| Computes the encoded byte width of a grayscale scanline, including only
+/// the bytes required by its packed samples.
+fn _png_grayscale_row_bytes(
+  width : UInt64,
+  bit_depth : Int,
+) -> Result[UInt64, @error.CoreError] {
+  let bits = match @checked.checked_mul(width, bit_depth.to_uint64()) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  let rounded = match @checked.checked_add(bits, 7UL) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  Ok(rounded / 8UL)
+}
+
+///| A grayscale image owns its expanded image and precisely two packed rows.
+fn _png_grayscale_decode_budget(
+  width : UInt64,
+  height : UInt64,
+  bit_depth : Int,
+  channels : UInt64,
+  limits : @codec.CodecLimits,
+  budget : @budget.Budget,
+) -> Result[@budget.Budget, @error.CoreError] {
+  let pixels = match @checked.checked_mul(width, height) { Err(error) => return Err(error); Ok(value) => value }
+  let image_bytes = match @checked.checked_mul(pixels, channels) { Err(error) => return Err(error); Ok(value) => value }
+  let row_bytes = match _png_grayscale_row_bytes(width, bit_depth) { Err(error) => return Err(error); Ok(value) => value }
+  let rows = match @checked.checked_mul(row_bytes, 2UL) { Err(error) => return Err(error); Ok(value) => value }
+  let bytes = match @checked.checked_add(image_bytes, rows) { Err(error) => return Err(error); Ok(value) => value }
+  let filtered_row = match @checked.checked_add(row_bytes, 1UL) { Err(error) => return Err(error); Ok(value) => value }
+  let filtered = match @checked.checked_mul(filtered_row, height) { Err(error) => return Err(error); Ok(value) => value }
+  let work = match @checked.checked_add(image_bytes, filtered) { Err(error) => return Err(error); Ok(value) => value }
+  for item in [("image-bytes", image_bytes, limits.max_output_bytes()), ("output-bytes", filtered, limits.max_output_bytes()), ("work", work, limits.max_work())] {
+    let (context, requested, limit) = item
+    match _png_limit_value(context, requested, limit) { Err(error) => return Err(error); Ok(_) => () }
+  }
+  budget.child(@budget.ResourceLimits::new(
+    bytes~, allocations=3UL, allocation_size=image_bytes,
+    width~, height~, pixels~, depth=0UL, work=limits.max_work(),
+  ))
+}
+
 ///|
 fn _png_preflight_ihdr(
   ihdr : Array[Byte],
@@ -245,16 +289,20 @@ fn _png_preflight_ihdr(
   if width == 0UL || height == 0UL {
     return Err(_png_error("png-dimensions"))
   }
-  if ihdr[8] != 8 {
-    return Err(_png_error("png-bit-depth"))
-  }
+  let bit_depth = ihdr[8].to_int()
   let source_channels = if ihdr[9] == 0 {
+    if bit_depth != 1 && bit_depth != 2 && bit_depth != 4 && bit_depth != 8 {
+      return Err(_png_error("png-bit-depth"))
+    }
     1UL
   } else if ihdr[9] == 2 {
+    if bit_depth != 8 { return Err(_png_error("png-bit-depth")) }
     3UL
   } else if ihdr[9] == 3 {
+    if bit_depth != 8 { return Err(_png_error("png-bit-depth")) }
     1UL
   } else if ihdr[9] == 6 {
+    if bit_depth != 8 { return Err(_png_error("png-bit-depth")) }
     4UL
   } else {
     return Err(_png_error("png-colour-type"))
@@ -272,9 +320,10 @@ fn _png_preflight_ihdr(
     Err(error) => return Err(error)
     Ok(value) => value
   }
-  let row_bytes = match @checked.checked_mul(width, source_channels) {
-    Err(error) => return Err(error)
-    Ok(value) => value
+  let row_bytes = if ihdr[9] == 0 {
+    match _png_grayscale_row_bytes(width, bit_depth) { Err(error) => return Err(error); Ok(value) => value }
+  } else {
+    match @checked.checked_mul(width, source_channels) { Err(error) => return Err(error); Ok(value) => value }
   }
   let filtered_row = match @checked.checked_add(row_bytes, 1UL) {
     Err(error) => return Err(error)
@@ -692,6 +741,7 @@ priv struct PngIdatSource {
 priv struct PngStreamTransport {
   width : UInt64
   height : UInt64
+  bit_depth : Int
   source_channels : UInt64
   channels : UInt64
   indexed : Bool
@@ -750,6 +800,12 @@ fn _png_read_stream_transport(
           (ihdr[4].to_int().to_uint64() << 24) | (ihdr[5].to_int().to_uint64() << 16) | (ihdr[6].to_int().to_uint64() << 8) | ihdr[7].to_int().to_uint64(),
           channels, limits, budget,
         ) { Err(error) => return Err(error); Ok(value) => value }
+      } else if ihdr[9] == 0 {
+        match _png_grayscale_decode_budget(
+          (ihdr[0].to_int().to_uint64() << 24) | (ihdr[1].to_int().to_uint64() << 16) | (ihdr[2].to_int().to_uint64() << 8) | ihdr[3].to_int().to_uint64(),
+          (ihdr[4].to_int().to_uint64() << 24) | (ihdr[5].to_int().to_uint64() << 16) | (ihdr[6].to_int().to_uint64() << 8) | ihdr[7].to_int().to_uint64(),
+          ihdr[8].to_int(), channels, limits, budget,
+        ) { Err(error) => return Err(error); Ok(value) => value }
       } else if channels == 4UL && ihdr[9] != 6 {
         match _png_transparent_decode_budget(
           (ihdr[0].to_int().to_uint64() << 24) | (ihdr[1].to_int().to_uint64() << 16) | (ihdr[2].to_int().to_uint64() << 8) | ihdr[3].to_int().to_uint64(),
@@ -760,6 +816,7 @@ fn _png_read_stream_transport(
       return Ok({
         width: (ihdr[0].to_int().to_uint64() << 24) | (ihdr[1].to_int().to_uint64() << 16) | (ihdr[2].to_int().to_uint64() << 8) | ihdr[3].to_int().to_uint64(),
         height: (ihdr[4].to_int().to_uint64() << 24) | (ihdr[5].to_int().to_uint64() << 16) | (ihdr[6].to_int().to_uint64() << 8) | ihdr[7].to_int().to_uint64(),
+        bit_depth: ihdr[8].to_int(),
         source_channels: if ihdr[9] == 0 || ihdr[9] == 3 { 1UL } else if ihdr[9] == 2 { 3UL } else { 4UL },
         channels,
         indexed,
@@ -776,6 +833,8 @@ fn _png_read_stream_transport(
       if ihdr[9] == 0 {
         if length != 2UL { return Err(_png_error("png-trns-length")) }
         if payload[0] != b'\x00' { return Err(_png_error("png-trns-sample")) }
+        let mask = if ihdr[8] == b'\x01' { 1 } else if ihdr[8] == b'\x02' { 3 } else if ihdr[8] == b'\x04' { 15 } else { 255 }
+        if payload[1].to_int() > mask { return Err(_png_error("png-trns-sample")) }
         transparency = PngTransparency::Grayscale(payload[1])
       } else if ihdr[9] == 2 {
         if length != 6UL { return Err(_png_error("png-trns-length")) }
