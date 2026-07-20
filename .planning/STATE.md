@@ -65,6 +65,29 @@ None.
 - Native verification requires the configured C toolchain; portable behavior must remain conformant on `js`, `wasm`, `wasm-gc`, and `native`.
 - Registry publication, provenance closure, and all release automation remain deferred outside this milestone.
 
+## Deferred Items
+
+Items acknowledged and deferred at v0.3 milestone close on 2026-07-20. They belong to the prior publication-qualification route and do not block the verified image-processing milestone.
+
+| Category | Item | Status |
+|----------|------|--------|
+| debug | clean-diff-empty-binding | awaiting_human_verify |
+| debug | hosted-toolchain-setup-failure | awaiting_human_verify |
+| debug | initialize-boundary-parameter-contract | awaiting_human_verify |
+| debug | knowledge-base | unknown |
+| debug | phase08-cross-platform-intent-components | awaiting_human_verify |
+| debug | phase08-cross-platform-prepared-zip | awaiting_human_verify |
+| debug | phase08-prelive-attempt-zero-root | awaiting_human_verify |
+| debug | phase08-prepare-canonicalization-seam | awaiting_human_verify |
+| debug | phase08-r11-real-ref-mismatch | awaiting_human_verify |
+| debug | phase08-r12-tagbound-hosted | awaiting_human_verify |
+| debug | phase08-r8-prelive-import | awaiting_human_verify |
+| debug | phase08-r9-history-schema-debug | awaiting_human_verify |
+| debug | phase08-workflow-duplicate-env | awaiting_human_verify |
+| debug | phase08-workflow-receipt-input | awaiting_human_verify |
+| debug | prepare-attempt-contract-mismatch | awaiting_human_verify |
+| debug | r12-qualification-timeout | resolved-incorrect |
+
 ## Session Continuity
 
 Last session: 2026-07-20T09:24:55.537Z
