@@ -1,4 +1,23 @@
 ///|
+fn geometry_unsupported_image() -> @storage.OwnedImage {
+  let format = @model.ImageFormat::new(
+    @model.ComponentType::U16,
+    @model.ChannelOrder::Rgb,
+    @model.PlaneLayout::Packed,
+    @model.Endianness::Little,
+  ).unwrap()
+  let descriptor = @model.ImageDescriptor::new(
+    1UL,
+    1UL,
+    format,
+    [@model.PlaneDescriptor::new(0UL, 6UL, 6UL, 6UL, 1UL, 1UL, 1UL, 1UL).unwrap()],
+    6UL,
+    operation_metadata(None, @model.Orientation::TopLeft),
+  ).unwrap()
+  @storage.OwnedImage::new(descriptor, operation_limits(6UL, 0UL)).unwrap()
+}
+
+///|
 test "crop returns a fresh tight owned image and preserves metadata" {
   let source = padded_image(3UL, None, @model.Orientation::RightBottom)
   let region = @model.Rect::new(1UL, 0UL, 1UL, 2UL).unwrap()
@@ -113,4 +132,35 @@ test "rotation budget failure remains typed and atomic" {
   inspect(budget.remaining().bytes() == before.bytes(), content="true")
   inspect(budget.remaining().allocations() == before.allocations(), content="true")
   inspect(budget.remaining().work() == before.work(), content="true")
+}
+
+///|
+test "crop and rotation reject unsupported formats before charging the budget" {
+  let source = geometry_unsupported_image()
+  let region = @model.Rect::new(0UL, 0UL, 1UL, 1UL).unwrap()
+  let crop_budget = operation_limits(6UL, 6UL)
+  let crop_before = crop_budget.remaining()
+  match @ops.crop(source.view(), region, crop_budget) {
+    Err(error) => {
+      inspect(error.category() == @error.ErrorCategory::Capability, content="true")
+      inspect(error.code() == @error.ErrorCode::CapabilityUnavailable, content="true")
+      inspect(error.context() == Some("image-crop-format"), content="true")
+    }
+    Ok(_) => fail("unsupported crop must reject")
+  }
+  inspect(crop_budget.remaining().bytes() == crop_before.bytes(), content="true")
+  let rotation_budget = operation_limits(6UL, 6UL)
+  let rotation_before = rotation_budget.remaining()
+  match @ops.rotate_90(source.view(), rotation_budget) {
+    Err(error) => {
+      inspect(error.category() == @error.ErrorCategory::Capability, content="true")
+      inspect(error.code() == @error.ErrorCode::CapabilityUnavailable, content="true")
+      inspect(error.context() == Some("image-rotate-90-format"), content="true")
+    }
+    Ok(_) => fail("unsupported rotation must reject")
+  }
+  inspect(
+    rotation_budget.remaining().bytes() == rotation_before.bytes(),
+    content="true",
+  )
 }
