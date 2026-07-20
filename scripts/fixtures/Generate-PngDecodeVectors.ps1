@@ -36,7 +36,9 @@ function New-Png($Case, [int[]]$Splits) {
   $zlib = Hex $Case.zlib_hex
   $parts = [Collections.Generic.List[object]]::new()
   $bitDepth = if ($null -ne $Case.PSObject.Properties['bit_depth']) { [byte]$Case.bit_depth } else { [byte]8 }
-  $parts.Add((Chunk 'IHDR' (Join-Bytes @((U32 $Case.width),(U32 $Case.height),[byte[]]($bitDepth,$Case.colour_type,0,0,0)))))
+  $interlaceMethod = if ($null -ne $Case.PSObject.Properties['interlace_method']) { [byte]$Case.interlace_method } else { [byte]0 }
+  if ($interlaceMethod -notin @([byte]0,[byte]1)) { throw "Invalid PNG interlace method fixture input: $($Case.id)" }
+  $parts.Add((Chunk 'IHDR' (Join-Bytes @((U32 $Case.width),(U32 $Case.height),[byte[]]($bitDepth,$Case.colour_type,0,0,$interlaceMethod)))))
   $hasPlte = $null -ne $Case.PSObject.Properties['plte_length'] -or $null -ne $Case.PSObject.Properties['plte_hex']
   [byte[]]$plte = @()
   if ($null -ne $Case.PSObject.Properties['plte_length']) { $plte = [byte[]]::new([int]$Case.plte_length) }
