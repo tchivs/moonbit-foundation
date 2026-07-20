@@ -284,17 +284,11 @@ The marker is seven `0x00` bytes then `0x01`; the EOF probe follows the existing
 |---|-------|---------|---------------|
 | — | None. All implementation-relevant claims above are cited to the QOI specification or current codebase. | — | — |
 
-## Open Questions
+## Open Questions (RESOLVED)
 
-1. **What exact work charge should QOI decoding declare?**
-   - What we know: PPM declares work as checked input length and `OwnedImage::new_operation` consumes it atomically. [CITED: modules/mb-image/ppm/decode.mbt]
-   - What's unclear: The public codec contract does not prescribe a QOI-specific work formula.
-   - Recommendation: Select and document one checked deterministic formula based on known output pixels plus actual decoded input work; ensure all work-limit rejection that can be derived from the header occurs before allocation, while input-dependent excess fails before the next read.
+1. **QOI decode work charge** — `decode_work = checked_add(pixel_count, output_bytes)`. Both operands are derived from the validated 14-byte header before allocation; this checked value is compared with `CodecLimits.max_work` and passed unchanged to `OwnedImage::new_operation`, allowing the existing `Budget` preflight to charge or reject the complete operation atomically. Compressed-byte and per-opcode work are deliberately excluded because they are not fully header-derivable. This is the locked strategy in `13-01-PLAN.md`.
 
-2. **How should `require_complete_input = false` report `bytes_read`?**
-   - What we know: The option exists, and D-06 requires strict marker/trailing validation only when it is true. [CITED: modules/mb-image/codec/contracts.mbt] [CITED: .planning/phases/13-qoi-format-core-and-safe-decode/13-CONTEXT.md]
-   - What's unclear: Whether relaxed mode must consume the marker or may return once the declared pixel count is complete.
-   - Recommendation: Planner should lock this behavior before implementation; prefer returning after declared pixels in relaxed mode and returning exact consumed count, because consuming a marker would create an unadvertised partial-stream policy.
+2. **Relaxed completion progress** — when `require_complete_input = false`, the decoder returns at the declared pixel boundary with exact consumed progress and does not consume the QOI end marker or trailing input. Exact marker and EOF/trailing validation occur only in strict mode. This is the locked strategy in `13-01-PLAN.md` and preserves forward-only caller control of unread bytes.
 
 ## Environment Availability
 
