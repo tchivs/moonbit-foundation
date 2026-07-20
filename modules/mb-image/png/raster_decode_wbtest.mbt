@@ -137,3 +137,36 @@ test "PNG 16-bit raster maps high bytes only and compares complete tRNS samples"
   inspect(view.get_byte(0UL, 0UL, 3UL).unwrap() == b'\x00', content="true")
   inspect(view.get_byte(1UL, 0UL, 3UL).unwrap() == b'\xff', content="true")
 }
+
+///|
+test "PNG 16-bit native-alpha raster maps source high bytes after bpp-sized reconstruction" {
+  for item in [
+    (
+      PngTransport::{ width: 2UL, height: 1UL, bit_depth: 16, source_channels: 2UL, source_bytes_per_pixel: 4UL, channels: 4UL, indexed: false, palette: b"", palette_entries: 0UL, transparency: PngTransparency::Opaque, idat: b"", consumed: 0UL },
+      [b'\x00', b'\x12', b'\x34', b'\x56', b'\x78', b'\x12', b'\x99', b'\xab', b'\xcd'],
+      [(b'\x12', b'\x56'), (b'\x12', b'\xab')],
+    ),
+    (
+      PngTransport::{ width: 2UL, height: 1UL, bit_depth: 16, source_channels: 4UL, source_bytes_per_pixel: 8UL, channels: 4UL, indexed: false, palette: b"", palette_entries: 0UL, transparency: PngTransparency::Opaque, idat: b"", consumed: 0UL },
+      [b'\x00', b'\x11', b'\x21', b'\x22', b'\x32', b'\x33', b'\x43', b'\x44', b'\x54', b'\x11', b'\x61', b'\x22', b'\x72', b'\x33', b'\x83', b'\x44', b'\x94'],
+      [(b'\x11', b'\x44'), (b'\x11', b'\x44')],
+    ),
+  ] {
+    let (transport, filtered, expected) = item
+    let image = @storage.OwnedImage::new_operation(
+      _png_descriptor(transport).unwrap(),
+      @budget.Budget::new(@budget.ResourceLimits::new(bytes=32UL, allocations=1UL, allocation_size=32UL, width=4UL, height=4UL, pixels=16UL, depth=0UL, work=64UL)),
+      PngBuiltinAllocator::{} as &@bytes.Allocator,
+      64UL,
+    ).unwrap()
+    image.with_mut_view(fn(view) {
+      _png_write_raster(view, transport, filtered, @budget.Budget::new(@budget.ResourceLimits::new(bytes=16UL, allocations=2UL, allocation_size=8UL, width=0UL, height=0UL, pixels=0UL, depth=0UL, work=0UL)))
+    }).unwrap()
+    let view = image.view()
+    for x = 0UL; x < 2UL; x = x + 1UL {
+      let (first, alpha) = expected[x.to_int()]
+      inspect(view.get_byte(x, 0UL, 0UL).unwrap(), content=first.to_string())
+      inspect(view.get_byte(x, 0UL, 3UL).unwrap(), content=alpha.to_string())
+    }
+  }
+}

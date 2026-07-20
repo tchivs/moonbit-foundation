@@ -382,3 +382,27 @@ test "PNG 16-bit grayscale and truecolour IHDRs reserve encoded source rows" {
     inspect(_png_preflight_ihdr(disallowed, limits, gray_budget).unwrap_err().context() == Some("png-bit-depth"), content="true")
   }
 }
+
+///|
+test "PNG 16-bit native-alpha IHDRs reserve encoded source rows" {
+  let limits = @codec.CodecLimits::new(
+    max_probe_bytes=8UL, max_input_bytes=4096UL, max_output_bytes=128UL,
+    max_width=16UL, max_height=16UL, max_pixels=256UL, max_work=256UL,
+  )
+  for item in [(b'\x04', 4UL), (b'\x06', 8UL)] {
+    let (colour_type, source_bpp) = item
+    let ihdr = [
+      b'\x00', b'\x00', b'\x00', b'\x02', b'\x00', b'\x00', b'\x00', b'\x03',
+      b'\x10', colour_type, b'\x00', b'\x00', b'\x00',
+    ]
+    let image_bytes = 2UL * 3UL * 4UL
+    let source_rows = 2UL * source_bpp * 2UL
+    let exact = @budget.Budget::new(@budget.ResourceLimits::new(
+      bytes=image_bytes + source_rows, allocations=3UL,
+      allocation_size=if image_bytes > 2UL * source_bpp { image_bytes } else { 2UL * source_bpp },
+      width=16UL, height=16UL, pixels=256UL, depth=0UL, work=256UL,
+    ))
+    inspect(_png_preflight_ihdr(ihdr, limits, exact) is Ok(_), content="true")
+    inspect(_png_source_bytes_per_pixel(if colour_type == b'\x04' { 2UL } else { 4UL }, 16).unwrap(), content=source_bpp.to_string())
+  }
+}
