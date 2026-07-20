@@ -1,6 +1,6 @@
 ///|
-/// A portable eager PNG decoder whose Phase-20 boundary validates transport
-/// only. Raster construction begins in Phase 21.
+/// A portable eager PNG decoder for the strict non-interlaced RGB8/RGBA8
+/// interchange profile.  Compression and scanline state remain private.
 pub struct PngDecoder {}
 
 ///|
@@ -50,9 +50,32 @@ pub impl @codec.ImageDecoder for PngDecoder with fn decode(
   budget,
   _diagnostics,
 ) {
-  match _png_validate_transport(reader, options, limits, budget) {
+  let transport = match _png_read_transport(reader, options, limits, budget) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  let filtered = match _png_inflate_zlib(transport.idat, limits.max_output_bytes()) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  let descriptor = match _png_descriptor(transport) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  let image = match @storage.OwnedImage::new_operation(
+    descriptor, budget, PngBuiltinAllocator::{} as &@bytes.Allocator,
+    limits.max_work(),
+  ) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  match image.with_mut_view(fn(view) { _png_write_raster(view, transport, filtered) }) {
     Err(error) => return Err(error)
     Ok(_) => ()
   }
-  Err(@codec.capability_unavailable("png-decode", "deflate-and-raster-pending"))
+  let disposition = match _png_empty_disposition() {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  Ok(@codec.DecodeResult::new(image, disposition, transport.consumed))
 }

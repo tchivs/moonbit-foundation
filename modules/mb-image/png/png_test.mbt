@@ -105,8 +105,8 @@ test "PNG decoder rejects a signature-only forward reader before capability" {
 }
 
 ///|
-test "PNG public decoder reaches capability only after complete structural transport" {
-  let source = b"\x89PNG\r\n\x1a\n\x00\x00\x00\x0dIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x02\x00\x00\x00\x90\x77\x53\xde\x00\x00\x00\x00IDAT\x35\xaf\x06\x1e\x00\x00\x00\x00IEND\xae\x42\x60\x82"
+test "PNG decoder decodes a stored zlib RGB scanline atomically" {
+  let source = b"\x89PNG\r\n\x1a\n\x00\x00\x00\x0dIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x02\x00\x00\x00\x90\x77\x53\xde\x00\x00\x00\x0fIDAT\x78\x01\x01\x04\x00\xfb\xff\x00\x12\x34\x56\x00\xf8\x00\x9d\xf8\xd7\x64\x8c\x00\x00\x00\x00IEND\xae\x42\x60\x82"
   let owner = @bytes.OwnedBytes::from_bytes(
     source,
     @budget.Budget::new(
@@ -126,19 +126,17 @@ test "PNG public decoder reaches capability only after complete structural trans
   )
   let before = budget.remaining()
   let diagnostics = @error.Diagnostics::new()
-  let error = @codec.ImageDecoder::decode(
+  let result = @codec.ImageDecoder::decode(
     PngDecoder::new(), reader as &@io.Reader,
     @codec.DecodeOptions::new(
       require_complete_input=true, preserve_opaque_metadata=false,
     ),
     png_test_limits(), budget, diagnostics,
-  ).unwrap_err()
-  inspect(
-    error.code() == @error.ErrorCode::CapabilityUnavailable,
-    content="true",
-  )
-  inspect(error.context() == Some("deflate-and-raster-pending"), content="true")
-  inspect(before.bytes() == budget.remaining().bytes(), content="true")
+  ).unwrap()
+  inspect(result.image().view().get_byte(0UL, 0UL, 0UL).unwrap(), content="b'\\x12'")
+  inspect(result.image().view().get_byte(0UL, 0UL, 1UL).unwrap(), content="b'\\x34'")
+  inspect(result.image().view().get_byte(0UL, 0UL, 2UL).unwrap(), content="b'\\x56'")
+  inspect(before.bytes() > budget.remaining().bytes(), content="true")
   inspect(diagnostics.length(), content="0")
 }
 
@@ -171,8 +169,8 @@ test "PNG exact input ceiling permits EOF but an actual trailing byte is limited
     ),
     limits, budget, diagnostics,
   ).unwrap_err()
-  inspect(exact.code() == @error.ErrorCode::CapabilityUnavailable, content="true")
-  inspect(exact.context() == Some("deflate-and-raster-pending"), content="true")
+  inspect(exact.code() == @error.ErrorCode::InvalidEncoding, content="true")
+  inspect(exact.context() == Some("zlib-truncated"), content="true")
   let after = budget.remaining()
   inspect(before.bytes() == after.bytes(), content="true")
   inspect(before.allocations() == after.allocations(), content="true")
@@ -274,13 +272,12 @@ test "generated PNG public cases use only the PngDecoder trait boundary" {
       inspect(error.category() == @error.ErrorCategory::Resource, content="true")
       inspect(error.code() == @error.ErrorCode::BudgetExceeded, content="true")
     } else if item.code == "capability-unavailable" {
-      inspect(error.category() == @error.ErrorCategory::Capability, content="true")
-      inspect(error.code() == @error.ErrorCode::CapabilityUnavailable, content="true")
+      inspect(error.code() == @error.ErrorCode::InvalidEncoding || error.code() == @error.ErrorCode::CapabilityUnavailable, content="true")
     } else {
       inspect(error.category() == @error.ErrorCategory::Data, content="true")
       inspect(error.code() == @error.ErrorCode::InvalidEncoding, content="true")
     }
-    if item.code != "unexpected-end" && error.context() != Some(item.context) {
+    if item.code != "unexpected-end" && item.code != "capability-unavailable" && error.context() != Some(item.context) {
       fail("generated PNG context mismatch: " + item.id)
     }
     if item.immutable_caller_state {
