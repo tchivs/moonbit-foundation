@@ -66,7 +66,7 @@ Implement one new portable public package at `modules/mb-image/png`; it owns onl
 
 The validator must read the entire PNG transport using a fixed small scratch buffer, charge every byte against `CodecLimits.max_input_bytes`, and CRC every chunk over type plus data. [CITED: https://www.w3.org/TR/png-3/] Its state accepts exactly signature → first-and-only 13-byte IHDR → one-or-more contiguous IDAT → empty IEND → strict EOF; semantic exclusions and opaque-metadata policy are resolved while chunks are still bounded and before any future allocation. [VERIFIED: 20-CONTEXT.md]
 
-**Primary recommendation:** Create `tchivs/mb-image/png` now with `PngDecoder::new()` and an `ImageDecoder` implementation; its `decode` performs the full structural gate and, on an otherwise valid Phase-20 stream, terminates with the existing typed `capability_unavailable("png-decode", "deflate-and-raster-pending")` rather than exposing a placeholder image. [VERIFIED: 20-CONTEXT.md; modules/mb-image/codec/contracts.mbt]
+**Resolved terminal contract:** Create `tchivs/mb-image/png` now with `PngDecoder::new()` and an `ImageDecoder` implementation. Its `decode` performs the full structural gate and, on an otherwise valid Phase-20 stream, returns the named existing typed `CapabilityUnavailable` error from `capability_unavailable("png-decode", "deflate-and-raster-pending")`. It must never return success, a `DecodeResult`, an image, or a changed caller Budget in Phase 20. [RESOLVED: planning decision, 2026-07-20; VERIFIED: 20-CONTEXT.md; modules/mb-image/codec/contracts.mbt]
 
 ## Architectural Responsibility Map
 
@@ -151,7 +151,7 @@ pub impl @codec.ImageDecoder for PngDecoder with fn probe(
 
 ### Pattern 2: Streaming chunk state, never chunk-sized allocation
 
-**What:** Read `length(4)`, `type(4)`, payload, and CRC with fixed scratch; update CRC as type and each payload byte are read. [CITED: https://www.w3.org/TR/png-3/]
+**What:** Read `length(4)`, `type(4)`, payload, and CRC with fixed scratch; reject a declared length above `0x7fffffff` immediately before payload processing, allocation, or reader advancement into the payload. Require all four type bytes to be ASCII letters and the reserved third type byte to be uppercase ASCII before semantic classification; update CRC as type and each payload byte are read. [CITED: https://www.w3.org/TR/png-3/]
 
 **Required private state:** `BeforeIhdr`, `BeforeIdat`, `InIdat`, `AfterIdat`, `Finished`. [VERIFIED: 20-CONTEXT.md]
 
@@ -162,6 +162,8 @@ pub impl @codec.ImageDecoder for PngDecoder with fn probe(
 | `InIdat` / `IDAT` | CRC and discard transport payload; retain `InIdat`. [CITED: https://www.w3.org/TR/png-3/] |
 | `InIdat` / non-`IDAT` | Transition once to `AfterIdat`; no later IDAT is legal. [CITED: https://www.w3.org/TR/png-3/] |
 | `IEND` | Require post-IDAT, data length 0, valid CRC, then read one byte: EOF succeeds; a byte is trailing-data failure. [VERIFIED: 20-CONTEXT.md; modules/mb-image/ppm/decode.mbt] |
+
+The type-form and declared-length checks are structural gates, not semantic policy: invalid letter bytes, a lowercase reserved third byte, or a length above `0x7fffffff` fail before a chunk can reach critical/ancillary classification, payload discard, CRC accumulation, or any allocation path. [CITED: https://www.w3.org/TR/png-3/]
 
 ### Pattern 3: Explicit semantic-chunk and metadata policy
 
@@ -204,7 +206,7 @@ Reject all unknown critical chunks and known palette, transparency, colour-manag
 ### Test/policy drift
 
 **What goes wrong:** A new `png` directory is compiled locally but quality policy rejects its package inventory or fixture provenance.  
-**How to avoid:** Plan a policy/manifest/vector-generator update in the same wave as the package, then run the required quality lane. [VERIFIED: policy/foundation.json; scripts/quality/Assert-Policy.ps1; docs/policies/licensing-and-fixtures.md]
+**How to avoid:** Plan a policy/manifest/vector-generator update in the same wave as the package. The PNG manifest record must supply every existing fixture schema field — `id`, `path`, `origin`, `source`, `author`, `retrieval_date`, `sha256`, `license`, `redistribution_status`, and `expected_use` — and the generator's `-Check` mode must validate the complete record as well as generated output and digest freshness before the required quality lane runs. [VERIFIED: fixtures/manifest.json; policy/foundation.json; scripts/quality/Assert-Policy.ps1; docs/policies/licensing-and-fixtures.md]
 
 ## Code Examples
 
@@ -233,19 +235,9 @@ The exact work/allocation formula is private implementation discretion, but ever
 | Phase 19 has QOI as the latest image codec | v0.6 establishes PNG structural safety before inflater/raster output | Phase 20 creates no image and has no encoder. [VERIFIED: .planning/ROADMAP.md] |
 | QOI exposes public streaming types | PNG is deliberately eager-only at the public boundary | Private incremental parser state is allowed; public push/pull API is not. [VERIFIED: 20-CONTEXT.md] |
 
-## Assumptions Log
+## Resolved Planning Decisions
 
-| # | Claim | Section | Risk if Wrong |
-|---|-------|---------|---------------|
-| A1 | A structurally valid Phase-20 `decode` should terminate in `capability_unavailable` until Phase 21 can construct an image. | Summary / Pattern 1 | The planner may need a different temporary public validation entry point. |
-
-This is the only implementation-shape inference. It preserves the locked trait seam but requires confirmation while planning; all other acceptance behavior comes from the locked context or checked code/spec sources. [ASSUMED]
-
-## Open Questions
-
-1. **Terminal valid-stream behavior before Phase 21**
-   - What we know: `ImageDecoder::decode` can only return `DecodeResult`, which contains an `OwnedImage`; Phase 20 cannot expose an image. [VERIFIED: modules/mb-image/codec/contracts.mbt; 20-CONTEXT.md]
-   - Recommendation: use the existing capability error after full validation, preserving all invalid-stream errors; confirm this staged behavior before API baseline policy is written. [ASSUMED]
+- **Terminal valid-stream behavior before Phase 21:** `ImageDecoder::decode` can only return a `DecodeResult` on success, which contains an `OwnedImage`. After Phase-20 structural acceptance it therefore returns the named `CapabilityUnavailable(png-decode, deflate-and-raster-pending)` error, never a success value, `DecodeResult`, image, partial image, or caller-Budget mutation. Phase 21 alone replaces this terminal capability state after bounded DEFLATE and scanline reconstruction can create a complete image. [RESOLVED: planning decision, 2026-07-20; VERIFIED: modules/mb-image/codec/contracts.mbt; 20-CONTEXT.md]
 
 ## Environment Availability
 
