@@ -4,6 +4,7 @@ import {
   "tchivs/mb-core/error",
   "tchivs/mb-core/io",
   "tchivs/mb-image/codec",
+  "tchivs/mb-image/model",
   "tchivs/mb-image/ops",
   "tchivs/mb-image/ppm",
 }
