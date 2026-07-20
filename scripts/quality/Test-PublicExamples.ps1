@@ -329,7 +329,7 @@ if ($Example -ceq 'qoi') {
   )
   $targets = if ($Target -ceq 'all') { @('js', 'wasm', 'wasm-gc', 'native') } else { @($Target) }
   foreach ($runTarget in $targets) {
-    Invoke-MoonExampleVerification -WorkingRoot $repoRoot -Package 'examples/qoi-portable/main' -RunTarget $runTarget -Expected 'example=qoi-portable bytes_read=27 bytes_written=24 width=2 height=1 flip_horizontal digest=750514177 sha256=5dc3abfe81e722b211af255f6f96805225f98435f1f9525c46df48217f858df2'
+    Invoke-MoonExampleVerification -WorkingRoot $repoRoot -Package 'examples/qoi-portable/main' -RunTarget $runTarget -Expected 'example=qoi-portable input_schedule=header-token-marker input_pushes=6 bytes_read=27 output_schedule=zero-header-token-marker output_pulls=5 bytes_written=24 width=2 height=1 flip_horizontal digest=750514177 sha256=5dc3abfe81e722b211af255f6f96805225f98435f1f9525c46df48217f858df2'
   }
   if ($IsolationProbe) {
     Write-Output 'qoi_workspace_trace: Assert-ExampleSource, Assert-NamedDependencies, Assert-PublicImports, Invoke-MoonExampleVerification'
