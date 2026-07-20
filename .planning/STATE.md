@@ -4,11 +4,11 @@ milestone: v0.6
 milestone_name: PNG Interchange
 current_phase: 22
 current_phase_name: Canonical PNG Encode and Portable Evidence
-status: verifying
+status: completed
 stopped_at: Completed 22-01-PLAN.md
-last_updated: "2026-07-20T18:06:06.041Z"
+last_updated: "2026-07-20T18:13:55.960Z"
 last_activity: 2026-07-21
-last_activity_desc: Phase 21 complete, transitioned to Phase 22
+last_activity_desc: Phase 22 complete
 progress:
   total_phases: 14
   completed_phases: 2
@@ -30,9 +30,9 @@ See `.planning/PROJECT.md` (updated 2026-07-20).
 ## Current Position
 
 Phase: 22 of 22 (Canonical PNG Encode and Portable Evidence)
-Plan: 1 of 1
-Status: Phase complete — ready for verification
-Last activity: 2026-07-21 — Phase 21 complete, transitioned to Phase 22
+Plan: Not started
+Status: Milestone complete
+Last activity: 2026-07-21 — Phase 22 complete
 
 Progress: [███████░░░] 67%
 

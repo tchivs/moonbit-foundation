@@ -65,7 +65,7 @@ Publication, registry-consumer proof, provenance closure, and any release automa
 
 - [x] **Phase 20: PNG Structural Safety Gate** - Users can probe and validate PNG structure deterministically before image output is exposed. (completed 2026-07-21)
 - [x] **Phase 21: Bounded PNG Decode and DEFLATE** - Users can decode the supported PNG subset across arbitrary IDAT boundaries while malformed or over-budget input fails deterministically. (completed 2026-07-21)
-- [ ] **Phase 22: Canonical PNG Encode and Portable Evidence** - Users can emit canonical PNG output and verify one public decode-process-encode workflow on every portable target.
+- [x] **Phase 22: Canonical PNG Encode and Portable Evidence** - Users can emit canonical PNG output and verify one public decode-process-encode workflow on every portable target. (completed 2026-07-21)
 
 ## Phase Details
 
@@ -160,7 +160,7 @@ Plans:
 | 19. Portable Streaming QOI Evidence | v0.5 | 1/1 | Complete    | 2026-07-20 |
 | 20. PNG Structural Safety Gate | v0.6 | 2/4 | Complete    | 2026-07-21 |
 | 21. Bounded PNG Decode and DEFLATE | v0.6 | 1/1 | Complete    | 2026-07-21 |
-| 22. Canonical PNG Encode and Portable Evidence | v0.6 | 1/1 | In Progress|  |
+| 22. Canonical PNG Encode and Portable Evidence | v0.6 | 1/1 | Complete    | 2026-07-21 |
 
 ### Phase 12: Strict PPM End-to-End Filter Coverage
 
