@@ -2,11 +2,15 @@
 gsd_state_version: 1.0
 milestone: v0.5
 milestone_name: QOI Streaming I/O
+current_phase: 17
+current_phase_name: Resumable QOI Chunk Decode
 status: planning
-last_updated: "2026-07-20T12:48:30.899Z"
+stopped_at: Phase 17 context gathered
+last_updated: "2026-07-20T12:56:50.764Z"
 last_activity: 2026-07-20
+last_activity_desc: v0.5 roadmap created with complete requirement coverage
 progress:
-  total_phases: 3
+  total_phases: 11
   completed_phases: 0
   total_plans: 0
   completed_plans: 0
@@ -90,9 +94,9 @@ Items acknowledged and deferred at v0.3 milestone close on 2026-07-20. They belo
 
 ## Session Continuity
 
-Last session: 2026-07-20T12:48:30.899Z
-Stopped at: v0.5 roadmap created
-Resume file: .planning/ROADMAP.md
+Last session: 2026-07-20T12:56:50.751Z
+Stopped at: Phase 17 context gathered
+Resume file: .planning/phases/17-resumable-qoi-chunk-decode/17-CONTEXT.md
 
 ## Performance Metrics
 
