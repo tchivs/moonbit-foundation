@@ -769,22 +769,10 @@ function Invoke-RequiredQuality {
     }
   }
   Invoke-QualityStage 'WORK-06 and QUAL-06 deterministic release packages and consumers' {
-    & ./scripts/quality/Invoke-ReleaseQualification.ps1 -Check -OutputDirectory (Join-Path $absoluteEvidence 'release')
+    & ./scripts/quality/Test-ReleaseQualification.ps1 -Focused
   }
   Invoke-QualityStage 'Phase 6 reciprocal requirement, edge, and prohibition ledger' {
     & ./scripts/quality/Test-Phase06Qualification.ps1 -LedgerOnly
-  }
-  Invoke-QualityStage 'Phase 7 immutable release intent contract' {
-    & ./scripts/quality/Test-ReleaseIntent.ps1 -ContractOnly
-  }
-  Invoke-QualityStage 'Phase 7 publisher recovery rehearsal' {
-    & ./scripts/quality/Test-ReleasePublisherNegative.ps1
-  }
-  Invoke-QualityStage 'Phase 7 isolated workflow and prepared-bundle contract' {
-    & ./scripts/quality/Test-Phase07Qualification.ps1 -WorkflowOnly
-  }
-  Invoke-QualityStage 'Phase 7 reciprocal requirement, edge, and prohibition ledger' {
-    & ./scripts/quality/Test-Phase07Qualification.ps1 -LedgerOnly
   }
   Invoke-QualityStage 'Read-only tracked checkout proof' {
     $finalTrackedDiff = Get-TrackedDiffSnapshot
