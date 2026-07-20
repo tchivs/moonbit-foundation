@@ -3,10 +3,10 @@ gsd_state_version: 1.0
 milestone: v0.6
 milestone_name: PNG Interchange
 status: planning
-last_updated: "2026-07-20T14:26:53.857Z"
+last_updated: "2026-07-20"
 last_activity: 2026-07-20
 progress:
-  total_phases: 0
+  total_phases: 3
   completed_phases: 0
   total_plans: 0
   completed_plans: 0
@@ -17,45 +17,34 @@ progress:
 
 ## Project Reference
 
-See `.planning/PROJECT.md` (updated 2026-07-18).
+See `.planning/PROJECT.md` (updated 2026-07-20).
 
 **Core value:** MoonBit developers can reuse stable, high-performance native infrastructure contracts instead of rebuilding incompatible foundations for every graphics, document, media, or automation product.
 
-**Current focus:** Phase 19 — portable-streaming-qoi-evidence
+**Current focus:** Phase 20 — PNG Structural Safety Gate.
 
 ## Current Position
 
-Phase: Not started (defining requirements)
-Plan: —
-Status: Defining requirements
-Last activity: 2026-07-20 — Milestone v0.6 started
+Phase: 20 of 22 (PNG Structural Safety Gate)
+Plan: Not yet planned
+Status: Ready to plan
+Last activity: 2026-07-20 — Created the v0.6 PNG Interchange roadmap and mapped all seven requirements.
+
+Progress: [░░░░░░░░░░] 0%
 
 ## Performance Metrics
 
-**Current milestone:** 3 plans completed across 3 planned phases.
+**Current milestone:** 0 plans completed across 3 planned phases.
 
-**Historical context:** v0.1 delivered five completed phases and 41 plans. v0.2 publication work is deferred without registry mutation and is excluded from v0.3 progress.
+**Historical context:** v0.5 shipped three phases and three plans on 2026-07-20. v0.2 publication and registry work remains deferred and excluded from this code-first milestone.
 
 ## Accumulated Context
 
 ### Decisions
 
-- [v0.3]: Prioritize portable MoonBit image-processing capabilities over further publication automation.
-- [v0.3]: Start at Phase 9; Phase 8 remains a deferred v0.2 release route.
-- [Phase 9]: Centralize checked geometry and deterministic diagnostics before compositing and filters depend on them.
-- [Phase 11]: Prove the finished API through public cross-target tests, one PPM pipeline example, and reproducible benchmarks; do not add release automation.
-- [Phase ?]: Crop returns a fresh tightly packed OwnedImage and preserves all metadata.
-- [Phase ?]: Right-angle rotation uses named APIs and normalizes physical output orientation to TopLeft.
-- [Phase ?]: Nearest-neighbor remains the sole documented reference resampler; no interpolation or conversion fallback was introduced.
-- [Phase ?]: Invalid alpha combinations are rejected during descriptor construction, so operation-level capability coverage uses representable unsupported layout, component, channel, and transfer variants.
-- [Phase ?]: Phase 10: Raster operations use typed linear-premultiplied sRGB conversion with strict metadata compatibility before allocation.
-- [v0.4]: Keep QOI as an eager whole-image-memory QOI 1.0 codec over the existing portable contracts; explicitly defer PNG/DEFLATE, FFI, streaming APIs, release automation, and performance baselines.
-- [Phase 13]: Reuse the public codec limits, budgets, diagnostics, and forward-only I/O seams; probe must consume only caller-owned prefix bytes.
-- [v0.5]: Add streaming beside, not inside, the eager `ImageDecoder` and `ImageEncoder` traits: caller-owned chunks represent temporary input absence, so `@io.Reader` EOF semantics remain unchanged.
-- [v0.5]: The decoder requires explicit finish before it returns a completed image; the encoder writes only caller-supplied output buffers or leases after eager-equivalent preflight succeeds.
-- [v0.5]: Keep the milestone to three code-and-test phases: streaming decode, streaming encode, and four-target public evidence. Registry and release automation remain out of scope.
-- [Phase ?]: Generated QOI stream schedules remain fixture-owned, separating hostile input and output capacities.
-- [Phase ?]: The sole qoi-portable consumer exposes fixed stream schedules and counters through one deterministic line.
+- [v0.6]: Keep the public scope to strict eager PNG RGB/RGBA interchange; do not add public resumable PNG streaming.
+- [v0.6]: Use pure-MoonBit bounded DEFLATE for stored, fixed-Huffman, and dynamic-Huffman decode; do not use FFI.
+- [v0.6]: Freeze deterministic stored-DEFLATE PNG output and validate one public workflow on all four portable targets.
 
 ### Pending Todos
 
@@ -63,48 +52,19 @@ None.
 
 ### Blockers/Concerns
 
-- Native verification requires the configured C toolchain; portable behavior must remain conformant on `js`, `wasm`, `wasm-gc`, and `native`.
-- Registry publication, provenance closure, and all release automation remain deferred outside this milestone.
-- v0.5 excludes PNG/DEFLATE, foreign-codec FFI, QOI benchmark baselines, registry work, and release automation. The existing eager QOI traits remain supported and unchanged.
+- PNG compatibility claims must remain limited to non-interlaced 8-bit truecolour RGB/RGBA and explicitly reject unsupported semantic inputs.
+- Correctness depends on preserving preflight limits, CRC/Adler validation, atomic image visibility, and arbitrary IDAT-boundary handling.
 
 ## Deferred Items
 
-Items acknowledged and deferred at v0.3 milestone close on 2026-07-20. They belong to the prior publication-qualification route and do not block the verified image-processing milestone.
-
 | Category | Item | Status |
 |----------|------|--------|
-| debug | clean-diff-empty-binding | awaiting_human_verify |
-| debug | hosted-toolchain-setup-failure | awaiting_human_verify |
-| debug | initialize-boundary-parameter-contract | awaiting_human_verify |
-| debug | knowledge-base | unknown |
-| debug | phase08-cross-platform-intent-components | awaiting_human_verify |
-| debug | phase08-cross-platform-prepared-zip | awaiting_human_verify |
-| debug | phase08-prelive-attempt-zero-root | awaiting_human_verify |
-| debug | phase08-prepare-canonicalization-seam | awaiting_human_verify |
-| debug | phase08-r11-real-ref-mismatch | awaiting_human_verify |
-| debug | phase08-r12-tagbound-hosted | awaiting_human_verify |
-| debug | phase08-r8-prelive-import | awaiting_human_verify |
-| debug | phase08-r9-history-schema-debug | awaiting_human_verify |
-| debug | phase08-workflow-duplicate-env | awaiting_human_verify |
-| debug | phase08-workflow-receipt-input | awaiting_human_verify |
-| debug | prepare-attempt-contract-mismatch | awaiting_human_verify |
-| debug | r12-qualification-timeout | resolved-incorrect |
-| Phase 19-portable-streaming-qoi-evidence P01 | 6min | 3 tasks | 13 files |
+| scope | PNG palette, grayscale, transparency, 16-bit, Adam7, and colour-management support | deferred |
+| scope | Public resumable PNG streaming API | deferred |
+| delivery | Registry publication and release automation | deferred |
 
 ## Session Continuity
 
-Last session: 2026-07-20T14:16:06.217Z
-Stopped at: Completed 19-01-PLAN.md
+Last session: 2026-07-20
+Stopped at: v0.6 roadmap created; Phase 20 is ready for detailed planning.
 Resume file: None
-
-## Performance Metrics
-
-| Phase | Plan | Duration | Notes |
-|-------|------|----------|-------|
-| Phase 09 P01 | 18min | 2 tasks | 2 files |
-| Phase 09 P02 | 20min | 2 tasks | 3 files |
-| Phase 10 P01 | 22min | 3 tasks | 5 files |
-
-## Operator Next Steps
-
-- Start the next milestone with /gsd-new-milestone

@@ -7,6 +7,7 @@
 - ✅ **v0.3 Image Processing Core** — Phases 9-12, 9 requirements (shipped 2026-07-20). Full history: [v0.3 roadmap](./milestones/v0.3-ROADMAP.md).
 - ✅ **v0.4 Portable Image Interchange** — Phases 13-16, 6 requirements complete (shipped 2026-07-20); pure-MoonBit QOI 1.0 interchange across four targets.
 - ✅ **v0.5 QOI Streaming I/O** — Phases 17-19, 7 requirements complete (shipped 2026-07-20); resumable caller-buffered QOI streams across four targets.
+- 📋 **v0.6 PNG Interchange** — Phases 20-22, 7 requirements planned; strict bounded RGB/RGBA PNG interchange with pure-MoonBit DEFLATE and four-target evidence.
 
 ## Phases
 
@@ -57,6 +58,14 @@ Publication, registry-consumer proof, provenance closure, and any release automa
 - [x] **Phase 17: Resumable QOI Chunk Decode** - Users can decode caller-owned QOI byte chunks safely and explicitly complete or reject a stream. (completed 2026-07-20)
 - [x] **Phase 18: Resumable QOI Buffer Encode** - Users can pull canonical QOI bytes into caller-owned output buffers without losing stream progress or eager preflight guarantees. (completed 2026-07-20)
 - [x] **Phase 19: Portable Streaming QOI Evidence** - Users and maintainers can run one public streaming processing workflow and verify hostile schedules on all portable targets. (completed 2026-07-20)
+
+### 📋 v0.6 PNG Interchange (Planned)
+
+**Milestone goal:** Add strict, bounded PNG RGB/RGBA interchange to the existing portable image contracts with pure-MoonBit DEFLATE and four-target evidence.
+
+- [ ] **Phase 20: PNG Structural Safety Gate** - Users can probe and validate PNG structure deterministically before image output is exposed.
+- [ ] **Phase 21: Bounded PNG Decode and DEFLATE** - Users can decode the supported PNG subset across arbitrary IDAT boundaries while malformed or over-budget input fails deterministically.
+- [ ] **Phase 22: Canonical PNG Encode and Portable Evidence** - Users can emit canonical PNG output and verify one public decode-process-encode workflow on every portable target.
 
 ## Phase Details
 
@@ -126,7 +135,7 @@ Plans:
 
 ## Progress
 
-**Execution order:** 9 → 10 → 11 → 12 → 13 → 14 → 15 → 16 → 17 → 18 → 19
+**Execution order:** 9 → 10 → 11 → 12 → 13 → 14 → 15 → 16 → 17 → 18 → 19 → 20 → 21 → 22
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
@@ -149,6 +158,9 @@ Plans:
 | 17. Resumable QOI Chunk Decode | v0.5 | 1/1 | Complete    | 2026-07-20 |
 | 18. Resumable QOI Buffer Encode | v0.5 | 1/1 | Complete    | 2026-07-20 |
 | 19. Portable Streaming QOI Evidence | v0.5 | 1/1 | Complete    | 2026-07-20 |
+| 20. PNG Structural Safety Gate | v0.6 | 0/TBD | Not started | - |
+| 21. Bounded PNG Decode and DEFLATE | v0.6 | 0/TBD | Not started | - |
+| 22. Canonical PNG Encode and Portable Evidence | v0.6 | 0/TBD | Not started | - |
 
 ### Phase 12: Strict PPM End-to-End Filter Coverage
 
@@ -257,5 +269,44 @@ Plans:
 
 - [x] 19-01-PLAN.md — Prove hostile portable QOI streaming schedules and upgrade the existing public QOI workflow.
 
+### Phase 20: PNG Structural Safety Gate
+
+**Goal**: Library users can safely identify and structurally validate the supported PNG subset before image output is exposed.
+**Depends on**: Phase 19
+**Requirements**: PNG-01, PNG-02, PNG-03
+**Success Criteria** (what must be TRUE):
+
+  1. A library user can non-consumingly probe a PNG signature and receives deterministic incomplete, unsupported, or invalid results within declared codec input limits.
+  2. A library user receives typed deterministic rejection for invalid PNG framing, chunk ordering, chunk CRCs, unsupported critical or semantic chunks, incomplete IEND, and trailing input.
+  3. A library user receives checked dimension, pixel, input, output, work, allocation, and metadata-policy rejection before PNG decode exposes an image.
+
+**Plans**: TBD
+
+### Phase 21: Bounded PNG Decode and DEFLATE
+
+**Goal**: Library users can decode the supported non-interlaced PNG RGB/RGBA subset through bounded, deterministic pure-MoonBit decompression and scanline reconstruction.
+**Depends on**: Phase 20
+**Requirements**: PNG-04, PNG-05
+**Success Criteria** (what must be TRUE):
+
+  1. A library user can decode non-interlaced 8-bit truecolour RGB and RGBA PNG images with each of the five PNG filters into the existing portable image contracts.
+  2. A library user can decode legal zlib streams using stored, fixed-Huffman, or dynamic-Huffman DEFLATE blocks across arbitrary IDAT boundaries.
+  3. A library user receives typed deterministic failure for malformed zlib headers, Huffman trees, distances, checksums, expansion attempts, or any decode that exceeds declared limits, without a partial image becoming visible.
+
+**Plans**: TBD
+
+### Phase 22: Canonical PNG Encode and Portable Evidence
+
+**Goal**: Library users can create deterministic PNG output and independently verify supported PNG interoperability through portable public evidence.
+**Depends on**: Phase 21
+**Requirements**: PNG-06, PNG-07
+**Success Criteria** (what must be TRUE):
+
+  1. A library user can encode a compatible RGB8 or straight-RGBA8 image view to one documented deterministic PNG byte sequence after eager-equivalent preflight has completed without writing output on failure.
+  2. A library user can run a public PNG decode → existing image operation → encode workflow using only portable public contracts and receive deterministic output evidence.
+  3. Maintainers can verify supported fixtures and hostile PNG cases with identical expected behavior on `js`, `wasm`, `wasm-gc`, and `native`.
+
+**Plans**: TBD
+
 ---
-*Roadmap updated: 2026-07-20 for v0.5 QOI Streaming I/O planning*
+*Roadmap updated: 2026-07-20 for v0.6 PNG Interchange planning*
