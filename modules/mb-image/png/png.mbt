@@ -69,7 +69,10 @@ pub impl @codec.ImageDecoder for PngDecoder with fn decode(
     Err(error) => return Err(error)
     Ok(value) => value
   }
-  let index_rows = if stream.indexed {
+  // Adam7 uses the shared packed pass rows for indexed samples too; allocating
+  // the non-interlaced indexed rows as well would violate its three-allocation
+  // preflight contract (image plus current/previous pass rows).
+  let index_rows = if stream.indexed && !stream.interlaced {
     let row_bytes = match _png_grayscale_row_bytes(stream.width, stream.bit_depth) { Err(error) => return Err(error); Ok(value) => value }
     match _png_new_packed_rows(row_bytes, stream.budget) {
       Err(error) => return Err(error)
