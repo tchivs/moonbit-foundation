@@ -1,10 +1,20 @@
 {
   "schema_version": "1.0.0",
   "cases": [
-    { "id": "short-signature", "bytes_hex": "89504e47", "expected": "png-signature" },
+    { "id": "short-signature", "bytes_hex": "89504e47", "expected": "unexpected-end" },
     { "id": "bad-signature", "bytes_hex": "0000000000000000", "expected": "png-signature" },
     { "id": "overlong-chunk", "bytes_hex": "89504e470d0a1a0a80000000", "expected": "png-chunk-length" },
     { "id": "non-letter-type", "bytes_hex": "89504e470d0a1a0a0000000000000000", "expected": "png-chunk-type" },
-    { "id": "reserved-third-lowercase", "bytes_hex": "89504e470d0a1a0a0000000049416144", "expected": "png-reserved-bit" }
+    { "id": "reserved-third-lowercase", "bytes_hex": "89504e470d0a1a0a0000000049416144", "expected": "png-reserved-bit" },
+    { "id": "missing-idat", "bytes_hex": "89504e470d0a1a0a0000000d4948445200000001000000010802000000907753de0000000049454e44ae426082", "expected": "png-iend-order" },
+    { "id": "idat-crc", "bytes_hex": "89504e470d0a1a0a0000000d4948445200000001000000010802000000907753de000000004944415435af061f0000000049454e44ae426082", "expected": "png-crc" },
+    { "id": "nonempty-iend", "bytes_hex": "89504e470d0a1a0a0000000d4948445200000001000000010802000000907753de000000004944415435af061e0000000149454e4400d11a4fe1", "expected": "png-iend-length" },
+    { "id": "trailing-byte", "bytes_hex": "89504e470d0a1a0a0000000d4948445200000001000000010802000000907753de000000004944415435af061e0000000049454e44ae42608200", "expected": "png-trailing-data" },
+    { "id": "separated-idat", "bytes_hex": "89504e470d0a1a0a0000000d4948445200000001000000010802000000907753de000000004944415435af061e00000001616243440162911f66000000004944415435af061e0000000049454e44ae426082", "expected": "png-idat-contiguous" },
+    { "id": "unknown-critical", "bytes_hex": "89504e470d0a1a0a0000000d4948445200000001000000010802000000907753de0000000041424344db1720a5000000004944415435af061e0000000049454e44ae426082", "expected": "png-unknown-critical" },
+    { "id": "semantic-palette", "bytes_hex": "89504e470d0a1a0a0000000d4948445200000001000000010802000000907753de00000003504c5445000000a77a3dda000000004944415435af061e0000000049454e44ae426082", "expected": "png-semantic-chunk" },
+    { "id": "ancillary-discard", "bytes_hex": "89504e470d0a1a0a0000000d4948445200000001000000010802000000907753de00000001616243440162911f66000000004944415435af061e0000000049454e44ae426082", "expected": "deflate-and-raster-pending" },
+    { "id": "rgb-structural", "bytes_hex": "89504e470d0a1a0a0000000d4948445200000001000000010802000000907753de000000004944415435af061e0000000049454e44ae426082", "expected": "deflate-and-raster-pending" },
+    { "id": "rgba-structural", "bytes_hex": "89504e470d0a1a0a0000000d49484452000000010000000108060000001f15c489000000004944415435af061e0000000049454e44ae426082", "expected": "deflate-and-raster-pending" }
   ]
 }
