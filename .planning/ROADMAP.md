@@ -49,7 +49,11 @@ Publication, registry-consumer proof, provenance closure, and any release automa
   2. A library user can flip an image horizontally or vertically and rotate it in right-angle increments while observing the expected pixel positions and dimensions.
   3. A library user can resize an image with a documented nearest-neighbor algorithm and receives identical output for the same input on every supported target.
   4. A library user receives typed, deterministic errors when an operation is requested for an unsupported pixel format or incompatible image dimensions.
-**Plans**: TBD
+**Plans**: 2 plans
+
+Plans:
+- [ ] 09-01-PLAN.md — Implement checked owned crop and explicit right-angle rotations with public behavior tests.
+- [ ] 09-02-PLAN.md — Add adversarial geometry proof and document/retest the fixed nearest-neighbor baseline.
 
 ### Phase 10: Alpha-Correct Pixel Processing
 **Goal**: Library users can compose and filter RGBA images with stable alpha and resource semantics.
