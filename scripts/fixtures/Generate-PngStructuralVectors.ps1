@@ -46,6 +46,8 @@ $lines.Add('///|')
 $lines.Add('fn _generated_png_structural_cases() -> Array[(String, Bytes, String)] {')
 $lines.Add('  [')
 foreach ($case in $cases.cases) {
+  $limitsProfile = if ($null -eq $case.PSObject.Properties['limits_profile']) { [string]$defaults.limits_profile } else { [string]$case.limits_profile }
+  if ($limitsProfile -cne 'standard') { continue }
   $moonBytes = (([regex]::Matches([string]$case.bytes_hex, '..') | ForEach-Object { '\x' + $_.Value.ToLowerInvariant() }) -join '')
   $lines.Add(('    ("{0}", b"{1}", "{2}"),' -f $case.id, $moonBytes, $case.expected))
 }
