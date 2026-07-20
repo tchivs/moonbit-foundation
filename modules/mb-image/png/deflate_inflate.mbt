@@ -107,7 +107,7 @@ fn _png_inflate_zlib_to_raster(
   let mut history_size = 0
   let mut history_pos = 0
   let mut adler = 1UL
-  let row_bytes = match @checked.checked_mul(transport.width, transport.channels) { Err(error) => return Err(error); Ok(value) => value }
+  let row_bytes = match @checked.checked_mul(transport.width, transport.source_channels) { Err(error) => return Err(error); Ok(value) => value }
   let expected = match @checked.checked_mul(row_bytes + 1UL, transport.height) { Err(error) => return Err(error); Ok(value) => value }
   let mut emitted = 0UL
   let mut row = 0UL
@@ -122,14 +122,20 @@ fn _png_inflate_zlib_to_raster(
       column = 1UL
     } else {
       let pixel_column = column - 1UL
-      let x = pixel_column / transport.channels
-      let channel = pixel_column % transport.channels
-      let left = if pixel_column >= transport.channels { match view.get_byte(x - 1UL, row, channel) { Err(error) => return Err(error); Ok(value) => value.to_int() } } else { 0 }
+      let x = pixel_column / transport.source_channels
+      let channel = pixel_column % transport.source_channels
+      let left = if pixel_column >= transport.source_channels { match view.get_byte(x - 1UL, row, channel) { Err(error) => return Err(error); Ok(value) => value.to_int() } } else { 0 }
       let above = if row > 0UL { match view.get_byte(x, row - 1UL, channel) { Err(error) => return Err(error); Ok(value) => value.to_int() } } else { 0 }
-      let upper_left = if row > 0UL && pixel_column >= transport.channels { match view.get_byte(x - 1UL, row - 1UL, channel) { Err(error) => return Err(error); Ok(value) => value.to_int() } } else { 0 }
+      let upper_left = if row > 0UL && pixel_column >= transport.source_channels { match view.get_byte(x - 1UL, row - 1UL, channel) { Err(error) => return Err(error); Ok(value) => value.to_int() } } else { 0 }
       let raw = byte.to_int()
       let value = if filter == 0 { raw } else if filter == 1 { raw + left } else if filter == 2 { raw + above } else if filter == 3 { raw + ((left + above) / 2) } else { raw + _png_paeth(left, above, upper_left) }
-      match view.set_byte(x, row, channel, value.to_byte()) { Err(error) => return Err(error); Ok(_) => () }
+      if transport.source_channels == 1UL {
+        for output_channel = 0UL; output_channel < 3UL; output_channel = output_channel + 1UL {
+          match view.set_byte(x, row, output_channel, value.to_byte()) { Err(error) => return Err(error); Ok(_) => () }
+        }
+      } else {
+        match view.set_byte(x, row, channel, value.to_byte()) { Err(error) => return Err(error); Ok(_) => () }
+      }
       column = column + 1UL
       if column == row_bytes + 1UL { column = 0UL; row = row + 1UL }
     }

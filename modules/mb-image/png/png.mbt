@@ -1,6 +1,7 @@
 ///|
 /// A portable eager PNG decoder for the strict non-interlaced RGB8/RGBA8
-/// interchange profile.  Compression and scanline state remain private.
+/// interchange profile. Opaque 8-bit grayscale scanlines are expanded to RGB8.
+/// Compression and scanline state remain private.
 pub struct PngDecoder {}
 
 ///|
@@ -64,7 +65,7 @@ pub impl @codec.ImageDecoder for PngDecoder with fn decode(
     Err(error) => return Err(error)
     Ok(value) => value
   }
-  let transport = PngTransport::{ width: stream.width, height: stream.height, channels: stream.channels, idat: b"", consumed: 0UL }
+  let transport = PngTransport::{ width: stream.width, height: stream.height, source_channels: stream.source_channels, channels: stream.channels, idat: b"", consumed: 0UL }
   let descriptor = match _png_descriptor(transport) {
     Err(error) => return Err(error)
     Ok(value) => value

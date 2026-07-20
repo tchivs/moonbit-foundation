@@ -67,7 +67,7 @@ fn _png_get(view : @storage.MutImageView, x : UInt64, y : UInt64, channel : UInt
 
 ///|
 fn _png_write_raster(view : @storage.MutImageView, transport : PngTransport, filtered : Array[Byte]) -> Result[Unit, @error.CoreError] {
-  let row_bytes = match @checked.checked_mul(transport.width, transport.channels) {
+  let row_bytes = match @checked.checked_mul(transport.width, transport.source_channels) {
     Err(error) => return Err(error)
     Ok(value) => value
   }
@@ -82,22 +82,31 @@ fn _png_write_raster(view : @storage.MutImageView, transport : PngTransport, fil
     if filter > 4 { return Err(_png_error("png-filter")) }
     offset = offset + 1UL
     for column = 0UL; column < row_bytes; column = column + 1UL {
-      let x = column / transport.channels
-      let channel = column % transport.channels
-      let left = if column >= transport.channels {
+      let x = column / transport.source_channels
+      let channel = column % transport.source_channels
+      let left = if column >= transport.source_channels {
         match _png_get(view, x - 1UL, y, channel) { Err(error) => return Err(error); Ok(value) => value }
       } else { 0 }
       let above = if y > 0UL {
         match _png_get(view, x, y - 1UL, channel) { Err(error) => return Err(error); Ok(value) => value }
       } else { 0 }
-      let upper_left = if y > 0UL && column >= transport.channels {
+      let upper_left = if y > 0UL && column >= transport.source_channels {
         match _png_get(view, x - 1UL, y - 1UL, channel) { Err(error) => return Err(error); Ok(value) => value }
       } else { 0 }
       let raw = filtered[offset.to_int()].to_int()
       let value = if filter == 0 { raw } else if filter == 1 { raw + left } else if filter == 2 { raw + above } else if filter == 3 { raw + ((left + above) / 2) } else { raw + _png_paeth(left, above, upper_left) }
-      match view.set_byte(x, y, channel, value.to_byte()) {
-        Err(error) => return Err(error)
-        Ok(_) => ()
+      if transport.source_channels == 1UL {
+        for output_channel = 0UL; output_channel < 3UL; output_channel = output_channel + 1UL {
+          match view.set_byte(x, y, output_channel, value.to_byte()) {
+            Err(error) => return Err(error)
+            Ok(_) => ()
+          }
+        }
+      } else {
+        match view.set_byte(x, y, channel, value.to_byte()) {
+          Err(error) => return Err(error)
+          Ok(_) => ()
+        }
       }
       offset = offset + 1UL
     }

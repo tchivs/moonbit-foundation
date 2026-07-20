@@ -139,6 +139,35 @@ test "PNG IHDR preflight checks every codec and allocation envelope ceiling" {
 }
 
 ///|
+test "PNG grayscale IHDR charges RGB8 output and grayscale filtered work" {
+  let ihdr = [
+    b'\x00', b'\x00', b'\x00', b'\x02', b'\x00', b'\x00', b'\x00', b'\x05',
+    b'\x08', b'\x00', b'\x00', b'\x00', b'\x00',
+  ]
+  let exact_limits = @codec.CodecLimits::new(
+    max_probe_bytes=8UL, max_input_bytes=4096UL, max_output_bytes=30UL,
+    max_width=16UL, max_height=16UL, max_pixels=256UL, max_work=45UL,
+  )
+  let exact_budget = @budget.Budget::new(@budget.ResourceLimits::new(
+    bytes=30UL, allocations=1UL, allocation_size=30UL, width=16UL,
+    height=16UL, pixels=256UL, depth=0UL, work=45UL,
+  ))
+  inspect(_png_preflight_ihdr(ihdr, exact_limits, exact_budget) is Ok(_), content="true")
+  let output_below = _png_preflight_ihdr(
+    ihdr,
+    @codec.CodecLimits::new(max_probe_bytes=8UL, max_input_bytes=4096UL, max_output_bytes=29UL, max_width=16UL, max_height=16UL, max_pixels=256UL, max_work=45UL),
+    @budget.Budget::new(@budget.ResourceLimits::new(bytes=30UL, allocations=1UL, allocation_size=30UL, width=16UL, height=16UL, pixels=256UL, depth=0UL, work=45UL)),
+  ).unwrap_err()
+  inspect(output_below.context() == Some("image-bytes"), content="true")
+  let work_below = _png_preflight_ihdr(
+    ihdr,
+    @codec.CodecLimits::new(max_probe_bytes=8UL, max_input_bytes=4096UL, max_output_bytes=30UL, max_width=16UL, max_height=16UL, max_pixels=256UL, max_work=44UL),
+    @budget.Budget::new(@budget.ResourceLimits::new(bytes=30UL, allocations=1UL, allocation_size=30UL, width=16UL, height=16UL, pixels=256UL, depth=0UL, work=45UL)),
+  ).unwrap_err()
+  inspect(work_below.context() == Some("work"), content="true")
+}
+
+///|
 test "PNG semantic classifier rejects every deferred semantic chunk family" {
   for kind in [
     [b'P', b'L', b'T', b'E'], [b't', b'R', b'N', b'S'],

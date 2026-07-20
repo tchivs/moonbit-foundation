@@ -1,6 +1,6 @@
 ///|
 test "PNG raster inverse filters preserve nonzero left and above samples" {
-  let transport = PngTransport::{ width: 2UL, height: 5UL, channels: 3UL, idat: b"", consumed: 0UL }
+  let transport = PngTransport::{ width: 2UL, height: 5UL, source_channels: 3UL, channels: 3UL, idat: b"", consumed: 0UL }
   let descriptor = _png_descriptor(transport).unwrap()
   let image = @storage.OwnedImage::new_operation(
     descriptor,
@@ -26,4 +26,31 @@ test "PNG raster inverse filters preserve nonzero left and above samples" {
 ///|
 test "PNG raster rejects invalid filter tags and exact-size mismatch" {
   inspect(_png_paeth(10, 20, 15), content="15")
+}
+
+///|
+test "PNG grayscale raster filters reconstruct one source lane into RGB8" {
+  let transport = PngTransport::{ width: 2UL, height: 5UL, source_channels: 1UL, channels: 3UL, idat: b"", consumed: 0UL }
+  let descriptor = _png_descriptor(transport).unwrap()
+  let image = @storage.OwnedImage::new_operation(
+    descriptor,
+    @budget.Budget::new(@budget.ResourceLimits::new(bytes=64UL, allocations=1UL, allocation_size=64UL, width=8UL, height=8UL, pixels=64UL, depth=0UL, work=64UL)),
+    PngBuiltinAllocator::{} as &@bytes.Allocator,
+    64UL,
+  ).unwrap()
+  let filtered = [
+    b'\x00', b'\x11', b'\x22',
+    b'\x01', b'\x33', b'\x11',
+    b'\x02', b'\x22', b'\x22',
+    b'\x03', b'\x4d', b'\x1a',
+    b'\x04', b'\x22', b'\x11',
+  ]
+  image.with_mut_view(fn(view) { _png_write_raster(view, transport, filtered) }).unwrap()
+  let view = image.view()
+  for item in [(0UL, 0UL, b'\x11'), (1UL, 0UL, b'\x22'), (0UL, 1UL, b'\x33'), (1UL, 1UL, b'\x44'), (0UL, 2UL, b'\x55'), (1UL, 2UL, b'\x66'), (0UL, 3UL, b'\x77'), (1UL, 3UL, b'\x88'), (0UL, 4UL, b'\x99'), (1UL, 4UL, b'\xaa')] {
+    let (x, y, expected) = item
+    for channel = 0UL; channel < 3UL; channel = channel + 1UL {
+      inspect(view.get_byte(x, y, channel).unwrap() == expected, content="true")
+    }
+  }
 }

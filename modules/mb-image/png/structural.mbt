@@ -240,7 +240,9 @@ fn _png_preflight_ihdr(
   if ihdr[8] != 8 {
     return Err(_png_error("png-bit-depth"))
   }
-  let channels = if ihdr[9] == 2 {
+  let source_channels = if ihdr[9] == 0 {
+    1UL
+  } else if ihdr[9] == 2 {
     3UL
   } else if ihdr[9] == 6 {
     4UL
@@ -254,11 +256,13 @@ fn _png_preflight_ihdr(
     Err(error) => return Err(error)
     Ok(value) => value
   }
-  let image_bytes = match @checked.checked_mul(pixels, channels) {
+  // PNG grayscale has one filtered source sample but is exposed as RGB8.
+  let output_channels = if ihdr[9] == 6 { 4UL } else { 3UL }
+  let image_bytes = match @checked.checked_mul(pixels, output_channels) {
     Err(error) => return Err(error)
     Ok(value) => value
   }
-  let row_bytes = match @checked.checked_mul(width, channels) {
+  let row_bytes = match @checked.checked_mul(width, source_channels) {
     Err(error) => return Err(error)
     Ok(value) => value
   }
@@ -489,6 +493,7 @@ fn _png_validate_transport(
 priv struct PngTransport {
   width : UInt64
   height : UInt64
+  source_channels : UInt64
   channels : UInt64
   idat : Bytes
   consumed : UInt64
@@ -518,6 +523,7 @@ fn _png_read_transport(
   let mut state = PngChunkState::BeforeIhdr
   let mut width = 0UL
   let mut height = 0UL
+  let mut source_channels = 0UL
   let mut channels = 0UL
   let idat : Array[Byte] = []
   while true {
@@ -566,7 +572,8 @@ fn _png_read_transport(
       }
       width = (payload[0].to_int().to_uint64() << 24) | (payload[1].to_int().to_uint64() << 16) | (payload[2].to_int().to_uint64() << 8) | payload[3].to_int().to_uint64()
       height = (payload[4].to_int().to_uint64() << 24) | (payload[5].to_int().to_uint64() << 16) | (payload[6].to_int().to_uint64() << 8) | payload[7].to_int().to_uint64()
-      channels = if payload[9] == 2 { 3UL } else { 4UL }
+      source_channels = if payload[9] == 0 { 1UL } else if payload[9] == 2 { 3UL } else { 4UL }
+      channels = if payload[9] == 6 { 4UL } else { 3UL }
       state = PngChunkState::BeforeIdat
     } else {
       if state == PngChunkState::BeforeIhdr { return Err(_png_error("png-ihdr-first")) }
@@ -577,7 +584,7 @@ fn _png_read_transport(
           Err(error) => return Err(error)
           Ok(_) => ()
         }
-        return Ok({ width, height, channels, idat: Bytes::from_array(idat), consumed })
+        return Ok({ width, height, source_channels, channels, idat: Bytes::from_array(idat), consumed })
       } else if is_idat {
         if state == PngChunkState::AfterIdat { return Err(_png_error("png-idat-contiguous")) }
         if state != PngChunkState::BeforeIdat && state != PngChunkState::InIdat { return Err(_png_error("png-idat-order")) }
@@ -611,6 +618,7 @@ priv struct PngIdatSource {
 priv struct PngStreamTransport {
   width : UInt64
   height : UInt64
+  source_channels : UInt64
   channels : UInt64
   source : PngIdatSource
 }
@@ -654,7 +662,8 @@ fn _png_read_stream_transport(
       return Ok({
         width: (ihdr[0].to_int().to_uint64() << 24) | (ihdr[1].to_int().to_uint64() << 16) | (ihdr[2].to_int().to_uint64() << 8) | ihdr[3].to_int().to_uint64(),
         height: (ihdr[4].to_int().to_uint64() << 24) | (ihdr[5].to_int().to_uint64() << 16) | (ihdr[6].to_int().to_uint64() << 8) | ihdr[7].to_int().to_uint64(),
-        channels: if ihdr[9] == 2 { 3UL } else { 4UL },
+        source_channels: if ihdr[9] == 0 { 1UL } else if ihdr[9] == 2 { 3UL } else { 4UL },
+        channels: if ihdr[9] == 6 { 4UL } else { 3UL },
         source: { reader, scratch, limits, options, consumed: next_type, remaining: length, crc: _png_crc_for_type(kind), crc_pending: true },
       })
     }

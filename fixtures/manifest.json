@@ -67,7 +67,7 @@
       "source": "RFC 1950/RFC 1951 and https://www.w3.org/TR/png-3/; literal fixed and dynamic streams audited by scripts/fixtures/Generate-PngDecodeVectors.ps1 with System.IO.Compression.ZLibStream",
       "author": "MoonBit Native Foundation project generator",
       "retrieval_date": "2026-07-21",
-      "sha256": "e0d8e5c46cea088ab6527e2c1b7cc26b848c6fa0b97ae205f563687b4bf7b6d9",
+      "sha256": "30ca7ff4b0aae2b33acc8cf7e3134bf4fd235e8f841cb4bd385d4752cc915a24",
       "license": "Apache-2.0",
       "redistribution_status": "not-applicable",
       "expected_use": "PNG-04 and PNG-05 bounded DEFLATE, IDAT split, filter, checksum, and hostile decode conformance"
@@ -79,7 +79,7 @@
       "source": "https://www.w3.org/TR/png-3/ plus repository-derived hostile structural cases",
       "author": "MoonBit Native Foundation project generator",
       "retrieval_date": "2026-07-20",
-      "sha256": "f40bae69a06a82ff9c85748dec7fa6774ed057478028715c957b616b5080fe5c",
+      "sha256": "0075f117825b44a37b7fa87fc7bd473e2587c7d5a1b04b950025fc4a7bb513d4",
       "license": "Apache-2.0",
       "redistribution_status": "not-applicable",
       "expected_use": "PNG-01, PNG-02, and PNG-03 hostile structural, integrity, metadata-policy, and resource-envelope conformance"
