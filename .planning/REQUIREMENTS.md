@@ -20,9 +20,9 @@
 
 ### Integration and Evidence
 
-- [ ] **INTEG-01**: A library user can run one public example that composes geometry and raster operations before encoding a PPM result.
-- [ ] **INTEG-02**: Public behavioral and adversarial tests validate the new API on js, wasm, wasm-gc, and native targets.
-- [ ] **INTEG-03**: Maintainers can reproduce a declared benchmark workload for resize and compositing without introducing release automation.
+- [x] **INTEG-01**: A library user can run one public example that composes geometry and raster operations before encoding a PPM result.
+- [x] **INTEG-02**: Public behavioral and adversarial tests validate the new API on js, wasm, wasm-gc, and native targets.
+- [x] **INTEG-03**: Maintainers can reproduce a declared benchmark workload for resize and compositing without introducing release automation.
 
 ## Future Requirements
 
@@ -50,9 +50,9 @@
 | RASTER-01 | Phase 10 | Complete |
 | RASTER-02 | Phase 10 | Complete |
 | RASTER-03 | Phase 9 | Complete |
-| INTEG-01 | Phase 11 | Pending |
-| INTEG-02 | Phase 11 | Pending |
-| INTEG-03 | Phase 11 | Pending |
+| INTEG-01 | Phase 11 | Complete |
+| INTEG-02 | Phase 11 | Complete |
+| INTEG-03 | Phase 11 | Complete |
 
 **Coverage:**
 

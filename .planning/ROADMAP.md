@@ -34,9 +34,9 @@ Publication, registry-consumer proof, provenance closure, and any release automa
 
 **Milestone goal:** Expand `mb-image` from safe image storage and a reference codec into a practical, portable raster-processing foundation.
 
-- [ ] **Phase 9: Checked Image Geometry and Diagnostics** - Users can safely transform image extent and orientation with deterministic failure behavior.
-- [ ] **Phase 10: Alpha-Correct Pixel Processing** - Users can composite and filter RGBA images with documented deterministic semantics.
-- [ ] **Phase 11: Portable Processing Pipeline Evidence** - Users can run and maintain a verified, reproducible end-to-end image-processing workflow.
+- [x] **Phase 9: Checked Image Geometry and Diagnostics** - Users can safely transform image extent and orientation with deterministic failure behavior. (completed 2026-07-20)
+- [x] **Phase 10: Alpha-Correct Pixel Processing** - Users can composite and filter RGBA images with documented deterministic semantics. (completed 2026-07-20)
+- [x] **Phase 11: Portable Processing Pipeline Evidence** - Users can run and maintain a verified, reproducible end-to-end image-processing workflow. (completed 2026-07-20)
 
 ## Phase Details
 
@@ -52,7 +52,7 @@ Publication, registry-consumer proof, provenance closure, and any release automa
   3. A library user can resize an image with a documented nearest-neighbor algorithm and receives identical output for the same input on every supported target.
   4. A library user receives typed, deterministic errors when an operation is requested for an unsupported pixel format or incompatible image dimensions.
 
-**Plans**: 2/2 plans executed
+**Plans**: 2/2 plans complete
 
 Plans:
 **Wave 1**
@@ -74,9 +74,12 @@ Plans:
   2. A library user can apply grayscale to an RGBA image deterministically without changing its documented alpha semantics.
   3. A library user can apply a box blur with checked dimensions and bounded intermediate storage, receiving a deterministic result for the same input.
 
-**Plans**: 1/1 plans executed
+**Plans**: 2/2 plans complete
 
 Plans:
+
+- [x] 10-02-PLAN.md
+
 **Wave 1**
 
 - [x] 10-01-PLAN.md — Implement and prove alpha-correct source-over, grayscale, and box blur.
@@ -92,14 +95,14 @@ Plans:
   2. Public behavioral and adversarial tests demonstrate the new API's expected results and failure behavior on `js`, `wasm`, `wasm-gc`, and `native`.
   3. A maintainer can reproduce a declared resize-and-compositing benchmark workload and compare it with its recorded baseline without running or depending on release automation.
 
-**Plans**: 3 plans
+**Plans**: 3/3 plans complete
 
 Plans:
 **Wave 1**
 
-- [ ] 11-01-PLAN.md — Extend the public portable PPM example into the resize-and-source-over processing pipeline.
-- [ ] 11-02-PLAN.md — Add four-target composed-pipeline behavioral and adversarial evidence.
-- [ ] 11-03-PLAN.md — Add isolated local native resize-and-composite benchmark evidence.
+- [x] 11-01-PLAN.md — Extend the public portable PPM example into the resize-and-source-over processing pipeline.
+- [x] 11-02-PLAN.md — Add four-target composed-pipeline behavioral and adversarial evidence.
+- [x] 11-03-PLAN.md — Add isolated local native resize-and-composite benchmark evidence.
 
 ## Progress
 
@@ -115,9 +118,9 @@ Plans:
 | 6. Namespace Authority and Compatibility Contract | v0.2 | 25/25 | Complete | 2026-07-18 |
 | 7. Release Safety, Intent, and Recovery Automation | v0.2 | 3/3 | Complete | 2026-07-18 |
 | 8. Ordered Mooncakes Publication and Registry Consumers | v0.2 | 34/36 | Deferred | 2026-07-20 |
-| 9. Checked Image Geometry and Diagnostics | v0.3 | 2/2 | In Progress|  |
-| 10. Alpha-Correct Pixel Processing | v0.3 | 1/1 | In Progress|  |
-| 11. Portable Processing Pipeline Evidence | v0.3 | 0/TBD | Not started | — |
+| 9. Checked Image Geometry and Diagnostics | v0.3 | 2/2 | Complete   | 2026-07-20 |
+| 10. Alpha-Correct Pixel Processing | v0.3 | 2/2 | Complete   | 2026-07-20 |
+| 11. Portable Processing Pipeline Evidence | v0.3 | 3/3 | Complete   | 2026-07-20 |
 
 ---
 *Roadmap updated: 2026-07-20 for v0.3 Image Processing Core planning*
