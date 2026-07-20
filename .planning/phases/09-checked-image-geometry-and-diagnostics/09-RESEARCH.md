@@ -305,12 +305,11 @@ The current untouched `ops` baseline passed 18/18 tests on each of js, wasm, was
 | A1 | Recommended public function names are `crop`, `rotate_90`, `rotate_180`, and `rotate_270`. | Code Examples | Low: planner must keep names coherent with MoonBit API review, but no locked name decision exists. [ASSUMED] |
 | A2 | New code should live in a separate `geometry.mbt` rather than extending existing files. | Recommended Project Structure | Low: locked context leaves file layout to implementer discretion. [ASSUMED] |
 
-## Open Questions
+## Open Questions (RESOLVED)
 
-1. **Expose a rotation enum in addition to named functions?**
-   - What we know: D-02 requires explicit 90/180/270 operations, and the package uses named operation functions today. [CITED: 09-CONTEXT.md; modules/mb-image/ops/copy_flip.mbt]
-   - What's unclear: Whether the project wants a future-friendly enum dispatch API as a public companion.
-   - Recommendation: Ship the three named functions now; avoid an enum until a caller requires dynamic angle selection, because it is not a locked requirement. [ASSUMED]
+1. **Rotation API companion to named functions**
+   - **Locked decision:** v0.3 Phase 9 exposes only the named `rotate_90`, `rotate_180`, and `rotate_270` functions. It does not provide a rotation enum or generic dispatch API; those additions will be evaluated in a future phase.
+   - **Rationale:** This preserves D-02's explicit requested rotation operations and the package's established named-function style without expanding the present public contract. [CITED: 09-CONTEXT.md; modules/mb-image/ops/copy_flip.mbt]
 
 ## Environment Availability
 
