@@ -168,6 +168,23 @@ test "PNG grayscale IHDR charges RGB8 output and grayscale filtered work" {
 }
 
 ///|
+test "PNG indexed IHDR accepts only the 8-bit non-interlaced RGB8 profile" {
+  let indexed = [
+    b'\x00', b'\x00', b'\x00', b'\x02', b'\x00', b'\x00', b'\x00', b'\x01',
+    b'\x08', b'\x03', b'\x00', b'\x00', b'\x00',
+  ]
+  let limits = @codec.CodecLimits::new(
+    max_probe_bytes=8UL, max_input_bytes=4096UL, max_output_bytes=64UL,
+    max_width=16UL, max_height=16UL, max_pixels=256UL, max_work=128UL,
+  )
+  let budget = @budget.Budget::new(@budget.ResourceLimits::new(
+    bytes=64UL, allocations=3UL, allocation_size=64UL, width=16UL,
+    height=16UL, pixels=256UL, depth=0UL, work=128UL,
+  ))
+  inspect(_png_preflight_ihdr(indexed, limits, budget) is Ok(_), content="true")
+}
+
+///|
 test "PNG semantic classifier rejects every deferred semantic chunk family" {
   for kind in [
     [b'P', b'L', b'T', b'E'], [b't', b'R', b'N', b'S'],
