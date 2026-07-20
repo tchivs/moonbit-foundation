@@ -1,5 +1,13 @@
 {
   "schema_version": "1.0.0",
+  "limits_profiles": ["standard", "input-57"],
+  "budget_profiles": ["standard"],
+  "defaults": {
+    "preserve_opaque_metadata": false,
+    "limits_profile": "standard",
+    "budget_profile": "standard",
+    "immutable_caller_state": true
+  },
   "cases": [
     { "id": "short-signature", "bytes_hex": "89504e47", "expected": "unexpected-end" },
     { "id": "bad-signature", "bytes_hex": "0000000000000000", "expected": "png-signature" },
@@ -15,6 +23,8 @@
     { "id": "semantic-palette", "bytes_hex": "89504e470d0a1a0a0000000d4948445200000001000000010802000000907753de00000003504c5445000000a77a3dda000000004944415435af061e0000000049454e44ae426082", "expected": "png-semantic-chunk" },
     { "id": "ancillary-discard", "bytes_hex": "89504e470d0a1a0a0000000d4948445200000001000000010802000000907753de00000001616243440162911f66000000004944415435af061e0000000049454e44ae426082", "expected": "deflate-and-raster-pending" },
     { "id": "rgb-structural", "bytes_hex": "89504e470d0a1a0a0000000d4948445200000001000000010802000000907753de000000004944415435af061e0000000049454e44ae426082", "expected": "deflate-and-raster-pending" },
-    { "id": "rgba-structural", "bytes_hex": "89504e470d0a1a0a0000000d49484452000000010000000108060000001f15c489000000004944415435af061e0000000049454e44ae426082", "expected": "deflate-and-raster-pending" }
+    { "id": "rgba-structural", "bytes_hex": "89504e470d0a1a0a0000000d49484452000000010000000108060000001f15c489000000004944415435af061e0000000049454e44ae426082", "expected": "deflate-and-raster-pending" },
+    { "id": "rgb-exact-input-ceiling", "bytes_hex": "89504e470d0a1a0a0000000d4948445200000001000000010802000000907753de000000004944415435af061e0000000049454e44ae426082", "expected": "deflate-and-raster-pending", "limits_profile": "input-57" },
+    { "id": "rgb-over-input-ceiling", "bytes_hex": "89504e470d0a1a0a0000000d4948445200000001000000010802000000907753de000000004944415435af061e0000000049454e44ae42608200", "expected": "input-bytes", "limits_profile": "input-57" }
   ]
 }

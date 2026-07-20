@@ -67,7 +67,7 @@
       "source": "https://www.w3.org/TR/png-3/ plus repository-derived hostile structural cases",
       "author": "MoonBit Native Foundation project generator",
       "retrieval_date": "2026-07-20",
-      "sha256": "cabbf902e0bbd316aba3ee27103ad85db4945b08b496088f72b511f27170027d",
+      "sha256": "3475bbe178e4a69d32ac0317a435feff5b5c642e07f22424d12effef500ec226",
       "license": "Apache-2.0",
       "redistribution_status": "not-applicable",
       "expected_use": "PNG-01, PNG-02, and PNG-03 hostile structural, integrity, metadata-policy, and resource-envelope conformance"

@@ -193,7 +193,7 @@ test "PNG exact input ceiling permits EOF but an actual trailing byte is limited
 ///|
 test "generated PNG public cases use only the PngDecoder trait boundary" {
   for item in _generated_png_public_cases() {
-    let (_id, source, expected, preserve_opaque_metadata, _limits, _budget, immutable) = item
+    let (_id, source, expected, preserve_opaque_metadata, limits_profile, _budget, immutable) = item
     let length = source.length().to_uint64()
     let owner = @bytes.OwnedBytes::from_bytes(
       source,
@@ -214,10 +214,17 @@ test "generated PNG public cases use only the PngDecoder trait boundary" {
       @codec.DecodeOptions::new(
         require_complete_input=true, preserve_opaque_metadata=preserve_opaque_metadata,
       ),
-      @codec.CodecLimits::new(
-        max_probe_bytes=8UL, max_input_bytes=4096UL, max_output_bytes=1024UL,
-        max_width=16UL, max_height=16UL, max_pixels=256UL, max_work=2048UL,
-      ),
+      if limits_profile == "input-57" {
+        @codec.CodecLimits::new(
+          max_probe_bytes=8UL, max_input_bytes=57UL, max_output_bytes=1024UL,
+          max_width=16UL, max_height=16UL, max_pixels=256UL, max_work=2048UL,
+        )
+      } else {
+        @codec.CodecLimits::new(
+          max_probe_bytes=8UL, max_input_bytes=4096UL, max_output_bytes=1024UL,
+          max_width=16UL, max_height=16UL, max_pixels=256UL, max_work=2048UL,
+        )
+      },
       budget, diagnostics,
     ).unwrap_err()
     if expected == "unexpected-end" {
