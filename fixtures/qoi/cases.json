@@ -41,9 +41,18 @@
     { "id": "zero-progress-reader", "error": "no-progress" },
     { "id": "host-failure-reader", "error": "host-failure" }
   ],
-  "chunk_schedules": [
-    { "id": "one-byte", "chunks": [1] },
-    { "id": "header-and-opcode", "chunks": [4, 10, 1, 3, 8] },
-    { "id": "fixed-prng-17", "chunks": [3, 1, 4, 2, 5, 1] }
-  ]
+  "stream_schedules": {
+    "input": [
+      { "id": "zero-header-token-marker", "capacities": [0, 4, 10, 1, 3, 8] },
+      { "id": "one-byte", "capacities": [1] },
+      { "id": "header-token-marker", "capacities": [4, 10, 1, 3, 8] },
+      { "id": "fixed-prng-17", "capacities": [3, 1, 4, 2, 5, 1] }
+    ],
+    "output": [
+      { "id": "zero-header-token-marker", "capacities": [0, 14, 1, 3, 6] },
+      { "id": "one-byte", "capacities": [1] },
+      { "id": "header-token-marker", "capacities": [14, 1, 3, 6] },
+      { "id": "fixed-prng-17", "capacities": [3, 1, 4, 2, 5, 1] }
+    ]
+  }
 }

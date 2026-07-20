@@ -96,10 +96,21 @@ fn _generated_qoi_adversarial_ids() -> Array[String] {
 }
 
 ///|
-fn _generated_qoi_chunk_schedules() -> Array[(String, Array[UInt64])] {
+fn _generated_qoi_input_schedules() -> Array[(String, Array[UInt64])] {
   [
+    ("zero-header-token-marker", [0UL, 4UL, 10UL, 1UL, 3UL, 8UL]),
     ("one-byte", [1UL]),
-    ("header-and-opcode", [4UL, 10UL, 1UL, 3UL, 8UL]),
+    ("header-token-marker", [4UL, 10UL, 1UL, 3UL, 8UL]),
+    ("fixed-prng-17", [3UL, 1UL, 4UL, 2UL, 5UL, 1UL]),
+  ]
+}
+
+///|
+fn _generated_qoi_output_schedules() -> Array[(String, Array[UInt64])] {
+  [
+    ("zero-header-token-marker", [0UL, 14UL, 1UL, 3UL, 6UL]),
+    ("one-byte", [1UL]),
+    ("header-token-marker", [14UL, 1UL, 3UL, 6UL]),
     ("fixed-prng-17", [3UL, 1UL, 4UL, 2UL, 5UL, 1UL]),
   ]
 }

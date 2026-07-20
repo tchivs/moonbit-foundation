@@ -83,11 +83,21 @@ $lines.Add("  [$ids]")
 $lines.Add('}')
 $lines.Add('')
 $lines.Add('///|')
-$lines.Add('fn _generated_qoi_chunk_schedules() -> Array[(String, Array[UInt64])] {')
+$lines.Add('fn _generated_qoi_input_schedules() -> Array[(String, Array[UInt64])] {')
 $lines.Add('  [')
-foreach ($schedule in $data.chunk_schedules) {
-  $chunks = (@($schedule.chunks) | ForEach-Object { "${_}UL" }) -join ', '
-  $lines.Add(('    ("{0}", [{1}]),' -f $schedule.id, $chunks))
+foreach ($schedule in $data.stream_schedules.input) {
+  $capacities = (@($schedule.capacities) | ForEach-Object { "${_}UL" }) -join ', '
+  $lines.Add(('    ("{0}", [{1}]),' -f $schedule.id, $capacities))
+}
+$lines.Add('  ]')
+$lines.Add('}')
+$lines.Add('')
+$lines.Add('///|')
+$lines.Add('fn _generated_qoi_output_schedules() -> Array[(String, Array[UInt64])] {')
+$lines.Add('  [')
+foreach ($schedule in $data.stream_schedules.output) {
+  $capacities = (@($schedule.capacities) | ForEach-Object { "${_}UL" }) -join ', '
+  $lines.Add(('    ("{0}", [{1}]),' -f $schedule.id, $capacities))
 }
 $lines.Add('  ]')
 $lines.Add('}')
@@ -102,7 +112,7 @@ $record = [ordered]@{
   source='https://qoiformat.org/qoi-specification.pdf (QOI 1.0, 2022-01-05) plus repository-derived adversarial schedules'
   author='MoonBit Native Foundation project generator'; retrieval_date='2026-07-20'; sha256=$digest
   license='Apache-2.0'; redistribution_status='not-applicable'
-  expected_use='QOI-01, QOI-02, QOI-03, QOI-04, and QOI-05 portable QOI 1.0 canonical encode, decode, adversarial, and forward-reader conformance'
+  expected_use='QOI-01, QOI-02, QOI-03, QOI-04, QOI-05, and QSTR-06 portable QOI 1.0 canonical encode, decode, adversarial, forward-reader, and hostile streaming schedule conformance'
 }
 $colorIds = @('color-srgb-reference-vectors', 'color-derived-edge-vectors')
 $records = @($manifest.records | Where-Object { $_.id -cne $record.id -and $_.id -cnotin $colorIds }) + @($record) + @($manifest.records | Where-Object { $_.id -cin $colorIds })
