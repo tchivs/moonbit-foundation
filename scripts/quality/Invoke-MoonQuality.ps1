@@ -95,6 +95,19 @@ function Assert-PackageList {
   Write-Host "Package contents verified for $($ModulePolicy.name): $($expectedFiles -join ', ')"
 }
 
+function Assert-QoiPackageList {
+  [CmdletBinding()]
+  param(
+    [Parameter(Mandatory)][object]$ImagePolicy,
+    [Parameter(Mandatory)][AllowEmptyCollection()][AllowEmptyString()][string[]]$Output
+  )
+
+  $expectedFiles = @($ImagePolicy.publication_files | ForEach-Object { [string]$_ } | Where-Object { $_ -ceq 'qoi' -or $_ -clike 'qoi/*' })
+  $listedFiles = @($Output | ForEach-Object { $_.Replace('\', '/') } | Where-Object { $_ -ceq 'qoi' -or $_ -clike 'qoi/*' })
+  Assert-ExactSet 'QOI package contents' $listedFiles $expectedFiles
+  Write-Host "QOI package contents verified: $($expectedFiles -join ', ')"
+}
+
 function Assert-CoreSourceTextProhibitions {
   [CmdletBinding()]
   param(
@@ -680,6 +693,71 @@ function Invoke-RequiredQuality {
   Write-Host 'Required quality lane passed.'
 }
 
+function Invoke-QoiQualityStage {
+  [CmdletBinding()]
+  param(
+    [Parameter(Mandatory)][string]$Name,
+    [Parameter(Mandatory)][scriptblock]$Action
+  )
+
+  $script:QoiLaneTrace += $Name
+  Invoke-QualityStage -Name $Name -Action $Action
+}
+
+function Invoke-QoiQualityLane {
+  [CmdletBinding()]
+  param()
+
+  $policyPath = 'policy/foundation.json'
+  $policy = Read-QualityJson -Path $policyPath
+  $imagePolicy = @($policy.modules | Where-Object { $_.name -ceq 'tchivs/mb-image' })
+  Assert-ExactSet 'QOI lane image module selection' @($imagePolicy.name) @('tchivs/mb-image')
+  $script:QoiLaneTrace = @()
+
+  Invoke-QoiQualityStage 'QOI foundation policy' {
+    Assert-QoiFoundationPolicy -PolicyPath $policyPath
+  }
+  Invoke-QoiQualityStage 'QOI fail-closed negative fixtures' {
+    Assert-QoiQualificationNegativeFixtures -PolicyPath $policyPath
+  }
+  Invoke-QoiQualityStage 'QOI exact package allowlist' {
+    $packageOutput = Invoke-MoonCommand -Context 'QOI package list for mb-image' -Arguments @('-C', 'modules/mb-image', 'package', '--frozen', '--list') -CaptureCombined
+    Assert-QoiPackageList -ImagePolicy $imagePolicy[0] -Output $packageOutput
+  }
+  Invoke-QoiQualityStage 'QOI public example' {
+    & ./scripts/quality/Test-PublicExamples.ps1 -Example qoi -Mode workspace -Target all
+  }
+  Write-Host 'QOI quality lane passed.'
+}
+
+function Assert-QoiLaneIsolation {
+  [CmdletBinding()]
+  param()
+
+  function Assert-QualificationSchema { throw 'QOI lane reached qualification schema.' }
+  function Invoke-SourceIsolation { throw 'QOI lane reached source isolation.' }
+  function Invoke-RegistryResolutionProbe { throw 'QOI lane reached registry resolution.' }
+  function Write-QualificationReport { throw 'QOI lane reached qualification reporting.' }
+  function Invoke-ReleaseQuality { throw 'QOI lane reached release quality.' }
+  function Invoke-Publication { throw 'QOI lane reached publication.' }
+  function Invoke-Credential { throw 'QOI lane reached credentials.' }
+  function Assert-FoundationPolicy { throw 'QOI lane reached broad foundation policy.' }
+  function Assert-ImageQualificationNegativeFixtures { throw 'QOI lane reached broad image negatives.' }
+  function Invoke-RequiredQuality { throw 'QOI lane reached required quality.' }
+  function Invoke-LlvmExperimentalQuality { throw 'QOI lane reached LLVM quality.' }
+
+  Invoke-QoiQualityLane
+  Assert-ExactSequence 'QOI lane stage trace' @($script:QoiLaneTrace) @('QOI foundation policy', 'QOI fail-closed negative fixtures', 'QOI exact package allowlist', 'QOI public example')
+
+  $exampleOutput = @(& ./scripts/quality/Test-PublicExamples.ps1 -Example qoi -Mode workspace -Target all -IsolationProbe 2>&1 | ForEach-Object { $_.ToString().TrimEnd() })
+  if ($LASTEXITCODE -ne 0) {
+    throw "QOI workspace isolation probe failed (exit $LASTEXITCODE): $($exampleOutput -join [Environment]::NewLine)"
+  }
+  $trace = @($exampleOutput | Where-Object { $_ -clike 'qoi_workspace_trace:*' })
+  Assert-ExactSequence 'QOI workspace example trace' $trace @('qoi_workspace_trace: Assert-ExampleSource, Assert-NamedDependencies, Assert-PublicImports, Invoke-MoonExampleVerification')
+  Write-Host 'QOI lane isolation proof passed.'
+}
+
 function Invoke-LlvmExperimentalQuality {
   $policyPath = 'policy/foundation.json'
   Write-Host 'LLVM is experimental, unsupported by the required target contract, and non-blocking in CI.'
@@ -698,7 +776,7 @@ function Invoke-LlvmExperimentalQuality {
 function Invoke-MoonQuality {
   [CmdletBinding()]
   param(
-    [Parameter(Mandatory)][ValidateSet('Required', 'LlvmExperimental')][string]$Lane,
+    [Parameter(Mandatory)][ValidateSet('Required', 'Qoi', 'LlvmExperimental')][string]$Lane,
     [string]$EvidenceDirectory = 'artifacts/release-qualification/current'
   )
 
@@ -707,6 +785,7 @@ function Invoke-MoonQuality {
   }
   switch ($Lane) {
     'Required' { Invoke-RequiredQuality -EvidenceDirectory $EvidenceDirectory }
+    'Qoi' { Invoke-QoiQualityLane }
     'LlvmExperimental' { Invoke-LlvmExperimentalQuality }
     default { throw "Unsupported quality lane '$Lane'." }
   }

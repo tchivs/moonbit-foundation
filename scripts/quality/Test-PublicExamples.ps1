@@ -1,6 +1,6 @@
 [CmdletBinding()]
 param(
-  [ValidateSet('portable', 'native', 'all')]
+  [ValidateSet('portable', 'native', 'qoi', 'all')]
   [string]$Example = 'all',
   [ValidateSet('workspace', 'qualify')]
   [string]$Mode = 'workspace',
@@ -8,7 +8,8 @@ param(
   [string]$Target = 'all',
   [ValidateSet('runtime', 'compile-only')]
   [string]$NativeVerification = 'runtime',
-  [string]$Report
+  [string]$Report,
+  [switch]$IsolationProbe
 )
 
 Set-StrictMode -Version Latest
@@ -17,6 +18,7 @@ $ErrorActionPreference = 'Stop'
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
 $portableRoot = Join-Path $repoRoot 'examples\ppm-portable'
 $nativeRoot = Join-Path $repoRoot 'examples\ppm-native-cli'
+$qoiRoot = Join-Path $repoRoot 'examples\qoi-portable'
 $schemaPath = Join-Path $repoRoot 'release\qualification\example-consumers-schema.json'
 
 function Assert-QualificationSchema {
@@ -31,8 +33,6 @@ function Assert-QualificationSchema {
     throw 'Example-consumer qualification schema does not freeze the required independent outcomes.'
   }
 }
-
-Assert-QualificationSchema
 
 function Assert-ExampleSource {
   param([Parameter(Mandatory)][string]$Root, [Parameter(Mandatory)][string[]]$Files)
@@ -271,6 +271,19 @@ function Assert-PublicImports {
   }
 }
 
+if ($IsolationProbe) {
+  if ($Example -cne 'qoi' -or $Mode -cne 'workspace' -or $Target -cne 'all') {
+    throw 'QOI isolation probe requires -Example qoi -Mode workspace -Target all.'
+  }
+  function Assert-QualificationSchema { throw 'QOI isolation probe reached qualification schema.' }
+  function Invoke-SourceIsolation { throw 'QOI isolation probe reached source isolation.' }
+  function Invoke-RegistryResolutionProbe { throw 'QOI isolation probe reached registry resolution.' }
+  function Write-QualificationReport { throw 'QOI isolation probe reached qualification reporting.' }
+  function Invoke-ReleaseQuality { throw 'QOI isolation probe reached release quality.' }
+  function Invoke-Publication { throw 'QOI isolation probe reached publication.' }
+  function Invoke-Credential { throw 'QOI isolation probe reached credentials.' }
+}
+
 if ($Example -in @('portable', 'all')) {
   Assert-ExampleSource -Root $portableRoot -Files @('moon.mod.json', 'main\moon.pkg', 'main\main.mbt')
   Assert-PublicImports -Root $portableRoot -AllowedImports @(
@@ -302,6 +315,27 @@ if ($Example -in @('native', 'all')) {
   Invoke-MoonExampleVerification -WorkingRoot $repoRoot -Package 'examples/ppm-native-cli/main' -RunTarget 'native' -Expected 'example=native bytes_read=17 bytes_written=17 transform=flip_horizontal disposition=5 digest=806175100 short_progress=pass'
 }
 
+if ($Example -ceq 'qoi') {
+  Assert-ExampleSource -Root $qoiRoot -Files @('moon.mod.json', 'main\moon.pkg', 'main\main.mbt')
+  Assert-NamedDependencies -Manifest (Join-Path $qoiRoot 'moon.mod.json') -Expected @('tchivs/mb-core', 'tchivs/mb-image')
+  Assert-PublicImports -Root $qoiRoot -AllowedImports @(
+    'tchivs/mb-core/budget',
+    'tchivs/mb-core/bytes',
+    'tchivs/mb-core/error',
+    'tchivs/mb-core/io',
+    'tchivs/mb-image/codec',
+    'tchivs/mb-image/ops',
+    'tchivs/mb-image/qoi'
+  )
+  $targets = if ($Target -ceq 'all') { @('js', 'wasm', 'wasm-gc', 'native') } else { @($Target) }
+  foreach ($runTarget in $targets) {
+    Invoke-MoonExampleVerification -WorkingRoot $repoRoot -Package 'examples/qoi-portable/main' -RunTarget $runTarget -Expected 'example=qoi-portable bytes_read=27 bytes_written=24 width=2 height=1 flip_horizontal digest=750514177 sha256=5dc3abfe81e722b211af255f6f96805225f98435f1f9525c46df48217f858df2'
+  }
+  if ($IsolationProbe) {
+    Write-Output 'qoi_workspace_trace: Assert-ExampleSource, Assert-NamedDependencies, Assert-PublicImports, Invoke-MoonExampleVerification'
+  }
+}
+
 if ($Mode -ceq 'qualify') {
   if ($Example -cne 'all') {
     throw 'Qualification mode requires -Example all so neither public consumer can be omitted.'
@@ -309,6 +343,7 @@ if ($Mode -ceq 'qualify') {
   if ([string]::IsNullOrWhiteSpace($Report)) {
     throw 'Qualification mode requires a machine-readable -Report path.'
   }
+  Assert-QualificationSchema
   $sourceIsolation = Invoke-SourceIsolation
   $registryResolution = Invoke-RegistryResolutionProbe
   Write-QualificationReport -Path $Report -SourceIsolation $sourceIsolation -RegistryResolution $registryResolution
