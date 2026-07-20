@@ -94,7 +94,6 @@ fn qoi_encode_source(
   let color_space = match metadata.transfer() {
     @color.TransferIdentity::EncodedSrgb => b'\x00'
     @color.TransferIdentity::LinearSrgb => b'\x01'
-    _ => return Err(qoi_encode_capability("srgb-transfer-required"))
   }
   let channels = match format.channels() {
     @model.ChannelOrder::Rgb => {
@@ -150,7 +149,14 @@ fn qoi_same(left : QoiPixel, right : QoiPixel) -> Bool {
 ///|
 /// Return the signed modular byte delta in the QOI range -128 through 127.
 fn qoi_signed_delta(next : Byte, previous : Byte) -> Int {
-  (next.to_int() - previous.to_int() + 128) % 256 - 128
+  let raw = next.to_int() - previous.to_int()
+  if raw < -128 {
+    raw + 256
+  } else if raw > 127 {
+    raw - 256
+  } else {
+    raw
+  }
 }
 
 ///|
