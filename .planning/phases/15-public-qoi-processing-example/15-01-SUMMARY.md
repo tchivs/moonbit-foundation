@@ -23,7 +23,7 @@ key-files:
     - modules/mb-image/README.mbt.md
 key-decisions:
   - "Use the fixed diff-byte-wrap QOI vector with explicit fresh budgets, limits, diagnostics, and memory I/O at each public boundary."
-  - "Assert the flipped canonical QOI bytes and rolling digest before emitting the sole status line."
+  - "Assert the flipped canonical QOI bytes, rolling digest, and computed SHA-256 before emitting the sole status line."
 patterns-established:
   - "Portable examples prove public codec pipelines with exact byte evidence on js, wasm, wasm-gc, and native."
 requirements-completed: [QOI-06]
@@ -64,13 +64,14 @@ status: complete
 ## Accomplishments
 
 - Added `examples/qoi-portable`, a standalone public module that decodes the fixed 27-byte QOI vector, calls `flip_horizontal`, and encodes the canonical 24-byte result entirely in memory.
-- Asserted dimensions, transformed stored pixels, decode and encode progress, empty diagnostics, complete canonical bytes, and rolling digest `750514177` before the sole success line.
+- Asserted dimensions, transformed stored pixels, decode and encode progress, empty diagnostics, complete canonical bytes, rolling digest `750514177`, and a computed SHA-256 digest before the sole success line.
 - Documented the portable QOI workflow and exact frozen `js`, `wasm`, `wasm-gc`, and `native` commands alongside the existing PPM and Native CLI examples.
 
 ## Task Commits
 
 1. **Task 1: Build the independent deterministic QOI portable workflow** - `103192c` (feat)
 2. **Task 2: Document the public QOI portable consumer and frozen target commands** - `6c05a21` (docs)
+3. **Acceptance-gap correction: Verify canonical QOI SHA-256 evidence** - `714f0b5` (fix)
 
 ## Files Created/Modified
 
@@ -82,7 +83,7 @@ status: complete
 
 ## Decisions Made
 
-- Used the corrected flipped-output vector `716f696600000002000000010300655a0000000000000001` and digest `750514177`, matching the public QOI encoder's canonical output for `(0,255,255)` followed by `(255,255,255)`.
+- Used the corrected flipped-output vector `716f696600000002000000010300655a0000000000000001`, rolling digest `750514177`, and SHA-256 `5dc3abfe81e722b211af255f6f96805225f98435f1f9525c46df48217f858df2`, matching the public QOI encoder's canonical output for `(0,255,255)` followed by `(255,255,255)`.
 - Kept the consumer independent from registry selection, filesystem or CLI input, FFI, streaming, benchmarks, and codec implementation internals.
 
 ## Verification
@@ -92,6 +93,7 @@ status: complete
 - `moon -C examples/qoi-portable run main --target wasm-gc --frozen` — passed.
 - `moon -C examples/qoi-portable run main --target native --frozen` — passed.
 - `moon -C modules/mb-image test --target all --frozen` — passed: 235/235 on wasm, wasm-gc, js, and native.
+- Independent SHA-256 calculation over the canonical 24 bytes — passed: `5dc3abfe81e722b211af255f6f96805225f98435f1f9525c46df48217f858df2`.
 
 ## Deviations from Plan
 
@@ -111,4 +113,4 @@ QOI-06 now has a separately runnable, all-target public consumer with complete d
 
 ## Self-Check: PASSED
 
-All five implementation artifacts and this summary exist; Task 1 commit `103192c` and Task 2 commit `6c05a21` are present in the repository log.
+All five implementation artifacts and this summary exist; Task 1 commit `103192c`, Task 2 commit `6c05a21`, and SHA correction commit `714f0b5` are present in the repository log.
