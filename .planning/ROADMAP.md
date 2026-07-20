@@ -74,7 +74,12 @@ Plans:
   2. A library user can apply grayscale to an RGBA image deterministically without changing its documented alpha semantics.
   3. A library user can apply a box blur with checked dimensions and bounded intermediate storage, receiving a deterministic result for the same input.
 
-**Plans**: TBD
+**Plans**: 1 plan
+
+Plans:
+**Wave 1**
+
+- [ ] 10-01-PLAN.md — Implement and prove alpha-correct source-over, grayscale, and box blur.
 
 ### Phase 11: Portable Processing Pipeline Evidence
 
