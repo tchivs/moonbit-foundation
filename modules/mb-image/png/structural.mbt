@@ -481,3 +481,114 @@ fn _png_validate_transport(
     Ok(())
   }
 }
+
+///| 
+/// Private decode transport.  It deliberately keeps the framing checks in this
+/// package: callers never observe a compressed stream or an image before the
+/// physical PNG stream (including IEND and EOF) has been authenticated.
+priv struct PngTransport {
+  width : UInt64
+  height : UInt64
+  channels : UInt64
+  idat : Bytes
+  consumed : UInt64
+}
+
+///|
+fn _png_read_transport(
+  reader : &@io.Reader,
+  options : @codec.DecodeOptions,
+  limits : @codec.CodecLimits,
+  budget : @budget.Budget,
+) -> Result[PngTransport, @error.CoreError] {
+  let scratch = match @bytes.OwnedBytes::new(1UL, _png_private_budget(1UL)) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  let signature = [b'\x89', b'P', b'N', b'G', b'\r', b'\n', b'\x1a', b'\n']
+  let mut consumed = 0UL
+  for expected in signature {
+    let (actual, next) = match _png_read_one(reader, scratch, consumed, limits) {
+      Err(error) => return Err(error)
+      Ok(value) => value
+    }
+    if actual != expected { return Err(_png_error("png-signature")) }
+    consumed = next
+  }
+  let mut state = PngChunkState::BeforeIhdr
+  let mut width = 0UL
+  let mut height = 0UL
+  let mut channels = 0UL
+  let idat : Array[Byte] = []
+  while true {
+    let (length, after_length) = match _png_read_u32(reader, scratch, consumed, limits) {
+      Err(error) => return Err(error)
+      Ok(value) => value
+    }
+    if length > 2147483647UL { return Err(_png_error("png-chunk-length")) }
+    let (kind, after_type) = match _png_read_type(reader, scratch, after_length, limits) {
+      Err(error) => return Err(error)
+      Ok(value) => value
+    }
+    match _png_validate_type_form(kind) {
+      Err(error) => return Err(error)
+      Ok(_) => ()
+    }
+    let is_ihdr = _png_type_is(kind, b'I', b'H', b'D', b'R')
+    let is_idat = _png_type_is(kind, b'I', b'D', b'A', b'T')
+    let is_iend = _png_type_is(kind, b'I', b'E', b'N', b'D')
+    let payload : Array[Byte] = []
+    let mut crc = _png_crc_for_type(kind)
+    let mut cursor = after_type
+    let mut index = 0UL
+    while index < length {
+      let (byte, next) = match _png_read_one(reader, scratch, cursor, limits) {
+        Err(error) => return Err(error)
+        Ok(value) => value
+      }
+      if is_ihdr || is_idat { payload.push(byte) }
+      crc = _png_crc_step(crc, byte)
+      cursor = next
+      index = index + 1UL
+    }
+    let (stored_crc, next) = match _png_read_u32(reader, scratch, cursor, limits) {
+      Err(error) => return Err(error)
+      Ok(value) => value
+    }
+    if (crc ^ 4294967295UL) != stored_crc { return Err(_png_error("png-crc")) }
+    consumed = next
+    if is_ihdr {
+      if state != PngChunkState::BeforeIhdr { return Err(_png_error("png-ihdr-order")) }
+      if length != 13UL { return Err(_png_error("png-ihdr-length")) }
+      match _png_preflight_ihdr(payload, limits, budget) {
+        Err(error) => return Err(error)
+        Ok(_) => ()
+      }
+      width = (payload[0].to_int().to_uint64() << 24) | (payload[1].to_int().to_uint64() << 16) | (payload[2].to_int().to_uint64() << 8) | payload[3].to_int().to_uint64()
+      height = (payload[4].to_int().to_uint64() << 24) | (payload[5].to_int().to_uint64() << 16) | (payload[6].to_int().to_uint64() << 8) | payload[7].to_int().to_uint64()
+      channels = if payload[9] == 2 { 3UL } else { 4UL }
+      state = PngChunkState::BeforeIdat
+    } else {
+      if state == PngChunkState::BeforeIhdr { return Err(_png_error("png-ihdr-first")) }
+      if is_iend {
+        if state != PngChunkState::InIdat && state != PngChunkState::AfterIdat { return Err(_png_error("png-iend-order")) }
+        if length != 0UL { return Err(_png_error("png-iend-length")) }
+        match _png_require_eof(reader, scratch, consumed, limits) {
+          Err(error) => return Err(error)
+          Ok(_) => ()
+        }
+        return Ok({ width, height, channels, idat: Bytes::from_array(idat), consumed })
+      } else if is_idat {
+        if state == PngChunkState::AfterIdat { return Err(_png_error("png-idat-contiguous")) }
+        if state != PngChunkState::BeforeIdat && state != PngChunkState::InIdat { return Err(_png_error("png-idat-order")) }
+        for byte in payload { idat.push(byte) }
+        state = PngChunkState::InIdat
+      } else {
+        if _png_is_known_semantic(kind) { return Err(_png_error("png-semantic-chunk")) }
+        if _png_is_critical(kind) { return Err(_png_error("png-unknown-critical")) }
+        if options.preserve_opaque_metadata() { return Err(@codec.capability_unavailable("png-decode", "opaque-metadata-preservation")) }
+        if state == PngChunkState::InIdat { state = PngChunkState::AfterIdat }
+      }
+    }
+  } nobreak { Err(_png_error("png-finished")) }
+}

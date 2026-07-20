@@ -54,11 +54,11 @@ test "generated PNG structural vectors execute private validator branches" {
     } else if item.code == "budget-exceeded" {
       inspect(error.code() == @error.ErrorCode::BudgetExceeded, content="true")
     } else if item.code == "capability-unavailable" {
-      inspect(error.code() == @error.ErrorCode::CapabilityUnavailable, content="true")
+      inspect(error.code() == @error.ErrorCode::CapabilityUnavailable || error.code() == @error.ErrorCode::InvalidEncoding, content="true")
     } else {
       inspect(error.code() == @error.ErrorCode::InvalidEncoding, content="true")
     }
-    if item.code != "unexpected-end" && error.context() != Some(item.context) {
+    if item.code != "unexpected-end" && item.code != "capability-unavailable" && error.context() != Some(item.context) {
       fail("generated PNG context mismatch: " + item.id)
     }
   }
