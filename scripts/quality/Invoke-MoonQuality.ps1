@@ -765,14 +765,33 @@ function Assert-QoiLaneIsolation {
 }
 
 function Invoke-PngQualityLane {
-  $policy = Read-QualityJson -Path 'policy/foundation.json'
-  $png = @(@($policy.modules | Where-Object { $_.name -ceq 'tchivs/mb-image' })[0].public_packages | Where-Object { $_.name -ceq 'tchivs/mb-image/png' })
-  Assert-ExactSet 'PNG package selection' @($png.name) @('tchivs/mb-image/png')
-  Assert-ExactSet 'PNG imports' @($png[0].allowed_imports) @('tchivs/mb-core/budget', 'tchivs/mb-core/bytes', 'tchivs/mb-core/checked', 'tchivs/mb-core/error', 'tchivs/mb-core/io', 'tchivs/mb-image/codec')
-  Assert-ExactSequence 'PNG source order' @($png[0].production_sources) @('moon.pkg', 'png.mbt', 'structural.mbt', 'generated_vectors.mbt')
-  Invoke-QualityStage 'PNG generated structural vectors' { & ./scripts/fixtures/Generate-PngStructuralVectors.ps1 -Check }
-  Invoke-QualityStage 'PNG four-target tests' { Invoke-MoonCommand -Context 'PNG tests' -Arguments @('-C', 'modules/mb-image', 'test', 'png', '--target', 'all', '--frozen') }
+  $policyPath = 'policy/foundation.json'
+  $policy = Read-QualityJson -Path $policyPath
+  $imagePolicy = @($policy.modules | Where-Object { $_.name -ceq 'tchivs/mb-image' })[0]
+  $script:PngLaneTrace = @()
+  function Invoke-PngQualityStage([string]$Name, [scriptblock]$Action) { $script:PngLaneTrace += $Name; Invoke-QualityStage $Name $Action }
+  Invoke-PngQualityStage 'PNG foundation/interface policy' { Assert-PngFoundationPolicy -PolicyPath $policyPath }
+  Invoke-PngQualityStage 'PNG scoped negative fixtures' { Assert-PngQualificationNegativeFixtures -PolicyPath $policyPath }
+  Invoke-PngQualityStage 'PNG exact package allowlist' {
+    $output = Invoke-MoonCommand -Context 'PNG package list for mb-image' -Arguments @('-C','modules/mb-image','package','--frozen','--list') -CaptureCombined
+    $expected = @('png', 'png/generated_vectors.mbt', 'png/generated_vectors_test.mbt', 'png/moon.pkg', 'png/png.mbt', 'png/png_test.mbt', 'png/structural.mbt', 'png/structural_wbtest.mbt')
+    $actual = @($output | ForEach-Object { $_.Replace('\','/') } | Where-Object { $_ -ceq 'png' -or $_ -clike 'png/*' })
+    Assert-ExactSet 'PNG package contents' $actual $expected
+  }
+  Invoke-PngQualityStage 'PNG generated structural vectors' { & ./scripts/fixtures/Generate-PngStructuralVectors.ps1 -Check }
+  Invoke-PngQualityStage 'PNG four-target tests' { Invoke-MoonCommand -Context 'PNG tests' -Arguments @('-C', 'modules/mb-image', 'test', 'png', '--target', 'all', '--frozen') }
   Write-Host 'PNG quality lane passed.'
+}
+
+function Assert-PngLaneIsolation {
+  function Assert-FoundationPolicy { throw 'PNG lane reached broad foundation policy.' }
+  function Assert-QoiFoundationPolicy { throw 'PNG lane reached QOI policy.' }
+  function Assert-QoiQualificationNegativeFixtures { throw 'PNG lane reached QOI negatives.' }
+  function Invoke-RequiredQuality { throw 'PNG lane reached required quality.' }
+  function Invoke-ReleaseQuality { throw 'PNG lane reached release quality.' }
+  Invoke-PngQualityLane
+  Assert-ExactSequence 'PNG lane stage trace' @($script:PngLaneTrace) @('PNG foundation/interface policy', 'PNG scoped negative fixtures', 'PNG exact package allowlist', 'PNG generated structural vectors', 'PNG four-target tests')
+  Write-Host 'PNG lane isolation proof passed.'
 }
 
 function Invoke-LlvmExperimentalQuality {
@@ -803,7 +822,7 @@ function Invoke-MoonQuality {
   switch ($Lane) {
     'Required' { Invoke-RequiredQuality -EvidenceDirectory $EvidenceDirectory }
     'Qoi' { Assert-QoiLaneIsolation }
-    'Png' { Invoke-PngQualityLane }
+    'Png' { Assert-PngLaneIsolation }
     'LlvmExperimental' { Invoke-LlvmExperimentalQuality }
     default { throw "Unsupported quality lane '$Lane'." }
   }

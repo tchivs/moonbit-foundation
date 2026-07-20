@@ -972,6 +972,58 @@ function Assert-QoiQualificationNegativeFixtures {
   Write-Host 'QOI package, import, target, interface, source-order, and content negatives fail closed.'
 }
 
+function Assert-PngFoundationPolicy {
+  [CmdletBinding()]
+  param([Parameter(Mandatory)][string]$PolicyPath)
+
+  $policy = Read-QualityJson -Path $PolicyPath
+  $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
+  $image = @($policy.modules | Where-Object { $_.name -ceq 'tchivs/mb-image' })[0]
+  $png = @($image.public_packages | Where-Object { $_.path -ceq 'png' })
+  Assert-ExactSet 'PNG public package selection' @($png.name) @('tchivs/mb-image/png')
+  $png = $png[0]
+  $imports = @('tchivs/mb-core/budget', 'tchivs/mb-core/bytes', 'tchivs/mb-core/checked', 'tchivs/mb-core/error', 'tchivs/mb-core/io', 'tchivs/mb-image/codec')
+  $sources = @('moon.pkg', 'png.mbt', 'structural.mbt', 'generated_vectors.mbt')
+  $files = @('moon.pkg', 'png.mbt', 'png_test.mbt', 'structural.mbt', 'structural_wbtest.mbt', 'generated_vectors.mbt', 'generated_vectors_test.mbt')
+  Assert-ExactSet 'PNG policy imports' @($png.allowed_imports) $imports
+  Assert-ExactSet 'PNG policy targets' @($png.supported_targets) @('js', 'wasm', 'wasm-gc', 'native')
+  Assert-ExactSequence 'PNG policy production source order' @($png.production_sources) $sources
+  $packageText = Get-Content -Raw -LiteralPath (Join-Path $repoRoot 'modules/mb-image/png/moon.pkg')
+  $target = [regex]::Match($packageText, '(?m)^supported_targets\s*=\s*"([^"]+)"\s*$')
+  Assert-Condition $target.Success 'PNG moon.pkg lacks supported_targets.'
+  Assert-ExactSet 'PNG moon.pkg targets' (Get-CompactTargetSet $target.Groups[1].Value 'PNG package targets') @('js', 'wasm', 'wasm-gc', 'native')
+  Assert-ExactSet 'PNG moon.pkg imports' @(Get-PackageImportSet -Text $packageText -Label 'PNG moon.pkg') $imports
+  $actualFiles = @(Get-ChildItem -LiteralPath (Join-Path $repoRoot 'modules/mb-image/png') -File | Where-Object Name -cne 'pkg.generated.mbti' | ForEach-Object Name)
+  Assert-ExactSet 'PNG directory contents' $actualFiles $files
+  & moon -C modules/mb-image info --target all --frozen
+  if ($LASTEXITCODE -ne 0) { throw "PNG interface generation failed (exit $LASTEXITCODE)." }
+  $interfacePath = Join-Path $repoRoot 'modules/mb-image/png/pkg.generated.mbti'
+  $semanticLines = @(Get-Content -LiteralPath $interfacePath | ForEach-Object { $_.TrimEnd() } | Where-Object { $_ -ne '' -and -not $_.TrimStart().StartsWith('//') })
+  Assert-ExactSequence 'PNG generated semantic interface' $semanticLines @($png.semantic_interface | ForEach-Object { [string]$_ })
+  Write-Host 'PNG policy, interface, target, source-order, and directory inventory verified.'
+}
+
+function Assert-PngQualificationNegativeFixtures {
+  [CmdletBinding()]
+  param([Parameter(Mandatory)][string]$PolicyPath)
+
+  $policy = Read-QualityJson -Path $PolicyPath
+  $png = @(@($policy.modules | Where-Object { $_.name -ceq 'tchivs/mb-image' })[0].public_packages | Where-Object { $_.path -ceq 'png' })[0]
+  function Confirm-PngRejected([string]$Name, [scriptblock]$Action, [string]$ExpectedPattern) {
+    $failure = $null; try { & $Action } catch { $failure = $_.Exception.Message }
+    if ($null -eq $failure -or $failure -cnotmatch $ExpectedPattern) { throw "PNG policy accepted negative fixture '$Name': '$failure'." }
+  }
+  $imports = @($png.allowed_imports); $sources = @($png.production_sources)
+  Confirm-PngRejected 'missing import' { Assert-ExactSet 'PNG imports' @($imports | Select-Object -Skip 1) $imports } 'count mismatch'
+  Confirm-PngRejected 'extra import' { Assert-ExactSet 'PNG imports' @($imports + 'tchivs/mb-image/ops') $imports } 'count mismatch'
+  Confirm-PngRejected 'missing portable target' { Assert-ExactSet 'PNG targets' @('js','wasm','native') @('js','wasm','wasm-gc','native') } 'count mismatch'
+  Confirm-PngRejected 'extra public stream type' { Assert-ExactSequence 'PNG interface' @('PngDecoder','PngStreamDecoder') @('PngDecoder') } 'count mismatch'
+  Confirm-PngRejected 'wrong source order' { Assert-ExactSequence 'PNG sources' @('moon.pkg','png.mbt','generated_vectors.mbt','structural.mbt') $sources } 'mismatch at index'
+  Confirm-PngRejected 'extra production source' { Assert-ExactSet 'PNG sources' @($sources + 'encode.mbt') $sources } 'count mismatch'
+  Confirm-PngRejected 'extra package file' { Assert-ExactSet 'PNG files' @('moon.pkg','png.mbt','png_test.mbt','structural.mbt','structural_wbtest.mbt','generated_vectors.mbt','generated_vectors_test.mbt','stream.mbt') @('moon.pkg','png.mbt','png_test.mbt','structural.mbt','structural_wbtest.mbt','generated_vectors.mbt','generated_vectors_test.mbt') } 'count mismatch'
+  Write-Host 'PNG scoped package, import, target, interface, source-order, and inventory negatives fail closed.'
+}
+
 function Assert-AuditCollection {
   param([string]$Label, [object[]]$Items, [string[]]$ExpectedIds)
   Assert-Condition ($Items.Count -eq $ExpectedIds.Count) "$Label count mismatch: expected $($ExpectedIds.Count), got $($Items.Count)."
