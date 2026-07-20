@@ -45,7 +45,7 @@ Publication, registry-consumer proof, provenance closure, and any release automa
 **Milestone goal:** Add strict, bounded QOI 1.0 interchange to the existing portable image contracts without foreign codec dependencies.
 
 - [x] **Phase 13: QOI Format Core and Safe Decode** - Users can identify and decode valid QOI images while hostile input fails deterministically before unsafe work. (completed 2026-07-20)
-- [ ] **Phase 14: Canonical QOI Encode and Four-Target Vectors** - Users can create lossless canonical QOI output proven by specification-derived vectors on every supported target.
+- [x] **Phase 14: Canonical QOI Encode and Four-Target Vectors** - Users can create lossless canonical QOI output proven by specification-derived vectors on every supported target. (completed 2026-07-20)
 - [ ] **Phase 15: Public QOI Processing Example** - Users can run a documented portable QOI decode-process-encode workflow with deterministic evidence.
 
 ## Phase Details
@@ -133,7 +133,7 @@ Plans:
 | 11. Portable Processing Pipeline Evidence | v0.3 | 3/3 | Complete   | 2026-07-20 |
 | 12. Strict PPM End-to-End Filter Coverage | v0.3 | 1/1 | Complete   | 2026-07-20 |
 | 13. QOI Format Core and Safe Decode | v0.4 | 1/1 | Complete    | 2026-07-20 |
-| 14. Canonical QOI Encode and Four-Target Vectors | v0.4 | 0/TBD | Not started | - |
+| 14. Canonical QOI Encode and Four-Target Vectors | v0.4 | 1/1 | Complete    | 2026-07-20 |
 | 15. Public QOI Processing Example | v0.4 | 0/TBD | Not started | - |
 
 ### Phase 12: Strict PPM End-to-End Filter Coverage
