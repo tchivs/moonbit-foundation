@@ -36,6 +36,9 @@ coverage:
       - kind: unit
         ref: "modules/mb-image/ops/geometry_test.mbt#crop rejects invalid public requests before charging the budget"
         status: pass
+      - kind: unit
+        ref: "modules/mb-image/ops/geometry_test.mbt#crop and rotation reject unsupported formats before charging the budget"
+        status: pass
     human_judgment: false
   - id: D2
     description: "Named rotations preserve every RGB/RGBA pixel mapping and normalize orientation metadata."
@@ -68,12 +71,12 @@ status: complete
 
 - Added `crop`, which validates capability and bounds before one budgeted owned-image allocation, then copies the requested stored-coordinate rectangle into tight storage.
 - Added `rotate_90`, `rotate_180`, and `rotate_270` with direct clockwise coordinate maps, fresh output, and `TopLeft` metadata.
-- Added public tests for RGB/RGBA crop and rotation behavior, metadata disposition, deterministic diagnostics, and atomic budget rejection.
+- Added public tests for RGB/RGBA crop and rotation behavior, metadata disposition, deterministic diagnostics, capability rejection, and atomic budget rejection.
 
 ## Task Commits
 
 1. **Task 1: Add checked fresh owned-image crop** — `320e1a6`, `6aa3a25`, `2931d85`
-2. **Task 2: Add explicit right-angle rotation operations** — `db59567`, `10687a8`
+2. **Task 2: Add explicit right-angle rotation operations** — `db59567`, `10687a8`, `6e602dd`
 
 ## Files Created/Modified
 
@@ -87,10 +90,10 @@ status: complete
 
 ## Verification
 
-- `moon test modules/mb-image/ops --target js` — 22 passed
-- `moon test modules/mb-image/ops --target wasm` — 22 passed
-- `moon test modules/mb-image/ops --target wasm-gc` — 22 passed
-- `moon test modules/mb-image/ops --target native` — 22 passed
+- `moon test modules/mb-image/ops --target js` — 23 passed
+- `moon test modules/mb-image/ops --target wasm` — 23 passed
+- `moon test modules/mb-image/ops --target wasm-gc` — 23 passed
+- `moon test modules/mb-image/ops --target native` — 23 passed
 - `moon info` — completed successfully
 
 ## Deviations from Plan
@@ -111,4 +114,4 @@ The checked crop and explicit rotation APIs are available for Plan 02 adversaria
 
 ## Self-Check: PASSED
 
-- Confirmed both geometry source/test files exist and all five task commits are present in git history.
+- Confirmed both geometry source/test files exist and all six task commits are present in git history.
