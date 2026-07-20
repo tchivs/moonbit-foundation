@@ -21,6 +21,7 @@ MoonBit developers can reuse stable, high-performance native infrastructure cont
 - [x] Provide generated API documentation, examples, benchmarks, and conformance tests for every candidate public package. — Validated by the closed Phase 5 documentation, benchmark, fixture, and release selectors.
 - [x] Provide a portable, pure-MoonBit QOI 1.0 decoder and canonical encoder with hostile-input handling and four-target vectors. — Validated in v0.4 Phases 13-14.
 - [x] Prove public QOI decode-process-encode interoperability on all supported targets. — Validated in v0.4 Phases 15-16.
+- [x] Provide resumable QOI decode and encode APIs with hostile-schedule and public workflow evidence on all four portable targets. — Validated in v0.5 Phases 17-19.
 
 ### Active
 
@@ -52,27 +53,22 @@ The locked qualification baseline passed 19/19 selectors twice at one unchanged 
 
 Phase 6 completed on 2026-07-18 with 25/25 plans and 8/8 requirements verified. The active module identities are `tchivs/mb-core`, `tchivs/mb-color`, and `tchivs/mb-image`; deterministic compatibility baselines, reciprocal requirement/edge/prohibition evidence, and the real credential-free Required lane now pass. Publication remains deliberately blocked until Phase 7 proves the authenticated publish seam before any registry mutation.
 
-## Current State: v0.4 Portable Image Interchange Shipped
+## Current State: v0.5 QOI Streaming I/O Shipped
 
-**Delivered:** `mb-image` now provides strict eager QOI 1.0 probing, decoding, and canonical encoding alongside the existing portable image operations. A public decode → horizontal flip → encode workflow is verified on `js`, `wasm`, `wasm-gc`, and `native` with fixed bytes and SHA-256 evidence.
+**Delivered:** `mb-image` now supports bounded, resumable QOI decode and encode beside its eager codec APIs. The sole public QOI consumer proves caller-owned chunk decode → horizontal flip → caller-owned lease encode on `js`, `wasm`, `wasm-gc`, and `native` with fixed schedules, exact counters, canonical bytes, and SHA-256 evidence.
 
-**Target features:**
+**Validated streaming properties:**
 
-- Provide portable, stateful QOI decoding and encoding for arbitrary forward-only reader and writer chunking.
-- Keep every partial-read/partial-write transition deterministic, budgeted, and resume-safe.
-- Prove streaming round trips and malformed/incomplete input behavior on all four portable targets.
+- Explicit decoder completion preserves strict marker, trailing-data, limit, budget, and terminal-state guarantees without changing `Reader` EOF behavior.
+- Encoder construction preserves eager-equivalent preflight before any byte is exposed; pulls emit canonical bytes through arbitrary caller leases.
+- Generated hostile schedules and the isolated QOI quality lane protect four-target conformance without release automation, registry work, FFI, or PNG/DEFLATE expansion.
 
 Registry publication remains deferred: the existing v0.2 qualification artifacts are retained, but no further release automation is in scope for the next code-first milestone.
 
-## Current Milestone: v0.5 QOI Streaming I/O
+## Next Milestone Direction
 
-**Goal:** Add resumable, bounded streaming QOI decode and encode APIs over the existing forward-only portable I/O contracts so callers can process chunked input and output without materializing a complete byte stream first.
+Select the next code-first MoonBit infrastructure capability from image, document, media, or system foundations. Publication and release automation remain deferred unless they directly unblock a required code path.
 
-**Target features:**
-
-- Stateful decoder and encoder APIs with explicit `NeedInput`, `NeedOutput`, completion, and terminal-error semantics.
-- Correct canonical output and exact pixel recovery under adversarial chunk boundaries, including every QOI opcode boundary.
-- Four-target public evidence with no FFI, no PNG/DEFLATE expansion, and no release-automation work.
 
 ## Constraints
 
@@ -101,7 +97,7 @@ Registry publication remains deferred: the existing v0.2 qualification artifacts
 | Complete publication and compatibility before adding the next module family | Unpublished foundations cannot provide a dependable ecosystem contract to downstream authors | — Pending in v0.2 |
 | Prioritize reusable image-processing code over further publication automation | The release route is already recoverable enough for a future manual operation; the ecosystem benefits more from implementable raster capabilities | ✓ Validated in v0.3 |
 | Implement QOI before a heavyweight lossless codec | QOI adds a real RGB/RGBA interchange format while preserving a pure MoonBit, four-target implementation and bounded attack surface | ✓ Validated in v0.4 |
-| Add streaming QOI before a heavyweight codec | Stateful chunked I/O completes the existing forward-only codec contract without widening scope to PNG/DEFLATE or FFI | — Active in v0.5 |
+| Add streaming QOI before a heavyweight codec | Stateful chunked I/O completes the existing forward-only codec contract without widening scope to PNG/DEFLATE or FFI | ✓ Validated in v0.5 |
 
 ## Evolution
 
@@ -121,4 +117,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update toolchain, compatibility, benchmark, and adoption context.
 
 ---
-*Last updated: 2026-07-20 after v0.4 Portable Image Interchange*
+*Last updated: 2026-07-20 after v0.5 QOI Streaming I/O*

@@ -1,5 +1,17 @@
 # Project Milestones: MoonBit Native Foundation
 
+## v0.5 QOI Streaming I/O (Shipped: 2026-07-20)
+
+**Phases completed:** 3 phases, 3 plans, 7 tasks
+
+**Key accomplishments:**
+
+- A private, bounded QOI state machine now accepts arbitrary caller-owned chunks and returns one eager-equivalent image only after explicit strict completion.
+- A zero-copy QOI stream encoder now drains eager-identical canonical bytes through arbitrary caller-owned mutable leases with constructor-only resource preflight.
+- Generated hostile QOI schedules now prove four-target stream progress, and the single public QOI example performs streaming decode → horizontal flip → streaming canonical encode.
+
+---
+
 ## v0.4 Portable Image Interchange (Shipped: 2026-07-20)
 
 **Phases completed:** 8 phases, 12 plans, 27 tasks

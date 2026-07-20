@@ -2,19 +2,19 @@
 gsd_state_version: 1.0
 milestone: v0.5
 milestone_name: QOI Streaming I/O
-current_phase: 19
-current_phase_name: Portable Streaming QOI Evidence
-status: completed
+status: Awaiting next milestone
 stopped_at: Completed 19-01-PLAN.md
-last_updated: "2026-07-20T14:20:06.648Z"
+last_updated: "2026-07-20T14:24:36.080Z"
 last_activity: 2026-07-20
-last_activity_desc: Phase 19 complete
+last_activity_desc: Milestone v0.5 completed and archived
 progress:
   total_phases: 11
   completed_phases: 3
   total_plans: 3
   completed_plans: 3
   percent: 27
+current_phase: 19
+current_phase_name: Portable Streaming QOI Evidence
 ---
 
 # Project State
@@ -29,10 +29,10 @@ See `.planning/PROJECT.md` (updated 2026-07-18).
 
 ## Current Position
 
-Phase: 19 of 19 (Portable Streaming QOI Evidence)
-Plan: Not started
-Status: Milestone complete
-Last activity: 2026-07-20 — Phase 19 complete
+Phase: Milestone v0.5 complete
+Plan: —
+Status: Awaiting next milestone
+Last activity: 2026-07-20 — Milestone v0.5 completed and archived
 
 ## Performance Metrics
 
@@ -111,4 +111,4 @@ Resume file: None
 
 ## Operator Next Steps
 
-- Plan Phase 17 with /gsd-plan-phase 17
+- Start the next milestone with /gsd-new-milestone
