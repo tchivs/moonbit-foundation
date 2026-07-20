@@ -377,6 +377,28 @@ test "PNG 16-bit grayscale and truecolour IHDRs reserve encoded source rows" {
 }
 
 ///|
+test "PNG IHDR accepts Adam7 while rejecting unsupported interlace methods" {
+  let adam7 : Array[Byte] = [
+    b'\x00', b'\x00', b'\x00', b'\x08',
+    b'\x00', b'\x00', b'\x00', b'\x08',
+    b'\x08', b'\x02', b'\x00', b'\x00', b'\x01',
+  ]
+  let limits = @codec.CodecLimits::new(
+    max_probe_bytes=8UL, max_input_bytes=4096UL, max_output_bytes=4096UL,
+    max_width=64UL, max_height=64UL, max_pixels=4096UL, max_work=8192UL,
+  )
+  let budget = @budget.Budget::new(@budget.ResourceLimits::new(
+    bytes=4096UL, allocations=8UL, allocation_size=4096UL,
+    width=64UL, height=64UL, pixels=4096UL, depth=0UL, work=8192UL,
+  ))
+  inspect(_png_preflight_ihdr(adam7, limits, budget) is Ok(_), content="true")
+  adam7[12] = b'\x02'
+  inspect(
+    _png_preflight_ihdr(adam7, limits, budget).unwrap_err().context() == Some("png-ihdr-method"),
+    content="true",
+  )
+}
+
 test "PNG 16-bit native-alpha IHDRs reserve encoded source rows" {
   let limits = @codec.CodecLimits::new(
     max_probe_bytes=8UL, max_input_bytes=4096UL, max_output_bytes=128UL,
