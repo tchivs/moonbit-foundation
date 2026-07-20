@@ -132,60 +132,6 @@ fn _png_write_packed_grayscale_row(
 }
 
 ///|
-priv struct PngIndexRows {
-  mut current : @bytes.OwnedBytes
-  mut previous : @bytes.OwnedBytes
-}
-
-///|
-fn _png_new_index_rows(
-  width : UInt64,
-  budget : @budget.Budget,
-) -> Result[PngIndexRows, @error.CoreError] {
-  let current = match @bytes.OwnedBytes::new(width, budget) {
-    Err(error) => return Err(error)
-    Ok(value) => value
-  }
-  let previous = match @bytes.OwnedBytes::new(width, budget) {
-    Err(error) => return Err(error)
-    Ok(value) => value
-  }
-  Ok({ current, previous })
-}
-
-///|
-fn PngIndexRows::reconstruct(
-  self : PngIndexRows,
-  column : UInt64,
-  row : UInt64,
-  filter : Int,
-  raw : Int,
-) -> Result[Byte, @error.CoreError] {
-  let left = if column > 0UL {
-    self.current.view().get(column - 1UL).unwrap().to_int()
-  } else { 0 }
-  let above = if row > 0UL {
-    self.previous.view().get(column).unwrap().to_int()
-  } else { 0 }
-  let upper_left = if row > 0UL && column > 0UL {
-    self.previous.view().get(column - 1UL).unwrap().to_int()
-  } else { 0 }
-  let value = if filter == 0 { raw } else if filter == 1 { raw + left } else if filter == 2 { raw + above } else if filter == 3 { raw + ((left + above) / 2) } else { raw + _png_paeth(left, above, upper_left) }
-  let byte = value.to_byte()
-  match self.current.with_mut(column, 1UL, fn(lease) { lease.set(0UL, byte) }) {
-    Err(error) => Err(error)
-    Ok(_) => Ok(byte)
-  }
-}
-
-///|
-fn PngIndexRows::finish_row(self : PngIndexRows) -> Unit {
-  let prior = self.previous
-  self.previous = self.current
-  self.current = prior
-}
-
-///|
 fn _png_write_indexed_pixel(
   view : @storage.MutImageView,
   x : UInt64,
@@ -219,18 +165,20 @@ fn _png_write_indexed_raster(
   view : @storage.MutImageView,
   width : UInt64,
   height : UInt64,
+  bit_depth : Int,
   palette : Bytes,
   palette_entries : UInt64,
   transparency : PngTransparency,
   filtered : Array[Byte],
   budget : @budget.Budget,
 ) -> Result[Unit, @error.CoreError] {
-  let expected = match @checked.checked_mul(width + 1UL, height) {
+  let row_bytes = match _png_grayscale_row_bytes(width, bit_depth) { Err(error) => return Err(error); Ok(value) => value }
+  let expected = match @checked.checked_mul(row_bytes + 1UL, height) {
     Err(error) => return Err(error)
     Ok(value) => value
   }
   if filtered.length().to_uint64() != expected { return Err(_png_error("png-filtered-size")) }
-  let rows = match _png_new_index_rows(width, budget) {
+  let rows = match _png_new_packed_rows(row_bytes, budget) {
     Err(error) => return Err(error)
     Ok(value) => value
   }
@@ -239,18 +187,37 @@ fn _png_write_indexed_raster(
     let filter = filtered[offset.to_int()].to_int()
     if filter > 4 { return Err(_png_error("png-filter")) }
     offset = offset + 1UL
-    for x = 0UL; x < width; x = x + 1UL {
-      let index = match rows.reconstruct(x, y, filter, filtered[offset.to_int()].to_int()) {
-        Err(error) => return Err(error)
-        Ok(value) => value
-      }
-      match _png_write_indexed_pixel(view, x, y, index, palette, palette_entries, transparency) {
+    for column = 0UL; column < row_bytes; column = column + 1UL {
+      match rows.reconstruct(column, y, filter, filtered[offset.to_int()].to_int()) {
         Err(error) => return Err(error)
         Ok(_) => ()
       }
       offset = offset + 1UL
     }
+    match _png_write_packed_indexed_row(view, rows, y, width, bit_depth, palette, palette_entries, transparency) { Err(error) => return Err(error); Ok(_) => () }
     rows.finish_row()
+  }
+  Ok(())
+}
+
+///| Expands exactly the visible MSB-first packed palette samples after filtering.
+fn _png_write_packed_indexed_row(
+  view : @storage.MutImageView,
+  rows : PngPackedRows,
+  y : UInt64,
+  width : UInt64,
+  bit_depth : Int,
+  palette : Bytes,
+  palette_entries : UInt64,
+  transparency : PngTransparency,
+) -> Result[Unit, @error.CoreError] {
+  let mask = if bit_depth == 1 { 1 } else if bit_depth == 2 { 3 } else if bit_depth == 4 { 15 } else { 255 }
+  for x = 0UL; x < width; x = x + 1UL {
+    let start = x * bit_depth.to_uint64()
+    let byte = rows.current.view().get(start / 8UL).unwrap().to_int()
+    let shift = 8 - bit_depth - (start % 8UL).to_int()
+    let index = ((byte >> shift) & mask).to_byte()
+    match _png_write_indexed_pixel(view, x, y, index, palette, palette_entries, transparency) { Err(error) => return Err(error); Ok(_) => () }
   }
   Ok(())
 }
@@ -265,6 +232,9 @@ fn _png_get(view : @storage.MutImageView, x : UInt64, y : UInt64, channel : UInt
 
 ///|
 fn _png_write_raster(view : @storage.MutImageView, transport : PngTransport, filtered : Array[Byte], budget : @budget.Budget) -> Result[Unit, @error.CoreError] {
+  if transport.indexed {
+    return _png_write_indexed_raster(view, transport.width, transport.height, transport.bit_depth, transport.palette, transport.palette_entries, transport.transparency, filtered, budget)
+  }
   if transport.source_channels == 1UL && transport.bit_depth < 8 {
     return _png_write_packed_grayscale_raster(view, transport, filtered, budget)
   }

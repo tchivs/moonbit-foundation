@@ -1,6 +1,6 @@
 ///|
 test "PNG raster inverse filters preserve nonzero left and above samples" {
-  let transport = PngTransport::{ width: 2UL, height: 5UL, bit_depth: 8, source_channels: 3UL, channels: 3UL, transparency: PngTransparency::Opaque, idat: b"", consumed: 0UL }
+  let transport = PngTransport::{ width: 2UL, height: 5UL, bit_depth: 8, source_channels: 3UL, channels: 3UL, indexed: false, palette: b"", palette_entries: 0UL, transparency: PngTransparency::Opaque, idat: b"", consumed: 0UL }
   let descriptor = _png_descriptor(transport).unwrap()
   let image = @storage.OwnedImage::new_operation(
     descriptor,
@@ -30,7 +30,7 @@ test "PNG raster rejects invalid filter tags and exact-size mismatch" {
 
 ///|
 test "PNG grayscale raster filters reconstruct one source lane into RGB8" {
-  let transport = PngTransport::{ width: 2UL, height: 5UL, bit_depth: 8, source_channels: 1UL, channels: 3UL, transparency: PngTransparency::Opaque, idat: b"", consumed: 0UL }
+  let transport = PngTransport::{ width: 2UL, height: 5UL, bit_depth: 8, source_channels: 1UL, channels: 3UL, indexed: false, palette: b"", palette_entries: 0UL, transparency: PngTransparency::Opaque, idat: b"", consumed: 0UL }
   let descriptor = _png_descriptor(transport).unwrap()
   let image = @storage.OwnedImage::new_operation(
     descriptor,
@@ -57,7 +57,7 @@ test "PNG grayscale raster filters reconstruct one source lane into RGB8" {
 
 ///|
 test "PNG indexed raster filters reconstructed index lanes before RGB palette lookup" {
-  let transport = PngTransport::{ width: 2UL, height: 5UL, bit_depth: 8, source_channels: 1UL, channels: 3UL, transparency: PngTransparency::Opaque, idat: b"", consumed: 0UL }
+  let transport = PngTransport::{ width: 2UL, height: 5UL, bit_depth: 8, source_channels: 1UL, channels: 3UL, indexed: false, palette: b"", palette_entries: 0UL, transparency: PngTransparency::Opaque, idat: b"", consumed: 0UL }
   let image = @storage.OwnedImage::new_operation(
     _png_descriptor(transport).unwrap(),
     @budget.Budget::new(@budget.ResourceLimits::new(bytes=64UL, allocations=1UL, allocation_size=64UL, width=8UL, height=8UL, pixels=64UL, depth=0UL, work=64UL)),
@@ -73,7 +73,7 @@ test "PNG indexed raster filters reconstructed index lanes before RGB palette lo
   ]
   image.with_mut_view(fn(view) {
     _png_write_indexed_raster(
-      view, 2UL, 5UL,
+      view, 2UL, 5UL, 8,
       b"\x10\x11\x12\x20\x21\x22\x30\x31\x32\x40\x41\x42",
       4UL, PngTransparency::Opaque, filtered,
       @budget.Budget::new(@budget.ResourceLimits::new(bytes=4UL, allocations=2UL, allocation_size=2UL, width=0UL, height=0UL, pixels=0UL, depth=0UL, work=0UL)),

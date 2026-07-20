@@ -97,7 +97,7 @@ fn _png_inflate_zlib_to_raster(
   maximum : UInt64,
   view : @storage.MutImageView,
   transport : PngStreamTransport,
-  index_rows : Option[PngIndexRows],
+  index_rows : Option[PngPackedRows],
   packed_rows : Option[PngPackedRows],
 ) -> Result[UInt64, @error.CoreError] {
   let cmf = match source.next_byte() { Err(error) => return Err(error); Ok(value) => value.to_int() }
@@ -109,7 +109,7 @@ fn _png_inflate_zlib_to_raster(
   let mut history_size = 0
   let mut history_pos = 0
   let mut adler = 1UL
-  let row_bytes = if transport.source_channels == 1UL && !transport.indexed {
+  let row_bytes = if transport.source_channels == 1UL {
     match _png_grayscale_row_bytes(transport.width, transport.bit_depth) { Err(error) => return Err(error); Ok(value) => value }
   } else { match @checked.checked_mul(transport.width, transport.source_channels) { Err(error) => return Err(error); Ok(value) => value } }
   let expected = match @checked.checked_mul(row_bytes + 1UL, transport.height) { Err(error) => return Err(error); Ok(value) => value }
@@ -131,15 +131,14 @@ fn _png_inflate_zlib_to_raster(
           Some(value) => value
           None => return Err(_png_error("png-index-rows"))
         }
-        let index = match rows.reconstruct(pixel_column, row, filter, byte.to_int()) {
-          Err(error) => return Err(error)
-          Ok(value) => value
-        }
-        match _png_write_indexed_pixel(view, pixel_column, row, index, transport.palette, transport.palette_entries, transport.transparency) {
+        match rows.reconstruct(pixel_column, row, filter, byte.to_int()) {
           Err(error) => return Err(error)
           Ok(_) => ()
         }
-        if pixel_column + 1UL == row_bytes { rows.finish_row() }
+        if pixel_column + 1UL == row_bytes {
+          match _png_write_packed_indexed_row(view, rows, row, transport.width, transport.bit_depth, transport.palette, transport.palette_entries, transport.transparency) { Err(error) => return Err(error); Ok(_) => () }
+          rows.finish_row()
+        }
       } else if transport.source_channels == 1UL {
         let rows = match packed_rows { Some(value) => value; None => return Err(_png_error("png-packed-rows")) }
         match rows.reconstruct(pixel_column, row, filter, byte.to_int()) { Err(error) => return Err(error); Ok(_) => () }

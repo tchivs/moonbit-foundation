@@ -299,7 +299,9 @@ fn _png_preflight_ihdr(
     if bit_depth != 8 { return Err(_png_error("png-bit-depth")) }
     3UL
   } else if ihdr[9] == 3 {
-    if bit_depth != 8 { return Err(_png_error("png-bit-depth")) }
+    if bit_depth != 1 && bit_depth != 2 && bit_depth != 4 && bit_depth != 8 {
+      return Err(_png_error("png-bit-depth"))
+    }
     1UL
   } else if ihdr[9] == 6 {
     if bit_depth != 8 { return Err(_png_error("png-bit-depth")) }
@@ -320,7 +322,7 @@ fn _png_preflight_ihdr(
     Err(error) => return Err(error)
     Ok(value) => value
   }
-  let row_bytes = if ihdr[9] == 0 {
+  let row_bytes = if ihdr[9] == 0 || ihdr[9] == 3 {
     match _png_grayscale_row_bytes(width, bit_depth) { Err(error) => return Err(error); Ok(value) => value }
   } else {
     match @checked.checked_mul(width, source_channels) { Err(error) => return Err(error); Ok(value) => value }
@@ -374,6 +376,7 @@ fn _png_preflight_ihdr(
 fn _png_indexed_decode_budget(
   width : UInt64,
   height : UInt64,
+  bit_depth : Int,
   channels : UInt64,
   limits : @codec.CodecLimits,
   budget : @budget.Budget,
@@ -386,7 +389,11 @@ fn _png_indexed_decode_budget(
     Err(error) => return Err(error)
     Ok(value) => value
   }
-  let index_rows = match @checked.checked_mul(width, 2UL) {
+  let row_bytes = match _png_grayscale_row_bytes(width, bit_depth) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  let index_rows = match @checked.checked_mul(row_bytes, 2UL) {
     Err(error) => return Err(error)
     Ok(value) => value
   }
@@ -394,18 +401,26 @@ fn _png_indexed_decode_budget(
     Err(error) => return Err(error)
     Ok(value) => value
   }
-  budget.child(
-    @budget.ResourceLimits::new(
-      bytes~,
-      allocations=3UL,
-      allocation_size=image_bytes,
-      width~,
-      height~,
-      pixels~,
-      depth=0UL,
-      work=limits.max_work(),
-    ),
-  )
+  let filtered_row = match @checked.checked_add(row_bytes, 1UL) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  let filtered = match @checked.checked_mul(filtered_row, height) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  let work = match @checked.checked_add(image_bytes, filtered) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  for item in [("image-bytes", image_bytes, limits.max_output_bytes()), ("output-bytes", filtered, limits.max_output_bytes()), ("work", work, limits.max_work())] {
+    let (context, requested, limit) = item
+    match _png_limit_value(context, requested, limit) { Err(error) => return Err(error); Ok(_) => () }
+  }
+  budget.child(@budget.ResourceLimits::new(
+    bytes~, allocations=3UL, allocation_size=image_bytes,
+    width~, height~, pixels~, depth=0UL, work=limits.max_work(),
+  ))
 }
 
 ///| The transparent profiles retain the encoded row width while reserving RGBA8.
@@ -618,6 +633,9 @@ priv struct PngTransport {
   bit_depth : Int
   source_channels : UInt64
   channels : UInt64
+  indexed : Bool
+  palette : Bytes
+  palette_entries : UInt64
   transparency : PngTransparency
   idat : Bytes
   consumed : UInt64
@@ -708,7 +726,7 @@ fn _png_read_transport(
           Err(error) => return Err(error)
           Ok(_) => ()
         }
-        return Ok({ width, height, bit_depth: 8, source_channels, channels, transparency: PngTransparency::Opaque, idat: Bytes::from_array(idat), consumed })
+        return Ok({ width, height, bit_depth: 8, source_channels, channels, indexed: false, palette: b"", palette_entries: 0UL, transparency: PngTransparency::Opaque, idat: Bytes::from_array(idat), consumed })
       } else if is_idat {
         if state == PngChunkState::AfterIdat { return Err(_png_error("png-idat-contiguous")) }
         if state != PngChunkState::BeforeIdat && state != PngChunkState::InIdat { return Err(_png_error("png-idat-order")) }
@@ -799,7 +817,7 @@ fn _png_read_stream_transport(
         match _png_indexed_decode_budget(
           (ihdr[0].to_int().to_uint64() << 24) | (ihdr[1].to_int().to_uint64() << 16) | (ihdr[2].to_int().to_uint64() << 8) | ihdr[3].to_int().to_uint64(),
           (ihdr[4].to_int().to_uint64() << 24) | (ihdr[5].to_int().to_uint64() << 16) | (ihdr[6].to_int().to_uint64() << 8) | ihdr[7].to_int().to_uint64(),
-          channels, limits, budget,
+          ihdr[8].to_int(), channels, limits, budget,
         ) { Err(error) => return Err(error); Ok(value) => value }
       } else if ihdr[9] == 0 {
         match _png_grayscale_decode_budget(
@@ -856,6 +874,8 @@ fn _png_read_stream_transport(
       if length < 3UL || length > 768UL || length % 3UL != 0UL {
         return Err(_png_error("png-plte-length"))
       }
+      let maximum_entries = if ihdr[8] == b'\x01' { 2UL } else if ihdr[8] == b'\x02' { 4UL } else if ihdr[8] == b'\x04' { 16UL } else { 256UL }
+      if length / 3UL > maximum_entries { return Err(_png_error("png-plte-length")) }
       let (payload, next) = match _png_read_payload_and_crc(reader, scratch, length, kind, next_type, limits) { Err(error) => return Err(error); Ok(value) => value }
       for byte in payload { palette.push(byte) }
       palette_entries = length / 3UL

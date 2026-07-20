@@ -65,13 +65,14 @@ pub impl @codec.ImageDecoder for PngDecoder with fn decode(
     Err(error) => return Err(error)
     Ok(value) => value
   }
-  let transport = PngTransport::{ width: stream.width, height: stream.height, bit_depth: stream.bit_depth, source_channels: stream.source_channels, channels: stream.channels, transparency: stream.transparency, idat: b"", consumed: 0UL }
+  let transport = PngTransport::{ width: stream.width, height: stream.height, bit_depth: stream.bit_depth, source_channels: stream.source_channels, channels: stream.channels, indexed: stream.indexed, palette: stream.palette, palette_entries: stream.palette_entries, transparency: stream.transparency, idat: b"", consumed: 0UL }
   let descriptor = match _png_descriptor(transport) {
     Err(error) => return Err(error)
     Ok(value) => value
   }
   let index_rows = if stream.indexed {
-    match _png_new_index_rows(stream.width, stream.budget) {
+    let row_bytes = match _png_grayscale_row_bytes(stream.width, stream.bit_depth) { Err(error) => return Err(error); Ok(value) => value }
+    match _png_new_packed_rows(row_bytes, stream.budget) {
       Err(error) => return Err(error)
       Ok(value) => Some(value)
     }
