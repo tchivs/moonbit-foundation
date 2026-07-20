@@ -2,19 +2,19 @@
 gsd_state_version: 1.0
 milestone: v0.6
 milestone_name: PNG Interchange
-current_phase: 21
-current_phase_name: Bounded PNG Decode and DEFLATE
-status: executing
+current_phase: 22
+current_phase_name: Canonical PNG Encode and Portable Evidence
+status: planning
 stopped_at: Completed 20-02-PLAN.md
-last_updated: "2026-07-20T16:53:52.717Z"
+last_updated: "2026-07-20T17:47:19.459Z"
 last_activity: 2026-07-21
-last_activity_desc: Phase 20 complete, transitioned to Phase 21
+last_activity_desc: Phase 21 complete, transitioned to Phase 22
 progress:
   total_phases: 14
-  completed_phases: 0
-  total_plans: 4
-  completed_plans: 2
-  percent: 0
+  completed_phases: 1
+  total_plans: 5
+  completed_plans: 3
+  percent: 7
 ---
 
 # Project State
@@ -29,10 +29,10 @@ See `.planning/PROJECT.md` (updated 2026-07-20).
 
 ## Current Position
 
-Phase: 21 of 22 (Bounded PNG Decode and DEFLATE)
+Phase: 22 of 22 (Canonical PNG Encode and Portable Evidence)
 Plan: Not started
-Status: Ready to execute
-Last activity: 2026-07-21 — Phase 20 complete, transitioned to Phase 21
+Status: Ready to plan
+Last activity: 2026-07-21 — Phase 21 complete, transitioned to Phase 22
 
 Progress: [█████░░░░░] 50%
 

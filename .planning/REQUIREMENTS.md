@@ -13,8 +13,8 @@
 
 ### PNG Decode
 
-- [ ] **PNG-04**: A library user can decode non-interlaced 8-bit truecolour RGB and RGBA PNG images with all five PNG filters into existing portable image contracts.
-- [ ] **PNG-05**: A library user can decode legal zlib streams using stored, fixed-Huffman, or dynamic-Huffman DEFLATE blocks across arbitrary IDAT boundaries while malformed headers, trees, distances, checksums, and expansion attempts fail deterministically.
+- [x] **PNG-04**: A library user can decode non-interlaced 8-bit truecolour RGB and RGBA PNG images with all five PNG filters into existing portable image contracts.
+- [x] **PNG-05**: A library user can decode legal zlib streams using stored, fixed-Huffman, or dynamic-Huffman DEFLATE blocks across arbitrary IDAT boundaries while malformed headers, trees, distances, checksums, and expansion attempts fail deterministically.
 
 ### PNG Encode and Evidence
 
@@ -46,8 +46,8 @@
 | PNG-01 | Phase 20 | Complete |
 | PNG-02 | Phase 20 | Complete |
 | PNG-03 | Phase 20 | Complete |
-| PNG-04 | Phase 21 | Pending |
-| PNG-05 | Phase 21 | Pending |
+| PNG-04 | Phase 21 | Complete |
+| PNG-05 | Phase 21 | Complete |
 | PNG-06 | Phase 22 | Pending |
 | PNG-07 | Phase 22 | Pending |
 
