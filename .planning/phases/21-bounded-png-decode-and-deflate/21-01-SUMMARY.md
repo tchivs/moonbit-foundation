@@ -19,26 +19,28 @@ Implemented the private PNG transport, bounded pure-MoonBit zlib/DEFLATE decoder
 
 ## Completed Work
 
-- Logical IDAT transport retains signature, CRC, order, IEND, EOF, and limit checks.
+- Forward-only logical IDAT transport retains signature, CRC, order, IEND, EOF, and limit checks without staging complete IDAT or filtered output.
 - Private stored/fixed/dynamic DEFLATE validates zlib headers, FDICT, block trees, stored lengths, history distances, trailing bytes, and Adler-32.
 - RGB8/RGBA8 inverse filters write local `OwnedImage` storage before `DecodeResult` construction.
-- Added audited decode corpus metadata and .NET `ZLibStream` independent stored-stream check.
+- Added executable fixed-Huffman RGB and dynamic-Huffman RGBA corpus vectors, including all five filters and adversarial IDAT splits; accepted zlib payloads are independently checked with .NET `ZLibStream`.
 - Updated PNG policy inventories and lane coverage for all private decoder files.
 
 ## Verification
 
 - `pwsh -NoProfile -File scripts/fixtures/Generate-PngDecodeVectors.ps1 -Check`
-- `moon -C modules/mb-image test png --target all --frozen` — 15 tests passed on wasm, wasm-gc, js, and native.
+- `moon -C modules/mb-image test png --target all --frozen` — 12 tests passed on wasm, wasm-gc, js, and native.
 - `pwsh -NoProfile -File scripts/quality/Invoke-MoonQuality.ps1 -Lane Png` — passed.
 
 ## Commits
 
 - `eeeb47b` — bounded PNG DEFLATE transport.
 - `622fd47` — atomic PNG raster decode.
+- `122ff7d` — stream IDAT directly through DEFLATE and raster sink.
+- `5048c29` — enforce Huffman completeness and execute decode vectors.
+- `a496d94` — keep PNG vector CRC arithmetic portable.
 
 ## Deviations from Plan
 
-The decode corpus is a compact declarative audit inventory; public and white-box behavioral proof stays in the package tests rather than generating a second large MoonBit table.
+The corpus remains compact, but its generated MoonBit rows are executed through the public decoder with exact pixel/error assertions; no behavior is certified by labels alone.
 
 ## Self-Check: PASSED
-
