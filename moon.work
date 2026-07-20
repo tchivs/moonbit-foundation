@@ -5,4 +5,5 @@ members = [
   "./examples/ppm-portable",
   "./examples/ppm-native-cli",
   "./examples/qoi-portable",
+  "./examples/png-portable",
 ]
