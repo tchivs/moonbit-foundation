@@ -110,11 +110,27 @@ fn _png_inflate_zlib_to_raster(
   let mut history_pos = 0
   let mut adler = 1UL
   let row_bytes = match _png_source_row_bytes(transport.width, transport.source_channels, transport.bit_depth) { Err(error) => return Err(error); Ok(value) => value }
-  let expected = match @checked.checked_mul(row_bytes + 1UL, transport.height) { Err(error) => return Err(error); Ok(value) => value }
+  let passes = if transport.interlaced {
+    match _png_adam7_passes(transport.width, transport.height, transport.source_channels, transport.bit_depth) { Err(error) => return Err(error); Ok(value) => value }
+  } else { [] }
+  let mut expected = if transport.interlaced { 0UL } else { match @checked.checked_mul(row_bytes + 1UL, transport.height) { Err(error) => return Err(error); Ok(value) => value } }
+  if transport.interlaced {
+    for pass in passes {
+      if pass.width > 0UL && pass.height > 0UL {
+        let size = match @checked.checked_mul(pass.row_bytes + 1UL, pass.height) { Err(error) => return Err(error); Ok(value) => value }
+        expected = match @checked.checked_add(expected, size) { Err(error) => return Err(error); Ok(value) => value }
+      }
+    }
+  }
   let mut emitted = 0UL
   let mut row = 0UL
   let mut column = 0UL
   let mut filter = 0
+  let mut pass_index = 0
+  let mut pass_row = 0UL
+  if transport.interlaced {
+    while pass_index < passes.length() && (passes[pass_index].width == 0UL || passes[pass_index].height == 0UL) { pass_index = pass_index + 1 }
+  }
   let emit = fn(byte : Byte) -> Result[Unit, @error.CoreError] {
     if emitted >= maximum { return Err(_png_limit("output-bytes", emitted + 1UL, maximum)) }
     if emitted >= expected { return Err(_png_error("png-filtered-size")) }
@@ -124,7 +140,16 @@ fn _png_inflate_zlib_to_raster(
       column = 1UL
     } else {
       let pixel_column = column - 1UL
-      if transport.indexed {
+      if transport.interlaced {
+        if pass_index >= passes.length() { return Err(_png_error("png-filtered-size")) }
+        let pass = passes[pass_index]
+        let rows = match packed_rows { Some(value) => value; None => return Err(_png_error("png-packed-rows")) }
+        match rows.reconstruct(pixel_column, pass_row, transport.source_bytes_per_pixel, filter, byte.to_int()) { Err(error) => return Err(error); Ok(_) => () }
+        if pixel_column + 1UL == pass.row_bytes {
+          match _png_write_adam7_row(view, rows, pass, pass_row, transport) { Err(error) => return Err(error); Ok(_) => () }
+          rows.finish_row()
+        }
+      } else if transport.indexed {
         let rows = match index_rows {
           Some(value) => value
           None => return Err(_png_error("png-index-rows"))
@@ -185,7 +210,22 @@ fn _png_inflate_zlib_to_raster(
         }
       }
       column = column + 1UL
-      if column == row_bytes + 1UL { column = 0UL; row = row + 1UL }
+      if transport.interlaced {
+        if pass_index >= passes.length() { return Err(_png_error("png-filtered-size")) }
+        if column == passes[pass_index].row_bytes + 1UL {
+          column = 0UL
+          pass_row = pass_row + 1UL
+          if pass_row == passes[pass_index].height {
+            pass_index = pass_index + 1
+            pass_row = 0UL
+            while pass_index < passes.length() && (passes[pass_index].width == 0UL || passes[pass_index].height == 0UL) { pass_index = pass_index + 1 }
+            if pass_index < passes.length() {
+              let rows = match packed_rows { Some(value) => value; None => return Err(_png_error("png-packed-rows")) }
+              match rows.reset() { Err(error) => return Err(error); Ok(_) => () }
+            }
+          }
+        }
+      } else if column == row_bytes + 1UL { column = 0UL; row = row + 1UL }
     }
     emitted = emitted + 1UL
     history[history_pos] = byte

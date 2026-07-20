@@ -220,6 +220,90 @@ fn PngPackedRows::finish_row(self : PngPackedRows) -> Unit {
   self.current = prior
 }
 
+///| Adam7 predictor state is local to a pass. Reusing both rows bounds memory
+/// while ensuring the first row of every pass has no above neighbour.
+fn PngPackedRows::reset(self : PngPackedRows) -> Result[Unit, @error.CoreError] {
+  let length = self.current.view().length()
+  match self.current.with_mut(0UL, length, fn(lease) {
+    let mut index = 0UL
+    while index < length {
+      match lease.set(index, b'\x00') { Err(error) => return Err(error); Ok(_) => () }
+      index = index + 1UL
+    }
+    Ok(())
+  }) { Err(error) => return Err(error); Ok(_) => () }
+  match self.previous.with_mut(0UL, length, fn(lease) {
+    let mut index = 0UL
+    while index < length {
+      match lease.set(index, b'\x00') { Err(error) => return Err(error); Ok(_) => () }
+      index = index + 1UL
+    }
+    Ok(())
+  }) { Err(error) => Err(error); Ok(_) => Ok(()) }
+}
+
+///| Expands a reconstructed encoded Adam7 row at its pass-local coordinates.
+/// Filtering has already run on packed source bytes; this function only maps
+/// source samples to the established RGB8/RGBA8 public representation.
+fn _png_write_adam7_row(
+  view : @storage.MutImageView,
+  rows : PngPackedRows,
+  pass : PngAdam7Pass,
+  row : UInt64,
+  transport : PngStreamTransport,
+) -> Result[Unit, @error.CoreError] {
+  for column = 0UL; column < pass.width; column = column + 1UL {
+    let x = pass.x + column * pass.dx
+    let y = pass.y + row * pass.dy
+    if transport.indexed {
+      let start = column * transport.bit_depth.to_uint64()
+      let byte = rows.current.view().get(start / 8UL).unwrap().to_int()
+      let mask = if transport.bit_depth == 1 { 1 } else if transport.bit_depth == 2 { 3 } else if transport.bit_depth == 4 { 15 } else { 255 }
+      let index = ((byte >> (8 - transport.bit_depth - (start % 8UL).to_int())) & mask).to_byte()
+      match _png_write_indexed_pixel(view, x, y, index, transport.palette, transport.palette_entries, transport.transparency) { Err(error) => return Err(error); Ok(_) => () }
+    } else if transport.source_channels == 1UL && transport.bit_depth < 8 {
+      let start = column * transport.bit_depth.to_uint64()
+      let byte = rows.current.view().get(start / 8UL).unwrap().to_int()
+      let mask = if transport.bit_depth == 1 { 1 } else if transport.bit_depth == 2 { 3 } else { 15 }
+      let raw = (byte >> (8 - transport.bit_depth - (start % 8UL).to_int())) & mask
+      let value = _png_scale_grayscale_sample(raw, transport.bit_depth).to_byte()
+      for channel = 0UL; channel < 3UL; channel = channel + 1UL { match view.set_byte(x, y, channel, value) { Err(error) => return Err(error); Ok(_) => () } }
+      match transport.transparency { PngTransparency::Grayscale(key) => match view.set_byte(x, y, 3UL, if raw.to_byte() == key { b'\x00' } else { b'\xff' }) { Err(error) => return Err(error); Ok(_) => () }; _ => () }
+    } else {
+      let offset = column * transport.source_bytes_per_pixel
+      if transport.bit_depth == 16 {
+        if transport.source_channels == 1UL {
+          let high = rows.current.view().get(offset).unwrap(); let low = rows.current.view().get(offset + 1UL).unwrap()
+          for channel = 0UL; channel < 3UL; channel = channel + 1UL { match view.set_byte(x, y, channel, high) { Err(error) => return Err(error); Ok(_) => () } }
+          match transport.transparency { PngTransparency::Grayscale16(a, b) => match view.set_byte(x, y, 3UL, if high == a && low == b { b'\x00' } else { b'\xff' }) { Err(error) => return Err(error); Ok(_) => () }; _ => () }
+        } else if transport.source_channels == 2UL {
+          let gray = rows.current.view().get(offset).unwrap(); let alpha = rows.current.view().get(offset + 2UL).unwrap()
+          for channel = 0UL; channel < 3UL; channel = channel + 1UL { match view.set_byte(x, y, channel, gray) { Err(error) => return Err(error); Ok(_) => () } }
+          match view.set_byte(x, y, 3UL, alpha) { Err(error) => return Err(error); Ok(_) => () }
+        } else if transport.source_channels == 3UL {
+          let rh = rows.current.view().get(offset).unwrap(); let rl = rows.current.view().get(offset + 1UL).unwrap(); let gh = rows.current.view().get(offset + 2UL).unwrap(); let gl = rows.current.view().get(offset + 3UL).unwrap(); let bh = rows.current.view().get(offset + 4UL).unwrap(); let bl = rows.current.view().get(offset + 5UL).unwrap()
+          for item in [(0UL, rh), (1UL, gh), (2UL, bh)] { let (channel, value) = item; match view.set_byte(x, y, channel, value) { Err(error) => return Err(error); Ok(_) => () } }
+          match transport.transparency { PngTransparency::Rgb16(a,b,c,d,e,f) => match view.set_byte(x, y, 3UL, if rh == a && rl == b && gh == c && gl == d && bh == e && bl == f { b'\x00' } else { b'\xff' }) { Err(error) => return Err(error); Ok(_) => () }; _ => () }
+        } else {
+          for item in [(0UL, 0UL), (1UL, 2UL), (2UL, 4UL), (3UL, 6UL)] { let (channel, source) = item; match view.set_byte(x, y, channel, rows.current.view().get(offset + source).unwrap()) { Err(error) => return Err(error); Ok(_) => () } }
+        }
+      } else if transport.source_channels == 1UL {
+        let gray = rows.current.view().get(offset).unwrap()
+        for channel = 0UL; channel < 3UL; channel = channel + 1UL { match view.set_byte(x, y, channel, gray) { Err(error) => return Err(error); Ok(_) => () } }
+        match transport.transparency { PngTransparency::Grayscale(key) => match view.set_byte(x, y, 3UL, if gray == key { b'\x00' } else { b'\xff' }) { Err(error) => return Err(error); Ok(_) => () }; _ => () }
+      } else if transport.source_channels == 2UL {
+        let gray = rows.current.view().get(offset).unwrap(); let alpha = rows.current.view().get(offset + 1UL).unwrap()
+        for channel = 0UL; channel < 3UL; channel = channel + 1UL { match view.set_byte(x, y, channel, gray) { Err(error) => return Err(error); Ok(_) => () } }
+        match view.set_byte(x, y, 3UL, alpha) { Err(error) => return Err(error); Ok(_) => () }
+      } else {
+        for channel = 0UL; channel < transport.source_channels; channel = channel + 1UL { match view.set_byte(x, y, channel, rows.current.view().get(offset + channel).unwrap()) { Err(error) => return Err(error); Ok(_) => () } }
+        if transport.source_channels == 3UL { match transport.transparency { PngTransparency::Rgb(red, green, blue) => match view.set_byte(x, y, 3UL, if rows.current.view().get(offset).unwrap() == red && rows.current.view().get(offset + 1UL).unwrap() == green && rows.current.view().get(offset + 2UL).unwrap() == blue { b'\x00' } else { b'\xff' }) { Err(error) => return Err(error); Ok(_) => () }; _ => () } }
+      }
+    }
+  }
+  Ok(())
+}
+
 ///|
 fn _png_write_packed_grayscale_row(
   view : @storage.MutImageView,

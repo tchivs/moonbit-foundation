@@ -1,7 +1,6 @@
 ///|
-/// A portable eager PNG decoder for the strict non-interlaced RGB8/RGBA8
-/// interchange profile. Opaque 8-bit grayscale scanlines are expanded to RGB8.
-/// Compression and scanline state remain private.
+/// A portable eager PNG decoder for strict non-interlaced and Adam7 RGB8/RGBA8
+/// interchange. Encoded scanlines, compression, and pass state remain private.
 pub struct PngDecoder {}
 
 ///|
@@ -77,8 +76,13 @@ pub impl @codec.ImageDecoder for PngDecoder with fn decode(
       Ok(value) => Some(value)
     }
   } else { None }
-  let packed_rows = if (stream.source_channels == 1UL || stream.source_channels == 2UL || stream.bit_depth == 16) && !stream.indexed {
-    let row_bytes = match _png_source_row_bytes(stream.width, stream.source_channels, stream.bit_depth) { Err(error) => return Err(error); Ok(value) => value }
+  let packed_rows = if ((stream.source_channels == 1UL || stream.source_channels == 2UL || stream.bit_depth == 16) && !stream.indexed) || stream.interlaced {
+    let row_bytes = if stream.interlaced {
+      let passes = match _png_adam7_passes(stream.width, stream.height, stream.source_channels, stream.bit_depth) { Err(error) => return Err(error); Ok(value) => value }
+      let mut maximum = 0UL
+      for pass in passes { if pass.row_bytes > maximum { maximum = pass.row_bytes } }
+      maximum
+    } else { match _png_source_row_bytes(stream.width, stream.source_channels, stream.bit_depth) { Err(error) => return Err(error); Ok(value) => value } }
     match _png_new_packed_rows(row_bytes, stream.budget) { Err(error) => return Err(error); Ok(value) => Some(value) }
   } else { None }
   let image = match @storage.OwnedImage::new_operation(
