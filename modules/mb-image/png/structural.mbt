@@ -592,3 +592,137 @@ fn _png_read_transport(
     }
   } nobreak { Err(_png_error("png-finished")) }
 }
+
+///|
+/// The active decoder uses this forward-only IDAT reader.  It never owns an
+/// IDAT payload: bytes are CRC-authenticated as they are handed to DEFLATE.
+priv struct PngIdatSource {
+  reader : &@io.Reader
+  scratch : @bytes.OwnedBytes
+  limits : @codec.CodecLimits
+  options : @codec.DecodeOptions
+  mut consumed : UInt64
+  mut remaining : UInt64
+  mut crc : UInt64
+  mut crc_pending : Bool
+}
+
+///|
+priv struct PngStreamTransport {
+  width : UInt64
+  height : UInt64
+  channels : UInt64
+  source : PngIdatSource
+}
+
+///|
+fn _png_read_stream_transport(
+  reader : &@io.Reader,
+  options : @codec.DecodeOptions,
+  limits : @codec.CodecLimits,
+  budget : @budget.Budget,
+) -> Result[PngStreamTransport, @error.CoreError] {
+  let scratch = match @bytes.OwnedBytes::new(1UL, _png_private_budget(1UL)) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  let signature = [b'\x89', b'P', b'N', b'G', b'\r', b'\n', b'\x1a', b'\n']
+  let mut consumed = 0UL
+  for expected in signature {
+    let (actual, next) = match _png_read_one(reader, scratch, consumed, limits) {
+      Err(error) => return Err(error)
+      Ok(value) => value
+    }
+    if actual != expected { return Err(_png_error("png-signature")) }
+    consumed = next
+  }
+  let (ihdr_length, after_length) = match _png_read_u32(reader, scratch, consumed, limits) { Err(error) => return Err(error); Ok(value) => value }
+  let (ihdr_kind, after_type) = match _png_read_type(reader, scratch, after_length, limits) { Err(error) => return Err(error); Ok(value) => value }
+  if !_png_type_is(ihdr_kind, b'I', b'H', b'D', b'R') { return Err(_png_error("png-ihdr-first")) }
+  if ihdr_length != 13UL { return Err(_png_error("png-ihdr-length")) }
+  let (ihdr, after_ihdr) = match _png_read_payload_and_crc(reader, scratch, ihdr_length, ihdr_kind, after_type, limits) { Err(error) => return Err(error); Ok(value) => value }
+  match _png_preflight_ihdr(ihdr, limits, budget) { Err(error) => return Err(error); Ok(_) => () }
+  consumed = after_ihdr
+  // This profile rejects semantic chunks; opaque ancillary chunks may occur
+  // before IDAT and are consumed one byte at a time without being retained.
+  while true {
+    let (length, next_length) = match _png_read_u32(reader, scratch, consumed, limits) { Err(error) => return Err(error); Ok(value) => value }
+    if length > 2147483647UL { return Err(_png_error("png-chunk-length")) }
+    let (kind, next_type) = match _png_read_type(reader, scratch, next_length, limits) { Err(error) => return Err(error); Ok(value) => value }
+    match _png_validate_type_form(kind) { Err(error) => return Err(error); Ok(_) => () }
+    if _png_type_is(kind, b'I', b'D', b'A', b'T') {
+      return Ok({
+        width: (ihdr[0].to_int().to_uint64() << 24) | (ihdr[1].to_int().to_uint64() << 16) | (ihdr[2].to_int().to_uint64() << 8) | ihdr[3].to_int().to_uint64(),
+        height: (ihdr[4].to_int().to_uint64() << 24) | (ihdr[5].to_int().to_uint64() << 16) | (ihdr[6].to_int().to_uint64() << 8) | ihdr[7].to_int().to_uint64(),
+        channels: if ihdr[9] == 2 { 3UL } else { 4UL },
+        source: { reader, scratch, limits, options, consumed: next_type, remaining: length, crc: _png_crc_for_type(kind), crc_pending: true },
+      })
+    }
+    if _png_type_is(kind, b'I', b'E', b'N', b'D') { return Err(_png_error("png-iend-order")) }
+    if _png_is_known_semantic(kind) { return Err(_png_error("png-semantic-chunk")) }
+    if _png_is_critical(kind) { return Err(_png_error("png-unknown-critical")) }
+    if options.preserve_opaque_metadata() { return Err(@codec.capability_unavailable("png-decode", "opaque-metadata-preservation")) }
+    let (_, next) = match _png_read_payload_and_crc(reader, scratch, length, kind, next_type, limits) { Err(error) => return Err(error); Ok(value) => value }
+    consumed = next
+  } nobreak { Err(_png_error("png-idat-order")) }
+}
+
+///|
+fn PngIdatSource::next_byte(self : PngIdatSource) -> Result[Byte, @error.CoreError] {
+  if self.remaining == 0UL && self.crc_pending {
+    let (stored, after_crc) = match _png_read_u32(self.reader, self.scratch, self.consumed, self.limits) { Err(error) => return Err(error); Ok(value) => value }
+    if (self.crc ^ 4294967295UL) != stored { return Err(_png_error("png-crc")) }
+    self.consumed = after_crc
+    self.crc_pending = false
+  }
+  while self.remaining == 0UL {
+    let (length, after_length) = match _png_read_u32(self.reader, self.scratch, self.consumed, self.limits) { Err(error) => return Err(error); Ok(value) => value }
+    if length > 2147483647UL { return Err(_png_error("png-chunk-length")) }
+    let (kind, after_type) = match _png_read_type(self.reader, self.scratch, after_length, self.limits) { Err(error) => return Err(error); Ok(value) => value }
+    match _png_validate_type_form(kind) { Err(error) => return Err(error); Ok(_) => () }
+    if !_png_type_is(kind, b'I', b'D', b'A', b'T') { return Err(_png_error("zlib-truncated")) }
+    self.consumed = after_type
+    self.remaining = length
+    self.crc = _png_crc_for_type(kind)
+    self.crc_pending = true
+    if self.remaining == 0UL {
+      let (stored, after_crc) = match _png_read_u32(self.reader, self.scratch, self.consumed, self.limits) { Err(error) => return Err(error); Ok(value) => value }
+      if (self.crc ^ 4294967295UL) != stored { return Err(_png_error("png-crc")) }
+      self.consumed = after_crc
+      self.crc_pending = false
+    }
+  }
+  let (byte, next) = match _png_read_one(self.reader, self.scratch, self.consumed, self.limits) { Err(error) => return Err(error); Ok(value) => value }
+  self.consumed = next
+  self.remaining = self.remaining - 1UL
+  self.crc = _png_crc_step(self.crc, byte)
+  Ok(byte)
+}
+
+///|
+fn PngIdatSource::finish(self : PngIdatSource) -> Result[UInt64, @error.CoreError] {
+  if self.remaining != 0UL { return Err(_png_error("zlib-trailing")) }
+  if self.crc_pending {
+    let (stored, after_crc) = match _png_read_u32(self.reader, self.scratch, self.consumed, self.limits) { Err(error) => return Err(error); Ok(value) => value }
+    if (self.crc ^ 4294967295UL) != stored { return Err(_png_error("png-crc")) }
+    self.consumed = after_crc
+    self.crc_pending = false
+  }
+  while true {
+    let (length, after_length) = match _png_read_u32(self.reader, self.scratch, self.consumed, self.limits) { Err(error) => return Err(error); Ok(value) => value }
+    if length > 2147483647UL { return Err(_png_error("png-chunk-length")) }
+    let (kind, after_type) = match _png_read_type(self.reader, self.scratch, after_length, self.limits) { Err(error) => return Err(error); Ok(value) => value }
+    match _png_validate_type_form(kind) { Err(error) => return Err(error); Ok(_) => () }
+    if _png_type_is(kind, b'I', b'D', b'A', b'T') { return Err(_png_error("png-idat-contiguous")) }
+    if _png_type_is(kind, b'I', b'E', b'N', b'D') {
+      if length != 0UL { return Err(_png_error("png-iend-length")) }
+      let (_, next) = match _png_read_payload_and_crc(self.reader, self.scratch, length, kind, after_type, self.limits) { Err(error) => return Err(error); Ok(value) => value }
+      match _png_require_eof(self.reader, self.scratch, next, self.limits) { Err(error) => return Err(error); Ok(_) => return Ok(next) }
+    }
+    if _png_is_known_semantic(kind) { return Err(_png_error("png-semantic-chunk")) }
+    if _png_is_critical(kind) { return Err(_png_error("png-unknown-critical")) }
+    if self.options.preserve_opaque_metadata() { return Err(@codec.capability_unavailable("png-decode", "opaque-metadata-preservation")) }
+    let (_, next) = match _png_read_payload_and_crc(self.reader, self.scratch, length, kind, after_type, self.limits) { Err(error) => return Err(error); Ok(value) => value }
+    self.consumed = next
+  } nobreak { Err(_png_error("png-finished")) }
+}

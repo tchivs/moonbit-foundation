@@ -49,7 +49,7 @@ fn _png_dynamic_trees(bits : PngDeflateBits) -> Result[(PngHuffman, PngHuffman),
       Ok(value) => value
     }
   }
-  let code_tree = match _png_huffman_new(code_lengths, false) {
+  let code_tree = match _png_huffman_new(code_lengths, false, false) {
     Err(error) => return Err(error)
     Ok(value) => value
   }
@@ -86,27 +86,54 @@ fn _png_dynamic_trees(bits : PngDeflateBits) -> Result[(PngHuffman, PngHuffman),
   let distances : Array[Int] = []
   for index = 0; index < hlit; index = index + 1 { literals.push(all[index]) }
   for index = 0; index < hdist; index = index + 1 { distances.push(all[hlit + index]) }
-  let literal_tree = match _png_huffman_new(literals, true) { Err(error) => return Err(error); Ok(value) => value }
-  let distance_tree = match _png_huffman_new(distances, false) { Err(error) => return Err(error); Ok(value) => value }
+  let literal_tree = match _png_huffman_new(literals, true, false) { Err(error) => return Err(error); Ok(value) => value }
+  let distance_tree = match _png_huffman_new(distances, false, true) { Err(error) => return Err(error); Ok(value) => value }
   Ok((literal_tree, distance_tree))
 }
 
 ///|
-fn _png_inflate_zlib(input : Bytes, maximum : UInt64) -> Result[Array[Byte], @error.CoreError] {
-  if input.length() < 6 { return Err(_png_error("zlib-truncated")) }
-  let cmf = input[0].to_int()
-  let flg = input[1].to_int()
+fn _png_inflate_zlib_to_raster(
+  source : PngIdatSource,
+  maximum : UInt64,
+  view : @storage.MutImageView,
+  transport : PngStreamTransport,
+) -> Result[UInt64, @error.CoreError] {
+  let cmf = match source.next_byte() { Err(error) => return Err(error); Ok(value) => value.to_int() }
+  let flg = match source.next_byte() { Err(error) => return Err(error); Ok(value) => value.to_int() }
   if (cmf & 15) != 8 || (cmf >> 4) > 7 || ((cmf << 8) + flg) % 31 != 0 { return Err(_png_error("zlib-header")) }
   if (flg & 32) != 0 { return Err(_png_error("zlib-fdict")) }
-  let bits = _png_deflate_bits_new(input, 2)
-  let output : Array[Byte] = []
+  let bits = _png_deflate_bits_new(source)
   let history = Array::make(32768, b'\x00')
   let mut history_size = 0
   let mut history_pos = 0
   let mut adler = 1UL
+  let row_bytes = match @checked.checked_mul(transport.width, transport.channels) { Err(error) => return Err(error); Ok(value) => value }
+  let expected = match @checked.checked_mul(row_bytes + 1UL, transport.height) { Err(error) => return Err(error); Ok(value) => value }
+  let mut emitted = 0UL
+  let mut row = 0UL
+  let mut column = 0UL
+  let mut filter = 0
   let emit = fn(byte : Byte) -> Result[Unit, @error.CoreError] {
-    if output.length().to_uint64() >= maximum { return Err(_png_limit("output-bytes", output.length().to_uint64() + 1UL, maximum)) }
-    output.push(byte)
+    if emitted >= maximum { return Err(_png_limit("output-bytes", emitted + 1UL, maximum)) }
+    if emitted >= expected { return Err(_png_error("png-filtered-size")) }
+    if column == 0UL {
+      filter = byte.to_int()
+      if filter > 4 { return Err(_png_error("png-filter")) }
+      column = 1UL
+    } else {
+      let pixel_column = column - 1UL
+      let x = pixel_column / transport.channels
+      let channel = pixel_column % transport.channels
+      let left = if pixel_column >= transport.channels { match view.get_byte(x - 1UL, row, channel) { Err(error) => return Err(error); Ok(value) => value.to_int() } } else { 0 }
+      let above = if row > 0UL { match view.get_byte(x, row - 1UL, channel) { Err(error) => return Err(error); Ok(value) => value.to_int() } } else { 0 }
+      let upper_left = if row > 0UL && pixel_column >= transport.channels { match view.get_byte(x - 1UL, row - 1UL, channel) { Err(error) => return Err(error); Ok(value) => value.to_int() } } else { 0 }
+      let raw = byte.to_int()
+      let value = if filter == 0 { raw } else if filter == 1 { raw + left } else if filter == 2 { raw + above } else if filter == 3 { raw + ((left + above) / 2) } else { raw + _png_paeth(left, above, upper_left) }
+      match view.set_byte(x, row, channel, value.to_byte()) { Err(error) => return Err(error); Ok(_) => () }
+      column = column + 1UL
+      if column == row_bytes + 1UL { column = 0UL; row = row + 1UL }
+    }
+    emitted = emitted + 1UL
     history[history_pos] = byte
     history_pos = (history_pos + 1) % 32768
     if history_size < 32768 { history_size = history_size + 1 }
@@ -150,8 +177,12 @@ fn _png_inflate_zlib(input : Bytes, maximum : UInt64) -> Result[Array[Byte], @er
     }
   }
   bits.align()
-  if bits.offset + 4 != input.length() { return Err(_png_error("zlib-trailing")) }
-  let expected = (input[bits.offset].to_int().to_uint64() << 24) | (input[bits.offset + 1].to_int().to_uint64() << 16) | (input[bits.offset + 2].to_int().to_uint64() << 8) | input[bits.offset + 3].to_int().to_uint64()
-  if expected != adler { return Err(_png_error("zlib-adler")) }
-  Ok(output)
+  let a = match bits.source.next_byte() { Err(error) => return Err(error); Ok(value) => value.to_int().to_uint64() }
+  let b = match bits.source.next_byte() { Err(error) => return Err(error); Ok(value) => value.to_int().to_uint64() }
+  let c = match bits.source.next_byte() { Err(error) => return Err(error); Ok(value) => value.to_int().to_uint64() }
+  let d = match bits.source.next_byte() { Err(error) => return Err(error); Ok(value) => value.to_int().to_uint64() }
+  let expected_adler = (a << 24) | (b << 16) | (c << 8) | d
+  if expected_adler != adler { return Err(_png_error("zlib-adler")) }
+  if emitted != expected || column != 0UL || row != transport.height { return Err(_png_error("png-filtered-size")) }
+  bits.source.finish()
 }

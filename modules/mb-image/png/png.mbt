@@ -50,14 +50,11 @@ pub impl @codec.ImageDecoder for PngDecoder with fn decode(
   budget,
   _diagnostics,
 ) {
-  let transport = match _png_read_transport(reader, options, limits, budget) {
+  let stream = match _png_read_stream_transport(reader, options, limits, budget) {
     Err(error) => return Err(error)
     Ok(value) => value
   }
-  let filtered = match _png_inflate_zlib(transport.idat, limits.max_output_bytes()) {
-    Err(error) => return Err(error)
-    Ok(value) => value
-  }
+  let transport = PngTransport::{ width: stream.width, height: stream.height, channels: stream.channels, idat: b"", consumed: 0UL }
   let descriptor = match _png_descriptor(transport) {
     Err(error) => return Err(error)
     Ok(value) => value
@@ -69,13 +66,13 @@ pub impl @codec.ImageDecoder for PngDecoder with fn decode(
     Err(error) => return Err(error)
     Ok(value) => value
   }
-  match image.with_mut_view(fn(view) { _png_write_raster(view, transport, filtered) }) {
+  let consumed = match image.with_mut_view(fn(view) { _png_inflate_zlib_to_raster(stream.source, limits.max_output_bytes(), view, stream) }) {
     Err(error) => return Err(error)
-    Ok(_) => ()
+    Ok(value) => value
   }
   let disposition = match _png_empty_disposition() {
     Err(error) => return Err(error)
     Ok(value) => value
   }
-  Ok(@codec.DecodeResult::new(image, disposition, transport.consumed))
+  Ok(@codec.DecodeResult::new(image, disposition, consumed))
 }
