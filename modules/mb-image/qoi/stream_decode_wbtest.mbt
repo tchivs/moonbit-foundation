@@ -52,7 +52,9 @@ fn qoi_stream_wb_view(value : Bytes) -> @bytes.ByteView {
         work=0UL,
       ),
     ),
-  ).unwrap().view()
+  )
+  .unwrap()
+  .view()
 }
 
 ///|
@@ -104,23 +106,60 @@ fn qoi_stream_vector_decode(
   let mut turn = 0
   while cursor < source.length() {
     let requested = schedule[turn % schedule.length()].to_int()
-    let end = if cursor + requested < source.length() { cursor + requested } else { source.length() }
-    let pushed = qoi_stream_wb_push(decoder, qoi_stream_wb_chunk(source, cursor, end))
+    let end = if cursor + requested < source.length() {
+      cursor + requested
+    } else {
+      source.length()
+    }
+    let pushed = qoi_stream_wb_push(
+      decoder,
+      qoi_stream_wb_chunk(source, cursor, end),
+    )
     if pushed.consumed() != (end - cursor).to_uint64() ||
       !(pushed.outcome() is QoiStreamPushOutcome::NeedInput) {
-      return Err(qoi_error(@error.ErrorCategory::State, @error.ErrorCode::InvalidRange, "qoi-stream-vector-push"))
+      return Err(
+        qoi_error(
+          @error.ErrorCategory::State,
+          @error.ErrorCode::InvalidRange,
+          "qoi-stream-vector-push",
+        ),
+      )
     }
     cursor = end
     turn = turn + 1
   }
-  decoder.finish()
+  let decoded = match decoder.finish() {
+    Ok(value) => value
+    Err(error) => return Err(error)
+  }
+  if decoded.bytes_read() != source.length().to_uint64() {
+    return Err(
+      qoi_error(
+        @error.ErrorCategory::State,
+        @error.ErrorCode::InvalidRange,
+        "qoi-stream-vector-total",
+      ),
+    )
+  }
+  let terminal = qoi_stream_wb_push(decoder, b"\x00")
+  if terminal.consumed() != 0UL ||
+    !(terminal.outcome() is QoiStreamPushOutcome::Failed(_)) {
+    return Err(
+      qoi_error(
+        @error.ErrorCategory::State,
+        @error.ErrorCode::InvalidRange,
+        "qoi-stream-vector-terminal",
+      ),
+    )
+  }
+  Ok(decoded)
 }
 
 ///|
-test "generated QOI vectors survive every hostile chunk schedule" {
+test "generated QOI vectors prove hostile input progress and terminal behavior" {
   for item in _generated_qoi_cases() {
     let (id, source, expected, width, height, channels, _) = item
-    for schedule_item in _generated_qoi_chunk_schedules() {
+    for schedule_item in _generated_qoi_input_schedules() {
       let (schedule_id, schedule) = schedule_item
       let decoded = match qoi_stream_vector_decode(source, schedule) {
         Ok(value) => value
@@ -128,20 +167,23 @@ test "generated QOI vectors survive every hostile chunk schedule" {
       }
       inspect(decoded.descriptor().width() == width, content="true")
       inspect(decoded.descriptor().height() == height, content="true")
-      inspect(decoded.bytes_read() == source.length().to_uint64(), content="true")
+      inspect(
+        decoded.bytes_read() == source.length().to_uint64(),
+        content="true",
+      )
       let view = decoded.image().view()
-      for offset = 0UL; offset < expected.length().to_uint64(); offset = offset + 1UL {
+      for offset = 0UL
+          offset < expected.length().to_uint64()
+          offset = offset + 1UL {
         let pixel = offset / channels
-        if view.get_byte(pixel % width, pixel / width, offset % channels).unwrap() != expected[offset.to_int()] {
+        if view
+          .get_byte(pixel % width, pixel / width, offset % channels)
+          .unwrap() !=
+          expected[offset.to_int()] {
           fail(id + "-" + schedule_id)
         }
       }
     }
-    let one_byte = match qoi_stream_vector_decode(source, [1UL]) {
-      Ok(value) => value
-      Err(_) => fail(id + "-one-byte")
-    }
-    inspect(one_byte.bytes_read() == source.length().to_uint64(), content="true")
   }
 }
 
@@ -188,9 +230,14 @@ test "QOI stream header preflight charges once and rejects before allocation" {
 test "QOI stream parser keeps bounded copied state across pending and marker phases" {
   let decoder = qoi_stream_wb_decoder()
   inspect(decoder.state is QoiStreamState::Header(_), content="true")
-  ignore(qoi_stream_wb_push(decoder, b"qoif\x00\x00\x00\x01\x00\x00\x00\x01\x03\x00\xfe\x01"))
+  ignore(
+    qoi_stream_wb_push(
+      decoder, b"qoif\x00\x00\x00\x01\x00\x00\x00\x01\x03\x00\xfe\x01",
+    ),
+  )
   match decoder.state {
-    QoiStreamState::Pixels(pixels) => inspect(pixels.pending is QoiStreamPending::Rgb(_), content="true")
+    QoiStreamState::Pixels(pixels) =>
+      inspect(pixels.pending is QoiStreamPending::Rgb(_), content="true")
     _ => fail("expected pending RGB")
   }
   ignore(qoi_stream_wb_push(decoder, b"\x02\x03\x00\x00\x00"))

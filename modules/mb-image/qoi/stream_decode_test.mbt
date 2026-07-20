@@ -44,8 +44,7 @@ test "QOI stream pushes report caller-chunk progress until explicit finish" {
 test "QOI stream finish is strict and terminal results are sticky" {
   let truncated = qoi_stream_decoder()
   let pushed = qoi_stream_push(
-    truncated,
-    b"qoif\x00\x00\x00\x01\x00\x00\x00\x01\x03\x00\xfe\x01",
+    truncated, b"qoif\x00\x00\x00\x01\x00\x00\x00\x01\x03\x00\xfe\x01",
   )
   inspect(pushed.outcome() is QoiStreamPushOutcome::NeedInput, content="true")
   let incomplete = truncated.finish().unwrap_err()
@@ -59,10 +58,11 @@ test "QOI stream finish is strict and terminal results are sticky" {
   inspect(truncated.finish() is Err(_), content="true")
 
   let complete = qoi_stream_decoder()
-  ignore(qoi_stream_push(
-    complete,
-    b"qoif\x00\x00\x00\x01\x00\x00\x00\x01\x04\x00\xc0\x00\x00\x00\x00\x00\x00\x00\x01",
-  ))
+  ignore(
+    qoi_stream_push(
+      complete, b"qoif\x00\x00\x00\x01\x00\x00\x00\x01\x04\x00\xc0\x00\x00\x00\x00\x00\x00\x00\x01",
+    ),
+  )
   ignore(complete.finish().unwrap())
   let after_complete = qoi_stream_push(complete, b"\x00")
   inspect(after_complete.consumed(), content="0")
@@ -76,8 +76,7 @@ test "QOI stream finish is strict and terminal results are sticky" {
 test "QOI stream finish rejects incomplete, malformed, and trailing markers" {
   let incomplete_marker = qoi_stream_decoder()
   let incomplete_push = qoi_stream_push(
-    incomplete_marker,
-    b"qoif\x00\x00\x00\x01\x00\x00\x00\x01\x04\x00\xc0\x00\x00\x00",
+    incomplete_marker, b"qoif\x00\x00\x00\x01\x00\x00\x00\x01\x04\x00\xc0\x00\x00\x00",
   )
   inspect(incomplete_push.consumed(), content="18")
   inspect(
@@ -89,23 +88,18 @@ test "QOI stream finish rejects incomplete, malformed, and trailing markers" {
     incomplete_error.code() == @error.ErrorCode::UnexpectedEndOfStream,
     content="true",
   )
-  inspect(
-    incomplete_error.context() == Some("qoi-end-marker"),
-    content="true",
-  )
+  inspect(incomplete_error.context() == Some("qoi-end-marker"), content="true")
   let incomplete_later = qoi_stream_push(incomplete_marker, b"\x00")
   inspect(incomplete_later.consumed(), content="0")
   match incomplete_later.outcome() {
-    QoiStreamPushOutcome::Failed(error) => {
+    QoiStreamPushOutcome::Failed(error) =>
       inspect(error.context() == Some("qoi-stream-terminal"), content="true")
-    }
     NeedInput => fail("incomplete marker must be terminal")
   }
 
   let malformed_marker = qoi_stream_decoder()
   let malformed_push = qoi_stream_push(
-    malformed_marker,
-    b"qoif\x00\x00\x00\x01\x00\x00\x00\x01\x04\x00\xc0\x00\x00\x00\x00\x00\x00\x00\x02",
+    malformed_marker, b"qoif\x00\x00\x00\x01\x00\x00\x00\x01\x04\x00\xc0\x00\x00\x00\x00\x00\x00\x00\x02",
   )
   inspect(malformed_push.consumed(), content="23")
   inspect(
@@ -117,16 +111,12 @@ test "QOI stream finish rejects incomplete, malformed, and trailing markers" {
     malformed_error.code() == @error.ErrorCode::InvalidEncoding,
     content="true",
   )
-  inspect(
-    malformed_error.context() == Some("qoi-end-marker"),
-    content="true",
-  )
+  inspect(malformed_error.context() == Some("qoi-end-marker"), content="true")
   inspect(qoi_stream_push(malformed_marker, b"\x00").consumed(), content="0")
 
   let trailing = qoi_stream_decoder()
   let trailing_push = qoi_stream_push(
-    trailing,
-    b"qoif\x00\x00\x00\x01\x00\x00\x00\x01\x04\x00\xc0\x00\x00\x00\x00\x00\x00\x00\x01X",
+    trailing, b"qoif\x00\x00\x00\x01\x00\x00\x00\x01\x04\x00\xc0\x00\x00\x00\x00\x00\x00\x00\x01X",
   )
   inspect(trailing_push.consumed(), content="24")
   inspect(
@@ -138,10 +128,7 @@ test "QOI stream finish rejects incomplete, malformed, and trailing markers" {
     trailing_error.code() == @error.ErrorCode::InvalidEncoding,
     content="true",
   )
-  inspect(
-    trailing_error.context() == Some("qoi-trailing-data"),
-    content="true",
-  )
+  inspect(trailing_error.context() == Some("qoi-trailing-data"), content="true")
   inspect(trailing_error.requested() == Some(1UL), content="true")
   inspect(trailing_error.completed() == Some(0UL), content="true")
   inspect(qoi_stream_push(trailing, b"\x00").consumed(), content="0")
@@ -149,24 +136,43 @@ test "QOI stream finish rejects incomplete, malformed, and trailing markers" {
 
 ///|
 test "QOI stream matches eager decode for RGB and RGBA vectors" {
-  for source in [
-    b"qoif\x00\x00\x00\x01\x00\x00\x00\x01\x03\x00\xfe\x01\x02\x03\x00\x00\x00\x00\x00\x00\x00\x01",
-    b"qoif\x00\x00\x00\x01\x00\x00\x00\x01\x04\x01\xff\x04\x05\x06\x07\x00\x00\x00\x00\x00\x00\x00\x01",
-  ] {
+  for
+    source in [
+      b"qoif\x00\x00\x00\x01\x00\x00\x00\x01\x03\x00\xfe\x01\x02\x03\x00\x00\x00\x00\x00\x00\x00\x01",
+      b"qoif\x00\x00\x00\x01\x00\x00\x00\x01\x04\x01\xff\x04\x05\x06\x07\x00\x00\x00\x00\x00\x00\x00\x01",
+    ] {
     let stream = qoi_stream_decoder()
     let first = qoi_stream_push(stream, qoi_stream_chunk(source, 0, 14))
     inspect(first.consumed(), content="14")
     inspect(first.outcome() is QoiStreamPushOutcome::NeedInput, content="true")
-    let rest = qoi_stream_push(stream, qoi_stream_chunk(source, 14, source.length()))
-    inspect(rest.consumed() == (source.length() - 14).to_uint64(), content="true")
+    let rest = qoi_stream_push(
+      stream,
+      qoi_stream_chunk(source, 14, source.length()),
+    )
+    inspect(
+      rest.consumed() == (source.length() - 14).to_uint64(),
+      content="true",
+    )
     inspect(rest.outcome() is QoiStreamPushOutcome::NeedInput, content="true")
     let decoded = stream.finish().unwrap()
     let eager = decode_qoi(source).unwrap()
-    inspect(decoded.descriptor().width() == eager.descriptor().width(), content="true")
-    inspect(decoded.descriptor().height() == eager.descriptor().height(), content="true")
-    inspect(decoded.descriptor().metadata().transfer() == eager.descriptor().metadata().transfer(), content="true")
+    inspect(
+      decoded.descriptor().width() == eager.descriptor().width(),
+      content="true",
+    )
+    inspect(
+      decoded.descriptor().height() == eager.descriptor().height(),
+      content="true",
+    )
+    inspect(
+      decoded.descriptor().metadata().transfer() ==
+      eager.descriptor().metadata().transfer(),
+      content="true",
+    )
     inspect(decoded.bytes_read() == eager.bytes_read(), content="true")
-    for channel = 0UL; channel < decoded.descriptor().format().channel_count(); channel = channel + 1UL {
+    for channel = 0UL
+        channel < decoded.descriptor().format().channel_count()
+        channel = channel + 1UL {
       inspect(
         decoded.image().view().get_byte(0UL, 0UL, channel).unwrap() ==
         eager.image().view().get_byte(0UL, 0UL, channel).unwrap(),
@@ -197,21 +203,26 @@ test "QOI stream copies pending token bytes and reports terminal push consumptio
   let decoder = qoi_stream_decoder()
   let first = decoder.push(owner.view().subview(0UL, 15UL).unwrap())
   inspect(first.consumed(), content="15")
-  ignore(owner.with_mut(14UL, 1UL, fn(lease) { lease.set(0UL, b'\x63') }).unwrap())
-  ignore(qoi_stream_push(decoder, qoi_stream_chunk(source, 15, source.length())))
+  ignore(
+    owner.with_mut(14UL, 1UL, fn(lease) { lease.set(0UL, b'\x63') }).unwrap(),
+  )
+  ignore(
+    qoi_stream_push(decoder, qoi_stream_chunk(source, 15, source.length())),
+  )
   let decoded = decoder.finish().unwrap()
-  inspect(decoded.image().view().get_byte(0UL, 0UL, 0UL).unwrap().to_int(), content="1")
+  inspect(
+    decoded.image().view().get_byte(0UL, 0UL, 0UL).unwrap().to_int(),
+    content="1",
+  )
 
   let overrun = qoi_stream_decoder()
   let run = qoi_stream_push(
-    overrun,
-    b"qoif\x00\x00\x00\x01\x00\x00\x00\x01\x04\x00\xc1",
+    overrun, b"qoif\x00\x00\x00\x01\x00\x00\x00\x01\x04\x00\xc1",
   )
   inspect(run.consumed(), content="15")
   match run.outcome() {
-    QoiStreamPushOutcome::Failed(error) => {
+    QoiStreamPushOutcome::Failed(error) =>
       inspect(error.context() == Some("qoi-run-overrun"), content="true")
-    }
     NeedInput => fail("run must fail")
   }
   let sticky = qoi_stream_push(overrun, b"\x00")
@@ -231,9 +242,8 @@ test "QOI stream copies pending token bytes and reports terminal push consumptio
   let limited = qoi_stream_push(input_limited, source)
   inspect(limited.consumed(), content="14")
   match limited.outcome() {
-    QoiStreamPushOutcome::Failed(error) => {
+    QoiStreamPushOutcome::Failed(error) =>
       inspect(error.context() == Some("input-bytes"), content="true")
-    }
     NeedInput => fail("input ceiling must fail")
   }
 }
