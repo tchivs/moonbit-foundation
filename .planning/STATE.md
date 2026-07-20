@@ -1,20 +1,16 @@
 ---
 gsd_state_version: 1.0
-milestone: v0.3
-milestone_name: Image Processing Core
-status: Awaiting next milestone
-stopped_at: Phase 12 context gathered
-last_updated: "2026-07-20T09:59:39.389Z"
+milestone: v0.4
+milestone_name: Portable Image Interchange
+status: planning
+last_updated: "2026-07-20T10:01:24.115Z"
 last_activity: 2026-07-20
-last_activity_desc: Milestone v0.3 completed and archived
 progress:
-  total_phases: 4
-  completed_phases: 4
-  total_plans: 8
-  completed_plans: 8
-  percent: 100
-current_phase: 12
-current_phase_name: strict-ppm-end-to-end-filter-coverage
+  total_phases: 0
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
+  percent: 0
 ---
 
 # Project State
@@ -29,10 +25,10 @@ See `.planning/PROJECT.md` (updated 2026-07-18).
 
 ## Current Position
 
-Phase: Milestone v0.3 complete
+Phase: Not started (defining requirements)
 Plan: —
-Status: Awaiting next milestone
-Last activity: 2026-07-20 — Milestone v0.3 completed and archived
+Status: Defining requirements
+Last activity: 2026-07-20 — Milestone v0.4 started
 
 ## Performance Metrics
 

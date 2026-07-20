@@ -62,6 +62,16 @@ Phase 6 completed on 2026-07-18 with 25/25 plans and 8/8 requirements verified. 
 
 Registry publication remains deferred: the existing v0.2 qualification artifacts are retained, but no further release automation is in scope for the next code-first milestone.
 
+## Current Milestone: v0.4 Portable Image Interchange
+
+**Goal:** Add a pure-MoonBit QOI codec so library users can exchange lossless RGB and RGBA images through the existing portable image contracts without relying on PPM-only tooling or foreign codec libraries.
+
+**Target features:**
+
+- A strict, budgeted QOI probe and decoder with deterministic structured failures for malformed or hostile input.
+- A canonical QOI encoder that round-trips RGB/RGBA image data through the existing codec interfaces.
+- Spec-derived fixture vectors, four-target conformance, and a small public consumer example; streaming, FFI, and performance baselines remain deferred until this core is stable.
+
 ## Constraints
 
 - **Implementation**: Core algorithms and shared data models should be written in MoonBit — ecosystem credibility depends on exercising MoonBit rather than wrapping a foreign stack.
@@ -88,6 +98,7 @@ Registry publication remains deferred: the existing v0.2 qualification artifacts
 | Keep unknown live registry authority fail-closed and prove it only inside the isolated publisher | Public account identity and module-name availability do not prove current-token publication authority | ✓ Validated in Phase 6 |
 | Complete publication and compatibility before adding the next module family | Unpublished foundations cannot provide a dependable ecosystem contract to downstream authors | — Pending in v0.2 |
 | Prioritize reusable image-processing code over further publication automation | The release route is already recoverable enough for a future manual operation; the ecosystem benefits more from implementable raster capabilities | ✓ Validated in v0.3 |
+| Implement QOI before a heavyweight lossless codec | QOI adds a real RGB/RGBA interchange format while preserving a pure MoonBit, four-target implementation and bounded attack surface | — Active in v0.4 |
 
 ## Evolution
 
