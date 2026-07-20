@@ -158,7 +158,10 @@ Plans:
   2. A library user can decode a valid complete QOI 1.0 RGB or RGBA image from a forward-only reader into an owned portable image with exact pixels, dimensions, channels, and straight-alpha semantics.
   3. A library user receives typed, deterministic failures for malformed headers/opcodes, truncated data, invalid end markers, trailing data, declared limits, and reader failures; a preflight rejection leaves output allocation and budget charges unchanged.
 
-**Plans**: TBD
+**Plans**: 1 plan
+
+Plans:
+- [ ] 13-01-PLAN.md — Implement the independent bounded QOI decoder and prove generated vectors and hostile-input behavior across all portable targets.
 
 ### Phase 14: Canonical QOI Encode and Four-Target Vectors
 
