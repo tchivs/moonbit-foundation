@@ -160,7 +160,7 @@ Plans:
 | 19. Portable Streaming QOI Evidence | v0.5 | 1/1 | Complete    | 2026-07-20 |
 | 20. PNG Structural Safety Gate | v0.6 | 2/4 | Complete    | 2026-07-21 |
 | 21. Bounded PNG Decode and DEFLATE | v0.6 | 1/1 | Complete    | 2026-07-21 |
-| 22. Canonical PNG Encode and Portable Evidence | v0.6 | 0/TBD | Not started | - |
+| 22. Canonical PNG Encode and Portable Evidence | v0.6 | 1/1 | In Progress|  |
 
 ### Phase 12: Strict PPM End-to-End Filter Coverage
 
@@ -313,7 +313,9 @@ Plans:
   2. A library user can run a public PNG decode → existing image operation → encode workflow using only portable public contracts and receive deterministic output evidence.
   3. Maintainers can verify supported fixtures and hostile PNG cases with identical expected behavior on `js`, `wasm`, `wasm-gc`, and `native`.
 
-**Plans**: TBD
+**Plans**: 1/1 plans executed
+
+- [x] 22-01-PLAN.md
 
 ---
 *Roadmap updated: 2026-07-20 for v0.6 PNG Interchange planning*

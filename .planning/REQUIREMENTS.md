@@ -18,8 +18,8 @@
 
 ### PNG Encode and Evidence
 
-- [ ] **PNG-06**: A library user can encode compatible RGB8 or straight-RGBA8 image views to one deterministic PNG byte sequence after eager-equivalent zero-write preflight.
-- [ ] **PNG-07**: A library user can run one portable PNG decode → existing image operation → encode workflow, and maintainers can verify fixtures and hostile cases on js, wasm, wasm-gc, and native.
+- [x] **PNG-06**: A library user can encode compatible RGB8 or straight-RGBA8 image views to one deterministic PNG byte sequence after eager-equivalent zero-write preflight.
+- [x] **PNG-07**: A library user can run one portable PNG decode → existing image operation → encode workflow, and maintainers can verify fixtures and hostile cases on js, wasm, wasm-gc, and native.
 
 ## Future Requirements
 
@@ -48,8 +48,8 @@
 | PNG-03 | Phase 20 | Complete |
 | PNG-04 | Phase 21 | Complete |
 | PNG-05 | Phase 21 | Complete |
-| PNG-06 | Phase 22 | Pending |
-| PNG-07 | Phase 22 | Pending |
+| PNG-06 | Phase 22 | Complete |
+| PNG-07 | Phase 22 | Complete |
 
 **Coverage:**
 

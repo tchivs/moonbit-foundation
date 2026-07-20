@@ -4,17 +4,17 @@ milestone: v0.6
 milestone_name: PNG Interchange
 current_phase: 22
 current_phase_name: Canonical PNG Encode and Portable Evidence
-status: planning
-stopped_at: Completed 20-02-PLAN.md
-last_updated: "2026-07-20T17:47:19.459Z"
+status: verifying
+stopped_at: Completed 22-01-PLAN.md
+last_updated: "2026-07-20T18:06:06.041Z"
 last_activity: 2026-07-21
 last_activity_desc: Phase 21 complete, transitioned to Phase 22
 progress:
   total_phases: 14
-  completed_phases: 1
-  total_plans: 5
-  completed_plans: 3
-  percent: 7
+  completed_phases: 2
+  total_plans: 6
+  completed_plans: 4
+  percent: 14
 ---
 
 # Project State
@@ -30,11 +30,11 @@ See `.planning/PROJECT.md` (updated 2026-07-20).
 ## Current Position
 
 Phase: 22 of 22 (Canonical PNG Encode and Portable Evidence)
-Plan: Not started
-Status: Ready to plan
+Plan: 1 of 1
+Status: Phase complete — ready for verification
 Last activity: 2026-07-21 — Phase 21 complete, transitioned to Phase 22
 
-Progress: [█████░░░░░] 50%
+Progress: [███████░░░] 67%
 
 ## Performance Metrics
 
@@ -51,6 +51,8 @@ Progress: [█████░░░░░] 50%
 - [v0.6]: Freeze deterministic stored-DEFLATE PNG output and validate one public workflow on all four portable targets.
 - [Phase ?]: Keep generated PNG fixtures package-private and run them through white-box tests to preserve PngDecoder as the sole public PNG surface.
 - [Phase ?]: Phase 20 accepts complete structural RGB/RGBA transport only to return deflate-and-raster-pending; Phase 21 owns DEFLATE and image success.
+- [Phase ?]: Freeze RGB8 and straight-RGBA8 PNG output as one stored-DEFLATE filter-None representation with CRC-32 and Adler-32 evidence.
+- [Phase ?]: Use fixed public PNG bytes plus a target-neutral digest for four-target decode-flip-encode proof.
 
 ### Pending Todos
 
@@ -69,9 +71,10 @@ None.
 | scope | Public resumable PNG streaming API | deferred |
 | delivery | Registry publication and release automation | deferred |
 | Phase 20-png-structural-safety-gate P02 | 13min | 2 tasks | 8 files |
+| Phase 22-canonical-png-encode-and-portable-evidence P01 | 9min | 2 tasks | 8 files |
 
 ## Session Continuity
 
-Last session: 2026-07-20T15:30:06.210Z
-Stopped at: Completed 20-02-PLAN.md
+Last session: 2026-07-20T18:05:40.950Z
+Stopped at: Completed 22-01-PLAN.md
 Resume file: None
