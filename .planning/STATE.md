@@ -2,18 +2,18 @@
 gsd_state_version: 1.0
 milestone: v0.3
 milestone_name: Image Processing Core
-current_phase: 12
-status: completed
+status: Awaiting next milestone
 stopped_at: Phase 12 context gathered
-last_updated: "2026-07-20T09:53:06.341Z"
+last_updated: "2026-07-20T09:59:39.389Z"
 last_activity: 2026-07-20
-last_activity_desc: Phase 12 complete
+last_activity_desc: Milestone v0.3 completed and archived
 progress:
   total_phases: 4
   completed_phases: 4
   total_plans: 8
   completed_plans: 8
   percent: 100
+current_phase: 12
 current_phase_name: strict-ppm-end-to-end-filter-coverage
 ---
 
@@ -29,12 +29,10 @@ See `.planning/PROJECT.md` (updated 2026-07-18).
 
 ## Current Position
 
-Phase: 12
-Plan: Not started
-Status: Milestone complete
-Last activity: 2026-07-20 — Phase 12 complete
-
-Progress: [██████████] 100%
+Phase: Milestone v0.3 complete
+Plan: —
+Status: Awaiting next milestone
+Last activity: 2026-07-20 — Milestone v0.3 completed and archived
 
 ## Performance Metrics
 
@@ -101,3 +99,7 @@ Resume file: .planning/phases/12-strict-ppm-end-to-end-filter-coverage/12-CONTEX
 | Phase 09 P01 | 18min | 2 tasks | 2 files |
 | Phase 09 P02 | 20min | 2 tasks | 3 files |
 | Phase 10 P01 | 22min | 3 tasks | 5 files |
+
+## Operator Next Steps
+
+- Start the next milestone with /gsd-new-milestone

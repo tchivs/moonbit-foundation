@@ -50,9 +50,9 @@ The locked qualification baseline passed 19/19 selectors twice at one unchanged 
 
 Phase 6 completed on 2026-07-18 with 25/25 plans and 8/8 requirements verified. The active module identities are `tchivs/mb-core`, `tchivs/mb-color`, and `tchivs/mb-image`; deterministic compatibility baselines, reciprocal requirement/edge/prohibition evidence, and the real credential-free Required lane now pass. Publication remains deliberately blocked until Phase 7 proves the authenticated publish seam before any registry mutation.
 
-## Current Milestone: v0.3 Image Processing Core
+## Current State: v0.3 Image Processing Core Shipped
 
-**Goal:** Expand `mb-image` from safe image storage and a reference codec into a practical, portable raster-processing foundation.
+**Delivered:** `mb-image` now provides checked crop/flip/right-angle rotation/resize plus alpha-correct source-over, grayscale, and box blur. A public strict-P6 pipeline proves the complete route across `js`, `wasm`, `wasm-gc`, and `native` with deterministic byte and budget evidence.
 
 **Target features:**
 
@@ -60,7 +60,7 @@ Phase 6 completed on 2026-07-18 with 25/25 plans and 8/8 requirements verified. 
 - Provide alpha-correct pixel compositing and a small, deterministic filter set over the existing image and color contracts.
 - Prove the pipeline through public MoonBit tests, four-target conformance, and one runnable image-processing example.
 
-Registry publication remains deferred: the existing v0.2 qualification artifacts are retained, but no further release automation is in scope for this milestone.
+Registry publication remains deferred: the existing v0.2 qualification artifacts are retained, but no further release automation is in scope for the next code-first milestone.
 
 ## Constraints
 
@@ -87,7 +87,7 @@ Registry publication remains deferred: the existing v0.2 qualification artifacts
 | Treat deterministic evidence and honest blocked outcomes as release requirements | Candidate qualification must not depend on fabricated publication or noisy marketing claims | ✓ Validated in Phase 5 |
 | Keep unknown live registry authority fail-closed and prove it only inside the isolated publisher | Public account identity and module-name availability do not prove current-token publication authority | ✓ Validated in Phase 6 |
 | Complete publication and compatibility before adding the next module family | Unpublished foundations cannot provide a dependable ecosystem contract to downstream authors | — Pending in v0.2 |
-| Prioritize reusable image-processing code over further publication automation | The release route is already recoverable enough for a future manual operation; the ecosystem now benefits more from implementable raster capabilities | — Active in v0.3 |
+| Prioritize reusable image-processing code over further publication automation | The release route is already recoverable enough for a future manual operation; the ecosystem benefits more from implementable raster capabilities | ✓ Validated in v0.3 |
 
 ## Evolution
 
@@ -107,4 +107,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update toolchain, compatibility, benchmark, and adoption context.
 
 ---
-*Last updated: 2026-07-18 after Phase 6 completion*
+*Last updated: 2026-07-20 after v0.3 Image Processing Core*
