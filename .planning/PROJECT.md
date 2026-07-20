@@ -50,17 +50,17 @@ The locked qualification baseline passed 19/19 selectors twice at one unchanged 
 
 Phase 6 completed on 2026-07-18 with 25/25 plans and 8/8 requirements verified. The active module identities are `tchivs/mb-core`, `tchivs/mb-color`, and `tchivs/mb-image`; deterministic compatibility baselines, reciprocal requirement/edge/prohibition evidence, and the real credential-free Required lane now pass. Publication remains deliberately blocked until Phase 7 proves the authenticated publish seam before any registry mutation.
 
-## Current Milestone: v0.2 Publication & Compatibility
+## Current Milestone: v0.3 Image Processing Core
 
-**Goal:** Turn the verified 0.1.0 candidate modules into genuinely published, independently resolvable ecosystem foundations with auditable release automation and machine-checked compatibility baselines.
+**Goal:** Expand `mb-image` from safe image storage and a reference codec into a practical, portable raster-processing foundation.
 
 **Target features:**
 
-- Verify registry namespace authority, publish in core → color → image order, and prove clean external consumers against the real registry.
-- Add credential-minimal release automation, immutable provenance, safe retry/recovery rules, and post-publication verification.
-- Establish semantic-interface compatibility baselines and candidate-version evolution gates for future module work.
+- Provide checked, composable image geometry operations: crop, flip, rotation, and resize.
+- Provide alpha-correct pixel compositing and a small, deterministic filter set over the existing image and color contracts.
+- Prove the pipeline through public MoonBit tests, four-target conformance, and one runnable image-processing example.
 
-No new graphics, document, media, AI, or integration module is added in v0.2. Distribution and compatibility must be real before the ecosystem surface expands.
+Registry publication remains deferred: the existing v0.2 qualification artifacts are retained, but no further release automation is in scope for this milestone.
 
 ## Constraints
 
@@ -87,6 +87,7 @@ No new graphics, document, media, AI, or integration module is added in v0.2. Di
 | Treat deterministic evidence and honest blocked outcomes as release requirements | Candidate qualification must not depend on fabricated publication or noisy marketing claims | ✓ Validated in Phase 5 |
 | Keep unknown live registry authority fail-closed and prove it only inside the isolated publisher | Public account identity and module-name availability do not prove current-token publication authority | ✓ Validated in Phase 6 |
 | Complete publication and compatibility before adding the next module family | Unpublished foundations cannot provide a dependable ecosystem contract to downstream authors | — Pending in v0.2 |
+| Prioritize reusable image-processing code over further publication automation | The release route is already recoverable enough for a future manual operation; the ecosystem now benefits more from implementable raster capabilities | — Active in v0.3 |
 
 ## Evolution
 

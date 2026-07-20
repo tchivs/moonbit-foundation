@@ -1,20 +1,16 @@
 ---
 gsd_state_version: 1.0
-milestone: v0.2
-milestone_name: Publication & Compatibility
-current_phase: 08
-current_phase_name: Ordered Mooncakes Publication and Registry Consumers
-status: ready_for_verification — 08-36 static HostedDispatch integration is complete; a later r13 boundary remains required before authorization
-stopped_at: Completed 08-36-PLAN.md
-last_updated: "2026-07-19T14:49:36.246Z"
-last_activity: 2026-07-19
-last_activity_desc: corrected the misdiagnosed timeout narrative (deterministic REL01-REF), recorded the tag-before-script-fix ordering invariant for r13+
+milestone: v0.3
+milestone_name: Image Processing Core
+status: planning
+last_updated: "2026-07-20T07:18:19.380Z"
+last_activity: 2026-07-20
 progress:
-  total_phases: 4
-  completed_phases: 2
-  total_plans: 64
-  completed_plans: 62
-  percent: 50
+  total_phases: 0
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
+  percent: 0
 ---
 
 # Project State
@@ -29,10 +25,10 @@ See `.planning/PROJECT.md` (updated 2026-07-17).
 
 ## Current Position
 
-Phase: 08 (Ordered Mooncakes Publication and Registry Consumers) — READY FOR VERIFICATION
-Plan: 36 of 36 (08-33 quarantined; 08-36 static HostedDispatch integration complete)
-Status: r12 remains immutable publish-blocked REL01-REF evidence. The static r13 route through 08-34, 08-35, and 08-36 is complete; a separate later plan must create and verify an r13 boundary before any authorization.
-Last activity: 2026-07-19 — corrected the misdiagnosed timeout narrative (deterministic REL01-REF), recorded the tag-before-script-fix ordering invariant for r13+
+Phase: Not started (defining requirements)
+Plan: —
+Status: Defining requirements
+Last activity: 2026-07-20 — Milestone v0.3 started
 
 ## Progress
 

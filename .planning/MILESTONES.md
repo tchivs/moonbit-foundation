@@ -29,3 +29,11 @@
 **What's next:** Verify the mooncakes.io namespace and choose between publishing the v0.1 candidates or opening a new RFC-led milestone.
 
 ---
+
+## v0.2 Publication & Compatibility (Deferred: 2026-07-20)
+
+**Status:** Deferred without a registry mutation. Its release qualification and compatibility work remains preserved for a later manual publication effort.
+
+**Reason:** Further retry/recovery automation was no longer the highest-value work. The project is resuming code-first delivery in `mb-image`.
+
+---
