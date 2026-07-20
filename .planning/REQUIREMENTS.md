@@ -14,8 +14,8 @@
 
 ### Streaming Encode
 
-- [ ] **QSTR-04**: A library user can pull canonical QOI bytes into arbitrary caller-owned output capacities and receive deterministic non-terminal output-needed progress without duplicated, dropped, or reordered bytes.
-- [ ] **QSTR-05**: A streaming QOI encoder preserves eager preflight semantics: incompatible input, limits, budget, or setup errors occur before its first output byte, while a completed stream reports exact total bytes.
+- [x] **QSTR-04**: A library user can pull canonical QOI bytes into arbitrary caller-owned output capacities and receive deterministic non-terminal output-needed progress without duplicated, dropped, or reordered bytes.
+- [x] **QSTR-05**: A streaming QOI encoder preserves eager preflight semantics: incompatible input, limits, budget, or setup errors occur before its first output byte, while a completed stream reports exact total bytes.
 
 ### Portable Evidence
 
@@ -46,8 +46,8 @@
 | QSTR-01 | Phase 17 | Complete |
 | QSTR-02 | Phase 17 | Complete |
 | QSTR-03 | Phase 17 | Complete |
-| QSTR-04 | Phase 18 | Pending |
-| QSTR-05 | Phase 18 | Pending |
+| QSTR-04 | Phase 18 | Complete |
+| QSTR-05 | Phase 18 | Complete |
 | QSTR-06 | Phase 19 | Pending |
 | QSTR-07 | Phase 19 | Pending |
 
