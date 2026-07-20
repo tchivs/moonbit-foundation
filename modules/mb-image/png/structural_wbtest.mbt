@@ -203,6 +203,27 @@ test "PNG indexed IHDR accepts legal packed depths and charges packed rows" {
 }
 
 ///|
+test "PNG indexed packed decode reserves image plus exactly two source rows" {
+  let limits = @codec.CodecLimits::new(
+    max_probe_bytes=8UL, max_input_bytes=4096UL, max_output_bytes=135UL,
+    max_width=16UL, max_height=16UL, max_pixels=256UL, max_work=150UL,
+  )
+  let exact = @budget.Budget::new(@budget.ResourceLimits::new(
+    bytes=139UL, allocations=3UL, allocation_size=135UL, width=16UL,
+    height=16UL, pixels=256UL, depth=0UL, work=150UL,
+  ))
+  inspect(_png_indexed_decode_budget(9UL, 5UL, 1, 3UL, limits, exact) is Ok(_), content="true")
+  let below = _png_indexed_decode_budget(
+    9UL, 5UL, 1, 3UL, limits,
+    @budget.Budget::new(@budget.ResourceLimits::new(
+      bytes=138UL, allocations=3UL, allocation_size=135UL, width=16UL,
+      height=16UL, pixels=256UL, depth=0UL, work=150UL,
+    )),
+  ).unwrap_err()
+  inspect(below.context() == Some("bytes"), content="true")
+}
+
+///|
 test "PNG grayscale IHDR accepts low depths and computes packed row bytes" {
   let limits = @codec.CodecLimits::new(
     max_probe_bytes=8UL, max_input_bytes=4096UL, max_output_bytes=256UL,
