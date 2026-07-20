@@ -15,9 +15,11 @@ function Join-Bytes([object[]]$Parts) {
 }
 function U32([uint64]$Value) { [byte[]]@([byte](($Value -shr 24) -band 255),[byte](($Value -shr 16) -band 255),[byte](($Value -shr 8) -band 255),[byte]($Value -band 255)) }
 function Crc32([byte[]]$Bytes) {
-  [uint64]$crc = 0xffffffffUL
-  foreach ($byte in $Bytes) { $crc = $crc -bxor [uint64]$byte; for ($bit = 0; $bit -lt 8; $bit++) { $crc = if (($crc -band 1UL) -eq 1UL) { (($crc -shr 1) -bxor 0xedb88320UL) -band 0xffffffffUL } else { ($crc -shr 1) -band 0xffffffffUL } } }
-  ($crc -bxor 0xffffffffUL) -band 0xffffffffUL
+  [uint64]$mask = [Convert]::ToUInt64('ffffffff', 16)
+  [uint64]$polynomial = [Convert]::ToUInt64('edb88320', 16)
+  [uint64]$crc = $mask
+  foreach ($byte in $Bytes) { $crc = $crc -bxor [uint64]$byte; for ($bit = 0; $bit -lt 8; $bit++) { $crc = if (($crc -band [uint64]1) -eq [uint64]1) { (($crc -shr 1) -bxor $polynomial) -band $mask } else { ($crc -shr 1) -band $mask } } }
+  ($crc -bxor $mask) -band $mask
 }
 function Chunk([string]$Type, [byte[]]$Payload) {
   $kind = [Text.Encoding]::ASCII.GetBytes($Type)
