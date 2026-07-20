@@ -19,7 +19,7 @@
 
 ### Public Evidence
 
-- [ ] **QOI-06**: A library user can run one public portable example that decodes QOI, applies an existing image operation, and encodes QOI with deterministic output evidence.
+- [x] **QOI-06**: A library user can run one public portable example that decodes QOI, applies an existing image operation, and encodes QOI with deterministic output evidence.
 
 ## Future Requirements
 
@@ -47,7 +47,7 @@
 | QOI-03 | Phase 14 | Complete |
 | QOI-04 | Phase 13 | Complete |
 | QOI-05 | Phase 14 | Complete |
-| QOI-06 | Phase 15 | Pending |
+| QOI-06 | Phase 15 | Complete |
 
 **Coverage:**
 
