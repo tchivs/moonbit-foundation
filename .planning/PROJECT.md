@@ -28,6 +28,7 @@ MoonBit developers can reuse stable, high-performance native infrastructure cont
 - [ ] Verify the mooncakes.io owner namespace and publish `mb-core`, `mb-color`, and `mb-image` in strict dependency order with independent registry consumers.
 - [ ] Automate auditable, credential-minimal, repeatable release qualification and provenance without weakening the existing Required gate.
 - [ ] Freeze machine-checkable public API compatibility baselines and candidate-version change rules before ecosystem expansion.
+- [ ] Provide a strict, bounded, pure-MoonBit PNG interchange path with portable four-target evidence.
 
 ### Out of Scope
 
@@ -65,9 +66,15 @@ Phase 6 completed on 2026-07-18 with 25/25 plans and 8/8 requirements verified. 
 
 Registry publication remains deferred: the existing v0.2 qualification artifacts are retained, but no further release automation is in scope for the next code-first milestone.
 
-## Next Milestone Direction
+## Current Milestone: v0.6 PNG Interchange
 
-Select the next code-first MoonBit infrastructure capability from image, document, media, or system foundations. Publication and release automation remain deferred unless they directly unblock a required code path.
+**Goal:** Add strict, bounded PNG decoding and canonical encoding over portable image contracts, using pure MoonBit DEFLATE support and four-target evidence.
+
+**Target features:**
+
+- Validate PNG framing, chunk ordering, and integrity before image output is exposed.
+- Implement bounded, deterministic DEFLATE and PNG scanline processing for supported RGB/RGBA interchange.
+- Prove a public portable PNG decode → image operation → encode workflow on all four targets without FFI or release automation.
 
 
 ## Constraints
