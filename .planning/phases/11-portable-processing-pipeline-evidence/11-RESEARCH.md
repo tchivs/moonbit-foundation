@@ -216,12 +216,11 @@ Current operations suite is `35/35` on every target and all documentation checks
 |---|-------|---------|---------------|
 | A1 | `benchmarks/ppm/phase-11-resize-composite-baseline.md` is the preferred tracked filename/location for the new local record. | Recommended project structure | Naming/location can be changed without altering the implementation; it must remain outside `release/qualification/`. |
 
-## Open Questions
+## Resolved Decisions
 
-1. **Baseline record filename and serialization**
-   - What we know: the historical record is JSON with a closed release schema; Phase 11 must not modify that schema/harness. [VERIFIED: release/qualification/benchmark-schema.json; parent task]
-   - What's unclear: whether maintainers prefer Markdown plus raw captured text, or a new Phase-11-local JSON schema.
-   - Recommendation: use a concise tracked Markdown record with an explicit field table and links/filenames for seven captured local outputs; it mirrors the facts without importing release qualification machinery. [ASSUMED]
+1. **Baseline record filename and serialization — RESOLVED**
+   - Decision: use `benchmarks/ppm/phase-11-resize-composite-baseline.md` as a Phase-11-local Markdown leaf record.
+   - Rationale: Markdown provides a human-auditable field table and seven timestamped captures without changing or importing the release harness/schema. It remains outside the release qualification tree and is not release authority. [VERIFIED: parent task; scripts/benchmarks/Invoke-PpmBenchmarks.ps1; release/qualification/benchmark-schema.json]
 
 ## Environment Availability
 
