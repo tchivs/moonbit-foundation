@@ -8,6 +8,15 @@ pub fn QoiDecoder::new() -> QoiDecoder {
 }
 
 ///|
+/// A portable eager encoder for canonical QOI 1.0 images.
+pub struct QoiEncoder {}
+
+///|
+pub fn QoiEncoder::new() -> QoiEncoder {
+  QoiEncoder::{  }
+}
+
+///|
 /// Inspect only caller-owned prefix bytes. This helper never reads a Reader.
 fn _probe_qoi_prefix(prefix : @bytes.ByteView) -> @codec.ProbeOutcome {
   if prefix.length() < 4UL {
