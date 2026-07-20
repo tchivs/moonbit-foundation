@@ -28,15 +28,28 @@ test "crop rejects invalid public requests before charging the budget" {
   let budget = operation_limits(12UL, 12UL)
   let before = budget.remaining()
   let empty = @model.Rect::new(0UL, 0UL, 0UL, 1UL).unwrap()
-  inspect(@ops.crop(source.view(), empty, budget) is Err(_), content="true")
+  match @ops.crop(source.view(), empty, budget) {
+    Err(error) => {
+      inspect(error.category() == @error.ErrorCategory::InvalidInput, content="true")
+      inspect(error.code() == @error.ErrorCode::InvalidDimensions, content="true")
+      inspect(error.operation() == Some("image-crop"), content="true")
+      inspect(error.context() == Some("empty-crop-region"), content="true")
+    }
+    Ok(_) => fail("empty crop must reject")
+  }
   inspect(budget.remaining().bytes() == before.bytes(), content="true")
   inspect(budget.remaining().allocations() == before.allocations(), content="true")
   inspect(budget.remaining().work() == before.work(), content="true")
   let outside = @model.Rect::new(1UL, 0UL, 2UL, 1UL).unwrap()
-  inspect(
-    @ops.crop(source.view(), outside, operation_limits(12UL, 12UL)) is Err(_),
-    content="true",
-  )
+  match @ops.crop(source.view(), outside, operation_limits(12UL, 12UL)) {
+    Err(error) => {
+      inspect(error.category() == @error.ErrorCategory::InvalidInput, content="true")
+      inspect(error.code() == @error.ErrorCode::InvalidRange, content="true")
+      inspect(error.operation() == Some("image-crop"), content="true")
+      inspect(error.context() == Some("crop-region-outside-source"), content="true")
+    }
+    Ok(_) => fail("out-of-bounds crop must reject")
+  }
 }
 
 ///|
