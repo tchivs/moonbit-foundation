@@ -12,10 +12,27 @@ fn png_test_limits() -> @codec.CodecLimits {
 }
 
 ///|
-test "PNG probe requires an eight-byte caller-owned signature" {
+test "PNG public probe matrix is caller-owned and bounded" {
   let decoder = PngDecoder::new()
+  let budget = @budget.Budget::new(
+    @budget.ResourceLimits::new(
+      bytes=8UL, allocations=1UL, allocation_size=8UL, width=0UL,
+      height=0UL, pixels=0UL, depth=0UL, work=0UL,
+    ),
+  )
   let owner = @bytes.OwnedBytes::from_bytes(
     b"\x89PNG\r\n\x1a\n",
+    budget,
+  ).unwrap()
+  inspect(
+    @codec.ImageDecoder::probe(
+      decoder, owner.view().slice_to(4UL).unwrap(), png_test_limits(),
+      @error.Diagnostics::new(),
+    ).unwrap() == @codec.ProbeOutcome::NeedMore(8UL),
+    content="true",
+  )
+  let non_png = @bytes.OwnedBytes::from_bytes(
+    b"\x00PNG\r\n\x1a\n",
     @budget.Budget::new(
       @budget.ResourceLimits::new(
         bytes=8UL,
@@ -29,16 +46,16 @@ test "PNG probe requires an eight-byte caller-owned signature" {
       ),
     ),
   ).unwrap()
-  inspect(
-    @codec.ImageDecoder::probe(
-      decoder,
-      owner.view(),
-      png_test_limits(),
-      @error.Diagnostics::new(),
-    ).unwrap() ==
-    @codec.ProbeOutcome::Match,
-    content="true",
-  )
+  inspect(@codec.ImageDecoder::probe(decoder, non_png.view(), png_test_limits(), @error.Diagnostics::new()).unwrap() == @codec.ProbeOutcome::NoMatch, content="true")
+  inspect(@codec.ImageDecoder::probe(decoder, owner.view(), png_test_limits(), @error.Diagnostics::new()).unwrap() == @codec.ProbeOutcome::Match, content="true")
+  let limited = @codec.ImageDecoder::probe(
+    decoder, owner.view(),
+    @codec.CodecLimits::new(max_probe_bytes=7UL, max_input_bytes=128UL, max_output_bytes=64UL, max_width=4UL, max_height=4UL, max_pixels=16UL, max_work=128UL),
+    @error.Diagnostics::new(),
+  ).unwrap_err()
+  inspect(limited.category() == @error.ErrorCategory::Resource, content="true")
+  inspect(limited.code() == @error.ErrorCode::BudgetExceeded, content="true")
+  inspect(limited.context() == Some("probe-bytes"), content="true")
 }
 
 ///|
@@ -191,50 +208,82 @@ test "PNG exact input ceiling permits EOF but an actual trailing byte is limited
 }
 
 ///|
+fn png_test_remaining_unchanged(
+  before : @budget.ResourceLimits,
+  after : @budget.ResourceLimits,
+) -> Bool {
+  before.bytes() == after.bytes() &&
+  before.allocations() == after.allocations() &&
+  before.allocation_size() == after.allocation_size() &&
+  before.width() == after.width() &&
+  before.height() == after.height() &&
+  before.pixels() == after.pixels() &&
+  before.depth() == after.depth() &&
+  before.work() == after.work()
+}
+
+///|
+fn png_test_limits_from_generated(item : PngGeneratedCase) -> @codec.CodecLimits {
+  @codec.CodecLimits::new(
+    max_probe_bytes=item.limits.probe,
+    max_input_bytes=item.limits.input,
+    max_output_bytes=item.limits.output,
+    max_width=item.limits.width,
+    max_height=item.limits.height,
+    max_pixels=item.limits.pixels,
+    max_work=item.limits.work,
+  )
+}
+
+///|
+fn png_test_budget_from_generated(item : PngGeneratedCase) -> @budget.Budget {
+  @budget.Budget::new(@budget.ResourceLimits::new(
+    bytes=item.budget.bytes, allocations=item.budget.allocations,
+    allocation_size=item.budget.allocation_size, width=item.budget.width,
+    height=item.budget.height, pixels=item.budget.pixels,
+    depth=item.budget.depth, work=item.budget.work,
+  ))
+}
+
+///|
 test "generated PNG public cases use only the PngDecoder trait boundary" {
   for item in _generated_png_public_cases() {
-    let (_id, source, expected, preserve_opaque_metadata, limits_profile, _budget, immutable) = item
-    let length = source.length().to_uint64()
+    let length = item.bytes.length().to_uint64()
     let owner = @bytes.OwnedBytes::from_bytes(
-      source,
+      item.bytes,
       @budget.Budget::new(@budget.ResourceLimits::new(
         bytes=length, allocations=1UL, allocation_size=length, width=0UL,
         height=0UL, pixels=0UL, depth=0UL, work=0UL,
       )),
     ).unwrap()
     let reader = @io.MemoryReader::new(owner.view())
-    let budget = @budget.Budget::new(@budget.ResourceLimits::new(
-      bytes=1024UL, allocations=1UL, allocation_size=1024UL, width=16UL,
-      height=16UL, pixels=256UL, depth=0UL, work=2048UL,
-    ))
+    let budget = png_test_budget_from_generated(item)
     let before = budget.remaining()
     let diagnostics = @error.Diagnostics::new()
     let error = @codec.ImageDecoder::decode(
       PngDecoder::new(), reader as &@io.Reader,
       @codec.DecodeOptions::new(
-        require_complete_input=true, preserve_opaque_metadata=preserve_opaque_metadata,
+        require_complete_input=true, preserve_opaque_metadata=item.preserve_opaque_metadata,
       ),
-      if limits_profile == "input-57" {
-        @codec.CodecLimits::new(
-          max_probe_bytes=8UL, max_input_bytes=57UL, max_output_bytes=1024UL,
-          max_width=16UL, max_height=16UL, max_pixels=256UL, max_work=2048UL,
-        )
-      } else {
-        @codec.CodecLimits::new(
-          max_probe_bytes=8UL, max_input_bytes=4096UL, max_output_bytes=1024UL,
-          max_width=16UL, max_height=16UL, max_pixels=256UL, max_work=2048UL,
-        )
-      },
+      png_test_limits_from_generated(item),
       budget, diagnostics,
     ).unwrap_err()
-    if expected == "unexpected-end" {
+    if item.code == "unexpected-end" {
+      inspect(error.category() == @error.ErrorCategory::IO, content="true")
       inspect(error.code() == @error.ErrorCode::UnexpectedEndOfStream, content="true")
+    } else if item.code == "budget-exceeded" {
+      inspect(error.category() == @error.ErrorCategory::Resource, content="true")
+      inspect(error.code() == @error.ErrorCode::BudgetExceeded, content="true")
+    } else if item.code == "capability-unavailable" {
+      inspect(error.category() == @error.ErrorCategory::Capability, content="true")
+      inspect(error.code() == @error.ErrorCode::CapabilityUnavailable, content="true")
     } else {
-      inspect(error.context() == Some(expected), content="true")
+      inspect(error.category() == @error.ErrorCategory::Data, content="true")
+      inspect(error.code() == @error.ErrorCode::InvalidEncoding, content="true")
     }
-    if immutable {
-      inspect(before.bytes() == budget.remaining().bytes(), content="true")
-      inspect(before.work() == budget.remaining().work(), content="true")
+    inspect(error.context() == Some(item.context), content="true")
+    if item.immutable_caller_state {
+      inspect(png_test_remaining_unchanged(before, budget.remaining()), content="true")
       inspect(diagnostics.length(), content="0")
     }
   }
