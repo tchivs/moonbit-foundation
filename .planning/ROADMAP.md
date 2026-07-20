@@ -41,38 +41,52 @@ Publication, registry-consumer proof, provenance closure, and any release automa
 ## Phase Details
 
 ### Phase 9: Checked Image Geometry and Diagnostics
+
 **Goal**: Library users can safely crop, reorient, and resize images through composable portable APIs that report invalid work deterministically.
 **Depends on**: Phase 5
 **Requirements**: GEOM-01, GEOM-02, GEOM-03, RASTER-03
 **Success Criteria** (what must be TRUE):
+
   1. A library user can crop an image to a valid rectangle and receives a typed deterministic error instead of out-of-bounds access or overflow-driven allocation for an invalid region or resource limit.
   2. A library user can flip an image horizontally or vertically and rotate it in right-angle increments while observing the expected pixel positions and dimensions.
   3. A library user can resize an image with a documented nearest-neighbor algorithm and receives identical output for the same input on every supported target.
   4. A library user receives typed, deterministic errors when an operation is requested for an unsupported pixel format or incompatible image dimensions.
+
 **Plans**: 2 plans
 
 Plans:
+**Wave 1**
+
 - [ ] 09-01-PLAN.md — Implement checked owned crop and explicit right-angle rotations with public behavior tests.
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
 - [ ] 09-02-PLAN.md — Add adversarial geometry proof and document/retest the fixed nearest-neighbor baseline.
 
 ### Phase 10: Alpha-Correct Pixel Processing
+
 **Goal**: Library users can compose and filter RGBA images with stable alpha and resource semantics.
 **Depends on**: Phase 9
 **Requirements**: RASTER-01, RASTER-02
 **Success Criteria** (what must be TRUE):
+
   1. A library user can composite one RGBA image over another with documented source-over alpha behavior and predictable output pixels.
   2. A library user can apply grayscale to an RGBA image deterministically without changing its documented alpha semantics.
   3. A library user can apply a box blur with checked dimensions and bounded intermediate storage, receiving a deterministic result for the same input.
+
 **Plans**: TBD
 
 ### Phase 11: Portable Processing Pipeline Evidence
+
 **Goal**: Library users and maintainers can rely on a demonstrated, portable image-processing workflow and reproducible performance evidence.
 **Depends on**: Phase 10
 **Requirements**: INTEG-01, INTEG-02, INTEG-03
 **Success Criteria** (what must be TRUE):
+
   1. A library user can run one public MoonBit example that combines geometry and raster operations and encodes the resulting image as PPM.
   2. Public behavioral and adversarial tests demonstrate the new API's expected results and failure behavior on `js`, `wasm`, `wasm-gc`, and `native`.
   3. A maintainer can reproduce a declared resize-and-compositing benchmark workload and compare it with its recorded baseline without running or depending on release automation.
+
 **Plans**: TBD
 
 ## Progress
