@@ -177,11 +177,7 @@ test "PNG tRNS reserves RGBA8 while retaining grayscale source-byte work" {
 }
 
 ///|
-test "PNG indexed IHDR accepts only the 8-bit non-interlaced RGB8 profile" {
-  let indexed = [
-    b'\x00', b'\x00', b'\x00', b'\x02', b'\x00', b'\x00', b'\x00', b'\x01',
-    b'\x08', b'\x03', b'\x00', b'\x00', b'\x00',
-  ]
+test "PNG indexed IHDR accepts legal packed depths and charges packed rows" {
   let limits = @codec.CodecLimits::new(
     max_probe_bytes=8UL, max_input_bytes=4096UL, max_output_bytes=64UL,
     max_width=16UL, max_height=16UL, max_pixels=256UL, max_work=128UL,
@@ -190,7 +186,20 @@ test "PNG indexed IHDR accepts only the 8-bit non-interlaced RGB8 profile" {
     bytes=64UL, allocations=3UL, allocation_size=64UL, width=16UL,
     height=16UL, pixels=256UL, depth=0UL, work=128UL,
   ))
-  inspect(_png_preflight_ihdr(indexed, limits, budget) is Ok(_), content="true")
+  for item in [(1, 9UL), (2, 5UL), (4, 3UL), (8, 2UL)] {
+    let (depth, width) = item
+    let indexed = [
+      b'\x00', b'\x00', b'\x00', width.to_int().to_byte(), b'\x00', b'\x00', b'\x00', b'\x01',
+      depth.to_byte(), b'\x03', b'\x00', b'\x00', b'\x00',
+    ]
+    inspect(_png_preflight_ihdr(indexed, limits, budget) is Ok(_), content="true")
+    inspect(_png_grayscale_row_bytes(width, depth).unwrap() == 2UL, content="true")
+  }
+  let illegal = [
+    b'\x00', b'\x00', b'\x00', b'\x01', b'\x00', b'\x00', b'\x00', b'\x01',
+    b'\x10', b'\x03', b'\x00', b'\x00', b'\x00',
+  ]
+  inspect(_png_preflight_ihdr(illegal, limits, budget).unwrap_err().context() == Some("png-bit-depth"), content="true")
 }
 
 ///|
