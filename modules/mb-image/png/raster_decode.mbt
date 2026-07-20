@@ -58,6 +58,121 @@ fn _png_paeth(a : Int, b : Int, c : Int) -> Int {
 }
 
 ///|
+priv struct PngIndexRows {
+  mut current : @bytes.OwnedBytes
+  mut previous : @bytes.OwnedBytes
+}
+
+///|
+fn _png_new_index_rows(
+  width : UInt64,
+  budget : @budget.Budget,
+) -> Result[PngIndexRows, @error.CoreError] {
+  let current = match @bytes.OwnedBytes::new(width, budget) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  let previous = match @bytes.OwnedBytes::new(width, budget) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  Ok({ current, previous })
+}
+
+///|
+fn PngIndexRows::reconstruct(
+  self : PngIndexRows,
+  column : UInt64,
+  row : UInt64,
+  filter : Int,
+  raw : Int,
+) -> Result[Byte, @error.CoreError] {
+  let left = if column > 0UL {
+    self.current.view().get(column - 1UL).unwrap().to_int()
+  } else { 0 }
+  let above = if row > 0UL {
+    self.previous.view().get(column).unwrap().to_int()
+  } else { 0 }
+  let upper_left = if row > 0UL && column > 0UL {
+    self.previous.view().get(column - 1UL).unwrap().to_int()
+  } else { 0 }
+  let value = if filter == 0 { raw } else if filter == 1 { raw + left } else if filter == 2 { raw + above } else if filter == 3 { raw + ((left + above) / 2) } else { raw + _png_paeth(left, above, upper_left) }
+  let byte = value.to_byte()
+  match self.current.with_mut(column, 1UL, fn(lease) { lease.set(0UL, byte) }) {
+    Err(error) => Err(error)
+    Ok(_) => Ok(byte)
+  }
+}
+
+///|
+fn PngIndexRows::finish_row(self : PngIndexRows) -> Unit {
+  let prior = self.previous
+  self.previous = self.current
+  self.current = prior
+}
+
+///|
+fn _png_write_indexed_pixel(
+  view : @storage.MutImageView,
+  x : UInt64,
+  y : UInt64,
+  index : Byte,
+  palette : Bytes,
+  palette_entries : UInt64,
+) -> Result[Unit, @error.CoreError] {
+  let entry = index.to_int().to_uint64()
+  if entry >= palette_entries { return Err(_png_error("png-palette-index")) }
+  let offset = (entry * 3UL).to_int()
+  for channel = 0UL; channel < 3UL; channel = channel + 1UL {
+    match view.set_byte(x, y, channel, palette[offset + channel.to_int()]) {
+      Err(error) => return Err(error)
+      Ok(_) => ()
+    }
+  }
+  Ok(())
+}
+
+///|
+fn _png_write_indexed_raster(
+  view : @storage.MutImageView,
+  width : UInt64,
+  height : UInt64,
+  palette : Bytes,
+  palette_entries : UInt64,
+  filtered : Array[Byte],
+  budget : @budget.Budget,
+) -> Result[Unit, @error.CoreError] {
+  let expected = match @checked.checked_mul(width + 1UL, height) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  if filtered.length().to_uint64() != expected { return Err(_png_error("png-filtered-size")) }
+  let rows = match _png_new_index_rows(width, budget) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  let mut offset = 0UL
+  for y = 0UL; y < height; y = y + 1UL {
+    let filter = filtered[offset.to_int()].to_int()
+    if filter > 4 { return Err(_png_error("png-filter")) }
+    offset = offset + 1UL
+    for x = 0UL; x < width; x = x + 1UL {
+      let index = match rows.reconstruct(x, y, filter, filtered[offset.to_int()].to_int()) {
+        Err(error) => return Err(error)
+        Ok(value) => value
+      }
+      match _png_write_indexed_pixel(view, x, y, index, palette, palette_entries) {
+        Err(error) => return Err(error)
+        Ok(_) => ()
+      }
+      offset = offset + 1UL
+    }
+    rows.finish_row()
+  }
+  Ok(())
+}
+
+///|
 fn _png_get(view : @storage.MutImageView, x : UInt64, y : UInt64, channel : UInt64) -> Result[Int, @error.CoreError] {
   match view.get_byte(x, y, channel) {
     Err(error) => Err(error)

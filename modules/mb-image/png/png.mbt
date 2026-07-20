@@ -70,6 +70,12 @@ pub impl @codec.ImageDecoder for PngDecoder with fn decode(
     Err(error) => return Err(error)
     Ok(value) => value
   }
+  let index_rows = if stream.indexed {
+    match _png_new_index_rows(stream.width, stream.budget) {
+      Err(error) => return Err(error)
+      Ok(value) => Some(value)
+    }
+  } else { None }
   let image = match @storage.OwnedImage::new_operation(
     descriptor, stream.budget, PngBuiltinAllocator::{} as &@bytes.Allocator,
     limits.max_work(),
@@ -77,7 +83,7 @@ pub impl @codec.ImageDecoder for PngDecoder with fn decode(
     Err(error) => return Err(error)
     Ok(value) => value
   }
-  let consumed = match image.with_mut_view(fn(view) { _png_inflate_zlib_to_raster(stream.source, limits.max_output_bytes(), view, stream) }) {
+  let consumed = match image.with_mut_view(fn(view) { _png_inflate_zlib_to_raster(stream.source, limits.max_output_bytes(), view, stream, index_rows) }) {
     Err(error) => return Err(error)
     Ok(value) => value
   }
