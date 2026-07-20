@@ -178,6 +178,32 @@ source's selected Exif mapping. Nearest resize is the fixed reference algorithm:
 It uses checked integers and performs no filtering, interpolation, hidden color
 conversion, or alpha processing.
 
+### Alpha-correct processing
+
+`@ops.composite_source_over(source, destination, budget)` accepts only packed
+U8 straight-RGBA encoded-sRGB inputs. Its operand order is explicit: `source`
+is placed over `destination`. It decodes bytes to linear light, premultiplies
+normalized alpha, applies source-over, then unpremultiplies, encodes sRGB, and
+uses deterministic ties-to-even byte quantization. The result is fresh, tight
+straight encoded-sRGB RGBA8 storage.
+
+Compositing is deliberately strict at the metadata boundary: both inputs must
+have the built-in sRGB profile, identical orientation, and no opaque metadata.
+The compatible result retains profile, orientation, alpha, and empty opaque
+metadata while its disposition marks `color` transformed. A custom/opaque
+profile, orientation mismatch, or opaque metadata fails before budget charge as
+`InvalidInput`/`InvalidRange` with operation `image-composite-source-over` and
+context `image-composite-source-over-metadata`.
+
+`@ops.grayscale` uses linear-light Rec.709 luminance
+`0.2126 R + 0.7152 G + 0.0722 B` and retains alpha. `@ops.box_blur` averages a
+clamp-to-edge fixed window in linear premultiplied RGBA, so transparent saturated
+pixels do not introduce straight-color halos. `radius = 0UL` is a valid one-sample
+identity window. Radius/window/work overflow and all insufficient resource limits
+fail before the sole output allocation. These are portable reference operations:
+they intentionally provide neither SIMD/GPU acceleration nor additional quality
+kernels, codecs, benchmarks, or release behavior.
+
 ```mbt check
 ///|
 test "views and operations expose lifetime and metadata disposition" {
@@ -234,6 +260,9 @@ test "views and operations expose lifetime and metadata disposition" {
   ).unwrap()
   inspect(rgba.image().descriptor().format().channel_count(), content="4")
   inspect(rgba.disposition().transformed(0).unwrap().value(), content="alpha")
+  let gray = @ops.grayscale(rgba.image().view(), readme_budget(16UL, 4UL)).unwrap()
+  let blurred = @ops.box_blur(gray.image().view(), 0UL, readme_budget(16UL, 4UL)).unwrap()
+  inspect(blurred.image().metadata().alpha() == Some(@color.AlphaMode::Straight), content="true")
 }
 ```
 
