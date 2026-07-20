@@ -719,7 +719,7 @@ function Assert-FoundationPolicy {
 
   $workText = Get-Content -LiteralPath (Join-Path $repoRoot 'moon.work') -Raw
   $workMembers = @([regex]::Matches($workText, '"\./([^"\r\n]+)"') | ForEach-Object { $_.Groups[1].Value })
-  Assert-ExactSet 'moon.work members' $workMembers @($expectedPaths + @('examples/ppm-portable', 'examples/ppm-native-cli'))
+  Assert-ExactSet 'moon.work members' $workMembers @($expectedPaths + @('examples/ppm-portable', 'examples/ppm-native-cli', 'examples/qoi-portable'))
 
   foreach ($module in $policy.modules) {
     Assert-Condition ($module.version -ceq '0.1.0') "Policy version drift for $($module.name)."
@@ -763,7 +763,7 @@ function Assert-FoundationPolicy {
     }
 
     if ($module.name -ceq 'tchivs/mb-image') {
-      $imagePackagePaths = @('metadata', 'model', 'storage', 'ops', 'codec', 'ppm')
+      $imagePackagePaths = @('metadata', 'model', 'storage', 'ops', 'codec', 'ppm', 'qoi')
       $imagePackageNames = @($imagePackagePaths | ForEach-Object { "tchivs/mb-image/$_" })
       Assert-ExactSequence 'mb-image publication package order' @($packages.name) $imagePackageNames
       Assert-ExactSequence 'mb-image public package paths' @($packages.path) $imagePackagePaths
@@ -781,6 +781,9 @@ function Assert-FoundationPolicy {
       Assert-ExactSet 'mb-image ppm DAG edges' $imageImports.ppm @('tchivs/mb-core/budget', 'tchivs/mb-core/bytes', 'tchivs/mb-core/checked', 'tchivs/mb-core/error', 'tchivs/mb-core/io', 'tchivs/mb-color/model', 'tchivs/mb-color/profile', 'tchivs/mb-image/codec', 'tchivs/mb-image/metadata', 'tchivs/mb-image/model', 'tchivs/mb-image/storage')
       $ppmPolicy = @($packages | Where-Object { $_.path -ceq 'ppm' })[0]
       Assert-ExactSequence 'mb-image ppm production source order' @($ppmPolicy.production_sources) @('moon.pkg', 'ppm.mbt', 'parser.mbt', 'decode.mbt', 'encode.mbt', 'generated_vectors.mbt')
+      Assert-ExactSet 'mb-image qoi DAG edges' $imageImports.qoi @('tchivs/mb-core/budget', 'tchivs/mb-core/bytes', 'tchivs/mb-core/checked', 'tchivs/mb-core/error', 'tchivs/mb-core/io', 'tchivs/mb-color/model', 'tchivs/mb-color/profile', 'tchivs/mb-image/codec', 'tchivs/mb-image/metadata', 'tchivs/mb-image/model', 'tchivs/mb-image/storage')
+      $qoiPolicy = @($packages | Where-Object { $_.path -ceq 'qoi' })[0]
+      Assert-ExactSequence 'mb-image qoi production source order' @($qoiPolicy.production_sources) @('moon.pkg', 'qoi.mbt', 'decode.mbt', 'encode.mbt', 'generated_vectors.mbt')
       Assert-ExactSet 'mb-image ops DAG edges' $imageImports.ops @('tchivs/mb-core/error', 'tchivs/mb-core/checked', 'tchivs/mb-core/budget', 'tchivs/mb-core/bytes', 'tchivs/mb-color/alpha', 'tchivs/mb-color/model', 'tchivs/mb-color/profile', 'tchivs/mb-image/metadata', 'tchivs/mb-image/model', 'tchivs/mb-image/storage')
       Assert-ExactSet 'mb-image codec DAG edges' $imageImports.codec @('tchivs/mb-core/error', 'tchivs/mb-core/budget', 'tchivs/mb-core/bytes', 'tchivs/mb-core/io', 'tchivs/mb-image/metadata', 'tchivs/mb-image/model', 'tchivs/mb-image/storage')
       Assert-Condition (-not ($imageImports.codec -ccontains 'tchivs/mb-core/host')) 'mb-image codec must remain independent of host policy.'
@@ -864,8 +867,89 @@ function Assert-FoundationPolicy {
   Assert-Condition ($rfcProcessText -cmatch 'public review location and evidenced interval for the `project-lead-public-review` route' -and $rfcProcessText -cnotmatch 'public review location and evidenced interval for the bootstrap route') 'RFC process must bind public-review evidence to the project-lead route without ambiguous bootstrap wording.'
 
   Assert-FixtureManifest -ManifestPath (Join-Path $repoRoot 'fixtures/manifest.json') -RepositoryRoot $repoRoot
+  Assert-QoiFoundationPolicy -PolicyPath $PolicyPath
 
   Write-Host 'Foundation policy, RFC, workspace inventory, target metadata, fixtures, publication block, and dependency DAG verified.'
+}
+
+function Assert-QoiGeneratedInterface {
+  param([Parameter(Mandatory)][object]$QoiPolicy)
+
+  $interfacePath = 'modules/mb-image/qoi/pkg.generated.mbti'
+  Assert-Condition (Test-Path -LiteralPath $interfacePath -PathType Leaf) "QOI interface classifier cannot find '$interfacePath'."
+  $semanticLines = @(Get-Content -LiteralPath $interfacePath | ForEach-Object { $_.TrimEnd() } | Where-Object { $_ -ne '' -and -not $_.TrimStart().StartsWith('//') })
+  Assert-ExactSequence 'QOI generated semantic interface' $semanticLines @($QoiPolicy.semantic_interface | ForEach-Object { [string]$_ })
+}
+
+function Assert-QoiFoundationPolicy {
+  [CmdletBinding()]
+  param([Parameter(Mandatory)][string]$PolicyPath)
+
+  $policy = Read-QualityJson -Path $PolicyPath
+  $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
+  $imagePolicy = @($policy.modules | Where-Object { $_.name -ceq 'tchivs/mb-image' })
+  Assert-ExactSet 'QOI module selection' @($imagePolicy.name) @('tchivs/mb-image')
+  $qoiPolicy = @($imagePolicy[0].public_packages | Where-Object { $_.path -ceq 'qoi' })
+  Assert-ExactSet 'QOI public package selection' @($qoiPolicy.name) @('tchivs/mb-image/qoi')
+  $qoi = $qoiPolicy[0]
+
+  Assert-Condition ($qoi.stability -ceq 'candidate') 'QOI package stability must remain candidate.'
+  Assert-ExactSet 'QOI policy imports' @($qoi.allowed_imports) @('tchivs/mb-core/budget', 'tchivs/mb-core/bytes', 'tchivs/mb-core/checked', 'tchivs/mb-core/error', 'tchivs/mb-core/io', 'tchivs/mb-color/model', 'tchivs/mb-color/profile', 'tchivs/mb-image/codec', 'tchivs/mb-image/metadata', 'tchivs/mb-image/model', 'tchivs/mb-image/storage')
+  Assert-ExactSet 'QOI policy targets' @($qoi.supported_targets) @('js', 'wasm', 'wasm-gc', 'native')
+  Assert-ExactSequence 'QOI policy production source order' @($qoi.production_sources) @('moon.pkg', 'qoi.mbt', 'decode.mbt', 'encode.mbt', 'generated_vectors.mbt')
+
+  $workText = Get-Content -LiteralPath (Join-Path $repoRoot 'moon.work') -Raw
+  $workMembers = @([regex]::Matches($workText, '"\./([^"\r\n]+)"') | ForEach-Object { $_.Groups[1].Value })
+  Assert-ExactSet 'QOI workspace example selection' @($workMembers | Where-Object { $_ -ceq 'examples/qoi-portable' }) @('examples/qoi-portable')
+  Assert-Condition (Test-Path -LiteralPath (Join-Path $repoRoot 'examples/qoi-portable/main/main.mbt') -PathType Leaf) 'QOI public example source is missing.'
+
+  $packageText = Get-Content -LiteralPath (Join-Path $repoRoot 'modules/mb-image/qoi/moon.pkg') -Raw
+  $packageMatch = [regex]::Match($packageText, '(?m)^supported_targets\s*=\s*"([^"]+)"\s*$')
+  Assert-Condition $packageMatch.Success 'QOI moon.pkg lacks supported_targets.'
+  Assert-ExactSet 'QOI moon.pkg targets' (Get-CompactTargetSet $packageMatch.Groups[1].Value 'QOI package targets') @('js', 'wasm', 'wasm-gc', 'native')
+  Assert-ExactSet 'QOI moon.pkg imports' @(Get-PackageImportSet -Text $packageText -Label 'QOI moon.pkg') @($qoi.allowed_imports)
+
+  $qoiFiles = @(Get-ChildItem -LiteralPath (Join-Path $repoRoot 'modules/mb-image/qoi') -File | Where-Object { $_.Name -cne 'pkg.generated.mbti' } | ForEach-Object { $_.Name })
+  Assert-ExactSet 'QOI directory contents' $qoiFiles @('moon.pkg', 'qoi.mbt', 'decode.mbt', 'decode_test.mbt', 'decode_wbtest.mbt', 'encode.mbt', 'encode_test.mbt', 'encode_wbtest.mbt', 'generated_vectors.mbt')
+
+  & moon -C modules/mb-image info --target all --frozen
+  if ($LASTEXITCODE -ne 0) { throw "QOI interface generation failed (exit $LASTEXITCODE)." }
+  if (Get-Command Assert-GeneratedInterface -ErrorAction SilentlyContinue) {
+    $scopedModule = [pscustomobject]@{ name = 'tchivs/mb-image'; path = 'modules/mb-image'; public_packages = @($qoi) }
+    Assert-GeneratedInterface -ModulePolicy $scopedModule
+  } else {
+    Assert-QoiGeneratedInterface -QoiPolicy $qoi
+  }
+  Write-Host 'QOI policy, interface, target, source-order, package, and public-example selection verified.'
+}
+
+function Assert-QoiQualificationNegativeFixtures {
+  [CmdletBinding()]
+  param([Parameter(Mandatory)][string]$PolicyPath)
+
+  $policy = Read-QualityJson -Path $PolicyPath
+  $qoi = @(@($policy.modules | Where-Object { $_.name -ceq 'tchivs/mb-image' })[0].public_packages | Where-Object { $_.path -ceq 'qoi' })[0]
+  function Confirm-QoiRejected([string]$Name, [scriptblock]$Action, [string]$ExpectedPattern) {
+    $failure = $null
+    try { & $Action } catch { $failure = $_.Exception.Message }
+    if ($null -eq $failure -or $failure -cnotmatch $ExpectedPattern) {
+      throw "QOI quality accepted negative fixture '$Name' or failed for the wrong reason: '$failure'."
+    }
+    Write-Host "QOI negative fixture rejected: $Name"
+  }
+
+  $imports = @($qoi.allowed_imports | ForEach-Object { [string]$_ })
+  $sources = @($qoi.production_sources | ForEach-Object { [string]$_ })
+  Confirm-QoiRejected 'package presence' { Assert-ExactSet 'negative QOI package selection' @() @('tchivs/mb-image/qoi') } 'count mismatch'
+  Confirm-QoiRejected 'missing import' { Assert-ExactSet 'negative QOI imports' @($imports | Select-Object -Skip 1) $imports } 'count mismatch'
+  Confirm-QoiRejected 'extra import' { Assert-ExactSet 'negative QOI imports' @($imports + 'tchivs/mb-image/ops') $imports } 'count mismatch'
+  Confirm-QoiRejected 'missing portable target' { Assert-ExactSet 'negative QOI targets' @('js', 'wasm', 'native') @('js', 'wasm', 'wasm-gc', 'native') } 'count mismatch'
+  Confirm-QoiRejected 'missing decoder interface entry' { Assert-ExactSequence 'negative QOI interface' @('QoiEncoder') @('QoiDecoder', 'QoiEncoder') } 'count mismatch'
+  Confirm-QoiRejected 'extra encoder interface entry' { Assert-ExactSequence 'negative QOI interface' @('QoiDecoder', 'QoiEncoder', 'QoiRegistry') @('QoiDecoder', 'QoiEncoder') } 'count mismatch'
+  Confirm-QoiRejected 'wrong production order' { Assert-ExactSequence 'negative QOI source order' @('moon.pkg', 'qoi.mbt', 'encode.mbt', 'decode.mbt', 'generated_vectors.mbt') $sources } 'mismatch at index'
+  Confirm-QoiRejected 'missing production content' { Assert-ExactSet 'negative QOI contents' @($sources | Select-Object -Skip 1) $sources } 'count mismatch'
+  Confirm-QoiRejected 'extra production content' { Assert-ExactSet 'negative QOI contents' @($sources + 'registry.mbt') $sources } 'count mismatch'
+  Write-Host 'QOI package, import, target, interface, source-order, and content negatives fail closed.'
 }
 
 function Assert-AuditCollection {
