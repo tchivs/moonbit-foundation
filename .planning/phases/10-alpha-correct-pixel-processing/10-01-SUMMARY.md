@@ -65,6 +65,7 @@ status: complete
 1. **Task 1: Specify public raster contract and hostile-input oracles** — `ad1361c` (test)
 2. **Task 2: Implement linear-premultiplied processing** — `9cc581f` (feat)
 3. **Task 3: Publish checked processing semantics** — `c2c4989` (docs)
+4. **Rule 1 correction: Clamp blur sample offsets with checked arithmetic** — `f15d177` (fix)
 
 ## Verification
 
@@ -87,6 +88,12 @@ status: complete
 - **Found during:** Task 1
 - **Fix:** Used valid hexadecimal zero-byte literals and white-box-local image/budget builders.
 - **Verification:** The intended RED failure only referenced unimplemented public operations; the complete suite subsequently passed.
+
+**2. [Rule 1 - Overflow safety] Used checked coordinate additions while mapping blur samples.**
+- **Found during:** Final threat-surface review
+- **Fix:** Overflowing positive sample offsets now deterministically clamp to the final source coordinate.
+- **Verification:** `moon test modules/mb-image/ops --target js` passes.
+- **Committed in:** `f15d177`
 
 ## Known Stubs
 
