@@ -4,16 +4,16 @@ milestone: v0.3
 milestone_name: Image Processing Core
 current_phase: 11
 status: completed
-stopped_at: Phase 11 context gathered
-last_updated: "2026-07-20T09:17:53.283Z"
+stopped_at: Phase 12 context gathered
+last_updated: "2026-07-20T09:24:55.558Z"
 last_activity: 2026-07-20
 last_activity_desc: Phase 11 marked complete
 progress:
-  total_phases: 3
+  total_phases: 4
   completed_phases: 3
   total_plans: 7
   completed_plans: 7
-  percent: 100
+  percent: 75
 current_phase_name: Portable Processing Pipeline Evidence
 ---
 
@@ -67,9 +67,9 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-07-20T08:42:24.681Z
-Stopped at: Phase 11 context gathered
-Resume file: .planning/phases/11-portable-processing-pipeline-evidence/11-CONTEXT.md
+Last session: 2026-07-20T09:24:55.537Z
+Stopped at: Phase 12 context gathered
+Resume file: .planning/phases/12-strict-ppm-end-to-end-filter-coverage/12-CONTEXT.md
 
 ## Performance Metrics
 
