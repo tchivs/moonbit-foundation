@@ -92,3 +92,27 @@ test "PNG packed grayscale samples scale endpoints without consuming padding" {
   inspect(_png_scale_grayscale_sample(15, 4), content="255")
   inspect(_png_scale_grayscale_sample(7, 4), content="119")
 }
+
+///|
+test "PNG grayscale-alpha raster reconstructs source pairs with bpp two into straight RGBA8" {
+  let transport = PngTransport::{ width: 2UL, height: 2UL, bit_depth: 8, source_channels: 2UL, channels: 4UL, indexed: false, palette: b"", palette_entries: 0UL, transparency: PngTransparency::Opaque, idat: b"", consumed: 0UL }
+  let image = @storage.OwnedImage::new_operation(
+    _png_descriptor(transport).unwrap(),
+    @budget.Budget::new(@budget.ResourceLimits::new(bytes=64UL, allocations=1UL, allocation_size=64UL, width=8UL, height=8UL, pixels=64UL, depth=0UL, work=64UL)),
+    PngBuiltinAllocator::{} as &@bytes.Allocator,
+    64UL,
+  ).unwrap()
+  let filtered = [
+    b'\x00', b'\x10', b'\x80', b'\x20', b'\x40',
+    b'\x04', b'\x20', b'\x10', b'\x10', b'\x20',
+  ]
+  image.with_mut_view(fn(view) { _png_write_raster(view, transport, filtered, @budget.Budget::new(@budget.ResourceLimits::new(bytes=0UL, allocations=0UL, allocation_size=0UL, width=0UL, height=0UL, pixels=0UL, depth=0UL, work=0UL))) }).unwrap()
+  let view = image.view()
+  for item in [(0UL, 0UL, b'\x10', b'\x80'), (1UL, 0UL, b'\x20', b'\x40'), (0UL, 1UL, b'\x30', b'\x90'), (1UL, 1UL, b'\x40', b'\xc0')] {
+    let (x, y, gray, alpha) = item
+    inspect(view.get_byte(x, y, 0UL).unwrap() == gray, content="true")
+    inspect(view.get_byte(x, y, 1UL).unwrap() == gray, content="true")
+    inspect(view.get_byte(x, y, 2UL).unwrap() == gray, content="true")
+    inspect(view.get_byte(x, y, 3UL).unwrap() == alpha, content="true")
+  }
+}
