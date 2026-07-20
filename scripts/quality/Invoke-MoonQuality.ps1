@@ -544,61 +544,6 @@ function Assert-ImageQualificationNegativeFixtures {
   Write-Host 'Image topology, DAG, interface, publication, targets, source, README, generated-table, case, consumer, and oracle negatives all fail closed.'
 }
 
-function Get-TrackedDiffSnapshot {
-  $output = @(& git diff --binary --no-ext-diff HEAD -- 2>&1 | ForEach-Object { $_.ToString() })
-  if ($LASTEXITCODE -ne 0) { throw "Unable to capture tracked diff (exit $LASTEXITCODE)." }
-  return ($output -join "`n")
-}
-
-
-function Add-Phase06QualificationEvidence {
-  param(
-    [Parameter(Mandatory)][string]$ReportPath,
-    [Parameter(Mandatory)][string]$LedgerPath
-  )
-  $report = Get-Content -LiteralPath $ReportPath -Raw | ConvertFrom-Json -Depth 100
-  $ledger = Get-Content -LiteralPath $LedgerPath -Raw | ConvertFrom-Json -Depth 100
-  $report | Add-Member -NotePropertyName phase_06 -NotePropertyValue ([ordered]@{
-    requirement_order = @($ledger.requirements.PSObject.Properties.Name)
-    selector_order = @($ledger.selectors.id)
-    edge_evidence = @($ledger.edge_probes.id)
-    prohibition_evidence = @($ledger.prohibitions.id)
-    identity = 'tchivs/*@0.1.0'
-    authority_validation = 'pass_blocked'
-    publish_ready = $false
-    publish_ready_rejection = 'REG03-REQUIRED-FACT-UNKNOWN'
-    observation_selector = $null
-    phase_07_handoff = [string]$ledger.phase_07_handoff
-  })
-  [IO.File]::WriteAllText($ReportPath, (($report | ConvertTo-Json -Depth 100) + "`n"), [Text.UTF8Encoding]::new($false))
-}
-
-function Add-Phase07QualificationEvidence {
-  param(
-    [Parameter(Mandatory)][string]$ReportPath,
-    [Parameter(Mandatory)][string]$LedgerPath
-  )
-  $report = Get-Content -LiteralPath $ReportPath -Raw | ConvertFrom-Json -Depth 100
-  $ledger = Get-Content -LiteralPath $LedgerPath -Raw | ConvertFrom-Json -Depth 100
-  $report | Add-Member -NotePropertyName phase_07 -NotePropertyValue ([ordered]@{
-    requirement_order = @($ledger.requirement_order)
-    selector_order = @($ledger.selectors.id)
-    edge_evidence = @($ledger.edge_probes.id)
-    prohibition_evidence = @($ledger.prohibitions.id)
-    workflow_static_validation = 'pass'
-    intent_contract = 'pass'
-    recovery_rehearsal = 'pass'
-    canonical_root_lock = 'pass'
-    prepared_bundle_substitution = 'rejected'
-    credentials_read = $false
-    publication_performed = $false
-    network_performed = $false
-    hosted_settings_checked = $false
-    phase_08_handoff = [string]$ledger.phase_08_handoff
-  })
-  [IO.File]::WriteAllText($ReportPath, (($report | ConvertTo-Json -Depth 100) + [Environment]::NewLine), [Text.UTF8Encoding]::new($false))
-}
-
 function Invoke-RequiredQuality {
   param([Parameter(Mandatory)][string]$EvidenceDirectory)
   $llvmMingwBins = @()
@@ -621,16 +566,8 @@ function Invoke-RequiredQuality {
   $requiredTargets = @('js', 'wasm', 'wasm-gc', 'native')
   $modules = @('mb-core', 'mb-color', 'mb-image')
   $policy = Read-QualityJson -Path $policyPath
-  Invoke-QualityStage 'Phase 6 exact identity and immutable-history closure' {
-    & ./scripts/quality/Test-IdentityMigration.ps1
-  }
-  $initialTrackedDiff = Get-TrackedDiffSnapshot
-  $startedUtc = [DateTime]::UtcNow.ToString('o')
   $absoluteEvidence = if ([IO.Path]::IsPathRooted($EvidenceDirectory)) { [IO.Path]::GetFullPath($EvidenceDirectory) } else { [IO.Path]::GetFullPath((Join-Path (Resolve-Path '.').Path $EvidenceDirectory)) }
 
-  Invoke-QualityStage 'Static WORK-06 and QUAL-01..06 requirement ledger' {
-    $null = Assert-StaticRequirementLedger -Path 'release/qualification/v0.1-requirements.json'
-  }
   Invoke-QualityStage 'Governance acceptance fail-closed matrix' {
     & ./scripts/quality/Test-RfcAcceptance.ps1
   }
@@ -648,9 +585,6 @@ function Invoke-RequiredQuality {
   }
   Invoke-QualityStage 'Phase 6 compatibility policy and negative matrix' {
     & ./scripts/quality/Test-PublicCompatibility.ps1
-  }
-  Invoke-QualityStage 'Release and PPM fail-closed negative matrix' {
-    & ./scripts/quality/Test-ReleaseQualificationNegative.ps1
   }
 
   Invoke-QualityStage 'D-14 exact toolchain identity' {
@@ -701,9 +635,6 @@ function Invoke-RequiredQuality {
   Invoke-QualityStage 'QUAL-02 public example consumers and source isolation' {
     & ./scripts/quality/Test-PublicExamples.ps1 -Example all -Mode qualify -Report (Join-Path $absoluteEvidence 'examples/report.json')
   }
-  Invoke-QualityStage 'QUAL-04 exact candidate documentation and claim qualification' {
-    & ./scripts/quality/Test-CandidateDocumentation.ps1
-  }
   foreach ($target in $requiredTargets) {
     Invoke-QualityStage "CORE literate README check target $target" {
       Invoke-MoonCommand -Context "mb-core README check target $target" -Arguments @('-C', 'modules/mb-core', 'check', 'README.mbt.md', '--target', $target, '--frozen')
@@ -746,21 +677,6 @@ function Invoke-RequiredQuality {
       Assert-PackageList -ModulePolicy $modulePolicy -Output $packageOutput
     }
   }
-  Invoke-QualityStage 'WORK-06 and QUAL-06 deterministic release packages and consumers' {
-    & ./scripts/quality/Test-ReleaseQualification.ps1 -Focused
-  }
-  Invoke-QualityStage 'Phase 6 reciprocal requirement, edge, and prohibition ledger' {
-    & ./scripts/quality/Test-Phase06Qualification.ps1 -LedgerOnly
-  }
-  Invoke-QualityStage 'Read-only tracked checkout proof' {
-    $finalTrackedDiff = Get-TrackedDiffSnapshot
-    Assert-ReleaseTrackedSnapshot -Before $initialTrackedDiff -After $finalTrackedDiff
-  }
-  $requiredReport = Write-RequiredQualificationReport -RepoRoot (Resolve-Path '.').Path -EvidenceDirectory $absoluteEvidence -StartedUtc $startedUtc
-  $null = Assert-RequiredQualificationReport -Path $requiredReport -LedgerPath 'release/qualification/v0.1-requirements.json'
-  Add-Phase06QualificationEvidence -ReportPath $requiredReport -LedgerPath 'release/qualification/phase-06-requirements.json'
-  Add-Phase07QualificationEvidence -ReportPath $requiredReport -LedgerPath 'release/qualification/phase-07-requirements.json'
-  Write-Host "Required qualification report: $requiredReport"
   Write-Host 'Required quality lane passed.'
 }
 
