@@ -75,6 +75,9 @@ None.
 | 260721-6k0 | Decode non-interlaced 8-bit grayscale-alpha PNG into straight RGBA8 with split-IDAT failure equivalence evidence | 2026-07-21 | 289a4e6 | Verified | [260721-6k0-implement-bounded-non-interlaced-8-bit-g](./quick/260721-6k0-implement-bounded-non-interlaced-8-bit-g/) |
 | 260721-7d5 | Decode non-interlaced 16-bit grayscale and truecolour PNG into RGB8/RGBA8 with raw tRNS matching | 2026-07-21 | 8e11370 | Verified | [260721-7d5-implement-bounded-non-interlaced-16-bit-](./quick/260721-7d5-implement-bounded-non-interlaced-16-bit-/) |
 | 260721-81r | Decode non-interlaced 16-bit grayscale-alpha and RGBA PNG into straight RGBA8 | 2026-07-21 | a451101 | Verified | [260721-81r-implement-bounded-non-interlaced-16-bit-](./quick/260721-81r-implement-bounded-non-interlaced-16-bit-/) |
+| 260721-8nz | Decode bounded Adam7 PNG across all supported profiles with independent split-boundary evidence | 2026-07-21 | e9669ef | Verified* | [260721-8nz-implement-bounded-adam7-interlaced-png-d](./quick/260721-8nz-implement-bounded-adam7-interlaced-png-d/) |
+
+\* The PNG quality lane and all portable tests pass; the all-package `--deny-warn` command still reports the pre-existing 26 generated/legacy unused-field diagnostics documented in the quick-task verification.
 
 ## Deferred Items
 
