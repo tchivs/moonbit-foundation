@@ -56,7 +56,7 @@ Publication, registry-consumer proof, provenance closure, and any release automa
 
 - [x] **Phase 17: Resumable QOI Chunk Decode** - Users can decode caller-owned QOI byte chunks safely and explicitly complete or reject a stream. (completed 2026-07-20)
 - [x] **Phase 18: Resumable QOI Buffer Encode** - Users can pull canonical QOI bytes into caller-owned output buffers without losing stream progress or eager preflight guarantees. (completed 2026-07-20)
-- [ ] **Phase 19: Portable Streaming QOI Evidence** - Users and maintainers can run one public streaming processing workflow and verify hostile schedules on all portable targets.
+- [x] **Phase 19: Portable Streaming QOI Evidence** - Users and maintainers can run one public streaming processing workflow and verify hostile schedules on all portable targets. (completed 2026-07-20)
 
 ## Phase Details
 
@@ -148,7 +148,7 @@ Plans:
 | 16. QOI Policy and Public Example Quality Alignment | v0.4 | 1/1 | Complete | 2026-07-20 |
 | 17. Resumable QOI Chunk Decode | v0.5 | 1/1 | Complete    | 2026-07-20 |
 | 18. Resumable QOI Buffer Encode | v0.5 | 1/1 | Complete    | 2026-07-20 |
-| 19. Portable Streaming QOI Evidence | v0.5 | 0/TBD | Not started | - |
+| 19. Portable Streaming QOI Evidence | v0.5 | 1/1 | Complete | 2026-07-20 |
 
 ### Phase 12: Strict PPM End-to-End Filter Coverage
 
@@ -251,10 +251,11 @@ Plans:
   2. A library user can run one public portable example that feeds chunked QOI bytes to the streaming decoder, applies an existing image operation, drains canonical QOI bytes through streaming output buffers, and prints deterministic evidence.
   3. The streaming evidence uses only public portable MoonBit contracts and does not invoke FFI, alter `Reader` EOF semantics, add PNG/DEFLATE work, or introduce registry or release-automation work.
 
-**Plans**: 1 plan
+**Plans**: 1/1 plans executed
 
 Plans:
-- [ ] 19-01-PLAN.md — Prove hostile portable QOI streaming schedules and upgrade the existing public QOI workflow.
+
+- [x] 19-01-PLAN.md — Prove hostile portable QOI streaming schedules and upgrade the existing public QOI workflow.
 
 ---
 *Roadmap updated: 2026-07-20 for v0.5 QOI Streaming I/O planning*

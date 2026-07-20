@@ -19,8 +19,8 @@
 
 ### Portable Evidence
 
-- [ ] **QSTR-06**: Maintainers can prove streaming QOI decoding and encoding against generated vectors, hostile chunk boundaries, and output capacities on js, wasm, wasm-gc, and native.
-- [ ] **QSTR-07**: A library user can run one public portable streaming QOI example that decodes chunked bytes, applies an existing image operation, and writes canonical QOI output with deterministic evidence.
+- [x] **QSTR-06**: Maintainers can prove streaming QOI decoding and encoding against generated vectors, hostile chunk boundaries, and output capacities on js, wasm, wasm-gc, and native.
+- [x] **QSTR-07**: A library user can run one public portable streaming QOI example that decodes chunked bytes, applies an existing image operation, and writes canonical QOI output with deterministic evidence.
 
 ## Future Requirements
 
@@ -48,8 +48,8 @@
 | QSTR-03 | Phase 17 | Complete |
 | QSTR-04 | Phase 18 | Complete |
 | QSTR-05 | Phase 18 | Complete |
-| QSTR-06 | Phase 19 | Pending |
-| QSTR-07 | Phase 19 | Pending |
+| QSTR-06 | Phase 19 | Complete |
+| QSTR-07 | Phase 19 | Complete |
 
 **Coverage:**
 

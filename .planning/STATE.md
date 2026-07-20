@@ -4,17 +4,17 @@ milestone: v0.5
 milestone_name: QOI Streaming I/O
 current_phase: 19
 current_phase_name: Portable Streaming QOI Evidence
-status: executing
-stopped_at: Phase 19 context gathered
-last_updated: "2026-07-20T14:07:16.864Z"
+status: complete
+stopped_at: Completed 19-01-PLAN.md
+last_updated: "2026-07-20T14:16:06.238Z"
 last_activity: 2026-07-20
-last_activity_desc: Phase 18 complete, transitioned to Phase 19
+last_activity_desc: Phase 19 portable streaming QOI evidence complete
 progress:
   total_phases: 11
-  completed_phases: 2
-  total_plans: 2
-  completed_plans: 2
-  percent: 18
+  completed_phases: 3
+  total_plans: 3
+  completed_plans: 3
+  percent: 27
 ---
 
 # Project State
@@ -25,18 +25,18 @@ See `.planning/PROJECT.md` (updated 2026-07-18).
 
 **Core value:** MoonBit developers can reuse stable, high-performance native infrastructure contracts instead of rebuilding incompatible foundations for every graphics, document, media, or automation product.
 
-**Current focus:** Phase 17 — resumable-qoi-chunk-decode
+**Current focus:** Phase 19 — portable-streaming-qoi-evidence
 
 ## Current Position
 
 Phase: 19 of 19 (Portable Streaming QOI Evidence)
-Plan: Not started
-Status: Ready to execute
-Last activity: 2026-07-20 — Phase 18 complete, transitioned to Phase 19
+Plan: 1 of 1
+Status: Complete
+Last activity: 2026-07-20 — Phase 19 plan completed
 
 ## Performance Metrics
 
-**Current milestone:** 0 plans completed across 3 planned phases; plan count will be set during phase planning.
+**Current milestone:** 3 plans completed across 3 planned phases.
 
 **Historical context:** v0.1 delivered five completed phases and 41 plans. v0.2 publication work is deferred without registry mutation and is excluded from v0.3 progress.
 
@@ -58,6 +58,8 @@ Last activity: 2026-07-20 — Phase 18 complete, transitioned to Phase 19
 - [v0.5]: Add streaming beside, not inside, the eager `ImageDecoder` and `ImageEncoder` traits: caller-owned chunks represent temporary input absence, so `@io.Reader` EOF semantics remain unchanged.
 - [v0.5]: The decoder requires explicit finish before it returns a completed image; the encoder writes only caller-supplied output buffers or leases after eager-equivalent preflight succeeds.
 - [v0.5]: Keep the milestone to three code-and-test phases: streaming decode, streaming encode, and four-target public evidence. Registry and release automation remain out of scope.
+- [Phase ?]: Generated QOI stream schedules remain fixture-owned, separating hostile input and output capacities.
+- [Phase ?]: The sole qoi-portable consumer exposes fixed stream schedules and counters through one deterministic line.
 
 ### Pending Todos
 
@@ -91,12 +93,13 @@ Items acknowledged and deferred at v0.3 milestone close on 2026-07-20. They belo
 | debug | phase08-workflow-receipt-input | awaiting_human_verify |
 | debug | prepare-attempt-contract-mismatch | awaiting_human_verify |
 | debug | r12-qualification-timeout | resolved-incorrect |
+| Phase 19-portable-streaming-qoi-evidence P01 | 6min | 3 tasks | 13 files |
 
 ## Session Continuity
 
-Last session: 2026-07-20T13:55:44.432Z
-Stopped at: Phase 19 context gathered
-Resume file: .planning/phases/19-portable-streaming-qoi-evidence/19-CONTEXT.md
+Last session: 2026-07-20T14:16:06.217Z
+Stopped at: Completed 19-01-PLAN.md
+Resume file: None
 
 ## Performance Metrics
 
