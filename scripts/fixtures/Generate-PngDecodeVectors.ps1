@@ -96,6 +96,15 @@ function Assert-Oracle($Case) {
         $previous=$current
       }
       if ((Moon-Bytes $pixels.ToArray()) -cne (Moon-Bytes (Hex $Case.pixels_hex))) { throw "Source-bpp tRNS oracle mismatch: $($Case.id)" }
+    } elseif ($Case.colour_type -eq 4) {
+      $scan = $output.ToArray(); $stride = [int]$Case.width * 2; $previous = [byte[]]::new($stride); $pixels = [Collections.Generic.List[byte]]::new(); $at = 0
+      for ($y = 0; $y -lt $Case.height; $y++) {
+        $filter = $scan[$at++]; if ($filter -gt 4) { throw "Invalid grayscale-alpha filter oracle input: $($Case.id)" }; $current = [byte[]]::new($stride)
+        for ($column = 0; $column -lt $stride; $column++) { $raw=$scan[$at++]; $left=if($column -ge 2){$current[$column-2]}else{0}; $above=if($y){$previous[$column]}else{0}; $ul=if($y -and $column -ge 2){$previous[$column-2]}else{0}; $predict=if($filter -eq 0){0}elseif($filter -eq 1){$left}elseif($filter -eq 2){$above}elseif($filter -eq 3){($left+$above) -shr 1}else{$p=$left+$above-$ul;$pa=[Math]::Abs($p-$left);$pb=[Math]::Abs($p-$above);$pc=[Math]::Abs($p-$ul);if($pa -le $pb -and $pa -le $pc){$left}elseif($pb -le $pc){$above}else{$ul}}; $current[$column]=($raw+$predict)%256 }
+        for ($x = 0; $x -lt $Case.width; $x++) { $gray=$current[$x*2]; $pixels.Add($gray);$pixels.Add($gray);$pixels.Add($gray);$pixels.Add($current[$x*2+1]) }
+        $previous=$current
+      }
+      if ((Moon-Bytes $pixels.ToArray()) -cne (Moon-Bytes (Hex $Case.pixels_hex))) { throw "Grayscale-alpha RGBA oracle mismatch: $($Case.id)" }
     } elseif ($Case.colour_type -eq 3) {
       $palette = Hex $Case.plte_hex
       if ($palette.Length -lt 3 -or $palette.Length -gt 768 -or $palette.Length % 3) { throw "Invalid indexed PLTE oracle input: $($Case.id)" }
@@ -115,25 +124,32 @@ function Assert-Oracle($Case) {
 }
 
 $corpus = Get-Content -Raw -LiteralPath $CasesPath | ConvertFrom-Json
-$required = @('fixed-rgb-filters-every-idat-byte','fixed-grayscale-filters-every-idat-boundary','lowbit-gray-1-filters','lowbit-gray-2-filters','lowbit-gray-4-filters','lowbit-gray-8-filters','lowbit-trns-gray-1','lowbit-trns-gray-2','lowbit-trns-gray-4','lowbit-trns-gray-high-byte','lowbit-trns-gray-mask','lowbit-indexed-1-filters','lowbit-indexed-2-filters','lowbit-indexed-4-filters','lowbit-trns-indexed-2-filters','lowbit-indexed-depth','lowbit-indexed-plte-depth','lowbit-indexed-palette-index','dynamic-rgba-filters-semantic-idat-split','indexed-filters-every-idat-boundary','trns-grayscale-filters','trns-rgb-filters','trns-indexed-filters','indexed-missing-plte','indexed-plte-length-0','indexed-plte-length-1','indexed-plte-length-2','indexed-plte-length-4','indexed-plte-length-5','indexed-plte-length-769','indexed-plte-duplicate','indexed-plte-after-idat','indexed-plte-crc','indexed-palette-index','trns-duplicate','trns-after-idat','trns-before-plte','trns-crc','trns-gray-length','trns-gray-sample','trns-rgb-length','trns-rgb-sample','trns-indexed-length','trns-type6','hostile-zlib-header','hostile-truncated-deflate','hostile-adler','hostile-filter','hostile-dynamic-incomplete-tree','hostile-fixed-distance-before-history','hostile-filtered-output-expansion')
-if ($corpus.schema_version -ne '2.2.0' -or (Compare-Object $required @($corpus.cases.id))) { throw 'PNG decode corpus is stale or incomplete.' }
+$required = @('fixed-rgb-filters-every-idat-byte','fixed-grayscale-filters-every-idat-boundary','lowbit-gray-1-filters','lowbit-gray-2-filters','lowbit-gray-4-filters','lowbit-gray-8-filters','lowbit-trns-gray-1','lowbit-trns-gray-2','lowbit-trns-gray-4','lowbit-trns-gray-high-byte','lowbit-trns-gray-mask','lowbit-indexed-1-filters','lowbit-indexed-2-filters','lowbit-indexed-4-filters','lowbit-trns-indexed-2-filters','lowbit-indexed-depth','lowbit-indexed-plte-depth','lowbit-indexed-palette-index','dynamic-rgba-filters-semantic-idat-split','indexed-filters-every-idat-boundary','trns-grayscale-filters','trns-rgb-filters','trns-indexed-filters','indexed-missing-plte','indexed-plte-length-0','indexed-plte-length-1','indexed-plte-length-2','indexed-plte-length-4','indexed-plte-length-5','indexed-plte-length-769','indexed-plte-duplicate','indexed-plte-after-idat','indexed-plte-crc','indexed-palette-index','trns-duplicate','trns-after-idat','trns-before-plte','trns-crc','trns-gray-length','trns-gray-sample','trns-rgb-length','trns-rgb-sample','trns-indexed-length','trns-type6','hostile-zlib-header','hostile-truncated-deflate','hostile-adler','hostile-filter','hostile-dynamic-incomplete-tree','hostile-fixed-distance-before-history','hostile-filtered-output-expansion','gray-alpha-filters','gray-alpha-depth-1','gray-alpha-depth-2','gray-alpha-depth-4','gray-alpha-depth-16','gray-alpha-trns','gray-alpha-trns-after-idat','gray-alpha-trns-crc','gray-alpha-filter','gray-alpha-malformed','gray-alpha-limit')
+if ($corpus.schema_version -ne '2.3.0' -or (Compare-Object $required @($corpus.cases.id))) { throw 'PNG decode corpus is stale or incomplete.' }
 $records = [Collections.Generic.List[object]]::new()
 foreach ($case in $corpus.cases) {
   $zlib = Hex $case.zlib_hex
-  if ($case.PSObject.Properties['exhaustive_idat_splits'] -and $case.exhaustive_idat_splits) {
+  $group = if ($null -ne $case.PSObject.Properties['comparison_group']) { [string]$case.comparison_group } else { '' }
+  if ($group.Length) {
+    if ($zlib.Length -lt 2) { throw "Exhaustive IDAT vector is too short: $($case.id)" }
+    $records.Add([pscustomobject]@{ case = $case; id = "$($case.id)-unsplit"; splits = [int[]]@($zlib.Length); group = $group; baseline = $true })
+    for ($offset = 1; $offset -lt $zlib.Length; $offset++) {
+      $records.Add([pscustomobject]@{ case = $case; id = "$($case.id)-split-$offset"; splits = [int[]]@($offset, ($zlib.Length - $offset)); group = $group; baseline = $false })
+    }
+  } elseif ($case.PSObject.Properties['exhaustive_idat_splits'] -and $case.exhaustive_idat_splits) {
     if ($zlib.Length -lt 2) { throw "Exhaustive IDAT vector is too short: $($case.id)" }
     for ($offset = 1; $offset -lt $zlib.Length; $offset++) {
-      $records.Add([pscustomobject]@{ case = $case; id = "$($case.id)-split-$offset"; splits = [int[]]@($offset, ($zlib.Length - $offset)) })
+      $records.Add([pscustomobject]@{ case = $case; id = "$($case.id)-split-$offset"; splits = [int[]]@($offset, ($zlib.Length - $offset)); group = ''; baseline = $false })
     }
   } else {
-    $records.Add([pscustomobject]@{ case = $case; id = [string]$case.id; splits = [int[]]$case.idat_splits })
+    $records.Add([pscustomobject]@{ case = $case; id = [string]$case.id; splits = [int[]]$case.idat_splits; group = ''; baseline = $false })
   }
 }
 $rows = [Collections.Generic.List[string]]::new()
 $rows.Add('// Generated by scripts/fixtures/Generate-PngDecodeVectors.ps1. Do not edit.')
 $rows.Add('')
 $rows.Add('///|')
-$rows.Add('priv struct PngDecodeVector { id : String; bytes : Bytes; width : UInt64; height : UInt64; channels : UInt64; pixels : Bytes; outcome : String; max_output : UInt64; context : String }')
+$rows.Add('priv struct PngDecodeVector { id : String; bytes : Bytes; width : UInt64; height : UInt64; channels : UInt64; pixels : Bytes; outcome : String; max_output : UInt64; category : String; code : String; context : String; comparison_group : String; baseline : Bool }')
 $rows.Add('')
 $rows.Add('///|')
 $rows.Add('fn _generated_png_decode_cases() -> Array[PngDecodeVector] {')
@@ -141,8 +157,8 @@ $rows.Add('  [')
 foreach ($record in $records) {
   $case = $record.case
   Assert-Oracle $case
-  $png = New-Png $case $record.splits; $pixels = if ($case.outcome -eq 'accepted') { Moon-Bytes (Hex $case.pixels_hex) } else { '' }; $channels = if ($case.colour_type -eq 6 -or $null -ne $case.PSObject.Properties['trns_hex']) { 4 } else { 3 }; $context = if ($null -eq $case.PSObject.Properties['context']) { '' } else { [string]$case.context }; $maxOutput = if ($null -eq $case.PSObject.Properties['max_output']) { 1024 } else { [uint64]$case.max_output }
-  $rows.Add(('    PngDecodeVector::{{ id: "{0}", bytes: b"{1}", width: {2}UL, height: {3}UL, channels: {4}UL, pixels: b"{5}", outcome: "{6}", max_output: {7}UL, context: "{8}" }},' -f $record.id,(Moon-Bytes $png),$case.width,$case.height,$channels,$pixels,$case.outcome,$maxOutput,$context))
+  $png = New-Png $case $record.splits; $pixels = if ($case.outcome -eq 'accepted') { Moon-Bytes (Hex $case.pixels_hex) } else { '' }; $channels = if ($case.colour_type -eq 4 -or $case.colour_type -eq 6 -or $null -ne $case.PSObject.Properties['trns_hex']) { 4 } else { 3 }; $context = if ($null -eq $case.PSObject.Properties['context']) { '' } else { [string]$case.context }; $maxOutput = if ($null -eq $case.PSObject.Properties['max_output']) { 1024 } else { [uint64]$case.max_output }; $category = if ($null -eq $case.PSObject.Properties['category']) { if ($case.outcome -eq 'limit') { 'resource' } else { 'data' } } else { [string]$case.category }; $code = if ($null -eq $case.PSObject.Properties['code']) { if ($case.outcome -eq 'limit') { 'budget-exceeded' } else { 'invalid-encoding' } } else { [string]$case.code }; $baseline = if ($record.baseline) { 'true' } else { 'false' }
+  $rows.Add(('    PngDecodeVector::{{ id: "{0}", bytes: b"{1}", width: {2}UL, height: {3}UL, channels: {4}UL, pixels: b"{5}", outcome: "{6}", max_output: {7}UL, category: "{8}", code: "{9}", context: "{10}", comparison_group: "{11}", baseline: {12} }},' -f $record.id,(Moon-Bytes $png),$case.width,$case.height,$channels,$pixels,$case.outcome,$maxOutput,$category,$code,$context,$record.group,$baseline))
 }
 $rows.Add('  ]'); $rows.Add('}'); $rows.Add('')
 $text = $rows -join "`n"

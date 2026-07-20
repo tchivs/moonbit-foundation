@@ -289,26 +289,35 @@ fn _png_legacy_phase20_matrix() -> Unit raise Error {
 }
 
 ///|
+fn png_test_decode_vector(item : PngDecodeVector) -> Result[@codec.DecodeResult, @error.CoreError] {
+  let length = item.bytes.length().to_uint64()
+  let source = @bytes.OwnedBytes::from_bytes(
+    item.bytes,
+    @budget.Budget::new(@budget.ResourceLimits::new(
+      bytes=length, allocations=1UL, allocation_size=length, width=0UL,
+      height=0UL, pixels=0UL, depth=0UL, work=0UL,
+    )),
+  ).unwrap()
+  let reader = @io.MemoryReader::new(source.view())
+  @codec.ImageDecoder::decode(
+    PngDecoder::new(), reader as &@io.Reader,
+    @codec.DecodeOptions::new(require_complete_input=true, preserve_opaque_metadata=false),
+    @codec.CodecLimits::new(max_probe_bytes=8UL, max_input_bytes=4096UL, max_output_bytes=item.max_output, max_width=64UL, max_height=16UL, max_pixels=1024UL, max_work=4096UL),
+    @budget.Budget::new(@budget.ResourceLimits::new(bytes=4096UL, allocations=3UL, allocation_size=1024UL, width=64UL, height=16UL, pixels=1024UL, depth=0UL, work=4096UL)),
+    @error.Diagnostics::new(),
+  )
+}
+
+///|
 test "generated PNG decode vectors execute fixed and dynamic streams through PngDecoder" {
   for item in _generated_png_decode_cases() {
-    let length = item.bytes.length().to_uint64()
-    let source = @bytes.OwnedBytes::from_bytes(
-      item.bytes,
-      @budget.Budget::new(@budget.ResourceLimits::new(
-        bytes=length, allocations=1UL, allocation_size=length, width=0UL,
-        height=0UL, pixels=0UL, depth=0UL, work=0UL,
-      )),
-    ).unwrap()
-    let reader = @io.MemoryReader::new(source.view())
-    let decoded = @codec.ImageDecoder::decode(
-      PngDecoder::new(), reader as &@io.Reader,
-      @codec.DecodeOptions::new(require_complete_input=true, preserve_opaque_metadata=false),
-      @codec.CodecLimits::new(max_probe_bytes=8UL, max_input_bytes=4096UL, max_output_bytes=item.max_output, max_width=64UL, max_height=16UL, max_pixels=1024UL, max_work=4096UL),
-      @budget.Budget::new(@budget.ResourceLimits::new(bytes=4096UL, allocations=3UL, allocation_size=1024UL, width=64UL, height=16UL, pixels=1024UL, depth=0UL, work=4096UL)),
-      @error.Diagnostics::new(),
-    )
+    let decoded = png_test_decode_vector(item)
     if item.outcome == "accepted" {
       let result = match decoded { Ok(value) => value; Err(error) => fail("generated PNG accepted case failed: " + item.id + ": " + error.context().unwrap()) }
+      let descriptor = result.image().descriptor()
+      if descriptor.width() != item.width || descriptor.height() != item.height || descriptor.format().channel_count() != item.channels {
+        fail("generated PNG descriptor mismatch: " + item.id)
+      }
       let view = result.image().view()
       for y = 0UL; y < item.height; y = y + 1UL {
         for x = 0UL; x < item.width; x = x + 1UL {
@@ -320,16 +329,50 @@ test "generated PNG decode vectors execute fixed and dynamic streams through Png
           }
         }
       }
-    } else if item.outcome == "limit" {
-      let error = decoded.unwrap_err()
-      inspect(error.category() == @error.ErrorCategory::Resource, content="true")
-      inspect(error.code() == @error.ErrorCode::BudgetExceeded, content="true")
-      if error.context() != Some(item.context) { fail("generated PNG context mismatch: " + item.id + ": " + error.context().unwrap()) }
+      if item.comparison_group != "" && !item.baseline {
+        for baseline in _generated_png_decode_cases() {
+          if baseline.comparison_group == item.comparison_group && baseline.baseline {
+            let baseline_result = png_test_decode_vector(baseline).unwrap()
+            let baseline_descriptor = baseline_result.image().descriptor()
+            if baseline_descriptor.width() != descriptor.width() || baseline_descriptor.height() != descriptor.height() || baseline_descriptor.format().channel_count() != descriptor.format().channel_count() {
+              fail("generated PNG accepted boundary descriptor mismatch: " + item.id)
+            }
+            let baseline_view = baseline_result.image().view()
+            for y = 0UL; y < item.height; y = y + 1UL {
+              for x = 0UL; x < item.width; x = x + 1UL {
+                for channel = 0UL; channel < item.channels; channel = channel + 1UL {
+                  if baseline_view.get_byte(x, y, channel).unwrap() != view.get_byte(x, y, channel).unwrap() {
+                    fail("generated PNG accepted boundary pixel mismatch: " + item.id)
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
     } else {
       let error = decoded.unwrap_err()
-      inspect(error.category() == @error.ErrorCategory::Data, content="true")
-      inspect(error.code() == @error.ErrorCode::InvalidEncoding, content="true")
+      if item.category == "resource" {
+        inspect(error.category() == @error.ErrorCategory::Resource, content="true")
+      } else if item.category == "data" {
+        inspect(error.category() == @error.ErrorCategory::Data, content="true")
+      } else { fail("generated PNG unknown error category: " + item.id) }
+      if item.code == "budget-exceeded" {
+        inspect(error.code() == @error.ErrorCode::BudgetExceeded, content="true")
+      } else if item.code == "invalid-encoding" {
+        inspect(error.code() == @error.ErrorCode::InvalidEncoding, content="true")
+      } else { fail("generated PNG unknown error code: " + item.id) }
       if error.context() != Some(item.context) { fail("generated PNG context mismatch: " + item.id + ": " + error.context().unwrap()) }
+      if item.comparison_group != "" && !item.baseline {
+        for baseline in _generated_png_decode_cases() {
+          if baseline.comparison_group == item.comparison_group && baseline.baseline {
+            let baseline_error = png_test_decode_vector(baseline).unwrap_err()
+            if baseline_error.category() != error.category() || baseline_error.code() != error.code() || baseline_error.context() != error.context() {
+              fail("generated PNG hostile boundary mismatch: " + item.id)
+            }
+          }
+        }
+      }
     }
   }
 }
