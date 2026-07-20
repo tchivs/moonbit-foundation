@@ -1,0 +1,188 @@
+{
+  "schema_version": "1.0.0",
+  "dependency_source": "registry_only",
+  "module_order": [
+    "mb-core",
+    "mb-color",
+    "mb-image"
+  ],
+  "required_targets": [
+    "js",
+    "wasm",
+    "wasm-gc",
+    "native"
+  ],
+  "metadata_fields": [
+    "name",
+    "version",
+    "description",
+    "license",
+    "repository",
+    "readme",
+    "preferred-target",
+    "supported-targets"
+  ],
+  "package_inventory_order": [
+    "mb-core",
+    "mb-color",
+    "mb-image"
+  ],
+  "surface_order": [
+    "publish_preflight",
+    "authenticated_account",
+    "public_user",
+    "public_module",
+    "registry_index",
+    "archive",
+    "downloaded_manifest",
+    "versioned_assets"
+  ],
+  "surface_classifications": [
+    "exact",
+    "absent",
+    "mismatch",
+    "unknown"
+  ],
+  "polling": {
+    "interval_seconds": 15,
+    "max_attempts": 20,
+    "states": [
+      "pending",
+      "exact",
+      "absent",
+      "mismatch",
+      "timeout",
+      "unknown"
+    ]
+  },
+  "terminal_dispositions": [
+    "exact_match",
+    "confirmed_absent",
+    "mismatch_incident",
+    "timeout_unknown",
+    "observation_unknown"
+  ],
+  "mutation_authority": false,
+  "strongest_identity": {
+    "algorithm": "sha256",
+    "registry_prefix": "sha256:",
+    "require_archive_agreement": true,
+    "weaker_identity_disposition": "observation_unknown"
+  },
+  "redaction": {
+    "reject_unknown_fields": true,
+    "persist_raw_responses": false,
+    "forbidden_field_names": [
+      "authorization",
+      "cookie",
+      "credentials",
+      "password",
+      "raw_body",
+      "secret",
+      "token"
+    ],
+    "forbidden_value_patterns": [
+      "(?i)authorization\\s*:",
+      "(?i)bearer\\s+",
+      "(?i)(token|secret|password|cookie)\\s*[:=]",
+      "(?i)(credentials?|cookies?)\\.(json|txt|db)",
+      "(?i)[A-Z]:\\\\Users\\\\[^\\\\]+\\\\"
+    ]
+  },
+  "graph": {
+    "nodes": [
+      { "identity": "tchivs/mb-core@0.1.0" },
+      { "identity": "tchivs/mb-color@0.1.0" },
+      { "identity": "tchivs/mb-image@0.1.0" }
+    ],
+    "edges": [
+      { "from": "tchivs/mb-color@0.1.0", "to": "tchivs/mb-core@0.1.0" },
+      { "from": "tchivs/mb-image@0.1.0", "to": "tchivs/mb-core@0.1.0" },
+      { "from": "tchivs/mb-image@0.1.0", "to": "tchivs/mb-color@0.1.0" }
+    ]
+  },
+  "modules": [
+    {
+      "module": "mb-core",
+      "identity": "tchivs/mb-core",
+      "version": "0.1.0",
+      "metadata": {
+        "name": "tchivs/mb-core",
+        "version": "0.1.0",
+        "description": "Portable checked arithmetic, bounded storage, resource budgets, backend-neutral I/O, and explicit host capability contracts for MoonBit Native Foundation.",
+        "license": "Apache-2.0",
+        "repository": "https://github.com/tchivs/moonbit-foundation",
+        "readme": "README.mbt.md",
+        "preferred-target": "native",
+        "supported-targets": "+js+wasm+wasm-gc+native"
+      },
+      "manifest_sha256": "cd69861bf7dbd905712a9d854a0ce26efb78b38b67d11ffea0e1f0d428bc0a32",
+      "readme_sha256": "16d2e99dacd37cf6dfb1db2b628830c4a697ba5203f5456e15c5baa6162e7c8d",
+      "dependencies": [],
+      "public_packages": [
+        "tchivs/mb-core/error",
+        "tchivs/mb-core/checked",
+        "tchivs/mb-core/budget",
+        "tchivs/mb-core/bytes",
+        "tchivs/mb-core/io",
+        "tchivs/mb-core/host"
+      ]
+    },
+    {
+      "module": "mb-color",
+      "identity": "tchivs/mb-color",
+      "version": "0.1.0",
+      "metadata": {
+        "name": "tchivs/mb-color",
+        "version": "0.1.0",
+        "description": "Portable explicit color identities, reference sRGB transfer, deterministic quantization, alpha semantics, and bounded profile metadata for MoonBit Native Foundation.",
+        "license": "Apache-2.0",
+        "repository": "https://github.com/tchivs/moonbit-foundation",
+        "readme": "README.mbt.md",
+        "preferred-target": "native",
+        "supported-targets": "+js+wasm+wasm-gc+native"
+      },
+      "manifest_sha256": "c7f0962e3c7a677995230e6d0ee02bcc758f4221f16611f29ca192398bd0c8fa",
+      "readme_sha256": "4edcd6bde29eb7e2fb1e420d94aa32497f62a7b8908c8f79cac27d3f23103afa",
+      "dependencies": [
+        { "identity": "tchivs/mb-core", "version": "0.1.0" }
+      ],
+      "public_packages": [
+        "tchivs/mb-color/model",
+        "tchivs/mb-color/transfer",
+        "tchivs/mb-color/quantize",
+        "tchivs/mb-color/alpha",
+        "tchivs/mb-color/profile"
+      ]
+    },
+    {
+      "module": "mb-image",
+      "identity": "tchivs/mb-image",
+      "version": "0.1.0",
+      "metadata": {
+        "name": "tchivs/mb-image",
+        "version": "0.1.0",
+        "description": "Portable explicit image descriptions, safe owned storage and views, deterministic operations, codec contracts, and a strict bounded PPM P6 reference subset for MoonBit Native Foundation.",
+        "license": "Apache-2.0",
+        "repository": "https://github.com/tchivs/moonbit-foundation",
+        "readme": "README.mbt.md",
+        "preferred-target": "native",
+        "supported-targets": "+js+wasm+wasm-gc+native"
+      },
+      "manifest_sha256": "a9b2eb26548b74c8cdcabfe848747295b573424ad05d54ee188c1abed5f3a8a1",
+      "readme_sha256": "34cda460318c83aabda48ff6b7af1e82567e3a53458f6b6490f1cd21fe9f833a",
+      "dependencies": [
+        { "identity": "tchivs/mb-core", "version": "0.1.0" },
+        { "identity": "tchivs/mb-color", "version": "0.1.0" }
+      ],
+      "public_packages": [
+        "tchivs/mb-image/metadata",
+        "tchivs/mb-image/model",
+        "tchivs/mb-image/storage",
+        "tchivs/mb-image/ops",
+        "tchivs/mb-image/codec",
+        "tchivs/mb-image/ppm"
+      ]
+    }
+  ]
+}

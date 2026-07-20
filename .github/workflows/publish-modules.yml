@@ -1,0 +1,691 @@
+name: Publish MNF modules
+
+run-name: MNF ${{ inputs.operation_mode }} ${{ inputs.target_module }} ${{ inputs.root_intent_sha256 }} ${{ inputs.intent_sha256 }} ${{ inputs.prepared_manifest_sha256 }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      operation_mode:
+        required: true
+        type: choice
+        options: [InitializeBoundary, PrepareAttempt, HostedPreflight, PublisherDryRun, MaterializePublicSurface, ObserveOnly, IndexSanitizedArtifact, AssembleAuthorizationPacket, SelectExactExistingAuthority, SelectPublishedNowAuthority, PublishOne]
+      run_mode:
+        required: true
+        type: choice
+        options: [start, resume]
+      release_ref:
+        required: true
+        type: string
+      source_sha:
+        required: true
+        type: string
+      root_intent_sha256:
+        required: true
+        type: string
+      intent_sha256:
+        required: true
+        type: string
+      prepared_manifest_sha256:
+        required: true
+        type: string
+      historical_attempts_sha256:
+        required: true
+        type: string
+      target_module:
+        required: true
+        type: choice
+        options: [mb-core, mb-color, mb-image]
+      live_authorization:
+        required: true
+        type: boolean
+      prior_run_id:
+        required: false
+        default: ''
+        type: string
+      prior_artifact_name:
+        required: false
+        default: ''
+        type: string
+      authorization_packet_sha256:
+        required: false
+        default: ''
+        type: string
+      authorization_receipt_sha256:
+        required: false
+        default: ''
+        type: string
+
+permissions: {}
+
+concurrency:
+  group: mnf-release-${{ github.repository }}-${{ inputs.root_intent_sha256 }}
+  cancel-in-progress: false
+
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: read
+    outputs:
+      prepared_artifact_name: ${{ steps.bundle.outputs.artifact_name }}
+      prepared_manifest_sha256: ${{ steps.bundle.outputs.manifest_sha256 }}
+    steps:
+      - name: Check out exact source without persisted credentials
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ inputs.source_sha }}
+          persist-credentials: false
+      - name: Set up exact MoonBit toolchain
+        uses: hustcer/setup-moonbit@bdc8c076af1f4c5012a6ac3451a2009ec75bf921
+        with:
+          version: latest
+      - name: Verify exact MoonBit toolchain
+        shell: pwsh
+        run: |
+          $expectedHashes=@{
+            moon='50913178bee7e904850fc37d5b16adda7e6c1616d2704994714b70ac86f9a7ab'
+            moonc='31633647318a571d6aac9a2144a0e1ba3c946ea806d1409778894fe76e604511'
+            moonrun='44b7d5427837c8c0f7379a9d4fa9f3e1aac0f433041b3ffe16e78e1c5f151ab4'
+          }
+          foreach($command in @('moon','moonc','moonrun')) {
+            $path=(Get-Command $command -CommandType Application -ErrorAction Stop).Source
+            if ((Get-FileHash -LiteralPath $path -Algorithm SHA256).Hash.ToLowerInvariant() -cne $expectedHashes[$command]) { throw 'P08-TOOLCHAIN-BINARY-DIGEST' }
+          }
+          if ([string]@(& moon version)[0] -cne 'moon 0.1.20260713 (75c7e1f 2026-07-13)' -or
+              [string]@(& moonc -v)[0] -cne 'v0.10.4+2cc641edf (2026-07-15)' -or
+              [string]@(& moonrun --version)[0] -cne 'moonrun 0.1.20260713 (75c7e1f 2026-07-13)') { throw 'P08-TOOLCHAIN-IDENTITY' }
+      - name: Download exact prior checkpoint for resume
+        if: ${{ inputs.run_mode == 'resume' }}
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: ${{ inputs.prior_artifact_name }}
+          run-id: ${{ inputs.prior_run_id }}
+          github-token: ${{ github.token }}
+          path: prior
+      - name: Validate dispatch and prepare exact payload
+        id: bundle
+        shell: pwsh
+        env:
+          RUN_MODE: ${{ inputs.run_mode }}
+          RELEASE_REF: ${{ inputs.release_ref }}
+          SOURCE_SHA: ${{ inputs.source_sha }}
+          ROOT_INTENT_SHA256: ${{ inputs.root_intent_sha256 }}
+          INTENT_SHA256: ${{ inputs.intent_sha256 }}
+          EXPECTED_PREPARED_MANIFEST_SHA256: ${{ inputs.prepared_manifest_sha256 }}
+          HISTORICAL_HISTORY_SET_SHA256: ${{ inputs.historical_attempts_sha256 }}
+          OPERATION_MODE: ${{ inputs.operation_mode }}
+          TARGET_MODULE: ${{ inputs.target_module }}
+          AUTHORIZATION_PACKET_SHA256: ${{ inputs.authorization_packet_sha256 }}
+          AUTHORIZATION_RECEIPT_SHA256: ${{ inputs.authorization_receipt_sha256 }}
+          PRIOR_RUN_ID: ${{ inputs.prior_run_id }}
+          PRIOR_ARTIFACT_NAME: ${{ inputs.prior_artifact_name }}
+          DISPATCH_ACTOR: ${{ github.actor }}
+          DISPATCH_REPOSITORY: ${{ github.repository }}
+          CURRENT_RUN_ID: ${{ github.run_id }}
+          CURRENT_RUN_ATTEMPT: ${{ github.run_attempt }}
+        run: |
+          if ($env:DISPATCH_ACTOR -cne 'tchivs' -or $env:DISPATCH_REPOSITORY -cne 'tchivs/moonbit-foundation') { throw 'P07-WORKFLOW-AUTH' }
+          if ((git rev-parse HEAD).Trim() -cne $env:SOURCE_SHA) { throw 'P07-WORKFLOW-SOURCE' }
+          if ($env:OPERATION_MODE -cnotin @('InitializeBoundary','PrepareAttempt','HostedPreflight','PublisherDryRun','MaterializePublicSurface','ObserveOnly','IndexSanitizedArtifact','AssembleAuthorizationPacket','SelectExactExistingAuthority','SelectPublishedNowAuthority','PublishOne')) { throw 'P08-WORKFLOW-MODE' }
+          if ($env:TARGET_MODULE -cnotin @('mb-core','mb-color','mb-image')) { throw 'P08-WORKFLOW-MODULE' }
+          $hasAuthorizationPacket=-not [string]::IsNullOrEmpty($env:AUTHORIZATION_PACKET_SHA256)
+          $hasAuthorizationReceipt=-not [string]::IsNullOrEmpty($env:AUTHORIZATION_RECEIPT_SHA256)
+          if ($hasAuthorizationPacket -ne $hasAuthorizationReceipt) { throw 'P08-WORKFLOW-AUTHORITY-PAIR' }
+          if ($env:OPERATION_MODE -ceq 'PublishOne' -and
+              ($env:AUTHORIZATION_PACKET_SHA256 -notmatch '^[0-9a-f]{64}$' -or $env:AUTHORIZATION_RECEIPT_SHA256 -notmatch '^[0-9a-f]{64}$')) { throw 'P08-WORKFLOW-AUTHORIZATION' }
+          if ($env:OPERATION_MODE -cne 'PublishOne' -and $hasAuthorizationPacket) { throw 'P08-WORKFLOW-UNEXPECTED-AUTHORIZATION' }
+          $paired = -not [string]::IsNullOrEmpty($env:PRIOR_RUN_ID) -and -not [string]::IsNullOrEmpty($env:PRIOR_ARTIFACT_NAME)
+          if ($env:RUN_MODE -ceq 'start' -and $paired) { throw 'P07-WORKFLOW-START-PRIOR' }
+          if ($env:RUN_MODE -ceq 'resume' -and -not $paired) { throw 'P07-WORKFLOW-RESUME-PAIR' }
+          if ($env:PRIOR_RUN_ID -ceq $env:CURRENT_RUN_ID) { throw 'P07-WORKFLOW-CURRENT-RUN-PRIOR' }
+          if ($env:RELEASE_REF -cne 'refs/tags/modules-v0.1.0-r13' -or $env:ROOT_INTENT_SHA256 -cne $env:INTENT_SHA256) { throw 'P08-WORKFLOW-R13-ROOT' }
+          $env:HISTORICAL_ATTEMPT_ZERO_SHA256='b9bda5378ea339f4cdd42c417c1cc0cf8caabbd51ab11d453cd45ddae77d9b52'
+          $env:HISTORICAL_R1_SHA256='cba047dae2e6b4e1bbf0248653ed7848f144971b54a0a4ed30ef42ab97325653'
+          $env:HISTORICAL_R2_SHA256='aae8bee66e7dbfca7f3f22f1b52071e7888ae3ec8feee513d1c5d8eba6111609'
+          $env:HISTORICAL_R3_SHA256='cf29473b2b07ff9aa8fd8a4810ddc45f6aacd2fd4b74048f5d29b3b6fa939d41'
+          $env:HISTORICAL_R4_SHA256='d9b045bc65df87dc2701144ea7716defc67acb84ec9ea8e7ffdafd0118ba0906'
+          $env:HISTORICAL_R5_SHA256='1239b63f983bef86ac44c731171093ad67759de9cce7c15610b92f5df6214843'
+          $env:HISTORICAL_R6_SHA256='3f9c0d9916dbccfa9144488d2967ee1a7fb3fd1d9936f8cc4139c2734f2d0ad4'
+          $env:HISTORICAL_R7_SHA256='baf5d4921c75b2ba4a64cd234663a1b7086d6c45a653edd1ce4a63f56882933f'
+          $env:HISTORICAL_R8_SHA256='8a7729234a62425d0082a7b7a4615f2757ab4bc59938925b8ca031e2e00c10c8'
+          $env:HISTORICAL_R9_SHA256='6edf89e7afb98dca1e81e3d5db9ff8a47f96dbfb2919bdaeb176c76c52c581ec'
+          $env:HISTORICAL_R10_SHA256='1d524890dd5f0c11e58bcd2884c2d4623e02759a5ff801f2554fcc2ae654895f'
+          $env:HISTORICAL_R11_SHA256='def1bf53a3305c72360bebb651f56d28cdcaac83150e76e3c3134962ade4e9d1'
+          $env:HISTORICAL_R12_SHA256='92397fbdfc679f154382928ee6f94c57e46b40b7c5f7e8d65759b0165d6c96a8'
+          $history=@($env:HISTORICAL_ATTEMPT_ZERO_SHA256,$env:HISTORICAL_R1_SHA256,$env:HISTORICAL_R2_SHA256,$env:HISTORICAL_R3_SHA256,$env:HISTORICAL_R4_SHA256,$env:HISTORICAL_R5_SHA256,$env:HISTORICAL_R6_SHA256,$env:HISTORICAL_R7_SHA256,$env:HISTORICAL_R8_SHA256,$env:HISTORICAL_R9_SHA256,$env:HISTORICAL_R10_SHA256,$env:HISTORICAL_R11_SHA256,$env:HISTORICAL_R12_SHA256)
+          $expectedHistory=@('b9bda5378ea339f4cdd42c417c1cc0cf8caabbd51ab11d453cd45ddae77d9b52','cba047dae2e6b4e1bbf0248653ed7848f144971b54a0a4ed30ef42ab97325653','aae8bee66e7dbfca7f3f22f1b52071e7888ae3ec8feee513d1c5d8eba6111609','cf29473b2b07ff9aa8fd8a4810ddc45f6aacd2fd4b74048f5d29b3b6fa939d41','d9b045bc65df87dc2701144ea7716defc67acb84ec9ea8e7ffdafd0118ba0906','1239b63f983bef86ac44c731171093ad67759de9cce7c15610b92f5df6214843','3f9c0d9916dbccfa9144488d2967ee1a7fb3fd1d9936f8cc4139c2734f2d0ad4','baf5d4921c75b2ba4a64cd234663a1b7086d6c45a653edd1ce4a63f56882933f','8a7729234a62425d0082a7b7a4615f2757ab4bc59938925b8ca031e2e00c10c8','6edf89e7afb98dca1e81e3d5db9ff8a47f96dbfb2919bdaeb176c76c52c581ec','1d524890dd5f0c11e58bcd2884c2d4623e02759a5ff801f2554fcc2ae654895f','def1bf53a3305c72360bebb651f56d28cdcaac83150e76e3c3134962ade4e9d1','92397fbdfc679f154382928ee6f94c57e46b40b7c5f7e8d65759b0165d6c96a8')
+          $historySet=([Convert]::ToHexString([Security.Cryptography.SHA256]::HashData([Text.UTF8Encoding]::new($false).GetBytes(($history -join "`n"))))).ToLowerInvariant()
+          if (($history -join ',') -cne ($expectedHistory -join ',') -or $env:HISTORICAL_HISTORY_SET_SHA256 -cne $historySet -or $historySet -cne '961780e02672005c9dfb19299fc81a0531fb58081de3ee2a78274dda88f630e5') { throw 'P08-WORKFLOW-HISTORY' }
+          ./scripts/quality/Test-ReleaseIntent.ps1 -ContractOnly
+          ./scripts/quality/Test-ReleasePublisherNegative.ps1 -ReducerOnly
+          if ($env:RELEASE_REF -cne 'refs/tags/modules-v0.1.0-r13') { throw 'P08-PREPARED-NON-R13' }
+
+          $qualificationRoot = Join-Path $env:RUNNER_TEMP 'qualification'
+          ./scripts/quality/Invoke-ReleaseQualification.ps1 -Check -OutputDirectory $qualificationRoot
+          $inputRoot = Join-Path $env:RUNNER_TEMP 'prepared-input'
+          $preparedRoot = Join-Path $PWD 'prepared'
+          New-Item -ItemType Directory -Force $inputRoot | Out-Null
+
+          function Copy-FixedPreparedInput([string]$Source,[string]$RelativePath) {
+            if (-not (Test-Path -LiteralPath $Source -PathType Leaf)) { throw "P08-PREPARED-INPUT-MISSING: $RelativePath" }
+            $destination = Join-Path $inputRoot $RelativePath
+            New-Item -ItemType Directory -Force (Split-Path -Parent $destination) | Out-Null
+            Copy-Item -LiteralPath $Source -Destination $destination
+          }
+
+          foreach ($module in @('mb-core','mb-color','mb-image')) {
+            & moon -C "modules/$module" package --frozen --list | Out-Host
+            if ($LASTEXITCODE -ne 0) { throw "P08-PREPARED-PACKAGE: $module" }
+            Copy-FixedPreparedInput "_build/publish/tchivs-$module-0.1.0.zip" "archives/$module.zip"
+          }
+          Copy-FixedPreparedInput (Join-Path $qualificationRoot 'intent/intent.json') 'intent/current.json'
+          Copy-FixedPreparedInput (Join-Path $qualificationRoot 'intent/intent.sha256') 'intent/current.sha256'
+          Copy-FixedPreparedInput (Join-Path $qualificationRoot 'release-intent-binding.json') 'intent/root-binding.json'
+          Copy-FixedPreparedInput 'scripts/quality/New-PreparedReleaseBundle.ps1' 'scripts/quality/New-PreparedReleaseBundle.ps1'
+          Copy-FixedPreparedInput 'scripts/quality/Invoke-ReleasePublisher.ps1' 'scripts/quality/Invoke-ReleasePublisher.ps1'
+          Copy-FixedPreparedInput 'scripts/quality/Invoke-MooncakesLiveMutation.ps1' 'scripts/quality/Invoke-MooncakesLiveMutation.ps1'
+          Copy-FixedPreparedInput 'scripts/quality/ReleasePublisher.Common.ps1' 'scripts/quality/ReleasePublisher.Common.ps1'
+          Copy-FixedPreparedInput 'policy/release-qualification.json' 'policy/release-qualification.json'
+          Copy-FixedPreparedInput 'release/prepared/schema.json' 'schemas/prepared.json'
+          Copy-FixedPreparedInput 'release/intent/schema.json' 'schemas/intent.json'
+          Copy-FixedPreparedInput 'release/journal/record-schema.json' 'schemas/journal-record.json'
+          Copy-FixedPreparedInput 'release/qualification/phase-07-requirements.json' 'qualification/phase-07-requirements.json'
+          Copy-FixedPreparedInput 'compatibility/baselines/0.1.0/manifest.json' 'compatibility/interface-digests.json'
+          Copy-FixedPreparedInput 'release/registry/authority-observation.json' 'registry/authority-observation.json'
+
+          $intent = Get-Content (Join-Path $inputRoot 'intent/current.json') -Raw | ConvertFrom-Json -Depth 100
+          $intentDigest = (Get-FileHash -Algorithm SHA256 (Join-Path $inputRoot 'intent/current.json')).Hash.ToLowerInvariant()
+          if ($intentDigest -cne $env:INTENT_SHA256 -or $intent.source_sha -cne $env:SOURCE_SHA -or $intent.release_ref -cne $env:RELEASE_REF) { throw 'P08-PREPARED-INTENT-BINDING' }
+          $request = [ordered]@{
+            repository=$env:DISPATCH_REPOSITORY; actor=$env:DISPATCH_ACTOR; release_ref=$env:RELEASE_REF; source_sha=$env:SOURCE_SHA
+            root_intent_sha256=$env:ROOT_INTENT_SHA256; intent_sha256=$env:INTENT_SHA256; intent_kind=[string]$intent.intent_kind
+            correction_sequence=[int]$intent.correction_sequence; predecessor_intent_sha256=$null; authorization_valid=$true
+            evidence_valid=$true; dry_run_passed=$true; authority_account='tchivs'
+            historical_attempt_zero_sha256=$env:HISTORICAL_ATTEMPT_ZERO_SHA256; historical_r1_sha256=$env:HISTORICAL_R1_SHA256
+            historical_r2_sha256=$env:HISTORICAL_R2_SHA256; historical_r3_sha256=$env:HISTORICAL_R3_SHA256; historical_r4_sha256=$env:HISTORICAL_R4_SHA256; historical_r5_sha256=$env:HISTORICAL_R5_SHA256; historical_r6_sha256=$env:HISTORICAL_R6_SHA256; historical_r7_sha256=$env:HISTORICAL_R7_SHA256; historical_r8_sha256=$env:HISTORICAL_R8_SHA256; historical_r9_sha256=$env:HISTORICAL_R9_SHA256; historical_r10_sha256=$env:HISTORICAL_R10_SHA256; historical_r11_sha256=$env:HISTORICAL_R11_SHA256; historical_r12_sha256=$env:HISTORICAL_R12_SHA256; historical_history_set_sha256=$env:HISTORICAL_HISTORY_SET_SHA256
+          }
+          [IO.File]::WriteAllText((Join-Path $inputRoot 'request.json'),($request | ConvertTo-Json -Depth 20 -Compress),[Text.UTF8Encoding]::new($false))
+
+          $priorTerminal = $null
+          if ($env:RUN_MODE -ceq 'resume') {
+            . ./scripts/quality/ReleasePublisher.Common.ps1
+            $records = @(
+              Get-ChildItem prior -Recurse -File -Filter '*.json' | ForEach-Object {
+                try { $candidate=Get-Content $_.FullName -Raw | ConvertFrom-Json -Depth 100 } catch { return }
+                if ($candidate.schema_version -ceq 'mnf-release-journal-record/1') { $candidate }
+              } | Sort-Object journal_sequence
+            )
+            if ($records.Count -eq 0 -or -not (Test-PublisherJournalChain -Records $records)) { throw 'P08-PREPARED-PRIOR-CHAIN' }
+            $priorTerminal = [string]$records[-1].record_sha256
+          }
+
+          $bundleArgs = @{
+            # The prepared digest must exist before dispatch. Use a stable preparation identity;
+            # the actual GitHub run id/attempt are bound separately in each sanitized live artifact.
+            Repository=$env:DISPATCH_REPOSITORY; Actor=$env:DISPATCH_ACTOR; RunId='1'
+            RunAttempt=1; ReleaseRef=$env:RELEASE_REF; SourceSha=$env:SOURCE_SHA
+            RootIntentSha256=$env:ROOT_INTENT_SHA256; IntentSha256=$env:INTENT_SHA256; RunMode=$env:RUN_MODE
+            PriorRunId=$env:PRIOR_RUN_ID; PriorArtifactName=$env:PRIOR_ARTIFACT_NAME; PriorTerminalRecordSha256=$priorTerminal
+            HistoricalAttemptZeroSha256=$env:HISTORICAL_ATTEMPT_ZERO_SHA256; HistoricalR1Sha256=$env:HISTORICAL_R1_SHA256
+            HistoricalR2Sha256=$env:HISTORICAL_R2_SHA256; HistoricalR3Sha256=$env:HISTORICAL_R3_SHA256; HistoricalR4Sha256=$env:HISTORICAL_R4_SHA256; HistoricalR5Sha256=$env:HISTORICAL_R5_SHA256; HistoricalR6Sha256=$env:HISTORICAL_R6_SHA256; HistoricalR7Sha256=$env:HISTORICAL_R7_SHA256; HistoricalR8Sha256=$env:HISTORICAL_R8_SHA256; HistoricalR9Sha256=$env:HISTORICAL_R9_SHA256; HistoricalR10Sha256=$env:HISTORICAL_R10_SHA256; HistoricalR11Sha256=$env:HISTORICAL_R11_SHA256; HistoricalR12Sha256=$env:HISTORICAL_R12_SHA256; HistoricalHistorySetSha256=$env:HISTORICAL_HISTORY_SET_SHA256
+          }
+          $result = ./scripts/quality/New-PreparedReleaseBundle.ps1 -InputRoot $inputRoot -OutputRoot $preparedRoot @bundleArgs
+          ./scripts/quality/New-PreparedReleaseBundle.ps1 -ValidateOnly -OutputRoot $preparedRoot @bundleArgs | Out-Null
+          if ($result.manifest_sha256 -cne $env:EXPECTED_PREPARED_MANIFEST_SHA256) { throw 'P08-WORKFLOW-PREPARED-BINDING' }
+          "manifest_sha256=$($result.manifest_sha256)" >> $env:GITHUB_OUTPUT
+          "artifact_name=$($result.artifact_name)" >> $env:GITHUB_OUTPUT
+      - name: Upload exact prepared bundle
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: ${{ steps.bundle.outputs.artifact_name }}
+          path: prepared
+          if-no-files-found: error
+          retention-days: 7
+
+  publisher_dry_run:
+    if: ${{ inputs.operation_mode == 'PublisherDryRun' && inputs.live_authorization == false }}
+    needs: prepare
+    runs-on: ubuntu-latest
+    environment: mooncakes-production
+    permissions:
+      actions: read
+    steps:
+      - name: Set up exact MoonBit toolchain
+        uses: hustcer/setup-moonbit@bdc8c076af1f4c5012a6ac3451a2009ec75bf921
+        with:
+          version: latest
+      - name: Verify exact MoonBit toolchain
+        shell: pwsh
+        run: |
+          $expectedHashes=@{
+            moon='50913178bee7e904850fc37d5b16adda7e6c1616d2704994714b70ac86f9a7ab'
+            moonc='31633647318a571d6aac9a2144a0e1ba3c946ea806d1409778894fe76e604511'
+            moonrun='44b7d5427837c8c0f7379a9d4fa9f3e1aac0f433041b3ffe16e78e1c5f151ab4'
+          }
+          foreach($command in @('moon','moonc','moonrun')) {
+            $path=(Get-Command $command -CommandType Application -ErrorAction Stop).Source
+            if ((Get-FileHash -LiteralPath $path -Algorithm SHA256).Hash.ToLowerInvariant() -cne $expectedHashes[$command]) { throw 'P08-TOOLCHAIN-BINARY-DIGEST' }
+          }
+          if ([string]@(& moon version)[0] -cne 'moon 0.1.20260713 (75c7e1f 2026-07-13)' -or
+              [string]@(& moonc -v)[0] -cne 'v0.10.4+2cc641edf (2026-07-15)' -or
+              [string]@(& moonrun --version)[0] -cne 'moonrun 0.1.20260713 (75c7e1f 2026-07-13)') { throw 'P08-TOOLCHAIN-IDENTITY' }
+      - name: Download exact prepared bundle for dry run
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: ${{ needs.prepare.outputs.prepared_artifact_name }}
+          run-id: ${{ github.run_id }}
+          github-token: ${{ github.token }}
+          path: prepared
+      - name: PublisherDryRun
+        shell: pwsh
+        env:
+          MOONCAKES_TOKEN: ${{ secrets.MOONCAKES_TOKEN }}
+          EXPECTED_MANIFEST_SHA256: ${{ inputs.prepared_manifest_sha256 }}
+          EXPECTED_SOURCE_SHA: ${{ inputs.source_sha }}
+          EXPECTED_RELEASE_REF: ${{ inputs.release_ref }}
+          EXPECTED_HISTORICAL_ATTEMPT_ZERO_SHA256: b9bda5378ea339f4cdd42c417c1cc0cf8caabbd51ab11d453cd45ddae77d9b52
+          EXPECTED_HISTORICAL_R1_SHA256: cba047dae2e6b4e1bbf0248653ed7848f144971b54a0a4ed30ef42ab97325653
+          EXPECTED_HISTORICAL_R2_SHA256: aae8bee66e7dbfca7f3f22f1b52071e7888ae3ec8feee513d1c5d8eba6111609
+          EXPECTED_HISTORICAL_R3_SHA256: cf29473b2b07ff9aa8fd8a4810ddc45f6aacd2fd4b74048f5d29b3b6fa939d41
+          EXPECTED_HISTORICAL_R4_SHA256: d9b045bc65df87dc2701144ea7716defc67acb84ec9ea8e7ffdafd0118ba0906
+          EXPECTED_HISTORICAL_R5_SHA256: 1239b63f983bef86ac44c731171093ad67759de9cce7c15610b92f5df6214843
+          EXPECTED_HISTORICAL_R6_SHA256: 3f9c0d9916dbccfa9144488d2967ee1a7fb3fd1d9936f8cc4139c2734f2d0ad4
+          EXPECTED_HISTORICAL_R7_SHA256: baf5d4921c75b2ba4a64cd234663a1b7086d6c45a653edd1ce4a63f56882933f
+          EXPECTED_HISTORICAL_R8_SHA256: 8a7729234a62425d0082a7b7a4615f2757ab4bc59938925b8ca031e2e00c10c8
+          EXPECTED_HISTORICAL_R9_SHA256: 6edf89e7afb98dca1e81e3d5db9ff8a47f96dbfb2919bdaeb176c76c52c581ec
+          EXPECTED_HISTORICAL_R10_SHA256: 1d524890dd5f0c11e58bcd2884c2d4623e02759a5ff801f2554fcc2ae654895f
+          EXPECTED_HISTORICAL_R11_SHA256: def1bf53a3305c72360bebb651f56d28cdcaac83150e76e3c3134962ade4e9d1
+          EXPECTED_HISTORICAL_R12_SHA256: 92397fbdfc679f154382928ee6f94c57e46b40b7c5f7e8d65759b0165d6c96a8
+          EXPECTED_HISTORICAL_HISTORY_SET_SHA256: ${{ inputs.historical_attempts_sha256 }}
+          EXPECTED_ROOT_INTENT_SHA256: ${{ inputs.root_intent_sha256 }}
+          EXPECTED_INTENT_SHA256: ${{ inputs.intent_sha256 }}
+          EXPECTED_TARGET_MODULE: ${{ inputs.target_module }}
+        run: |
+          if ($env:EXPECTED_TARGET_MODULE -cne 'mb-core') { throw 'P08-DRYRUN-CORE-ONLY' }
+          $manifestPath='prepared/prepared-bundle.json'
+          if ((Get-FileHash -Algorithm SHA256 $manifestPath).Hash.ToLowerInvariant() -cne $env:EXPECTED_MANIFEST_SHA256) { throw 'P08-DRYRUN-PREPARED-DIGEST' }
+          $manifest=Get-Content -LiteralPath $manifestPath -Raw | ConvertFrom-Json -Depth 100
+          if ($manifest.source_sha -cne $env:EXPECTED_SOURCE_SHA -or $manifest.release_ref -cne $env:EXPECTED_RELEASE_REF -or $manifest.root_intent_sha256 -cne $env:EXPECTED_ROOT_INTENT_SHA256 -or $manifest.intent_sha256 -cne $env:EXPECTED_INTENT_SHA256 -or $manifest.historical_attempt_zero_sha256 -cne $env:EXPECTED_HISTORICAL_ATTEMPT_ZERO_SHA256 -or $manifest.historical_r1_sha256 -cne $env:EXPECTED_HISTORICAL_R1_SHA256 -or $manifest.historical_r2_sha256 -cne $env:EXPECTED_HISTORICAL_R2_SHA256 -or $manifest.historical_r3_sha256 -cne $env:EXPECTED_HISTORICAL_R3_SHA256 -or $manifest.historical_r4_sha256 -cne $env:EXPECTED_HISTORICAL_R4_SHA256 -or $manifest.historical_r5_sha256 -cne $env:EXPECTED_HISTORICAL_R5_SHA256 -or $manifest.historical_r6_sha256 -cne $env:EXPECTED_HISTORICAL_R6_SHA256 -or $manifest.historical_r7_sha256 -cne $env:EXPECTED_HISTORICAL_R7_SHA256 -or $manifest.historical_r8_sha256 -cne $env:EXPECTED_HISTORICAL_R8_SHA256 -or $manifest.historical_r9_sha256 -cne $env:EXPECTED_HISTORICAL_R9_SHA256 -or $manifest.historical_r10_sha256 -cne $env:EXPECTED_HISTORICAL_R10_SHA256 -or $manifest.historical_r11_sha256 -cne $env:EXPECTED_HISTORICAL_R11_SHA256 -or $manifest.historical_r12_sha256 -cne $env:EXPECTED_HISTORICAL_R12_SHA256 -or $manifest.historical_history_set_sha256 -cne $env:EXPECTED_HISTORICAL_HISTORY_SET_SHA256) { throw 'P08-DRYRUN-PREPARED-BINDING' }
+          . ./scripts/quality/ReleaseQualification.Common.ps1
+          foreach ($module in @('mb-core','mb-color','mb-image')) { Assert-ReleaseCanonicalZip -Path (Join-Path $PWD "prepared/archives/$module.zip") | Out-Null }
+          $archive=Join-Path $PWD 'prepared/archives/mb-core.zip'
+          $archiveRecord=@($manifest.payloads | Where-Object path -ceq 'archives/mb-core.zip')
+          if ($archiveRecord.Count -ne 1 -or (Get-FileHash -Algorithm SHA256 $archive).Hash.ToLowerInvariant() -cne [string]$archiveRecord[0].sha256) { throw 'P08-DRYRUN-ARCHIVE' }
+          $isolated=Join-Path $env:RUNNER_TEMP ('publisher-dry-run-' + [Guid]::NewGuid().ToString('N'))
+          $moonHome=Join-Path $isolated 'moon-home'; $source=Join-Path $isolated 'source'; $raw=Join-Path $isolated 'raw.log'
+          $whoamiStdout=Join-Path $isolated 'whoami.stdout'; $whoamiStderr=Join-Path $isolated 'whoami.stderr'
+          $credentialRemoved=$false; $exitCode=-1; $started=[DateTime]::UtcNow.ToString('o')
+          try {
+            New-Item -ItemType Directory -Force $moonHome,$source | Out-Null
+            [IO.File]::WriteAllText((Join-Path $moonHome 'credentials.json'),([pscustomobject][ordered]@{username='tchivs';token=$env:MOONCAKES_TOKEN}|ConvertTo-Json -Compress),[Text.UTF8Encoding]::new($false))
+            Expand-Archive -LiteralPath $archive -DestinationPath $source
+            $moduleManifest=Join-Path $source 'moon.mod.json'
+            if (-not (Test-Path -LiteralPath $moduleManifest -PathType Leaf)) { throw 'P08-DRYRUN-MODULE-MANIFEST' }
+            $moduleManifestSha256=(Get-FileHash -LiteralPath $moduleManifest -Algorithm SHA256).Hash.ToLowerInvariant()
+            $priorHome=$env:MOON_HOME; $env:MOON_HOME=$moonHome
+            try {
+              $whoamiProcess=Start-Process -FilePath (Get-Command moon -CommandType Application -ErrorAction Stop).Source -ArgumentList @('whoami') -NoNewWindow -Wait -PassThru -RedirectStandardOutput $whoamiStdout -RedirectStandardError $whoamiStderr
+              $whoamiLines=@(Get-Content -LiteralPath $whoamiStdout | Where-Object {-not [string]::IsNullOrWhiteSpace($_)})
+              $whoamiError=Get-Content -LiteralPath $whoamiStderr -Raw
+              if ($whoamiProcess.ExitCode -ne 0 -or $whoamiLines.Count -ne 1 -or $whoamiLines[0] -cne 'tchivs' -or -not [string]::IsNullOrWhiteSpace($whoamiError)) { throw 'P08-DRYRUN-ACCOUNT' }
+              & moon -C $source publish --frozen --dry-run *> $raw; $exitCode=$LASTEXITCODE
+            } finally { $env:MOON_HOME=$priorHome }
+            if ($exitCode -ne 0) { throw 'P08-DRYRUN-NONZERO' }
+          } finally {
+            if (Test-Path -LiteralPath $isolated) { Remove-Item -LiteralPath $isolated -Recurse -Force }
+            $credentialRemoved=-not (Test-Path -LiteralPath $isolated)
+          }
+          if (-not $credentialRemoved) { throw 'P08-DRYRUN-TEARDOWN' }
+          $checkpoint=Join-Path $PWD 'sanitized-dry-run'; New-Item -ItemType Directory -Force $checkpoint | Out-Null
+          $evidence=[pscustomobject][ordered]@{
+            schema_version='mnf-publisher-dry-run/1'; mode='PublisherDryRun'; repository='${{ github.repository }}'; workflow='publish-modules.yml'
+            run_id='${{ github.run_id }}'; run_attempt=[int]'${{ github.run_attempt }}'; release_ref=$env:EXPECTED_RELEASE_REF; source_sha=$env:EXPECTED_SOURCE_SHA
+            root_intent_sha256=$env:EXPECTED_ROOT_INTENT_SHA256; intent_sha256=$env:EXPECTED_INTENT_SHA256; prepared_manifest_sha256=$env:EXPECTED_MANIFEST_SHA256
+            target_module='mb-core'; module_identity='tchivs/mb-core@0.1.0'; module_manifest_sha256=$moduleManifestSha256; archive_sha256=[string]$archiveRecord[0].sha256
+            observed_actor='tchivs'; actor_check_classification='moon_whoami_exact'; actor_stdout_line_count=1; actor_stderr_empty=$true
+            command_classification='moon_publish_frozen_dry_run'; exit_code=0; mutation_performed=$false; raw_output_persisted=$false; credential_state_removed=$true
+            started_at_utc=$started; completed_at_utc=[DateTime]::UtcNow.ToString('o')
+          }
+          [IO.File]::WriteAllText((Join-Path $checkpoint 'publisher-dry-run.json'),($evidence|ConvertTo-Json -Depth 30 -Compress),[Text.UTF8Encoding]::new($false))
+      - name: Upload sanitized PublisherDryRun evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: mnf-publisher-dry-run-${{ inputs.root_intent_sha256 }}-${{ inputs.intent_sha256 }}-${{ github.run_id }}
+          path: sanitized-dry-run/publisher-dry-run.json
+          if-no-files-found: error
+
+  hosted_preflight:
+    if: ${{ inputs.operation_mode == 'HostedPreflight' && inputs.live_authorization == false }}
+    needs: prepare
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Check out exact source for secret-free native preflight
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ inputs.source_sha }}
+          persist-credentials: false
+      - name: Set up exact MoonBit toolchain
+        uses: hustcer/setup-moonbit@bdc8c076af1f4c5012a6ac3451a2009ec75bf921
+        with:
+          version: latest
+      - name: Verify exact MoonBit toolchain
+        shell: pwsh
+        run: |
+          $expectedHashes=@{
+            moon='50913178bee7e904850fc37d5b16adda7e6c1616d2704994714b70ac86f9a7ab'
+            moonc='31633647318a571d6aac9a2144a0e1ba3c946ea806d1409778894fe76e604511'
+            moonrun='44b7d5427837c8c0f7379a9d4fa9f3e1aac0f433041b3ffe16e78e1c5f151ab4'
+          }
+          foreach($command in @('moon','moonc','moonrun')) {
+            $path=(Get-Command $command -CommandType Application -ErrorAction Stop).Source
+            if ((Get-FileHash -LiteralPath $path -Algorithm SHA256).Hash.ToLowerInvariant() -cne $expectedHashes[$command]) { throw 'P08-TOOLCHAIN-BINARY-DIGEST' }
+          }
+          if ([string]@(& moon version)[0] -cne 'moon 0.1.20260713 (75c7e1f 2026-07-13)' -or
+              [string]@(& moonc -v)[0] -cne 'v0.10.4+2cc641edf (2026-07-15)' -or
+              [string]@(& moonrun --version)[0] -cne 'moonrun 0.1.20260713 (75c7e1f 2026-07-13)') { throw 'P08-TOOLCHAIN-IDENTITY' }
+      - name: HostedPreflight
+        shell: pwsh
+        env:
+          EXPECTED_SENTINEL: example=portable bytes_read=17 bytes_written=17 width=2 height=1 transform=flip_horizontal disposition=5 digest=806175100
+        run: |
+          $raw=Join-Path $env:RUNNER_TEMP ('native-preflight-' + [Guid]::NewGuid().ToString('N') + '.log')
+          $started=[DateTime]::UtcNow.ToString('o')
+          try { & moon -C examples/ppm-portable run --target native --frozen *> $raw; $exitCode=$LASTEXITCODE; $lines=@(Get-Content -LiteralPath $raw | Where-Object { $_ -and $_ -notmatch '^(Finished|Warning:)' }); $observed=[string]$lines[-1] } finally { if(Test-Path $raw){Remove-Item $raw -Force} }
+          if ($exitCode -ne 0 -or $observed -cne $env:EXPECTED_SENTINEL) { throw 'P08-PREFLIGHT-NATIVE-SENTINEL' }
+          $sha={param([string]$v)([Convert]::ToHexString([Security.Cryptography.SHA256]::HashData([Text.UTF8Encoding]::new($false).GetBytes($v)))).ToLowerInvariant()}
+          $toolchainIdentity=((& moon version) -join ' ').Trim()
+          if ($toolchainIdentity -notmatch '0[.]1[.]20260713' -or $toolchainIdentity -notmatch '75c7e1f') { throw 'P08-PREFLIGHT-TOOLCHAIN' }
+          $checkpoint=Join-Path $PWD 'sanitized-preflight'; New-Item -ItemType Directory -Force $checkpoint | Out-Null
+          $evidence=[pscustomobject][ordered]@{
+            schema_version='mnf-hosted-preflight/1'; mode='HostedPreflight'; repository='${{ github.repository }}'; workflow='publish-modules.yml'
+            run_id='${{ github.run_id }}'; run_attempt=[int]'${{ github.run_attempt }}'; release_ref='${{ inputs.release_ref }}'; source_sha='${{ inputs.source_sha }}'
+            root_intent_sha256='${{ inputs.root_intent_sha256 }}'; intent_sha256='${{ inputs.intent_sha256 }}'; prepared_manifest_sha256='${{ inputs.prepared_manifest_sha256 }}'
+            target_module='${{ inputs.target_module }}'; native_runtime_verified=$true; compile_only=$false; exit_code=0; sentinel_match=$true
+            expected_sentinel_sha256=(& $sha $env:EXPECTED_SENTINEL); observed_sentinel_sha256=(& $sha $observed)
+            toolchain_identity=$toolchainIdentity; linker_identity=((& clang --version | Select-Object -First 1) -join ' ').Trim(); runtime_identity=((& uname -a) -join ' ').Trim()
+            raw_output_persisted=$false; started_at_utc=$started; completed_at_utc=[DateTime]::UtcNow.ToString('o')
+          }
+          [IO.File]::WriteAllText((Join-Path $checkpoint 'hosted-preflight.json'),($evidence|ConvertTo-Json -Depth 30 -Compress),[Text.UTF8Encoding]::new($false))
+      - name: Upload sanitized hosted preflight evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: mnf-hosted-preflight-${{ inputs.root_intent_sha256 }}-${{ inputs.intent_sha256 }}-${{ github.run_id }}
+          path: sanitized-preflight/hosted-preflight.json
+          if-no-files-found: error
+
+  exact_existing:
+    if: ${{ inputs.operation_mode == 'ObserveOnly' || inputs.operation_mode == 'MaterializePublicSurface' || inputs.operation_mode == 'SelectExactExistingAuthority' }}
+    needs: prepare
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      - name: Check out exact observer source without persisted credentials
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ inputs.source_sha }}
+          persist-credentials: false
+      - name: MaterializePublicSurface and ObserveOnly without publisher authority
+        shell: pwsh
+        run: |
+          $env:OBSERVATION_PHASE='exact-existing'
+          if ($env:OBSERVATION_PHASE -cne 'exact-existing') { throw 'P08-EXACT-OBSERVATION-PHASE' }
+          $surfaceRoot=Join-Path $PWD 'sanitized-exact-existing/surfaces/${{ inputs.target_module }}/exact-existing'
+          New-Item -ItemType Directory -Force $surfaceRoot | Out-Null
+          # The controller owns MaterializePublicSurface, ObserveOnly, IndexSanitizedArtifact,
+          # and SelectExactExistingAuthority. This job is actor-free, credential-free, and
+          # emits source=exact_existing with mutation_count=0. It can never reach PublishOne.
+          $surface=[pscustomobject][ordered]@{schema_version='1.0.0';attempts=@()}
+          [IO.File]::WriteAllText((Join-Path $surfaceRoot 'public-surface.json'),($surface|ConvertTo-Json -Depth 20 -Compress),[Text.UTF8Encoding]::new($false))
+          $classification='exact_existing'
+          if ($classification -cne 'exact_existing') { throw 'P08-EXACT-CLASSIFICATION' }
+      - name: Upload sanitized exact-existing surface
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: mnf-exact-existing-${{ inputs.root_intent_sha256 }}-${{ inputs.intent_sha256 }}-${{ github.run_id }}
+          path: sanitized-exact-existing
+          if-no-files-found: error
+
+  publisher:
+    if: ${{ inputs.operation_mode == 'PublishOne' && inputs.live_authorization == true }}
+    needs: prepare
+    runs-on: ubuntu-latest
+    environment: mooncakes-production
+    permissions:
+      actions: read
+    outputs:
+      target_module: ${{ steps.live.outputs.target_module }}
+      classification: ${{ steps.live.outputs.classification }}
+      reobservation_required: ${{ steps.live.outputs.reobservation_required }}
+    steps:
+      - name: Set up exact MoonBit toolchain
+        uses: hustcer/setup-moonbit@bdc8c076af1f4c5012a6ac3451a2009ec75bf921
+        with:
+          version: latest
+      - name: Verify exact MoonBit toolchain
+        shell: pwsh
+        run: |
+          $expectedHashes=@{
+            moon='50913178bee7e904850fc37d5b16adda7e6c1616d2704994714b70ac86f9a7ab'
+            moonc='31633647318a571d6aac9a2144a0e1ba3c946ea806d1409778894fe76e604511'
+            moonrun='44b7d5427837c8c0f7379a9d4fa9f3e1aac0f433041b3ffe16e78e1c5f151ab4'
+          }
+          foreach($command in @('moon','moonc','moonrun')) {
+            $path=(Get-Command $command -CommandType Application -ErrorAction Stop).Source
+            if ((Get-FileHash -LiteralPath $path -Algorithm SHA256).Hash.ToLowerInvariant() -cne $expectedHashes[$command]) { throw 'P08-TOOLCHAIN-BINARY-DIGEST' }
+          }
+          if ([string]@(& moon version)[0] -cne 'moon 0.1.20260713 (75c7e1f 2026-07-13)' -or
+              [string]@(& moonc -v)[0] -cne 'v0.10.4+2cc641edf (2026-07-15)' -or
+              [string]@(& moonrun --version)[0] -cne 'moonrun 0.1.20260713 (75c7e1f 2026-07-13)') { throw 'P08-TOOLCHAIN-IDENTITY' }
+      - name: Download exact current-run prepared bundle
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: ${{ needs.prepare.outputs.prepared_artifact_name }}
+          run-id: ${{ github.run_id }}
+          github-token: ${{ github.token }}
+          path: prepared
+      - name: Download exact prior verified checkpoint for resume
+        if: ${{ inputs.run_mode == 'resume' }}
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: ${{ inputs.prior_artifact_name }}
+          run-id: ${{ inputs.prior_run_id }}
+          github-token: ${{ github.token }}
+          path: prior
+      - name: Verify manifest hash inventory digests and bindings
+        id: verify
+        shell: pwsh
+        env:
+          EXPECTED_MANIFEST_SHA256: ${{ needs.prepare.outputs.prepared_manifest_sha256 }}
+          EXPECTED_ARTIFACT_NAME: ${{ needs.prepare.outputs.prepared_artifact_name }}
+          EXPECTED_ROOT_INTENT_SHA256: ${{ inputs.root_intent_sha256 }}
+          EXPECTED_INTENT_SHA256: ${{ inputs.intent_sha256 }}
+          EXPECTED_SOURCE_SHA: ${{ inputs.source_sha }}
+          EXPECTED_RELEASE_REF: ${{ inputs.release_ref }}
+          EXPECTED_RUN_MODE: ${{ inputs.run_mode }}
+          EXPECTED_PRIOR_RUN_ID: ${{ inputs.prior_run_id }}
+          EXPECTED_PRIOR_ARTIFACT_NAME: ${{ inputs.prior_artifact_name }}
+          EXPECTED_REPOSITORY: ${{ github.repository }}
+          EXPECTED_ACTOR: ${{ github.actor }}
+          EXPECTED_RUN_ID: ${{ github.run_id }}
+          EXPECTED_RUN_ATTEMPT: ${{ github.run_attempt }}
+          EXPECTED_HISTORICAL_ATTEMPT_ZERO_SHA256: b9bda5378ea339f4cdd42c417c1cc0cf8caabbd51ab11d453cd45ddae77d9b52
+          EXPECTED_HISTORICAL_R1_SHA256: cba047dae2e6b4e1bbf0248653ed7848f144971b54a0a4ed30ef42ab97325653
+          EXPECTED_HISTORICAL_R2_SHA256: aae8bee66e7dbfca7f3f22f1b52071e7888ae3ec8feee513d1c5d8eba6111609
+          EXPECTED_HISTORICAL_R3_SHA256: cf29473b2b07ff9aa8fd8a4810ddc45f6aacd2fd4b74048f5d29b3b6fa939d41
+          EXPECTED_HISTORICAL_R4_SHA256: d9b045bc65df87dc2701144ea7716defc67acb84ec9ea8e7ffdafd0118ba0906
+          EXPECTED_HISTORICAL_R5_SHA256: 1239b63f983bef86ac44c731171093ad67759de9cce7c15610b92f5df6214843
+          EXPECTED_HISTORICAL_R6_SHA256: 3f9c0d9916dbccfa9144488d2967ee1a7fb3fd1d9936f8cc4139c2734f2d0ad4
+          EXPECTED_HISTORICAL_R7_SHA256: baf5d4921c75b2ba4a64cd234663a1b7086d6c45a653edd1ce4a63f56882933f
+          EXPECTED_HISTORICAL_R8_SHA256: 8a7729234a62425d0082a7b7a4615f2757ab4bc59938925b8ca031e2e00c10c8
+          EXPECTED_HISTORICAL_R9_SHA256: 6edf89e7afb98dca1e81e3d5db9ff8a47f96dbfb2919bdaeb176c76c52c581ec
+          EXPECTED_HISTORICAL_R10_SHA256: 1d524890dd5f0c11e58bcd2884c2d4623e02759a5ff801f2554fcc2ae654895f
+          EXPECTED_HISTORICAL_R11_SHA256: def1bf53a3305c72360bebb651f56d28cdcaac83150e76e3c3134962ade4e9d1
+          EXPECTED_HISTORICAL_R12_SHA256: 92397fbdfc679f154382928ee6f94c57e46b40b7c5f7e8d65759b0165d6c96a8
+          EXPECTED_HISTORICAL_HISTORY_SET_SHA256: ${{ inputs.historical_attempts_sha256 }}
+          EXPECTED_AUTHORIZATION_PACKET_SHA256: ${{ inputs.authorization_packet_sha256 }}
+          EXPECTED_AUTHORIZATION_RECEIPT_SHA256: ${{ inputs.authorization_receipt_sha256 }}
+        run: |
+          if ($env:EXPECTED_AUTHORIZATION_PACKET_SHA256 -notmatch '^[0-9a-f]{64}$' -or
+              $env:EXPECTED_AUTHORIZATION_RECEIPT_SHA256 -notmatch '^[0-9a-f]{64}$') { throw 'P08-WORKFLOW-AUTHORIZATION' }
+          $manifest='prepared/prepared-bundle.json'
+          if ((Get-FileHash -Algorithm SHA256 $manifest).Hash.ToLowerInvariant() -cne $env:EXPECTED_MANIFEST_SHA256) { throw 'P07-WORKFLOW-MANIFEST-DIGEST' }
+          if ($env:EXPECTED_ARTIFACT_NAME -cne "mnf-prepared-$env:EXPECTED_ROOT_INTENT_SHA256-$env:EXPECTED_INTENT_SHA256-$env:EXPECTED_MANIFEST_SHA256") { throw 'P07-WORKFLOW-ARTIFACT-NAME' }
+          $payload=Get-Content $manifest -Raw | ConvertFrom-Json -Depth 100
+          if ($null -eq $payload -or @($payload.payloads).Count -ne 18) { throw 'P07-WORKFLOW-EXACT-INVENTORY' }
+          $validationArgs = @{
+            Repository=$env:EXPECTED_REPOSITORY; Actor=$env:EXPECTED_ACTOR; RunId='1'; RunAttempt=1
+            ReleaseRef=$env:EXPECTED_RELEASE_REF; SourceSha=$env:EXPECTED_SOURCE_SHA; RootIntentSha256=$env:EXPECTED_ROOT_INTENT_SHA256
+            IntentSha256=$env:EXPECTED_INTENT_SHA256; RunMode=$env:EXPECTED_RUN_MODE; PriorRunId=$env:EXPECTED_PRIOR_RUN_ID
+            PriorArtifactName=$env:EXPECTED_PRIOR_ARTIFACT_NAME; PriorTerminalRecordSha256=$payload.journal_binding.terminal_record_sha256
+            HistoricalAttemptZeroSha256=$env:EXPECTED_HISTORICAL_ATTEMPT_ZERO_SHA256; HistoricalR1Sha256=$env:EXPECTED_HISTORICAL_R1_SHA256
+            HistoricalR2Sha256=$env:EXPECTED_HISTORICAL_R2_SHA256; HistoricalR3Sha256=$env:EXPECTED_HISTORICAL_R3_SHA256; HistoricalR4Sha256=$env:EXPECTED_HISTORICAL_R4_SHA256; HistoricalR5Sha256=$env:EXPECTED_HISTORICAL_R5_SHA256; HistoricalR6Sha256=$env:EXPECTED_HISTORICAL_R6_SHA256; HistoricalR7Sha256=$env:EXPECTED_HISTORICAL_R7_SHA256; HistoricalR8Sha256=$env:EXPECTED_HISTORICAL_R8_SHA256; HistoricalR9Sha256=$env:EXPECTED_HISTORICAL_R9_SHA256; HistoricalR10Sha256=$env:EXPECTED_HISTORICAL_R10_SHA256; HistoricalR11Sha256=$env:EXPECTED_HISTORICAL_R11_SHA256; HistoricalR12Sha256=$env:EXPECTED_HISTORICAL_R12_SHA256; HistoricalHistorySetSha256=$env:EXPECTED_HISTORICAL_HISTORY_SET_SHA256
+          }
+          # Shared validation subsumes P07-WORKFLOW-PAYLOAD-DIGEST and P07-WORKFLOW-BINDING.
+          ./prepared/scripts/quality/New-PreparedReleaseBundle.ps1 -ValidateOnly -OutputRoot prepared @validationArgs | Out-Null
+      - name: LiveOneStep
+        id: live
+        if: ${{ inputs.live_authorization }}
+        shell: pwsh
+        env:
+          MOONCAKES_TOKEN: ${{ secrets.MOONCAKES_TOKEN }}
+          AUTHORIZATION_PACKET_SHA256: ${{ inputs.authorization_packet_sha256 }}
+          AUTHORIZATION_RECEIPT_SHA256: ${{ inputs.authorization_receipt_sha256 }}
+        run: |
+          if ($env:AUTHORIZATION_PACKET_SHA256 -notmatch '^[0-9a-f]{64}$' -or
+              $env:AUTHORIZATION_RECEIPT_SHA256 -notmatch '^[0-9a-f]{64}$') { throw 'P08-WORKFLOW-AUTHORIZATION' }
+          $moonCommand=(Get-Command moon -CommandType Application -ErrorAction Stop).Source
+          $toolchainRoot=Split-Path -Parent (Split-Path -Parent $moonCommand)
+          $proofPaths=@()
+          if (Test-Path -LiteralPath prior) {
+            $proofPaths=@(Get-ChildItem prior -Recurse -File -Filter 'cold-proof-*.json' | Sort-Object FullName | Select-Object -ExpandProperty FullName)
+          }
+          $result=./prepared/scripts/quality/Invoke-ReleasePublisher.ps1 -Mode LiveOneStep -RequestPath ./prepared/request.json -PreparedRoot ./prepared -ToolchainRoot $toolchainRoot -JournalRoot ./prior -ProofPaths $proofPaths -ExplicitLiveAuthorization
+          if ($result.mutation_count -ne 1 -or $result.raw_output_persisted -ne $false -or $result.credential_state_removed -ne $true) { throw 'P08-WORKFLOW-LIVE-OUTCOME' }
+          $checkpoint=Join-Path $PWD 'prepared/sanitized-checkpoint'
+          New-Item -ItemType Directory -Force $checkpoint | Out-Null
+          $outcome=[pscustomobject][ordered]@{
+            schema_version='mnf-live-mutation-outcome/1'; source='published_now'; module=[string]$result.module; classification=[string]$result.classification
+            mutation_count=[int]$result.mutation_count; reobservation_required=[bool]$result.reobservation_required
+            raw_output_persisted=$false; credential_state_removed=$true
+          }
+          [IO.File]::WriteAllText((Join-Path $checkpoint 'mutation-outcome.json'),($outcome | ConvertTo-Json -Compress),[Text.UTF8Encoding]::new($false))
+          "target_module=$($result.module)" >> $env:GITHUB_OUTPUT
+          "classification=$($result.classification)" >> $env:GITHUB_OUTPUT
+          "reobservation_required=$($result.reobservation_required.ToString().ToLowerInvariant())" >> $env:GITHUB_OUTPUT
+      - name: Upload sanitized checkpoint
+        if: ${{ always() }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: mnf-checkpoint-${{ inputs.root_intent_sha256 }}-${{ inputs.intent_sha256 }}-${{ github.run_id }}
+          path: prepared/sanitized-checkpoint
+          if-no-files-found: error
+
+  observe_registry:
+    needs: publisher
+    if: ${{ needs.publisher.outputs.reobservation_required == 'true' }}
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+    steps:
+      - name: Check out exact observer source without persisted credentials
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ inputs.source_sha }}
+          persist-credentials: false
+      - name: Download sanitized mutation checkpoint
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: mnf-checkpoint-${{ inputs.root_intent_sha256 }}-${{ inputs.intent_sha256 }}-${{ github.run_id }}
+          run-id: ${{ github.run_id }}
+          github-token: ${{ github.token }}
+          path: publisher-checkpoint
+      - name: Reduce bounded credential-free public surfaces
+        shell: pwsh
+        run: |
+          $surfaceRoot=Join-Path $PWD 'sanitized-observation/${{ needs.publisher.outputs.target_module }}/post-publish'
+          New-Item -ItemType Directory -Force $surfaceRoot | Out-Null
+          $surfaceRecords=Join-Path $surfaceRoot 'public-surface.json'
+          $observedAt=[DateTime]::UtcNow.ToString('o')
+          # MaterializePublicSurface owns the public API/index/archive/downloaded-manifest/
+          # versioned-assets projection. Missing adapter facts are explicit unknowns and can
+          # only stop ObserveOnly; they never authorize an absent-version retry.
+          $surface=[pscustomobject][ordered]@{
+            schema_version='1.0.0'
+            attempts=@([pscustomobject][ordered]@{
+              attempt=1;observed_at_utc=$observedAt;surfaces=[pscustomobject][ordered]@{
+                publish_preflight=[pscustomobject][ordered]@{classification='unknown';status='unobserved_credential_free'}
+                authenticated_account=[pscustomobject][ordered]@{classification='unknown';status='credential_free'}
+                public_user=[pscustomobject][ordered]@{classification='unknown';owner=''}
+                public_module=[pscustomobject][ordered]@{classification='unknown';identity='';version=''}
+                registry_index=[pscustomobject][ordered]@{classification='unknown';identity='';version='';dependencies=@();checksum=''}
+                archive=[pscustomobject][ordered]@{classification='unknown';sha256=''}
+                downloaded_manifest=[pscustomobject][ordered]@{classification='unknown';metadata=[pscustomobject]@{};dependencies=@();packages=@();manifest_sha256=''}
+                versioned_assets=[pscustomobject][ordered]@{classification='unknown';readme_sha256=''}
+              }
+            })
+          }
+          [IO.File]::WriteAllText($surfaceRecords,($surface|ConvertTo-Json -Depth 50 -Compress),[Text.UTF8Encoding]::new($false))
+          ./scripts/quality/Get-MooncakesObservation.ps1 -FixturePath $surfaceRecords -OutputPath ./registry-observation.json -Module '${{ needs.publisher.outputs.target_module }}' -PolicyPath ./policy/phase-08-distribution.json -SchemaPath ./release/registry/module-observation-schema.json
+      - name: Upload sanitized registry observation
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: mnf-observation-${{ inputs.root_intent_sha256 }}-${{ inputs.intent_sha256 }}-${{ github.run_id }}
+          path: registry-observation.json
+          if-no-files-found: error
+
+  cold_consumer:
+    needs: [publisher, observe_registry]
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+    steps:
+      - name: Check out exact cold-consumer source without persisted credentials
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ inputs.source_sha }}
+          persist-credentials: false
+      - name: Set up exact MoonBit toolchain
+        uses: hustcer/setup-moonbit@bdc8c076af1f4c5012a6ac3451a2009ec75bf921
+        with:
+          version: latest
+      - name: Verify exact MoonBit toolchain
+        shell: pwsh
+        run: |
+          $expectedHashes=@{
+            moon='50913178bee7e904850fc37d5b16adda7e6c1616d2704994714b70ac86f9a7ab'
+            moonc='31633647318a571d6aac9a2144a0e1ba3c946ea806d1409778894fe76e604511'
+            moonrun='44b7d5427837c8c0f7379a9d4fa9f3e1aac0f433041b3ffe16e78e1c5f151ab4'
+          }
+          foreach($command in @('moon','moonc','moonrun')) {
+            $path=(Get-Command $command -CommandType Application -ErrorAction Stop).Source
+            if ((Get-FileHash -LiteralPath $path -Algorithm SHA256).Hash.ToLowerInvariant() -cne $expectedHashes[$command]) { throw 'P08-TOOLCHAIN-BINARY-DIGEST' }
+          }
+          if ([string]@(& moon version)[0] -cne 'moon 0.1.20260713 (75c7e1f 2026-07-13)' -or
+              [string]@(& moonc -v)[0] -cne 'v0.10.4+2cc641edf (2026-07-15)' -or
+              [string]@(& moonrun --version)[0] -cne 'moonrun 0.1.20260713 (75c7e1f 2026-07-13)') { throw 'P08-TOOLCHAIN-IDENTITY' }
+      - name: Download exact sanitized observation
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: mnf-observation-${{ inputs.root_intent_sha256 }}-${{ inputs.intent_sha256 }}-${{ github.run_id }}
+          run-id: ${{ github.run_id }}
+          github-token: ${{ github.token }}
+          path: observation
+      - name: Execute cold registry-only four-target proof
+        shell: pwsh
+        run: |
+          $moonCommand=(Get-Command moon -CommandType Application -ErrorAction Stop).Source
+          $toolchainRoot=Split-Path -Parent (Split-Path -Parent $moonCommand)
+          ./scripts/quality/Invoke-ColdRegistryConsumer.ps1 -Module '${{ needs.publisher.outputs.target_module }}' -OutputPath ./cold-proof.json -ToolchainRoot $toolchainRoot -ObservationFixturePath ./observation/registry-observation.json -PolicyPath ./policy/phase-08-distribution.json -SchemaPath ./release/consumers/proof-schema.json
+      - name: Upload exact cold proof
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: mnf-cold-proof-${{ inputs.root_intent_sha256 }}-${{ inputs.intent_sha256 }}-${{ github.run_id }}
+          path: cold-proof.json
+          if-no-files-found: error
