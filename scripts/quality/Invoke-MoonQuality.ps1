@@ -774,11 +774,12 @@ function Invoke-PngQualityLane {
   Invoke-PngQualityStage 'PNG scoped negative fixtures' { Assert-PngQualificationNegativeFixtures -PolicyPath $policyPath }
   Invoke-PngQualityStage 'PNG exact package allowlist' {
     $output = Invoke-MoonCommand -Context 'PNG package list for mb-image' -Arguments @('-C','modules/mb-image','package','--frozen','--list') -CaptureCombined
-    $expected = @('png', 'png/generated_vectors.mbt', 'png/generated_vectors_test.mbt', 'png/moon.pkg', 'png/png.mbt', 'png/png_test.mbt', 'png/structural.mbt', 'png/structural_wbtest.mbt')
+    $expected = @('png', 'png/deflate_bits.mbt', 'png/deflate_huffman.mbt', 'png/deflate_inflate.mbt', 'png/deflate_wbtest.mbt', 'png/generated_vectors.mbt', 'png/generated_vectors_test.mbt', 'png/moon.pkg', 'png/png.mbt', 'png/png_test.mbt', 'png/raster_decode.mbt', 'png/raster_decode_wbtest.mbt', 'png/structural.mbt', 'png/structural_wbtest.mbt')
     $actual = @($output | ForEach-Object { $_.Replace('\','/') } | Where-Object { $_ -ceq 'png' -or $_ -clike 'png/*' })
     Assert-ExactSet 'PNG package contents' $actual $expected
   }
   Invoke-PngQualityStage 'PNG generated structural vectors' { & ./scripts/fixtures/Generate-PngStructuralVectors.ps1 -Check }
+  Invoke-PngQualityStage 'PNG generated decode vectors' { & ./scripts/fixtures/Generate-PngDecodeVectors.ps1 -Check }
   Invoke-PngQualityStage 'PNG four-target tests' { Invoke-MoonCommand -Context 'PNG tests' -Arguments @('-C', 'modules/mb-image', 'test', 'png', '--target', 'all', '--frozen') }
   Write-Host 'PNG quality lane passed.'
 }
@@ -790,7 +791,7 @@ function Assert-PngLaneIsolation {
   function Invoke-RequiredQuality { throw 'PNG lane reached required quality.' }
   function Invoke-ReleaseQuality { throw 'PNG lane reached release quality.' }
   Invoke-PngQualityLane
-  Assert-ExactSequence 'PNG lane stage trace' @($script:PngLaneTrace) @('PNG foundation/interface policy', 'PNG scoped negative fixtures', 'PNG exact package allowlist', 'PNG generated structural vectors', 'PNG four-target tests')
+  Assert-ExactSequence 'PNG lane stage trace' @($script:PngLaneTrace) @('PNG foundation/interface policy', 'PNG scoped negative fixtures', 'PNG exact package allowlist', 'PNG generated structural vectors', 'PNG generated decode vectors', 'PNG four-target tests')
   Write-Host 'PNG lane isolation proof passed.'
 }
 

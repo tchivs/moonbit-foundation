@@ -982,9 +982,9 @@ function Assert-PngFoundationPolicy {
   $png = @($image.public_packages | Where-Object { $_.path -ceq 'png' })
   Assert-ExactSet 'PNG public package selection' @($png.name) @('tchivs/mb-image/png')
   $png = $png[0]
-  $imports = @('tchivs/mb-core/budget', 'tchivs/mb-core/bytes', 'tchivs/mb-core/checked', 'tchivs/mb-core/error', 'tchivs/mb-core/io', 'tchivs/mb-image/codec')
-  $sources = @('moon.pkg', 'png.mbt', 'structural.mbt', 'generated_vectors.mbt')
-  $files = @('moon.pkg', 'png.mbt', 'png_test.mbt', 'structural.mbt', 'structural_wbtest.mbt', 'generated_vectors.mbt', 'generated_vectors_test.mbt')
+  $imports = @('tchivs/mb-core/budget', 'tchivs/mb-core/bytes', 'tchivs/mb-core/checked', 'tchivs/mb-core/error', 'tchivs/mb-core/io', 'tchivs/mb-color/model', 'tchivs/mb-color/profile', 'tchivs/mb-image/codec', 'tchivs/mb-image/metadata', 'tchivs/mb-image/model', 'tchivs/mb-image/storage')
+  $sources = @('moon.pkg', 'png.mbt', 'structural.mbt', 'deflate_bits.mbt', 'deflate_huffman.mbt', 'deflate_inflate.mbt', 'raster_decode.mbt', 'generated_vectors.mbt')
+  $files = @('moon.pkg', 'png.mbt', 'png_test.mbt', 'structural.mbt', 'structural_wbtest.mbt', 'deflate_bits.mbt', 'deflate_huffman.mbt', 'deflate_inflate.mbt', 'deflate_wbtest.mbt', 'raster_decode.mbt', 'raster_decode_wbtest.mbt', 'generated_vectors.mbt', 'generated_vectors_test.mbt')
   Assert-ExactSet 'PNG policy imports' @($png.allowed_imports) $imports
   Assert-ExactSet 'PNG policy targets' @($png.supported_targets) @('js', 'wasm', 'wasm-gc', 'native')
   Assert-ExactSequence 'PNG policy production source order' @($png.production_sources) $sources
@@ -1018,9 +1018,9 @@ function Assert-PngQualificationNegativeFixtures {
   Confirm-PngRejected 'extra import' { Assert-ExactSet 'PNG imports' @($imports + 'tchivs/mb-image/ops') $imports } 'count mismatch'
   Confirm-PngRejected 'missing portable target' { Assert-ExactSet 'PNG targets' @('js','wasm','native') @('js','wasm','wasm-gc','native') } 'count mismatch'
   Confirm-PngRejected 'extra public stream type' { Assert-ExactSequence 'PNG interface' @('PngDecoder','PngStreamDecoder') @('PngDecoder') } 'count mismatch'
-  Confirm-PngRejected 'wrong source order' { Assert-ExactSequence 'PNG sources' @('moon.pkg','png.mbt','generated_vectors.mbt','structural.mbt') $sources } 'mismatch at index'
+  Confirm-PngRejected 'wrong source order' { Assert-ExactSequence 'PNG sources' @('moon.pkg','png.mbt','generated_vectors.mbt','structural.mbt') $sources } 'count mismatch'
   Confirm-PngRejected 'extra production source' { Assert-ExactSet 'PNG sources' @($sources + 'encode.mbt') $sources } 'count mismatch'
-  Confirm-PngRejected 'extra package file' { Assert-ExactSet 'PNG files' @('moon.pkg','png.mbt','png_test.mbt','structural.mbt','structural_wbtest.mbt','generated_vectors.mbt','generated_vectors_test.mbt','stream.mbt') @('moon.pkg','png.mbt','png_test.mbt','structural.mbt','structural_wbtest.mbt','generated_vectors.mbt','generated_vectors_test.mbt') } 'count mismatch'
+  Confirm-PngRejected 'extra package file' { Assert-ExactSet 'PNG files' @($sources + 'png_test.mbt','structural_wbtest.mbt','deflate_wbtest.mbt','raster_decode_wbtest.mbt','generated_vectors_test.mbt','stream.mbt') @($sources + 'png_test.mbt','structural_wbtest.mbt','deflate_wbtest.mbt','raster_decode_wbtest.mbt','generated_vectors_test.mbt') } 'count mismatch'
   Write-Host 'PNG scoped package, import, target, interface, source-order, and inventory negatives fail closed.'
 }
 

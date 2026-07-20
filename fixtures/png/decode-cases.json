@@ -1,0 +1,12 @@
+{
+  "schema_version": "1.0.0",
+  "provenance": "RFC 1950/1951 and PNG 3; literal stored fixture audited with .NET ZLibStream",
+  "cases": [
+    {"id":"rgb-stored-none","block":"stored","filter":"none","idat_splits":[0,1,2,3],"expected_pixels":"123456"},
+    {"id":"fixed-filter-suite","block":"fixed","filter":"sub/up/average/paeth","idat_splits":"every-byte","expected":"accepted"},
+    {"id":"dynamic-rgba","block":"dynamic","filter":"none","idat_splits":"semantic","expected":"accepted"},
+    {"id":"bad-adler","block":"hostile","expected_error":"zlib-adler"},
+    {"id":"truncated-deflate","block":"hostile","expected_error":"deflate-truncated"},
+    {"id":"invalid-distance","block":"hostile","expected_error":"deflate-distance"}
+  ]
+}
