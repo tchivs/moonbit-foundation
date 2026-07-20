@@ -1,20 +1,16 @@
 ---
 gsd_state_version: 1.0
-milestone: v0.4
-milestone_name: Portable Image Interchange
-status: Awaiting next milestone
-stopped_at: Phase 16 context gathered
-last_updated: "2026-07-20T12:46:49.347Z"
+milestone: v0.5
+milestone_name: QOI Streaming I/O
+status: planning
+last_updated: "2026-07-20T12:48:30.899Z"
 last_activity: 2026-07-20
-last_activity_desc: Milestone v0.4 completed and archived
 progress:
-  total_phases: 8
-  completed_phases: 8
-  total_plans: 12
-  completed_plans: 12
-  percent: 100
-current_phase: 16
-current_phase_name: QOI policy and public example quality alignment
+  total_phases: 0
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
+  percent: 0
 ---
 
 # Project State
@@ -29,10 +25,10 @@ See `.planning/PROJECT.md` (updated 2026-07-18).
 
 ## Current Position
 
-Phase: Milestone v0.4 complete
+Phase: Not started (defining requirements)
 Plan: —
-Status: Awaiting next milestone
-Last activity: 2026-07-20 — Milestone v0.4 completed and archived
+Status: Defining requirements
+Last activity: 2026-07-20 — Milestone v0.5 started
 
 ## Performance Metrics
 

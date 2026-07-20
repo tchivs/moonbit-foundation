@@ -19,6 +19,8 @@ MoonBit developers can reuse stable, high-performance native infrastructure cont
 - [x] Implement and validate the first reusable contracts in `mb-core`, `mb-color`, and `mb-image`. — Validated across Phases 2-4 and the Phase 5 release-candidate gate.
 - [x] Keep native-specific code behind narrow adapters while implementing core data models and algorithms in MoonBit. — Validated by the four-target portable packages and injected Native CLI-shaped example.
 - [x] Provide generated API documentation, examples, benchmarks, and conformance tests for every candidate public package. — Validated by the closed Phase 5 documentation, benchmark, fixture, and release selectors.
+- [x] Provide a portable, pure-MoonBit QOI 1.0 decoder and canonical encoder with hostile-input handling and four-target vectors. — Validated in v0.4 Phases 13-14.
+- [x] Prove public QOI decode-process-encode interoperability on all supported targets. — Validated in v0.4 Phases 15-16.
 
 ### Active
 
@@ -50,27 +52,27 @@ The locked qualification baseline passed 19/19 selectors twice at one unchanged 
 
 Phase 6 completed on 2026-07-18 with 25/25 plans and 8/8 requirements verified. The active module identities are `tchivs/mb-core`, `tchivs/mb-color`, and `tchivs/mb-image`; deterministic compatibility baselines, reciprocal requirement/edge/prohibition evidence, and the real credential-free Required lane now pass. Publication remains deliberately blocked until Phase 7 proves the authenticated publish seam before any registry mutation.
 
-## Current State: v0.3 Image Processing Core Shipped
+## Current State: v0.4 Portable Image Interchange Shipped
 
-**Delivered:** `mb-image` now provides checked crop/flip/right-angle rotation/resize plus alpha-correct source-over, grayscale, and box blur. A public strict-P6 pipeline proves the complete route across `js`, `wasm`, `wasm-gc`, and `native` with deterministic byte and budget evidence.
+**Delivered:** `mb-image` now provides strict eager QOI 1.0 probing, decoding, and canonical encoding alongside the existing portable image operations. A public decode → horizontal flip → encode workflow is verified on `js`, `wasm`, `wasm-gc`, and `native` with fixed bytes and SHA-256 evidence.
 
 **Target features:**
 
-- Provide checked, composable image geometry operations: crop, flip, rotation, and resize.
-- Provide alpha-correct pixel compositing and a small, deterministic filter set over the existing image and color contracts.
-- Prove the pipeline through public MoonBit tests, four-target conformance, and one runnable image-processing example.
+- Provide portable, stateful QOI decoding and encoding for arbitrary forward-only reader and writer chunking.
+- Keep every partial-read/partial-write transition deterministic, budgeted, and resume-safe.
+- Prove streaming round trips and malformed/incomplete input behavior on all four portable targets.
 
 Registry publication remains deferred: the existing v0.2 qualification artifacts are retained, but no further release automation is in scope for the next code-first milestone.
 
-## Current Milestone: v0.4 Portable Image Interchange
+## Current Milestone: v0.5 QOI Streaming I/O
 
-**Goal:** Add a pure-MoonBit QOI codec so library users can exchange lossless RGB and RGBA images through the existing portable image contracts without relying on PPM-only tooling or foreign codec libraries.
+**Goal:** Add resumable, bounded streaming QOI decode and encode APIs over the existing forward-only portable I/O contracts so callers can process chunked input and output without materializing a complete byte stream first.
 
 **Target features:**
 
-- A strict, budgeted QOI probe and decoder with deterministic structured failures for malformed or hostile input.
-- A canonical QOI encoder that round-trips RGB/RGBA image data through the existing codec interfaces.
-- Spec-derived fixture vectors, four-target conformance, and a small public consumer example; streaming, FFI, and performance baselines remain deferred until this core is stable.
+- Stateful decoder and encoder APIs with explicit `NeedInput`, `NeedOutput`, completion, and terminal-error semantics.
+- Correct canonical output and exact pixel recovery under adversarial chunk boundaries, including every QOI opcode boundary.
+- Four-target public evidence with no FFI, no PNG/DEFLATE expansion, and no release-automation work.
 
 ## Constraints
 
@@ -98,7 +100,8 @@ Registry publication remains deferred: the existing v0.2 qualification artifacts
 | Keep unknown live registry authority fail-closed and prove it only inside the isolated publisher | Public account identity and module-name availability do not prove current-token publication authority | ✓ Validated in Phase 6 |
 | Complete publication and compatibility before adding the next module family | Unpublished foundations cannot provide a dependable ecosystem contract to downstream authors | — Pending in v0.2 |
 | Prioritize reusable image-processing code over further publication automation | The release route is already recoverable enough for a future manual operation; the ecosystem benefits more from implementable raster capabilities | ✓ Validated in v0.3 |
-| Implement QOI before a heavyweight lossless codec | QOI adds a real RGB/RGBA interchange format while preserving a pure MoonBit, four-target implementation and bounded attack surface | — Active in v0.4 |
+| Implement QOI before a heavyweight lossless codec | QOI adds a real RGB/RGBA interchange format while preserving a pure MoonBit, four-target implementation and bounded attack surface | ✓ Validated in v0.4 |
+| Add streaming QOI before a heavyweight codec | Stateful chunked I/O completes the existing forward-only codec contract without widening scope to PNG/DEFLATE or FFI | — Active in v0.5 |
 
 ## Evolution
 
@@ -118,4 +121,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update toolchain, compatibility, benchmark, and adoption context.
 
 ---
-*Last updated: 2026-07-20 after v0.3 Image Processing Core*
+*Last updated: 2026-07-20 after v0.4 Portable Image Interchange*
