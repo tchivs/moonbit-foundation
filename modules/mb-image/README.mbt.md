@@ -380,7 +380,7 @@ Each run decodes the fixed 27-byte QOI input, flips its stored pixel order, and
 encodes the checked 24-byte canonical output entirely in memory. Before printing
 success, it asserts dimensions and pixel order, empty decode and encode
 diagnostics, rolling digest `750514177`, and SHA-256
-`f6767a56873b631989d02e2cfef3baef2900ef40dc74e7bcf236b51d27095138`.
+`5dc3abfe81e722b211af255f6f96805225f98435f1f9525c46df48217f858df2`.
 
 Their copied-source qualification records `source_isolation: pass`. The
 unchanged named-dependency no-workspace probe records
