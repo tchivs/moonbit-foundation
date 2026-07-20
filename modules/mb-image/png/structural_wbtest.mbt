@@ -399,6 +399,49 @@ test "PNG IHDR accepts Adam7 while rejecting unsupported interlace methods" {
   )
 }
 
+///|
+test "PNG Adam7 geometry accounts for all pass rows with bounded reusable storage" {
+  let passes = _png_adam7_passes(5UL, 5UL, 4UL, 8).unwrap()
+  inspect(passes.length(), content="7")
+  let expected = [
+    (0UL, 0UL, 8UL, 8UL, 1UL, 1UL, 4UL),
+    (4UL, 0UL, 8UL, 8UL, 1UL, 1UL, 4UL),
+    (0UL, 4UL, 4UL, 8UL, 2UL, 1UL, 8UL),
+    (2UL, 0UL, 4UL, 4UL, 1UL, 2UL, 4UL),
+    (0UL, 2UL, 2UL, 4UL, 3UL, 1UL, 12UL),
+    (1UL, 0UL, 2UL, 2UL, 2UL, 3UL, 8UL),
+    (0UL, 1UL, 1UL, 2UL, 5UL, 2UL, 20UL),
+  ]
+  for index = 0; index < expected.length(); index = index + 1 {
+    let pass = passes[index]
+    let (x, y, dx, dy, width, height, row_bytes) = expected[index]
+    inspect(pass.x == x && pass.y == y && pass.dx == dx && pass.dy == dy, content="true")
+    inspect(pass.width == width && pass.height == height && pass.row_bytes == row_bytes, content="true")
+  }
+  let limits = @codec.CodecLimits::new(
+    max_probe_bytes=8UL, max_input_bytes=4096UL, max_output_bytes=111UL,
+    max_width=5UL, max_height=5UL, max_pixels=25UL, max_work=211UL,
+  )
+  let exact = @budget.Budget::new(@budget.ResourceLimits::new(
+    bytes=140UL, allocations=3UL, allocation_size=100UL, width=5UL,
+    height=5UL, pixels=25UL, depth=0UL, work=211UL,
+  ))
+  inspect(_png_adam7_decode_budget(5UL, 5UL, 4UL, 8, 4UL, limits, exact) is Ok(_), content="true")
+  let below = @budget.Budget::new(@budget.ResourceLimits::new(
+    bytes=139UL, allocations=3UL, allocation_size=100UL, width=5UL,
+    height=5UL, pixels=25UL, depth=0UL, work=211UL,
+  ))
+  inspect(
+    _png_adam7_decode_budget(5UL, 5UL, 4UL, 8, 4UL, limits, below).unwrap_err().context() == Some("bytes"),
+    content="true",
+  )
+  let tiny = _png_adam7_passes(1UL, 1UL, 1UL, 1).unwrap()
+  inspect(tiny[0].width == 1UL && tiny[0].height == 1UL, content="true")
+  for index = 1; index < tiny.length(); index = index + 1 {
+    inspect(tiny[index].width == 0UL || tiny[index].height == 0UL, content="true")
+  }
+}
+
 test "PNG 16-bit native-alpha IHDRs reserve encoded source rows" {
   let limits = @codec.CodecLimits::new(
     max_probe_bytes=8UL, max_input_bytes=4096UL, max_output_bytes=128UL,
