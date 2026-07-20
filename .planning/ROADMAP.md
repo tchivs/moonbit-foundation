@@ -158,7 +158,7 @@ Plans:
 | 17. Resumable QOI Chunk Decode | v0.5 | 1/1 | Complete    | 2026-07-20 |
 | 18. Resumable QOI Buffer Encode | v0.5 | 1/1 | Complete    | 2026-07-20 |
 | 19. Portable Streaming QOI Evidence | v0.5 | 1/1 | Complete    | 2026-07-20 |
-| 20. PNG Structural Safety Gate | v0.6 | 0/TBD | Not started | - |
+| 20. PNG Structural Safety Gate | v0.6 | 1/2 | In Progress|  |
 | 21. Bounded PNG Decode and DEFLATE | v0.6 | 0/TBD | Not started | - |
 | 22. Canonical PNG Encode and Portable Evidence | v0.6 | 0/TBD | Not started | - |
 
@@ -280,7 +280,10 @@ Plans:
   2. A library user receives typed deterministic rejection for invalid PNG framing, chunk ordering, chunk CRCs, unsupported critical or semantic chunks, incomplete IEND, and trailing input.
   3. A library user receives checked dimension, pixel, input, output, work, allocation, and metadata-policy rejection before PNG decode exposes an image.
 
-**Plans**: TBD
+**Plans**: 1/2 plans executed
+
+- [ ] 20-01-PLAN.md
+- [x] 20-02-PLAN.md
 
 ### Phase 21: Bounded PNG Decode and DEFLATE
 

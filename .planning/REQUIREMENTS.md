@@ -7,9 +7,9 @@
 
 ### PNG Structural Safety
 
-- [ ] **PNG-01**: A library user can non-consumingly probe a PNG signature and receive deterministic incomplete, unsupported, or invalid outcomes within codec input limits.
-- [ ] **PNG-02**: A library user receives a typed deterministic rejection for invalid PNG framing, chunk order, chunk CRC, unsupported critical or semantic chunk, incomplete IEND, or trailing input.
-- [ ] **PNG-03**: A library user receives checked dimension, pixel, input, output, work, allocation, and metadata-policy enforcement before PNG decode exposes an image.
+- [x] **PNG-01**: A library user can non-consumingly probe a PNG signature and receive deterministic incomplete, unsupported, or invalid outcomes within codec input limits.
+- [x] **PNG-02**: A library user receives a typed deterministic rejection for invalid PNG framing, chunk order, chunk CRC, unsupported critical or semantic chunk, incomplete IEND, or trailing input.
+- [x] **PNG-03**: A library user receives checked dimension, pixel, input, output, work, allocation, and metadata-policy enforcement before PNG decode exposes an image.
 
 ### PNG Decode
 
@@ -43,15 +43,16 @@
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| PNG-01 | Phase 20 | Pending |
-| PNG-02 | Phase 20 | Pending |
-| PNG-03 | Phase 20 | Pending |
+| PNG-01 | Phase 20 | Complete |
+| PNG-02 | Phase 20 | Complete |
+| PNG-03 | Phase 20 | Complete |
 | PNG-04 | Phase 21 | Pending |
 | PNG-05 | Phase 21 | Pending |
 | PNG-06 | Phase 22 | Pending |
 | PNG-07 | Phase 22 | Pending |
 
 **Coverage:**
+
 - v0.6 requirements: 7 total
 - Mapped to phases: 7
 - Unmapped: 0
