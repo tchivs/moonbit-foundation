@@ -1,0 +1,12 @@
+import {
+  "tchivs/mb-core/budget",
+  "tchivs/mb-core/bytes",
+  "tchivs/mb-core/checked",
+  "tchivs/mb-core/error",
+  "tchivs/mb-core/io",
+  "tchivs/mb-image/codec",
+}
+
+supported_targets = "+js+wasm+wasm-gc+native"
+
+warnings = "-29"
