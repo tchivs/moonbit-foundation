@@ -119,3 +119,73 @@ test "PNG opaque ancillary preservation and IHDR preflight leave caller state un
   inspect(preflight.code() == @error.ErrorCode::BudgetExceeded, content="true")
   inspect(limited_before.bytes() == limited_budget.remaining().bytes(), content="true")
 }
+
+///|
+test "PNG IHDR preflight checks every codec and allocation envelope ceiling" {
+  let ihdr = [
+    b'\x00', b'\x00', b'\x00', b'\x01', b'\x00', b'\x00', b'\x00', b'\x01',
+    b'\x08', b'\x02', b'\x00', b'\x00', b'\x00',
+  ]
+  let budget = @budget.Budget::new(@budget.ResourceLimits::new(
+    bytes=1024UL, allocations=1UL, allocation_size=1024UL, width=16UL,
+    height=16UL, pixels=256UL, depth=0UL, work=2048UL,
+  ))
+  for item in [
+    ("width", @codec.CodecLimits::new(
+      max_probe_bytes=8UL, max_input_bytes=4096UL, max_output_bytes=1024UL,
+      max_width=0UL, max_height=16UL, max_pixels=256UL, max_work=2048UL,
+    )),
+    ("height", @codec.CodecLimits::new(
+      max_probe_bytes=8UL, max_input_bytes=4096UL, max_output_bytes=1024UL,
+      max_width=16UL, max_height=0UL, max_pixels=256UL, max_work=2048UL,
+    )),
+    ("pixels", @codec.CodecLimits::new(
+      max_probe_bytes=8UL, max_input_bytes=4096UL, max_output_bytes=1024UL,
+      max_width=16UL, max_height=16UL, max_pixels=0UL, max_work=2048UL,
+    )),
+    ("image-bytes", @codec.CodecLimits::new(
+      max_probe_bytes=8UL, max_input_bytes=4096UL, max_output_bytes=2UL,
+      max_width=16UL, max_height=16UL, max_pixels=256UL, max_work=2048UL,
+    )),
+    ("output-bytes", @codec.CodecLimits::new(
+      max_probe_bytes=8UL, max_input_bytes=4096UL, max_output_bytes=3UL,
+      max_width=16UL, max_height=16UL, max_pixels=256UL, max_work=2048UL,
+    )),
+    ("work", @codec.CodecLimits::new(
+      max_probe_bytes=8UL, max_input_bytes=4096UL, max_output_bytes=1024UL,
+      max_width=16UL, max_height=16UL, max_pixels=256UL, max_work=6UL,
+    )),
+  ] {
+    let (expected, limits) = item
+    let error = _png_preflight_ihdr(ihdr, limits, budget).unwrap_err()
+    inspect(error.context() == Some(expected), content="true")
+  }
+  let allocation_budget = @budget.Budget::new(@budget.ResourceLimits::new(
+    bytes=1024UL, allocations=1UL, allocation_size=2UL, width=16UL,
+    height=16UL, pixels=256UL, depth=0UL, work=2048UL,
+  ))
+  let allocation = _png_preflight_ihdr(
+    ihdr,
+    @codec.CodecLimits::new(
+      max_probe_bytes=8UL, max_input_bytes=4096UL, max_output_bytes=1024UL,
+      max_width=16UL, max_height=16UL, max_pixels=256UL, max_work=2048UL,
+    ),
+    allocation_budget,
+  ).unwrap_err()
+  inspect(allocation.context() == Some("allocation_size"), content="true")
+}
+
+///|
+test "PNG semantic classifier rejects every deferred semantic chunk family" {
+  for kind in [
+    [b'P', b'L', b'T', b'E'], [b't', b'R', b'N', b'S'],
+    [b'c', b'H', b'R', b'M'], [b'g', b'A', b'M', b'A'],
+    [b'i', b'C', b'C', b'P'], [b's', b'B', b'I', b'T'],
+    [b's', b'R', b'G', b'B'], [b'c', b'I', b'C', b'P'],
+    [b'm', b'D', b'C', b'v'], [b'c', b'L', b'L', b'i'],
+    [b'a', b'c', b'T', b'L'], [b'f', b'c', b'T', b'L'],
+    [b'f', b'd', b'A', b'T'],
+  ] {
+    inspect(_png_is_known_semantic(kind), content="true")
+  }
+}
