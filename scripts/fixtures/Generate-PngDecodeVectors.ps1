@@ -36,9 +36,22 @@ function New-Png($Case, [int[]]$Splits) {
   $zlib = Hex $Case.zlib_hex
   $parts = [Collections.Generic.List[object]]::new()
   $parts.Add((Chunk 'IHDR' (Join-Bytes @((U32 $Case.width),(U32 $Case.height),[byte[]](8,$Case.colour_type,0,0,0)))))
+  $hasPlte = $null -ne $Case.PSObject.Properties['plte_length'] -or $null -ne $Case.PSObject.Properties['plte_hex']
+  [byte[]]$plte = @()
+  if ($null -ne $Case.PSObject.Properties['plte_length']) { $plte = [byte[]]::new([int]$Case.plte_length) }
+  elseif ($null -ne $Case.PSObject.Properties['plte_hex']) { $plte = Hex $Case.plte_hex }
+  $variant = if ($Case.PSObject.Properties['variant']) { [string]$Case.variant } else { 'normal' }
+  if ($hasPlte -and $variant -ne 'missing-plte') {
+    $chunk = Chunk 'PLTE' $plte
+    if ($variant -eq 'plte-crc') { $chunk = [byte[]]$chunk.Clone(); $chunk[$chunk.Length - 1] = $chunk[$chunk.Length - 1] -bxor 1 }
+    $parts.Add($chunk)
+    if ($variant -eq 'plte-duplicate') { $parts.Add((Chunk 'PLTE' $plte)) }
+  }
+  if ($variant -eq 'trns') { $parts.Add((Chunk 'tRNS' ([byte[]]@(0)))) }
   $offset = 0
   foreach ($split in $Splits) { $count = [int]$split; if ($count -le 0 -or $offset + $count -gt $zlib.Length) { throw "Invalid IDAT split: $($Case.id)" }; $parts.Add((Chunk 'IDAT' $zlib[$offset..($offset+$count-1)])); $offset += $count }
   if ($offset -ne $zlib.Length) { throw "IDAT splits do not cover zlib payload: $($Case.id)" }
+  if ($hasPlte -and $variant -eq 'plte-after-idat') { $parts.Add((Chunk 'PLTE' $plte)) }
   $parts.Add((Chunk 'IEND' ([byte[]]@())))
   Join-Bytes @([byte[]](0x89,80,78,71,13,10,26,10), (Join-Bytes $parts.ToArray()))
 }
@@ -50,11 +63,22 @@ function Assert-Oracle($Case) {
     if ($output.Length -eq 0) { throw "Independent zlib oracle produced no scanlines: $($Case.id)" }
     $btype = ($zlib[2] -shr 1) -band 3
     if (($Case.block -eq 'fixed' -and $btype -ne 1) -or ($Case.block -eq 'dynamic' -and $btype -ne 2)) { throw "Unexpected DEFLATE block type: $($Case.id)" }
+    if ($Case.colour_type -eq 3) {
+      $palette = Hex $Case.plte_hex
+      if ($palette.Length -lt 3 -or $palette.Length -gt 768 -or $palette.Length % 3) { throw "Invalid indexed PLTE oracle input: $($Case.id)" }
+      $scan = $output.ToArray(); $stride = [int]$Case.width; $previous = [byte[]]::new($stride); $pixels = [Collections.Generic.List[byte]]::new(); $at = 0
+      for ($y = 0; $y -lt $Case.height; $y++) {
+        $filter = $scan[$at++]; if ($filter -gt 4) { throw "Invalid indexed filter oracle input: $($Case.id)" }; $current = [byte[]]::new($stride)
+        for ($x = 0; $x -lt $stride; $x++) { $raw=$scan[$at++]; $left=if($x){$current[$x-1]}else{0}; $above=if($y){$previous[$x]}else{0}; $ul=if($x -and $y){$previous[$x-1]}else{0}; $predict=if($filter -eq 0){0}elseif($filter -eq 1){$left}elseif($filter -eq 2){$above}elseif($filter -eq 3){($left+$above) -shr 1}else{$p=$left+$above-$ul;$pa=[Math]::Abs($p-$left);$pb=[Math]::Abs($p-$above);$pc=[Math]::Abs($p-$ul);if($pa -le $pb -and $pa -le $pc){$left}elseif($pb -le $pc){$above}else{$ul}}; $current[$x]=($raw+$predict)%256; $base=$current[$x]*3; $pixels.Add($palette[$base]);$pixels.Add($palette[$base+1]);$pixels.Add($palette[$base+2]) }
+        $previous=$current
+      }
+      if ((Moon-Bytes $pixels.ToArray()) -cne (Moon-Bytes (Hex $Case.pixels_hex))) { throw "Indexed RGB oracle mismatch: $($Case.id)" }
+    }
   }
 }
 
 $corpus = Get-Content -Raw -LiteralPath $CasesPath | ConvertFrom-Json
-$required = @('fixed-rgb-filters-every-idat-byte','fixed-grayscale-filters-every-idat-boundary','dynamic-rgba-filters-semantic-idat-split','hostile-zlib-header','hostile-truncated-deflate','hostile-adler','hostile-filter','hostile-dynamic-incomplete-tree','hostile-fixed-distance-before-history','hostile-filtered-output-expansion')
+$required = @('fixed-rgb-filters-every-idat-byte','fixed-grayscale-filters-every-idat-boundary','dynamic-rgba-filters-semantic-idat-split','indexed-filters-every-idat-boundary','indexed-missing-plte','indexed-plte-length-0','indexed-plte-length-1','indexed-plte-length-2','indexed-plte-length-4','indexed-plte-length-5','indexed-plte-length-769','indexed-plte-duplicate','indexed-plte-after-idat','indexed-plte-crc','indexed-palette-index','indexed-trns','hostile-zlib-header','hostile-truncated-deflate','hostile-adler','hostile-filter','hostile-dynamic-incomplete-tree','hostile-fixed-distance-before-history','hostile-filtered-output-expansion')
 if ($corpus.schema_version -ne '2.1.0' -or (Compare-Object $required @($corpus.cases.id))) { throw 'PNG decode corpus is stale or incomplete.' }
 $records = [Collections.Generic.List[object]]::new()
 foreach ($case in $corpus.cases) {

@@ -304,7 +304,7 @@ test "generated PNG decode vectors execute fixed and dynamic streams through Png
       PngDecoder::new(), reader as &@io.Reader,
       @codec.DecodeOptions::new(require_complete_input=true, preserve_opaque_metadata=false),
       @codec.CodecLimits::new(max_probe_bytes=8UL, max_input_bytes=4096UL, max_output_bytes=item.max_output, max_width=64UL, max_height=16UL, max_pixels=1024UL, max_work=4096UL),
-      @budget.Budget::new(@budget.ResourceLimits::new(bytes=4096UL, allocations=1UL, allocation_size=1024UL, width=64UL, height=16UL, pixels=1024UL, depth=0UL, work=4096UL)),
+      @budget.Budget::new(@budget.ResourceLimits::new(bytes=4096UL, allocations=3UL, allocation_size=1024UL, width=64UL, height=16UL, pixels=1024UL, depth=0UL, work=4096UL)),
       @error.Diagnostics::new(),
     )
     if item.outcome == "accepted" {
@@ -322,12 +322,12 @@ test "generated PNG decode vectors execute fixed and dynamic streams through Png
       let error = decoded.unwrap_err()
       inspect(error.category() == @error.ErrorCategory::Resource, content="true")
       inspect(error.code() == @error.ErrorCode::BudgetExceeded, content="true")
-      inspect(error.context() == Some(item.context), content="true")
+      if error.context() != Some(item.context) { fail("generated PNG context mismatch: " + item.id + ": " + error.context().unwrap()) }
     } else {
       let error = decoded.unwrap_err()
       inspect(error.category() == @error.ErrorCategory::Data, content="true")
       inspect(error.code() == @error.ErrorCode::InvalidEncoding, content="true")
-      inspect(error.context() == Some(item.context), content="true")
+      if error.context() != Some(item.context) { fail("generated PNG context mismatch: " + item.id + ": " + error.context().unwrap()) }
     }
   }
 }
