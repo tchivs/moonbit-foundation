@@ -107,6 +107,30 @@ test "generated nearest axes consume every coordinate case" {
 }
 
 ///|
+test "nearest resize applies the documented two-dimensional integer-floor mapping" {
+  let source = wb_resize_convert_image(3UL, 2UL, 3UL, None, [
+    b'\x01', b'\x02', b'\x03', b'\x04', b'\x05', b'\x06', b'\x07', b'\x08', b'\x09',
+    b'\x10', b'\x11', b'\x12', b'\x13', b'\x14', b'\x15', b'\x16', b'\x17', b'\x18',
+  ])
+  let output = resize_nearest(
+    source.view(), 5UL, 4UL, wb_resize_convert_limits(60UL, 60UL),
+  ).unwrap().image().view()
+  for destination_y = 0UL; destination_y < 4UL; destination_y = destination_y + 1UL {
+    let source_y = (destination_y * 2UL) / 4UL
+    for destination_x = 0UL; destination_x < 5UL; destination_x = destination_x + 1UL {
+      let source_x = (destination_x * 3UL) / 5UL
+      for channel = 0UL; channel < 3UL; channel = channel + 1UL {
+        inspect(
+          output.get_byte(destination_x, destination_y, channel).unwrap() ==
+          source.view().get_byte(source_x, source_y, channel).unwrap(),
+          content="true",
+        )
+      }
+    }
+  }
+}
+
+///|
 test "nearest resize rejects zero axes and insufficient work atomically" {
   let source = wb_resize_convert_image(1UL, 1UL, 3UL, None, [
     b'\x01', b'\x02', b'\x03',
@@ -134,6 +158,33 @@ test "nearest resize rejects zero axes and insufficient work atomically" {
     content="true",
   )
   inspect(budget.remaining().work() == before.work(), content="true")
+}
+
+///|
+test "nearest resize capability rejection is typed and leaves the full budget unchanged" {
+  let source = unsupported_image(
+    @model.ComponentType::U16,
+    @model.ChannelOrder::Rgb,
+    @model.PlaneLayout::Packed,
+  )
+  let budget = wb_resize_convert_limits(12UL, 12UL)
+  let before = budget.remaining()
+  match resize_nearest(source.view(), 2UL, 2UL, budget) {
+    Err(error) => {
+      inspect(error.code() == @error.ErrorCode::CapabilityUnavailable, content="true")
+      inspect(error.operation() == Some("image-resize-nearest"), content="true")
+      inspect(error.context() == Some("image-resize-nearest-format"), content="true")
+    }
+    Ok(_) => fail("unsupported resize must reject")
+  }
+  let after = budget.remaining()
+  inspect(after.bytes() == before.bytes(), content="true")
+  inspect(after.allocations() == before.allocations(), content="true")
+  inspect(after.allocation_size() == before.allocation_size(), content="true")
+  inspect(after.width() == before.width(), content="true")
+  inspect(after.height() == before.height(), content="true")
+  inspect(after.pixels() == before.pixels(), content="true")
+  inspect(after.work() == before.work(), content="true")
 }
 
 ///|

@@ -156,13 +156,27 @@ canonical backing-free empty view. Mutable views exist only inside
 ends, and split only across proven byte-disjoint regions. Raw mutable backing is
 never exposed.
 
-Copy, horizontal and vertical flips, Exif-orientation application, integer-floor
+`ImageView::crop` is a zero-copy borrowed view operation: it preserves the
+parent backing storage and stride. By contrast, `@ops.crop` creates a fresh,
+tightly packed `OwnedImage` from a checked non-empty rectangle. Copy, operation
+crop, horizontal and vertical flips, Exif-orientation application, integer-floor
 nearest resize, and named pixel conversions always produce fresh storage.
-Ordinary copy, crop, flips, and resize use stored coordinates and preserve the
-orientation field. `apply_orientation` performs the selected one of all eight
-Exif mappings and normalizes it to `TopLeft`. Nearest resize maps
-`min(source_extent - 1, floor(destination * source_extent / destination_extent))`
-with checked integers and performs no filtering or hidden color conversion.
+
+The portable operation capability is intentionally narrow: packed U8,
+encoded-sRGB RGB (without alpha) or RGBA (straight or premultiplied alpha).
+Unsupported layouts, component types, color/transfer identities, or alpha
+combinations return a typed `CoreError` with `CapabilityUnavailable`; invalid
+regions and resource limits likewise return typed errors before changing the
+caller-provided `Budget`.
+
+Ordinary copy, operation crop, flips, and resize use stored coordinates and
+preserve the orientation field. `@ops.rotate_90`, `@ops.rotate_180`, and
+`@ops.rotate_270` are explicit clockwise physical rotations and normalize the
+resulting orientation to `TopLeft`; `apply_orientation` instead realizes the
+source's selected Exif mapping. Nearest resize is the fixed reference algorithm:
+`min(source_extent - 1, floor(destination * source_extent / destination_extent))`.
+It uses checked integers and performs no filtering, interpolation, hidden color
+conversion, or alpha processing.
 
 ```mbt check
 ///|
@@ -176,6 +190,22 @@ test "views and operations expose lifetime and metadata disposition" {
   ).unwrap()
   inspect(crop.row_stride(), content="8")
   inspect(crop.get_byte(0UL, 0UL, 0UL).unwrap() == b'R', content="true")
+
+  let owned_crop = @ops.crop(
+    image.view(),
+    @model.Rect::new(0UL, 0UL, 1UL, 2UL).unwrap(),
+    readme_budget(6UL, 6UL),
+  ).unwrap()
+  inspect(owned_crop.image().view().row_stride(), content="3")
+  inspect(owned_crop.image().metadata().orientation().code(), content="2")
+  let rotated = @ops.rotate_90(
+    owned_crop.image().view(),
+    readme_budget(6UL, 6UL),
+  ).unwrap()
+  inspect(rotated.image().descriptor().width(), content="2")
+  inspect(rotated.image().descriptor().height(), content="1")
+  inspect(rotated.image().metadata().orientation().code(), content="1")
+  inspect(rotated.disposition().transformed(0).unwrap().value(), content="orientation")
 
   let copied = @ops.copy_image(image.view(), readme_budget(12UL, 12UL)).unwrap()
   inspect(copied.image().view().row_stride(), content="6")
