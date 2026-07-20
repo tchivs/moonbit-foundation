@@ -1,0 +1,10 @@
+{
+  "schema_version": "1.0.0",
+  "cases": [
+    { "id": "short-signature", "bytes_hex": "89504e47", "expected": "png-signature" },
+    { "id": "bad-signature", "bytes_hex": "0000000000000000", "expected": "png-signature" },
+    { "id": "overlong-chunk", "bytes_hex": "89504e470d0a1a0a80000000", "expected": "png-chunk-length" },
+    { "id": "non-letter-type", "bytes_hex": "89504e470d0a1a0a0000000000000000", "expected": "png-chunk-type" },
+    { "id": "reserved-third-lowercase", "bytes_hex": "89504e470d0a1a0a0000000049416144", "expected": "png-reserved-bit" }
+  ]
+}
