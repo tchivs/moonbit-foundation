@@ -1,0 +1,17 @@
+import {
+  "tchivs/mb-core/budget",
+  "tchivs/mb-core/bytes",
+  "tchivs/mb-core/checked",
+  "tchivs/mb-core/error",
+  "tchivs/mb-core/io",
+  "tchivs/mb-color/model" @color,
+  "tchivs/mb-color/profile",
+  "tchivs/mb-image/codec",
+  "tchivs/mb-image/metadata",
+  "tchivs/mb-image/model",
+  "tchivs/mb-image/storage",
+}
+
+supported_targets = "+js+wasm+wasm-gc+native"
+
+warnings = "-29"
