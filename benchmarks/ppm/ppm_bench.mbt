@@ -315,6 +315,71 @@ fn pipeline_public(
 }
 
 ///|
+fn resize_composite_public(
+  foreground_source : @bytes.OwnedBytes,
+  destination_source : @bytes.OwnedBytes,
+) -> (@codec.EncodeResult, @io.MemoryWriter) {
+  let foreground = decode_public(foreground_source, 128UL, 128UL)
+  let destination = decode_public(destination_source, 256UL, 256UL)
+  let resized = @ops.resize_nearest(
+    foreground.image().view(), 256UL, 256UL, evidence_budget(256UL, 256UL),
+  ).unwrap()
+  let foreground_rgba = @ops.rgb8_to_straight_rgba8(
+    resized.image().view(), evidence_budget(256UL, 256UL),
+  ).unwrap()
+  let destination_rgba = @ops.rgb8_to_straight_rgba8(
+    destination.image().view(), evidence_budget(256UL, 256UL),
+  ).unwrap()
+  let composited = @ops.composite_source_over(
+    foreground_rgba.image().view(),
+    destination_rgba.image().view(),
+    evidence_budget(256UL, 256UL),
+  ).unwrap()
+  let rgb = @ops.straight_rgba8_to_rgb8(
+    composited.image().view(), evidence_budget(256UL, 256UL),
+  ).unwrap()
+  encode_public(rgb.image(), 256UL, 256UL)
+}
+
+///|
+fn expected_resize_composite_digest() -> UInt64 {
+  let output : Array[Byte] = [
+    b'P', b'6', b'\n', b'2', b'5', b'6', b' ', b'2', b'5', b'6', b'\n',
+    b'2', b'5', b'5', b'\n',
+  ]
+  for destination_y = 0UL; destination_y < 256UL; destination_y = destination_y + 1UL {
+    let source_y = destination_y * 128UL / 256UL
+    for destination_x = 0UL; destination_x < 256UL; destination_x = destination_x + 1UL {
+      let source_x = destination_x * 128UL / 256UL
+      for channel = 0UL; channel < 3UL; channel = channel + 1UL {
+        let index = (source_y * 128UL + source_x) * 3UL + channel
+        output.push(((index * 17UL + 31UL) % 256UL).to_byte())
+      }
+    }
+  }
+  let expected = own_source(Bytes::from_array(output))
+  rolling257(expected.view(), expected.length())
+}
+
+///|
+test "ppm/pipeline/resize-composite/256x256" (it : @bench.T) {
+  let foreground = own_source(ppm_bytes(128UL, 128UL, false))
+  let destination = own_source(ppm_bytes(256UL, 256UL, true))
+  let (checked, writer) = resize_composite_public(foreground, destination)
+  require_benchmark(
+    checked.bytes_written() == 256UL * 256UL * 3UL + 15UL,
+    "resize-composite-byte-count",
+  )
+  require_benchmark(
+    rolling257(writer.view(), writer.position()) == expected_resize_composite_digest(),
+    "resize-composite-digest",
+  )
+  it.bench(fn() {
+    it.keep(resize_composite_public(foreground, destination))
+  }, count=1)
+}
+
+///|
 test "ppm/pipeline/decode-flip-encode/256x256" (it : @bench.T) {
   let width = 256UL
   let height = 256UL
