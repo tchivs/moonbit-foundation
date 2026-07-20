@@ -86,15 +86,34 @@ fn PngPackedRows::reconstruct(
   self : PngPackedRows,
   column : UInt64,
   row : UInt64,
+  bpp : UInt64,
   filter : Int,
   raw : Int,
 ) -> Result[Byte, @error.CoreError] {
-  let left = if column > 0UL { self.current.view().get(column - 1UL).unwrap().to_int() } else { 0 }
+  let left = if column >= bpp { self.current.view().get(column - bpp).unwrap().to_int() } else { 0 }
   let above = if row > 0UL { self.previous.view().get(column).unwrap().to_int() } else { 0 }
-  let upper_left = if row > 0UL && column > 0UL { self.previous.view().get(column - 1UL).unwrap().to_int() } else { 0 }
+  let upper_left = if row > 0UL && column >= bpp { self.previous.view().get(column - bpp).unwrap().to_int() } else { 0 }
   let value = if filter == 0 { raw } else if filter == 1 { raw + left } else if filter == 2 { raw + above } else if filter == 3 { raw + ((left + above) / 2) } else { raw + _png_paeth(left, above, upper_left) }
   let byte = value.to_byte()
   match self.current.with_mut(column, 1UL, fn(lease) { lease.set(0UL, byte) }) { Err(error) => Err(error); Ok(_) => Ok(byte) }
+}
+
+///| Writes one already reconstructed grayscale-alpha source row as straight RGBA8.
+fn _png_write_grayscale_alpha_row(
+  view : @storage.MutImageView,
+  rows : PngPackedRows,
+  y : UInt64,
+  width : UInt64,
+) -> Result[Unit, @error.CoreError] {
+  for x = 0UL; x < width; x = x + 1UL {
+    let gray = rows.current.view().get(x * 2UL).unwrap()
+    let alpha = rows.current.view().get(x * 2UL + 1UL).unwrap()
+    for channel = 0UL; channel < 3UL; channel = channel + 1UL {
+      match view.set_byte(x, y, channel, gray) { Err(error) => return Err(error); Ok(_) => () }
+    }
+    match view.set_byte(x, y, 3UL, alpha) { Err(error) => return Err(error); Ok(_) => () }
+  }
+  Ok(())
 }
 
 ///|
@@ -188,7 +207,7 @@ fn _png_write_indexed_raster(
     if filter > 4 { return Err(_png_error("png-filter")) }
     offset = offset + 1UL
     for column = 0UL; column < row_bytes; column = column + 1UL {
-      match rows.reconstruct(column, y, filter, filtered[offset.to_int()].to_int()) {
+      match rows.reconstruct(column, y, 1UL, filter, filtered[offset.to_int()].to_int()) {
         Err(error) => return Err(error)
         Ok(_) => ()
       }
@@ -237,6 +256,25 @@ fn _png_write_raster(view : @storage.MutImageView, transport : PngTransport, fil
   }
   if transport.source_channels == 1UL && transport.bit_depth < 8 {
     return _png_write_packed_grayscale_raster(view, transport, filtered, budget)
+  }
+  if transport.source_channels == 2UL && transport.channels == 4UL {
+    let row_bytes = match @checked.checked_mul(transport.width, 2UL) { Err(error) => return Err(error); Ok(value) => value }
+    let expected = match @checked.checked_mul(row_bytes + 1UL, transport.height) { Err(error) => return Err(error); Ok(value) => value }
+    if filtered.length().to_uint64() != expected { return Err(_png_error("png-filtered-size")) }
+    let rows = match _png_new_packed_rows(row_bytes, budget) { Err(error) => return Err(error); Ok(value) => value }
+    let mut offset = 0UL
+    for y = 0UL; y < transport.height; y = y + 1UL {
+      let filter = filtered[offset.to_int()].to_int()
+      if filter > 4 { return Err(_png_error("png-filter")) }
+      offset = offset + 1UL
+      for column = 0UL; column < row_bytes; column = column + 1UL {
+        match rows.reconstruct(column, y, 2UL, filter, filtered[offset.to_int()].to_int()) { Err(error) => return Err(error); Ok(_) => () }
+        offset = offset + 1UL
+      }
+      match _png_write_grayscale_alpha_row(view, rows, y, transport.width) { Err(error) => return Err(error); Ok(_) => () }
+      rows.finish_row()
+    }
+    return Ok(())
   }
   let row_bytes = match @checked.checked_mul(transport.width, transport.source_channels) {
     Err(error) => return Err(error)
@@ -315,7 +353,7 @@ fn _png_write_packed_grayscale_raster(
     if filter > 4 { return Err(_png_error("png-filter")) }
     offset = offset + 1UL
     for column = 0UL; column < row_bytes; column = column + 1UL {
-      match rows.reconstruct(column, y, filter, filtered[offset.to_int()].to_int()) { Err(error) => return Err(error); Ok(_) => () }
+      match rows.reconstruct(column, y, 1UL, filter, filtered[offset.to_int()].to_int()) { Err(error) => return Err(error); Ok(_) => () }
       offset = offset + 1UL
     }
     match _png_write_packed_grayscale_row(view, rows, y, transport.width, transport.bit_depth, transport.transparency) { Err(error) => return Err(error); Ok(_) => () }

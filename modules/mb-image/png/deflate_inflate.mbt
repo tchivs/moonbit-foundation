@@ -131,7 +131,7 @@ fn _png_inflate_zlib_to_raster(
           Some(value) => value
           None => return Err(_png_error("png-index-rows"))
         }
-        match rows.reconstruct(pixel_column, row, filter, byte.to_int()) {
+        match rows.reconstruct(pixel_column, row, 1UL, filter, byte.to_int()) {
           Err(error) => return Err(error)
           Ok(_) => ()
         }
@@ -139,11 +139,15 @@ fn _png_inflate_zlib_to_raster(
           match _png_write_packed_indexed_row(view, rows, row, transport.width, transport.bit_depth, transport.palette, transport.palette_entries, transport.transparency) { Err(error) => return Err(error); Ok(_) => () }
           rows.finish_row()
         }
-      } else if transport.source_channels == 1UL {
+      } else if transport.source_channels == 1UL || transport.source_channels == 2UL {
         let rows = match packed_rows { Some(value) => value; None => return Err(_png_error("png-packed-rows")) }
-        match rows.reconstruct(pixel_column, row, filter, byte.to_int()) { Err(error) => return Err(error); Ok(_) => () }
+        match rows.reconstruct(pixel_column, row, transport.source_channels, filter, byte.to_int()) { Err(error) => return Err(error); Ok(_) => () }
         if pixel_column + 1UL == row_bytes {
-          match _png_write_packed_grayscale_row(view, rows, row, transport.width, transport.bit_depth, transport.transparency) { Err(error) => return Err(error); Ok(_) => () }
+          if transport.source_channels == 2UL {
+            match _png_write_grayscale_alpha_row(view, rows, row, transport.width) { Err(error) => return Err(error); Ok(_) => () }
+          } else {
+            match _png_write_packed_grayscale_row(view, rows, row, transport.width, transport.bit_depth, transport.transparency) { Err(error) => return Err(error); Ok(_) => () }
+          }
           rows.finish_row()
         }
       } else {

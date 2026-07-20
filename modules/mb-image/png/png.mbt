@@ -77,8 +77,8 @@ pub impl @codec.ImageDecoder for PngDecoder with fn decode(
       Ok(value) => Some(value)
     }
   } else { None }
-  let packed_rows = if stream.source_channels == 1UL && !stream.indexed {
-    let row_bytes = match _png_grayscale_row_bytes(stream.width, stream.bit_depth) { Err(error) => return Err(error); Ok(value) => value }
+  let packed_rows = if (stream.source_channels == 1UL || stream.source_channels == 2UL) && !stream.indexed {
+    let row_bytes = if stream.source_channels == 2UL { match @checked.checked_mul(stream.width, 2UL) { Err(error) => return Err(error); Ok(value) => value } } else { match _png_grayscale_row_bytes(stream.width, stream.bit_depth) { Err(error) => return Err(error); Ok(value) => value } }
     match _png_new_packed_rows(row_bytes, stream.budget) { Err(error) => return Err(error); Ok(value) => Some(value) }
   } else { None }
   let image = match @storage.OwnedImage::new_operation(

@@ -106,9 +106,9 @@ test "PNG grayscale-alpha raster reconstructs source pairs with bpp two into str
     b'\x00', b'\x10', b'\x80', b'\x20', b'\x40',
     b'\x04', b'\x20', b'\x10', b'\x10', b'\x20',
   ]
-  image.with_mut_view(fn(view) { _png_write_raster(view, transport, filtered, @budget.Budget::new(@budget.ResourceLimits::new(bytes=0UL, allocations=0UL, allocation_size=0UL, width=0UL, height=0UL, pixels=0UL, depth=0UL, work=0UL))) }).unwrap()
+  image.with_mut_view(fn(view) { _png_write_raster(view, transport, filtered, @budget.Budget::new(@budget.ResourceLimits::new(bytes=8UL, allocations=2UL, allocation_size=4UL, width=0UL, height=0UL, pixels=0UL, depth=0UL, work=0UL))) }).unwrap()
   let view = image.view()
-  for item in [(0UL, 0UL, b'\x10', b'\x80'), (1UL, 0UL, b'\x20', b'\x40'), (0UL, 1UL, b'\x30', b'\x90'), (1UL, 1UL, b'\x40', b'\xc0')] {
+  for item in [(0UL, 0UL, b'\x10', b'\x80'), (1UL, 0UL, b'\x20', b'\x40'), (0UL, 1UL, b'\x30', b'\x90'), (1UL, 1UL, b'\x40', b'\x60')] {
     let (x, y, gray, alpha) = item
     inspect(view.get_byte(x, y, 0UL).unwrap() == gray, content="true")
     inspect(view.get_byte(x, y, 1UL).unwrap() == gray, content="true")

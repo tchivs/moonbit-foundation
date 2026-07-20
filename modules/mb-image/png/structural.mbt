@@ -303,6 +303,9 @@ fn _png_preflight_ihdr(
       return Err(_png_error("png-bit-depth"))
     }
     1UL
+  } else if ihdr[9] == 4 {
+    if bit_depth != 8 { return Err(_png_error("png-bit-depth")) }
+    2UL
   } else if ihdr[9] == 6 {
     if bit_depth != 8 { return Err(_png_error("png-bit-depth")) }
     4UL
@@ -316,8 +319,8 @@ fn _png_preflight_ihdr(
     Err(error) => return Err(error)
     Ok(value) => value
   }
-  // PNG grayscale has one filtered source sample but is exposed as RGB8.
-  let output_channels = if ihdr[9] == 6 { 4UL } else { 3UL }
+  // PNG grayscale-alpha retains two filtered source bytes but is exposed as RGBA8.
+  let output_channels = if ihdr[9] == 4 || ihdr[9] == 6 { 4UL } else { 3UL }
   let image_bytes = match @checked.checked_mul(pixels, output_channels) {
     Err(error) => return Err(error)
     Ok(value) => value
@@ -442,6 +445,30 @@ fn _png_transparent_decode_budget(
   }
   budget.child(@budget.ResourceLimits::new(
     bytes=image_bytes, allocations=1UL, allocation_size=image_bytes,
+    width~, height~, pixels~, depth=0UL, work=limits.max_work(),
+  ))
+}
+
+///| Native-alpha grayscale retains two source bytes per pixel and two filter rows.
+fn _png_grayscale_alpha_decode_budget(
+  width : UInt64,
+  height : UInt64,
+  limits : @codec.CodecLimits,
+  budget : @budget.Budget,
+) -> Result[@budget.Budget, @error.CoreError] {
+  let pixels = match @checked.checked_mul(width, height) { Err(error) => return Err(error); Ok(value) => value }
+  let image_bytes = match @checked.checked_mul(pixels, 4UL) { Err(error) => return Err(error); Ok(value) => value }
+  let row_bytes = match @checked.checked_mul(width, 2UL) { Err(error) => return Err(error); Ok(value) => value }
+  let rows = match @checked.checked_mul(row_bytes, 2UL) { Err(error) => return Err(error); Ok(value) => value }
+  let bytes = match @checked.checked_add(image_bytes, rows) { Err(error) => return Err(error); Ok(value) => value }
+  let filtered = match @checked.checked_mul(row_bytes + 1UL, height) { Err(error) => return Err(error); Ok(value) => value }
+  let work = match @checked.checked_add(image_bytes, filtered) { Err(error) => return Err(error); Ok(value) => value }
+  for item in [("image-bytes", image_bytes, limits.max_output_bytes()), ("output-bytes", filtered, limits.max_output_bytes()), ("work", work, limits.max_work())] {
+    let (context, requested, limit) = item
+    match _png_limit_value(context, requested, limit) { Err(error) => return Err(error); Ok(_) => () }
+  }
+  budget.child(@budget.ResourceLimits::new(
+    bytes~, allocations=3UL, allocation_size=image_bytes,
     width~, height~, pixels~, depth=0UL, work=limits.max_work(),
   ))
 }
@@ -714,8 +741,8 @@ fn _png_read_transport(
       }
       width = (payload[0].to_int().to_uint64() << 24) | (payload[1].to_int().to_uint64() << 16) | (payload[2].to_int().to_uint64() << 8) | payload[3].to_int().to_uint64()
       height = (payload[4].to_int().to_uint64() << 24) | (payload[5].to_int().to_uint64() << 16) | (payload[6].to_int().to_uint64() << 8) | payload[7].to_int().to_uint64()
-      source_channels = if payload[9] == 0 { 1UL } else if payload[9] == 2 { 3UL } else { 4UL }
-      channels = if payload[9] == 6 { 4UL } else { 3UL }
+      source_channels = if payload[9] == 0 || payload[9] == 3 { 1UL } else if payload[9] == 2 { 3UL } else if payload[9] == 4 { 2UL } else { 4UL }
+      channels = if payload[9] == 4 || payload[9] == 6 { 4UL } else { 3UL }
       state = PngChunkState::BeforeIdat
     } else {
       if state == PngChunkState::BeforeIhdr { return Err(_png_error("png-ihdr-first")) }
@@ -812,7 +839,7 @@ fn _png_read_stream_transport(
     match _png_validate_type_form(kind) { Err(error) => return Err(error); Ok(_) => () }
     if _png_type_is(kind, b'I', b'D', b'A', b'T') {
       if indexed && !saw_palette { return Err(_png_error("png-plte-required")) }
-      let channels = match transparency { PngTransparency::Opaque => if ihdr[9] == 6 { 4UL } else { 3UL }; _ => 4UL }
+      let channels = match transparency { PngTransparency::Opaque => if ihdr[9] == 4 || ihdr[9] == 6 { 4UL } else { 3UL }; _ => 4UL }
       let output_budget = if indexed {
         match _png_indexed_decode_budget(
           (ihdr[0].to_int().to_uint64() << 24) | (ihdr[1].to_int().to_uint64() << 16) | (ihdr[2].to_int().to_uint64() << 8) | ihdr[3].to_int().to_uint64(),
@@ -825,6 +852,12 @@ fn _png_read_stream_transport(
           (ihdr[4].to_int().to_uint64() << 24) | (ihdr[5].to_int().to_uint64() << 16) | (ihdr[6].to_int().to_uint64() << 8) | ihdr[7].to_int().to_uint64(),
           ihdr[8].to_int(), channels, limits, budget,
         ) { Err(error) => return Err(error); Ok(value) => value }
+      } else if ihdr[9] == 4 {
+        match _png_grayscale_alpha_decode_budget(
+          (ihdr[0].to_int().to_uint64() << 24) | (ihdr[1].to_int().to_uint64() << 16) | (ihdr[2].to_int().to_uint64() << 8) | ihdr[3].to_int().to_uint64(),
+          (ihdr[4].to_int().to_uint64() << 24) | (ihdr[5].to_int().to_uint64() << 16) | (ihdr[6].to_int().to_uint64() << 8) | ihdr[7].to_int().to_uint64(),
+          limits, budget,
+        ) { Err(error) => return Err(error); Ok(value) => value }
       } else if channels == 4UL && ihdr[9] != 6 {
         match _png_transparent_decode_budget(
           (ihdr[0].to_int().to_uint64() << 24) | (ihdr[1].to_int().to_uint64() << 16) | (ihdr[2].to_int().to_uint64() << 8) | ihdr[3].to_int().to_uint64(),
@@ -836,7 +869,7 @@ fn _png_read_stream_transport(
         width: (ihdr[0].to_int().to_uint64() << 24) | (ihdr[1].to_int().to_uint64() << 16) | (ihdr[2].to_int().to_uint64() << 8) | ihdr[3].to_int().to_uint64(),
         height: (ihdr[4].to_int().to_uint64() << 24) | (ihdr[5].to_int().to_uint64() << 16) | (ihdr[6].to_int().to_uint64() << 8) | ihdr[7].to_int().to_uint64(),
         bit_depth: ihdr[8].to_int(),
-        source_channels: if ihdr[9] == 0 || ihdr[9] == 3 { 1UL } else if ihdr[9] == 2 { 3UL } else { 4UL },
+        source_channels: if ihdr[9] == 0 || ihdr[9] == 3 { 1UL } else if ihdr[9] == 2 { 3UL } else if ihdr[9] == 4 { 2UL } else { 4UL },
         channels,
         indexed,
         palette: Bytes::from_array(palette),

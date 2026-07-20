@@ -322,29 +322,29 @@ test "PNG grayscale-alpha IHDR accepts depth 8 only and charges source pairs as 
   ]
   let limits = @codec.CodecLimits::new(
     max_probe_bytes=8UL, max_input_bytes=4096UL, max_output_bytes=40UL,
-    max_width=16UL, max_height=16UL, max_pixels=256UL, max_work=55UL,
+    max_width=16UL, max_height=16UL, max_pixels=256UL, max_work=65UL,
   )
   let budget = @budget.Budget::new(@budget.ResourceLimits::new(
     bytes=40UL, allocations=1UL, allocation_size=40UL, width=16UL,
-    height=16UL, pixels=256UL, depth=0UL, work=55UL,
+    height=16UL, pixels=256UL, depth=0UL, work=65UL,
   ))
   inspect(_png_preflight_ihdr(legal, limits, budget) is Ok(_), content="true")
-  for depth in [1, 2, 4, 16] {
+  for depth in [b'\x01', b'\x02', b'\x04', b'\x10'] {
     let illegal = [
       b'\x00', b'\x00', b'\x00', b'\x01', b'\x00', b'\x00', b'\x00', b'\x01',
-      depth.to_byte(), b'\x04', b'\x00', b'\x00', b'\x00',
+      depth, b'\x04', b'\x00', b'\x00', b'\x00',
     ]
     inspect(_png_preflight_ihdr(illegal, limits, budget).unwrap_err().context() == Some("png-bit-depth"), content="true")
   }
   let output_below = _png_preflight_ihdr(
     legal,
-    @codec.CodecLimits::new(max_probe_bytes=8UL, max_input_bytes=4096UL, max_output_bytes=39UL, max_width=16UL, max_height=16UL, max_pixels=256UL, max_work=55UL),
+    @codec.CodecLimits::new(max_probe_bytes=8UL, max_input_bytes=4096UL, max_output_bytes=39UL, max_width=16UL, max_height=16UL, max_pixels=256UL, max_work=65UL),
     budget,
   ).unwrap_err()
   inspect(output_below.context() == Some("image-bytes"), content="true")
   let work_below = _png_preflight_ihdr(
     legal,
-    @codec.CodecLimits::new(max_probe_bytes=8UL, max_input_bytes=4096UL, max_output_bytes=40UL, max_width=16UL, max_height=16UL, max_pixels=256UL, max_work=54UL),
+    @codec.CodecLimits::new(max_probe_bytes=8UL, max_input_bytes=4096UL, max_output_bytes=40UL, max_width=16UL, max_height=16UL, max_pixels=256UL, max_work=64UL),
     budget,
   ).unwrap_err()
   inspect(work_below.context() == Some("work"), content="true")
