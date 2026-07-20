@@ -116,3 +116,24 @@ test "PNG grayscale-alpha raster reconstructs source pairs with bpp two into str
     inspect(view.get_byte(x, y, 3UL).unwrap() == alpha, content="true")
   }
 }
+
+///|
+test "PNG 16-bit raster maps high bytes only and compares complete tRNS samples" {
+  let transport = PngTransport::{ width: 2UL, height: 1UL, bit_depth: 16, source_channels: 1UL, channels: 4UL, indexed: false, palette: b"", palette_entries: 0UL, transparency: PngTransparency::Grayscale16(b'\x12', b'\x35'), idat: b"", consumed: 0UL }
+  let image = @storage.OwnedImage::new_operation(
+    _png_descriptor(transport).unwrap(),
+    @budget.Budget::new(@budget.ResourceLimits::new(bytes=16UL, allocations=1UL, allocation_size=16UL, width=4UL, height=4UL, pixels=16UL, depth=0UL, work=32UL)),
+    PngBuiltinAllocator::{} as &@bytes.Allocator,
+    32UL,
+  ).unwrap()
+  image.with_mut_view(fn(view) {
+    _png_write_raster(view, transport, [b'\x00', b'\x12', b'\x35', b'\x12', b'\x34'], @budget.Budget::new(@budget.ResourceLimits::new(bytes=8UL, allocations=2UL, allocation_size=4UL, width=0UL, height=0UL, pixels=0UL, depth=0UL, work=0UL)))
+  }).unwrap()
+  let view = image.view()
+  for channel = 0UL; channel < 3UL; channel = channel + 1UL {
+    inspect(view.get_byte(0UL, 0UL, channel).unwrap() == b'\x12', content="true")
+    inspect(view.get_byte(1UL, 0UL, channel).unwrap() == b'\x12', content="true")
+  }
+  inspect(view.get_byte(0UL, 0UL, 3UL).unwrap() == b'\x00', content="true")
+  inspect(view.get_byte(1UL, 0UL, 3UL).unwrap() == b'\xff', content="true")
+}

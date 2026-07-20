@@ -349,3 +349,32 @@ test "PNG grayscale-alpha IHDR accepts depth 8 only and charges source pairs as 
   ).unwrap_err()
   inspect(work_below.context() == Some("work"), content="true")
 }
+
+///|
+test "PNG 16-bit grayscale and truecolour IHDRs reserve encoded source rows" {
+  let gray = [
+    b'\x00', b'\x00', b'\x00', b'\x02', b'\x00', b'\x00', b'\x00', b'\x05',
+    b'\x10', b'\x00', b'\x00', b'\x00', b'\x00',
+  ]
+  let rgb = [
+    b'\x00', b'\x00', b'\x00', b'\x02', b'\x00', b'\x00', b'\x00', b'\x05',
+    b'\x10', b'\x02', b'\x00', b'\x00', b'\x00',
+  ]
+  let limits = @codec.CodecLimits::new(
+    max_probe_bytes=8UL, max_input_bytes=4096UL, max_output_bytes=64UL,
+    max_width=16UL, max_height=16UL, max_pixels=256UL, max_work=134UL,
+  )
+  let budget = @budget.Budget::new(@budget.ResourceLimits::new(
+    bytes=64UL, allocations=3UL, allocation_size=64UL, width=16UL,
+    height=16UL, pixels=256UL, depth=0UL, work=134UL,
+  ))
+  inspect(_png_preflight_ihdr(gray, limits, budget) is Ok(_), content="true")
+  inspect(_png_preflight_ihdr(rgb, limits, budget) is Ok(_), content="true")
+  for colour_type in [b'\x04', b'\x06'] {
+    let disallowed = [
+      b'\x00', b'\x00', b'\x00', b'\x01', b'\x00', b'\x00', b'\x00', b'\x01',
+      b'\x10', colour_type, b'\x00', b'\x00', b'\x00',
+    ]
+    inspect(_png_preflight_ihdr(disallowed, limits, budget).unwrap_err().context() == Some("png-bit-depth"), content="true")
+  }
+}
