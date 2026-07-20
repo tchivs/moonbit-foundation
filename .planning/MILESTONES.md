@@ -1,5 +1,26 @@
 # Project Milestones: MoonBit Native Foundation
 
+## v0.4 Portable Image Interchange (Shipped: 2026-07-20)
+
+**Phases completed:** 8 phases, 12 plans, 27 tasks
+
+**Key accomplishments:**
+
+- Portable checked crop produces independent tightly packed images, while named clockwise rotations preserve every packed RGB/RGBA pixel and normalize output orientation.
+- Portable geometry now has adversarial atomic-budget proof, while the existing integer-floor nearest-neighbor mapping is documented and regression-tested across all four targets.
+- Straight encoded-sRGB RGBA8 compositing and filters now calculate in linear premultiplied space with deterministic quantization and checked resource semantics.
+- Independent linear-premultiplied RGBA8 oracle and public exact-byte vectors now prove alpha-correct processing and atomic rejection behavior across all supported targets.
+- One portable public consumer now proves strict PPM decode, nearest resize, RGB/RGBA conversion, alpha-correct source-over, and PPM encode with an exact 17-byte vector on every supported target.
+- The public resize-to-opaque-source-over pipeline and its atomic composite budget failure are directly exercised on all four portable targets.
+- A native public PPM resize-and-composite workload now has correctness-gated execution and an isolated seven-capture local reproducibility record.
+- Portable strict-P6 geometry and alpha-aware filter pipeline with exact 29-byte output and atomic radius-one blur budget coverage.
+- Portable, eager QOI 1.0 RGB/RGBA decoding with atomic resource preflight, strict stream validation, and checked spec-derived vectors.
+- Pure-MoonBit canonical QOI 1.0 encoding with atomic resource preflight, exact forward-writer progress, and checked all-target byte vectors.
+- Independent portable QOI consumer proving fixed in-memory decode, horizontal pixel flip, and canonical re-encode on all four supported targets.
+- Exact QOI package policy, fail-closed scoped drift checks, and an isolated four-target qoi-portable quality lane.
+
+---
+
 ## v0.3 Image Processing Core (Shipped: 2026-07-20)
 
 **Phases completed:** 4 phases, 8 plans, 17 tasks
