@@ -73,5 +73,5 @@ The scoped quick-task goal is achieved. The core decoder, its eager helper, reso
 
 ---
 
-_Verified: 2026-07-20T21:11:06Z_  
+_Verified: 2026-07-20T21:11:06Z_
 _Verifier: gsd-verifier_
