@@ -201,10 +201,7 @@ Plans:
   2. The encoder emits one documented canonical QOI byte representation for a given compatible image and reports typed deterministic capability, limit, budget, or I/O failures.
   3. Maintainers can run specification-derived opcode, index, run, wraparound, and byte-round-trip vectors unchanged on `js`, `wasm`, `wasm-gc`, and `native`.
 
-**Plans**: 1 plan
-
-Plans:
-- [ ] 21-01-PLAN.md — Implement bounded IDAT/DEFLATE/raster eager decode and independent four-target evidence.
+**Plans**: TBD
 
 ### Phase 15: Public QOI Processing Example
 
@@ -216,10 +213,7 @@ Plans:
   1. A library user can run one public documented example that decodes QOI, applies an existing image operation, encodes QOI, and produces deterministic output evidence.
   2. The example uses only the public portable image, codec, I/O, and budget contracts, so it runs without GUI state, FFI, or a platform-specific codec dependency.
 
-**Plans**: 1 plan
-
-Plans:
-- [ ] 21-01-PLAN.md — Implement bounded IDAT/DEFLATE/raster eager decode and independent four-target evidence.
+**Plans**: TBD
 
 ### Phase 16: QOI policy and public example quality alignment
 
@@ -302,7 +296,10 @@ Plans:
   2. A library user can decode legal zlib streams using stored, fixed-Huffman, or dynamic-Huffman DEFLATE blocks across arbitrary IDAT boundaries.
   3. A library user receives typed deterministic failure for malformed zlib headers, Huffman trees, distances, checksums, expansion attempts, or any decode that exceeds declared limits, without a partial image becoming visible.
 
-**Plans**: TBD
+**Plans**: 1 plan
+
+Plans:
+- [ ] 21-01-PLAN.md — Implement bounded IDAT/DEFLATE/raster eager decode and independent four-target evidence.
 
 ### Phase 22: Canonical PNG Encode and Portable Evidence
 
