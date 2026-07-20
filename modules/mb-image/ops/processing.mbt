@@ -195,8 +195,18 @@ pub fn box_blur(source : @storage.ImageView, radius : UInt64, budget : @budget.B
     for y = 0UL; y < source.height(); y = y + 1UL { for x = 0UL; x < source.width(); x = x + 1UL {
       let mut rr = 0.0; let mut gg = 0.0; let mut bb = 0.0; let mut aa = 0.0
       for dy = 0UL; dy < diameter; dy = dy + 1UL { for dx = 0UL; dx < diameter; dx = dx + 1UL {
-        let sy = if dy < radius { if y < radius - dy { 0UL } else { y - (radius - dy) } } else { let q = y + (dy - radius); if q >= source.height() { source.height() - 1UL } else { q } }
-        let sx = if dx < radius { if x < radius - dx { 0UL } else { x - (radius - dx) } } else { let q = x + (dx - radius); if q >= source.width() { source.width() - 1UL } else { q } }
+        let sy = if dy < radius { if y < radius - dy { 0UL } else { y - (radius - dy) } } else {
+          match @checked.checked_add(y, dy - radius) {
+            Ok(q) => if q >= source.height() { source.height() - 1UL } else { q }
+            Err(_) => source.height() - 1UL
+          }
+        }
+        let sx = if dx < radius { if x < radius - dx { 0UL } else { x - (radius - dx) } } else {
+          match @checked.checked_add(x, dx - radius) {
+            Ok(q) => if q >= source.width() { source.width() - 1UL } else { q }
+            Err(_) => source.width() - 1UL
+          }
+        }
         let v = load_linear_premultiplied(source, sx, sy).unwrap(); let (r,g,b) = v.linear_rgb().unwrap(); rr = rr + r.value(); gg = gg + g.value(); bb = bb + b.value(); aa = aa + v.alpha().value()
       }}
       let value = @alpha.PremultipliedNormalizedSrgba::linear(@color.LinearSrgbComponent::new(rr / window.to_double()).unwrap(), @color.LinearSrgbComponent::new(gg / window.to_double()).unwrap(), @color.LinearSrgbComponent::new(bb / window.to_double()).unwrap(), @color.NormalizedAlpha::new(aa / window.to_double()).unwrap()).unwrap()
