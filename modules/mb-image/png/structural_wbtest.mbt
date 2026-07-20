@@ -189,3 +189,43 @@ test "PNG semantic classifier rejects every deferred semantic chunk family" {
     inspect(_png_is_known_semantic(kind), content="true")
   }
 }
+
+///|
+struct PngEofFailureReader {}
+
+///|
+impl @io.Reader for PngEofFailureReader with fn read(_self, _destination) {
+  @io.ReadOutcome::Failed(
+    @error.CoreError::new(
+      @error.ErrorCategory::Host,
+      @error.ErrorCode::HostOperationFailed,
+      operation="png-eof-scripted-read",
+      context="scripted",
+    ),
+    0UL,
+  )
+}
+
+///|
+test "PNG EOF probe does not charge an absent byte and preserves reader failures" {
+  let limits = @codec.CodecLimits::new(
+    max_probe_bytes=8UL, max_input_bytes=57UL, max_output_bytes=64UL,
+    max_width=4UL, max_height=4UL, max_pixels=16UL, max_work=128UL,
+  )
+  let scratch = @bytes.OwnedBytes::new(1UL, _png_private_budget(1UL)).unwrap()
+  let empty_owner = @bytes.OwnedBytes::from_bytes(
+    b"",
+    _png_private_budget(0UL),
+  ).unwrap()
+  let empty_reader = @io.MemoryReader::new(empty_owner.view())
+  inspect(
+    _png_require_eof(empty_reader as &@io.Reader, scratch, 57UL, limits) is Ok(_),
+    content="true",
+  )
+  let failing_reader = PngEofFailureReader::{}
+  let error = _png_require_eof(
+    failing_reader as &@io.Reader, scratch, 57UL, limits,
+  ).unwrap_err()
+  inspect(error.code() == @error.ErrorCode::HostOperationFailed, content="true")
+  inspect(error.operation() == Some("png-eof-scripted-read"), content="true")
+}

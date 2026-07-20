@@ -124,3 +124,68 @@ test "PNG public decoder reaches capability only after complete structural trans
   inspect(before.bytes() == budget.remaining().bytes(), content="true")
   inspect(diagnostics.length(), content="0")
 }
+
+///|
+test "PNG exact input ceiling permits EOF but an actual trailing byte is limited" {
+  let source = b"\x89PNG\r\n\x1a\n\x00\x00\x00\x0dIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x02\x00\x00\x00\x90\x77\x53\xde\x00\x00\x00\x00IDAT\x35\xaf\x06\x1e\x00\x00\x00\x00IEND\xae\x42\x60\x82"
+  inspect(source.length(), content="57")
+  let limits = @codec.CodecLimits::new(
+    max_probe_bytes=8UL, max_input_bytes=57UL, max_output_bytes=64UL,
+    max_width=4UL, max_height=4UL, max_pixels=16UL, max_work=128UL,
+  )
+  let budget = @budget.Budget::new(@budget.ResourceLimits::new(
+    bytes=128UL, allocations=1UL, allocation_size=64UL, width=4UL,
+    height=4UL, pixels=16UL, depth=0UL, work=128UL,
+  ))
+  let diagnostics = @error.Diagnostics::new()
+  let before = budget.remaining()
+  let owner = @bytes.OwnedBytes::from_bytes(
+    source,
+    @budget.Budget::new(@budget.ResourceLimits::new(
+      bytes=57UL, allocations=1UL, allocation_size=57UL, width=0UL,
+      height=0UL, pixels=0UL, depth=0UL, work=0UL,
+    )),
+  ).unwrap()
+  let reader = @io.MemoryReader::new(owner.view())
+  let exact = @codec.ImageDecoder::decode(
+    PngDecoder::new(), reader as &@io.Reader,
+    @codec.DecodeOptions::new(
+      require_complete_input=true, preserve_opaque_metadata=false,
+    ),
+    limits, budget, diagnostics,
+  ).unwrap_err()
+  inspect(exact.code() == @error.ErrorCode::CapabilityUnavailable, content="true")
+  inspect(exact.context() == Some("deflate-and-raster-pending"), content="true")
+  let after = budget.remaining()
+  inspect(before.bytes() == after.bytes(), content="true")
+  inspect(before.allocations() == after.allocations(), content="true")
+  inspect(before.allocation_size() == after.allocation_size(), content="true")
+  inspect(before.width() == after.width(), content="true")
+  inspect(before.height() == after.height(), content="true")
+  inspect(before.pixels() == after.pixels(), content="true")
+  inspect(before.work() == after.work(), content="true")
+  inspect(diagnostics.length(), content="0")
+
+  let trailing_owner = @bytes.OwnedBytes::from_bytes(
+    b"\x89PNG\r\n\x1a\n\x00\x00\x00\x0dIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x02\x00\x00\x00\x90\x77\x53\xde\x00\x00\x00\x00IDAT\x35\xaf\x06\x1e\x00\x00\x00\x00IEND\xae\x42\x60\x82\x00",
+    @budget.Budget::new(@budget.ResourceLimits::new(
+      bytes=58UL, allocations=1UL, allocation_size=58UL, width=0UL,
+      height=0UL, pixels=0UL, depth=0UL, work=0UL,
+    )),
+  ).unwrap()
+  let trailing_reader = @io.MemoryReader::new(trailing_owner.view())
+  let limited = @codec.ImageDecoder::decode(
+    PngDecoder::new(), trailing_reader as &@io.Reader,
+    @codec.DecodeOptions::new(
+      require_complete_input=true, preserve_opaque_metadata=false,
+    ),
+    limits,
+    @budget.Budget::new(@budget.ResourceLimits::new(
+      bytes=128UL, allocations=1UL, allocation_size=64UL, width=4UL,
+      height=4UL, pixels=16UL, depth=0UL, work=128UL,
+    )),
+    @error.Diagnostics::new(),
+  ).unwrap_err()
+  inspect(limited.code() == @error.ErrorCode::BudgetExceeded, content="true")
+  inspect(limited.context() == Some("input-bytes"), content="true")
+}
