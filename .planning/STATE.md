@@ -5,8 +5,8 @@ milestone_name: Portable Image Interchange
 current_phase: 15
 current_phase_name: Public QOI Processing Example
 status: planning
-stopped_at: Phase 14 context gathered
-last_updated: "2026-07-20T11:28:53.480Z"
+stopped_at: Phase 15 context gathered
+last_updated: "2026-07-20T11:30:59.572Z"
 last_activity: 2026-07-20
 last_activity_desc: Phase 14 complete, transitioned to Phase 15
 progress:
@@ -91,9 +91,9 @@ Items acknowledged and deferred at v0.3 milestone close on 2026-07-20. They belo
 
 ## Session Continuity
 
-Last session: 2026-07-20T10:51:53.255Z
-Stopped at: Phase 14 context gathered
-Resume file: .planning/phases/14-canonical-qoi-encode-and-four-target-vectors/14-CONTEXT.md
+Last session: 2026-07-20T11:30:59.554Z
+Stopped at: Phase 15 context gathered
+Resume file: .planning/phases/15-public-qoi-processing-example/15-CONTEXT.md
 
 ## Performance Metrics
 
