@@ -92,7 +92,14 @@ Plans:
   2. Public behavioral and adversarial tests demonstrate the new API's expected results and failure behavior on `js`, `wasm`, `wasm-gc`, and `native`.
   3. A maintainer can reproduce a declared resize-and-compositing benchmark workload and compare it with its recorded baseline without running or depending on release automation.
 
-**Plans**: TBD
+**Plans**: 3 plans
+
+Plans:
+**Wave 1**
+
+- [ ] 11-01-PLAN.md — Extend the public portable PPM example into the resize-and-source-over processing pipeline.
+- [ ] 11-02-PLAN.md — Add four-target composed-pipeline behavioral and adversarial evidence.
+- [ ] 11-03-PLAN.md — Add isolated local native resize-and-composite benchmark evidence.
 
 ## Progress
 
