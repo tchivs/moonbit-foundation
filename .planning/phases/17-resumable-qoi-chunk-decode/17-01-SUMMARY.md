@@ -78,6 +78,7 @@ status: complete
 - Added `QoiStreamDecoder`, consumed-byte `QoiStreamPushResult`, and explicit `NeedInput`/typed-failure push outcomes without altering the eager codec traits or Reader contract.
 - Preserved eager header preflight, limits, budget charging, descriptor, pixel, disposition, diagnostics, and byte-accounting behavior while never exposing partial image storage.
 - Added generated hostile-chunk/resource-state tests and exact broad/scoped QOI policy-interface inventory checks.
+- Added black-box `finish()` coverage for incomplete markers, malformed markers, and trailing data, including exact accepted-byte counts and sticky post-terminal pushes.
 
 ## Task Commits
 
@@ -106,6 +107,10 @@ None - plan executed exactly as written.
 ## Issues Encountered
 
 - `pkg.generated.mbti` is regenerated and validated but repository-ignored, so it remains an intentional generated workspace artifact rather than a tracked task commit file.
+
+## Verification Follow-up
+
+- The verifier identified missing direct coverage of strict marker and trailing-data `finish()` branches. Public tests now assert their typed terminal errors, exact push consumption, and zero-consumption sticky follow-up behavior; because `finish()` returns only `Result[DecodeResult, CoreError]`, each error assertion also proves no partial `DecodeResult` or image is observable.
 
 ## User Setup Required
 

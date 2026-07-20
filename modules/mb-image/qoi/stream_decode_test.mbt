@@ -73,6 +73,81 @@ test "QOI stream finish is strict and terminal results are sticky" {
 }
 
 ///|
+test "QOI stream finish rejects incomplete, malformed, and trailing markers" {
+  let incomplete_marker = qoi_stream_decoder()
+  let incomplete_push = qoi_stream_push(
+    incomplete_marker,
+    b"qoif\x00\x00\x00\x01\x00\x00\x00\x01\x04\x00\xc0\x00\x00\x00",
+  )
+  inspect(incomplete_push.consumed(), content="18")
+  inspect(
+    incomplete_push.outcome() is QoiStreamPushOutcome::NeedInput,
+    content="true",
+  )
+  let incomplete_error = incomplete_marker.finish().unwrap_err()
+  inspect(
+    incomplete_error.code() == @error.ErrorCode::UnexpectedEndOfStream,
+    content="true",
+  )
+  inspect(
+    incomplete_error.context() == Some("qoi-end-marker"),
+    content="true",
+  )
+  let incomplete_later = qoi_stream_push(incomplete_marker, b"\x00")
+  inspect(incomplete_later.consumed(), content="0")
+  match incomplete_later.outcome() {
+    QoiStreamPushOutcome::Failed(error) => {
+      inspect(error.context() == Some("qoi-stream-terminal"), content="true")
+    }
+    NeedInput => fail("incomplete marker must be terminal")
+  }
+
+  let malformed_marker = qoi_stream_decoder()
+  let malformed_push = qoi_stream_push(
+    malformed_marker,
+    b"qoif\x00\x00\x00\x01\x00\x00\x00\x01\x04\x00\xc0\x00\x00\x00\x00\x00\x00\x00\x02",
+  )
+  inspect(malformed_push.consumed(), content="23")
+  inspect(
+    malformed_push.outcome() is QoiStreamPushOutcome::NeedInput,
+    content="true",
+  )
+  let malformed_error = malformed_marker.finish().unwrap_err()
+  inspect(
+    malformed_error.code() == @error.ErrorCode::InvalidEncoding,
+    content="true",
+  )
+  inspect(
+    malformed_error.context() == Some("qoi-end-marker"),
+    content="true",
+  )
+  inspect(qoi_stream_push(malformed_marker, b"\x00").consumed(), content="0")
+
+  let trailing = qoi_stream_decoder()
+  let trailing_push = qoi_stream_push(
+    trailing,
+    b"qoif\x00\x00\x00\x01\x00\x00\x00\x01\x04\x00\xc0\x00\x00\x00\x00\x00\x00\x00\x01X",
+  )
+  inspect(trailing_push.consumed(), content="24")
+  inspect(
+    trailing_push.outcome() is QoiStreamPushOutcome::NeedInput,
+    content="true",
+  )
+  let trailing_error = trailing.finish().unwrap_err()
+  inspect(
+    trailing_error.code() == @error.ErrorCode::InvalidEncoding,
+    content="true",
+  )
+  inspect(
+    trailing_error.context() == Some("qoi-trailing-data"),
+    content="true",
+  )
+  inspect(trailing_error.requested() == Some(1UL), content="true")
+  inspect(trailing_error.completed() == Some(0UL), content="true")
+  inspect(qoi_stream_push(trailing, b"\x00").consumed(), content="0")
+}
+
+///|
 test "QOI stream matches eager decode for RGB and RGBA vectors" {
   for source in [
     b"qoif\x00\x00\x00\x01\x00\x00\x00\x01\x03\x00\xfe\x01\x02\x03\x00\x00\x00\x00\x00\x00\x00\x01",
