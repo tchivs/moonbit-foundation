@@ -84,3 +84,11 @@ test "PNG indexed raster filters reconstructed index lanes before RGB palette lo
   inspect(view.get_byte(0UL, 4UL, 0UL).unwrap(), content="b'\\x40'")
   inspect(view.get_byte(1UL, 4UL, 1UL).unwrap(), content="b'\\x11'")
 }
+
+///|
+test "PNG packed grayscale samples scale endpoints without consuming padding" {
+  inspect(_png_scale_grayscale_sample(1, 1), content="255")
+  inspect(_png_scale_grayscale_sample(3, 2), content="255")
+  inspect(_png_scale_grayscale_sample(15, 4), content="255")
+  inspect(_png_scale_grayscale_sample(7, 4), content="119")
+}
