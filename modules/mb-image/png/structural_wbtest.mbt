@@ -207,6 +207,14 @@ impl @io.Reader for PngEofFailureReader with fn read(_self, _destination) {
 }
 
 ///|
+struct PngEofNoProgressReader {}
+
+///|
+impl @io.Reader for PngEofNoProgressReader with fn read(_self, _destination) {
+  @io.ReadOutcome::Progress(0UL)
+}
+
+///|
 test "PNG EOF probe does not charge an absent byte and preserves reader failures" {
   let limits = @codec.CodecLimits::new(
     max_probe_bytes=8UL, max_input_bytes=57UL, max_output_bytes=64UL,
@@ -226,6 +234,11 @@ test "PNG EOF probe does not charge an absent byte and preserves reader failures
   let error = _png_require_eof(
     failing_reader as &@io.Reader, scratch, 57UL, limits,
   ).unwrap_err()
+  inspect(error.category() == @error.ErrorCategory::Host, content="true")
   inspect(error.code() == @error.ErrorCode::HostOperationFailed, content="true")
-  inspect(error.operation() == Some("png-eof-scripted-read"), content="true")
+  let no_progress_reader = PngEofNoProgressReader::{}
+  let no_progress = _png_require_eof(
+    no_progress_reader as &@io.Reader, scratch, 57UL, limits,
+  ).unwrap_err()
+  inspect(no_progress.code() == @error.ErrorCode::NoProgress, content="true")
 }

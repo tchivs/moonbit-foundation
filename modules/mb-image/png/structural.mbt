@@ -350,14 +350,24 @@ fn _png_require_eof(
   consumed : UInt64,
   limits : @codec.CodecLimits,
 ) -> Result[Unit, @error.CoreError] {
-  match _png_read_one(reader, scratch, consumed, limits) {
-    Ok(_) => Err(_png_error("png-trailing-data"))
+  match scratch.with_mut(0UL, 1UL, fn(lease) { @io.read_exact(reader, lease) }) {
     Err(error) =>
       if error.code() == @error.ErrorCode::UnexpectedEndOfStream {
         Ok(())
       } else {
         Err(error)
       }
+    Ok(_) => {
+      let next = match @checked.checked_add(consumed, 1UL) {
+        Err(error) => return Err(error)
+        Ok(value) => value
+      }
+      if next > limits.max_input_bytes() {
+        Err(_png_limit("input-bytes", next, limits.max_input_bytes()))
+      } else {
+        Err(_png_error("png-trailing-data"))
+      }
+    }
   }
 }
 
