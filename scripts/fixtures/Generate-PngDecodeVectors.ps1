@@ -32,6 +32,80 @@ function Hex([string]$Value) {
   [byte[]]@((0..(($Value.Length/2)-1) | ForEach-Object { [Convert]::ToByte($Value.Substring($_*2,2),16) }))
 }
 function Moon-Bytes([byte[]]$Value) { (($Value | ForEach-Object { '\x{0:x2}' -f $_ }) -join '') }
+function Convert-Adam7ToNonInterlaced([byte[]]$Scan, [int]$Width, [int]$Height, [int]$BitDepth, [int]$Channels) {
+  # This is deliberately an oracle-side implementation: it independently undoes
+  # Adam7 pass filtering and scatters pass-local samples into ordinary scanlines.
+  # The decoder under test is never used to construct expected pixels.
+  if ($Width -le 0 -or $Height -le 0) { throw 'Adam7 oracle requires positive dimensions.' }
+  $packed = $BitDepth -lt 8
+  if ($packed -and $Channels -ne 1) { throw 'Adam7 oracle only permits packed one-channel pixels.' }
+  if ($packed -and $BitDepth -notin @(1,2,4)) { throw 'Invalid packed Adam7 depth.' }
+  if (-not $packed -and $BitDepth -notin @(8,16)) { throw 'Invalid byte-aligned Adam7 depth.' }
+  $bytesPerPixel = if ($packed) { 1 } else { $Channels * ($BitDepth / 8) }
+  $passes = @(
+    [int[]]@(0,0,8,8), [int[]]@(4,0,8,8), [int[]]@(0,4,4,8),
+    [int[]]@(2,0,4,4), [int[]]@(0,2,2,4), [int[]]@(1,0,2,2), [int[]]@(0,1,1,2)
+  )
+  [byte[]]$full = if ($packed) { [byte[]]::new($Width * $Height) } else { [byte[]]::new($Width * $Height * $bytesPerPixel) }
+  $at = 0
+  foreach ($pass in $passes) {
+    $startX = $pass[0]; $startY = $pass[1]; $stepX = $pass[2]; $stepY = $pass[3]
+    $passWidth = if ($Width -le $startX) { 0 } else { [int][Math]::Floor(($Width - $startX + $stepX - 1) / $stepX) }
+    $passHeight = if ($Height -le $startY) { 0 } else { [int][Math]::Floor(($Height - $startY + $stepY - 1) / $stepY) }
+    if ($passWidth -eq 0 -or $passHeight -eq 0) { continue }
+    $stride = if ($packed) { [int][Math]::Ceiling(([double]$passWidth * $BitDepth) / 8) } else { $passWidth * $bytesPerPixel }
+    [byte[]]$previous = [byte[]]::new($stride)
+    for ($passY = 0; $passY -lt $passHeight; $passY++) {
+      if ($at -ge $Scan.Length) { throw 'Adam7 scanline oracle input is truncated.' }
+      $filter = $Scan[$at++]
+      if ($filter -gt 4) { throw 'Invalid Adam7 source filter oracle input.' }
+      [byte[]]$current = [byte[]]::new($stride)
+      for ($column = 0; $column -lt $stride; $column++) {
+        if ($at -ge $Scan.Length) { throw 'Adam7 scanline oracle input is truncated.' }
+        $raw = $Scan[$at++]
+        $left = if ($column -ge $bytesPerPixel) { $current[$column - $bytesPerPixel] } else { 0 }
+        $above = if ($passY) { $previous[$column] } else { 0 }
+        $upperLeft = if ($passY -and $column -ge $bytesPerPixel) { $previous[$column - $bytesPerPixel] } else { 0 }
+        $predict = if ($filter -eq 0) { 0 } elseif ($filter -eq 1) { $left } elseif ($filter -eq 2) { $above } elseif ($filter -eq 3) { ($left + $above) -shr 1 } else {
+          $p = $left + $above - $upperLeft; $pa = [Math]::Abs($p - $left); $pb = [Math]::Abs($p - $above); $pc = [Math]::Abs($p - $upperLeft)
+          if ($pa -le $pb -and $pa -le $pc) { $left } elseif ($pb -le $pc) { $above } else { $upperLeft }
+        }
+        $current[$column] = ($raw + $predict) % 256
+      }
+      $y = $startY + $passY * $stepY
+      for ($passX = 0; $passX -lt $passWidth; $passX++) {
+        $x = $startX + $passX * $stepX
+        if ($packed) {
+          $bit = $passX * $BitDepth
+          $sample = ($current[[int][Math]::Floor($bit / 8)] -shr (8 - $BitDepth - ($bit % 8))) -band ((1 -shl $BitDepth) - 1)
+          $full[$y * $Width + $x] = $sample
+        } else {
+          [Array]::Copy($current, $passX * $bytesPerPixel, $full, ($y * $Width + $x) * $bytesPerPixel, $bytesPerPixel)
+        }
+      }
+      $previous = $current
+    }
+  }
+  if ($at -ne $Scan.Length) { throw 'Adam7 scanline oracle input has trailing bytes.' }
+  $normal = [Collections.Generic.List[byte]]::new()
+  for ($y = 0; $y -lt $Height; $y++) {
+    $normal.Add(0)
+    if ($packed) {
+      $stride = [int][Math]::Ceiling(([double]$Width * $BitDepth) / 8)
+      [byte[]]$row = [byte[]]::new($stride)
+      for ($x = 0; $x -lt $Width; $x++) {
+        $bit = $x * $BitDepth; $shift = 8 - $BitDepth - ($bit % 8)
+        $row[[int][Math]::Floor($bit / 8)] = $row[[int][Math]::Floor($bit / 8)] -bor ($full[$y * $Width + $x] -shl $shift)
+      }
+      $normal.AddRange($row)
+    } else {
+      $rowOffset = $y * $Width * $bytesPerPixel
+      [byte[]]$row = $full[$rowOffset..($rowOffset + $Width * $bytesPerPixel - 1)]
+      $normal.AddRange($row)
+    }
+  }
+  return ,$normal.ToArray()
+}
 function New-Png($Case, [int[]]$Splits) {
   $zlib = Hex $Case.zlib_hex
   $parts = [Collections.Generic.List[object]]::new()
@@ -73,6 +147,14 @@ function Assert-Oracle($Case) {
     Add-Type -AssemblyName System.IO.Compression
     $input = [IO.MemoryStream]::new($zlib); $stream = [IO.Compression.ZLibStream]::new($input,[IO.Compression.CompressionMode]::Decompress); $output = [IO.MemoryStream]::new(); $stream.CopyTo($output); $stream.Dispose()
     if ($output.Length -eq 0) { throw "Independent zlib oracle produced no scanlines: $($Case.id)" }
+    $interlaceMethod = if ($null -ne $Case.PSObject.Properties['interlace_method']) { [int]$Case.interlace_method } else { 0 }
+    if ($interlaceMethod -notin @(0,1)) { throw "Invalid PNG interlace method oracle input: $($Case.id)" }
+    $decodedScan = $output.ToArray()
+    if ($interlaceMethod -eq 1) {
+      $depth = if ($null -ne $Case.PSObject.Properties['bit_depth']) { [int]$Case.bit_depth } else { 8 }
+      $channels = if ($Case.colour_type -eq 0 -or $Case.colour_type -eq 3) { 1 } elseif ($Case.colour_type -eq 2) { 3 } elseif ($Case.colour_type -eq 4) { 2 } elseif ($Case.colour_type -eq 6) { 4 } else { throw "Invalid Adam7 colour type oracle input: $($Case.id)" }
+      $decodedScan = Convert-Adam7ToNonInterlaced $decodedScan ([int]$Case.width) ([int]$Case.height) $depth $channels
+    }
     $btype = ($zlib[2] -shr 1) -band 3
     if ($Case.id -notlike 'lowbit-*' -and (($Case.block -eq 'fixed' -and $btype -ne 1) -or ($Case.block -eq 'dynamic' -and $btype -ne 2))) { throw "Unexpected DEFLATE block type: $($Case.id)" }
     if ($Case.colour_type -eq 0 -or $Case.colour_type -eq 2) {
@@ -83,7 +165,7 @@ function Assert-Oracle($Case) {
       $sampleBytes = if ($depth -eq 16) { 2 } else { 1 }
       $stride = if ($Case.colour_type -eq 0 -and $depth -lt 8) { [int][Math]::Ceiling(([double]$Case.width * $depth) / 8) } else { [int]$Case.width * $sourceChannels * $sampleBytes }
       $bpp = if ($depth -eq 16) { $sourceChannels * 2 } elseif ($Case.colour_type -eq 0) { 1 } else { $sourceChannels }
-      $scan = $output.ToArray(); $previous = [byte[]]::new($stride); $pixels = [Collections.Generic.List[byte]]::new(); [byte[]]$key = [byte[]]::new(0); if ($null -ne $Case.PSObject.Properties['trns_hex']) { $key = Hex $Case.trns_hex }; $at = 0
+      $scan = $decodedScan; $previous = [byte[]]::new($stride); $pixels = [Collections.Generic.List[byte]]::new(); [byte[]]$key = [byte[]]::new(0); if ($null -ne $Case.PSObject.Properties['trns_hex']) { $key = Hex $Case.trns_hex }; $at = 0
       $mask = if ($depth -eq 1) { 1 } elseif ($depth -eq 2) { 3 } elseif ($depth -eq 4) { 15 } else { 255 }
       $invalidKey = if ($Case.colour_type -eq 0) {
         $key.Length -ne 2 -or ($depth -ne 16 -and ($key[0] -ne 0 -or $key[1] -gt $mask))
@@ -118,7 +200,7 @@ function Assert-Oracle($Case) {
       $depth = if ($null -ne $Case.PSObject.Properties['bit_depth']) { [int]$Case.bit_depth } else { 8 }
       if ($depth -notin @(8,16)) { throw "Invalid native-alpha depth oracle input: $($Case.id)" }
       $sourceChannels = if ($Case.colour_type -eq 4) { 2 } else { 4 }; $sampleBytes = if ($depth -eq 16) { 2 } else { 1 }; $sourceBpp = $sourceChannels * $sampleBytes
-      $scan = $output.ToArray(); $stride = [int]$Case.width * $sourceBpp; if ($scan.Length -ne ($stride + 1) * $Case.height) { throw "Native-alpha filtered size oracle mismatch: $($Case.id)" }; $previous = [byte[]]::new($stride); $pixels = [Collections.Generic.List[byte]]::new(); $at = 0
+      $scan = $decodedScan; $stride = [int]$Case.width * $sourceBpp; if ($scan.Length -ne ($stride + 1) * $Case.height) { throw "Native-alpha filtered size oracle mismatch: $($Case.id)" }; $previous = [byte[]]::new($stride); $pixels = [Collections.Generic.List[byte]]::new(); $at = 0
       for ($y = 0; $y -lt $Case.height; $y++) {
         $filter = $scan[$at++]; if ($filter -gt 4) { throw "Invalid native-alpha filter oracle input: $($Case.id)" }; $current = [byte[]]::new($stride)
         for ($column = 0; $column -lt $stride; $column++) { $raw=$scan[$at++]; $left=if($column -ge $sourceBpp){$current[$column-$sourceBpp]}else{0}; $above=if($y){$previous[$column]}else{0}; $ul=if($y -and $column -ge $sourceBpp){$previous[$column-$sourceBpp]}else{0}; $predict=if($filter -eq 0){0}elseif($filter -eq 1){$left}elseif($filter -eq 2){$above}elseif($filter -eq 3){($left+$above) -shr 1}else{$p=$left+$above-$ul;$pa=[Math]::Abs($p-$left);$pb=[Math]::Abs($p-$above);$pc=[Math]::Abs($p-$ul);if($pa -le $pb -and $pa -le $pc){$left}elseif($pb -le $pc){$above}else{$ul}}; $current[$column]=($raw+$predict)%256 }
@@ -132,7 +214,7 @@ function Assert-Oracle($Case) {
       $depth = if ($null -ne $Case.PSObject.Properties['bit_depth']) { [int]$Case.bit_depth } else { 8 }
       if ($depth -notin @(1,2,4,8)) { throw "Invalid indexed depth oracle input: $($Case.id)" }
       $entries = [int]($palette.Length / 3); if ($entries -gt (1 -shl $depth)) { throw "Indexed PLTE exceeds active depth: $($Case.id)" }
-      $scan = $output.ToArray(); $stride = [int][Math]::Ceiling(([double]$Case.width * $depth) / 8); $previous = [byte[]]::new($stride); $pixels = [Collections.Generic.List[byte]]::new(); [byte[]]$alpha = [byte[]]::new(0); if ($null -ne $Case.PSObject.Properties['trns_hex']) { $alpha = Hex $Case.trns_hex }; if ($alpha.Length -gt $entries) { throw "Indexed tRNS exceeds PLTE: $($Case.id)" }; $at = 0; $mask = (1 -shl $depth) - 1
+      $scan = $decodedScan; $stride = [int][Math]::Ceiling(([double]$Case.width * $depth) / 8); $previous = [byte[]]::new($stride); $pixels = [Collections.Generic.List[byte]]::new(); [byte[]]$alpha = [byte[]]::new(0); if ($null -ne $Case.PSObject.Properties['trns_hex']) { $alpha = Hex $Case.trns_hex }; if ($alpha.Length -gt $entries) { throw "Indexed tRNS exceeds PLTE: $($Case.id)" }; $at = 0; $mask = (1 -shl $depth) - 1
       for ($y = 0; $y -lt $Case.height; $y++) {
         $filter = $scan[$at++]; if ($filter -gt 4) { throw "Invalid indexed filter oracle input: $($Case.id)" }; $current = [byte[]]::new($stride)
         for ($column = 0; $column -lt $stride; $column++) { $raw=$scan[$at++]; $left=if($column){$current[$column-1]}else{0}; $above=if($y){$previous[$column]}else{0}; $ul=if($column -and $y){$previous[$column-1]}else{0}; $predict=if($filter -eq 0){0}elseif($filter -eq 1){$left}elseif($filter -eq 2){$above}elseif($filter -eq 3){($left+$above) -shr 1}else{$p=$left+$above-$ul;$pa=[Math]::Abs($p-$left);$pb=[Math]::Abs($p-$above);$pc=[Math]::Abs($p-$ul);if($pa -le $pb -and $pa -le $pc){$left}elseif($pb -le $pc){$above}else{$ul}}; $current[$column]=($raw+$predict)%256 }
@@ -146,7 +228,7 @@ function Assert-Oracle($Case) {
 
 $corpus = Get-Content -Raw -LiteralPath $CasesPath | ConvertFrom-Json
 $required = @('fixed-rgb-filters-every-idat-byte','fixed-grayscale-filters-every-idat-boundary','lowbit-gray-1-filters','lowbit-gray-2-filters','lowbit-gray-4-filters','lowbit-gray-8-filters','lowbit-trns-gray-1','lowbit-trns-gray-2','lowbit-trns-gray-4','lowbit-trns-gray-high-byte','lowbit-trns-gray-mask','lowbit-indexed-1-filters','lowbit-indexed-2-filters','lowbit-indexed-4-filters','lowbit-trns-indexed-2-filters','lowbit-indexed-depth','lowbit-indexed-plte-depth','lowbit-indexed-palette-index','dynamic-rgba-filters-semantic-idat-split','indexed-filters-every-idat-boundary','trns-grayscale-filters','trns-rgb-filters','trns-indexed-filters','indexed-missing-plte','indexed-plte-length-0','indexed-plte-length-1','indexed-plte-length-2','indexed-plte-length-4','indexed-plte-length-5','indexed-plte-length-769','indexed-plte-duplicate','indexed-plte-after-idat','indexed-plte-crc','indexed-palette-index','trns-duplicate','trns-after-idat','trns-before-plte','trns-crc','trns-gray-length','trns-gray-sample','trns-rgb-length','trns-rgb-sample','trns-indexed-length','trns-type6','hostile-zlib-header','hostile-truncated-deflate','hostile-adler','hostile-filter','hostile-dynamic-incomplete-tree','hostile-fixed-distance-before-history','hostile-filtered-output-expansion','gray-alpha-filters','gray-alpha-depth-1','gray-alpha-depth-2','gray-alpha-depth-4','gray-alpha-depth-16','gray-alpha-trns','gray-alpha-trns-after-idat','gray-alpha-trns-crc','gray-alpha-filter','gray-alpha-malformed','gray-alpha-limit','16gray-filters','16gray-trns','16rgb-filters','16rgb-trns','16gray-trns-length','16gray-trns-duplicate','16rgb-trns-after-idat','16rgb-trns-crc','16gray-filter','16rgb-malformed','16rgb-depth-4','16gray-alpha-depth-16','16rgba-depth-16','16gray-limit-image','16rgb-limit-output','16rgb-limit-work')
-$required += @('16gray-alpha-filters','16rgba-filters','16gray-alpha-trns','16gray-alpha-trns-duplicate','16gray-alpha-trns-after-idat','16gray-alpha-trns-crc','16rgba-depth-4','16rgba-trns','16rgba-trns-duplicate','16rgba-trns-after-idat','16rgba-trns-crc','16gray-alpha-filter','16rgba-malformed','16gray-alpha-limit-image','16gray-alpha-limit-output','16gray-alpha-limit-work','16rgba-limit-image','16rgba-limit-output','16rgba-limit-work')
+$required += @('16gray-alpha-filters','16rgba-filters','16gray-alpha-trns','16gray-alpha-trns-duplicate','16gray-alpha-trns-after-idat','16gray-alpha-trns-crc','16rgba-depth-4','16rgba-trns','16rgba-trns-duplicate','16rgba-trns-after-idat','16rgba-trns-crc','16gray-alpha-filter','16rgba-malformed','16gray-alpha-limit-image','16gray-alpha-limit-output','16gray-alpha-limit-work','16rgba-limit-image','16rgba-limit-output','16rgba-limit-work','adam7-rgba8-all-passes-idat-boundaries')
 if ($corpus.schema_version -ne '2.4.0' -or (Compare-Object $required @($corpus.cases.id))) { throw 'PNG decode corpus is stale or incomplete.' }
 $records = [Collections.Generic.List[object]]::new()
 foreach ($case in $corpus.cases) {
