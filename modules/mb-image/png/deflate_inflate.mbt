@@ -143,8 +143,12 @@ fn _png_inflate_zlib_to_raster(
         if pixel_column + 1UL == row_bytes {
           if transport.source_channels == 1UL {
             match _png_write_16bit_grayscale_row(view, rows, row, transport.width, transport.transparency) { Err(error) => return Err(error); Ok(_) => () }
-          } else {
+          } else if transport.source_channels == 2UL {
+            match _png_write_16bit_grayscale_alpha_row(view, rows, row, transport.width) { Err(error) => return Err(error); Ok(_) => () }
+          } else if transport.source_channels == 3UL {
             match _png_write_16bit_rgb_row(view, rows, row, transport.width, transport.transparency) { Err(error) => return Err(error); Ok(_) => () }
+          } else {
+            match _png_write_16bit_rgba_row(view, rows, row, transport.width) { Err(error) => return Err(error); Ok(_) => () }
           }
           rows.finish_row()
         }

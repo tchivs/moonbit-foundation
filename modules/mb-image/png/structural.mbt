@@ -277,7 +277,7 @@ fn _png_source_row_bytes(
   }
 }
 
-///| Sixteen-bit type-0/type-2 decode reserves the expanded image and exactly
+///| Sixteen-bit decode reserves the expanded image and exactly
 /// two encoded source rows.  The source bytes are filtered before high-byte mapping.
 fn _png_16bit_decode_budget(
   width : UInt64,
@@ -365,10 +365,10 @@ fn _png_preflight_ihdr(
     }
     1UL
   } else if ihdr[9] == 4 {
-    if bit_depth != 8 { return Err(_png_error("png-bit-depth")) }
+    if bit_depth != 8 && bit_depth != 16 { return Err(_png_error("png-bit-depth")) }
     2UL
   } else if ihdr[9] == 6 {
-    if bit_depth != 8 { return Err(_png_error("png-bit-depth")) }
+    if bit_depth != 8 && bit_depth != 16 { return Err(_png_error("png-bit-depth")) }
     4UL
   } else {
     return Err(_png_error("png-colour-type"))
@@ -901,7 +901,7 @@ fn _png_read_stream_transport(
       let channels = match transparency { PngTransparency::Opaque => if ihdr[9] == 4 || ihdr[9] == 6 { 4UL } else { 3UL }; _ => 4UL }
       let source_channels = if ihdr[9] == 0 || ihdr[9] == 3 { 1UL } else if ihdr[9] == 2 { 3UL } else if ihdr[9] == 4 { 2UL } else { 4UL }
       let source_bytes_per_pixel = match _png_source_bytes_per_pixel(source_channels, ihdr[8].to_int()) { Err(error) => return Err(error); Ok(value) => value }
-      let output_budget = if ihdr[8] == b'\x10' && (ihdr[9] == 0 || ihdr[9] == 2) {
+      let output_budget = if ihdr[8] == b'\x10' && (ihdr[9] == 0 || ihdr[9] == 2 || ihdr[9] == 4 || ihdr[9] == 6) {
         match _png_16bit_decode_budget(
           (ihdr[0].to_int().to_uint64() << 24) | (ihdr[1].to_int().to_uint64() << 16) | (ihdr[2].to_int().to_uint64() << 8) | ihdr[3].to_int().to_uint64(),
           (ihdr[4].to_int().to_uint64() << 24) | (ihdr[5].to_int().to_uint64() << 16) | (ihdr[6].to_int().to_uint64() << 8) | ihdr[7].to_int().to_uint64(),

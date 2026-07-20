@@ -315,7 +315,7 @@ test "PNG EOF probe does not charge an absent byte and preserves reader failures
 }
 
 ///|
-test "PNG grayscale-alpha IHDR accepts depth 8 only and charges source pairs as RGBA8" {
+test "PNG grayscale-alpha IHDR accepts legal depths and charges source pairs as RGBA8" {
   let legal = [
     b'\x00', b'\x00', b'\x00', b'\x02', b'\x00', b'\x00', b'\x00', b'\x05',
     b'\x08', b'\x04', b'\x00', b'\x00', b'\x00',
@@ -329,7 +329,7 @@ test "PNG grayscale-alpha IHDR accepts depth 8 only and charges source pairs as 
     height=16UL, pixels=256UL, depth=0UL, work=65UL,
   ))
   inspect(_png_preflight_ihdr(legal, limits, budget) is Ok(_), content="true")
-  for depth in [b'\x01', b'\x02', b'\x04', b'\x10'] {
+  for depth in [b'\x01', b'\x02', b'\x04'] {
     let illegal = [
       b'\x00', b'\x00', b'\x00', b'\x01', b'\x00', b'\x00', b'\x00', b'\x01',
       depth, b'\x04', b'\x00', b'\x00', b'\x00',
@@ -374,13 +374,6 @@ test "PNG 16-bit grayscale and truecolour IHDRs reserve encoded source rows" {
   ))
   inspect(_png_preflight_ihdr(gray, limits, gray_budget) is Ok(_), content="true")
   inspect(_png_preflight_ihdr(rgb, limits, rgb_budget) is Ok(_), content="true")
-  for colour_type in [b'\x04', b'\x06'] {
-    let disallowed = [
-      b'\x00', b'\x00', b'\x00', b'\x01', b'\x00', b'\x00', b'\x00', b'\x01',
-      b'\x10', colour_type, b'\x00', b'\x00', b'\x00',
-    ]
-    inspect(_png_preflight_ihdr(disallowed, limits, gray_budget).unwrap_err().context() == Some("png-bit-depth"), content="true")
-  }
 }
 
 ///|

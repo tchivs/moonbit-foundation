@@ -160,7 +160,7 @@ test "PNG 16-bit native-alpha raster maps source high bytes after bpp-sized reco
       64UL,
     ).unwrap()
     image.with_mut_view(fn(view) {
-      _png_write_raster(view, transport, filtered, @budget.Budget::new(@budget.ResourceLimits::new(bytes=16UL, allocations=2UL, allocation_size=8UL, width=0UL, height=0UL, pixels=0UL, depth=0UL, work=0UL)))
+      _png_write_raster(view, transport, filtered, @budget.Budget::new(@budget.ResourceLimits::new(bytes=32UL, allocations=2UL, allocation_size=16UL, width=0UL, height=0UL, pixels=0UL, depth=0UL, work=0UL)))
     }).unwrap()
     let view = image.view()
     for x = 0UL; x < 2UL; x = x + 1UL {

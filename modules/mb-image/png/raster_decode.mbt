@@ -174,6 +174,45 @@ fn _png_write_16bit_rgb_row(
   Ok(())
 }
 
+///| PNG sixteen-bit grayscale-alpha preserves its native straight alpha while
+/// emitting the high byte of each reconstructed big-endian component.
+fn _png_write_16bit_grayscale_alpha_row(
+  view : @storage.MutImageView,
+  rows : PngPackedRows,
+  y : UInt64,
+  width : UInt64,
+) -> Result[Unit, @error.CoreError] {
+  for x = 0UL; x < width; x = x + 1UL {
+    let offset = x * 4UL
+    let gray = rows.current.view().get(offset).unwrap()
+    let alpha = rows.current.view().get(offset + 2UL).unwrap()
+    for channel = 0UL; channel < 3UL; channel = channel + 1UL {
+      match view.set_byte(x, y, channel, gray) { Err(error) => return Err(error); Ok(_) => () }
+    }
+    match view.set_byte(x, y, 3UL, alpha) { Err(error) => return Err(error); Ok(_) => () }
+  }
+  Ok(())
+}
+
+///| PNG sixteen-bit RGBA preserves straight alpha and maps every reconstructed
+/// big-endian component to its high byte without a colour transform.
+fn _png_write_16bit_rgba_row(
+  view : @storage.MutImageView,
+  rows : PngPackedRows,
+  y : UInt64,
+  width : UInt64,
+) -> Result[Unit, @error.CoreError] {
+  for x = 0UL; x < width; x = x + 1UL {
+    let offset = x * 8UL
+    for item in [(0UL, 0UL), (1UL, 2UL), (2UL, 4UL), (3UL, 6UL)] {
+      let (channel, source_offset) = item
+      let value = rows.current.view().get(offset + source_offset).unwrap()
+      match view.set_byte(x, y, channel, value) { Err(error) => return Err(error); Ok(_) => () }
+    }
+  }
+  Ok(())
+}
+
 ///|
 fn PngPackedRows::finish_row(self : PngPackedRows) -> Unit {
   let prior = self.previous
@@ -331,8 +370,12 @@ fn _png_write_raster(view : @storage.MutImageView, transport : PngTransport, fil
       }
       if transport.source_channels == 1UL {
         match _png_write_16bit_grayscale_row(view, rows, y, transport.width, transport.transparency) { Err(error) => return Err(error); Ok(_) => () }
-      } else {
+      } else if transport.source_channels == 2UL {
+        match _png_write_16bit_grayscale_alpha_row(view, rows, y, transport.width) { Err(error) => return Err(error); Ok(_) => () }
+      } else if transport.source_channels == 3UL {
         match _png_write_16bit_rgb_row(view, rows, y, transport.width, transport.transparency) { Err(error) => return Err(error); Ok(_) => () }
+      } else {
+        match _png_write_16bit_rgba_row(view, rows, y, transport.width) { Err(error) => return Err(error); Ok(_) => () }
       }
       rows.finish_row()
     }
