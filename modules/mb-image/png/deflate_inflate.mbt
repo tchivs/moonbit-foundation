@@ -277,6 +277,11 @@ fn _png_inflate_zlib_to_raster(
   let d = match bits.source.next_byte() { Err(error) => return Err(error); Ok(value) => value.to_int().to_uint64() }
   let expected_adler = (a << 24) | (b << 16) | (c << 8) | d
   if expected_adler != adler { return Err(_png_error("zlib-adler")) }
-  if emitted != expected || column != 0UL || row != transport.height { return Err(_png_error("png-filtered-size")) }
+  let complete_rows = if transport.interlaced {
+    pass_index == passes.length() && pass_row == 0UL
+  } else {
+    row == transport.height
+  }
+  if emitted != expected || column != 0UL || !complete_rows { return Err(_png_error("png-filtered-size")) }
   bits.source.finish()
 }
