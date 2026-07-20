@@ -251,7 +251,10 @@ Plans:
   2. A library user can run one public portable example that feeds chunked QOI bytes to the streaming decoder, applies an existing image operation, drains canonical QOI bytes through streaming output buffers, and prints deterministic evidence.
   3. The streaming evidence uses only public portable MoonBit contracts and does not invoke FFI, alter `Reader` EOF semantics, add PNG/DEFLATE work, or introduce registry or release-automation work.
 
-**Plans**: TBD
+**Plans**: 1 plan
+
+Plans:
+- [ ] 19-01-PLAN.md — Prove hostile portable QOI streaming schedules and upgrade the existing public QOI workflow.
 
 ---
 *Roadmap updated: 2026-07-20 for v0.5 QOI Streaming I/O planning*
