@@ -3,10 +3,10 @@ gsd_state_version: 1.0
 milestone: v0.4
 milestone_name: Portable Image Interchange
 status: planning
-last_updated: "2026-07-20T10:01:24.115Z"
+last_updated: "2026-07-20T10:15:00.000Z"
 last_activity: 2026-07-20
 progress:
-  total_phases: 0
+  total_phases: 3
   completed_phases: 0
   total_plans: 0
   completed_plans: 0
@@ -21,18 +21,18 @@ See `.planning/PROJECT.md` (updated 2026-07-18).
 
 **Core value:** MoonBit developers can reuse stable, high-performance native infrastructure contracts instead of rebuilding incompatible foundations for every graphics, document, media, or automation product.
 
-**Current focus:** Phase 12 — strict-ppm-end-to-end-filter-coverage
+**Current focus:** Phase 13 — qoi-format-core-and-safe-decode
 
 ## Current Position
 
-Phase: Not started (defining requirements)
+Phase: 13 of 15 (QOI Format Core and Safe Decode)
 Plan: —
-Status: Defining requirements
-Last activity: 2026-07-20 — Milestone v0.4 started
+Status: Roadmap created; ready for phase planning
+Last activity: 2026-07-20 — v0.4 QOI roadmap created
 
 ## Performance Metrics
 
-**Current milestone:** 0 plans completed; plan count will be set during phase planning.
+**Current milestone:** 0 plans completed across 3 planned phases; plan count will be set during phase planning.
 
 **Historical context:** v0.1 delivered five completed phases and 41 plans. v0.2 publication work is deferred without registry mutation and is excluded from v0.3 progress.
 
@@ -49,6 +49,8 @@ Last activity: 2026-07-20 — Milestone v0.4 started
 - [Phase ?]: Nearest-neighbor remains the sole documented reference resampler; no interpolation or conversion fallback was introduced.
 - [Phase ?]: Invalid alpha combinations are rejected during descriptor construction, so operation-level capability coverage uses representable unsupported layout, component, channel, and transfer variants.
 - [Phase ?]: Phase 10: Raster operations use typed linear-premultiplied sRGB conversion with strict metadata compatibility before allocation.
+- [v0.4]: Keep QOI as an eager whole-image-memory QOI 1.0 codec over the existing portable contracts; explicitly defer PNG/DEFLATE, FFI, streaming APIs, release automation, and performance baselines.
+- [Phase 13]: Reuse the public codec limits, budgets, diagnostics, and forward-only I/O seams; probe must consume only caller-owned prefix bytes.
 
 ### Pending Todos
 
@@ -58,6 +60,7 @@ None.
 
 - Native verification requires the configured C toolchain; portable behavior must remain conformant on `js`, `wasm`, `wasm-gc`, and `native`.
 - Registry publication, provenance closure, and all release automation remain deferred outside this milestone.
+- v0.4 intentionally excludes PNG/DEFLATE, foreign-codec FFI, streaming QOI state APIs, and QOI benchmark baselines until portable codec behavior is stable.
 
 ## Deferred Items
 
@@ -85,8 +88,8 @@ Items acknowledged and deferred at v0.3 milestone close on 2026-07-20. They belo
 ## Session Continuity
 
 Last session: 2026-07-20T09:24:55.537Z
-Stopped at: Phase 12 context gathered
-Resume file: .planning/phases/12-strict-ppm-end-to-end-filter-coverage/12-CONTEXT.md
+Stopped at: v0.4 roadmap created
+Resume file: .planning/ROADMAP.md
 
 ## Performance Metrics
 
@@ -98,4 +101,4 @@ Resume file: .planning/phases/12-strict-ppm-end-to-end-filter-coverage/12-CONTEX
 
 ## Operator Next Steps
 
-- Start the next milestone with /gsd-new-milestone
+- Plan Phase 13 with /gsd-plan-phase 13.

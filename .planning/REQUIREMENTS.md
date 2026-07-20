@@ -57,4 +57,4 @@
 
 ---
 *Requirements defined: 2026-07-20*
-*Last updated: 2026-07-20 after v0.4 scope selection*
+*Last updated: 2026-07-20 after v0.4 roadmap creation*

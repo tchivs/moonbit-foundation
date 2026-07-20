@@ -5,6 +5,7 @@
 - ✅ **v0.1 Foundation** — Phases 1-5, 41 plans, 36/36 requirements (shipped 2026-07-17). Full history: [v0.1 roadmap](./milestones/v0.1-ROADMAP.md).
 - ⏸️ **v0.2 Publication & Compatibility** — Phases 6-8 completed or partially prepared; registry publication and closure remain deferred without a registry mutation.
 - ✅ **v0.3 Image Processing Core** — Phases 9-12, 9 requirements (shipped 2026-07-20). Full history: [v0.3 roadmap](./milestones/v0.3-ROADMAP.md).
+- 🗺️ **v0.4 Portable Image Interchange** — Phases 13-15, 6 requirements planned; pure-MoonBit QOI 1.0 interchange across four targets.
 
 ## Phases
 
@@ -38,6 +39,14 @@ Publication, registry-consumer proof, provenance closure, and any release automa
 - [x] **Phase 10: Alpha-Correct Pixel Processing** - Users can composite and filter RGBA images with documented deterministic semantics. (completed 2026-07-20)
 - [x] **Phase 11: Portable Processing Pipeline Evidence** - Users can run and maintain a verified, reproducible end-to-end image-processing workflow. (completed 2026-07-20)
 - [x] **Phase 12: Strict PPM End-to-End Filter Coverage** - The public strict-P6 route proves geometry and alpha-aware filters before encoding. (completed 2026-07-20)
+
+### 🗺️ v0.4 Portable Image Interchange (Planned)
+
+**Milestone goal:** Add strict, bounded QOI 1.0 interchange to the existing portable image contracts without foreign codec dependencies.
+
+- [ ] **Phase 13: QOI Format Core and Safe Decode** - Users can identify and decode valid QOI images while hostile input fails deterministically before unsafe work.
+- [ ] **Phase 14: Canonical QOI Encode and Four-Target Vectors** - Users can create lossless canonical QOI output proven by specification-derived vectors on every supported target.
+- [ ] **Phase 15: Public QOI Processing Example** - Users can run a documented portable QOI decode-process-encode workflow with deterministic evidence.
 
 ## Phase Details
 
@@ -107,7 +116,7 @@ Plans:
 
 ## Progress
 
-**Execution order:** 9 → 10 → 11 → 12
+**Execution order:** 9 → 10 → 11 → 12 → 13 → 14 → 15
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
@@ -123,6 +132,9 @@ Plans:
 | 10. Alpha-Correct Pixel Processing | v0.3 | 2/2 | Complete   | 2026-07-20 |
 | 11. Portable Processing Pipeline Evidence | v0.3 | 3/3 | Complete   | 2026-07-20 |
 | 12. Strict PPM End-to-End Filter Coverage | v0.3 | 1/1 | Complete   | 2026-07-20 |
+| 13. QOI Format Core and Safe Decode | v0.4 | 0/TBD | Not started | - |
+| 14. Canonical QOI Encode and Four-Target Vectors | v0.4 | 0/TBD | Not started | - |
+| 15. Public QOI Processing Example | v0.4 | 0/TBD | Not started | - |
 
 ### Phase 12: Strict PPM End-to-End Filter Coverage
 
@@ -135,5 +147,43 @@ Plans:
 
 - [x] 12-01-PLAN.md — Prove the strict-PPM crop/rotate/filter/source-over route and atomic blur budget boundary on all targets.
 
+### Phase 13: QOI Format Core and Safe Decode
+
+**Goal**: Library users can safely identify and decode complete QOI 1.0 RGB and RGBA images through the portable codec contracts.
+**Depends on**: Phase 12
+**Requirements**: QOI-01, QOI-02, QOI-04
+**Success Criteria** (what must be TRUE):
+
+  1. A library user can probe caller-owned QOI prefixes without consuming a reader and receives deterministic `NoMatch` or minimum-length `NeedMore` results for incomplete or non-QOI prefixes.
+  2. A library user can decode a valid complete QOI 1.0 RGB or RGBA image from a forward-only reader into an owned portable image with exact pixels, dimensions, channels, and straight-alpha semantics.
+  3. A library user receives typed, deterministic failures for malformed headers/opcodes, truncated data, invalid end markers, trailing data, declared limits, and reader failures; a preflight rejection leaves output allocation and budget charges unchanged.
+
+**Plans**: TBD
+
+### Phase 14: Canonical QOI Encode and Four-Target Vectors
+
+**Goal**: Library users can losslessly create canonical QOI 1.0 bytes whose behavior is reproducibly conformant across every portable target.
+**Depends on**: Phase 13
+**Requirements**: QOI-03, QOI-05
+**Success Criteria** (what must be TRUE):
+
+  1. A library user can encode compatible RGB and straight-RGBA images through the public forward-only writer interface and decode the result to precisely the original pixels.
+  2. The encoder emits one documented canonical QOI byte representation for a given compatible image and reports typed deterministic capability, limit, budget, or I/O failures.
+  3. Maintainers can run specification-derived opcode, index, run, wraparound, and byte-round-trip vectors unchanged on `js`, `wasm`, `wasm-gc`, and `native`.
+
+**Plans**: TBD
+
+### Phase 15: Public QOI Processing Example
+
+**Goal**: Library users can independently follow an end-to-end portable QOI workflow that demonstrates interoperability with the existing image operations.
+**Depends on**: Phase 14
+**Requirements**: QOI-06
+**Success Criteria** (what must be TRUE):
+
+  1. A library user can run one public documented example that decodes QOI, applies an existing image operation, encodes QOI, and produces deterministic output evidence.
+  2. The example uses only the public portable image, codec, I/O, and budget contracts, so it runs without GUI state, FFI, or a platform-specific codec dependency.
+
+**Plans**: TBD
+
 ---
-*Roadmap updated: 2026-07-20 for v0.3 Image Processing Core planning*
+*Roadmap updated: 2026-07-20 for v0.4 Portable Image Interchange planning*
