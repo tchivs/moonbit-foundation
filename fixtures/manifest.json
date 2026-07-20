@@ -49,6 +49,18 @@
       "expected_use": "QUAL-01 and QUAL-03 strict P6 canonical, adversarial, progress, and metamorphic conformance"
     },
     {
+      "id": "qoi-1.0-conformance-vectors",
+      "path": "fixtures/qoi/cases.json",
+      "origin": "generated",
+      "source": "https://qoiformat.org/qoi-specification.pdf (QOI 1.0, 2022-01-05) plus repository-derived adversarial schedules",
+      "author": "MoonBit Native Foundation project generator",
+      "retrieval_date": "2026-07-20",
+      "sha256": "614904fcb816340c34e644dfcb119fc7e8e9bda5bda69e597fe241f7f721fcb3",
+      "license": "Apache-2.0",
+      "redistribution_status": "not-applicable",
+      "expected_use": "QOI-01, QOI-02, and QOI-04 portable QOI 1.0 canonical, adversarial, and forward-reader conformance"
+    },
+    {
       "id": "color-srgb-reference-vectors",
       "path": "fixtures/color/srgb-reference-vectors.json",
       "origin": "generated",

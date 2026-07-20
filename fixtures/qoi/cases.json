@@ -1,0 +1,36 @@
+{
+  "schema_version": "1.0.0",
+  "classification": {
+    "spec_derived": "QOI 1.0 chunk semantics transcribed from https://qoiformat.org/qoi-specification.pdf; no third-party fixture bytes copied",
+    "project_derived": "Repository-authored malformed inputs and forward-reader schedules"
+  },
+  "source": "https://qoiformat.org/qoi-specification.pdf (QOI 1.0, 2022-01-05)",
+  "valid_cases": [
+    { "id": "rgb-opcode", "width": 1, "height": 1, "channels": 3, "colorspace": 0, "stream_hex": "716f696600000001000000010300fe0102030000000000000001", "pixels_hex": "010203" },
+    { "id": "rgba-opcode-linear", "width": 1, "height": 1, "channels": 4, "colorspace": 1, "stream_hex": "716f696600000001000000010401ff040506070000000000000001", "pixels_hex": "04050607" },
+    { "id": "index-initial-pixel", "width": 1, "height": 1, "channels": 4, "colorspace": 0, "stream_hex": "716f6966000000010000000104000000000000000001", "pixels_hex": "000000ff" },
+    { "id": "index-collision", "width": 2, "height": 1, "channels": 4, "colorspace": 0, "stream_hex": "716f696600000002000000010400fe000000350000000000000001", "pixels_hex": "000000ff000000ff" },
+    { "id": "diff-byte-wrap", "width": 2, "height": 1, "channels": 3, "colorspace": 0, "stream_hex": "716f696600000002000000010300feffffff6a0000000000000001", "pixels_hex": "ffffff01ffff" },
+    { "id": "luma", "width": 2, "height": 1, "channels": 3, "colorspace": 0, "stream_hex": "716f696600000002000000010300fe010203a0880000000000000001", "pixels_hex": "010203010203" },
+    { "id": "run-one", "width": 1, "height": 1, "channels": 4, "colorspace": 0, "stream_hex": "716f696600000001000000010400c00000000000000001", "pixels_hex": "000000ff" },
+    { "id": "run-max", "width": 62, "height": 1, "channels": 4, "colorspace": 0, "stream_hex": "716f69660000003e000000010400fd0000000000000001", "expected_repeat_hex": "000000ff", "repeat": 62 }
+  ],
+  "adversarial_cases": [
+    { "id": "bad-magic", "error": "qoi-magic" },
+    { "id": "zero-width", "error": "qoi-dimensions" },
+    { "id": "channels-two", "error": "qoi-channels" },
+    { "id": "colorspace-two", "error": "qoi-colorspace" },
+    { "id": "truncated-rgb", "error": "unexpected-end" },
+    { "id": "run-overrun", "error": "qoi-run-overrun" },
+    { "id": "invalid-marker", "error": "qoi-end-marker" },
+    { "id": "trailing-byte", "error": "qoi-trailing-data" },
+    { "id": "one-byte-reader", "error": "fragmented-success" },
+    { "id": "zero-progress-reader", "error": "no-progress" },
+    { "id": "host-failure-reader", "error": "host-failure" }
+  ],
+  "chunk_schedules": [
+    { "id": "one-byte", "chunks": [1] },
+    { "id": "header-and-opcode", "chunks": [4, 10, 1, 3, 8] },
+    { "id": "fixed-prng-17", "chunks": [3, 1, 4, 2, 5, 1] }
+  ]
+}
