@@ -54,7 +54,7 @@ Publication, registry-consumer proof, provenance closure, and any release automa
 
 **Milestone goal:** Add bounded, resumable QOI decode and encode APIs over caller-owned chunks and output buffers without changing the existing forward-only I/O contracts.
 
-- [ ] **Phase 17: Resumable QOI Chunk Decode** - Users can decode caller-owned QOI byte chunks safely and explicitly complete or reject a stream.
+- [x] **Phase 17: Resumable QOI Chunk Decode** - Users can decode caller-owned QOI byte chunks safely and explicitly complete or reject a stream. (completed 2026-07-20)
 - [ ] **Phase 18: Resumable QOI Buffer Encode** - Users can pull canonical QOI bytes into caller-owned output buffers without losing stream progress or eager preflight guarantees.
 - [ ] **Phase 19: Portable Streaming QOI Evidence** - Users and maintainers can run one public streaming processing workflow and verify hostile schedules on all portable targets.
 
@@ -146,7 +146,7 @@ Plans:
 | 14. Canonical QOI Encode and Four-Target Vectors | v0.4 | 1/1 | Complete    | 2026-07-20 |
 | 15. Public QOI Processing Example | v0.4 | 1/1 | Complete    | 2026-07-20 |
 | 16. QOI Policy and Public Example Quality Alignment | v0.4 | 1/1 | Complete | 2026-07-20 |
-| 17. Resumable QOI Chunk Decode | v0.5 | 0/TBD | Not started | - |
+| 17. Resumable QOI Chunk Decode | v0.5 | 1/1 | Complete    | 2026-07-20 |
 | 18. Resumable QOI Buffer Encode | v0.5 | 0/TBD | Not started | - |
 | 19. Portable Streaming QOI Evidence | v0.5 | 0/TBD | Not started | - |
 

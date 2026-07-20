@@ -8,9 +8,9 @@
 
 ### Streaming Decode
 
-- [ ] **QSTR-01**: A library user can feed a QOI decoder arbitrary caller-owned byte chunks and receive deterministic non-terminal input-needed progress until a complete RGB or RGBA image is available.
-- [ ] **QSTR-02**: A library user can explicitly finish a streaming QOI decode and receives typed deterministic errors for incomplete tokens, incomplete or invalid end markers, trailing data, run overrun, and repeated use after a terminal result.
-- [ ] **QSTR-03**: A library user receives the same bounded dimensions, pixel, input-byte, work, diagnostics, and output-visibility guarantees from streaming QOI decode as from the existing eager decoder.
+- [x] **QSTR-01**: A library user can feed a QOI decoder arbitrary caller-owned byte chunks and receive deterministic non-terminal input-needed progress until a complete RGB or RGBA image is available.
+- [x] **QSTR-02**: A library user can explicitly finish a streaming QOI decode and receives typed deterministic errors for incomplete tokens, incomplete or invalid end markers, trailing data, run overrun, and repeated use after a terminal result.
+- [x] **QSTR-03**: A library user receives the same bounded dimensions, pixel, input-byte, work, diagnostics, and output-visibility guarantees from streaming QOI decode as from the existing eager decoder.
 
 ### Streaming Encode
 
@@ -43,9 +43,9 @@
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| QSTR-01 | Phase 17 | Pending |
-| QSTR-02 | Phase 17 | Pending |
-| QSTR-03 | Phase 17 | Pending |
+| QSTR-01 | Phase 17 | Complete |
+| QSTR-02 | Phase 17 | Complete |
+| QSTR-03 | Phase 17 | Complete |
 | QSTR-04 | Phase 18 | Pending |
 | QSTR-05 | Phase 18 | Pending |
 | QSTR-06 | Phase 19 | Pending |
