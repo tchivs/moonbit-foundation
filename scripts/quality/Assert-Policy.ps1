@@ -783,7 +783,7 @@ function Assert-FoundationPolicy {
       Assert-ExactSequence 'mb-image ppm production source order' @($ppmPolicy.production_sources) @('moon.pkg', 'ppm.mbt', 'parser.mbt', 'decode.mbt', 'encode.mbt', 'generated_vectors.mbt')
       Assert-ExactSet 'mb-image qoi DAG edges' $imageImports.qoi @('tchivs/mb-core/budget', 'tchivs/mb-core/bytes', 'tchivs/mb-core/checked', 'tchivs/mb-core/error', 'tchivs/mb-core/io', 'tchivs/mb-color/model', 'tchivs/mb-color/profile', 'tchivs/mb-image/codec', 'tchivs/mb-image/metadata', 'tchivs/mb-image/model', 'tchivs/mb-image/storage')
       $qoiPolicy = @($packages | Where-Object { $_.path -ceq 'qoi' })[0]
-      Assert-ExactSequence 'mb-image qoi production source order' @($qoiPolicy.production_sources) @('moon.pkg', 'qoi.mbt', 'decode.mbt', 'encode.mbt', 'generated_vectors.mbt', 'stream_decode.mbt')
+      Assert-ExactSequence 'mb-image qoi production source order' @($qoiPolicy.production_sources) @('moon.pkg', 'qoi.mbt', 'decode.mbt', 'encode.mbt', 'generated_vectors.mbt', 'stream_decode.mbt', 'stream_encode.mbt')
       Assert-ExactSet 'mb-image ops DAG edges' $imageImports.ops @('tchivs/mb-core/error', 'tchivs/mb-core/checked', 'tchivs/mb-core/budget', 'tchivs/mb-core/bytes', 'tchivs/mb-color/alpha', 'tchivs/mb-color/model', 'tchivs/mb-color/profile', 'tchivs/mb-color/transfer', 'tchivs/mb-color/quantize', 'tchivs/mb-image/metadata', 'tchivs/mb-image/model', 'tchivs/mb-image/storage')
       Assert-ExactSet 'mb-image codec DAG edges' $imageImports.codec @('tchivs/mb-core/error', 'tchivs/mb-core/budget', 'tchivs/mb-core/bytes', 'tchivs/mb-core/io', 'tchivs/mb-image/metadata', 'tchivs/mb-image/model', 'tchivs/mb-image/storage')
       Assert-Condition (-not ($imageImports.codec -ccontains 'tchivs/mb-core/host')) 'mb-image codec must remain independent of host policy.'
@@ -896,7 +896,7 @@ function Assert-QoiFoundationPolicy {
   Assert-Condition ($qoi.stability -ceq 'candidate') 'QOI package stability must remain candidate.'
   Assert-ExactSet 'QOI policy imports' @($qoi.allowed_imports) @('tchivs/mb-core/budget', 'tchivs/mb-core/bytes', 'tchivs/mb-core/checked', 'tchivs/mb-core/error', 'tchivs/mb-core/io', 'tchivs/mb-color/model', 'tchivs/mb-color/profile', 'tchivs/mb-image/codec', 'tchivs/mb-image/metadata', 'tchivs/mb-image/model', 'tchivs/mb-image/storage')
   Assert-ExactSet 'QOI policy targets' @($qoi.supported_targets) @('js', 'wasm', 'wasm-gc', 'native')
-  Assert-ExactSequence 'QOI policy production source order' @($qoi.production_sources) @('moon.pkg', 'qoi.mbt', 'decode.mbt', 'encode.mbt', 'generated_vectors.mbt', 'stream_decode.mbt')
+  Assert-ExactSequence 'QOI policy production source order' @($qoi.production_sources) @('moon.pkg', 'qoi.mbt', 'decode.mbt', 'encode.mbt', 'generated_vectors.mbt', 'stream_decode.mbt', 'stream_encode.mbt')
 
   $workText = Get-Content -LiteralPath (Join-Path $repoRoot 'moon.work') -Raw
   $workMembers = @([regex]::Matches($workText, '"\./([^"\r\n]+)"') | ForEach-Object { $_.Groups[1].Value })
@@ -910,7 +910,7 @@ function Assert-QoiFoundationPolicy {
   Assert-ExactSet 'QOI moon.pkg imports' @(Get-PackageImportSet -Text $packageText -Label 'QOI moon.pkg') @($qoi.allowed_imports)
 
   $qoiFiles = @(Get-ChildItem -LiteralPath (Join-Path $repoRoot 'modules/mb-image/qoi') -File | Where-Object { $_.Name -cne 'pkg.generated.mbti' } | ForEach-Object { $_.Name })
-  Assert-ExactSet 'QOI directory contents' $qoiFiles @('moon.pkg', 'qoi.mbt', 'decode.mbt', 'decode_test.mbt', 'decode_wbtest.mbt', 'encode.mbt', 'encode_test.mbt', 'encode_wbtest.mbt', 'generated_vectors.mbt', 'stream_decode.mbt', 'stream_decode_test.mbt', 'stream_decode_wbtest.mbt')
+  Assert-ExactSet 'QOI directory contents' $qoiFiles @('moon.pkg', 'qoi.mbt', 'decode.mbt', 'decode_test.mbt', 'decode_wbtest.mbt', 'encode.mbt', 'encode_test.mbt', 'encode_wbtest.mbt', 'generated_vectors.mbt', 'stream_decode.mbt', 'stream_decode_test.mbt', 'stream_decode_wbtest.mbt', 'stream_encode.mbt', 'stream_encode_test.mbt', 'stream_encode_wbtest.mbt')
 
   & moon -C modules/mb-image info --target all --frozen
   if ($LASTEXITCODE -ne 0) { throw "QOI interface generation failed (exit $LASTEXITCODE)." }
@@ -950,7 +950,7 @@ function Assert-QoiQualificationNegativeFixtures {
     Assert-FoundationPolicy -PolicyPath $temporaryPolicyPath
     $reorderedPolicy = Read-QualityJson -Path $temporaryPolicyPath
     $reorderedQoi = @(@($reorderedPolicy.modules | Where-Object { $_.name -ceq 'tchivs/mb-image' })[0].public_packages | Where-Object { $_.path -ceq 'qoi' })[0]
-    $reorderedQoi.production_sources = @('moon.pkg', 'qoi.mbt', 'decode.mbt', 'encode.mbt', 'stream_decode.mbt', 'generated_vectors.mbt')
+    $reorderedQoi.production_sources = @('moon.pkg', 'qoi.mbt', 'decode.mbt', 'encode.mbt', 'generated_vectors.mbt', 'stream_encode.mbt', 'stream_decode.mbt')
     $reorderedPolicy | ConvertTo-Json -Depth 100 | Set-Content -LiteralPath $temporaryPolicyPath -Encoding utf8
     Confirm-QoiRejected 'broad reordered stream production order' { Assert-FoundationPolicy -PolicyPath $temporaryPolicyPath } 'mb-image qoi production source order order mismatch at index'
   } finally {
@@ -960,14 +960,14 @@ function Assert-QoiQualificationNegativeFixtures {
   Confirm-QoiRejected 'missing import' { Assert-ExactSet 'negative QOI imports' @($imports | Select-Object -Skip 1) $imports } 'count mismatch'
   Confirm-QoiRejected 'extra import' { Assert-ExactSet 'negative QOI imports' @($imports + 'tchivs/mb-image/ops') $imports } 'count mismatch'
   Confirm-QoiRejected 'missing portable target' { Assert-ExactSet 'negative QOI targets' @('js', 'wasm', 'native') @('js', 'wasm', 'wasm-gc', 'native') } 'count mismatch'
-  $publicTypes = @('QoiDecoder', 'QoiEncoder', 'QoiStreamDecoder', 'QoiStreamPushResult', 'QoiStreamPushOutcome')
-  Confirm-QoiRejected 'missing stream interface entry' { Assert-ExactSequence 'negative QOI interface' @('QoiDecoder', 'QoiEncoder', 'QoiStreamDecoder', 'QoiStreamPushResult') $publicTypes } 'count mismatch'
+  $publicTypes = @('QoiDecoder', 'QoiEncoder', 'QoiStreamDecoder', 'QoiStreamEncoder', 'QoiStreamPullResult', 'QoiStreamPullOutcome', 'QoiStreamPushResult', 'QoiStreamPushOutcome')
+  Confirm-QoiRejected 'missing stream interface entry' { Assert-ExactSequence 'negative QOI interface' @('QoiDecoder', 'QoiEncoder', 'QoiStreamDecoder', 'QoiStreamEncoder', 'QoiStreamPullResult', 'QoiStreamPushResult', 'QoiStreamPushOutcome') $publicTypes } 'count mismatch'
   Confirm-QoiRejected 'extra stream interface entry' { Assert-ExactSequence 'negative QOI interface' @($publicTypes + 'QoiRegistry') $publicTypes } 'count mismatch'
-  Confirm-QoiRejected 'wrong production order' { Assert-ExactSequence 'negative QOI source order' @('moon.pkg', 'qoi.mbt', 'decode.mbt', 'encode.mbt', 'stream_decode.mbt', 'generated_vectors.mbt') $sources } 'mismatch at index'
+  Confirm-QoiRejected 'wrong production order' { Assert-ExactSequence 'negative QOI source order' @('moon.pkg', 'qoi.mbt', 'decode.mbt', 'encode.mbt', 'generated_vectors.mbt', 'stream_encode.mbt', 'stream_decode.mbt') $sources } 'mismatch at index'
   Confirm-QoiRejected 'missing production content' { Assert-ExactSet 'negative QOI contents' @($sources | Select-Object -Skip 1) $sources } 'count mismatch'
   Confirm-QoiRejected 'extra production content' { Assert-ExactSet 'negative QOI contents' @($sources + 'registry.mbt') $sources } 'count mismatch'
-  Confirm-QoiRejected 'missing stream production content' { Assert-ExactSet 'negative QOI contents' @($sources | Where-Object { $_ -cne 'stream_decode.mbt' }) $sources } 'count mismatch'
-  $qoiFiles = @('moon.pkg', 'qoi.mbt', 'decode.mbt', 'decode_test.mbt', 'decode_wbtest.mbt', 'encode.mbt', 'encode_test.mbt', 'encode_wbtest.mbt', 'generated_vectors.mbt', 'stream_decode.mbt', 'stream_decode_test.mbt', 'stream_decode_wbtest.mbt')
+  Confirm-QoiRejected 'missing stream production content' { Assert-ExactSet 'negative QOI contents' @($sources | Where-Object { $_ -cne 'stream_encode.mbt' }) $sources } 'count mismatch'
+  $qoiFiles = @('moon.pkg', 'qoi.mbt', 'decode.mbt', 'decode_test.mbt', 'decode_wbtest.mbt', 'encode.mbt', 'encode_test.mbt', 'encode_wbtest.mbt', 'generated_vectors.mbt', 'stream_decode.mbt', 'stream_decode_test.mbt', 'stream_decode_wbtest.mbt', 'stream_encode.mbt', 'stream_encode_test.mbt', 'stream_encode_wbtest.mbt')
   Confirm-QoiRejected 'extra stream file' { Assert-ExactSet 'negative QOI files' @($qoiFiles + 'stream_registry.mbt') $qoiFiles } 'count mismatch'
   Write-Host 'QOI package, import, target, interface, source-order, and content negatives fail closed.'
 }

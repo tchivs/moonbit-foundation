@@ -832,6 +832,9 @@
         "qoi/stream_decode.mbt",
         "qoi/stream_decode_test.mbt",
         "qoi/stream_decode_wbtest.mbt",
+        "qoi/stream_encode.mbt",
+        "qoi/stream_encode_test.mbt",
+        "qoi/stream_encode_wbtest.mbt",
         "moon.mod.json"
       ],
       "public_packages": [
@@ -1273,7 +1276,8 @@
             "decode.mbt",
             "encode.mbt",
             "generated_vectors.mbt",
-            "stream_decode.mbt"
+            "stream_decode.mbt",
+            "stream_encode.mbt"
           ],
           "semantic_interface": [
             "package \"tchivs/mb-image/qoi\"",
@@ -1298,6 +1302,20 @@
             "pub fn QoiStreamDecoder::finish(Self) -> Result[@codec.DecodeResult, @error.CoreError]",
             "pub fn QoiStreamDecoder::new(@codec.CodecLimits, @budget.Budget, @error.Diagnostics) -> Self",
             "pub fn QoiStreamDecoder::push(Self, @bytes.ByteView) -> QoiStreamPushResult",
+            "pub struct QoiStreamEncoder {",
+            "}",
+            "pub fn QoiStreamEncoder::new(@storage.ImageView, @codec.CodecLimits, @budget.Budget, @error.Diagnostics) -> Result[Self, @error.CoreError]",
+            "pub fn QoiStreamEncoder::pull(Self, @bytes.MutByteLease) -> QoiStreamPullResult",
+            "pub(all) enum QoiStreamPullOutcome {",
+            "  NeedOutput",
+            "  Finished",
+            "  Failed(@error.CoreError)",
+            "}",
+            "pub struct QoiStreamPullResult {",
+            "}",
+            "pub fn QoiStreamPullResult::outcome(Self) -> QoiStreamPullOutcome",
+            "pub fn QoiStreamPullResult::total_written(Self) -> UInt64",
+            "pub fn QoiStreamPullResult::written(Self) -> UInt64",
             "pub(all) enum QoiStreamPushOutcome {",
             "  NeedInput",
             "  Failed(@error.CoreError)",
