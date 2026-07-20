@@ -22,6 +22,8 @@ Add portable reference pixel processing to `mb-image/ops`: source-over compositi
 - **D-04:** Grayscale is deterministic and preserves alpha semantics. It should use a documented luminance policy compatible with the chosen composite color representation.
 - **D-05:** Box blur is alpha-aware so transparent colored pixels cannot create edge halos. It uses a bounded reference implementation and validates radius/dimensions/budget before allocating output.
 - **D-06:** This phase prioritizes correctness and reproducibility over optimized sliding windows, SIMD, or quality-tunable kernels.
+- **D-07:** Grayscale uses documented Rec.709 linear-light coefficients (0.2126, 0.7152, 0.0722) before deterministic encoding and quantization.
+- **D-08:** Box blur uses clamp-to-edge sampling; radius and declared work are checked before output allocation, and no separate arbitrary public radius ceiling is introduced beyond budget limits.
 
 ### the agent's Discretion
 - Exact public API names, whether operations accept straight-only or explicit straight/premultiplied variants, and the smallest reusable helpers should follow existing `mb-image/ops` and `mb-color` public contracts.

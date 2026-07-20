@@ -225,16 +225,16 @@ This is only the arithmetic core; production code must return constructor errors
 | A2 | Clamp-to-edge is the desired box-blur boundary policy. | Filter semantics | Different edge policy changes border output. |
 | A3 | Transparent colored pixels create halos only when straight RGB is averaged rather than premultiplied RGB. | Pitfalls | Test oracle/justification would need correction, though linear-premultiplied filtering remains the selected architecture. |
 
-## Open Questions
+## Open Questions (RESOLVED)
 
-1. **Lock grayscale coefficients and blur border policy in the Phase 10 plan.**
+1. **RESOLVED: Lock grayscale coefficients and blur border policy in the Phase 10 plan.**
    - What we know: Existing contracts supply the color conversion pipeline but no grayscale/blur policy constants. [VERIFIED: modules/mb-color/alpha/alpha.mbt; modules/mb-color/transfer/transfer.mbt]
-   - What's unclear: Whether the project prefers Rec.709 coefficients and clamp-to-edge over another deterministic policy.
+   - **Resolution:** Use Rec.709 coefficients and clamp-to-edge sampling.
    - Recommendation: Use the A1/A2 policies above, document them in `mb-image/README.mbt.md`, and add exact byte-vector tests before treating them as stable public behavior.
 
-2. **Define a named radius upper bound independent of caller resource limits only if test/runtime evidence requires it.**
+2. **RESOLVED: Define a named radius upper bound independent of caller resource limits only if test/runtime evidence requires it.**
    - What we know: `Budget` can bound total work and `checked` can reject overflow. [VERIFIED: modules/mb-core/budget/budget.mbt; modules/mb-core/checked/checked.mbt]
-   - What's unclear: Whether an extremely large but mathematically valid radius should be categorically invalid versus resource-limited.
+   - **Resolution:** Do not add an arbitrary named public limit; reject overflow and resource-exceeding work through checked arithmetic and the supplied budget.
    - Recommendation: Avoid an arbitrary new cap; use checked window/work preflight and return `BudgetExceeded` when the declared workload exceeds the caller budget.
 
 ## Environment Availability
