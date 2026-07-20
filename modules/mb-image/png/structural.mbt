@@ -292,6 +292,7 @@ fn _png_16bit_decode_budget(
   let row_bytes = match @checked.checked_mul(width, source_bytes_per_pixel) { Err(error) => return Err(error); Ok(value) => value }
   let rows = match @checked.checked_mul(row_bytes, 2UL) { Err(error) => return Err(error); Ok(value) => value }
   let bytes = match @checked.checked_add(image_bytes, rows) { Err(error) => return Err(error); Ok(value) => value }
+  let allocation_size = if image_bytes > row_bytes { image_bytes } else { row_bytes }
   let filtered_row = match @checked.checked_add(row_bytes, 1UL) { Err(error) => return Err(error); Ok(value) => value }
   let filtered = match @checked.checked_mul(filtered_row, height) { Err(error) => return Err(error); Ok(value) => value }
   let work = match @checked.checked_add(image_bytes, filtered) { Err(error) => return Err(error); Ok(value) => value }
@@ -300,7 +301,7 @@ fn _png_16bit_decode_budget(
     match _png_limit_value(context, requested, limit) { Err(error) => return Err(error); Ok(_) => () }
   }
   budget.child(@budget.ResourceLimits::new(
-    bytes~, allocations=3UL, allocation_size=image_bytes,
+    bytes~, allocations=3UL, allocation_size~,
     width~, height~, pixels~, depth=0UL, work=limits.max_work(),
   ))
 }
