@@ -52,12 +52,12 @@ Publication, registry-consumer proof, provenance closure, and any release automa
   3. A library user can resize an image with a documented nearest-neighbor algorithm and receives identical output for the same input on every supported target.
   4. A library user receives typed, deterministic errors when an operation is requested for an unsupported pixel format or incompatible image dimensions.
 
-**Plans**: 2 plans
+**Plans**: 1/2 plans executed
 
 Plans:
 **Wave 1**
 
-- [ ] 09-01-PLAN.md — Implement checked owned crop and explicit right-angle rotations with public behavior tests.
+- [x] 09-01-PLAN.md — Implement checked owned crop and explicit right-angle rotations with public behavior tests.
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
@@ -103,7 +103,7 @@ Plans:
 | 6. Namespace Authority and Compatibility Contract | v0.2 | 25/25 | Complete | 2026-07-18 |
 | 7. Release Safety, Intent, and Recovery Automation | v0.2 | 3/3 | Complete | 2026-07-18 |
 | 8. Ordered Mooncakes Publication and Registry Consumers | v0.2 | 34/36 | Deferred | 2026-07-20 |
-| 9. Checked Image Geometry and Diagnostics | v0.3 | 0/TBD | Not started | — |
+| 9. Checked Image Geometry and Diagnostics | v0.3 | 1/2 | In Progress|  |
 | 10. Alpha-Correct Pixel Processing | v0.3 | 0/TBD | Not started | — |
 | 11. Portable Processing Pipeline Evidence | v0.3 | 0/TBD | Not started | — |
 

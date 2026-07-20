@@ -8,15 +8,15 @@
 
 ### Geometry
 
-- [ ] **GEOM-01**: A library user can crop an image into a checked rectangular result without out-of-bounds access or integer-overflow allocation.
-- [ ] **GEOM-02**: A library user can flip an image horizontally or vertically and rotate it by right angles while preserving pixel semantics.
+- [x] **GEOM-01**: A library user can crop an image into a checked rectangular result without out-of-bounds access or integer-overflow allocation.
+- [x] **GEOM-02**: A library user can flip an image horizontally or vertically and rotate it by right angles while preserving pixel semantics.
 - [ ] **GEOM-03**: A library user can resize an image deterministically with a documented nearest-neighbor reference algorithm across all supported targets.
 
 ### Raster Operations
 
 - [ ] **RASTER-01**: A library user can composite one RGBA image over another using documented, alpha-correct source-over semantics.
 - [ ] **RASTER-02**: A library user can apply deterministic grayscale and box-blur filters with checked dimensions and bounded intermediate storage.
-- [ ] **RASTER-03**: A library user receives typed, deterministic errors for unsupported formats, invalid regions, incompatible dimensions, and resource limits.
+- [x] **RASTER-03**: A library user receives typed, deterministic errors for unsupported formats, invalid regions, incompatible dimensions, and resource limits.
 
 ### Integration and Evidence
 
@@ -44,17 +44,18 @@
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| GEOM-01 | Phase 9 | Pending |
-| GEOM-02 | Phase 9 | Pending |
+| GEOM-01 | Phase 9 | Complete |
+| GEOM-02 | Phase 9 | Complete |
 | GEOM-03 | Phase 9 | Pending |
 | RASTER-01 | Phase 10 | Pending |
 | RASTER-02 | Phase 10 | Pending |
-| RASTER-03 | Phase 9 | Pending |
+| RASTER-03 | Phase 9 | Complete |
 | INTEG-01 | Phase 11 | Pending |
 | INTEG-02 | Phase 11 | Pending |
 | INTEG-03 | Phase 11 | Pending |
 
 **Coverage:**
+
 - v0.3 requirements: 9 total
 - Mapped to phases: 9
 - Unmapped: 0
