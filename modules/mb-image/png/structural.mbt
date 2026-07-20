@@ -8,6 +8,14 @@ priv enum PngChunkState {
 } derive(Eq)
 
 ///|
+priv enum PngTransparency {
+  Opaque
+  Grayscale(Byte)
+  Rgb(Byte, Byte, Byte)
+  Indexed(Bytes)
+}
+
+///|
 fn _png_private_budget(length : UInt64) -> @budget.Budget {
   @budget.Budget::new(
     @budget.ResourceLimits::new(
@@ -317,6 +325,7 @@ fn _png_preflight_ihdr(
 fn _png_indexed_decode_budget(
   width : UInt64,
   height : UInt64,
+  channels : UInt64,
   limits : @codec.CodecLimits,
   budget : @budget.Budget,
 ) -> Result[@budget.Budget, @error.CoreError] {
@@ -324,7 +333,7 @@ fn _png_indexed_decode_budget(
     Err(error) => return Err(error)
     Ok(value) => value
   }
-  let image_bytes = match @checked.checked_mul(pixels, 3UL) {
+  let image_bytes = match @checked.checked_mul(pixels, channels) {
     Err(error) => return Err(error)
     Ok(value) => value
   }
@@ -350,6 +359,29 @@ fn _png_indexed_decode_budget(
   )
 }
 
+///| The transparent profiles retain the encoded row width while reserving RGBA8.
+fn _png_transparent_decode_budget(
+  width : UInt64,
+  height : UInt64,
+  source_channels : UInt64,
+  limits : @codec.CodecLimits,
+  budget : @budget.Budget,
+) -> Result[@budget.Budget, @error.CoreError] {
+  let pixels = match @checked.checked_mul(width, height) { Err(error) => return Err(error); Ok(value) => value }
+  let image_bytes = match @checked.checked_mul(pixels, 4UL) { Err(error) => return Err(error); Ok(value) => value }
+  let row_bytes = match @checked.checked_mul(width, source_channels) { Err(error) => return Err(error); Ok(value) => value }
+  let filtered = match @checked.checked_mul(row_bytes + 1UL, height) { Err(error) => return Err(error); Ok(value) => value }
+  let work = match @checked.checked_add(image_bytes, filtered) { Err(error) => return Err(error); Ok(value) => value }
+  for item in [("image-bytes", image_bytes, limits.max_output_bytes()), ("output-bytes", filtered, limits.max_output_bytes()), ("work", work, limits.max_work())] {
+    let (context, requested, limit) = item
+    match _png_limit_value(context, requested, limit) { Err(error) => return Err(error); Ok(_) => () }
+  }
+  budget.child(@budget.ResourceLimits::new(
+    bytes=image_bytes, allocations=1UL, allocation_size=image_bytes,
+    width~, height~, pixels~, depth=0UL, work=limits.max_work(),
+  ))
+}
+
 ///|
 fn _png_read_payload_and_crc(
   reader : &@io.Reader,
@@ -361,7 +393,8 @@ fn _png_read_payload_and_crc(
 ) -> Result[(Array[Byte], UInt64), @error.CoreError] {
   let data : Array[Byte] = []
   let capture_payload = _png_type_is(kind, b'I', b'H', b'D', b'R') ||
-    _png_type_is(kind, b'P', b'L', b'T', b'E')
+    _png_type_is(kind, b'P', b'L', b'T', b'E') ||
+    _png_type_is(kind, b't', b'R', b'N', b'S')
   let mut crc = _png_crc_for_type(kind)
   let mut cursor = consumed
   let mut index = 0UL
@@ -535,6 +568,7 @@ priv struct PngTransport {
   height : UInt64
   source_channels : UInt64
   channels : UInt64
+  transparency : PngTransparency
   idat : Bytes
   consumed : UInt64
 }
@@ -624,7 +658,7 @@ fn _png_read_transport(
           Err(error) => return Err(error)
           Ok(_) => ()
         }
-        return Ok({ width, height, source_channels, channels, idat: Bytes::from_array(idat), consumed })
+        return Ok({ width, height, source_channels, channels, transparency: PngTransparency::Opaque, idat: Bytes::from_array(idat), consumed })
       } else if is_idat {
         if state == PngChunkState::AfterIdat { return Err(_png_error("png-idat-contiguous")) }
         if state != PngChunkState::BeforeIdat && state != PngChunkState::InIdat { return Err(_png_error("png-idat-order")) }
@@ -663,6 +697,7 @@ priv struct PngStreamTransport {
   indexed : Bool
   palette : Bytes
   palette_entries : UInt64
+  transparency : PngTransparency
   budget : @budget.Budget
   source : PngIdatSource
 }
@@ -699,8 +734,8 @@ fn _png_read_stream_transport(
   let palette : Array[Byte] = []
   let mut palette_entries = 0UL
   let mut saw_palette = false
-  // This profile rejects semantic chunks; opaque ancillary chunks may occur
-  // before IDAT and are consumed one byte at a time without being retained.
+  let mut transparency = PngTransparency::Opaque
+  let mut saw_transparency = false
   while true {
     let (length, next_length) = match _png_read_u32(reader, scratch, consumed, limits) { Err(error) => return Err(error); Ok(value) => value }
     if length > 2147483647UL { return Err(_png_error("png-chunk-length")) }
@@ -708,24 +743,52 @@ fn _png_read_stream_transport(
     match _png_validate_type_form(kind) { Err(error) => return Err(error); Ok(_) => () }
     if _png_type_is(kind, b'I', b'D', b'A', b'T') {
       if indexed && !saw_palette { return Err(_png_error("png-plte-required")) }
+      let channels = match transparency { PngTransparency::Opaque => if ihdr[9] == 6 { 4UL } else { 3UL }; _ => 4UL }
       let output_budget = if indexed {
         match _png_indexed_decode_budget(
           (ihdr[0].to_int().to_uint64() << 24) | (ihdr[1].to_int().to_uint64() << 16) | (ihdr[2].to_int().to_uint64() << 8) | ihdr[3].to_int().to_uint64(),
           (ihdr[4].to_int().to_uint64() << 24) | (ihdr[5].to_int().to_uint64() << 16) | (ihdr[6].to_int().to_uint64() << 8) | ihdr[7].to_int().to_uint64(),
-          limits, budget,
+          channels, limits, budget,
+        ) { Err(error) => return Err(error); Ok(value) => value }
+      } else if channels == 4UL && ihdr[9] != 6 {
+        match _png_transparent_decode_budget(
+          (ihdr[0].to_int().to_uint64() << 24) | (ihdr[1].to_int().to_uint64() << 16) | (ihdr[2].to_int().to_uint64() << 8) | ihdr[3].to_int().to_uint64(),
+          (ihdr[4].to_int().to_uint64() << 24) | (ihdr[5].to_int().to_uint64() << 16) | (ihdr[6].to_int().to_uint64() << 8) | ihdr[7].to_int().to_uint64(),
+          if ihdr[9] == 0 { 1UL } else { 3UL }, limits, budget,
         ) { Err(error) => return Err(error); Ok(value) => value }
       } else { budget }
       return Ok({
         width: (ihdr[0].to_int().to_uint64() << 24) | (ihdr[1].to_int().to_uint64() << 16) | (ihdr[2].to_int().to_uint64() << 8) | ihdr[3].to_int().to_uint64(),
         height: (ihdr[4].to_int().to_uint64() << 24) | (ihdr[5].to_int().to_uint64() << 16) | (ihdr[6].to_int().to_uint64() << 8) | ihdr[7].to_int().to_uint64(),
         source_channels: if ihdr[9] == 0 || ihdr[9] == 3 { 1UL } else if ihdr[9] == 2 { 3UL } else { 4UL },
-        channels: if ihdr[9] == 6 { 4UL } else { 3UL },
+        channels,
         indexed,
         palette: Bytes::from_array(palette),
         palette_entries,
+        transparency,
         budget: output_budget,
         source: { reader, scratch, limits, options, consumed: next_type, remaining: length, crc: _png_crc_for_type(kind), crc_pending: true },
       })
+    }
+    if _png_type_is(kind, b't', b'R', b'N', b'S') {
+      if saw_transparency { return Err(_png_error("png-trns-order")) }
+      let (payload, next) = match _png_read_payload_and_crc(reader, scratch, length, kind, next_type, limits) { Err(error) => return Err(error); Ok(value) => value }
+      if ihdr[9] == 0 {
+        if length != 2UL { return Err(_png_error("png-trns-length")) }
+        if payload[0] != b'\x00' { return Err(_png_error("png-trns-sample")) }
+        transparency = PngTransparency::Grayscale(payload[1])
+      } else if ihdr[9] == 2 {
+        if length != 6UL { return Err(_png_error("png-trns-length")) }
+        if payload[0] != b'\x00' || payload[2] != b'\x00' || payload[4] != b'\x00' { return Err(_png_error("png-trns-sample")) }
+        transparency = PngTransparency::Rgb(payload[1], payload[3], payload[5])
+      } else if ihdr[9] == 3 {
+        if !saw_palette { return Err(_png_error("png-trns-order")) }
+        if length > palette_entries { return Err(_png_error("png-trns-length")) }
+        transparency = PngTransparency::Indexed(Bytes::from_array(payload))
+      } else { return Err(_png_error("png-semantic-chunk")) }
+      saw_transparency = true
+      consumed = next
+      continue
     }
     if _png_type_is(kind, b'P', b'L', b'T', b'E') {
       if !indexed { return Err(_png_error("png-semantic-chunk")) }
@@ -804,6 +867,7 @@ fn PngIdatSource::finish(self : PngIdatSource) -> Result[UInt64, @error.CoreErro
       let (_, next) = match _png_read_payload_and_crc(self.reader, self.scratch, length, kind, after_type, self.limits) { Err(error) => return Err(error); Ok(value) => value }
       match _png_require_eof(self.reader, self.scratch, next, self.limits) { Err(error) => return Err(error); Ok(_) => return Ok(next) }
     }
+    if _png_type_is(kind, b't', b'R', b'N', b'S') { return Err(_png_error("png-trns-order")) }
     if _png_type_is(kind, b'P', b'L', b'T', b'E') { return Err(_png_error("png-plte-order")) }
     if _png_is_known_semantic(kind) { return Err(_png_error("png-semantic-chunk")) }
     if _png_is_critical(kind) { return Err(_png_error("png-unknown-critical")) }

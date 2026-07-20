@@ -308,7 +308,7 @@ test "generated PNG decode vectors execute fixed and dynamic streams through Png
       @error.Diagnostics::new(),
     )
     if item.outcome == "accepted" {
-      let result = decoded.unwrap()
+      let result = match decoded { Ok(value) => value; Err(error) => fail("generated PNG accepted case failed: " + item.id + ": " + error.context().unwrap()) }
       let view = result.image().view()
       for y = 0UL; y < item.height; y = y + 1UL {
         for x = 0UL; x < item.width; x = x + 1UL {

@@ -65,7 +65,7 @@ pub impl @codec.ImageDecoder for PngDecoder with fn decode(
     Err(error) => return Err(error)
     Ok(value) => value
   }
-  let transport = PngTransport::{ width: stream.width, height: stream.height, source_channels: stream.source_channels, channels: stream.channels, idat: b"", consumed: 0UL }
+  let transport = PngTransport::{ width: stream.width, height: stream.height, source_channels: stream.source_channels, channels: stream.channels, transparency: stream.transparency, idat: b"", consumed: 0UL }
   let descriptor = match _png_descriptor(transport) {
     Err(error) => return Err(error)
     Ok(value) => value

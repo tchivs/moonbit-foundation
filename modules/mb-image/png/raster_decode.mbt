@@ -119,6 +119,7 @@ fn _png_write_indexed_pixel(
   index : Byte,
   palette : Bytes,
   palette_entries : UInt64,
+  transparency : PngTransparency,
 ) -> Result[Unit, @error.CoreError] {
   let entry = index.to_int().to_uint64()
   if entry >= palette_entries { return Err(_png_error("png-palette-index")) }
@@ -128,6 +129,13 @@ fn _png_write_indexed_pixel(
       Err(error) => return Err(error)
       Ok(_) => ()
     }
+  }
+  match transparency {
+    PngTransparency::Indexed(alpha) => {
+      let value = if entry < alpha.length().to_uint64() { alpha[entry.to_int()] } else { b'\xff' }
+      match view.set_byte(x, y, 3UL, value) { Err(error) => return Err(error); Ok(_) => () }
+    }
+    _ => ()
   }
   Ok(())
 }
@@ -139,6 +147,7 @@ fn _png_write_indexed_raster(
   height : UInt64,
   palette : Bytes,
   palette_entries : UInt64,
+  transparency : PngTransparency,
   filtered : Array[Byte],
   budget : @budget.Budget,
 ) -> Result[Unit, @error.CoreError] {
@@ -161,7 +170,7 @@ fn _png_write_indexed_raster(
         Err(error) => return Err(error)
         Ok(value) => value
       }
-      match _png_write_indexed_pixel(view, x, y, index, palette, palette_entries) {
+      match _png_write_indexed_pixel(view, x, y, index, palette, palette_entries, transparency) {
         Err(error) => return Err(error)
         Ok(_) => ()
       }
@@ -217,10 +226,23 @@ fn _png_write_raster(view : @storage.MutImageView, transport : PngTransport, fil
             Ok(_) => ()
           }
         }
+        match transport.transparency {
+          PngTransparency::Grayscale(key) => match view.set_byte(x, y, 3UL, if value.to_byte() == key { b'\x00' } else { b'\xff' }) { Err(error) => return Err(error); Ok(_) => () }
+          _ => ()
+        }
       } else {
         match view.set_byte(x, y, channel, value.to_byte()) {
           Err(error) => return Err(error)
           Ok(_) => ()
+        }
+        if channel == 2UL {
+          match transport.transparency {
+            PngTransparency::Rgb(red, green, blue) => {
+              let alpha = if view.get_byte(x, y, 0UL).unwrap() == red && view.get_byte(x, y, 1UL).unwrap() == green && value.to_byte() == blue { b'\x00' } else { b'\xff' }
+              match view.set_byte(x, y, 3UL, alpha) { Err(error) => return Err(error); Ok(_) => () }
+            }
+            _ => ()
+          }
         }
       }
       offset = offset + 1UL

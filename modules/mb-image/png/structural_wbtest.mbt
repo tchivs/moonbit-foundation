@@ -168,6 +168,15 @@ test "PNG grayscale IHDR charges RGB8 output and grayscale filtered work" {
 }
 
 ///|
+test "PNG tRNS reserves RGBA8 while retaining grayscale source-byte work" {
+  let limits = @codec.CodecLimits::new(max_probe_bytes=8UL, max_input_bytes=4096UL, max_output_bytes=40UL, max_width=16UL, max_height=16UL, max_pixels=256UL, max_work=55UL)
+  let exact = @budget.Budget::new(@budget.ResourceLimits::new(bytes=40UL, allocations=1UL, allocation_size=40UL, width=16UL, height=16UL, pixels=256UL, depth=0UL, work=55UL))
+  inspect(_png_transparent_decode_budget(2UL, 5UL, 1UL, limits, exact) is Ok(_), content="true")
+  let below = _png_transparent_decode_budget(2UL, 5UL, 1UL, @codec.CodecLimits::new(max_probe_bytes=8UL, max_input_bytes=4096UL, max_output_bytes=39UL, max_width=16UL, max_height=16UL, max_pixels=256UL, max_work=55UL), exact).unwrap_err()
+  inspect(below.context() == Some("image-bytes"), content="true")
+}
+
+///|
 test "PNG indexed IHDR accepts only the 8-bit non-interlaced RGB8 profile" {
   let indexed = [
     b'\x00', b'\x00', b'\x00', b'\x02', b'\x00', b'\x00', b'\x00', b'\x01',

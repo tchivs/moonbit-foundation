@@ -132,7 +132,7 @@ fn _png_inflate_zlib_to_raster(
           Err(error) => return Err(error)
           Ok(value) => value
         }
-        match _png_write_indexed_pixel(view, pixel_column, row, index, transport.palette, transport.palette_entries) {
+        match _png_write_indexed_pixel(view, pixel_column, row, index, transport.palette, transport.palette_entries, transport.transparency) {
           Err(error) => return Err(error)
           Ok(_) => ()
         }
@@ -146,11 +146,24 @@ fn _png_inflate_zlib_to_raster(
         let raw = byte.to_int()
         let value = if filter == 0 { raw } else if filter == 1 { raw + left } else if filter == 2 { raw + above } else if filter == 3 { raw + ((left + above) / 2) } else { raw + _png_paeth(left, above, upper_left) }
         if transport.source_channels == 1UL {
-        for output_channel = 0UL; output_channel < 3UL; output_channel = output_channel + 1UL {
-          match view.set_byte(x, row, output_channel, value.to_byte()) { Err(error) => return Err(error); Ok(_) => () }
-        }
+          for output_channel = 0UL; output_channel < 3UL; output_channel = output_channel + 1UL {
+            match view.set_byte(x, row, output_channel, value.to_byte()) { Err(error) => return Err(error); Ok(_) => () }
+          }
+          match transport.transparency {
+            PngTransparency::Grayscale(key) => match view.set_byte(x, row, 3UL, if value.to_byte() == key { b'\x00' } else { b'\xff' }) { Err(error) => return Err(error); Ok(_) => () }
+            _ => ()
+          }
         } else {
-        match view.set_byte(x, row, channel, value.to_byte()) { Err(error) => return Err(error); Ok(_) => () }
+          match view.set_byte(x, row, channel, value.to_byte()) { Err(error) => return Err(error); Ok(_) => () }
+          if channel == 2UL {
+            match transport.transparency {
+              PngTransparency::Rgb(red, green, blue) => {
+                let alpha = if view.get_byte(x, row, 0UL).unwrap() == red && view.get_byte(x, row, 1UL).unwrap() == green && value.to_byte() == blue { b'\x00' } else { b'\xff' }
+                match view.set_byte(x, row, 3UL, alpha) { Err(error) => return Err(error); Ok(_) => () }
+              }
+              _ => ()
+            }
+          }
         }
       }
       column = column + 1UL
