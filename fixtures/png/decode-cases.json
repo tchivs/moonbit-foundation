@@ -7,6 +7,9 @@
     {"id":"hostile-zlib-header","outcome":"error","block":"hostile","width":1,"height":1,"colour_type":2,"zlib_hex":"7800","idat_splits":[2],"context":"zlib-header"},
     {"id":"hostile-truncated-deflate","outcome":"error","block":"hostile","width":1,"height":1,"colour_type":2,"zlib_hex":"7801","idat_splits":[2],"context":"zlib-truncated"},
     {"id":"hostile-adler","outcome":"error","block":"hostile","width":1,"height":1,"colour_type":2,"zlib_hex":"7801010400fbff0012345600f8009c","idat_splits":[15],"context":"zlib-adler"},
-    {"id":"hostile-filter","outcome":"error","block":"hostile","width":1,"height":1,"colour_type":2,"zlib_hex":"7801010400fbff05123456014d00a4","idat_splits":[15],"context":"png-filter"}
+    {"id":"hostile-filter","outcome":"error","block":"hostile","width":1,"height":1,"colour_type":2,"zlib_hex":"7801010400fbff05123456014d00a4","idat_splits":[15],"context":"png-filter"},
+    {"id":"hostile-dynamic-incomplete-tree","outcome":"error","block":"dynamic","width":1,"height":1,"colour_type":2,"zlib_hex":"78010500020000000000","idat_splits":[1,9],"context":"deflate-incomplete-tree"},
+    {"id":"hostile-fixed-distance-before-history","outcome":"error","block":"fixed","width":1,"height":1,"colour_type":2,"zlib_hex":"78010302","idat_splits":[2,2],"context":"deflate-distance"},
+    {"id":"hostile-filtered-output-expansion","outcome":"limit","block":"stored","width":1,"height":1,"colour_type":2,"zlib_hex":"7801010500faff001234567800000000","idat_splits":[16],"max_output":4,"context":"output-bytes"}
   ]
 }
