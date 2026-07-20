@@ -148,7 +148,7 @@ Plans:
 | 16. QOI Policy and Public Example Quality Alignment | v0.4 | 1/1 | Complete | 2026-07-20 |
 | 17. Resumable QOI Chunk Decode | v0.5 | 1/1 | Complete    | 2026-07-20 |
 | 18. Resumable QOI Buffer Encode | v0.5 | 1/1 | Complete    | 2026-07-20 |
-| 19. Portable Streaming QOI Evidence | v0.5 | 1/1 | Complete | 2026-07-20 |
+| 19. Portable Streaming QOI Evidence | v0.5 | 1/1 | Complete    | 2026-07-20 |
 
 ### Phase 12: Strict PPM End-to-End Filter Coverage
 
