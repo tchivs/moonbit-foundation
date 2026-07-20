@@ -118,3 +118,40 @@ test "processing pipeline insufficient resource leaves budget unchanged" {
   }
   inspect(processing_pipeline_unchanged(before, budget.remaining()), content="true")
 }
+
+///|
+test "processing pipeline box blur insufficient work leaves budget unchanged" {
+  let foreground = processing_pipeline_rgb_image(3UL, 3UL, [
+    b'\x01', b'\x02', b'\x03', b'\x00', b'\x00', b'\x00', b'\xff', b'\xff', b'\xff',
+    b'\x04', b'\x05', b'\x06', b'\x40', b'\x40', b'\x40', b'\xc0', b'\xc0', b'\xc0',
+    b'\x07', b'\x08', b'\x09', b'\x80', b'\x80', b'\x80', b'\x20', b'\x20', b'\x20',
+  ])
+  let cropped = crop(
+    foreground.view(), @model.Rect::new(1UL, 0UL, 2UL, 3UL).unwrap(),
+    processing_pipeline_limits(18UL, 1UL, 18UL, 2UL, 3UL, 6UL, 0UL, 18UL),
+  ).unwrap()
+  let rotated = rotate_90(
+    cropped.image().view(),
+    processing_pipeline_limits(18UL, 1UL, 18UL, 3UL, 2UL, 6UL, 0UL, 18UL),
+  ).unwrap()
+  let source_rgba = rgb8_to_straight_rgba8(
+    rotated.image().view(),
+    processing_pipeline_limits(24UL, 1UL, 24UL, 3UL, 2UL, 6UL, 0UL, 24UL),
+  ).unwrap()
+  let grayscale_result = grayscale(
+    source_rgba.image().view(),
+    processing_pipeline_limits(24UL, 1UL, 24UL, 3UL, 2UL, 6UL, 0UL, 6UL),
+  ).unwrap()
+  let budget = processing_pipeline_limits(24UL, 1UL, 24UL, 3UL, 2UL, 6UL, 0UL, 53UL)
+  let before = budget.remaining()
+  match box_blur(grayscale_result.image().view(), 1UL, budget) {
+    Err(error) => {
+      inspect(error.category() == @error.ErrorCategory::Resource, content="true")
+      inspect(error.code() == @error.ErrorCode::BudgetExceeded, content="true")
+      inspect(error.operation() == Some("image-box-blur"), content="true")
+      inspect(error.context() == Some("image-box-blur-output-budget"), content="true")
+    }
+    Ok(_) => fail("53-work radius-one blur must reject")
+  }
+  inspect(processing_pipeline_unchanged(before, budget.remaining()), content="true")
+}
