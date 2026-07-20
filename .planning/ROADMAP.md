@@ -122,5 +122,16 @@ Plans:
 | 10. Alpha-Correct Pixel Processing | v0.3 | 2/2 | Complete   | 2026-07-20 |
 | 11. Portable Processing Pipeline Evidence | v0.3 | 3/3 | Complete   | 2026-07-20 |
 
+### Phase 12: Strict PPM End-to-End Filter Coverage
+
+**Goal:** [To be planned]
+**Requirements**: TBD
+**Depends on:** Phase 11
+**Plans:** 0 plans
+
+Plans:
+
+- [ ] TBD (run /gsd-plan-phase 12 to break down)
+
 ---
 *Roadmap updated: 2026-07-20 for v0.3 Image Processing Core planning*
