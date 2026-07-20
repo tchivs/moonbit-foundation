@@ -47,6 +47,12 @@ function Expected-Hex([object]$Case) {
   for ($i = 0; $i -lt [int]$Case.repeat; $i++) { $result += [string]$Case.expected_repeat_hex }
   return $result
 }
+function Source-Hex([object]$Case) {
+  if ($null -ne $Case.PSObject.Properties['pixels_hex']) { return [string]$Case.pixels_hex }
+  $result = ''
+  for ($i = 0; $i -lt [int]$Case.repeat; $i++) { $result += [string]$Case.pixels_repeat_hex }
+  return $result
+}
 
 $data = Get-Content -Raw -LiteralPath $CasesPath | ConvertFrom-Json
 $lines = [System.Collections.Generic.List[string]]::new()
@@ -57,6 +63,15 @@ $lines.Add('fn _generated_qoi_cases() -> Array[(String, Bytes, Bytes, UInt64, UI
 $lines.Add('  [')
 foreach ($case in $data.valid_cases) {
   $lines.Add(('    ("{0}", {1}, {2}, {3}UL, {4}UL, {5}UL, {6}UL),' -f $case.id, (Bytes-Literal ([string]$case.stream_hex)), (Bytes-Literal (Expected-Hex $case)), $case.width, $case.height, $case.channels, $case.colorspace))
+}
+$lines.Add('  ]')
+$lines.Add('}')
+$lines.Add('')
+$lines.Add('///|')
+$lines.Add('fn _generated_qoi_encode_cases() -> Array[(String, Bytes, UInt64, UInt64, UInt64, UInt64, Bytes)] {')
+$lines.Add('  [')
+foreach ($case in $data.encode_cases) {
+  $lines.Add(('    ("{0}", {1}, {2}UL, {3}UL, {4}UL, {5}UL, {6}),' -f $case.id, (Bytes-Literal (Source-Hex $case)), $case.width, $case.height, $case.channels, $case.colorspace, (Bytes-Literal ([string]$case.expected_stream_hex))))
 }
 $lines.Add('  ]')
 $lines.Add('}')
@@ -87,7 +102,7 @@ $record = [ordered]@{
   source='https://qoiformat.org/qoi-specification.pdf (QOI 1.0, 2022-01-05) plus repository-derived adversarial schedules'
   author='MoonBit Native Foundation project generator'; retrieval_date='2026-07-20'; sha256=$digest
   license='Apache-2.0'; redistribution_status='not-applicable'
-  expected_use='QOI-01, QOI-02, and QOI-04 portable QOI 1.0 canonical, adversarial, and forward-reader conformance'
+  expected_use='QOI-01, QOI-02, QOI-03, QOI-04, and QOI-05 portable QOI 1.0 canonical encode, decode, adversarial, and forward-reader conformance'
 }
 $colorIds = @('color-srgb-reference-vectors', 'color-derived-edge-vectors')
 $records = @($manifest.records | Where-Object { $_.id -cne $record.id -and $_.id -cnotin $colorIds }) + @($record) + @($manifest.records | Where-Object { $_.id -cin $colorIds })

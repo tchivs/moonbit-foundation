@@ -55,10 +55,10 @@
       "source": "https://qoiformat.org/qoi-specification.pdf (QOI 1.0, 2022-01-05) plus repository-derived adversarial schedules",
       "author": "MoonBit Native Foundation project generator",
       "retrieval_date": "2026-07-20",
-      "sha256": "79cd80b9bf81faf6b4a77ec6cc9213ef500aab96359314b519a17b7defe3dcb8",
+      "sha256": "4a98b2c4a41ff0489076c929833cc8622d86847b44b57782caefaf7643979802",
       "license": "Apache-2.0",
       "redistribution_status": "not-applicable",
-      "expected_use": "QOI-01, QOI-02, and QOI-04 portable QOI 1.0 canonical, adversarial, and forward-reader conformance"
+      "expected_use": "QOI-01, QOI-02, QOI-03, QOI-04, and QOI-05 portable QOI 1.0 canonical encode, decode, adversarial, and forward-reader conformance"
     },
     {
       "id": "color-srgb-reference-vectors",

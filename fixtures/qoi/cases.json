@@ -15,6 +15,19 @@
     { "id": "run-one", "width": 1, "height": 1, "channels": 4, "colorspace": 0, "stream_hex": "716f696600000001000000010400c00000000000000001", "pixels_hex": "000000ff" },
     { "id": "run-max", "width": 62, "height": 1, "channels": 4, "colorspace": 0, "stream_hex": "716f69660000003e000000010400fd0000000000000001", "expected_repeat_hex": "000000ff", "repeat": 62 }
   ],
+  "encode_cases": [
+    { "id": "rgb-luma-first", "width": 1, "height": 1, "channels": 3, "colorspace": 0, "pixels_hex": "010203", "expected_stream_hex": "716f696600000001000000010300a2790000000000000001" },
+    { "id": "rgba-fallback-linear", "width": 1, "height": 1, "channels": 4, "colorspace": 1, "pixels_hex": "04050607", "expected_stream_hex": "716f696600000001000000010401ff040506070000000000000001" },
+    { "id": "index-initial-transparent", "width": 1, "height": 1, "channels": 4, "colorspace": 0, "pixels_hex": "00000000", "expected_stream_hex": "716f696600000001000000010400000000000000000001" },
+    { "id": "index-reuse", "width": 3, "height": 1, "channels": 3, "colorspace": 0, "pixels_hex": "010203040506010203", "expected_stream_hex": "716f696600000003000000010300a279a388170000000000000001" },
+    { "id": "index-collision", "width": 3, "height": 1, "channels": 4, "colorspace": 0, "pixels_hex": "000000ff010108ff000000ff", "expected_stream_hex": "716f696600000003000000010400c0a18f9f810000000000000001" },
+    { "id": "diff-byte-wrap", "width": 2, "height": 1, "channels": 3, "colorspace": 0, "pixels_hex": "ffffff00ffff", "expected_stream_hex": "716f696600000002000000010300557a0000000000000001" },
+    { "id": "luma", "width": 2, "height": 1, "channels": 3, "colorspace": 0, "pixels_hex": "010203040506", "expected_stream_hex": "716f696600000002000000010300a279a3880000000000000001" },
+    { "id": "run-one", "width": 1, "height": 1, "channels": 4, "colorspace": 0, "pixels_hex": "000000ff", "expected_stream_hex": "716f696600000001000000010400c00000000000000001" },
+    { "id": "run-max", "width": 62, "height": 1, "channels": 4, "colorspace": 0, "pixels_repeat_hex": "000000ff", "repeat": 62, "expected_stream_hex": "716f69660000003e000000010400fd0000000000000001" },
+    { "id": "run-boundary-63", "width": 63, "height": 1, "channels": 4, "colorspace": 0, "pixels_repeat_hex": "000000ff", "repeat": 63, "expected_stream_hex": "716f69660000003f000000010400fdc00000000000000001" },
+    { "id": "rgb-fallback", "width": 1, "height": 1, "channels": 3, "colorspace": 0, "pixels_hex": "808080", "expected_stream_hex": "716f696600000001000000010300fe8080800000000000000001" }
+  ],
   "adversarial_cases": [
     { "id": "bad-magic", "error": "qoi-magic" },
     { "id": "zero-width", "error": "qoi-dimensions" },
