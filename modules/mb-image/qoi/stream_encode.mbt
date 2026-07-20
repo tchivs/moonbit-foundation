@@ -22,11 +22,11 @@ pub fn QoiStreamEncoder::new(
   budget : @budget.Budget,
   _diagnostics : @error.Diagnostics,
 ) -> Result[QoiStreamEncoder, @error.CoreError] {
-  let (channels, color_space, total) = match qoi_encode_preflight(source, limits, budget) {
+  let disposition = match qoi_empty_disposition() {
     Err(error) => return Err(error)
     Ok(value) => value
   }
-  let disposition = match qoi_empty_disposition() {
+  let (channels, color_space, total) = match qoi_encode_preflight(source, limits, budget) {
     Err(error) => return Err(error)
     Ok(value) => value
   }
