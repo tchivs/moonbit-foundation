@@ -1,237 +1,158 @@
 # Project Research Summary
 
-**Project:** MoonBit Native Foundation — v0.2 Publication & Compatibility
-**Domain:** High-integrity MoonBit registry publication, provenance, and public API compatibility
-**Researched:** 2026-07-17
+**Project:** MoonBit Native Foundation — v0.6 PNG Interchange
+**Domain:** Bounded, pure-MoonBit portable PNG RGB/RGBA interchange
+**Researched:** 2026-07-20
 **Confidence:** MEDIUM
 
 ## Executive Summary
 
-v0.2 is a publication-integrity milestone, not a feature release. The already-qualified `mb-core`, `mb-color`, and `mb-image` candidates must become genuinely published, independently resolvable Mooncakes modules without weakening the v0.1 Required gate. The expert approach is to preserve the existing MoonBit and PowerShell quality architecture, add a credential-free release-preparation plane, and place the one irreversible registry mutation behind a small, serialized, manually authorized publisher.
+v0.6 is a deliberately narrow, interoperable PNG codec for the existing `mb-image` module—not a general PNG implementation. It should expose eager `PngDecoder` and `PngEncoder` through the established codec traits while implementing a private, forward-only streaming pipeline. The supported decode profile is static, non-interlaced 8-bit truecolour PNG (types 2 and 6) with all five PNG filters and all legal zlib/DEFLATE block forms. It maps directly to existing `rgb8` and straight-`rgba8` images and returns no `DecodeResult` until PNG framing, CRCs, Adler-32, row accounting, IEND, and trailing-input checks succeed.
 
-The recommended chain is deliberately strict: verify the real namespace and canonical names; freeze toolchain-owned `.mbti` compatibility baselines and major-zero change rules; qualify deterministic package inputs; publish and externally consume `mb-core`; then do the same for `mb-color`; then `mb-image`; finally bind source, package digests, registry observations, consumer results, interfaces, and workflow identity into verified provenance and an immutable release ledger. A successful CLI exit, workspace build, generated attestation, or matching version string is never sufficient evidence by itself.
+Keep the work pure MoonBit and inside `tchivs/mb-image`: a narrowly scoped `deflate` package supplies bounded zlib/DEFLATE; a `png` package owns framing, raster handling, and codec integration. Reuse `mb-core` checked arithmetic, budgets, bytes, I/O, diagnostics, plus existing image storage/metadata contracts. Do not add a registry, FFI, a generic compression module, a whole-IDAT buffer, or a public resumable-PNG API.
 
-The dominant risk is unknown external state. Current official MoonBit documentation does not fully specify Mooncakes organization delegation, non-interactive authentication, token scope/revocation, duplicate-publication behavior, version immutability, propagation timing, destructive recovery, or a registry-side package digest. These are not assumptions to fill in: they are live-probe gates. Until each relevant behavior is documented or safely observed, automation must fail closed, query before retry, preserve partial success, and correct forward with a new version rather than overwrite history. No graphics, document, media, AI, MCP, or other module family belongs in v0.2.
+The dominant risks are hostile-input correctness and false claims of PNG compatibility: arbitrary IDAT boundaries, malformed dynamic Huffman trees, overflow before limit checks, checksum layering, and silent colour/metadata loss. Mitigate them through one logical IDAT byte source, checked preflight before allocation or writes, a 32 KiB DEFLATE history ring, atomic eager results, adversarial split-boundary fixtures, and four-target exact-output evidence. The milestone must describe itself as an RGB/RGBA subset and reject unsupported semantic inputs explicitly.
 
 ## Key Findings
 
 ### Recommended Stack
 
-Keep the exact v0.1 MoonBit line and the existing PowerShell 7 Required pipeline as the release authority. Add project-owned compatibility, publication, and evidence scripts rather than a general-purpose release bot. GitHub Actions supplies protected environments, serialization, SHA-pinned execution, and artifact attestations; it does not supply Mooncakes authentication unless Mooncakes explicitly implements a trusted-publishing contract.
+Use the pinned MoonBit toolchain (`moon 0.1.20260713`) and retain `+js+wasm+wasm-gc+native`. Existing MNF primitives already provide the capability boundary needed for a hostile binary codec: `checked` for all derived geometry and accounting, `budget` for shared resource authority, `bytes`/`io` for bounded forward progress, and `codec`/`storage`/`metadata`/`mb-color` for the stable image contract.
 
 **Core technologies:**
 
-- `moon 0.1.20260713` / `moonc v0.10.4` / `moonrun 0.1.20260713`: package, publish, resolve, generate `.mbti`, and verify four targets — retain the exact pin until the publication chain closes.
-- PowerShell `7.6.3`: closed JSON policies, fail-closed orchestration, hashing, evidence, and cleanup — extend the established strict-mode scripts.
-- Git and deterministic clean clones: bind one clean commit/tag to package bytes, interfaces, and evidence — reject dirty or identity-drifting candidates.
-- GitHub Actions protected environment and one global concurrency group: expose the publisher credential only after authorization and never cancel a running mutation.
-- SHA-pinned `actions/attest` plus `gh attestation verify`: attest and independently verify exact artifacts and the evidence manifest — provenance remains distinct from correctness and registry equality.
-- `moon info --target all --frozen`: generate the public interface facts for committed compatibility baselines — project policy classifies changes because no official semantic-diff verdict is available.
+- `tchivs/mb-image/deflate`: private bit I/O, zlib wrapper, canonical-Huffman validation, complete DEFLATE decode, Adler-32, and a 32 KiB history ring.
+- `tchivs/mb-image/png`: public `PngDecoder`/`PngEncoder`, framing/CRC state, IDAT adapter, scanline filtering, canonical output, and codec diagnostics.
+- `tchivs/mb-core/checked`, `budget`, `bytes`, and `io`: mandatory checked arithmetic, precharged limits, fixed scratch ownership, and short-progress-safe reader/writer handling.
+- Existing `mb-image` storage/model/codec and `mb-color` profile types: direct RGB8/RGBA8, encoded-sRGB, straight-alpha integration with no new image representation.
 
-Detailed stack decisions are in [STACK.md](STACK.md).
+**Resolved encoder-policy tension:** STACK/ARCHITECTURE propose fixed-Huffman literal-only output, while FEATURES/PITFALLS propose stored DEFLATE blocks. Choose **stored DEFLATE blocks** for v0.6. They are equally standards-conformant and deterministic, but avoid an encoder Huffman bitstream implementation while the decoder still must support stored, fixed, and dynamic blocks for interoperability. Freeze one source-level stored-block maximum and fixed IDAT payload size (32 KiB recommended) before golden fixtures are accepted; use zlib `0x78 0x01`, filter `None`, no ancillary chunks, and no LZ matching. Fixed-Huffman encoding is a later size optimization, not a v0.6 requirement.
 
 ### Expected Features
 
 **Must have (table stakes):**
 
-- Verified owner namespace and canonical module identities, recorded without credentials.
-- Exact independent module versions and dependency manifests with no path or workspace substitution.
-- Deterministic package inventory and archive digests before any registry write.
-- Machine-checked `.mbti` baselines and stricter-than-default major-zero change rules.
-- One monotonic core → color → image publication state machine with observe-before-act recovery.
-- Fresh registry-only consumers for each module layer, including the complete graph on `js`, `wasm`, `wasm-gc`, and `native`.
-- Least-privilege credential isolation, full-SHA action pins, immutable attempt records, support/security contacts, changelogs, and migration notes.
-- Post-publication registry observation and provenance verification against expected source/workflow identity.
+- Non-consuming eight-byte probe with deterministic `NeedMore` and probe limit enforcement.
+- Decode only IHDR `(depth=8, type=2|6, compression=0, filter=0, interlace=0)`; reconstruct filters 0–4.
+- Validate signature; exactly one first IHDR; checked positive geometry; CRC for every processed chunk; contiguous IDAT; one empty IEND; and no trailing bytes after IEND.
+- Treat all IDAT payloads as one zlib stream, regardless of chunk, block, checksum, or row boundaries.
+- Validate zlib CMF/FLG/FCHECK and Adler-32, reject FDICT, and decode stored/fixed/dynamic DEFLATE with bounded canonical-Huffman and distance validation.
+- Enforce input, chunk, dimensions, pixels, output, work, allocation, and scanline limits before and during processing; never expose a partial image.
+- Encode compatible packed top-left builtin encoded-sRGB RGB8/RGBA8 images to one exact byte sequence, after a zero-write preflight.
 
 **Should have (differentiators):**
 
-- A source-to-registry evidence chain joining commit, Required digest, deterministic archive, interface baseline, registry resolution, consumer result, and attestation.
-- Fail-closed interface classification that rejects unknown syntax or ambiguous behavioral impact.
-- Resumable monotonic publication that preserves a valid lower-layer release when a dependent module fails.
-- A small, versioned, consumer-readable release manifest and rehearsed recovery negatives before credentials are enabled.
+- Private streaming internals behind the established eager public traits, avoiding both full-input staging and premature public streaming-state API.
+- Small, provenance-tagged adversarial fixtures that split each meaningful zlib/DEFLATE/filter/checksum boundary.
+- A public four-target `decode → flip_horizontal → encode` example that reports stable dimensions, digest, byte count, and metadata disposition.
 
-**Defer beyond v0.2:**
+**Defer (v2+):**
 
-- Every new graphics, document, media, AI, MCP, GPU, or integration module family.
-- Stable `1.0.0`, long-term support promises, or compatibility beyond the tested toolchain and targets.
-- A generic multi-ecosystem release platform, automatic destructive registry recovery, broad SBOM/vulnerability machinery, or a custom signing scheme.
+- Grayscale, palette, `tRNS`, 16-bit samples, Adam7, colour-management/HDR chunks, text/EXIF preservation, APNG, public resumable PNG I/O, compression optimization, benchmarks, FFI, and registry/release work.
 
-Detailed scope and acceptance evidence are in [FEATURES.md](FEATURES.md).
+**Resolved metadata-policy tension:** known colour-, pixel-, or animation-affecting chunks (`PLTE`, `tRNS`, colour-management/HDR, APNG) are rejected, never ignored. Unknown ancillary chunks are CRC-checked and may be discarded only when opaque-metadata preservation is disabled, with lossy `MetadataDisposition`; preservation requested means failure. Unknown critical chunks always fail.
 
 ### Architecture Approach
 
-Keep the runtime architecture unchanged and add a release-control plane around it. Qualification and publication are separate trust domains: the large Required job stays credential-free and read-only; a release intent fixes HEAD, module/version DAG, package digests, interface digests, authority evidence, and order; an explicit sole-owner authorization releases one exact intent to a minimal publisher; a journaled orchestrator publishes and verifies each dependency layer; provenance and immutable release closure happen only after all clean registry consumers pass.
+Retain the existing `ImageDecoder`/`ImageEncoder` seam. Decode flows `PngInput → ChunkMachine → IdatByteSource → ZlibDecoder → DeflateDecoder → FilteredScanlineSink → private OwnedImage`; only terminal validation can turn that private image into a result. Encode flows `ImageView preflight → ScanlineSource → StoredDeflateWriter → ZlibWriter → IdatChunkWriter → Writer`. `png` depends on `deflate`; neither reverses dependencies into `mb-core` or `mb-color`.
 
 **Major components:**
 
-1. **Namespace authority and release-intent contracts** — closed records for owner facts, exact HEAD, versions, dependency order, candidate digests, interface digests, and authorization.
-2. **Compatibility baseline and diff gate** — pinned `.mbti` generation, minimal normalization, closed package/target sets, version/RFC classification, and negative corpus.
-3. **Credential-free preparation** — the full existing Required lane, deterministic two-copy packaging, candidate reports, and provenance inputs.
-4. **Publication authority and publisher adapter** — one exact intent approval and the only boundary allowed to materialize Mooncakes credentials.
-5. **Monotonic publication journal** — fixed module transitions, external-state reconciliation, bounded propagation observation, and no blind retries.
-6. **Registry consumer verifier** — cold external projects without `moon.work`, path dependencies, copied sources, Git fallbacks, warm caches, or publisher credentials.
-7. **Provenance and immutable finalizer** — attest exact artifacts/evidence, verify trusted identity, seal the release ledger, and promote published compatibility baselines.
-8. **Recovery/supersession controller** — preserve evidence and partial success, then correct forward; never assume overwrite, yank, delete, or tag movement.
-
-Detailed boundaries and data flow are in [ARCHITECTURE.md](ARCHITECTURE.md).
+1. **ChunkMachine and IdatByteSource** — signature, chunk ordering/CRC/limits, and a continuous logical IDAT stream.
+2. **Zlib/DeflateDecoder** — bit state, stored/fixed/dynamic blocks, canonical trees, history, Adler-32, and output/work enforcement.
+3. **FilteredScanlineSink** — exact decompressed-byte count, filter tag plus RGB/RGBA row reconstruction, two row buffers, and writes to a private image.
+4. **PngOutput stack** — source preflight, exact big-endian PNG framing, filter-None rows, deterministic stored blocks, fixed IDAT partitioning, CRC-32, and Adler-32.
 
 ### Critical Pitfalls
 
-1. **Workspace substitution masquerades as registry success** — authoritative consumers must live outside the repository, use exact registry versions, isolate cache/home state, and record dependency trees plus four-target results.
-2. **A timeout is treated as a failed publish** — enter an explicit unknown-outcome state, query the registry with bounded observation, and never retry or bump versions before reconciling external facts.
-3. **Modules publish in parallel or before dependencies are consumable** — serialize publish → resolve → consume for core, then color, then image; partial verified success is valid resumable state.
-4. **Credentialed jobs execute broad or mutable code** — keep Required credential-free, use a protected environment and trusted ref, pin actions by full SHA, and expose the registry credential only to the publish step.
-5. **Concurrent/cancelled workflows split a release** — use one global publication concurrency group, disable cancellation after mutation begins, and checkpoint observations immediately.
-6. **Tag, manifest, baseline, changelog, and artifact refer to different commits** — one clean release intent must close every identifier and digest before authorization.
-7. **Provenance is generated but not verified meaningfully** — verify exact subject digest and expected repository, workflow, builder, commit, parameters, and dependencies outside the producer job.
-8. **`.mbti` text equality is mistaken for semantic compatibility** — pin and normalize conservatively, fail closed on unknown diffs, and retain black-box/conformance/consumer behavioral evidence.
-
-The complete failure catalog and ownership map are in [PITFALLS.md](PITFALLS.md).
+1. **Treating IDAT boundaries as codec boundaries** — expose one resumable IDAT byte source to zlib; test splits inside every meaningful format boundary.
+2. **Overflow or allocation before limit enforcement** — derive every geometry/output/work value with checked arithmetic and charge `Budget` before image allocation or writer mutation.
+3. **Malformed dynamic trees or invalid distances** — bound repeat codes and alphabets, reject incomplete/oversubscribed/reserved cases, enforce `distance <= produced` and `<= 32768`, and copy overlap through the history rule.
+4. **Checksum/terminal validation drift** — keep PNG CRC-32 (type+data) separate from zlib Adler-32 (uncompressed bytes); require exact output byte count, all CRCs, IEND, and strict EOF before success.
+5. **Wrong byte-based filter arithmetic or semantic loss** — use bpp 3/4 bytes, two zero-initialized row buffers, wider predictor arithmetic, and explicit capability/metadata failures.
 
 ## Implications for Roadmap
 
-The v0.1 roadmap ended at Phase 5. Continue numbering from Phase 6 with four phases.
+### Phase 20: PNG Structural Core and Capability Gate
 
-### Phase 6: Namespace Authority and Compatibility Contract
+**Rationale:** The accepted profile, framing state, and every allocation bound must be unambiguous before DEFLATE can cause work or image storage.
 
-**Rationale:** Identity, names, version rules, and compatibility oracles must be fixed before building any credentialed automation or publishing irreversible versions.
+**Delivers:** `png` package shape; public non-consuming probe; incremental signature/chunk parser; CRC-32; legal chunk/type/order state; contiguous-IDAT policy; known/unknown ancillary disposition; strict IEND/trailing-byte rule; IHDR subset gate; checked geometry/output/work preflight; and adversarial framing fixtures.
 
-**Delivers:**
+**Addresses:** codec parity, complete framing/integrity validation, checked resource accounting, and explicit metadata policy.
 
-- live, sanitized namespace/authority evidence and canonical module names;
-- explicit classification of every Mooncakes claim as documented, observed, or unknown;
-- safe disposable probes for owner-prefix/permission, dry-run fidelity, credential representation, and `.mbti` reproducibility;
-- committed per-module/package compatibility baselines with toolchain and digest manifests;
-- strict candidate-version, migration-note, dependency-floor, target, and RFC rules;
-- negative corpus for additive, incompatible, target-specific, alias/order, and unknown interface changes.
+**Avoids:** chunk-length allocation, silent semantic loss, mismatched probe/decode behavior, CRC scope mistakes, and geometry overflow.
 
-**Addresses:** verified identity, exact manifests, public API baselines, candidate evolution rules, metadata/support/changelog contracts.
+### Phase 21: Bounded zlib/DEFLATE Decode and Raster Pipeline
 
-**Avoids:** wrong namespace, unstable baseline, major-zero arbitrary breakage, undocumented claims, and incompatible patch releases.
+**Rationale:** Interoperable decoding depends on a complete bounded inflater; it is the highest-risk implementation and must be proved independently before PNG raster integration claims success.
 
-### Phase 7: Release Safety, Intent, and Recovery Automation
+**Delivers:** private `deflate` bit reader; zlib header/FDICT/Adler handling; stored/fixed/dynamic block decoder; canonical tree validation; 32 KiB history; output/work sink; logical IDAT adapter; filters 0–4; private `OwnedImage` construction; terminal atomic `DecodeResult`; RGB/RGBA corpus and split schedules.
 
-**Rationale:** The publisher must enforce a closed intent and proven recovery model before it receives production credentials.
+**Addresses:** ordinary PNG interoperability across external DEFLATE strategies, all filters, eager atomic decode, and bounded internal streaming.
 
-**Delivers:**
+**Avoids:** IDAT desynchronization, Huffman/distance acceptance bugs, expansion abuse, incorrect Paeth/Average behavior, and partial-success leakage.
 
-- closed release-intent, publication-policy, journal, evidence, and compatibility schemas;
-- Required integration that retains every applicable v0.1 selector and adds workflow/interface/recovery negatives;
-- credential-free preparation joining HEAD, Required digest, package bytes, interface digests, versions, and authority evidence;
-- minimal publisher adapter behind the validated authentication seam;
-- protected-environment policy, full-SHA action pins, least permissions, global serialization, and no cancellation after mutation;
-- monotonic observe-before-act state machine with bounded propagation handling and recovery rehearsals for timeout, partial success, mismatched existing version, invalid credentials, and evidence failure.
+### Phase 22: Canonical Stored-Block Encoding and Portable Qualification
 
-**Uses:** PowerShell 7, pinned MoonBit, Git clean clones, GitHub environments/concurrency, and project-owned JSON policies.
+**Rationale:** Encoding should follow proven decode/storage contracts and start only with a frozen deterministic byte policy—not a compression heuristic.
 
-**Implements:** release intent, preparation plane, authorization boundary, publisher adapter, and publication journal.
+**Delivers:** source capability/metadata preflight; conservative zero-write limit and budget gate; filter-None scanlines; fixed-size stored DEFLATE blocks; zlib wrapper; fixed 32 KiB IDAT segmentation; exact CRC/Adler/IEND output; golden RGB/RGBA bytes and digests; short-writer negatives; public portable example; and js/wasm/wasm-gc/native evidence.
 
-**Avoids:** token exposure, broad credentialed jobs, blind retry, payload drift, overlapping runs, evidence destruction, and pretend two-person governance.
+**Addresses:** canonical RGB/RGBA output, deterministic baseline compression, public workflow, and four-target verification.
 
-### Phase 8: Ordered Mooncakes Publication and Registry Consumers
-
-**Rationale:** Only real registry publication and external consumption can replace v0.1's honest blocked outcomes. Dependency order makes this one serialized phase with hard checkpoints.
-
-**Delivers:**
-
-- production authority preflight for one exact intent;
-- `mb-core@0.1.0` publication followed by cold registry-only four-target consumer proof;
-- `mb-color@0.1.0` publication followed by consumer proof against published core;
-- `mb-image@0.1.0` publication followed by full-graph PPM consumer proof;
-- registry propagation observations, dependency trees, module metadata, support/changelog visibility, and strongest available package identity evidence;
-- resumable partial-state evidence with no duplicate mutation on rerun.
-
-**Addresses:** real distribution, exact dependency resolution, clean consumers, registry-real target matrix, post-publication verification, and safe partial recovery.
-
-**Avoids:** workspace/cache false positives, out-of-order packages, one oversized consumer, propagation-driven republish, and fabricated registry equality.
-
-### Phase 9: Provenance, Immutable Closure, and Milestone Audit
-
-**Rationale:** Attestation and immutable release claims are meaningful only after the public registry graph is proven consumable.
-
-**Delivers:**
-
-- artifact attestations for exact qualified package artifacts and the closed evidence manifest;
-- independent `gh attestation verify` checks against expected repository/workflow identity;
-- immutable tag/release/assets and all-identifiers consistency checks where repository plan/configuration supports them;
-- final append-only release ledger linking attempts, registry facts, consumers, compatibility baselines, changelogs, support/security routes, and recovery dispositions;
-- recovery drills for provenance failure and corrective supersession without destructive real-version mutation;
-- final Required rerun, cross-phase audit, and explicit proof that no new module family entered v0.2.
-
-**Addresses:** source-to-registry evidence, consumer-readable release manifest, verified provenance, immutable history, and milestone closeout.
-
-**Avoids:** signature-only claims, wrong-subject attestations, mutable release assets, tag/asset drift, and evidence loss during recovery.
+**Avoids:** target-varying bytes, output before preflight, hidden metadata loss, and premature optimizer complexity.
 
 ### Phase Ordering Rationale
 
-- Namespace authority and compatibility policy precede tooling because they define what the publisher is allowed to publish and what version is valid.
-- Safety/recovery precedes credentials because ambiguous remote writes cannot be repaired reliably by adding retries later.
-- Publication follows the manifest DAG, and every lower layer must be externally consumable before a dependent layer is mutated.
-- Provenance closes the chain after registry facts exist; it cannot substitute for registry consumers or API compatibility.
-- Four phases keep irreversible live publication separate from policy/tool construction while preserving one cohesive publication transaction.
-- New module families remain excluded throughout; expanding API surface before distribution and compatibility are real would violate the milestone goal.
+- Phase 20 fixes the input contract, safety ceiling, and explicit rejection policy before data can reach the inflater or storage.
+- Phase 21 centralizes all decompressed-byte effects in one bounded sink, then proves decode against arbitrary legal transport partitioning.
+- Phase 22 consumes the settled image and zlib contracts to publish one reproducible wire format and cross-target proof.
+- Keep decoder completeness for the supported PNG profile, but encoder minimality: accepting dynamic DEFLATE does not require generating it.
 
 ### Research Flags
 
-Phases requiring deeper phase research:
+Phases likely needing deeper research during planning:
 
-- **Phase 6:** mandatory live research for Mooncakes namespace authority, organization delegation, credential storage/scope/revocation, dry-run fidelity, and cross-machine `.mbti` stability.
-- **Phase 7:** mandatory focused research/spike for the exact non-interactive authentication seam, duplicate/ambiguous publish responses, cleanup proof, and repository environment/plan constraints.
-- **Phase 8:** live measurement is part of execution for propagation timing, registry artifact identity, cache isolation, and already-present reconciliation; plan it as bounded observation rather than assuming semantics.
+- **Phase 21:** mandatory focused research/implementation spike for MoonBit bit-level representation, canonical-Huffman invalid-tree rules, and a curated independently derived DEFLATE negative corpus.
+- **Phase 22:** confirm the exact stored-block/IDAT constants and conservative encoded-size formula before committing public golden bytes.
 
-Phases with mostly established patterns:
+Phases with established patterns:
 
-- **Phase 9:** GitHub attestations, expected-identity verification, draft-first immutable release handling, closed ledgers, and final audits are well documented; only repository availability/configuration needs confirmation.
+- **Phase 20:** existing QOI/PPM contracts provide established patterns for limits, diagnostics, reader progress, probe behavior, and eager atomic results; planning can primarily inspect and reuse them.
 
 ## Confidence Assessment
 
 | Area | Confidence | Notes |
 |------|------------|-------|
-| Stack | MEDIUM-HIGH | Exact local MoonBit/PowerShell/GitHub CLI behavior was verified and GitHub controls are officially documented; Mooncakes automation details remain unknown. |
-| Features | MEDIUM | The acceptance chain is strongly supported by official tooling/security specifications and the v0.1 baseline; live registry behavior limits certainty. |
-| Architecture | MEDIUM-HIGH | The control plane extends proven repository seams and standard irreversible-operation patterns; the publisher adapter depends on an unverified auth contract. |
-| Pitfalls | MEDIUM-HIGH | Boundary failures and mitigations are well established; Mooncakes-specific failure responses and propagation must be observed. |
+| Stack | MEDIUM | Existing toolchain and MNF seams were locally verified; source-provider scoring lowers confidence in externally fetched format research despite primary sources. |
+| Features | MEDIUM-HIGH | Scope and acceptance criteria align across all reports and existing image representations. |
+| Architecture | MEDIUM-HIGH | It follows verified QOI/codec/budget/I/O seams; DEFLATE implementation details remain high-risk. |
+| Pitfalls | HIGH | Existing-contract integration is locally evidenced and PNG/zlib/DEFLATE failure modes are consistently specified. |
 
 **Overall confidence:** MEDIUM
 
 ### Gaps to Address
 
-- **Namespace authority:** prove the real account can publish the final prefix; do not infer authority from GitHub organization ownership or a public page.
-- **Authentication:** determine the supported non-interactive representation, least scope, expiry, rotation, revocation, redaction, and cleanup behavior with a disposable credential.
-- **Version mutation semantics:** safely observe duplicate publish, immutability, yank/delete/overwrite behavior, and correct response classification without depending on destructive recovery.
-- **Unknown outcome and propagation:** establish bounded observation/backoff and read-before-retry behavior from real responses.
-- **Registry artifact identity:** discover whether Mooncakes exposes a canonical digest; otherwise state the limit and use clean consumer/interface/metadata evidence without claiming byte identity.
-- **Compatibility stability:** reproduce `.mbti` baselines for all modules and targets on at least two clean environments before treating the normalized form as authoritative.
-- **GitHub release controls:** confirm the repository remote, visibility, plan, environment protections, and immutable-release availability before making those exact controls blocking.
-- **Behavioral compatibility:** interface comparison cannot prove resource, error, representation, or behavior compatibility; keep black-box, fixture, conformance, and registry-consumer evidence mandatory.
+- **DEFLATE corpus quality:** retain small specification-derived, independently checked valid and invalid vectors; generated outputs must not be the sole oracle.
+- **Canonical constants:** lock stored-block maximum and IDAT payload size in code and golden fixtures before public release; do not later change them under a stability claim.
+- **Strict terminal contract:** apply the resolved always-reject-post-IEND rule consistently with existing codec options, documenting any compatibility impact rather than making it accidental.
+- **Metadata diagnostics:** verify the precise existing `MetadataDisposition` and capability-error shapes before naming public errors.
+- **Performance baseline:** defer compression-ratio promises until a separate benchmarked optimization phase with declared workloads and preserved canonical baseline.
 
 ## Sources
 
-### Primary and Official
+### Primary
 
-- [MoonBit: Use and publish packages](https://docs.moonbitlang.com/en/latest/toolchain/moon/package-manage-tour.html) — login, registry publication, SemVer, minimal version selection, and metadata.
-- [MoonBit: Command-line help](https://docs.moonbitlang.com/en/latest/toolchain/moon/commands.html) — `moon info`, `package`, `publish`, `update`, and dependency commands.
-- [MoonBit: Module configuration](https://docs.moonbitlang.com/en/latest/toolchain/moon/module.html) — names, versions, dependencies, contents, metadata, and targets.
-- [MoonBit: Workspace support](https://docs.moonbitlang.com/en/latest/toolchain/moon/workspace.html) — local-member substitution and module-scoped publication boundaries.
-- [Semantic Versioning 2.0.0](https://semver.org/) — released-content and version-change semantics.
-- [GitHub Actions: Deployments and environments](https://docs.github.com/en/actions/reference/workflows-and-actions/deployments-and-environments) — protection and secret-release timing.
-- [GitHub Actions: Workflow syntax](https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-syntax) — permissions, serialization, and cancellation behavior.
-- [GitHub Actions: Secure use](https://docs.github.com/en/actions/reference/security/secure-use) — least privilege, untrusted triggers, credentials, and full-SHA pins.
-- [GitHub: Artifact attestations](https://docs.github.com/en/actions/how-tos/secure-your-work/use-artifact-attestations/use-artifact-attestations) — provenance generation and verification.
-- [GitHub: Immutable releases](https://docs.github.com/en/code-security/concepts/supply-chain-security/immutable-releases) — draft-first release sealing and GitHub tag/asset immutability.
-- [SLSA v1.2 provenance and verification](https://slsa.dev/spec/v1.2/provenance) — subject, builder, parameters, dependencies, and verifier expectations.
-- [Sigstore verification guidance](https://docs.sigstore.dev/cosign/verifying/verify/) — identity-aware verification boundaries.
+- [W3C PNG Specification, Third Edition](https://www.w3.org/TR/2025/REC-png-3-20250624/) — chunk framing/order, IDAT concatenation, filtering, colour/interlace scope, and conformance.
+- [RFC 1950: zlib](https://www.rfc-editor.org/rfc/rfc1950.html) — wrapper, FDICT, FCHECK, and Adler-32.
+- [RFC 1951: DEFLATE](https://www.rfc-editor.org/rfc/rfc1951.html) — block forms, canonical codes, lengths/distances, and bounded history.
 
-### Direct Project Evidence
+### Direct project evidence
 
-- The v0.1 Required selector, deterministic package, policy, report, and consumer seams inspected by the architecture researcher.
-- Local 2026-07-17 command verification for `moon 0.1.20260713`, `moonc v0.10.4`, PowerShell `7.6.3`, and GitHub CLI `2.96.0`.
-- Repeated pinned-toolchain `moon info --target all --frozen` generation with stable `mb-core` `.mbti` hashes on the local research machine.
-
-### Unknown / Live Validation Required
-
-- Mooncakes namespace delegation, token model, version mutation, propagation, registry digest, and ambiguous-publication semantics have no sufficiently complete official public contract in the reviewed sources. Treat each as unknown until a sanitized live probe or registry-operator documentation establishes it.
+- `modules/mb-image/codec/contracts.mbt`, `qoi`, `ppm`, and `modules/mb-core/io` — eager codec, limits/budget, diagnostics, metadata disposition, and forward-only I/O patterns.
+- Local MoonBit checks for the pinned toolchain and four portable targets.
 
 ---
-*Research completed: 2026-07-17*
-*Ready for roadmap: yes, with live-probe gates preserved*
+*Research completed: 2026-07-20*
+*Ready for roadmap: yes — phases 20–22, with Phase 21 research retained as a hard gate.*
