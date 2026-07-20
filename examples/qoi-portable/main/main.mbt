@@ -177,38 +177,74 @@ fn main {
     expected_bytes,
     example_budget(24UL, 1UL, 24UL, 0UL, 0UL, 0UL, 0UL),
   ).unwrap()
+  let input_schedule : Array[UInt64] = [4UL, 10UL, 1UL, 3UL, 8UL]
   let decode_diagnostics = @error.Diagnostics::new()
-  let decoded = @codec.ImageDecoder::decode(
-    @qoi.QoiDecoder::new(),
-    @io.MemoryReader::new(source.view()) as &@io.Reader,
-    @codec.DecodeOptions::new(
-      require_complete_input=true,
-      preserve_opaque_metadata=false,
-    ),
+  let decoder = @qoi.QoiStreamDecoder::new(
     codec_limits(),
     example_budget(6UL, 1UL, 6UL, 2UL, 1UL, 2UL, 8UL),
     decode_diagnostics,
-  ).unwrap()
+  )
+  let source_view = source.view()
+  let mut input_cursor = 0UL
+  let mut input_pushes = 0UL
+  while input_cursor < source_view.length() {
+    let capacity = input_schedule[(input_pushes % input_schedule.length().to_uint64()).to_int()]
+    let length = if input_cursor + capacity < source_view.length() {
+      capacity
+    } else {
+      source_view.length() - input_cursor
+    }
+    let pushed = decoder.push(source_view.subview(input_cursor, length).unwrap())
+    if pushed.consumed() != length ||
+      !(pushed.outcome() is @qoi.QoiStreamPushOutcome::NeedInput) {
+      abort("qoi portable decoder progress check failed")
+    }
+    input_cursor = input_cursor + pushed.consumed()
+    input_pushes = input_pushes + 1UL
+  }
+  let decoded = decoder.finish().unwrap()
   let flipped = @ops.flip_horizontal(
     decoded.image().view(),
     example_budget(6UL, 1UL, 6UL, 2UL, 1UL, 2UL, 6UL),
   ).unwrap()
-  let writer = @io.MemoryWriter::new(
-    24UL,
-    example_budget(24UL, 1UL, 24UL, 0UL, 0UL, 0UL, 0UL),
+  let output_schedule : Array[UInt64] = [0UL, 14UL, 1UL, 3UL, 6UL]
+  let output_owner = @bytes.OwnedBytes::from_bytes(
+    Bytes::from_array(Array::make(14, b'\x00')),
+    example_budget(14UL, 1UL, 14UL, 0UL, 0UL, 0UL, 0UL),
   ).unwrap()
   let encode_diagnostics = @error.Diagnostics::new()
-  let encoded = @codec.ImageEncoder::encode(
-    @qoi.QoiEncoder::new(),
+  let encoder = @qoi.QoiStreamEncoder::new(
     flipped.image().view(),
-    writer as &@io.Writer,
-    @codec.EncodeOptions::new(
-      lossless_required=true,
-      preserve_opaque_metadata=false,
-    ),
     codec_limits(),
     example_budget(0UL, 0UL, 0UL, 2UL, 1UL, 0UL, 24UL),
     encode_diagnostics,
+  ).unwrap()
+  let output : Array[Byte] = []
+  let mut output_pulls = 0UL
+  let mut encoder_finished = false
+  while !encoder_finished {
+    let capacity = output_schedule[(output_pulls % output_schedule.length().to_uint64()).to_int()]
+    let pulled = output_owner
+      .with_mut(0UL, capacity, fn(lease) { Ok(encoder.pull(lease)) })
+      .unwrap()
+    if pulled.written() > capacity ||
+      pulled.total_written() != output.length().to_uint64() + pulled.written() {
+      abort("qoi portable encoder progress check failed")
+    }
+    for index = 0UL; index < pulled.written(); index = index + 1UL {
+      output.push(output_owner.view().get(index).unwrap())
+    }
+    output_pulls = output_pulls + 1UL
+    match pulled.outcome() {
+      @qoi.QoiStreamPullOutcome::NeedOutput => ()
+      @qoi.QoiStreamPullOutcome::Finished => encoder_finished = true
+      @qoi.QoiStreamPullOutcome::Failed(_) => abort("qoi portable encoder failed")
+    }
+  }
+  let encoded_bytes = Bytes::from_array(output)
+  let encoded = @bytes.OwnedBytes::from_bytes(
+    encoded_bytes,
+    example_budget(24UL, 1UL, 24UL, 0UL, 0UL, 0UL, 0UL),
   ).unwrap()
   let flipped_view = flipped.image().view()
   let valid = decoded.image().descriptor().width() == 2UL &&
@@ -220,15 +256,17 @@ fn main {
     flipped_view.get_byte(1UL, 0UL, 1UL).unwrap() == b'\xff' &&
     flipped_view.get_byte(1UL, 0UL, 2UL).unwrap() == b'\xff' &&
     decoded.bytes_read() == 27UL &&
-    encoded.bytes_written() == 24UL &&
-    writer.position() == 24UL &&
+    input_pushes == 6UL &&
+    input_cursor == 27UL &&
+    output_pulls == 5UL &&
+    encoded.view().length() == 24UL &&
     decode_diagnostics.length() == 0 &&
     encode_diagnostics.length() == 0 &&
-    matches(writer.view(), expected.view(), 24UL) &&
-    digest(writer.view(), writer.position()) == 750514177UL &&
-    sha256_matches(writer.view(), writer.position())
+    matches(encoded.view(), expected.view(), 24UL) &&
+    digest(encoded.view(), encoded.view().length()) == 750514177UL &&
+    sha256_matches(encoded.view(), encoded.view().length())
   if !valid {
     abort("qoi portable example evidence check failed")
   }
-  println("example=qoi-portable bytes_read=27 bytes_written=24 width=2 height=1 flip_horizontal digest=750514177 sha256=5dc3abfe81e722b211af255f6f96805225f98435f1f9525c46df48217f858df2")
+  println("example=qoi-portable input_schedule=header-token-marker input_pushes=6 bytes_read=27 output_schedule=zero-header-token-marker output_pulls=5 bytes_written=24 width=2 height=1 flip_horizontal digest=750514177 sha256=5dc3abfe81e722b211af255f6f96805225f98435f1f9525c46df48217f858df2")
 }

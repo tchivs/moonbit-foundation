@@ -785,7 +785,7 @@ function Invoke-MoonQuality {
   }
   switch ($Lane) {
     'Required' { Invoke-RequiredQuality -EvidenceDirectory $EvidenceDirectory }
-    'Qoi' { Invoke-QoiQualityLane }
+    'Qoi' { Assert-QoiLaneIsolation }
     'LlvmExperimental' { Invoke-LlvmExperimentalQuality }
     default { throw "Unsupported quality lane '$Lane'." }
   }

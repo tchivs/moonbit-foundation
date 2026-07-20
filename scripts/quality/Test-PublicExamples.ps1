@@ -290,7 +290,6 @@ if ($Example -in @('portable', 'all')) {
     'tchivs/mb-core/budget',
     'tchivs/mb-core/bytes',
     'tchivs/mb-core/error',
-    'tchivs/mb-core/io',
     'tchivs/mb-image/codec',
     'tchivs/mb-image/ops',
     'tchivs/mb-image/ppm'

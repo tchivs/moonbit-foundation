@@ -347,7 +347,7 @@ test "strict P6 construction keeps parser ceilings explicit" {
 Three standalone consumers use only public APIs:
 
 - [portable in-memory processing example](../../examples/ppm-portable/main/main.mbt), which decodes strict PPM P6 foreground and background inputs, calls `resize_nearest`, bridges each RGB8 image with `rgb8_to_straight_rgba8`, calls `composite_source_over`, returns through `straight_rgba8_to_rgb8`, and emits P6 bytes through `PpmEncoder`;
-- [portable QOI processing example](../../examples/qoi-portable/main/main.mbt), which decodes fixed in-memory QOI bytes, calls `flip_horizontal`, and emits canonical QOI bytes through `QoiEncoder`;
+- [portable QOI processing example](../../examples/qoi-portable/main/main.mbt), which feeds fixed caller-owned chunks to `QoiStreamDecoder`, explicitly finishes strict input, calls `flip_horizontal`, and drains canonical QOI bytes through `QoiStreamEncoder` caller-owned output leases;
 - [Native CLI-shaped injected adapter](../../examples/ppm-native-cli/main/adapter.mbt), whose Reader, Writer, limits, budget, diagnostics, options, and transform are supplied explicitly.
 
 Run the portable processing proof directly from the repository root on every
@@ -376,9 +376,12 @@ moon -C examples/qoi-portable run main --target wasm-gc --frozen
 moon -C examples/qoi-portable run main --target native --frozen
 ```
 
-Each run decodes the fixed 27-byte QOI input, flips its stored pixel order, and
-encodes the checked 24-byte canonical output entirely in memory. Before printing
-success, it asserts dimensions and pixel order, empty decode and encode
+Each run uses the visible `header-token-marker` input capacities `[4, 10, 1, 3,
+8]` to stream-decode the fixed 27-byte QOI input, explicitly finishes it, flips
+its stored pixel order, then uses `zero-header-token-marker` output capacities
+`[0, 14, 1, 3, 6]` to stream-encode the checked 24-byte canonical output through
+caller-owned leases. Before printing success, it asserts per-call progress,
+schedule counters, dimensions and pixel order, empty decode and encode
 diagnostics, rolling digest `750514177`, and SHA-256
 `5dc3abfe81e722b211af255f6f96805225f98435f1f9525c46df48217f858df2`.
 
