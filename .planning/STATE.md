@@ -4,16 +4,16 @@ milestone: v0.3
 milestone_name: Image Processing Core
 current_phase: 9
 status: executing
-stopped_at: Phase 10 context gathered
-last_updated: "2026-07-20T08:11:15.366Z"
+stopped_at: Completed 10-01-PLAN.md
+last_updated: "2026-07-20T08:18:16.510Z"
 last_activity: 2026-07-20
 last_activity_desc: Phase 9 marked complete
 progress:
   total_phases: 3
-  completed_phases: 1
-  total_plans: 2
-  completed_plans: 2
-  percent: 33
+  completed_phases: 2
+  total_plans: 3
+  completed_plans: 3
+  percent: 67
 current_phase_name: Checked Image Geometry and Diagnostics
 ---
 
@@ -54,6 +54,7 @@ Progress: [██████████] 100%
 - [Phase ?]: Right-angle rotation uses named APIs and normalizes physical output orientation to TopLeft.
 - [Phase ?]: Nearest-neighbor remains the sole documented reference resampler; no interpolation or conversion fallback was introduced.
 - [Phase ?]: Invalid alpha combinations are rejected during descriptor construction, so operation-level capability coverage uses representable unsupported layout, component, channel, and transfer variants.
+- [Phase ?]: Phase 10: Raster operations use typed linear-premultiplied sRGB conversion with strict metadata compatibility before allocation.
 
 ### Pending Todos
 
@@ -66,9 +67,9 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-07-20T07:56:50.798Z
-Stopped at: Phase 10 context gathered
-Resume file: .planning/phases/10-alpha-correct-pixel-processing/10-CONTEXT.md
+Last session: 2026-07-20T08:18:16.495Z
+Stopped at: Completed 10-01-PLAN.md
+Resume file: None
 
 ## Performance Metrics
 
@@ -76,3 +77,4 @@ Resume file: .planning/phases/10-alpha-correct-pixel-processing/10-CONTEXT.md
 |-------|------|----------|-------|
 | Phase 09 P01 | 18min | 2 tasks | 2 files |
 | Phase 09 P02 | 20min | 2 tasks | 3 files |
+| Phase 10 P01 | 22min | 3 tasks | 5 files |

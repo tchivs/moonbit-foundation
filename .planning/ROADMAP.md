@@ -74,12 +74,12 @@ Plans:
   2. A library user can apply grayscale to an RGBA image deterministically without changing its documented alpha semantics.
   3. A library user can apply a box blur with checked dimensions and bounded intermediate storage, receiving a deterministic result for the same input.
 
-**Plans**: 1 plan
+**Plans**: 1/1 plans executed
 
 Plans:
 **Wave 1**
 
-- [ ] 10-01-PLAN.md — Implement and prove alpha-correct source-over, grayscale, and box blur.
+- [x] 10-01-PLAN.md — Implement and prove alpha-correct source-over, grayscale, and box blur.
 
 ### Phase 11: Portable Processing Pipeline Evidence
 
@@ -109,7 +109,7 @@ Plans:
 | 7. Release Safety, Intent, and Recovery Automation | v0.2 | 3/3 | Complete | 2026-07-18 |
 | 8. Ordered Mooncakes Publication and Registry Consumers | v0.2 | 34/36 | Deferred | 2026-07-20 |
 | 9. Checked Image Geometry and Diagnostics | v0.3 | 2/2 | In Progress|  |
-| 10. Alpha-Correct Pixel Processing | v0.3 | 0/TBD | Not started | — |
+| 10. Alpha-Correct Pixel Processing | v0.3 | 1/1 | In Progress|  |
 | 11. Portable Processing Pipeline Evidence | v0.3 | 0/TBD | Not started | — |
 
 ---

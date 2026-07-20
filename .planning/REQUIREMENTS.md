@@ -14,8 +14,8 @@
 
 ### Raster Operations
 
-- [ ] **RASTER-01**: A library user can composite one RGBA image over another using documented, alpha-correct source-over semantics.
-- [ ] **RASTER-02**: A library user can apply deterministic grayscale and box-blur filters with checked dimensions and bounded intermediate storage.
+- [x] **RASTER-01**: A library user can composite one RGBA image over another using documented, alpha-correct source-over semantics.
+- [x] **RASTER-02**: A library user can apply deterministic grayscale and box-blur filters with checked dimensions and bounded intermediate storage.
 - [x] **RASTER-03**: A library user receives typed, deterministic errors for unsupported formats, invalid regions, incompatible dimensions, and resource limits.
 
 ### Integration and Evidence
@@ -47,8 +47,8 @@
 | GEOM-01 | Phase 9 | Complete |
 | GEOM-02 | Phase 9 | Complete |
 | GEOM-03 | Phase 9 | Complete |
-| RASTER-01 | Phase 10 | Pending |
-| RASTER-02 | Phase 10 | Pending |
+| RASTER-01 | Phase 10 | Complete |
+| RASTER-02 | Phase 10 | Complete |
 | RASTER-03 | Phase 9 | Complete |
 | INTEG-01 | Phase 11 | Pending |
 | INTEG-02 | Phase 11 | Pending |
