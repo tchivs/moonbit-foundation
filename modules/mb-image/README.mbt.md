@@ -346,8 +346,24 @@ test "strict P6 construction keeps parser ceilings explicit" {
 
 Two standalone consumers use only public APIs:
 
-- [portable in-memory decode-transform-encode example](../../examples/ppm-portable/main/main.mbt), executed on `js`, `wasm`, `wasm-gc`, and `native`;
+- [portable in-memory processing example](../../examples/ppm-portable/main/main.mbt), which decodes strict PPM P6 foreground and background inputs, calls `resize_nearest`, bridges each RGB8 image with `rgb8_to_straight_rgba8`, calls `composite_source_over`, returns through `straight_rgba8_to_rgb8`, and emits P6 bytes through `PpmEncoder`;
 - [Native CLI-shaped injected adapter](../../examples/ppm-native-cli/main/adapter.mbt), whose Reader, Writer, limits, budget, diagnostics, options, and transform are supplied explicitly.
+
+Run the portable processing proof directly from the repository root on every
+required target:
+
+```powershell
+moon -C examples/ppm-portable run main --target js --frozen
+moon -C examples/ppm-portable run main --target wasm --frozen
+moon -C examples/ppm-portable run main --target wasm-gc --frozen
+moon -C examples/ppm-portable run main --target native --frozen
+```
+
+Each run uses only the public strict PPM codec and processing APIs. Before it
+prints success, it checks the complete 17-byte encoded PPM payload, both
+semantic pixel triples, empty diagnostics, and rolling digest `9386158`; the
+printed SHA-256 identifies that same fully checked vector. The Native CLI
+adapter remains a separate injected host-boundary example.
 
 Their copied-source qualification records `source_isolation: pass`. The
 unchanged named-dependency no-workspace probe records
@@ -370,7 +386,7 @@ Phase 5 owns the first bounded PPM P6 implementation: the MNF strict PPM
 P6/sRGB subset documented above. The candidate intentionally defers YUV and arbitrary format conversions,
 advanced resampling, animation, tiled/GPU storage, PNG/JPEG/WebP, wider PPM
 variants, native/system codecs, registries, filesystem/URL policy, rendering,
-publication, signed releases, and performance claims. LLVM is experimental and
+publication, signed releases, and speed guarantees. LLVM is experimental and
 is not part of the support matrix. No behavior for those features is fabricated
 here.
 
