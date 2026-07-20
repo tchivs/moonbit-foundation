@@ -5,7 +5,7 @@ pub struct PngDecoder {}
 
 ///|
 pub fn PngDecoder::new() -> PngDecoder {
-  PngDecoder::{}
+  PngDecoder::{  }
 }
 
 ///|
@@ -34,7 +34,9 @@ pub impl @codec.ImageDecoder for PngDecoder with fn probe(
   _diagnostics,
 ) {
   if prefix.length() > limits.max_probe_bytes() {
-    return Err(_png_limit("probe-bytes", prefix.length(), limits.max_probe_bytes()))
+    return Err(
+      _png_limit("probe-bytes", prefix.length(), limits.max_probe_bytes()),
+    )
   }
   Ok(_probe_png_prefix(prefix))
 }
