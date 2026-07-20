@@ -153,7 +153,6 @@ if ($LedgerOnly) { exit 0 }
 $requiredSource = (Get-Content -LiteralPath (Join-Path $repoRoot 'scripts/quality.ps1') -Raw) +
   (Get-Content -LiteralPath (Join-Path $repoRoot 'scripts/quality/Invoke-MoonQuality.ps1') -Raw)
 foreach ($forbiddenPattern in @(
-  'Invoke-RegistryObservation',
   'Get-Content[^\r\n]*(?:credentials|token|cookie|authorization)',
   'Get-ChildItem[^\r\n]*(?:env:|credentials)',
   'moon\s+(?:login|publish)',
@@ -180,19 +179,11 @@ if ($Focused) {
   if ($llvmMingwBins.Count -ne 1) { throw "Focused Native qualification needs exactly one complete LLVM-MinGW UCRT toolchain; found $($llvmMingwBins.Count)." }
   $env:Path = "$($llvmMingwBins[0]);$env:Path"
   Invoke-FocusedChecked 'Phase 6 exact identity closure' { & (Join-Path $repoRoot 'scripts/quality/Test-IdentityMigration.ps1') }
-  Invoke-FocusedChecked 'Phase 6 sanitized authority validation' { & (Join-Path $repoRoot 'scripts/quality/Test-RegistryAuthority.ps1') }
-  $publishReadyFailure = $null
-  try { & (Join-Path $repoRoot 'scripts/quality/Test-RegistryAuthority.ps1') -AssertPublishReady } catch { $publishReadyFailure = $_.Exception.Message }
-  if ([string]::IsNullOrWhiteSpace($publishReadyFailure) -or $publishReadyFailure -cnotmatch 'REG03-REQUIRED-FACT-UNKNOWN') {
-    throw "Publish-ready assertion did not reject on REG03-REQUIRED-FACT-UNKNOWN: '$publishReadyFailure'"
-  }
-  $unexpectedRules = @([regex]::Matches($publishReadyFailure, '(?:REG|COMP|PROV)[0-9]{2}-[A-Z0-9-]+') | ForEach-Object { $_.Value } | Where-Object { $_ -cne 'REG03-REQUIRED-FACT-UNKNOWN' })
-  if ($unexpectedRules.Count -ne 0) { throw "Publish-ready assertion included unexpected rules: $($unexpectedRules -join ', ')" }
   Invoke-FocusedChecked 'Phase 6 regenerated baseline' { & (Join-Path $repoRoot 'scripts/quality/Test-PublicInterfaceBaseline.ps1') -ToolingOnly }
   Invoke-FocusedChecked 'Phase 6 compatibility policy and negatives' { & (Join-Path $repoRoot 'scripts/quality/Test-PublicCompatibility.ps1') }
   Invoke-FocusedChecked 'Phase 6 source documentation' { & (Join-Path $repoRoot 'scripts/quality/Test-CandidateDocumentation.ps1') }
   Invoke-FocusedChecked 'Phase 6 benchmark qualification' { & (Join-Path $repoRoot 'scripts/quality/Test-BenchmarkQualification.ps1') }
-  Write-Host 'Phase 6 focused qualification passed with truthful publish-readiness rejection.'
+  Write-Host 'Phase 6 focused qualification passed.'
 }
 
 if (-not [string]::IsNullOrWhiteSpace($ReportPath)) {

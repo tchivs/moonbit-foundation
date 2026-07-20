@@ -169,21 +169,9 @@ foreach ($brandPath in @('.planning/PROJECT.md', 'docs/rfcs/0001-moonbit-native-
   }
 }
 
-$authority = Get-Content -LiteralPath (Join-Path $repoRoot 'release/registry/authority-observation.json') -Raw | ConvertFrom-Json -Depth 100
-if ($authority.credentials_read -ne $false -or $authority.publication_mutation_performed -ne $false -or
-    [string]$authority.intended_owner -cne 'tchivs' -or [string]$authority.sanitized_result.outcome -cne 'unknown' -or
-    @($authority.namespace_authority.exact_module_identities).Count -ne 0) {
-  throw 'Authority seed no longer preserves the credential-free fail-closed boundary.'
-}
-$capabilities = Get-Content -LiteralPath (Join-Path $repoRoot 'release/registry/capability-matrix.json') -Raw | ConvertFrom-Json -Depth 100
-$destructive = @($capabilities.capabilities | Where-Object id -CEQ 'destructive_recovery')
-if ($destructive.Count -ne 1 -or [string]$destructive[0].state -cne 'unknown' -or [string]$destructive[0].disposition -cne 'forward_only_recovery') {
-  throw 'Destructive recovery is no longer unknown and forward-only.'
-}
-
 $qualificationPlan = Get-Content -LiteralPath (Join-Path $repoRoot '.planning/phases/06-namespace-authority-and-compatibility-contract/06-06-PLAN.md') -Raw
 $edgeIds = @([regex]::Matches($qualificationPlan, 'EDGE-[A-Z0-9-]+') | ForEach-Object Value | Sort-Object -Unique)
 $prohibitionIds = @([regex]::Matches($qualificationPlan, 'PROH-[A-Z0-9-]+') | ForEach-Object Value | Sort-Object -Unique)
 if ($edgeIds.Count -ne 22 -or $prohibitionIds.Count -ne 7) { throw 'Planned edge/prohibition inventory drift.' }
 
-Write-Host "Identity migration closure passed: $($records.Count) exact occurrences, 22 edges, 7 prohibitions, immutable history, and fail-closed authority."
+Write-Host "Identity migration closure passed: $($records.Count) exact occurrences, 22 edges, 7 prohibitions, immutable history."

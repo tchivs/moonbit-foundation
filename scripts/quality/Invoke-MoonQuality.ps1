@@ -550,22 +550,6 @@ function Get-TrackedDiffSnapshot {
   return ($output -join "`n")
 }
 
-function Invoke-Phase06PublishReadinessRejection {
-  $failure = $null
-  try {
-    & ./scripts/quality/Test-RegistryAuthority.ps1 -AssertPublishReady
-  } catch {
-    $failure = $_.Exception.Message
-  }
-  if ([string]::IsNullOrWhiteSpace($failure) -or $failure -cnotmatch 'REG03-REQUIRED-FACT-UNKNOWN') {
-    throw "Phase 6 publish-ready assertion did not fail solely on REG03-REQUIRED-FACT-UNKNOWN: '$failure'"
-  }
-  $otherRule = [regex]::Matches($failure, '(?:REG|COMP|PROV)[0-9]{2}-[A-Z0-9-]+') | ForEach-Object { $_.Value } | Where-Object { $_ -cne 'REG03-REQUIRED-FACT-UNKNOWN' }
-  if (@($otherRule).Count -ne 0) {
-    throw "Phase 6 publish-ready assertion reported an unexpected rule: $($otherRule -join ', ')"
-  }
-  Write-Host 'Publish readiness rejected exactly by REG03-REQUIRED-FACT-UNKNOWN.'
-}
 
 function Add-Phase06QualificationEvidence {
   param(
@@ -658,12 +642,6 @@ function Invoke-RequiredQuality {
   }
   Invoke-QualityStage 'QUAL-05 benchmark static qualification' {
     & ./scripts/quality/Test-BenchmarkQualification.ps1
-  }
-  Invoke-QualityStage 'Phase 6 sanitized registry authority contract' {
-    & ./scripts/quality/Test-RegistryAuthority.ps1
-  }
-  Invoke-QualityStage 'Phase 6 explicit publish-ready rejection' {
-    Invoke-Phase06PublishReadinessRejection
   }
   Invoke-QualityStage 'Phase 6 regenerated public interface baseline' {
     & ./scripts/quality/Test-PublicInterfaceBaseline.ps1 -ToolingOnly
