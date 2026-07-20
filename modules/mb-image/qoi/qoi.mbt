@@ -8,6 +8,56 @@ pub fn QoiDecoder::new() -> QoiDecoder {
 }
 
 ///|
+/// A caller-chunk-fed QOI 1.0 decoder. Completion is declared explicitly with
+/// `finish`; it does not change the eager Reader-based codec contract.
+pub struct QoiStreamDecoder {
+  priv limits : @codec.CodecLimits
+  priv budget : @budget.Budget
+  priv _diagnostics : @error.Diagnostics
+  priv mut state : QoiStreamState
+  priv mut consumed_total : UInt64
+}
+
+///|
+pub(all) enum QoiStreamPushOutcome {
+  NeedInput
+  Failed(@error.CoreError)
+}
+
+///|
+pub struct QoiStreamPushResult {
+  priv consumed_value : UInt64
+  priv outcome_value : QoiStreamPushOutcome
+}
+
+///|
+pub fn QoiStreamPushResult::consumed(self : QoiStreamPushResult) -> UInt64 {
+  self.consumed_value
+}
+
+///|
+pub fn QoiStreamPushResult::outcome(
+  self : QoiStreamPushResult,
+) -> QoiStreamPushOutcome {
+  self.outcome_value
+}
+
+///|
+pub fn QoiStreamDecoder::new(
+  limits : @codec.CodecLimits,
+  budget : @budget.Budget,
+  diagnostics : @error.Diagnostics,
+) -> QoiStreamDecoder {
+  {
+    limits,
+    budget,
+    _diagnostics: diagnostics,
+    state: QoiStreamState::Header([]),
+    consumed_total: 0UL,
+  }
+}
+
+///|
 /// A portable eager encoder for canonical QOI 1.0 images.
 pub struct QoiEncoder {}
 
