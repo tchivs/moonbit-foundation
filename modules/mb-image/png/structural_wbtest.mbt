@@ -194,6 +194,29 @@ test "PNG indexed IHDR accepts only the 8-bit non-interlaced RGB8 profile" {
 }
 
 ///|
+test "PNG grayscale IHDR accepts low depths and computes packed row bytes" {
+  let limits = @codec.CodecLimits::new(
+    max_probe_bytes=8UL, max_input_bytes=4096UL, max_output_bytes=256UL,
+    max_width=16UL, max_height=16UL, max_pixels=256UL, max_work=512UL,
+  )
+  for item in [(1, 9UL, 2UL), (2, 5UL, 2UL), (4, 3UL, 2UL), (8, 2UL, 2UL)] {
+    let (depth, width, row_bytes) = item
+    let ihdr = [
+      b'\x00', b'\x00', b'\x00', width.to_int().to_byte(),
+      b'\x00', b'\x00', b'\x00', b'\x01',
+      depth.to_byte(), b'\x00', b'\x00', b'\x00', b'\x00',
+    ]
+    let budget = @budget.Budget::new(@budget.ResourceLimits::new(
+      bytes=width * 3UL + row_bytes * 2UL, allocations=3UL,
+      allocation_size=width * 3UL, width=16UL, height=16UL,
+      pixels=256UL, depth=0UL, work=512UL,
+    ))
+    inspect(_png_preflight_ihdr(ihdr, limits, budget) is Ok(_), content="true")
+    inspect(_png_grayscale_row_bytes(width, depth) == row_bytes, content="true")
+  }
+}
+
+///|
 test "PNG semantic classifier rejects every deferred semantic chunk family" {
   for kind in [
     [b'P', b'L', b'T', b'E'], [b't', b'R', b'N', b'S'],
