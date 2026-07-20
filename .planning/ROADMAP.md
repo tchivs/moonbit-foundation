@@ -3,7 +3,8 @@
 ## Milestones
 
 - ✅ **v0.1 Foundation** — Phases 1-5, 41 plans, 36/36 requirements (shipped 2026-07-17). Full history: [v0.1 roadmap](./milestones/v0.1-ROADMAP.md).
-- 🚧 **v0.2 Publication & Compatibility** — Phases 6-9, 21 requirements (planning).
+- ⏸️ **v0.2 Publication & Compatibility** — Phases 6-8 completed or partially prepared; registry publication and closure remain deferred without a registry mutation.
+- 🚧 **v0.3 Image Processing Core** — Phases 9-11, 9 requirements (planned).
 
 ## Phases
 
@@ -18,336 +19,61 @@
 
 </details>
 
-### 🚧 v0.2 Publication & Compatibility (In Progress)
+<details>
+<summary>⏸️ v0.2 Publication & Compatibility (Phases 6-8) — DEFERRED 2026-07-20</summary>
 
-**Milestone goal:** Publish the three v0.1 modules through a fail-closed, compatibility-aware, recoverable release path and prove exact registry consumption with immutable evidence.
+- [x] Phase 6: Namespace Authority and Compatibility Contract (25/25 plans) — completed 2026-07-18
+- [x] Phase 7: Release Safety, Intent, and Recovery Automation (3/3 plans) — completed 2026-07-18
+- [ ] Phase 8: Ordered Mooncakes Publication and Registry Consumers (34/36 plans) — deferred; no registry mutation performed
 
-- [x] **Phase 6: Namespace Authority and Compatibility Contract** — Verify registry authority and establish deterministic public-interface, versioning, and publication-documentation contracts. (completed 2026-07-18)
-- [x] **Phase 7: Release Safety, Intent, and Recovery Automation** — Bind publication to an exact credential-free intent and a resumable, forward-only state machine. (completed 2026-07-18)
-- [ ] **Phase 8: Ordered Mooncakes Publication and Registry Consumers** — Publish the three modules in dependency order and prove cold registry-only consumption.
-- [ ] **Phase 9: Provenance, Immutable Closure, and Milestone Audit** — Close the source-to-registry evidence chain and audit the completed milestone.
+Publication, registry-consumer proof, provenance closure, and any release automation are deferred outside v0.3.
+
+</details>
+
+### 🚧 v0.3 Image Processing Core (Planned)
+
+**Milestone goal:** Expand `mb-image` from safe image storage and a reference codec into a practical, portable raster-processing foundation.
+
+- [ ] **Phase 9: Checked Image Geometry and Diagnostics** - Users can safely transform image extent and orientation with deterministic failure behavior.
+- [ ] **Phase 10: Alpha-Correct Pixel Processing** - Users can composite and filter RGBA images with documented deterministic semantics.
+- [ ] **Phase 11: Portable Processing Pipeline Evidence** - Users can run and maintain a verified, reproducible end-to-end image-processing workflow.
 
 ## Phase Details
 
-### Phase 6: Namespace Authority and Compatibility Contract
-
-**Goal:** The sole maintainer has a verified, fail-closed registry authority contract and a machine-checkable compatibility contract before any credentialed production publication.
-
-**Depends on:** Phase 5
-
-**Requirements:** REG-01, REG-02, REG-03, COMP-01, COMP-02, COMP-03, COMP-04, PROV-03
-
-**Success Criteria:**
-
-1. The sole maintainer can inspect sanitized repository-bound authority evidence and a credential-redacted capability matrix that classifies current authentication, token scope, dry-run, immutability, propagation, artifact identity, and destructive-recovery semantics as documented, safely observed, or unknown without consuming a production module version.
-2. A release gate rejects missing or drifted namespace authority, canonical module identity, pinned toolchain identity, exact version availability, authenticated publish seam, or registry observation and resolution; every other unknown capability has an explicit fail-closed or forward-only disposition.
-3. Canonical public-interface baselines for every public package are reproducibly generated across `js`, `wasm`, `wasm-gc`, and `native` and remain identical across clean runs with the pinned toolchain without being presented as behavioral compatibility proof.
-4. Candidate deltas, including supported-target, minimum-toolchain, and dependency-floor changes, are deterministically classified and the gate enforces the required version, changelog, migration, and conditional RFC evidence.
-5. Before publication, each module's source documentation contract covers exact install and import commands, candidate status, targets and toolchain, change class, changelog, support and security routes, migration notes when required, and the intended registry metadata source; actual Mooncakes rendering proof is deferred to PROV-05 after publication.
-
-**Plans:** 25/25 plans complete
-**Completed foundation**
-
-- [x] 06-02-PLAN.md — Define baseline contracts and mechanically generate 17-package × 4-target interface evidence.
-
-**Wave 2** *(depends on 06-02)*
-
-- [x] 06-03-PLAN.md — Implement four-class comparison, version/evidence policy enforcement, and exact negatives.
-
-**Wave 3** *(blocked on Wave 2 completion)*
-
-- [x] 06-04-PLAN.md — Establish shared support/security routes and the collective source-document validator.
-
-**Wave 4** *(blocked on Wave 3 completion)*
-
-- [x] 06-05-PLAN.md — Complete the three bounded module publication-documentation sets.
-
-**Wave 5 — canonical personal identity authority** *(depends on Wave 4)*
-
-- [x] 06-07-PLAN.md — Rebase closed policies, schemas, and the blocked authority seed to canonical `tchivs/*` 0.1.0 truth.
-
-**Wave 6 — canonical module roots** *(depends on Wave 5)*
-
-- [x] 06-12-PLAN.md — Rebase the three module manifests and one bounded root-adjacent smoke package.
-
-**Wave 7 — active module source graph** *(depends on Wave 6)*
-
-- [x] 06-08-PLAN.md — Rebase the remaining 15 explicit package files and close the 17-package graph on all four targets.
-
-**Wave 8 — examples and benchmark** *(depends on Wave 7)*
-
-- [x] 06-09-PLAN.md — Rebase both public examples and the bounded benchmark with executable qualification.
-
-**Wave 9 — qualification prerequisite repair** *(depends on Wave 8)*
-
-- [x] 06-25-PLAN.md — Reconcile the three module repository fields and shared positive qualification constants before the real consumer path resumes.
-
-**Wave 10 — package consumers and release qualification** *(depends on Wave 9)*
-
-- [x] 06-13-PLAN.md — Rebase isolated package consumers and retain exact positive/negative release-qualification ownership.
-
-**Wave 11 — public documentation truth** *(depends on Wave 10)*
-
-- [x] 06-10-PLAN.md — Reconcile the explicit project, research, and module documentation set while preserving branding.
-
-**Wave 12 — shared routes and collective validators** *(depends on Wave 11)*
-
-- [x] 06-14-PLAN.md — Reconcile support/security routes and collective source, compatibility, and authority validators.
-
-**Wave 13 — baseline batch tooling** *(depends on Wave 12)*
-
-- [x] 06-15-PLAN.md — Add deterministic exact-package batching and guarded manifest finalization semantics.
-
-**Wave 14 — baseline batch 1** *(depends on Wave 13)*
-
-- [x] 06-16-PLAN.md — Regenerate the bounded mb-core budget and bytes baseline outputs.
-
-**Wave 15 — baseline batch 2** *(depends on Wave 14)*
-
-- [x] 06-17-PLAN.md — Regenerate the bounded mb-core checked and error baseline outputs.
-
-**Wave 16 — baseline batch 3** *(depends on Wave 15)*
-
-- [x] 06-18-PLAN.md — Regenerate the bounded mb-core host and io baseline outputs.
-
-**Wave 17 — baseline batch 4** *(depends on Wave 16)*
-
-- [x] 06-19-PLAN.md — Regenerate the bounded mb-color alpha and model baseline outputs.
-
-**Wave 18 — baseline batch 5** *(depends on Wave 17)*
-
-- [x] 06-20-PLAN.md — Regenerate the bounded mb-color profile and quantize baseline outputs.
-
-**Wave 19 — baseline batch 6** *(depends on Wave 18)*
-
-- [x] 06-21-PLAN.md — Regenerate the bounded mb-color transfer and mb-image codec baseline outputs.
-
-**Wave 20 — baseline batch 7** *(depends on Wave 19)*
-
-- [x] 06-22-PLAN.md — Regenerate the bounded mb-image metadata and model baseline outputs.
-
-**Wave 21 — baseline batch 8** *(depends on Wave 20)*
-
-- [x] 06-23-PLAN.md — Regenerate the bounded mb-image ops and ppm baseline outputs.
-
-**Wave 22 — baseline batch 9** *(depends on Wave 21)*
-
-- [x] 06-24-PLAN.md — Regenerate the bounded mb-image storage baseline outputs.
-
-**Wave 23 — final manifest, history, and full-suite closure** *(depends on Wave 22)*
-
-- [x] 06-11-PLAN.md — Finalize the single exact 103-file-tree manifest, enforce immutable identity/history classification, and run the full credential-free suite.
-
-**Wave 24 — external identity checkpoint** *(depends on Wave 23)*
-
-- [x] 06-01-PLAN.md — Complete one human Mooncakes OAuth checkpoint, capture sanitized read-only personal-namespace proof, and enforce readiness without external repository creation or publication.
-
-**Wave 25** *(blocked on Waves 2-24 completion)*
-
-- [x] 06-06-PLAN.md — Freeze reciprocal requirement, 22-edge, and seven-prohibition coverage and integrate all credential-free gates into Required.
-
-### Phase 7: Release Safety, Intent, and Recovery Automation
-
-**Goal:** The sole maintainer can authorize one exact credential-free release intent and safely execute or resume an isolated publisher state machine.
-
-**Depends on:** Phase 6
-
-**Requirements:** REL-01, REL-02, REL-03, REL-04, REL-05
-
-**Success Criteria:**
-
-1. Required produces an immutable, credential-free release intent binding one authorized release tag/ref to the exact source commit, ordered module versions and dependencies, package inventories and archive digests, interface-baseline digests, and qualification evidence.
-2. The publisher accepts only the sole maintainer's explicit authorization of that exact intent from a protected trusted ref; third-party actions are full-SHA pinned, default permissions are read-only, and the least-privilege Mooncakes credential reaches only the isolated mutation step.
-3. A release-wide serialization lock and monotonic journal prevent concurrent, replayed, duplicate, cancelled-in-progress, and dependency-order-violating transitions while preserving completed checkpoints.
-4. Credential-free negative rehearsals cover timeout, partial success, existing-version mismatch, invalid credential, and evidence failure; ambiguous real failures trigger registry re-observation before any retry, and mismatches stop with incident evidence plus a forward corrected version and advisory.
-
-**Plans:** 3/3 plans complete
-
-- [x] 07-01-PLAN.md
-- [x] 07-02-PLAN.md
-- [x] 07-03-PLAN.md
-
-### Phase 8: Ordered Mooncakes Publication and Registry Consumers
-
-**Goal:** All three modules are genuinely published and independently consumable from Mooncakes in strict dependency order.
-
-**Depends on:** Phase 7
-
-**Requirements:** DIST-01, DIST-02, DIST-03, DIST-04, PROV-05
-
-**Success Criteria:**
-
-1. `mb-core` is published first, then a fresh cold registry-only consumer resolves its exact version and passes a deterministic public behavioral assertion across all four supported targets before `mb-color` publication begins.
-2. `mb-color` is published next, then a fresh consumer resolves its exact version and intended published `mb-core` dependency and passes across all four targets before `mb-image` publication begins.
-3. `mb-image` is published last, then a fresh consumer resolves the exact full dependency graph and passes the bounded PPM public stack across all four targets.
-4. Every proof runs outside the repository with an isolated cold Moon home and no publisher credential, `moon.work`, path dependency, copied source, Git fallback, or warm-cache-only success, and records registry metadata, strongest available package identity, resolved graph, toolchain, target results, and behavioral assertion.
-5. After publication, credential-redacted read-only Mooncakes observation proves that each module page renders the intended qualified public metadata; missing, drifted, or ambiguous rendering blocks PROV-05 without registry mutation.
-
-**Plans:** 34/36 plans executed
-**Wave 1**
-
-- [x] 08-01-PLAN.md
-
-**Wave 2** *(blocked on Wave 1 completion)*
-
-- [x] 08-02-PLAN.md
-
-**Wave 3** *(blocked on Wave 2 completion)*
-
-- [x] 08-03-PLAN.md
-
-**Wave 4** *(blocked on Wave 3 completion)*
-
-- [x] 08-04-PLAN.md
-
-**Wave 5** *(blocked on Wave 4 completion)*
-
-- [x] 08-05-PLAN.md
-
-**Wave 6** *(blocked on Wave 5 completion)*
-
-- [x] 08-06-PLAN.md
-
-**Wave 7** *(blocked on Wave 6 completion)*
-
-- [x] 08-07-PLAN.md — Define r2 attempt-family, terminal history, receipt, and handoff contracts.
-
-**Wave 8** *(blocked on Wave 7 completion)*
-
-- [x] 08-08-PLAN.md — Wire r2 publisher/hosted seam and UTC-stable state tests.
-
-**Wave 9** *(blocked on Wave 8 completion)*
-
-- [x] 08-09-PLAN.md — Define r3 attempt-family and three-history prepared/authority contracts.
-
-**Wave 10** *(blocked on Wave 9 completion)*
-
-- [x] 08-10-PLAN.md — Wire r3 publisher/hosted seam and preserve helper/UTC/LF/no-tags regressions.
-
-**Wave 11** *(blocked on Wave 10 completion)*
-
-- [x] 08-11-PLAN.md — Define r4 attempt-family and four-history prepared/authority contracts.
-
-**Wave 12** *(blocked on Wave 11 completion)*
-
-- [x] 08-12-PLAN.md — Wire r4 exact14 receipt-parity hosted seam and preserve isolation regressions.
-
-**Wave 13** *(blocked on Wave 12 completion)*
-
-- [x] 08-13-PLAN.md — Define r5 attempt-family and five-history prepared/authority contracts.
-
-**Wave 14** *(blocked on Wave 13 completion)*
-
-- [x] 08-14-PLAN.md — Wire r5 hosted seam and preserve snapshot/exact14/isolation regressions.
-
-**Wave 15** *(blocked on Wave 14 completion)*
-
-- [x] 08-15-PLAN.md — Define r6 attempt-family and six-history prepared/authority contracts, including r5's pre-run no-run terminal evidence.
-
-**Wave 16** *(blocked on Wave 15 completion)*
-
-- [x] 08-16-PLAN.md — Wire the r6 hosted seam and preserve unique env-key, exact14, snapshot, UTC/LF/no-tags, and isolation regressions.
-
-**Wave 17** *(blocked on Wave 16 completion)*
-
-- [x] 08-17-PLAN.md — Define r7 attempt-family and seven-history contracts, including r6's hosted cross-platform prepared-intent failure.
-
-**Wave 18** *(blocked on Wave 17 completion)*
-
-- [x] 08-18-PLAN.md — Wire the r7 hosted seam and preserve cross-platform archive, remote-tag, exact14, snapshot, and isolation regressions.
-
-**Wave 19** *(blocked on Wave 18 completion)*
-
-- [x] 08-19-PLAN.md — Define r8 attempt-family and eight-history contracts, including r7's cross-OS raw ZIP-container failure.
-
-**Wave 20** *(blocked on Wave 19 completion)*
-
-- [x] 08-20-PLAN.md — Close canonical ZIP and fresh r8 prepared-qualification identity.
-
-**Wave 21** *(blocked on Wave 20 completion)*
-
-- [x] 08-21-PLAN.md — Wire r8 publisher/workflow/hosted exact14 and zero-write pre-live seams.
-
-**Wave 22** *(blocked on Wave 21 completion)*
-
-- [x] 08-22-PLAN.md — Define r9 attempt-family and nine-history contracts, including r8's PREP15 no-run terminal evidence.
-
-**Wave 23** *(blocked on Wave 22 completion)*
-
-- [x] 08-23-PLAN.md — Wire r9 canonical prepared-copy hosted and zero-write pre-live seams.
-
-**Wave 24** *(blocked on Wave 23 completion)*
-
-- [x] 08-24-PLAN.md — Advance static contracts to the sole r10 retry while preserving r9 as immutable pre-locator terminal evidence.
-
-**Wave 25** *(blocked on Wave 24 completion)*
-
-- [x] 08-25-PLAN.md — Wire r10 hosted, publisher, and credential-free zero-write seams with ten-history regression coverage.
-
-**Wave 26** *(blocked on Wave 25 completion)*
-
-- [x] 08-26-PLAN.md — Repair clean-clone initial tag/ref binding with a real PrepareAttempt fixture before any r11 tag exists.
-
-**Wave 27** *(blocked on Wave 26 completion)*
-
-- [x] 08-27-PLAN.md — Bind r11 static contracts to eleven immutable histories including r10 REL01-REF terminal evidence.
-
-**Wave 28** *(blocked on Wave 27 completion)*
-
-- [x] 08-28-PLAN.md — Wire r11 hosted, publisher, and credential-free zero-write seams with eleven-history coverage.
-
-**Wave 29** *(blocked on Wave 28 completion)*
-
-- [x] 08-29-PLAN.md — Integrate the real remote-clone ref gate and non-overridable canonical clone-policy r12 boundary invocation.
-
-**Wave 30** *(blocked on Wave 29 completion)*
-
-- [x] 08-30-PLAN.md — Bind r12 static contracts to twelve immutable histories including distinct r11 remote-ref evidence.
-
-**Wave 31** *(blocked on Wave 30 completion)*
-
-- [x] 08-31-PLAN.md — Wire r12 hosted, publisher, and zero-write seams with canonical-wrapper coverage.
-
-**Wave 32** *(blocked on Wave 31 completion)*
-
-- [x] 08-32-PLAN.md — Establish canonical r12 non-publishing boundary and stop at absent-only dynamic `authorize-core`.
-
-**Wave 33** *(quarantined; do not execute)*
-
-- [ ] 08-33-PLAN.md — Obsolete r12 publication route; superseded by r13 forward recovery and never reusable for release authority.
-
-**Wave 34** *(blocked on Wave 32 completion)*
-
-- [x] 08-34-PLAN.md — Quarantine r12 publication routing, enforce the eight-path dirty baseline, and establish static r13 contracts.
-
-**Wave 35** *(blocked on Wave 34 completion)*
-
-- [x] 08-35-PLAN.md — Wire static r13 hosted and publisher seams; later plans separately create the r13 boundary and authorize publication.
-
-**Wave 36** *(blocked on Wave 35 completion)*
-
-- [x] 08-36-PLAN.md — Repair the static r13 thirteen-history HostedDispatch integration before any later r13 boundary or authorization plan.
-
-### Phase 9: Provenance, Immutable Closure, and Milestone Audit
-
-**Goal:** Published versions have verified immutable provenance and documentation, and milestone closure proves the complete evidence chain without broadening v0.2 scope.
-
-**Depends on:** Phase 8
-
-**Requirements:** PROV-01, PROV-02, PROV-04
-
-**Success Criteria:**
-
-1. Every module version has an immutable ledger entry linking registry identity, source commit and tag, package inventory, exact dependencies, archive and interface digests, pinned toolchain, qualification report, and consumer proof.
-2. Standard artifact provenance and a closed evidence manifest verify outside the producer job against the expected repository, workflow identity, source ref, and archive digest while remaining explicitly separate from compatibility and correctness evidence.
-3. Closure verifies immutable release tags and assets and rehearses provenance and recovery failures so broken identity, evidence, or recovery paths fail closed.
-4. Final closure reruns credential-free Required from the release source, verifies ledger and registry evidence, proves publication and verification caused no source mutation or secret leakage, confirms no new module family entered v0.2, and passes the milestone audit.
-
-**Plans:** TBD
+### Phase 9: Checked Image Geometry and Diagnostics
+**Goal**: Library users can safely crop, reorient, and resize images through composable portable APIs that report invalid work deterministically.
+**Depends on**: Phase 5
+**Requirements**: GEOM-01, GEOM-02, GEOM-03, RASTER-03
+**Success Criteria** (what must be TRUE):
+  1. A library user can crop an image to a valid rectangle and receives a typed deterministic error instead of out-of-bounds access or overflow-driven allocation for an invalid region or resource limit.
+  2. A library user can flip an image horizontally or vertically and rotate it in right-angle increments while observing the expected pixel positions and dimensions.
+  3. A library user can resize an image with a documented nearest-neighbor algorithm and receives identical output for the same input on every supported target.
+  4. A library user receives typed, deterministic errors when an operation is requested for an unsupported pixel format or incompatible image dimensions.
+**Plans**: TBD
+
+### Phase 10: Alpha-Correct Pixel Processing
+**Goal**: Library users can compose and filter RGBA images with stable alpha and resource semantics.
+**Depends on**: Phase 9
+**Requirements**: RASTER-01, RASTER-02
+**Success Criteria** (what must be TRUE):
+  1. A library user can composite one RGBA image over another with documented source-over alpha behavior and predictable output pixels.
+  2. A library user can apply grayscale to an RGBA image deterministically without changing its documented alpha semantics.
+  3. A library user can apply a box blur with checked dimensions and bounded intermediate storage, receiving a deterministic result for the same input.
+**Plans**: TBD
+
+### Phase 11: Portable Processing Pipeline Evidence
+**Goal**: Library users and maintainers can rely on a demonstrated, portable image-processing workflow and reproducible performance evidence.
+**Depends on**: Phase 10
+**Requirements**: INTEG-01, INTEG-02, INTEG-03
+**Success Criteria** (what must be TRUE):
+  1. A library user can run one public MoonBit example that combines geometry and raster operations and encodes the resulting image as PPM.
+  2. Public behavioral and adversarial tests demonstrate the new API's expected results and failure behavior on `js`, `wasm`, `wasm-gc`, and `native`.
+  3. A maintainer can reproduce a declared resize-and-compositing benchmark workload and compare it with its recorded baseline without running or depending on release automation.
+**Plans**: TBD
 
 ## Progress
 
-**Execution order:** 6 → 7 → 8 → 9
+**Execution order:** 9 → 10 → 11
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
@@ -356,14 +82,12 @@
 | 3. Reference Color Semantics | v0.1 | 8/8 | Complete | 2026-07-17 |
 | 4. Image Model, Views, and Operations | v0.1 | 9/9 | Complete | 2026-07-17 |
 | 5. Reference Codec and Release Qualification | v0.1 | 8/8 | Complete | 2026-07-17 |
-| 6. Namespace Authority and Compatibility Contract | v0.2 | 25/25 | Complete    | 2026-07-18 |
+| 6. Namespace Authority and Compatibility Contract | v0.2 | 25/25 | Complete | 2026-07-18 |
 | 7. Release Safety, Intent, and Recovery Automation | v0.2 | 3/3 | Complete | 2026-07-18 |
-| 8. Ordered Mooncakes Publication and Registry Consumers | v0.2 | 34/36 | In Progress|  |
-| 9. Provenance, Immutable Closure, and Milestone Audit | v0.2 | 0/TBD | Not started | — |
-
-## Stable Audit Anchors
-
-- **phase-1-foundation-charter-and-reproducible-workspace:** Archived with its complete source inventory under `.planning/milestones/v0.1-phases/`.
+| 8. Ordered Mooncakes Publication and Registry Consumers | v0.2 | 34/36 | Deferred | 2026-07-20 |
+| 9. Checked Image Geometry and Diagnostics | v0.3 | 0/TBD | Not started | — |
+| 10. Alpha-Correct Pixel Processing | v0.3 | 0/TBD | Not started | — |
+| 11. Portable Processing Pipeline Evidence | v0.3 | 0/TBD | Not started | — |
 
 ---
-*Roadmap updated: 2026-07-18 after Phase 7 completion*
+*Roadmap updated: 2026-07-20 for v0.3 Image Processing Core planning*

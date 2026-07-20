@@ -44,21 +44,21 @@
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| GEOM-01 | TBD | Pending |
-| GEOM-02 | TBD | Pending |
-| GEOM-03 | TBD | Pending |
-| RASTER-01 | TBD | Pending |
-| RASTER-02 | TBD | Pending |
-| RASTER-03 | TBD | Pending |
-| INTEG-01 | TBD | Pending |
-| INTEG-02 | TBD | Pending |
-| INTEG-03 | TBD | Pending |
+| GEOM-01 | Phase 9 | Pending |
+| GEOM-02 | Phase 9 | Pending |
+| GEOM-03 | Phase 9 | Pending |
+| RASTER-01 | Phase 10 | Pending |
+| RASTER-02 | Phase 10 | Pending |
+| RASTER-03 | Phase 9 | Pending |
+| INTEG-01 | Phase 11 | Pending |
+| INTEG-02 | Phase 11 | Pending |
+| INTEG-03 | Phase 11 | Pending |
 
 **Coverage:**
 - v0.3 requirements: 9 total
-- Mapped to phases: 0
-- Unmapped: 9 (roadmap pending)
+- Mapped to phases: 9
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-07-20*
-*Last updated: 2026-07-20 after switching to code-first implementation*
+*Last updated: 2026-07-20 after v0.3 roadmap mapping*
