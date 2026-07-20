@@ -337,6 +337,94 @@ fn qoi_write_part(
 }
 
 ///|
+/// Private canonical opcode state shared by eager Writer output and the
+/// resumable caller-lease encoder. A call advances source/index/run state once
+/// and returns one complete bounded token; callers may drain that token later.
+priv struct QoiEncodeTokens {
+  source : @storage.ImageView
+  channels : UInt64
+  pixels : UInt64
+  index : Array[QoiPixel]
+  mut previous : QoiPixel
+  mut position : UInt64
+  mut run : UInt64
+}
+
+///|
+fn qoi_encode_tokens_new(
+  source : @storage.ImageView,
+  channels : UInt64,
+) -> Result[QoiEncodeTokens, @error.CoreError] {
+  let pixels = match @checked.checked_mul(source.width(), source.height()) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  Ok({
+    source,
+    channels,
+    pixels,
+    index: Array::make(64, QoiPixel::{ r: b'\x00', g: b'\x00', b: b'\x00', a: b'\x00' }),
+    previous: QoiPixel::{ r: b'\x00', g: b'\x00', b: b'\x00', a: b'\xff' },
+    position: 0UL,
+    run: 0UL,
+  })
+}
+
+///|
+fn QoiEncodeTokens::next(
+  self : QoiEncodeTokens,
+) -> Result[Option[Bytes], @error.CoreError] {
+  while self.position < self.pixels {
+    let pixel = match qoi_source_pixel(
+      self.source,
+      self.position % self.source.width(),
+      self.position / self.source.width(),
+      self.channels,
+    ) {
+      Err(error) => return Err(error)
+      Ok(value) => value
+    }
+    if qoi_same(pixel, self.previous) {
+      self.run = self.run + 1UL
+      self.position = self.position + 1UL
+      if self.run == 62UL || self.position == self.pixels {
+        let token = Bytes::from_array([(0xc0 + (self.run - 1UL).to_int()).to_byte()])
+        self.run = 0UL
+        return Ok(Some(token))
+      }
+    } else {
+      if self.run > 0UL {
+        let token = Bytes::from_array([(0xc0 + (self.run - 1UL).to_int()).to_byte()])
+        self.run = 0UL
+        return Ok(Some(token))
+      }
+      let slot = qoi_hash(pixel)
+      let token = if qoi_same(self.index[slot], pixel) {
+        Bytes::from_array([slot.to_byte()])
+      } else {
+        self.index[slot] = pixel
+        let dr = qoi_signed_delta(pixel.r, self.previous.r)
+        let dg = qoi_signed_delta(pixel.g, self.previous.g)
+        let db = qoi_signed_delta(pixel.b, self.previous.b)
+        if pixel.a == self.previous.a && dr >= -2 && dr <= 1 && dg >= -2 && dg <= 1 && db >= -2 && db <= 1 {
+          Bytes::from_array([(0x40 + ((dr + 2) << 4) + ((dg + 2) << 2) + (db + 2)).to_byte()])
+        } else if pixel.a == self.previous.a && dg >= -32 && dg <= 31 && dr - dg >= -8 && dr - dg <= 7 && db - dg >= -8 && db - dg <= 7 {
+          Bytes::from_array([(0x80 + dg + 32).to_byte(), (((dr - dg + 8) << 4) + (db - dg + 8)).to_byte()])
+        } else if pixel.a == self.previous.a {
+          Bytes::from_array([b'\xfe', pixel.r, pixel.g, pixel.b])
+        } else {
+          Bytes::from_array([b'\xff', pixel.r, pixel.g, pixel.b, pixel.a])
+        }
+      }
+      self.previous = pixel
+      self.position = self.position + 1UL
+      return Ok(Some(token))
+    }
+  }
+  Ok(None)
+}
+
+///|
 fn qoi_write_chunks(
   source : @storage.ImageView,
   channels : UInt64,
@@ -344,116 +432,71 @@ fn qoi_write_chunks(
   requested : UInt64,
   completed : UInt64,
 ) -> Result[UInt64, @error.CoreError] {
-  let index = Array::make(64, QoiPixel::{
-    r: b'\x00',
-    g: b'\x00',
-    b: b'\x00',
-    a: b'\x00',
-  })
-  let mut previous = QoiPixel::{
-    r: b'\x00',
-    g: b'\x00',
-    b: b'\x00',
-    a: b'\xff',
+  let tokens = match qoi_encode_tokens_new(source, channels) {
+    Err(error) => return Err(error)
+    Ok(value) => value
   }
-  let mut run = 0UL
   let mut cursor = completed
+  while true {
+    match tokens.next() {
+      Err(error) => return Err(error)
+      Ok(None) => return Ok(cursor)
+      Ok(Some(token)) => match qoi_write_part(writer, token, requested, cursor) {
+        Err(error) => return Err(error)
+        Ok(value) => cursor = value
+      }
+    }
+  }
+  Ok(cursor)
+}
+
+///|
+fn qoi_encode_preflight(
+  source : @storage.ImageView,
+  limits : @codec.CodecLimits,
+  budget : @budget.Budget,
+) -> Result[(UInt64, Byte, UInt64), @error.CoreError] {
+  let (channels, color_space) = match qoi_encode_source(source) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
   let pixels = match @checked.checked_mul(source.width(), source.height()) {
     Err(error) => return Err(error)
     Ok(value) => value
   }
-  for position = 0UL; position < pixels; position = position + 1UL {
-    let pixel = match
-      qoi_source_pixel(
-        source,
-        position % source.width(),
-        position / source.width(),
-        channels,
-      ) {
+  let chunks = match qoi_chunk_length(source, channels) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  let total = match @checked.checked_add(22UL, chunks) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  for item in [
+    ("output-bytes", total, limits.max_output_bytes()),
+    ("width", source.width(), limits.max_width()),
+    ("height", source.height(), limits.max_height()),
+    ("pixels", pixels, limits.max_pixels()),
+    ("work", total, limits.max_work()),
+  ] {
+    let (context, requested, limit) = item
+    match qoi_encode_limit(context, requested, limit) {
       Err(error) => return Err(error)
-      Ok(value) => value
-    }
-    if qoi_same(pixel, previous) {
-      run = run + 1UL
-      if run == 62UL || position + 1UL == pixels {
-        cursor = match
-          qoi_write_part(
-            writer,
-            Bytes::from_array([(0xc0 + (run - 1UL).to_int()).to_byte()]),
-            requested,
-            cursor,
-          ) {
-          Err(error) => return Err(error)
-          Ok(value) => value
-        }
-        run = 0UL
-      }
-    } else {
-      if run > 0UL {
-        cursor = match
-          qoi_write_part(
-            writer,
-            Bytes::from_array([(0xc0 + (run - 1UL).to_int()).to_byte()]),
-            requested,
-            cursor,
-          ) {
-          Err(error) => return Err(error)
-          Ok(value) => value
-        }
-        run = 0UL
-      }
-      let slot = qoi_hash(pixel)
-      if qoi_same(index[slot], pixel) {
-        cursor = match
-          qoi_write_part(
-            writer,
-            Bytes::from_array([slot.to_byte()]),
-            requested,
-            cursor,
-          ) {
-          Err(error) => return Err(error)
-          Ok(value) => value
-        }
-      } else {
-        index[slot] = pixel
-        let dr = qoi_signed_delta(pixel.r, previous.r)
-        let dg = qoi_signed_delta(pixel.g, previous.g)
-        let db = qoi_signed_delta(pixel.b, previous.b)
-        let chunk = if pixel.a == previous.a &&
-          dr >= -2 &&
-          dr <= 1 &&
-          dg >= -2 &&
-          dg <= 1 &&
-          db >= -2 &&
-          db <= 1 {
-          Bytes::from_array([
-            (0x40 + ((dr + 2) << 4) + ((dg + 2) << 2) + (db + 2)).to_byte(),
-          ])
-        } else if pixel.a == previous.a &&
-          dg >= -32 &&
-          dg <= 31 &&
-          dr - dg >= -8 &&
-          dr - dg <= 7 &&
-          db - dg >= -8 &&
-          db - dg <= 7 {
-          Bytes::from_array([
-            (0x80 + dg + 32).to_byte(),
-            (((dr - dg + 8) << 4) + (db - dg + 8)).to_byte(),
-          ])
-        } else if pixel.a == previous.a {
-          Bytes::from_array([b'\xfe', pixel.r, pixel.g, pixel.b])
-        } else {
-          Bytes::from_array([b'\xff', pixel.r, pixel.g, pixel.b, pixel.a])
-        }
-        cursor = match qoi_write_part(writer, chunk, requested, cursor) {
-          Err(error) => return Err(error)
-          Ok(value) => value
-        }
-      }
-      previous = pixel
+      Ok(_) => ()
     }
   }
-  Ok(cursor)
+  match budget.charge(@budget.ResourceCharge::new(
+    bytes=0UL,
+    allocations=0UL,
+    allocation_size=0UL,
+    width=source.width(),
+    height=source.height(),
+    pixels=0UL,
+    work=total,
+  )) {
+    Err(error) => Err(error)
+    Ok(_) => Ok((channels, color_space, total))
+  }
 }
 
 ///|

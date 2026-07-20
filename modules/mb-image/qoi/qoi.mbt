@@ -67,6 +67,53 @@ pub fn QoiEncoder::new() -> QoiEncoder {
 }
 
 ///|
+/// A zero-copy caller-lease QOI 1.0 encoder. `new` retains the supplied
+/// immutable ImageView; callers must keep its backing image unchanged until
+/// this encoder reaches terminal state. No source snapshot, lock, or output
+/// staging buffer is created.
+pub struct QoiStreamEncoder {
+  priv mut state : QoiStreamEncodeState
+  priv mut pending : Bytes
+  priv mut pending_offset : UInt64
+  priv mut total_copied : UInt64
+  priv total_length : UInt64
+  priv _disposition : @metadata.MetadataDisposition
+}
+
+///|
+pub(all) enum QoiStreamPullOutcome {
+  NeedOutput
+  Finished
+  Failed(@error.CoreError)
+}
+
+///|
+pub struct QoiStreamPullResult {
+  priv written_value : UInt64
+  priv total_written_value : UInt64
+  priv outcome_value : QoiStreamPullOutcome
+}
+
+///|
+pub fn QoiStreamPullResult::written(self : QoiStreamPullResult) -> UInt64 {
+  self.written_value
+}
+
+///|
+pub fn QoiStreamPullResult::total_written(
+  self : QoiStreamPullResult,
+) -> UInt64 {
+  self.total_written_value
+}
+
+///|
+pub fn QoiStreamPullResult::outcome(
+  self : QoiStreamPullResult,
+) -> QoiStreamPullOutcome {
+  self.outcome_value
+}
+
+///|
 /// Inspect only caller-owned prefix bytes. This helper never reads a Reader.
 fn _probe_qoi_prefix(prefix : @bytes.ByteView) -> @codec.ProbeOutcome {
   if prefix.length() < 4UL {
