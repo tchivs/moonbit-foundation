@@ -344,9 +344,10 @@ test "strict P6 construction keeps parser ceilings explicit" {
 }
 ```
 
-Two standalone consumers use only public APIs:
+Three standalone consumers use only public APIs:
 
 - [portable in-memory processing example](../../examples/ppm-portable/main/main.mbt), which decodes strict PPM P6 foreground and background inputs, calls `resize_nearest`, bridges each RGB8 image with `rgb8_to_straight_rgba8`, calls `composite_source_over`, returns through `straight_rgba8_to_rgb8`, and emits P6 bytes through `PpmEncoder`;
+- [portable QOI processing example](../../examples/qoi-portable/main/main.mbt), which decodes fixed in-memory QOI bytes, calls `flip_horizontal`, and emits canonical QOI bytes through `QoiEncoder`;
 - [Native CLI-shaped injected adapter](../../examples/ppm-native-cli/main/adapter.mbt), whose Reader, Writer, limits, budget, diagnostics, options, and transform are supplied explicitly.
 
 Run the portable processing proof directly from the repository root on every
@@ -364,6 +365,22 @@ prints success, it checks the complete 17-byte encoded PPM payload, both
 semantic pixel triples, empty diagnostics, and rolling digest `9386158`; the
 printed SHA-256 identifies that same fully checked vector. The Native CLI
 adapter remains a separate injected host-boundary example.
+
+Run the portable QOI processing proof directly from the repository root on every
+required target:
+
+```powershell
+moon -C examples/qoi-portable run main --target js --frozen
+moon -C examples/qoi-portable run main --target wasm --frozen
+moon -C examples/qoi-portable run main --target wasm-gc --frozen
+moon -C examples/qoi-portable run main --target native --frozen
+```
+
+Each run decodes the fixed 27-byte QOI input, flips its stored pixel order, and
+encodes the checked 24-byte canonical output entirely in memory. Before printing
+success, it asserts dimensions and pixel order, empty decode and encode
+diagnostics, rolling digest `750514177`, and SHA-256
+`f6767a56873b631989d02e2cfef3baef2900ef40dc74e7bcf236b51d27095138`.
 
 Their copied-source qualification records `source_isolation: pass`. The
 unchanged named-dependency no-workspace probe records
