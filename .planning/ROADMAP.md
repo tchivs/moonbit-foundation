@@ -124,14 +124,14 @@ Plans:
 
 ### Phase 12: Strict PPM End-to-End Filter Coverage
 
-**Goal:** [To be planned]
-**Requirements**: TBD
+**Goal:** Close the v0.3 audit's sole partial strict-PPM integration path with portable crop, rotation, grayscale, blur, and source-over evidence before encoding.
+**Requirements**: INTEG-01, INTEG-02, RASTER-02, RASTER-03 (audit closure; no new requirement)
 **Depends on:** Phase 11
-**Plans:** 0 plans
+**Plans:** 1 plan
 
 Plans:
 
-- [ ] TBD (run /gsd-plan-phase 12 to break down)
+- [ ] 12-01-PLAN.md — Prove the strict-PPM crop/rotate/filter/source-over route and atomic blur budget boundary on all targets.
 
 ---
 *Roadmap updated: 2026-07-20 for v0.3 Image Processing Core planning*
