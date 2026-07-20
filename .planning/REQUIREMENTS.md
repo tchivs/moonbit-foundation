@@ -43,20 +43,20 @@
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| QSTR-01 | TBD | Pending |
-| QSTR-02 | TBD | Pending |
-| QSTR-03 | TBD | Pending |
-| QSTR-04 | TBD | Pending |
-| QSTR-05 | TBD | Pending |
-| QSTR-06 | TBD | Pending |
-| QSTR-07 | TBD | Pending |
+| QSTR-01 | Phase 17 | Pending |
+| QSTR-02 | Phase 17 | Pending |
+| QSTR-03 | Phase 17 | Pending |
+| QSTR-04 | Phase 18 | Pending |
+| QSTR-05 | Phase 18 | Pending |
+| QSTR-06 | Phase 19 | Pending |
+| QSTR-07 | Phase 19 | Pending |
 
 **Coverage:**
 
 - v0.5 requirements: 7 total
-- Mapped to phases: 0
-- Unmapped: 7 ⚠️
+- Mapped to phases: 7
+- Unmapped: 0 ✓
 
 ---
 *Requirements defined: 2026-07-20*
-*Last updated: 2026-07-20 after v0.5 scope definition*
+*Last updated: 2026-07-20 after v0.5 streaming roadmap creation*

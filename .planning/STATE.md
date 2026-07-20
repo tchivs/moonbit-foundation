@@ -6,7 +6,7 @@ status: planning
 last_updated: "2026-07-20T12:48:30.899Z"
 last_activity: 2026-07-20
 progress:
-  total_phases: 0
+  total_phases: 3
   completed_phases: 0
   total_plans: 0
   completed_plans: 0
@@ -21,14 +21,14 @@ See `.planning/PROJECT.md` (updated 2026-07-18).
 
 **Core value:** MoonBit developers can reuse stable, high-performance native infrastructure contracts instead of rebuilding incompatible foundations for every graphics, document, media, or automation product.
 
-**Current focus:** Phase 13 — qoi-format-core-and-safe-decode
+**Current focus:** Phase 17 — resumable-qoi-chunk-decode
 
 ## Current Position
 
-Phase: Not started (defining requirements)
+Phase: 17 of 19 (Resumable QOI Chunk Decode)
 Plan: —
-Status: Defining requirements
-Last activity: 2026-07-20 — Milestone v0.5 started
+Status: Roadmap ready; planning next
+Last activity: 2026-07-20 — v0.5 roadmap created with complete requirement coverage
 
 ## Performance Metrics
 
@@ -51,6 +51,9 @@ Last activity: 2026-07-20 — Milestone v0.5 started
 - [Phase ?]: Phase 10: Raster operations use typed linear-premultiplied sRGB conversion with strict metadata compatibility before allocation.
 - [v0.4]: Keep QOI as an eager whole-image-memory QOI 1.0 codec over the existing portable contracts; explicitly defer PNG/DEFLATE, FFI, streaming APIs, release automation, and performance baselines.
 - [Phase 13]: Reuse the public codec limits, budgets, diagnostics, and forward-only I/O seams; probe must consume only caller-owned prefix bytes.
+- [v0.5]: Add streaming beside, not inside, the eager `ImageDecoder` and `ImageEncoder` traits: caller-owned chunks represent temporary input absence, so `@io.Reader` EOF semantics remain unchanged.
+- [v0.5]: The decoder requires explicit finish before it returns a completed image; the encoder writes only caller-supplied output buffers or leases after eager-equivalent preflight succeeds.
+- [v0.5]: Keep the milestone to three code-and-test phases: streaming decode, streaming encode, and four-target public evidence. Registry and release automation remain out of scope.
 
 ### Pending Todos
 
@@ -60,7 +63,7 @@ None.
 
 - Native verification requires the configured C toolchain; portable behavior must remain conformant on `js`, `wasm`, `wasm-gc`, and `native`.
 - Registry publication, provenance closure, and all release automation remain deferred outside this milestone.
-- v0.4 intentionally excludes PNG/DEFLATE, foreign-codec FFI, streaming QOI state APIs, and QOI benchmark baselines until portable codec behavior is stable.
+- v0.5 excludes PNG/DEFLATE, foreign-codec FFI, QOI benchmark baselines, registry work, and release automation. The existing eager QOI traits remain supported and unchanged.
 
 ## Deferred Items
 
@@ -87,9 +90,9 @@ Items acknowledged and deferred at v0.3 milestone close on 2026-07-20. They belo
 
 ## Session Continuity
 
-Last session: 2026-07-20T12:10:11.746Z
-Stopped at: Phase 16 context gathered
-Resume file: .planning/phases/16-qoi-policy-and-public-example-quality-alignment/16-CONTEXT.md
+Last session: 2026-07-20T12:48:30.899Z
+Stopped at: v0.5 roadmap created
+Resume file: .planning/ROADMAP.md
 
 ## Performance Metrics
 
@@ -101,4 +104,4 @@ Resume file: .planning/phases/16-qoi-policy-and-public-example-quality-alignment
 
 ## Operator Next Steps
 
-- Start the next milestone with /gsd-new-milestone
+- Plan Phase 17 with /gsd-plan-phase 17

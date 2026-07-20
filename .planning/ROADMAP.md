@@ -5,7 +5,8 @@
 - ✅ **v0.1 Foundation** — Phases 1-5, 41 plans, 36/36 requirements (shipped 2026-07-17). Full history: [v0.1 roadmap](./milestones/v0.1-ROADMAP.md).
 - ⏸️ **v0.2 Publication & Compatibility** — Phases 6-8 completed or partially prepared; registry publication and closure remain deferred without a registry mutation.
 - ✅ **v0.3 Image Processing Core** — Phases 9-12, 9 requirements (shipped 2026-07-20). Full history: [v0.3 roadmap](./milestones/v0.3-ROADMAP.md).
-- 🗺️ **v0.4 Portable Image Interchange** — Phases 13-15, 6 requirements planned; pure-MoonBit QOI 1.0 interchange across four targets.
+- ✅ **v0.4 Portable Image Interchange** — Phases 13-16, 6 requirements complete (shipped 2026-07-20); pure-MoonBit QOI 1.0 interchange across four targets.
+- 🗺️ **v0.5 QOI Streaming I/O** — Phases 17-19, 7 requirements planned; resumable caller-buffered QOI streams across four targets.
 
 ## Phases
 
@@ -40,13 +41,22 @@ Publication, registry-consumer proof, provenance closure, and any release automa
 - [x] **Phase 11: Portable Processing Pipeline Evidence** - Users can run and maintain a verified, reproducible end-to-end image-processing workflow. (completed 2026-07-20)
 - [x] **Phase 12: Strict PPM End-to-End Filter Coverage** - The public strict-P6 route proves geometry and alpha-aware filters before encoding. (completed 2026-07-20)
 
-### 🗺️ v0.4 Portable Image Interchange (Planned)
+### ✅ v0.4 Portable Image Interchange (Shipped 2026-07-20)
 
 **Milestone goal:** Add strict, bounded QOI 1.0 interchange to the existing portable image contracts without foreign codec dependencies.
 
 - [x] **Phase 13: QOI Format Core and Safe Decode** - Users can identify and decode valid QOI images while hostile input fails deterministically before unsafe work. (completed 2026-07-20)
 - [x] **Phase 14: Canonical QOI Encode and Four-Target Vectors** - Users can create lossless canonical QOI output proven by specification-derived vectors on every supported target. (completed 2026-07-20)
 - [x] **Phase 15: Public QOI Processing Example** - Users can run a documented portable QOI decode-process-encode workflow with deterministic evidence. (completed 2026-07-20)
+- [x] **Phase 16: QOI Policy and Public Example Quality Alignment** - The shipped QOI package and portable consumer have isolated, fail-closed quality evidence. (completed 2026-07-20)
+
+### 🗺️ v0.5 QOI Streaming I/O (Planned)
+
+**Milestone goal:** Add bounded, resumable QOI decode and encode APIs over caller-owned chunks and output buffers without changing the existing forward-only I/O contracts.
+
+- [ ] **Phase 17: Resumable QOI Chunk Decode** - Users can decode caller-owned QOI byte chunks safely and explicitly complete or reject a stream.
+- [ ] **Phase 18: Resumable QOI Buffer Encode** - Users can pull canonical QOI bytes into caller-owned output buffers without losing stream progress or eager preflight guarantees.
+- [ ] **Phase 19: Portable Streaming QOI Evidence** - Users and maintainers can run one public streaming processing workflow and verify hostile schedules on all portable targets.
 
 ## Phase Details
 
@@ -116,7 +126,7 @@ Plans:
 
 ## Progress
 
-**Execution order:** 9 → 10 → 11 → 12 → 13 → 14 → 15
+**Execution order:** 9 → 10 → 11 → 12 → 13 → 14 → 15 → 16 → 17 → 18 → 19
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
@@ -135,6 +145,10 @@ Plans:
 | 13. QOI Format Core and Safe Decode | v0.4 | 1/1 | Complete    | 2026-07-20 |
 | 14. Canonical QOI Encode and Four-Target Vectors | v0.4 | 1/1 | Complete    | 2026-07-20 |
 | 15. Public QOI Processing Example | v0.4 | 1/1 | Complete    | 2026-07-20 |
+| 16. QOI Policy and Public Example Quality Alignment | v0.4 | 1/1 | Complete | 2026-07-20 |
+| 17. Resumable QOI Chunk Decode | v0.5 | 0/TBD | Not started | - |
+| 18. Resumable QOI Buffer Encode | v0.5 | 0/TBD | Not started | - |
+| 19. Portable Streaming QOI Evidence | v0.5 | 0/TBD | Not started | - |
 
 ### Phase 12: Strict PPM End-to-End Filter Coverage
 
@@ -198,7 +212,46 @@ Plans:
 
 Plans:
 
-- [ ] TBD (run /gsd-plan-phase 16 to break down)
+- [x] 16-01-PLAN.md — Add exact QOI package policy checks and the isolated four-target public-example quality lane.
+
+### Phase 17: Resumable QOI Chunk Decode
+
+**Goal**: Library users can feed a stateful QOI decoder caller-owned byte chunks, then explicitly obtain one complete owned image or a typed terminal result without changing `@io.Reader` EOF behavior.
+**Depends on**: Phase 16
+**Requirements**: QSTR-01, QSTR-02, QSTR-03
+**Success Criteria** (what must be TRUE):
+
+  1. A library user can submit arbitrary caller-owned `ByteView` chunks, including every QOI header and opcode boundary, and receives deterministic non-terminal input-needed progress until the complete image is available.
+  2. A library user explicitly finishes a decode; valid completion yields exactly one owned RGB or RGBA image, while incomplete tokens, invalid or incomplete markers, trailing bytes, run overrun, and any use after a terminal result yield typed deterministic terminal errors.
+  3. The streaming result has the same dimensions, pixels, descriptor semantics, consumed-byte accounting, limits, budget charging, diagnostics, and no-partial-image visibility guarantees as the eager decoder.
+
+**Plans**: TBD
+
+### Phase 18: Resumable QOI Buffer Encode
+
+**Goal**: Library users can preflight a compatible image once and drain its canonical QOI representation through caller-supplied output buffers or leases with resumable progress.
+**Depends on**: Phase 17
+**Requirements**: QSTR-04, QSTR-05
+**Success Criteria** (what must be TRUE):
+
+  1. A library user can supply arbitrary output capacities and receive deterministic non-terminal output-needed progress until each canonical QOI byte has been written exactly once, in order, with no duplication or omission.
+  2. A library user can observe the exact completed byte total and obtain the same canonical QOI bytes as the eager encoder for the same compatible source image.
+  3. Incompatible source semantics, limits, budget exhaustion, and setup failures are reported before the first output byte becomes visible; terminal results reject further use deterministically.
+
+**Plans**: TBD
+
+### Phase 19: Portable Streaming QOI Evidence
+
+**Goal**: Library users and maintainers can independently prove the new streaming contracts through a small public processing workflow and adversarial portable conformance evidence.
+**Depends on**: Phase 18
+**Requirements**: QSTR-06, QSTR-07
+**Success Criteria** (what must be TRUE):
+
+  1. Maintainers can run generated QOI vectors through hostile input chunk schedules and output capacities on `js`, `wasm`, `wasm-gc`, and `native`, proving exact pixels, canonical bytes, progress, and terminal failures.
+  2. A library user can run one public portable example that feeds chunked QOI bytes to the streaming decoder, applies an existing image operation, drains canonical QOI bytes through streaming output buffers, and prints deterministic evidence.
+  3. The streaming evidence uses only public portable MoonBit contracts and does not invoke FFI, alter `Reader` EOF semantics, add PNG/DEFLATE work, or introduce registry or release-automation work.
+
+**Plans**: TBD
 
 ---
-*Roadmap updated: 2026-07-20 for v0.4 Portable Image Interchange planning*
+*Roadmap updated: 2026-07-20 for v0.5 QOI Streaming I/O planning*
