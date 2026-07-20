@@ -116,6 +116,64 @@ fn _png_write_grayscale_alpha_row(
   Ok(())
 }
 
+///| PNG sixteen-bit samples are emitted as their big-endian high byte only;
+/// no scaling, rounding, dithering, or colour-management transform occurs.
+fn _png_write_16bit_grayscale_row(
+  view : @storage.MutImageView,
+  rows : PngPackedRows,
+  y : UInt64,
+  width : UInt64,
+  transparency : PngTransparency,
+) -> Result[Unit, @error.CoreError] {
+  for x = 0UL; x < width; x = x + 1UL {
+    let offset = x * 2UL
+    let high = rows.current.view().get(offset).unwrap()
+    let low = rows.current.view().get(offset + 1UL).unwrap()
+    for channel = 0UL; channel < 3UL; channel = channel + 1UL {
+      match view.set_byte(x, y, channel, high) { Err(error) => return Err(error); Ok(_) => () }
+    }
+    match transparency {
+      PngTransparency::Grayscale16(key_high, key_low) => {
+        match view.set_byte(x, y, 3UL, if high == key_high && low == key_low { b'\x00' } else { b'\xff' }) { Err(error) => return Err(error); Ok(_) => () }
+      }
+      _ => ()
+    }
+  }
+  Ok(())
+}
+
+///| PNG sixteen-bit truecolour uses the high byte of each raw component after
+/// bytewise filtering; tRNS equality is evaluated on all six raw bytes first.
+fn _png_write_16bit_rgb_row(
+  view : @storage.MutImageView,
+  rows : PngPackedRows,
+  y : UInt64,
+  width : UInt64,
+  transparency : PngTransparency,
+) -> Result[Unit, @error.CoreError] {
+  for x = 0UL; x < width; x = x + 1UL {
+    let offset = x * 6UL
+    let red_high = rows.current.view().get(offset).unwrap()
+    let red_low = rows.current.view().get(offset + 1UL).unwrap()
+    let green_high = rows.current.view().get(offset + 2UL).unwrap()
+    let green_low = rows.current.view().get(offset + 3UL).unwrap()
+    let blue_high = rows.current.view().get(offset + 4UL).unwrap()
+    let blue_low = rows.current.view().get(offset + 5UL).unwrap()
+    for item in [(0UL, red_high), (1UL, green_high), (2UL, blue_high)] {
+      let (channel, value) = item
+      match view.set_byte(x, y, channel, value) { Err(error) => return Err(error); Ok(_) => () }
+    }
+    match transparency {
+      PngTransparency::Rgb16(rh, rl, gh, gl, bh, bl) => {
+        let alpha = if red_high == rh && red_low == rl && green_high == gh && green_low == gl && blue_high == bh && blue_low == bl { b'\x00' } else { b'\xff' }
+        match view.set_byte(x, y, 3UL, alpha) { Err(error) => return Err(error); Ok(_) => () }
+      }
+      _ => ()
+    }
+  }
+  Ok(())
+}
+
 ///|
 fn PngPackedRows::finish_row(self : PngPackedRows) -> Unit {
   let prior = self.previous
@@ -256,6 +314,29 @@ fn _png_write_raster(view : @storage.MutImageView, transport : PngTransport, fil
   }
   if transport.source_channels == 1UL && transport.bit_depth < 8 {
     return _png_write_packed_grayscale_raster(view, transport, filtered, budget)
+  }
+  if transport.bit_depth == 16 {
+    let row_bytes = match @checked.checked_mul(transport.width, transport.source_bytes_per_pixel) { Err(error) => return Err(error); Ok(value) => value }
+    let expected = match @checked.checked_mul(row_bytes + 1UL, transport.height) { Err(error) => return Err(error); Ok(value) => value }
+    if filtered.length().to_uint64() != expected { return Err(_png_error("png-filtered-size")) }
+    let rows = match _png_new_packed_rows(row_bytes, budget) { Err(error) => return Err(error); Ok(value) => value }
+    let mut offset = 0UL
+    for y = 0UL; y < transport.height; y = y + 1UL {
+      let filter = filtered[offset.to_int()].to_int()
+      if filter > 4 { return Err(_png_error("png-filter")) }
+      offset = offset + 1UL
+      for column = 0UL; column < row_bytes; column = column + 1UL {
+        match rows.reconstruct(column, y, transport.source_bytes_per_pixel, filter, filtered[offset.to_int()].to_int()) { Err(error) => return Err(error); Ok(_) => () }
+        offset = offset + 1UL
+      }
+      if transport.source_channels == 1UL {
+        match _png_write_16bit_grayscale_row(view, rows, y, transport.width, transport.transparency) { Err(error) => return Err(error); Ok(_) => () }
+      } else {
+        match _png_write_16bit_rgb_row(view, rows, y, transport.width, transport.transparency) { Err(error) => return Err(error); Ok(_) => () }
+      }
+      rows.finish_row()
+    }
+    return Ok(())
   }
   if transport.source_channels == 2UL && transport.channels == 4UL {
     let row_bytes = match @checked.checked_mul(transport.width, 2UL) { Err(error) => return Err(error); Ok(value) => value }

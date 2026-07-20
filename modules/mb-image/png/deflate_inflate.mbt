@@ -109,9 +109,7 @@ fn _png_inflate_zlib_to_raster(
   let mut history_size = 0
   let mut history_pos = 0
   let mut adler = 1UL
-  let row_bytes = if transport.source_channels == 1UL {
-    match _png_grayscale_row_bytes(transport.width, transport.bit_depth) { Err(error) => return Err(error); Ok(value) => value }
-  } else { match @checked.checked_mul(transport.width, transport.source_channels) { Err(error) => return Err(error); Ok(value) => value } }
+  let row_bytes = match _png_source_row_bytes(transport.width, transport.source_channels, transport.bit_depth) { Err(error) => return Err(error); Ok(value) => value }
   let expected = match @checked.checked_mul(row_bytes + 1UL, transport.height) { Err(error) => return Err(error); Ok(value) => value }
   let mut emitted = 0UL
   let mut row = 0UL
@@ -137,6 +135,17 @@ fn _png_inflate_zlib_to_raster(
         }
         if pixel_column + 1UL == row_bytes {
           match _png_write_packed_indexed_row(view, rows, row, transport.width, transport.bit_depth, transport.palette, transport.palette_entries, transport.transparency) { Err(error) => return Err(error); Ok(_) => () }
+          rows.finish_row()
+        }
+      } else if transport.bit_depth == 16 {
+        let rows = match packed_rows { Some(value) => value; None => return Err(_png_error("png-packed-rows")) }
+        match rows.reconstruct(pixel_column, row, transport.source_bytes_per_pixel, filter, byte.to_int()) { Err(error) => return Err(error); Ok(_) => () }
+        if pixel_column + 1UL == row_bytes {
+          if transport.source_channels == 1UL {
+            match _png_write_16bit_grayscale_row(view, rows, row, transport.width, transport.transparency) { Err(error) => return Err(error); Ok(_) => () }
+          } else {
+            match _png_write_16bit_rgb_row(view, rows, row, transport.width, transport.transparency) { Err(error) => return Err(error); Ok(_) => () }
+          }
           rows.finish_row()
         }
       } else if transport.source_channels == 1UL || transport.source_channels == 2UL {

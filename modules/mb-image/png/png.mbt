@@ -65,7 +65,7 @@ pub impl @codec.ImageDecoder for PngDecoder with fn decode(
     Err(error) => return Err(error)
     Ok(value) => value
   }
-  let transport = PngTransport::{ width: stream.width, height: stream.height, bit_depth: stream.bit_depth, source_channels: stream.source_channels, channels: stream.channels, indexed: stream.indexed, palette: stream.palette, palette_entries: stream.palette_entries, transparency: stream.transparency, idat: b"", consumed: 0UL }
+  let transport = PngTransport::{ width: stream.width, height: stream.height, bit_depth: stream.bit_depth, source_channels: stream.source_channels, source_bytes_per_pixel: stream.source_bytes_per_pixel, channels: stream.channels, indexed: stream.indexed, palette: stream.palette, palette_entries: stream.palette_entries, transparency: stream.transparency, idat: b"", consumed: 0UL }
   let descriptor = match _png_descriptor(transport) {
     Err(error) => return Err(error)
     Ok(value) => value
@@ -77,8 +77,8 @@ pub impl @codec.ImageDecoder for PngDecoder with fn decode(
       Ok(value) => Some(value)
     }
   } else { None }
-  let packed_rows = if (stream.source_channels == 1UL || stream.source_channels == 2UL) && !stream.indexed {
-    let row_bytes = if stream.source_channels == 2UL { match @checked.checked_mul(stream.width, 2UL) { Err(error) => return Err(error); Ok(value) => value } } else { match _png_grayscale_row_bytes(stream.width, stream.bit_depth) { Err(error) => return Err(error); Ok(value) => value } }
+  let packed_rows = if (stream.source_channels == 1UL || stream.source_channels == 2UL || stream.bit_depth == 16) && !stream.indexed {
+    let row_bytes = match _png_source_row_bytes(stream.width, stream.source_channels, stream.bit_depth) { Err(error) => return Err(error); Ok(value) => value }
     match _png_new_packed_rows(row_bytes, stream.budget) { Err(error) => return Err(error); Ok(value) => Some(value) }
   } else { None }
   let image = match @storage.OwnedImage::new_operation(

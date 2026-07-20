@@ -11,7 +11,9 @@ priv enum PngChunkState {
 priv enum PngTransparency {
   Opaque
   Grayscale(Byte)
+  Grayscale16(Byte, Byte)
   Rgb(Byte, Byte, Byte)
+  Rgb16(Byte, Byte, Byte, Byte, Byte, Byte)
   Indexed(Bytes)
 }
 
@@ -245,6 +247,64 @@ fn _png_grayscale_row_bytes(
   Ok(rounded / 8UL)
 }
 
+///| The filter byte distance is an encoded-source fact, never an exposed RGB8
+/// channel count.  Sixteen-bit samples retain their big-endian byte pairs.
+fn _png_source_bytes_per_pixel(
+  source_channels : UInt64,
+  bit_depth : Int,
+) -> Result[UInt64, @error.CoreError] {
+  if bit_depth == 16 {
+    @checked.checked_mul(source_channels, 2UL)
+  } else {
+    Ok(source_channels)
+  }
+}
+
+///| Computes an encoded source row before RGB8/RGBA8 expansion.
+fn _png_source_row_bytes(
+  width : UInt64,
+  source_channels : UInt64,
+  bit_depth : Int,
+) -> Result[UInt64, @error.CoreError] {
+  if source_channels == 1UL && bit_depth < 8 {
+    _png_grayscale_row_bytes(width, bit_depth)
+  } else {
+    let bytes_per_pixel = match _png_source_bytes_per_pixel(source_channels, bit_depth) {
+      Err(error) => return Err(error)
+      Ok(value) => value
+    }
+    @checked.checked_mul(width, bytes_per_pixel)
+  }
+}
+
+///| Sixteen-bit type-0/type-2 decode reserves the expanded image and exactly
+/// two encoded source rows.  The source bytes are filtered before high-byte mapping.
+fn _png_16bit_decode_budget(
+  width : UInt64,
+  height : UInt64,
+  source_bytes_per_pixel : UInt64,
+  channels : UInt64,
+  limits : @codec.CodecLimits,
+  budget : @budget.Budget,
+) -> Result[@budget.Budget, @error.CoreError] {
+  let pixels = match @checked.checked_mul(width, height) { Err(error) => return Err(error); Ok(value) => value }
+  let image_bytes = match @checked.checked_mul(pixels, channels) { Err(error) => return Err(error); Ok(value) => value }
+  let row_bytes = match @checked.checked_mul(width, source_bytes_per_pixel) { Err(error) => return Err(error); Ok(value) => value }
+  let rows = match @checked.checked_mul(row_bytes, 2UL) { Err(error) => return Err(error); Ok(value) => value }
+  let bytes = match @checked.checked_add(image_bytes, rows) { Err(error) => return Err(error); Ok(value) => value }
+  let filtered_row = match @checked.checked_add(row_bytes, 1UL) { Err(error) => return Err(error); Ok(value) => value }
+  let filtered = match @checked.checked_mul(filtered_row, height) { Err(error) => return Err(error); Ok(value) => value }
+  let work = match @checked.checked_add(image_bytes, filtered) { Err(error) => return Err(error); Ok(value) => value }
+  for item in [("image-bytes", image_bytes, limits.max_output_bytes()), ("output-bytes", filtered, limits.max_output_bytes()), ("work", work, limits.max_work())] {
+    let (context, requested, limit) = item
+    match _png_limit_value(context, requested, limit) { Err(error) => return Err(error); Ok(_) => () }
+  }
+  budget.child(@budget.ResourceLimits::new(
+    bytes~, allocations=3UL, allocation_size=image_bytes,
+    width~, height~, pixels~, depth=0UL, work=limits.max_work(),
+  ))
+}
+
 ///| A grayscale image owns its expanded image and precisely two packed rows.
 fn _png_grayscale_decode_budget(
   width : UInt64,
@@ -291,12 +351,12 @@ fn _png_preflight_ihdr(
   }
   let bit_depth = ihdr[8].to_int()
   let source_channels = if ihdr[9] == 0 {
-    if bit_depth != 1 && bit_depth != 2 && bit_depth != 4 && bit_depth != 8 {
+    if bit_depth != 1 && bit_depth != 2 && bit_depth != 4 && bit_depth != 8 && bit_depth != 16 {
       return Err(_png_error("png-bit-depth"))
     }
     1UL
   } else if ihdr[9] == 2 {
-    if bit_depth != 8 { return Err(_png_error("png-bit-depth")) }
+    if bit_depth != 8 && bit_depth != 16 { return Err(_png_error("png-bit-depth")) }
     3UL
   } else if ihdr[9] == 3 {
     if bit_depth != 1 && bit_depth != 2 && bit_depth != 4 && bit_depth != 8 {
@@ -325,11 +385,7 @@ fn _png_preflight_ihdr(
     Err(error) => return Err(error)
     Ok(value) => value
   }
-  let row_bytes = if ihdr[9] == 0 || ihdr[9] == 3 {
-    match _png_grayscale_row_bytes(width, bit_depth) { Err(error) => return Err(error); Ok(value) => value }
-  } else {
-    match @checked.checked_mul(width, source_channels) { Err(error) => return Err(error); Ok(value) => value }
-  }
+  let row_bytes = match _png_source_row_bytes(width, source_channels, bit_depth) { Err(error) => return Err(error); Ok(value) => value }
   let filtered_row = match @checked.checked_add(row_bytes, 1UL) {
     Err(error) => return Err(error)
     Ok(value) => value
@@ -659,6 +715,7 @@ priv struct PngTransport {
   height : UInt64
   bit_depth : Int
   source_channels : UInt64
+  source_bytes_per_pixel : UInt64
   channels : UInt64
   indexed : Bool
   palette : Bytes
@@ -753,7 +810,7 @@ fn _png_read_transport(
           Err(error) => return Err(error)
           Ok(_) => ()
         }
-        return Ok({ width, height, bit_depth: 8, source_channels, channels, indexed: false, palette: b"", palette_entries: 0UL, transparency: PngTransparency::Opaque, idat: Bytes::from_array(idat), consumed })
+        return Ok({ width, height, bit_depth: 8, source_channels, source_bytes_per_pixel: source_channels, channels, indexed: false, palette: b"", palette_entries: 0UL, transparency: PngTransparency::Opaque, idat: Bytes::from_array(idat), consumed })
       } else if is_idat {
         if state == PngChunkState::AfterIdat { return Err(_png_error("png-idat-contiguous")) }
         if state != PngChunkState::BeforeIdat && state != PngChunkState::InIdat { return Err(_png_error("png-idat-order")) }
@@ -789,6 +846,7 @@ priv struct PngStreamTransport {
   height : UInt64
   bit_depth : Int
   source_channels : UInt64
+  source_bytes_per_pixel : UInt64
   channels : UInt64
   indexed : Bool
   palette : Bytes
@@ -840,7 +898,15 @@ fn _png_read_stream_transport(
     if _png_type_is(kind, b'I', b'D', b'A', b'T') {
       if indexed && !saw_palette { return Err(_png_error("png-plte-required")) }
       let channels = match transparency { PngTransparency::Opaque => if ihdr[9] == 4 || ihdr[9] == 6 { 4UL } else { 3UL }; _ => 4UL }
-      let output_budget = if indexed {
+      let source_channels = if ihdr[9] == 0 || ihdr[9] == 3 { 1UL } else if ihdr[9] == 2 { 3UL } else if ihdr[9] == 4 { 2UL } else { 4UL }
+      let source_bytes_per_pixel = match _png_source_bytes_per_pixel(source_channels, ihdr[8].to_int()) { Err(error) => return Err(error); Ok(value) => value }
+      let output_budget = if ihdr[8] == b'\x10' && (ihdr[9] == 0 || ihdr[9] == 2) {
+        match _png_16bit_decode_budget(
+          (ihdr[0].to_int().to_uint64() << 24) | (ihdr[1].to_int().to_uint64() << 16) | (ihdr[2].to_int().to_uint64() << 8) | ihdr[3].to_int().to_uint64(),
+          (ihdr[4].to_int().to_uint64() << 24) | (ihdr[5].to_int().to_uint64() << 16) | (ihdr[6].to_int().to_uint64() << 8) | ihdr[7].to_int().to_uint64(),
+          source_bytes_per_pixel, channels, limits, budget,
+        ) { Err(error) => return Err(error); Ok(value) => value }
+      } else if indexed {
         match _png_indexed_decode_budget(
           (ihdr[0].to_int().to_uint64() << 24) | (ihdr[1].to_int().to_uint64() << 16) | (ihdr[2].to_int().to_uint64() << 8) | ihdr[3].to_int().to_uint64(),
           (ihdr[4].to_int().to_uint64() << 24) | (ihdr[5].to_int().to_uint64() << 16) | (ihdr[6].to_int().to_uint64() << 8) | ihdr[7].to_int().to_uint64(),
@@ -869,7 +935,8 @@ fn _png_read_stream_transport(
         width: (ihdr[0].to_int().to_uint64() << 24) | (ihdr[1].to_int().to_uint64() << 16) | (ihdr[2].to_int().to_uint64() << 8) | ihdr[3].to_int().to_uint64(),
         height: (ihdr[4].to_int().to_uint64() << 24) | (ihdr[5].to_int().to_uint64() << 16) | (ihdr[6].to_int().to_uint64() << 8) | ihdr[7].to_int().to_uint64(),
         bit_depth: ihdr[8].to_int(),
-        source_channels: if ihdr[9] == 0 || ihdr[9] == 3 { 1UL } else if ihdr[9] == 2 { 3UL } else if ihdr[9] == 4 { 2UL } else { 4UL },
+        source_channels,
+        source_bytes_per_pixel,
         channels,
         indexed,
         palette: Bytes::from_array(palette),
@@ -884,14 +951,22 @@ fn _png_read_stream_transport(
       let (payload, next) = match _png_read_payload_and_crc(reader, scratch, length, kind, next_type, limits) { Err(error) => return Err(error); Ok(value) => value }
       if ihdr[9] == 0 {
         if length != 2UL { return Err(_png_error("png-trns-length")) }
-        if payload[0] != b'\x00' { return Err(_png_error("png-trns-sample")) }
-        let mask = if ihdr[8] == b'\x01' { 1 } else if ihdr[8] == b'\x02' { 3 } else if ihdr[8] == b'\x04' { 15 } else { 255 }
-        if payload[1].to_int() > mask { return Err(_png_error("png-trns-sample")) }
-        transparency = PngTransparency::Grayscale(payload[1])
+        if ihdr[8] == b'\x10' {
+          transparency = PngTransparency::Grayscale16(payload[0], payload[1])
+        } else {
+          if payload[0] != b'\x00' { return Err(_png_error("png-trns-sample")) }
+          let mask = if ihdr[8] == b'\x01' { 1 } else if ihdr[8] == b'\x02' { 3 } else if ihdr[8] == b'\x04' { 15 } else { 255 }
+          if payload[1].to_int() > mask { return Err(_png_error("png-trns-sample")) }
+          transparency = PngTransparency::Grayscale(payload[1])
+        }
       } else if ihdr[9] == 2 {
         if length != 6UL { return Err(_png_error("png-trns-length")) }
-        if payload[0] != b'\x00' || payload[2] != b'\x00' || payload[4] != b'\x00' { return Err(_png_error("png-trns-sample")) }
-        transparency = PngTransparency::Rgb(payload[1], payload[3], payload[5])
+        if ihdr[8] == b'\x10' {
+          transparency = PngTransparency::Rgb16(payload[0], payload[1], payload[2], payload[3], payload[4], payload[5])
+        } else {
+          if payload[0] != b'\x00' || payload[2] != b'\x00' || payload[4] != b'\x00' { return Err(_png_error("png-trns-sample")) }
+          transparency = PngTransparency::Rgb(payload[1], payload[3], payload[5])
+        }
       } else if ihdr[9] == 3 {
         if !saw_palette { return Err(_png_error("png-trns-order")) }
         if length > palette_entries { return Err(_png_error("png-trns-length")) }

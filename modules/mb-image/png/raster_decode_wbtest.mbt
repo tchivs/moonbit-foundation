@@ -1,6 +1,6 @@
 ///|
 test "PNG raster inverse filters preserve nonzero left and above samples" {
-  let transport = PngTransport::{ width: 2UL, height: 5UL, bit_depth: 8, source_channels: 3UL, channels: 3UL, indexed: false, palette: b"", palette_entries: 0UL, transparency: PngTransparency::Opaque, idat: b"", consumed: 0UL }
+  let transport = PngTransport::{ width: 2UL, height: 5UL, bit_depth: 8, source_channels: 3UL, source_bytes_per_pixel: 3UL, channels: 3UL, indexed: false, palette: b"", palette_entries: 0UL, transparency: PngTransparency::Opaque, idat: b"", consumed: 0UL }
   let descriptor = _png_descriptor(transport).unwrap()
   let image = @storage.OwnedImage::new_operation(
     descriptor,
@@ -30,7 +30,7 @@ test "PNG raster rejects invalid filter tags and exact-size mismatch" {
 
 ///|
 test "PNG grayscale raster filters reconstruct one source lane into RGB8" {
-  let transport = PngTransport::{ width: 2UL, height: 5UL, bit_depth: 8, source_channels: 1UL, channels: 3UL, indexed: false, palette: b"", palette_entries: 0UL, transparency: PngTransparency::Opaque, idat: b"", consumed: 0UL }
+  let transport = PngTransport::{ width: 2UL, height: 5UL, bit_depth: 8, source_channels: 1UL, source_bytes_per_pixel: 1UL, channels: 3UL, indexed: false, palette: b"", palette_entries: 0UL, transparency: PngTransparency::Opaque, idat: b"", consumed: 0UL }
   let descriptor = _png_descriptor(transport).unwrap()
   let image = @storage.OwnedImage::new_operation(
     descriptor,
@@ -57,7 +57,7 @@ test "PNG grayscale raster filters reconstruct one source lane into RGB8" {
 
 ///|
 test "PNG indexed raster filters reconstructed index lanes before RGB palette lookup" {
-  let transport = PngTransport::{ width: 2UL, height: 5UL, bit_depth: 8, source_channels: 1UL, channels: 3UL, indexed: false, palette: b"", palette_entries: 0UL, transparency: PngTransparency::Opaque, idat: b"", consumed: 0UL }
+  let transport = PngTransport::{ width: 2UL, height: 5UL, bit_depth: 8, source_channels: 1UL, source_bytes_per_pixel: 1UL, channels: 3UL, indexed: false, palette: b"", palette_entries: 0UL, transparency: PngTransparency::Opaque, idat: b"", consumed: 0UL }
   let image = @storage.OwnedImage::new_operation(
     _png_descriptor(transport).unwrap(),
     @budget.Budget::new(@budget.ResourceLimits::new(bytes=64UL, allocations=1UL, allocation_size=64UL, width=8UL, height=8UL, pixels=64UL, depth=0UL, work=64UL)),
@@ -95,7 +95,7 @@ test "PNG packed grayscale samples scale endpoints without consuming padding" {
 
 ///|
 test "PNG grayscale-alpha raster reconstructs source pairs with bpp two into straight RGBA8" {
-  let transport = PngTransport::{ width: 2UL, height: 2UL, bit_depth: 8, source_channels: 2UL, channels: 4UL, indexed: false, palette: b"", palette_entries: 0UL, transparency: PngTransparency::Opaque, idat: b"", consumed: 0UL }
+  let transport = PngTransport::{ width: 2UL, height: 2UL, bit_depth: 8, source_channels: 2UL, source_bytes_per_pixel: 2UL, channels: 4UL, indexed: false, palette: b"", palette_entries: 0UL, transparency: PngTransparency::Opaque, idat: b"", consumed: 0UL }
   let image = @storage.OwnedImage::new_operation(
     _png_descriptor(transport).unwrap(),
     @budget.Budget::new(@budget.ResourceLimits::new(bytes=64UL, allocations=1UL, allocation_size=64UL, width=8UL, height=8UL, pixels=64UL, depth=0UL, work=64UL)),
@@ -119,7 +119,7 @@ test "PNG grayscale-alpha raster reconstructs source pairs with bpp two into str
 
 ///|
 test "PNG 16-bit raster maps high bytes only and compares complete tRNS samples" {
-  let transport = PngTransport::{ width: 2UL, height: 1UL, bit_depth: 16, source_channels: 1UL, channels: 4UL, indexed: false, palette: b"", palette_entries: 0UL, transparency: PngTransparency::Grayscale16(b'\x12', b'\x35'), idat: b"", consumed: 0UL }
+  let transport = PngTransport::{ width: 2UL, height: 1UL, bit_depth: 16, source_channels: 1UL, source_bytes_per_pixel: 2UL, channels: 4UL, indexed: false, palette: b"", palette_entries: 0UL, transparency: PngTransparency::Grayscale16(b'\x12', b'\x35'), idat: b"", consumed: 0UL }
   let image = @storage.OwnedImage::new_operation(
     _png_descriptor(transport).unwrap(),
     @budget.Budget::new(@budget.ResourceLimits::new(bytes=16UL, allocations=1UL, allocation_size=16UL, width=4UL, height=4UL, pixels=16UL, depth=0UL, work=32UL)),
