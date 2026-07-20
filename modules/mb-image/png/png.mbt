@@ -9,6 +9,16 @@ pub fn PngDecoder::new() -> PngDecoder {
 }
 
 ///|
+/// A deterministic encoder for the strict RGB8 and straight-RGBA8 PNG profile.
+/// It emits one canonical stored-DEFLATE representation without host adapters.
+pub struct PngEncoder {}
+
+///|
+pub fn PngEncoder::new() -> PngEncoder {
+  PngEncoder::{  }
+}
+
+///|
 fn _probe_png_prefix(prefix : @bytes.ByteView) -> @codec.ProbeOutcome {
   if prefix.length() < 8UL {
     @codec.ProbeOutcome::NeedMore(8UL)
