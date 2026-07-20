@@ -1,14 +1,14 @@
 ---
 gsd_state_version: 1.0
-milestone: v0.6
-milestone_name: PNG Interchange
-current_phase: 22
-current_phase_name: Canonical PNG Encode and Portable Evidence
-status: completed
-stopped_at: Completed 22-01-PLAN.md
-last_updated: "2026-07-20T18:13:55.960Z"
+milestone: v0.7
+milestone_name: PNG Colour Fidelity
+current_phase: 23
+current_phase_name: PNG Colour Declaration and sRGB Semantics
+status: planning
+stopped_at: v0.7 milestone created; Phase 23 ready to plan
+last_updated: "2026-07-21T00:00:00.000Z"
 last_activity: 2026-07-21
-last_activity_desc: Phase 22 complete
+last_activity_desc: v0.7 PNG Colour Fidelity research and roadmap created
 progress:
   total_phases: 14
   completed_phases: 2
@@ -25,16 +25,16 @@ See `.planning/PROJECT.md` (updated 2026-07-20).
 
 **Core value:** MoonBit developers can reuse stable, high-performance native infrastructure contracts instead of rebuilding incompatible foundations for every graphics, document, media, or automation product.
 
-**Current focus:** Phase 20 — PNG Structural Safety Gate.
+**Current focus:** Phase 23 — PNG Colour Declaration and sRGB Semantics.
 
 ## Current Position
 
-Phase: 22 of 22 (Canonical PNG Encode and Portable Evidence)
+Phase: 23 of 25 (PNG Colour Declaration and sRGB Semantics)
 Plan: Not started
-Status: Milestone complete
-Last activity: 2026-07-21 — Completed quick task 260721-81r: bounded 16-bit grayscale-alpha and RGBA PNG decode
+Status: Milestone planning
+Last activity: 2026-07-21 — Created v0.7 after Adam7 completed PNGX-02's interlace scope
 
-Progress: [███████░░░] 67%
+Progress: [░░░░░░░░░░] 0%
 
 ## Performance Metrics
 
@@ -53,6 +53,7 @@ Progress: [███████░░░] 67%
 - [Phase ?]: Phase 20 accepts complete structural RGB/RGBA transport only to return deflate-and-raster-pending; Phase 21 owns DEFLATE and image success.
 - [Phase ?]: Freeze RGB8 and straight-RGBA8 PNG output as one stored-DEFLATE filter-None representation with CRC-32 and Adler-32 evidence.
 - [Phase ?]: Use fixed public PNG bytes plus a target-neutral digest for four-target decode-flip-encode proof.
+- [v0.7]: Preserve validated PNG colour declarations before transforming pixels; only confirmed sRGB may enter existing reference operations.
 
 ### Pending Todos
 
@@ -60,8 +61,8 @@ None.
 
 ### Blockers/Concerns
 
-- PNG compatibility claims must remain limited to non-interlaced 8-bit truecolour RGB/RGBA and explicitly reject unsupported semantic inputs.
-- Correctness depends on preserving preflight limits, CRC/Adler validation, atomic image visibility, and arbitrary IDAT-boundary handling.
+- Colour declarations must not silently change the image's claimed sRGB semantics.
+- ICC payload handling must have independent compressed, inflated, allocation, and work bounds before image visibility.
 
 ### Quick Tasks Completed
 
@@ -83,7 +84,7 @@ None.
 
 | Category | Item | Status |
 |----------|------|--------|
-| scope | PNG palette, grayscale, transparency, 16-bit, Adam7, and colour-management support | deferred |
+| scope | cICP/HDR and full ICC colour transforms | deferred |
 | scope | Public resumable PNG streaming API | deferred |
 | delivery | Registry publication and release automation | deferred |
 | Phase 20-png-structural-safety-gate P02 | 13min | 2 tasks | 8 files |

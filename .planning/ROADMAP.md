@@ -8,6 +8,7 @@
 - ✅ **v0.4 Portable Image Interchange** — Phases 13-16, 6 requirements complete (shipped 2026-07-20); pure-MoonBit QOI 1.0 interchange across four targets.
 - ✅ **v0.5 QOI Streaming I/O** — Phases 17-19, 7 requirements complete (shipped 2026-07-20); resumable caller-buffered QOI streams across four targets.
 - 📋 **v0.6 PNG Interchange** — Phases 20-22, 7 requirements planned; strict bounded RGB/RGBA PNG interchange with pure-MoonBit DEFLATE and four-target evidence.
+- 📋 **v0.7 PNG Colour Fidelity** — Phases 23-25, 5 requirements planned; strict PNG colour declarations without silent non-sRGB loss.
 
 ## Phases
 
@@ -66,6 +67,14 @@ Publication, registry-consumer proof, provenance closure, and any release automa
 - [x] **Phase 20: PNG Structural Safety Gate** - Users can probe and validate PNG structure deterministically before image output is exposed. (completed 2026-07-21)
 - [x] **Phase 21: Bounded PNG Decode and DEFLATE** - Users can decode the supported PNG subset across arbitrary IDAT boundaries while malformed or over-budget input fails deterministically. (completed 2026-07-21)
 - [x] **Phase 22: Canonical PNG Encode and Portable Evidence** - Users can emit canonical PNG output and verify one public decode-process-encode workflow on every portable target. (completed 2026-07-21)
+
+### 📋 v0.7 PNG Colour Fidelity (Planned)
+
+**Milestone goal:** Preserve strict PNG colour declarations or reject unavailable transformations explicitly, without silently relabelling source samples as sRGB.
+
+- [ ] **Phase 23: PNG Colour Declaration and sRGB Semantics** - Users can receive strict validated PNG colour declarations, with sRGB mapped truthfully to the existing image model.
+- [ ] **Phase 24: Bounded Non-sRGB and ICC Preservation** - Users can retain legal legacy and ICC declarations without implicit colour transforms.
+- [ ] **Phase 25: Portable Colour Conformance Evidence** - Maintainers can independently verify colour-metadata behaviour across all portable targets.
 
 ## Phase Details
 
@@ -317,5 +326,44 @@ Plans:
 
 - [x] 22-01-PLAN.md
 
+### Phase 23: PNG Colour Declaration and sRGB Semantics
+
+**Goal:** A library user can receive strict validated PNG colour declarations, with `sRGB` mapped truthfully to the existing encoded-sRGB image model.
+**Depends on:** Phase 22
+**Requirements:** PNGCM-01, PNGCM-02
+**Success Criteria:**
+
+1. `sRGB`, `gAMA`, `cHRM`, and `iCCP` singleton/order/payload rules are enforced before image visibility.
+2. Valid `sRGB` images preserve their rendering intent and expose built-in encoded-sRGB metadata; malformed or conflicting declarations fail deterministically.
+3. Existing reference operations continue to accept only actual encoded-sRGB images.
+
+**Plans:** TBD
+
+### Phase 24: Bounded Non-sRGB and ICC Preservation
+
+**Goal:** A library user can retain legal legacy and ICC PNG colour declarations without treating samples as sRGB or performing an implicit transform.
+**Depends on:** Phase 23
+**Requirements:** PNGCM-03, PNGCM-04
+**Success Criteria:**
+
+1. Valid `gAMA`/`cHRM` declarations and bounded valid `iCCP` payloads are retained in explicit non-sRGB metadata with declared precedence.
+2. Invalid profile names, methods, zlib payloads, incompatible ICC colour spaces, and resource expansion fail deterministically before output.
+3. Reference operations and canonical PNG encoding return a typed capability result rather than losing non-sRGB semantics.
+
+**Plans:** TBD
+
+### Phase 25: Portable Colour Conformance Evidence
+
+**Goal:** Maintainers can independently verify colour-metadata behaviour and bounded failures across all portable targets.
+**Depends on:** Phase 24
+**Requirements:** PNGCM-05
+**Success Criteria:**
+
+1. Generated fixtures cover precedence, every recognised chunk grammar, profile resource ceilings, and split-IDAT equivalence.
+2. The PNG quality lane proves the same outcomes on js, wasm, wasm-gc, and native.
+3. Public documentation precisely distinguishes declaration preservation from unimplemented colour transforms.
+
+**Plans:** TBD
+
 ---
-*Roadmap updated: 2026-07-20 for v0.6 PNG Interchange planning*
+*Roadmap updated: 2026-07-21 for v0.7 PNG Colour Fidelity planning*

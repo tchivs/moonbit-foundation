@@ -3,30 +3,23 @@
 **Defined:** 2026-07-20
 **Core Value:** MoonBit developers can reuse stable, high-performance native infrastructure contracts instead of rebuilding incompatible foundations for every graphics, document, media, or automation product.
 
-## v0.6 Requirements
+## v0.7 Requirements
 
-### PNG Structural Safety
+### PNG Colour Semantics
 
-- [x] **PNG-01**: A library user can non-consumingly probe a PNG signature and receive deterministic incomplete, unsupported, or invalid outcomes within codec input limits.
-- [x] **PNG-02**: A library user receives a typed deterministic rejection for invalid PNG framing, chunk order, chunk CRC, unsupported critical or semantic chunk, incomplete IEND, or trailing input.
-- [x] **PNG-03**: A library user receives checked dimension, pixel, input, output, work, allocation, and metadata-policy enforcement before PNG decode exposes an image.
+- [ ] **PNGCM-01**: A library user receives a typed deterministic rejection for duplicate, late, malformed, or conflicting recognised PNG colour chunks before an image is exposed.
+- [ ] **PNGCM-02**: A library user can decode a valid `sRGB` declaration into the existing encoded-sRGB image metadata while retaining its rendering intent.
+- [ ] **PNGCM-03**: A library user can receive valid `gAMA`, `cHRM`, or `iCCP` declarations as bounded, explicit non-sRGB image metadata rather than having raw samples silently relabelled as sRGB.
+- [ ] **PNGCM-04**: A library user receives a typed capability result when a requested PNG operation would require an unavailable colour transform or would discard non-sRGB colour semantics.
 
-### PNG Decode
+### PNG Colour Evidence
 
-- [x] **PNG-04**: A library user can decode non-interlaced 8-bit truecolour RGB and RGBA PNG images with all five PNG filters into existing portable image contracts.
-- [x] **PNG-05**: A library user can decode legal zlib streams using stored, fixed-Huffman, or dynamic-Huffman DEFLATE blocks across arbitrary IDAT boundaries while malformed headers, trees, distances, checksums, and expansion attempts fail deterministically.
-
-### PNG Encode and Evidence
-
-- [x] **PNG-06**: A library user can encode compatible RGB8 or straight-RGBA8 image views to one deterministic PNG byte sequence after eager-equivalent zero-write preflight.
-- [x] **PNG-07**: A library user can run one portable PNG decode → existing image operation → encode workflow, and maintainers can verify fixtures and hostile cases on js, wasm, wasm-gc, and native.
+- [ ] **PNGCM-05**: Maintainers can verify recognised colour chunk positives, ordering/precedence failures, and bounded profile-expansion failures on js, wasm, wasm-gc, and native.
 
 ## Future Requirements
 
 ### PNG Extensions
 
-- **PNGX-01**: Decode palette, grayscale, transparency, and 16-bit PNG profiles with explicit image-model mapping.
-- **PNGX-02**: Support Adam7 interlace and colour-management metadata without silent semantic loss.
 - **PNGX-03**: Provide public resumable PNG streaming APIs after the eager subset is stable.
 - **PNGX-04**: Add compression-ratio optimization and benchmarked encoder strategies without changing the canonical baseline implicitly.
 
@@ -35,7 +28,7 @@
 | Feature | Reason |
 |---|---|
 | FFI-backed PNG or zlib implementation | v0.6 exercises MoonBit-native algorithms and keeps portable targets aligned. |
-| APNG, animation, text/EXIF, palette, grayscale, `tRNS`, 16-bit, Adam7, and colour/HDR chunks | They need separate representation and semantic contracts; rejecting them is safer than silently degrading data. |
+| cICP/HDR, APNG, animation, text/EXIF, and full ICC colour transforms | They require separate image/colour-transform contracts; v0.7 retains or rejects semantics rather than inventing transforms. |
 | Public PNG push/pull streaming API | Internal incremental parsing is required now; public resumable contracts remain a later compatibility decision. |
 | Registry publication, release automation, or credential work | They do not unblock the PNG code path. |
 
@@ -43,20 +36,18 @@
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| PNG-01 | Phase 20 | Complete |
-| PNG-02 | Phase 20 | Complete |
-| PNG-03 | Phase 20 | Complete |
-| PNG-04 | Phase 21 | Complete |
-| PNG-05 | Phase 21 | Complete |
-| PNG-06 | Phase 22 | Complete |
-| PNG-07 | Phase 22 | Complete |
+| PNGCM-01 | Phase 23 | Pending |
+| PNGCM-02 | Phase 23 | Pending |
+| PNGCM-03 | Phase 24 | Pending |
+| PNGCM-04 | Phase 24 | Pending |
+| PNGCM-05 | Phase 25 | Pending |
 
 **Coverage:**
 
-- v0.6 requirements: 7 total
-- Mapped to phases: 7
+- v0.7 requirements: 5 total
+- Mapped to phases: 5
 - Unmapped: 0
 
 ---
-*Requirements defined: 2026-07-20*
-*Last updated: 2026-07-20 after v0.6 roadmap creation*
+*Requirements defined: 2026-07-21*
+*Last updated: 2026-07-21 after v0.7 PNG Colour Fidelity milestone creation*
