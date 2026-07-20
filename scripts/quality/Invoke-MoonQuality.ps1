@@ -1,3 +1,9 @@
+[CmdletBinding()]
+param(
+  [Parameter(Mandatory)][ValidateSet('Required', 'Qoi', 'Png', 'LlvmExperimental')][string]$Lane,
+  [string]$EvidenceDirectory = 'artifacts/release-qualification/current'
+)
+
 Set-StrictMode -Version Latest
 
 . (Join-Path $PSScriptRoot 'Assert-Toolchain.ps1')
@@ -758,6 +764,17 @@ function Assert-QoiLaneIsolation {
   Write-Host 'QOI lane isolation proof passed.'
 }
 
+function Invoke-PngQualityLane {
+  $policy = Read-QualityJson -Path 'policy/foundation.json'
+  $png = @(@($policy.modules | Where-Object { $_.name -ceq 'tchivs/mb-image' })[0].public_packages | Where-Object { $_.name -ceq 'tchivs/mb-image/png' })
+  Assert-ExactSet 'PNG package selection' @($png.name) @('tchivs/mb-image/png')
+  Assert-ExactSet 'PNG imports' @($png[0].allowed_imports) @('tchivs/mb-core/budget', 'tchivs/mb-core/bytes', 'tchivs/mb-core/checked', 'tchivs/mb-core/error', 'tchivs/mb-core/io', 'tchivs/mb-image/codec')
+  Assert-ExactSequence 'PNG source order' @($png[0].production_sources) @('moon.pkg', 'png.mbt', 'structural.mbt', 'generated_vectors.mbt')
+  Invoke-QualityStage 'PNG generated structural vectors' { & ./scripts/fixtures/Generate-PngStructuralVectors.ps1 -Check }
+  Invoke-QualityStage 'PNG four-target tests' { Invoke-MoonCommand -Context 'PNG tests' -Arguments @('-C', 'modules/mb-image', 'test', 'png', '--target', 'all', '--frozen') }
+  Write-Host 'PNG quality lane passed.'
+}
+
 function Invoke-LlvmExperimentalQuality {
   $policyPath = 'policy/foundation.json'
   Write-Host 'LLVM is experimental, unsupported by the required target contract, and non-blocking in CI.'
@@ -776,7 +793,7 @@ function Invoke-LlvmExperimentalQuality {
 function Invoke-MoonQuality {
   [CmdletBinding()]
   param(
-    [Parameter(Mandatory)][ValidateSet('Required', 'Qoi', 'LlvmExperimental')][string]$Lane,
+    [Parameter(Mandatory)][ValidateSet('Required', 'Qoi', 'Png', 'LlvmExperimental')][string]$Lane,
     [string]$EvidenceDirectory = 'artifacts/release-qualification/current'
   )
 
@@ -786,7 +803,10 @@ function Invoke-MoonQuality {
   switch ($Lane) {
     'Required' { Invoke-RequiredQuality -EvidenceDirectory $EvidenceDirectory }
     'Qoi' { Assert-QoiLaneIsolation }
+    'Png' { Invoke-PngQualityLane }
     'LlvmExperimental' { Invoke-LlvmExperimentalQuality }
     default { throw "Unsupported quality lane '$Lane'." }
   }
 }
+
+Invoke-MoonQuality -Lane $Lane -EvidenceDirectory $EvidenceDirectory

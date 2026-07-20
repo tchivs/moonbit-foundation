@@ -1331,6 +1331,15 @@
             "wasm-gc",
             "native"
           ]
+        },
+        {
+          "name": "tchivs/mb-image/png",
+          "path": "png",
+          "stability": "candidate",
+          "allowed_imports": ["tchivs/mb-core/budget", "tchivs/mb-core/bytes", "tchivs/mb-core/checked", "tchivs/mb-core/error", "tchivs/mb-core/io", "tchivs/mb-image/codec"],
+          "production_sources": ["moon.pkg", "png.mbt", "structural.mbt", "generated_vectors.mbt"],
+          "semantic_interface": ["package \"tchivs/mb-image/png\"", "import {", "  \"tchivs/mb-core/budget\",", "  \"tchivs/mb-core/bytes\",", "  \"tchivs/mb-core/error\",", "  \"tchivs/mb-core/io\",", "  \"tchivs/mb-image/codec\",", "}", "pub struct PngDecoder {", "}", "pub fn PngDecoder::new() -> Self", "pub impl @codec.ImageDecoder for PngDecoder"],
+          "supported_targets": ["js", "wasm", "wasm-gc", "native"]
         }
       ]
     }
