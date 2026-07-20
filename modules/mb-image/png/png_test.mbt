@@ -314,7 +314,9 @@ test "generated PNG decode vectors execute fixed and dynamic streams through Png
         for x = 0UL; x < item.width; x = x + 1UL {
           for channel = 0UL; channel < item.channels; channel = channel + 1UL {
             let index = ((y * item.width + x) * item.channels + channel).to_int()
-            inspect(view.get_byte(x, y, channel).unwrap() == item.pixels[index], content="true")
+            if view.get_byte(x, y, channel).unwrap() != item.pixels[index] {
+              fail("generated PNG pixel mismatch: " + item.id + " at " + x.to_string() + "," + y.to_string() + "," + channel.to_string() + " got " + view.get_byte(x, y, channel).unwrap().to_int().to_string() + " expected " + item.pixels[index].to_int().to_string())
+            }
           }
         }
       }

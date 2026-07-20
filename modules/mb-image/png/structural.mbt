@@ -615,6 +615,7 @@ fn _png_validate_transport(
 priv struct PngTransport {
   width : UInt64
   height : UInt64
+  bit_depth : Int
   source_channels : UInt64
   channels : UInt64
   transparency : PngTransparency
@@ -707,7 +708,7 @@ fn _png_read_transport(
           Err(error) => return Err(error)
           Ok(_) => ()
         }
-        return Ok({ width, height, source_channels, channels, transparency: PngTransparency::Opaque, idat: Bytes::from_array(idat), consumed })
+        return Ok({ width, height, bit_depth: 8, source_channels, channels, transparency: PngTransparency::Opaque, idat: Bytes::from_array(idat), consumed })
       } else if is_idat {
         if state == PngChunkState::AfterIdat { return Err(_png_error("png-idat-contiguous")) }
         if state != PngChunkState::BeforeIdat && state != PngChunkState::InIdat { return Err(_png_error("png-idat-order")) }

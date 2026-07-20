@@ -98,6 +98,7 @@ fn _png_inflate_zlib_to_raster(
   view : @storage.MutImageView,
   transport : PngStreamTransport,
   index_rows : Option[PngIndexRows],
+  packed_rows : Option[PngPackedRows],
 ) -> Result[UInt64, @error.CoreError] {
   let cmf = match source.next_byte() { Err(error) => return Err(error); Ok(value) => value.to_int() }
   let flg = match source.next_byte() { Err(error) => return Err(error); Ok(value) => value.to_int() }
@@ -108,7 +109,9 @@ fn _png_inflate_zlib_to_raster(
   let mut history_size = 0
   let mut history_pos = 0
   let mut adler = 1UL
-  let row_bytes = match @checked.checked_mul(transport.width, transport.source_channels) { Err(error) => return Err(error); Ok(value) => value }
+  let row_bytes = if transport.source_channels == 1UL && !transport.indexed {
+    match _png_grayscale_row_bytes(transport.width, transport.bit_depth) { Err(error) => return Err(error); Ok(value) => value }
+  } else { match @checked.checked_mul(transport.width, transport.source_channels) { Err(error) => return Err(error); Ok(value) => value } }
   let expected = match @checked.checked_mul(row_bytes + 1UL, transport.height) { Err(error) => return Err(error); Ok(value) => value }
   let mut emitted = 0UL
   let mut row = 0UL
@@ -137,6 +140,13 @@ fn _png_inflate_zlib_to_raster(
           Ok(_) => ()
         }
         if pixel_column + 1UL == row_bytes { rows.finish_row() }
+      } else if transport.source_channels == 1UL {
+        let rows = match packed_rows { Some(value) => value; None => return Err(_png_error("png-packed-rows")) }
+        match rows.reconstruct(pixel_column, row, filter, byte.to_int()) { Err(error) => return Err(error); Ok(_) => () }
+        if pixel_column + 1UL == row_bytes {
+          match _png_write_packed_grayscale_row(view, rows, row, transport.width, transport.bit_depth, transport.transparency) { Err(error) => return Err(error); Ok(_) => () }
+          rows.finish_row()
+        }
       } else {
         let x = pixel_column / transport.source_channels
         let channel = pixel_column % transport.source_channels
@@ -145,15 +155,7 @@ fn _png_inflate_zlib_to_raster(
         let upper_left = if row > 0UL && pixel_column >= transport.source_channels { match view.get_byte(x - 1UL, row - 1UL, channel) { Err(error) => return Err(error); Ok(value) => value.to_int() } } else { 0 }
         let raw = byte.to_int()
         let value = if filter == 0 { raw } else if filter == 1 { raw + left } else if filter == 2 { raw + above } else if filter == 3 { raw + ((left + above) / 2) } else { raw + _png_paeth(left, above, upper_left) }
-        if transport.source_channels == 1UL {
-          for output_channel = 0UL; output_channel < 3UL; output_channel = output_channel + 1UL {
-            match view.set_byte(x, row, output_channel, value.to_byte()) { Err(error) => return Err(error); Ok(_) => () }
-          }
-          match transport.transparency {
-            PngTransparency::Grayscale(key) => match view.set_byte(x, row, 3UL, if value.to_byte() == key { b'\x00' } else { b'\xff' }) { Err(error) => return Err(error); Ok(_) => () }
-            _ => ()
-          }
-        } else {
+        if transport.source_channels != 1UL {
           match view.set_byte(x, row, channel, value.to_byte()) { Err(error) => return Err(error); Ok(_) => () }
           if channel == 2UL {
             match transport.transparency {

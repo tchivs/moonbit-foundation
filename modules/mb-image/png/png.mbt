@@ -65,7 +65,7 @@ pub impl @codec.ImageDecoder for PngDecoder with fn decode(
     Err(error) => return Err(error)
     Ok(value) => value
   }
-  let transport = PngTransport::{ width: stream.width, height: stream.height, source_channels: stream.source_channels, channels: stream.channels, transparency: stream.transparency, idat: b"", consumed: 0UL }
+  let transport = PngTransport::{ width: stream.width, height: stream.height, bit_depth: stream.bit_depth, source_channels: stream.source_channels, channels: stream.channels, transparency: stream.transparency, idat: b"", consumed: 0UL }
   let descriptor = match _png_descriptor(transport) {
     Err(error) => return Err(error)
     Ok(value) => value
@@ -76,6 +76,10 @@ pub impl @codec.ImageDecoder for PngDecoder with fn decode(
       Ok(value) => Some(value)
     }
   } else { None }
+  let packed_rows = if stream.source_channels == 1UL && !stream.indexed {
+    let row_bytes = match _png_grayscale_row_bytes(stream.width, stream.bit_depth) { Err(error) => return Err(error); Ok(value) => value }
+    match _png_new_packed_rows(row_bytes, stream.budget) { Err(error) => return Err(error); Ok(value) => Some(value) }
+  } else { None }
   let image = match @storage.OwnedImage::new_operation(
     descriptor, stream.budget, PngBuiltinAllocator::{} as &@bytes.Allocator,
     limits.max_work(),
@@ -83,7 +87,7 @@ pub impl @codec.ImageDecoder for PngDecoder with fn decode(
     Err(error) => return Err(error)
     Ok(value) => value
   }
-  let consumed = match image.with_mut_view(fn(view) { _png_inflate_zlib_to_raster(stream.source, limits.max_output_bytes(), view, stream, index_rows) }) {
+  let consumed = match image.with_mut_view(fn(view) { _png_inflate_zlib_to_raster(stream.source, limits.max_output_bytes(), view, stream, index_rows, packed_rows) }) {
     Err(error) => return Err(error)
     Ok(value) => value
   }

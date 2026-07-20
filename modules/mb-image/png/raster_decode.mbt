@@ -57,6 +57,80 @@ fn _png_paeth(a : Int, b : Int, c : Int) -> Int {
   if pa <= pb && pa <= pc { a } else if pb <= pc { b } else { c }
 }
 
+///| Expands a raw packed grayscale sample into the RGB8 range.
+fn _png_scale_grayscale_sample(sample : Int, bit_depth : Int) -> Int {
+  if bit_depth == 1 { sample * 255 }
+  else if bit_depth == 2 { sample * 85 }
+  else if bit_depth == 4 { sample * 17 }
+  else { sample }
+}
+
+///| Private row state keeps filtering in the encoded packed-byte domain.
+priv struct PngPackedRows {
+  mut current : @bytes.OwnedBytes
+  mut previous : @bytes.OwnedBytes
+}
+
+///|
+fn _png_new_packed_rows(
+  row_bytes : UInt64,
+  budget : @budget.Budget,
+) -> Result[PngPackedRows, @error.CoreError] {
+  let current = match @bytes.OwnedBytes::new(row_bytes, budget) { Err(error) => return Err(error); Ok(value) => value }
+  let previous = match @bytes.OwnedBytes::new(row_bytes, budget) { Err(error) => return Err(error); Ok(value) => value }
+  Ok({ current, previous })
+}
+
+///|
+fn PngPackedRows::reconstruct(
+  self : PngPackedRows,
+  column : UInt64,
+  row : UInt64,
+  filter : Int,
+  raw : Int,
+) -> Result[Byte, @error.CoreError] {
+  let left = if column > 0UL { self.current.view().get(column - 1UL).unwrap().to_int() } else { 0 }
+  let above = if row > 0UL { self.previous.view().get(column).unwrap().to_int() } else { 0 }
+  let upper_left = if row > 0UL && column > 0UL { self.previous.view().get(column - 1UL).unwrap().to_int() } else { 0 }
+  let value = if filter == 0 { raw } else if filter == 1 { raw + left } else if filter == 2 { raw + above } else if filter == 3 { raw + ((left + above) / 2) } else { raw + _png_paeth(left, above, upper_left) }
+  let byte = value.to_byte()
+  match self.current.with_mut(column, 1UL, fn(lease) { lease.set(0UL, byte) }) { Err(error) => Err(error); Ok(_) => Ok(byte) }
+}
+
+///|
+fn PngPackedRows::finish_row(self : PngPackedRows) -> Unit {
+  let prior = self.previous
+  self.previous = self.current
+  self.current = prior
+}
+
+///|
+fn _png_write_packed_grayscale_row(
+  view : @storage.MutImageView,
+  rows : PngPackedRows,
+  y : UInt64,
+  width : UInt64,
+  bit_depth : Int,
+  transparency : PngTransparency,
+) -> Result[Unit, @error.CoreError] {
+  let mask = if bit_depth == 1 { 1 } else if bit_depth == 2 { 3 } else if bit_depth == 4 { 15 } else { 255 }
+  for x = 0UL; x < width; x = x + 1UL {
+    let start = x * bit_depth.to_uint64()
+    let byte = rows.current.view().get(start / 8UL).unwrap().to_int()
+    let shift = 8 - bit_depth - (start % 8UL).to_int()
+    let raw = (byte >> shift) & mask
+    let expanded = _png_scale_grayscale_sample(raw, bit_depth).to_byte()
+    for channel = 0UL; channel < 3UL; channel = channel + 1UL {
+      match view.set_byte(x, y, channel, expanded) { Err(error) => return Err(error); Ok(_) => () }
+    }
+    match transparency {
+      PngTransparency::Grayscale(key) => match view.set_byte(x, y, 3UL, if raw.to_byte() == key { b'\x00' } else { b'\xff' }) { Err(error) => return Err(error); Ok(_) => () }
+      _ => ()
+    }
+  }
+  Ok(())
+}
+
 ///|
 priv struct PngIndexRows {
   mut current : @bytes.OwnedBytes
@@ -190,7 +264,10 @@ fn _png_get(view : @storage.MutImageView, x : UInt64, y : UInt64, channel : UInt
 }
 
 ///|
-fn _png_write_raster(view : @storage.MutImageView, transport : PngTransport, filtered : Array[Byte]) -> Result[Unit, @error.CoreError] {
+fn _png_write_raster(view : @storage.MutImageView, transport : PngTransport, filtered : Array[Byte], budget : @budget.Budget) -> Result[Unit, @error.CoreError] {
+  if transport.source_channels == 1UL && transport.bit_depth < 8 {
+    return _png_write_packed_grayscale_raster(view, transport, filtered, budget)
+  }
   let row_bytes = match @checked.checked_mul(transport.width, transport.source_channels) {
     Err(error) => return Err(error)
     Ok(value) => value
@@ -247,6 +324,32 @@ fn _png_write_raster(view : @storage.MutImageView, transport : PngTransport, fil
       }
       offset = offset + 1UL
     }
+  }
+  Ok(())
+}
+
+///| The eager helper mirrors the live inflater: filters run on packed bytes.
+fn _png_write_packed_grayscale_raster(
+  view : @storage.MutImageView,
+  transport : PngTransport,
+  filtered : Array[Byte],
+  budget : @budget.Budget,
+) -> Result[Unit, @error.CoreError] {
+  let row_bytes = match _png_grayscale_row_bytes(transport.width, transport.bit_depth) { Err(error) => return Err(error); Ok(value) => value }
+  let expected = match @checked.checked_mul(row_bytes + 1UL, transport.height) { Err(error) => return Err(error); Ok(value) => value }
+  if filtered.length().to_uint64() != expected { return Err(_png_error("png-filtered-size")) }
+  let rows = match _png_new_packed_rows(row_bytes, budget) { Err(error) => return Err(error); Ok(value) => value }
+  let mut offset = 0UL
+  for y = 0UL; y < transport.height; y = y + 1UL {
+    let filter = filtered[offset.to_int()].to_int()
+    if filter > 4 { return Err(_png_error("png-filter")) }
+    offset = offset + 1UL
+    for column = 0UL; column < row_bytes; column = column + 1UL {
+      match rows.reconstruct(column, y, filter, filtered[offset.to_int()].to_int()) { Err(error) => return Err(error); Ok(_) => () }
+      offset = offset + 1UL
+    }
+    match _png_write_packed_grayscale_row(view, rows, y, transport.width, transport.bit_depth, transport.transparency) { Err(error) => return Err(error); Ok(_) => () }
+    rows.finish_row()
   }
   Ok(())
 }

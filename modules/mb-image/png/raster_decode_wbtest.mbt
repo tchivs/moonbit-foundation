@@ -1,6 +1,6 @@
 ///|
 test "PNG raster inverse filters preserve nonzero left and above samples" {
-  let transport = PngTransport::{ width: 2UL, height: 5UL, source_channels: 3UL, channels: 3UL, transparency: PngTransparency::Opaque, idat: b"", consumed: 0UL }
+  let transport = PngTransport::{ width: 2UL, height: 5UL, bit_depth: 8, source_channels: 3UL, channels: 3UL, transparency: PngTransparency::Opaque, idat: b"", consumed: 0UL }
   let descriptor = _png_descriptor(transport).unwrap()
   let image = @storage.OwnedImage::new_operation(
     descriptor,
@@ -15,7 +15,7 @@ test "PNG raster inverse filters preserve nonzero left and above samples" {
     b'\x03', b'\x08',b'\x12',b'\x12', b'\x17',b'\x14',b'\x17',
     b'\x04', b'\x0a',b'\x05',b'\x0a', b'\x14',b'\x14',b'\x14',
   ]
-  image.with_mut_view(fn(view) { _png_write_raster(view, transport, filtered) }).unwrap()
+  image.with_mut_view(fn(view) { _png_write_raster(view, transport, filtered, @budget.Budget::new(@budget.ResourceLimits::new(bytes=0UL, allocations=0UL, allocation_size=0UL, width=0UL, height=0UL, pixels=0UL, depth=0UL, work=0UL))) }).unwrap()
   let view = image.view()
   inspect(view.get_byte(1UL, 1UL, 2UL).unwrap(), content="b'\\x37'")
   inspect(view.get_byte(1UL, 2UL, 0UL).unwrap(), content="b'\\x2D'")
@@ -30,7 +30,7 @@ test "PNG raster rejects invalid filter tags and exact-size mismatch" {
 
 ///|
 test "PNG grayscale raster filters reconstruct one source lane into RGB8" {
-  let transport = PngTransport::{ width: 2UL, height: 5UL, source_channels: 1UL, channels: 3UL, transparency: PngTransparency::Opaque, idat: b"", consumed: 0UL }
+  let transport = PngTransport::{ width: 2UL, height: 5UL, bit_depth: 8, source_channels: 1UL, channels: 3UL, transparency: PngTransparency::Opaque, idat: b"", consumed: 0UL }
   let descriptor = _png_descriptor(transport).unwrap()
   let image = @storage.OwnedImage::new_operation(
     descriptor,
@@ -45,7 +45,7 @@ test "PNG grayscale raster filters reconstruct one source lane into RGB8" {
     b'\x03', b'\x4d', b'\x1a',
     b'\x04', b'\x22', b'\x11',
   ]
-  image.with_mut_view(fn(view) { _png_write_raster(view, transport, filtered) }).unwrap()
+  image.with_mut_view(fn(view) { _png_write_raster(view, transport, filtered, @budget.Budget::new(@budget.ResourceLimits::new(bytes=0UL, allocations=0UL, allocation_size=0UL, width=0UL, height=0UL, pixels=0UL, depth=0UL, work=0UL))) }).unwrap()
   let view = image.view()
   for item in [(0UL, 0UL, b'\x11'), (1UL, 0UL, b'\x22'), (0UL, 1UL, b'\x33'), (1UL, 1UL, b'\x44'), (0UL, 2UL, b'\x55'), (1UL, 2UL, b'\x66'), (0UL, 3UL, b'\x77'), (1UL, 3UL, b'\x88'), (0UL, 4UL, b'\x99'), (1UL, 4UL, b'\xaa')] {
     let (x, y, expected) = item
@@ -57,7 +57,7 @@ test "PNG grayscale raster filters reconstruct one source lane into RGB8" {
 
 ///|
 test "PNG indexed raster filters reconstructed index lanes before RGB palette lookup" {
-  let transport = PngTransport::{ width: 2UL, height: 5UL, source_channels: 1UL, channels: 3UL, transparency: PngTransparency::Opaque, idat: b"", consumed: 0UL }
+  let transport = PngTransport::{ width: 2UL, height: 5UL, bit_depth: 8, source_channels: 1UL, channels: 3UL, transparency: PngTransparency::Opaque, idat: b"", consumed: 0UL }
   let image = @storage.OwnedImage::new_operation(
     _png_descriptor(transport).unwrap(),
     @budget.Budget::new(@budget.ResourceLimits::new(bytes=64UL, allocations=1UL, allocation_size=64UL, width=8UL, height=8UL, pixels=64UL, depth=0UL, work=64UL)),
