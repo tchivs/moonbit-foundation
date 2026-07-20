@@ -2,19 +2,19 @@
 gsd_state_version: 1.0
 milestone: v0.3
 milestone_name: Image Processing Core
-current_phase: 11
+current_phase: 12
+current_phase_name: strict-ppm-end-to-end-filter-coverage
 status: executing
 stopped_at: Phase 12 context gathered
-last_updated: "2026-07-20T09:38:39.236Z"
+last_updated: "2026-07-20T09:40:42.366Z"
 last_activity: 2026-07-20
-last_activity_desc: Phase 11 marked complete
+last_activity_desc: Phase 12 execution started
 progress:
   total_phases: 4
   completed_phases: 3
-  total_plans: 7
+  total_plans: 8
   completed_plans: 7
   percent: 75
-current_phase_name: Portable Processing Pipeline Evidence
 ---
 
 # Project State
@@ -25,14 +25,14 @@ See `.planning/PROJECT.md` (updated 2026-07-18).
 
 **Core value:** MoonBit developers can reuse stable, high-performance native infrastructure contracts instead of rebuilding incompatible foundations for every graphics, document, media, or automation product.
 
-**Current focus:** Phase 11 — Portable Processing Pipeline Evidence
+**Current focus:** Phase 12 — strict-ppm-end-to-end-filter-coverage
 
 ## Current Position
 
-Phase: 11 — COMPLETE
-Plan: 1 of ?
-Status: Ready to execute
-Last activity: 2026-07-20 — Phase 11 marked complete
+Phase: 12 (strict-ppm-end-to-end-filter-coverage) — EXECUTING
+Plan: 1 of 1
+Status: Executing Phase 12
+Last activity: 2026-07-20 — Phase 12 execution started
 
 Progress: [██████████] 100%
 
