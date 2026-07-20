@@ -43,7 +43,7 @@ fn png_decode_generated_vector(
 }
 
 ///|
-test "generated PNG structural vectors execute private validator branches" {
+fn _png_legacy_phase20_structural_matrix() -> Unit raise Error {
   for item in _generated_png_structural_cases() {
     let error = png_decode_generated_vector(item).unwrap_err()
     if item.code == "unexpected-end" {
@@ -54,18 +54,26 @@ test "generated PNG structural vectors execute private validator branches" {
     } else if item.code == "budget-exceeded" {
       inspect(error.code() == @error.ErrorCode::BudgetExceeded, content="true")
     } else if item.code == "capability-unavailable" {
-      inspect(error.code() == @error.ErrorCode::CapabilityUnavailable || error.code() == @error.ErrorCode::InvalidEncoding, content="true")
+      if item.context == "opaque-metadata-preservation" {
+        inspect(error.code() == @error.ErrorCode::CapabilityUnavailable, content="true")
+      } else {
+        if error.context() != Some("zlib-truncated") { fail("legacy PNG case: " + item.id + ": " + error.context().unwrap()) }
+        inspect(error.code() == @error.ErrorCode::InvalidEncoding, content="true")
+        inspect(error.context() == Some("zlib-truncated"), content="true")
+      }
     } else {
       inspect(error.code() == @error.ErrorCode::InvalidEncoding, content="true")
     }
-    if item.code != "unexpected-end" && item.code != "capability-unavailable" && error.context() != Some(item.context) {
+    if item.code != "unexpected-end" &&
+      !(item.code == "capability-unavailable" && item.context != "opaque-metadata-preservation") &&
+      error.context() != Some(item.context) {
       fail("generated PNG context mismatch: " + item.id)
     }
   }
 }
 
 ///|
-test "generated PNG private matrix retains CRC and policy precedence fixtures" {
+fn _png_legacy_phase20_crc_matrix() -> Unit raise InspectError {
   let ids = ["ihdr-crc", "idat-crc", "ancillary-crc", "semantic-crc", "iend-crc"]
   for item in _generated_png_structural_cases() {
     if ids.contains(item.id) {

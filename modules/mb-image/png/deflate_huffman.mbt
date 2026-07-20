@@ -16,7 +16,11 @@ fn _png_reverse_bits(value : Int, count : Int) -> Int {
 }
 
 ///|
-fn _png_huffman_new(lengths : Array[Int], require_eob : Bool) -> Result[PngHuffman, @error.CoreError] {
+fn _png_huffman_new(
+  lengths : Array[Int],
+  require_eob : Bool,
+  allow_single_distance : Bool,
+) -> Result[PngHuffman, @error.CoreError] {
   let counts = Array::make(16, 0)
   let mut nonzero = 0
   for length in lengths {
@@ -31,6 +35,13 @@ fn _png_huffman_new(lengths : Array[Int], require_eob : Bool) -> Result[PngHuffm
     code = (code + counts[bits - 1]) << 1
     if code + counts[bits] > (1 << bits) { return Err(_png_error("deflate-oversubscribed-tree")) }
     next[bits] = code
+  }
+  // RFC 1951 permits one incomplete tree only: a distance alphabet with one
+  // one-bit code.  All other dynamic alphabets must cover their whole code
+  // space; accepting a residual prefix would make malformed inputs decode.
+  if code + counts[15] != (1 << 15) &&
+    !(allow_single_distance && nonzero == 1 && counts[1] == 1) {
+    return Err(_png_error("deflate-incomplete-tree"))
   }
   let codes = Array::make(lengths.length(), 0)
   for symbol = 0; symbol < lengths.length(); symbol = symbol + 1 {
@@ -66,10 +77,10 @@ fn _png_fixed_literal_tree() -> PngHuffman {
   for index = 144; index <= 255; index = index + 1 { lengths[index] = 9 }
   for index = 256; index <= 279; index = index + 1 { lengths[index] = 7 }
   for index = 280; index <= 287; index = index + 1 { lengths[index] = 8 }
-  _png_huffman_new(lengths, true).unwrap()
+  _png_huffman_new(lengths, true, false).unwrap()
 }
 
 ///|
 fn _png_fixed_distance_tree() -> PngHuffman {
-  _png_huffman_new(Array::make(32, 5), false).unwrap()
+  _png_huffman_new(Array::make(32, 5), false, false).unwrap()
 }

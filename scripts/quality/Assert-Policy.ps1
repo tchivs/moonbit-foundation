@@ -984,7 +984,7 @@ function Assert-PngFoundationPolicy {
   $png = $png[0]
   $imports = @('tchivs/mb-core/budget', 'tchivs/mb-core/bytes', 'tchivs/mb-core/checked', 'tchivs/mb-core/error', 'tchivs/mb-core/io', 'tchivs/mb-color/model', 'tchivs/mb-color/profile', 'tchivs/mb-image/codec', 'tchivs/mb-image/metadata', 'tchivs/mb-image/model', 'tchivs/mb-image/storage')
   $sources = @('moon.pkg', 'png.mbt', 'structural.mbt', 'deflate_bits.mbt', 'deflate_huffman.mbt', 'deflate_inflate.mbt', 'raster_decode.mbt', 'generated_vectors.mbt')
-  $files = @('moon.pkg', 'png.mbt', 'png_test.mbt', 'structural.mbt', 'structural_wbtest.mbt', 'deflate_bits.mbt', 'deflate_huffman.mbt', 'deflate_inflate.mbt', 'deflate_wbtest.mbt', 'raster_decode.mbt', 'raster_decode_wbtest.mbt', 'generated_vectors.mbt', 'generated_vectors_test.mbt')
+  $files = @('moon.pkg', 'png.mbt', 'png_test.mbt', 'structural.mbt', 'structural_wbtest.mbt', 'deflate_bits.mbt', 'deflate_huffman.mbt', 'deflate_inflate.mbt', 'deflate_wbtest.mbt', 'raster_decode.mbt', 'raster_decode_wbtest.mbt', 'generated_vectors.mbt', 'generated_vectors_test.mbt', 'generated_decode_vectors_test.mbt')
   Assert-ExactSet 'PNG policy imports' @($png.allowed_imports) $imports
   Assert-ExactSet 'PNG policy targets' @($png.supported_targets) @('js', 'wasm', 'wasm-gc', 'native')
   Assert-ExactSequence 'PNG policy production source order' @($png.production_sources) $sources

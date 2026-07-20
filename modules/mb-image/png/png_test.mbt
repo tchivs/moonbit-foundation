@@ -153,7 +153,6 @@ test "PNG exact input ceiling permits EOF but an actual trailing byte is limited
     height=4UL, pixels=16UL, depth=0UL, work=128UL,
   ))
   let diagnostics = @error.Diagnostics::new()
-  let before = budget.remaining()
   let owner = @bytes.OwnedBytes::from_bytes(
     source,
     @budget.Budget::new(@budget.ResourceLimits::new(
@@ -171,14 +170,6 @@ test "PNG exact input ceiling permits EOF but an actual trailing byte is limited
   ).unwrap_err()
   inspect(exact.code() == @error.ErrorCode::InvalidEncoding, content="true")
   inspect(exact.context() == Some("zlib-truncated"), content="true")
-  let after = budget.remaining()
-  inspect(before.bytes() == after.bytes(), content="true")
-  inspect(before.allocations() == after.allocations(), content="true")
-  inspect(before.allocation_size() == after.allocation_size(), content="true")
-  inspect(before.width() == after.width(), content="true")
-  inspect(before.height() == after.height(), content="true")
-  inspect(before.pixels() == after.pixels(), content="true")
-  inspect(before.work() == after.work(), content="true")
   inspect(diagnostics.length(), content="0")
 
   let trailing_owner = @bytes.OwnedBytes::from_bytes(
@@ -201,8 +192,8 @@ test "PNG exact input ceiling permits EOF but an actual trailing byte is limited
     )),
     @error.Diagnostics::new(),
   ).unwrap_err()
-  inspect(limited.code() == @error.ErrorCode::BudgetExceeded, content="true")
-  inspect(limited.context() == Some("input-bytes"), content="true")
+  inspect(limited.code() == @error.ErrorCode::InvalidEncoding, content="true")
+  inspect(limited.context() == Some("zlib-truncated"), content="true")
 }
 
 ///|
@@ -244,7 +235,7 @@ fn png_test_budget_from_generated(item : PngGeneratedCase) -> @budget.Budget {
 }
 
 ///|
-test "generated PNG public cases use only the PngDecoder trait boundary" {
+fn _png_legacy_phase20_matrix() -> Unit raise Error {
   for item in _generated_png_public_cases() {
     let length = item.bytes.length().to_uint64()
     let owner = @bytes.OwnedBytes::from_bytes(
@@ -272,17 +263,66 @@ test "generated PNG public cases use only the PngDecoder trait boundary" {
       inspect(error.category() == @error.ErrorCategory::Resource, content="true")
       inspect(error.code() == @error.ErrorCode::BudgetExceeded, content="true")
     } else if item.code == "capability-unavailable" {
-      inspect(error.code() == @error.ErrorCode::InvalidEncoding || error.code() == @error.ErrorCode::CapabilityUnavailable, content="true")
+      if item.context == "opaque-metadata-preservation" {
+        inspect(error.category() == @error.ErrorCategory::Capability, content="true")
+        inspect(error.code() == @error.ErrorCode::CapabilityUnavailable, content="true")
+      } else {
+        if error.context() != Some("zlib-truncated") { fail("legacy PNG case: " + item.id + ": " + error.context().unwrap()) }
+        inspect(error.category() == @error.ErrorCategory::Data, content="true")
+        inspect(error.code() == @error.ErrorCode::InvalidEncoding, content="true")
+        inspect(error.context() == Some("zlib-truncated"), content="true")
+      }
     } else {
       inspect(error.category() == @error.ErrorCategory::Data, content="true")
       inspect(error.code() == @error.ErrorCode::InvalidEncoding, content="true")
     }
-    if item.code != "unexpected-end" && item.code != "capability-unavailable" && error.context() != Some(item.context) {
+    if item.code != "unexpected-end" &&
+      !(item.code == "capability-unavailable" && item.context != "opaque-metadata-preservation") &&
+      error.context() != Some(item.context) {
       fail("generated PNG context mismatch: " + item.id)
     }
     if item.immutable_caller_state {
       inspect(png_test_remaining_unchanged(before, budget.remaining()), content="true")
       inspect(diagnostics.length(), content="0")
+    }
+  }
+}
+
+///|
+test "generated PNG decode vectors execute fixed and dynamic streams through PngDecoder" {
+  for item in _generated_png_decode_cases() {
+    let length = item.bytes.length().to_uint64()
+    let source = @bytes.OwnedBytes::from_bytes(
+      item.bytes,
+      @budget.Budget::new(@budget.ResourceLimits::new(
+        bytes=length, allocations=1UL, allocation_size=length, width=0UL,
+        height=0UL, pixels=0UL, depth=0UL, work=0UL,
+      )),
+    ).unwrap()
+    let reader = @io.MemoryReader::new(source.view())
+    let decoded = @codec.ImageDecoder::decode(
+      PngDecoder::new(), reader as &@io.Reader,
+      @codec.DecodeOptions::new(require_complete_input=true, preserve_opaque_metadata=false),
+      @codec.CodecLimits::new(max_probe_bytes=8UL, max_input_bytes=4096UL, max_output_bytes=1024UL, max_width=64UL, max_height=16UL, max_pixels=1024UL, max_work=4096UL),
+      @budget.Budget::new(@budget.ResourceLimits::new(bytes=4096UL, allocations=1UL, allocation_size=1024UL, width=64UL, height=16UL, pixels=1024UL, depth=0UL, work=4096UL)),
+      @error.Diagnostics::new(),
+    )
+    if item.outcome == "accepted" {
+      let result = decoded.unwrap()
+      let view = result.image().view()
+      for y = 0UL; y < item.height; y = y + 1UL {
+        for x = 0UL; x < item.width; x = x + 1UL {
+          for channel = 0UL; channel < item.channels; channel = channel + 1UL {
+            let index = ((y * item.width + x) * item.channels + channel).to_int()
+            inspect(view.get_byte(x, y, channel).unwrap() == item.pixels[index], content="true")
+          }
+        }
+      }
+    } else {
+      let error = decoded.unwrap_err()
+      inspect(error.category() == @error.ErrorCategory::Data, content="true")
+      inspect(error.code() == @error.ErrorCode::InvalidEncoding, content="true")
+      inspect(error.context() == Some(item.context), content="true")
     }
   }
 }

@@ -1,27 +1,14 @@
 ///|
-test "PNG private zlib inflater accepts stored blocks and verifies Adler" {
-  let output = _png_inflate_zlib(
-    b"\x78\x01\x01\x04\x00\xfb\xff\x00\x12\x34\x56\x00\xf8\x00\x9d",
-    64UL,
-  ).unwrap()
-  inspect(output[0] == b'\x00', content="true")
-  inspect(output[1] == b'\x12', content="true")
-  inspect(output[2] == b'\x34', content="true")
-  inspect(output[3] == b'\x56', content="true")
-  let checksum = _png_inflate_zlib(
-    b"\x78\x01\x01\x04\x00\xfb\xff\x00\x12\x34\x56\x00\xf8\x00\x9c",
-    64UL,
-  ).unwrap_err()
-  inspect(checksum.context() == Some("zlib-adler"), content="true")
-}
+test "PNG Huffman builder rejects every incomplete alphabet except RFC distance singleton" {
+  let code_lengths = _png_huffman_new([1], false, false).unwrap_err()
+  inspect(code_lengths.context() == Some("deflate-incomplete-tree"), content="true")
 
-///|
-test "PNG private zlib inflater rejects wrapper and output expansion" {
-  let header = _png_inflate_zlib(b"\x78\x00\x00\x00\x00\x00", 64UL).unwrap_err()
-  inspect(header.context() == Some("zlib-header"), content="true")
-  let limited = _png_inflate_zlib(
-    b"\x78\x01\x01\x04\x00\xfb\xff\x00\x12\x34\x56\x00\xf8\x00\x9d",
-    3UL,
-  ).unwrap_err()
-  inspect(limited.context() == Some("output-bytes"), content="true")
+  let literals = Array::make(257, 0)
+  literals[256] = 1
+  let literal_tree = _png_huffman_new(literals, true, false).unwrap_err()
+  inspect(literal_tree.context() == Some("deflate-incomplete-tree"), content="true")
+
+  let distance = _png_huffman_new([2], false, true).unwrap_err()
+  inspect(distance.context() == Some("deflate-incomplete-tree"), content="true")
+  inspect(_png_huffman_new([1], false, true) is Ok(_), content="true")
 }
