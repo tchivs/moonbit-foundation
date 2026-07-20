@@ -998,7 +998,7 @@ $script:GitCommand=$GitCommand
 $script:PrepareProvider=$PrepareProvider
 if($Mode -ceq 'ValidatePreAuthorization'){
   if([string]::IsNullOrWhiteSpace($PreAuthorizationPath) -or -not(Test-Path -LiteralPath $PreAuthorizationPath -PathType Leaf)){Throw-P08HostedRule 'P08-PREAUTH-PATH' 'ValidatePreAuthorization requires one readable projection.'}
-  $fixed=if([string]::IsNullOrWhiteSpace($HandoffPath)){[IO.Path]::GetFullPath((Join-Path ([IO.Path]::GetTempPath()) 'mnf-phase08-r12-handoff.json'))}else{[IO.Path]::GetFullPath($HandoffPath)}
+  $fixed=if([string]::IsNullOrWhiteSpace($HandoffPath)){[IO.Path]::GetFullPath((Join-Path ([IO.Path]::GetTempPath()) 'mnf-phase08-r13-handoff.json'))}else{[IO.Path]::GetFullPath($HandoffPath)}
   Assert-P08PreAuthorization -Projection (Get-Content -LiteralPath $PreAuthorizationPath -Raw|ConvertFrom-Json -Depth 100) -ExpectedHandoffPath $fixed
   return
 }
@@ -1081,8 +1081,8 @@ switch ($Mode) {
   }
   'PersistAuthorizationReceipt' {
     if($TargetModule -cne 'mb-core' -or [string]::IsNullOrWhiteSpace($MutationAuthorizationPacketPath) -or
-       [string]::IsNullOrWhiteSpace($AttemptZeroHistoryPath) -or [string]::IsNullOrWhiteSpace($R1HistoryPath) -or [string]::IsNullOrWhiteSpace($R2HistoryPath) -or [string]::IsNullOrWhiteSpace($R3HistoryPath) -or [string]::IsNullOrWhiteSpace($R4HistoryPath) -or [string]::IsNullOrWhiteSpace($R5HistoryPath) -or [string]::IsNullOrWhiteSpace($R6HistoryPath) -or [string]::IsNullOrWhiteSpace($R7HistoryPath) -or [string]::IsNullOrWhiteSpace($R8HistoryPath) -or [string]::IsNullOrWhiteSpace($R9HistoryPath)){
-      Throw-P08HostedRule 'P08-RECEIPT-BINDINGS' 'Core packet and all ten terminal-negative histories are required.'
+       [string]::IsNullOrWhiteSpace($AttemptZeroHistoryPath) -or [string]::IsNullOrWhiteSpace($R1HistoryPath) -or [string]::IsNullOrWhiteSpace($R2HistoryPath) -or [string]::IsNullOrWhiteSpace($R3HistoryPath) -or [string]::IsNullOrWhiteSpace($R4HistoryPath) -or [string]::IsNullOrWhiteSpace($R5HistoryPath) -or [string]::IsNullOrWhiteSpace($R6HistoryPath) -or [string]::IsNullOrWhiteSpace($R7HistoryPath) -or [string]::IsNullOrWhiteSpace($R8HistoryPath) -or [string]::IsNullOrWhiteSpace($R9HistoryPath) -or [string]::IsNullOrWhiteSpace($R10HistoryPath) -or [string]::IsNullOrWhiteSpace($R11HistoryPath) -or [string]::IsNullOrWhiteSpace($R12HistoryPath)){
+      Throw-P08HostedRule 'P08-RECEIPT-BINDINGS' 'Core packet and all thirteen terminal-negative histories are required.'
     }
     $receiptFull=Join-Path $ArtifactRoot 'authorization/authorization-receipt.json'
     $activeFull=Join-Path $ArtifactRoot 'active-attempt.json'
@@ -1090,26 +1090,26 @@ switch ($Mode) {
     $receipt=Write-P08AuthorizationReceipt -PacketPath $MutationAuthorizationPacketPath -ReceiptPath $receiptFull -BoundarySha $BoundarySha -Response $AuthorizationResponse -CreatedAt $stamp
     $bindings=[pscustomobject][ordered]@{
       boundary_sha=$BoundarySha;execution_root=$ExecutionRoot;boundary_locator_path=$BoundaryLocatorPath;artifact_root=$ArtifactRoot;artifact_index_path=[string]$store.locator.index_path
-      attempt_zero_history_path=$AttemptZeroHistoryPath;r1_history_path=$R1HistoryPath;r2_history_path=$R2HistoryPath;r3_history_path=$R3HistoryPath;r4_history_path=$R4HistoryPath;r5_history_path=$R5HistoryPath;r6_history_path=$R6HistoryPath;r7_history_path=$R7HistoryPath;r8_history_path=$R8HistoryPath;r9_history_path=$R9HistoryPath;r10_history_path=$R10HistoryPath;r11_history_path=$R11HistoryPath;historical_history_set_sha256=(Get-ReleaseInitialHistoryBinding).historical_history_set_sha256;mutation_authorization_packet_path=$MutationAuthorizationPacketPath
+      attempt_zero_history_path=$AttemptZeroHistoryPath;r1_history_path=$R1HistoryPath;r2_history_path=$R2HistoryPath;r3_history_path=$R3HistoryPath;r4_history_path=$R4HistoryPath;r5_history_path=$R5HistoryPath;r6_history_path=$R6HistoryPath;r7_history_path=$R7HistoryPath;r8_history_path=$R8HistoryPath;r9_history_path=$R9HistoryPath;r10_history_path=$R10HistoryPath;r11_history_path=$R11HistoryPath;r12_history_path=$R12HistoryPath;historical_history_set_sha256=(Get-ReleaseInitialHistoryBinding).historical_history_set_sha256;mutation_authorization_packet_path=$MutationAuthorizationPacketPath
       authorization_receipt_path=$receiptFull;exact_existing_authority_path=$null
     }
     $active=Write-P08ActiveAttempt -Path $activeFull -Bindings $bindings -AuthorityVariant mutation_authorized -UpdatedAt $stamp
     [pscustomobject][ordered]@{receipt_path=$receiptFull;receipt_sha256=[string]$receipt.receipt_sha256;active_attempt_path=$activeFull;active_attempt_sha256=[string]$active.active_attempt_sha256};return
   }
   'WriteHandoff' {
-    if([string]::IsNullOrWhiteSpace($AttemptZeroHistoryPath) -or [string]::IsNullOrWhiteSpace($R1HistoryPath) -or [string]::IsNullOrWhiteSpace($R2HistoryPath) -or [string]::IsNullOrWhiteSpace($R3HistoryPath) -or [string]::IsNullOrWhiteSpace($R4HistoryPath) -or [string]::IsNullOrWhiteSpace($R5HistoryPath) -or [string]::IsNullOrWhiteSpace($R6HistoryPath) -or [string]::IsNullOrWhiteSpace($R7HistoryPath) -or [string]::IsNullOrWhiteSpace($R8HistoryPath) -or [string]::IsNullOrWhiteSpace($R9HistoryPath)){Throw-P08HostedRule 'P08-HANDOFF-HISTORY' 'All ten terminal-negative histories are required.'}
+    if([string]::IsNullOrWhiteSpace($AttemptZeroHistoryPath) -or [string]::IsNullOrWhiteSpace($R1HistoryPath) -or [string]::IsNullOrWhiteSpace($R2HistoryPath) -or [string]::IsNullOrWhiteSpace($R3HistoryPath) -or [string]::IsNullOrWhiteSpace($R4HistoryPath) -or [string]::IsNullOrWhiteSpace($R5HistoryPath) -or [string]::IsNullOrWhiteSpace($R6HistoryPath) -or [string]::IsNullOrWhiteSpace($R7HistoryPath) -or [string]::IsNullOrWhiteSpace($R8HistoryPath) -or [string]::IsNullOrWhiteSpace($R9HistoryPath) -or [string]::IsNullOrWhiteSpace($R10HistoryPath) -or [string]::IsNullOrWhiteSpace($R11HistoryPath) -or [string]::IsNullOrWhiteSpace($R12HistoryPath)){Throw-P08HostedRule 'P08-HANDOFF-HISTORY' 'All thirteen terminal-negative histories are required.'}
     $activeFull=Join-Path $ArtifactRoot 'active-attempt.json'
     $stamp=if($null-eq$CreatedAt){[DateTime]::UtcNow}else{$CreatedAt}
     if(-not(Test-Path -LiteralPath $activeFull -PathType Leaf)){
       if($AuthorityVariant -cne 'exact_existing' -or [string]::IsNullOrWhiteSpace($ExactExistingAuthorityPath)){Throw-P08HostedRule 'P08-HANDOFF-ACTIVE' 'Only an exact-existing branch may create a packet-free active attempt.'}
       $bindings=[pscustomobject][ordered]@{
         boundary_sha=$BoundarySha;execution_root=$ExecutionRoot;boundary_locator_path=$BoundaryLocatorPath;artifact_root=$ArtifactRoot;artifact_index_path=[string]$store.locator.index_path
-        attempt_zero_history_path=$AttemptZeroHistoryPath;r1_history_path=$R1HistoryPath;r2_history_path=$R2HistoryPath;r3_history_path=$R3HistoryPath;r4_history_path=$R4HistoryPath;r5_history_path=$R5HistoryPath;r6_history_path=$R6HistoryPath;r7_history_path=$R7HistoryPath;r8_history_path=$R8HistoryPath;r9_history_path=$R9HistoryPath;r10_history_path=$R10HistoryPath;r11_history_path=$R11HistoryPath;historical_history_set_sha256=(Get-ReleaseInitialHistoryBinding).historical_history_set_sha256;mutation_authorization_packet_path=$null
+        attempt_zero_history_path=$AttemptZeroHistoryPath;r1_history_path=$R1HistoryPath;r2_history_path=$R2HistoryPath;r3_history_path=$R3HistoryPath;r4_history_path=$R4HistoryPath;r5_history_path=$R5HistoryPath;r6_history_path=$R6HistoryPath;r7_history_path=$R7HistoryPath;r8_history_path=$R8HistoryPath;r9_history_path=$R9HistoryPath;r10_history_path=$R10HistoryPath;r11_history_path=$R11HistoryPath;r12_history_path=$R12HistoryPath;historical_history_set_sha256=(Get-ReleaseInitialHistoryBinding).historical_history_set_sha256;mutation_authorization_packet_path=$null
         authorization_receipt_path=$null;exact_existing_authority_path=$ExactExistingAuthorityPath
       }
       $null=Write-P08ActiveAttempt -Path $activeFull -Bindings $bindings -AuthorityVariant exact_existing -UpdatedAt $stamp
     }
-    $fixed=[IO.Path]::GetFullPath((Join-Path ([IO.Path]::GetTempPath()) 'mnf-phase08-r10-handoff.json'))
+    $fixed=[IO.Path]::GetFullPath((Join-Path ([IO.Path]::GetTempPath()) 'mnf-phase08-r13-handoff.json'))
     Write-P08HostedHandoff -ActiveAttemptPath $activeFull -HandoffPath $fixed -CreatedAt $stamp;return
   }
   'SelectExactExistingAuthority' {

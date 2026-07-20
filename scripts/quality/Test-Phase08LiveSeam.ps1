@@ -17,10 +17,10 @@ foreach($source in @($publisherSource,$adapterSource)){
     if($source.IndexOf($required,[StringComparison]::Ordinal)-lt 0){throw "P08-LIVE-R13-STATIC: missing '$required'."}
   }
 }
-$productionHandoff=[IO.Path]::GetFullPath((Join-Path ([IO.Path]::GetTempPath()) 'mnf-phase08-r12-handoff.json'))
+$productionHandoff=[IO.Path]::GetFullPath((Join-Path ([IO.Path]::GetTempPath()) 'mnf-phase08-r13-handoff.json'))
 if(Test-Path -LiteralPath $productionHandoff){throw 'P08-FIXED-HANDOFF-PREEXISTING: production fixed handoff must be absent before static fixtures.'}
 $hostedSource=Get-Content -LiteralPath (Join-Path $PSScriptRoot 'Invoke-Phase08HostedRun.ps1') -Raw
-foreach($required in @("current_attempt -cne 'r13'",'R12HistoryPath','historical_r12_sha256','mnf-phase08-r12-handoff.json','Copy-P08CanonicalPreparedArchive','ValidatePreAuthorization')){
+foreach($required in @("current_attempt -cne 'r13'",'R12HistoryPath','historical_r12_sha256','mnf-phase08-r13-handoff.json','Copy-P08CanonicalPreparedArchive','ValidatePreAuthorization')){
   if($hostedSource.IndexOf($required,[StringComparison]::Ordinal) -lt 0){throw "P08-R10-HOSTED-STATIC: missing '$required'."}
 }
 if($hostedSource.IndexOf('mnf-phase08-r9-handoff.json',[StringComparison]::Ordinal) -ge 0){throw 'P08-R10-HOSTED-STATIC: prior fixed handoff remains reachable.'}
