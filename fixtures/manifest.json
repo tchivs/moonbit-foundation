@@ -67,7 +67,7 @@
       "source": "RFC 1950/RFC 1951 and https://www.w3.org/TR/png-3/; literal fixed and dynamic streams audited by scripts/fixtures/Generate-PngDecodeVectors.ps1 with System.IO.Compression.ZLibStream",
       "author": "MoonBit Native Foundation project generator",
       "retrieval_date": "2026-07-21",
-      "sha256": "a407132bf9a8a71cad3a5e1b771ab4b310e132083cc7fda6580471e8299b953d",
+      "sha256": "19c0f0114f94d783259629e5592cc3d010a23f95d3c0ae654c5e15dab0305b58",
       "license": "Apache-2.0",
       "redistribution_status": "not-applicable",
       "expected_use": "PNG-04 and PNG-05 bounded DEFLATE, IDAT split, filter, checksum, and hostile decode conformance"

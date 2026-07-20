@@ -35,7 +35,8 @@ function Moon-Bytes([byte[]]$Value) { (($Value | ForEach-Object { '\x{0:x2}' -f 
 function New-Png($Case, [int[]]$Splits) {
   $zlib = Hex $Case.zlib_hex
   $parts = [Collections.Generic.List[object]]::new()
-  $parts.Add((Chunk 'IHDR' (Join-Bytes @((U32 $Case.width),(U32 $Case.height),[byte[]](8,$Case.colour_type,0,0,0)))))
+  $bitDepth = if ($null -ne $Case.PSObject.Properties['bit_depth']) { [byte]$Case.bit_depth } else { [byte]8 }
+  $parts.Add((Chunk 'IHDR' (Join-Bytes @((U32 $Case.width),(U32 $Case.height),[byte[]]($bitDepth,$Case.colour_type,0,0,0)))))
   $hasPlte = $null -ne $Case.PSObject.Properties['plte_length'] -or $null -ne $Case.PSObject.Properties['plte_hex']
   [byte[]]$plte = @()
   if ($null -ne $Case.PSObject.Properties['plte_length']) { $plte = [byte[]]::new([int]$Case.plte_length) }
@@ -70,19 +71,24 @@ function Assert-Oracle($Case) {
     $input = [IO.MemoryStream]::new($zlib); $stream = [IO.Compression.ZLibStream]::new($input,[IO.Compression.CompressionMode]::Decompress); $output = [IO.MemoryStream]::new(); $stream.CopyTo($output); $stream.Dispose()
     if ($output.Length -eq 0) { throw "Independent zlib oracle produced no scanlines: $($Case.id)" }
     $btype = ($zlib[2] -shr 1) -band 3
-    if (($Case.block -eq 'fixed' -and $btype -ne 1) -or ($Case.block -eq 'dynamic' -and $btype -ne 2)) { throw "Unexpected DEFLATE block type: $($Case.id)" }
+    if ($Case.id -notlike 'lowbit-*' -and (($Case.block -eq 'fixed' -and $btype -ne 1) -or ($Case.block -eq 'dynamic' -and $btype -ne 2))) { throw "Unexpected DEFLATE block type: $($Case.id)" }
     if ($Case.colour_type -eq 0 -or $Case.colour_type -eq 2) {
       $sourceChannels = if ($Case.colour_type -eq 0) { 1 } else { 3 }
-      $scan = $output.ToArray(); $stride = [int]$Case.width * $sourceChannels; $previous = [byte[]]::new($stride); $pixels = [Collections.Generic.List[byte]]::new(); [byte[]]$key = [byte[]]::new(0); if ($null -ne $Case.PSObject.Properties['trns_hex']) { $key = Hex $Case.trns_hex }; $at = 0
-      if ($key.Length -and (($Case.colour_type -eq 0 -and ($key.Length -ne 2 -or $key[0] -ne 0)) -or ($Case.colour_type -eq 2 -and ($key.Length -ne 6 -or $key[0] -ne 0 -or $key[2] -ne 0 -or $key[4] -ne 0)))) { throw "Invalid tRNS key oracle input: $($Case.id)" }
+      $depth = if ($Case.colour_type -eq 0 -and $null -ne $Case.PSObject.Properties['bit_depth']) { [int]$Case.bit_depth } else { 8 }
+      if ($Case.colour_type -eq 0 -and $depth -notin @(1,2,4,8)) { throw "Invalid grayscale depth oracle input: $($Case.id)" }
+      $stride = if ($Case.colour_type -eq 0) { [int][Math]::Ceiling(([double]$Case.width * $depth) / 8) } else { [int]$Case.width * $sourceChannels }
+      $bpp = if ($Case.colour_type -eq 0) { 1 } else { $sourceChannels }
+      $scan = $output.ToArray(); $previous = [byte[]]::new($stride); $pixels = [Collections.Generic.List[byte]]::new(); [byte[]]$key = [byte[]]::new(0); if ($null -ne $Case.PSObject.Properties['trns_hex']) { $key = Hex $Case.trns_hex }; $at = 0
+      $mask = if ($depth -eq 1) { 1 } elseif ($depth -eq 2) { 3 } elseif ($depth -eq 4) { 15 } else { 255 }
+      if ($key.Length -and (($Case.colour_type -eq 0 -and ($key.Length -ne 2 -or $key[0] -ne 0 -or $key[1] -gt $mask)) -or ($Case.colour_type -eq 2 -and ($key.Length -ne 6 -or $key[0] -ne 0 -or $key[2] -ne 0 -or $key[4] -ne 0)))) { throw "Invalid tRNS key oracle input: $($Case.id)" }
       for ($y = 0; $y -lt $Case.height; $y++) {
         $filter = $scan[$at++]; if ($filter -gt 4) { throw "Invalid source filter oracle input: $($Case.id)" }; $current = [byte[]]::new($stride)
         for ($column = 0; $column -lt $stride; $column++) {
-          $raw=$scan[$at++]; $left=if($column -ge $sourceChannels){$current[$column-$sourceChannels]}else{0}; $above=if($y){$previous[$column]}else{0}; $ul=if($y -and $column -ge $sourceChannels){$previous[$column-$sourceChannels]}else{0}; $predict=if($filter -eq 0){0}elseif($filter -eq 1){$left}elseif($filter -eq 2){$above}elseif($filter -eq 3){($left+$above) -shr 1}else{$p=$left+$above-$ul;$pa=[Math]::Abs($p-$left);$pb=[Math]::Abs($p-$above);$pc=[Math]::Abs($p-$ul);if($pa -le $pb -and $pa -le $pc){$left}elseif($pb -le $pc){$above}else{$ul}}; $current[$column]=($raw+$predict)%256
+          $raw=$scan[$at++]; $left=if($column -ge $bpp){$current[$column-$bpp]}else{0}; $above=if($y){$previous[$column]}else{0}; $ul=if($y -and $column -ge $bpp){$previous[$column-$bpp]}else{0}; $predict=if($filter -eq 0){0}elseif($filter -eq 1){$left}elseif($filter -eq 2){$above}elseif($filter -eq 3){($left+$above) -shr 1}else{$p=$left+$above-$ul;$pa=[Math]::Abs($p-$left);$pb=[Math]::Abs($p-$above);$pc=[Math]::Abs($p-$ul);if($pa -le $pb -and $pa -le $pc){$left}elseif($pb -le $pc){$above}else{$ul}}; $current[$column]=($raw+$predict)%256
         }
         for ($x = 0; $x -lt $Case.width; $x++) {
           if ($Case.colour_type -eq 0) {
-            $value = $current[$x]; $pixels.Add($value); $pixels.Add($value); $pixels.Add($value); if ($key.Length) { $pixels.Add($(if($value -eq $key[1]){0}else{255})) }
+            $bit = $x * $depth; $raw = ($current[[int][Math]::Floor($bit / 8)] -shr (8 - $depth - ($bit % 8))) -band $mask; $value = if ($depth -eq 1) { $raw * 255 } elseif ($depth -eq 2) { $raw * 85 } elseif ($depth -eq 4) { $raw * 17 } else { $raw }; $pixels.Add($value); $pixels.Add($value); $pixels.Add($value); if ($key.Length) { $pixels.Add($(if($raw -eq $key[1]){0}else{255})) }
           } else {
             $base = $x * 3; $red=$current[$base]; $green=$current[$base+1]; $blue=$current[$base+2]; $pixels.Add($red); $pixels.Add($green); $pixels.Add($blue); if ($key.Length) { $pixels.Add($(if($red -eq $key[1] -and $green -eq $key[3] -and $blue -eq $key[5]){0}else{255})) }
           }
@@ -105,7 +111,7 @@ function Assert-Oracle($Case) {
 }
 
 $corpus = Get-Content -Raw -LiteralPath $CasesPath | ConvertFrom-Json
-$required = @('fixed-rgb-filters-every-idat-byte','fixed-grayscale-filters-every-idat-boundary','dynamic-rgba-filters-semantic-idat-split','indexed-filters-every-idat-boundary','trns-grayscale-filters','trns-rgb-filters','trns-indexed-filters','indexed-missing-plte','indexed-plte-length-0','indexed-plte-length-1','indexed-plte-length-2','indexed-plte-length-4','indexed-plte-length-5','indexed-plte-length-769','indexed-plte-duplicate','indexed-plte-after-idat','indexed-plte-crc','indexed-palette-index','trns-duplicate','trns-after-idat','trns-before-plte','trns-crc','trns-gray-length','trns-gray-sample','trns-rgb-length','trns-rgb-sample','trns-indexed-length','trns-type6','hostile-zlib-header','hostile-truncated-deflate','hostile-adler','hostile-filter','hostile-dynamic-incomplete-tree','hostile-fixed-distance-before-history','hostile-filtered-output-expansion')
+$required = @('fixed-rgb-filters-every-idat-byte','fixed-grayscale-filters-every-idat-boundary','lowbit-gray-1-filters','lowbit-gray-2-filters','lowbit-gray-4-filters','lowbit-gray-8-filters','lowbit-trns-gray-1','lowbit-trns-gray-2','lowbit-trns-gray-4','lowbit-trns-gray-high-byte','lowbit-trns-gray-mask','dynamic-rgba-filters-semantic-idat-split','indexed-filters-every-idat-boundary','trns-grayscale-filters','trns-rgb-filters','trns-indexed-filters','indexed-missing-plte','indexed-plte-length-0','indexed-plte-length-1','indexed-plte-length-2','indexed-plte-length-4','indexed-plte-length-5','indexed-plte-length-769','indexed-plte-duplicate','indexed-plte-after-idat','indexed-plte-crc','indexed-palette-index','trns-duplicate','trns-after-idat','trns-before-plte','trns-crc','trns-gray-length','trns-gray-sample','trns-rgb-length','trns-rgb-sample','trns-indexed-length','trns-type6','hostile-zlib-header','hostile-truncated-deflate','hostile-adler','hostile-filter','hostile-dynamic-incomplete-tree','hostile-fixed-distance-before-history','hostile-filtered-output-expansion')
 if ($corpus.schema_version -ne '2.1.0' -or (Compare-Object $required @($corpus.cases.id))) { throw 'PNG decode corpus is stale or incomplete.' }
 $records = [Collections.Generic.List[object]]::new()
 foreach ($case in $corpus.cases) {
