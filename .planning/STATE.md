@@ -2,18 +2,18 @@
 gsd_state_version: 1.0
 milestone: v0.6
 milestone_name: PNG Interchange
-current_phase: 20
-current_phase_name: PNG Structural Safety Gate
-status: executing
+current_phase: 21
+current_phase_name: Bounded PNG Decode and DEFLATE
+status: planning
 stopped_at: Completed 20-02-PLAN.md
-last_updated: "2026-07-20T15:30:06.222Z"
-last_activity: 2026-07-20
-last_activity_desc: Completed 20-02 PNG structural safety gap closure; 20-01 summary remains pending.
+last_updated: "2026-07-20T16:34:04.966Z"
+last_activity: 2026-07-21
+last_activity_desc: Phase 20 complete, transitioned to Phase 21
 progress:
   total_phases: 14
   completed_phases: 0
-  total_plans: 2
-  completed_plans: 1
+  total_plans: 4
+  completed_plans: 2
   percent: 0
 ---
 
@@ -29,10 +29,10 @@ See `.planning/PROJECT.md` (updated 2026-07-20).
 
 ## Current Position
 
-Phase: 20 of 22 (PNG Structural Safety Gate)
-Plan: 2 of 2 (20-02 complete; 20-01 summary pending)
-Status: Executing
-Last activity: 2026-07-20 — Completed 20-02 PNG structural safety gap closure.
+Phase: 21 of 22 (Bounded PNG Decode and DEFLATE)
+Plan: Not started
+Status: Ready to plan
+Last activity: 2026-07-21 — Phase 20 complete, transitioned to Phase 21
 
 Progress: [█████░░░░░] 50%
 

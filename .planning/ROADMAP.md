@@ -63,7 +63,7 @@ Publication, registry-consumer proof, provenance closure, and any release automa
 
 **Milestone goal:** Add strict, bounded PNG RGB/RGBA interchange to the existing portable image contracts with pure-MoonBit DEFLATE and four-target evidence.
 
-- [ ] **Phase 20: PNG Structural Safety Gate** - Users can probe and validate PNG structure deterministically before image output is exposed.
+- [x] **Phase 20: PNG Structural Safety Gate** - Users can probe and validate PNG structure deterministically before image output is exposed. (completed 2026-07-21)
 - [ ] **Phase 21: Bounded PNG Decode and DEFLATE** - Users can decode the supported PNG subset across arbitrary IDAT boundaries while malformed or over-budget input fails deterministically.
 - [ ] **Phase 22: Canonical PNG Encode and Portable Evidence** - Users can emit canonical PNG output and verify one public decode-process-encode workflow on every portable target.
 
@@ -158,7 +158,7 @@ Plans:
 | 17. Resumable QOI Chunk Decode | v0.5 | 1/1 | Complete    | 2026-07-20 |
 | 18. Resumable QOI Buffer Encode | v0.5 | 1/1 | Complete    | 2026-07-20 |
 | 19. Portable Streaming QOI Evidence | v0.5 | 1/1 | Complete    | 2026-07-20 |
-| 20. PNG Structural Safety Gate | v0.6 | 1/2 | In Progress|  |
+| 20. PNG Structural Safety Gate | v0.6 | 2/4 | Complete    | 2026-07-21 |
 | 21. Bounded PNG Decode and DEFLATE | v0.6 | 0/TBD | Not started | - |
 | 22. Canonical PNG Encode and Portable Evidence | v0.6 | 0/TBD | Not started | - |
 
