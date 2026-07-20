@@ -10,7 +10,7 @@
 
 - [x] **GEOM-01**: A library user can crop an image into a checked rectangular result without out-of-bounds access or integer-overflow allocation.
 - [x] **GEOM-02**: A library user can flip an image horizontally or vertically and rotate it by right angles while preserving pixel semantics.
-- [ ] **GEOM-03**: A library user can resize an image deterministically with a documented nearest-neighbor reference algorithm across all supported targets.
+- [x] **GEOM-03**: A library user can resize an image deterministically with a documented nearest-neighbor reference algorithm across all supported targets.
 
 ### Raster Operations
 
@@ -46,7 +46,7 @@
 |-------------|-------|--------|
 | GEOM-01 | Phase 9 | Complete |
 | GEOM-02 | Phase 9 | Complete |
-| GEOM-03 | Phase 9 | Pending |
+| GEOM-03 | Phase 9 | Complete |
 | RASTER-01 | Phase 10 | Pending |
 | RASTER-02 | Phase 10 | Pending |
 | RASTER-03 | Phase 9 | Complete |

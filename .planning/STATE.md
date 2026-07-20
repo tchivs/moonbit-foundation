@@ -5,16 +5,16 @@ milestone_name: Image Processing Core
 current_phase: 9
 current_phase_name: Checked Image Geometry and Diagnostics
 status: executing
-stopped_at: Completed 09-01-PLAN.md
-last_updated: "2026-07-20T07:43:04.319Z"
+stopped_at: Completed 09-02-PLAN.md
+last_updated: "2026-07-20T07:51:30.390Z"
 last_activity: 2026-07-20
 last_activity_desc: Created the v0.3 code-first roadmap and mapped all milestone requirements.
 progress:
   total_phases: 3
-  completed_phases: 0
+  completed_phases: 1
   total_plans: 2
-  completed_plans: 1
-  percent: 0
+  completed_plans: 2
+  percent: 33
 ---
 
 # Project State
@@ -34,7 +34,7 @@ Plan: —
 Status: Ready to execute
 Last activity: 2026-07-20 — Created the v0.3 code-first roadmap and mapped all milestone requirements.
 
-Progress: [█████░░░░░] 50%
+Progress: [██████████] 100%
 
 ## Performance Metrics
 
@@ -52,6 +52,8 @@ Progress: [█████░░░░░] 50%
 - [Phase 11]: Prove the finished API through public cross-target tests, one PPM pipeline example, and reproducible benchmarks; do not add release automation.
 - [Phase ?]: Crop returns a fresh tightly packed OwnedImage and preserves all metadata.
 - [Phase ?]: Right-angle rotation uses named APIs and normalizes physical output orientation to TopLeft.
+- [Phase ?]: Nearest-neighbor remains the sole documented reference resampler; no interpolation or conversion fallback was introduced.
+- [Phase ?]: Invalid alpha combinations are rejected during descriptor construction, so operation-level capability coverage uses representable unsupported layout, component, channel, and transfer variants.
 
 ### Pending Todos
 
@@ -64,8 +66,8 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-07-20T07:43:04.298Z
-Stopped at: Completed 09-01-PLAN.md
+Last session: 2026-07-20T07:51:30.370Z
+Stopped at: Completed 09-02-PLAN.md
 Resume file: None
 
 ## Performance Metrics
@@ -73,3 +75,4 @@ Resume file: None
 | Phase | Plan | Duration | Notes |
 |-------|------|----------|-------|
 | Phase 09 P01 | 18min | 2 tasks | 2 files |
+| Phase 09 P02 | 20min | 2 tasks | 3 files |
