@@ -6,6 +6,8 @@ import {
   "tchivs/mb-color/model" @color,
   "tchivs/mb-color/alpha",
   "tchivs/mb-color/profile",
+  "tchivs/mb-color/transfer",
+  "tchivs/mb-color/quantize",
   "tchivs/mb-image/metadata",
   "tchivs/mb-image/model",
   "tchivs/mb-image/storage",

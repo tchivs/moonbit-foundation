@@ -43,7 +43,7 @@ test "processing rejects incompatible dimensions before budget charge" {
   match composite_source_over(one.view(), two.view(), budget) {
     Err(error) => {
       inspect(error.code() == @error.ErrorCode::InvalidDimensions, content="true")
-      inspect(error.operation() == "image-composite-source-over", content="true")
+      inspect(error.operation() == Some("image-composite-source-over"), content="true")
     }
     Ok(_) => fail("incompatible dimensions must reject")
   }
