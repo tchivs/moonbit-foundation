@@ -201,7 +201,10 @@ Plans:
   2. The encoder emits one documented canonical QOI byte representation for a given compatible image and reports typed deterministic capability, limit, budget, or I/O failures.
   3. Maintainers can run specification-derived opcode, index, run, wraparound, and byte-round-trip vectors unchanged on `js`, `wasm`, `wasm-gc`, and `native`.
 
-**Plans**: TBD
+**Plans**: 1 plan
+
+Plans:
+- [ ] 21-01-PLAN.md — Implement bounded IDAT/DEFLATE/raster eager decode and independent four-target evidence.
 
 ### Phase 15: Public QOI Processing Example
 
@@ -213,7 +216,10 @@ Plans:
   1. A library user can run one public documented example that decodes QOI, applies an existing image operation, encodes QOI, and produces deterministic output evidence.
   2. The example uses only the public portable image, codec, I/O, and budget contracts, so it runs without GUI state, FFI, or a platform-specific codec dependency.
 
-**Plans**: TBD
+**Plans**: 1 plan
+
+Plans:
+- [ ] 21-01-PLAN.md — Implement bounded IDAT/DEFLATE/raster eager decode and independent four-target evidence.
 
 ### Phase 16: QOI policy and public example quality alignment
 
