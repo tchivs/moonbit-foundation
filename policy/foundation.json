@@ -819,6 +819,16 @@
         "ppm/ppm.mbt",
         "ppm/ppm_test.mbt",
         "ppm/reference_vectors_wbtest.mbt",
+        "qoi",
+        "qoi/moon.pkg",
+        "qoi/qoi.mbt",
+        "qoi/decode.mbt",
+        "qoi/decode_test.mbt",
+        "qoi/decode_wbtest.mbt",
+        "qoi/encode.mbt",
+        "qoi/encode_test.mbt",
+        "qoi/encode_wbtest.mbt",
+        "qoi/generated_vectors.mbt",
         "moon.mod.json"
       ],
       "public_packages": [
@@ -1229,6 +1239,56 @@
             "pub fn PpmParserLimits::max_header_bytes(Self) -> UInt64",
             "pub fn PpmParserLimits::max_token_bytes(Self) -> UInt64",
             "pub fn PpmParserLimits::new(max_header_bytes~ : UInt64, max_token_bytes~ : UInt64, max_comment_bytes~ : UInt64, max_comments~ : UInt64) -> Result[Self, @error.CoreError]"
+          ],
+          "supported_targets": [
+            "js",
+            "wasm",
+            "wasm-gc",
+            "native"
+          ]
+        },
+        {
+          "name": "tchivs/mb-image/qoi",
+          "path": "qoi",
+          "stability": "candidate",
+          "allowed_imports": [
+            "tchivs/mb-core/budget",
+            "tchivs/mb-core/bytes",
+            "tchivs/mb-core/checked",
+            "tchivs/mb-core/error",
+            "tchivs/mb-core/io",
+            "tchivs/mb-color/model",
+            "tchivs/mb-color/profile",
+            "tchivs/mb-image/codec",
+            "tchivs/mb-image/metadata",
+            "tchivs/mb-image/model",
+            "tchivs/mb-image/storage"
+          ],
+          "production_sources": [
+            "moon.pkg",
+            "qoi.mbt",
+            "decode.mbt",
+            "encode.mbt",
+            "generated_vectors.mbt"
+          ],
+          "semantic_interface": [
+            "package \"tchivs/mb-image/qoi\"",
+            "import {",
+            "  \"tchivs/mb-core/budget\",",
+            "  \"tchivs/mb-core/bytes\",",
+            "  \"tchivs/mb-core/error\",",
+            "  \"tchivs/mb-core/io\",",
+            "  \"tchivs/mb-image/codec\",",
+            "  \"tchivs/mb-image/storage\",",
+            "}",
+            "pub struct QoiDecoder {",
+            "}",
+            "pub fn QoiDecoder::new() -> Self",
+            "pub impl @codec.ImageDecoder for QoiDecoder",
+            "pub struct QoiEncoder {",
+            "}",
+            "pub fn QoiEncoder::new() -> Self",
+            "pub impl @codec.ImageEncoder for QoiEncoder"
           ],
           "supported_targets": [
             "js",
