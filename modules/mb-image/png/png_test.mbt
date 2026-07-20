@@ -189,3 +189,46 @@ test "PNG exact input ceiling permits EOF but an actual trailing byte is limited
   inspect(limited.code() == @error.ErrorCode::BudgetExceeded, content="true")
   inspect(limited.context() == Some("input-bytes"), content="true")
 }
+
+///|
+test "generated PNG public cases use only the PngDecoder trait boundary" {
+  for item in _generated_png_public_cases() {
+    let (_id, source, expected, preserve_opaque_metadata, _limits, _budget, immutable) = item
+    let length = source.length().to_uint64()
+    let owner = @bytes.OwnedBytes::from_bytes(
+      source,
+      @budget.Budget::new(@budget.ResourceLimits::new(
+        bytes=length, allocations=1UL, allocation_size=length, width=0UL,
+        height=0UL, pixels=0UL, depth=0UL, work=0UL,
+      )),
+    ).unwrap()
+    let reader = @io.MemoryReader::new(owner.view())
+    let budget = @budget.Budget::new(@budget.ResourceLimits::new(
+      bytes=1024UL, allocations=1UL, allocation_size=1024UL, width=16UL,
+      height=16UL, pixels=256UL, depth=0UL, work=2048UL,
+    ))
+    let before = budget.remaining()
+    let diagnostics = @error.Diagnostics::new()
+    let error = @codec.ImageDecoder::decode(
+      PngDecoder::new(), reader as &@io.Reader,
+      @codec.DecodeOptions::new(
+        require_complete_input=true, preserve_opaque_metadata=preserve_opaque_metadata,
+      ),
+      @codec.CodecLimits::new(
+        max_probe_bytes=8UL, max_input_bytes=4096UL, max_output_bytes=1024UL,
+        max_width=16UL, max_height=16UL, max_pixels=256UL, max_work=2048UL,
+      ),
+      budget, diagnostics,
+    ).unwrap_err()
+    if expected == "unexpected-end" {
+      inspect(error.code() == @error.ErrorCode::UnexpectedEndOfStream, content="true")
+    } else {
+      inspect(error.context() == Some(expected), content="true")
+    }
+    if immutable {
+      inspect(before.bytes() == budget.remaining().bytes(), content="true")
+      inspect(before.work() == budget.remaining().work(), content="true")
+      inspect(diagnostics.length(), content="0")
+    }
+  }
+}
