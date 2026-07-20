@@ -71,7 +71,7 @@ pub impl @codec.ImageDecoder for PngDecoder with fn decode(
     Ok(value) => value
   }
   let image = match @storage.OwnedImage::new_operation(
-    descriptor, budget, PngBuiltinAllocator::{} as &@bytes.Allocator,
+    descriptor, stream.budget, PngBuiltinAllocator::{} as &@bytes.Allocator,
     limits.max_work(),
   ) {
     Err(error) => return Err(error)
