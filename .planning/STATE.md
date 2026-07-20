@@ -32,7 +32,7 @@ See `.planning/PROJECT.md` (updated 2026-07-20).
 Phase: 22 of 22 (Canonical PNG Encode and Portable Evidence)
 Plan: Not started
 Status: Milestone complete
-Last activity: 2026-07-21 — Completed quick task 260721-6k0: bounded 8-bit grayscale-alpha PNG decode
+Last activity: 2026-07-21 — Completed quick task 260721-7d5: bounded 16-bit grayscale and truecolour PNG decode
 
 Progress: [███████░░░] 67%
 
@@ -73,6 +73,7 @@ None.
 | 260721-5j4 | Decode non-interlaced low-bit-depth grayscale PNG with packed filters and tRNS into RGB8/RGBA8 | 2026-07-21 | a2a22e1 | Verified | [260721-5j4-validate-decode-non-interlaced-low-bit-d](./quick/260721-5j4-validate-decode-non-interlaced-low-bit-d/) |
 | 260721-661 | Decode non-interlaced low-bit-depth indexed PNG with PLTE/tRNS into RGB8/RGBA8 | 2026-07-21 | e956784 | Verified | [260721-661-implement-bounded-non-interlaced-low-bit](./quick/260721-661-implement-bounded-non-interlaced-low-bit/) |
 | 260721-6k0 | Decode non-interlaced 8-bit grayscale-alpha PNG into straight RGBA8 with split-IDAT failure equivalence evidence | 2026-07-21 | 289a4e6 | Verified | [260721-6k0-implement-bounded-non-interlaced-8-bit-g](./quick/260721-6k0-implement-bounded-non-interlaced-8-bit-g/) |
+| 260721-7d5 | Decode non-interlaced 16-bit grayscale and truecolour PNG into RGB8/RGBA8 with raw tRNS matching | 2026-07-21 | 8e11370 | Verified | [260721-7d5-implement-bounded-non-interlaced-16-bit-](./quick/260721-7d5-implement-bounded-non-interlaced-16-bit-/) |
 
 ## Deferred Items
 
