@@ -8,6 +8,7 @@ priv enum PngDecodeMachineState {
   Type(UInt64, Array[Byte])
   Payload(UInt64, Array[Byte], Array[Byte], UInt64)
   Crc(Array[Byte], Array[Byte], Array[Byte], UInt64)
+  PendingIendType
   NeedEof
   Completed
   Failed(@error.CoreError)
@@ -523,6 +524,11 @@ fn PngDecodeMachine::framing_chunk_complete(self : PngDecodeMachine) -> Bool {
 /// all have happened while the image remains private.
 fn PngDecodeMachine::finish(self : PngDecodeMachine) -> Result[Unit, @error.CoreError] {
   match self.state {
+    PngDecodeMachineState::PendingIendType => {
+      let error = _png_error("png-iend-type")
+      self.state = PngDecodeMachineState::Failed(error)
+      return Err(error)
+    }
     PngDecodeMachineState::NeedEof => {
       let inflate = match self.inflate { Some(value) => value; None => return Err(_png_error("zlib-truncated")) }
       if !inflate.complete() { return Err(_png_error("zlib-truncated")) }
@@ -542,6 +548,28 @@ fn PngDecodeMachine::finish(self : PngDecodeMachine) -> Result[Unit, @error.Core
     }
     _ => Err(_png_error("png-finished"))
   }
+}
+
+///| Feed one authenticated IDAT byte through the persistent inflater and
+/// raster sink, then put both owned continuations back before exposing either
+/// success or failure.  This avoids treating the lifecycle's `OwnedImage` as
+/// a throwaway value while a dynamic DEFLATE match emits multiple samples.
+fn PngDecodeMachine::feed_idat_to_raster(
+  self : PngDecodeMachine,
+  byte : Byte,
+) -> Result[Unit, @error.CoreError] {
+  let inflate = match self.inflate {
+    Some(value) => value
+    None => return Err(_png_error("zlib-truncated"))
+  }
+  let lifecycle = match self.lifecycle {
+    Some(value) => value
+    None => return Err(_png_error("png-idat-order"))
+  }
+  let result = inflate.accept_to(byte, lifecycle.sink)
+  self.inflate = Some(inflate)
+  self.lifecycle = Some(lifecycle)
+  result
 }
 
 ///| Move the sole private terminal outcome into the established public result.
@@ -625,6 +653,7 @@ fn PngDecodeMachine::chunk_incomplete_error(
     } else {
       _png_chunk_incomplete("png-chunk-crc", completed)
     }
+    PendingIendType => _png_chunk_incomplete("png-iend-type", completed)
     NeedEof => _png_chunk_incomplete("png-iend", completed)
     Completed => _png_chunk_terminal_error()
     Failed(error) => error
@@ -742,6 +771,28 @@ fn PngDecodeMachine::accept(
           Err(error) => { self.state = PngDecodeMachineState::Failed(error); return Err(error) }
           Ok(_) => ()
         }
+        // A fully decoded raster may receive a zero-length terminal-looking
+        // type split at exactly this byte boundary. Keep the ambiguous forms
+        // private until `finish` owns their strict-EOF classification.
+        let terminal_type_pending = if length == 0UL && self.saw_idat {
+          match self.inflate {
+            Some(inflate) => match self.lifecycle {
+              Some(lifecycle) => inflate.complete() && lifecycle.sink.is_complete()
+              None => false
+            }
+            None => false
+          }
+        } else { false }
+        let iend_prefix = kind[0] == b'I' && kind[1] == b'E' && kind[2] == b'N' &&
+          !_png_type_is(kind, b'I', b'E', b'N', b'D')
+        let unknown_ancillary = !_png_type_is(kind, b'I', b'E', b'N', b'D') &&
+          !_png_is_critical(kind) && !_png_is_known_semantic(kind)
+        if terminal_type_pending && (iend_prefix || unknown_ancillary) {
+          self.state = PngDecodeMachineState::PendingIendType
+          self.last_chunk_complete = false
+          self.accepted = next
+          return Ok(())
+        }
         if _png_type_is(kind, b'I', b'E', b'N', b'D') && length != 0UL {
           // An active legacy IDAT source discovers the next chunk while
           // satisfying the inflater.  Consequently an unfinished member
@@ -825,9 +876,7 @@ fn PngDecodeMachine::accept(
       if _png_type_is(kind, b'I', b'D', b'A', b'T') {
         let idat = match self.idat { Some(value) => value; None => { let error = _png_error("png-idat-state"); self.state = PngDecodeMachineState::Failed(error); return Err(error) } }
         match idat.accept_payload_byte(byte) { Err(error) => { self.state = PngDecodeMachineState::Failed(error); return Err(error) }; Ok(_) => () }
-        let inflate = match self.inflate { Some(value) => value; None => { let error = _png_error("zlib-truncated"); self.state = PngDecodeMachineState::Failed(error); return Err(error) } }
-        let lifecycle = match self.lifecycle { Some(value) => value; None => { let error = _png_error("png-idat-order"); self.state = PngDecodeMachineState::Failed(error); return Err(error) } }
-        match inflate.accept_to(byte, lifecycle.sink) { Err(error) => { self.state = PngDecodeMachineState::Failed(error); return Err(error) }; Ok(_) => () }
+        match self.feed_idat_to_raster(byte) { Err(error) => { self.state = PngDecodeMachineState::Failed(error); return Err(error) }; Ok(_) => () }
       }
       let next_crc = _png_crc_step(crc, byte)
       if _png_machine_retains_payload(kind) { payload.push(byte) }
@@ -870,6 +919,11 @@ fn PngDecodeMachine::accept(
         self.last_chunk_complete = true
         self.state = if _png_type_is(kind, b'I', b'E', b'N', b'D') { PngDecodeMachineState::NeedEof } else { PngDecodeMachineState::Length([]) }
       }
+    }
+    PngDecodeMachineState::PendingIendType => {
+      let error = _png_error("png-iend-type")
+      self.state = PngDecodeMachineState::Failed(error)
+      return Err(error)
     }
     PngDecodeMachineState::NeedEof => {
       let error = _png_error("png-trailing-data")

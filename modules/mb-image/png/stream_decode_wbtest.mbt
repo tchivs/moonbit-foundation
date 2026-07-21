@@ -652,9 +652,14 @@ fn png_wb_dynamic_tree_pause() -> Bytes raise {
 
 ///| This exact prefix comes from the hostile dynamic stream after it has
 /// emitted data and entered a retained length/distance transition.
-fn png_wb_dynamic_match_pause() -> Bytes raise {
+fn png_wb_dynamic_match_payload_prefix() -> Bytes {
   let payload = b"\x78\x9c\x95\xc2\xbd\x0a\x40\x50\x00\x86\xe1\xcf\xbf\xc3\xe1\x94\x52\x8a\x94\x28\xa5\x0c\x36\x9b\xcd\x66\xb3\xd9\x6c\xee\xff\x06\x5c\xc3\xfb\xf4\x48\x94\x17\x24\xa8\xfc\xb8\x44\x15\x98\x1a\x55\x68\x3b\x54\x91\x1b\x51\xc5\xd5\x82\x2a\xa9\x37\x54\x69\xb3\xa3\x32\xed\x81\x2a\xeb\x4f\x54\xf9\x70\xa1\xb2\xd3\x8d\xaa\x98\x1f\x54\xe5\xf2\xa2\x72\xeb\x87\xfe\x71\x0f\x52\x81"
-  let prefix = png_wb_prefix(payload, 44)
+  png_wb_prefix(payload, 44)
+}
+
+///|
+fn png_wb_dynamic_match_pause() -> Bytes raise {
+  let prefix = png_wb_dynamic_match_payload_prefix()
   let inflate = PngInflateState::new(1024UL)
   for byte in prefix { inflate.accept(byte).unwrap() }
   inspect(inflate.emitted_bytes() > 0UL, content="true")
@@ -666,6 +671,41 @@ fn png_wb_dynamic_match_pause() -> Bytes raise {
     _ => fail("dynamic vector must pause in a match transition")
   }
   png_wb_open_idat_sized(prefix, b'\x10', b'\x10')
+}
+
+///| The dynamic caller prefix is also sent through `accept_to` and the real
+/// 16x16 RGB raster sink, exercising the continuation ownership seam rather
+/// than only the inflater's no-sink test path.
+test "PNG private inflater streams dynamic match pauses to the raster sink" {
+  let transport = PngTransport::{ width: 16UL, height: 16UL, bit_depth: 8, source_channels: 3UL, source_bytes_per_pixel: 3UL, channels: 3UL, indexed: false, palette: b"", palette_entries: 0UL, transparency: PngTransparency::Opaque, idat: b"", consumed: 0UL }
+  let image = @storage.OwnedImage::new_operation(
+    _png_descriptor(transport).unwrap(),
+    @budget.Budget::new(@budget.ResourceLimits::new(bytes=1024UL, allocations=1UL, allocation_size=1024UL, width=16UL, height=16UL, pixels=256UL, depth=0UL, work=1024UL)),
+    PngBuiltinAllocator::{} as &@bytes.Allocator,
+    1024UL,
+  ).unwrap()
+  let sink = PngRasterSink::new(image, transport, false, @budget.Budget::new(@budget.ResourceLimits::new(bytes=0UL, allocations=0UL, allocation_size=0UL, width=0UL, height=0UL, pixels=0UL, depth=0UL, work=0UL))).unwrap()
+  let inflate = PngInflateState::new(1024UL)
+  for byte in png_wb_dynamic_match_payload_prefix() { inflate.accept_to(byte, sink).unwrap() }
+  inspect(inflate.emitted_bytes() > 0UL, content="true")
+  match inflate.phase {
+    PngInflatePhase::LengthExtra(_, _, _, _, _) |
+    PngInflatePhase::DistanceSymbol(_, _, _, _) |
+    PngInflatePhase::DistanceExtra(_, _, _, _, _, _) |
+    PngInflatePhase::Copy(_, _, _, _, _) => ()
+    _ => fail("dynamic raster vector must retain a match transition")
+  }
+}
+
+///|
+fn png_wb_assert_pending_iend_type(source : Bytes) -> Unit raise {
+  let machine = _png_stream_machine_for_test()
+  for byte in source { machine.accept(byte).unwrap() }
+  match machine.state {
+    PngDecodeMachineState::PendingIendType => ()
+    _ => fail("zero-length terminal type must remain pending")
+  }
+  inspect(machine.accept(b'X').unwrap_err().context() == Some("png-iend-type"), content="true")
 }
 
 ///| Every framing suffix has a stable, typed strict-EOF context.  Signature,
@@ -734,6 +774,8 @@ test "PNG chunk EOF classifier freezes real inflater and zero-length type rows" 
   let ancillary = png_wb_append(post_idat, b"\x00\x00\x00\x00vpAg")
   inspect(wrong_fourth.length() == 68, content="true")
   inspect(ancillary.length() == 68, content="true")
+  png_wb_assert_pending_iend_type(wrong_fourth)
+  png_wb_assert_pending_iend_type(ancillary)
   png_wb_assert_incomplete(wrong_fourth, "png-iend-type")
   png_wb_assert_incomplete(ancillary, "png-iend-type")
 }
