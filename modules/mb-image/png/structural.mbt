@@ -50,6 +50,15 @@ fn _png_is_recognised_colour(kind : Array[Byte]) -> Bool {
   _png_type_is(kind, b'i', b'C', b'C', b'P')
 }
 
+///| Returns the only legal payload length for fixed-size recognised colour
+/// chunks. iCCP deliberately remains on its streaming envelope path.
+fn _png_fixed_colour_length(kind : Array[Byte]) -> UInt64? {
+  if _png_type_is(kind, b's', b'R', b'G', b'B') { Some(1UL) }
+  else if _png_type_is(kind, b'g', b'A', b'M', b'A') { Some(4UL) }
+  else if _png_type_is(kind, b'c', b'H', b'R', b'M') { Some(32UL) }
+  else { None }
+}
+
 ///|
 fn _png_require_colour_before_palette_or_idat(
   saw_palette : Bool,
@@ -775,6 +784,20 @@ fn _png_read_colour_chunk(
   let is_srgb = _png_type_is(kind, b's', b'R', b'G', b'B')
   let is_gamma = _png_type_is(kind, b'g', b'A', b'M', b'A')
   let is_chrm = _png_type_is(kind, b'c', b'H', b'R', b'M')
+  let fixed_length = _png_fixed_colour_length(kind)
+  match fixed_length {
+    Some(expected) => {
+      if length != expected {
+        if is_srgb { return Err(_png_error("png-srgb-length")) }
+        if is_gamma { return Err(_png_error("png-gama-length")) }
+        return Err(_png_error("png-chrm-length"))
+      }
+      if is_srgb && facts.saw_srgb { return Err(_png_error("png-srgb-duplicate")) }
+      if is_gamma && facts.saw_gamma { return Err(_png_error("png-gama-duplicate")) }
+      if is_chrm && facts.saw_chrm { return Err(_png_error("png-chrm-duplicate")) }
+    }
+    None => if facts.saw_iccp { return Err(_png_error("png-iccp-duplicate")) }
+  }
   let payload : Array[Byte] = []
   let mut cursor = consumed
   let mut crc = _png_crc_for_type(kind)
@@ -818,21 +841,17 @@ fn _png_read_colour_chunk(
   }
   if (crc ^ 4294967295UL) != stored_crc { return Err(_png_error("png-crc")) }
   if is_srgb {
-    if facts.saw_srgb { return Err(_png_error("png-srgb-duplicate")) }
     let intent = match _png_validate_srgb_payload(payload) { Err(error) => return Err(error); Ok(value) => value }
     return Ok(({ saw_srgb: true, srgb_intent: Some(intent), saw_gamma: facts.saw_gamma, gamma_is_srgb: facts.gamma_is_srgb, saw_chrm: facts.saw_chrm, chrm_is_srgb: facts.chrm_is_srgb, saw_iccp: facts.saw_iccp }, next))
   }
   if is_gamma {
-    if facts.saw_gamma { return Err(_png_error("png-gama-duplicate")) }
     let standard = match _png_validate_gamma_payload(payload) { Err(error) => return Err(error); Ok(value) => value }
     return Ok(({ saw_srgb: facts.saw_srgb, srgb_intent: facts.srgb_intent, saw_gamma: true, gamma_is_srgb: standard, saw_chrm: facts.saw_chrm, chrm_is_srgb: facts.chrm_is_srgb, saw_iccp: facts.saw_iccp }, next))
   }
   if is_chrm {
-    if facts.saw_chrm { return Err(_png_error("png-chrm-duplicate")) }
     let standard = match _png_validate_chrm_payload(payload) { Err(error) => return Err(error); Ok(value) => value }
     return Ok(({ saw_srgb: facts.saw_srgb, srgb_intent: facts.srgb_intent, saw_gamma: facts.saw_gamma, gamma_is_srgb: facts.gamma_is_srgb, saw_chrm: true, chrm_is_srgb: standard, saw_iccp: facts.saw_iccp }, next))
   }
-  if facts.saw_iccp { return Err(_png_error("png-iccp-duplicate")) }
   if !saw_nul || !saw_method { return Err(_png_error("png-iccp-envelope")) }
   if profile_bytes == 0UL { return Err(_png_error("png-iccp-data")) }
   Ok(({ saw_srgb: facts.saw_srgb, srgb_intent: facts.srgb_intent, saw_gamma: facts.saw_gamma, gamma_is_srgb: facts.gamma_is_srgb, saw_chrm: facts.saw_chrm, chrm_is_srgb: facts.chrm_is_srgb, saw_iccp: true }, next))

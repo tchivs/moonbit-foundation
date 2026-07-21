@@ -467,6 +467,15 @@ test "PNG 16-bit native-alpha IHDRs reserve encoded source rows" {
 
 ///|
 test "PNG colour declaration helpers validate sRGB and iCCP envelopes" {
+  let srgb = [b's', b'R', b'G', b'B']
+  let gamma = [b'g', b'A', b'M', b'A']
+  let chrm = [b'c', b'H', b'R', b'M']
+  let iccp = [b'i', b'C', b'C', b'P']
+  inspect(_png_fixed_colour_length(srgb), content="Some(1)")
+  inspect(_png_fixed_colour_length(gamma), content="Some(4)")
+  inspect(_png_fixed_colour_length(chrm), content="Some(32)")
+  inspect(_png_fixed_colour_length(iccp) is None, content="true")
+  inspect(_png_fixed_colour_length(srgb).unwrap() != 2147483647UL, content="true")
   inspect(_png_validate_srgb_payload([b'\x00']) is Ok(b'\x00'), content="true")
   inspect(_png_validate_srgb_payload([b'\x04']).unwrap_err().context(), content="Some(png-srgb-intent)")
   inspect(_png_validate_srgb_payload([]).unwrap_err().context(), content="Some(png-srgb-length)")
