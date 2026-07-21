@@ -5,16 +5,16 @@ milestone_name: PNG Colour Fidelity
 current_phase: 23
 current_phase_name: PNG Colour Declaration and sRGB Semantics
 status: ready_to_execute
-stopped_at: Planned and verified 23-01-PLAN.md
-last_updated: "2026-07-21T00:00:00.000Z"
+stopped_at: Completed 23-01-PLAN.md
+last_updated: "2026-07-21T00:50:29.125Z"
 last_activity: 2026-07-21
-last_activity_desc: Phase 23 plan verified and ready to execute
+last_activity_desc: Phase 23 plan verified
 progress:
-  total_phases: 14
-  completed_phases: 2
-  total_plans: 6
-  completed_plans: 4
-  percent: 14
+  total_phases: 17
+  completed_phases: 3
+  total_plans: 7
+  completed_plans: 5
+  percent: 18
 ---
 
 # Project State
@@ -34,7 +34,7 @@ Plan: 23-01-PLAN.md
 Status: Ready to execute
 Last activity: 2026-07-21 — Phase 23 plan verified
 
-Progress: [░░░░░░░░░░] 0%
+Progress: [███████░░░] 71%
 
 ## Performance Metrics
 
@@ -54,6 +54,7 @@ Progress: [░░░░░░░░░░] 0%
 - [Phase ?]: Freeze RGB8 and straight-RGBA8 PNG output as one stored-DEFLATE filter-None representation with CRC-32 and Adler-32 evidence.
 - [Phase ?]: Use fixed public PNG bytes plus a target-neutral digest for four-target decode-flip-encode proof.
 - [v0.7]: Preserve validated PNG colour declarations before transforming pixels; only confirmed sRGB may enter existing reference operations.
+- [Phase ?]: Generated PNG colour fixtures independently validate CRC, order, grammar, sRGB metadata intent, and non-sRGB capability boundaries.
 
 ### Pending Todos
 
@@ -79,6 +80,7 @@ None.
 | 260721-8nz | Decode bounded Adam7 PNG across all supported profiles with independent split-boundary evidence | 2026-07-21 | e9669ef | Verified* | [260721-8nz-implement-bounded-adam7-interlaced-png-d](./quick/260721-8nz-implement-bounded-adam7-interlaced-png-d/) |
 
 \* The PNG quality lane and all portable tests pass; the all-package `--deny-warn` command still reports the pre-existing 26 generated/legacy unused-field diagnostics documented in the quick-task verification.
+| Phase 23-png-colour-declaration-and-srgb-semantics P01 | 0h 24m | 2 tasks | 9 files |
 
 ## Deferred Items
 
@@ -92,6 +94,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-07-20T18:05:40.950Z
-Stopped at: Completed 22-01-PLAN.md
+Last session: 2026-07-21T00:50:29.110Z
+Stopped at: Completed 23-01-PLAN.md
 Resume file: None

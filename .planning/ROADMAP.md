@@ -337,7 +337,9 @@ Plans:
 2. Valid `sRGB` images preserve their rendering intent and expose built-in encoded-sRGB metadata; malformed or conflicting declarations fail deterministically.
 3. Existing reference operations continue to accept only actual encoded-sRGB images.
 
-**Plans:** TBD
+**Plans:** 1/1 plans executed
+
+- [x] 23-01-PLAN.md
 
 ### Phase 24: Bounded Non-sRGB and ICC Preservation
 
