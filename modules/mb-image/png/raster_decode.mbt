@@ -19,6 +19,39 @@ fn _png_empty_metadata(channels : UInt64) -> Result[@model.ImageMetadata, @error
   ))
 }
 
+///| The sRGB rendering intent is retained as one bounded PNG metadata value;
+/// the image samples themselves use the existing built-in encoded-sRGB model.
+fn _png_srgb_metadata(
+  channels : UInt64,
+  intent : Byte,
+  budget : @budget.Budget,
+) -> Result[@model.ImageMetadata, @error.CoreError] {
+  let opaque_metadata = match @metadata.OpaqueMetadata::from_entries(
+    [("png", "srgb", "intent", Bytes::from_array([intent]))],
+    @metadata.MetadataLimits::new(max_entries=1UL, max_token_bytes=16UL, max_value_bytes=1UL, max_total_bytes=32UL, max_disposition_fields=1UL), budget,
+  ) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  Ok(@model.ImageMetadata::new(
+    @color.ColorSpaceIdentity::Srgb, @color.TransferIdentity::EncodedSrgb,
+    if channels == 4UL { Some(@color.AlphaMode::Straight) } else { None },
+    @profile.ProfileIdentity::builtin_srgb(), @model.Orientation::TopLeft, opaque_metadata,
+  ))
+}
+
+///|
+fn _png_descriptor_with_metadata(
+  transport : PngTransport,
+  metadata : @model.ImageMetadata,
+) -> Result[@model.ImageDescriptor, @error.CoreError] {
+  let pixels = match @checked.checked_mul(transport.width, transport.height) { Err(error) => return Err(error); Ok(value) => value }
+  let payload = match @checked.checked_mul(pixels, transport.channels) { Err(error) => return Err(error); Ok(value) => value }
+  let row = match @checked.checked_mul(transport.width, transport.channels) { Err(error) => return Err(error); Ok(value) => value }
+  let plane = match @model.PlaneDescriptor::new(0UL, payload, row, row, 1UL, 1UL, transport.width, transport.height) { Err(error) => return Err(error); Ok(value) => value }
+  @model.ImageDescriptor::new(transport.width, transport.height, if transport.channels == 3UL { @model.ImageFormat::rgb8() } else { @model.ImageFormat::rgba8() }, [plane], payload, metadata)
+}
+
 ///|
 fn _png_descriptor(transport : PngTransport) -> Result[@model.ImageDescriptor, @error.CoreError] {
   let pixels = match @checked.checked_mul(transport.width, transport.height) {

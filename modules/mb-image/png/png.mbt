@@ -65,7 +65,20 @@ pub impl @codec.ImageDecoder for PngDecoder with fn decode(
     Ok(value) => value
   }
   let transport = PngTransport::{ width: stream.width, height: stream.height, bit_depth: stream.bit_depth, source_channels: stream.source_channels, source_bytes_per_pixel: stream.source_bytes_per_pixel, channels: stream.channels, indexed: stream.indexed, palette: stream.palette, palette_entries: stream.palette_entries, transparency: stream.transparency, idat: b"", consumed: 0UL }
-  let descriptor = match _png_descriptor(transport) {
+  let metadata = match stream.srgb_intent {
+    Some(intent) => match stream.metadata_budget {
+      Some(metadata_budget) => match _png_srgb_metadata(stream.channels, intent, metadata_budget) {
+        Err(error) => return Err(error)
+        Ok(value) => value
+      }
+      None => return Err(_png_error("png-srgb-budget"))
+    }
+    None => match _png_empty_metadata(stream.channels) {
+      Err(error) => return Err(error)
+      Ok(value) => value
+    }
+  }
+  let descriptor = match _png_descriptor_with_metadata(transport, metadata) {
     Err(error) => return Err(error)
     Ok(value) => value
   }

@@ -141,13 +141,32 @@ test "PNG decoder decodes a stored zlib RGB scanline atomically" {
 }
 
 ///|
-test "PNG sRGB metadata helper retains the rendering intent" {
-  let metadata = _png_srgb_metadata(3UL, b'\x03', @budget.Budget::new(
-    @budget.ResourceLimits::new(
-      bytes=1UL, allocations=1UL, allocation_size=1UL, width=0UL,
-      height=0UL, pixels=0UL, depth=0UL, work=0UL,
+test "PNG decoder retains a declared sRGB rendering intent" {
+  let source = b"\x89PNG\r\n\x1a\n\x00\x00\x00\x0dIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x02\x00\x00\x00\x90\x77\x53\xde\x00\x00\x00\x01sRGB\x03\x37\xc7\x4d\x53\x00\x00\x00\x0fIDAT\x78\x01\x01\x04\x00\xfb\xff\x00\x12\x34\x56\x00\xf8\x00\x9d\xf8\xd7\x64\x8c\x00\x00\x00\x00IEND\xae\x42\x60\x82"
+  let owner = @bytes.OwnedBytes::from_bytes(
+    source,
+    @budget.Budget::new(@budget.ResourceLimits::new(
+      bytes=source.length().to_uint64(), allocations=1UL,
+      allocation_size=source.length().to_uint64(), width=0UL, height=0UL,
+      pixels=0UL, depth=0UL, work=0UL,
+    )),
+  ).unwrap()
+  let result = match @codec.ImageDecoder::decode(
+    PngDecoder::new(), @io.MemoryReader::new(owner.view()) as &@io.Reader,
+    @codec.DecodeOptions::new(
+      require_complete_input=true, preserve_opaque_metadata=false,
     ),
-  )).unwrap()
+    png_test_limits(),
+    @budget.Budget::new(@budget.ResourceLimits::new(
+      bytes=129UL, allocations=2UL, allocation_size=64UL, width=4UL,
+      height=4UL, pixels=16UL, depth=0UL, work=128UL,
+    )),
+    @error.Diagnostics::new(),
+  ) {
+    Err(error) => fail("sRGB decode failed: " + error.context().unwrap())
+    Ok(value) => value
+  }
+  let metadata = result.image().metadata()
   inspect(metadata.space() == @color.ColorSpaceIdentity::Srgb, content="true")
   inspect(metadata.transfer() == @color.TransferIdentity::EncodedSrgb, content="true")
   inspect(metadata.profile().is_builtin_srgb(), content="true")
