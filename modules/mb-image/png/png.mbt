@@ -69,9 +69,10 @@ pub fn PngChunkDecoder::new(
 
 ///|
 /// A PNG-specific compression selection for the strict RGB8 and straight-RGBA8 profile.
-/// `FixedOrStored` currently emits the Stored baseline, provides no optimization or
-/// size guarantee, and receives fixed-or-stored behavior in Phase 33. This strategy
-/// excludes dynamic Huffman coding and adaptive filters.
+/// `FixedOrStored` completes a bounded exact preflight and emits fixed-Huffman output
+/// only when its distance-1-through-4 deterministic matcher makes the complete PNG no
+/// larger than the exact Stored plan; otherwise it emits Stored. It excludes dynamic
+/// Huffman coding, adaptive filters, a 32 KiB dictionary, FFI codecs, and host adapters.
 pub(all) enum PngCompressionStrategy {
   Stored
   FixedOrStored
@@ -91,9 +92,8 @@ pub fn PngEncoder::new() -> PngEncoder {
 
 ///|
 /// Constructs an encoder with an explicit PNG compression strategy. `FixedOrStored`
-/// currently emits the Stored baseline, provides no optimization or size guarantee,
-/// and receives fixed-or-stored behavior in Phase 33; it excludes dynamic Huffman
-/// coding and adaptive filters.
+/// chooses the bounded exact fixed-Huffman plan only when it is no larger than Stored;
+/// the legacy `new()` constructor remains an explicit Stored route.
 pub fn PngEncoder::new_with_compression_strategy(
   strategy : PngCompressionStrategy,
 ) -> PngEncoder {
