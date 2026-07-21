@@ -369,6 +369,121 @@ test "PNG dynamic configured sticky terminals preserve leases" {
   inspect(owner.view().get(0UL).unwrap() == b'\xaa', content="true")
 }
 
+///| The 128-pixel periodic RGB8 fixture has `total_length == 202UL` and
+/// `matcher_work == 4593UL` in the Task 1 white-box evidence, so its selected
+/// Dynamic admission ledger is `202UL + 4593UL + 4593UL == 9388UL`.
+test "PNG dynamic public exact and one-less admission is atomic" {
+  let fixture_work = 9388UL
+  let image = png_stream_test_dynamic_image()
+
+  let eager_budget = png_stream_test_budget(work=fixture_work)
+  let eager_before = eager_budget.remaining()
+  let writer = @io.MemoryWriter::new(1048576UL, png_stream_test_budget(work=0UL)).unwrap()
+  ignore(@codec.ImageEncoder::encode(
+    PngEncoder::new_with_compression_strategy(PngCompressionStrategy::DynamicOrFixedOrStored),
+    image.view(), writer as &@io.Writer,
+    @codec.EncodeOptions::new(lossless_required=true, preserve_opaque_metadata=false),
+    png_stream_test_limits(), eager_budget, @error.Diagnostics::new(),
+  ).unwrap())
+  inspect(eager_budget.remaining().work(), content="0")
+  inspect(
+    eager_before.bytes() == eager_budget.remaining().bytes() &&
+      eager_before.allocations() == eager_budget.remaining().allocations() &&
+      eager_before.allocation_size() == eager_budget.remaining().allocation_size() &&
+      eager_before.width() == eager_budget.remaining().width() &&
+      eager_before.height() == eager_budget.remaining().height() &&
+      eager_before.pixels() == eager_budget.remaining().pixels() &&
+      eager_before.depth() == eager_budget.remaining().depth(), content="true",
+  )
+
+  let chunk_budget = png_stream_test_budget(work=fixture_work)
+  let chunk_before = chunk_budget.remaining()
+  ignore(PngChunkEncoder::new_with_compression_strategy(
+    image.view(), PngCompressionStrategy::DynamicOrFixedOrStored,
+    png_stream_test_limits(), chunk_budget, @error.Diagnostics::new(),
+  ).unwrap())
+  inspect(chunk_budget.remaining().work(), content="0")
+  inspect(
+    chunk_before.bytes() == chunk_budget.remaining().bytes() &&
+      chunk_before.allocations() == chunk_budget.remaining().allocations() &&
+      chunk_before.allocation_size() == chunk_budget.remaining().allocation_size() &&
+      chunk_before.width() == chunk_budget.remaining().width() &&
+      chunk_before.height() == chunk_budget.remaining().height() &&
+      chunk_before.pixels() == chunk_budget.remaining().pixels() &&
+      chunk_before.depth() == chunk_budget.remaining().depth(), content="true",
+  )
+
+  let eager_one_less_budget = png_stream_test_budget(work=fixture_work - 1UL)
+  let eager_one_less_before = eager_one_less_budget.remaining()
+  let eager_writer = @io.MemoryWriter::new(1048576UL, png_stream_test_budget(work=0UL)).unwrap()
+  let eager_error = @codec.ImageEncoder::encode(
+    PngEncoder::new_with_compression_strategy(PngCompressionStrategy::DynamicOrFixedOrStored),
+    image.view(), eager_writer as &@io.Writer,
+    @codec.EncodeOptions::new(lossless_required=true, preserve_opaque_metadata=false),
+    png_stream_test_limits(), eager_one_less_budget, @error.Diagnostics::new(),
+  ).unwrap_err()
+  inspect(eager_writer.position(), content="0")
+  inspect(png_fixed_or_stored_same_remaining(eager_one_less_before, eager_one_less_budget.remaining()), content="true")
+
+  let chunk_one_less_budget = png_stream_test_budget(work=fixture_work - 1UL)
+  let chunk_one_less_before = chunk_one_less_budget.remaining()
+  let candidate = png_chunk_test_owner(7UL, fill=b'Z')
+  let chunk_error = PngChunkEncoder::new_with_compression_strategy(
+    image.view(), PngCompressionStrategy::DynamicOrFixedOrStored,
+    png_stream_test_limits(), chunk_one_less_budget, @error.Diagnostics::new(),
+  ).unwrap_err()
+  inspect(png_chunk_test_same_error(eager_error, chunk_error), content="true")
+  inspect(png_fixed_or_stored_same_remaining(chunk_one_less_before, chunk_one_less_budget.remaining()), content="true")
+  for index = 0UL; index < 7UL; index = index + 1UL {
+    inspect(candidate.view().get(index).unwrap() == b'Z', content="true")
+  }
+}
+
+///|
+test "PNG dynamic replay drift is sticky through chunk encoder" {
+  let image = png_stream_test_dynamic_image()
+  let encoder = PngChunkEncoder::new_with_compression_strategy(
+    image.view(), PngCompressionStrategy::DynamicOrFixedOrStored,
+    png_stream_test_limits(), png_stream_test_budget(), @error.Diagnostics::new(),
+  ).unwrap()
+  image.with_mut_view(fn(view) { view.set_byte(0UL, 0UL, 0UL, b'Z') }).unwrap()
+  let scratch : Array[Byte] = []
+  let mut turns = 0UL
+  let mut first_error : Option[@error.CoreError] = None
+  let mut first_total = 0UL
+  while turns < 1024UL {
+    let pulled = png_chunk_test_pull(encoder, 1UL, scratch)
+    match pulled.outcome() {
+      PngChunkPullOutcome::NeedOutput => turns = turns + 1UL
+      PngChunkPullOutcome::Finished => panic()
+      PngChunkPullOutcome::Failed(error) => {
+        first_error = Some(error)
+        first_total = pulled.total_written()
+        break
+      }
+    }
+  }
+  let first = match first_error {
+    Some(error) => error
+    None => panic()
+  }
+  inspect(first.category() == @error.ErrorCategory::State, content="true")
+  inspect(first.code() == @error.ErrorCode::InvalidRange, content="true")
+  inspect(first.context() == Some("png-encode-dynamic-replay-drift"), content="true")
+  let later = png_chunk_test_owner(7UL, fill=b'Z')
+  let replay = later.with_mut(0UL, 7UL, fn(lease) { Ok(encoder.pull(lease)) }).unwrap()
+  let replay_error = match replay.outcome() {
+    PngChunkPullOutcome::Failed(error) => error
+    _ => panic()
+  }
+  inspect(replay.written(), content="0")
+  inspect(replay.total_written() == first_total, content="true")
+  inspect(png_chunk_test_same_error(first, replay_error), content="true")
+  for index = 0UL; index < 7UL; index = index + 1UL {
+    inspect(later.view().get(index).unwrap() == b'Z', content="true")
+  }
+}
+
 ///|
 test "PNG fixed-or-stored corpus evidence is deterministic, valid, never-larger, and wins flat RGB8/RGBA8" {
   png_stream_test_fixed_or_stored_corpus_case(png_stream_test_flat_image(3UL, 32UL))
