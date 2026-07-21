@@ -463,6 +463,42 @@ test "PNG retained declarations expose metadata without transforming samples" {
 }
 ```
 
+## Public PNG chunk decode
+
+`@png.PngChunkDecoder` accepts caller-owned immutable `ByteView` input and
+reports exactly how much of that view it admitted. A successful `push` never
+transfers an image: callers declare EOF with `finish()` before using the sole
+decoded result. Empty input is ordinary progress, so it is safe to use a
+packet scheduler without treating an empty packet as end-of-input.
+
+```mbt check
+///|
+test "PNG public chunk decode makes finish the ownership boundary" {
+  let source = @bytes.OwnedBytes::from_bytes(
+    b"\x89PNG\r\n\x1a\n\x00\x00\x00\x0dIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x02\x00\x00\x00\x90\x77\x53\xde\x00\x00\x00\x0fIDAT\x78\x01\x01\x04\x00\xfb\xff\x00\x12\x34\x56\x00\xf8\x00\x9d\xf8\xd7\x64\x8c\x00\x00\x00\x00IEND\xae\x42\x60\x82",
+    readme_png_budget(128UL, 0UL),
+  ).unwrap()
+  let decoder = @png.PngChunkDecoder::new(
+    @codec.CodecLimits::new(
+      max_probe_bytes=8UL, max_input_bytes=128UL, max_output_bytes=64UL,
+      max_width=4UL, max_height=4UL, max_pixels=16UL, max_work=256UL,
+    ),
+    readme_png_budget(512UL, 256UL), @error.Diagnostics::new(),
+  )
+  let empty = @bytes.OwnedBytes::from_bytes(b"", readme_png_budget(0UL, 0UL)).unwrap()
+  let empty_push = decoder.push(empty.view())
+  inspect(empty_push.consumed(), content="0")
+  inspect(empty_push.outcome() is @png.PngChunkPushOutcome::NeedInput, content="true")
+  let pushed = decoder.push(source.view())
+  inspect(pushed.consumed(), content="75")
+  inspect(pushed.outcome() is @png.PngChunkPushOutcome::NeedInput, content="true")
+  let decoded = decoder.finish().unwrap()
+  inspect(decoded.image().descriptor().width(), content="1")
+  inspect(decoded.image().descriptor().height(), content="1")
+  inspect(decoded.image().view().get_byte(0UL, 0UL, 0UL).unwrap(), content="b'\\x12'")
+}
+```
+
 ## MNF strict PPM P6/sRGB subset
 
 The concrete `ppm` package implements the **MNF strict PPM P6/sRGB subset** over

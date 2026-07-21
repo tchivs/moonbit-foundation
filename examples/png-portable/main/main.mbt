@@ -53,13 +53,23 @@ fn main {
   let expected = @bytes.OwnedBytes::from_bytes(
     expected_bytes, example_budget(78UL, 1UL, 78UL, 0UL, 0UL, 0UL, 0UL),
   ).unwrap()
-  let reader = @io.MemoryReader::new(source.view())
-  let decoded = @codec.ImageDecoder::decode(
-    @png.PngDecoder::new(), reader as &@io.Reader,
-    @codec.DecodeOptions::new(require_complete_input=true, preserve_opaque_metadata=false),
+  let decoder = @png.PngChunkDecoder::new(
     codec_limits(), example_budget(256UL, 8UL, 128UL, 2UL, 1UL, 2UL, 256UL),
     @error.Diagnostics::new(),
-  ).unwrap()
+  )
+  let mut offset = 0UL
+  let mut pushes = 0
+  for requested in [0UL, 8UL, 4UL, 4UL, 13UL, 4UL, 4UL, 4UL, 1UL, 2UL, 4UL, 11UL, 4UL, 4UL, 4UL, 4UL] {
+    let pushed = decoder.push(source.view().subview(offset, requested).unwrap())
+    if pushed.consumed() != requested ||
+      !(pushed.outcome() is @png.PngChunkPushOutcome::NeedInput) {
+      abort("png portable chunk progress")
+    }
+    offset = offset + requested
+    pushes = pushes + 1
+  }
+  if offset != source.length() || pushes != 16 { abort("png portable chunk schedule") }
+  let decoded = decoder.finish().unwrap()
   let resized = @ops.resize_bilinear(
     decoded.image().view(), 3UL, 1UL,
     example_budget(9UL, 1UL, 9UL, 3UL, 1UL, 3UL, 12UL),
@@ -87,5 +97,5 @@ fn main {
   if encoded.bytes_written() != 78UL { abort("png portable write length") }
   if !matches(writer.view(), expected.view(), 78UL) { abort("png portable exact bytes") }
   if digest(writer.view(), 78UL) != 626208771UL { abort("png portable digest") }
-  println("example=png-portable bytes_read=75 bytes_written=78 width=3 height=1 resize_bilinear digest=626208771")
+  println("example=png-portable input_schedule=workflow-zero-signature-ihdr-idat-deflate-iend pushes=16 bytes_read=75 bytes_written=78 width=3 height=1 resize_bilinear digest=626208771")
 }
