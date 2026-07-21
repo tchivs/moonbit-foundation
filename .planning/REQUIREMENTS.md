@@ -1,0 +1,52 @@
+# Requirements: MoonBit Native Foundation
+
+**Defined:** 2026-07-22  
+**Milestone:** v0.12 PNG Filter Optimization  
+**Core Value:** MoonBit developers can reuse stable, high-performance native infrastructure contracts instead of rebuilding incompatible foundations for every graphics, document, media, or automation product.
+
+## v0.12 Requirements
+
+### Filter Strategy Compatibility
+
+- [ ] **PNGF-01**: A library user can explicitly opt into adaptive PNG row filtering through eager and caller-buffered factories while legacy constructors retain filter-None output bytes.
+
+### Bounded Adaptive Filtering
+
+- [ ] **PNGF-02**: An opted-in compatible RGB8 or straight-RGBA8 image is encoded with deterministic, bounded standard PNG None, Sub, Up, Average, and Paeth row-filter candidates and a documented stable winner rule.
+- [ ] **PNGF-03**: Filter selection is integrated before Stored, FixedOrStored, and Dynamic compression planning without image-sized staging, and all capability, geometry, output, work, and budget failures remain atomic before eager output or a caller lease.
+
+### Portable Evidence
+
+- [ ] **PNGF-04**: Generated RGB8 and straight-RGBA8 cases prove an adaptive-filter win where intended, eager/chunk byte identity under hostile capacities, and complete public PNG decode on js, wasm, wasm-gc, and native.
+
+## Future Requirements
+
+- **PNGF-05**: Add broader encoder filter heuristics or content-specific tuning only after a reproducible benchmark contract exists.
+
+## Out of Scope
+
+| Feature | Reason |
+| --- | --- |
+| Change default Stored, FixedOrStored, or Dynamic filter-None bytes | Existing public output is a compatibility baseline. |
+| Wider LZ dictionary, adaptive compression search, or image-sized staging | This milestone isolates row filtering and retains bounded planner semantics. |
+| FFI codecs, host streams, release automation, or registry publication | They do not unblock the PNG filtering implementation. |
+| APNG, colour conversion, metadata expansion, or interlaced encoding | Separate capability families with different compatibility and memory contracts. |
+
+## Traceability
+
+| Requirement | Phase | Status |
+| --- | --- | --- |
+| PNGF-01 | Phase 38 | Pending |
+| PNGF-02 | Phase 39 | Pending |
+| PNGF-03 | Phase 39 | Pending |
+| PNGF-04 | Phase 40 | Pending |
+
+**Coverage:**
+
+- v0.12 requirements: 4 total
+- Mapped to phases: 4
+- Unmapped: 0 ✓
+
+---
+*Requirements defined: 2026-07-22*
+*Last updated: 2026-07-22 after v0.12 definition*
