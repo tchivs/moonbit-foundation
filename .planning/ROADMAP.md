@@ -156,7 +156,7 @@ Plans:
 | 6. Namespace Authority and Compatibility Contract | v0.2 | 25/25 | Complete | 2026-07-18 |
 | 7. Release Safety, Intent, and Recovery Automation | v0.2 | 3/3 | Complete | 2026-07-18 |
 | 8. Ordered Mooncakes Publication and Registry Consumers | v0.2 | 34/36 | Deferred | 2026-07-20 |
-| 9. Checked Image Geometry and Diagnostics | v0.3 | 2/2 | Complete   | 2026-07-20 |
+| 9. Checked Image Geometry and Diagnostics | v0.3 | 1/1 | Complete    | 2026-07-20 |
 | 10. Alpha-Correct Pixel Processing | v0.3 | 2/2 | Complete   | 2026-07-20 |
 | 11. Portable Processing Pipeline Evidence | v0.3 | 3/3 | Complete   | 2026-07-20 |
 | 12. Strict PPM End-to-End Filter Coverage | v0.3 | 1/1 | Complete   | 2026-07-20 |

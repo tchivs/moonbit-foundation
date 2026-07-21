@@ -2,19 +2,19 @@
 gsd_state_version: 1.0
 milestone: v0.7
 milestone_name: PNG Colour Fidelity
-current_phase: 25
-current_phase_name: Portable Colour Conformance Evidence
-status: completed
+current_phase: 20
+current_phase_name: PNG Structural Safety Gate
+status: planning
 stopped_at: Phase 25 context gathered
-last_updated: "2026-07-21T03:18:55.935Z"
+last_updated: "2026-07-21T03:39:56.642Z"
 last_activity: 2026-07-21
-last_activity_desc: Phase 25 complete
+last_activity_desc: Phase 9 complete, transitioned to Phase 20
 progress:
   total_phases: 17
-  completed_phases: 5
-  total_plans: 11
-  completed_plans: 9
-  percent: 29
+  completed_phases: 6
+  total_plans: 12
+  completed_plans: 10
+  percent: 35
 ---
 
 # Project State
@@ -29,10 +29,10 @@ See `.planning/PROJECT.md` (updated 2026-07-20).
 
 ## Current Position
 
-Phase: 25 of 25 (Portable Colour Conformance Evidence)
+Phase: 20 of 25 (PNG Structural Safety Gate)
 Plan: Not started
-Status: Milestone complete
-Last activity: 2026-07-21 — Phase 25 complete
+Status: Ready to plan
+Last activity: 2026-07-21 — Phase 9 complete, transitioned to Phase 20
 
 Progress: [████████░░] 78%
 
