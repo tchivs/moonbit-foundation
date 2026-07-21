@@ -211,6 +211,56 @@ test "PNG eager reader adapter observes a completed failing prefix once" {
 }
 
 ///|
+struct PngReaderOverreportsProgress {}
+
+///|
+impl @io.Reader for PngReaderOverreportsProgress with fn read(_self, destination) {
+  ignore(destination.set(0UL, b'\x89'))
+  @io.ReadOutcome::Progress(destination.length() + 1UL)
+}
+
+///| A Reader must never be allowed to claim bytes beyond the window handed to
+/// it.  The eager observer rejects the malformed report before touching an
+/// out-of-range byte, so it cannot corrupt its private framing accounting.
+test "PNG eager reader adapter rejects overreported progress before observation" {
+  let source = PngReaderOverreportsProgress::{}
+  let machine = _png_stream_machine_for_test()
+  let observed = PngMachineReader::{ reader: source as &@io.Reader, machine }
+  let scratch = @bytes.OwnedBytes::new(1UL, _png_private_budget(1UL)).unwrap()
+  let result = _png_read_one(observed as &@io.Reader, scratch, 0UL, machine.limits)
+  inspect(result is Err(_), content="true")
+  inspect(machine.accepted_bytes() == 0UL, content="true")
+}
+
+///|
+struct PngReaderOverreportsFailurePrefix {}
+
+///|
+impl @io.Reader for PngReaderOverreportsFailurePrefix with fn read(_self, destination) {
+  ignore(destination.set(0UL, b'\x89'))
+  @io.ReadOutcome::Failed(
+    @error.CoreError::new(
+      @error.ErrorCategory::Host,
+      @error.ErrorCode::HostOperationFailed,
+      operation="png-reader-overreported-failure-prefix",
+    ),
+    destination.length() + 1UL,
+  )
+}
+
+///| A malformed failure prefix keeps its source error but contributes no
+/// private framing byte from outside the provided destination window.
+test "PNG eager reader adapter suppresses overreported failure prefix" {
+  let source = PngReaderOverreportsFailurePrefix::{}
+  let machine = _png_stream_machine_for_test()
+  let observed = PngMachineReader::{ reader: source as &@io.Reader, machine }
+  let scratch = @bytes.OwnedBytes::new(1UL, _png_private_budget(1UL)).unwrap()
+  let result = _png_read_one(observed as &@io.Reader, scratch, 0UL, machine.limits)
+  inspect(result is Err(_), content="true")
+  inspect(machine.accepted_bytes() == 0UL, content="true")
+}
+
+///|
 test "PNG private inflater retains a stored block across every compressed byte pause" {
   // zlib(0x78, 0x01) + a final stored block containing `A` + Adler-32.
   // Each call is one accepted IDAT payload byte, so this crosses the zlib,

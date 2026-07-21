@@ -162,9 +162,28 @@ priv struct PngMachineReader {
 }
 
 ///|
+fn _png_reader_invalid_progress(
+  progress : UInt64,
+  limit : UInt64,
+) -> @error.CoreError {
+  @error.CoreError::new(
+    @error.ErrorCategory::State,
+    @error.ErrorCode::InvalidRange,
+    operation="png-machine-reader",
+    requested=progress,
+    completed=0UL,
+    limit~,
+  )
+}
+
+///|
 impl @io.Reader for PngMachineReader with fn read(self, destination) {
   match self.reader.read(destination) {
     @io.ReadOutcome::Progress(count) => {
+      let limit = destination.length()
+      if count > limit {
+        return @io.ReadOutcome::Failed(_png_reader_invalid_progress(count, limit), 0UL)
+      }
       for index = 0UL; index < count; index = index + 1UL {
         // Existing synchronous validators retain their established typed-error
         // precedence. The machine records the same byte transition privately.
@@ -174,6 +193,11 @@ impl @io.Reader for PngMachineReader with fn read(self, destination) {
     }
     @io.ReadOutcome::EndOfStream => @io.ReadOutcome::EndOfStream
     @io.ReadOutcome::Failed(error, completed) => {
+      if completed > destination.length() {
+        // Keep the provider's error identity but suppress its malformed
+        // completion claim: no byte outside this window may be observed.
+        return @io.ReadOutcome::Failed(error, 0UL)
+      }
       // A failing Reader may already have filled a prefix of the destination.
       // Keep that source-of-truth accounting visible to the machine before
       // forwarding the original failure unchanged to the eager decoder.
