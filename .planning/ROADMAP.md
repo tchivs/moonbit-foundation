@@ -74,7 +74,7 @@ Publication, registry-consumer proof, provenance closure, and any release automa
 
 - [x] **Phase 23: PNG Colour Declaration and sRGB Semantics** - Users can receive strict validated PNG colour declarations, with sRGB mapped truthfully to the existing image model. (completed 2026-07-21)
 - [x] **Phase 24: Bounded Non-sRGB and ICC Preservation** - Users can retain legal legacy and ICC declarations without implicit colour transforms. (completed 2026-07-21)
-- [ ] **Phase 25: Portable Colour Conformance Evidence** - Maintainers can independently verify colour-metadata behaviour across all portable targets.
+- [x] **Phase 25: Portable Colour Conformance Evidence** - Maintainers can independently verify colour-metadata behaviour across all portable targets. (completed 2026-07-21)
 
 ## Phase Details
 
@@ -369,7 +369,7 @@ Plans:
 2. The PNG quality lane proves the same outcomes on js, wasm, wasm-gc, and native.
 3. Public documentation precisely distinguishes declaration preservation from unimplemented colour transforms.
 
-**Plans:** TBD
+**Plans:** 1/1 plans complete
 
 ---
 *Roadmap updated: 2026-07-21 for v0.7 PNG Colour Fidelity planning*

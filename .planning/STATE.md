@@ -4,17 +4,17 @@ milestone: v0.7
 milestone_name: PNG Colour Fidelity
 current_phase: 25
 current_phase_name: Portable Colour Conformance Evidence
-status: planning
+status: completed
 stopped_at: Phase 25 context gathered
-last_updated: "2026-07-21T02:53:37.972Z"
+last_updated: "2026-07-21T03:18:55.935Z"
 last_activity: 2026-07-21
-last_activity_desc: Phase 24 complete, transitioned to Phase 25
+last_activity_desc: Phase 25 complete
 progress:
   total_phases: 17
-  completed_phases: 4
-  total_plans: 10
-  completed_plans: 8
-  percent: 24
+  completed_phases: 5
+  total_plans: 11
+  completed_plans: 9
+  percent: 29
 ---
 
 # Project State
@@ -31,8 +31,8 @@ See `.planning/PROJECT.md` (updated 2026-07-20).
 
 Phase: 25 of 25 (Portable Colour Conformance Evidence)
 Plan: Not started
-Status: Ready to plan
-Last activity: 2026-07-21 — Phase 24 complete, transitioned to Phase 25
+Status: Milestone complete
+Last activity: 2026-07-21 — Phase 25 complete
 
 Progress: [████████░░] 78%
 

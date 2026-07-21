@@ -14,7 +14,7 @@
 
 ### PNG Colour Evidence
 
-- [ ] **PNGCM-05**: Maintainers can verify recognised colour chunk positives, ordering/precedence failures, and bounded profile-expansion failures on js, wasm, wasm-gc, and native.
+- [x] **PNGCM-05**: Maintainers can verify recognised colour chunk positives, ordering/precedence failures, and bounded profile-expansion failures on js, wasm, wasm-gc, and native.
 
 ## Future Requirements
 
@@ -40,7 +40,7 @@
 | PNGCM-02 | Phase 23 | Complete |
 | PNGCM-03 | Phase 24 | Complete |
 | PNGCM-04 | Phase 24 | Complete |
-| PNGCM-05 | Phase 25 | Pending |
+| PNGCM-05 | Phase 25 | Complete |
 
 **Coverage:**
 
