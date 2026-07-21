@@ -290,6 +290,23 @@ This deliberately follows QOI's source enumeration/returned-result shape while r
    - What we know: existing `DecodeOptions` has `preserve_opaque_metadata`, while PNG currently reports capability-unavailable for unknown ancillary preservation. [VERIFIED: codebase: `modules/mb-image/codec/contracts.mbt`, `modules/mb-image/png/stream_decode.mbt`]
    - Recommendation: Keep Phase 27's constructor strict/default-only; do not expand the public API for a currently unsupported behavior. [ASSUMED]
 
+## Planning Resolution: Terminal Classification and Observable Parity
+
+The Phase 27 plan freezes the public EOF classifier rather than delegating every active state to the private machine's `png-finished` fallback. This resolves the remaining planner-checker concerns without changing the Phase 26 parser contract.
+
+### EOF precedence (highest first)
+
+1. A pre-existing `Failed(CoreError)` always wins and is replayed unchanged.
+2. If an active stream has an IDAT inflater that has not completed—including a partial zlib header, DEFLATE token/tree/match, or Adler-32 trailer—`finish()` returns `zlib-truncated`, before a partial chunk or missing-IEND classification.
+3. If the inflater is complete but the private raster sink is not complete, `finish()` returns the existing `png-filtered-size` terminal before a framing-suffix classification.
+4. Only then does the classifier report the specific incomplete framing location: generic signature/chunk states, explicit `png-idat-crc`, or explicit `png-iend-crc`.
+
+For a completed inflater and raster, `Length([])` means required IEND is wholly absent (`png-iend`), while one to three IEND length bytes mean `png-iend-length`; a partial or mismatching IEND type is `png-iend-type`; and a zero-length IEND with fewer than four CRC bytes is `png-iend-crc`. An attempted nonzero-length IEND cannot enter Payload: the existing machine rejects it at the fourth type byte as `png-iend-length`, which becomes sticky. The plan tests that invariant rather than inventing an unreachable `png-iend-payload` state. [VERIFIED: codebase: `modules/mb-image/png/stream_decode.mbt`]
+
+### Eager/chunk equivalence
+
+Parity must cover more than image data. For accepted inputs, compare descriptor/pixels/disposition/bytes_read, `Diagnostics::length()` and `Diagnostics::render()`, and every visible `Budget::remaining()` field after decoding with independently initialized but equal budgets. For representative structural, zlib/DEFLATE, raster, trailing, limit, and allocation/budget failures, compare error category, code, operation, context, requested, completed, and limit; compare the same diagnostics snapshot and post-operation budget remainder. This makes all caller-visible accounting and resource consequences part of the Phase 27 contract. [VERIFIED: codebase: `modules/mb-core/{error/diagnostics,budget/budget}.mbt`, `modules/mb-image/png/png_test.mbt`]
+
 ## Environment Availability
 
 | Dependency | Required By | Available | Version | Fallback |
