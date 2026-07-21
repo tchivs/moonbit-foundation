@@ -29,10 +29,87 @@ fn _png_machine_accept_chunk(machine : PngDecodeMachine, kind : Array[Byte], pay
 }
 
 ///|
+/// A minimal complete RGB8 PNG prefix used by the byte-fed machine tests.
+/// The matching IDAT payload below is a zlib stored block for filter byte 0
+/// and one RGB pixel (0x11, 0x22, 0x33).
+fn _png_machine_accept_rgb8_header(machine : PngDecodeMachine) -> Unit {
+  for byte in [b'\x89', b'P', b'N', b'G', b'\r', b'\n', b'\x1a', b'\n'] {
+    machine.accept(byte).unwrap()
+  }
+  _png_machine_accept_chunk(
+    machine,
+    [b'I', b'H', b'D', b'R'],
+    [b'\x00', b'\x00', b'\x00', b'\x01', b'\x00', b'\x00', b'\x00', b'\x01', b'\x08', b'\x02', b'\x00', b'\x00', b'\x00'],
+  ).unwrap()
+}
+
+///|
+/// Feed an IDAT through separate header, compressed-payload, and CRC pauses.
+/// The private machine must retain only its state, never a source view or a
+/// complete IDAT payload.
+fn _png_machine_accept_idat_payload(machine : PngDecodeMachine, payload : Array[Byte]) -> Unit {
+  let length = payload.length().to_uint64()
+  for shift in [24, 16, 8, 0] { machine.accept((length >> shift).to_byte()).unwrap() }
+  for byte in [b'I', b'D', b'A', b'T'] { machine.accept(byte).unwrap() }
+  for byte in payload { machine.accept(byte).unwrap() }
+  let mut crc = _png_crc_for_type([b'I', b'D', b'A', b'T'])
+  for byte in payload { crc = _png_crc_step(crc, byte) }
+  let stored = crc ^ 4294967295UL
+  for shift in [24, 16, 8, 0] { machine.accept((stored >> shift).to_byte()).unwrap() }
+}
+
+///|
+fn _png_machine_accept_stored_rgb_idat(machine : PngDecodeMachine) -> Unit {
+  _png_machine_accept_idat_payload(machine, [b'\x78', b'\x01', b'\x01', b'\x04', b'\x00', b'\xfb', b'\xff', b'\x00', b'\x11', b'\x22', b'\x33', b'\x00', b'\xae', b'\x00', b'\x67'])
+}
+
+///|
 test "PNG private machine owns accepted framing bytes across a pause" {
   let machine = _png_stream_machine_for_test()
   inspect(machine.accept(b'\x89') is Ok(_), content="true")
   inspect(machine.accepted_bytes() == 1UL, content="true")
+  inspect(machine.has_result(), content="false")
+}
+
+///|
+/// The full internal path is one-byte resumable: framing enters IDAT state,
+/// then the zlib continuation, then the private raster sink.  Nothing is
+/// published until IEND has passed and the caller explicitly declares EOF.
+test "PNG private machine resumes split IDAT zlib CRC IEND and EOF without a result" {
+  let machine = _png_stream_machine_for_test()
+  _png_machine_accept_rgb8_header(machine)
+  _png_machine_accept_stored_rgb_idat(machine)
+  inspect(machine.has_private_lifecycle(), content="true")
+  inspect(machine.has_result(), content="false")
+  _png_machine_accept_chunk(machine, [b'I', b'E', b'N', b'D'], []).unwrap()
+  inspect(machine.has_result(), content="false")
+  machine.finish().unwrap()
+  inspect(machine.has_result(), content="false")
+}
+
+///|
+/// DEFLATE need not end at an IDAT boundary.  Each chunk receives its own
+/// CRC-authenticated continuation while one retained inflater carries the
+/// zlib header, stored-block body, and Adler trailer across the split.
+test "PNG private machine resumes one zlib stream across split IDAT chunks" {
+  let machine = _png_stream_machine_for_test()
+  _png_machine_accept_rgb8_header(machine)
+  _png_machine_accept_idat_payload(machine, [b'\x78', b'\x01', b'\x01', b'\x04', b'\x00', b'\xfb', b'\xff'])
+  inspect(machine.has_result(), content="false")
+  _png_machine_accept_idat_payload(machine, [b'\x00', b'\x11', b'\x22', b'\x33', b'\x00', b'\xae', b'\x00', b'\x67'])
+  _png_machine_accept_chunk(machine, [b'I', b'E', b'N', b'D'], []).unwrap()
+  machine.finish().unwrap()
+  inspect(machine.has_result(), content="false")
+}
+
+///|
+/// A CRC-authenticated first IDAT still cannot produce any result if its zlib
+/// stream, IEND, or the explicit EOF transition is incomplete.
+test "PNG private machine keeps result private before terminal checks" {
+  let machine = _png_stream_machine_for_test()
+  _png_machine_accept_rgb8_header(machine)
+  _png_machine_accept_stored_rgb_idat(machine)
+  inspect(machine.finish().unwrap_err().context() == Some("png-finished"), content="true")
   inspect(machine.has_result(), content="false")
 }
 

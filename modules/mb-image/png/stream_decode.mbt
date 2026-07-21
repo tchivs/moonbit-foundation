@@ -8,6 +8,8 @@ priv enum PngDecodeMachineState {
   Type(UInt64, Array[Byte])
   Payload(UInt64, Array[Byte], Array[Byte], UInt64)
   Crc(Array[Byte], Array[Byte], Array[Byte], UInt64)
+  NeedEof
+  Completed
   Failed(@error.CoreError)
 }
 
@@ -148,6 +150,9 @@ priv struct PngDecodeMachine {
   mut ihdr : Array[Byte]?
   facts : PngPreIdatFacts
   mut saw_idat : Bool
+  mut left_idat_sequence : Bool
+  mut idat : PngIdatState?
+  mut inflate : PngInflateState?
   mut lifecycle : PngMachineLifecycle?
   mut lifecycle_allocations : UInt64
 }
@@ -215,7 +220,7 @@ fn PngDecodeMachine::new(
   limits : @codec.CodecLimits,
   budget : @budget.Budget,
 ) -> PngDecodeMachine {
-  { options, limits, budget, state: PngDecodeMachineState::Signature(0), accepted: 0UL, last_chunk_complete: false, ihdr: None, facts: _png_new_pre_idat_facts(), saw_idat: false, lifecycle: None, lifecycle_allocations: 0UL }
+  { options, limits, budget, state: PngDecodeMachineState::Signature(0), accepted: 0UL, last_chunk_complete: false, ihdr: None, facts: _png_new_pre_idat_facts(), saw_idat: false, left_idat_sequence: false, idat: None, inflate: None, lifecycle: None, lifecycle_allocations: 0UL }
 }
 
 ///|
@@ -463,6 +468,26 @@ fn PngDecodeMachine::framing_chunk_complete(self : PngDecodeMachine) -> Bool {
 }
 
 ///|
+/// The byte-fed owner must be told that the source reached EOF.  In
+/// particular, a CRC-authenticated IEND is not success by itself: the zlib
+/// trailer, filtered raster, IEND CRC, and this terminal EOF transition must
+/// all have happened while the image remains private.
+fn PngDecodeMachine::finish(self : PngDecodeMachine) -> Result[Unit, @error.CoreError] {
+  match self.state {
+    PngDecodeMachineState::NeedEof => {
+      let inflate = match self.inflate { Some(value) => value; None => return Err(_png_error("zlib-truncated")) }
+      if !inflate.complete() { return Err(_png_error("zlib-truncated")) }
+      let lifecycle = match self.lifecycle { Some(value) => value; None => return Err(_png_error("png-idat-order")) }
+      match lifecycle.sink.finish() {
+        Err(error) => { self.state = PngDecodeMachineState::Failed(error); Err(error) }
+        Ok(_) => { self.state = PngDecodeMachineState::Completed; Ok(()) }
+      }
+    }
+    _ => Err(_png_error("png-finished"))
+  }
+}
+
+///|
 fn PngDecodeMachine::accept(
   self : PngDecodeMachine,
   byte : Byte,
@@ -512,9 +537,29 @@ fn PngDecodeMachine::accept(
           return Err(error)
         }
         if _png_type_is(kind, b'I', b'D', b'A', b'T') {
+          if self.left_idat_sequence {
+            let error = _png_error("png-idat-contiguous")
+            self.state = PngDecodeMachineState::Failed(error)
+            return Err(error)
+          }
           match self.preflight_first_idat() {
             Err(error) => { self.state = PngDecodeMachineState::Failed(error); return Err(error) }
             Ok(_) => ()
+          }
+          self.idat = match _png_new_idat_state(length, kind) {
+            Err(error) => { self.state = PngDecodeMachineState::Failed(error); return Err(error) }
+            Ok(value) => Some(value)
+          }
+          if self.inflate is None { self.inflate = Some(PngInflateState::new(self.limits.max_output_bytes())) }
+        } else if self.saw_idat {
+          self.left_idat_sequence = true
+          if _png_type_is(kind, b'I', b'E', b'N', b'D') {
+            let inflate = match self.inflate { Some(value) => value; None => { let error = _png_error("zlib-truncated"); self.state = PngDecodeMachineState::Failed(error); return Err(error) } }
+            if !inflate.complete() {
+              let error = _png_error("zlib-truncated")
+              self.state = PngDecodeMachineState::Failed(error)
+              return Err(error)
+            }
           }
         }
         match self.validate_retained_header(length, kind) {
@@ -526,11 +571,22 @@ fn PngDecodeMachine::accept(
       }
     }
     PngDecodeMachineState::Payload(remaining, kind, payload, crc) => {
+      if _png_type_is(kind, b'I', b'D', b'A', b'T') {
+        let idat = match self.idat { Some(value) => value; None => { let error = _png_error("png-idat-state"); self.state = PngDecodeMachineState::Failed(error); return Err(error) } }
+        match idat.accept_payload_byte(byte) { Err(error) => { self.state = PngDecodeMachineState::Failed(error); return Err(error) }; Ok(_) => () }
+        let inflate = match self.inflate { Some(value) => value; None => { let error = _png_error("zlib-truncated"); self.state = PngDecodeMachineState::Failed(error); return Err(error) } }
+        let lifecycle = match self.lifecycle { Some(value) => value; None => { let error = _png_error("png-idat-order"); self.state = PngDecodeMachineState::Failed(error); return Err(error) } }
+        match inflate.accept_to(byte, lifecycle.sink) { Err(error) => { self.state = PngDecodeMachineState::Failed(error); return Err(error) }; Ok(_) => () }
+      }
       let next_crc = _png_crc_step(crc, byte)
       if _png_machine_retains_payload(kind) { payload.push(byte) }
       if remaining == 1UL { self.state = PngDecodeMachineState::Crc(kind, payload, [], next_crc) } else { self.state = PngDecodeMachineState::Payload(remaining - 1UL, kind, payload, next_crc) }
     }
     PngDecodeMachineState::Crc(kind, payload, bytes, crc) => {
+      if _png_type_is(kind, b'I', b'D', b'A', b'T') {
+        let idat = match self.idat { Some(value) => value; None => { let error = _png_error("png-idat-state"); self.state = PngDecodeMachineState::Failed(error); return Err(error) } }
+        match idat.accept_crc_byte(byte) { Err(error) => { self.state = PngDecodeMachineState::Failed(error); return Err(error) }; Ok(_) => () }
+      }
       bytes.push(byte)
       if bytes.length() == 4 {
         let stored = (bytes[0].to_int().to_uint64() << 24) | (bytes[1].to_int().to_uint64() << 16) | (bytes[2].to_int().to_uint64() << 8) | bytes[3].to_int().to_uint64()
@@ -550,11 +606,26 @@ fn PngDecodeMachine::accept(
             Ok(_) => ()
           }
         }
-        if _png_type_is(kind, b'I', b'D', b'A', b'T') { self.saw_idat = true }
+        if _png_type_is(kind, b'I', b'D', b'A', b'T') {
+          let idat = match self.idat { Some(value) => value; None => { let error = _png_error("png-idat-state"); self.state = PngDecodeMachineState::Failed(error); return Err(error) } }
+          if !idat.chunk_complete() {
+            let error = _png_error("png-idat-state")
+            self.state = PngDecodeMachineState::Failed(error)
+            return Err(error)
+          }
+          self.idat = None
+          self.saw_idat = true
+        }
         self.last_chunk_complete = true
-        self.state = PngDecodeMachineState::Length([])
+        self.state = if _png_type_is(kind, b'I', b'E', b'N', b'D') { PngDecodeMachineState::NeedEof } else { PngDecodeMachineState::Length([]) }
       }
     }
+    PngDecodeMachineState::NeedEof => {
+      let error = _png_error("png-trailing-data")
+      self.state = PngDecodeMachineState::Failed(error)
+      return Err(error)
+    }
+    PngDecodeMachineState::Completed => return Err(_png_error("png-finished"))
     PngDecodeMachineState::Failed(error) => return Err(error)
   }
   self.accepted = next
