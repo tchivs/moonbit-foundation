@@ -113,6 +113,45 @@ test "PNG private machine keeps result private before terminal checks" {
   inspect(machine.has_result(), content="false")
 }
 
+///| A terminal-looking stream with a bad IEND CRC must not turn the retained
+/// image into even the private result-equivalent.  This is the final framing
+/// gate after raster and zlib completion, before the explicit EOF transition.
+test "PNG private machine withholds its outcome after a late IEND CRC failure" {
+  let machine = _png_stream_machine_for_test()
+  _png_machine_accept_rgb8_header(machine)
+  _png_machine_accept_stored_rgb_idat(machine)
+  for byte in [b'\x00', b'\x00', b'\x00', b'\x00', b'I', b'E', b'N', b'D', b'\xae', b'\x42', b'\x60'] {
+    machine.accept(byte).unwrap()
+  }
+  inspect(machine.accept(b'\x83').unwrap_err().context() == Some("png-crc"), content="true")
+  inspect(machine.has_private_outcome(), content="false")
+  inspect(machine.has_result(), content="false")
+}
+
+///| Colour declarations and tRNS influence the descriptor before raster
+/// allocation, but the owned result-equivalent is still withheld until IEND
+/// and EOF.  This exercises the indexed RGBA branch and the sRGB metadata
+/// selection from the same CRC-authenticated pre-IDAT facts.
+test "PNG private outcome retains sRGB metadata and indexed tRNS channels" {
+  let machine = _png_stream_machine_for_test()
+  for byte in [b'\x89', b'P', b'N', b'G', b'\r', b'\n', b'\x1a', b'\n'] { machine.accept(byte).unwrap() }
+  _png_machine_accept_chunk(machine, [b'I', b'H', b'D', b'R'], [b'\x00', b'\x00', b'\x00', b'\x01', b'\x00', b'\x00', b'\x00', b'\x01', b'\x08', b'\x03', b'\x00', b'\x00', b'\x00']).unwrap()
+  _png_machine_accept_chunk(machine, [b's', b'R', b'G', b'B'], [b'\x03']).unwrap()
+  _png_machine_accept_chunk(machine, [b'P', b'L', b'T', b'E'], [b'\x11', b'\x22', b'\x33']).unwrap()
+  _png_machine_accept_chunk(machine, [b't', b'R', b'N', b'S'], [b'\x80']).unwrap()
+  _png_machine_accept_idat_payload(machine, [b'\x78', b'\x01', b'\x01', b'\x02', b'\x00', b'\xfd', b'\xff', b'\x00', b'\x00', b'\x00', b'\x02', b'\x00', b'\x01'])
+  _png_machine_accept_chunk(machine, [b'I', b'E', b'N', b'D'], []).unwrap()
+  inspect(machine.has_private_outcome(), content="false")
+  machine.finish().unwrap()
+  inspect(machine.has_private_outcome(), content="true")
+  let descriptor = machine.private_outcome_descriptor().unwrap()
+  inspect(descriptor.format().channel_count() == 4UL, content="true")
+  let retained = descriptor.metadata().opaque_metadata()
+  inspect(retained.length() == 1, content="true")
+  inspect(retained.entry(0).unwrap().canonical_key() == "png:srgb:intent", content="true")
+  inspect(retained.entry(0).unwrap().value().get(0UL).unwrap() == b'\x03', content="true")
+}
+
 ///| The image and sink are allocated only after a CRC-authenticated IHDR and
 /// the complete first IDAT header.  They remain entirely private while the
 /// first IDAT CRC (and every later terminal check) is still outstanding.

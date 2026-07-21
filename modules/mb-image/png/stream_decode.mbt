@@ -21,6 +21,17 @@ priv struct PngMachineLifecycle {
   sink : PngRasterSink
 }
 
+///|
+/// The private byte-fed counterpart of a public decode result.  It comes into
+/// existence only after the complete zlib stream, filtered raster, IEND CRC,
+/// and explicit EOF transition have all succeeded.  Phase 26 deliberately
+/// keeps it private while the eager facade remains on its proven transport.
+priv struct PngMachineOutcome {
+  image : @storage.OwnedImage
+  disposition : @metadata.MetadataDisposition
+  bytes_read : UInt64
+}
+
 ///| Facts which are both bounded and semantically necessary before the first
 /// IDAT header.  Payload bytes stay owned by the machine and become facts only
 /// after their chunk CRC has authenticated them.
@@ -155,6 +166,7 @@ priv struct PngDecodeMachine {
   mut inflate : PngInflateState?
   mut lifecycle : PngMachineLifecycle?
   mut lifecycle_allocations : UInt64
+  mut outcome : PngMachineOutcome?
 }
 
 ///|
@@ -220,7 +232,7 @@ fn PngDecodeMachine::new(
   limits : @codec.CodecLimits,
   budget : @budget.Budget,
 ) -> PngDecodeMachine {
-  { options, limits, budget, state: PngDecodeMachineState::Signature(0), accepted: 0UL, last_chunk_complete: false, ihdr: None, facts: _png_new_pre_idat_facts(), saw_idat: false, left_idat_sequence: false, idat: None, inflate: None, lifecycle: None, lifecycle_allocations: 0UL }
+  { options, limits, budget, state: PngDecodeMachineState::Signature(0), accepted: 0UL, last_chunk_complete: false, ihdr: None, facts: _png_new_pre_idat_facts(), saw_idat: false, left_idat_sequence: false, idat: None, inflate: None, lifecycle: None, lifecycle_allocations: 0UL, outcome: None }
 }
 
 ///|
@@ -230,9 +242,25 @@ fn PngDecodeMachine::accepted_bytes(self : PngDecodeMachine) -> UInt64 {
 
 ///|
 fn PngDecodeMachine::has_result(_self : PngDecodeMachine) -> Bool {
-  // An image/result is intentionally not constructed by the framing substrate.
-  // The completed machine transfers it only after IDAT, IEND, and EOF checks.
+  // The public facade remains independent in Phase 26.
   false
+}
+
+///| Test-only outcome visibility.  This is intentionally distinct from the
+/// public result: no caller can observe the image until terminal framing and
+/// EOF have completed.
+fn PngDecodeMachine::has_private_outcome(self : PngDecodeMachine) -> Bool {
+  self.outcome is Some(_)
+}
+
+///| Test-only inspection of the private terminal descriptor.  Keeping this
+/// accessor package-private proves metadata and output channel selection
+/// without making the resumable substrate a public decoder yet.
+fn PngDecodeMachine::private_outcome_descriptor(self : PngDecodeMachine) -> @model.ImageDescriptor? {
+  match self.outcome {
+    Some(value) => Some(value.image.descriptor())
+    None => None
+  }
 }
 
 ///|
@@ -445,16 +473,22 @@ fn PngDecodeMachine::preflight_first_idat(self : PngDecodeMachine) -> Result[Uni
   }
   let declaration = match _png_colour_declaration(self.facts.colour_facts, ihdr[9] == 0 || ihdr[9] == 4) { Err(error) => return Err(error); Ok(value) => value }
   let output_budget = match _png_output_budget_for(ihdr, indexed, channels, self.limits, self.budget) { Err(error) => return Err(error); Ok(value) => value }
-  let result_budget = match declaration {
-    PngColourDeclaration::Srgb(_) => match _png_srgb_budget(ihdr, indexed, channels, self.limits, self.budget) { Err(error) => return Err(error); Ok((_, raster)) => raster }
+  let (result_budget, metadata_budget) = match declaration {
+    PngColourDeclaration::Srgb(_) => match _png_srgb_budget(ihdr, indexed, channels, self.limits, self.budget) { Err(error) => return Err(error); Ok((metadata, raster)) => (raster, Some(metadata)) }
     PngColourDeclaration::Legacy(gamma, chrm) => {
       let value_bytes = (match gamma { Some(value) => value.length().to_uint64(); None => 0UL }) + (match chrm { Some(value) => value.length().to_uint64(); None => 0UL })
-      match _png_non_srgb_budget(ihdr, indexed, channels, value_bytes, self.limits, self.budget) { Err(error) => return Err(error); Ok((_, raster)) => raster }
+      match _png_non_srgb_budget(ihdr, indexed, channels, value_bytes, self.limits, self.budget) { Err(error) => return Err(error); Ok((metadata, raster)) => (raster, Some(metadata)) }
     }
-    PngColourDeclaration::Icc(name, profile) => match _png_non_srgb_budget(ihdr, indexed, channels, name.length().to_uint64() + profile.length().to_uint64(), self.limits, self.budget) { Err(error) => return Err(error); Ok((_, raster)) => raster }
-    PngColourDeclaration::Default => output_budget
+    PngColourDeclaration::Icc(name, profile) => match _png_non_srgb_budget(ihdr, indexed, channels, name.length().to_uint64() + profile.length().to_uint64(), self.limits, self.budget) { Err(error) => return Err(error); Ok((metadata, raster)) => (raster, Some(metadata)) }
+    PngColourDeclaration::Default => (output_budget, None)
   }
-  let descriptor = match _png_descriptor(transport) { Err(error) => return Err(error); Ok(value) => value }
+  let metadata = match declaration {
+    PngColourDeclaration::Srgb(intent) => match metadata_budget { Some(budget) => match _png_srgb_metadata(channels, intent, budget) { Err(error) => return Err(error); Ok(value) => value }; None => return Err(_png_error("png-srgb-budget")) }
+    PngColourDeclaration::Legacy(gamma, chrm) => match metadata_budget { Some(budget) => match _png_legacy_metadata(channels, gamma, chrm, budget) { Err(error) => return Err(error); Ok(value) => value }; None => return Err(_png_error("png-legacy-budget")) }
+    PngColourDeclaration::Icc(name, profile) => match metadata_budget { Some(budget) => match _png_iccp_metadata(channels, name, profile, budget) { Err(error) => return Err(error); Ok(value) => value }; None => return Err(_png_error("png-iccp-budget")) }
+    PngColourDeclaration::Default => match _png_empty_metadata(channels) { Err(error) => return Err(error); Ok(value) => value }
+  }
+  let descriptor = match _png_descriptor_with_metadata(transport, metadata) { Err(error) => return Err(error); Ok(value) => value }
   let image = match @storage.OwnedImage::new_operation(descriptor, result_budget, PngBuiltinAllocator::{} as &@bytes.Allocator, self.limits.max_work()) { Err(error) => return Err(error); Ok(value) => value }
   let sink = match PngRasterSink::new(image, transport, ihdr[12] == 1, result_budget) { Err(error) => return Err(error); Ok(value) => value }
   self.lifecycle = Some(PngMachineLifecycle::{ sink })
@@ -480,7 +514,15 @@ fn PngDecodeMachine::finish(self : PngDecodeMachine) -> Result[Unit, @error.Core
       let lifecycle = match self.lifecycle { Some(value) => value; None => return Err(_png_error("png-idat-order")) }
       match lifecycle.sink.finish() {
         Err(error) => { self.state = PngDecodeMachineState::Failed(error); Err(error) }
-        Ok(_) => { self.state = PngDecodeMachineState::Completed; Ok(()) }
+        Ok(_) => {
+          let disposition = match _png_empty_disposition() {
+            Err(error) => { self.state = PngDecodeMachineState::Failed(error); return Err(error) }
+            Ok(value) => value
+          }
+          self.outcome = Some({ image: lifecycle.sink.into_image(), disposition, bytes_read: self.accepted })
+          self.state = PngDecodeMachineState::Completed
+          Ok(())
+        }
       }
     }
     _ => Err(_png_error("png-finished"))
