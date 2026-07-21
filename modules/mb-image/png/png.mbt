@@ -68,13 +68,36 @@ pub fn PngChunkDecoder::new(
 }
 
 ///|
+/// A PNG-specific compression selection for the strict RGB8 and straight-RGBA8 profile.
+/// `FixedOrStored` currently emits the Stored baseline, provides no optimization or
+/// size guarantee, and receives fixed-or-stored behavior in Phase 33. This strategy
+/// excludes dynamic Huffman coding and adaptive filters.
+pub(all) enum PngCompressionStrategy {
+  Stored
+  FixedOrStored
+} derive(Eq)
+
+///|
 /// A deterministic encoder for the strict RGB8 and straight-RGBA8 PNG profile.
 /// It emits one canonical stored-DEFLATE representation without host adapters.
-pub struct PngEncoder {}
+pub struct PngEncoder {
+  priv strategy : PngCompressionStrategy
+}
 
 ///|
 pub fn PngEncoder::new() -> PngEncoder {
-  PngEncoder::{  }
+  PngEncoder::{ strategy: PngCompressionStrategy::Stored }
+}
+
+///|
+/// Constructs an encoder with an explicit PNG compression strategy. `FixedOrStored`
+/// currently emits the Stored baseline, provides no optimization or size guarantee,
+/// and receives fixed-or-stored behavior in Phase 33; it excludes dynamic Huffman
+/// coding and adaptive filters.
+pub fn PngEncoder::new_with_compression_strategy(
+  strategy : PngCompressionStrategy,
+) -> PngEncoder {
+  PngEncoder::{ strategy }
 }
 
 ///|

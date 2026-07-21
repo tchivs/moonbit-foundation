@@ -12,7 +12,30 @@ pub fn PngChunkEncoder::new(
   budget : @budget.Budget,
   diagnostics : @error.Diagnostics,
 ) -> Result[PngChunkEncoder, @error.CoreError] {
-  let machine = match PngEncodeMachine::new(source, limits, budget, diagnostics) {
+  let machine = match PngEncodeMachine::new(
+    source, limits, budget, diagnostics,
+  ) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  Ok({ state: PngChunkEncoderState::Active(machine), total_written: 0UL })
+}
+
+///|
+/// Constructs a caller-buffered encoder with an explicit PNG compression strategy.
+/// `FixedOrStored` currently emits the Stored baseline, provides no optimization or
+/// size guarantee, and receives fixed-or-stored behavior in Phase 33; it excludes
+/// dynamic Huffman coding and adaptive filters.
+pub fn PngChunkEncoder::new_with_compression_strategy(
+  source : @storage.ImageView,
+  strategy : PngCompressionStrategy,
+  limits : @codec.CodecLimits,
+  budget : @budget.Budget,
+  diagnostics : @error.Diagnostics,
+) -> Result[PngChunkEncoder, @error.CoreError] {
+  let machine = match PngEncodeMachine::new_with_compression_strategy(
+    source, strategy, limits, budget, diagnostics,
+  ) {
     Err(error) => return Err(error)
     Ok(value) => value
   }
@@ -104,6 +127,7 @@ pub fn PngChunkEncoder::pull(
 /// cursors only: no destination lease and no output-sized staging buffer.
 priv struct PngEncodeMachine {
   source : @storage.ImageView
+  strategy : PngCompressionStrategy
   width : UInt64
   height : UInt64
   channels : UInt64
@@ -135,12 +159,26 @@ fn PngEncodeMachine::new(
   budget : @budget.Budget,
   _diagnostics : @error.Diagnostics,
 ) -> Result[PngEncodeMachine, @error.CoreError] {
+  PngEncodeMachine::new_with_compression_strategy(
+    source, PngCompressionStrategy::Stored, limits, budget, _diagnostics,
+  )
+}
+
+///|
+fn PngEncodeMachine::new_with_compression_strategy(
+  source : @storage.ImageView,
+  strategy : PngCompressionStrategy,
+  limits : @codec.CodecLimits,
+  budget : @budget.Budget,
+  _diagnostics : @error.Diagnostics,
+) -> Result[PngEncodeMachine, @error.CoreError] {
   let facts = match _png_encode_preflight(source, limits, budget) {
     Err(error) => return Err(error)
     Ok(value) => value
   }
   Ok({
     source,
+    strategy,
     width: source.width(),
     height: source.height(),
     channels: facts.channels,
@@ -199,6 +237,13 @@ fn PngEncodeMachine::zlib_byte(
   self : PngEncodeMachine,
   offset : UInt64,
 ) -> Result[Byte, @error.CoreError] {
+  let stored_baseline = match self.strategy {
+    PngCompressionStrategy::Stored => true
+    PngCompressionStrategy::FixedOrStored => true
+  }
+  if !stored_baseline {
+    return Err(_png_encode_machine_state_error("png-encode-strategy"))
+  }
   if offset == 0UL { return Ok(b'\x78') }
   if offset == 1UL { return Ok(b'\x01') }
   let relative = offset - 2UL
