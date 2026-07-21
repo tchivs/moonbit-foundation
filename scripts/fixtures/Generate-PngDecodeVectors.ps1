@@ -22,9 +22,11 @@ function Crc32([byte[]]$Bytes) {
   foreach ($byte in $Bytes) { $crc = $crc -bxor [uint64]$byte; for ($bit = 0; $bit -lt 8; $bit++) { $crc = if (($crc -band [uint64]1) -eq [uint64]1) { (($crc -shr 1) -bxor $polynomial) -band $mask } else { ($crc -shr 1) -band $mask } } }
   ($crc -bxor $mask) -band $mask
 }
-function Chunk([string]$Type, [byte[]]$Payload) {
+function Chunk([string]$Type, [object]$Payload = $null) {
+  [byte[]]$PayloadBytes = [byte[]]::new(0)
+  if ($null -ne $Payload) { $PayloadBytes = [byte[]]$Payload }
   $kind = [Text.Encoding]::ASCII.GetBytes($Type)
-  Join-Bytes @((U32 $Payload.Length), $kind, $Payload, (U32 (Crc32 (Join-Bytes @($kind,$Payload)))))
+  Join-Bytes @((U32 $PayloadBytes.Length), $kind, $PayloadBytes, (U32 (Crc32 (Join-Bytes @($kind,$PayloadBytes)))))
 }
 function Hex([string]$Value) {
   if ([string]::IsNullOrEmpty($Value)) { return [byte[]]@() }
@@ -32,6 +34,94 @@ function Hex([string]$Value) {
   [byte[]]@((0..(($Value.Length/2)-1) | ForEach-Object { [Convert]::ToByte($Value.Substring($_*2,2),16) }))
 }
 function Moon-Bytes([byte[]]$Value) { (($Value | ForEach-Object { '\x{0:x2}' -f $_ }) -join '') }
+function Colour-Payload($Description) {
+  $payload = if ($null -ne $Description.PSObject.Properties['payload_hex']) { Hex ([string]$Description.payload_hex) } else { [byte[]]@() }
+  if ($null -ne $Description.PSObject.Properties['payload_repeat_hex']) {
+    $unit = Hex ([string]$Description.payload_repeat_hex)
+    $count = [int]$Description.payload_repeat_count
+    if ($unit.Length -eq 0 -or $count -lt 0) { throw 'Invalid repeated colour payload description.' }
+    $expanded = [Collections.Generic.List[byte]]::new()
+    for ($index = 0; $index -lt $count; $index++) { $expanded.AddRange($unit) }
+    $expanded.AddRange($payload)
+    return ,$expanded.ToArray()
+  }
+  return ,$payload
+}
+function Colour-Placement($Description) {
+  if ($null -eq $Description.PSObject.Properties['placement']) { return 'before-plte' }
+  [string]$Description.placement
+}
+function Add-ColourChunks($Parts, $Case, [string]$Placement) {
+  if ($null -eq $Case.PSObject.Properties['colour_chunks']) { return }
+  foreach ($description in @($Case.colour_chunks)) {
+    if ((Colour-Placement $description) -eq $Placement) {
+      $kind = [string]$description.kind
+      if ($kind -notin @('sRGB','gAMA','cHRM','iCCP')) { throw "Unsupported colour chunk description: $kind" }
+      [byte[]]$payload = @()
+      if ($null -ne $description.PSObject.Properties['payload_hex']) { $payload = [byte[]](Hex ([string]$description.payload_hex)) }
+      if ($null -ne $description.PSObject.Properties['payload_repeat_hex']) {
+        [byte[]]$unit = Hex ([string]$description.payload_repeat_hex); $count = [int]$description.payload_repeat_count
+        if ($unit.Length -eq 0 -or $count -lt 0) { throw 'Invalid repeated colour payload description.' }
+        $expanded = [Collections.Generic.List[byte]]::new()
+        $expanded.AddRange($payload)
+        for ($index = 0; $index -lt $count; $index++) { $expanded.AddRange($unit) }
+        $payload = $expanded.ToArray()
+      }
+      $Parts.Add((Chunk -Type $kind -Payload ([byte[]]$payload)));
+    }
+  }
+}
+function Read-U32([byte[]]$Bytes, [int]$Offset) {
+  ([uint64]$Bytes[$Offset] -shl 24) -bor ([uint64]$Bytes[$Offset + 1] -shl 16) -bor ([uint64]$Bytes[$Offset + 2] -shl 8) -bor [uint64]$Bytes[$Offset + 3]
+}
+function Assert-ColourPayloadOracle([string]$Kind, [object]$Payload = $null) {
+  [byte[]]$PayloadBytes = [byte[]]::new(0)
+  if ($null -ne $Payload) { $PayloadBytes = [byte[]]$Payload }
+  $Payload = $PayloadBytes
+  if ($Kind -eq 'sRGB') { if ($Payload.Length -ne 1) { return 'png-srgb-length' }; if ($Payload[0] -gt 3) { return 'png-srgb-intent' }; return '' }
+  if ($Kind -eq 'gAMA') { if ($Payload.Length -ne 4) { return 'png-gama-length' }; if ((Read-U32 $Payload 0) -eq 0) { return 'png-gama-zero' }; return '' }
+  if ($Kind -eq 'cHRM') { if ($Payload.Length -ne 32) { return 'png-chrm-length' }; return '' }
+  $nul = [Array]::IndexOf($Payload, [byte]0)
+  if ($nul -eq -1) { return 'png-iccp-envelope' }
+  if ($nul -eq 0) { return 'png-iccp-name' }
+  if ($nul -gt 79) { return 'png-iccp-name' }
+  $lastSpace = $false
+  for ($index = 0; $index -lt $nul; $index++) {
+    $byte = $Payload[$index]
+    $printable = ($byte -ge 32 -and $byte -le 126) -or ($byte -ge 161 -and $byte -le 255)
+    if (-not $printable -or ($index -eq 0 -and $byte -eq 32) -or ($byte -eq 32 -and $lastSpace)) { return 'png-iccp-name' }
+    $lastSpace = $byte -eq 32
+  }
+  if ($lastSpace) { return 'png-iccp-name' }
+  if ($nul + 1 -ge $Payload.Length) { return 'png-iccp-envelope' }
+  if ($Payload[$nul + 1] -ne 0) { return 'png-iccp-method' }
+  if ($nul + 2 -ge $Payload.Length) { return 'png-iccp-data' }
+  return ''
+}
+function Assert-PngAssemblyOracle([byte[]]$Png, $Case) {
+  $signature = [byte[]](0x89,80,78,71,13,10,26,10)
+  if ($Png.Length -lt 20 -or -not [Linq.Enumerable]::SequenceEqual([byte[]]$Png[0..7], $signature)) { throw "PNG assembly oracle signature mismatch: $($Case.id)" }
+  $at = 8; $seenPalette = $false; $seenIdat = $false; $seen = @{}; $colourCount = 0; $expectedColourCount = if ($null -eq $Case.PSObject.Properties['colour_chunks']) { 0 } else { @($Case.colour_chunks).Count }
+  while ($at -lt $Png.Length) {
+    if ($at + 12 -gt $Png.Length) { throw "PNG assembly oracle truncation: $($Case.id)" }
+    $length = [int](Read-U32 $Png $at); $kind = [Text.Encoding]::ASCII.GetString($Png, $at + 4, 4); $payloadAt = $at + 8; $end = $payloadAt + $length
+    if ($end + 4 -gt $Png.Length) { throw "PNG assembly oracle length mismatch: $($Case.id)" }
+    $payload = if ($length) { [byte[]]$Png[$payloadAt..($end - 1)] } else { [byte[]]@() }
+    if ((Read-U32 $Png $end) -ne (Crc32 (Join-Bytes @([Text.Encoding]::ASCII.GetBytes($kind),$payload)))) {
+      if ([string]$Case.context -ne 'png-crc') { throw "PNG assembly oracle CRC mismatch: $($Case.id)" }
+    }
+    if ($kind -in @('sRGB','gAMA','cHRM','iCCP')) {
+      $colourCount++
+      if ($seenPalette -or $seenIdat) { $failure = 'png-colour-order' } elseif ($seen.ContainsKey($kind)) { $failure = "png-$($kind.ToLowerInvariant())-duplicate" } else { $failure = Assert-ColourPayloadOracle $kind $payload }
+      $seen[$kind] = $true
+      if ($failure -and ([string]$Case.context) -ne $failure) { throw "PNG colour oracle context mismatch: $($Case.id): expected $failure" }
+    }
+    if ($kind -eq 'PLTE') { $seenPalette = $true }
+    if ($kind -eq 'IDAT') { $seenIdat = $true }
+    $at = $end + 4
+  }
+  if ($colourCount -ne $expectedColourCount) { throw "PNG colour chunk count mismatch: $($Case.id)" }
+}
 function Convert-Adam7ToNonInterlaced([byte[]]$Scan, [int]$Width, [int]$Height, [int]$BitDepth, [int]$Channels) {
   # This is deliberately an oracle-side implementation: it independently undoes
   # Adam7 pass filtering and scatters pass-local samples into ordinary scanlines.
@@ -119,6 +209,7 @@ function New-Png($Case, [int[]]$Splits) {
   elseif ($null -ne $Case.PSObject.Properties['plte_hex']) { $plte = Hex $Case.plte_hex }
   $variant = if ($Case.PSObject.Properties['variant']) { [string]$Case.variant } else { 'normal' }
   $trns = if ($null -ne $Case.PSObject.Properties['trns_hex']) { Hex $Case.trns_hex } elseif ($variant -like 'trns*') { [byte[]]@(0) } else { $null }
+  Add-ColourChunks $parts $Case 'before-plte'
   if ($null -ne $trns -and $variant -eq 'trns-before-plte') { $parts.Add((Chunk 'tRNS' $trns)) }
   if ($hasPlte -and $variant -ne 'missing-plte') {
     $chunk = Chunk 'PLTE' $plte
@@ -126,6 +217,7 @@ function New-Png($Case, [int[]]$Splits) {
     $parts.Add($chunk)
     if ($variant -eq 'plte-duplicate') { $parts.Add((Chunk 'PLTE' $plte)) }
   }
+  Add-ColourChunks $parts $Case 'after-plte'
   if ($null -ne $trns -and $variant -ne 'trns-before-plte' -and $variant -ne 'trns-after-idat') {
     $chunk = Chunk 'tRNS' $trns
     if ($variant -eq 'trns-crc') { $chunk = [byte[]]$chunk.Clone(); $chunk[$chunk.Length - 1] = $chunk[$chunk.Length - 1] -bxor 1 }
@@ -135,10 +227,13 @@ function New-Png($Case, [int[]]$Splits) {
   $offset = 0
   foreach ($split in $Splits) { $count = [int]$split; if ($count -le 0 -or $offset + $count -gt $zlib.Length) { throw "Invalid IDAT split: $($Case.id)" }; $parts.Add((Chunk 'IDAT' $zlib[$offset..($offset+$count-1)])); $offset += $count }
   if ($offset -ne $zlib.Length) { throw "IDAT splits do not cover zlib payload: $($Case.id)" }
+  Add-ColourChunks $parts $Case 'after-idat'
   if ($hasPlte -and $variant -eq 'plte-after-idat') { $parts.Add((Chunk 'PLTE' $plte)) }
   if ($null -ne $trns -and $variant -eq 'trns-after-idat') { $parts.Add((Chunk 'tRNS' $trns)) }
   $parts.Add((Chunk 'IEND' ([byte[]]@())))
-  Join-Bytes @([byte[]](0x89,80,78,71,13,10,26,10), (Join-Bytes $parts.ToArray()))
+  $png = Join-Bytes @([byte[]](0x89,80,78,71,13,10,26,10), (Join-Bytes $parts.ToArray()))
+  Assert-PngAssemblyOracle $png $Case
+  $png
 }
 function Assert-Oracle($Case) {
   $zlib = Hex $Case.zlib_hex
@@ -229,7 +324,8 @@ function Assert-Oracle($Case) {
 $corpus = Get-Content -Raw -LiteralPath $CasesPath | ConvertFrom-Json
 $required = @('fixed-rgb-filters-every-idat-byte','fixed-grayscale-filters-every-idat-boundary','lowbit-gray-1-filters','lowbit-gray-2-filters','lowbit-gray-4-filters','lowbit-gray-8-filters','lowbit-trns-gray-1','lowbit-trns-gray-2','lowbit-trns-gray-4','lowbit-trns-gray-high-byte','lowbit-trns-gray-mask','lowbit-indexed-1-filters','lowbit-indexed-2-filters','lowbit-indexed-4-filters','lowbit-trns-indexed-2-filters','lowbit-indexed-depth','lowbit-indexed-plte-depth','lowbit-indexed-palette-index','dynamic-rgba-filters-semantic-idat-split','indexed-filters-every-idat-boundary','trns-grayscale-filters','trns-rgb-filters','trns-indexed-filters','indexed-missing-plte','indexed-plte-length-0','indexed-plte-length-1','indexed-plte-length-2','indexed-plte-length-4','indexed-plte-length-5','indexed-plte-length-769','indexed-plte-duplicate','indexed-plte-after-idat','indexed-plte-crc','indexed-palette-index','trns-duplicate','trns-after-idat','trns-before-plte','trns-crc','trns-gray-length','trns-gray-sample','trns-rgb-length','trns-rgb-sample','trns-indexed-length','trns-type6','hostile-zlib-header','hostile-truncated-deflate','hostile-adler','hostile-filter','hostile-dynamic-incomplete-tree','hostile-fixed-distance-before-history','hostile-filtered-output-expansion','gray-alpha-filters','gray-alpha-depth-1','gray-alpha-depth-2','gray-alpha-depth-4','gray-alpha-depth-16','gray-alpha-trns','gray-alpha-trns-after-idat','gray-alpha-trns-crc','gray-alpha-filter','gray-alpha-malformed','gray-alpha-limit','16gray-filters','16gray-trns','16rgb-filters','16rgb-trns','16gray-trns-length','16gray-trns-duplicate','16rgb-trns-after-idat','16rgb-trns-crc','16gray-filter','16rgb-malformed','16rgb-depth-4','16gray-alpha-depth-16','16rgba-depth-16','16gray-limit-image','16rgb-limit-output','16rgb-limit-work')
 $required += @('16gray-alpha-filters','16rgba-filters','16gray-alpha-trns','16gray-alpha-trns-duplicate','16gray-alpha-trns-after-idat','16gray-alpha-trns-crc','16rgba-depth-4','16rgba-trns','16rgba-trns-duplicate','16rgba-trns-after-idat','16rgba-trns-crc','16gray-alpha-filter','16rgba-malformed','16gray-alpha-limit-image','16gray-alpha-limit-output','16gray-alpha-limit-work','16rgba-limit-image','16rgba-limit-output','16rgba-limit-work','adam7-rgba8-all-passes-idat-boundaries','adam7-gray2-trns-all-passes','adam7-indexed2-plte-trns-all-passes','adam7-rgb16-trns-all-passes','adam7-gray-alpha16-all-passes','adam7-rgba16-all-passes','adam7-invalid-interlace-method','adam7-truncated-pass-scanline','adam7-extra-pass-scanline','adam7-invalid-pass-filter','adam7-limit-output','adam7-gray1-opaque-all-passes','adam7-gray1-trns-all-passes','adam7-gray2-opaque-all-passes','adam7-gray4-opaque-all-passes','adam7-gray4-trns-all-passes','adam7-gray8-opaque-all-passes','adam7-gray8-trns-all-passes','adam7-gray16-opaque-all-passes','adam7-gray16-trns-all-passes','adam7-indexed1-opaque-all-passes','adam7-indexed1-trns-all-passes','adam7-indexed2-opaque-all-passes','adam7-indexed4-opaque-all-passes','adam7-indexed4-trns-all-passes','adam7-indexed8-opaque-all-passes','adam7-indexed8-trns-all-passes','adam7-rgb8-opaque-all-passes','adam7-rgb8-trns-all-passes','adam7-rgb16-opaque-all-passes','adam7-rgb16-trns-low-byte-all-passes','adam7-gray-alpha8-all-passes','adam7-indexed-missing-plte','adam7-indexed-palette-index','adam7-trns-after-idat','adam7-trns-duplicate','adam7-trns-crc','adam7-trns-indexed-length','adam7-malformed-compression')
-if ($corpus.schema_version -ne '2.4.0' -or (Compare-Object $required @($corpus.cases.id))) { throw 'PNG decode corpus is stale or incomplete.' }
+$required += @('srgb-rgb-intent-0','srgb-rgba-intent-1','srgb-palette-intent-2','srgb-grayscale-intent-3','srgb-rgb16-intent-0','srgb-adam7-intent-1-split-idat','srgb-compatible-legacy','srgb-payload-empty','srgb-payload-long','srgb-intent-out-of-range','srgb-duplicate','srgb-after-plte','srgb-after-idat','gama-length','gama-zero','gama-duplicate','chrm-length','srgb-legacy-conflict','gama-non-srgb-capability','chrm-non-srgb-capability','iccp-empty-name','iccp-overlong-name','iccp-control-name','iccp-leading-space','iccp-trailing-space','iccp-consecutive-spaces','iccp-no-nul','iccp-no-profile-data','iccp-bad-method','iccp-valid-capability','iccp-precedes-srgb-capability','iccp-large-unretained-capability')
+if ($corpus.schema_version -ne '2.5.0' -or (Compare-Object $required @($corpus.cases.id))) { throw 'PNG decode corpus is stale or incomplete.' }
 $records = [Collections.Generic.List[object]]::new()
 foreach ($case in $corpus.cases) {
   $zlib = Hex $case.zlib_hex
@@ -253,7 +349,7 @@ $rows = [Collections.Generic.List[string]]::new()
 $rows.Add('// Generated by scripts/fixtures/Generate-PngDecodeVectors.ps1. Do not edit.')
 $rows.Add('')
 $rows.Add('///|')
-$rows.Add('priv struct PngDecodeVector { id : String; bytes : Bytes; width : UInt64; height : UInt64; channels : UInt64; pixels : Bytes; outcome : String; max_output : UInt64; max_work : UInt64; category : String; code : String; context : String; comparison_group : String; baseline : Bool }')
+$rows.Add('priv struct PngDecodeVector { id : String; bytes : Bytes; width : UInt64; height : UInt64; channels : UInt64; pixels : Bytes; outcome : String; max_output : UInt64; max_work : UInt64; budget_bytes : UInt64; budget_allocations : UInt64; srgb_intent : Int; category : String; code : String; context : String; comparison_group : String; baseline : Bool }')
 $rows.Add('')
 $rows.Add('///|')
 $rows.Add('fn _generated_png_decode_cases() -> Array[PngDecodeVector] {')
@@ -261,8 +357,8 @@ $rows.Add('  [')
 foreach ($record in $records) {
   $case = $record.case
   Assert-Oracle $case
-  $png = New-Png $case $record.splits; $pixels = if ($case.outcome -eq 'accepted') { Moon-Bytes (Hex $case.pixels_hex) } else { '' }; $channels = if ($case.colour_type -eq 4 -or $case.colour_type -eq 6 -or $null -ne $case.PSObject.Properties['trns_hex']) { 4 } else { 3 }; $context = if ($null -eq $case.PSObject.Properties['context']) { '' } else { [string]$case.context }; $maxOutput = if ($null -eq $case.PSObject.Properties['max_output']) { 1024 } else { [uint64]$case.max_output }; $maxWork = if ($null -eq $case.PSObject.Properties['max_work']) { 4096 } else { [uint64]$case.max_work }; $category = if ($null -eq $case.PSObject.Properties['category']) { if ($case.outcome -eq 'limit') { 'resource' } else { 'data' } } else { [string]$case.category }; $code = if ($null -eq $case.PSObject.Properties['code']) { if ($case.outcome -eq 'limit') { 'budget-exceeded' } else { 'invalid-encoding' } } else { [string]$case.code }; $baseline = if ($record.baseline) { 'true' } else { 'false' }
-  $rows.Add(('    PngDecodeVector::{{ id: "{0}", bytes: b"{1}", width: {2}UL, height: {3}UL, channels: {4}UL, pixels: b"{5}", outcome: "{6}", max_output: {7}UL, max_work: {8}UL, category: "{9}", code: "{10}", context: "{11}", comparison_group: "{12}", baseline: {13} }},' -f $record.id,(Moon-Bytes $png),$case.width,$case.height,$channels,$pixels,$case.outcome,$maxOutput,$maxWork,$category,$code,$context,$record.group,$baseline))
+  $png = New-Png $case $record.splits; $pixels = if ($case.outcome -eq 'accepted') { Moon-Bytes (Hex $case.pixels_hex) } else { '' }; $channels = if ($case.colour_type -eq 4 -or $case.colour_type -eq 6 -or $null -ne $case.PSObject.Properties['trns_hex']) { 4 } else { 3 }; $context = if ($null -eq $case.PSObject.Properties['context']) { '' } else { [string]$case.context }; $maxOutput = if ($null -eq $case.PSObject.Properties['max_output']) { 1024 } else { [uint64]$case.max_output }; $maxWork = if ($null -eq $case.PSObject.Properties['max_work']) { 4096 } else { [uint64]$case.max_work }; $budgetBytes = if ($null -eq $case.PSObject.Properties['budget_bytes']) { 4096 } else { [uint64]$case.budget_bytes }; $budgetAllocations = if ($null -eq $case.PSObject.Properties['budget_allocations']) { 8 } else { [uint64]$case.budget_allocations }; $srgbIntent = if ($null -eq $case.PSObject.Properties['srgb_intent']) { -1 } else { [int]$case.srgb_intent }; $category = if ($null -eq $case.PSObject.Properties['category']) { if ($case.outcome -eq 'limit') { 'resource' } else { 'data' } } else { [string]$case.category }; $code = if ($null -eq $case.PSObject.Properties['code']) { if ($case.outcome -eq 'limit') { 'budget-exceeded' } else { 'invalid-encoding' } } else { [string]$case.code }; $baseline = if ($record.baseline) { 'true' } else { 'false' }
+  $rows.Add(('    PngDecodeVector::{{ id: "{0}", bytes: b"{1}", width: {2}UL, height: {3}UL, channels: {4}UL, pixels: b"{5}", outcome: "{6}", max_output: {7}UL, max_work: {8}UL, budget_bytes: {9}UL, budget_allocations: {10}UL, srgb_intent: {11}, category: "{12}", code: "{13}", context: "{14}", comparison_group: "{15}", baseline: {16} }},' -f $record.id,(Moon-Bytes $png),$case.width,$case.height,$channels,$pixels,$case.outcome,$maxOutput,$maxWork,$budgetBytes,$budgetAllocations,$srgbIntent,$category,$code,$context,$record.group,$baseline))
 }
 $rows.Add('  ]'); $rows.Add('}'); $rows.Add('')
 $text = $rows -join "`n"

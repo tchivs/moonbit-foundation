@@ -397,7 +397,7 @@ fn png_test_decode_vector(item : PngDecodeVector) -> Result[@codec.DecodeResult,
     PngDecoder::new(), reader as &@io.Reader,
     @codec.DecodeOptions::new(require_complete_input=true, preserve_opaque_metadata=false),
     @codec.CodecLimits::new(max_probe_bytes=8UL, max_input_bytes=4096UL, max_output_bytes=item.max_output, max_width=64UL, max_height=16UL, max_pixels=1024UL, max_work=item.max_work),
-    @budget.Budget::new(@budget.ResourceLimits::new(bytes=4096UL, allocations=3UL, allocation_size=1024UL, width=64UL, height=16UL, pixels=1024UL, depth=0UL, work=item.max_work)),
+    @budget.Budget::new(@budget.ResourceLimits::new(bytes=item.budget_bytes, allocations=item.budget_allocations, allocation_size=1024UL, width=64UL, height=16UL, pixels=1024UL, depth=0UL, work=item.max_work)),
     @error.Diagnostics::new(),
   )
 }
@@ -411,6 +411,16 @@ test "generated PNG decode vectors execute fixed and dynamic streams through Png
       let descriptor = result.image().descriptor()
       if descriptor.width() != item.width || descriptor.height() != item.height || descriptor.format().channel_count() != item.channels {
         fail("generated PNG descriptor mismatch: " + item.id)
+      }
+      if item.srgb_intent >= 0 {
+        let metadata = descriptor.metadata()
+        if metadata.space() != @color.ColorSpaceIdentity::Srgb ||
+          metadata.transfer() != @color.TransferIdentity::EncodedSrgb ||
+          !metadata.profile().is_builtin_srgb() ||
+          metadata.opaque_metadata().length() != 1 ||
+          metadata.opaque_metadata().entry(0).unwrap().value().get(0UL).unwrap().to_int() != item.srgb_intent {
+          fail("generated PNG sRGB metadata mismatch: " + item.id)
+        }
       }
       let view = result.image().view()
       for y = 0UL; y < item.height; y = y + 1UL {
@@ -448,6 +458,8 @@ test "generated PNG decode vectors execute fixed and dynamic streams through Png
       let error = decoded.unwrap_err()
       if item.category == "resource" {
         if error.category() != @error.ErrorCategory::Resource { fail("generated PNG resource category mismatch: " + item.id) }
+      } else if item.category == "capability" {
+        if error.category() != @error.ErrorCategory::Capability { fail("generated PNG capability category mismatch: " + item.id) }
       } else if item.category == "data" {
         if error.category() != @error.ErrorCategory::Data {
           let actual = match error.category() {
@@ -463,6 +475,8 @@ test "generated PNG decode vectors execute fixed and dynamic streams through Png
       } else { fail("generated PNG unknown error category: " + item.id) }
       if item.code == "budget-exceeded" {
         inspect(error.code() == @error.ErrorCode::BudgetExceeded, content="true")
+      } else if item.code == "capability-unavailable" {
+        inspect(error.code() == @error.ErrorCode::CapabilityUnavailable, content="true")
       } else if item.code == "invalid-encoding" {
         inspect(error.code() == @error.ErrorCode::InvalidEncoding, content="true")
       } else { fail("generated PNG unknown error code: " + item.id) }
