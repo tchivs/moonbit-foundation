@@ -87,7 +87,10 @@ fn png_chunk_test_pull(
 }
 
 ///|
-fn png_chunk_test_drain(image : @storage.OwnedImage, schedule : Array[UInt64]) -> Bytes {
+fn png_chunk_test_drain(
+  image : @storage.OwnedImage,
+  schedule : Array[UInt64],
+) -> Result[Bytes, @error.CoreError] {
   let encoder = PngChunkEncoder::new(
     image.view(), png_stream_test_limits(), png_stream_test_budget(),
     @error.Diagnostics::new(),
@@ -97,14 +100,22 @@ fn png_chunk_test_drain(image : @storage.OwnedImage, schedule : Array[UInt64]) -
   while turn < 1024 {
     let capacity = schedule[turn % schedule.length()]
     let result = png_chunk_test_pull(encoder, capacity, output)
-    inspect(result.total_written() == output.length().to_uint64(), content="true")
+    if result.total_written() != output.length().to_uint64() {
+      return Err(@error.CoreError::new(
+        @error.ErrorCategory::State, @error.ErrorCode::InvalidRange,
+        context="png-chunk-total",
+      ))
+    }
     match result.outcome() {
-      PngChunkPullOutcome::Finished => return Bytes::from_array(output)
-      PngChunkPullOutcome::Failed(_) => panic()
+      PngChunkPullOutcome::Finished => return Ok(Bytes::from_array(output))
+      PngChunkPullOutcome::Failed(error) => return Err(error)
       PngChunkPullOutcome::NeedOutput => turn = turn + 1
     }
   }
-  panic()
+  Err(@error.CoreError::new(
+    @error.ErrorCategory::State, @error.ErrorCode::InvalidRange,
+    context="png-chunk-unreachable",
+  ))
 }
 
 ///|
@@ -151,7 +162,7 @@ test "PNG chunk encoder equals eager bytes for RGB and straight RGBA" {
   for channels in [3UL, 4UL] {
     let image = png_stream_test_image(channels)
     let eager = png_stream_test_eager(image)
-    let chunked = png_chunk_test_drain(image, [1UL, 3UL, 2UL, 5UL])
+    let chunked = png_chunk_test_drain(image, [1UL, 3UL, 2UL, 5UL]).unwrap()
     inspect(chunked == eager, content="true")
   }
 }

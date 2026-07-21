@@ -77,6 +77,48 @@ pub fn PngEncoder::new() -> PngEncoder {
   PngEncoder::{  }
 }
 
+///|
+/// A caller-buffered PNG encoder. It retains the immutable image and private
+/// canonical emitter state only; every output lease is scoped to one pull.
+pub struct PngChunkEncoder {
+  priv mut state : PngChunkEncoderState
+  priv mut total_written : UInt64
+}
+
+///|
+/// The result of supplying one caller-owned mutable output lease to a PNG
+/// chunk encoder.
+pub(all) enum PngChunkPullOutcome {
+  NeedOutput
+  Finished
+  Failed(@error.CoreError)
+}
+
+///|
+/// Exact progress from one PngChunkEncoder pull.
+pub struct PngChunkPullResult {
+  priv written_value : UInt64
+  priv total_written_value : UInt64
+  priv outcome_value : PngChunkPullOutcome
+}
+
+///|
+pub fn PngChunkPullResult::written(self : PngChunkPullResult) -> UInt64 {
+  self.written_value
+}
+
+///|
+pub fn PngChunkPullResult::total_written(self : PngChunkPullResult) -> UInt64 {
+  self.total_written_value
+}
+
+///|
+pub fn PngChunkPullResult::outcome(
+  self : PngChunkPullResult,
+) -> PngChunkPullOutcome {
+  self.outcome_value
+}
+
 ///| Legacy PNG declarations have no transform in this portable profile. Their
 /// canonical raw PNG values are retained and the descriptor intentionally
 /// avoids the encoded-sRGB identity used by reference operations.

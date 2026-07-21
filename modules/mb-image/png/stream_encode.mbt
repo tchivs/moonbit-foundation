@@ -1,4 +1,105 @@
 ///|
+priv enum PngChunkEncoderState {
+  Active(PngEncodeMachine)
+  Finished
+  Failed(@error.CoreError)
+}
+
+///|
+pub fn PngChunkEncoder::new(
+  source : @storage.ImageView,
+  limits : @codec.CodecLimits,
+  budget : @budget.Budget,
+  diagnostics : @error.Diagnostics,
+) -> Result[PngChunkEncoder, @error.CoreError] {
+  let machine = match PngEncodeMachine::new(source, limits, budget, diagnostics) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  Ok({ state: PngChunkEncoderState::Active(machine), total_written: 0UL })
+}
+
+///|
+pub fn PngChunkEncoder::pull(
+  self : PngChunkEncoder,
+  destination : @bytes.MutByteLease,
+) -> PngChunkPullResult {
+  match self.state {
+    PngChunkEncoderState::Finished => return {
+      written_value: 0UL,
+      total_written_value: self.total_written,
+      outcome_value: PngChunkPullOutcome::Finished,
+    }
+    PngChunkEncoderState::Failed(error) => return {
+      written_value: 0UL,
+      total_written_value: self.total_written,
+      outcome_value: PngChunkPullOutcome::Failed(error),
+    }
+    PngChunkEncoderState::Active(machine) => {
+      let mut written = 0UL
+      while written < destination.length() {
+        let byte = match machine.present() {
+          Err(error) => {
+            self.state = PngChunkEncoderState::Failed(error)
+            return {
+              written_value: 0UL,
+              total_written_value: self.total_written,
+              outcome_value: PngChunkPullOutcome::Failed(error),
+            }
+          }
+          Ok(None) => {
+            self.state = PngChunkEncoderState::Finished
+            return {
+              written_value: written,
+              total_written_value: self.total_written,
+              outcome_value: PngChunkPullOutcome::Finished,
+            }
+          }
+          Ok(Some(value)) => value
+        }
+        match destination.set(written, byte) {
+          Err(error) => {
+            self.state = PngChunkEncoderState::Failed(error)
+            return {
+              written_value: 0UL,
+              total_written_value: self.total_written,
+              outcome_value: PngChunkPullOutcome::Failed(error),
+            }
+          }
+          Ok(_) => ()
+        }
+        match machine.acknowledge(byte) {
+          Err(error) => {
+            self.state = PngChunkEncoderState::Failed(error)
+            return {
+              written_value: 0UL,
+              total_written_value: self.total_written,
+              outcome_value: PngChunkPullOutcome::Failed(error),
+            }
+          }
+          Ok(_) => ()
+        }
+        written = written + 1UL
+        self.total_written = machine.completed()
+        if self.total_written == machine.total_length() {
+          self.state = PngChunkEncoderState::Finished
+          return {
+            written_value: written,
+            total_written_value: self.total_written,
+            outcome_value: PngChunkPullOutcome::Finished,
+          }
+        }
+      }
+      {
+        written_value: written,
+        total_written_value: self.total_written,
+        outcome_value: PngChunkPullOutcome::NeedOutput,
+      }
+    }
+  }
+}
+
+///|
 /// Private, owned PNG output state. It retains the immutable source and scalar
 /// cursors only: no destination lease and no output-sized staging buffer.
 priv struct PngEncodeMachine {
