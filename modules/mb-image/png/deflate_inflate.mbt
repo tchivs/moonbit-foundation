@@ -294,16 +294,16 @@ priv enum PngInflatePhase {
   ZlibFlg(Int)
   BlockFinal
   BlockType(Int)
-  StoredLengthLow
-  StoredLengthHigh(Int)
-  StoredNLengthLow(Int)
-  StoredNLengthHigh(Int, Int)
-  StoredBody(Int)
-  Symbols(PngHuffman, PngHuffman)
-  LengthExtra(PngHuffman, PngHuffman, Int, Int)
-  DistanceSymbol(PngHuffman, PngHuffman, Int)
-  DistanceExtra(Int, Int, Int)
-  Copy(Int, Int)
+  StoredLengthLow(Int)
+  StoredLengthHigh(Int, Int)
+  StoredNLengthLow(Int, Int)
+  StoredNLengthHigh(Int, Int, Int)
+  StoredBody(Int, Int)
+  Symbols(PngHuffman, PngHuffman, Int)
+  LengthExtra(PngHuffman, PngHuffman, Int, Int, Int)
+  DistanceSymbol(PngHuffman, PngHuffman, Int, Int)
+  DistanceExtra(Int, Int, Int, Int)
+  Copy(Int, Int, Int)
   Trailer(Array[Byte])
   Complete
 }
@@ -417,87 +417,86 @@ fn PngInflateState::drive(self : PngInflateState) -> Result[Unit, @error.CoreErr
         Ok(PngInflateRead::Value(block_type)) => {
           if block_type == 0 {
             self.bits.align()
-            self.phase = PngInflatePhase::StoredLengthLow
+            self.phase = PngInflatePhase::StoredLengthLow(final_block)
           } else if block_type == 1 {
-            self.phase = PngInflatePhase::Symbols(_png_fixed_literal_tree(), _png_fixed_distance_tree())
+            self.phase = PngInflatePhase::Symbols(_png_fixed_literal_tree(), _png_fixed_distance_tree(), final_block)
           } else if block_type == 2 {
             // Dynamic-tree continuation is added alongside the raster wiring;
             // fail closed instead of accidentally restarting a partial tree.
             return Err(_png_error("deflate-dynamic-continuation"))
           } else { return Err(_png_error("deflate-reserved-block")) }
-          if final_block == 1 { () }
         }
       }
-      PngInflatePhase::StoredLengthLow => match self.bits.read(8) {
+      PngInflatePhase::StoredLengthLow(final_block) => match self.bits.read(8) {
         Err(error) => return Err(error)
         Ok(PngInflateRead::NeedInput) => return Ok(())
-        Ok(PngInflateRead::Value(low)) => self.phase = PngInflatePhase::StoredLengthHigh(low)
+        Ok(PngInflateRead::Value(low)) => self.phase = PngInflatePhase::StoredLengthHigh(low, final_block)
       }
-      PngInflatePhase::StoredLengthHigh(low) => match self.bits.read(8) {
+      PngInflatePhase::StoredLengthHigh(low, final_block) => match self.bits.read(8) {
         Err(error) => return Err(error)
         Ok(PngInflateRead::NeedInput) => return Ok(())
-        Ok(PngInflateRead::Value(high)) => self.phase = PngInflatePhase::StoredNLengthLow(low | (high << 8))
+        Ok(PngInflateRead::Value(high)) => self.phase = PngInflatePhase::StoredNLengthLow(low | (high << 8), final_block)
       }
-      PngInflatePhase::StoredNLengthLow(length) => match self.bits.read(8) {
+      PngInflatePhase::StoredNLengthLow(length, final_block) => match self.bits.read(8) {
         Err(error) => return Err(error)
         Ok(PngInflateRead::NeedInput) => return Ok(())
-        Ok(PngInflateRead::Value(low)) => self.phase = PngInflatePhase::StoredNLengthHigh(length, low)
+        Ok(PngInflateRead::Value(low)) => self.phase = PngInflatePhase::StoredNLengthHigh(length, low, final_block)
       }
-      PngInflatePhase::StoredNLengthHigh(length, low) => match self.bits.read(8) {
+      PngInflatePhase::StoredNLengthHigh(length, low, final_block) => match self.bits.read(8) {
         Err(error) => return Err(error)
         Ok(PngInflateRead::NeedInput) => return Ok(())
         Ok(PngInflateRead::Value(high)) => {
           if (length ^ (low | (high << 8))) != 65535 { return Err(_png_error("deflate-stored-length")) }
-          self.phase = if length == 0 { PngInflatePhase::Trailer([]) } else { PngInflatePhase::StoredBody(length) }
+          self.phase = if length == 0 { if final_block == 1 { PngInflatePhase::Trailer([]) } else { PngInflatePhase::BlockFinal } } else { PngInflatePhase::StoredBody(length, final_block) }
         }
       }
-      PngInflatePhase::StoredBody(remaining) => match self.bits.read(8) {
+      PngInflatePhase::StoredBody(remaining, final_block) => match self.bits.read(8) {
         Err(error) => return Err(error)
         Ok(PngInflateRead::NeedInput) => return Ok(())
         Ok(PngInflateRead::Value(value)) => {
           match self.emit(value.to_byte()) { Err(error) => return Err(error); Ok(_) => () }
-          self.phase = if remaining == 1 { PngInflatePhase::Trailer([]) } else { PngInflatePhase::StoredBody(remaining - 1) }
+          self.phase = if remaining == 1 { if final_block == 1 { PngInflatePhase::Trailer([]) } else { PngInflatePhase::BlockFinal } } else { PngInflatePhase::StoredBody(remaining - 1, final_block) }
         }
       }
-      PngInflatePhase::Symbols(literals, distances) => match self.cursor.symbol(literals, self.bits) {
+      PngInflatePhase::Symbols(literals, distances, final_block) => match self.cursor.symbol(literals, self.bits) {
         Err(error) => return Err(error)
         Ok(PngInflateRead::NeedInput) => return Ok(())
         Ok(PngInflateRead::Value(symbol)) => {
           if symbol < 256 {
             match self.emit(symbol.to_byte()) { Err(error) => return Err(error); Ok(_) => () }
-          } else if symbol == 256 { self.bits.align(); self.phase = PngInflatePhase::Trailer([]) }
+          } else if symbol == 256 { self.bits.align(); self.phase = if final_block == 1 { PngInflatePhase::Trailer([]) } else { PngInflatePhase::BlockFinal } }
           else {
             let (base, extra) = match _png_inflate_length_base(symbol) { Err(error) => return Err(error); Ok(value) => value }
-            self.phase = PngInflatePhase::LengthExtra(literals, distances, base, extra)
+            self.phase = PngInflatePhase::LengthExtra(literals, distances, base, extra, final_block)
           }
         }
       }
-      PngInflatePhase::LengthExtra(literals, distances, base, extra) => match self.bits.read(extra) {
+      PngInflatePhase::LengthExtra(literals, distances, base, extra, final_block) => match self.bits.read(extra) {
         Err(error) => return Err(error)
         Ok(PngInflateRead::NeedInput) => return Ok(())
-        Ok(PngInflateRead::Value(value)) => self.phase = PngInflatePhase::DistanceSymbol(literals, distances, base + value)
+        Ok(PngInflateRead::Value(value)) => self.phase = PngInflatePhase::DistanceSymbol(literals, distances, base + value, final_block)
       }
-      PngInflatePhase::DistanceSymbol(literals, distances, length) => match self.cursor.symbol(distances, self.bits) {
+      PngInflatePhase::DistanceSymbol(literals, distances, length, final_block) => match self.cursor.symbol(distances, self.bits) {
         Err(error) => return Err(error)
         Ok(PngInflateRead::NeedInput) => return Ok(())
         Ok(PngInflateRead::Value(symbol)) => {
           let (base, extra) = match _png_inflate_distance_base(symbol) { Err(error) => return Err(error); Ok(value) => value }
-          self.phase = PngInflatePhase::DistanceExtra(length, base, extra)
+          self.phase = PngInflatePhase::DistanceExtra(length, base, extra, final_block)
         }
       }
-      PngInflatePhase::DistanceExtra(length, base, extra) => match self.bits.read(extra) {
+      PngInflatePhase::DistanceExtra(length, base, extra, final_block) => match self.bits.read(extra) {
         Err(error) => return Err(error)
         Ok(PngInflateRead::NeedInput) => return Ok(())
         Ok(PngInflateRead::Value(value)) => {
           let distance = base + value
           if distance > self.history_size { return Err(_png_error("deflate-distance")) }
-          self.phase = PngInflatePhase::Copy(length, distance)
+          self.phase = PngInflatePhase::Copy(length, distance, final_block)
         }
       }
-      PngInflatePhase::Copy(remaining, distance) => {
+      PngInflatePhase::Copy(remaining, distance, final_block) => {
         let position = (self.history_pos - distance + 32768) % 32768
         match self.emit(self.history[position]) { Err(error) => return Err(error); Ok(_) => () }
-        self.phase = if remaining == 1 { PngInflatePhase::Symbols(_png_fixed_literal_tree(), _png_fixed_distance_tree()) } else { PngInflatePhase::Copy(remaining - 1, distance) }
+        self.phase = if remaining == 1 { PngInflatePhase::Symbols(_png_fixed_literal_tree(), _png_fixed_distance_tree(), final_block) } else { PngInflatePhase::Copy(remaining - 1, distance, final_block) }
       }
       PngInflatePhase::Trailer(bytes) => match self.bits.read(8) {
         Err(error) => return Err(error)
