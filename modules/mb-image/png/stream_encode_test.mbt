@@ -233,3 +233,8 @@ test "PNG chunk encoder replays the original released-lease failure" {
   inspect(replay_error.limit() == first_error.limit(), content="true")
   inspect(replay_owner.view().get(0UL).unwrap() == b'Z', content="true")
 }
+
+///|
+test "PNG encoder isolated four-target evidence preserves hostile output and preflight parity" {
+  png_chunk_test_four_target_evidence()
+}
