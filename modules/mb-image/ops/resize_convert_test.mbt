@@ -269,6 +269,18 @@ test "bilinear resize filters straight RGBA without transparent colour fringes" 
   }
   inspect(output.view().get_byte(1UL, 0UL, 3UL).unwrap(), content="b'\\xAA'")
 
+  let subquantum = resize_convert_image(
+    2UL, 1UL, 4UL, Some(@color.AlphaMode::Straight), [
+      b'\xff', b'\x00', b'\x00', b'\x01', b'\x00', b'\x00', b'\x00', b'\x00',
+    ],
+  )
+  let subquantum_output = @ops.resize_bilinear(
+    subquantum.view(), 3UL, 1UL, resize_convert_limits(12UL, 12UL),
+  ).unwrap().image().view()
+  for channel = 0UL; channel < 4UL; channel = channel + 1UL {
+    inspect(subquantum_output.get_byte(1UL, 0UL, channel).unwrap(), content="b'\\x00'")
+  }
+
   let transparent = resize_convert_image(
     1UL, 1UL, 4UL, Some(@color.AlphaMode::Straight),
     [b'\xff', b'\x00', b'\x00', b'\x00'],

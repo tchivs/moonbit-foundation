@@ -110,7 +110,8 @@ fn load_linear_premultiplied_rgb8(
 
 ///|
 fn store_linear_premultiplied(view : @storage.MutImageView, x : UInt64, y : UInt64, value : @alpha.PremultipliedNormalizedSrgba) -> Result[Unit, @error.CoreError] {
-  if value.alpha().value() == 0.0 {
+  let alpha_byte = @quantize.quantize_alpha(value.alpha()).value()
+  if alpha_byte == b'\x00' {
     for channel = 0UL; channel < 4UL; channel = channel + 1UL {
       match view.set_byte(x, y, channel, b'\x00') { Ok(_) => ()
         Err(e) => return Err(e) }
@@ -124,7 +125,7 @@ fn store_linear_premultiplied(view : @storage.MutImageView, x : UInt64, y : UInt
     @quantize.quantize_encoded_srgb(@transfer.encode_srgb(r)).value(),
     @quantize.quantize_encoded_srgb(@transfer.encode_srgb(g)).value(),
     @quantize.quantize_encoded_srgb(@transfer.encode_srgb(b)).value(),
-    @quantize.quantize_alpha(straight.alpha()).value(),
+    alpha_byte,
   ]
   for channel = 0UL; channel < 4UL; channel = channel + 1UL {
     match view.set_byte(x, y, channel, bytes[channel.to_int()]) { Ok(_) => ()
