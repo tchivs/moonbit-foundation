@@ -5,16 +5,16 @@ milestone_name: PNG Colour Fidelity
 current_phase: 21
 current_phase_name: Bounded PNG Decode and DEFLATE
 status: planning
-stopped_at: Completed 20-05-PLAN.md
-last_updated: "2026-07-21T03:58:55.224Z"
+stopped_at: Completed 21-03-PLAN.md
+last_updated: "2026-07-21T04:53:01.488Z"
 last_activity: 2026-07-21
 last_activity_desc: Phase 20 complete, transitioned to Phase 21
 progress:
   total_phases: 17
-  completed_phases: 6
-  total_plans: 13
-  completed_plans: 11
-  percent: 35
+  completed_phases: 5
+  total_plans: 15
+  completed_plans: 12
+  percent: 29
 ---
 
 # Project State
@@ -34,7 +34,7 @@ Plan: Not started
 Status: Ready to plan
 Last activity: 2026-07-21 — Phase 20 complete, transitioned to Phase 21
 
-Progress: [█████████░] 85%
+Progress: [████████░░] 80%
 
 ## Performance Metrics
 
@@ -59,6 +59,8 @@ Progress: [█████████░] 85%
 - [Phase ?]: Generated 2 GiB fixed-colour hostile cases end at the chunk type to prove pre-payload rejection.
 - [Phase ?]: Retained non-sRGB PNG declarations use opaque profiles and a non-encoded-sRGB identity.
 - [Phase ?]: Retain Phase 20 structural validation as complete when the generated matrix and isolated Png lane pass; classify later decode, encode, and colour success as Phase 21-25 scope.
+- [Phase ?]: Precompute exact current PNG structural outcomes and budget policy before PngDecoder execution.
+- [Phase ?]: Retain immutable caller-budget assertions only for below-limit preflight resource records.
 
 ### Pending Todos
 
@@ -88,6 +90,7 @@ None.
 | Phase 23-png-colour-declaration-and-srgb-semantics P02 | 0h 18m | 2 tasks | 6 files |
 | Phase 24-bounded-non-srgb-and-icc-preservation P01 | 40min | 3 tasks | 9 files |
 | Phase 20-png-structural-safety-gate P05 | 4min | 2 tasks | 1 files |
+| Phase 21-bounded-png-decode-and-deflate P03 | 30min | 2 tasks | 2 files |
 
 ## Deferred Items
 
@@ -101,6 +104,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-07-21T03:50:43.259Z
-Stopped at: Completed 20-05-PLAN.md
+Last session: 2026-07-21T04:53:01.469Z
+Stopped at: Completed 21-03-PLAN.md
 Resume file: None

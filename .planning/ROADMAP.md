@@ -168,7 +168,7 @@ Plans:
 | 18. Resumable QOI Buffer Encode | v0.5 | 1/1 | Complete    | 2026-07-20 |
 | 19. Portable Streaming QOI Evidence | v0.5 | 1/1 | Complete    | 2026-07-20 |
 | 20. PNG Structural Safety Gate | v0.6 | 3/5 | Complete    | 2026-07-21 |
-| 21. Bounded PNG Decode and DEFLATE | v0.6 | 1/1 | Complete    | 2026-07-21 |
+| 21. Bounded PNG Decode and DEFLATE | v0.6 | 2/3 | In Progress|  |
 | 22. Canonical PNG Encode and Portable Evidence | v0.6 | 1/1 | Complete    | 2026-07-21 |
 
 ### Phase 12: Strict PPM End-to-End Filter Coverage
@@ -305,9 +305,12 @@ Plans:
   2. A library user can decode legal zlib streams using stored, fixed-Huffman, or dynamic-Huffman DEFLATE blocks across arbitrary IDAT boundaries.
   3. A library user receives typed deterministic failure for malformed zlib headers, Huffman trees, distances, checksums, expansion attempts, or any decode that exceeds declared limits, without a partial image becoming visible.
 
-**Plans**: 1 plan
+**Plans**: 2/3 plans executed
 
 Plans:
+
+- [ ] 21-02-PLAN.md
+- [x] 21-03-PLAN.md
 
 - [x] 21-01-PLAN.md — Implement bounded IDAT/DEFLATE/raster eager decode and independent four-target evidence.
 
