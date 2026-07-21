@@ -463,6 +463,27 @@ test "generated PNG decode vectors execute fixed and dynamic streams through Png
             if baseline_descriptor.width() != descriptor.width() || baseline_descriptor.height() != descriptor.height() || baseline_descriptor.format().channel_count() != descriptor.format().channel_count() {
               fail("generated PNG accepted boundary descriptor mismatch: " + item.id)
             }
+            let baseline_metadata = baseline_descriptor.metadata()
+            let metadata = descriptor.metadata()
+            if baseline_metadata.space() != metadata.space() ||
+              baseline_metadata.transfer() != metadata.transfer() ||
+              baseline_metadata.profile().is_builtin_srgb() != metadata.profile().is_builtin_srgb() ||
+              baseline_metadata.opaque_metadata().length() != metadata.opaque_metadata().length() ||
+              baseline_descriptor.supports_reference_operations() != descriptor.supports_reference_operations() {
+              fail("generated PNG accepted boundary metadata mismatch: " + item.id)
+            }
+            for index = 0UL; index < metadata.opaque_metadata().length(); index = index + 1UL {
+              let baseline_entry = baseline_metadata.opaque_metadata().entry(index).unwrap()
+              let entry = metadata.opaque_metadata().entry(index).unwrap()
+              if baseline_entry.canonical_key() != entry.canonical_key() || baseline_entry.value().length() != entry.value().length() {
+                fail("generated PNG accepted boundary opaque metadata shape mismatch: " + item.id)
+              }
+              for value_index = 0UL; value_index < entry.value().length(); value_index = value_index + 1UL {
+                if baseline_entry.value().get(value_index).unwrap() != entry.value().get(value_index).unwrap() {
+                  fail("generated PNG accepted boundary opaque metadata value mismatch: " + item.id)
+                }
+              }
+            }
             let baseline_view = baseline_result.image().view()
             for y = 0UL; y < item.height; y = y + 1UL {
               for x = 0UL; x < item.width; x = x + 1UL {
