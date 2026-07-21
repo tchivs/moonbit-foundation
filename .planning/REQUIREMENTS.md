@@ -12,7 +12,7 @@
 
 ## PNG Compression Evidence
 
-- [ ] **PNGC-04**: Maintainers can reproduce a deterministic corpus proving valid decoder round trips and never-larger FixedOrStored output, including a declared compression win for flat RGB8 and RGBA8 images.
+- [x] **PNGC-04**: Maintainers can reproduce a deterministic corpus proving valid decoder round trips and never-larger FixedOrStored output, including a declared compression win for flat RGB8 and RGBA8 images.
 
 ## Future Requirements
 
@@ -35,7 +35,7 @@
 | PNGC-01 | Phase 32 | Complete |
 | PNGC-02 | Phase 33 | Complete |
 | PNGC-03 | Phase 33 | Complete |
-| PNGC-04 | Phase 34 | Pending |
+| PNGC-04 | Phase 34 | Complete |
 
 **Coverage:**
 

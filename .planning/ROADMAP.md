@@ -41,7 +41,7 @@
 
 - [x] **Phase 32: PNG Compression Strategy and Compatibility** - Users can select a documented additive compression strategy while legacy eager and chunk constructors retain their exact stored-DEFLATE bytes. (completed 2026-07-22)
 - [x] **Phase 33: Fixed-or-Stored PNG Planning and Emission** - Optimized users receive deterministic, preflighted fixed-Huffman-or-stored eager and caller-buffered output with exact progress and sticky terminals. (completed 2026-07-22)
-- [ ] **Phase 34: Portable PNG Compression Corpus Evidence** - A reproducible four-target corpus proves valid, deterministic, never-larger optimized output and declared flat-image wins.
+- [x] **Phase 34: Portable PNG Compression Corpus Evidence** - A reproducible four-target corpus proves valid, deterministic, never-larger optimized output and declared flat-image wins. (completed 2026-07-22)
 
 ## Phase Details
 
@@ -142,7 +142,7 @@
 | 31. Portable PNG Encode Evidence | 1/1 | Complete    | 2026-07-21 |
 | 32. PNG Compression Strategy and Compatibility | 1/1 | Complete    | 2026-07-22 |
 | 33. Fixed-or-Stored PNG Planning and Emission | 2/2 | Complete    | 2026-07-22 |
-| 34. Portable PNG Compression Corpus Evidence | 0/TBD | Not started | - |
+| 34. Portable PNG Compression Corpus Evidence | 1/1 | Complete    | 2026-07-22 |
 
 ---
 *Roadmap updated: 2026-07-22 for v0.10 PNG Compression Optimization planning.*
