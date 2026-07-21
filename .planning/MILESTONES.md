@@ -1,5 +1,19 @@
 # Project Milestones: MoonBit Native Foundation
 
+## v0.11 PNG Dynamic Huffman Compression (Shipped: 2026-07-22)
+
+**Phases completed:** 3 phases, 4 plans, 0 tasks
+
+**Key accomplishments:**
+
+- Bounded RFC Dynamic-Huffman PNG planning with strict fixed-or-stored fallback and acknowledgement-safe scalar replay.
+- Focused four-target tests close the Dynamic selected-work admission and public replay-drift lease-isolation evidence gaps.
+- Public periodic RGB8 and straight-RGBA8 PNG corpus proves strict Dynamic compression wins, eager/chunk determinism, and complete four-target decode fidelity.
+
+**Closeout:** Verified v0.11 product closeout; the archive retains 17 pre-existing historical artifact records (16 legacy debug entries and one missing old quick-task record) already documented as deferred in `STATE.md`. They do not affect the v0.11 audit, which passed 4/4 requirements, 3/3 phase verifications, 5/5 integration handoffs, and 4/4 end-to-end flows.
+
+---
+
 ## v0.10 PNG Compression Optimization (Shipped: 2026-07-22)
 
 **Phases completed:** 3 phases, 4 plans, 5 tasks

@@ -26,12 +26,13 @@ MoonBit developers can reuse stable, high-performance native infrastructure cont
 - [x] Provide public caller-buffered, resumable PNG encoding with eager-equivalent bytes, sticky terminals, and four-target hostile-schedule evidence. — Validated in v0.9 Phases 29-31.
 - [x] Preserve eager PNG decoding as a compatible facade while refactoring its framing, IDAT, DEFLATE, and raster pipeline into pausable MoonBit-owned state. — Validated in v0.8 Phases 26-28.
 - [x] Prove hostile PNG chunk schedules and strict EOF/IEND semantics unchanged on js, wasm, wasm-gc, and native. — Validated in v0.8 Phases 26-28.
+- [x] Add an explicit opt-in PNG Dynamic compression strategy while preserving Stored and FixedOrStored output. — Validated in v0.10-v0.11 Phases 32-37.
+- [x] Produce smaller deterministic PNG output for repetitive images with bounded atomic preflight and caller-buffered semantics. — Validated in v0.10-v0.11 Phases 32-37.
+- [x] Prove optimized eager and chunk PNG output across all portable targets with reproducible corpus and size evidence. — Validated in v0.10-v0.11 Phases 32-37.
 
 ### Active
 
-- [ ] Add an explicit, opt-in PNG compression strategy without changing the canonical stored-DEFLATE default output.
-- [ ] Produce smaller deterministic PNG output for repetitive images while retaining bounded, atomic preflight and caller-buffered semantics.
-- [ ] Prove optimized eager and chunk output across all portable targets with reproducible corpus and size evidence.
+(No active milestone requirements — define the next code-first capability.)
 
 ### Out of Scope
 
@@ -75,17 +76,13 @@ Registry publication remains deferred: the existing v0.2 qualification artifacts
 
 **Validated:** The complete PNG package passed 84/84 tests on each of `wasm`, `wasm-gc`, `js`, and `native`. The public workflow freezes `PngChunkDecoder` → bilinear resize → eager PNG encode to a 78-byte output with digest `626208771` on all four targets. The milestone audit passed all four requirements, all three phase verifications, six cross-phase handoffs, and two end-to-end flows.
 
-## Current Milestone: v0.10 PNG Compression Optimization
+## Current State: v0.11 PNG Dynamic Huffman Compression Shipped
 
-**Goal:** Add an explicit fixed-Huffman-or-stored PNG compression option that is deterministic, resource-bounded, and never silently changes the established stored-DEFLATE baseline.
+**Delivered:** `mb-image` now supports the additive `DynamicOrFixedOrStored` PNG strategy. It retains frozen Stored and FixedOrStored compatibility output, constructs Dynamic DEFLATE plans entirely in MoonBit under fixed bounds, and emits Dynamic only for a strict complete-PNG size win.
 
-**Target features:**
+**Validated:** The shared eager and caller-buffered machine uses acknowledgement-safe Dynamic replay with exact admission and sticky terminals. A generated periodic RGB8 and straight-RGBA8 corpus proves a `BTYPE=10` strict win, eager/chunk byte identity, and complete public decode on `wasm`, `wasm-gc`, `js`, and `native`; the full PNG package passed 131/131 tests on each target.
 
-- Publish an additive strategy/factory contract while preserving existing eager and chunk constructors byte-for-byte.
-- Implement a private exact planner and pausable fixed-Huffman emitter with bounded matching and stored fallback.
-- Prove deterministic size, decode, eager/chunk parity, preflight, and hostile-schedule behavior on all four portable targets.
-
-Registry publication and release automation remain deferred unless they directly unblock a concrete consumer or code path.
+Registry publication and release automation remain deferred unless they directly unblock a concrete consumer or code path. The next milestone should prioritize another reusable implementation capability over delivery automation.
 
 
 ## Constraints
@@ -118,6 +115,8 @@ Registry publication and release automation remain deferred unless they directly
 | Add streaming QOI before a heavyweight codec | Stateful chunked I/O completes the existing forward-only codec contract without widening scope to PNG/DEFLATE or FFI | ✓ Validated in v0.5 |
 | Preserve PNG colour declarations before implementing colour transforms | Raw sample bytes cannot honestly be treated as sRGB when a file declares different colour semantics | ✓ Validated in v0.7 |
 | Build public PNG streaming as a separate state-machine milestone | A public caller-buffered API must preserve strict framing, image-visibility, and resource semantics rather than expose the eager transport internals | ✓ Validated in v0.8 and v0.9 |
+| Select Dynamic DEFLATE only for a strict complete-PNG win | Existing FixedOrStored bytes remain the compatibility baseline and ties must not churn output | ✓ Validated in v0.11 |
+| Decline over-15-bit ordinary Huffman trees instead of adding a length-limited optimizer | Keep Dynamic planning bounded, portable, and within the declared scope | ✓ Validated in v0.11 |
 
 ## Evolution
 
@@ -137,4 +136,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update toolchain, compatibility, benchmark, and adoption context.
 
 ---
-*Last updated: 2026-07-22 after v0.10 PNG Compression Optimization start*
+*Last updated: 2026-07-22 after v0.11 PNG Dynamic Huffman Compression*
