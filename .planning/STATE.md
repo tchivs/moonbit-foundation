@@ -5,8 +5,8 @@ milestone_name: PNG Colour Fidelity
 current_phase: 25
 current_phase_name: Portable Colour Conformance Evidence
 status: planning
-stopped_at: Completed 24-01-PLAN.md
-last_updated: "2026-07-21T02:52:11.664Z"
+stopped_at: Phase 25 context gathered
+last_updated: "2026-07-21T02:53:37.972Z"
 last_activity: 2026-07-21
 last_activity_desc: Phase 24 complete, transitioned to Phase 25
 progress:
@@ -99,6 +99,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-07-21T02:09:21.476Z
-Stopped at: Completed 24-01-PLAN.md
-Resume file: None
+Last session: 2026-07-21T02:53:37.958Z
+Stopped at: Phase 25 context gathered
+Resume file: .planning/phases/25-portable-colour-conformance-evidence/25-CONTEXT.md
