@@ -32,7 +32,10 @@ MoonBit developers can reuse stable, high-performance native infrastructure cont
 
 ### Active
 
-(No active milestone requirements — define the next code-first capability.)
+- [ ] Preserve existing PNG filter-None constructors and compressed bytes while allowing an explicit adaptive-filter opt-in.
+- [ ] Produce deterministic, bounded PNG scanline filtering with the standard None, Sub, Up, Average, and Paeth predictors.
+- [ ] Integrate selected filter bytes with Stored, FixedOrStored, and Dynamic compression planning without weakening atomic preflight or caller-buffered semantics.
+- [ ] Prove adaptive-filter output, eager/chunk determinism, and complete decode on all four portable targets.
 
 ### Out of Scope
 
@@ -83,6 +86,18 @@ Registry publication remains deferred: the existing v0.2 qualification artifacts
 **Validated:** The shared eager and caller-buffered machine uses acknowledgement-safe Dynamic replay with exact admission and sticky terminals. A generated periodic RGB8 and straight-RGBA8 corpus proves a `BTYPE=10` strict win, eager/chunk byte identity, and complete public decode on `wasm`, `wasm-gc`, `js`, and `native`; the full PNG package passed 131/131 tests on each target.
 
 Registry publication and release automation remain deferred unless they directly unblock a concrete consumer or code path. The next milestone should prioritize another reusable implementation capability over delivery automation.
+
+## Current Milestone: v0.12 PNG Filter Optimization
+
+**Goal:** Add an explicit, deterministic, bounded PNG adaptive-filter route that improves compressibility while preserving legacy filter-None bytes and existing eager/caller-buffered safety contracts.
+
+**Target features:**
+
+- Publish an additive filter-strategy/factory contract with a legacy None baseline.
+- Implement standard PNG row filters and bounded deterministic selection before the existing compression planners.
+- Prove strict compression improvements where expected, public decoding, eager/chunk parity, and four-target reproducibility.
+
+Adaptive compression search beyond the existing strategies, a wider LZ dictionary, image-sized staging, FFI, host adapters, external packages, CI/release/registry work, APNG, colour work, and metadata expansion remain out of scope.
 
 
 ## Constraints
@@ -136,4 +151,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update toolchain, compatibility, benchmark, and adoption context.
 
 ---
-*Last updated: 2026-07-22 after v0.11 PNG Dynamic Huffman Compression*
+*Last updated: 2026-07-22 at v0.12 PNG Filter Optimization start*
