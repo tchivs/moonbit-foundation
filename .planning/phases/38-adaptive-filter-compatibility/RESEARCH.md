@@ -145,7 +145,7 @@ pub fn PngChunkEncoder::new_with_filter_strategy(
 - **Changing `PngEncoder::new()` or `PngChunkEncoder::new(...)` to delegate to an Adaptive default:** this would violate the frozen filter-None compatibility boundary. [VERIFIED: `.planning/REQUIREMENTS.md`; `modules/mb-image/png/{png.mbt,encode_test.mbt,stream_encode_test.mbt}`]
 - **Implementing Sub/Up/Average/Paeth or a winner rule in the compatibility phase:** that is Phase 39 scope and changes compression inputs, preflight lengths, work accounting, Adler-32, and replay. [VERIFIED: `.planning/ROADMAP.md`; `.planning/REQUIREMENTS.md`; `modules/mb-image/png/{encode.mbt,stream_encode.mbt}`]
 - **Creating a second encoder/emitter for Adaptive:** this bypasses the sole atomic admission and acknowledgement-safe machine. [VERIFIED: `modules/mb-image/png/{encode.mbt,stream_encode.mbt}`]
-- **Adding a public combined compression/filter factory now:** it is not necessary to satisfy PNGF-01; reserve the pair internally and add a deliberate public combined route only when Phase 39 implements all compression combinations. [ASSUMED: API-minimization recommendation based on Phase 39's explicit combination requirement.]
+- **Adding a public combined compression/filter factory now:** Phase 38 exposes only independent filter-strategy configured factories; defer any combined compression/filter factory to Phase 39 after actual combination behavior exists. [VERIFIED: user decision]
 
 ## Compatibility Contract and Test Vectors
 
@@ -155,10 +155,10 @@ pub fn PngChunkEncoder::new_with_filter_strategy(
 | `PngChunkEncoder::new(...)` | Same exact Stored/filter-None bytes under hostile schedules. [VERIFIED: `modules/mb-image/png/{stream_encode.mbt,stream_encode_test.mbt}`] | Drain only accepted `[0, written)` lease bytes under `[0, 1, 3, 2, 5]`, then compare to immutable literal. [VERIFIED: `modules/mb-image/png/stream_encode_test.mbt`] |
 | `new_with_compression_strategy(Stored)` | Exact pre-Phase-38 Stored/filter-None bytes remain unchanged. [VERIFIED: `modules/mb-image/png/{png.mbt,stream_encode.mbt}`] | Reuse the route's own captured complete literal, not `new()` as its oracle. [ASSUMED: stronger independent-vector rule for the configured Stored route.] |
 | `new_with_compression_strategy(FixedOrStored)` | Exact pre-Phase-38 fixed-or-stored filter-None bytes remain unchanged. [VERIFIED: `modules/mb-image/png/encode.mbt`] | Complete repetitive RGB8/RGBA8 vectors with fixed-block bits retained. [VERIFIED: `modules/mb-image/png/{encode_test.mbt,stream_encode_test.mbt}`] |
-| `new_with_compression_strategy(DynamicOrFixedOrStored)` | Exact pre-Phase-38 Dynamic (including a strict Dynamic winner) filter-None bytes remain unchanged. [VERIFIED: existing opt-in route in `modules/mb-image/png/{png.mbt,encode.mbt,stream_encode.mbt}`] | Add a complete frozen vector for a current periodic Dynamic-winning input as well as a public complete-input decode check; do not rely only on a BTYPE assertion. [ASSUMED: required test strengthening to cover every legacy compression route.] |
+| `new_with_compression_strategy(DynamicOrFixedOrStored)` | Exact pre-Phase-38 Dynamic (including a strict Dynamic winner) filter-None bytes remain unchanged. [VERIFIED: existing opt-in route in `modules/mb-image/png/{png.mbt,encode.mbt,stream_encode.mbt}`] | Freeze the existing `128×1` periodic RGB8 strict-Dynamic winner as complete bytes, then require eager/chunk identity and a public complete-input decode; do not rely only on a BTYPE assertion. [VERIFIED: user decision; `modules/mb-image/png/stream_encode_test.mbt`] |
 | `new_with_filter_strategy(Adaptive)` | In Phase 38 it is selectable but returns the frozen Stored/filter-None vector for compatible RGB8/RGBA8 inputs, eager and chunked. [ASSUMED: compatibility-shim behavior needed to defer filtering to Phase 39.] | Compare against the independent Stored literal, decode through `PngDecoder` with complete input, and preserve hostile-capacity eager/chunk identity. [VERIFIED: existing public decoder and drain patterns in `modules/mb-image/png/{encode_test.mbt,stream_encode_test.mbt}`] |
 
-The dynamic strict-winner vector is essential: a non-winning Dynamic test that happens to equal FixedOrStored does not prove that the established Dynamic filter-None emission remains byte-compatible. [ASSUMED: coverage inference from the Phase 37 dynamic route and PNGF-01 wording.]
+The dynamic strict-winner vector is essential: a non-winning Dynamic test that happens to equal FixedOrStored does not prove that the established Dynamic filter-None emission remains byte-compatible. [VERIFIED: user decision; Phase 37 Dynamic route in `modules/mb-image/png/stream_encode_test.mbt`]
 
 ## Don't Hand-Roll
 
@@ -188,7 +188,7 @@ The dynamic strict-winner vector is essential: a non-winning Dynamic test that h
 
 **What goes wrong:** Tests freeze only Stored and Fixed fallback cases, allowing a regression in `DynamicOrFixedOrStored` output to go undetected. [VERIFIED: the Dynamic strategy has its own plan branch in `modules/mb-image/png/encode.mbt`]
 
-**How to avoid:** Freeze one current strict-Dynamic corpus result as complete bytes and require eager/chunk equality plus complete public decode. [ASSUMED: coverage recommendation.]
+**How to avoid:** Freeze the existing `128×1` periodic RGB8 strict-Dynamic winner as complete bytes and require eager/chunk equality plus complete public decode. [VERIFIED: user decision; `modules/mb-image/png/stream_encode_test.mbt`]
 
 ### Pitfall 4: Bypassing atomic admission with a filter-specific branch
 
@@ -210,19 +210,19 @@ The dynamic strict-winner vector is essential: a non-winning Dynamic test that h
 | # | Claim | Section | Risk if Wrong |
 |---|---|---|---|
 | A1 | The public type should be named `PngFilterStrategy` with `None` and `Adaptive` cases. | Summary; Architecture Patterns | Public naming is an API decision and may need renaming before implementation. |
-| A2 | Parallel `new_with_filter_strategy` factories are preferable now to a public combined compression/filter factory. | Architecture Patterns | Phase 39 may instead need a combined public factory sooner; this changes only the additive API shape, not legacy preservation. |
+| A2 | **RESOLVED:** Phase 38 exposes only independent filter-strategy configured factories; any combined compression/filter factory is deferred to Phase 39 after combination behavior exists. | Architecture Patterns; Open Questions | None — locked by user decision. |
 | A3 | The Phase 38 Adaptive factory should default to Stored and emit current filter-None bytes until Phase 39. | Summary; Compatibility Contract | If product intent requires immediately pairing Adaptive with all compression routes, Phase 38 must expose a combined selector instead. |
-| A4 | A complete strict-Dynamic vector is necessary in addition to Stored/Fixed vectors to prove every existing compression route remains byte-stable. | Compatibility Contract; Pitfalls | Weaker coverage could miss a Dynamic regression. |
+| A4 | **RESOLVED:** Use the existing `128×1` periodic RGB8 strict-Dynamic winner as the frozen complete-byte Dynamic compatibility vector. | Compatibility Contract; Pitfalls; Open Questions | None — locked by user decision. |
 
-## Open Questions
+## Open Questions (RESOLVED)
 
-1. **Should the Phase 39 combination factory be public as `new_with_compression_and_filter_strategy`, or should Phase 38 expose it now?**
-   - What we know: PNGF-01 only requires a filter opt-in; PNGF-03 makes compression combinations a Phase 39 behavior. [VERIFIED: `.planning/REQUIREMENTS.md`]
-   - Recommendation: Keep Phase 38 minimal with parallel filter factories and a private combined constructor; introduce one deliberately named public combination factory in Phase 39 only if needed. [ASSUMED: API-minimization recommendation.]
+1. **Combined compression/filter factory boundary**
+   - **Decision:** Phase 38 exposes only independent filter-strategy configured factories. Defer any combined compression/filter factory to Phase 39, after actual compression/filter combination behavior exists. [VERIFIED: user decision]
+   - **Planning impact:** Retain a private combined construction seam only; do not publish a combined factory or claim combined behavior in Phase 38. [VERIFIED: user decision]
 
-2. **Which compact existing fixture should become the immutable strict-Dynamic output vector?**
-   - What we know: the package already has a periodic Dynamic corpus and public eager/chunk/decode helper pattern. [VERIFIED: `modules/mb-image/png/stream_encode_test.mbt`]
-   - Recommendation: Capture one current periodic RGB8 strict-Dynamic complete PNG vector and one RGBA8 vector if the literal size stays reviewable; otherwise retain a full byte literal for a compact width that still selects Dynamic. [ASSUMED: fixture-sizing recommendation.]
+2. **Frozen strict-Dynamic compatibility vector**
+   - **Decision:** Use the existing `128×1` periodic RGB8 strict-Dynamic winner as the immutable complete-byte Dynamic compatibility vector. [VERIFIED: user decision; `modules/mb-image/png/stream_encode_test.mbt`]
+   - **Planning impact:** Assert its complete eager bytes, hostile-capacity chunk identity, and public complete-input decode; this locks the legacy Dynamic filter-None route without adding a new corpus or script. [VERIFIED: user decision; existing public test patterns in `modules/mb-image/png/stream_encode_test.mbt`]
 
 ## Environment Availability
 
