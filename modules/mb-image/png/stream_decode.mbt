@@ -4,7 +4,10 @@
 /// as `accept` returns.
 priv enum PngDecodeMachineState {
   Signature(Int)
-  Framing
+  Length(Array[Byte])
+  Type(UInt64, Array[Byte])
+  Payload(UInt64, Array[Byte], UInt64)
+  Crc(Array[Byte], UInt64)
   Failed(@error.CoreError)
 }
 
@@ -109,6 +112,7 @@ priv struct PngDecodeMachine {
   budget : @budget.Budget
   mut state : PngDecodeMachineState
   mut accepted : UInt64
+  mut last_chunk_complete : Bool
 }
 
 ///|
@@ -117,7 +121,7 @@ fn PngDecodeMachine::new(
   limits : @codec.CodecLimits,
   budget : @budget.Budget,
 ) -> PngDecodeMachine {
-  { options, limits, budget, state: PngDecodeMachineState::Signature(0), accepted: 0UL }
+  { options, limits, budget, state: PngDecodeMachineState::Signature(0), accepted: 0UL, last_chunk_complete: false }
 }
 
 ///|
@@ -130,6 +134,11 @@ fn PngDecodeMachine::has_result(_self : PngDecodeMachine) -> Bool {
   // An image/result is intentionally not constructed by the framing substrate.
   // The completed machine transfers it only after IDAT, IEND, and EOF checks.
   false
+}
+
+///|
+fn PngDecodeMachine::framing_chunk_complete(self : PngDecodeMachine) -> Bool {
+  self.last_chunk_complete
 }
 
 ///|
@@ -154,9 +163,54 @@ fn PngDecodeMachine::accept(
         self.state = PngDecodeMachineState::Failed(error)
         return Err(error)
       }
-      self.state = if index + 1 == signature.length() { PngDecodeMachineState::Framing } else { PngDecodeMachineState::Signature(index + 1) }
+      self.state = if index + 1 == signature.length() { PngDecodeMachineState::Length([]) } else { PngDecodeMachineState::Signature(index + 1) }
     }
-    PngDecodeMachineState::Framing => ()
+    PngDecodeMachineState::Length(bytes) => {
+      bytes.push(byte)
+      self.last_chunk_complete = false
+      if bytes.length() == 4 {
+        let length = (bytes[0].to_int().to_uint64() << 24) | (bytes[1].to_int().to_uint64() << 16) | (bytes[2].to_int().to_uint64() << 8) | bytes[3].to_int().to_uint64()
+        if length > 2147483647UL {
+          let error = _png_error("png-chunk-length")
+          self.state = PngDecodeMachineState::Failed(error)
+          return Err(error)
+        }
+        self.state = PngDecodeMachineState::Type(length, [])
+      }
+    }
+    PngDecodeMachineState::Type(length, kind) => {
+      kind.push(byte)
+      if kind.length() == 4 {
+        match _png_validate_type_form(kind) {
+          Err(error) => { self.state = PngDecodeMachineState::Failed(error); return Err(error) }
+          Ok(_) => ()
+        }
+        if _png_type_is(kind, b'I', b'E', b'N', b'D') && length != 0UL {
+          let error = _png_error("png-iend-length")
+          self.state = PngDecodeMachineState::Failed(error)
+          return Err(error)
+        }
+        let crc = _png_crc_for_type(kind)
+        self.state = if length == 0UL { PngDecodeMachineState::Crc([], crc) } else { PngDecodeMachineState::Payload(length, kind, crc) }
+      }
+    }
+    PngDecodeMachineState::Payload(remaining, kind, crc) => {
+      let next_crc = _png_crc_step(crc, byte)
+      if remaining == 1UL { self.state = PngDecodeMachineState::Crc([], next_crc) } else { self.state = PngDecodeMachineState::Payload(remaining - 1UL, kind, next_crc) }
+    }
+    PngDecodeMachineState::Crc(bytes, crc) => {
+      bytes.push(byte)
+      if bytes.length() == 4 {
+        let stored = (bytes[0].to_int().to_uint64() << 24) | (bytes[1].to_int().to_uint64() << 16) | (bytes[2].to_int().to_uint64() << 8) | bytes[3].to_int().to_uint64()
+        if stored != (crc ^ 4294967295UL) {
+          let error = _png_error("png-crc")
+          self.state = PngDecodeMachineState::Failed(error)
+          return Err(error)
+        }
+        self.last_chunk_complete = true
+        self.state = PngDecodeMachineState::Length([])
+      }
+    }
     PngDecodeMachineState::Failed(error) => return Err(error)
   }
   self.accepted = next
