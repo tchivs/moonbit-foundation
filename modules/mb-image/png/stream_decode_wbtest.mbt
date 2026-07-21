@@ -532,7 +532,10 @@ fn png_wb_error_matches(left : @error.CoreError, right : @error.CoreError) -> Bo
 fn png_wb_assert_incomplete(source : Bytes, context : String) -> Unit raise {
   let machine = _png_stream_machine_for_test()
   for index = 0; index < source.length(); index = index + 1 {
-    machine.accept(source[index]).unwrap()
+    match machine.accept(source[index]) {
+      Ok(_) => ()
+      Err(error) => fail("incomplete vector rejected before strict EOF: " + error.context().unwrap())
+    }
   }
   let private_error = machine.chunk_incomplete_error(machine.accepted_bytes())
   inspect(private_error.category() == @error.ErrorCategory::Data, content="true")
@@ -597,6 +600,74 @@ fn png_wb_open_idat(payload : Bytes) -> Bytes {
   Bytes::from_array(result)
 }
 
+///| Assemble an IHDR whose private raster can absorb the inspected inflater
+/// prefix without changing the fact that the IDAT CRC and IEND are absent.
+fn png_wb_open_idat_sized(payload : Bytes, width : Byte, height : Byte) -> Bytes {
+  let result : Array[Byte] = []
+  for byte in [b'\x89', b'P', b'N', b'G', b'\r', b'\n', b'\x1a', b'\n'] { result.push(byte) }
+  png_wb_append_chunk(result, [b'I', b'H', b'D', b'R'], [b'\x00', b'\x00', b'\x00', width, b'\x00', b'\x00', b'\x00', height, b'\x08', b'\x02', b'\x00', b'\x00', b'\x00'])
+  let length = payload.length().to_uint64()
+  for shift in [24, 16, 8, 0] { result.push((length >> shift).to_byte()) }
+  for byte in [b'I', b'D', b'A', b'T'] { result.push(byte) }
+  for index = 0; index < payload.length(); index = index + 1 { result.push(payload[index]) }
+  Bytes::from_array(result)
+}
+
+///|
+fn png_wb_append(source : Bytes, suffix : Bytes) -> Bytes {
+  let result : Array[Byte] = []
+  for byte in source { result.push(byte) }
+  for byte in suffix { result.push(byte) }
+  Bytes::from_array(result)
+}
+
+///| The first three fixed-Huffman bytes leave a nonempty literal cursor in
+/// `Symbols`; this is not a stored-block substitute.
+fn png_wb_fixed_token_pause() -> Bytes raise {
+  let payload = b"\x78\x01\x63\x10\x94\xd3\xb6\x70\x0d\x62\x8c\xcf\xa9\x54\x57\x57\x67\xf2\x03\x03\xe6\x55\x1b\xb6\xef\xdd\xbb\x97\x05\xc8\x04\x0a\x02\x00\xa1\xd0\x0a\x68"
+  let prefix = png_wb_prefix(payload, 3)
+  let inflate = PngInflateState::new(64UL)
+  for byte in prefix { inflate.accept(byte).unwrap() }
+  match inflate.phase {
+    PngInflatePhase::Symbols(_, _, _) => ()
+    _ => fail("fixed vector must pause in Symbols")
+  }
+  inspect(inflate.cursor.length > 0, content="true")
+  png_wb_open_idat_sized(prefix, b'\x02', b'\x05')
+}
+
+///| The first five dynamic-Huffman bytes have finished the dynamic header but
+/// retain the code-length tree construction cursor.
+fn png_wb_dynamic_tree_pause() -> Bytes raise {
+  let payload = b"\x78\x9c\x15\x8c\x09\x0e\x00\x00\x04\xc3\xd6\xed\xff\x7f\x56\x22\xec\x82\xa6\x83\x14\x9a\x64\xf6\xba\xb6\x4a\x0e\xb1\x04\xa7\xfc\x3d\xb6\xa0\x6e\x5a\x3f\xe4\x4f\x23\x7e\xd9\xd8\x7f\x7b\xe5\xd7\x2c\xb3\x1c\x1e\x80\x00\x9c"
+  let prefix = png_wb_prefix(payload, 5)
+  let inflate = PngInflateState::new(128UL)
+  for byte in prefix { inflate.accept(byte).unwrap() }
+  match inflate.phase {
+    PngInflatePhase::DynamicCodeLengths(_, _, _, hclen, _, cursor) => inspect(cursor < hclen, content="true")
+    _ => fail("dynamic tree vector must pause in DynamicCodeLengths")
+  }
+  png_wb_open_idat_sized(prefix, b'\x10', b'\x10')
+}
+
+///| This exact prefix comes from the hostile dynamic stream after it has
+/// emitted data and entered a retained length/distance transition.
+fn png_wb_dynamic_match_pause() -> Bytes raise {
+  let payload = b"\x78\x9c\x95\xc2\xbd\x0a\x40\x50\x00\x86\xe1\xcf\xbf\xc3\xe1\x94\x52\x8a\x94\x28\xa5\x0c\x36\x9b\xcd\x66\xb3\xd9\x6c\xee\xff\x06\x5c\xc3\xfb\xf4\x48\x94\x17\x24\xa8\xfc\xb8\x44\x15\x98\x1a\x55\x68\x3b\x54\x91\x1b\x51\xc5\xd5\x82\x2a\xa9\x37\x54\x69\xb3\xa3\x32\xed\x81\x2a\xeb\x4f\x54\xf9\x70\xa1\xb2\xd3\x8d\xaa\x98\x1f\x54\xe5\xf2\xa2\x72\xeb\x87\xfe\x71\x0f\x52\x81"
+  let prefix = png_wb_prefix(payload, 44)
+  let inflate = PngInflateState::new(1024UL)
+  for byte in prefix { inflate.accept(byte).unwrap() }
+  inspect(inflate.emitted_bytes() > 0UL, content="true")
+  match inflate.phase {
+    PngInflatePhase::LengthExtra(_, _, _, _, _) |
+    PngInflatePhase::DistanceSymbol(_, _, _, _) |
+    PngInflatePhase::DistanceExtra(_, _, _, _, _, _) |
+    PngInflatePhase::Copy(_, _, _, _, _) => ()
+    _ => fail("dynamic vector must pause in a match transition")
+  }
+  png_wb_open_idat_sized(prefix, b'\x10', b'\x10')
+}
+
 ///| Every framing suffix has a stable, typed strict-EOF context.  Signature,
 /// generic chunk length/payload/CRC, and partial IDAT CRC all run through the
 /// same public `finish` transition as the private classifier.
@@ -648,6 +719,25 @@ test "PNG chunk EOF classifier gives zlib precedence across inflater pauses" {
     png_wb_assert_incomplete(png_wb_open_idat(payload), "zlib-truncated")
   }
 }
+
+///| The omitted frozen rows must be reached by literal caller prefixes: a
+/// partial fixed token, dynamic tree construction, dynamic match transition,
+/// then zero-length wrong/non-IEND terminal types after a finished raster.
+test "PNG chunk EOF classifier freezes real inflater and zero-length type rows" {
+  png_wb_assert_incomplete(png_wb_fixed_token_pause(), "zlib-truncated")
+  png_wb_assert_incomplete(png_wb_dynamic_tree_pause(), "zlib-truncated")
+  png_wb_assert_incomplete(png_wb_dynamic_match_pause(), "zlib-truncated")
+
+  let complete = png_wb_complete_chunk_png()
+  let post_idat = png_wb_prefix(complete, 60)
+  let wrong_fourth = png_wb_append(post_idat, b"\x00\x00\x00\x00IENX")
+  let ancillary = png_wb_append(post_idat, b"\x00\x00\x00\x00vpAg")
+  inspect(wrong_fourth.length() == 68, content="true")
+  inspect(ancillary.length() == 68, content="true")
+  png_wb_assert_incomplete(wrong_fourth, "png-iend-type")
+  png_wb_assert_incomplete(ancillary, "png-iend-type")
+}
+
 
 ///|
 fn png_wb_append_chunk(output : Array[Byte], kind : Array[Byte], payload : Array[Byte]) -> Unit {
