@@ -257,6 +257,12 @@ test "PNG fixed-or-stored configured eager and chunk output retain exact hostile
 }
 
 ///|
+test "PNG fixed-or-stored corpus evidence is deterministic, valid, never-larger, and wins flat RGB8/RGBA8" {
+  png_stream_test_fixed_or_stored_corpus_case(png_stream_test_flat_image(3UL, 32UL))
+  png_stream_test_fixed_or_stored_corpus_case(png_stream_test_flat_image(4UL, 32UL))
+}
+
+///|
 test "PNG compression strategy legacy chunk constructors retain frozen stored bytes" {
   let rgb = png_stream_test_image(3UL)
   let rgb_bytes = png_chunk_test_drain(rgb, [1UL, 3UL, 2UL, 5UL]).unwrap()
