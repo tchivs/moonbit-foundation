@@ -28,6 +28,9 @@ function Chunk([string]$Type, [object]$Payload = $null) {
   $kind = [Text.Encoding]::ASCII.GetBytes($Type)
   Join-Bytes @((U32 $PayloadBytes.Length), $kind, $PayloadBytes, (U32 (Crc32 (Join-Bytes @($kind,$PayloadBytes)))))
 }
+function HeaderOnly-Chunk([string]$Type, [uint64]$DeclaredLength) {
+  Join-Bytes @((U32 $DeclaredLength), [Text.Encoding]::ASCII.GetBytes($Type))
+}
 function Hex([string]$Value) {
   if ([string]::IsNullOrEmpty($Value)) { return [byte[]]@() }
   if ($Value.Length % 2) { throw "Odd hex length: $Value" }
@@ -51,12 +54,40 @@ function Colour-Placement($Description) {
   if ($null -eq $Description.PSObject.Properties['placement']) { return 'before-plte' }
   [string]$Description.placement
 }
+function Test-HeaderOnlyColour($Description) {
+  if ($null -eq $Description.PSObject.Properties['header_only']) { return $false }
+  if ($Description.header_only -isnot [bool] -or -not [bool]$Description.header_only) { throw 'header_only colour chunks must use the boolean true marker.' }
+  return $true
+}
+function Assert-HeaderOnlyColourDescription($Description) {
+  $kind = [string]$Description.kind
+  if ($kind -notin @('sRGB','gAMA','cHRM')) { throw "Header-only colour chunks must be fixed-size: $kind" }
+  if ($null -eq $Description.PSObject.Properties['declared_length']) { throw 'Header-only colour chunks require declared_length.' }
+  if ($null -ne $Description.PSObject.Properties['payload_hex'] -or $null -ne $Description.PSObject.Properties['payload_repeat_hex'] -or $null -ne $Description.PSObject.Properties['payload_repeat_count']) { throw 'Header-only colour chunks cannot carry payload fields.' }
+  if ((Colour-Placement $Description) -ne 'before-plte') { throw 'Header-only colour chunks must precede PLTE and IDAT.' }
+  $declaredText = [string]$Description.declared_length
+  if ($declaredText -notmatch '^\d+$') { throw 'Header-only declared_length must be an unsigned integer.' }
+  [uint64]$declaredLength = $declaredText
+  if ($declaredLength -ne 2147483647) { throw 'Header-only colour chunks must declare the PNG global maximum of 2147483647 bytes.' }
+  return $declaredLength
+}
+function HeaderOnly-ColourChunkCount($Case) {
+  $count = 0
+  if ($null -ne $Case.PSObject.Properties['colour_chunks']) { foreach ($description in @($Case.colour_chunks)) { if (Test-HeaderOnlyColour $description) { $count++ } } }
+  return $count
+}
 function Add-ColourChunks($Parts, $Case, [string]$Placement) {
   if ($null -eq $Case.PSObject.Properties['colour_chunks']) { return }
   foreach ($description in @($Case.colour_chunks)) {
     if ((Colour-Placement $description) -eq $Placement) {
       $kind = [string]$description.kind
       if ($kind -notin @('sRGB','gAMA','cHRM','iCCP')) { throw "Unsupported colour chunk description: $kind" }
+      if (Test-HeaderOnlyColour $description) {
+        [uint64]$declaredLength = Assert-HeaderOnlyColourDescription $description
+        $Parts.Add((HeaderOnly-Chunk -Type $kind -DeclaredLength $declaredLength))
+        continue
+      }
+      if ($null -ne $description.PSObject.Properties['declared_length']) { throw 'declared_length is supported only with header_only colour chunks.' }
       [byte[]]$payload = @()
       if ($null -ne $description.PSObject.Properties['payload_hex']) { $payload = [byte[]](Hex ([string]$description.payload_hex)) }
       if ($null -ne $description.PSObject.Properties['payload_repeat_hex']) {
@@ -103,7 +134,18 @@ function Assert-PngAssemblyOracle([byte[]]$Png, $Case) {
   if ($Png.Length -lt 20 -or -not [Linq.Enumerable]::SequenceEqual([byte[]]$Png[0..7], $signature)) { throw "PNG assembly oracle signature mismatch: $($Case.id)" }
   $at = 8; $seenPalette = $false; $seenIdat = $false; $seen = @{}; $colourCount = 0; $expectedColourCount = if ($null -eq $Case.PSObject.Properties['colour_chunks']) { 0 } else { @($Case.colour_chunks).Count }
   while ($at -lt $Png.Length) {
-    if ($at + 12 -gt $Png.Length) { throw "PNG assembly oracle truncation: $($Case.id)" }
+    if ($at + 12 -gt $Png.Length) {
+      if ($at + 8 -ne $Png.Length -or (HeaderOnly-ColourChunkCount $Case) -ne 1) { throw "PNG assembly oracle truncation: $($Case.id)" }
+      $headerOnly = @($Case.colour_chunks | Where-Object { Test-HeaderOnlyColour $_ })
+      if ($headerOnly.Count -ne 1) { throw "PNG assembly oracle ambiguous header-only colour chunk: $($Case.id)" }
+      $kind = [Text.Encoding]::ASCII.GetString($Png, $at + 4, 4)
+      [uint64]$declaredLength = Assert-HeaderOnlyColourDescription $headerOnly[0]
+      if ($kind -cne [string]$headerOnly[0].kind -or (Read-U32 $Png $at) -ne $declaredLength) { throw "PNG assembly oracle header-only mismatch: $($Case.id)" }
+      $failure = Assert-ColourPayloadOracle $kind ([byte[]]@())
+      if (-not $failure -or ([string]$Case.context) -cne $failure) { throw "PNG header-only oracle context mismatch: $($Case.id)" }
+      if ($colourCount + 1 -ne $expectedColourCount) { throw "PNG colour chunk count mismatch: $($Case.id)" }
+      return
+    }
     $length = [int](Read-U32 $Png $at); $kind = [Text.Encoding]::ASCII.GetString($Png, $at + 4, 4); $payloadAt = $at + 8; $end = $payloadAt + $length
     if ($end + 4 -gt $Png.Length) { throw "PNG assembly oracle length mismatch: $($Case.id)" }
     $payload = if ($length) { [byte[]]$Png[$payloadAt..($end - 1)] } else { [byte[]]@() }
@@ -209,7 +251,13 @@ function New-Png($Case, [int[]]$Splits) {
   elseif ($null -ne $Case.PSObject.Properties['plte_hex']) { $plte = Hex $Case.plte_hex }
   $variant = if ($Case.PSObject.Properties['variant']) { [string]$Case.variant } else { 'normal' }
   $trns = if ($null -ne $Case.PSObject.Properties['trns_hex']) { Hex $Case.trns_hex } elseif ($variant -like 'trns*') { [byte[]]@(0) } else { $null }
+  if ((HeaderOnly-ColourChunkCount $Case) -gt 1) { throw "Only one header-only colour chunk is allowed: $($Case.id)" }
   Add-ColourChunks $parts $Case 'before-plte'
+  if ((HeaderOnly-ColourChunkCount $Case) -eq 1) {
+    $png = Join-Bytes @([byte[]](0x89,80,78,71,13,10,26,10), (Join-Bytes $parts.ToArray()))
+    Assert-PngAssemblyOracle $png $Case
+    return $png
+  }
   if ($null -ne $trns -and $variant -eq 'trns-before-plte') { $parts.Add((Chunk 'tRNS' $trns)) }
   if ($hasPlte -and $variant -ne 'missing-plte') {
     $chunk = Chunk 'PLTE' $plte
@@ -324,7 +372,7 @@ function Assert-Oracle($Case) {
 $corpus = Get-Content -Raw -LiteralPath $CasesPath | ConvertFrom-Json
 $required = @('fixed-rgb-filters-every-idat-byte','fixed-grayscale-filters-every-idat-boundary','lowbit-gray-1-filters','lowbit-gray-2-filters','lowbit-gray-4-filters','lowbit-gray-8-filters','lowbit-trns-gray-1','lowbit-trns-gray-2','lowbit-trns-gray-4','lowbit-trns-gray-high-byte','lowbit-trns-gray-mask','lowbit-indexed-1-filters','lowbit-indexed-2-filters','lowbit-indexed-4-filters','lowbit-trns-indexed-2-filters','lowbit-indexed-depth','lowbit-indexed-plte-depth','lowbit-indexed-palette-index','dynamic-rgba-filters-semantic-idat-split','indexed-filters-every-idat-boundary','trns-grayscale-filters','trns-rgb-filters','trns-indexed-filters','indexed-missing-plte','indexed-plte-length-0','indexed-plte-length-1','indexed-plte-length-2','indexed-plte-length-4','indexed-plte-length-5','indexed-plte-length-769','indexed-plte-duplicate','indexed-plte-after-idat','indexed-plte-crc','indexed-palette-index','trns-duplicate','trns-after-idat','trns-before-plte','trns-crc','trns-gray-length','trns-gray-sample','trns-rgb-length','trns-rgb-sample','trns-indexed-length','trns-type6','hostile-zlib-header','hostile-truncated-deflate','hostile-adler','hostile-filter','hostile-dynamic-incomplete-tree','hostile-fixed-distance-before-history','hostile-filtered-output-expansion','gray-alpha-filters','gray-alpha-depth-1','gray-alpha-depth-2','gray-alpha-depth-4','gray-alpha-depth-16','gray-alpha-trns','gray-alpha-trns-after-idat','gray-alpha-trns-crc','gray-alpha-filter','gray-alpha-malformed','gray-alpha-limit','16gray-filters','16gray-trns','16rgb-filters','16rgb-trns','16gray-trns-length','16gray-trns-duplicate','16rgb-trns-after-idat','16rgb-trns-crc','16gray-filter','16rgb-malformed','16rgb-depth-4','16gray-alpha-depth-16','16rgba-depth-16','16gray-limit-image','16rgb-limit-output','16rgb-limit-work')
 $required += @('16gray-alpha-filters','16rgba-filters','16gray-alpha-trns','16gray-alpha-trns-duplicate','16gray-alpha-trns-after-idat','16gray-alpha-trns-crc','16rgba-depth-4','16rgba-trns','16rgba-trns-duplicate','16rgba-trns-after-idat','16rgba-trns-crc','16gray-alpha-filter','16rgba-malformed','16gray-alpha-limit-image','16gray-alpha-limit-output','16gray-alpha-limit-work','16rgba-limit-image','16rgba-limit-output','16rgba-limit-work','adam7-rgba8-all-passes-idat-boundaries','adam7-gray2-trns-all-passes','adam7-indexed2-plte-trns-all-passes','adam7-rgb16-trns-all-passes','adam7-gray-alpha16-all-passes','adam7-rgba16-all-passes','adam7-invalid-interlace-method','adam7-truncated-pass-scanline','adam7-extra-pass-scanline','adam7-invalid-pass-filter','adam7-limit-output','adam7-gray1-opaque-all-passes','adam7-gray1-trns-all-passes','adam7-gray2-opaque-all-passes','adam7-gray4-opaque-all-passes','adam7-gray4-trns-all-passes','adam7-gray8-opaque-all-passes','adam7-gray8-trns-all-passes','adam7-gray16-opaque-all-passes','adam7-gray16-trns-all-passes','adam7-indexed1-opaque-all-passes','adam7-indexed1-trns-all-passes','adam7-indexed2-opaque-all-passes','adam7-indexed4-opaque-all-passes','adam7-indexed4-trns-all-passes','adam7-indexed8-opaque-all-passes','adam7-indexed8-trns-all-passes','adam7-rgb8-opaque-all-passes','adam7-rgb8-trns-all-passes','adam7-rgb16-opaque-all-passes','adam7-rgb16-trns-low-byte-all-passes','adam7-gray-alpha8-all-passes','adam7-indexed-missing-plte','adam7-indexed-palette-index','adam7-trns-after-idat','adam7-trns-duplicate','adam7-trns-crc','adam7-trns-indexed-length','adam7-malformed-compression')
-$required += @('srgb-rgb-intent-0','srgb-rgba-intent-1','srgb-palette-intent-2','srgb-grayscale-intent-3','srgb-rgb16-intent-0','srgb-adam7-intent-1-split-idat','srgb-compatible-legacy','srgb-payload-empty','srgb-payload-long','srgb-intent-out-of-range','srgb-duplicate','srgb-after-plte','srgb-after-idat','gama-length','gama-zero','gama-duplicate','chrm-length','srgb-legacy-conflict','gama-non-srgb-capability','chrm-non-srgb-capability','iccp-empty-name','iccp-overlong-name','iccp-control-name','iccp-leading-space','iccp-trailing-space','iccp-consecutive-spaces','iccp-no-nul','iccp-no-profile-data','iccp-bad-method','iccp-valid-capability','iccp-precedes-srgb-capability','iccp-large-unretained-capability')
+$required += @('srgb-rgb-intent-0','srgb-rgba-intent-1','srgb-palette-intent-2','srgb-grayscale-intent-3','srgb-rgb16-intent-0','srgb-adam7-intent-1-split-idat','srgb-compatible-legacy','srgb-payload-empty','srgb-payload-long','srgb-intent-out-of-range','srgb-duplicate','srgb-after-plte','srgb-after-idat','gama-length','gama-zero','gama-duplicate','chrm-length','srgb-header-only-2gib','gama-header-only-2gib','chrm-header-only-2gib','srgb-legacy-conflict','gama-non-srgb-capability','chrm-non-srgb-capability','iccp-empty-name','iccp-overlong-name','iccp-control-name','iccp-leading-space','iccp-trailing-space','iccp-consecutive-spaces','iccp-no-nul','iccp-no-profile-data','iccp-bad-method','iccp-valid-capability','iccp-precedes-srgb-capability','iccp-large-unretained-capability')
 if ($corpus.schema_version -ne '2.5.0' -or (Compare-Object $required @($corpus.cases.id))) { throw 'PNG decode corpus is stale or incomplete.' }
 $records = [Collections.Generic.List[object]]::new()
 foreach ($case in $corpus.cases) {
