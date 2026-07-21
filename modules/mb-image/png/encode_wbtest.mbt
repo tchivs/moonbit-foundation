@@ -6,6 +6,11 @@ fn png_encode_u32_at(value : Bytes, offset : Int) -> UInt64 {
   value[offset + 3].to_uint64()
 }
 
+///| Phase 36 RED: strict complete-PNG dynamic selection is not implemented yet.
+test "PNG dynamic preflight selects only strict complete-PNG wins" {
+  inspect(false, content="dynamic strict preflight missing")
+}
+
 ///|
 fn png_wb_budget(bytes? : UInt64 = 512UL, work? : UInt64 = 1024UL) -> @budget.Budget {
   @budget.Budget::new(@budget.ResourceLimits::new(
