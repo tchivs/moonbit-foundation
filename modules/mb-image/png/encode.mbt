@@ -18,6 +18,14 @@ fn _png_encode_capability(context : String) -> @error.CoreError {
 }
 
 ///|
+fn _png_encode_invalid_writer_progress(progress : UInt64) -> @error.CoreError {
+  @error.CoreError::new(
+    @error.ErrorCategory::State, @error.ErrorCode::InvalidRange,
+    operation="png-encode-write", requested=progress, completed=0UL, limit=1UL,
+  )
+}
+
+///|
 fn _png_encode_limit(
   context : String,
   requested : UInt64,
@@ -213,9 +221,12 @@ pub impl @codec.ImageEncoder for PngEncoder with fn encode(
       Err(error) => return Err(error)
       Ok(value) => value
     }
-    match @io.write_all(writer, owner.view()) {
-      Err(error) => return Err(error)
-      Ok(_) => ()
+    match writer.write(owner.view()) {
+      @io.WriteOutcome::Progress(1UL) => ()
+      @io.WriteOutcome::Progress(progress) => {
+        return Err(_png_encode_invalid_writer_progress(progress))
+      }
+      @io.WriteOutcome::Failed(error, _) => return Err(error)
     }
     match machine.acknowledge(byte) {
       Err(error) => return Err(error)
