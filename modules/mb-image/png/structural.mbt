@@ -131,20 +131,86 @@ fn _png_validate_iccp_payload(payload : Bytes) -> Result[Unit, @error.CoreError]
 
 ///| Inflate an iCCP payload through the existing private DEFLATE bit and
 /// Huffman machinery, with a deliberately small opaque-profile ceiling.
+fn _png_iccp_output_limit(limits : @codec.CodecLimits) -> UInt64 {
+  if limits.max_output_bytes() < 65536UL { limits.max_output_bytes() } else { 65536UL }
+}
+
+///| The colour-chunk reader knows the exact remaining compressed payload
+/// length before it collects a byte. Reserve all three temporary buffers and
+/// the caller's DEFLATE work allowance before the first collection allocation.
+fn _png_iccp_temporary_budget(
+  compressed_length : UInt64,
+  limits : @codec.CodecLimits,
+  budget : @budget.Budget,
+) -> Result[@budget.Budget, @error.CoreError] {
+  if compressed_length > 65536UL {
+    return Err(_png_limit("png-iccp-compressed", compressed_length, 65536UL))
+  }
+  let output = _png_iccp_output_limit(limits)
+  let bytes = match @checked.checked_add(compressed_length, 32768UL) {
+    Err(error) => return Err(error)
+    Ok(value) => match @checked.checked_add(value, output) {
+      Err(error) => return Err(error)
+      Ok(total) => total
+    }
+  }
+  let allocation_size = if compressed_length > 32768UL {
+    if compressed_length > output { compressed_length } else { output }
+  } else if 32768UL > output { 32768UL } else { output }
+  let temporary_limits = @budget.ResourceLimits::new(
+    bytes~, allocations=3UL, allocation_size~, width=0UL, height=0UL,
+    pixels=0UL, depth=0UL, work=limits.max_work(),
+  )
+  // iCCP buffers are released before image construction. Preflight their full
+  // envelope against the caller, then charge an isolated lease so transient
+  // work does not consume the later raster/image reservation a caller supplied.
+  match budget.child(temporary_limits) {
+    Err(error) => Err(error)
+    Ok(_) => Ok(@budget.Budget::new(temporary_limits))
+  }
+}
+
+///| Reserve a conservative bound for source bits, Huffman decisions, and
+/// emitted bytes before entering the private DEFLATE loop.
+fn _png_iccp_work_reservation(
+  compressed_length : UInt64,
+  limits : @codec.CodecLimits,
+) -> Result[UInt64, @error.CoreError] {
+  let source = match @checked.checked_mul(compressed_length, 8UL) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  let output = match @checked.checked_mul(_png_iccp_output_limit(limits), 4UL) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  @checked.checked_add(source, output)
+}
+
+///|
 fn _png_inflate_iccp(
   compressed : Bytes,
   reader : &@io.Reader,
   scratch : @bytes.OwnedBytes,
   limits : @codec.CodecLimits,
+  budget : @budget.Budget,
 ) -> Result[Bytes, @error.CoreError] {
-  let maximum = 65536UL
+  let maximum = _png_iccp_output_limit(limits)
   let source = PngIdatSource::{ reader, scratch, limits, options: @codec.DecodeOptions::new(require_complete_input=true, preserve_opaque_metadata=false), data: Some(compressed), data_index: 0UL, consumed: 0UL, remaining: 0UL, crc: 0UL, crc_pending: false }
   let cmf = match source.next_byte() { Err(error) => return Err(error); Ok(value) => value.to_int() }
   let flg = match source.next_byte() { Err(error) => return Err(error); Ok(value) => value.to_int() }
   if (cmf & 15) != 8 || (cmf >> 4) > 7 || ((cmf << 8) + flg) % 31 != 0 { return Err(_png_error("png-iccp-zlib")) }
   if (flg & 32) != 0 { return Err(_png_error("png-iccp-zlib")) }
   let bits = _png_deflate_bits_new(source)
+  match budget.charge(@budget.ResourceCharge::new(bytes=32768UL, allocations=1UL, allocation_size=32768UL, width=0UL, height=0UL, pixels=0UL, work=0UL)) {
+    Err(error) => return Err(error)
+    Ok(_) => ()
+  }
   let history = Array::make(32768, b'\x00')
+  match budget.charge(@budget.ResourceCharge::new(bytes=maximum, allocations=1UL, allocation_size=maximum, width=0UL, height=0UL, pixels=0UL, work=0UL)) {
+    Err(error) => return Err(error)
+    Ok(_) => ()
+  }
   let output : Array[Byte] = []
   let mut history_size = 0
   let mut history_pos = 0
@@ -879,6 +945,7 @@ fn _png_read_colour_chunk(
   kind : Array[Byte],
   consumed : UInt64,
   limits : @codec.CodecLimits,
+  budget : @budget.Budget,
   facts : PngColourFacts,
 ) -> Result[(PngColourFacts, UInt64), @error.CoreError] {
   let is_srgb = _png_type_is(kind, b's', b'R', b'G', b'B')
@@ -909,6 +976,7 @@ fn _png_read_colour_chunk(
   let mut profile_bytes = 0UL
   let iccp_name : Array[Byte] = []
   let iccp_compressed : Array[Byte] = []
+  let mut iccp_budget : @budget.Budget? = None
   while index < length {
     let (byte, next) = match _png_read_one(reader, scratch, cursor, limits) {
       Err(error) => return Err(error)
@@ -934,7 +1002,25 @@ fn _png_read_colour_chunk(
       if byte != b'\x00' { return Err(_png_error("png-iccp-method")) }
       saw_method = true
     } else {
-      if profile_bytes >= 65536UL { return Err(_png_limit("png-iccp-compressed", profile_bytes + 1UL, 65536UL)) }
+      if iccp_budget is None {
+        let temporary = match _png_iccp_temporary_budget(length - index, limits, budget) {
+          Err(error) => return Err(error)
+          Ok(value) => value
+        }
+        match temporary.charge(@budget.ResourceCharge::new(bytes=length - index, allocations=1UL, allocation_size=length - index, width=0UL, height=0UL, pixels=0UL, work=0UL)) {
+          Err(error) => return Err(error)
+          Ok(_) => ()
+        }
+        let work = match _png_iccp_work_reservation(length - index, limits) {
+          Err(error) => return Err(error)
+          Ok(value) => value
+        }
+        match temporary.charge(@budget.ResourceCharge::new(bytes=0UL, allocations=0UL, allocation_size=0UL, width=0UL, height=0UL, pixels=0UL, work~)) {
+          Err(error) => return Err(error)
+          Ok(_) => ()
+        }
+        iccp_budget = Some(temporary)
+      }
       iccp_compressed.push(byte)
       profile_bytes = profile_bytes + 1UL
     }
@@ -959,7 +1045,8 @@ fn _png_read_colour_chunk(
   }
   if !saw_nul || !saw_method { return Err(_png_error("png-iccp-envelope")) }
   if profile_bytes == 0UL { return Err(_png_error("png-iccp-data")) }
-  let profile = match _png_inflate_iccp(Bytes::from_array(iccp_compressed), reader, scratch, limits) { Err(error) => return Err(error); Ok(value) => value }
+  let temporary = match iccp_budget { Some(value) => value; None => return Err(_png_error("png-iccp-data")) }
+  let profile = match _png_inflate_iccp(Bytes::from_array(iccp_compressed), reader, scratch, limits, temporary) { Err(error) => return Err(error); Ok(value) => value }
   Ok(({ saw_srgb: facts.saw_srgb, srgb_intent: facts.srgb_intent, saw_gamma: facts.saw_gamma, gamma_is_srgb: facts.gamma_is_srgb, gamma: facts.gamma, saw_chrm: facts.saw_chrm, chrm_is_srgb: facts.chrm_is_srgb, chrm: facts.chrm, saw_iccp: true, iccp_name: Some(Bytes::from_array(iccp_name)), iccp_profile: Some(profile) }, next))
 }
 
@@ -1370,7 +1457,7 @@ fn _png_read_stream_transport(
         Err(error) => return Err(error)
         Ok(_) => ()
       }
-      let (next_facts, next) = match _png_read_colour_chunk(reader, scratch, length, kind, next_type, limits, colour_facts) {
+      let (next_facts, next) = match _png_read_colour_chunk(reader, scratch, length, kind, next_type, limits, budget, colour_facts) {
         Err(error) => return Err(error)
         Ok(value) => value
       }
