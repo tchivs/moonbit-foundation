@@ -148,3 +148,29 @@ test "PNG private inflater retains a stored block across every compressed byte p
   inspect(inflate.emitted_bytes() == 1UL, content="true")
   inspect(inflate.complete(), content="true")
 }
+
+///|
+test "PNG private inflater retains every dynamic header tree and token byte boundary" {
+  // The stream uses a dynamic tree, code-length repeats, and back-references.
+  // Supplying each byte separately proves partial dynamic headers, trees, and
+  // token/match state never restart at a source pause.
+  let inflate = PngInflateState::new(128UL)
+  for byte in b"\x78\x9c\x15\x8c\x09\x0e\x00\x00\x04\xc3\xd6\xed\xff\x7f\x56\x22\xec\x82\xa6\x83\x14\x9a\x64\xf6\xba\xb6\x4a\x0e\xb1\x04\xa7\xfc\x3d\xb6\xa0\x6e\x5a\x3f\xe4\x4f\x23\x7e\xd9\xd8\x7f\x7b\xe5\xd7\x2c\xb3\x1c\x1e\x80\x00\x9c" {
+    inflate.accept(byte).unwrap()
+  }
+  inspect(inflate.emitted_bytes() == 100UL, content="true")
+  inspect(inflate.complete(), content="true")
+}
+
+///|
+test "PNG private inflater preserves dynamic malformed-tree failures across pauses" {
+  // zlib + a final dynamic block whose literal tree is incomplete.  Its bytes
+  // are supplied separately, so the tree builder must report the established
+  // error rather than a continuation-specific failure.
+  let inflate = PngInflateState::new(1024UL)
+  let mut result : Result[Unit, @error.CoreError] = Ok(())
+  for byte in [b'\x78', b'\x01', b'\x05', b'\x00', b'\x02', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00'] {
+    if result is Ok(_) { result = inflate.accept(byte) }
+  }
+  inspect(result.unwrap_err().context() == Some("deflate-incomplete-tree"), content="true")
+}
