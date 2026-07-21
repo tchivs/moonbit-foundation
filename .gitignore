@@ -17,3 +17,7 @@ Thumbs.db
 # Dynamic local release-qualification evidence
 artifacts/release-qualification/
 artifacts/benchmarks/
+
+# Local planning and verification caches
+.planning/research/.cache/
+.build-phase*/

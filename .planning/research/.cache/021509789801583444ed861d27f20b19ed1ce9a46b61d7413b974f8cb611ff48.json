@@ -1,1 +1,0 @@
-{"content":"W3C CSS Color 4 defines encoded sRGB decoding at c <= 0.04045 as c/12.92 and otherwise ((c+0.055)/1.055)^2.4; inverse encoding uses linear c > 0.0031308 for 1.055*c^(1/2.4)-0.055 and otherwise 12.92*c.","source":"web","provider":"websearch","confidence":"MEDIUM","fetched_at":"2026-07-16T16:57:55.881Z","ttl":86400000,"kind":"web"}
