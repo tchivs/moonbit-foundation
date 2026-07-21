@@ -995,6 +995,10 @@ function Assert-PngFoundationPolicy {
   Assert-ExactSet 'PNG moon.pkg imports' @(Get-PackageImportSet -Text $packageText -Label 'PNG moon.pkg') $imports
   $actualFiles = @(Get-ChildItem -LiteralPath (Join-Path $repoRoot 'modules/mb-image/png') -File | Where-Object Name -cne 'pkg.generated.mbti' | ForEach-Object Name)
   Assert-ExactSet 'PNG directory contents' $actualFiles $files
+  foreach ($requiredEntry in @('pub struct PngChunkDecoder {', 'pub(all) enum PngChunkPushOutcome {', 'pub struct PngChunkPushResult {')) {
+    Assert-Condition (@($png.semantic_interface) -ccontains $requiredEntry) "PNG policy must require '$requiredEntry'."
+  }
+  Assert-Condition (@($png.semantic_interface) -cnotcontains 'pub struct PngStreamDecoder {') 'PNG policy must reject the obsolete PngStreamDecoder surface.'
   & moon -C modules/mb-image info --target all --frozen
   if ($LASTEXITCODE -ne 0) { throw "PNG interface generation failed (exit $LASTEXITCODE)." }
   $interfacePath = Join-Path $repoRoot 'modules/mb-image/png/pkg.generated.mbti'
@@ -1017,8 +1021,9 @@ function Assert-PngQualificationNegativeFixtures {
   Confirm-PngRejected 'missing import' { Assert-ExactSet 'PNG imports' @($imports | Select-Object -Skip 1) $imports } 'count mismatch'
   Confirm-PngRejected 'extra import' { Assert-ExactSet 'PNG imports' @($imports + 'tchivs/mb-image/ops') $imports } 'count mismatch'
   Confirm-PngRejected 'missing portable target' { Assert-ExactSet 'PNG targets' @('js','wasm','native') @('js','wasm','wasm-gc','native') } 'count mismatch'
-  Confirm-PngRejected 'extra public chunk decoder type' { Assert-ExactSequence 'PNG interface' @('PngDecoder','PngEncoder','PngChunkDecoder') @('PngDecoder','PngEncoder') } 'count mismatch'
-  Confirm-PngRejected 'extra public stream decoder type' { Assert-ExactSequence 'PNG interface' @('PngDecoder','PngEncoder','PngStreamDecoder') @('PngDecoder','PngEncoder') } 'count mismatch'
+  $publicTypes = @('PngChunkDecoder','PngChunkPushOutcome','PngChunkPushResult','PngDecoder','PngEncoder')
+  Confirm-PngRejected 'missing chunk result type' { Assert-ExactSequence 'PNG interface' @('PngChunkDecoder','PngChunkPushOutcome','PngDecoder','PngEncoder') $publicTypes } 'count mismatch'
+  Confirm-PngRejected 'extra public stream decoder type' { Assert-ExactSequence 'PNG interface' @($publicTypes + 'PngStreamDecoder') $publicTypes } 'count mismatch'
   Confirm-PngRejected 'wrong source order' { Assert-ExactSequence 'PNG sources' @('moon.pkg','png.mbt','generated_vectors.mbt','structural.mbt') $sources } 'count mismatch'
   Confirm-PngRejected 'extra production source' { Assert-ExactSet 'PNG sources' @($sources + 'registry.mbt') $sources } 'count mismatch'
   Confirm-PngRejected 'extra package file' { Assert-ExactSet 'PNG files' @($sources + 'png_test.mbt','structural_wbtest.mbt','deflate_wbtest.mbt','raster_decode_wbtest.mbt','encode_test.mbt','encode_wbtest.mbt','generated_vectors_test.mbt','generated_decode_vectors_test.mbt','stream_decode_test.mbt','stream_decode_wbtest.mbt','stream.mbt') @($sources + 'png_test.mbt','structural_wbtest.mbt','deflate_wbtest.mbt','raster_decode_wbtest.mbt','encode_test.mbt','encode_wbtest.mbt','generated_vectors_test.mbt','generated_decode_vectors_test.mbt','stream_decode_test.mbt','stream_decode_wbtest.mbt') } 'count mismatch'
