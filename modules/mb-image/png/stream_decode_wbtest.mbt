@@ -174,3 +174,15 @@ test "PNG private inflater preserves dynamic malformed-tree failures across paus
   }
   inspect(result.unwrap_err().context() == Some("deflate-incomplete-tree"), content="true")
 }
+
+///|
+test "PNG private inflater preserves dynamic oversubscribed-tree failures across pauses" {
+  // Dynamic HLIT/HDIST/HCLEN followed by three one-bit code-length entries.
+  // That alphabet is oversubscribed before any literal token is decoded.
+  let inflate = PngInflateState::new(1024UL)
+  let mut result : Result[Unit, @error.CoreError] = Ok(())
+  for byte in [b'\x78', b'\x01', b'\x05', b'\x00', b'\x92', b'\x00'] {
+    if result is Ok(_) { result = inflate.accept(byte) }
+  }
+  inspect(result.unwrap_err().context() == Some("deflate-oversubscribed-tree"), content="true")
+}
