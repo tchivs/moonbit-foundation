@@ -443,6 +443,31 @@ test "generated PNG decode vectors execute fixed and dynamic streams through Png
             fail("generated PNG ICC profile mismatch: " + item.id)
           }
         }
+        if descriptor.supports_reference_operations() {
+          fail("generated PNG retained non-sRGB source unexpectedly supports reference operations: " + item.id)
+        }
+        let writer = @io.MemoryWriter::new(
+          128UL,
+          @budget.Budget::new(@budget.ResourceLimits::new(
+            bytes=128UL, allocations=8UL, allocation_size=128UL, width=64UL,
+            height=16UL, pixels=1024UL, depth=0UL, work=1024UL,
+          )),
+        ).unwrap()
+        let error = @codec.ImageEncoder::encode(
+          PngEncoder::new(), result.image().view(), writer as &@io.Writer,
+          @codec.EncodeOptions::new(lossless_required=true, preserve_opaque_metadata=false),
+          @codec.CodecLimits::new(max_probe_bytes=8UL, max_input_bytes=4096UL, max_output_bytes=1024UL, max_width=64UL, max_height=16UL, max_pixels=1024UL, max_work=1024UL),
+          @budget.Budget::new(@budget.ResourceLimits::new(
+            bytes=1024UL, allocations=8UL, allocation_size=1024UL, width=64UL,
+            height=16UL, pixels=1024UL, depth=0UL, work=1024UL,
+          )),
+          @error.Diagnostics::new(),
+        ).unwrap_err()
+        if error.category() != @error.ErrorCategory::Capability ||
+          error.code() != @error.ErrorCode::CapabilityUnavailable ||
+          writer.position() != 0UL {
+          fail("generated PNG retained non-sRGB encoder boundary mismatch: " + item.id)
+        }
       }
       let view = result.image().view()
       for y = 0UL; y < item.height; y = y + 1UL {
@@ -472,7 +497,7 @@ test "generated PNG decode vectors execute fixed and dynamic streams through Png
               baseline_descriptor.supports_reference_operations() != descriptor.supports_reference_operations() {
               fail("generated PNG accepted boundary metadata mismatch: " + item.id)
             }
-            for index = 0UL; index < metadata.opaque_metadata().length(); index = index + 1UL {
+            for index = 0; index < metadata.opaque_metadata().length(); index = index + 1 {
               let baseline_entry = baseline_metadata.opaque_metadata().entry(index).unwrap()
               let entry = metadata.opaque_metadata().entry(index).unwrap()
               if baseline_entry.canonical_key() != entry.canonical_key() || baseline_entry.value().length() != entry.value().length() {
