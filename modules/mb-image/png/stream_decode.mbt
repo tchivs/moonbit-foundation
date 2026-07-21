@@ -9,6 +9,98 @@ priv enum PngDecodeMachineState {
 }
 
 ///|
+/// Owned continuation for one IDAT chunk.  Header fields, payload accounting,
+/// and the four CRC bytes are copied here one byte at a time; no source lease
+/// or complete IDAT payload is retained.
+priv struct PngIdatState {
+  type_bytes : Array[Byte]
+  length_bytes : Array[Byte]
+  crc_bytes : Array[Byte]
+  mut remaining : UInt64
+  mut crc : UInt64
+  mut header_ready : Bool
+  mut complete : Bool
+}
+
+///|
+fn PngIdatState::new() -> PngIdatState {
+  { type_bytes: [], length_bytes: [], crc_bytes: [], remaining: 0UL, crc: 0UL, header_ready: false, complete: false }
+}
+
+///|
+fn PngIdatState::accept_type_byte(self : PngIdatState, byte : Byte) -> Result[Unit, @error.CoreError] {
+  if self.header_ready || self.type_bytes.length() == 4 { return Err(_png_error("png-idat-state")) }
+  self.type_bytes.push(byte)
+  if self.type_bytes.length() == 4 {
+    if !_png_type_is(self.type_bytes, b'I', b'D', b'A', b'T') { return Err(_png_error("png-idat-order")) }
+    self.crc = _png_crc_for_type(self.type_bytes)
+    if self.length_bytes.length() == 4 {
+      self.remaining = (self.length_bytes[0].to_int().to_uint64() << 24) | (self.length_bytes[1].to_int().to_uint64() << 16) | (self.length_bytes[2].to_int().to_uint64() << 8) | self.length_bytes[3].to_int().to_uint64()
+      self.header_ready = true
+    }
+  }
+  Ok(())
+}
+
+///|
+fn PngIdatState::accept_length_byte(self : PngIdatState, byte : Byte) -> Result[Unit, @error.CoreError] {
+  if self.header_ready || self.length_bytes.length() == 4 { return Err(_png_error("png-idat-state")) }
+  self.length_bytes.push(byte)
+  if self.length_bytes.length() == 4 && self.type_bytes.length() == 4 {
+    self.remaining = (self.length_bytes[0].to_int().to_uint64() << 24) | (self.length_bytes[1].to_int().to_uint64() << 16) | (self.length_bytes[2].to_int().to_uint64() << 8) | self.length_bytes[3].to_int().to_uint64()
+    self.header_ready = true
+  }
+  Ok(())
+}
+
+///|
+fn PngIdatState::accept_payload_byte(self : PngIdatState, byte : Byte) -> Result[Unit, @error.CoreError] {
+  if !self.header_ready || self.remaining == 0UL { return Err(_png_error("png-idat-state")) }
+  self.crc = _png_crc_step(self.crc, byte)
+  self.remaining = self.remaining - 1UL
+  Ok(())
+}
+
+///|
+fn PngIdatState::remaining_bytes(self : PngIdatState) -> UInt64 { self.remaining }
+
+///|
+fn PngIdatState::awaiting_crc(self : PngIdatState) -> Bool { self.header_ready && self.remaining == 0UL && !self.complete }
+
+///|
+fn PngIdatState::expected_crc(self : PngIdatState) -> UInt64 { self.crc ^ 4294967295UL }
+
+///|
+fn PngIdatState::accept_crc_byte(self : PngIdatState, byte : Byte) -> Result[Unit, @error.CoreError] {
+  if !self.awaiting_crc() || self.crc_bytes.length() == 4 { return Err(_png_error("png-idat-state")) }
+  self.crc_bytes.push(byte)
+  if self.crc_bytes.length() == 4 {
+    let stored = (self.crc_bytes[0].to_int().to_uint64() << 24) | (self.crc_bytes[1].to_int().to_uint64() << 16) | (self.crc_bytes[2].to_int().to_uint64() << 8) | self.crc_bytes[3].to_int().to_uint64()
+    if stored != self.expected_crc() { return Err(_png_error("png-crc")) }
+    self.complete = true
+  }
+  Ok(())
+}
+
+///|
+fn PngIdatState::chunk_complete(self : PngIdatState) -> Bool { self.complete }
+
+///|
+fn _png_new_idat_state(
+  length : UInt64,
+  kind : Array[Byte],
+) -> Result[PngIdatState, @error.CoreError] {
+  let state = PngIdatState::new()
+  for shift in [24, 16, 8, 0] {
+    match state.accept_length_byte((length >> shift).to_byte()) { Err(error) => return Err(error); Ok(_) => () }
+  }
+  for byte in kind {
+    match state.accept_type_byte(byte) { Err(error) => return Err(error); Ok(_) => () }
+  }
+  Ok(state)
+}
+
+///|
 /// Private continuation substrate for the PNG decoder.  Phase 26 keeps this
 /// type package-private; the public eager facade remains `PngDecoder`.
 priv struct PngDecodeMachine {

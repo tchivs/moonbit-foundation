@@ -196,7 +196,7 @@ fn _png_inflate_iccp(
   budget : @budget.Budget,
 ) -> Result[Bytes, @error.CoreError] {
   let maximum = _png_iccp_output_limit(limits)
-  let source = PngIdatSource::{ reader, scratch, limits, options: @codec.DecodeOptions::new(require_complete_input=true, preserve_opaque_metadata=false), data: Some(compressed), data_index: 0UL, consumed: 0UL, remaining: 0UL, crc: 0UL, crc_pending: false }
+  let source = PngIdatSource::{ reader, scratch, limits, options: @codec.DecodeOptions::new(require_complete_input=true, preserve_opaque_metadata=false), data: Some(compressed), data_index: 0UL, consumed: 0UL, idat_state: PngIdatState::new() }
   let cmf = match source.next_byte() { Err(error) => return Err(error); Ok(value) => value.to_int() }
   let flg = match source.next_byte() { Err(error) => return Err(error); Ok(value) => value.to_int() }
   if (cmf & 15) != 8 || (cmf >> 4) > 7 || ((cmf << 8) + flg) % 31 != 0 { return Err(_png_error("png-iccp-zlib")) }
@@ -1320,9 +1320,7 @@ priv struct PngIdatSource {
   data : Bytes?
   mut data_index : UInt64
   mut consumed : UInt64
-  mut remaining : UInt64
-  mut crc : UInt64
-  mut crc_pending : Bool
+  mut idat_state : PngIdatState
 }
 
 ///|
@@ -1514,7 +1512,7 @@ fn _png_read_stream_transport(
         colour_declaration: declaration,
         metadata_budget,
         budget: result_budget,
-        source: { reader, scratch, limits, options, data: None, data_index: 0UL, consumed: next_type, remaining: length, crc: _png_crc_for_type(kind), crc_pending: true },
+        source: { reader, scratch, limits, options, data: None, data_index: 0UL, consumed: next_type, idat_state: _png_new_idat_state(length, kind).unwrap() },
       })
     }
     if _png_type_is(kind, b't', b'R', b'N', b'S') {
@@ -1582,13 +1580,12 @@ fn PngIdatSource::next_byte(self : PngIdatSource) -> Result[Byte, @error.CoreErr
     }
     None => ()
   }
-  if self.remaining == 0UL && self.crc_pending {
+  if self.idat_state.awaiting_crc() {
     let (stored, after_crc) = match _png_read_u32(self.reader, self.scratch, self.consumed, self.limits) { Err(error) => return Err(error); Ok(value) => value }
-    if (self.crc ^ 4294967295UL) != stored { return Err(_png_error("png-crc")) }
+    for shift in [24, 16, 8, 0] { match self.idat_state.accept_crc_byte((stored >> shift).to_byte()) { Err(error) => return Err(error); Ok(_) => () } }
     self.consumed = after_crc
-    self.crc_pending = false
   }
-  while self.remaining == 0UL {
+  while self.idat_state.chunk_complete() {
     let (length, after_length) = match _png_read_u32(self.reader, self.scratch, self.consumed, self.limits) { Err(error) => return Err(error); Ok(value) => value }
     if length > 2147483647UL { return Err(_png_error("png-chunk-length")) }
     let (kind, after_type) = match _png_read_type(self.reader, self.scratch, after_length, self.limits) { Err(error) => return Err(error); Ok(value) => value }
@@ -1600,31 +1597,26 @@ fn PngIdatSource::next_byte(self : PngIdatSource) -> Result[Byte, @error.CoreErr
       return Err(_png_error("zlib-truncated"))
     }
     self.consumed = after_type
-    self.remaining = length
-    self.crc = _png_crc_for_type(kind)
-    self.crc_pending = true
-    if self.remaining == 0UL {
+    self.idat_state = match _png_new_idat_state(length, kind) { Err(error) => return Err(error); Ok(value) => value }
+    if self.idat_state.awaiting_crc() {
       let (stored, after_crc) = match _png_read_u32(self.reader, self.scratch, self.consumed, self.limits) { Err(error) => return Err(error); Ok(value) => value }
-      if (self.crc ^ 4294967295UL) != stored { return Err(_png_error("png-crc")) }
+      for shift in [24, 16, 8, 0] { match self.idat_state.accept_crc_byte((stored >> shift).to_byte()) { Err(error) => return Err(error); Ok(_) => () } }
       self.consumed = after_crc
-      self.crc_pending = false
     }
   }
   let (byte, next) = match _png_read_one(self.reader, self.scratch, self.consumed, self.limits) { Err(error) => return Err(error); Ok(value) => value }
   self.consumed = next
-  self.remaining = self.remaining - 1UL
-  self.crc = _png_crc_step(self.crc, byte)
+  match self.idat_state.accept_payload_byte(byte) { Err(error) => return Err(error); Ok(_) => () }
   Ok(byte)
 }
 
 ///|
 fn PngIdatSource::finish(self : PngIdatSource) -> Result[UInt64, @error.CoreError] {
-  if self.remaining != 0UL { return Err(_png_error("zlib-trailing")) }
-  if self.crc_pending {
+  if self.idat_state.remaining_bytes() != 0UL { return Err(_png_error("zlib-trailing")) }
+  if self.idat_state.awaiting_crc() {
     let (stored, after_crc) = match _png_read_u32(self.reader, self.scratch, self.consumed, self.limits) { Err(error) => return Err(error); Ok(value) => value }
-    if (self.crc ^ 4294967295UL) != stored { return Err(_png_error("png-crc")) }
+    for shift in [24, 16, 8, 0] { match self.idat_state.accept_crc_byte((stored >> shift).to_byte()) { Err(error) => return Err(error); Ok(_) => () } }
     self.consumed = after_crc
-    self.crc_pending = false
   }
   while true {
     let (length, after_length) = match _png_read_u32(self.reader, self.scratch, self.consumed, self.limits) { Err(error) => return Err(error); Ok(value) => value }
