@@ -64,4 +64,4 @@
 
 ---
 *Requirements defined: 2026-07-21*
-*Last updated: 2026-07-21 after v0.8 Resumable PNG Decode milestone creation*
+*Last updated: 2026-07-21 after Phase 27 verified PNGS-01 and PNGS-02 complete*

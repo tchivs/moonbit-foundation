@@ -417,9 +417,11 @@ Plans:
   2. A library user calls `finish()` as the only EOF declaration and receives exactly one eager-equivalent owned image only after strict IDAT, zlib/Adler-32, IEND, and trailing-input validation has succeeded.
   3. A library user receives a typed sticky terminal error for incomplete framing or raster work, invalid CRC/zlib/DEFLATE data, missing or malformed IEND, trailing input, limits, or budget exhaustion; later pushes accept zero bytes and cannot expose a result.
 
-**Plans**: 1/1 plans executed
+**Plans**: 3/3 plans complete
 
 - [x] 27-01-PLAN.md
+- [x] 27-02-PLAN.md — Close public schedule, ownership, eager-parity, and sticky-terminal evidence gaps.
+- [x] 27-03-PLAN.md — Close the remaining real DEFLATE pause and zero-length IEND-type EOF classifier rows.
 
 ### Phase 28: Portable PNG Streaming Evidence
 
@@ -435,4 +437,4 @@ Plans:
 **Plans**: TBD
 
 ---
-*Roadmap updated: 2026-07-21 for v0.8 Resumable PNG Decode planning*
+*Roadmap updated: 2026-07-21 after Phase 27 verification; Phase 28 is ready to plan.*

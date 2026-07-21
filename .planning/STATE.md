@@ -2,19 +2,19 @@
 gsd_state_version: 1.0
 milestone: v0.8
 milestone_name: Resumable PNG Decode
-current_phase: 27
-current_phase_name: Public PNG Chunk Decoder
+current_phase: 28
+current_phase_name: Portable PNG Streaming Evidence
 status: planning
-stopped_at: Completed 27-01-PLAN.md
-last_updated: "2026-07-21T10:14:10.967Z"
+stopped_at: Phase 27 verified complete (4/4); ready to plan Phase 28
+last_updated: "2026-07-21T19:32:50+08:00"
 last_activity: 2026-07-21
-last_activity_desc: Phase 26 private pausable PNG decode substrate verified 4/4
+last_activity_desc: Phase 27 public PNG chunk decoder final re-verification passed 4/4
 progress:
   total_phases: 20
-  completed_phases: 7
+  completed_phases: 8
   total_plans: 17
-  completed_plans: 14
-  percent: 35
+  completed_plans: 16
+  percent: 40
 ---
 
 # Project State
@@ -25,18 +25,18 @@ See `.planning/PROJECT.md` (updated 2026-07-20).
 
 **Core value:** MoonBit developers can reuse stable, high-performance native infrastructure contracts instead of rebuilding incompatible foundations for every graphics, document, media, or automation product.
 
-**Current focus:** Phase 27 — Public PNG Chunk Decoder.
+**Current focus:** Phase 28 — Portable PNG Streaming Evidence.
 
 ## Current Position
 
-Phase: 27 of 28 (Public PNG Chunk Decoder)
+Phase: 28 of 28 (Portable PNG Streaming Evidence)
 Plan: —
-Status: Phase 26 verified complete; ready for Phase 27 planning
-Last activity: 2026-07-21 — Phase 26 private pausable PNG decode substrate verified 4/4
+Status: Phase 27 verified complete; ready for Phase 28 planning
+Last activity: 2026-07-21 — Phase 27 public PNG chunk decoder final re-verification passed 4/4
 
 ## Performance Metrics
 
-**Current milestone:** 1 plan completed across 3 planned phases.
+**Current milestone:** 4 plans completed across 3 planned phases; Phase 28 remains to plan.
 
 **Historical context:** v0.5 shipped three phases and three plans on 2026-07-20. v0.2 publication and registry work remains deferred and excluded from this code-first milestone.
 
@@ -65,6 +65,8 @@ Last activity: 2026-07-21 — Phase 26 private pausable PNG decode substrate ver
 - [Phase 26]: Route the existing eager facade through one private byte-fed machine; preserve the public `PngDecoder`/`PngEncoder` interface until Phase 27.
 - [Phase 26]: Retain framing, CRC, DEFLATE, raster, Adam7, and terminal continuation state without retaining a caller `ByteView` or a complete IDAT stream.
 - [Phase ?]: Publish PngChunkDecoder as a thin one-byte adapter over PngDecodeMachine; only finish transfers its private result.
+- [Phase 27]: Require executable public partition/ownership/eager-parity evidence and a complete frozen EOF classifier matrix before treating PngChunkDecoder as complete.
+- [Phase 27]: Preserve zero-length non-IEND type input as a private pending state so strict finish reports png-iend-type deterministically.
 
 ### Pending Todos
 
@@ -100,6 +102,8 @@ None.
 | Phase 20-png-structural-safety-gate P05 | 4min | 2 tasks | 1 files |
 | Phase 21-bounded-png-decode-and-deflate P03 | 30min | 2 tasks | 2 files |
 | Phase 27 P01 | 25min | 3 tasks | 6 files |
+| Phase 27 P02 | gap closure | 3 tasks | 3 files |
+| Phase 27 P03 | EOF matrix closure | 2 tasks | 2 files |
 
 ## Deferred Items
 
@@ -113,6 +117,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-07-21T10:14:10.944Z
-Stopped at: Completed 27-01-PLAN.md
+Last session: 2026-07-21T19:32:50+08:00
+Stopped at: Phase 27 final verification passed; ready to plan Phase 28
 Resume file: None
