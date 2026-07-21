@@ -120,3 +120,34 @@ test "PNG eager facade preserves generated successes at one-byte reader boundari
     }
   }
 }
+///|
+/// The caller-buffered decoder deliberately has no implicit EOF: an empty
+/// chunk is ordinary progress and a result may only leave the private machine
+/// after `finish`.
+test "PNG chunk decoder API has strict explicit finish" {
+  let limits = @codec.CodecLimits::new(
+    max_probe_bytes=8UL,
+    max_input_bytes=128UL,
+    max_output_bytes=64UL,
+    max_width=4UL,
+    max_height=4UL,
+    max_pixels=16UL,
+    max_work=128UL,
+  )
+  let budget = @budget.Budget::new(@budget.ResourceLimits::new(
+    bytes=128UL, allocations=8UL, allocation_size=64UL, width=4UL,
+    height=4UL, pixels=16UL, depth=0UL, work=128UL,
+  ))
+  let decoder = PngChunkDecoder::new(limits, budget, @error.Diagnostics::new())
+  let owner = @bytes.OwnedBytes::from_bytes(
+    b"",
+    @budget.Budget::new(@budget.ResourceLimits::new(
+      bytes=0UL, allocations=1UL, allocation_size=1UL, width=0UL,
+      height=0UL, pixels=0UL, depth=0UL, work=0UL,
+    )),
+  ).unwrap()
+  let pushed = decoder.push(owner.view())
+  inspect(pushed.consumed() == 0UL, content="true")
+  inspect(pushed.outcome() is PngChunkPushOutcome::NeedInput, content="true")
+  inspect(decoder.finish().unwrap_err().code() == @error.ErrorCode::UnexpectedEndOfStream, content="true")
+}
