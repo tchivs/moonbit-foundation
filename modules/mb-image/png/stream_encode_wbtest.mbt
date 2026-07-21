@@ -94,7 +94,7 @@ test "PNG encode machine presents bytes without advancing and keeps scalar owner
 }
 
 ///|
-test "PNG encode machine retains the failed Writer byte until acknowledgement" {
+test "PNG encoder isolated four-target evidence retains the pending byte until acknowledgement" {
   let image = png_stream_wb_image()
   let machine = PngEncodeMachine::new(
     image.view(), png_stream_wb_limits(), png_stream_wb_budget(),
@@ -111,6 +111,10 @@ test "PNG encode machine retains the failed Writer byte until acknowledgement" {
   inspect(failed == b'\x01', content="true")
   inspect(machine.present().unwrap() == Some(failed), content="true")
   inspect(machine.completed(), content="43")
+  machine.acknowledge(failed).unwrap()
+  inspect(machine.completed(), content="44")
+  inspect(machine.pending == None, content="true")
+  inspect(machine.present().unwrap() == Some(b'\x04'), content="true")
 }
 
 ///|

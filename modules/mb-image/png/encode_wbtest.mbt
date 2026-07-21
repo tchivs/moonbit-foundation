@@ -130,7 +130,7 @@ test "canonical PNG byte sequence is stable for RGB and straight RGBA" {
 }
 
 ///|
-test "eager PNG facade drains the private machine canonically" {
+test "PNG encoder isolated four-target evidence matches eager and private canonical sequences" {
   for image in [png_wb_image(3UL, b"\x12\x34\x56"), png_wb_image(4UL, b"\x04\x05\x06\x07")] {
     let eager = png_wb_encode(image)
     let (machine, completed) = png_wb_machine_encode(image)

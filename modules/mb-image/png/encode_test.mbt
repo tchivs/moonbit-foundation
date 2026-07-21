@@ -183,7 +183,7 @@ impl @io.Writer for PngEncodeScriptWriter with fn write(self, source) {
 }
 
 ///|
-test "PNG encoder preserves complete-write failure and acknowledges only accepted bytes" {
+test "PNG encoder isolated four-target evidence preserves original Writer failure and accepted prefix" {
   let image = png_encode_image(3UL, b"\x12\x34\x56")
   let canonical = png_encode(image).1 |> png_encode_prefix
   let failed = PngEncodeScriptWriter::{
@@ -194,12 +194,13 @@ test "PNG encoder preserves complete-write failure and acknowledges only accepte
     @codec.EncodeOptions::new(lossless_required=true, preserve_opaque_metadata=false),
     png_encode_limits(), png_encode_budget(), @error.Diagnostics::new(),
   ).unwrap_err()
+  inspect(error.category() == @error.ErrorCategory::Host, content="true")
   inspect(error.code() == @error.ErrorCode::HostOperationFailed, content="true")
-  inspect(error.operation() == Some("write_all"), content="true")
-  inspect(error.requested() == Some(1UL), content="true")
-  inspect(error.completed() == Some(0UL), content="true")
-  inspect(error.limit() == None, content="true")
-  inspect(error.context() == None, content="true")
+  inspect(error.operation() == Some("png-scripted-write"), content="true")
+  inspect(error.requested() == Some(91UL), content="true")
+  inspect(error.completed() == Some(17UL), content="true")
+  inspect(error.limit() == Some(23UL), content="true")
+  inspect(error.context() == Some("scripted"), content="true")
   inspect(failed.completed == 43UL, content="true")
   inspect(failed.calls == 44UL, content="true")
   inspect(failed.one_byte_calls, content="true")
@@ -208,4 +209,36 @@ test "PNG encoder preserves complete-write failure and acknowledges only accepte
     expected_prefix.push(canonical[index])
   }
   inspect(Bytes::from_array(failed.accepted) == Bytes::from_array(expected_prefix), content="true")
+}
+
+///|
+struct PngEncodeMalformedProgressWriter {
+  progress : UInt64
+  mut calls : UInt64
+}
+
+///|
+impl @io.Writer for PngEncodeMalformedProgressWriter with fn write(self, _source) {
+  self.calls = self.calls + 1UL
+  @io.WriteOutcome::Progress(self.progress)
+}
+
+///|
+test "PNG encoder rejects malformed direct one-byte Writer progress" {
+  let image = png_encode_image(3UL, b"\x12\x34\x56")
+  for progress in [0UL, 2UL] {
+    let writer = PngEncodeMalformedProgressWriter::{ progress, calls: 0UL }
+    let error = @codec.ImageEncoder::encode(
+      PngEncoder::new(), image.view(), writer as &@io.Writer,
+      @codec.EncodeOptions::new(lossless_required=true, preserve_opaque_metadata=false),
+      png_encode_limits(), png_encode_budget(), @error.Diagnostics::new(),
+    ).unwrap_err()
+    inspect(error.category() == @error.ErrorCategory::State, content="true")
+    inspect(error.code() == @error.ErrorCode::InvalidRange, content="true")
+    inspect(error.operation() == Some("png-encode-write"), content="true")
+    inspect(error.requested() == Some(progress), content="true")
+    inspect(error.completed() == Some(0UL), content="true")
+    inspect(error.limit() == Some(1UL), content="true")
+    inspect(writer.calls, content="1")
+  }
 }
