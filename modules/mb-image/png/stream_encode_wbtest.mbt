@@ -23,11 +23,11 @@ fn png_stream_wb_adler(value : Bytes, start : Int, length : Int) -> UInt64 {
 }
 
 ///|
-fn png_stream_wb_image() -> @storage.OwnedImage {
+fn png_stream_wb_image(width? : UInt64 = 1UL) -> @storage.OwnedImage {
   let descriptor = @model.ImageDescriptor::new(
-    1UL, 1UL, @model.ImageFormat::rgb8(),
-    [@model.PlaneDescriptor::new(0UL, 3UL, 3UL, 3UL, 1UL, 1UL, 1UL, 1UL).unwrap()],
-    3UL,
+    width, 1UL, @model.ImageFormat::rgb8(),
+    [@model.PlaneDescriptor::new(0UL, width * 3UL, width * 3UL, width * 3UL, 1UL, 1UL, width, 1UL).unwrap()],
+    width * 3UL,
     @model.ImageMetadata::new(
       @color.ColorSpaceIdentity::Srgb, @color.TransferIdentity::EncodedSrgb,
       None, @profile.ProfileIdentity::builtin_srgb(), @model.Orientation::TopLeft,
@@ -43,7 +43,8 @@ fn png_stream_wb_image() -> @storage.OwnedImage {
   image.with_mut_view(fn(view) {
     ignore(view.set_byte(0UL, 0UL, 0UL, b'\x12').unwrap())
     ignore(view.set_byte(0UL, 0UL, 1UL, b'\x34').unwrap())
-    view.set_byte(0UL, 0UL, 2UL, b'\x56')
+    view.set_byte(0UL, 0UL, 2UL, b'\x56').unwrap()
+    Ok(())
   }).unwrap()
   image
 }
@@ -51,24 +52,24 @@ fn png_stream_wb_image() -> @storage.OwnedImage {
 ///|
 fn png_stream_wb_budget(work? : UInt64 = 1024UL) -> @budget.Budget {
   @budget.Budget::new(@budget.ResourceLimits::new(
-    bytes=512UL, allocations=8UL, allocation_size=512UL, width=64UL,
-    height=64UL, pixels=4096UL, depth=0UL, work~, 
+    bytes=1048576UL, allocations=16UL, allocation_size=1048576UL, width=70000UL,
+    height=64UL, pixels=280000UL, depth=0UL, work~,
   ))
 }
 
 ///|
 fn png_stream_wb_limits() -> @codec.CodecLimits {
   @codec.CodecLimits::new(
-    max_probe_bytes=8UL, max_input_bytes=512UL, max_output_bytes=512UL,
-    max_width=64UL, max_height=64UL, max_pixels=4096UL, max_work=1024UL,
+    max_probe_bytes=8UL, max_input_bytes=1048576UL, max_output_bytes=1048576UL,
+    max_width=70000UL, max_height=64UL, max_pixels=280000UL, max_work=1048576UL,
   )
 }
 
 ///|
 fn png_stream_wb_drain(machine : PngEncodeMachine) -> Bytes {
   let bytes : Array[Byte] = []
-  while machine.present() is Some(_) {
-    let byte = machine.present().unwrap()
+  while machine.present().unwrap() is Some(_) {
+    let byte = machine.present().unwrap().unwrap()
     bytes.push(byte)
     machine.acknowledge(byte).unwrap()
   }
@@ -82,13 +83,13 @@ test "PNG encode machine presents bytes without advancing and keeps scalar owner
     image.view(), png_stream_wb_limits(), png_stream_wb_budget(),
     @error.Diagnostics::new(),
   ).unwrap()
-  let byte = machine.present().unwrap()
+  let byte = machine.present().unwrap().unwrap()
   inspect(byte == b'\x89', content="true")
-  inspect(machine.present() == Some(byte), content="true")
+  inspect(machine.present().unwrap() == Some(byte), content="true")
   inspect(machine.completed(), content="0")
   machine.acknowledge(byte).unwrap()
   inspect(machine.completed(), content="1")
-  inspect(machine.present() == Some(b'P'), content="true")
+  inspect(machine.present().unwrap() == Some(b'P'), content="true")
   inspect(machine.pending is Some(_), content="true")
 }
 
@@ -103,4 +104,17 @@ test "PNG encode machine covers IDAT CRC and Adler over canonical ranges" {
   inspect(png_stream_wb_u32_at(bytes, 33) == 15UL, content="true")
   inspect(_png_crc32(png_stream_wb_slice(bytes, 37, 19)) == png_stream_wb_u32_at(bytes, 56), content="true")
   inspect(png_stream_wb_adler(bytes, 48, 4) == png_stream_wb_u32_at(bytes, 52), content="true")
+}
+
+///|
+test "PNG encode machine selects only the last stored block as final" {
+  let image = png_stream_wb_image(width=21846UL)
+  let machine = PngEncodeMachine::new(
+    image.view(), png_stream_wb_limits(), png_stream_wb_budget(work=1048576UL),
+    @error.Diagnostics::new(),
+  ).unwrap()
+  let bytes = png_stream_wb_drain(machine)
+  inspect(bytes.length(), content="65612")
+  inspect(bytes[43] == b'\x00', content="true")
+  inspect(bytes[65583] == b'\x01', content="true")
 }

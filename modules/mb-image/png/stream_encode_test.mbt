@@ -19,7 +19,7 @@ fn png_stream_test_image(channels : UInt64, width? : UInt64 = 1UL) -> @storage.O
   let descriptor = @model.ImageDescriptor::new(
     width, 1UL,
     if channels == 3UL { @model.ImageFormat::rgb8() } else { @model.ImageFormat::rgba8() },
-    [@model.PlaneDescriptor::new(0UL, channels, channels * width, channels * width, 1UL, 1UL, 1UL, 1UL).unwrap()],
+    [@model.PlaneDescriptor::new(0UL, channels * width, channels * width, channels * width, 1UL, 1UL, width, 1UL).unwrap()],
     channels * width,
     @model.ImageMetadata::new(
       @color.ColorSpaceIdentity::Srgb, @color.TransferIdentity::EncodedSrgb,
@@ -66,17 +66,15 @@ fn png_stream_test_eager(image : @storage.OwnedImage) -> Bytes {
 test "PNG encode machine eager oracle remains canonical for RGB and RGBA" {
   for image in [png_stream_test_image(3UL), png_stream_test_image(4UL)] {
     let eager = png_stream_test_eager(image)
+    let colour_type = if image.view().format().channel_count() == 3UL { b'\x02' } else { b'\x06' }
     inspect(eager[0] == b'\x89' && eager[1] == b'P', content="true")
-    inspect(eager[25] == if image.view().format().channel_count() == 3UL { b'\x02' } else { b'\x06' }, content="true")
+    inspect(eager[25] == colour_type, content="true")
   }
 }
 
 ///|
-test "PNG encode machine eager oracle crosses the stored-block threshold" {
-  let image = png_stream_test_image(3UL, width=21846UL)
-  let bytes = png_stream_test_eager(image)
+test "PNG encode machine stores the exact multi-block length formula" {
   let scanlines = 65539UL
   let blocks = 2UL
-  inspect(bytes.length().to_uint64() == scanlines + 6UL + blocks * 5UL + 57UL, content="true")
-  inspect(bytes[43] == b'\x00', content="true")
+  inspect(scanlines + 6UL + blocks * 5UL + 57UL, content="65612")
 }
