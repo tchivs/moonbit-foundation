@@ -142,3 +142,22 @@ test "PNG encode machine selects only the last stored block as final" {
   inspect(bytes[43] == b'\x00', content="true")
   inspect(bytes[65583] == b'\x01', content="true")
 }
+
+///|
+test "PNG chunk encoder acknowledges only accepted lease bytes and finishes on the final acknowledgement" {
+  let image = png_stream_wb_image()
+  let encoder = PngChunkEncoder::new(
+    image.view(), png_stream_wb_limits(), png_stream_wb_budget(),
+    @error.Diagnostics::new(),
+  ).unwrap()
+  let owner = @bytes.OwnedBytes::from_bytes(
+    b"\x00", png_stream_wb_budget(work=0UL),
+  ).unwrap()
+  let first = owner.with_mut(0UL, 1UL, fn(lease) { Ok(encoder.pull(lease)) }).unwrap()
+  inspect(first.written(), content="1")
+  inspect(encoder.total_written, content="1")
+  match encoder.state {
+    PngChunkEncoderState::Active(machine) => inspect(machine.completed(), content="1")
+    _ => panic()
+  }
+}
