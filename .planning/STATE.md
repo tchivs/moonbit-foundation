@@ -2,15 +2,19 @@
 gsd_state_version: 1.0
 milestone: v0.9
 milestone_name: Resumable PNG Encode
+current_phase: 29
+current_phase_name: Pausable PNG Encode Substrate
 status: planning
-last_updated: "2026-07-21T13:00:00.000Z"
+stopped_at: Completed 29-03-PLAN.md
+last_updated: "2026-07-21T13:49:03.334Z"
 last_activity: 2026-07-21
+last_activity_desc: v0.9 roadmap created with Phases 29-31
 progress:
   total_phases: 3
-  completed_phases: 0
-  total_plans: 0
-  completed_plans: 0
-  percent: 0
+  completed_phases: 1
+  total_plans: 3
+  completed_plans: 3
+  percent: 33
 ---
 
 # Project State
@@ -68,6 +72,9 @@ Last activity: 2026-07-21 — v0.9 roadmap created with Phases 29-31
 - [v0.9]: Preserve eager PNG byte and failure semantics through a private resumable MoonBit encode state machine before publishing the caller-buffered API.
 - [v0.9]: Keep constructor preflight atomic: incompatible image capability, dimensions, limits, and budgets fail before any encoded output can be observed.
 - [v0.9]: Prove output ownership, exact progress, hostile-capacity handling, sticky terminals, and the public chunk-decode to operation to chunk-encode workflow on js, wasm, wasm-gc, and native.
+- [Phase ?]: Use Writer.write directly for the eager one-byte staging view so a Failed outcome returns the provider CoreError unchanged.
+- [Phase ?]: Acknowledge a private PNG byte only after WriteOutcome::Progress(1); all other progress values are adapter errors.
+- [Phase ?]: Run four portable targets as independent target-directory-isolated evidence commands instead of an aggregate target invocation.
 
 ### Pending Todos
 
@@ -106,6 +113,7 @@ None.
 | Phase 27 P02 | gap closure | 3 tasks | 3 files |
 | Phase 27 P03 | EOF matrix closure | 2 tasks | 2 files |
 | Phase 28-portable-png-streaming-evidence P01 | 31min | 3 tasks | 4 files |
+| Phase 29-pausable-png-encode-substrate P03 | 15min | 2 tasks | 5 files |
 
 ## Deferred Items
 
@@ -136,8 +144,8 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-07-21T13:00:00Z
-Stopped at: v0.9 roadmap complete; Phase 29 is ready for detailed planning
+Last session: 2026-07-21T13:49:03.321Z
+Stopped at: Completed 29-03-PLAN.md
 Resume file: None
 
 ## Operator Next Steps
