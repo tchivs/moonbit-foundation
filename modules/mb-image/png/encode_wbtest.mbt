@@ -152,3 +152,74 @@ test "PNG fixed-or-stored fixed-code arithmetic reverses codes and handles lengt
   inspect(length_extra, content="0")
   inspect(length_extra_bits, content="0")
 }
+
+///|
+fn png_wb_fixed_or_stored_replay_image() -> @storage.OwnedImage {
+  let descriptor = @model.ImageDescriptor::new(
+    5UL, 1UL, @model.ImageFormat::rgb8(),
+    [@model.PlaneDescriptor::new(0UL, 15UL, 15UL, 15UL, 1UL, 1UL, 5UL, 1UL).unwrap()],
+    15UL,
+    @model.ImageMetadata::new(
+      @color.ColorSpaceIdentity::Srgb, @color.TransferIdentity::EncodedSrgb,
+      None, @profile.ProfileIdentity::builtin_srgb(), @model.Orientation::TopLeft,
+      @metadata.OpaqueMetadata::from_entries(
+        [], @metadata.MetadataLimits::new(
+          max_entries=0UL, max_token_bytes=1UL, max_value_bytes=0UL,
+          max_total_bytes=0UL, max_disposition_fields=4UL,
+        ), png_wb_budget(bytes=0UL, work=0UL),
+      ).unwrap(),
+    ),
+  ).unwrap()
+  let image = @storage.OwnedImage::new(descriptor, png_wb_budget(bytes=15UL, work=0UL)).unwrap()
+  let pixels = [
+    b'\x0a', b'\x0c', b'\x0c', b'\x0a', b'\x0a', b'\x0c', b'\x0b', b'\x0c', b'\x0a',
+    b'\x0c', b'\x0a', b'\x0b', b'\x0a', b'\x0c', b'\x0a',
+  ]
+  image.with_mut_view(fn(view) {
+    for index = 0UL; index < 15UL; index = index + 1UL {
+      view.set_byte(index / 3UL, 0UL, index % 3UL, pixels[index.to_int()]).unwrap()
+    }
+    Ok(())
+  }).unwrap()
+  image
+}
+
+///|
+fn png_wb_same_remaining(left : @budget.ResourceLimits, right : @budget.ResourceLimits) -> Bool {
+  left.bytes() == right.bytes() && left.allocations() == right.allocations() &&
+    left.allocation_size() == right.allocation_size() && left.width() == right.width() &&
+    left.height() == right.height() && left.pixels() == right.pixels() &&
+    left.depth() == right.depth() && left.work() == right.work()
+}
+
+///|
+test "PNG fixed-or-stored white-box selected work boundary charges once" {
+  let image = png_wb_fixed_or_stored_replay_image()
+  let generous = png_wb_budget(work=1024UL)
+  let before = generous.remaining()
+  let facts = _png_encode_preflight(
+    image.view(), PngCompressionStrategy::FixedOrStored, png_wb_limits(), generous,
+  ).unwrap()
+  let selected = before.work() - generous.remaining().work()
+  match facts.plan {
+    PngDeflatePlan::Fixed(plan) => {
+      inspect(plan.matcher_work, content="189")
+      inspect(plan.deflate_bits, content="126")
+      inspect(plan.deflate_bytes, content="16")
+      inspect(selected == facts.total_length + plan.matcher_work + plan.matcher_work, content="true")
+    }
+    PngDeflatePlan::Stored(_) => panic()
+  }
+  let exact = png_wb_budget(work=selected)
+  ignore(_png_encode_preflight(
+    image.view(), PngCompressionStrategy::FixedOrStored, png_wb_limits(), exact,
+  ).unwrap())
+  inspect(exact.remaining().work(), content="0")
+  let one_less = png_wb_budget(work=selected - 1UL)
+  let one_less_before = one_less.remaining()
+  let rejected = _png_encode_preflight(
+    image.view(), PngCompressionStrategy::FixedOrStored, png_wb_limits(), one_less,
+  ).unwrap_err()
+  inspect(rejected.context() == Some("work"), content="true")
+  inspect(png_wb_same_remaining(one_less_before, one_less.remaining()), content="true")
+}

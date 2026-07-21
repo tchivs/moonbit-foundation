@@ -182,3 +182,101 @@ test "PNG fixed-or-stored preview is stable until acknowledgement at the fixed h
   machine.acknowledge(fixed_header).unwrap()
   inspect(machine.completed(), content="44")
 }
+
+///|
+fn png_stream_wb_fixed_or_stored_replay_image() -> @storage.OwnedImage {
+  let image = png_stream_wb_image(width=5UL)
+  let pixels = [
+    b'\x0a', b'\x0c', b'\x0c', b'\x0a', b'\x0a', b'\x0c', b'\x0b', b'\x0c', b'\x0a',
+    b'\x0c', b'\x0a', b'\x0b', b'\x0a', b'\x0c', b'\x0a',
+  ]
+  image.with_mut_view(fn(view) {
+    for index = 0UL; index < 15UL; index = index + 1UL {
+      view.set_byte(index / 3UL, 0UL, index % 3UL, pixels[index.to_int()]).unwrap()
+    }
+    Ok(())
+  }).unwrap()
+  image
+}
+
+///|
+fn png_stream_wb_same_error(left : @error.CoreError, right : @error.CoreError) -> Bool {
+  left.category() == right.category() && left.code() == right.code() &&
+    left.operation() == right.operation() && left.context() == right.context() &&
+    left.requested() == right.requested() && left.completed() == right.completed() &&
+    left.limit() == right.limit()
+}
+
+///|
+test "PNG fixed-or-stored white-box failed output awaits acknowledgement" {
+  let image = png_stream_wb_fixed_or_stored_replay_image()
+  let machine = PngEncodeMachine::new_with_compression_strategy(
+    image.view(), PngCompressionStrategy::FixedOrStored, png_stream_wb_limits(),
+    png_stream_wb_budget(), @error.Diagnostics::new(),
+  ).unwrap()
+  let mut prefix = 0UL
+  while prefix < 43UL {
+    let byte = machine.present().unwrap().unwrap()
+    machine.acknowledge(byte).unwrap()
+    prefix = prefix + 1UL
+  }
+  let completed = machine.completed()
+  let idat_crc = machine.idat_crc
+  let fixed = machine.fixed_state.unwrap()
+  let byte = machine.present().unwrap().unwrap()
+  inspect((byte & b'\x07') == b'\x03', content="true")
+  inspect(machine.present().unwrap() == Some(byte), content="true")
+  inspect(machine.completed() == completed, content="true")
+  inspect(machine.idat_crc == idat_crc, content="true")
+  inspect(machine.fixed_state.unwrap().raw_cursor == fixed.raw_cursor, content="true")
+  inspect(machine.fixed_state.unwrap().matcher_work == fixed.matcher_work, content="true")
+  inspect(machine.fixed_state.unwrap().adler == fixed.adler, content="true")
+  machine.acknowledge(byte).unwrap()
+  inspect(machine.completed() == completed + 1UL, content="true")
+  inspect(machine.fixed_state.unwrap().header_written, content="true")
+  inspect(machine.idat_crc != idat_crc, content="true")
+}
+
+///|
+test "PNG fixed-or-stored white-box replay mismatch is sticky" {
+  let image = png_stream_wb_fixed_or_stored_replay_image()
+  let facts = _png_encode_preflight(
+    image.view(), PngCompressionStrategy::FixedOrStored,
+    png_stream_wb_limits(), png_stream_wb_budget(),
+  ).unwrap()
+  match facts.plan {
+    PngDeflatePlan::Fixed(plan) => {
+      inspect(plan.matcher_work, content="189")
+      inspect(plan.deflate_bits, content="126")
+      inspect(plan.deflate_bytes, content="16")
+    }
+    PngDeflatePlan::Stored(_) => panic()
+  }
+  let machine = PngEncodeMachine::new_with_compression_strategy(
+    image.view(), PngCompressionStrategy::FixedOrStored,
+    png_stream_wb_limits(), png_stream_wb_budget(), @error.Diagnostics::new(),
+  ).unwrap()
+  image.with_mut_view(fn(view) { view.set_byte(0UL, 0UL, 0UL, b'\x00') }).unwrap()
+  let mut accepted = 0UL
+  while accepted < 57UL {
+    let byte = machine.present().unwrap().unwrap()
+    machine.acknowledge(byte).unwrap()
+    accepted = accepted + 1UL
+  }
+  let fixed = machine.fixed_state.unwrap()
+  let idat_crc = machine.idat_crc
+  let first = machine.present().unwrap_err()
+  inspect(first.category() == @error.ErrorCategory::State, content="true")
+  inspect(first.code() == @error.ErrorCode::InvalidRange, content="true")
+  inspect(first.context() == Some("png-encode-fixed-replay-work"), content="true")
+  inspect(machine.completed(), content="57")
+  inspect(machine.pending == None, content="true")
+  inspect(machine.pending_fixed is None, content="true")
+  inspect(machine.fixed_state.unwrap().raw_cursor == fixed.raw_cursor, content="true")
+  inspect(machine.fixed_state.unwrap().matcher_work == fixed.matcher_work, content="true")
+  inspect(machine.fixed_state.unwrap().adler == fixed.adler, content="true")
+  inspect(machine.idat_crc == idat_crc, content="true")
+  let replay = machine.present().unwrap_err()
+  inspect(png_stream_wb_same_error(first, replay), content="true")
+  inspect(machine.completed(), content="57")
+}
