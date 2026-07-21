@@ -1357,6 +1357,7 @@
             "}",
             "pub fn PngChunkEncoder::new(@storage.ImageView, @codec.CodecLimits, @budget.Budget, @error.Diagnostics) -> Result[Self, @error.CoreError]",
             "pub fn PngChunkEncoder::new_with_compression_strategy(@storage.ImageView, PngCompressionStrategy, @codec.CodecLimits, @budget.Budget, @error.Diagnostics) -> Result[Self, @error.CoreError]",
+            "pub fn PngChunkEncoder::new_with_filter_strategy(@storage.ImageView, PngFilterStrategy, @codec.CodecLimits, @budget.Budget, @error.Diagnostics) -> Result[Self, @error.CoreError]",
             "pub fn PngChunkEncoder::pull(Self, @bytes.MutByteLease) -> PngChunkPullResult",
             "pub(all) enum PngChunkPullOutcome {",
             "  NeedOutput",
@@ -1389,7 +1390,12 @@
             "}",
             "pub fn PngEncoder::new() -> Self",
             "pub fn PngEncoder::new_with_compression_strategy(PngCompressionStrategy) -> Self",
-            "pub impl @codec.ImageEncoder for PngEncoder"
+            "pub fn PngEncoder::new_with_filter_strategy(PngFilterStrategy) -> Self",
+            "pub impl @codec.ImageEncoder for PngEncoder",
+            "pub(all) enum PngFilterStrategy {",
+            "  None",
+            "  Adaptive",
+            "} derive(Eq)"
           ],
           "supported_targets": ["js", "wasm", "wasm-gc", "native"]
         }

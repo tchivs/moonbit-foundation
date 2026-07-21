@@ -629,8 +629,8 @@ pub impl @codec.ImageEncoder for PngEncoder with fn encode(
   budget,
   _diagnostics,
 ) {
-  let machine = match PngEncodeMachine::new_with_compression_strategy(
-    source, _self.strategy, limits, budget, _diagnostics,
+  let machine = match PngEncodeMachine::new_with_strategies(
+    source, _self.strategy, _self.filter_strategy, limits, budget, _diagnostics,
   ) {
     Err(error) => return Err(error)
     Ok(value) => value

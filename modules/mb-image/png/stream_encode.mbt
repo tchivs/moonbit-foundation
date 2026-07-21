@@ -12,13 +12,10 @@ pub fn PngChunkEncoder::new(
   budget : @budget.Budget,
   diagnostics : @error.Diagnostics,
 ) -> Result[PngChunkEncoder, @error.CoreError] {
-  let machine = match PngEncodeMachine::new(
-    source, limits, budget, diagnostics,
-  ) {
-    Err(error) => return Err(error)
-    Ok(value) => value
-  }
-  Ok({ state: PngChunkEncoderState::Active(machine), total_written: 0UL })
+  PngChunkEncoder::new_with_strategies(
+    source, PngCompressionStrategy::Stored, PngFilterStrategy::None,
+    limits, budget, diagnostics,
+  )
 }
 
 ///|
@@ -35,8 +32,39 @@ pub fn PngChunkEncoder::new_with_compression_strategy(
   budget : @budget.Budget,
   diagnostics : @error.Diagnostics,
 ) -> Result[PngChunkEncoder, @error.CoreError] {
-  let machine = match PngEncodeMachine::new_with_compression_strategy(
-    source, strategy, limits, budget, diagnostics,
+  PngChunkEncoder::new_with_strategies(
+    source, strategy, PngFilterStrategy::None, limits, budget, diagnostics,
+  )
+}
+
+///|
+/// Constructs a caller-buffered encoder with an explicit PNG filter selection.
+/// `Adaptive` is a temporary filter-None compatibility shim: it uses Stored
+/// compression and preserves the established output acknowledgement and progress
+/// behavior while row filters and scoring remain out of scope for this phase.
+pub fn PngChunkEncoder::new_with_filter_strategy(
+  source : @storage.ImageView,
+  filter_strategy : PngFilterStrategy,
+  limits : @codec.CodecLimits,
+  budget : @budget.Budget,
+  diagnostics : @error.Diagnostics,
+) -> Result[PngChunkEncoder, @error.CoreError] {
+  PngChunkEncoder::new_with_strategies(
+    source, PngCompressionStrategy::Stored, filter_strategy, limits, budget, diagnostics,
+  )
+}
+
+///|
+fn PngChunkEncoder::new_with_strategies(
+  source : @storage.ImageView,
+  strategy : PngCompressionStrategy,
+  filter_strategy : PngFilterStrategy,
+  limits : @codec.CodecLimits,
+  budget : @budget.Budget,
+  diagnostics : @error.Diagnostics,
+) -> Result[PngChunkEncoder, @error.CoreError] {
+  let machine = match PngEncodeMachine::new_with_strategies(
+    source, strategy, filter_strategy, limits, budget, diagnostics,
   ) {
     Err(error) => return Err(error)
     Ok(value) => value
@@ -127,11 +155,13 @@ pub fn PngChunkEncoder::pull(
 ///|
 /// Private, owned PNG output state. Stored keeps its frozen byte path; FixedOrStored uses
 /// scalar fixed-Huffman replay. DynamicOrFixedOrStored plans a Dynamic DEFLATE block and
-/// replays it with owned PngDynamicState. It excludes adaptive filtering, a 32 KiB
-/// dictionary, FFI codec, host adapter, caller lease, or output-sized staging.
+/// replays it with owned PngDynamicState. Both filter selections use the established
+/// filter-None provider; row filters, scoring, a 32 KiB dictionary, FFI codec, host
+/// adapters, caller leases, and output-sized staging remain excluded.
 priv struct PngEncodeMachine {
   source : @storage.ImageView
   strategy : PngCompressionStrategy
+  filter_strategy : PngFilterStrategy
   width : UInt64
   height : UInt64
   channels : UInt64
@@ -195,8 +225,9 @@ fn PngEncodeMachine::new(
   budget : @budget.Budget,
   _diagnostics : @error.Diagnostics,
 ) -> Result[PngEncodeMachine, @error.CoreError] {
-  PngEncodeMachine::new_with_compression_strategy(
-    source, PngCompressionStrategy::Stored, limits, budget, _diagnostics,
+  PngEncodeMachine::new_with_strategies(
+    source, PngCompressionStrategy::Stored, PngFilterStrategy::None,
+    limits, budget, _diagnostics,
   )
 }
 
@@ -208,6 +239,24 @@ fn PngEncodeMachine::new_with_compression_strategy(
   budget : @budget.Budget,
   _diagnostics : @error.Diagnostics,
 ) -> Result[PngEncodeMachine, @error.CoreError] {
+  PngEncodeMachine::new_with_strategies(
+    source, strategy, PngFilterStrategy::None, limits, budget, _diagnostics,
+  )
+}
+
+///|
+fn PngEncodeMachine::new_with_strategies(
+  source : @storage.ImageView,
+  strategy : PngCompressionStrategy,
+  filter_strategy : PngFilterStrategy,
+  limits : @codec.CodecLimits,
+  budget : @budget.Budget,
+  _diagnostics : @error.Diagnostics,
+) -> Result[PngEncodeMachine, @error.CoreError] {
+  let filter_strategy = match filter_strategy {
+    PngFilterStrategy::None => PngFilterStrategy::None
+    PngFilterStrategy::Adaptive => PngFilterStrategy::None
+  }
   let facts = match _png_encode_preflight(source, strategy, limits, budget) {
     Err(error) => return Err(error)
     Ok(value) => value
@@ -215,6 +264,7 @@ fn PngEncodeMachine::new_with_compression_strategy(
   Ok({
     source,
     strategy,
+    filter_strategy,
     width: source.width(),
     height: source.height(),
     channels: facts.channels,
