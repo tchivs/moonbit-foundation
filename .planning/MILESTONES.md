@@ -1,5 +1,17 @@
 # Project Milestones: MoonBit Native Foundation
 
+## v0.10 PNG Compression Optimization (Shipped: 2026-07-22)
+
+**Phases completed:** 3 phases, 4 plans, 5 tasks
+
+**Key accomplishments:**
+
+- Additive PNG Stored/FixedOrStored selection factories with independently frozen legacy stored-DEFLATE eager and chunk output.
+- 1. [Rule 1 - Bug] Added the fixed DEFLATE block header to replay emission
+- Public PNG corpus evidence proves deterministic, strictly smaller FixedOrStored output for flat 32x1 RGB8 and straight-RGBA8 sources on all portable targets.
+
+---
+
 ## v0.9 Resumable PNG Encode (Shipped: 2026-07-21)
 
 **Phases completed:** 3 phases, 5 plans, 12 tasks

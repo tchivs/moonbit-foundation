@@ -1,0 +1,35 @@
+{
+  "ecosystem": "moonbit",
+  "config": {
+    "exa_search": false,
+    "brave_search": false,
+    "firecrawl": false,
+    "tavily_search": false
+  },
+  "questions": [
+    {
+      "text": "How does the pinned Moon CLI publish a module with --frozen, and what manifest metadata is rendered by Mooncakes?",
+      "kind": "docs",
+      "library": "moonbit",
+      "version": "0.1.20260713"
+    },
+    {
+      "text": "How does Moon's minimal version selection resolve dependency floors and expose the resolved dependency graph?",
+      "kind": "docs",
+      "library": "moonbit",
+      "version": "0.1.20260713"
+    },
+    {
+      "text": "How are MOON_HOME and MOON_TOOLCHAIN_ROOT resolved independently by the Moon CLI?",
+      "kind": "docs",
+      "library": "moonbit",
+      "version": "0.1.20260713"
+    },
+    {
+      "text": "What structured Mooncakes registry index, manifest, archive, and assets endpoints does the Moon CLI consume?",
+      "kind": "docs",
+      "library": "moonbit",
+      "version": "0.1.20260713"
+    }
+  ]
+}

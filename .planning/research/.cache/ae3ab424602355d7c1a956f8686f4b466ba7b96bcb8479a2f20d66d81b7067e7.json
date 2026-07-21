@@ -1,0 +1,1 @@
+{"content":"ICC.1:2022 defines ICC profiles as exact byte sequences with a 128-byte header and exact profile size field. Phase 3 can safely carry bytes opaquely without parsing or claiming ICC conformance.","source":"web","provider":"websearch","confidence":"MEDIUM","fetched_at":"2026-07-16T16:57:56.227Z","ttl":86400000,"kind":"web"}

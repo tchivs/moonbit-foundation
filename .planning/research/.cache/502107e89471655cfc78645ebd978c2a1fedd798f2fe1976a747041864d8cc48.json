@@ -1,0 +1,1 @@
+{"content":"For canonical QOI output, derive byte-level vectors from the QOI 1.0 spec and test exact stream bytes as well as decode(encode(image)) semantic equality. Preserve the repository forward-only writer contract with exact failure progress.","source":"web","provider":"websearch","confidence":"LOW","fetched_at":"2026-07-20T10:54:33.966Z","ttl":86400000,"kind":"web"}
