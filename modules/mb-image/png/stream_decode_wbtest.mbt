@@ -172,6 +172,29 @@ test "PNG private inflater delivers stored bytes directly to the raster sink" {
   inspect(view.get_byte(0UL, 0UL, 2UL).unwrap(), content="b'\\x33'")
 }
 
+///| This is the fixed-Huffman payload from the hostile one-IDAT-byte schedule,
+/// without any PNG framing.  It pins output order across a literal/match
+/// continuation: the five filter tags must remain 0, 1, 2, 3, and 4.
+test "PNG private inflater preserves fixed-Huffman filter byte order" {
+  let transport = PngTransport::{ width: 2UL, height: 5UL, bit_depth: 8, source_channels: 3UL, source_bytes_per_pixel: 3UL, channels: 3UL, indexed: false, palette: b"", palette_entries: 0UL, transparency: PngTransparency::Opaque, idat: b"", consumed: 0UL }
+  let image = @storage.OwnedImage::new_operation(
+    _png_descriptor(transport).unwrap(),
+    @budget.Budget::new(@budget.ResourceLimits::new(bytes=128UL, allocations=1UL, allocation_size=128UL, width=8UL, height=8UL, pixels=64UL, depth=0UL, work=128UL)),
+    PngBuiltinAllocator::{} as &@bytes.Allocator,
+    128UL,
+  ).unwrap()
+  let sink = PngRasterSink::new(image, transport, false, @budget.Budget::new(@budget.ResourceLimits::new(bytes=0UL, allocations=0UL, allocation_size=0UL, width=0UL, height=0UL, pixels=0UL, depth=0UL, work=0UL))).unwrap()
+  let inflate = PngInflateState::new(64UL)
+  for byte in b"\x78\x01\x63\x10\x94\xd3\xb6\x70\x0d\x62\x8c\xcf\xa9\x54\x57\x57\x67\xf2\x03\x03\xe6\x55\x1b\xb6\xef\xdd\xbb\x97\x05\xc8\x04\x0a\x02\x00\xa1\xd0\x0a\x68" {
+    inflate.accept_to(byte, sink).unwrap()
+  }
+  inspect(inflate.emitted_bytes() == 35UL, content="true")
+  inspect(inflate.complete(), content="true")
+  sink.finish().unwrap()
+  let view = sink.image_view()
+  inspect(view.get_byte(1UL, 4UL, 2UL).unwrap(), content="b'\\x8F'")
+}
+
 ///|
 test "PNG private inflater retains every dynamic header tree and token byte boundary" {
   // The stream uses a dynamic tree, code-length repeats, and back-references.

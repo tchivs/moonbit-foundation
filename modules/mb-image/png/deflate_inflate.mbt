@@ -622,6 +622,10 @@ fn PngInflateState::drive(self : PngInflateState) -> Result[Unit, @error.CoreErr
       }
       PngInflatePhase::Complete => running = false
     }
+    // `emit` fills one bounded hand-off slot.  Stop immediately so a later
+    // literal or match byte cannot overwrite it before the raster sink has
+    // consumed the current byte.
+    if self.pending_output is Some(_) { return Ok(()) }
   }
   Ok(())
 }
