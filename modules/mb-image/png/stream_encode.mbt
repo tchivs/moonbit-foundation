@@ -145,7 +145,9 @@ priv struct PngEncodeMachine {
   mut emitted : UInt64
   mut pending : Byte?
   mut pending_fixed : PngFixedState?
+  mut pending_dynamic : PngDynamicState?
   mut fixed_state : PngFixedState?
+  mut dynamic_state : PngDynamicState?
   mut ihdr_crc : UInt64
   mut idat_crc : UInt64
   mut adler : UInt64
@@ -162,6 +164,21 @@ priv struct PngFixedState {
   matcher_work : UInt64
   header_written : Bool
   eob_written : Bool
+}
+
+///| Dynamic replay retains only cursors, a bit accumulator, and scalar
+/// integrity/work facts.  It regenerates tokens from the caller image and does
+/// not retain scanlines, a history buffer, output, or a caller lease.
+priv struct PngDynamicState {
+  phase : Int
+  header_cursor : UInt64
+  code_length_cursor : UInt64
+  rle_cursor : UInt64
+  raw_cursor : UInt64
+  bit_value : UInt64
+  bit_count : UInt64
+  adler : UInt64
+  matcher_work : UInt64
 }
 
 ///|
@@ -211,12 +228,20 @@ fn PngEncodeMachine::new_with_compression_strategy(
     emitted: 0UL,
     pending: None,
     pending_fixed: None,
+    pending_dynamic: None,
     fixed_state: match facts.plan {
       PngDeflatePlan::Stored(_) => None
       PngDeflatePlan::Fixed(_) => Some({
         raw_cursor: 0UL, bit_value: 0UL, bit_count: 0UL, adler: 1UL,
         matcher_work: 0UL, header_written: false, eob_written: false,
       })
+      PngDeflatePlan::Dynamic(_) => None
+    },
+    dynamic_state: match facts.plan {
+      PngDeflatePlan::Dynamic(_) => Some({ phase: 0, header_cursor: 0UL,
+        code_length_cursor: 0UL, rle_cursor: 0UL, raw_cursor: 0UL,
+        bit_value: 0UL, bit_count: 0UL, adler: 1UL, matcher_work: 0UL })
+      _ => None
     },
     ihdr_crc: _png_crc_for_type([b'I', b'H', b'D', b'R']),
     idat_crc: _png_crc_for_type([b'I', b'D', b'A', b'T']),
@@ -267,6 +292,7 @@ fn PngEncodeMachine::zlib_byte(
 ) -> Result[Byte, @error.CoreError] {
   match self.plan {
     PngDeflatePlan::Fixed(_) => return self.fixed_zlib_byte(offset)
+    PngDeflatePlan::Dynamic(_) => return self.dynamic_zlib_byte(offset)
     PngDeflatePlan::Stored(_) => ()
   }
   if offset == 0UL { return Ok(b'\x78') }
@@ -458,6 +484,136 @@ fn PngEncodeMachine::fixed_zlib_byte(
   Err(_png_encode_machine_state_error("png-encode-fixed-cursor"))
 }
 
+///| Put a dynamic canonical code into the LSB-first DEFLATE accumulator.
+fn _png_dynamic_put_code(
+  value : UInt64, count : UInt64, tree : PngHuffman, symbol : Int,
+) -> (UInt64, UInt64) {
+  _png_fixed_put_bits(value, count, tree.codes[symbol].to_uint64(), tree.lengths[symbol].to_uint64())
+}
+
+///| Preview one Dynamic DEFLATE byte.  Every returned state is private until the
+/// byte is acknowledged, which makes repeated `present` calls observational.
+fn PngEncodeMachine::dynamic_preview_byte(
+  self : PngEncodeMachine,
+) -> Result[(Byte, PngDynamicState), @error.CoreError] {
+  let plan = match self.plan {
+    PngDeflatePlan::Dynamic(value) => value
+    _ => return Err(_png_encode_machine_state_error("png-encode-dynamic-plan"))
+  }
+  let state = match self.dynamic_state {
+    Some(value) => value
+    None => return Err(_png_encode_machine_state_error("png-encode-dynamic-state"))
+  }
+  let mut phase = state.phase
+  let mut header_cursor = state.header_cursor
+  let mut code_length_cursor = state.code_length_cursor
+  let mut rle_cursor = state.rle_cursor
+  let mut raw_cursor = state.raw_cursor
+  let mut bit_value = state.bit_value
+  let mut bit_count = state.bit_count
+  let mut adler = state.adler
+  let mut matcher_work = state.matcher_work
+  while bit_count < 8UL {
+    if phase == 0 {
+      let (value, count) = _png_fixed_put_bits(bit_value, bit_count, 5UL, 3UL)
+      bit_value = value; bit_count = count; phase = 1
+    } else if phase == 1 {
+      let value = if header_cursor == 0UL { plan.hlit - 257UL } else if header_cursor == 1UL {
+        plan.hdist - 1UL
+      } else { plan.hclen - 4UL }
+      let width = if header_cursor < 2UL { 5UL } else { 4UL }
+      let (next_value, next_count) = _png_fixed_put_bits(bit_value, bit_count, value, width)
+      bit_value = next_value; bit_count = next_count; header_cursor = header_cursor + 1UL
+      if header_cursor == 3UL { phase = 2 }
+    } else if phase == 2 {
+      let order = [16,17,18,0,8,7,9,6,10,5,11,4,12,3,13,2,14,1,15]
+      if code_length_cursor < plan.hclen {
+        let length = plan.code_lengths.lengths[order[code_length_cursor.to_int()]].to_uint64()
+        let (next_value, next_count) = _png_fixed_put_bits(bit_value, bit_count, length, 3UL)
+        bit_value = next_value; bit_count = next_count; code_length_cursor = code_length_cursor + 1UL
+      } else { phase = 3 }
+    } else if phase == 3 {
+      if rle_cursor < plan.rle_count {
+        let symbol = plan.rle_symbols[rle_cursor.to_int()]
+        let (next_value, next_count) = _png_dynamic_put_code(bit_value, bit_count, plan.code_lengths, symbol)
+        bit_value = next_value; bit_count = next_count
+        let width = plan.rle_extra_bits[rle_cursor.to_int()]
+        if width > 0UL {
+          let (extra_value, extra_count) = _png_fixed_put_bits(bit_value, bit_count, plan.rle_extras[rle_cursor.to_int()], width)
+          bit_value = extra_value; bit_count = extra_count
+        }
+        rle_cursor = rle_cursor + 1UL
+      } else { phase = 4 }
+    } else if phase == 4 {
+      if raw_cursor < self.scanlines {
+        let (length, distance, work) = match _png_fixed_match_at(
+          self.source, self.row_bytes, self.channels, self.scanlines, raw_cursor,
+        ) { Err(error) => return Err(error); Ok(value) => value }
+        matcher_work = match _png_fixed_add(matcher_work, work) { Err(error) => return Err(error); Ok(value) => value }
+        if length >= 3UL {
+          let (symbol, extra, extra_bits) = _png_fixed_length_code(length)
+          let (next_value, next_count) = _png_dynamic_put_code(bit_value, bit_count, plan.literals, symbol.to_int())
+          bit_value = next_value; bit_count = next_count
+          if extra_bits > 0UL {
+            let (extra_value, extra_count) = _png_fixed_put_bits(bit_value, bit_count, extra, extra_bits)
+            bit_value = extra_value; bit_count = extra_count
+          }
+          let (distance_value, distance_count) = _png_dynamic_put_code(bit_value, bit_count, plan.distances, (distance - 1UL).to_int())
+          bit_value = distance_value; bit_count = distance_count
+          for index = 0UL; index < length; index = index + 1UL {
+            let byte = match _png_fixed_scanline_byte(self.source, self.row_bytes, self.channels, raw_cursor + index) {
+              Err(error) => return Err(error); Ok(value) => value
+            }
+            adler = _png_adler_step(adler, byte)
+          }
+          raw_cursor = raw_cursor + length
+        } else {
+          let byte = match _png_fixed_scanline_byte(self.source, self.row_bytes, self.channels, raw_cursor) {
+            Err(error) => return Err(error); Ok(value) => value
+          }
+          let (next_value, next_count) = _png_dynamic_put_code(bit_value, bit_count, plan.literals, byte.to_int())
+          bit_value = next_value; bit_count = next_count; adler = _png_adler_step(adler, byte); raw_cursor = raw_cursor + 1UL
+        }
+      } else { phase = 5 }
+    } else if phase == 5 {
+      if matcher_work != plan.matcher_work || adler != plan.fingerprint {
+        return Err(_png_encode_machine_state_error("png-encode-dynamic-replay-drift"))
+      }
+      let (next_value, next_count) = _png_dynamic_put_code(bit_value, bit_count, plan.literals, 256)
+      bit_value = next_value; bit_count = next_count; phase = 6
+    } else if phase == 6 {
+      let byte = bit_value.to_byte()
+      return Ok((byte, { phase: 7, header_cursor, code_length_cursor, rle_cursor, raw_cursor,
+        bit_value: 0UL, bit_count: 0UL, adler, matcher_work }))
+    } else {
+      return Err(_png_encode_machine_state_error("png-encode-dynamic-cursor"))
+    }
+  }
+  let byte = bit_value.to_byte()
+  Ok((byte, { phase, header_cursor, code_length_cursor, rle_cursor, raw_cursor,
+    bit_value: bit_value >> 8, bit_count: bit_count - 8UL, adler, matcher_work }))
+}
+
+///|
+fn PngEncodeMachine::dynamic_zlib_byte(
+  self : PngEncodeMachine, offset : UInt64,
+) -> Result[Byte, @error.CoreError] {
+  let plan = match self.plan { PngDeflatePlan::Dynamic(value) => value; _ => return Err(_png_encode_machine_state_error("png-encode-dynamic-plan")) }
+  if offset == 0UL { return Ok(b'\x78') }
+  if offset == 1UL { return Ok(b'\x01') }
+  if offset < plan.deflate_bytes + 2UL {
+    let (byte, next) = match self.dynamic_preview_byte() { Err(error) => return Err(error); Ok(value) => value }
+    self.pending_dynamic = Some(next)
+    return Ok(byte)
+  }
+  let adler_offset = offset - plan.deflate_bytes - 2UL
+  if adler_offset < 4UL {
+    let state = match self.dynamic_state { Some(value) => value; None => return Err(_png_encode_machine_state_error("png-encode-dynamic-state")) }
+    return Ok(_png_encode_machine_u32_byte(state.adler, adler_offset))
+  }
+  Err(_png_encode_machine_state_error("png-encode-dynamic-cursor"))
+}
+
 ///|
 fn PngEncodeMachine::byte_at(
   self : PngEncodeMachine,
@@ -543,10 +699,18 @@ fn PngEncodeMachine::acknowledge(
         }
         None => ()
       }
+      PngDeflatePlan::Dynamic(_) => match self.pending_dynamic {
+        Some(next) => {
+          self.adler = next.adler
+          self.dynamic_state = Some(next)
+        }
+        None => ()
+      }
     }
   }
   self.pending = None
   self.pending_fixed = None
+  self.pending_dynamic = None
   self.emitted = self.emitted + 1UL
   if self.emitted == self.total_length_value { self.finished = true }
   Ok(())

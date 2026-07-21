@@ -50,6 +50,20 @@ fn png_stream_wb_image(width? : UInt64 = 1UL) -> @storage.OwnedImage {
 }
 
 ///|
+fn png_stream_wb_dynamic_image() -> @storage.OwnedImage {
+  let image = png_stream_wb_image(width=128UL)
+  image.with_mut_view(fn(view) {
+    for x = 0UL; x < 128UL; x = x + 1UL {
+      for channel = 0UL; channel < 3UL; channel = channel + 1UL {
+        view.set_byte(x, 0UL, channel, ((x * 3UL + channel) % 5UL).to_byte()).unwrap()
+      }
+    }
+    Ok(())
+  }).unwrap()
+  image
+}
+
+///|
 fn png_stream_wb_budget(work? : UInt64 = 1024UL) -> @budget.Budget {
   @budget.Budget::new(@budget.ResourceLimits::new(
     bytes=1048576UL, allocations=16UL, allocation_size=1048576UL, width=70000UL,
@@ -74,6 +88,49 @@ fn png_stream_wb_drain(machine : PngEncodeMachine) -> Bytes {
     machine.acknowledge(byte).unwrap()
   }
   Bytes::from_array(bytes)
+}
+
+///| Dynamic state is a preview effect: repeated present calls at the first
+/// DEFLATE byte must not install the next scalar state.
+test "PNG dynamic replay preview waits for acknowledgement" {
+  let image = png_stream_wb_dynamic_image()
+  let machine = PngEncodeMachine::new_with_compression_strategy(
+    image.view(), PngCompressionStrategy::DynamicOrFixedOrStored,
+    png_stream_wb_limits(), png_stream_wb_budget(work=1048576UL), @error.Diagnostics::new(),
+  ).unwrap()
+  while machine.completed() < 43UL {
+    let byte = machine.present().unwrap().unwrap()
+    machine.acknowledge(byte).unwrap()
+  }
+  let first = machine.present().unwrap().unwrap()
+  let before = machine.dynamic_state.unwrap()
+  inspect(machine.present().unwrap() == Some(first), content="true")
+  inspect(machine.dynamic_state.unwrap().phase == before.phase && machine.completed() == 43UL, content="true")
+  machine.acknowledge(first).unwrap()
+  inspect(machine.completed() == 44UL, content="true")
+}
+
+///| The admitted fingerprint/work is checked before EOB, and the normal machine
+/// error is repeatable without any later acknowledgement.
+test "PNG dynamic replay verifies planned work and source fingerprint" {
+  let image = png_stream_wb_dynamic_image()
+  let machine = PngEncodeMachine::new_with_compression_strategy(
+    image.view(), PngCompressionStrategy::DynamicOrFixedOrStored,
+    png_stream_wb_limits(), png_stream_wb_budget(work=1048576UL), @error.Diagnostics::new(),
+  ).unwrap()
+  image.with_mut_view(fn(view) { view.set_byte(0UL, 0UL, 0UL, b'\xff') }).unwrap()
+  let mut failure : @error.CoreError? = None
+  while machine.completed() < machine.total_length() {
+    match machine.present() {
+      Err(error) => { failure = Some(error); break }
+      Ok(Some(byte)) => machine.acknowledge(byte).unwrap()
+      Ok(None) => break
+    }
+  }
+  let first = failure.unwrap()
+  let second = machine.present().unwrap_err()
+  inspect(first.context() == Some("png-encode-dynamic-replay-drift"), content="true")
+  inspect(second.context() == first.context() && machine.completed() < machine.total_length(), content="true")
 }
 
 ///|
@@ -251,6 +308,7 @@ test "PNG fixed-or-stored white-box replay mismatch is sticky" {
       inspect(plan.deflate_bytes, content="16")
     }
     PngDeflatePlan::Stored(_) => panic()
+    PngDeflatePlan::Dynamic(_) => panic()
   }
   let machine = PngEncodeMachine::new_with_compression_strategy(
     image.view(), PngCompressionStrategy::FixedOrStored,

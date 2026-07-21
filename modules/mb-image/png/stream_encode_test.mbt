@@ -92,6 +92,22 @@ fn png_stream_test_flat_image(channels : UInt64, width : UInt64) -> @storage.Own
   image
 }
 
+///| Five periodic literal values deliberately exceed the A1 distance-1..4
+/// matcher, making this a compact strict Dynamic candidate rather than a match
+/// compression corpus.
+fn png_stream_test_dynamic_image(width? : UInt64 = 128UL) -> @storage.OwnedImage {
+  let image = png_stream_test_image(3UL, width=width)
+  image.with_mut_view(fn(view) {
+    for x = 0UL; x < width; x = x + 1UL {
+      for channel = 0UL; channel < 3UL; channel = channel + 1UL {
+        view.set_byte(x, 0UL, channel, ((x * 3UL + channel) % 5UL).to_byte()).unwrap()
+      }
+    }
+    Ok(())
+  }).unwrap()
+  image
+}
+
 ///|
 fn png_stream_test_fixed_or_stored_corpus_decode_matches_source(
   bytes : Bytes,
@@ -293,6 +309,64 @@ test "PNG dynamic strategy chunk factory freezes compatibility routes" {
     inspect(dynamic_bytes == fixed, content="true")
     inspect((fixed[43] & b'\x07') == b'\x03', content="true")
   }
+}
+
+///| The public strict-winner evidence checks BTYPE=10, complete-input decode,
+/// every RGB component, and hostile caller-buffered parity in one small fixture.
+test "PNG dynamic strict winner decodes completely through public API" {
+  let image = png_stream_test_dynamic_image()
+  let eager = png_stream_test_eager_with_strategy(
+    image, PngCompressionStrategy::DynamicOrFixedOrStored,
+  )
+  inspect((eager[43] & b'\x07') == b'\x05', content="true")
+  let encoder = PngChunkEncoder::new_with_compression_strategy(
+    image.view(), PngCompressionStrategy::DynamicOrFixedOrStored,
+    png_stream_test_limits(), png_stream_test_budget(), @error.Diagnostics::new(),
+  ).unwrap()
+  let chunked = png_chunk_test_drain_encoder(encoder, [0UL, 1UL, 3UL, 2UL, 5UL]).unwrap()
+  inspect(chunked == eager, content="true")
+  let owner = @bytes.OwnedBytes::from_bytes(eager, png_stream_test_budget(work=0UL)).unwrap()
+  let decoded = @codec.ImageDecoder::decode(
+    PngDecoder::new(), @io.MemoryReader::new(owner.view()) as &@io.Reader,
+    @codec.DecodeOptions::new(require_complete_input=true, preserve_opaque_metadata=false),
+    png_stream_test_limits(), png_stream_test_budget(), @error.Diagnostics::new(),
+  ).unwrap()
+  let restored = decoded.image().view()
+  let expected = image.view()
+  inspect(restored.width() == expected.width() && restored.height() == expected.height(), content="true")
+  for x = 0UL; x < expected.width(); x = x + 1UL {
+    for channel = 0UL; channel < 3UL; channel = channel + 1UL {
+      inspect(restored.get_byte(x, 0UL, channel).unwrap() == expected.get_byte(x, 0UL, channel).unwrap(), content="true")
+    }
+  }
+}
+
+///| Eager and caller-buffered adapters acknowledge the same scalar Dynamic
+/// machine, including zero-capacity pulls.
+test "PNG dynamic eager and chunk output have exact hostile-capacity parity" {
+  let image = png_stream_test_dynamic_image()
+  let eager = png_stream_test_eager_with_strategy(image, PngCompressionStrategy::DynamicOrFixedOrStored)
+  let encoder = PngChunkEncoder::new_with_compression_strategy(
+    image.view(), PngCompressionStrategy::DynamicOrFixedOrStored,
+    png_stream_test_limits(), png_stream_test_budget(), @error.Diagnostics::new(),
+  ).unwrap()
+  let chunked = png_chunk_test_drain_encoder(encoder, [0UL, 1UL, 4UL, 2UL, 7UL]).unwrap()
+  inspect(chunked == eager && (eager[43] & b'\x07') == b'\x05', content="true")
+}
+
+///| Finished is sticky and a subsequent zero-capacity caller lease has no work
+/// to acknowledge.
+test "PNG dynamic configured sticky terminals preserve leases" {
+  let image = png_stream_test_dynamic_image()
+  let encoder = PngChunkEncoder::new_with_compression_strategy(
+    image.view(), PngCompressionStrategy::DynamicOrFixedOrStored,
+    png_stream_test_limits(), png_stream_test_budget(), @error.Diagnostics::new(),
+  ).unwrap()
+  ignore(png_chunk_test_drain_encoder(encoder, [1UL]).unwrap())
+  let owner = png_chunk_test_owner(1UL, fill=b'\xaa')
+  let result = owner.with_mut(0UL, 1UL, fn(lease) { Ok(encoder.pull(lease)) }).unwrap()
+  inspect(result.written() == 0UL && result.outcome() is PngChunkPullOutcome::Finished, content="true")
+  inspect(owner.view().get(0UL).unwrap() == b'\xaa', content="true")
 }
 
 ///|

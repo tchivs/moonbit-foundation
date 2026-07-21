@@ -126,6 +126,17 @@ test "PNG fixed-or-stored eager selects a final fixed DEFLATE block" {
   inspect(decoded.image().view().get_byte(31UL, 0UL, 2UL).unwrap() == b'\xaa', content="true")
 }
 
+///| The opt-in strategy has one strict Dynamic winner and exposes final BTYPE=10
+/// without changing either legacy strategy.
+test "PNG dynamic eager preserves non-winning complete-PNG fallback" {
+  let image = png_encode_image(3UL, Bytes::from_array(Array::make(96, b'\xaa')), width=32UL)
+  let (_, writer) = png_encode_with(
+    PngEncoder::new_with_compression_strategy(PngCompressionStrategy::DynamicOrFixedOrStored), image,
+  )
+  let bytes = png_encode_prefix(writer)
+  inspect((bytes[43] & b'\x07') == b'\x03', content="true")
+}
+
 ///|
 test "PNG dynamic strategy eager factory freezes compatibility routes" {
   let (_, rgb_stored_writer) = png_encode(png_encode_image(3UL, b"\x12\x34\x56"))
