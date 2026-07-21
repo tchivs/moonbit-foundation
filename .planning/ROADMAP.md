@@ -25,7 +25,7 @@
 
 ### v0.9 Resumable PNG Encode (Phases 29-31)
 
-- [ ] **Phase 29: Pausable PNG Encode Substrate** - Compatible images can be admitted or rejected before output while a private MoonBit state machine prepares canonical PNG emission.
+- [x] **Phase 29: Pausable PNG Encode Substrate** - Compatible images can be admitted or rejected before output while a private MoonBit state machine prepares canonical PNG emission. (completed 2026-07-21)
 - [ ] **Phase 30: Public PNG Chunk Encoder** - Library users can drain one canonical eager-equivalent PNG through arbitrary caller-owned output buffers.
 - [ ] **Phase 31: Portable PNG Encode Evidence** - Four-target hostile-schedule proof and a public decode-process-encode workflow validate the complete contract.
 
@@ -76,7 +76,7 @@
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 29. Pausable PNG Encode Substrate | 3/3 | In Progress|  |
+| 29. Pausable PNG Encode Substrate | 3/3 | Complete    | 2026-07-21 |
 | 30. Public PNG Chunk Encoder | 0/TBD | Not started | - |
 | 31. Portable PNG Encode Evidence | 0/TBD | Not started | - |
 
