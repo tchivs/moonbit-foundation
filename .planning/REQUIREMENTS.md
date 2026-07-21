@@ -6,7 +6,7 @@
 
 ## PNG Compression Strategy
 
-- [ ] **PNGC-01**: A library user can explicitly request a documented PNG compression strategy while the existing eager and chunk constructors retain their byte-for-byte stored-DEFLATE output.
+- [x] **PNGC-01**: A library user can explicitly request a documented PNG compression strategy while the existing eager and chunk constructors retain their byte-for-byte stored-DEFLATE output.
 - [ ] **PNGC-02**: A library user requesting the optimized strategy receives deterministic fixed-Huffman-or-stored PNG output whose construction performs exact capability, geometry, output, work, and budget admission before any byte is exposed.
 - [ ] **PNGC-03**: A library user can drain optimized eager and caller-buffered chunk output with exact progress, canonical eager/chunk parity, and unchanged sticky completion/failure semantics on js, wasm, wasm-gc, and native.
 
@@ -32,7 +32,7 @@
 
 | Requirement | Phase | Status |
 |---|---|---|
-| PNGC-01 | Phase 32 | Pending |
+| PNGC-01 | Phase 32 | Complete |
 | PNGC-02 | Phase 33 | Pending |
 | PNGC-03 | Phase 33 | Pending |
 | PNGC-04 | Phase 34 | Pending |
