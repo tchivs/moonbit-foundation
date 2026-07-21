@@ -5,15 +5,15 @@ milestone_name: PNG Colour Fidelity
 current_phase: 20
 current_phase_name: PNG Structural Safety Gate
 status: planning
-stopped_at: Phase 25 context gathered
-last_updated: "2026-07-21T03:39:56.642Z"
+stopped_at: Completed 20-05-PLAN.md
+last_updated: "2026-07-21T03:50:43.273Z"
 last_activity: 2026-07-21
 last_activity_desc: Phase 9 complete, transitioned to Phase 20
 progress:
   total_phases: 17
   completed_phases: 6
-  total_plans: 12
-  completed_plans: 10
+  total_plans: 13
+  completed_plans: 11
   percent: 35
 ---
 
@@ -34,7 +34,7 @@ Plan: Not started
 Status: Ready to plan
 Last activity: 2026-07-21 — Phase 9 complete, transitioned to Phase 20
 
-Progress: [████████░░] 78%
+Progress: [█████████░] 85%
 
 ## Performance Metrics
 
@@ -58,6 +58,7 @@ Progress: [████████░░] 78%
 - [Phase ?]: Fixed-size PNG colour chunks are rejected from their headers before payload reads; iCCP remains on its streaming envelope path.
 - [Phase ?]: Generated 2 GiB fixed-colour hostile cases end at the chunk type to prove pre-payload rejection.
 - [Phase ?]: Retained non-sRGB PNG declarations use opaque profiles and a non-encoded-sRGB identity.
+- [Phase ?]: Retain Phase 20 structural validation as complete when the generated matrix and isolated Png lane pass; classify later decode, encode, and colour success as Phase 21-25 scope.
 
 ### Pending Todos
 
@@ -86,6 +87,7 @@ None.
 | Phase 23-png-colour-declaration-and-srgb-semantics P01 | 0h 24m | 2 tasks | 9 files |
 | Phase 23-png-colour-declaration-and-srgb-semantics P02 | 0h 18m | 2 tasks | 6 files |
 | Phase 24-bounded-non-srgb-and-icc-preservation P01 | 40min | 3 tasks | 9 files |
+| Phase 20-png-structural-safety-gate P05 | 4min | 2 tasks | 1 files |
 
 ## Deferred Items
 
@@ -99,6 +101,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-07-21T02:53:37.958Z
-Stopped at: Phase 25 context gathered
-Resume file: .planning/phases/25-portable-colour-conformance-evidence/25-CONTEXT.md
+Last session: 2026-07-21T03:50:43.259Z
+Stopped at: Completed 20-05-PLAN.md
+Resume file: None
