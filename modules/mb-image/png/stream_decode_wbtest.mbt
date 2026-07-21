@@ -66,6 +66,38 @@ test "PNG private machine keeps lifecycle atomic when first-IDAT preflight fails
   inspect(machine.has_result(), content="false")
 }
 
+///| Every retained profile fact crosses the same one-byte framing boundary.
+/// The indexed lifecycle cannot exist until CRC-authenticated PLTE/tRNS and
+/// the colour declaration have been committed.
+test "PNG private machine retains CRC-authenticated pre-IDAT profile facts" {
+  let machine = _png_stream_machine_for_test()
+  for byte in [b'\x89', b'P', b'N', b'G', b'\r', b'\n', b'\x1a', b'\n'] { machine.accept(byte).unwrap() }
+  _png_machine_accept_chunk(machine, [b'I', b'H', b'D', b'R'], [b'\x00', b'\x00', b'\x00', b'\x01', b'\x00', b'\x00', b'\x00', b'\x01', b'\x08', b'\x03', b'\x00', b'\x00', b'\x00']).unwrap()
+  _png_machine_accept_chunk(machine, [b's', b'R', b'G', b'B'], [b'\x00']).unwrap()
+  _png_machine_accept_chunk(machine, [b'P', b'L', b'T', b'E'], [b'\x11', b'\x22', b'\x33']).unwrap()
+  _png_machine_accept_chunk(machine, [b't', b'R', b'N', b'S'], [b'\xff']).unwrap()
+  inspect(machine.has_private_colour_declaration(), content="true")
+  inspect(machine.has_private_palette(), content="true")
+  inspect(machine.has_private_transparency(), content="true")
+  for byte in [b'\x00', b'\x00', b'\x00', b'\x00', b'I', b'D', b'A', b'T'] { machine.accept(byte).unwrap() }
+  inspect(machine.has_private_lifecycle(), content="true")
+  inspect(machine.private_lifecycle_allocations() == 1UL, content="true")
+  inspect(machine.has_result(), content="false")
+}
+
+///| Retained semantic bytes are provisional until the fourth CRC byte.
+test "PNG private machine does not commit a split bad palette CRC" {
+  let machine = _png_stream_machine_for_test()
+  for byte in [b'\x89', b'P', b'N', b'G', b'\r', b'\n', b'\x1a', b'\n'] { machine.accept(byte).unwrap() }
+  _png_machine_accept_chunk(machine, [b'I', b'H', b'D', b'R'], [b'\x00', b'\x00', b'\x00', b'\x01', b'\x00', b'\x00', b'\x00', b'\x01', b'\x08', b'\x03', b'\x00', b'\x00', b'\x00']).unwrap()
+  for byte in [b'\x00', b'\x00', b'\x00', b'\x03', b'P', b'L', b'T', b'E', b'\x11', b'\x22', b'\x33'] { machine.accept(byte).unwrap() }
+  let crc = _png_crc32(b"PLTE\x11\x22\x33") ^ 1UL
+  for shift in [24, 16, 8] { machine.accept((crc >> shift).to_byte()).unwrap() }
+  inspect(machine.has_private_palette(), content="false")
+  inspect(machine.accept(crc.to_byte()).unwrap_err().context() == Some("png-crc"), content="true")
+  inspect(machine.has_private_palette(), content="false")
+}
+
 ///|
 test "PNG private IDAT state resumes split payload and CRC" {
   let state = PngIdatState::new()
@@ -118,8 +150,11 @@ test "PNG framing machine accepts a signature and IHDR at one byte boundaries" {
 test "PNG framing machine rejects a split ancillary CRC and IEND length" {
   let machine = _png_stream_machine_for_test()
   for byte in [b'\x89', b'P', b'N', b'G', b'\r', b'\n', b'\x1a', b'\n'] { machine.accept(byte).unwrap() }
-  for byte in [b'\x00', b'\x00', b'\x00', b'\x01', b'g', b'A', b'M', b'A', b'\x00'] { machine.accept(byte).unwrap() }
-  let crc = _png_crc32(b"gAMA\x00") ^ 1UL
+  // An unknown ancillary payload is deliberately discarded after its CRC;
+  // it remains useful for proving that split framing failures do not require
+  // a retained semantic declaration.
+  for byte in [b'\x00', b'\x00', b'\x00', b'\x01', b'v', b'p', b'A', b'g', b'\x00'] { machine.accept(byte).unwrap() }
+  let crc = _png_crc32(b"vpAg\x00") ^ 1UL
   for shift in [24, 16, 8] { machine.accept((crc >> shift).to_byte()).unwrap() }
   inspect(machine.accept(crc.to_byte()).unwrap_err().context() == Some("png-crc"), content="true")
   let iend = _png_stream_machine_for_test()

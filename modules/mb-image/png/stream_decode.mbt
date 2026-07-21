@@ -19,6 +19,30 @@ priv struct PngMachineLifecycle {
   sink : PngRasterSink
 }
 
+///| Facts which are both bounded and semantically necessary before the first
+/// IDAT header.  Payload bytes stay owned by the machine and become facts only
+/// after their chunk CRC has authenticated them.
+priv struct PngPreIdatFacts {
+  mut palette : Array[Byte]
+  mut palette_entries : UInt64
+  mut saw_palette : Bool
+  mut transparency : PngTransparency
+  mut saw_transparency : Bool
+  mut colour_facts : PngColourFacts
+}
+
+///|
+fn _png_new_pre_idat_facts() -> PngPreIdatFacts {
+  {
+    palette: [],
+    palette_entries: 0UL,
+    saw_palette: false,
+    transparency: PngTransparency::Opaque,
+    saw_transparency: false,
+    colour_facts: _png_new_colour_facts(),
+  }
+}
+
 ///|
 /// Owned continuation for one IDAT chunk.  Header fields, payload accounting,
 /// and the four CRC bytes are copied here one byte at a time; no source lease
@@ -122,6 +146,8 @@ priv struct PngDecodeMachine {
   mut accepted : UInt64
   mut last_chunk_complete : Bool
   mut ihdr : Array[Byte]?
+  facts : PngPreIdatFacts
+  mut saw_idat : Bool
   mut lifecycle : PngMachineLifecycle?
   mut lifecycle_allocations : UInt64
 }
@@ -165,7 +191,7 @@ fn PngDecodeMachine::new(
   limits : @codec.CodecLimits,
   budget : @budget.Budget,
 ) -> PngDecodeMachine {
-  { options, limits, budget, state: PngDecodeMachineState::Signature(0), accepted: 0UL, last_chunk_complete: false, ihdr: None, lifecycle: None, lifecycle_allocations: 0UL }
+  { options, limits, budget, state: PngDecodeMachineState::Signature(0), accepted: 0UL, last_chunk_complete: false, ihdr: None, facts: _png_new_pre_idat_facts(), saw_idat: false, lifecycle: None, lifecycle_allocations: 0UL }
 }
 
 ///|
@@ -192,6 +218,180 @@ fn PngDecodeMachine::private_lifecycle_allocations(self : PngDecodeMachine) -> U
   self.lifecycle_allocations
 }
 
+///| Test-only facts accessors.  The machine never exposes caller-owned bytes
+/// or a decode result while the terminal PNG checks remain outstanding.
+fn PngDecodeMachine::has_private_palette(self : PngDecodeMachine) -> Bool {
+  self.facts.saw_palette
+}
+
+///|
+fn PngDecodeMachine::has_private_transparency(self : PngDecodeMachine) -> Bool {
+  self.facts.saw_transparency
+}
+
+///|
+fn PngDecodeMachine::has_private_colour_declaration(self : PngDecodeMachine) -> Bool {
+  self.facts.colour_facts.saw_srgb || self.facts.colour_facts.saw_gamma ||
+  self.facts.colour_facts.saw_chrm || self.facts.colour_facts.saw_iccp
+}
+
+///| Only the bounded chunks whose facts influence the eventual raster are
+/// copied over pauses. Unknown ancillary payloads are CRC-checked and then
+/// discarded byte by byte.
+fn _png_machine_retains_payload(kind : Array[Byte]) -> Bool {
+  _png_type_is(kind, b'I', b'H', b'D', b'R') ||
+  _png_type_is(kind, b'P', b'L', b'T', b'E') ||
+  _png_type_is(kind, b't', b'R', b'N', b'S') ||
+  _png_is_recognised_colour(kind)
+}
+
+///| Reject a malformed retained declaration before collecting an unbounded
+/// payload. iCCP has its own explicit 64KiB compressed envelope.
+fn PngDecodeMachine::validate_retained_header(
+  self : PngDecodeMachine,
+  length : UInt64,
+  kind : Array[Byte],
+) -> Result[Unit, @error.CoreError] {
+  if _png_type_is(kind, b'I', b'H', b'D', b'R') {
+    if self.ihdr is Some(_) { return Err(_png_error("png-ihdr-order")) }
+    if length != 13UL { return Err(_png_error("png-ihdr-length")) }
+  } else if _png_type_is(kind, b'P', b'L', b'T', b'E') {
+    if self.ihdr is None || self.saw_idat || self.facts.saw_palette { return Err(_png_error("png-plte-order")) }
+    if length < 3UL || length > 768UL || length % 3UL != 0UL { return Err(_png_error("png-plte-length")) }
+  } else if _png_type_is(kind, b't', b'R', b'N', b'S') {
+    if self.ihdr is None || self.saw_idat || self.facts.saw_transparency { return Err(_png_error("png-trns-order")) }
+    if length > 256UL { return Err(_png_error("png-trns-length")) }
+  } else if _png_is_recognised_colour(kind) {
+    if self.ihdr is None || self.saw_idat || self.facts.saw_palette { return Err(_png_error("png-colour-order")) }
+    match _png_fixed_colour_length(kind) {
+      Some(expected) => if length != expected {
+        if _png_type_is(kind, b's', b'R', b'G', b'B') { return Err(_png_error("png-srgb-length")) }
+        if _png_type_is(kind, b'g', b'A', b'M', b'A') { return Err(_png_error("png-gama-length")) }
+        return Err(_png_error("png-chrm-length"))
+      }
+      None => if length > 65536UL { return Err(_png_limit("png-iccp-compressed", length, 65536UL)) }
+    }
+  }
+  Ok(())
+}
+
+///| A data-backed iCCP source never calls this reader. Keeping the placeholder
+/// private makes the synchronous post-payload profile validation independent
+/// of the caller's chunk slice.
+priv struct PngNoInputReader {}
+
+///|
+impl @io.Reader for PngNoInputReader with fn read(_self, _destination) {
+  @io.ReadOutcome::EndOfStream
+}
+
+///| iCCP is collected only inside its capped pre-IDAT continuation. Once its
+/// CRC is accepted, inflate and validate it before any IDAT allocation.
+fn _png_machine_inflate_iccp(
+  payload : Array[Byte],
+  limits : @codec.CodecLimits,
+  budget : @budget.Budget,
+) -> Result[Bytes, @error.CoreError] {
+  let scratch = match @bytes.OwnedBytes::new(1UL, _png_private_budget(1UL)) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  let reader = PngNoInputReader::{}
+  _png_inflate_iccp(Bytes::from_array(payload), reader as &@io.Reader, scratch, limits, budget)
+}
+
+///| Commit one CRC-authenticated pre-IDAT payload.  All cases here operate on
+/// bounded, machine-owned arrays; malformed metadata cannot influence the
+/// first-IDAT lifecycle before its own CRC has passed.
+fn PngDecodeMachine::apply_pre_idat_chunk(
+  self : PngDecodeMachine,
+  kind : Array[Byte],
+  payload : Array[Byte],
+) -> Result[Unit, @error.CoreError] {
+  let ihdr = match self.ihdr { Some(value) => value; None => [] }
+  if _png_type_is(kind, b'I', b'H', b'D', b'R') {
+    match _png_preflight_ihdr(payload, self.limits, self.budget) {
+      Err(error) => return Err(error)
+      Ok(_) => { self.ihdr = Some(payload); return Ok(()) }
+    }
+  }
+  if _png_type_is(kind, b'P', b'L', b'T', b'E') {
+    if ihdr.length() != 13 || ihdr[9] != b'\x03' { return Err(_png_error("png-semantic-chunk")) }
+    let maximum = if ihdr[8] == b'\x01' { 2UL } else if ihdr[8] == b'\x02' { 4UL } else if ihdr[8] == b'\x04' { 16UL } else { 256UL }
+    if payload.length().to_uint64() / 3UL > maximum { return Err(_png_error("png-plte-length")) }
+    self.facts.palette = payload
+    self.facts.palette_entries = self.facts.palette.length().to_uint64() / 3UL
+    self.facts.saw_palette = true
+    return Ok(())
+  }
+  if _png_type_is(kind, b't', b'R', b'N', b'S') {
+    if ihdr.length() != 13 { return Err(_png_error("png-trns-order")) }
+    if ihdr[9] == 0 {
+      if payload.length() != 2 { return Err(_png_error("png-trns-length")) }
+      if ihdr[8] == b'\x10' { self.facts.transparency = PngTransparency::Grayscale16(payload[0], payload[1]) }
+      else {
+        if payload[0] != b'\x00' { return Err(_png_error("png-trns-sample")) }
+        let mask = if ihdr[8] == b'\x01' { 1 } else if ihdr[8] == b'\x02' { 3 } else if ihdr[8] == b'\x04' { 15 } else { 255 }
+        if payload[1].to_int() > mask { return Err(_png_error("png-trns-sample")) }
+        self.facts.transparency = PngTransparency::Grayscale(payload[1])
+      }
+    } else if ihdr[9] == 2 {
+      if payload.length() != 6 { return Err(_png_error("png-trns-length")) }
+      if ihdr[8] == b'\x10' { self.facts.transparency = PngTransparency::Rgb16(payload[0], payload[1], payload[2], payload[3], payload[4], payload[5]) }
+      else {
+        if payload[0] != b'\x00' || payload[2] != b'\x00' || payload[4] != b'\x00' { return Err(_png_error("png-trns-sample")) }
+        self.facts.transparency = PngTransparency::Rgb(payload[1], payload[3], payload[5])
+      }
+    } else if ihdr[9] == 3 {
+      if !self.facts.saw_palette || payload.length().to_uint64() > self.facts.palette_entries { return Err(_png_error("png-trns-length")) }
+      self.facts.transparency = PngTransparency::Indexed(Bytes::from_array(payload))
+    } else { return Err(_png_error("png-semantic-chunk")) }
+    self.facts.saw_transparency = true
+    return Ok(())
+  }
+  if _png_type_is(kind, b's', b'R', b'G', b'B') {
+    if self.facts.colour_facts.saw_srgb { return Err(_png_error("png-srgb-duplicate")) }
+    let intent = match _png_validate_srgb_payload(payload) { Err(error) => return Err(error); Ok(value) => value }
+    self.facts.colour_facts = { saw_srgb: true, srgb_intent: Some(intent), saw_gamma: self.facts.colour_facts.saw_gamma, gamma_is_srgb: self.facts.colour_facts.gamma_is_srgb, gamma: self.facts.colour_facts.gamma, saw_chrm: self.facts.colour_facts.saw_chrm, chrm_is_srgb: self.facts.colour_facts.chrm_is_srgb, chrm: self.facts.colour_facts.chrm, saw_iccp: self.facts.colour_facts.saw_iccp, iccp_name: self.facts.colour_facts.iccp_name, iccp_profile: self.facts.colour_facts.iccp_profile }
+    return Ok(())
+  }
+  if _png_type_is(kind, b'g', b'A', b'M', b'A') {
+    if self.facts.colour_facts.saw_gamma { return Err(_png_error("png-gama-duplicate")) }
+    let standard = match _png_validate_gamma_payload(payload) { Err(error) => return Err(error); Ok(value) => value }
+    self.facts.colour_facts = { saw_srgb: self.facts.colour_facts.saw_srgb, srgb_intent: self.facts.colour_facts.srgb_intent, saw_gamma: true, gamma_is_srgb: standard, gamma: Some(Bytes::from_array(payload)), saw_chrm: self.facts.colour_facts.saw_chrm, chrm_is_srgb: self.facts.colour_facts.chrm_is_srgb, chrm: self.facts.colour_facts.chrm, saw_iccp: self.facts.colour_facts.saw_iccp, iccp_name: self.facts.colour_facts.iccp_name, iccp_profile: self.facts.colour_facts.iccp_profile }
+    return Ok(())
+  }
+  if _png_type_is(kind, b'c', b'H', b'R', b'M') {
+    if self.facts.colour_facts.saw_chrm { return Err(_png_error("png-chrm-duplicate")) }
+    let standard = match _png_validate_chrm_payload(payload) { Err(error) => return Err(error); Ok(value) => value }
+    self.facts.colour_facts = { saw_srgb: self.facts.colour_facts.saw_srgb, srgb_intent: self.facts.colour_facts.srgb_intent, saw_gamma: self.facts.colour_facts.saw_gamma, gamma_is_srgb: self.facts.colour_facts.gamma_is_srgb, gamma: self.facts.colour_facts.gamma, saw_chrm: true, chrm_is_srgb: standard, chrm: Some(Bytes::from_array(payload)), saw_iccp: self.facts.colour_facts.saw_iccp, iccp_name: self.facts.colour_facts.iccp_name, iccp_profile: self.facts.colour_facts.iccp_profile }
+    return Ok(())
+  }
+  if _png_type_is(kind, b'i', b'C', b'C', b'P') {
+    if self.facts.colour_facts.saw_iccp { return Err(_png_error("png-iccp-duplicate")) }
+    let mut index = 0
+    let name : Array[Byte] = []
+    let mut last_space = false
+    while index < payload.length() && payload[index] != b'\x00' {
+      let byte = payload[index]
+      if !_png_is_iccp_name_byte(byte) || index >= 79 || (index == 0 && byte == b' ') || (byte == b' ' && last_space) { return Err(_png_error("png-iccp-name")) }
+      name.push(byte)
+      last_space = byte == b' '
+      index = index + 1
+    }
+    if index == 0 || index == payload.length() || last_space { return Err(_png_error("png-iccp-name")) }
+    if index + 2 >= payload.length() { return Err(_png_error("png-iccp-envelope")) }
+    if payload[index + 1] != b'\x00' { return Err(_png_error("png-iccp-method")) }
+    let compressed : Array[Byte] = []
+    for cursor = index + 2; cursor < payload.length(); cursor = cursor + 1 { compressed.push(payload[cursor]) }
+    if compressed.length() == 0 { return Err(_png_error("png-iccp-data")) }
+    let temporary = match _png_iccp_temporary_budget(compressed.length().to_uint64(), self.limits, self.budget) { Err(error) => return Err(error); Ok(value) => value }
+    let profile = match _png_machine_inflate_iccp(compressed, self.limits, temporary) { Err(error) => return Err(error); Ok(value) => value }
+    self.facts.colour_facts = { saw_srgb: self.facts.colour_facts.saw_srgb, srgb_intent: self.facts.colour_facts.srgb_intent, saw_gamma: self.facts.colour_facts.saw_gamma, gamma_is_srgb: self.facts.colour_facts.gamma_is_srgb, gamma: self.facts.colour_facts.gamma, saw_chrm: self.facts.colour_facts.saw_chrm, chrm_is_srgb: self.facts.colour_facts.chrm_is_srgb, chrm: self.facts.colour_facts.chrm, saw_iccp: true, iccp_name: Some(Bytes::from_array(name)), iccp_profile: Some(profile) }
+  }
+  Ok(())
+}
+
 ///|
 /// Build the private output exactly when the first IDAT header is accepted.
 /// The IHDR preflight has already validated geometry without charging a
@@ -200,23 +400,34 @@ fn PngDecodeMachine::private_lifecycle_allocations(self : PngDecodeMachine) -> U
 fn PngDecodeMachine::preflight_first_idat(self : PngDecodeMachine) -> Result[Unit, @error.CoreError] {
   if self.lifecycle is Some(_) { return Ok(()) }
   let ihdr = match self.ihdr { Some(value) => value; None => return Err(_png_error("png-ihdr-first")) }
+  if ihdr[9] == b'\x03' && !self.facts.saw_palette { return Err(_png_error("png-plte-required")) }
   let source_channels = if ihdr[9] == 0 || ihdr[9] == 3 { 1UL } else if ihdr[9] == 2 { 3UL } else if ihdr[9] == 4 { 2UL } else { 4UL }
-  let channels = if ihdr[9] == 4 || ihdr[9] == 6 { 4UL } else { 3UL }
+  let channels = match self.facts.transparency {
+    PngTransparency::Opaque => if ihdr[9] == 4 || ihdr[9] == 6 { 4UL } else { 3UL }
+    _ => 4UL
+  }
   let source_bytes_per_pixel = match _png_source_bytes_per_pixel(source_channels, ihdr[8].to_int()) { Err(error) => return Err(error); Ok(value) => value }
+  let indexed = ihdr[9] == 3
   let transport = PngTransport::{
     width: _png_u32_at(ihdr, 0), height: _png_u32_at(ihdr, 4), bit_depth: ihdr[8].to_int(),
-    source_channels, source_bytes_per_pixel, channels, indexed: ihdr[9] == 3,
-    palette: b"", palette_entries: 0UL, transparency: PngTransparency::Opaque,
+    source_channels, source_bytes_per_pixel, channels, indexed,
+    palette: Bytes::from_array(self.facts.palette), palette_entries: self.facts.palette_entries, transparency: self.facts.transparency,
     idat: b"", consumed: 0UL,
   }
-  // Indexed files require PLTE before IDAT.  The full semantic continuation
-  // will supply retained palette/transparency facts before it enables this
-  // lifecycle; fail closed rather than allocate an invalid output.
-  if transport.indexed { return Err(_png_error("png-plte-required")) }
-  let output_budget = match _png_output_budget_for(ihdr, false, channels, self.limits, self.budget) { Err(error) => return Err(error); Ok(value) => value }
+  let declaration = match _png_colour_declaration(self.facts.colour_facts, ihdr[9] == 0 || ihdr[9] == 4) { Err(error) => return Err(error); Ok(value) => value }
+  let output_budget = match _png_output_budget_for(ihdr, indexed, channels, self.limits, self.budget) { Err(error) => return Err(error); Ok(value) => value }
+  let result_budget = match declaration {
+    PngColourDeclaration::Srgb(_) => match _png_srgb_budget(ihdr, indexed, channels, self.limits, self.budget) { Err(error) => return Err(error); Ok((_, raster)) => raster }
+    PngColourDeclaration::Legacy(gamma, chrm) => {
+      let value_bytes = (match gamma { Some(value) => value.length().to_uint64(); None => 0UL }) + (match chrm { Some(value) => value.length().to_uint64(); None => 0UL })
+      match _png_non_srgb_budget(ihdr, indexed, channels, value_bytes, self.limits, self.budget) { Err(error) => return Err(error); Ok((_, raster)) => raster }
+    }
+    PngColourDeclaration::Icc(name, profile) => match _png_non_srgb_budget(ihdr, indexed, channels, name.length().to_uint64() + profile.length().to_uint64(), self.limits, self.budget) { Err(error) => return Err(error); Ok((_, raster)) => raster }
+    PngColourDeclaration::Default => output_budget
+  }
   let descriptor = match _png_descriptor(transport) { Err(error) => return Err(error); Ok(value) => value }
-  let image = match @storage.OwnedImage::new_operation(descriptor, output_budget, PngBuiltinAllocator::{} as &@bytes.Allocator, self.limits.max_work()) { Err(error) => return Err(error); Ok(value) => value }
-  let sink = match PngRasterSink::new(image, transport, ihdr[12] == 1, output_budget) { Err(error) => return Err(error); Ok(value) => value }
+  let image = match @storage.OwnedImage::new_operation(descriptor, result_budget, PngBuiltinAllocator::{} as &@bytes.Allocator, self.limits.max_work()) { Err(error) => return Err(error); Ok(value) => value }
+  let sink = match PngRasterSink::new(image, transport, ihdr[12] == 1, result_budget) { Err(error) => return Err(error); Ok(value) => value }
   self.lifecycle = Some(PngMachineLifecycle::{ sink })
   self.lifecycle_allocations = self.lifecycle_allocations + 1UL
   Ok(())
@@ -282,16 +493,17 @@ fn PngDecodeMachine::accept(
             Ok(_) => ()
           }
         }
+        match self.validate_retained_header(length, kind) {
+          Err(error) => { self.state = PngDecodeMachineState::Failed(error); return Err(error) }
+          Ok(_) => ()
+        }
         let crc = _png_crc_for_type(kind)
         self.state = if length == 0UL { PngDecodeMachineState::Crc(kind, [], [], crc) } else { PngDecodeMachineState::Payload(length, kind, [], crc) }
       }
     }
     PngDecodeMachineState::Payload(remaining, kind, payload, crc) => {
       let next_crc = _png_crc_step(crc, byte)
-      // Only IHDR is retained here, and its declared length is validated to
-      // thirteen before the payload begins. IDAT and ancillary payloads remain
-      // caller-independent but are never accumulated as complete streams.
-      if _png_type_is(kind, b'I', b'H', b'D', b'R') { payload.push(byte) }
+      if _png_machine_retains_payload(kind) { payload.push(byte) }
       if remaining == 1UL { self.state = PngDecodeMachineState::Crc(kind, payload, [], next_crc) } else { self.state = PngDecodeMachineState::Payload(remaining - 1UL, kind, payload, next_crc) }
     }
     PngDecodeMachineState::Crc(kind, payload, bytes, crc) => {
@@ -303,20 +515,18 @@ fn PngDecodeMachine::accept(
           self.state = PngDecodeMachineState::Failed(error)
           return Err(error)
         }
-        // Retain the validated IHDR only. It is bounded to thirteen bytes and
-        // is all this first-IDAT allocation path needs; caller-backed payload
-        // storage never crosses a pause.
         if _png_type_is(kind, b'I', b'H', b'D', b'R') {
-          if payload.length() != 13 {
-            let error = _png_error("png-ihdr-length")
-            self.state = PngDecodeMachineState::Failed(error)
-            return Err(error)
-          }
           match _png_preflight_ihdr(payload, self.limits, self.budget) {
             Err(error) => { self.state = PngDecodeMachineState::Failed(error); return Err(error) }
             Ok(_) => self.ihdr = Some(payload)
           }
+        } else if _png_machine_retains_payload(kind) {
+          match self.apply_pre_idat_chunk(kind, payload) {
+            Err(error) => { self.state = PngDecodeMachineState::Failed(error); return Err(error) }
+            Ok(_) => ()
+          }
         }
+        if _png_type_is(kind, b'I', b'D', b'A', b'T') { self.saw_idat = true }
         self.last_chunk_complete = true
         self.state = PngDecodeMachineState::Length([])
       }
