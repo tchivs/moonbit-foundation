@@ -1379,6 +1379,7 @@
             "pub(all) enum PngCompressionStrategy {",
             "  Stored",
             "  FixedOrStored",
+            "  DynamicOrFixedOrStored",
             "} derive(Eq)",
             "pub struct PngDecoder {",
             "}",

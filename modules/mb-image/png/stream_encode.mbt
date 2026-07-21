@@ -23,9 +23,11 @@ pub fn PngChunkEncoder::new(
 
 ///|
 /// Constructs a caller-buffered encoder with an explicit PNG compression strategy.
-/// `FixedOrStored` completes bounded exact admission before output, selecting its
-/// deterministic fixed-Huffman representation only when the complete PNG is no larger
-/// than Stored. The legacy constructor remains an explicit Stored route.
+/// `Stored` and `FixedOrStored` retain frozen compatibility output. `DynamicOrFixedOrStored`
+/// may choose Dynamic only for a strict complete-PNG win over unchanged FixedOrStored and
+/// retains FixedOrStored on a tie. It excludes adaptive filtering, matching beyond distance
+/// four, 32 KiB history, image-sized staging, length-limited optimization, FFI, host
+/// streaming, APNG, colour, and metadata expansion; the legacy constructor remains Stored.
 pub fn PngChunkEncoder::new_with_compression_strategy(
   source : @storage.ImageView,
   strategy : PngCompressionStrategy,
@@ -124,8 +126,9 @@ pub fn PngChunkEncoder::pull(
 
 ///|
 /// Private, owned PNG output state. Stored keeps its frozen byte path; configured
-/// FixedOrStored uses scalar fixed-Huffman replay with no dynamic tree, adaptive filter,
-/// 32 KiB dictionary, FFI codec, host adapter, caller lease, or output-sized staging.
+/// FixedOrStored and compatibility-phase DynamicOrFixedOrStored use scalar fixed-Huffman
+/// replay with no dynamic tree, adaptive filter, 32 KiB dictionary, FFI codec, host
+/// adapter, caller lease, or output-sized staging.
 priv struct PngEncodeMachine {
   source : @storage.ImageView
   strategy : PngCompressionStrategy

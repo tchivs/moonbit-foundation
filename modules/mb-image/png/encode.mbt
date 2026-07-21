@@ -307,7 +307,8 @@ fn _png_fixed_plan(
 ///|
 /// The one authoritative, atomic admission path for eager and caller-buffered
 /// output. FixedOrStored completes a bounded exact fixed-or-stored choice before
-/// the single resource charge; Stored retains the frozen baseline path.
+/// the single resource charge; DynamicOrFixedOrStored currently shares that unchanged
+/// choice, while Stored retains the frozen baseline path.
 fn _png_encode_preflight(
   source : @storage.ImageView,
   strategy : PngCompressionStrategy,
@@ -359,7 +360,8 @@ fn _png_encode_preflight(
   }
   let plan = match strategy {
     PngCompressionStrategy::Stored => PngDeflatePlan::Stored(stored)
-    PngCompressionStrategy::FixedOrStored => {
+    PngCompressionStrategy::FixedOrStored |
+    PngCompressionStrategy::DynamicOrFixedOrStored => {
       let fixed = match _png_fixed_plan(source, row_bytes, channels, scanlines) {
         Err(error) => return Err(error)
         Ok(value) => value

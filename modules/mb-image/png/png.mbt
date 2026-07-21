@@ -69,18 +69,21 @@ pub fn PngChunkDecoder::new(
 
 ///|
 /// A PNG-specific compression selection for the strict RGB8 and straight-RGBA8 profile.
-/// `FixedOrStored` completes a bounded exact preflight and emits fixed-Huffman output
-/// only when its distance-1-through-4 deterministic matcher makes the complete PNG no
-/// larger than the exact Stored plan; otherwise it emits Stored. It excludes dynamic
-/// Huffman coding, adaptive filters, a 32 KiB dictionary, FFI codecs, and host adapters.
+/// `Stored` and `FixedOrStored` are frozen compatibility routes. `DynamicOrFixedOrStored`
+/// may select Dynamic only when a complete PNG is strictly smaller than unchanged
+/// `FixedOrStored`; a tie retains `FixedOrStored`. This phase excludes adaptive filtering,
+/// matching beyond distance four, 32 KiB history, image-sized staging, length-limited
+/// optimization, FFI, host streaming, APNG, colour, and metadata expansion.
 pub(all) enum PngCompressionStrategy {
   Stored
   FixedOrStored
+  DynamicOrFixedOrStored
 } derive(Eq)
 
 ///|
 /// A deterministic encoder for the strict RGB8 and straight-RGBA8 PNG profile.
-/// It emits one canonical stored-DEFLATE representation without host adapters.
+/// `new()` emits the frozen Stored representation; the configured factory retains the
+/// frozen FixedOrStored route and provides the opt-in DynamicOrFixedOrStored contract.
 pub struct PngEncoder {
   priv strategy : PngCompressionStrategy
 }
@@ -92,8 +95,11 @@ pub fn PngEncoder::new() -> PngEncoder {
 
 ///|
 /// Constructs an encoder with an explicit PNG compression strategy. `FixedOrStored`
-/// chooses the bounded exact fixed-Huffman plan only when it is no larger than Stored;
-/// the legacy `new()` constructor remains an explicit Stored route.
+/// retains its frozen bounded exact fixed-or-Stored choice. `DynamicOrFixedOrStored` may
+/// choose Dynamic only for a strict complete-PNG win over unchanged FixedOrStored and
+/// retains FixedOrStored on a tie. It excludes adaptive filters, matching beyond distance
+/// four, 32 KiB history, image-sized staging, length-limited optimization, FFI, host
+/// streaming, APNG, colour, and metadata expansion; `new()` remains an explicit Stored route.
 pub fn PngEncoder::new_with_compression_strategy(
   strategy : PngCompressionStrategy,
 ) -> PngEncoder {
