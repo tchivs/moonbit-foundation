@@ -94,6 +94,26 @@ test "PNG encode machine presents bytes without advancing and keeps scalar owner
 }
 
 ///|
+test "PNG encode machine retains the failed Writer byte until acknowledgement" {
+  let image = png_stream_wb_image()
+  let machine = PngEncodeMachine::new(
+    image.view(), png_stream_wb_limits(), png_stream_wb_budget(),
+    @error.Diagnostics::new(),
+  ).unwrap()
+  let mut accepted = 0UL
+  while accepted < 43UL {
+    let byte = machine.present().unwrap().unwrap()
+    machine.acknowledge(byte).unwrap()
+    accepted = accepted + 1UL
+  }
+  let failed = machine.present().unwrap().unwrap()
+  inspect(machine.completed(), content="43")
+  inspect(failed == b'\x01', content="true")
+  inspect(machine.present().unwrap() == Some(failed), content="true")
+  inspect(machine.completed(), content="43")
+}
+
+///|
 test "PNG encode machine covers IDAT CRC and Adler over canonical ranges" {
   let image = png_stream_wb_image()
   let machine = PngEncodeMachine::new(

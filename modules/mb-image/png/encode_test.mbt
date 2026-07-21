@@ -157,30 +157,55 @@ test "PNG encoder rejects retained non-sRGB metadata before output" {
 }
 
 ///|
-struct PngEncodeScriptWriter { mut completed : UInt64; fail_at : UInt64 }
+struct PngEncodeScriptWriter {
+  mut completed : UInt64
+  mut calls : UInt64
+  accepted : Array[Byte]
+  mut one_byte_calls : Bool
+  fail_at : UInt64
+}
 
 ///|
-impl @io.Writer for PngEncodeScriptWriter with fn write(self, _source) {
+impl @io.Writer for PngEncodeScriptWriter with fn write(self, source) {
+  self.calls = self.calls + 1UL
+  if source.length() != 1UL { self.one_byte_calls = false }
   if self.completed >= self.fail_at {
     @io.WriteOutcome::Failed(@error.CoreError::new(
       @error.ErrorCategory::Host, @error.ErrorCode::HostOperationFailed,
-      operation="png-scripted-write", context="scripted",
+      operation="png-scripted-write", requested=91UL, completed=17UL,
+      limit=23UL, context="scripted",
     ), 0UL)
   } else {
+    self.accepted.push(source.get(0UL).unwrap())
     self.completed = self.completed + 1UL
     @io.WriteOutcome::Progress(1UL)
   }
 }
 
 ///|
-test "PNG encoder retains requested and completed Writer progress" {
-  let failed = PngEncodeScriptWriter::{ completed: 0UL, fail_at: 15UL }
+test "PNG encoder preserves complete-write failure and acknowledges only accepted bytes" {
+  let image = png_encode_image(3UL, b"\x12\x34\x56")
+  let canonical = png_encode(image).1 |> png_encode_prefix
+  let failed = PngEncodeScriptWriter::{
+    completed: 0UL, calls: 0UL, accepted: [], one_byte_calls: true, fail_at: 43UL,
+  }
   let error = @codec.ImageEncoder::encode(
-    PngEncoder::new(), png_encode_image(3UL, b"\x12\x34\x56").view(), failed as &@io.Writer,
+    PngEncoder::new(), image.view(), failed as &@io.Writer,
     @codec.EncodeOptions::new(lossless_required=true, preserve_opaque_metadata=false),
     png_encode_limits(), png_encode_budget(), @error.Diagnostics::new(),
   ).unwrap_err()
   inspect(error.code() == @error.ErrorCode::HostOperationFailed, content="true")
-  inspect(error.requested() == Some(72UL), content="true")
-  inspect(error.completed() == Some(15UL), content="true")
+  inspect(error.operation() == Some("write_all"), content="true")
+  inspect(error.requested() == Some(1UL), content="true")
+  inspect(error.completed() == Some(0UL), content="true")
+  inspect(error.limit() == None, content="true")
+  inspect(error.context() == None, content="true")
+  inspect(failed.completed == 43UL, content="true")
+  inspect(failed.calls == 44UL, content="true")
+  inspect(failed.one_byte_calls, content="true")
+  let expected_prefix : Array[Byte] = []
+  for index = 0; index < 43; index = index + 1 {
+    expected_prefix.push(canonical[index])
+  }
+  inspect(Bytes::from_array(failed.accepted) == Bytes::from_array(expected_prefix), content="true")
 }
