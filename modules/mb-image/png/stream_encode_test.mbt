@@ -93,6 +93,68 @@ fn png_stream_test_flat_image(channels : UInt64, width : UInt64) -> @storage.Own
 }
 
 ///|
+fn png_stream_test_fixed_or_stored_corpus_decode_matches_source(
+  bytes : Bytes,
+  source : @storage.OwnedImage,
+) -> Unit {
+  let owner = @bytes.OwnedBytes::from_bytes(
+    bytes, png_stream_test_budget(work=0UL),
+  ).unwrap()
+  let decoded = @codec.ImageDecoder::decode(
+    PngDecoder::new(), @io.MemoryReader::new(owner.view()) as &@io.Reader,
+    @codec.DecodeOptions::new(
+      require_complete_input=true, preserve_opaque_metadata=false,
+    ), png_stream_test_limits(), png_stream_test_budget(), @error.Diagnostics::new(),
+  ).unwrap()
+  let restored = decoded.image().view()
+  let expected = source.view()
+  if decoded.image().descriptor().width() != source.descriptor().width() ||
+    decoded.image().descriptor().height() != source.descriptor().height() ||
+    decoded.image().descriptor().format().channel_count() !=
+      source.descriptor().format().channel_count() {
+    abort("png fixed-or-stored corpus decoded descriptor")
+  }
+  for y = 0UL; y < expected.height(); y = y + 1UL {
+    for x = 0UL; x < expected.width(); x = x + 1UL {
+      for channel = 0UL; channel < expected.format().channel_count(); channel = channel + 1UL {
+        if restored.get_byte(x, y, channel).unwrap() !=
+          expected.get_byte(x, y, channel).unwrap() {
+          abort("png fixed-or-stored corpus decoded component")
+        }
+      }
+    }
+  }
+}
+
+///|
+fn png_stream_test_fixed_or_stored_corpus_case(source : @storage.OwnedImage) -> Unit {
+  let stored = png_stream_test_eager_with_strategy(source, PngCompressionStrategy::Stored)
+  let eager_first = png_stream_test_eager_with_strategy(
+    source, PngCompressionStrategy::FixedOrStored,
+  )
+  let eager_second = png_stream_test_eager_with_strategy(
+    source, PngCompressionStrategy::FixedOrStored,
+  )
+  let encoder = PngChunkEncoder::new_with_compression_strategy(
+    source.view(), PngCompressionStrategy::FixedOrStored,
+    png_stream_test_limits(), png_stream_test_budget(), @error.Diagnostics::new(),
+  ).unwrap()
+  let chunked = png_chunk_test_drain_encoder(encoder, [0UL, 1UL, 3UL, 2UL, 5UL]).unwrap()
+  if eager_first.length() > stored.length() {
+    abort("png fixed-or-stored corpus never-larger")
+  }
+  if eager_first.length() >= stored.length() {
+    abort("png fixed-or-stored corpus win")
+  }
+  if eager_first != eager_second || eager_first != chunked {
+    abort("png fixed-or-stored corpus determinism")
+  }
+  png_stream_test_fixed_or_stored_corpus_decode_matches_source(eager_first, source)
+  png_stream_test_fixed_or_stored_corpus_decode_matches_source(eager_second, source)
+  png_stream_test_fixed_or_stored_corpus_decode_matches_source(chunked, source)
+}
+
+///|
 fn png_chunk_test_owner(capacity : UInt64, fill? : Byte = b'\x00') -> @bytes.OwnedBytes {
   @bytes.OwnedBytes::from_bytes(
     Bytes::from_array(Array::make(capacity.to_int(), fill)),
