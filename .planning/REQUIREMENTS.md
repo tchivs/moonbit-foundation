@@ -12,7 +12,7 @@
 
 ## Dynamic PNG Evidence
 
-- [ ] **PNGD-04**: Maintainers can reproduce a generated, literal-heavy RGB8 and straight-RGBA8 corpus on js, wasm, wasm-gc, and native that proves a Dynamic block (`BTYPE=10`) is strictly smaller than FixedOrStored, deterministic across eager and hostile chunk schedules, and decodes completely to every source component.
+- [x] **PNGD-04**: Maintainers can reproduce a generated, literal-heavy RGB8 and straight-RGBA8 corpus on js, wasm, wasm-gc, and native that proves a Dynamic block (`BTYPE=10`) is strictly smaller than FixedOrStored, deterministic across eager and hostile chunk schedules, and decodes completely to every source component.
 
 ## Scope Fences
 
@@ -31,7 +31,7 @@
 | PNGD-01 | Phase 35 | Complete |
 | PNGD-02 | Phase 36 | Complete |
 | PNGD-03 | Phase 36 | Complete |
-| PNGD-04 | Phase 37 | Pending |
+| PNGD-04 | Phase 37 | Complete |
 
 **Coverage:**
 

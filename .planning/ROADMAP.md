@@ -24,7 +24,7 @@
 
 - [x] **Phase 35: Dynamic Strategy Compatibility** - Users can choose the explicit dynamic route while Stored and FixedOrStored stay frozen compatibility baselines. (completed 2026-07-22)
 - [x] **Phase 36: Bounded Dynamic Planning and Replay** - Dynamic output is an exact, bounded, acknowledgement-safe strict winner or falls back to the existing FixedOrStored bytes. (completed 2026-07-22)
-- [ ] **Phase 37: Four-Target Dynamic Compression Evidence** - A generated corpus proves deterministic dynamic wins and complete decoded fidelity across all supported targets.
+- [x] **Phase 37: Four-Target Dynamic Compression Evidence** - A generated corpus proves deterministic dynamic wins and complete decoded fidelity across all supported targets. (completed 2026-07-22)
 
 ## Phase Details
 
@@ -85,7 +85,7 @@
 |-------|----------------|--------|-----------|
 | 35. Dynamic Strategy Compatibility | 1/1 | Complete    | 2026-07-22 |
 | 36. Bounded Dynamic Planning and Replay | 2/2 | Complete    | 2026-07-22 |
-| 37. Four-Target Dynamic Compression Evidence | 0/TBD | Not started | - |
+| 37. Four-Target Dynamic Compression Evidence | 1/1 | Complete    | 2026-07-22 |
 
 ---
 *Roadmap updated: 2026-07-22 for v0.11 PNG Dynamic Huffman Compression planning.*
