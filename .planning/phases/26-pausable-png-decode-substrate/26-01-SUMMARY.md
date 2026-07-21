@@ -30,6 +30,7 @@ key-decisions:
   - "Keep the byte-fed state machine private in Phase 26; PngDecoder remains the only public decoder facade."
   - "Create no observable result until IDAT CRC, zlib Adler-32, IEND CRC, and EOF validation all succeed."
   - "Reuse the established full-profile generated corpus rather than introduce a second PNG parser or alter fixture policy."
+requirements-completed: [PNGS-03]
 metrics:
   tasks_completed: 3
   four_target_png_tests: 68

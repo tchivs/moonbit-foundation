@@ -82,8 +82,8 @@ Publication, registry-consumer proof, provenance closure, and any release automa
 **Milestone goal:** Add a portable, caller-buffered PNG decode path that pauses at arbitrary input boundaries while preserving eager PNG semantics, strict completion, bounded resources, and private output until success.
 
 - [x] **Phase 26: Pausable PNG Decode Substrate** - Existing eager PNG decoding remains compatible while framing, IDAT, DEFLATE, and raster work can safely pause at every byte boundary. (completed 2026-07-21)
-- [ ] **Phase 27: Public PNG Chunk Decoder** - Users can feed caller-owned PNG chunks and explicitly receive one eager-equivalent completed image or a sticky typed terminal error.
-- [ ] **Phase 28: Portable PNG Streaming Evidence** - Users and maintainers can verify hostile chunk schedules and one public portable chunk-decode workflow on all four targets.
+- [x] **Phase 27: Public PNG Chunk Decoder** - Users can feed caller-owned PNG chunks and explicitly receive one eager-equivalent completed image or a sticky typed terminal error. (completed 2026-07-21)
+- [x] **Phase 28: Portable PNG Streaming Evidence** - Users and maintainers can verify hostile chunk schedules and one public portable chunk-decode workflow on all four targets. (completed 2026-07-21)
 
 ## Phase Details
 
