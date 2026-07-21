@@ -175,37 +175,36 @@ test "PNG decoder retains a declared sRGB rendering intent" {
 }
 
 ///|
-test "PNG decoder makes non-sRGB colour declarations explicit" {
+test "PNG decoder retains legacy non-sRGB declarations without relabelling samples" {
   let prefix = b"\x89PNG\r\n\x1a\n\x00\x00\x00\x0dIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x02\x00\x00\x00\x90\x77\x53\xde"
   let idat_and_end = b"\x00\x00\x00\x0fIDAT\x78\x01\x01\x04\x00\xfb\xff\x00\x12\x34\x56\x00\xf8\x00\x9d\xf8\xd7\x64\x8c\x00\x00\x00\x00IEND\xae\x42\x60\x82"
-  for declaration in [
-    b"\x00\x00\x00\x04gAMA\x00\x01\x86\xa0\x31\xe8\x96\x5f",
-    b"\x00\x00\x00\x04iCCPp\x00\x00\x78\x5b\x5b\xe5\x86",
-  ] {
-    let source = prefix + declaration + idat_and_end
-    let owner = @bytes.OwnedBytes::from_bytes(
-      source,
-      @budget.Budget::new(@budget.ResourceLimits::new(
-        bytes=source.length().to_uint64(), allocations=1UL,
-        allocation_size=source.length().to_uint64(), width=0UL, height=0UL,
-        pixels=0UL, depth=0UL, work=0UL,
-      )),
-    ).unwrap()
-    let error = @codec.ImageDecoder::decode(
-      PngDecoder::new(), @io.MemoryReader::new(owner.view()) as &@io.Reader,
-      @codec.DecodeOptions::new(
-        require_complete_input=true, preserve_opaque_metadata=false,
-      ),
-      png_test_limits(),
-      @budget.Budget::new(@budget.ResourceLimits::new(
-        bytes=128UL, allocations=1UL, allocation_size=64UL, width=4UL,
-        height=4UL, pixels=16UL, depth=0UL, work=128UL,
-      )),
-      @error.Diagnostics::new(),
-    ).unwrap_err()
-    inspect(error.code() == @error.ErrorCode::CapabilityUnavailable, content="true")
-    inspect(error.context() == Some("png-colour-transform-unavailable"), content="true")
-  }
+  let source = prefix + b"\x00\x00\x00\x04gAMA\x00\x01\x86\xa0\x31\xe8\x96\x5f" + idat_and_end
+  let owner = @bytes.OwnedBytes::from_bytes(
+    source,
+    @budget.Budget::new(@budget.ResourceLimits::new(
+      bytes=source.length().to_uint64(), allocations=1UL,
+      allocation_size=source.length().to_uint64(), width=0UL, height=0UL,
+      pixels=0UL, depth=0UL, work=0UL,
+    )),
+  ).unwrap()
+  let result = @codec.ImageDecoder::decode(
+    PngDecoder::new(), @io.MemoryReader::new(owner.view()) as &@io.Reader,
+    @codec.DecodeOptions::new(require_complete_input=true, preserve_opaque_metadata=false),
+    png_test_limits(),
+    @budget.Budget::new(@budget.ResourceLimits::new(
+      bytes=128UL, allocations=1UL, allocation_size=64UL, width=4UL,
+      height=4UL, pixels=16UL, depth=0UL, work=128UL,
+    )),
+    @error.Diagnostics::new(),
+  ).unwrap()
+  let metadata = result.image().metadata()
+  inspect(metadata.transfer() == @color.TransferIdentity::LinearSrgb, content="true")
+  inspect(!metadata.profile().is_builtin_srgb(), content="true")
+  inspect(metadata.opaque_metadata().length(), content="1")
+  let entry = metadata.opaque_metadata().entry(0).unwrap()
+  inspect(entry.canonical_key() == "png:legacy:gamma", content="true")
+  inspect(entry.value().get(0UL).unwrap(), content="b'\\x00'")
+  inspect(result.image().view().get_byte(0UL, 0UL, 0UL).unwrap(), content="b'\\x12'")
 }
 
 ///|
