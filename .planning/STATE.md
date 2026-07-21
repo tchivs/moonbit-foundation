@@ -5,16 +5,16 @@ milestone_name: PNG Colour Fidelity
 current_phase: 24
 current_phase_name: Bounded Non-sRGB and ICC Preservation
 status: planning
-stopped_at: Phase 24 context gathered
-last_updated: "2026-07-21T01:26:09.059Z"
+stopped_at: Completed 24-01-PLAN.md
+last_updated: "2026-07-21T02:09:21.491Z"
 last_activity: 2026-07-21
 last_activity_desc: Phase 23 complete, transitioned to Phase 24
 progress:
   total_phases: 17
-  completed_phases: 3
-  total_plans: 8
-  completed_plans: 6
-  percent: 18
+  completed_phases: 4
+  total_plans: 9
+  completed_plans: 7
+  percent: 24
 ---
 
 # Project State
@@ -34,7 +34,7 @@ Plan: Not started
 Status: Ready to plan
 Last activity: 2026-07-21 — Phase 23 complete, transitioned to Phase 24
 
-Progress: [████████░░] 75%
+Progress: [████████░░] 78%
 
 ## Performance Metrics
 
@@ -57,6 +57,7 @@ Progress: [████████░░] 75%
 - [Phase ?]: Generated PNG colour fixtures independently validate CRC, order, grammar, sRGB metadata intent, and non-sRGB capability boundaries.
 - [Phase ?]: Fixed-size PNG colour chunks are rejected from their headers before payload reads; iCCP remains on its streaming envelope path.
 - [Phase ?]: Generated 2 GiB fixed-colour hostile cases end at the chunk type to prove pre-payload rejection.
+- [Phase ?]: Retained non-sRGB PNG declarations use opaque profiles and a non-encoded-sRGB identity.
 
 ### Pending Todos
 
@@ -84,6 +85,7 @@ None.
 \* The PNG quality lane and all portable tests pass; the all-package `--deny-warn` command still reports the pre-existing 26 generated/legacy unused-field diagnostics documented in the quick-task verification.
 | Phase 23-png-colour-declaration-and-srgb-semantics P01 | 0h 24m | 2 tasks | 9 files |
 | Phase 23-png-colour-declaration-and-srgb-semantics P02 | 0h 18m | 2 tasks | 6 files |
+| Phase 24-bounded-non-srgb-and-icc-preservation P01 | 40min | 3 tasks | 9 files |
 
 ## Deferred Items
 
@@ -97,6 +99,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-07-21T01:26:09.037Z
-Stopped at: Phase 24 context gathered
-Resume file: .planning/phases/24-bounded-non-srgb-and-icc-preservation/24-CONTEXT.md
+Last session: 2026-07-21T02:09:21.476Z
+Stopped at: Completed 24-01-PLAN.md
+Resume file: None

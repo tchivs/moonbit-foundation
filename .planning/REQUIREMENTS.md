@@ -9,8 +9,8 @@
 
 - [x] **PNGCM-01**: A library user receives a typed deterministic rejection for duplicate, late, malformed, or conflicting recognised PNG colour chunks before an image is exposed.
 - [x] **PNGCM-02**: A library user can decode a valid `sRGB` declaration into the existing encoded-sRGB image metadata while retaining its rendering intent.
-- [ ] **PNGCM-03**: A library user can receive valid `gAMA`, `cHRM`, or `iCCP` declarations as bounded, explicit non-sRGB image metadata rather than having raw samples silently relabelled as sRGB.
-- [ ] **PNGCM-04**: A library user receives a typed capability result when a requested PNG operation would require an unavailable colour transform or would discard non-sRGB colour semantics.
+- [x] **PNGCM-03**: A library user can receive valid `gAMA`, `cHRM`, or `iCCP` declarations as bounded, explicit non-sRGB image metadata rather than having raw samples silently relabelled as sRGB.
+- [x] **PNGCM-04**: A library user receives a typed capability result when a requested PNG operation would require an unavailable colour transform or would discard non-sRGB colour semantics.
 
 ### PNG Colour Evidence
 
@@ -38,8 +38,8 @@
 |-------------|-------|--------|
 | PNGCM-01 | Phase 23 | Complete |
 | PNGCM-02 | Phase 23 | Complete |
-| PNGCM-03 | Phase 24 | Pending |
-| PNGCM-04 | Phase 24 | Pending |
+| PNGCM-03 | Phase 24 | Complete |
+| PNGCM-04 | Phase 24 | Complete |
 | PNGCM-05 | Phase 25 | Pending |
 
 **Coverage:**

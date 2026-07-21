@@ -354,7 +354,9 @@ Plans:
 2. Invalid profile names, methods, zlib payloads, incompatible ICC colour spaces, and resource expansion fail deterministically before output.
 3. Reference operations and canonical PNG encoding return a typed capability result rather than losing non-sRGB semantics.
 
-**Plans:** TBD
+**Plans:** 1/1 plans executed
+
+- [x] 24-01-PLAN.md
 
 ### Phase 25: Portable Colour Conformance Evidence
 
