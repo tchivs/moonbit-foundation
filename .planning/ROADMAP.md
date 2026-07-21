@@ -11,116 +11,62 @@
 - ✅ **v0.7 PNG Colour Fidelity** — Phases 23-25, strict PNG colour declarations without silent non-sRGB loss (shipped 2026-07-21).
 - ✅ **v0.8 Resumable PNG Decode** — Phases 26-28, portable caller-buffered decode with strict completion and four-target evidence (shipped 2026-07-21). [Full history](./milestones/v0.8-ROADMAP.md).
 - ✅ **v0.9 Resumable PNG Encode** — Phases 29-31, portable caller-buffered canonical PNG output with eager parity and four-target evidence (shipped 2026-07-21). [Full history](./milestones/v0.9-ROADMAP.md).
-- 📋 **v0.10 PNG Compression Optimization** — Phases 32-34, opt-in fixed-Huffman-or-stored PNG compression with stored-DEFLATE defaults preserved, bounded admission, and four-target corpus evidence (planned).
+- ✅ **v0.10 PNG Compression Optimization** — Phases 32-34, opt-in fixed-Huffman-or-stored PNG compression with stored-DEFLATE defaults preserved, bounded admission, and four-target corpus evidence (shipped 2026-07-22). [Full history](./milestones/v0.10-ROADMAP.md).
+- 📋 **v0.11 PNG Dynamic Huffman Compression** — Phases 35-37, a bounded opt-in dynamic route that is selected only for a strict complete-PNG size win over unchanged FixedOrStored output.
 
 ## Phases
 
-<details>
-<summary>✅ v0.8 Resumable PNG Decode (Phases 26-28) — SHIPPED 2026-07-21</summary>
+### v0.11 PNG Dynamic Huffman Compression (Phases 35-37)
 
-- [x] Phase 26: Pausable PNG Decode Substrate (1/1 plan) — completed 2026-07-21
-- [x] Phase 27: Public PNG Chunk Decoder (3/3 plans) — completed 2026-07-21
-- [x] Phase 28: Portable PNG Streaming Evidence (1/1 plan) — completed 2026-07-21
+**Milestone goal:** Library users can explicitly opt into bounded dynamic-Huffman PNG compression that never changes existing Stored or FixedOrStored bytes and selects Dynamic only for a strict complete-PNG size win.
 
-</details>
+**Scope boundary:** Retain filter-None scanlines and the distance-1-through-4 matcher. Do not add adaptive filtering, a 32 KiB dictionary, broader matching, image-sized staging, length-limited/package-merge optimization, FFI, host adapters, external packages, CI/release/registry work, APNG, colour work, or metadata expansion. Preserve one-IDAT framing, zlib, CRC, Adler-32, eager/caller-lease lifecycles, exact progress, and sticky terminals.
 
-<details>
-<summary>✅ v0.9 Resumable PNG Encode (Phases 29-31) — SHIPPED 2026-07-21</summary>
-
-- [x] **Phase 29: Pausable PNG Encode Substrate** - Compatible images can be admitted or rejected before output while a private MoonBit state machine prepares canonical PNG emission. (completed 2026-07-21)
-- [x] **Phase 30: Public PNG Chunk Encoder** - Library users can drain one canonical eager-equivalent PNG through arbitrary caller-owned output buffers. (completed 2026-07-21)
-- [x] **Phase 31: Portable PNG Encode Evidence** - Four-target hostile-schedule proof and a public decode-process-encode workflow validate the complete contract. (completed 2026-07-21)
-
-</details>
-
-### v0.10 PNG Compression Optimization (Phases 32-34)
-
-**Milestone goal:** Library users can explicitly opt into deterministic, resource-bounded fixed-Huffman-or-stored PNG compression without silently changing the established stored-DEFLATE eager or caller-buffered output.
-
-**Scope boundary:** Existing stored-DEFLATE constructors remain the default and byte-stable baseline. Dynamic Huffman, adaptive filters, a 32 KiB LZ77 dictionary, FFI codecs, host stream adapters, registry/release work, APNG, colour-transform work, and metadata expansion remain outside this milestone.
-
-- [x] **Phase 32: PNG Compression Strategy and Compatibility** - Users can select a documented additive compression strategy while legacy eager and chunk constructors retain their exact stored-DEFLATE bytes. (completed 2026-07-22)
-- [x] **Phase 33: Fixed-or-Stored PNG Planning and Emission** - Optimized users receive deterministic, preflighted fixed-Huffman-or-stored eager and caller-buffered output with exact progress and sticky terminals. (completed 2026-07-22)
-- [x] **Phase 34: Portable PNG Compression Corpus Evidence** - A reproducible four-target corpus proves valid, deterministic, never-larger optimized output and declared flat-image wins. (completed 2026-07-22)
+- [ ] **Phase 35: Dynamic Strategy Compatibility** - Users can choose the explicit dynamic route while Stored and FixedOrStored stay frozen compatibility baselines.
+- [ ] **Phase 36: Bounded Dynamic Planning and Replay** - Dynamic output is an exact, bounded, acknowledgement-safe strict winner or falls back to the existing FixedOrStored bytes.
+- [ ] **Phase 37: Four-Target Dynamic Compression Evidence** - A generated corpus proves deterministic dynamic wins and complete decoded fidelity across all supported targets.
 
 ## Phase Details
 
-### Phase 29: Pausable PNG Encode Substrate
+### Phase 35: Dynamic Strategy Compatibility
 
-**Goal**: Compatible RGB8 and straight-RGBA8 images can enter a private resumable MoonBit encoding state only after eager-equivalent capability, dimension, limit, and budget preflight succeeds.
-**Depends on**: Phase 28
-**Requirements**: PNGE-01
+**Goal**: Library users can explicitly select a documented dynamic compression route without changing the frozen Stored defaults or established FixedOrStored byte sequences.
+**Depends on**: Phase 34
+**Requirements**: PNGD-01
 **Success Criteria** (what must be TRUE):
 
-  1. A library user can begin chunked encoding for a compatible RGB8 or straight-RGBA8 image only after all eager-equivalent capability, dimension, limit, and budget checks have passed.
-  2. A library user receives the existing typed rejection for an incompatible image or exhausted limit/budget before any PNG byte is exposed.
-
-**Plans**: 3/3 plans executed
-
-- [x] 29-01-PLAN.md
-- [x] 29-02-PLAN.md
-- [x] 29-03-PLAN.md
-
-### Phase 30: Public PNG Chunk Encoder
-
-**Goal**: Library users can emit exactly one canonical PNG through arbitrary caller-owned mutable output buffers with exact progress and sticky terminals.
-**Depends on**: Phase 29
-**Requirements**: PNGE-02, PNGE-03
-**Success Criteria** (what must be TRUE):
-
-  1. A library user can repeatedly supply empty, tiny, or irregular mutable output buffers and observe deterministic exact progress until canonical PNG output is complete.
-  2. The concatenated bytes emitted through every valid output schedule exactly match the eager PNG encoder's canonical output, with no duplicated or omitted byte.
-  3. After successful completion or a typed terminal failure, later calls expose no additional bytes and report the same sticky terminal outcome.
+  1. A library user can select `DynamicOrFixedOrStored` through additive eager and caller-buffered factories.
+  2. A library user continuing to use legacy constructors receives the same frozen Stored PNG bytes for compatible RGB8 and straight-RGBA8 sources.
+  3. A library user selecting `FixedOrStored` receives the same frozen byte sequence as before; only the new strategy may ever choose a dynamic block.
+  4. Public strategy documentation states the strict-win policy and excludes adaptive filters, broader matching, and host-streaming expansion.
 
 **Plans**: TBD
 
-### Phase 31: Portable PNG Encode Evidence
+### Phase 36: Bounded Dynamic Planning and Replay
 
-**Goal**: Maintainers and library users can verify the public resumable PNG encode contract across all portable targets in hostile and end-to-end workflows.
-**Depends on**: Phase 30
-**Requirements**: PNGE-04, PNGE-05
+**Goal**: A dynamic-strategy user receives a deterministic, bounded Dynamic PNG only when it is strictly smaller than the unchanged FixedOrStored winner, with exact preflight and acknowledgement-safe eager/chunk replay.
+**Depends on**: Phase 35
+**Requirements**: PNGD-02, PNGD-03
 **Success Criteria** (what must be TRUE):
 
-  1. Maintainers can run a deterministic quality lane on js, wasm, wasm-gc, and native that verifies hostile output capacities, eager/chunk byte parity, preflight limits and budgets, and sticky terminal behavior.
-  2. A library user can run one public chunk-decode to image-operation to chunk-encode workflow on every supported target and receive the same deterministic output evidence.
+  1. An admitted compatible image receives either a legal single Dynamic DEFLATE block or the byte-identical existing FixedOrStored winner, with Dynamic selected only when the complete PNG is strictly smaller.
+  2. A dynamic candidate whose ordinary canonical construction cannot stay within DEFLATE's 15-bit bound falls back to FixedOrStored without a length-limited optimizer or image-sized staging.
+  3. Capability, geometry, output, work, and budget rejection occurs before an eager writer or caller lease observes any byte; the selected exact plan is charged once.
+  4. A library user can drain dynamic eager and caller-buffered output under arbitrary valid capacities with exact progress, byte-identical results, acknowledgement-only state commits, and sticky completion/failure behavior.
 
 **Plans**: TBD
 
-### Phase 32: PNG Compression Strategy and Compatibility
+### Phase 37: Four-Target Dynamic Compression Evidence
 
-**Goal**: Library users can explicitly choose a documented PNG compression strategy without changing the byte-for-byte stored-DEFLATE behavior of existing eager or caller-buffered constructors.
-**Depends on**: Phase 31
-**Requirements**: PNGC-01
+**Goal**: Maintainers can reproduce portable evidence that the explicit dynamic route is deterministic, strictly wins where intended, and decodes faithfully through the public PNG API.
+**Depends on**: Phase 36
+**Requirements**: PNGD-04
 **Success Criteria** (what must be TRUE):
 
-  1. A library user can request the documented opt-in compression strategy through an additive public contract rather than a changed default.
-  2. A library user who keeps using the existing eager or chunk encoder constructor receives the identical stored-DEFLATE PNG bytes as before for the same compatible image.
-  3. A library user can distinguish the supported optimized strategy from the stored baseline without gaining dynamic Huffman, adaptive filtering, host streaming, or other excluded compression behavior.
-
-**Plans**: TBD
-
-### Phase 33: Fixed-or-Stored PNG Planning and Emission
-
-**Goal**: A library user selecting the optimized strategy receives deterministic fixed-Huffman-or-stored PNG output only after bounded exact admission, through both eager and caller-buffered encoder paths.
-**Depends on**: Phase 32
-**Requirements**: PNGC-02, PNGC-03
-**Success Criteria** (what must be TRUE):
-
-  1. A library user requesting optimized output receives capability, geometry, output, work, and budget rejection before any byte is exposed when the source cannot be admitted.
-  2. A library user with an admitted compatible image receives one deterministic PNG byte sequence produced by a bounded exact plan that selects fixed-Huffman or stored DEFLATE without dynamic-Huffman or adaptive-filter expansion.
-  3. A library user can drain optimized eager and caller-buffered output under arbitrary valid output capacities, observe exact progress, obtain byte-identical eager/chunk results, and receive unchanged sticky completion or failure semantics.
-
-**Plans**: TBD
-
-### Phase 34: Portable PNG Compression Corpus Evidence
-
-**Goal**: Maintainers can reproduce four-target evidence that the opt-in optimized strategy remains valid and deterministic while delivering measured compression wins for its intended repetitive-image cases.
-**Depends on**: Phase 33
-**Requirements**: PNGC-04
-**Success Criteria** (what must be TRUE):
-
-  1. Maintainers can run a declared deterministic PNG corpus on js, wasm, wasm-gc, and native and verify optimized eager and chunk outputs decode back to their source images with matching target-neutral evidence.
-  2. The corpus reproducibly proves that FixedOrStored output is never larger than the stored-DEFLATE baseline and records a declared compression win for both flat RGB8 and flat RGBA8 images.
+  1. A generated periodic five-symbol RGB8 and straight-RGBA8 corpus is available in memory and is sufficiently literal-heavy for the existing distance-1-through-4 matcher to exercise a dynamic win.
+  2. On js, wasm, wasm-gc, and native, DynamicOrFixedOrStored produces a `BTYPE=10` result strictly smaller than unchanged FixedOrStored for each declared corpus case.
+  3. Repeated eager encodes and hostile-schedule caller-buffered encodes produce identical Dynamic bytes for each corpus case.
+  4. Every generated eager and chunk result completes public PNG decoding with dimensions, channel count, and every source component preserved.
 
 **Plans**: TBD
 
@@ -128,21 +74,18 @@
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| PNGC-01 | Phase 32 | Pending |
-| PNGC-02 | Phase 33 | Pending |
-| PNGC-03 | Phase 33 | Pending |
-| PNGC-04 | Phase 34 | Pending |
+| PNGD-01 | Phase 35 | Pending |
+| PNGD-02 | Phase 36 | Pending |
+| PNGD-03 | Phase 36 | Pending |
+| PNGD-04 | Phase 37 | Pending |
 
 ## Progress
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 29. Pausable PNG Encode Substrate | 3/3 | Complete    | 2026-07-21 |
-| 30. Public PNG Chunk Encoder | 1/1 | Complete    | 2026-07-21 |
-| 31. Portable PNG Encode Evidence | 1/1 | Complete    | 2026-07-21 |
-| 32. PNG Compression Strategy and Compatibility | 1/1 | Complete    | 2026-07-22 |
-| 33. Fixed-or-Stored PNG Planning and Emission | 2/2 | Complete    | 2026-07-22 |
-| 34. Portable PNG Compression Corpus Evidence | 1/1 | Complete    | 2026-07-22 |
+| 35. Dynamic Strategy Compatibility | 0/TBD | Not started | - |
+| 36. Bounded Dynamic Planning and Replay | 0/TBD | Not started | - |
+| 37. Four-Target Dynamic Compression Evidence | 0/TBD | Not started | - |
 
 ---
-*Roadmap updated: 2026-07-22 for v0.10 PNG Compression Optimization planning.*
+*Roadmap updated: 2026-07-22 for v0.11 PNG Dynamic Huffman Compression planning.*
