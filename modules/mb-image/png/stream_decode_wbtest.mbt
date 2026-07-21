@@ -84,3 +84,51 @@ test "PNG framing machine rejects a split ancillary CRC and IEND length" {
   for byte in [b'\x89', b'P', b'N', b'G', b'\r', b'\n', b'\x1a', b'\n', b'\x00', b'\x00', b'\x00', b'\x01', b'I', b'E', b'N'] { iend.accept(byte).unwrap() }
   inspect(iend.accept(b'D').unwrap_err().context() == Some("png-iend-length"), content="true")
 }
+
+///|
+test "PNG eager reader adapter observes one-byte signature header and CRC reads once" {
+  let source_bytes = @bytes.OwnedBytes::from_bytes(
+    b"\x89PNG\r\n\x1a\n\x00\x00\x00\x00IEND\xaeB`\x82",
+    _png_private_budget(20UL),
+  ).unwrap()
+  let reader = @io.MemoryReader::new(source_bytes.view())
+  let machine = _png_stream_machine_for_test()
+  let observed = PngMachineReader::{ reader: reader as &@io.Reader, machine }
+  let scratch = @bytes.OwnedBytes::new(1UL, _png_private_budget(1UL)).unwrap()
+  let mut consumed = 0UL
+  for index = 0; index < 20; index = index + 1 {
+    let (_, next) = _png_read_one(observed as &@io.Reader, scratch, consumed, machine.limits)
+      .unwrap()
+    consumed = next
+  }
+  inspect(consumed == 20UL, content="true")
+  inspect(machine.accepted_bytes() == 20UL, content="true")
+  inspect(machine.framing_chunk_complete(), content="true")
+}
+
+///|
+struct PngReaderFailureAfterByte {}
+
+///|
+impl @io.Reader for PngReaderFailureAfterByte with fn read(_self, destination) {
+  ignore(destination.set(0UL, b'\x89'))
+  @io.ReadOutcome::Failed(
+    @error.CoreError::new(
+      @error.ErrorCategory::Host,
+      @error.ErrorCode::HostOperationFailed,
+      operation="png-reader-failure-after-byte",
+    ),
+    1UL,
+  )
+}
+
+///|
+test "PNG eager reader adapter observes a completed failing prefix once" {
+  let source = PngReaderFailureAfterByte::{}
+  let machine = _png_stream_machine_for_test()
+  let observed = PngMachineReader::{ reader: source as &@io.Reader, machine }
+  let scratch = @bytes.OwnedBytes::new(1UL, _png_private_budget(1UL)).unwrap()
+  let result = _png_read_one(observed as &@io.Reader, scratch, 0UL, machine.limits)
+  inspect(result is Err(_), content="true")
+  inspect(machine.accepted_bytes() == 1UL, content="true")
+}

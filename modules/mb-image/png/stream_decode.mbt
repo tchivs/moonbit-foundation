@@ -116,6 +116,39 @@ priv struct PngDecodeMachine {
 }
 
 ///|
+/// Reader facade used only by the eager bridge.  The wrapped reader remains
+/// the sole source of bytes; this adapter observes each successful transition
+/// exactly once after the provider has filled the destination window.
+priv struct PngMachineReader {
+  reader : &@io.Reader
+  machine : PngDecodeMachine
+}
+
+///|
+impl @io.Reader for PngMachineReader with fn read(self, destination) {
+  match self.reader.read(destination) {
+    @io.ReadOutcome::Progress(count) => {
+      for index = 0UL; index < count; index = index + 1UL {
+        // Existing synchronous validators retain their established typed-error
+        // precedence. The machine records the same byte transition privately.
+        ignore(self.machine.accept(destination.get(index).unwrap()))
+      }
+      @io.ReadOutcome::Progress(count)
+    }
+    @io.ReadOutcome::EndOfStream => @io.ReadOutcome::EndOfStream
+    @io.ReadOutcome::Failed(error, completed) => {
+      // A failing Reader may already have filled a prefix of the destination.
+      // Keep that source-of-truth accounting visible to the machine before
+      // forwarding the original failure unchanged to the eager decoder.
+      for index = 0UL; index < completed; index = index + 1UL {
+        ignore(self.machine.accept(destination.get(index).unwrap()))
+      }
+      @io.ReadOutcome::Failed(error, completed)
+    }
+  }
+}
+
+///|
 fn PngDecodeMachine::new(
   options : @codec.DecodeOptions,
   limits : @codec.CodecLimits,
@@ -225,7 +258,8 @@ fn PngDecodeMachine::decode_reader(
   self : PngDecodeMachine,
   reader : &@io.Reader,
 ) -> Result[@codec.DecodeResult, @error.CoreError] {
-  let stream = match _png_read_stream_transport(reader, self.options, self.limits, self.budget) {
+  let observed = PngMachineReader::{ reader, machine: self }
+  let stream = match _png_read_stream_transport(observed as &@io.Reader, self.options, self.limits, self.budget) {
     Err(error) => return Err(error)
     Ok(value) => value
   }
