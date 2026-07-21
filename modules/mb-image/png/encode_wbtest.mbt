@@ -8,7 +8,14 @@ fn png_encode_u32_at(value : Bytes, offset : Int) -> UInt64 {
 
 ///| Phase 36 RED: strict complete-PNG dynamic selection is not implemented yet.
 test "PNG dynamic preflight selects only strict complete-PNG wins" {
-  inspect(false, content="dynamic strict preflight missing")
+  let image = png_wb_image(3UL, b"\x12\x34\x56")
+  let fixed = _png_encode_preflight(image.view(), PngCompressionStrategy::FixedOrStored, png_wb_limits(), png_wb_budget()).unwrap()
+  let dynamic = _png_encode_preflight(image.view(), PngCompressionStrategy::DynamicOrFixedOrStored, png_wb_limits(), png_wb_budget()).unwrap()
+  inspect(dynamic.total_length == fixed.total_length, content="true")
+  match dynamic.plan {
+    PngDeflatePlan::Stored(_) | PngDeflatePlan::Fixed(_) => ()
+    PngDeflatePlan::Dynamic(_) => panic()
+  }
 }
 
 ///|
@@ -214,6 +221,7 @@ test "PNG fixed-or-stored white-box selected work boundary charges once" {
       inspect(selected == facts.total_length + plan.matcher_work + plan.matcher_work, content="true")
     }
     PngDeflatePlan::Stored(_) => panic()
+    PngDeflatePlan::Dynamic(_) => panic()
   }
   let exact = png_wb_budget(work=selected)
   ignore(_png_encode_preflight(

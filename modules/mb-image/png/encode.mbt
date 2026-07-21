@@ -137,10 +137,33 @@ priv struct PngFixedPlan {
   total_length : UInt64
 }
 
+///| A dynamic plan is deliberately bounded by DEFLATE's alphabets.  The RLE
+/// arrays have their RFC maximum (286 + 30); no image-sized token/output buffer
+/// crosses the planning/replay boundary.
+priv struct PngDynamicPlan {
+  literals : PngHuffman
+  distances : PngHuffman
+  code_lengths : PngHuffman
+  rle_symbols : Array[Int]
+  rle_extras : Array[UInt64]
+  rle_extra_bits : Array[UInt64]
+  rle_count : UInt64
+  hlit : UInt64
+  hdist : UInt64
+  hclen : UInt64
+  deflate_bits : UInt64
+  deflate_bytes : UInt64
+  matcher_work : UInt64
+  fingerprint : UInt64
+  idat_length : UInt64
+  total_length : UInt64
+}
+
 ///|
 priv enum PngDeflatePlan {
   Stored(PngStoredPlan)
   Fixed(PngFixedPlan)
+  Dynamic(PngDynamicPlan)
 }
 
 ///|
@@ -241,6 +264,165 @@ fn _png_fixed_distance_code(distance : UInt64) -> (UInt64, UInt64) {
   (_png_reverse_bits((distance - 1UL).to_int(), 5).to_uint64(), 5UL)
 }
 
+///| Count a dynamic token walk while retaining only the bounded alphabets.
+fn _png_dynamic_frequencies(
+  source : @storage.ImageView,
+  row_bytes : UInt64,
+  channels : UInt64,
+  scanlines : UInt64,
+) -> Result[(Array[UInt64], Array[UInt64], UInt64, UInt64), @error.CoreError] {
+  let literals = Array::make(286, 0UL)
+  let distances = Array::make(30, 0UL)
+  let mut position = 0UL
+  let mut work = 0UL
+  let mut fingerprint = 1UL
+  while position < scanlines {
+    let (length, distance, match_work) = match _png_fixed_match_at(
+      source, row_bytes, channels, scanlines, position,
+    ) { Err(error) => return Err(error); Ok(value) => value }
+    work = match _png_fixed_add(work, match_work) { Err(error) => return Err(error); Ok(value) => value }
+    if length >= 3UL {
+      let (symbol, _, _) = _png_fixed_length_code(length)
+      literals[symbol.to_int()] = literals[symbol.to_int()] + 1UL
+      distances[(distance - 1UL).to_int()] = distances[(distance - 1UL).to_int()] + 1UL
+      for offset = 0UL; offset < length; offset = offset + 1UL {
+        let byte = match _png_fixed_scanline_byte(source, row_bytes, channels, position + offset) {
+          Err(error) => return Err(error); Ok(value) => value
+        }
+        fingerprint = _png_adler_step(fingerprint, byte)
+      }
+      position = position + length
+    } else {
+      let byte = match _png_fixed_scanline_byte(source, row_bytes, channels, position) {
+        Err(error) => return Err(error); Ok(value) => value
+      }
+      literals[byte.to_int()] = literals[byte.to_int()] + 1UL
+      fingerprint = _png_adler_step(fingerprint, byte)
+      position = position + 1UL
+    }
+  }
+  literals[256] = literals[256] + 1UL
+  Ok((literals, distances, work, fingerprint))
+}
+
+///| Encode a trimmed literal/distance length stream using RFC 1951 symbols.
+fn _png_dynamic_rle(lengths : Array[Int]) -> (Array[Int], Array[UInt64], Array[UInt64], UInt64) {
+  let symbols = Array::make(316, 0)
+  let extras = Array::make(316, 0UL)
+  let extra_bits = Array::make(316, 0UL)
+  let mut count = 0UL
+  let mut cursor = 0
+  while cursor < lengths.length() {
+    let value = lengths[cursor]
+    let mut run = 1
+    while cursor + run < lengths.length() && lengths[cursor + run] == value { run = run + 1 }
+    if value == 0 {
+      let mut remaining = run
+      while remaining > 0 {
+        if remaining >= 11 {
+          let take = if remaining > 138 { 138 } else { remaining }
+          symbols[count.to_int()] = 18; extras[count.to_int()] = (take - 11).to_uint64(); extra_bits[count.to_int()] = 7UL
+          count = count + 1UL; remaining = remaining - take
+        } else if remaining >= 3 {
+          let take = if remaining > 10 { 10 } else { remaining }
+          symbols[count.to_int()] = 17; extras[count.to_int()] = (take - 3).to_uint64(); extra_bits[count.to_int()] = 3UL
+          count = count + 1UL; remaining = remaining - take
+        } else {
+          symbols[count.to_int()] = 0; count = count + 1UL; remaining = remaining - 1
+        }
+      }
+    } else {
+      symbols[count.to_int()] = value; count = count + 1UL
+      let mut remaining = run - 1
+      while remaining > 0 {
+        if remaining >= 3 {
+          let take = if remaining > 6 { 6 } else { remaining }
+          symbols[count.to_int()] = 16; extras[count.to_int()] = (take - 3).to_uint64(); extra_bits[count.to_int()] = 2UL
+          count = count + 1UL; remaining = remaining - take
+        } else {
+          symbols[count.to_int()] = value; count = count + 1UL; remaining = remaining - 1
+        }
+      }
+    }
+    cursor = cursor + run
+  }
+  (symbols, extras, extra_bits, count)
+}
+
+///| Make one exact RFC dynamic candidate, or decline it without a length-limited
+/// algorithm when the ordinary builder cannot satisfy the 15-bit limit.
+fn _png_dynamic_plan(
+  source : @storage.ImageView,
+  row_bytes : UInt64,
+  channels : UInt64,
+  scanlines : UInt64,
+) -> Result[PngDynamicPlan?, @error.CoreError] {
+  let (literal_frequencies, distance_frequencies, matcher_work, fingerprint) =
+    match _png_dynamic_frequencies(source, row_bytes, channels, scanlines) {
+      Err(error) => return Err(error); Ok(value) => value
+    }
+  let literals = match _png_huffman_from_frequencies(literal_frequencies, true, false, true) {
+    Some(value) => value; None => return Ok(None)
+  }
+  let mut has_distance = false
+  for frequency in distance_frequencies { if frequency > 0UL { has_distance = true } }
+  if !has_distance { distance_frequencies[0] = 1UL }
+  let distances = match _png_huffman_from_frequencies(distance_frequencies, false, true, false) {
+    Some(value) => value; None => return Ok(None)
+  }
+  let mut hlit = 286
+  while hlit > 257 && literals.lengths[hlit - 1] == 0 { hlit = hlit - 1 }
+  let mut hdist = 30
+  while hdist > 1 && distances.lengths[hdist - 1] == 0 { hdist = hdist - 1 }
+  let combined = Array::make(hlit + hdist, 0)
+  for index = 0; index < hlit; index = index + 1 { combined[index] = literals.lengths[index] }
+  for index = 0; index < hdist; index = index + 1 { combined[hlit + index] = distances.lengths[index] }
+  let (rle_symbols, rle_extras, rle_extra_bits, rle_count) = _png_dynamic_rle(combined)
+  let code_frequencies = Array::make(19, 0UL)
+  for index = 0UL; index < rle_count; index = index + 1 {
+    code_frequencies[rle_symbols[index.to_int()]] = code_frequencies[rle_symbols[index.to_int()]] + 1UL
+  }
+  let code_lengths = match _png_huffman_from_frequencies(code_frequencies, false, false, true) {
+    Some(value) => value; None => return Ok(None)
+  }
+  let order = [16,17,18,0,8,7,9,6,10,5,11,4,12,3,13,2,14,1,15]
+  let mut hclen = 19
+  while hclen > 4 && code_lengths.lengths[order[hclen - 1]] == 0 { hclen = hclen - 1 }
+  let mut bits = 3UL + 5UL + 5UL + 4UL + (hclen.to_uint64() * 3UL)
+  for index = 0UL; index < rle_count; index = index + 1 {
+    let symbol = rle_symbols[index.to_int()]
+    bits = match _png_fixed_add(bits, code_lengths.lengths[symbol].to_uint64() + rle_extra_bits[index.to_int()]) {
+      Err(error) => return Err(error); Ok(value) => value
+    }
+  }
+  let mut position = 0UL
+  while position < scanlines {
+    let (length, distance, _) = match _png_fixed_match_at(source, row_bytes, channels, scanlines, position) {
+      Err(error) => return Err(error); Ok(value) => value
+    }
+    if length >= 3UL {
+      let (symbol, _, extra_bits) = _png_fixed_length_code(length)
+      let distance_symbol = (distance - 1UL).to_int()
+      bits = match _png_fixed_add(bits, literals.lengths[symbol.to_int()].to_uint64() + extra_bits + distances.lengths[distance_symbol].to_uint64()) {
+        Err(error) => return Err(error); Ok(value) => value
+      }
+      position = position + length
+    } else {
+      let byte = match _png_fixed_scanline_byte(source, row_bytes, channels, position) { Err(error) => return Err(error); Ok(value) => value }
+      bits = match _png_fixed_add(bits, literals.lengths[byte.to_int()].to_uint64()) { Err(error) => return Err(error); Ok(value) => value }
+      position = position + 1UL
+    }
+  }
+  bits = match _png_fixed_add(bits, literals.lengths[256].to_uint64()) { Err(error) => return Err(error); Ok(value) => value }
+  let deflate_bytes = match _png_fixed_add(bits, 7UL) { Err(error) => return Err(error); Ok(value) => value / 8UL }
+  let idat_length = match _png_fixed_add(deflate_bytes, 6UL) { Err(error) => return Err(error); Ok(value) => value }
+  if idat_length > 4294967295UL { return Ok(None) }
+  let total_length = match _png_fixed_add(idat_length, 57UL) { Err(error) => return Err(error); Ok(value) => value }
+  Ok(Some({ literals, distances, code_lengths, rle_symbols, rle_extras, rle_extra_bits, rle_count,
+    hlit: hlit.to_uint64(), hdist: hdist.to_uint64(), hclen: hclen.to_uint64(), deflate_bits: bits,
+    deflate_bytes, matcher_work, fingerprint, idat_length, total_length }))
+}
+
 ///| Walk the bounded matcher once to calculate exact fixed DEFLATE bits.
 fn _png_fixed_plan(
   source : @storage.ImageView,
@@ -306,9 +488,8 @@ fn _png_fixed_plan(
 
 ///|
 /// The one authoritative, atomic admission path for eager and caller-buffered
-/// output. FixedOrStored completes a bounded exact fixed-or-stored choice before
-/// the single resource charge; DynamicOrFixedOrStored currently shares that unchanged
-/// choice, while Stored retains the frozen baseline path.
+/// output. FixedOrStored completes its frozen bounded choice first; the dynamic
+/// opt-in can replace that winner only for a strictly smaller complete PNG.
 fn _png_encode_preflight(
   source : @storage.ImageView,
   strategy : PngCompressionStrategy,
@@ -360,8 +541,7 @@ fn _png_encode_preflight(
   }
   let plan = match strategy {
     PngCompressionStrategy::Stored => PngDeflatePlan::Stored(stored)
-    PngCompressionStrategy::FixedOrStored |
-    PngCompressionStrategy::DynamicOrFixedOrStored => {
+    PngCompressionStrategy::FixedOrStored => {
       let fixed = match _png_fixed_plan(source, row_bytes, channels, scanlines) {
         Err(error) => return Err(error)
         Ok(value) => value
@@ -375,12 +555,39 @@ fn _png_encode_preflight(
         PngDeflatePlan::Stored(stored)
       }
     }
+    PngCompressionStrategy::DynamicOrFixedOrStored => {
+      let fixed = match _png_fixed_plan(source, row_bytes, channels, scanlines) {
+        Err(error) => return Err(error); Ok(value) => value
+      }
+      if fixed.idat_length > 4294967295UL { return Err(_png_encode_capability("png-idat-length")) }
+      let winner = if fixed.total_length <= stored.total_length {
+        PngDeflatePlan::Fixed(fixed)
+      } else { PngDeflatePlan::Stored(stored) }
+      let winner_length = match winner {
+        PngDeflatePlan::Stored(value) => value.total_length
+        PngDeflatePlan::Fixed(value) => value.total_length
+        PngDeflatePlan::Dynamic(value) => value.total_length
+      }
+      match _png_dynamic_plan(source, row_bytes, channels, scanlines) {
+        Err(error) => return Err(error)
+        Ok(Some(dynamic)) => if dynamic.total_length < winner_length {
+          PngDeflatePlan::Dynamic(dynamic)
+        } else { winner }
+        Ok(None) => winner
+      }
+    }
   }
   let (blocks, idat_length, total_length, selected_work) = match plan {
     PngDeflatePlan::Stored(value) => (
       value.blocks, value.idat_length, value.total_length, value.total_length,
     )
     PngDeflatePlan::Fixed(value) => (
+      0UL, value.idat_length, value.total_length,
+      value.total_length + value.matcher_work + value.matcher_work,
+    )
+    // The exact ledger is selected bytes + planning matcher walk + replay
+    // matcher walk; header/tree work is fixed by the RFC alphabet bounds.
+    PngDeflatePlan::Dynamic(value) => (
       0UL, value.idat_length, value.total_length,
       value.total_length + value.matcher_work + value.matcher_work,
     )

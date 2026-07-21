@@ -15,6 +15,111 @@ fn _png_reverse_bits(value : Int, count : Int) -> Int {
   result
 }
 
+///| Build an ordinary, stable canonical tree for an encoder.  Equal weights are
+/// ordered by their smallest leaf symbol and then by creation order; this keeps
+/// byte output deterministic without adding a length-limited optimiser.  `None`
+/// means the ordinary merge would exceed DEFLATE's 15-bit ceiling.
+fn _png_huffman_from_frequencies(
+  frequencies : Array[UInt64],
+  require_eob : Bool,
+  allow_single_distance : Bool,
+  complete_singleton : Bool,
+) -> PngHuffman? {
+  let leaves : Array[Int] = []
+  for symbol = 0; symbol < frequencies.length(); symbol = symbol + 1 {
+    if frequencies[symbol] > 0UL { leaves.push(symbol) }
+  }
+  if require_eob && (frequencies.length() <= 256 || frequencies[256] == 0UL) {
+    return None
+  }
+  // Literal/code-length alphabets must be complete.  A deterministic zero-weight
+  // leaf is legal and avoids accepting an incomplete non-distance tree.
+  if leaves.length() == 1 && complete_singleton {
+    let mut extra = 0
+    while extra == leaves[0] { extra = extra + 1 }
+    leaves.push(extra)
+  }
+  if leaves.length() == 0 { return None }
+  if leaves.length() == 1 {
+    let lengths = Array::make(frequencies.length(), 0)
+    lengths[leaves[0]] = 1
+    return match _png_huffman_new(lengths, require_eob, allow_single_distance) {
+      Ok(value) => Some(value)
+      Err(_) => None
+    }
+  }
+  let maximum = leaves.length() * 2 - 1
+  let weights = Array::make(maximum, 0UL)
+  let minimum_symbol = Array::make(maximum, 0)
+  let left = Array::make(maximum, -1)
+  let right = Array::make(maximum, -1)
+  for index = 0; index < leaves.length(); index = index + 1 {
+    weights[index] = frequencies[leaves[index]]
+    minimum_symbol[index] = leaves[index]
+  }
+  let mut active = leaves.length()
+  let mut nodes = leaves.length()
+  let order = Array::make(maximum, 0)
+  for index = 0; index < active; index = index + 1 { order[index] = index }
+  while active > 1 {
+    // Selection sort is deliberate: the alphabet is bounded by 286 symbols.
+    for index = 0; index < active; index = index + 1 {
+      let mut best = index
+      for candidate = index + 1; candidate < active; candidate = candidate + 1 {
+        let a = order[candidate]
+        let b = order[best]
+        if weights[a] < weights[b] ||
+          (weights[a] == weights[b] && (minimum_symbol[a] < minimum_symbol[b] ||
+            (minimum_symbol[a] == minimum_symbol[b] && a < b))) {
+          best = candidate
+        }
+      }
+      let swap = order[index]
+      order[index] = order[best]
+      order[best] = swap
+    }
+    let first = order[0]
+    let second = order[1]
+    weights[nodes] = weights[first] + weights[second]
+    minimum_symbol[nodes] = if minimum_symbol[first] < minimum_symbol[second] {
+      minimum_symbol[first]
+    } else { minimum_symbol[second] }
+    left[nodes] = first
+    right[nodes] = second
+    for index = 2; index < active; index = index + 1 { order[index - 2] = order[index] }
+    order[active - 2] = nodes
+    active = active - 1
+    nodes = nodes + 1
+  }
+  let lengths = Array::make(frequencies.length(), 0)
+  let stack_nodes = Array::make(maximum, 0)
+  let stack_depths = Array::make(maximum, 0)
+  let mut stack = 0
+  stack_nodes[stack] = order[0]
+  stack_depths[stack] = 0
+  stack = stack + 1
+  while stack > 0 {
+    stack = stack - 1
+    let node = stack_nodes[stack]
+    let depth = stack_depths[stack]
+    if left[node] < 0 {
+      if depth > 15 { return None }
+      lengths[leaves[node]] = depth
+    } else {
+      stack_nodes[stack] = left[node]
+      stack_depths[stack] = depth + 1
+      stack = stack + 1
+      stack_nodes[stack] = right[node]
+      stack_depths[stack] = depth + 1
+      stack = stack + 1
+    }
+  }
+  match _png_huffman_new(lengths, require_eob, allow_single_distance) {
+    Ok(value) => Some(value)
+    Err(_) => None
+  }
+}
+
 ///|
 fn _png_huffman_new(
   lengths : Array[Int],
