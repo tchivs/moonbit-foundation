@@ -524,25 +524,11 @@ fn PngDecodeMachine::framing_chunk_complete(self : PngDecodeMachine) -> Bool {
 fn PngDecodeMachine::finish(self : PngDecodeMachine) -> Result[Unit, @error.CoreError] {
   match self.state {
     PngDecodeMachineState::NeedEof => {
-      let inflate = match self.inflate {
-        Some(value) => value
-        None => return Err(_png_chunk_incomplete("zlib-truncated", self.accepted))
-      }
-      if !inflate.complete() {
-        return Err(_png_chunk_incomplete("zlib-truncated", self.accepted))
-      }
+      let inflate = match self.inflate { Some(value) => value; None => return Err(_png_error("zlib-truncated")) }
+      if !inflate.complete() { return Err(_png_error("zlib-truncated")) }
       let lifecycle = match self.lifecycle { Some(value) => value; None => return Err(_png_error("png-idat-order")) }
       match lifecycle.sink.finish() {
-        Err(error) => {
-          if error.context() == Some("png-filtered-size") {
-            let classified = _png_chunk_incomplete("png-filtered-size", self.accepted)
-            self.state = PngDecodeMachineState::Failed(classified)
-            Err(classified)
-          } else {
-            self.state = PngDecodeMachineState::Failed(error)
-            Err(error)
-          }
-        }
+        Err(error) => { self.state = PngDecodeMachineState::Failed(error); Err(error) }
         Ok(_) => {
           let disposition = match _png_empty_disposition() {
             Err(error) => { self.state = PngDecodeMachineState::Failed(error); return Err(error) }

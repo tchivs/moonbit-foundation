@@ -557,6 +557,33 @@ fn png_wb_assert_incomplete(source : Bytes, context : String) -> Unit raise {
   inspect(png_wb_error_matches(decoder.finish().unwrap_err(), public_error), content="true")
 }
 
+///| A complete IEND is no longer an EOF classification case. Keep the eager
+/// invalid-encoding shape intact while proving the public wrapper replays it
+/// unchanged after the one terminal finish attempt.
+fn png_wb_assert_terminal_raster_error(source : Bytes) -> Unit raise {
+  let machine = _png_stream_machine_for_test()
+  for index = 0; index < source.length(); index = index + 1 {
+    machine.accept(source[index]).unwrap()
+  }
+  let eager_error = machine.finish().unwrap_err()
+  inspect(eager_error.code() == @error.ErrorCode::InvalidEncoding, content="true")
+  inspect(eager_error.context() == Some("png-filtered-size"), content="true")
+  inspect(eager_error.completed() is None, content="true")
+
+  let decoder = png_wb_chunk_decoder()
+  let owner = png_wb_source(source)
+  inspect(decoder.push(owner.view()).outcome() is PngChunkPushOutcome::NeedInput, content="true")
+  let public_error = decoder.finish().unwrap_err()
+  inspect(png_wb_error_matches(public_error, eager_error), content="true")
+  let later = png_wb_source(b"X")
+  let replay = decoder.push(later.view())
+  inspect(replay.consumed() == 0UL, content="true")
+  match replay.outcome() {
+    PngChunkPushOutcome::Failed(error) => inspect(png_wb_error_matches(error, eager_error), content="true")
+    _ => fail("terminal raster error must remain sticky")
+  }
+}
+
 ///| Assemble a valid signature/IHDR and a still-open IDAT payload prefix. The
 /// payload has no CRC because zlib incompleteness must win over framing.
 fn png_wb_open_idat(payload : Bytes) -> Bytes {
@@ -649,7 +676,7 @@ fn png_wb_short_raster_png() -> Bytes {
 test "PNG chunk EOF classifier gives raster precedence over terminal framing" {
   let short = png_wb_short_raster_png()
   png_wb_assert_incomplete(png_wb_prefix(short, short.length() - 12), "png-filtered-size")
-  png_wb_assert_incomplete(short, "png-filtered-size")
+  png_wb_assert_terminal_raster_error(short)
 }
 
 ///| A nonzero IEND declaration is rejected when its fourth type byte arrives,
