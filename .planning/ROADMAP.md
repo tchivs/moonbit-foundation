@@ -72,7 +72,7 @@ Publication, registry-consumer proof, provenance closure, and any release automa
 
 **Milestone goal:** Preserve strict PNG colour declarations or reject unavailable transformations explicitly, without silently relabelling source samples as sRGB.
 
-- [ ] **Phase 23: PNG Colour Declaration and sRGB Semantics** - Users can receive strict validated PNG colour declarations, with sRGB mapped truthfully to the existing image model.
+- [x] **Phase 23: PNG Colour Declaration and sRGB Semantics** - Users can receive strict validated PNG colour declarations, with sRGB mapped truthfully to the existing image model. (completed 2026-07-21)
 - [ ] **Phase 24: Bounded Non-sRGB and ICC Preservation** - Users can retain legal legacy and ICC declarations without implicit colour transforms.
 - [ ] **Phase 25: Portable Colour Conformance Evidence** - Maintainers can independently verify colour-metadata behaviour across all portable targets.
 
@@ -337,7 +337,7 @@ Plans:
 2. Valid `sRGB` images preserve their rendering intent and expose built-in encoded-sRGB metadata; malformed or conflicting declarations fail deterministically.
 3. Existing reference operations continue to accept only actual encoded-sRGB images.
 
-**Plans:** 2/2 plans executed
+**Plans:** 2/2 plans complete
 
 - [x] 23-02-PLAN.md
 

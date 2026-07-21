@@ -2,19 +2,19 @@
 gsd_state_version: 1.0
 milestone: v0.7
 milestone_name: PNG Colour Fidelity
-current_phase: 23
-current_phase_name: PNG Colour Declaration and sRGB Semantics
-status: ready_to_verify
+current_phase: 24
+current_phase_name: Bounded Non-sRGB and ICC Preservation
+status: planning
 stopped_at: Completed 23-02-PLAN.md
-last_updated: "2026-07-21T01:17:06.618Z"
+last_updated: "2026-07-21T01:23:55.811Z"
 last_activity: 2026-07-21
-last_activity_desc: Completed 23-02-PLAN.md
+last_activity_desc: Phase 23 complete, transitioned to Phase 24
 progress:
   total_phases: 17
   completed_phases: 3
   total_plans: 8
   completed_plans: 6
-  percent: 75
+  percent: 18
 ---
 
 # Project State
@@ -29,10 +29,10 @@ See `.planning/PROJECT.md` (updated 2026-07-20).
 
 ## Current Position
 
-Phase: 23 of 25 (PNG Colour Declaration and sRGB Semantics)
-Plan: 23-02-PLAN.md
-Status: Ready for verification
-Last activity: 2026-07-21 — Completed 23-02-PLAN.md
+Phase: 24 of 25 (Bounded Non-sRGB and ICC Preservation)
+Plan: Not started
+Status: Ready to plan
+Last activity: 2026-07-21 — Phase 23 complete, transitioned to Phase 24
 
 Progress: [████████░░] 75%
 
