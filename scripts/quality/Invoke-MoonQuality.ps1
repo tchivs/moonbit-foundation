@@ -780,13 +780,13 @@ function Invoke-PngQualityLane {
   }
   Invoke-PngQualityStage 'PNG generated structural vectors' { & ./scripts/fixtures/Generate-PngStructuralVectors.ps1 -Check }
   Invoke-PngQualityStage 'PNG generated decode vectors' { & ./scripts/fixtures/Generate-PngDecodeVectors.ps1 -Check }
-  Invoke-PngQualityStage 'PNG portable chunk-decode public workflow' {
-    $expectedEvidence = 'example=png-portable input_schedule=workflow-zero-signature-ihdr-idat-deflate-iend pushes=16 bytes_read=75 bytes_written=78 width=3 height=1 resize_bilinear digest=626208771'
+  Invoke-PngQualityStage 'PNG portable chunk-decode-resize-chunk-encode public workflow' {
+    $expectedEvidence = 'example=png-portable input_schedule=workflow-zero-signature-ihdr-idat-deflate-iend pushes=16 bytes_read=75 output_schedule=zero-tiny-ragged output_pulls=14 bytes_written=78 width=3 height=1 resize_bilinear digest=626208771'
     foreach ($target in @('js', 'wasm', 'wasm-gc', 'native')) {
-      $output = Invoke-MoonCommand -Context "PNG portable chunk-decode public workflow target $target" -Arguments @('-C', 'examples/png-portable', 'run', 'main', '--target', $target, '--frozen') -CaptureCombined
+      $output = Invoke-MoonCommand -Context "PNG portable chunk-decode-resize-chunk-encode public workflow target $target" -Arguments @('-C', 'examples/png-portable', 'run', 'main', '--target', $target, '--frozen') -CaptureCombined
       $evidence = @($output | Where-Object { $_.StartsWith('example=png-portable ') })
       if ($evidence.Count -ne 1 -or $evidence[0] -cne $expectedEvidence) {
-        throw "PNG portable chunk-decode public workflow evidence mismatch on ${target}: expected exactly '$expectedEvidence', got '$($evidence -join '; ')'."
+        throw "PNG portable chunk-decode-resize-chunk-encode public workflow evidence mismatch on ${target}: expected exactly '$expectedEvidence', got '$($evidence -join '; ')'."
       }
     }
   }
@@ -807,7 +807,7 @@ function Assert-PngLaneIsolation {
   function Invoke-RequiredQuality { throw 'PNG lane reached required quality.' }
   function Invoke-ReleaseQuality { throw 'PNG lane reached release quality.' }
   Invoke-PngQualityLane
-  Assert-ExactSequence 'PNG lane stage trace' @($script:PngLaneTrace) @('PNG foundation/interface policy', 'PNG scoped negative fixtures', 'PNG exact package allowlist', 'PNG generated structural vectors', 'PNG generated decode vectors', 'PNG portable chunk-decode public workflow', 'PNG colour conformance public evidence', 'PNG four-target tests')
+  Assert-ExactSequence 'PNG lane stage trace' @($script:PngLaneTrace) @('PNG foundation/interface policy', 'PNG scoped negative fixtures', 'PNG exact package allowlist', 'PNG generated structural vectors', 'PNG generated decode vectors', 'PNG portable chunk-decode-resize-chunk-encode public workflow', 'PNG colour conformance public evidence', 'PNG four-target tests')
   Write-Host 'PNG lane isolation proof passed.'
 }
 
