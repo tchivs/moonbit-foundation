@@ -23,7 +23,7 @@
 - [x] **PNGS-01**: A library user can submit arbitrary caller-owned PNG byte chunks to a resumable decoder, receive deterministic non-terminal progress, and obtain no image before strict stream completion.
 - [x] **PNGS-02**: A library user explicitly finishes a PNG chunk decode and receives exactly one eager-equivalent image or a typed sticky terminal error for incomplete framing, IDAT/zlib/DEFLATE/raster work, IEND, EOF, trailing input, limits, or budget exhaustion.
 - [ ] **PNGS-03**: The chunked decoder preserves the eager decoder's supported PNG profile, pixel/metadata/disposition semantics, exact accounting, diagnostics, resource limits, and no-partial-image guarantee.
-- [ ] **PNGS-04**: Maintainers can run adversarial split schedules and one public PNG chunk-decode workflow unchanged on js, wasm, wasm-gc, and native.
+- [x] **PNGS-04**: Maintainers can run adversarial split schedules and one public PNG chunk-decode workflow unchanged on js, wasm, wasm-gc, and native.
 
 ## Future Requirements
 
@@ -53,7 +53,7 @@
 | PNGS-01 | Phase 27 | Complete |
 | PNGS-02 | Phase 27 | Complete |
 | PNGS-03 | Phase 26 | Pending |
-| PNGS-04 | Phase 28 | Pending |
+| PNGS-04 | Phase 28 | Complete |
 
 **Coverage:**
 

@@ -184,7 +184,7 @@ Plans:
 | 25. Portable Colour Conformance Evidence | v0.7 | 1/1 | Complete | 2026-07-21 |
 | 26. Pausable PNG Decode Substrate | v0.8 | 1/1 | Complete | 2026-07-21 |
 | 27. Public PNG Chunk Decoder | v0.8 | 1/1 | In Progress|  |
-| 28. Portable PNG Streaming Evidence | v0.8 | 0/TBD | Not started | - |
+| 28. Portable PNG Streaming Evidence | v0.8 | 1/1 | In Progress|  |
 
 ### Phase 12: Strict PPM End-to-End Filter Coverage
 
@@ -434,7 +434,9 @@ Plans:
   2. A library user can run one public portable workflow that feeds PNG chunks to `PngChunkDecoder`, applies an existing image operation, uses the existing eager PNG encoder, and prints deterministic evidence.
   3. The hostile-schedule suite and public workflow produce the same asserted outcomes on `js`, `wasm`, `wasm-gc`, and `native` using only public portable MoonBit contracts, with no FFI, public streaming encoder, registry, or release-automation work.
 
-**Plans**: TBD
+**Plans**: 1/1 plans executed
+
+- [x] 28-01-PLAN.md
 
 ---
 *Roadmap updated: 2026-07-21 after Phase 27 verification; Phase 28 is ready to plan.*

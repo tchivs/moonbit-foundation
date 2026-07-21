@@ -4,16 +4,16 @@ milestone: v0.8
 milestone_name: Resumable PNG Decode
 current_phase: 28
 current_phase_name: Portable PNG Streaming Evidence
-status: planning
-stopped_at: Phase 27 verified complete (4/4); ready to plan Phase 28
-last_updated: "2026-07-21T19:32:50+08:00"
+status: executing
+stopped_at: Completed 28-01-PLAN.md
+last_updated: "2026-07-21T11:56:54.967Z"
 last_activity: 2026-07-21
-last_activity_desc: Phase 27 public PNG chunk decoder final re-verification passed 4/4
+last_activity_desc: Phase 28 public PNG streaming evidence plan executed; independent verification pending
 progress:
   total_phases: 20
   completed_phases: 8
-  total_plans: 17
-  completed_plans: 16
+  total_plans: 20
+  completed_plans: 17
   percent: 40
 ---
 
@@ -30,13 +30,13 @@ See `.planning/PROJECT.md` (updated 2026-07-20).
 ## Current Position
 
 Phase: 28 of 28 (Portable PNG Streaming Evidence)
-Plan: —
-Status: Phase 27 verified complete; ready for Phase 28 planning
-Last activity: 2026-07-21 — Phase 27 public PNG chunk decoder final re-verification passed 4/4
+Plan: 1 of 1
+Status: Phase 28 plan execution complete; independent verification pending
+Last activity: 2026-07-21 — corpus-wide public PNG schedule, portable workflow, and scoped quality evidence passed
 
 ## Performance Metrics
 
-**Current milestone:** 4 plans completed across 3 planned phases; Phase 28 remains to plan.
+**Current milestone:** 5 plans executed across 3 planned phases; Phase 28 awaits independent verification.
 
 **Historical context:** v0.5 shipped three phases and three plans on 2026-07-20. v0.2 publication and registry work remains deferred and excluded from this code-first milestone.
 
@@ -67,6 +67,8 @@ Last activity: 2026-07-21 — Phase 27 public PNG chunk decoder final re-verific
 - [Phase ?]: Publish PngChunkDecoder as a thin one-byte adapter over PngDecodeMachine; only finish transfers its private result.
 - [Phase 27]: Require executable public partition/ownership/eager-parity evidence and a complete frozen EOF classifier matrix before treating PngChunkDecoder as complete.
 - [Phase 27]: Preserve zero-length non-IEND type input as a private pending state so strict finish reports png-iend-type deterministically.
+- [Phase ?]: Phase 28 proves PngChunkDecoder only through public empty-one-byte and ragged schedules, with a separate eager oracle for results, diagnostics, budgets, and sticky terminals.
+- [Phase ?]: Phase 28 freezes a public chunk-decode to bilinear-resize to eager-PNG-encode evidence line across all four targets and keeps the quality lane scoped away from release and registry automation.
 
 ### Pending Todos
 
@@ -104,6 +106,7 @@ None.
 | Phase 27 P01 | 25min | 3 tasks | 6 files |
 | Phase 27 P02 | gap closure | 3 tasks | 3 files |
 | Phase 27 P03 | EOF matrix closure | 2 tasks | 2 files |
+| Phase 28-portable-png-streaming-evidence P01 | 31min | 3 tasks | 4 files |
 
 ## Deferred Items
 
@@ -117,6 +120,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-07-21T19:32:50+08:00
-Stopped at: Phase 27 final verification passed; ready to plan Phase 28
+Last session: 2026-07-21T11:56:54.945Z
+Stopped at: Completed 28-01-PLAN.md
 Resume file: None
