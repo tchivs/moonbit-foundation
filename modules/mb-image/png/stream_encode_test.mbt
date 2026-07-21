@@ -515,3 +515,207 @@ fn png_chunk_test_four_target_evidence() -> Unit {
   png_chunk_test_released_lease_terminal()
   png_chunk_test_preflight_parity()
 }
+
+///|
+fn png_fixed_or_stored_same_remaining(
+  left : @budget.ResourceLimits,
+  right : @budget.ResourceLimits,
+) -> Bool {
+  left.bytes() == right.bytes() &&
+    left.allocations() == right.allocations() &&
+    left.allocation_size() == right.allocation_size() &&
+    left.width() == right.width() &&
+    left.height() == right.height() &&
+    left.pixels() == right.pixels() &&
+    left.depth() == right.depth() &&
+    left.work() == right.work()
+}
+
+///|
+fn png_fixed_or_stored_limits(
+  output? : UInt64 = 1048576UL,
+  work? : UInt64 = 1048576UL,
+  width? : UInt64 = 70000UL,
+) -> @codec.CodecLimits {
+  @codec.CodecLimits::new(
+    max_probe_bytes=8UL, max_input_bytes=1048576UL, max_output_bytes=output,
+    max_width=width, max_height=8UL, max_pixels=560000UL, max_work=work,
+  )
+}
+
+///|
+fn png_fixed_or_stored_public_reject(
+  image : @storage.OwnedImage,
+  limits : @codec.CodecLimits,
+  work : UInt64,
+) -> Unit {
+  let eager_budget = png_stream_test_budget(work=work)
+  let eager_before = eager_budget.remaining()
+  let writer = @io.MemoryWriter::new(1048576UL, png_stream_test_budget(work=0UL)).unwrap()
+  let eager = @codec.ImageEncoder::encode(
+    PngEncoder::new_with_compression_strategy(PngCompressionStrategy::FixedOrStored),
+    image.view(), writer as &@io.Writer,
+    @codec.EncodeOptions::new(lossless_required=true, preserve_opaque_metadata=false),
+    limits, eager_budget, @error.Diagnostics::new(),
+  ).unwrap_err()
+  if writer.position() != 0UL {
+    abort("png fixed-or-stored eager admission exposed output")
+  }
+  if !png_fixed_or_stored_same_remaining(eager_before, eager_budget.remaining()) {
+    abort("png fixed-or-stored eager admission changed budget")
+  }
+  let chunk_budget = png_stream_test_budget(work=work)
+  let chunk_before = chunk_budget.remaining()
+  let chunk = PngChunkEncoder::new_with_compression_strategy(
+    image.view(), PngCompressionStrategy::FixedOrStored,
+    limits, chunk_budget, @error.Diagnostics::new(),
+  ).unwrap_err()
+  if !png_chunk_test_same_error(eager, chunk) {
+    abort("png fixed-or-stored public admission mismatch")
+  }
+  if !png_fixed_or_stored_same_remaining(chunk_before, chunk_budget.remaining()) {
+    abort("png fixed-or-stored chunk admission changed budget")
+  }
+}
+
+///|
+fn png_fixed_or_stored_replay_image() -> @storage.OwnedImage {
+  let image = png_stream_test_image(3UL, width=5UL)
+  let pixels = [
+    b'\x0a', b'\x0c', b'\x0c', b'\x0a', b'\x0a', b'\x0c', b'\x0b', b'\x0c', b'\x0a',
+    b'\x0c', b'\x0a', b'\x0b', b'\x0a', b'\x0c', b'\x0a',
+  ]
+  image.with_mut_view(fn(view) {
+    for index = 0UL; index < 15UL; index = index + 1UL {
+      view.set_byte(index / 3UL, 0UL, index % 3UL, pixels[index.to_int()]).unwrap()
+    }
+    Ok(())
+  }).unwrap()
+  image
+}
+
+///|
+test "PNG fixed-or-stored public admission is atomic" {
+  png_fixed_or_stored_public_reject(
+    png_stream_test_image(3UL, include_opaque=true), png_fixed_or_stored_limits(), 1048576UL,
+  )
+  png_fixed_or_stored_public_reject(
+    png_stream_test_image(3UL, width=2UL), png_fixed_or_stored_limits(width=1UL), 1048576UL,
+  )
+  png_fixed_or_stored_public_reject(
+    png_stream_test_flat_image(3UL, 32UL), png_fixed_or_stored_limits(output=1UL), 1048576UL,
+  )
+  png_fixed_or_stored_public_reject(
+    png_stream_test_flat_image(3UL, 32UL), png_fixed_or_stored_limits(work=1UL), 1048576UL,
+  )
+  png_fixed_or_stored_public_reject(
+    png_stream_test_flat_image(3UL, 32UL), png_fixed_or_stored_limits(), 1UL,
+  )
+}
+
+///|
+test "PNG fixed-or-stored public replay mismatch is sticky" {
+  let image = png_fixed_or_stored_replay_image()
+  let encoder = PngChunkEncoder::new_with_compression_strategy(
+    image.view(), PngCompressionStrategy::FixedOrStored,
+    png_stream_test_limits(), png_stream_test_budget(), @error.Diagnostics::new(),
+  ).unwrap()
+  let ignored : Array[Byte] = []
+  let mut prefix = 0UL
+  while prefix < 43UL {
+    let pull = png_chunk_test_pull(encoder, 1UL, ignored)
+    inspect(pull.written(), content="1")
+    prefix = prefix + 1UL
+  }
+  let header = png_chunk_test_pull(encoder, 1UL, ignored)
+  inspect(header.written(), content="1")
+  inspect((ignored[43] & b'\x07') == b'\x03', content="true")
+  image.with_mut_view(fn(view) { view.set_byte(0UL, 0UL, 0UL, b'\x00') }).unwrap()
+  let mut previews = 0UL
+  while previews < 13UL {
+    inspect(png_chunk_test_pull(encoder, 1UL, ignored).written(), content="1")
+    previews = previews + 1UL
+  }
+  let first = png_chunk_test_owner(1UL, fill=b'Z')
+  let failed = first.with_mut(0UL, 1UL, fn(lease) { Ok(encoder.pull(lease)) }).unwrap()
+  let first_error = match failed.outcome() {
+    PngChunkPullOutcome::Failed(error) => error
+    _ => panic()
+  }
+  inspect(failed.written(), content="0")
+  inspect(failed.total_written(), content="57")
+  inspect(first_error.category() == @error.ErrorCategory::State, content="true")
+  inspect(first_error.code() == @error.ErrorCode::InvalidRange, content="true")
+  inspect(first_error.context() == Some("png-encode-fixed-replay-work"), content="true")
+  inspect(first.view().get(0UL).unwrap() == b'Z', content="true")
+  let later = png_chunk_test_owner(1UL, fill=b'Z')
+  let replay = later.with_mut(0UL, 1UL, fn(lease) { Ok(encoder.pull(lease)) }).unwrap()
+  let replay_error = match replay.outcome() {
+    PngChunkPullOutcome::Failed(error) => error
+    _ => panic()
+  }
+  inspect(replay.written(), content="0")
+  inspect(replay.total_written(), content="57")
+  inspect(png_chunk_test_same_error(first_error, replay_error), content="true")
+  inspect(later.view().get(0UL).unwrap() == b'Z', content="true")
+}
+
+///|
+test "PNG fixed-or-stored configured sticky terminals preserve leases" {
+  let image = png_stream_test_flat_image(3UL, 32UL)
+  let encoder = PngChunkEncoder::new_with_compression_strategy(
+    image.view(), PngCompressionStrategy::FixedOrStored,
+    png_stream_test_limits(), png_stream_test_budget(), @error.Diagnostics::new(),
+  ).unwrap()
+  let empty = png_chunk_test_owner(0UL, fill=b'Z')
+  let zero = empty.with_mut(0UL, 0UL, fn(lease) { Ok(encoder.pull(lease)) }).unwrap()
+  inspect(zero.written(), content="0")
+  inspect(zero.total_written(), content="0")
+  inspect(zero.outcome() is PngChunkPullOutcome::NeedOutput, content="true")
+  let output : Array[Byte] = []
+  let mut turn = 0UL
+  while turn < 1024UL {
+    let pulled = png_chunk_test_pull(
+      encoder, [1UL, 3UL, 2UL, 5UL][(turn % 4UL).to_int()], output,
+    )
+    match pulled.outcome() {
+      PngChunkPullOutcome::NeedOutput => turn = turn + 1UL
+      PngChunkPullOutcome::Finished => {
+        let terminal_total = pulled.total_written()
+        let later = png_chunk_test_owner(7UL, fill=b'Z')
+        let replay = later.with_mut(0UL, 7UL, fn(lease) { Ok(encoder.pull(lease)) }).unwrap()
+        inspect(replay.written(), content="0")
+        inspect(replay.total_written() == terminal_total, content="true")
+        inspect(replay.outcome() is PngChunkPullOutcome::Finished, content="true")
+        for index = 0UL; index < 7UL; index = index + 1UL {
+          inspect(later.view().get(index).unwrap() == b'Z', content="true")
+        }
+        break
+      }
+      PngChunkPullOutcome::Failed(_) => panic()
+    }
+  }
+  let failed_encoder = PngChunkEncoder::new_with_compression_strategy(
+    image.view(), PngCompressionStrategy::FixedOrStored,
+    png_stream_test_limits(), png_stream_test_budget(), @error.Diagnostics::new(),
+  ).unwrap()
+  let released = png_chunk_test_owner(1UL, fill=b'Z')
+  let first = released.with_mut(0UL, 1UL, fn(lease) {
+    lease.release()
+    Ok(failed_encoder.pull(lease))
+  }).unwrap()
+  let first_error = match first.outcome() {
+    PngChunkPullOutcome::Failed(error) => error
+    _ => panic()
+  }
+  let later = png_chunk_test_owner(1UL, fill=b'Z')
+  let replay = later.with_mut(0UL, 1UL, fn(lease) { Ok(failed_encoder.pull(lease)) }).unwrap()
+  let replay_error = match replay.outcome() {
+    PngChunkPullOutcome::Failed(error) => error
+    _ => panic()
+  }
+  inspect(replay.written(), content="0")
+  inspect(replay.total_written() == first.total_written(), content="true")
+  inspect(png_chunk_test_same_error(first_error, replay_error), content="true")
+  inspect(later.view().get(0UL).unwrap() == b'Z', content="true")
+}

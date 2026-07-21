@@ -309,3 +309,39 @@ test "PNG encoder rejects malformed direct one-byte Writer progress" {
     inspect(writer.calls, content="1")
   }
 }
+
+///|
+test "PNG fixed-or-stored public selected work charges once" {
+  let image = png_encode_image(3UL, Bytes::from_array(Array::make(96, b'\xaa')), width=32UL)
+  let generous = png_encode_budget(work=1048576UL)
+  let before = generous.remaining()
+  let writer = @io.MemoryWriter::new(512UL, png_encode_budget(bytes=512UL, work=0UL)).unwrap()
+  ignore(@codec.ImageEncoder::encode(
+    PngEncoder::new_with_compression_strategy(PngCompressionStrategy::FixedOrStored),
+    image.view(), writer as &@io.Writer,
+    @codec.EncodeOptions::new(lossless_required=true, preserve_opaque_metadata=false),
+    png_encode_limits(work=1048576UL), generous, @error.Diagnostics::new(),
+  ).unwrap())
+  let charged = before.work() - generous.remaining().work()
+  inspect(charged > 0UL, content="true")
+  let exact = png_encode_budget(work=charged)
+  let exact_writer = @io.MemoryWriter::new(512UL, png_encode_budget(bytes=512UL, work=0UL)).unwrap()
+  ignore(@codec.ImageEncoder::encode(
+    PngEncoder::new_with_compression_strategy(PngCompressionStrategy::FixedOrStored),
+    image.view(), exact_writer as &@io.Writer,
+    @codec.EncodeOptions::new(lossless_required=true, preserve_opaque_metadata=false),
+    png_encode_limits(work=charged), exact, @error.Diagnostics::new(),
+  ).unwrap())
+  inspect(exact.remaining().work(), content="0")
+  let one_less = png_encode_budget(work=charged - 1UL)
+  let one_less_before = one_less.remaining()
+  let rejected = @io.MemoryWriter::new(512UL, png_encode_budget(bytes=512UL, work=0UL)).unwrap()
+  inspect(@codec.ImageEncoder::encode(
+    PngEncoder::new_with_compression_strategy(PngCompressionStrategy::FixedOrStored),
+    image.view(), rejected as &@io.Writer,
+    @codec.EncodeOptions::new(lossless_required=true, preserve_opaque_metadata=false),
+    png_encode_limits(work=charged), one_less, @error.Diagnostics::new(),
+  ) is Err(_), content="true")
+  inspect(rejected.position(), content="0")
+  inspect(one_less.remaining().work() == one_less_before.work(), content="true")
+}
