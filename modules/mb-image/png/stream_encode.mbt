@@ -23,9 +23,9 @@ pub fn PngChunkEncoder::new(
 
 ///|
 /// Constructs a caller-buffered encoder with an explicit PNG compression strategy.
-/// `FixedOrStored` currently emits the Stored baseline, provides no optimization or
-/// size guarantee, and receives fixed-or-stored behavior in Phase 33; it excludes
-/// dynamic Huffman coding and adaptive filters.
+/// `FixedOrStored` completes bounded exact admission before output, selecting its
+/// deterministic fixed-Huffman representation only when the complete PNG is no larger
+/// than Stored. The legacy constructor remains an explicit Stored route.
 pub fn PngChunkEncoder::new_with_compression_strategy(
   source : @storage.ImageView,
   strategy : PngCompressionStrategy,
@@ -123,8 +123,9 @@ pub fn PngChunkEncoder::pull(
 }
 
 ///|
-/// Private, owned PNG output state. It retains the immutable source and scalar
-/// cursors only: no destination lease and no output-sized staging buffer.
+/// Private, owned PNG output state. Stored keeps its frozen byte path; configured
+/// FixedOrStored uses scalar fixed-Huffman replay with no dynamic tree, adaptive filter,
+/// 32 KiB dictionary, FFI codec, host adapter, caller lease, or output-sized staging.
 priv struct PngEncodeMachine {
   source : @storage.ImageView
   strategy : PngCompressionStrategy
@@ -136,13 +137,28 @@ priv struct PngEncodeMachine {
   blocks : UInt64
   idat_length : UInt64
   total_length_value : UInt64
+  plan : PngDeflatePlan
   disposition : @metadata.MetadataDisposition
   mut emitted : UInt64
   mut pending : Byte?
+  mut pending_fixed : PngFixedState?
+  mut fixed_state : PngFixedState?
   mut ihdr_crc : UInt64
   mut idat_crc : UInt64
   mut adler : UInt64
   mut finished : Bool
+}
+
+///| All fixed emission state is scalar and advances only when the byte preview
+/// that carried it is acknowledged by the eager Writer or caller lease.
+priv struct PngFixedState {
+  raw_cursor : UInt64
+  bit_value : UInt64
+  bit_count : UInt64
+  adler : UInt64
+  matcher_work : UInt64
+  header_written : Bool
+  eob_written : Bool
 }
 
 ///|
@@ -172,7 +188,7 @@ fn PngEncodeMachine::new_with_compression_strategy(
   budget : @budget.Budget,
   _diagnostics : @error.Diagnostics,
 ) -> Result[PngEncodeMachine, @error.CoreError] {
-  let facts = match _png_encode_preflight(source, limits, budget) {
+  let facts = match _png_encode_preflight(source, strategy, limits, budget) {
     Err(error) => return Err(error)
     Ok(value) => value
   }
@@ -187,9 +203,18 @@ fn PngEncodeMachine::new_with_compression_strategy(
     blocks: facts.blocks,
     idat_length: facts.idat_length,
     total_length_value: facts.total_length,
+    plan: facts.plan,
     disposition: facts.disposition,
     emitted: 0UL,
     pending: None,
+    pending_fixed: None,
+    fixed_state: match facts.plan {
+      PngDeflatePlan::Stored(_) => None
+      PngDeflatePlan::Fixed(_) => Some({
+        raw_cursor: 0UL, bit_value: 0UL, bit_count: 0UL, adler: 1UL,
+        matcher_work: 0UL, header_written: false, eob_written: false,
+      })
+    },
     ihdr_crc: _png_crc_for_type([b'I', b'H', b'D', b'R']),
     idat_crc: _png_crc_for_type([b'I', b'D', b'A', b'T']),
     adler: 1UL,
@@ -237,12 +262,9 @@ fn PngEncodeMachine::zlib_byte(
   self : PngEncodeMachine,
   offset : UInt64,
 ) -> Result[Byte, @error.CoreError] {
-  let stored_baseline = match self.strategy {
-    PngCompressionStrategy::Stored => true
-    PngCompressionStrategy::FixedOrStored => true
-  }
-  if !stored_baseline {
-    return Err(_png_encode_machine_state_error("png-encode-strategy"))
+  match self.plan {
+    PngDeflatePlan::Fixed(_) => return self.fixed_zlib_byte(offset)
+    PngDeflatePlan::Stored(_) => ()
   }
   if offset == 0UL { return Ok(b'\x78') }
   if offset == 1UL { return Ok(b'\x01') }
@@ -277,6 +299,160 @@ fn PngEncodeMachine::zlib_byte(
   } else {
     Err(_png_encode_machine_state_error("png-encode-stored-cursor"))
   }
+}
+
+///|
+fn _png_fixed_put_bits(
+  value : UInt64,
+  count : UInt64,
+  bits : UInt64,
+  width : UInt64,
+) -> (UInt64, UInt64) {
+  (value | (bits << count.to_int()), count + width)
+}
+
+///| Simulate exactly one fixed DEFLATE byte without mutating the committed
+/// machine. The returned scalar state becomes visible only in acknowledge.
+fn PngEncodeMachine::fixed_preview_byte(
+  self : PngEncodeMachine,
+) -> Result[(Byte, PngFixedState), @error.CoreError] {
+  let plan = match self.plan {
+    PngDeflatePlan::Fixed(value) => value
+    _ => return Err(_png_encode_machine_state_error("png-encode-fixed-plan"))
+  }
+  let state = match self.fixed_state {
+    Some(value) => value
+    None => return Err(_png_encode_machine_state_error("png-encode-fixed-state"))
+  }
+  let mut raw_cursor = state.raw_cursor
+  let mut bit_value = state.bit_value
+  let mut bit_count = state.bit_count
+  let mut adler = state.adler
+  let mut matcher_work = state.matcher_work
+  let mut header_written = state.header_written
+  let mut eob_written = state.eob_written
+  while bit_count < 8UL {
+    if !header_written {
+      let (next_value, next_count) = _png_fixed_put_bits(
+        bit_value, bit_count, 3UL, 3UL,
+      )
+      bit_value = next_value
+      bit_count = next_count
+      header_written = true
+    } else if raw_cursor < self.scanlines {
+      let (length, distance, work) = match _png_fixed_match_at(
+        self.source, self.row_bytes, self.channels, self.scanlines, raw_cursor,
+      ) {
+        Err(error) => return Err(error)
+        Ok(value) => value
+      }
+      matcher_work = match _png_fixed_add(matcher_work, work) {
+        Err(error) => return Err(error)
+        Ok(value) => value
+      }
+      if length >= 3UL {
+        let (symbol, extra, extra_bits) = _png_fixed_length_code(length)
+        let (code, code_bits) = _png_fixed_literal_code(symbol)
+        let (next_value, next_count) = _png_fixed_put_bits(
+          bit_value, bit_count, code, code_bits,
+        )
+        bit_value = next_value
+        bit_count = next_count
+        if extra_bits > 0UL {
+          let (next_value, next_count) = _png_fixed_put_bits(
+            bit_value, bit_count, extra, extra_bits,
+          )
+          bit_value = next_value
+          bit_count = next_count
+        }
+        let (distance_code, distance_bits) = _png_fixed_distance_code(distance)
+        let (next_value, next_count) = _png_fixed_put_bits(
+          bit_value, bit_count, distance_code, distance_bits,
+        )
+        bit_value = next_value
+        bit_count = next_count
+        let mut index = 0UL
+        while index < length {
+          let byte = match _png_fixed_scanline_byte(
+            self.source, self.row_bytes, self.channels, raw_cursor + index,
+          ) {
+            Err(error) => return Err(error)
+            Ok(value) => value
+          }
+          adler = _png_adler_step(adler, byte)
+          index = index + 1UL
+        }
+        raw_cursor = raw_cursor + length
+      } else {
+        let byte = match _png_fixed_scanline_byte(
+          self.source, self.row_bytes, self.channels, raw_cursor,
+        ) {
+          Err(error) => return Err(error)
+          Ok(value) => value
+        }
+        let (code, code_bits) = _png_fixed_literal_code(byte.to_uint64())
+        let (next_value, next_count) = _png_fixed_put_bits(
+          bit_value, bit_count, code, code_bits,
+        )
+        bit_value = next_value
+        bit_count = next_count
+        adler = _png_adler_step(adler, byte)
+        raw_cursor = raw_cursor + 1UL
+      }
+    } else if !eob_written {
+      if matcher_work != plan.matcher_work {
+        return Err(_png_encode_machine_state_error("png-encode-fixed-replay-work"))
+      }
+      let (eob, eob_bits) = _png_fixed_literal_code(256UL)
+      let (next_value, next_count) = _png_fixed_put_bits(
+        bit_value, bit_count, eob, eob_bits,
+      )
+      bit_value = next_value
+      bit_count = next_count
+      eob_written = true
+    } else {
+      let byte = bit_value.to_byte()
+      return Ok((byte, {
+        raw_cursor, bit_value: 0UL, bit_count: 0UL, adler, matcher_work, eob_written,
+        header_written,
+      }))
+    }
+  }
+  let byte = bit_value.to_byte()
+  Ok((byte, {
+    raw_cursor, bit_value: bit_value >> 8, bit_count: bit_count - 8UL,
+    adler, matcher_work, header_written, eob_written,
+  }))
+}
+
+///|
+fn PngEncodeMachine::fixed_zlib_byte(
+  self : PngEncodeMachine,
+  offset : UInt64,
+) -> Result[Byte, @error.CoreError] {
+  let plan = match self.plan {
+    PngDeflatePlan::Fixed(value) => value
+    _ => return Err(_png_encode_machine_state_error("png-encode-fixed-plan"))
+  }
+  if offset == 0UL { return Ok(b'\x78') }
+  if offset == 1UL { return Ok(b'\x01') }
+  if offset < plan.deflate_bytes + 2UL {
+    let (byte, next) = match self.fixed_preview_byte() {
+      Err(error) => return Err(error)
+      Ok(value) => value
+    }
+    self.pending_fixed = Some(next)
+    return Ok(byte)
+  }
+  let adler_offset = offset - plan.deflate_bytes - 2UL
+  if adler_offset < 4UL {
+    let state = match self.fixed_state {
+      Some(value) => value
+      None => return Err(_png_encode_machine_state_error("png-encode-fixed-state"))
+    }
+    return Ok(_png_encode_machine_u32_byte(state.adler, adler_offset))
+  }
+  Err(_png_encode_machine_state_error("png-encode-fixed-cursor"))
 }
 
 ///|
@@ -350,12 +526,24 @@ fn PngEncodeMachine::acknowledge(
   if offset >= 41UL && offset < 41UL + self.idat_length {
     self.idat_crc = _png_crc_step(self.idat_crc, accepted)
     let zlib_offset = offset - 41UL
-    let stored_end = self.idat_length - 4UL
-    if zlib_offset >= 2UL && zlib_offset < stored_end && (zlib_offset - 2UL) % 65540UL >= 5UL {
-      self.adler = _png_adler_step(self.adler, accepted)
+    match self.plan {
+      PngDeflatePlan::Stored(_) => {
+        let stored_end = self.idat_length - 4UL
+        if zlib_offset >= 2UL && zlib_offset < stored_end && (zlib_offset - 2UL) % 65540UL >= 5UL {
+          self.adler = _png_adler_step(self.adler, accepted)
+        }
+      }
+      PngDeflatePlan::Fixed(_) => match self.pending_fixed {
+        Some(next) => {
+          self.adler = next.adler
+          self.fixed_state = Some(next)
+        }
+        None => ()
+      }
     }
   }
   self.pending = None
+  self.pending_fixed = None
   self.emitted = self.emitted + 1UL
   if self.emitted == self.total_length_value { self.finished = true }
   Ok(())
