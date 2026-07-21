@@ -286,6 +286,7 @@ fn png_chunk_public_schedule(
   lane : String,
   packets : Array[UInt64],
   expected_source_terminal : UInt64?,
+  capture_source_terminal : Bool,
   budget : @budget.Budget,
   diagnostics : @error.Diagnostics,
 ) -> PngChunkScheduleRun {
@@ -293,14 +294,16 @@ fn png_chunk_public_schedule(
   let empty = png_chunk_source(b"")
   let zero = decoder.push(empty.view())
   if zero.consumed() != 0UL || !(zero.outcome() is PngChunkPushOutcome::NeedInput) {
-    fail("PNG " + lane + " empty push must be active: " + item.id)
+    abort("PNG " + lane + " empty push must be active: " + item.id)
   }
   let length = item.bytes.length().to_uint64()
   let mut offset = 0UL
   let mut turn = 0
   let mut terminal : @error.CoreError? = None
   while offset < length && terminal is None {
-    let requested = min(packets[turn % packets.length()], length - offset)
+    let available = length - offset
+    let scheduled = packets[turn % packets.length()]
+    let requested = if scheduled < available { scheduled } else { available }
     let owner = png_chunk_source(png_chunk_bytes(
       item.bytes, offset.to_int(), (offset + requested).to_int(),
     ))
@@ -308,11 +311,11 @@ fn png_chunk_public_schedule(
     match pushed.outcome() {
       PngChunkPushOutcome::NeedInput => {
         if pushed.consumed() != requested {
-          fail("PNG " + lane + " active progress mismatch: " + item.id)
+          abort("PNG " + lane + " active progress mismatch: " + item.id)
         }
         match expected_source_terminal {
           Some(expected) => if offset + requested >= expected {
-            fail("PNG " + lane + " missed source terminal: " + item.id)
+            abort("PNG " + lane + " missed source terminal: " + item.id)
           }
           None => ()
         }
@@ -320,14 +323,16 @@ fn png_chunk_public_schedule(
       }
       PngChunkPushOutcome::Failed(error) => {
         if pushed.consumed() == 0UL || pushed.consumed() > requested {
-          fail("PNG " + lane + " terminal admission mismatch: " + item.id)
+          abort("PNG " + lane + " terminal admission mismatch: " + item.id)
         }
         offset = offset + pushed.consumed()
         match expected_source_terminal {
           Some(expected) => if offset != expected {
-            fail("PNG " + lane + " terminal prefix mismatch: " + item.id)
+            abort("PNG " + lane + " terminal prefix mismatch: " + item.id)
           }
-          None => fail("PNG " + lane + " unexpectedly failed in push: " + item.id)
+          None => if !capture_source_terminal {
+            abort("PNG " + lane + " unexpectedly failed in push: " + item.id)
+          }
         }
         terminal = Some(error)
       }
@@ -339,23 +344,23 @@ fn png_chunk_public_schedule(
       let replay_owner = png_chunk_source(b"")
       let replay = decoder.push(replay_owner.view())
       if replay.consumed() != 0UL {
-        fail("PNG " + lane + " sticky push consumed bytes: " + item.id)
+        abort("PNG " + lane + " sticky push consumed bytes: " + item.id)
       }
       match replay.outcome() {
         PngChunkPushOutcome::Failed(value) => if !png_chunk_error_matches(value, error) {
-          fail("PNG " + lane + " sticky push error mismatch: " + item.id)
+          abort("PNG " + lane + " sticky push error mismatch: " + item.id)
         }
-        _ => fail("PNG " + lane + " sticky push lost error: " + item.id)
+        _ => abort("PNG " + lane + " sticky push lost error: " + item.id)
       }
       let finished = decoder.finish().unwrap_err()
       if !png_chunk_error_matches(finished, error) {
-        fail("PNG " + lane + " sticky finish error mismatch: " + item.id)
+        abort("PNG " + lane + " sticky finish error mismatch: " + item.id)
       }
       PngChunkScheduleRun::{ source_terminal: Some(offset), result: Err(error) }
     }
     None => {
       match expected_source_terminal {
-        Some(_) => fail("PNG " + lane + " source ended before terminal: " + item.id)
+        Some(_) => abort("PNG " + lane + " source ended before terminal: " + item.id)
         None => PngChunkScheduleRun::{ source_terminal: None, result: decoder.finish() }
       }
     }
@@ -376,20 +381,20 @@ fn png_chunk_schedule_matches_eager(
   let eager = png_chunk_eager_vector(item, eager_budget, eager_diagnostics)
   match (eager, scheduled) {
     (Ok(left), Ok(right)) => if !png_scheduled_result_matches(left, right) {
-      fail("PNG " + lane + " eager result mismatch: " + item.id)
+      abort("PNG " + lane + " eager result mismatch: " + item.id)
     }
     (Err(left), Err(right)) => if !png_chunk_error_matches(left, right) {
-      fail("PNG " + lane + " eager error mismatch: " + item.id)
+      abort("PNG " + lane + " eager error mismatch: " + item.id)
     }
-    (Ok(_), Err(error)) => fail("PNG " + lane + " unexpectedly failed: " + item.id + ": " + error.context().unwrap())
-    (Err(error), Ok(_)) => fail("PNG " + lane + " unexpectedly succeeded: " + item.id + ": " + error.context().unwrap())
+    (Ok(_), Err(error)) => abort("PNG " + lane + " unexpectedly failed: " + item.id + ": " + error.context().unwrap())
+    (Err(error), Ok(_)) => abort("PNG " + lane + " unexpectedly succeeded: " + item.id + ": " + error.context().unwrap())
   }
   if !png_test_remaining_unchanged(eager_budget.remaining(), scheduled_budget.remaining()) {
-    fail("PNG " + lane + " eager budget mismatch: " + item.id)
+    abort("PNG " + lane + " eager budget mismatch: " + item.id)
   }
   if eager_diagnostics.length() != scheduled_diagnostics.length() ||
     eager_diagnostics.render() != scheduled_diagnostics.render() {
-    fail("PNG " + lane + " eager diagnostics mismatch: " + item.id)
+    abort("PNG " + lane + " eager diagnostics mismatch: " + item.id)
   }
 }
 
@@ -401,7 +406,7 @@ test "PNG chunk decoder proves generated corpus through hostile public schedules
     let one_byte_budget = png_chunk_vector_budget(item)
     let one_byte_diagnostics = @error.Diagnostics::new()
     let one_byte = png_chunk_public_schedule(
-      item, "empty-then-one-byte", [1UL], None,
+      item, "empty-then-one-byte", [1UL], None, true,
       one_byte_budget, one_byte_diagnostics,
     )
     png_chunk_schedule_matches_eager(
@@ -412,7 +417,7 @@ test "PNG chunk decoder proves generated corpus through hostile public schedules
     let ragged_diagnostics = @error.Diagnostics::new()
     let ragged = png_chunk_public_schedule(
       item, "ragged-public-packets", [8UL, 4UL, 1UL, 13UL, 2UL, 5UL, 3UL, 21UL],
-      one_byte.source_terminal, ragged_budget, ragged_diagnostics,
+      one_byte.source_terminal, false, ragged_budget, ragged_diagnostics,
     )
     if ragged.source_terminal != one_byte.source_terminal {
       fail("PNG ragged terminal prefix differs from one-byte: " + item.id)
