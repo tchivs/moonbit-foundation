@@ -74,14 +74,45 @@ fn main {
     decoded.image().view(), 3UL, 1UL,
     example_budget(9UL, 1UL, 9UL, 3UL, 1UL, 3UL, 12UL),
   ).unwrap()
-  let writer = @io.MemoryWriter::new(
-    128UL, example_budget(128UL, 1UL, 128UL, 0UL, 0UL, 0UL, 0UL),
+  let output_schedule : Array[UInt64] = [
+    0UL, 8UL, 4UL, 1UL, 13UL, 2UL, 5UL, 3UL, 21UL,
+  ]
+  let output_owner = @bytes.OwnedBytes::from_bytes(
+    Bytes::from_array(Array::make(21, b'\x00')),
+    example_budget(21UL, 1UL, 21UL, 0UL, 0UL, 0UL, 0UL),
   ).unwrap()
-  let encoded = @codec.ImageEncoder::encode(
-    @png.PngEncoder::new(), resized.image().view(), writer as &@io.Writer,
-    @codec.EncodeOptions::new(lossless_required=true, preserve_opaque_metadata=false),
-    codec_limits(), example_budget(0UL, 0UL, 0UL, 3UL, 1UL, 0UL, 78UL),
+  let encoder = @png.PngChunkEncoder::new(
+    resized.image().view(), codec_limits(),
+    example_budget(0UL, 0UL, 0UL, 3UL, 1UL, 0UL, 78UL),
     @error.Diagnostics::new(),
+  ).unwrap()
+  let output : Array[Byte] = []
+  let mut output_pulls = 0UL
+  let mut encoder_finished = false
+  while !encoder_finished {
+    let capacity = output_schedule[
+      (output_pulls % output_schedule.length().to_uint64()).to_int()
+    ]
+    let pulled = output_owner.with_mut(0UL, capacity, fn(lease) {
+      Ok(encoder.pull(lease))
+    }).unwrap()
+    if pulled.written() > capacity ||
+      pulled.total_written() != output.length().to_uint64() + pulled.written() {
+      abort("png portable chunk encoder progress")
+    }
+    for index = 0UL; index < pulled.written(); index = index + 1UL {
+      output.push(output_owner.view().get(index).unwrap())
+    }
+    output_pulls = output_pulls + 1UL
+    match pulled.outcome() {
+      @png.PngChunkPullOutcome::NeedOutput => ()
+      @png.PngChunkPullOutcome::Finished => encoder_finished = true
+      @png.PngChunkPullOutcome::Failed(_) => abort("png portable chunk encoder failure")
+    }
+  }
+  let encoded = @bytes.OwnedBytes::from_bytes(
+    Bytes::from_array(output),
+    example_budget(78UL, 1UL, 78UL, 0UL, 0UL, 0UL, 0UL),
   ).unwrap()
   if decoded.descriptor().width() != 2UL || decoded.descriptor().height() != 1UL { abort("png portable dimensions") }
   if decoded.bytes_read() != 75UL { abort("png portable read length") }
@@ -94,9 +125,9 @@ fn main {
   if resized.image().view().get_byte(0UL, 0UL, 2UL).unwrap() != b'\x56' ||
     resized.image().view().get_byte(1UL, 0UL, 2UL).unwrap() != b'\xcc' ||
     resized.image().view().get_byte(2UL, 0UL, 2UL).unwrap() != b'\xef' { abort("png portable bilinear pixels") }
-  if encoded.bytes_written() != 78UL { abort("png portable write length") }
+  if encoded.view().length() != 78UL { abort("png portable write length") }
   if output_pulls != 14UL { abort("png portable chunk output pulls") }
-  if !matches(writer.view(), expected.view(), 78UL) { abort("png portable exact bytes") }
-  if digest(writer.view(), 78UL) != 626208771UL { abort("png portable digest") }
-  println("example=png-portable input_schedule=workflow-zero-signature-ihdr-idat-deflate-iend pushes=16 bytes_read=75 bytes_written=78 width=3 height=1 resize_bilinear digest=626208771")
+  if !matches(encoded.view(), expected.view(), 78UL) { abort("png portable exact bytes") }
+  if digest(encoded.view(), 78UL) != 626208771UL { abort("png portable digest") }
+  println("example=png-portable input_schedule=workflow-zero-signature-ihdr-idat-deflate-iend pushes=16 bytes_read=75 output_schedule=zero-tiny-ragged output_pulls=14 bytes_written=78 width=3 height=1 resize_bilinear digest=626208771")
 }
