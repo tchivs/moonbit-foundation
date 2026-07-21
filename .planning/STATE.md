@@ -5,8 +5,8 @@ milestone_name: PNG Colour Fidelity
 current_phase: 24
 current_phase_name: Bounded Non-sRGB and ICC Preservation
 status: planning
-stopped_at: Completed 23-02-PLAN.md
-last_updated: "2026-07-21T01:23:55.811Z"
+stopped_at: Phase 24 context gathered
+last_updated: "2026-07-21T01:26:09.059Z"
 last_activity: 2026-07-21
 last_activity_desc: Phase 23 complete, transitioned to Phase 24
 progress:
@@ -97,6 +97,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-07-21T01:17:06.595Z
-Stopped at: Completed 23-02-PLAN.md
-Resume file: None
+Last session: 2026-07-21T01:26:09.037Z
+Stopped at: Phase 24 context gathered
+Resume file: .planning/phases/24-bounded-non-srgb-and-icc-preservation/24-CONTEXT.md
