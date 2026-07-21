@@ -40,7 +40,7 @@
 **Scope boundary:** Existing stored-DEFLATE constructors remain the default and byte-stable baseline. Dynamic Huffman, adaptive filters, a 32 KiB LZ77 dictionary, FFI codecs, host stream adapters, registry/release work, APNG, colour-transform work, and metadata expansion remain outside this milestone.
 
 - [x] **Phase 32: PNG Compression Strategy and Compatibility** - Users can select a documented additive compression strategy while legacy eager and chunk constructors retain their exact stored-DEFLATE bytes. (completed 2026-07-22)
-- [ ] **Phase 33: Fixed-or-Stored PNG Planning and Emission** - Optimized users receive deterministic, preflighted fixed-Huffman-or-stored eager and caller-buffered output with exact progress and sticky terminals.
+- [x] **Phase 33: Fixed-or-Stored PNG Planning and Emission** - Optimized users receive deterministic, preflighted fixed-Huffman-or-stored eager and caller-buffered output with exact progress and sticky terminals. (completed 2026-07-22)
 - [ ] **Phase 34: Portable PNG Compression Corpus Evidence** - A reproducible four-target corpus proves valid, deterministic, never-larger optimized output and declared flat-image wins.
 
 ## Phase Details
@@ -141,7 +141,7 @@
 | 30. Public PNG Chunk Encoder | 1/1 | Complete    | 2026-07-21 |
 | 31. Portable PNG Encode Evidence | 1/1 | Complete    | 2026-07-21 |
 | 32. PNG Compression Strategy and Compatibility | 1/1 | Complete    | 2026-07-22 |
-| 33. Fixed-or-Stored PNG Planning and Emission | 0/TBD | Not started | - |
+| 33. Fixed-or-Stored PNG Planning and Emission | 2/2 | Complete    | 2026-07-22 |
 | 34. Portable PNG Compression Corpus Evidence | 0/TBD | Not started | - |
 
 ---
