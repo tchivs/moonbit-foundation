@@ -60,8 +60,9 @@ fn main {
     codec_limits(), example_budget(256UL, 8UL, 128UL, 2UL, 1UL, 2UL, 256UL),
     @error.Diagnostics::new(),
   ).unwrap()
-  let resized = @ops.flip_horizontal(
-    decoded.image().view(), example_budget(6UL, 1UL, 6UL, 2UL, 1UL, 2UL, 6UL),
+  let resized = @ops.resize_bilinear(
+    decoded.image().view(), 3UL, 1UL,
+    example_budget(9UL, 1UL, 9UL, 3UL, 1UL, 3UL, 12UL),
   ).unwrap()
   let writer = @io.MemoryWriter::new(
     128UL, example_budget(128UL, 1UL, 128UL, 0UL, 0UL, 0UL, 0UL),
