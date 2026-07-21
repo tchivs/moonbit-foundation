@@ -340,8 +340,19 @@ fn PngRasterSink::into_image(self : PngRasterSink) -> @storage.OwnedImage {
 
 ///|
 fn PngRasterSink::finish(self : PngRasterSink) -> Result[Unit, @error.CoreError] {
-  let complete_rows = if self.interlaced { self.pass_index == self.passes.length() && self.pass_row == 0UL } else { self.row == self.transport.height }
-  if self.emitted != self.expected || self.column != 0UL || !complete_rows { Err(_png_error("png-filtered-size")) } else { Ok(()) }
+  if !self.is_complete() { Err(_png_error("png-filtered-size")) } else { Ok(()) }
+}
+
+///|
+/// Query completion without moving the owned image or advancing any row state.
+/// The public chunk facade uses this solely to preserve EOF error precedence.
+fn PngRasterSink::is_complete(self : PngRasterSink) -> Bool {
+  let complete_rows = if self.interlaced {
+    self.pass_index == self.passes.length() && self.pass_row == 0UL
+  } else {
+    self.row == self.transport.height
+  }
+  self.emitted == self.expected && self.column == 0UL && complete_rows
 }
 
 ///| Feed exactly one decompressed byte.  Filter tags and all sample state are

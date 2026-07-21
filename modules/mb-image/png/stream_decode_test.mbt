@@ -151,3 +151,69 @@ test "PNG chunk decoder API has strict explicit finish" {
   inspect(pushed.outcome() is PngChunkPushOutcome::NeedInput, content="true")
   inspect(decoder.finish().unwrap_err().code() == @error.ErrorCode::UnexpectedEndOfStream, content="true")
 }
+
+///|
+/// Pushing a complete transport is still non-terminal: the owned image remains
+/// private through IEND until the caller supplies the separate EOF transition.
+test "PNG chunk decoder transfers one result and preserves terminal errors" {
+  let data = b"\x89PNG\r\n\x1a\n\x00\x00\x00\x0dIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x02\x00\x00\x00\x90\x77\x53\xde\x00\x00\x00\x0fIDAT\x78\x01\x01\x04\x00\xfb\xff\x00\x12\x34\x56\x00\xf8\x00\x9d\xf8\xd7\x64\x8c\x00\x00\x00\x00IEND\xae\x42\x60\x82"
+  let source = @bytes.OwnedBytes::from_bytes(
+    data,
+    @budget.Budget::new(@budget.ResourceLimits::new(
+      bytes=data.length().to_uint64(), allocations=1UL,
+      allocation_size=data.length().to_uint64(), width=0UL, height=0UL,
+      pixels=0UL, depth=0UL, work=0UL,
+    )),
+  ).unwrap()
+  let limits = @codec.CodecLimits::new(
+    max_probe_bytes=8UL, max_input_bytes=256UL, max_output_bytes=64UL,
+    max_width=4UL, max_height=4UL, max_pixels=16UL, max_work=256UL,
+  )
+  let decoder = PngChunkDecoder::new(
+    limits,
+    @budget.Budget::new(@budget.ResourceLimits::new(
+      bytes=256UL, allocations=8UL, allocation_size=128UL, width=4UL,
+      height=4UL, pixels=16UL, depth=0UL, work=256UL,
+    )),
+    @error.Diagnostics::new(),
+  )
+  let pushed = decoder.push(source.view())
+  inspect(pushed.consumed() == data.length().to_uint64(), content="true")
+  inspect(pushed.outcome() is PngChunkPushOutcome::NeedInput, content="true")
+  let result = decoder.finish().unwrap()
+  inspect(result.bytes_read() == data.length().to_uint64(), content="true")
+  inspect(result.image().view().get_byte(0UL, 0UL, 0UL).unwrap(), content="b'\\x12'")
+  inspect(decoder.finish().unwrap_err().category() == @error.ErrorCategory::State, content="true")
+  let after_finish = decoder.push(source.view())
+  inspect(after_finish.consumed() == 0UL, content="true")
+  inspect(after_finish.outcome() is PngChunkPushOutcome::Failed(_), content="true")
+
+  let malformed = @bytes.OwnedBytes::from_bytes(
+    b"X",
+    @budget.Budget::new(@budget.ResourceLimits::new(
+      bytes=1UL, allocations=1UL, allocation_size=1UL, width=0UL,
+      height=0UL, pixels=0UL, depth=0UL, work=0UL,
+    )),
+  ).unwrap()
+  let failed = PngChunkDecoder::new(
+    limits,
+    @budget.Budget::new(@budget.ResourceLimits::new(
+      bytes=256UL, allocations=8UL, allocation_size=128UL, width=4UL,
+      height=4UL, pixels=16UL, depth=0UL, work=256UL,
+    )),
+    @error.Diagnostics::new(),
+  )
+  let first = failed.push(malformed.view())
+  inspect(first.consumed() == 1UL, content="true")
+  match first.outcome() {
+    PngChunkPushOutcome::Failed(error) => inspect(error.context() == Some("png-signature"), content="true")
+    _ => fail("malformed PNG must fail during push")
+  }
+  let replay = failed.push(source.view())
+  inspect(replay.consumed() == 0UL, content="true")
+  match replay.outcome() {
+    PngChunkPushOutcome::Failed(error) => inspect(error.context() == Some("png-signature"), content="true")
+    _ => fail("first PNG error must be sticky")
+  }
+  inspect(failed.finish().unwrap_err().context() == Some("png-signature"), content="true")
+}

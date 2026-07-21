@@ -13,6 +13,14 @@ priv enum PngDecodeMachineState {
   Failed(@error.CoreError)
 }
 
+///| Public-chunk facade state. The machine itself remains the single parser;
+/// this wrapper only owns public accounting and terminal-result transfer.
+priv enum PngChunkDecoderState {
+  Active(PngDecodeMachine)
+  Failed(@error.CoreError)
+  Finished
+}
+
 ///|
 /// A fully owned, private output lifecycle.  The sink owns the only image
 /// allocation made by the byte-fed machine; it is not exposed while the
@@ -533,6 +541,158 @@ fn PngDecodeMachine::finish(self : PngDecodeMachine) -> Result[Unit, @error.Core
       }
     }
     _ => Err(_png_error("png-finished"))
+  }
+}
+
+///| Move the sole private terminal outcome into the established public result.
+/// PngChunkDecoder discards this machine immediately afterwards, so the image
+/// cannot be transferred or observed a second time.
+fn PngDecodeMachine::into_decode_result(
+  self : PngDecodeMachine,
+) -> Result[@codec.DecodeResult, @error.CoreError] {
+  match self.outcome {
+    Some(outcome) => Ok(@codec.DecodeResult::new(
+      outcome.image,
+      outcome.disposition,
+      outcome.bytes_read,
+    ))
+    None => Err(_png_error("png-machine-outcome"))
+  }
+}
+
+///|
+fn _png_chunk_terminal_error() -> @error.CoreError {
+  @error.CoreError::new(
+    @error.ErrorCategory::State,
+    @error.ErrorCode::InvalidRange,
+    operation="png-chunk-decoder",
+    context="png-chunk-terminal",
+  )
+}
+
+///|
+fn _png_chunk_incomplete(
+  context : String,
+  completed : UInt64,
+) -> @error.CoreError {
+  @error.CoreError::new(
+    @error.ErrorCategory::Data,
+    @error.ErrorCode::UnexpectedEndOfStream,
+    operation="png-decode",
+    completed~,
+    context~,
+  )
+}
+
+///| Classify only an active, incomplete machine. Existing machine errors are
+/// recorded before this helper is reached, so first-error identity always wins.
+fn PngDecodeMachine::chunk_incomplete_error(
+  self : PngDecodeMachine,
+  completed : UInt64,
+) -> @error.CoreError {
+  match self.inflate {
+    Some(inflate) => if !inflate.complete() { return _png_chunk_incomplete("zlib-truncated", completed) }
+    None => ()
+  }
+  match self.lifecycle {
+    Some(lifecycle) => if !lifecycle.sink.is_complete() {
+      return _png_chunk_incomplete("png-filtered-size", completed)
+    }
+    None => ()
+  }
+  match self.state {
+    Signature(_) => _png_chunk_incomplete("png-signature", completed)
+    Length(bytes) => if self.saw_idat {
+      if bytes.length() == 0 { _png_chunk_incomplete("png-iend", completed) }
+      else { _png_chunk_incomplete("png-iend-length", completed) }
+    } else {
+      _png_chunk_incomplete("png-chunk-length", completed)
+    }
+    Type(length, _) => if length != 0UL {
+      _png_chunk_incomplete("png-iend-length", completed)
+    } else {
+      _png_chunk_incomplete("png-iend-type", completed)
+    }
+    Payload(_, kind, _, _) => if _png_type_is(kind, b'I', b'E', b'N', b'D') {
+      _png_chunk_incomplete("png-iend-length", completed)
+    } else {
+      _png_chunk_incomplete("png-chunk-payload", completed)
+    }
+    Crc(kind, _, bytes, _) => if _png_type_is(kind, b'I', b'D', b'A', b'T') {
+      _png_chunk_incomplete("png-idat-crc", completed)
+    } else if _png_type_is(kind, b'I', b'E', b'N', b'D') {
+      _png_chunk_incomplete("png-iend-crc", completed)
+    } else {
+      _png_chunk_incomplete("png-chunk-crc", completed)
+    }
+    NeedEof => _png_chunk_incomplete("png-iend", completed)
+    Completed => _png_chunk_terminal_error()
+    Failed(error) => error
+  }
+}
+
+///|
+pub fn PngChunkDecoder::push(
+  self : PngChunkDecoder,
+  source : @bytes.ByteView,
+) -> PngChunkPushResult {
+  match self.state {
+    Failed(error) => return { consumed_value: 0UL, outcome_value: Failed(error) }
+    Finished => return { consumed_value: 0UL, outcome_value: Failed(_png_chunk_terminal_error()) }
+    Active(_) => ()
+  }
+  let mut accepted = 0UL
+  for index = 0UL; index < source.length(); index = index + 1UL {
+    let next = match @checked.checked_add(self.consumed_total, 1UL) {
+      Ok(value) => value
+      Err(error) => {
+        self.state = Failed(error)
+        return { consumed_value: accepted, outcome_value: Failed(error) }
+      }
+    }
+    if next > self.limits.max_input_bytes() {
+      let error = _png_limit("input-bytes", next, self.limits.max_input_bytes())
+      self.state = Failed(error)
+      return { consumed_value: accepted, outcome_value: Failed(error) }
+    }
+    let byte = source.get(index).unwrap()
+    self.consumed_total = next
+    accepted = accepted + 1UL
+    match self.state {
+      Active(machine) => match machine.accept(byte) {
+        Ok(_) => ()
+        Err(error) => {
+          self.state = Failed(error)
+          return { consumed_value: accepted, outcome_value: Failed(error) }
+        }
+      }
+      _ => abort("chunk decoder state changed while active")
+    }
+  }
+  { consumed_value: accepted, outcome_value: NeedInput }
+}
+
+///|
+pub fn PngChunkDecoder::finish(
+  self : PngChunkDecoder,
+) -> Result[@codec.DecodeResult, @error.CoreError] {
+  match self.state {
+    Failed(error) => Err(error)
+    Finished => Err(_png_chunk_terminal_error())
+    Active(machine) => match machine.state {
+      NeedEof => match machine.finish() {
+        Err(error) => { self.state = Failed(error); Err(error) }
+        Ok(_) => match machine.into_decode_result() {
+          Err(error) => { self.state = Failed(error); Err(error) }
+          Ok(result) => { self.state = Finished; Ok(result) }
+        }
+      }
+      _ => {
+        let error = machine.chunk_incomplete_error(self.consumed_total)
+        self.state = Failed(error)
+        Err(error)
+      }
+    }
   }
 }
 

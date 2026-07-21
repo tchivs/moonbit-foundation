@@ -9,6 +9,65 @@ pub fn PngDecoder::new() -> PngDecoder {
 }
 
 ///|
+/// A caller-chunk-fed PNG decoder. Completion is declared explicitly with
+/// `finish`; it retains no caller ByteView and does not change PngDecoder's
+/// Reader-based contract.
+pub struct PngChunkDecoder {
+  priv limits : @codec.CodecLimits
+  priv _diagnostics : @error.Diagnostics
+  priv mut state : PngChunkDecoderState
+  priv mut consumed_total : UInt64
+}
+
+///|
+/// Progress from a PngChunkDecoder push. A completed image is intentionally
+/// not available here: only finish can transfer the terminal result.
+pub(all) enum PngChunkPushOutcome {
+  NeedInput
+  Failed(@error.CoreError)
+}
+
+///|
+/// Exact consumption and progress from one caller-owned input view.
+pub struct PngChunkPushResult {
+  priv consumed_value : UInt64
+  priv outcome_value : PngChunkPushOutcome
+}
+
+///|
+pub fn PngChunkPushResult::consumed(self : PngChunkPushResult) -> UInt64 {
+  self.consumed_value
+}
+
+///|
+pub fn PngChunkPushResult::outcome(
+  self : PngChunkPushResult,
+) -> PngChunkPushOutcome {
+  self.outcome_value
+}
+
+///|
+pub fn PngChunkDecoder::new(
+  limits : @codec.CodecLimits,
+  budget : @budget.Budget,
+  diagnostics : @error.Diagnostics,
+) -> PngChunkDecoder {
+  {
+    limits,
+    _diagnostics: diagnostics,
+    state: PngChunkDecoderState::Active(PngDecodeMachine::new(
+      @codec.DecodeOptions::new(
+        require_complete_input=true,
+        preserve_opaque_metadata=false,
+      ),
+      limits,
+      budget,
+    )),
+    consumed_total: 0UL,
+  }
+}
+
+///|
 /// A deterministic encoder for the strict RGB8 and straight-RGBA8 PNG profile.
 /// It emits one canonical stored-DEFLATE representation without host adapters.
 pub struct PngEncoder {}
