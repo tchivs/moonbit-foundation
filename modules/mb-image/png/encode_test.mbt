@@ -65,14 +65,43 @@ fn png_encode_prefix(writer : @io.MemoryWriter) -> Bytes {
 }
 
 ///|
-fn png_encode(image : @storage.OwnedImage) -> (@codec.EncodeResult, @io.MemoryWriter) {
+fn png_encode_with(
+  encoder : PngEncoder,
+  image : @storage.OwnedImage,
+) -> (@codec.EncodeResult, @io.MemoryWriter) {
   let writer = @io.MemoryWriter::new(512UL, png_encode_budget(bytes=512UL, work=0UL)).unwrap()
   let result = @codec.ImageEncoder::encode(
-    PngEncoder::new(), image.view(), writer as &@io.Writer,
+    encoder, image.view(), writer as &@io.Writer,
     @codec.EncodeOptions::new(lossless_required=true, preserve_opaque_metadata=false),
     png_encode_limits(), png_encode_budget(), @error.Diagnostics::new(),
   ).unwrap()
   (result, writer)
+}
+
+///|
+fn png_encode(image : @storage.OwnedImage) -> (@codec.EncodeResult, @io.MemoryWriter) {
+  png_encode_with(PngEncoder::new(), image)
+}
+
+///|
+test "PNG compression strategy eager factories encode supported images" {
+  for strategy in [PngCompressionStrategy::Stored, PngCompressionStrategy::FixedOrStored] {
+    let image = png_encode_image(3UL, b"\x12\x34\x56")
+    let (_, writer) = png_encode_with(
+      PngEncoder::new_with_compression_strategy(strategy), image,
+    )
+    let bytes = png_encode_prefix(writer)
+    let owner = @bytes.OwnedBytes::from_bytes(
+      bytes, png_encode_budget(bytes=512UL, work=0UL),
+    ).unwrap()
+    let decoded = @codec.ImageDecoder::decode(
+      PngDecoder::new(), @io.MemoryReader::new(owner.view()) as &@io.Reader,
+      @codec.DecodeOptions::new(
+        require_complete_input=true, preserve_opaque_metadata=false,
+      ), png_encode_limits(), png_encode_budget(), @error.Diagnostics::new(),
+    ).unwrap()
+    inspect(decoded.image().view().get_byte(0UL, 0UL, 0UL).unwrap() == b'\x12', content="true")
+  }
 }
 
 ///|
@@ -86,6 +115,22 @@ test "PNG encoder emits canonical RGB and RGBA stored-deflate bytes" {
   inspect(rgb_result.bytes_written(), content="72")
   let (_, rgba_writer) = png_encode(png_encode_image(4UL, b"\x04\x05\x06\x07"))
   inspect(png_encode_prefix(rgba_writer)[25] == b'\x06', content="true")
+}
+
+///|
+test "PNG compression strategy legacy eager constructors retain frozen stored bytes" {
+  let (_, rgb_writer) = png_encode(png_encode_image(3UL, b"\x12\x34\x56"))
+  inspect(
+    png_encode_prefix(rgb_writer) ==
+    b"\x89PNG\r\n\x1a\n\x00\x00\x00\x0dIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x02\x00\x00\x00\x90\x77\x53\xde\x00\x00\x00\x0fIDAT\x78\x01\x01\x04\x00\xfb\xff\x00\x12\x34\x56\x00\xf8\x00\x9d\xf8\xd7\x64\x8c\x00\x00\x00\x00IEND\xae\x42\x60\x82",
+    content="true",
+  )
+  let (_, rgba_writer) = png_encode(png_encode_image(4UL, b"\x04\x05\x06\x07"))
+  inspect(
+    png_encode_prefix(rgba_writer) ==
+    b"\x89PNG\r\n\x1a\n\x00\x00\x00\x0dIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x06\x00\x00\x00\x1f\x15\xc4\x89\x00\x00\x00\x10IDAT\x78\x01\x01\x05\x00\xfa\xff\x00\x04\x05\x06\x07\x00\x37\x00\x17\x05\x48\x0f\xc7\x00\x00\x00\x00IEND\xae\x42\x60\x82",
+    content="true",
+  )
 }
 
 ///|

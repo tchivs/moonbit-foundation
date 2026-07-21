@@ -95,14 +95,10 @@ fn png_chunk_test_pull(
 }
 
 ///|
-fn png_chunk_test_drain(
-  image : @storage.OwnedImage,
+fn png_chunk_test_drain_encoder(
+  encoder : PngChunkEncoder,
   schedule : Array[UInt64],
 ) -> Result[Bytes, @error.CoreError] {
-  let encoder = PngChunkEncoder::new(
-    image.view(), png_stream_test_limits(), png_stream_test_budget(),
-    @error.Diagnostics::new(),
-  ).unwrap()
   let output : Array[Byte] = []
   let mut turn = 0
   while turn < 1024 {
@@ -124,6 +120,59 @@ fn png_chunk_test_drain(
     @error.ErrorCategory::State, @error.ErrorCode::InvalidRange,
     context="png-chunk-unreachable",
   ))
+}
+
+///|
+fn png_chunk_test_drain(
+  image : @storage.OwnedImage,
+  schedule : Array[UInt64],
+) -> Result[Bytes, @error.CoreError] {
+  let encoder = PngChunkEncoder::new(
+    image.view(), png_stream_test_limits(), png_stream_test_budget(),
+    @error.Diagnostics::new(),
+  ).unwrap()
+  png_chunk_test_drain_encoder(encoder, schedule)
+}
+
+///|
+test "PNG compression strategy chunk factories encode supported images" {
+  for strategy in [PngCompressionStrategy::Stored, PngCompressionStrategy::FixedOrStored] {
+    let image = png_stream_test_image(3UL)
+    let encoder = PngChunkEncoder::new_with_compression_strategy(
+      image.view(), strategy, png_stream_test_limits(), png_stream_test_budget(),
+      @error.Diagnostics::new(),
+    ).unwrap()
+    let bytes = png_chunk_test_drain_encoder(encoder, [1UL, 3UL, 2UL, 5UL]).unwrap()
+    inspect(bytes[0] == b'\x89' && bytes[1] == b'P', content="true")
+    let owner = @bytes.OwnedBytes::from_bytes(
+      bytes, png_stream_test_budget(work=0UL),
+    ).unwrap()
+    let decoded = @codec.ImageDecoder::decode(
+      PngDecoder::new(), @io.MemoryReader::new(owner.view()) as &@io.Reader,
+      @codec.DecodeOptions::new(
+        require_complete_input=true, preserve_opaque_metadata=false,
+      ), png_stream_test_limits(), png_stream_test_budget(), @error.Diagnostics::new(),
+    ).unwrap()
+    inspect(decoded.image().view().get_byte(0UL, 0UL, 0UL).unwrap() == b'\x00', content="true")
+  }
+}
+
+///|
+test "PNG compression strategy legacy chunk constructors retain frozen stored bytes" {
+  let rgb = png_stream_test_image(3UL)
+  let rgb_bytes = png_chunk_test_drain(rgb, [1UL, 3UL, 2UL, 5UL]).unwrap()
+  inspect(
+    rgb_bytes ==
+    b"\x89PNG\r\n\x1a\n\x00\x00\x00\x0dIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x02\x00\x00\x00\x90\x77\x53\xde\x00\x00\x00\x0fIDAT\x78\x01\x01\x04\x00\xfb\xff\x00\x00\x01\x02\x00\x0a\x00\x04\x00\x93\x9a\x5d\x04\x00\x00\x00\x00IEND\xae\x42\x60\x82",
+    content="true",
+  )
+  let rgba = png_stream_test_image(4UL)
+  let rgba_bytes = png_chunk_test_drain(rgba, [1UL, 3UL, 2UL, 5UL]).unwrap()
+  inspect(
+    rgba_bytes ==
+    b"\x89PNG\r\n\x1a\n\x00\x00\x00\x0dIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x06\x00\x00\x00\x1f\x15\xc4\x89\x00\x00\x00\x10IDAT\x78\x01\x01\x05\x00\xfa\xff\x00\x00\x01\x02\x03\x00\x0f\x00\x07\x00\x9b\x39\x1d\xc5\x00\x00\x00\x00IEND\xae\x42\x60\x82",
+    content="true",
+  )
 }
 
 ///|
