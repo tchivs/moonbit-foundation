@@ -9,6 +9,7 @@
 - ✅ **v0.5 QOI Streaming I/O** — Phases 17-19, 7 requirements complete (shipped 2026-07-20); resumable caller-buffered QOI streams across four targets.
 - 📋 **v0.6 PNG Interchange** — Phases 20-22, 7 requirements planned; strict bounded RGB/RGBA PNG interchange with pure-MoonBit DEFLATE and four-target evidence.
 - 📋 **v0.7 PNG Colour Fidelity** — Phases 23-25, 5 requirements planned; strict PNG colour declarations without silent non-sRGB loss.
+- 📋 **v0.8 Resumable PNG Decode** — Phases 26-28, 4 requirements planned; portable caller-buffered PNG decode with strict completion and four-target evidence.
 
 ## Phases
 
@@ -75,6 +76,14 @@ Publication, registry-consumer proof, provenance closure, and any release automa
 - [x] **Phase 23: PNG Colour Declaration and sRGB Semantics** - Users can receive strict validated PNG colour declarations, with sRGB mapped truthfully to the existing image model. (completed 2026-07-21)
 - [x] **Phase 24: Bounded Non-sRGB and ICC Preservation** - Users can retain legal legacy and ICC declarations without implicit colour transforms. (completed 2026-07-21)
 - [x] **Phase 25: Portable Colour Conformance Evidence** - Maintainers can independently verify colour-metadata behaviour across all portable targets. (completed 2026-07-21)
+
+### 📋 v0.8 Resumable PNG Decode (Planned)
+
+**Milestone goal:** Add a portable, caller-buffered PNG decode path that pauses at arbitrary input boundaries while preserving eager PNG semantics, strict completion, bounded resources, and private output until success.
+
+- [ ] **Phase 26: Pausable PNG Decode Substrate** - Existing eager PNG decoding remains compatible while framing, IDAT, DEFLATE, and raster work can safely pause at every byte boundary.
+- [ ] **Phase 27: Public PNG Chunk Decoder** - Users can feed caller-owned PNG chunks and explicitly receive one eager-equivalent completed image or a sticky typed terminal error.
+- [ ] **Phase 28: Portable PNG Streaming Evidence** - Users and maintainers can verify hostile chunk schedules and one public portable chunk-decode workflow on all four targets.
 
 ## Phase Details
 
@@ -144,7 +153,7 @@ Plans:
 
 ## Progress
 
-**Execution order:** 9 → 10 → 11 → 12 → 13 → 14 → 15 → 16 → 17 → 18 → 19 → 20 → 21 → 22
+**Execution order:** 9 → 10 → 11 → 12 → 13 → 14 → 15 → 16 → 17 → 18 → 19 → 20 → 21 → 22 → 23 → 24 → 25 → 26 → 27 → 28
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
@@ -170,6 +179,12 @@ Plans:
 | 20. PNG Structural Safety Gate | v0.6 | 3/5 | Complete    | 2026-07-21 |
 | 21. Bounded PNG Decode and DEFLATE | v0.6 | 2/3 | Complete    | 2026-07-21 |
 | 22. Canonical PNG Encode and Portable Evidence | v0.6 | 1/1 | Complete    | 2026-07-21 |
+| 23. PNG Colour Declaration and sRGB Semantics | v0.7 | 2/2 | Complete | 2026-07-21 |
+| 24. Bounded Non-sRGB and ICC Preservation | v0.7 | 2/2 | Complete | 2026-07-21 |
+| 25. Portable Colour Conformance Evidence | v0.7 | 1/1 | Complete | 2026-07-21 |
+| 26. Pausable PNG Decode Substrate | v0.8 | 0/TBD | Not started | - |
+| 27. Public PNG Chunk Decoder | v0.8 | 0/TBD | Not started | - |
+| 28. Portable PNG Streaming Evidence | v0.8 | 0/TBD | Not started | - |
 
 ### Phase 12: Strict PPM End-to-End Filter Coverage
 
@@ -374,5 +389,44 @@ Plans:
 
 **Plans:** 1/1 plans complete
 
+### Phase 26: Pausable PNG Decode Substrate
+
+**Goal**: Existing PNG users retain the eager decoder's complete supported profile and deterministic safety semantics while its framing, IDAT/CRC transport, DEFLATE, and raster work can pause at any input boundary.
+**Depends on**: Phase 25
+**Requirements**: PNGS-03
+**Success Criteria** (what must be TRUE):
+
+  1. A library user decoding through the existing eager PNG facade receives the same accepted-profile images, pixels, descriptors, metadata, disposition, diagnostics, and byte accounting as the established eager behavior, including grayscale, indexed, transparency, 16-bit, and Adam7 inputs.
+  2. A library user receives the same typed deterministic failure for malformed framing, chunk CRCs, zlib/DEFLATE, filters, limits, and budget exhaustion whether the underlying decode pauses at signature, chunk, IDAT, DEFLATE, scanline, or IEND boundaries.
+  3. A library user never observes a partially decoded image: output remains private until all raster, IDAT CRC, Adler-32, IEND, and end-of-input validation succeeds.
+
+**Plans**: TBD
+
+### Phase 27: Public PNG Chunk Decoder
+
+**Goal**: Library users can submit caller-owned PNG byte chunks to `PngChunkDecoder` and explicitly complete one eager-equivalent decode without changing existing `Reader` EOF semantics.
+**Depends on**: Phase 26
+**Requirements**: PNGS-01, PNGS-02
+**Success Criteria** (what must be TRUE):
+
+  1. A library user can push arbitrary caller-owned `ByteView` chunks, including empty input and every framing, IDAT, DEFLATE, filter, and IEND boundary, and receives deterministic non-terminal input-needed progress with the exact accepted-byte count for each push.
+  2. A library user calls `finish()` as the only EOF declaration and receives exactly one eager-equivalent owned image only after strict IDAT, zlib/Adler-32, IEND, and trailing-input validation has succeeded.
+  3. A library user receives a typed sticky terminal error for incomplete framing or raster work, invalid CRC/zlib/DEFLATE data, missing or malformed IEND, trailing input, limits, or budget exhaustion; later pushes accept zero bytes and cannot expose a result.
+
+**Plans**: TBD
+
+### Phase 28: Portable PNG Streaming Evidence
+
+**Goal**: Library users and maintainers can independently verify the public resumable PNG decode contract through hostile schedules and one portable processing workflow.
+**Depends on**: Phase 27
+**Requirements**: PNGS-04
+**Success Criteria** (what must be TRUE):
+
+  1. Maintainers can run generated accepted and rejected PNG vectors through one-byte and adversarial split schedules at framing, IDAT payload/CRC, DEFLATE bit/tree/match, filter, IEND, and EOF boundaries, proving the specified progress, terminal behavior, and eager-equivalent results.
+  2. A library user can run one public portable workflow that feeds PNG chunks to `PngChunkDecoder`, applies an existing image operation, uses the existing eager PNG encoder, and prints deterministic evidence.
+  3. The hostile-schedule suite and public workflow produce the same asserted outcomes on `js`, `wasm`, `wasm-gc`, and `native` using only public portable MoonBit contracts, with no FFI, public streaming encoder, registry, or release-automation work.
+
+**Plans**: TBD
+
 ---
-*Roadmap updated: 2026-07-21 for v0.7 PNG Colour Fidelity planning*
+*Roadmap updated: 2026-07-21 for v0.8 Resumable PNG Decode planning*

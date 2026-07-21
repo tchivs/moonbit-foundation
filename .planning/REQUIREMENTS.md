@@ -16,11 +16,20 @@
 
 - [x] **PNGCM-05**: Maintainers can verify recognised colour chunk positives, ordering/precedence failures, and bounded profile-expansion failures on js, wasm, wasm-gc, and native.
 
+## v0.8 Requirements
+
+### PNG Chunked Decode
+
+- [ ] **PNGS-01**: A library user can submit arbitrary caller-owned PNG byte chunks to a resumable decoder, receive deterministic non-terminal progress, and obtain no image before strict stream completion.
+- [ ] **PNGS-02**: A library user explicitly finishes a PNG chunk decode and receives exactly one eager-equivalent image or a typed sticky terminal error for incomplete framing, IDAT/zlib/DEFLATE/raster work, IEND, EOF, trailing input, limits, or budget exhaustion.
+- [ ] **PNGS-03**: The chunked decoder preserves the eager decoder's supported PNG profile, pixel/metadata/disposition semantics, exact accounting, diagnostics, resource limits, and no-partial-image guarantee.
+- [ ] **PNGS-04**: Maintainers can run adversarial split schedules and one public PNG chunk-decode workflow unchanged on js, wasm, wasm-gc, and native.
+
 ## Future Requirements
 
 ### PNG Extensions
 
-- **PNGX-03**: Provide public resumable PNG streaming APIs after the eager subset is stable.
+- **PNGX-03**: Provide a public resumable PNG encoder after chunked decode has established the compatible stream-state contract.
 - **PNGX-04**: Add compression-ratio optimization and benchmarked encoder strategies without changing the canonical baseline implicitly.
 
 ## Out of Scope
@@ -29,7 +38,7 @@
 |---|---|
 | FFI-backed PNG or zlib implementation | v0.6 exercises MoonBit-native algorithms and keeps portable targets aligned. |
 | cICP/HDR, APNG, animation, text/EXIF, and full ICC colour transforms | They require separate image/colour-transform contracts; v0.7 retains or rejects semantics rather than inventing transforms. |
-| Public PNG push/pull streaming API | Internal incremental parsing is required now; public resumable contracts remain a later compatibility decision. |
+| Public resumable PNG encoder | Decode establishes the shared state-machine contract first; streaming output is a later milestone. |
 | Registry publication, release automation, or credential work | They do not unblock the PNG code path. |
 
 ## Traceability
@@ -41,13 +50,18 @@
 | PNGCM-03 | Phase 24 | Complete |
 | PNGCM-04 | Phase 24 | Complete |
 | PNGCM-05 | Phase 25 | Complete |
+| PNGS-01 | Phase 27 | Pending |
+| PNGS-02 | Phase 27 | Pending |
+| PNGS-03 | Phase 26 | Pending |
+| PNGS-04 | Phase 28 | Pending |
 
 **Coverage:**
 
-- v0.7 requirements: 5 total
-- Mapped to phases: 5
+- v0.7 requirements: 5 total, all complete
+- v0.8 requirements: 4 total
+- Mapped to phases: 4
 - Unmapped: 0
 
 ---
 *Requirements defined: 2026-07-21*
-*Last updated: 2026-07-21 after v0.7 PNG Colour Fidelity milestone creation*
+*Last updated: 2026-07-21 after v0.8 Resumable PNG Decode milestone creation*

@@ -1,20 +1,16 @@
 ---
 gsd_state_version: 1.0
-milestone: v0.7
-milestone_name: PNG Colour Fidelity
-current_phase: 22
-current_phase_name: Canonical PNG Encode and Portable Evidence
+milestone: v0.8
+milestone_name: Resumable PNG Decode
 status: planning
-stopped_at: Completed 21-03-PLAN.md
-last_updated: "2026-07-21T05:00:33.926Z"
+last_updated: "2026-07-21T06:29:24.096Z"
 last_activity: 2026-07-21
-last_activity_desc: Phase 21 complete, transitioned to Phase 22
 progress:
-  total_phases: 17
-  completed_phases: 5
-  total_plans: 15
-  completed_plans: 12
-  percent: 29
+  total_phases: 3
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
+  percent: 0
 ---
 
 # Project State
@@ -25,16 +21,14 @@ See `.planning/PROJECT.md` (updated 2026-07-20).
 
 **Core value:** MoonBit developers can reuse stable, high-performance native infrastructure contracts instead of rebuilding incompatible foundations for every graphics, document, media, or automation product.
 
-**Current focus:** Phase 23 — PNG Colour Declaration and sRGB Semantics.
+**Current focus:** Phase 26 — Pausable PNG Decode Substrate.
 
 ## Current Position
 
-Phase: 22 of 25 (Canonical PNG Encode and Portable Evidence)
-Plan: Not started
-Status: Ready to plan
-Last activity: 2026-07-21 — Completed quick task 260721-j94: portable PNG bilinear workflow
-
-Progress: [████████░░] 80%
+Phase: 26 of 28 (Pausable PNG Decode Substrate)
+Plan: —
+Status: Roadmap created; ready for phase planning
+Last activity: 2026-07-21 — v0.8 resumable PNG decode roadmap created
 
 ## Performance Metrics
 
@@ -61,6 +55,9 @@ Progress: [████████░░] 80%
 - [Phase ?]: Retain Phase 20 structural validation as complete when the generated matrix and isolated Png lane pass; classify later decode, encode, and colour success as Phase 21-25 scope.
 - [Phase ?]: Precompute exact current PNG structural outcomes and budget policy before PngDecoder execution.
 - [Phase ?]: Retain immutable caller-budget assertions only for below-limit preflight resource records.
+- [v0.8]: Refactor the eager PNG framing, IDAT/CRC, DEFLATE, and raster pipeline into explicit pausable MoonBit-owned state; a buffered eager wrapper is not resumable decode.
+- [v0.8]: Publish decode-only `PngChunkDecoder` with caller-owned chunk input, exact consumed-byte reporting, explicit `finish()`, and sticky terminal behavior; do not change `Reader` EOF semantics.
+- [v0.8]: Keep completed images private until final IDAT CRC, zlib Adler-32, IEND CRC, and explicit end-of-input validation pass.
 
 ### Pending Todos
 
@@ -70,6 +67,8 @@ None.
 
 - Colour declarations must not silently change the image's claimed sRGB semantics.
 - ICC payload handling must have independent compressed, inflated, allocation, and work bounds before image visibility.
+- False resumability is a primary risk: pausing must be safe inside DEFLATE bit/tree/match, CRC, scanline, and IEND/EOF transitions, not only between buffered chunks.
+- Public completion must never expose raster output before strict trailing-input and final framing validation.
 
 ### Quick Tasks Completed
 
@@ -99,13 +98,13 @@ None.
 | Category | Item | Status |
 |----------|------|--------|
 | scope | cICP/HDR and full ICC colour transforms | deferred |
-| scope | Public resumable PNG streaming API | deferred |
+| scope | Public resumable PNG encoder | deferred |
 | delivery | Registry publication and release automation | deferred |
 | Phase 20-png-structural-safety-gate P02 | 13min | 2 tasks | 8 files |
 | Phase 22-canonical-png-encode-and-portable-evidence P01 | 9min | 2 tasks | 8 files |
 
 ## Session Continuity
 
-Last session: 2026-07-21T04:53:01.469Z
-Stopped at: Completed 21-03-PLAN.md
+Last session: 2026-07-21T06:26:47.913Z
+Stopped at: v0.8 roadmap created; Phase 26 is ready for planning
 Resume file: None

@@ -25,11 +25,9 @@ MoonBit developers can reuse stable, high-performance native infrastructure cont
 
 ### Active
 
-- [ ] Verify the mooncakes.io owner namespace and publish `mb-core`, `mb-color`, and `mb-image` in strict dependency order with independent registry consumers.
-- [ ] Automate auditable, credential-minimal, repeatable release qualification and provenance without weakening the existing Required gate.
-- [ ] Freeze machine-checkable public API compatibility baselines and candidate-version change rules before ecosystem expansion.
-- [ ] Provide a strict, bounded, pure-MoonBit PNG interchange path with portable four-target evidence.
-- [ ] Preserve recognised PNG colour declarations or reject unavailable transformations explicitly; never silently relabel non-sRGB samples.
+- [ ] Provide a public caller-buffered, resumable PNG decode API with explicit completion, exact progress, and no partial-image visibility.
+- [ ] Preserve eager PNG decoding as a compatible facade while refactoring its framing, IDAT, DEFLATE, and raster pipeline into pausable MoonBit-owned state.
+- [ ] Prove hostile PNG chunk schedules and strict EOF/IEND semantics unchanged on js, wasm, wasm-gc, and native.
 
 ### Out of Scope
 
@@ -67,15 +65,15 @@ Phase 6 completed on 2026-07-18 with 25/25 plans and 8/8 requirements verified. 
 
 Registry publication remains deferred: the existing v0.2 qualification artifacts are retained, but no further release automation is in scope for the next code-first milestone.
 
-## Current Milestone: v0.7 PNG Colour Fidelity
+## Current Milestone: v0.8 Resumable PNG Decode
 
-**Goal:** Extend the portable PNG path with strict colour-management declarations while preserving the distinction between encoded sRGB pixels and colour data that needs a later transform.
+**Goal:** Add a portable, caller-buffered PNG decode path that can pause at arbitrary input boundaries yet preserves eager PNG semantics, strict completion, bounded resources, and private output until success.
 
 **Target features:**
 
-- Validate `sRGB`, `gAMA`, `cHRM`, and `iCCP` grammar, singleton/order rules, precedence, and bounded profile expansion before output is exposed.
-- Map only confirmed `sRGB` input to the current reference operations; retain other legal declarations behind explicit non-sRGB metadata and capability boundaries.
-- Prove legal and hostile colour declarations on all four portable targets without FFI, release automation, or a full ICC transform engine.
+- Refactor the eager PNG framing, IDAT/CRC transport, DEFLATE, and raster pipeline into resumable MoonBit state without narrowing the already supported PNG profiles.
+- Publish `PngChunkDecoder` with caller-owned chunk input, explicit `finish()`, sticky terminal behavior, exact consumed-byte accounting, and one completed owned image only after strict IEND/EOF validation.
+- Prove split boundaries across framing, IDAT, zlib/DEFLATE, filters, IEND, and hostile failures on js, wasm, wasm-gc, and native, without FFI, release work, or a public streaming encoder in this milestone.
 
 
 ## Constraints
@@ -106,7 +104,8 @@ Registry publication remains deferred: the existing v0.2 qualification artifacts
 | Prioritize reusable image-processing code over further publication automation | The release route is already recoverable enough for a future manual operation; the ecosystem benefits more from implementable raster capabilities | ✓ Validated in v0.3 |
 | Implement QOI before a heavyweight lossless codec | QOI adds a real RGB/RGBA interchange format while preserving a pure MoonBit, four-target implementation and bounded attack surface | ✓ Validated in v0.4 |
 | Add streaming QOI before a heavyweight codec | Stateful chunked I/O completes the existing forward-only codec contract without widening scope to PNG/DEFLATE or FFI | ✓ Validated in v0.5 |
-| Preserve PNG colour declarations before implementing colour transforms | Raw sample bytes cannot honestly be treated as sRGB when a file declares different colour semantics | — Pending in v0.7 |
+| Preserve PNG colour declarations before implementing colour transforms | Raw sample bytes cannot honestly be treated as sRGB when a file declares different colour semantics | ✓ Validated in v0.7 |
+| Build public PNG streaming as a separate state-machine milestone | A public caller-buffered API must preserve strict framing, image-visibility, and resource semantics rather than expose the eager transport internals | — Active in v0.8 |
 
 ## Evolution
 
@@ -126,4 +125,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update toolchain, compatibility, benchmark, and adoption context.
 
 ---
-*Last updated: 2026-07-21 after v0.7 PNG Colour Fidelity milestone creation*
+*Last updated: 2026-07-21 after v0.8 Resumable PNG Decode milestone creation*
