@@ -121,7 +121,6 @@ None.
 |----------|------|--------|
 | scope | cICP/HDR and full ICC colour transforms | deferred |
 | scope | Public resumable PNG encoder | validated in v0.9 |
-| technical-debt | unused `tchivs/mb-core/io` import in `examples/png-portable/main/moon.pkg` | deferred manifest cleanup |
 | delivery | Registry publication and release automation | deferred |
 | closeout-debug | clean-diff-empty-binding | acknowledged historical record |
 | closeout-debug | hosted-toolchain-setup-failure | acknowledged historical record |
