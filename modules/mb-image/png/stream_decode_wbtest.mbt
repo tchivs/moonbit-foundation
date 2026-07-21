@@ -149,6 +149,29 @@ test "PNG private inflater retains a stored block across every compressed byte p
   inspect(inflate.complete(), content="true")
 }
 
+///| A byte-fed inflater must hand decoded samples straight to the owned raster
+/// sink.  This is deliberately a stored block so the test isolates the
+/// zlib/DEFLATE-to-raster seam from Huffman token selection.
+test "PNG private inflater delivers stored bytes directly to the raster sink" {
+  let transport = PngTransport::{ width: 1UL, height: 1UL, bit_depth: 8, source_channels: 3UL, source_bytes_per_pixel: 3UL, channels: 3UL, indexed: false, palette: b"", palette_entries: 0UL, transparency: PngTransparency::Opaque, idat: b"", consumed: 0UL }
+  let image = @storage.OwnedImage::new_operation(
+    _png_descriptor(transport).unwrap(),
+    @budget.Budget::new(@budget.ResourceLimits::new(bytes=16UL, allocations=1UL, allocation_size=16UL, width=2UL, height=2UL, pixels=4UL, depth=0UL, work=16UL)),
+    PngBuiltinAllocator::{} as &@bytes.Allocator,
+    16UL,
+  ).unwrap()
+  let sink = PngRasterSink::new(image, transport, false, @budget.Budget::new(@budget.ResourceLimits::new(bytes=0UL, allocations=0UL, allocation_size=0UL, width=0UL, height=0UL, pixels=0UL, depth=0UL, work=0UL))).unwrap()
+  let inflate = PngInflateState::new(4UL)
+  for byte in [b'\x78', b'\x01', b'\x01', b'\x04', b'\x00', b'\xfb', b'\xff', b'\x00', b'\x11', b'\x22', b'\x33', b'\x00', b'\xae', b'\x00', b'\x67'] {
+    inflate.accept_to(byte, sink).unwrap()
+  }
+  inspect(inflate.complete(), content="true")
+  sink.finish().unwrap()
+  let view = sink.image_view()
+  inspect(view.get_byte(0UL, 0UL, 0UL).unwrap(), content="b'\\x11'")
+  inspect(view.get_byte(0UL, 0UL, 2UL).unwrap(), content="b'\\x33'")
+}
+
 ///|
 test "PNG private inflater retains every dynamic header tree and token byte boundary" {
   // The stream uses a dynamic tree, code-length repeats, and back-references.

@@ -328,6 +328,7 @@ priv struct PngInflateState {
   mut history_pos : Int
   mut adler : UInt64
   mut emitted : UInt64
+  mut pending_output : Byte?
   mut phase : PngInflatePhase
 }
 
@@ -342,6 +343,7 @@ fn PngInflateState::new(maximum : UInt64) -> PngInflateState {
     history_pos: 0,
     adler: 1UL,
     emitted: 0UL,
+    pending_output: None,
     phase: PngInflatePhase::ZlibCmf,
   }
 }
@@ -381,6 +383,7 @@ fn PngInflateState::emit(self : PngInflateState, byte : Byte) -> Result[Unit, @e
   if self.history_size < 32768 { self.history_size = self.history_size + 1 }
   self.adler = _png_adler_step(self.adler, byte)
   self.emitted = self.emitted + 1UL
+  self.pending_output = Some(byte)
   Ok(())
 }
 
@@ -390,11 +393,41 @@ fn PngInflateState::emit(self : PngInflateState, byte : Byte) -> Result[Unit, @e
 fn PngInflateState::accept(self : PngInflateState, byte : Byte) -> Result[Unit, @error.CoreError] {
   if self.complete() { return Err(_png_error("zlib-trailing")) }
   match self.bits.supply(byte) { Err(error) => return Err(error); Ok(_) => () }
-  self.drive()
+  while true {
+    match self.drive() { Err(error) => return Err(error); Ok(_) => () }
+    match self.pending_output {
+      Some(_) => self.pending_output = None
+      None => return Ok(())
+    }
+  } nobreak { Ok(()) }
+}
+
+///| Supply one authenticated compressed byte and synchronously hand every
+/// newly decoded byte to the owned raster sink before accepting more input.
+/// The single-byte pending slot is bounded and makes match copies resumable at
+/// the exact output boundary without accumulating a decompressed stream.
+fn PngInflateState::accept_to(
+  self : PngInflateState,
+  byte : Byte,
+  sink : PngRasterSink,
+) -> Result[Unit, @error.CoreError] {
+  if self.complete() { return Err(_png_error("zlib-trailing")) }
+  match self.bits.supply(byte) { Err(error) => return Err(error); Ok(_) => () }
+  while true {
+    match self.drive() { Err(error) => return Err(error); Ok(_) => () }
+    match self.pending_output {
+      Some(value) => {
+        match sink.emit(value) { Err(error) => return Err(error); Ok(_) => () }
+        self.pending_output = None
+      }
+      None => return Ok(())
+    }
+  } nobreak { Ok(()) }
 }
 
 ///|
 fn PngInflateState::drive(self : PngInflateState) -> Result[Unit, @error.CoreError] {
+  if self.pending_output is Some(_) { return Ok(()) }
   let mut running = true
   while running {
     match self.phase {
