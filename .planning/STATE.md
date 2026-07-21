@@ -3,10 +3,10 @@ gsd_state_version: 1.0
 milestone: v0.12
 milestone_name: PNG Filter Optimization
 status: planning
-last_updated: "2026-07-21T22:40:23.386Z"
+last_updated: "2026-07-22T00:00:00.000Z"
 last_activity: 2026-07-22
 progress:
-  total_phases: 0
+  total_phases: 3
   completed_phases: 0
   total_plans: 0
   completed_plans: 0
@@ -21,18 +21,18 @@ See `.planning/PROJECT.md` (updated 2026-07-21).
 
 **Core value:** MoonBit developers can reuse stable, high-performance native infrastructure contracts instead of rebuilding incompatible foundations for every graphics, document, media, or automation product.
 
-**Current focus:** Define the next code-first milestone; public resumable PNG encode is complete.
+**Current focus:** Phase 38 — establish the explicit adaptive-filter compatibility seam while freezing legacy filter-None output.
 
 ## Current Position
 
-Phase: Not started (defining requirements)
-Plan: —
-Status: Defining requirements
-Last activity: 2026-07-22 — Milestone v0.12 started
+Phase: 38 of 40 (Adaptive Filter Compatibility)
+Plan: Not yet planned
+Status: Ready to plan
+Last activity: 2026-07-22 — v0.12 roadmap created with Phases 38-40
 
 ## Performance Metrics
 
-**Current milestone:** v0.9 complete: 5/5 plans complete across 3/3 phases; 5/5 requirements completed across Phases 29-31.
+**Current milestone:** v0.12 planned: 0/TBD plans complete across 0/3 phases; 0/4 requirements completed across Phases 38-40.
 
 **Historical context:** v0.5 shipped three phases and three plans on 2026-07-20. v0.2 publication and registry work remains deferred and excluded from this code-first milestone.
 
@@ -71,6 +71,9 @@ Last activity: 2026-07-22 — Milestone v0.12 started
 - [Phase ?]: Use Writer.write directly for the eager one-byte staging view so a Failed outcome returns the provider CoreError unchanged.
 - [Phase ?]: Acknowledge a private PNG byte only after WriteOutcome::Progress(1); all other progress values are adapter errors.
 - [Phase ?]: Run four portable targets as independent target-directory-isolated evidence commands instead of an aggregate target invocation.
+- [v0.12]: Preserve all legacy filter-None constructors and compression-strategy bytes; adaptive filtering is explicit opt-in through eager and caller-buffered factories.
+- [v0.12]: Feed bounded deterministic None/Sub/Up/Average/Paeth row selection into the existing atomic preflight and replay path, not a staged image buffer.
+- [v0.12]: Treat generated RGB8/RGBA8 strict-win, hostile-capacity eager/chunk identity, and complete four-target public decode as one portable evidence boundary.
 
 ### Pending Todos
 
@@ -142,9 +145,9 @@ None.
 ## Session Continuity
 
 Last session: 2026-07-21T18:12:27.677Z
-Stopped at: Phase 33 evidence-closure plan verified
+Stopped at: v0.12 roadmap created; Phase 38 is ready for planning
 Resume file: None
 
 ## Operator Next Steps
 
-- Start the next milestone with /gsd-new-milestone
+- Plan Phase 38 with /gsd-plan-phase 38
