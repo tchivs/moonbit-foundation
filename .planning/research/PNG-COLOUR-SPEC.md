@@ -1,6 +1,6 @@
 # PNG Colour Fidelity: Specification Findings
 
-**Scope:** v0.7 portable eager PNG decoder  
+**Scope:** v0.7 portable eager PNG decoder
 **Confidence:** HIGH for PNG container rules (W3C primary specification); MEDIUM for the proposed staged product boundary.
 
 ## Normative container rules

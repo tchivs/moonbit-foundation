@@ -4,11 +4,11 @@ milestone: v0.7
 milestone_name: PNG Colour Fidelity
 current_phase: 23
 current_phase_name: PNG Colour Declaration and sRGB Semantics
-status: planning
-stopped_at: v0.7 milestone created; Phase 23 ready to plan
+status: ready_to_execute
+stopped_at: Planned and verified 23-01-PLAN.md
 last_updated: "2026-07-21T00:00:00.000Z"
 last_activity: 2026-07-21
-last_activity_desc: v0.7 PNG Colour Fidelity research and roadmap created
+last_activity_desc: Phase 23 plan verified and ready to execute
 progress:
   total_phases: 14
   completed_phases: 2
@@ -30,9 +30,9 @@ See `.planning/PROJECT.md` (updated 2026-07-20).
 ## Current Position
 
 Phase: 23 of 25 (PNG Colour Declaration and sRGB Semantics)
-Plan: Not started
-Status: Milestone planning
-Last activity: 2026-07-21 — Created v0.7 after Adam7 completed PNGX-02's interlace scope
+Plan: 23-01-PLAN.md
+Status: Ready to execute
+Last activity: 2026-07-21 — Phase 23 plan verified
 
 Progress: [░░░░░░░░░░] 0%
 
