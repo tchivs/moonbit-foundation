@@ -32,7 +32,7 @@ See `.planning/PROJECT.md` (updated 2026-07-20).
 Phase: 22 of 25 (Canonical PNG Encode and Portable Evidence)
 Plan: Not started
 Status: Ready to plan
-Last activity: 2026-07-21 — Completed quick task 260721-i66: deterministic alpha-correct bilinear resize
+Last activity: 2026-07-21 — Completed quick task 260721-j94: portable PNG bilinear workflow
 
 Progress: [████████░░] 80%
 
@@ -85,6 +85,7 @@ None.
 | 260721-81r | Decode non-interlaced 16-bit grayscale-alpha and RGBA PNG into straight RGBA8 | 2026-07-21 | a451101 | Verified | [260721-81r-implement-bounded-non-interlaced-16-bit-](./quick/260721-81r-implement-bounded-non-interlaced-16-bit-/) |
 | 260721-8nz | Decode bounded Adam7 PNG across all supported profiles with independent split-boundary evidence | 2026-07-21 | e9669ef | Verified* | [260721-8nz-implement-bounded-adam7-interlaced-png-d](./quick/260721-8nz-implement-bounded-adam7-interlaced-png-d/) |
 | 260721-i66 | Add deterministic alpha-correct bilinear resize for portable RGB8 and straight-RGBA8 images with checked limits, budgets, and four-target tests | 2026-07-21 | 6411680 | Verified | [260721-i66-add-deterministic-alpha-correct-bilinear](./quick/260721-i66-add-deterministic-alpha-correct-bilinear/) |
+| 260721-j94 | Extend the portable PNG public workflow to use deterministic alpha-correct bilinear resize with fixed four-target output evidence | 2026-07-21 | 76ef821 | Verified | [260721-j94-extend-the-portable-png-public-workflow-](./quick/260721-j94-extend-the-portable-png-public-workflow-/) |
 
 \* The PNG quality lane and all portable tests pass; the all-package `--deny-warn` command still reports the pre-existing 26 generated/legacy unused-field diagnostics documented in the quick-task verification.
 | Phase 23-png-colour-declaration-and-srgb-semantics P01 | 0h 24m | 2 tasks | 9 files |
