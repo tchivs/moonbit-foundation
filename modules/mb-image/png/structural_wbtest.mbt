@@ -483,3 +483,27 @@ test "PNG colour declaration helpers validate sRGB and iCCP envelopes" {
   inspect(_png_validate_iccp_payload(b" profile\x00\x00\x78").unwrap_err().context(), content="Some(png-iccp-name)")
   inspect(_png_validate_iccp_payload(b"profile\x00\x01\x78").unwrap_err().context(), content="Some(png-iccp-method)")
 }
+
+///|
+test "PNG iCCP temporary resources require caller budget and work headroom" {
+  let limits = @codec.CodecLimits::new(
+    max_probe_bytes=8UL, max_input_bytes=4096UL, max_output_bytes=256UL,
+    max_width=16UL, max_height=16UL, max_pixels=256UL, max_work=256UL,
+  )
+  let bytes_limited = @budget.Budget::new(@budget.ResourceLimits::new(
+    bytes=32767UL, allocations=8UL, allocation_size=32768UL, width=16UL,
+    height=16UL, pixels=256UL, depth=0UL, work=256UL,
+  ))
+  inspect(
+    _png_iccp_temporary_budget(139UL, limits, bytes_limited).unwrap_err().context() == Some("bytes"),
+    content="true",
+  )
+  let work_limited = @budget.Budget::new(@budget.ResourceLimits::new(
+    bytes=65536UL, allocations=8UL, allocation_size=32768UL, width=16UL,
+    height=16UL, pixels=256UL, depth=0UL, work=255UL,
+  ))
+  inspect(
+    _png_iccp_temporary_budget(139UL, limits, work_limited).unwrap_err().context() == Some("work"),
+    content="true",
+  )
+}
