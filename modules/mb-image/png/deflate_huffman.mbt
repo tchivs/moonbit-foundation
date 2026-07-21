@@ -84,3 +84,44 @@ fn _png_fixed_literal_tree() -> PngHuffman {
 fn _png_fixed_distance_tree() -> PngHuffman {
   _png_huffman_new(Array::make(32, 5), false, false).unwrap()
 }
+
+///| Retains a partially-read canonical code across a byte pause.
+priv struct PngHuffmanCursor {
+  mut code : Int
+  mut length : Int
+}
+
+///|
+fn PngHuffmanCursor::new() -> PngHuffmanCursor { { code: 0, length: 0 } }
+
+///|
+fn PngHuffmanCursor::reset(self : PngHuffmanCursor) -> Unit {
+  self.code = 0
+  self.length = 0
+}
+
+///|
+fn PngHuffmanCursor::symbol(
+  self : PngHuffmanCursor,
+  tree : PngHuffman,
+  bits : PngInflateBits,
+) -> Result[PngInflateRead, @error.CoreError] {
+  while self.length < 15 {
+    let bit = match bits.read(1) {
+      Err(error) => return Err(error)
+      Ok(PngInflateRead::NeedInput) => return Ok(PngInflateRead::NeedInput)
+      Ok(PngInflateRead::Value(value)) => value
+    }
+    self.code = self.code | (bit << self.length)
+    self.length = self.length + 1
+    for symbol = 0; symbol < tree.lengths.length(); symbol = symbol + 1 {
+      if tree.lengths[symbol] == self.length && tree.codes[symbol] == self.code {
+        let result = symbol
+        self.reset()
+        return Ok(PngInflateRead::Value(result))
+      }
+    }
+  }
+  self.reset()
+  Err(_png_error("deflate-invalid-code"))
+}

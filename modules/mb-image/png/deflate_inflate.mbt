@@ -285,3 +285,234 @@ fn _png_inflate_zlib_to_raster(
   if emitted != expected || column != 0UL || !complete_rows { return Err(_png_error("png-filtered-size")) }
   bits.source.finish()
 }
+
+///| Private continuation phases for a zlib/DEFLATE stream.  The synchronous
+/// helper above remains the compatibility reference while the byte-fed PNG
+/// machine is migrated; this state never stores compressed input wholesale.
+priv enum PngInflatePhase {
+  ZlibCmf
+  ZlibFlg(Int)
+  BlockFinal
+  BlockType(Int)
+  StoredLengthLow
+  StoredLengthHigh(Int)
+  StoredNLengthLow(Int)
+  StoredNLengthHigh(Int, Int)
+  StoredBody(Int)
+  Symbols(PngHuffman, PngHuffman)
+  LengthExtra(PngHuffman, PngHuffman, Int, Int)
+  DistanceSymbol(PngHuffman, PngHuffman, Int)
+  DistanceExtra(Int, Int, Int)
+  Copy(Int, Int)
+  Trailer(Array[Byte])
+  Complete
+}
+
+///| A bounded, byte-fed zlib continuation.  It owns all token state needed to
+/// resume after a pause, including the 32 KiB history and Adler accumulator.
+/// Output delivery is intentionally separate from input ownership; the PNG
+/// machine will connect this to its private raster sink as its framing path is
+/// completed.
+priv struct PngInflateState {
+  bits : PngInflateBits
+  cursor : PngHuffmanCursor
+  history : Array[Byte]
+  maximum : UInt64
+  mut history_size : Int
+  mut history_pos : Int
+  mut adler : UInt64
+  mut emitted : UInt64
+  mut phase : PngInflatePhase
+}
+
+///|
+fn PngInflateState::new(maximum : UInt64) -> PngInflateState {
+  {
+    bits: PngInflateBits::new(),
+    cursor: PngHuffmanCursor::new(),
+    history: Array::make(32768, b'\x00'),
+    maximum,
+    history_size: 0,
+    history_pos: 0,
+    adler: 1UL,
+    emitted: 0UL,
+    phase: PngInflatePhase::ZlibCmf,
+  }
+}
+
+///|
+fn PngInflateState::emitted_bytes(self : PngInflateState) -> UInt64 { self.emitted }
+
+///|
+fn PngInflateState::complete(self : PngInflateState) -> Bool {
+  match self.phase { PngInflatePhase::Complete => true; _ => false }
+}
+
+///|
+fn _png_inflate_length_base(symbol : Int) -> Result[(Int, Int), @error.CoreError] {
+  let bases = [3,4,5,6,7,8,9,10,11,13,15,17,19,23,27,31,35,43,51,59,67,83,99,115,131,163,195,227,258]
+  let extra = [0,0,0,0,0,0,0,0,1,1,1,1,2,2,2,2,3,3,3,3,4,4,4,4,5,5,5,5,0]
+  let index = symbol - 257
+  if index < 0 || index >= bases.length() { return Err(_png_error("deflate-reserved-length")) }
+  Ok((bases[index], extra[index]))
+}
+
+///|
+fn _png_inflate_distance_base(symbol : Int) -> Result[(Int, Int), @error.CoreError] {
+  let bases = [1,2,3,4,5,7,9,13,17,25,33,49,65,97,129,193,257,385,513,769,1025,1537,2049,3073,4097,6145,8193,12289,16385,24577]
+  let extra = [0,0,0,0,1,1,2,2,3,3,4,4,5,5,6,6,7,7,8,8,9,9,10,10,11,11,12,12,13,13]
+  if symbol < 0 || symbol >= bases.length() { return Err(_png_error("deflate-reserved-distance")) }
+  Ok((bases[symbol], extra[symbol]))
+}
+
+///|
+fn PngInflateState::emit(self : PngInflateState, byte : Byte) -> Result[Unit, @error.CoreError] {
+  if self.emitted >= self.maximum {
+    return Err(_png_limit("output-bytes", self.emitted + 1UL, self.maximum))
+  }
+  self.history[self.history_pos] = byte
+  self.history_pos = (self.history_pos + 1) % 32768
+  if self.history_size < 32768 { self.history_size = self.history_size + 1 }
+  self.adler = _png_adler_step(self.adler, byte)
+  self.emitted = self.emitted + 1UL
+  Ok(())
+}
+
+///| Supplies one already-authenticated IDAT payload byte.  `drive` consumes as
+/// many retained bit/token transitions as possible and stops only at the next
+/// byte boundary, so no caller buffer is ever retained or replayed.
+fn PngInflateState::accept(self : PngInflateState, byte : Byte) -> Result[Unit, @error.CoreError] {
+  if self.complete() { return Err(_png_error("zlib-trailing")) }
+  match self.bits.supply(byte) { Err(error) => return Err(error); Ok(_) => () }
+  self.drive()
+}
+
+///|
+fn PngInflateState::drive(self : PngInflateState) -> Result[Unit, @error.CoreError] {
+  let mut running = true
+  while running {
+    match self.phase {
+      PngInflatePhase::ZlibCmf => match self.bits.read(8) {
+        Err(error) => return Err(error)
+        Ok(PngInflateRead::NeedInput) => return Ok(())
+        Ok(PngInflateRead::Value(cmf)) => self.phase = PngInflatePhase::ZlibFlg(cmf)
+      }
+      PngInflatePhase::ZlibFlg(cmf) => match self.bits.read(8) {
+        Err(error) => return Err(error)
+        Ok(PngInflateRead::NeedInput) => return Ok(())
+        Ok(PngInflateRead::Value(flg)) => {
+          if (cmf & 15) != 8 || (cmf >> 4) > 7 || ((cmf << 8) + flg) % 31 != 0 { return Err(_png_error("zlib-header")) }
+          if (flg & 32) != 0 { return Err(_png_error("zlib-fdict")) }
+          self.phase = PngInflatePhase::BlockFinal
+        }
+      }
+      PngInflatePhase::BlockFinal => match self.bits.read(1) {
+        Err(error) => return Err(error)
+        Ok(PngInflateRead::NeedInput) => return Ok(())
+        Ok(PngInflateRead::Value(final_block)) => self.phase = PngInflatePhase::BlockType(final_block)
+      }
+      PngInflatePhase::BlockType(final_block) => match self.bits.read(2) {
+        Err(error) => return Err(error)
+        Ok(PngInflateRead::NeedInput) => return Ok(())
+        Ok(PngInflateRead::Value(block_type)) => {
+          if block_type == 0 {
+            self.bits.align()
+            self.phase = PngInflatePhase::StoredLengthLow
+          } else if block_type == 1 {
+            self.phase = PngInflatePhase::Symbols(_png_fixed_literal_tree(), _png_fixed_distance_tree())
+          } else if block_type == 2 {
+            // Dynamic-tree continuation is added alongside the raster wiring;
+            // fail closed instead of accidentally restarting a partial tree.
+            return Err(_png_error("deflate-dynamic-continuation"))
+          } else { return Err(_png_error("deflate-reserved-block")) }
+          if final_block == 1 { () }
+        }
+      }
+      PngInflatePhase::StoredLengthLow => match self.bits.read(8) {
+        Err(error) => return Err(error)
+        Ok(PngInflateRead::NeedInput) => return Ok(())
+        Ok(PngInflateRead::Value(low)) => self.phase = PngInflatePhase::StoredLengthHigh(low)
+      }
+      PngInflatePhase::StoredLengthHigh(low) => match self.bits.read(8) {
+        Err(error) => return Err(error)
+        Ok(PngInflateRead::NeedInput) => return Ok(())
+        Ok(PngInflateRead::Value(high)) => self.phase = PngInflatePhase::StoredNLengthLow(low | (high << 8))
+      }
+      PngInflatePhase::StoredNLengthLow(length) => match self.bits.read(8) {
+        Err(error) => return Err(error)
+        Ok(PngInflateRead::NeedInput) => return Ok(())
+        Ok(PngInflateRead::Value(low)) => self.phase = PngInflatePhase::StoredNLengthHigh(length, low)
+      }
+      PngInflatePhase::StoredNLengthHigh(length, low) => match self.bits.read(8) {
+        Err(error) => return Err(error)
+        Ok(PngInflateRead::NeedInput) => return Ok(())
+        Ok(PngInflateRead::Value(high)) => {
+          if (length ^ (low | (high << 8))) != 65535 { return Err(_png_error("deflate-stored-length")) }
+          self.phase = if length == 0 { PngInflatePhase::Trailer([]) } else { PngInflatePhase::StoredBody(length) }
+        }
+      }
+      PngInflatePhase::StoredBody(remaining) => match self.bits.read(8) {
+        Err(error) => return Err(error)
+        Ok(PngInflateRead::NeedInput) => return Ok(())
+        Ok(PngInflateRead::Value(value)) => {
+          match self.emit(value.to_byte()) { Err(error) => return Err(error); Ok(_) => () }
+          self.phase = if remaining == 1 { PngInflatePhase::Trailer([]) } else { PngInflatePhase::StoredBody(remaining - 1) }
+        }
+      }
+      PngInflatePhase::Symbols(literals, distances) => match self.cursor.symbol(literals, self.bits) {
+        Err(error) => return Err(error)
+        Ok(PngInflateRead::NeedInput) => return Ok(())
+        Ok(PngInflateRead::Value(symbol)) => {
+          if symbol < 256 {
+            match self.emit(symbol.to_byte()) { Err(error) => return Err(error); Ok(_) => () }
+          } else if symbol == 256 { self.bits.align(); self.phase = PngInflatePhase::Trailer([]) }
+          else {
+            let (base, extra) = match _png_inflate_length_base(symbol) { Err(error) => return Err(error); Ok(value) => value }
+            self.phase = PngInflatePhase::LengthExtra(literals, distances, base, extra)
+          }
+        }
+      }
+      PngInflatePhase::LengthExtra(literals, distances, base, extra) => match self.bits.read(extra) {
+        Err(error) => return Err(error)
+        Ok(PngInflateRead::NeedInput) => return Ok(())
+        Ok(PngInflateRead::Value(value)) => self.phase = PngInflatePhase::DistanceSymbol(literals, distances, base + value)
+      }
+      PngInflatePhase::DistanceSymbol(literals, distances, length) => match self.cursor.symbol(distances, self.bits) {
+        Err(error) => return Err(error)
+        Ok(PngInflateRead::NeedInput) => return Ok(())
+        Ok(PngInflateRead::Value(symbol)) => {
+          let (base, extra) = match _png_inflate_distance_base(symbol) { Err(error) => return Err(error); Ok(value) => value }
+          self.phase = PngInflatePhase::DistanceExtra(length, base, extra)
+        }
+      }
+      PngInflatePhase::DistanceExtra(length, base, extra) => match self.bits.read(extra) {
+        Err(error) => return Err(error)
+        Ok(PngInflateRead::NeedInput) => return Ok(())
+        Ok(PngInflateRead::Value(value)) => {
+          let distance = base + value
+          if distance > self.history_size { return Err(_png_error("deflate-distance")) }
+          self.phase = PngInflatePhase::Copy(length, distance)
+        }
+      }
+      PngInflatePhase::Copy(remaining, distance) => {
+        let position = (self.history_pos - distance + 32768) % 32768
+        match self.emit(self.history[position]) { Err(error) => return Err(error); Ok(_) => () }
+        self.phase = if remaining == 1 { PngInflatePhase::Symbols(_png_fixed_literal_tree(), _png_fixed_distance_tree()) } else { PngInflatePhase::Copy(remaining - 1, distance) }
+      }
+      PngInflatePhase::Trailer(bytes) => match self.bits.read(8) {
+        Err(error) => return Err(error)
+        Ok(PngInflateRead::NeedInput) => return Ok(())
+        Ok(PngInflateRead::Value(value)) => {
+          bytes.push(value.to_byte())
+          if bytes.length() == 4 {
+            let expected = (bytes[0].to_int().to_uint64() << 24) | (bytes[1].to_int().to_uint64() << 16) | (bytes[2].to_int().to_uint64() << 8) | bytes[3].to_int().to_uint64()
+            if expected != self.adler { return Err(_png_error("zlib-adler")) }
+            self.phase = PngInflatePhase::Complete
+          }
+        }
+      }
+      PngInflatePhase::Complete => running = false
+    }
+  }
+  Ok(())
+}
