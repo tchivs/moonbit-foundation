@@ -7,15 +7,22 @@ fn png_stream_test_budget(work? : UInt64 = 1048576UL) -> @budget.Budget {
 }
 
 ///|
-fn png_stream_test_limits() -> @codec.CodecLimits {
+fn png_stream_test_limits(
+  output? : UInt64 = 1048576UL,
+  work? : UInt64 = 1048576UL,
+) -> @codec.CodecLimits {
   @codec.CodecLimits::new(
-    max_probe_bytes=8UL, max_input_bytes=1048576UL, max_output_bytes=1048576UL,
-    max_width=70000UL, max_height=8UL, max_pixels=560000UL, max_work=1048576UL,
+    max_probe_bytes=8UL, max_input_bytes=1048576UL, max_output_bytes=output,
+    max_width=70000UL, max_height=8UL, max_pixels=560000UL, max_work=work,
   )
 }
 
 ///|
-fn png_stream_test_image(channels : UInt64, width? : UInt64 = 1UL) -> @storage.OwnedImage {
+fn png_stream_test_image(
+  channels : UInt64,
+  width? : UInt64 = 1UL,
+  include_opaque? : Bool = false,
+) -> @storage.OwnedImage {
   let descriptor = @model.ImageDescriptor::new(
     width, 1UL,
     if channels == 3UL { @model.ImageFormat::rgb8() } else { @model.ImageFormat::rgba8() },
@@ -26,9 +33,10 @@ fn png_stream_test_image(channels : UInt64, width? : UInt64 = 1UL) -> @storage.O
       if channels == 4UL { Some(@color.AlphaMode::Straight) } else { None },
       @profile.ProfileIdentity::builtin_srgb(), @model.Orientation::TopLeft,
       @metadata.OpaqueMetadata::from_entries(
-        [], @metadata.MetadataLimits::new(
-          max_entries=0UL, max_token_bytes=1UL, max_value_bytes=0UL,
-          max_total_bytes=0UL, max_disposition_fields=4UL,
+        if include_opaque { [("test", "marker", "raw", b"x")] } else { [] },
+        @metadata.MetadataLimits::new(
+          max_entries=1UL, max_token_bytes=16UL, max_value_bytes=1UL,
+          max_total_bytes=32UL, max_disposition_fields=4UL,
         ), png_stream_test_budget(work=0UL),
       ).unwrap(),
     ),
@@ -237,4 +245,187 @@ test "PNG chunk encoder replays the original released-lease failure" {
 ///|
 test "PNG encoder isolated four-target evidence preserves hostile output and preflight parity" {
   png_chunk_test_four_target_evidence()
+}
+
+///|
+fn png_chunk_test_same_error(
+  left : @error.CoreError,
+  right : @error.CoreError,
+) -> Bool {
+  left.category() == right.category() &&
+    left.code() == right.code() &&
+    left.operation() == right.operation() &&
+    left.context() == right.context() &&
+    left.requested() == right.requested() &&
+    left.completed() == right.completed() &&
+    left.limit() == right.limit()
+}
+
+///|
+fn png_chunk_test_eager_error(
+  image : @storage.OwnedImage,
+  limits : @codec.CodecLimits,
+  budget : @budget.Budget,
+) -> @error.CoreError {
+  let writer = @io.MemoryWriter::new(
+    1048576UL, png_stream_test_budget(work=0UL),
+  ).unwrap()
+  let error = @codec.ImageEncoder::encode(
+    PngEncoder::new(), image.view(), writer as &@io.Writer,
+    @codec.EncodeOptions::new(
+      lossless_required=true, preserve_opaque_metadata=false,
+    ), limits, budget, @error.Diagnostics::new(),
+  ).unwrap_err()
+  if writer.position() != 0UL { abort("png chunk eager preflight output") }
+  error
+}
+
+///|
+fn png_chunk_test_drain_hostile(
+  image : @storage.OwnedImage,
+  schedule : Array[UInt64],
+) -> Bytes {
+  let eager = png_stream_test_eager(image)
+  let encoder = PngChunkEncoder::new(
+    image.view(), png_stream_test_limits(), png_stream_test_budget(),
+    @error.Diagnostics::new(),
+  ).unwrap()
+  let output : Array[Byte] = []
+  let mut turn = 0UL
+  while turn < 1024UL {
+    let capacity = schedule[(turn % schedule.length().to_uint64()).to_int()]
+    let owner = png_chunk_test_owner(capacity)
+    let before = output.length().to_uint64()
+    let pulled = owner.with_mut(0UL, capacity, fn(lease) { Ok(encoder.pull(lease)) }).unwrap()
+    if pulled.written() > capacity || pulled.total_written() != before + pulled.written() {
+      abort("png chunk hostile progress")
+    }
+    for index = 0UL; index < pulled.written(); index = index + 1UL {
+      output.push(owner.view().get(index).unwrap())
+    }
+    if turn == 0UL && capacity == 0UL &&
+      (pulled.written() != 0UL || pulled.total_written() != 0UL ||
+        !(pulled.outcome() is PngChunkPullOutcome::NeedOutput)) {
+      abort("png chunk empty output")
+    }
+    match pulled.outcome() {
+      PngChunkPullOutcome::NeedOutput => turn = turn + 1UL
+      PngChunkPullOutcome::Failed(_) => abort("png chunk hostile output failure")
+      PngChunkPullOutcome::Finished => {
+        let terminal_total = pulled.total_written()
+        for _ in [0, 1] {
+          let terminal_owner = png_chunk_test_owner(7UL, fill=b'Z')
+          let terminal = terminal_owner.with_mut(0UL, 7UL, fn(lease) {
+            Ok(encoder.pull(lease))
+          }).unwrap()
+          if terminal.written() != 0UL || terminal.total_written() != terminal_total ||
+            !(terminal.outcome() is PngChunkPullOutcome::Finished) {
+            abort("png chunk terminal progress")
+          }
+          for index = 0UL; index < 7UL; index = index + 1UL {
+            if terminal_owner.view().get(index).unwrap() != b'Z' {
+              abort("png chunk terminal mutation")
+            }
+          }
+        }
+        let bytes = Bytes::from_array(output)
+        if bytes != eager { abort("png chunk eager parity") }
+        return bytes
+      }
+    }
+  }
+  abort("png chunk hostile drain unreachable")
+}
+
+///|
+fn png_chunk_test_preflight_parity() -> Unit {
+  let image = png_stream_test_image(3UL)
+  let output_limits = png_stream_test_limits(output=71UL)
+  let eager_output = png_chunk_test_eager_error(
+    image, output_limits, png_stream_test_budget(),
+  )
+  let output_budget = png_stream_test_budget()
+  let output_before = output_budget.remaining().work()
+  let chunk_output = PngChunkEncoder::new(
+    image.view(), output_limits, output_budget, @error.Diagnostics::new(),
+  ).unwrap_err()
+  if !png_chunk_test_same_error(eager_output, chunk_output) ||
+    output_budget.remaining().work() != output_before {
+    abort("png chunk output preflight parity")
+  }
+
+  let work_limits = png_stream_test_limits()
+  let eager_work = png_chunk_test_eager_error(
+    image, work_limits, png_stream_test_budget(work=71UL),
+  )
+  let work_budget = png_stream_test_budget(work=71UL)
+  let work_before = work_budget.remaining().work()
+  let chunk_work = PngChunkEncoder::new(
+    image.view(), work_limits, work_budget, @error.Diagnostics::new(),
+  ).unwrap_err()
+  if !png_chunk_test_same_error(eager_work, chunk_work) ||
+    work_budget.remaining().work() != work_before {
+    abort("png chunk work preflight parity")
+  }
+
+  let retained = png_stream_test_image(3UL, include_opaque=true)
+  let opaque_limits = png_stream_test_limits()
+  let eager_opaque = png_chunk_test_eager_error(
+    retained, opaque_limits, png_stream_test_budget(),
+  )
+  let opaque_budget = png_stream_test_budget()
+  let opaque_before = opaque_budget.remaining().work()
+  let chunk_opaque = PngChunkEncoder::new(
+    retained.view(), opaque_limits, opaque_budget, @error.Diagnostics::new(),
+  ).unwrap_err()
+  if !png_chunk_test_same_error(eager_opaque, chunk_opaque) ||
+    opaque_budget.remaining().work() != opaque_before {
+    abort("png chunk opaque preflight parity")
+  }
+}
+
+///|
+fn png_chunk_test_released_lease_terminal() -> Unit {
+  let image = png_stream_test_image(3UL)
+  let encoder = PngChunkEncoder::new(
+    image.view(), png_stream_test_limits(), png_stream_test_budget(),
+    @error.Diagnostics::new(),
+  ).unwrap()
+  let owner = png_chunk_test_owner(1UL, fill=b'Z')
+  let failed = owner.with_mut(0UL, 1UL, fn(lease) {
+    lease.release()
+    Ok(encoder.pull(lease))
+  }).unwrap()
+  let first_error = match failed.outcome() {
+    PngChunkPullOutcome::Failed(error) => error
+    _ => abort("png chunk released lease outcome")
+  }
+  let replay_owner = png_chunk_test_owner(1UL, fill=b'Z')
+  let replay = replay_owner.with_mut(0UL, 1UL, fn(lease) {
+    Ok(encoder.pull(lease))
+  }).unwrap()
+  let replay_error = match replay.outcome() {
+    PngChunkPullOutcome::Failed(error) => error
+    _ => abort("png chunk released lease replay")
+  }
+  if failed.written() != 0UL || replay.written() != 0UL ||
+    failed.total_written() != 0UL || replay.total_written() != 0UL ||
+    !png_chunk_test_same_error(first_error, replay_error) ||
+    replay_owner.view().get(0UL).unwrap() != b'Z' {
+    abort("png chunk released lease terminal")
+  }
+}
+
+///|
+fn png_chunk_test_four_target_evidence() -> Unit {
+  for channels in [3UL, 4UL] {
+    let image = png_stream_test_image(channels)
+    ignore(png_chunk_test_drain_hostile(image, [0UL, 1UL]))
+    ignore(png_chunk_test_drain_hostile(image, [1UL]))
+    ignore(png_chunk_test_drain_hostile(
+      image, [0UL, 8UL, 4UL, 1UL, 13UL, 2UL, 5UL, 3UL, 21UL],
+    ))
+  }
+  png_chunk_test_released_lease_terminal()
+  png_chunk_test_preflight_parity()
 }
