@@ -7,8 +7,8 @@
 ## PNG Chunked Encode
 
 - [x] **PNGE-01**: A library user can create a public PNG chunk encoder for a compatible RGB8 or straight-RGBA8 image and receives all capability, dimension, limit, and budget rejection before any encoded byte is exposed.
-- [ ] **PNGE-02**: A library user can repeatedly provide arbitrary caller-owned mutable output buffers and receives deterministic exact progress until the complete canonical PNG representation is emitted exactly once, without retained caller buffers or duplicated/omitted bytes.
-- [ ] **PNGE-03**: A library user receives the same canonical bytes and terminal failure semantics as the eager PNG encoder; completion and failure are sticky, and later calls cannot expose additional bytes.
+- [x] **PNGE-02**: A library user can repeatedly provide arbitrary caller-owned mutable output buffers and receives deterministic exact progress until the complete canonical PNG representation is emitted exactly once, without retained caller buffers or duplicated/omitted bytes.
+- [x] **PNGE-03**: A library user receives the same canonical bytes and terminal failure semantics as the eager PNG encoder; completion and failure are sticky, and later calls cannot expose additional bytes.
 
 ## PNG Chunked Encode Evidence
 
@@ -34,8 +34,8 @@
 | Requirement | Phase | Status |
 |---|---|---|
 | PNGE-01 | Phase 29 | Complete |
-| PNGE-02 | Phase 30 | Pending |
-| PNGE-03 | Phase 30 | Pending |
+| PNGE-02 | Phase 30 | Complete |
+| PNGE-03 | Phase 30 | Complete |
 | PNGE-04 | Phase 31 | Pending |
 | PNGE-05 | Phase 31 | Pending |
 
