@@ -1,5 +1,19 @@
 # Project Milestones: MoonBit Native Foundation
 
+## v0.9 Resumable PNG Encode (Shipped: 2026-07-21)
+
+**Phases completed:** 3 phases, 5 plans, 12 tasks
+
+**Key accomplishments:**
+
+- A private MoonBit PNG byte emitter now preserves canonical stored-DEFLATE output while atomically admitting compatible RGB8 and straight-RGBA8 sources.
+- PngEncoder now drains the single private canonical PNG machine through fixed one-byte complete writes with acknowledgement only after success.
+- PngEncoder now returns host Writer failures field-for-field and proves its private canonical byte ownership on all four portable targets.
+- Public caller-buffered PNG encoding now drains the private canonical byte machine with exact progress, eager-byte parity, lease isolation, and sticky terminal outcomes.
+- Public PNG output now proves hostile caller-buffer behavior and drives the sole portable decode-resize-encode workflow to the frozen 78-byte, digest-626208771 result on all four targets.
+
+---
+
 ## v0.8 Resumable PNG Decode (Shipped: 2026-07-21)
 
 **Delivered:** A portable, caller-buffered PNG decode API with strict completion, exact progress, sticky terminal failures, and four-target evidence.

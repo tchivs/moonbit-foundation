@@ -2,18 +2,18 @@
 gsd_state_version: 1.0
 milestone: v0.9
 milestone_name: Resumable PNG Encode
-current_phase: 31
-status: completed
+status: Awaiting next milestone
 stopped_at: Phase 31 verified and milestone ready for audit
-last_updated: "2026-07-21T14:53:44.477Z"
+last_updated: "2026-07-21T14:58:26.274Z"
 last_activity: 2026-07-21
-last_activity_desc: Phase 31 complete
+last_activity_desc: Milestone v0.9 completed and archived
 progress:
   total_phases: 3
   completed_phases: 3
   total_plans: 5
   completed_plans: 5
   percent: 100
+current_phase: 31
 current_phase_name: Portable PNG Encode Evidence
 ---
 
@@ -25,14 +25,14 @@ See `.planning/PROJECT.md` (updated 2026-07-21).
 
 **Core value:** MoonBit developers can reuse stable, high-performance native infrastructure contracts instead of rebuilding incompatible foundations for every graphics, document, media, or automation product.
 
-**Current focus:** Plan and implement portable caller-buffered PNG encoding with eager-equivalent canonical bytes and four-target evidence.
+**Current focus:** Define the next code-first milestone; public resumable PNG encode is complete.
 
 ## Current Position
 
-Phase: 31 — Portable PNG Encode Evidence
-Plan: 1/1 complete
-Status: Milestone complete
-Last activity: 2026-07-21 — Phase 31 complete
+Phase: Milestone v0.9 complete
+Plan: —
+Status: Awaiting next milestone
+Last activity: 2026-07-21 — Milestone v0.9 completed and archived
 
 ## Performance Metrics
 
@@ -120,7 +120,8 @@ None.
 | Category | Item | Status |
 |----------|------|--------|
 | scope | cICP/HDR and full ICC colour transforms | deferred |
-| scope | Public resumable PNG encoder | active in v0.9 |
+| scope | Public resumable PNG encoder | validated in v0.9 |
+| technical-debt | unused `tchivs/mb-core/io` import in `examples/png-portable/main/moon.pkg` | deferred manifest cleanup |
 | delivery | Registry publication and release automation | deferred |
 | closeout-debug | clean-diff-empty-binding | acknowledged historical record |
 | closeout-debug | hosted-toolchain-setup-failure | acknowledged historical record |
@@ -150,4 +151,4 @@ Resume file: None
 
 ## Operator Next Steps
 
-- Audit v0.9 with /gsd-audit-milestone v0.9
+- Start the next milestone with /gsd-new-milestone

@@ -22,10 +22,11 @@ MoonBit developers can reuse stable, high-performance native infrastructure cont
 - [x] Provide a portable, pure-MoonBit QOI 1.0 decoder and canonical encoder with hostile-input handling and four-target vectors. — Validated in v0.4 Phases 13-14.
 - [x] Prove public QOI decode-process-encode interoperability on all supported targets. — Validated in v0.4 Phases 15-16.
 - [x] Provide resumable QOI decode and encode APIs with hostile-schedule and public workflow evidence on all four portable targets. — Validated in v0.5 Phases 17-19.
+- [x] Provide public caller-buffered, resumable PNG decode with explicit completion, exact progress, and no partial-image visibility. — Validated in v0.8 Phases 26-28.
+- [x] Provide public caller-buffered, resumable PNG encoding with eager-equivalent bytes, sticky terminals, and four-target hostile-schedule evidence. — Validated in v0.9 Phases 29-31.
 
 ### Active
 
-- [ ] Provide a public caller-buffered, resumable PNG decode API with explicit completion, exact progress, and no partial-image visibility.
 - [ ] Preserve eager PNG decoding as a compatible facade while refactoring its framing, IDAT, DEFLATE, and raster pipeline into pausable MoonBit-owned state.
 - [ ] Prove hostile PNG chunk schedules and strict EOF/IEND semantics unchanged on js, wasm, wasm-gc, and native.
 
@@ -71,15 +72,11 @@ Registry publication remains deferred: the existing v0.2 qualification artifacts
 
 **Validated:** The complete PNG package passed 84/84 tests on each of `wasm`, `wasm-gc`, `js`, and `native`. The public workflow freezes `PngChunkDecoder` → bilinear resize → eager PNG encode to a 78-byte output with digest `626208771` on all four targets. The milestone audit passed all four requirements, all three phase verifications, six cross-phase handoffs, and two end-to-end flows.
 
-## Current Milestone: v0.9 Resumable PNG Encode
+## Current State: v0.9 Resumable PNG Encode Shipped
 
-**Goal:** Complete the portable PNG streaming contract with caller-buffered canonical output that preserves eager encoder semantics, eager preflight, bounded resource behavior, and four-target evidence.
+**Delivered:** `mb-image` now exposes a public `PngChunkEncoder` over the single private canonical PNG byte machine. It accepts arbitrary caller-owned mutable leases, reports exact progress, preserves eager bytes and preflight, and retains sticky completion and original typed failures.
 
-**Target features:**
-
-- Build a private resumable PNG encoding substrate that emits the existing canonical PNG byte stream without retaining caller output buffers.
-- Publish a decode-independent `PngChunkEncoder` that writes into arbitrary caller-owned mutable output buffers and reports exact progress, completion, and typed sticky terminals.
-- Prove eager/chunk byte parity, hostile output-capacity schedules, budget/limit preflight, and one portable public chunk-decode → process → chunk-encode workflow on all four targets.
+**Validated:** Hostile empty/tiny/ragged schedules, eager/chunk parity, limits and budgets, terminal non-mutation, and the public decode → resize → chunk-encode workflow passed on js, wasm, wasm-gc, and native. The workflow freezes 78 output bytes, 14 pulls, and digest `626208771`.
 
 Registry publication and release automation remain deferred unless they directly unblock a concrete consumer or code path.
 
@@ -113,7 +110,7 @@ Registry publication and release automation remain deferred unless they directly
 | Implement QOI before a heavyweight lossless codec | QOI adds a real RGB/RGBA interchange format while preserving a pure MoonBit, four-target implementation and bounded attack surface | ✓ Validated in v0.4 |
 | Add streaming QOI before a heavyweight codec | Stateful chunked I/O completes the existing forward-only codec contract without widening scope to PNG/DEFLATE or FFI | ✓ Validated in v0.5 |
 | Preserve PNG colour declarations before implementing colour transforms | Raw sample bytes cannot honestly be treated as sRGB when a file declares different colour semantics | ✓ Validated in v0.7 |
-| Build public PNG streaming as a separate state-machine milestone | A public caller-buffered API must preserve strict framing, image-visibility, and resource semantics rather than expose the eager transport internals | ✓ Validated in v0.8 |
+| Build public PNG streaming as a separate state-machine milestone | A public caller-buffered API must preserve strict framing, image-visibility, and resource semantics rather than expose the eager transport internals | ✓ Validated in v0.8 and v0.9 |
 
 ## Evolution
 
@@ -133,4 +130,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update toolchain, compatibility, benchmark, and adoption context.
 
 ---
-*Last updated: 2026-07-21 after v0.8 Resumable PNG Decode shipment*
+*Last updated: 2026-07-21 after v0.9 Resumable PNG Encode shipment*
