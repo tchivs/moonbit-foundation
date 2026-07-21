@@ -2,15 +2,19 @@
 gsd_state_version: 1.0
 milestone: v0.8
 milestone_name: Resumable PNG Decode
+current_phase: 27
+current_phase_name: Public PNG Chunk Decoder
 status: planning
-last_updated: "2026-07-21T09:45:02Z"
+stopped_at: Completed 27-01-PLAN.md
+last_updated: "2026-07-21T10:14:10.967Z"
 last_activity: 2026-07-21
+last_activity_desc: Phase 26 private pausable PNG decode substrate verified 4/4
 progress:
-  total_phases: 3
-  completed_phases: 1
-  total_plans: 1
-  completed_plans: 1
-  percent: 33
+  total_phases: 20
+  completed_phases: 7
+  total_plans: 17
+  completed_plans: 14
+  percent: 35
 ---
 
 # Project State
@@ -60,6 +64,7 @@ Last activity: 2026-07-21 — Phase 26 private pausable PNG decode substrate ver
 - [v0.8]: Keep completed images private until final IDAT CRC, zlib Adler-32, IEND CRC, and explicit end-of-input validation pass.
 - [Phase 26]: Route the existing eager facade through one private byte-fed machine; preserve the public `PngDecoder`/`PngEncoder` interface until Phase 27.
 - [Phase 26]: Retain framing, CRC, DEFLATE, raster, Adam7, and terminal continuation state without retaining a caller `ByteView` or a complete IDAT stream.
+- [Phase ?]: Publish PngChunkDecoder as a thin one-byte adapter over PngDecodeMachine; only finish transfers its private result.
 
 ### Pending Todos
 
@@ -94,6 +99,7 @@ None.
 | Phase 24-bounded-non-srgb-and-icc-preservation P01 | 40min | 3 tasks | 9 files |
 | Phase 20-png-structural-safety-gate P05 | 4min | 2 tasks | 1 files |
 | Phase 21-bounded-png-decode-and-deflate P03 | 30min | 2 tasks | 2 files |
+| Phase 27 P01 | 25min | 3 tasks | 6 files |
 
 ## Deferred Items
 
@@ -107,6 +113,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-07-21T09:45:02Z
-Stopped at: Phase 26 verified complete; Phase 27 is ready for planning
+Last session: 2026-07-21T10:14:10.944Z
+Stopped at: Completed 27-01-PLAN.md
 Resume file: None

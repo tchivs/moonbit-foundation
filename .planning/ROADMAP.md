@@ -183,7 +183,7 @@ Plans:
 | 24. Bounded Non-sRGB and ICC Preservation | v0.7 | 2/2 | Complete | 2026-07-21 |
 | 25. Portable Colour Conformance Evidence | v0.7 | 1/1 | Complete | 2026-07-21 |
 | 26. Pausable PNG Decode Substrate | v0.8 | 1/1 | Complete | 2026-07-21 |
-| 27. Public PNG Chunk Decoder | v0.8 | 0/TBD | Not started | - |
+| 27. Public PNG Chunk Decoder | v0.8 | 1/1 | In Progress|  |
 | 28. Portable PNG Streaming Evidence | v0.8 | 0/TBD | Not started | - |
 
 ### Phase 12: Strict PPM End-to-End Filter Coverage
@@ -417,7 +417,9 @@ Plans:
   2. A library user calls `finish()` as the only EOF declaration and receives exactly one eager-equivalent owned image only after strict IDAT, zlib/Adler-32, IEND, and trailing-input validation has succeeded.
   3. A library user receives a typed sticky terminal error for incomplete framing or raster work, invalid CRC/zlib/DEFLATE data, missing or malformed IEND, trailing input, limits, or budget exhaustion; later pushes accept zero bytes and cannot expose a result.
 
-**Plans**: TBD
+**Plans**: 1/1 plans executed
+
+- [x] 27-01-PLAN.md
 
 ### Phase 28: Portable PNG Streaming Evidence
 
