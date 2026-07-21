@@ -95,6 +95,7 @@ fn main {
     resized.image().view().get_byte(1UL, 0UL, 2UL).unwrap() != b'\xcc' ||
     resized.image().view().get_byte(2UL, 0UL, 2UL).unwrap() != b'\xef' { abort("png portable bilinear pixels") }
   if encoded.bytes_written() != 78UL { abort("png portable write length") }
+  if output_pulls != 14UL { abort("png portable chunk output pulls") }
   if !matches(writer.view(), expected.view(), 78UL) { abort("png portable exact bytes") }
   if digest(writer.view(), 78UL) != 626208771UL { abort("png portable digest") }
   println("example=png-portable input_schedule=workflow-zero-signature-ihdr-idat-deflate-iend pushes=16 bytes_read=75 bytes_written=78 width=3 height=1 resize_bilinear digest=626208771")
