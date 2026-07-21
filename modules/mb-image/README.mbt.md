@@ -180,6 +180,109 @@ source's selected Exif mapping. Nearest resize is the fixed reference algorithm:
 It uses checked integers and performs no filtering, interpolation, hidden color
 conversion, or alpha processing.
 
+`@ops.resize_bilinear(source, width, height, budget)` is a separate checked
+operation. It accepts only packed U8 encoded-sRGB RGB8 with no alpha or
+straight-RGBA8 with the built-in sRGB profile. It retains nearest resize's
+integer base coordinate `floor(destination * source_extent / destination_extent)`,
+then clamps only the high neighbour. The four taps are decoded to linear light,
+premultiplied by alpha, interpolated, and encoded only when storing fresh output.
+Straight RGBA is unpremultiplied only at that final store; zero alpha is canonical
+transparent black `[0,0,0,0]`. The one output allocation charges four source taps
+per output pixel. Byte identity therefore applies only to RGB8 and fully opaque
+straight-RGBA8 input; transparent straight RGB is canonicalized.
+
+The exact `2×1 → 3×1` black-to-white RGB8 middle channel is `213`; the
+transparent-red-to-opaque-black straight-RGBA8 middle pixel is `[0,0,0,170]`;
+and expanding a `1×1` transparent-red pixel to `2×3` yields six `[0,0,0,0]`
+pixels. Empty views (`empty-operation-source`), zero destination axes,
+unsupported representations, non-sRGB or non-built-in metadata, checked
+arithmetic overflow, and exhausted output resources are typed atomic failures:
+the caller's complete budget snapshot is unchanged. Nearest resize remains the
+unchanged unfiltered reference operation described above.
+
+```mbt check
+///|
+fn readme_bilinear_image(
+  channels : UInt64,
+  alpha : @color.AlphaMode?,
+  pixels : Array[Byte],
+) -> @storage.OwnedImage {
+  let length = pixels.length().to_uint64()
+  let width = length / channels
+  let format = if channels == 3UL { @model.ImageFormat::rgb8() } else { @model.ImageFormat::rgba8() }
+  let metadata = @model.ImageMetadata::new(
+    @color.ColorSpaceIdentity::Srgb, @color.TransferIdentity::EncodedSrgb, alpha,
+    @profile.ProfileIdentity::builtin_srgb(), @model.Orientation::TopLeft,
+    @metadata.OpaqueMetadata::from_entries([], @metadata.MetadataLimits::new(
+      max_entries=0UL, max_token_bytes=16UL, max_value_bytes=0UL,
+      max_total_bytes=0UL, max_disposition_fields=8UL,
+    ), readme_budget(0UL, 0UL)).unwrap(),
+  )
+  let descriptor = @model.ImageDescriptor::new(
+    width, 1UL, format,
+    [@model.PlaneDescriptor::new(0UL, length, length, length, 1UL, 1UL, width, 1UL).unwrap()],
+    length, metadata,
+  ).unwrap()
+  let image = @storage.OwnedImage::new(descriptor, readme_budget(length, 0UL)).unwrap()
+  image.with_mut_view(fn(view) {
+    let mut index = 0
+    for x = 0UL; x < width; x = x + 1UL {
+      for channel = 0UL; channel < channels; channel = channel + 1UL {
+        view.set_byte(x, 0UL, channel, pixels[index]).unwrap()
+        index = index + 1
+      }
+    }
+    Ok(())
+  }).unwrap()
+  image
+}
+
+///|
+test "bilinear resize public vectors are deterministic and alpha correct" {
+  let black_white = readme_bilinear_image(3UL, None, [
+    b'\x00', b'\x00', b'\x00', b'\xff', b'\xff', b'\xff',
+  ])
+  let rgb = @ops.resize_bilinear(
+    black_white.view(), 3UL, 1UL, readme_budget(9UL, 12UL),
+  ).unwrap().image().view()
+  inspect(rgb.get_byte(1UL, 0UL, 0UL).unwrap(), content="b'\\xD5'")
+  let transparent_red = readme_bilinear_image(
+    4UL, Some(@color.AlphaMode::Straight), [
+      b'\xff', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\xff',
+    ],
+  )
+  let rgba = @ops.resize_bilinear(
+    transparent_red.view(), 3UL, 1UL, readme_budget(12UL, 12UL),
+  ).unwrap().image().view()
+  for channel = 0UL; channel < 3UL; channel = channel + 1UL {
+    inspect(rgba.get_byte(1UL, 0UL, channel).unwrap(), content="b'\\x00'")
+  }
+  inspect(rgba.get_byte(1UL, 0UL, 3UL).unwrap(), content="b'\\xAA'")
+  let one_transparent_red = readme_bilinear_image(
+    4UL, Some(@color.AlphaMode::Straight), [b'\xff', b'\x00', b'\x00', b'\x00'],
+  )
+  let expanded = @ops.resize_bilinear(
+    one_transparent_red.view(), 2UL, 3UL, readme_budget(24UL, 24UL),
+  ).unwrap().image().view()
+  for y = 0UL; y < 3UL; y = y + 1UL {
+    for x = 0UL; x < 2UL; x = x + 1UL {
+      for channel = 0UL; channel < 4UL; channel = channel + 1UL {
+        inspect(expanded.get_byte(x, y, channel).unwrap(), content="b'\\x00'")
+      }
+    }
+  }
+}
+```
+
+Run the public operation proof on every portable target:
+
+```powershell
+moon test --target js modules/mb-image/ops
+moon test --target wasm modules/mb-image/ops
+moon test --target wasm-gc modules/mb-image/ops
+moon test --target native modules/mb-image/ops
+```
+
 ### Alpha-correct processing
 
 `@ops.composite_source_over(source, destination, budget)` accepts only packed

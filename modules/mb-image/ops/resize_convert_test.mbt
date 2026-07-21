@@ -224,3 +224,63 @@ test "straight and premultiplied conversion delegates encoded alpha semantics" {
     content="true",
   )
 }
+
+///|
+test "bilinear resize filters RGB8 in linear light" {
+  let source = resize_convert_image(2UL, 1UL, 3UL, None, [
+    b'\x00', b'\x00', b'\x00', b'\xff', b'\xff', b'\xff',
+  ])
+  let result = @ops.resize_bilinear(
+    source.view(), 3UL, 1UL, resize_convert_limits(9UL, 12UL),
+  ).unwrap()
+  let output = result.image()
+  inspect(
+    output.view().format().channels() == @model.ChannelOrder::Rgb,
+    content="true",
+  )
+  inspect(output.metadata().alpha() == None, content="true")
+  for channel = 0UL; channel < 3UL; channel = channel + 1UL {
+    inspect(output.view().get_byte(0UL, 0UL, channel).unwrap(), content="b'\\x00'")
+    inspect(output.view().get_byte(1UL, 0UL, channel).unwrap(), content="b'\\xD5'")
+    inspect(output.view().get_byte(2UL, 0UL, channel).unwrap(), content="b'\\xFF'")
+  }
+}
+
+///|
+test "bilinear resize filters straight RGBA without transparent colour fringes" {
+  let source = resize_convert_image(
+    2UL, 1UL, 4UL, Some(@color.AlphaMode::Straight), [
+      b'\xff', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\xff',
+    ],
+  )
+  let output = @ops.resize_bilinear(
+    source.view(), 3UL, 1UL, resize_convert_limits(12UL, 12UL),
+  ).unwrap().image()
+  inspect(
+    output.view().format().channels() == @model.ChannelOrder::Rgba,
+    content="true",
+  )
+  inspect(
+    output.metadata().alpha() == Some(@color.AlphaMode::Straight),
+    content="true",
+  )
+  for channel = 0UL; channel < 3UL; channel = channel + 1UL {
+    inspect(output.view().get_byte(1UL, 0UL, channel).unwrap(), content="b'\\x00'")
+  }
+  inspect(output.view().get_byte(1UL, 0UL, 3UL).unwrap(), content="b'\\xAA'")
+
+  let transparent = resize_convert_image(
+    1UL, 1UL, 4UL, Some(@color.AlphaMode::Straight),
+    [b'\xff', b'\x00', b'\x00', b'\x00'],
+  )
+  let expanded = @ops.resize_bilinear(
+    transparent.view(), 2UL, 3UL, resize_convert_limits(24UL, 24UL),
+  ).unwrap().image().view()
+  for y = 0UL; y < 3UL; y = y + 1UL {
+    for x = 0UL; x < 2UL; x = x + 1UL {
+      for channel = 0UL; channel < 4UL; channel = channel + 1UL {
+        inspect(expanded.get_byte(x, y, channel).unwrap(), content="b'\\x00'")
+      }
+    }
+  }
+}

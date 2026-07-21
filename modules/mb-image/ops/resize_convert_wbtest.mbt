@@ -302,3 +302,141 @@ test "invalid premultiplied pixels reject before authoritative charge" {
   inspect(budget.remaining().bytes() == before.bytes(), content="true")
   inspect(budget.remaining().work() == before.work(), content="true")
 }
+
+///|
+test "bilinear coordinates retain nearest bases and clamp only high neighbours" {
+  let first = bilinear_source_coordinate(0UL, 2UL, 3UL).unwrap()
+  inspect(first.0 == 0UL && first.1 == 1UL && first.2 == 0UL, content="true")
+  let middle = bilinear_source_coordinate(1UL, 2UL, 3UL).unwrap()
+  inspect(middle.0 == 0UL && middle.1 == 1UL && middle.2 == 2UL, content="true")
+  let edge = bilinear_source_coordinate(2UL, 2UL, 3UL).unwrap()
+  inspect(edge.0 == 1UL && edge.1 == 1UL && edge.2 == 1UL, content="true")
+  let downscaled = bilinear_source_coordinate(0UL, 2UL, 1UL).unwrap()
+  inspect(
+    downscaled.0 == 0UL && downscaled.1 == 1UL && downscaled.2 == 0UL,
+    content="true",
+  )
+}
+
+///|
+test "bilinear failures are typed and preserve the complete budget snapshot" {
+  let source = wb_resize_convert_image(1UL, 1UL, 3UL, None, [
+    b'\x01', b'\x02', b'\x03',
+  ])
+  for dimensions in [(0UL, 1UL), (1UL, 0UL)] {
+    let budget = wb_resize_convert_limits(12UL, 48UL)
+    let before = budget.remaining()
+    match resize_bilinear(source.view(), dimensions.0, dimensions.1, budget) {
+      Err(error) => {
+        inspect(error.operation() == Some("image-resize-bilinear"), content="true")
+        inspect(error.context() == Some("zero-destination-axis"), content="true")
+      }
+      Ok(_) => fail("zero destination axis must reject")
+    }
+    inspect(
+      wb_resize_convert_remaining_is_unchanged(before, budget.remaining()),
+      content="true",
+    )
+  }
+  let unsupported = unsupported_image(
+    @model.ComponentType::U16,
+    @model.ChannelOrder::Rgb,
+    @model.PlaneLayout::Packed,
+  )
+  let budget = wb_resize_convert_limits(12UL, 48UL)
+  let before = budget.remaining()
+  match resize_bilinear(unsupported.view(), 2UL, 2UL, budget) {
+    Err(error) => {
+      inspect(error.operation() == Some("image-resize-bilinear"), content="true")
+      inspect(error.context() == Some("image-resize-bilinear-format"), content="true")
+    }
+    Ok(_) => fail("unsupported bilinear input must reject")
+  }
+  inspect(
+    wb_resize_convert_remaining_is_unchanged(before, budget.remaining()),
+    content="true",
+  )
+}
+
+///|
+test "bilinear rejects empty metadata overflow and each output charge boundary atomically" {
+  let source = wb_resize_convert_image(1UL, 1UL, 3UL, None, [
+    b'\x01', b'\x02', b'\x03',
+  ])
+  let empty = source.view().crop(
+    @model.Rect::new(0UL, 0UL, 0UL, 1UL).unwrap(),
+  ).unwrap()
+  let empty_budget = wb_resize_convert_limits(3UL, 4UL)
+  let empty_before = empty_budget.remaining()
+  match resize_bilinear(empty, 1UL, 1UL, empty_budget) {
+    Err(error) => {
+      inspect(error.code() == @error.ErrorCode::InvalidDimensions, content="true")
+      inspect(error.operation() == Some("image-resize-bilinear"), content="true")
+      inspect(error.context() == Some("empty-operation-source"), content="true")
+    }
+    Ok(_) => fail("empty bilinear source must reject")
+  }
+  inspect(
+    wb_resize_convert_remaining_is_unchanged(empty_before, empty_budget.remaining()),
+    content="true",
+  )
+
+  let metadata_rejected = processing_wb_variant_image(
+    @model.ComponentType::U8,
+    @model.ChannelOrder::Rgb,
+    @model.PlaneLayout::Packed,
+    @color.TransferIdentity::LinearSrgb,
+    None,
+  )
+  let metadata_budget = wb_resize_convert_limits(3UL, 4UL)
+  let metadata_before = metadata_budget.remaining()
+  match resize_bilinear(metadata_rejected.view(), 1UL, 1UL, metadata_budget) {
+    Err(error) => {
+      inspect(error.operation() == Some("image-resize-bilinear"), content="true")
+      inspect(error.context() == Some("image-resize-bilinear-metadata"), content="true")
+    }
+    Ok(_) => fail("non-sRGB bilinear metadata must reject")
+  }
+  inspect(
+    wb_resize_convert_remaining_is_unchanged(metadata_before, metadata_budget.remaining()),
+    content="true",
+  )
+
+  let overflow_budget = wb_resize_convert_limits(3UL, 4UL)
+  let overflow_before = overflow_budget.remaining()
+  inspect(
+    resize_bilinear(source.view(), 18446744073709551615UL, 1UL, overflow_budget) is Err(_),
+    content="true",
+  )
+  inspect(
+    wb_resize_convert_remaining_is_unchanged(overflow_before, overflow_budget.remaining()),
+    content="true",
+  )
+
+  for limit in [
+    (2UL, 1UL, 3UL, 1UL, 1UL, 1UL, 4UL),
+    (3UL, 0UL, 3UL, 1UL, 1UL, 1UL, 4UL),
+    (3UL, 1UL, 2UL, 1UL, 1UL, 1UL, 4UL),
+    (3UL, 1UL, 3UL, 0UL, 1UL, 1UL, 4UL),
+    (3UL, 1UL, 3UL, 1UL, 0UL, 1UL, 4UL),
+    (3UL, 1UL, 3UL, 1UL, 1UL, 0UL, 4UL),
+    (3UL, 1UL, 3UL, 1UL, 1UL, 1UL, 3UL),
+  ] {
+    let budget = @budget.Budget::new(@budget.ResourceLimits::new(
+      bytes=limit.0,
+      allocations=limit.1,
+      allocation_size=limit.2,
+      width=limit.3,
+      height=limit.4,
+      pixels=limit.5,
+      depth=0UL,
+      work=limit.6,
+    ))
+    let before = budget.remaining()
+    inspect(resize_bilinear(source.view(), 1UL, 1UL, budget) is Err(_), content="true")
+    inspect(
+      wb_resize_convert_remaining_is_unchanged(before, budget.remaining()),
+      content="true",
+    )
+  }
+}

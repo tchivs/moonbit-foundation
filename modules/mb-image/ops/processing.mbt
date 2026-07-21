@@ -87,7 +87,36 @@ fn load_linear_premultiplied(view : @storage.ImageView, x : UInt64, y : UInt64) 
 }
 
 ///|
+fn load_linear_premultiplied_rgb8(
+  view : @storage.ImageView,
+  x : UInt64,
+  y : UInt64,
+) -> Result[@alpha.PremultipliedNormalizedSrgba, @error.CoreError] {
+  let r = match view.get_byte(x, y, 0UL) { Ok(v) => v
+    Err(e) => return Err(e) }
+  let g = match view.get_byte(x, y, 1UL) { Ok(v) => v
+    Err(e) => return Err(e) }
+  let b = match view.get_byte(x, y, 2UL) { Ok(v) => v
+    Err(e) => return Err(e) }
+  @alpha.premultiply_normalized(
+    @alpha.StraightNormalizedSrgba::linear(
+      @transfer.decode_srgb(@quantize.dequantize_encoded_srgb(@color.EncodedSrgb8Component::from_byte(r))),
+      @transfer.decode_srgb(@quantize.dequantize_encoded_srgb(@color.EncodedSrgb8Component::from_byte(g))),
+      @transfer.decode_srgb(@quantize.dequantize_encoded_srgb(@color.EncodedSrgb8Component::from_byte(b))),
+      @color.NormalizedAlpha::new(1.0).unwrap(),
+    ),
+  )
+}
+
+///|
 fn store_linear_premultiplied(view : @storage.MutImageView, x : UInt64, y : UInt64, value : @alpha.PremultipliedNormalizedSrgba) -> Result[Unit, @error.CoreError] {
+  if value.alpha().value() == 0.0 {
+    for channel = 0UL; channel < 4UL; channel = channel + 1UL {
+      match view.set_byte(x, y, channel, b'\x00') { Ok(_) => ()
+        Err(e) => return Err(e) }
+    }
+    return Ok(())
+  }
   let straight = match @alpha.unpremultiply_normalized(value) { Ok(v) => v
     Err(e) => return Err(e) }
   let (r, g, b) = straight.linear_rgb().unwrap()
@@ -98,6 +127,26 @@ fn store_linear_premultiplied(view : @storage.MutImageView, x : UInt64, y : UInt
     @quantize.quantize_alpha(straight.alpha()).value(),
   ]
   for channel = 0UL; channel < 4UL; channel = channel + 1UL {
+    match view.set_byte(x, y, channel, bytes[channel.to_int()]) { Ok(_) => ()
+      Err(e) => return Err(e) }
+  }
+  Ok(())
+}
+
+///|
+fn store_linear_premultiplied_rgb8(
+  view : @storage.MutImageView,
+  x : UInt64,
+  y : UInt64,
+  value : @alpha.PremultipliedNormalizedSrgba,
+) -> Result[Unit, @error.CoreError] {
+  let (r, g, b) = value.linear_rgb().unwrap()
+  let bytes = [
+    @quantize.quantize_encoded_srgb(@transfer.encode_srgb(r)).value(),
+    @quantize.quantize_encoded_srgb(@transfer.encode_srgb(g)).value(),
+    @quantize.quantize_encoded_srgb(@transfer.encode_srgb(b)).value(),
+  ]
+  for channel = 0UL; channel < 3UL; channel = channel + 1UL {
     match view.set_byte(x, y, channel, bytes[channel.to_int()]) { Ok(_) => ()
       Err(e) => return Err(e) }
   }
