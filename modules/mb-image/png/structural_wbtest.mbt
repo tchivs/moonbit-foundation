@@ -464,3 +464,13 @@ test "PNG 16-bit native-alpha IHDRs reserve encoded source rows" {
     inspect(_png_source_bytes_per_pixel(if colour_type == b'\x04' { 2UL } else { 4UL }, 16).unwrap(), content=source_bpp.to_string())
   }
 }
+
+///|
+test "PNG colour declaration helpers validate sRGB and iCCP envelopes" {
+  inspect(_png_validate_srgb_payload([b'\x00']) is Ok(b'\x00'), content="true")
+  inspect(_png_validate_srgb_payload([b'\x04']).unwrap_err().context(), content="Some(\"png-srgb-intent\")")
+  inspect(_png_validate_srgb_payload([]).unwrap_err().context(), content="Some(\"png-srgb-length\")")
+  inspect(_png_validate_iccp_payload(b"profile\x00\x00\x78") is Ok(_), content="true")
+  inspect(_png_validate_iccp_payload(b" profile\x00\x00\x78").unwrap_err().context(), content="Some(\"png-iccp-name\")")
+  inspect(_png_validate_iccp_payload(b"profile\x00\x01\x78").unwrap_err().context(), content="Some(\"png-iccp-method\")")
+}

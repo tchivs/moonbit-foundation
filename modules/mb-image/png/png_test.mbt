@@ -141,6 +141,21 @@ test "PNG decoder decodes a stored zlib RGB scanline atomically" {
 }
 
 ///|
+test "PNG sRGB metadata helper retains the rendering intent" {
+  let metadata = _png_srgb_metadata(3UL, b'\x03', @budget.Budget::new(
+    @budget.ResourceLimits::new(
+      bytes=1UL, allocations=1UL, allocation_size=1UL, width=0UL,
+      height=0UL, pixels=0UL, depth=0UL, work=0UL,
+    ),
+  )).unwrap()
+  inspect(metadata.space() == @color.ColorSpaceIdentity::Srgb, content="true")
+  inspect(metadata.transfer() == @color.TransferIdentity::EncodedSrgb, content="true")
+  inspect(metadata.profile().is_builtin_srgb(), content="true")
+  inspect(metadata.opaque_metadata().length(), content="1")
+  inspect(metadata.opaque_metadata().entry(0).unwrap().value().get(0UL).unwrap(), content="b'\\x03'")
+}
+
+///|
 test "PNG exact input ceiling permits EOF but an actual trailing byte is limited" {
   let source = b"\x89PNG\r\n\x1a\n\x00\x00\x00\x0dIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x02\x00\x00\x00\x90\x77\x53\xde\x00\x00\x00\x00IDAT\x35\xaf\x06\x1e\x00\x00\x00\x00IEND\xae\x42\x60\x82"
   inspect(source.length(), content="57")
