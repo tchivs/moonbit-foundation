@@ -6,9 +6,17 @@ priv enum PngDecodeMachineState {
   Signature(Int)
   Length(Array[Byte])
   Type(UInt64, Array[Byte])
-  Payload(UInt64, Array[Byte], UInt64)
-  Crc(Array[Byte], UInt64)
+  Payload(UInt64, Array[Byte], Array[Byte], UInt64)
+  Crc(Array[Byte], Array[Byte], Array[Byte], UInt64)
   Failed(@error.CoreError)
+}
+
+///|
+/// A fully owned, private output lifecycle.  The sink owns the only image
+/// allocation made by the byte-fed machine; it is not exposed while the
+/// framing state remains resumable or failed.
+priv struct PngMachineLifecycle {
+  sink : PngRasterSink
 }
 
 ///|
@@ -113,6 +121,9 @@ priv struct PngDecodeMachine {
   mut state : PngDecodeMachineState
   mut accepted : UInt64
   mut last_chunk_complete : Bool
+  mut ihdr : Array[Byte]?
+  mut lifecycle : PngMachineLifecycle?
+  mut lifecycle_allocations : UInt64
 }
 
 ///|
@@ -154,7 +165,7 @@ fn PngDecodeMachine::new(
   limits : @codec.CodecLimits,
   budget : @budget.Budget,
 ) -> PngDecodeMachine {
-  { options, limits, budget, state: PngDecodeMachineState::Signature(0), accepted: 0UL, last_chunk_complete: false }
+  { options, limits, budget, state: PngDecodeMachineState::Signature(0), accepted: 0UL, last_chunk_complete: false, ihdr: None, lifecycle: None, lifecycle_allocations: 0UL }
 }
 
 ///|
@@ -167,6 +178,48 @@ fn PngDecodeMachine::has_result(_self : PngDecodeMachine) -> Bool {
   // An image/result is intentionally not constructed by the framing substrate.
   // The completed machine transfers it only after IDAT, IEND, and EOF checks.
   false
+}
+
+///|
+/// Test-only observable lifecycle facts.  Neither accessor exposes the image
+/// or a result; they prove allocation is private and happens exactly once.
+fn PngDecodeMachine::has_private_lifecycle(self : PngDecodeMachine) -> Bool {
+  self.lifecycle is Some(_)
+}
+
+///|
+fn PngDecodeMachine::private_lifecycle_allocations(self : PngDecodeMachine) -> UInt64 {
+  self.lifecycle_allocations
+}
+
+///|
+/// Build the private output exactly when the first IDAT header is accepted.
+/// The IHDR preflight has already validated geometry without charging a
+/// prospective output allocation; this method uses the same descriptor and
+/// child-budget helpers as eager decoding before allocating the image/sink.
+fn PngDecodeMachine::preflight_first_idat(self : PngDecodeMachine) -> Result[Unit, @error.CoreError] {
+  if self.lifecycle is Some(_) { return Ok(()) }
+  let ihdr = match self.ihdr { Some(value) => value; None => return Err(_png_error("png-ihdr-first")) }
+  let source_channels = if ihdr[9] == 0 || ihdr[9] == 3 { 1UL } else if ihdr[9] == 2 { 3UL } else if ihdr[9] == 4 { 2UL } else { 4UL }
+  let channels = if ihdr[9] == 4 || ihdr[9] == 6 { 4UL } else { 3UL }
+  let source_bytes_per_pixel = match _png_source_bytes_per_pixel(source_channels, ihdr[8].to_int()) { Err(error) => return Err(error); Ok(value) => value }
+  let transport = PngTransport::{
+    width: _png_u32_at(ihdr, 0), height: _png_u32_at(ihdr, 4), bit_depth: ihdr[8].to_int(),
+    source_channels, source_bytes_per_pixel, channels, indexed: ihdr[9] == 3,
+    palette: b"", palette_entries: 0UL, transparency: PngTransparency::Opaque,
+    idat: b"", consumed: 0UL,
+  }
+  // Indexed files require PLTE before IDAT.  The full semantic continuation
+  // will supply retained palette/transparency facts before it enables this
+  // lifecycle; fail closed rather than allocate an invalid output.
+  if transport.indexed { return Err(_png_error("png-plte-required")) }
+  let output_budget = match _png_output_budget_for(ihdr, false, channels, self.limits, self.budget) { Err(error) => return Err(error); Ok(value) => value }
+  let descriptor = match _png_descriptor(transport) { Err(error) => return Err(error); Ok(value) => value }
+  let image = match @storage.OwnedImage::new_operation(descriptor, output_budget, PngBuiltinAllocator::{} as &@bytes.Allocator, self.limits.max_work()) { Err(error) => return Err(error); Ok(value) => value }
+  let sink = match PngRasterSink::new(image, transport, ihdr[12] == 1, output_budget) { Err(error) => return Err(error); Ok(value) => value }
+  self.lifecycle = Some(PngMachineLifecycle::{ sink })
+  self.lifecycle_allocations = self.lifecycle_allocations + 1UL
+  Ok(())
 }
 
 ///|
@@ -223,15 +276,25 @@ fn PngDecodeMachine::accept(
           self.state = PngDecodeMachineState::Failed(error)
           return Err(error)
         }
+        if _png_type_is(kind, b'I', b'D', b'A', b'T') {
+          match self.preflight_first_idat() {
+            Err(error) => { self.state = PngDecodeMachineState::Failed(error); return Err(error) }
+            Ok(_) => ()
+          }
+        }
         let crc = _png_crc_for_type(kind)
-        self.state = if length == 0UL { PngDecodeMachineState::Crc([], crc) } else { PngDecodeMachineState::Payload(length, kind, crc) }
+        self.state = if length == 0UL { PngDecodeMachineState::Crc(kind, [], [], crc) } else { PngDecodeMachineState::Payload(length, kind, [], crc) }
       }
     }
-    PngDecodeMachineState::Payload(remaining, kind, crc) => {
+    PngDecodeMachineState::Payload(remaining, kind, payload, crc) => {
       let next_crc = _png_crc_step(crc, byte)
-      if remaining == 1UL { self.state = PngDecodeMachineState::Crc([], next_crc) } else { self.state = PngDecodeMachineState::Payload(remaining - 1UL, kind, next_crc) }
+      // Only IHDR is retained here, and its declared length is validated to
+      // thirteen before the payload begins. IDAT and ancillary payloads remain
+      // caller-independent but are never accumulated as complete streams.
+      if _png_type_is(kind, b'I', b'H', b'D', b'R') { payload.push(byte) }
+      if remaining == 1UL { self.state = PngDecodeMachineState::Crc(kind, payload, [], next_crc) } else { self.state = PngDecodeMachineState::Payload(remaining - 1UL, kind, payload, next_crc) }
     }
-    PngDecodeMachineState::Crc(bytes, crc) => {
+    PngDecodeMachineState::Crc(kind, payload, bytes, crc) => {
       bytes.push(byte)
       if bytes.length() == 4 {
         let stored = (bytes[0].to_int().to_uint64() << 24) | (bytes[1].to_int().to_uint64() << 16) | (bytes[2].to_int().to_uint64() << 8) | bytes[3].to_int().to_uint64()
@@ -239,6 +302,20 @@ fn PngDecodeMachine::accept(
           let error = _png_error("png-crc")
           self.state = PngDecodeMachineState::Failed(error)
           return Err(error)
+        }
+        // Retain the validated IHDR only. It is bounded to thirteen bytes and
+        // is all this first-IDAT allocation path needs; caller-backed payload
+        // storage never crosses a pause.
+        if _png_type_is(kind, b'I', b'H', b'D', b'R') {
+          if payload.length() != 13 {
+            let error = _png_error("png-ihdr-length")
+            self.state = PngDecodeMachineState::Failed(error)
+            return Err(error)
+          }
+          match _png_preflight_ihdr(payload, self.limits, self.budget) {
+            Err(error) => { self.state = PngDecodeMachineState::Failed(error); return Err(error) }
+            Ok(_) => self.ihdr = Some(payload)
+          }
         }
         self.last_chunk_complete = true
         self.state = PngDecodeMachineState::Length([])

@@ -330,6 +330,15 @@ fn PngRasterSink::image_view(self : PngRasterSink) -> @storage.ImageView {
 }
 
 ///|
+/// The machine keeps the owned image inside this sink until framing reaches a
+/// terminal success state.  This private move accessor is deliberately not a
+/// result constructor: callers must still complete IDAT, zlib, IEND, and EOF
+/// validation before the image can become observable.
+fn PngRasterSink::into_image(self : PngRasterSink) -> @storage.OwnedImage {
+  self.image
+}
+
+///|
 fn PngRasterSink::finish(self : PngRasterSink) -> Result[Unit, @error.CoreError] {
   let complete_rows = if self.interlaced { self.pass_index == self.passes.length() && self.pass_row == 0UL } else { self.row == self.transport.height }
   if self.emitted != self.expected || self.column != 0UL || !complete_rows { Err(_png_error("png-filtered-size")) } else { Ok(()) }

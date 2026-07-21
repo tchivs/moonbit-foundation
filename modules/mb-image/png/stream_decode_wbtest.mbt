@@ -17,10 +17,52 @@ fn _png_stream_machine_for_test() -> PngDecodeMachine {
 }
 
 ///|
+fn _png_machine_accept_chunk(machine : PngDecodeMachine, kind : Array[Byte], payload : Array[Byte]) -> Result[Unit, @error.CoreError] {
+  let length = payload.length().to_uint64()
+  for shift in [24, 16, 8, 0] { machine.accept((length >> shift).to_byte()).unwrap() }
+  for byte in kind { machine.accept(byte).unwrap() }
+  let mut crc = _png_crc_for_type(kind)
+  for byte in payload { crc = _png_crc_step(crc, byte); machine.accept(byte).unwrap() }
+  let stored = crc ^ 4294967295UL
+  for shift in [24, 16, 8, 0] { machine.accept((stored >> shift).to_byte()).unwrap() }
+  Ok(())
+}
+
+///|
 test "PNG private machine owns accepted framing bytes across a pause" {
   let machine = _png_stream_machine_for_test()
   inspect(machine.accept(b'\x89') is Ok(_), content="true")
   inspect(machine.accepted_bytes() == 1UL, content="true")
+  inspect(machine.has_result(), content="false")
+}
+
+///| The image and sink are allocated only after a CRC-authenticated IHDR and
+/// the complete first IDAT header.  They remain entirely private while the
+/// first IDAT CRC (and every later terminal check) is still outstanding.
+test "PNG private machine preflights one private lifecycle at the first IDAT header" {
+  let machine = _png_stream_machine_for_test()
+  for byte in [b'\x89', b'P', b'N', b'G', b'\r', b'\n', b'\x1a', b'\n'] { machine.accept(byte).unwrap() }
+  _png_machine_accept_chunk(machine, [b'I', b'H', b'D', b'R'], [b'\x00', b'\x00', b'\x00', b'\x01', b'\x00', b'\x00', b'\x00', b'\x01', b'\x08', b'\x02', b'\x00', b'\x00', b'\x00']).unwrap()
+  inspect(machine.has_private_lifecycle(), content="false")
+  for byte in [b'\x00', b'\x00', b'\x00', b'\x00', b'I', b'D', b'A', b'T'] { machine.accept(byte).unwrap() }
+  inspect(machine.has_private_lifecycle(), content="true")
+  inspect(machine.private_lifecycle_allocations() == 1UL, content="true")
+  inspect(machine.has_result(), content="false")
+}
+
+///| An invalid first-IDAT preflight cannot publish a partly created output
+/// lifecycle.  Indexed data without PLTE fails before image allocation.
+test "PNG private machine keeps lifecycle atomic when first-IDAT preflight fails" {
+  let machine = _png_stream_machine_for_test()
+  for byte in [b'\x89', b'P', b'N', b'G', b'\r', b'\n', b'\x1a', b'\n'] { machine.accept(byte).unwrap() }
+  _png_machine_accept_chunk(machine, [b'I', b'H', b'D', b'R'], [b'\x00', b'\x00', b'\x00', b'\x01', b'\x00', b'\x00', b'\x00', b'\x01', b'\x08', b'\x03', b'\x00', b'\x00', b'\x00']).unwrap()
+  let mut result : Result[Unit, @error.CoreError] = Ok(())
+  for byte in [b'\x00', b'\x00', b'\x00', b'\x00', b'I', b'D', b'A', b'T'] {
+    if result is Ok(_) { result = machine.accept(byte) }
+  }
+  inspect(result is Err(_), content="true")
+  inspect(machine.has_private_lifecycle(), content="false")
+  inspect(machine.private_lifecycle_allocations() == 0UL, content="true")
   inspect(machine.has_result(), content="false")
 }
 
