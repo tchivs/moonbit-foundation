@@ -125,5 +125,46 @@ pub impl @codec.ImageDecoder for PngDecoder with fn decode(
   budget,
   _diagnostics,
 ) {
-  PngDecodeMachine::new(options, limits, budget).decode_reader(reader)
+  // The private machine is not yet the complete semantic continuation for
+  // colour metadata and every raster profile. Keep the established eager path
+  // until its full-corpus parity evidence exists; observing it would charge a
+  // second private lifecycle against the caller budget.
+  let stream = match _png_read_stream_transport(reader, options, limits, budget) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  let transport = PngTransport::{ width: stream.width, height: stream.height, bit_depth: stream.bit_depth, source_channels: stream.source_channels, source_bytes_per_pixel: stream.source_bytes_per_pixel, channels: stream.channels, indexed: stream.indexed, palette: stream.palette, palette_entries: stream.palette_entries, transparency: stream.transparency, idat: b"", consumed: 0UL }
+  let metadata = match stream.colour_declaration {
+    PngColourDeclaration::Srgb(intent) => match stream.metadata_budget {
+      Some(metadata_budget) => match _png_srgb_metadata(stream.channels, intent, metadata_budget) { Err(error) => return Err(error); Ok(value) => value }
+      None => return Err(_png_error("png-srgb-budget"))
+    }
+    PngColourDeclaration::Legacy(gamma, chrm) => match stream.metadata_budget {
+      Some(metadata_budget) => match _png_legacy_metadata(stream.channels, gamma, chrm, metadata_budget) { Err(error) => return Err(error); Ok(value) => value }
+      None => return Err(_png_error("png-legacy-budget"))
+    }
+    PngColourDeclaration::Icc(name, profile) => match stream.metadata_budget {
+      Some(metadata_budget) => match _png_iccp_metadata(stream.channels, name, profile, metadata_budget) { Err(error) => return Err(error); Ok(value) => value }
+      None => return Err(_png_error("png-iccp-budget"))
+    }
+    PngColourDeclaration::Default => match _png_empty_metadata(stream.channels) { Err(error) => return Err(error); Ok(value) => value }
+  }
+  let descriptor = match _png_descriptor_with_metadata(transport, metadata) { Err(error) => return Err(error); Ok(value) => value }
+  let index_rows = if stream.indexed && !stream.interlaced {
+    let row_bytes = match _png_grayscale_row_bytes(stream.width, stream.bit_depth) { Err(error) => return Err(error); Ok(value) => value }
+    match _png_new_packed_rows(row_bytes, stream.budget) { Err(error) => return Err(error); Ok(value) => Some(value) }
+  } else { None }
+  let packed_rows = if ((stream.source_channels == 1UL || stream.source_channels == 2UL || stream.bit_depth == 16) && !stream.indexed) || stream.interlaced {
+    let row_bytes = if stream.interlaced {
+      let passes = match _png_adam7_passes(stream.width, stream.height, stream.source_channels, stream.bit_depth) { Err(error) => return Err(error); Ok(value) => value }
+      let mut maximum = 0UL
+      for pass in passes { if pass.row_bytes > maximum { maximum = pass.row_bytes } }
+      maximum
+    } else { match _png_source_row_bytes(stream.width, stream.source_channels, stream.bit_depth) { Err(error) => return Err(error); Ok(value) => value } }
+    match _png_new_packed_rows(row_bytes, stream.budget) { Err(error) => return Err(error); Ok(value) => Some(value) }
+  } else { None }
+  let image = match @storage.OwnedImage::new_operation(descriptor, stream.budget, PngBuiltinAllocator::{} as &@bytes.Allocator, limits.max_work()) { Err(error) => return Err(error); Ok(value) => value }
+  let consumed = match image.with_mut_view(fn(view) { _png_inflate_zlib_to_raster(stream.source, limits.max_output_bytes(), view, stream, index_rows, packed_rows) }) { Err(error) => return Err(error); Ok(value) => value }
+  let disposition = match _png_empty_disposition() { Err(error) => return Err(error); Ok(value) => value }
+  Ok(@codec.DecodeResult::new(image, disposition, consumed))
 }
