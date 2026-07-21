@@ -67,6 +67,20 @@ fn png_wb_encode(image : @storage.OwnedImage) -> Bytes {
 }
 
 ///|
+fn png_wb_machine_encode(image : @storage.OwnedImage) -> (Bytes, UInt64) {
+  let machine = PngEncodeMachine::new(
+    image.view(), png_wb_limits(), png_wb_budget(), @error.Diagnostics::new(),
+  ).unwrap()
+  let bytes : Array[Byte] = []
+  while machine.present().unwrap() is Some(_) {
+    let byte = machine.present().unwrap().unwrap()
+    bytes.push(byte)
+    machine.acknowledge(byte).unwrap()
+  }
+  (Bytes::from_array(bytes), machine.completed())
+}
+
+///|
 fn png_encode_slice(value : Bytes, start : Int, length : Int) -> Bytes {
   let result : Array[Byte] = []
   for index = 0; index < length; index = index + 1 { result.push(value[start + index]) }
@@ -112,5 +126,15 @@ test "canonical PNG byte sequence is stable for RGB and straight RGBA" {
     } else {
       inspect(first[25] == b'\x06', content="true")
     }
+  }
+}
+
+///|
+test "eager PNG facade drains the private machine canonically" {
+  for image in [png_wb_image(3UL, b"\x12\x34\x56"), png_wb_image(4UL, b"\x04\x05\x06\x07")] {
+    let eager = png_wb_encode(image)
+    let (machine, completed) = png_wb_machine_encode(image)
+    inspect(eager == machine, content="true")
+    inspect(completed == eager.length().to_uint64(), content="true")
   }
 }

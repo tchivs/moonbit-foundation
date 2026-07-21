@@ -774,7 +774,7 @@ function Invoke-PngQualityLane {
   Invoke-PngQualityStage 'PNG scoped negative fixtures' { Assert-PngQualificationNegativeFixtures -PolicyPath $policyPath }
   Invoke-PngQualityStage 'PNG exact package allowlist' {
     $output = Invoke-MoonCommand -Context 'PNG package list for mb-image' -Arguments @('-C','modules/mb-image','package','--frozen','--list') -CaptureCombined
-    $expected = @('png', 'png/deflate_bits.mbt', 'png/deflate_huffman.mbt', 'png/deflate_inflate.mbt', 'png/deflate_wbtest.mbt', 'png/encode.mbt', 'png/encode_test.mbt', 'png/encode_wbtest.mbt', 'png/generated_decode_vectors_test.mbt', 'png/generated_vectors.mbt', 'png/generated_vectors_test.mbt', 'png/moon.pkg', 'png/png.mbt', 'png/png_test.mbt', 'png/raster_decode.mbt', 'png/raster_decode_wbtest.mbt', 'png/stream_decode.mbt', 'png/stream_decode_test.mbt', 'png/stream_decode_wbtest.mbt', 'png/structural.mbt', 'png/structural_wbtest.mbt')
+    $expected = @('png', 'png/deflate_bits.mbt', 'png/deflate_huffman.mbt', 'png/deflate_inflate.mbt', 'png/deflate_wbtest.mbt', 'png/encode.mbt', 'png/encode_test.mbt', 'png/encode_wbtest.mbt', 'png/generated_decode_vectors_test.mbt', 'png/generated_vectors.mbt', 'png/generated_vectors_test.mbt', 'png/moon.pkg', 'png/png.mbt', 'png/png_test.mbt', 'png/raster_decode.mbt', 'png/raster_decode_wbtest.mbt', 'png/stream_decode.mbt', 'png/stream_decode_test.mbt', 'png/stream_decode_wbtest.mbt', 'png/stream_encode.mbt', 'png/stream_encode_test.mbt', 'png/stream_encode_wbtest.mbt', 'png/structural.mbt', 'png/structural_wbtest.mbt')
     $actual = @($output | ForEach-Object { $_.Replace('\','/') } | Where-Object { $_ -ceq 'png' -or $_ -clike 'png/*' })
     Assert-ExactSet 'PNG package contents' $actual $expected
   }
