@@ -274,15 +274,15 @@ The shape follows the state-owned QOI stream decoder, while the internal states 
 | A2 | A single `PngDecodeMachine` can reuse current metadata/preflight and raster helpers without changing allocation counts. | Exact Resource Semantics | Budget conformance or full-profile parity could regress. |
 | A3 | Adding private stream source/test files in Phase 26 is the smallest policy change; the semantic interface can wait until Phase 27. | Source and Policy Impacts | Policy inventory/order may need a different internal source placement. |
 
-## Open Questions
+## Open Questions (RESOLVED)
 
 1. **Should Phase 26 retain a test-only slice adapter in production source or construct it inside white-box tests?**
    - What we know: a caller-byte adapter is necessary to prove the private machine pauses; no public API is allowed. [VERIFIED: codebase: `.planning/ROADMAP.md`; `.planning/STATE.md`]
-   - Recommendation: keep the generic source protocol and a private slice adapter in `stream_decode.mbt` so Phase 27 can bind it to public input without duplicating core control flow. [ASSUMED]
+   - **Resolved:** Keep the generic source protocol and private slice adapter in production-private `stream_decode.mbt`; Phase 27 reuses it when binding public caller input, without duplicating core control flow or exposing a Phase-26 API. [ASSUMED]
 
 2. **Can iCCP's already-bounded, fully accumulated decompression remain synchronous after its payload is complete?**
    - What we know: iCCP is a bounded pre-IDAT metadata path rather than IDAT image transport. [VERIFIED: codebase: `modules/mb-image/png/structural.mbt`]
-   - Recommendation: yes for Phase 26, provided input pauses occur before every iCCP payload byte and all existing iCCP limit/budget/error tests remain equal; do not expand scope to CPU-yield scheduling. [ASSUMED]
+   - **Resolved:** Yes. Collect the complete bounded iCCP payload through the pausable chunk accumulator, permitting a pause before every payload byte; then run the existing iCCP decompression synchronously before advancing to IDAT. Preserve its existing limits, budget behavior, and typed errors; CPU-yield scheduling remains out of scope. [ASSUMED]
 
 ## Environment Availability
 
