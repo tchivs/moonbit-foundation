@@ -138,3 +138,17 @@ test "PNG encoder isolated four-target evidence matches eager and private canoni
     inspect(completed == eager.length().to_uint64(), content="true")
   }
 }
+
+///|
+test "PNG fixed-or-stored fixed-code arithmetic reverses codes and handles length 258" {
+  let (literal_zero, literal_zero_bits) = _png_fixed_literal_code(0UL)
+  let (eob, eob_bits) = _png_fixed_literal_code(256UL)
+  let (length_symbol, length_extra, length_extra_bits) = _png_fixed_length_code(258UL)
+  inspect(literal_zero, content="12")
+  inspect(literal_zero_bits, content="8")
+  inspect(eob, content="0")
+  inspect(eob_bits, content="7")
+  inspect(length_symbol, content="285")
+  inspect(length_extra, content="0")
+  inspect(length_extra_bits, content="0")
+}

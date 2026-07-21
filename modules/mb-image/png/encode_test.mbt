@@ -25,12 +25,13 @@ fn png_encode_image(
   channels : UInt64,
   pixels : Bytes,
   include_opaque? : Bool = false,
+  width? : UInt64 = 1UL,
 ) -> @storage.OwnedImage {
   let descriptor = @model.ImageDescriptor::new(
-    1UL, 1UL,
+    width, 1UL,
     if channels == 3UL { @model.ImageFormat::rgb8() } else { @model.ImageFormat::rgba8() },
-    [@model.PlaneDescriptor::new(0UL, channels, channels, channels, 1UL, 1UL, 1UL, 1UL).unwrap()],
-    channels,
+    [@model.PlaneDescriptor::new(0UL, channels * width, channels * width, channels * width, 1UL, 1UL, width, 1UL).unwrap()],
+    channels * width,
     @model.ImageMetadata::new(
       @color.ColorSpaceIdentity::Srgb, @color.TransferIdentity::EncodedSrgb,
       if channels == 4UL { Some(@color.AlphaMode::Straight) } else { None },
@@ -45,10 +46,12 @@ fn png_encode_image(
       ).unwrap(),
     ),
   ).unwrap()
-  let image = @storage.OwnedImage::new(descriptor, png_encode_budget(bytes=channels, work=0UL)).unwrap()
+  let image = @storage.OwnedImage::new(descriptor, png_encode_budget(bytes=channels * width, work=0UL)).unwrap()
   image.with_mut_view(fn(view) {
-    for index = 0UL; index < channels; index = index + 1UL {
-      view.set_byte(0UL, 0UL, index, pixels[index.to_int()]).unwrap()
+    for x = 0UL; x < width; x = x + 1UL {
+      for index = 0UL; index < channels; index = index + 1UL {
+        view.set_byte(x, 0UL, index, pixels[(x * channels + index).to_int()]).unwrap()
+      }
     }
     Ok(())
   }).unwrap()
@@ -102,6 +105,25 @@ test "PNG compression strategy eager factories encode supported images" {
     ).unwrap()
     inspect(decoded.image().view().get_byte(0UL, 0UL, 0UL).unwrap() == b'\x12', content="true")
   }
+}
+
+///|
+test "PNG fixed-or-stored eager selects a final fixed DEFLATE block" {
+  let pixels = Bytes::from_array(Array::make(96, b'\xaa'))
+  let image = png_encode_image(3UL, pixels, width=32UL)
+  let (_, writer) = png_encode_with(
+    PngEncoder::new_with_compression_strategy(PngCompressionStrategy::FixedOrStored), image,
+  )
+  let bytes = png_encode_prefix(writer)
+  // The first DEFLATE byte follows the two-byte zlib header at the IDAT payload.
+  inspect((bytes[43] & b'\x07') == b'\x03', content="true")
+  let owner = @bytes.OwnedBytes::from_bytes(bytes, png_encode_budget(bytes=512UL, work=0UL)).unwrap()
+  let decoded = @codec.ImageDecoder::decode(
+    PngDecoder::new(), @io.MemoryReader::new(owner.view()) as &@io.Reader,
+    @codec.DecodeOptions::new(require_complete_input=true, preserve_opaque_metadata=false),
+    png_encode_limits(), png_encode_budget(), @error.Diagnostics::new(),
+  ).unwrap()
+  inspect(decoded.image().view().get_byte(31UL, 0UL, 2UL).unwrap() == b'\xaa', content="true")
 }
 
 ///|

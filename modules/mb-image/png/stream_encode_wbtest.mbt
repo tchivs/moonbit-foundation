@@ -161,3 +161,24 @@ test "PNG chunk encoder acknowledges only accepted lease bytes and finishes on t
     _ => panic()
   }
 }
+
+///|
+test "PNG fixed-or-stored preview is stable until acknowledgement at the fixed header" {
+  let image = png_stream_wb_image(width=32UL)
+  let machine = PngEncodeMachine::new_with_compression_strategy(
+    image.view(), PngCompressionStrategy::FixedOrStored, png_stream_wb_limits(),
+    png_stream_wb_budget(), @error.Diagnostics::new(),
+  ).unwrap()
+  let mut index = 0
+  while index < 43 {
+    let byte = machine.present().unwrap().unwrap()
+    machine.acknowledge(byte).unwrap()
+    index = index + 1
+  }
+  let fixed_header = machine.present().unwrap().unwrap()
+  inspect((fixed_header & b'\x07') == b'\x03', content="true")
+  inspect(machine.present().unwrap() == Some(fixed_header), content="true")
+  inspect(machine.completed(), content="43")
+  machine.acknowledge(fixed_header).unwrap()
+  inspect(machine.completed(), content="44")
+}

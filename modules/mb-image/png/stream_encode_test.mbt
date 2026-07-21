@@ -57,9 +57,17 @@ fn png_stream_test_image(
 
 ///|
 fn png_stream_test_eager(image : @storage.OwnedImage) -> Bytes {
+  png_stream_test_eager_with_strategy(image, PngCompressionStrategy::Stored)
+}
+
+///|
+fn png_stream_test_eager_with_strategy(
+  image : @storage.OwnedImage,
+  strategy : PngCompressionStrategy,
+) -> Bytes {
   let writer = @io.MemoryWriter::new(1048576UL, png_stream_test_budget(work=0UL)).unwrap()
   ignore(@codec.ImageEncoder::encode(
-    PngEncoder::new(), image.view(), writer as &@io.Writer,
+    PngEncoder::new_with_compression_strategy(strategy), image.view(), writer as &@io.Writer,
     @codec.EncodeOptions::new(lossless_required=true, preserve_opaque_metadata=false),
     png_stream_test_limits(), png_stream_test_budget(), @error.Diagnostics::new(),
   ).unwrap())
@@ -68,6 +76,20 @@ fn png_stream_test_eager(image : @storage.OwnedImage) -> Bytes {
     bytes.push(writer.view().get(index).unwrap())
   }
   Bytes::from_array(bytes)
+}
+
+///|
+fn png_stream_test_flat_image(channels : UInt64, width : UInt64) -> @storage.OwnedImage {
+  let image = png_stream_test_image(channels, width=width)
+  image.with_mut_view(fn(view) {
+    for x = 0UL; x < width; x = x + 1UL {
+      for channel = 0UL; channel < channels; channel = channel + 1UL {
+        view.set_byte(x, 0UL, channel, b'\xaa').unwrap()
+      }
+    }
+    Ok(())
+  }).unwrap()
+  image
 }
 
 ///|
@@ -154,6 +176,21 @@ test "PNG compression strategy chunk factories encode supported images" {
       ), png_stream_test_limits(), png_stream_test_budget(), @error.Diagnostics::new(),
     ).unwrap()
     inspect(decoded.image().view().get_byte(0UL, 0UL, 0UL).unwrap() == b'\x00', content="true")
+  }
+}
+
+///|
+test "PNG fixed-or-stored configured eager and chunk output retain exact hostile-capacity parity" {
+  for channels in [3UL, 4UL] {
+    let image = png_stream_test_flat_image(channels, 32UL)
+    let eager = png_stream_test_eager_with_strategy(image, PngCompressionStrategy::FixedOrStored)
+    let encoder = PngChunkEncoder::new_with_compression_strategy(
+      image.view(), PngCompressionStrategy::FixedOrStored,
+      png_stream_test_limits(), png_stream_test_budget(), @error.Diagnostics::new(),
+    ).unwrap()
+    let chunked = png_chunk_test_drain_encoder(encoder, [0UL, 1UL, 3UL, 2UL, 5UL]).unwrap()
+    inspect(chunked == eager, content="true")
+    inspect((eager[43] & b'\x07') == b'\x03', content="true")
   }
 }
 
