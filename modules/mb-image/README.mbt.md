@@ -25,6 +25,8 @@ moonbit:
       alias: codec
     - path: tchivs/mb-image/ppm
       alias: ppm
+    - path: tchivs/mb-image/png
+      alias: png
 ---
 
 # mb-image
@@ -314,6 +316,47 @@ test "codec policy is explicit without selecting a backend" {
   inspect(decode.require_complete_input(), content="true")
   inspect(encode.lossless_required(), content="true")
   inspect(@codec.ProbeOutcome::NeedMore(2UL) == @codec.ProbeOutcome::NeedMore(2UL), content="true")
+}
+```
+
+## PNG colour declarations
+
+The concrete `png` package validates, identifies, and retains supported PNG
+`sRGB`, legacy `gAMA`/`cHRM`, and bounded `iCCP` declarations as metadata.
+Decoding preserves the encoded sample bytes: MNF performs no colour conversion
+or profile transform. A retained non-sRGB declaration therefore has a
+non-encoded-sRGB metadata identity and is not eligible for the portable
+reference operations or canonical PNG encoding. Those operations report their
+established typed capability outcome rather than silently changing the colour
+claim. Canonical encoding also does not claim to preserve PNG colour
+declarations.
+
+```mbt check
+///|
+fn readme_png_budget(bytes : UInt64, work : UInt64) -> @budget.Budget {
+  @budget.Budget::new(@budget.ResourceLimits::new(
+    bytes~, allocations=8UL, allocation_size=bytes, width=16UL,
+    height=16UL, pixels=256UL, depth=0UL, work~,
+  ))
+}
+
+///|
+test "PNG retained declarations expose metadata without transforming samples" {
+  let source = @bytes.OwnedBytes::from_bytes(
+    b"\x89PNG\r\n\x1a\n\x00\x00\x00\x0dIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x02\x00\x00\x00\x90\x77\x53\xde\x00\x00\x00\x04gAMA\x00\x01\x86\xa0\x31\xe8\x96\x5f\x00\x00\x00\x0fIDAT\x78\x01\x01\x04\x00\xfb\xff\x00\x12\x34\x56\x00\xf8\x00\x9d\xf8\xd7\x64\x8c\x00\x00\x00\x00IEND\xae\x42\x60\x82",
+    readme_png_budget(128UL, 0UL),
+  ).unwrap()
+  let decoded = @codec.ImageDecoder::decode(
+    @png.PngDecoder::new(), @io.MemoryReader::new(source.view()) as &@io.Reader,
+    @codec.DecodeOptions::new(require_complete_input=true, preserve_opaque_metadata=false),
+    @codec.CodecLimits::new(max_probe_bytes=8UL, max_input_bytes=128UL, max_output_bytes=64UL, max_width=4UL, max_height=4UL, max_pixels=16UL, max_work=256UL),
+    readme_png_budget(512UL, 256UL), @error.Diagnostics::new(),
+  ).unwrap()
+  let descriptor = decoded.image().descriptor()
+  inspect(descriptor.metadata().transfer() == @color.TransferIdentity::LinearSrgb, content="true")
+  inspect(descriptor.metadata().opaque_metadata().entry(0).unwrap().canonical_key(), content="png:legacy:gamma")
+  inspect(!descriptor.supports_reference_operations(), content="true")
+  inspect(decoded.image().view().get_byte(0UL, 0UL, 0UL).unwrap(), content="b'\\x12'")
 }
 ```
 

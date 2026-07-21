@@ -780,6 +780,12 @@ function Invoke-PngQualityLane {
   }
   Invoke-PngQualityStage 'PNG generated structural vectors' { & ./scripts/fixtures/Generate-PngStructuralVectors.ps1 -Check }
   Invoke-PngQualityStage 'PNG generated decode vectors' { & ./scripts/fixtures/Generate-PngDecodeVectors.ps1 -Check }
+  Invoke-PngQualityStage 'PNG colour conformance public evidence' {
+    foreach ($target in @('js', 'wasm', 'wasm-gc', 'native')) {
+      Invoke-MoonCommand -Context "PNG generated colour vectors target $target" -Arguments @('-C', 'modules/mb-image', 'test', 'png', '--target', $target, '--frozen')
+      Invoke-MoonCommand -Context "mb-image PNG declaration README check target $target" -Arguments @('-C', 'modules/mb-image', 'check', 'README.mbt.md', '--target', $target, '--frozen')
+    }
+  }
   Invoke-PngQualityStage 'PNG four-target tests' { Invoke-MoonCommand -Context 'PNG tests' -Arguments @('-C', 'modules/mb-image', 'test', 'png', '--target', 'all', '--frozen') }
   Write-Host 'PNG quality lane passed.'
 }
@@ -791,7 +797,7 @@ function Assert-PngLaneIsolation {
   function Invoke-RequiredQuality { throw 'PNG lane reached required quality.' }
   function Invoke-ReleaseQuality { throw 'PNG lane reached release quality.' }
   Invoke-PngQualityLane
-  Assert-ExactSequence 'PNG lane stage trace' @($script:PngLaneTrace) @('PNG foundation/interface policy', 'PNG scoped negative fixtures', 'PNG exact package allowlist', 'PNG generated structural vectors', 'PNG generated decode vectors', 'PNG four-target tests')
+  Assert-ExactSequence 'PNG lane stage trace' @($script:PngLaneTrace) @('PNG foundation/interface policy', 'PNG scoped negative fixtures', 'PNG exact package allowlist', 'PNG generated structural vectors', 'PNG generated decode vectors', 'PNG colour conformance public evidence', 'PNG four-target tests')
   Write-Host 'PNG lane isolation proof passed.'
 }
 
