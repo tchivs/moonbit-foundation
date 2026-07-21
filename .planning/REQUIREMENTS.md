@@ -12,8 +12,8 @@
 
 ## PNG Chunked Encode Evidence
 
-- [ ] **PNGE-04**: Maintainers can verify hostile output-capacity schedules, eager/chunk byte parity, limits, budgets, and terminal behavior unchanged on js, wasm, wasm-gc, and native.
-- [ ] **PNGE-05**: A library user can run one public portable PNG chunk-decode → image operation → chunk-encode workflow that prints deterministic output evidence using only public MoonBit contracts.
+- [x] **PNGE-04**: Maintainers can verify hostile output-capacity schedules, eager/chunk byte parity, limits, budgets, and terminal behavior unchanged on js, wasm, wasm-gc, and native.
+- [x] **PNGE-05**: A library user can run one public portable PNG chunk-decode → image operation → chunk-encode workflow that prints deterministic output evidence using only public MoonBit contracts.
 
 ## Future Requirements
 
@@ -36,8 +36,8 @@
 | PNGE-01 | Phase 29 | Complete |
 | PNGE-02 | Phase 30 | Complete |
 | PNGE-03 | Phase 30 | Complete |
-| PNGE-04 | Phase 31 | Pending |
-| PNGE-05 | Phase 31 | Pending |
+| PNGE-04 | Phase 31 | Complete |
+| PNGE-05 | Phase 31 | Complete |
 
 **Coverage:**
 

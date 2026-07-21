@@ -3,18 +3,18 @@ gsd_state_version: 1.0
 milestone: v0.9
 milestone_name: Resumable PNG Encode
 current_phase: 31
-current_phase_name: Portable PNG Encode Evidence
-status: executing
-stopped_at: Planned 31-01-PLAN.md
-last_updated: "2026-07-21T14:33:22.211Z"
+status: completed
+stopped_at: Phase 31 verified and milestone ready for audit
+last_updated: "2026-07-21T14:53:44.477Z"
 last_activity: 2026-07-21
-last_activity_desc: Phase 31 plan verified and ready to execute
+last_activity_desc: Phase 31 complete
 progress:
   total_phases: 3
-  completed_phases: 2
-  total_plans: 4
-  completed_plans: 4
-  percent: 67
+  completed_phases: 3
+  total_plans: 5
+  completed_plans: 5
+  percent: 100
+current_phase_name: Portable PNG Encode Evidence
 ---
 
 # Project State
@@ -30,13 +30,13 @@ See `.planning/PROJECT.md` (updated 2026-07-21).
 ## Current Position
 
 Phase: 31 — Portable PNG Encode Evidence
-Plan: 1/1 planned
-Status: Ready to execute
-Last activity: 2026-07-21 — Phase 31 plan verified and ready to execute
+Plan: 1/1 complete
+Status: Milestone complete
+Last activity: 2026-07-21 — Phase 31 complete
 
 ## Performance Metrics
 
-**Current milestone:** v0.9 planned: 0/0 plans complete across 0/3 phases; 5/5 requirements mapped to Phases 29-31.
+**Current milestone:** v0.9 complete: 5/5 plans complete across 3/3 phases; 5/5 requirements completed across Phases 29-31.
 
 **Historical context:** v0.5 shipped three phases and three plans on 2026-07-20. v0.2 publication and registry work remains deferred and excluded from this code-first milestone.
 
@@ -144,10 +144,10 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-07-21T14:33:22.211Z
-Stopped at: Phase 31 plan verified
+Last session: 2026-07-21T14:53:44.477Z
+Stopped at: Phase 31 verified and milestone ready for audit
 Resume file: None
 
 ## Operator Next Steps
 
-- Execute Phase 31 with /gsd-execute-phase 31
+- Audit v0.9 with /gsd-audit-milestone v0.9
