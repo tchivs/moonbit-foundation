@@ -7,8 +7,8 @@
 ## Dynamic PNG Compression
 
 - [x] **PNGD-01**: A library user can explicitly select `DynamicOrFixedOrStored`, while legacy `Stored` constructors and the established `FixedOrStored` strategy retain their frozen byte sequences; Dynamic is selected only by this new opt-in route.
-- [ ] **PNGD-02**: A library user selecting the dynamic strategy receives a deterministic, bounded dynamic-Huffman PNG only when its completely planned PNG is strictly smaller than the unchanged FixedOrStored winner; otherwise the existing winner is emitted after the same exact pre-output capability, geometry, output, work, and single-budget admission.
-- [ ] **PNGD-03**: A library user can drain an admitted dynamic selection through eager and caller-buffered encoders with byte-identical results, exact progress, acknowledgement-safe state changes, and the existing sticky completion/failure contract.
+- [x] **PNGD-02**: A library user selecting the dynamic strategy receives a deterministic, bounded dynamic-Huffman PNG only when its completely planned PNG is strictly smaller than the unchanged FixedOrStored winner; otherwise the existing winner is emitted after the same exact pre-output capability, geometry, output, work, and single-budget admission.
+- [x] **PNGD-03**: A library user can drain an admitted dynamic selection through eager and caller-buffered encoders with byte-identical results, exact progress, acknowledgement-safe state changes, and the existing sticky completion/failure contract.
 
 ## Dynamic PNG Evidence
 
@@ -29,8 +29,8 @@
 | Requirement | Phase | Status |
 |-------------|-------|--------|
 | PNGD-01 | Phase 35 | Complete |
-| PNGD-02 | Phase 36 | Pending |
-| PNGD-03 | Phase 36 | Pending |
+| PNGD-02 | Phase 36 | Complete |
+| PNGD-03 | Phase 36 | Complete |
 | PNGD-04 | Phase 37 | Pending |
 
 **Coverage:**

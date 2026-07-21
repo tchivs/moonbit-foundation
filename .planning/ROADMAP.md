@@ -23,7 +23,7 @@
 **Scope boundary:** Retain filter-None scanlines and the distance-1-through-4 matcher. Do not add adaptive filtering, a 32 KiB dictionary, broader matching, image-sized staging, length-limited/package-merge optimization, FFI, host adapters, external packages, CI/release/registry work, APNG, colour work, or metadata expansion. Preserve one-IDAT framing, zlib, CRC, Adler-32, eager/caller-lease lifecycles, exact progress, and sticky terminals.
 
 - [x] **Phase 35: Dynamic Strategy Compatibility** - Users can choose the explicit dynamic route while Stored and FixedOrStored stay frozen compatibility baselines. (completed 2026-07-22)
-- [ ] **Phase 36: Bounded Dynamic Planning and Replay** - Dynamic output is an exact, bounded, acknowledgement-safe strict winner or falls back to the existing FixedOrStored bytes.
+- [x] **Phase 36: Bounded Dynamic Planning and Replay** - Dynamic output is an exact, bounded, acknowledgement-safe strict winner or falls back to the existing FixedOrStored bytes. (completed 2026-07-22)
 - [ ] **Phase 37: Four-Target Dynamic Compression Evidence** - A generated corpus proves deterministic dynamic wins and complete decoded fidelity across all supported targets.
 
 ## Phase Details
@@ -84,7 +84,7 @@
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 35. Dynamic Strategy Compatibility | 1/1 | Complete    | 2026-07-22 |
-| 36. Bounded Dynamic Planning and Replay | 0/TBD | Not started | - |
+| 36. Bounded Dynamic Planning and Replay | 2/2 | Complete    | 2026-07-22 |
 | 37. Four-Target Dynamic Compression Evidence | 0/TBD | Not started | - |
 
 ---
