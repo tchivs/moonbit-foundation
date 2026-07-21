@@ -2,41 +2,41 @@
 gsd_state_version: 1.0
 milestone: v0.8
 milestone_name: Resumable PNG Decode
-current_phase: 28
-current_phase_name: Portable PNG Streaming Evidence
-status: auditing
-stopped_at: Phase 28 verified complete (3/3); ready for v0.8 milestone audit
-last_updated: "2026-07-21T12:06:18Z"
+status: Awaiting next milestone
+stopped_at: v0.8 shipped; next milestone planning may begin
+last_updated: "2026-07-21T12:30:42.800Z"
 last_activity: 2026-07-21
-last_activity_desc: Phase 28 portable PNG streaming evidence verifier passed 3/3
+last_activity_desc: Milestone v0.8 completed and archived
 progress:
-  total_phases: 20
-  completed_phases: 9
-  total_plans: 20
-  completed_plans: 18
-  percent: 45
+  total_phases: 3
+  completed_phases: 3
+  total_plans: 5
+  completed_plans: 5
+  percent: 100
+current_phase: null
+current_phase_name: null
 ---
 
 # Project State
 
 ## Project Reference
 
-See `.planning/PROJECT.md` (updated 2026-07-20).
+See `.planning/PROJECT.md` (updated 2026-07-21).
 
 **Core value:** MoonBit developers can reuse stable, high-performance native infrastructure contracts instead of rebuilding incompatible foundations for every graphics, document, media, or automation product.
 
-**Current focus:** v0.8 milestone audit — Resumable PNG Decode.
+**Current focus:** Planning the next code-first milestone; public resumable PNG encoding is the leading candidate.
 
 ## Current Position
 
-Phase: 28 of 28 (Portable PNG Streaming Evidence)
-Plan: 1 of 1
-Status: Phase 28 verified complete (3/3); ready for milestone audit
-Last activity: 2026-07-21 — independent Phase 28 verifier passed corpus-wide public schedules, portable workflow, and scoped quality evidence
+Phase: Milestone v0.8 complete
+Plan: —
+Status: Awaiting next milestone
+Last activity: 2026-07-21 — Milestone v0.8 completed and archived
 
 ## Performance Metrics
 
-**Current milestone:** 5/5 plans complete across 3/3 phases; v0.8 is ready for milestone audit (not yet shipped).
+**Current milestone:** v0.8 shipped: 5/5 plans complete across 3/3 phases, all four requirements satisfied, and audit evidence passed.
 
 **Historical context:** v0.5 shipped three phases and three plans on 2026-07-20. v0.2 publication and registry work remains deferred and excluded from this code-first milestone.
 
@@ -115,6 +115,23 @@ None.
 | scope | cICP/HDR and full ICC colour transforms | deferred |
 | scope | Public resumable PNG encoder | deferred |
 | delivery | Registry publication and release automation | deferred |
+| closeout-debug | clean-diff-empty-binding | acknowledged historical record |
+| closeout-debug | hosted-toolchain-setup-failure | acknowledged historical record |
+| closeout-debug | initialize-boundary-parameter-contract | acknowledged historical record |
+| closeout-debug | knowledge-base | acknowledged historical record |
+| closeout-debug | phase08-cross-platform-intent-components | acknowledged historical record |
+| closeout-debug | phase08-cross-platform-prepared-zip | acknowledged historical record |
+| closeout-debug | phase08-prelive-attempt-zero-root | acknowledged historical record |
+| closeout-debug | phase08-prepare-canonicalization-seam | acknowledged historical record |
+| closeout-debug | phase08-r11-real-ref-mismatch | acknowledged historical record |
+| closeout-debug | phase08-r12-tagbound-hosted | acknowledged historical record |
+| closeout-debug | phase08-r8-prelive-import | acknowledged historical record |
+| closeout-debug | phase08-r9-history-schema-debug | acknowledged historical record |
+| closeout-debug | phase08-workflow-duplicate-env | acknowledged historical record |
+| closeout-debug | phase08-workflow-receipt-input | acknowledged historical record |
+| closeout-debug | prepare-attempt-contract-mismatch | acknowledged historical record |
+| closeout-debug | r12-qualification-timeout | acknowledged historical record |
+| closeout-quick-task | 260721-jyh-add-a-public-resumable-png-stream-decode | missing historical record |
 | Phase 20-png-structural-safety-gate P02 | 13min | 2 tasks | 8 files |
 | Phase 22-canonical-png-encode-and-portable-evidence P01 | 9min | 2 tasks | 8 files |
 
@@ -123,3 +140,7 @@ None.
 Last session: 2026-07-21T12:06:18Z
 Stopped at: Phase 28 verified complete (3/3); ready for v0.8 milestone audit
 Resume file: None
+
+## Operator Next Steps
+
+- Start the next milestone with /gsd-new-milestone

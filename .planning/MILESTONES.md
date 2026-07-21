@@ -1,5 +1,24 @@
 # Project Milestones: MoonBit Native Foundation
 
+## v0.8 Resumable PNG Decode (Shipped: 2026-07-21)
+
+**Delivered:** A portable, caller-buffered PNG decode API with strict completion, exact progress, sticky terminal failures, and four-target evidence.
+
+**Phases completed:** 3 phases, 5 plans
+
+**Key accomplishments:**
+
+- Preserved eager PNG behavior while replacing its internal transport with one private byte-resumable MoonBit state machine.
+- Added public `PngChunkDecoder` with caller-owned input, explicit `finish()`, exact accepted-byte accounting, private-until-success output, and sticky typed errors.
+- Proved 3,850 accepted and rejected vectors through public empty, one-byte, and adversarial ragged schedules on all four supported targets.
+- Shipped a public chunk-decode → bilinear-resize → eager-encode workflow with identical frozen output evidence on all targets.
+
+**Closeout:** Override closeout for 17 pre-existing historical artifact records: 16 v0.2 release/debug records and one missing historical quick-task record. These do not affect v0.8 verification; the v0.8 audit passed requirements 4/4, phases 3/3, integration 6/6, and flows 2/2.
+
+**What's next:** Define the next code-first milestone; resumable PNG encoding is the leading candidate, while registry and release automation remain deferred.
+
+---
+
 ## v0.5 QOI Streaming I/O (Shipped: 2026-07-20)
 
 **Phases completed:** 3 phases, 3 plans, 7 tasks

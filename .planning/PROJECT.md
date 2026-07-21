@@ -65,15 +65,16 @@ Phase 6 completed on 2026-07-18 with 25/25 plans and 8/8 requirements verified. 
 
 Registry publication remains deferred: the existing v0.2 qualification artifacts are retained, but no further release automation is in scope for the next code-first milestone.
 
-## Current Milestone: v0.8 Resumable PNG Decode
+## Current State: v0.8 Resumable PNG Decode Shipped
 
-**Goal:** Add a portable, caller-buffered PNG decode path that can pause at arbitrary input boundaries yet preserves eager PNG semantics, strict completion, bounded resources, and private output until success.
+**Delivered:** `mb-image` now has a public, portable `PngChunkDecoder` built over a private MoonBit byte-resumable PNG state machine. Callers provide their own chunks, obtain exact consumption/progress, and call `finish()` to receive one eager-equivalent image or a sticky typed terminal error; no partial image is exposed.
 
-**Target features:**
+**Validated:** The complete PNG package passed 84/84 tests on each of `wasm`, `wasm-gc`, `js`, and `native`. The public workflow freezes `PngChunkDecoder` → bilinear resize → eager PNG encode to a 78-byte output with digest `626208771` on all four targets. The milestone audit passed all four requirements, all three phase verifications, six cross-phase handoffs, and two end-to-end flows.
 
-- Refactor the eager PNG framing, IDAT/CRC transport, DEFLATE, and raster pipeline into resumable MoonBit state without narrowing the already supported PNG profiles.
-- Publish `PngChunkDecoder` with caller-owned chunk input, explicit `finish()`, sticky terminal behavior, exact consumed-byte accounting, and one completed owned image only after strict IEND/EOF validation.
-- Prove split boundaries across framing, IDAT, zlib/DEFLATE, filters, IEND, and hostile failures on js, wasm, wasm-gc, and native, without FFI, release work, or a public streaming encoder in this milestone.
+## Next Milestone Goals
+
+- Use GSD research and requirement discovery to choose the highest-value code-first extension, with the public resumable PNG encoder as a strong candidate because it completes the caller-buffered PNG I/O pair.
+- Keep registry publication and release automation deferred unless they directly unblock a concrete consumer or code path.
 
 
 ## Constraints
@@ -105,7 +106,7 @@ Registry publication remains deferred: the existing v0.2 qualification artifacts
 | Implement QOI before a heavyweight lossless codec | QOI adds a real RGB/RGBA interchange format while preserving a pure MoonBit, four-target implementation and bounded attack surface | ✓ Validated in v0.4 |
 | Add streaming QOI before a heavyweight codec | Stateful chunked I/O completes the existing forward-only codec contract without widening scope to PNG/DEFLATE or FFI | ✓ Validated in v0.5 |
 | Preserve PNG colour declarations before implementing colour transforms | Raw sample bytes cannot honestly be treated as sRGB when a file declares different colour semantics | ✓ Validated in v0.7 |
-| Build public PNG streaming as a separate state-machine milestone | A public caller-buffered API must preserve strict framing, image-visibility, and resource semantics rather than expose the eager transport internals | — Active in v0.8 |
+| Build public PNG streaming as a separate state-machine milestone | A public caller-buffered API must preserve strict framing, image-visibility, and resource semantics rather than expose the eager transport internals | ✓ Validated in v0.8 |
 
 ## Evolution
 
@@ -125,4 +126,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update toolchain, compatibility, benchmark, and adoption context.
 
 ---
-*Last updated: 2026-07-21 after v0.8 Resumable PNG Decode milestone creation*
+*Last updated: 2026-07-21 after v0.8 Resumable PNG Decode shipment*

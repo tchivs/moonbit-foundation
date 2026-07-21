@@ -53,6 +53,33 @@
 
 ---
 
+## Milestone: v0.8 — Resumable PNG Decode
+
+**Shipped:** 2026-07-21  
+**Phases:** 3 | **Plans:** 5
+
+### What Was Built
+
+- A private, pause-safe MoonBit PNG framing, DEFLATE, and raster state machine retained eager API compatibility.
+- A public `PngChunkDecoder` with exact caller-buffered progress, explicit strict completion, and sticky typed terminal errors.
+- A 3,850-record public hostile-schedule corpus and one portable decode → resize → eager-encode workflow, proven on all four targets.
+
+### What Worked
+
+- Final verification and the milestone audit found and closed real public EOF-classifier gaps before shipment.
+- Isolated clean-worktree testing avoided stale native build artifacts and reconfirmed 84/84 PNG tests per target.
+
+### What Was Inefficient
+
+- Historical verification reports and stale roadmap metadata confused GSD's current-status parser during closeout.
+- The milestone archive helper misclassified historical roadmap details under `--force`; the unrelated Phase 9 and 20-25 directories were immediately restored before any commit.
+
+### Key Lessons
+
+1. Keep only the final current verification report under the active verifier naming convention; retain prior gap reports as explicit history.
+2. Scope archive tooling from canonical milestone phase numbers, not permissive roadmap prose parsing.
+3. Public streaming contracts need both arbitrary-schedule corpus evidence and a small runnable consumer flow.
+
 ## Cross-Milestone Trends
 
 ### Process Evolution
@@ -60,12 +87,14 @@
 | Milestone | Phases | Plans | Key Change |
 |---|---:|---:|---|
 | v0.1 | 5 | 41 | Established RFC-led horizontal delivery, independent verification, and closed release evidence. |
+| v0.8 | 3 | 5 | Added byte-resumable public PNG decode with corpus-wide four-target streaming evidence. |
 
 ### Cumulative Quality
 
 | Milestone | Required tests | Requirements | Integration |
 |---|---:|---:|---:|
 | v0.1 | 197/197 per required target at the locked baseline | 36/36 | 15/15 contract families, 6/6 flows |
+| v0.8 | 84/84 PNG tests per target | 4/4 | 6/6 phase handoffs, 2/2 public flows |
 
 ### Top Lessons
 
