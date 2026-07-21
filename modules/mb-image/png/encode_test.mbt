@@ -127,6 +127,53 @@ test "PNG fixed-or-stored eager selects a final fixed DEFLATE block" {
 }
 
 ///|
+test "PNG dynamic strategy eager factory freezes compatibility routes" {
+  let (_, rgb_stored_writer) = png_encode(png_encode_image(3UL, b"\x12\x34\x56"))
+  inspect(
+    png_encode_prefix(rgb_stored_writer) ==
+    b"\x89PNG\r\n\x1a\n\x00\x00\x00\x0dIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x02\x00\x00\x00\x90\x77\x53\xde\x00\x00\x00\x0fIDAT\x78\x01\x01\x04\x00\xfb\xff\x00\x12\x34\x56\x00\xf8\x00\x9d\xf8\xd7\x64\x8c\x00\x00\x00\x00IEND\xae\x42\x60\x82",
+    content="true",
+  )
+  let (_, rgba_stored_writer) = png_encode(png_encode_image(4UL, b"\x04\x05\x06\x07"))
+  inspect(
+    png_encode_prefix(rgba_stored_writer) ==
+    b"\x89PNG\r\n\x1a\n\x00\x00\x00\x0dIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x06\x00\x00\x00\x1f\x15\xc4\x89\x00\x00\x00\x10IDAT\x78\x01\x01\x05\x00\xfa\xff\x00\x04\x05\x06\x07\x00\x37\x00\x17\x05\x48\x0f\xc7\x00\x00\x00\x00IEND\xae\x42\x60\x82",
+    content="true",
+  )
+  for channels in [3UL, 4UL] {
+    let image = png_encode_image(
+      channels, Bytes::from_array(Array::make((channels * 32UL).to_int(), b'\xaa')),
+      width=32UL,
+    )
+    let fixed = if channels == 3UL {
+      b"\x89PNG\r\n\x1a\n\x00\x00\x00\x0dIHDR\x00\x00\x00 \x00\x00\x00\x01\x08\x02\x00\x00\x000\xe8\x3b\x30\x00\x00\x00\x0cIDAT\x78\x01\x63\x58\x45\x63\x00\x00\x14\xf5\x3f\xc1\x59\xc4\xa1\xc0\x00\x00\x00\x00IEND\xae\x42\x60\x82"
+    } else {
+      b"\x89PNG\r\n\x1a\n\x00\x00\x00\x0dIHDR\x00\x00\x00 \x00\x00\x00\x01\x08\x06\x00\x00\x00\xbf\x8a\xac\x67\x00\x00\x00\x0cIDAT\x78\x01\x63\x58\x35\xc0\x00\x00\x6c\x3c\x55\x01\xb7\x54\x9d\x82\x00\x00\x00\x00IEND\xae\x42\x60\x82"
+    }
+    let (_, fixed_writer) = png_encode_with(
+      PngEncoder::new_with_compression_strategy(PngCompressionStrategy::FixedOrStored), image,
+    )
+    let (_, dynamic_writer) = png_encode_with(
+      PngEncoder::new_with_compression_strategy(PngCompressionStrategy::DynamicOrFixedOrStored), image,
+    )
+    let dynamic = png_encode_prefix(dynamic_writer)
+    inspect(png_encode_prefix(fixed_writer) == fixed, content="true")
+    inspect(dynamic == fixed, content="true")
+    inspect((fixed[43] & b'\x07') == b'\x03', content="true")
+    let owner = @bytes.OwnedBytes::from_bytes(
+      dynamic, png_encode_budget(bytes=512UL, work=0UL),
+    ).unwrap()
+    let decoded = @codec.ImageDecoder::decode(
+      PngDecoder::new(), @io.MemoryReader::new(owner.view()) as &@io.Reader,
+      @codec.DecodeOptions::new(
+        require_complete_input=true, preserve_opaque_metadata=false,
+      ), png_encode_limits(), png_encode_budget(), @error.Diagnostics::new(),
+    ).unwrap()
+    inspect(decoded.image().view().get_byte(31UL, 0UL, channels - 1UL).unwrap() == b'\xaa', content="true")
+  }
+}
+
+///|
 test "PNG encoder emits canonical RGB and RGBA stored-deflate bytes" {
   let (rgb_result, rgb_writer) = png_encode(png_encode_image(3UL, b"\x12\x34\x56"))
   inspect(

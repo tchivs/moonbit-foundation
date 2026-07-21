@@ -257,6 +257,45 @@ test "PNG fixed-or-stored configured eager and chunk output retain exact hostile
 }
 
 ///|
+test "PNG dynamic strategy chunk factory freezes compatibility routes" {
+  let rgb = png_stream_test_image(3UL)
+  let rgb_stored = png_chunk_test_drain(rgb, [0UL, 1UL, 3UL, 2UL, 5UL]).unwrap()
+  inspect(
+    rgb_stored ==
+    b"\x89PNG\r\n\x1a\n\x00\x00\x00\x0dIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x02\x00\x00\x00\x90\x77\x53\xde\x00\x00\x00\x0fIDAT\x78\x01\x01\x04\x00\xfb\xff\x00\x00\x01\x02\x00\x08\x00\x04\xad\xa5\x4e\x4e\x00\x00\x00\x00IEND\xae\x42\x60\x82",
+    content="true",
+  )
+  let rgba = png_stream_test_image(4UL)
+  let rgba_stored = png_chunk_test_drain(rgba, [0UL, 1UL, 3UL, 2UL, 5UL]).unwrap()
+  inspect(
+    rgba_stored ==
+    b"\x89PNG\r\n\x1a\n\x00\x00\x00\x0dIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x06\x00\x00\x00\x1f\x15\xc4\x89\x00\x00\x00\x10IDAT\x78\x01\x01\x05\x00\xfa\xff\x00\x00\x01\x02\x03\x00\x0f\x00\x07\x2c\x93\x65\xb4\x00\x00\x00\x00IEND\xae\x42\x60\x82",
+    content="true",
+  )
+  for channels in [3UL, 4UL] {
+    let image = png_stream_test_flat_image(channels, 32UL)
+    let fixed = if channels == 3UL {
+      b"\x89PNG\r\n\x1a\n\x00\x00\x00\x0dIHDR\x00\x00\x00 \x00\x00\x00\x01\x08\x02\x00\x00\x000\xe8\x3b\x30\x00\x00\x00\x0cIDAT\x78\x01\x63\x58\x45\x63\x00\x00\x14\xf5\x3f\xc1\x59\xc4\xa1\xc0\x00\x00\x00\x00IEND\xae\x42\x60\x82"
+    } else {
+      b"\x89PNG\r\n\x1a\n\x00\x00\x00\x0dIHDR\x00\x00\x00 \x00\x00\x00\x01\x08\x06\x00\x00\x00\xbf\x8a\xac\x67\x00\x00\x00\x0cIDAT\x78\x01\x63\x58\x35\xc0\x00\x00\x6c\x3c\x55\x01\xb7\x54\x9d\x82\x00\x00\x00\x00IEND\xae\x42\x60\x82"
+    }
+    let fixed_encoder = PngChunkEncoder::new_with_compression_strategy(
+      image.view(), PngCompressionStrategy::FixedOrStored,
+      png_stream_test_limits(), png_stream_test_budget(), @error.Diagnostics::new(),
+    ).unwrap()
+    let dynamic_encoder = PngChunkEncoder::new_with_compression_strategy(
+      image.view(), PngCompressionStrategy::DynamicOrFixedOrStored,
+      png_stream_test_limits(), png_stream_test_budget(), @error.Diagnostics::new(),
+    ).unwrap()
+    let fixed_bytes = png_chunk_test_drain_encoder(fixed_encoder, [0UL, 1UL, 3UL, 2UL, 5UL]).unwrap()
+    let dynamic_bytes = png_chunk_test_drain_encoder(dynamic_encoder, [0UL, 1UL, 3UL, 2UL, 5UL]).unwrap()
+    inspect(fixed_bytes == fixed, content="true")
+    inspect(dynamic_bytes == fixed, content="true")
+    inspect((fixed[43] & b'\x07') == b'\x03', content="true")
+  }
+}
+
+///|
 test "PNG fixed-or-stored corpus evidence is deterministic, valid, never-larger, and wins flat RGB8/RGBA8" {
   png_stream_test_fixed_or_stored_corpus_case(png_stream_test_flat_image(3UL, 32UL))
   png_stream_test_fixed_or_stored_corpus_case(png_stream_test_flat_image(4UL, 32UL))
