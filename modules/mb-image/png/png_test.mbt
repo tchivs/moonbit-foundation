@@ -327,8 +327,159 @@ fn png_test_budget_from_generated(item : PngGeneratedCase) -> @budget.Budget {
   ))
 }
 
+///| The legacy Phase-20 corpus now crosses several current decoder stages.
+/// These explicit stages prevent a decoder result from selecting its own oracle.
+priv enum PngLegacyStructuralStage {
+  InheritedPreTransport
+  CurrentSemanticOrFixedLength
+  ActiveIdatZlibTerminal
+  OpaqueMetadataBoundary
+  PreflightResource
+}
+
 ///|
-fn _png_legacy_phase20_matrix() -> Unit raise Error {
+priv enum PngLegacyBudgetMode {
+  Fixture
+  DecodeCapable
+}
+
+///|
+priv struct PngLegacyExpectation {
+  stage : PngLegacyStructuralStage
+  category : @error.ErrorCategory
+  code : @error.ErrorCode
+  context : String?
+  budget_mode : PngLegacyBudgetMode
+  assert_immutable_budget : Bool
+}
+
+///|
+fn png_test_legacy_decode_budget() -> @budget.Budget {
+  @budget.Budget::new(@budget.ResourceLimits::new(
+    bytes=8192UL, allocations=8UL, allocation_size=4096UL, width=16UL,
+    height=16UL, pixels=256UL, depth=0UL, work=8192UL,
+  ))
+}
+
+///|
+fn png_test_legacy_generated_error_category(category : String) -> @error.ErrorCategory {
+  match category {
+    "data" => @error.ErrorCategory::Data
+    "resource" => @error.ErrorCategory::Resource
+    "capability" => @error.ErrorCategory::Capability
+    _ => @error.ErrorCategory::Data
+  }
+}
+
+///|
+fn png_test_legacy_generated_error_code(code : String) -> @error.ErrorCode {
+  match code {
+    "unexpected-end" => @error.ErrorCode::UnexpectedEndOfStream
+    "budget-exceeded" => @error.ErrorCode::BudgetExceeded
+    "capability-unavailable" => @error.ErrorCode::CapabilityUnavailable
+    _ => @error.ErrorCode::InvalidEncoding
+  }
+}
+
+///|
+fn png_test_legacy_inherited_expectation(item : PngGeneratedCase) -> PngLegacyExpectation {
+  {
+    stage: if item.code == "budget-exceeded" {
+      PngLegacyStructuralStage::PreflightResource
+    } else {
+      PngLegacyStructuralStage::InheritedPreTransport
+    },
+    category: png_test_legacy_generated_error_category(item.category),
+    code: png_test_legacy_generated_error_code(item.code),
+    context: if item.context == "" { None } else { Some(item.context) },
+    budget_mode: PngLegacyBudgetMode::Fixture,
+    // Current parser stages may charge their local scratch. The old immutable
+    // contract is retained only for the below-limit preflight resource rows.
+    assert_immutable_budget: item.immutable_caller_state && item.code == "budget-exceeded",
+  }
+}
+
+///| One authoritative current-stage map for every generated Phase-20 record.
+fn png_test_legacy_expectation(item : PngGeneratedCase) -> PngLegacyExpectation {
+  let zlib = {
+    stage: PngLegacyStructuralStage::ActiveIdatZlibTerminal,
+    category: @error.ErrorCategory::Data,
+    code: @error.ErrorCode::InvalidEncoding,
+    context: Some("zlib-truncated"),
+    budget_mode: PngLegacyBudgetMode::DecodeCapable,
+    assert_immutable_budget: false,
+  }
+  match item.id {
+    // Current semantic parsers validate these fixed-size chunks before payload CRC.
+    "semantic-crc" => {
+      stage: PngLegacyStructuralStage::CurrentSemanticOrFixedLength,
+      category: @error.ErrorCategory::Data,
+      code: @error.ErrorCode::InvalidEncoding,
+      context: Some("png-semantic-chunk"),
+      budget_mode: PngLegacyBudgetMode::Fixture,
+      assert_immutable_budget: false,
+    }
+    "semantic-chrm" => {
+      stage: PngLegacyStructuralStage::CurrentSemanticOrFixedLength,
+      category: @error.ErrorCategory::Data,
+      code: @error.ErrorCode::InvalidEncoding,
+      context: Some("png-chrm-length"),
+      budget_mode: PngLegacyBudgetMode::Fixture,
+      assert_immutable_budget: false,
+    }
+    "semantic-gama" => {
+      stage: PngLegacyStructuralStage::CurrentSemanticOrFixedLength,
+      category: @error.ErrorCategory::Data,
+      code: @error.ErrorCode::InvalidEncoding,
+      context: Some("png-gama-length"),
+      budget_mode: PngLegacyBudgetMode::Fixture,
+      assert_immutable_budget: false,
+    }
+    "semantic-iccp" => {
+      stage: PngLegacyStructuralStage::CurrentSemanticOrFixedLength,
+      category: @error.ErrorCategory::Data,
+      code: @error.ErrorCode::InvalidEncoding,
+      context: Some("png-iccp-envelope"),
+      budget_mode: PngLegacyBudgetMode::Fixture,
+      assert_immutable_budget: false,
+    }
+    "semantic-srgb" => {
+      stage: PngLegacyStructuralStage::CurrentSemanticOrFixedLength,
+      category: @error.ErrorCategory::Data,
+      code: @error.ErrorCode::InvalidEncoding,
+      context: Some("png-srgb-length"),
+      budget_mode: PngLegacyBudgetMode::Fixture,
+      assert_immutable_budget: false,
+    }
+    "ancillary-preserve" => {
+      stage: PngLegacyStructuralStage::OpaqueMetadataBoundary,
+      category: @error.ErrorCategory::Capability,
+      code: @error.ErrorCode::CapabilityUnavailable,
+      context: Some("opaque-metadata-preservation"),
+      budget_mode: PngLegacyBudgetMode::Fixture,
+      assert_immutable_budget: false,
+    }
+    // These formerly stopped at the Phase-20 capability boundary. They now
+    // enter the real DEFLATE pipeline with an intentionally decode-capable budget.
+    "ihdr-colour-grayscale" | "ihdr-colour-grayscale-alpha" |
+    "ihdr-interlace-method" | "split-contiguous-idat" |
+    "ancillary-after-idat" | "separated-idat" | "truncated-iend-crc" |
+    "iend-crc" | "nonempty-iend" | "duplicate-iend" | "post-iend-idat" |
+    "trailing-byte" | "strict-eof-trailing-at-max" | "ancillary-discard" |
+    "rgb-structural" | "rgba-structural" | "rgba-at-ceiling" |
+    "rgb-exact-input-ceiling" | "input-57-below" | "width-at-ceiling" |
+    "height-at-ceiling" | "pixels-at-ceiling" |
+    "shared-output-at-ceiling" | "output-bytes-at-ceiling" |
+    "work-at-ceiling" | "budget-bytes-at-ceiling" |
+    "budget-allocations-at-ceiling" | "budget-allocation-size-at-ceiling" |
+    "budget-width-at-ceiling" | "budget-height-at-ceiling" |
+    "budget-pixels-at-ceiling" | "budget-work-at-ceiling" => zlib
+    _ => png_test_legacy_inherited_expectation(item)
+  }
+}
+
+///|
+test "generated Phase-20 structural corpus keeps strict PngDecoder terminal errors" {
   for item in _generated_png_public_cases() {
     let length = item.bytes.length().to_uint64()
     let owner = @bytes.OwnedBytes::from_bytes(
@@ -339,7 +490,11 @@ fn _png_legacy_phase20_matrix() -> Unit raise Error {
       )),
     ).unwrap()
     let reader = @io.MemoryReader::new(owner.view())
-    let budget = png_test_budget_from_generated(item)
+    let expected = png_test_legacy_expectation(item)
+    let budget = match expected.budget_mode {
+      PngLegacyBudgetMode::Fixture => png_test_budget_from_generated(item)
+      PngLegacyBudgetMode::DecodeCapable => png_test_legacy_decode_budget()
+    }
     let before = budget.remaining()
     let diagnostics = @error.Diagnostics::new()
     let error = @codec.ImageDecoder::decode(
@@ -350,34 +505,23 @@ fn _png_legacy_phase20_matrix() -> Unit raise Error {
       png_test_limits_from_generated(item),
       budget, diagnostics,
     ).unwrap_err()
-    if item.code == "unexpected-end" {
-      inspect(error.code() == @error.ErrorCode::UnexpectedEndOfStream, content="true")
-    } else if item.code == "budget-exceeded" {
-      inspect(error.category() == @error.ErrorCategory::Resource, content="true")
-      inspect(error.code() == @error.ErrorCode::BudgetExceeded, content="true")
-    } else if item.code == "capability-unavailable" {
-      if item.context == "opaque-metadata-preservation" {
-        inspect(error.category() == @error.ErrorCategory::Capability, content="true")
-        inspect(error.code() == @error.ErrorCode::CapabilityUnavailable, content="true")
-      } else {
-        if error.context() != Some("zlib-truncated") { fail("legacy PNG case: " + item.id + ": " + error.context().unwrap()) }
-        inspect(error.category() == @error.ErrorCategory::Data, content="true")
-        inspect(error.code() == @error.ErrorCode::InvalidEncoding, content="true")
-        inspect(error.context() == Some("zlib-truncated"), content="true")
-      }
-    } else {
-      inspect(error.category() == @error.ErrorCategory::Data, content="true")
-      inspect(error.code() == @error.ErrorCode::InvalidEncoding, content="true")
+    let stage = match expected.stage {
+      PngLegacyStructuralStage::InheritedPreTransport => "pre-transport"
+      PngLegacyStructuralStage::CurrentSemanticOrFixedLength => "semantic"
+      PngLegacyStructuralStage::ActiveIdatZlibTerminal => "active-idat"
+      PngLegacyStructuralStage::OpaqueMetadataBoundary => "opaque-metadata"
+      PngLegacyStructuralStage::PreflightResource => "preflight-resource"
     }
-    if item.code != "unexpected-end" &&
-      !(item.code == "capability-unavailable" && item.context != "opaque-metadata-preservation") &&
-      error.context() != Some(item.context) {
-      fail("generated PNG context mismatch: " + item.id)
+    if error.category() != expected.category || error.code() != expected.code ||
+      error.context() != expected.context {
+      let actual = match error.context() { Some(value) => value; None => "none" }
+      fail("generated PNG " + stage + " terminal mismatch: " + item.id + ": " + actual)
     }
-    if item.immutable_caller_state {
-      inspect(png_test_remaining_unchanged(before, budget.remaining()), content="true")
-      inspect(diagnostics.length(), content="0")
+    if expected.assert_immutable_budget &&
+      !png_test_remaining_unchanged(before, budget.remaining()) {
+      fail("generated PNG budget mismatch: " + item.id)
     }
+    inspect(diagnostics.length(), content="0")
   }
 }
 
