@@ -396,7 +396,7 @@ fn png_test_decode_vector(item : PngDecodeVector) -> Result[@codec.DecodeResult,
     PngDecoder::new(), reader as &@io.Reader,
     @codec.DecodeOptions::new(require_complete_input=true, preserve_opaque_metadata=false),
     @codec.CodecLimits::new(max_probe_bytes=8UL, max_input_bytes=4096UL, max_output_bytes=item.max_output, max_width=64UL, max_height=16UL, max_pixels=1024UL, max_work=item.max_work),
-    @budget.Budget::new(@budget.ResourceLimits::new(bytes=item.budget_bytes, allocations=item.budget_allocations, allocation_size=1024UL, width=64UL, height=16UL, pixels=1024UL, depth=0UL, work=item.max_work)),
+    @budget.Budget::new(@budget.ResourceLimits::new(bytes=item.budget_bytes, allocations=item.budget_allocations, allocation_size=item.budget_allocation_size, width=64UL, height=16UL, pixels=1024UL, depth=0UL, work=item.max_work)),
     @error.Diagnostics::new(),
   )
 }
