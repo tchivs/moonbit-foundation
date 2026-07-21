@@ -1434,7 +1434,9 @@ fn _png_read_stream_transport(
     consumed = next
   }
   let (ihdr_length, after_length) = match _png_read_u32(reader, scratch, consumed, limits) { Err(error) => return Err(error); Ok(value) => value }
+  if ihdr_length > 2147483647UL { return Err(_png_error("png-chunk-length")) }
   let (ihdr_kind, after_type) = match _png_read_type(reader, scratch, after_length, limits) { Err(error) => return Err(error); Ok(value) => value }
+  match _png_validate_type_form(ihdr_kind) { Err(error) => return Err(error); Ok(_) => () }
   if !_png_type_is(ihdr_kind, b'I', b'H', b'D', b'R') { return Err(_png_error("png-ihdr-first")) }
   if ihdr_length != 13UL { return Err(_png_error("png-ihdr-length")) }
   let (ihdr, after_ihdr) = match _png_read_payload_and_crc(reader, scratch, ihdr_length, ihdr_kind, after_type, limits) { Err(error) => return Err(error); Ok(value) => value }
@@ -1452,6 +1454,7 @@ fn _png_read_stream_transport(
     if length > 2147483647UL { return Err(_png_error("png-chunk-length")) }
     let (kind, next_type) = match _png_read_type(reader, scratch, next_length, limits) { Err(error) => return Err(error); Ok(value) => value }
     match _png_validate_type_form(kind) { Err(error) => return Err(error); Ok(_) => () }
+    if _png_type_is(kind, b'I', b'H', b'D', b'R') { return Err(_png_error("png-ihdr-order")) }
     if _png_is_recognised_colour(kind) {
       match _png_require_colour_before_palette_or_idat(saw_palette) {
         Err(error) => return Err(error)
@@ -1591,7 +1594,8 @@ fn PngIdatSource::next_byte(self : PngIdatSource) -> Result[Byte, @error.CoreErr
     let (kind, after_type) = match _png_read_type(self.reader, self.scratch, after_length, self.limits) { Err(error) => return Err(error); Ok(value) => value }
     match _png_validate_type_form(kind) { Err(error) => return Err(error); Ok(_) => () }
     if !_png_type_is(kind, b'I', b'D', b'A', b'T') {
-      if _png_type_is(kind, b'P', b'L', b'T', b'E') { return Err(_png_error("png-plte-order")) }
+      if _png_type_is(kind, b'I', b'H', b'D', b'R') { return Err(_png_error("png-ihdr-order")) }
+      if _png_type_is(kind, b'P', b'L', b'T', b'E') { return Err(_png_error("png-semantic-chunk")) }
       if _png_is_recognised_colour(kind) { return Err(_png_error("png-colour-order")) }
       return Err(_png_error("zlib-truncated"))
     }
