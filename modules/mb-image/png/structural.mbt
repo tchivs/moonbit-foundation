@@ -17,13 +17,14 @@ priv enum PngTransparency {
   Indexed(Bytes)
 }
 
-///| The only colour declaration that Phase 23 can expose without transforming
-/// samples is an authenticated sRGB intent. All other recognised declarations
-/// remain an explicit capability boundary.
+///| Authenticated PNG colour declarations are transported separately from the
+/// raster. Legacy declarations deliberately use a non-sRGB metadata identity:
+/// decoded samples are never transformed or silently relabelled as encoded sRGB.
 priv enum PngColourDeclaration {
   Default
   Srgb(Byte)
-  NonSrgb
+  Legacy(Bytes?, Bytes?)
+  Icc(Bytes, Bytes)
 }
 
 ///|
@@ -32,14 +33,18 @@ priv struct PngColourFacts {
   srgb_intent : Byte?
   saw_gamma : Bool
   gamma_is_srgb : Bool
+  gamma : Bytes?
   saw_chrm : Bool
   chrm_is_srgb : Bool
+  chrm : Bytes?
   saw_iccp : Bool
+  iccp_name : Bytes?
+  iccp_profile : Bytes?
 }
 
 ///|
 fn _png_new_colour_facts() -> PngColourFacts {
-  { saw_srgb: false, srgb_intent: None, saw_gamma: false, gamma_is_srgb: false, saw_chrm: false, chrm_is_srgb: false, saw_iccp: false }
+  { saw_srgb: false, srgb_intent: None, saw_gamma: false, gamma_is_srgb: false, gamma: None, saw_chrm: false, chrm_is_srgb: false, chrm: None, saw_iccp: false, iccp_name: None, iccp_profile: None }
 }
 
 ///|
@@ -124,16 +129,111 @@ fn _png_validate_iccp_payload(payload : Bytes) -> Result[Unit, @error.CoreError]
   Ok(())
 }
 
+///| Inflate an iCCP payload through the existing private DEFLATE bit and
+/// Huffman machinery, with a deliberately small opaque-profile ceiling.
+fn _png_inflate_iccp(
+  compressed : Bytes,
+  reader : &@io.Reader,
+  scratch : @bytes.OwnedBytes,
+  limits : @codec.CodecLimits,
+) -> Result[Bytes, @error.CoreError] {
+  let maximum = 65536UL
+  let source = PngIdatSource::{ reader, scratch, limits, options: @codec.DecodeOptions::new(require_complete_input=true, preserve_opaque_metadata=false), data: Some(compressed), data_index: 0UL, consumed: 0UL, remaining: 0UL, crc: 0UL, crc_pending: false }
+  let cmf = match source.next_byte() { Err(error) => return Err(error); Ok(value) => value.to_int() }
+  let flg = match source.next_byte() { Err(error) => return Err(error); Ok(value) => value.to_int() }
+  if (cmf & 15) != 8 || (cmf >> 4) > 7 || ((cmf << 8) + flg) % 31 != 0 { return Err(_png_error("png-iccp-zlib")) }
+  if (flg & 32) != 0 { return Err(_png_error("png-iccp-zlib")) }
+  let bits = _png_deflate_bits_new(source)
+  let history = Array::make(32768, b'\x00')
+  let output : Array[Byte] = []
+  let mut history_size = 0
+  let mut history_pos = 0
+  let mut adler = 1UL
+  let emit = fn(byte : Byte) -> Result[Unit, @error.CoreError] {
+    if output.length().to_uint64() >= maximum { return Err(_png_limit("png-iccp-inflated", output.length().to_uint64() + 1UL, maximum)) }
+    output.push(byte)
+    history[history_pos] = byte
+    history_pos = (history_pos + 1) % 32768
+    if history_size < 32768 { history_size = history_size + 1 }
+    adler = _png_adler_step(adler, byte)
+    Ok(())
+  }
+  let mut final_block = 0
+  while final_block == 0 {
+    final_block = match bits.read(1) { Err(error) => return Err(error); Ok(value) => value }
+    let block_type = match bits.read(2) { Err(error) => return Err(error); Ok(value) => value }
+    if block_type == 0 {
+      bits.align()
+      let low = match bits.read_aligned_byte() { Err(error) => return Err(error); Ok(value) => value.to_int() }
+      let high = match bits.read_aligned_byte() { Err(error) => return Err(error); Ok(value) => value.to_int() }
+      let nlow = match bits.read_aligned_byte() { Err(error) => return Err(error); Ok(value) => value.to_int() }
+      let nhigh = match bits.read_aligned_byte() { Err(error) => return Err(error); Ok(value) => value.to_int() }
+      let length = low | (high << 8)
+      if (length ^ (nlow | (nhigh << 8))) != 65535 { return Err(_png_error("png-iccp-deflate")) }
+      for index = 0; index < length; index = index + 1 {
+        let byte = match bits.read_aligned_byte() { Err(error) => return Err(error); Ok(value) => value }
+        match emit(byte) { Err(error) => return Err(error); Ok(_) => () }
+      }
+    } else {
+      let (literal_tree, distance_tree) = if block_type == 1 { (_png_fixed_literal_tree(), _png_fixed_distance_tree()) } else if block_type == 2 { match _png_dynamic_trees(bits) { Err(error) => return Err(error); Ok(value) => value } } else { return Err(_png_error("png-iccp-deflate")) }
+      let mut finished = false
+      while !finished {
+        let symbol = match literal_tree.symbol(bits) { Err(error) => return Err(error); Ok(value) => value }
+        if symbol < 256 { match emit(symbol.to_byte()) { Err(error) => return Err(error); Ok(_) => () } }
+        else if symbol == 256 { finished = true }
+        else {
+          let length = match _png_length(symbol, bits) { Err(error) => return Err(error); Ok(value) => value }
+          let distance_symbol = match distance_tree.symbol(bits) { Err(error) => return Err(error); Ok(value) => value }
+          let distance = match _png_distance(distance_symbol, bits) { Err(error) => return Err(error); Ok(value) => value }
+          if distance > history_size { return Err(_png_error("png-iccp-deflate")) }
+          for index = 0; index < length; index = index + 1 {
+            let position = (history_pos - distance + 32768) % 32768
+            match emit(history[position]) { Err(error) => return Err(error); Ok(_) => () }
+          }
+        }
+      }
+    }
+  }
+  bits.align()
+  let a = match bits.source.next_byte() { Err(error) => return Err(error); Ok(value) => value.to_int().to_uint64() }
+  let b = match bits.source.next_byte() { Err(error) => return Err(error); Ok(value) => value.to_int().to_uint64() }
+  let c = match bits.source.next_byte() { Err(error) => return Err(error); Ok(value) => value.to_int().to_uint64() }
+  let d = match bits.source.next_byte() { Err(error) => return Err(error); Ok(value) => value.to_int().to_uint64() }
+  if ((a << 24) | (b << 16) | (c << 8) | d) != adler { return Err(_png_error("png-iccp-adler")) }
+  if bits.source.data_index != compressed.length().to_uint64() { return Err(_png_error("png-iccp-trailing")) }
+  Ok(Bytes::from_array(output))
+}
+
+///| ICC is retained only after its minimum envelope proves the declared size,
+/// signature, and source-family-compatible device colour space.
+fn _png_validate_iccp_profile(profile : Bytes, grayscale : Bool) -> Result[Unit, @error.CoreError] {
+  if profile.length() < 128 { return Err(_png_error("png-iccp-header")) }
+  let declared = (profile[0].to_int().to_uint64() << 24) | (profile[1].to_int().to_uint64() << 16) | (profile[2].to_int().to_uint64() << 8) | profile[3].to_int().to_uint64()
+  if declared != profile.length().to_uint64() { return Err(_png_error("png-iccp-size")) }
+  if profile[36] != b'a' || profile[37] != b'c' || profile[38] != b's' || profile[39] != b'p' { return Err(_png_error("png-iccp-signature")) }
+  let gray = profile[16] == b'G' && profile[17] == b'R' && profile[18] == b'A' && profile[19] == b'Y'
+  let rgb = profile[16] == b'R' && profile[17] == b'G' && profile[18] == b'B' && profile[19] == b' '
+  if (grayscale && !gray) || (!grayscale && !rgb) { return Err(_png_error("png-iccp-space")) }
+  Ok(())
+}
+
 ///|
-fn _png_colour_declaration(facts : PngColourFacts) -> Result[PngColourDeclaration, @error.CoreError] {
-  if facts.saw_iccp { return Ok(PngColourDeclaration::NonSrgb) }
+fn _png_colour_declaration(facts : PngColourFacts, grayscale : Bool) -> Result[PngColourDeclaration, @error.CoreError] {
+  if facts.saw_iccp {
+    match (facts.iccp_name, facts.iccp_profile) {
+      (Some(name), Some(profile)) => {
+        match _png_validate_iccp_profile(profile, grayscale) { Err(error) => return Err(error); Ok(_) => return Ok(PngColourDeclaration::Icc(name, profile)) }
+      }
+      _ => return Err(_png_error("png-iccp-profile"))
+    }
+  }
   if facts.saw_srgb {
     if (facts.saw_gamma && !facts.gamma_is_srgb) || (facts.saw_chrm && !facts.chrm_is_srgb) {
       return Err(_png_error("png-srgb-legacy-conflict"))
     }
     return Ok(PngColourDeclaration::Srgb(facts.srgb_intent.unwrap()))
   }
-  if facts.saw_gamma || facts.saw_chrm { Ok(PngColourDeclaration::NonSrgb) } else { Ok(PngColourDeclaration::Default) }
+  if facts.saw_gamma || facts.saw_chrm { Ok(PngColourDeclaration::Legacy(facts.gamma, facts.chrm)) } else { Ok(PngColourDeclaration::Default) }
 }
 
 ///|
@@ -807,6 +907,8 @@ fn _png_read_colour_chunk(
   let mut last_space = false
   let mut saw_method = false
   let mut profile_bytes = 0UL
+  let iccp_name : Array[Byte] = []
+  let iccp_compressed : Array[Byte] = []
   while index < length {
     let (byte, next) = match _png_read_one(reader, scratch, cursor, limits) {
       Err(error) => return Err(error)
@@ -826,11 +928,14 @@ fn _png_read_colour_chunk(
         }
         name_length = name_length + 1UL
         last_space = byte == b' '
+        iccp_name.push(byte)
       }
     } else if !saw_method {
       if byte != b'\x00' { return Err(_png_error("png-iccp-method")) }
       saw_method = true
     } else {
+      if profile_bytes >= 65536UL { return Err(_png_limit("png-iccp-compressed", profile_bytes + 1UL, 65536UL)) }
+      iccp_compressed.push(byte)
       profile_bytes = profile_bytes + 1UL
     }
     index = index + 1UL
@@ -842,19 +947,20 @@ fn _png_read_colour_chunk(
   if (crc ^ 4294967295UL) != stored_crc { return Err(_png_error("png-crc")) }
   if is_srgb {
     let intent = match _png_validate_srgb_payload(payload) { Err(error) => return Err(error); Ok(value) => value }
-    return Ok(({ saw_srgb: true, srgb_intent: Some(intent), saw_gamma: facts.saw_gamma, gamma_is_srgb: facts.gamma_is_srgb, saw_chrm: facts.saw_chrm, chrm_is_srgb: facts.chrm_is_srgb, saw_iccp: facts.saw_iccp }, next))
+    return Ok(({ saw_srgb: true, srgb_intent: Some(intent), saw_gamma: facts.saw_gamma, gamma_is_srgb: facts.gamma_is_srgb, gamma: facts.gamma, saw_chrm: facts.saw_chrm, chrm_is_srgb: facts.chrm_is_srgb, chrm: facts.chrm, saw_iccp: facts.saw_iccp, iccp_name: facts.iccp_name, iccp_profile: facts.iccp_profile }, next))
   }
   if is_gamma {
     let standard = match _png_validate_gamma_payload(payload) { Err(error) => return Err(error); Ok(value) => value }
-    return Ok(({ saw_srgb: facts.saw_srgb, srgb_intent: facts.srgb_intent, saw_gamma: true, gamma_is_srgb: standard, saw_chrm: facts.saw_chrm, chrm_is_srgb: facts.chrm_is_srgb, saw_iccp: facts.saw_iccp }, next))
+    return Ok(({ saw_srgb: facts.saw_srgb, srgb_intent: facts.srgb_intent, saw_gamma: true, gamma_is_srgb: standard, gamma: Some(Bytes::from_array(payload)), saw_chrm: facts.saw_chrm, chrm_is_srgb: facts.chrm_is_srgb, chrm: facts.chrm, saw_iccp: facts.saw_iccp, iccp_name: facts.iccp_name, iccp_profile: facts.iccp_profile }, next))
   }
   if is_chrm {
     let standard = match _png_validate_chrm_payload(payload) { Err(error) => return Err(error); Ok(value) => value }
-    return Ok(({ saw_srgb: facts.saw_srgb, srgb_intent: facts.srgb_intent, saw_gamma: facts.saw_gamma, gamma_is_srgb: facts.gamma_is_srgb, saw_chrm: true, chrm_is_srgb: standard, saw_iccp: facts.saw_iccp }, next))
+    return Ok(({ saw_srgb: facts.saw_srgb, srgb_intent: facts.srgb_intent, saw_gamma: facts.saw_gamma, gamma_is_srgb: facts.gamma_is_srgb, gamma: facts.gamma, saw_chrm: true, chrm_is_srgb: standard, chrm: Some(Bytes::from_array(payload)), saw_iccp: facts.saw_iccp, iccp_name: facts.iccp_name, iccp_profile: facts.iccp_profile }, next))
   }
   if !saw_nul || !saw_method { return Err(_png_error("png-iccp-envelope")) }
   if profile_bytes == 0UL { return Err(_png_error("png-iccp-data")) }
-  Ok(({ saw_srgb: facts.saw_srgb, srgb_intent: facts.srgb_intent, saw_gamma: facts.saw_gamma, gamma_is_srgb: facts.gamma_is_srgb, saw_chrm: facts.saw_chrm, chrm_is_srgb: facts.chrm_is_srgb, saw_iccp: true }, next))
+  let profile = match _png_inflate_iccp(Bytes::from_array(iccp_compressed), reader, scratch, limits) { Err(error) => return Err(error); Ok(value) => value }
+  Ok(({ saw_srgb: facts.saw_srgb, srgb_intent: facts.srgb_intent, saw_gamma: facts.saw_gamma, gamma_is_srgb: facts.gamma_is_srgb, gamma: facts.gamma, saw_chrm: facts.saw_chrm, chrm_is_srgb: facts.chrm_is_srgb, chrm: facts.chrm, saw_iccp: true, iccp_name: Some(Bytes::from_array(iccp_name)), iccp_profile: Some(profile) }, next))
 }
 
 ///|
@@ -1124,6 +1230,8 @@ priv struct PngIdatSource {
   scratch : @bytes.OwnedBytes
   limits : @codec.CodecLimits
   options : @codec.DecodeOptions
+  data : Bytes?
+  mut data_index : UInt64
   mut consumed : UInt64
   mut remaining : UInt64
   mut crc : UInt64
@@ -1144,6 +1252,7 @@ priv struct PngStreamTransport {
   transparency : PngTransparency
   interlaced : Bool
   srgb_intent : Byte?
+  colour_declaration : PngColourDeclaration
   metadata_budget : @budget.Budget?
   budget : @budget.Budget
   source : PngIdatSource
@@ -1190,6 +1299,26 @@ fn _png_srgb_budget(
 ) -> Result[(@budget.Budget, @budget.Budget), @error.CoreError] {
   let metadata = match budget.child(@budget.ResourceLimits::new(
     bytes=1UL, allocations=1UL, allocation_size=1UL, width=0UL,
+    height=0UL, pixels=0UL, depth=0UL, work=0UL,
+  )) { Err(error) => return Err(error); Ok(value) => value }
+  let raster = match _png_output_budget_for(ihdr, indexed, channels, limits, budget) { Err(error) => return Err(error); Ok(value) => value }
+  Ok((metadata, raster))
+}
+
+///| Retained declarations are copied once into the opaque profile identity and
+/// once into canonical PNG metadata. Reserve both allocations before raster
+/// construction so failure never exposes an image.
+fn _png_non_srgb_budget(
+  ihdr : Array[Byte],
+  indexed : Bool,
+  channels : UInt64,
+  value_bytes : UInt64,
+  limits : @codec.CodecLimits,
+  budget : @budget.Budget,
+) -> Result[(@budget.Budget, @budget.Budget), @error.CoreError] {
+  let total = match @checked.checked_mul(value_bytes, 2UL) { Err(error) => return Err(error); Ok(value) => value }
+  let metadata = match budget.child(@budget.ResourceLimits::new(
+    bytes=total, allocations=2UL, allocation_size=value_bytes, width=0UL,
     height=0UL, pixels=0UL, depth=0UL, work=0UL,
   )) { Err(error) => return Err(error); Ok(value) => value }
   let raster = match _png_output_budget_for(ihdr, indexed, channels, limits, budget) { Err(error) => return Err(error); Ok(value) => value }
@@ -1254,12 +1383,9 @@ fn _png_read_stream_transport(
       let channels = match transparency { PngTransparency::Opaque => if ihdr[9] == 4 || ihdr[9] == 6 { 4UL } else { 3UL }; _ => 4UL }
       let source_channels = if ihdr[9] == 0 || ihdr[9] == 3 { 1UL } else if ihdr[9] == 2 { 3UL } else if ihdr[9] == 4 { 2UL } else { 4UL }
       let source_bytes_per_pixel = match _png_source_bytes_per_pixel(source_channels, ihdr[8].to_int()) { Err(error) => return Err(error); Ok(value) => value }
-      let declaration = match _png_colour_declaration(colour_facts) {
+      let declaration = match _png_colour_declaration(colour_facts, ihdr[9] == 0 || ihdr[9] == 4) {
         Err(error) => return Err(error)
         Ok(value) => value
-      }
-      if declaration is PngColourDeclaration::NonSrgb {
-        return Err(@codec.capability_unavailable("png-decode", "png-colour-transform-unavailable"))
       }
       let output_budget = match _png_output_budget_for(
         ihdr, indexed, channels, limits, budget,
@@ -1268,6 +1394,17 @@ fn _png_read_stream_transport(
         PngColourDeclaration::Srgb(intent) => match _png_srgb_budget(ihdr, indexed, channels, limits, budget) {
           Err(error) => return Err(error)
           Ok((metadata, raster)) => (raster, Some(metadata), Some(intent))
+        }
+        PngColourDeclaration::Legacy(gamma, chrm) => {
+          let value_bytes = (match gamma { Some(value) => value.length().to_uint64(); None => 0UL }) + (match chrm { Some(value) => value.length().to_uint64(); None => 0UL })
+          match _png_non_srgb_budget(ihdr, indexed, channels, value_bytes, limits, budget) {
+            Err(error) => return Err(error)
+            Ok((metadata, raster)) => (raster, Some(metadata), None)
+          }
+        }
+        PngColourDeclaration::Icc(name, profile) => match _png_non_srgb_budget(ihdr, indexed, channels, profile.length().to_uint64() + name.length().to_uint64(), limits, budget) {
+          Err(error) => return Err(error)
+          Ok((metadata, raster)) => (raster, Some(metadata), None)
         }
         _ => (output_budget, None, None)
       }
@@ -1284,9 +1421,10 @@ fn _png_read_stream_transport(
         transparency,
         interlaced: ihdr[12] == 1,
         srgb_intent,
+        colour_declaration: declaration,
         metadata_budget,
         budget: result_budget,
-        source: { reader, scratch, limits, options, consumed: next_type, remaining: length, crc: _png_crc_for_type(kind), crc_pending: true },
+        source: { reader, scratch, limits, options, data: None, data_index: 0UL, consumed: next_type, remaining: length, crc: _png_crc_for_type(kind), crc_pending: true },
       })
     }
     if _png_type_is(kind, b't', b'R', b'N', b'S') {
@@ -1345,6 +1483,15 @@ fn _png_read_stream_transport(
 
 ///|
 fn PngIdatSource::next_byte(self : PngIdatSource) -> Result[Byte, @error.CoreError] {
+  match self.data {
+    Some(data) => {
+      if self.data_index >= data.length().to_uint64() { return Err(_png_error("zlib-truncated")) }
+      let byte = data[self.data_index.to_int()]
+      self.data_index = self.data_index + 1UL
+      return Ok(byte)
+    }
+    None => ()
+  }
   if self.remaining == 0UL && self.crc_pending {
     let (stored, after_crc) = match _png_read_u32(self.reader, self.scratch, self.consumed, self.limits) { Err(error) => return Err(error); Ok(value) => value }
     if (self.crc ^ 4294967295UL) != stored { return Err(_png_error("png-crc")) }

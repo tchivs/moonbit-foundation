@@ -135,6 +135,28 @@ test "PNG encoder rejects output and budget limits before Writer output" {
 }
 
 ///|
+test "PNG encoder rejects retained non-sRGB metadata before output" {
+  let source = b"\x89PNG\r\n\x1a\n\x00\x00\x00\x0dIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x02\x00\x00\x00\x90\x77\x53\xde\x00\x00\x00\x04gAMA\x00\x01\x86\xa0\x31\xe8\x96\x5f\x00\x00\x00\x0fIDAT\x78\x01\x01\x04\x00\xfb\xff\x00\x12\x34\x56\x00\xf8\x00\x9d\xf8\xd7\x64\x8c\x00\x00\x00\x00IEND\xae\x42\x60\x82"
+  let owner = @bytes.OwnedBytes::from_bytes(source, png_encode_budget(bytes=source.length().to_uint64(), work=0UL)).unwrap()
+  let decoded = @codec.ImageDecoder::decode(
+    PngDecoder::new(), @io.MemoryReader::new(owner.view()) as &@io.Reader,
+    @codec.DecodeOptions::new(require_complete_input=true, preserve_opaque_metadata=false),
+    png_encode_limits(), png_encode_budget(bytes=512UL), @error.Diagnostics::new(),
+  ).unwrap()
+  inspect(!decoded.image().descriptor().supports_reference_operations(), content="true")
+  let writer = @io.MemoryWriter::new(128UL, png_encode_budget(bytes=128UL, work=0UL)).unwrap()
+  let error = @codec.ImageEncoder::encode(
+    PngEncoder::new(), decoded.image().view(), writer as &@io.Writer,
+    @codec.EncodeOptions::new(lossless_required=true, preserve_opaque_metadata=false),
+    png_encode_limits(), png_encode_budget(), @error.Diagnostics::new(),
+  ).unwrap_err()
+  inspect(error.category() == @error.ErrorCategory::Capability, content="true")
+  inspect(error.code() == @error.ErrorCode::CapabilityUnavailable, content="true")
+  inspect(error.context() == Some("builtin-encoded-srgb-required"), content="true")
+  inspect(writer.position(), content="0")
+}
+
+///|
 struct PngEncodeScriptWriter { mut completed : UInt64; fail_at : UInt64 }
 
 ///|

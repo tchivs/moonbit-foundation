@@ -18,6 +18,71 @@ pub fn PngEncoder::new() -> PngEncoder {
   PngEncoder::{  }
 }
 
+///| Legacy PNG declarations have no transform in this portable profile. Their
+/// canonical raw PNG values are retained and the descriptor intentionally
+/// avoids the encoded-sRGB identity used by reference operations.
+fn _png_legacy_metadata(
+  channels : UInt64,
+  gamma : Bytes?,
+  chrm : Bytes?,
+  budget : @budget.Budget,
+) -> Result[@model.ImageMetadata, @error.CoreError] {
+  let profile_bytes : Array[Byte] = []
+  let entries : Array[(String, String, String, Bytes)] = []
+  match gamma {
+    Some(value) => {
+      for byte in value { profile_bytes.push(byte) }
+      entries.push(("png", "legacy", "gamma", value))
+    }
+    None => ()
+  }
+  match chrm {
+    Some(value) => {
+      for byte in value { profile_bytes.push(byte) }
+      entries.push(("png", "legacy", "chromaticity", value))
+    }
+    None => ()
+  }
+  let profile = match @profile.OpaqueProfile::from_bytes(
+    @profile.ProfileFormatTag::new("png-legacy").unwrap(), Bytes::from_array(profile_bytes),
+    @profile.ProfileLimits::new(36UL), budget,
+  ) { Err(error) => return Err(error); Ok(value) => value }
+  let retained = match @metadata.OpaqueMetadata::from_entries(
+    entries,
+    @metadata.MetadataLimits::new(max_entries=2UL, max_token_bytes=16UL, max_value_bytes=32UL, max_total_bytes=128UL, max_disposition_fields=2UL),
+    budget,
+  ) { Err(error) => return Err(error); Ok(value) => value }
+  Ok(@model.ImageMetadata::new(
+    @color.ColorSpaceIdentity::Srgb, @color.TransferIdentity::LinearSrgb,
+    if channels == 4UL { Some(@color.AlphaMode::Straight) } else { None },
+    @profile.ProfileIdentity::opaque(profile), @model.Orientation::TopLeft, retained,
+  ))
+}
+
+///| iCCP profiles remain opaque. The profile bytes live in the bounded profile
+/// identity while the validated PNG profile name remains canonical metadata.
+fn _png_iccp_metadata(
+  channels : UInt64,
+  name : Bytes,
+  bytes : Bytes,
+  budget : @budget.Budget,
+) -> Result[@model.ImageMetadata, @error.CoreError] {
+  let profile = match @profile.OpaqueProfile::from_bytes(
+    @profile.ProfileFormatTag::icc(), bytes,
+    @profile.ProfileLimits::new(65536UL), budget,
+  ) { Err(error) => return Err(error); Ok(value) => value }
+  let retained = match @metadata.OpaqueMetadata::from_entries(
+    [("png", "icc", "name", name)],
+    @metadata.MetadataLimits::new(max_entries=1UL, max_token_bytes=16UL, max_value_bytes=79UL, max_total_bytes=79UL, max_disposition_fields=1UL),
+    budget,
+  ) { Err(error) => return Err(error); Ok(value) => value }
+  Ok(@model.ImageMetadata::new(
+    @color.ColorSpaceIdentity::Srgb, @color.TransferIdentity::LinearSrgb,
+    if channels == 4UL { Some(@color.AlphaMode::Straight) } else { None },
+    @profile.ProfileIdentity::opaque(profile), @model.Orientation::TopLeft, retained,
+  ))
+}
+
 ///|
 fn _probe_png_prefix(prefix : @bytes.ByteView) -> @codec.ProbeOutcome {
   if prefix.length() < 8UL {
@@ -65,15 +130,29 @@ pub impl @codec.ImageDecoder for PngDecoder with fn decode(
     Ok(value) => value
   }
   let transport = PngTransport::{ width: stream.width, height: stream.height, bit_depth: stream.bit_depth, source_channels: stream.source_channels, source_bytes_per_pixel: stream.source_bytes_per_pixel, channels: stream.channels, indexed: stream.indexed, palette: stream.palette, palette_entries: stream.palette_entries, transparency: stream.transparency, idat: b"", consumed: 0UL }
-  let metadata = match stream.srgb_intent {
-    Some(intent) => match stream.metadata_budget {
+  let metadata = match stream.colour_declaration {
+    PngColourDeclaration::Srgb(intent) => match stream.metadata_budget {
       Some(metadata_budget) => match _png_srgb_metadata(stream.channels, intent, metadata_budget) {
         Err(error) => return Err(error)
         Ok(value) => value
       }
       None => return Err(_png_error("png-srgb-budget"))
     }
-    None => match _png_empty_metadata(stream.channels) {
+    PngColourDeclaration::Legacy(gamma, chrm) => match stream.metadata_budget {
+      Some(metadata_budget) => match _png_legacy_metadata(stream.channels, gamma, chrm, metadata_budget) {
+        Err(error) => return Err(error)
+        Ok(value) => value
+      }
+      None => return Err(_png_error("png-legacy-budget"))
+    }
+    PngColourDeclaration::Icc(name, profile) => match stream.metadata_budget {
+      Some(metadata_budget) => match _png_iccp_metadata(stream.channels, name, profile, metadata_budget) {
+        Err(error) => return Err(error)
+        Ok(value) => value
+      }
+      None => return Err(_png_error("png-iccp-budget"))
+    }
+    PngColourDeclaration::Default => match _png_empty_metadata(stream.channels) {
       Err(error) => return Err(error)
       Ok(value) => value
     }

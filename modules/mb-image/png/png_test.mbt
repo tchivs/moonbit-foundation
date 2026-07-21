@@ -192,7 +192,7 @@ test "PNG decoder retains legacy non-sRGB declarations without relabelling sampl
     @codec.DecodeOptions::new(require_complete_input=true, preserve_opaque_metadata=false),
     png_test_limits(),
     @budget.Budget::new(@budget.ResourceLimits::new(
-      bytes=128UL, allocations=1UL, allocation_size=64UL, width=4UL,
+      bytes=128UL, allocations=3UL, allocation_size=64UL, width=4UL,
       height=4UL, pixels=16UL, depth=0UL, work=128UL,
     )),
     @error.Diagnostics::new(),
@@ -419,6 +419,29 @@ test "generated PNG decode vectors execute fixed and dynamic streams through Png
           metadata.opaque_metadata().length() != 1 ||
           metadata.opaque_metadata().entry(0).unwrap().value().get(0UL).unwrap().to_int() != item.srgb_intent {
           fail("generated PNG sRGB metadata mismatch: " + item.id)
+        }
+      }
+      if item.metadata_key != "" {
+        let metadata = descriptor.metadata()
+        if metadata.transfer() != @color.TransferIdentity::LinearSrgb ||
+          metadata.profile().is_builtin_srgb() ||
+          metadata.opaque_metadata().length() != 1 {
+          fail("generated PNG non-sRGB identity mismatch: " + item.id)
+        }
+        let entry = metadata.opaque_metadata().entry(0).unwrap()
+        if entry.canonical_key() != item.metadata_key || entry.value().length() != item.metadata_value.length().to_uint64() {
+          fail("generated PNG non-sRGB metadata shape mismatch: " + item.id)
+        }
+        for index = 0UL; index < item.metadata_value.length().to_uint64(); index = index + 1UL {
+          if entry.value().get(index).unwrap() != item.metadata_value[index.to_int()] {
+            fail("generated PNG non-sRGB metadata value mismatch: " + item.id)
+          }
+        }
+        if item.icc_profile_length > 0UL {
+          let profile = metadata.profile().opaque_profile().unwrap()
+          if profile.tag().value() != "icc" || profile.length() != item.icc_profile_length {
+            fail("generated PNG ICC profile mismatch: " + item.id)
+          }
         }
       }
       let view = result.image().view()
