@@ -11,6 +11,7 @@ provides:
   - frozen eager and caller-buffered PNG compatibility vectors
   - documented strict complete-PNG dynamic selection contract
 affects: [phase-36-dynamic-huffman-implementation]
+requirements-completed: [PNGD-01]
 tech-stack:
   added: []
   patterns: [public-enum-addition, shared-preflight-routing, byte-vector-compatibility-tests]
