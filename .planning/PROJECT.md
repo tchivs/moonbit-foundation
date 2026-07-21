@@ -71,10 +71,17 @@ Registry publication remains deferred: the existing v0.2 qualification artifacts
 
 **Validated:** The complete PNG package passed 84/84 tests on each of `wasm`, `wasm-gc`, `js`, and `native`. The public workflow freezes `PngChunkDecoder` → bilinear resize → eager PNG encode to a 78-byte output with digest `626208771` on all four targets. The milestone audit passed all four requirements, all three phase verifications, six cross-phase handoffs, and two end-to-end flows.
 
-## Next Milestone Goals
+## Current Milestone: v0.9 Resumable PNG Encode
 
-- Use GSD research and requirement discovery to choose the highest-value code-first extension, with the public resumable PNG encoder as a strong candidate because it completes the caller-buffered PNG I/O pair.
-- Keep registry publication and release automation deferred unless they directly unblock a concrete consumer or code path.
+**Goal:** Complete the portable PNG streaming contract with caller-buffered canonical output that preserves eager encoder semantics, eager preflight, bounded resource behavior, and four-target evidence.
+
+**Target features:**
+
+- Build a private resumable PNG encoding substrate that emits the existing canonical PNG byte stream without retaining caller output buffers.
+- Publish a decode-independent `PngChunkEncoder` that writes into arbitrary caller-owned mutable output buffers and reports exact progress, completion, and typed sticky terminals.
+- Prove eager/chunk byte parity, hostile output-capacity schedules, budget/limit preflight, and one portable public chunk-decode → process → chunk-encode workflow on all four targets.
+
+Registry publication and release automation remain deferred unless they directly unblock a concrete consumer or code path.
 
 
 ## Constraints

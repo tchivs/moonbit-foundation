@@ -1,20 +1,16 @@
 ---
 gsd_state_version: 1.0
-milestone: v0.8
-milestone_name: Resumable PNG Decode
-status: Awaiting next milestone
-stopped_at: v0.8 shipped; next milestone planning may begin
-last_updated: "2026-07-21T12:30:42.800Z"
+milestone: v0.9
+milestone_name: Resumable PNG Encode
+status: planning
+last_updated: "2026-07-21T13:00:00.000Z"
 last_activity: 2026-07-21
-last_activity_desc: Milestone v0.8 completed and archived
 progress:
   total_phases: 3
-  completed_phases: 3
-  total_plans: 5
-  completed_plans: 5
-  percent: 100
-current_phase: null
-current_phase_name: null
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
+  percent: 0
 ---
 
 # Project State
@@ -25,18 +21,18 @@ See `.planning/PROJECT.md` (updated 2026-07-21).
 
 **Core value:** MoonBit developers can reuse stable, high-performance native infrastructure contracts instead of rebuilding incompatible foundations for every graphics, document, media, or automation product.
 
-**Current focus:** Planning the next code-first milestone; public resumable PNG encoding is the leading candidate.
+**Current focus:** Plan and implement portable caller-buffered PNG encoding with eager-equivalent canonical bytes and four-target evidence.
 
 ## Current Position
 
-Phase: Milestone v0.8 complete
+Phase: 29 — Pausable PNG Encode Substrate
 Plan: —
-Status: Awaiting next milestone
-Last activity: 2026-07-21 — Milestone v0.8 completed and archived
+Status: Roadmap ready for planning
+Last activity: 2026-07-21 — v0.9 roadmap created with Phases 29-31
 
 ## Performance Metrics
 
-**Current milestone:** v0.8 shipped: 5/5 plans complete across 3/3 phases, all four requirements satisfied, and audit evidence passed.
+**Current milestone:** v0.9 planned: 0/0 plans complete across 0/3 phases; 5/5 requirements mapped to Phases 29-31.
 
 **Historical context:** v0.5 shipped three phases and three plans on 2026-07-20. v0.2 publication and registry work remains deferred and excluded from this code-first milestone.
 
@@ -69,6 +65,9 @@ Last activity: 2026-07-21 — Milestone v0.8 completed and archived
 - [Phase 27]: Preserve zero-length non-IEND type input as a private pending state so strict finish reports png-iend-type deterministically.
 - [Phase ?]: Phase 28 proves PngChunkDecoder only through public empty-one-byte and ragged schedules, with a separate eager oracle for results, diagnostics, budgets, and sticky terminals.
 - [Phase ?]: Phase 28 freezes a public chunk-decode to bilinear-resize to eager-PNG-encode evidence line across all four targets and keeps the quality lane scoped away from release and registry automation.
+- [v0.9]: Preserve eager PNG byte and failure semantics through a private resumable MoonBit encode state machine before publishing the caller-buffered API.
+- [v0.9]: Keep constructor preflight atomic: incompatible image capability, dimensions, limits, and budgets fail before any encoded output can be observed.
+- [v0.9]: Prove output ownership, exact progress, hostile-capacity handling, sticky terminals, and the public chunk-decode to operation to chunk-encode workflow on js, wasm, wasm-gc, and native.
 
 ### Pending Todos
 
@@ -113,7 +112,7 @@ None.
 | Category | Item | Status |
 |----------|------|--------|
 | scope | cICP/HDR and full ICC colour transforms | deferred |
-| scope | Public resumable PNG encoder | deferred |
+| scope | Public resumable PNG encoder | active in v0.9 |
 | delivery | Registry publication and release automation | deferred |
 | closeout-debug | clean-diff-empty-binding | acknowledged historical record |
 | closeout-debug | hosted-toolchain-setup-failure | acknowledged historical record |
@@ -137,10 +136,10 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-07-21T12:06:18Z
-Stopped at: Phase 28 verified complete (3/3); ready for v0.8 milestone audit
+Last session: 2026-07-21T13:00:00Z
+Stopped at: v0.9 roadmap complete; Phase 29 is ready for detailed planning
 Resume file: None
 
 ## Operator Next Steps
 
-- Start the next milestone with /gsd-new-milestone
+- Plan Phase 29 with /gsd-plan-phase 29

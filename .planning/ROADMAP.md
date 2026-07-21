@@ -10,6 +10,7 @@
 - ✅ **v0.6 PNG Interchange** — Phases 20-22, strict bounded RGB/RGBA PNG interchange and pure-MoonBit DEFLATE (shipped 2026-07-21).
 - ✅ **v0.7 PNG Colour Fidelity** — Phases 23-25, strict PNG colour declarations without silent non-sRGB loss (shipped 2026-07-21).
 - ✅ **v0.8 Resumable PNG Decode** — Phases 26-28, portable caller-buffered decode with strict completion and four-target evidence (shipped 2026-07-21). [Full history](./milestones/v0.8-ROADMAP.md).
+- 🟡 **v0.9 Resumable PNG Encode** — Phases 29-31, portable caller-buffered canonical PNG output with eager parity and four-target evidence (planned).
 
 ## Phases
 
@@ -22,9 +23,49 @@
 
 </details>
 
+### v0.9 Resumable PNG Encode (Phases 29-31)
+
+- [ ] **Phase 29: Pausable PNG Encode Substrate** - Compatible images can be admitted or rejected before output while a private MoonBit state machine prepares canonical PNG emission.
+- [ ] **Phase 30: Public PNG Chunk Encoder** - Library users can drain one canonical eager-equivalent PNG through arbitrary caller-owned output buffers.
+- [ ] **Phase 31: Portable PNG Encode Evidence** - Four-target hostile-schedule proof and a public decode-process-encode workflow validate the complete contract.
+
+## Phase Details
+
+### Phase 29: Pausable PNG Encode Substrate
+**Goal**: Compatible RGB8 and straight-RGBA8 images can enter a private resumable MoonBit encoding state only after eager-equivalent capability, dimension, limit, and budget preflight succeeds.
+**Depends on**: Phase 28
+**Requirements**: PNGE-01
+**Success Criteria** (what must be TRUE):
+  1. A library user can begin chunked encoding for a compatible RGB8 or straight-RGBA8 image only after all eager-equivalent capability, dimension, limit, and budget checks have passed.
+  2. A library user receives the existing typed rejection for an incompatible image or exhausted limit/budget before any PNG byte is exposed.
+**Plans**: TBD
+
+### Phase 30: Public PNG Chunk Encoder
+**Goal**: Library users can emit exactly one canonical PNG through arbitrary caller-owned mutable output buffers with exact progress and sticky terminals.
+**Depends on**: Phase 29
+**Requirements**: PNGE-02, PNGE-03
+**Success Criteria** (what must be TRUE):
+  1. A library user can repeatedly supply empty, tiny, or irregular mutable output buffers and observe deterministic exact progress until canonical PNG output is complete.
+  2. The concatenated bytes emitted through every valid output schedule exactly match the eager PNG encoder's canonical output, with no duplicated or omitted byte.
+  3. After successful completion or a typed terminal failure, later calls expose no additional bytes and report the same sticky terminal outcome.
+**Plans**: TBD
+
+### Phase 31: Portable PNG Encode Evidence
+**Goal**: Maintainers and library users can verify the public resumable PNG encode contract across all portable targets in hostile and end-to-end workflows.
+**Depends on**: Phase 30
+**Requirements**: PNGE-04, PNGE-05
+**Success Criteria** (what must be TRUE):
+  1. Maintainers can run a deterministic quality lane on js, wasm, wasm-gc, and native that verifies hostile output capacities, eager/chunk byte parity, preflight limits and budgets, and sticky terminal behavior.
+  2. A library user can run one public chunk-decode to image-operation to chunk-encode workflow on every supported target and receive the same deterministic output evidence.
+**Plans**: TBD
+
 ## Progress
 
-All currently planned code milestones through v0.8 are complete. The next milestone will be selected through GSD research and requirements discovery, with code and tests prioritized over registry/release automation.
+| Phase | Plans Complete | Status | Completed |
+|-------|----------------|--------|-----------|
+| 29. Pausable PNG Encode Substrate | 0/TBD | Not started | - |
+| 30. Public PNG Chunk Encoder | 0/TBD | Not started | - |
+| 31. Portable PNG Encode Evidence | 0/TBD | Not started | - |
 
 ---
-*Roadmap updated: 2026-07-21 after v0.8 milestone closeout.*
+*Roadmap updated: 2026-07-21 for v0.9 resumable PNG encode planning.*
