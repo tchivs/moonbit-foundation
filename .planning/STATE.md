@@ -4,17 +4,17 @@ milestone: v0.7
 milestone_name: PNG Colour Fidelity
 current_phase: 23
 current_phase_name: PNG Colour Declaration and sRGB Semantics
-status: ready_to_execute
-stopped_at: Completed 23-01-PLAN.md
-last_updated: "2026-07-21T00:50:29.125Z"
+status: ready_to_verify
+stopped_at: Completed 23-02-PLAN.md
+last_updated: "2026-07-21T01:17:06.618Z"
 last_activity: 2026-07-21
-last_activity_desc: Phase 23 plan verified
+last_activity_desc: Completed 23-02-PLAN.md
 progress:
   total_phases: 17
   completed_phases: 3
-  total_plans: 7
-  completed_plans: 5
-  percent: 18
+  total_plans: 8
+  completed_plans: 6
+  percent: 75
 ---
 
 # Project State
@@ -30,11 +30,11 @@ See `.planning/PROJECT.md` (updated 2026-07-20).
 ## Current Position
 
 Phase: 23 of 25 (PNG Colour Declaration and sRGB Semantics)
-Plan: 23-01-PLAN.md
-Status: Ready to execute
-Last activity: 2026-07-21 — Phase 23 plan verified
+Plan: 23-02-PLAN.md
+Status: Ready for verification
+Last activity: 2026-07-21 — Completed 23-02-PLAN.md
 
-Progress: [███████░░░] 71%
+Progress: [████████░░] 75%
 
 ## Performance Metrics
 
@@ -55,6 +55,8 @@ Progress: [███████░░░] 71%
 - [Phase ?]: Use fixed public PNG bytes plus a target-neutral digest for four-target decode-flip-encode proof.
 - [v0.7]: Preserve validated PNG colour declarations before transforming pixels; only confirmed sRGB may enter existing reference operations.
 - [Phase ?]: Generated PNG colour fixtures independently validate CRC, order, grammar, sRGB metadata intent, and non-sRGB capability boundaries.
+- [Phase ?]: Fixed-size PNG colour chunks are rejected from their headers before payload reads; iCCP remains on its streaming envelope path.
+- [Phase ?]: Generated 2 GiB fixed-colour hostile cases end at the chunk type to prove pre-payload rejection.
 
 ### Pending Todos
 
@@ -81,6 +83,7 @@ None.
 
 \* The PNG quality lane and all portable tests pass; the all-package `--deny-warn` command still reports the pre-existing 26 generated/legacy unused-field diagnostics documented in the quick-task verification.
 | Phase 23-png-colour-declaration-and-srgb-semantics P01 | 0h 24m | 2 tasks | 9 files |
+| Phase 23-png-colour-declaration-and-srgb-semantics P02 | 0h 18m | 2 tasks | 6 files |
 
 ## Deferred Items
 
@@ -94,6 +97,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-07-21T00:50:29.110Z
-Stopped at: Completed 23-01-PLAN.md
+Last session: 2026-07-21T01:17:06.595Z
+Stopped at: Completed 23-02-PLAN.md
 Resume file: None

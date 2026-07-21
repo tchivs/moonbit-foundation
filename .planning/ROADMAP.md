@@ -337,7 +337,9 @@ Plans:
 2. Valid `sRGB` images preserve their rendering intent and expose built-in encoded-sRGB metadata; malformed or conflicting declarations fail deterministically.
 3. Existing reference operations continue to accept only actual encoded-sRGB images.
 
-**Plans:** 1/1 plans executed
+**Plans:** 2/2 plans executed
+
+- [x] 23-02-PLAN.md
 
 - [x] 23-01-PLAN.md
 
