@@ -81,7 +81,7 @@ Publication, registry-consumer proof, provenance closure, and any release automa
 
 **Milestone goal:** Add a portable, caller-buffered PNG decode path that pauses at arbitrary input boundaries while preserving eager PNG semantics, strict completion, bounded resources, and private output until success.
 
-- [ ] **Phase 26: Pausable PNG Decode Substrate** - Existing eager PNG decoding remains compatible while framing, IDAT, DEFLATE, and raster work can safely pause at every byte boundary.
+- [x] **Phase 26: Pausable PNG Decode Substrate** - Existing eager PNG decoding remains compatible while framing, IDAT, DEFLATE, and raster work can safely pause at every byte boundary. (completed 2026-07-21)
 - [ ] **Phase 27: Public PNG Chunk Decoder** - Users can feed caller-owned PNG chunks and explicitly receive one eager-equivalent completed image or a sticky typed terminal error.
 - [ ] **Phase 28: Portable PNG Streaming Evidence** - Users and maintainers can verify hostile chunk schedules and one public portable chunk-decode workflow on all four targets.
 
@@ -182,7 +182,7 @@ Plans:
 | 23. PNG Colour Declaration and sRGB Semantics | v0.7 | 2/2 | Complete | 2026-07-21 |
 | 24. Bounded Non-sRGB and ICC Preservation | v0.7 | 2/2 | Complete | 2026-07-21 |
 | 25. Portable Colour Conformance Evidence | v0.7 | 1/1 | Complete | 2026-07-21 |
-| 26. Pausable PNG Decode Substrate | v0.8 | 0/TBD | Not started | - |
+| 26. Pausable PNG Decode Substrate | v0.8 | 1/1 | Complete | 2026-07-21 |
 | 27. Public PNG Chunk Decoder | v0.8 | 0/TBD | Not started | - |
 | 28. Portable PNG Streaming Evidence | v0.8 | 0/TBD | Not started | - |
 
@@ -400,7 +400,11 @@ Plans:
   2. A library user receives the same typed deterministic failure for malformed framing, chunk CRCs, zlib/DEFLATE, filters, limits, and budget exhaustion whether the underlying decode pauses at signature, chunk, IDAT, DEFLATE, scanline, or IEND boundaries.
   3. A library user never observes a partially decoded image: output remains private until all raster, IDAT CRC, Adler-32, IEND, and end-of-input validation succeeds.
 
-**Plans**: TBD
+**Plans**: 1/1 plans complete
+
+Plans:
+
+- [x] 26-01-PLAN.md — Build the private byte-resumable PNG decode substrate, preserve eager facade parity, and lock the private-source policy.
 
 ### Phase 27: Public PNG Chunk Decoder
 

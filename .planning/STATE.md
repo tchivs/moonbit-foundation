@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v0.8
 milestone_name: Resumable PNG Decode
 status: planning
-last_updated: "2026-07-21T06:29:24.096Z"
+last_updated: "2026-07-21T09:45:02Z"
 last_activity: 2026-07-21
 progress:
   total_phases: 3
-  completed_phases: 0
-  total_plans: 0
-  completed_plans: 0
-  percent: 0
+  completed_phases: 1
+  total_plans: 1
+  completed_plans: 1
+  percent: 33
 ---
 
 # Project State
@@ -21,18 +21,18 @@ See `.planning/PROJECT.md` (updated 2026-07-20).
 
 **Core value:** MoonBit developers can reuse stable, high-performance native infrastructure contracts instead of rebuilding incompatible foundations for every graphics, document, media, or automation product.
 
-**Current focus:** Phase 26 — Pausable PNG Decode Substrate.
+**Current focus:** Phase 27 — Public PNG Chunk Decoder.
 
 ## Current Position
 
-Phase: 26 of 28 (Pausable PNG Decode Substrate)
+Phase: 27 of 28 (Public PNG Chunk Decoder)
 Plan: —
-Status: Roadmap created; ready for phase planning
-Last activity: 2026-07-21 — v0.8 resumable PNG decode roadmap created
+Status: Phase 26 verified complete; ready for Phase 27 planning
+Last activity: 2026-07-21 — Phase 26 private pausable PNG decode substrate verified 4/4
 
 ## Performance Metrics
 
-**Current milestone:** 0 plans completed across 3 planned phases.
+**Current milestone:** 1 plan completed across 3 planned phases.
 
 **Historical context:** v0.5 shipped three phases and three plans on 2026-07-20. v0.2 publication and registry work remains deferred and excluded from this code-first milestone.
 
@@ -58,6 +58,8 @@ Last activity: 2026-07-21 — v0.8 resumable PNG decode roadmap created
 - [v0.8]: Refactor the eager PNG framing, IDAT/CRC, DEFLATE, and raster pipeline into explicit pausable MoonBit-owned state; a buffered eager wrapper is not resumable decode.
 - [v0.8]: Publish decode-only `PngChunkDecoder` with caller-owned chunk input, exact consumed-byte reporting, explicit `finish()`, and sticky terminal behavior; do not change `Reader` EOF semantics.
 - [v0.8]: Keep completed images private until final IDAT CRC, zlib Adler-32, IEND CRC, and explicit end-of-input validation pass.
+- [Phase 26]: Route the existing eager facade through one private byte-fed machine; preserve the public `PngDecoder`/`PngEncoder` interface until Phase 27.
+- [Phase 26]: Retain framing, CRC, DEFLATE, raster, Adam7, and terminal continuation state without retaining a caller `ByteView` or a complete IDAT stream.
 
 ### Pending Todos
 
@@ -105,6 +107,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-07-21T06:26:47.913Z
-Stopped at: v0.8 roadmap created; Phase 26 is ready for planning
+Last session: 2026-07-21T09:45:02Z
+Stopped at: Phase 26 verified complete; Phase 27 is ready for planning
 Resume file: None
