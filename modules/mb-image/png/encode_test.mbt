@@ -87,6 +87,114 @@ fn png_encode(image : @storage.OwnedImage) -> (@codec.EncodeResult, @io.MemoryWr
 }
 
 ///|
+fn png_filter_strategy_decode_matches_source(
+  bytes : Bytes,
+  source : @storage.OwnedImage,
+) -> Unit {
+  let owner = @bytes.OwnedBytes::from_bytes(
+    bytes, png_encode_budget(bytes=1048576UL, work=0UL),
+  ).unwrap()
+  let decoded = @codec.ImageDecoder::decode(
+    PngDecoder::new(), @io.MemoryReader::new(owner.view()) as &@io.Reader,
+    @codec.DecodeOptions::new(
+      require_complete_input=true, preserve_opaque_metadata=false,
+    ), png_encode_limits(), png_encode_budget(), @error.Diagnostics::new(),
+  ).unwrap()
+  let restored = decoded.image().view()
+  let expected = source.view()
+  if restored.width() != expected.width() || restored.height() != expected.height() ||
+    restored.format().channel_count() != expected.format().channel_count() {
+    abort("png filter strategy decoded descriptor")
+  }
+  for y = 0UL; y < expected.height(); y = y + 1UL {
+    for x = 0UL; x < expected.width(); x = x + 1UL {
+      for channel = 0UL; channel < expected.format().channel_count(); channel = channel + 1UL {
+        if restored.get_byte(x, y, channel).unwrap() !=
+          expected.get_byte(x, y, channel).unwrap() {
+          abort("png filter strategy decoded component")
+        }
+      }
+    }
+  }
+}
+
+///|
+test "PNG filter strategy eager frozen compatibility vectors" {
+  let rgb = png_encode_image(3UL, b"\x00\x01\x02")
+  let rgb_stored =
+    b"\x89PNG\r\n\x1a\n\x00\x00\x00\x0dIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x02\x00\x00\x00\x90\x77\x53\xde\x00\x00\x00\x0fIDAT\x78\x01\x01\x04\x00\xfb\xff\x00\x00\x01\x02\x00\x08\x00\x04\xad\xa5\x4e\x4e\x00\x00\x00\x00IEND\xae\x42\x60\x82"
+  let (_, rgb_default_writer) = png_encode_with(PngEncoder::new(), rgb)
+  let (_, rgb_configured_writer) = png_encode_with(
+    PngEncoder::new_with_compression_strategy(PngCompressionStrategy::Stored), rgb,
+  )
+  let (_, rgb_adaptive_writer) = png_encode_with(
+    PngEncoder::new_with_filter_strategy(PngFilterStrategy::Adaptive), rgb,
+  )
+  for bytes in [png_encode_prefix(rgb_default_writer), png_encode_prefix(rgb_configured_writer), png_encode_prefix(rgb_adaptive_writer)] {
+    inspect(bytes == rgb_stored, content="true")
+    png_filter_strategy_decode_matches_source(bytes, rgb)
+  }
+
+  let rgba = png_encode_image(4UL, b"\x00\x01\x02\x03")
+  let rgba_stored =
+    b"\x89PNG\r\n\x1a\n\x00\x00\x00\x0dIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x06\x00\x00\x00\x1f\x15\xc4\x89\x00\x00\x00\x10IDAT\x78\x01\x01\x05\x00\xfa\xff\x00\x00\x01\x02\x03\x00\x0f\x00\x07\x2c\x93\x65\xb4\x00\x00\x00\x00IEND\xae\x42\x60\x82"
+  let (_, rgba_default_writer) = png_encode_with(PngEncoder::new(), rgba)
+  let (_, rgba_configured_writer) = png_encode_with(
+    PngEncoder::new_with_compression_strategy(PngCompressionStrategy::Stored), rgba,
+  )
+  let (_, rgba_adaptive_writer) = png_encode_with(
+    PngEncoder::new_with_filter_strategy(PngFilterStrategy::Adaptive), rgba,
+  )
+  for bytes in [png_encode_prefix(rgba_default_writer), png_encode_prefix(rgba_configured_writer), png_encode_prefix(rgba_adaptive_writer)] {
+    inspect(bytes == rgba_stored, content="true")
+    png_filter_strategy_decode_matches_source(bytes, rgba)
+  }
+
+  for channels in [3UL, 4UL] {
+    let image = png_encode_image(
+      channels, Bytes::from_array(Array::make((channels * 32UL).to_int(), b'\xaa')),
+      width=32UL,
+    )
+    let fixed = if channels == 3UL {
+      b"\x89PNG\r\n\x1a\n\x00\x00\x00\x0dIHDR\x00\x00\x00 \x00\x00\x00\x01\x08\x02\x00\x00\x000\xe8\x3b\x30\x00\x00\x00\x0cIDAT\x78\x01\x63\x58\x45\x63\x00\x00\x14\xf5\x3f\xc1\x59\xc4\xa1\xc0\x00\x00\x00\x00IEND\xae\x42\x60\x82"
+    } else {
+      b"\x89PNG\r\n\x1a\n\x00\x00\x00\x0dIHDR\x00\x00\x00 \x00\x00\x00\x01\x08\x06\x00\x00\x00\xbf\x8a\xac\x67\x00\x00\x00\x0cIDAT\x78\x01\x63\x58\x35\xc0\x00\x00\x6c\x3c\x55\x01\xb7\x54\x9d\x82\x00\x00\x00\x00IEND\xae\x42\x60\x82"
+    }
+    let (_, fixed_writer) = png_encode_with(
+      PngEncoder::new_with_compression_strategy(PngCompressionStrategy::FixedOrStored), image,
+    )
+    let (_, dynamic_fallback_writer) = png_encode_with(
+      PngEncoder::new_with_compression_strategy(PngCompressionStrategy::DynamicOrFixedOrStored), image,
+    )
+    for bytes in [png_encode_prefix(fixed_writer), png_encode_prefix(dynamic_fallback_writer)] {
+      inspect(bytes == fixed, content="true")
+      png_filter_strategy_decode_matches_source(bytes, image)
+    }
+  }
+
+  let pixels : Array[Byte] = []
+  for x = 0UL; x < 128UL; x = x + 1UL {
+    for channel = 0UL; channel < 3UL; channel = channel + 1UL {
+      pixels.push(((x * 3UL + channel) % 5UL).to_byte())
+    }
+  }
+  let dynamic_image = png_encode_image(3UL, Bytes::from_array(pixels), width=128UL)
+  let dynamic =
+    b"\x89PNG\r\n\x1a\n\x00\x00\x00\x0dIHDR\x00\x00\x00\x80\x00\x00\x00\x01\x08\x02\x00\x00\x00\x99\xb0\x31\xe1\x00\x00\x00\x91IDAT\x78\x01\x05\xc0\x01\x01\x00\x00\x00\xc1\xb0\x73\xfd\x33\x1b\xa4\x8e\xd4\x91\x3a\x52\x47\xea\x48\x1d\xa9\x23\x75\xa4\x8e\xd4\x91\x3a\x52\x47\xea\x48\x1d\xa9\x23\x75\xa4\x8e\xd4\x91\x3a\x52\x47\xea\x48\x1d\xa9\x23\x75\xa4\x8e\xd4\x91\x3a\x52\x47\xea\x48\x1d\xa9\x23\x75\xa4\x8e\xd4\x91\x3a\x52\x47\xea\x48\x1d\xa9\x23\x75\xa4\x8e\xd4\x91\x3a\x52\x47\xea\x48\x1d\xa9\x23\x75\xa4\x8e\xd4\x91\x3a\x52\x47\xea\x48\x1d\xa9\x23\x75\xa4\x8e\xd4\x91\x3a\x52\x47\xea\x48\x1d\xa9\x23\x75\xa4\x8e\xd4\x91\x3a\x52\x47\xea\x48\x1d\xa9\x23\x75\xa4\x8e\xd4\x91\x3a\x52\x47\xea\x01\x40\x1d\x02\xff\xd8\xa1\x67\x97\x00\x00\x00\x00IEND\xae\x42\x60\x82"
+  let (_, fixed_writer) = png_encode_with(
+    PngEncoder::new_with_compression_strategy(PngCompressionStrategy::FixedOrStored), dynamic_image,
+  )
+  let (_, dynamic_writer) = png_encode_with(
+    PngEncoder::new_with_compression_strategy(PngCompressionStrategy::DynamicOrFixedOrStored), dynamic_image,
+  )
+  let dynamic_bytes = png_encode_prefix(dynamic_writer)
+  inspect(dynamic_bytes == dynamic, content="true")
+  inspect(dynamic_bytes.length() < png_encode_prefix(fixed_writer).length(), content="true")
+  inspect((dynamic_bytes[43] & b'\x07') == b'\x05', content="true")
+  png_filter_strategy_decode_matches_source(dynamic_bytes, dynamic_image)
+}
+
+///|
 test "PNG compression strategy eager factories encode supported images" {
   for strategy in [PngCompressionStrategy::Stored, PngCompressionStrategy::FixedOrStored] {
     let image = png_encode_image(3UL, b"\x12\x34\x56")

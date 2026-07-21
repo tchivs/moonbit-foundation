@@ -286,6 +286,63 @@ fn png_chunk_test_drain(
   png_chunk_test_drain_encoder(encoder, schedule)
 }
 
+test "PNG filter strategy chunk frozen compatibility vectors" {
+  let rgb = png_stream_test_image(3UL)
+  let rgb_stored =
+    b"\x89PNG\r\n\x1a\n\x00\x00\x00\x0dIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x02\x00\x00\x00\x90\x77\x53\xde\x00\x00\x00\x0fIDAT\x78\x01\x01\x04\x00\xfb\xff\x00\x00\x01\x02\x00\x08\x00\x04\xad\xa5\x4e\x4e\x00\x00\x00\x00IEND\xae\x42\x60\x82"
+  let default = png_chunk_test_drain_encoder(PngChunkEncoder::new(
+    rgb.view(), png_stream_test_limits(), png_stream_test_budget(), @error.Diagnostics::new(),
+  ).unwrap(), [0UL, 1UL, 3UL, 2UL, 5UL]).unwrap()
+  let configured = png_chunk_test_drain_encoder(PngChunkEncoder::new_with_compression_strategy(
+    rgb.view(), PngCompressionStrategy::Stored, png_stream_test_limits(), png_stream_test_budget(), @error.Diagnostics::new(),
+  ).unwrap(), [0UL, 1UL, 3UL, 2UL, 5UL]).unwrap()
+  let adaptive = png_chunk_test_drain_encoder(PngChunkEncoder::new_with_filter_strategy(
+    rgb.view(), PngFilterStrategy::Adaptive, png_stream_test_limits(), png_stream_test_budget(), @error.Diagnostics::new(),
+  ).unwrap(), [0UL, 1UL, 3UL, 2UL, 5UL]).unwrap()
+  for bytes in [default, configured, adaptive] {
+    inspect(bytes == rgb_stored, content="true")
+    png_stream_test_fixed_or_stored_corpus_decode_matches_source(bytes, rgb)
+  }
+
+  let rgba = png_stream_test_image(4UL)
+  let rgba_stored =
+    b"\x89PNG\r\n\x1a\n\x00\x00\x00\x0dIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x06\x00\x00\x00\x1f\x15\xc4\x89\x00\x00\x00\x10IDAT\x78\x01\x01\x05\x00\xfa\xff\x00\x00\x01\x02\x03\x00\x0f\x00\x07\x2c\x93\x65\xb4\x00\x00\x00\x00IEND\xae\x42\x60\x82"
+  let rgba_adaptive = png_chunk_test_drain_encoder(PngChunkEncoder::new_with_filter_strategy(
+    rgba.view(), PngFilterStrategy::Adaptive, png_stream_test_limits(), png_stream_test_budget(), @error.Diagnostics::new(),
+  ).unwrap(), [0UL, 1UL, 3UL, 2UL, 5UL]).unwrap()
+  inspect(rgba_adaptive == rgba_stored, content="true")
+  png_stream_test_fixed_or_stored_corpus_decode_matches_source(rgba_adaptive, rgba)
+
+  for channels in [3UL, 4UL] {
+    let image = png_stream_test_flat_image(channels, 32UL)
+    let fixed = if channels == 3UL {
+      b"\x89PNG\r\n\x1a\n\x00\x00\x00\x0dIHDR\x00\x00\x00 \x00\x00\x00\x01\x08\x02\x00\x00\x000\xe8\x3b\x30\x00\x00\x00\x0cIDAT\x78\x01\x63\x58\x45\x63\x00\x00\x14\xf5\x3f\xc1\x59\xc4\xa1\xc0\x00\x00\x00\x00IEND\xae\x42\x60\x82"
+    } else {
+      b"\x89PNG\r\n\x1a\n\x00\x00\x00\x0dIHDR\x00\x00\x00 \x00\x00\x00\x01\x08\x06\x00\x00\x00\xbf\x8a\xac\x67\x00\x00\x00\x0cIDAT\x78\x01\x63\x58\x35\xc0\x00\x00\x6c\x3c\x55\x01\xb7\x54\x9d\x82\x00\x00\x00\x00IEND\xae\x42\x60\x82"
+    }
+    let fixed_bytes = png_chunk_test_drain_encoder(PngChunkEncoder::new_with_compression_strategy(
+      image.view(), PngCompressionStrategy::FixedOrStored, png_stream_test_limits(), png_stream_test_budget(), @error.Diagnostics::new(),
+    ).unwrap(), [0UL, 1UL, 3UL, 2UL, 5UL]).unwrap()
+    let dynamic_fallback = png_chunk_test_drain_encoder(PngChunkEncoder::new_with_compression_strategy(
+      image.view(), PngCompressionStrategy::DynamicOrFixedOrStored, png_stream_test_limits(), png_stream_test_budget(), @error.Diagnostics::new(),
+    ).unwrap(), [0UL, 1UL, 3UL, 2UL, 5UL]).unwrap()
+    inspect(fixed_bytes == fixed && dynamic_fallback == fixed, content="true")
+    png_stream_test_fixed_or_stored_corpus_decode_matches_source(fixed_bytes, image)
+    png_stream_test_fixed_or_stored_corpus_decode_matches_source(dynamic_fallback, image)
+  }
+
+  let dynamic_image = png_stream_test_dynamic_image()
+  let dynamic =
+    b"\x89PNG\r\n\x1a\n\x00\x00\x00\x0dIHDR\x00\x00\x00\x80\x00\x00\x00\x01\x08\x02\x00\x00\x00\x99\xb0\x31\xe1\x00\x00\x00\x91IDAT\x78\x01\x05\xc0\x01\x01\x00\x00\x00\xc1\xb0\x73\xfd\x33\x1b\xa4\x8e\xd4\x91\x3a\x52\x47\xea\x48\x1d\xa9\x23\x75\xa4\x8e\xd4\x91\x3a\x52\x47\xea\x48\x1d\xa9\x23\x75\xa4\x8e\xd4\x91\x3a\x52\x47\xea\x48\x1d\xa9\x23\x75\xa4\x8e\xd4\x91\x3a\x52\x47\xea\x48\x1d\xa9\x23\x75\xa4\x8e\xd4\x91\x3a\x52\x47\xea\x48\x1d\xa9\x23\x75\xa4\x8e\xd4\x91\x3a\x52\x47\xea\x48\x1d\xa9\x23\x75\xa4\x8e\xd4\x91\x3a\x52\x47\xea\x48\x1d\xa9\x23\x75\xa4\x8e\xd4\x91\x3a\x52\x47\xea\x48\x1d\xa9\x23\x75\xa4\x8e\xd4\x91\x3a\x52\x47\xea\x48\x1d\xa9\x23\x75\xa4\x8e\xd4\x91\x3a\x52\x47\xea\x48\x1d\xa9\x23\x75\xa4\x8e\xd4\x91\x3a\x52\x47\xea\x48\x1d\xa9\x23\x75\xa4\x8e\xd4\x91\x3a\x52\x47\xea\x01\x40\x1d\x02\xff\xd8\xa1\x67\x97\x00\x00\x00\x00IEND\xae\x42\x60\x82"
+  let fixed = png_stream_test_eager_with_strategy(dynamic_image, PngCompressionStrategy::FixedOrStored)
+  let dynamic_bytes = png_chunk_test_drain_encoder(PngChunkEncoder::new_with_compression_strategy(
+    dynamic_image.view(), PngCompressionStrategy::DynamicOrFixedOrStored, png_stream_test_limits(), png_stream_test_budget(), @error.Diagnostics::new(),
+  ).unwrap(), [0UL, 1UL, 3UL, 2UL, 5UL]).unwrap()
+  inspect(dynamic_bytes == dynamic, content="true")
+  inspect(dynamic_bytes.length() < fixed.length() && (dynamic_bytes[43] & b'\x07') == b'\x05', content="true")
+  png_stream_test_fixed_or_stored_corpus_decode_matches_source(dynamic_bytes, dynamic_image)
+}
+
 ///|
 test "PNG compression strategy chunk factories encode supported images" {
   for strategy in [PngCompressionStrategy::Stored, PngCompressionStrategy::FixedOrStored] {
