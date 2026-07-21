@@ -28,6 +28,45 @@ test "PNG raster rejects invalid filter tags and exact-size mismatch" {
   inspect(_png_paeth(10, 20, 15), content="15")
 }
 
+///| The resumable sink receives one inflated byte per call.  Its filter and
+/// row cursor must therefore survive each caller pause without retaining an
+/// image view lease.
+test "PNG private raster sink retains scanline filter state across byte pauses" {
+  let transport = PngTransport::{ width: 2UL, height: 2UL, bit_depth: 8, source_channels: 3UL, source_bytes_per_pixel: 3UL, channels: 3UL, indexed: false, palette: b"", palette_entries: 0UL, transparency: PngTransparency::Opaque, idat: b"", consumed: 0UL }
+  let image = @storage.OwnedImage::new_operation(
+    _png_descriptor(transport).unwrap(),
+    @budget.Budget::new(@budget.ResourceLimits::new(bytes=64UL, allocations=3UL, allocation_size=64UL, width=8UL, height=8UL, pixels=64UL, depth=0UL, work=64UL)),
+    PngBuiltinAllocator::{} as &@bytes.Allocator,
+    64UL,
+  ).unwrap()
+  let sink = PngRasterSink::new(image, transport, false, @budget.Budget::new(@budget.ResourceLimits::new(bytes=0UL, allocations=0UL, allocation_size=0UL, width=0UL, height=0UL, pixels=0UL, depth=0UL, work=0UL))).unwrap()
+  for byte in [b'\x00', b'\x0a', b'\x14', b'\x1e', b'\x28', b'\x32', b'\x3c', b'\x04', b'\x05', b'\x05', b'\x05', b'\x05', b'\x05', b'\x05'] {
+    sink.emit(byte).unwrap()
+  }
+  sink.finish().unwrap()
+  let view = sink.image_view()
+  inspect(view.get_byte(1UL, 1UL, 2UL).unwrap(), content="b'\\x41'")
+}
+
+///| Adam7 passes reset their predictor rows independently.  Feeding each
+/// filter/sample byte separately proves the pass index and local row state are
+/// owned by the sink rather than by the compressed input adapter.
+test "PNG private raster sink retains Adam7 pass cursors across byte pauses" {
+  let transport = PngTransport::{ width: 1UL, height: 1UL, bit_depth: 8, source_channels: 3UL, source_bytes_per_pixel: 3UL, channels: 3UL, indexed: false, palette: b"", palette_entries: 0UL, transparency: PngTransparency::Opaque, idat: b"", consumed: 0UL }
+  let image = @storage.OwnedImage::new_operation(
+    _png_descriptor(transport).unwrap(),
+    @budget.Budget::new(@budget.ResourceLimits::new(bytes=64UL, allocations=3UL, allocation_size=64UL, width=8UL, height=8UL, pixels=64UL, depth=0UL, work=64UL)),
+    PngBuiltinAllocator::{} as &@bytes.Allocator,
+    64UL,
+  ).unwrap()
+  let sink = PngRasterSink::new(image, transport, true, @budget.Budget::new(@budget.ResourceLimits::new(bytes=16UL, allocations=2UL, allocation_size=8UL, width=0UL, height=0UL, pixels=0UL, depth=0UL, work=0UL))).unwrap()
+  for byte in [b'\x00', b'\x11', b'\x22', b'\x33'] { sink.emit(byte).unwrap() }
+  sink.finish().unwrap()
+  let view = sink.image_view()
+  inspect(view.get_byte(0UL, 0UL, 0UL).unwrap(), content="b'\\x11'")
+  inspect(view.get_byte(0UL, 0UL, 2UL).unwrap(), content="b'\\x33'")
+}
+
 ///|
 test "PNG grayscale raster filters reconstruct one source lane into RGB8" {
   let transport = PngTransport::{ width: 2UL, height: 5UL, bit_depth: 8, source_channels: 1UL, source_bytes_per_pixel: 1UL, channels: 3UL, indexed: false, palette: b"", palette_entries: 0UL, transparency: PngTransparency::Opaque, idat: b"", consumed: 0UL }
