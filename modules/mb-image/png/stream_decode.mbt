@@ -313,7 +313,12 @@ fn PngDecodeMachine::validate_retained_header(
     if self.ihdr is Some(_) { return Err(_png_error("png-ihdr-order")) }
     if length != 13UL { return Err(_png_error("png-ihdr-length")) }
   } else if _png_type_is(kind, b'P', b'L', b'T', b'E') {
-    if self.ihdr is None || self.saw_idat || self.facts.saw_palette { return Err(_png_error("png-plte-order")) }
+    if self.ihdr is None || self.facts.saw_palette { return Err(_png_error("png-plte-order")) }
+    if self.saw_idat { return Err(_png_error("png-semantic-chunk")) }
+    match self.ihdr {
+      Some(ihdr) => if ihdr[9] != b'\x03' { return Err(_png_error("png-semantic-chunk")) }
+      None => ()
+    }
     if length < 3UL || length > 768UL || length % 3UL != 0UL { return Err(_png_error("png-plte-length")) }
   } else if _png_type_is(kind, b't', b'R', b'N', b'S') {
     if self.ihdr is None || self.saw_idat || self.facts.saw_transparency { return Err(_png_error("png-trns-order")) }
@@ -400,7 +405,8 @@ fn PngDecodeMachine::apply_pre_idat_chunk(
         self.facts.transparency = PngTransparency::Rgb(payload[1], payload[3], payload[5])
       }
     } else if ihdr[9] == 3 {
-      if !self.facts.saw_palette || payload.length().to_uint64() > self.facts.palette_entries { return Err(_png_error("png-trns-length")) }
+      if !self.facts.saw_palette { return Err(_png_error("png-trns-order")) }
+      if payload.length().to_uint64() > self.facts.palette_entries { return Err(_png_error("png-trns-length")) }
       self.facts.transparency = PngTransparency::Indexed(Bytes::from_array(payload))
     } else { return Err(_png_error("png-semantic-chunk")) }
     self.facts.saw_transparency = true
@@ -436,8 +442,9 @@ fn PngDecodeMachine::apply_pre_idat_chunk(
       last_space = byte == b' '
       index = index + 1
     }
-    if index == 0 || index == payload.length() || last_space { return Err(_png_error("png-iccp-name")) }
-    if index + 2 >= payload.length() { return Err(_png_error("png-iccp-envelope")) }
+    if index == payload.length() { return Err(_png_error("png-iccp-envelope")) }
+    if index == 0 || last_space { return Err(_png_error("png-iccp-name")) }
+    if index + 1 >= payload.length() { return Err(_png_error("png-iccp-envelope")) }
     if payload[index + 1] != b'\x00' { return Err(_png_error("png-iccp-method")) }
     let compressed : Array[Byte] = []
     for cursor = index + 2; cursor < payload.length(); cursor = cursor + 1 { compressed.push(payload[cursor]) }
@@ -574,6 +581,17 @@ fn PngDecodeMachine::accept(
           Ok(_) => ()
         }
         if _png_type_is(kind, b'I', b'E', b'N', b'D') && length != 0UL {
+          // An active legacy IDAT source discovers the next chunk while
+          // satisfying the inflater.  Consequently an unfinished member
+          // reports `zlib-truncated` before IEND's fixed-length rule.
+          if self.saw_idat {
+            let inflate = match self.inflate { Some(value) => value; None => { let error = _png_error("zlib-truncated"); self.state = PngDecodeMachineState::Failed(error); return Err(error) } }
+            if !inflate.complete() {
+              let error = _png_error("zlib-truncated")
+              self.state = PngDecodeMachineState::Failed(error)
+              return Err(error)
+            }
+          }
           let error = _png_error("png-iend-length")
           self.state = PngDecodeMachineState::Failed(error)
           return Err(error)
@@ -595,13 +613,42 @@ fn PngDecodeMachine::accept(
           if self.inflate is None { self.inflate = Some(PngInflateState::new(self.limits.max_output_bytes())) }
         } else if self.saw_idat {
           self.left_idat_sequence = true
-          if _png_type_is(kind, b'I', b'E', b'N', b'D') {
+          // The eager transport asks the active inflater for another byte
+          // before it interprets ordinary non-IDAT chunks.  Preserve that
+          // observable precedence: an unfinished zlib member wins over the
+          // later separated-IDAT framing violation.  The legacy transport
+          // still gives IHDR, PLTE, and colour declarations their dedicated
+          // semantic errors first, so leave those to the regular validator.
+          if !_png_type_is(kind, b'I', b'H', b'D', b'R') &&
+            !_png_type_is(kind, b'P', b'L', b'T', b'E') &&
+            !_png_is_recognised_colour(kind) {
             let inflate = match self.inflate { Some(value) => value; None => { let error = _png_error("zlib-truncated"); self.state = PngDecodeMachineState::Failed(error); return Err(error) } }
             if !inflate.complete() {
               let error = _png_error("zlib-truncated")
               self.state = PngDecodeMachineState::Failed(error)
               return Err(error)
             }
+          }
+        }
+        if !_png_type_is(kind, b'I', b'D', b'A', b'T') &&
+          !_png_type_is(kind, b'I', b'E', b'N', b'D') &&
+          !_png_machine_retains_payload(kind) {
+          if _png_is_known_semantic(kind) {
+            let error = _png_error("png-semantic-chunk")
+            self.state = PngDecodeMachineState::Failed(error)
+            return Err(error)
+          }
+          if _png_is_critical(kind) {
+            let error = _png_error("png-unknown-critical")
+            self.state = PngDecodeMachineState::Failed(error)
+            return Err(error)
+          }
+          if self.options.preserve_opaque_metadata() {
+            let error = @codec.capability_unavailable(
+              "png-decode", "opaque-metadata-preservation",
+            )
+            self.state = PngDecodeMachineState::Failed(error)
+            return Err(error)
           }
         }
         match self.validate_retained_header(length, kind) {
@@ -682,34 +729,60 @@ fn PngDecodeMachine::decode_reader(
   self : PngDecodeMachine,
   reader : &@io.Reader,
 ) -> Result[@codec.DecodeResult, @error.CoreError] {
-  let observed = PngMachineReader::{ reader, machine: self }
-  let stream = match _png_read_stream_transport(observed as &@io.Reader, self.options, self.limits, self.budget) {
+  let scratch = match @bytes.OwnedBytes::new(1UL, _png_private_budget(1UL)) {
     Err(error) => return Err(error)
     Ok(value) => value
   }
-  let transport = PngTransport::{ width: stream.width, height: stream.height, bit_depth: stream.bit_depth, source_channels: stream.source_channels, source_bytes_per_pixel: stream.source_bytes_per_pixel, channels: stream.channels, indexed: stream.indexed, palette: stream.palette, palette_entries: stream.palette_entries, transparency: stream.transparency, idat: b"", consumed: 0UL }
-  let metadata = match stream.colour_declaration {
-    PngColourDeclaration::Srgb(intent) => match stream.metadata_budget { Some(metadata_budget) => match _png_srgb_metadata(stream.channels, intent, metadata_budget) { Err(error) => return Err(error); Ok(value) => value }; None => return Err(_png_error("png-srgb-budget")) }
-    PngColourDeclaration::Legacy(gamma, chrm) => match stream.metadata_budget { Some(metadata_budget) => match _png_legacy_metadata(stream.channels, gamma, chrm, metadata_budget) { Err(error) => return Err(error); Ok(value) => value }; None => return Err(_png_error("png-legacy-budget")) }
-    PngColourDeclaration::Icc(name, profile) => match stream.metadata_budget { Some(metadata_budget) => match _png_iccp_metadata(stream.channels, name, profile, metadata_budget) { Err(error) => return Err(error); Ok(value) => value }; None => return Err(_png_error("png-iccp-budget")) }
-    PngColourDeclaration::Default => match _png_empty_metadata(stream.channels) { Err(error) => return Err(error); Ok(value) => value }
+  while true {
+    match scratch.with_mut(0UL, 1UL, fn(lease) { @io.read_exact(reader, lease) }) {
+      Ok(_) => match self.accept(scratch.view().get(0UL).unwrap()) {
+        Err(error) => return Err(error)
+        Ok(_) => {
+          // The private framing substrate intentionally permits an isolated
+          // pre-IHDR chunk for its transition tests.  The eager public facade
+          // retains the PNG semantic rule at the reader boundary.
+          if self.ihdr is None {
+            match self.state {
+              PngDecodeMachineState::Payload(_, kind, _, _) |
+              PngDecodeMachineState::Crc(kind, _, _, _) => {
+                if !_png_type_is(kind, b'I', b'H', b'D', b'R') {
+                  return Err(_png_error("png-ihdr-first"))
+                }
+              }
+              _ => ()
+            }
+          }
+          if !self.saw_idat {
+            match self.state {
+              PngDecodeMachineState::Crc(kind, _, _, _) => {
+                if _png_type_is(kind, b'I', b'E', b'N', b'D') {
+                  return Err(_png_error("png-iend-order"))
+                }
+              }
+              _ => ()
+            }
+          }
+        }
+      }
+      Err(error) => {
+        if error.code() != @error.ErrorCode::UnexpectedEndOfStream {
+          return Err(error)
+        }
+        match self.state {
+          PngDecodeMachineState::NeedEof => ()
+          _ => return Err(error)
+        }
+        match self.finish() {
+          Err(terminal) => return Err(terminal)
+          Ok(_) => break
+        }
+      }
+    }
   }
-  let descriptor = match _png_descriptor_with_metadata(transport, metadata) { Err(error) => return Err(error); Ok(value) => value }
-  let index_rows = if stream.indexed && !stream.interlaced {
-    let row_bytes = match _png_grayscale_row_bytes(stream.width, stream.bit_depth) { Err(error) => return Err(error); Ok(value) => value }
-    match _png_new_packed_rows(row_bytes, stream.budget) { Err(error) => return Err(error); Ok(value) => Some(value) }
-  } else { None }
-  let packed_rows = if ((stream.source_channels == 1UL || stream.source_channels == 2UL || stream.bit_depth == 16) && !stream.indexed) || stream.interlaced {
-    let row_bytes = if stream.interlaced {
-      let passes = match _png_adam7_passes(stream.width, stream.height, stream.source_channels, stream.bit_depth) { Err(error) => return Err(error); Ok(value) => value }
-      let mut maximum = 0UL
-      for pass in passes { if pass.row_bytes > maximum { maximum = pass.row_bytes } }
-      maximum
-    } else { match _png_source_row_bytes(stream.width, stream.source_channels, stream.bit_depth) { Err(error) => return Err(error); Ok(value) => value } }
-    match _png_new_packed_rows(row_bytes, stream.budget) { Err(error) => return Err(error); Ok(value) => Some(value) }
-  } else { None }
-  let image = match @storage.OwnedImage::new_operation(descriptor, stream.budget, PngBuiltinAllocator::{} as &@bytes.Allocator, self.limits.max_work()) { Err(error) => return Err(error); Ok(value) => value }
-  let consumed = match image.with_mut_view(fn(view) { _png_inflate_zlib_to_raster(stream.source, self.limits.max_output_bytes(), view, stream, index_rows, packed_rows) }) { Err(error) => return Err(error); Ok(value) => value }
-  let disposition = match _png_empty_disposition() { Err(error) => return Err(error); Ok(value) => value }
-  Ok(@codec.DecodeResult::new(image, disposition, consumed))
+  match self.outcome {
+    Some(outcome) => Ok(@codec.DecodeResult::new(
+      outcome.image, outcome.disposition, outcome.bytes_read,
+    ))
+    None => Err(_png_error("png-machine-outcome"))
+  }
 }
