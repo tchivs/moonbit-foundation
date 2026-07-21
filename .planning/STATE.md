@@ -4,17 +4,17 @@ milestone: v0.8
 milestone_name: Resumable PNG Decode
 current_phase: 28
 current_phase_name: Portable PNG Streaming Evidence
-status: executing
-stopped_at: Completed 28-01-PLAN.md
-last_updated: "2026-07-21T11:56:54.967Z"
+status: auditing
+stopped_at: Phase 28 verified complete (3/3); ready for v0.8 milestone audit
+last_updated: "2026-07-21T12:06:18Z"
 last_activity: 2026-07-21
-last_activity_desc: Phase 28 public PNG streaming evidence plan executed; independent verification pending
+last_activity_desc: Phase 28 portable PNG streaming evidence verifier passed 3/3
 progress:
   total_phases: 20
-  completed_phases: 8
+  completed_phases: 9
   total_plans: 20
-  completed_plans: 17
-  percent: 40
+  completed_plans: 18
+  percent: 45
 ---
 
 # Project State
@@ -25,18 +25,18 @@ See `.planning/PROJECT.md` (updated 2026-07-20).
 
 **Core value:** MoonBit developers can reuse stable, high-performance native infrastructure contracts instead of rebuilding incompatible foundations for every graphics, document, media, or automation product.
 
-**Current focus:** Phase 28 — Portable PNG Streaming Evidence.
+**Current focus:** v0.8 milestone audit — Resumable PNG Decode.
 
 ## Current Position
 
 Phase: 28 of 28 (Portable PNG Streaming Evidence)
 Plan: 1 of 1
-Status: Phase 28 plan execution complete; independent verification pending
-Last activity: 2026-07-21 — corpus-wide public PNG schedule, portable workflow, and scoped quality evidence passed
+Status: Phase 28 verified complete (3/3); ready for milestone audit
+Last activity: 2026-07-21 — independent Phase 28 verifier passed corpus-wide public schedules, portable workflow, and scoped quality evidence
 
 ## Performance Metrics
 
-**Current milestone:** 5 plans executed across 3 planned phases; Phase 28 awaits independent verification.
+**Current milestone:** 5/5 plans complete across 3/3 phases; v0.8 is ready for milestone audit (not yet shipped).
 
 **Historical context:** v0.5 shipped three phases and three plans on 2026-07-20. v0.2 publication and registry work remains deferred and excluded from this code-first milestone.
 
@@ -120,6 +120,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-07-21T11:56:54.945Z
-Stopped at: Completed 28-01-PLAN.md
+Last session: 2026-07-21T12:06:18Z
+Stopped at: Phase 28 verified complete (3/3); ready for v0.8 milestone audit
 Resume file: None
