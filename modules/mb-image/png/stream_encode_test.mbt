@@ -108,6 +108,24 @@ fn png_stream_test_dynamic_image(width? : UInt64 = 128UL) -> @storage.OwnedImage
   image
 }
 
+///| Five periodic literal values deliberately exceed the retained distance-1..4
+///| matcher for RGB8 and straight-RGBA8 corpus sources.
+fn png_stream_test_dynamic_corpus_image(
+  channels : UInt64,
+  width? : UInt64 = 128UL,
+) -> @storage.OwnedImage {
+  let image = png_stream_test_image(channels, width=width)
+  image.with_mut_view(fn(view) {
+    for x = 0UL; x < width; x = x + 1UL {
+      for channel = 0UL; channel < channels; channel = channel + 1UL {
+        view.set_byte(x, 0UL, channel, ((x * channels + channel) % 5UL).to_byte()).unwrap()
+      }
+    }
+    Ok(())
+  }).unwrap()
+  image
+}
+
 ///|
 fn png_stream_test_fixed_or_stored_corpus_decode_matches_source(
   bytes : Bytes,
@@ -164,6 +182,40 @@ fn png_stream_test_fixed_or_stored_corpus_case(source : @storage.OwnedImage) -> 
   }
   if eager_first != eager_second || eager_first != chunked {
     abort("png fixed-or-stored corpus determinism")
+  }
+  png_stream_test_fixed_or_stored_corpus_decode_matches_source(eager_first, source)
+  png_stream_test_fixed_or_stored_corpus_decode_matches_source(eager_second, source)
+  png_stream_test_fixed_or_stored_corpus_decode_matches_source(chunked, source)
+}
+
+///| Public Dynamic evidence compares all strategy routes while retaining the
+///| existing complete-input descriptor-and-component decode oracle.
+fn png_stream_test_dynamic_corpus_case(source : @storage.OwnedImage) -> Unit {
+  let stored = png_stream_test_eager_with_strategy(source, PngCompressionStrategy::Stored)
+  let fixed = png_stream_test_eager_with_strategy(source, PngCompressionStrategy::FixedOrStored)
+  let eager_first = png_stream_test_eager_with_strategy(
+    source, PngCompressionStrategy::DynamicOrFixedOrStored,
+  )
+  let eager_second = png_stream_test_eager_with_strategy(
+    source, PngCompressionStrategy::DynamicOrFixedOrStored,
+  )
+  let encoder = PngChunkEncoder::new_with_compression_strategy(
+    source.view(), PngCompressionStrategy::DynamicOrFixedOrStored,
+    png_stream_test_limits(), png_stream_test_budget(), @error.Diagnostics::new(),
+  ).unwrap()
+  let chunked = png_chunk_test_drain_encoder(encoder, [0UL, 1UL, 3UL, 2UL, 5UL]).unwrap()
+  ignore(stored)
+  if eager_first.length() > fixed.length() {
+    abort("png dynamic corpus never-larger")
+  }
+  if eager_first.length() >= fixed.length() {
+    abort("png dynamic corpus strict win")
+  }
+  if (eager_first[43] & b'\x07') != b'\x05' {
+    abort("png dynamic corpus final dynamic block")
+  }
+  if eager_first != eager_second || eager_first != chunked {
+    abort("png dynamic corpus determinism")
   }
   png_stream_test_fixed_or_stored_corpus_decode_matches_source(eager_first, source)
   png_stream_test_fixed_or_stored_corpus_decode_matches_source(eager_second, source)
@@ -488,6 +540,12 @@ test "PNG dynamic replay drift is sticky through chunk encoder" {
 test "PNG fixed-or-stored corpus evidence is deterministic, valid, never-larger, and wins flat RGB8/RGBA8" {
   png_stream_test_fixed_or_stored_corpus_case(png_stream_test_flat_image(3UL, 32UL))
   png_stream_test_fixed_or_stored_corpus_case(png_stream_test_flat_image(4UL, 32UL))
+}
+
+///|
+test "PNG dynamic corpus evidence is deterministic, strictly wins periodic RGB8/RGBA8, and decodes completely" {
+  png_stream_test_dynamic_corpus_case(png_stream_test_dynamic_corpus_image(3UL))
+  png_stream_test_dynamic_corpus_case(png_stream_test_dynamic_corpus_image(4UL))
 }
 
 ///|
