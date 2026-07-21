@@ -167,7 +167,7 @@ Plans:
 | 17. Resumable QOI Chunk Decode | v0.5 | 1/1 | Complete    | 2026-07-20 |
 | 18. Resumable QOI Buffer Encode | v0.5 | 1/1 | Complete    | 2026-07-20 |
 | 19. Portable Streaming QOI Evidence | v0.5 | 1/1 | Complete    | 2026-07-20 |
-| 20. PNG Structural Safety Gate | v0.6 | 2/4 | Complete    | 2026-07-21 |
+| 20. PNG Structural Safety Gate | v0.6 | 3/5 | Complete    | 2026-07-21 |
 | 21. Bounded PNG Decode and DEFLATE | v0.6 | 1/1 | Complete    | 2026-07-21 |
 | 22. Canonical PNG Encode and Portable Evidence | v0.6 | 1/1 | Complete    | 2026-07-21 |
 

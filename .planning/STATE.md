@@ -2,13 +2,13 @@
 gsd_state_version: 1.0
 milestone: v0.7
 milestone_name: PNG Colour Fidelity
-current_phase: 20
-current_phase_name: PNG Structural Safety Gate
+current_phase: 21
+current_phase_name: Bounded PNG Decode and DEFLATE
 status: planning
 stopped_at: Completed 20-05-PLAN.md
-last_updated: "2026-07-21T03:50:43.273Z"
+last_updated: "2026-07-21T03:58:55.224Z"
 last_activity: 2026-07-21
-last_activity_desc: Phase 9 complete, transitioned to Phase 20
+last_activity_desc: Phase 20 complete, transitioned to Phase 21
 progress:
   total_phases: 17
   completed_phases: 6
@@ -29,10 +29,10 @@ See `.planning/PROJECT.md` (updated 2026-07-20).
 
 ## Current Position
 
-Phase: 20 of 25 (PNG Structural Safety Gate)
+Phase: 21 of 25 (Bounded PNG Decode and DEFLATE)
 Plan: Not started
 Status: Ready to plan
-Last activity: 2026-07-21 — Phase 9 complete, transitioned to Phase 20
+Last activity: 2026-07-21 — Phase 20 complete, transitioned to Phase 21
 
 Progress: [█████████░] 85%
 
