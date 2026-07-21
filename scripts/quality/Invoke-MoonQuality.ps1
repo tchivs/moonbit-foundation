@@ -797,7 +797,7 @@ function Assert-PngLaneIsolation {
   function Invoke-RequiredQuality { throw 'PNG lane reached required quality.' }
   function Invoke-ReleaseQuality { throw 'PNG lane reached release quality.' }
   Invoke-PngQualityLane
-  Assert-ExactSequence 'PNG lane stage trace' @($script:PngLaneTrace) @('PNG foundation/interface policy', 'PNG scoped negative fixtures', 'PNG exact package allowlist', 'PNG generated structural vectors', 'PNG generated decode vectors', 'PNG colour conformance public evidence', 'PNG four-target tests')
+  Assert-ExactSequence 'PNG lane stage trace' @($script:PngLaneTrace) @('PNG foundation/interface policy', 'PNG scoped negative fixtures', 'PNG exact package allowlist', 'PNG generated structural vectors', 'PNG generated decode vectors', 'PNG portable bilinear public workflow', 'PNG colour conformance public evidence', 'PNG four-target tests')
   Write-Host 'PNG lane isolation proof passed.'
 }
 
