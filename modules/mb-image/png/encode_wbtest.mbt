@@ -35,6 +35,25 @@ fn png_wb_limits() -> @codec.CodecLimits {
 }
 
 ///|
+fn png_wb_dynamic_limits() -> @codec.CodecLimits {
+  @codec.CodecLimits::new(
+    max_probe_bytes=8UL, max_input_bytes=512UL, max_output_bytes=512UL,
+    max_width=128UL, max_height=64UL, max_pixels=4096UL, max_work=10000UL,
+  )
+}
+
+///|
+fn png_wb_dynamic_budget(
+  bytes? : UInt64 = 512UL,
+  work? : UInt64 = 10000UL,
+) -> @budget.Budget {
+  @budget.Budget::new(@budget.ResourceLimits::new(
+    bytes~, allocations=8UL, allocation_size=bytes, width=128UL,
+    height=64UL, pixels=4096UL, depth=0UL, work~,
+  ))
+}
+
+///|
 fn png_wb_image(channels : UInt64, pixels : Bytes) -> @storage.OwnedImage {
   let descriptor = @model.ImageDescriptor::new(
     1UL, 1UL,
@@ -196,6 +215,38 @@ fn png_wb_fixed_or_stored_replay_image() -> @storage.OwnedImage {
   image
 }
 
+///| Five periodic literal values deliberately exceed the A1 distance-1..4
+/// matcher, matching the public 128-pixel strict Dynamic winner fixture.
+fn png_wb_dynamic_image() -> @storage.OwnedImage {
+  let descriptor = @model.ImageDescriptor::new(
+    128UL, 1UL, @model.ImageFormat::rgb8(),
+    [@model.PlaneDescriptor::new(0UL, 384UL, 384UL, 384UL, 1UL, 1UL, 128UL, 1UL).unwrap()],
+    384UL,
+    @model.ImageMetadata::new(
+      @color.ColorSpaceIdentity::Srgb, @color.TransferIdentity::EncodedSrgb,
+      None, @profile.ProfileIdentity::builtin_srgb(), @model.Orientation::TopLeft,
+      @metadata.OpaqueMetadata::from_entries(
+        [], @metadata.MetadataLimits::new(
+          max_entries=0UL, max_token_bytes=1UL, max_value_bytes=0UL,
+          max_total_bytes=0UL, max_disposition_fields=4UL,
+        ), png_wb_budget(bytes=0UL, work=0UL),
+      ).unwrap(),
+    ),
+  ).unwrap()
+  let image = @storage.OwnedImage::new(
+    descriptor, png_wb_dynamic_budget(bytes=384UL, work=0UL),
+  ).unwrap()
+  image.with_mut_view(fn(view) {
+    for x = 0UL; x < 128UL; x = x + 1UL {
+      for channel = 0UL; channel < 3UL; channel = channel + 1UL {
+        view.set_byte(x, 0UL, channel, ((x * 3UL + channel) % 5UL).to_byte()).unwrap()
+      }
+    }
+    Ok(())
+  }).unwrap()
+  image
+}
+
 ///|
 fn png_wb_same_remaining(left : @budget.ResourceLimits, right : @budget.ResourceLimits) -> Bool {
   left.bytes() == right.bytes() && left.allocations() == right.allocations() &&
@@ -232,6 +283,41 @@ test "PNG fixed-or-stored white-box selected work boundary charges once" {
   let one_less_before = one_less.remaining()
   let rejected = _png_encode_preflight(
     image.view(), PngCompressionStrategy::FixedOrStored, png_wb_limits(), one_less,
+  ).unwrap_err()
+  inspect(rejected.context() == Some("work"), content="true")
+  inspect(png_wb_same_remaining(one_less_before, one_less.remaining()), content="true")
+}
+
+///|
+test "PNG dynamic selected work boundary charges once" {
+  let image = png_wb_dynamic_image()
+  let generous = png_wb_dynamic_budget(work=10000UL)
+  let before = generous.remaining()
+  let facts = _png_encode_preflight(
+    image.view(), PngCompressionStrategy::DynamicOrFixedOrStored,
+    png_wb_dynamic_limits(), generous,
+  ).unwrap()
+  let selected = before.work() - generous.remaining().work()
+  match facts.plan {
+    PngDeflatePlan::Dynamic(plan) => {
+      inspect(plan.total_length, content="202")
+      inspect(plan.matcher_work, content="4593")
+      inspect(selected == 202UL + 4593UL + 4593UL, content="true")
+      inspect(selected, content="9388")
+    }
+    PngDeflatePlan::Stored(_) | PngDeflatePlan::Fixed(_) => panic()
+  }
+  let exact = png_wb_dynamic_budget(work=9388UL)
+  ignore(_png_encode_preflight(
+    image.view(), PngCompressionStrategy::DynamicOrFixedOrStored,
+    png_wb_dynamic_limits(), exact,
+  ).unwrap())
+  inspect(exact.remaining().work(), content="0")
+  let one_less = png_wb_dynamic_budget(work=9387UL)
+  let one_less_before = one_less.remaining()
+  let rejected = _png_encode_preflight(
+    image.view(), PngCompressionStrategy::DynamicOrFixedOrStored,
+    png_wb_dynamic_limits(), one_less,
   ).unwrap_err()
   inspect(rejected.context() == Some("work"), content="true")
   inspect(png_wb_same_remaining(one_less_before, one_less.remaining()), content="true")
