@@ -132,3 +132,19 @@ test "PNG eager reader adapter observes a completed failing prefix once" {
   inspect(result is Err(_), content="true")
   inspect(machine.accepted_bytes() == 1UL, content="true")
 }
+
+///|
+test "PNG private inflater retains a stored block across every compressed byte pause" {
+  // zlib(0x78, 0x01) + a final stored block containing `A` + Adler-32.
+  // Each call is one accepted IDAT payload byte, so this crosses the zlib,
+  // block header, stored length, stored body, and trailer continuations.
+  let inflate = PngInflateState::new(1UL)
+  for byte in [
+    b'\x78', b'\x01', b'\x01', b'\x01', b'\x00', b'\xfe', b'\xff',
+    b'A', b'\x00', b'\x42', b'\x00', b'\x42',
+  ] {
+    inflate.accept(byte).unwrap()
+  }
+  inspect(inflate.emitted_bytes() == 1UL, content="true")
+  inspect(inflate.complete(), content="true")
+}
