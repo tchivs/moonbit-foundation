@@ -780,6 +780,16 @@ function Invoke-PngQualityLane {
   }
   Invoke-PngQualityStage 'PNG generated structural vectors' { & ./scripts/fixtures/Generate-PngStructuralVectors.ps1 -Check }
   Invoke-PngQualityStage 'PNG generated decode vectors' { & ./scripts/fixtures/Generate-PngDecodeVectors.ps1 -Check }
+  Invoke-PngQualityStage 'PNG portable bilinear public workflow' {
+    $expectedEvidence = 'example=png-portable bytes_read=75 bytes_written=78 width=3 height=1 resize_bilinear digest=626208771'
+    foreach ($target in @('js', 'wasm', 'wasm-gc', 'native')) {
+      $output = Invoke-MoonCommand -Context "PNG portable bilinear public workflow target $target" -Arguments @('-C', 'examples/png-portable', 'run', 'main', '--target', $target, '--frozen') -CaptureCombined
+      $evidence = @($output | Where-Object { $_.StartsWith('example=png-portable ') })
+      if ($evidence.Count -ne 1 -or $evidence[0] -cne $expectedEvidence) {
+        throw "PNG portable bilinear public workflow evidence mismatch on ${target}: expected exactly '$expectedEvidence', got '$($evidence -join '; ')'."
+      }
+    }
+  }
   Invoke-PngQualityStage 'PNG colour conformance public evidence' {
     foreach ($target in @('js', 'wasm', 'wasm-gc', 'native')) {
       Invoke-MoonCommand -Context "PNG generated colour vectors target $target" -Arguments @('-C', 'modules/mb-image', 'test', 'png', '--target', $target, '--frozen')
