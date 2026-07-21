@@ -15,6 +15,21 @@ fn wb_resize_convert_limits(bytes : UInt64, work : UInt64) -> @budget.Budget {
 }
 
 ///|
+fn wb_resize_convert_remaining_is_unchanged(
+  before : @budget.ResourceLimits,
+  after : @budget.ResourceLimits,
+) -> Bool {
+  before.bytes() == after.bytes() &&
+  before.allocations() == after.allocations() &&
+  before.allocation_size() == after.allocation_size() &&
+  before.width() == after.width() &&
+  before.height() == after.height() &&
+  before.pixels() == after.pixels() &&
+  before.depth() == after.depth() &&
+  before.work() == after.work()
+}
+
+///|
 fn wb_resize_convert_image(
   width : UInt64,
   height : UInt64,
@@ -131,6 +146,31 @@ test "nearest resize applies the documented two-dimensional integer-floor mappin
 }
 
 ///|
+test "nearest resize applies the documented two-dimensional mapping to every RGBA channel" {
+  let source = wb_resize_convert_image(2UL, 3UL, 4UL, Some(@color.AlphaMode::Straight), [
+    b'\x01', b'\x02', b'\x03', b'\x04', b'\x11', b'\x12', b'\x13', b'\x14',
+    b'\x21', b'\x22', b'\x23', b'\x24', b'\x31', b'\x32', b'\x33', b'\x34',
+    b'\x41', b'\x42', b'\x43', b'\x44', b'\x51', b'\x52', b'\x53', b'\x54',
+  ])
+  let output = resize_nearest(
+    source.view(), 5UL, 4UL, wb_resize_convert_limits(80UL, 80UL),
+  ).unwrap().image().view()
+  for destination_y = 0UL; destination_y < 4UL; destination_y = destination_y + 1UL {
+    let source_y = (destination_y * 3UL) / 4UL
+    for destination_x = 0UL; destination_x < 5UL; destination_x = destination_x + 1UL {
+      let source_x = (destination_x * 2UL) / 5UL
+      for channel = 0UL; channel < 4UL; channel = channel + 1UL {
+        inspect(
+          output.get_byte(destination_x, destination_y, channel).unwrap() ==
+          source.view().get_byte(source_x, source_y, channel).unwrap(),
+          content="true",
+        )
+      }
+    }
+  }
+}
+
+///|
 test "nearest resize rejects zero axes and insufficient work atomically" {
   let source = wb_resize_convert_image(1UL, 1UL, 3UL, None, [
     b'\x01', b'\x02', b'\x03',
@@ -143,8 +183,10 @@ test "nearest resize rejects zero axes and insufficient work atomically" {
       is Err(_),
       content="true",
     )
-    inspect(budget.remaining().bytes() == before.bytes(), content="true")
-    inspect(budget.remaining().work() == before.work(), content="true")
+    inspect(
+      wb_resize_convert_remaining_is_unchanged(before, budget.remaining()),
+      content="true",
+    )
   }
   let budget = wb_resize_convert_limits(12UL, 11UL)
   let before = budget.remaining()
@@ -152,12 +194,10 @@ test "nearest resize rejects zero axes and insufficient work atomically" {
     resize_nearest(source.view(), 2UL, 2UL, budget) is Err(_),
     content="true",
   )
-  inspect(budget.remaining().bytes() == before.bytes(), content="true")
   inspect(
-    budget.remaining().allocations() == before.allocations(),
+    wb_resize_convert_remaining_is_unchanged(before, budget.remaining()),
     content="true",
   )
-  inspect(budget.remaining().work() == before.work(), content="true")
 }
 
 ///|
@@ -177,14 +217,10 @@ test "nearest resize capability rejection is typed and leaves the full budget un
     }
     Ok(_) => fail("unsupported resize must reject")
   }
-  let after = budget.remaining()
-  inspect(after.bytes() == before.bytes(), content="true")
-  inspect(after.allocations() == before.allocations(), content="true")
-  inspect(after.allocation_size() == before.allocation_size(), content="true")
-  inspect(after.width() == before.width(), content="true")
-  inspect(after.height() == before.height(), content="true")
-  inspect(after.pixels() == before.pixels(), content="true")
-  inspect(after.work() == before.work(), content="true")
+  inspect(
+    wb_resize_convert_remaining_is_unchanged(before, budget.remaining()),
+    content="true",
+  )
 }
 
 ///|
