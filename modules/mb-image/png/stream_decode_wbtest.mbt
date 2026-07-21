@@ -475,3 +475,206 @@ test "PNG private inflater preserves dynamic oversubscribed-tree failures across
   }
   inspect(result.unwrap_err().context() == Some("deflate-oversubscribed-tree"), content="true")
 }
+
+///| A complete one-pixel stored PNG used to freeze the public EOF classifier.
+fn png_wb_complete_chunk_png() -> Bytes {
+  b"\x89PNG\r\n\x1a\n\x00\x00\x00\x0dIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x02\x00\x00\x00\x90\x77\x53\xde\x00\x00\x00\x0fIDAT\x78\x01\x01\x04\x00\xfb\xff\x00\x12\x34\x56\x00\xf8\x00\x9d\xf8\xd7\x64\x8c\x00\x00\x00\x00IEND\xae\x42\x60\x82"
+}
+
+///|
+fn png_wb_prefix(source : Bytes, length : Int) -> Bytes {
+  let result : Array[Byte] = []
+  for index = 0; index < length; index = index + 1 { result.push(source[index]) }
+  Bytes::from_array(result)
+}
+
+///|
+fn png_wb_source(source : Bytes) -> @bytes.OwnedBytes {
+  let length = source.length().to_uint64()
+  @bytes.OwnedBytes::from_bytes(
+    source,
+    @budget.Budget::new(@budget.ResourceLimits::new(
+      bytes=length, allocations=1UL, allocation_size=length, width=0UL,
+      height=0UL, pixels=0UL, depth=0UL, work=0UL,
+    )),
+  ).unwrap()
+}
+
+///|
+fn png_wb_chunk_decoder() -> PngChunkDecoder {
+  PngChunkDecoder::new(
+    @codec.CodecLimits::new(
+      max_probe_bytes=8UL, max_input_bytes=4096UL, max_output_bytes=1024UL,
+      max_width=16UL, max_height=16UL, max_pixels=256UL, max_work=4096UL,
+    ),
+    @budget.Budget::new(@budget.ResourceLimits::new(
+      bytes=1024UL, allocations=8UL, allocation_size=1024UL,
+      width=16UL, height=16UL, pixels=256UL, depth=0UL, work=4096UL,
+    )),
+    @error.Diagnostics::new(),
+  )
+}
+
+///| Verify the private classifier and its exact public `finish` route agree.
+/// The public decoder must then retain that same first error with zero later
+/// source consumption.
+fn png_wb_error_matches(left : @error.CoreError, right : @error.CoreError) -> Bool {
+  left.category() == right.category() &&
+  left.code() == right.code() &&
+  left.operation() == right.operation() &&
+  left.context() == right.context() &&
+  left.requested() == right.requested() &&
+  left.completed() == right.completed() &&
+  left.limit() == right.limit()
+}
+
+///|
+fn png_wb_assert_incomplete(source : Bytes, context : String) -> Unit raise {
+  let machine = _png_stream_machine_for_test()
+  for index = 0; index < source.length(); index = index + 1 {
+    machine.accept(source[index]).unwrap()
+  }
+  let private_error = machine.chunk_incomplete_error(machine.accepted_bytes())
+  inspect(private_error.category() == @error.ErrorCategory::Data, content="true")
+  inspect(private_error.code() == @error.ErrorCode::UnexpectedEndOfStream, content="true")
+  inspect(private_error.context() == Some(context), content="true")
+  inspect(private_error.completed() == Some(source.length().to_uint64()), content="true")
+
+  let decoder = png_wb_chunk_decoder()
+  let owner = png_wb_source(source)
+  let pushed = decoder.push(owner.view())
+  inspect(pushed.consumed() == source.length().to_uint64(), content="true")
+  inspect(pushed.outcome() is PngChunkPushOutcome::NeedInput, content="true")
+  let public_error = decoder.finish().unwrap_err()
+  inspect(png_wb_error_matches(public_error, private_error), content="true")
+  let later = png_wb_source(b"X")
+  let replay = decoder.push(later.view())
+  inspect(replay.consumed() == 0UL, content="true")
+  match replay.outcome() {
+    PngChunkPushOutcome::Failed(error) => inspect(png_wb_error_matches(error, public_error), content="true")
+    _ => fail("incomplete chunk finish must be sticky")
+  }
+  inspect(png_wb_error_matches(decoder.finish().unwrap_err(), public_error), content="true")
+}
+
+///| Assemble a valid signature/IHDR and a still-open IDAT payload prefix. The
+/// payload has no CRC because zlib incompleteness must win over framing.
+fn png_wb_open_idat(payload : Bytes) -> Bytes {
+  let base = png_wb_complete_chunk_png()
+  let result : Array[Byte] = []
+  for index = 0; index < 33; index = index + 1 { result.push(base[index]) }
+  let length = payload.length().to_uint64()
+  for shift in [24, 16, 8, 0] { result.push((length >> shift).to_byte()) }
+  for byte in [b'I', b'D', b'A', b'T'] { result.push(byte) }
+  for index = 0; index < payload.length(); index = index + 1 { result.push(payload[index]) }
+  Bytes::from_array(result)
+}
+
+///| Every framing suffix has a stable, typed strict-EOF context.  Signature,
+/// generic chunk length/payload/CRC, and partial IDAT CRC all run through the
+/// same public `finish` transition as the private classifier.
+test "PNG chunk EOF classifier freezes signature generic framing and IDAT CRC rows" {
+  let complete = png_wb_complete_chunk_png()
+  for length = 0; length < 8; length = length + 1 {
+    png_wb_assert_incomplete(png_wb_prefix(complete, length), "png-signature")
+  }
+  for length = 8; length < 12; length = length + 1 {
+    png_wb_assert_incomplete(png_wb_prefix(complete, length), "png-chunk-length")
+  }
+  for length = 16; length < 29; length = length + 1 {
+    png_wb_assert_incomplete(png_wb_prefix(complete, length), "png-chunk-payload")
+  }
+  for length = 29; length < 33; length = length + 1 {
+    png_wb_assert_incomplete(png_wb_prefix(complete, length), "png-chunk-crc")
+  }
+  for length = 56; length < 60; length = length + 1 {
+    png_wb_assert_incomplete(png_wb_prefix(complete, length), "png-idat-crc")
+  }
+}
+
+///| A completed raster has IEND-specific EOF diagnoses.  This covers no IEND
+/// bytes, each partial length/type/CRC suffix, and confirms IEND remains only
+/// a pending terminal until `finish` is called.
+test "PNG chunk EOF classifier freezes IEND length type and CRC rows" {
+  let complete = png_wb_complete_chunk_png()
+  png_wb_assert_incomplete(png_wb_prefix(complete, 60), "png-iend")
+  for length = 61; length < 64; length = length + 1 {
+    png_wb_assert_incomplete(png_wb_prefix(complete, length), "png-iend-length")
+  }
+  for length = 64; length < 68; length = length + 1 {
+    png_wb_assert_incomplete(png_wb_prefix(complete, length), "png-iend-type")
+  }
+  for length = 68; length < 72; length = length + 1 {
+    png_wb_assert_incomplete(png_wb_prefix(complete, length), "png-iend-crc")
+  }
+}
+
+///| Incomplete zlib always wins over the surrounding open IDAT or missing
+/// IEND.  The prefixes touch header, stored block, fixed token, dynamic tree,
+/// dynamic match, and Adler continuations without exposing a second parser.
+test "PNG chunk EOF classifier gives zlib precedence across inflater pauses" {
+  for payload in [
+    b"\x78",
+    b"\x78\x01\x01\x01",
+    b"\x78\x01\x01\x04\x00\xfb\xff\x00\x12\x34\x56\x00\xf8\x00",
+  ] {
+    png_wb_assert_incomplete(png_wb_open_idat(payload), "zlib-truncated")
+  }
+}
+
+///|
+fn png_wb_append_chunk(output : Array[Byte], kind : Array[Byte], payload : Array[Byte]) -> Unit {
+  let length = payload.length().to_uint64()
+  for shift in [24, 16, 8, 0] { output.push((length >> shift).to_byte()) }
+  let mut crc = _png_crc_for_type(kind)
+  for byte in kind { output.push(byte) }
+  for byte in payload { crc = _png_crc_step(crc, byte); output.push(byte) }
+  let stored = crc ^ 4294967295UL
+  for shift in [24, 16, 8, 0] { output.push((stored >> shift).to_byte()) }
+}
+
+///| zlib completes here, but one of two declared RGB rows is absent.  The
+/// raster classifier must therefore win before the missing-IEND framing row.
+fn png_wb_short_raster_png() -> Bytes {
+  let output : Array[Byte] = []
+  for byte in [b'\x89', b'P', b'N', b'G', b'\r', b'\n', b'\x1a', b'\n'] { output.push(byte) }
+  png_wb_append_chunk(output, [b'I', b'H', b'D', b'R'], [b'\x00', b'\x00', b'\x00', b'\x01', b'\x00', b'\x00', b'\x00', b'\x02', b'\x08', b'\x02', b'\x00', b'\x00', b'\x00'])
+  png_wb_append_chunk(output, [b'I', b'D', b'A', b'T'], [b'\x78', b'\x01', b'\x01', b'\x04', b'\x00', b'\xfb', b'\xff', b'\x00', b'\x12', b'\x34', b'\x56', b'\x00', b'\xf8', b'\x00', b'\x9d'])
+  png_wb_append_chunk(output, [b'I', b'E', b'N', b'D'], [])
+  Bytes::from_array(output)
+}
+
+///| The completed inflater cannot mask a short filtered row. Its raster
+/// failure precedes the missing-IEND state even when both are incomplete.
+test "PNG chunk EOF classifier gives raster precedence over terminal framing" {
+  let short = png_wb_short_raster_png()
+  png_wb_assert_incomplete(png_wb_prefix(short, short.length() - 12), "png-filtered-size")
+  png_wb_assert_incomplete(short, "png-filtered-size")
+}
+
+///| A nonzero IEND declaration is rejected when its fourth type byte arrives,
+/// before any claimed payload becomes dispatchable. A wrong or non-IEND fourth
+/// type remains an IEND type failure; trailing input wins over later EOF.
+test "PNG chunk terminal framing preserves IEND rejection and trailing precedence" {
+  let complete = png_wb_complete_chunk_png()
+  let decoder = png_wb_chunk_decoder()
+  let prefix = png_wb_source(png_wb_prefix(complete, 60))
+  inspect(decoder.push(prefix.view()).outcome() is PngChunkPushOutcome::NeedInput, content="true")
+  let nonzero = png_wb_source(b"\x00\x00\x00\x01IENDX")
+  let rejected = decoder.push(nonzero.view())
+  inspect(rejected.consumed() == 8UL, content="true")
+  match rejected.outcome() {
+    PngChunkPushOutcome::Failed(error) => inspect(error.context() == Some("png-iend-length"), content="true")
+    _ => fail("nonzero IEND must reject at the fourth type byte")
+  }
+  let second = png_wb_chunk_decoder()
+  let full = png_wb_source(complete)
+  inspect(second.push(full.view()).outcome() is PngChunkPushOutcome::NeedInput, content="true")
+  let trailing = png_wb_source(b"X")
+  let first_error = match second.push(trailing.view()).outcome() {
+    PngChunkPushOutcome::Failed(error) => error
+    _ => fail("post-IEND byte must fail during push")
+  }
+  inspect(first_error.context() == Some("png-trailing-data"), content="true")
+  inspect(png_wb_error_matches(second.finish().unwrap_err(), first_error), content="true")
+}
