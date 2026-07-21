@@ -24,11 +24,14 @@ MoonBit developers can reuse stable, high-performance native infrastructure cont
 - [x] Provide resumable QOI decode and encode APIs with hostile-schedule and public workflow evidence on all four portable targets. — Validated in v0.5 Phases 17-19.
 - [x] Provide public caller-buffered, resumable PNG decode with explicit completion, exact progress, and no partial-image visibility. — Validated in v0.8 Phases 26-28.
 - [x] Provide public caller-buffered, resumable PNG encoding with eager-equivalent bytes, sticky terminals, and four-target hostile-schedule evidence. — Validated in v0.9 Phases 29-31.
+- [x] Preserve eager PNG decoding as a compatible facade while refactoring its framing, IDAT, DEFLATE, and raster pipeline into pausable MoonBit-owned state. — Validated in v0.8 Phases 26-28.
+- [x] Prove hostile PNG chunk schedules and strict EOF/IEND semantics unchanged on js, wasm, wasm-gc, and native. — Validated in v0.8 Phases 26-28.
 
 ### Active
 
-- [ ] Preserve eager PNG decoding as a compatible facade while refactoring its framing, IDAT, DEFLATE, and raster pipeline into pausable MoonBit-owned state.
-- [ ] Prove hostile PNG chunk schedules and strict EOF/IEND semantics unchanged on js, wasm, wasm-gc, and native.
+- [ ] Add an explicit, opt-in PNG compression strategy without changing the canonical stored-DEFLATE default output.
+- [ ] Produce smaller deterministic PNG output for repetitive images while retaining bounded, atomic preflight and caller-buffered semantics.
+- [ ] Prove optimized eager and chunk output across all portable targets with reproducible corpus and size evidence.
 
 ### Out of Scope
 
@@ -72,11 +75,15 @@ Registry publication remains deferred: the existing v0.2 qualification artifacts
 
 **Validated:** The complete PNG package passed 84/84 tests on each of `wasm`, `wasm-gc`, `js`, and `native`. The public workflow freezes `PngChunkDecoder` → bilinear resize → eager PNG encode to a 78-byte output with digest `626208771` on all four targets. The milestone audit passed all four requirements, all three phase verifications, six cross-phase handoffs, and two end-to-end flows.
 
-## Current State: v0.9 Resumable PNG Encode Shipped
+## Current Milestone: v0.10 PNG Compression Optimization
 
-**Delivered:** `mb-image` now exposes a public `PngChunkEncoder` over the single private canonical PNG byte machine. It accepts arbitrary caller-owned mutable leases, reports exact progress, preserves eager bytes and preflight, and retains sticky completion and original typed failures.
+**Goal:** Add an explicit fixed-Huffman-or-stored PNG compression option that is deterministic, resource-bounded, and never silently changes the established stored-DEFLATE baseline.
 
-**Validated:** Hostile empty/tiny/ragged schedules, eager/chunk parity, limits and budgets, terminal non-mutation, and the public decode → resize → chunk-encode workflow passed on js, wasm, wasm-gc, and native. The workflow freezes 78 output bytes, 14 pulls, and digest `626208771`.
+**Target features:**
+
+- Publish an additive strategy/factory contract while preserving existing eager and chunk constructors byte-for-byte.
+- Implement a private exact planner and pausable fixed-Huffman emitter with bounded matching and stored fallback.
+- Prove deterministic size, decode, eager/chunk parity, preflight, and hostile-schedule behavior on all four portable targets.
 
 Registry publication and release automation remain deferred unless they directly unblock a concrete consumer or code path.
 
@@ -130,4 +137,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update toolchain, compatibility, benchmark, and adoption context.
 
 ---
-*Last updated: 2026-07-21 after v0.9 Resumable PNG Encode shipment*
+*Last updated: 2026-07-22 after v0.10 PNG Compression Optimization start*

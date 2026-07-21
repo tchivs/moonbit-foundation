@@ -11,6 +11,7 @@
 - ✅ **v0.7 PNG Colour Fidelity** — Phases 23-25, strict PNG colour declarations without silent non-sRGB loss (shipped 2026-07-21).
 - ✅ **v0.8 Resumable PNG Decode** — Phases 26-28, portable caller-buffered decode with strict completion and four-target evidence (shipped 2026-07-21). [Full history](./milestones/v0.8-ROADMAP.md).
 - ✅ **v0.9 Resumable PNG Encode** — Phases 29-31, portable caller-buffered canonical PNG output with eager parity and four-target evidence (shipped 2026-07-21). [Full history](./milestones/v0.9-ROADMAP.md).
+- 📋 **v0.10 PNG Compression Optimization** — Phases 32-34, opt-in fixed-Huffman-or-stored PNG compression with stored-DEFLATE defaults preserved, bounded admission, and four-target corpus evidence (planned).
 
 ## Phases
 
@@ -31,6 +32,16 @@
 - [x] **Phase 31: Portable PNG Encode Evidence** - Four-target hostile-schedule proof and a public decode-process-encode workflow validate the complete contract. (completed 2026-07-21)
 
 </details>
+
+### v0.10 PNG Compression Optimization (Phases 32-34)
+
+**Milestone goal:** Library users can explicitly opt into deterministic, resource-bounded fixed-Huffman-or-stored PNG compression without silently changing the established stored-DEFLATE eager or caller-buffered output.
+
+**Scope boundary:** Existing stored-DEFLATE constructors remain the default and byte-stable baseline. Dynamic Huffman, adaptive filters, a 32 KiB LZ77 dictionary, FFI codecs, host stream adapters, registry/release work, APNG, colour-transform work, and metadata expansion remain outside this milestone.
+
+- [ ] **Phase 32: PNG Compression Strategy and Compatibility** - Users can select a documented additive compression strategy while legacy eager and chunk constructors retain their exact stored-DEFLATE bytes.
+- [ ] **Phase 33: Fixed-or-Stored PNG Planning and Emission** - Optimized users receive deterministic, preflighted fixed-Huffman-or-stored eager and caller-buffered output with exact progress and sticky terminals.
+- [ ] **Phase 34: Portable PNG Compression Corpus Evidence** - A reproducible four-target corpus proves valid, deterministic, never-larger optimized output and declared flat-image wins.
 
 ## Phase Details
 
@@ -75,6 +86,53 @@
 
 **Plans**: TBD
 
+### Phase 32: PNG Compression Strategy and Compatibility
+
+**Goal**: Library users can explicitly choose a documented PNG compression strategy without changing the byte-for-byte stored-DEFLATE behavior of existing eager or caller-buffered constructors.
+**Depends on**: Phase 31
+**Requirements**: PNGC-01
+**Success Criteria** (what must be TRUE):
+
+  1. A library user can request the documented opt-in compression strategy through an additive public contract rather than a changed default.
+  2. A library user who keeps using the existing eager or chunk encoder constructor receives the identical stored-DEFLATE PNG bytes as before for the same compatible image.
+  3. A library user can distinguish the supported optimized strategy from the stored baseline without gaining dynamic Huffman, adaptive filtering, host streaming, or other excluded compression behavior.
+
+**Plans**: TBD
+
+### Phase 33: Fixed-or-Stored PNG Planning and Emission
+
+**Goal**: A library user selecting the optimized strategy receives deterministic fixed-Huffman-or-stored PNG output only after bounded exact admission, through both eager and caller-buffered encoder paths.
+**Depends on**: Phase 32
+**Requirements**: PNGC-02, PNGC-03
+**Success Criteria** (what must be TRUE):
+
+  1. A library user requesting optimized output receives capability, geometry, output, work, and budget rejection before any byte is exposed when the source cannot be admitted.
+  2. A library user with an admitted compatible image receives one deterministic PNG byte sequence produced by a bounded exact plan that selects fixed-Huffman or stored DEFLATE without dynamic-Huffman or adaptive-filter expansion.
+  3. A library user can drain optimized eager and caller-buffered output under arbitrary valid output capacities, observe exact progress, obtain byte-identical eager/chunk results, and receive unchanged sticky completion or failure semantics.
+
+**Plans**: TBD
+
+### Phase 34: Portable PNG Compression Corpus Evidence
+
+**Goal**: Maintainers can reproduce four-target evidence that the opt-in optimized strategy remains valid and deterministic while delivering measured compression wins for its intended repetitive-image cases.
+**Depends on**: Phase 33
+**Requirements**: PNGC-04
+**Success Criteria** (what must be TRUE):
+
+  1. Maintainers can run a declared deterministic PNG corpus on js, wasm, wasm-gc, and native and verify optimized eager and chunk outputs decode back to their source images with matching target-neutral evidence.
+  2. The corpus reproducibly proves that FixedOrStored output is never larger than the stored-DEFLATE baseline and records a declared compression win for both flat RGB8 and flat RGBA8 images.
+
+**Plans**: TBD
+
+## Requirement Traceability
+
+| Requirement | Phase | Status |
+|-------------|-------|--------|
+| PNGC-01 | Phase 32 | Pending |
+| PNGC-02 | Phase 33 | Pending |
+| PNGC-03 | Phase 33 | Pending |
+| PNGC-04 | Phase 34 | Pending |
+
 ## Progress
 
 | Phase | Plans Complete | Status | Completed |
@@ -82,6 +140,9 @@
 | 29. Pausable PNG Encode Substrate | 3/3 | Complete    | 2026-07-21 |
 | 30. Public PNG Chunk Encoder | 1/1 | Complete    | 2026-07-21 |
 | 31. Portable PNG Encode Evidence | 1/1 | Complete    | 2026-07-21 |
+| 32. PNG Compression Strategy and Compatibility | 0/TBD | Not started | - |
+| 33. Fixed-or-Stored PNG Planning and Emission | 0/TBD | Not started | - |
+| 34. Portable PNG Compression Corpus Evidence | 0/TBD | Not started | - |
 
 ---
-*Roadmap updated: 2026-07-21 for v0.9 resumable PNG encode planning.*
+*Roadmap updated: 2026-07-22 for v0.10 PNG Compression Optimization planning.*

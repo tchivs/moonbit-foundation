@@ -1,20 +1,16 @@
 ---
 gsd_state_version: 1.0
-milestone: v0.9
-milestone_name: Resumable PNG Encode
-status: Awaiting next milestone
-stopped_at: Phase 31 verified and milestone ready for audit
-last_updated: "2026-07-21T14:58:26.274Z"
-last_activity: 2026-07-21
-last_activity_desc: Milestone v0.9 completed and archived
+milestone: v0.10
+milestone_name: PNG Compression Optimization
+status: planning
+last_updated: "2026-07-21T17:08:22.642Z"
+last_activity: 2026-07-22
 progress:
-  total_phases: 3
-  completed_phases: 3
-  total_plans: 5
-  completed_plans: 5
-  percent: 100
-current_phase: 31
-current_phase_name: Portable PNG Encode Evidence
+  total_phases: 0
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
+  percent: 0
 ---
 
 # Project State
@@ -29,10 +25,10 @@ See `.planning/PROJECT.md` (updated 2026-07-21).
 
 ## Current Position
 
-Phase: Milestone v0.9 complete
+Phase: Not started (defining requirements)
 Plan: —
-Status: Awaiting next milestone
-Last activity: 2026-07-21 — Milestone v0.9 completed and archived
+Status: Defining requirements
+Last activity: 2026-07-22 — Milestone v0.10 started
 
 ## Performance Metrics
 
