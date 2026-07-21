@@ -247,6 +247,82 @@ test "bilinear resize filters RGB8 in linear light" {
 }
 
 ///|
+test "bilinear resize preserves opaque RGB8 and straight RGBA8 identity and parity" {
+  let expected_rgb = [b'\x12', b'\x34', b'\x56']
+  let rgb_identity = resize_convert_image(1UL, 1UL, 3UL, None, expected_rgb)
+  let rgba_identity = resize_convert_image(
+    1UL,
+    1UL,
+    4UL,
+    Some(@color.AlphaMode::Straight),
+    [b'\x12', b'\x34', b'\x56', b'\xff'],
+  )
+  for dimensions in [(1UL, 1UL), (2UL, 3UL), (4UL, 2UL)] {
+    let pixels = dimensions.0 * dimensions.1
+    let rgb_output = @ops.resize_bilinear(
+      rgb_identity.view(),
+      dimensions.0,
+      dimensions.1,
+      resize_convert_limits(pixels * 3UL, pixels * 4UL),
+    ).unwrap().image().view()
+    let rgba_output = @ops.resize_bilinear(
+      rgba_identity.view(),
+      dimensions.0,
+      dimensions.1,
+      resize_convert_limits(pixels * 4UL, pixels * 4UL),
+    ).unwrap().image().view()
+    for y = 0UL; y < dimensions.1; y = y + 1UL {
+      for x = 0UL; x < dimensions.0; x = x + 1UL {
+        for channel = 0UL; channel < 3UL; channel = channel + 1UL {
+          let expected = expected_rgb[channel.to_int()]
+          inspect(rgb_output.get_byte(x, y, channel).unwrap() == expected, content="true")
+          inspect(rgba_output.get_byte(x, y, channel).unwrap() == expected, content="true")
+          inspect(
+            rgb_output.get_byte(x, y, channel).unwrap() ==
+            rgba_output.get_byte(x, y, channel).unwrap(),
+            content="true",
+          )
+        }
+        inspect(rgba_output.get_byte(x, y, 3UL).unwrap(), content="b'\\xFF'")
+      }
+    }
+  }
+
+  let rgb_interpolation = resize_convert_image(2UL, 2UL, 3UL, None, [
+    b'\x10', b'\x20', b'\x30', b'\x40', b'\x50', b'\x60',
+    b'\x70', b'\x80', b'\x90', b'\xa0', b'\xb0', b'\xc0',
+  ])
+  let rgba_interpolation = resize_convert_image(
+    2UL,
+    2UL,
+    4UL,
+    Some(@color.AlphaMode::Straight),
+    [
+      b'\x10', b'\x20', b'\x30', b'\xff', b'\x40', b'\x50', b'\x60', b'\xff',
+      b'\x70', b'\x80', b'\x90', b'\xff', b'\xa0', b'\xb0', b'\xc0', b'\xff',
+    ],
+  )
+  let rgb_output = @ops.resize_bilinear(
+    rgb_interpolation.view(), 3UL, 4UL, resize_convert_limits(36UL, 48UL),
+  ).unwrap().image().view()
+  let rgba_output = @ops.resize_bilinear(
+    rgba_interpolation.view(), 3UL, 4UL, resize_convert_limits(48UL, 48UL),
+  ).unwrap().image().view()
+  for y = 0UL; y < 4UL; y = y + 1UL {
+    for x = 0UL; x < 3UL; x = x + 1UL {
+      for channel = 0UL; channel < 3UL; channel = channel + 1UL {
+        inspect(
+          rgb_output.get_byte(x, y, channel).unwrap() ==
+          rgba_output.get_byte(x, y, channel).unwrap(),
+          content="true",
+        )
+      }
+      inspect(rgba_output.get_byte(x, y, 3UL).unwrap(), content="b'\\xFF'")
+    }
+  }
+}
+
+///|
 test "bilinear resize filters straight RGBA without transparent colour fringes" {
   let source = resize_convert_image(
     2UL, 1UL, 4UL, Some(@color.AlphaMode::Straight), [

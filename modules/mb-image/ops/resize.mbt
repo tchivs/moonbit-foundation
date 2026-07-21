@@ -276,8 +276,8 @@ pub fn resize_bilinear(
   if !supports_bilinear_metadata(source) {
     return Err(
       operation_error(
-        @error.ErrorCategory::InvalidInput,
-        @error.ErrorCode::InvalidRange,
+        @error.ErrorCategory::Capability,
+        @error.ErrorCode::CapabilityUnavailable,
         operation,
         "image-resize-bilinear-metadata",
       ),

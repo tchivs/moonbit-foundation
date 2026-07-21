@@ -36,6 +36,7 @@ fn wb_resize_convert_image(
   channels : UInt64,
   alpha : @color.AlphaMode?,
   pixels : Array[Byte],
+  profile? : @profile.ProfileIdentity = @profile.ProfileIdentity::builtin_srgb(),
 ) -> @storage.OwnedImage {
   let length = width * height * channels
   let opaque = @metadata.OpaqueMetadata::from_entries(
@@ -53,7 +54,7 @@ fn wb_resize_convert_image(
     @color.ColorSpaceIdentity::Srgb,
     @color.TransferIdentity::EncodedSrgb,
     alpha,
-    @profile.ProfileIdentity::builtin_srgb(),
+    profile,
     @model.Orientation::TopLeft,
     opaque,
   )
@@ -381,26 +382,48 @@ test "bilinear rejects empty metadata overflow and each output charge boundary a
     content="true",
   )
 
-  let metadata_rejected = processing_wb_variant_image(
-    @model.ComponentType::U8,
-    @model.ChannelOrder::Rgb,
-    @model.PlaneLayout::Packed,
-    @color.TransferIdentity::LinearSrgb,
-    None,
+  let custom_profile = @profile.ProfileIdentity::opaque(
+    @profile.OpaqueProfile::from_bytes(
+      @profile.ProfileFormatTag::icc(),
+      b"x",
+      @profile.ProfileLimits::new(1UL),
+      wb_resize_convert_limits(1UL, 0UL),
+    ).unwrap(),
   )
-  let metadata_budget = wb_resize_convert_limits(3UL, 4UL)
-  let metadata_before = metadata_budget.remaining()
-  match resize_bilinear(metadata_rejected.view(), 1UL, 1UL, metadata_budget) {
-    Err(error) => {
-      inspect(error.operation() == Some("image-resize-bilinear"), content="true")
-      inspect(error.context() == Some("image-resize-bilinear-metadata"), content="true")
+  let metadata_rejected = [
+    processing_wb_variant_image(
+      @model.ComponentType::U8,
+      @model.ChannelOrder::Rgb,
+      @model.PlaneLayout::Packed,
+      @color.TransferIdentity::LinearSrgb,
+      None,
+    ),
+    wb_resize_convert_image(
+      1UL,
+      1UL,
+      3UL,
+      None,
+      [b'\x01', b'\x02', b'\x03'],
+      profile=custom_profile,
+    ),
+  ]
+  for rejected in metadata_rejected {
+    let metadata_budget = wb_resize_convert_limits(3UL, 4UL)
+    let metadata_before = metadata_budget.remaining()
+    match resize_bilinear(rejected.view(), 1UL, 1UL, metadata_budget) {
+      Err(error) => {
+        inspect(error.category() == @error.ErrorCategory::Capability, content="true")
+        inspect(error.code() == @error.ErrorCode::CapabilityUnavailable, content="true")
+        inspect(error.operation() == Some("image-resize-bilinear"), content="true")
+        inspect(error.context() == Some("image-resize-bilinear-metadata"), content="true")
+      }
+      Ok(_) => fail("non-sRGB bilinear metadata must reject")
     }
-    Ok(_) => fail("non-sRGB bilinear metadata must reject")
+    inspect(
+      wb_resize_convert_remaining_is_unchanged(metadata_before, metadata_budget.remaining()),
+      content="true",
+    )
   }
-  inspect(
-    wb_resize_convert_remaining_is_unchanged(metadata_before, metadata_budget.remaining()),
-    content="true",
-  )
 
   let overflow_budget = wb_resize_convert_limits(3UL, 4UL)
   let overflow_before = overflow_budget.remaining()
