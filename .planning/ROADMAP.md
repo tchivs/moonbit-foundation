@@ -130,7 +130,9 @@
 2. Zero, one-byte, and ragged caller capacities remain byte-identical to eager output while frozen Gray8/RGB8/RGBA8 vectors retain their bytes.
 3. The public evidence runs independently on js, wasm, wasm-gc, and native.
 
-**Plans**: TBD
+**Plans**: 1/1 plans executed
+
+- [x] 49-01-PLAN.md
 
 ## Next
 
