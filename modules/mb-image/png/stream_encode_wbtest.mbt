@@ -104,7 +104,7 @@ fn png_stream_wb_adaptive_rgba_image() -> @storage.OwnedImage {
     2UL,
     @model.ImageFormat::rgba8(),
     [
-      @model.PlaneDescriptor::new(0UL, 8UL, 8UL, 16UL, 1UL, 1UL, 2UL, 2UL).unwrap(),
+      @model.PlaneDescriptor::new(0UL, 16UL, 8UL, 8UL, 1UL, 1UL, 2UL, 2UL).unwrap(),
     ],
     16UL,
     @model.ImageMetadata::new(

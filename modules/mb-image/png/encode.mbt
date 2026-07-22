@@ -174,6 +174,22 @@ fn _png_fixed_add(left : UInt64, right : UInt64) -> Result[UInt64, @error.CoreEr
   }
 }
 
+///| Checked work composition keeps resource admission independent of target
+/// integer overflow behaviour.
+fn _png_encode_selected_work(
+  total_length : UInt64,
+  matcher_work : UInt64,
+  adaptive_filter_work : UInt64,
+) -> Result[UInt64, @error.CoreError] {
+  let with_planning = match _png_fixed_add(total_length, matcher_work) {
+    Err(error) => return Err(error); Ok(value) => value
+  }
+  let with_replay = match _png_fixed_add(with_planning, matcher_work) {
+    Err(error) => return Err(error); Ok(value) => value
+  }
+  _png_fixed_add(with_replay, adaptive_filter_work)
+}
+
 ///| PNG method-0 filter candidates remain in their mandated stable order.
 enum PngRowFilter {
   None
@@ -313,6 +329,155 @@ fn _png_fixed_scanline_byte(
   }
 }
 
+///| Convert the stable method-0 row selection to its on-wire filter tag.
+fn _png_filter_tag(filter : PngRowFilter) -> Byte {
+  match filter {
+    PngRowFilter::None => b'\x00'
+    PngRowFilter::Sub => b'\x01'
+    PngRowFilter::Up => b'\x02'
+    PngRowFilter::Average => b'\x03'
+    PngRowFilter::Paeth => b'\x04'
+  }
+}
+
+///| Read a raw source row without materialising source or residual bytes.
+fn _png_filter_image_raw_byte(
+  source : @storage.ImageView,
+  row : UInt64,
+  channels : UInt64,
+  position : UInt64,
+) -> Result[Byte, @error.CoreError] {
+  source.get_byte(position / channels, row, position % channels)
+}
+
+///| Apply a method-0 candidate directly to one ImageView row. This keeps the
+/// adaptive source bounded to scalar coordinates and pixel reads.
+fn _png_filter_image_candidate_byte(
+  filter : PngRowFilter,
+  source : @storage.ImageView,
+  row : UInt64,
+  row_bytes : UInt64,
+  channels : UInt64,
+  position : UInt64,
+) -> Result[Byte, @error.CoreError] {
+  if position >= row_bytes { return Err(_png_encode_capability("png-filter-row-access")) }
+  let sample = match _png_filter_image_raw_byte(source, row, channels, position) {
+    Err(error) => return Err(error); Ok(value) => value
+  }
+  let left = if position < channels { b'\x00' } else {
+    match _png_filter_image_raw_byte(source, row, channels, position - channels) {
+      Err(error) => return Err(error); Ok(value) => value
+    }
+  }
+  let up = if row == 0UL { b'\x00' } else {
+    match _png_filter_image_raw_byte(source, row - 1UL, channels, position) {
+      Err(error) => return Err(error); Ok(value) => value
+    }
+  }
+  let upper_left = if row == 0UL || position < channels { b'\x00' } else {
+    match _png_filter_image_raw_byte(source, row - 1UL, channels, position - channels) {
+      Err(error) => return Err(error); Ok(value) => value
+    }
+  }
+  let predictor = match filter {
+    PngRowFilter::None => b'\x00'
+    PngRowFilter::Sub => left
+    PngRowFilter::Up => up
+    PngRowFilter::Average => ((left.to_uint64() + up.to_uint64()) / 2UL).to_byte()
+    PngRowFilter::Paeth => _png_filter_paeth_predictor(left, up, upper_left)
+  }
+  Ok(sample - predictor)
+}
+
+///| Select one row's first minimum candidate using only scalar positions.
+fn _png_filter_image_row_winner(
+  source : @storage.ImageView,
+  row : UInt64,
+  row_bytes : UInt64,
+  channels : UInt64,
+) -> Result[PngRowFilter, @error.CoreError] {
+  let mut winner = PngRowFilter::None
+  let mut winner_score = 0UL
+  for candidate in [PngRowFilter::None, PngRowFilter::Sub, PngRowFilter::Up, PngRowFilter::Average, PngRowFilter::Paeth] {
+    let mut score = 0UL
+    for position = 0UL; position < row_bytes; position = position + 1UL {
+      let residual = match _png_filter_image_candidate_byte(
+        candidate, source, row, row_bytes, channels, position,
+      ) { Err(error) => return Err(error); Ok(value) => value }
+      score = match _png_fixed_add(score, _png_filter_signed_magnitude(residual)) {
+        Err(error) => return Err(error); Ok(value) => value
+      }
+    }
+    if candidate == PngRowFilter::None || score < winner_score {
+      winner = candidate
+      winner_score = score
+    }
+  }
+  Ok(winner)
+}
+
+///| The common logical filtered stream. None keeps its legacy provider exactly;
+/// Adaptive derives one tag and residual payload from the fixed scorer.
+fn _png_filtered_scanline_byte(
+  source : @storage.ImageView,
+  row_bytes : UInt64,
+  channels : UInt64,
+  filter_strategy : PngFilterStrategy,
+  index : UInt64,
+) -> Result[Byte, @error.CoreError] {
+  match filter_strategy {
+    PngFilterStrategy::None => _png_fixed_scanline_byte(source, row_bytes, channels, index)
+    PngFilterStrategy::Adaptive => {
+      let row_width = match @checked.checked_add(row_bytes, 1UL) {
+        Err(error) => return Err(error); Ok(value) => value
+      }
+      let row = index / row_width
+      let in_row = index % row_width
+      let winner = match _png_filter_image_row_winner(source, row, row_bytes, channels) {
+        Err(error) => return Err(error); Ok(value) => value
+      }
+      if in_row == 0UL { Ok(_png_filter_tag(winner)) } else {
+        _png_filter_image_candidate_byte(
+          winner, source, row, row_bytes, channels, in_row - 1UL,
+        )
+      }
+    }
+  }
+}
+
+///| The bounded DEFLATE matcher over the selected logical filter stream.
+fn _png_filtered_match_at(
+  source : @storage.ImageView,
+  row_bytes : UInt64,
+  channels : UInt64,
+  filter_strategy : PngFilterStrategy,
+  scanlines : UInt64,
+  position : UInt64,
+) -> Result[(UInt64, UInt64, UInt64), @error.CoreError] {
+  let remaining = scanlines - position
+  let mut best_length = 0UL
+  let mut best_distance = 0UL
+  let mut work = 0UL
+  let mut distance = 1UL
+  while distance <= 4UL && distance <= position {
+    let mut length = 0UL
+    while length < 258UL && length < remaining {
+      work = match _png_fixed_add(work, 3UL) { Err(error) => return Err(error); Ok(value) => value }
+      let current = match _png_filtered_scanline_byte(source, row_bytes, channels, filter_strategy, position + length) {
+        Err(error) => return Err(error); Ok(value) => value
+      }
+      let prior = match _png_filtered_scanline_byte(source, row_bytes, channels, filter_strategy, position + length - distance) {
+        Err(error) => return Err(error); Ok(value) => value
+      }
+      if current != prior { break }
+      length = length + 1UL
+    }
+    if length >= 3UL && length > best_length { best_length = length; best_distance = distance }
+    distance = distance + 1UL
+  }
+  Ok((best_length, best_distance, work))
+}
+
 ///| A1: scan only distances 1 through 4 in ascending order. Strictly replacing
 /// the best length intentionally retains the smaller distance on ties.
 fn _png_fixed_match_at(
@@ -391,6 +556,7 @@ fn _png_dynamic_frequencies(
   source : @storage.ImageView,
   row_bytes : UInt64,
   channels : UInt64,
+  filter_strategy : PngFilterStrategy,
   scanlines : UInt64,
 ) -> Result[(Array[UInt64], Array[UInt64], UInt64, UInt64), @error.CoreError] {
   let literals = Array::make(286, 0UL)
@@ -399,8 +565,8 @@ fn _png_dynamic_frequencies(
   let mut work = 0UL
   let mut fingerprint = 1UL
   while position < scanlines {
-    let (length, distance, match_work) = match _png_fixed_match_at(
-      source, row_bytes, channels, scanlines, position,
+    let (length, distance, match_work) = match _png_filtered_match_at(
+      source, row_bytes, channels, filter_strategy, scanlines, position,
     ) { Err(error) => return Err(error); Ok(value) => value }
     work = match _png_fixed_add(work, match_work) { Err(error) => return Err(error); Ok(value) => value }
     if length >= 3UL {
@@ -408,14 +574,14 @@ fn _png_dynamic_frequencies(
       literals[symbol.to_int()] = literals[symbol.to_int()] + 1UL
       distances[(distance - 1UL).to_int()] = distances[(distance - 1UL).to_int()] + 1UL
       for offset = 0UL; offset < length; offset = offset + 1UL {
-        let byte = match _png_fixed_scanline_byte(source, row_bytes, channels, position + offset) {
+        let byte = match _png_filtered_scanline_byte(source, row_bytes, channels, filter_strategy, position + offset) {
           Err(error) => return Err(error); Ok(value) => value
         }
         fingerprint = _png_adler_step(fingerprint, byte)
       }
       position = position + length
     } else {
-      let byte = match _png_fixed_scanline_byte(source, row_bytes, channels, position) {
+      let byte = match _png_filtered_scanline_byte(source, row_bytes, channels, filter_strategy, position) {
         Err(error) => return Err(error); Ok(value) => value
       }
       literals[byte.to_int()] = literals[byte.to_int()] + 1UL
@@ -477,10 +643,11 @@ fn _png_dynamic_plan(
   source : @storage.ImageView,
   row_bytes : UInt64,
   channels : UInt64,
+  filter_strategy : PngFilterStrategy,
   scanlines : UInt64,
 ) -> Result[PngDynamicPlan?, @error.CoreError] {
   let (literal_frequencies, distance_frequencies, matcher_work, fingerprint) =
-    match _png_dynamic_frequencies(source, row_bytes, channels, scanlines) {
+    match _png_dynamic_frequencies(source, row_bytes, channels, filter_strategy, scanlines) {
       Err(error) => return Err(error); Ok(value) => value
     }
   let literals = match _png_huffman_from_frequencies(literal_frequencies, true, false, true) {
@@ -519,7 +686,7 @@ fn _png_dynamic_plan(
   }
   let mut position = 0UL
   while position < scanlines {
-    let (length, distance, _) = match _png_fixed_match_at(source, row_bytes, channels, scanlines, position) {
+    let (length, distance, _) = match _png_filtered_match_at(source, row_bytes, channels, filter_strategy, scanlines, position) {
       Err(error) => return Err(error); Ok(value) => value
     }
     if length >= 3UL {
@@ -530,7 +697,7 @@ fn _png_dynamic_plan(
       }
       position = position + length
     } else {
-      let byte = match _png_fixed_scanline_byte(source, row_bytes, channels, position) { Err(error) => return Err(error); Ok(value) => value }
+      let byte = match _png_filtered_scanline_byte(source, row_bytes, channels, filter_strategy, position) { Err(error) => return Err(error); Ok(value) => value }
       bits = match _png_fixed_add(bits, literals.lengths[byte.to_int()].to_uint64()) { Err(error) => return Err(error); Ok(value) => value }
       position = position + 1UL
     }
@@ -550,14 +717,15 @@ fn _png_fixed_plan(
   source : @storage.ImageView,
   row_bytes : UInt64,
   channels : UInt64,
+  filter_strategy : PngFilterStrategy,
   scanlines : UInt64,
 ) -> Result[PngFixedPlan, @error.CoreError] {
   let mut position = 0UL
   let mut bits = 3UL
   let mut matcher_work = 0UL
   while position < scanlines {
-    let (length, distance, work) = match _png_fixed_match_at(
-      source, row_bytes, channels, scanlines, position,
+    let (length, distance, work) = match _png_filtered_match_at(
+      source, row_bytes, channels, filter_strategy, scanlines, position,
     ) {
       Err(error) => return Err(error)
       Ok(value) => value
@@ -576,7 +744,7 @@ fn _png_fixed_plan(
       position = position + length
       ignore(distance)
     } else {
-      let byte = match _png_fixed_scanline_byte(source, row_bytes, channels, position) {
+      let byte = match _png_filtered_scanline_byte(source, row_bytes, channels, filter_strategy, position) {
         Err(error) => return Err(error)
         Ok(value) => value
       }
@@ -615,6 +783,20 @@ fn _png_fixed_plan(
 fn _png_encode_preflight(
   source : @storage.ImageView,
   strategy : PngCompressionStrategy,
+  limits : @codec.CodecLimits,
+  budget : @budget.Budget,
+) -> Result[PngEncodePreflight, @error.CoreError] {
+  _png_encode_preflight_with_filter(
+    source, strategy, PngFilterStrategy::None, limits, budget,
+  )
+}
+
+///| The filter-aware atomic admission path. Every candidate and later replay
+/// observes this same logical byte stream before any output can be exposed.
+fn _png_encode_preflight_with_filter(
+  source : @storage.ImageView,
+  strategy : PngCompressionStrategy,
+  filter_strategy : PngFilterStrategy,
   limits : @codec.CodecLimits,
   budget : @budget.Budget,
 ) -> Result[PngEncodePreflight, @error.CoreError] {
@@ -664,7 +846,7 @@ fn _png_encode_preflight(
   let plan = match strategy {
     PngCompressionStrategy::Stored => PngDeflatePlan::Stored(stored)
     PngCompressionStrategy::FixedOrStored => {
-      let fixed = match _png_fixed_plan(source, row_bytes, channels, scanlines) {
+      let fixed = match _png_fixed_plan(source, row_bytes, channels, filter_strategy, scanlines) {
         Err(error) => return Err(error)
         Ok(value) => value
       }
@@ -678,7 +860,7 @@ fn _png_encode_preflight(
       }
     }
     PngCompressionStrategy::DynamicOrFixedOrStored => {
-      let fixed = match _png_fixed_plan(source, row_bytes, channels, scanlines) {
+      let fixed = match _png_fixed_plan(source, row_bytes, channels, filter_strategy, scanlines) {
         Err(error) => return Err(error); Ok(value) => value
       }
       if fixed.idat_length > 4294967295UL { return Err(_png_encode_capability("png-idat-length")) }
@@ -690,7 +872,7 @@ fn _png_encode_preflight(
         PngDeflatePlan::Fixed(value) => value.total_length
         PngDeflatePlan::Dynamic(value) => value.total_length
       }
-      match _png_dynamic_plan(source, row_bytes, channels, scanlines) {
+      match _png_dynamic_plan(source, row_bytes, channels, filter_strategy, scanlines) {
         Err(error) => return Err(error)
         Ok(Some(dynamic)) => if dynamic.total_length < winner_length {
           PngDeflatePlan::Dynamic(dynamic)
@@ -699,19 +881,38 @@ fn _png_encode_preflight(
       }
     }
   }
+  let candidate_score_work_per_row = match @checked.checked_mul(5UL, row_bytes) {
+    Err(error) => return Err(error); Ok(value) => value
+  }
+  let adaptive_filter_work = match filter_strategy {
+    PngFilterStrategy::None => 0UL
+    PngFilterStrategy::Adaptive => {
+      let planning = match @checked.checked_mul(source.height(), candidate_score_work_per_row) {
+        Err(error) => return Err(error); Ok(value) => value
+      }
+      match @checked.checked_add(planning, planning) {
+        Err(error) => return Err(error); Ok(value) => value
+      }
+    }
+  }
   let (blocks, idat_length, total_length, selected_work) = match plan {
     PngDeflatePlan::Stored(value) => (
-      value.blocks, value.idat_length, value.total_length, value.total_length,
+      value.blocks, value.idat_length, value.total_length,
+      match _png_fixed_add(value.total_length, adaptive_filter_work) { Err(error) => return Err(error); Ok(value) => value },
     )
     PngDeflatePlan::Fixed(value) => (
       0UL, value.idat_length, value.total_length,
-      value.total_length + value.matcher_work + value.matcher_work,
+      match _png_encode_selected_work(value.total_length, value.matcher_work, adaptive_filter_work) {
+        Err(error) => return Err(error); Ok(value) => value
+      },
     )
     // The exact ledger is selected bytes + planning matcher walk + replay
     // matcher walk; header/tree work is fixed by the RFC alphabet bounds.
     PngDeflatePlan::Dynamic(value) => (
       0UL, value.idat_length, value.total_length,
-      value.total_length + value.matcher_work + value.matcher_work,
+      match _png_encode_selected_work(value.total_length, value.matcher_work, adaptive_filter_work) {
+        Err(error) => return Err(error); Ok(value) => value
+      },
     )
   }
   for item in [

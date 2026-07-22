@@ -253,11 +253,9 @@ fn PngEncodeMachine::new_with_strategies(
   budget : @budget.Budget,
   _diagnostics : @error.Diagnostics,
 ) -> Result[PngEncodeMachine, @error.CoreError] {
-  let filter_strategy = match filter_strategy {
-    PngFilterStrategy::None => PngFilterStrategy::None
-    PngFilterStrategy::Adaptive => PngFilterStrategy::None
-  }
-  let facts = match _png_encode_preflight(source, strategy, limits, budget) {
+  let facts = match _png_encode_preflight_with_filter(
+    source, strategy, filter_strategy, limits, budget,
+  ) {
     Err(error) => return Err(error)
     Ok(value) => value
   }
@@ -325,14 +323,9 @@ fn PngEncodeMachine::scanline_byte(
   self : PngEncodeMachine,
   index : UInt64,
 ) -> Result[Byte, @error.CoreError] {
-  let row_width = self.row_bytes + 1UL
-  let in_row = index % row_width
-  if in_row == 0UL {
-    Ok(b'\x00')
-  } else {
-    let sample = in_row - 1UL
-    self.source.get_byte(sample / self.channels, index / row_width, sample % self.channels)
-  }
+  _png_filtered_scanline_byte(
+    self.source, self.row_bytes, self.channels, self.filter_strategy, index,
+  )
 }
 
 ///|
@@ -419,8 +412,8 @@ fn PngEncodeMachine::fixed_preview_byte(
       bit_count = next_count
       header_written = true
     } else if raw_cursor < self.scanlines {
-      let (length, distance, work) = match _png_fixed_match_at(
-        self.source, self.row_bytes, self.channels, self.scanlines, raw_cursor,
+      let (length, distance, work) = match _png_filtered_match_at(
+        self.source, self.row_bytes, self.channels, self.filter_strategy, self.scanlines, raw_cursor,
       ) {
         Err(error) => return Err(error)
         Ok(value) => value
@@ -452,8 +445,8 @@ fn PngEncodeMachine::fixed_preview_byte(
         bit_count = next_count
         let mut index = 0UL
         while index < length {
-          let byte = match _png_fixed_scanline_byte(
-            self.source, self.row_bytes, self.channels, raw_cursor + index,
+          let byte = match _png_filtered_scanline_byte(
+            self.source, self.row_bytes, self.channels, self.filter_strategy, raw_cursor + index,
           ) {
             Err(error) => return Err(error)
             Ok(value) => value
@@ -463,8 +456,8 @@ fn PngEncodeMachine::fixed_preview_byte(
         }
         raw_cursor = raw_cursor + length
       } else {
-        let byte = match _png_fixed_scanline_byte(
-          self.source, self.row_bytes, self.channels, raw_cursor,
+        let byte = match _png_filtered_scanline_byte(
+          self.source, self.row_bytes, self.channels, self.filter_strategy, raw_cursor,
         ) {
           Err(error) => return Err(error)
           Ok(value) => value
@@ -596,8 +589,8 @@ fn PngEncodeMachine::dynamic_preview_byte(
       } else { phase = 4 }
     } else if phase == 4 {
       if raw_cursor < self.scanlines {
-        let (length, distance, work) = match _png_fixed_match_at(
-          self.source, self.row_bytes, self.channels, self.scanlines, raw_cursor,
+        let (length, distance, work) = match _png_filtered_match_at(
+          self.source, self.row_bytes, self.channels, self.filter_strategy, self.scanlines, raw_cursor,
         ) { Err(error) => return Err(error); Ok(value) => value }
         matcher_work = match _png_fixed_add(matcher_work, work) { Err(error) => return Err(error); Ok(value) => value }
         if length >= 3UL {
@@ -611,14 +604,14 @@ fn PngEncodeMachine::dynamic_preview_byte(
           let (distance_value, distance_count) = _png_dynamic_put_code(bit_value, bit_count, plan.distances, (distance - 1UL).to_int())
           bit_value = distance_value; bit_count = distance_count
           for index = 0UL; index < length; index = index + 1UL {
-            let byte = match _png_fixed_scanline_byte(self.source, self.row_bytes, self.channels, raw_cursor + index) {
+            let byte = match _png_filtered_scanline_byte(self.source, self.row_bytes, self.channels, self.filter_strategy, raw_cursor + index) {
               Err(error) => return Err(error); Ok(value) => value
             }
             adler = _png_adler_step(adler, byte)
           }
           raw_cursor = raw_cursor + length
         } else {
-          let byte = match _png_fixed_scanline_byte(self.source, self.row_bytes, self.channels, raw_cursor) {
+          let byte = match _png_filtered_scanline_byte(self.source, self.row_bytes, self.channels, self.filter_strategy, raw_cursor) {
             Err(error) => return Err(error); Ok(value) => value
           }
           let (next_value, next_count) = _png_dynamic_put_code(bit_value, bit_count, plan.literals, byte.to_int())

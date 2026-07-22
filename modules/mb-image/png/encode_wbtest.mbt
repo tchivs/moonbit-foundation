@@ -102,7 +102,7 @@ fn png_wb_adaptive_rgb_image() -> @storage.OwnedImage {
     2UL,
     @model.ImageFormat::rgb8(),
     [
-      @model.PlaneDescriptor::new(0UL, 6UL, 6UL, 12UL, 1UL, 1UL, 2UL, 2UL).unwrap(),
+      @model.PlaneDescriptor::new(0UL, 12UL, 6UL, 6UL, 1UL, 1UL, 2UL, 2UL).unwrap(),
     ],
     12UL,
     @model.ImageMetadata::new(
