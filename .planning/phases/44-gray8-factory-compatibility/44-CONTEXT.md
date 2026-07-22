@@ -6,7 +6,7 @@
 <domain>
 ## Phase Boundary
 
-Establish the additive public selection boundary for non-interlaced, 8-bit Gray PNG encoding through both eager and caller-buffered factories. The phase preserves every existing RGB8/RGBA8 factory and byte stream; the shared Gray scanline/compression implementation is Phase 45.
+Deliver standards-compliant, non-interlaced, 8-bit Gray PNG output through one explicit eager factory and one matching caller-buffered factory. The phase preserves every existing RGB8/RGBA8 factory and byte stream; Phase 45 extends this working Stored route to the existing filter and Fixed/Dynamic strategy families.
 
 </domain>
 
@@ -14,15 +14,15 @@ Establish the additive public selection boundary for non-interlaced, 8-bit Gray 
 ## Implementation Decisions
 
 ### Explicit Gray8 selection
-- **D-01:** Add a small, symmetric eager/chunk `Gray8` factory family rather than changing the behavior of existing factories or inferring a new output profile from `ImageView` alone.
-- **D-02:** The selected Gray8 profile is fixed to PNG colour type 0, bit depth 8, and `PngInterlaceStrategy::None`; it can compose with the existing Stored, FixedOrStored, DynamicOrFixedOrStored, and filter selection APIs without adding a second compression path.
+- **D-01:** Add one small, symmetric explicit `new_gray8` factory on each eager/chunk surface rather than changing existing factories or inferring a new output profile from `ImageView` alone.
+- **D-02:** These Phase 44 factories produce working PNG colour type 0, bit depth 8, non-interlaced output through the established Stored route. Phase 45 may add explicit Gray8 strategy variants only after it extends the shared bounded filter and Fixed/Dynamic planning path.
 
 ### Compatibility and rejection boundary
 - **D-03:** Existing constructors retain their present RGB8/straight-RGBA8 admission and frozen output exactly. Gray8 factories admit only packed, tightly-rowed `ChannelOrder::Gray` + `U8`, top-left, opaque-metadata-free inputs with the current canonical metadata contract.
 - **D-04:** Wrong profile/source pairs, Gray16, planar rows, alpha/transparency conversion, and Gray8+Adam7 fail before output or a chunk encoder is made available, with stable typed capability contexts. No implicit RGB-to-Gray conversion is introduced.
 
 ### Verification posture
-- **D-05:** Phase 44 tests lock the public factory and rejection behavior plus legacy RGB/RGBA byte compatibility. Full Gray pixel emission, cross-strategy bounded preflight, hostile chunk schedules, and four-target public fidelity remain the explicit responsibility of Phases 45 and 46.
+- **D-05:** Phase 44 tests prove real eager and caller-buffered Stored Gray8 output, source rejection, and legacy RGB/RGBA byte compatibility. Cross-strategy bounded planning, broad hostile schedules, and independent four-target public fidelity remain the explicit responsibility of Phases 45 and 46.
 
 ### the agent's Discretion
 Use the smallest public names and internal profile representation that follow the existing `new_with_*` constructor style without multiplying duplicate implementations.
@@ -50,8 +50,8 @@ Use the smallest public names and internal profile representation that follow th
 ## Existing Code Insights
 
 ### Reusable Assets
-- `PngEncoder` and `PngChunkEncoder` in `png.mbt`: already expose parallel strategy factory families.
-- `_png_encode_source` and the common preflight in `encode.mbt`: one admission gate can receive a profile selection instead of duplicating limits, budget, and layout checks.
+- `PngEncoder` and `PngChunkEncoder` in `png.mbt`: expose the parallel default construction surfaces that the two Gray8 factories extend.
+- `_png_encode_source` and the common Stored preflight in `encode.mbt`: one admission gate can receive a profile selection instead of duplicating limits, budget, and layout checks.
 - Existing `stream_encode_test.mbt` hostile-lease helpers: public chunk constructor behavior already has an established test shape.
 
 ### Established Patterns
@@ -74,7 +74,7 @@ No additional user-facing requirements: use the standard PNG Gray8 representatio
 <deferred>
 ## Deferred Ideas
 
-- Palette/indexed output, 1/2/4-bit Gray packing, Gray16, `tRNS`/alpha conversion, and Gray8 Adam7 are later additive contracts.
+- Palette/indexed output, 1/2/4-bit Gray packing, Gray16, `tRNS`/alpha conversion, Gray8 Adam7, and Gray8 Fixed/Dynamic/adaptive-filter variants are later additive contracts.
 - Registry publication and release automation remain outside this code-first milestone.
 
 </deferred>
