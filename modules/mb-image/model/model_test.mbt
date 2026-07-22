@@ -347,6 +347,9 @@ test "GrayAlpha admission accepts canonical identities and rejects unsupported i
     Some(@color.AlphaMode::Straight),
     @model.Orientation::TopRight,
   )
+  let graya16_plane = [@model.PlaneDescriptor::new(
+    0UL, 4UL, 4UL, 4UL, 1UL, 1UL, 1UL, 1UL,
+  ).unwrap()]
   inspect(rejects_invalid_graya(@model.ImageFormat::graya8(), packed, missing_alpha), content="true")
   inspect(rejects_invalid_graya(@model.ImageFormat::graya8(), packed, premultiplied), content="true")
   inspect(@model.ImageDescriptor::new(
@@ -359,6 +362,41 @@ test "GrayAlpha admission accepts canonical identities and rejects unsupported i
     4UL,
     straight,
   ) is Ok(_), content="true")
+  inspect(rejects_invalid_graya(@model.ImageFormat::graya16(), graya16_plane, missing_alpha), content="true")
+  inspect(rejects_invalid_graya(@model.ImageFormat::graya16(), graya16_plane, premultiplied), content="true")
+  inspect(rejects_invalid_graya(
+    @model.ImageFormat::new(
+      @model.ComponentType::F32,
+      @model.ChannelOrder::GrayAlpha,
+      @model.PlaneLayout::Packed,
+      @model.Endianness::Little,
+    ).unwrap(),
+    graya16_plane,
+    straight,
+  ), content="true")
+  inspect(rejects_invalid_graya(
+    @model.ImageFormat::new(
+      @model.ComponentType::U16,
+      @model.ChannelOrder::GrayAlpha,
+      @model.PlaneLayout::Planar,
+      @model.Endianness::Little,
+    ).unwrap(),
+    [
+      @model.PlaneDescriptor::new(0UL, 2UL, 2UL, 2UL, 1UL, 1UL, 1UL, 1UL).unwrap(),
+      @model.PlaneDescriptor::new(2UL, 2UL, 2UL, 2UL, 1UL, 1UL, 1UL, 1UL).unwrap(),
+    ],
+    straight,
+  ), content="true")
+  inspect(rejects_invalid_graya(
+    @model.ImageFormat::new(
+      @model.ComponentType::U16,
+      @model.ChannelOrder::GrayAlpha,
+      @model.PlaneLayout::Packed,
+      @model.Endianness::Big,
+    ).unwrap(),
+    graya16_plane,
+    straight,
+  ), content="true")
   inspect(rejects_invalid_graya(
     @model.ImageFormat::new(
       @model.ComponentType::U8,
@@ -375,6 +413,22 @@ test "GrayAlpha admission accepts canonical identities and rejects unsupported i
   inspect(rejects_invalid_graya(@model.ImageFormat::graya8(), packed, linear), content="true")
   inspect(rejects_invalid_graya(@model.ImageFormat::graya8(), packed, non_builtin), content="true")
   inspect(rejects_invalid_graya(@model.ImageFormat::graya8(), packed, rotated), content="true")
+  inspect(rejects_invalid_graya(@model.ImageFormat::graya16(), graya16_plane, linear), content="true")
+  inspect(rejects_invalid_graya(@model.ImageFormat::graya16(), graya16_plane, non_builtin), content="true")
+  inspect(rejects_invalid_graya(@model.ImageFormat::graya16(), graya16_plane, rotated), content="true")
+  match @model.ImageDescriptor::new(
+    1UL,
+    1UL,
+    @model.ImageFormat::graya16(),
+    [@model.PlaneDescriptor::new(
+      0UL, 3UL, 3UL, 3UL, 1UL, 1UL, 1UL, 1UL,
+    ).unwrap()],
+    4UL,
+    straight,
+  ) {
+    Err(error) => inspect(error.code() == @error.ErrorCode::InvalidRange, content="true")
+    Ok(_) => inspect(false, content="true")
+  }
 }
 
 ///|
