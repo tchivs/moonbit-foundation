@@ -2,52 +2,31 @@
 phase: 48-bounded-gray16-encoder-path
 review_depth: standard
 base: bc8f9ea
-status: issues_found
-files_reviewed: 5
+status: clean
+files_reviewed: 8
 findings:
   critical: 0
-  warning: 1
-  info: 1
-  total: 2
+  warning: 0
+  info: 0
+  total: 0
 tests:
+  - command: moon -C modules/mb-core test bytes --target native --frozen
+    result: pass (16 passed, 0 failed)
+  - command: moon -C modules/mb-image test storage --target native --frozen
+    result: pass (15 passed, 0 failed; pre-existing upstream warnings)
   - command: moon -C modules/mb-image test png --target native --frozen
-    result: pass (187 passed, 0 failed)
+    result: pass (188 passed, 0 failed)
 ---
 
-# Phase 48 Code Review
+# Phase 48 Code Review — Final Pass
 
-Reviewed the explicit Gray16 strategy factories, profile-aware wire-byte producer, filtering/match/planning/replay propagation, and native regressions in the five requested PNG files against `bc8f9ea..HEAD`.
-
-## Findings
-
-### WR-01 — Gray16 Fixed/Dynamic sticky replay has no regression coverage
-
-- **Severity:** Warning
-- **File:** `modules/mb-image/png/stream_encode_test.mbt:535`, `modules/mb-image/png/stream_encode_test.mbt:1921`
-- **Evidence:** The new Gray16 tests cover normal eager/chunk identity and atomic construction across all six pairs, but the only fixed replay-mutation test remains the pre-existing Gray8 case at line 1990. There is no Gray16 test that mutates a U16 component after accepted framing/DEFLATE bytes for `FixedOrStored` or `DynamicOrFixedOrStored` and then asserts zero-byte failure, unchanged `total_written()`, identical terminal error, and untouched later lease.
-- **Impact:** A regression in the Gray16-specific `PngFilteredMatchCursor` profile propagation or Fixed/Dynamic replay path can preserve normal eager/chunk identity while violating the acknowledgement-safe sticky replay contract required by D-04.
-- **Recommendation:** Add dedicated Gray16 FixedOrStored and DynamicOrFixedOrStored replay-drift tests. Use `set_component_byte` after a one-byte pull prefix, force the selected route with an appropriate corpus, then assert accepted-progress-only accounting, `written()==0UL` on failure, error equality on a later pull, and unchanged sentinel leases.
-
-### IN-01 — Gray8 replay test now reports a misleading Gray16 failure label
-
-- **Severity:** Info
-- **File:** `modules/mb-image/png/stream_encode_test.mbt:2036`
-- **Evidence:** The test named `PNG Gray8 fixed replay mismatch is sticky` now aborts with `png gray16 replay was not sticky`.
-- **Impact:** This does not affect runtime behavior, but a failure would misidentify the profile under test and slow diagnosis.
-- **Recommendation:** Restore the abort text to `png gray8 replay was not sticky`, or replace the test with the missing Gray16-specific replay test described above.
+Reviewed `bc8f9ea..HEAD` across the eight requested bytes, storage, and PNG files. No findings.
 
 ## Verified Areas
 
-- `PngEncoder` and `PngChunkEncoder` now expose compression-only, filter-only, and combined Gray16 factories while keeping Gray16 non-interlaced.
-- `_png_wire_byte` maps U16 storage-order bytes to PNG big-endian bytes, and the reviewed stored, filter, match, Fixed, Dynamic, checksum, and replay call sites pass the profile through.
-- Gray16 carries `2UL` as the byte stride from profile admission into filter/match traversal; no image-sized staging or new retained row buffer was introduced.
-- The shared preflight still rejects `gray16-noninterlaced-required`, and Gray16 all-pair capability/geometry/output/work/budget admissions remain atomic in the reviewed tests.
-- `moon -C modules/mb-image test png --target native --frozen` passed: 187 passed, 0 failed.
-
-## Scope
-
-- `modules/mb-image/png/png.mbt`
-- `modules/mb-image/png/encode.mbt`
-- `modules/mb-image/png/stream_encode.mbt`
-- `modules/mb-image/png/encode_test.mbt`
-- `modules/mb-image/png/stream_encode_test.mbt`
+- `MutationRevision` is shared from `LeaseOwner` through every `ByteView`, retained subview, mutable lease, and split child. `MutByteLease::set` is the only backing write primitive; it increments after a successful write, while reads, `OwnedBytes::view`, slicing, split/release, and fresh `from_bytes` initialization do not create a false revision increment.
+- `MutImageView::set_byte` and `set_component_byte` both delegate to that primitive, so U8 and U16 image writes advance the same backing revision. Revision exhaustion rejects before changing the byte or counter.
+- PNG captures `source.mutation_revision()` after successful admission. `PngChunkEncoder::pull` compares it in O(1) before any destination write and maps changed Gray16 Fixed/Dynamic plans to their existing sticky drift errors. Gray8/RGB/RGBA and Gray16 Stored remain outside this new guard.
+- The Dynamic corpus proves actual BTYPE=10 selection with `(prefix[43] & 0x07) == 0x05`. After U16 mutation, both Fixed and Dynamic now require the very next pull to fail with zero written bytes, unchanged accepted total, and an untouched full current sentinel; their later pull preserves the same error, total, and sentinel.
+- Fixed and Dynamic end-of-stream fingerprint/work checks remain present. The profile-aware U16 wire-byte path retains no converted rows, image-sized staging, or unbounded work structure; `git diff --check` is clean.
+- Public Gray16 factory semantics, non-interlaced admission, all six normal strategy pairs, and legacy Gray8/RGB/RGBA paths remain unchanged by the revision guard.
