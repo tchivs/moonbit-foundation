@@ -10,9 +10,14 @@ The primary audience is MoonBit library authors and application developers build
 
 MoonBit developers can reuse stable, high-performance native infrastructure contracts instead of rebuilding incompatible foundations for every graphics, document, media, or automation product.
 
-## Next Milestone Direction
+## Current Milestone: v0.18 GrayAlpha16 Adam7 PNG
 
-Extend the validated GrayAlpha16 base with an explicit Adam7 capability. It must stay additive to the frozen non-interlaced APIs, use the existing bounded eager and caller-buffered machinery, and retain the little-endian descriptor admission boundary.
+**Goal:** Add explicit bounded Adam7 encoding for legal packed U16 Gray+Alpha images without changing frozen non-interlaced output, descriptor admission, or existing PNG contracts.
+
+**Target features:**
+- Explicit eager and caller-buffered interlaced Type-4/16 GrayAlpha16 factories.
+- Shared bounded Adam7 traversal, filtering, compression planning, atomic preflight, and acknowledgement-safe replay.
+- Public pass-aware wire/decode, hostile-capacity, legacy-compatibility, and four-target evidence.
 
 ## Requirements
 

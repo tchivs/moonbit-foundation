@@ -1,20 +1,20 @@
 ---
 gsd_state_version: 1.0
-milestone: v0.17
-milestone_name: GrayAlpha16 PNG Interchange
-status: Awaiting next milestone
-stopped_at: Completed 55-01-PLAN.md
-last_updated: "2026-07-22T22:18:36.558Z"
+milestone: v0.18
+milestone_name: GrayAlpha16 Adam7 PNG
+status: planning
+stopped_at: Milestone initialized; roadmap pending
+last_updated: "2026-07-23T00:00:00+08:00"
 last_activity: 2026-07-23
-last_activity_desc: Milestone v0.17 completed and archived
+last_activity_desc: Initialized v0.18 GrayAlpha16 Adam7 PNG requirements
 progress:
-  total_phases: 3
-  completed_phases: 3
-  total_plans: 4
-  completed_plans: 4
-  percent: 100
-current_phase: 55
-current_phase_name: Portable Public Evidence
+  total_phases: 0
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
+  percent: 0
+current_phase: null
+current_phase_name: null
 ---
 
 # Project State
@@ -25,16 +25,18 @@ See `.planning/PROJECT.md` (updated 2026-07-23).
 
 **Core value:** MoonBit developers can reuse stable, high-performance native infrastructure contracts instead of rebuilding incompatible foundations for every graphics, document, media, or automation product.
 
-**Current focus:** Plan the next code-first GrayAlpha16 capability; explicit Adam7 is the leading candidate.
+**Current focus:** Define and execute v0.18 GrayAlpha16 Adam7 PNG.
 
 ## Current Position
 
-Phase: Milestone v0.17 complete
+Phase: Roadmap initialization
 Plan: —
-Status: Awaiting next milestone
-Last activity: 2026-07-23 — Milestone v0.17 completed and archived
+Status: Planning v0.18
+Last activity: 2026-07-23 — v0.18 requirements defined
 
 ## Performance Metrics
+
+**Current milestone:** v0.18 has 3 scoped requirements; roadmap and phases are pending.
 
 **Recent milestone:** v0.17 shipped with 4/4 requirements, 3/3 phases, 4/4 plans, 8 tasks, and 204/204 PNG tests on each supported target.
 
