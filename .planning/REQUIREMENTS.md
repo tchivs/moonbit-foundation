@@ -12,8 +12,8 @@
 
 ### Bounded Adaptive Filtering
 
-- [ ] **PNGF-02**: An opted-in compatible RGB8 or straight-RGBA8 image is encoded with deterministic, bounded standard PNG None, Sub, Up, Average, and Paeth row-filter candidates and a documented stable winner rule.
-- [ ] **PNGF-03**: Filter selection is integrated before Stored, FixedOrStored, and Dynamic compression planning without image-sized staging, and all capability, geometry, output, work, and budget failures remain atomic before eager output or a caller lease.
+- [x] **PNGF-02**: An opted-in compatible RGB8 or straight-RGBA8 image is encoded with deterministic, bounded standard PNG None, Sub, Up, Average, and Paeth row-filter candidates and a documented stable winner rule.
+- [x] **PNGF-03**: Filter selection is integrated before Stored, FixedOrStored, and Dynamic compression planning without image-sized staging, and all capability, geometry, output, work, and budget failures remain atomic before eager output or a caller lease.
 
 ### Portable Evidence
 
@@ -37,8 +37,8 @@
 | Requirement | Phase | Status |
 | --- | --- | --- |
 | PNGF-01 | Phase 38 | Complete |
-| PNGF-02 | Phase 39 | Pending |
-| PNGF-03 | Phase 39 | Pending |
+| PNGF-02 | Phase 39 | Complete |
+| PNGF-03 | Phase 39 | Complete |
 | PNGF-04 | Phase 40 | Pending |
 
 **Coverage:**
