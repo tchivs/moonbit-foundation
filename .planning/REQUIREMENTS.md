@@ -7,7 +7,7 @@
 
 ### Image Model
 
-- [ ] **GRAYA-01**: A library user can create and inspect a packed U8 grayscale-plus-alpha image with exactly two components per pixel and explicit straight-alpha metadata, while existing Gray/RGB/RGBA descriptors, views, storage, and operations retain their behavior.
+- [x] **GRAYA-01**: A library user can create and inspect a packed U8 grayscale-plus-alpha image with exactly two components per pixel and explicit straight-alpha metadata, while existing Gray/RGB/RGBA descriptors, views, storage, and operations retain their behavior.
 
 ### Bounded Encoding
 
@@ -37,13 +37,14 @@
 
 | Requirement | Phase | Status |
 | --- | --- | --- |
-| GRAYA-01 | Phase 50 | Pending |
+| GRAYA-01 | Phase 50 | Complete |
 | GRAYA-02 | Phase 51 | Pending |
 | GRAYA-03 | Phase 51 | Pending |
 | GRAYA-04 | Phase 52 | Pending |
 | GRAYA-05 | Phase 52 | Pending |
 
 **Coverage:**
+
 - v0.16 requirements: 5 total
 - Mapped to phases: 5
 - Unmapped: 0
