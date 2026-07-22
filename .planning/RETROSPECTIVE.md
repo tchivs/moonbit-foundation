@@ -80,6 +80,37 @@
 2. Scope archive tooling from canonical milestone phase numbers, not permissive roadmap prose parsing.
 3. Public streaming contracts need both arbitrary-schedule corpus evidence and a small runnable consumer flow.
 
+## Milestone: v0.12 — PNG Filter Optimization
+
+**Shipped:** 2026-07-22  
+**Phases:** 3 | **Plans:** 9
+
+### What Was Built
+
+- An additive, legacy-compatible Adaptive PNG filter API for eager and caller-buffered output.
+- Deterministic bounded selection across the five standard method-0 PNG row filters.
+- Bounded, acknowledgement-safe replay and complete preflight accounting for Stored, FixedOrStored, and DynamicOrFixedOrStored routes.
+- Four-target generated-corpus proof of strict Adaptive wins, eager/chunk identity, and public decode fidelity.
+
+### What Worked
+
+- Independent verifier passes caught two real planner-accounting/replay gaps before the milestone was closed.
+- Selector-isolated evidence with GUID-owned temporary target roots avoided repeated source-tree copies and left no test residues.
+- Preserving frozen filter-None vectors kept the new API additive instead of silently changing existing users' bytes.
+
+### What Was Inefficient
+
+- Intermediate red/recovery artifacts and generated planning output accumulated faster than the active milestone needed.
+- Automatic milestone accomplishment extraction included superseded failed-attempt notes; the closeout summary now curates final shipped behavior instead.
+
+### Key Lessons
+
+1. For streaming encoders, planner work must be accounted for on candidate-decline paths as well as selected paths.
+2. A focused cross-target evidence runner is more useful than repeatedly running a broad suite that can stall without producing failure evidence.
+3. Planning directories should be archived at milestone close, not left beside the next active phase.
+
+---
+
 ## Cross-Milestone Trends
 
 ### Process Evolution

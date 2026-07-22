@@ -2,18 +2,18 @@
 gsd_state_version: 1.0
 milestone: v0.12
 milestone_name: PNG Filter Optimization
-current_phase: 40
-current_phase_name: Portable Adaptive-Filter Evidence
-status: completed
+status: Awaiting next milestone
 stopped_at: Phase 40 context gathered
-last_updated: "2026-07-22T06:16:54.593Z"
+last_updated: "2026-07-22T06:22:06.758Z"
 last_activity: 2026-07-22
-last_activity_desc: Phase 40 complete
+last_activity_desc: Milestone v0.12 completed and archived
 progress:
   total_phases: 3
   completed_phases: 3
   total_plans: 9
   completed_plans: 9
+current_phase: 40
+current_phase_name: Portable Adaptive-Filter Evidence
 ---
 
 # Project State
@@ -28,10 +28,10 @@ See `.planning/PROJECT.md` (updated 2026-07-21).
 
 ## Current Position
 
-Phase: 40 of 40 (Portable Adaptive-Filter Evidence)
-Plan: Not started
-Status: Milestone complete
-Last activity: 2026-07-22 — Phase 40 complete
+Phase: Milestone v0.12 complete
+Plan: —
+Status: Awaiting next milestone
+Last activity: 2026-07-22 — Milestone v0.12 completed and archived
 
 ## Performance Metrics
 
@@ -154,4 +154,4 @@ Resume file: .planning/phases/40-portable-adaptive-filter-evidence/40-CONTEXT.md
 
 ## Operator Next Steps
 
-- Plan Phase 38 with /gsd-plan-phase 38
+- Start the next milestone with /gsd-new-milestone

@@ -1,5 +1,20 @@
 # Project Milestones: MoonBit Native Foundation
 
+## v0.12 PNG Filter Optimization (Shipped: 2026-07-22)
+
+**Phases completed:** 3 phases, 9 plans, 4 tasks
+
+**Key accomplishments:**
+
+- Additive PNG filter-selection API that preserves the existing filter-None encoder path.
+- Deterministic standard PNG None/Sub/Up/Average/Paeth filtering with bounded, acknowledgement-safe planner and replay cursors.
+- Stored, FixedOrStored, and DynamicOrFixedOrStored adaptive routes retain one atomic preflight ledger, including declined Dynamic candidate work.
+- Generated RGB8 and straight-RGBA8 corpus evidence proves strict Adaptive output-size wins, hostile eager/chunk byte identity, and complete public decode on js, wasm, wasm-gc, and native.
+
+**Closeout:** Audit status `tech_debt`: all 4/4 requirements, 3/3 phases, 4/4 integration links, and 3/3 end-to-end flows passed. The sole non-blocking item is duplicated R1/A1 fixture construction in two public test files; it is intentionally retained to avoid a premature test abstraction.
+
+---
+
 ## v0.11 PNG Dynamic Huffman Compression (Shipped: 2026-07-22)
 
 **Phases completed:** 3 phases, 4 plans, 0 tasks

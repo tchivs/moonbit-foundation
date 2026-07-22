@@ -29,13 +29,15 @@ MoonBit developers can reuse stable, high-performance native infrastructure cont
 - [x] Add an explicit opt-in PNG Dynamic compression strategy while preserving Stored and FixedOrStored output. — Validated in v0.10-v0.11 Phases 32-37.
 - [x] Produce smaller deterministic PNG output for repetitive images with bounded atomic preflight and caller-buffered semantics. — Validated in v0.10-v0.11 Phases 32-37.
 - [x] Prove optimized eager and chunk PNG output across all portable targets with reproducible corpus and size evidence. — Validated in v0.10-v0.11 Phases 32-37.
+- [x] Preserve existing PNG filter-None constructors and compressed bytes while allowing an explicit adaptive-filter opt-in. — Validated in v0.12 Phases 38-40.
+- [x] Produce deterministic, bounded PNG scanline filtering with the standard None, Sub, Up, Average, and Paeth predictors. — Validated in v0.12 Phases 38-40.
+- [x] Integrate selected filter bytes with Stored, FixedOrStored, and Dynamic compression planning without weakening atomic preflight or caller-buffered semantics. — Validated in v0.12 Phases 38-40.
+- [x] Prove adaptive-filter output, eager/chunk determinism, and complete decode on all four portable targets. — Validated in v0.12 Phase 40.
 
 ### Active
 
-- [ ] Preserve existing PNG filter-None constructors and compressed bytes while allowing an explicit adaptive-filter opt-in.
-- [ ] Produce deterministic, bounded PNG scanline filtering with the standard None, Sub, Up, Average, and Paeth predictors.
-- [ ] Integrate selected filter bytes with Stored, FixedOrStored, and Dynamic compression planning without weakening atomic preflight or caller-buffered semantics.
-- [ ] Prove adaptive-filter output, eager/chunk determinism, and complete decode on all four portable targets.
+
+Fresh requirements will be defined for the next code-first milestone.
 
 ### Out of Scope
 
@@ -87,17 +89,13 @@ Registry publication remains deferred: the existing v0.2 qualification artifacts
 
 Registry publication and release automation remain deferred unless they directly unblock a concrete consumer or code path. The next milestone should prioritize another reusable implementation capability over delivery automation.
 
-## Current Milestone: v0.12 PNG Filter Optimization
+## Current State: v0.12 PNG Filter Optimization Shipped
 
-**Goal:** Add an explicit, deterministic, bounded PNG adaptive-filter route that improves compressibility while preserving legacy filter-None bytes and existing eager/caller-buffered safety contracts.
+**Delivered:** `mb-image` now exposes an additive `Adaptive` PNG filter strategy for eager and caller-buffered encoders. It selects among standard method-0 None, Sub, Up, Average, and Paeth filters deterministically, feeds bounded cursors into Stored, FixedOrStored, and DynamicOrFixedOrStored planning, and preserves frozen filter-None compatibility routes.
 
-**Target features:**
+**Validated:** Generated RGB8 R1 and straight-RGBA8 A1 sources prove a strict same-strategy Adaptive size win; zero/tiny/ragged caller capacities produce byte-identical eager and chunk output; public decoding restores exact source data on `js`, `wasm`, `wasm-gc`, and `native`. The v0.12 audit passed 4/4 requirements, 3/3 phase verifications, and all cross-phase/E2E flows.
 
-- Publish an additive filter-strategy/factory contract with a legacy None baseline.
-- Implement standard PNG row filters and bounded deterministic selection before the existing compression planners.
-- Prove strict compression improvements where expected, public decoding, eager/chunk parity, and four-target reproducibility.
-
-Adaptive compression search beyond the existing strategies, a wider LZ dictionary, image-sized staging, FFI, host adapters, external packages, CI/release/registry work, APNG, colour work, and metadata expansion remain out of scope.
+The next milestone should continue code-first infrastructure work from fresh requirements. Registry publication and release automation remain deferred unless a concrete consumer is blocked by their absence.
 
 
 ## Constraints
@@ -132,6 +130,7 @@ Adaptive compression search beyond the existing strategies, a wider LZ dictionar
 | Build public PNG streaming as a separate state-machine milestone | A public caller-buffered API must preserve strict framing, image-visibility, and resource semantics rather than expose the eager transport internals | ✓ Validated in v0.8 and v0.9 |
 | Select Dynamic DEFLATE only for a strict complete-PNG win | Existing FixedOrStored bytes remain the compatibility baseline and ties must not churn output | ✓ Validated in v0.11 |
 | Decline over-15-bit ordinary Huffman trees instead of adding a length-limited optimizer | Keep Dynamic planning bounded, portable, and within the declared scope | ✓ Validated in v0.11 |
+| Make adaptive PNG filtering explicit and select only a stable strict candidate winner | Preserve legacy bytes while adding bounded compression improvements without image-sized staging | ✓ Validated in v0.12 |
 
 ## Evolution
 
@@ -151,4 +150,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update toolchain, compatibility, benchmark, and adoption context.
 
 ---
-*Last updated: 2026-07-22 at v0.12 PNG Filter Optimization start*
+*Last updated: 2026-07-22 after v0.12 PNG Filter Optimization*
