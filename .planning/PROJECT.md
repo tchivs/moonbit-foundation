@@ -10,6 +10,15 @@ The primary audience is MoonBit library authors and application developers build
 
 MoonBit developers can reuse stable, high-performance native infrastructure contracts instead of rebuilding incompatible foundations for every graphics, document, media, or automation product.
 
+## Current Milestone: v0.16 Grayscale Alpha PNG
+
+**Goal:** Extend the portable, bounded PNG encoder from opaque grayscale to explicit 8-bit grayscale-plus-alpha output without weakening existing pixel-model or PNG compatibility contracts.
+
+**Target features:**
+- A first-class packed Gray+Alpha U8 image format with explicit straight-alpha metadata.
+- Eager and caller-buffered non-interlaced Gray+Alpha8 PNG factories through the shared bounded pipeline.
+- Public wire, alpha-fidelity, hostile-capacity, legacy-compatibility, and four-target evidence.
+
 ## Requirements
 
 ### Validated
@@ -41,7 +50,9 @@ MoonBit developers can reuse stable, high-performance native infrastructure cont
 
 ### Active
 
-- [ ] Define the next reusable MoonBit-native image capability through the next milestone's RFC-led requirements.
+- [ ] Provide first-class packed U8 grayscale-plus-alpha image semantics without changing existing Gray/RGB/RGBA contracts.
+- [ ] Encode those images as explicit non-interlaced Gray+Alpha8 PNGs through the bounded eager and caller-buffered pipeline.
+- [ ] Prove alpha and gray fidelity, hostile caller-buffered identity, legacy compatibility, and independent four-target execution.
 
 ### Out of Scope
 
@@ -167,4 +178,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update toolchain, compatibility, benchmark, and adoption context.
 
 ---
-*Last updated: 2026-07-22 after v0.15 Gray16 PNG Interchange*
+*Last updated: 2026-07-22 to start v0.16 Grayscale Alpha PNG*
