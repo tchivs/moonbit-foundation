@@ -289,6 +289,48 @@ fn png_stream_gray16_replay_image(
   image
 }
 
+///| GrayAlpha16 corpora force the same selected DEFLATE routes while retaining
+/// packed little-endian checked components for the four-byte filter cursor.
+fn png_stream_graya16_replay_image(
+  width : UInt64,
+  periodic? : Bool = false,
+) -> @storage.OwnedImage {
+  let bytes = width * 4UL
+  let descriptor = @model.ImageDescriptor::new(
+    width, 1UL, @model.ImageFormat::graya16(),
+    [@model.PlaneDescriptor::new(0UL, bytes, bytes, bytes, 1UL, 1UL, width, 1UL).unwrap()],
+    bytes,
+    @model.ImageMetadata::new(
+      @color.ColorSpaceIdentity::Srgb, @color.TransferIdentity::EncodedSrgb,
+      Some(@color.AlphaMode::Straight), @profile.ProfileIdentity::builtin_srgb(),
+      @model.Orientation::TopLeft,
+      @metadata.OpaqueMetadata::from_entries(
+        [], @metadata.MetadataLimits::new(
+          max_entries=1UL, max_token_bytes=16UL, max_value_bytes=1UL,
+          max_total_bytes=32UL, max_disposition_fields=4UL,
+        ), png_stream_test_budget(work=0UL),
+      ).unwrap(),
+    ),
+  ).unwrap()
+  let image = @storage.OwnedImage::new(
+    descriptor, png_stream_test_budget(work=0UL),
+  ).unwrap()
+  image.with_mut_view(fn(view) {
+    for x = 0UL; x < width; x = x + 1UL {
+      let gray_low = if periodic { (x * 4UL % 5UL).to_byte() } else { b'\x34' }
+      let gray_high = if periodic { ((x * 4UL + 1UL) % 5UL).to_byte() } else { b'\x12' }
+      let alpha_low = if periodic { ((x * 4UL + 2UL) % 5UL).to_byte() } else { b'\xc5' }
+      let alpha_high = if periodic { ((x * 4UL + 3UL) % 5UL).to_byte() } else { b'\xa7' }
+      view.set_component_byte(x, 0UL, 0UL, 0UL, gray_low).unwrap()
+      view.set_component_byte(x, 0UL, 0UL, 1UL, gray_high).unwrap()
+      view.set_component_byte(x, 0UL, 1UL, 0UL, alpha_low).unwrap()
+      view.set_component_byte(x, 0UL, 1UL, 1UL, alpha_high).unwrap()
+    }
+    Ok(())
+  }).unwrap()
+  image
+}
+
 ///|
 fn png_stream_test_eager(image : @storage.OwnedImage) -> Bytes {
   png_stream_test_eager_with_strategy(image, PngCompressionStrategy::Stored)
@@ -2767,6 +2809,79 @@ test "PNG Gray16 Fixed and Dynamic replay mutations are sticky" {
   png_gray16_replay_mutation_is_sticky(
     png_stream_gray16_replay_image(128UL, periodic=true),
     PngCompressionStrategy::DynamicOrFixedOrStored, PngFilterStrategy::None, b'\x05', 7UL,
+  )
+}
+
+///| A GrayAlpha16 source mutation after acknowledged framing bytes must
+/// invalidate selected Fixed/Dynamic replay before any caller lease byte is
+/// exposed, and the terminal failure must remain sticky.
+fn png_graya16_replay_mutation_is_sticky(
+  image : @storage.OwnedImage,
+  strategy : PngCompressionStrategy,
+  filter_strategy : PngFilterStrategy,
+  expected_header : Byte,
+  post_capacity : UInt64,
+) -> Unit {
+  let encoder = PngChunkEncoder::new_graya16_with_strategies(
+    image.view(), strategy, filter_strategy,
+    png_stream_test_limits(), png_stream_test_budget(), @error.Diagnostics::new(),
+  ).unwrap()
+  let prefix : Array[Byte] = []
+  while prefix.length() < 44 {
+    let pull = png_chunk_test_pull(encoder, 1UL, prefix)
+    if pull.written() != 1UL { abort("png graya16 replay prefix") }
+  }
+  if (prefix[43] & b'\x07') != expected_header {
+    abort("png graya16 replay selected wrong deflate route")
+  }
+  image.with_mut_view(fn(view) {
+    view.set_component_byte(0UL, 0UL, 1UL, 0UL, b'\xff')
+  }).unwrap()
+  let accepted_total = prefix.length().to_uint64()
+  let first = png_chunk_test_owner(post_capacity, fill=b'Z')
+  let failed = first.with_mut(0UL, post_capacity, fn(lease) {
+    Ok(encoder.pull(lease))
+  }).unwrap()
+  let error = match failed.outcome() {
+    PngChunkPullOutcome::Failed(value) => value
+    PngChunkPullOutcome::NeedOutput => abort("png graya16 replay exposed post-mutation bytes")
+    PngChunkPullOutcome::Finished => abort("png graya16 replay did not drift")
+  }
+  if failed.written() != 0UL || failed.total_written() != accepted_total {
+    abort("png graya16 replay first terminal progress")
+  }
+  for index = 0UL; index < post_capacity; index = index + 1UL {
+    if first.view().get(index).unwrap() != b'Z' {
+      abort("png graya16 replay first terminal lease")
+    }
+  }
+  let later = png_chunk_test_owner(post_capacity, fill=b'Z')
+  let replay = later.with_mut(0UL, post_capacity, fn(lease) { Ok(encoder.pull(lease)) }).unwrap()
+  let replay_error = match replay.outcome() {
+    PngChunkPullOutcome::Failed(value) => value
+    _ => abort("png graya16 replay was not sticky")
+  }
+  if replay.written() != 0UL || replay.total_written() != accepted_total ||
+    !png_chunk_test_same_error(error, replay_error) {
+    abort("png graya16 replay was not sticky")
+  }
+  for index = 0UL; index < post_capacity; index = index + 1UL {
+    if later.view().get(index).unwrap() != b'Z' {
+      abort("png graya16 replay sticky terminal lease")
+    }
+  }
+}
+
+///| Fixed and Dynamic GrayAlpha16 plans validate checked U16 source revision
+/// before writing a caller lease, including the four-byte Adaptive filter path.
+test "PNG GrayAlpha16 Fixed and Dynamic replay mutations are sticky" {
+  png_graya16_replay_mutation_is_sticky(
+    png_stream_graya16_replay_image(5UL),
+    PngCompressionStrategy::FixedOrStored, PngFilterStrategy::Adaptive, b'\x03', 7UL,
+  )
+  png_graya16_replay_mutation_is_sticky(
+    png_stream_graya16_replay_image(128UL, periodic=true),
+    PngCompressionStrategy::DynamicOrFixedOrStored, PngFilterStrategy::Adaptive, b'\x05', 7UL,
   )
 }
 
