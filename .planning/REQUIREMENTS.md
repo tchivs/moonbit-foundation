@@ -16,7 +16,7 @@
 
 ### Public Interchange Evidence
 
-- [ ] **GRAYA16-04**: Generated GrayAlpha16 PNGs prove literal U16 wire fidelity and documented public decode canonicalization to straight RGBA8 high bytes; zero, one-byte, and ragged caller capacities remain eager-byte-identical with accepted-only progress and sticky terminals; frozen Gray8, Gray16, GrayAlpha8, RGB8, and straight-RGBA8 vectors retain their bytes and all evidence runs independently on js, wasm, wasm-gc, and native.
+- [x] **GRAYA16-04**: Generated GrayAlpha16 PNGs prove literal U16 wire fidelity and documented public decode canonicalization to straight RGBA8 high bytes; zero, one-byte, and ragged caller capacities remain eager-byte-identical with accepted-only progress and sticky terminals; frozen Gray8, Gray16, GrayAlpha8, RGB8, and straight-RGBA8 vectors retain their bytes and all evidence runs independently on js, wasm, wasm-gc, and native.
 
 ## Future Requirements
 
@@ -35,7 +35,7 @@
 | GRAYA16-01 | Phase 53 | Complete |
 | GRAYA16-02 | Phase 54 | Complete |
 | GRAYA16-03 | Phase 54 | Complete |
-| GRAYA16-04 | Phase 55 | Pending |
+| GRAYA16-04 | Phase 55 | Complete |
 
 **Coverage:**
 

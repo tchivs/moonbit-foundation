@@ -101,11 +101,11 @@ Plans:
 2. Zero-capacity, one-byte, and ragged caller capacities produce output byte-identical to eager output, report accepted-only progress, preserve untouched lease tails, and retain sticky terminal outcomes.
 3. Frozen Gray8, Gray16, GrayAlpha8, RGB8, and straight-RGBA8 vectors retain their existing bytes, and the complete public PNG evidence runs independently on js, wasm, wasm-gc, and native.
 
-**Plans**: 1 plan
+**Plans**: 1/1 plans executed
 
 Plans:
 
-- [ ] 55-01-PLAN.md — Prove public GrayAlpha16 wire/decode compatibility, hostile caller-buffered ownership, frozen vectors, and four-target portability.
+- [x] 55-01-PLAN.md — Prove public GrayAlpha16 wire/decode compatibility, hostile caller-buffered ownership, frozen vectors, and four-target portability.
 
 ## Progress
 
@@ -113,4 +113,4 @@ Plans:
 |-------|----------------|--------|-----------|
 | 53. GrayAlpha16 Model and Checked Storage | 1/1 | Complete    | 2026-07-23 |
 | 54. Bounded Type-4/16 Encoder | 2/2 | Complete    | 2026-07-23 |
-| 55. Portable Public Evidence | 0/1 | Not started | - |
+| 55. Portable Public Evidence | 1/1 | In Progress|  |
