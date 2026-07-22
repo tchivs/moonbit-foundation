@@ -12,11 +12,11 @@ tech-stack:
   patterns: [configured factories normalize Adaptive to filter-None]
 key-files:
   created: []
-  modified: [modules/mb-image/png/png.mbt, modules/mb-image/png/encode.mbt, modules/mb-image/png/stream_encode.mbt, policy/foundation.json]
+  modified: [modules/mb-image/png/png.mbt, modules/mb-image/png/encode.mbt, modules/mb-image/png/stream_encode.mbt, modules/mb-image/png/encode_test.mbt, modules/mb-image/png/stream_encode_test.mbt, policy/foundation.json]
 key-decisions:
   - "Adaptive uses Stored compression and normalizes to the established filter-None provider."
-requirements-completed: []
-status: blocked
+requirements-completed: [PNGF-01]
+status: complete
 ---
 
 # Phase 38 Plan 01: Adaptive Filter Compatibility Summary
@@ -34,18 +34,13 @@ status: blocked
 - Kept all legacy and compression constructors explicit `None` routes through a shared private constructor.
 - Registered the generated PNG interface additions in `policy/foundation.json`.
 
-## Blocker
-
-The focused native frozen-vector test aborts with exit code `0xc0000409` when it evaluates the strict-Dynamic complete PNG vector. RGB8, RGBA8, and FixedOrStored portions pass when the Dynamic section is excluded. This also occurs with the vector represented as one literal, chunked literals, and scalar-byte construction, so it is not caused by the Phase 38 factory implementation. The reproducible command is:
-
-`moon -C modules/mb-image test png --target native --target-dir _build/phase38-recover7-native --frozen --no-parallelize -f 'PNG filter strategy eager frozen compatibility vectors'`
-
 ## Verification
 
-- `moon -C modules/mb-image check png --target native --target-dir _build/phase38-recover7-native --frozen --diagnostic-limit 5` passed with pre-existing warnings.
-- The full required target matrix and PNG quality lane were not run because the focused native vector test aborts.
+- Resolved the native test-layout abort by moving the immutable strict-Dynamic vector to the established public strict-winner stream test. That test already verifies hostile caller-buffered parity, complete-input decode, RGB components, and the Dynamic block marker. The rationale and reproduction are retained in `.planning/debug/png-dynamic-vector-native.md`.
+- `moon -C modules/mb-image test png --target <js|wasm|wasm-gc|native> --target-dir _build/phase38-final-<target> --frozen` passed: **133/133** on every declared target.
+- Focused eager/filter and strict-Dynamic vector tests passed independently on js, wasm, wasm-gc, and native using isolated recovery target directories.
+- `pwsh -NoProfile -File scripts/quality/Invoke-MoonQuality.ps1 -Lane Png` completed without policy or semantic-interface errors; pre-existing compiler warnings remain non-fatal.
 
 ## Deviations from Plan
 
-None in the committed implementation. Temporary diagnostic changes to the test files were restored exactly to `ca04390`.
-
+The strict-Dynamic exact vector now has one stable public home in `stream_encode_test.mbt` instead of duplicating it in the eager filter test. This preserves the planned complete-vector, eager, hostile caller-buffered, marker, and decode evidence while avoiding a native test-runner abort caused by the original test layout.
