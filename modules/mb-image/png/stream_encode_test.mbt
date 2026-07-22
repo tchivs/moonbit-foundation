@@ -10,10 +10,12 @@ fn png_stream_test_budget(work? : UInt64 = 1048576UL) -> @budget.Budget {
 fn png_stream_test_limits(
   output? : UInt64 = 1048576UL,
   work? : UInt64 = 1048576UL,
+  width? : UInt64 = 70000UL,
+  height? : UInt64 = 8UL,
 ) -> @codec.CodecLimits {
   @codec.CodecLimits::new(
     max_probe_bytes=8UL, max_input_bytes=1048576UL, max_output_bytes=output,
-    max_width=70000UL, max_height=8UL, max_pixels=560000UL, max_work=work,
+    max_width=width, max_height=height, max_pixels=560000UL, max_work=work,
   )
 }
 
@@ -22,12 +24,13 @@ fn png_stream_test_image(
   channels : UInt64,
   width? : UInt64 = 1UL,
   include_opaque? : Bool = false,
+  height? : UInt64 = 1UL,
 ) -> @storage.OwnedImage {
   let descriptor = @model.ImageDescriptor::new(
-    width, 1UL,
+    width, height,
     if channels == 3UL { @model.ImageFormat::rgb8() } else { @model.ImageFormat::rgba8() },
-    [@model.PlaneDescriptor::new(0UL, channels * width, channels * width, channels * width, 1UL, 1UL, width, 1UL).unwrap()],
-    channels * width,
+    [@model.PlaneDescriptor::new(0UL, channels * width * height, channels * width, channels * width, 1UL, 1UL, width, height).unwrap()],
+    channels * width * height,
     @model.ImageMetadata::new(
       @color.ColorSpaceIdentity::Srgb, @color.TransferIdentity::EncodedSrgb,
       if channels == 4UL { Some(@color.AlphaMode::Straight) } else { None },
@@ -45,9 +48,11 @@ fn png_stream_test_image(
     descriptor, png_stream_test_budget(work=0UL),
   ).unwrap()
   image.with_mut_view(fn(view) {
-    for x = 0UL; x < width; x = x + 1UL {
-      for channel = 0UL; channel < channels; channel = channel + 1UL {
-        view.set_byte(x, 0UL, channel, (x + channel).to_byte()).unwrap()
+    for y = 0UL; y < height; y = y + 1UL {
+      for x = 0UL; x < width; x = x + 1UL {
+        for channel = 0UL; channel < channels; channel = channel + 1UL {
+          view.set_byte(x, y, channel, (y * channels * width + x * channels + channel).to_byte()).unwrap()
+        }
       }
     }
     Ok(())
@@ -1579,5 +1584,171 @@ test "PNG adaptive compression selection retains Fixed equality and Dynamic stri
       image, PngCompressionStrategy::DynamicOrFixedOrStored, PngFilterStrategy::Adaptive,
     )
     inspect((dynamic[43] & b'\x07') == b'\x05', content="true")
+  }
+}
+
+///|
+fn png_adam7_stream_same_remaining(
+  left : @budget.ResourceLimits,
+  right : @budget.ResourceLimits,
+) -> Bool {
+  left.bytes() == right.bytes() &&
+    left.allocations() == right.allocations() &&
+    left.allocation_size() == right.allocation_size() &&
+    left.width() == right.width() &&
+    left.height() == right.height() &&
+    left.pixels() == right.pixels() &&
+    left.depth() == right.depth() &&
+    left.work() == right.work()
+}
+
+///| The public eager and caller-buffered all-strategy constructors must agree
+/// on each preflight error, before either one exposes owned output state.
+fn png_adam7_stream_admission_reject(
+  image : @storage.OwnedImage,
+  limits : @codec.CodecLimits,
+  work : UInt64,
+) -> Unit {
+  for strategy in [
+    PngCompressionStrategy::Stored,
+    PngCompressionStrategy::FixedOrStored,
+    PngCompressionStrategy::DynamicOrFixedOrStored,
+  ] {
+    let eager_budget = png_stream_test_budget(work=work)
+    let eager_before = eager_budget.remaining()
+    let writer = @io.MemoryWriter::new(
+      1048576UL, png_stream_test_budget(work=0UL),
+    ).unwrap()
+    let eager = @codec.ImageEncoder::encode(
+      PngEncoder::new_with_all_strategies(
+        strategy, PngFilterStrategy::None, PngInterlaceStrategy::Adam7,
+      ), image.view(), writer as &@io.Writer,
+      @codec.EncodeOptions::new(lossless_required=true, preserve_opaque_metadata=false),
+      limits, eager_budget, @error.Diagnostics::new(),
+    ).unwrap_err()
+    if writer.position() != 0UL ||
+      !png_adam7_stream_same_remaining(eager_before, eager_budget.remaining()) {
+      abort("png adam7 eager admission exposed state")
+    }
+
+    let chunk_budget = png_stream_test_budget(work=work)
+    let chunk_before = chunk_budget.remaining()
+    let sentinel = png_chunk_test_owner(7UL, fill=b'Z')
+    let chunk = PngChunkEncoder::new_with_all_strategies(
+      image.view(), strategy, PngFilterStrategy::None, PngInterlaceStrategy::Adam7,
+      limits, chunk_budget, @error.Diagnostics::new(),
+    ).unwrap_err()
+    if !png_chunk_test_same_error(eager, chunk) ||
+      !png_adam7_stream_same_remaining(chunk_before, chunk_budget.remaining()) {
+      abort("png adam7 chunk admission mismatch")
+    }
+    for index = 0UL; index < 7UL; index = index + 1UL {
+      if sentinel.view().get(index).unwrap() != b'Z' {
+        abort("png adam7 chunk admission exposed lease")
+      }
+    }
+  }
+}
+
+///| Drain a real multi-pass caller-buffered stream after first proving a zero
+/// lease is a no-op.  Only bytes accepted into the lease count toward progress.
+fn png_adam7_chunk_drain(
+  image : @storage.OwnedImage,
+  strategy : PngCompressionStrategy,
+  schedule : Array[UInt64],
+) -> Unit {
+  let eager = png_stream_test_eager_with_all_strategies(
+    image, strategy, PngFilterStrategy::None, PngInterlaceStrategy::Adam7,
+  )
+  let encoder = PngChunkEncoder::new_with_all_strategies(
+    image.view(), strategy, PngFilterStrategy::None, PngInterlaceStrategy::Adam7,
+    png_stream_test_limits(), png_stream_test_budget(), @error.Diagnostics::new(),
+  ).unwrap()
+  let empty = png_chunk_test_owner(0UL, fill=b'Z')
+  let zero = empty.with_mut(0UL, 0UL, fn(lease) { Ok(encoder.pull(lease)) }).unwrap()
+  if zero.written() != 0UL || zero.total_written() != 0UL ||
+    !(zero.outcome() is PngChunkPullOutcome::NeedOutput) {
+    abort("png adam7 empty lease progress")
+  }
+  let output : Array[Byte] = []
+  let mut turn = 0UL
+  while turn < 2048UL {
+    let capacity = schedule[(turn % schedule.length().to_uint64()).to_int()]
+    let owner = png_chunk_test_owner(capacity, fill=b'Z')
+    let before = output.length().to_uint64()
+    let pulled = owner.with_mut(0UL, capacity, fn(lease) { Ok(encoder.pull(lease)) }).unwrap()
+    if pulled.written() > capacity || pulled.total_written() != before + pulled.written() {
+      abort("png adam7 accepted-only progress")
+    }
+    for index = 0UL; index < pulled.written(); index = index + 1UL {
+      output.push(owner.view().get(index).unwrap())
+    }
+    match pulled.outcome() {
+      PngChunkPullOutcome::NeedOutput => turn = turn + 1UL
+      PngChunkPullOutcome::Failed(_) => abort("png adam7 chunk drain failed")
+      PngChunkPullOutcome::Finished => {
+        if Bytes::from_array(output) != eager { abort("png adam7 eager parity") }
+        for _ in [0, 1] {
+          let sentinel = png_chunk_test_owner(7UL, fill=b'Z')
+          let replay = sentinel.with_mut(0UL, 7UL, fn(lease) {
+            Ok(encoder.pull(lease))
+          }).unwrap()
+          if replay.written() != 0UL || replay.total_written() != pulled.total_written() ||
+            !(replay.outcome() is PngChunkPullOutcome::Finished) {
+            abort("png adam7 terminal progress")
+          }
+          for index = 0UL; index < 7UL; index = index + 1UL {
+            if sentinel.view().get(index).unwrap() != b'Z' {
+              abort("png adam7 terminal lease mutation")
+            }
+          }
+        }
+        return
+      }
+    }
+  }
+  abort("png adam7 chunk drain unreachable")
+}
+
+///| Five isolated all-strategy Adam7 rejection modes preserve no chunk encoder,
+/// no lease contents, and no caller budget state for both supported profiles.
+test "PNG Adam7 chunk all-strategy admission is atomic" {
+  for channels in [3UL, 4UL] {
+    png_adam7_stream_admission_reject(
+      png_stream_test_image(channels, width=5UL, height=5UL, include_opaque=true),
+      png_stream_test_limits(), 1048576UL,
+    )
+    png_adam7_stream_admission_reject(
+      png_stream_test_image(channels, width=5UL, height=5UL),
+      png_stream_test_limits(width=4UL), 1048576UL,
+    )
+    png_adam7_stream_admission_reject(
+      png_stream_test_image(channels, width=5UL, height=5UL),
+      png_stream_test_limits(output=1UL), 1048576UL,
+    )
+    png_adam7_stream_admission_reject(
+      png_stream_test_image(channels, width=5UL, height=5UL),
+      png_stream_test_limits(work=1UL), 1048576UL,
+    )
+    png_adam7_stream_admission_reject(
+      png_stream_test_image(channels, width=5UL, height=5UL),
+      png_stream_test_limits(), 1UL,
+    )
+  }
+}
+
+///| Multi-pass RGB8/RGBA8 Adam7 streams preserve their private preview until
+/// acknowledgement, accept only leased bytes, and retain a sticky terminal.
+test "PNG Adam7 multi-pass chunk replay is acknowledgement safe" {
+  for channels in [3UL, 4UL] {
+    let image = png_stream_test_image(channels, width=5UL, height=5UL)
+    for strategy in [
+      PngCompressionStrategy::Stored,
+      PngCompressionStrategy::FixedOrStored,
+      PngCompressionStrategy::DynamicOrFixedOrStored,
+    ] {
+      png_adam7_chunk_drain(image, strategy, [1UL])
+      png_adam7_chunk_drain(image, strategy, [0UL, 1UL, 3UL, 2UL, 5UL])
+    }
   }
 }

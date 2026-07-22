@@ -190,6 +190,107 @@ fn png_stream_wb_drain(machine : PngEncodeMachine) -> Bytes {
   Bytes::from_array(bytes)
 }
 
+///| A 5x5 row-major RGB8/RGBA8 source forces all seven Adam7 passes to emit,
+/// so a DEFLATE preview exercises a real multi-pass cursor successor.
+fn png_stream_wb_adam7_image(channels : UInt64) -> @storage.OwnedImage {
+  let descriptor = @model.ImageDescriptor::new(
+    5UL, 5UL,
+    if channels == 3UL { @model.ImageFormat::rgb8() } else { @model.ImageFormat::rgba8() },
+    [@model.PlaneDescriptor::new(
+      0UL, channels * 25UL, channels * 5UL, channels * 5UL,
+      1UL, 1UL, 5UL, 5UL,
+    ).unwrap()],
+    channels * 25UL,
+    @model.ImageMetadata::new(
+      @color.ColorSpaceIdentity::Srgb,
+      @color.TransferIdentity::EncodedSrgb,
+      if channels == 4UL { Some(@color.AlphaMode::Straight) } else { None },
+      @profile.ProfileIdentity::builtin_srgb(),
+      @model.Orientation::TopLeft,
+      @metadata.OpaqueMetadata::from_entries(
+        [],
+        @metadata.MetadataLimits::new(
+          max_entries=0UL, max_token_bytes=1UL, max_value_bytes=0UL,
+          max_total_bytes=0UL, max_disposition_fields=4UL,
+        ), png_stream_wb_budget(work=0UL),
+      ).unwrap(),
+    ),
+  ).unwrap()
+  let image = @storage.OwnedImage::new(
+    descriptor, png_stream_wb_budget(work=0UL),
+  ).unwrap()
+  image.with_mut_view(fn(view) {
+    for y = 0UL; y < 5UL; y = y + 1UL {
+      for x = 0UL; x < 5UL; x = x + 1UL {
+        for channel = 0UL; channel < channels; channel = channel + 1UL {
+          view.set_byte(x, y, channel, (y * channels * 5UL + x * channels + channel).to_byte()).unwrap()
+        }
+      }
+    }
+    Ok(())
+  }).unwrap()
+  image
+}
+
+///|
+fn png_stream_wb_append(machine : PngEncodeMachine, bytes : Array[Byte]) -> Unit {
+  while machine.present().unwrap() is Some(_) {
+    let byte = machine.present().unwrap().unwrap()
+    bytes.push(byte)
+    machine.acknowledge(byte).unwrap()
+  }
+}
+
+///| `present` may cache a DEFLATE byte, but it must not commit the real Adam7
+/// cursor, CRC, or Adler successor until the caller acknowledges that byte.
+test "PNG Adam7 multi-pass preview waits for acknowledgement" {
+  for channels in [3UL, 4UL] {
+    let image = png_stream_wb_adam7_image(channels)
+    for strategy in [
+      PngCompressionStrategy::Stored,
+      PngCompressionStrategy::FixedOrStored,
+      PngCompressionStrategy::DynamicOrFixedOrStored,
+    ] {
+      let delayed = PngEncodeMachine::new_with_all_strategies(
+        image.view(), strategy, PngFilterStrategy::None, PngInterlaceStrategy::Adam7,
+        png_stream_wb_limits(), png_stream_wb_budget(work=1048576UL),
+        @error.Diagnostics::new(),
+      ).unwrap()
+      let delayed_bytes : Array[Byte] = []
+      while delayed.completed() < 43UL {
+        let byte = delayed.present().unwrap().unwrap()
+        delayed_bytes.push(byte)
+        delayed.acknowledge(byte).unwrap()
+      }
+      let preview = delayed.present().unwrap().unwrap()
+      let completed = delayed.completed()
+      let idat_crc = delayed.idat_crc
+      let adler = delayed.adler
+      for _ in [0, 1, 2] {
+        if delayed.present().unwrap() != Some(preview) ||
+          delayed.completed() != completed || delayed.idat_crc != idat_crc ||
+          delayed.adler != adler {
+          abort("png adam7 preview advanced before acknowledgement")
+        }
+      }
+      delayed_bytes.push(preview)
+      delayed.acknowledge(preview).unwrap()
+      png_stream_wb_append(delayed, delayed_bytes)
+
+      let immediate = PngEncodeMachine::new_with_all_strategies(
+        image.view(), strategy, PngFilterStrategy::None, PngInterlaceStrategy::Adam7,
+        png_stream_wb_limits(), png_stream_wb_budget(work=1048576UL),
+        @error.Diagnostics::new(),
+      ).unwrap()
+      let immediate_bytes : Array[Byte] = []
+      png_stream_wb_append(immediate, immediate_bytes)
+      if Bytes::from_array(delayed_bytes) != Bytes::from_array(immediate_bytes) {
+        abort("png adam7 preview replay changed output")
+      }
+    }
+  }
+}
+
 ///|
 /// Dynamic state is a preview effect: repeated present calls at the first
 /// DEFLATE byte must not install the next scalar state.

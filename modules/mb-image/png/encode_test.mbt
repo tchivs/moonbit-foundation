@@ -104,6 +104,72 @@ fn png_adam7_same_remaining(
     left.work() == right.work()
 }
 
+///| A compact multi-pass source whose component at `(x, y, channel)` is its
+/// row-major byte offset.  The same source shape is used by the chunk tests.
+fn png_adam7_admission_image(
+  channels : UInt64,
+  include_opaque? : Bool = false,
+) -> @storage.OwnedImage {
+  let image = png_encode_image(
+    channels, Bytes::from_array(Array::make((channels * 25UL).to_int(), b'\x00')),
+    include_opaque=include_opaque, width=5UL, height=5UL,
+  )
+  image.with_mut_view(fn(view) {
+    for y = 0UL; y < 5UL; y = y + 1UL {
+      for x = 0UL; x < 5UL; x = x + 1UL {
+        for channel = 0UL; channel < channels; channel = channel + 1UL {
+          view.set_byte(x, y, channel, (y * channels * 5UL + x * channels + channel).to_byte()).unwrap()
+        }
+      }
+    }
+    Ok(())
+  }).unwrap()
+  image
+}
+
+///|
+fn png_adam7_admission_limits(
+  output? : UInt64 = 1048576UL,
+  work? : UInt64 = 1048576UL,
+  width? : UInt64 = 64UL,
+  height? : UInt64 = 64UL,
+) -> @codec.CodecLimits {
+  @codec.CodecLimits::new(
+    max_probe_bytes=8UL, max_input_bytes=1048576UL, max_output_bytes=output,
+    max_width=width, max_height=height, max_pixels=4096UL, max_work=work,
+  )
+}
+
+///| Eager all-strategy Adam7 construction must leave both Writer and every
+/// caller-owned budget ledger field untouched when preflight rejects it.
+fn png_adam7_eager_admission_reject(
+  image : @storage.OwnedImage,
+  limits : @codec.CodecLimits,
+  work : UInt64,
+) -> Unit {
+  for strategy in [
+    PngCompressionStrategy::Stored,
+    PngCompressionStrategy::FixedOrStored,
+    PngCompressionStrategy::DynamicOrFixedOrStored,
+  ] {
+    let budget = png_encode_budget(bytes=1048576UL, work=work)
+    let before = budget.remaining()
+    let writer = @io.MemoryWriter::new(
+      1048576UL, png_encode_budget(bytes=1048576UL, work=0UL),
+    ).unwrap()
+    ignore(@codec.ImageEncoder::encode(
+      PngEncoder::new_with_all_strategies(
+        strategy, PngFilterStrategy::None, PngInterlaceStrategy::Adam7,
+      ), image.view(), writer as &@io.Writer,
+      @codec.EncodeOptions::new(lossless_required=true, preserve_opaque_metadata=false),
+      limits, budget, @error.Diagnostics::new(),
+    ).unwrap_err())
+    if writer.position() != 0UL || !png_adam7_same_remaining(before, budget.remaining()) {
+      abort("png adam7 eager admission atomic")
+    }
+  }
+}
+
 ///|
 fn png_filter_strategy_decode_matches_source(
   bytes : Bytes,
@@ -585,6 +651,32 @@ test "PNG Adam7 opt-in eager compatibility" {
       let bytes = png_encode_prefix(writer)
       inspect(bytes[28] == b'\x01' && bytes[0] == b'\x89' && bytes[bytes.length() - 1] == b'\x82', content="true")
     }
+  }
+}
+
+///| Every all-strategy Adam7 eager route rejects capability, geometry, output,
+/// codec-work, and caller-budget failures before its Writer becomes observable.
+test "PNG Adam7 eager all-strategy admission is atomic" {
+  for channels in [3UL, 4UL] {
+    png_adam7_eager_admission_reject(
+      png_adam7_admission_image(channels, include_opaque=true),
+      png_adam7_admission_limits(), 1048576UL,
+    )
+    png_adam7_eager_admission_reject(
+      png_adam7_admission_image(channels), png_adam7_admission_limits(width=4UL),
+      1048576UL,
+    )
+    png_adam7_eager_admission_reject(
+      png_adam7_admission_image(channels), png_adam7_admission_limits(output=1UL),
+      1048576UL,
+    )
+    png_adam7_eager_admission_reject(
+      png_adam7_admission_image(channels), png_adam7_admission_limits(work=1UL),
+      1048576UL,
+    )
+    png_adam7_eager_admission_reject(
+      png_adam7_admission_image(channels), png_adam7_admission_limits(), 1UL,
+    )
   }
 }
 
