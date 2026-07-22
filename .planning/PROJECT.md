@@ -10,11 +10,14 @@ The primary audience is MoonBit library authors and application developers build
 
 MoonBit developers can reuse stable, high-performance native infrastructure contracts instead of rebuilding incompatible foundations for every graphics, document, media, or automation product.
 
-## Current Milestone: Planning Next Code-First Increment
+## Current Milestone: v0.17 GrayAlpha16 PNG Interchange
 
-**Goal:** Select the next high-value MoonBit-native image or document infrastructure increment from validated public contracts.
+**Goal:** Extend the proven GrayAlpha model and bounded PNG path to packed U16 grayscale-plus-alpha samples without weakening U8, Gray16, or legacy PNG contracts.
 
-**Validated baseline:** Packed U8 Gray+Alpha with explicit straight alpha, bounded non-interlaced Type 4 PNG encoding, public hostile caller-buffered behavior, frozen legacy vectors, and four-target proof shipped in v0.16.
+**Target features:**
+- A first-class packed U16 Gray+Alpha image descriptor with explicit straight-alpha semantics.
+- Explicit eager and caller-buffered non-interlaced GrayAlpha16 PNG factories using the shared bounded pipeline.
+- Public big-endian wire, decoder canonicalization, hostile-capacity, legacy-compatibility, and four-target evidence.
 
 ## Requirements
 
@@ -47,7 +50,9 @@ MoonBit developers can reuse stable, high-performance native infrastructure cont
 
 ### Active
 
-- [ ] Define the next code-first milestone from the validated portable image contracts.
+- [ ] Provide packed U16 grayscale-plus-alpha image semantics without changing existing descriptor contracts.
+- [ ] Encode compatible U16 Gray+Alpha images as bounded non-interlaced PNG Type 4 / bit depth 16.
+- [ ] Prove U16 gray/alpha wire fidelity, hostile caller-buffered identity, legacy compatibility, and four-target execution.
 
 ### Out of Scope
 
