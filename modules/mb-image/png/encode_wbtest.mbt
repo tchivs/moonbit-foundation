@@ -155,7 +155,7 @@ test "PNG filter arithmetic uses raw RGB8 and straight RGBA8 neighbors" {
   inspect(png_wb_filter_row(PngRowFilter::None, rgba, None, 4UL) == rgba, content="true")
   inspect(png_wb_filter_row(PngRowFilter::Sub, rgba, None, 4UL) == b"\x0a\x14\x1e\x28\x03\x05\x05\x09", content="true")
   inspect(png_wb_filter_row(PngRowFilter::Up, rgba, None, 4UL) == rgba, content="true")
-  inspect(png_wb_filter_row(PngRowFilter::Average, rgba, None, 4UL) == b"\x0a\x14\x1e\x28\x08\x0f\x14\x19", content="true")
+  inspect(png_wb_filter_row(PngRowFilter::Average, rgba, None, 4UL) == b"\x0a\x14\x1e\x28\x08\x0f\x14\x1d", content="true")
   inspect(png_wb_filter_row(PngRowFilter::Paeth, rgba, None, 4UL) == b"\x0a\x14\x1e\x28\x03\x05\x05\x09", content="true")
 }
 

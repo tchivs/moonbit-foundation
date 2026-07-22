@@ -174,6 +174,128 @@ fn _png_fixed_add(left : UInt64, right : UInt64) -> Result[UInt64, @error.CoreEr
   }
 }
 
+///| PNG method-0 filter candidates remain in their mandated stable order.
+enum PngRowFilter {
+  None
+  Sub
+  Up
+  Average
+  Paeth
+} derive(Eq)
+
+///|
+fn _png_filter_raw_byte(row : Bytes, position : UInt64) -> Result[Byte, @error.CoreError] {
+  if position >= row.length().to_uint64() {
+    Err(_png_encode_capability("png-filter-row-access"))
+  } else {
+    Ok(row[position.to_int()])
+  }
+}
+
+///|
+fn _png_filter_above_byte(above : Bytes?, position : UInt64) -> Result[Byte, @error.CoreError] {
+  match above {
+    None => Ok(b'\x00')
+    Some(row) => _png_filter_raw_byte(row, position)
+  }
+}
+
+///| The predictor's bounded Int arithmetic cannot overflow for Byte samples.
+fn _png_filter_paeth_predictor(left : Byte, above : Byte, upper_left : Byte) -> Byte {
+  let prediction = left.to_int() + above.to_int() - upper_left.to_int()
+  let pa = if prediction >= left.to_int() { prediction - left.to_int() } else { left.to_int() - prediction }
+  let pb = if prediction >= above.to_int() { prediction - above.to_int() } else { above.to_int() - prediction }
+  let pc = if prediction >= upper_left.to_int() { prediction - upper_left.to_int() } else { upper_left.to_int() - prediction }
+  if pa <= pb && pa <= pc { left } else if pb <= pc { above } else { upper_left }
+}
+
+///| Return one PNG method-0 residual from original source-row samples.
+fn _png_filter_candidate_byte(
+  filter : PngRowFilter,
+  source : Bytes,
+  above : Bytes?,
+  channels : UInt64,
+  position : UInt64,
+) -> Result[Byte, @error.CoreError] {
+  if channels != 3UL && channels != 4UL { return Err(_png_encode_capability("png-filter-channels")) }
+  if source.length().to_uint64() % channels != 0UL { return Err(_png_encode_capability("png-filter-row-bytes")) }
+  match above {
+    Some(row) if row.length() != source.length() => return Err(_png_encode_capability("png-filter-above-row-bytes"))
+    _ => ()
+  }
+  let sample = match _png_filter_raw_byte(source, position) { Err(error) => return Err(error); Ok(value) => value }
+  let left = if position < channels {
+    b'\x00'
+  } else {
+    match _png_filter_raw_byte(source, position - channels) { Err(error) => return Err(error); Ok(value) => value }
+  }
+  let up = match _png_filter_above_byte(above, position) { Err(error) => return Err(error); Ok(value) => value }
+  let upper_left = if position < channels {
+    b'\x00'
+  } else {
+    match _png_filter_above_byte(above, position - channels) { Err(error) => return Err(error); Ok(value) => value }
+  }
+  let predictor = match filter {
+    PngRowFilter::None => b'\x00'
+    PngRowFilter::Sub => left
+    PngRowFilter::Up => up
+    PngRowFilter::Average => ((left.to_uint64() + up.to_uint64()) / 2UL).to_byte()
+    PngRowFilter::Paeth => _png_filter_paeth_predictor(left, up, upper_left)
+  }
+  Ok(sample - predictor)
+}
+
+///|
+fn _png_filter_signed_magnitude(residual : Byte) -> UInt64 {
+  let value = residual.to_uint64()
+  if value <= 127UL { value } else { 256UL - value }
+}
+
+///| Score a complete candidate row with PNG's signed-residual heuristic.
+fn _png_filter_candidate_score(
+  filter : PngRowFilter,
+  source : Bytes,
+  above : Bytes?,
+  channels : UInt64,
+) -> Result[UInt64, @error.CoreError] {
+  let mut score = 0UL
+  for position = 0UL; position < source.length().to_uint64(); position = position + 1UL {
+    let residual = match _png_filter_candidate_byte(filter, source, above, channels, position) {
+      Err(error) => return Err(error)
+      Ok(value) => value
+    }
+    score = match _png_fixed_add(score, _png_filter_signed_magnitude(residual)) {
+      Err(error) => return Err(error)
+      Ok(value) => value
+    }
+  }
+  Ok(score)
+}
+
+///| Select the first minimum-scoring method-0 candidate in PNG's fixed order.
+fn _png_filter_row_winner(
+  source : Bytes,
+  above : Bytes?,
+  channels : UInt64,
+) -> Result[(PngRowFilter, UInt64), @error.CoreError] {
+  let mut winner = PngRowFilter::None
+  let mut winner_score = match _png_filter_candidate_score(winner, source, above, channels) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  for candidate in [PngRowFilter::Sub, PngRowFilter::Up, PngRowFilter::Average, PngRowFilter::Paeth] {
+    let score = match _png_filter_candidate_score(candidate, source, above, channels) {
+      Err(error) => return Err(error)
+      Ok(value) => value
+    }
+    if score < winner_score {
+      winner = candidate
+      winner_score = score
+    }
+  }
+  Ok((winner, winner_score))
+}
+
 ///| Return a scanline byte without materialising a filter-None scanline.
 fn _png_fixed_scanline_byte(
   source : @storage.ImageView,
