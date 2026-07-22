@@ -1,122 +1,96 @@
 # Technology Stack
 
-**Project:** MoonBit Native Foundation — v0.6 PNG Interchange
-**Researched:** 2026-07-20
-**Overall confidence:** MEDIUM — the MoonBit toolchain and existing portable contracts were verified locally. The PNG/zlib/DEFLATE findings come from direct primary specifications, but the configured source-confidence seam classifies its generic `webfetch` provider as LOW; phase implementation must retain the linked normative sources beside its tests.
+**Project:** MoonBit Native Foundation — v0.17 GrayAlpha16 PNG Interchange
+**Researched:** 2026-07-23
+**Confidence:** HIGH for the implementation recommendation (current source, tests, and v0.15/v0.16 artifacts); LOW for the separately cited web-provider confidence on the normative PNG wording.
 
-## Executive recommendation
+## Executive Recommendation
 
-Build PNG entirely inside the existing `tchivs/mb-image` module. Add a small reusable `mb-image/deflate` package for bit-level DEFLATE and zlib, then a `mb-image/png` codec package which consumes it through the existing `codec`, `storage`, `metadata`, and forward-only I/O contracts. Add no third-party MoonBit package: the current `mb-core` primitives already supply the checked arithmetic, byte ownership/views, budgets, diagnostics, and bounded stream seams needed for hostile binary input.
+Implement GrayAlpha16 as an additive profile of the existing portable `mb-image` model and PNG encoder. Add no dependencies, packages, target-specific code, FFI, copied source, or parallel encoder. The current code already has the required foundations: packed U16 component-byte access, a profile-aware scalar PNG wire-byte producer, one shared eager/caller-buffered preflight-and-replay machine, and a decoder that accepts PNG colour type 4 at bit depth 16.
 
-The v0.6 public interchange scope should be deliberately narrower than a standards-conformant universal PNG decoder: accept only non-interlaced, 8-bit truecolour (`colour type 2`) and truecolour-with-alpha (`colour type 6`) static images; decode all legal DEFLATE block forms within those PNG files; emit deterministic RGB8/RGBA8 PNGs. This is a useful, honest RGB/RGBA interchange path. It is **not** a claim of full PNG decoder conformance, which requires every standardized colour/depth combination and Adam7.
-
-Use a complete bounded DEFLATE decoder but a minimal deterministic encoder: fixed-Huffman, literal-only DEFLATE blocks wrapped in zlib, filter type `None`, fixed-size IDAT segmentation, and no ancillary chunks. It is standards-conformant, reproducible, and avoids introducing an LZ matcher or compression-ratio policy into the first PNG milestone. Compression-ratio work can be an explicit later enhancement without changing the wire contract.
+The public source model should add `ImageFormat::graya16()` over the existing `ChannelOrder::GrayAlpha`, with packed U16, two components, and straight-alpha metadata. The PNG package should add a private `GrayAlpha16` profile and explicit `new_graya16*` factory families for `PngEncoder` and `PngChunkEncoder`. Their only supported raster profile is non-interlaced PNG bit depth 16, colour type 4. The shared bounded machine remains the sole implementation path.
 
 ## Recommended Stack
 
-### Core framework
+### Core implementation
 
 | Technology | Version | Purpose | Why |
 |---|---:|---|---|
-| MoonBit toolchain (`moon`) | `0.1.20260713` (`75c7e1f`, 2026-07-13) | Compile and test portable codec packages | Locally verified; `moon check` and `moon test` expose `js`, `wasm`, `wasm-gc`, `native`, and `all`. Keep the existing development pin for this milestone. |
-| `tchivs/mb-core/checked` | existing `0.1.0` workspace module | Checked dimensions, byte counts, offsets, and work accounting | PNG chunk lengths and scanline geometry are attacker-controlled. Reuse checked `UInt64` calculations before allocation or indexing. |
-| `tchivs/mb-core/budget` | existing `0.1.0` workspace module | Hierarchical byte/allocation/pixel/work ceilings | The current `Budget` already supports preflighted, shared resource charges; PNG must charge image storage and codec work before exposure. |
-| `tchivs/mb-core/bytes` + `io` | existing `0.1.0` workspace module | Owned scratch, read/write leases, bounded reader/writer progress | Existing QOI proves the portable forward-only pattern. PNG should remain stream-oriented rather than concatenate IDAT data or buffer an input file. |
-| `tchivs/mb-image/codec`, `model`, `storage`, `metadata` | existing `0.1.0` workspace module | Stable image codec seam and RGB8/RGBA8 image output | Preserves the established `ImageDecoder`/`ImageEncoder` contract, caller limits, diagnostics, and operation-compatible owned image result. |
-| `tchivs/mb-color/model` + `profile` | existing `0.1.0` workspace module | sRGB identity and alpha metadata | Maps the supported RGB/RGBA sample data to the same image metadata model already used by QOI. |
+| MoonBit / existing `tchivs/mb-image` module | workspace `0.1.0` | Model, storage, PNG codec, and tests | The behavior is an additive extension of the current public module; a separate module would duplicate contracts and fragment compatibility. |
+| `mb-image/model` | existing package | `graya16()` format and descriptor admission | `ChannelOrder::GrayAlpha` already gives a two-component identity and descriptor validation centralizes metadata/layout policy. |
+| `mb-image/storage` | existing package | Packed U16 component construction and scalar reads | Checked `get_component_byte` / `set_component_byte` already support packed U16; do not create a special image owner or view. |
+| `mb-image/png` | existing package | Explicit eager/chunk factories and Type-4/16 profile | `PngEncodeProfile`, `_png_wire_byte`, filtering, compression planning, and `PngEncodeMachine::new_with_profile` already isolate profile differences. |
+| `mb-core` and `mb-color` workspace dependencies | existing `0.1.0` | Existing checked arithmetic, budgets, errors, byte leases, alpha and sRGB identities | Reuse the imports already declared by `mb-image`; no new dependency solves a missing problem. |
 
-### New pure-MoonBit packages and components
+### Required additions
 
-| Component | Package | Required responsibilities | Dependencies |
+| Component | Add | Reuse | Contract |
 |---|---|---|---|
-| Bit reader/writer | `tchivs/mb-image/deflate` (internal implementation surface) | LSB-first buffering, exact EOF states, byte alignment, bounded bit reads/writes | `mb-core/error`, `checked`, `bytes`, `io`, `budget` |
-| Canonical Huffman | `tchivs/mb-image/deflate` | Validate code-length trees; build canonical codes without ambiguous/incomplete trees; decode literals, lengths, and distances under a declared work charge | `mb-core/error`, `checked`, `budget` |
-| Sliding output history | `tchivs/mb-image/deflate` | 32 KiB maximum history ring; validate distances before copy; support overlap-copy semantics; never retain unbounded decompressed bytes outside the output image/row pipeline | `mb-core/bytes`, `checked`, `budget` |
-| zlib wrapper | `tchivs/mb-image/deflate` | Validate CMF/FLG and FCHECK, reject FDICT for PNG, enforce advertised window, compute/verify Adler-32, write deterministic header/trailer | bit reader/writer + DEFLATE + checked arithmetic |
-| PNG framing/checksums | `tchivs/mb-image/png` | Validate signature, `length/type/data/CRC` chunk framing, CRC-32 over type+data, critical ordering, IDAT contiguity, and strict IEND/trailing-data behavior | `mb-image/deflate`, `mb-core/io`, `bytes`, `checked`, `budget`, `error` |
-| PNG raster path | `tchivs/mb-image/png` | Validate IHDR subset, reconstruct filters 0–4, map RGB8/RGBA8 rows directly into `OwnedImage`, emit canonical scanlines | `codec`, `model`, `storage`, `metadata`, `mb-color/model`, `profile` |
+| Public image format | `ImageFormat::graya16()` | `ChannelOrder::GrayAlpha`, `ImageDescriptor`, generic owned storage/views | Packed U16, two components per pixel, encoded sRGB, builtin profile, top-left orientation, and `AlphaMode::Straight`. |
+| Descriptor validation | Admit the U16 GrayAlpha identity while retaining the narrow U8 identity | Existing `GrayAlpha` validation branch | Reject planar, F32, premultiplied/missing alpha, non-sRGB/builtin metadata, and non-top-left input. |
+| Private PNG profile | `PngEncodeProfile::GrayAlpha16` | Existing `Gray16` and `GrayAlpha8` profile pattern | Enforce packed/tight U16 GrayAlpha source, four raster bytes per pixel, type 4, depth 16, and non-interlaced output. |
+| Wire-byte mapping | Four-byte per-pixel scalar mapping | `_png_wire_byte` and `get_component_byte` | Emit `gray-msb, gray-lsb, alpha-msb, alpha-lsb`, independent of host storage endianness, before filtering, planning, checksums, and replay. |
+| Public factories | `new_graya16`, compression-only, filter-only, and combined strategy factories on eager and chunk encoders | Exact `new_gray16*` / `new_graya8*` family shape | All factories bind `PngInterlaceStrategy::None`; legacy constructors stay unchanged. |
 
-`deflate` is package-scoped to `mb-image`, not a new module and not an umbrella compression framework. Its public API should stay narrow until a second codec proves genuine reuse. `png` depends on `deflate`; neither creates reverse dependencies into `mb-core` or `mb-color`.
+## Dependency Policy
 
-### Normative wire-format baselines
+**Install nothing.** `modules/mb-image/moon.mod.json` already depends only on `tchivs/mb-core` and `tchivs/mb-color`; the model and PNG packages already declare the repository's shared target set. A third-party PNG codec would bypass the project-owned bounded preflight, caller-owned output lease, and deterministic byte contracts instead of extending them.
 
-| Standard | Verified version | Required implementation rule |
-|---|---|---|
-| [PNG Specification (Third Edition)](https://www.w3.org/TR/2025/REC-png-3-20250624/) | W3C Recommendation, 24 June 2025 | PNG is signature plus chunks. Validate 8-byte signature, chunk length/type/data/CRC, IHDR → contiguous IDAT+ → IEND ordering, and CRC on every processed chunk. The chunk length is unsigned but must not exceed `2^31 - 1`; MNF imposes lower caller limits. |
-| [RFC 1950 — zlib 3.3](https://www.rfc-editor.org/rfc/rfc1950.html) | May 1996 | PNG uses zlib framing: validate CMF/FLG/FCHECK, require method 8, reject preset dictionaries, and verify the Adler-32 trailer over uncompressed filtered scanlines. |
-| [RFC 1951 — DEFLATE 1.3](https://www.rfc-editor.org/rfc/rfc1951.html) | May 1996 | Decoder handles stored, fixed-Huffman, and dynamic-Huffman blocks, rejects reserved values, validates canonical trees and backward distances, and supports legal distances through 32 KiB. |
-
-PNG compression method 0 is zlib-wrapped DEFLATE with a window of at most 32,768 bytes; IDAT boundaries are arbitrary and concatenate into one zlib stream. Therefore the zlib reader must continue across IDAT chunks without treating a chunk boundary as a DEFLATE block, row, or trailer boundary. [PNG §10](https://www.w3.org/TR/png-3/#10Compression) and [RFC 1950 §2.3](https://www.rfc-editor.org/rfc/rfc1950.html#section-2.3) make header/checksum validation non-optional for a conforming zlib consumer.
-
-### Supported v0.6 PNG profile
-
-| Area | Decode | Canonical encode |
-|---|---|---|
-| Pixel format | 8-bit colour type 2 (RGB) and 6 (RGBA), tightly mapped to existing `rgb8` / `rgba8` | Preserve the source's RGB8 or RGBA8 format; no implicit colour conversion |
-| Interlace | Method 0 only | Method 0 |
-| PNG filter method | Method 0; reconstruct None, Sub, Up, Average, and Paeth (types 0–4) | Type 0 (None) for every row |
-| DEFLATE | zlib + stored/fixed/dynamic block decode; valid 1–32 KiB advertised window | zlib header `0x78 0x01`; fixed-Huffman literal-only blocks; no LZ matches and no dynamic tree generation |
-| Chunks | Require `IHDR`, consecutive `IDAT`, `IEND`; CRC-check every processed chunk; skip CRC-valid, bounded non-animation ancillary chunks; reject unknown critical chunks and animation chunks | Exactly `IHDR`, deterministic-size consecutive `IDAT` chunks, `IEND`; no ancillary chunks |
-| Completeness | When `require_complete_input`, reject data after IEND | Always writes the exact canonical terminal sequence |
-
-The narrow colour/interlace profile is a project policy, not a reinterpretation of the specification: the W3C conformance section requires a full PNG decoder to support all defined bit-depth/colour-type combinations and both defined interlace methods. Record accepted-profile rejection as `CapabilityUnavailable`/an explicit codec-scope diagnostic rather than calling such files corrupt. [PNG §13.1 and §15.3.3](https://www.w3.org/TR/png-3/#13Decoders).
-
-### Bounding contract
-
-| Resource | Enforcement point | Policy |
-|---|---|---|
-| Input bytes | Every Reader transition and chunk header/data byte | Apply `CodecLimits.max_input_bytes`; never trust declared chunk length as an allocation request. |
-| Chunk payload | Chunk parser | Limit every ancillary skip and IDAT feed; use fixed scratch and streaming CRC. Do not allocate a chunk-sized buffer. |
-| Dimensions/pixels/output | IHDR preflight before `OwnedImage::new_operation` | Reject zero, unsupported, overflowed, or limit-exceeding geometry before exposing image output. |
-| Inflate history | DEFLATE state | Fixed ≤32 KiB ring plus current/previous unfiltered row buffers; no whole-IDAT staging. |
-| Scanline bytes | IHDR preflight | Checked `width * channels`, then checked `row_bytes + filter_byte`; allocate only the two bounded row buffers. |
-| Work | Huffman symbols, copies, filters, CRC/Adler updates, and encode output | Charge a deterministic upper bound through `Budget` and compare it with `CodecLimits.max_work`; reject before output image allocation where the bound is known. |
-| Output bytes | Encoder preflight and Writer progress | Compute a conservative canonical upper bound for literal-only DEFLATE + chunk framing; compare with `max_output_bytes` before the first write. |
-
-This permits streaming with bounded intermediate memory while still producing an owned image result. It follows the streamability premise of RFC 1950/1951, but MNF's concrete ceilings are its own safety policy and must remain caller-configurable.
-
-## Alternatives Considered
-
-| Category | Recommended | Alternative | Why Not |
-|---|---|---|---|
-| Codec location | `mb-image/deflate` + `mb-image/png` packages | Add DEFLATE to `mb-core` | `mb-core` deliberately owns generic safety primitives, not image/codec semantics; broadening it is an architectural change without a second consumer. |
-| Decode scope | Complete DEFLATE plus explicit RGB/RGBA PNG profile | Claim a fully conformant PNG decoder | Full PNG requires palette, grayscale, low/16-bit sample conversion, transparency variants, Adam7, and broader metadata behavior, which the v0.6 goal does not fund. |
-| Encode strategy | Fixed-Huffman literal-only canonical stream | LZ77 match finder and dynamic-Huffman optimizer | Optimisation expands correctness and determinism surface. It can be added later while retaining existing canonical output as a stable baseline. |
-| PNG filters | Decode all five; encode None | Adaptive filter selection | Adaptive selection is worthwhile only after correctness and reproducibility are proven; it is not required for interoperable output. |
-| IDAT handling | One logical zlib stream over bounded chunk feeds | Concatenate IDAT into one byte array | The standard permits boundaries anywhere in the zlib stream; concatenation wastes memory and defeats streaming limits. |
-| Dependencies | Existing MNF packages + MoonBit standard library | Third-party codec package | The project requirement is pure MoonBit, and existing contracts already cover the required primitives. |
-
-## Installation
-
-No external package installation is recommended. The milestone adds packages to the existing `mb-image` module and keeps its current target declaration:
-
-```json
-"supported-targets": "+js+wasm+wasm-gc+native"
+```text
+mb-image/model ──> mb-image/storage ──> mb-image/png
+                         │                     │
+                         └── checked U16 access └── shared preflight/replay machine
 ```
 
-The four required compilation/test lanes remain:
+## Public API Shape
 
-```powershell
-moon check --target all --deny-warn
-moon test --target js --deny-warn
-moon test --target wasm --deny-warn
-moon test --target wasm-gc --deny-warn
-moon test --target native --deny-warn
+```moonbit
+// Additive format factory; exact spelling follows existing `graya8` convention.
+let format = @model.ImageFormat::graya16()
+
+// Explicit, never selected by legacy generic constructors.
+let encoder = @png.PngEncoder::new_graya16_with_strategies(
+  @png.PngCompressionStrategy::Stored,
+  @png.PngFilterStrategy::None,
+)
 ```
 
-## Sources and confidence
+The eager and caller-buffered APIs should expose the same three strategy levels already established for Gray16 and GrayAlpha8: baseline, compression-only, filter-only, and combined strategy constructors. Do not add an interlace-selecting GrayAlpha16 constructor.
 
-| Source | Use | Seam confidence |
+## Existing Seams to Preserve
+
+| Seam | Current evidence | v0.17 rule |
 |---|---|---|
-| [W3C PNG Third Edition](https://www.w3.org/TR/2025/REC-png-3-20250624/) | Current PNG chunk, filter, compression, colour, interlace, and conformance rules | LOW — direct primary source, but `classify-confidence --provider webfetch --verified` returned LOW for the generic provider. |
-| [RFC 1950](https://www.rfc-editor.org/rfc/rfc1950.html) | zlib header, preset-dictionary, and Adler-32 rules | LOW — same source-provider classification caveat. |
-| [RFC 1951](https://www.rfc-editor.org/rfc/rfc1951.html) | DEFLATE bit/block/Huffman/distance rules | LOW — same source-provider classification caveat. |
-| Local `moon version`, `moon check --help`, `moon test --help`; existing `mb-core` and QOI sources | Exact toolchain surface and reusable portable contracts | MEDIUM — local direct evidence; Context7 was unavailable and its classified confidence is MEDIUM. |
+| U16 storage | `get_component_byte`/`set_component_byte` already distinguish U16 from packed-U8 access | Read components through this checked API; never introduce manual byte offsets in PNG code. |
+| Filtering | The filter stride is a byte distance, and Gray16 already maps storage bytes to PNG wire bytes before filters | GrayAlpha16 uses a stride of four bytes per pixel, not a logical channel count of two. |
+| Compression/replay | Stored, FixedOrStored, and DynamicOrFixedOrStored share scalar cursors and bounded replay | Feed the new wire-byte mapping into the existing cursors; retain no converted row, image-sized staging buffer, or second stream driver. |
+| Atomic construction | `PngEncodeMachine::new_with_profile` performs source/limit/work/budget admission before output state | Invalid source/profile/geometry/output/work/budget input must expose neither eager bytes nor a usable chunk encoder. |
+| Decode boundary | Existing raster decoding accepts type 4 at depth 16 and publishes RGBA8 high-byte canonicalization | Document and test this boundary; do not promise U16 decode round-trip through the current public decoder. |
 
-## Implementation watch items
+## Alternatives Rejected
 
-- Confirm with adversarial vectors that dynamic Huffman validation rejects oversubscribed, incomplete-when-invalid, and repeat-overrun code trees before any out-of-bounds lookup.
-- Make the IDAT-to-zlib adapter resumable across arbitrary Reader progress and arbitrary IDAT boundaries; test checksum bytes split across chunks.
-- Keep CRC and Adler-32 distinct: PNG CRC covers chunk type/data; zlib Adler-32 covers the full uncompressed filtered scanline sequence.
-- Treat 16-bit samples, palette/grayscale conversion, transparency chunks, colour-management chunks, Adam7, and APNG as explicit later capability work; do not silently drop or partially interpret them.
-- Fix the canonical IDAT payload segment size in source and vectors before publishing byte fixtures. It is a format-output policy, not an externally imposed PNG limit.
+| Category | Recommended | Alternative | Why not |
+|---|---|---|---|
+| Model identity | Reuse `ChannelOrder::GrayAlpha` with a U16 factory | Add another channel-order enum case | The order is still grey then alpha; bit depth belongs to `ComponentType`. |
+| PNG implementation | Add one private profile to the shared machine | Build a dedicated GrayAlpha16 encoder | It would duplicate preflight, budgeting, filtering, compression, replay, and streaming semantics. |
+| Expected PNG bytes | Literal, non-symmetric wire assertions | Regenerate expected bytes with another current encoder | A second encoder call cannot detect a shared serialization defect. |
+| Decode claim | Explicit RGBA8 high-byte canonicalization | Claim public U16 model round-trip from decoder | Current decoder intentionally publishes U8 RGBA data; low bytes belong in wire-fidelity evidence. |
+
+## Verification Stack
+
+| Layer | Evidence required |
+|---|---|
+| Model/storage | Construct a valid packed U16 pair image; check both components and reject invalid metadata/layout/component identities. |
+| Eager encode | Assert IHDR `(depth=16, colour-type=4, interlace=0)` and a literal Stored/None inflated scanline containing asymmetric U16 grey/alpha pairs. |
+| Decoder boundary | Decode those public bytes and assert `(R,G,B,A) = (gray-high, gray-high, gray-high, alpha-high)`; assert low bytes only at the wire boundary. |
+| Caller-buffered encode | For all 3 compression × 2 filter pairs, compare fresh chunk output with a fresh eager oracle under zero, one-byte, and deterministic ragged leases; assert accepted-only totals, unchanged unwritten tails, and sticky completion. |
+| Compatibility | Keep literal Gray8, Gray16, GrayAlpha8, RGB8, and straight-RGBA8 byte vectors in eager and chunk tests. |
+
+The current native package invocation reported `196 passed, 0 failed`, then exceeded the local command timeout while waiting on `_build/.moon-lock`; treat that as a diagnostic observation, not a newly completed suite result. The v0.17 acceptance command should remain `moon -C modules/mb-image test png --target all --frozen`.
+
+## Sources
+
+- Local source and tests: `modules/mb-image/model/descriptor.mbt`, `storage/views.mbt`, `png/png.mbt`, `png/encode.mbt`, `png/stream_encode.mbt`, `png/raster_decode.mbt`, `png/encode_test.mbt`, and `png/stream_encode_test.mbt` — HIGH local evidence.
+- Archived implementation contracts: v0.15 Phases 47–49 and v0.16 Phases 50–52 in `.planning/milestones/` — HIGH local evidence.
+- [W3C PNG Specification, Third Edition](https://www.w3.org/TR/png-3/) — type 4 permits 8/16-bit samples, orders pixels grey then alpha, and stores 16-bit samples MSB-first. The source-provider confidence seam returned LOW; it corroborates, but does not replace, the local implementation evidence.
+- [MoonBit package documentation](https://docs.moonbitlang.com/en/stable/toolchain/moon/package.html) and [module documentation](https://docs.moonbitlang.com/en/latest/toolchain/moon/module.html) — current dependency and `supported-targets` semantics; source-provider confidence seam returned LOW.

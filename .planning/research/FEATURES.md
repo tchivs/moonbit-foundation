@@ -1,93 +1,86 @@
-# Feature Landscape: v0.6 PNG Interchange
+# Feature Landscape
 
-**Domain:** Bounded, pure-MoonBit portable PNG interchange for `mb-image`
-**Researched:** 2026-07-20
-**Scope decision:** A strict static-PNG subset, not a general PNG implementation. It adds eager `ImageDecoder`/`ImageEncoder` parity after QOI streaming; it does not add a PNG streaming public API.
+**Domain:** v0.17 GrayAlpha16 PNG Interchange for `mb-image`
+**Researched:** 2026-07-23
+**Confidence:** HIGH for the feature boundary, based on the live model/PNG code and shipped v0.15/v0.16 evidence.
 
 ## Product Boundary
 
-PNG defines five colour types, 1--16-bit samples, Adam7 interlace, ancillary metadata, and APNG. A general decoder must support that complete surface. MNF v0.6 should instead support only **non-interlaced, 8-bit truecolour (type 2) and truecolour-with-alpha (type 6)**, mapping them to existing tightly packed top-left `rgb8`/straight-`rgba8` images. This matches current portable image contracts while accepting ordinary RGB/RGBA PNGs regardless of filter, IDAT split, or DEFLATE strategy.
+The milestone adds one deliberately narrow interchange profile: a first-class packed U16 greyscale-plus-straight-alpha source that encodes through explicit eager and caller-buffered PNG factories as non-interlaced type 4, bit depth 16 output. It extends the existing model and bounded encoder instead of broadening generic PNG constructors or claiming a new lossless U16 decoder result.
+
+PNG requires type-4 pixels to contain grey then alpha samples, and 16-bit samples use MSB-first wire order. The public decoder already turns a type-4/16 input into straight RGBA8 using the high byte of each component. That asymmetric contract is important: source-to-PNG preserves every U16 byte; PNG-to-public-image canonicalizes to U8.
 
 ## Table Stakes
 
-| Feature | Why expected | Complexity | v0.6 contract |
+| Feature | Why expected | Complexity | Required behavior |
 |---|---|---:|---|
-| Prefix-only PNG probe | Codec selection must not consume a reader. | Low | Recognize the eight-byte PNG signature; deterministic `NeedMore` before eight bytes; enforce `CodecLimits.max_probe_bytes`. |
-| Static 8-bit RGB/RGBA decode | Direct counterpart to existing portable image forms. | High | Accept only IHDR `(depth=8, type=2/6, compression=0, filter=0, interlace=0)`; return encoded-sRGB `rgb8` or straight-`rgba8`. |
-| Complete framing and integrity validation | PNG framing is image correctness. | High | Validate signature, exact IHDR-first/once, checked non-zero geometry, legal chunk-type bytes, per-chunk CRC, consecutive IDAT, one empty IEND, and no post-IEND bytes. Return no image until terminal validation succeeds. |
-| One zlib stream across arbitrary IDAT splits | PNG permits IDAT splits within a DEFLATE block, checksum, or scanline. | High | Incrementally feed concatenated IDAT payload to the inflater; never assume alignment or buffer whole IDAT chunks. |
-| Bounded zlib/DEFLATE inflate | Normal PNGs contain stored, fixed-Huffman, and dynamic-Huffman blocks. | High | Validate zlib CMF/FLG and Adler-32; reject dictionaries; support stored/fixed/dynamic blocks; reject reserved blocks, bad Huffman tables, and invalid backward distances; use a 32 KiB history ring. |
-| All filter reconstructions | PNG filter type is per scanline; type 0 only is not interoperable. | Med | Implement None, Sub, Up, Average, Paeth (0--4), including first-row/first-pixel behaviour and overflow-safe predictor arithmetic. |
-| Checked resource accounting | Tiny compressed data can declare huge images or expand excessively. | High | Reuse `CodecLimits`/`Budget` for checked geometry, input, output, pixels, work, allocation, chunk length/count and decompressed scanline bytes. Check header bounds before allocation and enforce them during parsing/inflation. |
-| Stable hostile-input failures | Tests and automation need typed failures, not panics or target variance. | High | Cover truncation, bad CRC/length/order, nonconsecutive IDAT, bad IHDR, malformed zlib/DEFLATE/Huffman/distance/checksum, scanline/filter mismatch, resource exhaustion and trailing data. |
-| Canonical RGB/RGBA encode | PNG allows many valid bytes; deterministic evidence needs one output. | High | Preflight compatible packed top-left builtin encoded-sRGB `rgb8`/straight-`rgba8` sources before any write. Fix signature → IHDR → IDAT → IEND, filtering, zlib header, DEFLATE plan, IDAT split, Adler-32 and CRCs. |
-| Deterministic baseline compression | Adaptive filtering/LZ search makes equivalent files differ. | Med | Emit Filter None rows and a documented stored-DEFLATE block policy with fixed maximum block size. It is a safe canonical interchange baseline, not a compression-ratio claim. |
-| Explicit ancillary disposition | Silent metadata/colour loss is unsafe. | Med | CRC-check bounded chunks. Discard only unknown non-critical ancillary data when preservation is false and report loss in `MetadataDisposition`; fail when preservation is requested. Reject semantics-changing `PLTE`, `tRNS`, `gAMA`, `cHRM`, `iCCP`, `sRGB`, `cICP`, HDR and APNG chunks. |
-| Public four-target workflow | The codec matters only through public portable APIs. | Med | One `png-portable` example: decode fixture → `flip_horizontal` → canonical encode; print fixed dimensions, byte count, digest and disposition on `js`, `wasm`, `wasm-gc`, `native`. |
+| Packed U16 GrayAlpha model | A U16 PNG encoder needs an unambiguous in-memory source contract | Medium | `ImageFormat::graya16()` represents two packed U16 components in grey, alpha order; only straight alpha and current canonical metadata are admitted. |
+| Checked U16 construction/access | Callers must populate both U16 components without unsafe offsets | Low | Reuse packed component-byte APIs and generic owned image/views; channel 0 is grey and channel 1 alpha. |
+| Explicit eager PNG factory | Users need an intentional way to select a 16-bit type-4 PNG | Medium | `PngEncoder::new_graya16*` emits IHDR depth 16, type 4, no interlace; generic legacy constructors never infer this profile. |
+| Explicit caller-buffered factory | Streaming consumers require the same profile under caller-owned output leases | Medium | `PngChunkEncoder::new_graya16*` shares eager preflight, planning, replay, byte output, and terminal behavior. |
+| Exact U16 wire serialization | Interoperability fails if host byte order or components are swapped | High | Every scanline serializes each pixel as `Ghi,Glo,Ahi,Alo` before filters, compression, checksums, and replay. |
+| Existing bounded strategy surface | A new profile must not silently weaken output guarantees | High | Support Stored, FixedOrStored, DynamicOrFixedOrStored × None, Adaptive through the current single machine and its existing limit/budget admission. |
+| Explicit decode canonicalization | Callers need truthful expectations when inspecting a decoded 16-bit PNG | Low | Public decode returns straight RGBA8 with `R=G=B=gray-high` and `A=alpha-high`; low bytes are not represented in the current output model. |
+| Literal compatibility regressions | Additive encoding must leave shipped profiles stable | Medium | Gray8, Gray16, GrayAlpha8, RGB8, and straight-RGBA8 literal eager/chunk vectors remain byte-identical. |
+| Portable public evidence | A public contract is only useful when the same test path exercises the declared package targets | Medium | A single all-target PNG suite uses only public model, encoder, chunk encoder, and decoder seams. |
 
 ## Differentiators
 
 | Feature | Value proposition | Complexity | Notes |
 |---|---|---:|---|
-| Fail-closed whole-datastream acceptance | Never exposes pixels while later CRC/IEND/trailing validation is unknown. | High | Deliberately favors automation and hostile-input safety over progressive display. |
-| Exact canonical bytes | Enables cross-target byte/digest fixture evidence despite PNG encoding freedom. | Med | Requires fixed filters, wrapper, DEFLATE blocks, IDAT partitioning and CRCs. |
-| Internal IDAT/inflate streaming with eager result | Avoids duplicate compressed buffers while keeping the established public eager API. | High | Implementation property only; no v0.6 resumable PNG API. |
-| Generated adversarial vectors | Fixture-owned schedules localize framing/CRC/DEFLATE/filter/limit evidence. | Med | Keep provenance and stable error identifiers with small spec-derived bytes. |
+| One profile-aware bounded pipeline | U16 GrayAlpha gains all established output semantics without a codec fork | High | The scalar wire-byte seam lets filtering and compression stay byte-accurate without materializing converted rows. |
+| Endianness-independent public evidence | Non-symmetric samples catch both per-component byte order and grey/alpha order defects | Medium | Build equivalent little- and big-endian source storage and require identical PNG bytes. |
+| Hostile lease ownership evidence | Caller-buffered correctness includes more than byte equality | Medium | Verify zero-capacity, one-byte, and ragged leases, accepted-prefix accounting, untouched tails, and sticky terminals. |
+| Honest U16-to-U8 decode contract | Consumers know exactly where fidelity is preserved and where canonicalization occurs | Low | Wire checks preserve four bytes per pixel; decode checks only documented high-byte expansion. |
 
-## Deliberate Deferrals
+## Future Requirement Candidates
 
-| Deferred capability | Why exclude it | What to do instead |
+| ID | Requirement | Acceptance evidence |
 |---|---|---|
-| Greyscale, palette and `tRNS` (types 0, 3, 4) | Packed-bit unpacking, PLTE validation, palette lookup and transparency expansion widen conversion policy. | Fail `CapabilityUnavailable`; add only with a separately specified expansion-to-RGBA contract. |
-| 16-bit PNG | Existing portable interchange is U8; conversion is lossy and U16 expands the image model. | Reject depth 16; plan with a first-class U16 image contract. |
-| Adam7 | Seven-pass geometry/filter state/scatter writes increase hostile-input surface. | Require interlace 0; research separately. |
-| Colour-management/HDR chunks | ICC, gamma, cICP and HDR need an explicit colour pipeline; ignoring them mislabels data as builtin sRGB. | Reject them; no implicit conversion. |
-| Text/EXIF/physical metadata preservation | Conflicts with canonical no-metadata output and needs its own limits/round-trip policy. | Discard only under explicit non-preserving decode options and report disposition. |
-| APNG | Frames, blend/dispose/timing/canvas state are a different product. | Reject `acTL`, `fcTL`, `fdAT`. |
-| Public resumable PNG I/O | Couples chunk framing, zlib bit input, filters and output buffers into a new public state machine. | Keep v0.6 eager; reuse QOI streaming conventions only later. |
-| Compression optimisation/benchmarks | Adaptive filters and LZ match search are performance work, not correctness. | Ship stored-block canonical output; benchmark later with declared workloads. |
-| FFI, registry and release work | Outside portable codec correctness. | Keep the path pure MoonBit and evidence-focused. |
+| **GRAYA16-01** | A library user can create and inspect a packed U16 GrayAlpha image with exactly grey and alpha components, straight-alpha metadata, and no change to existing format behavior. | Public model/storage tests construct non-symmetric U16 pairs, inspect both channels, and reject non-packed, non-U16, missing/premultiplied-alpha, noncanonical-metadata, and invalid-orientation variants. |
+| **GRAYA16-02** | A library user can select explicit eager and caller-buffered GrayAlpha16 PNG factories that accept only compatible packed inputs and emit non-interlaced PNG type 4/depth 16. | Public IHDR and construction tests demonstrate factory selection and reject incompatible input before observable output state. |
+| **GRAYA16-03** | GrayAlpha16 output preserves `Ghi,Glo,Ahi,Alo` wire samples across the shared bounded filter/compression/replay path. | A generated asymmetric corpus proves both source storage orders produce identical Stored/None scanlines and all six compression/filter pairs decode successfully. |
+| **GRAYA16-04** | GrayAlpha16 callers receive eager/chunk byte identity, accepted-only progress, terminal stickiness, documented RGBA8 canonicalization, frozen legacy bytes, and all-target public evidence. | Public encoder/decoder and chunk tests cover zero/one/ragged capacities, untouched lease tails, literal legacy vectors, and the single package suite on every declared target. |
+
+## Recommended Delivery Order
+
+1. **GrayAlpha16 model contract** — deliver `GRAYA16-01` first. The encoder cannot safely infer two U16 components until descriptor validation and generic storage access agree on their identity.
+2. **Bounded profile and explicit factories** — deliver `GRAYA16-02` and the implementation half of `GRAYA16-03`. Reuse the existing shared machine; retain atomic admission as a non-negotiable behavior.
+3. **Public interchange evidence** — complete `GRAYA16-03` and `GRAYA16-04` with literal wire/decode, hostile lease, compatibility, and portable public tests.
+
+```text
+GRAYA16-01 model
+  → GRAYA16-02 explicit PNG profile/factories
+    → GRAYA16-03 wire mapping + bounded strategies
+      → GRAYA16-04 public decode/chunk/compatibility evidence
+```
+
+## Explicit Exclusions
+
+| Excluded feature | Why exclude it | Do instead |
+|---|---|---|
+| Implicit GrayAlpha16 selection by generic PNG constructors | It would change established legacy admission behavior and obscure the new data contract. | Require `new_graya16*` factories. |
+| GrayAlpha16 Adam7 encoding | Interlacing is a separate traversal contract. | Keep every new factory non-interlaced. |
+| RGB16/RGBA16 output | They add distinct model/profile/wire matrices with no dependency on this two-component slice. | Scope them as separate profiles later. |
+| Palette/indexed, low-bit, `tRNS`, or automatic transparency conversion | Those PNG profiles have different packing and color semantics. | Preserve current explicit capability boundaries. |
+| New GrayAlpha processing, resize, composite, or copy semantics | Valid storage is not permission to reuse RGB/RGBA operation algorithms. | Retain existing capability gates until operations have their own requirements. |
+| A new U16 public decoder result | The current public decoder returns canonical RGBA8. | State and test high-byte canonicalization; preserve low-byte fidelity at the PNG wire seam. |
+| New dependency, FFI, release automation, target branch, or source copy | None is needed to extend the project-owned portable implementation; each would expand scope without adding feature value. | Keep changes in the existing MoonBit model, storage, PNG, and test packages. |
 
 ## Feature Dependencies
 
 ```text
-PNG probe
-  → chunk reader + CRC + ordering
-    → IHDR subset + checked geometry
-      → bounded zlib/DEFLATE
-        → scanline accounting + filters 0..4
-          → owned image + IEND/trailing validation
-            → hostile four-target vectors
-
-canonical source preflight
-  → filter-none scanlines
-    → fixed stored-DEFLATE + Adler-32
-      → fixed IDAT split + CRC
-        → exact digest vectors
-          → public decode → flip → encode example
+ImageFormat::graya16 + descriptor admission
+  → generic U16 storage/view access
+    → GrayAlpha16 encoder profile
+      → endian-correct wire-byte mapping
+        → existing filter/compression/replay strategies
+          → eager and chunk public factories
+            → literal wire/decode and hostile-lease evidence
 ```
-
-Every stage charges the existing `CodecLimits`/`Budget` authority; none may allocate or expose an image before checked derived bounds are known.
-
-## MVP Recommendation
-
-1. **Structural core:** probe, chunk/CRC/order state, IHDR gate, checked limits and hostile framing vectors.
-2. **Decode interoperability:** zlib/DEFLATE, filters 0--4, RGB/RGBA vectors with arbitrary IDAT partitioning.
-3. **Canonical evidence:** filter-none/stored-block encoder, exact bytes/digests and public four-target decode → operation → encode proof.
-
-Do not weaken this subset by silently accepting colour-affecting ancillary chunks or by describing it as a full PNG decoder.
-
-## Acceptance Evidence
-
-1. Valid non-interlaced 8-bit type 2/6 inputs using every filter and arbitrary IDAT splits yield exact pixels.
-2. Every malformed case fails before image return with stable framing, integrity, IHDR, zlib/DEFLATE, scanline, resource or trailing-data diagnostics.
-3. No path retains a whole IDAT merely due to chunking; all input/output/pixel/work/budget ceilings remain enforced during hostile input.
-4. Compatible sources encode to byte-identical canonical PNG on all four targets; preflight failures write zero bytes.
-5. The public example uses public contracts only and emits one stable evidence line per target.
 
 ## Sources
 
-- [W3C PNG Specification, Third Edition](https://www.w3.org/TR/png-3/) — chunk framing/order, IHDR combinations, IDAT concatenation, filters, CRC/error handling, unknown chunks and decoder conformance. **MEDIUM** (primary specification, cross-checked).
-- [RFC 1950: zlib format](https://datatracker.ietf.org/doc/html/rfc1950) — wrapper, no-dictionary policy, Adler-32 and required validation. **MEDIUM** (primary specification, cross-checked).
-- [RFC 1951: DEFLATE](https://datatracker.ietf.org/doc/rfc1951/) — stored/fixed/dynamic blocks, reserved-block rejection and distance/length constraints. **MEDIUM** (primary specification, cross-checked).
-- Existing MNF [`CodecLimits`](../../modules/mb-image/codec/contracts.mbt), QOI and PPM codecs — eager reader/writer, budget, canonical-output, encoded-sRGB and metadata-disposition conventions. **HIGH** (local implementation evidence).
+- Live local model/PNG implementation and tests under `modules/mb-image/` — HIGH local evidence.
+- v0.15 Gray16 and v0.16 GrayAlpha milestone requirements, plans, summaries, and verification reports under `.planning/milestones/` — HIGH local evidence.
+- [W3C PNG Specification, Third Edition](https://www.w3.org/TR/png-3/) — type-4/16 legal profile, grey-then-alpha sample ordering, and MSB-first 16-bit samples. Source-provider confidence was classified LOW, so this is normative corroboration rather than the basis for local feature assertions.
