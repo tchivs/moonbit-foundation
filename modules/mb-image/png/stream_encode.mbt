@@ -196,6 +196,7 @@ priv struct PngFixedState {
   bit_value : UInt64
   bit_count : UInt64
   adler : UInt64
+  fingerprint : UInt64
   matcher_work : UInt64
   header_written : Bool
   eob_written : Bool
@@ -301,7 +302,7 @@ fn PngEncodeMachine::new_with_strategies(
           PngFilterStrategy::None => None
         },
         bit_value: 0UL, bit_count: 0UL, adler: 1UL,
-        matcher_work: 0UL, header_written: false, eob_written: false,
+        fingerprint: 1UL, matcher_work: 0UL, header_written: false, eob_written: false,
       })
       PngDeflatePlan::Dynamic(_) => None
     },
@@ -436,6 +437,7 @@ fn PngEncodeMachine::fixed_preview_byte(
   let mut bit_value = state.bit_value
   let mut bit_count = state.bit_count
   let mut adler = state.adler
+  let mut fingerprint = state.fingerprint
   let mut matcher_work = state.matcher_work
   let mut header_written = state.header_written
   let mut eob_written = state.eob_written
@@ -500,6 +502,7 @@ fn PngEncodeMachine::fixed_preview_byte(
             ) { Err(error) => return Err(error); Ok(value) => value }
           }
           adler = _png_adler_step(adler, byte)
+          fingerprint = _png_adler_step(fingerprint, byte)
           index = index + 1UL
         }
         raw_cursor = raw_cursor + length
@@ -523,11 +526,15 @@ fn PngEncodeMachine::fixed_preview_byte(
         bit_value = next_value
         bit_count = next_count
         adler = _png_adler_step(adler, byte)
+        fingerprint = _png_adler_step(fingerprint, byte)
         raw_cursor = raw_cursor + 1UL
       }
     } else if !eob_written {
       if matcher_work != plan.matcher_work {
         return Err(_png_encode_machine_state_error("png-encode-fixed-replay-work"))
+      }
+      if fingerprint != plan.fingerprint {
+        return Err(_png_encode_machine_state_error("png-encode-fixed-replay-drift"))
       }
       let (eob, eob_bits) = _png_fixed_literal_code(256UL)
       let (next_value, next_count) = _png_fixed_put_bits(
@@ -539,7 +546,7 @@ fn PngEncodeMachine::fixed_preview_byte(
     } else {
       let byte = bit_value.to_byte()
       return Ok((byte, {
-        raw_cursor, filtered_cursor, bit_value: 0UL, bit_count: 0UL, adler, matcher_work, eob_written,
+        raw_cursor, filtered_cursor, bit_value: 0UL, bit_count: 0UL, adler, fingerprint, matcher_work, eob_written,
         header_written,
       }))
     }
@@ -547,7 +554,7 @@ fn PngEncodeMachine::fixed_preview_byte(
   let byte = bit_value.to_byte()
   Ok((byte, {
     raw_cursor, filtered_cursor, bit_value: bit_value >> 8, bit_count: bit_count - 8UL,
-    adler, matcher_work, header_written, eob_written,
+    adler, fingerprint, matcher_work, header_written, eob_written,
   }))
 }
 

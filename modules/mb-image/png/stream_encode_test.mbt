@@ -1148,7 +1148,9 @@ test "PNG fixed-or-stored public replay mismatch is sticky" {
   let header = png_chunk_test_pull(encoder, 1UL, ignored)
   inspect(header.written(), content="1")
   inspect((ignored[43] & b'\x07') == b'\x03', content="true")
-  image.with_mut_view(fn(view) { view.set_byte(0UL, 0UL, 0UL, b'\x00') }).unwrap()
+  image.with_mut_view(fn(view) {
+    view.set_byte(0UL, 0UL, 0UL, b'\x00')
+  }).unwrap()
   let mut previews = 0UL
   while previews < 13UL {
     inspect(png_chunk_test_pull(encoder, 1UL, ignored).written(), content="1")
@@ -1236,4 +1238,105 @@ test "PNG fixed-or-stored configured sticky terminals preserve leases" {
   inspect(replay.total_written() == first.total_written(), content="true")
   inspect(png_chunk_test_same_error(first_error, replay_error), content="true")
   inspect(later.view().get(0UL).unwrap() == b'Z', content="true")
+}
+
+///| Adaptive caller-buffered replays may accept framing bytes before a mutable
+/// source changes, but must expose no terminal byte and preserve every lease.
+fn png_adaptive_mutation_is_sticky(
+  image : @storage.OwnedImage,
+  strategy : PngCompressionStrategy,
+  mutation_x : UInt64,
+  mutation_channel : UInt64,
+  mutation_value : Byte,
+  expected_header : Byte,
+  expected_context : String,
+) -> Unit {
+  let encoder = PngChunkEncoder::new_with_strategies(
+    image.view(), strategy, PngFilterStrategy::Adaptive,
+    png_stream_test_limits(), png_stream_test_budget(), @error.Diagnostics::new(),
+  ).unwrap()
+  image.with_mut_view(fn(view) {
+    view.set_byte(mutation_x, 0UL, mutation_channel, mutation_value)
+  }).unwrap()
+  let prefix : Array[Byte] = []
+  while prefix.length() < 44 {
+    let pull = png_chunk_test_pull(encoder, 1UL, prefix)
+    if pull.written() != 1UL { abort("png adaptive mutation prefix") }
+  }
+  if (prefix[43] & b'\x07') != expected_header { abort("png adaptive mutation header") }
+  let mut turn = 0UL
+  while turn < 2048UL {
+    let first = png_chunk_test_owner(1UL, fill=b'Z')
+    let pull = first.with_mut(0UL, 1UL, fn(lease) { Ok(encoder.pull(lease)) }).unwrap()
+    match pull.outcome() {
+      PngChunkPullOutcome::NeedOutput => {
+        if pull.written() != 1UL { abort("png adaptive mutation progress") }
+        turn = turn + 1UL
+      }
+      PngChunkPullOutcome::Failed(error) => {
+        if error.category() != @error.ErrorCategory::State ||
+          error.code() != @error.ErrorCode::InvalidRange ||
+          error.context() != Some(expected_context) {
+          abort("png adaptive mutation error")
+        }
+        let accepted_total = pull.total_written()
+        if pull.written() != 0UL || first.view().get(0UL).unwrap() != b'Z' {
+          abort("png adaptive mutation first terminal")
+        }
+        let later = png_chunk_test_owner(1UL, fill=b'Z')
+        let replay = later.with_mut(0UL, 1UL, fn(lease) { Ok(encoder.pull(lease)) }).unwrap()
+        let replay_error = match replay.outcome() {
+          PngChunkPullOutcome::Failed(value) => value
+          _ => panic()
+        }
+        if replay.written() != 0UL || replay.total_written() != accepted_total ||
+          !png_chunk_test_same_error(error, replay_error) ||
+          later.view().get(0UL).unwrap() != b'Z' {
+          abort("png adaptive mutation sticky")
+        }
+        return
+      }
+      PngChunkPullOutcome::Finished => panic()
+    }
+  }
+  panic()
+}
+
+///|
+test "PNG adaptive FixedOrStored public replay mutation is sticky" {
+  png_adaptive_mutation_is_sticky(
+    png_fixed_or_stored_replay_image(), PngCompressionStrategy::FixedOrStored,
+    0UL, 2UL, b'\x0a', b'\x03', "png-encode-fixed-replay-drift",
+  )
+}
+
+///|
+test "PNG adaptive DynamicOrFixedOrStored public replay mutation is sticky" {
+  png_adaptive_mutation_is_sticky(
+    png_stream_test_dynamic_image(), PngCompressionStrategy::DynamicOrFixedOrStored,
+    0UL, 0UL, b'Z', b'\x05', "png-encode-dynamic-replay-drift",
+  )
+}
+
+///| Adaptive selection retains the Fixed fallback and admits Dynamic only for
+/// a strict complete-PNG win.
+test "PNG adaptive compression selection retains Fixed equality and Dynamic strict winner" {
+  for channels in [3UL, 4UL] {
+    let image = png_stream_test_flat_image(channels, 32UL)
+    let fixed = png_stream_test_eager_with_strategies(
+      image, PngCompressionStrategy::FixedOrStored, PngFilterStrategy::Adaptive,
+    )
+    let fallback = png_stream_test_eager_with_strategies(
+      image, PngCompressionStrategy::DynamicOrFixedOrStored, PngFilterStrategy::Adaptive,
+    )
+    inspect((fixed[43] & b'\x07') == b'\x03', content="true")
+    inspect(fallback == fixed, content="true")
+  }
+  for channels in [3UL, 4UL] {
+    let image = png_stream_test_dynamic_corpus_image(channels)
+    let dynamic = png_stream_test_eager_with_strategies(
+      image, PngCompressionStrategy::DynamicOrFixedOrStored, PngFilterStrategy::Adaptive,
+    )
+    inspect((dynamic[43] & b'\x07') == b'\x05', content="true")
+  }
 }

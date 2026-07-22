@@ -169,6 +169,7 @@ priv struct PngFixedPlan {
   deflate_bits : UInt64
   deflate_bytes : UInt64
   matcher_work : UInt64
+  fingerprint : UInt64
   traversal_facts : PngFilteredTraversalFacts
   idat_length : UInt64
   total_length : UInt64
@@ -1032,6 +1033,7 @@ fn _png_fixed_plan(
   let mut cursor = PngFilteredMatchCursor::new(source, row_bytes, channels, filter_strategy)
   let mut bits = 3UL
   let mut matcher_work = 0UL
+  let mut fingerprint = 1UL
   while cursor.logical_position < scanlines {
     let (length, distance, work, matched) = match _png_filtered_match_at(cursor, scanlines) {
       Err(error) => return Err(error)
@@ -1049,6 +1051,12 @@ fn _png_fixed_plan(
         Err(error) => return Err(error)
         Ok(value) => value
       }
+      for offset = 0UL; offset < length; offset = offset + 1UL {
+        let byte = match cursor.read(cursor.logical_position + offset) {
+          Err(error) => return Err(error); Ok(value) => value
+        }
+        fingerprint = _png_adler_step(fingerprint, byte)
+      }
       cursor = match cursor.consume(length) { Err(error) => return Err(error); Ok(value) => value }
       ignore(distance)
     } else {
@@ -1062,6 +1070,7 @@ fn _png_fixed_plan(
         Err(error) => return Err(error)
         Ok(value) => value
       }
+      fingerprint = _png_adler_step(fingerprint, byte)
       cursor = match cursor.consume(1UL) { Err(error) => return Err(error); Ok(value) => value }
     }
   }
@@ -1082,7 +1091,8 @@ fn _png_fixed_plan(
     Err(error) => return Err(error)
     Ok(value) => value
   }
-  Ok({ deflate_bits: bits, deflate_bytes, matcher_work, traversal_facts: cursor.facts(), idat_length, total_length })
+  Ok({ deflate_bits: bits, deflate_bytes, matcher_work, fingerprint,
+    traversal_facts: cursor.facts(), idat_length, total_length })
 }
 
 ///|
