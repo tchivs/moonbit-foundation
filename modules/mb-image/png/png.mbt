@@ -107,6 +107,7 @@ pub(all) enum PngInterlaceStrategy {
 priv enum PngEncodeProfile {
   LegacyRgbOrRgba
   Gray8
+  Gray16
 } derive(Eq)
 
 ///|
@@ -134,6 +135,17 @@ pub fn PngEncoder::new_gray8() -> PngEncoder {
   PngEncoder::new_gray8_with_strategies(
     PngCompressionStrategy::Stored, PngFilterStrategy::None,
   )
+}
+
+///| Constructs the explicit Gray16 PNG route: 16-bit grayscale, Stored
+/// DEFLATE, filter None, and no interlace.
+pub fn PngEncoder::new_gray16() -> PngEncoder {
+  {
+    strategy: PngCompressionStrategy::Stored,
+    filter_strategy: PngFilterStrategy::None,
+    interlace_strategy: PngInterlaceStrategy::None,
+    profile: PngEncodeProfile::Gray16,
+  }
 }
 
 ///| Constructs a Gray8 encoder with an explicit compression strategy and the

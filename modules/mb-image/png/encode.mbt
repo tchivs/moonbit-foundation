@@ -70,9 +70,6 @@ fn _png_encode_source(
   }
   let format = source.format()
   let metadata = source.metadata()
-  if format.component() != @model.ComponentType::U8 {
-    return Err(_png_encode_capability("component-u8-required"))
-  }
   if format.layout() != @model.PlaneLayout::Packed {
     return Err(_png_encode_capability("packed-required"))
   }
@@ -90,26 +87,45 @@ fn _png_encode_source(
   let channels = match profile {
     PngEncodeProfile::LegacyRgbOrRgba => match format.channels() {
       @model.ChannelOrder::Rgb =>
-        if metadata.alpha() is Some(_) {
+        if format.component() != @model.ComponentType::U8 {
+          return Err(_png_encode_capability("component-u8-required"))
+        } else if metadata.alpha() is Some(_) {
           return Err(_png_encode_capability("rgb-alpha-unsupported"))
         } else {
           3UL
         }
       @model.ChannelOrder::Rgba =>
-        match metadata.alpha() {
-          Some(@color.AlphaMode::Straight) => 4UL
-          _ => return Err(_png_encode_capability("straight-rgba-required"))
+        if format.component() != @model.ComponentType::U8 {
+          return Err(_png_encode_capability("component-u8-required"))
+        } else {
+          match metadata.alpha() {
+            Some(@color.AlphaMode::Straight) => 4UL
+            _ => return Err(_png_encode_capability("straight-rgba-required"))
+          }
         }
       _ => return Err(_png_encode_capability("rgb-or-rgba-required"))
     }
     PngEncodeProfile::Gray8 => match format.channels() {
       @model.ChannelOrder::Gray =>
-        if metadata.alpha() is Some(_) {
+        if format.component() != @model.ComponentType::U8 {
+          return Err(_png_encode_capability("component-u8-required"))
+        } else if metadata.alpha() is Some(_) {
           return Err(_png_encode_capability("gray-alpha-unsupported"))
         } else {
           1UL
         }
       _ => return Err(_png_encode_capability("gray8-required"))
+    }
+    PngEncodeProfile::Gray16 => match format.channels() {
+      @model.ChannelOrder::Gray =>
+        if metadata.alpha() is Some(_) {
+          return Err(_png_encode_capability("gray-alpha-unsupported"))
+        } else if format.component() != @model.ComponentType::U16 {
+          return Err(_png_encode_capability("component-u16-required"))
+        } else {
+          2UL
+        }
+      _ => return Err(_png_encode_capability("gray16-required"))
     }
   }
   let row_bytes = match @checked.checked_mul(source.width(), channels) {
@@ -1455,9 +1471,15 @@ fn _png_encode_preflight_with_interlace_profile(
   limits : @codec.CodecLimits,
   budget : @budget.Budget,
 ) -> Result[PngEncodePreflight, @error.CoreError] {
-  if profile == PngEncodeProfile::Gray8 &&
-    interlace_strategy != PngInterlaceStrategy::None {
-    return Err(_png_encode_capability("gray8-noninterlaced-required"))
+  match profile {
+    PngEncodeProfile::Gray8 if interlace_strategy != PngInterlaceStrategy::None =>
+      return Err(_png_encode_capability("gray8-noninterlaced-required"))
+    PngEncodeProfile::Gray16 if interlace_strategy != PngInterlaceStrategy::None =>
+      return Err(_png_encode_capability("gray16-noninterlaced-required"))
+    PngEncodeProfile::Gray16 if strategy != PngCompressionStrategy::Stored ||
+      filter_strategy != PngFilterStrategy::None =>
+      return Err(_png_encode_capability("gray16-stored-none-required"))
+    _ => ()
   }
   _png_encode_preflight_with_filter_layout_idat_limit_profile(
     source, profile, strategy, filter_strategy, interlace_strategy, limits, budget,
@@ -1573,14 +1595,21 @@ fn _png_encode_preflight_with_filter_layout_idat_limit_profile(
   let stored = PngStoredPlan::{
     blocks, idat_length: stored_idat_length, total_length: stored_total_length,
   }
+  let gray16_stored_none = profile == PngEncodeProfile::Gray16
   let mut adaptive_planning_facts = PngFilteredTraversalFacts::{
     resolved_rows: 0UL, candidate_residuals: 0UL, selected_residuals: 0UL,
   }
   let plan = match strategy {
     PngCompressionStrategy::Stored => {
-      let pass = match _png_filtered_match_traverse_with_interlace(
-        source, row_bytes, channels, filter_strategy, scanlines, interlace_strategy,
-      ) { Err(error) => return Err(error); Ok(value) => value }
+      let pass = if gray16_stored_none {
+        PngFilteredTraversalFacts::{
+          resolved_rows: 0UL, candidate_residuals: 0UL, selected_residuals: 0UL,
+        }
+      } else {
+        match _png_filtered_match_traverse_with_interlace(
+          source, row_bytes, channels, filter_strategy, scanlines, interlace_strategy,
+        ) { Err(error) => return Err(error); Ok(value) => value }
+      }
       adaptive_planning_facts = match _png_filtered_facts_add(
         adaptive_planning_facts, pass,
       ) { Err(error) => return Err(error); Ok(value) => value }
@@ -1652,9 +1681,15 @@ fn _png_encode_preflight_with_filter_layout_idat_limit_profile(
       }
     }
   }
-  let adaptive_replay_facts = match _png_filtered_match_traverse_with_interlace(
-    source, row_bytes, channels, filter_strategy, scanlines, interlace_strategy,
-  ) { Err(error) => return Err(error); Ok(value) => value }
+  let adaptive_replay_facts = if gray16_stored_none {
+    PngFilteredTraversalFacts::{
+      resolved_rows: 0UL, candidate_residuals: 0UL, selected_residuals: 0UL,
+    }
+  } else {
+    match _png_filtered_match_traverse_with_interlace(
+      source, row_bytes, channels, filter_strategy, scanlines, interlace_strategy,
+    ) { Err(error) => return Err(error); Ok(value) => value }
+  }
   let adaptive_filter_work = match _png_filtered_facts_add(
     adaptive_planning_facts, adaptive_replay_facts,
   ) { Err(error) => return Err(error); Ok(value) => value }

@@ -112,6 +112,42 @@ fn png_encode_gray8_fidelity_image() -> @storage.OwnedImage {
 }
 
 ///|
+/// Two little-endian U16 Gray samples. The encoder must emit their opposite
+/// wire order because PNG stores every 16-bit sample big-endian.
+fn png_encode_gray16_image() -> @storage.OwnedImage {
+  let descriptor = @model.ImageDescriptor::new(
+    2UL, 1UL,
+    @model.ImageFormat::new(
+      @model.ComponentType::U16, @model.ChannelOrder::Gray,
+      @model.PlaneLayout::Packed, @model.Endianness::Little,
+    ).unwrap(),
+    [@model.PlaneDescriptor::new(0UL, 4UL, 4UL, 4UL, 1UL, 1UL, 2UL, 1UL).unwrap()],
+    4UL,
+    @model.ImageMetadata::new(
+      @color.ColorSpaceIdentity::Srgb, @color.TransferIdentity::EncodedSrgb,
+      None, @profile.ProfileIdentity::builtin_srgb(), @model.Orientation::TopLeft,
+      @metadata.OpaqueMetadata::from_entries(
+        [], @metadata.MetadataLimits::new(
+          max_entries=1UL, max_token_bytes=16UL, max_value_bytes=1UL,
+          max_total_bytes=32UL, max_disposition_fields=4UL,
+        ), png_encode_budget(bytes=1UL, work=0UL),
+      ).unwrap(),
+    ),
+  ).unwrap()
+  let image = @storage.OwnedImage::new(
+    descriptor, png_encode_budget(bytes=4UL, work=0UL),
+  ).unwrap()
+  image.with_mut_view(fn(view) {
+    view.set_component_byte(0UL, 0UL, 0UL, 0UL, b'\x34').unwrap()
+    view.set_component_byte(0UL, 0UL, 0UL, 1UL, b'\x12').unwrap()
+    view.set_component_byte(1UL, 0UL, 0UL, 0UL, b'\xcd').unwrap()
+    view.set_component_byte(1UL, 0UL, 0UL, 1UL, b'\xab').unwrap()
+    Ok(())
+  }).unwrap()
+  image
+}
+
+///|
 fn png_encode_prefix(writer : @io.MemoryWriter) -> Bytes {
   let bytes : Array[Byte] = []
   for index = 0UL; index < writer.position(); index = index + 1UL {
@@ -550,6 +586,36 @@ test "PNG Gray8 eager Stored output and profile admission are atomic" {
   ).unwrap_err()
   inspect(error.context(), content="Some(gray8-required)")
   inspect(rejected.position() == 0UL && png_adam7_same_remaining(before, budget.remaining()), content="true")
+}
+
+///|
+test "PNG Gray16 eager Stored output uses type 0 big-endian samples atomically" {
+  let gray = png_encode_gray16_image()
+  let (_, writer) = png_encode_with(PngEncoder::new_gray16(), gray)
+  let bytes = png_encode_prefix(writer)
+  inspect(
+    bytes[24] == b'\x10' && bytes[25] == b'\x00' && bytes[28] == b'\x00' &&
+      bytes[48] == b'\x00' && bytes[49] == b'\x12' && bytes[50] == b'\x34' &&
+      bytes[51] == b'\xab' && bytes[52] == b'\xcd',
+    content="true",
+  )
+  let bad = png_encode_image(3UL, b"\x00\x01\x02")
+  let budget = png_encode_budget()
+  let before = budget.remaining()
+  let rejected = @io.MemoryWriter::new(512UL, png_encode_budget(bytes=512UL, work=0UL)).unwrap()
+  let error = @codec.ImageEncoder::encode(
+    PngEncoder::new_gray16(), bad.view(), rejected as &@io.Writer,
+    @codec.EncodeOptions::new(lossless_required=true, preserve_opaque_metadata=false),
+    png_encode_limits(), budget, @error.Diagnostics::new(),
+  ).unwrap_err()
+  inspect(error.context(), content="Some(gray16-required)")
+  inspect(rejected.position(), content="0")
+  inspect(
+    budget.remaining().bytes() == before.bytes() &&
+      budget.remaining().allocations() == before.allocations() &&
+      budget.remaining().work() == before.work(),
+    content="true",
+  )
 }
 
 ///| FixedOrStored Gray8 must use the same bounded machine rather than a

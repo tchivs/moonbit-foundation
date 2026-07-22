@@ -32,6 +32,24 @@ pub fn PngChunkEncoder::new_gray8(
   )
 }
 
+///| Constructs the explicit Gray16 caller-buffered route: 16-bit grayscale,
+/// Stored DEFLATE, filter None, and no interlace.
+pub fn PngChunkEncoder::new_gray16(
+  source : @storage.ImageView,
+  limits : @codec.CodecLimits,
+  budget : @budget.Budget,
+  diagnostics : @error.Diagnostics,
+) -> Result[PngChunkEncoder, @error.CoreError] {
+  let machine = match PngEncodeMachine::new_with_profile(
+    source, PngEncodeProfile::Gray16, PngCompressionStrategy::Stored,
+    PngFilterStrategy::None, PngInterlaceStrategy::None, limits, budget, diagnostics,
+  ) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  Ok({ state: PngChunkEncoderState::Active(machine), total_written: 0UL })
+}
+
 ///| Constructs a Gray8 caller-buffered encoder with an explicit compression
 /// strategy and the filter-None route. Gray8 remains intentionally
 /// non-interlaced.
@@ -487,9 +505,37 @@ fn PngEncodeMachine::scanline_byte(
   self : PngEncodeMachine,
   index : UInt64,
 ) -> Result[Byte, @error.CoreError] {
-  _png_filtered_scanline_byte(
-    self.source, self.row_bytes, self.channels, self.filter_strategy, index,
-  )
+  match self.profile {
+    PngEncodeProfile::Gray16 => _png_gray16_scanline_byte(
+      self.source, self.row_bytes, index,
+    )
+    _ => _png_filtered_scanline_byte(
+      self.source, self.row_bytes, self.channels, self.filter_strategy, index,
+    )
+  }
+}
+
+///|
+/// PNG type-0/16 scanlines are always big-endian. The checked source accessor
+/// exposes storage order, so little-endian source components are reversed here
+/// without retaining a converted row.
+fn _png_gray16_scanline_byte(
+  source : @storage.ImageView,
+  row_bytes : UInt64,
+  index : UInt64,
+) -> Result[Byte, @error.CoreError] {
+  let row_width = row_bytes + 1UL
+  let in_row = index % row_width
+  if in_row == 0UL {
+    return Ok(b'\x00')
+  }
+  let sample = in_row - 1UL
+  let wire_byte = sample % 2UL
+  let storage_byte = match source.format().endianness() {
+    @model.Endianness::Little => 1UL - wire_byte
+    @model.Endianness::Big => wire_byte
+  }
+  source.get_component_byte(sample / 2UL, index / row_width, 0UL, storage_byte)
 }
 
 ///|
@@ -898,10 +944,11 @@ fn PngEncodeMachine::byte_at(
     if payload < 4UL { return Ok(_png_encode_machine_u32_byte(self.width, payload)) }
     if payload < 8UL { return Ok(_png_encode_machine_u32_byte(self.height, payload - 4UL)) }
     let colour_type = match self.profile {
-      PngEncodeProfile::Gray8 => b'\x00'
+      PngEncodeProfile::Gray8 | PngEncodeProfile::Gray16 => b'\x00'
       PngEncodeProfile::LegacyRgbOrRgba => if self.channels == 3UL { b'\x02' } else { b'\x06' }
     }
-    return Ok([b'\x08', colour_type, b'\x00', b'\x00', if self.interlace_strategy == PngInterlaceStrategy::Adam7 { b'\x01' } else { b'\x00' }][(payload - 8UL).to_int()])
+    let bit_depth = if self.profile == PngEncodeProfile::Gray16 { b'\x10' } else { b'\x08' }
+    return Ok([bit_depth, colour_type, b'\x00', b'\x00', if self.interlace_strategy == PngInterlaceStrategy::Adam7 { b'\x01' } else { b'\x00' }][(payload - 8UL).to_int()])
   }
   if offset < 33UL { return Ok(_png_encode_machine_u32_byte(self.ihdr_crc ^ 4294967295UL, offset - 29UL)) }
   if offset < 37UL { return Ok(_png_encode_machine_u32_byte(self.idat_length, offset - 33UL)) }

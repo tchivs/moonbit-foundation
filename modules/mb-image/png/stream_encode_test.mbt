@@ -110,6 +110,40 @@ fn png_stream_gray8_fidelity_image() -> @storage.OwnedImage {
 }
 
 ///|
+fn png_stream_gray16_image() -> @storage.OwnedImage {
+  let descriptor = @model.ImageDescriptor::new(
+    2UL, 1UL,
+    @model.ImageFormat::new(
+      @model.ComponentType::U16, @model.ChannelOrder::Gray,
+      @model.PlaneLayout::Packed, @model.Endianness::Little,
+    ).unwrap(),
+    [@model.PlaneDescriptor::new(0UL, 4UL, 4UL, 4UL, 1UL, 1UL, 2UL, 1UL).unwrap()],
+    4UL,
+    @model.ImageMetadata::new(
+      @color.ColorSpaceIdentity::Srgb, @color.TransferIdentity::EncodedSrgb,
+      None, @profile.ProfileIdentity::builtin_srgb(), @model.Orientation::TopLeft,
+      @metadata.OpaqueMetadata::from_entries(
+        [], @metadata.MetadataLimits::new(
+          max_entries=1UL, max_token_bytes=16UL, max_value_bytes=1UL,
+          max_total_bytes=32UL, max_disposition_fields=4UL,
+        ), png_stream_test_budget(work=0UL),
+      ).unwrap(),
+    ),
+  ).unwrap()
+  let image = @storage.OwnedImage::new(
+    descriptor, png_stream_test_budget(work=0UL),
+  ).unwrap()
+  image.with_mut_view(fn(view) {
+    view.set_component_byte(0UL, 0UL, 0UL, 0UL, b'\x34').unwrap()
+    view.set_component_byte(0UL, 0UL, 0UL, 1UL, b'\x12').unwrap()
+    view.set_component_byte(1UL, 0UL, 0UL, 0UL, b'\xcd').unwrap()
+    view.set_component_byte(1UL, 0UL, 0UL, 1UL, b'\xab').unwrap()
+    Ok(())
+  }).unwrap()
+  image
+}
+
+///|
 fn png_stream_test_eager(image : @storage.OwnedImage) -> Bytes {
   png_stream_test_eager_with_strategy(image, PngCompressionStrategy::Stored)
 }
@@ -382,6 +416,21 @@ fn png_stream_gray8_eager(image : @storage.OwnedImage) -> Bytes {
   Bytes::from_array(bytes)
 }
 
+///|
+fn png_stream_gray16_eager(image : @storage.OwnedImage) -> Bytes {
+  let writer = @io.MemoryWriter::new(1048576UL, png_stream_test_budget(work=0UL)).unwrap()
+  ignore(@codec.ImageEncoder::encode(
+    PngEncoder::new_gray16(), image.view(), writer as &@io.Writer,
+    @codec.EncodeOptions::new(lossless_required=true, preserve_opaque_metadata=false),
+    png_stream_test_limits(), png_stream_test_budget(), @error.Diagnostics::new(),
+  ).unwrap())
+  let bytes : Array[Byte] = []
+  for index = 0UL; index < writer.position(); index = index + 1UL {
+    bytes.push(writer.view().get(index).unwrap())
+  }
+  Bytes::from_array(bytes)
+}
+
 ///| FixedOrStored eager output is the chunk identity oracle for Gray8.
 fn png_stream_gray8_eager_with_compression(
   image : @storage.OwnedImage,
@@ -433,6 +482,32 @@ test "PNG Gray8 chunk Stored output matches eager and rejects atomically" {
   for index = 0UL; index < sentinel.view().length(); index = index + 1UL {
     if sentinel.view().get(index).unwrap() != b'Z' { abort("png gray8 rejection exposed lease") }
   }
+}
+
+///|
+test "PNG Gray16 chunk Stored output matches eager and rejects atomically" {
+  let gray = png_stream_gray16_image()
+  let eager = png_stream_gray16_eager(gray)
+  let chunked = png_chunk_test_drain_encoder(
+    PngChunkEncoder::new_gray16(
+      gray.view(), png_stream_test_limits(), png_stream_test_budget(), @error.Diagnostics::new(),
+    ).unwrap(),
+    [3UL, 7UL],
+  ).unwrap()
+  inspect(chunked == eager, content="true")
+  let rgb = png_stream_test_image(3UL)
+  let budget = png_stream_test_budget()
+  let before = budget.remaining()
+  let error = PngChunkEncoder::new_gray16(
+    rgb.view(), png_stream_test_limits(), budget, @error.Diagnostics::new(),
+  ).unwrap_err()
+  inspect(error.context(), content="Some(gray16-required)")
+  inspect(
+    budget.remaining().bytes() == before.bytes() &&
+      budget.remaining().allocations() == before.allocations() &&
+      budget.remaining().work() == before.work(),
+    content="true",
+  )
 }
 
 ///| FixedOrStored Gray8 uses the same accepted-byte acknowledgement accounting
