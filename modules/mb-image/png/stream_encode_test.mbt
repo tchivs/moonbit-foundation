@@ -2142,6 +2142,53 @@ fn png_gray16_combined_public_reject(
   }
 }
 
+///| Gray+Alpha8 shares the bounded profile-aware transaction for every
+/// compression/filter pair: rejection cannot expose eager output, reserve
+/// caller budget, or mutate a caller-owned lease.
+fn png_graya8_combined_public_reject(
+  image : @storage.OwnedImage,
+  limits : @codec.CodecLimits,
+  work : UInt64,
+) -> Unit {
+  for strategy in [
+    PngCompressionStrategy::Stored,
+    PngCompressionStrategy::FixedOrStored,
+    PngCompressionStrategy::DynamicOrFixedOrStored,
+  ] {
+    for filter_strategy in [PngFilterStrategy::None, PngFilterStrategy::Adaptive] {
+      let eager_budget = png_stream_test_budget(work=work)
+      let eager_before = eager_budget.remaining()
+      let writer = @io.MemoryWriter::new(1048576UL, png_stream_test_budget(work=0UL)).unwrap()
+      let eager = @codec.ImageEncoder::encode(
+        PngEncoder::new_graya8_with_strategies(strategy, filter_strategy),
+        image.view(), writer as &@io.Writer,
+        @codec.EncodeOptions::new(lossless_required=true, preserve_opaque_metadata=false),
+        limits, eager_budget, @error.Diagnostics::new(),
+      ).unwrap_err()
+      if writer.position() != 0UL ||
+        !png_fixed_or_stored_same_remaining(eager_before, eager_budget.remaining()) {
+        abort("png graya8 eager admission exposed output")
+      }
+      let chunk_budget = png_stream_test_budget(work=work)
+      let chunk_before = chunk_budget.remaining()
+      let sentinel = png_chunk_test_owner(7UL, fill=b'Z')
+      let chunk = PngChunkEncoder::new_graya8_with_strategies(
+        image.view(), strategy, filter_strategy, limits, chunk_budget,
+        @error.Diagnostics::new(),
+      ).unwrap_err()
+      if !png_chunk_test_same_error(eager, chunk) ||
+        !png_fixed_or_stored_same_remaining(chunk_before, chunk_budget.remaining()) {
+        abort("png graya8 chunk admission mismatch")
+      }
+      for index = 0UL; index < 7UL; index = index + 1UL {
+        if sentinel.view().get(index).unwrap() != b'Z' {
+          abort("png graya8 admission exposed lease")
+        }
+      }
+    }
+  }
+}
+
 ///|
 fn png_fixed_or_stored_replay_image() -> @storage.OwnedImage {
   let image = png_stream_test_image(3UL, width=5UL)
@@ -2238,6 +2285,26 @@ test "PNG Gray16 strategy admission is atomic" {
   )
   png_gray16_combined_public_reject(
     png_stream_gray16_image(), png_fixed_or_stored_limits(), 1UL,
+  )
+}
+
+///| All Gray+Alpha8 strategy pairs reject capability, geometry, output, work,
+/// and budget failures before eager output or a caller-buffered lease exists.
+test "PNG GrayAlpha8 strategy admission is atomic" {
+  png_graya8_combined_public_reject(
+    png_stream_test_image(3UL), png_fixed_or_stored_limits(), 1048576UL,
+  )
+  png_graya8_combined_public_reject(
+    png_stream_graya8_image(), png_fixed_or_stored_limits(width=1UL), 1048576UL,
+  )
+  png_graya8_combined_public_reject(
+    png_stream_graya8_image(), png_fixed_or_stored_limits(output=1UL), 1048576UL,
+  )
+  png_graya8_combined_public_reject(
+    png_stream_graya8_image(), png_fixed_or_stored_limits(work=1UL), 1048576UL,
+  )
+  png_graya8_combined_public_reject(
+    png_stream_graya8_image(), png_fixed_or_stored_limits(), 1UL,
   )
 }
 
