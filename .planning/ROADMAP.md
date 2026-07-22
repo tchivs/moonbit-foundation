@@ -36,7 +36,7 @@
 
 - [x] **Phase 50: Gray+Alpha Image Model** - Establish the explicit packed U8 two-component image contract while preserving existing image formats. (completed 2026-07-23)
 - [x] **Phase 51: Bounded Gray+Alpha PNG Encoding** - Route compatible Gray+Alpha8 sources through the shared eager and caller-buffered bounded encoder. (completed 2026-07-23)
-- [ ] **Phase 52: Portable Gray+Alpha Public Evidence** - Prove wire fidelity, hostile caller-buffered identity, legacy compatibility, and four-target behavior.
+- [x] **Phase 52: Portable Gray+Alpha Public Evidence** - Prove wire fidelity, hostile caller-buffered identity, legacy compatibility, and four-target behavior. (completed 2026-07-23)
 
 ## Phase Details
 
@@ -102,4 +102,4 @@ Plans:
 |-------|----------------|--------|-----------|
 | 50. Gray+Alpha Image Model | 1/1 | Complete    | 2026-07-23 |
 | 51. Bounded Gray+Alpha PNG Encoding | 2/2 | Complete    | 2026-07-23 |
-| 52. Portable Gray+Alpha Public Evidence | 1/1 | In Progress|  |
+| 52. Portable Gray+Alpha Public Evidence | 1/1 | Complete    | 2026-07-23 |
