@@ -4,17 +4,17 @@ milestone: v0.16
 milestone_name: Grayscale Alpha PNG
 current_phase: 52
 current_phase_name: Portable Gray+Alpha Public Evidence
-status: executing
-stopped_at: Phase 52 context gathered
-last_updated: "2026-07-22T19:06:44.108Z"
+status: verifying
+stopped_at: Completed 52-01-PLAN.md
+last_updated: "2026-07-22T19:21:36.782Z"
 last_activity: 2026-07-23
-last_activity_desc: Phase 51 complete, transitioned to Phase 52
+last_activity_desc: Phase 52 execution started
 progress:
   total_phases: 3
-  completed_phases: 2
+  completed_phases: 3
   total_plans: 4
-  completed_plans: 3
-  percent: 67
+  completed_plans: 4
+  percent: 100
 ---
 
 # Project State
@@ -25,16 +25,16 @@ See `.planning/PROJECT.md` (updated 2026-07-22).
 
 **Core value:** MoonBit developers can reuse stable, high-performance native infrastructure contracts instead of rebuilding incompatible foundations for every graphics, document, media, or automation product.
 
-**Current focus:** Phase 51 — Bounded Gray+Alpha PNG Encoding
+**Current focus:** Phase 52 — Portable Gray+Alpha Public Evidence
 
 ## Current Position
 
-Phase: 52 — Portable Gray+Alpha Public Evidence
-Plan: Not started
-Status: Ready to execute
-Last activity: 2026-07-23 — Phase 51 complete, transitioned to Phase 52
+Phase: 52 (Portable Gray+Alpha Public Evidence) — EXECUTING
+Plan: 1 of 1
+Status: Phase complete — ready for verification
+Last activity: 2026-07-23 — Phase 52 execution started
 
-Progress: [███████░░░] 67%
+Progress: [██████████] 100%
 
 ## Performance Metrics
 
@@ -48,6 +48,7 @@ Progress: [███████░░░] 67%
 | Plan | Duration | Tasks | Files |
 |------|----------|-------|-------|
 | Phase 51 P01 | 4min | 2 tasks | 5 files |
+| Phase 52-portable-gray-alpha-public-evidence P01 | 14min | 2 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -62,6 +63,8 @@ Progress: [███████░░░] 67%
 - [v0.16]: Add only packed U8 Gray+Alpha with explicit straight-alpha metadata, then reuse the existing bounded PNG pipeline and prove the result publicly on all four portable targets.
 - [Phase ?]: GrayAlpha8 reuses the existing profile-aware bounded preflight, filter, compression planner, and replay machine without a staging buffer.
 - [Phase ?]: GrayAlpha8 admission is limited to packed U8 straight-alpha GrayAlpha with builtin encoded sRGB and top-left metadata.
+- [Phase ?]: Phase 52 freezes GrayAlpha8 wire/decode behavior only through public PNG APIs and literal expected data.
+- [Phase ?]: GrayAlpha8 caller-buffered evidence uses fresh encoders per schedule and asserts accepted-only lease ownership plus sticky success terminals.
 
 ### Pending Todos
 
@@ -103,9 +106,9 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-07-22T18:47:35.756Z
-Stopped at: Phase 52 context gathered
-Resume file: .planning/phases/52-portable-gray-alpha-public-evidence/52-CONTEXT.md
+Last session: 2026-07-22T19:21:36.761Z
+Stopped at: Completed 52-01-PLAN.md
+Resume file: None
 
 ## Operator Next Steps
 

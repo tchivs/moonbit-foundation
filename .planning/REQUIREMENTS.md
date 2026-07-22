@@ -16,8 +16,8 @@
 
 ### Public Evidence
 
-- [ ] **GRAYA-04**: Generated Gray+Alpha8 PNGs prove exact wire-pair preservation and documented public decode canonicalization to straight RGBA8, including non-symmetric gray and alpha values.
-- [ ] **GRAYA-05**: Zero, one-byte, and ragged caller capacities produce Gray+Alpha8 output byte-identical to eager output with accepted-only progress and sticky terminals; frozen Gray8/Gray16/RGB8/RGBA8 vectors retain their bytes and all evidence runs independently on js, wasm, wasm-gc, and native.
+- [x] **GRAYA-04**: Generated Gray+Alpha8 PNGs prove exact wire-pair preservation and documented public decode canonicalization to straight RGBA8, including non-symmetric gray and alpha values.
+- [x] **GRAYA-05**: Zero, one-byte, and ragged caller capacities produce Gray+Alpha8 output byte-identical to eager output with accepted-only progress and sticky terminals; frozen Gray8/Gray16/RGB8/RGBA8 vectors retain their bytes and all evidence runs independently on js, wasm, wasm-gc, and native.
 
 ## Future Requirements
 
@@ -40,8 +40,8 @@
 | GRAYA-01 | Phase 50 | Complete |
 | GRAYA-02 | Phase 51 | Complete |
 | GRAYA-03 | Phase 51 | Complete |
-| GRAYA-04 | Phase 52 | Pending |
-| GRAYA-05 | Phase 52 | Pending |
+| GRAYA-04 | Phase 52 | Complete |
+| GRAYA-05 | Phase 52 | Complete |
 
 **Coverage:**
 
