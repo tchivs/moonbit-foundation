@@ -297,6 +297,24 @@ test "PNG adaptive planner cursor replays selected RGB and RGBA rows" {
 }
 
 ///|
+test "PNG adaptive planner cursor keeps row selection pending until acknowledgement" {
+  let image = png_wb_adaptive_rgb_image()
+  let cursor = PngFilteredCursor::new(
+    image.view(), 6UL, 3UL, PngFilterStrategy::Adaptive,
+  )
+  let (first, preview) = cursor.next().unwrap()
+  inspect(first == b'\x01', content="true")
+  inspect(cursor.facts().resolved_rows, content="1")
+  let (second, again) = cursor.next().unwrap()
+  inspect(second == first, content="true")
+  inspect(cursor.facts().resolved_rows, content="1")
+  inspect(again.facts().resolved_rows, content="1")
+  let (next, committed) = preview.next().unwrap()
+  inspect(next == b'\x0a', content="true")
+  inspect(committed.facts().resolved_rows, content="1")
+}
+
+///|
 test "PNG encode machine presents bytes without advancing and keeps scalar ownership" {
   let image = png_stream_wb_image()
   let machine = PngEncodeMachine::new(

@@ -149,41 +149,52 @@ fn png_wb_adaptive_rgb_image() -> @storage.OwnedImage {
 }
 
 ///|
-/// PNGF-02/03: preflight records the exact double traversal required to score
-/// adaptive rows once for planning and once for acknowledgement-safe replay.
-test "PNG adaptive planner charges the checked filtered work ledger" {
+///| PNGF-02/03: admission records actual adaptive forward traversals rather
+/// than a copied two-sweep formula.  The helper deliberately uses the facts
+/// returned by preflight so Fixed and Dynamic can report their extra planning
+/// walks without teaching this test an implementation-specific pass count.
+fn png_wb_adaptive_cursor_work_ledger(
+  strategy : PngCompressionStrategy,
+) -> Result[Unit, @error.CoreError] {
   let image = png_wb_adaptive_rgb_image()
-  let budget = png_wb_budget(work=1024UL)
+  let budget = png_wb_budget(work=1048576UL)
   let before = budget.remaining()
   let facts = _png_encode_preflight_with_filter(
     image.view(),
-    PngCompressionStrategy::Stored,
+    strategy,
     PngFilterStrategy::Adaptive,
     png_wb_limits(),
     budget,
   ).unwrap()
-  let adaptive_work = 2UL * 2UL * (5UL * 6UL)
+  let planning = facts.adaptive_planning_facts
+  let replay = facts.adaptive_replay_facts
+  inspect(replay.resolved_rows, content="2")
+  inspect(replay.candidate_residuals, content="60")
+  inspect(replay.selected_residuals, content="12")
+  inspect(planning.resolved_rows >= 2UL, content="true")
+  inspect(planning.candidate_residuals >= 60UL, content="true")
+  let adaptive_work = planning.work().unwrap() + replay.work().unwrap()
   inspect(
-    before.work() - budget.remaining().work() ==
-    facts.total_length + adaptive_work,
+    before.work() - budget.remaining().work() == facts.selected_work,
     content="true",
   )
-  let exact = png_wb_budget(work=facts.total_length + adaptive_work)
+  inspect(facts.selected_work >= facts.total_length + adaptive_work, content="true")
+  let exact = png_wb_budget(work=facts.selected_work)
   ignore(
     _png_encode_preflight_with_filter(
       image.view(),
-      PngCompressionStrategy::Stored,
+      strategy,
       PngFilterStrategy::Adaptive,
       png_wb_limits(),
       exact,
     ).unwrap(),
   )
   inspect(exact.remaining().work(), content="0")
-  let one_less = png_wb_budget(work=facts.total_length + adaptive_work - 1UL)
+  let one_less = png_wb_budget(work=facts.selected_work - 1UL)
   let unchanged = one_less.remaining()
   let rejected = _png_encode_preflight_with_filter(
     image.view(),
-    PngCompressionStrategy::Stored,
+    strategy,
     PngFilterStrategy::Adaptive,
     png_wb_limits(),
     one_less,
@@ -193,6 +204,24 @@ test "PNG adaptive planner charges the checked filtered work ledger" {
     png_wb_same_remaining(unchanged, one_less.remaining()),
     content="true",
   )
+  Ok(())
+}
+
+///|
+test "PNG adaptive cursor work ledger covers Stored planning and replay" {
+  png_wb_adaptive_cursor_work_ledger(PngCompressionStrategy::Stored).unwrap()
+}
+
+///|
+test "PNG adaptive cursor work ledger covers FixedOrStored planning and replay" {
+  png_wb_adaptive_cursor_work_ledger(PngCompressionStrategy::FixedOrStored).unwrap()
+}
+
+///|
+test "PNG adaptive cursor work ledger covers DynamicOrFixedOrStored planning and replay" {
+  png_wb_adaptive_cursor_work_ledger(
+    PngCompressionStrategy::DynamicOrFixedOrStored,
+  ).unwrap()
 }
 
 ///|
