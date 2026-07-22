@@ -79,7 +79,12 @@ Plans:
 3. Incompatible inputs and capability, geometry, output, work, or budget failures leave the eager writer empty and expose neither a usable caller-buffered lease nor partial output.
 4. A caller-buffered GrayAlpha16 encoder advances only for accepted bytes and preserves its replay/terminal contract across supported strategy selections.
 
-**Plans**: TBD
+**Plans**: 2 plans
+
+Plans:
+
+- [ ] 54-01-PLAN.md — Add the explicit bounded GrayAlpha16 Type-4/16 eager and caller-buffered encoder path.
+- [ ] 54-02-PLAN.md — Prove GrayAlpha16 atomic admission and acknowledgement-safe replay ownership.
 
 ### Phase 55: Portable Public Evidence
 
