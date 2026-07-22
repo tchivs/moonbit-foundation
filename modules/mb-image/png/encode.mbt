@@ -391,9 +391,32 @@ fn _png_filter_row_winner(
   Ok((winner, winner_score))
 }
 
+///| Read one scalar PNG wire byte. Gray16 maps storage-order component bytes to
+/// the mandatory big-endian wire order before every filter, planner, and replay.
+fn _png_wire_byte(
+  source : @storage.ImageView,
+  profile : PngEncodeProfile,
+  row : UInt64,
+  channels : UInt64,
+  position : UInt64,
+) -> Result[Byte, @error.CoreError] {
+  match profile {
+    PngEncodeProfile::Gray16 => {
+      let wire_byte = position % 2UL
+      let storage_byte = match source.format().endianness() {
+        @model.Endianness::Little => 1UL - wire_byte
+        @model.Endianness::Big => wire_byte
+      }
+      source.get_component_byte(position / 2UL, row, 0UL, storage_byte)
+    }
+    _ => source.get_byte(position / channels, row, position % channels)
+  }
+}
+
 ///| Return a scanline byte without materialising a filter-None scanline.
 fn _png_fixed_scanline_byte(
   source : @storage.ImageView,
+  profile : PngEncodeProfile,
   row_bytes : UInt64,
   channels : UInt64,
   index : UInt64,
@@ -404,7 +427,7 @@ fn _png_fixed_scanline_byte(
     Ok(b'\x00')
   } else {
     let sample = in_row - 1UL
-    source.get_byte(sample / channels, index / row_width, sample % channels)
+    _png_wire_byte(source, profile, index / row_width, channels, sample)
   }
 }
 
@@ -422,11 +445,12 @@ fn _png_filter_tag(filter : PngRowFilter) -> Byte {
 ///| Read a raw source row without materialising source or residual bytes.
 fn _png_filter_image_raw_byte(
   source : @storage.ImageView,
+  profile : PngEncodeProfile,
   row : UInt64,
   channels : UInt64,
   position : UInt64,
 ) -> Result[Byte, @error.CoreError] {
-  source.get_byte(position / channels, row, position % channels)
+  _png_wire_byte(source, profile, row, channels, position)
 }
 
 ///| Apply a method-0 candidate directly to one ImageView row. This keeps the
@@ -434,27 +458,28 @@ fn _png_filter_image_raw_byte(
 fn _png_filter_image_candidate_byte(
   filter : PngRowFilter,
   source : @storage.ImageView,
+  profile : PngEncodeProfile,
   row : UInt64,
   row_bytes : UInt64,
   channels : UInt64,
   position : UInt64,
 ) -> Result[Byte, @error.CoreError] {
   if position >= row_bytes { return Err(_png_encode_capability("png-filter-row-access")) }
-  let sample = match _png_filter_image_raw_byte(source, row, channels, position) {
+  let sample = match _png_filter_image_raw_byte(source, profile, row, channels, position) {
     Err(error) => return Err(error); Ok(value) => value
   }
   let left = if position < channels { b'\x00' } else {
-    match _png_filter_image_raw_byte(source, row, channels, position - channels) {
+    match _png_filter_image_raw_byte(source, profile, row, channels, position - channels) {
       Err(error) => return Err(error); Ok(value) => value
     }
   }
   let up = if row == 0UL { b'\x00' } else {
-    match _png_filter_image_raw_byte(source, row - 1UL, channels, position) {
+    match _png_filter_image_raw_byte(source, profile, row - 1UL, channels, position) {
       Err(error) => return Err(error); Ok(value) => value
     }
   }
   let upper_left = if row == 0UL || position < channels { b'\x00' } else {
-    match _png_filter_image_raw_byte(source, row - 1UL, channels, position - channels) {
+    match _png_filter_image_raw_byte(source, profile, row - 1UL, channels, position - channels) {
       Err(error) => return Err(error); Ok(value) => value
     }
   }
@@ -471,6 +496,7 @@ fn _png_filter_image_candidate_byte(
 ///| Select one row's first minimum candidate using only scalar positions.
 fn _png_filter_image_row_winner(
   source : @storage.ImageView,
+  profile : PngEncodeProfile,
   row : UInt64,
   row_bytes : UInt64,
   channels : UInt64,
@@ -481,7 +507,7 @@ fn _png_filter_image_row_winner(
     let mut score = 0UL
     for position = 0UL; position < row_bytes; position = position + 1UL {
       let residual = match _png_filter_image_candidate_byte(
-        candidate, source, row, row_bytes, channels, position,
+        candidate, source, profile, row, row_bytes, channels, position,
       ) { Err(error) => return Err(error); Ok(value) => value }
       score = match _png_fixed_add(score, _png_filter_signed_magnitude(residual)) {
         Err(error) => return Err(error); Ok(value) => value
@@ -613,6 +639,7 @@ fn _png_adam7_row_winner(
 /// only scalar row state across the caller-owned replay boundary.
 priv struct PngFilteredCursor {
   source : @storage.ImageView
+  profile : PngEncodeProfile
   row_bytes : UInt64
   channels : UInt64
   filter_strategy : PngFilterStrategy
@@ -628,9 +655,10 @@ fn PngFilteredCursor::new(
   row_bytes : UInt64,
   channels : UInt64,
   filter_strategy : PngFilterStrategy,
+  profile? : PngEncodeProfile = PngEncodeProfile::LegacyRgbOrRgba,
 ) -> PngFilteredCursor {
   PngFilteredCursor::new_with_interlace(
-    source, row_bytes, channels, filter_strategy, PngInterlaceStrategy::None,
+    source, row_bytes, channels, filter_strategy, PngInterlaceStrategy::None, profile=profile,
   )
 }
 
@@ -641,9 +669,10 @@ fn PngFilteredCursor::new_with_interlace(
   channels : UInt64,
   filter_strategy : PngFilterStrategy,
   interlace_strategy : PngInterlaceStrategy,
+  profile? : PngEncodeProfile = PngEncodeProfile::LegacyRgbOrRgba,
 ) -> PngFilteredCursor {
   {
-    source, row_bytes, channels, filter_strategy, interlace_strategy, index: 0UL, winner: None,
+    source, profile, row_bytes, channels, filter_strategy, interlace_strategy, index: 0UL, winner: None,
     traversal_facts: {
       resolved_rows: 0UL, candidate_residuals: 0UL, selected_residuals: 0UL,
     },
@@ -721,7 +750,7 @@ fn PngFilteredCursor::next(
   match self.filter_strategy {
     PngFilterStrategy::None => {
       let byte = match _png_fixed_scanline_byte(
-        self.source, self.row_bytes, self.channels, self.index,
+        self.source, self.profile, self.row_bytes, self.channels, self.index,
       ) { Err(error) => return Err(error); Ok(value) => value }
       Ok((byte, { ..self, index: self.index + 1UL }))
     }
@@ -730,7 +759,7 @@ fn PngFilteredCursor::next(
       let in_row = self.index % row_width
       if in_row == 0UL {
         let winner = match _png_filter_image_row_winner(
-          self.source, row, self.row_bytes, self.channels,
+          self.source, self.profile, row, self.row_bytes, self.channels,
         ) { Err(error) => return Err(error); Ok(value) => value }
         let candidate_residuals = match _png_fixed_add(
           self.traversal_facts.candidate_residuals, 5UL * self.row_bytes,
@@ -753,7 +782,7 @@ fn PngFilteredCursor::next(
           None => return Err(_png_encode_capability("png-filter-cursor-winner"))
         }
         let byte = match _png_filter_image_candidate_byte(
-          winner, self.source, row, self.row_bytes, self.channels, in_row - 1UL,
+          winner, self.source, self.profile, row, self.row_bytes, self.channels, in_row - 1UL,
         ) { Err(error) => return Err(error); Ok(value) => value }
         let selected_residuals = match _png_fixed_add(
           self.traversal_facts.selected_residuals, 1UL,
@@ -775,13 +804,14 @@ fn PngFilteredCursor::next(
 /// state, making the preflight ledger a sum of real planning/replay passes.
 fn _png_filtered_traverse(
   source : @storage.ImageView,
+  profile : PngEncodeProfile,
   row_bytes : UInt64,
   channels : UInt64,
   filter_strategy : PngFilterStrategy,
   scanlines : UInt64,
 ) -> Result[PngFilteredTraversalFacts, @error.CoreError] {
   let mut cursor = PngFilteredCursor::new(
-    source, row_bytes, channels, filter_strategy,
+    source, row_bytes, channels, filter_strategy, profile=profile,
   )
   while cursor.index < scanlines {
     let (_, next) = match cursor.next() {
@@ -795,6 +825,7 @@ fn _png_filtered_traverse(
 ///|
 fn _png_adaptive_traverse(
   source : @storage.ImageView,
+  profile : PngEncodeProfile,
   row_bytes : UInt64,
   channels : UInt64,
   filter_strategy : PngFilterStrategy,
@@ -805,7 +836,7 @@ fn _png_adaptive_traverse(
       resolved_rows: 0UL, candidate_residuals: 0UL, selected_residuals: 0UL,
     })
     PngFilterStrategy::Adaptive => _png_filtered_traverse(
-      source, row_bytes, channels, filter_strategy, scanlines,
+      source, profile, row_bytes, channels, filter_strategy, scanlines,
     )
   }
 }
@@ -814,25 +845,26 @@ fn _png_adaptive_traverse(
 /// Adaptive derives one tag and residual payload from the fixed scorer.
 fn _png_filtered_scanline_byte(
   source : @storage.ImageView,
+  profile : PngEncodeProfile,
   row_bytes : UInt64,
   channels : UInt64,
   filter_strategy : PngFilterStrategy,
   index : UInt64,
 ) -> Result[Byte, @error.CoreError] {
   match filter_strategy {
-    PngFilterStrategy::None => _png_fixed_scanline_byte(source, row_bytes, channels, index)
+    PngFilterStrategy::None => _png_fixed_scanline_byte(source, profile, row_bytes, channels, index)
     PngFilterStrategy::Adaptive => {
       let row_width = match @checked.checked_add(row_bytes, 1UL) {
         Err(error) => return Err(error); Ok(value) => value
       }
       let row = index / row_width
       let in_row = index % row_width
-      let winner = match _png_filter_image_row_winner(source, row, row_bytes, channels) {
+      let winner = match _png_filter_image_row_winner(source, profile, row, row_bytes, channels) {
         Err(error) => return Err(error); Ok(value) => value
       }
       if in_row == 0UL { Ok(_png_filter_tag(winner)) } else {
         _png_filter_image_candidate_byte(
-          winner, source, row, row_bytes, channels, in_row - 1UL,
+          winner, source, profile, row, row_bytes, channels, in_row - 1UL,
         )
       }
     }
@@ -856,9 +888,10 @@ fn PngFilteredMatchCursor::new(
   row_bytes : UInt64,
   channels : UInt64,
   filter_strategy : PngFilterStrategy,
+  profile? : PngEncodeProfile = PngEncodeProfile::LegacyRgbOrRgba,
 ) -> PngFilteredMatchCursor {
   PngFilteredMatchCursor::new_with_interlace(
-    source, row_bytes, channels, filter_strategy, PngInterlaceStrategy::None,
+    source, row_bytes, channels, filter_strategy, PngInterlaceStrategy::None, profile=profile,
   )
 }
 
@@ -869,8 +902,9 @@ fn PngFilteredMatchCursor::new_with_interlace(
   channels : UInt64,
   filter_strategy : PngFilterStrategy,
   interlace_strategy : PngInterlaceStrategy,
+  profile? : PngEncodeProfile = PngEncodeProfile::LegacyRgbOrRgba,
 ) -> PngFilteredMatchCursor {
-  { producer: PngFilteredCursor::new_with_interlace(source, row_bytes, channels, filter_strategy, interlace_strategy),
+  { producer: PngFilteredCursor::new_with_interlace(source, row_bytes, channels, filter_strategy, interlace_strategy, profile=profile),
     logical_position: 0UL, produced_exclusive: 0UL, retained_start: 0UL,
     window: Array::make(262, b'\x00') }
 }
@@ -999,9 +1033,10 @@ fn _png_filtered_match_traverse(
   channels : UInt64,
   filter_strategy : PngFilterStrategy,
   scanlines : UInt64,
+  profile? : PngEncodeProfile = PngEncodeProfile::LegacyRgbOrRgba,
 ) -> Result[PngFilteredTraversalFacts, @error.CoreError] {
   _png_filtered_match_traverse_with_interlace(
-    source, row_bytes, channels, filter_strategy, scanlines, PngInterlaceStrategy::None,
+    source, row_bytes, channels, filter_strategy, scanlines, PngInterlaceStrategy::None, profile=profile,
   )
 }
 
@@ -1013,9 +1048,10 @@ fn _png_filtered_match_traverse_with_interlace(
   filter_strategy : PngFilterStrategy,
   scanlines : UInt64,
   interlace_strategy : PngInterlaceStrategy,
+  profile? : PngEncodeProfile = PngEncodeProfile::LegacyRgbOrRgba,
 ) -> Result[PngFilteredTraversalFacts, @error.CoreError] {
   let mut cursor = PngFilteredMatchCursor::new_with_interlace(
-    source, row_bytes, channels, filter_strategy, interlace_strategy,
+    source, row_bytes, channels, filter_strategy, interlace_strategy, profile=profile,
   )
   while cursor.logical_position < scanlines {
     cursor = match cursor.ensure(cursor.logical_position + 1UL) {
@@ -1032,6 +1068,7 @@ fn _png_filtered_match_traverse_with_interlace(
 /// the best length intentionally retains the smaller distance on ties.
 fn _png_fixed_match_at(
   source : @storage.ImageView,
+  profile : PngEncodeProfile,
   row_bytes : UInt64,
   channels : UInt64,
   scanlines : UInt64,
@@ -1050,13 +1087,13 @@ fn _png_fixed_match_at(
         Ok(value) => value
       }
       let current = match _png_fixed_scanline_byte(
-        source, row_bytes, channels, position + length,
+        source, profile, row_bytes, channels, position + length,
       ) {
         Err(error) => return Err(error)
         Ok(value) => value
       }
       let prior = match _png_fixed_scanline_byte(
-        source, row_bytes, channels, position + length - distance,
+        source, profile, row_bytes, channels, position + length - distance,
       ) {
         Err(error) => return Err(error)
         Ok(value) => value
@@ -1108,9 +1145,10 @@ fn _png_dynamic_frequencies(
   channels : UInt64,
   filter_strategy : PngFilterStrategy,
   scanlines : UInt64,
+  profile? : PngEncodeProfile = PngEncodeProfile::LegacyRgbOrRgba,
 ) -> Result[(Array[UInt64], Array[UInt64], UInt64, UInt64, PngFilteredTraversalFacts), @error.CoreError] {
   _png_dynamic_frequencies_with_interlace(
-    source, row_bytes, channels, filter_strategy, scanlines, PngInterlaceStrategy::None,
+    source, row_bytes, channels, filter_strategy, scanlines, PngInterlaceStrategy::None, profile=profile,
   )
 }
 
@@ -1122,11 +1160,12 @@ fn _png_dynamic_frequencies_with_interlace(
   filter_strategy : PngFilterStrategy,
   scanlines : UInt64,
   interlace_strategy : PngInterlaceStrategy,
+  profile? : PngEncodeProfile = PngEncodeProfile::LegacyRgbOrRgba,
 ) -> Result[(Array[UInt64], Array[UInt64], UInt64, UInt64, PngFilteredTraversalFacts), @error.CoreError] {
   let literals = Array::make(286, 0UL)
   let distances = Array::make(30, 0UL)
   let mut cursor = PngFilteredMatchCursor::new_with_interlace(
-    source, row_bytes, channels, filter_strategy, interlace_strategy,
+    source, row_bytes, channels, filter_strategy, interlace_strategy, profile=profile,
   )
   let mut work = 0UL
   let mut fingerprint = 1UL
@@ -1212,9 +1251,10 @@ fn _png_dynamic_plan(
   channels : UInt64,
   filter_strategy : PngFilterStrategy,
   scanlines : UInt64,
+  profile? : PngEncodeProfile = PngEncodeProfile::LegacyRgbOrRgba,
 ) -> Result[PngDynamicPlanOutcome, @error.CoreError] {
   _png_dynamic_plan_with_idat_limit(
-    source, row_bytes, channels, filter_strategy, scanlines, 4294967295UL,
+    source, row_bytes, channels, filter_strategy, scanlines, 4294967295UL, profile=profile,
   )
 }
 
@@ -1227,10 +1267,11 @@ fn _png_dynamic_plan_with_idat_limit(
   filter_strategy : PngFilterStrategy,
   scanlines : UInt64,
   max_idat_length : UInt64,
+  profile? : PngEncodeProfile = PngEncodeProfile::LegacyRgbOrRgba,
 ) -> Result[PngDynamicPlanOutcome, @error.CoreError] {
   _png_dynamic_plan_with_interlace_idat_limit(
     source, row_bytes, channels, filter_strategy, scanlines, max_idat_length,
-    PngInterlaceStrategy::None,
+    PngInterlaceStrategy::None, profile=profile,
   )
 }
 
@@ -1243,9 +1284,10 @@ fn _png_dynamic_plan_with_interlace_idat_limit(
   scanlines : UInt64,
   max_idat_length : UInt64,
   interlace_strategy : PngInterlaceStrategy,
+  profile? : PngEncodeProfile = PngEncodeProfile::LegacyRgbOrRgba,
 ) -> Result[PngDynamicPlanOutcome, @error.CoreError] {
   let (literal_frequencies, distance_frequencies, matcher_work, fingerprint, frequency_facts) =
-    match _png_dynamic_frequencies_with_interlace(source, row_bytes, channels, filter_strategy, scanlines, interlace_strategy) {
+    match _png_dynamic_frequencies_with_interlace(source, row_bytes, channels, filter_strategy, scanlines, interlace_strategy, profile=profile) {
       Err(error) => return Err(error); Ok(value) => value
     }
   let literals = match _png_huffman_from_frequencies(literal_frequencies, true, false, true) {
@@ -1292,7 +1334,7 @@ fn _png_dynamic_plan_with_interlace_idat_limit(
     }
   }
   let mut cursor = PngFilteredMatchCursor::new_with_interlace(
-    source, row_bytes, channels, filter_strategy, interlace_strategy,
+    source, row_bytes, channels, filter_strategy, interlace_strategy, profile=profile,
   )
   while cursor.logical_position < scanlines {
     let (length, distance, _, matched) = match _png_filtered_match_at(cursor, scanlines) {
@@ -1334,9 +1376,10 @@ fn _png_fixed_plan(
   channels : UInt64,
   filter_strategy : PngFilterStrategy,
   scanlines : UInt64,
+  profile? : PngEncodeProfile = PngEncodeProfile::LegacyRgbOrRgba,
 ) -> Result[PngFixedPlan, @error.CoreError] {
   _png_fixed_plan_with_interlace(
-    source, row_bytes, channels, filter_strategy, scanlines, PngInterlaceStrategy::None,
+    source, row_bytes, channels, filter_strategy, scanlines, PngInterlaceStrategy::None, profile=profile,
   )
 }
 
@@ -1348,9 +1391,10 @@ fn _png_fixed_plan_with_interlace(
   filter_strategy : PngFilterStrategy,
   scanlines : UInt64,
   interlace_strategy : PngInterlaceStrategy,
+  profile? : PngEncodeProfile = PngEncodeProfile::LegacyRgbOrRgba,
 ) -> Result[PngFixedPlan, @error.CoreError] {
   let mut cursor = PngFilteredMatchCursor::new_with_interlace(
-    source, row_bytes, channels, filter_strategy, interlace_strategy,
+    source, row_bytes, channels, filter_strategy, interlace_strategy, profile=profile,
   )
   let mut bits = 3UL
   let mut matcher_work = 0UL
@@ -1476,9 +1520,6 @@ fn _png_encode_preflight_with_interlace_profile(
       return Err(_png_encode_capability("gray8-noninterlaced-required"))
     PngEncodeProfile::Gray16 if interlace_strategy != PngInterlaceStrategy::None =>
       return Err(_png_encode_capability("gray16-noninterlaced-required"))
-    PngEncodeProfile::Gray16 if strategy != PngCompressionStrategy::Stored ||
-      filter_strategy != PngFilterStrategy::None =>
-      return Err(_png_encode_capability("gray16-stored-none-required"))
     _ => ()
   }
   _png_encode_preflight_with_filter_layout_idat_limit_profile(
@@ -1595,21 +1636,14 @@ fn _png_encode_preflight_with_filter_layout_idat_limit_profile(
   let stored = PngStoredPlan::{
     blocks, idat_length: stored_idat_length, total_length: stored_total_length,
   }
-  let gray16_stored_none = profile == PngEncodeProfile::Gray16
   let mut adaptive_planning_facts = PngFilteredTraversalFacts::{
     resolved_rows: 0UL, candidate_residuals: 0UL, selected_residuals: 0UL,
   }
   let plan = match strategy {
     PngCompressionStrategy::Stored => {
-      let pass = if gray16_stored_none {
-        PngFilteredTraversalFacts::{
-          resolved_rows: 0UL, candidate_residuals: 0UL, selected_residuals: 0UL,
-        }
-      } else {
-        match _png_filtered_match_traverse_with_interlace(
-          source, row_bytes, channels, filter_strategy, scanlines, interlace_strategy,
-        ) { Err(error) => return Err(error); Ok(value) => value }
-      }
+      let pass = match _png_filtered_match_traverse_with_interlace(
+        source, row_bytes, channels, filter_strategy, scanlines, interlace_strategy, profile=profile,
+      ) { Err(error) => return Err(error); Ok(value) => value }
       adaptive_planning_facts = match _png_filtered_facts_add(
         adaptive_planning_facts, pass,
       ) { Err(error) => return Err(error); Ok(value) => value }
@@ -1617,12 +1651,12 @@ fn _png_encode_preflight_with_filter_layout_idat_limit_profile(
     }
     PngCompressionStrategy::FixedOrStored => {
       let pass = match _png_filtered_match_traverse_with_interlace(
-        source, row_bytes, channels, filter_strategy, scanlines, interlace_strategy,
+        source, row_bytes, channels, filter_strategy, scanlines, interlace_strategy, profile=profile,
       ) { Err(error) => return Err(error); Ok(value) => value }
       adaptive_planning_facts = match _png_filtered_facts_add(
         adaptive_planning_facts, pass,
       ) { Err(error) => return Err(error); Ok(value) => value }
-      let fixed = match _png_fixed_plan_with_interlace(source, row_bytes, channels, filter_strategy, scanlines, interlace_strategy) {
+      let fixed = match _png_fixed_plan_with_interlace(source, row_bytes, channels, filter_strategy, scanlines, interlace_strategy, profile=profile) {
         Err(error) => return Err(error)
         Ok(value) => value
       }
@@ -1640,12 +1674,12 @@ fn _png_encode_preflight_with_filter_layout_idat_limit_profile(
     }
     PngCompressionStrategy::DynamicOrFixedOrStored => {
       let stored_pass = match _png_filtered_match_traverse_with_interlace(
-        source, row_bytes, channels, filter_strategy, scanlines, interlace_strategy,
+        source, row_bytes, channels, filter_strategy, scanlines, interlace_strategy, profile=profile,
       ) { Err(error) => return Err(error); Ok(value) => value }
       adaptive_planning_facts = match _png_filtered_facts_add(
         adaptive_planning_facts, stored_pass,
       ) { Err(error) => return Err(error); Ok(value) => value }
-      let fixed = match _png_fixed_plan_with_interlace(source, row_bytes, channels, filter_strategy, scanlines, interlace_strategy) {
+      let fixed = match _png_fixed_plan_with_interlace(source, row_bytes, channels, filter_strategy, scanlines, interlace_strategy, profile=profile) {
         Err(error) => return Err(error); Ok(value) => value
       }
       adaptive_planning_facts = match _png_filtered_facts_add(
@@ -1661,7 +1695,7 @@ fn _png_encode_preflight_with_filter_layout_idat_limit_profile(
         PngDeflatePlan::Dynamic(value) => value.total_length
       }
       match _png_dynamic_plan_with_interlace_idat_limit(
-        source, row_bytes, channels, filter_strategy, scanlines, dynamic_max_idat_length, interlace_strategy,
+        source, row_bytes, channels, filter_strategy, scanlines, dynamic_max_idat_length, interlace_strategy, profile=profile,
       ) {
         Err(error) => return Err(error)
         Ok(dynamic_outcome) => {
@@ -1681,15 +1715,9 @@ fn _png_encode_preflight_with_filter_layout_idat_limit_profile(
       }
     }
   }
-  let adaptive_replay_facts = if gray16_stored_none {
-    PngFilteredTraversalFacts::{
-      resolved_rows: 0UL, candidate_residuals: 0UL, selected_residuals: 0UL,
-    }
-  } else {
-    match _png_filtered_match_traverse_with_interlace(
-      source, row_bytes, channels, filter_strategy, scanlines, interlace_strategy,
-    ) { Err(error) => return Err(error); Ok(value) => value }
-  }
+  let adaptive_replay_facts = match _png_filtered_match_traverse_with_interlace(
+    source, row_bytes, channels, filter_strategy, scanlines, interlace_strategy, profile=profile,
+  ) { Err(error) => return Err(error); Ok(value) => value }
   let adaptive_filter_work = match _png_filtered_facts_add(
     adaptive_planning_facts, adaptive_replay_facts,
   ) { Err(error) => return Err(error); Ok(value) => value }

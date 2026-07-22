@@ -40,9 +40,54 @@ pub fn PngChunkEncoder::new_gray16(
   budget : @budget.Budget,
   diagnostics : @error.Diagnostics,
 ) -> Result[PngChunkEncoder, @error.CoreError] {
+  PngChunkEncoder::new_gray16_with_strategies(
+    source, PngCompressionStrategy::Stored, PngFilterStrategy::None,
+    limits, budget, diagnostics,
+  )
+}
+
+///| Constructs a Gray16 caller-buffered encoder with an explicit compression
+/// strategy and the filter-None route. Gray16 remains intentionally
+/// non-interlaced.
+pub fn PngChunkEncoder::new_gray16_with_compression_strategy(
+  source : @storage.ImageView,
+  strategy : PngCompressionStrategy,
+  limits : @codec.CodecLimits,
+  budget : @budget.Budget,
+  diagnostics : @error.Diagnostics,
+) -> Result[PngChunkEncoder, @error.CoreError] {
+  PngChunkEncoder::new_gray16_with_strategies(
+    source, strategy, PngFilterStrategy::None, limits, budget, diagnostics,
+  )
+}
+
+///| Constructs a Gray16 caller-buffered encoder with an explicit filter
+/// strategy and Stored compression. Gray16 remains intentionally non-interlaced.
+pub fn PngChunkEncoder::new_gray16_with_filter_strategy(
+  source : @storage.ImageView,
+  filter_strategy : PngFilterStrategy,
+  limits : @codec.CodecLimits,
+  budget : @budget.Budget,
+  diagnostics : @error.Diagnostics,
+) -> Result[PngChunkEncoder, @error.CoreError] {
+  PngChunkEncoder::new_gray16_with_strategies(
+    source, PngCompressionStrategy::Stored, filter_strategy, limits, budget, diagnostics,
+  )
+}
+
+///| Constructs a Gray16 caller-buffered encoder with explicit compression and
+/// filter strategies. Its profile fixes PNG colour type 0 and excludes Adam7.
+pub fn PngChunkEncoder::new_gray16_with_strategies(
+  source : @storage.ImageView,
+  strategy : PngCompressionStrategy,
+  filter_strategy : PngFilterStrategy,
+  limits : @codec.CodecLimits,
+  budget : @budget.Budget,
+  diagnostics : @error.Diagnostics,
+) -> Result[PngChunkEncoder, @error.CoreError] {
   let machine = match PngEncodeMachine::new_with_profile(
-    source, PngEncodeProfile::Gray16, PngCompressionStrategy::Stored,
-    PngFilterStrategy::None, PngInterlaceStrategy::None, limits, budget, diagnostics,
+    source, PngEncodeProfile::Gray16, strategy,
+    filter_strategy, PngInterlaceStrategy::None, limits, budget, diagnostics,
   ) {
     Err(error) => return Err(error)
     Ok(value) => value
@@ -440,20 +485,22 @@ fn PngEncodeMachine::new_with_profile(
     pending_stored: None,
     pending_fixed: None,
     pending_dynamic: None,
-    stored_cursor: if interlace_strategy == PngInterlaceStrategy::Adam7 ||
+    stored_cursor: if profile == PngEncodeProfile::Gray16 ||
+      interlace_strategy == PngInterlaceStrategy::Adam7 ||
       filter_strategy == PngFilterStrategy::Adaptive {
       Some(PngFilteredMatchCursor::new_with_interlace(
-        source, facts.row_bytes, facts.channels, filter_strategy, interlace_strategy,
+        source, facts.row_bytes, facts.channels, filter_strategy, interlace_strategy, profile=facts.profile,
       ))
     } else { None },
     fixed_state: match facts.plan {
       PngDeflatePlan::Stored(_) => None
       PngDeflatePlan::Fixed(_) => Some({
         raw_cursor: 0UL,
-        filtered_cursor: if interlace_strategy == PngInterlaceStrategy::Adam7 ||
+        filtered_cursor: if profile == PngEncodeProfile::Gray16 ||
+          interlace_strategy == PngInterlaceStrategy::Adam7 ||
           filter_strategy == PngFilterStrategy::Adaptive {
           Some(PngFilteredMatchCursor::new_with_interlace(
-            source, facts.row_bytes, facts.channels, filter_strategy, interlace_strategy,
+            source, facts.row_bytes, facts.channels, filter_strategy, interlace_strategy, profile=facts.profile,
           ))
         } else { None },
         bit_value: 0UL, bit_count: 0UL, adler: 1UL,
@@ -464,10 +511,11 @@ fn PngEncodeMachine::new_with_profile(
     dynamic_state: match facts.plan {
       PngDeflatePlan::Dynamic(_) => Some({ phase: 0, header_cursor: 0UL,
         code_length_cursor: 0UL, rle_cursor: 0UL, raw_cursor: 0UL,
-        filtered_cursor: if interlace_strategy == PngInterlaceStrategy::Adam7 ||
+        filtered_cursor: if profile == PngEncodeProfile::Gray16 ||
+          interlace_strategy == PngInterlaceStrategy::Adam7 ||
           filter_strategy == PngFilterStrategy::Adaptive {
           Some(PngFilteredMatchCursor::new_with_interlace(
-            source, facts.row_bytes, facts.channels, filter_strategy, interlace_strategy,
+            source, facts.row_bytes, facts.channels, filter_strategy, interlace_strategy, profile=facts.profile,
           ))
         } else { None },
         bit_value: 0UL, bit_count: 0UL, adler: 1UL, matcher_work: 0UL })
@@ -505,37 +553,9 @@ fn PngEncodeMachine::scanline_byte(
   self : PngEncodeMachine,
   index : UInt64,
 ) -> Result[Byte, @error.CoreError] {
-  match self.profile {
-    PngEncodeProfile::Gray16 => _png_gray16_scanline_byte(
-      self.source, self.row_bytes, index,
-    )
-    _ => _png_filtered_scanline_byte(
-      self.source, self.row_bytes, self.channels, self.filter_strategy, index,
-    )
-  }
-}
-
-///|
-/// PNG type-0/16 scanlines are always big-endian. The checked source accessor
-/// exposes storage order, so little-endian source components are reversed here
-/// without retaining a converted row.
-fn _png_gray16_scanline_byte(
-  source : @storage.ImageView,
-  row_bytes : UInt64,
-  index : UInt64,
-) -> Result[Byte, @error.CoreError] {
-  let row_width = row_bytes + 1UL
-  let in_row = index % row_width
-  if in_row == 0UL {
-    return Ok(b'\x00')
-  }
-  let sample = in_row - 1UL
-  let wire_byte = sample % 2UL
-  let storage_byte = match source.format().endianness() {
-    @model.Endianness::Little => 1UL - wire_byte
-    @model.Endianness::Big => wire_byte
-  }
-  source.get_component_byte(sample / 2UL, index / row_width, 0UL, storage_byte)
+  _png_filtered_scanline_byte(
+    self.source, self.profile, self.row_bytes, self.channels, self.filter_strategy, index,
+  )
 }
 
 ///|
@@ -642,7 +662,7 @@ fn PngEncodeMachine::fixed_preview_byte(
           (length, distance, work)
         }
         None => match _png_fixed_match_at(
-          self.source, self.row_bytes, self.channels, self.scanlines, raw_cursor,
+          self.source, self.profile, self.row_bytes, self.channels, self.scanlines, raw_cursor,
         ) { Err(error) => return Err(error); Ok(value) => value }
       }
       matcher_work = match _png_fixed_add(matcher_work, work) {
@@ -681,7 +701,7 @@ fn PngEncodeMachine::fixed_preview_byte(
               value
             }
             None => match _png_fixed_scanline_byte(
-              self.source, self.row_bytes, self.channels, raw_cursor + index,
+              self.source, self.profile, self.row_bytes, self.channels, raw_cursor + index,
             ) { Err(error) => return Err(error); Ok(value) => value }
           }
           adler = _png_adler_step(adler, byte)
@@ -699,7 +719,7 @@ fn PngEncodeMachine::fixed_preview_byte(
             value
           }
           None => match _png_fixed_scanline_byte(
-            self.source, self.row_bytes, self.channels, raw_cursor,
+            self.source, self.profile, self.row_bytes, self.channels, raw_cursor,
           ) { Err(error) => return Err(error); Ok(value) => value }
         }
         let (code, code_bits) = _png_fixed_literal_code(byte.to_uint64())
@@ -843,7 +863,7 @@ fn PngEncodeMachine::dynamic_preview_byte(
             (length, distance, work)
           }
           None => match _png_fixed_match_at(
-            self.source, self.row_bytes, self.channels, self.scanlines, raw_cursor,
+            self.source, self.profile, self.row_bytes, self.channels, self.scanlines, raw_cursor,
           ) { Err(error) => return Err(error); Ok(value) => value }
         }
         matcher_work = match _png_fixed_add(matcher_work, work) { Err(error) => return Err(error); Ok(value) => value }
@@ -867,7 +887,7 @@ fn PngEncodeMachine::dynamic_preview_byte(
                 value
               }
               None => match _png_fixed_scanline_byte(
-                self.source, self.row_bytes, self.channels, raw_cursor + index,
+                self.source, self.profile, self.row_bytes, self.channels, raw_cursor + index,
               ) { Err(error) => return Err(error); Ok(value) => value }
             }
             adler = _png_adler_step(adler, byte)
@@ -883,7 +903,7 @@ fn PngEncodeMachine::dynamic_preview_byte(
               value
             }
             None => match _png_fixed_scanline_byte(
-              self.source, self.row_bytes, self.channels, raw_cursor,
+              self.source, self.profile, self.row_bytes, self.channels, raw_cursor,
             ) { Err(error) => return Err(error); Ok(value) => value }
           }
           let (next_value, next_count) = _png_dynamic_put_code(bit_value, bit_count, plan.literals, byte.to_int())
