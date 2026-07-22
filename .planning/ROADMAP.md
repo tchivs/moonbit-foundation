@@ -68,7 +68,12 @@
 **Plans**: 2 plans
 
 Plans:
+**Wave 1**
+
 - [ ] 51-01-PLAN.md — Deliver the bounded Gray+Alpha8 eager/caller-buffered encoder tracer and factory families.
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
 - [ ] 51-02-PLAN.md — Prove bounded strategy parity and atomic Gray+Alpha preflight rejection.
 
 ### Phase 52: Portable Gray+Alpha Public Evidence
