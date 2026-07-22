@@ -5,8 +5,8 @@ $ErrorActionPreference = 'Stop'
 $repositoryRoot = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
 $targets = @('js', 'wasm', 'wasm-gc', 'native')
 $selectors = @(
-  'PNG Adam7 opt-in eager compatibility',
-  'PNG Adam7 opt-in chunk compatibility'
+  'PNG Adam7 public eager fidelity and frozen None compatibility',
+  'PNG Adam7 public chunk fidelity, hostile identity, and frozen None compatibility'
 )
 
 function New-OwnedTargetDirectory([string]$Target) {
