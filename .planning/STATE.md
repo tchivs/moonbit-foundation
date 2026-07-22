@@ -3,7 +3,7 @@ gsd_state_version: 1.0
 milestone: v0.13
 milestone_name: PNG Adam7 Encode
 status: planning
-last_updated: "2026-07-22T06:26:06.908Z"
+last_updated: "2026-07-22T06:29:45.858Z"
 last_activity: 2026-07-22
 progress:
   total_phases: 0
@@ -21,18 +21,18 @@ See `.planning/PROJECT.md` (updated 2026-07-22).
 
 **Core value:** MoonBit developers can reuse stable, high-performance native infrastructure contracts instead of rebuilding incompatible foundations for every graphics, document, media, or automation product.
 
-**Current focus:** Define v0.13 Adam7 PNG encode phases, then implement the explicit interlace compatibility boundary.
+**Current focus:** Plan Phase 41, the explicit Adam7 interlace compatibility boundary.
 
 ## Current Position
 
-Phase: Not started (defining requirements)
+Phase: 41 of 43 (Adam7 Opt-In Compatibility)
 Plan: —
-Status: Defining requirements
-Last activity: 2026-07-22 — Milestone v0.13 started
+Status: Ready to plan
+Last activity: 2026-07-22 — Roadmap created; PNGI-01 through PNGI-04 mapped to Phases 41-43
 
 ## Performance Metrics
 
-**Current milestone:** v0.13 defining requirements: 0/4 requirements mapped; roadmap pending.
+**Current milestone:** v0.13 roadmap ready: 4/4 requirements mapped across 3 planned phases; 0 plans complete.
 
 **Historical context:** v0.5 shipped three phases and three plans on 2026-07-20. v0.2 publication and registry work remains deferred and excluded from this code-first milestone.
 
@@ -74,6 +74,8 @@ Last activity: 2026-07-22 — Milestone v0.13 started
 - [v0.12]: Preserve all legacy filter-None constructors and compression-strategy bytes; adaptive filtering is explicit opt-in through eager and caller-buffered factories.
 - [v0.12]: Feed bounded deterministic None/Sub/Up/Average/Paeth row selection into the existing atomic preflight and replay path, not a staged image buffer.
 - [v0.12]: Treat generated RGB8/RGBA8 strict-win, hostile-capacity eager/chunk identity, and complete four-target public decode as one portable evidence boundary.
+- [v0.13]: Keep Adam7 explicit and additive; Phase 41 preserves every legacy non-interlaced route before Phase 42 adds bounded seven-pass planning and replay.
+- [v0.13]: Reserve generated RGB8/RGBA8 fidelity, hostile-capacity identity, legacy-byte compatibility, and separate js/wasm/wasm-gc/native runs for Phase 43 public evidence.
 
 ### Pending Todos
 
@@ -145,10 +147,10 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-07-22T05:28:11.769Z
-Stopped at: Phase 40 context gathered
-Resume file: .planning/phases/40-portable-adaptive-filter-evidence/40-CONTEXT.md
+Last session: 2026-07-22T06:29:45.858Z
+Stopped at: v0.13 roadmap created
+Resume file: Plan Phase 41 from `.planning/ROADMAP.md`
 
 ## Operator Next Steps
 
-- Start the next milestone with /gsd-new-milestone
+- Plan Phase 41 with /gsd-plan-phase 41

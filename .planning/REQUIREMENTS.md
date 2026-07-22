@@ -37,16 +37,16 @@
 
 | Requirement | Phase | Status |
 | --- | --- | --- |
-| PNGI-01 | Pending roadmap | Pending |
-| PNGI-02 | Pending roadmap | Pending |
-| PNGI-03 | Pending roadmap | Pending |
-| PNGI-04 | Pending roadmap | Pending |
+| PNGI-01 | Phase 41 | Pending |
+| PNGI-02 | Phase 42 | Pending |
+| PNGI-03 | Phase 42 | Pending |
+| PNGI-04 | Phase 43 | Pending |
 
 **Coverage:**
 
 - v0.13 requirements: 4 total
-- Mapped to phases: 0
-- Unmapped: 4 (roadmap pending)
+- Mapped to phases: 4
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-07-22*
