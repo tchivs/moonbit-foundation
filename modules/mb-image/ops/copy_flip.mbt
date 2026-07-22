@@ -65,6 +65,7 @@ fn supports_copy_flip(source : @storage.ImageView) -> Bool {
         None => false
       }
     @model.ChannelOrder::Gray => false
+    @model.ChannelOrder::GrayAlpha => false
   }
 }
 

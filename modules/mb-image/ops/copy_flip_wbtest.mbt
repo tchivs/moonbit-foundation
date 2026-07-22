@@ -96,6 +96,7 @@ fn unsupported_image(
   }
   let channel_count = match channels {
     @model.ChannelOrder::Gray => 1UL
+    @model.ChannelOrder::GrayAlpha => 2UL
     @model.ChannelOrder::Rgb => 3UL
     @model.ChannelOrder::Rgba => 4UL
   }

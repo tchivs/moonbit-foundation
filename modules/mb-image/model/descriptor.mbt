@@ -25,6 +25,7 @@ pub(all) enum ComponentType {
 ///|
 pub(all) enum ChannelOrder {
   Gray
+  GrayAlpha
   Rgb
   Rgba
 } derive(Eq)
@@ -75,6 +76,16 @@ pub fn ImageFormat::rgb8() -> ImageFormat {
 }
 
 ///|
+pub fn ImageFormat::graya8() -> ImageFormat {
+  {
+    component_value: ComponentType::U8,
+    channels_value: ChannelOrder::GrayAlpha,
+    layout_value: PlaneLayout::Packed,
+    endianness_value: Endianness::Little,
+  }
+}
+
+///|
 pub fn ImageFormat::rgba8() -> ImageFormat {
   {
     component_value: ComponentType::U8,
@@ -108,6 +119,7 @@ pub fn ImageFormat::endianness(self : ImageFormat) -> Endianness {
 pub fn ImageFormat::channel_count(self : ImageFormat) -> UInt64 {
   match self.channels_value {
     ChannelOrder::Gray => 1UL
+    ChannelOrder::GrayAlpha => 2UL
     ChannelOrder::Rgb => 3UL
     ChannelOrder::Rgba => 4UL
   }
@@ -446,6 +458,7 @@ fn validate_alpha_identity(
 ) -> Result[Unit, @error.CoreError] {
   let valid = match format.channels() {
     ChannelOrder::Rgba => metadata.alpha() is Some(_)
+    ChannelOrder::GrayAlpha => metadata.alpha() is Some(@color.AlphaMode::Straight)
     _ => metadata.alpha() is None
   }
   if valid {
@@ -455,6 +468,35 @@ fn validate_alpha_identity(
       image_model_error(
         @error.ErrorCode::InvalidEncoding,
         "image-alpha-mode",
+        format.channel_count(),
+        format.channel_count(),
+      ),
+    )
+  }
+}
+
+///|
+fn validate_gray_alpha_identity(
+  format : ImageFormat,
+  metadata : ImageMetadata,
+) -> Result[Unit, @error.CoreError] {
+  if format.channels() != ChannelOrder::GrayAlpha {
+    return Ok(())
+  }
+  let valid = format.component() == ComponentType::U8 &&
+    format.layout() == PlaneLayout::Packed &&
+    format.endianness() == Endianness::Little &&
+    metadata.space() == @color.ColorSpaceIdentity::Srgb &&
+    metadata.transfer() == @color.TransferIdentity::EncodedSrgb &&
+    metadata.profile().is_builtin_srgb() &&
+    metadata.orientation() == Orientation::TopLeft
+  if valid {
+    Ok(())
+  } else {
+    Err(
+      image_model_error(
+        @error.ErrorCode::InvalidEncoding,
+        "image-gray-alpha-identity",
         format.channel_count(),
         format.channel_count(),
       ),
@@ -570,6 +612,10 @@ pub fn ImageDescriptor::new(
     )
   }
   match validate_alpha_identity(format, metadata) {
+    Err(error) => return Err(error)
+    Ok(_) => ()
+  }
+  match validate_gray_alpha_identity(format, metadata) {
     Err(error) => return Err(error)
     Ok(_) => ()
   }
@@ -694,5 +740,6 @@ pub fn ImageDescriptor::supports_reference_operations(
     ChannelOrder::Rgb => self.metadata_value.alpha() is None
     ChannelOrder::Rgba => self.metadata_value.alpha() is Some(_)
     ChannelOrder::Gray => false
+    ChannelOrder::GrayAlpha => false
   }
 }

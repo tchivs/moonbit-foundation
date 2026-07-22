@@ -161,7 +161,7 @@ fn processing_wb_variant_image(
 ) -> @storage.OwnedImage {
   let format = @model.ImageFormat::new(component, channels, layout, @model.Endianness::Little).unwrap()
   let component_bytes = match component { @model.ComponentType::U8 => 1UL; @model.ComponentType::U16 => 2UL; @model.ComponentType::F32 => 4UL }
-  let channel_count = match channels { @model.ChannelOrder::Gray => 1UL; @model.ChannelOrder::Rgb => 3UL; @model.ChannelOrder::Rgba => 4UL }
+  let channel_count = match channels { @model.ChannelOrder::Gray => 1UL; @model.ChannelOrder::GrayAlpha => 2UL; @model.ChannelOrder::Rgb => 3UL; @model.ChannelOrder::Rgba => 4UL }
   let plane_count = if layout == @model.PlaneLayout::Packed { 1UL } else { channel_count }
   let row_bytes = if layout == @model.PlaneLayout::Packed { component_bytes * channel_count } else { component_bytes }
   let planes : Array[@model.PlaneDescriptor] = []
