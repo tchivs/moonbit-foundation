@@ -157,9 +157,9 @@ pub fn PngChunkEncoder::pull(
 ///|
 /// Private, owned PNG output state. Stored keeps its frozen byte path; FixedOrStored uses
 /// scalar fixed-Huffman replay. DynamicOrFixedOrStored plans a Dynamic DEFLATE block and
-/// replays it with owned PngDynamicState. Both filter selections use the established
-/// filter-None provider; row filters, scoring, a 32 KiB dictionary, FFI codec, host
-/// adapters, caller leases, and output-sized staging remain excluded.
+/// replays it with owned PngDynamicState. None retains the frozen filter-None provider;
+/// Adaptive uses bounded method-0 row selection and replay cursors. A 32 KiB dictionary,
+/// FFI codec, host adapters, and output-sized staging remain excluded.
 priv struct PngEncodeMachine {
   source : @storage.ImageView
   strategy : PngCompressionStrategy
