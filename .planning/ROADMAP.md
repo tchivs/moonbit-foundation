@@ -61,7 +61,10 @@
 2. A library user can read and write both bytes of distinct gray and alpha U16 components through checked generic packed-image storage views.
 3. Existing Gray, GrayAlpha8, RGB, and RGBA descriptors, storage access, and observable operations retain their prior behavior, while malformed or incompatible GrayAlpha16 descriptors are rejected.
 
-**Plans**: TBD
+**Plans**: 1 plan
+
+Plans:
+- [ ] 53-01-PLAN.md — Add the exact GrayAlpha16 descriptor identity and prove generic U16 checked-storage compatibility.
 
 ### Phase 54: Bounded Type-4/16 Encoder
 
