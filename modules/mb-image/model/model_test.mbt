@@ -294,7 +294,7 @@ test "GrayAlpha16 is a packed two-component straight-alpha descriptor" {
 }
 
 ///|
-test "GrayAlpha admission rejects every unsupported identity" {
+test "GrayAlpha admission accepts canonical identities and rejects unsupported identity" {
   let packed = [@model.PlaneDescriptor::new(
     0UL, 2UL, 2UL, 2UL, 1UL, 1UL, 1UL, 1UL,
   ).unwrap()]
@@ -349,18 +349,16 @@ test "GrayAlpha admission rejects every unsupported identity" {
   )
   inspect(rejects_invalid_graya(@model.ImageFormat::graya8(), packed, missing_alpha), content="true")
   inspect(rejects_invalid_graya(@model.ImageFormat::graya8(), packed, premultiplied), content="true")
-  inspect(rejects_invalid_graya(
-    @model.ImageFormat::new(
-      @model.ComponentType::U16,
-      @model.ChannelOrder::GrayAlpha,
-      @model.PlaneLayout::Packed,
-      @model.Endianness::Little,
-    ).unwrap(),
+  inspect(@model.ImageDescriptor::new(
+    1UL,
+    1UL,
+    @model.ImageFormat::graya16(),
     [@model.PlaneDescriptor::new(
       0UL, 4UL, 4UL, 4UL, 1UL, 1UL, 1UL, 1UL,
     ).unwrap()],
+    4UL,
     straight,
-  ), content="true")
+  ) is Ok(_), content="true")
   inspect(rejects_invalid_graya(
     @model.ImageFormat::new(
       @model.ComponentType::U8,

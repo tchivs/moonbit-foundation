@@ -86,6 +86,16 @@ pub fn ImageFormat::graya8() -> ImageFormat {
 }
 
 ///|
+pub fn ImageFormat::graya16() -> ImageFormat {
+  {
+    component_value: ComponentType::U16,
+    channels_value: ChannelOrder::GrayAlpha,
+    layout_value: PlaneLayout::Packed,
+    endianness_value: Endianness::Little,
+  }
+}
+
+///|
 pub fn ImageFormat::rgba8() -> ImageFormat {
   {
     component_value: ComponentType::U8,
@@ -483,7 +493,8 @@ fn validate_gray_alpha_identity(
   if format.channels() != ChannelOrder::GrayAlpha {
     return Ok(())
   }
-  let valid = format.component() == ComponentType::U8 &&
+  let valid = (format.component() == ComponentType::U8 ||
+    format.component() == ComponentType::U16) &&
     format.layout() == PlaneLayout::Packed &&
     format.endianness() == Endianness::Little &&
     metadata.space() == @color.ColorSpaceIdentity::Srgb &&
