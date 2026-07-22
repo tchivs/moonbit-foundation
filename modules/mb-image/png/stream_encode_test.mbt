@@ -79,6 +79,25 @@ fn png_stream_test_eager_with_strategy(
 }
 
 ///|
+fn png_stream_test_eager_with_strategies(
+  image : @storage.OwnedImage,
+  strategy : PngCompressionStrategy,
+  filter_strategy : PngFilterStrategy,
+) -> Bytes {
+  let writer = @io.MemoryWriter::new(1048576UL, png_stream_test_budget(work=0UL)).unwrap()
+  ignore(@codec.ImageEncoder::encode(
+    PngEncoder::new_with_strategies(strategy, filter_strategy), image.view(), writer as &@io.Writer,
+    @codec.EncodeOptions::new(lossless_required=true, preserve_opaque_metadata=false),
+    png_stream_test_limits(), png_stream_test_budget(), @error.Diagnostics::new(),
+  ).unwrap())
+  let bytes : Array[Byte] = []
+  for index = 0UL; index < writer.position(); index = index + 1UL {
+    bytes.push(writer.view().get(index).unwrap())
+  }
+  Bytes::from_array(bytes)
+}
+
+///|
 fn png_stream_test_flat_image(channels : UInt64, width : UInt64) -> @storage.OwnedImage {
   let image = png_stream_test_image(channels, width=width)
   image.with_mut_view(fn(view) {
@@ -284,6 +303,32 @@ fn png_chunk_test_drain(
     @error.Diagnostics::new(),
   ).unwrap()
   png_chunk_test_drain_encoder(encoder, schedule)
+}
+
+///| Combined Adaptive construction has the same accepted-prefix ownership,
+/// zero-capacity turns, eager parity, and sticky terminal behavior as the
+/// shared caller-buffered machine.
+test "PNG adaptive combined chunk routes" {
+  for strategy in [
+    PngCompressionStrategy::Stored,
+    PngCompressionStrategy::FixedOrStored,
+    PngCompressionStrategy::DynamicOrFixedOrStored,
+  ] {
+    for image in [png_stream_test_dynamic_corpus_image(3UL), png_stream_test_dynamic_corpus_image(4UL)] {
+      let eager = png_stream_test_eager_with_strategies(
+        image, strategy, PngFilterStrategy::Adaptive,
+      )
+      let encoder = PngChunkEncoder::new_with_strategies(
+        image.view(), strategy, PngFilterStrategy::Adaptive,
+        png_stream_test_limits(), png_stream_test_budget(), @error.Diagnostics::new(),
+      ).unwrap()
+      let chunked = png_chunk_test_drain_encoder(
+        encoder, [0UL, 1UL, 3UL, 2UL, 5UL],
+      ).unwrap()
+      inspect(chunked == eager, content="true")
+      png_stream_test_fixed_or_stored_corpus_decode_matches_source(chunked, image)
+    }
+  }
 }
 
 test "PNG filter strategy chunk frozen compatibility vectors" {
@@ -984,6 +1029,50 @@ fn png_fixed_or_stored_public_reject(
   }
 }
 
+///| All combined routes use the shared constructor, so every rejection remains
+/// atomic before an eager writer byte or caller-owned output lease is exposed.
+fn png_adaptive_combined_public_reject(
+  image : @storage.OwnedImage,
+  limits : @codec.CodecLimits,
+  work : UInt64,
+) -> Unit {
+  for strategy in [
+    PngCompressionStrategy::Stored,
+    PngCompressionStrategy::FixedOrStored,
+    PngCompressionStrategy::DynamicOrFixedOrStored,
+  ] {
+    let eager_budget = png_stream_test_budget(work=work)
+    let eager_before = eager_budget.remaining()
+    let writer = @io.MemoryWriter::new(1048576UL, png_stream_test_budget(work=0UL)).unwrap()
+    let eager = @codec.ImageEncoder::encode(
+      PngEncoder::new_with_strategies(strategy, PngFilterStrategy::Adaptive),
+      image.view(), writer as &@io.Writer,
+      @codec.EncodeOptions::new(lossless_required=true, preserve_opaque_metadata=false),
+      limits, eager_budget, @error.Diagnostics::new(),
+    ).unwrap_err()
+    if writer.position() != 0UL ||
+      !png_fixed_or_stored_same_remaining(eager_before, eager_budget.remaining()) {
+      abort("png adaptive combined eager admission")
+    }
+    let chunk_budget = png_stream_test_budget(work=work)
+    let chunk_before = chunk_budget.remaining()
+    let untouched_lease = png_chunk_test_owner(7UL, fill=b'Z')
+    let chunk = PngChunkEncoder::new_with_strategies(
+      image.view(), strategy, PngFilterStrategy::Adaptive,
+      limits, chunk_budget, @error.Diagnostics::new(),
+    ).unwrap_err()
+    if !png_chunk_test_same_error(eager, chunk) ||
+      !png_fixed_or_stored_same_remaining(chunk_before, chunk_budget.remaining()) {
+      abort("png adaptive combined chunk admission")
+    }
+    for index = 0UL; index < 7UL; index = index + 1UL {
+      if untouched_lease.view().get(index).unwrap() != b'Z' {
+        abort("png adaptive combined admission exposed lease")
+      }
+    }
+  }
+}
+
 ///|
 fn png_fixed_or_stored_replay_image() -> @storage.OwnedImage {
   let image = png_stream_test_image(3UL, width=5UL)
@@ -1015,6 +1104,26 @@ test "PNG fixed-or-stored public admission is atomic" {
     png_stream_test_flat_image(3UL, 32UL), png_fixed_or_stored_limits(work=1UL), 1048576UL,
   )
   png_fixed_or_stored_public_reject(
+    png_stream_test_flat_image(3UL, 32UL), png_fixed_or_stored_limits(), 1UL,
+  )
+}
+
+///| Capability, geometry, output, work, and budget rejections match between
+/// eager and caller-buffered Adaptive combined factories before output exists.
+test "PNG adaptive combined admission is atomic" {
+  png_adaptive_combined_public_reject(
+    png_stream_test_image(3UL, include_opaque=true), png_fixed_or_stored_limits(), 1048576UL,
+  )
+  png_adaptive_combined_public_reject(
+    png_stream_test_image(3UL, width=2UL), png_fixed_or_stored_limits(width=1UL), 1048576UL,
+  )
+  png_adaptive_combined_public_reject(
+    png_stream_test_flat_image(3UL, 32UL), png_fixed_or_stored_limits(output=1UL), 1048576UL,
+  )
+  png_adaptive_combined_public_reject(
+    png_stream_test_flat_image(3UL, 32UL), png_fixed_or_stored_limits(work=1UL), 1048576UL,
+  )
+  png_adaptive_combined_public_reject(
     png_stream_test_flat_image(3UL, 32UL), png_fixed_or_stored_limits(), 1UL,
   )
 }

@@ -26,12 +26,13 @@ fn png_encode_image(
   pixels : Bytes,
   include_opaque? : Bool = false,
   width? : UInt64 = 1UL,
+  height? : UInt64 = 1UL,
 ) -> @storage.OwnedImage {
   let descriptor = @model.ImageDescriptor::new(
-    width, 1UL,
+    width, height,
     if channels == 3UL { @model.ImageFormat::rgb8() } else { @model.ImageFormat::rgba8() },
-    [@model.PlaneDescriptor::new(0UL, channels * width, channels * width, channels * width, 1UL, 1UL, width, 1UL).unwrap()],
-    channels * width,
+    [@model.PlaneDescriptor::new(0UL, channels * width * height, channels * width, channels * width, 1UL, 1UL, width, height).unwrap()],
+    channels * width * height,
     @model.ImageMetadata::new(
       @color.ColorSpaceIdentity::Srgb, @color.TransferIdentity::EncodedSrgb,
       if channels == 4UL { Some(@color.AlphaMode::Straight) } else { None },
@@ -46,11 +47,13 @@ fn png_encode_image(
       ).unwrap(),
     ),
   ).unwrap()
-  let image = @storage.OwnedImage::new(descriptor, png_encode_budget(bytes=channels * width, work=0UL)).unwrap()
+  let image = @storage.OwnedImage::new(descriptor, png_encode_budget(bytes=channels * width * height, work=0UL)).unwrap()
   image.with_mut_view(fn(view) {
-    for x = 0UL; x < width; x = x + 1UL {
-      for index = 0UL; index < channels; index = index + 1UL {
-        view.set_byte(x, 0UL, index, pixels[(x * channels + index).to_int()]).unwrap()
+    for y = 0UL; y < height; y = y + 1UL {
+      for x = 0UL; x < width; x = x + 1UL {
+        for index = 0UL; index < channels; index = index + 1UL {
+          view.set_byte(x, y, index, pixels[((y * width + x) * channels + index).to_int()]).unwrap()
+        }
       }
     }
     Ok(())
@@ -114,6 +117,31 @@ fn png_filter_strategy_decode_matches_source(
           abort("png filter strategy decoded component")
         }
       }
+    }
+  }
+}
+
+///| Every public compression strategy may opt into bounded Adaptive filtering
+/// while preserving complete-input RGB8 and straight-RGBA8 fidelity.
+test "PNG adaptive combined eager routes" {
+  let rgb = png_encode_image(
+    3UL, b"\x0a\x0c\x0c\x0a\x0a\x0c\x0b\x0c\x0a\x0c\x0a\x0b",
+    width=2UL, height=2UL,
+  )
+  let rgba = png_encode_image(
+    4UL, b"\x03\x05\x07\xff\x04\x06\x08\xfe\x05\x07\x09\xfd\x06\x08\x0a\xfc",
+    width=2UL, height=2UL,
+  )
+  for strategy in [
+    PngCompressionStrategy::Stored,
+    PngCompressionStrategy::FixedOrStored,
+    PngCompressionStrategy::DynamicOrFixedOrStored,
+  ] {
+    for image in [rgb, rgba] {
+      let (_, writer) = png_encode_with(
+        PngEncoder::new_with_strategies(strategy, PngFilterStrategy::Adaptive), image,
+      )
+      png_filter_strategy_decode_matches_source(png_encode_prefix(writer), image)
     }
   }
 }
