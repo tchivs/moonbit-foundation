@@ -7,7 +7,7 @@
 
 ### Adam7 Type-4/16 Encoding
 
-- [ ] **GRAYA16A7-01**: A library user can select explicit eager and caller-buffered Adam7 factories for a legal packed U16 Gray+Alpha image and receive an interlaced PNG with bit depth 16, colour type 4, and pass samples serialized as `Ghi,Glo,Ahi,Alo`.
+- [x] **GRAYA16A7-01**: A library user can select explicit eager and caller-buffered Adam7 factories for a legal packed U16 Gray+Alpha image and receive an interlaced PNG with bit depth 16, colour type 4, and pass samples serialized as `Ghi,Glo,Ahi,Alo`.
 
 ### Bounded Streaming Semantics
 
