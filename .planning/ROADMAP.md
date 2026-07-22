@@ -115,7 +115,9 @@
 2. Capability, geometry, output, work, budget, and unsupported-interlace failures are atomic for eager and caller-buffered construction.
 3. Caller pulls report accepted bytes only and retain sticky replay behavior.
 
-**Plans**: TBD
+**Plans**: 1/1 plans executed
+
+- [x] 48-01-PLAN.md
 
 ### Phase 49: Portable Gray16 Public Evidence
 
