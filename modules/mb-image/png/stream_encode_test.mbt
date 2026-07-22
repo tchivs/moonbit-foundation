@@ -549,6 +549,17 @@ test "PNG Gray16 chunk strategy factories match eager" {
         [3UL, 7UL],
       ).unwrap()
       inspect(chunked == eager, content="true")
+      inspect(
+        eager[24] == b'\x10' && eager[25] == b'\x00' && eager[28] == b'\x00',
+        content="true",
+      )
+      if strategy == PngCompressionStrategy::Stored && filter_strategy == PngFilterStrategy::None {
+        inspect(
+          eager[48] == b'\x00' && eager[49] == b'\x12' && eager[50] == b'\x34' &&
+            eager[51] == b'\xab' && eager[52] == b'\xcd',
+          content="true",
+        )
+      }
     }
   }
   ignore(PngChunkEncoder::new_gray16_with_compression_strategy(
@@ -1779,6 +1790,53 @@ fn png_gray8_combined_public_reject(
   }
 }
 
+///| Gray16 must use the same preflight transaction for every bounded strategy
+/// pair: rejection cannot write eager bytes, reserve caller budget, or expose a
+/// caller-owned lease.
+fn png_gray16_combined_public_reject(
+  image : @storage.OwnedImage,
+  limits : @codec.CodecLimits,
+  work : UInt64,
+) -> Unit {
+  for strategy in [
+    PngCompressionStrategy::Stored,
+    PngCompressionStrategy::FixedOrStored,
+    PngCompressionStrategy::DynamicOrFixedOrStored,
+  ] {
+    for filter_strategy in [PngFilterStrategy::None, PngFilterStrategy::Adaptive] {
+      let eager_budget = png_stream_test_budget(work=work)
+      let eager_before = eager_budget.remaining()
+      let writer = @io.MemoryWriter::new(1048576UL, png_stream_test_budget(work=0UL)).unwrap()
+      let eager = @codec.ImageEncoder::encode(
+        PngEncoder::new_gray16_with_strategies(strategy, filter_strategy),
+        image.view(), writer as &@io.Writer,
+        @codec.EncodeOptions::new(lossless_required=true, preserve_opaque_metadata=false),
+        limits, eager_budget, @error.Diagnostics::new(),
+      ).unwrap_err()
+      if writer.position() != 0UL ||
+        !png_fixed_or_stored_same_remaining(eager_before, eager_budget.remaining()) {
+        abort("png gray16 eager admission exposed output")
+      }
+      let chunk_budget = png_stream_test_budget(work=work)
+      let chunk_before = chunk_budget.remaining()
+      let sentinel = png_chunk_test_owner(7UL, fill=b'Z')
+      let chunk = PngChunkEncoder::new_gray16_with_strategies(
+        image.view(), strategy, filter_strategy, limits, chunk_budget,
+        @error.Diagnostics::new(),
+      ).unwrap_err()
+      if !png_chunk_test_same_error(eager, chunk) ||
+        !png_fixed_or_stored_same_remaining(chunk_before, chunk_budget.remaining()) {
+        abort("png gray16 chunk admission mismatch")
+      }
+      for index = 0UL; index < 7UL; index = index + 1UL {
+        if sentinel.view().get(index).unwrap() != b'Z' {
+          abort("png gray16 admission exposed lease")
+        }
+      }
+    }
+  }
+}
+
 ///|
 fn png_fixed_or_stored_replay_image() -> @storage.OwnedImage {
   let image = png_stream_test_image(3UL, width=5UL)
@@ -1855,6 +1913,26 @@ test "PNG Gray8 strategy admission is atomic" {
   png_gray8_combined_public_reject(
     png_stream_gray8_image(Bytes::from_array(Array::make(32, b'\xaa')), width=32UL),
     png_fixed_or_stored_limits(), 1UL,
+  )
+}
+
+///| All Gray16 strategy pairs reject capability, geometry, output, work, and
+/// budget failures before any observable eager or caller-buffered state.
+test "PNG Gray16 strategy admission is atomic" {
+  png_gray16_combined_public_reject(
+    png_stream_test_image(3UL), png_fixed_or_stored_limits(), 1048576UL,
+  )
+  png_gray16_combined_public_reject(
+    png_stream_gray16_image(), png_fixed_or_stored_limits(width=1UL), 1048576UL,
+  )
+  png_gray16_combined_public_reject(
+    png_stream_gray16_image(), png_fixed_or_stored_limits(output=1UL), 1048576UL,
+  )
+  png_gray16_combined_public_reject(
+    png_stream_gray16_image(), png_fixed_or_stored_limits(work=1UL), 1048576UL,
+  )
+  png_gray16_combined_public_reject(
+    png_stream_gray16_image(), png_fixed_or_stored_limits(), 1UL,
   )
 }
 
@@ -1953,9 +2031,10 @@ test "PNG Gray8 fixed replay mismatch is sticky" {
     PngChunkPullOutcome::Failed(value) => value
     _ => abort("png gray8 fixed replay was not sticky")
   }
-  inspect(replay.written() == 0UL && replay.total_written() == accepted_total, content="true")
-  inspect(png_chunk_test_same_error(error, replay_error), content="true")
-  inspect(later.view().get(0UL).unwrap() == b'Z', content="true")
+  if replay.written() != 0UL || replay.total_written() != accepted_total ||
+    !png_chunk_test_same_error(error, replay_error) || later.view().get(0UL).unwrap() != b'Z' {
+    abort("png gray16 replay was not sticky")
+  }
 }
 
 ///|

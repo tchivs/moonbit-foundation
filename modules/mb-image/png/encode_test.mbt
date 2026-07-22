@@ -147,6 +147,41 @@ fn png_encode_gray16_image() -> @storage.OwnedImage {
   image
 }
 
+///| The same non-symmetric samples stored big-endian. PNG wire bytes must not
+/// depend on the source storage order.
+fn png_encode_gray16_big_image() -> @storage.OwnedImage {
+  let descriptor = @model.ImageDescriptor::new(
+    2UL, 1UL,
+    @model.ImageFormat::new(
+      @model.ComponentType::U16, @model.ChannelOrder::Gray,
+      @model.PlaneLayout::Packed, @model.Endianness::Big,
+    ).unwrap(),
+    [@model.PlaneDescriptor::new(0UL, 4UL, 4UL, 4UL, 1UL, 1UL, 2UL, 1UL).unwrap()],
+    4UL,
+    @model.ImageMetadata::new(
+      @color.ColorSpaceIdentity::Srgb, @color.TransferIdentity::EncodedSrgb,
+      None, @profile.ProfileIdentity::builtin_srgb(), @model.Orientation::TopLeft,
+      @metadata.OpaqueMetadata::from_entries(
+        [], @metadata.MetadataLimits::new(
+          max_entries=1UL, max_token_bytes=16UL, max_value_bytes=1UL,
+          max_total_bytes=32UL, max_disposition_fields=4UL,
+        ), png_encode_budget(bytes=1UL, work=0UL),
+      ).unwrap(),
+    ),
+  ).unwrap()
+  let image = @storage.OwnedImage::new(
+    descriptor, png_encode_budget(bytes=4UL, work=0UL),
+  ).unwrap()
+  image.with_mut_view(fn(view) {
+    view.set_component_byte(0UL, 0UL, 0UL, 0UL, b'\x12').unwrap()
+    view.set_component_byte(0UL, 0UL, 0UL, 1UL, b'\x34').unwrap()
+    view.set_component_byte(1UL, 0UL, 0UL, 0UL, b'\xab').unwrap()
+    view.set_component_byte(1UL, 0UL, 0UL, 1UL, b'\xcd').unwrap()
+    Ok(())
+  }).unwrap()
+  image
+}
+
 ///| Three identical U16 samples make the Adaptive Sub predictor's two-byte
 /// pixel stride observable in the emitted PNG scanline.
 fn png_encode_gray16_repeated_image() -> @storage.OwnedImage {
@@ -681,6 +716,41 @@ test "PNG Gray16 eager strategy factories preserve bounded wire bytes" {
     bytes[48] == b'\x01' && bytes[49] == b'\x12' && bytes[50] == b'\x34' &&
       bytes[51] == b'\x00' && bytes[52] == b'\x00' && bytes[53] == b'\x00' &&
       bytes[54] == b'\x00',
+    content="true",
+  )
+}
+
+///| The complete strategy Cartesian product preserves Gray16 framing and one
+/// Stored/None stream proves both U16 source endiannesses use PNG wire order.
+test "PNG Gray16 eager six-pair framing and source endianness agree" {
+  for strategy in [
+    PngCompressionStrategy::Stored,
+    PngCompressionStrategy::FixedOrStored,
+    PngCompressionStrategy::DynamicOrFixedOrStored,
+  ] {
+    for filter_strategy in [PngFilterStrategy::None, PngFilterStrategy::Adaptive] {
+      let (_, writer) = png_encode_with(
+        PngEncoder::new_gray16_with_strategies(strategy, filter_strategy),
+        png_encode_gray16_image(),
+      )
+      let bytes = png_encode_prefix(writer)
+      inspect(bytes[24] == b'\x10' && bytes[25] == b'\x00' && bytes[28] == b'\x00', content="true")
+    }
+  }
+  let (_, little_writer) = png_encode_with(
+    PngEncoder::new_gray16_with_strategies(PngCompressionStrategy::Stored, PngFilterStrategy::None),
+    png_encode_gray16_image(),
+  )
+  let (_, big_writer) = png_encode_with(
+    PngEncoder::new_gray16_with_strategies(PngCompressionStrategy::Stored, PngFilterStrategy::None),
+    png_encode_gray16_big_image(),
+  )
+  let little = png_encode_prefix(little_writer)
+  let big = png_encode_prefix(big_writer)
+  inspect(little == big, content="true")
+  inspect(
+    little[48] == b'\x00' && little[49] == b'\x12' && little[50] == b'\x34' &&
+      little[51] == b'\xab' && little[52] == b'\xcd',
     content="true",
   )
 }
