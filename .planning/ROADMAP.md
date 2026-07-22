@@ -45,7 +45,7 @@
 **Milestone Goal:** MoonBit library users can create packed U16 grayscale-plus-straight-alpha images and encode them as bounded, non-interlaced Type-4/16 PNGs with exact wire-level and portable public evidence, without changing existing image or PNG contracts.
 
 - [x] **Phase 53: GrayAlpha16 Model and Checked Storage** - Establish the packed U16 two-component straight-alpha source contract while preserving existing descriptors and storage behavior. (Requirements: GRAYA16-01) (completed 2026-07-23)
-- [ ] **Phase 54: Bounded Type-4/16 Encoder** - Route compatible GrayAlpha16 images through the shared eager and caller-buffered bounded PNG pipeline. (Requirements: GRAYA16-02, GRAYA16-03)
+- [x] **Phase 54: Bounded Type-4/16 Encoder** - Route compatible GrayAlpha16 images through the shared eager and caller-buffered bounded PNG pipeline. (Requirements: GRAYA16-02, GRAYA16-03) (completed 2026-07-23)
 - [ ] **Phase 55: Portable Public Evidence** - Prove GrayAlpha16 wire/decode fidelity, hostile caller-buffered identity, legacy stability, and four-target execution. (Requirements: GRAYA16-04)
 
 ## Phase Details
@@ -108,5 +108,5 @@ Plans:
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 53. GrayAlpha16 Model and Checked Storage | 1/1 | Complete    | 2026-07-23 |
-| 54. Bounded Type-4/16 Encoder | 2/2 | In Progress|  |
+| 54. Bounded Type-4/16 Encoder | 2/2 | Complete    | 2026-07-23 |
 | 55. Portable Public Evidence | 0/TBD | Not started | - |
