@@ -1,46 +1,27 @@
 ---
 phase: 42-bounded-adam7-pass-encoding
-verified: 2026-07-22T08:07:08Z
-status: gaps_found
-score: 1/4 must-haves verified
-behavior_unverified: 3
+verified: 2026-07-22T08:57:34Z
+status: passed
+score: 4/4 must-haves verified
+behavior_unverified: 0
 overrides_applied: 0
-gaps:
-  - truth: "Targeted Phase 42 tests exercise real nontrivial Adam7 pass traversal, atomic admission, and acknowledgement-gated replay."
-    status: failed
-    reason: "The added tests exercise only structural pass records or a 1x1 image (one nonempty pass); they do not exercise the required multi-pass byte stream, Adam7 API rejection matrix, or unacknowledged Adam7 successor state."
-    artifacts:
-      - path: "modules/mb-image/png/encode_wbtest.mbt"
-        issue: "The named canonical-pass test reads _png_adam7_passes but never consumes PngFilteredCursor to assert the 5x5 pass filter-tag/sample stream; its filter-reset assertion only excludes the Up tag on 2x2 input."
-      - path: "modules/mb-image/png/encode_test.mbt"
-        issue: "Adam7 eager assertions use 1x1 RGB/RGBA input and check framing/IHDR only; they do not exercise seven nonempty passes."
-      - path: "modules/mb-image/png/stream_encode_test.mbt"
-        issue: "Adam7 parity uses 1x1 input and has no Adam7 capability/geometry/output/budget rejection or repeated-present-before-acknowledge case."
-    missing:
-      - "A deterministic 5x5 RGB8 and straight-RGBA8 cursor test asserting exact nonempty-pass filter-tag-plus-sample bytes and 1x1 empty-pass omission."
-      - "Adam7 eager and chunk admission tests for capability, geometry, output, work, and budget failures across Stored, FixedOrStored, and DynamicOrFixedOrStored, including zero writer output/no lease and unchanged budget fields."
-      - "An Adam7 multi-pass acknowledgement test that repeats preview before acceptance, verifies no cursor/CRC/Adler progress, then verifies accepted-byte-only progress and sticky terminal behavior."
-behavior_unverified_items:
-  - truth: "Compatible RGB8 and straight-RGBA8 Adam7 output emits the deterministic seven-pass filtered stream without staging."
-    test: "Run a focused 5x5 RGB8/RGBA8 cursor/output regression that asserts each nonempty pass's tag and sample bytes."
-    expected: "All seven canonical nonempty-pass sections occur in order; 1x1 omits empty passes; no cache/staging is needed."
-    why_human: "Static code traces the intended scalar source, but the current test only inspects geometry records, not generated multi-pass bytes."
-  - truth: "Adam7 construction rejects every invalid capability, geometry, output, work, and budget request atomically for eager and caller-buffered routes."
-    test: "Run focused eager/chunk Adam7 rejection cases for all three compression strategies, one limit at a time."
-    expected: "Writer remains at zero, no encoder/lease is returned, and every budget field remains unchanged."
-    why_human: "The source ordering is correct and one white-box work-bound case exists, but no Adam7 public rejection matrix exercises the observable boundary."
-  - truth: "Adam7 caller-buffered replay commits only accepted bytes and remains exact across hostile capacities."
-    test: "Use a multi-pass Adam7 image; call present twice before acknowledge at DEFLATE output, then drain with zero/one/tiny capacities."
-    expected: "The preview and replay state stay unchanged until acknowledgement; accepted output equals eager bytes and Finished is sticky."
-    why_human: "The pending-successor wiring is present, but the Adam7 test is 1x1 and does not directly exercise an unacknowledged Adam7 cursor successor."
+re_verification:
+  previous_status: gaps_found
+  previous_score: 1/4
+  gaps_closed:
+    - "5x5 RGB8/RGBA8 Adam7 pass bytes and 1x1 empty-pass omission are asserted through the production cursor."
+    - "All three strategies reject Adam7 capability, geometry, output, work, and budget failures atomically for eager and chunk construction."
+    - "Multi-pass Adam7 replay proves pre-acknowledgement stability, hostile-capacity accepted-only progress, eager identity, and sticky termination."
+  gaps_remaining: []
+  regressions: []
 ---
 
 # Phase 42: Bounded Adam7 Pass Encoding Verification Report
 
 **Phase Goal:** Opted-in images are encoded as deterministic, bounded Adam7 passes while preserving atomic admission and acknowledgement-safe caller-buffered replay.
-**Verified:** 2026-07-22T08:07:08Z  
-**Status:** gaps_found  
-**Re-verification:** No — initial verification
+**Verified:** 2026-07-22T08:57:34Z
+**Status:** passed
+**Re-verification:** Yes — after gap closure
 
 ## Goal Achievement
 
@@ -48,72 +29,79 @@ behavior_unverified_items:
 
 | # | Truth | Status | Evidence |
 | --- | --- | --- | --- |
-| 1 | RGB8/RGBA8 Adam7 uses canonical bounded pass bytes, pass-local filters, and a shared planner input. | ⚠️ PRESENT_BEHAVIOR_UNVERIFIED | `encode.mbt:470-699` regenerates only `_png_adam7_passes` geometry and scalar samples; `PngFilteredMatchCursor` retains a fixed 262-byte window. However, the added 5x5 test checks geometry only, not cursor output. |
-| 2 | Adam7 eager/chunk admission is atomic for geometry, output, work, and budget under every strategy. | ⚠️ PRESENT_BEHAVIOR_UNVERIFIED | `encode.mbt:1454-1644` completes planners and limits before the sole `budget.charge`; `stream_encode.mbt:307-380` preflights before machine/lease construction. Tests cover only internal one-less work, not the required public Adam7 rejection matrix. |
-| 3 | Arbitrary-capacity Adam7 replay progresses only after accepted bytes and equals eager output. | ⚠️ PRESENT_BEHAVIOR_UNVERIFIED | `stream_encode.mbt:124-177` calls `acknowledge` only after `destination.set`; `present`/`acknowledge` at `836-907` preserve pending successors. The Adam7 parity test uses only a 1x1 image and has no direct pre-ack state assertion. |
-| 4 | Adam7 IHDR is method 1; legacy and explicit-None routes remain method 0 and retain frozen vectors. | ✓ VERIFIED | `stream_encode.mbt:804-832` emits 1 only for `Adam7`, otherwise 0; `encode_test.mbt:528-588` and `stream_encode_test.mbt:758-849` retain None vectors while checking Adam7 IHDR. |
+| 1 | RGB8/RGBA8 Adam7 uses canonical bounded pass bytes, pass-local filters, and a shared planner input. | ✓ VERIFIED | `encode_wbtest.mbt:234-294` drains a real Adam7 `PngFilteredCursor` for deterministic 5x5 RGB8 and RGBA8 inputs and compares literal tag-plus-sample streams; 1x1 checks prove empty passes emit neither tags nor samples. `encode.mbt:470-679` regenerates geometry only via `_png_adam7_passes`, uses scalar pixel reads, and makes predecessor rows local to each pass. |
+| 2 | Adam7 eager/chunk admission is atomic for capability, geometry, output, work, and budget under every strategy. | ✓ VERIFIED | Eager matrix (`encode_test.mbt:659-680`) and public eager/chunk matrix (`stream_encode_test.mbt:1607-1649,1715-1738`) cover RGB8/RGBA8, Stored/FixedOrStored/DynamicOrFixedOrStored, five isolated failure modes, zero writer output, unchanged complete budget snapshots, matching errors, and untouched sentinel leases. `encode.mbt:1450-1658` performs all checks before its sole `budget.charge`; `stream_encode.mbt:316-321` preflights before construction. |
+| 3 | Arbitrary-capacity Adam7 replay progresses only after accepted bytes and equals eager output. | ✓ VERIFIED | `stream_encode_wbtest.mbt:246-289` repeats a DEFLATE preview before acknowledgement for both profiles and all strategies, asserts unchanged completed/CRC/Adler state, then compares the drained result with immediate acknowledgement. `stream_encode_test.mbt:1655-1753` verifies zero, one-byte, and `[0,1,3,2,5]` capacities; accepted-only totals; eager-byte identity; and two sentinel-preserving terminal pulls. Production commits pending successors only in `acknowledge` (`stream_encode.mbt:856-907`). |
+| 4 | Adam7 IHDR is method 1; legacy and explicit-None routes remain method 0 and retain frozen vectors. | ✓ VERIFIED | `stream_encode.mbt:804-832` selects byte 12 from the retained interlace strategy. `encode_test.mbt:594-655` retains complete None vectors and exercises Adam7 eager routes with method 1. |
 
-**Score:** 1/4 truths verified (3 present, behavior-unverified)
+**Score:** 4/4 truths verified (0 present, behavior-unverified)
 
-## Required Artifacts
+### Required Artifacts
 
 | Artifact | Expected | Status | Details |
 | --- | --- | --- | --- |
-| `modules/mb-image/png/encode.mbt` | Bounded pass-aware source and atomic ledger | ✓ VERIFIED | Exists/substantive; `verify.artifacts` passed; all Adam7 planner walks use `new_with_interlace`. |
-| `modules/mb-image/png/stream_encode.mbt` | Adam7 replay, framing, acknowledgement-gated commits | ✓ VERIFIED | Exists/substantive; preflight precedes construction and pending successors commit only in `acknowledge`. |
-| `modules/mb-image/png/encode_wbtest.mbt` | Pass-order/filter-reset/exact-ledger coverage | ✗ HOLLOW COVERAGE | New tests do not consume a 5x5 cursor stream or assert its bytes. |
-| `modules/mb-image/png/encode_test.mbt` | Eager Adam7 framing and None compatibility coverage | ⚠️ PARTIAL | Checks method-1 framing on 1x1; does not exercise seven passes. |
-| `modules/mb-image/png/stream_encode_test.mbt` | Hostile-capacity, atomic-admission, eager/chunk Adam7 coverage | ✗ HOLLOW COVERAGE | Uses 1x1 parity only; lacks Adam7 admission and pre-ack replay cases. |
+| `modules/mb-image/png/encode.mbt` | Bounded pass-aware source and atomic planner ledger | ✓ VERIFIED | Exists, substantive, and used by all planner paths; cursor retains scalar state and the fixed 262-byte matcher window only. |
+| `modules/mb-image/png/stream_encode.mbt` | Adam7 replay, method-1 framing, acknowledgement-gated commits | ✓ VERIFIED | Exists, substantive, and wired through eager and chunk factories; construction follows successful preflight. |
+| `modules/mb-image/png/encode_wbtest.mbt` | Literal multi-pass byte, empty-pass, filter-isolation, and work-bound coverage | ✓ VERIFIED | Production cursor is consumed to completion for both source profiles; no structural-only substitute remains. |
+| `modules/mb-image/png/encode_test.mbt` | Eager all-strategy atomic-admission and compatibility coverage | ✓ VERIFIED | Rejection helper observes writer position and every `ResourceLimits` field for every strategy. |
+| `modules/mb-image/png/stream_encode_test.mbt` | Chunk atomic-admission, hostile drain, accepted-progress, and terminal coverage | ✓ VERIFIED | Calls public `PngChunkEncoder` and collects only caller-accepted lease bytes. |
+| `modules/mb-image/png/stream_encode_wbtest.mbt` | Private repeated-preview successor-state coverage | ✓ VERIFIED | Added by the gap-closure work; directly observes state unavailable through the public lease API. |
 
-## Key Link Verification
+`verify.artifacts` passed all declared artifacts for both plans (5/5 for 42-01 and 3/3 for 42-02). The native package invocation included the `_wbtest.mbt` tests: 171/171 passed.
+
+### Key Link Verification
 
 | From | To | Via | Status | Details |
-| --- | --- | --- | --- |
-| `encode.mbt` | `structural.mbt` | `_png_adam7_passes` | ✓ WIRED | Calls at `encode.mbt:475` and `1481`; no encoder-local pass starts/strides found. |
-| `encode.mbt` | planner/replay cursor | `PngFilteredMatchCursor::new_with_interlace` | ✓ WIRED | Stored traversal, fixed plan, dynamic frequency/bit plans, and replay each receive the selected interlace strategy. |
-| `stream_encode.mbt` | `stream_encode_test.mbt` | `present` then `acknowledge` after lease write | ⚠️ PARTIAL | Production wiring is correct, but Adam7-specific tests do not exercise an unacknowledged successor. |
+| --- | --- | --- | --- | --- |
+| `encode.mbt` | `structural.mbt` | `_png_adam7_passes` | ✓ WIRED | All Adam7 geometry reads call the structural authority; no encoder-local pass formula was found. |
+| `encode.mbt` | planner/replay cursor | `PngFilteredMatchCursor::new_with_interlace` | ✓ WIRED | Stored traversal, fixed plan, dynamic plan, and replay all receive the selected interlace mode. |
+| `stream_encode.mbt` | `encode.mbt` | atomic preflight, then fresh pass-aware cursors | ✓ WIRED | Preflight returns before machine construction; Stored/Fixed/Dynamic cursor branches instantiate the common source. |
+| `stream_encode.mbt` | `stream_encode_test.mbt` | caller lease → `pull` → `present`/`acknowledge` | ✓ WIRED | Public tests cover zero/tiny capacities and accepted bytes; the white-box test covers unacknowledged private successors. |
+| `encode_wbtest.mbt` | `encode.mbt` | production `PngFilteredCursor::new_with_interlace` | ✓ WIRED | Literal bytes come from the production cursor, not an independently reproduced pass traversal. |
 
-## Data-Flow Trace (Level 4)
+`verify.key-links` reported 3/3 verified for each of 42-01 and 42-02.
+
+### Data-Flow Trace (Level 4)
 
 | Artifact | Data Variable | Source | Produces Real Data | Status |
-| --- | --- | --- | --- |
-| `encode.mbt` | `PngFilteredCursor` byte | `ImageView.get_byte(pass.x + column * pass.dx, pass.y + row * pass.dy, channel)` | Caller image pixels; pass geometry is regenerated from structural authority | ✓ FLOWING |
-| `stream_encode.mbt` | Stored/fixed/dynamic replay cursor | Fresh `PngFilteredMatchCursor` selected at machine construction | Same caller image and selected pass-aware source as preflight | ✓ FLOWING |
+| --- | --- | --- | --- | --- |
+| `encode.mbt` | filtered cursor byte | `ImageView.get_byte(pass.x + ..., pass.y + ..., channel)` | Caller pixels sampled through checked Adam7 pass geometry | ✓ FLOWING |
+| `stream_encode.mbt` | Stored/Fixed/Dynamic replay source | Fresh `PngFilteredMatchCursor` built from the caller image and selected interlace mode | Same real source used during preflight/planning and replay | ✓ FLOWING |
+| `stream_encode_test.mbt` | collected chunk bytes | caller-owned leases after `pull` | Compared byte-for-byte with eager Adam7 output | ✓ FLOWING |
 
-## Behavioral Spot-Checks
+### Behavioral Spot-Checks
 
 | Behavior | Command | Result | Status |
 | --- | --- | --- | --- |
-| Native PNG test suite | `moon -C modules/mb-image test png --target native --frozen` | Not run: this independent verifier was restricted to writing only this report; no machine-readable prior result was supplied. SUMMARY claims were not accepted as evidence. | ? SKIP |
+| Native PNG package including targeted Adam7 regressions | `moon test modules/mb-image/png --target native` | Total tests: 171, passed: 171, failed: 0 (exit 0) | ✓ PASS |
+| Repository whitespace validation | `git diff --check` | Exit 0; no whitespace errors | ✓ PASS |
 
-## Probe Execution
+### Probe Execution
 
-No Phase 42 probe was declared or found; this is not a migration/tooling phase.
+No Phase 42 probe was declared or found; this is an encoder implementation phase, not a migration/tooling phase.
 
-## Requirements Coverage
+### Requirements Coverage
 
 | Requirement | Source Plan | Description | Status | Evidence |
 | --- | --- | --- | --- | --- |
-| PNGI-02 | 42-01 | Bounded deterministic seven-pass geometry/bytes/filtering/compression input without staging | ✗ BLOCKED | Implementation is present, but the required 5x5 emitted-byte regression is absent; the named test only asserts structural records. |
-| PNGI-03 | 42-01 | Atomic admission and accepted-byte-only replay for all three strategies | ✗ BLOCKED | Preflight and pending-state code is wired, but Adam7 tests omit observable API rejection and pre-ack state cases. |
+| PNGI-02 | 42-01, 42-02 | Seven deterministic bounded Adam7 passes with bounded geometry, scanline bytes, filtering, compression input, and no image-sized staging | ✓ SATISFIED | Literal production-cursor streams cover all seven nonempty 5x5 passes for RGB8/RGBA8; source has no pass/image-sized staging, only fixed-size codec structures. |
+| PNGI-03 | 42-01, 42-02 | Atomic all-strategy admission before eager output/lease and accepted-byte-only replay | ✓ SATISFIED | Eager/chunk five-mode rejection matrices and multi-pass pre-acknowledgement/hostile-capacity tests pass for every strategy and both profiles. |
 
-No requirements mapped to Phase 42 were orphaned. Phase 43's generated four-target fidelity/compatibility evidence was deliberately not counted as evidence for PNGI-02 or PNGI-03.
+No Phase 42 requirement is orphaned. `REQUIREMENTS.md` still labels PNGI-02 and PNGI-03 as Pending; this is planning-state bookkeeping outside this verifier's permitted write scope, not missing implementation evidence.
 
-## Anti-Patterns Found
+### Anti-Patterns Found
 
 | File | Line | Pattern | Severity | Impact |
-| --- | --- | --- | --- |
-| `modules/mb-image/png/stream_encode_test.mbt` | 757 | Stale “not-yet-implemented Adam7” comment | ⚠️ Warning | Misdescribes a test that now constructs Adam7 encoders; not a `TBD`/`FIXME` blocker. |
+| --- | --- | --- | --- | --- |
+| `modules/mb-image/png/stream_encode_test.mbt` | 762 | Stale “not-yet-implemented Adam7” comment | ⚠️ Warning | The surrounding test now constructs real Adam7 encoders; the comment is misleading but does not affect behavior. |
 
-No `TBD`, `FIXME`, or `XXX` debt markers were found in Phase 42 implementation/test files. No pass/image-sized cache or staged output artifact was found; bounded matcher/Huffman arrays are fixed-size.
+No `TBD`, `FIXME`, or `XXX` debt markers were found in Phase 42 implementation or test files. Fixed-size matcher/Huffman arrays are bounded codec structures; no image-sized/pass-sized staging or output cache was found.
 
-## Gaps Summary
+### Gaps Summary
 
-The implementation is not a placeholder: it has a real scalar Adam7 source, all three planner/replay links, one admission seam, and acknowledgement-gated successor commits. The phase nevertheless fails its verification gate because its new tests do not prove the phase's risk-bearing runtime behavior. A regression that substituted full-image scanline bytes, leaked cross-pass filtering, exposed a lease before a rejected Adam7 preflight, or committed an Adam7 successor during preview could still evade the added Adam7 tests.
-
-This is not deferred to Phase 43. Phase 43 owns generated public four-target fidelity evidence; Phase 42's own plan explicitly requires targeted native pass-stream, admission, and acknowledgement regressions.
+All three previously failed behavior checks are now executable and passed. Phase 43 remains responsible only for the intentionally deferred generated public fidelity corpus and independent four-target evidence; it does not mask a Phase 42 gap.
 
 ---
 
-_Verified: 2026-07-22T08:07:08Z_  
+_Verified: 2026-07-22T08:57:34Z_
 _Verifier: gsd-verifier_

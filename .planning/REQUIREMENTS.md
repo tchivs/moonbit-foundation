@@ -12,8 +12,8 @@
 
 ### Bounded Adam7 Encoding
 
-- [ ] **PNGI-02**: An opted-in compatible image is emitted as seven deterministic Adam7 passes whose pass geometry, scanline bytes, filter selection, and compression input are bounded by the existing limits and do not require image-sized staging.
-- [ ] **PNGI-03**: Adam7 encoding through Stored, FixedOrStored, and DynamicOrFixedOrStored retains atomic capability, geometry, output, work, and budget admission before eager output or a caller-buffered lease, and replay advances only after accepted bytes.
+- [x] **PNGI-02**: An opted-in compatible image is emitted as seven deterministic Adam7 passes whose pass geometry, scanline bytes, filter selection, and compression input are bounded by the existing limits and do not require image-sized staging.
+- [x] **PNGI-03**: Adam7 encoding through Stored, FixedOrStored, and DynamicOrFixedOrStored retains atomic capability, geometry, output, work, and budget admission before eager output or a caller-buffered lease, and replay advances only after accepted bytes.
 
 ### Portable Evidence
 
@@ -38,8 +38,8 @@
 | Requirement | Phase | Status |
 | --- | --- | --- |
 | PNGI-01 | Phase 41 | Complete |
-| PNGI-02 | Phase 42 | Pending |
-| PNGI-03 | Phase 42 | Pending |
+| PNGI-02 | Phase 42 | Complete |
+| PNGI-03 | Phase 42 | Complete |
 | PNGI-04 | Phase 43 | Pending |
 
 **Coverage:**
