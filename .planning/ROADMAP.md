@@ -16,6 +16,7 @@
 - ✅ **v0.12 PNG Filter Optimization** — Phases 38-40, explicit bounded adaptive PNG row filtering with legacy compatibility and four-target evidence (shipped 2026-07-22). [Full history](./milestones/v0.12-ROADMAP.md)
 - ✅ **v0.13 PNG Adam7 Encode** — Phases 41-43, explicit bounded Adam7 encoding with frozen legacy output and four-target public evidence (shipped 2026-07-22). [Full history](./milestones/v0.13-ROADMAP.md)
 - ✅ **v0.14 Gray8 PNG Interchange** — Phases 44-46, explicit non-interlaced Gray8 output through the bounded PNG encoder and portable public evidence (shipped 2026-07-22). [Full history](./milestones/v0.14-ROADMAP.md)
+- 📋 **v0.15 Gray16 PNG Interchange** — Phases 47-49, explicit non-interlaced 16-bit grayscale PNG output with bounded strategy support and portable wire-level evidence.
 
 ## v0.14 Gray8 PNG Interchange
 
@@ -78,4 +79,16 @@
 
 ## Next
 
-Start the next milestone after its product goal is defined.
+## v0.15 Gray16 PNG Interchange
+
+**Milestone Goal:** Library users can explicitly encode packed U16 Gray images as standards-compliant non-interlaced 16-bit grayscale PNGs through eager and caller-buffered APIs, preserving every wire sample byte without weakening bounded encoder safety or legacy compatibility.
+
+## Phases
+
+- [ ] **Phase 47: Gray16 Factory Compatibility** — Add explicit eager/caller-buffered Gray16 Stored factories, type-0/16-bit emission, semantic input admission, and legacy compatibility guards. (Requirements: GRAY16-01)
+- [ ] **Phase 48: Bounded Gray16 Encoder Path** — Route Gray16 through shared filtering, Stored/Fixed/Dynamic selection, atomic admission, and acknowledgement-safe replay without image staging. (Requirements: GRAY16-02)
+- [ ] **Phase 49: Portable Gray16 Public Evidence** — Prove full wire-sample preservation, documented public decode behavior, hostile chunk identity, frozen compatibility, and independent four-target execution. (Requirements: GRAY16-03)
+
+## Next
+
+Discuss and plan Phase 47: Gray16 Factory Compatibility.
