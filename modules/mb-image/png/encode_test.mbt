@@ -177,6 +177,40 @@ fn png_encode_graya8_image() -> @storage.OwnedImage {
   image
 }
 
+///| Two packed little-endian U16 Gray+Alpha samples whose four distinct wire
+/// lanes make component and byte-order mistakes observable at the PNG boundary.
+fn png_encode_graya16_image() -> @storage.OwnedImage {
+  let descriptor = @model.ImageDescriptor::new(
+    2UL, 1UL, @model.ImageFormat::graya16(),
+    [@model.PlaneDescriptor::new(0UL, 8UL, 8UL, 8UL, 1UL, 1UL, 2UL, 1UL).unwrap()],
+    8UL,
+    @model.ImageMetadata::new(
+      @color.ColorSpaceIdentity::Srgb, @color.TransferIdentity::EncodedSrgb,
+      Some(@color.AlphaMode::Straight), @profile.ProfileIdentity::builtin_srgb(),
+      @model.Orientation::TopLeft,
+      @metadata.OpaqueMetadata::from_entries(
+        [], @metadata.MetadataLimits::new(
+          max_entries=1UL, max_token_bytes=16UL, max_value_bytes=1UL,
+          max_total_bytes=32UL, max_disposition_fields=4UL,
+        ), png_encode_budget(bytes=1UL, work=0UL),
+      ).unwrap(),
+    ),
+  ).unwrap()
+  let image = @storage.OwnedImage::new(descriptor, png_encode_budget(bytes=8UL, work=0UL)).unwrap()
+  image.with_mut_view(fn(view) {
+    view.set_component_byte(0UL, 0UL, 0UL, 0UL, b'\x34').unwrap()
+    view.set_component_byte(0UL, 0UL, 0UL, 1UL, b'\x12').unwrap()
+    view.set_component_byte(0UL, 0UL, 1UL, 0UL, b'\xc5').unwrap()
+    view.set_component_byte(0UL, 0UL, 1UL, 1UL, b'\xa7').unwrap()
+    view.set_component_byte(1UL, 0UL, 0UL, 0UL, b'\x0f').unwrap()
+    view.set_component_byte(1UL, 0UL, 0UL, 1UL, b'\xbe').unwrap()
+    view.set_component_byte(1UL, 0UL, 1UL, 0UL, b'\x76').unwrap()
+    view.set_component_byte(1UL, 0UL, 1UL, 1UL, b'\x5a').unwrap()
+    Ok(())
+  }).unwrap()
+  image
+}
+
 ///| The same non-symmetric samples stored big-endian. PNG wire bytes must not
 /// depend on the source storage order.
 fn png_encode_gray16_big_image() -> @storage.OwnedImage {
@@ -945,6 +979,22 @@ test "PNG GrayAlpha8 public eager evidence" {
   ).unwrap_err()
   inspect(error.context(), content="Some(graya8-required)")
   inspect(rejected.position() == 0UL && png_adam7_same_remaining(before, budget.remaining()), content="true")
+}
+
+///| The explicit GrayAlpha16 eager route is Type 4/depth 16 and serializes
+/// each packed pixel as gray high/low followed by alpha high/low.
+test "PNG GrayAlpha16 eager Stored output uses type 4 four-byte wire pixels" {
+  let gray_alpha = png_encode_graya16_image()
+  let (_, writer) = png_encode_with(PngEncoder::new_graya16(), gray_alpha)
+  let bytes = png_encode_prefix(writer)
+  inspect(
+    bytes[0] == b'\x89' && bytes[1] == b'P' && bytes[24] == b'\x10' &&
+      bytes[25] == b'\x04' && bytes[28] == b'\x00' && bytes[48] == b'\x00' &&
+      bytes[49] == b'\x12' && bytes[50] == b'\x34' && bytes[51] == b'\xa7' &&
+      bytes[52] == b'\xc5' && bytes[53] == b'\xbe' && bytes[54] == b'\x0f' &&
+      bytes[55] == b'\x5a' && bytes[56] == b'\x76',
+    content="true",
+  )
 }
 
 ///| All Gray+Alpha8 eager factory forms use the same non-interlaced bounded
