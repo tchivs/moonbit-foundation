@@ -26,9 +26,54 @@ pub fn PngChunkEncoder::new_gray8(
   budget : @budget.Budget,
   diagnostics : @error.Diagnostics,
 ) -> Result[PngChunkEncoder, @error.CoreError] {
+  PngChunkEncoder::new_gray8_with_strategies(
+    source, PngCompressionStrategy::Stored, PngFilterStrategy::None,
+    limits, budget, diagnostics,
+  )
+}
+
+///| Constructs a Gray8 caller-buffered encoder with an explicit compression
+/// strategy and the filter-None route. Gray8 remains intentionally
+/// non-interlaced.
+pub fn PngChunkEncoder::new_gray8_with_compression_strategy(
+  source : @storage.ImageView,
+  strategy : PngCompressionStrategy,
+  limits : @codec.CodecLimits,
+  budget : @budget.Budget,
+  diagnostics : @error.Diagnostics,
+) -> Result[PngChunkEncoder, @error.CoreError] {
+  PngChunkEncoder::new_gray8_with_strategies(
+    source, strategy, PngFilterStrategy::None, limits, budget, diagnostics,
+  )
+}
+
+///| Constructs a Gray8 caller-buffered encoder with an explicit filter
+/// strategy and Stored compression. Gray8 remains intentionally non-interlaced.
+pub fn PngChunkEncoder::new_gray8_with_filter_strategy(
+  source : @storage.ImageView,
+  filter_strategy : PngFilterStrategy,
+  limits : @codec.CodecLimits,
+  budget : @budget.Budget,
+  diagnostics : @error.Diagnostics,
+) -> Result[PngChunkEncoder, @error.CoreError] {
+  PngChunkEncoder::new_gray8_with_strategies(
+    source, PngCompressionStrategy::Stored, filter_strategy, limits, budget, diagnostics,
+  )
+}
+
+///| Constructs a Gray8 caller-buffered encoder with explicit compression and
+/// filter strategies. Its profile fixes PNG colour type 0 and excludes Adam7.
+pub fn PngChunkEncoder::new_gray8_with_strategies(
+  source : @storage.ImageView,
+  strategy : PngCompressionStrategy,
+  filter_strategy : PngFilterStrategy,
+  limits : @codec.CodecLimits,
+  budget : @budget.Budget,
+  diagnostics : @error.Diagnostics,
+) -> Result[PngChunkEncoder, @error.CoreError] {
   let machine = match PngEncodeMachine::new_with_profile(
-    source, PngEncodeProfile::Gray8, PngCompressionStrategy::Stored,
-    PngFilterStrategy::None, PngInterlaceStrategy::None, limits, budget, diagnostics,
+    source, PngEncodeProfile::Gray8, strategy, filter_strategy,
+    PngInterlaceStrategy::None, limits, budget, diagnostics,
   ) {
     Err(error) => return Err(error)
     Ok(value) => value

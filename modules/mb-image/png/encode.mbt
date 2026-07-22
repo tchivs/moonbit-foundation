@@ -296,7 +296,7 @@ fn _png_filter_candidate_byte(
   channels : UInt64,
   position : UInt64,
 ) -> Result[Byte, @error.CoreError] {
-  if channels != 3UL && channels != 4UL { return Err(_png_encode_capability("png-filter-channels")) }
+  if channels != 1UL && channels != 3UL && channels != 4UL { return Err(_png_encode_capability("png-filter-channels")) }
   if source.length().to_uint64() % channels != 0UL { return Err(_png_encode_capability("png-filter-row-bytes")) }
   match above {
     Some(row) if row.length() != source.length() => return Err(_png_encode_capability("png-filter-above-row-bytes"))
@@ -1456,10 +1456,8 @@ fn _png_encode_preflight_with_interlace_profile(
   budget : @budget.Budget,
 ) -> Result[PngEncodePreflight, @error.CoreError] {
   if profile == PngEncodeProfile::Gray8 &&
-    (strategy != PngCompressionStrategy::Stored ||
-      filter_strategy != PngFilterStrategy::None ||
-      interlace_strategy != PngInterlaceStrategy::None) {
-    return Err(_png_encode_capability("gray8-stored-none-noninterlaced-required"))
+    interlace_strategy != PngInterlaceStrategy::None {
+    return Err(_png_encode_capability("gray8-noninterlaced-required"))
   }
   _png_encode_preflight_with_filter_layout_idat_limit_profile(
     source, profile, strategy, filter_strategy, interlace_strategy, limits, budget,
