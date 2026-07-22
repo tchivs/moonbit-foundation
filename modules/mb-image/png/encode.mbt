@@ -169,6 +169,7 @@ priv struct PngFixedPlan {
   deflate_bits : UInt64
   deflate_bytes : UInt64
   matcher_work : UInt64
+  traversal_facts : PngFilteredTraversalFacts
   idat_length : UInt64
   total_length : UInt64
 }
@@ -191,6 +192,8 @@ priv struct PngDynamicPlan {
   deflate_bytes : UInt64
   matcher_work : UInt64
   fingerprint : UInt64
+  frequency_facts : PngFilteredTraversalFacts
+  bit_facts : PngFilteredTraversalFacts
   idat_length : UInt64
   total_length : UInt64
 }
@@ -622,28 +625,135 @@ fn _png_filtered_scanline_byte(
   }
 }
 
-///| The bounded DEFLATE matcher over the selected logical filter stream.
-fn _png_filtered_match_at(
+///| A match cursor deliberately separates the byte producer from logical
+/// DEFLATE consumption. Probes may move `produced_exclusive` ahead, but only
+/// the token that is emitted may advance `logical_position`.
+priv struct PngFilteredMatchCursor {
+  producer : PngFilteredCursor
+  logical_position : UInt64
+  produced_exclusive : UInt64
+  retained_start : UInt64
+  window : Array[Byte]
+}
+
+///|
+fn PngFilteredMatchCursor::new(
   source : @storage.ImageView,
   row_bytes : UInt64,
   channels : UInt64,
   filter_strategy : PngFilterStrategy,
+) -> PngFilteredMatchCursor {
+  { producer: PngFilteredCursor::new(source, row_bytes, channels, filter_strategy),
+    logical_position: 0UL, produced_exclusive: 0UL, retained_start: 0UL,
+    window: Array::make(262, b'\x00') }
+}
+
+///|
+fn PngFilteredMatchCursor::facts(self : PngFilteredMatchCursor) -> PngFilteredTraversalFacts {
+  self.producer.facts()
+}
+
+///|
+fn _png_filtered_match_window_copy(window : Array[Byte]) -> Array[Byte] {
+  let copied = Array::make(262, b'\x00')
+  for index = 0; index < 262; index = index + 1 { copied[index] = window[index] }
+  copied
+}
+
+///| Produce through the requested exclusive position without consuming it.
+fn PngFilteredMatchCursor::ensure(
+  self : PngFilteredMatchCursor,
+  exclusive_position : UInt64,
+) -> Result[PngFilteredMatchCursor, @error.CoreError] {
+  let mut producer = self.producer
+  let mut produced_exclusive = self.produced_exclusive
+  let mut retained_start = self.retained_start
+  let window = _png_filtered_match_window_copy(self.window)
+  while produced_exclusive < exclusive_position {
+    let (byte, next) = match producer.next() {
+      Err(error) => return Err(error)
+      Ok(value) => value
+    }
+    window[(produced_exclusive % 262UL).to_int()] = byte
+    producer = next
+    produced_exclusive = produced_exclusive + 1UL
+    if produced_exclusive - retained_start > 262UL {
+      retained_start = produced_exclusive - 262UL
+    }
+  }
+  Ok({ producer, logical_position: self.logical_position, produced_exclusive,
+    retained_start, window })
+}
+
+///| Read only a byte that remains in the fixed retained window.
+fn PngFilteredMatchCursor::read(
+  self : PngFilteredMatchCursor,
+  absolute_position : UInt64,
+) -> Result[Byte, @error.CoreError] {
+  if absolute_position < self.retained_start || absolute_position >= self.produced_exclusive {
+    return Err(_png_encode_machine_state_error("png-filter-match-retained"))
+  }
+  Ok(self.window[(absolute_position % 262UL).to_int()])
+}
+
+///| Commit logical consumption only after the corresponding token is emitted.
+fn PngFilteredMatchCursor::consume(
+  self : PngFilteredMatchCursor,
+  count : UInt64,
+) -> Result[PngFilteredMatchCursor, @error.CoreError] {
+  let logical_position = match _png_fixed_add(self.logical_position, count) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  if logical_position > self.produced_exclusive {
+    return Err(_png_encode_machine_state_error("png-filter-match-consume"))
+  }
+  Ok({ ..self, logical_position })
+}
+
+///| Read and commit one logical byte. This is the only convenience operation
+/// used by emitters; matcher probes use `ensure` and `read` directly.
+fn PngFilteredMatchCursor::next(
+  self : PngFilteredMatchCursor,
+) -> Result[(Byte, PngFilteredMatchCursor), @error.CoreError] {
+  let produced = match self.ensure(self.logical_position + 1UL) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  let byte = match produced.read(produced.logical_position) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  let next = match produced.consume(1UL) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  Ok((byte, next))
+}
+
+///| The bounded DEFLATE matcher over one owned selected-filter stream.
+fn _png_filtered_match_at(
+  cursor : PngFilteredMatchCursor,
   scanlines : UInt64,
-  position : UInt64,
-) -> Result[(UInt64, UInt64, UInt64), @error.CoreError] {
+) -> Result[(UInt64, UInt64, UInt64, PngFilteredMatchCursor), @error.CoreError] {
+  let position = cursor.logical_position
   let remaining = scanlines - position
   let mut best_length = 0UL
   let mut best_distance = 0UL
   let mut work = 0UL
+  let mut cursor = cursor
   let mut distance = 1UL
   while distance <= 4UL && distance <= position {
     let mut length = 0UL
     while length < 258UL && length < remaining {
       work = match _png_fixed_add(work, 3UL) { Err(error) => return Err(error); Ok(value) => value }
-      let current = match _png_filtered_scanline_byte(source, row_bytes, channels, filter_strategy, position + length) {
+      cursor = match cursor.ensure(position + length + 1UL) {
         Err(error) => return Err(error); Ok(value) => value
       }
-      let prior = match _png_filtered_scanline_byte(source, row_bytes, channels, filter_strategy, position + length - distance) {
+      let current = match cursor.read(position + length) {
+        Err(error) => return Err(error); Ok(value) => value
+      }
+      let prior = match cursor.read(position + length - distance) {
         Err(error) => return Err(error); Ok(value) => value
       }
       if current != prior { break }
@@ -652,7 +762,27 @@ fn _png_filtered_match_at(
     if length >= 3UL && length > best_length { best_length = length; best_distance = distance }
     distance = distance + 1UL
   }
-  Ok((best_length, best_distance, work))
+  Ok((best_length, best_distance, work, cursor))
+}
+
+///| Consume one complete cursor traversal for Stored planning or replay.
+fn _png_filtered_match_traverse(
+  source : @storage.ImageView,
+  row_bytes : UInt64,
+  channels : UInt64,
+  filter_strategy : PngFilterStrategy,
+  scanlines : UInt64,
+) -> Result[PngFilteredTraversalFacts, @error.CoreError] {
+  let mut cursor = PngFilteredMatchCursor::new(source, row_bytes, channels, filter_strategy)
+  while cursor.logical_position < scanlines {
+    cursor = match cursor.ensure(cursor.logical_position + 1UL) {
+      Err(error) => return Err(error); Ok(value) => value
+    }
+    cursor = match cursor.consume(1UL) {
+      Err(error) => return Err(error); Ok(value) => value
+    }
+  }
+  Ok(cursor.facts())
 }
 
 ///| A1: scan only distances 1 through 4 in ascending order. Strictly replacing
@@ -735,39 +865,40 @@ fn _png_dynamic_frequencies(
   channels : UInt64,
   filter_strategy : PngFilterStrategy,
   scanlines : UInt64,
-) -> Result[(Array[UInt64], Array[UInt64], UInt64, UInt64), @error.CoreError] {
+) -> Result[(Array[UInt64], Array[UInt64], UInt64, UInt64, PngFilteredTraversalFacts), @error.CoreError] {
   let literals = Array::make(286, 0UL)
   let distances = Array::make(30, 0UL)
-  let mut position = 0UL
+  let mut cursor = PngFilteredMatchCursor::new(source, row_bytes, channels, filter_strategy)
   let mut work = 0UL
   let mut fingerprint = 1UL
-  while position < scanlines {
-    let (length, distance, match_work) = match _png_filtered_match_at(
-      source, row_bytes, channels, filter_strategy, scanlines, position,
-    ) { Err(error) => return Err(error); Ok(value) => value }
+  while cursor.logical_position < scanlines {
+    let (length, distance, match_work, matched) = match _png_filtered_match_at(cursor, scanlines) {
+      Err(error) => return Err(error); Ok(value) => value }
+    cursor = matched
     work = match _png_fixed_add(work, match_work) { Err(error) => return Err(error); Ok(value) => value }
     if length >= 3UL {
       let (symbol, _, _) = _png_fixed_length_code(length)
       literals[symbol.to_int()] = literals[symbol.to_int()] + 1UL
       distances[(distance - 1UL).to_int()] = distances[(distance - 1UL).to_int()] + 1UL
       for offset = 0UL; offset < length; offset = offset + 1UL {
-        let byte = match _png_filtered_scanline_byte(source, row_bytes, channels, filter_strategy, position + offset) {
+        let byte = match cursor.read(cursor.logical_position + offset) {
           Err(error) => return Err(error); Ok(value) => value
         }
         fingerprint = _png_adler_step(fingerprint, byte)
       }
-      position = position + length
+      cursor = match cursor.consume(length) { Err(error) => return Err(error); Ok(value) => value }
     } else {
-      let byte = match _png_filtered_scanline_byte(source, row_bytes, channels, filter_strategy, position) {
+      cursor = match cursor.ensure(cursor.logical_position + 1UL) { Err(error) => return Err(error); Ok(value) => value }
+      let byte = match cursor.read(cursor.logical_position) {
         Err(error) => return Err(error); Ok(value) => value
       }
       literals[byte.to_int()] = literals[byte.to_int()] + 1UL
       fingerprint = _png_adler_step(fingerprint, byte)
-      position = position + 1UL
+      cursor = match cursor.consume(1UL) { Err(error) => return Err(error); Ok(value) => value }
     }
   }
   literals[256] = literals[256] + 1UL
-  Ok((literals, distances, work, fingerprint))
+  Ok((literals, distances, work, fingerprint, cursor.facts()))
 }
 
 ///| Encode a trimmed literal/distance length stream using RFC 1951 symbols.
@@ -823,7 +954,7 @@ fn _png_dynamic_plan(
   filter_strategy : PngFilterStrategy,
   scanlines : UInt64,
 ) -> Result[PngDynamicPlan?, @error.CoreError] {
-  let (literal_frequencies, distance_frequencies, matcher_work, fingerprint) =
+  let (literal_frequencies, distance_frequencies, matcher_work, fingerprint, frequency_facts) =
     match _png_dynamic_frequencies(source, row_bytes, channels, filter_strategy, scanlines) {
       Err(error) => return Err(error); Ok(value) => value
     }
@@ -861,22 +992,23 @@ fn _png_dynamic_plan(
       Err(error) => return Err(error); Ok(value) => value
     }
   }
-  let mut position = 0UL
-  while position < scanlines {
-    let (length, distance, _) = match _png_filtered_match_at(source, row_bytes, channels, filter_strategy, scanlines, position) {
-      Err(error) => return Err(error); Ok(value) => value
-    }
+  let mut cursor = PngFilteredMatchCursor::new(source, row_bytes, channels, filter_strategy)
+  while cursor.logical_position < scanlines {
+    let (length, distance, _, matched) = match _png_filtered_match_at(cursor, scanlines) {
+      Err(error) => return Err(error); Ok(value) => value }
+    cursor = matched
     if length >= 3UL {
       let (symbol, _, extra_bits) = _png_fixed_length_code(length)
       let distance_symbol = (distance - 1UL).to_int()
       bits = match _png_fixed_add(bits, literals.lengths[symbol.to_int()].to_uint64() + extra_bits + distances.lengths[distance_symbol].to_uint64()) {
         Err(error) => return Err(error); Ok(value) => value
       }
-      position = position + length
+      cursor = match cursor.consume(length) { Err(error) => return Err(error); Ok(value) => value }
     } else {
-      let byte = match _png_filtered_scanline_byte(source, row_bytes, channels, filter_strategy, position) { Err(error) => return Err(error); Ok(value) => value }
+      cursor = match cursor.ensure(cursor.logical_position + 1UL) { Err(error) => return Err(error); Ok(value) => value }
+      let byte = match cursor.read(cursor.logical_position) { Err(error) => return Err(error); Ok(value) => value }
       bits = match _png_fixed_add(bits, literals.lengths[byte.to_int()].to_uint64()) { Err(error) => return Err(error); Ok(value) => value }
-      position = position + 1UL
+      cursor = match cursor.consume(1UL) { Err(error) => return Err(error); Ok(value) => value }
     }
   }
   bits = match _png_fixed_add(bits, literals.lengths[256].to_uint64()) { Err(error) => return Err(error); Ok(value) => value }
@@ -886,7 +1018,7 @@ fn _png_dynamic_plan(
   let total_length = match _png_fixed_add(idat_length, 57UL) { Err(error) => return Err(error); Ok(value) => value }
   Ok(Some({ literals, distances, code_lengths, rle_symbols, rle_extras, rle_extra_bits, rle_count,
     hlit: hlit.to_uint64(), hdist: hdist.to_uint64(), hclen: hclen.to_uint64(), deflate_bits: bits,
-    deflate_bytes, matcher_work, fingerprint, idat_length, total_length }))
+    deflate_bytes, matcher_work, fingerprint, frequency_facts, bit_facts: cursor.facts(), idat_length, total_length }))
 }
 
 ///| Walk the bounded matcher once to calculate exact fixed DEFLATE bits.
@@ -897,16 +1029,15 @@ fn _png_fixed_plan(
   filter_strategy : PngFilterStrategy,
   scanlines : UInt64,
 ) -> Result[PngFixedPlan, @error.CoreError] {
-  let mut position = 0UL
+  let mut cursor = PngFilteredMatchCursor::new(source, row_bytes, channels, filter_strategy)
   let mut bits = 3UL
   let mut matcher_work = 0UL
-  while position < scanlines {
-    let (length, distance, work) = match _png_filtered_match_at(
-      source, row_bytes, channels, filter_strategy, scanlines, position,
-    ) {
+  while cursor.logical_position < scanlines {
+    let (length, distance, work, matched) = match _png_filtered_match_at(cursor, scanlines) {
       Err(error) => return Err(error)
       Ok(value) => value
     }
+    cursor = matched
     matcher_work = match _png_fixed_add(matcher_work, work) {
       Err(error) => return Err(error)
       Ok(value) => value
@@ -918,10 +1049,11 @@ fn _png_fixed_plan(
         Err(error) => return Err(error)
         Ok(value) => value
       }
-      position = position + length
+      cursor = match cursor.consume(length) { Err(error) => return Err(error); Ok(value) => value }
       ignore(distance)
     } else {
-      let byte = match _png_filtered_scanline_byte(source, row_bytes, channels, filter_strategy, position) {
+      cursor = match cursor.ensure(cursor.logical_position + 1UL) { Err(error) => return Err(error); Ok(value) => value }
+      let byte = match cursor.read(cursor.logical_position) {
         Err(error) => return Err(error)
         Ok(value) => value
       }
@@ -930,7 +1062,7 @@ fn _png_fixed_plan(
         Err(error) => return Err(error)
         Ok(value) => value
       }
-      position = position + 1UL
+      cursor = match cursor.consume(1UL) { Err(error) => return Err(error); Ok(value) => value }
     }
   }
   let (_, eob_bits) = _png_fixed_literal_code(256UL)
@@ -950,7 +1082,7 @@ fn _png_fixed_plan(
     Err(error) => return Err(error)
     Ok(value) => value
   }
-  Ok({ deflate_bits: bits, deflate_bytes, matcher_work, idat_length, total_length })
+  Ok({ deflate_bits: bits, deflate_bytes, matcher_work, traversal_facts: cursor.facts(), idat_length, total_length })
 }
 
 ///|
@@ -1025,7 +1157,7 @@ fn _png_encode_preflight_with_filter(
   }
   let plan = match strategy {
     PngCompressionStrategy::Stored => {
-      let pass = match _png_adaptive_traverse(
+      let pass = match _png_filtered_match_traverse(
         source, row_bytes, channels, filter_strategy, scanlines,
       ) { Err(error) => return Err(error); Ok(value) => value }
       adaptive_planning_facts = match _png_filtered_facts_add(
@@ -1034,7 +1166,7 @@ fn _png_encode_preflight_with_filter(
       PngDeflatePlan::Stored(stored)
     }
     PngCompressionStrategy::FixedOrStored => {
-      let pass = match _png_adaptive_traverse(
+      let pass = match _png_filtered_match_traverse(
         source, row_bytes, channels, filter_strategy, scanlines,
       ) { Err(error) => return Err(error); Ok(value) => value }
       adaptive_planning_facts = match _png_filtered_facts_add(
@@ -1044,6 +1176,9 @@ fn _png_encode_preflight_with_filter(
         Err(error) => return Err(error)
         Ok(value) => value
       }
+      adaptive_planning_facts = match _png_filtered_facts_add(
+        adaptive_planning_facts, fixed.traversal_facts,
+      ) { Err(error) => return Err(error); Ok(value) => value }
       if fixed.idat_length > 4294967295UL {
         return Err(_png_encode_capability("png-idat-length"))
       }
@@ -1054,15 +1189,18 @@ fn _png_encode_preflight_with_filter(
       }
     }
     PngCompressionStrategy::DynamicOrFixedOrStored => {
-      let fixed_pass = match _png_adaptive_traverse(
+      let stored_pass = match _png_filtered_match_traverse(
         source, row_bytes, channels, filter_strategy, scanlines,
       ) { Err(error) => return Err(error); Ok(value) => value }
       adaptive_planning_facts = match _png_filtered_facts_add(
-        adaptive_planning_facts, fixed_pass,
+        adaptive_planning_facts, stored_pass,
       ) { Err(error) => return Err(error); Ok(value) => value }
       let fixed = match _png_fixed_plan(source, row_bytes, channels, filter_strategy, scanlines) {
         Err(error) => return Err(error); Ok(value) => value
       }
+      adaptive_planning_facts = match _png_filtered_facts_add(
+        adaptive_planning_facts, fixed.traversal_facts,
+      ) { Err(error) => return Err(error); Ok(value) => value }
       if fixed.idat_length > 4294967295UL { return Err(_png_encode_capability("png-idat-length")) }
       let winner = if fixed.total_length <= stored.total_length {
         PngDeflatePlan::Fixed(fixed)
@@ -1072,21 +1210,15 @@ fn _png_encode_preflight_with_filter(
         PngDeflatePlan::Fixed(value) => value.total_length
         PngDeflatePlan::Dynamic(value) => value.total_length
       }
-      let dynamic_frequency_pass = match _png_adaptive_traverse(
-        source, row_bytes, channels, filter_strategy, scanlines,
-      ) { Err(error) => return Err(error); Ok(value) => value }
-      adaptive_planning_facts = match _png_filtered_facts_add(
-        adaptive_planning_facts, dynamic_frequency_pass,
-      ) { Err(error) => return Err(error); Ok(value) => value }
-      let dynamic_bits_pass = match _png_adaptive_traverse(
-        source, row_bytes, channels, filter_strategy, scanlines,
-      ) { Err(error) => return Err(error); Ok(value) => value }
-      adaptive_planning_facts = match _png_filtered_facts_add(
-        adaptive_planning_facts, dynamic_bits_pass,
-      ) { Err(error) => return Err(error); Ok(value) => value }
       match _png_dynamic_plan(source, row_bytes, channels, filter_strategy, scanlines) {
         Err(error) => return Err(error)
         Ok(Some(dynamic)) => {
+          adaptive_planning_facts = match _png_filtered_facts_add(
+            adaptive_planning_facts, dynamic.frequency_facts,
+          ) { Err(error) => return Err(error); Ok(value) => value }
+          adaptive_planning_facts = match _png_filtered_facts_add(
+            adaptive_planning_facts, dynamic.bit_facts,
+          ) { Err(error) => return Err(error); Ok(value) => value }
           if dynamic.total_length < winner_length {
             PngDeflatePlan::Dynamic(dynamic)
           } else { winner }
@@ -1095,7 +1227,7 @@ fn _png_encode_preflight_with_filter(
       }
     }
   }
-  let adaptive_replay_facts = match _png_adaptive_traverse(
+  let adaptive_replay_facts = match _png_filtered_match_traverse(
     source, row_bytes, channels, filter_strategy, scanlines,
   ) { Err(error) => return Err(error); Ok(value) => value }
   let adaptive_filter_work = match _png_filtered_facts_add(

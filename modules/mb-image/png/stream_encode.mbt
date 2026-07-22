@@ -176,10 +176,10 @@ priv struct PngEncodeMachine {
   disposition : @metadata.MetadataDisposition
   mut emitted : UInt64
   mut pending : Byte?
-  mut pending_stored : PngFilteredCursor?
+  mut pending_stored : PngFilteredMatchCursor?
   mut pending_fixed : PngFixedState?
   mut pending_dynamic : PngDynamicState?
-  mut stored_cursor : PngFilteredCursor?
+  mut stored_cursor : PngFilteredMatchCursor?
   mut fixed_state : PngFixedState?
   mut dynamic_state : PngDynamicState?
   mut ihdr_crc : UInt64
@@ -192,7 +192,7 @@ priv struct PngEncodeMachine {
 /// that carried it is acknowledged by the eager Writer or caller lease.
 priv struct PngFixedState {
   raw_cursor : UInt64
-  filtered_cursor : PngFilteredCursor?
+  filtered_cursor : PngFilteredMatchCursor?
   bit_value : UInt64
   bit_count : UInt64
   adler : UInt64
@@ -210,7 +210,7 @@ priv struct PngDynamicState {
   code_length_cursor : UInt64
   rle_cursor : UInt64
   raw_cursor : UInt64
-  filtered_cursor : PngFilteredCursor?
+  filtered_cursor : PngFilteredMatchCursor?
   bit_value : UInt64
   bit_count : UInt64
   adler : UInt64
@@ -284,12 +284,22 @@ fn PngEncodeMachine::new_with_strategies(
     pending_stored: None,
     pending_fixed: None,
     pending_dynamic: None,
-    stored_cursor: None,
+    stored_cursor: match filter_strategy {
+      PngFilterStrategy::Adaptive => Some(PngFilteredMatchCursor::new(
+        source, facts.row_bytes, facts.channels, filter_strategy,
+      ))
+      PngFilterStrategy::None => None
+    },
     fixed_state: match facts.plan {
       PngDeflatePlan::Stored(_) => None
       PngDeflatePlan::Fixed(_) => Some({
         raw_cursor: 0UL,
-        filtered_cursor: None,
+        filtered_cursor: match filter_strategy {
+          PngFilterStrategy::Adaptive => Some(PngFilteredMatchCursor::new(
+            source, facts.row_bytes, facts.channels, filter_strategy,
+          ))
+          PngFilterStrategy::None => None
+        },
         bit_value: 0UL, bit_count: 0UL, adler: 1UL,
         matcher_work: 0UL, header_written: false, eob_written: false,
       })
@@ -298,7 +308,12 @@ fn PngEncodeMachine::new_with_strategies(
     dynamic_state: match facts.plan {
       PngDeflatePlan::Dynamic(_) => Some({ phase: 0, header_cursor: 0UL,
         code_length_cursor: 0UL, rle_cursor: 0UL, raw_cursor: 0UL,
-        filtered_cursor: None,
+        filtered_cursor: match filter_strategy {
+          PngFilterStrategy::Adaptive => Some(PngFilteredMatchCursor::new(
+            source, facts.row_bytes, facts.channels, filter_strategy,
+          ))
+          PngFilterStrategy::None => None
+        },
         bit_value: 0UL, bit_count: 0UL, adler: 1UL, matcher_work: 0UL })
       _ => None
     },
@@ -433,11 +448,17 @@ fn PngEncodeMachine::fixed_preview_byte(
       bit_count = next_count
       header_written = true
     } else if raw_cursor < self.scanlines {
-      let (length, distance, work) = match _png_filtered_match_at(
-        self.source, self.row_bytes, self.channels, self.filter_strategy, self.scanlines, raw_cursor,
-      ) {
-        Err(error) => return Err(error)
-        Ok(value) => value
+      let (length, distance, work) = match filtered_cursor {
+        Some(cursor) => {
+          let (length, distance, work, next) = match _png_filtered_match_at(
+            cursor, self.scanlines,
+          ) { Err(error) => return Err(error); Ok(value) => value }
+          filtered_cursor = Some(next)
+          (length, distance, work)
+        }
+        None => match _png_fixed_match_at(
+          self.source, self.row_bytes, self.channels, self.scanlines, raw_cursor,
+        ) { Err(error) => return Err(error); Ok(value) => value }
       }
       matcher_work = match _png_fixed_add(matcher_work, work) {
         Err(error) => return Err(error)
@@ -623,9 +644,18 @@ fn PngEncodeMachine::dynamic_preview_byte(
       } else { phase = 4 }
     } else if phase == 4 {
       if raw_cursor < self.scanlines {
-        let (length, distance, work) = match _png_filtered_match_at(
-          self.source, self.row_bytes, self.channels, self.filter_strategy, self.scanlines, raw_cursor,
-        ) { Err(error) => return Err(error); Ok(value) => value }
+        let (length, distance, work) = match filtered_cursor {
+          Some(cursor) => {
+            let (length, distance, work, next) = match _png_filtered_match_at(
+              cursor, self.scanlines,
+            ) { Err(error) => return Err(error); Ok(value) => value }
+            filtered_cursor = Some(next)
+            (length, distance, work)
+          }
+          None => match _png_fixed_match_at(
+            self.source, self.row_bytes, self.channels, self.scanlines, raw_cursor,
+          ) { Err(error) => return Err(error); Ok(value) => value }
+        }
         matcher_work = match _png_fixed_add(matcher_work, work) { Err(error) => return Err(error); Ok(value) => value }
         if length >= 3UL {
           let (symbol, extra, extra_bits) = _png_fixed_length_code(length)
