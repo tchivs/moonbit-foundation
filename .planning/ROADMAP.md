@@ -89,6 +89,47 @@
 - [ ] **Phase 48: Bounded Gray16 Encoder Path** — Route Gray16 through shared filtering, Stored/Fixed/Dynamic selection, atomic admission, and acknowledgement-safe replay without image staging. (Requirements: GRAY16-02)
 - [ ] **Phase 49: Portable Gray16 Public Evidence** — Prove full wire-sample preservation, documented public decode behavior, hostile chunk identity, frozen compatibility, and independent four-target execution. (Requirements: GRAY16-03)
 
+## Phase Details
+
+### Phase 47: Gray16 Factory Compatibility
+
+**Goal**: Users can explicitly select Stored, non-interlaced Gray16 PNG output through eager and caller-buffered APIs while legacy Gray8/RGB8/RGBA8 output remains unchanged.
+**Depends on**: Phase 46
+**Requirements**: GRAY16-01
+**Success Criteria**:
+
+1. Packed U16 Gray input emits a complete type-0, bit-depth-16, non-interlaced PNG whose scanline samples are in PNG big-endian order.
+2. Explicit eager and caller-buffered Gray16 Stored factories produce identical complete bytes and reject unsupported input before output/lease exposure.
+3. Existing Gray8, RGB8, and straight-RGBA8 factory bytes and behavior remain guarded by frozen regressions.
+
+**Plans**: TBD
+
+### Phase 48: Bounded Gray16 Encoder Path
+
+**Goal**: Gray16 uses the same bounded filtering, compression selection, atomic admission, and acknowledgement-safe replay machinery as the established PNG profiles.
+**Depends on**: Phase 47
+**Requirements**: GRAY16-02
+**Success Criteria**:
+
+1. Gray16 supports None/Adaptive and Stored/FixedOrStored/DynamicOrFixedOrStored through one bounded path without image-sized staging.
+2. Capability, geometry, output, work, budget, and unsupported-interlace failures are atomic for eager and caller-buffered construction.
+3. Caller pulls report accepted bytes only and retain sticky replay behavior.
+
+**Plans**: TBD
+
+### Phase 49: Portable Gray16 Public Evidence
+
+**Goal**: Users have public proof that Gray16 wire samples, caller-buffered output, legacy compatibility, and portable execution are correct.
+**Depends on**: Phase 48
+**Requirements**: GRAY16-03
+**Success Criteria**:
+
+1. Generated U16 Gray images preserve both bytes of every sample in the encoded PNG wire payload and expose the documented public decode canonicalization.
+2. Zero, one-byte, and ragged caller capacities remain byte-identical to eager output while frozen Gray8/RGB8/RGBA8 vectors retain their bytes.
+3. The public evidence runs independently on js, wasm, wasm-gc, and native.
+
+**Plans**: TBD
+
 ## Next
 
 Discuss and plan Phase 47: Gray16 Factory Compatibility.
