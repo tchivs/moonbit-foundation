@@ -475,6 +475,39 @@ fn png_encode_graya8_decode_matches_source(bytes : Bytes) -> Unit {
   }
 }
 
+///| The public PNG decoder intentionally exposes legal GrayAlpha16 samples as
+/// straight RGBA8 high bytes; their low bytes remain a wire-level guarantee.
+fn png_encode_graya16_public_decode_is_canonical(bytes : Bytes) -> Unit {
+  let owner = @bytes.OwnedBytes::from_bytes(
+    bytes, png_encode_budget(bytes=4096UL, work=0UL),
+  ).unwrap()
+  let decoded = @codec.ImageDecoder::decode(
+    PngDecoder::new(), @io.MemoryReader::new(owner.view()) as &@io.Reader,
+    @codec.DecodeOptions::new(require_complete_input=true, preserve_opaque_metadata=false),
+    png_encode_limits(output=4096UL, work=1048576UL),
+    png_encode_budget(bytes=4096UL, work=1048576UL), @error.Diagnostics::new(),
+  ).unwrap()
+  let restored = decoded.image().view()
+  let pairs = [(b'\x12', b'\xa7'), (b'\xbe', b'\x5a')]
+  if restored.width() != 2UL || restored.height() != 1UL ||
+    restored.format().component() != @model.ComponentType::U8 ||
+    restored.format().channels() != @model.ChannelOrder::Rgba ||
+    restored.format().channel_count() != 4UL {
+    abort("png graya16 public decoded descriptor")
+  }
+  for x = 0UL; x < 2UL; x = x + 1UL {
+    let (gray, alpha) = pairs[x.to_int()]
+    for channel = 0UL; channel < 3UL; channel = channel + 1UL {
+      if restored.get_byte(x, 0UL, channel).unwrap() != gray {
+        abort("png graya16 public decoded grayscale")
+      }
+    }
+    if restored.get_byte(x, 0UL, 3UL).unwrap() != alpha {
+      abort("png graya16 public decoded alpha")
+    }
+  }
+}
+
 ///|
 fn png_encode_prefix(writer : @io.MemoryWriter) -> Bytes {
   let bytes : Array[Byte] = []
@@ -873,6 +906,22 @@ test "PNG filter strategy eager frozen compatibility vectors" {
     inspect(bytes == gray16_stored, content="true")
   }
 
+  let gray_alpha = png_encode_graya8_image()
+  let gray_alpha_stored =
+    b"\x89PNG\r\n\x1a\n\x00\x00\x00\x0dIHDR\x00\x00\x00\x02\x00\x00\x00\x01\x08\x04\x00\x00\x00\x5e\x2b\xb7\x01\x00\x00\x00\x10IDAT\x78\x01\x01\x05\x00\xfa\xff\x00\x13\xa7\xd2\x4c\x04\x36\x01\xd9\xee\xe9\xe1\x45\x00\x00\x00\x00IEND\xae\x42\x60\x82"
+  let (_, gray_alpha_default_writer) = png_encode_with(PngEncoder::new_graya8(), gray_alpha)
+  let (_, gray_alpha_configured_writer) = png_encode_with(
+    PngEncoder::new_graya8_with_strategies(
+      PngCompressionStrategy::Stored, PngFilterStrategy::None,
+    ),
+    gray_alpha,
+  )
+  for bytes in [
+    png_encode_prefix(gray_alpha_default_writer), png_encode_prefix(gray_alpha_configured_writer),
+  ] {
+    inspect(bytes == gray_alpha_stored, content="true")
+  }
+
   let rgb = png_encode_image(3UL, b"\x00\x01\x02")
   let rgb_stored =
     b"\x89PNG\r\n\x1a\n\x00\x00\x00\x0dIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x02\x00\x00\x00\x90\x77\x53\xde\x00\x00\x00\x0fIDAT\x78\x01\x01\x04\x00\xfb\xff\x00\x00\x01\x02\x00\x08\x00\x04\xad\xa5\x4e\x4e\x00\x00\x00\x00IEND\xae\x42\x60\x82"
@@ -1013,11 +1062,16 @@ test "PNG GrayAlpha8 public eager evidence" {
   inspect(rejected.position() == 0UL && png_adam7_same_remaining(before, budget.remaining()), content="true")
 }
 
-///| The explicit GrayAlpha16 eager route is Type 4/depth 16 and serializes
-/// each packed pixel as gray high/low followed by alpha high/low.
-test "PNG GrayAlpha16 eager Stored output uses type 4 four-byte wire pixels" {
+///| A legal public GrayAlpha16 source proves literal Type-4/16 lane order and
+/// the separate straight-RGBA8 high-byte canonicalization boundary.
+test "PNG GrayAlpha16 public eager wire and decode fidelity" {
   let gray_alpha = png_encode_graya16_image()
-  let (_, writer) = png_encode_with(PngEncoder::new_graya16(), gray_alpha)
+  let (_, writer) = png_encode_with(
+    PngEncoder::new_graya16_with_strategies(
+      PngCompressionStrategy::Stored, PngFilterStrategy::None,
+    ),
+    gray_alpha,
+  )
   let bytes = png_encode_prefix(writer)
   inspect(
     bytes[0] == b'\x89' && bytes[1] == b'P' && bytes[24] == b'\x10' &&
@@ -1027,6 +1081,7 @@ test "PNG GrayAlpha16 eager Stored output uses type 4 four-byte wire pixels" {
       bytes[55] == b'\x5a' && bytes[56] == b'\x76',
     content="true",
   )
+  png_encode_graya16_public_decode_is_canonical(bytes)
 }
 
 ///| The locked Phase-53 GrayAlpha16 identity rejects big-endian descriptors
@@ -1079,6 +1134,7 @@ test "PNG GrayAlpha16 eager factories preserve four-byte wire and strategy parit
       )
       let bytes = png_encode_prefix(writer)
       inspect(bytes[24] == b'\x10' && bytes[25] == b'\x04' && bytes[28] == b'\x00', content="true")
+      png_encode_graya16_public_decode_is_canonical(bytes)
     }
   }
   let (_, adaptive_writer) = png_encode_with(
