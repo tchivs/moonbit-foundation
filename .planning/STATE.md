@@ -21,18 +21,22 @@ See `.planning/PROJECT.md` (updated 2026-07-22).
 
 **Core value:** MoonBit developers can reuse stable, high-performance native infrastructure contracts instead of rebuilding incompatible foundations for every graphics, document, media, or automation product.
 
-**Current focus:** Planning the next code-first milestone.
+**Current focus:** Phase 50 — define the packed U8 Gray+Alpha image model and preserve existing image contracts.
 
 ## Current Position
 
-Phase: Not started (defining requirements)
+Phase: 50 of 52 (Gray+Alpha Image Model)
 Plan: —
-Status: Defining requirements
-Last activity: 2026-07-22 — Milestone v0.16 started
+Status: Ready to plan
+Last activity: 2026-07-22 — Created the v0.16 Grayscale Alpha PNG roadmap (Phases 50-52)
+
+Progress: [░░░░░░░░░░] 0%
 
 ## Performance Metrics
 
 **Current milestone:** v0.15 shipped with 3/3 requirements, 3/3 phases, and four-target PNG evidence.
+
+**v0.16 plan:** 3 phases, 5 requirements, 0/3 phases complete, 0/TBD plans complete.
 
 **Recent milestone:** v0.13 shipped Phases 41-43 on 2026-07-22 with explicit Adam7 RGB8/straight-RGBA8 encoding, caller-buffered parity, and independent four-target public evidence.
 
@@ -46,6 +50,7 @@ Last activity: 2026-07-22 — Milestone v0.16 started
 - [v0.14]: Limit output scope to existing 8-bit `ChannelOrder::Gray`, non-interlaced Gray8 PNG. Reuse the bounded preflight, filter, compression, and acknowledgement-safe replay pipeline.
 - [v0.14]: Exclude palette, low-bit, 16-bit, transparency conversion, Gray Adam7, and registry/release automation from this milestone.
 - [v0.15]: Preserve U16 source bytes at the Gray16 PNG wire boundary while documenting RGB8 high-byte decoder canonicalization; use the shared bounded strategy and replay path rather than a Gray16 staging path.
+- [v0.16]: Add only packed U8 Gray+Alpha with explicit straight-alpha metadata, then reuse the existing bounded PNG pipeline and prove the result publicly on all four portable targets.
 
 ### Pending Todos
 
@@ -53,14 +58,16 @@ None.
 
 ### Blockers/Concerns
 
-- Next scope must preserve existing PNG byte and atomicity baselines, remain MoonBit-owned and portable, and include independent four-target evidence.
+- Phase 50 must preserve existing Gray/RGB/RGBA model behavior while adding the explicit two-component straight-alpha format.
+- Phase 51 must retain existing PNG byte and atomicity baselines; release automation and source-tree copying are expressly out of scope.
 
 ## Deferred Items
 
 | Category | Item | Status |
 |----------|------|--------|
 | scope | Palette/indexed encoding, Gray low-bit packing, Gray16 output, transparency conversion, and Gray8 Adam7 | deferred |
-| delivery | Registry publication and release automation | deferred |
+| scope | Gray+Alpha16 output and Gray+Alpha Adam7 | deferred |
+| delivery | Registry publication, release automation, and source-tree copying | deferred |
 | scope | cICP/HDR and full ICC colour transforms | deferred |
 | historical debug | clean-diff-empty-binding | awaiting_human_verify |
 | historical debug | hosted-toolchain-setup-failure | awaiting_human_verify |
@@ -85,10 +92,10 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-07-22T14:41:06.713Z
-Stopped at: Phase 49 context gathered
-Resume file: .planning/milestones/v0.15-phases/49-portable-gray16-public-evidence/49-CONTEXT.md
+Last session: 2026-07-22T15:30:23.918Z
+Stopped at: v0.16 roadmap created; Phase 50 is ready for planning
+Resume file: None
 
 ## Operator Next Steps
 
-- Start the next milestone with /gsd-new-milestone.
+- Plan Phase 50 with /gsd-plan-phase 50.
