@@ -1,5 +1,18 @@
 # Project Milestones: MoonBit Native Foundation
 
+## v0.17 GrayAlpha16 PNG Interchange (Shipped: 2026-07-23)
+
+**Phases completed:** 3 phases, 4 plans, 8 tasks
+
+**Key accomplishments:**
+
+- Packed U16 GrayAlpha now has a public straight-alpha descriptor identity with byte-accurate checked storage evidence and preserved fail-closed operations.
+- Packed U16 straight-alpha GrayAlpha images now encode through explicit bounded eager and caller-buffered Type-4/16 PNG APIs with Ghi/Glo/Ahi/Alo wire fidelity.
+- GrayAlpha16 now has focused public regressions proving six-pair atomic admission and zero-write sticky replay drift across the bounded Type-4/16 streaming route.
+- Public GrayAlpha16 compatibility evidence now freezes Type-4/16 U16 wire lanes, straight-RGBA8 high-byte decoding, caller-buffered ownership, and five PNG format baselines across all portable targets.
+
+---
+
 ## v0.16 Grayscale Alpha PNG (Shipped: 2026-07-23)
 
 **Phases completed:** 3 phases, 4 plans, 6 tasks

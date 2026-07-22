@@ -147,6 +147,42 @@
 
 ---
 
+## Milestone: v0.17 — GrayAlpha16 PNG Interchange
+
+**Shipped:** 2026-07-23  
+**Phases:** 3 | **Plans:** 4 | **Tasks:** 8
+
+### What Was Built
+
+- Packed U16 Gray+Alpha descriptor admission with checked per-component storage and preserved fail-closed operations.
+- Explicit bounded eager and caller-buffered non-interlaced Type-4/16 PNG factories with `Ghi,Glo,Ahi,Alo` wire output.
+- Public U16 wire/RGBA8 canonicalization evidence, hostile lease schedules, frozen legacy bytes, and four-target qualification.
+
+### What Worked
+
+- Extending the existing profile-aware bounded machine avoided staging and kept eager/chunk behavior identical.
+- Non-symmetric U16 fixtures and literal raster assertions made byte-order mistakes directly observable.
+- Independent code review, security audit, phase verification, and milestone integration audit found no implementation gap.
+
+### What Was Inefficient
+
+- Historical `quick/` and `debug/` records were left outside milestone archives, obscuring the active planning view.
+
+### Patterns Established
+
+- For U16 alpha profiles, retain a strict source-storage admission contract and test it separately from PNG wire order and intentionally lossy decoder canonicalization.
+
+### Key Lessons
+
+1. Reuse the shared bounded pipeline for a new format profile; do not add a format-specific output buffer or replay path.
+2. Archive all historical planning artifacts at milestone close, not only phase directories.
+
+### Cost Observations
+
+- All four supported targets completed the PNG package at 204/204 tests.
+
+---
+
 ## Cross-Milestone Trends
 
 ### Process Evolution
@@ -156,6 +192,7 @@
 | v0.1 | 5 | 41 | Established RFC-led horizontal delivery, independent verification, and closed release evidence. |
 | v0.8 | 3 | 5 | Added byte-resumable public PNG decode with corpus-wide four-target streaming evidence. |
 | v0.15 | 3 | 3 | Extended the bounded PNG profile path to U16 grayscale with wire-level portability evidence. |
+| v0.17 | 3 | 4 | Extended the same bounded profile path to U16 Gray+Alpha with explicit type-4 wire and lease ownership evidence. |
 
 ### Cumulative Quality
 
@@ -164,6 +201,7 @@
 | v0.1 | 197/197 per required target at the locked baseline | 36/36 | 15/15 contract families, 6/6 flows |
 | v0.8 | 84/84 PNG tests per target | 4/4 | 6/6 phase handoffs, 2/2 public flows |
 | v0.15 | 190/190 PNG tests per target | 3/3 | 3/3 phase verifications, 100/100 milestone audit |
+| v0.17 | 204/204 PNG tests per target | 4/4 | 3/3 phase verifications, 5/5 handoffs, 3/3 flows |
 
 ### Top Lessons
 

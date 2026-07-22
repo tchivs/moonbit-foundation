@@ -2,18 +2,18 @@
 gsd_state_version: 1.0
 milestone: v0.17
 milestone_name: GrayAlpha16 PNG Interchange
-current_phase: 55
-status: completed
+status: Awaiting next milestone
 stopped_at: Completed 55-01-PLAN.md
-last_updated: "2026-07-22T22:14:14.892Z"
+last_updated: "2026-07-22T22:18:36.558Z"
 last_activity: 2026-07-23
-last_activity_desc: Phase 55 complete
+last_activity_desc: Milestone v0.17 completed and archived
 progress:
   total_phases: 3
   completed_phases: 3
   total_plans: 4
   completed_plans: 4
   percent: 100
+current_phase: 55
 current_phase_name: Portable Public Evidence
 ---
 
@@ -21,22 +21,22 @@ current_phase_name: Portable Public Evidence
 
 ## Project Reference
 
-See `.planning/PROJECT.md` (updated 2026-07-22).
+See `.planning/PROJECT.md` (updated 2026-07-23).
 
 **Core value:** MoonBit developers can reuse stable, high-performance native infrastructure contracts instead of rebuilding incompatible foundations for every graphics, document, media, or automation product.
 
-**Current focus:** Phase 55 — Portable Public Evidence
+**Current focus:** Plan the next code-first GrayAlpha16 capability; explicit Adam7 is the leading candidate.
 
 ## Current Position
 
-Phase: 55
-Plan: Not started
-Status: All phases complete
-Last activity: 2026-07-23 — Phase 55 complete
+Phase: Milestone v0.17 complete
+Plan: —
+Status: Awaiting next milestone
+Last activity: 2026-07-23 — Milestone v0.17 completed and archived
 
 ## Performance Metrics
 
-**Current milestone:** v0.17 has 4 requirements mapped across 3 planned phases; 0/3 phases and 0/TBD plans complete.
+**Recent milestone:** v0.17 shipped with 4/4 requirements, 3/3 phases, 4/4 plans, 8 tasks, and 204/204 PNG tests on each supported target.
 
 **Recent milestone:** v0.16 shipped with 5/5 requirements, 3/3 phases, and four-target GrayAlpha8 PNG evidence.
 
@@ -82,8 +82,7 @@ None.
 
 ### Blockers/Concerns
 
-- Phase 53 must preserve existing Gray, GrayAlpha8, RGB, and RGBA descriptor/storage behavior while adding the explicit two-component U16 straight-alpha contract.
-- Phase 54 must retain shared atomic preflight, bounded filtering/compression/replay, and legacy bytes; release, copied-source, and FFI work are expressly out of scope.
+- No current code or verification blocker. The next milestone must retain the strict little-endian GrayAlpha16 descriptor boundary and frozen non-interlaced PNG bytes.
 
 ## Deferred Items
 
@@ -123,4 +122,4 @@ Resume file: None
 
 ## Operator Next Steps
 
-- Discuss and plan Phase 53: GrayAlpha16 Model and Checked Storage
+- Start the next milestone with /gsd-new-milestone
