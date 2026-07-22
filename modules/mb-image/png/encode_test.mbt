@@ -61,6 +61,48 @@ fn png_encode_image(
   image
 }
 
+///| A packed one-channel U8 image using the same canonical metadata contract
+/// as the public PNG profile, for the explicit Gray8 encoder route.
+fn png_encode_gray8_image(
+  pixels : Bytes,
+  width? : UInt64 = 1UL,
+  height? : UInt64 = 1UL,
+) -> @storage.OwnedImage {
+  let descriptor = @model.ImageDescriptor::new(
+    width, height,
+    @model.ImageFormat::new(
+      @model.ComponentType::U8, @model.ChannelOrder::Gray,
+      @model.PlaneLayout::Packed, @model.Endianness::Little,
+    ).unwrap(),
+    [@model.PlaneDescriptor::new(
+      0UL, width * height, width, width, 1UL, 1UL, width, height,
+    ).unwrap()],
+    width * height,
+    @model.ImageMetadata::new(
+      @color.ColorSpaceIdentity::Srgb, @color.TransferIdentity::EncodedSrgb,
+      None, @profile.ProfileIdentity::builtin_srgb(), @model.Orientation::TopLeft,
+      @metadata.OpaqueMetadata::from_entries(
+        [], @metadata.MetadataLimits::new(
+          max_entries=1UL, max_token_bytes=16UL, max_value_bytes=1UL,
+          max_total_bytes=32UL, max_disposition_fields=4UL,
+        ), png_encode_budget(bytes=1UL, work=0UL),
+      ).unwrap(),
+    ),
+  ).unwrap()
+  let image = @storage.OwnedImage::new(
+    descriptor, png_encode_budget(bytes=width * height, work=0UL),
+  ).unwrap()
+  image.with_mut_view(fn(view) {
+    for y = 0UL; y < height; y = y + 1UL {
+      for x = 0UL; x < width; x = x + 1UL {
+        view.set_byte(x, y, 0UL, pixels[(y * width + x).to_int()]).unwrap()
+      }
+    }
+    Ok(())
+  }).unwrap()
+  image
+}
+
 ///|
 fn png_encode_prefix(writer : @io.MemoryWriter) -> Bytes {
   let bytes : Array[Byte] = []
@@ -477,6 +519,29 @@ test "PNG filter strategy eager frozen compatibility vectors" {
     }
   }
 
+}
+
+///| Explicit Gray8 uses the real Stored byte route with PNG color type 0;
+/// legacy RGB/RGBA byte fixtures above remain the compatibility baseline.
+test "PNG Gray8 eager Stored output and profile admission are atomic" {
+  let gray = png_encode_gray8_image(b"\x7f")
+  let (_, writer) = png_encode_with(PngEncoder::new_gray8(), gray)
+  let bytes = png_encode_prefix(writer)
+  let expected =
+    b"\x89PNG\r\n\x1a\n\x00\x00\x00\x0dIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x00\x00\x00\x00\x3a\x7e\x9b\x55\x00\x00\x00\x0dIDAT\x78\x01\x01\x02\x00\xfd\xff\x00\x7f\x00\x81\x00\x80\x7c\x4b\x6c\xa3\x00\x00\x00\x00IEND\xae\x42\x60\x82"
+  inspect(bytes == expected && bytes[24] == b'\x08' && bytes[25] == b'\x00' && bytes[28] == b'\x00', content="true")
+
+  let rgb = png_encode_image(3UL, b"\x00\x01\x02")
+  let budget = png_encode_budget()
+  let before = budget.remaining()
+  let rejected = @io.MemoryWriter::new(512UL, png_encode_budget(bytes=512UL, work=0UL)).unwrap()
+  let error = @codec.ImageEncoder::encode(
+    PngEncoder::new_gray8(), rgb.view(), rejected as &@io.Writer,
+    @codec.EncodeOptions::new(lossless_required=true, preserve_opaque_metadata=false),
+    png_encode_limits(), budget, @error.Diagnostics::new(),
+  ).unwrap_err()
+  inspect(error.context(), content="Some(gray8-required)")
+  inspect(rejected.position() == 0UL && png_adam7_same_remaining(before, budget.remaining()), content="true")
 }
 
 ///|
