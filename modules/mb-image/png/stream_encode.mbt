@@ -19,12 +19,10 @@ pub fn PngChunkEncoder::new(
 }
 
 ///|
-/// Constructs a caller-buffered encoder with an explicit PNG compression strategy.
-/// `Stored` and `FixedOrStored` retain frozen compatibility output. `DynamicOrFixedOrStored`
-/// may choose Dynamic only for a strict complete-PNG win over unchanged FixedOrStored and
-/// retains FixedOrStored on a tie. It excludes adaptive filtering, matching beyond distance
-/// four, 32 KiB history, image-sized staging, length-limited optimization, FFI, host
-/// streaming, APNG, colour, and metadata expansion; the legacy constructor remains Stored.
+/// Constructs a caller-buffered encoder with an explicit PNG compression strategy
+/// and the explicit filter-None route. `Stored` and `FixedOrStored` retain frozen
+/// compatibility output. `DynamicOrFixedOrStored` may choose Dynamic only for a
+/// strict complete-PNG win over unchanged FixedOrStored and retains FixedOrStored on a tie.
 pub fn PngChunkEncoder::new_with_compression_strategy(
   source : @storage.ImageView,
   strategy : PngCompressionStrategy,
@@ -38,10 +36,10 @@ pub fn PngChunkEncoder::new_with_compression_strategy(
 }
 
 ///|
-/// Constructs a caller-buffered encoder with an explicit PNG filter selection.
-/// `Adaptive` is a temporary filter-None compatibility shim: it uses Stored
-/// compression and preserves the established output acknowledgement and progress
-/// behavior while row filters and scoring remain out of scope for this phase.
+/// Constructs a caller-buffered encoder with an explicit PNG filter selection
+/// and the Stored compression route. `new_with_filter_strategy(Adaptive)` remains
+/// Stored plus Adaptive; use `new_with_strategies` to combine Adaptive with a
+/// different compression strategy.
 pub fn PngChunkEncoder::new_with_filter_strategy(
   source : @storage.ImageView,
   filter_strategy : PngFilterStrategy,
@@ -55,7 +53,11 @@ pub fn PngChunkEncoder::new_with_filter_strategy(
 }
 
 ///|
-fn PngChunkEncoder::new_with_strategies(
+/// Constructs a caller-buffered encoder with explicit PNG compression and filter
+/// strategies. With `Adaptive`, the shared machine evaluates method-0 candidates
+/// in None, Sub, Up, Average, Paeth order, scores signed-absolute residual
+/// magnitudes, and replaces the winner only for a strictly lower score.
+pub fn PngChunkEncoder::new_with_strategies(
   source : @storage.ImageView,
   strategy : PngCompressionStrategy,
   filter_strategy : PngFilterStrategy,

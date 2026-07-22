@@ -82,9 +82,11 @@ pub(all) enum PngCompressionStrategy {
 
 ///|
 /// PNG scanline filter selection for the strict RGB8 and straight-RGBA8 profile.
-/// `None` preserves the established filter-None representation. `Adaptive` is an
-/// explicit compatibility shim in this phase: it also emits filter-None scanlines
-/// with Stored compression; row filters and scoring are not implemented yet.
+/// `None` preserves the established filter-None representation. `Adaptive` selects
+/// a method-0 filter for each row by evaluating None, Sub, Up, Average, then Paeth.
+/// Each candidate is scored by the sum of its signed-absolute residual magnitudes;
+/// only a strictly lower score replaces the winner, so equal scores retain the
+/// earlier candidate in that order.
 pub(all) enum PngFilterStrategy {
   None
   Adaptive
@@ -108,12 +110,10 @@ pub fn PngEncoder::new() -> PngEncoder {
 }
 
 ///|
-/// Constructs an encoder with an explicit PNG compression strategy. `FixedOrStored`
-/// retains its frozen bounded exact fixed-or-Stored choice. `DynamicOrFixedOrStored` may
-/// choose Dynamic only for a strict complete-PNG win over unchanged FixedOrStored and
-/// retains FixedOrStored on a tie. It excludes adaptive filters, matching beyond distance
-/// four, 32 KiB history, image-sized staging, length-limited optimization, FFI, host
-/// streaming, APNG, colour, and metadata expansion; `new()` remains an explicit Stored route.
+/// Constructs an encoder with an explicit PNG compression strategy and the explicit
+/// filter-None route. `FixedOrStored` retains its frozen bounded exact fixed-or-Stored
+/// choice. `DynamicOrFixedOrStored` may choose Dynamic only for a strict complete-PNG
+/// win over unchanged FixedOrStored and retains FixedOrStored on a tie.
 pub fn PngEncoder::new_with_compression_strategy(
   strategy : PngCompressionStrategy,
 ) -> PngEncoder {
@@ -121,10 +121,10 @@ pub fn PngEncoder::new_with_compression_strategy(
 }
 
 ///|
-/// Constructs an encoder with an explicit PNG filter selection. `Adaptive` is a
-/// temporary filter-None compatibility shim and therefore emits the same Stored
-/// PNG bytes as the established filter-None route; it does not select row filters
-/// or change compression planning in this phase.
+/// Constructs an encoder with an explicit PNG filter selection and the Stored
+/// compression route. `new_with_filter_strategy(Adaptive)` therefore remains
+/// Stored plus Adaptive; use `new_with_strategies` to combine Adaptive with a
+/// different compression strategy.
 pub fn PngEncoder::new_with_filter_strategy(
   filter_strategy : PngFilterStrategy,
 ) -> PngEncoder {
@@ -132,6 +132,19 @@ pub fn PngEncoder::new_with_filter_strategy(
     strategy: PngCompressionStrategy::Stored,
     filter_strategy,
   }
+}
+
+/// Constructs an encoder with explicit PNG compression and filter strategies.
+/// With `Adaptive`, method-0 candidates are evaluated in None, Sub, Up, Average,
+/// Paeth order and scored by signed-absolute residual magnitude; only a strictly
+/// lower score replaces the winner, retaining the earlier candidate on a tie.
+/// `new()`, compression-only factories, and legacy routes remain explicit None
+/// filters, while filter-only Adaptive remains Stored plus Adaptive.
+pub fn PngEncoder::new_with_strategies(
+  strategy : PngCompressionStrategy,
+  filter_strategy : PngFilterStrategy,
+) -> PngEncoder {
+  PngEncoder::{ strategy, filter_strategy }
 }
 
 ///|

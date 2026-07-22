@@ -191,7 +191,7 @@ fn _png_encode_selected_work(
 }
 
 ///| PNG method-0 filter candidates remain in their mandated stable order.
-enum PngRowFilter {
+priv enum PngRowFilter {
   None
   Sub
   Up

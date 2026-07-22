@@ -314,7 +314,10 @@ test "PNG adaptive combined chunk routes" {
     PngCompressionStrategy::FixedOrStored,
     PngCompressionStrategy::DynamicOrFixedOrStored,
   ] {
-    for image in [png_stream_test_dynamic_corpus_image(3UL), png_stream_test_dynamic_corpus_image(4UL)] {
+    for image in [
+      png_stream_test_dynamic_corpus_image(3UL, width=2UL),
+      png_stream_test_dynamic_corpus_image(4UL, width=2UL),
+    ] {
       let eager = png_stream_test_eager_with_strategies(
         image, strategy, PngFilterStrategy::Adaptive,
       )
