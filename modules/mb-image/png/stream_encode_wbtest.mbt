@@ -316,6 +316,23 @@ test "PNG adaptive planner cursor keeps row selection pending until acknowledgem
 }
 
 ///|
+///| The matcher probe must use the same one-row-at-a-time source that later
+///| becomes the acknowledged replay successor; a Fixed preflight therefore has
+///| Stored and Fixed planning traversals before its one replay traversal.
+test "PNG adaptive match cursor keeps Fixed preview accounting bounded" {
+  let image = png_wb_adaptive_rgb_image()
+  let facts = _png_encode_preflight_with_filter(
+    image.view(),
+    PngCompressionStrategy::FixedOrStored,
+    PngFilterStrategy::Adaptive,
+    png_stream_wb_limits(),
+    png_stream_wb_budget(work=1048576UL),
+  ).unwrap()
+  inspect(facts.adaptive_planning_facts.resolved_rows, content="4")
+  inspect(facts.adaptive_replay_facts.resolved_rows, content="2")
+}
+
+///|
 test "PNG encode machine presents bytes without advancing and keeps scalar ownership" {
   let image = png_stream_wb_image()
   let machine = PngEncodeMachine::new(

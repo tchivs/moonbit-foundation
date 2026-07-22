@@ -224,6 +224,20 @@ test "PNG adaptive cursor work ledger covers FixedOrStored planning and replay" 
 }
 
 ///|
+///| Fixed planning probes every selected byte through a fresh forward traversal.
+///| Stored establishes its candidate facts, Fixed establishes its matcher facts,
+///| and the winner receives one more replay traversal.
+test "PNG adaptive match cursor covers FixedOrStored probe traversals" {
+  let facts = png_wb_adaptive_cursor_work_ledger(PngCompressionStrategy::FixedOrStored)
+  inspect(facts.adaptive_planning_facts.resolved_rows, content="4")
+  inspect(facts.adaptive_planning_facts.candidate_residuals, content="120")
+  inspect(facts.adaptive_planning_facts.selected_residuals, content="24")
+  inspect(facts.adaptive_replay_facts.resolved_rows, content="2")
+  inspect(facts.adaptive_replay_facts.candidate_residuals, content="60")
+  inspect(facts.adaptive_replay_facts.selected_residuals, content="12")
+}
+
+///|
 test "PNG adaptive cursor work ledger covers DynamicOrFixedOrStored planning and replay" {
   let facts = png_wb_adaptive_cursor_work_ledger(
     PngCompressionStrategy::DynamicOrFixedOrStored,
@@ -232,6 +246,21 @@ test "PNG adaptive cursor work ledger covers DynamicOrFixedOrStored planning and
   inspect(facts.adaptive_replay_facts.resolved_rows, content="2")
   inspect(png_wb_adaptive_cursor_exact_work(PngCompressionStrategy::DynamicOrFixedOrStored, facts.selected_work), content="true")
   inspect(png_wb_adaptive_cursor_rejects_one_less(PngCompressionStrategy::DynamicOrFixedOrStored, facts.selected_work), content="true")
+}
+
+///|
+///| Dynamic establishes Stored, Fixed, frequency/fingerprint, and exact-bit
+///| traversals before selecting exactly one replay source.
+test "PNG adaptive match cursor covers DynamicOrFixedOrStored probe traversals" {
+  let facts = png_wb_adaptive_cursor_work_ledger(
+    PngCompressionStrategy::DynamicOrFixedOrStored,
+  )
+  inspect(facts.adaptive_planning_facts.resolved_rows, content="8")
+  inspect(facts.adaptive_planning_facts.candidate_residuals, content="240")
+  inspect(facts.adaptive_planning_facts.selected_residuals, content="48")
+  inspect(facts.adaptive_replay_facts.resolved_rows, content="2")
+  inspect(facts.adaptive_replay_facts.candidate_residuals, content="60")
+  inspect(facts.adaptive_replay_facts.selected_residuals, content="12")
 }
 
 ///|
