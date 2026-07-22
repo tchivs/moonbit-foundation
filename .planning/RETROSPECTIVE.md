@@ -149,7 +149,7 @@
 
 ## Milestone: v0.17 — GrayAlpha16 PNG Interchange
 
-**Shipped:** 2026-07-23  
+**Shipped:** 2026-07-23
 **Phases:** 3 | **Plans:** 4 | **Tasks:** 8
 
 ### What Was Built
