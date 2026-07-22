@@ -35,7 +35,7 @@
 **Milestone Goal:** MoonBit library users can create packed straight-alpha grayscale images and encode them as bounded, non-interlaced Gray+Alpha8 PNGs with portable public proof, without changing existing PNG or image-model contracts.
 
 - [x] **Phase 50: Gray+Alpha Image Model** - Establish the explicit packed U8 two-component image contract while preserving existing image formats. (completed 2026-07-23)
-- [ ] **Phase 51: Bounded Gray+Alpha PNG Encoding** - Route compatible Gray+Alpha8 sources through the shared eager and caller-buffered bounded encoder.
+- [x] **Phase 51: Bounded Gray+Alpha PNG Encoding** - Route compatible Gray+Alpha8 sources through the shared eager and caller-buffered bounded encoder. (completed 2026-07-23)
 - [ ] **Phase 52: Portable Gray+Alpha Public Evidence** - Prove wire fidelity, hostile caller-buffered identity, legacy compatibility, and four-target behavior.
 
 ## Phase Details
@@ -65,7 +65,7 @@
   3. The explicit Gray+Alpha8 route supports None and Adaptive filtering with Stored, FixedOrStored, and DynamicOrFixedOrStored compression selections under the established bounded contract.
   4. Incompatible inputs and resource-limit failures are reported before any eager output or caller-buffered lease is exposed.
 
-**Plans**: 1/2 plans executed
+**Plans**: 2/2 plans executed
 
 Plans:
 **Wave 1**
@@ -74,7 +74,7 @@ Plans:
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
-- [ ] 51-02-PLAN.md — Prove bounded strategy parity and atomic Gray+Alpha preflight rejection.
+- [x] 51-02-PLAN.md — Prove bounded strategy parity and atomic Gray+Alpha preflight rejection.
 
 ### Phase 52: Portable Gray+Alpha Public Evidence
 
@@ -95,5 +95,5 @@ Plans:
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 50. Gray+Alpha Image Model | 1/1 | Complete    | 2026-07-23 |
-| 51. Bounded Gray+Alpha PNG Encoding | 1/2 | In Progress|  |
+| 51. Bounded Gray+Alpha PNG Encoding | 2/2 | Complete    | 2026-07-23 |
 | 52. Portable Gray+Alpha Public Evidence | 0/TBD | Not started | - |
