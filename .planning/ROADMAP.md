@@ -24,7 +24,7 @@
 ## Phases
 
 - [x] **Phase 44: Gray8 Factory Compatibility** - Add the explicit non-interlaced Gray8 eager and caller-buffered selection boundary while preserving RGB8/RGBA8 behavior. (completed 2026-07-22)
-- [ ] **Phase 45: Bounded Gray8 Encoder Path** - Route Gray8 through the shared bounded preflight, filtering, compression, and acknowledgement-safe replay pipeline.
+- [x] **Phase 45: Bounded Gray8 Encoder Path** - Route Gray8 through the shared bounded preflight, filtering, compression, and acknowledgement-safe replay pipeline. (completed 2026-07-22)
 - [ ] **Phase 46: Portable Gray8 Public Evidence** - Prove Gray8 public fidelity, hostile-capacity eager/chunk identity, RGB/RGBA compatibility, and independent four-target execution.
 
 ## Phase Details
@@ -73,7 +73,7 @@
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 44. Gray8 Factory Compatibility | 1/1 | Complete    | 2026-07-22 |
-| 45. Bounded Gray8 Encoder Path | 0/TBD | Not started | - |
+| 45. Bounded Gray8 Encoder Path | 1/1 | Complete    | 2026-07-22 |
 | 46. Portable Gray8 Public Evidence | 0/TBD | Not started | - |
 
 ## Next
