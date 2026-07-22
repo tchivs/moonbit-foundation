@@ -888,14 +888,16 @@ fn png_chunk_test_eager_error(
 }
 
 ///|
-fn png_chunk_test_drain_hostile(
+fn png_chunk_test_drain_hostile_with_strategies(
   image : @storage.OwnedImage,
+  strategy : PngCompressionStrategy,
+  filter_strategy : PngFilterStrategy,
   schedule : Array[UInt64],
 ) -> Bytes {
-  let eager = png_stream_test_eager(image)
-  let encoder = PngChunkEncoder::new(
-    image.view(), png_stream_test_limits(), png_stream_test_budget(),
-    @error.Diagnostics::new(),
+  let eager = png_stream_test_eager_with_strategies(image, strategy, filter_strategy)
+  let encoder = PngChunkEncoder::new_with_strategies(
+    image.view(), strategy, filter_strategy, png_stream_test_limits(),
+    png_stream_test_budget(), @error.Diagnostics::new(),
   ).unwrap()
   let output : Array[Byte] = []
   let mut turn = 0UL
@@ -942,6 +944,98 @@ fn png_chunk_test_drain_hostile(
     }
   }
   abort("png chunk hostile drain unreachable")
+}
+
+///| Retain the legacy Stored/filter-None hostile route through the generalized
+///| public-factory drain.
+fn png_chunk_test_drain_hostile(
+  image : @storage.OwnedImage,
+  schedule : Array[UInt64],
+) -> Bytes {
+  png_chunk_test_drain_hostile_with_strategies(
+    image, PngCompressionStrategy::Stored, PngFilterStrategy::None, schedule,
+  )
+}
+
+///|
+fn png_stream_adaptive_evidence_image(
+  channels : UInt64,
+  width : UInt64,
+  height : UInt64,
+) -> @storage.OwnedImage {
+  let descriptor = @model.ImageDescriptor::new(
+    width, height,
+    if channels == 3UL { @model.ImageFormat::rgb8() } else { @model.ImageFormat::rgba8() },
+    [@model.PlaneDescriptor::new(
+      0UL, channels * width * height, channels * width, channels * width,
+      1UL, 1UL, width, height,
+    ).unwrap()],
+    channels * width * height,
+    @model.ImageMetadata::new(
+      @color.ColorSpaceIdentity::Srgb, @color.TransferIdentity::EncodedSrgb,
+      if channels == 4UL { Some(@color.AlphaMode::Straight) } else { None },
+      @profile.ProfileIdentity::builtin_srgb(), @model.Orientation::TopLeft,
+      @metadata.OpaqueMetadata::from_entries(
+        [], @metadata.MetadataLimits::new(
+          max_entries=1UL, max_token_bytes=16UL, max_value_bytes=1UL,
+          max_total_bytes=32UL, max_disposition_fields=4UL,
+        ), png_stream_test_budget(work=0UL),
+      ).unwrap(),
+    ),
+  ).unwrap()
+  @storage.OwnedImage::new(descriptor, png_stream_test_budget(work=0UL)).unwrap()
+}
+
+///| CandidateSelection winner R1, duplicated locally for public chunk evidence.
+fn png_stream_adaptive_evidence_rgb8_horizontal_image() -> @storage.OwnedImage {
+  let image = png_stream_adaptive_evidence_image(3UL, 32UL, 1UL)
+  image.with_mut_view(fn(view) {
+    for x = 0UL; x < 32UL; x = x + 1UL {
+      view.set_byte(x, 0UL, 0UL, x.to_byte()).unwrap()
+      view.set_byte(x, 0UL, 1UL, (x + 64UL).to_byte()).unwrap()
+      view.set_byte(x, 0UL, 2UL, (x + 128UL).to_byte()).unwrap()
+    }
+    Ok(())
+  }).unwrap()
+  image
+}
+
+///| CandidateSelection winner A1, duplicated locally for public chunk evidence.
+fn png_stream_adaptive_evidence_straight_rgba8_vertical_image() -> @storage.OwnedImage {
+  let image = png_stream_adaptive_evidence_image(4UL, 16UL, 8UL)
+  image.with_mut_view(fn(view) {
+    for y = 0UL; y < 8UL; y = y + 1UL {
+      for x = 0UL; x < 16UL; x = x + 1UL {
+        let value = 3UL * x + y
+        view.set_byte(x, y, 0UL, value.to_byte()).unwrap()
+        view.set_byte(x, y, 1UL, (value + 64UL).to_byte()).unwrap()
+        view.set_byte(x, y, 2UL, (value + 128UL).to_byte()).unwrap()
+        view.set_byte(x, y, 3UL, 200UL.to_byte()).unwrap()
+      }
+    }
+    Ok(())
+  }).unwrap()
+  image
+}
+
+///|
+test "PNG adaptive filter evidence RGB8 horizontal chunk exactly matches eager and decodes completely" {
+  let source = png_stream_adaptive_evidence_rgb8_horizontal_image()
+  let bytes = png_chunk_test_drain_hostile_with_strategies(
+    source, PngCompressionStrategy::FixedOrStored, PngFilterStrategy::Adaptive,
+    [0UL, 8UL, 4UL, 1UL, 13UL, 2UL, 5UL, 3UL, 21UL],
+  )
+  png_stream_test_fixed_or_stored_corpus_decode_matches_source(bytes, source)
+}
+
+///|
+test "PNG adaptive filter evidence straight-RGBA8 vertical chunk exactly matches eager and decodes completely" {
+  let source = png_stream_adaptive_evidence_straight_rgba8_vertical_image()
+  let bytes = png_chunk_test_drain_hostile_with_strategies(
+    source, PngCompressionStrategy::FixedOrStored, PngFilterStrategy::Adaptive,
+    [0UL, 8UL, 4UL, 1UL, 13UL, 2UL, 5UL, 3UL, 21UL],
+  )
+  png_stream_test_fixed_or_stored_corpus_decode_matches_source(bytes, source)
 }
 
 ///|

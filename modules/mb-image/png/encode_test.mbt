@@ -101,7 +101,8 @@ fn png_filter_strategy_decode_matches_source(
     PngDecoder::new(), @io.MemoryReader::new(owner.view()) as &@io.Reader,
     @codec.DecodeOptions::new(
       require_complete_input=true, preserve_opaque_metadata=false,
-    ), png_encode_limits(), png_encode_budget(), @error.Diagnostics::new(),
+    ), png_encode_limits(output=4096UL, work=1048576UL),
+    png_encode_budget(bytes=4096UL, work=1048576UL), @error.Diagnostics::new(),
   ).unwrap()
   let restored = decoded.image().view()
   let expected = source.view()
@@ -119,6 +120,184 @@ fn png_filter_strategy_decode_matches_source(
       }
     }
   }
+}
+
+///|
+fn png_adaptive_evidence_rgb8_horizontal_candidate_image(width : UInt64) -> @storage.OwnedImage {
+  let image = png_encode_image(
+    3UL, Bytes::from_array(Array::make((width * 3UL).to_int(), b'\x00')),
+    width=width,
+  )
+  image.with_mut_view(fn(view) {
+    for x = 0UL; x < width; x = x + 1UL {
+      view.set_byte(x, 0UL, 0UL, x.to_byte()).unwrap()
+      view.set_byte(x, 0UL, 1UL, (x + 64UL).to_byte()).unwrap()
+      view.set_byte(x, 0UL, 2UL, (x + 128UL).to_byte()).unwrap()
+    }
+    Ok(())
+  }).unwrap()
+  image
+}
+
+///|
+fn png_adaptive_evidence_rgb8_diagonal_image() -> @storage.OwnedImage {
+  let image = png_encode_image(
+    3UL, Bytes::from_array(Array::make(32 * 4 * 3, b'\x00')),
+    width=32UL, height=4UL,
+  )
+  image.with_mut_view(fn(view) {
+    for y = 0UL; y < 4UL; y = y + 1UL {
+      for x = 0UL; x < 32UL; x = x + 1UL {
+        let value = x + y
+        view.set_byte(x, y, 0UL, value.to_byte()).unwrap()
+        view.set_byte(x, y, 1UL, (value + 64UL).to_byte()).unwrap()
+        view.set_byte(x, y, 2UL, (value + 128UL).to_byte()).unwrap()
+      }
+    }
+    Ok(())
+  }).unwrap()
+  image
+}
+
+///|
+fn png_adaptive_evidence_straight_rgba8_candidate_image(
+  width : UInt64,
+  height : UInt64,
+) -> @storage.OwnedImage {
+  let image = png_encode_image(
+    4UL, Bytes::from_array(Array::make((width * height * 4UL).to_int(), b'\x00')),
+    width=width, height=height,
+  )
+  image.with_mut_view(fn(view) {
+    for y = 0UL; y < height; y = y + 1UL {
+      for x = 0UL; x < width; x = x + 1UL {
+        let value = 3UL * x + y
+        view.set_byte(x, y, 0UL, value.to_byte()).unwrap()
+        view.set_byte(x, y, 1UL, (value + 64UL).to_byte()).unwrap()
+        view.set_byte(x, y, 2UL, (value + 128UL).to_byte()).unwrap()
+        view.set_byte(x, y, 3UL, 200UL.to_byte()).unwrap()
+      }
+    }
+    Ok(())
+  }).unwrap()
+  image
+}
+
+///|
+fn png_adaptive_evidence_straight_rgba8_diagonal_image() -> @storage.OwnedImage {
+  let image = png_encode_image(
+    4UL, Bytes::from_array(Array::make(16 * 16 * 4, b'\x00')),
+    width=16UL, height=16UL,
+  )
+  image.with_mut_view(fn(view) {
+    for y = 0UL; y < 16UL; y = y + 1UL {
+      for x = 0UL; x < 16UL; x = x + 1UL {
+        let value = x + y
+        view.set_byte(x, y, 0UL, value.to_byte()).unwrap()
+        view.set_byte(x, y, 1UL, (value + 64UL).to_byte()).unwrap()
+        view.set_byte(x, y, 2UL, (value + 128UL).to_byte()).unwrap()
+        view.set_byte(x, y, 3UL, 200UL.to_byte()).unwrap()
+      }
+    }
+    Ok(())
+  }).unwrap()
+  image
+}
+
+///|
+fn png_adaptive_evidence_adaptive_beats_none(image : @storage.OwnedImage) -> Bytes {
+  let none = png_adaptive_evidence_encode(image, PngFilterStrategy::None)
+  let adaptive = png_adaptive_evidence_encode(image, PngFilterStrategy::Adaptive)
+  if adaptive.length() >= none.length() {
+    abort("png adaptive evidence strict win")
+  }
+  adaptive
+}
+
+///|
+fn png_adaptive_evidence_encode(
+  image : @storage.OwnedImage,
+  filter_strategy : PngFilterStrategy,
+) -> Bytes {
+  let writer = @io.MemoryWriter::new(
+    4096UL, png_encode_budget(bytes=4096UL, work=0UL),
+  ).unwrap()
+  ignore(@codec.ImageEncoder::encode(
+    PngEncoder::new_with_strategies(
+      PngCompressionStrategy::FixedOrStored, filter_strategy,
+    ), image.view(), writer as &@io.Writer,
+    @codec.EncodeOptions::new(lossless_required=true, preserve_opaque_metadata=false),
+    png_encode_limits(output=4096UL, work=1048576UL),
+    png_encode_budget(bytes=4096UL, work=1048576UL), @error.Diagnostics::new(),
+  ).unwrap())
+  png_encode_prefix(writer)
+}
+
+///|
+test "PNG adaptive filter evidence candidate RGB8 R1 strict win" {
+  ignore(png_adaptive_evidence_adaptive_beats_none(
+    png_adaptive_evidence_rgb8_horizontal_candidate_image(32UL),
+  ))
+}
+
+///|
+test "PNG adaptive filter evidence candidate RGB8 R2 strict win" {
+  ignore(png_adaptive_evidence_adaptive_beats_none(
+    png_adaptive_evidence_rgb8_horizontal_candidate_image(64UL),
+  ))
+}
+
+///|
+test "PNG adaptive filter evidence candidate RGB8 R3 strict win" {
+  ignore(png_adaptive_evidence_adaptive_beats_none(png_adaptive_evidence_rgb8_diagonal_image()))
+}
+
+///|
+test "PNG adaptive filter evidence candidate straight-RGBA8 A1 strict win" {
+  ignore(png_adaptive_evidence_adaptive_beats_none(
+    png_adaptive_evidence_straight_rgba8_candidate_image(16UL, 8UL),
+  ))
+}
+
+///|
+test "PNG adaptive filter evidence candidate straight-RGBA8 A2 strict win" {
+  ignore(png_adaptive_evidence_adaptive_beats_none(
+    png_adaptive_evidence_straight_rgba8_candidate_image(32UL, 4UL),
+  ))
+}
+
+///|
+test "PNG adaptive filter evidence candidate straight-RGBA8 A3 strict win" {
+  ignore(png_adaptive_evidence_adaptive_beats_none(
+    png_adaptive_evidence_straight_rgba8_diagonal_image(),
+  ))
+}
+
+///| Selected CandidateSelection winner R1: 32x1 `(x, x+64, x+128)` RGB8.
+fn png_adaptive_evidence_rgb8_horizontal_image() -> @storage.OwnedImage {
+  png_adaptive_evidence_rgb8_horizontal_candidate_image(32UL)
+}
+
+///| Selected CandidateSelection winner A1: 16x8 `(3x+y, 3x+y+64,
+///| 3x+y+128, 200)` straight-RGBA8.
+fn png_adaptive_evidence_straight_rgba8_vertical_image() -> @storage.OwnedImage {
+  png_adaptive_evidence_straight_rgba8_candidate_image(16UL, 8UL)
+}
+
+///|
+test "PNG adaptive filter evidence RGB8 horizontal eager strictly beats None and decodes completely" {
+  let source = png_adaptive_evidence_rgb8_horizontal_image()
+  png_filter_strategy_decode_matches_source(
+    png_adaptive_evidence_adaptive_beats_none(source), source,
+  )
+}
+
+///|
+test "PNG adaptive filter evidence straight-RGBA8 vertical eager strictly beats None and decodes completely" {
+  let source = png_adaptive_evidence_straight_rgba8_vertical_image()
+  png_filter_strategy_decode_matches_source(
+    png_adaptive_evidence_adaptive_beats_none(source), source,
+  )
 }
 
 ///| Every public compression strategy may opt into bounded Adaptive filtering

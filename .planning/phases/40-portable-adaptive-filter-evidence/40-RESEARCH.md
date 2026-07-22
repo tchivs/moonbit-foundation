@@ -276,7 +276,7 @@ Before removing the directory, implementation must prove that the resolved path 
 
 | # | Claim | Section | Risk if Wrong |
 |---|---|---|---|
-| A1 | The stated 32x1 RGB8 and 16x8 straight-RGBA8 formulas yield strict Adaptive `<` None `FixedOrStored` output on all four targets. | Summary; Architecture Patterns | Tests fail; adjust only deterministic fixture dimensions/formula while preserving the locked comparison contract. |
+| A1 | RESOLVED — the fixed R1-R3/A1-A3 probe found strict `FixedOrStored + Adaptive < FixedOrStored + None` on every portable target. The first ordered winners are R1 and A1. | CandidateSelection, 2026-07-22 | Final corpus is limited to those selected formulas. |
 | A2 | A GUID-owned OS temporary directory with verified containment is the best implementation of cleaned target-root isolation for this script. | Don't Hand-Roll; Pitfalls; Code Examples | Cleanup could be incomplete or unsafe; implementation must validate containment before deletion. |
 | A3 | The existing package-private test helpers can be shared across `encode_test.mbt` and `stream_encode_test.mbt`; if MoonBit visibility prevents that, duplicate only the tiny source formula, not encoder/chunk/decode logic. | Architecture Patterns | Compile failure; keep fixture builder local to each test file with identical documented formula. |
 
@@ -291,6 +291,23 @@ Before removing the directory, implementation must prove that the resolved path 
    - What we know: each existing file already has independently usable image, eager, chunk, and decoder helpers. [VERIFIED: codebase — encode_test.mbt; stream_encode_test.mbt]
    - What's unclear: the local declaration visibility convention was not independently compiled in this research pass. [ASSUMED]
    - Recommendation: prefer one shared package-private fixture helper; fall back to two small identical helpers if compiler visibility requires it. [ASSUMED]
+
+## A1 Candidate-Selection Evidence
+
+**A1: RESOLVED** — run 2026-07-22 with:
+
+```powershell
+& .\scripts\quality\Invoke-PngEncodeEvidence.ps1 -Mode CandidateSelection
+```
+
+| Target | R1 | R2 | R3 | A1 | A2 | A3 |
+|---|---|---|---|---|---|---|
+| js | pass | pass | pass | pass | pass | pass |
+| wasm | pass | pass | pass | pass | pass | pass |
+| wasm-gc | pass | pass | pass | pass | pass | pass |
+| native | pass | pass | pass | pass | pass | pass |
+
+The ordered all-target selections are **R1** (RGB8 32x1 horizontal) and **A1** (straight-RGBA8 16x8). Each candidate was invoked separately from a GUID-owned temporary target root, and the runner removed that root in `finally` after containment and prefix validation.
 
 ## Environment Availability
 
