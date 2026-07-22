@@ -1,5 +1,17 @@
 # Project Milestones: MoonBit Native Foundation
 
+## v0.14 Gray8 PNG Interchange (Shipped: 2026-07-22)
+
+**Phases completed:** 3 phases, 3 plans, 6 tasks
+
+**Key accomplishments:**
+
+- Explicit eager and caller-buffered Gray8 factories now produce standards-compliant 8-bit, type-0, non-interlaced Stored PNGs without changing legacy RGB8 or straight-RGBA8 behavior.
+- Gray8 strategy factories now use the existing bounded preflight, filter, DEFLATE winner, and acknowledgement-safe replay machine.
+- Public Gray8 PNG eager fidelity and caller-buffered eager-byte identity are proven across six strategy pairs and four portable targets.
+
+---
+
 ## v0.13 PNG Adam7 Encode (Shipped: 2026-07-22)
 
 **Phases completed:** 3 phases, 4 plans, 5 tasks

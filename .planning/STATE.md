@@ -2,18 +2,18 @@
 gsd_state_version: 1.0
 milestone: v0.14
 milestone_name: Gray8 PNG Interchange
-current_phase: 46
-status: completed
+status: Awaiting next milestone
 stopped_at: Phase 45 context gathered
-last_updated: "2026-07-22T12:20:52.726Z"
+last_updated: "2026-07-22T12:23:24.904Z"
 last_activity: 2026-07-22
-last_activity_desc: Phase 46 complete
+last_activity_desc: Milestone v0.14 completed and archived
 progress:
   total_phases: 3
   completed_phases: 3
   total_plans: 3
   completed_plans: 3
   percent: 100
+current_phase: 46
 current_phase_name: Portable Gray8 Public Evidence
 ---
 
@@ -29,12 +29,10 @@ See `.planning/PROJECT.md` (updated 2026-07-22).
 
 ## Current Position
 
-Phase: 46
-Plan: Not started
-Status: All phases complete
-Last activity: 2026-07-22 — Phase 46 complete
-
-Progress: [░░░░░░░░░░] 0%
+Phase: Milestone v0.14 complete
+Plan: —
+Status: Awaiting next milestone
+Last activity: 2026-07-22 — Milestone v0.14 completed and archived
 
 ## Performance Metrics
 
@@ -78,4 +76,4 @@ Resume file: .planning/phases/45-bounded-gray8-encoder-path/45-CONTEXT.md
 
 ## Operator Next Steps
 
-- Start Phase 44 planning with `/gsd-plan-phase 44`.
+- Start the next milestone with /gsd-new-milestone

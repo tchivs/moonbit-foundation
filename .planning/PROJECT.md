@@ -98,15 +98,11 @@ Registry publication and release automation remain deferred unless they directly
 
 Registry publication and release automation remain deferred unless a concrete consumer is blocked by their absence.
 
-## Current Milestone: v0.13 PNG Adam7 Encode
+## Current State: v0.14 Gray8 PNG Interchange Shipped
 
-**Goal:** Add a bounded, explicit Adam7 interlaced PNG encoding route for existing RGB8 and straight-RGBA8 images while preserving frozen non-interlaced output and caller-buffered safety semantics.
+**Delivered:** `mb-image` now exposes explicit eager and caller-buffered non-interlaced Gray8 PNG factories, including Stored, FixedOrStored, DynamicOrFixedOrStored, None, and Adaptive selections through the established bounded pipeline.
 
-**Target features:**
-
-- Add an opt-in interlace strategy to the existing eager and caller-buffered PNG encoder factories.
-- Traverse Adam7 passes through bounded filter/compression planning and acknowledgement-safe replay without image-sized staging.
-- Prove public round-trip fidelity, legacy compatibility, eager/chunk byte identity, and four-target portability.
+**Validated:** Generated 5×3 Gray8 public round trips preserve every source sample through the documented RGB decoder canonicalization; caller-buffered zero, one-byte, and ragged schedules remain eager-byte-identical with accepted-only progress; frozen RGB8/straight-RGBA8 vectors and all Gray8 evidence pass independently on js, wasm, wasm-gc, and native.
 
 
 ## Constraints
