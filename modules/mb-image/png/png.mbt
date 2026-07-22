@@ -109,6 +109,7 @@ priv enum PngEncodeProfile {
   Gray8
   Gray16
   GrayAlpha8
+  GrayAlpha16
 } derive(Eq)
 
 ///|
@@ -215,6 +216,46 @@ pub fn PngEncoder::new_graya8_with_strategies(
     filter_strategy,
     interlace_strategy: PngInterlaceStrategy::None,
     profile: PngEncodeProfile::GrayAlpha8,
+  }
+}
+
+///| Constructs the explicit Gray+Alpha16 PNG route: packed 16-bit straight
+/// alpha, Stored DEFLATE, filter None, and no interlace.
+pub fn PngEncoder::new_graya16() -> PngEncoder {
+  PngEncoder::new_graya16_with_strategies(
+    PngCompressionStrategy::Stored, PngFilterStrategy::None,
+  )
+}
+
+///| Constructs a Gray+Alpha16 encoder with an explicit compression strategy
+/// and the filter-None route. Gray+Alpha16 remains intentionally non-interlaced.
+pub fn PngEncoder::new_graya16_with_compression_strategy(
+  strategy : PngCompressionStrategy,
+) -> PngEncoder {
+  PngEncoder::new_graya16_with_strategies(strategy, PngFilterStrategy::None)
+}
+
+///| Constructs a Gray+Alpha16 encoder with an explicit filter strategy and
+/// Stored compression. Gray+Alpha16 remains intentionally non-interlaced.
+pub fn PngEncoder::new_graya16_with_filter_strategy(
+  filter_strategy : PngFilterStrategy,
+) -> PngEncoder {
+  PngEncoder::new_graya16_with_strategies(
+    PngCompressionStrategy::Stored, filter_strategy,
+  )
+}
+
+///| Constructs a Gray+Alpha16 encoder with explicit compression and filter
+/// strategies. Its profile fixes PNG colour type 4 and excludes Adam7.
+pub fn PngEncoder::new_graya16_with_strategies(
+  strategy : PngCompressionStrategy,
+  filter_strategy : PngFilterStrategy,
+) -> PngEncoder {
+  {
+    strategy,
+    filter_strategy,
+    interlace_strategy: PngInterlaceStrategy::None,
+    profile: PngEncodeProfile::GrayAlpha16,
   }
 }
 

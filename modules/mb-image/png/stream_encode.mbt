@@ -159,6 +159,70 @@ pub fn PngChunkEncoder::new_graya8_with_strategies(
   Ok({ state: PngChunkEncoderState::Active(machine), total_written: 0UL })
 }
 
+///| Constructs the explicit Gray+Alpha16 caller-buffered route: packed 16-bit
+/// straight alpha, Stored DEFLATE, filter None, and no interlace.
+pub fn PngChunkEncoder::new_graya16(
+  source : @storage.ImageView,
+  limits : @codec.CodecLimits,
+  budget : @budget.Budget,
+  diagnostics : @error.Diagnostics,
+) -> Result[PngChunkEncoder, @error.CoreError] {
+  PngChunkEncoder::new_graya16_with_strategies(
+    source, PngCompressionStrategy::Stored, PngFilterStrategy::None,
+    limits, budget, diagnostics,
+  )
+}
+
+///| Constructs a Gray+Alpha16 caller-buffered encoder with an explicit
+/// compression strategy and the filter-None route.
+pub fn PngChunkEncoder::new_graya16_with_compression_strategy(
+  source : @storage.ImageView,
+  strategy : PngCompressionStrategy,
+  limits : @codec.CodecLimits,
+  budget : @budget.Budget,
+  diagnostics : @error.Diagnostics,
+) -> Result[PngChunkEncoder, @error.CoreError] {
+  PngChunkEncoder::new_graya16_with_strategies(
+    source, strategy, PngFilterStrategy::None, limits, budget, diagnostics,
+  )
+}
+
+///| Constructs a Gray+Alpha16 caller-buffered encoder with an explicit filter
+/// strategy and Stored compression.
+pub fn PngChunkEncoder::new_graya16_with_filter_strategy(
+  source : @storage.ImageView,
+  filter_strategy : PngFilterStrategy,
+  limits : @codec.CodecLimits,
+  budget : @budget.Budget,
+  diagnostics : @error.Diagnostics,
+) -> Result[PngChunkEncoder, @error.CoreError] {
+  PngChunkEncoder::new_graya16_with_strategies(
+    source, PngCompressionStrategy::Stored, filter_strategy, limits, budget,
+    diagnostics,
+  )
+}
+
+///| Constructs a Gray+Alpha16 caller-buffered encoder with explicit
+/// compression and filter strategies. Its profile fixes PNG colour type 4 and
+/// excludes Adam7.
+pub fn PngChunkEncoder::new_graya16_with_strategies(
+  source : @storage.ImageView,
+  strategy : PngCompressionStrategy,
+  filter_strategy : PngFilterStrategy,
+  limits : @codec.CodecLimits,
+  budget : @budget.Budget,
+  diagnostics : @error.Diagnostics,
+) -> Result[PngChunkEncoder, @error.CoreError] {
+  let machine = match PngEncodeMachine::new_with_profile(
+    source, PngEncodeProfile::GrayAlpha16, strategy,
+    filter_strategy, PngInterlaceStrategy::None, limits, budget, diagnostics,
+  ) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  Ok({ state: PngChunkEncoderState::Active(machine), total_written: 0UL })
+}
+
 ///| Constructs a Gray8 caller-buffered encoder with an explicit compression
 /// strategy and the filter-None route. Gray8 remains intentionally
 /// non-interlaced.
@@ -315,7 +379,7 @@ pub fn PngChunkEncoder::pull(
       outcome_value: PngChunkPullOutcome::Failed(error),
     }
     PngChunkEncoderState::Active(machine) => {
-      match machine.validate_gray16_replay_revision() {
+      match machine.validate_u16_replay_revision() {
         Err(error) => {
           self.state = PngChunkEncoderState::Failed(error)
           return {
@@ -562,7 +626,7 @@ fn PngEncodeMachine::new_with_profile(
     pending_stored: None,
     pending_fixed: None,
     pending_dynamic: None,
-    stored_cursor: if profile == PngEncodeProfile::Gray16 ||
+    stored_cursor: if _png_profile_uses_u16_component_wire(profile) ||
       interlace_strategy == PngInterlaceStrategy::Adam7 ||
       filter_strategy == PngFilterStrategy::Adaptive {
       Some(PngFilteredMatchCursor::new_with_interlace(
@@ -573,7 +637,7 @@ fn PngEncodeMachine::new_with_profile(
       PngDeflatePlan::Stored(_) => None
       PngDeflatePlan::Fixed(_) => Some({
         raw_cursor: 0UL,
-        filtered_cursor: if profile == PngEncodeProfile::Gray16 ||
+        filtered_cursor: if _png_profile_uses_u16_component_wire(profile) ||
           interlace_strategy == PngInterlaceStrategy::Adam7 ||
           filter_strategy == PngFilterStrategy::Adaptive {
           Some(PngFilteredMatchCursor::new_with_interlace(
@@ -588,7 +652,7 @@ fn PngEncodeMachine::new_with_profile(
     dynamic_state: match facts.plan {
       PngDeflatePlan::Dynamic(_) => Some({ phase: 0, header_cursor: 0UL,
         code_length_cursor: 0UL, rle_cursor: 0UL, raw_cursor: 0UL,
-        filtered_cursor: if profile == PngEncodeProfile::Gray16 ||
+        filtered_cursor: if _png_profile_uses_u16_component_wire(profile) ||
           interlace_strategy == PngInterlaceStrategy::Adam7 ||
           filter_strategy == PngFilterStrategy::Adaptive {
           Some(PngFilteredMatchCursor::new_with_interlace(
@@ -703,10 +767,10 @@ fn _png_fixed_put_bits(
 /// Fixed/Dynamic fingerprint checks remain the terminal integrity backstop;
 /// this guard prevents a post-admission U16 mutation from first changing the
 /// caller's current lease.
-fn PngEncodeMachine::validate_gray16_replay_revision(
+fn PngEncodeMachine::validate_u16_replay_revision(
   self : PngEncodeMachine,
 ) -> Result[Unit, @error.CoreError] {
-  if self.profile != PngEncodeProfile::Gray16 ||
+  if !_png_profile_uses_u16_component_wire(self.profile) ||
     self.source.mutation_revision() == self.source_revision { return Ok(()) }
   match self.plan {
     PngDeflatePlan::Fixed(_) =>
@@ -1060,10 +1124,10 @@ fn PngEncodeMachine::byte_at(
     if payload < 8UL { return Ok(_png_encode_machine_u32_byte(self.height, payload - 4UL)) }
     let colour_type = match self.profile {
       PngEncodeProfile::Gray8 | PngEncodeProfile::Gray16 => b'\x00'
-      PngEncodeProfile::GrayAlpha8 => b'\x04'
+      PngEncodeProfile::GrayAlpha8 | PngEncodeProfile::GrayAlpha16 => b'\x04'
       PngEncodeProfile::LegacyRgbOrRgba => if self.channels == 3UL { b'\x02' } else { b'\x06' }
     }
-    let bit_depth = if self.profile == PngEncodeProfile::Gray16 { b'\x10' } else { b'\x08' }
+    let bit_depth = if _png_profile_uses_u16_component_wire(self.profile) { b'\x10' } else { b'\x08' }
     return Ok([bit_depth, colour_type, b'\x00', b'\x00', if self.interlace_strategy == PngInterlaceStrategy::Adam7 { b'\x01' } else { b'\x00' }][(payload - 8UL).to_int()])
   }
   if offset < 33UL { return Ok(_png_encode_machine_u32_byte(self.ihdr_crc ^ 4294967295UL, offset - 29UL)) }

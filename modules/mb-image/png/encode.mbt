@@ -138,6 +138,17 @@ fn _png_encode_source(
         }
       _ => return Err(_png_encode_capability("graya8-required"))
     }
+    PngEncodeProfile::GrayAlpha16 => match format.channels() {
+      @model.ChannelOrder::GrayAlpha =>
+        if metadata.alpha() != Some(@color.AlphaMode::Straight) {
+          return Err(_png_encode_capability("straight-alpha-required"))
+        } else if format.component() != @model.ComponentType::U16 {
+          return Err(_png_encode_capability("component-u16-required"))
+        } else {
+          4UL
+        }
+      _ => return Err(_png_encode_capability("graya16-required"))
+    }
   }
   let row_bytes = match @checked.checked_mul(source.width(), channels) {
     Err(error) => return Err(error)
@@ -402,8 +413,17 @@ fn _png_filter_row_winner(
   Ok((winner, winner_score))
 }
 
-///| Read one scalar PNG wire byte. Gray16 maps storage-order component bytes to
-/// the mandatory big-endian wire order before every filter, planner, and replay.
+///| Whether a profile maps its U16 source components to PNG big-endian wire
+/// bytes before every filter, planner, checksum, and replay traversal.
+fn _png_profile_uses_u16_component_wire(profile : PngEncodeProfile) -> Bool {
+  match profile {
+    PngEncodeProfile::Gray16 | PngEncodeProfile::GrayAlpha16 => true
+    _ => false
+  }
+}
+
+///| Read one scalar PNG wire byte. U16 profiles map each storage-order
+/// component independently to mandatory big-endian PNG wire order.
 fn _png_wire_byte(
   source : @storage.ImageView,
   profile : PngEncodeProfile,
@@ -412,13 +432,14 @@ fn _png_wire_byte(
   position : UInt64,
 ) -> Result[Byte, @error.CoreError] {
   match profile {
-    PngEncodeProfile::Gray16 => {
+    PngEncodeProfile::Gray16 | PngEncodeProfile::GrayAlpha16 => {
+      let component = (position % channels) / 2UL
       let wire_byte = position % 2UL
       let storage_byte = match source.format().endianness() {
         @model.Endianness::Little => 1UL - wire_byte
         @model.Endianness::Big => wire_byte
       }
-      source.get_component_byte(position / 2UL, row, 0UL, storage_byte)
+      source.get_component_byte(position / channels, row, component, storage_byte)
     }
     _ => source.get_byte(position / channels, row, position % channels)
   }
@@ -1533,6 +1554,8 @@ fn _png_encode_preflight_with_interlace_profile(
       return Err(_png_encode_capability("gray16-noninterlaced-required"))
     PngEncodeProfile::GrayAlpha8 if interlace_strategy != PngInterlaceStrategy::None =>
       return Err(_png_encode_capability("graya8-noninterlaced-required"))
+    PngEncodeProfile::GrayAlpha16 if interlace_strategy != PngInterlaceStrategy::None =>
+      return Err(_png_encode_capability("graya16-noninterlaced-required"))
     _ => ()
   }
   _png_encode_preflight_with_filter_layout_idat_limit_profile(
