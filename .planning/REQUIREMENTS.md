@@ -11,8 +11,8 @@
 
 ### Bounded PNG Encoding
 
-- [ ] **GRAYA16-02**: A library user can encode a compatible packed U16 Gray+Alpha image through explicit eager and caller-buffered factories as a standards-compliant non-interlaced PNG with color type 4 and bit depth 16, preserving each source gray/alpha sample as `Ghi,Glo,Ahi,Alo` at the wire boundary.
-- [ ] **GRAYA16-03**: GrayAlpha16 eager and caller-buffered output reuses the shared bounded preflight, None/Adaptive filtering, Stored/FixedOrStored/DynamicOrFixedOrStored planning, and acknowledgement-safe replay path; unsupported input and resource failures are atomic before output or lease exposure.
+- [x] **GRAYA16-02**: A library user can encode a compatible packed U16 Gray+Alpha image through explicit eager and caller-buffered factories as a standards-compliant non-interlaced PNG with color type 4 and bit depth 16, preserving each source gray/alpha sample as `Ghi,Glo,Ahi,Alo` at the wire boundary.
+- [x] **GRAYA16-03**: GrayAlpha16 eager and caller-buffered output reuses the shared bounded preflight, None/Adaptive filtering, Stored/FixedOrStored/DynamicOrFixedOrStored planning, and acknowledgement-safe replay path; unsupported input and resource failures are atomic before output or lease exposure.
 
 ### Public Interchange Evidence
 
@@ -33,8 +33,8 @@
 | Requirement | Phase | Status |
 | --- | --- | --- |
 | GRAYA16-01 | Phase 53 | Complete |
-| GRAYA16-02 | Phase 54 | Pending |
-| GRAYA16-03 | Phase 54 | Pending |
+| GRAYA16-02 | Phase 54 | Complete |
+| GRAYA16-03 | Phase 54 | Complete |
 | GRAYA16-04 | Phase 55 | Pending |
 
 **Coverage:**

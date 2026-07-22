@@ -1,0 +1,35 @@
+---
+schema_version: 1
+open_count: 1
+waived_count: 0
+fixed_count: 0
+total_count: 1
+last_updated: 2026-07-22T21:13:07.814Z
+---
+
+# Broken Windows Ledger
+
+> Cross-phase defect register. `/gsd-ship` blocks while `open_count > 0`.
+> Waive with `gsd-tools windows waive <id> "<reason>"` (reason required).
+> Mark fixed with `gsd-tools windows fixed <id>`.
+
+| id | phase | kind | file | line | description | status | reason | recorded_at | resolved_at |
+|----|-------|------|------|------|-------------|--------|--------|-------------|-------------|
+| 1 | 54 | deviation | modules/mb-image/png/encode_test.mbt |  | Big-endian GrayAlpha16 parity omitted because Phase 53 rejects Big-endian GrayAlpha descriptors. | open |  | 2026-07-22T21:13:07.814Z |  |
+
+````json
+[
+  {
+    "id": 1,
+    "kind": "deviation",
+    "phase": "54",
+    "file": "modules/mb-image/png/encode_test.mbt",
+    "line": null,
+    "description": "Big-endian GrayAlpha16 parity omitted because Phase 53 rejects Big-endian GrayAlpha descriptors.",
+    "status": "open",
+    "reason": "",
+    "recorded_at": "2026-07-22T21:13:07.814Z",
+    "resolved_at": null
+  }
+]
+````

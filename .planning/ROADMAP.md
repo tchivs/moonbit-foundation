@@ -79,12 +79,12 @@ Plans:
 3. Incompatible inputs and capability, geometry, output, work, or budget failures leave the eager writer empty and expose neither a usable caller-buffered lease nor partial output.
 4. A caller-buffered GrayAlpha16 encoder advances only for accepted bytes and preserves its replay/terminal contract across supported strategy selections.
 
-**Plans**: 2 plans
+**Plans**: 1/2 plans executed
 
 Plans:
 **Wave 1**
 
-- [ ] 54-01-PLAN.md — Add the explicit bounded GrayAlpha16 Type-4/16 eager and caller-buffered encoder path.
+- [x] 54-01-PLAN.md — Add the explicit bounded GrayAlpha16 Type-4/16 eager and caller-buffered encoder path.
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
@@ -108,5 +108,5 @@ Plans:
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 53. GrayAlpha16 Model and Checked Storage | 1/1 | Complete    | 2026-07-23 |
-| 54. Bounded Type-4/16 Encoder | 0/TBD | Not started | - |
+| 54. Bounded Type-4/16 Encoder | 1/2 | In Progress|  |
 | 55. Portable Public Evidence | 0/TBD | Not started | - |
