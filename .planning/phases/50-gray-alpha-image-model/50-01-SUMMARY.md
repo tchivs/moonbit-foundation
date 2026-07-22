@@ -23,6 +23,8 @@ key-files:
     - modules/mb-image/storage/storage_test.mbt
     - modules/mb-image/ops/copy_flip.mbt
     - modules/mb-image/ops/copy_flip_test.mbt
+    - modules/mb-image/ops/copy_flip_wbtest.mbt
+    - modules/mb-image/ops/processing_wbtest.mbt
 decisions:
   - GrayAlpha is limited to packed U8, encoded-sRGB, builtin-sRGB, top-left, straight-alpha descriptors.
   - Existing operations reject GrayAlpha until an operation contract explicitly supports it.
