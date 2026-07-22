@@ -103,6 +103,14 @@ fn png_encode_gray8_image(
   image
 }
 
+///| A compact, mixed multi-row source for public Gray8 round-trip evidence.
+fn png_encode_gray8_fidelity_image() -> @storage.OwnedImage {
+  png_encode_gray8_image(
+    b"\x00\x7f\xff\x12\xa5\x34\xc8\x56\xe1\x09\xab\xcd\x23\x89\xfe",
+    width=5UL, height=3UL,
+  )
+}
+
 ///|
 fn png_encode_prefix(writer : @io.MemoryWriter) -> Bytes {
   let bytes : Array[Byte] = []
@@ -587,6 +595,57 @@ test "PNG Gray8 eager strategy factories cover compression and filtering" {
     let (_, writer) = png_encode_with(encoder, gray)
     let bytes = png_encode_prefix(writer)
     inspect(bytes[24] == b'\x08' && bytes[25] == b'\x00' && bytes[28] == b'\x00', content="true")
+  }
+}
+
+///| Every public Gray8 strategy pair must preserve a generated multi-row
+/// source through the complete public eager encode/decode boundary.
+test "PNG Gray8 eager strategy pairs decode generated samples faithfully" {
+  let gray = png_encode_gray8_fidelity_image()
+  let expected = gray.view()
+  inspect(
+    expected.format().channels() == @model.ChannelOrder::Gray &&
+      expected.format().channel_count() == 1UL,
+    content="true",
+  )
+  for strategy in [
+    PngCompressionStrategy::Stored,
+    PngCompressionStrategy::FixedOrStored,
+    PngCompressionStrategy::DynamicOrFixedOrStored,
+  ] {
+    for filter_strategy in [PngFilterStrategy::None, PngFilterStrategy::Adaptive] {
+      let (_, writer) = png_encode_with(
+        PngEncoder::new_gray8_with_strategies(strategy, filter_strategy), gray,
+      )
+      let bytes = png_encode_prefix(writer)
+      inspect(bytes[24] == b'\x08' && bytes[25] == b'\x00' && bytes[28] == b'\x00', content="true")
+      let owner = @bytes.OwnedBytes::from_bytes(
+        bytes, png_encode_budget(bytes=1048576UL, work=0UL),
+      ).unwrap()
+      let decoded = @codec.ImageDecoder::decode(
+        PngDecoder::new(), @io.MemoryReader::new(owner.view()) as &@io.Reader,
+        @codec.DecodeOptions::new(
+          require_complete_input=true, preserve_opaque_metadata=false,
+        ), png_encode_limits(output=4096UL, work=1048576UL),
+        png_encode_budget(bytes=4096UL, work=1048576UL), @error.Diagnostics::new(),
+      ).unwrap()
+      let restored = decoded.image().view()
+      if restored.width() != expected.width() || restored.height() != expected.height() ||
+        restored.format().channels() != @model.ChannelOrder::Rgb ||
+        restored.format().channel_count() != 3UL {
+        abort("png gray8 decoded descriptor")
+      }
+      for y = 0UL; y < expected.height(); y = y + 1UL {
+        for x = 0UL; x < expected.width(); x = x + 1UL {
+          let sample = expected.get_byte(x, y, 0UL).unwrap()
+          if restored.get_byte(x, y, 0UL).unwrap() != sample ||
+            restored.get_byte(x, y, 1UL).unwrap() != sample ||
+            restored.get_byte(x, y, 2UL).unwrap() != sample {
+            abort("png gray8 decoded sample")
+          }
+        }
+      }
+    }
   }
 }
 
