@@ -7,7 +7,7 @@
 
 ### U16 Gray+Alpha Model
 
-- [ ] **GRAYA16-01**: A library user can create and inspect a packed U16 grayscale-plus-alpha image with exactly one gray and one straight-alpha component, while existing Gray, GrayAlpha8, RGB, and RGBA descriptor and storage behavior remains unchanged.
+- [x] **GRAYA16-01**: A library user can create and inspect a packed U16 grayscale-plus-alpha image with exactly one gray and one straight-alpha component, while existing Gray, GrayAlpha8, RGB, and RGBA descriptor and storage behavior remains unchanged.
 
 ### Bounded PNG Encoding
 
@@ -32,7 +32,7 @@
 
 | Requirement | Phase | Status |
 | --- | --- | --- |
-| GRAYA16-01 | Phase 53 | Pending |
+| GRAYA16-01 | Phase 53 | Complete |
 | GRAYA16-02 | Phase 54 | Pending |
 | GRAYA16-03 | Phase 54 | Pending |
 | GRAYA16-04 | Phase 55 | Pending |
