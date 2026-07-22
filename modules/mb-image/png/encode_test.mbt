@@ -85,6 +85,23 @@ fn png_encode_with(
 }
 
 ///|
+fn png_adam7_encode_with(
+  encoder : PngEncoder,
+  image : @storage.OwnedImage,
+) -> (@codec.EncodeResult, @io.MemoryWriter) {
+  let writer = @io.MemoryWriter::new(
+    1048576UL, png_encode_budget(bytes=1048576UL, work=0UL),
+  ).unwrap()
+  let result = @codec.ImageEncoder::encode(
+    encoder, image.view(), writer as &@io.Writer,
+    @codec.EncodeOptions::new(lossless_required=true, preserve_opaque_metadata=false),
+    png_adam7_admission_limits(), png_encode_budget(bytes=1048576UL, work=1048576UL),
+    @error.Diagnostics::new(),
+  ).unwrap()
+  (result, writer)
+}
+
+///|
 fn png_encode(image : @storage.OwnedImage) -> (@codec.EncodeResult, @io.MemoryWriter) {
   png_encode_with(PngEncoder::new(), image)
 }
@@ -589,9 +606,9 @@ test "PNG compression strategy legacy eager constructors retain frozen stored by
   )
 }
 
-///| The opt-in interlace seam must leave every legacy factory and its explicit
-///| None counterpart on the frozen non-interlaced byte route.
-test "PNG Adam7 opt-in eager compatibility" {
+///| Generated RGB8/RGBA8 Adam7 public encodings must round-trip exactly while
+///| every legacy and explicit-None factory retains its frozen method-0 bytes.
+test "PNG Adam7 public eager fidelity and frozen None compatibility" {
   let rgb = png_encode_image(3UL, b"\x12\x34\x56")
   let rgba = png_encode_image(4UL, b"\x04\x05\x06\x07")
   let rgb_stored =
@@ -616,7 +633,8 @@ test "PNG Adam7 opt-in eager compatibility" {
       PngEncoder::new_with_all_strategies(PngCompressionStrategy::Stored, PngFilterStrategy::Adaptive, PngInterlaceStrategy::None),
     ] {
       let (_, writer) = png_encode_with(encoder, image)
-      inspect(png_encode_prefix(writer) == expected, content="true")
+      let bytes = png_encode_prefix(writer)
+      inspect(bytes == expected && bytes[28] == b'\x00', content="true")
     }
   }
   for channels in [3UL, 4UL] {
@@ -637,19 +655,25 @@ test "PNG Adam7 opt-in eager compatibility" {
       PngEncoder::new_with_all_strategies(PngCompressionStrategy::DynamicOrFixedOrStored, PngFilterStrategy::None, PngInterlaceStrategy::None),
     ] {
       let (_, writer) = png_encode_with(encoder, image)
-      inspect(png_encode_prefix(writer) == fixed, content="true")
+      let bytes = png_encode_prefix(writer)
+      inspect(bytes == fixed && bytes[28] == b'\x00', content="true")
     }
   }
-  for image in [rgb, rgba] {
-    for encoder in [
-      PngEncoder::new_with_interlace_strategy(PngInterlaceStrategy::Adam7),
-      PngEncoder::new_with_all_strategies(PngCompressionStrategy::Stored, PngFilterStrategy::None, PngInterlaceStrategy::Adam7),
-      PngEncoder::new_with_all_strategies(PngCompressionStrategy::FixedOrStored, PngFilterStrategy::None, PngInterlaceStrategy::Adam7),
-      PngEncoder::new_with_all_strategies(PngCompressionStrategy::DynamicOrFixedOrStored, PngFilterStrategy::None, PngInterlaceStrategy::Adam7),
+  for channels in [3UL, 4UL] {
+    let image = png_adam7_admission_image(channels)
+    for strategy in [
+      PngCompressionStrategy::Stored,
+      PngCompressionStrategy::FixedOrStored,
+      PngCompressionStrategy::DynamicOrFixedOrStored,
     ] {
-      let (_, writer) = png_encode_with(encoder, image)
+      let encoder = PngEncoder::new_with_all_strategies(
+        strategy, PngFilterStrategy::None, PngInterlaceStrategy::Adam7,
+      )
+      let (_, writer) = png_adam7_encode_with(encoder, image)
       let bytes = png_encode_prefix(writer)
-      inspect(bytes[28] == b'\x01' && bytes[0] == b'\x89' && bytes[bytes.length() - 1] == b'\x82', content="true")
+      inspect(bytes[28] == b'\x01' && bytes[0] == b'\x89' &&
+        bytes[bytes.length() - 1] == b'\x82', content="true")
+      png_filter_strategy_decode_matches_source(bytes, image)
     }
   }
 }
