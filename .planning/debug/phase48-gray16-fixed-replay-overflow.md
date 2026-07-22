@@ -5,7 +5,7 @@ created: "2026-07-22T00:00:00Z"
 updated: "2026-07-22T00:00:00Z"
 ---
 
-# Phase 48 Gray16 Fixed replay lease overflow
+# Phase 48 Gray16 Fixed and Dynamic replay guard
 
 ## Symptoms
 
@@ -16,8 +16,8 @@ updated: "2026-07-22T00:00:00Z"
 
 ## Current Focus
 
-- resolved: the Gray16 Fixed replay validates its admitted plan before another source-derived byte can enter a caller lease.
-- next_action: none; native focused and package verification passed.
+- resolved: Gray16 Fixed and Dynamic replay compare an O(1) retained source mutation revision before writing each caller lease.
+- next_action: none; focused replay, full PNG, and bytes verification passed.
 
 ## Evidence
 
@@ -27,6 +27,14 @@ updated: "2026-07-22T00:00:00Z"
   note: The generated native test source shows the fast-fail is the RED assertion `png gray16 replay first terminal`: end-of-stream replay fingerprint validation occurs after a seven-byte pull has already acknowledged bytes and modified its lease.
 - timestamp: 2026-07-22
   note: `PngEncodeMachine::validate_gray16_fixed_replay` reruns the bounded scalar Fixed traversal and compares its existing `matcher_work` and fingerprint with the admitted plan before a Gray16 Fixed replay pull writes a lease.
+- timestamp: 2026-07-22
+  note: Second code review found Dynamic has no pre-lease drift guard and Fixed rebuilds the complete plan on every active pull.
+- timestamp: 2026-07-22
+  note: Added a periodic 128-pixel U16 Gray corpus for `DynamicOrFixedOrStored`; its acknowledged prefix proves BTYPE=10 with `(prefix[43] & 0x07) == 0x05`, then its next seven-byte lease fails zero-byte/sticky after `set_component_byte`.
+- timestamp: 2026-07-22
+  note: `OwnedBytes` now retains one shared scalar mutation revision through `ByteView`, `ImageView`, and callback-scoped mutable leases. Successful writes advance it; normal reads and small PNG leases do not.
+- timestamp: 2026-07-22
+  note: `PngEncodeMachine` freezes the source revision after preflight. Its Gray16 Fixed/Dynamic pull guard compares only the current scalar revision, replacing the full `_png_fixed_plan_with_interlace` traversal while retaining the terminal matcher-work/fingerprint checks.
 
 ## Eliminated
 
@@ -37,7 +45,7 @@ updated: "2026-07-22T00:00:00Z"
 
 ## Resolution
 
-- root_cause: Fixed replay detected a post-acknowledgement U16 source mutation only at its existing end-of-stream `matcher_work`/fingerprint comparison. A multi-byte caller pull had already written and acknowledged bytes, while `PngChunkEncoder::pull` returned the terminal result as zero bytes.
-- fix: Before a Gray16 Fixed replay pull with source bytes already in flight, recompute the bounded profile-aware Fixed traversal and compare its `matcher_work` and fingerprint to the admitted plan. On mismatch, transition directly to the existing sticky failure state before touching the caller lease.
-- verification: `moon -C modules/mb-image test png --target native --frozen --filter 'PNG Gray16 Fixed and Dynamic replay mutations are sticky'` passed; `moon -C modules/mb-image test png --target native --frozen` passed (188/188).
-- files_changed: `modules/mb-image/png/stream_encode_test.mbt` (RED reproducer, `d9862c4`); `modules/mb-image/png/stream_encode.mbt` (GREEN fix, `4b47472`); this session record.
+- root_cause: Dynamic had no pre-lease replay guard, while Fixed recomputed the entire source plan on every active pull. The storage/view stack exposed no shared mutation identity, so the encoder could not distinguish normal small leases from an externally changed source without replanning.
+- fix: Add a monotonic owned-backing mutation revision, retain it through byte/image views, and freeze it at PNG preflight completion. Gray16 Fixed/Dynamic replay returns its existing route-specific sticky drift error before writing when the revision differs; Stored and legacy/Gray8 behavior remains unchanged.
+- verification: Dynamic RED failed before the fix with `0xc0000409` at the first-terminal assertion. Focused replay passed after the fix; `moon -C modules/mb-image test png --target native --frozen` passed (188/188); `moon -C modules/mb-core test bytes --target native --frozen` passed (16/16).
+- files_changed: `modules/mb-core/bytes/views.mbt`; `modules/mb-core/bytes/owned_bytes.mbt`; `modules/mb-image/storage/views.mbt`; `modules/mb-image/png/stream_encode.mbt`; `modules/mb-image/png/stream_encode_test.mbt`; this session record.
