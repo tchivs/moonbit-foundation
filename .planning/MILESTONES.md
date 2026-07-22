@@ -1,5 +1,16 @@
 # Project Milestones: MoonBit Native Foundation
 
+## v0.13 PNG Adam7 Encode (Shipped: 2026-07-22)
+
+**Phases completed:** 3 phases, 4 plans, 5 tasks
+
+**Key accomplishments:**
+
+- Explicit Adam7 selection now shares eager and caller-buffered PNG admission while retaining non-interlaced output and returning a typed pending capability error.
+- Generated 5x5 RGB8 and straight-RGBA8 Adam7 encodings now prove exact public eager/chunk decode fidelity, frozen None compatibility, and independent four-target execution.
+
+---
+
 ## v0.12 PNG Filter Optimization (Shipped: 2026-07-22)
 
 **Phases completed:** 3 phases, 9 plans, 4 tasks
