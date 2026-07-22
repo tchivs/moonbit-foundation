@@ -911,6 +911,26 @@ fn png_stream_graya16_eager_with_all_strategies(
   Bytes::from_array(bytes)
 }
 
+///| Narrow GrayAlpha16 interlace selection is the caller-buffered identity
+/// oracle for the corresponding public factory shape.
+fn png_stream_graya16_eager_with_interlace_strategy(
+  image : @storage.OwnedImage,
+  interlace_strategy : PngInterlaceStrategy,
+) -> Bytes {
+  let writer = @io.MemoryWriter::new(1048576UL, png_stream_test_budget(work=0UL)).unwrap()
+  ignore(@codec.ImageEncoder::encode(
+    PngEncoder::new_graya16_with_interlace_strategy(interlace_strategy), image.view(),
+    writer as &@io.Writer,
+    @codec.EncodeOptions::new(lossless_required=true, preserve_opaque_metadata=false),
+    png_stream_test_limits(), png_stream_test_budget(), @error.Diagnostics::new(),
+  ).unwrap())
+  let bytes : Array[Byte] = []
+  for index = 0UL; index < writer.position(); index = index + 1UL {
+    bytes.push(writer.view().get(index).unwrap())
+  }
+  Bytes::from_array(bytes)
+}
+
 ///| FixedOrStored eager output is the chunk identity oracle for Gray8.
 fn png_stream_gray8_eager_with_compression(
   image : @storage.OwnedImage,
@@ -1081,9 +1101,13 @@ test "PNG GrayAlpha16 chunk Stored output matches eager" {
 }
 
 ///| The narrow and independently selected GrayAlpha16 Adam7 chunk factories
-/// drain to the same complete Stored/None Type-4/16 stream as the eager path.
+/// drain to their corresponding eager selectors and the same Stored/None
+/// Type-4/16 stream.
 test "PNG GrayAlpha16 Adam7 chunk parity" {
-  let eager = png_stream_graya16_eager_with_all_strategies(
+  let narrow_eager = png_stream_graya16_eager_with_interlace_strategy(
+    png_stream_graya16_adam7_image(), PngInterlaceStrategy::Adam7,
+  )
+  let selected_eager = png_stream_graya16_eager_with_all_strategies(
     png_stream_graya16_adam7_image(), PngCompressionStrategy::Stored,
     PngFilterStrategy::None, PngInterlaceStrategy::Adam7,
   )
@@ -1105,9 +1129,12 @@ test "PNG GrayAlpha16 Adam7 chunk parity" {
     [3UL, 7UL],
   ).unwrap()
   inspect(
-    narrow == eager && selected == eager && eager[24] == b'\x10' &&
-      eager[25] == b'\x04' && eager[26] == b'\x00' && eager[27] == b'\x00' &&
-      eager[28] == b'\x01',
+    narrow == narrow_eager && selected == selected_eager &&
+      narrow_eager == selected_eager && narrow[24] == b'\x10' &&
+      narrow[25] == b'\x04' && narrow[26] == b'\x00' && narrow[27] == b'\x00' &&
+      narrow[28] == b'\x01' && selected[24] == b'\x10' &&
+      selected[25] == b'\x04' && selected[26] == b'\x00' && selected[27] == b'\x00' &&
+      selected[28] == b'\x01',
     content="true",
   )
 }
