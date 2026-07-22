@@ -8,7 +8,7 @@
 
 ### Filter Strategy Compatibility
 
-- [ ] **PNGF-01**: A library user can explicitly opt into adaptive PNG row filtering through eager and caller-buffered factories while legacy constructors retain filter-None output bytes.
+- [x] **PNGF-01**: A library user can explicitly opt into adaptive PNG row filtering through eager and caller-buffered factories while legacy constructors retain filter-None output bytes.
 
 ### Bounded Adaptive Filtering
 
@@ -36,7 +36,7 @@
 
 | Requirement | Phase | Status |
 | --- | --- | --- |
-| PNGF-01 | Phase 38 | Pending |
+| PNGF-01 | Phase 38 | Complete |
 | PNGF-02 | Phase 39 | Pending |
 | PNGF-03 | Phase 39 | Pending |
 | PNGF-04 | Phase 40 | Pending |
