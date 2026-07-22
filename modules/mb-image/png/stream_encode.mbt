@@ -176,8 +176,10 @@ priv struct PngEncodeMachine {
   disposition : @metadata.MetadataDisposition
   mut emitted : UInt64
   mut pending : Byte?
+  mut pending_stored : PngFilteredCursor?
   mut pending_fixed : PngFixedState?
   mut pending_dynamic : PngDynamicState?
+  mut stored_cursor : PngFilteredCursor?
   mut fixed_state : PngFixedState?
   mut dynamic_state : PngDynamicState?
   mut ihdr_crc : UInt64
@@ -190,6 +192,7 @@ priv struct PngEncodeMachine {
 /// that carried it is acknowledged by the eager Writer or caller lease.
 priv struct PngFixedState {
   raw_cursor : UInt64
+  filtered_cursor : PngFilteredCursor?
   bit_value : UInt64
   bit_count : UInt64
   adler : UInt64
@@ -207,6 +210,7 @@ priv struct PngDynamicState {
   code_length_cursor : UInt64
   rle_cursor : UInt64
   raw_cursor : UInt64
+  filtered_cursor : PngFilteredCursor?
   bit_value : UInt64
   bit_count : UInt64
   adler : UInt64
@@ -277,12 +281,16 @@ fn PngEncodeMachine::new_with_strategies(
     disposition: facts.disposition,
     emitted: 0UL,
     pending: None,
+    pending_stored: None,
     pending_fixed: None,
     pending_dynamic: None,
+    stored_cursor: None,
     fixed_state: match facts.plan {
       PngDeflatePlan::Stored(_) => None
       PngDeflatePlan::Fixed(_) => Some({
-        raw_cursor: 0UL, bit_value: 0UL, bit_count: 0UL, adler: 1UL,
+        raw_cursor: 0UL,
+        filtered_cursor: None,
+        bit_value: 0UL, bit_count: 0UL, adler: 1UL,
         matcher_work: 0UL, header_written: false, eob_written: false,
       })
       PngDeflatePlan::Dynamic(_) => None
@@ -290,6 +298,7 @@ fn PngEncodeMachine::new_with_strategies(
     dynamic_state: match facts.plan {
       PngDeflatePlan::Dynamic(_) => Some({ phase: 0, header_cursor: 0UL,
         code_length_cursor: 0UL, rle_cursor: 0UL, raw_cursor: 0UL,
+        filtered_cursor: None,
         bit_value: 0UL, bit_count: 0UL, adler: 1UL, matcher_work: 0UL })
       _ => None
     },
@@ -369,7 +378,16 @@ fn PngEncodeMachine::zlib_byte(
   } else if in_block == 4UL {
     Ok(((65535UL - payload) >> 8).to_byte())
   } else if in_block < payload + 5UL {
-    self.scanline_byte(block_index * 65535UL + in_block - 5UL)
+    match self.stored_cursor {
+      Some(cursor) => {
+        let (byte, next) = match cursor.next() {
+          Err(error) => return Err(error); Ok(value) => value
+        }
+        self.pending_stored = Some(next)
+        Ok(byte)
+      }
+      None => self.scanline_byte(block_index * 65535UL + in_block - 5UL)
+    }
   } else {
     Err(_png_encode_machine_state_error("png-encode-stored-cursor"))
   }
@@ -399,6 +417,7 @@ fn PngEncodeMachine::fixed_preview_byte(
     None => return Err(_png_encode_machine_state_error("png-encode-fixed-state"))
   }
   let mut raw_cursor = state.raw_cursor
+  let mut filtered_cursor = state.filtered_cursor
   let mut bit_value = state.bit_value
   let mut bit_count = state.bit_count
   let mut adler = state.adler
@@ -447,22 +466,34 @@ fn PngEncodeMachine::fixed_preview_byte(
         bit_count = next_count
         let mut index = 0UL
         while index < length {
-          let byte = match _png_filtered_scanline_byte(
-            self.source, self.row_bytes, self.channels, self.filter_strategy, raw_cursor + index,
-          ) {
-            Err(error) => return Err(error)
-            Ok(value) => value
+          let byte = match filtered_cursor {
+            Some(cursor) => {
+              let (value, next) = match cursor.next() {
+                Err(error) => return Err(error); Ok(value) => value
+              }
+              filtered_cursor = Some(next)
+              value
+            }
+            None => match _png_fixed_scanline_byte(
+              self.source, self.row_bytes, self.channels, raw_cursor + index,
+            ) { Err(error) => return Err(error); Ok(value) => value }
           }
           adler = _png_adler_step(adler, byte)
           index = index + 1UL
         }
         raw_cursor = raw_cursor + length
       } else {
-        let byte = match _png_filtered_scanline_byte(
-          self.source, self.row_bytes, self.channels, self.filter_strategy, raw_cursor,
-        ) {
-          Err(error) => return Err(error)
-          Ok(value) => value
+        let byte = match filtered_cursor {
+          Some(cursor) => {
+            let (value, next) = match cursor.next() {
+              Err(error) => return Err(error); Ok(value) => value
+            }
+            filtered_cursor = Some(next)
+            value
+          }
+          None => match _png_fixed_scanline_byte(
+            self.source, self.row_bytes, self.channels, raw_cursor,
+          ) { Err(error) => return Err(error); Ok(value) => value }
         }
         let (code, code_bits) = _png_fixed_literal_code(byte.to_uint64())
         let (next_value, next_count) = _png_fixed_put_bits(
@@ -487,14 +518,14 @@ fn PngEncodeMachine::fixed_preview_byte(
     } else {
       let byte = bit_value.to_byte()
       return Ok((byte, {
-        raw_cursor, bit_value: 0UL, bit_count: 0UL, adler, matcher_work, eob_written,
+        raw_cursor, filtered_cursor, bit_value: 0UL, bit_count: 0UL, adler, matcher_work, eob_written,
         header_written,
       }))
     }
   }
   let byte = bit_value.to_byte()
   Ok((byte, {
-    raw_cursor, bit_value: bit_value >> 8, bit_count: bit_count - 8UL,
+    raw_cursor, filtered_cursor, bit_value: bit_value >> 8, bit_count: bit_count - 8UL,
     adler, matcher_work, header_written, eob_written,
   }))
 }
@@ -554,6 +585,7 @@ fn PngEncodeMachine::dynamic_preview_byte(
   let mut code_length_cursor = state.code_length_cursor
   let mut rle_cursor = state.rle_cursor
   let mut raw_cursor = state.raw_cursor
+  let mut filtered_cursor = state.filtered_cursor
   let mut bit_value = state.bit_value
   let mut bit_count = state.bit_count
   let mut adler = state.adler
@@ -606,15 +638,33 @@ fn PngEncodeMachine::dynamic_preview_byte(
           let (distance_value, distance_count) = _png_dynamic_put_code(bit_value, bit_count, plan.distances, (distance - 1UL).to_int())
           bit_value = distance_value; bit_count = distance_count
           for index = 0UL; index < length; index = index + 1UL {
-            let byte = match _png_filtered_scanline_byte(self.source, self.row_bytes, self.channels, self.filter_strategy, raw_cursor + index) {
-              Err(error) => return Err(error); Ok(value) => value
+            let byte = match filtered_cursor {
+              Some(cursor) => {
+                let (value, next) = match cursor.next() {
+                  Err(error) => return Err(error); Ok(value) => value
+                }
+                filtered_cursor = Some(next)
+                value
+              }
+              None => match _png_fixed_scanline_byte(
+                self.source, self.row_bytes, self.channels, raw_cursor + index,
+              ) { Err(error) => return Err(error); Ok(value) => value }
             }
             adler = _png_adler_step(adler, byte)
           }
           raw_cursor = raw_cursor + length
         } else {
-          let byte = match _png_filtered_scanline_byte(self.source, self.row_bytes, self.channels, self.filter_strategy, raw_cursor) {
-            Err(error) => return Err(error); Ok(value) => value
+          let byte = match filtered_cursor {
+            Some(cursor) => {
+              let (value, next) = match cursor.next() {
+                Err(error) => return Err(error); Ok(value) => value
+              }
+              filtered_cursor = Some(next)
+              value
+            }
+            None => match _png_fixed_scanline_byte(
+              self.source, self.row_bytes, self.channels, raw_cursor,
+            ) { Err(error) => return Err(error); Ok(value) => value }
           }
           let (next_value, next_count) = _png_dynamic_put_code(bit_value, bit_count, plan.literals, byte.to_int())
           bit_value = next_value; bit_count = next_count; adler = _png_adler_step(adler, byte); raw_cursor = raw_cursor + 1UL
@@ -628,14 +678,14 @@ fn PngEncodeMachine::dynamic_preview_byte(
       bit_value = next_value; bit_count = next_count; phase = 6
     } else if phase == 6 {
       let byte = bit_value.to_byte()
-      return Ok((byte, { phase: 7, header_cursor, code_length_cursor, rle_cursor, raw_cursor,
+      return Ok((byte, { phase: 7, header_cursor, code_length_cursor, rle_cursor, raw_cursor, filtered_cursor,
         bit_value: 0UL, bit_count: 0UL, adler, matcher_work }))
     } else {
       return Err(_png_encode_machine_state_error("png-encode-dynamic-cursor"))
     }
   }
   let byte = bit_value.to_byte()
-  Ok((byte, { phase, header_cursor, code_length_cursor, rle_cursor, raw_cursor,
+  Ok((byte, { phase, header_cursor, code_length_cursor, rle_cursor, raw_cursor, filtered_cursor,
     bit_value: bit_value >> 8, bit_count: bit_count - 8UL, adler, matcher_work }))
 }
 
@@ -735,6 +785,10 @@ fn PngEncodeMachine::acknowledge(
         let stored_end = self.idat_length - 4UL
         if zlib_offset >= 2UL && zlib_offset < stored_end && (zlib_offset - 2UL) % 65540UL >= 5UL {
           self.adler = _png_adler_step(self.adler, accepted)
+          match self.pending_stored {
+            Some(next) => self.stored_cursor = Some(next)
+            None => ()
+          }
         }
       }
       PngDeflatePlan::Fixed(_) => match self.pending_fixed {
@@ -754,6 +808,7 @@ fn PngEncodeMachine::acknowledge(
     }
   }
   self.pending = None
+  self.pending_stored = None
   self.pending_fixed = None
   self.pending_dynamic = None
   self.emitted = self.emitted + 1UL

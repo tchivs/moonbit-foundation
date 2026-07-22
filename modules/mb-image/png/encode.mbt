@@ -118,6 +118,42 @@ priv struct PngEncodePreflight {
   total_length : UInt64
   plan : PngDeflatePlan
   disposition : @metadata.MetadataDisposition
+  selected_work : UInt64
+  adaptive_planning_facts : PngFilteredTraversalFacts
+  adaptive_replay_facts : PngFilteredTraversalFacts
+}
+
+///| The adaptive ledger records executed row selection and residual work.  It
+/// deliberately does not count byte lookups: a bounded replay may revisit a
+/// buffered byte without rescoring the source row.
+priv struct PngFilteredTraversalFacts {
+  resolved_rows : UInt64
+  candidate_residuals : UInt64
+  selected_residuals : UInt64
+}
+
+///|
+fn PngFilteredTraversalFacts::work(
+  self : PngFilteredTraversalFacts,
+) -> Result[UInt64, @error.CoreError] {
+  _png_fixed_add(self.candidate_residuals, self.selected_residuals)
+}
+
+///|
+fn _png_filtered_facts_add(
+  left : PngFilteredTraversalFacts,
+  right : PngFilteredTraversalFacts,
+) -> Result[PngFilteredTraversalFacts, @error.CoreError] {
+  let resolved_rows = match _png_fixed_add(left.resolved_rows, right.resolved_rows) {
+    Err(error) => return Err(error); Ok(value) => value
+  }
+  let candidate_residuals = match _png_fixed_add(
+    left.candidate_residuals, right.candidate_residuals,
+  ) { Err(error) => return Err(error); Ok(value) => value }
+  let selected_residuals = match _png_fixed_add(
+    left.selected_residuals, right.selected_residuals,
+  ) { Err(error) => return Err(error); Ok(value) => value }
+  Ok({ resolved_rows, candidate_residuals, selected_residuals })
 }
 
 ///| The explicit Stored plan preserves the historical emission arithmetic.
@@ -414,6 +450,147 @@ fn _png_filter_image_row_winner(
     }
   }
   Ok(winner)
+}
+
+///| A forward-only logical filter stream.  Adaptive resolves a row only when
+/// its tag is first entered, retains that winner for its payload, and carries
+/// only scalar row state across the caller-owned replay boundary.
+priv struct PngFilteredCursor {
+  source : @storage.ImageView
+  row_bytes : UInt64
+  channels : UInt64
+  filter_strategy : PngFilterStrategy
+  index : UInt64
+  winner : PngRowFilter?
+  traversal_facts : PngFilteredTraversalFacts
+}
+
+///|
+fn PngFilteredCursor::new(
+  source : @storage.ImageView,
+  row_bytes : UInt64,
+  channels : UInt64,
+  filter_strategy : PngFilterStrategy,
+) -> PngFilteredCursor {
+  {
+    source, row_bytes, channels, filter_strategy, index: 0UL, winner: None,
+    traversal_facts: {
+      resolved_rows: 0UL, candidate_residuals: 0UL, selected_residuals: 0UL,
+    },
+  }
+}
+
+///|
+fn PngFilteredCursor::facts(
+  self : PngFilteredCursor,
+) -> PngFilteredTraversalFacts {
+  self.traversal_facts
+}
+
+///| Return the next logical filtered byte and an uncommitted successor.  This
+/// persistent form lets `present` keep a preview private until acknowledgement.
+fn PngFilteredCursor::next(
+  self : PngFilteredCursor,
+) -> Result[(Byte, PngFilteredCursor), @error.CoreError] {
+  let row_width = match @checked.checked_add(self.row_bytes, 1UL) {
+    Err(error) => return Err(error); Ok(value) => value
+  }
+  let scanlines = match @checked.checked_mul(row_width, self.source.height()) {
+    Err(error) => return Err(error); Ok(value) => value
+  }
+  if self.index >= scanlines {
+    return Err(_png_encode_capability("png-filter-cursor-end"))
+  }
+  match self.filter_strategy {
+    PngFilterStrategy::None => {
+      let byte = match _png_fixed_scanline_byte(
+        self.source, self.row_bytes, self.channels, self.index,
+      ) { Err(error) => return Err(error); Ok(value) => value }
+      Ok((byte, { ..self, index: self.index + 1UL }))
+    }
+    PngFilterStrategy::Adaptive => {
+      let row = self.index / row_width
+      let in_row = self.index % row_width
+      if in_row == 0UL {
+        let winner = match _png_filter_image_row_winner(
+          self.source, row, self.row_bytes, self.channels,
+        ) { Err(error) => return Err(error); Ok(value) => value }
+        let candidate_residuals = match _png_fixed_add(
+          self.traversal_facts.candidate_residuals, 5UL * self.row_bytes,
+        ) { Err(error) => return Err(error); Ok(value) => value }
+        let resolved_rows = match _png_fixed_add(
+          self.traversal_facts.resolved_rows, 1UL,
+        ) { Err(error) => return Err(error); Ok(value) => value }
+        Ok((_png_filter_tag(winner), {
+          ..self,
+          index: self.index + 1UL,
+          winner: Some(winner),
+          traversal_facts: {
+            resolved_rows, candidate_residuals,
+            selected_residuals: self.traversal_facts.selected_residuals,
+          },
+        }))
+      } else {
+        let winner = match self.winner {
+          Some(value) => value
+          None => return Err(_png_encode_capability("png-filter-cursor-winner"))
+        }
+        let byte = match _png_filter_image_candidate_byte(
+          winner, self.source, row, self.row_bytes, self.channels, in_row - 1UL,
+        ) { Err(error) => return Err(error); Ok(value) => value }
+        let selected_residuals = match _png_fixed_add(
+          self.traversal_facts.selected_residuals, 1UL,
+        ) { Err(error) => return Err(error); Ok(value) => value }
+        Ok((byte, {
+          ..self, index: self.index + 1UL,
+          traversal_facts: {
+            resolved_rows: self.traversal_facts.resolved_rows,
+            candidate_residuals: self.traversal_facts.candidate_residuals,
+            selected_residuals,
+          },
+        }))
+      }
+    }
+  }
+}
+
+///| Execute one bounded forward traversal.  Each caller gets fresh scalar
+/// state, making the preflight ledger a sum of real planning/replay passes.
+fn _png_filtered_traverse(
+  source : @storage.ImageView,
+  row_bytes : UInt64,
+  channels : UInt64,
+  filter_strategy : PngFilterStrategy,
+  scanlines : UInt64,
+) -> Result[PngFilteredTraversalFacts, @error.CoreError] {
+  let mut cursor = PngFilteredCursor::new(
+    source, row_bytes, channels, filter_strategy,
+  )
+  while cursor.index < scanlines {
+    let (_, next) = match cursor.next() {
+      Err(error) => return Err(error); Ok(value) => value
+    }
+    cursor = next
+  }
+  Ok(cursor.facts())
+}
+
+///|
+fn _png_adaptive_traverse(
+  source : @storage.ImageView,
+  row_bytes : UInt64,
+  channels : UInt64,
+  filter_strategy : PngFilterStrategy,
+  scanlines : UInt64,
+) -> Result[PngFilteredTraversalFacts, @error.CoreError] {
+  match filter_strategy {
+    PngFilterStrategy::None => Ok({
+      resolved_rows: 0UL, candidate_residuals: 0UL, selected_residuals: 0UL,
+    })
+    PngFilterStrategy::Adaptive => _png_filtered_traverse(
+      source, row_bytes, channels, filter_strategy, scanlines,
+    )
+  }
 }
 
 ///| The common logical filtered stream. None keeps its legacy provider exactly;
@@ -843,9 +1020,26 @@ fn _png_encode_preflight_with_filter(
   let stored = PngStoredPlan::{
     blocks, idat_length: stored_idat_length, total_length: stored_total_length,
   }
+  let mut adaptive_planning_facts = PngFilteredTraversalFacts::{
+    resolved_rows: 0UL, candidate_residuals: 0UL, selected_residuals: 0UL,
+  }
   let plan = match strategy {
-    PngCompressionStrategy::Stored => PngDeflatePlan::Stored(stored)
+    PngCompressionStrategy::Stored => {
+      let pass = match _png_adaptive_traverse(
+        source, row_bytes, channels, filter_strategy, scanlines,
+      ) { Err(error) => return Err(error); Ok(value) => value }
+      adaptive_planning_facts = match _png_filtered_facts_add(
+        adaptive_planning_facts, pass,
+      ) { Err(error) => return Err(error); Ok(value) => value }
+      PngDeflatePlan::Stored(stored)
+    }
     PngCompressionStrategy::FixedOrStored => {
+      let pass = match _png_adaptive_traverse(
+        source, row_bytes, channels, filter_strategy, scanlines,
+      ) { Err(error) => return Err(error); Ok(value) => value }
+      adaptive_planning_facts = match _png_filtered_facts_add(
+        adaptive_planning_facts, pass,
+      ) { Err(error) => return Err(error); Ok(value) => value }
       let fixed = match _png_fixed_plan(source, row_bytes, channels, filter_strategy, scanlines) {
         Err(error) => return Err(error)
         Ok(value) => value
@@ -860,6 +1054,12 @@ fn _png_encode_preflight_with_filter(
       }
     }
     PngCompressionStrategy::DynamicOrFixedOrStored => {
+      let fixed_pass = match _png_adaptive_traverse(
+        source, row_bytes, channels, filter_strategy, scanlines,
+      ) { Err(error) => return Err(error); Ok(value) => value }
+      adaptive_planning_facts = match _png_filtered_facts_add(
+        adaptive_planning_facts, fixed_pass,
+      ) { Err(error) => return Err(error); Ok(value) => value }
       let fixed = match _png_fixed_plan(source, row_bytes, channels, filter_strategy, scanlines) {
         Err(error) => return Err(error); Ok(value) => value
       }
@@ -872,28 +1072,37 @@ fn _png_encode_preflight_with_filter(
         PngDeflatePlan::Fixed(value) => value.total_length
         PngDeflatePlan::Dynamic(value) => value.total_length
       }
+      let dynamic_frequency_pass = match _png_adaptive_traverse(
+        source, row_bytes, channels, filter_strategy, scanlines,
+      ) { Err(error) => return Err(error); Ok(value) => value }
+      adaptive_planning_facts = match _png_filtered_facts_add(
+        adaptive_planning_facts, dynamic_frequency_pass,
+      ) { Err(error) => return Err(error); Ok(value) => value }
+      let dynamic_bits_pass = match _png_adaptive_traverse(
+        source, row_bytes, channels, filter_strategy, scanlines,
+      ) { Err(error) => return Err(error); Ok(value) => value }
+      adaptive_planning_facts = match _png_filtered_facts_add(
+        adaptive_planning_facts, dynamic_bits_pass,
+      ) { Err(error) => return Err(error); Ok(value) => value }
       match _png_dynamic_plan(source, row_bytes, channels, filter_strategy, scanlines) {
         Err(error) => return Err(error)
-        Ok(Some(dynamic)) => if dynamic.total_length < winner_length {
-          PngDeflatePlan::Dynamic(dynamic)
-        } else { winner }
+        Ok(Some(dynamic)) => {
+          if dynamic.total_length < winner_length {
+            PngDeflatePlan::Dynamic(dynamic)
+          } else { winner }
+        }
         Ok(None) => winner
       }
     }
   }
-  let candidate_score_work_per_row = match @checked.checked_mul(5UL, row_bytes) {
+  let adaptive_replay_facts = match _png_adaptive_traverse(
+    source, row_bytes, channels, filter_strategy, scanlines,
+  ) { Err(error) => return Err(error); Ok(value) => value }
+  let adaptive_filter_work = match _png_filtered_facts_add(
+    adaptive_planning_facts, adaptive_replay_facts,
+  ) { Err(error) => return Err(error); Ok(value) => value }
+  let adaptive_filter_work = match adaptive_filter_work.work() {
     Err(error) => return Err(error); Ok(value) => value
-  }
-  let adaptive_filter_work = match filter_strategy {
-    PngFilterStrategy::None => 0UL
-    PngFilterStrategy::Adaptive => {
-      let planning = match @checked.checked_mul(source.height(), candidate_score_work_per_row) {
-        Err(error) => return Err(error); Ok(value) => value
-      }
-      match @checked.checked_add(planning, planning) {
-        Err(error) => return Err(error); Ok(value) => value
-      }
-    }
   }
   let (blocks, idat_length, total_length, selected_work) = match plan {
     PngDeflatePlan::Stored(value) => (
@@ -939,7 +1148,10 @@ fn _png_encode_preflight_with_filter(
     Err(error) => return Err(error)
     Ok(_) => ()
   }
-  Ok({ channels, row_bytes, scanlines, blocks, idat_length, total_length, plan, disposition })
+  Ok({
+    channels, row_bytes, scanlines, blocks, idat_length, total_length, plan,
+    disposition, selected_work, adaptive_planning_facts, adaptive_replay_facts,
+  })
 }
 
 ///|

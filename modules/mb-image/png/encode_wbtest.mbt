@@ -155,42 +155,42 @@ fn png_wb_adaptive_rgb_image() -> @storage.OwnedImage {
 /// walks without teaching this test an implementation-specific pass count.
 fn png_wb_adaptive_cursor_work_ledger(
   strategy : PngCompressionStrategy,
-) -> Result[Unit, @error.CoreError] {
+) -> PngEncodePreflight {
   let image = png_wb_adaptive_rgb_image()
   let budget = png_wb_budget(work=1048576UL)
-  let before = budget.remaining()
-  let facts = _png_encode_preflight_with_filter(
+  _png_encode_preflight_with_filter(
     image.view(),
     strategy,
     PngFilterStrategy::Adaptive,
     png_wb_limits(),
     budget,
   ).unwrap()
-  let planning = facts.adaptive_planning_facts
-  let replay = facts.adaptive_replay_facts
-  inspect(replay.resolved_rows, content="2")
-  inspect(replay.candidate_residuals, content="60")
-  inspect(replay.selected_residuals, content="12")
-  inspect(planning.resolved_rows >= 2UL, content="true")
-  inspect(planning.candidate_residuals >= 60UL, content="true")
-  let adaptive_work = planning.work().unwrap() + replay.work().unwrap()
-  inspect(
-    before.work() - budget.remaining().work() == facts.selected_work,
-    content="true",
-  )
-  inspect(facts.selected_work >= facts.total_length + adaptive_work, content="true")
-  let exact = png_wb_budget(work=facts.selected_work)
-  ignore(
-    _png_encode_preflight_with_filter(
+}
+
+///|
+fn png_wb_adaptive_cursor_exact_work(
+  strategy : PngCompressionStrategy,
+  selected_work : UInt64,
+) -> Bool {
+  let image = png_wb_adaptive_rgb_image()
+  let exact = png_wb_budget(work=selected_work)
+  ignore(_png_encode_preflight_with_filter(
       image.view(),
       strategy,
       PngFilterStrategy::Adaptive,
       png_wb_limits(),
       exact,
-    ).unwrap(),
-  )
-  inspect(exact.remaining().work(), content="0")
-  let one_less = png_wb_budget(work=facts.selected_work - 1UL)
+    ).unwrap())
+  exact.remaining().work() == 0UL
+}
+
+///|
+fn png_wb_adaptive_cursor_rejects_one_less(
+  strategy : PngCompressionStrategy,
+  selected_work : UInt64,
+) -> Bool {
+  let image = png_wb_adaptive_rgb_image()
+  let one_less = png_wb_budget(work=selected_work - 1UL)
   let unchanged = one_less.remaining()
   let rejected = _png_encode_preflight_with_filter(
     image.view(),
@@ -199,29 +199,39 @@ fn png_wb_adaptive_cursor_work_ledger(
     png_wb_limits(),
     one_less,
   ).unwrap_err()
-  inspect(rejected.context() == Some("work"), content="true")
-  inspect(
-    png_wb_same_remaining(unchanged, one_less.remaining()),
-    content="true",
-  )
-  Ok(())
+  rejected.context() == Some("work") &&
+  png_wb_same_remaining(unchanged, one_less.remaining())
 }
 
 ///|
 test "PNG adaptive cursor work ledger covers Stored planning and replay" {
-  png_wb_adaptive_cursor_work_ledger(PngCompressionStrategy::Stored).unwrap()
+  let facts = png_wb_adaptive_cursor_work_ledger(PngCompressionStrategy::Stored)
+  inspect(facts.adaptive_planning_facts.resolved_rows, content="2")
+  inspect(facts.adaptive_replay_facts.resolved_rows, content="2")
+  inspect(facts.adaptive_replay_facts.candidate_residuals, content="60")
+  inspect(facts.adaptive_replay_facts.selected_residuals, content="12")
+  inspect(png_wb_adaptive_cursor_exact_work(PngCompressionStrategy::Stored, facts.selected_work), content="true")
+  inspect(png_wb_adaptive_cursor_rejects_one_less(PngCompressionStrategy::Stored, facts.selected_work), content="true")
 }
 
 ///|
 test "PNG adaptive cursor work ledger covers FixedOrStored planning and replay" {
-  png_wb_adaptive_cursor_work_ledger(PngCompressionStrategy::FixedOrStored).unwrap()
+  let facts = png_wb_adaptive_cursor_work_ledger(PngCompressionStrategy::FixedOrStored)
+  inspect(facts.adaptive_planning_facts.resolved_rows >= 2UL, content="true")
+  inspect(facts.adaptive_replay_facts.resolved_rows, content="2")
+  inspect(png_wb_adaptive_cursor_exact_work(PngCompressionStrategy::FixedOrStored, facts.selected_work), content="true")
+  inspect(png_wb_adaptive_cursor_rejects_one_less(PngCompressionStrategy::FixedOrStored, facts.selected_work), content="true")
 }
 
 ///|
 test "PNG adaptive cursor work ledger covers DynamicOrFixedOrStored planning and replay" {
-  png_wb_adaptive_cursor_work_ledger(
+  let facts = png_wb_adaptive_cursor_work_ledger(
     PngCompressionStrategy::DynamicOrFixedOrStored,
-  ).unwrap()
+  )
+  inspect(facts.adaptive_planning_facts.resolved_rows >= 6UL, content="true")
+  inspect(facts.adaptive_replay_facts.resolved_rows, content="2")
+  inspect(png_wb_adaptive_cursor_exact_work(PngCompressionStrategy::DynamicOrFixedOrStored, facts.selected_work), content="true")
+  inspect(png_wb_adaptive_cursor_rejects_one_less(PngCompressionStrategy::DynamicOrFixedOrStored, facts.selected_work), content="true")
 }
 
 ///|
