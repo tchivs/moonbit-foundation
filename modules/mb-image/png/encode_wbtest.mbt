@@ -128,6 +128,74 @@ fn png_encode_adler(value : Bytes, start : Int, length : Int) -> UInt64 {
 }
 
 ///|
+fn png_wb_filter_row(
+  filter : PngRowFilter,
+  source : Bytes,
+  above : Bytes?,
+  channels : UInt64,
+) -> Bytes {
+  let residuals : Array[Byte] = []
+  for index = 0UL; index < source.length().to_uint64(); index = index + 1UL {
+    residuals.push(_png_filter_candidate_byte(
+      filter, source, above, channels, index,
+    ).unwrap())
+  }
+  Bytes::from_array(residuals)
+}
+
+///| PNGF-02 fixes the method-0 source-row formulas independently of framing.
+test "PNG filter arithmetic uses raw RGB8 and straight RGBA8 neighbors" {
+  let rgb = b"\x0a\x14\x1e\x0d\x19\x23"
+  let rgba = b"\x0a\x14\x1e\x28\x0d\x19\x23\x31"
+  inspect(png_wb_filter_row(PngRowFilter::None, rgb, None, 3UL) == rgb, content="true")
+  inspect(png_wb_filter_row(PngRowFilter::Sub, rgb, None, 3UL) == b"\x0a\x14\x1e\x03\x05\x05", content="true")
+  inspect(png_wb_filter_row(PngRowFilter::Up, rgb, None, 3UL) == rgb, content="true")
+  inspect(png_wb_filter_row(PngRowFilter::Average, rgb, None, 3UL) == b"\x0a\x14\x1e\x08\x0f\x14", content="true")
+  inspect(png_wb_filter_row(PngRowFilter::Paeth, rgb, None, 3UL) == b"\x0a\x14\x1e\x03\x05\x05", content="true")
+  inspect(png_wb_filter_row(PngRowFilter::None, rgba, None, 4UL) == rgba, content="true")
+  inspect(png_wb_filter_row(PngRowFilter::Sub, rgba, None, 4UL) == b"\x0a\x14\x1e\x28\x03\x05\x05\x09", content="true")
+  inspect(png_wb_filter_row(PngRowFilter::Up, rgba, None, 4UL) == rgba, content="true")
+  inspect(png_wb_filter_row(PngRowFilter::Average, rgba, None, 4UL) == b"\x0a\x14\x1e\x28\x08\x0f\x14\x19", content="true")
+  inspect(png_wb_filter_row(PngRowFilter::Paeth, rgba, None, 4UL) == b"\x0a\x14\x1e\x28\x03\x05\x05\x09", content="true")
+}
+
+///| PNGF-02 fixes prior-row and upper-left source samples for both profiles.
+test "PNG filter arithmetic uses previous raw rows and upper-left Paeth samples" {
+  let rgb_above = b"\x64\x6e\x78\x96\xa0\xaa"
+  let rgb_source = b"\x32\x3c\x46\x6e\x78\x82"
+  let rgba_above = b"\x64\x6e\x78\x82\x96\xa0\xaa\xb4"
+  let rgba_source = b"\x32\x3c\x46\x50\x6e\x78\x82\x8c"
+  inspect(png_wb_filter_row(PngRowFilter::Up, rgb_source, Some(rgb_above), 3UL) == b"\xce\xce\xce\xd8\xd8\xd8", content="true")
+  inspect(png_wb_filter_row(PngRowFilter::Paeth, rgb_source, Some(rgb_above), 3UL) == b"\xce\xce\xce\x0a\x0a\x0a", content="true")
+  inspect(png_wb_filter_row(PngRowFilter::Up, rgba_source, Some(rgba_above), 4UL) == b"\xce\xce\xce\xce\xd8\xd8\xd8\xd8", content="true")
+  inspect(png_wb_filter_row(PngRowFilter::Paeth, rgba_source, Some(rgba_above), 4UL) == b"\xce\xce\xce\xce\x0a\x0a\x0a\x0a", content="true")
+}
+
+///| PNGF-02 scores residuals as signed bytes, including the representable 128.
+test "PNG filter arithmetic scores signed residual magnitudes exactly" {
+  inspect(_png_filter_candidate_score(
+    PngRowFilter::None, b"\x7f\x80\x81", None, 3UL,
+  ).unwrap(), content="382")
+  inspect(_png_filter_candidate_score(
+    PngRowFilter::None, b"\x80\x00\x00", None, 3UL,
+  ).unwrap(), content="128")
+}
+
+///| PNGF-02 keeps the first candidate whenever residual scores tie.
+test "PNG filter arithmetic retains the earliest equal-score candidate" {
+  let (zero_filter, zero_score) = _png_filter_row_winner(
+    b"\x00\x00\x00\x00\x00\x00", None, 3UL,
+  ).unwrap()
+  inspect(zero_filter == PngRowFilter::None, content="true")
+  inspect(zero_score, content="0")
+  let (tie_filter, tie_score) = _png_filter_row_winner(
+    b"\x64\x00\x00\x64\x00\x00", None, 3UL,
+  ).unwrap()
+  inspect(tie_filter == PngRowFilter::Sub, content="true")
+  inspect(tie_score, content="100")
+}
+
+///|
 test "canonical PNG RGB framing has checked chunks stored block and checksums" {
   let bytes = png_wb_encode(png_wb_image(3UL, b"\x12\x34\x56"))
   inspect(bytes.length(), content="72")
