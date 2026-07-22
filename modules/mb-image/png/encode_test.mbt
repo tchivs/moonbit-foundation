@@ -1150,14 +1150,17 @@ test "PNG GrayAlpha16 public eager wire and decode fidelity" {
 /// wire order rather than the little-endian storage layout.
 test "PNG GrayAlpha16 Adam7 eager pass profile" {
   let expected = png_encode_graya16_adam7_expected_passes()
-  for encoder in [
+  let encoders = [
     PngEncoder::new_graya16_with_interlace_strategy(PngInterlaceStrategy::Adam7),
     PngEncoder::new_graya16_with_all_strategies(
       PngCompressionStrategy::Stored, PngFilterStrategy::None, PngInterlaceStrategy::Adam7,
     ),
-  ] {
+  ]
+  let outputs : Array[Bytes] = []
+  for encoder in encoders {
     let (_, writer) = png_adam7_encode_with(encoder, png_encode_graya16_adam7_image())
     let bytes = png_encode_prefix(writer)
+    outputs.push(bytes)
     inspect(
       bytes[0] == b'\x89' && bytes[1] == b'P' && bytes[24] == b'\x10' &&
         bytes[25] == b'\x04' && bytes[26] == b'\x00' && bytes[27] == b'\x00' &&
@@ -1170,6 +1173,8 @@ test "PNG GrayAlpha16 Adam7 eager pass profile" {
       inspect(bytes[48 + index] == expected[index], content="true")
     }
   }
+  inspect(outputs.length(), content="2")
+  inspect(outputs[0] == outputs[1], content="true")
 }
 
 ///| The locked Phase-53 GrayAlpha16 identity rejects big-endian descriptors
