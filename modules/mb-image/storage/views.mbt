@@ -30,6 +30,28 @@ fn require_packed_u8_view(
 }
 
 ///|
+fn require_packed_u8_or_u16_view(
+  format : @model.ImageFormat,
+  operation : String,
+  context : String,
+) -> Result[Unit, @error.CoreError] {
+  if format.layout() == @model.PlaneLayout::Packed &&
+    (format.component() == @model.ComponentType::U8 ||
+      format.component() == @model.ComponentType::U16) {
+    Ok(())
+  } else {
+    Err(
+      storage_error(
+        @error.ErrorCategory::Capability,
+        @error.ErrorCode::CapabilityUnavailable,
+        operation,
+        context,
+      ),
+    )
+  }
+}
+
+///|
 fn checked_offset(
   origin : UInt64,
   y : UInt64,
@@ -196,6 +218,67 @@ pub fn ImageView::get_byte(
           @error.ErrorCategory::State,
           @error.ErrorCode::InvalidRange,
           "image-view-get",
+          "empty-view",
+        ),
+      )
+  }
+}
+
+///|
+/// Read one storage-order byte from a packed U8 or U16 component. This is
+/// deliberately separate from `get_byte`, whose public contract remains U8.
+pub fn ImageView::get_component_byte(
+  self : ImageView,
+  x : UInt64,
+  y : UInt64,
+  channel : UInt64,
+  component_byte : UInt64,
+) -> Result[Byte, @error.CoreError] {
+  match
+    require_packed_u8_or_u16_view(
+      self.format_value,
+      "image-view-get-component-byte",
+      "packed-u8-or-u16-component-byte-access-required",
+    ) {
+    Err(error) => return Err(error)
+    Ok(_) => ()
+  }
+  let channel_count = self.format_value.channel_count()
+  let bytes_per_component = self.format_value.bytes_per_component()
+  if self.is_empty() ||
+    x >= self.width_value ||
+    y >= self.height_value ||
+    channel >= channel_count ||
+    component_byte >= bytes_per_component {
+    return Err(
+      storage_error(
+        @error.ErrorCategory::InvalidInput,
+        @error.ErrorCode::InvalidRange,
+        "image-view-get-component-byte",
+        "component-byte-range",
+      ),
+    )
+  }
+  let offset = match
+    checked_offset(
+      self.origin,
+      y,
+      self.row_stride_value,
+      x,
+      bytes_per_component * channel_count,
+      channel * bytes_per_component + component_byte,
+    ) {
+    Ok(value) => value
+    Err(error) => return Err(error)
+  }
+  match self.backing {
+    Some(value) => value.get(offset)
+    None =>
+      Err(
+        storage_error(
+          @error.ErrorCategory::State,
+          @error.ErrorCode::InvalidRange,
+          "image-view-get-component-byte",
           "empty-view",
         ),
       )
@@ -375,6 +458,81 @@ pub fn MutImageView::set_byte(
   value : Byte,
 ) -> Result[Unit, @error.CoreError] {
   match self.validated_offset(x, y, channel) {
+    Ok(offset) => self.lease.set(offset, value)
+    Err(error) => Err(error)
+  }
+}
+
+///|
+fn MutImageView::validated_component_offset(
+  self : MutImageView,
+  x : UInt64,
+  y : UInt64,
+  channel : UInt64,
+  component_byte : UInt64,
+) -> Result[UInt64, @error.CoreError] {
+  match
+    require_packed_u8_or_u16_view(
+      self.format_value,
+      "mut-image-view-component-byte-access",
+      "packed-u8-or-u16-component-byte-access-required",
+    ) {
+    Err(error) => return Err(error)
+    Ok(_) => ()
+  }
+  let channel_count = self.format_value.channel_count()
+  let bytes_per_component = self.format_value.bytes_per_component()
+  if self.width_value == 0UL ||
+    self.height_value == 0UL ||
+    x >= self.width_value ||
+    y >= self.height_value ||
+    channel >= channel_count ||
+    component_byte >= bytes_per_component {
+    return Err(
+      storage_error(
+        @error.ErrorCategory::InvalidInput,
+        @error.ErrorCode::InvalidRange,
+        "mut-image-view-component-byte-access",
+        "component-byte-range",
+      ),
+    )
+  }
+  checked_offset(
+    self.origin,
+    y,
+    self.row_stride_value,
+    x,
+    bytes_per_component * channel_count,
+    channel * bytes_per_component + component_byte,
+  )
+}
+
+///|
+pub fn MutImageView::get_component_byte(
+  self : MutImageView,
+  x : UInt64,
+  y : UInt64,
+  channel : UInt64,
+  component_byte : UInt64,
+) -> Result[Byte, @error.CoreError] {
+  match self.validated_component_offset(x, y, channel, component_byte) {
+    Ok(offset) => self.lease.get(offset)
+    Err(error) => Err(error)
+  }
+}
+
+///|
+/// Write one storage-order byte to a packed U8 or U16 component inside the
+/// callback-scoped mutable authority.
+pub fn MutImageView::set_component_byte(
+  self : MutImageView,
+  x : UInt64,
+  y : UInt64,
+  channel : UInt64,
+  component_byte : UInt64,
+  value : Byte,
+) -> Result[Unit, @error.CoreError] {
+  match self.validated_component_offset(x, y, channel, component_byte) {
     Ok(offset) => self.lease.set(offset, value)
     Err(error) => Err(error)
   }

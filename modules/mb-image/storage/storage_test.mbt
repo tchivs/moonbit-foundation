@@ -79,6 +79,25 @@ fn packed_descriptor() -> @model.ImageDescriptor {
 }
 
 ///|
+fn gray16_descriptor() -> @model.ImageDescriptor {
+  @model.ImageDescriptor::new(
+    2UL,
+    1UL,
+    @model.ImageFormat::new(
+      @model.ComponentType::U16,
+      @model.ChannelOrder::Gray,
+      @model.PlaneLayout::Packed,
+      @model.Endianness::Little,
+    ).unwrap(),
+    [@model.PlaneDescriptor::new(
+      0UL, 4UL, 4UL, 4UL, 1UL, 1UL, 2UL, 1UL,
+    ).unwrap()],
+    4UL,
+    packed_descriptor().metadata(),
+  ).unwrap()
+}
+
+///|
 test "owned image charges once and retains descriptor and metadata" {
   let descriptor = packed_descriptor()
   let budget = storage_budget(24UL)
@@ -104,6 +123,34 @@ test "immutable view retains padded rows and representable crop is zero copy" {
   inspect(crop.height(), content="2")
   inspect(crop.row_stride(), content="8")
   inspect(crop.get_byte(0UL, 0UL, 0UL).unwrap() == b'\x00', content="true")
+}
+
+///|
+test "packed component-byte access constructs and observes U16 storage order" {
+  let image = @storage.OwnedImage::new(
+    gray16_descriptor(),
+    storage_budget(4UL),
+  ).unwrap()
+  image.with_mut_view(fn(view) {
+    view.set_component_byte(0UL, 0UL, 0UL, 0UL, b'\x34').unwrap()
+    view.set_component_byte(0UL, 0UL, 0UL, 1UL, b'\x12').unwrap()
+    view.set_component_byte(1UL, 0UL, 0UL, 0UL, b'\xcd').unwrap()
+    view.set_component_byte(1UL, 0UL, 0UL, 1UL, b'\xab').unwrap()
+    Ok(())
+  }).unwrap()
+  let view = image.view()
+  inspect(view.get_component_byte(0UL, 0UL, 0UL, 0UL).unwrap(), content="b'\\x34'")
+  inspect(view.get_component_byte(0UL, 0UL, 0UL, 1UL).unwrap(), content="b'\\x12'")
+  inspect(view.get_component_byte(1UL, 0UL, 0UL, 0UL).unwrap(), content="b'\\xCD'")
+  inspect(view.get_component_byte(1UL, 0UL, 0UL, 1UL).unwrap(), content="b'\\xAB'")
+  inspect(view.get_component_byte(0UL, 0UL, 0UL, 2UL) is Err(_), content="true")
+  inspect(view.get_byte(0UL, 0UL, 0UL) is Err(_), content="true")
+  let u8 = @storage.OwnedImage::new(packed_descriptor(), storage_budget(24UL)).unwrap()
+  inspect(
+    u8.view().get_component_byte(0UL, 0UL, 0UL, 0UL).unwrap() ==
+      u8.view().get_byte(0UL, 0UL, 0UL).unwrap(),
+    content="true",
+  )
 }
 
 ///|

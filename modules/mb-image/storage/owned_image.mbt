@@ -89,7 +89,7 @@ pub fn[T] OwnedImage::with_mut_view(
   body : (MutImageView) -> Result[T, @error.CoreError],
 ) -> Result[T, @error.CoreError] {
   match
-    require_packed_u8_view(
+    require_packed_u8_or_u16_view(
       self.descriptor_value.format(),
       "owned-image-with-mut-view",
       "packed-u8-mut-view-required",
