@@ -1,32 +1,37 @@
 ---
 phase: 39-bounded-filter-planning-and-replay
-verified: 2026-07-22T03:02:38Z
+verified: 2026-07-22T05:00:05Z
 status: gaps_found
 score: 5/6 must-haves verified
 behavior_unverified: 0
 overrides_applied: 0
+re_verification:
+  previous_status: gaps_found
+  previous_score: 5/6
+  gaps_closed:
+    - "Adaptive planning and replay no longer use the stateless per-byte row selector on Stored, FixedOrStored, or DynamicOrFixedOrStored routes."
+  gaps_remaining:
+    - "Dynamic candidate walks that decline after executing work do not return their traversal facts, so preflight omits their adaptive work."
+  regressions: []
 gaps:
-  - truth: "Adaptive scanlines are selected once per row, and the preflight work ledger exactly covers planning and acknowledgement-safe replay before output is exposed."
+  - truth: "Adaptive preflight charges the checked sum of facts returned by every Stored, Fixed, Dynamic-frequency, Dynamic-bit-count, and selected-replay walk actually executed before output or a caller lease exists."
     status: failed
-    reason: "The selected row filter is recomputed for every filtered byte read, but preflight charges only two five-candidate row traversals. Stored replay alone invokes the selector row_bytes + 1 times per row, so actual adaptive scoring is substantially greater than the admitted ledger; Fixed and Dynamic invoke it still more through their matcher walks."
+    reason: "_png_dynamic_plan executes _png_dynamic_frequencies before any of its three early Ok(None) exits, but returns no frequency facts. _png_encode_preflight_with_filter adds Dynamic facts only for Ok(Some(dynamic)), so a declined Dynamic candidate is uncharged even though its bounded Adaptive traversal ran. The later IDAT-length decline similarly drops both frequency and bit-count facts."
     artifacts:
       - path: "modules/mb-image/png/encode.mbt"
-        issue: "_png_filtered_scanline_byte calls _png_filter_image_row_winner on every byte; _png_encode_preflight_with_filter charges only 2 * height * (5 * row_bytes)."
-      - path: "modules/mb-image/png/stream_encode.mbt"
-        issue: "Stored, Fixed, and Dynamic replay repeatedly request filtered bytes without retaining a current-row winner or another bounded replay cache."
+        issue: "Lines 958-984 and 1018 return Ok(None) after cursor work; lines 1223-1236 discard those unreturned facts in the Ok(None) branch."
       - path: "modules/mb-image/png/encode_wbtest.mbt"
-        issue: "The ledger test asserts the declared formula and admission boundary, but does not count selector/residual work during replay, so it cannot detect the undercharge."
+        issue: "Current ledger vectors cover a successful Dynamic candidate; they do not force a Dynamic decline and prove its executed facts are still charged."
     missing:
-      - "A fixed-memory forward cursor that resolves each row winner once per planning/replay traversal and supplies its tag and residual bytes thereafter."
-      - "A work ledger and regression test that account for the cursor's actual selector calls across Stored, FixedOrStored, and DynamicOrFixedOrStored replay."
+      - "Return a Dynamic planning outcome that carries executed frequency/bit traversal facts on every decline path, sum those facts in preflight, and add exact/one-less work and budget coverage for a declined Dynamic candidate."
 ---
 
 # Phase 39: Bounded Filter Planning and Replay Verification Report
 
 **Phase Goal:** Opted-in compatible images use deterministic, bounded standard PNG row filtering before the existing compression planners while retaining atomic eager and caller-buffered behavior.
-**Verified:** 2026-07-22T03:02:38Z
+**Verified:** 2026-07-22T05:00:05Z
 **Status:** gaps_found
-**Re-verification:** No — initial verification
+**Re-verification:** Yes — after the prior stateless-replay gap closure.
 
 ## Goal Achievement
 
@@ -34,12 +39,12 @@ gaps:
 
 | # | Truth | Status | Evidence |
 | --- | --- | --- | --- |
-| 1 | Compatible RGB8 and straight-RGBA8 Adaptive rows use method-0 None/Sub/Up/Average/Paeth with signed absolute residual scoring and an earlier-candidate tie-break. | ✓ VERIFIED | `encode.mbt` implements all five predictors, maps `0x80` to magnitude 128, and replaces the winner only on strict `<`; `encode_wbtest.mbt` contains RGB/RGBA edge, signed-score, and tie vectors. |
-| 2 | Adaptive scanlines are selected once per row and preflight exactly admits all filtering work before output. | ✗ FAILED | `_png_filtered_scanline_byte` recomputes `_png_filter_image_row_winner` for every byte. The preflight ledger nevertheless charges only `2 * height * (5 * row_bytes)`. |
-| 3 | Adaptive filtering combines with Stored, FixedOrStored, and DynamicOrFixedOrStored through eager and caller-buffered public factories. | ✓ VERIFIED | `PngEncoder::new_with_strategies` and `PngChunkEncoder::new_with_strategies` preserve both strategies; all paths enter `PngEncodeMachine::new_with_strategies`, which passes the filter strategy into preflight and replay. |
-| 4 | Existing None/default and compression-only routes retain their explicit legacy behavior; filter-only Adaptive remains Stored plus Adaptive. | ✓ VERIFIED | `png.mbt` documents and constructs the legacy factories with `PngFilterStrategy::None`; filter-only construction fixes compression to Stored. Public frozen-vector tests cover both adapters. |
-| 5 | Capability, geometry, output, work, and budget rejection occurs before eager output or a caller lease is exposed. | ✓ VERIFIED | Both adapters construct the machine only after `_png_encode_preflight_with_filter` succeeds. `PNG adaptive combined admission is atomic` exercises every stated rejection class for all three combined strategies and asserts zero writer/lease visibility and unchanged budget. |
-| 6 | The adaptive route is publicly documented and represented by the PNG semantic-interface policy. | ✓ VERIFIED | The two combined factory signatures and the documented candidate/tie rule are in `png.mbt`/`stream_encode.mbt`; `policy/foundation.json` declares both public signatures. Artifact and key-link verification reports all 11 planned artifacts and all 6 declared links present and wired. |
+| 1 | Adaptive RGB8 and straight-RGBA8 rows choose from method-0 None, Sub, Up, Average, and Paeth deterministically with the documented stable tie rule. | ✓ VERIFIED | Current `encode.mbt` keeps the fixed candidate order and strict-lower replacement; `*filter arithmetic*` and `PNG dynamic preflight selects only strict complete-PNG wins` passed on JS, Wasm, Wasm-GC, and Native. |
+| 2 | Stored, FixedOrStored, and DynamicOrFixedOrStored obtain real Adaptive planning and replay bytes from a bounded forward cursor, not the old stateless arbitrary selector. | ✓ VERIFIED | Current HEAD (`eb6e87c`, `175153c`) defines `PngFilteredMatchCursor` with producer/logical/retained positions and a 262-byte ring. `_png_fixed_plan`, `_png_dynamic_frequencies`, `_png_dynamic_plan`, Stored replay, Fixed replay, and Dynamic replay all create/use it. `_png_filtered_scanline_byte` remains only behind `PngEncodeMachine::scanline_byte`; actual Adaptive planning/replay routes use their owned cursor. |
+| 3 | Preflight admits all adaptive selector/residual work actually performed by requested candidate and selected replay walks before output visibility. | ✗ FAILED | Dynamic planning can execute `_png_dynamic_frequencies` and then return `Ok(None)` when a Huffman builder declines, or execute both walks and return `Ok(None)` at the IDAT-length guard. The caller records facts only for `Ok(Some(dynamic))`; these real cursor passes are omitted from the ledger. |
+| 4 | Fixed and Dynamic preview/replay state advances only on acknowledgement, with a deep-owned bounded cursor window. | ✓ VERIFIED | `PngFilteredMatchCursor::ensure` copies all 262 window slots before producer advancement; Fixed/Dynamic preview returns successor state into `pending_*`, and `acknowledge` alone installs it. The public Adaptive Fixed/Dynamic mutation tests pass, checking BTYPE (`03`/`05`), route-specific drift contexts, accepted prefix, terminal zero write, unchanged terminal lease, and sticky repeat. |
+| 5 | Fixed wins Stored ties; Dynamic replaces the baseline only on a strict complete-PNG win; legacy None bytes and public factories remain intact. | ✓ VERIFIED | Current comparisons are `fixed.total_length <= stored.total_length` and `dynamic.total_length < winner_length`; policy records both combined factories. Frozen legacy and Adaptive selection selectors passed on all four targets. |
+| 6 | Capability, geometry, output, work, and budget rejections remain atomic for eager and caller-buffered adapters. | ✓ VERIFIED | Both public factories enter `PngEncodeMachine::new_with_strategies`, which calls preflight before a machine/lease is exposed. The targeted `PNG adaptive combined admission is atomic`, Fixed admission, and Dynamic admission selectors passed on JS, Wasm, Wasm-GC, and Native. |
 
 **Score:** 5/6 truths verified (0 present, behavior-unverified)
 
@@ -47,69 +52,64 @@ gaps:
 
 | Artifact | Expected | Status | Details |
 | --- | --- | --- | --- |
-| `modules/mb-image/png/encode.mbt` | Filter arithmetic and filter-aware preflight | ✗ FAILED CONTRACT | Substantive and wired, but its byte supplier repeats row selection and undercharges real filtering work. |
-| `modules/mb-image/png/stream_encode.mbt` | Bounded adaptive replay and public chunk factory | ✗ FAILED CONTRACT | Substantive and wired for all three plans, but holds no current-row selection state while replay calls the supplier per byte. |
-| `modules/mb-image/png/png.mbt` | Documented eager combined factory | ✓ VERIFIED | Additive public API documents candidate order, signed score, strict winner, and legacy routes. |
-| `modules/mb-image/png/encode_wbtest.mbt` | Formula and ledger tests | ⚠️ INSUFFICIENT | Formula/tie tests are substantive; the ledger test verifies only its own stated constant. |
-| `modules/mb-image/png/stream_encode_wbtest.mbt` | Cursor/replay tests | ⚠️ INSUFFICIENT | Confirms byte identity and matcher/fingerprint facts, not number of adaptive scoring traversals. |
-| `modules/mb-image/png/encode_test.mbt` | Public eager routes | ✓ VERIFIED | Iterates three compression strategies and RGB/RGBA inputs, then decodes to source. |
-| `modules/mb-image/png/stream_encode_test.mbt` | Public chunk routes and atomic failures | ✓ VERIFIED | Checks eager/chunk equality, hostile capacities, decode fidelity, and rejected construction. |
-| `policy/foundation.json` | Semantic-interface declarations | ✓ VERIFIED | Contains both `new_with_strategies` public signatures. |
+| `modules/mb-image/png/encode.mbt` | Bounded matching cursor and truthful traversal-derived admission ledger | ✗ FAILED CONTRACT | Cursor is substantive and wired; its Dynamic-decline result loses already-executed facts. |
+| `modules/mb-image/png/stream_encode.mbt` | Acknowledgement-safe Stored/Fixed/Dynamic cursor replay | ✓ VERIFIED | All Adaptive emitter states own a `PngFilteredMatchCursor`; pending successor is committed only by `acknowledge`. |
+| `modules/mb-image/png/encode_wbtest.mbt` | Candidate, tie, and adaptive-ledger checks | ⚠️ INCOMPLETE | Successful Dynamic, Fixed, and Stored facts are tested; the Dynamic-decline ledger branch is absent. |
+| `modules/mb-image/png/stream_encode_wbtest.mbt` | Private cursor/replay checks | ✓ VERIFIED | Includes Adaptive cursor and Fixed preview accounting coverage. |
+| `modules/mb-image/png/stream_encode_test.mbt` | Public adaptive routes, selection, mutation and atomicity | ✓ VERIFIED | Route-specific BTYPE/context/sticky tests are substantive and passed in the targeted matrix. |
+| `modules/mb-image/png/png.mbt` and `policy/foundation.json` | Additive documented/public factories | ✓ VERIFIED | Factory signatures and policy declarations agree. |
 
 ## Key Link Verification
 
 | From | To | Via | Status | Details |
 | --- | --- | --- | --- | --- |
-| `encode_wbtest.mbt` | `encode.mbt` | Internal helper calls | ✓ WIRED | Formula, score, and stable-winner helpers are called directly. |
-| `encode.mbt` | `stream_encode.mbt` | Filter-aware preflight/replay contract | ⚠️ WIRED BUT INCORRECT | Both sides call the same supplier, but the supplier recomputes the winner on each byte. |
-| `stream_encode.mbt` | `encode.mbt` | Fixed/Dynamic matcher and fingerprint replay | ✓ WIRED | Both planners and emitters call `_png_filtered_match_at` / `_png_filtered_scanline_byte`. |
-| `png.mbt` | `stream_encode.mbt` | Combined eager/chunk factories | ✓ WIRED | Factory values flow into the shared machine unchanged. |
-| `png.mbt` | `policy/foundation.json` | Public interface | ✓ WIRED | Policy signatures match the exposed factories. |
+| `encode.mbt` | `stream_encode.mbt` | Preflight plan facts → selected owned replay cursor | ⚠️ PARTIAL | Actual Stored/Fixed/Dynamic success paths are wired, but `Ok(None)` Dynamic outcomes cannot transport their executed facts into preflight. |
+| `stream_encode.mbt` | `encode.mbt` | Stored/Fixed/Dynamic preview/emission → bounded producer/ring | ✓ WIRED | All Adaptive paths initialize and advance `PngFilteredMatchCursor`; legacy None retains its historical provider. |
+| Public factories | shared machine | combined compression/filter strategies | ✓ WIRED | Eager and chunk factories pass both strategies unchanged into the one shared constructor. |
 
 ## Data-Flow Trace (Level 4)
 
-| Artifact | Data Variable | Source | Produces Real Data | Status |
+| Artifact | Data variable | Source | Produces real data | Status |
 | --- | --- | --- | --- | --- |
-| Adaptive supplier | `winner`, residual byte | `ImageView.get_byte` through raw/left/up/upper-left accessors | Yes — source pixels feed planner and replay | ⚠️ FLOWING, BUT RECOMPUTED |
-| Preflight | `adaptive_filter_work` | `height`, `row_bytes`, filter strategy | No exact correspondence to actual cursor/supplier traversals | ✗ UNDERCOUNTED |
+| `PngFilteredMatchCursor` | selected tag/residual stream | `ImageView` raw bytes → `PngFilteredCursor` winner/residual producer → 262-slot retained window | Yes | ✓ FLOWING |
+| Dynamic preflight ledger | `frequency_facts`, `bit_facts` | real Dynamic match cursors | Only `Some(dynamic)` returns them | ✗ DROPPED ON DECLINE |
 
 ## Behavioral Spot-Checks
 
-| Behavior | Command / evidence | Result | Status |
+| Behavior | Command/evidence | Result | Status |
 | --- | --- | --- | --- |
-| Method-0 arithmetic across portable targets | Focused `*filter arithmetic*` suite recorded for js/wasm/wasm-gc/native | 4/4 targeted suites reported passed; test bodies independently mapped to the formulas | ✓ PASS (scoped evidence) |
-| Public eager combined routes | Focused named test across portable targets | Reported passed; test loops Stored, FixedOrStored, DynamicOrFixedOrStored and RGB/RGBA decode fidelity | ✓ PASS (scoped evidence) |
-| Public chunk and atomic combined routes | Focused named tests across portable targets | Reported passed; test bodies verify eager/chunk identity and all five pre-output rejection classes | ✓ PASS (scoped evidence) |
-| Exact adaptive work admission | Static trace from `_png_filtered_scanline_byte` through Stored/Fixed/Dynamic consumption | Row winner is recomputed per byte while the ledger charges two row traversals | ✗ FAIL |
+| Targeted route, ledger, atomicity, mutation, selection and frozen-byte matrix | 14 declared focused selectors, each run independently on JS/Wasm/Wasm-GC/Native in fresh `phase39-verify-*` roots | All selectors passed; every root was removed | ✓ PASS |
+| Arithmetic, stable selection and strict Dynamic preflight | `*filter arithmetic*` plus `PNG dynamic preflight selects only strict complete-PNG wins` on all four targets | Passed; roots removed | ✓ PASS |
+| Package compilation | `moon -C modules/mb-image check png --target all --target-dir <fresh phase39 root> --frozen` | Passed; root removed | ✓ PASS |
+| Dynamic decline work admission | Static control-flow trace of `_png_dynamic_plan` → preflight `Ok(None)` branch | Facts are absent after a real cursor walk | ✗ FAIL |
 
-The verifier also attempted a fresh isolated four-target focused Moon command. It compiled target artifacts but produced no completed test result within the 64-second execution ceiling; the isolated directory was removed. That timeout is **not** counted as a passing result. The documented broad PNG/quality-lane delay is likewise neither accepted as a pass nor used for this verdict. It is not the blocker: the static work-ledger contradiction above is independently observable and decisive.
+No broad/stalled PNG suite or quality lane was counted as passing evidence.
 
 ## Requirements Coverage
 
 | Requirement | Source Plan | Description | Status | Evidence |
 | --- | --- | --- | --- | --- |
-| PNGF-02 | 39-01, 39-02, 39-03 | Deterministic bounded method-0 candidates and stable winner | ✓ SATISFIED | Exact helpers and vectors establish candidate semantics and strict earlier tie-break; public factories document them. |
-| PNGF-03 | 39-02, 39-03 | Integrate before all compression planners without image-sized staging while retaining atomic resource behavior | ✗ BLOCKED | Planner/replay integration and no image-sized buffer are present, but the claimed work bound is not actual: repeated row scoring can exceed the pre-output work admission. |
+| PNGF-02 | 39-01, 39-03, 39-04–06 | Deterministic, bounded standard candidate selection and stable winner | ✓ SATISFIED | Method-0 helpers, strict tie policy, bounded cursor, four-target arithmetic/route evidence. |
+| PNGF-03 | 39-02–06 | Planner integration with no image staging and atomic pre-output resource semantics | ✗ BLOCKED | Cursor/ring/no-staging and normal-route atomicity work, but Dynamic candidate decline can perform uncharged Adaptive work. |
 
-No requirements mapped to Phase 39 are orphaned from plan frontmatter. Phase 40 concerns downstream portable evidence, not remediation of the Phase 39 work-accounting implementation, so this gap is not deferred.
+No Phase 39 requirement is orphaned from plan frontmatter. Phase 40 concerns downstream portable interoperability evidence; it does not explicitly schedule repair of the Dynamic-decline accounting defect, so this gap is not deferred.
 
 ## Anti-Patterns Found
 
 | File | Line | Pattern | Severity | Impact |
 | --- | --- | --- | --- | --- |
-| `modules/mb-image/png/encode.mbt` | 421-440 | Per-byte call to full row-winner scorer | 🛑 Blocker | Violates the once-per-row bounded-cursor contract and invalidates exact preflight work admission. |
-| `modules/mb-image/png/encode_wbtest.mbt` | 154-197 | Test asserts formula, not runtime scorer count | ⚠️ Warning | A passing targeted test masks the undercharged replay work. |
-| `modules/mb-image/png/png.mbt` | 74 | Stale wording says compression phase excludes adaptive filtering | ℹ️ Info | The nearby combined-factory documentation is correct; clarify this wording during gap closure. |
+| `modules/mb-image/png/encode.mbt` | 958–984, 1018, 1223–1236 | Real cursor facts vanish through `Ok(None)` Dynamic planning outcomes | 🛑 Blocker | Invalidates the exact preflight work contract for declined Dynamic candidates. |
+| `modules/mb-image/png/encode_wbtest.mbt` | 241–268 | Only successful Dynamic plan facts are asserted | ⚠️ Warning | Does not catch the omitted-decline branch. |
 
-No untracked Phase 39 source/policy file contains an unreferenced `TBD`, `FIXME`, or `XXX` debt marker. The unrelated dirty QOI files were preserved and excluded from this verification.
+The phase-owned code/policy files have no unresolved `TBD`, `FIXME`, or `XXX` debt marker. No `phase39-*` temporary build root remained after verification.
 
 ## Gaps Summary
 
-Phase 39 contains real filter arithmetic, public composition, and atomic construction wiring, but it misses the central bounded-replay contract. A 6-byte row illustrates the mismatch: Stored replay asks for 7 filtered bytes; each request rescans five candidates across all 6 bytes (210 scorer residual operations for that row), while the entire preflight ledger credits only 60 filtering units for planning plus replay. Fixed and Dynamic make additional supplier calls through matcher comparisons. Therefore a work/budget that admission accepts can be insufficient for the actual encoder computation, defeating PNGF-03's bounded pre-output resource guarantee.
+The previous blocker is genuinely closed: current planning and replay use the owned 262-byte cursor rather than repeatedly selecting a row through `_png_filtered_scanline_byte`. The new evidence also validates four-target happy paths, public BTYPE/context behavior, sticky zero-write failures, and package compilation.
 
-The repair must introduce a bounded forward cursor/current-row state (not an image-sized winner table), route both planning and acknowledgement-safe replay through it, and make the ledger test count the actual fixed cursor traversals.
+However, the resource contract is still incomplete. `_png_dynamic_plan` first executes a bounded frequency cursor, then has three normal candidate-decline exits. Its `Option` result cannot carry `frequency_facts` or `bit_facts` back to preflight. `_png_encode_preflight_with_filter` therefore charges Dynamic facts only if the candidate survives as `Some(dynamic)`. A Dynamic-or-Fixed-or-Stored request may thus accept a work limit/budget that excludes a real Adaptive cursor pass performed before construction returns. This is an observable PNGF-03 failure, not a missing test alone.
 
 ---
 
-_Verified: 2026-07-22T03:02:38Z_
+_Verified: 2026-07-22T05:00:05Z_
 _Verifier: the agent (gsd-verifier)_
