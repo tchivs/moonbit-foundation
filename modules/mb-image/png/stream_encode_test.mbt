@@ -101,6 +101,14 @@ fn png_stream_gray8_image(
   image
 }
 
+///| The eager and chunk Gray8 fidelity cases use the same compact multi-row source.
+fn png_stream_gray8_fidelity_image() -> @storage.OwnedImage {
+  png_stream_gray8_image(
+    b"\x00\x7f\xff\x12\xa5\x34\xc8\x56\xe1\x09\xab\xcd\x23\x89\xfe",
+    width=5UL, height=3UL,
+  )
+}
+
 ///|
 fn png_stream_test_eager(image : @storage.OwnedImage) -> Bytes {
   png_stream_test_eager_with_strategy(image, PngCompressionStrategy::Stored)
@@ -491,6 +499,59 @@ test "PNG Gray8 chunk strategy factories match eager" {
         [17UL],
       ).unwrap()
       inspect(chunked == eager, content="true")
+    }
+  }
+}
+
+///| Public Gray8 chunk encoders may make no progress with an empty caller
+/// lease, then must reproduce eager bytes with fresh hostile-capacity drains.
+test "PNG Gray8 chunk strategy pairs preserve eager bytes under hostile capacities" {
+  let gray = png_stream_gray8_fidelity_image()
+  for strategy in [
+    PngCompressionStrategy::Stored,
+    PngCompressionStrategy::FixedOrStored,
+    PngCompressionStrategy::DynamicOrFixedOrStored,
+  ] {
+    for filter_strategy in [PngFilterStrategy::None, PngFilterStrategy::Adaptive] {
+      let eager = png_stream_gray8_eager_with_strategies(gray, strategy, filter_strategy)
+      let zero_encoder = PngChunkEncoder::new_gray8_with_strategies(
+        gray.view(), strategy, filter_strategy, png_stream_test_limits(),
+        png_stream_test_budget(), @error.Diagnostics::new(),
+      ).unwrap()
+      let empty = png_chunk_test_owner(0UL)
+      let zero = empty.with_mut(0UL, 0UL, fn(lease) {
+        Ok(zero_encoder.pull(lease))
+      }).unwrap()
+      inspect(zero.written(), content="0")
+      inspect(zero.total_written(), content="0")
+      inspect(zero.outcome() is PngChunkPullOutcome::NeedOutput, content="true")
+
+      let zero_prefixed = png_chunk_test_drain_encoder(
+        PngChunkEncoder::new_gray8_with_strategies(
+          gray.view(), strategy, filter_strategy, png_stream_test_limits(),
+          png_stream_test_budget(), @error.Diagnostics::new(),
+        ).unwrap(),
+        [0UL, 1UL],
+      ).unwrap()
+      inspect(zero_prefixed == eager, content="true")
+
+      let one_byte = png_chunk_test_drain_encoder(
+        PngChunkEncoder::new_gray8_with_strategies(
+          gray.view(), strategy, filter_strategy, png_stream_test_limits(),
+          png_stream_test_budget(), @error.Diagnostics::new(),
+        ).unwrap(),
+        [1UL],
+      ).unwrap()
+      inspect(one_byte == eager, content="true")
+
+      let ragged = png_chunk_test_drain_encoder(
+        PngChunkEncoder::new_gray8_with_strategies(
+          gray.view(), strategy, filter_strategy, png_stream_test_limits(),
+          png_stream_test_budget(), @error.Diagnostics::new(),
+        ).unwrap(),
+        [0UL, 8UL, 4UL, 1UL, 13UL, 2UL, 5UL, 3UL, 21UL],
+      ).unwrap()
+      inspect(ragged == eager, content="true")
     }
   }
 }
