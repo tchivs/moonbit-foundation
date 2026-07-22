@@ -6,11 +6,22 @@ fn png_encode_u32_at(value : Bytes, offset : Int) -> UInt64 {
   value[offset + 3].to_uint64()
 }
 
-///| Phase 36 RED: strict complete-PNG dynamic selection is not implemented yet.
+///|
+/// Phase 36 RED: strict complete-PNG dynamic selection is not implemented yet.
 test "PNG dynamic preflight selects only strict complete-PNG wins" {
   let image = png_wb_image(3UL, b"\x12\x34\x56")
-  let fixed = _png_encode_preflight(image.view(), PngCompressionStrategy::FixedOrStored, png_wb_limits(), png_wb_budget()).unwrap()
-  let dynamic = _png_encode_preflight(image.view(), PngCompressionStrategy::DynamicOrFixedOrStored, png_wb_limits(), png_wb_budget()).unwrap()
+  let fixed = _png_encode_preflight(
+    image.view(),
+    PngCompressionStrategy::FixedOrStored,
+    png_wb_limits(),
+    png_wb_budget(),
+  ).unwrap()
+  let dynamic = _png_encode_preflight(
+    image.view(),
+    PngCompressionStrategy::DynamicOrFixedOrStored,
+    png_wb_limits(),
+    png_wb_budget(),
+  ).unwrap()
   inspect(dynamic.total_length == fixed.total_length, content="true")
   match dynamic.plan {
     PngDeflatePlan::Stored(_) | PngDeflatePlan::Fixed(_) => ()
@@ -19,26 +30,47 @@ test "PNG dynamic preflight selects only strict complete-PNG wins" {
 }
 
 ///|
-fn png_wb_budget(bytes? : UInt64 = 512UL, work? : UInt64 = 1024UL) -> @budget.Budget {
-  @budget.Budget::new(@budget.ResourceLimits::new(
-    bytes~, allocations=8UL, allocation_size=bytes, width=64UL,
-    height=64UL, pixels=4096UL, depth=0UL, work~,
-  ))
+fn png_wb_budget(
+  bytes? : UInt64 = 512UL,
+  work? : UInt64 = 1024UL,
+) -> @budget.Budget {
+  @budget.Budget::new(
+    @budget.ResourceLimits::new(
+      bytes~,
+      allocations=8UL,
+      allocation_size=bytes,
+      width=64UL,
+      height=64UL,
+      pixels=4096UL,
+      depth=0UL,
+      work~,
+    ),
+  )
 }
 
 ///|
 fn png_wb_limits() -> @codec.CodecLimits {
   @codec.CodecLimits::new(
-    max_probe_bytes=8UL, max_input_bytes=512UL, max_output_bytes=512UL,
-    max_width=64UL, max_height=64UL, max_pixels=4096UL, max_work=1024UL,
+    max_probe_bytes=8UL,
+    max_input_bytes=512UL,
+    max_output_bytes=512UL,
+    max_width=64UL,
+    max_height=64UL,
+    max_pixels=4096UL,
+    max_work=1024UL,
   )
 }
 
 ///|
 fn png_wb_dynamic_limits() -> @codec.CodecLimits {
   @codec.CodecLimits::new(
-    max_probe_bytes=8UL, max_input_bytes=512UL, max_output_bytes=512UL,
-    max_width=128UL, max_height=64UL, max_pixels=4096UL, max_work=10000UL,
+    max_probe_bytes=8UL,
+    max_input_bytes=512UL,
+    max_output_bytes=512UL,
+    max_width=128UL,
+    max_height=64UL,
+    max_pixels=4096UL,
+    max_work=10000UL,
   )
 }
 
@@ -47,48 +79,193 @@ fn png_wb_dynamic_budget(
   bytes? : UInt64 = 512UL,
   work? : UInt64 = 10000UL,
 ) -> @budget.Budget {
-  @budget.Budget::new(@budget.ResourceLimits::new(
-    bytes~, allocations=8UL, allocation_size=bytes, width=128UL,
-    height=64UL, pixels=4096UL, depth=0UL, work~,
-  ))
+  @budget.Budget::new(
+    @budget.ResourceLimits::new(
+      bytes~,
+      allocations=8UL,
+      allocation_size=bytes,
+      width=128UL,
+      height=64UL,
+      pixels=4096UL,
+      depth=0UL,
+      work~,
+    ),
+  )
+}
+
+///|
+/// The two rows make the first adaptive winner Sub and the second Up, so the
+/// filtered stream is non-None while remaining small enough to audit by hand.
+fn png_wb_adaptive_rgb_image() -> @storage.OwnedImage {
+  let descriptor = @model.ImageDescriptor::new(
+    2UL,
+    2UL,
+    @model.ImageFormat::rgb8(),
+    [
+      @model.PlaneDescriptor::new(0UL, 6UL, 6UL, 12UL, 1UL, 1UL, 2UL, 2UL).unwrap(),
+    ],
+    12UL,
+    @model.ImageMetadata::new(
+      @color.ColorSpaceIdentity::Srgb,
+      @color.TransferIdentity::EncodedSrgb,
+      None,
+      @profile.ProfileIdentity::builtin_srgb(),
+      @model.Orientation::TopLeft,
+      @metadata.OpaqueMetadata::from_entries(
+        [],
+        @metadata.MetadataLimits::new(
+          max_entries=0UL,
+          max_token_bytes=1UL,
+          max_value_bytes=0UL,
+          max_total_bytes=0UL,
+          max_disposition_fields=4UL,
+        ),
+        png_wb_budget(bytes=0UL, work=0UL),
+      ).unwrap(),
+    ),
+  ).unwrap()
+  let image = @storage.OwnedImage::new(
+    descriptor,
+    png_wb_budget(bytes=12UL, work=0UL),
+  ).unwrap()
+  image
+  .with_mut_view(fn(view) {
+    for row = 0UL; row < 2UL; row = row + 1UL {
+      for index = 0UL; index < 6UL; index = index + 1UL {
+        view
+        .set_byte(
+          index / 3UL,
+          row,
+          index % 3UL,
+          [b'\x0a', b'\x14', b'\x1e'][index.to_int() % 3],
+        )
+        .unwrap()
+      }
+    }
+    Ok(())
+  })
+  .unwrap()
+  image
+}
+
+///|
+/// PNGF-02/03: preflight records the exact double traversal required to score
+/// adaptive rows once for planning and once for acknowledgement-safe replay.
+test "PNG adaptive planner charges the checked filtered work ledger" {
+  let image = png_wb_adaptive_rgb_image()
+  let budget = png_wb_budget(work=1024UL)
+  let before = budget.remaining()
+  let facts = _png_encode_preflight_with_filter(
+    image.view(),
+    PngCompressionStrategy::Stored,
+    PngFilterStrategy::Adaptive,
+    png_wb_limits(),
+    budget,
+  ).unwrap()
+  let adaptive_work = 2UL * 2UL * (5UL * 6UL)
+  inspect(
+    before.work() - budget.remaining().work() ==
+    facts.total_length + adaptive_work,
+    content="true",
+  )
+  let exact = png_wb_budget(work=facts.total_length + adaptive_work)
+  ignore(
+    _png_encode_preflight_with_filter(
+      image.view(),
+      PngCompressionStrategy::Stored,
+      PngFilterStrategy::Adaptive,
+      png_wb_limits(),
+      exact,
+    ).unwrap(),
+  )
+  inspect(exact.remaining().work(), content="0")
+  let one_less = png_wb_budget(work=facts.total_length + adaptive_work - 1UL)
+  let unchanged = one_less.remaining()
+  let rejected = _png_encode_preflight_with_filter(
+    image.view(),
+    PngCompressionStrategy::Stored,
+    PngFilterStrategy::Adaptive,
+    png_wb_limits(),
+    one_less,
+  ).unwrap_err()
+  inspect(rejected.context() == Some("work"), content="true")
+  inspect(
+    png_wb_same_remaining(unchanged, one_less.remaining()),
+    content="true",
+  )
 }
 
 ///|
 fn png_wb_image(channels : UInt64, pixels : Bytes) -> @storage.OwnedImage {
   let descriptor = @model.ImageDescriptor::new(
-    1UL, 1UL,
-    if channels == 3UL { @model.ImageFormat::rgb8() } else { @model.ImageFormat::rgba8() },
-    [@model.PlaneDescriptor::new(0UL, channels, channels, channels, 1UL, 1UL, 1UL, 1UL).unwrap()],
+    1UL,
+    1UL,
+    if channels == 3UL {
+      @model.ImageFormat::rgb8()
+    } else {
+      @model.ImageFormat::rgba8()
+    },
+    [
+      @model.PlaneDescriptor::new(
+        0UL, channels, channels, channels, 1UL, 1UL, 1UL, 1UL,
+      ).unwrap(),
+    ],
     channels,
     @model.ImageMetadata::new(
-      @color.ColorSpaceIdentity::Srgb, @color.TransferIdentity::EncodedSrgb,
-      if channels == 4UL { Some(@color.AlphaMode::Straight) } else { None },
-      @profile.ProfileIdentity::builtin_srgb(), @model.Orientation::TopLeft,
+      @color.ColorSpaceIdentity::Srgb,
+      @color.TransferIdentity::EncodedSrgb,
+      if channels == 4UL {
+        Some(@color.AlphaMode::Straight)
+      } else {
+        None
+      },
+      @profile.ProfileIdentity::builtin_srgb(),
+      @model.Orientation::TopLeft,
       @metadata.OpaqueMetadata::from_entries(
-        [], @metadata.MetadataLimits::new(
-          max_entries=0UL, max_token_bytes=1UL, max_value_bytes=0UL,
-          max_total_bytes=0UL, max_disposition_fields=4UL,
-        ), png_wb_budget(bytes=0UL, work=0UL),
+        [],
+        @metadata.MetadataLimits::new(
+          max_entries=0UL,
+          max_token_bytes=1UL,
+          max_value_bytes=0UL,
+          max_total_bytes=0UL,
+          max_disposition_fields=4UL,
+        ),
+        png_wb_budget(bytes=0UL, work=0UL),
       ).unwrap(),
     ),
   ).unwrap()
-  let image = @storage.OwnedImage::new(descriptor, png_wb_budget(bytes=channels, work=0UL)).unwrap()
-  image.with_mut_view(fn(view) {
+  let image = @storage.OwnedImage::new(
+    descriptor,
+    png_wb_budget(bytes=channels, work=0UL),
+  ).unwrap()
+  image
+  .with_mut_view(fn(view) {
     for index = 0UL; index < channels; index = index + 1UL {
       view.set_byte(0UL, 0UL, index, pixels[index.to_int()]).unwrap()
     }
     Ok(())
-  }).unwrap()
+  })
+  .unwrap()
   image
 }
 
 ///|
 fn png_wb_encode(image : @storage.OwnedImage) -> Bytes {
-  let writer = @io.MemoryWriter::new(512UL, png_wb_budget(bytes=512UL, work=0UL)).unwrap()
+  let writer = @io.MemoryWriter::new(
+    512UL,
+    png_wb_budget(bytes=512UL, work=0UL),
+  ).unwrap()
   let _ = @codec.ImageEncoder::encode(
-    PngEncoder::new(), image.view(), writer as &@io.Writer,
-    @codec.EncodeOptions::new(lossless_required=true, preserve_opaque_metadata=false),
-    png_wb_limits(), png_wb_budget(), @error.Diagnostics::new(),
+    PngEncoder::new(),
+    image.view(),
+    writer as &@io.Writer,
+    @codec.EncodeOptions::new(
+      lossless_required=true,
+      preserve_opaque_metadata=false,
+    ),
+    png_wb_limits(),
+    png_wb_budget(),
+    @error.Diagnostics::new(),
   ).unwrap()
   let bytes : Array[Byte] = []
   for index = 0UL; index < writer.position(); index = index + 1UL {
@@ -100,7 +277,10 @@ fn png_wb_encode(image : @storage.OwnedImage) -> Bytes {
 ///|
 fn png_wb_machine_encode(image : @storage.OwnedImage) -> (Bytes, UInt64) {
   let machine = PngEncodeMachine::new(
-    image.view(), png_wb_limits(), png_wb_budget(), @error.Diagnostics::new(),
+    image.view(),
+    png_wb_limits(),
+    png_wb_budget(),
+    @error.Diagnostics::new(),
   ).unwrap()
   let bytes : Array[Byte] = []
   while machine.present().unwrap() is Some(_) {
@@ -114,7 +294,9 @@ fn png_wb_machine_encode(image : @storage.OwnedImage) -> (Bytes, UInt64) {
 ///|
 fn png_encode_slice(value : Bytes, start : Int, length : Int) -> Bytes {
   let result : Array[Byte] = []
-  for index = 0; index < length; index = index + 1 { result.push(value[start + index]) }
+  for index = 0; index < length; index = index + 1 {
+    result.push(value[start + index])
+  }
   Bytes::from_array(result)
 }
 
@@ -136,60 +318,122 @@ fn png_wb_filter_row(
 ) -> Bytes {
   let residuals : Array[Byte] = []
   for index = 0UL; index < source.length().to_uint64(); index = index + 1UL {
-    residuals.push(_png_filter_candidate_byte(
-      filter, source, above, channels, index,
-    ).unwrap())
+    residuals.push(
+      _png_filter_candidate_byte(filter, source, above, channels, index).unwrap(),
+    )
   }
   Bytes::from_array(residuals)
 }
 
-///| PNGF-02 fixes the method-0 source-row formulas independently of framing.
+///|
+/// PNGF-02 fixes the method-0 source-row formulas independently of framing.
 test "PNG filter arithmetic uses raw RGB8 and straight RGBA8 neighbors" {
   let rgb = b"\x0a\x14\x1e\x0d\x19\x23"
   let rgba = b"\x0a\x14\x1e\x28\x0d\x19\x23\x31"
-  inspect(png_wb_filter_row(PngRowFilter::None, rgb, None, 3UL) == rgb, content="true")
-  inspect(png_wb_filter_row(PngRowFilter::Sub, rgb, None, 3UL) == b"\x0a\x14\x1e\x03\x05\x05", content="true")
-  inspect(png_wb_filter_row(PngRowFilter::Up, rgb, None, 3UL) == rgb, content="true")
-  inspect(png_wb_filter_row(PngRowFilter::Average, rgb, None, 3UL) == b"\x0a\x14\x1e\x08\x0f\x14", content="true")
-  inspect(png_wb_filter_row(PngRowFilter::Paeth, rgb, None, 3UL) == b"\x0a\x14\x1e\x03\x05\x05", content="true")
-  inspect(png_wb_filter_row(PngRowFilter::None, rgba, None, 4UL) == rgba, content="true")
-  inspect(png_wb_filter_row(PngRowFilter::Sub, rgba, None, 4UL) == b"\x0a\x14\x1e\x28\x03\x05\x05\x09", content="true")
-  inspect(png_wb_filter_row(PngRowFilter::Up, rgba, None, 4UL) == rgba, content="true")
-  inspect(png_wb_filter_row(PngRowFilter::Average, rgba, None, 4UL) == b"\x0a\x14\x1e\x28\x08\x0f\x14\x1d", content="true")
-  inspect(png_wb_filter_row(PngRowFilter::Paeth, rgba, None, 4UL) == b"\x0a\x14\x1e\x28\x03\x05\x05\x09", content="true")
+  inspect(
+    png_wb_filter_row(PngRowFilter::None, rgb, None, 3UL) == rgb,
+    content="true",
+  )
+  inspect(
+    png_wb_filter_row(PngRowFilter::Sub, rgb, None, 3UL) ==
+    b"\x0a\x14\x1e\x03\x05\x05",
+    content="true",
+  )
+  inspect(
+    png_wb_filter_row(PngRowFilter::Up, rgb, None, 3UL) == rgb,
+    content="true",
+  )
+  inspect(
+    png_wb_filter_row(PngRowFilter::Average, rgb, None, 3UL) ==
+    b"\x0a\x14\x1e\x08\x0f\x14",
+    content="true",
+  )
+  inspect(
+    png_wb_filter_row(PngRowFilter::Paeth, rgb, None, 3UL) ==
+    b"\x0a\x14\x1e\x03\x05\x05",
+    content="true",
+  )
+  inspect(
+    png_wb_filter_row(PngRowFilter::None, rgba, None, 4UL) == rgba,
+    content="true",
+  )
+  inspect(
+    png_wb_filter_row(PngRowFilter::Sub, rgba, None, 4UL) ==
+    b"\x0a\x14\x1e\x28\x03\x05\x05\x09",
+    content="true",
+  )
+  inspect(
+    png_wb_filter_row(PngRowFilter::Up, rgba, None, 4UL) == rgba,
+    content="true",
+  )
+  inspect(
+    png_wb_filter_row(PngRowFilter::Average, rgba, None, 4UL) ==
+    b"\x0a\x14\x1e\x28\x08\x0f\x14\x1d",
+    content="true",
+  )
+  inspect(
+    png_wb_filter_row(PngRowFilter::Paeth, rgba, None, 4UL) ==
+    b"\x0a\x14\x1e\x28\x03\x05\x05\x09",
+    content="true",
+  )
 }
 
-///| PNGF-02 fixes prior-row and upper-left source samples for both profiles.
+///|
+/// PNGF-02 fixes prior-row and upper-left source samples for both profiles.
 test "PNG filter arithmetic uses previous raw rows and upper-left Paeth samples" {
   let rgb_above = b"\x64\x6e\x78\x96\xa0\xaa"
   let rgb_source = b"\x32\x3c\x46\x6e\x78\x82"
   let rgba_above = b"\x64\x6e\x78\x82\x96\xa0\xaa\xb4"
   let rgba_source = b"\x32\x3c\x46\x50\x6e\x78\x82\x8c"
-  inspect(png_wb_filter_row(PngRowFilter::Up, rgb_source, Some(rgb_above), 3UL) == b"\xce\xce\xce\xd8\xd8\xd8", content="true")
-  inspect(png_wb_filter_row(PngRowFilter::Paeth, rgb_source, Some(rgb_above), 3UL) == b"\xce\xce\xce\x0a\x0a\x0a", content="true")
-  inspect(png_wb_filter_row(PngRowFilter::Up, rgba_source, Some(rgba_above), 4UL) == b"\xce\xce\xce\xce\xd8\xd8\xd8\xd8", content="true")
-  inspect(png_wb_filter_row(PngRowFilter::Paeth, rgba_source, Some(rgba_above), 4UL) == b"\xce\xce\xce\xce\x0a\x0a\x0a\x0a", content="true")
+  inspect(
+    png_wb_filter_row(PngRowFilter::Up, rgb_source, Some(rgb_above), 3UL) ==
+    b"\xce\xce\xce\xd8\xd8\xd8",
+    content="true",
+  )
+  inspect(
+    png_wb_filter_row(PngRowFilter::Paeth, rgb_source, Some(rgb_above), 3UL) ==
+    b"\xce\xce\xce\x0a\x0a\x0a",
+    content="true",
+  )
+  inspect(
+    png_wb_filter_row(PngRowFilter::Up, rgba_source, Some(rgba_above), 4UL) ==
+    b"\xce\xce\xce\xce\xd8\xd8\xd8\xd8",
+    content="true",
+  )
+  inspect(
+    png_wb_filter_row(PngRowFilter::Paeth, rgba_source, Some(rgba_above), 4UL) ==
+    b"\xce\xce\xce\xce\x0a\x0a\x0a\x0a",
+    content="true",
+  )
 }
 
-///| PNGF-02 scores residuals as signed bytes, including the representable 128.
+///|
+/// PNGF-02 scores residuals as signed bytes, including the representable 128.
 test "PNG filter arithmetic scores signed residual magnitudes exactly" {
-  inspect(_png_filter_candidate_score(
-    PngRowFilter::None, b"\x7f\x80\x81", None, 3UL,
-  ).unwrap(), content="382")
-  inspect(_png_filter_candidate_score(
-    PngRowFilter::None, b"\x80\x00\x00", None, 3UL,
-  ).unwrap(), content="128")
+  inspect(
+    _png_filter_candidate_score(PngRowFilter::None, b"\x7f\x80\x81", None, 3UL).unwrap(),
+    content="382",
+  )
+  inspect(
+    _png_filter_candidate_score(PngRowFilter::None, b"\x80\x00\x00", None, 3UL).unwrap(),
+    content="128",
+  )
 }
 
-///| PNGF-02 keeps the first candidate whenever residual scores tie.
+///|
+/// PNGF-02 keeps the first candidate whenever residual scores tie.
 test "PNG filter arithmetic retains the earliest equal-score candidate" {
   let (zero_filter, zero_score) = _png_filter_row_winner(
-    b"\x00\x00\x00\x00\x00\x00", None, 3UL,
+    b"\x00\x00\x00\x00\x00\x00",
+    None,
+    3UL,
   ).unwrap()
   inspect(zero_filter == PngRowFilter::None, content="true")
   inspect(zero_score, content="0")
   let (tie_filter, tie_score) = _png_filter_row_winner(
-    b"\x64\x00\x00\x64\x00\x00", None, 3UL,
+    b"\x64\x00\x00\x64\x00\x00",
+    None,
+    3UL,
   ).unwrap()
   inspect(tie_filter == PngRowFilter::Sub, content="true")
   inspect(tie_score, content="100")
@@ -205,18 +449,40 @@ test "canonical PNG RGB framing has checked chunks stored block and checksums" {
   inspect(png_encode_u32_at(bytes, 33) == 15UL, content="true")
   inspect(png_encode_slice(bytes, 37, 4) == b"IDAT", content="true")
   inspect(bytes[41] == b'\x78' && bytes[42] == b'\x01', content="true")
-  inspect(bytes[43] == b'\x01' && bytes[44] == b'\x04' && bytes[45] == b'\x00', content="true")
+  inspect(
+    bytes[43] == b'\x01' && bytes[44] == b'\x04' && bytes[45] == b'\x00',
+    content="true",
+  )
   inspect(bytes[46] == b'\xfb' && bytes[47] == b'\xff', content="true")
-  inspect(bytes[48] == b'\x00' && bytes[49] == b'\x12' && bytes[50] == b'\x34' && bytes[51] == b'\x56', content="true")
-  inspect(png_encode_adler(bytes, 48, 4) == png_encode_u32_at(bytes, 52), content="true")
-  inspect(_png_crc32(png_encode_slice(bytes, 12, 17)) == png_encode_u32_at(bytes, 29), content="true")
-  inspect(_png_crc32(png_encode_slice(bytes, 37, 19)) == png_encode_u32_at(bytes, 56), content="true")
+  inspect(
+    bytes[48] == b'\x00' &&
+    bytes[49] == b'\x12' &&
+    bytes[50] == b'\x34' &&
+    bytes[51] == b'\x56',
+    content="true",
+  )
+  inspect(
+    png_encode_adler(bytes, 48, 4) == png_encode_u32_at(bytes, 52),
+    content="true",
+  )
+  inspect(
+    _png_crc32(png_encode_slice(bytes, 12, 17)) == png_encode_u32_at(bytes, 29),
+    content="true",
+  )
+  inspect(
+    _png_crc32(png_encode_slice(bytes, 37, 19)) == png_encode_u32_at(bytes, 56),
+    content="true",
+  )
   inspect(_png_crc32(b"IEND") == png_encode_u32_at(bytes, 68), content="true")
 }
 
 ///|
 test "canonical PNG byte sequence is stable for RGB and straight RGBA" {
-  for image in [png_wb_image(3UL, b"\x12\x34\x56"), png_wb_image(4UL, b"\x04\x05\x06\x07")] {
+  for
+    image in [
+      png_wb_image(3UL, b"\x12\x34\x56"),
+      png_wb_image(4UL, b"\x04\x05\x06\x07"),
+    ] {
     let first = png_wb_encode(image)
     let second = png_wb_encode(image)
     inspect(first == second, content="true")
@@ -230,7 +496,11 @@ test "canonical PNG byte sequence is stable for RGB and straight RGBA" {
 
 ///|
 test "PNG encoder isolated four-target evidence matches eager and private canonical sequences" {
-  for image in [png_wb_image(3UL, b"\x12\x34\x56"), png_wb_image(4UL, b"\x04\x05\x06\x07")] {
+  for
+    image in [
+      png_wb_image(3UL, b"\x12\x34\x56"),
+      png_wb_image(4UL, b"\x04\x05\x06\x07"),
+    ] {
     let eager = png_wb_encode(image)
     let (machine, completed) = png_wb_machine_encode(image)
     inspect(eager == machine, content="true")
@@ -242,7 +512,9 @@ test "PNG encoder isolated four-target evidence matches eager and private canoni
 test "PNG fixed-or-stored fixed-code arithmetic reverses codes and handles length 258" {
   let (literal_zero, literal_zero_bits) = _png_fixed_literal_code(0UL)
   let (eob, eob_bits) = _png_fixed_literal_code(256UL)
-  let (length_symbol, length_extra, length_extra_bits) = _png_fixed_length_code(258UL)
+  let (length_symbol, length_extra, length_extra_bits) = _png_fixed_length_code(
+    258UL,
+  )
   inspect(literal_zero, content="12")
   inspect(literal_zero_bits, content="8")
   inspect(eob, content="0")
@@ -255,72 +527,118 @@ test "PNG fixed-or-stored fixed-code arithmetic reverses codes and handles lengt
 ///|
 fn png_wb_fixed_or_stored_replay_image() -> @storage.OwnedImage {
   let descriptor = @model.ImageDescriptor::new(
-    5UL, 1UL, @model.ImageFormat::rgb8(),
-    [@model.PlaneDescriptor::new(0UL, 15UL, 15UL, 15UL, 1UL, 1UL, 5UL, 1UL).unwrap()],
+    5UL,
+    1UL,
+    @model.ImageFormat::rgb8(),
+    [
+      @model.PlaneDescriptor::new(0UL, 15UL, 15UL, 15UL, 1UL, 1UL, 5UL, 1UL).unwrap(),
+    ],
     15UL,
     @model.ImageMetadata::new(
-      @color.ColorSpaceIdentity::Srgb, @color.TransferIdentity::EncodedSrgb,
-      None, @profile.ProfileIdentity::builtin_srgb(), @model.Orientation::TopLeft,
+      @color.ColorSpaceIdentity::Srgb,
+      @color.TransferIdentity::EncodedSrgb,
+      None,
+      @profile.ProfileIdentity::builtin_srgb(),
+      @model.Orientation::TopLeft,
       @metadata.OpaqueMetadata::from_entries(
-        [], @metadata.MetadataLimits::new(
-          max_entries=0UL, max_token_bytes=1UL, max_value_bytes=0UL,
-          max_total_bytes=0UL, max_disposition_fields=4UL,
-        ), png_wb_budget(bytes=0UL, work=0UL),
-      ).unwrap(),
-    ),
-  ).unwrap()
-  let image = @storage.OwnedImage::new(descriptor, png_wb_budget(bytes=15UL, work=0UL)).unwrap()
-  let pixels = [
-    b'\x0a', b'\x0c', b'\x0c', b'\x0a', b'\x0a', b'\x0c', b'\x0b', b'\x0c', b'\x0a',
-    b'\x0c', b'\x0a', b'\x0b', b'\x0a', b'\x0c', b'\x0a',
-  ]
-  image.with_mut_view(fn(view) {
-    for index = 0UL; index < 15UL; index = index + 1UL {
-      view.set_byte(index / 3UL, 0UL, index % 3UL, pixels[index.to_int()]).unwrap()
-    }
-    Ok(())
-  }).unwrap()
-  image
-}
-
-///| Five periodic literal values deliberately exceed the A1 distance-1..4
-/// matcher, matching the public 128-pixel strict Dynamic winner fixture.
-fn png_wb_dynamic_image() -> @storage.OwnedImage {
-  let descriptor = @model.ImageDescriptor::new(
-    128UL, 1UL, @model.ImageFormat::rgb8(),
-    [@model.PlaneDescriptor::new(0UL, 384UL, 384UL, 384UL, 1UL, 1UL, 128UL, 1UL).unwrap()],
-    384UL,
-    @model.ImageMetadata::new(
-      @color.ColorSpaceIdentity::Srgb, @color.TransferIdentity::EncodedSrgb,
-      None, @profile.ProfileIdentity::builtin_srgb(), @model.Orientation::TopLeft,
-      @metadata.OpaqueMetadata::from_entries(
-        [], @metadata.MetadataLimits::new(
-          max_entries=0UL, max_token_bytes=1UL, max_value_bytes=0UL,
-          max_total_bytes=0UL, max_disposition_fields=4UL,
-        ), png_wb_budget(bytes=0UL, work=0UL),
+        [],
+        @metadata.MetadataLimits::new(
+          max_entries=0UL,
+          max_token_bytes=1UL,
+          max_value_bytes=0UL,
+          max_total_bytes=0UL,
+          max_disposition_fields=4UL,
+        ),
+        png_wb_budget(bytes=0UL, work=0UL),
       ).unwrap(),
     ),
   ).unwrap()
   let image = @storage.OwnedImage::new(
-    descriptor, png_wb_dynamic_budget(bytes=384UL, work=0UL),
+    descriptor,
+    png_wb_budget(bytes=15UL, work=0UL),
   ).unwrap()
-  image.with_mut_view(fn(view) {
-    for x = 0UL; x < 128UL; x = x + 1UL {
-      for channel = 0UL; channel < 3UL; channel = channel + 1UL {
-        view.set_byte(x, 0UL, channel, ((x * 3UL + channel) % 5UL).to_byte()).unwrap()
-      }
+  let pixels = [
+    b'\x0a', b'\x0c', b'\x0c', b'\x0a', b'\x0a', b'\x0c', b'\x0b', b'\x0c', b'\x0a',
+    b'\x0c', b'\x0a', b'\x0b', b'\x0a', b'\x0c', b'\x0a',
+  ]
+  image
+  .with_mut_view(fn(view) {
+    for index = 0UL; index < 15UL; index = index + 1UL {
+      view
+      .set_byte(index / 3UL, 0UL, index % 3UL, pixels[index.to_int()])
+      .unwrap()
     }
     Ok(())
-  }).unwrap()
+  })
+  .unwrap()
   image
 }
 
 ///|
-fn png_wb_same_remaining(left : @budget.ResourceLimits, right : @budget.ResourceLimits) -> Bool {
-  left.bytes() == right.bytes() && left.allocations() == right.allocations() &&
-    left.allocation_size() == right.allocation_size() && left.width() == right.width() &&
-    left.height() == right.height() && left.pixels() == right.pixels() &&
-    left.depth() == right.depth() && left.work() == right.work()
+/// Five periodic literal values deliberately exceed the A1 distance-1..4
+/// matcher, matching the public 128-pixel strict Dynamic winner fixture.
+fn png_wb_dynamic_image() -> @storage.OwnedImage {
+  let descriptor = @model.ImageDescriptor::new(
+    128UL,
+    1UL,
+    @model.ImageFormat::rgb8(),
+    [
+      @model.PlaneDescriptor::new(
+        0UL, 384UL, 384UL, 384UL, 1UL, 1UL, 128UL, 1UL,
+      ).unwrap(),
+    ],
+    384UL,
+    @model.ImageMetadata::new(
+      @color.ColorSpaceIdentity::Srgb,
+      @color.TransferIdentity::EncodedSrgb,
+      None,
+      @profile.ProfileIdentity::builtin_srgb(),
+      @model.Orientation::TopLeft,
+      @metadata.OpaqueMetadata::from_entries(
+        [],
+        @metadata.MetadataLimits::new(
+          max_entries=0UL,
+          max_token_bytes=1UL,
+          max_value_bytes=0UL,
+          max_total_bytes=0UL,
+          max_disposition_fields=4UL,
+        ),
+        png_wb_budget(bytes=0UL, work=0UL),
+      ).unwrap(),
+    ),
+  ).unwrap()
+  let image = @storage.OwnedImage::new(
+    descriptor,
+    png_wb_dynamic_budget(bytes=384UL, work=0UL),
+  ).unwrap()
+  image
+  .with_mut_view(fn(view) {
+    for x = 0UL; x < 128UL; x = x + 1UL {
+      for channel = 0UL; channel < 3UL; channel = channel + 1UL {
+        view
+        .set_byte(x, 0UL, channel, ((x * 3UL + channel) % 5UL).to_byte())
+        .unwrap()
+      }
+    }
+    Ok(())
+  })
+  .unwrap()
+  image
+}
+
+///|
+fn png_wb_same_remaining(
+  left : @budget.ResourceLimits,
+  right : @budget.ResourceLimits,
+) -> Bool {
+  left.bytes() == right.bytes() &&
+  left.allocations() == right.allocations() &&
+  left.allocation_size() == right.allocation_size() &&
+  left.width() == right.width() &&
+  left.height() == right.height() &&
+  left.pixels() == right.pixels() &&
+  left.depth() == right.depth() &&
+  left.work() == right.work()
 }
 
 ///|
@@ -329,7 +647,10 @@ test "PNG fixed-or-stored white-box selected work boundary charges once" {
   let generous = png_wb_budget(work=1024UL)
   let before = generous.remaining()
   let facts = _png_encode_preflight(
-    image.view(), PngCompressionStrategy::FixedOrStored, png_wb_limits(), generous,
+    image.view(),
+    PngCompressionStrategy::FixedOrStored,
+    png_wb_limits(),
+    generous,
   ).unwrap()
   let selected = before.work() - generous.remaining().work()
   match facts.plan {
@@ -337,23 +658,37 @@ test "PNG fixed-or-stored white-box selected work boundary charges once" {
       inspect(plan.matcher_work, content="189")
       inspect(plan.deflate_bits, content="126")
       inspect(plan.deflate_bytes, content="16")
-      inspect(selected == facts.total_length + plan.matcher_work + plan.matcher_work, content="true")
+      inspect(
+        selected == facts.total_length + plan.matcher_work + plan.matcher_work,
+        content="true",
+      )
     }
     PngDeflatePlan::Stored(_) => panic()
     PngDeflatePlan::Dynamic(_) => panic()
   }
   let exact = png_wb_budget(work=selected)
-  ignore(_png_encode_preflight(
-    image.view(), PngCompressionStrategy::FixedOrStored, png_wb_limits(), exact,
-  ).unwrap())
+  ignore(
+    _png_encode_preflight(
+      image.view(),
+      PngCompressionStrategy::FixedOrStored,
+      png_wb_limits(),
+      exact,
+    ).unwrap(),
+  )
   inspect(exact.remaining().work(), content="0")
   let one_less = png_wb_budget(work=selected - 1UL)
   let one_less_before = one_less.remaining()
   let rejected = _png_encode_preflight(
-    image.view(), PngCompressionStrategy::FixedOrStored, png_wb_limits(), one_less,
+    image.view(),
+    PngCompressionStrategy::FixedOrStored,
+    png_wb_limits(),
+    one_less,
   ).unwrap_err()
   inspect(rejected.context() == Some("work"), content="true")
-  inspect(png_wb_same_remaining(one_less_before, one_less.remaining()), content="true")
+  inspect(
+    png_wb_same_remaining(one_less_before, one_less.remaining()),
+    content="true",
+  )
 }
 
 ///|
@@ -362,8 +697,10 @@ test "PNG dynamic selected work boundary charges once" {
   let generous = png_wb_dynamic_budget(work=10000UL)
   let before = generous.remaining()
   let facts = _png_encode_preflight(
-    image.view(), PngCompressionStrategy::DynamicOrFixedOrStored,
-    png_wb_dynamic_limits(), generous,
+    image.view(),
+    PngCompressionStrategy::DynamicOrFixedOrStored,
+    png_wb_dynamic_limits(),
+    generous,
   ).unwrap()
   let selected = before.work() - generous.remaining().work()
   match facts.plan {
@@ -376,17 +713,26 @@ test "PNG dynamic selected work boundary charges once" {
     PngDeflatePlan::Stored(_) | PngDeflatePlan::Fixed(_) => panic()
   }
   let exact = png_wb_dynamic_budget(work=9388UL)
-  ignore(_png_encode_preflight(
-    image.view(), PngCompressionStrategy::DynamicOrFixedOrStored,
-    png_wb_dynamic_limits(), exact,
-  ).unwrap())
+  ignore(
+    _png_encode_preflight(
+      image.view(),
+      PngCompressionStrategy::DynamicOrFixedOrStored,
+      png_wb_dynamic_limits(),
+      exact,
+    ).unwrap(),
+  )
   inspect(exact.remaining().work(), content="0")
   let one_less = png_wb_dynamic_budget(work=9387UL)
   let one_less_before = one_less.remaining()
   let rejected = _png_encode_preflight(
-    image.view(), PngCompressionStrategy::DynamicOrFixedOrStored,
-    png_wb_dynamic_limits(), one_less,
+    image.view(),
+    PngCompressionStrategy::DynamicOrFixedOrStored,
+    png_wb_dynamic_limits(),
+    one_less,
   ).unwrap_err()
   inspect(rejected.context() == Some("work"), content="true")
-  inspect(png_wb_same_remaining(one_less_before, one_less.remaining()), content="true")
+  inspect(
+    png_wb_same_remaining(one_less_before, one_less.remaining()),
+    content="true",
+  )
 }
