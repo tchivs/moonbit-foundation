@@ -793,6 +793,20 @@ test "PNG filter strategy eager frozen compatibility vectors" {
     inspect(bytes == gray_stored, content="true")
   }
 
+  let gray16 = png_encode_gray16_image()
+  let gray16_stored =
+    b"\x89PNG\r\n\x1a\n\x00\x00\x00\x0dIHDR\x00\x00\x00\x02\x00\x00\x00\x01\x10\x00\x00\x00\x00\x81\xd9\xfc\x15\x00\x00\x00\x10IDAT\x78\x01\x01\x05\x00\xfa\xff\x00\x12\x34\xab\xcd\x03\x0c\x01\xbf\x4c\x32\xd4\xc3\x00\x00\x00\x00IEND\xae\x42\x60\x82"
+  let (_, gray16_default_writer) = png_encode_with(PngEncoder::new_gray16(), gray16)
+  let (_, gray16_configured_writer) = png_encode_with(
+    PngEncoder::new_gray16_with_strategies(
+      PngCompressionStrategy::Stored, PngFilterStrategy::None,
+    ),
+    gray16,
+  )
+  for bytes in [png_encode_prefix(gray16_default_writer), png_encode_prefix(gray16_configured_writer)] {
+    inspect(bytes == gray16_stored, content="true")
+  }
+
   let rgb = png_encode_image(3UL, b"\x00\x01\x02")
   let rgb_stored =
     b"\x89PNG\r\n\x1a\n\x00\x00\x00\x0dIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x02\x00\x00\x00\x90\x77\x53\xde\x00\x00\x00\x0fIDAT\x78\x01\x01\x04\x00\xfb\xff\x00\x00\x01\x02\x00\x08\x00\x04\xad\xa5\x4e\x4e\x00\x00\x00\x00IEND\xae\x42\x60\x82"
@@ -902,9 +916,14 @@ test "PNG Gray16 eager Stored output uses type 0 big-endian samples atomically" 
 
 ///| The default explicit Gray+Alpha8 route retains component order through
 /// Stored/None output and the existing decoder path.
-test "PNG GrayAlpha8 eager Stored output uses type 4 packed pairs" {
+test "PNG GrayAlpha8 public eager evidence" {
   let gray_alpha = png_encode_graya8_image()
-  let (_, writer) = png_encode_with(PngEncoder::new_graya8(), gray_alpha)
+  let (_, writer) = png_encode_with(
+    PngEncoder::new_graya8_with_strategies(
+      PngCompressionStrategy::Stored, PngFilterStrategy::None,
+    ),
+    gray_alpha,
+  )
   let bytes = png_encode_prefix(writer)
   inspect(
     bytes[0] == b'\x89' && bytes[1] == b'P' && bytes[24] == b'\x08' &&
@@ -952,6 +971,7 @@ test "PNG GrayAlpha8 eager factory strategies preserve framing" {
       )
       let bytes = png_encode_prefix(writer)
       inspect(bytes[24] == b'\x08' && bytes[25] == b'\x04' && bytes[28] == b'\x00', content="true")
+      png_encode_graya8_decode_matches_source(bytes)
     }
   }
 }
