@@ -11,8 +11,8 @@
 
 ### Bounded Encoding
 
-- [ ] **GRAYA-02**: A library user can encode a compatible Gray+Alpha8 image through explicit eager and caller-buffered factories as a standards-compliant non-interlaced PNG with color type 4 and bit depth 8, preserving each gray/alpha source pair.
-- [ ] **GRAYA-03**: Gray+Alpha8 eager and caller-buffered output uses the shared bounded preflight, None/Adaptive filtering, Stored/FixedOrStored/DynamicOrFixedOrStored planning, and acknowledgement-safe replay path; unsupported input and resource failures are atomic before output or lease exposure.
+- [x] **GRAYA-02**: A library user can encode a compatible Gray+Alpha8 image through explicit eager and caller-buffered factories as a standards-compliant non-interlaced PNG with color type 4 and bit depth 8, preserving each gray/alpha source pair.
+- [x] **GRAYA-03**: Gray+Alpha8 eager and caller-buffered output uses the shared bounded preflight, None/Adaptive filtering, Stored/FixedOrStored/DynamicOrFixedOrStored planning, and acknowledgement-safe replay path; unsupported input and resource failures are atomic before output or lease exposure.
 
 ### Public Evidence
 
@@ -38,8 +38,8 @@
 | Requirement | Phase | Status |
 | --- | --- | --- |
 | GRAYA-01 | Phase 50 | Complete |
-| GRAYA-02 | Phase 51 | Pending |
-| GRAYA-03 | Phase 51 | Pending |
+| GRAYA-02 | Phase 51 | Complete |
+| GRAYA-03 | Phase 51 | Complete |
 | GRAYA-04 | Phase 52 | Pending |
 | GRAYA-05 | Phase 52 | Pending |
 

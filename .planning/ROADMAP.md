@@ -65,12 +65,12 @@
   3. The explicit Gray+Alpha8 route supports None and Adaptive filtering with Stored, FixedOrStored, and DynamicOrFixedOrStored compression selections under the established bounded contract.
   4. Incompatible inputs and resource-limit failures are reported before any eager output or caller-buffered lease is exposed.
 
-**Plans**: 2 plans
+**Plans**: 1/2 plans executed
 
 Plans:
 **Wave 1**
 
-- [ ] 51-01-PLAN.md — Deliver the bounded Gray+Alpha8 eager/caller-buffered encoder tracer and factory families.
+- [x] 51-01-PLAN.md — Deliver the bounded Gray+Alpha8 eager/caller-buffered encoder tracer and factory families.
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
@@ -95,5 +95,5 @@ Plans:
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 50. Gray+Alpha Image Model | 1/1 | Complete    | 2026-07-23 |
-| 51. Bounded Gray+Alpha PNG Encoding | 0/2 | Not started | - |
+| 51. Bounded Gray+Alpha PNG Encoding | 1/2 | In Progress|  |
 | 52. Portable Gray+Alpha Public Evidence | 0/TBD | Not started | - |

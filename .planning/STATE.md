@@ -5,15 +5,15 @@ milestone_name: Grayscale Alpha PNG
 current_phase: 51
 current_phase_name: Bounded Gray+Alpha PNG Encoding
 status: executing
-stopped_at: Phase 51 context gathered
-last_updated: "2026-07-22T18:16:54.910Z"
+stopped_at: Completed 51-01-PLAN.md
+last_updated: "2026-07-22T18:26:40.078Z"
 last_activity: 2026-07-23
-last_activity_desc: Phase 50 complete, transitioned to Phase 51
+last_activity_desc: Phase 51 execution started
 progress:
   total_phases: 3
   completed_phases: 1
   total_plans: 3
-  completed_plans: 1
+  completed_plans: 2
   percent: 33
 ---
 
@@ -25,16 +25,16 @@ See `.planning/PROJECT.md` (updated 2026-07-22).
 
 **Core value:** MoonBit developers can reuse stable, high-performance native infrastructure contracts instead of rebuilding incompatible foundations for every graphics, document, media, or automation product.
 
-**Current focus:** Phase 50 — define the packed U8 Gray+Alpha image model and preserve existing image contracts.
+**Current focus:** Phase 51 — Bounded Gray+Alpha PNG Encoding
 
 ## Current Position
 
-Phase: 51 of 52 (Bounded Gray+Alpha PNG Encoding)
-Plan: Not started
+Phase: 51 (Bounded Gray+Alpha PNG Encoding) — EXECUTING
+Plan: 2 of 2
 Status: Ready to execute
-Last activity: 2026-07-23 — Phase 50 complete, transitioned to Phase 51
+Last activity: 2026-07-23 — Phase 51 execution started
 
-Progress: [░░░░░░░░░░] 0%
+Progress: [███████░░░] 67%
 
 ## Performance Metrics
 
@@ -43,6 +43,11 @@ Progress: [░░░░░░░░░░] 0%
 **v0.16 plan:** 3 phases, 5 requirements, 0/3 phases complete, 0/TBD plans complete.
 
 **Recent milestone:** v0.13 shipped Phases 41-43 on 2026-07-22 with explicit Adam7 RGB8/straight-RGBA8 encoding, caller-buffered parity, and independent four-target public evidence.
+**Per-Plan Metrics:**
+
+| Plan | Duration | Tasks | Files |
+|------|----------|-------|-------|
+| Phase 51 P01 | 4min | 2 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -55,6 +60,8 @@ Progress: [░░░░░░░░░░] 0%
 - [v0.14]: Exclude palette, low-bit, 16-bit, transparency conversion, Gray Adam7, and registry/release automation from this milestone.
 - [v0.15]: Preserve U16 source bytes at the Gray16 PNG wire boundary while documenting RGB8 high-byte decoder canonicalization; use the shared bounded strategy and replay path rather than a Gray16 staging path.
 - [v0.16]: Add only packed U8 Gray+Alpha with explicit straight-alpha metadata, then reuse the existing bounded PNG pipeline and prove the result publicly on all four portable targets.
+- [Phase ?]: GrayAlpha8 reuses the existing profile-aware bounded preflight, filter, compression planner, and replay machine without a staging buffer.
+- [Phase ?]: GrayAlpha8 admission is limited to packed U8 straight-alpha GrayAlpha with builtin encoded sRGB and top-left metadata.
 
 ### Pending Todos
 
@@ -96,9 +103,9 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-07-22T17:52:07.720Z
-Stopped at: Phase 51 context gathered
-Resume file: .planning/phases/51-bounded-gray-alpha-png-encoding/51-CONTEXT.md
+Last session: 2026-07-22T18:26:40.063Z
+Stopped at: Completed 51-01-PLAN.md
+Resume file: .planning/phases/51-bounded-gray-alpha-png-encoding/51-02-PLAN.md
 
 ## Operator Next Steps
 
