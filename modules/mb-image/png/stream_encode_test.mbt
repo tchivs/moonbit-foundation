@@ -374,6 +374,25 @@ fn png_stream_gray8_eager(image : @storage.OwnedImage) -> Bytes {
   Bytes::from_array(bytes)
 }
 
+///| FixedOrStored eager output is the chunk identity oracle for Gray8.
+fn png_stream_gray8_eager_with_compression(
+  image : @storage.OwnedImage,
+  strategy : PngCompressionStrategy,
+) -> Bytes {
+  let writer = @io.MemoryWriter::new(1048576UL, png_stream_test_budget(work=0UL)).unwrap()
+  ignore(@codec.ImageEncoder::encode(
+    PngEncoder::new_gray8_with_compression_strategy(strategy),
+    image.view(), writer as &@io.Writer,
+    @codec.EncodeOptions::new(lossless_required=true, preserve_opaque_metadata=false),
+    png_stream_test_limits(), png_stream_test_budget(), @error.Diagnostics::new(),
+  ).unwrap())
+  let bytes : Array[Byte] = []
+  for index = 0UL; index < writer.position(); index = index + 1UL {
+    bytes.push(writer.view().get(index).unwrap())
+  }
+  Bytes::from_array(bytes)
+}
+
 ///| One ordinary nonzero lease capacity is enough to prove accepted-byte
 /// accounting and byte-for-byte identity with the eager Gray8 route.
 test "PNG Gray8 chunk Stored output matches eager and rejects atomically" {
@@ -397,6 +416,23 @@ test "PNG Gray8 chunk Stored output matches eager and rejects atomically" {
   for index = 0UL; index < sentinel.view().length(); index = index + 1UL {
     if sentinel.view().get(index).unwrap() != b'Z' { abort("png gray8 rejection exposed lease") }
   }
+}
+
+///| FixedOrStored Gray8 uses the same accepted-byte acknowledgement accounting
+/// as the eager bounded machine.
+test "PNG Gray8 chunk FixedOrStored matches eager with accepted progress" {
+  let gray = png_stream_gray8_image(
+    Bytes::from_array(Array::make(32, b'\xaa')), width=32UL,
+  )
+  let eager = png_stream_gray8_eager_with_compression(
+    gray, PngCompressionStrategy::FixedOrStored,
+  )
+  let encoder = PngChunkEncoder::new_gray8_with_compression_strategy(
+    gray.view(), PngCompressionStrategy::FixedOrStored, png_stream_test_limits(),
+    png_stream_test_budget(), @error.Diagnostics::new(),
+  ).unwrap()
+  let chunked = png_chunk_test_drain_encoder(encoder, [17UL]).unwrap()
+  inspect(chunked == eager && chunked[25] == b'\x00', content="true")
 }
 
 ///|

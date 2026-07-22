@@ -544,6 +544,32 @@ test "PNG Gray8 eager Stored output and profile admission are atomic" {
   inspect(rejected.position() == 0UL && png_adam7_same_remaining(before, budget.remaining()), content="true")
 }
 
+///| FixedOrStored Gray8 must use the same bounded machine rather than a
+/// profile-specific output path.
+test "PNG Gray8 eager FixedOrStored uses the shared bounded path" {
+  let gray = png_encode_gray8_image(
+    Bytes::from_array(Array::make(32, b'\xaa')), width=32UL,
+  )
+  let (_, writer) = png_encode_with(
+    PngEncoder::new_gray8_with_compression_strategy(
+      PngCompressionStrategy::FixedOrStored,
+    ),
+    gray,
+  )
+  let bytes = png_encode_prefix(writer)
+  let owner = @bytes.OwnedBytes::from_bytes(
+    bytes, png_encode_budget(bytes=512UL, work=0UL),
+  ).unwrap()
+  let decoded = @codec.ImageDecoder::decode(
+    PngDecoder::new(), @io.MemoryReader::new(owner.view()) as &@io.Reader,
+    @codec.DecodeOptions::new(
+      require_complete_input=true, preserve_opaque_metadata=false,
+    ), png_encode_limits(), png_encode_budget(), @error.Diagnostics::new(),
+  ).unwrap()
+  inspect(bytes[24] == b'\x08' && bytes[25] == b'\x00' && bytes[28] == b'\x00', content="true")
+  inspect(decoded.image().view().get_byte(31UL, 0UL, 0UL).unwrap() == b'\xaa', content="true")
+}
+
 ///|
 test "PNG compression strategy eager factories encode supported images" {
   for strategy in [PngCompressionStrategy::Stored, PngCompressionStrategy::FixedOrStored] {
