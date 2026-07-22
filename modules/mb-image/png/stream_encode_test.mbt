@@ -205,6 +205,42 @@ fn png_stream_graya16_image() -> @storage.OwnedImage {
   image
 }
 
+///| A five-by-five legal GrayAlpha16 source keeps all seven Adam7 passes
+/// nonempty while making component and endian lanes observable during chunk
+/// parity checks.
+fn png_stream_graya16_adam7_image() -> @storage.OwnedImage {
+  let descriptor = @model.ImageDescriptor::new(
+    5UL, 5UL, @model.ImageFormat::graya16(),
+    [@model.PlaneDescriptor::new(0UL, 20UL, 100UL, 100UL, 1UL, 1UL, 5UL, 5UL).unwrap()],
+    100UL,
+    @model.ImageMetadata::new(
+      @color.ColorSpaceIdentity::Srgb, @color.TransferIdentity::EncodedSrgb,
+      Some(@color.AlphaMode::Straight), @profile.ProfileIdentity::builtin_srgb(),
+      @model.Orientation::TopLeft,
+      @metadata.OpaqueMetadata::from_entries(
+        [], @metadata.MetadataLimits::new(
+          max_entries=1UL, max_token_bytes=16UL, max_value_bytes=1UL,
+          max_total_bytes=32UL, max_disposition_fields=4UL,
+        ), png_stream_test_budget(work=0UL),
+      ).unwrap(),
+    ),
+  ).unwrap()
+  let image = @storage.OwnedImage::new(descriptor, png_stream_test_budget(work=0UL)).unwrap()
+  image.with_mut_view(fn(view) {
+    for y = 0UL; y < 5UL; y = y + 1UL {
+      for x = 0UL; x < 5UL; x = x + 1UL {
+        let sample = y * 5UL + x
+        view.set_component_byte(x, y, 0UL, 0UL, sample.to_byte()).unwrap()
+        view.set_component_byte(x, y, 0UL, 1UL, (b'\x80'.to_uint64() + sample).to_byte()).unwrap()
+        view.set_component_byte(x, y, 1UL, 0UL, (b'\x40'.to_uint64() + sample).to_byte()).unwrap()
+        view.set_component_byte(x, y, 1UL, 1UL, (b'\xc0'.to_uint64() + sample).to_byte()).unwrap()
+      }
+    }
+    Ok(())
+  }).unwrap()
+  image
+}
+
 ///| The caller-buffered public-evidence corpus uses every non-symmetric U16
 /// sample from the eager test, stored little-endian in tightly packed rows.
 fn png_stream_gray16_public_fidelity_image() -> @storage.OwnedImage {
@@ -853,6 +889,28 @@ fn png_stream_graya16_eager_with_strategies(
   Bytes::from_array(bytes)
 }
 
+///| Explicit GrayAlpha16 interlace selection uses the same eager profile/machine
+/// route as the caller-buffered factory family.
+fn png_stream_graya16_eager_with_all_strategies(
+  image : @storage.OwnedImage,
+  strategy : PngCompressionStrategy,
+  filter_strategy : PngFilterStrategy,
+  interlace_strategy : PngInterlaceStrategy,
+) -> Bytes {
+  let writer = @io.MemoryWriter::new(1048576UL, png_stream_test_budget(work=0UL)).unwrap()
+  ignore(@codec.ImageEncoder::encode(
+    PngEncoder::new_graya16_with_all_strategies(strategy, filter_strategy, interlace_strategy),
+    image.view(), writer as &@io.Writer,
+    @codec.EncodeOptions::new(lossless_required=true, preserve_opaque_metadata=false),
+    png_stream_test_limits(), png_stream_test_budget(), @error.Diagnostics::new(),
+  ).unwrap())
+  let bytes : Array[Byte] = []
+  for index = 0UL; index < writer.position(); index = index + 1UL {
+    bytes.push(writer.view().get(index).unwrap())
+  }
+  Bytes::from_array(bytes)
+}
+
 ///| FixedOrStored eager output is the chunk identity oracle for Gray8.
 fn png_stream_gray8_eager_with_compression(
   image : @storage.OwnedImage,
@@ -1018,6 +1076,38 @@ test "PNG GrayAlpha16 chunk Stored output matches eager" {
       chunked[51] == b'\xa7' && chunked[52] == b'\xc5' &&
       chunked[53] == b'\xbe' && chunked[54] == b'\x0f' &&
       chunked[55] == b'\x5a' && chunked[56] == b'\x76',
+    content="true",
+  )
+}
+
+///| The narrow and independently selected GrayAlpha16 Adam7 chunk factories
+/// drain to the same complete Stored/None Type-4/16 stream as the eager path.
+test "PNG GrayAlpha16 Adam7 chunk parity" {
+  let eager = png_stream_graya16_eager_with_all_strategies(
+    png_stream_graya16_adam7_image(), PngCompressionStrategy::Stored,
+    PngFilterStrategy::None, PngInterlaceStrategy::Adam7,
+  )
+  let narrow_source = png_stream_graya16_adam7_image()
+  let narrow = png_chunk_test_drain_encoder(
+    PngChunkEncoder::new_graya16_with_interlace_strategy(
+      narrow_source.view(), PngInterlaceStrategy::Adam7,
+      png_stream_test_limits(), png_stream_test_budget(), @error.Diagnostics::new(),
+    ).unwrap(),
+    [3UL, 7UL],
+  ).unwrap()
+  let selected_source = png_stream_graya16_adam7_image()
+  let selected = png_chunk_test_drain_encoder(
+    PngChunkEncoder::new_graya16_with_all_strategies(
+      selected_source.view(), PngCompressionStrategy::Stored,
+      PngFilterStrategy::None, PngInterlaceStrategy::Adam7, png_stream_test_limits(),
+      png_stream_test_budget(), @error.Diagnostics::new(),
+    ).unwrap(),
+    [3UL, 7UL],
+  ).unwrap()
+  inspect(
+    narrow == eager && selected == eager && eager[24] == b'\x10' &&
+      eager[25] == b'\x04' && eager[26] == b'\x00' && eager[27] == b'\x00' &&
+      eager[28] == b'\x01',
     content="true",
   )
 }

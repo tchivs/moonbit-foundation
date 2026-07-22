@@ -211,6 +211,67 @@ fn png_encode_graya16_image() -> @storage.OwnedImage {
   image
 }
 
+///| A 5x5 little-endian U16 Gray+Alpha source that gives every Adam7 pass a
+/// nonempty row. Each component has distinct high and low bytes so pass order,
+/// component order, and storage-to-wire byte order are independently visible.
+fn png_encode_graya16_adam7_image() -> @storage.OwnedImage {
+  let descriptor = @model.ImageDescriptor::new(
+    5UL, 5UL, @model.ImageFormat::graya16(),
+    [@model.PlaneDescriptor::new(0UL, 20UL, 100UL, 100UL, 1UL, 1UL, 5UL, 5UL).unwrap()],
+    100UL,
+    @model.ImageMetadata::new(
+      @color.ColorSpaceIdentity::Srgb, @color.TransferIdentity::EncodedSrgb,
+      Some(@color.AlphaMode::Straight), @profile.ProfileIdentity::builtin_srgb(),
+      @model.Orientation::TopLeft,
+      @metadata.OpaqueMetadata::from_entries(
+        [], @metadata.MetadataLimits::new(
+          max_entries=1UL, max_token_bytes=16UL, max_value_bytes=1UL,
+          max_total_bytes=32UL, max_disposition_fields=4UL,
+        ), png_encode_budget(bytes=1UL, work=0UL),
+      ).unwrap(),
+    ),
+  ).unwrap()
+  let image = @storage.OwnedImage::new(descriptor, png_encode_budget(bytes=100UL, work=0UL)).unwrap()
+  image.with_mut_view(fn(view) {
+    for y = 0UL; y < 5UL; y = y + 1UL {
+      for x = 0UL; x < 5UL; x = x + 1UL {
+        let sample = y * 5UL + x
+        view.set_component_byte(x, y, 0UL, 0UL, sample.to_byte()).unwrap()
+        view.set_component_byte(x, y, 0UL, 1UL, (b'\x80'.to_uint64() + sample).to_byte()).unwrap()
+        view.set_component_byte(x, y, 1UL, 0UL, (b'\x40'.to_uint64() + sample).to_byte()).unwrap()
+        view.set_component_byte(x, y, 1UL, 1UL, (b'\xc0'.to_uint64() + sample).to_byte()).unwrap()
+      }
+    }
+    Ok(())
+  }).unwrap()
+  image
+}
+
+///| The Stored Adam7 payload for `png_encode_graya16_adam7_image`, written as
+/// independent pass geometry so a cursor ordering regression cannot hide behind
+/// the encoder implementation.
+fn png_encode_graya16_adam7_expected_passes() -> Array[Byte] {
+  let expected : Array[Byte] = []
+  for pass in [
+    (0UL, 0UL, 8UL, 8UL), (4UL, 0UL, 8UL, 8UL), (0UL, 4UL, 4UL, 8UL),
+    (2UL, 0UL, 4UL, 4UL), (0UL, 2UL, 2UL, 4UL), (1UL, 0UL, 2UL, 2UL),
+    (0UL, 1UL, 1UL, 2UL),
+  ] {
+    let (start_x, start_y, stride_x, stride_y) = pass
+    for y = start_y; y < 5UL; y = y + stride_y {
+      expected.push(b'\x00')
+      for x = start_x; x < 5UL; x = x + stride_x {
+        let sample = y * 5UL + x
+        expected.push((b'\x80'.to_uint64() + sample).to_byte())
+        expected.push(sample.to_byte())
+        expected.push((b'\xc0'.to_uint64() + sample).to_byte())
+        expected.push((b'\x40'.to_uint64() + sample).to_byte())
+      }
+    }
+  }
+  expected
+}
+
 ///| Repeated four-byte pixels make an incorrect two-byte Adaptive Sub stride
 /// observable: only the first pixel may have nonzero residuals.
 fn png_encode_graya16_repeated_image() -> @storage.OwnedImage {
@@ -1082,6 +1143,33 @@ test "PNG GrayAlpha16 public eager wire and decode fidelity" {
     content="true",
   )
   png_encode_graya16_public_decode_is_canonical(bytes)
+}
+
+///| Both explicit GrayAlpha16 Adam7 selectors emit the same Stored/None
+/// seven-pass Type-4/16 stream, with each pass sample in PNG Ghi/Glo/Ahi/Alo
+/// wire order rather than the little-endian storage layout.
+test "PNG GrayAlpha16 Adam7 eager pass profile" {
+  let expected = png_encode_graya16_adam7_expected_passes()
+  for encoder in [
+    PngEncoder::new_graya16_with_interlace_strategy(PngInterlaceStrategy::Adam7),
+    PngEncoder::new_graya16_with_all_strategies(
+      PngCompressionStrategy::Stored, PngFilterStrategy::None, PngInterlaceStrategy::Adam7,
+    ),
+  ] {
+    let (_, writer) = png_encode_with(encoder, png_encode_graya16_adam7_image())
+    let bytes = png_encode_prefix(writer)
+    inspect(
+      bytes[0] == b'\x89' && bytes[1] == b'P' && bytes[24] == b'\x10' &&
+        bytes[25] == b'\x04' && bytes[26] == b'\x00' && bytes[27] == b'\x00' &&
+        bytes[28] == b'\x01' && bytes[41] == b'\x78' && bytes[42] == b'\x01' &&
+        bytes[43] == b'\x01' && bytes[44] == b'o' && bytes[45] == b'\x00',
+      content="true",
+    )
+    inspect(expected.length(), content="111")
+    for index = 0; index < expected.length(); index = index + 1 {
+      inspect(bytes[48 + index] == expected[index], content="true")
+    }
+  }
 }
 
 ///| The locked Phase-53 GrayAlpha16 identity rejects big-endian descriptors
