@@ -22,47 +22,56 @@
 
 ## Phases
 
-- [ ] **Phase 41: Adam7 Opt-In Compatibility** - Add the explicit interlace selection boundary while preserving every existing non-interlaced route.
+- [x] **Phase 41: Adam7 Opt-In Compatibility** - Add the explicit interlace selection boundary while preserving every existing non-interlaced route. (completed 2026-07-22)
 - [ ] **Phase 42: Bounded Adam7 Pass Encoding** - Traverse and replay seven Adam7 passes through bounded filtering and compression admission.
 - [ ] **Phase 43: Portable Adam7 Public Evidence** - Prove fidelity, eager/chunk identity, compatibility, and independent four-target execution.
 
 ## Phase Details
 
 ### Phase 41: Adam7 Opt-In Compatibility
+
 **Goal**: Users can explicitly select Adam7 interlaced eager and caller-buffered PNG encoding for compatible RGB8 and straight-RGBA8 images without changing legacy non-interlaced bytes.
 **Depends on**: Phase 40
 **Requirements**: PNGI-01
 **Success Criteria** (what must be TRUE):
+
   1. A library user can explicitly select Adam7 interlaced output through the existing eager and caller-buffered encoder factories for compatible RGB8 and straight-RGBA8 images.
   2. A library user using every existing constructor or compression-only factory receives the same byte-identical non-interlaced PNG output as before.
   3. A library user receives a deterministic typed rejection before output when requesting the Adam7 route for an unsupported image capability.
+
 **Plans**: TBD
 
 ### Phase 42: Bounded Adam7 Pass Encoding
+
 **Goal**: Opted-in images are encoded as deterministic, bounded Adam7 passes while preserving atomic admission and acknowledgement-safe caller-buffered replay.
 **Depends on**: Phase 41
 **Requirements**: PNGI-02, PNGI-03
 **Success Criteria** (what must be TRUE):
+
   1. An opted-in compatible image produces seven deterministic Adam7 passes whose geometry, scanline bytes, selected filters, and compression input stay within the declared limits without image-sized staging.
   2. An eager or caller-buffered Adam7 encoder rejects incompatible geometry, output, work, or budget requests before exposing encoded bytes or accepting a caller lease.
   3. A caller can drain Adam7 output through arbitrary capacities with exact progress; replay advances only for accepted bytes and yields the same bytes as eager output.
+
 **Plans**: TBD
 
 ### Phase 43: Portable Adam7 Public Evidence
+
 **Goal**: Users have independent public proof that Adam7 encoding faithfully round-trips RGB8 and straight-RGBA8 images across every supported portable target.
 **Depends on**: Phase 42
 **Requirements**: PNGI-04
 **Success Criteria** (what must be TRUE):
+
   1. Generated RGB8 and straight-RGBA8 Adam7 cases encode through the public API and decode back to exactly the source pixels.
   2. Hostile caller-buffer capacities produce byte-identical Adam7 output to eager encoding, while the frozen legacy non-interlaced cases retain their baseline bytes.
   3. The public Adam7 compatibility and fidelity cases execute independently on js, wasm, wasm-gc, and native.
+
 **Plans**: TBD
 
 ## Progress
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 41. Adam7 Opt-In Compatibility | 0/TBD | Not started | - |
+| 41. Adam7 Opt-In Compatibility | 1/1 | Complete    | 2026-07-22 |
 | 42. Bounded Adam7 Pass Encoding | 0/TBD | Not started | - |
 | 43. Portable Adam7 Public Evidence | 0/TBD | Not started | - |
 

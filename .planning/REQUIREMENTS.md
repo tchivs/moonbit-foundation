@@ -8,7 +8,7 @@
 
 ### Interlace Compatibility
 
-- [ ] **PNGI-01**: A library user can explicitly select Adam7 interlaced eager and caller-buffered PNG encoding for compatible RGB8 and straight-RGBA8 images while every existing constructor and compression-only factory retains byte-identical non-interlaced output.
+- [x] **PNGI-01**: A library user can explicitly select Adam7 interlaced eager and caller-buffered PNG encoding for compatible RGB8 and straight-RGBA8 images while every existing constructor and compression-only factory retains byte-identical non-interlaced output.
 
 ### Bounded Adam7 Encoding
 
@@ -37,7 +37,7 @@
 
 | Requirement | Phase | Status |
 | --- | --- | --- |
-| PNGI-01 | Phase 41 | Pending |
+| PNGI-01 | Phase 41 | Complete |
 | PNGI-02 | Phase 42 | Pending |
 | PNGI-03 | Phase 42 | Pending |
 | PNGI-04 | Phase 43 | Pending |
