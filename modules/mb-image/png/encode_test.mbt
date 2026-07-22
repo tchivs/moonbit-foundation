@@ -570,6 +570,26 @@ test "PNG Gray8 eager FixedOrStored uses the shared bounded path" {
   inspect(decoded.image().view().get_byte(31UL, 0UL, 0UL).unwrap() == b'\xaa', content="true")
 }
 
+///| Every explicit Gray8 factory keeps colour type 0 and reaches the common
+/// bounded encoder; only compression and filtering are selected by the caller.
+test "PNG Gray8 eager strategy factories cover compression and filtering" {
+  let gray = png_encode_gray8_image(b"\x10\x20\x30\x40", width=2UL, height=2UL)
+  for encoder in [
+    PngEncoder::new_gray8_with_compression_strategy(PngCompressionStrategy::Stored),
+    PngEncoder::new_gray8_with_compression_strategy(PngCompressionStrategy::FixedOrStored),
+    PngEncoder::new_gray8_with_compression_strategy(PngCompressionStrategy::DynamicOrFixedOrStored),
+    PngEncoder::new_gray8_with_filter_strategy(PngFilterStrategy::None),
+    PngEncoder::new_gray8_with_filter_strategy(PngFilterStrategy::Adaptive),
+    PngEncoder::new_gray8_with_strategies(PngCompressionStrategy::Stored, PngFilterStrategy::Adaptive),
+    PngEncoder::new_gray8_with_strategies(PngCompressionStrategy::FixedOrStored, PngFilterStrategy::Adaptive),
+    PngEncoder::new_gray8_with_strategies(PngCompressionStrategy::DynamicOrFixedOrStored, PngFilterStrategy::Adaptive),
+  ] {
+    let (_, writer) = png_encode_with(encoder, gray)
+    let bytes = png_encode_prefix(writer)
+    inspect(bytes[24] == b'\x08' && bytes[25] == b'\x00' && bytes[28] == b'\x00', content="true")
+  }
+}
+
 ///|
 test "PNG compression strategy eager factories encode supported images" {
   for strategy in [PngCompressionStrategy::Stored, PngCompressionStrategy::FixedOrStored] {

@@ -379,9 +379,18 @@ fn png_stream_gray8_eager_with_compression(
   image : @storage.OwnedImage,
   strategy : PngCompressionStrategy,
 ) -> Bytes {
+  png_stream_gray8_eager_with_strategies(image, strategy, PngFilterStrategy::None)
+}
+
+///| Combined eager output is the caller-buffered identity oracle for Gray8.
+fn png_stream_gray8_eager_with_strategies(
+  image : @storage.OwnedImage,
+  strategy : PngCompressionStrategy,
+  filter_strategy : PngFilterStrategy,
+) -> Bytes {
   let writer = @io.MemoryWriter::new(1048576UL, png_stream_test_budget(work=0UL)).unwrap()
   ignore(@codec.ImageEncoder::encode(
-    PngEncoder::new_gray8_with_compression_strategy(strategy),
+    PngEncoder::new_gray8_with_strategies(strategy, filter_strategy),
     image.view(), writer as &@io.Writer,
     @codec.EncodeOptions::new(lossless_required=true, preserve_opaque_metadata=false),
     png_stream_test_limits(), png_stream_test_budget(), @error.Diagnostics::new(),
@@ -433,6 +442,57 @@ test "PNG Gray8 chunk FixedOrStored matches eager with accepted progress" {
   ).unwrap()
   let chunked = png_chunk_test_drain_encoder(encoder, [17UL]).unwrap()
   inspect(chunked == eager && chunked[25] == b'\x00', content="true")
+}
+
+///| Gray8 eager/chunk parity covers every public compression-only,
+/// filter-only, and combined factory using ordinary positive-capacity pulls.
+test "PNG Gray8 chunk strategy factories match eager" {
+  let gray = png_stream_gray8_image(b"\x10\x20\x30\x40", width=2UL, height=2UL)
+  for strategy in [
+    PngCompressionStrategy::Stored,
+    PngCompressionStrategy::FixedOrStored,
+    PngCompressionStrategy::DynamicOrFixedOrStored,
+  ] {
+    let eager = png_stream_gray8_eager_with_compression(gray, strategy)
+    let chunked = png_chunk_test_drain_encoder(
+      PngChunkEncoder::new_gray8_with_compression_strategy(
+        gray.view(), strategy, png_stream_test_limits(), png_stream_test_budget(),
+        @error.Diagnostics::new(),
+      ).unwrap(),
+      [17UL],
+    ).unwrap()
+    inspect(chunked == eager, content="true")
+  }
+  for filter_strategy in [PngFilterStrategy::None, PngFilterStrategy::Adaptive] {
+    let eager = png_stream_gray8_eager_with_strategies(
+      gray, PngCompressionStrategy::Stored, filter_strategy,
+    )
+    let chunked = png_chunk_test_drain_encoder(
+      PngChunkEncoder::new_gray8_with_filter_strategy(
+        gray.view(), filter_strategy, png_stream_test_limits(), png_stream_test_budget(),
+        @error.Diagnostics::new(),
+      ).unwrap(),
+      [17UL],
+    ).unwrap()
+    inspect(chunked == eager, content="true")
+  }
+  for strategy in [
+    PngCompressionStrategy::Stored,
+    PngCompressionStrategy::FixedOrStored,
+    PngCompressionStrategy::DynamicOrFixedOrStored,
+  ] {
+    for filter_strategy in [PngFilterStrategy::None, PngFilterStrategy::Adaptive] {
+      let eager = png_stream_gray8_eager_with_strategies(gray, strategy, filter_strategy)
+      let chunked = png_chunk_test_drain_encoder(
+        PngChunkEncoder::new_gray8_with_strategies(
+          gray.view(), strategy, filter_strategy, png_stream_test_limits(),
+          png_stream_test_budget(), @error.Diagnostics::new(),
+        ).unwrap(),
+        [17UL],
+      ).unwrap()
+      inspect(chunked == eager, content="true")
+    }
+  }
 }
 
 ///|
@@ -1486,6 +1546,52 @@ fn png_adaptive_combined_public_reject(
   }
 }
 
+///| Gray8 strategy surfaces share the same admission ledger as legacy routes;
+/// every rejection occurs before either eager output or a caller lease exists.
+fn png_gray8_combined_public_reject(
+  image : @storage.OwnedImage,
+  limits : @codec.CodecLimits,
+  work : UInt64,
+) -> Unit {
+  for strategy in [
+    PngCompressionStrategy::Stored,
+    PngCompressionStrategy::FixedOrStored,
+    PngCompressionStrategy::DynamicOrFixedOrStored,
+  ] {
+    for filter_strategy in [PngFilterStrategy::None, PngFilterStrategy::Adaptive] {
+      let eager_budget = png_stream_test_budget(work=work)
+      let eager_before = eager_budget.remaining()
+      let writer = @io.MemoryWriter::new(1048576UL, png_stream_test_budget(work=0UL)).unwrap()
+      let eager = @codec.ImageEncoder::encode(
+        PngEncoder::new_gray8_with_strategies(strategy, filter_strategy),
+        image.view(), writer as &@io.Writer,
+        @codec.EncodeOptions::new(lossless_required=true, preserve_opaque_metadata=false),
+        limits, eager_budget, @error.Diagnostics::new(),
+      ).unwrap_err()
+      if writer.position() != 0UL ||
+        !png_fixed_or_stored_same_remaining(eager_before, eager_budget.remaining()) {
+        abort("png gray8 eager admission exposed output")
+      }
+      let chunk_budget = png_stream_test_budget(work=work)
+      let chunk_before = chunk_budget.remaining()
+      let sentinel = png_chunk_test_owner(7UL, fill=b'Z')
+      let chunk = PngChunkEncoder::new_gray8_with_strategies(
+        image.view(), strategy, filter_strategy, limits, chunk_budget,
+        @error.Diagnostics::new(),
+      ).unwrap_err()
+      if !png_chunk_test_same_error(eager, chunk) ||
+        !png_fixed_or_stored_same_remaining(chunk_before, chunk_budget.remaining()) {
+        abort("png gray8 chunk admission mismatch")
+      }
+      for index = 0UL; index < 7UL; index = index + 1UL {
+        if sentinel.view().get(index).unwrap() != b'Z' {
+          abort("png gray8 admission exposed lease")
+        }
+      }
+    }
+  }
+}
+
 ///|
 fn png_fixed_or_stored_replay_image() -> @storage.OwnedImage {
   let image = png_stream_test_image(3UL, width=5UL)
@@ -1541,6 +1647,30 @@ test "PNG adaptive combined admission is atomic" {
   )
 }
 
+///| Gray8 uses the same capability, geometry, output, work, and budget
+/// rejection ordering for every compression/filter combination.
+test "PNG Gray8 strategy admission is atomic" {
+  png_gray8_combined_public_reject(
+    png_stream_test_image(3UL), png_fixed_or_stored_limits(), 1048576UL,
+  )
+  png_gray8_combined_public_reject(
+    png_stream_gray8_image(b"\x01\x02", width=2UL),
+    png_fixed_or_stored_limits(width=1UL), 1048576UL,
+  )
+  png_gray8_combined_public_reject(
+    png_stream_gray8_image(Bytes::from_array(Array::make(32, b'\xaa')), width=32UL),
+    png_fixed_or_stored_limits(output=1UL), 1048576UL,
+  )
+  png_gray8_combined_public_reject(
+    png_stream_gray8_image(Bytes::from_array(Array::make(32, b'\xaa')), width=32UL),
+    png_fixed_or_stored_limits(work=1UL), 1048576UL,
+  )
+  png_gray8_combined_public_reject(
+    png_stream_gray8_image(Bytes::from_array(Array::make(32, b'\xaa')), width=32UL),
+    png_fixed_or_stored_limits(), 1UL,
+  )
+}
+
 ///|
 test "PNG fixed-or-stored public replay mismatch is sticky" {
   let image = png_fixed_or_stored_replay_image()
@@ -1587,6 +1717,57 @@ test "PNG fixed-or-stored public replay mismatch is sticky" {
   inspect(replay.written(), content="0")
   inspect(replay.total_written(), content="57")
   inspect(png_chunk_test_same_error(first_error, replay_error), content="true")
+  inspect(later.view().get(0UL).unwrap() == b'Z', content="true")
+}
+
+///| Gray8 fixed replay failure preserves accepted progress and repeats the
+/// terminal error without touching a later caller-owned lease.
+test "PNG Gray8 fixed replay mismatch is sticky" {
+  let image = png_stream_gray8_image(b"\x0a\x0c\x0c\x0a\x0a", width=5UL)
+  let encoder = PngChunkEncoder::new_gray8_with_compression_strategy(
+    image.view(), PngCompressionStrategy::FixedOrStored,
+    png_stream_test_limits(), png_stream_test_budget(), @error.Diagnostics::new(),
+  ).unwrap()
+  let accepted : Array[Byte] = []
+  while accepted.length() < 43 {
+    let pull = png_chunk_test_pull(encoder, 1UL, accepted)
+    if pull.written() != 1UL { abort("png gray8 fixed replay prefix") }
+  }
+  image.with_mut_view(fn(view) { view.set_byte(0UL, 0UL, 0UL, b'\x00') }).unwrap()
+  let mut accepted_total = accepted.length().to_uint64()
+  let mut first_error : @error.CoreError? = None
+  let mut turns = 0UL
+  while turns < 1024UL {
+    let owner = png_chunk_test_owner(1UL, fill=b'Z')
+    let pull = owner.with_mut(0UL, 1UL, fn(lease) { Ok(encoder.pull(lease)) }).unwrap()
+    match pull.outcome() {
+      PngChunkPullOutcome::NeedOutput => {
+        if pull.written() != 1UL || pull.total_written() != accepted_total + 1UL {
+          abort("png gray8 fixed replay accepted progress")
+        }
+        accepted_total = pull.total_written()
+        turns = turns + 1UL
+      }
+      PngChunkPullOutcome::Failed(error) => {
+        if pull.written() != 0UL || pull.total_written() != accepted_total ||
+          owner.view().get(0UL).unwrap() != b'Z' {
+          abort("png gray8 fixed replay failure")
+        }
+        first_error = Some(error)
+        break
+      }
+      PngChunkPullOutcome::Finished => abort("png gray8 fixed replay did not drift")
+    }
+  }
+  let error = match first_error { Some(value) => value; None => abort("png gray8 fixed replay missing error") }
+  let later = png_chunk_test_owner(1UL, fill=b'Z')
+  let replay = later.with_mut(0UL, 1UL, fn(lease) { Ok(encoder.pull(lease)) }).unwrap()
+  let replay_error = match replay.outcome() {
+    PngChunkPullOutcome::Failed(value) => value
+    _ => abort("png gray8 fixed replay was not sticky")
+  }
+  inspect(replay.written() == 0UL && replay.total_written() == accepted_total, content="true")
+  inspect(png_chunk_test_same_error(error, replay_error), content="true")
   inspect(later.view().get(0UL).unwrap() == b'Z', content="true")
 }
 
