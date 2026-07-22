@@ -217,6 +217,137 @@ fn png_encode_gray16_repeated_image() -> @storage.OwnedImage {
   image
 }
 
+///| A compact non-symmetric Gray16 corpus whose PNG wire bytes must be stable
+/// across either source-storage byte order.
+fn png_encode_gray16_public_fidelity_image(
+  endianness : @model.Endianness,
+) -> @storage.OwnedImage {
+  let descriptor = @model.ImageDescriptor::new(
+    3UL, 2UL,
+    @model.ImageFormat::new(
+      @model.ComponentType::U16, @model.ChannelOrder::Gray,
+      @model.PlaneLayout::Packed, endianness,
+    ).unwrap(),
+    [@model.PlaneDescriptor::new(0UL, 12UL, 6UL, 6UL, 1UL, 1UL, 3UL, 2UL).unwrap()],
+    12UL,
+    @model.ImageMetadata::new(
+      @color.ColorSpaceIdentity::Srgb, @color.TransferIdentity::EncodedSrgb,
+      None, @profile.ProfileIdentity::builtin_srgb(), @model.Orientation::TopLeft,
+      @metadata.OpaqueMetadata::from_entries(
+        [], @metadata.MetadataLimits::new(
+          max_entries=1UL, max_token_bytes=16UL, max_value_bytes=1UL,
+          max_total_bytes=32UL, max_disposition_fields=4UL,
+        ), png_encode_budget(bytes=1UL, work=0UL),
+      ).unwrap(),
+    ),
+  ).unwrap()
+  let image = @storage.OwnedImage::new(
+    descriptor, png_encode_budget(bytes=12UL, work=0UL),
+  ).unwrap()
+  let wire = [
+    [b'\x12', b'\x34'], [b'\xab', b'\xcd'], [b'\x00', b'\xff'],
+    [b'\x7f', b'\x01'], [b'\x80', b'\x02'], [b'\xfe', b'\x10'],
+  ]
+  image.with_mut_view(fn(view) {
+    for y = 0UL; y < 2UL; y = y + 1UL {
+      for x = 0UL; x < 3UL; x = x + 1UL {
+        let sample = wire[(y * 3UL + x).to_int()]
+        if endianness == @model.Endianness::Little {
+          view.set_component_byte(x, y, 0UL, 0UL, sample[1]).unwrap()
+          view.set_component_byte(x, y, 0UL, 1UL, sample[0]).unwrap()
+        } else {
+          view.set_component_byte(x, y, 0UL, 0UL, sample[0]).unwrap()
+          view.set_component_byte(x, y, 0UL, 1UL, sample[1]).unwrap()
+        }
+      }
+    }
+    Ok(())
+  }).unwrap()
+  image
+}
+
+///| Extract the one known Stored/None IDAT stream without using the private
+/// inflater. This is intentionally only a bounded stored-block parser.
+fn png_encode_gray16_public_stored_scanlines(bytes : Bytes) -> Bytes {
+  if bytes.length().to_uint64() < 20UL { abort("png gray16 public png too short") }
+  let idat : Array[Byte] = []
+  let mut cursor = 8UL
+  let mut saw_iend = false
+  while cursor + 12UL <= bytes.length().to_uint64() {
+    let data_length =
+      (bytes[cursor.to_int()].to_uint64() << 24) |
+      (bytes[(cursor + 1UL).to_int()].to_uint64() << 16) |
+      (bytes[(cursor + 2UL).to_int()].to_uint64() << 8) |
+      bytes[(cursor + 3UL).to_int()].to_uint64()
+    if cursor + 12UL + data_length > bytes.length().to_uint64() {
+      abort("png gray16 public chunk bounds")
+    }
+    let idat_type = bytes[(cursor + 4UL).to_int()] == b'I' &&
+      bytes[(cursor + 5UL).to_int()] == b'D' &&
+      bytes[(cursor + 6UL).to_int()] == b'A' &&
+      bytes[(cursor + 7UL).to_int()] == b'T'
+    if idat_type {
+      for index = 0UL; index < data_length; index = index + 1UL {
+        idat.push(bytes[(cursor + 8UL + index).to_int()])
+      }
+    }
+    let iend_type = bytes[(cursor + 4UL).to_int()] == b'I' &&
+      bytes[(cursor + 5UL).to_int()] == b'E' &&
+      bytes[(cursor + 6UL).to_int()] == b'N' &&
+      bytes[(cursor + 7UL).to_int()] == b'D'
+    if iend_type {
+      if data_length != 0UL { abort("png gray16 public iend payload") }
+      saw_iend = true
+      break
+    }
+    cursor = cursor + 12UL + data_length
+  }
+  if !saw_iend || idat.length() != 25 {
+    abort("png gray16 public stored idat shape")
+  }
+  if idat[0] != b'\x78' || idat[1] != b'\x01' || idat[2] != b'\x01' ||
+    idat[3] != b'\x0e' || idat[4] != b'\x00' || idat[5] != b'\xf1' ||
+    idat[6] != b'\xff' {
+    abort("png gray16 public stored block")
+  }
+  let scanlines : Array[Byte] = []
+  for index = 0; index < 14; index = index + 1 {
+    scanlines.push(idat[7 + index])
+  }
+  Bytes::from_array(scanlines)
+}
+
+///| The public PNG decoder intentionally exposes Gray16 as RGB8 high bytes.
+fn png_encode_gray16_public_decode_is_canonical(bytes : Bytes) -> Unit {
+  let owner = @bytes.OwnedBytes::from_bytes(
+    bytes, png_encode_budget(bytes=4096UL, work=0UL),
+  ).unwrap()
+  let decoded = @codec.ImageDecoder::decode(
+    PngDecoder::new(), @io.MemoryReader::new(owner.view()) as &@io.Reader,
+    @codec.DecodeOptions::new(require_complete_input=true, preserve_opaque_metadata=false),
+    png_encode_limits(output=4096UL, work=1048576UL),
+    png_encode_budget(bytes=4096UL, work=1048576UL), @error.Diagnostics::new(),
+  ).unwrap()
+  let restored = decoded.image().view()
+  if restored.width() != 3UL || restored.height() != 2UL ||
+    restored.format().component() != @model.ComponentType::U8 ||
+    restored.format().channels() != @model.ChannelOrder::Rgb ||
+    restored.format().channel_count() != 3UL {
+    abort("png gray16 public decoded descriptor")
+  }
+  let high = [b'\x12', b'\xab', b'\x00', b'\x7f', b'\x80', b'\xfe']
+  for y = 0UL; y < 2UL; y = y + 1UL {
+    for x = 0UL; x < 3UL; x = x + 1UL {
+      let sample = high[(y * 3UL + x).to_int()]
+      for channel = 0UL; channel < 3UL; channel = channel + 1UL {
+        if restored.get_byte(x, y, channel).unwrap() != sample {
+          abort("png gray16 public decoded high byte")
+        }
+      }
+    }
+  }
+}
+
 ///|
 fn png_encode_prefix(writer : @io.MemoryWriter) -> Bytes {
   let bytes : Array[Byte] = []
@@ -581,6 +712,26 @@ test "PNG adaptive combined eager routes" {
 
 ///|
 test "PNG filter strategy eager frozen compatibility vectors" {
+  let gray = png_encode_gray8_image(b"\x7f")
+  let gray_stored =
+    b"\x89PNG\r\n\x1a\n\x00\x00\x00\x0dIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x00\x00\x00\x00\x3a\x7e\x9b\x55\x00\x00\x00\x0dIDAT\x78\x01\x01\x02\x00\xfd\xff\x00\x7f\x00\x81\x00\x80\x7c\x4b\x6c\xa3\x00\x00\x00\x00IEND\xae\x42\x60\x82"
+  let (_, gray_default_writer) = png_encode_with(PngEncoder::new_gray8(), gray)
+  let (_, gray_configured_writer) = png_encode_with(
+    PngEncoder::new_gray8_with_strategies(
+      PngCompressionStrategy::Stored, PngFilterStrategy::None,
+    ),
+    gray,
+  )
+  let (_, gray_adaptive_writer) = png_encode_with(
+    PngEncoder::new_gray8_with_filter_strategy(PngFilterStrategy::Adaptive), gray,
+  )
+  for bytes in [
+    png_encode_prefix(gray_default_writer), png_encode_prefix(gray_configured_writer),
+    png_encode_prefix(gray_adaptive_writer),
+  ] {
+    inspect(bytes == gray_stored, content="true")
+  }
+
   let rgb = png_encode_image(3UL, b"\x00\x01\x02")
   let rgb_stored =
     b"\x89PNG\r\n\x1a\n\x00\x00\x00\x0dIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x02\x00\x00\x00\x90\x77\x53\xde\x00\x00\x00\x0fIDAT\x78\x01\x01\x04\x00\xfb\xff\x00\x00\x01\x02\x00\x08\x00\x04\xad\xa5\x4e\x4e\x00\x00\x00\x00IEND\xae\x42\x60\x82"
@@ -753,6 +904,49 @@ test "PNG Gray16 eager six-pair framing and source endianness agree" {
       little[51] == b'\xab' && little[52] == b'\xcd',
     content="true",
   )
+}
+
+///| Public Gray16 evidence must preserve the full U16 PNG wire sample while
+/// documenting the RGB8 canonicalization exposed by the decoder.
+test "PNG Gray16 public eager fidelity" {
+  let expected = b"\x00\x12\x34\xab\xcd\x00\xff\x00\x7f\x01\x80\x02\xfe\x10"
+  let (_, little_writer) = png_encode_with(
+    PngEncoder::new_gray16_with_strategies(
+      PngCompressionStrategy::Stored, PngFilterStrategy::None,
+    ),
+    png_encode_gray16_public_fidelity_image(@model.Endianness::Little),
+  )
+  let (_, big_writer) = png_encode_with(
+    PngEncoder::new_gray16_with_strategies(
+      PngCompressionStrategy::Stored, PngFilterStrategy::None,
+    ),
+    png_encode_gray16_public_fidelity_image(@model.Endianness::Big),
+  )
+  let little = png_encode_prefix(little_writer)
+  let big = png_encode_prefix(big_writer)
+  if little != big || little[24] != b'\x10' || little[25] != b'\x00' ||
+    little[28] != b'\x00' || png_encode_gray16_public_stored_scanlines(little) != expected {
+    abort("png gray16 public eager wire")
+  }
+  png_encode_gray16_public_decode_is_canonical(little)
+
+  for strategy in [
+    PngCompressionStrategy::Stored,
+    PngCompressionStrategy::FixedOrStored,
+    PngCompressionStrategy::DynamicOrFixedOrStored,
+  ] {
+    for filter_strategy in [PngFilterStrategy::None, PngFilterStrategy::Adaptive] {
+      let (_, writer) = png_encode_with(
+        PngEncoder::new_gray16_with_strategies(strategy, filter_strategy),
+        png_encode_gray16_public_fidelity_image(@model.Endianness::Little),
+      )
+      let bytes = png_encode_prefix(writer)
+      if bytes[24] != b'\x10' || bytes[25] != b'\x00' || bytes[28] != b'\x00' {
+        abort("png gray16 public eager ihdr")
+      }
+      png_encode_gray16_public_decode_is_canonical(bytes)
+    }
+  }
 }
 
 ///| FixedOrStored Gray8 must use the same bounded machine rather than a
