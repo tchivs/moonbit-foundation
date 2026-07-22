@@ -464,6 +464,119 @@ fn _png_filter_image_row_winner(
   Ok(winner)
 }
 
+///| Resolve one Adam7 logical byte from the checked structural pass records.
+/// The cursor retains no pass collection: every lookup obtains geometry from
+/// the sole authority and keeps only its scalar logical position.
+fn _png_adam7_cursor_location(
+  source : @storage.ImageView,
+  channels : UInt64,
+  index : UInt64,
+) -> Result[(PngAdam7Pass, UInt64, UInt64), @error.CoreError] {
+  let passes = match _png_adam7_passes(source.width(), source.height(), channels, 8) {
+    Err(error) => return Err(error); Ok(value) => value
+  }
+  let mut offset = 0UL
+  for pass in passes {
+    if pass.width == 0UL || pass.height == 0UL { continue }
+    let row_width = match @checked.checked_add(pass.row_bytes, 1UL) {
+      Err(error) => return Err(error); Ok(value) => value
+    }
+    let bytes = match @checked.checked_mul(row_width, pass.height) {
+      Err(error) => return Err(error); Ok(value) => value
+    }
+    let end = match @checked.checked_add(offset, bytes) {
+      Err(error) => return Err(error); Ok(value) => value
+    }
+    if index < end {
+      let relative = index - offset
+      return Ok((pass, relative / row_width, relative % row_width))
+    }
+    offset = end
+  }
+  Err(_png_encode_capability("png-adam7-cursor-end"))
+}
+
+///| Pass-local raw sample lookup.  `row` is deliberately the row within the
+/// selected pass, so Up/Average/Paeth never cross a pass boundary.
+fn _png_adam7_raw_byte(
+  source : @storage.ImageView,
+  pass : PngAdam7Pass,
+  row : UInt64,
+  channels : UInt64,
+  position : UInt64,
+) -> Result[Byte, @error.CoreError] {
+  source.get_byte(
+    pass.x + (position / channels) * pass.dx,
+    pass.y + row * pass.dy,
+    position % channels,
+  )
+}
+
+///| Apply a filter candidate without materialising an Adam7 pass row.
+fn _png_adam7_candidate_byte(
+  filter : PngRowFilter,
+  source : @storage.ImageView,
+  pass : PngAdam7Pass,
+  row : UInt64,
+  channels : UInt64,
+  position : UInt64,
+) -> Result[Byte, @error.CoreError] {
+  if position >= pass.row_bytes { return Err(_png_encode_capability("png-adam7-row-access")) }
+  let sample = match _png_adam7_raw_byte(source, pass, row, channels, position) {
+    Err(error) => return Err(error); Ok(value) => value
+  }
+  let left = if position < channels { b'\x00' } else {
+    match _png_adam7_raw_byte(source, pass, row, channels, position - channels) {
+      Err(error) => return Err(error); Ok(value) => value
+    }
+  }
+  let up = if row == 0UL { b'\x00' } else {
+    match _png_adam7_raw_byte(source, pass, row - 1UL, channels, position) {
+      Err(error) => return Err(error); Ok(value) => value
+    }
+  }
+  let upper_left = if row == 0UL || position < channels { b'\x00' } else {
+    match _png_adam7_raw_byte(source, pass, row - 1UL, channels, position - channels) {
+      Err(error) => return Err(error); Ok(value) => value
+    }
+  }
+  let predictor = match filter {
+    PngRowFilter::None => b'\x00'
+    PngRowFilter::Sub => left
+    PngRowFilter::Up => up
+    PngRowFilter::Average => ((left.to_uint64() + up.to_uint64()) / 2UL).to_byte()
+    PngRowFilter::Paeth => _png_filter_paeth_predictor(left, up, upper_left)
+  }
+  Ok(sample - predictor)
+}
+
+///| Choose a method-0 filter for one local Adam7 row with scalar pixel reads.
+fn _png_adam7_row_winner(
+  source : @storage.ImageView,
+  pass : PngAdam7Pass,
+  row : UInt64,
+  channels : UInt64,
+) -> Result[PngRowFilter, @error.CoreError] {
+  let mut winner = PngRowFilter::None
+  let mut winner_score = 0UL
+  for candidate in [PngRowFilter::None, PngRowFilter::Sub, PngRowFilter::Up, PngRowFilter::Average, PngRowFilter::Paeth] {
+    let mut score = 0UL
+    for position = 0UL; position < pass.row_bytes; position = position + 1UL {
+      let residual = match _png_adam7_candidate_byte(candidate, source, pass, row, channels, position) {
+        Err(error) => return Err(error); Ok(value) => value
+      }
+      score = match _png_fixed_add(score, _png_filter_signed_magnitude(residual)) {
+        Err(error) => return Err(error); Ok(value) => value
+      }
+    }
+    if candidate == PngRowFilter::None || score < winner_score {
+      winner = candidate
+      winner_score = score
+    }
+  }
+  Ok(winner)
+}
+
 ///| A forward-only logical filter stream.  Adaptive resolves a row only when
 /// its tag is first entered, retains that winner for its payload, and carries
 /// only scalar row state across the caller-owned replay boundary.
@@ -472,6 +585,7 @@ priv struct PngFilteredCursor {
   row_bytes : UInt64
   channels : UInt64
   filter_strategy : PngFilterStrategy
+  interlace_strategy : PngInterlaceStrategy
   index : UInt64
   winner : PngRowFilter?
   traversal_facts : PngFilteredTraversalFacts
@@ -484,8 +598,21 @@ fn PngFilteredCursor::new(
   channels : UInt64,
   filter_strategy : PngFilterStrategy,
 ) -> PngFilteredCursor {
+  PngFilteredCursor::new_with_interlace(
+    source, row_bytes, channels, filter_strategy, PngInterlaceStrategy::None,
+  )
+}
+
+///|
+fn PngFilteredCursor::new_with_interlace(
+  source : @storage.ImageView,
+  row_bytes : UInt64,
+  channels : UInt64,
+  filter_strategy : PngFilterStrategy,
+  interlace_strategy : PngInterlaceStrategy,
+) -> PngFilteredCursor {
   {
-    source, row_bytes, channels, filter_strategy, index: 0UL, winner: None,
+    source, row_bytes, channels, filter_strategy, interlace_strategy, index: 0UL, winner: None,
     traversal_facts: {
       resolved_rows: 0UL, candidate_residuals: 0UL, selected_residuals: 0UL,
     },
@@ -504,6 +631,53 @@ fn PngFilteredCursor::facts(
 fn PngFilteredCursor::next(
   self : PngFilteredCursor,
 ) -> Result[(Byte, PngFilteredCursor), @error.CoreError] {
+  if self.interlace_strategy == PngInterlaceStrategy::Adam7 {
+    let (pass, row, in_row) = match _png_adam7_cursor_location(
+      self.source, self.channels, self.index,
+    ) { Err(error) => return Err(error); Ok(value) => value }
+    if in_row == 0UL {
+      let winner = match self.filter_strategy {
+        PngFilterStrategy::None => PngRowFilter::None
+        PngFilterStrategy::Adaptive => match _png_adam7_row_winner(
+          self.source, pass, row, self.channels,
+        ) { Err(error) => return Err(error); Ok(value) => value }
+      }
+      let candidate_residuals = match self.filter_strategy {
+        PngFilterStrategy::None => self.traversal_facts.candidate_residuals
+        PngFilterStrategy::Adaptive => match _png_fixed_add(self.traversal_facts.candidate_residuals, 5UL * pass.row_bytes) {
+          Err(error) => return Err(error); Ok(value) => value
+        }
+      }
+      let resolved_rows = match self.filter_strategy {
+        PngFilterStrategy::None => self.traversal_facts.resolved_rows
+        PngFilterStrategy::Adaptive => match _png_fixed_add(self.traversal_facts.resolved_rows, 1UL) {
+          Err(error) => return Err(error); Ok(value) => value
+        }
+      }
+      return Ok((_png_filter_tag(winner), { ..self, index: self.index + 1UL,
+        winner: Some(winner), traversal_facts: {
+          resolved_rows, candidate_residuals,
+          selected_residuals: self.traversal_facts.selected_residuals,
+        } }))
+    }
+    let winner = match self.winner {
+      Some(value) => value
+      None => return Err(_png_encode_capability("png-adam7-cursor-winner"))
+    }
+    let byte = match _png_adam7_candidate_byte(
+      winner, self.source, pass, row, self.channels, in_row - 1UL,
+    ) { Err(error) => return Err(error); Ok(value) => value }
+    let selected_residuals = match self.filter_strategy {
+      PngFilterStrategy::None => self.traversal_facts.selected_residuals
+      PngFilterStrategy::Adaptive => match _png_fixed_add(self.traversal_facts.selected_residuals, 1UL) {
+        Err(error) => return Err(error); Ok(value) => value
+      }
+    }
+    return Ok((byte, { ..self, index: self.index + 1UL, traversal_facts: {
+      resolved_rows: self.traversal_facts.resolved_rows,
+      candidate_residuals: self.traversal_facts.candidate_residuals, selected_residuals,
+    } }))
+  }
   let row_width = match @checked.checked_add(self.row_bytes, 1UL) {
     Err(error) => return Err(error); Ok(value) => value
   }
@@ -652,7 +826,20 @@ fn PngFilteredMatchCursor::new(
   channels : UInt64,
   filter_strategy : PngFilterStrategy,
 ) -> PngFilteredMatchCursor {
-  { producer: PngFilteredCursor::new(source, row_bytes, channels, filter_strategy),
+  PngFilteredMatchCursor::new_with_interlace(
+    source, row_bytes, channels, filter_strategy, PngInterlaceStrategy::None,
+  )
+}
+
+///|
+fn PngFilteredMatchCursor::new_with_interlace(
+  source : @storage.ImageView,
+  row_bytes : UInt64,
+  channels : UInt64,
+  filter_strategy : PngFilterStrategy,
+  interlace_strategy : PngInterlaceStrategy,
+) -> PngFilteredMatchCursor {
+  { producer: PngFilteredCursor::new_with_interlace(source, row_bytes, channels, filter_strategy, interlace_strategy),
     logical_position: 0UL, produced_exclusive: 0UL, retained_start: 0UL,
     window: Array::make(262, b'\x00') }
 }
@@ -782,7 +969,23 @@ fn _png_filtered_match_traverse(
   filter_strategy : PngFilterStrategy,
   scanlines : UInt64,
 ) -> Result[PngFilteredTraversalFacts, @error.CoreError] {
-  let mut cursor = PngFilteredMatchCursor::new(source, row_bytes, channels, filter_strategy)
+  _png_filtered_match_traverse_with_interlace(
+    source, row_bytes, channels, filter_strategy, scanlines, PngInterlaceStrategy::None,
+  )
+}
+
+///| The selected layout is recreated for every planner/replay walk.
+fn _png_filtered_match_traverse_with_interlace(
+  source : @storage.ImageView,
+  row_bytes : UInt64,
+  channels : UInt64,
+  filter_strategy : PngFilterStrategy,
+  scanlines : UInt64,
+  interlace_strategy : PngInterlaceStrategy,
+) -> Result[PngFilteredTraversalFacts, @error.CoreError] {
+  let mut cursor = PngFilteredMatchCursor::new_with_interlace(
+    source, row_bytes, channels, filter_strategy, interlace_strategy,
+  )
   while cursor.logical_position < scanlines {
     cursor = match cursor.ensure(cursor.logical_position + 1UL) {
       Err(error) => return Err(error); Ok(value) => value
@@ -875,9 +1078,25 @@ fn _png_dynamic_frequencies(
   filter_strategy : PngFilterStrategy,
   scanlines : UInt64,
 ) -> Result[(Array[UInt64], Array[UInt64], UInt64, UInt64, PngFilteredTraversalFacts), @error.CoreError] {
+  _png_dynamic_frequencies_with_interlace(
+    source, row_bytes, channels, filter_strategy, scanlines, PngInterlaceStrategy::None,
+  )
+}
+
+///|
+fn _png_dynamic_frequencies_with_interlace(
+  source : @storage.ImageView,
+  row_bytes : UInt64,
+  channels : UInt64,
+  filter_strategy : PngFilterStrategy,
+  scanlines : UInt64,
+  interlace_strategy : PngInterlaceStrategy,
+) -> Result[(Array[UInt64], Array[UInt64], UInt64, UInt64, PngFilteredTraversalFacts), @error.CoreError] {
   let literals = Array::make(286, 0UL)
   let distances = Array::make(30, 0UL)
-  let mut cursor = PngFilteredMatchCursor::new(source, row_bytes, channels, filter_strategy)
+  let mut cursor = PngFilteredMatchCursor::new_with_interlace(
+    source, row_bytes, channels, filter_strategy, interlace_strategy,
+  )
   let mut work = 0UL
   let mut fingerprint = 1UL
   while cursor.logical_position < scanlines {
@@ -978,8 +1197,24 @@ fn _png_dynamic_plan_with_idat_limit(
   scanlines : UInt64,
   max_idat_length : UInt64,
 ) -> Result[PngDynamicPlanOutcome, @error.CoreError] {
+  _png_dynamic_plan_with_interlace_idat_limit(
+    source, row_bytes, channels, filter_strategy, scanlines, max_idat_length,
+    PngInterlaceStrategy::None,
+  )
+}
+
+///|
+fn _png_dynamic_plan_with_interlace_idat_limit(
+  source : @storage.ImageView,
+  row_bytes : UInt64,
+  channels : UInt64,
+  filter_strategy : PngFilterStrategy,
+  scanlines : UInt64,
+  max_idat_length : UInt64,
+  interlace_strategy : PngInterlaceStrategy,
+) -> Result[PngDynamicPlanOutcome, @error.CoreError] {
   let (literal_frequencies, distance_frequencies, matcher_work, fingerprint, frequency_facts) =
-    match _png_dynamic_frequencies(source, row_bytes, channels, filter_strategy, scanlines) {
+    match _png_dynamic_frequencies_with_interlace(source, row_bytes, channels, filter_strategy, scanlines, interlace_strategy) {
       Err(error) => return Err(error); Ok(value) => value
     }
   let literals = match _png_huffman_from_frequencies(literal_frequencies, true, false, true) {
@@ -1025,7 +1260,9 @@ fn _png_dynamic_plan_with_idat_limit(
       Err(error) => return Err(error); Ok(value) => value
     }
   }
-  let mut cursor = PngFilteredMatchCursor::new(source, row_bytes, channels, filter_strategy)
+  let mut cursor = PngFilteredMatchCursor::new_with_interlace(
+    source, row_bytes, channels, filter_strategy, interlace_strategy,
+  )
   while cursor.logical_position < scanlines {
     let (length, distance, _, matched) = match _png_filtered_match_at(cursor, scanlines) {
       Err(error) => return Err(error); Ok(value) => value }
@@ -1067,7 +1304,23 @@ fn _png_fixed_plan(
   filter_strategy : PngFilterStrategy,
   scanlines : UInt64,
 ) -> Result[PngFixedPlan, @error.CoreError] {
-  let mut cursor = PngFilteredMatchCursor::new(source, row_bytes, channels, filter_strategy)
+  _png_fixed_plan_with_interlace(
+    source, row_bytes, channels, filter_strategy, scanlines, PngInterlaceStrategy::None,
+  )
+}
+
+///|
+fn _png_fixed_plan_with_interlace(
+  source : @storage.ImageView,
+  row_bytes : UInt64,
+  channels : UInt64,
+  filter_strategy : PngFilterStrategy,
+  scanlines : UInt64,
+  interlace_strategy : PngInterlaceStrategy,
+) -> Result[PngFixedPlan, @error.CoreError] {
+  let mut cursor = PngFilteredMatchCursor::new_with_interlace(
+    source, row_bytes, channels, filter_strategy, interlace_strategy,
+  )
   let mut bits = 3UL
   let mut matcher_work = 0UL
   let mut fingerprint = 1UL
@@ -1171,12 +1424,9 @@ fn _png_encode_preflight_with_interlace(
   limits : @codec.CodecLimits,
   budget : @budget.Budget,
 ) -> Result[PngEncodePreflight, @error.CoreError] {
-  match interlace_strategy {
-    PngInterlaceStrategy::None => _png_encode_preflight_with_filter(
-      source, strategy, filter_strategy, limits, budget,
-    )
-    PngInterlaceStrategy::Adam7 => Err(_png_encode_capability("png-adam7-pending"))
-  }
+  _png_encode_preflight_with_filter_layout_idat_limit(
+    source, strategy, filter_strategy, interlace_strategy, limits, budget, 4294967295UL,
+  )
 }
 
 ///| The test-only bound takes the same atomic ledger path as production.
@@ -1184,6 +1434,24 @@ fn _png_encode_preflight_with_filter_idat_limit(
   source : @storage.ImageView,
   strategy : PngCompressionStrategy,
   filter_strategy : PngFilterStrategy,
+  limits : @codec.CodecLimits,
+  budget : @budget.Budget,
+  dynamic_max_idat_length : UInt64,
+) -> Result[PngEncodePreflight, @error.CoreError] {
+  _png_encode_preflight_with_filter_layout_idat_limit(
+    source, strategy, filter_strategy, PngInterlaceStrategy::None, limits, budget,
+    dynamic_max_idat_length,
+  )
+}
+
+///| One atomic ledger parameterized only by the scalar raster layout.  Adam7
+/// pass totals come from `_png_adam7_passes`; every planner and replay pass is
+/// a fresh traversal of that same bounded producer before the single charge.
+fn _png_encode_preflight_with_filter_layout_idat_limit(
+  source : @storage.ImageView,
+  strategy : PngCompressionStrategy,
+  filter_strategy : PngFilterStrategy,
+  interlace_strategy : PngInterlaceStrategy,
   limits : @codec.CodecLimits,
   budget : @budget.Budget,
   dynamic_max_idat_length : UInt64,
@@ -1200,13 +1468,34 @@ fn _png_encode_preflight_with_filter_idat_limit(
     Err(error) => return Err(error)
     Ok(value) => value
   }
-  let scanline_width = match @checked.checked_add(row_bytes, 1UL) {
-    Err(error) => return Err(error)
-    Ok(value) => value
-  }
-  let scanlines = match @checked.checked_mul(scanline_width, source.height()) {
-    Err(error) => return Err(error)
-    Ok(value) => value
+  let scanlines = match interlace_strategy {
+    PngInterlaceStrategy::None => {
+      let scanline_width = match @checked.checked_add(row_bytes, 1UL) {
+        Err(error) => return Err(error); Ok(value) => value
+      }
+      match @checked.checked_mul(scanline_width, source.height()) {
+        Err(error) => return Err(error); Ok(value) => value
+      }
+    }
+    PngInterlaceStrategy::Adam7 => {
+      let passes = match _png_adam7_passes(source.width(), source.height(), channels, 8) {
+        Err(error) => return Err(error); Ok(value) => value
+      }
+      let mut total = 0UL
+      for pass in passes {
+        if pass.width == 0UL || pass.height == 0UL { continue }
+        let per_row = match @checked.checked_add(pass.row_bytes, 1UL) {
+          Err(error) => return Err(error); Ok(value) => value
+        }
+        let bytes = match @checked.checked_mul(per_row, pass.height) {
+          Err(error) => return Err(error); Ok(value) => value
+        }
+        total = match @checked.checked_add(total, bytes) {
+          Err(error) => return Err(error); Ok(value) => value
+        }
+      }
+      total
+    }
   }
   let blocks = match @checked.checked_add((scanlines - 1UL) / 65535UL, 1UL) {
     Err(error) => return Err(error)
@@ -1236,8 +1525,8 @@ fn _png_encode_preflight_with_filter_idat_limit(
   }
   let plan = match strategy {
     PngCompressionStrategy::Stored => {
-      let pass = match _png_filtered_match_traverse(
-        source, row_bytes, channels, filter_strategy, scanlines,
+      let pass = match _png_filtered_match_traverse_with_interlace(
+        source, row_bytes, channels, filter_strategy, scanlines, interlace_strategy,
       ) { Err(error) => return Err(error); Ok(value) => value }
       adaptive_planning_facts = match _png_filtered_facts_add(
         adaptive_planning_facts, pass,
@@ -1245,13 +1534,13 @@ fn _png_encode_preflight_with_filter_idat_limit(
       PngDeflatePlan::Stored(stored)
     }
     PngCompressionStrategy::FixedOrStored => {
-      let pass = match _png_filtered_match_traverse(
-        source, row_bytes, channels, filter_strategy, scanlines,
+      let pass = match _png_filtered_match_traverse_with_interlace(
+        source, row_bytes, channels, filter_strategy, scanlines, interlace_strategy,
       ) { Err(error) => return Err(error); Ok(value) => value }
       adaptive_planning_facts = match _png_filtered_facts_add(
         adaptive_planning_facts, pass,
       ) { Err(error) => return Err(error); Ok(value) => value }
-      let fixed = match _png_fixed_plan(source, row_bytes, channels, filter_strategy, scanlines) {
+      let fixed = match _png_fixed_plan_with_interlace(source, row_bytes, channels, filter_strategy, scanlines, interlace_strategy) {
         Err(error) => return Err(error)
         Ok(value) => value
       }
@@ -1268,13 +1557,13 @@ fn _png_encode_preflight_with_filter_idat_limit(
       }
     }
     PngCompressionStrategy::DynamicOrFixedOrStored => {
-      let stored_pass = match _png_filtered_match_traverse(
-        source, row_bytes, channels, filter_strategy, scanlines,
+      let stored_pass = match _png_filtered_match_traverse_with_interlace(
+        source, row_bytes, channels, filter_strategy, scanlines, interlace_strategy,
       ) { Err(error) => return Err(error); Ok(value) => value }
       adaptive_planning_facts = match _png_filtered_facts_add(
         adaptive_planning_facts, stored_pass,
       ) { Err(error) => return Err(error); Ok(value) => value }
-      let fixed = match _png_fixed_plan(source, row_bytes, channels, filter_strategy, scanlines) {
+      let fixed = match _png_fixed_plan_with_interlace(source, row_bytes, channels, filter_strategy, scanlines, interlace_strategy) {
         Err(error) => return Err(error); Ok(value) => value
       }
       adaptive_planning_facts = match _png_filtered_facts_add(
@@ -1289,8 +1578,8 @@ fn _png_encode_preflight_with_filter_idat_limit(
         PngDeflatePlan::Fixed(value) => value.total_length
         PngDeflatePlan::Dynamic(value) => value.total_length
       }
-      match _png_dynamic_plan_with_idat_limit(
-        source, row_bytes, channels, filter_strategy, scanlines, dynamic_max_idat_length,
+      match _png_dynamic_plan_with_interlace_idat_limit(
+        source, row_bytes, channels, filter_strategy, scanlines, dynamic_max_idat_length, interlace_strategy,
       ) {
         Err(error) => return Err(error)
         Ok(dynamic_outcome) => {
@@ -1310,8 +1599,8 @@ fn _png_encode_preflight_with_filter_idat_limit(
       }
     }
   }
-  let adaptive_replay_facts = match _png_filtered_match_traverse(
-    source, row_bytes, channels, filter_strategy, scanlines,
+  let adaptive_replay_facts = match _png_filtered_match_traverse_with_interlace(
+    source, row_bytes, channels, filter_strategy, scanlines, interlace_strategy,
   ) { Err(error) => return Err(error); Ok(value) => value }
   let adaptive_filter_work = match _png_filtered_facts_add(
     adaptive_planning_facts, adaptive_replay_facts,

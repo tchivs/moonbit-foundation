@@ -203,6 +203,61 @@ fn png_wb_adaptive_cursor_rejects_one_less(
   png_wb_same_remaining(unchanged, one_less.remaining())
 }
 
+///| Adam7's first two nonempty passes are (0,0) then (4,0); their independent
+/// filter tags establish canonical pass order without retaining geometry.
+test "PNG Adam7 filtered cursor emits canonical pass order and omits empties" {
+  for channels in [3UL, 4UL] {
+    let passes = _png_adam7_passes(5UL, 5UL, channels, 8).unwrap()
+    inspect(passes[0].x == 0UL && passes[1].x == 4UL && passes[0].row_bytes == channels, content="true")
+    inspect(passes[0].width == 1UL && passes[0].height == 1UL && passes[6].width == 5UL, content="true")
+  }
+  let singleton = _png_adam7_passes(1UL, 1UL, 3UL, 8).unwrap()
+  inspect(singleton[0].width == 1UL && singleton[0].height == 1UL && singleton[1].width == 0UL, content="true")
+}
+
+///| Every first row is local to its pass, so Adaptive cannot select Up from a
+/// preceding image/pass row. Exact and one-less work retains the one-charge
+/// preflight boundary for all available compression strategies.
+test "PNG Adam7 Adaptive resets pass history and retains exact atomic admission" {
+  let image = png_wb_adaptive_rgb_image()
+  let channels = 3UL
+  let passes = _png_adam7_passes(2UL, 2UL, channels, 8).unwrap()
+    let mut cursor = PngFilteredCursor::new_with_interlace(
+      image.view(), 2UL * channels, channels, PngFilterStrategy::Adaptive,
+      PngInterlaceStrategy::Adam7,
+    )
+    let mut offset = 0UL
+    for pass in passes {
+      if pass.width == 0UL || pass.height == 0UL { continue }
+      while cursor.index < offset {
+        let (_, next) = cursor.next().unwrap(); cursor = next
+      }
+      let (tag, next) = cursor.next().unwrap()
+      inspect(tag != b'\x02', content="true")
+      cursor = next
+      offset = offset + (pass.row_bytes + 1UL) * pass.height
+    }
+  for strategy in [PngCompressionStrategy::Stored, PngCompressionStrategy::FixedOrStored, PngCompressionStrategy::DynamicOrFixedOrStored] {
+      let admitted = _png_encode_preflight_with_interlace(
+        image.view(), strategy, PngFilterStrategy::Adaptive, PngInterlaceStrategy::Adam7,
+        png_wb_limits(), png_wb_budget(work=1048576UL),
+      ).unwrap()
+      let exact = png_wb_budget(work=admitted.selected_work)
+      ignore(_png_encode_preflight_with_interlace(
+        image.view(), strategy, PngFilterStrategy::Adaptive, PngInterlaceStrategy::Adam7,
+        png_wb_limits(), exact,
+      ).unwrap())
+      inspect(exact.remaining().work() == 0UL, content="true")
+      let one_less = png_wb_budget(work=admitted.selected_work - 1UL)
+      let before = one_less.remaining()
+      let error = _png_encode_preflight_with_interlace(
+        image.view(), strategy, PngFilterStrategy::Adaptive, PngInterlaceStrategy::Adam7,
+        png_wb_limits(), one_less,
+      ).unwrap_err()
+      inspect(error.context() == Some("work") && png_wb_same_remaining(before, one_less.remaining()), content="true")
+  }
+}
+
 ///|
 test "PNG adaptive cursor work ledger covers Stored planning and replay" {
   let facts = png_wb_adaptive_cursor_work_ledger(PngCompressionStrategy::Stored)
