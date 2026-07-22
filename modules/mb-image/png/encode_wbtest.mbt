@@ -263,6 +263,55 @@ test "PNG adaptive match cursor covers DynamicOrFixedOrStored probe traversals" 
   inspect(facts.adaptive_replay_facts.selected_residuals, content="12")
 }
 
+///| A declined Dynamic candidate still owns the exact cursor facts it already
+///| consumed; its work must be admitted with the Fixed-or-Stored fallback.
+test "PNG adaptive Dynamic decline facts are admitted" {
+  let image = png_wb_adaptive_rgb_image()
+  let outcome = _png_dynamic_plan_with_idat_limit(
+    image.view(), 6UL, 3UL, PngFilterStrategy::Adaptive, 14UL, 0UL,
+  ).unwrap()
+  inspect(outcome.plan is None, content="true")
+  inspect(outcome.frequency_facts.work().unwrap() > 0UL, content="true")
+  inspect(outcome.bit_facts.work().unwrap() > 0UL, content="true")
+  let preflight = _png_encode_preflight_with_filter_idat_limit(
+    image.view(), PngCompressionStrategy::DynamicOrFixedOrStored,
+    PngFilterStrategy::Adaptive, png_wb_limits(), png_wb_budget(), 0UL,
+  ).unwrap()
+  let expected_planning = _png_filtered_facts_add(
+    _png_filtered_facts_add(
+      _png_filtered_facts_add(
+        _png_filtered_match_traverse(
+          image.view(), 6UL, 3UL, PngFilterStrategy::Adaptive, 14UL,
+        ).unwrap(),
+        _png_fixed_plan(
+          image.view(), 6UL, 3UL, PngFilterStrategy::Adaptive, 14UL,
+        ).unwrap().traversal_facts,
+      ).unwrap(),
+      outcome.frequency_facts,
+    ).unwrap(),
+    outcome.bit_facts,
+  ).unwrap()
+  inspect(
+    preflight.adaptive_planning_facts.resolved_rows == expected_planning.resolved_rows &&
+      preflight.adaptive_planning_facts.candidate_residuals == expected_planning.candidate_residuals &&
+      preflight.adaptive_planning_facts.selected_residuals == expected_planning.selected_residuals,
+    content="true",
+  )
+  let exact = png_wb_budget(work=preflight.selected_work)
+  ignore(_png_encode_preflight_with_filter_idat_limit(
+    image.view(), PngCompressionStrategy::DynamicOrFixedOrStored,
+    PngFilterStrategy::Adaptive, png_wb_limits(), exact, 0UL,
+  ).unwrap())
+  inspect(exact.remaining().work() == 0UL, content="true")
+  let one_less = png_wb_budget(work=preflight.selected_work - 1UL)
+  let before = one_less.remaining()
+  let rejected = _png_encode_preflight_with_filter_idat_limit(
+    image.view(), PngCompressionStrategy::DynamicOrFixedOrStored,
+    PngFilterStrategy::Adaptive, png_wb_limits(), one_less, 0UL,
+  ).unwrap_err()
+  inspect(rejected.context() == Some("work") && png_wb_same_remaining(before, one_less.remaining()), content="true")
+}
+
 ///|
 fn png_wb_image(channels : UInt64, pixels : Bytes) -> @storage.OwnedImage {
   let descriptor = @model.ImageDescriptor::new(

@@ -591,6 +591,73 @@ test "PNG dynamic public exact and one-less admission is atomic" {
   }
 }
 
+///| Public eager and caller-buffered Adaptive fallback routes agree on their
+///| smallest admitted work budget and leave rejected construction atomic.
+test "PNG adaptive Dynamic decline public admission is atomic" {
+  let image = png_stream_test_flat_image(3UL, 32UL)
+  let mut rejected = 0UL
+  let mut exact = 1UL
+  while PngChunkEncoder::new_with_strategies(
+      image.view(), PngCompressionStrategy::DynamicOrFixedOrStored,
+      PngFilterStrategy::Adaptive, png_stream_test_limits(),
+      png_stream_test_budget(work=exact), @error.Diagnostics::new(),
+    ) is Err(_) {
+    rejected = exact
+    exact = exact * 2UL
+  }
+  while rejected + 1UL < exact {
+    let middle = rejected + ((exact - rejected) / 2UL)
+    match PngChunkEncoder::new_with_strategies(
+      image.view(), PngCompressionStrategy::DynamicOrFixedOrStored,
+      PngFilterStrategy::Adaptive, png_stream_test_limits(),
+      png_stream_test_budget(work=middle), @error.Diagnostics::new(),
+    ) {
+      Ok(_) => exact = middle
+      Err(_) => rejected = middle
+    }
+  }
+  let eager_budget = png_stream_test_budget(work=exact)
+  let writer = @io.MemoryWriter::new(1048576UL, png_stream_test_budget(work=0UL)).unwrap()
+  ignore(@codec.ImageEncoder::encode(
+    PngEncoder::new_with_strategies(PngCompressionStrategy::DynamicOrFixedOrStored, PngFilterStrategy::Adaptive),
+    image.view(), writer as &@io.Writer,
+    @codec.EncodeOptions::new(lossless_required=true, preserve_opaque_metadata=false),
+    png_stream_test_limits(), eager_budget, @error.Diagnostics::new(),
+  ).unwrap())
+  let eager_bytes : Array[Byte] = []
+  for index = 0UL; index < writer.position(); index = index + 1UL {
+    eager_bytes.push(writer.view().get(index).unwrap())
+  }
+  let eager = Bytes::from_array(eager_bytes)
+  let chunk_budget = png_stream_test_budget(work=exact)
+  let encoder = PngChunkEncoder::new_with_strategies(
+    image.view(), PngCompressionStrategy::DynamicOrFixedOrStored,
+    PngFilterStrategy::Adaptive, png_stream_test_limits(), chunk_budget,
+    @error.Diagnostics::new(),
+  ).unwrap()
+  let chunked = png_chunk_test_drain_encoder(encoder, [0UL, 1UL, 4UL, 2UL, 7UL]).unwrap()
+  inspect(chunked == eager && eager_budget.remaining().work() == 0UL && chunk_budget.remaining().work() == 0UL, content="true")
+  png_stream_test_fixed_or_stored_corpus_decode_matches_source(eager, image)
+  let rejected_budget = png_stream_test_budget(work=exact - 1UL)
+  let rejected_before = rejected_budget.remaining()
+  let rejected_writer = @io.MemoryWriter::new(1048576UL, png_stream_test_budget(work=0UL)).unwrap()
+  let eager_error = @codec.ImageEncoder::encode(
+    PngEncoder::new_with_strategies(PngCompressionStrategy::DynamicOrFixedOrStored, PngFilterStrategy::Adaptive),
+    image.view(), rejected_writer as &@io.Writer,
+    @codec.EncodeOptions::new(lossless_required=true, preserve_opaque_metadata=false),
+    png_stream_test_limits(), rejected_budget, @error.Diagnostics::new(),
+  ).unwrap_err()
+  inspect(rejected_writer.position() == 0UL && png_fixed_or_stored_same_remaining(rejected_before, rejected_budget.remaining()), content="true")
+  let chunk_budget = png_stream_test_budget(work=exact - 1UL)
+  let chunk_before = chunk_budget.remaining()
+  let chunk_error = PngChunkEncoder::new_with_strategies(
+    image.view(), PngCompressionStrategy::DynamicOrFixedOrStored,
+    PngFilterStrategy::Adaptive, png_stream_test_limits(), chunk_budget,
+    @error.Diagnostics::new(),
+  ).unwrap_err()
+  inspect(png_chunk_test_same_error(eager_error, chunk_error) && png_fixed_or_stored_same_remaining(chunk_before, chunk_budget.remaining()), content="true")
+}
+
 ///|
 test "PNG dynamic replay drift is sticky through chunk encoder" {
   let image = png_stream_test_dynamic_image()
