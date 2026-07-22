@@ -589,15 +589,16 @@ fn _png_adam7_cursor_location(
 /// selected pass, so Up/Average/Paeth never cross a pass boundary.
 fn _png_adam7_raw_byte(
   source : @storage.ImageView,
+  profile : PngEncodeProfile,
   pass : PngAdam7Pass,
   row : UInt64,
   channels : UInt64,
   position : UInt64,
 ) -> Result[Byte, @error.CoreError] {
-  source.get_byte(
-    pass.x + (position / channels) * pass.dx,
-    pass.y + row * pass.dy,
-    position % channels,
+  let source_position =
+    (pass.x + (position / channels) * pass.dx) * channels + position % channels
+  _png_wire_byte(
+    source, profile, pass.y + row * pass.dy, channels, source_position,
   )
 }
 
@@ -605,27 +606,28 @@ fn _png_adam7_raw_byte(
 fn _png_adam7_candidate_byte(
   filter : PngRowFilter,
   source : @storage.ImageView,
+  profile : PngEncodeProfile,
   pass : PngAdam7Pass,
   row : UInt64,
   channels : UInt64,
   position : UInt64,
 ) -> Result[Byte, @error.CoreError] {
   if position >= pass.row_bytes { return Err(_png_encode_capability("png-adam7-row-access")) }
-  let sample = match _png_adam7_raw_byte(source, pass, row, channels, position) {
+  let sample = match _png_adam7_raw_byte(source, profile, pass, row, channels, position) {
     Err(error) => return Err(error); Ok(value) => value
   }
   let left = if position < channels { b'\x00' } else {
-    match _png_adam7_raw_byte(source, pass, row, channels, position - channels) {
+    match _png_adam7_raw_byte(source, profile, pass, row, channels, position - channels) {
       Err(error) => return Err(error); Ok(value) => value
     }
   }
   let up = if row == 0UL { b'\x00' } else {
-    match _png_adam7_raw_byte(source, pass, row - 1UL, channels, position) {
+    match _png_adam7_raw_byte(source, profile, pass, row - 1UL, channels, position) {
       Err(error) => return Err(error); Ok(value) => value
     }
   }
   let upper_left = if row == 0UL || position < channels { b'\x00' } else {
-    match _png_adam7_raw_byte(source, pass, row - 1UL, channels, position - channels) {
+    match _png_adam7_raw_byte(source, profile, pass, row - 1UL, channels, position - channels) {
       Err(error) => return Err(error); Ok(value) => value
     }
   }
@@ -642,6 +644,7 @@ fn _png_adam7_candidate_byte(
 ///| Choose a method-0 filter for one local Adam7 row with scalar pixel reads.
 fn _png_adam7_row_winner(
   source : @storage.ImageView,
+  profile : PngEncodeProfile,
   pass : PngAdam7Pass,
   row : UInt64,
   channels : UInt64,
@@ -651,7 +654,7 @@ fn _png_adam7_row_winner(
   for candidate in [PngRowFilter::None, PngRowFilter::Sub, PngRowFilter::Up, PngRowFilter::Average, PngRowFilter::Paeth] {
     let mut score = 0UL
     for position = 0UL; position < pass.row_bytes; position = position + 1UL {
-      let residual = match _png_adam7_candidate_byte(candidate, source, pass, row, channels, position) {
+      let residual = match _png_adam7_candidate_byte(candidate, source, profile, pass, row, channels, position) {
         Err(error) => return Err(error); Ok(value) => value
       }
       score = match _png_fixed_add(score, _png_filter_signed_magnitude(residual)) {
@@ -731,7 +734,7 @@ fn PngFilteredCursor::next(
       let winner = match self.filter_strategy {
         PngFilterStrategy::None => PngRowFilter::None
         PngFilterStrategy::Adaptive => match _png_adam7_row_winner(
-          self.source, pass, row, self.channels,
+          self.source, self.profile, pass, row, self.channels,
         ) { Err(error) => return Err(error); Ok(value) => value }
       }
       let candidate_residuals = match self.filter_strategy {
@@ -757,7 +760,7 @@ fn PngFilteredCursor::next(
       None => return Err(_png_encode_capability("png-adam7-cursor-winner"))
     }
     let byte = match _png_adam7_candidate_byte(
-      winner, self.source, pass, row, self.channels, in_row - 1UL,
+      winner, self.source, self.profile, pass, row, self.channels, in_row - 1UL,
     ) { Err(error) => return Err(error); Ok(value) => value }
     let selected_residuals = match self.filter_strategy {
       PngFilterStrategy::None => self.traversal_facts.selected_residuals
@@ -1554,8 +1557,6 @@ fn _png_encode_preflight_with_interlace_profile(
       return Err(_png_encode_capability("gray16-noninterlaced-required"))
     PngEncodeProfile::GrayAlpha8 if interlace_strategy != PngInterlaceStrategy::None =>
       return Err(_png_encode_capability("graya8-noninterlaced-required"))
-    PngEncodeProfile::GrayAlpha16 if interlace_strategy != PngInterlaceStrategy::None =>
-      return Err(_png_encode_capability("graya16-noninterlaced-required"))
     _ => ()
   }
   _png_encode_preflight_with_filter_layout_idat_limit_profile(

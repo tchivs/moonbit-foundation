@@ -217,7 +217,7 @@ fn png_encode_graya16_image() -> @storage.OwnedImage {
 fn png_encode_graya16_adam7_image() -> @storage.OwnedImage {
   let descriptor = @model.ImageDescriptor::new(
     5UL, 5UL, @model.ImageFormat::graya16(),
-    [@model.PlaneDescriptor::new(0UL, 20UL, 100UL, 100UL, 1UL, 1UL, 5UL, 5UL).unwrap()],
+    [@model.PlaneDescriptor::new(0UL, 100UL, 20UL, 20UL, 1UL, 1UL, 5UL, 5UL).unwrap()],
     100UL,
     @model.ImageMetadata::new(
       @color.ColorSpaceIdentity::Srgb, @color.TransferIdentity::EncodedSrgb,
@@ -1156,7 +1156,7 @@ test "PNG GrayAlpha16 Adam7 eager pass profile" {
       PngCompressionStrategy::Stored, PngFilterStrategy::None, PngInterlaceStrategy::Adam7,
     ),
   ] {
-    let (_, writer) = png_encode_with(encoder, png_encode_graya16_adam7_image())
+    let (_, writer) = png_adam7_encode_with(encoder, png_encode_graya16_adam7_image())
     let bytes = png_encode_prefix(writer)
     inspect(
       bytes[0] == b'\x89' && bytes[1] == b'P' && bytes[24] == b'\x10' &&

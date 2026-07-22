@@ -211,7 +211,7 @@ fn png_stream_graya16_image() -> @storage.OwnedImage {
 fn png_stream_graya16_adam7_image() -> @storage.OwnedImage {
   let descriptor = @model.ImageDescriptor::new(
     5UL, 5UL, @model.ImageFormat::graya16(),
-    [@model.PlaneDescriptor::new(0UL, 20UL, 100UL, 100UL, 1UL, 1UL, 5UL, 5UL).unwrap()],
+    [@model.PlaneDescriptor::new(0UL, 100UL, 20UL, 20UL, 1UL, 1UL, 5UL, 5UL).unwrap()],
     100UL,
     @model.ImageMetadata::new(
       @color.ColorSpaceIdentity::Srgb, @color.TransferIdentity::EncodedSrgb,
