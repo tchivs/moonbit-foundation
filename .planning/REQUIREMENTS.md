@@ -17,7 +17,7 @@
 
 ### Portable Evidence
 
-- [ ] **PNGF-04**: Generated RGB8 and straight-RGBA8 cases prove an adaptive-filter win where intended, eager/chunk byte identity under hostile capacities, and complete public PNG decode on js, wasm, wasm-gc, and native.
+- [x] **PNGF-04**: Generated RGB8 and straight-RGBA8 cases prove an adaptive-filter win where intended, eager/chunk byte identity under hostile capacities, and complete public PNG decode on js, wasm, wasm-gc, and native.
 
 ## Future Requirements
 
@@ -39,7 +39,7 @@
 | PNGF-01 | Phase 38 | Complete |
 | PNGF-02 | Phase 39 | Complete |
 | PNGF-03 | Phase 39 | Complete |
-| PNGF-04 | Phase 40 | Pending |
+| PNGF-04 | Phase 40 | Complete |
 
 **Coverage:**
 

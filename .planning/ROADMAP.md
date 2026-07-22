@@ -21,7 +21,7 @@ Adaptive filtering is delivered as an additive route: first freeze the public co
 
 - [x] **Phase 38: Adaptive Filter Compatibility** - Publish the explicit opt-in strategy/factory seam while preserving every legacy filter-None byte route. (completed 2026-07-22)
 - [x] **Phase 39: Bounded Filter Planning and Replay** - Select stable standard row filters before Stored, FixedOrStored, and Dynamic planning without weakening atomic resource semantics. (completed 2026-07-22)
-- [ ] **Phase 40: Portable Adaptive-Filter Evidence** - Prove intended wins, eager/chunk identity, and public decode fidelity for generated RGB8 and RGBA8 sources on all targets.
+- [x] **Phase 40: Portable Adaptive-Filter Evidence** - Prove intended wins, eager/chunk identity, and public decode fidelity for generated RGB8 and RGBA8 sources on all targets. (completed 2026-07-22)
 
 ## Phase Details
 
@@ -69,4 +69,4 @@ Adaptive filtering is delivered as an additive route: first freeze the public co
 |-------|----------------|--------|-----------|
 | 38. Adaptive Filter Compatibility | 1/1 | Complete    | 2026-07-22 |
 | 39. Bounded Filter Planning and Replay | 7/7 | Complete    | 2026-07-22 |
-| 40. Portable Adaptive-Filter Evidence | 0/TBD | Not started | - |
+| 40. Portable Adaptive-Filter Evidence | 1/1 | Complete    | 2026-07-22 |
