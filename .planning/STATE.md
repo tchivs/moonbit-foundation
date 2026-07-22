@@ -105,6 +105,7 @@ None.
 | 260721-i66 | Add deterministic alpha-correct bilinear resize for portable RGB8 and straight-RGBA8 images with checked limits, budgets, and four-target tests | 2026-07-21 | 6411680 | Verified | [260721-i66-add-deterministic-alpha-correct-bilinear](./quick/260721-i66-add-deterministic-alpha-correct-bilinear/) |
 | 260721-j94 | Extend the portable PNG public workflow to use deterministic alpha-correct bilinear resize with fixed four-target output evidence | 2026-07-21 | 76ef821 | Verified | [260721-j94-extend-the-portable-png-public-workflow-](./quick/260721-j94-extend-the-portable-png-public-workflow-/) |
 | 260722-8t4 | Correct the stale PNG Dynamic replay comment and add Phase 35 requirement-completion metadata for a clean v0.11 audit | 2026-07-22 | ae4496c | Verified | [260722-8t4-correct-the-stale-png-dynamic-replay-com](./quick/260722-8t4-correct-the-stale-png-dynamic-replay-com/) |
+| 260722-fast | Correct the stale Adaptive PNG encoder architecture comment | 2026-07-22 | 2fc1366 | Verified | — |
 
 \* The PNG quality lane and all portable tests pass; the all-package `--deny-warn` command still reports the pre-existing 26 generated/legacy unused-field diagnostics documented in the quick-task verification.
 | Phase 23-png-colour-declaration-and-srgb-semantics P01 | 0h 24m | 2 tasks | 9 files |
