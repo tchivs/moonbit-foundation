@@ -265,14 +265,18 @@ This preserves the current type-0 and type-2/type-6 paths while emitting the loc
 | # | Claim | Section | Risk if Wrong |
 |---|-------|---------|---------------|
 | A1 | A dedicated `GrayAlpha8` enum spelling is the most suitable private profile name. The locked decision requires one profile but does not prescribe its identifier. | Summary / Architecture Patterns | Low: a different private name has no public compatibility impact if all matches remain explicit. [ASSUMED] |
-| A2 | `graya8-required` or `straight-graya-required` are suitable new typed context strings. Context naming is delegated, so implementation must choose spellings consistent with local tests. | Summary / Code Examples | Medium: tests and diagnostics must agree on the chosen stable context. [ASSUMED] |
+| A2 | `graya8-required` is the selected typed context for the GrayAlpha channel-order admission failure; shared metadata failures retain their established contexts. | Summary / Code Examples | Medium: tests and diagnostics must agree on the chosen stable context. [DECIDED] |
 
-## Open Questions
+## Open Questions (RESOLVED)
 
-1. **Which exact new error-context spelling should the public regression lock?**
-   - What we know: Existing profiles use short `gray8-required` and `gray16-required` contexts, while general metadata failures retain shared contexts. [VERIFIED: codebase — `encode.mbt:73-130`; `encode_test.mbt:812-833`; `stream_encode_test.mbt:650-673`]
-   - What's unclear: The context does not prescribe a literal GrayAlpha name. [VERIFIED: `51-CONTEXT.md`]
-   - Recommendation: Use `graya8-required` for channel-order incompatibility and retain existing `component-u8-required`, `packed-required`, `builtin-encoded-srgb-required`, and `top-left-required` contexts for those independent predicates. [ASSUMED]
+1. **Exact GrayAlpha capability context**
+   - **RESOLVED:** Use `graya8-required` for channel-order incompatibility. Retain
+     existing `component-u8-required`, `packed-required`,
+     `builtin-encoded-srgb-required`, and `top-left-required` contexts for their
+     independent predicates.
+   - Rationale: this mirrors the short `gray8-required` and `gray16-required`
+     profile contexts while preserving precise diagnostics for shared capability
+     checks. [DECIDED]
 
 ## Environment Availability
 
