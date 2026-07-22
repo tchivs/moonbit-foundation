@@ -251,6 +251,17 @@ pub fn PngChunkEncoder::pull(
       outcome_value: PngChunkPullOutcome::Failed(error),
     }
     PngChunkEncoderState::Active(machine) => {
+      match machine.validate_gray16_fixed_replay() {
+        Err(error) => {
+          self.state = PngChunkEncoderState::Failed(error)
+          return {
+            written_value: 0UL,
+            total_written_value: self.total_written,
+            outcome_value: PngChunkPullOutcome::Failed(error),
+          }
+        }
+        Ok(_) => ()
+      }
       let mut written = 0UL
       while written < destination.length() {
         let byte = match machine.present() {
@@ -620,6 +631,39 @@ fn _png_fixed_put_bits(
   width : UInt64,
 ) -> (UInt64, UInt64) {
   (value | (bits << count.to_int()), count + width)
+}
+
+///| Before emitting another Gray16 Fixed replay byte, compare the current
+/// profile-aware traversal with the admitted scalar plan. This keeps a source
+/// mutation from partially filling the caller's current lease before the
+/// existing end-of-stream fingerprint check can observe it.
+fn PngEncodeMachine::validate_gray16_fixed_replay(
+  self : PngEncodeMachine,
+) -> Result[Unit, @error.CoreError] {
+  if self.profile != PngEncodeProfile::Gray16 { return Ok(()) }
+  let plan = match self.plan {
+    PngDeflatePlan::Fixed(value) => value
+    _ => return Ok(())
+  }
+  let state = match self.fixed_state {
+    Some(value) => value
+    None => return Err(_png_encode_machine_state_error("png-encode-fixed-state"))
+  }
+  if state.raw_cursor == 0UL || state.raw_cursor >= self.scanlines { return Ok(()) }
+  let replay = match _png_fixed_plan_with_interlace(
+    self.source, self.row_bytes, self.channels, self.filter_strategy,
+    self.scanlines, self.interlace_strategy, profile=self.profile,
+  ) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  if replay.matcher_work != plan.matcher_work {
+    return Err(_png_encode_machine_state_error("png-encode-fixed-replay-work"))
+  }
+  if replay.fingerprint != plan.fingerprint {
+    return Err(_png_encode_machine_state_error("png-encode-fixed-replay-drift"))
+  }
+  Ok(())
 }
 
 ///| Simulate exactly one fixed DEFLATE byte without mutating the committed
