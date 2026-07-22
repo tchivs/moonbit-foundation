@@ -199,6 +199,14 @@ priv struct PngDynamicPlan {
   total_length : UInt64
 }
 
+///| Dynamic planning returns cursor facts even when the ordinary bounded
+///| Huffman builder declines a candidate.
+priv struct PngDynamicPlanOutcome {
+  plan : PngDynamicPlan?
+  frequency_facts : PngFilteredTraversalFacts
+  bit_facts : PngFilteredTraversalFacts
+}
+
 ///|
 priv enum PngDeflatePlan {
   Stored(PngStoredPlan)
@@ -954,19 +962,40 @@ fn _png_dynamic_plan(
   channels : UInt64,
   filter_strategy : PngFilterStrategy,
   scanlines : UInt64,
-) -> Result[PngDynamicPlan?, @error.CoreError] {
+) -> Result[PngDynamicPlanOutcome, @error.CoreError] {
+  _png_dynamic_plan_with_idat_limit(
+    source, row_bytes, channels, filter_strategy, scanlines, 4294967295UL,
+  )
+}
+
+///| The private bound directly exercises a post-bit-count decline without
+///| widening the public encoder surface.
+fn _png_dynamic_plan_with_idat_limit(
+  source : @storage.ImageView,
+  row_bytes : UInt64,
+  channels : UInt64,
+  filter_strategy : PngFilterStrategy,
+  scanlines : UInt64,
+  max_idat_length : UInt64,
+) -> Result[PngDynamicPlanOutcome, @error.CoreError] {
   let (literal_frequencies, distance_frequencies, matcher_work, fingerprint, frequency_facts) =
     match _png_dynamic_frequencies(source, row_bytes, channels, filter_strategy, scanlines) {
       Err(error) => return Err(error); Ok(value) => value
     }
   let literals = match _png_huffman_from_frequencies(literal_frequencies, true, false, true) {
-    Some(value) => value; None => return Ok(None)
+    Some(value) => value; None => return Ok({
+      plan: None, frequency_facts,
+      bit_facts: { resolved_rows: 0UL, candidate_residuals: 0UL, selected_residuals: 0UL },
+    })
   }
   let mut has_distance = false
   for frequency in distance_frequencies { if frequency > 0UL { has_distance = true } }
   if !has_distance { distance_frequencies[0] = 1UL }
   let distances = match _png_huffman_from_frequencies(distance_frequencies, false, true, false) {
-    Some(value) => value; None => return Ok(None)
+    Some(value) => value; None => return Ok({
+      plan: None, frequency_facts,
+      bit_facts: { resolved_rows: 0UL, candidate_residuals: 0UL, selected_residuals: 0UL },
+    })
   }
   let mut hlit = 286
   while hlit > 257 && literals.lengths[hlit - 1] == 0 { hlit = hlit - 1 }
@@ -981,7 +1010,10 @@ fn _png_dynamic_plan(
     code_frequencies[rle_symbols[index.to_int()]] = code_frequencies[rle_symbols[index.to_int()]] + 1UL
   }
   let code_lengths = match _png_huffman_from_frequencies(code_frequencies, false, false, true) {
-    Some(value) => value; None => return Ok(None)
+    Some(value) => value; None => return Ok({
+      plan: None, frequency_facts,
+      bit_facts: { resolved_rows: 0UL, candidate_residuals: 0UL, selected_residuals: 0UL },
+    })
   }
   let order = [16,17,18,0,8,7,9,6,10,5,11,4,12,3,13,2,14,1,15]
   let mut hclen = 19
@@ -1015,11 +1047,16 @@ fn _png_dynamic_plan(
   bits = match _png_fixed_add(bits, literals.lengths[256].to_uint64()) { Err(error) => return Err(error); Ok(value) => value }
   let deflate_bytes = match _png_fixed_add(bits, 7UL) { Err(error) => return Err(error); Ok(value) => value / 8UL }
   let idat_length = match _png_fixed_add(deflate_bytes, 6UL) { Err(error) => return Err(error); Ok(value) => value }
-  if idat_length > 4294967295UL { return Ok(None) }
+  if idat_length > max_idat_length {
+    return Ok({ plan: None, frequency_facts, bit_facts: cursor.facts() })
+  }
   let total_length = match _png_fixed_add(idat_length, 57UL) { Err(error) => return Err(error); Ok(value) => value }
-  Ok(Some({ literals, distances, code_lengths, rle_symbols, rle_extras, rle_extra_bits, rle_count,
-    hlit: hlit.to_uint64(), hdist: hdist.to_uint64(), hclen: hclen.to_uint64(), deflate_bits: bits,
-    deflate_bytes, matcher_work, fingerprint, frequency_facts, bit_facts: cursor.facts(), idat_length, total_length }))
+  Ok({
+    plan: Some({ literals, distances, code_lengths, rle_symbols, rle_extras, rle_extra_bits, rle_count,
+      hlit: hlit.to_uint64(), hdist: hdist.to_uint64(), hclen: hclen.to_uint64(), deflate_bits: bits,
+      deflate_bytes, matcher_work, fingerprint, frequency_facts, bit_facts: cursor.facts(), idat_length, total_length }),
+    frequency_facts, bit_facts: cursor.facts(),
+  })
 }
 
 ///| Walk the bounded matcher once to calculate exact fixed DEFLATE bits.
@@ -1118,6 +1155,20 @@ fn _png_encode_preflight_with_filter(
   filter_strategy : PngFilterStrategy,
   limits : @codec.CodecLimits,
   budget : @budget.Budget,
+) -> Result[PngEncodePreflight, @error.CoreError] {
+  _png_encode_preflight_with_filter_idat_limit(
+    source, strategy, filter_strategy, limits, budget, 4294967295UL,
+  )
+}
+
+///| The test-only bound takes the same atomic ledger path as production.
+fn _png_encode_preflight_with_filter_idat_limit(
+  source : @storage.ImageView,
+  strategy : PngCompressionStrategy,
+  filter_strategy : PngFilterStrategy,
+  limits : @codec.CodecLimits,
+  budget : @budget.Budget,
+  dynamic_max_idat_length : UInt64,
 ) -> Result[PngEncodePreflight, @error.CoreError] {
   let channels = match _png_encode_source(source) {
     Err(error) => return Err(error)
@@ -1220,20 +1271,24 @@ fn _png_encode_preflight_with_filter(
         PngDeflatePlan::Fixed(value) => value.total_length
         PngDeflatePlan::Dynamic(value) => value.total_length
       }
-      match _png_dynamic_plan(source, row_bytes, channels, filter_strategy, scanlines) {
+      match _png_dynamic_plan_with_idat_limit(
+        source, row_bytes, channels, filter_strategy, scanlines, dynamic_max_idat_length,
+      ) {
         Err(error) => return Err(error)
-        Ok(Some(dynamic)) => {
+        Ok(dynamic_outcome) => {
           adaptive_planning_facts = match _png_filtered_facts_add(
-            adaptive_planning_facts, dynamic.frequency_facts,
+            adaptive_planning_facts, dynamic_outcome.frequency_facts,
           ) { Err(error) => return Err(error); Ok(value) => value }
           adaptive_planning_facts = match _png_filtered_facts_add(
-            adaptive_planning_facts, dynamic.bit_facts,
+            adaptive_planning_facts, dynamic_outcome.bit_facts,
           ) { Err(error) => return Err(error); Ok(value) => value }
-          if dynamic.total_length < winner_length {
-            PngDeflatePlan::Dynamic(dynamic)
-          } else { winner }
+          match dynamic_outcome.plan {
+            Some(dynamic) => if dynamic.total_length < winner_length {
+              PngDeflatePlan::Dynamic(dynamic)
+            } else { winner }
+            None => winner
+          }
         }
-        Ok(None) => winner
       }
     }
   }
