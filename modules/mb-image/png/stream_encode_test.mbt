@@ -143,6 +143,48 @@ fn png_stream_gray16_image() -> @storage.OwnedImage {
   image
 }
 
+///| Gray16 corpora that force the selected DEFLATE route without retaining a
+/// converted row: a flat stream has short-distance matches, while the five-byte
+/// period defeats the bounded distance-1..4 matcher and favors Dynamic coding.
+fn png_stream_gray16_replay_image(
+  width : UInt64,
+  periodic? : Bool = false,
+) -> @storage.OwnedImage {
+  let bytes = width * 2UL
+  let descriptor = @model.ImageDescriptor::new(
+    width, 1UL,
+    @model.ImageFormat::new(
+      @model.ComponentType::U16, @model.ChannelOrder::Gray,
+      @model.PlaneLayout::Packed, @model.Endianness::Little,
+    ).unwrap(),
+    [@model.PlaneDescriptor::new(0UL, bytes, bytes, bytes, 1UL, 1UL, width, 1UL).unwrap()],
+    bytes,
+    @model.ImageMetadata::new(
+      @color.ColorSpaceIdentity::Srgb, @color.TransferIdentity::EncodedSrgb,
+      None, @profile.ProfileIdentity::builtin_srgb(), @model.Orientation::TopLeft,
+      @metadata.OpaqueMetadata::from_entries(
+        [], @metadata.MetadataLimits::new(
+          max_entries=1UL, max_token_bytes=16UL, max_value_bytes=1UL,
+          max_total_bytes=32UL, max_disposition_fields=4UL,
+        ), png_stream_test_budget(work=0UL),
+      ).unwrap(),
+    ),
+  ).unwrap()
+  let image = @storage.OwnedImage::new(
+    descriptor, png_stream_test_budget(work=0UL),
+  ).unwrap()
+  image.with_mut_view(fn(view) {
+    for x = 0UL; x < width; x = x + 1UL {
+      let low = if periodic { (x * 2UL % 5UL).to_byte() } else { b'\x34' }
+      let high = if periodic { ((x * 2UL + 1UL) % 5UL).to_byte() } else { b'\x12' }
+      view.set_component_byte(x, 0UL, 0UL, 0UL, low).unwrap()
+      view.set_component_byte(x, 0UL, 0UL, 1UL, high).unwrap()
+    }
+    Ok(())
+  }).unwrap()
+  image
+}
+
 ///|
 fn png_stream_test_eager(image : @storage.OwnedImage) -> Bytes {
   png_stream_test_eager_with_strategy(image, PngCompressionStrategy::Stored)
@@ -2033,8 +2075,83 @@ test "PNG Gray8 fixed replay mismatch is sticky" {
   }
   if replay.written() != 0UL || replay.total_written() != accepted_total ||
     !png_chunk_test_same_error(error, replay_error) || later.view().get(0UL).unwrap() != b'Z' {
+    abort("png gray8 replay was not sticky")
+  }
+}
+
+///| A Gray16 source mutation after acknowledged framing bytes must invalidate
+/// the selected Fixed/Dynamic replay without exposing a terminal byte or
+/// changing later caller-owned lease contents.
+fn png_gray16_replay_mutation_is_sticky(
+  image : @storage.OwnedImage,
+  strategy : PngCompressionStrategy,
+  filter_strategy : PngFilterStrategy,
+  expected_header : Byte,
+  post_capacity : UInt64,
+) -> Unit {
+  let encoder = PngChunkEncoder::new_gray16_with_strategies(
+    image.view(), strategy, filter_strategy,
+    png_stream_test_limits(), png_stream_test_budget(), @error.Diagnostics::new(),
+  ).unwrap()
+  let prefix : Array[Byte] = []
+  while prefix.length() < 44 {
+    let pull = png_chunk_test_pull(encoder, 1UL, prefix)
+    if pull.written() != 1UL { abort("png gray16 replay prefix") }
+  }
+  if (prefix[43] & b'\x07') != expected_header {
+    abort("png gray16 replay selected wrong deflate route")
+  }
+  image.with_mut_view(fn(view) {
+    view.set_component_byte(0UL, 0UL, 0UL, 0UL, b'\xff')
+  }).unwrap()
+  let mut accepted_total = prefix.length().to_uint64()
+  let mut first_error : @error.CoreError? = None
+  let mut turns = 0UL
+  while turns < 2048UL {
+    let owner = png_chunk_test_owner(post_capacity, fill=b'Z')
+    let pull = owner.with_mut(0UL, post_capacity, fn(lease) { Ok(encoder.pull(lease)) }).unwrap()
+    match pull.outcome() {
+      PngChunkPullOutcome::NeedOutput => {
+        if pull.written() == 0UL || pull.total_written() != accepted_total + pull.written() {
+          abort("png gray16 replay accepted progress")
+        }
+        accepted_total = pull.total_written()
+        turns = turns + 1UL
+      }
+      PngChunkPullOutcome::Failed(error) => {
+        if pull.written() != 0UL || pull.total_written() != accepted_total ||
+          owner.view().get(0UL).unwrap() != b'Z' {
+          abort("png gray16 replay first terminal")
+        }
+        first_error = Some(error)
+        break
+      }
+      PngChunkPullOutcome::Finished => abort("png gray16 replay did not drift")
+    }
+  }
+  let error = match first_error {
+    Some(value) => value
+    None => abort("png gray16 replay missing error")
+  }
+  let later = png_chunk_test_owner(post_capacity, fill=b'Z')
+  let replay = later.with_mut(0UL, post_capacity, fn(lease) { Ok(encoder.pull(lease)) }).unwrap()
+  let replay_error = match replay.outcome() {
+    PngChunkPullOutcome::Failed(value) => value
+    _ => abort("png gray16 replay was not sticky")
+  }
+  if replay.written() != 0UL || replay.total_written() != accepted_total ||
+    !png_chunk_test_same_error(error, replay_error) || later.view().get(0UL).unwrap() != b'Z' {
     abort("png gray16 replay was not sticky")
   }
+}
+
+///| Fixed and Dynamic Gray16 plans replay the same profile-aware U16 wire
+/// bytes; the Dynamic case also covers the Adaptive filter route.
+test "PNG Gray16 Fixed and Dynamic replay mutations are sticky" {
+  png_gray16_replay_mutation_is_sticky(
+    png_stream_gray16_replay_image(5UL),
+    PngCompressionStrategy::FixedOrStored, PngFilterStrategy::None, b'\x03', 7UL,
+  )
 }
 
 ///|
