@@ -1,7 +1,7 @@
 # Phase 39: Bounded Filter Planning and Replay - Research
 
-**Researched:** 2026-07-22  
-**Domain:** Portable MoonBit PNG method-0 row filtering, bounded compression planning, and acknowledgement-safe replay  
+**Researched:** 2026-07-22
+**Domain:** Portable MoonBit PNG method-0 row filtering, bounded compression planning, and acknowledgement-safe replay
 **Confidence:** HIGH
 
 ## User Constraints
@@ -322,5 +322,5 @@ Skipped: `workflow.nyquist_validation` is explicitly `false` in `.planning/confi
 - Filter semantics: MEDIUM — current official W3C recommendation was directly checked; exact MoonBit helper shape remains implementation work. [CITED: https://www.w3.org/TR/png-3/]
 - Cursor and work-ledger decomposition: LOW — prescriptive design recommendation to be validated by TDD, exact admission tests, and four-target evidence. [ASSUMED]
 
-**Research date:** 2026-07-22  
+**Research date:** 2026-07-22
 **Valid until:** Phase 39 planning completion or any change to `modules/mb-image/png/{encode.mbt,stream_encode.mbt}`. [VERIFIED: current worktree inspection]
