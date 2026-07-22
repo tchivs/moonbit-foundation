@@ -143,6 +143,48 @@ fn png_stream_gray16_image() -> @storage.OwnedImage {
   image
 }
 
+///| The caller-buffered public-evidence corpus uses every non-symmetric U16
+/// sample from the eager test, stored little-endian in tightly packed rows.
+fn png_stream_gray16_public_fidelity_image() -> @storage.OwnedImage {
+  let descriptor = @model.ImageDescriptor::new(
+    3UL, 2UL,
+    @model.ImageFormat::new(
+      @model.ComponentType::U16, @model.ChannelOrder::Gray,
+      @model.PlaneLayout::Packed, @model.Endianness::Little,
+    ).unwrap(),
+    [@model.PlaneDescriptor::new(0UL, 12UL, 6UL, 6UL, 1UL, 1UL, 3UL, 2UL).unwrap()],
+    12UL,
+    @model.ImageMetadata::new(
+      @color.ColorSpaceIdentity::Srgb, @color.TransferIdentity::EncodedSrgb,
+      None, @profile.ProfileIdentity::builtin_srgb(), @model.Orientation::TopLeft,
+      @metadata.OpaqueMetadata::from_entries(
+        [], @metadata.MetadataLimits::new(
+          max_entries=1UL, max_token_bytes=16UL, max_value_bytes=1UL,
+          max_total_bytes=32UL, max_disposition_fields=4UL,
+        ), png_stream_test_budget(work=0UL),
+      ).unwrap(),
+    ),
+  ).unwrap()
+  let image = @storage.OwnedImage::new(
+    descriptor, png_stream_test_budget(work=0UL),
+  ).unwrap()
+  let wire = [
+    [b'\x12', b'\x34'], [b'\xab', b'\xcd'], [b'\x00', b'\xff'],
+    [b'\x7f', b'\x01'], [b'\x80', b'\x02'], [b'\xfe', b'\x10'],
+  ]
+  image.with_mut_view(fn(view) {
+    for y = 0UL; y < 2UL; y = y + 1UL {
+      for x = 0UL; x < 3UL; x = x + 1UL {
+        let sample = wire[(y * 3UL + x).to_int()]
+        view.set_component_byte(x, y, 0UL, 0UL, sample[1]).unwrap()
+        view.set_component_byte(x, y, 0UL, 1UL, sample[0]).unwrap()
+      }
+    }
+    Ok(())
+  }).unwrap()
+  image
+}
+
 ///| Gray16 corpora that force the selected DEFLATE route without retaining a
 /// converted row: a flat stream has short-distance matches, while the five-byte
 /// period defeats the bounded distance-1..4 matcher and favors Dynamic coding.
@@ -443,6 +485,64 @@ fn png_chunk_test_drain_encoder(
   ))
 }
 
+///| Drain one fresh public Gray16 encoder while proving only accepted bytes
+/// change caller leases and that the successful terminal state is sticky.
+fn png_stream_gray16_public_drain(
+  image : @storage.OwnedImage,
+  strategy : PngCompressionStrategy,
+  filter_strategy : PngFilterStrategy,
+  schedule : Array[UInt64],
+  eager : Bytes,
+) -> Unit {
+  let encoder = PngChunkEncoder::new_gray16_with_strategies(
+    image.view(), strategy, filter_strategy,
+    png_stream_test_limits(), png_stream_test_budget(), @error.Diagnostics::new(),
+  ).unwrap()
+  let output : Array[Byte] = []
+  let mut turn = 0UL
+  while turn < 4096UL {
+    let capacity = schedule[(turn % schedule.length().to_uint64()).to_int()]
+    let owner = png_chunk_test_owner(capacity, fill=b'Z')
+    let before = output.length().to_uint64()
+    let pulled = owner.with_mut(0UL, capacity, fn(lease) {
+      Ok(encoder.pull(lease))
+    }).unwrap()
+    if pulled.written() > capacity || pulled.total_written() != before + pulled.written() {
+      abort("png gray16 public accepted progress")
+    }
+    for index = 0UL; index < pulled.written(); index = index + 1UL {
+      output.push(owner.view().get(index).unwrap())
+    }
+    for index = pulled.written(); index < capacity; index = index + 1UL {
+      if owner.view().get(index).unwrap() != b'Z' {
+        abort("png gray16 public lease tail")
+      }
+    }
+    match pulled.outcome() {
+      PngChunkPullOutcome::NeedOutput => turn = turn + 1UL
+      PngChunkPullOutcome::Failed(_) => abort("png gray16 public chunk failure")
+      PngChunkPullOutcome::Finished => {
+        if Bytes::from_array(output) != eager { abort("png gray16 public eager parity") }
+        let sentinel = png_chunk_test_owner(7UL, fill=b'Z')
+        let later = sentinel.with_mut(0UL, 7UL, fn(lease) {
+          Ok(encoder.pull(lease))
+        }).unwrap()
+        if later.written() != 0UL || later.total_written() != pulled.total_written() ||
+          !(later.outcome() is PngChunkPullOutcome::Finished) {
+          abort("png gray16 public terminal progress")
+        }
+        for index = 0UL; index < 7UL; index = index + 1UL {
+          if sentinel.view().get(index).unwrap() != b'Z' {
+            abort("png gray16 public terminal lease")
+          }
+        }
+        return
+      }
+    }
+  }
+  abort("png gray16 public drain unreachable")
+}
+
 ///| Eager Gray8 output is the oracle for the caller-buffered Gray8 factory.
 fn png_stream_gray8_eager(image : @storage.OwnedImage) -> Bytes {
   let writer = @io.MemoryWriter::new(1048576UL, png_stream_test_budget(work=0UL)).unwrap()
@@ -735,6 +835,44 @@ test "PNG Gray8 chunk strategy pairs preserve eager bytes under hostile capaciti
   }
 }
 
+///| All public Gray16 strategy pairs must preserve eager bytes and caller
+/// lease ownership under hostile capacities.
+test "PNG Gray16 chunk public evidence" {
+  let image = png_stream_gray16_public_fidelity_image()
+  for strategy in [
+    PngCompressionStrategy::Stored,
+    PngCompressionStrategy::FixedOrStored,
+    PngCompressionStrategy::DynamicOrFixedOrStored,
+  ] {
+    for filter_strategy in [PngFilterStrategy::None, PngFilterStrategy::Adaptive] {
+      let eager = png_stream_gray16_eager_with_strategies(image, strategy, filter_strategy)
+      let zero_encoder = PngChunkEncoder::new_gray16_with_strategies(
+        image.view(), strategy, filter_strategy,
+        png_stream_test_limits(), png_stream_test_budget(), @error.Diagnostics::new(),
+      ).unwrap()
+      let zero_owner = png_chunk_test_owner(1UL, fill=b'Z')
+      let zero = zero_owner.with_mut(0UL, 0UL, fn(lease) {
+        Ok(zero_encoder.pull(lease))
+      }).unwrap()
+      if zero.written() != 0UL || zero.total_written() != 0UL ||
+        !(zero.outcome() is PngChunkPullOutcome::NeedOutput) ||
+        zero_owner.view().get(0UL).unwrap() != b'Z' {
+        abort("png gray16 public empty lease")
+      }
+      png_stream_gray16_public_drain(
+        image, strategy, filter_strategy, [0UL, 1UL], eager,
+      )
+      png_stream_gray16_public_drain(
+        image, strategy, filter_strategy, [1UL], eager,
+      )
+      png_stream_gray16_public_drain(
+        image, strategy, filter_strategy,
+        [0UL, 8UL, 4UL, 1UL, 13UL, 2UL, 5UL, 3UL, 21UL], eager,
+      )
+    }
+  }
+}
+
 ///|
 fn png_chunk_test_drain(
   image : @storage.OwnedImage,
@@ -777,6 +915,24 @@ test "PNG adaptive combined chunk routes" {
 }
 
 test "PNG filter strategy chunk frozen compatibility vectors" {
+  let gray = png_stream_gray8_image(b"\x7f")
+  let gray_stored =
+    b"\x89PNG\r\n\x1a\n\x00\x00\x00\x0dIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x00\x00\x00\x00\x3a\x7e\x9b\x55\x00\x00\x00\x0dIDAT\x78\x01\x01\x02\x00\xfd\xff\x00\x7f\x00\x81\x00\x80\x7c\x4b\x6c\xa3\x00\x00\x00\x00IEND\xae\x42\x60\x82"
+  let gray_default = png_chunk_test_drain_encoder(PngChunkEncoder::new_gray8(
+    gray.view(), png_stream_test_limits(), png_stream_test_budget(), @error.Diagnostics::new(),
+  ).unwrap(), [0UL, 1UL, 3UL, 2UL, 5UL]).unwrap()
+  let gray_configured = png_chunk_test_drain_encoder(PngChunkEncoder::new_gray8_with_strategies(
+    gray.view(), PngCompressionStrategy::Stored, PngFilterStrategy::None,
+    png_stream_test_limits(), png_stream_test_budget(), @error.Diagnostics::new(),
+  ).unwrap(), [0UL, 1UL, 3UL, 2UL, 5UL]).unwrap()
+  let gray_adaptive = png_chunk_test_drain_encoder(PngChunkEncoder::new_gray8_with_filter_strategy(
+    gray.view(), PngFilterStrategy::Adaptive,
+    png_stream_test_limits(), png_stream_test_budget(), @error.Diagnostics::new(),
+  ).unwrap(), [0UL, 1UL, 3UL, 2UL, 5UL]).unwrap()
+  for bytes in [gray_default, gray_configured, gray_adaptive] {
+    inspect(bytes == gray_stored, content="true")
+  }
+
   let rgb = png_stream_test_image(3UL)
   let rgb_stored =
     b"\x89PNG\r\n\x1a\n\x00\x00\x00\x0dIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x02\x00\x00\x00\x90\x77\x53\xde\x00\x00\x00\x0fIDAT\x78\x01\x01\x04\x00\xfb\xff\x00\x00\x01\x02\x00\x08\x00\x04\xad\xa5\x4e\x4e\x00\x00\x00\x00IEND\xae\x42\x60\x82"
