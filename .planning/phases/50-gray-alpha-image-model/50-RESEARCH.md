@@ -257,12 +257,11 @@ The same deliberate false result is needed for `ImageDescriptor::supports_refere
 |---|-------|---------|---------------|
 | A1 | The public convenience factory should be spelled `ImageFormat::graya8()` to parallel `rgb8()` and `rgba8()`. | Architecture Patterns / Code Examples | It becomes a public API name; changing it later is a compatibility cost. [ASSUMED] |
 
-## Open Questions
+## Open Questions (RESOLVED)
 
 1. **Exact public factory spelling**
-   - What we know: D-01 locks an `ImageFormat` convenience factory consistent with `rgb8()`/`rgba8()`. [VERIFIED: .planning/phases/50-gray-alpha-image-model/50-CONTEXT.md]
-   - What's unclear: The exact identifier is not named in the locked decision. [VERIFIED: .planning/phases/50-gray-alpha-image-model/50-CONTEXT.md]
-   - Recommendation: Use `graya8()` unless the planner/operator chooses another public spelling before implementation. [ASSUMED]
+   - **RESOLVED:** Use `ImageFormat::graya8()`.
+   - Rationale: it is the concise lower-case counterpart to existing `rgb8()` and `rgba8()` factories and names the PNG-standard Gray+Alpha profile without overloading opaque `gray`.
 
 ## Environment Availability
 
