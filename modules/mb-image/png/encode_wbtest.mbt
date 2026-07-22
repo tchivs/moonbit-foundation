@@ -203,16 +203,95 @@ fn png_wb_adaptive_cursor_rejects_one_less(
   png_wb_same_remaining(unchanged, one_less.remaining())
 }
 
-///| Adam7's first two nonempty passes are (0,0) then (4,0); their independent
-/// filter tags establish canonical pass order without retaining geometry.
-test "PNG Adam7 filtered cursor emits canonical pass order and omits empties" {
-  for channels in [3UL, 4UL] {
-    let passes = _png_adam7_passes(5UL, 5UL, channels, 8).unwrap()
-    inspect(passes[0].x == 0UL && passes[1].x == 4UL && passes[0].row_bytes == channels, content="true")
-    inspect(passes[0].width == 1UL && passes[0].height == 1UL && passes[6].width == 5UL, content="true")
+///| Drain the real private logical source so this regression observes the
+/// canonical pass geometry only through the production cursor.
+fn png_wb_adam7_cursor_bytes(image : @storage.OwnedImage) -> Bytes {
+  let channels = image.view().format().channel_count()
+  let mut cursor = PngFilteredCursor::new_with_interlace(
+    image.view(), image.view().width() * channels, channels,
+    PngFilterStrategy::None, PngInterlaceStrategy::Adam7,
+  )
+  let expected_length = _png_adam7_passes(
+    image.view().width(), image.view().height(), channels, 8,
+  ).unwrap().fold(init=0UL, fn(total, pass) {
+    if pass.width == 0UL || pass.height == 0UL {
+      total
+    } else {
+      total + (pass.row_bytes + 1UL) * pass.height
+    }
+  })
+  let bytes : Array[Byte] = []
+  while cursor.index < expected_length {
+    let (byte, next) = cursor.next().unwrap()
+    bytes.push(byte)
+    cursor = next
   }
-  let singleton = _png_adam7_passes(1UL, 1UL, 3UL, 8).unwrap()
-  inspect(singleton[0].width == 1UL && singleton[0].height == 1UL && singleton[1].width == 0UL, content="true")
+  Bytes::from_array(bytes)
+}
+
+///| Adam7's seven nonempty 5x5 passes are consumed from the production
+/// cursor.  Every row starts with filter None, followed by its source samples.
+test "PNG Adam7 filtered cursor emits canonical pass order and omits empties" {
+  let rgb = png_wb_image(
+    3UL, Bytes::from_array(Array::make(75, b'\x00')), width=5UL, height=5UL,
+  )
+  rgb.with_mut_view(fn(view) {
+    for y = 0UL; y < 5UL; y = y + 1UL {
+      for x = 0UL; x < 5UL; x = x + 1UL {
+        for channel = 0UL; channel < 3UL; channel = channel + 1UL {
+          view.set_byte(x, y, channel, (y * 15UL + x * 3UL + channel).to_byte()).unwrap()
+        }
+      }
+    }
+    Ok(())
+  }).unwrap()
+  let rgb_actual = png_wb_adam7_cursor_bytes(rgb)
+  let rgb_expected =
+    b"\x00\x00\x01\x02\x00\x0c\x0d\x0e\x00\x3c\x3d\x3e\x48\x49\x4a\x00\x06\x07\x08\x00\x42\x43\x44\x00\x1e\x1f\x20\x24\x25\x26\x2a\x2b\x2c\x00\x03\x04\x05\x09\x0a\x0b\x00\x21\x22\x23\x27\x28\x29\x00\x3f\x40\x41\x45\x46\x47\x00\x0f\x10\x11\x12\x13\x14\x15\x16\x17\x18\x19\x1a\x1b\x1c\x1d\x00\x2d\x2e\x2f\x30\x31\x32\x33\x34\x35\x36\x37\x38\x39\x3a\x3b"
+  inspect(rgb_actual.length(), content=rgb_expected.length().to_string())
+  for index = 0; index < rgb_actual.length(); index = index + 1 {
+    if rgb_actual[index].to_int() != rgb_expected[index].to_int() {
+      fail(
+        "PNG Adam7 RGB cursor at " + index.to_string() + " got " +
+        rgb_actual[index].to_int().to_string() + " expected " +
+        rgb_expected[index].to_int().to_string(),
+      )
+    }
+  }
+  let rgba = png_wb_image(
+    4UL, Bytes::from_array(Array::make(100, b'\x00')), width=5UL, height=5UL,
+  )
+  rgba.with_mut_view(fn(view) {
+    for y = 0UL; y < 5UL; y = y + 1UL {
+      for x = 0UL; x < 5UL; x = x + 1UL {
+        for channel = 0UL; channel < 4UL; channel = channel + 1UL {
+          view.set_byte(x, y, channel, (y * 20UL + x * 4UL + channel).to_byte()).unwrap()
+        }
+      }
+    }
+    Ok(())
+  }).unwrap()
+  inspect(
+    png_wb_adam7_cursor_bytes(rgba) ==
+    b"\x00\x00\x01\x02\x03\x00\x10\x11\x12\x13\x00\x50\x51\x52\x53\x60\x61\x62\x63\x00\x08\x09\x0a\x0b\x00\x58\x59\x5a\x5b\x00\x28\x29\x2a\x2b\x30\x31\x32\x33\x38\x39\x3a\x3b\x00\x04\x05\x06\x07\x0c\x0d\x0e\x0f\x00\x2c\x2d\x2e\x2f\x34\x35\x36\x37\x00\x54\x55\x56\x57\x5c\x5d\x5e\x5f\x00\x14\x15\x16\x17\x18\x19\x1a\x1b\x1c\x1d\x1e\x1f\x20\x21\x22\x23\x24\x25\x26\x27\x00\x3c\x3d\x3e\x3f\x40\x41\x42\x43\x44\x45\x46\x47\x48\x49\x4a\x4b\x4c\x4d\x4e\x4f",
+    content="true",
+  )
+  for channels in [3UL, 4UL] {
+    let singleton = png_wb_image(channels, if channels == 3UL {
+      b"\xaa\xbb\xcc"
+    } else {
+      b"\xaa\xbb\xcc\xdd"
+    })
+    let expected = if channels == 3UL {
+      b"\x00\xaa\xbb\xcc"
+    } else {
+      b"\x00\xaa\xbb\xcc\xdd"
+    }
+    inspect(
+      png_wb_adam7_cursor_bytes(singleton) == expected,
+      content="true",
+    )
+  }
 }
 
 ///| Every first row is local to its pass, so Adaptive cannot select Up from a
@@ -368,10 +447,15 @@ test "PNG adaptive Dynamic decline facts are admitted" {
 }
 
 ///|
-fn png_wb_image(channels : UInt64, pixels : Bytes) -> @storage.OwnedImage {
+fn png_wb_image(
+  channels : UInt64,
+  pixels : Bytes,
+  width? : UInt64 = 1UL,
+  height? : UInt64 = 1UL,
+) -> @storage.OwnedImage {
   let descriptor = @model.ImageDescriptor::new(
-    1UL,
-    1UL,
+    width,
+    height,
     if channels == 3UL {
       @model.ImageFormat::rgb8()
     } else {
@@ -379,10 +463,11 @@ fn png_wb_image(channels : UInt64, pixels : Bytes) -> @storage.OwnedImage {
     },
     [
       @model.PlaneDescriptor::new(
-        0UL, channels, channels, channels, 1UL, 1UL, 1UL, 1UL,
+        0UL, channels * width * height, channels * width, channels * width,
+        1UL, 1UL, width, height,
       ).unwrap(),
     ],
-    channels,
+    channels * width * height,
     @model.ImageMetadata::new(
       @color.ColorSpaceIdentity::Srgb,
       @color.TransferIdentity::EncodedSrgb,
@@ -408,12 +493,16 @@ fn png_wb_image(channels : UInt64, pixels : Bytes) -> @storage.OwnedImage {
   ).unwrap()
   let image = @storage.OwnedImage::new(
     descriptor,
-    png_wb_budget(bytes=channels, work=0UL),
+    png_wb_budget(bytes=channels * width * height, work=0UL),
   ).unwrap()
   image
   .with_mut_view(fn(view) {
-    for index = 0UL; index < channels; index = index + 1UL {
-      view.set_byte(0UL, 0UL, index, pixels[index.to_int()]).unwrap()
+    for y = 0UL; y < height; y = y + 1UL {
+      for x = 0UL; x < width; x = x + 1UL {
+        for index = 0UL; index < channels; index = index + 1UL {
+          view.set_byte(x, y, index, pixels[((y * width + x) * channels + index).to_int()]).unwrap()
+        }
+      }
     }
     Ok(())
   })
