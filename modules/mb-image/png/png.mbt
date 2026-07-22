@@ -101,6 +101,15 @@ pub(all) enum PngInterlaceStrategy {
 } derive(Eq)
 
 ///|
+/// Private PNG raster profile selection. Legacy public factories remain on the
+/// RGB8/straight-RGBA8 contract; Gray8 is deliberately available only through
+/// its explicit Stored/non-interlaced factories.
+priv enum PngEncodeProfile {
+  LegacyRgbOrRgba
+  Gray8
+} derive(Eq)
+
+///|
 /// A deterministic encoder for the strict RGB8 and straight-RGBA8 PNG profile.
 /// `new()` emits the frozen Stored representation; the configured factory retains the
 /// frozen FixedOrStored route and provides the opt-in DynamicOrFixedOrStored contract.
@@ -108,6 +117,7 @@ pub struct PngEncoder {
   priv strategy : PngCompressionStrategy
   priv filter_strategy : PngFilterStrategy
   priv interlace_strategy : PngInterlaceStrategy
+  priv profile : PngEncodeProfile
 }
 
 ///|
@@ -116,6 +126,18 @@ pub fn PngEncoder::new() -> PngEncoder {
     PngCompressionStrategy::Stored, PngFilterStrategy::None,
     PngInterlaceStrategy::None,
   )
+}
+
+///| Constructs the explicit Gray8 PNG route: 8-bit grayscale, Stored DEFLATE,
+/// filter None, and no interlace. Strategy variants remain deliberately absent
+/// until the shared Gray8 planning contract is extended.
+pub fn PngEncoder::new_gray8() -> PngEncoder {
+  {
+    strategy: PngCompressionStrategy::Stored,
+    filter_strategy: PngFilterStrategy::None,
+    interlace_strategy: PngInterlaceStrategy::None,
+    profile: PngEncodeProfile::Gray8,
+  }
 }
 
 ///|
@@ -177,7 +199,12 @@ pub fn PngEncoder::new_with_all_strategies(
   filter_strategy : PngFilterStrategy,
   interlace_strategy : PngInterlaceStrategy,
 ) -> PngEncoder {
-  PngEncoder::{ strategy, filter_strategy, interlace_strategy }
+  PngEncoder::{
+    strategy,
+    filter_strategy,
+    interlace_strategy,
+    profile: PngEncodeProfile::LegacyRgbOrRgba,
+  }
 }
 
 ///|

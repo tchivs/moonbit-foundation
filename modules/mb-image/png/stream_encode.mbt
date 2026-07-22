@@ -18,6 +18,24 @@ pub fn PngChunkEncoder::new(
   )
 }
 
+///| Constructs the explicit Gray8 caller-buffered route: 8-bit grayscale,
+/// Stored DEFLATE, filter None, and no interlace.
+pub fn PngChunkEncoder::new_gray8(
+  source : @storage.ImageView,
+  limits : @codec.CodecLimits,
+  budget : @budget.Budget,
+  diagnostics : @error.Diagnostics,
+) -> Result[PngChunkEncoder, @error.CoreError] {
+  let machine = match PngEncodeMachine::new_with_profile(
+    source, PngEncodeProfile::Gray8, PngCompressionStrategy::Stored,
+    PngFilterStrategy::None, PngInterlaceStrategy::None, limits, budget, diagnostics,
+  ) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  Ok({ state: PngChunkEncoderState::Active(machine), total_written: 0UL })
+}
+
 ///|
 /// Constructs a caller-buffered encoder with an explicit PNG compression strategy
 /// and the explicit filter-None route. `Stored` and `FixedOrStored` retain frozen
@@ -196,6 +214,7 @@ pub fn PngChunkEncoder::pull(
 /// FFI codec, host adapters, and output-sized staging remain excluded.
 priv struct PngEncodeMachine {
   source : @storage.ImageView
+  profile : PngEncodeProfile
   strategy : PngCompressionStrategy
   filter_strategy : PngFilterStrategy
   interlace_strategy : PngInterlaceStrategy
@@ -313,14 +332,33 @@ fn PngEncodeMachine::new_with_all_strategies(
   budget : @budget.Budget,
   _diagnostics : @error.Diagnostics,
 ) -> Result[PngEncodeMachine, @error.CoreError] {
-  let facts = match _png_encode_preflight_with_interlace(
-    source, strategy, filter_strategy, interlace_strategy, limits, budget,
+  PngEncodeMachine::new_with_profile(
+    source, PngEncodeProfile::LegacyRgbOrRgba, strategy, filter_strategy,
+    interlace_strategy, limits, budget, _diagnostics,
+  )
+}
+
+///| The profile-aware construction seam keeps Gray8 source admission atomic and
+/// keeps unsupported Gray strategy combinations private and unavailable.
+fn PngEncodeMachine::new_with_profile(
+  source : @storage.ImageView,
+  profile : PngEncodeProfile,
+  strategy : PngCompressionStrategy,
+  filter_strategy : PngFilterStrategy,
+  interlace_strategy : PngInterlaceStrategy,
+  limits : @codec.CodecLimits,
+  budget : @budget.Budget,
+  _diagnostics : @error.Diagnostics,
+) -> Result[PngEncodeMachine, @error.CoreError] {
+  let facts = match _png_encode_preflight_with_interlace_profile(
+    source, profile, strategy, filter_strategy, interlace_strategy, limits, budget,
   ) {
     Err(error) => return Err(error)
     Ok(value) => value
   }
   Ok({
     source,
+    profile: facts.profile,
     strategy,
     filter_strategy,
     interlace_strategy,
@@ -814,7 +852,11 @@ fn PngEncodeMachine::byte_at(
     let payload = offset - 16UL
     if payload < 4UL { return Ok(_png_encode_machine_u32_byte(self.width, payload)) }
     if payload < 8UL { return Ok(_png_encode_machine_u32_byte(self.height, payload - 4UL)) }
-    return Ok([b'\x08', if self.channels == 3UL { b'\x02' } else { b'\x06' }, b'\x00', b'\x00', if self.interlace_strategy == PngInterlaceStrategy::Adam7 { b'\x01' } else { b'\x00' }][(payload - 8UL).to_int()])
+    let colour_type = match self.profile {
+      PngEncodeProfile::Gray8 => b'\x00'
+      PngEncodeProfile::LegacyRgbOrRgba => if self.channels == 3UL { b'\x02' } else { b'\x06' }
+    }
+    return Ok([b'\x08', colour_type, b'\x00', b'\x00', if self.interlace_strategy == PngInterlaceStrategy::Adam7 { b'\x01' } else { b'\x00' }][(payload - 8UL).to_int()])
   }
   if offset < 33UL { return Ok(_png_encode_machine_u32_byte(self.ihdr_crc ^ 4294967295UL, offset - 29UL)) }
   if offset < 37UL { return Ok(_png_encode_machine_u32_byte(self.idat_length, offset - 33UL)) }

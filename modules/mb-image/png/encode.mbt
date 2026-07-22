@@ -53,7 +53,10 @@ fn _png_encode_u32(value : UInt64) -> Result[UInt64, @error.CoreError] {
 ///|
 /// Validate every semantic and physical property before pixels are read or the
 /// caller budget is charged. The canonical layout contains no padding rows.
-fn _png_encode_source(source : @storage.ImageView) -> Result[UInt64, @error.CoreError] {
+fn _png_encode_source(
+  source : @storage.ImageView,
+  profile : PngEncodeProfile,
+) -> Result[UInt64, @error.CoreError] {
   if source.is_empty() {
     return Err(_png_encode_capability("empty-image"))
   }
@@ -84,19 +87,30 @@ fn _png_encode_source(source : @storage.ImageView) -> Result[UInt64, @error.Core
   if metadata.opaque_metadata().length() != 0 {
     return Err(_png_encode_capability("opaque-metadata-unsupported"))
   }
-  let channels = match format.channels() {
-    @model.ChannelOrder::Rgb =>
-      if metadata.alpha() is Some(_) {
-        return Err(_png_encode_capability("rgb-alpha-unsupported"))
-      } else {
-        3UL
-      }
-    @model.ChannelOrder::Rgba =>
-      match metadata.alpha() {
-        Some(@color.AlphaMode::Straight) => 4UL
-        _ => return Err(_png_encode_capability("straight-rgba-required"))
-      }
-    _ => return Err(_png_encode_capability("rgb-or-rgba-required"))
+  let channels = match profile {
+    PngEncodeProfile::LegacyRgbOrRgba => match format.channels() {
+      @model.ChannelOrder::Rgb =>
+        if metadata.alpha() is Some(_) {
+          return Err(_png_encode_capability("rgb-alpha-unsupported"))
+        } else {
+          3UL
+        }
+      @model.ChannelOrder::Rgba =>
+        match metadata.alpha() {
+          Some(@color.AlphaMode::Straight) => 4UL
+          _ => return Err(_png_encode_capability("straight-rgba-required"))
+        }
+      _ => return Err(_png_encode_capability("rgb-or-rgba-required"))
+    }
+    PngEncodeProfile::Gray8 => match format.channels() {
+      @model.ChannelOrder::Gray =>
+        if metadata.alpha() is Some(_) {
+          return Err(_png_encode_capability("gray-alpha-unsupported"))
+        } else {
+          1UL
+        }
+      _ => return Err(_png_encode_capability("gray8-required"))
+    }
   }
   let row_bytes = match @checked.checked_mul(source.width(), channels) {
     Err(error) => return Err(error)
@@ -110,6 +124,7 @@ fn _png_encode_source(source : @storage.ImageView) -> Result[UInt64, @error.Core
 
 ///|
 priv struct PngEncodePreflight {
+  profile : PngEncodeProfile
   channels : UInt64
   row_bytes : UInt64
   scanlines : UInt64
@@ -1424,8 +1439,31 @@ fn _png_encode_preflight_with_interlace(
   limits : @codec.CodecLimits,
   budget : @budget.Budget,
 ) -> Result[PngEncodePreflight, @error.CoreError] {
-  _png_encode_preflight_with_filter_layout_idat_limit(
-    source, strategy, filter_strategy, interlace_strategy, limits, budget, 4294967295UL,
+  _png_encode_preflight_with_interlace_profile(
+    source, PngEncodeProfile::LegacyRgbOrRgba, strategy, filter_strategy,
+    interlace_strategy, limits, budget,
+  )
+}
+
+///| Profile-aware entry point for the private machine construction seam.
+fn _png_encode_preflight_with_interlace_profile(
+  source : @storage.ImageView,
+  profile : PngEncodeProfile,
+  strategy : PngCompressionStrategy,
+  filter_strategy : PngFilterStrategy,
+  interlace_strategy : PngInterlaceStrategy,
+  limits : @codec.CodecLimits,
+  budget : @budget.Budget,
+) -> Result[PngEncodePreflight, @error.CoreError] {
+  if profile == PngEncodeProfile::Gray8 &&
+    (strategy != PngCompressionStrategy::Stored ||
+      filter_strategy != PngFilterStrategy::None ||
+      interlace_strategy != PngInterlaceStrategy::None) {
+    return Err(_png_encode_capability("gray8-stored-none-noninterlaced-required"))
+  }
+  _png_encode_preflight_with_filter_layout_idat_limit_profile(
+    source, profile, strategy, filter_strategy, interlace_strategy, limits, budget,
+    4294967295UL,
   )
 }
 
@@ -1438,9 +1476,9 @@ fn _png_encode_preflight_with_filter_idat_limit(
   budget : @budget.Budget,
   dynamic_max_idat_length : UInt64,
 ) -> Result[PngEncodePreflight, @error.CoreError] {
-  _png_encode_preflight_with_filter_layout_idat_limit(
-    source, strategy, filter_strategy, PngInterlaceStrategy::None, limits, budget,
-    dynamic_max_idat_length,
+  _png_encode_preflight_with_filter_layout_idat_limit_profile(
+    source, PngEncodeProfile::LegacyRgbOrRgba, strategy, filter_strategy,
+    PngInterlaceStrategy::None, limits, budget, dynamic_max_idat_length,
   )
 }
 
@@ -1456,7 +1494,24 @@ fn _png_encode_preflight_with_filter_layout_idat_limit(
   budget : @budget.Budget,
   dynamic_max_idat_length : UInt64,
 ) -> Result[PngEncodePreflight, @error.CoreError] {
-  let channels = match _png_encode_source(source) {
+  _png_encode_preflight_with_filter_layout_idat_limit_profile(
+    source, PngEncodeProfile::LegacyRgbOrRgba, strategy, filter_strategy,
+    interlace_strategy, limits, budget, dynamic_max_idat_length,
+  )
+}
+
+///| One atomic ledger parameterized by profile and scalar raster layout.
+fn _png_encode_preflight_with_filter_layout_idat_limit_profile(
+  source : @storage.ImageView,
+  profile : PngEncodeProfile,
+  strategy : PngCompressionStrategy,
+  filter_strategy : PngFilterStrategy,
+  interlace_strategy : PngInterlaceStrategy,
+  limits : @codec.CodecLimits,
+  budget : @budget.Budget,
+  dynamic_max_idat_length : UInt64,
+) -> Result[PngEncodePreflight, @error.CoreError] {
+  let channels = match _png_encode_source(source, profile) {
     Err(error) => return Err(error)
     Ok(value) => value
   }
@@ -1653,7 +1708,7 @@ fn _png_encode_preflight_with_filter_layout_idat_limit(
     Ok(_) => ()
   }
   Ok({
-    channels, row_bytes, scanlines, blocks, idat_length, total_length, plan,
+    profile, channels, row_bytes, scanlines, blocks, idat_length, total_length, plan,
     disposition, selected_work, adaptive_planning_facts, adaptive_replay_facts,
   })
 }
@@ -1668,9 +1723,9 @@ pub impl @codec.ImageEncoder for PngEncoder with fn encode(
   budget,
   _diagnostics,
 ) {
-  let machine = match PngEncodeMachine::new_with_all_strategies(
-    source, _self.strategy, _self.filter_strategy, _self.interlace_strategy,
-    limits, budget, _diagnostics,
+  let machine = match PngEncodeMachine::new_with_profile(
+    source, _self.profile, _self.strategy, _self.filter_strategy,
+    _self.interlace_strategy, limits, budget, _diagnostics,
   ) {
     Err(error) => return Err(error)
     Ok(value) => value
