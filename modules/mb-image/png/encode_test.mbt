@@ -147,6 +147,36 @@ fn png_encode_gray16_image() -> @storage.OwnedImage {
   image
 }
 
+///| Two deliberately non-symmetric Gray+Alpha samples make the packed source
+/// component order observable at the PNG raster boundary.
+fn png_encode_graya8_image() -> @storage.OwnedImage {
+  let descriptor = @model.ImageDescriptor::new(
+    2UL, 1UL, @model.ImageFormat::graya8(),
+    [@model.PlaneDescriptor::new(0UL, 4UL, 4UL, 4UL, 1UL, 1UL, 2UL, 1UL).unwrap()],
+    4UL,
+    @model.ImageMetadata::new(
+      @color.ColorSpaceIdentity::Srgb, @color.TransferIdentity::EncodedSrgb,
+      Some(@color.AlphaMode::Straight), @profile.ProfileIdentity::builtin_srgb(),
+      @model.Orientation::TopLeft,
+      @metadata.OpaqueMetadata::from_entries(
+        [], @metadata.MetadataLimits::new(
+          max_entries=1UL, max_token_bytes=16UL, max_value_bytes=1UL,
+          max_total_bytes=32UL, max_disposition_fields=4UL,
+        ), png_encode_budget(bytes=1UL, work=0UL),
+      ).unwrap(),
+    ),
+  ).unwrap()
+  let image = @storage.OwnedImage::new(descriptor, png_encode_budget(bytes=4UL, work=0UL)).unwrap()
+  image.with_mut_view(fn(view) {
+    view.set_byte(0UL, 0UL, 0UL, b'\x13').unwrap()
+    view.set_byte(0UL, 0UL, 1UL, b'\xa7').unwrap()
+    view.set_byte(1UL, 0UL, 0UL, b'\xd2').unwrap()
+    view.set_byte(1UL, 0UL, 1UL, b'\x4c').unwrap()
+    Ok(())
+  }).unwrap()
+  image
+}
+
 ///| The same non-symmetric samples stored big-endian. PNG wire bytes must not
 /// depend on the source storage order.
 fn png_encode_gray16_big_image() -> @storage.OwnedImage {
@@ -344,6 +374,37 @@ fn png_encode_gray16_public_decode_is_canonical(bytes : Bytes) -> Unit {
           abort("png gray16 public decoded high byte")
         }
       }
+    }
+  }
+}
+
+///| The existing decoder canonicalizes PNG type-4 samples to straight RGBA8
+/// while retaining both the grayscale value and alpha byte exactly.
+fn png_encode_graya8_decode_matches_source(bytes : Bytes) -> Unit {
+  let owner = @bytes.OwnedBytes::from_bytes(
+    bytes, png_encode_budget(bytes=4096UL, work=0UL),
+  ).unwrap()
+  let decoded = @codec.ImageDecoder::decode(
+    PngDecoder::new(), @io.MemoryReader::new(owner.view()) as &@io.Reader,
+    @codec.DecodeOptions::new(require_complete_input=true, preserve_opaque_metadata=false),
+    png_encode_limits(output=4096UL, work=1048576UL),
+    png_encode_budget(bytes=4096UL, work=1048576UL), @error.Diagnostics::new(),
+  ).unwrap()
+  let restored = decoded.image().view()
+  let pairs = [(b'\x13', b'\xa7'), (b'\xd2', b'\x4c')]
+  if restored.width() != 2UL || restored.height() != 1UL ||
+    restored.format().channels() != @model.ChannelOrder::Rgba {
+    abort("png graya8 decoded descriptor")
+  }
+  for x = 0UL; x < 2UL; x = x + 1UL {
+    let (gray, alpha) = pairs[x.to_int()]
+    for channel = 0UL; channel < 3UL; channel = channel + 1UL {
+      if restored.get_byte(x, 0UL, channel).unwrap() != gray {
+        abort("png graya8 decoded grayscale")
+      }
+    }
+    if restored.get_byte(x, 0UL, 3UL).unwrap() != alpha {
+      abort("png graya8 decoded alpha")
     }
   }
 }
@@ -837,6 +898,34 @@ test "PNG Gray16 eager Stored output uses type 0 big-endian samples atomically" 
       budget.remaining().work() == before.work(),
     content="true",
   )
+}
+
+///| The default explicit Gray+Alpha8 route retains component order through
+/// Stored/None output and the existing decoder path.
+test "PNG GrayAlpha8 eager Stored output uses type 4 packed pairs" {
+  let gray_alpha = png_encode_graya8_image()
+  let (_, writer) = png_encode_with(PngEncoder::new_graya8(), gray_alpha)
+  let bytes = png_encode_prefix(writer)
+  inspect(
+    bytes[0] == b'\x89' && bytes[1] == b'P' && bytes[24] == b'\x08' &&
+      bytes[25] == b'\x04' && bytes[28] == b'\x00' && bytes[48] == b'\x00' &&
+      bytes[49] == b'\x13' && bytes[50] == b'\xa7' && bytes[51] == b'\xd2' &&
+      bytes[52] == b'\x4c',
+    content="true",
+  )
+  png_encode_graya8_decode_matches_source(bytes)
+
+  let rgb = png_encode_image(3UL, b"\x00\x01\x02")
+  let budget = png_encode_budget()
+  let before = budget.remaining()
+  let rejected = @io.MemoryWriter::new(512UL, png_encode_budget(bytes=512UL, work=0UL)).unwrap()
+  let error = @codec.ImageEncoder::encode(
+    PngEncoder::new_graya8(), rgb.view(), rejected as &@io.Writer,
+    @codec.EncodeOptions::new(lossless_required=true, preserve_opaque_metadata=false),
+    png_encode_limits(), budget, @error.Diagnostics::new(),
+  ).unwrap_err()
+  inspect(error.context(), content="Some(graya8-required)")
+  inspect(rejected.position() == 0UL && png_adam7_same_remaining(before, budget.remaining()), content="true")
 }
 
 ///| The Gray16 bounded strategy factories must share the public eager path;

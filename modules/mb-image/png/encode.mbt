@@ -127,6 +127,17 @@ fn _png_encode_source(
         }
       _ => return Err(_png_encode_capability("gray16-required"))
     }
+    PngEncodeProfile::GrayAlpha8 => match format.channels() {
+      @model.ChannelOrder::GrayAlpha =>
+        if metadata.alpha() != Some(@color.AlphaMode::Straight) {
+          return Err(_png_encode_capability("straight-alpha-required"))
+        } else if format.component() != @model.ComponentType::U8 {
+          return Err(_png_encode_capability("component-u8-required"))
+        } else {
+          2UL
+        }
+      _ => return Err(_png_encode_capability("graya8-required"))
+    }
   }
   let row_bytes = match @checked.checked_mul(source.width(), channels) {
     Err(error) => return Err(error)
@@ -1520,6 +1531,8 @@ fn _png_encode_preflight_with_interlace_profile(
       return Err(_png_encode_capability("gray8-noninterlaced-required"))
     PngEncodeProfile::Gray16 if interlace_strategy != PngInterlaceStrategy::None =>
       return Err(_png_encode_capability("gray16-noninterlaced-required"))
+    PngEncodeProfile::GrayAlpha8 if interlace_strategy != PngInterlaceStrategy::None =>
+      return Err(_png_encode_capability("graya8-noninterlaced-required"))
     _ => ()
   }
   _png_encode_preflight_with_filter_layout_idat_limit_profile(

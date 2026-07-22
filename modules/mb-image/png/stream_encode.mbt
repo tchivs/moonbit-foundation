@@ -95,6 +95,70 @@ pub fn PngChunkEncoder::new_gray16_with_strategies(
   Ok({ state: PngChunkEncoderState::Active(machine), total_written: 0UL })
 }
 
+///| Constructs the explicit Gray+Alpha8 caller-buffered route: packed 8-bit
+/// straight alpha, Stored DEFLATE, filter None, and no interlace.
+pub fn PngChunkEncoder::new_graya8(
+  source : @storage.ImageView,
+  limits : @codec.CodecLimits,
+  budget : @budget.Budget,
+  diagnostics : @error.Diagnostics,
+) -> Result[PngChunkEncoder, @error.CoreError] {
+  PngChunkEncoder::new_graya8_with_strategies(
+    source, PngCompressionStrategy::Stored, PngFilterStrategy::None,
+    limits, budget, diagnostics,
+  )
+}
+
+///| Constructs a Gray+Alpha8 caller-buffered encoder with an explicit
+/// compression strategy and the filter-None route.
+pub fn PngChunkEncoder::new_graya8_with_compression_strategy(
+  source : @storage.ImageView,
+  strategy : PngCompressionStrategy,
+  limits : @codec.CodecLimits,
+  budget : @budget.Budget,
+  diagnostics : @error.Diagnostics,
+) -> Result[PngChunkEncoder, @error.CoreError] {
+  PngChunkEncoder::new_graya8_with_strategies(
+    source, strategy, PngFilterStrategy::None, limits, budget, diagnostics,
+  )
+}
+
+///| Constructs a Gray+Alpha8 caller-buffered encoder with an explicit filter
+/// strategy and Stored compression.
+pub fn PngChunkEncoder::new_graya8_with_filter_strategy(
+  source : @storage.ImageView,
+  filter_strategy : PngFilterStrategy,
+  limits : @codec.CodecLimits,
+  budget : @budget.Budget,
+  diagnostics : @error.Diagnostics,
+) -> Result[PngChunkEncoder, @error.CoreError] {
+  PngChunkEncoder::new_graya8_with_strategies(
+    source, PngCompressionStrategy::Stored, filter_strategy, limits, budget,
+    diagnostics,
+  )
+}
+
+///| Constructs a Gray+Alpha8 caller-buffered encoder with explicit
+/// compression and filter strategies. Its profile fixes PNG colour type 4 and
+/// excludes Adam7.
+pub fn PngChunkEncoder::new_graya8_with_strategies(
+  source : @storage.ImageView,
+  strategy : PngCompressionStrategy,
+  filter_strategy : PngFilterStrategy,
+  limits : @codec.CodecLimits,
+  budget : @budget.Budget,
+  diagnostics : @error.Diagnostics,
+) -> Result[PngChunkEncoder, @error.CoreError] {
+  let machine = match PngEncodeMachine::new_with_profile(
+    source, PngEncodeProfile::GrayAlpha8, strategy,
+    filter_strategy, PngInterlaceStrategy::None, limits, budget, diagnostics,
+  ) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  Ok({ state: PngChunkEncoderState::Active(machine), total_written: 0UL })
+}
+
 ///| Constructs a Gray8 caller-buffered encoder with an explicit compression
 /// strategy and the filter-None route. Gray8 remains intentionally
 /// non-interlaced.
@@ -996,6 +1060,7 @@ fn PngEncodeMachine::byte_at(
     if payload < 8UL { return Ok(_png_encode_machine_u32_byte(self.height, payload - 4UL)) }
     let colour_type = match self.profile {
       PngEncodeProfile::Gray8 | PngEncodeProfile::Gray16 => b'\x00'
+      PngEncodeProfile::GrayAlpha8 => b'\x04'
       PngEncodeProfile::LegacyRgbOrRgba => if self.channels == 3UL { b'\x02' } else { b'\x06' }
     }
     let bit_depth = if self.profile == PngEncodeProfile::Gray16 { b'\x10' } else { b'\x08' }
