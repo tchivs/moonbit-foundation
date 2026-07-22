@@ -9,7 +9,7 @@
 - [54-CONTEXT.md](54-CONTEXT.md) locks one non-interlaced packed U16 GrayAlpha profile, explicit `graya16` eager/caller-buffered factories, `Ghi,Glo,Ahi,Alo` wire order, and reuse of the single bounded machine.
 - Phase 48 is the U16 scalar wire/replay precedent: `.planning/milestones/v0.15-phases/48-bounded-gray16-encoder-path/48-{CONTEXT,RESEARCH,01-PLAN,01-SUMMARY,VERIFICATION}.md`.
 - Phase 51 is the Type-4 factory/admission precedent: `.planning/milestones/v0.16-phases/51-bounded-gray-alpha-png-encoding/51-{CONTEXT,RESEARCH,PATTERNS,01-PLAN,02-PLAN,01-SUMMARY,02-SUMMARY,VERIFICATION}.md`.
-- No `54-RESEARCH.md` exists. This map therefore uses the locked context, archived implementation artifacts, and current source as the implementation authority.
+- `54-RESEARCH.md` confirms the same Type-4/16 profile, four-byte U16 wire, cursor, and replay seams identified here; it is the technical authority alongside the locked context and archived implementation artifacts.
 
 ## File Classification
 

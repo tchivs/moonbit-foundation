@@ -82,8 +82,12 @@ Plans:
 **Plans**: 2 plans
 
 Plans:
+**Wave 1**
 
 - [ ] 54-01-PLAN.md — Add the explicit bounded GrayAlpha16 Type-4/16 eager and caller-buffered encoder path.
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
 - [ ] 54-02-PLAN.md — Prove GrayAlpha16 atomic admission and acknowledgement-safe replay ownership.
 
 ### Phase 55: Portable Public Evidence
