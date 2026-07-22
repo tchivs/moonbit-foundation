@@ -1,0 +1,52 @@
+# Requirements: MoonBit Native Foundation
+
+**Defined:** 2026-07-22  
+**Milestone:** v0.13 PNG Adam7 Encode  
+**Core Value:** MoonBit developers can reuse stable, high-performance native infrastructure contracts instead of rebuilding incompatible foundations for every graphics, document, media, or automation product.
+
+## v0.13 Requirements
+
+### Interlace Compatibility
+
+- [ ] **PNGI-01**: A library user can explicitly select Adam7 interlaced eager and caller-buffered PNG encoding for compatible RGB8 and straight-RGBA8 images while every existing constructor and compression-only factory retains byte-identical non-interlaced output.
+
+### Bounded Adam7 Encoding
+
+- [ ] **PNGI-02**: An opted-in compatible image is emitted as seven deterministic Adam7 passes whose pass geometry, scanline bytes, filter selection, and compression input are bounded by the existing limits and do not require image-sized staging.
+- [ ] **PNGI-03**: Adam7 encoding through Stored, FixedOrStored, and DynamicOrFixedOrStored retains atomic capability, geometry, output, work, and budget admission before eager output or a caller-buffered lease, and replay advances only after accepted bytes.
+
+### Portable Evidence
+
+- [ ] **PNGI-04**: Generated RGB8 and straight-RGBA8 Adam7 cases prove public decode fidelity, eager/chunk byte identity under hostile capacities, legacy non-interlaced compatibility, and independent js/wasm/wasm-gc/native execution.
+
+## Future Requirements
+
+- **PNGI-05**: Consider palette-aware or grayscale-specific encoder output only after a public image representation and compatibility contract are designed.
+- **PNGF-05**: Add broader encoder filter heuristics or content-specific tuning only after a reproducible benchmark contract exists.
+
+## Out of Scope
+
+| Feature | Reason |
+| --- | --- |
+| Change default non-interlaced PNG output or compression ties | Existing bytes are a compatibility baseline. |
+| Image-sized pass buffers, wider LZ dictionaries, or new FFI codecs | Adam7 must remain bounded and MoonBit-owned. |
+| Palette, grayscale, 16-bit, APNG, metadata, or colour-conversion encode support | Each needs a separate public image/colour compatibility contract. |
+| Release automation or registry publication | They do not unblock Adam7 encoder implementation. |
+
+## Traceability
+
+| Requirement | Phase | Status |
+| --- | --- | --- |
+| PNGI-01 | Pending roadmap | Pending |
+| PNGI-02 | Pending roadmap | Pending |
+| PNGI-03 | Pending roadmap | Pending |
+| PNGI-04 | Pending roadmap | Pending |
+
+**Coverage:**
+
+- v0.13 requirements: 4 total
+- Mapped to phases: 0
+- Unmapped: 4 (roadmap pending)
+
+---
+*Requirements defined: 2026-07-22*

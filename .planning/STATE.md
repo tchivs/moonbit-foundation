@@ -1,41 +1,38 @@
 ---
 gsd_state_version: 1.0
-milestone: v0.12
-milestone_name: PNG Filter Optimization
-status: Awaiting next milestone
-stopped_at: Phase 40 context gathered
-last_updated: "2026-07-22T06:22:06.758Z"
+milestone: v0.13
+milestone_name: PNG Adam7 Encode
+status: planning
+last_updated: "2026-07-22T06:26:06.908Z"
 last_activity: 2026-07-22
-last_activity_desc: Milestone v0.12 completed and archived
 progress:
-  total_phases: 3
-  completed_phases: 3
-  total_plans: 9
-  completed_plans: 9
-current_phase: 40
-current_phase_name: Portable Adaptive-Filter Evidence
+  total_phases: 0
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
+  percent: 0
 ---
 
 # Project State
 
 ## Project Reference
 
-See `.planning/PROJECT.md` (updated 2026-07-21).
+See `.planning/PROJECT.md` (updated 2026-07-22).
 
 **Core value:** MoonBit developers can reuse stable, high-performance native infrastructure contracts instead of rebuilding incompatible foundations for every graphics, document, media, or automation product.
 
-**Current focus:** Phase 38 — establish the explicit adaptive-filter compatibility seam while freezing legacy filter-None output.
+**Current focus:** Define v0.13 Adam7 PNG encode phases, then implement the explicit interlace compatibility boundary.
 
 ## Current Position
 
-Phase: Milestone v0.12 complete
+Phase: Not started (defining requirements)
 Plan: —
-Status: Awaiting next milestone
-Last activity: 2026-07-22 — Milestone v0.12 completed and archived
+Status: Defining requirements
+Last activity: 2026-07-22 — Milestone v0.13 started
 
 ## Performance Metrics
 
-**Current milestone:** v0.12 planned: 0/TBD plans complete across 0/3 phases; 0/4 requirements completed across Phases 38-40.
+**Current milestone:** v0.13 defining requirements: 0/4 requirements mapped; roadmap pending.
 
 **Historical context:** v0.5 shipped three phases and three plans on 2026-07-20. v0.2 publication and registry work remains deferred and excluded from this code-first milestone.
 

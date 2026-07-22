@@ -36,8 +36,9 @@ MoonBit developers can reuse stable, high-performance native infrastructure cont
 
 ### Active
 
-
-Fresh requirements will be defined for the next code-first milestone.
+- [ ] Provide an explicit opt-in Adam7 PNG encoding route for RGB8 and straight-RGBA8 without changing legacy non-interlaced bytes.
+- [ ] Preserve bounded, atomic eager and caller-buffered encoder behavior while traversing Adam7 passes.
+- [ ] Prove public Adam7 encode/decode fidelity and eager/chunk identity across all portable targets.
 
 ### Out of Scope
 
@@ -95,7 +96,17 @@ Registry publication and release automation remain deferred unless they directly
 
 **Validated:** Generated RGB8 R1 and straight-RGBA8 A1 sources prove a strict same-strategy Adaptive size win; zero/tiny/ragged caller capacities produce byte-identical eager and chunk output; public decoding restores exact source data on `js`, `wasm`, `wasm-gc`, and `native`. The v0.12 audit passed 4/4 requirements, 3/3 phase verifications, and all cross-phase/E2E flows.
 
-The next milestone should continue code-first infrastructure work from fresh requirements. Registry publication and release automation remain deferred unless a concrete consumer is blocked by their absence.
+Registry publication and release automation remain deferred unless a concrete consumer is blocked by their absence.
+
+## Current Milestone: v0.13 PNG Adam7 Encode
+
+**Goal:** Add a bounded, explicit Adam7 interlaced PNG encoding route for existing RGB8 and straight-RGBA8 images while preserving frozen non-interlaced output and caller-buffered safety semantics.
+
+**Target features:**
+
+- Add an opt-in interlace strategy to the existing eager and caller-buffered PNG encoder factories.
+- Traverse Adam7 passes through bounded filter/compression planning and acknowledgement-safe replay without image-sized staging.
+- Prove public round-trip fidelity, legacy compatibility, eager/chunk byte identity, and four-target portability.
 
 
 ## Constraints
@@ -150,4 +161,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update toolchain, compatibility, benchmark, and adoption context.
 
 ---
-*Last updated: 2026-07-22 after v0.12 PNG Filter Optimization*
+*Last updated: 2026-07-22 for v0.13 PNG Adam7 Encode*
