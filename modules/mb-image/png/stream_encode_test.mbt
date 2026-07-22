@@ -705,6 +705,64 @@ fn png_stream_graya8_public_drain(
   abort("png graya8 public drain unreachable")
 }
 
+///| Drain one fresh public GrayAlpha16 encoder while proving only accepted
+/// bytes change caller leases and that the successful terminal state is sticky.
+fn png_stream_graya16_public_drain(
+  image : @storage.OwnedImage,
+  strategy : PngCompressionStrategy,
+  filter_strategy : PngFilterStrategy,
+  schedule : Array[UInt64],
+  eager : Bytes,
+) -> Unit {
+  let encoder = PngChunkEncoder::new_graya16_with_strategies(
+    image.view(), strategy, filter_strategy,
+    png_stream_test_limits(), png_stream_test_budget(), @error.Diagnostics::new(),
+  ).unwrap()
+  let output : Array[Byte] = []
+  let mut turn = 0UL
+  while turn < 4096UL {
+    let capacity = schedule[(turn % schedule.length().to_uint64()).to_int()]
+    let owner = png_chunk_test_owner(capacity, fill=b'Z')
+    let before = output.length().to_uint64()
+    let pulled = owner.with_mut(0UL, capacity, fn(lease) {
+      Ok(encoder.pull(lease))
+    }).unwrap()
+    if pulled.written() > capacity || pulled.total_written() != before + pulled.written() {
+      abort("png graya16 public accepted progress")
+    }
+    for index = 0UL; index < pulled.written(); index = index + 1UL {
+      output.push(owner.view().get(index).unwrap())
+    }
+    for index = pulled.written(); index < capacity; index = index + 1UL {
+      if owner.view().get(index).unwrap() != b'Z' {
+        abort("png graya16 public lease tail")
+      }
+    }
+    match pulled.outcome() {
+      PngChunkPullOutcome::NeedOutput => turn = turn + 1UL
+      PngChunkPullOutcome::Failed(_) => abort("png graya16 public chunk failure")
+      PngChunkPullOutcome::Finished => {
+        if Bytes::from_array(output) != eager { abort("png graya16 public eager parity") }
+        let sentinel = png_chunk_test_owner(7UL, fill=b'Z')
+        let later = sentinel.with_mut(0UL, 7UL, fn(lease) {
+          Ok(encoder.pull(lease))
+        }).unwrap()
+        if later.written() != 0UL || later.total_written() != pulled.total_written() ||
+          !(later.outcome() is PngChunkPullOutcome::Finished) {
+          abort("png graya16 public terminal progress")
+        }
+        for index = 0UL; index < 7UL; index = index + 1UL {
+          if sentinel.view().get(index).unwrap() != b'Z' {
+            abort("png graya16 public terminal lease")
+          }
+        }
+        return
+      }
+    }
+  }
+  abort("png graya16 public drain unreachable")
+}
+
 ///| Eager Gray8 output is the oracle for the caller-buffered Gray8 factory.
 fn png_stream_gray8_eager(image : @storage.OwnedImage) -> Bytes {
   let writer = @io.MemoryWriter::new(1048576UL, png_stream_test_budget(work=0UL)).unwrap()
@@ -1231,6 +1289,44 @@ test "PNG GrayAlpha8 chunk public evidence" {
   }
 }
 
+///| Every public GrayAlpha16 strategy pair must preserve eager bytes and caller
+/// lease ownership under zero-capacity, one-byte, and ragged schedules.
+test "PNG GrayAlpha16 chunk public evidence" {
+  let image = png_stream_graya16_image()
+  for strategy in [
+    PngCompressionStrategy::Stored,
+    PngCompressionStrategy::FixedOrStored,
+    PngCompressionStrategy::DynamicOrFixedOrStored,
+  ] {
+    for filter_strategy in [PngFilterStrategy::None, PngFilterStrategy::Adaptive] {
+      let eager = png_stream_graya16_eager_with_strategies(image, strategy, filter_strategy)
+      let zero_encoder = PngChunkEncoder::new_graya16_with_strategies(
+        image.view(), strategy, filter_strategy,
+        png_stream_test_limits(), png_stream_test_budget(), @error.Diagnostics::new(),
+      ).unwrap()
+      let zero_owner = png_chunk_test_owner(1UL, fill=b'Z')
+      let zero = zero_owner.with_mut(0UL, 0UL, fn(lease) {
+        Ok(zero_encoder.pull(lease))
+      }).unwrap()
+      if zero.written() != 0UL || zero.total_written() != 0UL ||
+        !(zero.outcome() is PngChunkPullOutcome::NeedOutput) ||
+        zero_owner.view().get(0UL).unwrap() != b'Z' {
+        abort("png graya16 public empty lease")
+      }
+      png_stream_graya16_public_drain(
+        image, strategy, filter_strategy, [0UL, 1UL], eager,
+      )
+      png_stream_graya16_public_drain(
+        image, strategy, filter_strategy, [1UL], eager,
+      )
+      png_stream_graya16_public_drain(
+        image, strategy, filter_strategy,
+        [0UL, 8UL, 4UL, 1UL, 13UL, 2UL, 5UL, 3UL, 21UL], eager,
+      )
+    }
+  }
+}
+
 ///|
 fn png_chunk_test_drain(
   image : @storage.OwnedImage,
@@ -1303,6 +1399,20 @@ test "PNG filter strategy chunk frozen compatibility vectors" {
   ).unwrap(), [0UL, 1UL, 3UL, 2UL, 5UL]).unwrap()
   for bytes in [gray16_default, gray16_configured] {
     inspect(bytes == gray16_stored, content="true")
+  }
+
+  let gray_alpha = png_stream_graya8_image()
+  let gray_alpha_stored =
+    b"\x89PNG\r\n\x1a\n\x00\x00\x00\x0dIHDR\x00\x00\x00\x02\x00\x00\x00\x01\x08\x04\x00\x00\x00\x5e\x2b\xb7\x01\x00\x00\x00\x10IDAT\x78\x01\x01\x05\x00\xfa\xff\x00\x13\xa7\xd2\x4c\x04\x36\x01\xd9\xee\xe9\xe1\x45\x00\x00\x00\x00IEND\xae\x42\x60\x82"
+  let gray_alpha_default = png_chunk_test_drain_encoder(PngChunkEncoder::new_graya8(
+    gray_alpha.view(), png_stream_test_limits(), png_stream_test_budget(), @error.Diagnostics::new(),
+  ).unwrap(), [0UL, 1UL, 3UL, 2UL, 5UL]).unwrap()
+  let gray_alpha_configured = png_chunk_test_drain_encoder(PngChunkEncoder::new_graya8_with_strategies(
+    gray_alpha.view(), PngCompressionStrategy::Stored, PngFilterStrategy::None,
+    png_stream_test_limits(), png_stream_test_budget(), @error.Diagnostics::new(),
+  ).unwrap(), [0UL, 1UL, 3UL, 2UL, 5UL]).unwrap()
+  for bytes in [gray_alpha_default, gray_alpha_configured] {
+    inspect(bytes == gray_alpha_stored, content="true")
   }
 
   let rgb = png_stream_test_image(3UL)
