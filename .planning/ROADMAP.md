@@ -86,7 +86,7 @@
 ## Phases
 
 - [ ] **Phase 47: Gray16 Factory Compatibility** — Add explicit eager/caller-buffered Gray16 Stored factories, type-0/16-bit emission, semantic input admission, and legacy compatibility guards. (Requirements: GRAY16-01)
-- [ ] **Phase 48: Bounded Gray16 Encoder Path** — Route Gray16 through shared filtering, Stored/Fixed/Dynamic selection, atomic admission, and acknowledgement-safe replay without image staging. (Requirements: GRAY16-02)
+- [x] **Phase 48: Bounded Gray16 Encoder Path** — Route Gray16 through shared filtering, Stored/Fixed/Dynamic selection, atomic admission, and acknowledgement-safe replay without image staging. (Requirements: GRAY16-02) (completed 2026-07-22)
 - [ ] **Phase 49: Portable Gray16 Public Evidence** — Prove full wire-sample preservation, documented public decode behavior, hostile chunk identity, frozen compatibility, and independent four-target execution. (Requirements: GRAY16-03)
 
 ## Phase Details
