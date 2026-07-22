@@ -92,6 +92,14 @@ pub(all) enum PngFilterStrategy {
   Adaptive
 } derive(Eq)
 
+///| PNG interlace selection for the strict RGB8 and straight-RGBA8 profile.
+/// `None` preserves every established non-interlaced output route. `Adam7` is
+/// explicit because its encoder traversal is not available until Phase 42.
+pub(all) enum PngInterlaceStrategy {
+  None
+  Adam7
+} derive(Eq)
+
 ///|
 /// A deterministic encoder for the strict RGB8 and straight-RGBA8 PNG profile.
 /// `new()` emits the frozen Stored representation; the configured factory retains the
@@ -99,14 +107,15 @@ pub(all) enum PngFilterStrategy {
 pub struct PngEncoder {
   priv strategy : PngCompressionStrategy
   priv filter_strategy : PngFilterStrategy
+  priv interlace_strategy : PngInterlaceStrategy
 }
 
 ///|
 pub fn PngEncoder::new() -> PngEncoder {
-  PngEncoder::{
-    strategy: PngCompressionStrategy::Stored,
-    filter_strategy: PngFilterStrategy::None,
-  }
+  PngEncoder::new_with_all_strategies(
+    PngCompressionStrategy::Stored, PngFilterStrategy::None,
+    PngInterlaceStrategy::None,
+  )
 }
 
 ///|
@@ -117,7 +126,9 @@ pub fn PngEncoder::new() -> PngEncoder {
 pub fn PngEncoder::new_with_compression_strategy(
   strategy : PngCompressionStrategy,
 ) -> PngEncoder {
-  PngEncoder::{ strategy, filter_strategy: PngFilterStrategy::None }
+  PngEncoder::new_with_all_strategies(
+    strategy, PngFilterStrategy::None, PngInterlaceStrategy::None,
+  )
 }
 
 ///|
@@ -128,10 +139,9 @@ pub fn PngEncoder::new_with_compression_strategy(
 pub fn PngEncoder::new_with_filter_strategy(
   filter_strategy : PngFilterStrategy,
 ) -> PngEncoder {
-  PngEncoder::{
-    strategy: PngCompressionStrategy::Stored,
-    filter_strategy,
-  }
+  PngEncoder::new_with_all_strategies(
+    PngCompressionStrategy::Stored, filter_strategy, PngInterlaceStrategy::None,
+  )
 }
 
 /// Constructs an encoder with explicit PNG compression and filter strategies.
@@ -144,7 +154,30 @@ pub fn PngEncoder::new_with_strategies(
   strategy : PngCompressionStrategy,
   filter_strategy : PngFilterStrategy,
 ) -> PngEncoder {
-  PngEncoder::{ strategy, filter_strategy }
+  PngEncoder::new_with_all_strategies(
+    strategy, filter_strategy, PngInterlaceStrategy::None,
+  )
+}
+
+///| Constructs an encoder with explicit interlace selection and the frozen
+/// Stored/filter-None route.
+pub fn PngEncoder::new_with_interlace_strategy(
+  interlace_strategy : PngInterlaceStrategy,
+) -> PngEncoder {
+  PngEncoder::new_with_all_strategies(
+    PngCompressionStrategy::Stored, PngFilterStrategy::None, interlace_strategy,
+  )
+}
+
+///| Constructs an encoder with independently selected compression, filter, and
+/// interlace strategies. Adam7 is an explicit pending capability until its
+/// seven-pass encoder implementation is added.
+pub fn PngEncoder::new_with_all_strategies(
+  strategy : PngCompressionStrategy,
+  filter_strategy : PngFilterStrategy,
+  interlace_strategy : PngInterlaceStrategy,
+) -> PngEncoder {
+  PngEncoder::{ strategy, filter_strategy, interlace_strategy }
 }
 
 ///|

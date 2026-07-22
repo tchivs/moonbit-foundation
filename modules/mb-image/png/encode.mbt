@@ -1161,6 +1161,24 @@ fn _png_encode_preflight_with_filter(
   )
 }
 
+///| Interlace selection is admitted before the filter-aware preflight can read
+/// source pixels, plan compression, reserve budget, or create output state.
+fn _png_encode_preflight_with_interlace(
+  source : @storage.ImageView,
+  strategy : PngCompressionStrategy,
+  filter_strategy : PngFilterStrategy,
+  interlace_strategy : PngInterlaceStrategy,
+  limits : @codec.CodecLimits,
+  budget : @budget.Budget,
+) -> Result[PngEncodePreflight, @error.CoreError] {
+  match interlace_strategy {
+    PngInterlaceStrategy::None => _png_encode_preflight_with_filter(
+      source, strategy, filter_strategy, limits, budget,
+    )
+    PngInterlaceStrategy::Adam7 => Err(_png_encode_capability("png-adam7-pending"))
+  }
+}
+
 ///| The test-only bound takes the same atomic ledger path as production.
 fn _png_encode_preflight_with_filter_idat_limit(
   source : @storage.ImageView,
@@ -1361,8 +1379,9 @@ pub impl @codec.ImageEncoder for PngEncoder with fn encode(
   budget,
   _diagnostics,
 ) {
-  let machine = match PngEncodeMachine::new_with_strategies(
-    source, _self.strategy, _self.filter_strategy, limits, budget, _diagnostics,
+  let machine = match PngEncodeMachine::new_with_all_strategies(
+    source, _self.strategy, _self.filter_strategy, _self.interlace_strategy,
+    limits, budget, _diagnostics,
   ) {
     Err(error) => return Err(error)
     Ok(value) => value

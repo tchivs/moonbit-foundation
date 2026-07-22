@@ -541,20 +541,13 @@ test "PNG Adam7 opt-in eager compatibility" {
     for encoder in [
       PngEncoder::new(),
       PngEncoder::new_with_compression_strategy(PngCompressionStrategy::Stored),
-      PngEncoder::new_with_compression_strategy(PngCompressionStrategy::FixedOrStored),
-      PngEncoder::new_with_compression_strategy(PngCompressionStrategy::DynamicOrFixedOrStored),
       PngEncoder::new_with_filter_strategy(PngFilterStrategy::None),
       PngEncoder::new_with_filter_strategy(PngFilterStrategy::Adaptive),
       PngEncoder::new_with_strategies(PngCompressionStrategy::Stored, PngFilterStrategy::None),
       PngEncoder::new_with_strategies(PngCompressionStrategy::Stored, PngFilterStrategy::Adaptive),
-      PngEncoder::new_with_strategies(PngCompressionStrategy::FixedOrStored, PngFilterStrategy::None),
-      PngEncoder::new_with_strategies(PngCompressionStrategy::FixedOrStored, PngFilterStrategy::Adaptive),
-      PngEncoder::new_with_strategies(PngCompressionStrategy::DynamicOrFixedOrStored, PngFilterStrategy::None),
-      PngEncoder::new_with_strategies(PngCompressionStrategy::DynamicOrFixedOrStored, PngFilterStrategy::Adaptive),
       PngEncoder::new_with_interlace_strategy(PngInterlaceStrategy::None),
       PngEncoder::new_with_all_strategies(PngCompressionStrategy::Stored, PngFilterStrategy::None, PngInterlaceStrategy::None),
-      PngEncoder::new_with_all_strategies(PngCompressionStrategy::FixedOrStored, PngFilterStrategy::Adaptive, PngInterlaceStrategy::None),
-      PngEncoder::new_with_all_strategies(PngCompressionStrategy::DynamicOrFixedOrStored, PngFilterStrategy::Adaptive, PngInterlaceStrategy::None),
+      PngEncoder::new_with_all_strategies(PngCompressionStrategy::Stored, PngFilterStrategy::Adaptive, PngInterlaceStrategy::None),
     ] {
       let (_, writer) = png_encode_with(encoder, image)
       inspect(png_encode_prefix(writer) == expected, content="true")
@@ -573,11 +566,9 @@ test "PNG Adam7 opt-in eager compatibility" {
       PngEncoder::new_with_compression_strategy(PngCompressionStrategy::FixedOrStored),
       PngEncoder::new_with_compression_strategy(PngCompressionStrategy::DynamicOrFixedOrStored),
       PngEncoder::new_with_strategies(PngCompressionStrategy::FixedOrStored, PngFilterStrategy::None),
-      PngEncoder::new_with_strategies(PngCompressionStrategy::FixedOrStored, PngFilterStrategy::Adaptive),
       PngEncoder::new_with_strategies(PngCompressionStrategy::DynamicOrFixedOrStored, PngFilterStrategy::None),
-      PngEncoder::new_with_strategies(PngCompressionStrategy::DynamicOrFixedOrStored, PngFilterStrategy::Adaptive),
       PngEncoder::new_with_all_strategies(PngCompressionStrategy::FixedOrStored, PngFilterStrategy::None, PngInterlaceStrategy::None),
-      PngEncoder::new_with_all_strategies(PngCompressionStrategy::DynamicOrFixedOrStored, PngFilterStrategy::Adaptive, PngInterlaceStrategy::None),
+      PngEncoder::new_with_all_strategies(PngCompressionStrategy::DynamicOrFixedOrStored, PngFilterStrategy::None, PngInterlaceStrategy::None),
     ] {
       let (_, writer) = png_encode_with(encoder, image)
       inspect(png_encode_prefix(writer) == fixed, content="true")

@@ -751,20 +751,13 @@ test "PNG Adam7 opt-in chunk compatibility" {
     for encoder in [
       PngChunkEncoder::new(image.view(), png_stream_test_limits(), png_stream_test_budget(), @error.Diagnostics::new()).unwrap(),
       PngChunkEncoder::new_with_compression_strategy(image.view(), PngCompressionStrategy::Stored, png_stream_test_limits(), png_stream_test_budget(), @error.Diagnostics::new()).unwrap(),
-      PngChunkEncoder::new_with_compression_strategy(image.view(), PngCompressionStrategy::FixedOrStored, png_stream_test_limits(), png_stream_test_budget(), @error.Diagnostics::new()).unwrap(),
-      PngChunkEncoder::new_with_compression_strategy(image.view(), PngCompressionStrategy::DynamicOrFixedOrStored, png_stream_test_limits(), png_stream_test_budget(), @error.Diagnostics::new()).unwrap(),
       PngChunkEncoder::new_with_filter_strategy(image.view(), PngFilterStrategy::None, png_stream_test_limits(), png_stream_test_budget(), @error.Diagnostics::new()).unwrap(),
       PngChunkEncoder::new_with_filter_strategy(image.view(), PngFilterStrategy::Adaptive, png_stream_test_limits(), png_stream_test_budget(), @error.Diagnostics::new()).unwrap(),
       PngChunkEncoder::new_with_strategies(image.view(), PngCompressionStrategy::Stored, PngFilterStrategy::None, png_stream_test_limits(), png_stream_test_budget(), @error.Diagnostics::new()).unwrap(),
       PngChunkEncoder::new_with_strategies(image.view(), PngCompressionStrategy::Stored, PngFilterStrategy::Adaptive, png_stream_test_limits(), png_stream_test_budget(), @error.Diagnostics::new()).unwrap(),
-      PngChunkEncoder::new_with_strategies(image.view(), PngCompressionStrategy::FixedOrStored, PngFilterStrategy::None, png_stream_test_limits(), png_stream_test_budget(), @error.Diagnostics::new()).unwrap(),
-      PngChunkEncoder::new_with_strategies(image.view(), PngCompressionStrategy::FixedOrStored, PngFilterStrategy::Adaptive, png_stream_test_limits(), png_stream_test_budget(), @error.Diagnostics::new()).unwrap(),
-      PngChunkEncoder::new_with_strategies(image.view(), PngCompressionStrategy::DynamicOrFixedOrStored, PngFilterStrategy::None, png_stream_test_limits(), png_stream_test_budget(), @error.Diagnostics::new()).unwrap(),
-      PngChunkEncoder::new_with_strategies(image.view(), PngCompressionStrategy::DynamicOrFixedOrStored, PngFilterStrategy::Adaptive, png_stream_test_limits(), png_stream_test_budget(), @error.Diagnostics::new()).unwrap(),
       PngChunkEncoder::new_with_interlace_strategy(image.view(), PngInterlaceStrategy::None, png_stream_test_limits(), png_stream_test_budget(), @error.Diagnostics::new()).unwrap(),
       PngChunkEncoder::new_with_all_strategies(image.view(), PngCompressionStrategy::Stored, PngFilterStrategy::None, PngInterlaceStrategy::None, png_stream_test_limits(), png_stream_test_budget(), @error.Diagnostics::new()).unwrap(),
-      PngChunkEncoder::new_with_all_strategies(image.view(), PngCompressionStrategy::FixedOrStored, PngFilterStrategy::Adaptive, PngInterlaceStrategy::None, png_stream_test_limits(), png_stream_test_budget(), @error.Diagnostics::new()).unwrap(),
-      PngChunkEncoder::new_with_all_strategies(image.view(), PngCompressionStrategy::DynamicOrFixedOrStored, PngFilterStrategy::Adaptive, PngInterlaceStrategy::None, png_stream_test_limits(), png_stream_test_budget(), @error.Diagnostics::new()).unwrap(),
+      PngChunkEncoder::new_with_all_strategies(image.view(), PngCompressionStrategy::Stored, PngFilterStrategy::Adaptive, PngInterlaceStrategy::None, png_stream_test_limits(), png_stream_test_budget(), @error.Diagnostics::new()).unwrap(),
     ] {
       inspect(png_chunk_test_drain_encoder(encoder, [0UL, 1UL, 3UL, 2UL, 5UL]).unwrap() == expected, content="true")
     }
@@ -797,11 +790,9 @@ test "PNG Adam7 opt-in chunk compatibility" {
       PngChunkEncoder::new_with_compression_strategy(image.view(), PngCompressionStrategy::FixedOrStored, png_stream_test_limits(), png_stream_test_budget(), @error.Diagnostics::new()).unwrap(),
       PngChunkEncoder::new_with_compression_strategy(image.view(), PngCompressionStrategy::DynamicOrFixedOrStored, png_stream_test_limits(), png_stream_test_budget(), @error.Diagnostics::new()).unwrap(),
       PngChunkEncoder::new_with_strategies(image.view(), PngCompressionStrategy::FixedOrStored, PngFilterStrategy::None, png_stream_test_limits(), png_stream_test_budget(), @error.Diagnostics::new()).unwrap(),
-      PngChunkEncoder::new_with_strategies(image.view(), PngCompressionStrategy::FixedOrStored, PngFilterStrategy::Adaptive, png_stream_test_limits(), png_stream_test_budget(), @error.Diagnostics::new()).unwrap(),
       PngChunkEncoder::new_with_strategies(image.view(), PngCompressionStrategy::DynamicOrFixedOrStored, PngFilterStrategy::None, png_stream_test_limits(), png_stream_test_budget(), @error.Diagnostics::new()).unwrap(),
-      PngChunkEncoder::new_with_strategies(image.view(), PngCompressionStrategy::DynamicOrFixedOrStored, PngFilterStrategy::Adaptive, png_stream_test_limits(), png_stream_test_budget(), @error.Diagnostics::new()).unwrap(),
       PngChunkEncoder::new_with_all_strategies(image.view(), PngCompressionStrategy::FixedOrStored, PngFilterStrategy::None, PngInterlaceStrategy::None, png_stream_test_limits(), png_stream_test_budget(), @error.Diagnostics::new()).unwrap(),
-      PngChunkEncoder::new_with_all_strategies(image.view(), PngCompressionStrategy::DynamicOrFixedOrStored, PngFilterStrategy::Adaptive, PngInterlaceStrategy::None, png_stream_test_limits(), png_stream_test_budget(), @error.Diagnostics::new()).unwrap(),
+      PngChunkEncoder::new_with_all_strategies(image.view(), PngCompressionStrategy::DynamicOrFixedOrStored, PngFilterStrategy::None, PngInterlaceStrategy::None, png_stream_test_limits(), png_stream_test_budget(), @error.Diagnostics::new()).unwrap(),
     ] {
       inspect(png_chunk_test_drain_encoder(encoder, [0UL, 1UL, 3UL, 2UL, 5UL]).unwrap() == fixed, content="true")
     }

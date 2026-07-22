@@ -12,9 +12,9 @@ pub fn PngChunkEncoder::new(
   budget : @budget.Budget,
   diagnostics : @error.Diagnostics,
 ) -> Result[PngChunkEncoder, @error.CoreError] {
-  PngChunkEncoder::new_with_strategies(
+  PngChunkEncoder::new_with_all_strategies(
     source, PngCompressionStrategy::Stored, PngFilterStrategy::None,
-    limits, budget, diagnostics,
+    PngInterlaceStrategy::None, limits, budget, diagnostics,
   )
 }
 
@@ -30,8 +30,9 @@ pub fn PngChunkEncoder::new_with_compression_strategy(
   budget : @budget.Budget,
   diagnostics : @error.Diagnostics,
 ) -> Result[PngChunkEncoder, @error.CoreError] {
-  PngChunkEncoder::new_with_strategies(
-    source, strategy, PngFilterStrategy::None, limits, budget, diagnostics,
+  PngChunkEncoder::new_with_all_strategies(
+    source, strategy, PngFilterStrategy::None, PngInterlaceStrategy::None,
+    limits, budget, diagnostics,
   )
 }
 
@@ -47,8 +48,9 @@ pub fn PngChunkEncoder::new_with_filter_strategy(
   budget : @budget.Budget,
   diagnostics : @error.Diagnostics,
 ) -> Result[PngChunkEncoder, @error.CoreError] {
-  PngChunkEncoder::new_with_strategies(
-    source, PngCompressionStrategy::Stored, filter_strategy, limits, budget, diagnostics,
+  PngChunkEncoder::new_with_all_strategies(
+    source, PngCompressionStrategy::Stored, filter_strategy, PngInterlaceStrategy::None,
+    limits, budget, diagnostics,
   )
 }
 
@@ -65,8 +67,40 @@ pub fn PngChunkEncoder::new_with_strategies(
   budget : @budget.Budget,
   diagnostics : @error.Diagnostics,
 ) -> Result[PngChunkEncoder, @error.CoreError] {
-  let machine = match PngEncodeMachine::new_with_strategies(
-    source, strategy, filter_strategy, limits, budget, diagnostics,
+  PngChunkEncoder::new_with_all_strategies(
+    source, strategy, filter_strategy, PngInterlaceStrategy::None,
+    limits, budget, diagnostics,
+  )
+}
+
+///| Constructs a caller-buffered encoder with explicit interlace selection and
+/// the frozen Stored/filter-None route.
+pub fn PngChunkEncoder::new_with_interlace_strategy(
+  source : @storage.ImageView,
+  interlace_strategy : PngInterlaceStrategy,
+  limits : @codec.CodecLimits,
+  budget : @budget.Budget,
+  diagnostics : @error.Diagnostics,
+) -> Result[PngChunkEncoder, @error.CoreError] {
+  PngChunkEncoder::new_with_all_strategies(
+    source, PngCompressionStrategy::Stored, PngFilterStrategy::None,
+    interlace_strategy, limits, budget, diagnostics,
+  )
+}
+
+///| Constructs a caller-buffered encoder with independently selected
+/// compression, filter, and interlace strategies.
+pub fn PngChunkEncoder::new_with_all_strategies(
+  source : @storage.ImageView,
+  strategy : PngCompressionStrategy,
+  filter_strategy : PngFilterStrategy,
+  interlace_strategy : PngInterlaceStrategy,
+  limits : @codec.CodecLimits,
+  budget : @budget.Budget,
+  diagnostics : @error.Diagnostics,
+) -> Result[PngChunkEncoder, @error.CoreError] {
+  let machine = match PngEncodeMachine::new_with_all_strategies(
+    source, strategy, filter_strategy, interlace_strategy, limits, budget, diagnostics,
   ) {
     Err(error) => return Err(error)
     Ok(value) => value
@@ -164,6 +198,7 @@ priv struct PngEncodeMachine {
   source : @storage.ImageView
   strategy : PngCompressionStrategy
   filter_strategy : PngFilterStrategy
+  interlace_strategy : PngInterlaceStrategy
   width : UInt64
   height : UInt64
   channels : UInt64
@@ -232,9 +267,9 @@ fn PngEncodeMachine::new(
   budget : @budget.Budget,
   _diagnostics : @error.Diagnostics,
 ) -> Result[PngEncodeMachine, @error.CoreError] {
-  PngEncodeMachine::new_with_strategies(
+  PngEncodeMachine::new_with_all_strategies(
     source, PngCompressionStrategy::Stored, PngFilterStrategy::None,
-    limits, budget, _diagnostics,
+    PngInterlaceStrategy::None, limits, budget, _diagnostics,
   )
 }
 
@@ -246,8 +281,9 @@ fn PngEncodeMachine::new_with_compression_strategy(
   budget : @budget.Budget,
   _diagnostics : @error.Diagnostics,
 ) -> Result[PngEncodeMachine, @error.CoreError] {
-  PngEncodeMachine::new_with_strategies(
-    source, strategy, PngFilterStrategy::None, limits, budget, _diagnostics,
+  PngEncodeMachine::new_with_all_strategies(
+    source, strategy, PngFilterStrategy::None, PngInterlaceStrategy::None,
+    limits, budget, _diagnostics,
   )
 }
 
@@ -260,8 +296,25 @@ fn PngEncodeMachine::new_with_strategies(
   budget : @budget.Budget,
   _diagnostics : @error.Diagnostics,
 ) -> Result[PngEncodeMachine, @error.CoreError] {
-  let facts = match _png_encode_preflight_with_filter(
-    source, strategy, filter_strategy, limits, budget,
+  PngEncodeMachine::new_with_all_strategies(
+    source, strategy, filter_strategy, PngInterlaceStrategy::None,
+    limits, budget, _diagnostics,
+  )
+}
+
+///| The one private construction seam retains the selected interlace intent and
+/// admits it atomically before source traversal, budget charging, or output state.
+fn PngEncodeMachine::new_with_all_strategies(
+  source : @storage.ImageView,
+  strategy : PngCompressionStrategy,
+  filter_strategy : PngFilterStrategy,
+  interlace_strategy : PngInterlaceStrategy,
+  limits : @codec.CodecLimits,
+  budget : @budget.Budget,
+  _diagnostics : @error.Diagnostics,
+) -> Result[PngEncodeMachine, @error.CoreError] {
+  let facts = match _png_encode_preflight_with_interlace(
+    source, strategy, filter_strategy, interlace_strategy, limits, budget,
   ) {
     Err(error) => return Err(error)
     Ok(value) => value
@@ -270,6 +323,7 @@ fn PngEncodeMachine::new_with_strategies(
     source,
     strategy,
     filter_strategy,
+    interlace_strategy,
     width: source.width(),
     height: source.height(),
     channels: facts.channels,
