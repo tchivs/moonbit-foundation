@@ -431,6 +431,26 @@ fn png_stream_gray16_eager(image : @storage.OwnedImage) -> Bytes {
   Bytes::from_array(bytes)
 }
 
+///| Combined eager Gray16 output is the caller-buffered identity oracle.
+fn png_stream_gray16_eager_with_strategies(
+  image : @storage.OwnedImage,
+  strategy : PngCompressionStrategy,
+  filter_strategy : PngFilterStrategy,
+) -> Bytes {
+  let writer = @io.MemoryWriter::new(1048576UL, png_stream_test_budget(work=0UL)).unwrap()
+  ignore(@codec.ImageEncoder::encode(
+    PngEncoder::new_gray16_with_strategies(strategy, filter_strategy),
+    image.view(), writer as &@io.Writer,
+    @codec.EncodeOptions::new(lossless_required=true, preserve_opaque_metadata=false),
+    png_stream_test_limits(), png_stream_test_budget(), @error.Diagnostics::new(),
+  ).unwrap())
+  let bytes : Array[Byte] = []
+  for index = 0UL; index < writer.position(); index = index + 1UL {
+    bytes.push(writer.view().get(index).unwrap())
+  }
+  Bytes::from_array(bytes)
+}
+
 ///| FixedOrStored eager output is the chunk identity oracle for Gray8.
 fn png_stream_gray8_eager_with_compression(
   image : @storage.OwnedImage,
@@ -508,6 +528,37 @@ test "PNG Gray16 chunk Stored output matches eager and rejects atomically" {
       budget.remaining().work() == before.work(),
     content="true",
   )
+}
+
+///| Combined Gray16 factory families must preserve eager/chunk identity before
+/// the bounded filter and compression implementation is added.
+test "PNG Gray16 chunk strategy factories match eager" {
+  let gray = png_stream_gray16_image()
+  for strategy in [
+    PngCompressionStrategy::Stored,
+    PngCompressionStrategy::FixedOrStored,
+    PngCompressionStrategy::DynamicOrFixedOrStored,
+  ] {
+    for filter_strategy in [PngFilterStrategy::None, PngFilterStrategy::Adaptive] {
+      let eager = png_stream_gray16_eager_with_strategies(gray, strategy, filter_strategy)
+      let chunked = png_chunk_test_drain_encoder(
+        PngChunkEncoder::new_gray16_with_strategies(
+          gray.view(), strategy, filter_strategy, png_stream_test_limits(),
+          png_stream_test_budget(), @error.Diagnostics::new(),
+        ).unwrap(),
+        [3UL, 7UL],
+      ).unwrap()
+      inspect(chunked == eager, content="true")
+    }
+  }
+  ignore(PngChunkEncoder::new_gray16_with_compression_strategy(
+    gray.view(), PngCompressionStrategy::FixedOrStored, png_stream_test_limits(),
+    png_stream_test_budget(), @error.Diagnostics::new(),
+  ).unwrap())
+  ignore(PngChunkEncoder::new_gray16_with_filter_strategy(
+    gray.view(), PngFilterStrategy::Adaptive, png_stream_test_limits(),
+    png_stream_test_budget(), @error.Diagnostics::new(),
+  ).unwrap())
 }
 
 ///| FixedOrStored Gray8 uses the same accepted-byte acknowledgement accounting
