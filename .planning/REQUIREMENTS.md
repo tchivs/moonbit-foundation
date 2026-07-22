@@ -1,52 +1,20 @@
-# Requirements: MoonBit Native Foundation
+# Requirements: MoonBit Native Foundation v0.14
 
-**Defined:** 2026-07-22  
-**Milestone:** v0.13 PNG Adam7 Encode  
-**Core Value:** MoonBit developers can reuse stable, high-performance native infrastructure contracts instead of rebuilding incompatible foundations for every graphics, document, media, or automation product.
+## Gray8 PNG Interchange
 
-## v0.13 Requirements
+- [ ] **GRAYPNG-01**: A library user can encode an existing `ChannelOrder::Gray`, 8-bit image as a standards-compliant non-interlaced Gray8 PNG through explicit eager and caller-buffered PNG factories, while every RGB8/RGBA8 factory keeps its existing bytes and behavior.
+- [ ] **GRAYPNG-02**: Gray8 eager and caller-buffered encoding uses the existing bounded preflight, filtering, Stored/FixedOrStored/DynamicOrFixedOrStored planning, output, work, and budget admission rules before any byte is exposed.
+- [ ] **GRAYPNG-03**: Generated Gray8 cases prove public eager decode fidelity, caller-buffered eager-byte identity under zero/one/ragged capacities, frozen RGB/RGBA compatibility, and independent js/wasm/wasm-gc/native execution.
 
-### Interlace Compatibility
+## Deferred
 
-- [x] **PNGI-01**: A library user can explicitly select Adam7 interlaced eager and caller-buffered PNG encoding for compatible RGB8 and straight-RGBA8 images while every existing constructor and compression-only factory retains byte-identical non-interlaced output.
-
-### Bounded Adam7 Encoding
-
-- [x] **PNGI-02**: An opted-in compatible image is emitted as seven deterministic Adam7 passes whose pass geometry, scanline bytes, filter selection, and compression input are bounded by the existing limits and do not require image-sized staging.
-- [x] **PNGI-03**: Adam7 encoding through Stored, FixedOrStored, and DynamicOrFixedOrStored retains atomic capability, geometry, output, work, and budget admission before eager output or a caller-buffered lease, and replay advances only after accepted bytes.
-
-### Portable Evidence
-
-- [x] **PNGI-04**: Generated RGB8 and straight-RGBA8 Adam7 cases prove public decode fidelity, eager/chunk byte identity under hostile capacities, legacy non-interlaced compatibility, and independent js/wasm/wasm-gc/native execution.
-
-## Future Requirements
-
-- **PNGI-05**: Consider palette-aware or grayscale-specific encoder output only after a public image representation and compatibility contract are designed.
-- **PNGF-05**: Add broader encoder filter heuristics or content-specific tuning only after a reproducible benchmark contract exists.
-
-## Out of Scope
-
-| Feature | Reason |
-| --- | --- |
-| Change default non-interlaced PNG output or compression ties | Existing bytes are a compatibility baseline. |
-| Image-sized pass buffers, wider LZ dictionaries, or new FFI codecs | Adam7 must remain bounded and MoonBit-owned. |
-| Palette, grayscale, 16-bit, APNG, metadata, or colour-conversion encode support | Each needs a separate public image/colour compatibility contract. |
-| Release automation or registry publication | They do not unblock Adam7 encoder implementation. |
+- Palette/indexed PNG encoding, Gray low-bit packing, Gray16 output, transparency conversion, and Gray8 Adam7 are separate additive contracts.
+- Registry publication, release scripts, and external package mutation remain out of this code-first milestone.
 
 ## Traceability
 
 | Requirement | Phase | Status |
 | --- | --- | --- |
-| PNGI-01 | Phase 41 | Complete |
-| PNGI-02 | Phase 42 | Complete |
-| PNGI-03 | Phase 42 | Complete |
-| PNGI-04 | Phase 43 | Complete |
-
-**Coverage:**
-
-- v0.13 requirements: 4 total
-- Mapped to phases: 4
-- Unmapped: 0
-
----
-*Requirements defined: 2026-07-22*
+| GRAYPNG-01 | Phase 44 | Pending |
+| GRAYPNG-02 | Phase 45 | Pending |
+| GRAYPNG-03 | Phase 46 | Pending |

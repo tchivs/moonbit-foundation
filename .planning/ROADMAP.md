@@ -14,56 +14,57 @@
 - ✅ **v0.10 PNG Compression Optimization** — Phases 32-34, opt-in fixed-Huffman-or-stored PNG compression with stored-DEFLATE defaults preserved, bounded admission, and four-target corpus evidence (shipped 2026-07-22). [Full history](./milestones/v0.10-ROADMAP.md)
 - ✅ **v0.11 PNG Dynamic Huffman Compression** — Phases 35-37, bounded opt-in Dynamic DEFLATE with frozen Stored/FixedOrStored baselines, strict complete-PNG selection, acknowledgement-safe replay, and four-target evidence (shipped 2026-07-22). [Full history](./milestones/v0.11-ROADMAP.md)
 - ✅ **v0.12 PNG Filter Optimization** — Phases 38-40, explicit bounded adaptive PNG row filtering with legacy compatibility and four-target evidence (shipped 2026-07-22). [Full history](./milestones/v0.12-ROADMAP.md)
-- 📋 **v0.13 PNG Adam7 Encode** — Phases 41-43, explicit bounded Adam7 encoding with frozen legacy output and four-target public evidence.
+- ✅ **v0.13 PNG Adam7 Encode** — Phases 41-43, explicit bounded Adam7 encoding with frozen legacy output and four-target public evidence (shipped 2026-07-22). [Full history](./milestones/v0.13-ROADMAP.md)
+- 📋 **v0.14 Gray8 PNG Interchange** — Phases 44-46, explicit non-interlaced Gray8 output through the bounded PNG encoder and portable public evidence.
 
-## v0.13 PNG Adam7 Encode
+## v0.14 Gray8 PNG Interchange
 
-**Milestone Goal:** Library users can explicitly encode existing RGB8 and straight-RGBA8 images as bounded Adam7 PNGs without changing legacy non-interlaced output or caller-buffered safety semantics.
+**Milestone Goal:** Library users can explicitly encode existing 8-bit `ChannelOrder::Gray` images as standards-compliant non-interlaced Gray8 PNGs through eager and caller-buffered APIs, without changing RGB8/RGBA8 output or encoder safety semantics.
 
 ## Phases
 
-- [x] **Phase 41: Adam7 Opt-In Compatibility** - Add the explicit interlace selection boundary while preserving every existing non-interlaced route. (completed 2026-07-22)
-- [x] **Phase 42: Bounded Adam7 Pass Encoding** - Traverse and replay seven Adam7 passes through bounded filtering and compression admission. (completed 2026-07-22)
-- [x] **Phase 43: Portable Adam7 Public Evidence** - Prove fidelity, eager/chunk identity, compatibility, and independent four-target execution. (completed 2026-07-22)
+- [ ] **Phase 44: Gray8 Factory Compatibility** - Add the explicit non-interlaced Gray8 eager and caller-buffered selection boundary while preserving RGB8/RGBA8 behavior.
+- [ ] **Phase 45: Bounded Gray8 Encoder Path** - Route Gray8 through the shared bounded preflight, filtering, compression, and acknowledgement-safe replay pipeline.
+- [ ] **Phase 46: Portable Gray8 Public Evidence** - Prove Gray8 public fidelity, hostile-capacity eager/chunk identity, RGB/RGBA compatibility, and independent four-target execution.
 
 ## Phase Details
 
-### Phase 41: Adam7 Opt-In Compatibility
+### Phase 44: Gray8 Factory Compatibility
 
-**Goal**: Users can explicitly select Adam7 interlaced eager and caller-buffered PNG encoding for compatible RGB8 and straight-RGBA8 images without changing legacy non-interlaced bytes.
-**Depends on**: Phase 40
-**Requirements**: PNGI-01
+**Goal**: Users can explicitly request standards-compliant, 8-bit, non-interlaced Gray8 PNG output for existing `ChannelOrder::Gray` images through eager and caller-buffered PNG factories without changing RGB8/RGBA8 results.
+**Depends on**: Phase 43
+**Requirements**: GRAYPNG-01
 **Success Criteria** (what must be TRUE):
 
-  1. A library user can explicitly select Adam7 interlaced output through the existing eager and caller-buffered encoder factories for compatible RGB8 and straight-RGBA8 images.
-  2. A library user using every existing constructor or compression-only factory receives the same byte-identical non-interlaced PNG output as before.
-  3. A library user receives a deterministic typed rejection before output when requesting the Adam7 route for an unsupported image capability.
+  1. A library user can encode an existing 8-bit `ChannelOrder::Gray` image through explicit eager and caller-buffered PNG factory routes and receive a non-interlaced Gray8 PNG.
+  2. A library user using any existing RGB8 or straight-RGBA8 PNG factory receives the same output bytes and behavior as before the Gray8 addition.
+  3. The public Gray8 route has a clear deterministic boundary: it does not silently select palette output, low-bit packing, 16-bit samples, transparency conversion, or Adam7 interlacing.
 
 **Plans**: TBD
 
-### Phase 42: Bounded Adam7 Pass Encoding
+### Phase 45: Bounded Gray8 Encoder Path
 
-**Goal**: Opted-in images are encoded as deterministic, bounded Adam7 passes while preserving atomic admission and acknowledgement-safe caller-buffered replay.
-**Depends on**: Phase 41
-**Requirements**: PNGI-02, PNGI-03
+**Goal**: Gray8 eager and caller-buffered output uses the established bounded PNG pipeline before any byte or caller lease is exposed.
+**Depends on**: Phase 44
+**Requirements**: GRAYPNG-02
 **Success Criteria** (what must be TRUE):
 
-  1. An opted-in compatible image produces seven deterministic Adam7 passes whose geometry, scanline bytes, selected filters, and compression input stay within the declared limits without image-sized staging.
-  2. An eager or caller-buffered Adam7 encoder rejects incompatible geometry, output, work, or budget requests before exposing encoded bytes or accepting a caller lease.
-  3. A caller can drain Adam7 output through arbitrary capacities with exact progress; replay advances only for accepted bytes and yields the same bytes as eager output.
+  1. A valid Gray8 image can be encoded through the established filter and Stored, FixedOrStored, or DynamicOrFixedOrStored compression selections without an image-sized staging buffer.
+  2. A Gray8 eager writer observes no bytes, and a caller-buffered user receives no encoder lease, when capability, geometry, output, work, or budget admission fails.
+  3. A caller-buffered Gray8 encoder reports exact accepted progress through arbitrary supplied capacity and advances replay only for accepted output bytes.
 
 **Plans**: TBD
 
-### Phase 43: Portable Adam7 Public Evidence
+### Phase 46: Portable Gray8 Public Evidence
 
-**Goal**: Users have independent public proof that Adam7 encoding faithfully round-trips RGB8 and straight-RGBA8 images across every supported portable target.
-**Depends on**: Phase 42
-**Requirements**: PNGI-04
+**Goal**: Users have independent public proof that Gray8 PNG output is faithful, caller-buffered-safe, compatible with RGB/RGBA output, and portable across every supported target.
+**Depends on**: Phase 45
+**Requirements**: GRAYPNG-03
 **Success Criteria** (what must be TRUE):
 
-  1. Generated RGB8 and straight-RGBA8 Adam7 cases encode through the public API and decode back to exactly the source pixels.
-  2. Hostile caller-buffer capacities produce byte-identical Adam7 output to eager encoding, while the frozen legacy non-interlaced cases retain their baseline bytes.
-  3. The public Adam7 compatibility and fidelity cases execute independently on js, wasm, wasm-gc, and native.
+  1. Generated Gray8 images encoded through the public eager API decode with pixel values that faithfully reproduce their source gray samples.
+  2. Zero, one-byte, and ragged caller capacities produce Gray8 output byte-identical to equivalent eager output, while frozen RGB8 and straight-RGBA8 cases retain their compatibility bytes.
+  3. The public Gray8 fidelity and compatibility cases run independently on js, wasm, wasm-gc, and native.
 
 **Plans**: TBD
 
@@ -71,10 +72,10 @@
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 41. Adam7 Opt-In Compatibility | 1/1 | Complete    | 2026-07-22 |
-| 42. Bounded Adam7 Pass Encoding | 2/2 | Complete    | 2026-07-22 |
-| 43. Portable Adam7 Public Evidence | 1/1 | Complete    | 2026-07-22 |
+| 44. Gray8 Factory Compatibility | 0/TBD | Not started | - |
+| 45. Bounded Gray8 Encoder Path | 0/TBD | Not started | - |
+| 46. Portable Gray8 Public Evidence | 0/TBD | Not started | - |
 
 ## Next
 
-Plan Phase 41: Adam7 Opt-In Compatibility.
+Plan Phase 44: Gray8 Factory Compatibility.
