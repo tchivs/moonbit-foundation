@@ -1,5 +1,19 @@
 # Project Milestones: MoonBit Native Foundation
 
+## v0.15 Gray16 PNG Interchange (Shipped: 2026-07-22)
+
+**Phases completed:** 3 phases, 3 plans
+
+**Key accomplishments:**
+
+- Added explicit eager and caller-buffered U16 Gray16 PNG factories with type-0/16-bit big-endian wire output.
+- Routed Gray16 through the established bounded filter, Stored/Fixed/Dynamic planning, atomic admission, and acknowledgement-safe replay path.
+- Proved wire-byte fidelity, hostile caller-buffered identity, frozen legacy bytes, and 190/190 PNG tests on each supported target.
+
+**Closeout:** Override closeout for 19 pre-v0.15 debug records and one missing historical quick-task record, documented in `STATE.md`; v0.15 itself passed its milestone audit at 100/100 with no code or verification gaps.
+
+---
+
 ## v0.14 Gray8 PNG Interchange (Shipped: 2026-07-22)
 
 **Phases completed:** 3 phases, 3 plans, 6 tasks

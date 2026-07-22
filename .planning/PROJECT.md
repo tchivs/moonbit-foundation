@@ -33,12 +33,15 @@ MoonBit developers can reuse stable, high-performance native infrastructure cont
 - [x] Produce deterministic, bounded PNG scanline filtering with the standard None, Sub, Up, Average, and Paeth predictors. — Validated in v0.12 Phases 38-40.
 - [x] Integrate selected filter bytes with Stored, FixedOrStored, and Dynamic compression planning without weakening atomic preflight or caller-buffered semantics. — Validated in v0.12 Phases 38-40.
 - [x] Prove adaptive-filter output, eager/chunk determinism, and complete decode on all four portable targets. — Validated in v0.12 Phase 40.
+- [x] Provide an explicit opt-in Adam7 PNG encoding route for RGB8 and straight-RGBA8 without changing legacy non-interlaced bytes. — Validated in v0.13 Phases 41-43.
+- [x] Preserve bounded, atomic eager and caller-buffered encoder behavior while traversing Adam7 passes. — Validated in v0.13 Phases 41-43.
+- [x] Prove public Adam7 encode/decode fidelity and eager/chunk identity across all portable targets. — Validated in v0.13 Phase 43.
+- [x] Provide explicit bounded Gray8 PNG encoding and public four-target evidence. — Validated in v0.14 Phases 44-46.
+- [x] Provide explicit packed-U16 Gray16 PNG encoding with byte-preserving wire evidence and bounded caller-buffered behavior. — Validated in v0.15 Phases 47-49.
 
 ### Active
 
-- [ ] Provide an explicit opt-in Adam7 PNG encoding route for RGB8 and straight-RGBA8 without changing legacy non-interlaced bytes.
-- [ ] Preserve bounded, atomic eager and caller-buffered encoder behavior while traversing Adam7 passes.
-- [ ] Prove public Adam7 encode/decode fidelity and eager/chunk identity across all portable targets.
+- [ ] Define the next reusable MoonBit-native image capability through the next milestone's RFC-led requirements.
 
 ### Out of Scope
 
@@ -104,6 +107,12 @@ Registry publication and release automation remain deferred unless a concrete co
 
 **Validated:** Generated 5×3 Gray8 public round trips preserve every source sample through the documented RGB decoder canonicalization; caller-buffered zero, one-byte, and ragged schedules remain eager-byte-identical with accepted-only progress; frozen RGB8/straight-RGBA8 vectors and all Gray8 evidence pass independently on js, wasm, wasm-gc, and native.
 
+## Current State: v0.15 Gray16 PNG Interchange Shipped
+
+**Delivered:** `mb-image` now exposes explicit eager and caller-buffered Gray16 PNG factories for packed U16 grayscale sources. They use the shared bounded filter, Stored/Fixed/Dynamic compression, admission, and acknowledgement-safe replay machinery while emitting PNG-mandated big-endian type-0/16-bit samples.
+
+**Validated:** Non-symmetric U16 images preserve every wire byte from either source-storage byte order. Eager and zero/one/ragged caller-buffered schedules are identical across all six compression/filter pairs; legacy Gray8/RGB8/RGBA8 vectors stay frozen. The PNG package passed 190/190 tests independently on js, wasm, wasm-gc, and native.
+
 
 ## Constraints
 
@@ -138,6 +147,7 @@ Registry publication and release automation remain deferred unless a concrete co
 | Select Dynamic DEFLATE only for a strict complete-PNG win | Existing FixedOrStored bytes remain the compatibility baseline and ties must not churn output | ✓ Validated in v0.11 |
 | Decline over-15-bit ordinary Huffman trees instead of adding a length-limited optimizer | Keep Dynamic planning bounded, portable, and within the declared scope | ✓ Validated in v0.11 |
 | Make adaptive PNG filtering explicit and select only a stable strict candidate winner | Preserve legacy bytes while adding bounded compression improvements without image-sized staging | ✓ Validated in v0.12 |
+| Extend grayscale encoding through explicit profile factories | Preserve legacy PNG bytes and resource semantics while adding Gray8 then U16 Gray16 capability incrementally | ✓ Validated in v0.14-v0.15 |
 
 ## Evolution
 
@@ -157,4 +167,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update toolchain, compatibility, benchmark, and adoption context.
 
 ---
-*Last updated: 2026-07-22 for v0.13 PNG Adam7 Encode*
+*Last updated: 2026-07-22 after v0.15 Gray16 PNG Interchange*
