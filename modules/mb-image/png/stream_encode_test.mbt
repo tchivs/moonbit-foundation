@@ -2146,11 +2146,16 @@ fn png_gray16_replay_mutation_is_sticky(
 }
 
 ///| Fixed and Dynamic Gray16 plans replay the same profile-aware U16 wire
-/// bytes; the Dynamic case also covers the Adaptive filter route.
+/// bytes. The periodic corpus proves the Dynamic BTYPE=10 route rather than
+/// silently accepting Fixed fallback.
 test "PNG Gray16 Fixed and Dynamic replay mutations are sticky" {
   png_gray16_replay_mutation_is_sticky(
     png_stream_gray16_replay_image(5UL),
     PngCompressionStrategy::FixedOrStored, PngFilterStrategy::None, b'\x03', 7UL,
+  )
+  png_gray16_replay_mutation_is_sticky(
+    png_stream_gray16_replay_image(128UL, periodic=true),
+    PngCompressionStrategy::DynamicOrFixedOrStored, PngFilterStrategy::None, b'\x05', 7UL,
   )
 }
 
