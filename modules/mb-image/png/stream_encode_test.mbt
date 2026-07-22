@@ -3438,3 +3438,78 @@ test "PNG Adam7 multi-pass chunk replay is acknowledgement safe" {
     }
   }
 }
+
+///| The legal GrayAlpha16 Adam7 all-strategy route must retain the same
+/// preview/acknowledgement accounting as the existing bounded machine.
+fn png_graya16_adam7_chunk_drain(
+  image : @storage.OwnedImage,
+  strategy : PngCompressionStrategy,
+  filter_strategy : PngFilterStrategy,
+  schedule : Array[UInt64],
+) -> Unit {
+  let eager = png_stream_graya16_eager_with_all_strategies(
+    image, strategy, filter_strategy, PngInterlaceStrategy::Adam7,
+  )
+  let encoder = PngChunkEncoder::new_graya16_with_all_strategies(
+    image.view(), strategy, filter_strategy, PngInterlaceStrategy::Adam7,
+    png_stream_test_limits(), png_stream_test_budget(), @error.Diagnostics::new(),
+  ).unwrap()
+  let empty = png_chunk_test_owner(0UL, fill=b'Z')
+  let zero = empty.with_mut(0UL, 0UL, fn(lease) { Ok(encoder.pull(lease)) }).unwrap()
+  if zero.written() != 0UL || zero.total_written() != 0UL ||
+    !(zero.outcome() is PngChunkPullOutcome::NeedOutput) {
+    abort("png graya16 adam7 empty lease progress")
+  }
+  let output : Array[Byte] = []
+  let mut turn = 0UL
+  while turn < 4096UL {
+    let capacity = schedule[(turn % schedule.length().to_uint64()).to_int()]
+    let owner = png_chunk_test_owner(capacity, fill=b'Z')
+    let before = output.length().to_uint64()
+    let pulled = owner.with_mut(0UL, capacity, fn(lease) { Ok(encoder.pull(lease)) }).unwrap()
+    if pulled.written() > capacity || pulled.total_written() != before + pulled.written() {
+      abort("png graya16 adam7 accepted-only progress")
+    }
+    for index = 0UL; index < pulled.written(); index = index + 1UL {
+      output.push(owner.view().get(index).unwrap())
+    }
+    for index = pulled.written(); index < capacity; index = index + 1UL {
+      if owner.view().get(index).unwrap() != b'Z' {
+        abort("png graya16 adam7 lease tail")
+      }
+    }
+    match pulled.outcome() {
+      PngChunkPullOutcome::NeedOutput => turn = turn + 1UL
+      PngChunkPullOutcome::Failed(_) => abort("png graya16 adam7 chunk drain failed")
+      PngChunkPullOutcome::Finished => {
+        if Bytes::from_array(output) != eager { abort("png graya16 adam7 eager parity") }
+        let sentinel = png_chunk_test_owner(7UL, fill=b'Z')
+        let later = sentinel.with_mut(0UL, 7UL, fn(lease) { Ok(encoder.pull(lease)) }).unwrap()
+        if later.written() != 0UL || later.total_written() != pulled.total_written() ||
+          !(later.outcome() is PngChunkPullOutcome::Finished) {
+          abort("png graya16 adam7 terminal progress")
+        }
+        for index = 0UL; index < 7UL; index = index + 1UL {
+          if sentinel.view().get(index).unwrap() != b'Z' {
+            abort("png graya16 adam7 terminal lease")
+          }
+        }
+        return
+      }
+    }
+  }
+  abort("png graya16 adam7 chunk drain unreachable")
+}
+
+///| Adaptive FixedOrStored GrayAlpha16 Adam7 encoding keeps all pass traversal,
+/// compression planning, and caller-owned replay on the shared bounded path.
+test "PNG GrayAlpha16 Adam7 bounded tracer" {
+  png_graya16_adam7_chunk_drain(
+    png_stream_graya16_adam7_image(), PngCompressionStrategy::FixedOrStored,
+    PngFilterStrategy::Adaptive, [1UL],
+  )
+  png_graya16_adam7_chunk_drain(
+    png_stream_graya16_adam7_image(), PngCompressionStrategy::FixedOrStored,
+    PngFilterStrategy::Adaptive, [1UL, 3UL, 2UL, 5UL],
+  )
+}
