@@ -98,6 +98,28 @@ fn gray16_descriptor() -> @model.ImageDescriptor {
 }
 
 ///|
+fn graya8_descriptor() -> @model.ImageDescriptor {
+  let metadata = @model.ImageMetadata::new(
+    @color.ColorSpaceIdentity::Srgb,
+    @color.TransferIdentity::EncodedSrgb,
+    Some(@color.AlphaMode::Straight),
+    @profile.ProfileIdentity::builtin_srgb(),
+    @model.Orientation::TopLeft,
+    packed_descriptor().metadata().opaque_metadata(),
+  )
+  @model.ImageDescriptor::new(
+    2UL,
+    1UL,
+    @model.ImageFormat::graya8(),
+    [@model.PlaneDescriptor::new(
+      0UL, 4UL, 4UL, 4UL, 1UL, 1UL, 2UL, 1UL,
+    ).unwrap()],
+    4UL,
+    metadata,
+  ).unwrap()
+}
+
+///|
 test "owned image charges once and retains descriptor and metadata" {
   let descriptor = packed_descriptor()
   let budget = storage_budget(24UL)
@@ -151,6 +173,24 @@ test "packed component-byte access constructs and observes U16 storage order" {
       u8.view().get_byte(0UL, 0UL, 0UL).unwrap(),
     content="true",
   )
+}
+
+///|
+test "checked packed views retain distinct GrayAlpha components" {
+  let image = @storage.OwnedImage::new(graya8_descriptor(), storage_budget(4UL)).unwrap()
+  image.with_mut_view(fn(view) {
+    view.set_byte(0UL, 0UL, 0UL, b'\x13').unwrap()
+    view.set_byte(0UL, 0UL, 1UL, b'\xe7').unwrap()
+    view.set_byte(1UL, 0UL, 0UL, b'\xc1').unwrap()
+    view.set_byte(1UL, 0UL, 1UL, b'\x2a').unwrap()
+    Ok(())
+  }).unwrap()
+  let view = image.view()
+  inspect(view.get_byte(0UL, 0UL, 0UL).unwrap(), content="b'\\x13'")
+  inspect(view.get_byte(0UL, 0UL, 1UL).unwrap(), content="b'\\xE7'")
+  inspect(view.get_byte(1UL, 0UL, 0UL).unwrap(), content="b'\\xC1'")
+  inspect(view.get_byte(1UL, 0UL, 1UL).unwrap(), content="b'\\x2A'")
+  inspect(view.get_byte(0UL, 0UL, 2UL) is Err(_), content="true")
 }
 
 ///|
