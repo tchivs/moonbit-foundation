@@ -17,7 +17,7 @@
 
 ### Portable Evidence
 
-- [ ] **PNGI-04**: Generated RGB8 and straight-RGBA8 Adam7 cases prove public decode fidelity, eager/chunk byte identity under hostile capacities, legacy non-interlaced compatibility, and independent js/wasm/wasm-gc/native execution.
+- [x] **PNGI-04**: Generated RGB8 and straight-RGBA8 Adam7 cases prove public decode fidelity, eager/chunk byte identity under hostile capacities, legacy non-interlaced compatibility, and independent js/wasm/wasm-gc/native execution.
 
 ## Future Requirements
 
@@ -40,7 +40,7 @@
 | PNGI-01 | Phase 41 | Complete |
 | PNGI-02 | Phase 42 | Complete |
 | PNGI-03 | Phase 42 | Complete |
-| PNGI-04 | Phase 43 | Pending |
+| PNGI-04 | Phase 43 | Complete |
 
 **Coverage:**
 

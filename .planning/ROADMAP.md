@@ -24,7 +24,7 @@
 
 - [x] **Phase 41: Adam7 Opt-In Compatibility** - Add the explicit interlace selection boundary while preserving every existing non-interlaced route. (completed 2026-07-22)
 - [x] **Phase 42: Bounded Adam7 Pass Encoding** - Traverse and replay seven Adam7 passes through bounded filtering and compression admission. (completed 2026-07-22)
-- [ ] **Phase 43: Portable Adam7 Public Evidence** - Prove fidelity, eager/chunk identity, compatibility, and independent four-target execution.
+- [x] **Phase 43: Portable Adam7 Public Evidence** - Prove fidelity, eager/chunk identity, compatibility, and independent four-target execution. (completed 2026-07-22)
 
 ## Phase Details
 
@@ -73,7 +73,7 @@
 |-------|----------------|--------|-----------|
 | 41. Adam7 Opt-In Compatibility | 1/1 | Complete    | 2026-07-22 |
 | 42. Bounded Adam7 Pass Encoding | 2/2 | Complete    | 2026-07-22 |
-| 43. Portable Adam7 Public Evidence | 0/TBD | Not started | - |
+| 43. Portable Adam7 Public Evidence | 1/1 | Complete    | 2026-07-22 |
 
 ## Next
 
