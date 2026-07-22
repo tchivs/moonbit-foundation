@@ -88,7 +88,13 @@ Plans:
   3. Frozen Gray8, Gray16, RGB8, and straight-RGBA8 vectors retain their existing bytes.
   4. The complete Gray+Alpha8 evidence executes independently on js, wasm, wasm-gc, and native.
 
-**Plans**: TBD
+**Plans**: 1 plan
+
+Plans:
+
+**Wave 1**
+
+- [ ] 52-01-PLAN.md — Add public GrayAlpha wire/decode, hostile caller-buffered, frozen-vector, and four-target evidence.
 
 ## Progress
 
