@@ -262,6 +262,38 @@ test "GrayAlpha is a packed two-component straight-alpha descriptor" {
 }
 
 ///|
+test "GrayAlpha16 is a packed two-component straight-alpha descriptor" {
+  let descriptor = @model.ImageDescriptor::new(
+    1UL,
+    1UL,
+    @model.ImageFormat::graya16(),
+    [@model.PlaneDescriptor::new(
+      0UL, 4UL, 4UL, 4UL, 1UL, 1UL, 1UL, 1UL,
+    ).unwrap()],
+    4UL,
+    image_metadata(
+      Some(@color.AlphaMode::Straight),
+      @model.Orientation::TopLeft,
+    ),
+  ).unwrap()
+  inspect(descriptor.format().component() == @model.ComponentType::U16, content="true")
+  inspect(
+    descriptor.format().channels() == @model.ChannelOrder::GrayAlpha,
+    content="true",
+  )
+  inspect(descriptor.format().layout() == @model.PlaneLayout::Packed, content="true")
+  inspect(descriptor.format().endianness() == @model.Endianness::Little, content="true")
+  inspect(descriptor.format().channel_count(), content="2")
+  inspect(descriptor.format().bytes_per_component(), content="2")
+  inspect(descriptor.plane_count(), content="1")
+  inspect(descriptor.plane(0).unwrap().row_bytes(), content="4")
+  inspect(descriptor.metadata().alpha() == Some(@color.AlphaMode::Straight), content="true")
+  inspect(descriptor.metadata().profile().is_builtin_srgb(), content="true")
+  inspect(descriptor.metadata().orientation() == @model.Orientation::TopLeft, content="true")
+  inspect(descriptor.supports_reference_operations(), content="false")
+}
+
+///|
 test "GrayAlpha admission rejects every unsupported identity" {
   let packed = [@model.PlaneDescriptor::new(
     0UL, 2UL, 2UL, 2UL, 1UL, 1UL, 1UL, 1UL,

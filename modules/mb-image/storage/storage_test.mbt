@@ -120,6 +120,28 @@ fn graya8_descriptor() -> @model.ImageDescriptor {
 }
 
 ///|
+fn graya16_descriptor() -> @model.ImageDescriptor {
+  let metadata = @model.ImageMetadata::new(
+    @color.ColorSpaceIdentity::Srgb,
+    @color.TransferIdentity::EncodedSrgb,
+    Some(@color.AlphaMode::Straight),
+    @profile.ProfileIdentity::builtin_srgb(),
+    @model.Orientation::TopLeft,
+    packed_descriptor().metadata().opaque_metadata(),
+  )
+  @model.ImageDescriptor::new(
+    1UL,
+    1UL,
+    @model.ImageFormat::graya16(),
+    [@model.PlaneDescriptor::new(
+      0UL, 4UL, 4UL, 4UL, 1UL, 1UL, 1UL, 1UL,
+    ).unwrap()],
+    4UL,
+    metadata,
+  ).unwrap()
+}
+
+///|
 test "owned image charges once and retains descriptor and metadata" {
   let descriptor = packed_descriptor()
   let budget = storage_budget(24UL)
@@ -191,6 +213,26 @@ test "checked packed views retain distinct GrayAlpha components" {
   inspect(view.get_byte(1UL, 0UL, 0UL).unwrap(), content="b'\\xC1'")
   inspect(view.get_byte(1UL, 0UL, 1UL).unwrap(), content="b'\\x2A'")
   inspect(view.get_byte(0UL, 0UL, 2UL) is Err(_), content="true")
+}
+
+///|
+test "checked packed views retain both GrayAlpha16 component byte pairs" {
+  let image = @storage.OwnedImage::new(graya16_descriptor(), storage_budget(4UL)).unwrap()
+  image.with_mut_view(fn(view) {
+    view.set_component_byte(0UL, 0UL, 0UL, 0UL, b'\x34').unwrap()
+    view.set_component_byte(0UL, 0UL, 0UL, 1UL, b'\x12').unwrap()
+    view.set_component_byte(0UL, 0UL, 1UL, 0UL, b'\xc5').unwrap()
+    view.set_component_byte(0UL, 0UL, 1UL, 1UL, b'\xa7').unwrap()
+    Ok(())
+  }).unwrap()
+  let view = image.view()
+  inspect(view.get_component_byte(0UL, 0UL, 0UL, 0UL).unwrap(), content="b'\\x34'")
+  inspect(view.get_component_byte(0UL, 0UL, 0UL, 1UL).unwrap(), content="b'\\x12'")
+  inspect(view.get_component_byte(0UL, 0UL, 1UL, 0UL).unwrap(), content="b'\\xC5'")
+  inspect(view.get_component_byte(0UL, 0UL, 1UL, 1UL).unwrap(), content="b'\\xA7'")
+  inspect(view.get_component_byte(0UL, 0UL, 2UL, 0UL) is Err(_), content="true")
+  inspect(view.get_component_byte(0UL, 0UL, 0UL, 2UL) is Err(_), content="true")
+  inspect(view.get_byte(0UL, 0UL, 0UL) is Err(_), content="true")
 }
 
 ///|
