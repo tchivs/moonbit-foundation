@@ -1,5 +1,17 @@
 # Project Milestones: MoonBit Native Foundation
 
+## v0.16 Grayscale Alpha PNG (Shipped: 2026-07-23)
+
+**Phases completed:** 3 phases, 4 plans, 6 tasks
+
+**Key accomplishments:**
+
+- Packed U8 straight-alpha Gray+Alpha sources now encode as bounded, non-interlaced PNG type 4 through explicit eager and caller-buffered APIs.
+- GrayAlpha8 now has strategy-wide atomic rejection coverage for eager and caller-buffered PNG encoding.
+- Public GrayAlpha8 PNG evidence now freezes the type-4 `(13,A7)/(D2,4C)` wire contract, RGBA8 decode canonicalization, hostile chunk ownership, and four-target portability.
+
+---
+
 ## v0.15 Gray16 PNG Interchange (Shipped: 2026-07-22)
 
 **Phases completed:** 3 phases, 3 plans

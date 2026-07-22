@@ -10,14 +10,11 @@ The primary audience is MoonBit library authors and application developers build
 
 MoonBit developers can reuse stable, high-performance native infrastructure contracts instead of rebuilding incompatible foundations for every graphics, document, media, or automation product.
 
-## Current Milestone: v0.16 Grayscale Alpha PNG
+## Current Milestone: Planning Next Code-First Increment
 
-**Goal:** Extend the portable, bounded PNG encoder from opaque grayscale to explicit 8-bit grayscale-plus-alpha output without weakening existing pixel-model or PNG compatibility contracts.
+**Goal:** Select the next high-value MoonBit-native image or document infrastructure increment from validated public contracts.
 
-**Target features:**
-- A first-class packed Gray+Alpha U8 image format with explicit straight-alpha metadata.
-- Eager and caller-buffered non-interlaced Gray+Alpha8 PNG factories through the shared bounded pipeline.
-- Public wire, alpha-fidelity, hostile-capacity, legacy-compatibility, and four-target evidence.
+**Validated baseline:** Packed U8 Gray+Alpha with explicit straight alpha, bounded non-interlaced Type 4 PNG encoding, public hostile caller-buffered behavior, frozen legacy vectors, and four-target proof shipped in v0.16.
 
 ## Requirements
 
@@ -50,9 +47,7 @@ MoonBit developers can reuse stable, high-performance native infrastructure cont
 
 ### Active
 
-- [ ] Provide first-class packed U8 grayscale-plus-alpha image semantics without changing existing Gray/RGB/RGBA contracts.
-- [ ] Encode those images as explicit non-interlaced Gray+Alpha8 PNGs through the bounded eager and caller-buffered pipeline.
-- [ ] Prove alpha and gray fidelity, hostile caller-buffered identity, legacy compatibility, and independent four-target execution.
+- [ ] Define the next code-first milestone from the validated portable image contracts.
 
 ### Out of Scope
 
@@ -120,6 +115,12 @@ Registry publication and release automation remain deferred unless a concrete co
 
 ## Current State: v0.15 Gray16 PNG Interchange Shipped
 
+## Current State: v0.16 Grayscale Alpha PNG Shipped
+
+**Delivered:** `mb-image` now has a first-class packed U8 Gray+Alpha format with explicit straight-alpha metadata and explicit eager/caller-buffered non-interlaced Type 4 PNG factories.
+
+**Validated:** The shared bounded preflight, filtering, compression planning, and acknowledgement-safe replay path rejects incompatible or resource-limited requests before output or lease exposure. Public `(13,A7)/(D2,4C)` wire/decode vectors, zero/one/ragged hostile schedules, frozen Gray8/Gray16/RGB8/RGBA8 output, and four-target PNG evidence pass independently on `wasm`, `wasm-gc`, `js`, and `native` (196/196 each).
+
 **Delivered:** `mb-image` now exposes explicit eager and caller-buffered Gray16 PNG factories for packed U16 grayscale sources. They use the shared bounded filter, Stored/Fixed/Dynamic compression, admission, and acknowledgement-safe replay machinery while emitting PNG-mandated big-endian type-0/16-bit samples.
 
 **Validated:** Non-symmetric U16 images preserve every wire byte from either source-storage byte order. Eager and zero/one/ragged caller-buffered schedules are identical across all six compression/filter pairs; legacy Gray8/RGB8/RGBA8 vectors stay frozen. The PNG package passed 190/190 tests independently on js, wasm, wasm-gc, and native.
@@ -159,6 +160,7 @@ Registry publication and release automation remain deferred unless a concrete co
 | Decline over-15-bit ordinary Huffman trees instead of adding a length-limited optimizer | Keep Dynamic planning bounded, portable, and within the declared scope | ✓ Validated in v0.11 |
 | Make adaptive PNG filtering explicit and select only a stable strict candidate winner | Preserve legacy bytes while adding bounded compression improvements without image-sized staging | ✓ Validated in v0.12 |
 | Extend grayscale encoding through explicit profile factories | Preserve legacy PNG bytes and resource semantics while adding Gray8 then U16 Gray16 capability incrementally | ✓ Validated in v0.14-v0.15 |
+| Add Gray+Alpha8 through an explicit bounded PNG profile | Preserve legacy image/PNG contracts while exposing type-4 wire fidelity and portable public proof | ✓ Validated in v0.16 |
 
 ## Evolution
 
@@ -178,4 +180,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update toolchain, compatibility, benchmark, and adoption context.
 
 ---
-*Last updated: 2026-07-22 to start v0.16 Grayscale Alpha PNG*
+*Last updated: 2026-07-23 after v0.16 Grayscale Alpha PNG milestone*

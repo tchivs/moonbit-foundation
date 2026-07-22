@@ -2,18 +2,18 @@
 gsd_state_version: 1.0
 milestone: v0.16
 milestone_name: Grayscale Alpha PNG
-current_phase: 52
-status: completed
+status: Awaiting next milestone
 stopped_at: Completed 52-01-PLAN.md
-last_updated: "2026-07-22T19:38:10.676Z"
+last_updated: "2026-07-22T19:54:00.399Z"
 last_activity: 2026-07-23
-last_activity_desc: Phase 52 complete
+last_activity_desc: Milestone v0.16 completed and archived
 progress:
   total_phases: 3
   completed_phases: 3
   total_plans: 4
   completed_plans: 4
   percent: 100
+current_phase: 52
 current_phase_name: Portable Gray+Alpha Public Evidence
 ---
 
@@ -29,12 +29,10 @@ See `.planning/PROJECT.md` (updated 2026-07-22).
 
 ## Current Position
 
-Phase: 52
-Plan: Not started
-Status: All phases complete
-Last activity: 2026-07-23 — Phase 52 complete
-
-Progress: [██████████] 100%
+Phase: Milestone v0.16 complete
+Plan: —
+Status: Awaiting next milestone
+Last activity: 2026-07-23 — Milestone v0.16 completed and archived
 
 ## Performance Metrics
 
@@ -112,4 +110,4 @@ Resume file: None
 
 ## Operator Next Steps
 
-- Plan Phase 50 with /gsd-plan-phase 50.
+- Start the next milestone with /gsd-new-milestone
