@@ -3,18 +3,18 @@ gsd_state_version: 1.0
 milestone: v0.18
 milestone_name: GrayAlpha16 Adam7 PNG
 status: planning
-stopped_at: Milestone initialized; roadmap pending
+stopped_at: Roadmap created; Phase 56 ready for planning
 last_updated: "2026-07-23T00:00:00+08:00"
 last_activity: 2026-07-23
-last_activity_desc: Initialized v0.18 GrayAlpha16 Adam7 PNG requirements
+last_activity_desc: Created v0.18 GrayAlpha16 Adam7 PNG roadmap and traceability
 progress:
-  total_phases: 0
+  total_phases: 3
   completed_phases: 0
   total_plans: 0
   completed_plans: 0
   percent: 0
-current_phase: null
-current_phase_name: null
+current_phase: 56
+current_phase_name: GrayAlpha16 Adam7 Factory and Pass Profile
 ---
 
 # Project State
@@ -25,18 +25,18 @@ See `.planning/PROJECT.md` (updated 2026-07-23).
 
 **Core value:** MoonBit developers can reuse stable, high-performance native infrastructure contracts instead of rebuilding incompatible foundations for every graphics, document, media, or automation product.
 
-**Current focus:** Define and execute v0.18 GrayAlpha16 Adam7 PNG.
+**Current focus:** Plan Phase 56 — GrayAlpha16 Adam7 Factory and Pass Profile.
 
 ## Current Position
 
-Phase: Roadmap initialization
+Phase: 56 of 58 — GrayAlpha16 Adam7 Factory and Pass Profile
 Plan: —
-Status: Planning v0.18
-Last activity: 2026-07-23 — v0.18 requirements defined
+Status: Ready to plan v0.18
+Last activity: 2026-07-23 — v0.18 roadmap and requirement traceability created
 
 ## Performance Metrics
 
-**Current milestone:** v0.18 has 3 scoped requirements; roadmap and phases are pending.
+**Current milestone:** v0.18 has 3 scoped requirements mapped across 3 planned phases (56-58).
 
 **Recent milestone:** v0.17 shipped with 4/4 requirements, 3/3 phases, 4/4 plans, 8 tasks, and 204/204 PNG tests on each supported target.
 
@@ -77,6 +77,9 @@ Last activity: 2026-07-23 — v0.18 requirements defined
 - [Phase ?]: GrayAlpha16 Fixed and Dynamic Adaptive replay regressions require zero-write sticky terminal failures after checked U16 mutation.
 - [Phase ?]: Phase 55 separates literal GrayAlpha16 U16 wire fidelity from public RGBA8 high-byte decoder canonicalization.
 - [Phase ?]: Phase 55 uses fresh encoders for zero, one-byte, and ragged GrayAlpha16 drains to prove accepted-only leases and sticky success terminals.
+- [v0.18]: GrayAlpha16 Adam7 is additive through explicit eager and caller-buffered factories only; existing non-interlaced factories and bytes remain frozen.
+- [v0.18]: Adam7 Type-4/16 must reuse the existing shared bounded traversal, filter, Stored/Fixed/Dynamic planning, and acknowledgement-safe replay path without staging or an alternate encoder.
+- [v0.18]: The legal little-endian GrayAlpha16 descriptor boundary remains locked; Big-endian descriptors are rejected before PNG admission.
 
 ### Pending Todos
 
@@ -84,7 +87,7 @@ None.
 
 ### Blockers/Concerns
 
-- No current code or verification blocker. The next milestone must retain the strict little-endian GrayAlpha16 descriptor boundary and frozen non-interlaced PNG bytes.
+- No current code or verification blocker. Phase 56 must retain strict little-endian GrayAlpha16 descriptor admission and frozen non-interlaced PNG bytes.
 
 ## Deferred Items
 
@@ -92,7 +95,7 @@ None.
 |----------|------|--------|
 | scope | Palette/indexed encoding, Gray low-bit packing, Gray16 output, transparency conversion, and Gray8 Adam7 | deferred |
 | scope | Gray+Alpha Adam7 | deferred |
-| scope | GrayAlpha16 Adam7, color conversion, palette/low-bit output, decoder model widening, and image-sized staging | deferred |
+| scope | Color conversion, palette/low-bit output, decoder model widening, and image-sized staging | deferred |
 | delivery | Registry publication, release automation, and source-tree copying | deferred |
 | scope | cICP/HDR and full ICC colour transforms | deferred |
 | historical debug | clean-diff-empty-binding | awaiting_human_verify |
@@ -118,10 +121,10 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-07-22T22:01:01.053Z
-Stopped at: Completed 55-01-PLAN.md
+Last session: 2026-07-23
+Stopped at: Created the v0.18 roadmap; Phase 56 is ready for planning.
 Resume file: None
 
 ## Operator Next Steps
 
-- Start the next milestone with /gsd-new-milestone
+- Plan Phase 56 with /gsd-plan-phase 56.

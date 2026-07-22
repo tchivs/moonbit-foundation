@@ -29,6 +29,12 @@
 
 | Requirement | Phase | Status |
 | --- | --- | --- |
-| GRAYA16A7-01 | Phase TBD | Planned |
-| GRAYA16A7-02 | Phase TBD | Planned |
-| GRAYA16A7-03 | Phase TBD | Planned |
+| GRAYA16A7-01 | Phase 56 | Planned |
+| GRAYA16A7-02 | Phase 57 | Planned |
+| GRAYA16A7-03 | Phase 58 | Planned |
+
+**Coverage:**
+
+- v0.18 requirements: 3 total
+- Mapped to phases: 3
+- Unmapped: 0
