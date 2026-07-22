@@ -733,6 +733,81 @@ test "PNG compression strategy legacy chunk constructors retain frozen stored by
   )
 }
 
+///| The caller-buffered API preserves every frozen legacy route and rejects the
+///| not-yet-implemented Adam7 selection before returning an encoder.
+test "PNG Adam7 opt-in chunk compatibility" {
+  let rgb = png_stream_test_image(3UL)
+  let rgba = png_stream_test_image(4UL)
+  let rgb_stored =
+    b"\x89PNG\r\n\x1a\n\x00\x00\x00\x0dIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x02\x00\x00\x00\x90\x77\x53\xde\x00\x00\x00\x0fIDAT\x78\x01\x01\x04\x00\xfb\xff\x00\x00\x01\x02\x00\x08\x00\x04\xad\xa5\x4e\x4e\x00\x00\x00\x00IEND\xae\x42\x60\x82"
+  let rgba_stored =
+    b"\x89PNG\r\n\x1a\n\x00\x00\x00\x0dIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x06\x00\x00\x00\x1f\x15\xc4\x89\x00\x00\x00\x10IDAT\x78\x01\x01\x05\x00\xfa\xff\x00\x00\x01\x02\x03\x00\x0f\x00\x07\x2c\x93\x65\xb4\x00\x00\x00\x00IEND\xae\x42\x60\x82"
+  for image in [rgb, rgba] {
+    let expected = if image.view().format().channel_count() == 3UL {
+      rgb_stored
+    } else {
+      rgba_stored
+    }
+    for encoder in [
+      PngChunkEncoder::new(image.view(), png_stream_test_limits(), png_stream_test_budget(), @error.Diagnostics::new()).unwrap(),
+      PngChunkEncoder::new_with_compression_strategy(image.view(), PngCompressionStrategy::Stored, png_stream_test_limits(), png_stream_test_budget(), @error.Diagnostics::new()).unwrap(),
+      PngChunkEncoder::new_with_compression_strategy(image.view(), PngCompressionStrategy::FixedOrStored, png_stream_test_limits(), png_stream_test_budget(), @error.Diagnostics::new()).unwrap(),
+      PngChunkEncoder::new_with_compression_strategy(image.view(), PngCompressionStrategy::DynamicOrFixedOrStored, png_stream_test_limits(), png_stream_test_budget(), @error.Diagnostics::new()).unwrap(),
+      PngChunkEncoder::new_with_filter_strategy(image.view(), PngFilterStrategy::None, png_stream_test_limits(), png_stream_test_budget(), @error.Diagnostics::new()).unwrap(),
+      PngChunkEncoder::new_with_filter_strategy(image.view(), PngFilterStrategy::Adaptive, png_stream_test_limits(), png_stream_test_budget(), @error.Diagnostics::new()).unwrap(),
+      PngChunkEncoder::new_with_strategies(image.view(), PngCompressionStrategy::Stored, PngFilterStrategy::None, png_stream_test_limits(), png_stream_test_budget(), @error.Diagnostics::new()).unwrap(),
+      PngChunkEncoder::new_with_strategies(image.view(), PngCompressionStrategy::Stored, PngFilterStrategy::Adaptive, png_stream_test_limits(), png_stream_test_budget(), @error.Diagnostics::new()).unwrap(),
+      PngChunkEncoder::new_with_strategies(image.view(), PngCompressionStrategy::FixedOrStored, PngFilterStrategy::None, png_stream_test_limits(), png_stream_test_budget(), @error.Diagnostics::new()).unwrap(),
+      PngChunkEncoder::new_with_strategies(image.view(), PngCompressionStrategy::FixedOrStored, PngFilterStrategy::Adaptive, png_stream_test_limits(), png_stream_test_budget(), @error.Diagnostics::new()).unwrap(),
+      PngChunkEncoder::new_with_strategies(image.view(), PngCompressionStrategy::DynamicOrFixedOrStored, PngFilterStrategy::None, png_stream_test_limits(), png_stream_test_budget(), @error.Diagnostics::new()).unwrap(),
+      PngChunkEncoder::new_with_strategies(image.view(), PngCompressionStrategy::DynamicOrFixedOrStored, PngFilterStrategy::Adaptive, png_stream_test_limits(), png_stream_test_budget(), @error.Diagnostics::new()).unwrap(),
+      PngChunkEncoder::new_with_interlace_strategy(image.view(), PngInterlaceStrategy::None, png_stream_test_limits(), png_stream_test_budget(), @error.Diagnostics::new()).unwrap(),
+      PngChunkEncoder::new_with_all_strategies(image.view(), PngCompressionStrategy::Stored, PngFilterStrategy::None, PngInterlaceStrategy::None, png_stream_test_limits(), png_stream_test_budget(), @error.Diagnostics::new()).unwrap(),
+      PngChunkEncoder::new_with_all_strategies(image.view(), PngCompressionStrategy::FixedOrStored, PngFilterStrategy::Adaptive, PngInterlaceStrategy::None, png_stream_test_limits(), png_stream_test_budget(), @error.Diagnostics::new()).unwrap(),
+      PngChunkEncoder::new_with_all_strategies(image.view(), PngCompressionStrategy::DynamicOrFixedOrStored, PngFilterStrategy::Adaptive, PngInterlaceStrategy::None, png_stream_test_limits(), png_stream_test_budget(), @error.Diagnostics::new()).unwrap(),
+    ] {
+      inspect(png_chunk_test_drain_encoder(encoder, [0UL, 1UL, 3UL, 2UL, 5UL]).unwrap() == expected, content="true")
+    }
+    for interlace in [PngInterlaceStrategy::Adam7] {
+      let budget = png_stream_test_budget()
+      let before = budget.remaining()
+      let error = PngChunkEncoder::new_with_interlace_strategy(
+        image.view(), interlace, png_stream_test_limits(), budget, @error.Diagnostics::new(),
+      ).unwrap_err()
+      inspect(error.category() == @error.ErrorCategory::Capability && error.code() == @error.ErrorCode::CapabilityUnavailable && error.context() == Some("png-adam7-pending"), content="true")
+      inspect(png_fixed_or_stored_same_remaining(budget.remaining(), before), content="true")
+      let all_budget = png_stream_test_budget()
+      let all_before = all_budget.remaining()
+      let all_error = PngChunkEncoder::new_with_all_strategies(
+        image.view(), PngCompressionStrategy::Stored, PngFilterStrategy::None, interlace,
+        png_stream_test_limits(), all_budget, @error.Diagnostics::new(),
+      ).unwrap_err()
+      inspect(all_error.category() == @error.ErrorCategory::Capability && all_error.code() == @error.ErrorCode::CapabilityUnavailable && all_error.context() == Some("png-adam7-pending"), content="true")
+      inspect(png_fixed_or_stored_same_remaining(all_budget.remaining(), all_before), content="true")
+    }
+  }
+  for channels in [3UL, 4UL] {
+    let image = png_stream_test_flat_image(channels, 32UL)
+    let fixed = if channels == 3UL {
+      b"\x89PNG\r\n\x1a\n\x00\x00\x00\x0dIHDR\x00\x00\x00 \x00\x00\x00\x01\x08\x02\x00\x00\x000\xe8\x3b\x30\x00\x00\x00\x0cIDAT\x78\x01\x63\x58\x45\x63\x00\x00\x14\xf5\x3f\xc1\x59\xc4\xa1\xc0\x00\x00\x00\x00IEND\xae\x42\x60\x82"
+    } else {
+      b"\x89PNG\r\n\x1a\n\x00\x00\x00\x0dIHDR\x00\x00\x00 \x00\x00\x00\x01\x08\x06\x00\x00\x00\xbf\x8a\xac\x67\x00\x00\x00\x0cIDAT\x78\x01\x63\x58\x35\xc0\x00\x00\x6c\x3c\x55\x01\xb7\x54\x9d\x82\x00\x00\x00\x00IEND\xae\x42\x60\x82"
+    }
+    for encoder in [
+      PngChunkEncoder::new_with_compression_strategy(image.view(), PngCompressionStrategy::FixedOrStored, png_stream_test_limits(), png_stream_test_budget(), @error.Diagnostics::new()).unwrap(),
+      PngChunkEncoder::new_with_compression_strategy(image.view(), PngCompressionStrategy::DynamicOrFixedOrStored, png_stream_test_limits(), png_stream_test_budget(), @error.Diagnostics::new()).unwrap(),
+      PngChunkEncoder::new_with_strategies(image.view(), PngCompressionStrategy::FixedOrStored, PngFilterStrategy::None, png_stream_test_limits(), png_stream_test_budget(), @error.Diagnostics::new()).unwrap(),
+      PngChunkEncoder::new_with_strategies(image.view(), PngCompressionStrategy::FixedOrStored, PngFilterStrategy::Adaptive, png_stream_test_limits(), png_stream_test_budget(), @error.Diagnostics::new()).unwrap(),
+      PngChunkEncoder::new_with_strategies(image.view(), PngCompressionStrategy::DynamicOrFixedOrStored, PngFilterStrategy::None, png_stream_test_limits(), png_stream_test_budget(), @error.Diagnostics::new()).unwrap(),
+      PngChunkEncoder::new_with_strategies(image.view(), PngCompressionStrategy::DynamicOrFixedOrStored, PngFilterStrategy::Adaptive, png_stream_test_limits(), png_stream_test_budget(), @error.Diagnostics::new()).unwrap(),
+      PngChunkEncoder::new_with_all_strategies(image.view(), PngCompressionStrategy::FixedOrStored, PngFilterStrategy::None, PngInterlaceStrategy::None, png_stream_test_limits(), png_stream_test_budget(), @error.Diagnostics::new()).unwrap(),
+      PngChunkEncoder::new_with_all_strategies(image.view(), PngCompressionStrategy::DynamicOrFixedOrStored, PngFilterStrategy::Adaptive, PngInterlaceStrategy::None, png_stream_test_limits(), png_stream_test_budget(), @error.Diagnostics::new()).unwrap(),
+    ] {
+      inspect(png_chunk_test_drain_encoder(encoder, [0UL, 1UL, 3UL, 2UL, 5UL]).unwrap() == fixed, content="true")
+    }
+  }
+}
+
 ///|
 test "PNG encode machine eager oracle remains canonical for RGB and RGBA" {
   for image in [png_stream_test_image(3UL), png_stream_test_image(4UL)] {
