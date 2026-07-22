@@ -758,9 +758,51 @@ test "PNG compression strategy legacy chunk constructors retain frozen stored by
   )
 }
 
-///| The caller-buffered API preserves every frozen legacy route and rejects the
-///| not-yet-implemented Adam7 selection before returning an encoder.
-test "PNG Adam7 opt-in chunk compatibility" {
+///| Public Adam7 chunk output must retain its zero-capacity no-op, agree with
+///| eager bytes under one-byte and ragged drains, and decode exactly.
+fn png_adam7_public_chunk_fidelity(
+  source : @storage.OwnedImage,
+  strategy : PngCompressionStrategy,
+) -> Unit {
+  let eager = png_stream_test_eager_with_all_strategies(
+    source, strategy, PngFilterStrategy::None, PngInterlaceStrategy::Adam7,
+  )
+  if eager[28] != b'\x01' { abort("png adam7 eager interlace") }
+
+  let one_byte_encoder = PngChunkEncoder::new_with_all_strategies(
+    source.view(), strategy, PngFilterStrategy::None, PngInterlaceStrategy::Adam7,
+    png_stream_test_limits(), png_stream_test_budget(), @error.Diagnostics::new(),
+  ).unwrap()
+  let empty = png_chunk_test_owner(0UL, fill=b'Z')
+  let zero = empty.with_mut(0UL, 0UL, fn(lease) {
+    Ok(one_byte_encoder.pull(lease))
+  }).unwrap()
+  if zero.written() != 0UL || zero.total_written() != 0UL ||
+    !(zero.outcome() is PngChunkPullOutcome::NeedOutput) {
+    abort("png adam7 zero-capacity progress")
+  }
+  let one_byte = png_chunk_test_drain_encoder(one_byte_encoder, [1UL]).unwrap()
+  if one_byte != eager || one_byte[28] != b'\x01' {
+    abort("png adam7 one-byte eager identity")
+  }
+  png_stream_test_fixed_or_stored_corpus_decode_matches_source(one_byte, source)
+
+  let ragged_encoder = PngChunkEncoder::new_with_all_strategies(
+    source.view(), strategy, PngFilterStrategy::None, PngInterlaceStrategy::Adam7,
+    png_stream_test_limits(), png_stream_test_budget(), @error.Diagnostics::new(),
+  ).unwrap()
+  let ragged = png_chunk_test_drain_encoder(
+    ragged_encoder, [0UL, 1UL, 3UL, 2UL, 5UL],
+  ).unwrap()
+  if ragged != eager || ragged[28] != b'\x01' {
+    abort("png adam7 ragged eager identity")
+  }
+  png_stream_test_fixed_or_stored_corpus_decode_matches_source(ragged, source)
+}
+
+///| Frozen legacy and explicit-None routes remain method 0 while generated
+///| multi-pass Adam7 output stays byte-identical to the eager public route.
+test "PNG Adam7 public chunk fidelity, hostile identity, and frozen None compatibility" {
   let rgb = png_stream_test_image(3UL)
   let rgba = png_stream_test_image(4UL)
   let rgb_stored =
@@ -784,18 +826,10 @@ test "PNG Adam7 opt-in chunk compatibility" {
       PngChunkEncoder::new_with_all_strategies(image.view(), PngCompressionStrategy::Stored, PngFilterStrategy::None, PngInterlaceStrategy::None, png_stream_test_limits(), png_stream_test_budget(), @error.Diagnostics::new()).unwrap(),
       PngChunkEncoder::new_with_all_strategies(image.view(), PngCompressionStrategy::Stored, PngFilterStrategy::Adaptive, PngInterlaceStrategy::None, png_stream_test_limits(), png_stream_test_budget(), @error.Diagnostics::new()).unwrap(),
     ] {
-      inspect(png_chunk_test_drain_encoder(encoder, [0UL, 1UL, 3UL, 2UL, 5UL]).unwrap() == expected, content="true")
-    }
-    for strategy in [PngCompressionStrategy::Stored, PngCompressionStrategy::FixedOrStored, PngCompressionStrategy::DynamicOrFixedOrStored] {
-      let eager = png_stream_test_eager_with_all_strategies(
-        image, strategy, PngFilterStrategy::None, PngInterlaceStrategy::Adam7,
-      )
-      let encoder = PngChunkEncoder::new_with_all_strategies(
-        image.view(), strategy, PngFilterStrategy::None, PngInterlaceStrategy::Adam7,
-        png_stream_test_limits(), png_stream_test_budget(), @error.Diagnostics::new(),
+      let bytes = png_chunk_test_drain_encoder(
+        encoder, [0UL, 1UL, 3UL, 2UL, 5UL],
       ).unwrap()
-      let chunked = png_chunk_test_drain_encoder(encoder, [0UL, 1UL, 3UL, 2UL, 5UL]).unwrap()
-      inspect(chunked == eager && eager[28] == b'\x01', content="true")
+      inspect(bytes == expected && bytes[28] == b'\x00', content="true")
     }
   }
   for channels in [3UL, 4UL] {
@@ -813,7 +847,20 @@ test "PNG Adam7 opt-in chunk compatibility" {
       PngChunkEncoder::new_with_all_strategies(image.view(), PngCompressionStrategy::FixedOrStored, PngFilterStrategy::None, PngInterlaceStrategy::None, png_stream_test_limits(), png_stream_test_budget(), @error.Diagnostics::new()).unwrap(),
       PngChunkEncoder::new_with_all_strategies(image.view(), PngCompressionStrategy::DynamicOrFixedOrStored, PngFilterStrategy::None, PngInterlaceStrategy::None, png_stream_test_limits(), png_stream_test_budget(), @error.Diagnostics::new()).unwrap(),
     ] {
-      inspect(png_chunk_test_drain_encoder(encoder, [0UL, 1UL, 3UL, 2UL, 5UL]).unwrap() == fixed, content="true")
+      let bytes = png_chunk_test_drain_encoder(
+        encoder, [0UL, 1UL, 3UL, 2UL, 5UL],
+      ).unwrap()
+      inspect(bytes == fixed && bytes[28] == b'\x00', content="true")
+    }
+  }
+  for channels in [3UL, 4UL] {
+    let source = png_stream_test_image(channels, width=5UL, height=5UL)
+    for strategy in [
+      PngCompressionStrategy::Stored,
+      PngCompressionStrategy::FixedOrStored,
+      PngCompressionStrategy::DynamicOrFixedOrStored,
+    ] {
+      png_adam7_public_chunk_fidelity(source, strategy)
     }
   }
 }
