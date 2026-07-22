@@ -928,6 +928,34 @@ test "PNG GrayAlpha8 eager Stored output uses type 4 packed pairs" {
   inspect(rejected.position() == 0UL && png_adam7_same_remaining(before, budget.remaining()), content="true")
 }
 
+///| All Gray+Alpha8 eager factory forms use the same non-interlaced bounded
+/// route, including every compression/filter strategy pair.
+test "PNG GrayAlpha8 eager factory strategies preserve framing" {
+  let gray_alpha = png_encode_graya8_image()
+  for encoder in [
+    PngEncoder::new_graya8(),
+    PngEncoder::new_graya8_with_compression_strategy(PngCompressionStrategy::FixedOrStored),
+    PngEncoder::new_graya8_with_filter_strategy(PngFilterStrategy::Adaptive),
+  ] {
+    let (_, writer) = png_encode_with(encoder, gray_alpha)
+    let bytes = png_encode_prefix(writer)
+    inspect(bytes[24] == b'\x08' && bytes[25] == b'\x04' && bytes[28] == b'\x00', content="true")
+  }
+  for strategy in [
+    PngCompressionStrategy::Stored,
+    PngCompressionStrategy::FixedOrStored,
+    PngCompressionStrategy::DynamicOrFixedOrStored,
+  ] {
+    for filter_strategy in [PngFilterStrategy::None, PngFilterStrategy::Adaptive] {
+      let (_, writer) = png_encode_with(
+        PngEncoder::new_graya8_with_strategies(strategy, filter_strategy), gray_alpha,
+      )
+      let bytes = png_encode_prefix(writer)
+      inspect(bytes[24] == b'\x08' && bytes[25] == b'\x04' && bytes[28] == b'\x00', content="true")
+    }
+  }
+}
+
 ///| The Gray16 bounded strategy factories must share the public eager path;
 /// repeated U16 samples expose the two-byte Adaptive Sub stride on wire bytes.
 test "PNG Gray16 eager strategy factories preserve bounded wire bytes" {
