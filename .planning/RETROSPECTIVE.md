@@ -111,6 +111,42 @@
 
 ---
 
+## Milestone: v0.15 — Gray16 PNG Interchange
+
+**Shipped:** 2026-07-22  
+**Phases:** 3 | **Plans:** 3
+
+### What Was Built
+
+- Explicit U16 Gray16 PNG factories for eager and caller-buffered consumers.
+- One shared bounded path for Gray16 filtering, DEFLATE strategy selection, atomic admission, and acknowledgement-safe replay.
+- Public wire-byte, hostile-capacity, legacy-compatibility, and independent four-target evidence.
+
+### What Worked
+
+- Extending the existing profile-aware scalar producer avoided a second encoder implementation and image-sized staging.
+- Public tests used non-symmetric U16 data and both storage byte orders, which made wire-order mistakes observable.
+
+### What Was Inefficient
+
+- Historical debug metadata blocked closeout despite v0.15 passing all verification; it required an explicit historical-deferred record.
+
+### Patterns Established
+
+- For widened sample formats, test exact encoded wire semantics separately from any intentionally lossy public decode canonicalization.
+
+### Key Lessons
+
+1. Add new PNG profiles through explicit factories and the shared admission/replay machinery, never a special staging route.
+2. Archive completed phase artifacts immediately at milestone close so active planning stays small.
+
+### Cost Observations
+
+- Model mix and session count are not reliably captured by the local GSD runtime.
+- Notable: all four supported targets completed the PNG suite at 190/190 tests.
+
+---
+
 ## Cross-Milestone Trends
 
 ### Process Evolution
@@ -119,6 +155,7 @@
 |---|---:|---:|---|
 | v0.1 | 5 | 41 | Established RFC-led horizontal delivery, independent verification, and closed release evidence. |
 | v0.8 | 3 | 5 | Added byte-resumable public PNG decode with corpus-wide four-target streaming evidence. |
+| v0.15 | 3 | 3 | Extended the bounded PNG profile path to U16 grayscale with wire-level portability evidence. |
 
 ### Cumulative Quality
 
@@ -126,6 +163,7 @@
 |---|---:|---:|---:|
 | v0.1 | 197/197 per required target at the locked baseline | 36/36 | 15/15 contract families, 6/6 flows |
 | v0.8 | 84/84 PNG tests per target | 4/4 | 6/6 phase handoffs, 2/2 public flows |
+| v0.15 | 190/190 PNG tests per target | 3/3 | 3/3 phase verifications, 100/100 milestone audit |
 
 ### Top Lessons
 
