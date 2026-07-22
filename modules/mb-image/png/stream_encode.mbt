@@ -339,22 +339,22 @@ fn PngEncodeMachine::new_with_all_strategies(
     pending_stored: None,
     pending_fixed: None,
     pending_dynamic: None,
-    stored_cursor: match filter_strategy {
-      PngFilterStrategy::Adaptive => Some(PngFilteredMatchCursor::new(
-        source, facts.row_bytes, facts.channels, filter_strategy,
+    stored_cursor: if interlace_strategy == PngInterlaceStrategy::Adam7 ||
+      filter_strategy == PngFilterStrategy::Adaptive {
+      Some(PngFilteredMatchCursor::new_with_interlace(
+        source, facts.row_bytes, facts.channels, filter_strategy, interlace_strategy,
       ))
-      PngFilterStrategy::None => None
-    },
+    } else { None },
     fixed_state: match facts.plan {
       PngDeflatePlan::Stored(_) => None
       PngDeflatePlan::Fixed(_) => Some({
         raw_cursor: 0UL,
-        filtered_cursor: match filter_strategy {
-          PngFilterStrategy::Adaptive => Some(PngFilteredMatchCursor::new(
-            source, facts.row_bytes, facts.channels, filter_strategy,
+        filtered_cursor: if interlace_strategy == PngInterlaceStrategy::Adam7 ||
+          filter_strategy == PngFilterStrategy::Adaptive {
+          Some(PngFilteredMatchCursor::new_with_interlace(
+            source, facts.row_bytes, facts.channels, filter_strategy, interlace_strategy,
           ))
-          PngFilterStrategy::None => None
-        },
+        } else { None },
         bit_value: 0UL, bit_count: 0UL, adler: 1UL,
         fingerprint: 1UL, matcher_work: 0UL, header_written: false, eob_written: false,
       })
@@ -363,12 +363,12 @@ fn PngEncodeMachine::new_with_all_strategies(
     dynamic_state: match facts.plan {
       PngDeflatePlan::Dynamic(_) => Some({ phase: 0, header_cursor: 0UL,
         code_length_cursor: 0UL, rle_cursor: 0UL, raw_cursor: 0UL,
-        filtered_cursor: match filter_strategy {
-          PngFilterStrategy::Adaptive => Some(PngFilteredMatchCursor::new(
-            source, facts.row_bytes, facts.channels, filter_strategy,
+        filtered_cursor: if interlace_strategy == PngInterlaceStrategy::Adam7 ||
+          filter_strategy == PngFilterStrategy::Adaptive {
+          Some(PngFilteredMatchCursor::new_with_interlace(
+            source, facts.row_bytes, facts.channels, filter_strategy, interlace_strategy,
           ))
-          PngFilterStrategy::None => None
-        },
+        } else { None },
         bit_value: 0UL, bit_count: 0UL, adler: 1UL, matcher_work: 0UL })
       _ => None
     },
@@ -814,7 +814,7 @@ fn PngEncodeMachine::byte_at(
     let payload = offset - 16UL
     if payload < 4UL { return Ok(_png_encode_machine_u32_byte(self.width, payload)) }
     if payload < 8UL { return Ok(_png_encode_machine_u32_byte(self.height, payload - 4UL)) }
-    return Ok([b'\x08', if self.channels == 3UL { b'\x02' } else { b'\x06' }, b'\x00', b'\x00', b'\x00'][(payload - 8UL).to_int()])
+    return Ok([b'\x08', if self.channels == 3UL { b'\x02' } else { b'\x06' }, b'\x00', b'\x00', if self.interlace_strategy == PngInterlaceStrategy::Adam7 { b'\x01' } else { b'\x00' }][(payload - 8UL).to_int()])
   }
   if offset < 33UL { return Ok(_png_encode_machine_u32_byte(self.ihdr_crc ^ 4294967295UL, offset - 29UL)) }
   if offset < 37UL { return Ok(_png_encode_machine_u32_byte(self.idat_length, offset - 33UL)) }

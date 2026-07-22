@@ -98,6 +98,26 @@ fn png_stream_test_eager_with_strategies(
 }
 
 ///|
+fn png_stream_test_eager_with_all_strategies(
+  image : @storage.OwnedImage,
+  strategy : PngCompressionStrategy,
+  filter_strategy : PngFilterStrategy,
+  interlace_strategy : PngInterlaceStrategy,
+) -> Bytes {
+  let writer = @io.MemoryWriter::new(1048576UL, png_stream_test_budget(work=0UL)).unwrap()
+  ignore(@codec.ImageEncoder::encode(
+    PngEncoder::new_with_all_strategies(strategy, filter_strategy, interlace_strategy), image.view(), writer as &@io.Writer,
+    @codec.EncodeOptions::new(lossless_required=true, preserve_opaque_metadata=false),
+    png_stream_test_limits(), png_stream_test_budget(), @error.Diagnostics::new(),
+  ).unwrap())
+  let bytes : Array[Byte] = []
+  for index = 0UL; index < writer.position(); index = index + 1UL {
+    bytes.push(writer.view().get(index).unwrap())
+  }
+  Bytes::from_array(bytes)
+}
+
+///|
 fn png_stream_test_flat_image(channels : UInt64, width : UInt64) -> @storage.OwnedImage {
   let image = png_stream_test_image(channels, width=width)
   image.with_mut_view(fn(view) {
@@ -761,22 +781,16 @@ test "PNG Adam7 opt-in chunk compatibility" {
     ] {
       inspect(png_chunk_test_drain_encoder(encoder, [0UL, 1UL, 3UL, 2UL, 5UL]).unwrap() == expected, content="true")
     }
-    for interlace in [PngInterlaceStrategy::Adam7] {
-      let budget = png_stream_test_budget()
-      let before = budget.remaining()
-      let error = PngChunkEncoder::new_with_interlace_strategy(
-        image.view(), interlace, png_stream_test_limits(), budget, @error.Diagnostics::new(),
-      ).unwrap_err()
-      inspect(error.category() == @error.ErrorCategory::Capability && error.code() == @error.ErrorCode::CapabilityUnavailable && error.context() == Some("png-adam7-pending"), content="true")
-      inspect(png_fixed_or_stored_same_remaining(budget.remaining(), before), content="true")
-      let all_budget = png_stream_test_budget()
-      let all_before = all_budget.remaining()
-      let all_error = PngChunkEncoder::new_with_all_strategies(
-        image.view(), PngCompressionStrategy::Stored, PngFilterStrategy::None, interlace,
-        png_stream_test_limits(), all_budget, @error.Diagnostics::new(),
-      ).unwrap_err()
-      inspect(all_error.category() == @error.ErrorCategory::Capability && all_error.code() == @error.ErrorCode::CapabilityUnavailable && all_error.context() == Some("png-adam7-pending"), content="true")
-      inspect(png_fixed_or_stored_same_remaining(all_budget.remaining(), all_before), content="true")
+    for strategy in [PngCompressionStrategy::Stored, PngCompressionStrategy::FixedOrStored, PngCompressionStrategy::DynamicOrFixedOrStored] {
+      let eager = png_stream_test_eager_with_all_strategies(
+        image, strategy, PngFilterStrategy::None, PngInterlaceStrategy::Adam7,
+      )
+      let encoder = PngChunkEncoder::new_with_all_strategies(
+        image.view(), strategy, PngFilterStrategy::None, PngInterlaceStrategy::Adam7,
+        png_stream_test_limits(), png_stream_test_budget(), @error.Diagnostics::new(),
+      ).unwrap()
+      let chunked = png_chunk_test_drain_encoder(encoder, [0UL, 1UL, 3UL, 2UL, 5UL]).unwrap()
+      inspect(chunked == eager && eager[28] == b'\x01', content="true")
     }
   }
   for channels in [3UL, 4UL] {
