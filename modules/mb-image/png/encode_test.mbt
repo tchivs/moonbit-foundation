@@ -211,6 +211,38 @@ fn png_encode_graya16_image() -> @storage.OwnedImage {
   image
 }
 
+///| Repeated four-byte pixels make an incorrect two-byte Adaptive Sub stride
+/// observable: only the first pixel may have nonzero residuals.
+fn png_encode_graya16_repeated_image() -> @storage.OwnedImage {
+  let descriptor = @model.ImageDescriptor::new(
+    3UL, 1UL, @model.ImageFormat::graya16(),
+    [@model.PlaneDescriptor::new(0UL, 12UL, 12UL, 12UL, 1UL, 1UL, 3UL, 1UL).unwrap()],
+    12UL,
+    @model.ImageMetadata::new(
+      @color.ColorSpaceIdentity::Srgb, @color.TransferIdentity::EncodedSrgb,
+      Some(@color.AlphaMode::Straight), @profile.ProfileIdentity::builtin_srgb(),
+      @model.Orientation::TopLeft,
+      @metadata.OpaqueMetadata::from_entries(
+        [], @metadata.MetadataLimits::new(
+          max_entries=1UL, max_token_bytes=16UL, max_value_bytes=1UL,
+          max_total_bytes=32UL, max_disposition_fields=4UL,
+        ), png_encode_budget(bytes=1UL, work=0UL),
+      ).unwrap(),
+    ),
+  ).unwrap()
+  let image = @storage.OwnedImage::new(descriptor, png_encode_budget(bytes=12UL, work=0UL)).unwrap()
+  image.with_mut_view(fn(view) {
+    for x = 0UL; x < 3UL; x = x + 1UL {
+      view.set_component_byte(x, 0UL, 0UL, 0UL, b'\x34').unwrap()
+      view.set_component_byte(x, 0UL, 0UL, 1UL, b'\x12').unwrap()
+      view.set_component_byte(x, 0UL, 1UL, 0UL, b'\xc5').unwrap()
+      view.set_component_byte(x, 0UL, 1UL, 1UL, b'\xa7').unwrap()
+    }
+    Ok(())
+  }).unwrap()
+  image
+}
+
 ///| The same non-symmetric samples stored big-endian. PNG wire bytes must not
 /// depend on the source storage order.
 fn png_encode_gray16_big_image() -> @storage.OwnedImage {
@@ -993,6 +1025,75 @@ test "PNG GrayAlpha16 eager Stored output uses type 4 four-byte wire pixels" {
       bytes[49] == b'\x12' && bytes[50] == b'\x34' && bytes[51] == b'\xa7' &&
       bytes[52] == b'\xc5' && bytes[53] == b'\xbe' && bytes[54] == b'\x0f' &&
       bytes[55] == b'\x5a' && bytes[56] == b'\x76',
+    content="true",
+  )
+}
+
+///| The locked Phase-53 GrayAlpha16 identity rejects big-endian descriptors
+/// before a PNG source can be admitted or traversed.
+test "PNG GrayAlpha16 keeps big-endian descriptors outside the legal source contract" {
+  let descriptor = @model.ImageDescriptor::new(
+    1UL, 1UL,
+    @model.ImageFormat::new(
+      @model.ComponentType::U16, @model.ChannelOrder::GrayAlpha,
+      @model.PlaneLayout::Packed, @model.Endianness::Big,
+    ).unwrap(),
+    [@model.PlaneDescriptor::new(0UL, 4UL, 4UL, 4UL, 1UL, 1UL, 1UL, 1UL).unwrap()],
+    4UL,
+    @model.ImageMetadata::new(
+      @color.ColorSpaceIdentity::Srgb, @color.TransferIdentity::EncodedSrgb,
+      Some(@color.AlphaMode::Straight), @profile.ProfileIdentity::builtin_srgb(),
+      @model.Orientation::TopLeft,
+      @metadata.OpaqueMetadata::from_entries(
+        [], @metadata.MetadataLimits::new(
+          max_entries=1UL, max_token_bytes=16UL, max_value_bytes=1UL,
+          max_total_bytes=32UL, max_disposition_fields=4UL,
+        ), png_encode_budget(bytes=1UL, work=0UL),
+      ).unwrap(),
+    ),
+  )
+  inspect(descriptor is Err(_), content="true")
+}
+
+///| All explicit GrayAlpha16 factory shapes select the one non-interlaced
+/// bounded profile; legal U16 GrayAlpha16 strategy and Adaptive stride stay visible.
+test "PNG GrayAlpha16 eager factories preserve four-byte wire and strategy parity" {
+  let gray_alpha = png_encode_graya16_image()
+  for encoder in [
+    PngEncoder::new_graya16(),
+    PngEncoder::new_graya16_with_compression_strategy(PngCompressionStrategy::FixedOrStored),
+    PngEncoder::new_graya16_with_filter_strategy(PngFilterStrategy::Adaptive),
+  ] {
+    let (_, writer) = png_encode_with(encoder, gray_alpha)
+    let bytes = png_encode_prefix(writer)
+    inspect(bytes[24] == b'\x10' && bytes[25] == b'\x04' && bytes[28] == b'\x00', content="true")
+  }
+  for strategy in [
+    PngCompressionStrategy::Stored,
+    PngCompressionStrategy::FixedOrStored,
+    PngCompressionStrategy::DynamicOrFixedOrStored,
+  ] {
+    for filter_strategy in [PngFilterStrategy::None, PngFilterStrategy::Adaptive] {
+      let (_, writer) = png_encode_with(
+        PngEncoder::new_graya16_with_strategies(strategy, filter_strategy), gray_alpha,
+      )
+      let bytes = png_encode_prefix(writer)
+      inspect(bytes[24] == b'\x10' && bytes[25] == b'\x04' && bytes[28] == b'\x00', content="true")
+    }
+  }
+  let (_, adaptive_writer) = png_encode_with(
+    PngEncoder::new_graya16_with_strategies(
+      PngCompressionStrategy::Stored, PngFilterStrategy::Adaptive,
+    ),
+    png_encode_graya16_repeated_image(),
+  )
+  let adaptive = png_encode_prefix(adaptive_writer)
+  inspect(
+    adaptive[48] == b'\x01' && adaptive[49] == b'\x12' && adaptive[50] == b'\x34' &&
+      adaptive[51] == b'\xa7' && adaptive[52] == b'\xc5' && adaptive[53] == b'\x00' &&
+      adaptive[54] == b'\x00' && adaptive[55] == b'\x00' && adaptive[56] == b'\x00' &&
+      adaptive[57] == b'\x00' && adaptive[58] == b'\x00' && adaptive[59] == b'\x00' &&
+      adaptive[60] == b'\x00',
     content="true",
   )
 }

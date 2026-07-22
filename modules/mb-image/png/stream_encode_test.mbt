@@ -922,6 +922,41 @@ test "PNG GrayAlpha16 chunk Stored output matches eager" {
   )
 }
 
+///| Every GrayAlpha16 caller-buffered factory drains to its eager peer across
+/// all six bounded compression/filter choices.
+test "PNG GrayAlpha16 chunk factory strategies match eager" {
+  let gray_alpha = png_stream_graya16_image()
+  ignore(PngChunkEncoder::new_graya16_with_compression_strategy(
+    gray_alpha.view(), PngCompressionStrategy::FixedOrStored, png_stream_test_limits(),
+    png_stream_test_budget(), @error.Diagnostics::new(),
+  ).unwrap())
+  ignore(PngChunkEncoder::new_graya16_with_filter_strategy(
+    gray_alpha.view(), PngFilterStrategy::Adaptive, png_stream_test_limits(),
+    png_stream_test_budget(), @error.Diagnostics::new(),
+  ).unwrap())
+  for strategy in [
+    PngCompressionStrategy::Stored,
+    PngCompressionStrategy::FixedOrStored,
+    PngCompressionStrategy::DynamicOrFixedOrStored,
+  ] {
+    for filter_strategy in [PngFilterStrategy::None, PngFilterStrategy::Adaptive] {
+      let eager = png_stream_graya16_eager_with_strategies(gray_alpha, strategy, filter_strategy)
+      let chunked = png_chunk_test_drain_encoder(
+        PngChunkEncoder::new_graya16_with_strategies(
+          gray_alpha.view(), strategy, filter_strategy, png_stream_test_limits(),
+          png_stream_test_budget(), @error.Diagnostics::new(),
+        ).unwrap(),
+        [3UL, 7UL],
+      ).unwrap()
+      inspect(
+        chunked == eager && eager[24] == b'\x10' && eager[25] == b'\x04' &&
+          eager[28] == b'\x00',
+        content="true",
+      )
+    }
+  }
+}
+
 ///| Every public Gray+Alpha8 caller-buffered factory is ordinary-drain parity
 /// with its eager counterpart across the full bounded strategy matrix.
 test "PNG GrayAlpha8 chunk factory strategies match eager" {
