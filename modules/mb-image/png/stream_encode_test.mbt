@@ -2104,34 +2104,23 @@ fn png_gray16_replay_mutation_is_sticky(
   image.with_mut_view(fn(view) {
     view.set_component_byte(0UL, 0UL, 0UL, 0UL, b'\xff')
   }).unwrap()
-  let mut accepted_total = prefix.length().to_uint64()
-  let mut first_error : @error.CoreError? = None
-  let mut turns = 0UL
-  while turns < 2048UL {
-    let owner = png_chunk_test_owner(post_capacity, fill=b'Z')
-    let pull = owner.with_mut(0UL, post_capacity, fn(lease) { Ok(encoder.pull(lease)) }).unwrap()
-    match pull.outcome() {
-      PngChunkPullOutcome::NeedOutput => {
-        if pull.written() == 0UL || pull.total_written() != accepted_total + pull.written() {
-          abort("png gray16 replay accepted progress")
-        }
-        accepted_total = pull.total_written()
-        turns = turns + 1UL
-      }
-      PngChunkPullOutcome::Failed(error) => {
-        if pull.written() != 0UL || pull.total_written() != accepted_total ||
-          owner.view().get(0UL).unwrap() != b'Z' {
-          abort("png gray16 replay first terminal")
-        }
-        first_error = Some(error)
-        break
-      }
-      PngChunkPullOutcome::Finished => abort("png gray16 replay did not drift")
-    }
+  let accepted_total = prefix.length().to_uint64()
+  let first = png_chunk_test_owner(post_capacity, fill=b'Z')
+  let failed = first.with_mut(0UL, post_capacity, fn(lease) {
+    Ok(encoder.pull(lease))
+  }).unwrap()
+  let error = match failed.outcome() {
+    PngChunkPullOutcome::Failed(value) => value
+    PngChunkPullOutcome::NeedOutput => abort("png gray16 replay exposed post-mutation bytes")
+    PngChunkPullOutcome::Finished => abort("png gray16 replay did not drift")
   }
-  let error = match first_error {
-    Some(value) => value
-    None => abort("png gray16 replay missing error")
+  if failed.written() != 0UL || failed.total_written() != accepted_total {
+    abort("png gray16 replay first terminal progress")
+  }
+  for index = 0UL; index < post_capacity; index = index + 1UL {
+    if first.view().get(index).unwrap() != b'Z' {
+      abort("png gray16 replay first terminal lease")
+    }
   }
   let later = png_chunk_test_owner(post_capacity, fill=b'Z')
   let replay = later.with_mut(0UL, post_capacity, fn(lease) { Ok(encoder.pull(lease)) }).unwrap()
