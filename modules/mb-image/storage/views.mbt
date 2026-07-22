@@ -169,6 +169,16 @@ pub fn ImageView::storage_length(self : ImageView) -> UInt64 {
 }
 
 ///|
+/// Return the revision of the retained owned backing. It advances for every
+/// successful callback-scoped source mutation and is stable for immutable reads.
+pub fn ImageView::mutation_revision(self : ImageView) -> UInt64 {
+  match self.backing {
+    Some(value) => value.mutation_revision()
+    None => 0UL
+  }
+}
+
+///|
 pub fn ImageView::get_byte(
   self : ImageView,
   x : UInt64,

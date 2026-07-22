@@ -27,11 +27,19 @@ fn lease_range_error(
 priv struct LeaseOwner {
   backing : FixedArray[Byte]
   mut leased : Bool
+  revision : MutationRevision
+}
+
+///|
+/// Shared scalar mutation state retained by immutable views and callback-scoped
+/// mutable leases over the same owned backing.
+priv struct MutationRevision {
+  mut value : UInt64
 }
 
 ///|
 fn LeaseOwner::from_backing(backing : FixedArray[Byte]) -> LeaseOwner {
-  { backing, leased: false }
+  { backing, leased: false, revision: { value: 0UL } }
 }
 
 ///|
@@ -73,6 +81,7 @@ pub struct MutByteLease {
   priv length_value : Int
   priv state : LeaseState
   priv group : LeaseGroup
+  priv revision : MutationRevision
 }
 
 ///|
@@ -117,6 +126,7 @@ fn LeaseOwner::acquire_mut(
       scope_active: true,
       owner_restored: false,
     },
+    revision: self.revision,
   })
 }
 
@@ -143,11 +153,20 @@ pub struct ByteView {
   priv backing : FixedArray[Byte]
   priv start : Int
   priv length_value : Int
+  priv revision : MutationRevision
 }
 
 ///|
 pub fn ByteView::length(self : ByteView) -> UInt64 {
   self.length_value.to_uint64()
+}
+
+///|
+/// Return the monotonically increasing revision of this owned backing. Every
+/// successful mutable lease write advances it, allowing retained consumers to
+/// reject a source that changed after admission without rescanning its bytes.
+pub fn ByteView::mutation_revision(self : ByteView) -> UInt64 {
+  self.revision.value
 }
 
 ///|
@@ -195,7 +214,7 @@ pub fn ByteView::subview(
     Ok(value) => value
     Err(error) => return Err(error)
   }
-  Ok({ backing: self.backing, start, length_value: view_length })
+  Ok({ backing: self.backing, start, length_value: view_length, revision: self.revision })
 }
 
 ///|
@@ -242,7 +261,11 @@ pub fn MutByteLease::set(
   match self.checked_index(index) {
     Err(error) => Err(error)
     Ok(absolute) => {
+      if self.revision.value == 18446744073709551615UL {
+        return Err(lease_state_error("mutation-revision-exhausted"))
+      }
       self.backing[absolute] = value
+      self.revision.value = self.revision.value + 1UL
       Ok(())
     }
   }
@@ -286,6 +309,7 @@ pub fn MutByteLease::split_mut(
     length_value: split,
     state: { active: true },
     group: self.group,
+    revision: self.revision,
   }
   let right = MutByteLease::{
     backing: self.backing,
@@ -293,6 +317,7 @@ pub fn MutByteLease::split_mut(
     length_value: self.length_value - split,
     state: { active: true },
     group: self.group,
+    revision: self.revision,
   }
   Ok((left, right))
 }

@@ -119,6 +119,7 @@ pub fn OwnedBytes::view(self : OwnedBytes) -> ByteView {
     backing: self.owner.backing,
     start: 0,
     length_value: self.owner.backing.length(),
+    revision: self.owner.revision,
   }
 }
 

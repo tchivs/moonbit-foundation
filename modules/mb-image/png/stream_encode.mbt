@@ -251,7 +251,7 @@ pub fn PngChunkEncoder::pull(
       outcome_value: PngChunkPullOutcome::Failed(error),
     }
     PngChunkEncoderState::Active(machine) => {
-      match machine.validate_gray16_fixed_replay() {
+      match machine.validate_gray16_replay_revision() {
         Err(error) => {
           self.state = PngChunkEncoderState::Failed(error)
           return {
@@ -345,6 +345,7 @@ priv struct PngEncodeMachine {
   blocks : UInt64
   idat_length : UInt64
   total_length_value : UInt64
+  source_revision : UInt64
   plan : PngDeflatePlan
   disposition : @metadata.MetadataDisposition
   mut emitted : UInt64
@@ -489,6 +490,7 @@ fn PngEncodeMachine::new_with_profile(
     blocks: facts.blocks,
     idat_length: facts.idat_length,
     total_length_value: facts.total_length,
+    source_revision: source.mutation_revision(),
     plan: facts.plan,
     disposition: facts.disposition,
     emitted: 0UL,
@@ -633,37 +635,22 @@ fn _png_fixed_put_bits(
   (value | (bits << count.to_int()), count + width)
 }
 
-///| Before emitting another Gray16 Fixed replay byte, compare the current
-/// profile-aware traversal with the admitted scalar plan. This keeps a source
-/// mutation from partially filling the caller's current lease before the
-/// existing end-of-stream fingerprint check can observe it.
-fn PngEncodeMachine::validate_gray16_fixed_replay(
+///| Source revisions provide an O(1) pre-lease replay guard. The admitted
+/// Fixed/Dynamic fingerprint checks remain the terminal integrity backstop;
+/// this guard prevents a post-admission U16 mutation from first changing the
+/// caller's current lease.
+fn PngEncodeMachine::validate_gray16_replay_revision(
   self : PngEncodeMachine,
 ) -> Result[Unit, @error.CoreError] {
-  if self.profile != PngEncodeProfile::Gray16 { return Ok(()) }
-  let plan = match self.plan {
-    PngDeflatePlan::Fixed(value) => value
-    _ => return Ok(())
+  if self.profile != PngEncodeProfile::Gray16 ||
+    self.source.mutation_revision() == self.source_revision { return Ok(()) }
+  match self.plan {
+    PngDeflatePlan::Fixed(_) =>
+      Err(_png_encode_machine_state_error("png-encode-fixed-replay-drift"))
+    PngDeflatePlan::Dynamic(_) =>
+      Err(_png_encode_machine_state_error("png-encode-dynamic-replay-drift"))
+    PngDeflatePlan::Stored(_) => Ok(())
   }
-  let state = match self.fixed_state {
-    Some(value) => value
-    None => return Err(_png_encode_machine_state_error("png-encode-fixed-state"))
-  }
-  if state.raw_cursor == 0UL || state.raw_cursor >= self.scanlines { return Ok(()) }
-  let replay = match _png_fixed_plan_with_interlace(
-    self.source, self.row_bytes, self.channels, self.filter_strategy,
-    self.scanlines, self.interlace_strategy, profile=self.profile,
-  ) {
-    Err(error) => return Err(error)
-    Ok(value) => value
-  }
-  if replay.matcher_work != plan.matcher_work {
-    return Err(_png_encode_machine_state_error("png-encode-fixed-replay-work"))
-  }
-  if replay.fingerprint != plan.fingerprint {
-    return Err(_png_encode_machine_state_error("png-encode-fixed-replay-drift"))
-  }
-  Ok(())
 }
 
 ///| Simulate exactly one fixed DEFLATE byte without mutating the committed
