@@ -575,28 +575,16 @@ test "PNG Adam7 opt-in eager compatibility" {
     }
   }
   for image in [rgb, rgba] {
-    let budget = png_encode_budget()
-    let before = budget.remaining()
-    let writer = @io.MemoryWriter::new(512UL, png_encode_budget(bytes=512UL, work=0UL)).unwrap()
-    let error = @codec.ImageEncoder::encode(
-      PngEncoder::new_with_interlace_strategy(PngInterlaceStrategy::Adam7), image.view(), writer as &@io.Writer,
-      @codec.EncodeOptions::new(lossless_required=true, preserve_opaque_metadata=false),
-      png_encode_limits(), budget, @error.Diagnostics::new(),
-    ).unwrap_err()
-    inspect(error.category() == @error.ErrorCategory::Capability, content="true")
-    inspect(error.code() == @error.ErrorCode::CapabilityUnavailable, content="true")
-    inspect(error.context() == Some("png-adam7-pending"), content="true")
-    inspect(writer.position() == 0UL && png_adam7_same_remaining(budget.remaining(), before), content="true")
-    let all_budget = png_encode_budget()
-    let all_before = all_budget.remaining()
-    let all_writer = @io.MemoryWriter::new(512UL, png_encode_budget(bytes=512UL, work=0UL)).unwrap()
-    let all_error = @codec.ImageEncoder::encode(
-      PngEncoder::new_with_all_strategies(PngCompressionStrategy::Stored, PngFilterStrategy::None, PngInterlaceStrategy::Adam7), image.view(), all_writer as &@io.Writer,
-      @codec.EncodeOptions::new(lossless_required=true, preserve_opaque_metadata=false),
-      png_encode_limits(), all_budget, @error.Diagnostics::new(),
-    ).unwrap_err()
-    inspect(all_error.category() == @error.ErrorCategory::Capability && all_error.code() == @error.ErrorCode::CapabilityUnavailable && all_error.context() == Some("png-adam7-pending"), content="true")
-    inspect(all_writer.position() == 0UL && png_adam7_same_remaining(all_budget.remaining(), all_before), content="true")
+    for encoder in [
+      PngEncoder::new_with_interlace_strategy(PngInterlaceStrategy::Adam7),
+      PngEncoder::new_with_all_strategies(PngCompressionStrategy::Stored, PngFilterStrategy::None, PngInterlaceStrategy::Adam7),
+      PngEncoder::new_with_all_strategies(PngCompressionStrategy::FixedOrStored, PngFilterStrategy::None, PngInterlaceStrategy::Adam7),
+      PngEncoder::new_with_all_strategies(PngCompressionStrategy::DynamicOrFixedOrStored, PngFilterStrategy::None, PngInterlaceStrategy::Adam7),
+    ] {
+      let (_, writer) = png_encode_with(encoder, image)
+      let bytes = png_encode_prefix(writer)
+      inspect(bytes[28] == b'\x01' && bytes[0] == b'\x89' && bytes[bytes.length() - 1] == b'\x82', content="true")
+    }
   }
 }
 
