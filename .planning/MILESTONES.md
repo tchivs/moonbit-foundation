@@ -1,5 +1,16 @@
 # Project Milestones: MoonBit Native Foundation
 
+## v0.25 Indexed Low-Bit PNG Encode (Shipped: 2026-07-24)
+
+**Phases completed:** 2 phases, 2 plans, 4 tasks
+
+**Key accomplishments:**
+
+- Explicit 1-, 2-, and 4-bit eager Type-3 PNG encoding packs canonical indexed pixels directly into MSB-first Stored scanlines while retaining frozen Indexed8 and chunk behavior.
+- A thin `PngChunkEncoder::new_indexed` adapter now streams Type-3 Indexed1/2/4 through Phase 79's acknowledged machine, with hostile lease and admission qualification.
+
+---
+
 ## v0.24 Indexed PNG Encode (Shipped: 2026-07-24)
 
 **Phases completed:** 3 phases, 3 plans, 4 tasks

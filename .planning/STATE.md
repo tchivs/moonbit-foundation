@@ -2,18 +2,18 @@
 gsd_state_version: 1.0
 milestone: v0.25
 milestone_name: Indexed Low-Bit PNG Encode
-current_phase: 80
-status: completed
+status: Awaiting next milestone
 stopped_at: Completed 80-01-PLAN.md; four-target PNG verification needs rerun
-last_updated: "2026-07-23T22:09:39.856Z"
+last_updated: "2026-07-23T22:15:18.201Z"
 last_activity: 2026-07-24
-last_activity_desc: Phase 80 complete
+last_activity_desc: Milestone v0.25 completed and archived
 progress:
   total_phases: 2
   completed_phases: 2
   total_plans: 2
   completed_plans: 2
   percent: 100
+current_phase: 80
 current_phase_name: Resumable Indexed Low-Bit Qualification
 ---
 
@@ -29,10 +29,10 @@ See `.planning/PROJECT.md` (updated 2026-07-23).
 
 ## Current Position
 
-Phase: 80
-Plan: Not started
-Status: All phases complete
-Last activity: 2026-07-24 — Phase 80 complete
+Phase: Milestone v0.25 complete
+Plan: —
+Status: Awaiting next milestone
+Last activity: 2026-07-24 — Milestone v0.25 completed and archived
 
 ## Performance Metrics
 
