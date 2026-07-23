@@ -1,20 +1,16 @@
 ---
 gsd_state_version: 1.0
-milestone: v0.19
-milestone_name: GrayAlpha8 Adam7 PNG
-status: Awaiting next milestone
-stopped_at: Phase 61 context gathered
-last_updated: "2026-07-23T04:38:43.113Z"
+milestone: v0.20
+milestone_name: High-Precision GrayAlpha Decode
+status: planning
+last_updated: "2026-07-23T04:41:34.293Z"
 last_activity: 2026-07-23
-last_activity_desc: Milestone v0.19 completed and archived
 progress:
-  total_phases: 3
-  completed_phases: 3
-  total_plans: 5
-  completed_plans: 5
-  percent: 100
-current_phase: 61
-current_phase_name: Portable GrayAlpha8 Adam7 Public Evidence
+  total_phases: 0
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
+  percent: 0
 ---
 
 # Project State
@@ -29,10 +25,10 @@ See `.planning/PROJECT.md` (updated 2026-07-23).
 
 ## Current Position
 
-Phase: Milestone v0.19 complete
+Phase: Not started (defining requirements)
 Plan: —
-Status: Awaiting next milestone
-Last activity: 2026-07-23 — Milestone v0.19 completed and archived
+Status: Defining requirements
+Last activity: 2026-07-23 — Milestone v0.20 started
 
 ## Performance Metrics
 
