@@ -2,6 +2,7 @@ members = [
   "./modules/mb-core",
   "./modules/mb-color",
   "./modules/mb-image",
+  "./modules/mb-canvas",
   "./examples/ppm-portable",
   "./examples/ppm-native-cli",
   "./examples/qoi-portable",
