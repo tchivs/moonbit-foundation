@@ -1,10 +1,10 @@
 ---
 schema_version: 1
-open_count: 2
+open_count: 3
 waived_count: 0
 fixed_count: 0
-total_count: 2
-last_updated: 2026-07-23T00:01:48.557Z
+total_count: 3
+last_updated: 2026-07-23T00:11:23.125Z
 ---
 
 # Broken Windows Ledger
@@ -17,6 +17,7 @@ last_updated: 2026-07-23T00:01:48.557Z
 |----|-------|------|------|------|-------------|--------|--------|-------------|-------------|
 | 1 | 54 | deviation | modules/mb-image/png/encode_test.mbt |  | Big-endian GrayAlpha16 parity omitted because Phase 53 rejects Big-endian GrayAlpha descriptors. | open |  | 2026-07-22T21:13:07.814Z |  |
 | 2 | 57 | unrun-verify | modules/mb-image/png |  | Full native PNG suite did not complete because the current moon.exe stopped making CPU progress in the shared workspace; exact focused runs were used instead. | open |  | 2026-07-23T00:01:48.557Z |  |
+| 3 | 57 | deviation | modules/mb-image/png/stream_encode_test.mbt |  | Full native PNG suite hit existing png.whitebox_test.exe exit 0xc0000409; focused Phase 57 regressions passed. | open |  | 2026-07-23T00:11:23.125Z |  |
 
 ````json
 [
@@ -42,6 +43,18 @@ last_updated: 2026-07-23T00:01:48.557Z
     "status": "open",
     "reason": "",
     "recorded_at": "2026-07-23T00:01:48.557Z",
+    "resolved_at": null
+  },
+  {
+    "id": 3,
+    "kind": "deviation",
+    "phase": "57",
+    "file": "modules/mb-image/png/stream_encode_test.mbt",
+    "line": null,
+    "description": "Full native PNG suite hit existing png.whitebox_test.exe exit 0xc0000409; focused Phase 57 regressions passed.",
+    "status": "open",
+    "reason": "",
+    "recorded_at": "2026-07-23T00:11:23.125Z",
     "resolved_at": null
   }
 ]
