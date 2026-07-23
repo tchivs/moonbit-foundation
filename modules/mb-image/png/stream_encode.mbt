@@ -1299,12 +1299,16 @@ fn PngEncodeMachine::byte_at(
     if payload < 4UL { return Ok(_png_encode_machine_u32_byte(self.width, payload)) }
     if payload < 8UL { return Ok(_png_encode_machine_u32_byte(self.height, payload - 4UL)) }
     let colour_type = match self.profile {
+      PngEncodeProfile::Gray1 | PngEncodeProfile::Gray2 | PngEncodeProfile::Gray4 |
       PngEncodeProfile::Gray8 | PngEncodeProfile::Gray16 => b'\x00'
       PngEncodeProfile::GrayAlpha8 | PngEncodeProfile::GrayAlpha16 => b'\x04'
       PngEncodeProfile::Rgba16 => b'\x06'
       PngEncodeProfile::LegacyRgbOrRgba => if self.channels == 3UL { b'\x02' } else { b'\x06' }
     }
-    let bit_depth = if _png_profile_uses_u16_component_wire(self.profile) { b'\x10' } else { b'\x08' }
+    let bit_depth = match _png_profile_packed_gray_depth(self.profile) {
+      Some(depth) => depth.to_byte()
+      None => if _png_profile_uses_u16_component_wire(self.profile) { b'\x10' } else { b'\x08' }
+    }
     return Ok([bit_depth, colour_type, b'\x00', b'\x00', if self.interlace_strategy == PngInterlaceStrategy::Adam7 { b'\x01' } else { b'\x00' }][(payload - 8UL).to_int()])
   }
   if offset < 33UL { return Ok(_png_encode_machine_u32_byte(self.ihdr_crc ^ 4294967295UL, offset - 29UL)) }

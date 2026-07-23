@@ -184,6 +184,9 @@ pub(all) enum PngInterlaceStrategy {
 /// its explicit Stored/non-interlaced factories.
 priv enum PngEncodeProfile {
   LegacyRgbOrRgba
+  Gray1
+  Gray2
+  Gray4
   Gray8
   Gray16
   GrayAlpha8
@@ -216,6 +219,39 @@ pub fn PngEncoder::new_gray8() -> PngEncoder {
   PngEncoder::new_gray8_with_strategies(
     PngCompressionStrategy::Stored, PngFilterStrategy::None,
   )
+}
+
+///| Constructs the explicit Gray1 PNG route: 1-bit grayscale, Stored DEFLATE,
+/// filter None, and no interlace.
+pub fn PngEncoder::new_gray1() -> PngEncoder {
+  {
+    strategy: PngCompressionStrategy::Stored,
+    filter_strategy: PngFilterStrategy::None,
+    interlace_strategy: PngInterlaceStrategy::None,
+    profile: PngEncodeProfile::Gray1,
+  }
+}
+
+///| Constructs the explicit Gray2 PNG route: 2-bit grayscale, Stored DEFLATE,
+/// filter None, and no interlace.
+pub fn PngEncoder::new_gray2() -> PngEncoder {
+  {
+    strategy: PngCompressionStrategy::Stored,
+    filter_strategy: PngFilterStrategy::None,
+    interlace_strategy: PngInterlaceStrategy::None,
+    profile: PngEncodeProfile::Gray2,
+  }
+}
+
+///| Constructs the explicit Gray4 PNG route: 4-bit grayscale, Stored DEFLATE,
+/// filter None, and no interlace.
+pub fn PngEncoder::new_gray4() -> PngEncoder {
+  {
+    strategy: PngCompressionStrategy::Stored,
+    filter_strategy: PngFilterStrategy::None,
+    interlace_strategy: PngInterlaceStrategy::None,
+    profile: PngEncodeProfile::Gray4,
+  }
 }
 
 ///| Constructs the explicit Gray16 PNG route: 16-bit grayscale, Stored

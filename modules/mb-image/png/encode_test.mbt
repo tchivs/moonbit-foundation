@@ -588,14 +588,14 @@ fn png_encode_gray16_public_fidelity_image(
   image
 }
 
-///| Extract one known Stored/None IDAT stream without using the private
-/// inflater. This is intentionally only a bounded stored-block parser whose
-/// caller fixes the expected filtered payload size.
-fn png_encode_gray16_public_stored_scanlines(
+///| Extract a bounded Stored/None IDAT payload without using production
+/// encoding, decoding, or packing helpers. The caller fixes the expected
+/// filtered payload size and compares the literal scanline bytes independently.
+fn png_encode_public_stored_scanlines(
   bytes : Bytes,
   expected_scanline_length : Int,
 ) -> Bytes {
-  if bytes.length().to_uint64() < 20UL { abort("png gray16 public png too short") }
+  if bytes.length().to_uint64() < 20UL { abort("png public png too short") }
   let idat : Array[Byte] = []
   let mut cursor = 8UL
   let mut saw_iend = false
@@ -606,7 +606,7 @@ fn png_encode_gray16_public_stored_scanlines(
       (bytes[(cursor + 2UL).to_int()].to_uint64() << 8) |
       bytes[(cursor + 3UL).to_int()].to_uint64()
     if cursor + 12UL + data_length > bytes.length().to_uint64() {
-      abort("png gray16 public chunk bounds")
+      abort("png public chunk bounds")
     }
     let idat_type = bytes[(cursor + 4UL).to_int()] == b'I' &&
       bytes[(cursor + 5UL).to_int()] == b'D' &&
@@ -622,7 +622,7 @@ fn png_encode_gray16_public_stored_scanlines(
       bytes[(cursor + 6UL).to_int()] == b'N' &&
       bytes[(cursor + 7UL).to_int()] == b'D'
     if iend_type {
-      if data_length != 0UL { abort("png gray16 public iend payload") }
+      if data_length != 0UL { abort("png public iend payload") }
       saw_iend = true
       break
     }
@@ -630,14 +630,14 @@ fn png_encode_gray16_public_stored_scanlines(
   }
   let scanline_length = expected_scanline_length.to_uint64()
   if !saw_iend || idat.length() != (scanline_length + 11UL).to_int() {
-    abort("png gray16 public stored idat shape")
+    abort("png public stored idat shape")
   }
   if idat[0] != b'\x78' || idat[1] != b'\x01' || idat[2] != b'\x01' ||
     idat[3] != scanline_length.to_byte() ||
     idat[4] != (scanline_length >> 8).to_byte() ||
     idat[5] != (65535UL - scanline_length).to_byte() ||
     idat[6] != ((65535UL - scanline_length) >> 8).to_byte() {
-    abort("png gray16 public stored block")
+    abort("png public stored block")
   }
   let scanlines : Array[Byte] = []
   for index = 0; index < expected_scanline_length; index = index + 1 {
@@ -1322,6 +1322,79 @@ test "PNG Gray8 eager Stored output and profile admission are atomic" {
   inspect(rejected.position() == 0UL && png_adam7_same_remaining(before, budget.remaining()), content="true")
 }
 
+///| Explicit Gray1 packs the canonical Gray/U8 source at the PNG wire boundary
+/// and rejects levels that cannot be represented exactly before output or budget use.
+test "PNG Gray1 eager Stored output packs MSB-first and rejects atomically" {
+  let gray = png_encode_gray8_image(
+    b"\x00\xff\x00\xff\x00\xff\x00\xff\xff", width=9UL,
+  )
+  let (_, writer) = png_encode_with(PngEncoder::new_gray1(), gray)
+  let bytes = png_encode_prefix(writer)
+  inspect(
+    bytes[24] == b'\x01' && bytes[25] == b'\x00' && bytes[28] == b'\x00' &&
+      png_encode_public_stored_scanlines(bytes, 3) == b"\x00\x55\x80",
+    content="true",
+  )
+
+  let invalid = png_encode_gray8_image(b"\x01")
+  let budget = png_encode_budget()
+  let before = budget.remaining()
+  let rejected = @io.MemoryWriter::new(512UL, png_encode_budget(bytes=512UL, work=0UL)).unwrap()
+  let error = @codec.ImageEncoder::encode(
+    PngEncoder::new_gray1(), invalid.view(), rejected as &@io.Writer,
+    @codec.EncodeOptions::new(lossless_required=true, preserve_opaque_metadata=false),
+    png_encode_limits(), budget, @error.Diagnostics::new(),
+  ).unwrap_err()
+  inspect(error.context(), content="Some(gray1-level-required)")
+  inspect(rejected.position() == 0UL && png_adam7_same_remaining(before, budget.remaining()), content="true")
+}
+
+///| Gray2 and Gray4 retain the same eager-only Stored/None contract while
+/// proving their odd-width packed tails and atomic exact-level admission.
+test "PNG Gray2 and Gray4 eager Stored output packs exact levels atomically" {
+  let gray2 = png_encode_gray8_image(b"\x00\x55\xaa\xff\x00", width=5UL)
+  let (_, gray2_writer) = png_encode_with(PngEncoder::new_gray2(), gray2)
+  let gray2_bytes = png_encode_prefix(gray2_writer)
+  inspect(
+    gray2_bytes[24] == b'\x02' && gray2_bytes[25] == b'\x00' &&
+      gray2_bytes[28] == b'\x00' &&
+      png_encode_public_stored_scanlines(gray2_bytes, 3) == b"\x00\x1b\x00",
+    content="true",
+  )
+
+  let gray4 = png_encode_gray8_image(b"\x00\xff\x11", width=3UL)
+  let (_, gray4_writer) = png_encode_with(PngEncoder::new_gray4(), gray4)
+  let gray4_bytes = png_encode_prefix(gray4_writer)
+  inspect(
+    gray4_bytes[24] == b'\x04' && gray4_bytes[25] == b'\x00' &&
+      gray4_bytes[28] == b'\x00' &&
+      png_encode_public_stored_scanlines(gray4_bytes, 3) == b"\x00\x0f\x10",
+    content="true",
+  )
+
+  let gray2_budget = png_encode_budget()
+  let gray2_before = gray2_budget.remaining()
+  let gray2_rejected = @io.MemoryWriter::new(512UL, png_encode_budget(bytes=512UL, work=0UL)).unwrap()
+  let gray2_error = @codec.ImageEncoder::encode(
+    PngEncoder::new_gray2(), png_encode_gray8_image(b"\x01").view(), gray2_rejected as &@io.Writer,
+    @codec.EncodeOptions::new(lossless_required=true, preserve_opaque_metadata=false),
+    png_encode_limits(), gray2_budget, @error.Diagnostics::new(),
+  ).unwrap_err()
+  inspect(gray2_error.context(), content="Some(gray2-level-required)")
+  inspect(gray2_rejected.position() == 0UL && png_adam7_same_remaining(gray2_before, gray2_budget.remaining()), content="true")
+
+  let gray4_budget = png_encode_budget()
+  let gray4_before = gray4_budget.remaining()
+  let gray4_rejected = @io.MemoryWriter::new(512UL, png_encode_budget(bytes=512UL, work=0UL)).unwrap()
+  let gray4_error = @codec.ImageEncoder::encode(
+    PngEncoder::new_gray4(), png_encode_gray8_image(b"\x02").view(), gray4_rejected as &@io.Writer,
+    @codec.EncodeOptions::new(lossless_required=true, preserve_opaque_metadata=false),
+    png_encode_limits(), gray4_budget, @error.Diagnostics::new(),
+  ).unwrap_err()
+  inspect(gray4_error.context(), content="Some(gray4-level-required)")
+  inspect(gray4_rejected.position() == 0UL && png_adam7_same_remaining(gray4_before, gray4_budget.remaining()), content="true")
+}
+
 ///|
 test "PNG Gray16 eager Stored output uses type 0 big-endian samples atomically" {
   let gray = png_encode_gray16_image()
@@ -1425,7 +1498,7 @@ test "PNG RGBA16 public eager wire and explicit decode fidelity" {
       bytes[25] == b'\x06' && bytes[28] == b'\x00',
     content="true",
   )
-  if png_encode_gray16_public_stored_scanlines(bytes, 17) != expected {
+  if png_encode_public_stored_scanlines(bytes, 17) != expected {
     abort("png rgba16 public eager stored raster")
   }
   let owner = @bytes.OwnedBytes::from_bytes(
@@ -1525,7 +1598,7 @@ test "PNG RGBA16 Adam7 eager wire and explicit decode fidelity" {
     let bytes = png_encode_prefix(writer)
     if bytes[0] != b'\x89' || bytes[1] != b'P' || bytes[24] != b'\x10' ||
       bytes[25] != b'\x06' || bytes[26] != b'\x00' || bytes[27] != b'\x00' ||
-      bytes[28] != b'\x01' || png_encode_gray16_public_stored_scanlines(bytes, 211) != expected {
+      bytes[28] != b'\x01' || png_encode_public_stored_scanlines(bytes, 211) != expected {
       abort("png rgba16 Adam7 eager pass profile")
     }
     outputs.push(bytes)
@@ -1633,7 +1706,7 @@ test "PNG GrayAlpha8 Adam7 eager pass profile" {
       bytes[27] != b'\x00' || bytes[28] != b'\x01' {
       abort("png graya8 Adam7 eager framing")
     }
-    if png_encode_gray16_public_stored_scanlines(bytes, 61) != expected {
+    if png_encode_public_stored_scanlines(bytes, 61) != expected {
       abort("png graya8 Adam7 eager pass raster")
     }
   }
@@ -1706,7 +1779,7 @@ test "PNG GrayAlpha16 Adam7 public wire and decode" {
     bytes[25] != b'\x04' || bytes[28] != b'\x01' {
     abort("png graya16 Adam7 public framing")
   }
-  if png_encode_gray16_public_stored_scanlines(bytes, 111) != expected {
+  if png_encode_public_stored_scanlines(bytes, 111) != expected {
     abort("png graya16 Adam7 public pass raster")
   }
   png_encode_graya16_adam7_public_decode_is_canonical(bytes)
@@ -1975,7 +2048,7 @@ test "PNG Gray16 public eager fidelity" {
   let little = png_encode_prefix(little_writer)
   let big = png_encode_prefix(big_writer)
   if little != big || little[24] != b'\x10' || little[25] != b'\x00' ||
-    little[28] != b'\x00' || png_encode_gray16_public_stored_scanlines(little, 14) != expected {
+    little[28] != b'\x00' || png_encode_public_stored_scanlines(little, 14) != expected {
     abort("png gray16 public eager wire")
   }
   png_encode_gray16_public_decode_is_canonical(little)

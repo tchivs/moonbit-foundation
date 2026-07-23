@@ -50,6 +50,71 @@ fn _png_encode_u32(value : UInt64) -> Result[UInt64, @error.CoreError] {
   }
 }
 
+///| The low-bit profiles serialize a canonical Gray/U8 source through a
+/// packed PNG wire row while preserving the existing one-byte source layout.
+fn _png_profile_packed_gray_depth(profile : PngEncodeProfile) -> UInt64? {
+  match profile {
+    PngEncodeProfile::Gray1 => Some(1UL)
+    PngEncodeProfile::Gray2 => Some(2UL)
+    PngEncodeProfile::Gray4 => Some(4UL)
+    _ => None
+  }
+}
+
+///| Admit an exact low-bit grayscale level and return its unscaled PNG code.
+fn _png_packed_gray_code(
+  profile : PngEncodeProfile,
+  sample : Byte,
+) -> Result[Byte, @error.CoreError] {
+  match profile {
+    PngEncodeProfile::Gray1 =>
+      if sample == b'\x00' { Ok(b'\x00') } else if sample == b'\xff' {
+        Ok(b'\x01')
+      } else {
+        Err(_png_encode_capability("gray1-level-required"))
+      }
+    PngEncodeProfile::Gray2 =>
+      if sample == b'\x00' { Ok(b'\x00') } else if sample == b'\x55' {
+        Ok(b'\x01')
+      } else if sample == b'\xaa' {
+        Ok(b'\x02')
+      } else if sample == b'\xff' {
+        Ok(b'\x03')
+      } else {
+        Err(_png_encode_capability("gray2-level-required"))
+      }
+    PngEncodeProfile::Gray4 =>
+      if sample.to_int() % 17 == 0 {
+        Ok((sample.to_int() / 17).to_byte())
+      } else {
+        Err(_png_encode_capability("gray4-level-required"))
+      }
+    _ => Err(_png_encode_capability("packed-gray-profile-required"))
+  }
+}
+
+///| Derive a wire row layout without changing the canonical source-row check.
+fn _png_profile_wire_row_bytes(
+  width : UInt64,
+  channels : UInt64,
+  profile : PngEncodeProfile,
+) -> Result[UInt64, @error.CoreError] {
+  match _png_profile_packed_gray_depth(profile) {
+    Some(depth) => {
+      let bits = match @checked.checked_mul(width, depth) {
+        Err(error) => return Err(error)
+        Ok(value) => value
+      }
+      let rounded = match @checked.checked_add(bits, 7UL) {
+        Err(error) => return Err(error)
+        Ok(value) => value
+      }
+      Ok(rounded / 8UL)
+    }
+    None => @checked.checked_mul(width, channels)
+  }
+}
+
 ///|
 /// Validate every semantic and physical property before pixels are read or the
 /// caller budget is charged. The canonical layout contains no padding rows.
@@ -104,6 +169,17 @@ fn _png_encode_source(
           }
         }
       _ => return Err(_png_encode_capability("rgb-or-rgba-required"))
+    }
+    PngEncodeProfile::Gray1 | PngEncodeProfile::Gray2 | PngEncodeProfile::Gray4 => match format.channels() {
+      @model.ChannelOrder::Gray =>
+        if format.component() != @model.ComponentType::U8 {
+          return Err(_png_encode_capability("component-u8-required"))
+        } else if metadata.alpha() is Some(_) {
+          return Err(_png_encode_capability("gray-alpha-unsupported"))
+        } else {
+          1UL
+        }
+      _ => return Err(_png_encode_capability("packed-gray-required"))
     }
     PngEncodeProfile::Gray8 => match format.channels() {
       @model.ChannelOrder::Gray =>
@@ -169,6 +245,23 @@ fn _png_encode_source(
   }
   if source.row_bytes() != row_bytes || source.row_stride() != row_bytes {
     return Err(_png_encode_capability("tightly-packed-rows-required"))
+  }
+  match _png_profile_packed_gray_depth(profile) {
+    Some(_) => {
+      for y = 0UL; y < source.height(); y = y + 1UL {
+        for x = 0UL; x < source.width(); x = x + 1UL {
+          let sample = match source.get_byte(x, y, 0UL) {
+            Err(error) => return Err(error)
+            Ok(value) => value
+          }
+          match _png_packed_gray_code(profile, sample) {
+            Err(error) => return Err(error)
+            Ok(_) => ()
+          }
+        }
+      }
+    }
+    None => ()
   }
   Ok(channels)
 }
@@ -445,6 +538,30 @@ fn _png_wire_byte(
   position : UInt64,
 ) -> Result[Byte, @error.CoreError] {
   match profile {
+    PngEncodeProfile::Gray1 | PngEncodeProfile::Gray2 | PngEncodeProfile::Gray4 => {
+      let depth = _png_profile_packed_gray_depth(profile).unwrap()
+      let first = (position * 8UL) / depth
+      let end = if first + (8UL / depth) < source.width() {
+        first + (8UL / depth)
+      } else {
+        source.width()
+      }
+      let mut packed = 0
+      for x = first; x < end; x = x + 1UL {
+        let sample = match source.get_byte(x, row, 0UL) {
+          Err(error) => return Err(error)
+          Ok(value) => value
+        }
+        let code = match _png_packed_gray_code(profile, sample) {
+          Err(error) => return Err(error)
+          Ok(value) => value
+        }
+        let start = x * depth
+        let shift = 8 - depth.to_int() - (start % 8UL).to_int()
+        packed = packed | (code.to_int() << shift)
+      }
+      Ok(packed.to_byte())
+    }
     PngEncodeProfile::Gray16 | PngEncodeProfile::GrayAlpha16 | PngEncodeProfile::Rgba16 => {
       let component = (position % channels) / 2UL
       let wire_byte = position % 2UL
@@ -1564,6 +1681,12 @@ fn _png_encode_preflight_with_interlace_profile(
   budget : @budget.Budget,
 ) -> Result[PngEncodePreflight, @error.CoreError] {
   match profile {
+    PngEncodeProfile::Gray1 if interlace_strategy != PngInterlaceStrategy::None =>
+      return Err(_png_encode_capability("packed-gray-noninterlaced-required"))
+    PngEncodeProfile::Gray2 if interlace_strategy != PngInterlaceStrategy::None =>
+      return Err(_png_encode_capability("packed-gray-noninterlaced-required"))
+    PngEncodeProfile::Gray4 if interlace_strategy != PngInterlaceStrategy::None =>
+      return Err(_png_encode_capability("packed-gray-noninterlaced-required"))
     PngEncodeProfile::Gray8 if interlace_strategy != PngInterlaceStrategy::None =>
       return Err(_png_encode_capability("gray8-noninterlaced-required"))
     PngEncodeProfile::Gray16 if interlace_strategy != PngInterlaceStrategy::None =>
@@ -1628,7 +1751,7 @@ fn _png_encode_preflight_with_filter_layout_idat_limit_profile(
     Err(error) => return Err(error)
     Ok(value) => value
   }
-  let row_bytes = match @checked.checked_mul(source.width(), channels) {
+  let row_bytes = match _png_profile_wire_row_bytes(source.width(), channels, profile) {
     Err(error) => return Err(error)
     Ok(value) => value
   }
