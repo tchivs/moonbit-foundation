@@ -12,7 +12,7 @@
 
 ### Shared resumable semantics
 
-- [ ] **GRAYPACK-03**: Library users can select caller-buffered low-bit grayscale output that shares the bounded machine, has eager-identical bytes under hostile capacities, preserves lease ownership, and retains sticky typed terminals.
+- [x] **GRAYPACK-03**: Library users can select caller-buffered low-bit grayscale output that shares the bounded machine, has eager-identical bytes under hostile capacities, preserves lease ownership, and retains sticky typed terminals.
 
 ### Portable qualification
 
@@ -33,7 +33,7 @@
 |---|---|---|
 | GRAYPACK-01 | Phase 73 | Complete |
 | GRAYPACK-02 | Phase 73 | Complete |
-| GRAYPACK-03 | Phase 74 | Pending |
+| GRAYPACK-03 | Phase 74 | Complete |
 | GRAYPACK-04 | Phase 75 | Pending |
 
 **Coverage:**
