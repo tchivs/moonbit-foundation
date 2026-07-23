@@ -669,6 +669,43 @@ fn png_encode_graya16_adam7_public_decode_is_canonical(bytes : Bytes) -> Unit {
   }
 }
 
+///| The public PNG decoder exposes the independent 5x5 GrayAlpha8 Adam7
+/// fixture as straight RGBA8. Expected samples come from source coordinates,
+/// never from encoder traversal state.
+fn png_encode_graya8_adam7_public_decode_is_canonical(bytes : Bytes) -> Unit {
+  let owner = @bytes.OwnedBytes::from_bytes(
+    bytes, png_encode_budget(bytes=4096UL, work=0UL),
+  ).unwrap()
+  let decoded = @codec.ImageDecoder::decode(
+    PngDecoder::new(), @io.MemoryReader::new(owner.view()) as &@io.Reader,
+    @codec.DecodeOptions::new(require_complete_input=true, preserve_opaque_metadata=false),
+    png_encode_limits(output=4096UL, work=1048576UL),
+    png_encode_budget(bytes=4096UL, work=1048576UL), @error.Diagnostics::new(),
+  ).unwrap()
+  let restored = decoded.image().view()
+  if restored.width() != 5UL || restored.height() != 5UL ||
+    restored.format().component() != @model.ComponentType::U8 ||
+    restored.format().channels() != @model.ChannelOrder::Rgba ||
+    restored.format().channel_count() != 4UL {
+    abort("png graya8 Adam7 public decoded descriptor")
+  }
+  for y = 0UL; y < 5UL; y = y + 1UL {
+    for x = 0UL; x < 5UL; x = x + 1UL {
+      let sample = y * 5UL + x
+      let gray = (b'\x20'.to_uint64() + sample).to_byte()
+      let alpha = (b'\xa0'.to_uint64() + sample).to_byte()
+      for channel = 0UL; channel < 3UL; channel = channel + 1UL {
+        if restored.get_byte(x, y, channel).unwrap() != gray {
+          abort("png graya8 Adam7 public decoded grayscale")
+        }
+      }
+      if restored.get_byte(x, y, 3UL).unwrap() != alpha {
+        abort("png graya8 Adam7 public decoded alpha")
+      }
+    }
+  }
+}
+
 ///|
 fn png_encode_prefix(writer : @io.MemoryWriter) -> Bytes {
   let bytes : Array[Byte] = []
@@ -1056,6 +1093,8 @@ test "PNG filter strategy eager frozen compatibility vectors" {
   let gray16 = png_encode_gray16_image()
   let gray16_stored =
     b"\x89PNG\r\n\x1a\n\x00\x00\x00\x0dIHDR\x00\x00\x00\x02\x00\x00\x00\x01\x10\x00\x00\x00\x00\x81\xd9\xfc\x15\x00\x00\x00\x10IDAT\x78\x01\x01\x05\x00\xfa\xff\x00\x12\x34\xab\xcd\x03\x0c\x01\xbf\x4c\x32\xd4\xc3\x00\x00\x00\x00IEND\xae\x42\x60\x82"
+  let graya16_stored =
+    b"\x89PNG\r\n\x1a\n\x00\x00\x00\x0dIHDR\x00\x00\x00\x02\x00\x00\x00\x01\x10\x04\x00\x00\x00\x0e\xbb\x6b\x42\x00\x00\x00\x14IDAT\x78\x01\x01\x09\x00\xf6\xff\x00\x12\x34\xa7\xc5\xbe\x0f\x5a\x76\x0e\x17\x03\x50\x6b\x88\xb2\x75\x00\x00\x00\x00IEND\xae\x42\x60\x82"
   let (_, gray16_default_writer) = png_encode_with(PngEncoder::new_gray16(), gray16)
   let (_, gray16_configured_writer) = png_encode_with(
     PngEncoder::new_gray16_with_strategies(
@@ -1065,6 +1104,20 @@ test "PNG filter strategy eager frozen compatibility vectors" {
   )
   for bytes in [png_encode_prefix(gray16_default_writer), png_encode_prefix(gray16_configured_writer)] {
     inspect(bytes == gray16_stored && bytes[28] == b'\x00', content="true")
+  }
+
+  let graya16 = png_encode_graya16_image()
+  let (_, graya16_default_writer) = png_encode_with(PngEncoder::new_graya16(), graya16)
+  let (_, graya16_configured_writer) = png_encode_with(
+    PngEncoder::new_graya16_with_strategies(
+      PngCompressionStrategy::Stored, PngFilterStrategy::None,
+    ),
+    graya16,
+  )
+  for bytes in [
+    png_encode_prefix(graya16_default_writer), png_encode_prefix(graya16_configured_writer),
+  ] {
+    inspect(bytes == graya16_stored && bytes[28] == b'\x00', content="true")
   }
 
   let gray_alpha = png_encode_graya8_image()
