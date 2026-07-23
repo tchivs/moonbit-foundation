@@ -1,0 +1,32 @@
+# v0.20 Requirements — High-Precision GrayAlpha Decode
+
+## Active Requirements
+
+### Explicit preservation contract
+
+- [ ] **GRA16DEC-01**: Library users can explicitly decode legal sRGB Type-4/16 PNG input through `PngDecoder::decode_graya16` and receive existing little-endian packed `graya16` storage with every `Ghi,Glo,Ahi,Alo` component byte preserved; the generic decoder remains the frozen `RGBA8(Ghi,Ghi,Ghi,Ahi)` path.
+
+### Shared resumable semantics
+
+- [ ] **GRA16DEC-02**: Library users can select `PngChunkDecoder::new_graya16` for the same legal Type-4/16 input, reusing the existing bounded decoder machine and preserving eager-equivalent result, accepted-only input progress, atomic failure, and sticky terminal behavior under hostile chunk schedules.
+
+### Portable fidelity evidence
+
+- [ ] **GRA16DEC-03**: Public independent Type-4/16 wire/decode vectors, filters and Adam7 coverage, adversarial resource/metadata rejection, frozen legacy RGBA8 behavior, and the full PNG package pass on wasm, wasm-gc, js, and native.
+
+## Future Requirements
+
+- **GRA16DEC-COLOR**: Add colour-managed or non-sRGB Type-4/16 conversion only after an explicit colour-transform contract.
+- **GRA16DEC-CONVERT**: Add a public high-precision conversion API only when a downstream consumer requires it.
+
+## Out of Scope
+
+- New image/storage module, generic decoder result widening, automatic conversion API, image-sized staging, alternate decoder machine, Big-endian storage, palette/low-bit formats, native FFI, release automation, registry publication, target wrappers, and copied-source workflows.
+
+## Traceability
+
+| Requirement | Phase | Status |
+|---|---|---|
+| GRA16DEC-01 | TBD | Not started |
+| GRA16DEC-02 | TBD | Not started |
+| GRA16DEC-03 | TBD | Not started |
