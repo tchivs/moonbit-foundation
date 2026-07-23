@@ -77,6 +77,10 @@ status: complete
 1. **Task 1: Strengthen one normal public RGBA16 wire-to-decode path with a complete raster oracle** - `cc004e4` (test)
 2. **Task 2: Execute retained hostile and compatibility evidence, then run the frozen four-target qualification last** - recorded in this plan metadata commit (read-only qualification)
 
+## TDD Gate Compliance
+
+The strengthened public assertion passed on its first focused execution because the completed encoder already emitted the specified raster. No separate intentionally failing RED commit or production GREEN commit was created; the task was a test-only qualification and required no encoder change.
+
 ## Files Created/Modified
 
 - `modules/mb-image/png/encode_test.mbt` - Uses the bounded public Stored parser to compare the complete non-symmetric normal Type-6/16 raster.
