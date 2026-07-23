@@ -2,16 +2,17 @@
 gsd_state_version: 1.0
 milestone: v0.23
 milestone_name: Low-Bit Grayscale PNG Encode
-current_phase_name: defining requirements
-status: planning
+current_phase: 73
+current_phase_name: Explicit Packed Grayscale PNG
+status: executing
 stopped_at: Completed 72-01-PLAN.md
-last_updated: "2026-07-23T14:57:05.747Z"
+last_updated: "2026-07-23T15:11:42.833Z"
 last_activity: 2026-07-23
-last_activity_desc: Milestone v0.23 started
+last_activity_desc: Phase 73 execution started
 progress:
   total_phases: 3
   completed_phases: 0
-  total_plans: 0
+  total_plans: 1
   completed_plans: 0
   percent: 0
 ---
@@ -24,14 +25,14 @@ See `.planning/PROJECT.md` (updated 2026-07-23).
 
 **Core value:** MoonBit developers can reuse stable, high-performance native infrastructure contracts instead of rebuilding incompatible foundations for every graphics, document, media, or automation product.
 
-**Current focus:** Phase 72 — rgba16-encode-qualification complete
+**Current focus:** Phase 73 — Explicit Packed Grayscale PNG
 
 ## Current Position
 
-Phase: Not started (defining requirements)
-Plan: —
-Status: Defining requirements
-Last activity: 2026-07-23 — Milestone v0.23 started
+Phase: 73 (Explicit Packed Grayscale PNG) — EXECUTING
+Plan: 1 of 1
+Status: Executing Phase 73
+Last activity: 2026-07-23 — Phase 73 execution started
 
 ## Performance Metrics
 
