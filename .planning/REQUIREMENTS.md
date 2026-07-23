@@ -26,6 +26,6 @@
 
 | Requirement | Phase | Status |
 |---|---|---|
-| GRAYA8A7-01 | Phase 59 | Not started |
-| GRAYA8A7-02 | Phase 60 | Not started |
-| GRAYA8A7-03 | Phase 61 | Not started |
+| GRAYA8A7-01 | Phase 59 | Complete |
+| GRAYA8A7-02 | Phase 60 | Complete |
+| GRAYA8A7-03 | Phase 61 | Complete |
