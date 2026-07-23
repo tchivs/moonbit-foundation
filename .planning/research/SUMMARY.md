@@ -1,169 +1,172 @@
 # Project Research Summary
 
-**Project:** MoonBit Native Foundation — v0.17 GrayAlpha16 PNG Interchange
-**Domain:** Portable, bounded image interchange in Pure MoonBit
+**Project:** MoonBit Native Foundation — v0.19 GrayAlpha8 Adam7 PNG
+**Domain:** Portable, bounded Type-4/8 PNG interlaced encoding in MoonBit
 **Researched:** 2026-07-23
 **Confidence:** HIGH
 
 ## Executive Summary
 
-v0.17 is a deliberately narrow, additive interoperability milestone for `mb-image`: library users need to construct packed U16 grayscale-plus-straight-alpha images and encode them as non-interlaced PNG colour type 4, bit depth 16. The proven expert approach is not a new codec or a generic image-processing expansion. It is one additional model identity and one private encode profile routed through the existing checked storage, atomic preflight, filtering, DEFLATE planning, and acknowledgement-safe replay machine.
+v0.19 is a narrow, additive `mb-image` interoperability milestone: legal packed-U8, straight-alpha `GrayAlpha` sources gain an explicitly selected Adam7 PNG encoder route. The public result must be a Type-4/depth-8 PNG with `G,A` samples and interlace method `1`; existing GrayAlpha8 constructors remain non-interlaced and their bytes remain frozen. Both eager and caller-buffered users receive the same opt-in capability.
 
-The implementation should remain **Pure MoonBit with no new dependencies**. Reuse `ChannelOrder::GrayAlpha`, generic packed-U16 component-byte access, the existing `mb-core`/`mb-color` dependencies, and the portable PNG package. Add neither FFI, external codecs, target branches, copied code, image-sized conversion buffers, a second stream driver, nor release/registry work. The public decoder already accepts type-4/16 data but intentionally returns canonical straight RGBA8 high bytes; the roadmap must specify wire fidelity and decode canonicalization as separate guarantees.
+The implementation should be deliberately small. The repository already has a complete `GrayAlpha8` profile, a shared profile-aware `PngEncodeMachine`, Adam7 pass geometry/cursors, filter selection, DEFLATE planning, atomic preflight, and resumable replay. Add the two established interlace-selection factory shapes on both public encoder facades, then remove only the `GrayAlpha8 + Adam7` rejection from shared preflight. Do not add a profile, encoder, cursor, decoder path, staging buffer, dependency, FFI, target branch, copied source tree, or release wrapper.
 
-The chief risks are component-level endianness, confusing two semantic channels with four wire bytes, incomplete integration of Fixed/Dynamic replay, and accidental legacy drift. Mitigate them with an explicit `GrayAlpha16` profile, one scalar wire reader mapping each pixel to `gray_hi, gray_lo, alpha_hi, alpha_lo`, checked four-byte stride arithmetic, pre-write mutation validation, literal asymmetric wire vectors, hostile caller leases, frozen legacy vectors, and an unchanged all-target Pure MoonBit suite.
+The main risks are semantic rather than algorithmic: malformed seven-pass traversal, cross-pass adaptive predictor history, bypassing the atomic ledger, lease mutation before replay drift is rejected, and accidental legacy drift. The remedy is literal non-symmetric seven-pass evidence, all six compression/filter pairs, fresh hostile lease schedules, atomic-failure and pre-lease mutation tests, frozen legacy vectors, and the ordinary four-target PNG package command at one unchanged commit.
 
 ## Key Findings
 
 ### Recommended Stack
 
-Extend the existing workspace `tchivs/mb-image` module only. The required capabilities are already present in its model, storage, and PNG packages, with `mb-core` and `mb-color` as its existing workspace dependencies. This is a profile extension, not a dependency-selection problem: a third-party codec would bypass the project-owned deterministic limits, caller-owned lease semantics, and portability contract.
+This is not a stack-selection or model-extension problem. The current `mb-image/png` package already supplies the required portable primitives. The repository's `STACK.md` still describes the prior GrayAlpha16 milestone, so it is not used as a v0.19 design authority; the current feature, architecture, pitfall research and live v0.19 project context agree that no dependency or module changes are needed.
 
 **Core technologies:**
 
-- **MoonBit and the existing `mb-image` module:** model, checked storage, PNG codec, and tests — keeps the implementation portable and repository-owned.
-- **`mb-image/model`:** `ImageFormat::graya16()` and strict descriptor admission — uses the existing two-component `ChannelOrder::GrayAlpha` rather than inventing a second channel order.
-- **`mb-image/storage`:** generic packed-U16 component-byte views — supplies checked gray/alpha byte access without a special backing store or unsafe offsets.
-- **`mb-image/png`:** private `GrayAlpha16` profile and explicit eager/chunk factory families — preserves one bounded preflight/replay implementation for all strategies.
-- **Existing `mb-core` and `mb-color` dependencies:** checked arithmetic, budgets, leases, alpha and sRGB identities — no additional package is justified.
+- **MoonBit and existing `tchivs/mb-image`:** portable PNG implementation and tests — all required behavior remains repository-owned across js, wasm, wasm-gc, and native.
+- **`PngEncodeProfile::GrayAlpha8`:** existing Type-4/8 source admission — retain it rather than creating a `GrayAlpha8Adam7` profile.
+- **`PngEncodeMachine::new_with_profile`:** one eager/chunk bounded preflight, planning, replay, and output-state machine — both new factory families must delegate directly here.
+- **`_png_adam7_passes` and `PngFilteredCursor`:** sole pass geometry, scalar traversal, and filter authority — use `channels=2`, `bit_depth=8` with no materialized pass raster.
+- **Existing decoder facades:** Type-4/8 interlaced input already canonicalizes to straight RGBA8 — prove this established boundary rather than widening decode/model semantics.
 
 ### Expected Features
 
 **Must have (table stakes):**
 
-- Packed U16 GrayAlpha model: exactly two packed components in gray/alpha order, straight alpha, canonical metadata, and checked U16 component access.
-- Explicit `PngEncoder::new_graya16*` and `PngChunkEncoder::new_graya16*` families: non-interlaced type-4/depth-16 output only; legacy constructors must never infer the profile.
-- Exact four-byte PNG wire serialization: each pixel is `Ghi,Glo,Ahi,Alo`, independent of source storage endianness.
-- Existing bounded semantics: Stored, FixedOrStored, and DynamicOrFixedOrStored crossed with None and Adaptive; atomic rejection and caller-owned output behavior remain intact.
-- Honest public decode contract: decoding returns straight RGBA8 `(Ghi,Ghi,Ghi,Ahi)`, while full U16 fidelity is proved at the PNG wire boundary.
-- Literal compatibility and portable evidence: frozen Gray8, Gray16, GrayAlpha8, RGB8, and straight-RGBA8 vectors plus all-target public tests.
+- Explicit eager `PngEncoder::new_graya8_with_interlace_strategy` and `new_graya8_with_all_strategies` selection; baseline interlace factory fixes Stored/None.
+- Matching explicit `PngChunkEncoder` factories that use the same profile and machine.
+- Legal Adam7 IHDR (`08 04 00 00 01`) and exact pass-by-pass raw samples in `G,A` order for a non-symmetric all-seven-pass fixture.
+- Shared Stored, FixedOrStored, DynamicOrFixedOrStored × None, Adaptive behavior, including adaptive predictor reset at each pass.
+- Atomic admission and pre-lease replay-mutation rejection with accepted-only accounting and sticky terminals.
+- Truthful Type-4/8 public decode to straight RGBA8: `(R,G,B,A)=(G,G,G,A)`.
+- Frozen non-interlaced GrayAlpha8 and historical PNG vectors plus a single frozen four-target package qualification.
 
 **Should have (quality differentiators):**
 
-- One profile-aware scalar pipeline with no converted rows or duplicate stream implementation.
-- Byte-identical output from equivalent little- and big-endian U16 backing storage.
-- Caller-buffered tests that prove accepted-prefix accounting, untouched lease tails, and sticky terminal states, not merely eventual output bytes.
+- Independent literal seven-pass Stored/None vector rather than a second encoder-derived expectation.
+- Fresh zero-capacity, one-byte, and deterministic ragged caller leases, including untouched tail assertions.
+- A source-revision guard generalized by replay semantics across U8 and U16 wire profiles, not an Adam7-specific workaround.
 
 **Defer:**
 
-- Adam7 GrayAlpha16, RGB16/RGBA16 profiles, palette/low-bit/`tRNS` modes, automatic transparency conversion, GrayAlpha processing operations, a U16 public decoder result, dependencies/FFI, and release automation. None is required for this interchangeable two-component slice.
+- Gray8 Adam7, palette/low-bit/`tRNS`, RGB16/RGBA16, APNG, color conversion, decoder model widening, image-sized staging, FFI/dependencies, release automation, and target wrappers.
 
 ### Architecture Approach
 
-Use one additive model identity and one private encode profile. The flow is `ImageFormat::graya16()` and `ImageDescriptor` admission → generic packed U16 `OwnedImage`/views → explicit eager or chunk factories → `PngEncodeMachine::new_with_profile` → atomic preflight and a scalar big-endian wire reader → existing filter/compression/replay state → type-4/16 PNG bytes. Existing decode then canonicalizes to RGBA8 high bytes. This exactly combines the U16/wire/replay precedent from v0.15 with the two-component/type-4 precedent from v0.16.
+The only production flow is:
+
+```text
+legal packed U8 straight-alpha GrayAlpha view
+  -> explicit eager/chunk GrayAlpha8 interlace factory
+  -> PngEncodeMachine::new_with_profile(GrayAlpha8, ..., Adam7)
+  -> shared atomic preflight and Adam7 filtered cursor
+  -> Stored / FixedOrStored / DynamicOrFixedOrStored replay
+  -> Type-4/8 Adam7 PNG -> existing RGBA8 decoder canonicalization
+```
 
 **Major components:**
 
-1. **Model and descriptor validation** — define the U16 GrayAlpha identity, packed row geometry, straight-alpha/canonical metadata, and unchanged operation gates.
-2. **Generic storage/views** — read and write two U16 components through checked component-byte APIs; no alternate image container.
-3. **PNG profile and factory boundary** — make GrayAlpha16 explicit for eager and caller-buffered encoders while preserving legacy constructor selection.
-4. **Shared bounded encode machine** — performs four-byte stride preflight, scalar wire traversal, filters, Stored/Fixed/Dynamic planning, replay integrity, output limits, and lease acknowledgement.
-5. **Public evidence boundary** — proves wire bytes, documented decode canonicalization, lease ownership, legacy stability, and four-target conformance.
+1. **`png.mbt` eager facade** — add only the two explicit GrayAlpha8 interlace selectors; existing `new_graya8*` APIs keep `None`.
+2. **`stream_encode.mbt` chunk facade** — mirror those two selectors and delegate straight to the shared machine.
+3. **`encode.mbt` admission/preflight** — remove only the GrayAlpha8 non-`None` rejection; retain descriptor admission, exact ledger, all strategy traversals, and replay guard.
+4. **`structural.mbt` and filter cursors** — unchanged seven-pass geometry and pass-local filtering; no alternate source traversal or buffer.
+5. **Public PNG tests** — own wire, decode, six-pair, hostile lease, mutation, legacy, and four-target evidence; no decoder production change is expected.
 
 ### Critical Pitfalls
 
-1. **Reversing an entire four-byte pixel instead of each U16 component** — map position to pixel, component lane, and byte within the component; require unequal gray/alpha values and both backing byte orders.
-2. **Only partially adding the type-4/16 profile** — make profile admission, row size, IHDR (`16/4/0`), factory interlace policy, and cursor selection exhaustive; test every public factory family.
-3. **Using a two-byte stride for a four-byte raster** — use checked `width * 4` row arithmetic through the existing preflight ledger and test exact/one-over geometry, output, work, and budget limits before output or lease mutation.
-4. **Letting Fixed/Dynamic replay read a mutated U16 source** — extend the current Gray16 revision guard to GrayAlpha16 and validate before any destination byte is written; assert sticky failure and untouched sentinels.
-5. **Overclaiming public decode fidelity or weakening legacy routes** — distinguish full wire preservation from RGBA8 high-byte canonicalization, and retain literal existing-profile vectors in eager and chunk suites.
+1. **Treating Adam7 as reordered full rows** — derive totals, coordinates, filter tags, and `G,A` reads from `_png_adam7_passes(..., 2, 8)` only; use an asymmetric image reaching every nonempty pass.
+2. **Leaking Adaptive history across passes** — predictors and winner selection must reset per pass-local first row; test every strategy pair across pass transitions.
+3. **Creating a second admission/preflight path** — relax only the single profile gate, then retain the existing all-strategy transactional ledger before output state or leases exist.
+4. **Writing a lease before detecting source mutation** — revision validation must happen before `destination.set` for Stored, Fixed, and Dynamic; prove unchanged sentinels and a sticky typed failure.
+5. **Confusing caller leases with PNG/DEFLATE/pass boundaries** — preview remains private until acknowledgement; zero/one/ragged schedules must be eager-identical without duplicate/lost bytes.
+6. **Broadening compatibility by default** — new factory names make Adam7 opt-in; retain literal legacy vectors for GrayAlpha8, Gray8, Gray16, RGB8, and RGBA8.
+7. **Treating native as portability evidence** — qualification is the unmodified `moon -C modules/mb-image test png --target all --frozen` suite on all four targets.
+
+## Implementation Requirements
+
+| ID | Requirement | Acceptance evidence |
+|---|---|---|
+| **GRAYA8A7-01** | Legal packed-U8 straight-alpha GrayAlpha images can explicitly select eager and caller-buffered Adam7 Type-4/8 output; legacy GrayAlpha8 factories remain non-interlaced. | Narrow and all-strategy public factories; Adam7 IHDR `08 04 01`; legacy/explicit-None IHDR `08 04 00`; incompatible descriptors fail before output. |
+| **GRAYA8A7-02** | Adam7 GrayAlpha8 uses the one bounded profile-aware machine for all six compression/filter pairs, with pass-local Adaptive filtering and unchanged atomic/pre-lease replay semantics. | Literal 5x5 seven-pass `G,A` raster; six-pair eager/chunk identity and decode; separate ledger failures; mutation-after-prefix zero-write sticky terminal for Stored, Fixed, and Dynamic. |
+| **GRAYA8A7-03** | Public evidence proves wire/decode fidelity, hostile caller-buffered behavior, compatibility, and portability. | Fresh zero/one/ragged drains with accepted-only totals and untouched tails; frozen legacy literals; one frozen all-target PNG package run. |
 
 ## Implications for Roadmap
 
-The roadmap should contain exactly three sequential phases. They align with the completed Gray16 (v0.15) and GrayAlpha8 (v0.16) delivery model, preserve clear handoffs, and avoid mixing model admission, encoder internals, and qualification evidence.
+### Phase 59: GrayAlpha8 Adam7 Factory and Pass Profile
 
-### Phase 53: GrayAlpha16 Model and Checked Storage Contract
+**Rationale:** Expose the missing public selection before broadening test matrices. The architecture identifies only factory additions and removal of one preflight rejection as production work.
 
-**Rationale:** The encoder cannot safely infer a two-component U16 source until descriptor validation, row geometry, alpha association, and generic storage/view behavior agree. This phase establishes the only new public source identity before any PNG factory can consume it.
+**Delivers:** Eager/chunk explicit `with_interlace_strategy` and `with_all_strategies` GrayAlpha8 factories; legal shared `GrayAlpha8 + Adam7` preflight; a focused Stored/None public all-seven-pass vector; frozen legacy non-interlaced routes.
 
-**Delivers:** `ImageFormat::graya16()`; deliberate admission of packed U16 `ChannelOrder::GrayAlpha` with straight alpha, encoded builtin sRGB, top-left orientation, and valid packed rows; checked two-channel/two-byte component access; unchanged U8 GrayAlpha and existing Gray/RGB/RGBA behavior; explicit continued rejection of unsupported GrayAlpha operations.
+**Addresses:** GRAYA8A7-01 and the public API/Type-4/8 portion of GRAYA8A7-02.
 
-**Measurable requirements:**
+**Avoids:** Implicit interlacing, broad grayscale admission, a second profile/machine, wrong two-channel pass geometry, and staging.
 
-- **GRAYA16-01:** Construct non-symmetric U16 gray/alpha pairs and read all four component bytes through public generic views; reject a third channel or third component byte.
-- Reject planar, F32, missing/premultiplied alpha, noncanonical colour metadata, invalid orientation, and malformed row layouts before allocation.
-- Prove both valid U16 storage byte orders can be described where the existing descriptor contract permits them, without altering the U8 GrayAlpha identity.
+### Phase 60: Bounded Adam7 Streaming Semantics
 
-**Avoids:** accidental lane/alpha-association changes, unchecked offsets, and broadened processing/copy/flip semantics.
+**Rationale:** Once construction is legal, prove that every current safety contract composes with the Type-4/8 Adam7 cursor rather than writing a parallel implementation.
 
-### Phase 54: Bounded Non-Interlaced Type-4/16 PNG Encoder Path
+**Delivers:** Six-pair eager/chunk parity, pass-local Adaptive proof, atomic failures across ledger stages, and a U8/U16-general prewrite mutation guard that protects Stored as well as Fixed/Dynamic replay.
 
-**Rationale:** With a strict source contract in place, this phase can add the private profile across the one shared machine rather than duplicating encoding logic. It is the only phase that changes PNG production code.
+**Addresses:** The remaining GRAYA8A7-02 bounded behavior.
 
-**Delivers:** private `PngEncodeProfile::GrayAlpha16`; explicit baseline, compression-only, filter-only, and combined `new_graya16*` factories on `PngEncoder` and `PngChunkEncoder`; fail-closed source admission; `IHDR = depth 16, colour type 4, methods 0/0, interlace 0`; a component-aware U16 scalar wire reader; and GrayAlpha16 coverage in Stored/Fixed/Dynamic cursors and replay revision validation.
+**Avoids:** Cross-pass filtering, strategy-specific admission, pre-lease source leakage, incorrect acknowledgement accounting, and pass/IDAT/DEFLATE boundary assumptions.
 
-**Measurable requirements:**
+### Phase 61: Portable GrayAlpha8 Adam7 Public Evidence
 
-- **GRAYA16-02:** Incompatible U8 GrayAlpha, U16 Gray, RGB8, and RGBA8 inputs fail before eager output, budget charge, or a usable chunk encoder; Adam7 is defensively rejected.
-- **GRAYA16-03 (implementation):** All six compression/filter pairs use stride four and emit `Ghi,Glo,Ahi,Alo` from either source storage order, with type-4/16/non-interlaced framing.
-- Exact and one-over limit tests for dimensions, output, work, and budget preserve writer position zero and caller-lease sentinels on rejection.
-- Fixed/Dynamic replay detects post-admission mutation before its next lease write and remains sticky.
+**Rationale:** Keep consumer-facing interchange qualification independent of production changes and make portability a release gate rather than an inferred property.
 
-**Avoids:** host-endian wire corruption, two-byte row undercounting, partial profile upgrades, image-sized staging, and a divergent second streaming path.
+**Delivers:** Literal multipass wire/decode coverage, hostile zero/one/ragged chunk schedules, sticky success terminals, frozen legacy vectors, and four-target qualification.
 
-### Phase 55: Portable GrayAlpha16 Public Interchange Evidence
+**Addresses:** GRAYA8A7-03.
 
-**Rationale:** Production implementation is complete after Phase 54; this phase turns it into a dependable public contract, without introducing new production capabilities. It is the release-quality proof boundary.
-
-**Delivers:** literal wire and decode evidence; eager/chunk parity under hostile leases; frozen legacy vectors; and four-target qualification using the unchanged public Pure MoonBit package suite.
-
-**Measurable requirements:**
-
-- **GRAYA16-03 (public evidence):** A two-pixel Stored/None vector with unequal samples asserts inflated scanline `00 12 34 A7 C5 D2 E1 4C 3B`; equivalent little-/big-endian source backing produces identical PNG bytes.
-- **GRAYA16-04:** Public decode asserts `(R,G,B,A) = (Ghi,Ghi,Ghi,Ahi)` with distinct low bytes, while a filtered path exercises byte-per-pixel `4` reconstruction.
-- All six compression/filter pairs use fresh chunk encoders under zero-capacity, one-byte, and deterministic ragged leases; assert eager equality, accepted-only totals, untouched unwritten tails, sticky completion, and no hidden target branches.
-- Retain literal eager and chunk vectors for Gray8, Gray16, GrayAlpha8, RGB8, and straight-RGBA8; run `moon -C modules/mb-image test png --target all --frozen` and record per-target results for js, wasm, wasm-gc, and native.
-
-**Avoids:** header-only testing, regenerated expectations, native-only confidence, and an inflated decoder promise.
+**Avoids:** Encoder/decoder self-consistency-only tests, native-only confidence, and accidental legacy drift.
 
 ### Phase Ordering Rationale
 
-- Phase 53 creates the strict data model consumed by all later work; it prevents the encoder from guessing component count, alpha semantics, or row layout.
-- Phase 54 is the single production integration point: it reuses existing Pure MoonBit machinery and connects source identity to canonical PNG bytes under established resource and replay rules.
-- Phase 55 owns verification-only public evidence. Separating it keeps feature implementation auditable, preserves the existing pattern, and provides an independent compatibility/portability gate.
+- Factory/profile enablement is the sole capability change and must precede shared-machine composition tests.
+- Streaming semantics then exercise the exact code selected by the new route across the full strategy and failure matrix.
+- Public evidence closes the milestone with independently auditable consumer behavior and the unchanged portability command.
 
 ### Research Flags
 
-Phases likely needing deeper research during planning:
+Phases likely needing deeper local-code research during planning:
 
-- **Phase 54:** Yes — inspect every profile-dependent preflight, IHDR, scalar cursor, filter stride, Fixed/Dynamic replay, and mutation guard seam. This is local-code research rather than external-stack research.
-- **Phase 55:** Light validation research — confirm all-target test invocation and current test count in the implementation environment; research did not claim a fresh v0.17 all-target result because the exploratory run exceeded its command window.
+- **Phase 60:** Inspect all current Stored/Fixed/Dynamic replay paths and pre-lease revision checks before test design; the risk is a subtle shared-machine composition defect.
+- **Phase 61:** Confirm fresh all-target output and current package test count at the final unchanged HEAD; do not reuse archived counts as present evidence.
 
-Phases with standard patterns (skip research-phase):
+Phases with standard patterns:
 
-- **Phase 53:** The v0.15 U16 storage and v0.16 GrayAlpha model precedents fully document the required pattern; plan directly from current descriptor/view seams.
+- **Phase 59:** Directly mirror verified GrayAlpha16 Adam7 public factory/profile precedent; only a narrow current-source review is required.
 
 ## Confidence Assessment
 
 | Area | Confidence | Notes |
-|------|------------|-------|
-| Stack | HIGH | Local module/dependency seams show that all required capabilities already exist; no external package is needed. |
-| Features | HIGH | The narrow capability boundary and measurable acceptance evidence are corroborated by current code and v0.15/v0.16 completion artifacts. |
-| Architecture | HIGH | Current profile-aware preflight/replay construction plus direct predecessor phases establish the exact component boundaries and order. |
-| Pitfalls | HIGH | Repository-specific risks were traced to concrete existing Gray16-only and GrayAlpha8-only seams; PNG normative wording is MEDIUM corroboration. |
+|---|---|---|
+| Stack | HIGH | Existing portable module and dependencies already contain every needed primitive; the v0.17 stack research is stale for scope but confirms no dependency change. |
+| Features | HIGH | Current source boundary and completed v0.16/v0.18 evidence define measurable public behavior. |
+| Architecture | HIGH | Current production seams isolate the exact two facade additions and one preflight relaxation. |
+| Pitfalls | HIGH | Repository-specific risks map to concrete cursor, ledger, replay, and compatibility seams; PNG wording is corroborative. |
 
 **Overall confidence:** HIGH
 
 ### Gaps to Address
 
-- **Fresh v0.17 portable qualification:** Do not reuse archived 196/196 success as a v0.17 result. Phase 55 must execute and record the current all-target PNG suite.
-- **Final public spelling:** Research recommends `graya16` and `new_graya16*` for parity with existing naming; confirm exact exported spellings during Phase 53/54 planning, without changing the explicit-factory rule.
-- **Normative PNG reference confidence:** The W3C PNG specification corroborates type-4/16, gray-then-alpha, MSB-first, straight-alpha behavior, but the decisive implementation guidance is verified local code and predecessor evidence.
+- **Prewrite revision scope:** Phase 60 must establish whether U8 Stored already shares the prewrite guard; if not, generalize the existing guard by replay behavior and prove non-interlaced regression coverage as well.
+- **Fresh qualification:** Phase 61 must record a current four-target result rather than cite previous milestone counts.
+- **Existing Summary/Stack staleness:** Both prior v0.17 research artifacts describe GrayAlpha16. Replace/update their influence only through current v0.19 context; no production decision should inherit their non-interlaced restriction.
 
 ## Sources
 
 ### Primary (HIGH confidence)
 
-- `.planning/research/STACK.md` — no-dependency, Pure MoonBit extension and existing seam inventory.
-- `.planning/research/FEATURES.md` — feature boundary, exclusions, measurable requirement candidates, and recommended order.
-- `.planning/research/ARCHITECTURE.md` — exact model/storage/profile/preflight/replay/data-flow boundaries.
-- `.planning/research/PITFALLS.md` — component-endianness, stride, replay, atomicity, and portability risk controls.
-- `.planning/milestones/v0.15-phases/47-*`, `48-*`, `49-*` — verified U16 wire, replay, hostile-lease, and four-target precedent.
-- `.planning/milestones/v0.16-phases/50-*`, `51-*`, `52-*` — verified GrayAlpha model, type-4 profile, and public-evidence precedent.
+- `.planning/PROJECT.md` — v0.19 goal, constraints, and frozen-compatibility scope.
+- `.planning/research/FEATURES.md` — requirement candidates, public acceptance evidence, exclusions, and delivery order.
+- `.planning/research/ARCHITECTURE.md` — concrete factory, preflight, cursor, decode, and test ownership seams.
+- `.planning/research/PITFALLS.md` — Adam7/filter/preflight/replay/lease/compatibility risk controls.
+- Current `mb-image/png` implementation and completed v0.16/v0.18 milestone records — established GrayAlpha8 and GrayAlpha16 Adam7 precedents.
 
 ### Secondary (MEDIUM confidence)
 
-- [W3C PNG Specification, Third Edition](https://www.w3.org/TR/png-3/) — type 4 permits 16-bit samples; sample order is gray then alpha, with MSB-first 16-bit wire values and unassociated alpha.
+- [PNG Specification, Second Edition](https://www.libpng.org/pub/png/spec/iso/index-object.html) and [PNG 1.2 data representation](https://libpng.org/pub/png/spec/1.2/PNG-DataRep.html) — Type-4 sample order, Adam7 pass layout, filtering, and zlib/IDAT context.
 
 ---
 *Research completed: 2026-07-23*
