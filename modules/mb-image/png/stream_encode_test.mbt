@@ -3586,51 +3586,40 @@ fn png_adaptive_mutation_is_sticky(
     image.view(), strategy, PngFilterStrategy::Adaptive,
     png_stream_test_limits(), png_stream_test_budget(), @error.Diagnostics::new(),
   ).unwrap()
-  image.with_mut_view(fn(view) {
-    view.set_byte(mutation_x, 0UL, mutation_channel, mutation_value)
-  }).unwrap()
   let prefix : Array[Byte] = []
   while prefix.length() < 44 {
     let pull = png_chunk_test_pull(encoder, 1UL, prefix)
     if pull.written() != 1UL { abort("png adaptive mutation prefix") }
   }
   if (prefix[43] & b'\x07') != expected_header { abort("png adaptive mutation header") }
-  let mut turn = 0UL
-  while turn < 2048UL {
-    let first = png_chunk_test_owner(1UL, fill=b'Z')
-    let pull = first.with_mut(0UL, 1UL, fn(lease) { Ok(encoder.pull(lease)) }).unwrap()
-    match pull.outcome() {
-      PngChunkPullOutcome::NeedOutput => {
-        if pull.written() != 1UL { abort("png adaptive mutation progress") }
-        turn = turn + 1UL
-      }
-      PngChunkPullOutcome::Failed(error) => {
-        if error.category() != @error.ErrorCategory::State ||
-          error.code() != @error.ErrorCode::InvalidRange ||
-          error.context() != Some(expected_context) {
-          abort("png adaptive mutation error")
-        }
-        let accepted_total = pull.total_written()
-        if pull.written() != 0UL || first.view().get(0UL).unwrap() != b'Z' {
-          abort("png adaptive mutation first terminal")
-        }
-        let later = png_chunk_test_owner(1UL, fill=b'Z')
-        let replay = later.with_mut(0UL, 1UL, fn(lease) { Ok(encoder.pull(lease)) }).unwrap()
-        let replay_error = match replay.outcome() {
-          PngChunkPullOutcome::Failed(value) => value
-          _ => panic()
-        }
-        if replay.written() != 0UL || replay.total_written() != accepted_total ||
-          !png_chunk_test_same_error(error, replay_error) ||
-          later.view().get(0UL).unwrap() != b'Z' {
-          abort("png adaptive mutation sticky")
-        }
-        return
-      }
-      PngChunkPullOutcome::Finished => panic()
-    }
+  image.with_mut_view(fn(view) {
+    view.set_byte(mutation_x, 0UL, mutation_channel, mutation_value)
+  }).unwrap()
+  let first = png_chunk_test_owner(1UL, fill=b'Z')
+  let pull = first.with_mut(0UL, 1UL, fn(lease) { Ok(encoder.pull(lease)) }).unwrap()
+  let error = match pull.outcome() {
+    PngChunkPullOutcome::Failed(value) => value
+    _ => abort("png adaptive mutation exposed post-mutation bytes")
   }
-  panic()
+  if error.category() != @error.ErrorCategory::State ||
+    error.code() != @error.ErrorCode::InvalidRange || error.context() != Some(expected_context) {
+    abort("png adaptive mutation error")
+  }
+  let accepted_total = prefix.length().to_uint64()
+  if pull.written() != 0UL || pull.total_written() != accepted_total ||
+    first.view().get(0UL).unwrap() != b'Z' {
+    abort("png adaptive mutation first terminal")
+  }
+  let later = png_chunk_test_owner(1UL, fill=b'Z')
+  let replay = later.with_mut(0UL, 1UL, fn(lease) { Ok(encoder.pull(lease)) }).unwrap()
+  let replay_error = match replay.outcome() {
+    PngChunkPullOutcome::Failed(value) => value
+    _ => panic()
+  }
+  if replay.written() != 0UL || replay.total_written() != accepted_total ||
+    !png_chunk_test_same_error(error, replay_error) || later.view().get(0UL).unwrap() != b'Z' {
+    abort("png adaptive mutation sticky")
+  }
 }
 
 ///|
