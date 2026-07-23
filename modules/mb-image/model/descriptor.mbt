@@ -96,6 +96,16 @@ pub fn ImageFormat::graya16() -> ImageFormat {
 }
 
 ///|
+pub fn ImageFormat::rgba16() -> ImageFormat {
+  {
+    component_value: ComponentType::U16,
+    channels_value: ChannelOrder::Rgba,
+    layout_value: PlaneLayout::Packed,
+    endianness_value: Endianness::Little,
+  }
+}
+
+///|
 pub fn ImageFormat::rgba8() -> ImageFormat {
   {
     component_value: ComponentType::U8,
@@ -516,6 +526,36 @@ fn validate_gray_alpha_identity(
 }
 
 ///|
+fn validate_rgba16_identity(
+  format : ImageFormat,
+  metadata : ImageMetadata,
+) -> Result[Unit, @error.CoreError] {
+  if format.component() != ComponentType::U16 ||
+    format.channels() != ChannelOrder::Rgba {
+    return Ok(())
+  }
+  let valid = format.layout() == PlaneLayout::Packed &&
+    format.endianness() == Endianness::Little &&
+    metadata.space() == @color.ColorSpaceIdentity::Srgb &&
+    metadata.transfer() == @color.TransferIdentity::EncodedSrgb &&
+    metadata.alpha() == Some(@color.AlphaMode::Straight) &&
+    metadata.profile().is_builtin_srgb() &&
+    metadata.orientation() == Orientation::TopLeft
+  if valid {
+    Ok(())
+  } else {
+    Err(
+      image_model_error(
+        @error.ErrorCode::InvalidEncoding,
+        "image-rgba16-identity",
+        format.channel_count(),
+        format.channel_count(),
+      ),
+    )
+  }
+}
+
+///|
 fn validate_plane_shape(
   width : UInt64,
   height : UInt64,
@@ -627,6 +667,10 @@ pub fn ImageDescriptor::new(
     Ok(_) => ()
   }
   match validate_gray_alpha_identity(format, metadata) {
+    Err(error) => return Err(error)
+    Ok(_) => ()
+  }
+  match validate_rgba16_identity(format, metadata) {
     Err(error) => return Err(error)
     Ok(_) => ()
   }

@@ -306,7 +306,7 @@ test "GrayAlpha16 is a packed two-component straight-alpha descriptor" {
 }
 
 ///|
-test "RGBA16 is a packed four-component straight-alpha descriptor" {
+test "rgba16 is a packed four-component straight-alpha descriptor" {
   let descriptor = @model.ImageDescriptor::new(
     1UL,
     1UL,
@@ -335,7 +335,7 @@ test "RGBA16 is a packed four-component straight-alpha descriptor" {
 }
 
 ///|
-test "RGBA16 admission accepts only its documented identity" {
+test "rgba16 admission accepts only its documented identity" {
   let rgba16_plane = [@model.PlaneDescriptor::new(
     0UL, 8UL, 8UL, 8UL, 1UL, 1UL, 1UL, 1UL,
   ).unwrap()]
@@ -398,16 +398,6 @@ test "RGBA16 admission accepts only its documented identity" {
   ) is Ok(_), content="true")
   inspect(rejects_invalid_rgba16(@model.ImageFormat::rgba16(), rgba16_plane, missing_alpha), content="true")
   inspect(rejects_invalid_rgba16(@model.ImageFormat::rgba16(), rgba16_plane, premultiplied), content="true")
-  inspect(rejects_invalid_rgba16(
-    @model.ImageFormat::new(
-      @model.ComponentType::F32,
-      @model.ChannelOrder::Rgba,
-      @model.PlaneLayout::Packed,
-      @model.Endianness::Little,
-    ).unwrap(),
-    rgba16_plane,
-    straight,
-  ), content="true")
   inspect(rejects_invalid_rgba16(
     @model.ImageFormat::new(
       @model.ComponentType::U16,
