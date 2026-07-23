@@ -5,15 +5,15 @@ milestone_name: GrayAlpha8 Adam7 PNG
 current_phase: 59
 current_phase_name: GrayAlpha8 Adam7 Factory and Pass Profile
 status: planned
-stopped_at: Phase 59 plans ready for execution
-last_updated: "2026-07-23T02:12:05.372Z"
+stopped_at: Completed 59-01-PLAN.md
+last_updated: "2026-07-23T02:21:29.744Z"
 last_activity: 2026-07-23
 last_activity_desc: Phase 59 factory/profile plans created
 progress:
   total_phases: 3
   completed_phases: 0
   total_plans: 2
-  completed_plans: 0
+  completed_plans: 1
   percent: 0
 ---
 
@@ -43,6 +43,11 @@ Last activity: 2026-07-23 — Phase 59 factory/profile plans created
 **Recent milestone:** v0.17 shipped with 4/4 requirements, 3/3 phases, 4/4 plans, 8 tasks, and 204/204 PNG tests on each supported target.
 
 **Recent milestone:** v0.16 shipped with 5/5 requirements, 3/3 phases, and four-target GrayAlpha8 PNG evidence.
+**Per-Plan Metrics:**
+
+| Plan | Duration | Tasks | Files |
+|------|----------|-------|-------|
+| Phase 59 P01 | 14min | 1 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -56,6 +61,8 @@ Last activity: 2026-07-23 — Phase 59 factory/profile plans created
 - [v0.19]: GrayAlpha8 Adam7 is opt-in through explicit eager and caller-buffered factories only; existing GrayAlpha8 non-interlaced selection and bytes remain frozen.
 - [v0.19]: GrayAlpha8 Adam7 must retain the profile-aware single machine, pass-local filtering, atomic preflight, and pre-write mutation rejection across Stored, Fixed, and Dynamic replay.
 - [v0.19]: Public proof uses literal Type-4/8 multipass wire data, established RGBA8 decode canonicalization, hostile caller schedules, frozen legacy vectors, and the ordinary all-target PNG package command.
+- [Phase ?]: GrayAlpha8 Adam7 is opt-in through additive eager and caller-buffered selector pairs; existing None constructors and bytes remain frozen.
+- [Phase ?]: GrayAlpha8 Adam7 reuses the sole profile-aware bounded machine after removing only its profile-specific interlace prohibition.
 
 ### Pending Todos
 
@@ -76,9 +83,9 @@ Last activity: 2026-07-23 — Phase 59 factory/profile plans created
 
 ## Session Continuity
 
-Last session: 2026-07-23T02:02:41.668Z
-Stopped at: Phase 59 plans ready for execution
-Resume file: .planning/phases/59-grayalpha8-adam7-factory-and-pass-profile/59-01-PLAN.md
+Last session: 2026-07-23T02:21:29.731Z
+Stopped at: Completed 59-01-PLAN.md
+Resume file: .planning/phases/59-grayalpha8-adam7-factory-and-pass-profile/59-02-PLAN.md
 
 ## Operator Next Steps
 

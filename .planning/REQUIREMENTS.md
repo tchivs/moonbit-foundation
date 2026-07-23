@@ -4,7 +4,7 @@
 
 ### Explicit Adam7 factories
 
-- [ ] **GRAYA8A7-01**: Library users can select explicit eager and caller-buffered Adam7 Type-4/8 PNG factories for legal packed straight-alpha GrayAlpha8 sources; existing non-interlaced factories and bytes remain unchanged.
+- [x] **GRAYA8A7-01**: Library users can select explicit eager and caller-buffered Adam7 Type-4/8 PNG factories for legal packed straight-alpha GrayAlpha8 sources; existing non-interlaced factories and bytes remain unchanged.
 
 ### Bounded shared semantics
 

@@ -45,10 +45,11 @@
   2. Each selected factory emits PNG IHDR colour type 4, bit depth 8, and Adam7 interlace method 1, with seven-pass samples serialized as `G,A`.
   3. Existing GrayAlpha8 non-interlaced constructors continue to select interlace method 0 and retain their frozen output bytes.
 
-**Plans**: 2 plans
+**Plans**: 1/2 plans executed
 
 Plans:
-- [ ] 59-01-PLAN.md — Deliver the explicit GrayAlpha8 Adam7 eager/chunk factory, shared-profile admission, and independent seven-pass G,A tracer.
+
+- [x] 59-01-PLAN.md — Deliver the explicit GrayAlpha8 Adam7 eager/chunk factory, shared-profile admission, and independent seven-pass G,A tracer.
 - [ ] 59-02-PLAN.md — Harden all-strategy eager framing and ordinary public chunk/eager selector parity while preserving legacy Type-4/8 output.
 
 ### Phase 60: Bounded Adam7 Streaming Semantics
@@ -86,6 +87,6 @@ This milestone excludes staging buffers, alternate encoders, decoder-model widen
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 59. GrayAlpha8 Adam7 Factory and Pass Profile | 0/2 | Planned | - |
+| 59. GrayAlpha8 Adam7 Factory and Pass Profile | 1/2 | In Progress|  |
 | 60. Bounded Adam7 Streaming Semantics | 0/TBD | Not started | - |
 | 61. Portable GrayAlpha8 Adam7 Public Evidence | 0/TBD | Not started | - |
