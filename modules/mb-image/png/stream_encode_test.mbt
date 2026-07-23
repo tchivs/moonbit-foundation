@@ -4708,3 +4708,189 @@ test "PNG generic chunk constructor rejects RGBA16" {
     Err(_) => ()
   }
 }
+
+///| Canonical odd-width Gray/U8 sources exercise each public packed selector
+/// without duplicating the encoder's production packing logic in this test file.
+fn png_stream_packed_gray_image(depth : UInt64) -> @storage.OwnedImage {
+  if depth == 1UL {
+    png_stream_gray8_image(b"\x00\xff\x00\xff\x00\xff\x00\xff\xff", width=9UL)
+  } else if depth == 2UL {
+    png_stream_gray8_image(b"\x00\x55\xaa\xff\x00", width=5UL)
+  } else {
+    png_stream_gray8_image(b"\x00\xff\x11", width=3UL)
+  }
+}
+
+///| Public eager encoding is the packed-stream identity oracle.
+fn png_stream_packed_eager(image : @storage.OwnedImage, depth : UInt64) -> Bytes {
+  let writer = @io.MemoryWriter::new(1048576UL, png_stream_test_budget(work=0UL)).unwrap()
+  let encoder = if depth == 1UL {
+    PngEncoder::new_gray1()
+  } else if depth == 2UL {
+    PngEncoder::new_gray2()
+  } else {
+    PngEncoder::new_gray4()
+  }
+  ignore(@codec.ImageEncoder::encode(
+    encoder, image.view(), writer as &@io.Writer,
+    @codec.EncodeOptions::new(lossless_required=true, preserve_opaque_metadata=false),
+    png_stream_test_limits(), png_stream_test_budget(), @error.Diagnostics::new(),
+  ).unwrap())
+  let bytes : Array[Byte] = []
+  for index = 0UL; index < writer.position(); index = index + 1UL {
+    bytes.push(writer.view().get(index).unwrap())
+  }
+  Bytes::from_array(bytes)
+}
+
+///| Select only the fixed public low-bit chunk factories under test.
+fn png_stream_packed_chunk(
+  image : @storage.OwnedImage,
+  depth : UInt64,
+  limits : @codec.CodecLimits,
+  budget : @budget.Budget,
+) -> Result[PngChunkEncoder, @error.CoreError] {
+  if depth == 1UL {
+    PngChunkEncoder::new_gray1(image.view(), limits, budget, @error.Diagnostics::new())
+  } else if depth == 2UL {
+    PngChunkEncoder::new_gray2(image.view(), limits, budget, @error.Diagnostics::new())
+  } else {
+    PngChunkEncoder::new_gray4(image.view(), limits, budget, @error.Diagnostics::new())
+  }
+}
+
+///| Fresh encoders retain public eager parity, accepted-only accounting, and
+/// caller-owned tails under zero, one-byte, and ragged leases.
+fn png_stream_packed_hostile_drain(
+  image : @storage.OwnedImage,
+  depth : UInt64,
+  schedule : Array[UInt64],
+) -> Unit {
+  let eager = png_stream_packed_eager(image, depth)
+  let encoder = png_stream_packed_chunk(
+    image, depth, png_stream_test_limits(), png_stream_test_budget(),
+  ).unwrap()
+  let empty = png_chunk_test_owner(1UL, fill=b'Z')
+  let zero = empty.with_mut(0UL, 0UL, fn(lease) { Ok(encoder.pull(lease)) }).unwrap()
+  if zero.written() != 0UL || zero.total_written() != 0UL ||
+    !(zero.outcome() is PngChunkPullOutcome::NeedOutput) ||
+    empty.view().get(0UL).unwrap() != b'Z' {
+    abort("png packed empty lease progress")
+  }
+  let output : Array[Byte] = []
+  let mut turn = 0UL
+  while turn < 4096UL {
+    let capacity = schedule[(turn % schedule.length().to_uint64()).to_int()]
+    let owner = png_chunk_test_owner(capacity, fill=b'Z')
+    let before = output.length().to_uint64()
+    let pulled = owner.with_mut(0UL, capacity, fn(lease) { Ok(encoder.pull(lease)) }).unwrap()
+    if pulled.written() > capacity || pulled.total_written() != before + pulled.written() {
+      abort("png packed accepted-only progress")
+    }
+    for index = 0UL; index < pulled.written(); index = index + 1UL {
+      output.push(owner.view().get(index).unwrap())
+    }
+    for index = pulled.written(); index < capacity; index = index + 1UL {
+      if owner.view().get(index).unwrap() != b'Z' {
+        abort("png packed lease tail changed")
+      }
+    }
+    match pulled.outcome() {
+      PngChunkPullOutcome::NeedOutput => turn = turn + 1UL
+      PngChunkPullOutcome::Failed(_) => abort("png packed chunk drain failed")
+      PngChunkPullOutcome::Finished => {
+        if Bytes::from_array(output) != eager { abort("png packed eager parity") }
+        let later = png_chunk_test_owner(7UL, fill=b'Z')
+        let replay = later.with_mut(0UL, 7UL, fn(lease) { Ok(encoder.pull(lease)) }).unwrap()
+        if replay.written() != 0UL || replay.total_written() != pulled.total_written() ||
+          !(replay.outcome() is PngChunkPullOutcome::Finished) {
+          abort("png packed terminal progress")
+        }
+        for index = 0UL; index < 7UL; index = index + 1UL {
+          if later.view().get(index).unwrap() != b'Z' {
+            abort("png packed terminal lease changed")
+          }
+        }
+        return ()
+      }
+    }
+  }
+  abort("png packed chunk drain unreachable")
+}
+
+///| Every low-bit selector is byte-identical to its public eager peer through
+/// hostile caller-owned capacities.
+test "PNG packed grayscale chunk selectors retain public hostile leases" {
+  for depth in [1UL, 2UL, 4UL] {
+    let image = png_stream_packed_gray_image(depth)
+    png_stream_packed_hostile_drain(image, depth, [0UL, 1UL])
+    png_stream_packed_hostile_drain(image, depth, [1UL])
+    png_stream_packed_hostile_drain(image, depth, [0UL, 1UL, 3UL, 2UL, 5UL])
+  }
+}
+
+///| Invalid levels and exhausted work reject before a chunk instance can expose
+/// a lease, preserving every resource-limit field.
+test "PNG packed grayscale chunk admission is atomic" {
+  for depth in [1UL, 2UL, 4UL] {
+    let invalid = png_stream_gray8_image(
+      if depth == 4UL { b"\x02" } else { b"\x01" },
+    )
+    let invalid_budget = png_stream_test_budget()
+    let invalid_before = invalid_budget.remaining()
+    let invalid_error = png_stream_packed_chunk(
+      invalid, depth, png_stream_test_limits(), invalid_budget,
+    ).unwrap_err()
+    let expected_context = if depth == 1UL {
+      "gray1-level-required"
+    } else if depth == 2UL {
+      "gray2-level-required"
+    } else {
+      "gray4-level-required"
+    }
+    if invalid_error.context() != Some(expected_context) ||
+      !png_adam7_stream_same_remaining(invalid_before, invalid_budget.remaining()) {
+      abort("png packed invalid admission was not atomic")
+    }
+    let valid_budget = png_stream_test_budget(work=0UL)
+    let valid_before = valid_budget.remaining()
+    let work_error = png_stream_packed_chunk(
+      png_stream_packed_gray_image(depth), depth, png_stream_test_limits(), valid_budget,
+    ).unwrap_err()
+    if work_error.context() == None ||
+      !png_adam7_stream_same_remaining(valid_before, valid_budget.remaining()) {
+      abort("png packed work admission was not atomic")
+    }
+  }
+}
+
+///| A released first lease yields a zero-write typed terminal that replays
+/// identically without mutating a later caller-owned lease.
+test "PNG packed grayscale chunk replays released lease failures" {
+  for depth in [1UL, 2UL, 4UL] {
+    let encoder = png_stream_packed_chunk(
+      png_stream_packed_gray_image(depth), depth, png_stream_test_limits(),
+      png_stream_test_budget(),
+    ).unwrap()
+    let released = png_chunk_test_owner(1UL, fill=b'Z')
+    let first = released.with_mut(0UL, 1UL, fn(lease) {
+      lease.release()
+      Ok(encoder.pull(lease))
+    }).unwrap()
+    let first_error = match first.outcome() {
+      PngChunkPullOutcome::Failed(error) => error
+      _ => abort("png packed released lease outcome")
+    }
+    let later = png_chunk_test_owner(1UL, fill=b'Z')
+    let replay = later.with_mut(0UL, 1UL, fn(lease) { Ok(encoder.pull(lease)) }).unwrap()
+    let replay_error = match replay.outcome() {
+      PngChunkPullOutcome::Failed(error) => error
+      _ => abort("png packed released lease replay")
+    }
+    if first.written() != 0UL || first.total_written() != 0UL || replay.written() != 0UL ||
+      replay.total_written() != 0UL || !png_chunk_test_same_error(first_error, replay_error) ||
+      released.view().get(0UL).unwrap() != b'Z' || later.view().get(0UL).unwrap() != b'Z' {
+      abort("png packed released lease terminal")
+    }
+  }
+}

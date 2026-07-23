@@ -18,6 +18,60 @@ pub fn PngChunkEncoder::new(
   )
 }
 
+///| Constructs the explicit Gray1 caller-buffered route: one-bit grayscale,
+/// Stored DEFLATE, filter None, and no interlace.
+pub fn PngChunkEncoder::new_gray1(
+  source : @storage.ImageView,
+  limits : @codec.CodecLimits,
+  budget : @budget.Budget,
+  diagnostics : @error.Diagnostics,
+) -> Result[PngChunkEncoder, @error.CoreError] {
+  let machine = match PngEncodeMachine::new_with_profile(
+    source, PngEncodeProfile::Gray1, PngCompressionStrategy::Stored,
+    PngFilterStrategy::None, PngInterlaceStrategy::None, limits, budget, diagnostics,
+  ) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  Ok({ state: PngChunkEncoderState::Active(machine), total_written: 0UL })
+}
+
+///| Constructs the explicit Gray2 caller-buffered route: two-bit grayscale,
+/// Stored DEFLATE, filter None, and no interlace.
+pub fn PngChunkEncoder::new_gray2(
+  source : @storage.ImageView,
+  limits : @codec.CodecLimits,
+  budget : @budget.Budget,
+  diagnostics : @error.Diagnostics,
+) -> Result[PngChunkEncoder, @error.CoreError] {
+  let machine = match PngEncodeMachine::new_with_profile(
+    source, PngEncodeProfile::Gray2, PngCompressionStrategy::Stored,
+    PngFilterStrategy::None, PngInterlaceStrategy::None, limits, budget, diagnostics,
+  ) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  Ok({ state: PngChunkEncoderState::Active(machine), total_written: 0UL })
+}
+
+///| Constructs the explicit Gray4 caller-buffered route: four-bit grayscale,
+/// Stored DEFLATE, filter None, and no interlace.
+pub fn PngChunkEncoder::new_gray4(
+  source : @storage.ImageView,
+  limits : @codec.CodecLimits,
+  budget : @budget.Budget,
+  diagnostics : @error.Diagnostics,
+) -> Result[PngChunkEncoder, @error.CoreError] {
+  let machine = match PngEncodeMachine::new_with_profile(
+    source, PngEncodeProfile::Gray4, PngCompressionStrategy::Stored,
+    PngFilterStrategy::None, PngInterlaceStrategy::None, limits, budget, diagnostics,
+  ) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  Ok({ state: PngChunkEncoderState::Active(machine), total_written: 0UL })
+}
+
 ///| Constructs the explicit Gray8 caller-buffered route: 8-bit grayscale,
 /// Stored DEFLATE, filter None, and no interlace.
 pub fn PngChunkEncoder::new_gray8(
