@@ -16,9 +16,17 @@ MoonBit developers can reuse stable, high-performance native infrastructure cont
 
 **Validated:** Exact opaque and transparent wire/CRC vectors, public RGB8/RGBA8 decode, eager/chunk byte parity, zero/one/ragged and split/released hostile leases, sticky terminals, atomic admission, and a fresh ordinary PNG package gate all passed. On the final main-branch run, wasm, wasm-gc, js, and native each completed 279/279 tests.
 
-## Next Milestone Goals
+## Current Milestone: v0.25 Indexed Low-Bit PNG Encode
 
-Select the next reusable MoonBit-native image capability through a fresh requirements and roadmap cycle. Keep the existing Indexed8 API experimental until its public constructor evolution is documented or a stable opaque compatibility constructor is chosen.
+**Goal:** Add exact, bounded Type-3/1, /2, and /4 PNG output from the existing canonical Indexed8 source without widening generic image models or creating a second encoder.
+
+**Target features:**
+
+- Pack canonical unpacked indices MSB-first with deterministic zero-filled row tails.
+- Preserve PLTE and canonical optional tRNS while enforcing depth-specific palette caps and atomic admission.
+- Deliver eager and caller-buffered byte parity, hostile lease behavior, independent wire/decode vectors, and all-target qualification.
+
+**Versioning note:** Keep `PngIndexedImage` experimental until its alpha-aware constructor evolution is documented or an opaque compatibility constructor is selected.
 
 ## Requirements
 

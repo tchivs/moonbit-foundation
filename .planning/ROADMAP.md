@@ -29,4 +29,23 @@
 
 ## Phases
 
-No active phases. Start the next milestone with the project lifecycle workflow.
+### 📋 v0.25 Indexed Low-Bit PNG Encode
+
+- [ ] **Phase 79: Indexed Low-Bit Eager Packing** — Add exact bounded Type-3/1, /2, and /4 eager output from canonical Indexed8 sources.
+- [ ] **Phase 80: Resumable Indexed Low-Bit Qualification** — Add caller-buffered parity, hostile lease proof, independent vectors, and four-target qualification.
+
+## Phase Details
+
+### Phase 79: Indexed Low-Bit Eager Packing
+
+**Goal:** Library users can explicitly encode an existing `PngIndexedImage` as bounded non-interlaced Type-3/1, /2, or /4 PNG with exact MSB-first packed rows and PLTE/tRNS framing.
+**Depends on:** Phase 78
+**Requirements:** INDEXLOW-01, INDEXLOW-02, INDEXLOW-03
+**Scope guard:** Reuse the owning Indexed8 source and one bounded machine; no generic model widening, quantization, Adam7, strategy expansion, staging, FFI, or release automation.
+
+### Phase 80: Resumable Indexed Low-Bit Qualification
+
+**Goal:** Library users can emit the same low-bit Indexed PNG through caller-owned leases with eager-identical bytes, sticky terminals, and portable independent evidence.
+**Depends on:** Phase 79
+**Requirements:** INDEXLOW-04, INDEXLOW-05
+**Scope guard:** Add only a thin caller-buffered entry to Phase 79's machine and qualify it; no second transport, indexed Adam7, model widening, strategies, wrappers, copied source trees, or release automation.
