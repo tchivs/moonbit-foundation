@@ -5065,6 +5065,73 @@ test "PNG Indexed8 chunk replays released lease failures" {
   }
 }
 
+///| Splitting a caller lease consumes its parent without invalidating its live
+/// children: an inactive parent makes the encoder terminally fail, while a
+/// fresh encoder can write through a child window and releases it on return.
+test "PNG Indexed8 chunk respects split lease parent and child ownership" {
+  let failed_encoder = PngChunkEncoder::new_indexed8(
+    png_stream_indexed_source(true), png_stream_test_limits(), png_stream_test_budget(),
+    @error.Diagnostics::new(),
+  ).unwrap()
+  let parent_owner = png_chunk_test_owner(3UL, fill=b'Z')
+  let parent_pull = parent_owner.with_mut(0UL, 3UL, fn(parent) {
+    let (_left, _right) = parent.split_mut(1UL).unwrap()
+    Ok(failed_encoder.pull(parent))
+  }).unwrap()
+  let parent_error = match parent_pull.outcome() {
+    PngChunkPullOutcome::Failed(error) => error
+    _ => abort("png indexed8 split parent outcome")
+  }
+  let replay_owner = png_chunk_test_owner(1UL, fill=b'Z')
+  let replay = replay_owner.with_mut(0UL, 1UL, fn(lease) { Ok(failed_encoder.pull(lease)) }).unwrap()
+  let replay_error = match replay.outcome() {
+    PngChunkPullOutcome::Failed(error) => error
+    _ => abort("png indexed8 split parent replay")
+  }
+  if parent_pull.written() != 0UL || parent_pull.total_written() != 0UL ||
+    replay.written() != 0UL || replay.total_written() != 0UL ||
+    !png_chunk_test_same_error(parent_error, replay_error) {
+    abort("png indexed8 split parent terminal")
+  }
+  for index = 0UL; index < 3UL; index = index + 1UL {
+    if parent_owner.view().get(index).unwrap() != b'Z' {
+      abort("png indexed8 split parent changed sentinel")
+    }
+  }
+  if replay_owner.view().get(0UL).unwrap() != b'Z' {
+    abort("png indexed8 split parent replay changed sentinel")
+  }
+
+  let encoder = PngChunkEncoder::new_indexed8(
+    png_stream_indexed_source(false), png_stream_test_limits(), png_stream_test_budget(),
+    @error.Diagnostics::new(),
+  ).unwrap()
+  let child_owner = png_chunk_test_owner(5UL, fill=b'Z')
+  let child_pull = child_owner.with_mut(0UL, 5UL, fn(parent) {
+    let (_left, right) = parent.split_mut(2UL).unwrap()
+    Ok(encoder.pull(right))
+  }).unwrap()
+  if child_pull.written() == 0UL || child_pull.written() > 3UL ||
+    child_pull.total_written() != child_pull.written() ||
+    child_owner.view().get(0UL).unwrap() != b'Z' ||
+    child_owner.view().get(1UL).unwrap() != b'Z' {
+    abort("png indexed8 split child window")
+  }
+  for index = 2UL + child_pull.written(); index < 5UL; index = index + 1UL {
+    if child_owner.view().get(index).unwrap() != b'Z' {
+      abort("png indexed8 split child tail")
+    }
+  }
+  ignore(child_owner.with_mut(0UL, 5UL, fn(_lease) { Ok(()) }).unwrap())
+  let next_owner = png_chunk_test_owner(1UL, fill=b'Z')
+  let next = next_owner.with_mut(0UL, 1UL, fn(lease) { Ok(encoder.pull(lease)) }).unwrap()
+  if next.written() != 1UL || next.total_written() != child_pull.written() + 1UL ||
+    !(next.outcome() is PngChunkPullOutcome::NeedOutput) ||
+    next_owner.view().get(0UL).unwrap() == b'Z' {
+    abort("png indexed8 split child encoder retained lease")
+  }
+}
+
 ///| Indexed8 construction rejects output, pixel, and work requests before a
 /// lease can be exposed or any caller-supplied budget resource is charged.
 test "PNG Indexed8 chunk admission is atomic" {
