@@ -3927,19 +3927,80 @@ test "PNG GrayAlpha16 Adam7 public hostile schedules" {
   }
 }
 
+///| Drain a fresh all-seven-pass GrayAlpha8 source through caller-owned leases
+/// while retaining public eager identity, tail ownership, and sticky completion.
+fn png_graya8_adam7_chunk_drain(
+  strategy : PngCompressionStrategy,
+  filter_strategy : PngFilterStrategy,
+  schedule : Array[UInt64],
+) -> Unit {
+  let eager = png_stream_graya8_eager_with_all_strategies(
+    png_stream_graya8_adam7_image(), strategy, filter_strategy, PngInterlaceStrategy::Adam7,
+  )
+  let source = png_stream_graya8_adam7_image()
+  let encoder = PngChunkEncoder::new_graya8_with_all_strategies(
+    source.view(), strategy, filter_strategy, PngInterlaceStrategy::Adam7,
+    png_stream_test_limits(), png_stream_test_budget(), @error.Diagnostics::new(),
+  ).unwrap()
+  let empty = png_chunk_test_owner(1UL, fill=b'Z')
+  let zero = empty.with_mut(0UL, 0UL, fn(lease) { Ok(encoder.pull(lease)) }).unwrap()
+  if zero.written() != 0UL || zero.total_written() != 0UL ||
+    !(zero.outcome() is PngChunkPullOutcome::NeedOutput) ||
+    empty.view().get(0UL).unwrap() != b'Z' {
+    abort("png graya8 adam7 empty lease progress")
+  }
+  let output : Array[Byte] = []
+  let mut turn = 0UL
+  while turn < 4096UL {
+    let capacity = schedule[(turn % schedule.length().to_uint64()).to_int()]
+    let owner = png_chunk_test_owner(capacity, fill=b'Z')
+    let before = output.length().to_uint64()
+    let pulled = owner.with_mut(0UL, capacity, fn(lease) { Ok(encoder.pull(lease)) }).unwrap()
+    if pulled.written() > capacity || pulled.total_written() != before + pulled.written() {
+      abort("png graya8 adam7 accepted-only progress")
+    }
+    for index = 0UL; index < pulled.written(); index = index + 1UL {
+      output.push(owner.view().get(index).unwrap())
+    }
+    for index = pulled.written(); index < capacity; index = index + 1UL {
+      if owner.view().get(index).unwrap() != b'Z' {
+        abort("png graya8 adam7 lease tail")
+      }
+    }
+    match pulled.outcome() {
+      PngChunkPullOutcome::NeedOutput => turn = turn + 1UL
+      PngChunkPullOutcome::Failed(_) => abort("png graya8 adam7 chunk drain failed")
+      PngChunkPullOutcome::Finished => {
+        if Bytes::from_array(output) != eager { abort("png graya8 adam7 eager parity") }
+        let sentinel = png_chunk_test_owner(7UL, fill=b'Z')
+        let later = sentinel.with_mut(0UL, 7UL, fn(lease) { Ok(encoder.pull(lease)) }).unwrap()
+        if later.written() != 0UL || later.total_written() != pulled.total_written() ||
+          !(later.outcome() is PngChunkPullOutcome::Finished) {
+          abort("png graya8 adam7 terminal progress")
+        }
+        for index = 0UL; index < 7UL; index = index + 1UL {
+          if sentinel.view().get(index).unwrap() != b'Z' {
+            abort("png graya8 adam7 terminal lease")
+          }
+        }
+        return
+      }
+    }
+  }
+  abort("png graya8 adam7 chunk drain unreachable")
+}
+
 ///| One public Adaptive/Fixed GrayAlpha8 Adam7 selector preserves caller
 /// ownership through direct zero-capacity, one-byte, and ragged leases.
 test "PNG GrayAlpha8 Adam7 public hostile tracer" {
   png_graya8_adam7_chunk_drain(
-    png_stream_graya8_adam7_image(), PngCompressionStrategy::FixedOrStored,
-    PngFilterStrategy::Adaptive, [0UL, 1UL],
+    PngCompressionStrategy::FixedOrStored, PngFilterStrategy::Adaptive, [0UL, 1UL],
   )
   png_graya8_adam7_chunk_drain(
-    png_stream_graya8_adam7_image(), PngCompressionStrategy::FixedOrStored,
-    PngFilterStrategy::Adaptive, [1UL],
+    PngCompressionStrategy::FixedOrStored, PngFilterStrategy::Adaptive, [1UL],
   )
   png_graya8_adam7_chunk_drain(
-    png_stream_graya8_adam7_image(), PngCompressionStrategy::FixedOrStored,
-    PngFilterStrategy::Adaptive, [0UL, 8UL, 4UL, 1UL, 13UL, 2UL, 5UL, 3UL, 21UL],
+    PngCompressionStrategy::FixedOrStored, PngFilterStrategy::Adaptive,
+    [0UL, 8UL, 4UL, 1UL, 13UL, 2UL, 5UL, 3UL, 21UL],
   )
 }
