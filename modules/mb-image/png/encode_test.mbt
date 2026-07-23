@@ -348,6 +348,73 @@ fn png_encode_graya16_adam7_expected_passes() -> Array[Byte] {
   expected
 }
 
+///| A five-by-five packed little-endian RGBA16 source whose coordinate,
+/// component, and storage lane values all differ.  Its dimensions populate
+/// every Adam7 pass.
+fn png_encode_rgba16_adam7_image() -> @storage.OwnedImage {
+  let descriptor = @model.ImageDescriptor::new(
+    5UL, 5UL, @model.ImageFormat::rgba16(),
+    [@model.PlaneDescriptor::new(0UL, 200UL, 40UL, 40UL, 1UL, 1UL, 5UL, 5UL).unwrap()],
+    200UL,
+    @model.ImageMetadata::new(
+      @color.ColorSpaceIdentity::Srgb, @color.TransferIdentity::EncodedSrgb,
+      Some(@color.AlphaMode::Straight), @profile.ProfileIdentity::builtin_srgb(),
+      @model.Orientation::TopLeft,
+      @metadata.OpaqueMetadata::from_entries(
+        [], @metadata.MetadataLimits::new(
+          max_entries=1UL, max_token_bytes=16UL, max_value_bytes=1UL,
+          max_total_bytes=32UL, max_disposition_fields=4UL,
+        ), png_encode_budget(bytes=1UL, work=0UL),
+      ).unwrap(),
+    ),
+  ).unwrap()
+  let image = @storage.OwnedImage::new(descriptor, png_encode_budget(bytes=200UL, work=0UL)).unwrap()
+  image.with_mut_view(fn(view) {
+    for y = 0UL; y < 5UL; y = y + 1UL {
+      for x = 0UL; x < 5UL; x = x + 1UL {
+        let sample = y * 5UL + x
+        for component = 0UL; component < 4UL; component = component + 1UL {
+          view.set_component_byte(
+            x, y, component, 0UL,
+            (b'\x10'.to_uint64() + 32UL * component + sample).to_byte(),
+          ).unwrap()
+          view.set_component_byte(
+            x, y, component, 1UL,
+            (b'\x80'.to_uint64() + 32UL * component + sample).to_byte(),
+          ).unwrap()
+        }
+      }
+    }
+    Ok(())
+  }).unwrap()
+  image
+}
+
+///| Independently enumerate Type-6/16 Adam7 rows from the fixture rather than
+/// using the encoder traversal.  PNG wires each little-endian U16 as high then
+/// low bytes, in R/G/B/A component order.
+fn png_encode_rgba16_adam7_expected_passes() -> Array[Byte] {
+  let expected : Array[Byte] = []
+  for pass in [
+    (0UL, 0UL, 8UL, 8UL), (4UL, 0UL, 8UL, 8UL), (0UL, 4UL, 4UL, 8UL),
+    (2UL, 0UL, 4UL, 4UL), (0UL, 2UL, 2UL, 4UL), (1UL, 0UL, 2UL, 2UL),
+    (0UL, 1UL, 1UL, 2UL),
+  ] {
+    let (start_x, start_y, stride_x, stride_y) = pass
+    for y = start_y; y < 5UL; y = y + stride_y {
+      expected.push(b'\x00')
+      for x = start_x; x < 5UL; x = x + stride_x {
+        let sample = y * 5UL + x
+        for component = 0UL; component < 4UL; component = component + 1UL {
+          expected.push((b'\x80'.to_uint64() + 32UL * component + sample).to_byte())
+          expected.push((b'\x10'.to_uint64() + 32UL * component + sample).to_byte())
+        }
+      }
+    }
+  }
+  expected
+}
+
 ///| The Stored Adam7 payload for `png_encode_graya8_adam7_image`, enumerated
 /// independently from the encoder cursor to prove Type-4/8 G,A pass order.
 fn png_encode_graya8_adam7_expected_passes() -> Array[Byte] {
@@ -1442,6 +1509,80 @@ test "PNG RGBA16 eager factories retain atomic profile and resource admission" {
   ).unwrap_err()
   inspect(rgb.context(), content="Some(rgba16-required)")
   inspect(rgb_writer.position(), content="0")
+}
+
+///| Both explicit RGBA16 Adam7 selectors preserve the independently derived
+/// seven-pass Type-6/16 raster and all packed little-endian source lanes.
+test "PNG RGBA16 Adam7 eager wire and explicit decode fidelity" {
+  let expected = Bytes::from_array(png_encode_rgba16_adam7_expected_passes())
+  if expected.length() != 211 { abort("png rgba16 Adam7 expected raster length") }
+  let outputs : Array[Bytes] = []
+  for encoder in [
+    PngEncoder::new_rgba16_with_interlace_strategy(PngInterlaceStrategy::Adam7),
+    PngEncoder::new_rgba16_with_all_strategies(
+      PngCompressionStrategy::Stored, PngFilterStrategy::None, PngInterlaceStrategy::Adam7,
+    ),
+  ] {
+    let (_, writer) = png_adam7_encode_with(encoder, png_encode_rgba16_adam7_image())
+    let bytes = png_encode_prefix(writer)
+    if bytes[0] != b'\x89' || bytes[1] != b'P' || bytes[24] != b'\x10' ||
+      bytes[25] != b'\x06' || bytes[26] != b'\x00' || bytes[27] != b'\x00' ||
+      bytes[28] != b'\x01' || png_encode_gray16_public_stored_scanlines(bytes, 211) != expected {
+      abort("png rgba16 Adam7 eager pass profile")
+    }
+    outputs.push(bytes)
+  }
+  if outputs.length() != 2 || outputs[0] != outputs[1] {
+    abort("png rgba16 Adam7 eager selector parity")
+  }
+  let owner = @bytes.OwnedBytes::from_bytes(
+    outputs[0], png_encode_budget(bytes=4096UL, work=0UL),
+  ).unwrap()
+  let restored = PngDecoder::decode_rgba16(
+    @io.MemoryReader::new(owner.view()) as &@io.Reader,
+    @codec.DecodeOptions::new(require_complete_input=true, preserve_opaque_metadata=false),
+    png_encode_limits(output=4096UL, work=1048576UL),
+    png_encode_budget(bytes=4096UL, work=1048576UL), @error.Diagnostics::new(),
+  ).unwrap().image().view()
+  for y = 0UL; y < 5UL; y = y + 1UL {
+    for x = 0UL; x < 5UL; x = x + 1UL {
+      let sample = y * 5UL + x
+      for component = 0UL; component < 4UL; component = component + 1UL {
+        for lane = 0UL; lane < 2UL; lane = lane + 1UL {
+          let expected_lane = if lane == 0UL {
+            (b'\x10'.to_uint64() + 32UL * component + sample).to_byte()
+          } else {
+            (b'\x80'.to_uint64() + 32UL * component + sample).to_byte()
+          }
+          if restored.get_component_byte(x, y, component, lane).unwrap() != expected_lane {
+            abort("png rgba16 Adam7 decoded storage lane")
+          }
+        }
+      }
+    }
+  }
+}
+
+///| Every legal strategy pair reaches the shared Type-6/16 Adam7 profile.
+test "PNG RGBA16 Adam7 eager all strategy framing" {
+  for strategy in [
+    PngCompressionStrategy::Stored,
+    PngCompressionStrategy::FixedOrStored,
+    PngCompressionStrategy::DynamicOrFixedOrStored,
+  ] {
+    for filter_strategy in [PngFilterStrategy::None, PngFilterStrategy::Adaptive] {
+      let (_, writer) = png_adam7_encode_with(
+        PngEncoder::new_rgba16_with_all_strategies(
+          strategy, filter_strategy, PngInterlaceStrategy::Adam7,
+        ),
+        png_encode_rgba16_adam7_image(),
+      )
+      let bytes = png_encode_prefix(writer)
+      if bytes[24] != b'\x10' || bytes[25] != b'\x06' || bytes[28] != b'\x01' {
+        abort("png rgba16 Adam7 eager strategy framing")
+      }
+    }
+  }
 }
 
 ///| Both explicit GrayAlpha16 Adam7 selectors emit the same Stored/None
