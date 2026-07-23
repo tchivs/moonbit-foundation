@@ -10,9 +10,14 @@ The primary audience is MoonBit library authors and application developers build
 
 MoonBit developers can reuse stable, high-performance native infrastructure contracts instead of rebuilding incompatible foundations for every graphics, document, media, or automation product.
 
-## Current Milestone: Next Code-First Capability
+## Current Milestone: v0.20 High-Precision GrayAlpha Decode
 
-**Goal:** Select the next reusable MoonBit-native infrastructure capability through a fresh requirements and roadmap cycle.
+**Goal:** Define and implement an explicit, portable decoding contract for high-precision Gray+Alpha PNG data without silently narrowing samples or widening unrelated image APIs.
+
+**Target features:**
+- Explicit decoder result and color/alpha fidelity contract for Type-4/16 PNG input.
+- Checked, portable high-precision component preservation and public conversion boundaries.
+- Independent wire/decode, legacy-compatibility, hostile-input, and four-target evidence.
 
 ## Requirements
 
