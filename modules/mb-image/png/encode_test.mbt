@@ -1419,17 +1419,15 @@ test "PNG RGBA16 public eager wire and explicit decode fidelity" {
     rgba,
   )
   let bytes = png_encode_prefix(writer)
+  let expected = b"\x00\x12\x34\xa7\xc5\xbe\x0f\x5a\x76\xde\x89\x43\x21\x87\x65\xcd\xab"
   inspect(
     bytes[0] == b'\x89' && bytes[1] == b'P' && bytes[24] == b'\x10' &&
-      bytes[25] == b'\x06' && bytes[28] == b'\x00' && bytes[48] == b'\x00' &&
-      bytes[49] == b'\x12' && bytes[50] == b'\x34' && bytes[51] == b'\xa7' &&
-      bytes[52] == b'\xc5' && bytes[53] == b'\xbe' && bytes[54] == b'\x0f' &&
-      bytes[55] == b'\x5a' && bytes[56] == b'\x76' && bytes[57] == b'\xde' &&
-      bytes[58] == b'\x89' && bytes[59] == b'\x43' && bytes[60] == b'\x21' &&
-      bytes[61] == b'\x87' && bytes[62] == b'\x65' && bytes[63] == b'\xcd' &&
-      bytes[64] == b'\xab',
+      bytes[25] == b'\x06' && bytes[28] == b'\x00',
     content="true",
   )
+  if png_encode_gray16_public_stored_scanlines(bytes, 17) != expected {
+    abort("png rgba16 public eager stored raster")
+  }
   let owner = @bytes.OwnedBytes::from_bytes(
     bytes, png_encode_budget(bytes=4096UL, work=0UL),
   ).unwrap()
