@@ -6,7 +6,7 @@ status: planning
 last_updated: "2026-07-23T09:09:07.233Z"
 last_activity: 2026-07-23
 progress:
-  total_phases: 0
+  total_phases: 4
   completed_phases: 0
   total_plans: 0
   completed_plans: 0
@@ -21,18 +21,18 @@ See `.planning/PROJECT.md` (updated 2026-07-23).
 
 **Core value:** MoonBit developers can reuse stable, high-performance native infrastructure contracts instead of rebuilding incompatible foundations for every graphics, document, media, or automation product.
 
-**Current focus:** Phase 62 — Explicit GrayAlpha16 Decode Contract.
+**Current focus:** Phase 65 — Packed RGBA16 Decode Model.
 
 ## Current Position
 
-Phase: Not started (defining requirements)
+Phase: 65 of 68 (Packed RGBA16 Decode Model)
 Plan: —
-Status: Defining requirements
-Last activity: 2026-07-23 — Milestone v0.21 started
+Status: Ready to plan
+Last activity: 2026-07-23 — v0.21 roadmap created; four requirements mapped across Phases 65-68
 
 ## Performance Metrics
 
-**Current milestone:** v0.20 has 3 scoped requirements mapped exactly once across Phases 62-64.
+**Current milestone:** v0.21 has 4 scoped requirements mapped exactly once across Phases 65-68.
 
 **Recent milestone:** v0.18 shipped with explicit GrayAlpha16 Adam7 factories, bounded streaming semantics, public portable evidence, and a four-target PNG qualification.
 
@@ -64,7 +64,7 @@ Last activity: 2026-07-23 — Milestone v0.21 started
 
 ### Pending Todos
 
-- Plan Phase 62 after confirming local MoonBit API spelling and the established typed error for incompatible preservation profiles.
+- Plan Phase 65 after confirming the local MoonBit API spelling for `rgba16` and the established checked descriptor conventions.
 
 ### Blockers/Concerns
 
@@ -82,9 +82,9 @@ Last activity: 2026-07-23 — Milestone v0.21 started
 ## Session Continuity
 
 Last session: 2026-07-23T06:03:45.206Z
-Stopped at: Phase 64 context gathered
-Resume file: .planning/phases/64-grayalpha16-decode-qualification/64-CONTEXT.md
+Stopped at: v0.21 roadmap and traceability created
+Resume file: None
 
 ## Operator Next Steps
 
-- Start the next milestone with /gsd-new-milestone
+- Plan Phase 65 with /gsd-plan-phase 65
