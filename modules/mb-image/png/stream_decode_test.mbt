@@ -738,6 +738,121 @@ test "PNG graya16 chunk terminals retain atomic sticky compatibility" {
   inspect(generic_image.get_byte(0UL, 0UL, 3UL).unwrap() == b'\xa7', content="true")
 }
 
+///| The explicit Type-6/16 chunk route must preserve every public RGBA16
+/// component byte under caller-owned empty, one-byte, and ragged schedules.
+fn png_rgba16_chunk_eager(
+  source : Bytes,
+  limits : @codec.CodecLimits,
+  budget : @budget.Budget,
+  diagnostics : @error.Diagnostics,
+) -> Result[@codec.DecodeResult, @error.CoreError] {
+  let owner = png_chunk_source(source)
+  PngDecoder::decode_rgba16(
+    @io.MemoryReader::new(owner.view()) as &@io.Reader,
+    @codec.DecodeOptions::new(
+      require_complete_input=true,
+      preserve_opaque_metadata=false,
+    ),
+    limits, budget, diagnostics,
+  )
+}
+
+///| Every push exposes accepted-only progress; the sole successful result
+/// transfer is the explicit finish call after IEND remains private.
+fn png_rgba16_chunk_schedule(
+  source : Bytes,
+  lane : String,
+  packets : Array[UInt64],
+  limits : @codec.CodecLimits,
+  budget : @budget.Budget,
+  diagnostics : @error.Diagnostics,
+) -> Result[@codec.DecodeResult, @error.CoreError] {
+  let decoder = PngChunkDecoder::new_rgba16(limits, budget, diagnostics)
+  let empty = png_chunk_source(b"")
+  let zero = decoder.push(empty.view())
+  if zero.consumed() != 0UL || !(zero.outcome() is PngChunkPushOutcome::NeedInput) {
+    abort("PNG " + lane + " empty push must stay active")
+  }
+  let length = source.length().to_uint64()
+  let mut offset = 0UL
+  let mut turn = 0
+  while offset < length {
+    let available = length - offset
+    let scheduled = packets[turn % packets.length()]
+    let requested = if scheduled < available { scheduled } else { available }
+    let owner = png_chunk_source(png_chunk_bytes(
+      source, offset.to_int(), (offset + requested).to_int(),
+    ))
+    let pushed = decoder.push(owner.view())
+    if pushed.consumed() != requested {
+      abort("PNG " + lane + " active progress mismatch")
+    }
+    match pushed.outcome() {
+      PngChunkPushOutcome::NeedInput => ()
+      PngChunkPushOutcome::Failed(error) => abort("PNG " + lane + " chunk failed: " + error.context().unwrap())
+    }
+    offset = offset + requested
+    turn = turn + 1
+  }
+  decoder.finish()
+}
+
+///| The additive RGBA16 chunk selector delegates to the eager-equivalent
+/// profile while generic Type-6/16 chunk decoding remains high-byte RGBA8.
+test "PNG rgba16 chunk schedules match eager preservation" {
+  for item in [
+    ("default", png_test_rgba16_literal(), png_test_limits()),
+    ("adam7", png_test_rgba16_adam7_literal(), png_test_graya16_adam7_limits()),
+  ] {
+    let (id, source, limits) = item
+    for schedule in [("one-byte", [1UL]), ("ragged", [8UL, 4UL, 1UL, 13UL, 2UL, 5UL, 3UL, 21UL])] {
+      let (schedule_id, packets) = schedule
+      let chunk_budget = @budget.Budget::new(@budget.ResourceLimits::new(
+        bytes=4096UL, allocations=8UL, allocation_size=1024UL, width=8UL,
+        height=8UL, pixels=64UL, depth=0UL, work=4096UL,
+      ))
+      let chunk_diagnostics = @error.Diagnostics::new()
+      let scheduled = png_rgba16_chunk_schedule(
+        source, id + "-" + schedule_id, packets, limits, chunk_budget, chunk_diagnostics,
+      ).unwrap()
+      let eager_budget = @budget.Budget::new(@budget.ResourceLimits::new(
+        bytes=4096UL, allocations=8UL, allocation_size=1024UL, width=8UL,
+        height=8UL, pixels=64UL, depth=0UL, work=4096UL,
+      ))
+      let eager_diagnostics = @error.Diagnostics::new()
+      let eager = png_rgba16_chunk_eager(source, limits, eager_budget, eager_diagnostics).unwrap()
+      if !png_graya16_chunk_result_matches(eager, scheduled) {
+        abort("PNG " + id + "-" + schedule_id + " explicit eager result mismatch")
+      }
+      if !png_test_remaining_unchanged(eager_budget.remaining(), chunk_budget.remaining()) {
+        abort("PNG " + id + "-" + schedule_id + " explicit eager budget mismatch")
+      }
+      if eager_diagnostics.length() != chunk_diagnostics.length() ||
+        eager_diagnostics.render() != chunk_diagnostics.render() {
+        abort("PNG " + id + "-" + schedule_id + " explicit eager diagnostics mismatch")
+      }
+    }
+  }
+
+  let generic = PngChunkDecoder::new(
+    png_test_limits(),
+    @budget.Budget::new(@budget.ResourceLimits::new(
+      bytes=256UL, allocations=4UL, allocation_size=128UL, width=4UL,
+      height=4UL, pixels=16UL, depth=0UL, work=256UL,
+    )),
+    @error.Diagnostics::new(),
+  )
+  let generic_source = png_chunk_source(png_test_rgba16_literal())
+  let generic_push = generic.push(generic_source.view())
+  inspect(generic_push.consumed() == generic_source.length(), content="true")
+  inspect(generic_push.outcome() is PngChunkPushOutcome::NeedInput, content="true")
+  let generic_image = generic.finish().unwrap().image().view()
+  for expected in [(0UL, b'\x12'), (1UL, b'V'), (2UL, b'\x9a'), (3UL, b'\xde')] {
+    let (channel, value) = expected
+    inspect(generic_image.get_byte(0UL, 0UL, channel).unwrap() == value, content="true")
+  }
+}
+
 ///| The complete generated corpus proves only public PngChunkDecoder calls:
 /// every record begins empty, then crosses all byte boundaries and a mixed
 /// ragged caller schedule before explicit finish determines completion.
