@@ -35,6 +35,30 @@ pub fn PngChunkEncoder::new_indexed8(
   Ok({ state: PngChunkEncoderState::Active(machine), total_written: 0UL })
 }
 
+///| Constructs the explicit selected-depth indexed caller-buffered route:
+///| Type-3/1, /2, or /4 with the shared Stored/filter-None/non-interlaced
+///| indexed frame machine.
+pub fn PngChunkEncoder::new_indexed(
+  source : PngIndexedImage,
+  bit_depth : PngIndexedBitDepth,
+  limits : @codec.CodecLimits,
+  budget : @budget.Budget,
+  diagnostics : @error.Diagnostics,
+) -> Result[PngChunkEncoder, @error.CoreError] {
+  let wire_profile = match bit_depth {
+    PngIndexedBitDepth::One => PngIndexedWireProfile::One
+    PngIndexedBitDepth::Two => PngIndexedWireProfile::Two
+    PngIndexedBitDepth::Four => PngIndexedWireProfile::Four
+  }
+  let machine = match PngEncodeMachine::new_with_indexed_profile(
+    source, wire_profile, limits, budget, diagnostics,
+  ) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  Ok({ state: PngChunkEncoderState::Active(machine), total_written: 0UL })
+}
+
 ///| Constructs the explicit Gray1 caller-buffered route: one-bit grayscale,
 /// Stored DEFLATE, filter None, and no interlace.
 pub fn PngChunkEncoder::new_gray1(
