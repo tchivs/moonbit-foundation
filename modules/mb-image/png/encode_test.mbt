@@ -569,6 +569,43 @@ fn png_encode_graya16_public_decode_is_canonical(bytes : Bytes) -> Unit {
   }
 }
 
+///| The public PNG decoder maps the legal 5x5 Adam7 GrayAlpha16 fixture to
+/// straight RGBA8 high bytes. The source formula stays independent of PNG
+/// traversal so every decoded pixel remains a consumer-visible contract check.
+fn png_encode_graya16_adam7_public_decode_is_canonical(bytes : Bytes) -> Unit {
+  let owner = @bytes.OwnedBytes::from_bytes(
+    bytes, png_encode_budget(bytes=4096UL, work=0UL),
+  ).unwrap()
+  let decoded = @codec.ImageDecoder::decode(
+    PngDecoder::new(), @io.MemoryReader::new(owner.view()) as &@io.Reader,
+    @codec.DecodeOptions::new(require_complete_input=true, preserve_opaque_metadata=false),
+    png_encode_limits(output=4096UL, work=1048576UL),
+    png_encode_budget(bytes=4096UL, work=1048576UL), @error.Diagnostics::new(),
+  ).unwrap()
+  let restored = decoded.image().view()
+  if restored.width() != 5UL || restored.height() != 5UL ||
+    restored.format().component() != @model.ComponentType::U8 ||
+    restored.format().channels() != @model.ChannelOrder::Rgba ||
+    restored.format().channel_count() != 4UL {
+    abort("png graya16 Adam7 public decoded descriptor")
+  }
+  for y = 0UL; y < 5UL; y = y + 1UL {
+    for x = 0UL; x < 5UL; x = x + 1UL {
+      let sample = y * 5UL + x
+      let gray = (b'\x80'.to_uint64() + sample).to_byte()
+      let alpha = (b'\xc0'.to_uint64() + sample).to_byte()
+      for channel = 0UL; channel < 3UL; channel = channel + 1UL {
+        if restored.get_byte(x, y, channel).unwrap() != gray {
+          abort("png graya16 Adam7 public decoded grayscale")
+        }
+      }
+      if restored.get_byte(x, y, 3UL).unwrap() != alpha {
+        abort("png graya16 Adam7 public decoded alpha")
+      }
+    }
+  }
+}
+
 ///|
 fn png_encode_prefix(writer : @io.MemoryWriter) -> Bytes {
   let bytes : Array[Byte] = []
@@ -1175,6 +1212,27 @@ test "PNG GrayAlpha16 Adam7 eager pass profile" {
   }
   inspect(outputs.length(), content="2")
   inspect(outputs[0] == outputs[1], content="true")
+}
+
+///| A public Stored/None Adam7 PNG exposes the complete Type-4/16 pass raster
+/// and decodes only through the documented straight-RGBA8 high-byte boundary.
+test "PNG GrayAlpha16 Adam7 public wire and decode" {
+  let expected = Bytes::from_array(png_encode_graya16_adam7_expected_passes())
+  let (_, writer) = png_adam7_encode_with(
+    PngEncoder::new_graya16_with_all_strategies(
+      PngCompressionStrategy::Stored, PngFilterStrategy::None, PngInterlaceStrategy::Adam7,
+    ),
+    png_encode_graya16_adam7_image(),
+  )
+  let bytes = png_encode_prefix(writer)
+  if bytes[0] != b'\x89' || bytes[1] != b'P' || bytes[24] != b'\x10' ||
+    bytes[25] != b'\x04' || bytes[28] != b'\x01' {
+    abort("png graya16 Adam7 public framing")
+  }
+  if png_encode_gray16_public_stored_scanlines(bytes) != expected {
+    abort("png graya16 Adam7 public pass raster")
+  }
+  png_encode_graya16_adam7_public_decode_is_canonical(bytes)
 }
 
 ///| The locked Phase-53 GrayAlpha16 identity rejects big-endian descriptors
