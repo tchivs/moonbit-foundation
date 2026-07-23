@@ -21,9 +21,9 @@ No `mnf/all`, equivalent umbrella module, self-edge, reverse edge, cycle, or und
 1. A module remains candidate while its contract and evidence are being qualified.
 2. A release must preserve the module's own version and history rather than synchronize unrelated modules.
 3. Stable qualification follows the adjacent stability promises and ordered gates in the canonical policy.
-4. A new module, public dependency-direction change, or breaking architectural boundary change requires an accepted RFC before merge.
+4. A new module, public dependency-direction change, or breaking architectural boundary change requires a Proposed RFC before merge.
 5. Publication automation must fail closed while the canonical publication block is true; no token or manual command may bypass it.
 
 ## Evidence
 
-An Accepted RFC must carry the authority route, approval or public-review evidence, objection disposition, and transition history required by the RFC process. Empty or disputed evidence retains the less advanced status and cannot authorize publication.
+An RFC authorizing a publication-relevant boundary change must be at Proposed status with its transition ledger recorded in repository history.

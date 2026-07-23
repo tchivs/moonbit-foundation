@@ -1,0 +1,5 @@
+import {
+  "moonbitlang/core/math" @stdlib_math,
+}
+
+supported_targets = "+js+wasm+wasm-gc+native"
