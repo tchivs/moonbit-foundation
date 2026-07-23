@@ -5,16 +5,16 @@ milestone_name: GrayAlpha8 Adam7 PNG
 current_phase: 59
 current_phase_name: GrayAlpha8 Adam7 Factory and Pass Profile
 status: planned
-stopped_at: Completed 59-01-PLAN.md
-last_updated: "2026-07-23T02:21:29.744Z"
+stopped_at: Completed 59-02-PLAN.md
+last_updated: "2026-07-23T02:28:57.190Z"
 last_activity: 2026-07-23
 last_activity_desc: Phase 59 factory/profile plans created
 progress:
   total_phases: 3
-  completed_phases: 0
+  completed_phases: 1
   total_plans: 2
-  completed_plans: 1
-  percent: 0
+  completed_plans: 2
+  percent: 33
 ---
 
 # Project State
@@ -48,6 +48,7 @@ Last activity: 2026-07-23 — Phase 59 factory/profile plans created
 | Plan | Duration | Tasks | Files |
 |------|----------|-------|-------|
 | Phase 59 P01 | 14min | 1 tasks | 5 files |
+| Phase 59 P02 | 18min | 2 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -63,6 +64,7 @@ Last activity: 2026-07-23 — Phase 59 factory/profile plans created
 - [v0.19]: Public proof uses literal Type-4/8 multipass wire data, established RGBA8 decode canonicalization, hostile caller schedules, frozen legacy vectors, and the ordinary all-target PNG package command.
 - [Phase ?]: GrayAlpha8 Adam7 is opt-in through additive eager and caller-buffered selector pairs; existing None constructors and bytes remain frozen.
 - [Phase ?]: GrayAlpha8 Adam7 reuses the sole profile-aware bounded machine after removing only its profile-specific interlace prohibition.
+- [Phase ?]: All six legal GrayAlpha8 Adam7 compression/filter pairs retain public Type-4/depth-8/Adam7 framing and ordinary chunk-to-eager parity.
 
 ### Pending Todos
 
@@ -83,9 +85,9 @@ Last activity: 2026-07-23 — Phase 59 factory/profile plans created
 
 ## Session Continuity
 
-Last session: 2026-07-23T02:21:29.731Z
-Stopped at: Completed 59-01-PLAN.md
-Resume file: .planning/phases/59-grayalpha8-adam7-factory-and-pass-profile/59-02-PLAN.md
+Last session: 2026-07-23T02:28:57.171Z
+Stopped at: Completed 59-02-PLAN.md
+Resume file: None
 
 ## Operator Next Steps
 
