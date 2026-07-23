@@ -27,12 +27,6 @@
 
 ## Phases
 
-### 📋 v0.23 Low-Bit Grayscale PNG Encode
-
-- [x] **Phase 73: Explicit Packed Grayscale PNG** — Add exact, non-interlaced Type-0 1/2/4-bit eager output from representable Gray/U8 sources. (completed 2026-07-23)
-- [x] **Phase 74: Resumable Packed Grayscale PNG** — Add caller-buffered packed output through the existing bounded encoder machine. (completed 2026-07-24)
-- [x] **Phase 75: Packed Grayscale PNG Qualification** — Prove independent wire fidelity, hostile behavior, compatibility, and four-target portability. (completed 2026-07-24)
-
 ### 📋 v0.24 Indexed PNG Encode
 
 - [x] **Phase 76: Indexed8 PNG Source & Eager PLTE** — Define an owning PNG-only indexed source and emit bounded Type-3/8 eager PNG with PLTE. (completed 2026-07-24)
@@ -40,27 +34,6 @@
 - [x] **Phase 78: Resumable Indexed PNG & Qualification** — Add caller-buffered parity, hostile leases, independent wire vectors, and four-target proof. (completed 2026-07-24)
 
 ## Phase Details
-
-### Phase 73: Explicit Packed Grayscale PNG
-
-**Goal:** Library users can select lossless Type-0/1, Type-0/2, or Type-0/4 output from exactly representable canonical Gray/U8 source levels.
-**Depends on:** Phase 72
-**Requirements:** GRAYPACK-01, GRAYPACK-02
-**Scope guard:** Reuse the one bounded PNG encoder; no implicit quantization, bit-packed image model, Adam7, palette, or staging path.
-
-### Phase 74: Resumable Packed Grayscale PNG
-
-**Goal:** Library users can emit the same packed Type-0 PNG through caller-owned output leases with existing atomic and sticky semantics.
-**Depends on:** Phase 73
-**Requirements:** GRAYPACK-03
-**Scope guard:** Reuse Phase 73's packed profile/provider and the existing caller-buffered machine; no second transport.
-
-### Phase 75: Packed Grayscale PNG Qualification
-
-**Goal:** Library users can rely on exact, bounded, portable low-bit grayscale PNG output.
-**Depends on:** Phase 74
-**Requirements:** GRAYPACK-04
-**Scope guard:** Independent test evidence and the ordinary source tree only; no wrappers, release automation, or copied trees.
 
 ### Phase 76: Indexed8 PNG Source & Eager PLTE
 
