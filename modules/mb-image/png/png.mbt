@@ -184,6 +184,9 @@ pub(all) enum PngInterlaceStrategy {
 /// its explicit Stored/non-interlaced factories.
 priv enum PngEncodeProfile {
   LegacyRgbOrRgba
+  Indexed1
+  Indexed2
+  Indexed4
   Indexed8
   Gray1
   Gray2
@@ -193,6 +196,25 @@ priv enum PngEncodeProfile {
   GrayAlpha8
   GrayAlpha16
   Rgba16
+} derive(Eq)
+
+///|
+/// Selects the explicit low-bit PNG wire depth for eager indexed encoding.
+/// Indexed8 remains available through `PngEncoder::encode_indexed8`.
+pub(all) enum PngIndexedBitDepth {
+  One
+  Two
+  Four
+} derive(Eq)
+
+///|
+/// The indexed machine owns one fixed wire profile once public selection has
+/// been admitted. Eight preserves the established Indexed8 wrappers.
+priv enum PngIndexedWireProfile {
+  One
+  Two
+  Four
+  Eight
 } derive(Eq)
 
 ///|

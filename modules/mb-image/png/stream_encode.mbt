@@ -926,13 +926,16 @@ fn PngEncodeMachine::new_with_profile(
 
 ///| Indexed8 reuses the same pending-byte machine but supplies its immutable
 /// index raster directly and fixes the only admitted wire profile.
-fn PngEncodeMachine::new_with_indexed(
+fn PngEncodeMachine::new_with_indexed_profile(
   source : PngIndexedImage,
+  wire_profile : PngIndexedWireProfile,
   limits : @codec.CodecLimits,
   budget : @budget.Budget,
   _diagnostics : @error.Diagnostics,
 ) -> Result[PngEncodeMachine, @error.CoreError] {
-  let facts = match _png_encode_indexed_preflight(source, limits, budget) {
+  let facts = match _png_encode_indexed_preflight_with_profile(
+    source, wire_profile, limits, budget,
+  ) {
     Err(error) => return Err(error)
     Ok(value) => value
   }
@@ -956,6 +959,19 @@ fn PngEncodeMachine::new_with_indexed(
     idat_crc: _png_crc_for_type([b'I', b'D', b'A', b'T']), adler: 1UL,
     finished: false,
   })
+}
+
+///| Fixed-Eight compatibility wrapper retained for Indexed8 eager, chunk, and
+/// white-box callers.
+fn PngEncodeMachine::new_with_indexed(
+  source : PngIndexedImage,
+  limits : @codec.CodecLimits,
+  budget : @budget.Budget,
+  diagnostics : @error.Diagnostics,
+) -> Result[PngEncodeMachine, @error.CoreError] {
+  PngEncodeMachine::new_with_indexed_profile(
+    source, PngIndexedWireProfile::Eight, limits, budget, diagnostics,
+  )
 }
 
 ///|
@@ -990,7 +1006,28 @@ fn PngEncodeMachine::scanline_byte(
       if in_row == 0UL {
         return Ok(b'\x00')
       }
-      return source.index_at(in_row - 1UL, index / row_width)
+      let depth = match _png_indexed_wire_depth(self.profile) {
+        Some(value) => value
+        None => return Err(_png_encode_machine_state_error("png-encode-indexed-profile"))
+      }
+      if depth == 8UL {
+        return source.index_at(in_row - 1UL, index / row_width)
+      }
+      let row = index / row_width
+      let first = (in_row - 1UL) * (8UL / depth)
+      let mut packed = 0UL
+      for slot = 0UL; slot < 8UL / depth; slot = slot + 1UL {
+        let x = first + slot
+        if x < self.width {
+          let code = match source.index_at(x, row) {
+            Err(error) => return Err(error)
+            Ok(value) => value.to_uint64()
+          }
+          let shift = 8UL - depth - slot * depth
+          packed = packed | (code << shift.to_int())
+        }
+      }
+      return Ok(packed.to_byte())
     }
     None => ()
   }
@@ -1431,16 +1468,20 @@ fn PngEncodeMachine::byte_at(
     if payload < 4UL { return Ok(_png_encode_machine_u32_byte(self.width, payload)) }
     if payload < 8UL { return Ok(_png_encode_machine_u32_byte(self.height, payload - 4UL)) }
     let colour_type = match self.profile {
-      PngEncodeProfile::Indexed8 => b'\x03'
+      PngEncodeProfile::Indexed1 | PngEncodeProfile::Indexed2 |
+      PngEncodeProfile::Indexed4 | PngEncodeProfile::Indexed8 => b'\x03'
       PngEncodeProfile::Gray1 | PngEncodeProfile::Gray2 | PngEncodeProfile::Gray4 |
       PngEncodeProfile::Gray8 | PngEncodeProfile::Gray16 => b'\x00'
       PngEncodeProfile::GrayAlpha8 | PngEncodeProfile::GrayAlpha16 => b'\x04'
       PngEncodeProfile::Rgba16 => b'\x06'
       PngEncodeProfile::LegacyRgbOrRgba => if self.channels == 3UL { b'\x02' } else { b'\x06' }
     }
-    let bit_depth = match _png_profile_packed_gray_depth(self.profile) {
+    let bit_depth = match _png_indexed_wire_depth(self.profile) {
+      Some(depth) => depth.to_byte()
+      None => match _png_profile_packed_gray_depth(self.profile) {
       Some(depth) => depth.to_byte()
       None => if _png_profile_uses_u16_component_wire(self.profile) { b'\x10' } else { b'\x08' }
+      }
     }
     return Ok([bit_depth, colour_type, b'\x00', b'\x00', if self.interlace_strategy == PngInterlaceStrategy::Adam7 { b'\x01' } else { b'\x00' }][(payload - 8UL).to_int()])
   }

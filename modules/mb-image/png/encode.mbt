@@ -61,6 +61,49 @@ fn _png_profile_packed_gray_depth(profile : PngEncodeProfile) -> UInt64? {
   }
 }
 
+///|
+/// Keep selected indexed depth, palette capacity, and profile in one private
+/// fact so admission, IHDR, and scalar scanline packing cannot drift.
+fn PngIndexedWireProfile::depth(self : PngIndexedWireProfile) -> UInt64 {
+  match self {
+    PngIndexedWireProfile::One => 1UL
+    PngIndexedWireProfile::Two => 2UL
+    PngIndexedWireProfile::Four => 4UL
+    PngIndexedWireProfile::Eight => 8UL
+  }
+}
+
+///|
+fn PngIndexedWireProfile::palette_cap(self : PngIndexedWireProfile) -> UInt64 {
+  match self {
+    PngIndexedWireProfile::One => 2UL
+    PngIndexedWireProfile::Two => 4UL
+    PngIndexedWireProfile::Four => 16UL
+    PngIndexedWireProfile::Eight => 256UL
+  }
+}
+
+///|
+fn PngIndexedWireProfile::profile(self : PngIndexedWireProfile) -> PngEncodeProfile {
+  match self {
+    PngIndexedWireProfile::One => PngEncodeProfile::Indexed1
+    PngIndexedWireProfile::Two => PngEncodeProfile::Indexed2
+    PngIndexedWireProfile::Four => PngEncodeProfile::Indexed4
+    PngIndexedWireProfile::Eight => PngEncodeProfile::Indexed8
+  }
+}
+
+///|
+fn _png_indexed_wire_depth(profile : PngEncodeProfile) -> UInt64? {
+  match profile {
+    PngEncodeProfile::Indexed1 => Some(1UL)
+    PngEncodeProfile::Indexed2 => Some(2UL)
+    PngEncodeProfile::Indexed4 => Some(4UL)
+    PngEncodeProfile::Indexed8 => Some(8UL)
+    _ => None
+  }
+}
+
 ///| Admit an exact low-bit grayscale level and return its unscaled PNG code.
 fn _png_packed_gray_code(
   profile : PngEncodeProfile,
@@ -150,7 +193,8 @@ fn _png_encode_source(
     return Err(_png_encode_capability("opaque-metadata-unsupported"))
   }
   let channels = match profile {
-    PngEncodeProfile::Indexed8 =>
+    PngEncodeProfile::Indexed1 | PngEncodeProfile::Indexed2 |
+    PngEncodeProfile::Indexed4 | PngEncodeProfile::Indexed8 =>
       return Err(_png_encode_capability("indexed8-source-required"))
     PngEncodeProfile::LegacyRgbOrRgba => match format.channels() {
       @model.ChannelOrder::Rgb =>
@@ -2039,8 +2083,9 @@ fn _png_indexed_stored_idat_length(
 }
 
 ///|
-fn _png_encode_indexed_preflight(
+fn _png_encode_indexed_preflight_with_profile(
   source : PngIndexedImage,
+  wire_profile : PngIndexedWireProfile,
   limits : @codec.CodecLimits,
   budget : @budget.Budget,
 ) -> Result[PngEncodePreflight, @error.CoreError] {
@@ -2058,7 +2103,18 @@ fn _png_encode_indexed_preflight(
     Err(error) => return Err(error)
     Ok(value) => value
   }
-  let row_bytes = width
+  let palette_entries = source.palette_length() / 3UL
+  if palette_entries > wire_profile.palette_cap() {
+    return Err(_png_encode_capability("indexed-palette-cap"))
+  }
+  let bits = match @checked.checked_mul(width, wire_profile.depth()) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  let row_bytes = match @checked.checked_add(bits, 7UL) {
+    Err(error) => return Err(error)
+    Ok(value) => value / 8UL
+  }
   let scanline_width = match @checked.checked_add(row_bytes, 1UL) {
     Err(error) => return Err(error)
     Ok(value) => value
@@ -2071,7 +2127,6 @@ fn _png_encode_indexed_preflight(
     Err(error) => return Err(error)
     Ok(value) => value
   }
-  let palette_entries = source.palette_length() / 3UL
   let mut trns_length = 0UL
   for entry = 0UL; entry < palette_entries; entry = entry + 1UL {
     let alpha = match source.alpha_at(entry) {
@@ -2115,12 +2170,24 @@ fn _png_encode_indexed_preflight(
     resolved_rows: 0UL, candidate_residuals: 0UL, selected_residuals: 0UL,
   }
   Ok({
-    profile: PngEncodeProfile::Indexed8, channels: 1UL, row_bytes, scanlines,
+    profile: wire_profile.profile(), channels: 1UL, row_bytes, scanlines,
     blocks, idat_length, total_length: frame.total_length,
     plan: PngDeflatePlan::Stored({ blocks, idat_length, total_length: frame.total_length }),
     disposition, selected_work, adaptive_planning_facts: traversal,
     adaptive_replay_facts: traversal, frame,
   })
+}
+
+///|
+/// Fixed-Eight compatibility wrapper retained for all existing Indexed8 callers.
+fn _png_encode_indexed_preflight(
+  source : PngIndexedImage,
+  limits : @codec.CodecLimits,
+  budget : @budget.Budget,
+) -> Result[PngEncodePreflight, @error.CoreError] {
+  _png_encode_indexed_preflight_with_profile(
+    source, PngIndexedWireProfile::Eight, limits, budget,
+  )
 }
 
 ///|
@@ -2202,6 +2269,54 @@ pub fn PngEncoder::encode_indexed8(
       @io.WriteOutcome::Progress(progress) => {
         return Err(_png_encode_invalid_writer_progress(progress))
       }
+      @io.WriteOutcome::Failed(error, _) => return Err(error)
+    }
+    match machine.acknowledge(byte) {
+      Err(error) => return Err(error)
+      Ok(_) => ()
+    }
+  }
+  Ok(@codec.EncodeResult::new(machine.disposition(), machine.completed()))
+}
+
+///| Eagerly encode an immutable indexed source using the explicitly selected
+/// Type-3 low-bit profile. The source remains unpacked; packing happens only
+/// while the existing acknowledged machine emits a scanline.
+pub fn PngEncoder::encode_indexed(
+  _self : PngEncoder,
+  source : PngIndexedImage,
+  bit_depth : PngIndexedBitDepth,
+  writer : &@io.Writer,
+  limits : @codec.CodecLimits,
+  budget : @budget.Budget,
+  diagnostics : @error.Diagnostics,
+) -> Result[@codec.EncodeResult, @error.CoreError] {
+  let wire_profile = match bit_depth {
+    PngIndexedBitDepth::One => PngIndexedWireProfile::One
+    PngIndexedBitDepth::Two => PngIndexedWireProfile::Two
+    PngIndexedBitDepth::Four => PngIndexedWireProfile::Four
+  }
+  let machine = match PngEncodeMachine::new_with_indexed_profile(
+    source, wire_profile, limits, budget, diagnostics,
+  ) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  while true {
+    let byte = match machine.present() {
+      Err(error) => return Err(error)
+      Ok(None) => break
+      Ok(Some(value)) => value
+    }
+    let owner = match @bytes.OwnedBytes::from_bytes(
+      Bytes::from_array([byte]), _png_private_budget(1UL),
+    ) {
+      Err(error) => return Err(error)
+      Ok(value) => value
+    }
+    match writer.write(owner.view()) {
+      @io.WriteOutcome::Progress(1UL) => ()
+      @io.WriteOutcome::Progress(progress) => return Err(_png_encode_invalid_writer_progress(progress))
       @io.WriteOutcome::Failed(error, _) => return Err(error)
     }
     match machine.acknowledge(byte) {

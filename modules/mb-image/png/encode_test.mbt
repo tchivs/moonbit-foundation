@@ -970,6 +970,8 @@ test "PNG Indexed2 eager packs an odd transparent row and decodes palette RGBA8"
   ).unwrap())
   let encoded = png_encode_prefix(writer)
   inspect(encoded[24] == b'\x02' && encoded[25] == b'\x03', content="true")
+  inspect(png_indexed_u32(encoded, 72) == 14UL, content="true")
+  inspect(png_indexed_slice(encoded, 80, 10) == b"\x78\x01\x01\x03\x00\xfc\xff\x00\x1b\x00", content="true")
   let owned = @bytes.OwnedBytes::from_bytes(
     encoded, png_encode_budget(bytes=256UL, work=0UL),
   ).unwrap()
