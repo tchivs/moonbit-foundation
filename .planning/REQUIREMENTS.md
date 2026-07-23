@@ -4,7 +4,7 @@
 
 ### Packed high-precision representation
 
-- [ ] **RGBA16DEC-01**: Library users can construct and inspect a checked packed little-endian, straight-alpha `rgba16` image representation without changing existing `rgba8` or `graya16` contracts.
+- [x] **RGBA16DEC-01**: Library users can construct and inspect a checked packed little-endian, straight-alpha `rgba16` image representation without changing existing `rgba8` or `graya16` contracts.
 
 ### Explicit Type-6/16 preservation
 

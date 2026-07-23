@@ -28,7 +28,7 @@
 
 Completed milestone detail is archived under `.planning/milestones/`.
 
-- [ ] **Phase 65: Packed RGBA16 Decode Model** - Establish the checked, explicit high-precision image result contract.
+- [x] **Phase 65: Packed RGBA16 Decode Model** - Establish the checked, explicit high-precision image result contract. (completed 2026-07-23)
 - [ ] **Phase 66: Explicit RGBA16 PNG Preservation** - Let eager callers preserve legal Type-6/16 source lanes without changing generic decode.
 - [ ] **Phase 67: Resumable RGBA16 PNG Preservation** - Deliver the same preservation contract through caller-owned chunks.
 - [ ] **Phase 68: RGBA16 Decode Qualification** - Prove exact lane fidelity, bounded failure, compatibility, and four-target portability.
@@ -97,7 +97,7 @@ Completed milestone detail is archived under `.planning/milestones/`.
 
 | Phase | Plans Complete | Status | Completed |
 |---|---|---|---|
-| 65. Packed RGBA16 Decode Model | 0/TBD | Not started | - |
+| 65. Packed RGBA16 Decode Model | 1/1 | Complete    | 2026-07-23 |
 | 66. Explicit RGBA16 PNG Preservation | 0/TBD | Not started | - |
 | 67. Resumable RGBA16 PNG Preservation | 0/TBD | Not started | - |
 | 68. RGBA16 Decode Qualification | 0/TBD | Not started | - |
