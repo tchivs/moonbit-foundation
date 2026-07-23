@@ -13,8 +13,8 @@
 
 ### Caller-buffered parity and qualification
 
-- [ ] **INDEXLOW-04**: Caller-buffered low-bit Indexed output reuses the bounded eager machine and remains byte-identical under hostile capacities, preserves lease ownership, and retains sticky terminals.
-- [ ] **INDEXLOW-05**: Independent low-bit wire/decode vectors, hostile lifecycle proof, Indexed8 and legacy compatibility, and the ordinary PNG package pass cover wasm, wasm-gc, js, and native.
+- [x] **INDEXLOW-04**: Caller-buffered low-bit Indexed output reuses the bounded eager machine and remains byte-identical under hostile capacities, preserves lease ownership, and retains sticky terminals.
+- [x] **INDEXLOW-05**: Independent low-bit wire/decode vectors, hostile lifecycle proof, Indexed8 and legacy compatibility, and the ordinary PNG package pass cover wasm, wasm-gc, js, and native.
 
 ## Future Requirements
 
@@ -32,8 +32,8 @@
 | INDEXLOW-01 | Phase 79 | Complete |
 | INDEXLOW-02 | Phase 79 | Complete |
 | INDEXLOW-03 | Phase 79 | Complete |
-| INDEXLOW-04 | Phase 80 | Pending |
-| INDEXLOW-05 | Phase 80 | Pending |
+| INDEXLOW-04 | Phase 80 | Complete |
+| INDEXLOW-05 | Phase 80 | Complete |
 
 **Coverage:**
 

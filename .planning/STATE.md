@@ -5,16 +5,16 @@ milestone_name: Indexed Low-Bit PNG Encode
 current_phase: 80
 current_phase_name: Resumable Indexed Low-Bit Qualification
 status: executing
-stopped_at: Phase 80 context gathered
-last_updated: "2026-07-23T21:36:51.313Z"
+stopped_at: Completed 80-01-PLAN.md; four-target PNG verification needs rerun
+last_updated: "2026-07-23T21:52:26.638Z"
 last_activity: 2026-07-24
 last_activity_desc: Phase 79 complete, transitioned to Phase 80
 progress:
   total_phases: 2
-  completed_phases: 1
+  completed_phases: 2
   total_plans: 2
-  completed_plans: 1
-  percent: 50
+  completed_plans: 2
+  percent: 100
 ---
 
 # Project State
@@ -51,6 +51,7 @@ Last activity: 2026-07-24 — Phase 79 complete, transitioned to Phase 80
 | Phase 59 P02 | 18min | 2 tasks | 2 files |
 | Phase 72-rgba16-encode-qualification P01 | 14min | 2 tasks | 1 files |
 | Phase 79-indexed-low-bit-eager-packing P01 | 31min | 2 tasks | 5 files |
+| Phase 80-resumable-indexed-low-bit-qualification P01 | 15min | 2 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -71,6 +72,7 @@ Last activity: 2026-07-24 — Phase 79 complete, transitioned to Phase 80
 - [Phase 72]: Phase 72 retains Adam7, hostile caller-buffered, and literal compatibility evidence unchanged and uses the ordinary frozen four-target PNG package gate.
 - [Phase ?]: Public PngIndexedBitDepth selects One, Two, or Four while Indexed8 remains on its established API.
 - [Phase ?]: Low-bit indexed pixels pack directly in the acknowledged machine; fixed-Eight wrappers preserve legacy eager and chunk behavior.
+- [Phase ?]: Selected indexed chunk encoding maps One/Two/Four directly to the existing profile-aware machine; Indexed8 remains a fixed compatibility wrapper.
 
 ### Pending Todos
 
@@ -91,9 +93,9 @@ Last activity: 2026-07-24 — Phase 79 complete, transitioned to Phase 80
 
 ## Session Continuity
 
-Last session: 2026-07-23T21:22:47.105Z
-Stopped at: Phase 80 context gathered
-Resume file: .planning/phases/80-resumable-indexed-low-bit-qualification/80-CONTEXT.md
+Last session: 2026-07-23T21:52:26.624Z
+Stopped at: Completed 80-01-PLAN.md; four-target PNG verification needs rerun
+Resume file: None
 
 ## Operator Next Steps
 
