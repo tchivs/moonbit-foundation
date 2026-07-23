@@ -7,7 +7,7 @@
 
 ### Explicit Type-6/16 encoding
 
-- [ ] **RGBA16ENC-01**: Library users can explicitly encode a checked packed little-endian, straight-alpha `rgba16` image as a legal non-interlaced Type-6/16 PNG whose big-endian wire samples preserve every component byte, without changing legacy RGB8/RGBA8 output.
+- [x] **RGBA16ENC-01**: Library users can explicitly encode a checked packed little-endian, straight-alpha `rgba16` image as a legal non-interlaced Type-6/16 PNG whose big-endian wire samples preserve every component byte, without changing legacy RGB8/RGBA8 output.
 
 ### Shared resumable semantics
 
@@ -34,7 +34,7 @@
 
 | Requirement | Phase | Status |
 |---|---|---|
-| RGBA16ENC-01 | Phase 69 | Pending |
+| RGBA16ENC-01 | Phase 69 | Complete |
 | RGBA16ENC-02 | Phase 70 | Complete |
 | RGBA16ENC-03 | Phase 71 | Complete |
 | RGBA16ENC-04 | Phase 72 | Complete |

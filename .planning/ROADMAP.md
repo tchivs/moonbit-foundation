@@ -29,7 +29,7 @@
 
 Completed milestone detail is archived under `.planning/milestones/`.
 
-- [ ] **Phase 69: Explicit RGBA16 PNG Encoding** - Encode checked packed `rgba16` images as exact non-interlaced Type-6/16 PNG without changing legacy output.
+- [x] **Phase 69: Explicit RGBA16 PNG Encoding** - Encode checked packed `rgba16` images as exact non-interlaced Type-6/16 PNG without changing legacy output. (completed 2026-07-23)
 - [x] **Phase 70: Resumable RGBA16 PNG Encoding** - Provide eager-identical caller-buffered Type-6/16 encoding through the bounded machine. (completed 2026-07-23)
 - [x] **Phase 71: RGBA16 Adam7 PNG Encoding** - Add explicit interlaced Type-6/16 output while retaining profile, filter, and compression semantics. (completed 2026-07-23)
 - [x] **Phase 72: RGBA16 Encode Qualification** - Prove normal/Adam7 byte fidelity, hostile bounded behavior, compatibility, and four-target portability. (completed 2026-07-23)
@@ -47,7 +47,9 @@ Completed milestone detail is archived under `.planning/milestones/`.
 2. Normal-row output round-trips through the explicit RGBA16 decoder with all `Rlo,Rhi,Glo,Ghi,Blo,Bhi,Alo,Ahi` component bytes preserved.
 3. Existing RGB8/RGBA8 public encoder selectors and bytes remain frozen; incompatible descriptors or resource limits fail before output is exposed.
 
-**Plans**: TBD
+**Plans**: 1/1 plans executed
+
+- [x] 69-01-PLAN.md
 **Scope guard**: Reuse the existing bounded encoder and its compression/filter machinery; no alternate encoder, staging buffer, FFI, or generic API change.
 
 ### Phase 70: Resumable RGBA16 PNG Encoding
@@ -99,7 +101,7 @@ Completed milestone detail is archived under `.planning/milestones/`.
 
 | Phase | Plans Complete | Status | Completed |
 |---|---|---|---|
-| 69. Explicit RGBA16 PNG Encoding | 0/1 | Not started | - |
+| 69. Explicit RGBA16 PNG Encoding | 1/1 | Complete    | 2026-07-23 |
 | 70. Resumable RGBA16 PNG Encoding | 1/1 | Complete    | 2026-07-23 |
 | 71. RGBA16 Adam7 PNG Encoding | 1/1 | Complete    | 2026-07-23 |
 | 72. RGBA16 Encode Qualification | 1/1 | Complete    | 2026-07-23 |
