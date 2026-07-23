@@ -380,6 +380,47 @@ fn png_stream_graya16_adam7_image() -> @storage.OwnedImage {
   image
 }
 
+///| A five-by-five packed RGBA16 Adam7 source with distinct coordinate,
+/// component, and little-endian storage lanes.
+fn png_stream_rgba16_adam7_image() -> @storage.OwnedImage {
+  let descriptor = @model.ImageDescriptor::new(
+    5UL, 5UL, @model.ImageFormat::rgba16(),
+    [@model.PlaneDescriptor::new(0UL, 200UL, 40UL, 40UL, 1UL, 1UL, 5UL, 5UL).unwrap()],
+    200UL,
+    @model.ImageMetadata::new(
+      @color.ColorSpaceIdentity::Srgb, @color.TransferIdentity::EncodedSrgb,
+      Some(@color.AlphaMode::Straight), @profile.ProfileIdentity::builtin_srgb(),
+      @model.Orientation::TopLeft,
+      @metadata.OpaqueMetadata::from_entries(
+        [], @metadata.MetadataLimits::new(
+          max_entries=1UL, max_token_bytes=16UL, max_value_bytes=1UL,
+          max_total_bytes=32UL, max_disposition_fields=4UL,
+        ), png_stream_test_budget(work=0UL),
+      ).unwrap(),
+    ),
+  ).unwrap()
+  let image = @storage.OwnedImage::new(descriptor, png_stream_test_budget(work=0UL)).unwrap()
+  image.with_mut_view(fn(view) {
+    for y = 0UL; y < 5UL; y = y + 1UL {
+      for x = 0UL; x < 5UL; x = x + 1UL {
+        let sample = y * 5UL + x
+        for component = 0UL; component < 4UL; component = component + 1UL {
+          view.set_component_byte(
+            x, y, component, 0UL,
+            (b'\x10'.to_uint64() + 32UL * component + sample).to_byte(),
+          ).unwrap()
+          view.set_component_byte(
+            x, y, component, 1UL,
+            (b'\x80'.to_uint64() + 32UL * component + sample).to_byte(),
+          ).unwrap()
+        }
+      }
+    }
+    Ok(())
+  }).unwrap()
+  image
+}
+
 ///| The caller-buffered public-evidence corpus uses every non-symmetric U16
 /// sample from the eager test, stored little-endian in tightly packed rows.
 fn png_stream_gray16_public_fidelity_image() -> @storage.OwnedImage {
@@ -1095,6 +1136,28 @@ fn png_stream_rgba16_eager_with_strategies(
   let writer = @io.MemoryWriter::new(1048576UL, png_stream_test_budget(work=0UL)).unwrap()
   ignore(@codec.ImageEncoder::encode(
     PngEncoder::new_rgba16_with_strategies(strategy, filter_strategy),
+    image.view(), writer as &@io.Writer,
+    @codec.EncodeOptions::new(lossless_required=true, preserve_opaque_metadata=false),
+    png_stream_test_limits(), png_stream_test_budget(), @error.Diagnostics::new(),
+  ).unwrap())
+  let bytes : Array[Byte] = []
+  for index = 0UL; index < writer.position(); index = index + 1UL {
+    bytes.push(writer.view().get(index).unwrap())
+  }
+  Bytes::from_array(bytes)
+}
+
+///| Fresh eager RGBA16 Adam7 output is the oracle for a separately constructed
+/// caller-buffered encoder.
+fn png_stream_rgba16_eager_with_all_strategies(
+  image : @storage.OwnedImage,
+  strategy : PngCompressionStrategy,
+  filter_strategy : PngFilterStrategy,
+  interlace_strategy : PngInterlaceStrategy,
+) -> Bytes {
+  let writer = @io.MemoryWriter::new(1048576UL, png_stream_test_budget(work=0UL)).unwrap()
+  ignore(@codec.ImageEncoder::encode(
+    PngEncoder::new_rgba16_with_all_strategies(strategy, filter_strategy, interlace_strategy),
     image.view(), writer as &@io.Writer,
     @codec.EncodeOptions::new(lossless_required=true, preserve_opaque_metadata=false),
     png_stream_test_limits(), png_stream_test_budget(), @error.Diagnostics::new(),
@@ -1853,6 +1916,155 @@ test "PNG RGBA16 chunk public evidence" {
         [0UL, 8UL, 4UL, 1UL, 13UL, 2UL, 5UL, 3UL, 21UL], eager,
       )
     }
+  }
+}
+
+///| Drain a fresh RGBA16 Adam7 selector while proving acknowledged-only output,
+/// lease-tail isolation, and sticky successful completion.
+fn png_rgba16_adam7_chunk_drain(
+  image : @storage.OwnedImage,
+  strategy : PngCompressionStrategy,
+  filter_strategy : PngFilterStrategy,
+  schedule : Array[UInt64],
+) -> Unit {
+  let eager = png_stream_rgba16_eager_with_all_strategies(
+    image, strategy, filter_strategy, PngInterlaceStrategy::Adam7,
+  )
+  let encoder = PngChunkEncoder::new_rgba16_with_all_strategies(
+    image.view(), strategy, filter_strategy, PngInterlaceStrategy::Adam7,
+    png_stream_test_limits(), png_stream_test_budget(), @error.Diagnostics::new(),
+  ).unwrap()
+  let empty = png_chunk_test_owner(1UL, fill=b'Z')
+  let zero = empty.with_mut(0UL, 0UL, fn(lease) { Ok(encoder.pull(lease)) }).unwrap()
+  if zero.written() != 0UL || zero.total_written() != 0UL ||
+    !(zero.outcome() is PngChunkPullOutcome::NeedOutput) ||
+    empty.view().get(0UL).unwrap() != b'Z' {
+    abort("png rgba16 Adam7 empty lease progress")
+  }
+  let output : Array[Byte] = []
+  let mut turn = 0UL
+  while turn < 4096UL {
+    let capacity = schedule[(turn % schedule.length().to_uint64()).to_int()]
+    let owner = png_chunk_test_owner(capacity, fill=b'Z')
+    let before = output.length().to_uint64()
+    let pulled = owner.with_mut(0UL, capacity, fn(lease) { Ok(encoder.pull(lease)) }).unwrap()
+    if pulled.written() > capacity || pulled.total_written() != before + pulled.written() {
+      abort("png rgba16 Adam7 accepted-only progress")
+    }
+    for index = 0UL; index < pulled.written(); index = index + 1UL {
+      output.push(owner.view().get(index).unwrap())
+    }
+    for index = pulled.written(); index < capacity; index = index + 1UL {
+      if owner.view().get(index).unwrap() != b'Z' { abort("png rgba16 Adam7 lease tail") }
+    }
+    match pulled.outcome() {
+      PngChunkPullOutcome::NeedOutput => turn = turn + 1UL
+      PngChunkPullOutcome::Failed(_) => abort("png rgba16 Adam7 chunk drain failed")
+      PngChunkPullOutcome::Finished => {
+        if Bytes::from_array(output) != eager { abort("png rgba16 Adam7 eager parity") }
+        let sentinel = png_chunk_test_owner(7UL, fill=b'Z')
+        let later = sentinel.with_mut(0UL, 7UL, fn(lease) { Ok(encoder.pull(lease)) }).unwrap()
+        if later.written() != 0UL || later.total_written() != pulled.total_written() ||
+          !(later.outcome() is PngChunkPullOutcome::Finished) {
+          abort("png rgba16 Adam7 terminal progress")
+        }
+        for index = 0UL; index < 7UL; index = index + 1UL {
+          if sentinel.view().get(index).unwrap() != b'Z' { abort("png rgba16 Adam7 terminal lease") }
+        }
+        return
+      }
+    }
+  }
+  abort("png rgba16 Adam7 chunk drain unreachable")
+}
+
+///| The narrow and all-strategy caller-buffered selectors match their fresh
+/// eager Adam7 equivalents, then every compression/filter pair survives the
+/// existing hostile caller-owned schedules.
+test "PNG RGBA16 Adam7 chunk parity and hostile schedules" {
+  let narrow_image = png_stream_rgba16_adam7_image()
+  let narrow_eager = png_stream_rgba16_eager_with_all_strategies(
+    narrow_image, PngCompressionStrategy::Stored, PngFilterStrategy::None,
+    PngInterlaceStrategy::Adam7,
+  )
+  let narrow = png_chunk_test_drain_encoder(
+    PngChunkEncoder::new_rgba16_with_interlace_strategy(
+      narrow_image.view(), PngInterlaceStrategy::Adam7,
+      png_stream_test_limits(), png_stream_test_budget(), @error.Diagnostics::new(),
+    ).unwrap(),
+    [3UL, 7UL],
+  ).unwrap()
+  if narrow != narrow_eager || narrow[24] != b'\x10' || narrow[25] != b'\x06' ||
+    narrow[28] != b'\x01' {
+    abort("png rgba16 Adam7 narrow selector")
+  }
+  for strategy in [
+    PngCompressionStrategy::Stored,
+    PngCompressionStrategy::FixedOrStored,
+    PngCompressionStrategy::DynamicOrFixedOrStored,
+  ] {
+    for filter_strategy in [PngFilterStrategy::None, PngFilterStrategy::Adaptive] {
+      png_rgba16_adam7_chunk_drain(
+        png_stream_rgba16_adam7_image(), strategy, filter_strategy, [0UL, 1UL],
+      )
+      png_rgba16_adam7_chunk_drain(
+        png_stream_rgba16_adam7_image(), strategy, filter_strategy, [1UL],
+      )
+      png_rgba16_adam7_chunk_drain(
+        png_stream_rgba16_adam7_image(), strategy, filter_strategy,
+        [0UL, 8UL, 4UL, 1UL, 13UL, 2UL, 5UL, 3UL, 21UL],
+      )
+    }
+  }
+}
+
+///| Adam7 RGBA16 construction remains atomic and a released destination is a
+/// shared zero-write typed terminal for this new selector family.
+test "PNG RGBA16 Adam7 chunk admission and terminal lifecycle" {
+  let eager_budget = png_stream_test_budget(work=1UL)
+  let eager_before = eager_budget.remaining()
+  let writer = @io.MemoryWriter::new(1048576UL, png_stream_test_budget(work=0UL)).unwrap()
+  let eager = @codec.ImageEncoder::encode(
+    PngEncoder::new_rgba16_with_all_strategies(
+      PngCompressionStrategy::Stored, PngFilterStrategy::None, PngInterlaceStrategy::Adam7,
+    ),
+    png_stream_rgba16_adam7_image().view(), writer as &@io.Writer,
+    @codec.EncodeOptions::new(lossless_required=true, preserve_opaque_metadata=false),
+    png_stream_test_limits(work=1UL), eager_budget, @error.Diagnostics::new(),
+  ).unwrap_err()
+  let chunk_budget = png_stream_test_budget(work=1UL)
+  let chunk_before = chunk_budget.remaining()
+  let chunk = PngChunkEncoder::new_rgba16_with_all_strategies(
+    png_stream_rgba16_adam7_image().view(), PngCompressionStrategy::Stored,
+    PngFilterStrategy::None, PngInterlaceStrategy::Adam7,
+    png_stream_test_limits(work=1UL), chunk_budget, @error.Diagnostics::new(),
+  ).unwrap_err()
+  if writer.position() != 0UL || !png_fixed_or_stored_same_remaining(eager_before, eager_budget.remaining()) ||
+    !png_fixed_or_stored_same_remaining(chunk_before, chunk_budget.remaining()) ||
+    !png_chunk_test_same_error(eager, chunk) {
+    abort("png rgba16 Adam7 atomic admission")
+  }
+  let encoder = PngChunkEncoder::new_rgba16_with_all_strategies(
+    png_stream_rgba16_adam7_image().view(), PngCompressionStrategy::Stored,
+    PngFilterStrategy::None, PngInterlaceStrategy::Adam7,
+    png_stream_test_limits(), png_stream_test_budget(), @error.Diagnostics::new(),
+  ).unwrap()
+  let released = png_chunk_test_owner(1UL, fill=b'Z')
+  let first = released.with_mut(0UL, 1UL, fn(lease) { lease.release(); Ok(encoder.pull(lease)) }).unwrap()
+  let first_error = match first.outcome() {
+    PngChunkPullOutcome::Failed(error) => error
+    _ => abort("png rgba16 Adam7 released lease outcome")
+  }
+  let later = png_chunk_test_owner(1UL, fill=b'Z')
+  let replay = later.with_mut(0UL, 1UL, fn(lease) { Ok(encoder.pull(lease)) }).unwrap()
+  let replay_error = match replay.outcome() {
+    PngChunkPullOutcome::Failed(error) => error
+    _ => abort("png rgba16 Adam7 released lease replay")
+  }
+  if first.written() != 0UL || first.total_written() != 0UL || replay.written() != 0UL ||
+    replay.total_written() != 0UL || !png_chunk_test_same_error(first_error, replay_error) ||
+    released.view().get(0UL).unwrap() != b'Z' || later.view().get(0UL).unwrap() != b'Z' {
+    abort("png rgba16 Adam7 released lease terminal")
   }
 }
 
