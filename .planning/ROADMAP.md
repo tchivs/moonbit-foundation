@@ -61,3 +61,24 @@
 **Depends on:** Phase 74
 **Requirements:** GRAYPACK-04
 **Scope guard:** Independent test evidence and the ordinary source tree only; no wrappers, release automation, or copied trees.
+
+### Phase 76: Indexed8 PNG Source & Eager PLTE
+
+**Goal:** Library users can construct a dedicated immutable Indexed8 source and eagerly emit bounded non-interlaced Type-3/8 PNG with PLTE.
+**Depends on:** Phase 75
+**Requirements:** INDEX-01, INDEX-02
+**Scope guard:** Reuse one bounded PNG encoder; do not widen generic models or add transparency, caller-buffered output, low bit depths, Adam7, quantization, staging, FFI, or release automation.
+
+### Phase 77: Indexed PNG Transparency
+
+**Goal:** Library users can encode palette alpha as canonical optional tRNS and publicly decode exact RGB8/RGBA8 palette semantics.
+**Depends on:** Phase 76
+**Requirements:** INDEX-03
+**Scope guard:** Extend the same owning Indexed8 source and shared eager frame machine only; caller-buffered parity and other indexed profiles remain deferred.
+
+### Phase 78: Resumable Indexed PNG & Qualification
+
+**Goal:** Library users can emit Indexed8 PNG through caller-owned output leases with eager-identical bytes, sticky terminals, independent wire vectors, and four-target proof.
+**Depends on:** Phase 77
+**Requirements:** INDEX-04, INDEX-05
+**Scope guard:** Add one thin caller-buffered Indexed8 adapter to the existing bounded machine; no alternate transport, generic model widening, low bit depths, Adam7, strategy expansion, quantization, staging, FFI, release automation, target wrappers, or copied source trees.

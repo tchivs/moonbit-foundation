@@ -21,6 +21,7 @@ key-files:
 decisions:
   - Indexed8 stays PNG-specific and eager-only, without extending ImageView or ImageEncoder.
   - Zero-PLTE frame facts retain legacy offsets and byte streams exactly.
+requirements-completed: [INDEX-01, INDEX-02]
 metrics:
   tasks_completed: 2
   files_modified: 5
