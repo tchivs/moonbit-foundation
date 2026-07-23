@@ -10,14 +10,9 @@ The primary audience is MoonBit library authors and application developers build
 
 MoonBit developers can reuse stable, high-performance native infrastructure contracts instead of rebuilding incompatible foundations for every graphics, document, media, or automation product.
 
-## Current Milestone: v0.19 GrayAlpha8 Adam7 PNG
+## Current Milestone: Next Code-First Capability
 
-**Goal:** Add explicit bounded Adam7 encoding for legal packed U8 Gray+Alpha images without changing frozen non-interlaced output, descriptor admission, or existing PNG contracts.
-
-**Target features:**
-- Explicit eager and caller-buffered interlaced Type-4/8 GrayAlpha8 factories.
-- Shared bounded Adam7 traversal, filtering, compression planning, atomic preflight, and acknowledgement-safe replay.
-- Public pass-aware wire/decode, hostile-capacity, legacy-compatibility, and four-target evidence.
+**Goal:** Select the next reusable MoonBit-native infrastructure capability through a fresh requirements and roadmap cycle.
 
 ## Requirements
 
@@ -50,10 +45,10 @@ MoonBit developers can reuse stable, high-performance native infrastructure cont
 - [x] Provide packed U16 grayscale-plus-alpha image semantics without changing existing descriptor contracts. — Validated in v0.17 Phase 53.
 - [x] Encode compatible U16 Gray+Alpha images as bounded non-interlaced PNG Type 4 / bit depth 16. — Validated in v0.17 Phase 54.
 - [x] Prove U16 gray/alpha wire fidelity, hostile caller-buffered identity, legacy compatibility, and four-target execution. — Validated in v0.17 Phase 55.
+- [x] Add explicit bounded Adam7 GrayAlpha8 encoding while preserving frozen non-interlaced behavior, shared bounded replay semantics, and four-target public evidence. — Validated in v0.19 Phases 59-61.
 
 ### Active
 
-- [ ] Add explicit bounded Adam7 GrayAlpha8 encoding without changing frozen non-interlaced output.
 - [ ] Revisit high-precision colour and alpha conversion only through an explicit decoder-contract milestone.
 
 ### Out of Scope
@@ -138,6 +133,12 @@ Registry publication and release automation remain deferred unless a concrete co
 
 **Validated:** The model, checked storage, shared bounded preflight/filter/compression/replay path, atomic failures, and caller-buffered lease rules are covered across all six strategy pairs. Public wire and RGBA8 high-byte decode evidence, frozen Gray8/Gray16/GrayAlpha8/RGB8/RGBA8 bytes, and the full PNG package passed 204/204 tests on `wasm`, `wasm-gc`, `js`, and `native`.
 
+## Current State: v0.19 GrayAlpha8 Adam7 PNG Shipped
+
+**Delivered:** `mb-image` exposes additive eager and caller-buffered GrayAlpha8 Adam7 Type-4/8 selectors. They retain one profile-aware bounded machine, pass-local filtering, atomic admission, and acknowledgement-safe replay; existing non-interlaced output remains frozen.
+
+**Validated:** Independent seven-pass `G,A` wire extraction and `(G,G,G,A)` public decode, fresh zero/one/ragged caller leases across all six strategy pairs, exact frozen GrayAlpha16 compatibility literals, and the full PNG package passed 227/227 on `wasm`, `wasm-gc`, `js`, and `native`.
+
 
 ## Constraints
 
@@ -175,6 +176,7 @@ Registry publication and release automation remain deferred unless a concrete co
 | Extend grayscale encoding through explicit profile factories | Preserve legacy PNG bytes and resource semantics while adding Gray8 then U16 Gray16 capability incrementally | ✓ Validated in v0.14-v0.15 |
 | Add Gray+Alpha8 through an explicit bounded PNG profile | Preserve legacy image/PNG contracts while exposing type-4 wire fidelity and portable public proof | ✓ Validated in v0.16 |
 | Add Gray+Alpha16 through the existing bounded PNG profile | Preserve strict descriptor admission, avoid a staging path, and keep exact U16 wire fidelity distinct from U8 decoder canonicalization | ✓ Validated in v0.17 |
+| Extend GrayAlpha8 through opt-in Adam7 selectors | Preserve frozen non-interlaced bytes while reusing the profile-aware bounded pipeline and proving public four-target behavior | ✓ Validated in v0.19 |
 
 ## Evolution
 
@@ -194,4 +196,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update toolchain, compatibility, benchmark, and adoption context.
 
 ---
-*Last updated: 2026-07-23 after v0.17 GrayAlpha16 PNG Interchange milestone*
+*Last updated: 2026-07-23 after v0.19 GrayAlpha8 Adam7 PNG milestone*

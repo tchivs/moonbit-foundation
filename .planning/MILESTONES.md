@@ -1,5 +1,19 @@
 # Project Milestones: MoonBit Native Foundation
 
+## v0.19 GrayAlpha8 Adam7 PNG (Shipped: 2026-07-23)
+
+**Phases completed:** 3 phases, 5 plans, 6 tasks
+
+**Key accomplishments:**
+
+- Explicit eager and caller-buffered GrayAlpha8 Adam7 selectors now emit the shared Type-4/8 seven-pass G,A stream while established GrayAlpha8 factories stay byte-identical and non-interlaced.
+- GrayAlpha8 Adam7 now has public six-pair framing and ordinary chunk-to-eager parity proof without broadening the shared encoder or later replay/hostile-schedule scope.
+- GrayAlpha8 Adam7 replay now rejects any admitted-source mutation before the next caller lease write across all measured compression and filter selections.
+- Independent seven-pass Type-4/8 GrayAlpha8 wire evidence now reaches a public U8 RGBA decoder oracle, with frozen GrayAlpha16 Stored/None bytes retained.
+- Fresh public GrayAlpha8 Adam7 hostile-drain coverage now proves six selector pairs preserve caller lease ownership and eager identity, with a frozen GrayAlpha16 chunk oracle across all targets.
+
+---
+
 ## v0.18 GrayAlpha16 Adam7 PNG (Shipped: 2026-07-23)
 
 **Phases completed:** 3 phases, 7 plans, 3 tasks

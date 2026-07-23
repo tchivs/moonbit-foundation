@@ -2,19 +2,19 @@
 gsd_state_version: 1.0
 milestone: v0.19
 milestone_name: GrayAlpha8 Adam7 PNG
-current_phase: 61
-current_phase_name: Portable GrayAlpha8 Adam7 Public Evidence
-status: completed
+status: Awaiting next milestone
 stopped_at: Phase 61 context gathered
-last_updated: "2026-07-23T04:30:47.778Z"
+last_updated: "2026-07-23T04:38:43.113Z"
 last_activity: 2026-07-23
-last_activity_desc: Phase 61 complete
+last_activity_desc: Milestone v0.19 completed and archived
 progress:
   total_phases: 3
   completed_phases: 3
   total_plans: 5
   completed_plans: 5
   percent: 100
+current_phase: 61
+current_phase_name: Portable GrayAlpha8 Adam7 Public Evidence
 ---
 
 # Project State
@@ -25,14 +25,14 @@ See `.planning/PROJECT.md` (updated 2026-07-23).
 
 **Core value:** MoonBit developers can reuse stable, high-performance native infrastructure contracts instead of rebuilding incompatible foundations for every graphics, document, media, or automation product.
 
-**Current focus:** Execute Phase 59 — GrayAlpha8 Adam7 Factory and Pass Profile.
+**Current focus:** Define the next code-first milestone.
 
 ## Current Position
 
-Phase: 61 of 61 (Portable GrayAlpha8 Adam7 Public Evidence)
-Plan: Not started
-Status: All phases complete
-Last activity: 2026-07-23 — Phase 61 complete
+Phase: Milestone v0.19 complete
+Plan: —
+Status: Awaiting next milestone
+Last activity: 2026-07-23 — Milestone v0.19 completed and archived
 
 ## Performance Metrics
 
@@ -68,7 +68,7 @@ Last activity: 2026-07-23 — Phase 61 complete
 
 ### Pending Todos
 
-- Execute `59-01-PLAN.md`, then `59-02-PLAN.md`, without broadening descriptor admission or adding a second encoder route.
+- Start the next milestone with fresh requirements; v0.19 artifacts are archived.
 
 ### Blockers/Concerns
 
@@ -91,4 +91,4 @@ Resume file: .planning/phases/61-portable-grayalpha8-adam7-public-evidence/61-CO
 
 ## Operator Next Steps
 
-- Execute Phase 59 plan 01, then plan 02; run the named native PNG gates before closing the phase.
+- Start the next milestone with /gsd-new-milestone

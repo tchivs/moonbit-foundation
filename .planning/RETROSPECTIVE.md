@@ -183,6 +183,43 @@
 
 ---
 
+## Milestone: v0.19 — GrayAlpha8 Adam7 PNG
+
+**Shipped:** 2026-07-23
+**Phases:** 3 | **Plans:** 5 | **Tasks:** 6
+
+### What Was Built
+
+- Additive eager and caller-buffered GrayAlpha8 Adam7 Type-4/8 selectors using the existing bounded machine.
+- A profile-neutral pre-lease revision guard and six-pair mutation-safe replay evidence.
+- Independent `G,A` wire/decode proof, fresh hostile caller leases, frozen GrayAlpha16 literals, and 227/227 PNG tests on every supported target.
+
+### What Worked
+
+- TDD plus independent plan, phase, and milestone checks caught the unresolved compression-corpus and frozen-vector assumptions before implementation.
+- Measured all-seven-pass fixtures made Stored, Fixed, and Dynamic route coverage deterministic.
+
+### What Was Inefficient
+
+- Several research/execution agents required interruption to stop broad exploration and return bounded findings.
+
+### Patterns Established
+
+- Generalize replay integrity checks at the common pre-lease seam, while retaining plan-specific terminal diagnostics.
+- Treat independently derived frozen bytes as public compatibility assets; never use current encoder output as their oracle.
+
+### Key Lessons
+
+1. A profile addition belongs on the existing bounded machine, not in a format-specific encoding fork.
+2. Before accepting a compression-route test matrix, measure and record a deterministic corpus for every intended route.
+3. Archive phase artifacts at milestone close so the active planning surface stays small.
+
+### Cost Observations
+
+- The ordinary PNG package completed at 227/227 on wasm, wasm-gc, js, and native.
+
+---
+
 ## Cross-Milestone Trends
 
 ### Process Evolution
@@ -193,6 +230,7 @@
 | v0.8 | 3 | 5 | Added byte-resumable public PNG decode with corpus-wide four-target streaming evidence. |
 | v0.15 | 3 | 3 | Extended the bounded PNG profile path to U16 grayscale with wire-level portability evidence. |
 | v0.17 | 3 | 4 | Extended the same bounded profile path to U16 Gray+Alpha with explicit type-4 wire and lease ownership evidence. |
+| v0.19 | 3 | 5 | Extended that bounded profile path to GrayAlpha8 Adam7 with shared replay integrity and independent portable evidence. |
 
 ### Cumulative Quality
 
@@ -202,6 +240,7 @@
 | v0.8 | 84/84 PNG tests per target | 4/4 | 6/6 phase handoffs, 2/2 public flows |
 | v0.15 | 190/190 PNG tests per target | 3/3 | 3/3 phase verifications, 100/100 milestone audit |
 | v0.17 | 204/204 PNG tests per target | 4/4 | 3/3 phase verifications, 5/5 handoffs, 3/3 flows |
+| v0.19 | 227/227 PNG tests per target | 3/3 | 3/3 phase verifications, 100/100 integration, 4/4 flows |
 
 ### Top Lessons
 
