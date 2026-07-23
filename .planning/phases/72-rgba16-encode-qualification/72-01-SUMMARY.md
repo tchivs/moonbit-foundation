@@ -70,7 +70,7 @@ status: complete
 
 - Replaced normal RGBA16 fixed absolute-IDAT lane checks with a complete independent 17-byte Stored/None filtered-raster assertion.
 - Retained the existing public decoder's explicit packed little-endian lane loop and the Adam7 211-byte seven-pass raster oracle.
-- Exercised nine RGBA16 admission/lease/replay tests, two frozen compatibility vectors, and the ordinary PNG package command across all four targets.
+- The ordinary unfiltered PNG package command exercised the retained RGBA16 admission/lease/replay and frozen compatibility vectors across all four targets.
 
 ## Task Commits
 
@@ -79,7 +79,7 @@ status: complete
 
 ## TDD Gate Compliance
 
-The strengthened public assertion passed on its first focused execution because the completed encoder already emitted the specified raster. No separate intentionally failing RED commit or production GREEN commit was created; the task was a test-only qualification and required no encoder change.
+The strengthened public assertion passed on its first focused execution because the completed encoder already emitted the specified raster. No separate intentionally failing RED commit or production GREEN commit was created; the task was a test-only qualification and required no encoder change. Post-execution verification found that the plan's name-filter syntax selected zero tests in this MoonBit CLI, so those filtered invocations are not credited; the subsequent unfiltered all-target package run is the behavioral evidence.
 
 ## Files Created/Modified
 
@@ -92,17 +92,13 @@ The strengthened public assertion passed on its first focused execution because 
 
 ## Verification
 
-- `PNG RGBA16 public eager wire and explicit decode fidelity`: passed.
-- `PNG RGBA16 Adam7 eager wire and explicit decode fidelity`: passed.
-- `PNG RGBA16 Adam7 eager all strategy framing`: passed.
-- Nine named native RGBA16 eager/chunk/admission/replay/released-lease tests: passed.
-- `PNG filter strategy eager frozen compatibility vectors` and `PNG filter strategy chunk frozen compatibility vectors`: passed.
+- The plan's name-filter invocations exited successfully but selected 0 tests on this MoonBit CLI; they are not used as pass evidence.
 - `moon -C modules/mb-image test png --target all --frozen`: wasm 258/258, wasm-gc 258/258, js 258/258, native 258/258.
-- `git diff --check`: passed.
+- After normalizing Phase 72 planning-document whitespace, `git diff --check` passed.
 
 ## Deviations from Plan
 
-None - plan executed exactly as written. The new public oracle passed immediately, so no encoder defect or production change was needed.
+The retained all-target command supplied stronger behavioral evidence than the plan's name-filter syntax, which selected zero tests on this MoonBit CLI. The new public oracle passed immediately, so no encoder defect or production change was needed.
 
 ## Known Stubs
 

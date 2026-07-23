@@ -1,7 +1,7 @@
 # Phase 72: RGBA16 Encode Qualification - Research
 
-**Researched:** 2026-07-23  
-**Domain:** Public, portable qualification of Type-6/16 PNG encoding  
+**Researched:** 2026-07-23
+**Domain:** Public, portable qualification of Type-6/16 PNG encoding
 **Confidence:** HIGH
 
 <user_constraints>
@@ -316,5 +316,5 @@ None. The remaining normal-wire proof gap, hostile seams, frozen vectors, target
 - Architecture: HIGH — locked context, predecessor verification, and current public test seams agree. [VERIFIED: CONTEXT.md; VERIFIED: Phase 69/70/71 verification; VERIFIED: codebase]
 - Pitfalls: HIGH — each is directly represented by an existing test seam or the identified normal parser gap. [VERIFIED: codebase]
 
-**Research date:** 2026-07-23  
+**Research date:** 2026-07-23
 **Valid until:** 2026-08-22, unless the public PNG API, test seam, or MoonBit runner changes. [ASSUMED]

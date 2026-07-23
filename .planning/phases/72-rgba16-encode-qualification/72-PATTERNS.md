@@ -1,7 +1,7 @@
 # Phase 72: RGBA16 Encode Qualification - Pattern Map
 
-**Mapped:** 2026-07-23  
-**Files classified:** 2 production-test files (plus this planning artifact)  
+**Mapped:** 2026-07-23
+**Files classified:** 2 production-test files (plus this planning artifact)
 **Analogs found:** 2 / 2
 
 ## File Classification
@@ -200,6 +200,6 @@ None. The repository already contains exact public RGBA16 normal/Adam7, bounded 
 
 ## Metadata
 
-**Analog search scope:** `modules/mb-image/png/{encode_test,stream_encode_test,png_test}.mbt`; Phase 55, 58, and 61 plans/summaries and verification records.  
-**Files scanned:** 3 current PNG test files; 12 historical plan/summary files (with focused Phase 58/61 evidence records).  
+**Analog search scope:** `modules/mb-image/png/{encode_test,stream_encode_test,png_test}.mbt`; Phase 55, 58, and 61 plans/summaries and verification records.
+**Files scanned:** 3 current PNG test files; 12 historical plan/summary files (with focused Phase 58/61 evidence records).
 **Pattern extraction date:** 2026-07-23
