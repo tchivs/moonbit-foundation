@@ -2068,6 +2068,44 @@ test "PNG RGBA16 Adam7 chunk admission and terminal lifecycle" {
   }
 }
 
+///| A post-construction RGBA16 Adam7 source mutation exposes no further lease
+/// byte and replays the same shared typed terminal.
+test "PNG RGBA16 Adam7 chunk mutation terminal is sticky" {
+  let image = png_stream_rgba16_adam7_image()
+  let encoder = PngChunkEncoder::new_rgba16_with_all_strategies(
+    image.view(), PngCompressionStrategy::Stored,
+    PngFilterStrategy::None, PngInterlaceStrategy::Adam7,
+    png_stream_test_limits(), png_stream_test_budget(), @error.Diagnostics::new(),
+  ).unwrap()
+  let prefix : Array[Byte] = []
+  while prefix.length() < 44 {
+    let pull = png_chunk_test_pull(encoder, 1UL, prefix)
+    if pull.written() != 1UL { abort("png rgba16 Adam7 mutation prefix") }
+  }
+  image.with_mut_view(fn(view) {
+    view.set_component_byte(0UL, 0UL, 1UL, 0UL, b'\xff')
+  }).unwrap()
+  let accepted_total = prefix.length().to_uint64()
+  let first = png_chunk_test_owner(7UL, fill=b'Z')
+  let failed = first.with_mut(0UL, 7UL, fn(lease) { Ok(encoder.pull(lease)) }).unwrap()
+  let error = match failed.outcome() {
+    PngChunkPullOutcome::Failed(value) => value
+    _ => abort("png rgba16 Adam7 mutation exposed output")
+  }
+  let later = png_chunk_test_owner(7UL, fill=b'Z')
+  let replay = later.with_mut(0UL, 7UL, fn(lease) { Ok(encoder.pull(lease)) }).unwrap()
+  let replay_error = match replay.outcome() {
+    PngChunkPullOutcome::Failed(value) => value
+    _ => abort("png rgba16 Adam7 mutation replay")
+  }
+  if failed.written() != 0UL || failed.total_written() != accepted_total ||
+    replay.written() != 0UL || replay.total_written() != accepted_total ||
+    !png_chunk_test_same_error(error, replay_error) ||
+    first.view().get(0UL).unwrap() != b'Z' || later.view().get(0UL).unwrap() != b'Z' {
+    abort("png rgba16 Adam7 mutation sticky terminal")
+  }
+}
+
 ///|
 fn png_chunk_test_drain(
   image : @storage.OwnedImage,
