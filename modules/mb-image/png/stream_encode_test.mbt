@@ -1243,6 +1243,43 @@ test "PNG GrayAlpha8 Adam7 chunk parity" {
   )
 }
 
+///| One legal all-strategy GrayAlpha8 Adam7 chunk selection drains through the
+/// ordinary schedule to a fresh eager peer with Type-4/8 Adam7 framing.
+fn png_stream_graya8_adam7_chunk_strategy(
+  strategy : PngCompressionStrategy,
+  filter_strategy : PngFilterStrategy,
+) -> Unit {
+  let eager = png_stream_graya8_eager_with_all_strategies(
+    png_stream_graya8_adam7_image(), strategy, filter_strategy, PngInterlaceStrategy::Adam7,
+  )
+  let source = png_stream_graya8_adam7_image()
+  let chunked = png_chunk_test_drain_encoder(
+    PngChunkEncoder::new_graya8_with_all_strategies(
+      source.view(), strategy, filter_strategy, PngInterlaceStrategy::Adam7,
+      png_stream_test_limits(), png_stream_test_budget(), @error.Diagnostics::new(),
+    ).unwrap(),
+    [3UL, 7UL],
+  ).unwrap()
+  if chunked != eager || chunked[24] != b'\x08' || chunked[25] != b'\x04' ||
+    chunked[26] != b'\x00' || chunked[27] != b'\x00' || chunked[28] != b'\x01' {
+    abort("png graya8 adam7 chunk strategy parity")
+  }
+}
+
+///| Every legal GrayAlpha8 Adam7 compression/filter selector drains through
+/// the ordinary public schedule to matching fresh eager bytes.
+test "PNG GrayAlpha8 Adam7 chunk all strategy parity" {
+  for strategy in [
+    PngCompressionStrategy::Stored,
+    PngCompressionStrategy::FixedOrStored,
+    PngCompressionStrategy::DynamicOrFixedOrStored,
+  ] {
+    for filter_strategy in [PngFilterStrategy::None, PngFilterStrategy::Adaptive] {
+      png_stream_graya8_adam7_chunk_strategy(strategy, filter_strategy)
+    }
+  }
+}
+
 ///| Every GrayAlpha16 caller-buffered factory drains to its eager peer across
 /// all six bounded compression/filter choices.
 test "PNG GrayAlpha16 chunk factory strategies match eager" {
