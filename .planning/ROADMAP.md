@@ -27,43 +27,52 @@
 
 Completed milestone detail is archived under `.planning/milestones/`.
 
-- [ ] **Phase 62: Explicit GrayAlpha16 Decode Contract** - Opt-in eager Type-4/16 preservation with truthful sRGB identity and frozen generic compatibility.
+- [x] **Phase 62: Explicit GrayAlpha16 Decode Contract** - Opt-in eager Type-4/16 preservation with truthful sRGB identity and frozen generic compatibility. (completed 2026-07-23)
 - [ ] **Phase 63: Resumable GrayAlpha16 Decode** - Route the preservation profile through the existing caller-buffered decoder lifecycle.
 - [ ] **Phase 64: GrayAlpha16 Decode Qualification** - Prove byte fidelity, hostile-input safety, compatibility, and portability.
 
 ## Phase Details
 
 ### Phase 62: Explicit GrayAlpha16 Decode Contract
+
 **Goal**: Users can explicitly decode a legal encoded-sRGB Type-4/16 PNG into the existing packed little-endian, straight-alpha `graya16` result without changing generic decoding.
 **Depends on**: Phase 61
 **Requirements**: GRA16DEC-01
 **Success Criteria** (what must be TRUE):
+
   1. A user can call `PngDecoder::decode_graya16` on a Type-4/16 input with no colour declaration or an `sRGB` declaration and receive a normal `DecodeResult` whose image is packed little-endian `graya16`, straight alpha, top-left, and encoded-sRGB identity.
   2. An asymmetric Type-4/16 source preserves each reconstructed component byte in observable `Glo,Ghi,Alo,Ahi` storage order, with no scaling, premultiplication, or colour conversion.
   3. The existing generic eager decoder still returns its frozen `RGBA8(Ghi,Ghi,Ghi,Ahi)` result for that same Type-4/16 source.
+
 **Plans**: TBD
 **Scope guard**: The generic decoder, generic result shape, and conversion APIs remain unchanged.
 
 ### Phase 63: Resumable GrayAlpha16 Decode
+
 **Goal**: Users can obtain the same preserved GrayAlpha16 result through caller-owned input chunks while retaining the established bounded decoder lifecycle.
 **Depends on**: Phase 62
 **Requirements**: GRA16DEC-02
 **Success Criteria** (what must be TRUE):
+
   1. A user can create `PngChunkDecoder::new_graya16`, supply a legal Type-4/16 image in empty, one-byte, or ragged chunk schedules, and receive component-byte-identical output to a fresh eager preservation decode.
   2. Chunk callers observe accepted-only consumption and receive the sole result only from successful `finish()`, with no retained caller view or partial image exposed.
   3. Incomplete, malformed, or limit-exceeding chunk streams fail atomically with the established typed diagnostics and sticky terminal behavior.
+
 **Plans**: TBD
 **Scope guard**: Both selectors use the one existing bounded decode machine; no alternate decoder or image-sized staging buffer is introduced.
 
 ### Phase 64: GrayAlpha16 Decode Qualification
+
 **Goal**: Users can rely on exact Type-4/16 preservation across filters, Adam7, hostile boundaries, legacy compatibility, and every supported portable target.
 **Depends on**: Phase 63
 **Requirements**: GRA16DEC-03
 **Success Criteria** (what must be TRUE):
+
   1. Independent Type-4/16 fixtures using all five PNG filters and all seven Adam7 passes preserve every gray and alpha component byte at the expected output coordinate.
   2. The explicit profile rejects unsupported type/depth and unrepresentable legacy-colour or ICC declarations before image allocation, while exact and one-less resource cases preserve bounded no-result failure behavior.
   3. Existing generic eager and chunk Type-4/16 routes retain their frozen RGBA8 high-byte results, progress, diagnostics, and terminal semantics.
   4. The full PNG package, including preservation, hostile-schedule, and legacy vectors, passes independently on wasm, wasm-gc, js, and native.
+
 **Plans**: TBD
 **Scope guard**: The profile is encoded-sRGB-only and performs no colour, alpha, or high-precision conversion beyond the documented final byte-order store.
 
@@ -71,6 +80,6 @@ Completed milestone detail is archived under `.planning/milestones/`.
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 62. Explicit GrayAlpha16 Decode Contract | 0/TBD | Not started | - |
+| 62. Explicit GrayAlpha16 Decode Contract | 1/1 | Complete    | 2026-07-23 |
 | 63. Resumable GrayAlpha16 Decode | 0/TBD | Not started | - |
 | 64. GrayAlpha16 Decode Qualification | 0/TBD | Not started | - |

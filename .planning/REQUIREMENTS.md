@@ -4,7 +4,7 @@
 
 ### Explicit preservation contract
 
-- [ ] **GRA16DEC-01**: Library users can explicitly decode legal sRGB Type-4/16 PNG input through `PngDecoder::decode_graya16` and receive existing little-endian packed `graya16` storage with every `Ghi,Glo,Ahi,Alo` component byte preserved; the generic decoder remains the frozen `RGBA8(Ghi,Ghi,Ghi,Ahi)` path.
+- [x] **GRA16DEC-01**: Library users can explicitly decode legal sRGB Type-4/16 PNG input through `PngDecoder::decode_graya16` and receive existing little-endian packed `graya16` storage with every `Ghi,Glo,Ahi,Alo` component byte preserved; the generic decoder remains the frozen `RGBA8(Ghi,Ghi,Ghi,Ahi)` path.
 
 ### Shared resumable semantics
 
