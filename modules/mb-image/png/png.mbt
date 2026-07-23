@@ -202,6 +202,7 @@ pub struct PngIndexedImage {
   priv width_value : UInt64
   priv height_value : UInt64
   priv indices_length_value : UInt64
+  priv palette_length_value : UInt64
   priv owned_bytes : @bytes.OwnedBytes
 }
 
@@ -225,6 +226,7 @@ pub fn PngIndexedImage::new(
   height : UInt64,
   indices : Bytes,
   rgb_palette : Bytes,
+  palette_alpha : Bytes,
   budget : @budget.Budget,
 ) -> Result[PngIndexedImage, @error.CoreError] {
   match _png_encode_u32(width) {
@@ -250,12 +252,21 @@ pub fn PngIndexedImage::new(
   if palette_entries == 0UL || palette_entries > 256UL {
     return Err(_png_encode_capability("indexed8-palette-count"))
   }
+  if palette_alpha.length().to_uint64() != palette_entries {
+    return Err(_png_encode_capability("indexed8-alpha-count"))
+  }
   for position = 0; position < indices.length(); position = position + 1 {
     if indices[position].to_uint64() >= palette_entries {
       return Err(_png_encode_capability("indexed8-palette-index"))
     }
   }
-  let total_length = match @checked.checked_add(pixels, palette_length) {
+  let indexed_and_palette = match @checked.checked_add(pixels, palette_length) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  let total_length = match @checked.checked_add(
+    indexed_and_palette, palette_alpha.length().to_uint64(),
+  ) {
     Err(error) => return Err(error)
     Ok(value) => value
   }
@@ -280,12 +291,24 @@ pub fn PngIndexedImage::new(
         Ok(_) => offset = offset + 1UL
       }
     }
+    for byte in palette_alpha {
+      match lease.set(offset, byte) {
+        Err(error) => return Err(error)
+        Ok(_) => offset = offset + 1UL
+      }
+    }
     Ok(())
   }) {
     Err(error) => return Err(error)
     Ok(_) => ()
   }
-  Ok({ width_value: width, height_value: height, indices_length_value: pixels, owned_bytes })
+  Ok({
+    width_value: width,
+    height_value: height,
+    indices_length_value: pixels,
+    palette_length_value: palette_length,
+    owned_bytes,
+  })
 }
 
 ///|
@@ -309,7 +332,7 @@ fn PngIndexedImage::index_at(
 
 ///|
 fn PngIndexedImage::palette_length(self : PngIndexedImage) -> UInt64 {
-  self.owned_bytes.length() - self.indices_length_value
+  self.palette_length_value
 }
 
 ///|
@@ -318,6 +341,16 @@ fn PngIndexedImage::palette_byte_at(
   offset : UInt64,
 ) -> Result[Byte, @error.CoreError] {
   self.owned_bytes.view().get(self.indices_length_value + offset)
+}
+
+///|
+fn PngIndexedImage::alpha_at(
+  self : PngIndexedImage,
+  entry : UInt64,
+) -> Result[Byte, @error.CoreError] {
+  self.owned_bytes.view().get(
+    self.indices_length_value + self.palette_length_value + entry,
+  )
 }
 
 ///|

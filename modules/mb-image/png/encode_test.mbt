@@ -887,7 +887,7 @@ fn png_adam7_same_remaining(
 test "PNG Indexed8 eager emits an RGB palette PNG that generic decode expands" {
   let source = PngIndexedImage::new(
     2UL, 1UL, b"\x00\x01", b"\x12\x34\x56\xa0\xb0\xc0",
-    png_encode_budget(),
+    b"\xff\xff", png_encode_budget(),
   ).unwrap()
   let writer = @io.MemoryWriter::new(
     128UL, png_encode_budget(bytes=128UL, work=0UL),
@@ -988,7 +988,7 @@ fn png_indexed_slice(value : Bytes, start : Int, length : Int) -> Bytes {
 test "PNG Indexed8 wire order CRCs and Stored scanlines are exact" {
   let source = PngIndexedImage::new(
     2UL, 1UL, b"\x00\x01", b"\x12\x34\x56\xa0\xb0\xc0",
-    png_encode_budget(),
+    b"\xff\xff", png_encode_budget(),
   ).unwrap()
   let writer = @io.MemoryWriter::new(
     128UL, png_encode_budget(bytes=128UL, work=0UL),
@@ -1023,23 +1023,23 @@ test "PNG Indexed8 source and eager admissions are atomic" {
   let source_budget = png_encode_budget()
   let before_source = source_budget.remaining()
   inspect(PngIndexedImage::new(
-    0UL, 1UL, b"", b"\x12\x34\x56", source_budget,
+    0UL, 1UL, b"", b"\x12\x34\x56", b"\xff", source_budget,
   ) is Err(_), content="true")
   inspect(PngIndexedImage::new(
-    1UL, 0UL, b"", b"\x12\x34\x56", source_budget,
-  ) is Err(_), content="true")
-  inspect(png_adam7_same_remaining(before_source, source_budget.remaining()), content="true")
-  inspect(PngIndexedImage::new(
-    1UL, 1UL, b"\x00", b"\x12\x34", source_budget,
+    1UL, 0UL, b"", b"\x12\x34\x56", b"\xff", source_budget,
   ) is Err(_), content="true")
   inspect(png_adam7_same_remaining(before_source, source_budget.remaining()), content="true")
   inspect(PngIndexedImage::new(
-    1UL, 1UL, b"\x01", b"\x12\x34\x56", png_encode_budget(),
+    1UL, 1UL, b"\x00", b"\x12\x34", b"\xff", source_budget,
+  ) is Err(_), content="true")
+  inspect(png_adam7_same_remaining(before_source, source_budget.remaining()), content="true")
+  inspect(PngIndexedImage::new(
+    1UL, 1UL, b"\x01", b"\x12\x34\x56", b"\xff", png_encode_budget(),
   ) is Err(_), content="true")
   let zero_source_pixels = png_encode_zero_pixels_budget()
   let before_zero_source_pixels = zero_source_pixels.remaining()
   inspect(PngIndexedImage::new(
-    1UL, 1UL, b"\x00", b"\x12\x34\x56", zero_source_pixels,
+    1UL, 1UL, b"\x00", b"\x12\x34\x56", b"\xff", zero_source_pixels,
   ) is Err(_), content="true")
   inspect(
     png_adam7_same_remaining(
@@ -1047,15 +1047,15 @@ test "PNG Indexed8 source and eager admissions are atomic" {
     ),
     content="true",
   )
-  let compact_budget = png_encode_budget(bytes=8UL, work=0UL)
+  let compact_budget = png_encode_budget(bytes=10UL, work=0UL)
   ignore(PngIndexedImage::new(
-    2UL, 1UL, b"\x00\x01", b"\x12\x34\x56\xa0\xb0\xc0", compact_budget,
+    2UL, 1UL, b"\x00\x01", b"\x12\x34\x56\xa0\xb0\xc0", b"\xff\xff", compact_budget,
   ).unwrap())
   inspect(compact_budget.remaining().bytes(), content="0")
   inspect(compact_budget.remaining().allocations(), content="7")
   let source = PngIndexedImage::new(
     2UL, 1UL, b"\x00\x01", b"\x12\x34\x56\xa0\xb0\xc0",
-    png_encode_budget(),
+    b"\xff\xff", png_encode_budget(),
   ).unwrap()
   let limited = @io.MemoryWriter::new(
     128UL, png_encode_budget(bytes=128UL, work=0UL),

@@ -718,6 +718,7 @@ priv struct PngEncodeMachine {
   mut dynamic_state : PngDynamicState?
   mut ihdr_crc : UInt64
   mut plte_crc : UInt64
+  mut trns_crc : UInt64
   mut idat_crc : UInt64
   mut adler : UInt64
   mut finished : Bool
@@ -899,6 +900,7 @@ fn PngEncodeMachine::new_with_profile(
     },
     ihdr_crc: _png_crc_for_type([b'I', b'H', b'D', b'R']),
     plte_crc: _png_crc_for_type([b'P', b'L', b'T', b'E']),
+    trns_crc: _png_crc_for_type([b't', b'R', b'N', b'S']),
     idat_crc: _png_crc_for_type([b'I', b'D', b'A', b'T']),
     adler: 1UL,
     finished: false,
@@ -933,6 +935,7 @@ fn PngEncodeMachine::new_with_indexed(
     stored_cursor: None, fixed_state: None, dynamic_state: None,
     ihdr_crc: _png_crc_for_type([b'I', b'H', b'D', b'R']),
     plte_crc: _png_crc_for_type([b'P', b'L', b'T', b'E']),
+    trns_crc: _png_crc_for_type([b't', b'R', b'N', b'S']),
     idat_crc: _png_crc_for_type([b'I', b'D', b'A', b'T']), adler: 1UL,
     finished: false,
   })
@@ -1425,7 +1428,7 @@ fn PngEncodeMachine::byte_at(
     return Ok([bit_depth, colour_type, b'\x00', b'\x00', if self.interlace_strategy == PngInterlaceStrategy::Adam7 { b'\x01' } else { b'\x00' }][(payload - 8UL).to_int()])
   }
   if offset < 33UL { return Ok(_png_encode_machine_u32_byte(self.ihdr_crc ^ 4294967295UL, offset - 29UL)) }
-  if self.frame.plte_length > 0UL && offset < self.frame.idat_start {
+  if self.frame.plte_length > 0UL && offset < self.frame.trns_start {
     let plte = offset - self.frame.plte_start
     if plte < 4UL {
       return Ok(_png_encode_machine_u32_byte(self.frame.plte_length, plte))
@@ -1440,6 +1443,23 @@ fn PngEncodeMachine::byte_at(
     }
     return Ok(_png_encode_machine_u32_byte(
       self.plte_crc ^ 4294967295UL, plte - 8UL - self.frame.plte_length,
+    ))
+  }
+  if self.frame.trns_length > 0UL && offset < self.frame.idat_start {
+    let trns = offset - self.frame.trns_start
+    if trns < 4UL {
+      return Ok(_png_encode_machine_u32_byte(self.frame.trns_length, trns))
+    }
+    if trns < 8UL { return Ok([b't', b'R', b'N', b'S'][(trns - 4UL).to_int()]) }
+    if trns < 8UL + self.frame.trns_length {
+      let source = match self.indexed_source {
+        Some(value) => value
+        None => return Err(_png_encode_machine_state_error("png-encode-alpha"))
+      }
+      return source.alpha_at(trns - 8UL)
+    }
+    return Ok(_png_encode_machine_u32_byte(
+      self.trns_crc ^ 4294967295UL, trns - 8UL - self.frame.trns_length,
     ))
   }
   let idat = offset - self.frame.idat_start
@@ -1498,6 +1518,11 @@ fn PngEncodeMachine::acknowledge(
     offset >= self.frame.plte_start + 8UL &&
     offset < self.frame.plte_start + 8UL + self.frame.plte_length {
     self.plte_crc = _png_crc_step(self.plte_crc, accepted)
+  }
+  if self.frame.trns_length > 0UL &&
+    offset >= self.frame.trns_start + 8UL &&
+    offset < self.frame.trns_start + 8UL + self.frame.trns_length {
+    self.trns_crc = _png_crc_step(self.trns_crc, accepted)
   }
   if offset >= self.frame.idat_start + 8UL &&
     offset < self.frame.idat_start + 8UL + self.idat_length {

@@ -285,11 +285,13 @@ priv struct PngEncodePreflight {
   frame : PngFrameFacts
 }
 
-///| Scalar PNG chunk boundaries. A zero-length PLTE keeps the legacy offsets
-/// numerically identical; Indexed8 supplies the one variable ancillary span.
+///| Scalar PNG chunk boundaries. Zero-length ancillary spans keep the legacy
+/// offsets numerically identical; Indexed8 can supply PLTE and canonical tRNS.
 priv struct PngFrameFacts {
   plte_length : UInt64
   plte_start : UInt64
+  trns_length : UInt64
+  trns_start : UInt64
   idat_start : UInt64
   iend_start : UInt64
   total_length : UInt64
@@ -298,6 +300,7 @@ priv struct PngFrameFacts {
 ///|
 fn _png_frame_facts(
   plte_length : UInt64,
+  trns_length : UInt64,
   idat_length : UInt64,
 ) -> Result[PngFrameFacts, @error.CoreError] {
   let plte_start = 33UL
@@ -305,6 +308,15 @@ fn _png_frame_facts(
     plte_start
   } else {
     match @checked.checked_add(plte_start, 12UL + plte_length) {
+      Err(error) => return Err(error)
+      Ok(value) => value
+    }
+  }
+  let trns_start = idat_start
+  let idat_start = if trns_length == 0UL {
+    trns_start
+  } else {
+    match @checked.checked_add(trns_start, 12UL + trns_length) {
       Err(error) => return Err(error)
       Ok(value) => value
     }
@@ -317,7 +329,15 @@ fn _png_frame_facts(
     Err(error) => return Err(error)
     Ok(value) => value
   }
-  Ok({ plte_length, plte_start, idat_start, iend_start, total_length })
+  Ok({
+    plte_length,
+    plte_start,
+    trns_length,
+    trns_start,
+    idat_start,
+    iend_start,
+    total_length,
+  })
 }
 
 ///| The adaptive ledger records executed row selection and residual work.  It
@@ -1970,7 +1990,7 @@ fn _png_encode_preflight_with_filter_layout_idat_limit_profile(
     Err(error) => return Err(error)
     Ok(value) => value
   }
-  let frame = match _png_frame_facts(0UL, idat_length) {
+  let frame = match _png_frame_facts(0UL, 0UL, idat_length) {
     Err(error) => return Err(error)
     Ok(value) => value
   }
@@ -2051,7 +2071,18 @@ fn _png_encode_indexed_preflight(
     Err(error) => return Err(error)
     Ok(value) => value
   }
-  let frame = match _png_frame_facts(source.palette_length(), idat_length) {
+  let palette_entries = source.palette_length() / 3UL
+  let mut trns_length = 0UL
+  for entry = 0UL; entry < palette_entries; entry = entry + 1UL {
+    let alpha = match source.alpha_at(entry) {
+      Err(error) => return Err(error)
+      Ok(value) => value
+    }
+    if alpha != b'\xff' { trns_length = entry + 1UL }
+  }
+  let frame = match _png_frame_facts(
+    source.palette_length(), trns_length, idat_length,
+  ) {
     Err(error) => return Err(error)
     Ok(value) => value
   }
