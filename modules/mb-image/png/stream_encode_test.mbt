@@ -211,6 +211,69 @@ fn png_stream_graya8_adam7_image() -> @storage.OwnedImage {
   png_stream_graya8_adam7_stored_ramp_5x5()
 }
 
+///| The measured Fixed corpus is a five-by-five flat GrayAlpha8 image.
+fn png_stream_graya8_adam7_fixed_flat_5x5() -> @storage.OwnedImage {
+  let descriptor = @model.ImageDescriptor::new(
+    5UL, 5UL, @model.ImageFormat::graya8(),
+    [@model.PlaneDescriptor::new(0UL, 50UL, 10UL, 10UL, 1UL, 1UL, 5UL, 5UL).unwrap()],
+    50UL,
+    @model.ImageMetadata::new(
+      @color.ColorSpaceIdentity::Srgb, @color.TransferIdentity::EncodedSrgb,
+      Some(@color.AlphaMode::Straight), @profile.ProfileIdentity::builtin_srgb(),
+      @model.Orientation::TopLeft,
+      @metadata.OpaqueMetadata::from_entries(
+        [], @metadata.MetadataLimits::new(
+          max_entries=1UL, max_token_bytes=16UL, max_value_bytes=1UL,
+          max_total_bytes=32UL, max_disposition_fields=4UL,
+        ), png_stream_test_budget(work=0UL),
+      ).unwrap(),
+    ),
+  ).unwrap()
+  let image = @storage.OwnedImage::new(descriptor, png_stream_test_budget(work=0UL)).unwrap()
+  image.with_mut_view(fn(view) {
+    for y = 0UL; y < 5UL; y = y + 1UL {
+      for x = 0UL; x < 5UL; x = x + 1UL {
+        view.set_byte(x, y, 0UL, b'\x34').unwrap()
+        view.set_byte(x, y, 1UL, b'\xa7').unwrap()
+      }
+    }
+    Ok(())
+  }).unwrap()
+  image
+}
+
+///| The measured Dynamic corpus is a 128-by-five periodic GrayAlpha8 image.
+fn png_stream_graya8_adam7_dynamic_periodic_128x5() -> @storage.OwnedImage {
+  let descriptor = @model.ImageDescriptor::new(
+    128UL, 5UL, @model.ImageFormat::graya8(),
+    [@model.PlaneDescriptor::new(0UL, 1280UL, 256UL, 256UL, 1UL, 1UL, 128UL, 5UL).unwrap()],
+    1280UL,
+    @model.ImageMetadata::new(
+      @color.ColorSpaceIdentity::Srgb, @color.TransferIdentity::EncodedSrgb,
+      Some(@color.AlphaMode::Straight), @profile.ProfileIdentity::builtin_srgb(),
+      @model.Orientation::TopLeft,
+      @metadata.OpaqueMetadata::from_entries(
+        [], @metadata.MetadataLimits::new(
+          max_entries=1UL, max_token_bytes=16UL, max_value_bytes=1UL,
+          max_total_bytes=32UL, max_disposition_fields=4UL,
+        ), png_stream_test_budget(work=0UL),
+      ).unwrap(),
+    ),
+  ).unwrap()
+  let image = @storage.OwnedImage::new(descriptor, png_stream_test_budget(work=0UL)).unwrap()
+  image.with_mut_view(fn(view) {
+    for y = 0UL; y < 5UL; y = y + 1UL {
+      for x = 0UL; x < 128UL; x = x + 1UL {
+        let i = 2UL * (128UL * y + x)
+        view.set_byte(x, y, 0UL, (i % 5UL).to_byte()).unwrap()
+        view.set_byte(x, y, 1UL, ((i + 1UL) % 5UL).to_byte()).unwrap()
+      }
+    }
+    Ok(())
+  }).unwrap()
+  image
+}
+
 ///| Compact packed U16 Gray+Alpha source with non-symmetric component lanes.
 fn png_stream_graya16_image() -> @storage.OwnedImage {
   let descriptor = @model.ImageDescriptor::new(
@@ -2786,6 +2849,7 @@ fn png_gray16_combined_public_reject(
 /// caller budget, or mutate a caller-owned lease.
 fn png_graya8_combined_public_reject(
   image : @storage.OwnedImage,
+  interlace_strategy : PngInterlaceStrategy,
   limits : @codec.CodecLimits,
   work : UInt64,
 ) -> Unit {
@@ -2799,7 +2863,9 @@ fn png_graya8_combined_public_reject(
       let eager_before = eager_budget.remaining()
       let writer = @io.MemoryWriter::new(1048576UL, png_stream_test_budget(work=0UL)).unwrap()
       let eager = @codec.ImageEncoder::encode(
-        PngEncoder::new_graya8_with_strategies(strategy, filter_strategy),
+        PngEncoder::new_graya8_with_all_strategies(
+          strategy, filter_strategy, interlace_strategy,
+        ),
         image.view(), writer as &@io.Writer,
         @codec.EncodeOptions::new(lossless_required=true, preserve_opaque_metadata=false),
         limits, eager_budget, @error.Diagnostics::new(),
@@ -2811,8 +2877,8 @@ fn png_graya8_combined_public_reject(
       let chunk_budget = png_stream_test_budget(work=work)
       let chunk_before = chunk_budget.remaining()
       let sentinel = png_chunk_test_owner(7UL, fill=b'Z')
-      let chunk = PngChunkEncoder::new_graya8_with_strategies(
-        image.view(), strategy, filter_strategy, limits, chunk_budget,
+      let chunk = PngChunkEncoder::new_graya8_with_all_strategies(
+        image.view(), strategy, filter_strategy, interlace_strategy, limits, chunk_budget,
         @error.Diagnostics::new(),
       ).unwrap_err()
       if !png_chunk_test_same_error(eager, chunk) ||
@@ -2981,19 +3047,49 @@ test "PNG Gray16 strategy admission is atomic" {
 /// and budget failures before eager output or a caller-buffered lease exists.
 test "PNG GrayAlpha8 strategy admission is atomic" {
   png_graya8_combined_public_reject(
-    png_stream_test_image(3UL), png_fixed_or_stored_limits(), 1048576UL,
+    png_stream_test_image(3UL), PngInterlaceStrategy::None,
+    png_fixed_or_stored_limits(), 1048576UL,
   )
   png_graya8_combined_public_reject(
-    png_stream_graya8_image(), png_fixed_or_stored_limits(width=1UL), 1048576UL,
+    png_stream_graya8_image(), PngInterlaceStrategy::None,
+    png_fixed_or_stored_limits(width=1UL), 1048576UL,
   )
   png_graya8_combined_public_reject(
-    png_stream_graya8_image(), png_fixed_or_stored_limits(output=1UL), 1048576UL,
+    png_stream_graya8_image(), PngInterlaceStrategy::None,
+    png_fixed_or_stored_limits(output=1UL), 1048576UL,
   )
   png_graya8_combined_public_reject(
-    png_stream_graya8_image(), png_fixed_or_stored_limits(work=1UL), 1048576UL,
+    png_stream_graya8_image(), PngInterlaceStrategy::None,
+    png_fixed_or_stored_limits(work=1UL), 1048576UL,
   )
   png_graya8_combined_public_reject(
-    png_stream_graya8_image(), png_fixed_or_stored_limits(), 1UL,
+    png_stream_graya8_image(), PngInterlaceStrategy::None,
+    png_fixed_or_stored_limits(), 1UL,
+  )
+}
+
+///| GrayAlpha8 Adam7 admission retains the same profile-aware preflight
+/// transaction for each incompatible descriptor and resource rejection.
+test "PNG GrayAlpha8 Adam7 strategy admission is atomic" {
+  png_graya8_combined_public_reject(
+    png_stream_test_image(3UL), PngInterlaceStrategy::Adam7,
+    png_fixed_or_stored_limits(), 1048576UL,
+  )
+  png_graya8_combined_public_reject(
+    png_stream_graya8_adam7_image(), PngInterlaceStrategy::Adam7,
+    png_fixed_or_stored_limits(width=1UL), 1048576UL,
+  )
+  png_graya8_combined_public_reject(
+    png_stream_graya8_adam7_image(), PngInterlaceStrategy::Adam7,
+    png_fixed_or_stored_limits(output=1UL), 1048576UL,
+  )
+  png_graya8_combined_public_reject(
+    png_stream_graya8_adam7_image(), PngInterlaceStrategy::Adam7,
+    png_fixed_or_stored_limits(work=1UL), 1048576UL,
+  )
+  png_graya8_combined_public_reject(
+    png_stream_graya8_adam7_image(), PngInterlaceStrategy::Adam7,
+    png_fixed_or_stored_limits(), 1UL,
   )
 }
 
@@ -3340,12 +3436,32 @@ fn png_graya8_replay_mutation_is_sticky(
   }
 }
 
-///| The Stored/None tracer proves a post-progress GrayAlpha8 Adam7 mutation
-/// cannot reach the next caller lease.
+///| Every measured GrayAlpha8 Adam7 compression/filter pair must reject a
+/// post-progress mutation before its next caller lease can receive a byte.
 test "PNG GrayAlpha8 Adam7 replay mutations are sticky for every strategy pair" {
   png_graya8_replay_mutation_is_sticky(
     png_stream_graya8_adam7_stored_ramp_5x5(),
     PngCompressionStrategy::Stored, PngFilterStrategy::None, b'\x01', 7UL,
+  )
+  png_graya8_replay_mutation_is_sticky(
+    png_stream_graya8_adam7_stored_ramp_5x5(),
+    PngCompressionStrategy::Stored, PngFilterStrategy::Adaptive, b'\x01', 7UL,
+  )
+  png_graya8_replay_mutation_is_sticky(
+    png_stream_graya8_adam7_fixed_flat_5x5(),
+    PngCompressionStrategy::FixedOrStored, PngFilterStrategy::None, b'\x03', 7UL,
+  )
+  png_graya8_replay_mutation_is_sticky(
+    png_stream_graya8_adam7_fixed_flat_5x5(),
+    PngCompressionStrategy::FixedOrStored, PngFilterStrategy::Adaptive, b'\x03', 7UL,
+  )
+  png_graya8_replay_mutation_is_sticky(
+    png_stream_graya8_adam7_dynamic_periodic_128x5(),
+    PngCompressionStrategy::DynamicOrFixedOrStored, PngFilterStrategy::None, b'\x05', 7UL,
+  )
+  png_graya8_replay_mutation_is_sticky(
+    png_stream_graya8_adam7_dynamic_periodic_128x5(),
+    PngCompressionStrategy::DynamicOrFixedOrStored, PngFilterStrategy::Adaptive, b'\x05', 7UL,
   )
 }
 
