@@ -304,7 +304,9 @@ pub fn PngChunkEncoder::new_rgba16_with_filter_strategy(
 }
 
 ///| Constructs an RGBA16 caller-buffered encoder with explicit compression and
-/// filter strategies. Its profile fixes PNG colour type 6 and excludes Adam7.
+/// filter strategies. This legacy constructor fixes PNG colour type 6 and
+/// `PngInterlaceStrategy::None`; use the explicit interlace selector family to
+/// request Adam7.
 pub fn PngChunkEncoder::new_rgba16_with_strategies(
   source : @storage.ImageView,
   strategy : PngCompressionStrategy,
