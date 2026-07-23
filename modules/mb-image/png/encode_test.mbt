@@ -1302,6 +1302,7 @@ test "PNG GrayAlpha8 Adam7 eager pass profile" {
   if outputs.length() != 2 || outputs[0] != outputs[1] {
     abort("png graya8 Adam7 eager selector parity")
   }
+  png_encode_graya8_adam7_public_decode_is_canonical(outputs[1])
 
   let (_, legacy_writer) = png_encode_with(PngEncoder::new_graya8(), png_encode_graya8_image())
   let (_, none_writer) = png_encode_with(
