@@ -908,6 +908,8 @@ test "PNG Indexed8 eager emits an RGB palette PNG that generic decode expands" {
     ), png_encode_limits(), png_encode_budget(), @error.Diagnostics::new(),
   ).unwrap()
   let view = decoded.image().view()
+  inspect(view.format().channels() == @model.ChannelOrder::Rgb, content="true")
+  inspect(view.format().channel_count(), content="3")
   inspect(view.get_byte(0UL, 0UL, 0UL).unwrap() == b'\x12', content="true")
   inspect(view.get_byte(0UL, 0UL, 2UL).unwrap() == b'\x56', content="true")
   inspect(view.get_byte(1UL, 0UL, 0UL).unwrap() == b'\xa0', content="true")
