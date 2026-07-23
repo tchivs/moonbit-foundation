@@ -23,6 +23,21 @@ pub fn PngDecoder::decode_graya16(
   ).decode_reader(reader)
 }
 
+///| Decodes the explicit Type-6/16 encoded-sRGB profile into packed
+/// little-endian straight-alpha `rgba16` storage without widening `decode`.
+pub fn PngDecoder::decode_rgba16(
+  reader : &@io.Reader,
+  options : @codec.DecodeOptions,
+  limits : @codec.CodecLimits,
+  budget : @budget.Budget,
+  diagnostics : @error.Diagnostics,
+) -> Result[@codec.DecodeResult, @error.CoreError] {
+  ignore(diagnostics)
+  PngDecodeMachine::new_with_profile(
+    PngDecodeProfile::Rgba16, options, limits, budget,
+  ).decode_reader(reader)
+}
+
 ///|
 /// A caller-chunk-fed PNG decoder. Completion is declared explicitly with
 /// `finish`; it retains no caller ByteView and does not change PngDecoder's

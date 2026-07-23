@@ -14,10 +14,11 @@ priv enum PngDecodeMachineState {
   Failed(@error.CoreError)
 }
 
-///| The generic contract remains RGBA8; precise Gray+Alpha16 is opt-in only.
+///| The generic contract remains RGBA8; precise packed U16 profiles are opt-in.
 priv enum PngDecodeProfile {
   GenericRgba8
   GrayAlpha16
+  Rgba16
 } derive(Eq)
 
 ///| Public-chunk facade state. The machine itself remains the single parser;
@@ -512,17 +513,33 @@ fn PngDecodeMachine::preflight_first_idat(self : PngDecodeMachine) -> Result[Uni
       _ => return Err(@codec.capability_unavailable("png-decode", "graya16-profile"))
     }
   }
+  if self.profile == PngDecodeProfile::Rgba16 {
+    let has_transparency_key = match self.facts.transparency {
+      PngTransparency::Opaque => false
+      _ => true
+    }
+    if ihdr[9] != b'\x06' || ihdr[8] != b'\x10' || has_transparency_key {
+      return Err(@codec.capability_unavailable("png-decode", "rgba16-profile"))
+    }
+    match declaration {
+      PngColourDeclaration::Default | PngColourDeclaration::Srgb(_) => ()
+      _ => return Err(@codec.capability_unavailable("png-decode", "rgba16-profile"))
+    }
+  }
   let channels = if self.profile == PngDecodeProfile::GrayAlpha16 { 2UL } else { generic_channels }
-  let metadata_channels = if self.profile == PngDecodeProfile::GrayAlpha16 { 4UL } else { generic_channels }
+  let metadata_channels = if self.profile == PngDecodeProfile::GrayAlpha16 || self.profile == PngDecodeProfile::Rgba16 { 4UL } else { generic_channels }
+  let output_bytes_per_pixel = if self.profile == PngDecodeProfile::Rgba16 { 8UL }
+    else if self.profile == PngDecodeProfile::GrayAlpha16 { 4UL }
+    else { generic_channels }
   let transport = PngTransport::{
     width: _png_u32_at(ihdr, 0), height: _png_u32_at(ihdr, 4), bit_depth: ihdr[8].to_int(),
     source_channels, source_bytes_per_pixel, channels, indexed,
     palette: Bytes::from_array(self.facts.palette), palette_entries: self.facts.palette_entries, transparency: self.facts.transparency,
     idat: b"", consumed: 0UL,
   }
-  let output_budget = match _png_output_budget_for(ihdr, indexed, metadata_channels, self.limits, self.budget) { Err(error) => return Err(error); Ok(value) => value }
+  let output_budget = match _png_output_budget_for(ihdr, indexed, output_bytes_per_pixel, self.limits, self.budget) { Err(error) => return Err(error); Ok(value) => value }
   let (result_budget, metadata_budget) = match declaration {
-    PngColourDeclaration::Srgb(_) => match _png_srgb_budget(ihdr, indexed, metadata_channels, self.limits, self.budget) { Err(error) => return Err(error); Ok((metadata, raster)) => (raster, Some(metadata)) }
+    PngColourDeclaration::Srgb(_) => match _png_srgb_budget(ihdr, indexed, output_bytes_per_pixel, self.limits, self.budget) { Err(error) => return Err(error); Ok((metadata, raster)) => (raster, Some(metadata)) }
     PngColourDeclaration::Legacy(gamma, chrm) => {
       let value_bytes = (match gamma { Some(value) => value.length().to_uint64(); None => 0UL }) + (match chrm { Some(value) => value.length().to_uint64(); None => 0UL })
       match _png_non_srgb_budget(ihdr, indexed, channels, value_bytes, self.limits, self.budget) { Err(error) => return Err(error); Ok((metadata, raster)) => (raster, Some(metadata)) }
@@ -538,6 +555,8 @@ fn PngDecodeMachine::preflight_first_idat(self : PngDecodeMachine) -> Result[Uni
   }
   let descriptor = if self.profile == PngDecodeProfile::GrayAlpha16 {
     match _png_graya16_descriptor_with_metadata(transport, metadata) { Err(error) => return Err(error); Ok(value) => value }
+  } else if self.profile == PngDecodeProfile::Rgba16 {
+    match _png_rgba16_descriptor_with_metadata(transport, metadata) { Err(error) => return Err(error); Ok(value) => value }
   } else {
     match _png_descriptor_with_metadata(transport, metadata) { Err(error) => return Err(error); Ok(value) => value }
   }

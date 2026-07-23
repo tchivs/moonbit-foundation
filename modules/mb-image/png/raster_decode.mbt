@@ -65,6 +65,18 @@ fn _png_graya16_descriptor_with_metadata(
   @model.ImageDescriptor::new(transport.width, transport.height, @model.ImageFormat::graya16(), [plane], payload, metadata)
 }
 
+///| The explicit Type-6/16 profile owns one packed four-component U16 plane.
+fn _png_rgba16_descriptor_with_metadata(
+  transport : PngTransport,
+  metadata : @model.ImageMetadata,
+) -> Result[@model.ImageDescriptor, @error.CoreError] {
+  let pixels = match @checked.checked_mul(transport.width, transport.height) { Err(error) => return Err(error); Ok(value) => value }
+  let payload = match @checked.checked_mul(pixels, 8UL) { Err(error) => return Err(error); Ok(value) => value }
+  let row = match @checked.checked_mul(transport.width, 8UL) { Err(error) => return Err(error); Ok(value) => value }
+  let plane = match @model.PlaneDescriptor::new(0UL, payload, row, row, 1UL, 1UL, transport.width, transport.height) { Err(error) => return Err(error); Ok(value) => value }
+  @model.ImageDescriptor::new(transport.width, transport.height, @model.ImageFormat::rgba16(), [plane], payload, metadata)
+}
+
 ///|
 fn _png_descriptor(transport : PngTransport) -> Result[@model.ImageDescriptor, @error.CoreError] {
   let pixels = match @checked.checked_mul(transport.width, transport.height) {
@@ -277,6 +289,25 @@ fn _png_write_16bit_rgba_row(
   Ok(())
 }
 
+///| The opt-in preservation profile performs the only Type-6/16 endian map:
+/// PNG's Rhi,Rlo,Ghi,Glo,Bhi,Blo,Ahi,Alo becomes packed U16 LE storage.
+fn _png_write_16bit_rgba_row_rgba16(
+  view : @storage.MutImageView,
+  rows : PngPackedRows,
+  y : UInt64,
+  width : UInt64,
+) -> Result[Unit, @error.CoreError] {
+  for x = 0UL; x < width; x = x + 1UL {
+    let offset = x * 8UL
+    for item in [(0UL, 0UL, 1UL), (1UL, 2UL, 3UL), (2UL, 4UL, 5UL), (3UL, 6UL, 7UL)] {
+      let (channel, high_offset, low_offset) = item
+      match view.set_component_byte(x, y, channel, 0UL, rows.current.view().get(offset + low_offset).unwrap()) { Err(error) => return Err(error); Ok(_) => () }
+      match view.set_component_byte(x, y, channel, 1UL, rows.current.view().get(offset + high_offset).unwrap()) { Err(error) => return Err(error); Ok(_) => () }
+    }
+  }
+  Ok(())
+}
+
 ///|
 fn PngPackedRows::finish_row(self : PngPackedRows) -> Unit {
   let prior = self.previous
@@ -442,6 +473,7 @@ fn PngRasterSink::emit(self : PngRasterSink, byte : Byte) -> Result[Unit, @error
             else { _png_write_16bit_grayscale_alpha_row(view, rows, self.row, self.transport.width) }
           }
           else if self.transport.source_channels == 3UL { _png_write_16bit_rgb_row(view, rows, self.row, self.transport.width, self.transport.transparency) }
+          else if self.profile == PngDecodeProfile::Rgba16 { _png_write_16bit_rgba_row_rgba16(view, rows, self.row, self.transport.width) }
           else { _png_write_16bit_rgba_row(view, rows, self.row, self.transport.width) }
         } else if self.transport.source_channels == 1UL { _png_write_packed_grayscale_row(view, rows, self.row, self.transport.width, self.transport.bit_depth, self.transport.transparency) }
         else { _png_write_grayscale_alpha_row(view, rows, self.row, self.transport.width) }
@@ -592,6 +624,12 @@ fn _png_write_adam7_transport_row(
           let rh = rows.current.view().get(offset).unwrap(); let rl = rows.current.view().get(offset + 1UL).unwrap(); let gh = rows.current.view().get(offset + 2UL).unwrap(); let gl = rows.current.view().get(offset + 3UL).unwrap(); let bh = rows.current.view().get(offset + 4UL).unwrap(); let bl = rows.current.view().get(offset + 5UL).unwrap()
           for item in [(0UL, rh), (1UL, gh), (2UL, bh)] { let (channel, value) = item; match view.set_byte(x, y, channel, value) { Err(error) => return Err(error); Ok(_) => () } }
           match transport.transparency { PngTransparency::Rgb16(a,b,c,d,e,f) => match view.set_byte(x, y, 3UL, if rh == a && rl == b && gh == c && gl == d && bh == e && bl == f { b'\x00' } else { b'\xff' }) { Err(error) => return Err(error); Ok(_) => () }; _ => () }
+        } else if profile == PngDecodeProfile::Rgba16 {
+          for item in [(0UL, 0UL, 1UL), (1UL, 2UL, 3UL), (2UL, 4UL, 5UL), (3UL, 6UL, 7UL)] {
+            let (channel, high, low) = item
+            match view.set_component_byte(x, y, channel, 0UL, rows.current.view().get(offset + low).unwrap()) { Err(error) => return Err(error); Ok(_) => () }
+            match view.set_component_byte(x, y, channel, 1UL, rows.current.view().get(offset + high).unwrap()) { Err(error) => return Err(error); Ok(_) => () }
+          }
         } else { for item in [(0UL, 0UL), (1UL, 2UL), (2UL, 4UL), (3UL, 6UL)] { let (channel, source) = item; match view.set_byte(x, y, channel, rows.current.view().get(offset + source).unwrap()) { Err(error) => return Err(error); Ok(_) => () } } }
       } else if transport.source_channels == 1UL {
         let gray = rows.current.view().get(offset).unwrap()
