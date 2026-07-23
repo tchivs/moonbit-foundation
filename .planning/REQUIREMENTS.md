@@ -31,7 +31,7 @@
 
 | Requirement | Phase | Status |
 |---|---|---|
-| RGBA16DEC-01 | Phase 65 | Not started |
-| RGBA16DEC-02 | Phase 66 | Not started |
-| RGBA16DEC-03 | Phase 67 | Not started |
-| RGBA16DEC-04 | Phase 68 | Not started |
+| RGBA16DEC-01 | Phase 65 | Complete |
+| RGBA16DEC-02 | Phase 66 | Complete |
+| RGBA16DEC-03 | Phase 67 | Complete |
+| RGBA16DEC-04 | Phase 68 | Complete |
