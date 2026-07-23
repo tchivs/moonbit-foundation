@@ -5068,6 +5068,21 @@ test "PNG Indexed8 Adam7 chunk selector wires the shared machine IHDR" {
   )
 }
 
+///| The explicit Indexed8 Adam7 chunk facade must retain accepted-only progress,
+///| caller-owned tails, stream-origin framing, and the sticky completed terminal
+///| under zero-capacity, one-byte, and ragged leases.
+test "PNG Indexed8 Adam7 chunk hostile leases qualify stream-origin bytes" {
+  png_stream_indexed8_adam7_hostile_drain([0UL, 1UL])
+  png_stream_indexed8_adam7_hostile_drain([1UL])
+  png_stream_indexed8_adam7_hostile_drain([0UL, 1UL, 3UL, 2UL, 5UL])
+}
+
+///| A released first Adam7 destination must become a sticky zero-write failure
+///| without mutating the original or a later sentinel-filled lease.
+test "PNG Indexed8 Adam7 chunk replays released lease failure" {
+  png_stream_indexed8_adam7_released_failure()
+}
+
 ///| Builds one bounded canonical source for each public low-bit Type-3 selector.
 fn png_stream_indexed_low_bit_source(bit_depth : PngIndexedBitDepth) -> PngIndexedImage {
   match bit_depth {
