@@ -38,7 +38,7 @@
 
 - [x] **Phase 56: GrayAlpha16 Adam7 Factory and Pass Profile** - Add explicit eager and caller-buffered Adam7 Type-4/16 selection for the legal U16 GrayAlpha source contract. (Requirements: GRAYA16A7-01) (completed 2026-07-23)
 - [x] **Phase 57: Bounded Adam7 Streaming Semantics** - Extend the shared bounded traversal, filter, compression, and replay path to the new Type-4/16 Adam7 profile. (Requirements: GRAYA16A7-02) (completed 2026-07-23)
-- [ ] **Phase 58: Portable Adam7 Public Evidence** - Prove public pass-aware wire/decode fidelity, hostile caller-buffer behavior, legacy stability, and four-target portability. (Requirements: GRAYA16A7-03)
+- [x] **Phase 58: Portable Adam7 Public Evidence** - Prove public pass-aware wire/decode fidelity, hostile caller-buffer behavior, legacy stability, and four-target portability. (Requirements: GRAYA16A7-03) (completed 2026-07-23)
 
 ## Phase Details
 
@@ -98,4 +98,4 @@
 |-------|----------------|--------|-----------|
 | 56. GrayAlpha16 Adam7 Factory and Pass Profile | 2/2 | Complete    | 2026-07-23 |
 | 57. Bounded Adam7 Streaming Semantics | 2/2 | Complete    | 2026-07-23 |
-| 58. Portable Adam7 Public Evidence | 3/3 | In Progress|  |
+| 58. Portable Adam7 Public Evidence | 3/3 | Complete    | 2026-07-23 |
