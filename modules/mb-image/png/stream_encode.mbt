@@ -139,8 +139,8 @@ pub fn PngChunkEncoder::new_graya8_with_filter_strategy(
 }
 
 ///| Constructs a Gray+Alpha8 caller-buffered encoder with explicit
-/// compression and filter strategies. Its profile fixes PNG colour type 4 and
-/// excludes Adam7.
+/// compression and filter strategies. This legacy family remains explicitly
+/// non-interlaced.
 pub fn PngChunkEncoder::new_graya8_with_strategies(
   source : @storage.ImageView,
   strategy : PngCompressionStrategy,
@@ -152,6 +152,43 @@ pub fn PngChunkEncoder::new_graya8_with_strategies(
   let machine = match PngEncodeMachine::new_with_profile(
     source, PngEncodeProfile::GrayAlpha8, strategy,
     filter_strategy, PngInterlaceStrategy::None, limits, budget, diagnostics,
+  ) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  Ok({ state: PngChunkEncoderState::Active(machine), total_written: 0UL })
+}
+
+///| Constructs a Gray+Alpha8 caller-buffered encoder with explicit interlace
+/// selection and the Stored/filter-None route. Existing GrayAlpha8 factories
+/// remain explicitly non-interlaced.
+pub fn PngChunkEncoder::new_graya8_with_interlace_strategy(
+  source : @storage.ImageView,
+  interlace_strategy : PngInterlaceStrategy,
+  limits : @codec.CodecLimits,
+  budget : @budget.Budget,
+  diagnostics : @error.Diagnostics,
+) -> Result[PngChunkEncoder, @error.CoreError] {
+  PngChunkEncoder::new_graya8_with_all_strategies(
+    source, PngCompressionStrategy::Stored, PngFilterStrategy::None,
+    interlace_strategy, limits, budget, diagnostics,
+  )
+}
+
+///| Constructs a Gray+Alpha8 caller-buffered encoder with independently
+/// selected compression, filter, and interlace strategies.
+pub fn PngChunkEncoder::new_graya8_with_all_strategies(
+  source : @storage.ImageView,
+  strategy : PngCompressionStrategy,
+  filter_strategy : PngFilterStrategy,
+  interlace_strategy : PngInterlaceStrategy,
+  limits : @codec.CodecLimits,
+  budget : @budget.Budget,
+  diagnostics : @error.Diagnostics,
+) -> Result[PngChunkEncoder, @error.CoreError] {
+  let machine = match PngEncodeMachine::new_with_profile(
+    source, PngEncodeProfile::GrayAlpha8, strategy,
+    filter_strategy, interlace_strategy, limits, budget, diagnostics,
   ) {
     Err(error) => return Err(error)
     Ok(value) => value

@@ -206,7 +206,7 @@ pub fn PngEncoder::new_graya8_with_filter_strategy(
 }
 
 ///| Constructs a Gray+Alpha8 encoder with explicit compression and filter
-/// strategies. Its profile fixes PNG colour type 4 and excludes Adam7.
+/// strategies. This legacy family remains explicitly non-interlaced.
 pub fn PngEncoder::new_graya8_with_strategies(
   strategy : PngCompressionStrategy,
   filter_strategy : PngFilterStrategy,
@@ -215,6 +215,32 @@ pub fn PngEncoder::new_graya8_with_strategies(
     strategy,
     filter_strategy,
     interlace_strategy: PngInterlaceStrategy::None,
+    profile: PngEncodeProfile::GrayAlpha8,
+  }
+}
+
+///| Constructs a Gray+Alpha8 encoder with explicit interlace selection and the
+/// Stored/filter-None route. Adam7 is opt-in; existing GrayAlpha8 factories
+/// retain their explicit non-interlaced output.
+pub fn PngEncoder::new_graya8_with_interlace_strategy(
+  interlace_strategy : PngInterlaceStrategy,
+) -> PngEncoder {
+  PngEncoder::new_graya8_with_all_strategies(
+    PngCompressionStrategy::Stored, PngFilterStrategy::None, interlace_strategy,
+  )
+}
+
+///| Constructs a Gray+Alpha8 encoder with independently selected compression,
+/// filter, and interlace strategies.
+pub fn PngEncoder::new_graya8_with_all_strategies(
+  strategy : PngCompressionStrategy,
+  filter_strategy : PngFilterStrategy,
+  interlace_strategy : PngInterlaceStrategy,
+) -> PngEncoder {
+  {
+    strategy,
+    filter_strategy,
+    interlace_strategy,
     profile: PngEncodeProfile::GrayAlpha8,
   }
 }
