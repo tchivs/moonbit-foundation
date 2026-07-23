@@ -5108,16 +5108,21 @@ test "PNG Indexed8 chunk respects split lease parent and child ownership" {
   ).unwrap()
   let child_owner = png_chunk_test_owner(5UL, fill=b'Z')
   let child_pull = child_owner.with_mut(0UL, 5UL, fn(parent) {
-    let (_left, right) = parent.split_mut(2UL).unwrap()
+    let (_left, right) = parent.split_mut(4UL).unwrap()
     Ok(encoder.pull(right))
   }).unwrap()
-  if child_pull.written() == 0UL || child_pull.written() > 3UL ||
+  if child_pull.written() != 1UL ||
     child_pull.total_written() != child_pull.written() ||
-    child_owner.view().get(0UL).unwrap() != b'Z' ||
-    child_owner.view().get(1UL).unwrap() != b'Z' {
+    child_owner.view().get(0UL).unwrap() != b'Z' {
     abort("png indexed8 split child window")
   }
-  for index = 2UL + child_pull.written(); index < 5UL; index = index + 1UL {
+  let signature = b"\x89PNG\r\n\x1a\n"
+  for index = 0UL; index < child_pull.written(); index = index + 1UL {
+    if child_owner.view().get(4UL + index).unwrap() != signature[index.to_int()] {
+      abort("png indexed8 split child PNG prefix")
+    }
+  }
+  for index = 0UL; index < 4UL; index = index + 1UL {
     if child_owner.view().get(index).unwrap() != b'Z' {
       abort("png indexed8 split child tail")
     }
@@ -5127,7 +5132,7 @@ test "PNG Indexed8 chunk respects split lease parent and child ownership" {
   let next = next_owner.with_mut(0UL, 1UL, fn(lease) { Ok(encoder.pull(lease)) }).unwrap()
   if next.written() != 1UL || next.total_written() != child_pull.written() + 1UL ||
     !(next.outcome() is PngChunkPullOutcome::NeedOutput) ||
-    next_owner.view().get(0UL).unwrap() == b'Z' {
+    next_owner.view().get(0UL).unwrap() != b'P' {
     abort("png indexed8 split child encoder retained lease")
   }
 }
