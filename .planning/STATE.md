@@ -4,16 +4,16 @@ milestone: v0.22
 milestone_name: RGBA16 PNG Encode
 current_phase: 72
 current_phase_name: RGBA16 Encode Qualification
-status: planning
-stopped_at: Phase 71 context gathered
-last_updated: "2026-07-23T14:15:29.609Z"
+status: complete
+stopped_at: Completed 72-01-PLAN.md
+last_updated: "2026-07-23T14:24:20.755Z"
 last_activity: 2026-07-23
-last_activity_desc: Phase 71 complete, transitioned to Phase 72
+last_activity_desc: Phase 72 Plan 01 complete
 progress:
   total_phases: 4
-  completed_phases: 3
+  completed_phases: 4
   total_plans: 4
-  completed_plans: 3
+  completed_plans: 4
 ---
 
 # Project State
@@ -24,14 +24,14 @@ See `.planning/PROJECT.md` (updated 2026-07-23).
 
 **Core value:** MoonBit developers can reuse stable, high-performance native infrastructure contracts instead of rebuilding incompatible foundations for every graphics, document, media, or automation product.
 
-**Current focus:** Phase 71 — rgba16-adam7-png-encoding
+**Current focus:** Phase 72 — rgba16-encode-qualification complete
 
 ## Current Position
 
 Phase: 72 — RGBA16 Encode Qualification
-Plan: Not started
-Status: Ready to plan
-Last activity: 2026-07-23 — Phase 71 complete, transitioned to Phase 72
+Plan: 01 complete
+Status: Complete
+Last activity: 2026-07-23 — Phase 72 Plan 01 complete
 
 ## Performance Metrics
 
@@ -48,6 +48,7 @@ Last activity: 2026-07-23 — Phase 71 complete, transitioned to Phase 72
 |------|----------|-------|-------|
 | Phase 59 P01 | 14min | 1 tasks | 5 files |
 | Phase 59 P02 | 18min | 2 tasks | 2 files |
+| Phase 72-rgba16-encode-qualification P01 | 14min | 2 tasks | 1 files |
 
 ## Accumulated Context
 
@@ -64,6 +65,8 @@ Last activity: 2026-07-23 — Phase 71 complete, transitioned to Phase 72
 - [v0.20]: High-precision Type-4/16 decode is explicit-only: generic eager and chunk facades remain frozen on `RGBA8(Ghi,Ghi,Ghi,Ahi)`.
 - [v0.20]: The preservation result is packed little-endian `graya16`, straight alpha, and encoded-sRGB identity; sources with no colour declaration or `sRGB` are accepted, while legacy-colour and ICC declarations are rejected before allocation.
 - [v0.20]: The sole decoder machine continues byte-domain filtering and Adam7 traversal; only the final profile-aware store maps `Ghi,Glo,Ahi,Alo` to `Glo,Ghi,Alo,Ahi` without staging.
+- [Phase 72]: Normal RGBA16 Stored/None qualification compares a complete independent 17-byte public raster while preserving IHDR and decoded packed-little-endian lanes.
+- [Phase 72]: Phase 72 retains Adam7, hostile caller-buffered, and literal compatibility evidence unchanged and uses the ordinary frozen four-target PNG package gate.
 
 ### Pending Todos
 
@@ -84,9 +87,9 @@ Last activity: 2026-07-23 — Phase 71 complete, transitioned to Phase 72
 
 ## Session Continuity
 
-Last session: 2026-07-23T14:15:29.595Z
-Stopped at: Phase 71 context gathered
-Resume file: .planning/phases/71-rgba16-adam7-png-encoding/71-CONTEXT.md
+Last session: 2026-07-23T14:24:20.742Z
+Stopped at: Completed 72-01-PLAN.md
+Resume file: None
 
 ## Operator Next Steps
 

@@ -19,7 +19,7 @@
 
 ### Portable qualification
 
-- [ ] **RGBA16ENC-04**: Independent wire and decode vectors cover normal and Adam7 source fidelity, hostile capability/resource/lease failures, frozen legacy compatibility, and the ordinary full PNG package on wasm, wasm-gc, js, and native.
+- [x] **RGBA16ENC-04**: Independent wire and decode vectors cover normal and Adam7 source fidelity, hostile capability/resource/lease failures, frozen legacy compatibility, and the ordinary full PNG package on wasm, wasm-gc, js, and native.
 
 ## Future Requirements
 
@@ -37,7 +37,7 @@
 | RGBA16ENC-01 | Phase 69 | Pending |
 | RGBA16ENC-02 | Phase 70 | Complete |
 | RGBA16ENC-03 | Phase 71 | Complete |
-| RGBA16ENC-04 | Phase 72 | Pending |
+| RGBA16ENC-04 | Phase 72 | Complete |
 
 **Coverage:**
 
