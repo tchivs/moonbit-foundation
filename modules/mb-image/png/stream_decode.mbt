@@ -499,7 +499,11 @@ fn PngDecodeMachine::preflight_first_idat(self : PngDecodeMachine) -> Result[Uni
   }
   let source_bytes_per_pixel = match _png_source_bytes_per_pixel(source_channels, ihdr[8].to_int()) { Err(error) => return Err(error); Ok(value) => value }
   let indexed = ihdr[9] == 3
-  let declaration = match _png_colour_declaration(self.facts.colour_facts, ihdr[9] == 0 || ihdr[9] == 4) { Err(error) => return Err(error); Ok(value) => value }
+  let initial_declaration = if self.profile == PngDecodeProfile::Rgba16 {
+    PngColourDeclaration::Default
+  } else {
+    match _png_colour_declaration(self.facts.colour_facts, ihdr[9] == 0 || ihdr[9] == 4) { Err(error) => return Err(error); Ok(value) => value }
+  }
   if self.profile == PngDecodeProfile::GrayAlpha16 {
     let has_transparency_key = match self.facts.transparency {
       PngTransparency::Opaque => false
@@ -508,7 +512,7 @@ fn PngDecodeMachine::preflight_first_idat(self : PngDecodeMachine) -> Result[Uni
     if ihdr[9] != b'\x04' || ihdr[8] != b'\x10' || has_transparency_key {
       return Err(@codec.capability_unavailable("png-decode", "graya16-profile"))
     }
-    match declaration {
+    match initial_declaration {
       PngColourDeclaration::Default | PngColourDeclaration::Srgb(_) => ()
       _ => return Err(@codec.capability_unavailable("png-decode", "graya16-profile"))
     }
@@ -521,6 +525,17 @@ fn PngDecodeMachine::preflight_first_idat(self : PngDecodeMachine) -> Result[Uni
     if ihdr[9] != b'\x06' || ihdr[8] != b'\x10' || has_transparency_key {
       return Err(@codec.capability_unavailable("png-decode", "rgba16-profile"))
     }
+    if self.facts.colour_facts.saw_iccp || self.facts.colour_facts.saw_gamma || self.facts.colour_facts.saw_chrm {
+      return Err(@codec.capability_unavailable("png-decode", "rgba16-profile"))
+    }
+  }
+  let declaration = if self.profile == PngDecodeProfile::Rgba16 {
+    if self.facts.colour_facts.saw_srgb { PngColourDeclaration::Srgb(self.facts.colour_facts.srgb_intent.unwrap()) }
+    else { PngColourDeclaration::Default }
+  } else {
+    initial_declaration
+  }
+  if self.profile == PngDecodeProfile::Rgba16 {
     match declaration {
       PngColourDeclaration::Default | PngColourDeclaration::Srgb(_) => ()
       _ => return Err(@codec.capability_unavailable("png-decode", "rgba16-profile"))
