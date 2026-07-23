@@ -16,9 +16,15 @@ MoonBit developers can reuse stable, high-performance native infrastructure cont
 
 **Validated:** Independent normal 17-byte and Adam7 211-byte public wire vectors, explicit `decode_rgba16` lane restoration, hostile capability/resource/lease/replay behavior, frozen legacy vectors, and the ordinary PNG package all passed. The package completed 258/258 tests on each of `wasm`, `wasm-gc`, `js`, and `native`; the milestone audit passed all four requirements, phase verifications, integration links, and end-to-end flows.
 
-## Next Milestone
+## Current Milestone: v0.23 Low-Bit Grayscale PNG Encode
 
-No next capability milestone has been selected. Future scope should start from a concrete consumer need and retain the established code-first policy; release automation and registry work remain deferred unless they directly unblock that work.
+**Goal:** Add explicit, lossless Type-0 PNG encoding for canonical 1-, 2-, and 4-bit grayscale levels without widening the image model or changing existing encoder bytes.
+
+**Target features:**
+
+- Pack existing byte-per-pixel Gray/U8 sources into MSB-first Type-0/1, Type-0/2, and Type-0/4 PNG rows only when every sample is exactly representable.
+- Reuse the bounded eager and caller-buffered encoder path, retaining atomic admission, ownership, and sticky-terminal semantics.
+- Qualify exact packed wire bytes, incompatible-level rejection, frozen legacy behavior, and all four supported targets.
 
 ## Requirements
 
@@ -60,7 +66,9 @@ No next capability milestone has been selected. Future scope should start from a
 
 ### Active
 
-(Next-milestone requirements have not been selected.)
+- [ ] Provide explicit lossless 1-, 2-, and 4-bit grayscale PNG encoding from the canonical Gray/U8 model.
+- [ ] Provide caller-buffered low-bit grayscale output with the existing bounded machine semantics.
+- [ ] Prove packed wire fidelity, hostile failure behavior, legacy compatibility, and four-target portability.
 
 ### Out of Scope
 

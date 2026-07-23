@@ -27,4 +27,31 @@
 
 ## Phases
 
-No active milestone. Completed phase details are archived under `.planning/milestones/`; select the next milestone from a concrete consumer need.
+### 📋 v0.23 Low-Bit Grayscale PNG Encode
+
+- [ ] **Phase 73: Explicit Packed Grayscale PNG** — Add exact, non-interlaced Type-0 1/2/4-bit eager output from representable Gray/U8 sources.
+- [ ] **Phase 74: Resumable Packed Grayscale PNG** — Add caller-buffered packed output through the existing bounded encoder machine.
+- [ ] **Phase 75: Packed Grayscale PNG Qualification** — Prove independent wire fidelity, hostile behavior, compatibility, and four-target portability.
+
+## Phase Details
+
+### Phase 73: Explicit Packed Grayscale PNG
+
+**Goal:** Library users can select lossless Type-0/1, Type-0/2, or Type-0/4 output from exactly representable canonical Gray/U8 source levels.
+**Depends on:** Phase 72
+**Requirements:** GRAYPACK-01, GRAYPACK-02
+**Scope guard:** Reuse the one bounded PNG encoder; no implicit quantization, bit-packed image model, Adam7, palette, or staging path.
+
+### Phase 74: Resumable Packed Grayscale PNG
+
+**Goal:** Library users can emit the same packed Type-0 PNG through caller-owned output leases with existing atomic and sticky semantics.
+**Depends on:** Phase 73
+**Requirements:** GRAYPACK-03
+**Scope guard:** Reuse Phase 73's packed profile/provider and the existing caller-buffered machine; no second transport.
+
+### Phase 75: Packed Grayscale PNG Qualification
+
+**Goal:** Library users can rely on exact, bounded, portable low-bit grayscale PNG output.
+**Depends on:** Phase 74
+**Requirements:** GRAYPACK-04
+**Scope guard:** Independent test evidence and the ordinary source tree only; no wrappers, release automation, or copied trees.

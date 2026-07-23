@@ -1,19 +1,16 @@
 ---
 gsd_state_version: 1.0
-milestone: v0.22
-milestone_name: RGBA16 PNG Encode
-status: Awaiting next milestone
-stopped_at: Completed 72-01-PLAN.md
-last_updated: "2026-07-23T14:45:37.752Z"
+milestone: v0.23
+milestone_name: Low-Bit Grayscale PNG Encode
+status: planning
+last_updated: "2026-07-23T14:54:56.191Z"
 last_activity: 2026-07-23
-last_activity_desc: Milestone v0.22 completed and archived
 progress:
-  total_phases: 4
-  completed_phases: 4
-  total_plans: 4
-  completed_plans: 4
-current_phase: 72
-current_phase_name: RGBA16 Encode Qualification
+  total_phases: 0
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
+  percent: 0
 ---
 
 # Project State
@@ -28,10 +25,10 @@ See `.planning/PROJECT.md` (updated 2026-07-23).
 
 ## Current Position
 
-Phase: Milestone v0.22 complete
+Phase: Not started (defining requirements)
 Plan: —
-Status: Awaiting next milestone
-Last activity: 2026-07-23 — Milestone v0.22 completed and archived
+Status: Defining requirements
+Last activity: 2026-07-23 — Milestone v0.23 started
 
 ## Performance Metrics
 
