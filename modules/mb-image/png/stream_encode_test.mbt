@@ -4239,3 +4239,222 @@ test "PNG GrayAlpha8 Adam7 public hostile schedules" {
     }
   }
 }
+
+///| RGBA16 corpora select Fixed and Dynamic DEFLATE plans without introducing
+/// any alternate chunk transport or interlace API.
+fn png_stream_rgba16_replay_image(
+  width : UInt64,
+  periodic? : Bool = false,
+) -> @storage.OwnedImage {
+  let bytes = width * 8UL
+  let descriptor = @model.ImageDescriptor::new(
+    width, 1UL, @model.ImageFormat::rgba16(),
+    [@model.PlaneDescriptor::new(0UL, bytes, bytes, bytes, 1UL, 1UL, width, 1UL).unwrap()],
+    bytes,
+    @model.ImageMetadata::new(
+      @color.ColorSpaceIdentity::Srgb, @color.TransferIdentity::EncodedSrgb,
+      Some(@color.AlphaMode::Straight), @profile.ProfileIdentity::builtin_srgb(),
+      @model.Orientation::TopLeft,
+      @metadata.OpaqueMetadata::from_entries(
+        [], @metadata.MetadataLimits::new(
+          max_entries=1UL, max_token_bytes=16UL, max_value_bytes=1UL,
+          max_total_bytes=32UL, max_disposition_fields=4UL,
+        ), png_stream_test_budget(work=0UL),
+      ).unwrap(),
+    ),
+  ).unwrap()
+  let image = @storage.OwnedImage::new(descriptor, png_stream_test_budget(work=0UL)).unwrap()
+  image.with_mut_view(fn(view) {
+    let lanes : Array[Byte] = [
+      b'\x34', b'\x12', b'\xc5', b'\xa7', b'\x0f', b'\xbe', b'\x76', b'\x5a',
+    ]
+    for x = 0UL; x < width; x = x + 1UL {
+      for component = 0UL; component < 4UL; component = component + 1UL {
+        for lane = 0UL; lane < 2UL; lane = lane + 1UL {
+          let value = if periodic {
+            ((x * 8UL + component * 2UL + lane) % 5UL).to_byte()
+          } else {
+            lanes[(component * 2UL + lane).to_int()]
+          }
+          view.set_component_byte(x, 0UL, component, lane, value).unwrap()
+        }
+      }
+    }
+    Ok(())
+  }).unwrap()
+  image
+}
+
+///| RGBA16 rejects every incompatible profile or resource admission before
+/// output, budget reservation, or a caller-owned lease can be exposed.
+fn png_rgba16_combined_public_reject(
+  image : @storage.OwnedImage,
+  limits : @codec.CodecLimits,
+  work : UInt64,
+) -> Unit {
+  for strategy in [
+    PngCompressionStrategy::Stored,
+    PngCompressionStrategy::FixedOrStored,
+    PngCompressionStrategy::DynamicOrFixedOrStored,
+  ] {
+    for filter_strategy in [PngFilterStrategy::None, PngFilterStrategy::Adaptive] {
+      let eager_budget = png_stream_test_budget(work=work)
+      let eager_before = eager_budget.remaining()
+      let writer = @io.MemoryWriter::new(1048576UL, png_stream_test_budget(work=0UL)).unwrap()
+      let eager = @codec.ImageEncoder::encode(
+        PngEncoder::new_rgba16_with_strategies(strategy, filter_strategy),
+        image.view(), writer as &@io.Writer,
+        @codec.EncodeOptions::new(lossless_required=true, preserve_opaque_metadata=false),
+        limits, eager_budget, @error.Diagnostics::new(),
+      ).unwrap_err()
+      if writer.position() != 0UL ||
+        !png_fixed_or_stored_same_remaining(eager_before, eager_budget.remaining()) {
+        abort("png rgba16 eager admission exposed output")
+      }
+      let chunk_budget = png_stream_test_budget(work=work)
+      let chunk_before = chunk_budget.remaining()
+      let sentinel = png_chunk_test_owner(7UL, fill=b'Z')
+      let chunk = PngChunkEncoder::new_rgba16_with_strategies(
+        image.view(), strategy, filter_strategy, limits, chunk_budget,
+        @error.Diagnostics::new(),
+      ).unwrap_err()
+      if !png_chunk_test_same_error(eager, chunk) ||
+        !png_fixed_or_stored_same_remaining(chunk_before, chunk_budget.remaining()) {
+        abort("png rgba16 chunk admission mismatch")
+      }
+      for index = 0UL; index < 7UL; index = index + 1UL {
+        if sentinel.view().get(index).unwrap() != b'Z' {
+          abort("png rgba16 admission exposed lease")
+        }
+      }
+    }
+  }
+}
+
+///| A source mutation after acknowledged RGBA16 framing bytes must expose no
+/// new lease byte and cache the original typed terminal for later pulls.
+fn png_rgba16_replay_mutation_is_sticky(
+  image : @storage.OwnedImage,
+  strategy : PngCompressionStrategy,
+  expected_header : Byte,
+) -> Unit {
+  let encoder = PngChunkEncoder::new_rgba16_with_strategies(
+    image.view(), strategy, PngFilterStrategy::None,
+    png_stream_test_limits(), png_stream_test_budget(), @error.Diagnostics::new(),
+  ).unwrap()
+  let prefix : Array[Byte] = []
+  while prefix.length() < 44 {
+    let pull = png_chunk_test_pull(encoder, 1UL, prefix)
+    if pull.written() != 1UL { abort("png rgba16 replay prefix") }
+  }
+  if (prefix[43] & b'\x07') != expected_header {
+    abort("png rgba16 replay selected wrong deflate route")
+  }
+  image.with_mut_view(fn(view) {
+    view.set_component_byte(0UL, 0UL, 1UL, 0UL, b'\xff')
+  }).unwrap()
+  let accepted_total = prefix.length().to_uint64()
+  let first = png_chunk_test_owner(7UL, fill=b'Z')
+  let failed = first.with_mut(0UL, 7UL, fn(lease) { Ok(encoder.pull(lease)) }).unwrap()
+  let error = match failed.outcome() {
+    PngChunkPullOutcome::Failed(value) => value
+    PngChunkPullOutcome::NeedOutput => abort("png rgba16 replay exposed post-mutation bytes")
+    PngChunkPullOutcome::Finished => abort("png rgba16 replay did not drift")
+  }
+  if failed.written() != 0UL || failed.total_written() != accepted_total {
+    abort("png rgba16 replay first terminal progress")
+  }
+  for index = 0UL; index < 7UL; index = index + 1UL {
+    if first.view().get(index).unwrap() != b'Z' {
+      abort("png rgba16 replay first terminal lease")
+    }
+  }
+  let later = png_chunk_test_owner(7UL, fill=b'Z')
+  let replay = later.with_mut(0UL, 7UL, fn(lease) { Ok(encoder.pull(lease)) }).unwrap()
+  let replay_error = match replay.outcome() {
+    PngChunkPullOutcome::Failed(value) => value
+    _ => abort("png rgba16 replay was not sticky")
+  }
+  if replay.written() != 0UL || replay.total_written() != accepted_total ||
+    !png_chunk_test_same_error(error, replay_error) {
+    abort("png rgba16 replay was not sticky")
+  }
+  for index = 0UL; index < 7UL; index = index + 1UL {
+    if later.view().get(index).unwrap() != b'Z' {
+      abort("png rgba16 replay sticky terminal lease")
+    }
+  }
+}
+
+///| All explicit RGBA16 profile and resource rejections are atomic across the
+/// bounded compression/filter matrix.
+test "PNG RGBA16 strategy admission is atomic" {
+  png_rgba16_combined_public_reject(
+    png_stream_test_image(3UL), png_fixed_or_stored_limits(), 1048576UL,
+  )
+  png_rgba16_combined_public_reject(
+    png_stream_rgba16_image(), png_fixed_or_stored_limits(width=1UL), 1048576UL,
+  )
+  png_rgba16_combined_public_reject(
+    png_stream_rgba16_image(), png_fixed_or_stored_limits(output=1UL), 1048576UL,
+  )
+  png_rgba16_combined_public_reject(
+    png_stream_rgba16_image(), png_fixed_or_stored_limits(work=1UL), 1048576UL,
+  )
+  png_rgba16_combined_public_reject(
+    png_stream_rgba16_image(), png_fixed_or_stored_limits(), 1UL,
+  )
+}
+
+///| Fixed and Dynamic RGBA16 plans reject source replay drift before writing a
+/// new caller lease and retain that same typed terminal.
+test "PNG RGBA16 Fixed and Dynamic replay mutations are sticky" {
+  png_rgba16_replay_mutation_is_sticky(
+    png_stream_rgba16_replay_image(5UL), PngCompressionStrategy::FixedOrStored, b'\x03',
+  )
+  png_rgba16_replay_mutation_is_sticky(
+    png_stream_rgba16_replay_image(128UL, periodic=true),
+    PngCompressionStrategy::DynamicOrFixedOrStored, b'\x05',
+  )
+}
+
+///| A released RGBA16 destination lease reports a zero-write typed terminal
+/// and cannot alter a later caller-owned lease.
+test "PNG RGBA16 chunk replays released lease failure" {
+  let image = png_stream_rgba16_image()
+  let encoder = PngChunkEncoder::new_rgba16(
+    image.view(), png_stream_test_limits(), png_stream_test_budget(), @error.Diagnostics::new(),
+  ).unwrap()
+  let released = png_chunk_test_owner(1UL, fill=b'Z')
+  let first = released.with_mut(0UL, 1UL, fn(lease) {
+    lease.release()
+    Ok(encoder.pull(lease))
+  }).unwrap()
+  let first_error = match first.outcome() {
+    PngChunkPullOutcome::Failed(error) => error
+    _ => abort("png rgba16 released lease outcome")
+  }
+  let later = png_chunk_test_owner(1UL, fill=b'Z')
+  let replay = later.with_mut(0UL, 1UL, fn(lease) { Ok(encoder.pull(lease)) }).unwrap()
+  let replay_error = match replay.outcome() {
+    PngChunkPullOutcome::Failed(error) => error
+    _ => abort("png rgba16 released lease replay")
+  }
+  if first.written() != 0UL || first.total_written() != 0UL || replay.written() != 0UL ||
+    replay.total_written() != 0UL || !png_chunk_test_same_error(first_error, replay_error) ||
+    released.view().get(0UL).unwrap() != b'Z' || later.view().get(0UL).unwrap() != b'Z' {
+    abort("png rgba16 released lease terminal")
+  }
+}
+
+///| The legacy generic chunk constructor remains frozen on its RGB8/RGBA8
+/// profile selection and must reject an explicit RGBA16 source.
+test "PNG generic chunk constructor rejects RGBA16" {
+  let image = png_stream_rgba16_image()
+  match PngChunkEncoder::new(
+    image.view(), png_stream_test_limits(), png_stream_test_budget(), @error.Diagnostics::new(),
+  ) {
+    Ok(_) => abort("png generic chunk admitted rgba16")
+    Err(_) => ()
+  }
+}
