@@ -1,7 +1,7 @@
 # Phase 58: Portable Adam7 Public Evidence - Research
 
-**Researched:** 2026-07-23  
-**Domain:** MoonBit public PNG evidence for interlaced packed U16 Gray+Alpha  
+**Researched:** 2026-07-23
+**Domain:** MoonBit public PNG evidence for interlaced packed U16 Gray+Alpha
 **Confidence:** HIGH
 
 <user_constraints>
@@ -163,30 +163,30 @@ The existing eager frozen-vector test already holds literal Stored/None PNG byte
 
 ### Pitfall 1: The old canonical decode helper validates the wrong fixture
 
-**What goes wrong:** Reusing `png_encode_graya16_public_decode_is_canonical` would inspect its fixed 2×1 pair list instead of the 5×5 Adam7 source.  
-**Why it happens:** The existing helper was intentionally Phase-55-specific.  
-**How to avoid:** Add an Adam7-specific public decode helper deriving expected high bytes from the fixture's `(x,y)` formula; keep the old helper untouched for its frozen noninterlaced proof.  
+**What goes wrong:** Reusing `png_encode_graya16_public_decode_is_canonical` would inspect its fixed 2×1 pair list instead of the 5×5 Adam7 source.
+**Why it happens:** The existing helper was intentionally Phase-55-specific.
+**How to avoid:** Add an Adam7-specific public decode helper deriving expected high bytes from the fixture's `(x,y)` formula; keep the old helper untouched for its frozen noninterlaced proof.
 **Warning signs:** A new Adam7 test passes even if its fixture changes but the helper's fixed pair list does not. [VERIFIED: `encode_test.mbt:539-570`; VERIFIED: `encode_test.mbt:214-247`]
 
 ### Pitfall 2: “Zero schedule” is not the direct zero-capacity contract
 
-**What goes wrong:** A schedule beginning with zero can be followed by a positive lease before the test asserts the direct response.  
-**Why it happens:** Generic drain loops intentionally advance after `NeedOutput`.  
-**How to avoid:** Retain a direct zero-length lease assertion before each drain, with a one-byte sentinel owner.  
+**What goes wrong:** A schedule beginning with zero can be followed by a positive lease before the test asserts the direct response.
+**Why it happens:** Generic drain loops intentionally advance after `NeedOutput`.
+**How to avoid:** Retain a direct zero-length lease assertion before each drain, with a one-byte sentinel owner.
 **Warning signs:** Tests check final byte equality but never inspect the initial `NeedOutput` and untouched sentinel. [VERIFIED: `stream_encode_test.mbt:1344-1356`; VERIFIED: `stream_encode_test.mbt:3530-3535`]
 
 ### Pitfall 3: Existing Adam7 parity is narrower than Phase 58
 
-**What goes wrong:** The current six selectors exercise compact one-byte and `[1,3,2,5]` drains, but not the required zero/one/ragged public-evidence matrix and lack public decode/wire assertions across the Phase-58 proof.  
-**Why it happens:** Phase 57 was a bounded semantics phase, not the final public evidence phase.  
-**How to avoid:** Keep Phase-57 regressions, and add a separate Phase-58 public evidence test that exhaustively applies all three schedules to every pair.  
+**What goes wrong:** The current six selectors exercise compact one-byte and `[1,3,2,5]` drains, but not the required zero/one/ragged public-evidence matrix and lack public decode/wire assertions across the Phase-58 proof.
+**Why it happens:** Phase 57 was a bounded semantics phase, not the final public evidence phase.
+**How to avoid:** Keep Phase-57 regressions, and add a separate Phase-58 public evidence test that exhaustively applies all three schedules to every pair.
 **Warning signs:** A plan claims D-03 based only on the prior `chunk parity` test names. [VERIFIED: `stream_encode_test.mbt:3590-3645`; VERIFIED: 58-CONTEXT.md]
 
 ### Pitfall 4: Concurrent MoonBit invocations can contend for build state
 
-**What goes wrong:** Simultaneous whole-suite target runs can make evidence flaky or delay completion.  
-**Why it happens:** All-target builds share the same module build cache.  
-**How to avoid:** Run focused native selectors during task work; serialize the final all-target package command after test-file tasks land.  
+**What goes wrong:** Simultaneous whole-suite target runs can make evidence flaky or delay completion.
+**Why it happens:** All-target builds share the same module build cache.
+**How to avoid:** Run focused native selectors during task work; serialize the final all-target package command after test-file tasks land.
 **Warning signs:** An active `moon` process or build-lock error. [VERIFIED: project execution history; VERIFIED: 57-VERIFICATION.md]
 
 ## Code Examples
@@ -257,7 +257,7 @@ None. The locked context and existing helper seams determine the implementation 
 | `moon` | Focused and all-target PNG tests | ✓ | `0.1.20260713` | — |
 | Existing `mb-image/png` test package | Public evidence | ✓ | repository HEAD | — |
 
-**Missing dependencies with no fallback:** None.  
+**Missing dependencies with no fallback:** None.
 **Missing dependencies with fallback:** None.
 
 ## Security Domain
@@ -306,7 +306,7 @@ None. The locked context and existing helper seams determine the implementation 
 - Architecture: HIGH — locked phase context maps directly to extant public helpers and tests.
 - Pitfalls: HIGH — each is evidenced by current helper specialization or prior phase boundary.
 
-**Research date:** 2026-07-23  
+**Research date:** 2026-07-23
 **Valid until:** implementation of Phase 58 completes; no fast-moving external dependency is involved.
 
 ## Recommended Plan Shape

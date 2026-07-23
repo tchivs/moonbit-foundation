@@ -1,7 +1,7 @@
 # Phase 58: Portable Adam7 Public Evidence - Pattern Map
 
-**Mapped:** 2026-07-23  
-**Files analyzed:** 2 modified public PNG test files  
+**Mapped:** 2026-07-23
+**Files analyzed:** 2 modified public PNG test files
 **Analogs found:** 2 / 2
 
 ## File Classification
@@ -162,28 +162,28 @@ The current six individual tests are a good factory-selection regression, but Ph
 
 ### Public boundary only
 
-**Sources:** `encode_test.mbt:426-474,539-579,1148-1178`; `stream_encode_test.mbt:746-800,3517-3575`  
+**Sources:** `encode_test.mbt:426-474,539-579,1148-1178`; `stream_encode_test.mbt:746-800,3517-3575`
 **Apply to:** both files
 
 Construct only through `PngEncoder::new_graya16_with_all_strategies` and `PngChunkEncoder::new_graya16_with_all_strategies`, decode only with `ImageDecoder::decode(PngDecoder::new(), ...)`, and inspect only emitted PNG bytes / caller-owned leases. Do not use private cursors, profiles, transport structures, internal DEFLATE helpers, test-only encoder entry points, or native APIs.
 
 ### Legal U16 source and no second path
 
-**Sources:** `encode_test.mbt:214-273`; Phase 57 verification truths 1, 5, and 6  
+**Sources:** `encode_test.mbt:214-273`; Phase 57 verification truths 1, 5, and 6
 **Apply to:** all new Phase 58 fixtures and helpers
 
 Reuse legal packed little-endian `@model.ImageFormat::graya16()` fixtures. Big-endian is still invalid and does not become a parity case. Do not add staging buffers, copied sources, a format-specific encoder, a new decoder model, colour conversion, FFI, or target-specific branches. The proof must observe the single profile-aware route that Phase 57 already verified.
 
 ### Frozen legacy policy
 
-**Sources:** `encode_test.mbt:935-1038,1676-1746`; `stream_encode_test.mbt:1488-1579,1975-2005`  
+**Sources:** `encode_test.mbt:935-1038,1676-1746`; `stream_encode_test.mbt:1488-1579,1975-2005`
 **Apply to:** eager and chunk evidence
 
 All five non-interlaced/legacy families use complete PNG byte literals. Keep bytes immutable and retain method `0`; do not rebaseline, derive expected values from a contemporary encoder, or allow Adam7 selector changes to alter these routes.
 
 ### Portable final evidence
 
-**Source:** Phase 58 context D-05 and `moon.work` package test convention  
+**Source:** Phase 58 context D-05 and `moon.work` package test convention
 **Apply to:** final verification
 
 ```powershell
@@ -198,6 +198,6 @@ No production implementation file should be added. The only likely new helper is
 
 ## Metadata
 
-**Analog search scope:** Phase 58 context/requirements/roadmap; Phase 57 verification; archived Phase 42, 52, and 55 context/plans/patterns; `modules/mb-image/png/{encode_test,stream_encode_test}.mbt`.  
-**Files scanned:** 11 planning and public PNG test artifacts.  
+**Analog search scope:** Phase 58 context/requirements/roadmap; Phase 57 verification; archived Phase 42, 52, and 55 context/plans/patterns; `modules/mb-image/png/{encode_test,stream_encode_test}.mbt`.
+**Files scanned:** 11 planning and public PNG test artifacts.
 **Pattern extraction date:** 2026-07-23
