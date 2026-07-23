@@ -229,12 +229,10 @@ inspect(replay.consumed() == 0UL, content="true")
 |---|-------|---------|---------------|
 | A1 | None. | — | [VERIFIED: local source inspection] All recommendations are derived from the locked context, adjacent verifications, local source, and direct toolchain observation. |
 
-## Open Questions
+## Open Questions (RESOLVED)
 
-1. **Can the target machine complete the direct four-target package run without inherited build contention?**
-   - What we know: [VERIFIED: local command execution] Focused JS GrayAlpha16 tests passed 5/5; the all-target attempt was time-limited and subsequent direct full-package execution observed an inherited `_build/.moon-lock` wait.
-   - What's unclear: [VERIFIED: local command execution] This session cannot certify the full package run while the unrelated existing Moon process owns the build state.
-   - Recommendation: [CITED: `64-CONTEXT.md`] Before Phase 64’s final gate, ensure the owner has released the lock, then run the unwrapped full package command once from the repository root; do not delete a lock or terminate a process not owned by the phase executor.
+1. **(RESOLVED 2026-07-23) Can the target machine run the direct four-target package command without inherited build contention?**
+   - Resolution: [VERIFIED: local filesystem/process inspection] No `.moon-lock` exists beneath `modules/mb-image/_build`; the direct package command therefore has a lock-free precondition. A pre-existing `moon.exe` process is not terminated or otherwise modified because it is not owned by this phase. The Phase 64 executor will still run the required command serially and report any fresh contention rather than removing a lock or substituting a wrapper.
 
 ## Environment Availability
 
