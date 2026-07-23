@@ -323,6 +323,43 @@ pub fn PngChunkEncoder::new_rgba16_with_strategies(
   Ok({ state: PngChunkEncoderState::Active(machine), total_written: 0UL })
 }
 
+///| Constructs an RGBA16 caller-buffered encoder with explicit interlace
+/// selection and the Stored/filter-None route. Existing RGBA16 factories remain
+/// explicitly non-interlaced.
+pub fn PngChunkEncoder::new_rgba16_with_interlace_strategy(
+  source : @storage.ImageView,
+  interlace_strategy : PngInterlaceStrategy,
+  limits : @codec.CodecLimits,
+  budget : @budget.Budget,
+  diagnostics : @error.Diagnostics,
+) -> Result[PngChunkEncoder, @error.CoreError] {
+  PngChunkEncoder::new_rgba16_with_all_strategies(
+    source, PngCompressionStrategy::Stored, PngFilterStrategy::None,
+    interlace_strategy, limits, budget, diagnostics,
+  )
+}
+
+///| Constructs an RGBA16 caller-buffered encoder with independently selected
+/// compression, filter, and interlace strategies.
+pub fn PngChunkEncoder::new_rgba16_with_all_strategies(
+  source : @storage.ImageView,
+  strategy : PngCompressionStrategy,
+  filter_strategy : PngFilterStrategy,
+  interlace_strategy : PngInterlaceStrategy,
+  limits : @codec.CodecLimits,
+  budget : @budget.Budget,
+  diagnostics : @error.Diagnostics,
+) -> Result[PngChunkEncoder, @error.CoreError] {
+  let machine = match PngEncodeMachine::new_with_profile(
+    source, PngEncodeProfile::Rgba16, strategy,
+    filter_strategy, interlace_strategy, limits, budget, diagnostics,
+  ) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  Ok({ state: PngChunkEncoderState::Active(machine), total_written: 0UL })
+}
+
 ///| Constructs a Gray+Alpha16 caller-buffered encoder with explicit interlace
 /// selection and the Stored/filter-None route. Existing GrayAlpha16 factories
 /// remain explicitly non-interlaced.
