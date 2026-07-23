@@ -853,6 +853,91 @@ test "PNG rgba16 chunk schedules match eager preservation" {
   }
 }
 
+///| A CRC-authenticated legacy-colour declaration reaches the explicit Rgba16
+/// first-IDAT gate through the public caller-owned chunk facade.
+fn png_rgba16_rejected_metadata_literal() -> Bytes {
+  let source = png_test_rgba16_literal()
+  png_chunk_bytes(source, 0, 33) +
+    b"\x00\x00\x00\x04gAMA\x00\x01\x86\xa0\x31\xe8\x96\x5f" +
+    png_chunk_bytes(source, 33, source.length())
+}
+
+///| Malformed, incomplete, profile-invalid, and one-less-output RGBA16
+/// streams retain accepted-only progress and their first typed terminal.
+test "PNG rgba16 chunk terminals retain atomic sticky compatibility" {
+  let early = PngChunkDecoder::new_rgba16(
+    png_test_limits(),
+    @budget.Budget::new(@budget.ResourceLimits::new(
+      bytes=256UL, allocations=8UL, allocation_size=128UL, width=4UL,
+      height=4UL, pixels=16UL, depth=0UL, work=256UL,
+    )),
+    @error.Diagnostics::new(),
+  )
+  let legal = png_test_rgba16_literal()
+  let partial = png_chunk_source(png_chunk_bytes(legal, 0, 40))
+  let partial_push = early.push(partial.view())
+  inspect(partial_push.consumed() == 40UL, content="true")
+  inspect(partial_push.outcome() is PngChunkPushOutcome::NeedInput, content="true")
+  let early_error = early.finish().unwrap_err()
+  inspect(early_error.code() == @error.ErrorCode::UnexpectedEndOfStream, content="true")
+  png_graya16_chunk_assert_sticky(early, early_error, "rgba16-early-eof")
+
+  let malformed = PngChunkDecoder::new_rgba16(
+    png_test_limits(),
+    @budget.Budget::new(@budget.ResourceLimits::new(
+      bytes=256UL, allocations=8UL, allocation_size=128UL, width=4UL,
+      height=4UL, pixels=16UL, depth=0UL, work=256UL,
+    )),
+    @error.Diagnostics::new(),
+  )
+  let malformed_push = malformed.push(png_chunk_source(b"X").view())
+  let malformed_error = match malformed_push.outcome() {
+    PngChunkPushOutcome::Failed(error) => error
+    _ => abort("PNG rgba16 malformed signature must terminate during push")
+  }
+  inspect(malformed_push.consumed() == 1UL, content="true")
+  png_graya16_chunk_assert_sticky(malformed, malformed_error, "rgba16-malformed")
+
+  let rejected_metadata = PngChunkDecoder::new_rgba16(
+    png_test_limits(),
+    @budget.Budget::new(@budget.ResourceLimits::new(
+      bytes=256UL, allocations=8UL, allocation_size=128UL, width=4UL,
+      height=4UL, pixels=16UL, depth=0UL, work=256UL,
+    )),
+    @error.Diagnostics::new(),
+  )
+  let metadata_push = rejected_metadata.push(
+    png_chunk_source(png_rgba16_rejected_metadata_literal()).view(),
+  )
+  let metadata_error = match metadata_push.outcome() {
+    PngChunkPushOutcome::Failed(error) => error
+    _ => abort("PNG rgba16 metadata must terminate during push")
+  }
+  inspect(metadata_push.consumed() > 0UL, content="true")
+  inspect(metadata_error.context() == Some("rgba16-profile"), content="true")
+  png_graya16_chunk_assert_sticky(rejected_metadata, metadata_error, "rgba16-metadata")
+
+  let limited = PngChunkDecoder::new_rgba16(
+    @codec.CodecLimits::new(
+      max_probe_bytes=8UL, max_input_bytes=128UL, max_output_bytes=15UL,
+      max_width=4UL, max_height=4UL, max_pixels=16UL, max_work=128UL,
+    ),
+    @budget.Budget::new(@budget.ResourceLimits::new(
+      bytes=256UL, allocations=8UL, allocation_size=128UL, width=4UL,
+      height=4UL, pixels=16UL, depth=0UL, work=256UL,
+    )),
+    @error.Diagnostics::new(),
+  )
+  let limited_push = limited.push(png_chunk_source(legal).view())
+  let limit_error = match limited_push.outcome() {
+    PngChunkPushOutcome::Failed(error) => error
+    _ => abort("PNG rgba16 one-less output must terminate during push")
+  }
+  inspect(limited_push.consumed() > 0UL, content="true")
+  inspect(limit_error.context() == Some("output-bytes"), content="true")
+  png_graya16_chunk_assert_sticky(limited, limit_error, "rgba16-output-limit")
+}
+
 ///| The complete generated corpus proves only public PngChunkDecoder calls:
 /// every record begins empty, then crosses all byte boundaries and a mixed
 /// ragged caller schedule before explicit finish determines completion.

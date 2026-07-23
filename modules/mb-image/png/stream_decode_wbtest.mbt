@@ -458,6 +458,39 @@ test "PNG rgba16 profile admits legal facts and charges eight-byte output layout
   inspect(graya16.has_private_lifecycle(), content="true")
 }
 
+///| The public Rgba16 facade retains the shared machine's private lifecycle
+/// and outcome until the sole successful finish transfer.
+test "PNG rgba16 chunk keeps lifecycle and outcome private until finish" {
+  let decoder = PngChunkDecoder::new_rgba16(
+    @codec.CodecLimits::new(
+      max_probe_bytes=8UL, max_input_bytes=128UL, max_output_bytes=64UL,
+      max_width=4UL, max_height=4UL, max_pixels=16UL, max_work=128UL,
+    ),
+    @budget.Budget::new(@budget.ResourceLimits::new(
+      bytes=256UL, allocations=8UL, allocation_size=128UL, width=4UL,
+      height=4UL, pixels=16UL, depth=0UL, work=256UL,
+    )),
+    @error.Diagnostics::new(),
+  )
+  let prefix = @bytes.OwnedBytes::from_bytes(
+    b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x02\x00\x00\x00\x01\x10\x06\x00\x00\x00\xa4\xb2\xa3\xc9\x00\x00\x00\x1cIDAT",
+    @budget.Budget::new(@budget.ResourceLimits::new(
+      bytes=64UL, allocations=1UL, allocation_size=64UL, width=0UL,
+      height=0UL, pixels=0UL, depth=0UL, work=0UL,
+    )),
+  ).unwrap()
+  let first = decoder.push(prefix.view())
+  inspect(first.consumed() == 41UL, content="true")
+  inspect(first.outcome() is PngChunkPushOutcome::NeedInput, content="true")
+  match decoder.state {
+    PngChunkDecoderState::Active(machine) => {
+      inspect(machine.has_private_lifecycle(), content="true")
+      inspect(machine.has_private_outcome(), content="false")
+    }
+    _ => fail("PNG rgba16 chunk must remain active before finish")
+  }
+}
+
 ///| Every retained profile fact crosses the same one-byte framing boundary.
 /// The indexed lifecycle cannot exist until CRC-authenticated PLTE/tRNS and
 /// the colour declaration have been committed.
