@@ -1728,6 +1728,20 @@ test "PNG filter strategy chunk frozen compatibility vectors" {
     inspect(bytes == gray16_stored && bytes[28] == b'\x00', content="true")
   }
 
+  let gray_alpha16 = png_stream_graya16_image()
+  let graya16_stored =
+    b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x02\x00\x00\x00\x01\x10\x04\x00\x00\x00\x0e\xbbkB\x00\x00\x00\x14IDATx\x01\x01\x09\x00\xf6\xff\x00\x124\xa7\xc5\xbe\x0fZv\x0e\x17\x03Pk\x88\xb2u\x00\x00\x00\x00IEND\xaeB`\x82"
+  let graya16_default = png_chunk_test_drain_encoder(PngChunkEncoder::new_graya16(
+    gray_alpha16.view(), png_stream_test_limits(), png_stream_test_budget(), @error.Diagnostics::new(),
+  ).unwrap(), [0UL, 1UL, 3UL, 2UL, 5UL]).unwrap()
+  let graya16_configured = png_chunk_test_drain_encoder(PngChunkEncoder::new_graya16_with_strategies(
+    gray_alpha16.view(), PngCompressionStrategy::Stored, PngFilterStrategy::None,
+    png_stream_test_limits(), png_stream_test_budget(), @error.Diagnostics::new(),
+  ).unwrap(), [0UL, 1UL, 3UL, 2UL, 5UL]).unwrap()
+  for bytes in [graya16_default, graya16_configured] {
+    inspect(bytes == graya16_stored && bytes[28] == b'\x00', content="true")
+  }
+
   let gray_alpha = png_stream_graya8_image()
   let gray_alpha_stored =
     b"\x89PNG\r\n\x1a\n\x00\x00\x00\x0dIHDR\x00\x00\x00\x02\x00\x00\x00\x01\x08\x04\x00\x00\x00\x5e\x2b\xb7\x01\x00\x00\x00\x10IDAT\x78\x01\x01\x05\x00\xfa\xff\x00\x13\xa7\xd2\x4c\x04\x36\x01\xd9\xee\xe9\xe1\x45\x00\x00\x00\x00IEND\xae\x42\x60\x82"
@@ -4003,4 +4017,23 @@ test "PNG GrayAlpha8 Adam7 public hostile tracer" {
     PngCompressionStrategy::FixedOrStored, PngFilterStrategy::Adaptive,
     [0UL, 8UL, 4UL, 1UL, 13UL, 2UL, 5UL, 3UL, 21UL],
   )
+}
+
+///| Every legal public GrayAlpha8 Adam7 selector drains fresh chunk encoders
+/// through zero, one-byte, and ragged caller-buffer schedules while retaining
+/// byte identity with a separately constructed public eager encoder.
+test "PNG GrayAlpha8 Adam7 public hostile schedules" {
+  for strategy in [
+    PngCompressionStrategy::Stored,
+    PngCompressionStrategy::FixedOrStored,
+    PngCompressionStrategy::DynamicOrFixedOrStored,
+  ] {
+    for filter_strategy in [PngFilterStrategy::None, PngFilterStrategy::Adaptive] {
+      png_graya8_adam7_chunk_drain(strategy, filter_strategy, [0UL, 1UL])
+      png_graya8_adam7_chunk_drain(strategy, filter_strategy, [1UL])
+      png_graya8_adam7_chunk_drain(
+        strategy, filter_strategy, [0UL, 8UL, 4UL, 1UL, 13UL, 2UL, 5UL, 3UL, 21UL],
+      )
+    }
+  }
 }
