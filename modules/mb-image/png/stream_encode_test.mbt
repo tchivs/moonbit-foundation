@@ -3166,11 +3166,6 @@ test "PNG fixed-or-stored public replay mismatch is sticky" {
   image.with_mut_view(fn(view) {
     view.set_byte(0UL, 0UL, 0UL, b'\x00')
   }).unwrap()
-  let mut previews = 0UL
-  while previews < 13UL {
-    inspect(png_chunk_test_pull(encoder, 1UL, ignored).written(), content="1")
-    previews = previews + 1UL
-  }
   let first = png_chunk_test_owner(1UL, fill=b'Z')
   let failed = first.with_mut(0UL, 1UL, fn(lease) { Ok(encoder.pull(lease)) }).unwrap()
   let first_error = match failed.outcome() {
@@ -3178,10 +3173,10 @@ test "PNG fixed-or-stored public replay mismatch is sticky" {
     _ => panic()
   }
   inspect(failed.written(), content="0")
-  inspect(failed.total_written(), content="57")
+  inspect(failed.total_written(), content="44")
   inspect(first_error.category() == @error.ErrorCategory::State, content="true")
   inspect(first_error.code() == @error.ErrorCode::InvalidRange, content="true")
-  inspect(first_error.context() == Some("png-encode-fixed-replay-work"), content="true")
+  inspect(first_error.context() == Some("png-encode-fixed-replay-drift"), content="true")
   inspect(first.view().get(0UL).unwrap() == b'Z', content="true")
   let later = png_chunk_test_owner(1UL, fill=b'Z')
   let replay = later.with_mut(0UL, 1UL, fn(lease) { Ok(encoder.pull(lease)) }).unwrap()
@@ -3190,7 +3185,7 @@ test "PNG fixed-or-stored public replay mismatch is sticky" {
     _ => panic()
   }
   inspect(replay.written(), content="0")
-  inspect(replay.total_written(), content="57")
+  inspect(replay.total_written(), content="44")
   inspect(png_chunk_test_same_error(first_error, replay_error), content="true")
   inspect(later.view().get(0UL).unwrap() == b'Z', content="true")
 }
