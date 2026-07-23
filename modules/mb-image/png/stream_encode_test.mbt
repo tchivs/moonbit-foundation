@@ -5046,6 +5046,28 @@ fn png_stream_indexed_source(transparent : Bool) -> PngIndexedImage {
   }
 }
 
+///| The new Indexed8 selector is only smoke-tested with one sufficient lease;
+/// hostile lease schedules are deliberately reserved for Phase 82.
+test "PNG Indexed8 Adam7 chunk selector wires the shared machine IHDR" {
+  let source = PngIndexedImage::new(
+    5UL, 5UL,
+    b"\x00\x01\x02\x03\x00\x02\x03\x00\x01\x02\x00\x01\x02\x03\x00\x02\x03\x00\x01\x02\x00\x01\x02\x03\x00",
+    b"\x12\x34\x56\xa0\xb0\xc0\xd0\xe0\xf0\x21\x43\x65", b"\x00\x80\x7f\xff",
+    png_stream_test_budget(),
+  ).unwrap()
+  let encoder = PngChunkEncoder::new_indexed8_with_interlace_strategy(
+    source, PngInterlaceStrategy::Adam7, png_stream_test_limits(),
+    png_stream_test_budget(), @error.Diagnostics::new(),
+  ).unwrap()
+  let bytes = png_chunk_test_drain_encoder(encoder, [256UL]).unwrap()
+  inspect(bytes.length(), content="143")
+  inspect(
+    bytes[24] == b'\x08' && bytes[25] == b'\x03' && bytes[26] == b'\x00' &&
+      bytes[27] == b'\x00' && bytes[28] == b'\x01',
+    content="true",
+  )
+}
+
 ///| Builds one bounded canonical source for each public low-bit Type-3 selector.
 fn png_stream_indexed_low_bit_source(bit_depth : PngIndexedBitDepth) -> PngIndexedImage {
   match bit_depth {

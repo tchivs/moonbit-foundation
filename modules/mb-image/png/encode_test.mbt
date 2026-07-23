@@ -1080,6 +1080,87 @@ fn png_indexed_slice(value : Bytes, start : Int, length : Int) -> Bytes {
   Bytes::from_array(result)
 }
 
+///| A deliberately non-symmetric 5x5 Indexed8 raster. Its values are literal
+/// test data: `(x + 2*y) mod 4`, not a production traversal oracle.
+fn png_indexed8_adam7_source(transparent : Bool) -> PngIndexedImage {
+  PngIndexedImage::new(
+    5UL, 5UL,
+    b"\x00\x01\x02\x03\x00\x02\x03\x00\x01\x02\x00\x01\x02\x03\x00\x02\x03\x00\x01\x02\x00\x01\x02\x03\x00",
+    b"\x12\x34\x56\xa0\xb0\xc0\xd0\xe0\xf0\x21\x43\x65",
+    if transparent { b"\x00\x80\x7f\xff" } else { b"\xff\xff\xff\xff" },
+    png_encode_budget(),
+  ).unwrap()
+}
+
+///| Independent, hand-authored Adam7 bytes: P1 through P7 each include their
+/// own filter-None row tag. This deliberately never uses production geometry.
+fn png_indexed8_adam7_expected_raw() -> Bytes {
+  b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x02\x00\x02\x00\x00\x02\x00\x00\x01\x03\x00\x01\x03\x00\x01\x03\x00\x02\x03\x00\x01\x02\x00\x02\x03\x00\x01\x02"
+}
+
+///| Type-3/8 Adam7 must retain the single stored machine's framing while an
+/// independent 5x5 oracle observes every pass row, CRC, and public decode.
+test "PNG Indexed8 Adam7 eager wire raster and palette decode are exact" {
+  let source = png_indexed8_adam7_source(true)
+  let writer = @io.MemoryWriter::new(
+    256UL, png_encode_budget(bytes=256UL, work=0UL),
+  ).unwrap()
+  ignore(PngEncoder::encode_indexed8_with_interlace_strategy(
+    PngEncoder::new(), source, PngInterlaceStrategy::Adam7,
+    writer as &@io.Writer, png_encode_limits(output=143UL, work=143UL),
+    png_encode_budget(work=143UL), @error.Diagnostics::new(),
+  ).unwrap())
+  let bytes = png_encode_prefix(writer)
+  inspect(bytes.length(), content="143")
+  inspect(png_indexed_u32(bytes, 8) == 13UL && png_indexed_slice(bytes, 12, 4) == b"IHDR", content="true")
+  inspect(
+    png_indexed_slice(bytes, 16, 13) == b"\x00\x00\x00\x05\x00\x00\x00\x05\x08\x03\x00\x00\x01",
+    content="true",
+  )
+  inspect(png_indexed_crc32(bytes, 12, 17) == png_indexed_u32(bytes, 29), content="true")
+  inspect(png_indexed_u32(bytes, 33) == 12UL && png_indexed_slice(bytes, 37, 4) == b"PLTE", content="true")
+  inspect(png_indexed_slice(bytes, 41, 12) == b"\x12\x34\x56\xa0\xb0\xc0\xd0\xe0\xf0\x21\x43\x65", content="true")
+  inspect(png_indexed_crc32(bytes, 37, 16) == png_indexed_u32(bytes, 53), content="true")
+  inspect(png_indexed_u32(bytes, 57) == 3UL && png_indexed_slice(bytes, 61, 4) == b"tRNS", content="true")
+  inspect(png_indexed_slice(bytes, 65, 3) == b"\x00\x80\x7f", content="true")
+  inspect(png_indexed_crc32(bytes, 61, 7) == png_indexed_u32(bytes, 68), content="true")
+  inspect(png_indexed_u32(bytes, 72) == 47UL && png_indexed_slice(bytes, 76, 4) == b"IDAT", content="true")
+  inspect(png_indexed_slice(bytes, 84, 7) == b"\x78\x01\x01\x24\x00\xdb\xff", content="true")
+  inspect(png_indexed_slice(bytes, 91, 36) == png_indexed8_adam7_expected_raw(), content="true")
+  inspect(png_indexed_crc32(bytes, 76, 51) == png_indexed_u32(bytes, 127), content="true")
+  inspect(png_indexed_u32(bytes, 131) == 0UL && png_indexed_slice(bytes, 135, 4) == b"IEND", content="true")
+  inspect(png_indexed_crc32(bytes, 135, 4) == png_indexed_u32(bytes, 139), content="true")
+
+  let owned = @bytes.OwnedBytes::from_bytes(bytes, png_encode_budget(bytes=256UL, work=0UL)).unwrap()
+  let decoded = @codec.ImageDecoder::decode(
+    PngDecoder::new(), @io.MemoryReader::new(owned.view()) as &@io.Reader,
+    @codec.DecodeOptions::new(require_complete_input=true, preserve_opaque_metadata=false),
+    png_encode_limits(), png_encode_budget(), @error.Diagnostics::new(),
+  ).unwrap().image().view()
+  inspect(decoded.format().channels() == @model.ChannelOrder::Rgba, content="true")
+  let expected = b"\x00\x01\x02\x03\x00\x02\x03\x00\x01\x02\x00\x01\x02\x03\x00\x02\x03\x00\x01\x02\x00\x01\x02\x03\x00"
+  let palette = b"\x12\x34\x56\xa0\xb0\xc0\xd0\xe0\xf0\x21\x43\x65"
+  let alpha = b"\x00\x80\x7f\xff"
+  for point = 0; point < 25; point = point + 1 {
+    let code = expected[point].to_int()
+    let x = (point % 5).to_uint64()
+    let y = (point / 5).to_uint64()
+    for channel = 0; channel < 3; channel = channel + 1 {
+      inspect(decoded.get_byte(x, y, channel.to_uint64()).unwrap() == palette[code * 3 + channel], content="true")
+    }
+    inspect(decoded.get_byte(x, y, 3UL).unwrap() == alpha[code], content="true")
+  }
+
+  let opaque_writer = @io.MemoryWriter::new(256UL, png_encode_budget(bytes=256UL, work=0UL)).unwrap()
+  ignore(PngEncoder::encode_indexed8_with_interlace_strategy(
+    PngEncoder::new(), png_indexed8_adam7_source(false), PngInterlaceStrategy::Adam7,
+    opaque_writer as &@io.Writer, png_encode_limits(), png_encode_budget(), @error.Diagnostics::new(),
+  ).unwrap())
+  let opaque_bytes = png_encode_prefix(opaque_writer)
+  inspect(opaque_bytes.length(), content="128")
+  inspect(png_indexed_u32(opaque_bytes, 57) == 47UL && png_indexed_slice(opaque_bytes, 61, 4) == b"IDAT", content="true")
+}
+
 ///|
 test "PNG Indexed8 wire order CRCs and Stored scanlines are exact" {
   let source = PngIndexedImage::new(

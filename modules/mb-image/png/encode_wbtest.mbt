@@ -61,6 +61,20 @@ fn png_wb_limits() -> @codec.CodecLimits {
   )
 }
 
+///| The default white-box limits are intentionally generous. Exact selected
+/// Indexed8 Adam7 admission needs a compact local limit fixture.
+fn png_wb_indexed_limits(output : UInt64, work : UInt64) -> @codec.CodecLimits {
+  @codec.CodecLimits::new(
+    max_probe_bytes=8UL,
+    max_input_bytes=512UL,
+    max_output_bytes=output,
+    max_width=64UL,
+    max_height=64UL,
+    max_pixels=4096UL,
+    max_work=work,
+  )
+}
+
 ///|
 fn png_wb_dynamic_limits() -> @codec.CodecLimits {
   @codec.CodecLimits::new(
@@ -1121,6 +1135,44 @@ test "PNG Indexed8 frame facts shift PLTE while zero-PLTE offsets remain frozen"
   inspect(legacy.frame.idat_start, content="33")
   inspect(legacy.frame.iend_start, content="60")
   inspect(legacy.frame.total_length, content="72")
+}
+
+///| Selected Indexed8 Adam7 facts must be charged once from the shared pass
+/// geometry: exact admission reaches zero work, and one-less limits stay atomic.
+test "PNG Indexed8 Adam7 preflight facts and admission are exact" {
+  let source = PngIndexedImage::new(
+    5UL, 5UL,
+    b"\x00\x01\x02\x03\x00\x02\x03\x00\x01\x02\x00\x01\x02\x03\x00\x02\x03\x00\x01\x02\x00\x01\x02\x03\x00",
+    b"\x12\x34\x56\xa0\xb0\xc0\xd0\xe0\xf0\x21\x43\x65", b"\x00\x80\x7f\xff",
+    png_wb_budget(bytes=256UL, work=0UL),
+  ).unwrap()
+  let exact = png_wb_budget(work=143UL)
+  let facts = _png_encode_indexed_preflight_with_profile(
+    source, PngIndexedWireProfile::Eight, PngInterlaceStrategy::Adam7,
+    png_wb_indexed_limits(143UL, 143UL), exact,
+  ).unwrap()
+  inspect(facts.scanlines, content="36")
+  inspect(facts.blocks, content="1")
+  inspect(facts.idat_length, content="47")
+  inspect(facts.total_length, content="143")
+  inspect(facts.selected_work, content="143")
+  inspect(exact.remaining().work(), content="0")
+
+  let one_less_work = png_wb_budget(work=142UL)
+  let work_before = one_less_work.remaining()
+  inspect(_png_encode_indexed_preflight_with_profile(
+    source, PngIndexedWireProfile::Eight, PngInterlaceStrategy::Adam7,
+    png_wb_indexed_limits(143UL, 143UL), one_less_work,
+  ) is Err(_), content="true")
+  inspect(png_wb_same_remaining(work_before, one_less_work.remaining()), content="true")
+
+  let one_less_output = png_wb_budget(work=143UL)
+  let output_before = one_less_output.remaining()
+  inspect(_png_encode_indexed_preflight_with_profile(
+    source, PngIndexedWireProfile::Eight, PngInterlaceStrategy::Adam7,
+    png_wb_indexed_limits(142UL, 143UL), one_less_output,
+  ) is Err(_), content="true")
+  inspect(png_wb_same_remaining(output_before, one_less_output.remaining()), content="true")
 }
 
 ///|
