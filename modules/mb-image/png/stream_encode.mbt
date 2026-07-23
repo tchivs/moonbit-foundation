@@ -814,7 +814,8 @@ fn PngEncodeMachine::validate_u16_replay_revision(
       Err(_png_encode_machine_state_error("png-encode-fixed-replay-drift"))
     PngDeflatePlan::Dynamic(_) =>
       Err(_png_encode_machine_state_error("png-encode-dynamic-replay-drift"))
-    PngDeflatePlan::Stored(_) => Ok(())
+    PngDeflatePlan::Stored(_) =>
+      Err(_png_encode_machine_state_error("png-encode-stored-replay-drift"))
   }
 }
 
