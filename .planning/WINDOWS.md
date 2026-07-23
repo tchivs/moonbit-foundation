@@ -1,10 +1,10 @@
 ---
 schema_version: 1
-open_count: 1
+open_count: 2
 waived_count: 0
 fixed_count: 0
-total_count: 1
-last_updated: 2026-07-22T21:13:07.814Z
+total_count: 2
+last_updated: 2026-07-23T00:01:48.557Z
 ---
 
 # Broken Windows Ledger
@@ -16,6 +16,7 @@ last_updated: 2026-07-22T21:13:07.814Z
 | id | phase | kind | file | line | description | status | reason | recorded_at | resolved_at |
 |----|-------|------|------|------|-------------|--------|--------|-------------|-------------|
 | 1 | 54 | deviation | modules/mb-image/png/encode_test.mbt |  | Big-endian GrayAlpha16 parity omitted because Phase 53 rejects Big-endian GrayAlpha descriptors. | open |  | 2026-07-22T21:13:07.814Z |  |
+| 2 | 57 | unrun-verify | modules/mb-image/png |  | Full native PNG suite did not complete because the current moon.exe stopped making CPU progress in the shared workspace; exact focused runs were used instead. | open |  | 2026-07-23T00:01:48.557Z |  |
 
 ````json
 [
@@ -29,6 +30,18 @@ last_updated: 2026-07-22T21:13:07.814Z
     "status": "open",
     "reason": "",
     "recorded_at": "2026-07-22T21:13:07.814Z",
+    "resolved_at": null
+  },
+  {
+    "id": 2,
+    "kind": "unrun-verify",
+    "phase": "57",
+    "file": "modules/mb-image/png",
+    "line": null,
+    "description": "Full native PNG suite did not complete because the current moon.exe stopped making CPU progress in the shared workspace; exact focused runs were used instead.",
+    "status": "open",
+    "reason": "",
+    "recorded_at": "2026-07-23T00:01:48.557Z",
     "resolved_at": null
   }
 ]

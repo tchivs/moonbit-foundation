@@ -11,7 +11,7 @@
 
 ### Bounded Streaming Semantics
 
-- [ ] **GRAYA16A7-02**: GrayAlpha16 Adam7 encoding reuses the shared bounded preflight, pass filtering, Stored/FixedOrStored/DynamicOrFixedOrStored planning, and acknowledgement-safe replay path; incompatible inputs and resource failures remain atomic before output or lease exposure.
+- [x] **GRAYA16A7-02**: GrayAlpha16 Adam7 encoding reuses the shared bounded preflight, pass filtering, Stored/FixedOrStored/DynamicOrFixedOrStored planning, and acknowledgement-safe replay path; incompatible inputs and resource failures remain atomic before output or lease exposure.
 
 ### Portable Public Evidence
 
