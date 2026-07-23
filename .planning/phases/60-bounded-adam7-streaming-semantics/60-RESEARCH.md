@@ -67,9 +67,19 @@ The only Phase-60 production gap is that `PngChunkEncoder::pull` calls `validate
 
 **Primary recommendation:** Change only the common revision-validation method used at `PngChunkEncoder::pull`, remove its U16-profile exemption, and add a GrayAlpha8 Adam7 six-pair mutation matrix that directly mirrors the existing GrayAlpha16 assertion sequence. [CITED: modules/mb-image/png/stream_encode.mbt:456] [CITED: modules/mb-image/png/stream_encode_test.mbt:3220]
 
-**Corpus correction (2026-07-23):** The all-seven-pass Stored fixture is exact and ready: reuse `png_stream_graya8_adam7_image`, a legal 5×5 GrayAlpha8 image whose `(x, y)` bytes are `G = 0x20 + 5*y + x` and `A = 0xa0 + 5*y + x`; the existing helper documents that this geometry exercises every Adam7 pass. With `PngCompressionStrategy::Stored`, both `None` and `Adaptive` are deterministically BTYPE `0x01`. [CITED: modules/mb-image/png/stream_encode_test.mbt:175] [CITED: modules/mb-image/png/stream_encode_test.mbt:177] [CITED: modules/mb-image/png/stream_encode_test.mbt:3297]
+**Measured replay corpus (2026-07-23):** A controlled native run established a three-fixture all-seven-pass GrayAlpha8 Adam7 corpus. `stored-ramp-5x5` is the existing legal 5×5 helper with `s = 5*y + x`, `G = 0x20 + s`, and `A = 0xa0 + s`; `fixed-flat-5x5` is 5×5 with every pixel `(G, A) = (0x34, 0xa7)`; `dynamic-periodic-128x5` is 128×5 with `i = 2*(128*y + x)`, `G = i mod 5`, and `A = (i + 1) mod 5`. The 5×5 existing helper documents that this geometry exercises every Adam7 pass; all three fixtures keep both dimensions at least five. [VERIFIED: controlled local measurement] [CITED: modules/mb-image/png/stream_encode_test.mbt:175]
 
-The Fixed and Dynamic all-seven-pass GrayAlpha8 corpora are **not yet empirically established**. The attempted non-writing MoonBit patch probe was blocked by this installed toolchain retaining a stale generated test entry (`Warning: no test entry found`) after the patch was supplied; it did not yield a BTYPE result. This is a documented implementation gate, not permission to relax the BTYPE assertions or to assume the U16 corpus transfers. [VERIFIED: local `moon test --patch-file` run]
+## Measured GrayAlpha8 Adam7 BTYPE Corpus
+
+The phase-local replay test must create these exact deterministic images, assert `prefix[43] & 0x07`, and use the indicated public selector. A strategy fallback cannot satisfy the matrix. [VERIFIED: controlled local measurement]
+
+| Fixture | Dimensions and pixel generator | Selector | None | Adaptive |
+|---------|-------------------------------|----------|------|----------|
+| `stored-ramp-5x5` | 5×5; `s=5*y+x`; `G=0x20+s`, `A=0xa0+s` | `Stored` | `0x01` | `0x01` |
+| `fixed-flat-5x5` | 5×5; every pixel `G=0x34`, `A=0xa7` | `FixedOrStored` | `0x03` | `0x03` |
+| `dynamic-periodic-128x5` | 128×5; `i=2*(128*y+x)`; `G=i mod 5`, `A=(i+1) mod 5` | `DynamicOrFixedOrStored` | `0x05` | `0x05` |
+
+The measurement command was `moon -C modules/mb-image test png --target native --frozen -f 'TEMP Phase 60 GrayAlpha8 Adam7 BTYPE corpus measurement'`; it passed 1/1 while the reversible test was present and was removed immediately after the run. The durable implementation verification command is `moon -C modules/mb-image test png --target native --frozen -f 'PNG GrayAlpha8 Adam7 replay mutations are sticky for every strategy pair'`; the implementation test must encode the table’s six explicit BTYPE checks. [VERIFIED: controlled local measurement]
 
 ## Architectural Responsibility Map
 
@@ -234,7 +244,7 @@ if self.interlace_strategy == PngInterlaceStrategy::Adam7 {
 
 **Why it happens:** Selected DEFLATE plan is data-dependent. [CITED: modules/mb-image/png/encode.mbt:1704]
 
-**How to avoid:** Keep `prefix[43] & 0x07` assertions. Reuse the exact 5×5 GrayAlpha8 helper for Stored `0x01` under both filters; before accepting the Fixed/Dynamic rows, add and run a phase-local all-seven-pass corpus finder that records the exact dimensions and bytes for `0x03` and `0x05` under both filters. Do not copy the U16 flat/periodic values into the final matrix without that measured result. [CITED: modules/mb-image/png/stream_encode_test.mbt:177] [CITED: modules/mb-image/png/stream_encode_test.mbt:3297] [VERIFIED: local patch-probe attempt]
+**How to avoid:** Keep `prefix[43] & 0x07` assertions. Use the measured `stored-ramp-5x5` rows for Stored `0x01`, `fixed-flat-5x5` for Fixed `0x03`, and `dynamic-periodic-128x5` for Dynamic `0x05`; exercise each under both filters. Do not substitute the U16 fixture without preserving the measured U8 generator and dimensions. [VERIFIED: controlled local measurement]
 
 **Warning signs:** The six-pair test merely reaches `Failed` after mutation but never asserts the selected pre-mutation route. [CITED: modules/mb-image/png/stream_encode_test.mbt:3237]
 
@@ -270,7 +280,7 @@ for strategy in [
 }
 ```
 
-The implementation should name/use a Phase-60-local GrayAlpha8 helper rather than alter the existing U16 helper or fixtures; retain the U16 helper as regression evidence. Seed only the Stored rows with the exact existing 5×5 helper; fill the Fixed/Dynamic corpus selector only after its BTYPE probe is green for both filters. [CITED: modules/mb-image/png/stream_encode_test.mbt:177] [CITED: modules/mb-image/png/stream_encode_test.mbt:3220] [VERIFIED: local patch-probe attempt]
+The implementation should name/use Phase-60-local GrayAlpha8 helpers rather than alter the existing U16 helper or fixtures; retain the U16 helper as regression evidence. Map Stored to `stored-ramp-5x5`, Fixed to `fixed-flat-5x5`, and Dynamic to `dynamic-periodic-128x5`, preserving the explicit BTYPE assertions for both filters. [CITED: modules/mb-image/png/stream_encode_test.mbt:177] [CITED: modules/mb-image/png/stream_encode_test.mbt:3220] [VERIFIED: controlled local measurement]
 
 ### Common operation: Preserve sticky terminal accounting
 
@@ -303,14 +313,11 @@ assert_all_bytes_are_sentinel(later_lease)
 
 | # | Claim | Section | Risk if Wrong |
 |---|-------|---------|---------------|
-| — | None. The former claim that the U16 flat/periodic corpus transfers to GrayAlpha8 was removed after the direct probe could not produce a result. [VERIFIED: local `moon test --patch-file` run] | — | — |
+| — | None. All three GrayAlpha8 Adam7 BTYPE corpus claims were measured directly for both filters. [VERIFIED: controlled local measurement] | — | — |
 
 ## Open Questions
 
-1. **Resolved as a pre-implementation corpus gate: Fixed/Dynamic GrayAlpha8 values are unknown, not assumed.**
-   - What we know: `png_stream_graya8_adam7_image` is an exact legal 5×5 all-seven-pass corpus and provides Stored `0x01` for both filters; the U16 helper's width-5 flat and width-128 periodic cases prove only the U16 matrix, not GrayAlpha8. [CITED: modules/mb-image/png/stream_encode_test.mbt:177] [CITED: modules/mb-image/png/stream_encode_test.mbt:3296]
-   - Constraint found: A non-writing probe using the installed `moon test --patch-file` facility retained a stale generated test driver and reported `Warning: no test entry found`; no Fixed/Dynamic BTYPE result may be claimed from it. [VERIFIED: local `moon test --patch-file` run]
-   - Required reproducible implementation command: add the phase-local `PNG GrayAlpha8 Adam7 replay mutations are sticky for every strategy pair` test with explicit `prefix[43] & 0x07` assertions, then run `moon -C modules/mb-image test png --target native --frozen -f 'PNG GrayAlpha8 Adam7 replay mutations are sticky for every strategy pair'`. The task is complete only when Fixed is `0x03` and Dynamic is `0x05` for both filters; otherwise tune fixture dimensions/data and rerun. [CITED: modules/mb-image/png/stream_encode_test.mbt:3237]
+None. The controlled measurement resolved the Fixed/Dynamic corpus gate: the three-fixture matrix above produces Stored `0x01`, Fixed `0x03`, and Dynamic `0x05` for both filters. [VERIFIED: controlled local measurement]
 
 ## Environment Availability
 
@@ -350,7 +357,7 @@ Step 2.6: SKIPPED — this is a code-and-test-only change with no service, packa
 - `moon -C modules/mb-image test png --target native --frozen -f 'PNG GrayAlpha8 Adam7 chunk all strategy parity'` — passed (1/1). [VERIFIED: local test run]
 - `moon -C modules/mb-image test png --target native --frozen -f 'PNG GrayAlpha8 strategy admission is atomic'` — passed (1/1). [VERIFIED: local test run]
 - `moon -C modules/mb-image test png --target native --frozen -f 'PNG GrayAlpha16 Adam7 replay mutations are sticky for every strategy pair'` — passed (1/1). [VERIFIED: local test run]
-- `moon -C modules/mb-image test --target native --frozen --patch-file <ephemeral-json-patch> --package tchivs/mb-image/png --file stream_encode_test.mbt -f 'Phase 60 GrayAlpha8 all-pass corpus probe'` — blocked: the generated driver retained no injected test entry; no BTYPE outcome recorded. [VERIFIED: local tool run]
+- `moon -C modules/mb-image test png --target native --frozen -f 'TEMP Phase 60 GrayAlpha8 Adam7 BTYPE corpus measurement'` — passed (1/1); the test was temporary and removed after the controlled measurement. [VERIFIED: controlled local measurement]
 
 ## Metadata
 
@@ -358,7 +365,7 @@ Step 2.6: SKIPPED — this is a code-and-test-only change with no service, packa
 
 - Standard stack: LOW — direct workspace/toolchain inspection; no external package decision is involved. [VERIFIED: `moon --version`]
 - Architecture: LOW — direct source inspection and targeted existing regression runs; the mandatory confidence seam rated provider `codebase` LOW. [VERIFIED: `gsd-tools classify-confidence`]
-- Pitfalls: LOW — derived from direct current helper/source behavior; Fixed/Dynamic corpus selection is an explicit implementation gate rather than an assumption. [CITED: modules/mb-image/png/stream_encode_test.mbt:3220] [VERIFIED: local patch-probe attempt]
+- Pitfalls: LOW — derived from direct current helper/source behavior and a controlled native BTYPE measurement; the corpus gate is resolved, but future selector changes require remeasurement. [CITED: modules/mb-image/png/stream_encode_test.mbt:3220] [VERIFIED: controlled local measurement]
 
 **Research date:** 2026-07-23
 **Valid until:** Implementation of Phase 60, or 30 days if the PNG replay seam remains unchanged. [ASSUMED]
