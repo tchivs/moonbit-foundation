@@ -3080,11 +3080,12 @@ fn png_graya16_replay_mutation_is_sticky(
   image : @storage.OwnedImage,
   strategy : PngCompressionStrategy,
   filter_strategy : PngFilterStrategy,
+  interlace_strategy : PngInterlaceStrategy,
   expected_header : Byte,
   post_capacity : UInt64,
 ) -> Unit {
-  let encoder = PngChunkEncoder::new_graya16_with_strategies(
-    image.view(), strategy, filter_strategy,
+  let encoder = PngChunkEncoder::new_graya16_with_all_strategies(
+    image.view(), strategy, filter_strategy, interlace_strategy,
     png_stream_test_limits(), png_stream_test_budget(), @error.Diagnostics::new(),
   ).unwrap()
   let prefix : Array[Byte] = []
@@ -3138,11 +3139,49 @@ fn png_graya16_replay_mutation_is_sticky(
 test "PNG GrayAlpha16 Fixed and Dynamic replay mutations are sticky" {
   png_graya16_replay_mutation_is_sticky(
     png_stream_graya16_replay_image(5UL),
-    PngCompressionStrategy::FixedOrStored, PngFilterStrategy::Adaptive, b'\x03', 7UL,
+    PngCompressionStrategy::FixedOrStored, PngFilterStrategy::Adaptive,
+    PngInterlaceStrategy::None, b'\x03', 7UL,
   )
   png_graya16_replay_mutation_is_sticky(
     png_stream_graya16_replay_image(128UL, periodic=true),
-    PngCompressionStrategy::DynamicOrFixedOrStored, PngFilterStrategy::Adaptive, b'\x05', 7UL,
+    PngCompressionStrategy::DynamicOrFixedOrStored, PngFilterStrategy::Adaptive,
+    PngInterlaceStrategy::None, b'\x05', 7UL,
+  )
+}
+
+///| Every legal Adam7 selector must validate checked U16 replay revisions
+/// before copying into a lease. Stored is deliberately included under both
+/// filters so this public matrix covers the common pre-write guard.
+test "PNG GrayAlpha16 Adam7 replay mutations are sticky for every strategy pair" {
+  png_graya16_replay_mutation_is_sticky(
+    png_stream_graya16_replay_image(5UL),
+    PngCompressionStrategy::Stored, PngFilterStrategy::None,
+    PngInterlaceStrategy::Adam7, b'\x01', 7UL,
+  )
+  png_graya16_replay_mutation_is_sticky(
+    png_stream_graya16_replay_image(5UL),
+    PngCompressionStrategy::Stored, PngFilterStrategy::Adaptive,
+    PngInterlaceStrategy::Adam7, b'\x01', 7UL,
+  )
+  png_graya16_replay_mutation_is_sticky(
+    png_stream_graya16_replay_image(5UL),
+    PngCompressionStrategy::FixedOrStored, PngFilterStrategy::None,
+    PngInterlaceStrategy::Adam7, b'\x03', 7UL,
+  )
+  png_graya16_replay_mutation_is_sticky(
+    png_stream_graya16_replay_image(5UL),
+    PngCompressionStrategy::FixedOrStored, PngFilterStrategy::Adaptive,
+    PngInterlaceStrategy::Adam7, b'\x03', 7UL,
+  )
+  png_graya16_replay_mutation_is_sticky(
+    png_stream_graya16_replay_image(128UL, periodic=true),
+    PngCompressionStrategy::DynamicOrFixedOrStored, PngFilterStrategy::None,
+    PngInterlaceStrategy::Adam7, b'\x05', 7UL,
+  )
+  png_graya16_replay_mutation_is_sticky(
+    png_stream_graya16_replay_image(128UL, periodic=true),
+    PngCompressionStrategy::DynamicOrFixedOrStored, PngFilterStrategy::Adaptive,
+    PngInterlaceStrategy::Adam7, b'\x05', 7UL,
   )
 }
 
