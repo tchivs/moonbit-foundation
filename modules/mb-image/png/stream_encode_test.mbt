@@ -172,9 +172,9 @@ fn png_stream_graya8_image() -> @storage.OwnedImage {
   image
 }
 
-///| A five-by-five legal GrayAlpha8 source gives every Adam7 pass a distinct
-/// G,A sample sequence for caller-buffered parity.
-fn png_stream_graya8_adam7_image() -> @storage.OwnedImage {
+///| The measured Stored corpus gives every Adam7 pass a distinct G,A sample
+/// sequence with `s = 5*y + x`, `G = 0x20 + s`, and `A = 0xa0 + s`.
+fn png_stream_graya8_adam7_stored_ramp_5x5() -> @storage.OwnedImage {
   let descriptor = @model.ImageDescriptor::new(
     5UL, 5UL, @model.ImageFormat::graya8(),
     [@model.PlaneDescriptor::new(0UL, 50UL, 10UL, 10UL, 1UL, 1UL, 5UL, 5UL).unwrap()],
@@ -203,6 +203,12 @@ fn png_stream_graya8_adam7_image() -> @storage.OwnedImage {
     Ok(())
   }).unwrap()
   image
+}
+
+///| A five-by-five legal GrayAlpha8 source gives every Adam7 pass a distinct
+/// G,A sample sequence for caller-buffered parity.
+fn png_stream_graya8_adam7_image() -> @storage.OwnedImage {
+  png_stream_graya8_adam7_stored_ramp_5x5()
 }
 
 ///| Compact packed U16 Gray+Alpha source with non-symmetric component lanes.
@@ -3273,6 +3279,74 @@ fn png_graya16_replay_mutation_is_sticky(
       abort("png graya16 replay sticky terminal lease")
     }
   }
+}
+
+///| A GrayAlpha8 mutation after acknowledged framing must fail before the
+/// caller's next lease can receive a replay byte.
+fn png_graya8_replay_mutation_is_sticky(
+  image : @storage.OwnedImage,
+  strategy : PngCompressionStrategy,
+  filter_strategy : PngFilterStrategy,
+  expected_header : Byte,
+  post_capacity : UInt64,
+) -> Unit {
+  let encoder = PngChunkEncoder::new_graya8_with_all_strategies(
+    image.view(), strategy, filter_strategy, PngInterlaceStrategy::Adam7,
+    png_stream_test_limits(), png_stream_test_budget(), @error.Diagnostics::new(),
+  ).unwrap()
+  let prefix : Array[Byte] = []
+  while prefix.length() < 44 {
+    let pull = png_chunk_test_pull(encoder, 1UL, prefix)
+    if pull.written() != 1UL { abort("png graya8 replay prefix") }
+  }
+  if (prefix[43] & b'\x07') != expected_header {
+    abort("png graya8 replay selected wrong deflate route")
+  }
+  image.with_mut_view(fn(view) {
+    view.set_byte(0UL, 0UL, 1UL, b'\xff')
+  }).unwrap()
+  let accepted_total = prefix.length().to_uint64()
+  let first = png_chunk_test_owner(post_capacity, fill=b'Z')
+  let failed = first.with_mut(0UL, post_capacity, fn(lease) {
+    Ok(encoder.pull(lease))
+  }).unwrap()
+  let error = match failed.outcome() {
+    PngChunkPullOutcome::Failed(value) => value
+    PngChunkPullOutcome::NeedOutput => abort("png graya8 replay exposed post-mutation bytes")
+    PngChunkPullOutcome::Finished => abort("png graya8 replay did not drift")
+  }
+  if failed.written() != 0UL || failed.total_written() != accepted_total {
+    abort("png graya8 replay first terminal progress")
+  }
+  for index = 0UL; index < post_capacity; index = index + 1UL {
+    if first.view().get(index).unwrap() != b'Z' {
+      abort("png graya8 replay first terminal lease")
+    }
+  }
+  let later = png_chunk_test_owner(post_capacity, fill=b'Z')
+  let replay = later.with_mut(0UL, post_capacity, fn(lease) { Ok(encoder.pull(lease)) }).unwrap()
+  let replay_error = match replay.outcome() {
+    PngChunkPullOutcome::Failed(value) => value
+    _ => abort("png graya8 replay was not sticky")
+  }
+  if replay.written() != 0UL || replay.total_written() != accepted_total ||
+    !png_chunk_test_same_error(error, replay_error) {
+    abort("png graya8 replay was not sticky")
+  }
+  for index = 0UL; index < post_capacity; index = index + 1UL {
+    if later.view().get(index).unwrap() != b'Z' {
+      abort("png graya8 replay sticky terminal lease")
+    }
+  }
+}
+
+///| The Stored/None tracer proves a post-progress GrayAlpha8 Adam7 mutation
+/// cannot reach the next caller lease.
+test "PNG GrayAlpha8 Adam7 replay mutations are sticky for every strategy pair" {
+  png_graya8_replay_mutation_is_sticky(
+    png_stream_graya8_adam7_stored_ramp_5x5(),
+    PngCompressionStrategy::Stored, PngFilterStrategy::None, b'\x01', 7UL,
+  )
 }
 
 ///| Fixed and Dynamic GrayAlpha16 plans validate checked U16 source revision
