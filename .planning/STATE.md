@@ -4,16 +4,16 @@ milestone: v0.25
 milestone_name: Indexed Low-Bit PNG Encode
 current_phase_name: defining requirements
 status: executing
-stopped_at: Phase 79 context gathered
-last_updated: "2026-07-23T20:47:11.695Z"
+stopped_at: Completed 79-01-PLAN.md
+last_updated: "2026-07-23T21:06:06.260Z"
 last_activity: 2026-07-24
 last_activity_desc: Milestone v0.25 started
 progress:
   total_phases: 2
-  completed_phases: 0
+  completed_phases: 1
   total_plans: 1
-  completed_plans: 0
-  percent: 0
+  completed_plans: 1
+  percent: 50
 ---
 
 # Project State
@@ -49,6 +49,7 @@ Last activity: 2026-07-24 — Milestone v0.25 started
 | Phase 59 P01 | 14min | 1 tasks | 5 files |
 | Phase 59 P02 | 18min | 2 tasks | 2 files |
 | Phase 72-rgba16-encode-qualification P01 | 14min | 2 tasks | 1 files |
+| Phase 79-indexed-low-bit-eager-packing P01 | 31min | 2 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -67,6 +68,8 @@ Last activity: 2026-07-24 — Milestone v0.25 started
 - [v0.20]: The sole decoder machine continues byte-domain filtering and Adam7 traversal; only the final profile-aware store maps `Ghi,Glo,Ahi,Alo` to `Glo,Ghi,Alo,Ahi` without staging.
 - [Phase 72]: Normal RGBA16 Stored/None qualification compares a complete independent 17-byte public raster while preserving IHDR and decoded packed-little-endian lanes.
 - [Phase 72]: Phase 72 retains Adam7, hostile caller-buffered, and literal compatibility evidence unchanged and uses the ordinary frozen four-target PNG package gate.
+- [Phase ?]: Public PngIndexedBitDepth selects One, Two, or Four while Indexed8 remains on its established API.
+- [Phase ?]: Low-bit indexed pixels pack directly in the acknowledged machine; fixed-Eight wrappers preserve legacy eager and chunk behavior.
 
 ### Pending Todos
 
@@ -87,9 +90,9 @@ Last activity: 2026-07-24 — Milestone v0.25 started
 
 ## Session Continuity
 
-Last session: 2026-07-23T20:27:34.291Z
-Stopped at: Phase 79 context gathered
-Resume file: .planning/phases/79-indexed-low-bit-eager-packing/79-CONTEXT.md
+Last session: 2026-07-23T21:06:06.249Z
+Stopped at: Completed 79-01-PLAN.md
+Resume file: None
 
 ## Operator Next Steps
 

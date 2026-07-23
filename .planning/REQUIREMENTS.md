@@ -7,9 +7,9 @@
 
 ### Explicit low-bit eager output
 
-- [ ] **INDEXLOW-01**: Library users can explicitly encode a valid `PngIndexedImage` as bounded non-interlaced Type-3 PNG at bit depth 1, 2, or 4 while retaining canonical unpacked source indices.
-- [ ] **INDEXLOW-02**: Depth-specific Indexed PNG preflight enforces PLTE capacities 2/4/16 and checked packed-row/frame resource admission atomically before output or budget mutation.
-- [ ] **INDEXLOW-03**: Low-bit Indexed output has MSB-first, zero-tailed packed rows, preserves PLTE and canonical optional tRNS, and publicly decodes as exact RGB8 or RGBA8.
+- [x] **INDEXLOW-01**: Library users can explicitly encode a valid `PngIndexedImage` as bounded non-interlaced Type-3 PNG at bit depth 1, 2, or 4 while retaining canonical unpacked source indices.
+- [x] **INDEXLOW-02**: Depth-specific Indexed PNG preflight enforces PLTE capacities 2/4/16 and checked packed-row/frame resource admission atomically before output or budget mutation.
+- [x] **INDEXLOW-03**: Low-bit Indexed output has MSB-first, zero-tailed packed rows, preserves PLTE and canonical optional tRNS, and publicly decodes as exact RGB8 or RGBA8.
 
 ### Caller-buffered parity and qualification
 
@@ -29,9 +29,9 @@
 
 | Requirement | Phase | Status |
 |---|---|---|
-| INDEXLOW-01 | Phase 79 | Pending |
-| INDEXLOW-02 | Phase 79 | Pending |
-| INDEXLOW-03 | Phase 79 | Pending |
+| INDEXLOW-01 | Phase 79 | Complete |
+| INDEXLOW-02 | Phase 79 | Complete |
+| INDEXLOW-03 | Phase 79 | Complete |
 | INDEXLOW-04 | Phase 80 | Pending |
 | INDEXLOW-05 | Phase 80 | Pending |
 
