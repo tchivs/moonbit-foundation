@@ -11,6 +11,67 @@ fn png_test_limits() -> @codec.CodecLimits {
   )
 }
 
+///| A hand-authored Type-4/16 PNG: each pixel has distinct high and low
+/// component bytes so the decoder oracle detects both truncation and swaps.
+fn png_test_graya16_literal() -> Bytes {
+  b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x02\x00\x00\x00\x01\x10\x04\x00\x00\x00\x0e\xbbkB\x00\x00\x00\x14IDATx\x01\x01\x09\x00\xf6\xff\x00\x124\xa7\xc5\xbe\x0fZv\x0e\x17\x03Pk\x88\xb2u\x00\x00\x00\x00IEND\xaeB`\x82"
+}
+
+///|
+test "PNG explicit graya16 preserves Type-4/16 source lanes without changing generic RGBA8" {
+  let source = png_test_graya16_literal()
+  let owner = @bytes.OwnedBytes::from_bytes(
+    source,
+    @budget.Budget::new(@budget.ResourceLimits::new(
+      bytes=source.length().to_uint64(), allocations=1UL,
+      allocation_size=source.length().to_uint64(), width=0UL, height=0UL,
+      pixels=0UL, depth=0UL, work=0UL,
+    )),
+  ).unwrap()
+  let result = PngDecoder::decode_graya16(
+    @io.MemoryReader::new(owner.view()) as &@io.Reader,
+    @codec.DecodeOptions::new(
+      require_complete_input=true, preserve_opaque_metadata=false,
+    ),
+    png_test_limits(),
+    @budget.Budget::new(@budget.ResourceLimits::new(
+      bytes=128UL, allocations=3UL, allocation_size=64UL, width=4UL,
+      height=4UL, pixels=16UL, depth=0UL, work=128UL,
+    )),
+    @error.Diagnostics::new(),
+  ).unwrap()
+  let image = result.image().view()
+  let format = image.descriptor().format()
+  inspect(format.component() == @model.ComponentType::U16, content="true")
+  inspect(format.channels() == @model.ChannelOrder::GrayAlpha, content="true")
+  inspect(format.layout() == @model.PlaneLayout::Packed, content="true")
+  inspect(format.endianness() == @model.Endianness::Little, content="true")
+  inspect(image.descriptor().metadata().orientation() == @model.Orientation::TopLeft, content="true")
+  inspect(image.descriptor().metadata().alpha() == Some(@color.AlphaMode::Straight), content="true")
+  inspect(image.descriptor().metadata().profile().is_builtin_srgb(), content="true")
+  inspect(result.bytes_read() == source.length().to_uint64(), content="true")
+  for expected in [(0UL, 0UL, b'\x34'), (0UL, 1UL, b'\x12'), (0UL, 2UL, b'\xc5'), (0UL, 3UL, b'\xa7'), (1UL, 0UL, b'\x0f'), (1UL, 1UL, b'\xbe'), (1UL, 2UL, b'\x76'), (1UL, 3UL, b'\x5a')] {
+    let (x, component, value) = expected
+    inspect(image.get_component_byte(x, 0UL, component / 2UL, component % 2UL).unwrap() == value, content="true")
+  }
+  let generic = @codec.ImageDecoder::decode(
+    PngDecoder::new(), @io.MemoryReader::new(owner.view()) as &@io.Reader,
+    @codec.DecodeOptions::new(
+      require_complete_input=true, preserve_opaque_metadata=false,
+    ),
+    png_test_limits(),
+    @budget.Budget::new(@budget.ResourceLimits::new(
+      bytes=128UL, allocations=3UL, allocation_size=64UL, width=4UL,
+      height=4UL, pixels=16UL, depth=0UL, work=128UL,
+    )),
+    @error.Diagnostics::new(),
+  ).unwrap().image().view()
+  for channel = 0UL; channel < 3UL; channel = channel + 1UL {
+    inspect(generic.get_byte(0UL, 0UL, channel).unwrap() == b'\x12', content="true")
+  }
+  inspect(generic.get_byte(0UL, 0UL, 3UL).unwrap() == b'\xa7', content="true")
+}
+
 ///|
 test "PNG public probe matrix is caller-owned and bounded" {
   let decoder = PngDecoder::new()
