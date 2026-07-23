@@ -121,6 +121,30 @@ pub fn PngChunkDecoder::new_graya16(
   }
 }
 
+///| Constructs the explicit Type-6/16 preservation route for caller-owned
+/// chunks. Completion, accounting, and terminal behavior remain owned by the
+/// shared chunk machine.
+pub fn PngChunkDecoder::new_rgba16(
+  limits : @codec.CodecLimits,
+  budget : @budget.Budget,
+  diagnostics : @error.Diagnostics,
+) -> PngChunkDecoder {
+  {
+    limits,
+    _diagnostics: diagnostics,
+    state: PngChunkDecoderState::Active(PngDecodeMachine::new_with_profile(
+      PngDecodeProfile::Rgba16,
+      @codec.DecodeOptions::new(
+        require_complete_input=true,
+        preserve_opaque_metadata=false,
+      ),
+      limits,
+      budget,
+    )),
+    consumed_total: 0UL,
+  }
+}
+
 ///|
 /// A PNG-specific compression selection for the strict RGB8 and straight-RGBA8 profile.
 /// `Stored` and `FixedOrStored` are frozen compatibility routes. `DynamicOrFixedOrStored`
