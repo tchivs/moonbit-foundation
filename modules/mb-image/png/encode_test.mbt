@@ -995,6 +995,58 @@ test "PNG Indexed2 eager packs an odd transparent row and decodes palette RGBA8"
   inspect(view.get_byte(4UL, 0UL, 3UL).unwrap() == b'\x00', content="true")
 }
 
+///|
+test "PNG Indexed1 and Indexed4 eager rows are independently MSB-first and zero-tailed" {
+  let one = PngIndexedImage::new(
+    9UL, 1UL, b"\x00\x01\x00\x01\x00\x01\x00\x01\x01",
+    b"\x12\x34\x56\xa0\xb0\xc0", b"\xff\xff", png_encode_budget(),
+  ).unwrap()
+  let one_writer = @io.MemoryWriter::new(128UL, png_encode_budget(bytes=128UL, work=0UL)).unwrap()
+  ignore(PngEncoder::encode_indexed(
+    PngEncoder::new(), one, PngIndexedBitDepth::One, one_writer as &@io.Writer,
+    png_encode_limits(), png_encode_budget(), @error.Diagnostics::new(),
+  ).unwrap())
+  let one_bytes = png_encode_prefix(one_writer)
+  inspect(one_bytes[24] == b'\x01' && one_bytes[25] == b'\x03', content="true")
+  inspect(png_indexed_slice(one_bytes, 59, 10) == b"\x78\x01\x01\x03\x00\xfc\xff\x00\x55\x80", content="true")
+  let one_owned = @bytes.OwnedBytes::from_bytes(one_bytes, png_encode_budget(bytes=128UL, work=0UL)).unwrap()
+  let one_view = @codec.ImageDecoder::decode(
+    PngDecoder::new(), @io.MemoryReader::new(one_owned.view()) as &@io.Reader,
+    @codec.DecodeOptions::new(require_complete_input=true, preserve_opaque_metadata=false),
+    png_encode_limits(), png_encode_budget(), @error.Diagnostics::new(),
+  ).unwrap().image().view()
+  inspect(one_view.format().channels() == @model.ChannelOrder::Rgb, content="true")
+  inspect(one_view.get_byte(8UL, 0UL, 0UL).unwrap() == b'\xa0', content="true")
+
+  let palette : Array[Byte] = []
+  let alpha : Array[Byte] = []
+  for entry = 0; entry < 16; entry = entry + 1 {
+    palette.push(entry.to_byte())
+    palette.push((entry + 1).to_byte())
+    palette.push((entry + 2).to_byte())
+    alpha.push(b'\xff')
+  }
+  let four = PngIndexedImage::new(
+    3UL, 1UL, b"\x00\x01\x02", Bytes::from_array(palette), Bytes::from_array(alpha), png_encode_budget(),
+  ).unwrap()
+  let four_writer = @io.MemoryWriter::new(256UL, png_encode_budget(bytes=256UL, work=0UL)).unwrap()
+  ignore(PngEncoder::encode_indexed(
+    PngEncoder::new(), four, PngIndexedBitDepth::Four, four_writer as &@io.Writer,
+    png_encode_limits(), png_encode_budget(), @error.Diagnostics::new(),
+  ).unwrap())
+  let four_bytes = png_encode_prefix(four_writer)
+  inspect(four_bytes[24] == b'\x04' && four_bytes[25] == b'\x03', content="true")
+  inspect(png_indexed_slice(four_bytes, 101, 10) == b"\x78\x01\x01\x03\x00\xfc\xff\x00\x01\x20", content="true")
+  let four_owned = @bytes.OwnedBytes::from_bytes(four_bytes, png_encode_budget(bytes=256UL, work=0UL)).unwrap()
+  let four_view = @codec.ImageDecoder::decode(
+    PngDecoder::new(), @io.MemoryReader::new(four_owned.view()) as &@io.Reader,
+    @codec.DecodeOptions::new(require_complete_input=true, preserve_opaque_metadata=false),
+    png_encode_limits(), png_encode_budget(), @error.Diagnostics::new(),
+  ).unwrap().image().view()
+  inspect(four_view.format().channels() == @model.ChannelOrder::Rgb, content="true")
+  inspect(four_view.get_byte(2UL, 0UL, 0UL).unwrap() == b'\x02', content="true")
+}
+
 ///| A test-local CRC-32 oracle; it intentionally does not call PNG helpers.
 fn png_indexed_crc32(value : Bytes, start : Int, length : Int) -> UInt64 {
   let mut crc = 4294967295UL
