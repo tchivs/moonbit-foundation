@@ -4912,6 +4912,75 @@ fn png_stream_indexed_eager(source : PngIndexedImage) -> Bytes {
   Bytes::from_array(output)
 }
 
+///| The public eager selected-depth route is the byte-for-byte oracle for
+///| caller-buffered low-bit indexed output.
+fn png_stream_indexed_low_bit_eager(
+  source : PngIndexedImage,
+  bit_depth : PngIndexedBitDepth,
+) -> Bytes {
+  let writer = @io.MemoryWriter::new(
+    1048576UL, png_stream_test_budget(work=0UL),
+  ).unwrap()
+  ignore(PngEncoder::encode_indexed(
+    PngEncoder::new(), source, bit_depth, writer as &@io.Writer,
+    png_stream_test_limits(), png_stream_test_budget(), @error.Diagnostics::new(),
+  ).unwrap())
+  let output : Array[Byte] = []
+  for index = 0UL; index < writer.position(); index = index + 1UL {
+    output.push(writer.view().get(index).unwrap())
+  }
+  Bytes::from_array(output)
+}
+
+///| The selected-depth chunk route starts with a Type-3/2 tracer so its public
+///| lease lifecycle is proven against the already-qualified eager oracle.
+test "PNG Indexed2 chunk tracer retains eager bytes" {
+  let source = PngIndexedImage::new(
+    5UL, 1UL, b"\x00\x01\x02\x03\x00",
+    b"\x12\x34\x56\xa0\xb0\xc0\x11\x22\x33\x44\x55\x66",
+    b"\x00\xff\x80\xff", png_stream_test_budget(),
+  ).unwrap()
+  let expected = png_stream_indexed_low_bit_eager(source, PngIndexedBitDepth::Two)
+  let encoder = PngChunkEncoder::new_indexed(
+    source, PngIndexedBitDepth::Two, png_stream_test_limits(),
+    png_stream_test_budget(), @error.Diagnostics::new(),
+  ).unwrap()
+  let empty = png_chunk_test_owner(1UL, fill=b'Z')
+  let zero = empty.with_mut(0UL, 0UL, fn(lease) { Ok(encoder.pull(lease)) }).unwrap()
+  if zero.written() != 0UL || zero.total_written() != 0UL ||
+    !(zero.outcome() is PngChunkPullOutcome::NeedOutput) ||
+    empty.view().get(0UL).unwrap() != b'Z' {
+    abort("png indexed2 chunk zero lease")
+  }
+  let output : Array[Byte] = []
+  let schedule = [1UL, 3UL, 2UL, 5UL]
+  let mut turn = 0UL
+  while turn < 4096UL {
+    let capacity = schedule[(turn % schedule.length().to_uint64()).to_int()]
+    let owner = png_chunk_test_owner(capacity, fill=b'Z')
+    let before = output.length().to_uint64()
+    let pulled = owner.with_mut(0UL, capacity, fn(lease) { Ok(encoder.pull(lease)) }).unwrap()
+    if pulled.written() > capacity || pulled.total_written() != before + pulled.written() {
+      abort("png indexed2 chunk accepted-only progress")
+    }
+    for index = 0UL; index < pulled.written(); index = index + 1UL {
+      output.push(owner.view().get(index).unwrap())
+    }
+    for index = pulled.written(); index < capacity; index = index + 1UL {
+      if owner.view().get(index).unwrap() != b'Z' { abort("png indexed2 chunk tail") }
+    }
+    match pulled.outcome() {
+      PngChunkPullOutcome::NeedOutput => turn = turn + 1UL
+      PngChunkPullOutcome::Finished => {
+        if Bytes::from_array(output) != expected { abort("png indexed2 chunk eager parity") }
+        return ()
+      }
+      PngChunkPullOutcome::Failed(_) => abort("png indexed2 chunk tracer failed")
+    }
+  }
+  abort("png indexed2 chunk tracer unreachable")
+}
+
 ///| The first Indexed8 streaming tracer uses a transparent palette and ragged
 /// caller-owned leases, including an initial zero-capacity lease.
 test "PNG Indexed8 chunk transparent tracer retains eager bytes" {
