@@ -801,8 +801,8 @@ fn png_rgba16_chunk_schedule(
 /// profile while generic Type-6/16 chunk decoding remains high-byte RGBA8.
 test "PNG rgba16 chunk schedules match eager preservation" {
   for item in [
-    ("default", png_test_rgba16_literal(), png_test_limits()),
-    ("adam7", png_test_rgba16_adam7_literal(), png_test_graya16_adam7_limits()),
+    ("all-filters", png_test_rgba16_filters_literal(), png_test_rgba16_qualification_limits()),
+    ("all-passes", png_test_rgba16_qualification_adam7_literal(), png_test_rgba16_qualification_limits()),
   ] {
     let (id, source, limits) = item
     for schedule in [("one-byte", [1UL]), ("ragged", [8UL, 4UL, 1UL, 13UL, 2UL, 5UL, 3UL, 21UL])] {
@@ -834,22 +834,36 @@ test "PNG rgba16 chunk schedules match eager preservation" {
     }
   }
 
-  let generic = PngChunkDecoder::new(
-    png_test_limits(),
-    @budget.Budget::new(@budget.ResourceLimits::new(
-      bytes=256UL, allocations=4UL, allocation_size=128UL, width=4UL,
-      height=4UL, pixels=16UL, depth=0UL, work=256UL,
-    )),
-    @error.Diagnostics::new(),
-  )
-  let generic_source = png_chunk_source(png_test_rgba16_literal())
-  let generic_push = generic.push(generic_source.view())
-  inspect(generic_push.consumed() == generic_source.length(), content="true")
-  inspect(generic_push.outcome() is PngChunkPushOutcome::NeedInput, content="true")
-  let generic_image = generic.finish().unwrap().image().view()
-  for expected in [(0UL, b'\x12'), (1UL, b'V'), (2UL, b'\x9a'), (3UL, b'\xde')] {
-    let (channel, value) = expected
-    inspect(generic_image.get_byte(0UL, 0UL, channel).unwrap() == value, content="true")
+  for item in [
+    ("all-filters", png_test_rgba16_filters_literal(), png_test_rgba16_filters_expected(), 2UL, 5UL),
+    ("all-passes", png_test_rgba16_qualification_adam7_literal(), png_test_rgba16_qualification_adam7_expected(), 5UL, 5UL),
+  ] {
+    let (id, source, expected, width, height) = item
+    let generic = PngChunkDecoder::new(
+      png_test_rgba16_qualification_limits(),
+      @budget.Budget::new(@budget.ResourceLimits::new(
+        bytes=4096UL, allocations=8UL, allocation_size=1024UL, width=8UL,
+        height=8UL, pixels=64UL, depth=0UL, work=4096UL,
+      )),
+      @error.Diagnostics::new(),
+    )
+    let empty = png_chunk_source(b"")
+    inspect(generic.push(empty.view()).consumed() == 0UL, content="true")
+    let generic_source = png_chunk_source(source)
+    let generic_push = generic.push(generic_source.view())
+    inspect(generic_push.consumed() == generic_source.length(), content="true")
+    inspect(generic_push.outcome() is PngChunkPushOutcome::NeedInput, content="true")
+    let generic_image = generic.finish().unwrap().image().view()
+    for y = 0UL; y < height; y = y + 1UL {
+      for x = 0UL; x < width; x = x + 1UL {
+        let offset = (y * width + x) * 8UL
+        for channel = 0UL; channel < 4UL; channel = channel + 1UL {
+          if generic_image.get_byte(x, y, channel).unwrap() != expected.get((offset + channel * 2UL + 1UL).to_int()).unwrap() {
+            abort("PNG " + id + " generic chunk high-byte mismatch")
+          }
+        }
+      }
+    }
   }
 }
 
@@ -866,14 +880,50 @@ fn png_rgba16_rejected_metadata_literal() -> Bytes {
 /// streams retain accepted-only progress and their first typed terminal.
 test "PNG rgba16 chunk terminals retain atomic sticky compatibility" {
   let early = PngChunkDecoder::new_rgba16(
-    png_test_limits(),
+    png_test_rgba16_qualification_limits(),
     @budget.Budget::new(@budget.ResourceLimits::new(
-      bytes=256UL, allocations=8UL, allocation_size=128UL, width=4UL,
-      height=4UL, pixels=16UL, depth=0UL, work=256UL,
+      bytes=4096UL, allocations=8UL, allocation_size=1024UL, width=8UL,
+      height=8UL, pixels=64UL, depth=0UL, work=4096UL,
     )),
     @error.Diagnostics::new(),
   )
-  let legal = png_test_rgba16_literal()
+  let legal = png_test_rgba16_filters_literal()
+  let eager_partial = png_rgba16_chunk_eager(
+    png_chunk_bytes(legal, 0, 40), png_test_rgba16_qualification_limits(),
+    @budget.Budget::new(@budget.ResourceLimits::new(
+      bytes=4096UL, allocations=8UL, allocation_size=1024UL, width=8UL,
+      height=8UL, pixels=64UL, depth=0UL, work=4096UL,
+    )), @error.Diagnostics::new(),
+  ).unwrap_err()
+  inspect(eager_partial.code() == @error.ErrorCode::UnexpectedEndOfStream, content="true")
+  let eager_malformed = png_rgba16_chunk_eager(
+    b"X", png_test_rgba16_qualification_limits(),
+    @budget.Budget::new(@budget.ResourceLimits::new(
+      bytes=4096UL, allocations=8UL, allocation_size=1024UL, width=8UL,
+      height=8UL, pixels=64UL, depth=0UL, work=4096UL,
+    )), @error.Diagnostics::new(),
+  ).unwrap_err()
+  inspect(eager_malformed.code() == @error.ErrorCode::InvalidEncoding, content="true")
+  let eager_metadata = png_rgba16_chunk_eager(
+    png_rgba16_rejected_metadata_literal(), png_test_rgba16_qualification_limits(),
+    @budget.Budget::new(@budget.ResourceLimits::new(
+      bytes=4096UL, allocations=8UL, allocation_size=1024UL, width=8UL,
+      height=8UL, pixels=64UL, depth=0UL, work=4096UL,
+    )), @error.Diagnostics::new(),
+  ).unwrap_err()
+  inspect(eager_metadata.context() == Some("rgba16-profile"), content="true")
+  let eager_one_less = png_rgba16_chunk_eager(
+    legal,
+    @codec.CodecLimits::new(
+      max_probe_bytes=8UL, max_input_bytes=1024UL, max_output_bytes=79UL,
+      max_width=8UL, max_height=8UL, max_pixels=64UL, max_work=4096UL,
+    ),
+    @budget.Budget::new(@budget.ResourceLimits::new(
+      bytes=4096UL, allocations=8UL, allocation_size=1024UL, width=8UL,
+      height=8UL, pixels=64UL, depth=0UL, work=4096UL,
+    )), @error.Diagnostics::new(),
+  ).unwrap_err()
+  inspect(eager_one_less.context() == Some("output-bytes"), content="true")
   let partial = png_chunk_source(png_chunk_bytes(legal, 0, 40))
   let partial_push = early.push(partial.view())
   inspect(partial_push.consumed() == 40UL, content="true")
@@ -919,12 +969,12 @@ test "PNG rgba16 chunk terminals retain atomic sticky compatibility" {
 
   let limited = PngChunkDecoder::new_rgba16(
     @codec.CodecLimits::new(
-      max_probe_bytes=8UL, max_input_bytes=128UL, max_output_bytes=15UL,
-      max_width=4UL, max_height=4UL, max_pixels=16UL, max_work=128UL,
+      max_probe_bytes=8UL, max_input_bytes=1024UL, max_output_bytes=79UL,
+      max_width=8UL, max_height=8UL, max_pixels=64UL, max_work=4096UL,
     ),
     @budget.Budget::new(@budget.ResourceLimits::new(
-      bytes=256UL, allocations=8UL, allocation_size=128UL, width=4UL,
-      height=4UL, pixels=16UL, depth=0UL, work=256UL,
+      bytes=4096UL, allocations=8UL, allocation_size=1024UL, width=8UL,
+      height=8UL, pixels=64UL, depth=0UL, work=4096UL,
     )),
     @error.Diagnostics::new(),
   )
