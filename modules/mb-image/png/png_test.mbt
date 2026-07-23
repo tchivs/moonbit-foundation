@@ -23,6 +23,78 @@ fn png_test_graya16_srgb_literal() -> Bytes {
   b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x02\x00\x00\x00\x01\x10\x04\x00\x00\x00\x0e\xbbkB\x00\x00\x00\x01sRGB\x00\xae\xce\x1c\xe9\x00\x00\x00\x14IDATx\x01\x01\x09\x00\xf6\xff\x00\x124\xa7\xc5\xbe\x0fZv\x0e\x17\x03Pk\x88\xb2u\x00\x00\x00\x00IEND\xaeB`\x82"
 }
 
+///| A fixed, independent 5x5 Type-4/16 Adam7 stream.  Each of the seven
+/// passes is nonempty; component bytes vary by coordinate so the oracle sees
+/// both the interlace scatter and little-endian U16 storage order.
+fn png_test_graya16_adam7_literal() -> Bytes {
+  b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x05\x00\x00\x00\x05\x10\x04\x00\x00\x01\x00\xf1\x02\xbb\x00\x00\x00zIDATx\x01\x01o\x00\x90\xff\x00\x113Uw\x00Q3Yw\x00\x11sY\xb7Qs]\xb7\x0013Ww\x001s[\xb7\x00\x11SW\x971SY\x97QS[\x97\x00!3Vw\x00A3Xw\x00!SX\x97ASZ\x97\x00!sZ\xb7\x00As\\\xb7\x00\x11CV\x87!CW\x871CX\x87ACY\x87QCZ\x87\x00\x11cX\xa7!cY\xa71cZ\xa7Ac[\xa7Qc\\\xa7s\xc7$U \x8d%`\x00\x00\x00\x00IEND\xaeB`\x82"
+}
+
+///| The Adam7 fixture needs a larger geometry ceiling than the two-pixel
+/// Phase 62 literal, while retaining the same bounded public decode contract.
+fn png_test_graya16_adam7_limits() -> @codec.CodecLimits {
+  @codec.CodecLimits::new(
+    max_probe_bytes=8UL, max_input_bytes=256UL, max_output_bytes=128UL,
+    max_width=8UL, max_height=8UL, max_pixels=64UL, max_work=512UL,
+  )
+}
+
+///| The independent all-pass wire literal must reach the explicit profile and
+/// retain every PNG MSB-first source component as little-endian Glo,Ghi,Alo,Ahi.
+test "PNG explicit graya16 preserves every Adam7 Type-4/16 component byte" {
+  let source = png_test_graya16_adam7_literal()
+  let owner = @bytes.OwnedBytes::from_bytes(
+    source,
+    @budget.Budget::new(@budget.ResourceLimits::new(
+      bytes=source.length().to_uint64(), allocations=1UL,
+      allocation_size=source.length().to_uint64(), width=0UL, height=0UL,
+      pixels=0UL, depth=0UL, work=0UL,
+    )),
+  ).unwrap()
+  let explicit = PngDecoder::decode_graya16(
+    @io.MemoryReader::new(owner.view()) as &@io.Reader,
+    @codec.DecodeOptions::new(require_complete_input=true, preserve_opaque_metadata=false),
+    png_test_graya16_adam7_limits(),
+    @budget.Budget::new(@budget.ResourceLimits::new(
+      bytes=512UL, allocations=4UL, allocation_size=128UL, width=8UL,
+      height=8UL, pixels=64UL, depth=0UL, work=512UL,
+    )),
+    @error.Diagnostics::new(),
+  ).unwrap().image().view()
+  let expected = b"\x33\x11wU\x33!wV\x331wW\x33AwX\x33QwY\x43\x11\x87V\x43!\x87W\x431\x87X\x43A\x87Y\x43Q\x87Z\x53\x11\x97W\x53!\x97X\x531\x97Y\x53A\x97Z\x53Q\x97[\x63\x11\xa7X\x63!\xa7Y\x631\xa7Z\x63A\xa7[\x63Q\xa7\\\x73\x11\xb7Y\x73!\xb7Z\x731\xb7[\x73A\xb7\\\x73Q\xb7]"
+  for y = 0UL; y < 5UL; y = y + 1UL {
+    for x = 0UL; x < 5UL; x = x + 1UL {
+      let offset = (y * 5UL + x) * 4UL
+      for component = 0UL; component < 4UL; component = component + 1UL {
+        inspect(
+          explicit.get_component_byte(x, y, component / 2UL, component % 2UL).unwrap() ==
+            expected.get((offset + component).to_int()).unwrap(),
+          content="true",
+        )
+      }
+    }
+  }
+  let generic = @codec.ImageDecoder::decode(
+    PngDecoder::new(), @io.MemoryReader::new(owner.view()) as &@io.Reader,
+    @codec.DecodeOptions::new(require_complete_input=true, preserve_opaque_metadata=false),
+    png_test_graya16_adam7_limits(),
+    @budget.Budget::new(@budget.ResourceLimits::new(
+      bytes=512UL, allocations=4UL, allocation_size=128UL, width=8UL,
+      height=8UL, pixels=64UL, depth=0UL, work=512UL,
+    )),
+    @error.Diagnostics::new(),
+  ).unwrap().image().view()
+  for y = 0UL; y < 5UL; y = y + 1UL {
+    for x = 0UL; x < 5UL; x = x + 1UL {
+      let offset = (y * 5UL + x) * 4UL
+      for channel = 0UL; channel < 3UL; channel = channel + 1UL {
+        inspect(generic.get_byte(x, y, channel).unwrap() == expected.get((offset + 1UL).to_int()).unwrap(), content="true")
+      }
+      inspect(generic.get_byte(x, y, 3UL).unwrap() == expected.get((offset + 3UL).to_int()).unwrap(), content="true")
+    }
+  }
+}
+
 ///|
 test "PNG explicit graya16 preserves Type-4/16 source lanes without changing generic RGBA8" {
   let source = png_test_graya16_literal()

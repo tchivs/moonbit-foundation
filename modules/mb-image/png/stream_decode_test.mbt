@@ -563,6 +563,7 @@ test "PNG graya16 chunk schedules match eager preservation" {
   for item in [
     ("default", png_test_graya16_literal()),
     ("srgb", png_test_graya16_srgb_literal()),
+    ("adam7", png_test_graya16_adam7_literal()),
   ] {
     let (id, source) = item
     png_graya16_chunk_schedule_matches_eager(

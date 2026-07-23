@@ -280,10 +280,6 @@ test "PNG graya16 profile rejects incompatible first-IDAT facts atomically" {
   _png_graya16_accept_signature_and_ihdr(wrong_colour, b'\x10', b'\x00', b'\x00')
   _png_assert_graya16_profile_error(wrong_colour)
 
-  let interlaced = _png_graya16_machine_for_test()
-  _png_graya16_accept_signature_and_ihdr(interlaced, b'\x10', b'\x04', b'\x01')
-  _png_assert_graya16_profile_error(interlaced)
-
   let legacy = _png_graya16_machine_for_test()
   _png_graya16_accept_signature_and_ihdr(legacy, b'\x10', b'\x04', b'\x00')
   _png_machine_accept_chunk(legacy, [b'g', b'A', b'M', b'A'], [b'\x00', b'\x01', b'\x86', b'\xa0']).unwrap()
@@ -320,6 +316,14 @@ test "PNG graya16 profile admits default and sRGB Type-4/16 before raster bytes"
   }
   inspect(srgb_profile.has_private_lifecycle(), content="true")
   inspect(srgb_profile.private_lifecycle_allocations() == 1UL, content="true")
+
+  let adam7_profile = _png_graya16_machine_for_test()
+  _png_graya16_accept_signature_and_ihdr(adam7_profile, b'\x10', b'\x04', b'\x01')
+  for byte in [b'\x00', b'\x00', b'\x00', b'\x00', b'I', b'D', b'A', b'T'] {
+    adam7_profile.accept(byte).unwrap()
+  }
+  inspect(adam7_profile.has_private_lifecycle(), content="true")
+  inspect(adam7_profile.private_lifecycle_allocations() == 1UL, content="true")
 }
 
 ///| Every retained profile fact crosses the same one-byte framing boundary.
