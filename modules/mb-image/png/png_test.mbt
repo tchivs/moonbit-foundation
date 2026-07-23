@@ -11,6 +11,103 @@ fn png_test_limits() -> @codec.CodecLimits {
   )
 }
 
+///| Hand-authored Type-0/1 PNG, including Stored-DEFLATE framing and CRCs.
+///| Its single filtered scanline is `00 55 80`; it is not produced by PngEncoder.
+fn png_test_gray1_qualification_literal() -> Bytes {
+  b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x09\x00\x00\x00\x01\x01\x00\x00\x00\x00\x24\xb9\xb9\xd0\x00\x00\x00\x0eIDATx\x01\x01\x03\x00\xfc\xff\x00\x55\x80\x01\x2d\x00\xd6\xd5\x7a\x87\xd0\x00\x00\x00\x00IEND\xae\x42\x60\x82"
+}
+
+///| Hand-authored Type-0/2 PNG, including Stored-DEFLATE framing and CRCs.
+///| Its single filtered scanline is `00 1b 00`; it is not produced by PngEncoder.
+fn png_test_gray2_qualification_literal() -> Bytes {
+  b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x05\x00\x00\x00\x01\x02\x00\x00\x00\x00\x79\x25\x23\x8e\x00\x00\x00\x0eIDATx\x01\x01\x03\x00\xfc\xff\x00\x1b\x00\x00\x39\x00\x1c\x89\xec\x1b\x39\x00\x00\x00\x00IEND\xae\x42\x60\x82"
+}
+
+///| Hand-authored Type-0/4 PNG, including Stored-DEFLATE framing and CRCs.
+///| Its single filtered scanline is `00 0f 10`; it is not produced by PngEncoder.
+fn png_test_gray4_qualification_literal() -> Bytes {
+  b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x03\x00\x00\x00\x01\x04\x00\x00\x00\x00\xfb\x7b\xa6\x69\x00\x00\x00\x0eIDATx\x01\x01\x03\x00\xfc\xff\x00\x0f\x10\x00\x31\x00\x20\x50\x37\xe1\x09\x00\x00\x00\x00IEND\xae\x42\x60\x82"
+}
+
+///| Independent canonical RGB8 gray levels corresponding to the three
+///| packed literals above, ordered left-to-right and never derived from decode.
+fn png_test_gray1_qualification_expected() -> Bytes { b"\x00\xff\x00\xff\x00\xff\x00\xff\xff" }
+fn png_test_gray2_qualification_expected() -> Bytes { b"\x00\x55\xaa\xff\x00" }
+fn png_test_gray4_qualification_expected() -> Bytes { b"\x00\xff\x11" }
+
+///| The Gray1 vector is nine pixels wide, so its public decode proof needs a
+///| bounded limit above the older eight-pixel qualification corpus.
+fn png_test_packed_gray_qualification_limits() -> @codec.CodecLimits {
+  @codec.CodecLimits::new(
+    max_probe_bytes=8UL, max_input_bytes=1024UL, max_output_bytes=1024UL,
+    max_width=16UL, max_height=4UL, max_pixels=64UL, max_work=4096UL,
+  )
+}
+
+///| Static packed Type-0 inputs cross the public generic RGB8 decoder before
+///| the matching public eager selector is compared to the same external wire.
+test "PNG packed grayscale public qualification literals decode and freeze eager wire" {
+  for vector in [
+    (1UL, 9UL, png_test_gray1_qualification_literal(), png_test_gray1_qualification_expected()),
+    (2UL, 5UL, png_test_gray2_qualification_literal(), png_test_gray2_qualification_expected()),
+    (4UL, 3UL, png_test_gray4_qualification_literal(), png_test_gray4_qualification_expected()),
+  ] {
+    let (depth, width, literal, expected) = vector
+    let owner = @bytes.OwnedBytes::from_bytes(literal, @budget.Budget::new(@budget.ResourceLimits::new(
+      bytes=literal.length().to_uint64(), allocations=1UL,
+      allocation_size=literal.length().to_uint64(), width=0UL, height=0UL,
+      pixels=0UL, depth=0UL, work=0UL,
+    ))).unwrap()
+    let reader = @io.MemoryReader::new(owner.view())
+    let result = match @codec.ImageDecoder::decode(
+      PngDecoder::new(), reader as &@io.Reader,
+      @codec.DecodeOptions::new(require_complete_input=true, preserve_opaque_metadata=false),
+      png_test_packed_gray_qualification_limits(), @budget.Budget::new(@budget.ResourceLimits::new(
+        bytes=4096UL, allocations=8UL, allocation_size=1024UL, width=16UL,
+        height=4UL, pixels=64UL, depth=0UL, work=4096UL,
+      )), @error.Diagnostics::new(),
+    ) {
+      Ok(decoded) => decoded
+      Err(_error) => {
+        abort("packed gray literal decode failed")
+      }
+    }
+    inspect(result.bytes_read() == literal.length().to_uint64(), content="true")
+    let decoded = result.image().view()
+    inspect(
+      decoded.width() == width && decoded.height() == 1UL &&
+        decoded.format().component() == @model.ComponentType::U8 &&
+        decoded.format().channels() == @model.ChannelOrder::Rgb &&
+        decoded.format().channel_count() == 3UL &&
+        result.image().metadata().alpha() == None,
+      content="true",
+    )
+    for x = 0UL; x < width; x = x + 1UL {
+      let gray = expected.get(x.to_int()).unwrap()
+      for channel = 0UL; channel < 3UL; channel = channel + 1UL {
+        inspect(decoded.get_byte(x, 0UL, channel).unwrap() == gray, content="true")
+      }
+    }
+    let source = png_encode_gray8_image(expected, width=width)
+    let encoder = if depth == 1UL { PngEncoder::new_gray1() }
+      else if depth == 2UL { PngEncoder::new_gray2() }
+      else { PngEncoder::new_gray4() }
+    let writer = @io.MemoryWriter::new(512UL, png_encode_budget(bytes=512UL, work=0UL)).unwrap()
+    match @codec.ImageEncoder::encode(
+      encoder, source.view(), writer as &@io.Writer,
+      @codec.EncodeOptions::new(lossless_required=true, preserve_opaque_metadata=false),
+      png_encode_limits(), png_encode_budget(), @error.Diagnostics::new(),
+    ) {
+      Ok(_) => ()
+      Err(error) => {
+        println("packed gray literal encode: " + error.context().unwrap_or("no context"))
+        abort("packed gray literal encode failed")
+      }
+    }
+    inspect(png_encode_prefix(writer) == literal, content="true")
+  }
+}
+
 ///| A hand-authored Type-4/16 PNG: each pixel has distinct high and low
 /// component bytes so the decoder oracle detects both truncation and swaps.
 fn png_test_graya16_literal() -> Bytes {
