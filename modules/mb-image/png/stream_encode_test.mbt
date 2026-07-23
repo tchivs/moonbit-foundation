@@ -3926,3 +3926,20 @@ test "PNG GrayAlpha16 Adam7 public hostile schedules" {
     }
   }
 }
+
+///| One public Adaptive/Fixed GrayAlpha8 Adam7 selector preserves caller
+/// ownership through direct zero-capacity, one-byte, and ragged leases.
+test "PNG GrayAlpha8 Adam7 public hostile tracer" {
+  png_graya8_adam7_chunk_drain(
+    png_stream_graya8_adam7_image(), PngCompressionStrategy::FixedOrStored,
+    PngFilterStrategy::Adaptive, [0UL, 1UL],
+  )
+  png_graya8_adam7_chunk_drain(
+    png_stream_graya8_adam7_image(), PngCompressionStrategy::FixedOrStored,
+    PngFilterStrategy::Adaptive, [1UL],
+  )
+  png_graya8_adam7_chunk_drain(
+    png_stream_graya8_adam7_image(), PngCompressionStrategy::FixedOrStored,
+    PngFilterStrategy::Adaptive, [0UL, 8UL, 4UL, 1UL, 13UL, 2UL, 5UL, 3UL, 21UL],
+  )
+}
