@@ -1318,6 +1318,40 @@ test "PNG GrayAlpha8 Adam7 eager pass profile" {
   }
 }
 
+///| Each legal GrayAlpha8 Adam7 all-strategy selection must keep the public
+/// Type-4/8 Adam7 identity supplied by the shared profile-aware encoder.
+fn png_encode_graya8_adam7_eager_strategy(
+  strategy : PngCompressionStrategy,
+  filter_strategy : PngFilterStrategy,
+) -> Unit {
+  let (_, writer) = png_adam7_encode_with(
+    PngEncoder::new_graya8_with_all_strategies(
+      strategy, filter_strategy, PngInterlaceStrategy::Adam7,
+    ),
+    png_encode_graya8_adam7_image(),
+  )
+  let bytes = png_encode_prefix(writer)
+  if bytes[0] != b'\x89' || bytes[24] != b'\x08' || bytes[25] != b'\x04' ||
+    bytes[26] != b'\x00' || bytes[27] != b'\x00' || bytes[28] != b'\x01' ||
+    bytes[bytes.length() - 1] != b'\x82' {
+    abort("png graya8 adam7 eager strategy framing")
+  }
+}
+
+///| Every public compression/filter pair reaches the same GrayAlpha8 Adam7
+/// profile, while Stored/None keeps its independent pass-raster proof above.
+test "PNG GrayAlpha8 Adam7 eager all strategy framing" {
+  for strategy in [
+    PngCompressionStrategy::Stored,
+    PngCompressionStrategy::FixedOrStored,
+    PngCompressionStrategy::DynamicOrFixedOrStored,
+  ] {
+    for filter_strategy in [PngFilterStrategy::None, PngFilterStrategy::Adaptive] {
+      png_encode_graya8_adam7_eager_strategy(strategy, filter_strategy)
+    }
+  }
+}
+
 ///| A public Stored/None Adam7 PNG exposes the complete Type-4/16 pass raster
 /// and decodes only through the documented straight-RGBA8 high-byte boundary.
 test "PNG GrayAlpha16 Adam7 public wire and decode" {
