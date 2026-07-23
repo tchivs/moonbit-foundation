@@ -12,7 +12,7 @@
 
 ### Portable fidelity evidence
 
-- [ ] **GRA16DEC-03**: Public independent Type-4/16 wire/decode vectors, filters and Adam7 coverage, adversarial resource/metadata rejection, frozen legacy RGBA8 behavior, and the full PNG package pass on wasm, wasm-gc, js, and native.
+- [x] **GRA16DEC-03**: Public independent Type-4/16 wire/decode vectors, filters and Adam7 coverage, adversarial resource/metadata rejection, frozen legacy RGBA8 behavior, and the full PNG package pass on wasm, wasm-gc, js, and native.
 
 ## Future Requirements
 
