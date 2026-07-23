@@ -52,6 +52,8 @@ Phase 59 already supplies the correct non-symmetric 5×5 GrayAlpha8 Adam7 source
 
 The closest caller-buffered precedent is `png_graya16_adam7_chunk_drain`. It starts with a sentinel-backed zero-length lease, constructs a fresh public encoder for every schedule, appends only `written()` bytes, validates `total_written == previously_accepted + written`, checks every unaccepted lease byte remains `Z`, compares the completed stream with a fresh eager peer, and makes a later sentinel pull prove sticky `Finished`. Copy that local shape for `PngChunkEncoder::new_graya8_with_all_strategies` across the existing six compression/filter pairs and the locked zero/one/ragged schedules. [VERIFIED: codebase; VERIFIED: Phase 52 verification]
 
+The approved eager and chunk frozen matrices do **not** currently contain a GrayAlpha16 non-interlaced literal; their GrayAlpha16 tests only assert selected framing/raster byte positions or eager/chunk parity. Phase 61 must therefore add the same precomputed 77-byte `Stored × None` PNG literal to both matrices, sourced from the existing two-pixel fixture and independently bounded checksum calculation below—not from a call to the encoder under test. [VERIFIED: codebase; VERIFIED: bounded measurement]
+
 **Primary recommendation:** make two test-only edits—one eager wire/public-decode test and one GrayAlpha8 Adam7 hostile-schedule helper/test—then retain the existing literal compatibility matrices and run `moon -C modules/mb-image test png --target all --frozen`. [VERIFIED: codebase; VERIFIED: local CLI]
 
 ## Architectural Responsibility Map
@@ -165,7 +167,9 @@ for index = pulled.written(); index < capacity; index = index + 1UL {
 
 ### Pattern 3: Retain frozen compatibility literals in place
 
-**What:** Keep the literal eager and chunk vector matrices in `PNG filter strategy eager frozen compatibility vectors` and `PNG filter strategy chunk frozen compatibility vectors`. They already cover non-interlaced Gray8, Gray16, GrayAlpha8, RGB8, and straight-RGBA8; add GrayAlpha16 literal assertions only if the existing matrix lacks the required frozen route, without rewriting unrelated vector construction. [VERIFIED: codebase; VERIFIED: CONTEXT.md]
+**What:** Keep the literal eager and chunk vector matrices in `PNG filter strategy eager frozen compatibility vectors` and `PNG filter strategy chunk frozen compatibility vectors`. They cover non-interlaced Gray8, Gray16, GrayAlpha8, RGB8, and straight-RGBA8, but not GrayAlpha16. Add the exact `graya16_stored` literal below after each `gray16_stored` declaration, then assert the default and configured `PngEncoder::new_graya16*` / `PngChunkEncoder::new_graya16*` Stored/None paths equal it and retain `bytes[28] == b'\x00'`. [VERIFIED: codebase; VERIFIED: bounded measurement]
+
+**Assertion path:** eager matrix at `modules/mb-image/png/encode_test.mbt:1035` and chunk matrix at `modules/mb-image/png/stream_encode_test.mbt:1698`. Both must hold the same literal; neither may obtain expected bytes from `png_encode_with`, `png_stream_graya16_eager_with_strategies`, or a chunk drain. [VERIFIED: codebase; VERIFIED: bounded measurement]
 
 **When to use:** Run these existing named tests as focused regression checks and as part of the full package gate. [VERIFIED: codebase]
 
@@ -211,7 +215,7 @@ for index = pulled.written(); index < capacity; index = index + 1UL {
 
 **What goes wrong:** Current output used as expected data turns a byte regression into an accepted baseline. [VERIFIED: AGENTS.md]
 
-**How to avoid:** Keep literal byte constants in both existing eager/chunk matrices; include the required GrayAlpha16 literal in the same local matrices if it is absent. [VERIFIED: CONTEXT.md; VERIFIED: codebase]
+**How to avoid:** Keep literal byte constants in both existing eager/chunk matrices. For the absent GrayAlpha16 route, use the independently derived 77-byte literal below in both locations; do not generate it while the test runs. [VERIFIED: codebase; VERIFIED: bounded measurement]
 
 ### Pitfall 5: Misreporting portability from an incomplete command
 
@@ -238,6 +242,17 @@ for y = 0UL; y < 5UL; y = y + 1UL {
 }
 ```
 
+### Required GrayAlpha16 non-interlaced frozen anchor
+
+The existing two-pixel GrayAlpha16 source is little-endian in storage but its fixed PNG scanline is `00 12 34 a7 c5 be 0f 5a 76` (`filter, Ghi, Glo, Ahi, Alo` for each pixel). A bounded independent construction applies the zlib `Stored` block (`78 01 01 09 00 f6 ff`), Adler-32 `0e170350`, IHDR CRC-32 `0ebb6b42`, and IDAT CRC-32 `6b88b275`; its independently recomputed Gray16 IHDR CRC is the existing `81d9fc15`, providing a local checksum cross-check. [VERIFIED: codebase; VERIFIED: bounded measurement]
+
+```moonbit
+let graya16_stored =
+  b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x02\x00\x00\x00\x01\x10\x04\x00\x00\x00\x0e\xbbkB\x00\x00\x00\x14IDATx\x01\x01\x09\x00\xf6\xff\x00\x124\xa7\xc5\xbe\x0fZv\x0e\x17\x03Pk\x88\xb2u\x00\x00\x00\x00IEND\xaeB`\x82"
+```
+
+Use this declaration verbatim in both frozen compatibility tests, with the already-existing `png_encode_graya16_image()` / `png_stream_graya16_image()` source and default/configured Stored/None outputs. It is an eager-and-chunk compatibility anchor, not a new encoder expectation generated at runtime. [VERIFIED: codebase; VERIFIED: bounded measurement]
+
 This derives expected output from the source coordinate formula and checks only the public decode route. [VERIFIED: codebase]
 
 ## State of the Art
@@ -253,12 +268,15 @@ This derives expected output from the source coordinate formula and checks only 
 |---|---|---|---|
 | A1 | The full all-target command will complete within the implementation environment once given sufficient CI/runner time. The local research run was interrupted before completion. [ASSUMED] | Environment Availability | The planner must treat a completed all-target run as a hard gate, not assume a pass. |
 
+## Resolved Questions
+
+1. **Does an approved frozen matrix already contain a literal GrayAlpha16 non-interlaced vector?**
+   - **Resolution:** No. The approved eager matrix at `encode_test.mbt:1035` and chunk matrix at `stream_encode_test.mbt:1698` contain literal Gray8, Gray16, GrayAlpha8, RGB8, and straight-RGBA8 vectors, while their GrayAlpha16 paths have only positional/parity checks. [VERIFIED: codebase]
+   - **Required action:** Add the single exact 77-byte `graya16_stored` literal specified above to both matrices and assert the existing default/configured Stored/None routes against it. The literal is derived from the established fixture bytes and bounded checksums, never from current encoder output. [VERIFIED: codebase; VERIFIED: bounded measurement]
+
 ## Open Questions
 
-1. **Does the frozen matrix already contain a literal GrayAlpha16 non-interlaced vector?**
-   - What we know: the current eager/chunk frozen matrices have literal Gray8, Gray16, GrayAlpha8, RGB8, and straight-RGBA8 vectors; direct search found no GrayAlpha16 literal in those matrices. [VERIFIED: codebase]
-   - What's unclear: whether another existing public frozen test is the approved GrayAlpha16 baseline. [VERIFIED: codebase]
-   - Recommendation: planner should make a narrow literal GrayAlpha16 addition beside the existing eager/chunk matrices if the focused inspection confirms no approved literal exists; do not generate it at runtime. [VERIFIED: CONTEXT.md; VERIFIED: codebase]
+None — the GrayAlpha16 frozen-anchor question is resolved. [VERIFIED: codebase; VERIFIED: bounded measurement]
 
 ## Environment Availability
 
@@ -300,6 +318,7 @@ The configuration does not explicitly disable security enforcement, so this sect
 
 - `modules/mb-image/png/encode_test.mbt` — current 5×5 GrayAlpha8 Adam7 fixture, independent pass enumeration, Stored-block parser, public decoder helpers, and frozen eager vectors. [VERIFIED: codebase]
 - `modules/mb-image/png/stream_encode_test.mbt` — current GrayAlpha16 Adam7 hostile drain, GrayAlpha8 public drain, caller lease owners, and frozen chunk vectors. [VERIFIED: codebase]
+- Independent bounded checksum calculation over the existing GrayAlpha16 2×1 fixture scanline — 77-byte non-interlaced Stored/None literal, Adler-32, and PNG chunk CRCs; checked against the existing Gray16 IHDR CRC literal. [VERIFIED: bounded measurement]
 - `.planning/phases/59-grayalpha8-adam7-factory-and-pass-profile/59-01-SUMMARY.md`, `59-02-SUMMARY.md` — established GrayAlpha8 selectors, independent raster proof, and six-pair ordinary parity handoff. [VERIFIED: phase artifacts]
 - `.planning/phases/60-bounded-adam7-streaming-semantics/60-VERIFICATION.md` and `60-01-SUMMARY.md` — shared six-pair replay/admission handoff and pre-lease revision guarantee. [VERIFIED: phase artifacts]
 - `modules/mb-image/png/moon.pkg` and local `moon test --help` — portable target declaration and ordinary command interface. [VERIFIED: codebase; VERIFIED: local CLI]
