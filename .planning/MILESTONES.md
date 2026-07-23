@@ -1,5 +1,17 @@
 # Project Milestones: MoonBit Native Foundation
 
+## v0.20 High-Precision GrayAlpha Decode (Shipped: 2026-07-23)
+
+**Phases completed:** 3 phases, 3 plans, 4 tasks
+
+**Key accomplishments:**
+
+- An opt-in PNG Type-4/16 decoder now preserves unequal gray and alpha source bytes as packed little-endian graya16 while the generic decoder remains RGBA8-compatible.
+- PngChunkDecoder::new_graya16 now exposes the existing Type-4/16 preservation profile through the shared, caller-owned bounded chunk lifecycle.
+- 1. [Rule 1 - Bug] Corrected the missing explicit Adam7 final-store branch
+
+---
+
 ## v0.19 GrayAlpha8 Adam7 PNG (Shipped: 2026-07-23)
 
 **Phases completed:** 3 phases, 5 plans, 6 tasks

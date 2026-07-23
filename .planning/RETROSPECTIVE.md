@@ -220,6 +220,43 @@
 
 ---
 
+## Milestone: v0.20 — High-Precision GrayAlpha Decode
+
+**Shipped:** 2026-07-23
+**Phases:** 3 | **Plans:** 3 | **Tasks:** 4
+
+### What Was Built
+
+- Explicit eager and caller-buffered Type-4/16 GrayAlpha decoders that preserve the existing packed little-endian U16 component lanes.
+- Profile-aware Adam7 Type-4/16 scatter on the existing bounded decode machine, with generic RGBA8 high-byte behavior frozen.
+- Independent filter/Adam7 wire fixtures, hostile/resource regressions, and portable full-package qualification.
+
+### What Worked
+
+- Red-green testing exposed the two real Adam7 seams before implementation: profile admission and final lane storage.
+- Independent fixed wire data prevented the encoder and decoder from sharing an invalid oracle.
+
+### What Was Inefficient
+
+- Orphaned Moon build/test processes and zero-byte locks delayed the full native package run; explicit process ownership checks were needed before safe recovery.
+
+### Patterns Established
+
+- A high-precision representation profile may reuse all transport, filter, and Adam7 traversal state while changing only the final component-byte store.
+- Full target evidence must retain the ordinary package command; stale local build state is recovered separately, never hidden behind wrappers.
+
+### Key Lessons
+
+1. Treat an interrupted test process as an artifact owner until its PID and parent are verified.
+2. Preserve legacy lossy façades explicitly when adding opt-in fidelity contracts.
+3. Archive phase artifacts immediately after verified milestone completion to keep active planning small.
+
+### Cost Observations
+
+- The ordinary PNG package completed at 235/235 on wasm, wasm-gc, js, and native.
+
+---
+
 ## Cross-Milestone Trends
 
 ### Process Evolution
@@ -231,6 +268,7 @@
 | v0.15 | 3 | 3 | Extended the bounded PNG profile path to U16 grayscale with wire-level portability evidence. |
 | v0.17 | 3 | 4 | Extended the same bounded profile path to U16 Gray+Alpha with explicit type-4 wire and lease ownership evidence. |
 | v0.19 | 3 | 5 | Extended that bounded profile path to GrayAlpha8 Adam7 with shared replay integrity and independent portable evidence. |
+| v0.20 | 3 | 3 | Added opt-in high-precision GrayAlpha16 decode while retaining generic RGBA8 and one bounded machine. |
 
 ### Cumulative Quality
 
@@ -241,6 +279,7 @@
 | v0.15 | 190/190 PNG tests per target | 3/3 | 3/3 phase verifications, 100/100 milestone audit |
 | v0.17 | 204/204 PNG tests per target | 4/4 | 3/3 phase verifications, 5/5 handoffs, 3/3 flows |
 | v0.19 | 227/227 PNG tests per target | 3/3 | 3/3 phase verifications, 100/100 integration, 4/4 flows |
+| v0.20 | 235/235 PNG tests per target | 3/3 | 3/3 phase verifications, 100/100 integration, 4/4 flows |
 
 ### Top Lessons
 

@@ -10,14 +10,16 @@ The primary audience is MoonBit library authors and application developers build
 
 MoonBit developers can reuse stable, high-performance native infrastructure contracts instead of rebuilding incompatible foundations for every graphics, document, media, or automation product.
 
-## Current Milestone: v0.20 High-Precision GrayAlpha Decode
+## Current State: v0.20 High-Precision GrayAlpha Decode Shipped
 
-**Goal:** Define and implement an explicit, portable decoding contract for high-precision Gray+Alpha PNG data without silently narrowing samples or widening unrelated image APIs.
+**Delivered:** `mb-image` now provides explicit eager and caller-buffered Type-4/16 GrayAlpha decoding that preserves every component in the existing little-endian packed `graya16` representation. Legal encoded-sRGB Adam7 input follows the shared bounded decoder and exact profile-aware final store; generic eager and chunk decoding remain the established lossy `RGBA8(Ghi,Ghi,Ghi,Ahi)` façade.
 
-**Target features:**
-- Explicit decoder result and color/alpha fidelity contract for Type-4/16 PNG input.
-- Checked, portable high-precision component preservation and public conversion boundaries.
-- Independent wire/decode, legacy-compatibility, hostile-input, and four-target evidence.
+**Validated:** Independent five-filter and seven-pass Adam7 PNG literals, hostile metadata/resource/chunk paths, and frozen generic compatibility are covered. The ordinary PNG package passed 235/235 tests on each of `wasm`, `wasm-gc`, `js`, and `native`.
+
+## Next Milestone Goals
+
+- Select the next reusable native-foundation capability through a code-first requirements milestone.
+- Keep colour-managed/non-sRGB Type-4/16 conversion and public high-precision conversion APIs deferred until a concrete consumer requires them.
 
 ## Requirements
 
@@ -51,10 +53,11 @@ MoonBit developers can reuse stable, high-performance native infrastructure cont
 - [x] Encode compatible U16 Gray+Alpha images as bounded non-interlaced PNG Type 4 / bit depth 16. — Validated in v0.17 Phase 54.
 - [x] Prove U16 gray/alpha wire fidelity, hostile caller-buffered identity, legacy compatibility, and four-target execution. — Validated in v0.17 Phase 55.
 - [x] Add explicit bounded Adam7 GrayAlpha8 encoding while preserving frozen non-interlaced behavior, shared bounded replay semantics, and four-target public evidence. — Validated in v0.19 Phases 59-61.
+- [x] Provide explicit eager and caller-buffered Type-4/16 GrayAlpha decoding with exact packed-U16 lanes, Adam7/filter fidelity, hostile bounded behavior, frozen generic compatibility, and four-target proof. — Validated in v0.20 Phases 62-64.
 
 ### Active
 
-- [ ] Revisit high-precision colour and alpha conversion only through an explicit decoder-contract milestone.
+- [ ] Select the next code-first native foundation capability from concrete downstream needs.
 
 ### Out of Scope
 
