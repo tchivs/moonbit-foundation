@@ -1568,8 +1568,6 @@ fn _png_encode_preflight_with_interlace_profile(
       return Err(_png_encode_capability("gray8-noninterlaced-required"))
     PngEncodeProfile::Gray16 if interlace_strategy != PngInterlaceStrategy::None =>
       return Err(_png_encode_capability("gray16-noninterlaced-required"))
-    PngEncodeProfile::Rgba16 if interlace_strategy != PngInterlaceStrategy::None =>
-      return Err(_png_encode_capability("rgba16-noninterlaced-required"))
     _ => ()
   }
   _png_encode_preflight_with_filter_layout_idat_limit_profile(

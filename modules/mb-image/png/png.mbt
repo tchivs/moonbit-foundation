@@ -430,6 +430,32 @@ pub fn PngEncoder::new_rgba16_with_strategies(
   }
 }
 
+///| Constructs an RGBA16 encoder with explicit interlace selection and the
+/// Stored/filter-None route. Adam7 remains opt-in; existing RGBA16 factories
+/// retain their explicit non-interlaced output.
+pub fn PngEncoder::new_rgba16_with_interlace_strategy(
+  interlace_strategy : PngInterlaceStrategy,
+) -> PngEncoder {
+  PngEncoder::new_rgba16_with_all_strategies(
+    PngCompressionStrategy::Stored, PngFilterStrategy::None, interlace_strategy,
+  )
+}
+
+///| Constructs an RGBA16 encoder with independently selected compression,
+/// filter, and interlace strategies.
+pub fn PngEncoder::new_rgba16_with_all_strategies(
+  strategy : PngCompressionStrategy,
+  filter_strategy : PngFilterStrategy,
+  interlace_strategy : PngInterlaceStrategy,
+) -> PngEncoder {
+  {
+    strategy,
+    filter_strategy,
+    interlace_strategy,
+    profile: PngEncodeProfile::Rgba16,
+  }
+}
+
 ///| Constructs a Gray8 encoder with an explicit compression strategy and the
 /// filter-None route. Gray8 remains intentionally non-interlaced.
 pub fn PngEncoder::new_gray8_with_compression_strategy(
