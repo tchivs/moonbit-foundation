@@ -21,7 +21,7 @@ See `.planning/PROJECT.md` (updated 2026-07-23).
 
 **Core value:** MoonBit developers can reuse stable, high-performance native infrastructure contracts instead of rebuilding incompatible foundations for every graphics, document, media, or automation product.
 
-**Current focus:** Phase 65 — Packed RGBA16 Decode Model.
+**Current focus:** Phase 69 — Explicit RGBA16 PNG Encoding.
 
 ## Current Position
 
@@ -32,7 +32,7 @@ Last activity: 2026-07-23 — Milestone v0.22 started
 
 ## Performance Metrics
 
-**Current milestone:** v0.21 has 4 scoped requirements mapped exactly once across Phases 65-68.
+**Current milestone:** v0.22 has 4 scoped requirements mapped exactly once across Phases 69-72.
 
 **Recent milestone:** v0.18 shipped with explicit GrayAlpha16 Adam7 factories, bounded streaming semantics, public portable evidence, and a four-target PNG qualification.
 
