@@ -419,7 +419,7 @@ fn PngRasterSink::emit(self : PngRasterSink, byte : Byte) -> Result[Unit, @error
     let rows = match self.rows { Some(value) => value; None => return Err(_png_error("png-packed-rows")) }
     match rows.reconstruct(pixel_column, self.pass_row, self.transport.source_bytes_per_pixel, self.filter, byte.to_int()) { Err(error) => return Err(error); Ok(_) => () }
     if pixel_column + 1UL == pass.row_bytes {
-      match self.image.with_mut_view(fn(view) { _png_write_adam7_transport_row(view, rows, pass, self.pass_row, self.transport) }) { Err(error) => return Err(error); Ok(_) => () }
+      match self.image.with_mut_view(fn(view) { _png_write_adam7_transport_row(view, rows, pass, self.pass_row, self.transport, self.profile) }) { Err(error) => return Err(error); Ok(_) => () }
       rows.finish_row()
     }
   } else if self.transport.indexed {
@@ -551,6 +551,7 @@ fn _png_write_adam7_transport_row(
   pass : PngAdam7Pass,
   row : UInt64,
   transport : PngTransport,
+  profile : PngDecodeProfile,
 ) -> Result[Unit, @error.CoreError] {
   for column = 0UL; column < pass.width; column = column + 1UL {
     let x = pass.x + column * pass.dx
@@ -577,9 +578,16 @@ fn _png_write_adam7_transport_row(
           for channel = 0UL; channel < 3UL; channel = channel + 1UL { match view.set_byte(x, y, channel, high) { Err(error) => return Err(error); Ok(_) => () } }
           match transport.transparency { PngTransparency::Grayscale16(a, b) => match view.set_byte(x, y, 3UL, if high == a && low == b { b'\x00' } else { b'\xff' }) { Err(error) => return Err(error); Ok(_) => () }; _ => () }
         } else if transport.source_channels == 2UL {
-          let gray = rows.current.view().get(offset).unwrap(); let alpha = rows.current.view().get(offset + 2UL).unwrap()
-          for channel = 0UL; channel < 3UL; channel = channel + 1UL { match view.set_byte(x, y, channel, gray) { Err(error) => return Err(error); Ok(_) => () } }
-          match view.set_byte(x, y, 3UL, alpha) { Err(error) => return Err(error); Ok(_) => () }
+          if profile == PngDecodeProfile::GrayAlpha16 {
+            for item in [(0UL, 0UL, rows.current.view().get(offset + 1UL).unwrap()), (0UL, 1UL, rows.current.view().get(offset).unwrap()), (1UL, 0UL, rows.current.view().get(offset + 3UL).unwrap()), (1UL, 1UL, rows.current.view().get(offset + 2UL).unwrap())] {
+              let (channel, byte_index, value) = item
+              match view.set_component_byte(x, y, channel, byte_index, value) { Err(error) => return Err(error); Ok(_) => () }
+            }
+          } else {
+            let gray = rows.current.view().get(offset).unwrap(); let alpha = rows.current.view().get(offset + 2UL).unwrap()
+            for channel = 0UL; channel < 3UL; channel = channel + 1UL { match view.set_byte(x, y, channel, gray) { Err(error) => return Err(error); Ok(_) => () } }
+            match view.set_byte(x, y, 3UL, alpha) { Err(error) => return Err(error); Ok(_) => () }
+          }
         } else if transport.source_channels == 3UL {
           let rh = rows.current.view().get(offset).unwrap(); let rl = rows.current.view().get(offset + 1UL).unwrap(); let gh = rows.current.view().get(offset + 2UL).unwrap(); let gl = rows.current.view().get(offset + 3UL).unwrap(); let bh = rows.current.view().get(offset + 4UL).unwrap(); let bl = rows.current.view().get(offset + 5UL).unwrap()
           for item in [(0UL, rh), (1UL, gh), (2UL, bh)] { let (channel, value) = item; match view.set_byte(x, y, channel, value) { Err(error) => return Err(error); Ok(_) => () } }

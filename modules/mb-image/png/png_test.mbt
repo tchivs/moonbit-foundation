@@ -27,16 +27,21 @@ fn png_test_graya16_srgb_literal() -> Bytes {
 /// passes is nonempty; component bytes vary by coordinate so the oracle sees
 /// both the interlace scatter and little-endian U16 storage order.
 fn png_test_graya16_adam7_literal() -> Bytes {
-  b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x05\x00\x00\x00\x05\x10\x04\x00\x00\x01\x00\xf1\x02\xbb\x00\x00\x00zIDATx\x01\x01o\x00\x90\xff\x00\x113Uw\x00Q3Yw\x00\x11sY\xb7Qs]\xb7\x0013Ww\x001s[\xb7\x00\x11SW\x971SY\x97QS[\x97\x00!3Vw\x00A3Xw\x00!SX\x97ASZ\x97\x00!sZ\xb7\x00As\\\xb7\x00\x11CV\x87!CW\x871CX\x87ACY\x87QCZ\x87\x00\x11cX\xa7!cY\xa71cZ\xa7Ac[\xa7Qc\\\xa7s\xc7$U \x8d%`\x00\x00\x00\x00IEND\xaeB`\x82"
+  b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x05\x00\x00\x00\x05\x10\x04\x00\x00\x01\x00\xf1\x02\xbb\x00\x00\x00zIDATx\x01\x01o\x00\x90\xff\x00\x113Uw\x00Q3Yw\x00\x11sY\xb7Qs]\xb7\x0013Ww\x001s[\xb7\x00\x11SW\x971SY\x97QS[\x97\x00!3VwA3Xw\x00!SX\x97ASZ\x97\x00!sZ\xb7As\\\xb7\x00\x11CV\x87!CW\x871CX\x87ACY\x87QCZ\x87\x00\x11cX\xa7!cY\xa71cZ\xa7Ac[\xa7Qc\\\xa7s\xc7$U \x8d%`\x00\x00\x00\x00IEND\xaeB`\x82"
 }
 
 ///| The Adam7 fixture needs a larger geometry ceiling than the two-pixel
 /// Phase 62 literal, while retaining the same bounded public decode contract.
 fn png_test_graya16_adam7_limits() -> @codec.CodecLimits {
   @codec.CodecLimits::new(
-    max_probe_bytes=8UL, max_input_bytes=256UL, max_output_bytes=128UL,
-    max_width=8UL, max_height=8UL, max_pixels=64UL, max_work=512UL,
+    max_probe_bytes=8UL, max_input_bytes=1024UL, max_output_bytes=1024UL,
+    max_width=8UL, max_height=8UL, max_pixels=64UL, max_work=4096UL,
   )
+}
+
+///| Expected storage-order bytes for png_test_graya16_adam7_literal.
+fn png_test_graya16_adam7_expected() -> Bytes {
+  b"\x33\x11wU\x33!wV\x331wW\x33AwX\x33QwY\x43\x11\x87V\x43!\x87W\x431\x87X\x43A\x87Y\x43Q\x87Z\x53\x11\x97W\x53!\x97X\x531\x97Y\x53A\x97Z\x53Q\x97[\x63\x11\xa7X\x63!\xa7Y\x631\xa7Z\x63A\xa7[\x63Q\xa7\\\x73\x11\xb7Y\x73!\xb7Z\x731\xb7[\x73A\xb7\\\x73Q\xb7]"
 }
 
 ///| The independent all-pass wire literal must reach the explicit profile and
@@ -51,17 +56,21 @@ test "PNG explicit graya16 preserves every Adam7 Type-4/16 component byte" {
       pixels=0UL, depth=0UL, work=0UL,
     )),
   ).unwrap()
-  let explicit = PngDecoder::decode_graya16(
+  let explicit_result = PngDecoder::decode_graya16(
     @io.MemoryReader::new(owner.view()) as &@io.Reader,
     @codec.DecodeOptions::new(require_complete_input=true, preserve_opaque_metadata=false),
     png_test_graya16_adam7_limits(),
     @budget.Budget::new(@budget.ResourceLimits::new(
-      bytes=512UL, allocations=4UL, allocation_size=128UL, width=8UL,
-      height=8UL, pixels=64UL, depth=0UL, work=512UL,
+      bytes=4096UL, allocations=8UL, allocation_size=1024UL, width=8UL,
+      height=8UL, pixels=64UL, depth=0UL, work=4096UL,
     )),
     @error.Diagnostics::new(),
-  ).unwrap().image().view()
-  let expected = b"\x33\x11wU\x33!wV\x331wW\x33AwX\x33QwY\x43\x11\x87V\x43!\x87W\x431\x87X\x43A\x87Y\x43Q\x87Z\x53\x11\x97W\x53!\x97X\x531\x97Y\x53A\x97Z\x53Q\x97[\x63\x11\xa7X\x63!\xa7Y\x631\xa7Z\x63A\xa7[\x63Q\xa7\\\x73\x11\xb7Y\x73!\xb7Z\x731\xb7[\x73A\xb7\\\x73Q\xb7]"
+  )
+  let explicit = match explicit_result {
+    Ok(value) => value.image().view()
+    Err(error) => fail("PNG graya16 Adam7 explicit decode failed: " + error.context().unwrap())
+  }
+  let expected = png_test_graya16_adam7_expected()
   for y = 0UL; y < 5UL; y = y + 1UL {
     for x = 0UL; x < 5UL; x = x + 1UL {
       let offset = (y * 5UL + x) * 4UL
@@ -79,8 +88,8 @@ test "PNG explicit graya16 preserves every Adam7 Type-4/16 component byte" {
     @codec.DecodeOptions::new(require_complete_input=true, preserve_opaque_metadata=false),
     png_test_graya16_adam7_limits(),
     @budget.Budget::new(@budget.ResourceLimits::new(
-      bytes=512UL, allocations=4UL, allocation_size=128UL, width=8UL,
-      height=8UL, pixels=64UL, depth=0UL, work=512UL,
+      bytes=4096UL, allocations=8UL, allocation_size=1024UL, width=8UL,
+      height=8UL, pixels=64UL, depth=0UL, work=4096UL,
     )),
     @error.Diagnostics::new(),
   ).unwrap().image().view()

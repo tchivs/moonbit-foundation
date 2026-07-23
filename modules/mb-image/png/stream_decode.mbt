@@ -504,7 +504,7 @@ fn PngDecodeMachine::preflight_first_idat(self : PngDecodeMachine) -> Result[Uni
       PngTransparency::Opaque => false
       _ => true
     }
-    if ihdr[9] != b'\x04' || ihdr[8] != b'\x10' || ihdr[12] != b'\x00' || has_transparency_key {
+    if ihdr[9] != b'\x04' || ihdr[8] != b'\x10' || has_transparency_key {
       return Err(@codec.capability_unavailable("png-decode", "graya16-profile"))
     }
     match declaration {

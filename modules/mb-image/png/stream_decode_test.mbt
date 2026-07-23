@@ -486,10 +486,11 @@ fn png_graya16_chunk_schedule(
   source : Bytes,
   lane : String,
   packets : Array[UInt64],
+  limits : @codec.CodecLimits,
   budget : @budget.Budget,
   diagnostics : @error.Diagnostics,
 ) -> Result[@codec.DecodeResult, @error.CoreError] {
-  let decoder = PngChunkDecoder::new_graya16(png_test_limits(), budget, diagnostics)
+  let decoder = PngChunkDecoder::new_graya16(limits, budget, diagnostics)
   let empty = png_chunk_source(b"")
   let zero = decoder.push(empty.view())
   if zero.consumed() != 0UL || !(zero.outcome() is PngChunkPushOutcome::NeedInput) {
@@ -506,8 +507,13 @@ fn png_graya16_chunk_schedule(
       source, offset.to_int(), (offset + requested).to_int(),
     ))
     let pushed = decoder.push(owner.view())
-    if pushed.consumed() != requested || !(pushed.outcome() is PngChunkPushOutcome::NeedInput) {
+    if pushed.consumed() != requested {
       abort("PNG " + lane + " active progress mismatch")
+    }
+    match pushed.outcome() {
+      PngChunkPushOutcome::NeedInput => ()
+      PngChunkPushOutcome::Failed(error) => abort("PNG " + lane + " chunk failed: " + error.context().unwrap())
+      _ => abort("PNG " + lane + " chunk reached a terminal before finish")
     }
     offset = offset + requested
     turn = turn + 1
@@ -521,21 +527,27 @@ fn png_graya16_chunk_schedule_matches_eager(
   source : Bytes,
   lane : String,
   packets : Array[UInt64],
+  limits : @codec.CodecLimits,
 ) -> Unit {
   let chunk_budget = @budget.Budget::new(@budget.ResourceLimits::new(
-    bytes=256UL, allocations=8UL, allocation_size=128UL, width=4UL,
-    height=4UL, pixels=16UL, depth=0UL, work=256UL,
+    bytes=4096UL, allocations=8UL, allocation_size=1024UL, width=8UL,
+    height=8UL, pixels=64UL, depth=0UL, work=4096UL,
   ))
   let chunk_diagnostics = @error.Diagnostics::new()
   let scheduled = png_graya16_chunk_schedule(
-    source, lane, packets, chunk_budget, chunk_diagnostics,
+    source, lane, packets, limits, chunk_budget, chunk_diagnostics,
   ).unwrap()
   let eager_budget = @budget.Budget::new(@budget.ResourceLimits::new(
-    bytes=256UL, allocations=8UL, allocation_size=128UL, width=4UL,
-    height=4UL, pixels=16UL, depth=0UL, work=256UL,
+    bytes=4096UL, allocations=8UL, allocation_size=1024UL, width=8UL,
+    height=8UL, pixels=64UL, depth=0UL, work=4096UL,
   ))
   let eager_diagnostics = @error.Diagnostics::new()
-  let eager = png_graya16_chunk_eager(source, eager_budget, eager_diagnostics).unwrap()
+  let owner = png_chunk_source(source)
+  let eager = PngDecoder::decode_graya16(
+    @io.MemoryReader::new(owner.view()) as &@io.Reader,
+    @codec.DecodeOptions::new(require_complete_input=true, preserve_opaque_metadata=false),
+    limits, eager_budget, eager_diagnostics,
+  ).unwrap()
   if !png_graya16_chunk_result_matches(eager, scheduled) {
     abort("PNG " + lane + " explicit eager result mismatch")
   }
@@ -547,12 +559,26 @@ fn png_graya16_chunk_schedule_matches_eager(
     abort("PNG " + lane + " explicit eager diagnostics mismatch")
   }
   let view = scheduled.image().view()
-  for expected in [(0UL, 0UL, b'\x34'), (0UL, 1UL, b'\x12'),
-    (0UL, 2UL, b'\xc5'), (0UL, 3UL, b'\xa7'), (1UL, 0UL, b'\x0f'),
-    (1UL, 1UL, b'\xbe'), (1UL, 2UL, b'\x76'), (1UL, 3UL, b'\x5a')] {
-    let (x, component, value) = expected
-    if view.get_component_byte(x, 0UL, component / 2UL, component % 2UL).unwrap() != value {
-      abort("PNG " + lane + " explicit component mismatch")
+  if scheduled.descriptor().width() == 5UL {
+    let expected = png_test_graya16_adam7_expected()
+    for y = 0UL; y < 5UL; y = y + 1UL {
+      for x = 0UL; x < 5UL; x = x + 1UL {
+        let offset = (y * 5UL + x) * 4UL
+        for component = 0UL; component < 4UL; component = component + 1UL {
+          if view.get_component_byte(x, y, component / 2UL, component % 2UL).unwrap() != expected.get((offset + component).to_int()).unwrap() {
+            abort("PNG " + lane + " explicit Adam7 component mismatch")
+          }
+        }
+      }
+    }
+  } else {
+    for expected in [(0UL, 0UL, b'\x34'), (0UL, 1UL, b'\x12'),
+      (0UL, 2UL, b'\xc5'), (0UL, 3UL, b'\xa7'), (1UL, 0UL, b'\x0f'),
+      (1UL, 1UL, b'\xbe'), (1UL, 2UL, b'\x76'), (1UL, 3UL, b'\x5a')] {
+      let (x, component, value) = expected
+      if view.get_component_byte(x, 0UL, component / 2UL, component % 2UL).unwrap() != value {
+        abort("PNG " + lane + " explicit component mismatch")
+      }
     }
   }
 }
@@ -561,16 +587,16 @@ fn png_graya16_chunk_schedule_matches_eager(
 /// facade with fresh caller-owned zero, one-byte, and ragged schedules.
 test "PNG graya16 chunk schedules match eager preservation" {
   for item in [
-    ("default", png_test_graya16_literal()),
-    ("srgb", png_test_graya16_srgb_literal()),
-    ("adam7", png_test_graya16_adam7_literal()),
+    ("default", png_test_graya16_literal(), png_test_limits()),
+    ("srgb", png_test_graya16_srgb_literal(), png_test_limits()),
+    ("adam7", png_test_graya16_adam7_literal(), png_test_graya16_adam7_limits()),
   ] {
-    let (id, source) = item
+    let (id, source, limits) = item
     png_graya16_chunk_schedule_matches_eager(
-      source, id + "-one-byte", [1UL],
+      source, id + "-one-byte", [1UL], limits,
     )
     png_graya16_chunk_schedule_matches_eager(
-      source, id + "-ragged", [8UL, 4UL, 1UL, 13UL, 2UL, 5UL, 3UL, 21UL],
+      source, id + "-ragged", [8UL, 4UL, 1UL, 13UL, 2UL, 5UL, 3UL, 21UL], limits,
     )
   }
 }
