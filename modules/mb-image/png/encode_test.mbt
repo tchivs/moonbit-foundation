@@ -177,6 +177,40 @@ fn png_encode_graya8_image() -> @storage.OwnedImage {
   image
 }
 
+///| A five-by-five legal GrayAlpha8 source keeps all seven Adam7 passes
+/// nonempty. Gray and alpha are independently asymmetric at every coordinate
+/// so either a pass traversal or component-order error is visible on the wire.
+fn png_encode_graya8_adam7_image() -> @storage.OwnedImage {
+  let descriptor = @model.ImageDescriptor::new(
+    5UL, 5UL, @model.ImageFormat::graya8(),
+    [@model.PlaneDescriptor::new(0UL, 50UL, 10UL, 10UL, 1UL, 1UL, 5UL, 5UL).unwrap()],
+    50UL,
+    @model.ImageMetadata::new(
+      @color.ColorSpaceIdentity::Srgb, @color.TransferIdentity::EncodedSrgb,
+      Some(@color.AlphaMode::Straight), @profile.ProfileIdentity::builtin_srgb(),
+      @model.Orientation::TopLeft,
+      @metadata.OpaqueMetadata::from_entries(
+        [], @metadata.MetadataLimits::new(
+          max_entries=1UL, max_token_bytes=16UL, max_value_bytes=1UL,
+          max_total_bytes=32UL, max_disposition_fields=4UL,
+        ), png_encode_budget(bytes=1UL, work=0UL),
+      ).unwrap(),
+    ),
+  ).unwrap()
+  let image = @storage.OwnedImage::new(descriptor, png_encode_budget(bytes=50UL, work=0UL)).unwrap()
+  image.with_mut_view(fn(view) {
+    for y = 0UL; y < 5UL; y = y + 1UL {
+      for x = 0UL; x < 5UL; x = x + 1UL {
+        let sample = y * 5UL + x
+        view.set_byte(x, y, 0UL, (b'\x20'.to_uint64() + sample).to_byte()).unwrap()
+        view.set_byte(x, y, 1UL, (b'\xa0'.to_uint64() + sample).to_byte()).unwrap()
+      }
+    }
+    Ok(())
+  }).unwrap()
+  image
+}
+
 ///| Two packed little-endian U16 Gray+Alpha samples whose four distinct wire
 /// lanes make component and byte-order mistakes observable at the PNG boundary.
 fn png_encode_graya16_image() -> @storage.OwnedImage {
@@ -266,6 +300,28 @@ fn png_encode_graya16_adam7_expected_passes() -> Array[Byte] {
         expected.push(sample.to_byte())
         expected.push((b'\xc0'.to_uint64() + sample).to_byte())
         expected.push((b'\x40'.to_uint64() + sample).to_byte())
+      }
+    }
+  }
+  expected
+}
+
+///| The Stored Adam7 payload for `png_encode_graya8_adam7_image`, enumerated
+/// independently from the encoder cursor to prove Type-4/8 G,A pass order.
+fn png_encode_graya8_adam7_expected_passes() -> Array[Byte] {
+  let expected : Array[Byte] = []
+  for pass in [
+    (0UL, 0UL, 8UL, 8UL), (4UL, 0UL, 8UL, 8UL), (0UL, 4UL, 4UL, 8UL),
+    (2UL, 0UL, 4UL, 4UL), (0UL, 2UL, 2UL, 4UL), (1UL, 0UL, 2UL, 2UL),
+    (0UL, 1UL, 1UL, 2UL),
+  ] {
+    let (start_x, start_y, stride_x, stride_y) = pass
+    for y = start_y; y < 5UL; y = y + stride_y {
+      expected.push(b'\x00')
+      for x = start_x; x < 5UL; x = x + stride_x {
+        let sample = y * 5UL + x
+        expected.push((b'\x20'.to_uint64() + sample).to_byte())
+        expected.push((b'\xa0'.to_uint64() + sample).to_byte())
       }
     }
   }
@@ -1219,6 +1275,47 @@ test "PNG GrayAlpha16 Adam7 eager pass profile" {
   }
   inspect(outputs.length(), content="2")
   inspect(outputs[0] == outputs[1], content="true")
+}
+
+///| The narrow and independently selected GrayAlpha8 Adam7 factories must
+/// agree on a Stored/None Type-4/8 raster with all seven G,A pass scanlines.
+test "PNG GrayAlpha8 Adam7 eager pass profile" {
+  let expected = Bytes::from_array(png_encode_graya8_adam7_expected_passes())
+  let outputs : Array[Bytes] = []
+  for encoder in [
+    PngEncoder::new_graya8_with_interlace_strategy(PngInterlaceStrategy::Adam7),
+    PngEncoder::new_graya8_with_all_strategies(
+      PngCompressionStrategy::Stored, PngFilterStrategy::None, PngInterlaceStrategy::Adam7,
+    ),
+  ] {
+    let (_, writer) = png_adam7_encode_with(encoder, png_encode_graya8_adam7_image())
+    let bytes = png_encode_prefix(writer)
+    outputs.push(bytes)
+    if bytes[24] != b'\x08' || bytes[25] != b'\x04' || bytes[26] != b'\x00' ||
+      bytes[27] != b'\x00' || bytes[28] != b'\x01' {
+      abort("png graya8 Adam7 eager framing")
+    }
+    if png_encode_gray16_public_stored_scanlines(bytes, 61) != expected {
+      abort("png graya8 Adam7 eager pass raster")
+    }
+  }
+  if outputs.length() != 2 || outputs[0] != outputs[1] {
+    abort("png graya8 Adam7 eager selector parity")
+  }
+
+  let (_, legacy_writer) = png_encode_with(PngEncoder::new_graya8(), png_encode_graya8_image())
+  let (_, none_writer) = png_encode_with(
+    PngEncoder::new_graya8_with_all_strategies(
+      PngCompressionStrategy::Stored, PngFilterStrategy::None, PngInterlaceStrategy::None,
+    ),
+    png_encode_graya8_image(),
+  )
+  let legacy = png_encode_prefix(legacy_writer)
+  let explicit_none = png_encode_prefix(none_writer)
+  if legacy[24] != b'\x08' || legacy[25] != b'\x04' || legacy[28] != b'\x00' ||
+    legacy != explicit_none {
+    abort("png graya8 legacy noninterlaced freeze")
+  }
 }
 
 ///| A public Stored/None Adam7 PNG exposes the complete Type-4/16 pass raster
