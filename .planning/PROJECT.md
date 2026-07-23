@@ -10,21 +10,15 @@ The primary audience is MoonBit library authors and application developers build
 
 MoonBit developers can reuse stable, high-performance native infrastructure contracts instead of rebuilding incompatible foundations for every graphics, document, media, or automation product.
 
-## Current State: v0.23 Low-Bit Grayscale PNG Encode Shipped
+## Current State: v0.24 Indexed PNG Encode Shipped
 
-**Delivered:** `mb-image` now provides explicit eager and caller-buffered Type-0 1/2/4 PNG encoding from canonical Gray/U8 levels, with exact admission, MSB-first packing, zero tail bits, and unchanged legacy routes.
+**Delivered:** `mb-image` now exposes a dedicated immutable Indexed8 PNG source, bounded eager Type-3/8 output with PLTE and canonical optional tRNS, plus a caller-buffered `PngChunkEncoder::new_indexed8` path that reuses the same acknowledged machine.
 
-**Validated:** Independent Type-0 PNG fixtures, eager/chunk parity, hostile lease behavior, frozen legacy vectors, and the ordinary PNG package all passed. The package completed 264/264 tests on each supported target; the milestone audit passed all requirements, phase verifications, integration links, and end-to-end flows.
+**Validated:** Exact opaque and transparent wire/CRC vectors, public RGB8/RGBA8 decode, eager/chunk byte parity, zero/one/ragged and split/released hostile leases, sticky terminals, atomic admission, and a fresh ordinary PNG package gate all passed. On the final main-branch run, wasm, wasm-gc, js, and native each completed 279/279 tests.
 
-## Current Milestone: v0.24 Indexed PNG Encode
+## Next Milestone Goals
 
-**Goal:** Add explicit bounded Type-3/8 PNG encoding from a dedicated owning palette/index source without widening the generic image model or changing existing encoder bytes.
-
-**Target features:**
-
-- Define a PNG-only immutable palette/index source with canonical unpacked 8-bit index raster and strict palette/index validation.
-- Emit `IHDR → PLTE → optional tRNS → IDAT → IEND` through bounded eager and caller-buffered machines.
-- Qualify exact chunk order/CRC/wire bytes, RGB/RGBA decode semantics, hostile leases, frozen compatibility, and all four targets.
+Select the next reusable MoonBit-native image capability through a fresh requirements and roadmap cycle. Keep the existing Indexed8 API experimental until its public constructor evolution is documented or a stable opaque compatibility constructor is chosen.
 
 ## Requirements
 

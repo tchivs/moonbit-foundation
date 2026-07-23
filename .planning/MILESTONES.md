@@ -1,5 +1,16 @@
 # Project Milestones: MoonBit Native Foundation
 
+## v0.24 Indexed PNG Encode (Shipped: 2026-07-24)
+
+**Phases completed:** 3 phases, 3 plans, 4 tasks
+
+**Key accomplishments:**
+
+- Eager Indexed8 palette transparency with one owned alpha table, canonical optional tRNS chunks, and exact public RGBA8 decode-back.
+- One explicit Indexed8 chunk factory now reuses the acknowledged PNG machine, with hostile lease parity and independent opaque/transparent wire and public decode qualification.
+
+---
+
 ## v0.22 RGBA16 PNG Encode (Shipped: 2026-07-23)
 
 **Phases completed:** 4 phases, 4 plans, 6 tasks
