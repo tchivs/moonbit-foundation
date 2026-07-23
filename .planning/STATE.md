@@ -1,19 +1,16 @@
 ---
 gsd_state_version: 1.0
-milestone: v0.20
-milestone_name: High-Precision GrayAlpha Decode
-status: Awaiting next milestone
-stopped_at: Phase 64 context gathered
-last_updated: "2026-07-23T09:04:48.296Z"
+milestone: v0.21
+milestone_name: RGBA16 PNG Decode
+status: planning
+last_updated: "2026-07-23T09:09:07.233Z"
 last_activity: 2026-07-23
-last_activity_desc: Milestone v0.20 completed and archived
 progress:
-  total_phases: 3
-  completed_phases: 3
-  total_plans: 3
-  completed_plans: 3
-current_phase: 64
-current_phase_name: GrayAlpha16 Decode Qualification
+  total_phases: 0
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
+  percent: 0
 ---
 
 # Project State
@@ -28,10 +25,10 @@ See `.planning/PROJECT.md` (updated 2026-07-23).
 
 ## Current Position
 
-Phase: Milestone v0.20 complete
+Phase: Not started (defining requirements)
 Plan: —
-Status: Awaiting next milestone
-Last activity: 2026-07-23 — Milestone v0.20 completed and archived
+Status: Defining requirements
+Last activity: 2026-07-23 — Milestone v0.21 started
 
 ## Performance Metrics
 

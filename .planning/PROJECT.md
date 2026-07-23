@@ -16,10 +16,14 @@ MoonBit developers can reuse stable, high-performance native infrastructure cont
 
 **Validated:** Independent five-filter and seven-pass Adam7 PNG literals, hostile metadata/resource/chunk paths, and frozen generic compatibility are covered. The ordinary PNG package passed 235/235 tests on each of `wasm`, `wasm-gc`, `js`, and `native`.
 
-## Next Milestone Goals
+## Current Milestone: v0.21 RGBA16 PNG Decode
 
-- Select the next reusable native-foundation capability through a code-first requirements milestone.
-- Keep colour-managed/non-sRGB Type-4/16 conversion and public high-precision conversion APIs deferred until a concrete consumer requires them.
+**Goal:** Add an explicit, portable high-precision Type-6/16 PNG decode contract that preserves all four straight-alpha U16 component lanes without widening the generic RGBA8 façade.
+
+**Target features:**
+- Checked packed little-endian `rgba16` representation with explicit straight-alpha identity.
+- Additive eager and caller-buffered Type-6/16 decoder selectors over the existing bounded machine.
+- Independent filter/Adam7, hostile-input, generic-compatibility, and four-target qualification evidence.
 
 ## Requirements
 
