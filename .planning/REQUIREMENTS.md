@@ -11,7 +11,7 @@
 
 ### Shared resumable semantics
 
-- [ ] **RGBA16ENC-02**: Library users can select a caller-buffered RGBA16 encoder that reuses the bounded encoder machine, has eager-identical bytes under hostile capacities, retains accepted-only lease progress and sticky typed terminals, and exposes no partial output before atomic admission succeeds.
+- [x] **RGBA16ENC-02**: Library users can select a caller-buffered RGBA16 encoder that reuses the bounded encoder machine, has eager-identical bytes under hostile capacities, retains accepted-only lease progress and sticky typed terminals, and exposes no partial output before atomic admission succeeds.
 
 ### Adam7 output
 
@@ -35,7 +35,7 @@
 | Requirement | Phase | Status |
 |---|---|---|
 | RGBA16ENC-01 | Phase 69 | Pending |
-| RGBA16ENC-02 | Phase 70 | Pending |
+| RGBA16ENC-02 | Phase 70 | Complete |
 | RGBA16ENC-03 | Phase 71 | Pending |
 | RGBA16ENC-04 | Phase 72 | Pending |
 

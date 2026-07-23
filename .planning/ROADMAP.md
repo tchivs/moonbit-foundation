@@ -30,7 +30,7 @@
 Completed milestone detail is archived under `.planning/milestones/`.
 
 - [ ] **Phase 69: Explicit RGBA16 PNG Encoding** - Encode checked packed `rgba16` images as exact non-interlaced Type-6/16 PNG without changing legacy output.
-- [ ] **Phase 70: Resumable RGBA16 PNG Encoding** - Provide eager-identical caller-buffered Type-6/16 encoding through the bounded machine.
+- [x] **Phase 70: Resumable RGBA16 PNG Encoding** - Provide eager-identical caller-buffered Type-6/16 encoding through the bounded machine. (completed 2026-07-23)
 - [ ] **Phase 71: RGBA16 Adam7 PNG Encoding** - Add explicit interlaced Type-6/16 output while retaining profile, filter, and compression semantics.
 - [ ] **Phase 72: RGBA16 Encode Qualification** - Prove normal/Adam7 byte fidelity, hostile bounded behavior, compatibility, and four-target portability.
 
@@ -97,6 +97,6 @@ Completed milestone detail is archived under `.planning/milestones/`.
 | Phase | Plans Complete | Status | Completed |
 |---|---|---|---|
 | 69. Explicit RGBA16 PNG Encoding | 0/1 | Not started | - |
-| 70. Resumable RGBA16 PNG Encoding | 0/1 | Not started | - |
+| 70. Resumable RGBA16 PNG Encoding | 1/1 | Complete    | 2026-07-23 |
 | 71. RGBA16 Adam7 PNG Encoding | 0/1 | Not started | - |
 | 72. RGBA16 Encode Qualification | 0/1 | Not started | - |
