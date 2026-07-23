@@ -19,83 +19,69 @@
 - ✅ **v0.15 Gray16 PNG Interchange** — Phases 47-49 (shipped 2026-07-22). [Full history](./milestones/v0.15-ROADMAP.md)
 - ✅ **v0.16 Grayscale Alpha PNG** — Phases 50-52 (shipped 2026-07-23). [Full history](./milestones/v0.16-ROADMAP.md)
 - ✅ **v0.17 GrayAlpha16 PNG Interchange** — Phases 53-55 (shipped 2026-07-23). [Full history](./milestones/v0.17-ROADMAP.md)
-- 📋 **v0.18 GrayAlpha16 Adam7 PNG** — Phases 56-58: bounded Type-4/16 interlaced output, replay-safe streaming, and portable public evidence.
+- ✅ **v0.18 GrayAlpha16 Adam7 PNG** — Phases 56-58 (shipped 2026-07-23). [Full history](./milestones/v0.18-ROADMAP.md)
+- 📋 **v0.19 GrayAlpha8 Adam7 PNG** — Phases 59-61: explicit Type-4/8 Adam7 selection, bounded shared semantics, and portable public evidence.
 
 ## Phases
 
-<details>
-<summary>✅ v0.17 GrayAlpha16 PNG Interchange (Phases 53-55) — SHIPPED 2026-07-23</summary>
+### 📋 v0.19 GrayAlpha8 Adam7 PNG (Planned)
 
-- [x] Phase 53: GrayAlpha16 Model and Checked Storage (1/1 plan)
-- [x] Phase 54: Bounded Type-4/16 Encoder (2/2 plans)
-- [x] Phase 55: Portable Public Evidence (1/1 plan)
+**Milestone Goal:** MoonBit library users can create bounded, explicit Adam7 Type-4/8 PNGs from legal packed U8 Gray+Alpha images while preserving frozen non-interlaced output and the existing single portable PNG pipeline.
 
-</details>
-
-### 📋 v0.18 GrayAlpha16 Adam7 PNG (Planned)
-
-**Milestone Goal:** MoonBit library users can create bounded, explicit Adam7 Type-4/16 PNGs from legal packed U16 Gray+Alpha images while preserving strict little-endian descriptor admission, frozen non-interlaced bytes, and the existing single portable PNG pipeline.
-
-- [x] **Phase 56: GrayAlpha16 Adam7 Factory and Pass Profile** - Add explicit eager and caller-buffered Adam7 Type-4/16 selection for the legal U16 GrayAlpha source contract. (Requirements: GRAYA16A7-01) (completed 2026-07-23)
-- [x] **Phase 57: Bounded Adam7 Streaming Semantics** - Extend the shared bounded traversal, filter, compression, and replay path to the new Type-4/16 Adam7 profile. (Requirements: GRAYA16A7-02) (completed 2026-07-23)
-- [x] **Phase 58: Portable Adam7 Public Evidence** - Prove public pass-aware wire/decode fidelity, hostile caller-buffer behavior, legacy stability, and four-target portability. (Requirements: GRAYA16A7-03) (completed 2026-07-23)
+- [ ] **Phase 59: GrayAlpha8 Adam7 Factory and Pass Profile** - Add explicit eager and caller-buffered Type-4/8 Adam7 selection while freezing existing non-interlaced routes. (Requirements: GRAYA8A7-01)
+- [ ] **Phase 60: Bounded Adam7 Streaming Semantics** - Prove all six strategy pairs retain the shared traversal, atomic preflight, pass-local filtering, and replay guarantees. (Requirements: GRAYA8A7-02)
+- [ ] **Phase 61: Portable GrayAlpha8 Adam7 Public Evidence** - Prove literal wire/decode fidelity, hostile caller schedules, frozen compatibility, and four-target portability. (Requirements: GRAYA8A7-03)
 
 ## Phase Details
 
-### Phase 56: GrayAlpha16 Adam7 Factory and Pass Profile
+### Phase 59: GrayAlpha8 Adam7 Factory and Pass Profile
 
-**Goal**: Library users can explicitly select eager or caller-buffered Adam7 encoding for legal packed U16 Gray+Alpha images and receive standards-compliant interlaced Type-4/16 PNGs.
-**Depends on**: Phase 55
-**Requirements**: GRAYA16A7-01
+**Goal**: Library users can explicitly select eager or caller-buffered Adam7 encoding for legal packed U8 Gray+Alpha images and receive standards-compliant interlaced Type-4/8 PNGs without changing existing non-interlaced behavior.
+**Depends on**: Phase 58
+**Requirements**: GRAYA8A7-01
 **Success Criteria** (what must be TRUE):
 
-  1. A library user can select explicit eager and caller-buffered GrayAlpha16 Adam7 factories for a legal packed little-endian image.
-  2. Each generated image declares Adam7 interlace, colour type 4, and bit depth 16, with every pass sample serialized in PNG order as `Ghi,Glo,Ahi,Alo`.
-  3. The strict Big-endian GrayAlpha16 descriptor rejection remains in force, and existing non-interlaced GrayAlpha16 factory selection remains unchanged.
+  1. A library user can select explicit eager and caller-buffered GrayAlpha8 Adam7 factories for a legal packed straight-alpha image.
+  2. Each selected factory emits PNG IHDR colour type 4, bit depth 8, and Adam7 interlace method 1, with seven-pass samples serialized as `G,A`.
+  3. Existing GrayAlpha8 non-interlaced constructors continue to select interlace method 0 and retain their frozen output bytes.
 
-**Plans**: 2/2 plans executed
+**Plans**: TBD
 
-- [x] 56-01-PLAN.md
-- [x] 56-02-PLAN.md
+### Phase 60: Bounded Adam7 Streaming Semantics
 
-### Phase 57: Bounded Adam7 Streaming Semantics
-
-**Goal**: Library users can use the new GrayAlpha16 Adam7 factories with the existing bounded PNG guarantees across filtering, compression, and caller-buffered replay.
-**Depends on**: Phase 56
-**Requirements**: GRAYA16A7-02
+**Goal**: Library users can use GrayAlpha8 Adam7 through the existing single bounded PNG pipeline with the same filter, compression, atomic-admission, and acknowledgement-safe replay guarantees as established formats.
+**Depends on**: Phase 59
+**Requirements**: GRAYA8A7-02
 **Success Criteria** (what must be TRUE):
 
-  1. A legal GrayAlpha16 Adam7 image can use None or Adaptive filtering with Stored, FixedOrStored, or DynamicOrFixedOrStored compression through one bounded encoder route.
-  2. Adam7 filtering traverses the seven passes with pass-local predictor history and emits the same accepted bytes through eager and caller-buffered encoding.
-  3. Incompatible input and capability, geometry, output, work, or budget failures leave the eager writer empty and expose neither partial output nor a usable caller-buffered lease.
-  4. Caller-buffered replay validates the source before writing after a mutation, advances only for accepted bytes, and retains sticky terminal outcomes.
+  1. Every None or Adaptive × Stored, FixedOrStored, or DynamicOrFixedOrStored GrayAlpha8 Adam7 selection uses one shared encoder route and yields eager/chunk byte identity.
+  2. Adam7 traversal covers seven pass-local filter contexts, so Adaptive predictor history never crosses from one pass into another.
+  3. Incompatible descriptor and capability, geometry, output, work, or budget requests fail atomically before eager output or caller-buffered lease exposure.
+  4. A checked U8 source mutation before replay causes Stored, Fixed, and Dynamic routes to write zero further lease bytes, preserve accepted-only accounting, and return the same sticky terminal error on later pulls.
 
-**Plans**: 2/2 plans executed
+**Plans**: TBD
 
-- [x] 57-01-PLAN.md
-- [x] 57-02-PLAN.md
+### Phase 61: Portable GrayAlpha8 Adam7 Public Evidence
 
-### Phase 58: Portable Adam7 Public Evidence
-
-**Goal**: Library users have independent public proof that GrayAlpha16 Adam7 PNG output is pass-faithful, caller-buffered-safe, compatible with frozen routes, and portable on every supported target.
-**Depends on**: Phase 57
-**Requirements**: GRAYA16A7-03
+**Goal**: Library users have independent public proof that GrayAlpha8 Adam7 output is pass-faithful, caller-buffered-safe, compatible with frozen routes, and portable on every supported target.
+**Depends on**: Phase 60
+**Requirements**: GRAYA8A7-03
 **Success Criteria** (what must be TRUE):
 
-  1. Public non-symmetric multi-pass vectors prove Adam7 pass placement and literal Type-4/16 `Ghi,Glo,Ahi,Alo` wire data, then decode through the documented straight-RGBA8 high-byte canonicalization.
+  1. A public non-symmetric all-seven-pass vector proves literal Type-4/8 `G,A` wire data and decodes through the established straight-RGBA8 `(G,G,G,A)` canonicalization.
   2. Fresh zero-capacity, one-byte, and ragged caller-buffer schedules remain eager-byte-identical, report accepted-only progress, preserve untouched lease tails, and retain sticky terminal outcomes.
-  3. Frozen non-interlaced and legacy Gray8, Gray16, GrayAlpha8, RGB8, and straight-RGBA8 PNG bytes remain unchanged, and the complete public PNG evidence passes on js, wasm, wasm-gc, and native.
+  3. Frozen non-interlaced GrayAlpha8 and legacy Gray8, Gray16, GrayAlpha16, RGB8, and straight-RGBA8 PNG vectors remain unchanged, and the complete PNG package passes on js, wasm, wasm-gc, and native.
 
-**Plans**: 3/3 plans executed
+**Plans**: TBD
 
-- [x] 58-01-PLAN.md
-- [x] 58-02-PLAN.md
-- [x] 58-03-PLAN.md
+## Scope Boundary
+
+This milestone excludes staging buffers, alternate encoders, decoder-model widening, Big-endian changes, release or registry work, target wrappers, and copied-source workflows.
 
 ## Progress
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 56. GrayAlpha16 Adam7 Factory and Pass Profile | 2/2 | Complete    | 2026-07-23 |
-| 57. Bounded Adam7 Streaming Semantics | 2/2 | Complete    | 2026-07-23 |
-| 58. Portable Adam7 Public Evidence | 3/3 | Complete    | 2026-07-23 |
+| 59. GrayAlpha8 Adam7 Factory and Pass Profile | 0/TBD | Not started | - |
+| 60. Bounded Adam7 Streaming Semantics | 0/TBD | Not started | - |
+| 61. Portable GrayAlpha8 Adam7 Public Evidence | 0/TBD | Not started | - |

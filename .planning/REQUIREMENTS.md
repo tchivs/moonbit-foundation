@@ -24,8 +24,8 @@
 
 ## Traceability
 
-| Requirement | Planned Phase | Status |
+| Requirement | Phase | Status |
 |---|---|---|
-| GRAYA8A7-01 | Phase 59 | Planned |
-| GRAYA8A7-02 | Phase 60 | Planned |
-| GRAYA8A7-03 | Phase 61 | Planned |
+| GRAYA8A7-01 | Phase 59 | Not started |
+| GRAYA8A7-02 | Phase 60 | Not started |
+| GRAYA8A7-03 | Phase 61 | Not started |
