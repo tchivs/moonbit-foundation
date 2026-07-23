@@ -15,7 +15,7 @@
 
 ### Adam7 output
 
-- [ ] **RGBA16ENC-03**: Library users can explicitly select legal Type-6/16 Adam7 PNG output from `rgba16` sources while preserving every U16 lane, existing filter/compression choices, and frozen non-interlaced behavior.
+- [x] **RGBA16ENC-03**: Library users can explicitly select legal Type-6/16 Adam7 PNG output from `rgba16` sources while preserving every U16 lane, existing filter/compression choices, and frozen non-interlaced behavior.
 
 ### Portable qualification
 
@@ -36,7 +36,7 @@
 |---|---|---|
 | RGBA16ENC-01 | Phase 69 | Pending |
 | RGBA16ENC-02 | Phase 70 | Complete |
-| RGBA16ENC-03 | Phase 71 | Pending |
+| RGBA16ENC-03 | Phase 71 | Complete |
 | RGBA16ENC-04 | Phase 72 | Pending |
 
 **Coverage:**
