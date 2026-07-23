@@ -26,26 +26,49 @@
 - ✅ **v0.22 RGBA16 PNG Encode** — Phases 69-72 (shipped 2026-07-23). [Full history](./milestones/v0.22-ROADMAP.md)
 - ✅ **v0.23 Low-Bit Grayscale PNG Encode** — Phases 73-75 (shipped 2026-07-24). [Full history](./milestones/v0.23-ROADMAP.md)
 - ✅ **v0.24 Indexed PNG Encode** — Phases 76-78 (shipped 2026-07-24). [Full history](./milestones/v0.24-ROADMAP.md)
+- ✅ **v0.25 Indexed Low-Bit PNG Encode** — Phases 79-80 (shipped 2026-07-24). [Full history](./milestones/v0.25-ROADMAP.md)
+- 📋 **v0.26 Indexed8 Adam7 PNG Encode** — Phases 81-82 (planned).
 
 ## Phases
 
-### 📋 v0.25 Indexed Low-Bit PNG Encode
+### 📋 v0.26 Indexed8 Adam7 PNG Encode
 
-- [x] **Phase 79: Indexed Low-Bit Eager Packing** — Add exact bounded Type-3/1, /2, and /4 eager output from canonical Indexed8 sources. (completed 2026-07-24)
-- [x] **Phase 80: Resumable Indexed Low-Bit Qualification** — Add caller-buffered parity, hostile lease proof, independent vectors, and four-target qualification. (completed 2026-07-24)
+- [ ] **Phase 81: Indexed8 Adam7 Machine and Eager Wire Contract** — Add the bounded Type-3/8 Adam7 machine path, frozen legacy wrappers, exact framing, and atomic admission.
+- [ ] **Phase 82: Indexed8 Adam7 Streaming and Qualification** — Expose the same machine to caller buffers and qualify lifecycle, independent wire/decode evidence, compatibility, and portability.
 
 ## Phase Details
 
-### Phase 79: Indexed Low-Bit Eager Packing
+### Phase 81: Indexed8 Adam7 Machine and Eager Wire Contract
 
-**Goal:** Library users can explicitly encode an existing `PngIndexedImage` as bounded non-interlaced Type-3/1, /2, or /4 PNG with exact MSB-first packed rows and PLTE/tRNS framing.
-**Depends on:** Phase 78
-**Requirements:** INDEXLOW-01, INDEXLOW-02, INDEXLOW-03
-**Scope guard:** Reuse the owning Indexed8 source and one bounded machine; no generic model widening, quantization, Adam7, strategy expansion, staging, FFI, or release automation.
+**Goal:** Users can explicitly encode a canonical `PngIndexedImage` as a bounded Type-3/8 Adam7 PNG through the existing acknowledged machine while legacy Indexed8 routes remain byte-identical and non-interlaced.
 
-### Phase 80: Resumable Indexed Low-Bit Qualification
+**Depends on:** Phase 80 (shipped)
 
-**Goal:** Library users can emit the same low-bit Indexed PNG through caller-owned leases with eager-identical bytes, sticky terminals, and portable independent evidence.
-**Depends on:** Phase 79
-**Requirements:** INDEXLOW-04, INDEXLOW-05
-**Scope guard:** Add only a thin caller-buffered entry to Phase 79's machine and qualify it; no second transport, indexed Adam7, model widening, strategies, wrappers, copied source trees, or release automation.
+**Requirements:** INDEXADAM7-01, INDEXADAM7-02, INDEXADAM7-03, INDEXADAM7-04
+
+**Scope guard:** Add only explicit Indexed8 interlace selection. Reuse `_png_adam7_passes(..., 1, 8)`, `PngIndexedImage::index_at`, `PngFrameFacts`, and the sole `PngEncodeMachine`; no Indexed1/2/4 Adam7, strategy expansion, generic model/API widening, or image/pass/output staging.
+
+**Success criteria:**
+
+1. Additive eager and caller-buffered selector seams accept `Adam7`, while `encode_indexed8` and `new_indexed8` keep their signatures and frozen IHDR interlace-0 bytes.
+2. Adam7 Indexed8 preflight derives checked pass-row scanlines, Stored IDAT/frame/work facts, limits, and the single budget charge from shared seven-pass geometry before any output.
+3. The existing machine emits a filter-None tag for every nonempty pass row and reads canonical indices only at mapped pass coordinates, without a second encoder or staging allocation.
+4. Independent eager evidence proves `IHDR → PLTE → optional canonical tRNS → IDAT → IEND`, valid CRCs, exact seven-pass Type-3/8 raster, and complete public RGB8/RGBA8 decode.
+
+### Phase 82: Indexed8 Adam7 Streaming and Qualification
+
+**Goal:** The same admitted Indexed8 Adam7 machine is usable through caller-owned leases with eager-identical bytes, sticky outcomes, independent transport evidence, frozen compatibility, and four-target proof.
+
+**Depends on:** Phase 81
+
+**Requirements:** INDEXADAM7-05, INDEXADAM7-06
+
+**Scope guard:** Add only a thin `PngChunkEncoder` adapter over Phase 81's machine and tests/evidence. Do not create another stream/encoder, add low-bit Adam7, change the indexed source model, add filters/compression strategies, wrappers, copied trees, FFI, or release automation.
+
+**Success criteria:**
+
+1. Zero-capacity, one-byte, and ragged lease schedules reproduce fresh eager Adam7 bytes; progress counts accepted bytes only and untouched lease tails remain sentinel-filled.
+2. Released leases yield sticky zero-write failures; repeated finished pulls remain zero-write `Finished` and cannot mutate later destinations.
+3. Chunk-origin output independently passes chunk/CRC/raw-pass/decode checks, rather than relying only on eager parity.
+4. Existing Indexed8 opaque/transparent and Indexed1/2/4 non-interlaced literal vectors remain unchanged.
+5. The ordinary frozen PNG package gate passes on wasm, wasm-gc, js, and native.

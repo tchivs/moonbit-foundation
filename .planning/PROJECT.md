@@ -10,21 +10,21 @@ The primary audience is MoonBit library authors and application developers build
 
 MoonBit developers can reuse stable, high-performance native infrastructure contracts instead of rebuilding incompatible foundations for every graphics, document, media, or automation product.
 
-## Current State: v0.24 Indexed PNG Encode Shipped
+## Current State: v0.25 Indexed Low-Bit PNG Encode Shipped
 
-**Delivered:** `mb-image` now exposes a dedicated immutable Indexed8 PNG source, bounded eager Type-3/8 output with PLTE and canonical optional tRNS, plus a caller-buffered `PngChunkEncoder::new_indexed8` path that reuses the same acknowledged machine.
+**Delivered:** `mb-image` now emits explicit bounded Type-3 PNG at 1, 2, and 4 bits from the canonical unpacked `PngIndexedImage`, with MSB-first zero-tailed rows, depth-capped PLTE, and canonical optional tRNS. Eager and caller-buffered low-bit routes share the existing acknowledged machine.
 
-**Validated:** Exact opaque and transparent wire/CRC vectors, public RGB8/RGBA8 decode, eager/chunk byte parity, zero/one/ragged and split/released hostile leases, sticky terminals, atomic admission, and a fresh ordinary PNG package gate all passed. On the final main-branch run, wasm, wasm-gc, js, and native each completed 279/279 tests.
+**Validated:** Independent packed-wire/CRC and public RGB8/RGBA8 decode vectors, eager/chunk byte parity, hostile leases, sticky terminals, atomic admission, Indexed8 freezes, and the ordinary PNG package gate passed. On the final main-branch run, wasm, wasm-gc, js, and native each completed 286/286 tests.
 
-## Current Milestone: v0.25 Indexed Low-Bit PNG Encode
+## Current Milestone: v0.26 Indexed8 Adam7 PNG Encode
 
-**Goal:** Add exact, bounded Type-3/1, /2, and /4 PNG output from the existing canonical Indexed8 source without widening generic image models or creating a second encoder.
+**Goal:** Add explicit bounded Adam7 Type-3/8 output from the existing canonical `PngIndexedImage` while preserving every legacy non-interlaced Indexed8 and low-bit route.
 
 **Target features:**
 
-- Pack canonical unpacked indices MSB-first with deterministic zero-filled row tails.
-- Preserve PLTE and canonical optional tRNS while enforcing depth-specific palette caps and atomic admission.
-- Deliver eager and caller-buffered byte parity, hostile lease behavior, independent wire/decode vectors, and all-target qualification.
+- Add opt-in eager and caller-buffered Indexed8 Adam7 selectors that reuse the established bounded machine.
+- Derive exact pass-local preflight and scalar indexed traversal without staging or a second encoder.
+- Prove pass order, PLTE/tRNS framing, resource admission, hostile lease semantics, compatibility, public decode, and four-target portability.
 
 **Versioning note:** Keep `PngIndexedImage` experimental until its alpha-aware constructor evolution is documented or an opaque compatibility constructor is selected.
 
@@ -68,9 +68,9 @@ MoonBit developers can reuse stable, high-performance native infrastructure cont
 
 ### Active
 
-- [ ] Provide explicit lossless 1-, 2-, and 4-bit grayscale PNG encoding from the canonical Gray/U8 model.
-- [ ] Provide caller-buffered low-bit grayscale output with the existing bounded machine semantics.
-- [ ] Prove packed wire fidelity, hostile failure behavior, legacy compatibility, and four-target portability.
+- [ ] Provide explicit Type-3/8 Adam7 PNG encoding from `PngIndexedImage` without changing legacy non-interlaced bytes.
+- [ ] Preserve bounded atomic preflight and caller-buffered lifecycle semantics for the selected indexed layout.
+- [ ] Prove independent pass wire fidelity, palette/transparency framing, public decode, compatibility, and portability on all targets.
 
 ### Out of Scope
 
@@ -218,4 +218,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update toolchain, compatibility, benchmark, and adoption context.
 
 ---
-*Last updated: 2026-07-23 after v0.21 RGBA16 PNG Decode milestone*
+*Last updated: 2026-07-24 after v0.25 closeout and v0.26 initialization*

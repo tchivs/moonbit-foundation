@@ -1,57 +1,40 @@
 ---
 gsd_state_version: 1.0
-milestone: v0.25
-milestone_name: Indexed Low-Bit PNG Encode
-status: Awaiting next milestone
-stopped_at: Completed 80-01-PLAN.md; four-target PNG verification needs rerun
-last_updated: "2026-07-23T22:15:18.201Z"
+milestone: v0.26
+milestone_name: Indexed8 Adam7 PNG Encode
+status: planning
+last_updated: "2026-07-24T00:00:00Z"
 last_activity: 2026-07-24
-last_activity_desc: Milestone v0.25 completed and archived
 progress:
   total_phases: 2
-  completed_phases: 2
-  total_plans: 2
-  completed_plans: 2
-  percent: 100
-current_phase: 80
-current_phase_name: Resumable Indexed Low-Bit Qualification
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
+  percent: 0
 ---
 
 # Project State
 
 ## Project Reference
 
-See `.planning/PROJECT.md` (updated 2026-07-23).
+See `.planning/PROJECT.md`.
 
 **Core value:** MoonBit developers can reuse stable, high-performance native infrastructure contracts instead of rebuilding incompatible foundations for every graphics, document, media, or automation product.
 
-**Current focus:** Phase 78 — Resumable Indexed PNG & Qualification
+**Current focus:** Phase 81 — Indexed8 Adam7 Machine and Eager Wire Contract.
 
 ## Current Position
 
-Phase: Milestone v0.25 complete
+Phase: 81 (first of 2; planning)
 Plan: —
-Status: Awaiting next milestone
-Last activity: 2026-07-24 — Milestone v0.25 completed and archived
+Status: v0.26 roadmap ready; Phase 81 is next to plan.
+Last activity: 2026-07-24 — Defined v0.26 requirements and roadmap from Indexed8 Adam7 research.
 
-## Performance Metrics
+## Milestone Metrics
 
-**Current milestone:** v0.22 has 4 scoped requirements mapped exactly once across Phases 69-72.
+**Current milestone:** v0.26 has 6 scoped requirements mapped exactly once across 2 planned phases; 0/2 phases and 0 plans are complete.
 
-**Recent milestone:** v0.18 shipped with explicit GrayAlpha16 Adam7 factories, bounded streaming semantics, public portable evidence, and a four-target PNG qualification.
-
-**Recent milestone:** v0.17 shipped with 4/4 requirements, 3/3 phases, 4/4 plans, 8 tasks, and 204/204 PNG tests on each supported target.
-
-**Recent milestone:** v0.16 shipped with 5/5 requirements, 3/3 phases, and four-target GrayAlpha8 PNG evidence.
-**Per-Plan Metrics:**
-
-| Plan | Duration | Tasks | Files |
-|------|----------|-------|-------|
-| Phase 59 P01 | 14min | 1 tasks | 5 files |
-| Phase 59 P02 | 18min | 2 tasks | 2 files |
-| Phase 72-rgba16-encode-qualification P01 | 14min | 2 tasks | 1 files |
-| Phase 79-indexed-low-bit-eager-packing P01 | 31min | 2 tasks | 5 files |
-| Phase 80-resumable-indexed-low-bit-qualification P01 | 15min | 2 tasks | 2 files |
+**Previous milestone:** v0.25 shipped Indexed Type-3/1, /2, and /4 non-interlaced eager/chunk output through the existing machine. Its detailed history is archived at `.planning/milestones/v0.25-ROADMAP.md`.
 
 ## Accumulated Context
 
@@ -60,43 +43,36 @@ Last activity: 2026-07-24 — Milestone v0.25 completed and archived
 - [v0.9]: PNG constructor preflight is atomic: incompatible capability, geometry, output, work, and budget requests fail before eager output or caller-buffered lease exposure.
 - [v0.12]: Filter strategy is explicit; legacy filter-None constructors and compressed bytes remain compatibility baselines.
 - [v0.13]: Explicit Adam7 remains additive; legacy non-interlaced routes and output bytes stay frozen.
-- [v0.16]: Packed U8 Gray+Alpha is limited to explicit straight-alpha metadata and reuses the existing bounded PNG pipeline without staging.
-- [v0.18]: Type-4 Adam7 additions reuse the existing shared bounded traversal, filter, Stored/Fixed/Dynamic planning, and acknowledgement-safe replay machinery; no alternate encoder is introduced.
-- [v0.19]: GrayAlpha8 Adam7 is opt-in through explicit eager and caller-buffered factories only; existing GrayAlpha8 non-interlaced selection and bytes remain frozen.
-- [v0.19]: GrayAlpha8 Adam7 must retain the profile-aware single machine, pass-local filtering, atomic preflight, and pre-write mutation rejection across Stored, Fixed, and Dynamic replay.
-- [v0.19]: Public proof uses literal Type-4/8 multipass wire data, established RGBA8 decode canonicalization, hostile caller schedules, frozen legacy vectors, and the ordinary all-target PNG package command.
-- [v0.20]: High-precision Type-4/16 decode is explicit-only: generic eager and chunk facades remain frozen on `RGBA8(Ghi,Ghi,Ghi,Ahi)`.
-- [v0.20]: The preservation result is packed little-endian `graya16`, straight alpha, and encoded-sRGB identity; sources with no colour declaration or `sRGB` are accepted, while legacy-colour and ICC declarations are rejected before allocation.
-- [v0.20]: The sole decoder machine continues byte-domain filtering and Adam7 traversal; only the final profile-aware store maps `Ghi,Glo,Ahi,Alo` to `Glo,Ghi,Alo,Ahi` without staging.
-- [Phase 72]: Normal RGBA16 Stored/None qualification compares a complete independent 17-byte public raster while preserving IHDR and decoded packed-little-endian lanes.
-- [Phase 72]: Phase 72 retains Adam7, hostile caller-buffered, and literal compatibility evidence unchanged and uses the ordinary frozen four-target PNG package gate.
-- [Phase ?]: Public PngIndexedBitDepth selects One, Two, or Four while Indexed8 remains on its established API.
-- [Phase ?]: Low-bit indexed pixels pack directly in the acknowledged machine; fixed-Eight wrappers preserve legacy eager and chunk behavior.
-- [Phase ?]: Selected indexed chunk encoding maps One/Two/Four directly to the existing profile-aware machine; Indexed8 remains a fixed compatibility wrapper.
-
-### Pending Todos
-
-- Plan Phase 65 after confirming the local MoonBit API spelling for `rgba16` and the established checked descriptor conventions.
+- [v0.18]: Type-4 Adam7 additions reuse the existing shared bounded traversal, filtering/planning, and acknowledgement-safe replay machinery; no alternate encoder is introduced.
+- [v0.19]: GrayAlpha8 Adam7 is opt-in through explicit eager and caller-buffered factories only; existing non-interlaced selection and bytes remain frozen.
+- [v0.20]: High-precision preservation remains explicit-only; generic facades retain their compatibility result.
+- [v0.25]: Public `PngIndexedBitDepth` selects One, Two, or Four while Indexed8 remains on its established API; low-bit indexed pixels pack directly in the acknowledged machine.
+- [v0.26]: Indexed8 Adam7 is an additive Type-3/8 Stored/filter-None capability. Existing `encode_indexed8` and `new_indexed8` remain non-interlaced compatibility wrappers.
+- [v0.26]: Reuse `_png_adam7_passes(width, height, 1, 8)` and scalar `PngIndexedImage::index_at` traversal inside the single machine; do not stage a pass/image raster or create a second encoder.
+- [v0.26]: Indexed Type-3/1, /2, and /4 Adam7 remains deferred until packed pass traversal has a separately proven bounded contract.
 
 ### Blockers/Concerns
 
-- No current blocker. Phase 62 must retain the sRGB-only identity gate before image allocation and preserve generic decoder behavior.
+- No current blocker. Verify the public spelling of the additive eager/chunk Indexed8 interlace selectors while preserving legacy method signatures.
+- The 5×5 seven-pass raw-raster fixture is an independent oracle and must not be derived from production traversal helpers.
+- Do not promise diagnostics-content assertions unless a stable public diagnostics query is confirmed during phase planning.
 
 ## Deferred Items
 
 | Category | Item | Status |
 |----------|------|--------|
-| scope | Palette/indexed encoding, Gray low-bit packing, Gray8 Adam7, broad U16 model expansion, generic decoder widening, and public high-precision conversion | deferred |
-| scope | Image-sized staging buffers, alternate encoders, Big-endian changes, and native FFI | deferred |
-| delivery | Registry publication, release automation, target wrappers, and source-tree copying | deferred |
-| scope | cICP/HDR, non-sRGB Type-4/16 preservation, and full ICC colour transforms | deferred |
+| scope | Indexed Type-3/1, /2, and /4 Adam7 / packed pass traversal | deferred pending a separate bounded contract |
+| scope | Indexed adaptive filters and Fixed/Dynamic compression selection | deferred |
+| scope | Generic indexed image-model widening, palette generation, quantization, dithering, and scaling | deferred |
+| implementation | Image/pass/output staging, alternate encoders, FFI, target wrappers, and copied source trees | deferred |
+| delivery | Registry publication and release automation | deferred |
 
 ## Session Continuity
 
-Last session: 2026-07-23T21:52:26.624Z
-Stopped at: Completed 80-01-PLAN.md; four-target PNG verification needs rerun
-Resume file: None
+Last session: 2026-07-24
+Stopped at: v0.26 roadmap created; Phase 81 is ready for planning.
+Resume file: `.planning/ROADMAP.md`
 
 ## Operator Next Steps
 
-- Start the next milestone with /gsd-new-milestone
+- Plan Phase 81 with the v0.26 research summary and requirements as its contract.
