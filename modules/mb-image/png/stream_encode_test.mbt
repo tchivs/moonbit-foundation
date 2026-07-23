@@ -4959,3 +4959,143 @@ test "PNG Indexed8 chunk transparent tracer retains eager bytes" {
   }
   abort("png indexed8 chunk tracer unreachable")
 }
+
+///| Builds the two public Indexed8 palette variants qualified by the chunk
+/// lifecycle tests without widening the generic image model.
+fn png_stream_indexed_source(transparent : Bool) -> PngIndexedImage {
+  if transparent {
+    PngIndexedImage::new(
+      4UL, 1UL, b"\x00\x01\x02\x03",
+      b"\x12\x34\x56\xa0\xb0\xc0\x11\x22\x33\x44\x55\x66",
+      b"\x00\xff\x80\xff", png_stream_test_budget(),
+    ).unwrap()
+  } else {
+    PngIndexedImage::new(
+      2UL, 1UL, b"\x00\x01", b"\x12\x34\x56\xa0\xb0\xc0",
+      b"\xff\xff", png_stream_test_budget(),
+    ).unwrap()
+  }
+}
+
+///| Fresh Indexed8 machines retain accepted-only progress, caller tails, eager
+/// identity, and the sticky completed terminal under hostile leases.
+fn png_stream_indexed_hostile_drain(
+  source : PngIndexedImage,
+  schedule : Array[UInt64],
+) -> Unit {
+  let expected = png_stream_indexed_eager(source)
+  let encoder = PngChunkEncoder::new_indexed8(
+    source, png_stream_test_limits(), png_stream_test_budget(), @error.Diagnostics::new(),
+  ).unwrap()
+  let output : Array[Byte] = []
+  let mut turn = 0UL
+  while turn < 4096UL {
+    let capacity = schedule[(turn % schedule.length().to_uint64()).to_int()]
+    let owner = png_chunk_test_owner(capacity, fill=b'Z')
+    let before = output.length().to_uint64()
+    let pulled = owner.with_mut(0UL, capacity, fn(lease) { Ok(encoder.pull(lease)) }).unwrap()
+    if pulled.written() > capacity || pulled.total_written() != before + pulled.written() {
+      abort("png indexed8 hostile accepted-only progress")
+    }
+    for index = 0UL; index < pulled.written(); index = index + 1UL {
+      output.push(owner.view().get(index).unwrap())
+    }
+    for index = pulled.written(); index < capacity; index = index + 1UL {
+      if owner.view().get(index).unwrap() != b'Z' { abort("png indexed8 hostile tail") }
+    }
+    match pulled.outcome() {
+      PngChunkPullOutcome::NeedOutput => turn = turn + 1UL
+      PngChunkPullOutcome::Failed(_) => abort("png indexed8 hostile drain failed")
+      PngChunkPullOutcome::Finished => {
+        if Bytes::from_array(output) != expected { abort("png indexed8 hostile eager parity") }
+        let later = png_chunk_test_owner(7UL, fill=b'Z')
+        let replay = later.with_mut(0UL, 7UL, fn(lease) { Ok(encoder.pull(lease)) }).unwrap()
+        if replay.written() != 0UL || replay.total_written() != pulled.total_written() ||
+          !(replay.outcome() is PngChunkPullOutcome::Finished) {
+          abort("png indexed8 sticky completed terminal")
+        }
+        for index = 0UL; index < 7UL; index = index + 1UL {
+          if later.view().get(index).unwrap() != b'Z' { abort("png indexed8 completed tail") }
+        }
+        return ()
+      }
+    }
+  }
+  abort("png indexed8 hostile drain unreachable")
+}
+
+///| Opaque and transparent Indexed8 chunks must preserve zero, one-byte, and
+/// ragged caller-owned lease semantics with no second encoder path.
+test "PNG Indexed8 chunk hostile leases retain eager parity and sticky completion" {
+  for transparent in [false, true] {
+    png_stream_indexed_hostile_drain(png_stream_indexed_source(transparent), [0UL, 1UL])
+    png_stream_indexed_hostile_drain(png_stream_indexed_source(transparent), [1UL])
+    png_stream_indexed_hostile_drain(
+      png_stream_indexed_source(transparent), [0UL, 1UL, 3UL, 2UL, 5UL],
+    )
+  }
+}
+
+///| A released first lease becomes a sticky zero-write error and cannot mutate
+/// a later caller-owned Indexed8 destination.
+test "PNG Indexed8 chunk replays released lease failures" {
+  let encoder = PngChunkEncoder::new_indexed8(
+    png_stream_indexed_source(true), png_stream_test_limits(), png_stream_test_budget(),
+    @error.Diagnostics::new(),
+  ).unwrap()
+  let released = png_chunk_test_owner(1UL, fill=b'Z')
+  let first = released.with_mut(0UL, 1UL, fn(lease) {
+    lease.release()
+    Ok(encoder.pull(lease))
+  }).unwrap()
+  let first_error = match first.outcome() {
+    PngChunkPullOutcome::Failed(error) => error
+    _ => abort("png indexed8 released lease outcome")
+  }
+  let later = png_chunk_test_owner(1UL, fill=b'Z')
+  let replay = later.with_mut(0UL, 1UL, fn(lease) { Ok(encoder.pull(lease)) }).unwrap()
+  let replay_error = match replay.outcome() {
+    PngChunkPullOutcome::Failed(error) => error
+    _ => abort("png indexed8 released lease replay")
+  }
+  if first.written() != 0UL || first.total_written() != 0UL || replay.written() != 0UL ||
+    replay.total_written() != 0UL || !png_chunk_test_same_error(first_error, replay_error) ||
+    released.view().get(0UL).unwrap() != b'Z' || later.view().get(0UL).unwrap() != b'Z' {
+    abort("png indexed8 released lease terminal")
+  }
+}
+
+///| Indexed8 construction rejects output, pixel, and work requests before a
+/// lease can be exposed or any caller-supplied budget resource is charged.
+test "PNG Indexed8 chunk admission is atomic" {
+  let output_budget = png_stream_test_budget()
+  let output_before = output_budget.remaining()
+  inspect(PngChunkEncoder::new_indexed8(
+    png_stream_indexed_source(true), png_stream_test_limits(output=111UL), output_budget,
+    @error.Diagnostics::new(),
+  ) is Err(_), content="true")
+  inspect(
+    png_adam7_stream_same_remaining(output_before, output_budget.remaining()), content="true",
+  )
+  let zero_pixels = @budget.Budget::new(@budget.ResourceLimits::new(
+    bytes=1048576UL, allocations=16UL, allocation_size=1048576UL,
+    width=70000UL, height=8UL, pixels=0UL, depth=0UL, work=1048576UL,
+  ))
+  let pixels_before = zero_pixels.remaining()
+  inspect(PngChunkEncoder::new_indexed8(
+    png_stream_indexed_source(false), png_stream_test_limits(), zero_pixels,
+    @error.Diagnostics::new(),
+  ) is Err(_), content="true")
+  inspect(
+    png_adam7_stream_same_remaining(pixels_before, zero_pixels.remaining()), content="true",
+  )
+  let work_budget = png_stream_test_budget(work=111UL)
+  let work_before = work_budget.remaining()
+  inspect(PngChunkEncoder::new_indexed8(
+    png_stream_indexed_source(true), png_stream_test_limits(), work_budget,
+    @error.Diagnostics::new(),
+  ) is Err(_), content="true")
+  inspect(
+    png_adam7_stream_same_remaining(work_before, work_budget.remaining()), content="true",
+  )
+}
