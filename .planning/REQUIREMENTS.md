@@ -16,7 +16,7 @@
 
 ### Portable qualification
 
-- [ ] **GRAYPACK-04**: Independent packed-wire/decode vectors, hostile lifecycle evidence, frozen legacy compatibility, and the ordinary full PNG package pass cover wasm, wasm-gc, js, and native.
+- [x] **GRAYPACK-04**: Independent packed-wire/decode vectors, hostile lifecycle evidence, frozen legacy compatibility, and the ordinary full PNG package pass cover wasm, wasm-gc, js, and native.
 
 ## Future Requirements
 
@@ -34,7 +34,7 @@
 | GRAYPACK-01 | Phase 73 | Complete |
 | GRAYPACK-02 | Phase 73 | Complete |
 | GRAYPACK-03 | Phase 74 | Complete |
-| GRAYPACK-04 | Phase 75 | Pending |
+| GRAYPACK-04 | Phase 75 | Complete |
 
 **Coverage:**
 

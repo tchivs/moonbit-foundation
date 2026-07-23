@@ -31,7 +31,7 @@
 
 - [x] **Phase 73: Explicit Packed Grayscale PNG** — Add exact, non-interlaced Type-0 1/2/4-bit eager output from representable Gray/U8 sources. (completed 2026-07-23)
 - [x] **Phase 74: Resumable Packed Grayscale PNG** — Add caller-buffered packed output through the existing bounded encoder machine. (completed 2026-07-24)
-- [ ] **Phase 75: Packed Grayscale PNG Qualification** — Prove independent wire fidelity, hostile behavior, compatibility, and four-target portability.
+- [x] **Phase 75: Packed Grayscale PNG Qualification** — Prove independent wire fidelity, hostile behavior, compatibility, and four-target portability. (completed 2026-07-24)
 
 ## Phase Details
 
