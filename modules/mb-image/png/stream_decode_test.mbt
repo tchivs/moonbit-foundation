@@ -574,6 +574,135 @@ test "PNG graya16 chunk schedules match eager preservation" {
   }
 }
 
+///| Add one valid legacy-colour declaration before IDAT. The explicit profile
+/// accepts only absent or sRGB declarations, so this complete wire stream
+/// reaches the existing first-IDAT admission boundary.
+fn png_graya16_rejected_metadata_literal() -> Bytes {
+  let source = png_test_graya16_literal()
+  png_chunk_bytes(source, 0, 33) +
+    b"\x00\x00\x00\x04gAMA\x00\x01\x86\xa0\x31\xe8\x96\x5f" +
+    png_chunk_bytes(source, 33, source.length())
+}
+
+///| Once public chunk input observes its first error, later caller-owned views
+/// and repeated finish declarations must replay that exact typed terminal.
+fn png_graya16_chunk_assert_sticky(
+  decoder : PngChunkDecoder,
+  expected : @error.CoreError,
+  lane : String,
+) -> Unit {
+  let later = png_chunk_source(b"Z")
+  let replay = decoder.push(later.view())
+  if replay.consumed() != 0UL {
+    abort("PNG " + lane + " sticky push consumed bytes")
+  }
+  match replay.outcome() {
+    PngChunkPushOutcome::Failed(error) => if !png_chunk_error_matches(error, expected) {
+      abort("PNG " + lane + " sticky push changed error")
+    }
+    _ => abort("PNG " + lane + " sticky push lost error")
+  }
+  let finished = decoder.finish().unwrap_err()
+  if !png_chunk_error_matches(finished, expected) {
+    abort("PNG " + lane + " sticky finish changed error")
+  }
+}
+
+///| Explicit chunk terminals preserve the shared atomic failure and frozen
+/// generic compatibility contracts without adding another parser lifecycle.
+test "PNG graya16 chunk terminals retain atomic sticky compatibility" {
+  let early = PngChunkDecoder::new_graya16(
+    png_test_limits(),
+    @budget.Budget::new(@budget.ResourceLimits::new(
+      bytes=256UL, allocations=8UL, allocation_size=128UL, width=4UL,
+      height=4UL, pixels=16UL, depth=0UL, work=256UL,
+    )),
+    @error.Diagnostics::new(),
+  )
+  let legal = png_test_graya16_literal()
+  let partial = png_chunk_source(png_chunk_bytes(legal, 0, 40))
+  let partial_push = early.push(partial.view())
+  inspect(partial_push.consumed() == 40UL, content="true")
+  inspect(partial_push.outcome() is PngChunkPushOutcome::NeedInput, content="true")
+  let early_error = early.finish().unwrap_err()
+  inspect(early_error.code() == @error.ErrorCode::UnexpectedEndOfStream, content="true")
+  png_graya16_chunk_assert_sticky(early, early_error, "early-eof")
+
+  let malformed = PngChunkDecoder::new_graya16(
+    png_test_limits(),
+    @budget.Budget::new(@budget.ResourceLimits::new(
+      bytes=256UL, allocations=8UL, allocation_size=128UL, width=4UL,
+      height=4UL, pixels=16UL, depth=0UL, work=256UL,
+    )),
+    @error.Diagnostics::new(),
+  )
+  let malformed_source = png_chunk_source(b"X")
+  let malformed_push = malformed.push(malformed_source.view())
+  let malformed_error = match malformed_push.outcome() {
+    PngChunkPushOutcome::Failed(error) => error
+    _ => abort("PNG malformed signature must terminate during push")
+  }
+  inspect(malformed_push.consumed() == 1UL, content="true")
+  png_graya16_chunk_assert_sticky(malformed, malformed_error, "malformed")
+
+  let rejected_metadata = PngChunkDecoder::new_graya16(
+    png_test_limits(),
+    @budget.Budget::new(@budget.ResourceLimits::new(
+      bytes=256UL, allocations=8UL, allocation_size=128UL, width=4UL,
+      height=4UL, pixels=16UL, depth=0UL, work=256UL,
+    )),
+    @error.Diagnostics::new(),
+  )
+  let metadata_source = png_chunk_source(png_graya16_rejected_metadata_literal())
+  let metadata_push = rejected_metadata.push(metadata_source.view())
+  let metadata_error = match metadata_push.outcome() {
+    PngChunkPushOutcome::Failed(error) => error
+    _ => abort("PNG graya16 metadata must terminate during push")
+  }
+  inspect(metadata_push.consumed() > 0UL, content="true")
+  inspect(metadata_error.context() == Some("graya16-profile"), content="true")
+  png_graya16_chunk_assert_sticky(rejected_metadata, metadata_error, "metadata")
+
+  let limited = PngChunkDecoder::new_graya16(
+    @codec.CodecLimits::new(
+      max_probe_bytes=8UL, max_input_bytes=0UL, max_output_bytes=64UL,
+      max_width=4UL, max_height=4UL, max_pixels=16UL, max_work=128UL,
+    ),
+    @budget.Budget::new(@budget.ResourceLimits::new(
+      bytes=128UL, allocations=8UL, allocation_size=64UL, width=4UL,
+      height=4UL, pixels=16UL, depth=0UL, work=128UL,
+    )),
+    @error.Diagnostics::new(),
+  )
+  let rejected_byte = png_chunk_source(b"\x89")
+  let limited_push = limited.push(rejected_byte.view())
+  let limit_error = match limited_push.outcome() {
+    PngChunkPushOutcome::Failed(error) => error
+    _ => abort("PNG input ceiling must terminate during push")
+  }
+  inspect(limited_push.consumed() == 0UL, content="true")
+  inspect(limit_error.context() == Some("input-bytes"), content="true")
+  png_graya16_chunk_assert_sticky(limited, limit_error, "input-limit")
+
+  let generic = PngChunkDecoder::new(
+    png_test_limits(),
+    @budget.Budget::new(@budget.ResourceLimits::new(
+      bytes=256UL, allocations=8UL, allocation_size=128UL, width=4UL,
+      height=4UL, pixels=16UL, depth=0UL, work=256UL,
+    )),
+    @error.Diagnostics::new(),
+  )
+  let generic_source = png_chunk_source(legal)
+  let generic_push = generic.push(generic_source.view())
+  inspect(generic_push.consumed() == generic_source.length(), content="true")
+  inspect(generic_push.outcome() is PngChunkPushOutcome::NeedInput, content="true")
+  let generic_image = generic.finish().unwrap().image().view()
+  for channel = 0UL; channel < 3UL; channel = channel + 1UL {
+    inspect(generic_image.get_byte(0UL, 0UL, channel).unwrap() == b'\x12', content="true")
+  }
+  inspect(generic_image.get_byte(0UL, 0UL, 3UL).unwrap() == b'\xa7', content="true")
+}
+
 ///| The complete generated corpus proves only public PngChunkDecoder calls:
 /// every record begins empty, then crosses all byte boundaries and a mixed
 /// ragged caller schedule before explicit finish determines completion.
