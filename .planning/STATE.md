@@ -1,20 +1,16 @@
 ---
 gsd_state_version: 1.0
-milestone: v0.24
-milestone_name: Indexed PNG Encode
-status: Awaiting next milestone
-stopped_at: Phase 78 context gathered
-last_updated: "2026-07-23T20:15:45.040Z"
+milestone: v0.25
+milestone_name: Indexed Low-Bit PNG Encode
+status: planning
+last_updated: "2026-07-23T20:18:14.031Z"
 last_activity: 2026-07-24
-last_activity_desc: Milestone v0.24 completed and archived
 progress:
-  total_phases: 3
-  completed_phases: 3
-  total_plans: 3
-  completed_plans: 3
-  percent: 100
-current_phase: 77
-current_phase_name: Indexed PNG Transparency
+  total_phases: 0
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
+  percent: 0
 ---
 
 # Project State
@@ -29,10 +25,10 @@ See `.planning/PROJECT.md` (updated 2026-07-23).
 
 ## Current Position
 
-Phase: Milestone v0.24 complete
+Phase: Not started (defining requirements)
 Plan: —
-Status: Awaiting next milestone
-Last activity: 2026-07-24 — Milestone v0.24 completed and archived
+Status: Defining requirements
+Last activity: 2026-07-24 — Milestone v0.25 started
 
 ## Performance Metrics
 
