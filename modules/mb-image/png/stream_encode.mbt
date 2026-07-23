@@ -453,7 +453,7 @@ pub fn PngChunkEncoder::pull(
       outcome_value: PngChunkPullOutcome::Failed(error),
     }
     PngChunkEncoderState::Active(machine) => {
-      match machine.validate_u16_replay_revision() {
+      match machine.validate_replay_revision() {
         Err(error) => {
           self.state = PngChunkEncoderState::Failed(error)
           return {
@@ -839,13 +839,12 @@ fn _png_fixed_put_bits(
 
 ///| Source revisions provide an O(1) pre-lease replay guard. The admitted
 /// Fixed/Dynamic fingerprint checks remain the terminal integrity backstop;
-/// this guard prevents a post-admission U16 mutation from first changing the
-/// caller's current lease.
-fn PngEncodeMachine::validate_u16_replay_revision(
+/// this guard prevents a post-admission source mutation from first changing
+/// the caller's current lease.
+fn PngEncodeMachine::validate_replay_revision(
   self : PngEncodeMachine,
 ) -> Result[Unit, @error.CoreError] {
-  if !_png_profile_uses_u16_component_wire(self.profile) ||
-    self.source.mutation_revision() == self.source_revision { return Ok(()) }
+  if self.source.mutation_revision() == self.source_revision { return Ok(()) }
   match self.plan {
     PngDeflatePlan::Fixed(_) =>
       Err(_png_encode_machine_state_error("png-encode-fixed-replay-drift"))
