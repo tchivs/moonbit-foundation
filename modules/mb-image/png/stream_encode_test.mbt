@@ -5046,6 +5046,192 @@ fn png_stream_indexed_source(transparent : Bool) -> PngIndexedImage {
   }
 }
 
+///| Builds one bounded canonical source for each public low-bit Type-3 selector.
+fn png_stream_indexed_low_bit_source(bit_depth : PngIndexedBitDepth) -> PngIndexedImage {
+  match bit_depth {
+    PngIndexedBitDepth::One => PngIndexedImage::new(
+      9UL, 1UL, b"\x00\x01\x00\x01\x00\x01\x00\x01\x01",
+      b"\x12\x34\x56\xa0\xb0\xc0", b"\xff\xff", png_stream_test_budget(),
+    ).unwrap()
+    PngIndexedBitDepth::Two => PngIndexedImage::new(
+      5UL, 1UL, b"\x00\x01\x02\x03\x00",
+      b"\x12\x34\x56\xa0\xb0\xc0\x11\x22\x33\x44\x55\x66",
+      b"\x00\xff\x80\xff", png_stream_test_budget(),
+    ).unwrap()
+    PngIndexedBitDepth::Four => {
+      let palette : Array[Byte] = []
+      let alpha : Array[Byte] = []
+      for entry = 0UL; entry < 16UL; entry = entry + 1UL {
+        palette.push(entry.to_byte())
+        palette.push((entry + 1UL).to_byte())
+        palette.push((entry + 2UL).to_byte())
+        alpha.push(if entry == 0UL { b'\x00' } else { b'\xff' })
+      }
+      PngIndexedImage::new(
+        3UL, 1UL, b"\x00\x01\x02", Bytes::from_array(palette),
+        Bytes::from_array(alpha), png_stream_test_budget(),
+      ).unwrap()
+    }
+  }
+}
+
+///| Fresh selected-depth machines retain acknowledged progress, caller tails,
+///| eager identity, and the sticky completed terminal under hostile leases.
+fn png_stream_indexed_low_bit_hostile_drain(
+  source : PngIndexedImage,
+  bit_depth : PngIndexedBitDepth,
+  schedule : Array[UInt64],
+) -> Unit {
+  let expected = png_stream_indexed_low_bit_eager(source, bit_depth)
+  let encoder = PngChunkEncoder::new_indexed(
+    source, bit_depth, png_stream_test_limits(), png_stream_test_budget(),
+    @error.Diagnostics::new(),
+  ).unwrap()
+  let output : Array[Byte] = []
+  let mut turn = 0UL
+  while turn < 4096UL {
+    let capacity = schedule[(turn % schedule.length().to_uint64()).to_int()]
+    let owner = png_chunk_test_owner(capacity, fill=b'Z')
+    let before = output.length().to_uint64()
+    let pulled = owner.with_mut(0UL, capacity, fn(lease) { Ok(encoder.pull(lease)) }).unwrap()
+    if pulled.written() > capacity || pulled.total_written() != before + pulled.written() {
+      abort("png indexed low-bit hostile accepted-only progress")
+    }
+    if capacity == 0UL && (pulled.written() != 0UL ||
+      !(pulled.outcome() is PngChunkPullOutcome::NeedOutput)) {
+      abort("png indexed low-bit hostile zero lease")
+    }
+    for index = 0UL; index < pulled.written(); index = index + 1UL {
+      output.push(owner.view().get(index).unwrap())
+    }
+    for index = pulled.written(); index < capacity; index = index + 1UL {
+      if owner.view().get(index).unwrap() != b'Z' { abort("png indexed low-bit hostile tail") }
+    }
+    match pulled.outcome() {
+      PngChunkPullOutcome::NeedOutput => turn = turn + 1UL
+      PngChunkPullOutcome::Failed(_) => abort("png indexed low-bit hostile drain failed")
+      PngChunkPullOutcome::Finished => {
+        if Bytes::from_array(output) != expected { abort("png indexed low-bit hostile eager parity") }
+        let later = png_chunk_test_owner(7UL, fill=b'Z')
+        let replay = later.with_mut(0UL, 7UL, fn(lease) { Ok(encoder.pull(lease)) }).unwrap()
+        if replay.written() != 0UL || replay.total_written() != pulled.total_written() ||
+          !(replay.outcome() is PngChunkPullOutcome::Finished) {
+          abort("png indexed low-bit sticky completed terminal")
+        }
+        for index = 0UL; index < 7UL; index = index + 1UL {
+          if later.view().get(index).unwrap() != b'Z' {
+            abort("png indexed low-bit completed tail")
+          }
+        }
+        return ()
+      }
+    }
+  }
+  abort("png indexed low-bit hostile drain unreachable")
+}
+
+///| A released selected-depth first lease becomes a sticky zero-write error and
+///| cannot mutate a later caller-owned destination.
+fn png_stream_indexed_low_bit_released_failure(
+  source : PngIndexedImage,
+  bit_depth : PngIndexedBitDepth,
+) -> Unit {
+  let encoder = PngChunkEncoder::new_indexed(
+    source, bit_depth, png_stream_test_limits(), png_stream_test_budget(),
+    @error.Diagnostics::new(),
+  ).unwrap()
+  let released = png_chunk_test_owner(1UL, fill=b'Z')
+  let first = released.with_mut(0UL, 1UL, fn(lease) {
+    lease.release()
+    Ok(encoder.pull(lease))
+  }).unwrap()
+  let first_error = match first.outcome() {
+    PngChunkPullOutcome::Failed(error) => error
+    _ => abort("png indexed low-bit released lease outcome")
+  }
+  let later = png_chunk_test_owner(1UL, fill=b'Z')
+  let replay = later.with_mut(0UL, 1UL, fn(lease) { Ok(encoder.pull(lease)) }).unwrap()
+  let replay_error = match replay.outcome() {
+    PngChunkPullOutcome::Failed(error) => error
+    _ => abort("png indexed low-bit released lease replay")
+  }
+  if first.written() != 0UL || first.total_written() != 0UL || replay.written() != 0UL ||
+    replay.total_written() != 0UL || !png_chunk_test_same_error(first_error, replay_error) ||
+    released.view().get(0UL).unwrap() != b'Z' || later.view().get(0UL).unwrap() != b'Z' {
+    abort("png indexed low-bit released lease terminal")
+  }
+}
+
+///| Every selected Type-3 depth keeps eager parity and lease ownership under
+///| zero-capacity, one-byte, and ragged caller schedules.
+test "PNG selected Indexed chunk hostile leases retain eager parity and sticky completion" {
+  for bit_depth in [
+    PngIndexedBitDepth::One, PngIndexedBitDepth::Two, PngIndexedBitDepth::Four,
+  ] {
+    png_stream_indexed_low_bit_hostile_drain(
+      png_stream_indexed_low_bit_source(bit_depth), bit_depth, [0UL, 1UL],
+    )
+    png_stream_indexed_low_bit_hostile_drain(
+      png_stream_indexed_low_bit_source(bit_depth), bit_depth, [1UL],
+    )
+    png_stream_indexed_low_bit_hostile_drain(
+      png_stream_indexed_low_bit_source(bit_depth), bit_depth,
+      [0UL, 1UL, 3UL, 2UL, 5UL],
+    )
+  }
+}
+
+///| Every selected Type-3 depth replays a released first lease as the same
+///| terminal failure without mutating a later caller-owned lease.
+test "PNG selected Indexed chunk replays released lease failures" {
+  for bit_depth in [
+    PngIndexedBitDepth::One, PngIndexedBitDepth::Two, PngIndexedBitDepth::Four,
+  ] {
+    png_stream_indexed_low_bit_released_failure(
+      png_stream_indexed_low_bit_source(bit_depth), bit_depth,
+    )
+  }
+}
+
+///| Selected-depth construction rejects output, pixel, and work requests before
+///| a lease can be exposed or any caller-supplied budget resource is charged.
+test "PNG selected Indexed chunk admission is atomic" {
+  for bit_depth in [
+    PngIndexedBitDepth::One, PngIndexedBitDepth::Two, PngIndexedBitDepth::Four,
+  ] {
+    let output_budget = png_stream_test_budget()
+    let output_before = output_budget.remaining()
+    inspect(PngChunkEncoder::new_indexed(
+      png_stream_indexed_low_bit_source(bit_depth), bit_depth,
+      png_stream_test_limits(output=1UL), output_budget, @error.Diagnostics::new(),
+    ) is Err(_), content="true")
+    inspect(
+      png_adam7_stream_same_remaining(output_before, output_budget.remaining()), content="true",
+    )
+    let zero_pixels = @budget.Budget::new(@budget.ResourceLimits::new(
+      bytes=1048576UL, allocations=16UL, allocation_size=1048576UL,
+      width=70000UL, height=8UL, pixels=0UL, depth=0UL, work=1048576UL,
+    ))
+    let pixels_before = zero_pixels.remaining()
+    inspect(PngChunkEncoder::new_indexed(
+      png_stream_indexed_low_bit_source(bit_depth), bit_depth,
+      png_stream_test_limits(), zero_pixels, @error.Diagnostics::new(),
+    ) is Err(_), content="true")
+    inspect(
+      png_adam7_stream_same_remaining(pixels_before, zero_pixels.remaining()), content="true",
+    )
+    let work_budget = png_stream_test_budget(work=0UL)
+    let work_before = work_budget.remaining()
+    inspect(PngChunkEncoder::new_indexed(
+      png_stream_indexed_low_bit_source(bit_depth), bit_depth,
+      png_stream_test_limits(), work_budget, @error.Diagnostics::new(),
+    ) is Err(_), content="true")
+    inspect(
+      png_adam7_stream_same_remaining(work_before, work_budget.remaining()), content="true",
+    )
+  }
+}
+
 ///| Fresh Indexed8 machines retain accepted-only progress, caller tails, eager
 /// identity, and the sticky completed terminal under hostile leases.
 fn png_stream_indexed_hostile_drain(
