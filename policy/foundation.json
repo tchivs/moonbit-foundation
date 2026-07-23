@@ -104,7 +104,37 @@
         "math/segment.mbt",
         "math/segment_wbtest.mbt",
         "math/trig.mbt",
-        "math/vector_ops_wbtest.mbt"
+        "math/vector_ops_wbtest.mbt",
+        "bits",
+        "bits/bits.mbt",
+        "bits/bits_wbtest.mbt",
+        "bits/moon.pkg",
+        "crc",
+        "crc/crc.mbt",
+        "crc/crc_wbtest.mbt",
+        "crc/moon.pkg",
+        "text",
+        "text/base64.mbt",
+        "text/base64_wbtest.mbt",
+        "text/hex.mbt",
+        "text/hex_wbtest.mbt",
+        "text/moon.pkg",
+        "text/number_parse.mbt",
+        "text/number_parse_wbtest.mbt",
+        "text/percent.mbt",
+        "text/percent_wbtest.mbt",
+        "text/string_tools.mbt",
+        "text/string_tools_wbtest.mbt",
+        "text/utf8.mbt",
+        "text/utf8_wbtest.mbt",
+        "text/xml_escape.mbt",
+        "text/xml_escape_wbtest.mbt",
+        "text/xml_tokenize.mbt",
+        "text/xml_tokenize_wbtest.mbt",
+        "unicode",
+        "unicode/moon.pkg",
+        "unicode/unicode.mbt",
+        "unicode/unicode_wbtest.mbt"
       ],
       "public_packages": [
         {
@@ -582,6 +612,159 @@
             "wasm-gc",
             "native"
           ]
+        },
+        {
+          "name": "tchivs/mb-core/bits",
+          "path": "bits",
+          "stability": "candidate",
+          "allowed_imports": [
+            "tchivs/mb-core/error"
+          ],
+          "semantic_interface": [
+            "package \"tchivs/mb-core/bits\"",
+            "import {",
+            "\"tchivs/mb-core/error\",",
+            "}",
+            "pub struct BitReader {",
+            "source : Array[Byte]",
+            "mut bit_position : Int",
+            "}",
+            "pub fn BitReader::align_to_byte(Self) -> Int",
+            "pub fn BitReader::new(Array[Byte]) -> Self",
+            "pub fn BitReader::position(Self) -> Int",
+            "pub fn BitReader::read_bit(Self) -> Result[Int, @error.CoreError]",
+            "pub fn BitReader::read_bits(Self, Int) -> Result[Int, @error.CoreError]",
+            "pub fn BitReader::remaining(Self) -> Int",
+            "pub fn BitReader::total_bits(Self) -> Int",
+            "pub struct BitWriter {",
+            "output : Array[Byte]",
+            "mut bit_position : Int",
+            "}",
+            "pub fn BitWriter::flush(Self) -> Array[Byte]",
+            "pub fn BitWriter::new() -> Self",
+            "pub fn BitWriter::position(Self) -> Int",
+            "pub fn BitWriter::write_bit(Self, Int) -> Result[Unit, @error.CoreError]",
+            "pub fn BitWriter::write_bits(Self, Int, Int) -> Result[Unit, @error.CoreError]"
+          ],
+          "supported_targets": [
+            "js",
+            "wasm",
+            "wasm-gc",
+            "native"
+          ]
+        },
+        {
+          "name": "tchivs/mb-core/crc",
+          "path": "crc",
+          "stability": "candidate",
+          "allowed_imports": [],
+          "semantic_interface": [
+            "package \"tchivs/mb-core/crc\"",
+            "pub fn adler32(Array[Byte]) -> UInt64",
+            "pub fn adler32_update(UInt64, Byte) -> UInt64",
+            "pub fn crc32(Array[Byte]) -> UInt64",
+            "pub fn crc32_update(UInt64, Byte) -> UInt64"
+          ],
+          "supported_targets": [
+            "js",
+            "wasm",
+            "wasm-gc",
+            "native"
+          ]
+        },
+        {
+          "name": "tchivs/mb-core/text",
+          "path": "text",
+          "stability": "candidate",
+          "allowed_imports": [
+            "tchivs/mb-core/error"
+          ],
+          "semantic_interface": [
+            "package \"tchivs/mb-core/text\"",
+            "import {",
+            "\"tchivs/mb-core/error\",",
+            "}",
+            "pub fn base64_decode(String) -> Result[Array[Byte], @error.CoreError]",
+            "pub fn base64_encode(Array[Byte]) -> String",
+            "pub fn hex_decode(String) -> Result[Array[Byte], @error.CoreError]",
+            "pub fn hex_encode(Array[Byte]) -> String",
+            "pub fn is_ascii(String) -> Bool",
+            "pub fn is_ascii_alpha(Int) -> Bool",
+            "pub fn is_ascii_alphanumeric(Int) -> Bool",
+            "pub fn is_ascii_digit(Int) -> Bool",
+            "pub fn is_ascii_lower(Int) -> Bool",
+            "pub fn is_ascii_upper(Int) -> Bool",
+            "pub fn parse_double(String) -> Result[Double, @error.CoreError]",
+            "pub fn parse_int(String) -> Result[Int, @error.CoreError]",
+            "pub fn tokenize_markup(String) -> Result[Array[MarkupToken], @error.CoreError]",
+            "pub fn utf8_decode(Array[Byte]) -> Result[Array[Int], @error.CoreError]",
+            "pub fn utf8_encode(Array[Int]) -> Result[Array[Byte], @error.CoreError]",
+            "pub(all) enum MarkupToken {",
+            "StartTag(String)",
+            "EndTag(String)",
+            "TagEnd",
+            "EmptyTagEnd",
+            "AttributeName(String)",
+            "AttributeValue(String)",
+            "Text(String)",
+            "Comment(String)",
+            "} derive(Eq)"
+          ],
+          "supported_targets": [
+            "js",
+            "wasm",
+            "wasm-gc",
+            "native"
+          ]
+        },
+        {
+          "name": "tchivs/mb-core/unicode",
+          "path": "unicode",
+          "stability": "candidate",
+          "allowed_imports": [],
+          "semantic_interface": [
+            "package \"tchivs/mb-core/unicode\"",
+            "pub fn bidi_class(Int) -> BidiClass",
+            "pub fn general_category(Int) -> GeneralCategory",
+            "pub fn is_digit(Int) -> Bool",
+            "pub fn is_letter(Int) -> Bool",
+            "pub fn is_whitespace(Int) -> Bool",
+            "pub fn unicode_version() -> String",
+            "pub(all) enum BidiClass {",
+            "LeftToRight",
+            "RightToLeft",
+            "ArabicLetter",
+            "EuropeanNumber",
+            "EuropeanSeparator",
+            "EuropeanTerminator",
+            "CommonSeparator",
+            "Whitespace",
+            "BoundaryNeutral",
+            "OtherNeutral",
+            "NonspacingMarkBidi",
+            "} derive(Eq)",
+            "pub(all) enum GeneralCategory {",
+            "UppercaseLetter",
+            "LowercaseLetter",
+            "TitlecaseLetter",
+            "ModifierLetter",
+            "OtherLetter",
+            "NonspacingMark",
+            "SpacingMark",
+            "DecimalNumber",
+            "ConnectorPunctuation",
+            "SpaceSeparator",
+            "Control",
+            "Format",
+            "Unassigned",
+            "} derive(Eq)"
+          ],
+          "supported_targets": [
+            "js",
+            "wasm",
+            "wasm-gc",
+            "native"
+          ]
         }
       ]
     },
@@ -643,7 +826,9 @@
         "blend/nonseparable.mbt",
         "blend/nonseparable_wbtest.mbt",
         "blend/porter_duff.mbt",
-        "blend/porter_duff_wbtest.mbt"
+        "blend/porter_duff_wbtest.mbt",
+        "model/hsv_hsl.mbt",
+        "model/hsv_hsl_wbtest.mbt"
       ],
       "public_packages": [
         {
