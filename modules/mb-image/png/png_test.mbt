@@ -70,6 +70,28 @@ test "PNG explicit rgba16 preserves normal Type-6/16 lanes without changing gene
   }
 }
 
+///| The Phase 68 qualification literals exceed the legacy two-pixel ceiling
+/// while retaining the ordinary bounded public decode contract.
+fn png_test_rgba16_qualification_limits() -> @codec.CodecLimits {
+  @codec.CodecLimits::new(
+    max_probe_bytes=8UL, max_input_bytes=1024UL, max_output_bytes=1024UL,
+    max_width=8UL, max_height=8UL, max_pixels=64UL, max_work=4096UL,
+  )
+}
+
+///| A fixed Type-6/16 2x5 literal with one scanline for each PNG filter tag
+/// 0 through 4. The residual wire bytes and CRCs are hand-authored, rather
+/// than produced by PngEncoder; every high and low source byte is unequal.
+fn png_test_rgba16_filters_literal() -> Bytes {
+  b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x02\x00\x00\x00\x05\x10\x06\x00\x00\x00?#\xe1\xdf\x00\x00\x00`IDATx\x01\x01U\x00\xaa\xff\x001\xa1Q\xb1q\xc1\x91\xd12\xa3R\xb4r\xc5\x93\xd2\x016\xa4U\xb3t\xc2\x92\xd5\x01\x02\x01\x03\x01\x04\x02\x01\x02\x05\x03\x04\x02\x03\x01\x01\x04\x05\x03\x04\x02\x03\x01\x01\x04\x03#W1]?cKq\x03\x03\x03\x03\x02\x03\x02\x03\x04\x05\x03\x04\x02\x03\x01\x01\x04\x01\x02\x01\x02\x01\x01\x01\x01\x11\xe9\x10C\xffhU\x19\x00\x00\x00\x00IEND\xaeB`\x82"
+}
+
+///| Storage-order `Rlo,Rhi,Glo,Ghi,Blo,Bhi,Alo,Ahi` bytes for the independent
+/// all-five-filter literal, ordered row-major without decoder-derived values.
+fn png_test_rgba16_filters_expected() -> Bytes {
+  b"\xa1\x31\xb1\x51\xc1\x71\xd1\x91\xa3\x32\xb4\x52\xc5\x72\xd2\x93\xa4\x36\xb3\x55\xc2\x74\xd5\x92\xa6\x37\xb6\x56\xc6\x75\xd6\x94\xa7\x3b\xb5\x59\xc3\x77\xd9\x93\xa9\x3c\xb8\x5a\xc7\x78\xda\x95\xaa\x40\xb7\x5d\xc4\x7a\xdd\x94\xac\x41\xba\x5e\xc8\x7b\xde\x96\xad\x45\xb9\x61\xc5\x7d\xe1\x95\xaf\x46\xbc\x62\xc9\x7e\xe2\x97"
+}
+
 ///| The Phase 68 all-filter literal is intentionally referenced before its
 /// fixed wire bytes and independent storage oracle are introduced.  This RED
 /// test covers every Type-6/16 lane and the unchanged generic high-byte view.
@@ -82,7 +104,7 @@ test "PNG explicit rgba16 preserves independent all-filter Type-6/16 lanes" {
   let explicit = PngDecoder::decode_rgba16(
     @io.MemoryReader::new(owner.view()) as &@io.Reader,
     @codec.DecodeOptions::new(require_complete_input=true, preserve_opaque_metadata=false),
-    png_test_rgba16_adam7_limits(), @budget.Budget::new(@budget.ResourceLimits::new(
+    png_test_rgba16_qualification_limits(), @budget.Budget::new(@budget.ResourceLimits::new(
       bytes=4096UL, allocations=8UL, allocation_size=1024UL, width=8UL, height=8UL,
       pixels=64UL, depth=0UL, work=4096UL,
     )), @error.Diagnostics::new(),
@@ -103,7 +125,7 @@ test "PNG explicit rgba16 preserves independent all-filter Type-6/16 lanes" {
   let generic = @codec.ImageDecoder::decode(
     PngDecoder::new(), @io.MemoryReader::new(owner.view()) as &@io.Reader,
     @codec.DecodeOptions::new(require_complete_input=true, preserve_opaque_metadata=false),
-    png_test_rgba16_adam7_limits(), @budget.Budget::new(@budget.ResourceLimits::new(
+    png_test_rgba16_qualification_limits(), @budget.Budget::new(@budget.ResourceLimits::new(
       bytes=4096UL, allocations=8UL, allocation_size=1024UL, width=8UL, height=8UL,
       pixels=64UL, depth=0UL, work=4096UL,
     )), @error.Diagnostics::new(),
