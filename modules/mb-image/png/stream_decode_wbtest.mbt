@@ -16,6 +16,94 @@ fn _png_stream_machine_for_test() -> PngDecodeMachine {
   )
 }
 
+///| The explicit preservation route is deliberately a private machine profile;
+/// white-box fixtures verify its first-IDAT admission boundary directly.
+fn _png_graya16_machine_for_test() -> PngDecodeMachine {
+  PngDecodeMachine::new_with_profile(
+    PngDecodeProfile::GrayAlpha16,
+    @codec.DecodeOptions::new(
+      require_complete_input=true,
+      preserve_opaque_metadata=false,
+    ),
+    @codec.CodecLimits::new(
+      max_probe_bytes=8UL, max_input_bytes=4096UL, max_output_bytes=1024UL,
+      max_width=16UL, max_height=16UL, max_pixels=256UL, max_work=4096UL,
+    ),
+    @budget.Budget::new(@budget.ResourceLimits::new(
+      bytes=1024UL, allocations=8UL, allocation_size=1024UL,
+      width=16UL, height=16UL, pixels=256UL, depth=0UL, work=4096UL,
+    )),
+  )
+}
+
+///|
+fn _png_graya16_accept_signature_and_ihdr(
+  machine : PngDecodeMachine,
+  bit_depth : Byte,
+  colour_type : Byte,
+  interlace : Byte,
+) -> Unit {
+  for byte in [b'\x89', b'P', b'N', b'G', b'\r', b'\n', b'\x1a', b'\n'] {
+    machine.accept(byte).unwrap()
+  }
+  _png_machine_accept_chunk(
+    machine, [b'I', b'H', b'D', b'R'],
+    [b'\x00', b'\x00', b'\x00', b'\x01', b'\x00', b'\x00', b'\x00', b'\x01', bit_depth, colour_type, b'\x00', b'\x00', interlace],
+  ).unwrap()
+}
+
+///| Admit just a complete first-IDAT header: profile errors must precede
+/// child budgets, image allocation, sink construction, and any outcome.
+fn _png_graya16_first_idat_error(machine : PngDecodeMachine) -> @error.CoreError {
+  let mut result : Result[Unit, @error.CoreError] = Ok(())
+  for byte in [b'\x00', b'\x00', b'\x00', b'\x00', b'I', b'D', b'A', b'T'] {
+    if result is Ok(_) { result = machine.accept(byte) }
+  }
+  result.unwrap_err()
+}
+
+///|
+fn _png_assert_graya16_profile_error(
+  machine : PngDecodeMachine,
+) -> Unit raise {
+  let before = machine.budget.remaining()
+  let error = _png_graya16_first_idat_error(machine)
+  inspect(error.category() == @error.ErrorCategory::Capability, content="true")
+  inspect(error.code() == @error.ErrorCode::CapabilityUnavailable, content="true")
+  inspect(error.operation() == Some("png-decode"), content="true")
+  inspect(error.context() == Some("graya16-profile"), content="true")
+  inspect(machine.has_private_lifecycle(), content="false")
+  inspect(machine.private_lifecycle_allocations() == 0UL, content="true")
+  inspect(machine.has_private_outcome(), content="false")
+  inspect(machine.budget.remaining().bytes() == before.bytes(), content="true")
+}
+
+///| A valid decompressed grayscale ICC profile is injected as the already
+/// authenticated fact to isolate first-IDAT profile admission from iCCP's
+/// separate bounded DEFLATE reader.
+fn _png_graya16_set_authenticated_iccp(machine : PngDecodeMachine) -> Unit {
+  let profile : Array[Byte] = []
+  for index = 0; index < 128; index = index + 1 {
+    profile.push(
+      if index == 3 { b'\x80' }
+      else if index == 16 { b'G' }
+      else if index == 17 { b'R' }
+      else if index == 18 { b'A' }
+      else if index == 19 { b'Y' }
+      else if index == 36 { b'a' }
+      else if index == 37 { b'c' }
+      else if index == 38 { b's' }
+      else if index == 39 { b'p' }
+      else { b'\x00' },
+    )
+  }
+  machine.facts.colour_facts = {
+    saw_srgb: false, srgb_intent: None, saw_gamma: false, gamma_is_srgb: false,
+    gamma: None, saw_chrm: false, chrm_is_srgb: false, chrm: None,
+    saw_iccp: true, iccp_name: Some(b"gray"), iccp_profile: Some(Bytes::from_array(profile)),
+  }
+}
+
 ///|
 fn _png_machine_accept_chunk(machine : PngDecodeMachine, kind : Array[Byte], payload : Array[Byte]) -> Result[Unit, @error.CoreError] {
   let length = payload.length().to_uint64()
@@ -180,6 +268,53 @@ test "PNG private machine keeps lifecycle atomic when first-IDAT preflight fails
   inspect(machine.has_private_lifecycle(), content="false")
   inspect(machine.private_lifecycle_allocations() == 0UL, content="true")
   inspect(machine.has_result(), content="false")
+}
+
+///| Every explicit-profile mismatch shares one typed, pre-allocation boundary.
+test "PNG graya16 profile rejects incompatible first-IDAT facts atomically" {
+  let wrong_depth = _png_graya16_machine_for_test()
+  _png_graya16_accept_signature_and_ihdr(wrong_depth, b'\x08', b'\x04', b'\x00')
+  _png_assert_graya16_profile_error(wrong_depth)
+
+  let wrong_colour = _png_graya16_machine_for_test()
+  _png_graya16_accept_signature_and_ihdr(wrong_colour, b'\x10', b'\x00', b'\x00')
+  _png_assert_graya16_profile_error(wrong_colour)
+
+  let interlaced = _png_graya16_machine_for_test()
+  _png_graya16_accept_signature_and_ihdr(interlaced, b'\x10', b'\x04', b'\x01')
+  _png_assert_graya16_profile_error(interlaced)
+
+  let legacy = _png_graya16_machine_for_test()
+  _png_graya16_accept_signature_and_ihdr(legacy, b'\x10', b'\x04', b'\x00')
+  _png_machine_accept_chunk(legacy, [b'g', b'A', b'M', b'A'], [b'\x00', b'\x01', b'\x86', b'\xa0']).unwrap()
+  _png_assert_graya16_profile_error(legacy)
+
+  let iccp = _png_graya16_machine_for_test()
+  _png_graya16_accept_signature_and_ihdr(iccp, b'\x10', b'\x04', b'\x00')
+  _png_graya16_set_authenticated_iccp(iccp)
+  _png_assert_graya16_profile_error(iccp)
+}
+
+///| Default and CRC-authenticated sRGB facts are the only accepted colour
+/// declarations for the explicit profile, and both allocate exactly once at
+/// first-IDAT just like the existing generic machine.
+test "PNG graya16 profile admits default and sRGB Type-4/16 before raster bytes" {
+  let default_profile = _png_graya16_machine_for_test()
+  _png_graya16_accept_signature_and_ihdr(default_profile, b'\x10', b'\x04', b'\x00')
+  for byte in [b'\x00', b'\x00', b'\x00', b'\x00', b'I', b'D', b'A', b'T'] {
+    default_profile.accept(byte).unwrap()
+  }
+  inspect(default_profile.has_private_lifecycle(), content="true")
+  inspect(default_profile.private_lifecycle_allocations() == 1UL, content="true")
+
+  let srgb_profile = _png_graya16_machine_for_test()
+  _png_graya16_accept_signature_and_ihdr(srgb_profile, b'\x10', b'\x04', b'\x00')
+  _png_machine_accept_chunk(srgb_profile, [b's', b'R', b'G', b'B'], [b'\x00']).unwrap()
+  for byte in [b'\x00', b'\x00', b'\x00', b'\x00', b'I', b'D', b'A', b'T'] {
+    srgb_profile.accept(byte).unwrap()
+  }
+  inspect(srgb_profile.has_private_lifecycle(), content="true")
+  inspect(srgb_profile.private_lifecycle_allocations() == 1UL, content="true")
 }
 
 ///| Every retained profile fact crosses the same one-byte framing boundary.
