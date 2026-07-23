@@ -17,6 +17,12 @@ fn png_test_graya16_literal() -> Bytes {
   b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x02\x00\x00\x00\x01\x10\x04\x00\x00\x00\x0e\xbbkB\x00\x00\x00\x14IDATx\x01\x01\x09\x00\xf6\xff\x00\x124\xa7\xc5\xbe\x0fZv\x0e\x17\x03Pk\x88\xb2u\x00\x00\x00\x00IEND\xaeB`\x82"
 }
 
+///| This second hand-authored complete literal differs only by its fixed,
+/// CRC-authenticated sRGB declaration (intent 0).
+fn png_test_graya16_srgb_literal() -> Bytes {
+  b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x02\x00\x00\x00\x01\x10\x04\x00\x00\x00\x0e\xbbkB\x00\x00\x00\x01sRGB\x00\xae\xce\x1c\xe9\x00\x00\x00\x14IDATx\x01\x01\x09\x00\xf6\xff\x00\x124\xa7\xc5\xbe\x0fZv\x0e\x17\x03Pk\x88\xb2u\x00\x00\x00\x00IEND\xaeB`\x82"
+}
+
 ///|
 test "PNG explicit graya16 preserves Type-4/16 source lanes without changing generic RGBA8" {
   let source = png_test_graya16_literal()
@@ -40,15 +46,16 @@ test "PNG explicit graya16 preserves Type-4/16 source lanes without changing gen
     )),
     @error.Diagnostics::new(),
   ).unwrap()
-  let image = result.image().view()
-  let format = image.descriptor().format()
+  let decoded = result.image()
+  let image = decoded.view()
+  let format = decoded.descriptor().format()
   inspect(format.component() == @model.ComponentType::U16, content="true")
   inspect(format.channels() == @model.ChannelOrder::GrayAlpha, content="true")
   inspect(format.layout() == @model.PlaneLayout::Packed, content="true")
   inspect(format.endianness() == @model.Endianness::Little, content="true")
-  inspect(image.descriptor().metadata().orientation() == @model.Orientation::TopLeft, content="true")
-  inspect(image.descriptor().metadata().alpha() == Some(@color.AlphaMode::Straight), content="true")
-  inspect(image.descriptor().metadata().profile().is_builtin_srgb(), content="true")
+  inspect(decoded.metadata().orientation() == @model.Orientation::TopLeft, content="true")
+  inspect(decoded.metadata().alpha() == Some(@color.AlphaMode::Straight), content="true")
+  inspect(decoded.metadata().profile().is_builtin_srgb(), content="true")
   inspect(result.bytes_read() == source.length().to_uint64(), content="true")
   for expected in [(0UL, 0UL, b'\x34'), (0UL, 1UL, b'\x12'), (0UL, 2UL, b'\xc5'), (0UL, 3UL, b'\xa7'), (1UL, 0UL, b'\x0f'), (1UL, 1UL, b'\xbe'), (1UL, 2UL, b'\x76'), (1UL, 3UL, b'\x5a')] {
     let (x, component, value) = expected
@@ -70,6 +77,29 @@ test "PNG explicit graya16 preserves Type-4/16 source lanes without changing gen
     inspect(generic.get_byte(0UL, 0UL, channel).unwrap() == b'\x12', content="true")
   }
   inspect(generic.get_byte(0UL, 0UL, 3UL).unwrap() == b'\xa7', content="true")
+
+  let srgb_source = png_test_graya16_srgb_literal()
+  let srgb_owner = @bytes.OwnedBytes::from_bytes(
+    srgb_source,
+    @budget.Budget::new(@budget.ResourceLimits::new(
+      bytes=srgb_source.length().to_uint64(), allocations=1UL,
+      allocation_size=srgb_source.length().to_uint64(), width=0UL, height=0UL,
+      pixels=0UL, depth=0UL, work=0UL,
+    )),
+  ).unwrap()
+  let srgb = PngDecoder::decode_graya16(
+    @io.MemoryReader::new(srgb_owner.view()) as &@io.Reader,
+    @codec.DecodeOptions::new(require_complete_input=true, preserve_opaque_metadata=false),
+    png_test_limits(),
+    @budget.Budget::new(@budget.ResourceLimits::new(
+      bytes=160UL, allocations=4UL, allocation_size=64UL, width=4UL,
+      height=4UL, pixels=16UL, depth=0UL, work=128UL,
+    )),
+    @error.Diagnostics::new(),
+  ).unwrap()
+  inspect(srgb.bytes_read() == srgb_source.length().to_uint64(), content="true")
+  inspect(srgb.image().metadata().opaque_metadata().length() == 1, content="true")
+  inspect(srgb.image().view().get_component_byte(1UL, 0UL, 1UL, 1UL).unwrap() == b'\x5a', content="true")
 }
 
 ///|

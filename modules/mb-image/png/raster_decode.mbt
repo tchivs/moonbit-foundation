@@ -52,6 +52,19 @@ fn _png_descriptor_with_metadata(
   @model.ImageDescriptor::new(transport.width, transport.height, if transport.channels == 3UL { @model.ImageFormat::rgb8() } else { @model.ImageFormat::rgba8() }, [plane], payload, metadata)
 }
 
+///| The explicit decoder profile exposes existing packed little-endian U16
+/// grayscale+alpha storage while retaining the ordinary PNG metadata contract.
+fn _png_graya16_descriptor_with_metadata(
+  transport : PngTransport,
+  metadata : @model.ImageMetadata,
+) -> Result[@model.ImageDescriptor, @error.CoreError] {
+  let pixels = match @checked.checked_mul(transport.width, transport.height) { Err(error) => return Err(error); Ok(value) => value }
+  let payload = match @checked.checked_mul(pixels, 4UL) { Err(error) => return Err(error); Ok(value) => value }
+  let row = match @checked.checked_mul(transport.width, 4UL) { Err(error) => return Err(error); Ok(value) => value }
+  let plane = match @model.PlaneDescriptor::new(0UL, payload, row, row, 1UL, 1UL, transport.width, transport.height) { Err(error) => return Err(error); Ok(value) => value }
+  @model.ImageDescriptor::new(transport.width, transport.height, @model.ImageFormat::graya16(), [plane], payload, metadata)
+}
+
 ///|
 fn _png_descriptor(transport : PngTransport) -> Result[@model.ImageDescriptor, @error.CoreError] {
   let pixels = match @checked.checked_mul(transport.width, transport.height) {
@@ -227,6 +240,24 @@ fn _png_write_16bit_grayscale_alpha_row(
   Ok(())
 }
 
+///| The explicit profile writes reconstructed PNG MSB-first component bytes
+/// directly into the existing little-endian U16 component representation.
+fn _png_write_16bit_grayscale_alpha_row_graya16(
+  view : @storage.MutImageView,
+  rows : PngPackedRows,
+  y : UInt64,
+  width : UInt64,
+) -> Result[Unit, @error.CoreError] {
+  for x = 0UL; x < width; x = x + 1UL {
+    let offset = x * 4UL
+    for item in [(0UL, 0UL, rows.current.view().get(offset + 1UL).unwrap()), (0UL, 1UL, rows.current.view().get(offset).unwrap()), (1UL, 0UL, rows.current.view().get(offset + 3UL).unwrap()), (1UL, 1UL, rows.current.view().get(offset + 2UL).unwrap())] {
+      let (channel, byte_index, value) = item
+      match view.set_component_byte(x, y, channel, byte_index, value) { Err(error) => return Err(error); Ok(_) => () }
+    }
+  }
+  Ok(())
+}
+
 ///| PNG sixteen-bit RGBA preserves straight alpha and maps every reconstructed
 /// big-endian component to its high byte without a colour transform.
 fn _png_write_16bit_rgba_row(
@@ -282,6 +313,7 @@ priv struct PngRasterSink {
   image : @storage.OwnedImage
   transport : PngTransport
   interlaced : Bool
+  profile : PngDecodeProfile
   row_bytes : UInt64
   expected : UInt64
   passes : Array[PngAdam7Pass]
@@ -299,6 +331,20 @@ fn PngRasterSink::new(
   image : @storage.OwnedImage,
   transport : PngTransport,
   interlaced : Bool,
+  budget : @budget.Budget,
+) -> Result[PngRasterSink, @error.CoreError] {
+  PngRasterSink::new_with_profile(
+    image, transport, interlaced, PngDecodeProfile::GenericRgba8, budget,
+  )
+}
+
+///| The machine-selected profile reaches the sink only after preflight has
+/// selected the descriptor and private image lifecycle.
+fn PngRasterSink::new_with_profile(
+  image : @storage.OwnedImage,
+  transport : PngTransport,
+  interlaced : Bool,
+  profile : PngDecodeProfile,
   budget : @budget.Budget,
 ) -> Result[PngRasterSink, @error.CoreError] {
   let row_bytes = match _png_source_row_bytes(transport.width, transport.source_channels, transport.bit_depth) { Err(error) => return Err(error); Ok(value) => value }
@@ -321,7 +367,7 @@ fn PngRasterSink::new(
   if interlaced {
     while pass_index < passes.length() && (passes[pass_index].width == 0UL || passes[pass_index].height == 0UL) { pass_index = pass_index + 1 }
   }
-  Ok({ image, transport, interlaced, row_bytes, expected, passes, rows, emitted: 0UL, row: 0UL, column: 0UL, filter: 0, pass_index, pass_row: 0UL })
+  Ok({ image, transport, interlaced, profile, row_bytes, expected, passes, rows, emitted: 0UL, row: 0UL, column: 0UL, filter: 0, pass_index, pass_row: 0UL })
 }
 
 ///|
@@ -391,7 +437,10 @@ fn PngRasterSink::emit(self : PngRasterSink, byte : Byte) -> Result[Unit, @error
       match self.image.with_mut_view(fn(view) {
         if self.transport.bit_depth == 16 {
           if self.transport.source_channels == 1UL { _png_write_16bit_grayscale_row(view, rows, self.row, self.transport.width, self.transport.transparency) }
-          else if self.transport.source_channels == 2UL { _png_write_16bit_grayscale_alpha_row(view, rows, self.row, self.transport.width) }
+          else if self.transport.source_channels == 2UL {
+            if self.profile == PngDecodeProfile::GrayAlpha16 { _png_write_16bit_grayscale_alpha_row_graya16(view, rows, self.row, self.transport.width) }
+            else { _png_write_16bit_grayscale_alpha_row(view, rows, self.row, self.transport.width) }
+          }
           else if self.transport.source_channels == 3UL { _png_write_16bit_rgb_row(view, rows, self.row, self.transport.width, self.transport.transparency) }
           else { _png_write_16bit_rgba_row(view, rows, self.row, self.transport.width) }
         } else if self.transport.source_channels == 1UL { _png_write_packed_grayscale_row(view, rows, self.row, self.transport.width, self.transport.bit_depth, self.transport.transparency) }

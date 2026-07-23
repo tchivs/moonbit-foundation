@@ -14,6 +14,12 @@ priv enum PngDecodeMachineState {
   Failed(@error.CoreError)
 }
 
+///| The generic contract remains RGBA8; precise Gray+Alpha16 is opt-in only.
+priv enum PngDecodeProfile {
+  GenericRgba8
+  GrayAlpha16
+} derive(Eq)
+
 ///| Public-chunk facade state. The machine itself remains the single parser;
 /// this wrapper only owns public accounting and terminal-result transfer.
 priv enum PngChunkDecoderState {
@@ -161,6 +167,7 @@ fn _png_new_idat_state(
 /// Private continuation substrate for the PNG decoder.  Phase 26 keeps this
 /// type package-private; the public eager facade remains `PngDecoder`.
 priv struct PngDecodeMachine {
+  profile : PngDecodeProfile
   options : @codec.DecodeOptions
   limits : @codec.CodecLimits
   budget : @budget.Budget
@@ -241,7 +248,17 @@ fn PngDecodeMachine::new(
   limits : @codec.CodecLimits,
   budget : @budget.Budget,
 ) -> PngDecodeMachine {
-  { options, limits, budget, state: PngDecodeMachineState::Signature(0), accepted: 0UL, last_chunk_complete: false, ihdr: None, facts: _png_new_pre_idat_facts(), saw_idat: false, left_idat_sequence: false, idat: None, inflate: None, lifecycle: None, lifecycle_allocations: 0UL, outcome: None }
+  PngDecodeMachine::new_with_profile(PngDecodeProfile::GenericRgba8, options, limits, budget)
+}
+
+///|
+fn PngDecodeMachine::new_with_profile(
+  profile : PngDecodeProfile,
+  options : @codec.DecodeOptions,
+  limits : @codec.CodecLimits,
+  budget : @budget.Budget,
+) -> PngDecodeMachine {
+  { profile, options, limits, budget, state: PngDecodeMachineState::Signature(0), accepted: 0UL, last_chunk_complete: false, ihdr: None, facts: _png_new_pre_idat_facts(), saw_idat: false, left_idat_sequence: false, idat: None, inflate: None, lifecycle: None, lifecycle_allocations: 0UL, outcome: None }
 }
 
 ///|
@@ -475,20 +492,35 @@ fn PngDecodeMachine::preflight_first_idat(self : PngDecodeMachine) -> Result[Uni
   let ihdr = match self.ihdr { Some(value) => value; None => return Err(_png_error("png-ihdr-first")) }
   if ihdr[9] == b'\x03' && !self.facts.saw_palette { return Err(_png_error("png-plte-required")) }
   let source_channels = if ihdr[9] == 0 || ihdr[9] == 3 { 1UL } else if ihdr[9] == 2 { 3UL } else if ihdr[9] == 4 { 2UL } else { 4UL }
-  let channels = match self.facts.transparency {
+  let generic_channels = match self.facts.transparency {
     PngTransparency::Opaque => if ihdr[9] == 4 || ihdr[9] == 6 { 4UL } else { 3UL }
     _ => 4UL
   }
   let source_bytes_per_pixel = match _png_source_bytes_per_pixel(source_channels, ihdr[8].to_int()) { Err(error) => return Err(error); Ok(value) => value }
   let indexed = ihdr[9] == 3
+  let declaration = match _png_colour_declaration(self.facts.colour_facts, ihdr[9] == 0 || ihdr[9] == 4) { Err(error) => return Err(error); Ok(value) => value }
+  if self.profile == PngDecodeProfile::GrayAlpha16 {
+    let has_transparency_key = match self.facts.transparency {
+      PngTransparency::Opaque => false
+      _ => true
+    }
+    if ihdr[9] != b'\x04' || ihdr[8] != b'\x10' || ihdr[12] != b'\x00' || has_transparency_key {
+      return Err(@codec.capability_unavailable("png-decode", "graya16-profile"))
+    }
+    match declaration {
+      PngColourDeclaration::Default | PngColourDeclaration::Srgb(_) => ()
+      _ => return Err(@codec.capability_unavailable("png-decode", "graya16-profile"))
+    }
+  }
+  let channels = if self.profile == PngDecodeProfile::GrayAlpha16 { 2UL } else { generic_channels }
+  let metadata_channels = if self.profile == PngDecodeProfile::GrayAlpha16 { 4UL } else { generic_channels }
   let transport = PngTransport::{
     width: _png_u32_at(ihdr, 0), height: _png_u32_at(ihdr, 4), bit_depth: ihdr[8].to_int(),
     source_channels, source_bytes_per_pixel, channels, indexed,
     palette: Bytes::from_array(self.facts.palette), palette_entries: self.facts.palette_entries, transparency: self.facts.transparency,
     idat: b"", consumed: 0UL,
   }
-  let declaration = match _png_colour_declaration(self.facts.colour_facts, ihdr[9] == 0 || ihdr[9] == 4) { Err(error) => return Err(error); Ok(value) => value }
-  let output_budget = match _png_output_budget_for(ihdr, indexed, channels, self.limits, self.budget) { Err(error) => return Err(error); Ok(value) => value }
+  let output_budget = match _png_output_budget_for(ihdr, indexed, metadata_channels, self.limits, self.budget) { Err(error) => return Err(error); Ok(value) => value }
   let (result_budget, metadata_budget) = match declaration {
     PngColourDeclaration::Srgb(_) => match _png_srgb_budget(ihdr, indexed, channels, self.limits, self.budget) { Err(error) => return Err(error); Ok((metadata, raster)) => (raster, Some(metadata)) }
     PngColourDeclaration::Legacy(gamma, chrm) => {
@@ -499,14 +531,18 @@ fn PngDecodeMachine::preflight_first_idat(self : PngDecodeMachine) -> Result[Uni
     PngColourDeclaration::Default => (output_budget, None)
   }
   let metadata = match declaration {
-    PngColourDeclaration::Srgb(intent) => match metadata_budget { Some(budget) => match _png_srgb_metadata(channels, intent, budget) { Err(error) => return Err(error); Ok(value) => value }; None => return Err(_png_error("png-srgb-budget")) }
-    PngColourDeclaration::Legacy(gamma, chrm) => match metadata_budget { Some(budget) => match _png_legacy_metadata(channels, gamma, chrm, budget) { Err(error) => return Err(error); Ok(value) => value }; None => return Err(_png_error("png-legacy-budget")) }
-    PngColourDeclaration::Icc(name, profile) => match metadata_budget { Some(budget) => match _png_iccp_metadata(channels, name, profile, budget) { Err(error) => return Err(error); Ok(value) => value }; None => return Err(_png_error("png-iccp-budget")) }
-    PngColourDeclaration::Default => match _png_empty_metadata(channels) { Err(error) => return Err(error); Ok(value) => value }
+    PngColourDeclaration::Srgb(intent) => match metadata_budget { Some(budget) => match _png_srgb_metadata(metadata_channels, intent, budget) { Err(error) => return Err(error); Ok(value) => value }; None => return Err(_png_error("png-srgb-budget")) }
+    PngColourDeclaration::Legacy(gamma, chrm) => match metadata_budget { Some(budget) => match _png_legacy_metadata(metadata_channels, gamma, chrm, budget) { Err(error) => return Err(error); Ok(value) => value }; None => return Err(_png_error("png-legacy-budget")) }
+    PngColourDeclaration::Icc(name, profile) => match metadata_budget { Some(budget) => match _png_iccp_metadata(metadata_channels, name, profile, budget) { Err(error) => return Err(error); Ok(value) => value }; None => return Err(_png_error("png-iccp-budget")) }
+    PngColourDeclaration::Default => match _png_empty_metadata(metadata_channels) { Err(error) => return Err(error); Ok(value) => value }
   }
-  let descriptor = match _png_descriptor_with_metadata(transport, metadata) { Err(error) => return Err(error); Ok(value) => value }
+  let descriptor = if self.profile == PngDecodeProfile::GrayAlpha16 {
+    match _png_graya16_descriptor_with_metadata(transport, metadata) { Err(error) => return Err(error); Ok(value) => value }
+  } else {
+    match _png_descriptor_with_metadata(transport, metadata) { Err(error) => return Err(error); Ok(value) => value }
+  }
   let image = match @storage.OwnedImage::new_operation(descriptor, result_budget, PngBuiltinAllocator::{} as &@bytes.Allocator, self.limits.max_work()) { Err(error) => return Err(error); Ok(value) => value }
-  let sink = match PngRasterSink::new(image, transport, ihdr[12] == 1, result_budget) { Err(error) => return Err(error); Ok(value) => value }
+  let sink = match PngRasterSink::new_with_profile(image, transport, ihdr[12] == 1, self.profile, result_budget) { Err(error) => return Err(error); Ok(value) => value }
   self.lifecycle = Some(PngMachineLifecycle::{ sink })
   self.lifecycle_allocations = self.lifecycle_allocations + 1UL
   Ok(())

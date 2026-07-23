@@ -8,6 +8,21 @@ pub fn PngDecoder::new() -> PngDecoder {
   PngDecoder::{  }
 }
 
+///| Decodes the explicit non-interlaced Type-4/16 encoded-sRGB profile into
+/// packed little-endian straight-alpha `graya16` storage.
+pub fn PngDecoder::decode_graya16(
+  reader : &@io.Reader,
+  options : @codec.DecodeOptions,
+  limits : @codec.CodecLimits,
+  budget : @budget.Budget,
+  diagnostics : @error.Diagnostics,
+) -> Result[@codec.DecodeResult, @error.CoreError] {
+  ignore(diagnostics)
+  PngDecodeMachine::new_with_profile(
+    PngDecodeProfile::GrayAlpha16, options, limits, budget,
+  ).decode_reader(reader)
+}
+
 ///|
 /// A caller-chunk-fed PNG decoder. Completion is declared explicitly with
 /// `finish`; it retains no caller ByteView and does not change PngDecoder's
