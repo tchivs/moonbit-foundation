@@ -16,7 +16,7 @@
 
 ### Portable qualification
 
-- [ ] **RGBA16DEC-04**: Independent Type-6/16 wire vectors cover filters, Adam7, metadata/resource rejection, frozen generic RGBA8 behavior, and the ordinary full PNG package pass on wasm, wasm-gc, js, and native.
+- [x] **RGBA16DEC-04**: Independent Type-6/16 wire vectors cover filters, Adam7, metadata/resource rejection, frozen generic RGBA8 behavior, and the ordinary full PNG package pass on wasm, wasm-gc, js, and native.
 
 ## Future Requirements
 
