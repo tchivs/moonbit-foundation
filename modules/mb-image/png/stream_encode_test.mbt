@@ -3527,10 +3527,11 @@ fn png_graya16_adam7_chunk_drain(
     image.view(), strategy, filter_strategy, PngInterlaceStrategy::Adam7,
     png_stream_test_limits(), png_stream_test_budget(), @error.Diagnostics::new(),
   ).unwrap()
-  let empty = png_chunk_test_owner(0UL, fill=b'Z')
+  let empty = png_chunk_test_owner(1UL, fill=b'Z')
   let zero = empty.with_mut(0UL, 0UL, fn(lease) { Ok(encoder.pull(lease)) }).unwrap()
   if zero.written() != 0UL || zero.total_written() != 0UL ||
-    !(zero.outcome() is PngChunkPullOutcome::NeedOutput) {
+    !(zero.outcome() is PngChunkPullOutcome::NeedOutput) ||
+    empty.view().get(0UL).unwrap() != b'Z' {
     abort("png graya16 adam7 empty lease progress")
   }
   let output : Array[Byte] = []
@@ -3574,16 +3575,16 @@ fn png_graya16_adam7_chunk_drain(
   abort("png graya16 adam7 chunk drain unreachable")
 }
 
-///| Adaptive FixedOrStored GrayAlpha16 Adam7 encoding keeps all pass traversal,
-/// compression planning, and caller-owned replay on the shared bounded path.
-test "PNG GrayAlpha16 Adam7 bounded tracer" {
+///| One public Adaptive/Fixed GrayAlpha16 Adam7 selector preserves caller
+/// ownership through direct zero-capacity, one-byte, and ragged leases.
+test "PNG GrayAlpha16 Adam7 public hostile tracer" {
   png_graya16_adam7_chunk_drain(
     png_stream_graya16_adam7_image(), PngCompressionStrategy::FixedOrStored,
     PngFilterStrategy::Adaptive, [1UL],
   )
   png_graya16_adam7_chunk_drain(
     png_stream_graya16_adam7_image(), PngCompressionStrategy::FixedOrStored,
-    PngFilterStrategy::Adaptive, [1UL, 3UL, 2UL, 5UL],
+    PngFilterStrategy::Adaptive, [0UL, 8UL, 4UL, 1UL, 13UL, 2UL, 5UL, 3UL, 21UL],
   )
 }
 
