@@ -522,7 +522,7 @@ fn PngDecodeMachine::preflight_first_idat(self : PngDecodeMachine) -> Result[Uni
   }
   let output_budget = match _png_output_budget_for(ihdr, indexed, metadata_channels, self.limits, self.budget) { Err(error) => return Err(error); Ok(value) => value }
   let (result_budget, metadata_budget) = match declaration {
-    PngColourDeclaration::Srgb(_) => match _png_srgb_budget(ihdr, indexed, channels, self.limits, self.budget) { Err(error) => return Err(error); Ok((metadata, raster)) => (raster, Some(metadata)) }
+    PngColourDeclaration::Srgb(_) => match _png_srgb_budget(ihdr, indexed, metadata_channels, self.limits, self.budget) { Err(error) => return Err(error); Ok((metadata, raster)) => (raster, Some(metadata)) }
     PngColourDeclaration::Legacy(gamma, chrm) => {
       let value_bytes = (match gamma { Some(value) => value.length().to_uint64(); None => 0UL }) + (match chrm { Some(value) => value.length().to_uint64(); None => 0UL })
       match _png_non_srgb_budget(ihdr, indexed, channels, value_bytes, self.limits, self.budget) { Err(error) => return Err(error); Ok((metadata, raster)) => (raster, Some(metadata)) }

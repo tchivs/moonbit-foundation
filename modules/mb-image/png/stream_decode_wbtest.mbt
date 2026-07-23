@@ -26,11 +26,11 @@ fn _png_graya16_machine_for_test() -> PngDecodeMachine {
       preserve_opaque_metadata=false,
     ),
     @codec.CodecLimits::new(
-      max_probe_bytes=8UL, max_input_bytes=4096UL, max_output_bytes=1024UL,
+      max_probe_bytes=8UL, max_input_bytes=4096UL, max_output_bytes=4096UL,
       max_width=16UL, max_height=16UL, max_pixels=256UL, max_work=4096UL,
     ),
     @budget.Budget::new(@budget.ResourceLimits::new(
-      bytes=1024UL, allocations=8UL, allocation_size=1024UL,
+      bytes=4096UL, allocations=16UL, allocation_size=4096UL,
       width=16UL, height=16UL, pixels=256UL, depth=0UL, work=4096UL,
     )),
   )
@@ -310,8 +310,13 @@ test "PNG graya16 profile admits default and sRGB Type-4/16 before raster bytes"
   let srgb_profile = _png_graya16_machine_for_test()
   _png_graya16_accept_signature_and_ihdr(srgb_profile, b'\x10', b'\x04', b'\x00')
   _png_machine_accept_chunk(srgb_profile, [b's', b'R', b'G', b'B'], [b'\x00']).unwrap()
+  let mut srgb_admission : Result[Unit, @error.CoreError] = Ok(())
   for byte in [b'\x00', b'\x00', b'\x00', b'\x00', b'I', b'D', b'A', b'T'] {
-    srgb_profile.accept(byte).unwrap()
+    if srgb_admission is Ok(_) { srgb_admission = srgb_profile.accept(byte) }
+  }
+  match srgb_admission {
+    Err(error) => fail(error.context().unwrap())
+    Ok(_) => ()
   }
   inspect(srgb_profile.has_private_lifecycle(), content="true")
   inspect(srgb_profile.private_lifecycle_allocations() == 1UL, content="true")
