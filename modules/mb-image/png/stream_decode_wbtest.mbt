@@ -458,6 +458,14 @@ test "PNG rgba16 profile admits legal facts and charges eight-byte output layout
   inspect(graya16.has_private_lifecycle(), content="true")
 }
 
+///| The Phase 68 first-IDAT matrix covers independent normal all-filter and
+/// all-pass Adam7 geometries. Its helper will prove exact and one-less output,
+/// geometry, byte-resource, and work envelopes before any IDAT payload byte.
+test "PNG rgba16 first-IDAT qualification retains exact one-less boundaries" {
+  _png_rgba16_qualification_matrix(b'\x00', b'\x02', b'\x05', 80UL, 112UL, 85UL)
+  _png_rgba16_qualification_matrix(b'\x01', b'\x05', b'\x05', 200UL, 280UL, 211UL)
+}
+
 ///| The public Rgba16 facade retains the shared machine's private lifecycle
 /// and outcome until the sole successful finish transfer.
 test "PNG rgba16 chunk keeps lifecycle and outcome private until finish" {
