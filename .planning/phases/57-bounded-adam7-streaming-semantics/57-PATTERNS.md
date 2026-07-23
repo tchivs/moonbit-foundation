@@ -1,7 +1,7 @@
 # Phase 57: Bounded Adam7 Streaming Semantics - Pattern Map
 
-**Mapped:** 2026-07-23  
-**Files analyzed:** 7 (3 likely test modifications; 4 production/test seams verified)  
+**Mapped:** 2026-07-23
+**Files analyzed:** 7 (3 likely test modifications; 4 production/test seams verified)
 **Analogs found:** 7 / 7
 
 ## File Classification
@@ -325,28 +325,28 @@ If any Phase-57 test fails, fix the smallest broken shared seam above; do not cr
 
 ### Profile-aware scalar pass traversal
 
-**Sources:** `modules/mb-image/png/encode.mbt:556-670`, `724-775`  
+**Sources:** `modules/mb-image/png/encode.mbt:556-670`, `724-775`
 **Apply to:** all Adam7 `None`/`Adaptive` strategy tests
 
 `_png_adam7_cursor_location` regenerates checked pass geometry from `_png_adam7_passes` for each scalar lookup and skips empty passes. `_png_adam7_raw_byte` uses `_png_wire_byte`, so GrayAlpha16 obtains `Ghi,Glo,Ahi,Alo` before filtering. Test the shared route; do not retain a pass table, selected-row cache, or image-sized staging output.
 
 ### Atomic admission before writer or lease exposure
 
-**Sources:** `encode.mbt:1602-1811`; `stream_encode.mbt:628-643`; `stream_encode_test.mbt:2684-2728`, `3291-3336`  
+**Sources:** `encode.mbt:1602-1811`; `stream_encode.mbt:628-643`; `stream_encode_test.mbt:2684-2728`, `3291-3336`
 **Apply to:** all capability, geometry, output, work, and budget rejection tests
 
 Both eager and chunk factories must call the same profile-aware preflight.  Assert empty eager writer, equal typed error, all resource-ledger fields unchanged, and untouched `b'Z'` lease sentinels.  `Stored × FixedOrStored × DynamicOrFixedOrStored` crossed with `None × Adaptive` is the required six-pair matrix.
 
 ### Replay is preview then acknowledgement
 
-**Sources:** `stream_encode.mbt:1187-1258`; `stream_encode_wbtest.mbt:244-291`; `stream_encode_test.mbt:3339-3396`  
+**Sources:** `stream_encode.mbt:1187-1258`; `stream_encode_wbtest.mbt:244-291`; `stream_encode_test.mbt:3339-3396`
 **Apply to:** caller-buffered ordinary drain and mutation tests
 
 Only an accepted byte advances `emitted` or cursor/checksum state.  Zero-capacity pulls are no-ops, `total_written` rises exactly by `written`, output collected over a ragged schedule matches the eager peer, and terminal re-pulls leave caller bytes intact.
 
 ### U16 replay mutation is pre-write and sticky
 
-**Sources:** `stream_encode.mbt:803-819`; `stream_encode_test.mbt:3042-3113`  
+**Sources:** `stream_encode.mbt:803-819`; `stream_encode_test.mbt:3042-3113`
 **Apply to:** Adaptive FixedOrStored and DynamicOrFixedOrStored Adam7 GrayAlpha16 tests
 
 Mutate a valid checked U16 component only after framing has been acknowledged. The next pull must fail before copying into the supplied lease; all later pulls return the same failure with zero newly accepted bytes and unchanged sentinel buffers.
@@ -357,6 +357,6 @@ None. Phase 57 is an exact composition of the archived v0.13 Adam7 bounded/repla
 
 ## Metadata
 
-**Analog search scope:** `.planning/phases/57-bounded-adam7-streaming-semantics/57-CONTEXT.md`; Phase 56 context, summaries, and verification; archived v0.13 Phase 42 context/summaries (`git show 869f362`); archived v0.17 Phase 54 context/summary; `modules/mb-image/png/{encode,stream_encode,structural}.mbt` and focused eager/stream/white-box PNG tests.  
-**Files scanned:** 12 planning artifacts and 7 PNG implementation/test files.  
+**Analog search scope:** `.planning/phases/57-bounded-adam7-streaming-semantics/57-CONTEXT.md`; Phase 56 context, summaries, and verification; archived v0.13 Phase 42 context/summaries (`git show 869f362`); archived v0.17 Phase 54 context/summary; `modules/mb-image/png/{encode,stream_encode,structural}.mbt` and focused eager/stream/white-box PNG tests.
+**Files scanned:** 12 planning artifacts and 7 PNG implementation/test files.
 **Pattern extraction date:** 2026-07-23
