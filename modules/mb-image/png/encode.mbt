@@ -2086,6 +2086,7 @@ fn _png_indexed_stored_idat_length(
 fn _png_encode_indexed_preflight_with_profile(
   source : PngIndexedImage,
   wire_profile : PngIndexedWireProfile,
+  interlace_strategy : PngInterlaceStrategy,
   limits : @codec.CodecLimits,
   budget : @budget.Budget,
 ) -> Result[PngEncodePreflight, @error.CoreError] {
@@ -2119,9 +2120,38 @@ fn _png_encode_indexed_preflight_with_profile(
     Err(error) => return Err(error)
     Ok(value) => value
   }
-  let scanlines = match @checked.checked_mul(scanline_width, height) {
-    Err(error) => return Err(error)
-    Ok(value) => value
+  let scanlines = match interlace_strategy {
+    PngInterlaceStrategy::None => match @checked.checked_mul(scanline_width, height) {
+      Err(error) => return Err(error)
+      Ok(value) => value
+    }
+    PngInterlaceStrategy::Adam7 => match wire_profile {
+      PngIndexedWireProfile::Eight => {
+        let passes = match _png_adam7_passes(width, height, 1UL, 8) {
+          Err(error) => return Err(error)
+          Ok(value) => value
+        }
+        let mut total = 0UL
+        for pass in passes {
+          if pass.width > 0UL && pass.height > 0UL {
+            let pass_scanline_width = match @checked.checked_add(pass.row_bytes, 1UL) {
+              Err(error) => return Err(error)
+              Ok(value) => value
+            }
+            let pass_scanlines = match @checked.checked_mul(pass_scanline_width, pass.height) {
+              Err(error) => return Err(error)
+              Ok(value) => value
+            }
+            total = match @checked.checked_add(total, pass_scanlines) {
+              Err(error) => return Err(error)
+              Ok(value) => value
+            }
+          }
+        }
+        total
+      }
+      _ => return Err(_png_encode_capability("indexed-adam7-depth"))
+    }
   }
   let (blocks, idat_length) = match _png_indexed_stored_idat_length(scanlines) {
     Err(error) => return Err(error)
@@ -2186,7 +2216,7 @@ fn _png_encode_indexed_preflight(
   budget : @budget.Budget,
 ) -> Result[PngEncodePreflight, @error.CoreError] {
   _png_encode_indexed_preflight_with_profile(
-    source, PngIndexedWireProfile::Eight, limits, budget,
+    source, PngIndexedWireProfile::Eight, PngInterlaceStrategy::None, limits, budget,
   )
 }
 
@@ -2246,8 +2276,24 @@ pub fn PngEncoder::encode_indexed8(
   budget : @budget.Budget,
   diagnostics : @error.Diagnostics,
 ) -> Result[@codec.EncodeResult, @error.CoreError] {
-  let machine = match PngEncodeMachine::new_with_indexed(
-    source, limits, budget, diagnostics,
+  PngEncoder::encode_indexed8_with_interlace_strategy(
+    _self, source, PngInterlaceStrategy::None, writer, limits, budget, diagnostics,
+  )
+}
+
+///| Eagerly encode an immutable Indexed8 PNG through the shared bounded
+/// machine, selecting the additive Adam7 layout only when explicitly requested.
+pub fn PngEncoder::encode_indexed8_with_interlace_strategy(
+  _self : PngEncoder,
+  source : PngIndexedImage,
+  interlace_strategy : PngInterlaceStrategy,
+  writer : &@io.Writer,
+  limits : @codec.CodecLimits,
+  budget : @budget.Budget,
+  diagnostics : @error.Diagnostics,
+) -> Result[@codec.EncodeResult, @error.CoreError] {
+  let machine = match PngEncodeMachine::new_with_indexed_profile(
+    source, PngIndexedWireProfile::Eight, interlace_strategy, limits, budget, diagnostics,
   ) {
     Err(error) => return Err(error)
     Ok(value) => value
@@ -2297,7 +2343,7 @@ pub fn PngEncoder::encode_indexed(
     PngIndexedBitDepth::Four => PngIndexedWireProfile::Four
   }
   let machine = match PngEncodeMachine::new_with_indexed_profile(
-    source, wire_profile, limits, budget, diagnostics,
+    source, wire_profile, PngInterlaceStrategy::None, limits, budget, diagnostics,
   ) {
     Err(error) => return Err(error)
     Ok(value) => value

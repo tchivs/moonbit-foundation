@@ -1190,19 +1190,19 @@ test "PNG low-bit indexed profiles derive packed facts and reject before work ch
       width, 1UL, indices, palette, alpha, png_wb_budget(bytes=128UL, work=0UL),
     ).unwrap()
     let admitted = _png_encode_indexed_preflight_with_profile(
-      source, profile, png_wb_limits(), png_wb_budget(work=1024UL),
+      source, profile, PngInterlaceStrategy::None, png_wb_limits(), png_wb_budget(work=1024UL),
     ).unwrap()
     inspect(admitted.row_bytes == expected_row_bytes, content="true")
     inspect(admitted.scanlines == expected_row_bytes + 1UL, content="true")
     let exact = png_wb_budget(work=admitted.selected_work)
     ignore(_png_encode_indexed_preflight_with_profile(
-      source, profile, png_wb_limits(), exact,
+      source, profile, PngInterlaceStrategy::None, png_wb_limits(), exact,
     ).unwrap())
     inspect(exact.remaining().work() == 0UL, content="true")
     let one_less = png_wb_budget(work=admitted.selected_work - 1UL)
     let before = one_less.remaining()
     let error = _png_encode_indexed_preflight_with_profile(
-      source, profile, png_wb_limits(), one_less,
+      source, profile, PngInterlaceStrategy::None, png_wb_limits(), one_less,
     ).unwrap_err()
     inspect(error.context() == Some("work") && png_wb_same_remaining(before, one_less.remaining()), content="true")
 
@@ -1215,7 +1215,7 @@ test "PNG low-bit indexed profiles derive packed facts and reject before work ch
     let rejected_budget = png_wb_budget()
     let rejected_before = rejected_budget.remaining()
     let rejected = _png_encode_indexed_preflight_with_profile(
-      oversized, profile, png_wb_limits(), rejected_budget,
+      oversized, profile, PngInterlaceStrategy::None, png_wb_limits(), rejected_budget,
     ).unwrap_err()
     inspect(
       rejected.context() == Some("indexed-palette-cap") &&

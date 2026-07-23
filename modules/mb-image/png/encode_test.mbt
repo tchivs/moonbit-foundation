@@ -1095,7 +1095,7 @@ fn png_indexed8_adam7_source(transparent : Bool) -> PngIndexedImage {
 ///| Independent, hand-authored Adam7 bytes: P1 through P7 each include their
 /// own filter-None row tag. This deliberately never uses production geometry.
 fn png_indexed8_adam7_expected_raw() -> Bytes {
-  b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x02\x00\x02\x00\x00\x02\x00\x00\x01\x03\x00\x01\x03\x00\x01\x03\x00\x02\x03\x00\x01\x02\x00\x02\x03\x00\x01\x02"
+  b"\x00\x00\x00\x00\x00\x00\x00\x00\x02\x00\x02\x00\x00\x02\x00\x00\x01\x03\x00\x01\x03\x00\x01\x03\x00\x02\x03\x00\x01\x02\x00\x02\x03\x00\x01\x02"
 }
 
 ///| Type-3/8 Adam7 must retain the single stored machine's framing while an
@@ -1125,8 +1125,15 @@ test "PNG Indexed8 Adam7 eager wire raster and palette decode are exact" {
   inspect(png_indexed_slice(bytes, 65, 3) == b"\x00\x80\x7f", content="true")
   inspect(png_indexed_crc32(bytes, 61, 7) == png_indexed_u32(bytes, 68), content="true")
   inspect(png_indexed_u32(bytes, 72) == 47UL && png_indexed_slice(bytes, 76, 4) == b"IDAT", content="true")
-  inspect(png_indexed_slice(bytes, 84, 7) == b"\x78\x01\x01\x24\x00\xdb\xff", content="true")
-  inspect(png_indexed_slice(bytes, 91, 36) == png_indexed8_adam7_expected_raw(), content="true")
+  inspect(png_indexed_slice(bytes, 80, 7) == b"\x78\x01\x01\x24\x00\xdb\xff", content="true")
+  inspect(png_indexed8_adam7_expected_raw().length(), content="36")
+  inspect(png_indexed_slice(bytes, 87, 2) == b"\x00\x00", content="true")
+  inspect(png_indexed_slice(bytes, 89, 2) == b"\x00\x00", content="true")
+  inspect(png_indexed_slice(bytes, 91, 3) == b"\x00\x00\x00", content="true")
+  inspect(png_indexed_slice(bytes, 94, 4) == b"\x00\x02\x00\x02", content="true")
+  inspect(png_indexed_slice(bytes, 98, 4) == b"\x00\x00\x02\x00", content="true")
+  inspect(png_indexed_slice(bytes, 102, 9) == b"\x00\x01\x03\x00\x01\x03\x00\x01\x03", content="true")
+  inspect(png_indexed_slice(bytes, 111, 12) == b"\x00\x02\x03\x00\x01\x02\x00\x02\x03\x00\x01\x02", content="true")
   inspect(png_indexed_crc32(bytes, 76, 51) == png_indexed_u32(bytes, 127), content="true")
   inspect(png_indexed_u32(bytes, 131) == 0UL && png_indexed_slice(bytes, 135, 4) == b"IEND", content="true")
   inspect(png_indexed_crc32(bytes, 135, 4) == png_indexed_u32(bytes, 139), content="true")
@@ -1159,6 +1166,43 @@ test "PNG Indexed8 Adam7 eager wire raster and palette decode are exact" {
   let opaque_bytes = png_encode_prefix(opaque_writer)
   inspect(opaque_bytes.length(), content="128")
   inspect(png_indexed_u32(opaque_bytes, 57) == 47UL && png_indexed_slice(opaque_bytes, 61, 4) == b"IDAT", content="true")
+  let opaque_owned = @bytes.OwnedBytes::from_bytes(
+    opaque_bytes, png_encode_budget(bytes=256UL, work=0UL),
+  ).unwrap()
+  let opaque_view = @codec.ImageDecoder::decode(
+    PngDecoder::new(), @io.MemoryReader::new(opaque_owned.view()) as &@io.Reader,
+    @codec.DecodeOptions::new(require_complete_input=true, preserve_opaque_metadata=false),
+    png_encode_limits(), png_encode_budget(), @error.Diagnostics::new(),
+  ).unwrap().image().view()
+  inspect(opaque_view.format().channels() == @model.ChannelOrder::Rgb, content="true")
+  for point = 0; point < 25; point = point + 1 {
+    let code = expected[point].to_int()
+    let x = (point % 5).to_uint64()
+    let y = (point / 5).to_uint64()
+    for channel = 0; channel < 3; channel = channel + 1 {
+      inspect(opaque_view.get_byte(x, y, channel.to_uint64()).unwrap() == palette[code * 3 + channel], content="true")
+    }
+  }
+
+  let rejected_writer = @io.MemoryWriter::new(256UL, png_encode_budget(bytes=256UL, work=0UL)).unwrap()
+  let one_less_output = png_encode_budget(work=143UL)
+  let output_before = one_less_output.remaining()
+  inspect(PngEncoder::encode_indexed8_with_interlace_strategy(
+    PngEncoder::new(), source, PngInterlaceStrategy::Adam7,
+    rejected_writer as &@io.Writer, png_encode_limits(output=142UL, work=143UL),
+    one_less_output, @error.Diagnostics::new(),
+  ) is Err(_), content="true")
+  inspect(rejected_writer.position() == 0UL && png_adam7_same_remaining(output_before, one_less_output.remaining()), content="true")
+
+  let work_writer = @io.MemoryWriter::new(256UL, png_encode_budget(bytes=256UL, work=0UL)).unwrap()
+  let one_less_work = png_encode_budget(work=142UL)
+  let work_before = one_less_work.remaining()
+  inspect(PngEncoder::encode_indexed8_with_interlace_strategy(
+    PngEncoder::new(), source, PngInterlaceStrategy::Adam7,
+    work_writer as &@io.Writer, png_encode_limits(output=143UL, work=143UL),
+    one_less_work, @error.Diagnostics::new(),
+  ) is Err(_), content="true")
+  inspect(work_writer.position() == 0UL && png_adam7_same_remaining(work_before, one_less_work.remaining()), content="true")
 }
 
 ///|

@@ -26,8 +26,22 @@ pub fn PngChunkEncoder::new_indexed8(
   budget : @budget.Budget,
   diagnostics : @error.Diagnostics,
 ) -> Result[PngChunkEncoder, @error.CoreError] {
-  let machine = match PngEncodeMachine::new_with_indexed(
-    source, limits, budget, diagnostics,
+  PngChunkEncoder::new_indexed8_with_interlace_strategy(
+    source, PngInterlaceStrategy::None, limits, budget, diagnostics,
+  )
+}
+
+///| Constructs the additive Indexed8 caller-buffered Adam7 selector while
+/// retaining one Stored/filter-None indexed frame machine.
+pub fn PngChunkEncoder::new_indexed8_with_interlace_strategy(
+  source : PngIndexedImage,
+  interlace_strategy : PngInterlaceStrategy,
+  limits : @codec.CodecLimits,
+  budget : @budget.Budget,
+  diagnostics : @error.Diagnostics,
+) -> Result[PngChunkEncoder, @error.CoreError] {
+  let machine = match PngEncodeMachine::new_with_indexed_profile(
+    source, PngIndexedWireProfile::Eight, interlace_strategy, limits, budget, diagnostics,
   ) {
     Err(error) => return Err(error)
     Ok(value) => value
@@ -51,7 +65,7 @@ pub fn PngChunkEncoder::new_indexed(
     PngIndexedBitDepth::Four => PngIndexedWireProfile::Four
   }
   let machine = match PngEncodeMachine::new_with_indexed_profile(
-    source, wire_profile, limits, budget, diagnostics,
+    source, wire_profile, PngInterlaceStrategy::None, limits, budget, diagnostics,
   ) {
     Err(error) => return Err(error)
     Ok(value) => value
@@ -953,12 +967,13 @@ fn PngEncodeMachine::new_with_profile(
 fn PngEncodeMachine::new_with_indexed_profile(
   source : PngIndexedImage,
   wire_profile : PngIndexedWireProfile,
+  interlace_strategy : PngInterlaceStrategy,
   limits : @codec.CodecLimits,
   budget : @budget.Budget,
   _diagnostics : @error.Diagnostics,
 ) -> Result[PngEncodeMachine, @error.CoreError] {
   let facts = match _png_encode_indexed_preflight_with_profile(
-    source, wire_profile, limits, budget,
+    source, wire_profile, interlace_strategy, limits, budget,
   ) {
     Err(error) => return Err(error)
     Ok(value) => value
@@ -969,7 +984,7 @@ fn PngEncodeMachine::new_with_indexed_profile(
     profile: facts.profile,
     strategy: PngCompressionStrategy::Stored,
     filter_strategy: PngFilterStrategy::None,
-    interlace_strategy: PngInterlaceStrategy::None,
+    interlace_strategy,
     width: source.width(), height: source.height(), channels: facts.channels,
     row_bytes: facts.row_bytes, scanlines: facts.scanlines, blocks: facts.blocks,
     idat_length: facts.idat_length, frame: facts.frame,
@@ -994,8 +1009,56 @@ fn PngEncodeMachine::new_with_indexed(
   diagnostics : @error.Diagnostics,
 ) -> Result[PngEncodeMachine, @error.CoreError] {
   PngEncodeMachine::new_with_indexed_profile(
-    source, PngIndexedWireProfile::Eight, limits, budget, diagnostics,
+    source, PngIndexedWireProfile::Eight, PngInterlaceStrategy::None, limits, budget, diagnostics,
   )
+}
+
+///| Locate one byte in the bounded Indexed8 Adam7 filtered stream without
+/// materialising pass rows. Preflight consumes this exact pass geometry first.
+fn _png_indexed8_adam7_scanline_byte(
+  source : PngIndexedImage,
+  width : UInt64,
+  height : UInt64,
+  index : UInt64,
+) -> Result[Byte, @error.CoreError] {
+  let passes = match _png_adam7_passes(width, height, 1UL, 8) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  let mut offset = 0UL
+  for pass in passes {
+    if pass.width > 0UL && pass.height > 0UL {
+      let row_width = match @checked.checked_add(pass.row_bytes, 1UL) {
+        Err(error) => return Err(error)
+        Ok(value) => value
+      }
+      let length = match @checked.checked_mul(row_width, pass.height) {
+        Err(error) => return Err(error)
+        Ok(value) => value
+      }
+      let end = match @checked.checked_add(offset, length) {
+        Err(error) => return Err(error)
+        Ok(value) => value
+      }
+      if index < end {
+        let relative = index - offset
+        let in_row = relative % row_width
+        if in_row == 0UL { return Ok(b'\x00') }
+        let pass_row = relative / row_width
+        let x = match @checked.checked_add(pass.x, (in_row - 1UL) * pass.dx) {
+          Err(error) => return Err(error)
+          Ok(value) => value
+        }
+        let y = match @checked.checked_add(pass.y, pass_row * pass.dy) {
+          Err(error) => return Err(error)
+          Ok(value) => value
+        }
+        return source.index_at(x, y)
+      }
+      offset = end
+    }
+  }
+  Err(_png_encode_machine_state_error("png-encode-indexed-adam7-cursor"))
 }
 
 ///|
@@ -1025,14 +1088,19 @@ fn PngEncodeMachine::scanline_byte(
 ) -> Result[Byte, @error.CoreError] {
   match self.indexed_source {
     Some(source) => {
+      let depth = match _png_indexed_wire_depth(self.profile) {
+        Some(value) => value
+        None => return Err(_png_encode_machine_state_error("png-encode-indexed-profile"))
+      }
+      if depth == 8UL {
+        if self.interlace_strategy == PngInterlaceStrategy::Adam7 {
+          return _png_indexed8_adam7_scanline_byte(source, self.width, self.height, index)
+        }
+      }
       let row_width = self.row_bytes + 1UL
       let in_row = index % row_width
       if in_row == 0UL {
         return Ok(b'\x00')
-      }
-      let depth = match _png_indexed_wire_depth(self.profile) {
-        Some(value) => value
-        None => return Err(_png_encode_machine_state_error("png-encode-indexed-profile"))
       }
       if depth == 8UL {
         return source.index_at(in_row - 1UL, index / row_width)
