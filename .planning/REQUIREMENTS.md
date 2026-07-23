@@ -15,7 +15,7 @@
 
 ### Portable Public Evidence
 
-- [ ] **GRAYA16A7-03**: Generated multi-pass GrayAlpha16 Adam7 PNGs prove public pass-aware wire fidelity and documented RGBA8 high-byte decode canonicalization; zero, one-byte, and ragged caller capacities remain eager-byte-identical with accepted-only progress and sticky terminals; frozen non-interlaced and legacy vectors remain unchanged on js, wasm, wasm-gc, and native.
+- [x] **GRAYA16A7-03**: Generated multi-pass GrayAlpha16 Adam7 PNGs prove public pass-aware wire fidelity and documented RGBA8 high-byte decode canonicalization; zero, one-byte, and ragged caller capacities remain eager-byte-identical with accepted-only progress and sticky terminals; frozen non-interlaced and legacy vectors remain unchanged on js, wasm, wasm-gc, and native.
 
 ## Future Requirements
 

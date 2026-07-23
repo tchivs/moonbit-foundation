@@ -5,16 +5,16 @@ milestone_name: GrayAlpha16 Adam7 PNG
 current_phase: 58
 current_phase_name: Portable Adam7 Public Evidence
 status: executing
-stopped_at: Completed 58-02-PLAN.md
-last_updated: "2026-07-23T01:19:54.894Z"
+stopped_at: Completed 58-03-PLAN.md
+last_updated: "2026-07-23T01:26:40.231Z"
 last_activity: 2026-07-23
 last_activity_desc: Phase 57 complete, transitioned to Phase 58
 progress:
   total_phases: 3
-  completed_phases: 2
+  completed_phases: 3
   total_plans: 7
-  completed_plans: 5
-  percent: 67
+  completed_plans: 7
+  percent: 100
 ---
 
 # Project State
@@ -56,6 +56,7 @@ Last activity: 2026-07-23 — Phase 57 complete, transitioned to Phase 58
 | Phase 57 P01 | 45min | 2 tasks | 3 files |
 | Phase 57 P02 | 12min | 2 tasks | 2 files |
 | Phase 58 P02 | 9min | 2 tasks | 1 files |
+| Phase 58 P03 | 6min | 2 tasks | 1 files |
 
 ## Accumulated Context
 
@@ -86,6 +87,8 @@ Last activity: 2026-07-23 — Phase 57 complete, transitioned to Phase 58
 - [Phase ?]: GrayAlpha16 Adam7 selector coverage reuses the existing profile-aware bounded machine; all six legal pairs have focused eager/chunk regressions.
 - [Phase ?]: Stored U16 replay drift now fails through the existing pre-write shared PngEncodeMachine guard for Adam7 and non-interlaced paths.
 - [Phase ?]: Phase 58 public chunk evidence uses fresh encoders for every legal GrayAlpha16 Adam7 selector and zero/one/ragged schedule.
+- [Phase ?]: Use the ordinary frozen public PNG package command as the sole four-target qualification gate; do not add a release runner or target wrapper.
+- [Phase ?]: Keep v0.18 functional changes confined to the two public PNG test files; planning records are the only other phase artifacts.
 
 ### Pending Todos
 
@@ -127,9 +130,9 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-07-23T01:19:54.862Z
-Stopped at: Completed 58-02-PLAN.md
-Resume file: 58-03-PLAN.md
+Last session: 2026-07-23T01:26:40.207Z
+Stopped at: Completed 58-03-PLAN.md
+Resume file: None
 
 ## Operator Next Steps
 
