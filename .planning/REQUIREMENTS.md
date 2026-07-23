@@ -7,17 +7,17 @@
 
 ### Indexed source and eager output
 
-- [ ] **INDEX-01**: Library users can construct a dedicated immutable Indexed8 PNG source with a validated RGB palette and canonical unpacked index raster.
-- [ ] **INDEX-02**: Library users can eagerly emit bounded non-interlaced Type-3/8 PNG with exact IHDR, PLTE, IDAT, and IEND framing and atomic rejection.
+- [x] **INDEX-01**: Library users can construct a dedicated immutable Indexed8 PNG source with a validated RGB palette and canonical unpacked index raster. — Validated in Phase 76.
+- [x] **INDEX-02**: Library users can eagerly emit bounded non-interlaced Type-3/8 PNG with exact IHDR, PLTE, IDAT, and IEND framing and atomic rejection. — Validated in Phase 76.
 
 ### Transparency and resumable semantics
 
-- [ ] **INDEX-03**: Indexed sources with palette alpha emit canonical optional tRNS and decode publicly as RGB8 or RGBA8 with exact palette semantics.
-- [ ] **INDEX-04**: Caller-buffered indexed output shares the bounded layout machine, has eager-identical bytes under hostile capacities, preserves lease ownership, and retains sticky terminals.
+- [x] **INDEX-03**: Indexed sources with palette alpha emit canonical optional tRNS and decode publicly as RGB8 or RGBA8 with exact palette semantics. — Validated in Phase 77.
+- [x] **INDEX-04**: Caller-buffered indexed output shares the bounded layout machine, has eager-identical bytes under hostile capacities, preserves lease ownership, and retains sticky terminals. — Validated in Phase 78.
 
 ### Portable qualification
 
-- [ ] **INDEX-05**: Independent indexed wire/decode vectors, hostile lifecycle evidence, frozen legacy compatibility, and the ordinary full PNG package pass cover wasm, wasm-gc, js, and native.
+- [x] **INDEX-05**: Independent indexed wire/decode vectors, hostile lifecycle evidence, frozen legacy compatibility, and the ordinary full PNG package pass cover wasm, wasm-gc, js, and native. — Validated in Phase 78.
 
 ## Future Requirements
 
@@ -33,11 +33,11 @@
 
 | Requirement | Phase | Status |
 |---|---|---|
-| INDEX-01 | Phase 76 | Pending |
-| INDEX-02 | Phase 76 | Pending |
-| INDEX-03 | Phase 77 | Pending |
-| INDEX-04 | Phase 78 | Pending |
-| INDEX-05 | Phase 78 | Pending |
+| INDEX-01 | Phase 76 | Validated |
+| INDEX-02 | Phase 76 | Validated |
+| INDEX-03 | Phase 77 | Validated |
+| INDEX-04 | Phase 78 | Validated |
+| INDEX-05 | Phase 78 | Validated |
 
 **Coverage:**
 
