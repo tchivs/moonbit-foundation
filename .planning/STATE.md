@@ -4,15 +4,15 @@ milestone: v0.19
 milestone_name: GrayAlpha8 Adam7 PNG
 current_phase: 59
 current_phase_name: GrayAlpha8 Adam7 Factory and Pass Profile
-status: planning
-stopped_at: Phase 59 context gathered
-last_updated: "2026-07-23T02:02:41.687Z"
+status: planned
+stopped_at: Phase 59 plans ready for execution
+last_updated: "2026-07-23T02:12:05.372Z"
 last_activity: 2026-07-23
-last_activity_desc: v0.19 requirements mapped to Phases 59-61
+last_activity_desc: Phase 59 factory/profile plans created
 progress:
   total_phases: 3
   completed_phases: 0
-  total_plans: 0
+  total_plans: 2
   completed_plans: 0
   percent: 0
 ---
@@ -25,14 +25,14 @@ See `.planning/PROJECT.md` (updated 2026-07-23).
 
 **Core value:** MoonBit developers can reuse stable, high-performance native infrastructure contracts instead of rebuilding incompatible foundations for every graphics, document, media, or automation product.
 
-**Current focus:** Plan Phase 59 — GrayAlpha8 Adam7 Factory and Pass Profile.
+**Current focus:** Execute Phase 59 — GrayAlpha8 Adam7 Factory and Pass Profile.
 
 ## Current Position
 
 Phase: 59 of 61 (GrayAlpha8 Adam7 Factory and Pass Profile)
-Plan: Not yet planned
-Status: Roadmap ready; phase context is next
-Last activity: 2026-07-23 — v0.19 requirements mapped to Phases 59-61
+Plan: 2 plans ready
+Status: Ready for execution
+Last activity: 2026-07-23 — Phase 59 factory/profile plans created
 
 ## Performance Metrics
 
@@ -59,7 +59,7 @@ Last activity: 2026-07-23 — v0.19 requirements mapped to Phases 59-61
 
 ### Pending Todos
 
-- Plan and execute Phase 59 without broadening descriptor admission or adding a second encoder route.
+- Execute `59-01-PLAN.md`, then `59-02-PLAN.md`, without broadening descriptor admission or adding a second encoder route.
 
 ### Blockers/Concerns
 
@@ -77,9 +77,9 @@ Last activity: 2026-07-23 — v0.19 requirements mapped to Phases 59-61
 ## Session Continuity
 
 Last session: 2026-07-23T02:02:41.668Z
-Stopped at: Phase 59 context gathered
-Resume file: .planning/phases/59-grayalpha8-adam7-factory-and-pass-profile/59-CONTEXT.md
+Stopped at: Phase 59 plans ready for execution
+Resume file: .planning/phases/59-grayalpha8-adam7-factory-and-pass-profile/59-01-PLAN.md
 
 ## Operator Next Steps
 
-- Discuss and plan Phase 59: GrayAlpha8 Adam7 Factory and Pass Profile.
+- Execute Phase 59 plan 01, then plan 02; run the named native PNG gates before closing the phase.
