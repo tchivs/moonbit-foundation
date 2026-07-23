@@ -3,10 +3,10 @@ gsd_state_version: 1.0
 milestone: v0.20
 milestone_name: High-Precision GrayAlpha Decode
 status: planning
-last_updated: "2026-07-23T04:41:34.293Z"
+last_updated: "2026-07-23T04:55:00.000Z"
 last_activity: 2026-07-23
 progress:
-  total_phases: 0
+  total_phases: 3
   completed_phases: 0
   total_plans: 0
   completed_plans: 0
@@ -21,18 +21,18 @@ See `.planning/PROJECT.md` (updated 2026-07-23).
 
 **Core value:** MoonBit developers can reuse stable, high-performance native infrastructure contracts instead of rebuilding incompatible foundations for every graphics, document, media, or automation product.
 
-**Current focus:** Define the next code-first milestone.
+**Current focus:** Phase 62 — Explicit GrayAlpha16 Decode Contract.
 
 ## Current Position
 
-Phase: Not started (defining requirements)
+Phase: 62 of 64 (Explicit GrayAlpha16 Decode Contract)
 Plan: —
-Status: Defining requirements
-Last activity: 2026-07-23 — Milestone v0.20 started
+Status: Ready to plan
+Last activity: 2026-07-23 — v0.20 roadmap created; all requirements mapped.
 
 ## Performance Metrics
 
-**Current milestone:** v0.19 has 3 scoped requirements mapped exactly once across 3 planned phases.
+**Current milestone:** v0.20 has 3 scoped requirements mapped exactly once across Phases 62-64.
 
 **Recent milestone:** v0.18 shipped with explicit GrayAlpha16 Adam7 factories, bounded streaming semantics, public portable evidence, and a four-target PNG qualification.
 
@@ -58,33 +58,33 @@ Last activity: 2026-07-23 — Milestone v0.20 started
 - [v0.19]: GrayAlpha8 Adam7 is opt-in through explicit eager and caller-buffered factories only; existing GrayAlpha8 non-interlaced selection and bytes remain frozen.
 - [v0.19]: GrayAlpha8 Adam7 must retain the profile-aware single machine, pass-local filtering, atomic preflight, and pre-write mutation rejection across Stored, Fixed, and Dynamic replay.
 - [v0.19]: Public proof uses literal Type-4/8 multipass wire data, established RGBA8 decode canonicalization, hostile caller schedules, frozen legacy vectors, and the ordinary all-target PNG package command.
-- [Phase ?]: GrayAlpha8 Adam7 is opt-in through additive eager and caller-buffered selector pairs; existing None constructors and bytes remain frozen.
-- [Phase ?]: GrayAlpha8 Adam7 reuses the sole profile-aware bounded machine after removing only its profile-specific interlace prohibition.
-- [Phase ?]: All six legal GrayAlpha8 Adam7 compression/filter pairs retain public Type-4/depth-8/Adam7 framing and ordinary chunk-to-eager parity.
+- [v0.20]: High-precision Type-4/16 decode is explicit-only: generic eager and chunk facades remain frozen on `RGBA8(Ghi,Ghi,Ghi,Ahi)`.
+- [v0.20]: The preservation result is packed little-endian `graya16`, straight alpha, and encoded-sRGB identity; sources with no colour declaration or `sRGB` are accepted, while legacy-colour and ICC declarations are rejected before allocation.
+- [v0.20]: The sole decoder machine continues byte-domain filtering and Adam7 traversal; only the final profile-aware store maps `Ghi,Glo,Ahi,Alo` to `Glo,Ghi,Alo,Ahi` without staging.
 
 ### Pending Todos
 
-- Start the next milestone with fresh requirements; v0.19 artifacts are archived.
+- Plan Phase 62 after confirming local MoonBit API spelling and the established typed error for incompatible preservation profiles.
 
 ### Blockers/Concerns
 
-- No current blocker. Phase 60 must verify that Stored, Fixed, and Dynamic replay all validate source revision before the next lease write.
+- No current blocker. Phase 62 must retain the sRGB-only identity gate before image allocation and preserve generic decoder behavior.
 
 ## Deferred Items
 
 | Category | Item | Status |
 |----------|------|--------|
-| scope | Palette/indexed encoding, Gray low-bit packing, Gray8 Adam7, U16 model expansion, colour conversion, and decoder-model widening | deferred |
+| scope | Palette/indexed encoding, Gray low-bit packing, Gray8 Adam7, broad U16 model expansion, generic decoder widening, and public high-precision conversion | deferred |
 | scope | Image-sized staging buffers, alternate encoders, Big-endian changes, and native FFI | deferred |
 | delivery | Registry publication, release automation, target wrappers, and source-tree copying | deferred |
-| scope | cICP/HDR and full ICC colour transforms | deferred |
+| scope | cICP/HDR, non-sRGB Type-4/16 preservation, and full ICC colour transforms | deferred |
 
 ## Session Continuity
 
-Last session: 2026-07-23T03:41:49.318Z
-Stopped at: Phase 61 context gathered
-Resume file: .planning/phases/61-portable-grayalpha8-adam7-public-evidence/61-CONTEXT.md
+Last session: 2026-07-23T04:55:00.000Z
+Stopped at: v0.20 roadmap and traceability created
+Resume file: None
 
 ## Operator Next Steps
 
-- Start the next milestone with /gsd-new-milestone
+- Start Phase 62 with /gsd-plan-phase 62

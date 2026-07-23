@@ -27,6 +27,6 @@
 
 | Requirement | Phase | Status |
 |---|---|---|
-| GRA16DEC-01 | TBD | Not started |
-| GRA16DEC-02 | TBD | Not started |
-| GRA16DEC-03 | TBD | Not started |
+| GRA16DEC-01 | Phase 62 | Not started |
+| GRA16DEC-02 | Phase 63 | Not started |
+| GRA16DEC-03 | Phase 64 | Not started |
