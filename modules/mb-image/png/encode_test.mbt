@@ -999,6 +999,10 @@ test "PNG Indexed8 wire order CRCs and Stored scanlines are exact" {
   ).unwrap())
   let bytes = png_encode_prefix(writer)
   inspect(bytes.length(), content="89")
+  inspect(
+    bytes == b"\x89\x50\x4e\x47\x0d\x0a\x1a\x0a\x00\x00\x00\x0d\x49\x48\x44\x52\x00\x00\x00\x02\x00\x00\x00\x01\x08\x03\x00\x00\x00\xc3\xfc\x8f\xb8\x00\x00\x00\x06\x50\x4c\x54\x45\x12\x34\x56\xa0\xb0\xc0\xf7\x67\x65\x0f\x00\x00\x00\x0e\x49\x44\x41\x54\x78\x01\x01\x03\x00\xfc\xff\x00\x00\x01\x00\x04\x00\x02\x0b\x21\x8b\x71\x00\x00\x00\x00\x49\x45\x4e\x44\xae\x42\x60\x82",
+    content="true",
+  )
   inspect(png_indexed_slice(bytes, 0, 8) == b"\x89PNG\r\n\x1a\n", content="true")
   inspect(png_indexed_u32(bytes, 8) == 13UL, content="true")
   inspect(png_indexed_slice(bytes, 12, 4) == b"IHDR", content="true")
@@ -1019,6 +1023,37 @@ test "PNG Indexed8 wire order CRCs and Stored scanlines are exact" {
 }
 
 ///|
+test "PNG Indexed8 tRNS wire order CRCs and Stored scanlines are exact" {
+  let source = PngIndexedImage::new(
+    4UL, 1UL, b"\x00\x01\x02\x03",
+    b"\x12\x34\x56\xa0\xb0\xc0\x11\x22\x33\x44\x55\x66",
+    b"\x00\xff\x80\xff", png_encode_budget(),
+  ).unwrap()
+  let writer = @io.MemoryWriter::new(
+    256UL, png_encode_budget(bytes=256UL, work=0UL),
+  ).unwrap()
+  ignore(PngEncoder::encode_indexed8(
+    PngEncoder::new(), source, writer as &@io.Writer, png_encode_limits(),
+    png_encode_budget(), @error.Diagnostics::new(),
+  ).unwrap())
+  let bytes = png_encode_prefix(writer)
+  inspect(bytes.length(), content="112")
+  inspect(png_indexed_u32(bytes, 8) == 13UL && png_indexed_slice(bytes, 12, 4) == b"IHDR", content="true")
+  inspect(png_indexed_crc32(bytes, 12, 17) == png_indexed_u32(bytes, 29), content="true")
+  inspect(png_indexed_u32(bytes, 33) == 12UL && png_indexed_slice(bytes, 37, 4) == b"PLTE", content="true")
+  inspect(png_indexed_slice(bytes, 41, 12) == b"\x12\x34\x56\xa0\xb0\xc0\x11\x22\x33\x44\x55\x66", content="true")
+  inspect(png_indexed_crc32(bytes, 37, 16) == png_indexed_u32(bytes, 53), content="true")
+  inspect(png_indexed_u32(bytes, 57) == 3UL && png_indexed_slice(bytes, 61, 4) == b"tRNS", content="true")
+  inspect(png_indexed_slice(bytes, 65, 3) == b"\x00\xff\x80", content="true")
+  inspect(png_indexed_crc32(bytes, 61, 7) == png_indexed_u32(bytes, 68), content="true")
+  inspect(png_indexed_u32(bytes, 72) == 16UL && png_indexed_slice(bytes, 76, 4) == b"IDAT", content="true")
+  inspect(png_indexed_slice(bytes, 80, 16) == b"\x78\x01\x01\x05\x00\xfa\xff\x00\x00\x01\x02\x03\x00\x0f\x00\x07", content="true")
+  inspect(png_indexed_crc32(bytes, 76, 20) == png_indexed_u32(bytes, 96), content="true")
+  inspect(png_indexed_u32(bytes, 100) == 0UL && png_indexed_slice(bytes, 104, 4) == b"IEND", content="true")
+  inspect(png_indexed_crc32(bytes, 104, 4) == png_indexed_u32(bytes, 108), content="true")
+}
+
+///|
 test "PNG Indexed8 source and eager admissions are atomic" {
   let source_budget = png_encode_budget()
   let before_source = source_budget.remaining()
@@ -1031,6 +1066,10 @@ test "PNG Indexed8 source and eager admissions are atomic" {
   inspect(png_adam7_same_remaining(before_source, source_budget.remaining()), content="true")
   inspect(PngIndexedImage::new(
     1UL, 1UL, b"\x00", b"\x12\x34", b"\xff", source_budget,
+  ) is Err(_), content="true")
+  inspect(png_adam7_same_remaining(before_source, source_budget.remaining()), content="true")
+  inspect(PngIndexedImage::new(
+    1UL, 1UL, b"\x00", b"\x12\x34\x56\xa0\xb0\xc0", b"\xff", source_budget,
   ) is Err(_), content="true")
   inspect(png_adam7_same_remaining(before_source, source_budget.remaining()), content="true")
   inspect(PngIndexedImage::new(
@@ -1054,21 +1093,22 @@ test "PNG Indexed8 source and eager admissions are atomic" {
   inspect(compact_budget.remaining().bytes(), content="0")
   inspect(compact_budget.remaining().allocations(), content="7")
   let source = PngIndexedImage::new(
-    2UL, 1UL, b"\x00\x01", b"\x12\x34\x56\xa0\xb0\xc0",
-    b"\xff\xff", png_encode_budget(),
+    4UL, 1UL, b"\x00\x01\x02\x03",
+    b"\x12\x34\x56\xa0\xb0\xc0\x11\x22\x33\x44\x55\x66",
+    b"\x00\xff\x80\xff", png_encode_budget(),
   ).unwrap()
   let limited = @io.MemoryWriter::new(
-    128UL, png_encode_budget(bytes=128UL, work=0UL),
+    256UL, png_encode_budget(bytes=256UL, work=0UL),
   ).unwrap()
   inspect(PngEncoder::encode_indexed8(
-    PngEncoder::new(), source, limited as &@io.Writer, png_encode_limits(output=88UL),
+    PngEncoder::new(), source, limited as &@io.Writer, png_encode_limits(output=111UL),
     png_encode_budget(), @error.Diagnostics::new(),
   ) is Err(_), content="true")
   inspect(limited.position(), content="0")
-  let work_budget = png_encode_budget(work=88UL)
+  let work_budget = png_encode_budget(work=111UL)
   let before_work = work_budget.remaining()
   let restricted = @io.MemoryWriter::new(
-    128UL, png_encode_budget(bytes=128UL, work=0UL),
+    256UL, png_encode_budget(bytes=256UL, work=0UL),
   ).unwrap()
   inspect(PngEncoder::encode_indexed8(
     PngEncoder::new(), source, restricted as &@io.Writer, png_encode_limits(),
@@ -1079,7 +1119,7 @@ test "PNG Indexed8 source and eager admissions are atomic" {
   let zero_encode_pixels = png_encode_zero_pixels_budget()
   let before_zero_encode_pixels = zero_encode_pixels.remaining()
   let pixels_restricted = @io.MemoryWriter::new(
-    128UL, png_encode_budget(bytes=128UL, work=0UL),
+    256UL, png_encode_budget(bytes=256UL, work=0UL),
   ).unwrap()
   inspect(PngEncoder::encode_indexed8(
     PngEncoder::new(), source, pixels_restricted as &@io.Writer, png_encode_limits(),

@@ -1091,13 +1091,15 @@ test "PNG dynamic selected work boundary charges once" {
 test "PNG Indexed8 frame facts shift PLTE while zero-PLTE offsets remain frozen" {
   let indexed = PngIndexedImage::new(
     2UL, 1UL, b"\x00\x01", b"\x12\x34\x56\xa0\xb0\xc0",
-    png_wb_budget(bytes=64UL, work=0UL),
+    b"\xff\xff", png_wb_budget(bytes=64UL, work=0UL),
   ).unwrap()
   let indexed_facts = _png_encode_indexed_preflight(
     indexed, png_wb_limits(), png_wb_budget(work=1024UL),
   ).unwrap()
   inspect(indexed_facts.frame.plte_length, content="6")
   inspect(indexed_facts.frame.plte_start, content="33")
+  inspect(indexed_facts.frame.trns_length, content="0")
+  inspect(indexed_facts.frame.trns_start, content="51")
   inspect(indexed_facts.frame.idat_start, content="51")
   inspect(indexed_facts.frame.iend_start, content="77")
   inspect(indexed_facts.frame.total_length, content="89")
@@ -1114,9 +1116,52 @@ test "PNG Indexed8 frame facts shift PLTE while zero-PLTE offsets remain frozen"
     png_wb_limits(), png_wb_budget(work=1024UL),
   ).unwrap()
   inspect(legacy.frame.plte_length, content="0")
+  inspect(legacy.frame.trns_length, content="0")
+  inspect(legacy.frame.trns_start, content="33")
   inspect(legacy.frame.idat_start, content="33")
   inspect(legacy.frame.iend_start, content="60")
   inspect(legacy.frame.total_length, content="72")
+}
+
+///|
+test "PNG Indexed8 tRNS frame facts and CRC advance only on acknowledgement" {
+  let indexed = PngIndexedImage::new(
+    4UL, 1UL, b"\x00\x01\x02\x03",
+    b"\x12\x34\x56\xa0\xb0\xc0\x11\x22\x33\x44\x55\x66",
+    b"\x00\xff\x80\xff", png_wb_budget(bytes=64UL, work=0UL),
+  ).unwrap()
+  let facts = _png_encode_indexed_preflight(
+    indexed, png_wb_limits(), png_wb_budget(work=1024UL),
+  ).unwrap()
+  inspect(facts.frame.plte_start, content="33")
+  inspect(facts.frame.plte_length, content="12")
+  inspect(facts.frame.trns_start, content="57")
+  inspect(facts.frame.trns_length, content="3")
+  inspect(facts.frame.idat_start, content="72")
+  inspect(facts.frame.iend_start, content="100")
+  inspect(facts.frame.total_length, content="112")
+  let machine = PngEncodeMachine::new_with_indexed(
+    indexed, png_wb_limits(), png_wb_budget(work=1024UL), @error.Diagnostics::new(),
+  ).unwrap()
+  while machine.completed() < 65UL {
+    let byte = machine.present().unwrap().unwrap()
+    machine.acknowledge(byte).unwrap()
+  }
+  let before = machine.trns_crc
+  inspect(machine.present().unwrap().unwrap() == b'\x00', content="true")
+  inspect(machine.trns_crc == before, content="true")
+  machine.acknowledge(b'\x00').unwrap()
+  let after_first = machine.trns_crc
+  inspect(after_first != before, content="true")
+  inspect(machine.present().unwrap().unwrap() == b'\xff', content="true")
+  inspect(machine.trns_crc == after_first, content="true")
+  machine.acknowledge(b'\xff').unwrap()
+  let after_second = machine.trns_crc
+  inspect(after_second != after_first, content="true")
+  inspect(machine.present().unwrap().unwrap() == b'\x80', content="true")
+  inspect(machine.trns_crc == after_second, content="true")
+  machine.acknowledge(b'\x80').unwrap()
+  inspect(machine.trns_crc != after_second, content="true")
 }
 
 ///|
