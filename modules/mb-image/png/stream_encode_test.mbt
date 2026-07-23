@@ -1501,7 +1501,7 @@ test "PNG filter strategy chunk frozen compatibility vectors" {
     png_stream_test_limits(), png_stream_test_budget(), @error.Diagnostics::new(),
   ).unwrap(), [0UL, 1UL, 3UL, 2UL, 5UL]).unwrap()
   for bytes in [gray_default, gray_configured, gray_adaptive] {
-    inspect(bytes == gray_stored, content="true")
+    inspect(bytes == gray_stored && bytes[28] == b'\x00', content="true")
   }
 
   let gray16 = png_stream_gray16_image()
@@ -1515,7 +1515,7 @@ test "PNG filter strategy chunk frozen compatibility vectors" {
     png_stream_test_limits(), png_stream_test_budget(), @error.Diagnostics::new(),
   ).unwrap(), [0UL, 1UL, 3UL, 2UL, 5UL]).unwrap()
   for bytes in [gray16_default, gray16_configured] {
-    inspect(bytes == gray16_stored, content="true")
+    inspect(bytes == gray16_stored && bytes[28] == b'\x00', content="true")
   }
 
   let gray_alpha = png_stream_graya8_image()
@@ -1529,7 +1529,7 @@ test "PNG filter strategy chunk frozen compatibility vectors" {
     png_stream_test_limits(), png_stream_test_budget(), @error.Diagnostics::new(),
   ).unwrap(), [0UL, 1UL, 3UL, 2UL, 5UL]).unwrap()
   for bytes in [gray_alpha_default, gray_alpha_configured] {
-    inspect(bytes == gray_alpha_stored, content="true")
+    inspect(bytes == gray_alpha_stored && bytes[28] == b'\x00', content="true")
   }
 
   let rgb = png_stream_test_image(3UL)
@@ -1545,7 +1545,7 @@ test "PNG filter strategy chunk frozen compatibility vectors" {
     rgb.view(), PngFilterStrategy::Adaptive, png_stream_test_limits(), png_stream_test_budget(), @error.Diagnostics::new(),
   ).unwrap(), [0UL, 1UL, 3UL, 2UL, 5UL]).unwrap()
   for bytes in [default, configured, adaptive] {
-    inspect(bytes == rgb_stored, content="true")
+    inspect(bytes == rgb_stored && bytes[28] == b'\x00', content="true")
     png_stream_test_fixed_or_stored_corpus_decode_matches_source(bytes, rgb)
   }
 
@@ -1555,7 +1555,7 @@ test "PNG filter strategy chunk frozen compatibility vectors" {
   let rgba_adaptive = png_chunk_test_drain_encoder(PngChunkEncoder::new_with_filter_strategy(
     rgba.view(), PngFilterStrategy::Adaptive, png_stream_test_limits(), png_stream_test_budget(), @error.Diagnostics::new(),
   ).unwrap(), [0UL, 1UL, 3UL, 2UL, 5UL]).unwrap()
-  inspect(rgba_adaptive == rgba_stored, content="true")
+  inspect(rgba_adaptive == rgba_stored && rgba_adaptive[28] == b'\x00', content="true")
   png_stream_test_fixed_or_stored_corpus_decode_matches_source(rgba_adaptive, rgba)
 
   for channels in [3UL, 4UL] {
@@ -3588,59 +3588,26 @@ test "PNG GrayAlpha16 Adam7 public hostile tracer" {
   )
 }
 
-///| One legal GrayAlpha16 Adam7 pair runs both compact accepted-byte schedules
-/// against fresh eager and caller-buffered instances.
-fn png_graya16_adam7_chunk_strategy_pair(
-  strategy : PngCompressionStrategy,
-  filter_strategy : PngFilterStrategy,
-) -> Unit {
-  png_graya16_adam7_chunk_drain(
-    png_stream_graya16_adam7_image(), strategy, filter_strategy, [1UL],
-  )
-  png_graya16_adam7_chunk_drain(
-    png_stream_graya16_adam7_image(), strategy, filter_strategy, [1UL, 3UL, 2UL, 5UL],
-  )
-}
-
-///| Every legal GrayAlpha16 Adam7 selector drains fresh eager and chunk
-/// instances through the same bounded profile-aware machine.
-test "PNG GrayAlpha16 Adam7 Stored None chunk parity" {
-  png_graya16_adam7_chunk_strategy_pair(
-    PngCompressionStrategy::Stored, PngFilterStrategy::None,
-  )
-}
-
-///|
-test "PNG GrayAlpha16 Adam7 Stored Adaptive chunk parity" {
-  png_graya16_adam7_chunk_strategy_pair(
-    PngCompressionStrategy::Stored, PngFilterStrategy::Adaptive,
-  )
-}
-
-///|
-test "PNG GrayAlpha16 Adam7 Fixed None chunk parity" {
-  png_graya16_adam7_chunk_strategy_pair(
-    PngCompressionStrategy::FixedOrStored, PngFilterStrategy::None,
-  )
-}
-
-///|
-test "PNG GrayAlpha16 Adam7 Fixed Adaptive chunk parity" {
-  png_graya16_adam7_chunk_strategy_pair(
-    PngCompressionStrategy::FixedOrStored, PngFilterStrategy::Adaptive,
-  )
-}
-
-///|
-test "PNG GrayAlpha16 Adam7 Dynamic None chunk parity" {
-  png_graya16_adam7_chunk_strategy_pair(
-    PngCompressionStrategy::DynamicOrFixedOrStored, PngFilterStrategy::None,
-  )
-}
-
-///|
-test "PNG GrayAlpha16 Adam7 Dynamic Adaptive chunk parity" {
-  png_graya16_adam7_chunk_strategy_pair(
-    PngCompressionStrategy::DynamicOrFixedOrStored, PngFilterStrategy::Adaptive,
-  )
+///| Every legal public GrayAlpha16 Adam7 selector drains fresh chunk encoders
+/// through zero, one-byte, and ragged caller-buffer schedules while retaining
+/// byte identity with a separately constructed public eager encoder.
+test "PNG GrayAlpha16 Adam7 public hostile schedules" {
+  for strategy in [
+    PngCompressionStrategy::Stored,
+    PngCompressionStrategy::FixedOrStored,
+    PngCompressionStrategy::DynamicOrFixedOrStored,
+  ] {
+    for filter_strategy in [PngFilterStrategy::None, PngFilterStrategy::Adaptive] {
+      png_graya16_adam7_chunk_drain(
+        png_stream_graya16_adam7_image(), strategy, filter_strategy, [0UL, 1UL],
+      )
+      png_graya16_adam7_chunk_drain(
+        png_stream_graya16_adam7_image(), strategy, filter_strategy, [1UL],
+      )
+      png_graya16_adam7_chunk_drain(
+        png_stream_graya16_adam7_image(), strategy, filter_strategy,
+        [0UL, 8UL, 4UL, 1UL, 13UL, 2UL, 5UL, 3UL, 21UL],
+      )
+    }
+  }
 }
