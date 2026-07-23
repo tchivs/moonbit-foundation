@@ -1,5 +1,18 @@
 # Project Milestones: MoonBit Native Foundation
 
+## v0.21 RGBA16 PNG Decode (Shipped: 2026-07-23)
+
+**Phases completed:** 4 phases, 4 plans, 9 tasks
+
+**Key accomplishments:**
+
+- Packed little-endian U16 RGBA descriptors now provide one strict straight-alpha encoded-sRGB identity and observable eight-byte storage order.
+- Eager Type-6/16 PNG decode now preserves every straight-alpha RGBA source lane in packed little-endian rgba16 storage without changing generic RGBA8 decoding.
+- Caller-owned PNG chunks can now select exact Type-6/16 RGBA preservation with eager-identical normal and Adam7 results, without changing the generic RGBA8 contract.
+- Independent Type-6/16 all-filter and all-pass Adam7 PNG vectors prove byte-exact explicit RGBA16 decoding while generic compatibility stays RGBA8 high-byte-only.
+
+---
+
 ## v0.20 High-Precision GrayAlpha Decode (Shipped: 2026-07-23)
 
 **Phases completed:** 3 phases, 3 plans, 4 tasks

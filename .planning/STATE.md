@@ -2,18 +2,18 @@
 gsd_state_version: 1.0
 milestone: v0.21
 milestone_name: RGBA16 PNG Decode
-current_phase: 68
-current_phase_name: RGBA16 Decode Qualification
-status: completed
+status: Awaiting next milestone
 stopped_at: Phase 68 context gathered
-last_updated: "2026-07-23T11:33:01.731Z"
+last_updated: "2026-07-23T11:40:42.624Z"
 last_activity: 2026-07-23
-last_activity_desc: Phase 68 complete
+last_activity_desc: Milestone v0.21 completed and archived
 progress:
   total_phases: 4
   completed_phases: 4
   total_plans: 4
   completed_plans: 4
+current_phase: 68
+current_phase_name: RGBA16 Decode Qualification
 ---
 
 # Project State
@@ -28,10 +28,10 @@ See `.planning/PROJECT.md` (updated 2026-07-23).
 
 ## Current Position
 
-Phase: 68 of 68 (RGBA16 Decode Qualification)
-Plan: Not started
-Status: All phases complete
-Last activity: 2026-07-23 — Phase 68 complete
+Phase: Milestone v0.21 complete
+Plan: —
+Status: Awaiting next milestone
+Last activity: 2026-07-23 — Milestone v0.21 completed and archived
 
 ## Performance Metrics
 
@@ -90,4 +90,4 @@ Resume file: .planning/phases/68-rgba16-decode-qualification/68-CONTEXT.md
 
 ## Operator Next Steps
 
-- Plan Phase 65 with /gsd-plan-phase 65
+- Start the next milestone with /gsd-new-milestone

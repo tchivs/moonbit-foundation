@@ -257,6 +257,43 @@
 
 ---
 
+## Milestone: v0.21 — RGBA16 PNG Decode
+
+**Shipped:** 2026-07-23
+**Phases:** 4 | **Plans:** 4 | **Tasks:** 9
+
+### What Was Built
+
+- A checked packed little-endian U16 `rgba16` representation with explicit straight-alpha encoded-sRGB identity.
+- Additive eager and caller-buffered Type-6/16 PNG selectors that preserve every source component lane while generic decoding remains RGBA8 high-byte projection.
+- Independent all-filter and Adam7 wire fixtures, hostile terminal/resource qualification, and four-target package evidence.
+
+### What Worked
+
+- Reusing the existing bounded byte-fed decoder confined the implementation to profile admission, output accounting, and final lane storage.
+- Fixed hand-authored PNG literals kept the encoder from becoming the decoder's oracle.
+- Serial ordinary package runs produced clear 245/245 evidence on each supported target without introducing release wrappers or copied source trees.
+
+### What Was Inefficient
+
+- One hand-authored Adam7 fixture byte and one white-box feeder error path required red-green corrections before final qualification.
+
+### Patterns Established
+
+- A high-precision PNG decode profile can share framing, filtering, DEFLATE, and Adam7 traversal while varying only admission, result descriptor, accounting, and final component-byte store.
+
+### Key Lessons
+
+1. Preserve legacy lossy façades explicitly whenever an opt-in exact-fidelity decoder is added.
+2. Separate authenticated-header codec limits from first-IDAT caller-owned resource leases in boundary tests.
+3. Archive phase artifacts at each milestone close; do not leave active planning directories behind.
+
+### Cost Observations
+
+- The ordinary PNG package completed at 245/245 on wasm, wasm-gc, js, and native.
+
+---
+
 ## Cross-Milestone Trends
 
 ### Process Evolution
@@ -269,6 +306,7 @@
 | v0.17 | 3 | 4 | Extended the same bounded profile path to U16 Gray+Alpha with explicit type-4 wire and lease ownership evidence. |
 | v0.19 | 3 | 5 | Extended that bounded profile path to GrayAlpha8 Adam7 with shared replay integrity and independent portable evidence. |
 | v0.20 | 3 | 3 | Added opt-in high-precision GrayAlpha16 decode while retaining generic RGBA8 and one bounded machine. |
+| v0.21 | 4 | 4 | Added opt-in Type-6/16 RGBA decode with exact U16 lanes, chunk parity, and portable qualification. |
 
 ### Cumulative Quality
 
@@ -280,6 +318,7 @@
 | v0.17 | 204/204 PNG tests per target | 4/4 | 3/3 phase verifications, 5/5 handoffs, 3/3 flows |
 | v0.19 | 227/227 PNG tests per target | 3/3 | 3/3 phase verifications, 100/100 integration, 4/4 flows |
 | v0.20 | 235/235 PNG tests per target | 3/3 | 3/3 phase verifications, 100/100 integration, 4/4 flows |
+| v0.21 | 245/245 PNG tests per target | 4/4 | 4/4 phase verifications, 5/5 integration links, 2/2 public flows |
 
 ### Top Lessons
 

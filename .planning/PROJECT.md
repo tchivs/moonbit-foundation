@@ -10,20 +10,15 @@ The primary audience is MoonBit library authors and application developers build
 
 MoonBit developers can reuse stable, high-performance native infrastructure contracts instead of rebuilding incompatible foundations for every graphics, document, media, or automation product.
 
-## Current State: v0.20 High-Precision GrayAlpha Decode Shipped
+## Current State: v0.21 RGBA16 PNG Decode Shipped
 
-**Delivered:** `mb-image` now provides explicit eager and caller-buffered Type-4/16 GrayAlpha decoding that preserves every component in the existing little-endian packed `graya16` representation. Legal encoded-sRGB Adam7 input follows the shared bounded decoder and exact profile-aware final store; generic eager and chunk decoding remain the established lossy `RGBA8(Ghi,Ghi,Ghi,Ahi)` façade.
+**Delivered:** `mb-image` now provides an explicit packed little-endian `rgba16` representation plus eager `PngDecoder::decode_rgba16` and caller-buffered `PngChunkDecoder::new_rgba16` selectors. Legal default/sRGB Type-6/16 input preserves every straight-alpha component as `Rlo,Rhi,Glo,Ghi,Blo,Bhi,Alo,Ahi` on the existing bounded decoder machine; generic eager and chunk decoding remain the frozen `RGBA8(Rhi,Ghi,Bhi,Ahi)` façade.
 
-**Validated:** Independent five-filter and seven-pass Adam7 PNG literals, hostile metadata/resource/chunk paths, and frozen generic compatibility are covered. The ordinary PNG package passed 235/235 tests on each of `wasm`, `wasm-gc`, `js`, and `native`.
+**Validated:** Independent all-five-filter and all-seven-pass Adam7 wire literals, hostile metadata/resource/chunk paths, generic compatibility, and exact/one-less allocation bounds are covered. The ordinary PNG package passed 245/245 tests on each of `wasm`, `wasm-gc`, `js`, and `native`; the milestone audit passed all four requirements, phase verifications, integration links, and public flows.
 
-## Current Milestone: v0.21 RGBA16 PNG Decode
+## Next Milestone Goals
 
-**Goal:** Add an explicit, portable high-precision Type-6/16 PNG decode contract that preserves all four straight-alpha U16 component lanes without widening the generic RGBA8 façade.
-
-**Target features:**
-- Checked packed little-endian `rgba16` representation with explicit straight-alpha identity.
-- Additive eager and caller-buffered Type-6/16 decoder selectors over the existing bounded machine.
-- Independent filter/Adam7, hostile-input, generic-compatibility, and four-target qualification evidence.
+- Select the next code-first native foundation capability from concrete downstream needs while retaining the bounded, additive PNG profile architecture.
 
 ## Requirements
 
@@ -58,6 +53,7 @@ MoonBit developers can reuse stable, high-performance native infrastructure cont
 - [x] Prove U16 gray/alpha wire fidelity, hostile caller-buffered identity, legacy compatibility, and four-target execution. — Validated in v0.17 Phase 55.
 - [x] Add explicit bounded Adam7 GrayAlpha8 encoding while preserving frozen non-interlaced behavior, shared bounded replay semantics, and four-target public evidence. — Validated in v0.19 Phases 59-61.
 - [x] Provide explicit eager and caller-buffered Type-4/16 GrayAlpha decoding with exact packed-U16 lanes, Adam7/filter fidelity, hostile bounded behavior, frozen generic compatibility, and four-target proof. — Validated in v0.20 Phases 62-64.
+- [x] Provide explicit eager and caller-buffered Type-6/16 RGBA decoding with packed-U16 lane fidelity, profile/resource rejection, frozen generic compatibility, and four-target proof. — Validated in v0.21 Phases 65-68.
 
 ### Active
 
@@ -189,6 +185,7 @@ Registry publication and release automation remain deferred unless a concrete co
 | Add Gray+Alpha8 through an explicit bounded PNG profile | Preserve legacy image/PNG contracts while exposing type-4 wire fidelity and portable public proof | ✓ Validated in v0.16 |
 | Add Gray+Alpha16 through the existing bounded PNG profile | Preserve strict descriptor admission, avoid a staging path, and keep exact U16 wire fidelity distinct from U8 decoder canonicalization | ✓ Validated in v0.17 |
 | Extend GrayAlpha8 through opt-in Adam7 selectors | Preserve frozen non-interlaced bytes while reusing the profile-aware bounded pipeline and proving public four-target behavior | ✓ Validated in v0.19 |
+| Add RGBA16 decoding as an explicit opt-in profile | Preserve generic RGBA8 behavior and reuse the bounded decoder while exposing exact Type-6/16 source lanes | ✓ Validated in v0.21 |
 
 ## Evolution
 
@@ -208,4 +205,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update toolchain, compatibility, benchmark, and adoption context.
 
 ---
-*Last updated: 2026-07-23 after v0.19 GrayAlpha8 Adam7 PNG milestone*
+*Last updated: 2026-07-23 after v0.21 RGBA16 PNG Decode milestone*
