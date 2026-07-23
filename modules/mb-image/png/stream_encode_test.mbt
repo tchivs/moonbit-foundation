@@ -307,6 +307,43 @@ fn png_stream_graya16_image() -> @storage.OwnedImage {
   image
 }
 
+///| Compact packed U16 RGBA source with non-symmetric component lanes.
+fn png_stream_rgba16_image() -> @storage.OwnedImage {
+  let descriptor = @model.ImageDescriptor::new(
+    2UL, 1UL, @model.ImageFormat::rgba16(),
+    [@model.PlaneDescriptor::new(0UL, 16UL, 16UL, 16UL, 1UL, 1UL, 2UL, 1UL).unwrap()],
+    16UL,
+    @model.ImageMetadata::new(
+      @color.ColorSpaceIdentity::Srgb, @color.TransferIdentity::EncodedSrgb,
+      Some(@color.AlphaMode::Straight), @profile.ProfileIdentity::builtin_srgb(),
+      @model.Orientation::TopLeft,
+      @metadata.OpaqueMetadata::from_entries(
+        [], @metadata.MetadataLimits::new(
+          max_entries=1UL, max_token_bytes=16UL, max_value_bytes=1UL,
+          max_total_bytes=32UL, max_disposition_fields=4UL,
+        ), png_stream_test_budget(work=0UL),
+      ).unwrap(),
+    ),
+  ).unwrap()
+  let image = @storage.OwnedImage::new(descriptor, png_stream_test_budget(work=0UL)).unwrap()
+  image.with_mut_view(fn(view) {
+    let lanes : Array[Byte] = [
+      b'\x34', b'\x12', b'\xc5', b'\xa7', b'\x0f', b'\xbe', b'\x76', b'\x5a',
+      b'\xe1', b'\x90', b'\x2d', b'\x6c', b'\xb8', b'\x03', b'\x47', b'\xfd',
+    ]
+    for pixel = 0UL; pixel < 2UL; pixel = pixel + 1UL {
+      for component = 0UL; component < 4UL; component = component + 1UL {
+        for lane = 0UL; lane < 2UL; lane = lane + 1UL {
+          let index = 8UL * pixel + 2UL * component + lane
+          view.set_component_byte(pixel, 0UL, component, lane, lanes[index.to_int()]).unwrap()
+        }
+      }
+    }
+    Ok(())
+  }).unwrap()
+  image
+}
+
 ///| A five-by-five legal GrayAlpha16 source keeps all seven Adam7 passes
 /// nonempty while making component and endian lanes observable during chunk
 /// parity checks.
@@ -901,6 +938,64 @@ fn png_stream_graya16_public_drain(
   abort("png graya16 public drain unreachable")
 }
 
+///| Drain one fresh public RGBA16 encoder while proving only accepted bytes
+/// change caller leases and that the successful terminal state is sticky.
+fn png_stream_rgba16_public_drain(
+  image : @storage.OwnedImage,
+  strategy : PngCompressionStrategy,
+  filter_strategy : PngFilterStrategy,
+  schedule : Array[UInt64],
+  eager : Bytes,
+) -> Unit {
+  let encoder = PngChunkEncoder::new_rgba16_with_strategies(
+    image.view(), strategy, filter_strategy,
+    png_stream_test_limits(), png_stream_test_budget(), @error.Diagnostics::new(),
+  ).unwrap()
+  let output : Array[Byte] = []
+  let mut turn = 0UL
+  while turn < 4096UL {
+    let capacity = schedule[(turn % schedule.length().to_uint64()).to_int()]
+    let owner = png_chunk_test_owner(capacity, fill=b'Z')
+    let before = output.length().to_uint64()
+    let pulled = owner.with_mut(0UL, capacity, fn(lease) {
+      Ok(encoder.pull(lease))
+    }).unwrap()
+    if pulled.written() > capacity || pulled.total_written() != before + pulled.written() {
+      abort("png rgba16 public accepted progress")
+    }
+    for index = 0UL; index < pulled.written(); index = index + 1UL {
+      output.push(owner.view().get(index).unwrap())
+    }
+    for index = pulled.written(); index < capacity; index = index + 1UL {
+      if owner.view().get(index).unwrap() != b'Z' {
+        abort("png rgba16 public lease tail")
+      }
+    }
+    match pulled.outcome() {
+      PngChunkPullOutcome::NeedOutput => turn = turn + 1UL
+      PngChunkPullOutcome::Failed(_) => abort("png rgba16 public chunk failure")
+      PngChunkPullOutcome::Finished => {
+        if Bytes::from_array(output) != eager { abort("png rgba16 public eager parity") }
+        let sentinel = png_chunk_test_owner(7UL, fill=b'Z')
+        let later = sentinel.with_mut(0UL, 7UL, fn(lease) {
+          Ok(encoder.pull(lease))
+        }).unwrap()
+        if later.written() != 0UL || later.total_written() != pulled.total_written() ||
+          !(later.outcome() is PngChunkPullOutcome::Finished) {
+          abort("png rgba16 public terminal progress")
+        }
+        for index = 0UL; index < 7UL; index = index + 1UL {
+          if sentinel.view().get(index).unwrap() != b'Z' {
+            abort("png rgba16 public terminal lease")
+          }
+        }
+        return
+      }
+    }
+  }
+  abort("png rgba16 public drain unreachable")
+}
+
 ///| Eager Gray8 output is the oracle for the caller-buffered Gray8 factory.
 fn png_stream_gray8_eager(image : @storage.OwnedImage) -> Bytes {
   let writer = @io.MemoryWriter::new(1048576UL, png_stream_test_budget(work=0UL)).unwrap()
@@ -980,6 +1075,26 @@ fn png_stream_graya16_eager_with_strategies(
   let writer = @io.MemoryWriter::new(1048576UL, png_stream_test_budget(work=0UL)).unwrap()
   ignore(@codec.ImageEncoder::encode(
     PngEncoder::new_graya16_with_strategies(strategy, filter_strategy),
+    image.view(), writer as &@io.Writer,
+    @codec.EncodeOptions::new(lossless_required=true, preserve_opaque_metadata=false),
+    png_stream_test_limits(), png_stream_test_budget(), @error.Diagnostics::new(),
+  ).unwrap())
+  let bytes : Array[Byte] = []
+  for index = 0UL; index < writer.position(); index = index + 1UL {
+    bytes.push(writer.view().get(index).unwrap())
+  }
+  Bytes::from_array(bytes)
+}
+
+///| Combined eager RGBA16 output is the caller-buffered identity oracle.
+fn png_stream_rgba16_eager_with_strategies(
+  image : @storage.OwnedImage,
+  strategy : PngCompressionStrategy,
+  filter_strategy : PngFilterStrategy,
+) -> Bytes {
+  let writer = @io.MemoryWriter::new(1048576UL, png_stream_test_budget(work=0UL)).unwrap()
+  ignore(@codec.ImageEncoder::encode(
+    PngEncoder::new_rgba16_with_strategies(strategy, filter_strategy),
     image.view(), writer as &@io.Writer,
     @codec.EncodeOptions::new(lossless_required=true, preserve_opaque_metadata=false),
     png_stream_test_limits(), png_stream_test_budget(), @error.Diagnostics::new(),
@@ -1384,6 +1499,59 @@ test "PNG GrayAlpha16 chunk factory strategies match eager" {
   }
 }
 
+///| Every explicit non-interlaced RGBA16 caller-buffered factory drains to its
+/// fresh eager counterpart without widening the legacy generic route.
+test "PNG RGBA16 chunk factory strategies match eager" {
+  let rgba = png_stream_rgba16_image()
+  let stored = png_stream_rgba16_eager_with_strategies(
+    rgba, PngCompressionStrategy::Stored, PngFilterStrategy::None,
+  )
+  let default = png_chunk_test_drain_encoder(
+    PngChunkEncoder::new_rgba16(
+      rgba.view(), png_stream_test_limits(), png_stream_test_budget(),
+      @error.Diagnostics::new(),
+    ).unwrap(),
+    [3UL, 7UL],
+  ).unwrap()
+  let compressed = png_chunk_test_drain_encoder(
+    PngChunkEncoder::new_rgba16_with_compression_strategy(
+      rgba.view(), PngCompressionStrategy::FixedOrStored, png_stream_test_limits(),
+      png_stream_test_budget(), @error.Diagnostics::new(),
+    ).unwrap(),
+    [3UL, 7UL],
+  ).unwrap()
+  let compressed_eager = png_stream_rgba16_eager_with_strategies(
+    rgba, PngCompressionStrategy::FixedOrStored, PngFilterStrategy::None,
+  )
+  let filtered = png_chunk_test_drain_encoder(
+    PngChunkEncoder::new_rgba16_with_filter_strategy(
+      rgba.view(), PngFilterStrategy::Adaptive, png_stream_test_limits(),
+      png_stream_test_budget(), @error.Diagnostics::new(),
+    ).unwrap(),
+    [3UL, 7UL],
+  ).unwrap()
+  let filtered_eager = png_stream_rgba16_eager_with_strategies(
+    rgba, PngCompressionStrategy::Stored, PngFilterStrategy::Adaptive,
+  )
+  let selected = png_chunk_test_drain_encoder(
+    PngChunkEncoder::new_rgba16_with_strategies(
+      rgba.view(), PngCompressionStrategy::DynamicOrFixedOrStored,
+      PngFilterStrategy::Adaptive, png_stream_test_limits(), png_stream_test_budget(),
+      @error.Diagnostics::new(),
+    ).unwrap(),
+    [3UL, 7UL],
+  ).unwrap()
+  let selected_eager = png_stream_rgba16_eager_with_strategies(
+    rgba, PngCompressionStrategy::DynamicOrFixedOrStored, PngFilterStrategy::Adaptive,
+  )
+  inspect(
+    default == stored && compressed == compressed_eager && filtered == filtered_eager &&
+      selected == selected_eager && stored[24] == b'\x10' && stored[25] == b'\x06' &&
+      stored[28] == b'\x00',
+    content="true",
+  )
+}
+
 ///| Every public Gray+Alpha8 caller-buffered factory is ordinary-drain parity
 /// with its eager counterpart across the full bounded strategy matrix.
 test "PNG GrayAlpha8 chunk factory strategies match eager" {
@@ -1647,6 +1815,40 @@ test "PNG GrayAlpha16 chunk public evidence" {
         image, strategy, filter_strategy, [1UL], eager,
       )
       png_stream_graya16_public_drain(
+        image, strategy, filter_strategy,
+        [0UL, 8UL, 4UL, 1UL, 13UL, 2UL, 5UL, 3UL, 21UL], eager,
+      )
+    }
+  }
+}
+
+///| Every public RGBA16 strategy pair preserves eager bytes and caller lease
+/// ownership under zero-capacity, one-byte, and ragged schedules.
+test "PNG RGBA16 chunk public evidence" {
+  let image = png_stream_rgba16_image()
+  for strategy in [
+    PngCompressionStrategy::Stored,
+    PngCompressionStrategy::FixedOrStored,
+    PngCompressionStrategy::DynamicOrFixedOrStored,
+  ] {
+    for filter_strategy in [PngFilterStrategy::None, PngFilterStrategy::Adaptive] {
+      let eager = png_stream_rgba16_eager_with_strategies(image, strategy, filter_strategy)
+      let zero_encoder = PngChunkEncoder::new_rgba16_with_strategies(
+        image.view(), strategy, filter_strategy,
+        png_stream_test_limits(), png_stream_test_budget(), @error.Diagnostics::new(),
+      ).unwrap()
+      let zero_owner = png_chunk_test_owner(1UL, fill=b'Z')
+      let zero = zero_owner.with_mut(0UL, 0UL, fn(lease) {
+        Ok(zero_encoder.pull(lease))
+      }).unwrap()
+      if zero.written() != 0UL || zero.total_written() != 0UL ||
+        !(zero.outcome() is PngChunkPullOutcome::NeedOutput) ||
+        zero_owner.view().get(0UL).unwrap() != b'Z' {
+        abort("png rgba16 public empty lease")
+      }
+      png_stream_rgba16_public_drain(image, strategy, filter_strategy, [0UL, 1UL], eager)
+      png_stream_rgba16_public_drain(image, strategy, filter_strategy, [1UL], eager)
+      png_stream_rgba16_public_drain(
         image, strategy, filter_strategy,
         [0UL, 8UL, 4UL, 1UL, 13UL, 2UL, 5UL, 3UL, 21UL], eager,
       )
