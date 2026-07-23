@@ -7,8 +7,8 @@
 
 ### Explicit packed output
 
-- [ ] **GRAYPACK-01**: Library users can explicitly encode canonical opaque Gray/U8 sources whose levels are exactly representable as legal non-interlaced Type-0 PNG depth 1, 2, or 4, with MSB-first packed samples and zero padding bits.
-- [ ] **GRAYPACK-02**: Unsupported sample levels, descriptors, resource limits, and budgets fail atomically before eager output is exposed.
+- [x] **GRAYPACK-01**: Library users can explicitly encode canonical opaque Gray/U8 sources whose levels are exactly representable as legal non-interlaced Type-0 PNG depth 1, 2, or 4, with MSB-first packed samples and zero padding bits.
+- [x] **GRAYPACK-02**: Unsupported sample levels, descriptors, resource limits, and budgets fail atomically before eager output is exposed.
 
 ### Shared resumable semantics
 
@@ -31,8 +31,8 @@
 
 | Requirement | Phase | Status |
 |---|---|---|
-| GRAYPACK-01 | Phase 73 | Pending |
-| GRAYPACK-02 | Phase 73 | Pending |
+| GRAYPACK-01 | Phase 73 | Complete |
+| GRAYPACK-02 | Phase 73 | Complete |
 | GRAYPACK-03 | Phase 74 | Pending |
 | GRAYPACK-04 | Phase 75 | Pending |
 

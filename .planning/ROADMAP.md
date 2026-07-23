@@ -29,7 +29,7 @@
 
 ### 📋 v0.23 Low-Bit Grayscale PNG Encode
 
-- [ ] **Phase 73: Explicit Packed Grayscale PNG** — Add exact, non-interlaced Type-0 1/2/4-bit eager output from representable Gray/U8 sources.
+- [x] **Phase 73: Explicit Packed Grayscale PNG** — Add exact, non-interlaced Type-0 1/2/4-bit eager output from representable Gray/U8 sources. (completed 2026-07-23)
 - [ ] **Phase 74: Resumable Packed Grayscale PNG** — Add caller-buffered packed output through the existing bounded encoder machine.
 - [ ] **Phase 75: Packed Grayscale PNG Qualification** — Prove independent wire fidelity, hostile behavior, compatibility, and four-target portability.
 
