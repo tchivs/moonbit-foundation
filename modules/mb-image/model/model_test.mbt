@@ -57,6 +57,18 @@ fn rejects_invalid_graya(
 }
 
 ///|
+fn rejects_invalid_rgba16(
+  format : @model.ImageFormat,
+  planes : Array[@model.PlaneDescriptor],
+  metadata : @model.ImageMetadata,
+) -> Bool {
+  match @model.ImageDescriptor::new(1UL, 1UL, format, planes, 8UL, metadata) {
+    Err(error) => error.code() == @error.ErrorCode::InvalidEncoding
+    Ok(_) => false
+  }
+}
+
+///|
 test "explicit packed descriptor exposes every identity" {
   let format = @model.ImageFormat::new(
     @model.ComponentType::U8,
@@ -291,6 +303,139 @@ test "GrayAlpha16 is a packed two-component straight-alpha descriptor" {
   inspect(descriptor.metadata().profile().is_builtin_srgb(), content="true")
   inspect(descriptor.metadata().orientation() == @model.Orientation::TopLeft, content="true")
   inspect(descriptor.supports_reference_operations(), content="false")
+}
+
+///|
+test "RGBA16 is a packed four-component straight-alpha descriptor" {
+  let descriptor = @model.ImageDescriptor::new(
+    1UL,
+    1UL,
+    @model.ImageFormat::rgba16(),
+    [@model.PlaneDescriptor::new(
+      0UL, 8UL, 8UL, 8UL, 1UL, 1UL, 1UL, 1UL,
+    ).unwrap()],
+    8UL,
+    image_metadata(
+      Some(@color.AlphaMode::Straight),
+      @model.Orientation::TopLeft,
+    ),
+  ).unwrap()
+  inspect(descriptor.format().component() == @model.ComponentType::U16, content="true")
+  inspect(descriptor.format().channels() == @model.ChannelOrder::Rgba, content="true")
+  inspect(descriptor.format().layout() == @model.PlaneLayout::Packed, content="true")
+  inspect(descriptor.format().endianness() == @model.Endianness::Little, content="true")
+  inspect(descriptor.format().channel_count(), content="4")
+  inspect(descriptor.format().bytes_per_component(), content="2")
+  inspect(descriptor.plane_count(), content="1")
+  inspect(descriptor.plane(0).unwrap().row_bytes(), content="8")
+  inspect(descriptor.metadata().alpha() == Some(@color.AlphaMode::Straight), content="true")
+  inspect(descriptor.metadata().profile().is_builtin_srgb(), content="true")
+  inspect(descriptor.metadata().orientation() == @model.Orientation::TopLeft, content="true")
+  inspect(descriptor.supports_reference_operations(), content="false")
+}
+
+///|
+test "RGBA16 admission accepts only its documented identity" {
+  let rgba16_plane = [@model.PlaneDescriptor::new(
+    0UL, 8UL, 8UL, 8UL, 1UL, 1UL, 1UL, 1UL,
+  ).unwrap()]
+  let straight = image_metadata(
+    Some(@color.AlphaMode::Straight),
+    @model.Orientation::TopLeft,
+  )
+  let missing_alpha = image_metadata(None, @model.Orientation::TopLeft)
+  let premultiplied = image_metadata(
+    Some(@color.AlphaMode::Premultiplied),
+    @model.Orientation::TopLeft,
+  )
+  let linear = @model.ImageMetadata::new(
+    @color.ColorSpaceIdentity::Srgb,
+    @color.TransferIdentity::LinearSrgb,
+    Some(@color.AlphaMode::Straight),
+    @profile.ProfileIdentity::builtin_srgb(),
+    @model.Orientation::TopLeft,
+    empty_opaque_metadata(),
+  )
+  let profile_budget = @budget.Budget::new(
+    @budget.ResourceLimits::new(
+      bytes=1UL,
+      allocations=1UL,
+      allocation_size=1UL,
+      width=0UL,
+      height=0UL,
+      pixels=0UL,
+      depth=0UL,
+      work=0UL,
+    ),
+  )
+  let custom_profile = @profile.ProfileIdentity::opaque(
+    @profile.OpaqueProfile::from_bytes(
+      @profile.ProfileFormatTag::icc(),
+      b"x",
+      @profile.ProfileLimits::new(1UL),
+      profile_budget,
+    ).unwrap(),
+  )
+  let non_builtin = @model.ImageMetadata::new(
+    @color.ColorSpaceIdentity::Srgb,
+    @color.TransferIdentity::EncodedSrgb,
+    Some(@color.AlphaMode::Straight),
+    custom_profile,
+    @model.Orientation::TopLeft,
+    empty_opaque_metadata(),
+  )
+  let rotated = image_metadata(
+    Some(@color.AlphaMode::Straight),
+    @model.Orientation::TopRight,
+  )
+  inspect(@model.ImageDescriptor::new(
+    1UL,
+    1UL,
+    @model.ImageFormat::rgba16(),
+    rgba16_plane,
+    8UL,
+    straight,
+  ) is Ok(_), content="true")
+  inspect(rejects_invalid_rgba16(@model.ImageFormat::rgba16(), rgba16_plane, missing_alpha), content="true")
+  inspect(rejects_invalid_rgba16(@model.ImageFormat::rgba16(), rgba16_plane, premultiplied), content="true")
+  inspect(rejects_invalid_rgba16(
+    @model.ImageFormat::new(
+      @model.ComponentType::F32,
+      @model.ChannelOrder::Rgba,
+      @model.PlaneLayout::Packed,
+      @model.Endianness::Little,
+    ).unwrap(),
+    rgba16_plane,
+    straight,
+  ), content="true")
+  inspect(rejects_invalid_rgba16(
+    @model.ImageFormat::new(
+      @model.ComponentType::U16,
+      @model.ChannelOrder::Rgba,
+      @model.PlaneLayout::Planar,
+      @model.Endianness::Little,
+    ).unwrap(),
+    [
+      @model.PlaneDescriptor::new(0UL, 2UL, 2UL, 2UL, 1UL, 1UL, 1UL, 1UL).unwrap(),
+      @model.PlaneDescriptor::new(2UL, 2UL, 2UL, 2UL, 1UL, 1UL, 1UL, 1UL).unwrap(),
+      @model.PlaneDescriptor::new(4UL, 2UL, 2UL, 2UL, 1UL, 1UL, 1UL, 1UL).unwrap(),
+      @model.PlaneDescriptor::new(6UL, 2UL, 2UL, 2UL, 1UL, 1UL, 1UL, 1UL).unwrap(),
+    ],
+    straight,
+  ), content="true")
+  inspect(rejects_invalid_rgba16(
+    @model.ImageFormat::new(
+      @model.ComponentType::U16,
+      @model.ChannelOrder::Rgba,
+      @model.PlaneLayout::Packed,
+      @model.Endianness::Big,
+    ).unwrap(),
+    rgba16_plane,
+    straight,
+  ), content="true")
+  inspect(rejects_invalid_rgba16(@model.ImageFormat::rgba16(), rgba16_plane, linear), content="true")
+  inspect(rejects_invalid_rgba16(@model.ImageFormat::rgba16(), rgba16_plane, non_builtin), content="true")
+  inspect(rejects_invalid_rgba16(@model.ImageFormat::rgba16(), rgba16_plane, rotated), content="true")
 }
 
 ///|
