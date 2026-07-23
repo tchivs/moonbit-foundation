@@ -398,6 +398,118 @@ fn png_chunk_schedule_matches_eager(
   }
 }
 
+///| The explicit preservation facade has its own eager peer: the generic
+/// helper intentionally exercises the frozen RGBA8 route instead.
+fn png_graya16_chunk_eager(
+  source : Bytes,
+  budget : @budget.Budget,
+  diagnostics : @error.Diagnostics,
+) -> Result[@codec.DecodeResult, @error.CoreError] {
+  let owner = png_chunk_source(source)
+  PngDecoder::decode_graya16(
+    @io.MemoryReader::new(owner.view()) as &@io.Reader,
+    @codec.DecodeOptions::new(
+      require_complete_input=true,
+      preserve_opaque_metadata=false,
+    ),
+    png_test_limits(), budget, diagnostics,
+  )
+}
+
+///| Every explicit chunk schedule begins with a zero-length caller view and
+/// retains IEND privately until the separate finish declaration.
+fn png_graya16_chunk_schedule(
+  source : Bytes,
+  lane : String,
+  packets : Array[UInt64],
+  budget : @budget.Budget,
+  diagnostics : @error.Diagnostics,
+) -> Result[@codec.DecodeResult, @error.CoreError] {
+  let decoder = PngChunkDecoder::new_graya16(png_test_limits(), budget, diagnostics)
+  let empty = png_chunk_source(b"")
+  let zero = decoder.push(empty.view())
+  if zero.consumed() != 0UL || !(zero.outcome() is PngChunkPushOutcome::NeedInput) {
+    abort("PNG " + lane + " empty push must stay active")
+  }
+  let length = source.length().to_uint64()
+  let mut offset = 0UL
+  let mut turn = 0
+  while offset < length {
+    let available = length - offset
+    let scheduled = packets[turn % packets.length()]
+    let requested = if scheduled < available { scheduled } else { available }
+    let owner = png_chunk_source(png_chunk_bytes(
+      source, offset.to_int(), (offset + requested).to_int(),
+    ))
+    let pushed = decoder.push(owner.view())
+    if pushed.consumed() != requested || !(pushed.outcome() is PngChunkPushOutcome::NeedInput) {
+      abort("PNG " + lane + " active progress mismatch")
+    }
+    offset = offset + requested
+    turn = turn + 1
+  }
+  decoder.finish()
+}
+
+///| Compare the explicit profile through fresh eager and chunk peers while
+/// retaining direct byte-lane observations that reject lossy RGBA8 widening.
+fn png_graya16_chunk_schedule_matches_eager(
+  source : Bytes,
+  lane : String,
+  packets : Array[UInt64],
+) -> Unit {
+  let chunk_budget = @budget.Budget::new(@budget.ResourceLimits::new(
+    bytes=256UL, allocations=8UL, allocation_size=128UL, width=4UL,
+    height=4UL, pixels=16UL, depth=0UL, work=256UL,
+  ))
+  let chunk_diagnostics = @error.Diagnostics::new()
+  let scheduled = png_graya16_chunk_schedule(
+    source, lane, packets, chunk_budget, chunk_diagnostics,
+  ).unwrap()
+  let eager_budget = @budget.Budget::new(@budget.ResourceLimits::new(
+    bytes=256UL, allocations=8UL, allocation_size=128UL, width=4UL,
+    height=4UL, pixels=16UL, depth=0UL, work=256UL,
+  ))
+  let eager_diagnostics = @error.Diagnostics::new()
+  let eager = png_graya16_chunk_eager(source, eager_budget, eager_diagnostics).unwrap()
+  if !png_scheduled_result_matches(eager, scheduled) {
+    abort("PNG " + lane + " explicit eager result mismatch")
+  }
+  if !png_test_remaining_unchanged(eager_budget.remaining(), chunk_budget.remaining()) {
+    abort("PNG " + lane + " explicit eager budget mismatch")
+  }
+  if eager_diagnostics.length() != chunk_diagnostics.length() ||
+    eager_diagnostics.render() != chunk_diagnostics.render() {
+    abort("PNG " + lane + " explicit eager diagnostics mismatch")
+  }
+  let view = scheduled.image().view()
+  for expected in [(0UL, 0UL, b'\x34'), (0UL, 1UL, b'\x12'),
+    (0UL, 2UL, b'\xc5'), (0UL, 3UL, b'\xa7'), (1UL, 0UL, b'\x0f'),
+    (1UL, 1UL, b'\xbe'), (1UL, 2UL, b'\x76'), (1UL, 3UL, b'\x5a')] {
+    let (x, component, value) = expected
+    if view.get_component_byte(x, 0UL, component / 2UL, component % 2UL).unwrap() != value {
+      abort("PNG " + lane + " explicit component mismatch")
+    }
+  }
+}
+
+///| The declaration-free and sRGB Type-4/16 literals cross the public chunk
+/// facade with fresh caller-owned zero, one-byte, and ragged schedules.
+test "PNG graya16 chunk schedules match eager preservation" {
+  for item in [
+    ("default", png_test_graya16_literal()),
+    ("srgb", png_test_graya16_srgb_literal()),
+  ] {
+    let (id, source) = item
+    png_graya16_chunk_schedule_matches_eager(
+      source, id + "-one-byte", [1UL],
+    )
+    png_graya16_chunk_schedule_matches_eager(
+      source, id + "-ragged", [8UL, 4UL, 1UL, 13UL, 2UL, 5UL, 3UL, 21UL],
+    )
+  }
+}
+
 ///| The complete generated corpus proves only public PngChunkDecoder calls:
 /// every record begins empty, then crosses all byte boundaries and a mixed
 /// ragged caller schedule before explicit finish determines completion.
