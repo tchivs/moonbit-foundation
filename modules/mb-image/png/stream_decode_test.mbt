@@ -416,6 +416,70 @@ fn png_graya16_chunk_eager(
   )
 }
 
+///| The generic comparator observes U8 channel lanes. The explicit profile
+/// exposes U16 component bytes, so compare its complete public shape through
+/// the matching component-byte view instead.
+fn png_graya16_chunk_result_matches(
+  left : @codec.DecodeResult,
+  right : @codec.DecodeResult,
+) -> Bool {
+  let left_descriptor = left.descriptor()
+  let right_descriptor = right.descriptor()
+  if left.bytes_read() != right.bytes_read() ||
+    left_descriptor.width() != right_descriptor.width() ||
+    left_descriptor.height() != right_descriptor.height() ||
+    left_descriptor.format().component() != right_descriptor.format().component() ||
+    left_descriptor.format().channel_count() != right_descriptor.format().channel_count() ||
+    left_descriptor.storage_length() != right_descriptor.storage_length() ||
+    left_descriptor.plane_count() != right_descriptor.plane_count() ||
+    left.disposition().preserved_length() != right.disposition().preserved_length() ||
+    left.disposition().transformed_length() != right.disposition().transformed_length() ||
+    left.disposition().discarded_length() != right.disposition().discarded_length() ||
+    left.disposition().is_lossy() != right.disposition().is_lossy() {
+    return false
+  }
+  let left_metadata = left_descriptor.metadata()
+  let right_metadata = right_descriptor.metadata()
+  if left_metadata.space() != right_metadata.space() ||
+    left_metadata.transfer() != right_metadata.transfer() ||
+    left_metadata.alpha() != right_metadata.alpha() ||
+    left_metadata.orientation() != right_metadata.orientation() ||
+    left_metadata.profile().is_builtin_srgb() != right_metadata.profile().is_builtin_srgb() {
+    return false
+  }
+  let left_entries = left_metadata.opaque_metadata()
+  let right_entries = right_metadata.opaque_metadata()
+  if left_entries.length() != right_entries.length() { return false }
+  for index = 0; index < left_entries.length(); index = index + 1 {
+    let left_entry = left_entries.entry(index).unwrap()
+    let right_entry = right_entries.entry(index).unwrap()
+    if left_entry.canonical_key() != right_entry.canonical_key() ||
+      left_entry.value().length() != right_entry.value().length() {
+      return false
+    }
+    for byte_index = 0UL; byte_index < left_entry.value().length(); byte_index = byte_index + 1UL {
+      if left_entry.value().get(byte_index).unwrap() != right_entry.value().get(byte_index).unwrap() {
+        return false
+      }
+    }
+  }
+  let left_view = left.image().view()
+  let right_view = right.image().view()
+  for y = 0UL; y < left_descriptor.height(); y = y + 1UL {
+    for x = 0UL; x < left_descriptor.width(); x = x + 1UL {
+      for channel = 0UL; channel < left_descriptor.format().channel_count(); channel = channel + 1UL {
+        for byte_index = 0UL; byte_index < 2UL; byte_index = byte_index + 1UL {
+          if left_view.get_component_byte(x, y, channel, byte_index).unwrap() !=
+            right_view.get_component_byte(x, y, channel, byte_index).unwrap() {
+            return false
+          }
+        }
+      }
+    }
+  }
+  true
+}
+
 ///| Every explicit chunk schedule begins with a zero-length caller view and
 /// retains IEND privately until the separate finish declaration.
 fn png_graya16_chunk_schedule(
@@ -472,7 +536,7 @@ fn png_graya16_chunk_schedule_matches_eager(
   ))
   let eager_diagnostics = @error.Diagnostics::new()
   let eager = png_graya16_chunk_eager(source, eager_budget, eager_diagnostics).unwrap()
-  if !png_scheduled_result_matches(eager, scheduled) {
+  if !png_graya16_chunk_result_matches(eager, scheduled) {
     abort("PNG " + lane + " explicit eager result mismatch")
   }
   if !png_test_remaining_unchanged(eager_budget.remaining(), chunk_budget.remaining()) {
