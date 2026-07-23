@@ -423,9 +423,13 @@ fn png_encode_gray16_public_fidelity_image(
   image
 }
 
-///| Extract the one known Stored/None IDAT stream without using the private
-/// inflater. This is intentionally only a bounded stored-block parser.
-fn png_encode_gray16_public_stored_scanlines(bytes : Bytes) -> Bytes {
+///| Extract one known Stored/None IDAT stream without using the private
+/// inflater. This is intentionally only a bounded stored-block parser whose
+/// caller fixes the expected filtered payload size.
+fn png_encode_gray16_public_stored_scanlines(
+  bytes : Bytes,
+  expected_scanline_length : Int,
+) -> Bytes {
   if bytes.length().to_uint64() < 20UL { abort("png gray16 public png too short") }
   let idat : Array[Byte] = []
   let mut cursor = 8UL
@@ -459,16 +463,19 @@ fn png_encode_gray16_public_stored_scanlines(bytes : Bytes) -> Bytes {
     }
     cursor = cursor + 12UL + data_length
   }
-  if !saw_iend || idat.length() != 25 {
+  let scanline_length = expected_scanline_length.to_uint64()
+  if !saw_iend || idat.length() != (scanline_length + 11UL).to_int() {
     abort("png gray16 public stored idat shape")
   }
   if idat[0] != b'\x78' || idat[1] != b'\x01' || idat[2] != b'\x01' ||
-    idat[3] != b'\x0e' || idat[4] != b'\x00' || idat[5] != b'\xf1' ||
-    idat[6] != b'\xff' {
+    idat[3] != scanline_length.to_byte() ||
+    idat[4] != (scanline_length >> 8).to_byte() ||
+    idat[5] != (65535UL - scanline_length).to_byte() ||
+    idat[6] != ((65535UL - scanline_length) >> 8).to_byte() {
     abort("png gray16 public stored block")
   }
   let scanlines : Array[Byte] = []
-  for index = 0; index < 14; index = index + 1 {
+  for index = 0; index < expected_scanline_length; index = index + 1 {
     scanlines.push(idat[7 + index])
   }
   Bytes::from_array(scanlines)
@@ -1229,7 +1236,7 @@ test "PNG GrayAlpha16 Adam7 public wire and decode" {
     bytes[25] != b'\x04' || bytes[28] != b'\x01' {
     abort("png graya16 Adam7 public framing")
   }
-  if png_encode_gray16_public_stored_scanlines(bytes) != expected {
+  if png_encode_gray16_public_stored_scanlines(bytes, 111) != expected {
     abort("png graya16 Adam7 public pass raster")
   }
   png_encode_graya16_adam7_public_decode_is_canonical(bytes)
@@ -1483,7 +1490,7 @@ test "PNG Gray16 public eager fidelity" {
   let little = png_encode_prefix(little_writer)
   let big = png_encode_prefix(big_writer)
   if little != big || little[24] != b'\x10' || little[25] != b'\x00' ||
-    little[28] != b'\x00' || png_encode_gray16_public_stored_scanlines(little) != expected {
+    little[28] != b'\x00' || png_encode_gray16_public_stored_scanlines(little, 14) != expected {
     abort("png gray16 public eager wire")
   }
   png_encode_gray16_public_decode_is_canonical(little)
