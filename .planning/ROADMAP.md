@@ -36,7 +36,7 @@
 ### 📋 v0.24 Indexed PNG Encode
 
 - [x] **Phase 76: Indexed8 PNG Source & Eager PLTE** — Define an owning PNG-only indexed source and emit bounded Type-3/8 eager PNG with PLTE. (completed 2026-07-24)
-- [ ] **Phase 77: Indexed PNG Transparency** — Add canonical optional tRNS emission and exact RGB/RGBA decode evidence.
+- [x] **Phase 77: Indexed PNG Transparency** — Add canonical optional tRNS emission and exact RGB/RGBA decode evidence. (completed 2026-07-24)
 - [ ] **Phase 78: Resumable Indexed PNG & Qualification** — Add caller-buffered parity, hostile leases, independent wire vectors, and four-target proof.
 
 ## Phase Details
