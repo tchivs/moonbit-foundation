@@ -31,7 +31,7 @@
 
 ### 📋 v0.25 Indexed Low-Bit PNG Encode
 
-- [ ] **Phase 79: Indexed Low-Bit Eager Packing** — Add exact bounded Type-3/1, /2, and /4 eager output from canonical Indexed8 sources.
+- [x] **Phase 79: Indexed Low-Bit Eager Packing** — Add exact bounded Type-3/1, /2, and /4 eager output from canonical Indexed8 sources. (completed 2026-07-24)
 - [ ] **Phase 80: Resumable Indexed Low-Bit Qualification** — Add caller-buffered parity, hostile lease proof, independent vectors, and four-target qualification.
 
 ## Phase Details
