@@ -36,6 +36,40 @@ fn _png_graya16_machine_for_test() -> PngDecodeMachine {
   )
 }
 
+///| The Type-6/16 preservation route shares the machine but owns a distinct
+/// first-IDAT admission and eight-byte output-layout contract.
+fn _png_rgba16_machine_for_test() -> PngDecodeMachine {
+  PngDecodeMachine::new_with_profile(
+    PngDecodeProfile::Rgba16,
+    @codec.DecodeOptions::new(require_complete_input=true, preserve_opaque_metadata=false),
+    @codec.CodecLimits::new(
+      max_probe_bytes=8UL, max_input_bytes=4096UL, max_output_bytes=4096UL,
+      max_width=16UL, max_height=16UL, max_pixels=256UL, max_work=4096UL,
+    ),
+    @budget.Budget::new(@budget.ResourceLimits::new(
+      bytes=4096UL, allocations=16UL, allocation_size=4096UL,
+      width=16UL, height=16UL, pixels=256UL, depth=0UL, work=4096UL,
+    )),
+  )
+}
+
+///| A narrow resource envelope exposes the image plus two reusable encoded
+/// rows reserved at the private first-IDAT allocation boundary.
+fn _png_rgba16_machine_with_bytes_for_test(bytes : UInt64) -> PngDecodeMachine {
+  PngDecodeMachine::new_with_profile(
+    PngDecodeProfile::Rgba16,
+    @codec.DecodeOptions::new(require_complete_input=true, preserve_opaque_metadata=false),
+    @codec.CodecLimits::new(
+      max_probe_bytes=8UL, max_input_bytes=4096UL, max_output_bytes=4096UL,
+      max_width=16UL, max_height=16UL, max_pixels=256UL, max_work=4096UL,
+    ),
+    @budget.Budget::new(@budget.ResourceLimits::new(
+      bytes~, allocations=16UL, allocation_size=4096UL,
+      width=16UL, height=16UL, pixels=256UL, depth=0UL, work=4096UL,
+    )),
+  )
+}
+
 ///|
 fn _png_graya16_accept_signature_and_ihdr(
   machine : PngDecodeMachine,
@@ -52,9 +86,34 @@ fn _png_graya16_accept_signature_and_ihdr(
   ).unwrap()
 }
 
+///|
+fn _png_rgba16_accept_signature_and_ihdr(
+  machine : PngDecodeMachine,
+  bit_depth : Byte,
+  colour_type : Byte,
+  interlace : Byte,
+  width : Byte,
+  height : Byte,
+) -> Unit {
+  for byte in [b'\x89', b'P', b'N', b'G', b'\r', b'\n', b'\x1a', b'\n'] { machine.accept(byte).unwrap() }
+  _png_machine_accept_chunk(
+    machine, [b'I', b'H', b'D', b'R'],
+    [b'\x00', b'\x00', b'\x00', width, b'\x00', b'\x00', b'\x00', height, bit_depth, colour_type, b'\x00', b'\x00', interlace],
+  ).unwrap()
+}
+
 ///| Admit just a complete first-IDAT header: profile errors must precede
 /// child budgets, image allocation, sink construction, and any outcome.
 fn _png_graya16_first_idat_error(machine : PngDecodeMachine) -> @error.CoreError {
+  let mut result : Result[Unit, @error.CoreError] = Ok(())
+  for byte in [b'\x00', b'\x00', b'\x00', b'\x00', b'I', b'D', b'A', b'T'] {
+    if result is Ok(_) { result = machine.accept(byte) }
+  }
+  result.unwrap_err()
+}
+
+///|
+fn _png_rgba16_first_idat_error(machine : PngDecodeMachine) -> @error.CoreError {
   let mut result : Result[Unit, @error.CoreError] = Ok(())
   for byte in [b'\x00', b'\x00', b'\x00', b'\x00', b'I', b'D', b'A', b'T'] {
     if result is Ok(_) { result = machine.accept(byte) }
@@ -72,6 +131,20 @@ fn _png_assert_graya16_profile_error(
   inspect(error.code() == @error.ErrorCode::CapabilityUnavailable, content="true")
   inspect(error.operation() == Some("png-decode"), content="true")
   inspect(error.context() == Some("graya16-profile"), content="true")
+  inspect(machine.has_private_lifecycle(), content="false")
+  inspect(machine.private_lifecycle_allocations() == 0UL, content="true")
+  inspect(machine.has_private_outcome(), content="false")
+  inspect(machine.budget.remaining().bytes() == before.bytes(), content="true")
+}
+
+///|
+fn _png_assert_rgba16_profile_error(machine : PngDecodeMachine) -> Unit raise {
+  let before = machine.budget.remaining()
+  let error = _png_rgba16_first_idat_error(machine)
+  inspect(error.category() == @error.ErrorCategory::Capability, content="true")
+  inspect(error.code() == @error.ErrorCode::CapabilityUnavailable, content="true")
+  inspect(error.operation() == Some("png-decode"), content="true")
+  inspect(error.context() == Some("rgba16-profile"), content="true")
   inspect(machine.has_private_lifecycle(), content="false")
   inspect(machine.private_lifecycle_allocations() == 0UL, content="true")
   inspect(machine.has_private_outcome(), content="false")
@@ -324,6 +397,65 @@ test "PNG graya16 profile admits default and sRGB Type-4/16 before raster bytes"
   }
   inspect(adam7_profile.has_private_lifecycle(), content="true")
   inspect(adam7_profile.private_lifecycle_allocations() == 1UL, content="true")
+}
+
+///| Type/depth, authenticated colour facts, and a legal Type-2 tRNS all
+/// reject with the explicit profile diagnostic before any private result exists.
+test "PNG rgba16 profile rejects incompatible first-IDAT facts atomically" {
+  let wrong_depth = _png_rgba16_machine_for_test()
+  _png_rgba16_accept_signature_and_ihdr(wrong_depth, b'\x08', b'\x06', b'\x00', b'\x01', b'\x01')
+  _png_assert_rgba16_profile_error(wrong_depth)
+
+  let wrong_colour = _png_rgba16_machine_for_test()
+  _png_rgba16_accept_signature_and_ihdr(wrong_colour, b'\x10', b'\x04', b'\x00', b'\x01', b'\x01')
+  _png_assert_rgba16_profile_error(wrong_colour)
+
+  let transparency = _png_rgba16_machine_for_test()
+  _png_rgba16_accept_signature_and_ihdr(transparency, b'\x10', b'\x02', b'\x00', b'\x01', b'\x01')
+  _png_machine_accept_chunk(transparency, [b't', b'R', b'N', b'S'], [b'\x00', b'\x01', b'\x00', b'\x02', b'\x00', b'\x03']).unwrap()
+  _png_assert_rgba16_profile_error(transparency)
+
+  let legacy = _png_rgba16_machine_for_test()
+  _png_rgba16_accept_signature_and_ihdr(legacy, b'\x10', b'\x06', b'\x00', b'\x01', b'\x01')
+  _png_machine_accept_chunk(legacy, [b'g', b'A', b'M', b'A'], [b'\x00', b'\x01', b'\x86', b'\xa0']).unwrap()
+  _png_assert_rgba16_profile_error(legacy)
+
+  let iccp = _png_rgba16_machine_for_test()
+  _png_rgba16_accept_signature_and_ihdr(iccp, b'\x10', b'\x06', b'\x00', b'\x01', b'\x01')
+  _png_graya16_set_authenticated_iccp(iccp)
+  _png_assert_rgba16_profile_error(iccp)
+}
+
+///| Only default/sRGB facts admit, and a two-pixel Type-6/16 image reserves
+/// 16 result bytes plus its two eight-byte source rows (48 bytes total).
+test "PNG rgba16 profile admits legal facts and charges eight-byte output layout" {
+  let default_profile = _png_rgba16_machine_for_test()
+  _png_rgba16_accept_signature_and_ihdr(default_profile, b'\x10', b'\x06', b'\x00', b'\x01', b'\x01')
+  for byte in [b'\x00', b'\x00', b'\x00', b'\x00', b'I', b'D', b'A', b'T'] { default_profile.accept(byte).unwrap() }
+  inspect(default_profile.has_private_lifecycle(), content="true")
+  inspect(default_profile.private_lifecycle_allocations() == 1UL, content="true")
+
+  let srgb_profile = _png_rgba16_machine_for_test()
+  _png_rgba16_accept_signature_and_ihdr(srgb_profile, b'\x10', b'\x06', b'\x01', b'\x01', b'\x01')
+  _png_machine_accept_chunk(srgb_profile, [b's', b'R', b'G', b'B'], [b'\x00']).unwrap()
+  for byte in [b'\x00', b'\x00', b'\x00', b'\x00', b'I', b'D', b'A', b'T'] { srgb_profile.accept(byte).unwrap() }
+  inspect(srgb_profile.has_private_lifecycle(), content="true")
+
+  let exact = _png_rgba16_machine_with_bytes_for_test(48UL)
+  _png_rgba16_accept_signature_and_ihdr(exact, b'\x10', b'\x06', b'\x00', b'\x02', b'\x01')
+  for byte in [b'\x00', b'\x00', b'\x00', b'\x00', b'I', b'D', b'A', b'T'] { exact.accept(byte).unwrap() }
+  inspect(exact.has_private_lifecycle(), content="true")
+
+  let one_less = _png_rgba16_machine_with_bytes_for_test(47UL)
+  _png_rgba16_accept_signature_and_ihdr(one_less, b'\x10', b'\x06', b'\x00', b'\x02', b'\x01')
+  let error = _png_rgba16_first_idat_error(one_less)
+  inspect(error.category() == @error.ErrorCategory::Resource, content="true")
+  inspect(one_less.has_private_lifecycle(), content="false")
+
+  let graya16 = _png_graya16_machine_for_test()
+  _png_graya16_accept_signature_and_ihdr(graya16, b'\x10', b'\x04', b'\x00')
+  for byte in [b'\x00', b'\x00', b'\x00', b'\x00', b'I', b'D', b'A', b'T'] { graya16.accept(byte).unwrap() }
+  inspect(graya16.has_private_lifecycle(), content="true")
 }
 
 ///| Every retained profile fact crosses the same one-byte framing boundary.
