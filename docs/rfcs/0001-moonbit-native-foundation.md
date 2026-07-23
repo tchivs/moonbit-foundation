@@ -1,17 +1,13 @@
 # RFC 0001: MoonBit Native Foundation
 
-- **Status:** Accepted
+- **Status:** Proposed
 - **Authors:** MNF contributors
 - **Created:** 2026-07-16
 - **Target:** Foundation charter and v0.1 architecture
 - **Discussion:** To be established
 - **Normative process:** [RFC process](../governance/rfc-process.md)
-- **Acceptance route:** `sole-project-owner-bootstrap`
-- **Authority / project owner:** `sole-project-owner`
-- **Maintainer approvals:** None; no second approval is claimed
-- **Blocking objections:** None; both mandatory edge reviews found no omission and no unresolved blocker
-- **Public review window:** Not used; no seven-day interval is claimed
-- **Acceptance evidence:** Existing conditional preauthorization at [owner instruction](../governance/decisions/0001-sole-owner-bootstrap.md#owner-instruction), with completed dispositions at [edge review results](../governance/decisions/0001-sole-owner-bootstrap.md#edge-review-results)
+
+> **Note on governance history.** This RFC was originally `Accepted` on 2026-07-17 via the `sole-project-owner-bootstrap` route (see [Decision 0001](../governance/decisions/0001-sole-owner-bootstrap.md) for the historical record). On 2026-07-23 the project owner simplified the RFC process: the acceptance machinery (authority routes, seven-day public-review windows, mandatory edge reviews, maintainer approvals) was removed as disproportionate for a sole-owner project. The lifecycle is now `Draft -> Proposed`, with a Proposed RFC sufficient to proceed (see §11 and the [RFC process](../governance/rfc-process.md)). This RFC's status returns to `Proposed` under the simplified process; it remains the in-force foundation charter. The original acceptance evidence is retained as a historical record, not as a live authority route.
 
 ## Transition history
 
@@ -19,9 +15,10 @@
 |---|---|---|
 | — | Draft | Initial RFC in repository history |
 | Draft | Proposed | This revision makes the charter reviewable; repository history is the transition record |
-| Proposed | Accepted | docs/governance/decisions/0001-sole-owner-bootstrap.md#owner-instruction; docs/governance/decisions/0001-sole-owner-bootstrap.md#edge-review-results |
+| Proposed | Accepted | Historical (2026-07-17): docs/governance/decisions/0001-sole-owner-bootstrap.md — superseded by the row below |
+| Accepted | Proposed | 2026-07-23 governance simplification: the acceptance machinery was removed from the RFC process; this RFC returns to Proposed as the in-force foundation charter under the simplified lifecycle |
 
-No transition to Implemented, Rejected, or Superseded has occurred. Every future transition must update this ledger and point to authentic repository or public-review evidence.
+Under the simplified process the lifecycle is `Draft -> Proposed`. A transition to `Superseded` (by a replacement RFC) or `Rejected` remains available. The intermediate historical `Accepted` state is retained in this ledger as an accurate record but is no longer a live status in the process.
 
 ## 1. Abstract
 
@@ -170,27 +167,23 @@ v0.1 packages begin as candidate unless explicitly marked experimental. Stable A
 
 ## 11. Governance and RFC-required changes
 
-The normative lifecycle, authority routes, evidence requirements, objection handling, and transition rules are defined by the [RFC process](../governance/rfc-process.md). The [RFC index](README.md) is the discoverable list of proposals and their current status.
+The normative lifecycle and transition rules are defined by the [RFC process](../governance/rfc-process.md). The [RFC index](README.md) is the discoverable list of proposals and their current status.
 
-An accepted RFC is required before any of the following may merge:
+A Proposed RFC is required before any of the following may merge:
 
 - creation of a new MNF module;
 - addition, removal, or reversal of a public module dependency direction;
-- a breaking change to an accepted architectural layer, module responsibility, portability seam, governance rule, or other public boundary.
+- a breaking change to an established architectural layer, module responsibility, portability seam, governance rule, or other public boundary.
 
-Implementation PRs may refine internals within an accepted boundary, but they MUST NOT silently redefine that boundary. If implementation exposes a conflict with this charter, the change pauses until an RFC explicitly resolves it.
+Implementation PRs may refine internals within an established boundary, but they MUST NOT silently redefine that boundary. If implementation exposes a conflict with this charter, the change pauses until an RFC explicitly resolves it.
 
-## 12. Lifecycle and acceptance
+## 12. Lifecycle
 
-The lifecycle is `Draft -> Proposed -> Accepted -> Implemented`, with `Rejected` and `Superseded` as terminal states. Every transition must be recorded in this header ledger and repository history.
+The lifecycle is `Draft -> Proposed`. A Proposed RFC is reviewable and sufficient to proceed with implementation. `Rejected` and `Superseded` are terminal states available when a proposal is withdrawn or replaced by another RFC.
 
-Acceptance requires exactly one of:
+Every transition must be recorded in the RFC header's transition ledger and repository history. The [RFC process](../governance/rfc-process.md) defines the transition mechanics.
 
-1. two maintainer approvals and no unresolved blocking objection; or
-2. while the project has fewer than two maintainers, project-lead approval after a minimum seven-day public review window and no unresolved blocking objection; or
-3. while the canonical roster contains exactly one unique maintainer and that identity has the `project-owner` role, `sole-project-owner-bootstrap` using the exact [sole-owner decision artifact](../governance/decisions/0001-sole-owner-bootstrap.md), completed and dispositioned `EDGE-GOV-01-UNCLASSIFIED` and `EDGE-GOV-02-UNCLASSIFIED` reviews, and no unresolved blocking objection.
-
-Both single-maintainer routes expire as soon as the canonical roster contains more than one distinct maintainer. The sole-owner decision is conditional preauthorization consumed after the mandatory edge reviews pass; it does not create a later approval or claim a second approval or elapsed public-review time. A claim of acceptance must link the authentic route-specific evidence and objection disposition. Missing evidence fails closed: the status remains Proposed.
+> **Historical note.** This section previously defined a `Draft -> Proposed -> Accepted -> Implemented` lifecycle with three acceptance authority routes (maintainer approval, project-lead public review, and sole-project-owner bootstrap). That machinery was removed on 2026-07-23 as disproportionate for a sole-owner project. The original acceptance records are retained in [Decision 0001](../governance/decisions/0001-sole-owner-bootstrap.md) and the edge-review files as historical artifacts.
 
 ## 13. References
 

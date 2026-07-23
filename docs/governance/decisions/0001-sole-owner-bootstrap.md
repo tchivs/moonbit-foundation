@@ -1,5 +1,7 @@
 # Decision 0001: Sole project-owner bootstrap for RFC 0001
 
+> **Historical record.** The acceptance machinery this artifact supported (authority routes, seven-day public-review windows, mandatory edge reviews, the `Accepted`/`Implemented` lifecycle states) was simplified out of the [RFC process](../rfc-process.md) on 2026-07-23 as disproportionate for a sole-owner project. This file is retained as an accurate record of RFC 0001's original acceptance on 2026-07-17; it is **not** a live authority route and no longer gates any RFC transition. The current lifecycle is `Draft -> Proposed`.
+
 - **Decision identity:** `sole-project-owner`
 - **Acceptance route:** `sole-project-owner-bootstrap`
 - **Applies to:** RFC 0001 only

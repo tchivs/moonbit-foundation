@@ -1,0 +1,15 @@
+{
+  "name": "tchivs/mb-canvas",
+  "version": "0.1.0",
+  "description": "Portable deterministic drawing-list abstraction and coverage-antialiased rasterization of vector geometry into mb-image raster surfaces for MoonBit Native Foundation.",
+  "license": "Apache-2.0",
+  "repository": "https://github.com/tchivs/moonbit-foundation",
+  "readme": "README.mbt.md",
+  "preferred-target": "native",
+  "supported-targets": "+js+wasm+wasm-gc+native",
+  "deps": {
+    "tchivs/mb-core": "0.1.0",
+    "tchivs/mb-color": "0.1.0",
+    "tchivs/mb-image": "0.1.0"
+  }
+}
