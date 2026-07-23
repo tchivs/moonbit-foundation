@@ -2845,3 +2845,134 @@ test "PNG fixed-or-stored public selected work charges once" {
   inspect(rejected.position(), content="0")
   inspect(one_less.remaining().work() == one_less_before.work(), content="true")
 }
+
+///| Drain public Indexed8 chunk output under hostile caller capacities so wire
+/// qualification does not rely on encoder internals or eager transport.
+fn png_indexed_chunk_drain(source : PngIndexedImage) -> Bytes {
+  let encoder = PngChunkEncoder::new_indexed8(
+    source, png_encode_limits(), png_encode_budget(), @error.Diagnostics::new(),
+  ).unwrap()
+  let output : Array[Byte] = []
+  let schedule = [0UL, 1UL, 3UL, 2UL, 5UL]
+  let mut turn = 0UL
+  while turn < 4096UL {
+    let capacity = schedule[(turn % schedule.length().to_uint64()).to_int()]
+    let owner = @bytes.OwnedBytes::from_bytes(
+      Bytes::from_array(Array::make(capacity.to_int(), b'Z')),
+      png_encode_budget(bytes=capacity + 16UL, work=0UL),
+    ).unwrap()
+    let before = output.length().to_uint64()
+    let pulled = owner.with_mut(0UL, capacity, fn(lease) { Ok(encoder.pull(lease)) }).unwrap()
+    if pulled.written() > capacity || pulled.total_written() != before + pulled.written() {
+      abort("png indexed8 public chunk accepted-only progress")
+    }
+    for index = 0UL; index < pulled.written(); index = index + 1UL {
+      output.push(owner.view().get(index).unwrap())
+    }
+    for index = pulled.written(); index < capacity; index = index + 1UL {
+      if owner.view().get(index).unwrap() != b'Z' { abort("png indexed8 public chunk tail") }
+    }
+    match pulled.outcome() {
+      PngChunkPullOutcome::NeedOutput => turn = turn + 1UL
+      PngChunkPullOutcome::Finished => return Bytes::from_array(output)
+      PngChunkPullOutcome::Failed(_) => abort("png indexed8 public chunk drain")
+    }
+  }
+  abort("png indexed8 public chunk drain unreachable")
+}
+
+///| The eager route remains the public byte-identity oracle for the one shared
+/// Indexed8 frame machine.
+fn png_indexed_chunk_eager(source : PngIndexedImage) -> Bytes {
+  let writer = @io.MemoryWriter::new(
+    256UL, png_encode_budget(bytes=256UL, work=0UL),
+  ).unwrap()
+  ignore(PngEncoder::encode_indexed8(
+    PngEncoder::new(), source, writer as &@io.Writer, png_encode_limits(),
+    png_encode_budget(), @error.Diagnostics::new(),
+  ).unwrap())
+  png_encode_prefix(writer)
+}
+
+///| Chunk-origin opaque Indexed8 bytes preserve the Phase 76 vector, have
+/// independent frame/CRC evidence, and decode through the public RGB8 path.
+test "PNG Indexed8 chunk opaque wire CRC compatibility and public RGB8 decode" {
+  let source = PngIndexedImage::new(
+    2UL, 1UL, b"\x00\x01", b"\x12\x34\x56\xa0\xb0\xc0",
+    b"\xff\xff", png_encode_budget(),
+  ).unwrap()
+  let bytes = png_indexed_chunk_drain(source)
+  inspect(bytes == png_indexed_chunk_eager(source), content="true")
+  inspect(bytes.length(), content="89")
+  inspect(
+    bytes == b"\x89\x50\x4e\x47\x0d\x0a\x1a\x0a\x00\x00\x00\x0d\x49\x48\x44\x52\x00\x00\x00\x02\x00\x00\x00\x01\x08\x03\x00\x00\x00\xc3\xfc\x8f\xb8\x00\x00\x00\x06\x50\x4c\x54\x45\x12\x34\x56\xa0\xb0\xc0\xf7\x67\x65\x0f\x00\x00\x00\x0e\x49\x44\x41\x54\x78\x01\x01\x03\x00\xfc\xff\x00\x00\x01\x00\x04\x00\x02\x0b\x21\x8b\x71\x00\x00\x00\x00\x49\x45\x4e\x44\xae\x42\x60\x82",
+    content="true",
+  )
+  inspect(png_indexed_u32(bytes, 8) == 13UL && png_indexed_slice(bytes, 12, 4) == b"IHDR", content="true")
+  inspect(png_indexed_crc32(bytes, 12, 17) == png_indexed_u32(bytes, 29), content="true")
+  inspect(png_indexed_u32(bytes, 33) == 6UL && png_indexed_slice(bytes, 37, 4) == b"PLTE", content="true")
+  inspect(png_indexed_crc32(bytes, 37, 10) == png_indexed_u32(bytes, 47), content="true")
+  inspect(png_indexed_u32(bytes, 51) == 14UL && png_indexed_slice(bytes, 55, 4) == b"IDAT", content="true")
+  inspect(png_indexed_slice(bytes, 59, 10) == b"\x78\x01\x01\x03\x00\xfc\xff\x00\x00\x01", content="true")
+  inspect(png_indexed_crc32(bytes, 55, 18) == png_indexed_u32(bytes, 73), content="true")
+  inspect(png_indexed_u32(bytes, 77) == 0UL && png_indexed_slice(bytes, 81, 4) == b"IEND", content="true")
+  inspect(png_indexed_crc32(bytes, 81, 4) == png_indexed_u32(bytes, 85), content="true")
+  let owned = @bytes.OwnedBytes::from_bytes(
+    bytes, png_encode_budget(bytes=128UL, work=0UL),
+  ).unwrap()
+  let decoded = @codec.ImageDecoder::decode(
+    PngDecoder::new(), @io.MemoryReader::new(owned.view()) as &@io.Reader,
+    @codec.DecodeOptions::new(require_complete_input=true, preserve_opaque_metadata=false),
+    png_encode_limits(), png_encode_budget(), @error.Diagnostics::new(),
+  ).unwrap()
+  let view = decoded.image().view()
+  inspect(view.format().channels() == @model.ChannelOrder::Rgb, content="true")
+  inspect(view.format().channel_count(), content="3")
+  inspect(view.get_byte(0UL, 0UL, 0UL).unwrap() == b'\x12', content="true")
+  inspect(view.get_byte(0UL, 0UL, 2UL).unwrap() == b'\x56', content="true")
+  inspect(view.get_byte(1UL, 0UL, 0UL).unwrap() == b'\xa0', content="true")
+  inspect(view.get_byte(1UL, 0UL, 2UL).unwrap() == b'\xc0', content="true")
+}
+
+///| Chunk-origin transparent Indexed8 bytes preserve canonical tRNS framing,
+/// independently valid CRCs, and public RGBA8 palette alpha values.
+test "PNG Indexed8 chunk transparent wire CRC and public RGBA8 decode" {
+  let source = PngIndexedImage::new(
+    4UL, 1UL, b"\x00\x01\x02\x03",
+    b"\x12\x34\x56\xa0\xb0\xc0\x11\x22\x33\x44\x55\x66",
+    b"\x00\xff\x80\xff", png_encode_budget(),
+  ).unwrap()
+  let bytes = png_indexed_chunk_drain(source)
+  inspect(bytes == png_indexed_chunk_eager(source), content="true")
+  inspect(png_indexed_u32(bytes, 8) == 13UL && png_indexed_slice(bytes, 12, 4) == b"IHDR", content="true")
+  inspect(png_indexed_crc32(bytes, 12, 17) == png_indexed_u32(bytes, 29), content="true")
+  inspect(png_indexed_u32(bytes, 33) == 12UL && png_indexed_slice(bytes, 37, 4) == b"PLTE", content="true")
+  inspect(png_indexed_crc32(bytes, 37, 16) == png_indexed_u32(bytes, 53), content="true")
+  inspect(png_indexed_u32(bytes, 57) == 3UL && png_indexed_slice(bytes, 61, 4) == b"tRNS", content="true")
+  inspect(png_indexed_slice(bytes, 65, 3) == b"\x00\xff\x80", content="true")
+  inspect(png_indexed_crc32(bytes, 61, 7) == png_indexed_u32(bytes, 68), content="true")
+  inspect(png_indexed_u32(bytes, 72) == 16UL && png_indexed_slice(bytes, 76, 4) == b"IDAT", content="true")
+  inspect(png_indexed_slice(bytes, 80, 16) == b"\x78\x01\x01\x05\x00\xfa\xff\x00\x00\x01\x02\x03\x00\x0f\x00\x07", content="true")
+  inspect(png_indexed_crc32(bytes, 76, 20) == png_indexed_u32(bytes, 96), content="true")
+  inspect(png_indexed_u32(bytes, 100) == 0UL && png_indexed_slice(bytes, 104, 4) == b"IEND", content="true")
+  inspect(png_indexed_crc32(bytes, 104, 4) == png_indexed_u32(bytes, 108), content="true")
+  let owned = @bytes.OwnedBytes::from_bytes(
+    bytes, png_encode_budget(bytes=128UL, work=0UL),
+  ).unwrap()
+  let decoded = @codec.ImageDecoder::decode(
+    PngDecoder::new(), @io.MemoryReader::new(owned.view()) as &@io.Reader,
+    @codec.DecodeOptions::new(require_complete_input=true, preserve_opaque_metadata=false),
+    png_encode_limits(), png_encode_budget(), @error.Diagnostics::new(),
+  ).unwrap()
+  let view = decoded.image().view()
+  inspect(view.format().channels() == @model.ChannelOrder::Rgba, content="true")
+  inspect(view.format().channel_count(), content="4")
+  inspect(view.get_byte(0UL, 0UL, 0UL).unwrap() == b'\x12', content="true")
+  inspect(view.get_byte(0UL, 0UL, 3UL).unwrap() == b'\x00', content="true")
+  inspect(view.get_byte(1UL, 0UL, 0UL).unwrap() == b'\xa0', content="true")
+  inspect(view.get_byte(1UL, 0UL, 3UL).unwrap() == b'\xff', content="true")
+  inspect(view.get_byte(2UL, 0UL, 2UL).unwrap() == b'\x33', content="true")
+  inspect(view.get_byte(2UL, 0UL, 3UL).unwrap() == b'\x80', content="true")
+  inspect(view.get_byte(3UL, 0UL, 2UL).unwrap() == b'\x66', content="true")
+  inspect(view.get_byte(3UL, 0UL, 3UL).unwrap() == b'\xff', content="true")
+}
