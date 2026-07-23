@@ -40,7 +40,8 @@ Expose the exact Phase 66 Type-6/16 preservation profile through the established
 - `.planning/phases/66-explicit-rgba16-png-preservation/66-VERIFICATION.md` — evidence-backed Phase 66 acceptance report.
 
 ### Existing chunk seam
-- `modules/mb-image/png/stream_decode.mbt` — public chunk constructor, accepted-only accounting, terminal state, and private profile machine.
+- `modules/mb-image/png/png.mbt` — public chunk constructor seam, including the closest `new_graya16` selector.
+- `modules/mb-image/png/stream_decode.mbt` — accepted-only accounting, terminal state, and private profile machine.
 - `modules/mb-image/png/stream_decode_test.mbt` — nearest public chunk parity/schedule tests.
 - `modules/mb-image/png/stream_decode_wbtest.mbt` — internal lifecycle, budget and sticky error tests.
 
@@ -58,7 +59,7 @@ Expose the exact Phase 66 Type-6/16 preservation profile through the established
 - The sink owns output privately until strict PNG completion and `finish()` transfer.
 
 ### Integration Points
-- `modules/mb-image/png/stream_decode.mbt` is the only public constructor/lifecycle integration point.
+- `modules/mb-image/png/png.mbt` supplies the public `new_rgba16` constructor; `stream_decode.mbt` remains its shared private lifecycle implementation.
 - Existing public and white-box stream decode tests are extended; Phase 66 source stores remain untouched unless a narrow shared-constructor necessity is proven.
 
 </code_context>
