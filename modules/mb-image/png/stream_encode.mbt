@@ -1199,6 +1199,7 @@ fn PngEncodeMachine::byte_at(
     let colour_type = match self.profile {
       PngEncodeProfile::Gray8 | PngEncodeProfile::Gray16 => b'\x00'
       PngEncodeProfile::GrayAlpha8 | PngEncodeProfile::GrayAlpha16 => b'\x04'
+      PngEncodeProfile::Rgba16 => b'\x06'
       PngEncodeProfile::LegacyRgbOrRgba => if self.channels == 3UL { b'\x02' } else { b'\x06' }
     }
     let bit_depth = if _png_profile_uses_u16_component_wire(self.profile) { b'\x10' } else { b'\x08' }

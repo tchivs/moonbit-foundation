@@ -245,6 +245,48 @@ fn png_encode_graya16_image() -> @storage.OwnedImage {
   image
 }
 
+///| Two packed little-endian U16 RGBA samples whose eight distinct wire lanes
+/// make channel order and component byte order observable at the PNG boundary.
+fn png_encode_rgba16_image() -> @storage.OwnedImage {
+  let descriptor = @model.ImageDescriptor::new(
+    2UL, 1UL, @model.ImageFormat::rgba16(),
+    [@model.PlaneDescriptor::new(0UL, 16UL, 16UL, 16UL, 1UL, 1UL, 2UL, 1UL).unwrap()],
+    16UL,
+    @model.ImageMetadata::new(
+      @color.ColorSpaceIdentity::Srgb, @color.TransferIdentity::EncodedSrgb,
+      Some(@color.AlphaMode::Straight), @profile.ProfileIdentity::builtin_srgb(),
+      @model.Orientation::TopLeft,
+      @metadata.OpaqueMetadata::from_entries(
+        [], @metadata.MetadataLimits::new(
+          max_entries=1UL, max_token_bytes=16UL, max_value_bytes=1UL,
+          max_total_bytes=32UL, max_disposition_fields=4UL,
+        ), png_encode_budget(bytes=1UL, work=0UL),
+      ).unwrap(),
+    ),
+  ).unwrap()
+  let image = @storage.OwnedImage::new(descriptor, png_encode_budget(bytes=16UL, work=0UL)).unwrap()
+  image.with_mut_view(fn(view) {
+    view.set_component_byte(0UL, 0UL, 0UL, 0UL, b'\x34').unwrap()
+    view.set_component_byte(0UL, 0UL, 0UL, 1UL, b'\x12').unwrap()
+    view.set_component_byte(0UL, 0UL, 1UL, 0UL, b'\xc5').unwrap()
+    view.set_component_byte(0UL, 0UL, 1UL, 1UL, b'\xa7').unwrap()
+    view.set_component_byte(0UL, 0UL, 2UL, 0UL, b'\x0f').unwrap()
+    view.set_component_byte(0UL, 0UL, 2UL, 1UL, b'\xbe').unwrap()
+    view.set_component_byte(0UL, 0UL, 3UL, 0UL, b'\x76').unwrap()
+    view.set_component_byte(0UL, 0UL, 3UL, 1UL, b'\x5a').unwrap()
+    view.set_component_byte(1UL, 0UL, 0UL, 0UL, b'\x89').unwrap()
+    view.set_component_byte(1UL, 0UL, 0UL, 1UL, b'\xde').unwrap()
+    view.set_component_byte(1UL, 0UL, 1UL, 0UL, b'\x21').unwrap()
+    view.set_component_byte(1UL, 0UL, 1UL, 1UL, b'\x43').unwrap()
+    view.set_component_byte(1UL, 0UL, 2UL, 0UL, b'\x65').unwrap()
+    view.set_component_byte(1UL, 0UL, 2UL, 1UL, b'\x87').unwrap()
+    view.set_component_byte(1UL, 0UL, 3UL, 0UL, b'\xab').unwrap()
+    view.set_component_byte(1UL, 0UL, 3UL, 1UL, b'\xcd').unwrap()
+    Ok(())
+  }).unwrap()
+  image
+}
+
 ///| A 5x5 little-endian U16 Gray+Alpha source that gives every Adam7 pass a
 /// nonempty row. Each component has distinct high and low bytes so pass order,
 /// component order, and storage-to-wire byte order are independently visible.
@@ -1296,6 +1338,110 @@ test "PNG GrayAlpha16 public eager wire and decode fidelity" {
     content="true",
   )
   png_encode_graya16_public_decode_is_canonical(bytes)
+}
+
+///| The explicit eager RGBA16 route emits Type-6/16 wire lanes in PNG byte
+/// order, then the independently existing preservation decoder restores the
+/// original packed little-endian component bytes.
+test "PNG RGBA16 public eager wire and explicit decode fidelity" {
+  let rgba = png_encode_rgba16_image()
+  let (_, writer) = png_encode_with(
+    PngEncoder::new_rgba16_with_strategies(
+      PngCompressionStrategy::Stored, PngFilterStrategy::None,
+    ),
+    rgba,
+  )
+  let bytes = png_encode_prefix(writer)
+  inspect(
+    bytes[0] == b'\x89' && bytes[1] == b'P' && bytes[24] == b'\x10' &&
+      bytes[25] == b'\x06' && bytes[28] == b'\x00' && bytes[48] == b'\x00' &&
+      bytes[49] == b'\x12' && bytes[50] == b'\x34' && bytes[51] == b'\xa7' &&
+      bytes[52] == b'\xc5' && bytes[53] == b'\xbe' && bytes[54] == b'\x0f' &&
+      bytes[55] == b'\x5a' && bytes[56] == b'\x76' && bytes[57] == b'\xde' &&
+      bytes[58] == b'\x89' && bytes[59] == b'\x43' && bytes[60] == b'\x21' &&
+      bytes[61] == b'\x87' && bytes[62] == b'\x65' && bytes[63] == b'\xcd' &&
+      bytes[64] == b'\xab',
+    content="true",
+  )
+  let owner = @bytes.OwnedBytes::from_bytes(
+    bytes, png_encode_budget(bytes=4096UL, work=0UL),
+  ).unwrap()
+  let restored = PngDecoder::decode_rgba16(
+    @io.MemoryReader::new(owner.view()) as &@io.Reader,
+    @codec.DecodeOptions::new(require_complete_input=true, preserve_opaque_metadata=false),
+    png_encode_limits(output=4096UL, work=1048576UL),
+    png_encode_budget(bytes=4096UL, work=1048576UL), @error.Diagnostics::new(),
+  ).unwrap().image().view()
+  for expected in [
+    (0UL, 0UL, b'\x34'), (0UL, 1UL, b'\x12'), (0UL, 2UL, b'\xc5'), (0UL, 3UL, b'\xa7'),
+    (0UL, 4UL, b'\x0f'), (0UL, 5UL, b'\xbe'), (0UL, 6UL, b'\x76'), (0UL, 7UL, b'\x5a'),
+    (1UL, 0UL, b'\x89'), (1UL, 1UL, b'\xde'), (1UL, 2UL, b'\x21'), (1UL, 3UL, b'\x43'),
+    (1UL, 4UL, b'\x65'), (1UL, 5UL, b'\x87'), (1UL, 6UL, b'\xab'), (1UL, 7UL, b'\xcd'),
+  ] {
+    let (x, component_byte, value) = expected
+    inspect(
+      restored.get_component_byte(
+        x, 0UL, component_byte / 2UL, component_byte % 2UL,
+      ).unwrap() == value,
+      content="true",
+    )
+  }
+}
+
+///| Every eager RGBA16 factory remains non-interlaced, while incompatible
+/// profiles and one-byte-short output limits fail before the writer sees data.
+test "PNG RGBA16 eager factories retain atomic profile and resource admission" {
+  let rgba = png_encode_rgba16_image()
+  for encoder in [
+    PngEncoder::new_rgba16(),
+    PngEncoder::new_rgba16_with_compression_strategy(PngCompressionStrategy::FixedOrStored),
+    PngEncoder::new_rgba16_with_filter_strategy(PngFilterStrategy::Adaptive),
+    PngEncoder::new_rgba16_with_strategies(
+      PngCompressionStrategy::DynamicOrFixedOrStored, PngFilterStrategy::Adaptive,
+    ),
+  ] {
+    let (_, writer) = png_encode_with(encoder, rgba)
+    let bytes = png_encode_prefix(writer)
+    inspect(bytes[24] == b'\x10' && bytes[25] == b'\x06' && bytes[28] == b'\x00', content="true")
+  }
+
+  let (_, measuring_writer) = png_encode_with(PngEncoder::new_rgba16(), rgba)
+  let exact_output = png_encode_prefix(measuring_writer).length().to_uint64()
+  let exact_writer = @io.MemoryWriter::new(512UL, png_encode_budget(bytes=512UL, work=0UL)).unwrap()
+  let exact = @codec.ImageEncoder::encode(
+    PngEncoder::new_rgba16(), rgba.view(), exact_writer as &@io.Writer,
+    @codec.EncodeOptions::new(lossless_required=true, preserve_opaque_metadata=false),
+    png_encode_limits(output=exact_output, work=1048576UL),
+    png_encode_budget(bytes=4096UL, work=1048576UL), @error.Diagnostics::new(),
+  ).unwrap()
+  inspect(exact.bytes_written() == exact_output && exact_writer.position() == exact_output, content="true")
+
+  let one_less_writer = @io.MemoryWriter::new(512UL, png_encode_budget(bytes=512UL, work=0UL)).unwrap()
+  inspect(@codec.ImageEncoder::encode(
+    PngEncoder::new_rgba16(), rgba.view(), one_less_writer as &@io.Writer,
+    @codec.EncodeOptions::new(lossless_required=true, preserve_opaque_metadata=false),
+    png_encode_limits(output=exact_output - 1UL, work=1048576UL),
+    png_encode_budget(bytes=4096UL, work=1048576UL), @error.Diagnostics::new(),
+  ) is Err(_), content="true")
+  inspect(one_less_writer.position(), content="0")
+
+  let generic_writer = @io.MemoryWriter::new(512UL, png_encode_budget(bytes=512UL, work=0UL)).unwrap()
+  let generic = @codec.ImageEncoder::encode(
+    PngEncoder::new(), rgba.view(), generic_writer as &@io.Writer,
+    @codec.EncodeOptions::new(lossless_required=true, preserve_opaque_metadata=false),
+    png_encode_limits(), png_encode_budget(), @error.Diagnostics::new(),
+  ).unwrap_err()
+  inspect(generic.context(), content="Some(component-u8-required)")
+  inspect(generic_writer.position(), content="0")
+
+  let rgb_writer = @io.MemoryWriter::new(512UL, png_encode_budget(bytes=512UL, work=0UL)).unwrap()
+  let rgb = @codec.ImageEncoder::encode(
+    PngEncoder::new_rgba16(), png_encode_image(3UL, b"\x00\x01\x02").view(), rgb_writer as &@io.Writer,
+    @codec.EncodeOptions::new(lossless_required=true, preserve_opaque_metadata=false),
+    png_encode_limits(), png_encode_budget(), @error.Diagnostics::new(),
+  ).unwrap_err()
+  inspect(rgb.context(), content="Some(rgba16-required)")
+  inspect(rgb_writer.position(), content="0")
 }
 
 ///| Both explicit GrayAlpha16 Adam7 selectors emit the same Stored/None
