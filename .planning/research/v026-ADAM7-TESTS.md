@@ -1,7 +1,7 @@
 # v0.26 Test Research: Indexed8 Adam7 PNG Encode
 
-**Researched:** 2026-07-24  
-**Scope:** minimum independent four-target qualification for a new explicit Type-3/8 Indexed8 Adam7 eager and caller-buffered encode route  
+**Researched:** 2026-07-24
+**Scope:** minimum independent four-target qualification for a new explicit Type-3/8 Indexed8 Adam7 eager and caller-buffered encode route
 **Confidence:** HIGH for repository seams and test anchors; MEDIUM for the proposed public entry spelling
 
 ## Recommendation

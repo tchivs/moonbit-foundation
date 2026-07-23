@@ -3,7 +3,7 @@
 **Scope:** Add explicit Adam7 encoding for the existing unpacked `PngIndexedImage`
 source at Type-3/8 only. This is **not** indexed low-bit Adam7.
 
-**Researched:** 2026-07-24  
+**Researched:** 2026-07-24
 **Confidence:** HIGH for repository seams and acceptance anchors (current source and
 tests inspected); MEDIUM for PNG wire compatibility facts (the project already
 encodes the corresponding Type-3 and Adam7 contracts).
