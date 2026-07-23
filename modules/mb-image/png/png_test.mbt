@@ -44,6 +44,82 @@ fn png_test_graya16_adam7_expected() -> Bytes {
   b"\x33\x11wU\x33!wV\x331wW\x33AwX\x33QwY\x43\x11\x87V\x43!\x87W\x431\x87X\x43A\x87Y\x43Q\x87Z\x53\x11\x97W\x53!\x97X\x531\x97Y\x53A\x97Z\x53Q\x97[\x63\x11\xa7X\x63!\xa7Y\x631\xa7Z\x63A\xa7[\x63Q\xa7\\\x73\x11\xb7Y\x73!\xb7Z\x731\xb7[\x73A\xb7\\\x73Q\xb7]"
 }
 
+///| A second fixed Type-4/16 literal has one 2-pixel row for each PNG filter
+/// tag 0 through 4.  Its residual bytes are independent from PngEncoder.
+fn png_test_graya16_filters_literal() -> Bytes {
+  b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x02\x00\x00\x00\x05\x10\x04\x00\x00\x00\x95*)T\x00\x00\x008IDATx\x01\x01-\x00\xd2\xff\x00 @`\x80 ba\x82\x011@a\x81\x00\x22\x01\x02\x02\x11\x00\x01\x01\x11\x00\x01\x01\x032 2B\x09\x11\x01\x02\x04\x11\x00\x01\x01\x00\x00\x01\x01\xab\xfc\x05F\xa7H\xa3j\x00\x00\x00\x00IEND\xaeB`\x82"
+}
+
+///| Storage-order bytes for the five-filter literal, ordered row-major.
+fn png_test_graya16_filters_expected() -> Bytes {
+  b"\x40\x20\x80\x60\x62\x20\x82\x61\x40\x31\x81\x61\x62\x31\x83\x62\x40\x42\x82\x62\x62\x42\x84\x63\x40\x53\x83\x63\x62\x53\x85\x64\x40\x64\x84\x64\x62\x64\x86\x65"
+}
+
+///| The five independent filter rows retain every explicit component byte and
+/// the historical generic high-byte RGBA8 projection.
+test "PNG explicit graya16 preserves all Type-4/16 PNG filters" {
+  let source = png_test_graya16_filters_literal()
+  let owner = @bytes.OwnedBytes::from_bytes(source, @budget.Budget::new(@budget.ResourceLimits::new(
+    bytes=source.length().to_uint64(), allocations=1UL, allocation_size=source.length().to_uint64(),
+    width=0UL, height=0UL, pixels=0UL, depth=0UL, work=0UL,
+  ))).unwrap()
+  let limits = png_test_graya16_adam7_limits()
+  let explicit = PngDecoder::decode_graya16(
+    @io.MemoryReader::new(owner.view()) as &@io.Reader,
+    @codec.DecodeOptions::new(require_complete_input=true, preserve_opaque_metadata=false),
+    limits, @budget.Budget::new(@budget.ResourceLimits::new(
+      bytes=4096UL, allocations=8UL, allocation_size=1024UL, width=8UL, height=8UL,
+      pixels=64UL, depth=0UL, work=4096UL,
+    )), @error.Diagnostics::new(),
+  ).unwrap().image().view()
+  let expected = png_test_graya16_filters_expected()
+  for y = 0UL; y < 5UL; y = y + 1UL {
+    for x = 0UL; x < 2UL; x = x + 1UL {
+      let offset = (y * 2UL + x) * 4UL
+      for component = 0UL; component < 4UL; component = component + 1UL {
+        let actual = explicit.get_component_byte(x, y, component / 2UL, component % 2UL).unwrap()
+        let wanted = expected.get((offset + component).to_int()).unwrap()
+        if actual != wanted {
+          fail("PNG graya16 filter component mismatch at " + x.to_string() + "," + y.to_string() + "," + component.to_string() + ": " + actual.to_int().to_string() + " != " + wanted.to_int().to_string())
+        }
+      }
+    }
+  }
+  let generic = @codec.ImageDecoder::decode(
+    PngDecoder::new(), @io.MemoryReader::new(owner.view()) as &@io.Reader,
+    @codec.DecodeOptions::new(require_complete_input=true, preserve_opaque_metadata=false),
+    limits, @budget.Budget::new(@budget.ResourceLimits::new(
+      bytes=4096UL, allocations=8UL, allocation_size=1024UL, width=8UL, height=8UL,
+      pixels=64UL, depth=0UL, work=4096UL,
+    )), @error.Diagnostics::new(),
+  ).unwrap().image().view()
+  for y = 0UL; y < 5UL; y = y + 1UL {
+    for x = 0UL; x < 2UL; x = x + 1UL {
+      let offset = (y * 2UL + x) * 4UL
+      for channel = 0UL; channel < 3UL; channel = channel + 1UL {
+        inspect(generic.get_byte(x, y, channel).unwrap() == expected.get((offset + 1UL).to_int()).unwrap(), content="true")
+      }
+      inspect(generic.get_byte(x, y, 3UL).unwrap() == expected.get((offset + 3UL).to_int()).unwrap(), content="true")
+    }
+  }
+}
+
+///| Exact filtered output succeeds, while one less byte fails atomically at
+/// the existing resource preflight before an explicit result is visible.
+test "PNG graya16 filter literal retains exact output resource boundary" {
+  let source = png_test_graya16_filters_literal()
+  let owner = @bytes.OwnedBytes::from_bytes(source, @budget.Budget::new(@budget.ResourceLimits::new(
+    bytes=source.length().to_uint64(), allocations=1UL, allocation_size=source.length().to_uint64(),
+    width=0UL, height=0UL, pixels=0UL, depth=0UL, work=0UL,
+  ))).unwrap()
+  let exact = @codec.CodecLimits::new(max_probe_bytes=8UL, max_input_bytes=128UL, max_output_bytes=45UL, max_width=4UL, max_height=8UL, max_pixels=32UL, max_work=512UL)
+  ignore(PngDecoder::decode_graya16(@io.MemoryReader::new(owner.view()) as &@io.Reader, @codec.DecodeOptions::new(require_complete_input=true, preserve_opaque_metadata=false), exact, @budget.Budget::new(@budget.ResourceLimits::new(bytes=1024UL, allocations=8UL, allocation_size=128UL, width=4UL, height=8UL, pixels=32UL, depth=0UL, work=512UL)), @error.Diagnostics::new()).unwrap())
+  let one_less = @codec.CodecLimits::new(max_probe_bytes=8UL, max_input_bytes=128UL, max_output_bytes=44UL, max_width=4UL, max_height=8UL, max_pixels=32UL, max_work=512UL)
+  let error = PngDecoder::decode_graya16(@io.MemoryReader::new(owner.view()) as &@io.Reader, @codec.DecodeOptions::new(require_complete_input=true, preserve_opaque_metadata=false), one_less, @budget.Budget::new(@budget.ResourceLimits::new(bytes=1024UL, allocations=8UL, allocation_size=128UL, width=4UL, height=8UL, pixels=32UL, depth=0UL, work=512UL)), @error.Diagnostics::new()).unwrap_err()
+  inspect(error.category() == @error.ErrorCategory::Resource, content="true")
+  inspect(error.context() == Some("output-bytes"), content="true")
+}
+
 ///| The independent all-pass wire literal must reach the explicit profile and
 /// retain every PNG MSB-first source component as little-endian Glo,Ghi,Alo,Ahi.
 test "PNG explicit graya16 preserves every Adam7 Type-4/16 component byte" {

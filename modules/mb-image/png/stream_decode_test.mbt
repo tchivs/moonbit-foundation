@@ -402,6 +402,7 @@ fn png_chunk_schedule_matches_eager(
 /// helper intentionally exercises the frozen RGBA8 route instead.
 fn png_graya16_chunk_eager(
   source : Bytes,
+  limits : @codec.CodecLimits,
   budget : @budget.Budget,
   diagnostics : @error.Diagnostics,
 ) -> Result[@codec.DecodeResult, @error.CoreError] {
@@ -412,7 +413,7 @@ fn png_graya16_chunk_eager(
       require_complete_input=true,
       preserve_opaque_metadata=false,
     ),
-    png_test_limits(), budget, diagnostics,
+    limits, budget, diagnostics,
   )
 }
 
@@ -513,7 +514,6 @@ fn png_graya16_chunk_schedule(
     match pushed.outcome() {
       PngChunkPushOutcome::NeedInput => ()
       PngChunkPushOutcome::Failed(error) => abort("PNG " + lane + " chunk failed: " + error.context().unwrap())
-      _ => abort("PNG " + lane + " chunk reached a terminal before finish")
     }
     offset = offset + requested
     turn = turn + 1
@@ -542,12 +542,7 @@ fn png_graya16_chunk_schedule_matches_eager(
     height=8UL, pixels=64UL, depth=0UL, work=4096UL,
   ))
   let eager_diagnostics = @error.Diagnostics::new()
-  let owner = png_chunk_source(source)
-  let eager = PngDecoder::decode_graya16(
-    @io.MemoryReader::new(owner.view()) as &@io.Reader,
-    @codec.DecodeOptions::new(require_complete_input=true, preserve_opaque_metadata=false),
-    limits, eager_budget, eager_diagnostics,
-  ).unwrap()
+  let eager = png_graya16_chunk_eager(source, limits, eager_budget, eager_diagnostics).unwrap()
   if !png_graya16_chunk_result_matches(eager, scheduled) {
     abort("PNG " + lane + " explicit eager result mismatch")
   }
@@ -571,6 +566,18 @@ fn png_graya16_chunk_schedule_matches_eager(
         }
       }
     }
+  } else if scheduled.descriptor().height() == 5UL {
+    let expected = png_test_graya16_filters_expected()
+    for y = 0UL; y < 5UL; y = y + 1UL {
+      for x = 0UL; x < 2UL; x = x + 1UL {
+        let offset = (y * 2UL + x) * 4UL
+        for component = 0UL; component < 4UL; component = component + 1UL {
+          if view.get_component_byte(x, y, component / 2UL, component % 2UL).unwrap() != expected.get((offset + component).to_int()).unwrap() {
+            abort("PNG " + lane + " explicit filter component mismatch")
+          }
+        }
+      }
+    }
   } else {
     for expected in [(0UL, 0UL, b'\x34'), (0UL, 1UL, b'\x12'),
       (0UL, 2UL, b'\xc5'), (0UL, 3UL, b'\xa7'), (1UL, 0UL, b'\x0f'),
@@ -589,6 +596,7 @@ test "PNG graya16 chunk schedules match eager preservation" {
   for item in [
     ("default", png_test_graya16_literal(), png_test_limits()),
     ("srgb", png_test_graya16_srgb_literal(), png_test_limits()),
+    ("filters", png_test_graya16_filters_literal(), png_test_graya16_adam7_limits()),
     ("adam7", png_test_graya16_adam7_literal(), png_test_graya16_adam7_limits()),
   ] {
     let (id, source, limits) = item
