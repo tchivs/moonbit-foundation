@@ -23,6 +23,85 @@ fn png_test_graya16_srgb_literal() -> Bytes {
   b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x02\x00\x00\x00\x01\x10\x04\x00\x00\x00\x0e\xbbkB\x00\x00\x00\x01sRGB\x00\xae\xce\x1c\xe9\x00\x00\x00\x14IDATx\x01\x01\x09\x00\xf6\xff\x00\x124\xa7\xc5\xbe\x0fZv\x0e\x17\x03Pk\x88\xb2u\x00\x00\x00\x00IEND\xaeB`\x82"
 }
 
+///| A declaration-free Type-6/16 literal with distinct bytes in every lane.
+/// The expected output below is written in packed little-endian component order.
+fn png_test_rgba16_literal() -> Bytes {
+  b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x02\x00\x00\x00\x01\x10\x06\x00\x00\x00\xa4\xb2\xa3\xc9\x00\x00\x00\x1cIDATx\x01\x01\x11\x00\xee\xff\x00\x124Vx\x9a\xbc\xde\xf0!Ce\x87\xa9\xcb\xed\x0f>=\x07\xf9f\x94\x11\\\x00\x00\x00\x00IEND\xaeB`\x82"
+}
+
+///| An independent sRGB Type-6/16 Adam7 literal. Every pass is nonempty and
+/// each coordinate has a distinct lane pattern, catching scatter and swaps.
+fn png_test_rgba16_adam7_literal() -> Bytes {
+  b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x05\x00\x00\x00\x05\x10\x06\x00\x00\x01\xaa\xf8\xca0\x00\x00\x00\x01sRGB\x00\xae\xce\x1c\xe9\x00\x00\x00\xdeIDATx\x01\x01\xd3\x00,\xff\x00\x10 0@P`p\x80\x00\x14$0DT`t\x88\x00P 4DPdt\x84T$4HTdx\x8c\x00\x12\x220BR`r\x84\x00R\x224FRdv\x88\x000 2BPbr\x822\x222DRbt\x864$2FTbv\x8a\x00\x11!0AQ`q\x82\x13#0CS`s\x86\x001!2CQbs\x843#2ESbu\x88\x00Q!4EQdu\x86S#4GSdw\x8a\x00  1APaq\x81!!1BQar\x83\x22\x221CRas\x85##1DSat\x87$$1ETau\x89\x00@ 3CPcs\x83A!3DQct\x85B\x223ERcu\x87C#3FScv\x89D$3GTcw\x8b\xae\xce=\xb9K\xcf\xe8\x95\x00\x00\x00\x00IEND\xaeB`\x82"
+}
+
+///| The explicit eager selector must retain low bytes while generic decode
+/// continues to expose only the Type-6/16 high-byte RGBA8 compatibility view.
+test "PNG explicit rgba16 preserves normal Type-6/16 lanes without changing generic RGBA8" {
+  let source = png_test_rgba16_literal()
+  let owner = @bytes.OwnedBytes::from_bytes(source, @budget.Budget::new(@budget.ResourceLimits::new(
+    bytes=source.length().to_uint64(), allocations=1UL, allocation_size=source.length().to_uint64(),
+    width=0UL, height=0UL, pixels=0UL, depth=0UL, work=0UL,
+  ))).unwrap()
+  let limits = png_test_limits()
+  let explicit = PngDecoder::decode_rgba16(
+    @io.MemoryReader::new(owner.view()) as &@io.Reader,
+    @codec.DecodeOptions::new(require_complete_input=true, preserve_opaque_metadata=false),
+    limits, @budget.Budget::new(@budget.ResourceLimits::new(
+      bytes=256UL, allocations=4UL, allocation_size=128UL, width=4UL, height=4UL,
+      pixels=16UL, depth=0UL, work=256UL,
+    )), @error.Diagnostics::new(),
+  ).unwrap().image().view()
+  for expected in [(0UL, 0UL, b'\x34'), (0UL, 1UL, b'\x12'), (0UL, 2UL, b'x'), (0UL, 3UL, b'V'), (0UL, 4UL, b'\xbc'), (0UL, 5UL, b'\x9a'), (0UL, 6UL, b'\xf0'), (0UL, 7UL, b'\xde'), (1UL, 0UL, b'C'), (1UL, 1UL, b'!'), (1UL, 2UL, b'\x87'), (1UL, 3UL, b'e'), (1UL, 4UL, b'\xcb'), (1UL, 5UL, b'\xa9'), (1UL, 6UL, b'\x0f'), (1UL, 7UL, b'\xed')] {
+    let (x, component, value) = expected
+    inspect(explicit.get_component_byte(x, 0UL, component / 2UL, component % 2UL).unwrap() == value, content="true")
+  }
+  let generic = @codec.ImageDecoder::decode(
+    PngDecoder::new(), @io.MemoryReader::new(owner.view()) as &@io.Reader,
+    @codec.DecodeOptions::new(require_complete_input=true, preserve_opaque_metadata=false),
+    limits, @budget.Budget::new(@budget.ResourceLimits::new(
+      bytes=256UL, allocations=4UL, allocation_size=128UL, width=4UL, height=4UL,
+      pixels=16UL, depth=0UL, work=256UL,
+    )), @error.Diagnostics::new(),
+  ).unwrap().image().view()
+  for expected in [(0UL, b'\x12'), (1UL, b'V'), (2UL, b'\x9a'), (3UL, b'\xde')] {
+    let (channel, value) = expected
+    inspect(generic.get_byte(0UL, 0UL, channel).unwrap() == value, content="true")
+  }
+}
+
+///| Adam7 reaches the same final little-endian store as ordinary rows.
+test "PNG explicit rgba16 preserves sRGB Type-6/16 Adam7 lanes" {
+  let source = png_test_rgba16_adam7_literal()
+  let owner = @bytes.OwnedBytes::from_bytes(source, @budget.Budget::new(@budget.ResourceLimits::new(
+    bytes=source.length().to_uint64(), allocations=1UL, allocation_size=source.length().to_uint64(),
+    width=0UL, height=0UL, pixels=0UL, depth=0UL, work=0UL,
+  ))).unwrap()
+  let explicit = PngDecoder::decode_rgba16(
+    @io.MemoryReader::new(owner.view()) as &@io.Reader,
+    @codec.DecodeOptions::new(require_complete_input=true, preserve_opaque_metadata=false),
+    png_test_graya16_adam7_limits(), @budget.Budget::new(@budget.ResourceLimits::new(
+      bytes=4096UL, allocations=8UL, allocation_size=1024UL, width=8UL, height=8UL,
+      pixels=64UL, depth=0UL, work=4096UL,
+    )), @error.Diagnostics::new(),
+  ).unwrap().image().view()
+  for y = 0UL; y < 5UL; y = y + 1UL {
+    for x = 0UL; x < 5UL; x = x + 1UL {
+      for component = 0UL; component < 8UL; component = component + 1UL {
+        let expected = if component == 0UL { (0x20UL + x).to_byte() }
+          else if component == 1UL { (0x10UL + y * 0x10UL + x).to_byte() }
+          else if component == 2UL { (0x40UL + x + y).to_byte() }
+          else if component == 3UL { (0x30UL + y).to_byte() }
+          else if component == 4UL { (0x60UL + y).to_byte() }
+          else if component == 5UL { (0x50UL + x).to_byte() }
+          else if component == 6UL { (0x80UL + x * 2UL + y).to_byte() }
+          else { (0x70UL + x + y).to_byte() }
+        inspect(explicit.get_component_byte(x, y, component / 2UL, component % 2UL).unwrap() == expected, content="true")
+      }
+    }
+  }
+}
+
 ///| A fixed, independent 5x5 Type-4/16 Adam7 stream.  Each of the seven
 /// passes is nonempty; component bytes vary by coordinate so the oracle sees
 /// both the interlace scatter and little-endian U16 storage order.
