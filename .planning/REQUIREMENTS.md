@@ -12,7 +12,7 @@
 
 ### Shared resumable semantics
 
-- [ ] **RGBA16DEC-03**: Library users can select `PngChunkDecoder::new_rgba16` for the same legal Type-6/16 input, reusing the bounded decoder machine and preserving eager-equivalent result, accepted-only progress, atomic failure, and sticky terminals under hostile schedules.
+- [x] **RGBA16DEC-03**: Library users can select `PngChunkDecoder::new_rgba16` for the same legal Type-6/16 input, reusing the bounded decoder machine and preserving eager-equivalent result, accepted-only progress, atomic failure, and sticky terminals under hostile schedules.
 
 ### Portable qualification
 
