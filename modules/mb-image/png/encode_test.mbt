@@ -994,7 +994,7 @@ test "PNG filter strategy eager frozen compatibility vectors" {
     png_encode_prefix(gray_default_writer), png_encode_prefix(gray_configured_writer),
     png_encode_prefix(gray_adaptive_writer),
   ] {
-    inspect(bytes == gray_stored, content="true")
+    inspect(bytes == gray_stored && bytes[28] == b'\x00', content="true")
   }
 
   let gray16 = png_encode_gray16_image()
@@ -1008,7 +1008,7 @@ test "PNG filter strategy eager frozen compatibility vectors" {
     gray16,
   )
   for bytes in [png_encode_prefix(gray16_default_writer), png_encode_prefix(gray16_configured_writer)] {
-    inspect(bytes == gray16_stored, content="true")
+    inspect(bytes == gray16_stored && bytes[28] == b'\x00', content="true")
   }
 
   let gray_alpha = png_encode_graya8_image()
@@ -1024,7 +1024,7 @@ test "PNG filter strategy eager frozen compatibility vectors" {
   for bytes in [
     png_encode_prefix(gray_alpha_default_writer), png_encode_prefix(gray_alpha_configured_writer),
   ] {
-    inspect(bytes == gray_alpha_stored, content="true")
+    inspect(bytes == gray_alpha_stored && bytes[28] == b'\x00', content="true")
   }
 
   let rgb = png_encode_image(3UL, b"\x00\x01\x02")
@@ -1038,7 +1038,7 @@ test "PNG filter strategy eager frozen compatibility vectors" {
     PngEncoder::new_with_filter_strategy(PngFilterStrategy::Adaptive), rgb,
   )
   for bytes in [png_encode_prefix(rgb_default_writer), png_encode_prefix(rgb_configured_writer), png_encode_prefix(rgb_adaptive_writer)] {
-    inspect(bytes == rgb_stored, content="true")
+    inspect(bytes == rgb_stored && bytes[28] == b'\x00', content="true")
     png_filter_strategy_decode_matches_source(bytes, rgb)
   }
 
@@ -1053,7 +1053,7 @@ test "PNG filter strategy eager frozen compatibility vectors" {
     PngEncoder::new_with_filter_strategy(PngFilterStrategy::Adaptive), rgba,
   )
   for bytes in [png_encode_prefix(rgba_default_writer), png_encode_prefix(rgba_configured_writer), png_encode_prefix(rgba_adaptive_writer)] {
-    inspect(bytes == rgba_stored, content="true")
+    inspect(bytes == rgba_stored && bytes[28] == b'\x00', content="true")
     png_filter_strategy_decode_matches_source(bytes, rgba)
   }
 
@@ -1330,6 +1330,7 @@ fn png_encode_graya16_adam7_eager_strategy(
     bytes[bytes.length() - 1] != b'\x82' {
     abort("png graya16 adam7 eager profile")
   }
+  png_encode_graya16_adam7_public_decode_is_canonical(bytes)
 }
 
 ///| Every legal all-strategy GrayAlpha16 Adam7 selection reaches the shared
@@ -1373,6 +1374,20 @@ test "PNG GrayAlpha16 Adam7 eager Dynamic Adaptive profile" {
   png_encode_graya16_adam7_eager_strategy(
     PngCompressionStrategy::DynamicOrFixedOrStored, PngFilterStrategy::Adaptive,
   )
+}
+
+///| Every legal public GrayAlpha16 Adam7 selector retains Type-4/16 framing
+/// and public straight-RGBA8 high-byte canonicalization.
+test "PNG GrayAlpha16 Adam7 public eager evidence" {
+  for strategy in [
+    PngCompressionStrategy::Stored,
+    PngCompressionStrategy::FixedOrStored,
+    PngCompressionStrategy::DynamicOrFixedOrStored,
+  ] {
+    for filter_strategy in [PngFilterStrategy::None, PngFilterStrategy::Adaptive] {
+      png_encode_graya16_adam7_eager_strategy(strategy, filter_strategy)
+    }
+  }
 }
 
 ///| All Gray+Alpha8 eager factory forms use the same non-interlaced bounded
