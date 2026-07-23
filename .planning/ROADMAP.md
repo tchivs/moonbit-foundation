@@ -33,6 +33,12 @@
 - [x] **Phase 74: Resumable Packed Grayscale PNG** — Add caller-buffered packed output through the existing bounded encoder machine. (completed 2026-07-24)
 - [x] **Phase 75: Packed Grayscale PNG Qualification** — Prove independent wire fidelity, hostile behavior, compatibility, and four-target portability. (completed 2026-07-24)
 
+### 📋 v0.24 Indexed PNG Encode
+
+- [ ] **Phase 76: Indexed8 PNG Source & Eager PLTE** — Define an owning PNG-only indexed source and emit bounded Type-3/8 eager PNG with PLTE.
+- [ ] **Phase 77: Indexed PNG Transparency** — Add canonical optional tRNS emission and exact RGB/RGBA decode evidence.
+- [ ] **Phase 78: Resumable Indexed PNG & Qualification** — Add caller-buffered parity, hostile leases, independent wire vectors, and four-target proof.
+
 ## Phase Details
 
 ### Phase 73: Explicit Packed Grayscale PNG

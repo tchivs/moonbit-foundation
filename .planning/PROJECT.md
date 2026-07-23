@@ -10,21 +10,21 @@ The primary audience is MoonBit library authors and application developers build
 
 MoonBit developers can reuse stable, high-performance native infrastructure contracts instead of rebuilding incompatible foundations for every graphics, document, media, or automation product.
 
-## Current State: v0.22 RGBA16 PNG Encode Shipped
+## Current State: v0.23 Low-Bit Grayscale PNG Encode Shipped
 
-**Delivered:** `mb-image` now provides explicit eager and caller-buffered Type-6/16 PNG encoding from checked packed little-endian `rgba16` images. Explicit Adam7 selectors reuse the same bounded encoder machine, preserve every U16 source lane in PNG big-endian wire order, and leave generic RGB8/RGBA8 plus legacy non-interlaced routes unchanged.
+**Delivered:** `mb-image` now provides explicit eager and caller-buffered Type-0 1/2/4 PNG encoding from canonical Gray/U8 levels, with exact admission, MSB-first packing, zero tail bits, and unchanged legacy routes.
 
-**Validated:** Independent normal 17-byte and Adam7 211-byte public wire vectors, explicit `decode_rgba16` lane restoration, hostile capability/resource/lease/replay behavior, frozen legacy vectors, and the ordinary PNG package all passed. The package completed 258/258 tests on each of `wasm`, `wasm-gc`, `js`, and `native`; the milestone audit passed all four requirements, phase verifications, integration links, and end-to-end flows.
+**Validated:** Independent Type-0 PNG fixtures, eager/chunk parity, hostile lease behavior, frozen legacy vectors, and the ordinary PNG package all passed. The package completed 264/264 tests on each supported target; the milestone audit passed all requirements, phase verifications, integration links, and end-to-end flows.
 
-## Current Milestone: v0.23 Low-Bit Grayscale PNG Encode
+## Current Milestone: v0.24 Indexed PNG Encode
 
-**Goal:** Add explicit, lossless Type-0 PNG encoding for canonical 1-, 2-, and 4-bit grayscale levels without widening the image model or changing existing encoder bytes.
+**Goal:** Add explicit bounded Type-3/8 PNG encoding from a dedicated owning palette/index source without widening the generic image model or changing existing encoder bytes.
 
 **Target features:**
 
-- Pack existing byte-per-pixel Gray/U8 sources into MSB-first Type-0/1, Type-0/2, and Type-0/4 PNG rows only when every sample is exactly representable.
-- Reuse the bounded eager and caller-buffered encoder path, retaining atomic admission, ownership, and sticky-terminal semantics.
-- Qualify exact packed wire bytes, incompatible-level rejection, frozen legacy behavior, and all four supported targets.
+- Define a PNG-only immutable palette/index source with canonical unpacked 8-bit index raster and strict palette/index validation.
+- Emit `IHDR → PLTE → optional tRNS → IDAT → IEND` through bounded eager and caller-buffered machines.
+- Qualify exact chunk order/CRC/wire bytes, RGB/RGBA decode semantics, hostile leases, frozen compatibility, and all four targets.
 
 ## Requirements
 

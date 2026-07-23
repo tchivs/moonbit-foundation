@@ -1,20 +1,16 @@
 ---
 gsd_state_version: 1.0
-milestone: v0.23
-milestone_name: Low-Bit Grayscale PNG Encode
-current_phase: 75
-status: completed
-stopped_at: Completed 72-01-PLAN.md
-last_updated: "2026-07-23T16:52:06.259Z"
+milestone: v0.24
+milestone_name: Indexed PNG Encode
+status: planning
+last_updated: "2026-07-23T17:10:16.696Z"
 last_activity: 2026-07-24
-last_activity_desc: Phase 75 complete
 progress:
-  total_phases: 3
-  completed_phases: 3
-  total_plans: 3
-  completed_plans: 3
-  percent: 100
-current_phase_name: Packed Grayscale PNG Qualification
+  total_phases: 0
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
+  percent: 0
 ---
 
 # Project State
@@ -29,10 +25,10 @@ See `.planning/PROJECT.md` (updated 2026-07-23).
 
 ## Current Position
 
-Phase: 75
-Plan: Not started
-Status: All phases complete
-Last activity: 2026-07-24 — Phase 75 complete
+Phase: Not started (defining requirements)
+Plan: —
+Status: Defining requirements
+Last activity: 2026-07-24 — Milestone v0.24 started
 
 ## Performance Metrics
 
