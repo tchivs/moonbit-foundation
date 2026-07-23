@@ -37,7 +37,7 @@
 **Milestone Goal:** MoonBit library users can create bounded, explicit Adam7 Type-4/16 PNGs from legal packed U16 Gray+Alpha images while preserving strict little-endian descriptor admission, frozen non-interlaced bytes, and the existing single portable PNG pipeline.
 
 - [x] **Phase 56: GrayAlpha16 Adam7 Factory and Pass Profile** - Add explicit eager and caller-buffered Adam7 Type-4/16 selection for the legal U16 GrayAlpha source contract. (Requirements: GRAYA16A7-01) (completed 2026-07-23)
-- [ ] **Phase 57: Bounded Adam7 Streaming Semantics** - Extend the shared bounded traversal, filter, compression, and replay path to the new Type-4/16 Adam7 profile. (Requirements: GRAYA16A7-02)
+- [x] **Phase 57: Bounded Adam7 Streaming Semantics** - Extend the shared bounded traversal, filter, compression, and replay path to the new Type-4/16 Adam7 profile. (Requirements: GRAYA16A7-02) (completed 2026-07-23)
 - [ ] **Phase 58: Portable Adam7 Public Evidence** - Prove public pass-aware wire/decode fidelity, hostile caller-buffer behavior, legacy stability, and four-target portability. (Requirements: GRAYA16A7-03)
 
 ## Phase Details
@@ -93,5 +93,5 @@
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 56. GrayAlpha16 Adam7 Factory and Pass Profile | 2/2 | Complete    | 2026-07-23 |
-| 57. Bounded Adam7 Streaming Semantics | 2/2 | In Progress|  |
+| 57. Bounded Adam7 Streaming Semantics | 2/2 | Complete    | 2026-07-23 |
 | 58. Portable Adam7 Public Evidence | 0/TBD | Not started | - |
