@@ -8,7 +8,7 @@
 
 ### Bounded shared semantics
 
-- [ ] **GRAYA8A7-02**: Every legal None/Adaptive × Stored/FixedOrStored/DynamicOrFixedOrStored GrayAlpha8 Adam7 selection reuses the shared bounded pass traversal, atomic preflight, filtering, compression, and replay path; checked U8 source mutation fails before any further lease write with a zero-write sticky terminal result.
+- [x] **GRAYA8A7-02**: Every legal None/Adaptive × Stored/FixedOrStored/DynamicOrFixedOrStored GrayAlpha8 Adam7 selection reuses the shared bounded pass traversal, atomic preflight, filtering, compression, and replay path; checked U8 source mutation fails before any further lease write with a zero-write sticky terminal result.
 
 ### Public portable proof
 
