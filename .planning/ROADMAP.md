@@ -30,7 +30,7 @@
 
 - [x] **Phase 59: GrayAlpha8 Adam7 Factory and Pass Profile** - Add explicit eager and caller-buffered Type-4/8 Adam7 selection while freezing existing non-interlaced routes. (Requirements: GRAYA8A7-01) (completed 2026-07-23)
 - [x] **Phase 60: Bounded Adam7 Streaming Semantics** - Prove all six strategy pairs retain the shared traversal, atomic preflight, pass-local filtering, and replay guarantees. (Requirements: GRAYA8A7-02) (completed 2026-07-23)
-- [ ] **Phase 61: Portable GrayAlpha8 Adam7 Public Evidence** - Prove literal wire/decode fidelity, hostile caller schedules, frozen compatibility, and four-target portability. (Requirements: GRAYA8A7-03)
+- [x] **Phase 61: Portable GrayAlpha8 Adam7 Public Evidence** - Prove literal wire/decode fidelity, hostile caller schedules, frozen compatibility, and four-target portability. (Requirements: GRAYA8A7-03) (completed 2026-07-23)
 
 ## Phase Details
 
@@ -89,4 +89,4 @@ This milestone excludes staging buffers, alternate encoders, decoder-model widen
 |-------|----------------|--------|-----------|
 | 59. GrayAlpha8 Adam7 Factory and Pass Profile | 2/2 | Complete    | 2026-07-23 |
 | 60. Bounded Adam7 Streaming Semantics | 1/1 | Complete    | 2026-07-23 |
-| 61. Portable GrayAlpha8 Adam7 Public Evidence | 0/TBD | Not started | - |
+| 61. Portable GrayAlpha8 Adam7 Public Evidence | 2/2 | Complete    | 2026-07-23 |

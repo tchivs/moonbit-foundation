@@ -12,7 +12,7 @@
 
 ### Public portable proof
 
-- [ ] **GRAYA8A7-03**: Public non-symmetric Adam7 Type-4/8 wire/decode vectors, fresh zero/one/ragged caller schedules, frozen non-interlaced/legacy vectors, and the full PNG package pass on js, wasm, wasm-gc, and native.
+- [x] **GRAYA8A7-03**: Public non-symmetric Adam7 Type-4/8 wire/decode vectors, fresh zero/one/ragged caller schedules, frozen non-interlaced/legacy vectors, and the full PNG package pass on js, wasm, wasm-gc, and native.
 
 ## Future Requirements
 
