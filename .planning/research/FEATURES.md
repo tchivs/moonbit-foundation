@@ -1,86 +1,79 @@
-# Feature Landscape
+# Feature Landscape: v0.19 GrayAlpha8 Adam7 PNG
 
-**Domain:** v0.17 GrayAlpha16 PNG Interchange for `mb-image`
+**Domain:** Portable, bounded PNG Type-4/8 interlaced encoding in `mb-image`
 **Researched:** 2026-07-23
-**Confidence:** HIGH for the feature boundary, based on the live model/PNG code and shipped v0.15/v0.16 evidence.
+**Confidence:** HIGH — live source and shipped v0.16/v0.18 evidence establish both the existing GrayAlpha8 boundary and the intended Adam7 extension pattern.
 
 ## Product Boundary
 
-The milestone adds one deliberately narrow interchange profile: a first-class packed U16 greyscale-plus-straight-alpha source that encodes through explicit eager and caller-buffered PNG factories as non-interlaced type 4, bit depth 16 output. It extends the existing model and bounded encoder instead of broadening generic PNG constructors or claiming a new lossless U16 decoder result.
+v0.19 adds one additive capability: an explicitly selected Adam7 route for the existing legal packed U8 `GrayAlpha` source contract. It must emit PNG colour type 4 at bit depth 8, with each pixel serialized as `G,A`, while retaining the project's established bounded preflight, filter, DEFLATE, acknowledgement-safe replay, and portable test contract.
 
-PNG requires type-4 pixels to contain grey then alpha samples, and 16-bit samples use MSB-first wire order. The public decoder already turns a type-4/16 input into straight RGBA8 using the high byte of each component. That asymmetric contract is important: source-to-PNG preserves every U16 byte; PNG-to-public-image canonicalizes to U8.
+This is not a new image model, a decoder-model expansion, or a second encoder. The live profile admission currently rejects `PngEncodeProfile::GrayAlpha8` whenever interlace is not `None`; in contrast, GrayAlpha16 already exposes narrow `*_with_interlace_strategy` and full `*_with_all_strategies` eager and caller-buffered constructors through the shared profile-aware machine. v0.19 should make the U8 profile use those same two additive public selection shapes.
+
+PNG permits greyscale-with-alpha as colour type 4 at depths 8 and 16; an 8-bit type-4 pixel is a grey sample immediately followed by alpha. Adam7 is interlace method 1 with seven pass images, and only non-empty pass scanlines have filter bytes. [PNG Specification](https://www.libpng.org/pub/png/spec/iso/index-object.html)
 
 ## Table Stakes
 
-| Feature | Why expected | Complexity | Required behavior |
+| Feature | Why expected | Complexity | Testable required behavior |
 |---|---|---:|---|
-| Packed U16 GrayAlpha model | A U16 PNG encoder needs an unambiguous in-memory source contract | Medium | `ImageFormat::graya16()` represents two packed U16 components in grey, alpha order; only straight alpha and current canonical metadata are admitted. |
-| Checked U16 construction/access | Callers must populate both U16 components without unsafe offsets | Low | Reuse packed component-byte APIs and generic owned image/views; channel 0 is grey and channel 1 alpha. |
-| Explicit eager PNG factory | Users need an intentional way to select a 16-bit type-4 PNG | Medium | `PngEncoder::new_graya16*` emits IHDR depth 16, type 4, no interlace; generic legacy constructors never infer this profile. |
-| Explicit caller-buffered factory | Streaming consumers require the same profile under caller-owned output leases | Medium | `PngChunkEncoder::new_graya16*` shares eager preflight, planning, replay, byte output, and terminal behavior. |
-| Exact U16 wire serialization | Interoperability fails if host byte order or components are swapped | High | Every scanline serializes each pixel as `Ghi,Glo,Ahi,Alo` before filters, compression, checksums, and replay. |
-| Existing bounded strategy surface | A new profile must not silently weaken output guarantees | High | Support Stored, FixedOrStored, DynamicOrFixedOrStored × None, Adaptive through the current single machine and its existing limit/budget admission. |
-| Explicit decode canonicalization | Callers need truthful expectations when inspecting a decoded 16-bit PNG | Low | Public decode returns straight RGBA8 with `R=G=B=gray-high` and `A=alpha-high`; low bytes are not represented in the current output model. |
-| Literal compatibility regressions | Additive encoding must leave shipped profiles stable | Medium | Gray8, Gray16, GrayAlpha8, RGB8, and straight-RGBA8 literal eager/chunk vectors remain byte-identical. |
-| Portable public evidence | A public contract is only useful when the same test path exercises the declared package targets | Medium | A single all-target PNG suite uses only public model, encoder, chunk encoder, and decoder seams. |
+| Explicit eager Adam7 selection | Users must opt in without changing legacy factory behavior. | Low | `PngEncoder::new_graya8_with_interlace_strategy(Adam7)` and `PngEncoder::new_graya8_with_all_strategies(..., Adam7)` construct legal encoders; existing `new_graya8*` constructors still produce IHDR `08 04 00`. |
+| Explicit caller-buffered Adam7 selection | Streaming users need the same public capability, not an eager-only feature. | Low | Matching `PngChunkEncoder` constructors reach the same profile/machine and can drain an Adam7 output under caller-owned leases. |
+| Legal Type-4/8 Adam7 framing | A route that writes RGB/RGBA or silently remains non-interlaced is not the requested feature. | Medium | Public bytes have IHDR depth `08`, colour type `04`, interlace `01`; a 5×5 non-symmetric source yields all seven non-empty Adam7 pass payloads in literal `G,A` order. |
+| Shared all-strategy bounded path | GrayAlpha8 already supports Stored, FixedOrStored, DynamicOrFixedOrStored × None, Adaptive; Adam7 must not reduce that surface. | High | All six pairs encode/decode through one profile-aware traversal; Adaptive resets predictor history per pass and eager bytes equal chunk bytes for each pair. |
+| Atomic admission | Interlacing cannot weaken the existing no-output/no-lease guarantee. | Medium | Incompatible descriptor and capability/geometry/output/work/budget failures leave eager output empty, do not charge an accepted result, and cannot expose a usable chunk lease for all six pairs. |
+| Replay integrity before lease writes | A caller-buffered source mutation must not first alter the caller's next lease. | Medium | After one acknowledged prefix then U8 GrayAlpha mutation, Stored, Fixed, and Dynamic Adam7 routes fail with zero writes, unchanged sentinel tails, unchanged accepted total, and the same sticky terminal result on later pulls. |
+| Public decode semantics | The feature needs a truthful observable round trip within the current decoder model. | Low | Decoding Type-4/8 output through the public PNG API yields straight RGBA8 with `R=G=B=source gray` and `A=source alpha` for every non-symmetric source position. |
+| Legacy and portable proof | Additive encoder selection cannot destabilize shipped output or a single target. | Medium | Frozen non-interlaced GrayAlpha8 plus Gray8, Gray16, GrayAlpha16, RGB8, and straight-RGBA8 literals remain unchanged; the ordinary PNG package suite passes on js, wasm, wasm-gc, and native. |
 
 ## Differentiators
 
 | Feature | Value proposition | Complexity | Notes |
 |---|---|---:|---|
-| One profile-aware bounded pipeline | U16 GrayAlpha gains all established output semantics without a codec fork | High | The scalar wire-byte seam lets filtering and compression stay byte-accurate without materializing converted rows. |
-| Endianness-independent public evidence | Non-symmetric samples catch both per-component byte order and grey/alpha order defects | Medium | Build equivalent little- and big-endian source storage and require identical PNG bytes. |
-| Hostile lease ownership evidence | Caller-buffered correctness includes more than byte equality | Medium | Verify zero-capacity, one-byte, and ragged leases, accepted-prefix accounting, untouched tails, and sticky terminals. |
-| Honest U16-to-U8 decode contract | Consumers know exactly where fidelity is preserved and where canonicalization occurs | Low | Wire checks preserve four bytes per pixel; decode checks only documented high-byte expansion. |
+| Profile-aware Adam7 reuse | New Type-4/8 capability inherits all established safety and compression behavior without a raster-sized staging buffer. | High | Reuse the existing pass cursor, `_png_wire_byte`, preflight ledger, and `PngEncodeMachine`; do not make a GrayAlpha8-specific encoder fork. |
+| Literal seven-pass public vector | Distinct grey and alpha bytes reveal component swaps and pass-coordinate errors that a uniform fixture hides. | Medium | Derive the expected stored/filter-None payload independently from the seven Adam7 geometries, rather than from a second encoder invocation. |
+| Strong chunk contract | Exact bytes alone miss caller-memory and retry semantics. | Medium | Fresh encoder per zero-capacity, one-byte, and ragged schedule; append only accepted bytes and prove untouched tails and terminal stickiness. |
+| Symmetric replay hardening | U8 GrayAlpha should receive the same pre-lease mutation rule now used for U16 wire profiles. | Low | Generalize the existing revision guard by replay semantics rather than sample width; fingerprint checks remain a terminal backstop, not the first detection point. |
 
-## Future Requirement Candidates
+## Requirement Candidates
 
 | ID | Requirement | Acceptance evidence |
 |---|---|---|
-| **GRAYA16-01** | A library user can create and inspect a packed U16 GrayAlpha image with exactly grey and alpha components, straight-alpha metadata, and no change to existing format behavior. | Public model/storage tests construct non-symmetric U16 pairs, inspect both channels, and reject non-packed, non-U16, missing/premultiplied-alpha, noncanonical-metadata, and invalid-orientation variants. |
-| **GRAYA16-02** | A library user can select explicit eager and caller-buffered GrayAlpha16 PNG factories that accept only compatible packed inputs and emit non-interlaced PNG type 4/depth 16. | Public IHDR and construction tests demonstrate factory selection and reject incompatible input before observable output state. |
-| **GRAYA16-03** | GrayAlpha16 output preserves `Ghi,Glo,Ahi,Alo` wire samples across the shared bounded filter/compression/replay path. | A generated asymmetric corpus proves both source storage orders produce identical Stored/None scanlines and all six compression/filter pairs decode successfully. |
-| **GRAYA16-04** | GrayAlpha16 callers receive eager/chunk byte identity, accepted-only progress, terminal stickiness, documented RGBA8 canonicalization, frozen legacy bytes, and all-target public evidence. | Public encoder/decoder and chunk tests cover zero/one/ragged capacities, untouched lease tails, literal legacy vectors, and the single package suite on every declared target. |
-
-## Recommended Delivery Order
-
-1. **GrayAlpha16 model contract** — deliver `GRAYA16-01` first. The encoder cannot safely infer two U16 components until descriptor validation and generic storage access agree on their identity.
-2. **Bounded profile and explicit factories** — deliver `GRAYA16-02` and the implementation half of `GRAYA16-03`. Reuse the existing shared machine; retain atomic admission as a non-negotiable behavior.
-3. **Public interchange evidence** — complete `GRAYA16-03` and `GRAYA16-04` with literal wire/decode, hostile lease, compatibility, and portable public tests.
-
-```text
-GRAYA16-01 model
-  → GRAYA16-02 explicit PNG profile/factories
-    → GRAYA16-03 wire mapping + bounded strategies
-      → GRAYA16-04 public decode/chunk/compatibility evidence
-```
+| **GRAYA8A7-01** | A library user can explicitly select eager and caller-buffered Adam7 encoding for a legal packed U8, straight-alpha GrayAlpha image, receiving an interlaced PNG with depth 8 and colour type 4. Existing GrayAlpha8 factories remain explicitly non-interlaced. | Public tests exercise the narrow and all-strategy eager/chunk constructors, assert IHDR `08 04 01` for Adam7 and `08 04 00` for frozen legacy routes, and reject incompatible non-GrayAlpha/non-U8/non-straight sources before output. |
+| **GRAYA8A7-02** | GrayAlpha8 Adam7 reuses the single bounded profile-aware pipeline across Stored/FixedOrStored/DynamicOrFixedOrStored × None/Adaptive; each pass has local filter history and atomic preflight/replay semantics remain intact. | One 5×5 distinct-byte fixture proves seven-pass `G,A` wire order. A six-pair eager/chunk matrix proves byte identity and public decode. Resource failures prove empty eager output/no chunk lease. Mutation-after-prefix tests for Stored, Fixed, and Dynamic prove zero post-mutation lease writes, accepted-only progress, and sticky terminals. |
+| **GRAYA8A7-03** | Public GrayAlpha8 Adam7 evidence proves pass-aware wire/decode fidelity, hostile caller-buffered behavior, legacy stability, and four-target portability. | Fresh zero, one-byte, and ragged drains preserve eager identity and untouched lease tails; literal frozen non-interlaced/legacy vectors survive; `moon -C modules/mb-image test png --target all --frozen` passes independently on js, wasm, wasm-gc, and native. |
 
 ## Explicit Exclusions
 
 | Excluded feature | Why exclude it | Do instead |
 |---|---|---|
-| Implicit GrayAlpha16 selection by generic PNG constructors | It would change established legacy admission behavior and obscure the new data contract. | Require `new_graya16*` factories. |
-| GrayAlpha16 Adam7 encoding | Interlacing is a separate traversal contract. | Keep every new factory non-interlaced. |
-| RGB16/RGBA16 output | They add distinct model/profile/wire matrices with no dependency on this two-component slice. | Scope them as separate profiles later. |
-| Palette/indexed, low-bit, `tRNS`, or automatic transparency conversion | Those PNG profiles have different packing and color semantics. | Preserve current explicit capability boundaries. |
-| New GrayAlpha processing, resize, composite, or copy semantics | Valid storage is not permission to reuse RGB/RGBA operation algorithms. | Retain existing capability gates until operations have their own requirements. |
-| A new U16 public decoder result | The current public decoder returns canonical RGBA8. | State and test high-byte canonicalization; preserve low-byte fidelity at the PNG wire seam. |
-| New dependency, FFI, release automation, target branch, or source copy | None is needed to extend the project-owned portable implementation; each would expand scope without adding feature value. | Keep changes in the existing MoonBit model, storage, PNG, and test packages. |
+| Implicit Adam7 in existing `new_graya8*` constructors | It would change compatibility bytes and make interlace selection invisible at call sites. | Add the two explicit interlace constructor shapes only. |
+| Generic new PNG or DEFLATE pipeline | A parallel route risks different bounds, filtering, and replay behavior. | Parameterize the existing profile-aware machine. |
+| Image-sized pass or converted-raster staging | It weakens bounded-memory intent without solving a Type-4/8 requirement. | Traverse existing source views through the Adam7 cursor. |
+| Decoder model widening or alpha/colour conversion | Current public decode already has a documented GrayAlpha8-to-straight-RGBA8 canonicalization. | Test that established mapping; defer any richer decoder contract to its own milestone. |
+| Gray8 Adam7, palette/low-bit/tRNS, RGB16/RGBA16, APNG | Each changes a distinct model, packing, or framing contract. | Keep the milestone limited to legal packed U8 GrayAlpha Type-4/8. |
+| Release automation, registry publication, FFI, target wrappers, or copied source trees | None contributes to the requested portable encoder capability. | Use the established package command and in-tree MoonBit implementation. |
 
 ## Feature Dependencies
 
 ```text
-ImageFormat::graya16 + descriptor admission
-  → generic U16 storage/view access
-    → GrayAlpha16 encoder profile
-      → endian-correct wire-byte mapping
-        → existing filter/compression/replay strategies
-          → eager and chunk public factories
-            → literal wire/decode and hostile-lease evidence
+existing packed U8 GrayAlpha descriptor + profile admission
+  → explicit eager/chunk interlace constructors
+    → shared Adam7 pass cursor and G,A wire mapping
+      → pass-local None/Adaptive filtering
+        → Stored/Fixed/Dynamic planning + atomic preflight
+          → pre-lease replay-revision validation
+            → public wire/decode, hostile lease, legacy, four-target evidence
 ```
+
+## Recommended Delivery Order
+
+1. **Factories and Type-4/8 Adam7 pass profile** — implement `GRAYA8A7-01` with the distinct-byte literal pass vector. This makes the public selection and exact wire contract concrete before broad strategy testing.
+2. **Bounded streaming semantics** — implement `GRAYA8A7-02`, including pass-local Adaptive filtering, six-pair eager/chunk parity, atomic failure handling, and U8 pre-lease replay protection.
+3. **Portable public qualification** — implement `GRAYA8A7-03` with hostile schedules, decode canonicalization, frozen literals, and the ordinary four-target package test.
 
 ## Sources
 
-- Live local model/PNG implementation and tests under `modules/mb-image/` — HIGH local evidence.
-- v0.15 Gray16 and v0.16 GrayAlpha milestone requirements, plans, summaries, and verification reports under `.planning/milestones/` — HIGH local evidence.
-- [W3C PNG Specification, Third Edition](https://www.w3.org/TR/png-3/) — type-4/16 legal profile, grey-then-alpha sample ordering, and MSB-first 16-bit samples. Source-provider confidence was classified LOW, so this is normative corroboration rather than the basis for local feature assertions.
+- Live local implementation: `modules/mb-image/png/png.mbt`, `encode.mbt`, and `stream_encode.mbt` — HIGH local evidence. It shows GrayAlpha8's current non-interlaced rejection and GrayAlpha16's additive Adam7 constructor/profile pattern.
+- Live local public tests: `modules/mb-image/png/encode_test.mbt` and `stream_encode_test.mbt` — HIGH local evidence for six-pair, lease, decode, and literal-vector conventions.
+- Shipped verification records: `.planning/milestones/v0.16-phases/52-portable-gray-alpha-public-evidence/52-VERIFICATION.md` and `.planning/milestones/v0.18-phases/58-portable-adam7-public-evidence/58-VERIFICATION.md` — HIGH local evidence for the expected public qualification structure.
+- [PNG Specification, Second Edition](https://www.libpng.org/pub/png/spec/iso/index-object.html) — normative corroboration for type-4/8, grey-then-alpha ordering, and seven-pass Adam7 behavior.
