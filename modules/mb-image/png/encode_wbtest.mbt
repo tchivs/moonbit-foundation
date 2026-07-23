@@ -404,19 +404,19 @@ test "PNG GrayAlpha16 Adam7 profile cursor keeps pass history and exact work" {
     for filter_strategy in [PngFilterStrategy::None, PngFilterStrategy::Adaptive] {
       let admitted = _png_encode_preflight_with_interlace_profile(
         image.view(), PngEncodeProfile::GrayAlpha16, strategy, filter_strategy,
-        PngInterlaceStrategy::Adam7, png_wb_limits(), png_wb_budget(work=1048576UL),
+        PngInterlaceStrategy::Adam7, png_wb_dynamic_limits(), png_wb_budget(work=1048576UL),
       ).unwrap()
       let exact = png_wb_budget(work=admitted.selected_work)
       ignore(_png_encode_preflight_with_interlace_profile(
         image.view(), PngEncodeProfile::GrayAlpha16, strategy, filter_strategy,
-        PngInterlaceStrategy::Adam7, png_wb_limits(), exact,
+        PngInterlaceStrategy::Adam7, png_wb_dynamic_limits(), exact,
       ).unwrap())
       inspect(exact.remaining().work() == 0UL, content="true")
       let one_less = png_wb_budget(work=admitted.selected_work - 1UL)
       let before = one_less.remaining()
       let error = _png_encode_preflight_with_interlace_profile(
         image.view(), PngEncodeProfile::GrayAlpha16, strategy, filter_strategy,
-        PngInterlaceStrategy::Adam7, png_wb_limits(), one_less,
+        PngInterlaceStrategy::Adam7, png_wb_dynamic_limits(), one_less,
       ).unwrap_err()
       inspect(
         error.context() == Some("work") && png_wb_same_remaining(before, one_less.remaining()),
