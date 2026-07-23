@@ -8,7 +8,7 @@
 
 ### Shared resumable semantics
 
-- [ ] **GRA16DEC-02**: Library users can select `PngChunkDecoder::new_graya16` for the same legal Type-4/16 input, reusing the existing bounded decoder machine and preserving eager-equivalent result, accepted-only input progress, atomic failure, and sticky terminal behavior under hostile chunk schedules.
+- [x] **GRA16DEC-02**: Library users can select `PngChunkDecoder::new_graya16` for the same legal Type-4/16 input, reusing the existing bounded decoder machine and preserving eager-equivalent result, accepted-only input progress, atomic failure, and sticky terminal behavior under hostile chunk schedules.
 
 ### Portable fidelity evidence
 

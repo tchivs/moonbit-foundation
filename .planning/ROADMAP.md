@@ -28,7 +28,7 @@
 Completed milestone detail is archived under `.planning/milestones/`.
 
 - [x] **Phase 62: Explicit GrayAlpha16 Decode Contract** - Opt-in eager Type-4/16 preservation with truthful sRGB identity and frozen generic compatibility. (completed 2026-07-23)
-- [ ] **Phase 63: Resumable GrayAlpha16 Decode** - Route the preservation profile through the existing caller-buffered decoder lifecycle.
+- [x] **Phase 63: Resumable GrayAlpha16 Decode** - Route the preservation profile through the existing caller-buffered decoder lifecycle. (completed 2026-07-23)
 - [ ] **Phase 64: GrayAlpha16 Decode Qualification** - Prove byte fidelity, hostile-input safety, compatibility, and portability.
 
 ## Phase Details
@@ -81,5 +81,5 @@ Completed milestone detail is archived under `.planning/milestones/`.
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 62. Explicit GrayAlpha16 Decode Contract | 1/1 | Complete    | 2026-07-23 |
-| 63. Resumable GrayAlpha16 Decode | 0/TBD | Not started | - |
+| 63. Resumable GrayAlpha16 Decode | 1/1 | Complete    | 2026-07-23 |
 | 64. GrayAlpha16 Decode Qualification | 0/TBD | Not started | - |
