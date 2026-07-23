@@ -8,7 +8,7 @@
 
 ### Explicit Type-6/16 preservation
 
-- [ ] **RGBA16DEC-02**: Library users can call `PngDecoder::decode_rgba16` for legal encoded-sRGB Type-6/16 PNG input and receive every `Rhi,Rlo,Ghi,Glo,Bhi,Blo,Ahi,Alo` source byte as `Rlo,Rhi,Glo,Ghi,Blo,Bhi,Alo,Ahi`; generic decoding remains frozen as `RGBA8(Rhi,Ghi,Bhi,Ahi)`.
+- [x] **RGBA16DEC-02**: Library users can call `PngDecoder::decode_rgba16` for legal encoded-sRGB Type-6/16 PNG input and receive every `Rhi,Rlo,Ghi,Glo,Bhi,Blo,Ahi,Alo` source byte as `Rlo,Rhi,Glo,Ghi,Blo,Bhi,Alo,Ahi`; generic decoding remains frozen as `RGBA8(Rhi,Ghi,Bhi,Ahi)`.
 
 ### Shared resumable semantics
 
