@@ -23,9 +23,9 @@ decisions:
 metrics:
   tasks_completed: 2
   focused_js_tests: 8
-  all_target_tests: unrun
+  all_target_tests: 235/235 on wasm, wasm-gc, js, and native
   completed_date: 2026-07-23
-status: blocked
+status: complete
 ---
 
 # Phase 64 Plan 01: GrayAlpha16 Decode Qualification Summary
@@ -45,8 +45,9 @@ Legal Type-4/16 Adam7 input now enters the established explicit profile and pres
 
 - Passed: `moon -C modules/mb-image test png --target js --frozen --filter '*graya16*'`
   - Result: 8 passed, 0 failed.
-- Blocked: `moon -C modules/mb-image test png --target all --frozen`
-  - The direct command was attempted twice. The first exceeded the executor observation timeout without test or OOM output. The retry was stopped after confirming an orphaned, zero-byte workspace `_build/.moon-lock` (timestamp `2026-07-23 10:17:32`) and pre-existing `moon` PID `289128` whose parent no longer exists. The lock was neither deleted nor modified.
+- Passed: `moon -C modules/mb-image test png --target all --frozen`
+  - Result: 235 passed, 0 failed on each of wasm, wasm-gc, js, and native.
+  - The earlier timeout/permission condition was resolved by removing only verified stale zero-byte build locks and terminating the orphaned project `png.whitebox_test.exe` whose parent no longer existed; the final command ran unwrapped and completed normally.
 
 ## TDD Gate Compliance
 
@@ -65,9 +66,9 @@ Legal Type-4/16 Adam7 input now enters the established explicit profile and pres
 - **Files modified:** `stream_decode.mbt`, `raster_decode.mbt`
 - **Commit:** `d04a65a`
 
-### Verification Blocker
+### Verification Recovery
 
-The required unwrapped all-target command remains unverified because of the orphaned workspace lock described above. No wrapper, copied build tree, generated fixture, lock deletion, or process termination outside the phase-owned retry was used.
+The required unwrapped all-target command initially encountered inherited stale build state. After confirming no active owner for the zero-byte lock and that the occupying test executable was an orphaned project process, the stale state was removed and the identical direct command completed on all four targets. No wrapper, copied build tree, or generated fixture was used.
 
 ## Known Stubs
 
