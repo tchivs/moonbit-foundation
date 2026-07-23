@@ -1,6 +1,6 @@
 ---
 phase: 76-indexed8-source-eager-plte
-verified: 2026-07-24T00:00:00Z
+verified: 2026-07-23T20:13:20Z
 status: passed
 score: 4/4 must-haves verified
 behavior_unverified: 0
@@ -10,53 +10,78 @@ overrides_applied: 0
 # Phase 76: Indexed8 PNG Source & Eager PLTE Verification Report
 
 **Phase Goal:** Define an owning PNG-only indexed source and emit bounded Type-3/8 eager PNG with PLTE.
+**Verified:** 2026-07-23T20:13:20Z
 **Status:** passed
-**Re-verification:** No — initial verification
+**Re-verification:** No — metadata refresh only. The previous report had no gaps; `f13dec3` changed only `76-01-SUMMARY.md` metadata by adding `requirements-completed: [INDEX-01, INDEX-02]`.
 
 ## Goal Achievement
 
+### Observable Truths
+
 | # | Truth | Status | Evidence |
 | --- | --- | --- | --- |
-| 1 | Dedicated immutable Indexed8 source accepts only valid canonical inputs. | ✓ VERIFIED | `PngIndexedImage::new` validates non-zero U32 geometry, checked pixel count, exact index length, RGB triples, 1–256 entries, and index bounds before its single `OwnedBytes::new_with_allocator_and_charge` call (`png.mbt:223-288`). |
-| 2 | Valid input emits bounded Type-3/8 `IHDR → PLTE → IDAT → IEND` Stored/None PNG. | ✓ VERIFIED | Indexed preflight fixes Stored/None/non-interlaced and checks limits before charge (`encode.mbt:2022-2092`); the shared machine emits the variable PLTE span and Type-3 IHDR (`stream_encode.mbt:1409-1458`). The independent oracle checks signature, order, payloads, and all chunk CRCs (`encode_test.mbt:951-981`). |
-| 3 | Invalid source and eager admission are atomic. | ✓ VERIFIED | Validation precedes source ownership; output/limit/work/budget checks precede machine creation and writer use. The atomicity test asserts zero writer position and unchanged resource ledgers for invalid source, output, work, and pixel admissions (`encode_test.mbt:985-1057`). |
-| 4 | Legacy output is retained and indexed output decodes through the generic RGB8 route. | ✓ VERIFIED | Zero-PLTE facts retain `idat_start=33`, `iend_start=60`, and total `72`, while Indexed8 shifts only the PLTE layout (`encode_wbtest.mbt:1091-1120`). The public decoder expands the indexed output to the expected RGB pixels (`encode_test.mbt:887-915`). |
+| 1 | A caller can construct an immutable, PNG-only Indexed8 source from unpacked indices and RGB palette triples. | ✓ VERIFIED | `PngIndexedImage` is an owning public type in `modules/mb-image/png/png.mbt:201-207`. Its constructor validates PNG U32 dimensions, checked pixel count, exact raster length, RGB triples, 1–256 palette entries, and every index before the sole charged `OwnedBytes` allocation (`224-279`); storage is private and exposed only through internal read accessors (`315-353`). The optional alpha argument is the later Phase 77 extension; opaque Phase 76 inputs use all-`FF` alpha. |
+| 2 | A valid indexed source eagerly emits a bounded non-interlaced Type-3/8 PNG in IHDR, PLTE, IDAT, IEND order using Stored DEFLATE and filter None. | ✓ VERIFIED | `_png_encode_indexed_preflight` computes checked scanline/output facts, applies all limits, and charges work before creating output state (`encode.mbt:2042-2123`). `PngEncoder::encode_indexed8` creates the indexed machine (`2174-2212`), whose constructor fixes Indexed8/Stored/None/non-interlaced (`stream_encode.mbt:929-958`) and whose byte emitter writes PLTE before IDAT (`1420-1495`). The opaque test independently asserts the exact 89-byte vector, Type-3/8 IHDR, PLTE/IDAT/IEND order, Stored bytes, and every chunk CRC (`encode_test.mbt:990-1025`). |
+| 3 | Malformed indexed sources and failed eager limits or budget admission expose neither writer bytes nor a partial budget charge. | ✓ VERIFIED | Source validation precedes allocation (`png.mbt:232-273`); eager preflight validates output/work/pixel limits before machine construction (`encode.mbt:2089-2113`). `encode_test.mbt:1059-1137` exercises invalid dimensions, palette shape/alpha cardinality, out-of-range indices, source budget refusal, output/work/pixel admissions, zero writer position, and unchanged budget snapshots. |
+| 4 | Existing PNG source profiles retain their exact legacy output bytes while the indexed output decodes through the public generic RGB8 route. | ✓ VERIFIED | Public decode-back uses `ImageDecoder::decode(PngDecoder::new(), ...)` and asserts RGB with the expected palette-expanded pixels (`encode_test.mbt:887-917`). Private frame facts prove Indexed PLTE offsets while zero-PLTE legacy facts remain `idat_start=33`, `iend_start=60`, and total `72` (`encode_wbtest.mbt:1091-1123`). |
 
-**Score:** 4/4 truths verified.
+**Score:** 4/4 truths verified (0 present, behavior-unverified).
 
-## Required Artifacts and Wiring
+### Required Artifacts
 
-| Artifact | Status | Evidence |
-| --- | --- | --- |
-| `modules/mb-image/png/png.mbt` | ✓ VERIFIED | Public PNG-only owning source; no generic `ImageView`/`ImageEncoder` expansion. |
-| `modules/mb-image/png/encode.mbt` | ✓ VERIFIED | Public `encode_indexed8` calls `PngEncodeMachine::new_with_indexed`; indexed preflight is the only admission path. |
-| `modules/mb-image/png/stream_encode.mbt` | ✓ VERIFIED | Machine receives immutable indexed source, reads palette/index bytes on demand, and advances PLTE CRC only after acknowledged palette bytes. |
-| `modules/mb-image/png/encode_test.mbt` | ✓ VERIFIED | Independent local CRC oracle, wire checks, RGB8 decode-back, and atomicity tests. |
-| `modules/mb-image/png/encode_wbtest.mbt` | ✓ VERIFIED | Indexed offsets/CRC timing and zero-PLTE legacy layout checks. |
+| Artifact | Expected | Status | Details |
+| --- | --- | --- | --- |
+| `modules/mb-image/png/png.mbt` | Public `PngIndexedImage` contract and indexed eager API input. | ✓ VERIFIED | Substantive owning source with one charged defensive copy; consumed by the encoder/machine, not orphaned. |
+| `modules/mb-image/png/encode.mbt` | Indexed admission and bounded preflight. | ✓ VERIFIED | `encode_indexed8` calls `PngEncodeMachine::new_with_indexed`; preflight produces the machine facts and performs admission before writing. |
+| `modules/mb-image/png/stream_encode.mbt` | Frame-aware IHDR/PLTE/IDAT/IEND byte machine with acknowledged CRC state. | ✓ VERIFIED | Indexed source and PLTE CRC are machine state (`704-742`); PLTE data is emitted from the source (`1448-1463`) and CRC advances only on accepted palette bytes (`1534-1538`). |
+| `modules/mb-image/png/encode_test.mbt` | Public Type-3 wire, atomicity, and RGB8 decode-back proof. | ✓ VERIFIED | Uses a test-local CRC implementation (`956-970`), exact opaque wire checks, public decode, and atomic-admission cases. |
+| `modules/mb-image/png/encode_wbtest.mbt` | Frame-fact and legacy-layout regression proof. | ✓ VERIFIED | Verifies Indexed8 offsets, PLTE CRC acknowledgement timing, oversized-IDAT rejection, and frozen zero-PLTE offsets. |
 
-The data flow is substantive: `PngIndexedImage` owns validated indices/palette → `encode_indexed8` preflights before writing → `PngEncodeMachine::scanline_byte` obtains source indices and `byte_at` obtains palette bytes → acknowledged bytes update CRC state. No output-sized staging buffer is introduced.
+### Key Link Verification
 
-## Behavioral Spot-Checks
+| From | To | Via | Status | Details |
+| --- | --- | --- | --- | --- |
+| `png.mbt` | `encode.mbt` | `PngEncoder::encode_indexed8` accepts `PngIndexedImage`. | ✓ WIRED | Public signature takes `PngIndexedImage` (`encode.mbt:2174-2181`); public tests construct it and pass it to the entry point (`encode_test.mbt:887-900`). |
+| `encode.mbt` | `stream_encode.mbt` | Indexed preflight feeds the shared bounded machine. | ✓ WIRED | `encode_indexed8` calls `new_with_indexed` (`2182-2186`), which calls `_png_encode_indexed_preflight` before filling its frame/source state (`stream_encode.mbt:929-958`). |
+| `stream_encode.mbt` | `encode_test.mbt` | Output bytes are independently checked and decoded. | ✓ WIRED | `byte_at` emits frame-derived PLTE/IDAT bytes; test-local wire/CRC checks and public decoder assertions consume the eager output (`encode_test.mbt:990-1025`, `887-917`). |
 
-| Check | Result |
-| --- | --- |
-| `moon test --target all --filter '*Indexed8*'` | Each target reported `Total tests: 5, passed: 5, failed: 0` for wasm, wasm-gc, js, and native. The wrapper later hit its 60-second watchdog while diagnostics were still streaming, so the command did not return a clean process exit. |
-| `moon test --target all` | Started once; wrapper watchdog expired after 64 seconds before a final suite summary. Therefore this verification does **not** treat the SUMMARY's `269/269` claim as evidence. |
+### Data-Flow Trace (Level 4)
 
-## Requirements Coverage
+| Artifact | Data Variable | Source | Produces Real Data | Status |
+| --- | --- | --- | --- | --- |
+| `png.mbt` → `stream_encode.mbt` | Indexed raster and RGB palette bytes | Validated `PngIndexedImage` owned bytes | `index_at` and `palette_byte_at` read caller-derived, validated bytes; no static palette/raster fallback exists. | ✓ FLOWING |
+| `encode.mbt` → `stream_encode.mbt` | Frame facts and resource limits | Checked dimensions/scanlines/palette length and codec limits | Facts determine PLTE, IDAT, IEND starts and total length before writer use. | ✓ FLOWING |
 
-| Requirement | Status | Evidence |
-| --- | --- | --- |
-| INDEX-01 | ✓ SATISFIED | Public immutable `PngIndexedImage` validates and defensively owns a canonical index raster plus RGB palette. |
-| INDEX-02 | ✓ SATISFIED | Eager indexed route has bounded preflight, Type-3/8 PLTE framing, independent CRC/wire assertions, generic decode-back, and atomic rejection. |
+### Behavioral Spot-Checks
 
-## Anti-Patterns
+| Behavior | Command | Result | Status |
+| --- | --- | --- | --- |
+| Current main PNG suite on all supported targets | `moon -C modules/mb-image test png --target all --frozen --target-dir D:\source\moonbit-foundation-v019\.moon-phase78-main` | **Not re-run for this metadata refresh.** The Phase 78 independent verification records exit 0 in 187.3 s and `279/279` passing on each of wasm, wasm-gc, js, and native; it also records that the temporary target directory was absent afterwards. | ✓ PASS (recorded independent evidence) |
 
-No `TBD`, `FIXME`, `XXX`, placeholder output, empty handler, or hardcoded user-visible empty-data stub was added by commit `87290a7`.
+### Requirements Coverage
 
-## Verdict
+| Requirement | Source Plan | Description | Status | Evidence |
+| --- | --- | --- | --- |
+| INDEX-01 | `76-01-PLAN.md` | Dedicated immutable Indexed8 PNG source with validated RGB palette and canonical unpacked index raster. | ✓ SATISFIED | Plan declares the requirement; the current owning source and public construction/decode tests above satisfy it. `76-01-SUMMARY.md` now explicitly declares it in `requirements-completed`. |
+| INDEX-02 | `76-01-PLAN.md` | Bounded eager non-interlaced Type-3/8 framing with atomic rejection. | ✓ SATISFIED | Plan declares the requirement; preflight/machine wiring plus independent opaque wire/CRC and admission tests satisfy it. `76-01-SUMMARY.md` now explicitly declares it in `requirements-completed`. |
 
-The implementation and targeted four-target behavior evidence satisfy INDEX-01 and INDEX-02. No missing artifact, broken link, hollow data path, or blocker was found. The complete unfiltered `269/269` suite count remains an unverified executor claim because the local watchdog prevented its final summary; it is not used to support this verdict.
+No Phase 76 requirement is orphaned: both roadmap-mapped IDs appear in the Phase 76 plan and summary metadata.
 
-_Verified: 2026-07-24T00:00:00Z_
+### Anti-Patterns Found
+
+| File | Line | Pattern | Severity | Impact |
+| --- | --- | --- | --- | --- |
+| — | — | No `TBD`, `FIXME`, `XXX`, placeholder, empty implementation, or hard-coded empty-output marker in the five Phase 76 source/test files. | ℹ️ Info | No audit-blocking implementation debt found. |
+
+### Disconfirmation Pass
+
+The plausible false-positive paths were checked explicitly: a constructor that aliases unvalidated caller input (ruled out by validation followed by one `OwnedBytes` copy), an eager API that bypasses bounded preflight (ruled out by the direct `new_with_indexed` link), and a PLTE stub or misplaced frame data (ruled out by exact opaque bytes plus independent CRC/order assertions). The Phase 77 alpha extension and Phase 78 chunk adapter are later-phase changes; they do not replace or disconnect the opaque Phase 76 source-to-eager path.
+
+### Gaps Summary
+
+None. The source, bounded eager wiring, data flow, independent wire/CRC evidence, public RGB8 decode-back, atomic rejection checks, and legacy-layout regression evidence satisfy the Phase 76 goal. This refresh deliberately did not run tests; the all-target result recorded above is the latest independent Phase 78 evidence on `main`, not a new execution claim.
+
+---
+
+_Verified: 2026-07-23T20:13:20Z_
 _Verifier: gsd-verifier_
