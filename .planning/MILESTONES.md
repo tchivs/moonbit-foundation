@@ -1,5 +1,18 @@
 # Project Milestones: MoonBit Native Foundation
 
+## v0.18 GrayAlpha16 Adam7 PNG (Shipped: 2026-07-23)
+
+**Phases completed:** 3 phases, 7 plans, 3 tasks
+
+**Key accomplishments:**
+
+- Explicit eager and caller-buffered GrayAlpha16 Adam7 factories now emit shared-machine Type-4/16 PNG pass data in Ghi/Glo/Ahi/Alo wire order.
+- Public GrayAlpha16 Adam7 selector regressions now prove eager byte identity and caller-buffered parity without expanding the encoder surface.
+- 1. [Rule 1 - Test composition] Replaced aggregate selector loops with static per-selector tests
+- 1. [Rule 1 - Bug] Stored replay drift bypassed the U16 pre-write guard
+
+---
+
 ## v0.17 GrayAlpha16 PNG Interchange (Shipped: 2026-07-23)
 
 **Phases completed:** 3 phases, 4 plans, 8 tasks
