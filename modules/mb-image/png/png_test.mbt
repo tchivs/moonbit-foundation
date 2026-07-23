@@ -143,6 +143,57 @@ test "PNG explicit rgba16 preserves independent all-filter Type-6/16 lanes" {
   }
 }
 
+///| This second RED test demands a different hand-authored, sRGB-declared
+/// 5x5 wire stream whose Adam7 pass order is validated against a full static
+/// per-coordinate RGBA16 byte oracle and frozen generic high-byte behavior.
+test "PNG explicit rgba16 preserves independent all-pass Adam7 lanes" {
+  let source = png_test_rgba16_qualification_adam7_literal()
+  let owner = @bytes.OwnedBytes::from_bytes(source, @budget.Budget::new(@budget.ResourceLimits::new(
+    bytes=source.length().to_uint64(), allocations=1UL, allocation_size=source.length().to_uint64(),
+    width=0UL, height=0UL, pixels=0UL, depth=0UL, work=0UL,
+  ))).unwrap()
+  let explicit = PngDecoder::decode_rgba16(
+    @io.MemoryReader::new(owner.view()) as &@io.Reader,
+    @codec.DecodeOptions::new(require_complete_input=true, preserve_opaque_metadata=false),
+    png_test_rgba16_qualification_limits(), @budget.Budget::new(@budget.ResourceLimits::new(
+      bytes=4096UL, allocations=8UL, allocation_size=1024UL, width=8UL, height=8UL,
+      pixels=64UL, depth=0UL, work=4096UL,
+    )), @error.Diagnostics::new(),
+  ).unwrap().image().view()
+  let expected = png_test_rgba16_qualification_adam7_expected()
+  for y = 0UL; y < 5UL; y = y + 1UL {
+    for x = 0UL; x < 5UL; x = x + 1UL {
+      let offset = (y * 5UL + x) * 8UL
+      for component = 0UL; component < 8UL; component = component + 1UL {
+        inspect(
+          explicit.get_component_byte(x, y, component / 2UL, component % 2UL).unwrap() ==
+            expected.get((offset + component).to_int()).unwrap(),
+          content="true",
+        )
+      }
+    }
+  }
+  let generic = @codec.ImageDecoder::decode(
+    PngDecoder::new(), @io.MemoryReader::new(owner.view()) as &@io.Reader,
+    @codec.DecodeOptions::new(require_complete_input=true, preserve_opaque_metadata=false),
+    png_test_rgba16_qualification_limits(), @budget.Budget::new(@budget.ResourceLimits::new(
+      bytes=4096UL, allocations=8UL, allocation_size=1024UL, width=8UL, height=8UL,
+      pixels=64UL, depth=0UL, work=4096UL,
+    )), @error.Diagnostics::new(),
+  ).unwrap().image().view()
+  for y = 0UL; y < 5UL; y = y + 1UL {
+    for x = 0UL; x < 5UL; x = x + 1UL {
+      let offset = (y * 5UL + x) * 8UL
+      for channel = 0UL; channel < 4UL; channel = channel + 1UL {
+        inspect(
+          generic.get_byte(x, y, channel).unwrap() == expected.get((offset + channel * 2UL + 1UL).to_int()).unwrap(),
+          content="true",
+        )
+      }
+    }
+  }
+}
+
 ///| Adam7 reaches the same final little-endian store as ordinary rows.
 test "PNG explicit rgba16 preserves sRGB Type-6/16 Adam7 lanes" {
   let source = png_test_rgba16_adam7_literal()
