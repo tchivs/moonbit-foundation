@@ -95,11 +95,27 @@ fn _png_rgba16_accept_signature_and_ihdr(
   width : Byte,
   height : Byte,
 ) -> Unit {
-  for byte in [b'\x89', b'P', b'N', b'G', b'\r', b'\n', b'\x1a', b'\n'] { machine.accept(byte).unwrap() }
+  _png_rgba16_try_accept_signature_and_ihdr(machine, bit_depth, colour_type, interlace, width, height).unwrap()
+}
+
+///| Qualification needs to distinguish the established IHDR limit boundary
+/// from the later first-IDAT-owned-resource reservation without changing the
+/// ordinary helper used by existing tests.
+fn _png_rgba16_try_accept_signature_and_ihdr(
+  machine : PngDecodeMachine,
+  bit_depth : Byte,
+  colour_type : Byte,
+  interlace : Byte,
+  width : Byte,
+  height : Byte,
+) -> Result[Unit, @error.CoreError] {
+  for byte in [b'\x89', b'P', b'N', b'G', b'\r', b'\n', b'\x1a', b'\n'] {
+    match machine.accept(byte) { Ok(_) => (); Err(error) => return Err(error) }
+  }
   _png_machine_accept_chunk(
     machine, [b'I', b'H', b'D', b'R'],
     [b'\x00', b'\x00', b'\x00', width, b'\x00', b'\x00', b'\x00', height, bit_depth, colour_type, b'\x00', b'\x00', interlace],
-  ).unwrap()
+  )
 }
 
 ///| Admit just a complete first-IDAT header: profile errors must precede
@@ -180,12 +196,19 @@ fn _png_graya16_set_authenticated_iccp(machine : PngDecodeMachine) -> Unit {
 ///|
 fn _png_machine_accept_chunk(machine : PngDecodeMachine, kind : Array[Byte], payload : Array[Byte]) -> Result[Unit, @error.CoreError] {
   let length = payload.length().to_uint64()
-  for shift in [24, 16, 8, 0] { machine.accept((length >> shift).to_byte()).unwrap() }
-  for byte in kind { machine.accept(byte).unwrap() }
+  for shift in [24, 16, 8, 0] {
+    match machine.accept((length >> shift).to_byte()) { Ok(_) => (); Err(error) => return Err(error) }
+  }
+  for byte in kind { match machine.accept(byte) { Ok(_) => (); Err(error) => return Err(error) } }
   let mut crc = _png_crc_for_type(kind)
-  for byte in payload { crc = _png_crc_step(crc, byte); machine.accept(byte).unwrap() }
+  for byte in payload {
+    crc = _png_crc_step(crc, byte)
+    match machine.accept(byte) { Ok(_) => (); Err(error) => return Err(error) }
+  }
   let stored = crc ^ 4294967295UL
-  for shift in [24, 16, 8, 0] { machine.accept((stored >> shift).to_byte()).unwrap() }
+  for shift in [24, 16, 8, 0] {
+    match machine.accept((stored >> shift).to_byte()) { Ok(_) => (); Err(error) => return Err(error) }
+  }
   Ok(())
 }
 
@@ -458,12 +481,110 @@ test "PNG rgba16 profile admits legal facts and charges eight-byte output layout
   inspect(graya16.has_private_lifecycle(), content="true")
 }
 
+///| Create a narrow Rgba16 machine whose limits and owned-resource envelope
+/// can each be set independently for a first-IDAT-only boundary assertion.
+fn _png_rgba16_qualification_machine(
+  interlace : Byte, width : Byte, height : Byte,
+  max_output : UInt64, max_work : UInt64,
+  bytes : UInt64, resource_width : UInt64, resource_height : UInt64,
+  resource_pixels : UInt64, resource_work : UInt64,
+) -> PngDecodeMachine {
+  PngDecodeMachine::new_with_profile(
+    PngDecodeProfile::Rgba16,
+    @codec.DecodeOptions::new(require_complete_input=true, preserve_opaque_metadata=false),
+    @codec.CodecLimits::new(
+      max_probe_bytes=8UL, max_input_bytes=4096UL, max_output_bytes=max_output,
+      max_width=width.to_uint64(), max_height=height.to_uint64(),
+      max_pixels=width.to_uint64() * height.to_uint64(), max_work=max_work,
+    ),
+    @budget.Budget::new(@budget.ResourceLimits::new(
+      bytes~, allocations=16UL, allocation_size=4096UL,
+      width=resource_width, height=resource_height, pixels=resource_pixels,
+      depth=0UL, work=resource_work,
+    )),
+  )
+}
+
+///| Every rejected first-IDAT preflight remains atomic: no lifecycle/outcome
+/// exists, no compressed payload was offered, and every owned budget remains.
+fn _png_assert_rgba16_qualification_reject(
+  machine : PngDecodeMachine, interlace : Byte, width : Byte, height : Byte,
+  context : String,
+) -> Unit raise {
+  let before = machine.budget.remaining()
+  let error = match _png_rgba16_try_accept_signature_and_ihdr(
+    machine, b'\x10', b'\x06', interlace, width, height,
+  ) {
+    Err(error) => error
+    Ok(_) => _png_rgba16_first_idat_error(machine)
+  }
+  inspect(error.category() == @error.ErrorCategory::Resource, content="true")
+  inspect(error.context() == Some(context), content="true")
+  inspect(machine.has_private_lifecycle(), content="false")
+  inspect(machine.private_lifecycle_allocations() == 0UL, content="true")
+  inspect(machine.has_private_outcome(), content="false")
+  let after = machine.budget.remaining()
+  inspect(
+    before.bytes() == after.bytes() && before.width() == after.width() &&
+      before.height() == after.height() && before.pixels() == after.pixels() &&
+      before.work() == after.work(),
+    content="true",
+  )
+}
+
+///| Exact limits reserve the one eight-byte-per-pixel lifecycle. One unit
+/// below in each output, image, or work envelope fails at the IDAT header.
+fn _png_rgba16_qualification_matrix(
+  interlace : Byte, width : Byte, height : Byte,
+  output : UInt64, bytes : UInt64, work : UInt64,
+) -> Unit raise {
+  let pixels = width.to_uint64() * height.to_uint64()
+  let exact = _png_rgba16_qualification_machine(
+    interlace, width, height, output, work, bytes,
+    width.to_uint64(), height.to_uint64(), pixels, work,
+  )
+  _png_rgba16_accept_signature_and_ihdr(exact, b'\x10', b'\x06', interlace, width, height)
+  for byte in [b'\x00', b'\x00', b'\x00', b'\x00', b'I', b'D', b'A', b'T'] { exact.accept(byte).unwrap() }
+  inspect(exact.has_private_lifecycle(), content="true")
+  inspect(exact.private_lifecycle_allocations() == 1UL, content="true")
+  inspect(exact.has_private_outcome(), content="false")
+
+  _png_assert_rgba16_qualification_reject(
+    _png_rgba16_qualification_machine(interlace, width, height, output - 1UL, work, bytes, width.to_uint64(), height.to_uint64(), pixels, work),
+    interlace, width, height, "output-bytes",
+  )
+  _png_assert_rgba16_qualification_reject(
+    _png_rgba16_qualification_machine(interlace, width, height, output, work, bytes - 1UL, width.to_uint64(), height.to_uint64(), pixels, work),
+    interlace, width, height, "bytes",
+  )
+  _png_assert_rgba16_qualification_reject(
+    _png_rgba16_qualification_machine(interlace, width, height, output, work - 1UL, bytes, width.to_uint64(), height.to_uint64(), pixels, work),
+    interlace, width, height, "work",
+  )
+  _png_assert_rgba16_qualification_reject(
+    _png_rgba16_qualification_machine(interlace, width, height, output, work, bytes, width.to_uint64() - 1UL, height.to_uint64(), pixels, work),
+    interlace, width, height, "width",
+  )
+  _png_assert_rgba16_qualification_reject(
+    _png_rgba16_qualification_machine(interlace, width, height, output, work, bytes, width.to_uint64(), height.to_uint64() - 1UL, pixels, work),
+    interlace, width, height, "height",
+  )
+  _png_assert_rgba16_qualification_reject(
+    _png_rgba16_qualification_machine(interlace, width, height, output, work, bytes, width.to_uint64(), height.to_uint64(), pixels - 1UL, work),
+    interlace, width, height, "pixels",
+  )
+  _png_assert_rgba16_qualification_reject(
+    _png_rgba16_qualification_machine(interlace, width, height, output, work, bytes, width.to_uint64(), height.to_uint64(), pixels, work - 1UL),
+    interlace, width, height, "work",
+  )
+}
+
 ///| The Phase 68 first-IDAT matrix covers independent normal all-filter and
-/// all-pass Adam7 geometries. Its helper will prove exact and one-less output,
-/// geometry, byte-resource, and work envelopes before any IDAT payload byte.
+/// all-pass Adam7 geometries. Codec ceilings reject during authenticated IHDR;
+/// owned-resource one-less cases reject at the first IDAT header, before payload.
 test "PNG rgba16 first-IDAT qualification retains exact one-less boundaries" {
-  _png_rgba16_qualification_matrix(b'\x00', b'\x02', b'\x05', 80UL, 112UL, 85UL)
-  _png_rgba16_qualification_matrix(b'\x01', b'\x05', b'\x05', 200UL, 280UL, 211UL)
+  _png_rgba16_qualification_matrix(b'\x00', b'\x02', b'\x05', 85UL, 112UL, 165UL)
+  _png_rgba16_qualification_matrix(b'\x01', b'\x05', b'\x05', 211UL, 280UL, 411UL)
 }
 
 ///| The public Rgba16 facade retains the shared machine's private lifecycle
