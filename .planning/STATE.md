@@ -5,15 +5,15 @@ milestone_name: GrayAlpha16 Adam7 PNG
 current_phase: 58
 current_phase_name: Portable Adam7 Public Evidence
 status: executing
-stopped_at: Phase 58 context gathered
-last_updated: "2026-07-23T01:11:05.201Z"
+stopped_at: Completed 58-02-PLAN.md
+last_updated: "2026-07-23T01:19:54.894Z"
 last_activity: 2026-07-23
 last_activity_desc: Phase 57 complete, transitioned to Phase 58
 progress:
   total_phases: 3
   completed_phases: 2
   total_plans: 7
-  completed_plans: 4
+  completed_plans: 5
   percent: 67
 ---
 
@@ -55,6 +55,7 @@ Last activity: 2026-07-23 — Phase 57 complete, transitioned to Phase 58
 | Phase 55-portable-public-evidence P01 | 14min | 2 tasks | 2 files |
 | Phase 57 P01 | 45min | 2 tasks | 3 files |
 | Phase 57 P02 | 12min | 2 tasks | 2 files |
+| Phase 58 P02 | 9min | 2 tasks | 1 files |
 
 ## Accumulated Context
 
@@ -84,6 +85,7 @@ Last activity: 2026-07-23 — Phase 57 complete, transitioned to Phase 58
 - [v0.18]: The legal little-endian GrayAlpha16 descriptor boundary remains locked; Big-endian descriptors are rejected before PNG admission.
 - [Phase ?]: GrayAlpha16 Adam7 selector coverage reuses the existing profile-aware bounded machine; all six legal pairs have focused eager/chunk regressions.
 - [Phase ?]: Stored U16 replay drift now fails through the existing pre-write shared PngEncodeMachine guard for Adam7 and non-interlaced paths.
+- [Phase ?]: Phase 58 public chunk evidence uses fresh encoders for every legal GrayAlpha16 Adam7 selector and zero/one/ragged schedule.
 
 ### Pending Todos
 
@@ -125,9 +127,9 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-07-23T00:59:01.738Z
-Stopped at: Phase 58 context gathered
-Resume file: .planning/phases/58-portable-adam7-public-evidence/58-CONTEXT.md
+Last session: 2026-07-23T01:19:54.862Z
+Stopped at: Completed 58-02-PLAN.md
+Resume file: 58-03-PLAN.md
 
 ## Operator Next Steps
 

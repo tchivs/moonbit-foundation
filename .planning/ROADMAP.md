@@ -86,7 +86,11 @@
   2. Fresh zero-capacity, one-byte, and ragged caller-buffer schedules remain eager-byte-identical, report accepted-only progress, preserve untouched lease tails, and retain sticky terminal outcomes.
   3. Frozen non-interlaced and legacy Gray8, Gray16, GrayAlpha8, RGB8, and straight-RGBA8 PNG bytes remain unchanged, and the complete public PNG evidence passes on js, wasm, wasm-gc, and native.
 
-**Plans**: TBD
+**Plans**: 1/3 plans executed
+
+- [ ] 58-01-PLAN.md
+- [x] 58-02-PLAN.md
+- [ ] 58-03-PLAN.md
 
 ## Progress
 
@@ -94,4 +98,4 @@
 |-------|----------------|--------|-----------|
 | 56. GrayAlpha16 Adam7 Factory and Pass Profile | 2/2 | Complete    | 2026-07-23 |
 | 57. Bounded Adam7 Streaming Semantics | 2/2 | Complete    | 2026-07-23 |
-| 58. Portable Adam7 Public Evidence | 0/TBD | Not started | - |
+| 58. Portable Adam7 Public Evidence | 1/3 | In Progress|  |
