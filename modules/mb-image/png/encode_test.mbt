@@ -914,6 +914,43 @@ test "PNG Indexed8 eager emits an RGB palette PNG that generic decode expands" {
   inspect(view.get_byte(1UL, 0UL, 2UL).unwrap() == b'\xc0', content="true")
 }
 
+///|
+test "PNG Indexed8 eager canonical tRNS decodes palette alpha as RGBA8" {
+  let source = PngIndexedImage::new(
+    4UL, 1UL, b"\x00\x01\x02\x03",
+    b"\x12\x34\x56\xa0\xb0\xc0\x11\x22\x33\x44\x55\x66",
+    b"\x00\xff\x80\xff", png_encode_budget(),
+  ).unwrap()
+  let writer = @io.MemoryWriter::new(
+    256UL, png_encode_budget(bytes=256UL, work=0UL),
+  ).unwrap()
+  ignore(PngEncoder::encode_indexed8(
+    PngEncoder::new(), source, writer as &@io.Writer, png_encode_limits(),
+    png_encode_budget(), @error.Diagnostics::new(),
+  ).unwrap())
+  let encoded = png_encode_prefix(writer)
+  let owned = @bytes.OwnedBytes::from_bytes(
+    encoded, png_encode_budget(bytes=256UL, work=0UL),
+  ).unwrap()
+  let decoded = @codec.ImageDecoder::decode(
+    PngDecoder::new(), @io.MemoryReader::new(owned.view()) as &@io.Reader,
+    @codec.DecodeOptions::new(
+      require_complete_input=true, preserve_opaque_metadata=false,
+    ), png_encode_limits(), png_encode_budget(), @error.Diagnostics::new(),
+  ).unwrap()
+  let view = decoded.image().view()
+  inspect(view.format().channels() == @model.ChannelOrder::Rgba, content="true")
+  inspect(view.format().channel_count(), content="4")
+  inspect(view.get_byte(0UL, 0UL, 0UL).unwrap() == b'\x12', content="true")
+  inspect(view.get_byte(0UL, 0UL, 3UL).unwrap() == b'\x00', content="true")
+  inspect(view.get_byte(1UL, 0UL, 0UL).unwrap() == b'\xa0', content="true")
+  inspect(view.get_byte(1UL, 0UL, 3UL).unwrap() == b'\xff', content="true")
+  inspect(view.get_byte(2UL, 0UL, 2UL).unwrap() == b'\x33', content="true")
+  inspect(view.get_byte(2UL, 0UL, 3UL).unwrap() == b'\x80', content="true")
+  inspect(view.get_byte(3UL, 0UL, 2UL).unwrap() == b'\x66', content="true")
+  inspect(view.get_byte(3UL, 0UL, 3UL).unwrap() == b'\xff', content="true")
+}
+
 ///| A test-local CRC-32 oracle; it intentionally does not call PNG helpers.
 fn png_indexed_crc32(value : Bytes, start : Int, length : Int) -> UInt64 {
   let mut crc = 4294967295UL
