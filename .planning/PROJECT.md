@@ -10,12 +10,12 @@ The primary audience is MoonBit library authors and application developers build
 
 MoonBit developers can reuse stable, high-performance native infrastructure contracts instead of rebuilding incompatible foundations for every graphics, document, media, or automation product.
 
-## Current Milestone: v0.18 GrayAlpha16 Adam7 PNG
+## Current Milestone: v0.19 GrayAlpha8 Adam7 PNG
 
-**Goal:** Add explicit bounded Adam7 encoding for legal packed U16 Gray+Alpha images without changing frozen non-interlaced output, descriptor admission, or existing PNG contracts.
+**Goal:** Add explicit bounded Adam7 encoding for legal packed U8 Gray+Alpha images without changing frozen non-interlaced output, descriptor admission, or existing PNG contracts.
 
 **Target features:**
-- Explicit eager and caller-buffered interlaced Type-4/16 GrayAlpha16 factories.
+- Explicit eager and caller-buffered interlaced Type-4/8 GrayAlpha8 factories.
 - Shared bounded Adam7 traversal, filtering, compression planning, atomic preflight, and acknowledgement-safe replay.
 - Public pass-aware wire/decode, hostile-capacity, legacy-compatibility, and four-target evidence.
 
@@ -53,7 +53,7 @@ MoonBit developers can reuse stable, high-performance native infrastructure cont
 
 ### Active
 
-- [ ] Add explicit bounded Adam7 GrayAlpha16 encoding without changing frozen non-interlaced output.
+- [ ] Add explicit bounded Adam7 GrayAlpha8 encoding without changing frozen non-interlaced output.
 - [ ] Revisit high-precision colour and alpha conversion only through an explicit decoder-contract milestone.
 
 ### Out of Scope

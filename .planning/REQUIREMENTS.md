@@ -1,40 +1,31 @@
-# Requirements: v0.18 GrayAlpha16 Adam7 PNG
+# v0.19 Requirements — GrayAlpha8 Adam7 PNG
 
-**Defined:** 2026-07-23
-**Core Value:** MoonBit developers can use the existing U16 Gray+Alpha model for portable, bounded interlaced PNG output without rebuilding a second encoder or weakening frozen non-interlaced contracts.
+## Active Requirements
 
-## v0.18 Requirements
+### Explicit Adam7 factories
 
-### Adam7 Type-4/16 Encoding
+- [ ] **GRAYA8A7-01**: Library users can select explicit eager and caller-buffered Adam7 Type-4/8 PNG factories for legal packed straight-alpha GrayAlpha8 sources; existing non-interlaced factories and bytes remain unchanged.
 
-- [x] **GRAYA16A7-01**: A library user can select explicit eager and caller-buffered Adam7 factories for a legal packed U16 Gray+Alpha image and receive an interlaced PNG with bit depth 16, colour type 4, and pass samples serialized as `Ghi,Glo,Ahi,Alo`.
+### Bounded shared semantics
 
-### Bounded Streaming Semantics
+- [ ] **GRAYA8A7-02**: Every legal None/Adaptive × Stored/FixedOrStored/DynamicOrFixedOrStored GrayAlpha8 Adam7 selection reuses the shared bounded pass traversal, atomic preflight, filtering, compression, and replay path; checked U8 source mutation fails before any further lease write with a zero-write sticky terminal result.
 
-- [x] **GRAYA16A7-02**: GrayAlpha16 Adam7 encoding reuses the shared bounded preflight, pass filtering, Stored/FixedOrStored/DynamicOrFixedOrStored planning, and acknowledgement-safe replay path; incompatible inputs and resource failures remain atomic before output or lease exposure.
+### Public portable proof
 
-### Portable Public Evidence
-
-- [x] **GRAYA16A7-03**: Generated multi-pass GrayAlpha16 Adam7 PNGs prove public pass-aware wire fidelity and documented RGBA8 high-byte decode canonicalization; zero, one-byte, and ragged caller capacities remain eager-byte-identical with accepted-only progress and sticky terminals; frozen non-interlaced and legacy vectors remain unchanged on js, wasm, wasm-gc, and native.
+- [ ] **GRAYA8A7-03**: Public non-symmetric Adam7 Type-4/8 wire/decode vectors, fresh zero/one/ragged caller schedules, frozen non-interlaced/legacy vectors, and the full PNG package pass on js, wasm, wasm-gc, and native.
 
 ## Future Requirements
 
-- **GRAYA16A7-COLOR**: Revisit high-precision colour and alpha conversion only through an explicit decoder-contract milestone.
+- **GRAYA8A7-COLOR**: Revisit colour conversion or decoder-model widening only in a dedicated contract milestone.
 
 ## Out of Scope
 
-- Big-endian GrayAlpha16 descriptor admission, alternate encoder pipelines, image-sized staging, colour conversion, decoder model widening, palette/low-bit formats, native FFI, release automation, registry publication, and copied-source workflows.
+- Big-endian GrayAlpha16 changes, palette/low-bit formats, image-sized staging, alternate encoders, native FFI, release automation, registry publication, target wrappers, and copied-source workflows.
 
 ## Traceability
 
-| Requirement | Phase | Status |
-| --- | --- | --- |
-| GRAYA16A7-01 | Phase 56 | Planned |
-| GRAYA16A7-02 | Phase 57 | Planned |
-| GRAYA16A7-03 | Phase 58 | Planned |
-
-**Coverage:**
-
-- v0.18 requirements: 3 total
-- Mapped to phases: 3
-- Unmapped: 0
+| Requirement | Planned Phase | Status |
+|---|---|---|
+| GRAYA8A7-01 | Phase 59 | Planned |
+| GRAYA8A7-02 | Phase 60 | Planned |
+| GRAYA8A7-03 | Phase 61 | Planned |
