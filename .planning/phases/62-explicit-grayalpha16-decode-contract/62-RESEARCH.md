@@ -180,7 +180,7 @@ match (self.profile, ihdr[9], ihdr[8], ihdr[12], declaration) {
 // Then derive graya16 descriptor/budget and construct the one existing sink.
 ```
 
-Use distinct stable contexts such as `graya16-type-depth`, `graya16-interlace`, and `graya16-colour` if the existing error convention allows separate causes; tests must assert the selected category, code, operation, and context. [VERIFIED: codebase]
+Use the single stable context `graya16-profile` for every structurally valid input outside this explicit profile; tests must assert `Capability`, `CapabilityUnavailable`, operation `png-decode`, and that exact context. [VERIFIED: codebase]
 
 ### Pattern 3: Preserve only after bytewise reconstruction
 
@@ -294,16 +294,13 @@ This matches the existing public Type-4/16 compatibility assertion and prevents 
 
 ## Assumptions Log
 
-| # | Claim | Section | Risk if Wrong |
-|---|-------|---------|---------------|
-| A1 | Separate stable contexts for type/depth, interlace, and colour rejection can be introduced under the existing capability-error convention. | Architecture Patterns | Tests may need to use one shared profile context instead of several. [ASSUMED] |
+All claims in this research are verified or cited; no user confirmation is needed. [VERIFIED: 62-RESEARCH.md]
 
-## Open Questions
+## Resolved Questions
 
-1. **Exact diagnostic context spelling**
-   - What we know: the project has `@codec.capability_unavailable` and typed category/code/context assertions. [VERIFIED: codebase]
-   - What's unclear: no existing `decode_graya16` context names exist. [VERIFIED: codebase]
-   - Recommendation: choose one `graya16-profile` context or the three context names described above during implementation, then lock it in public tests; do not invent a new error type. [ASSUMED]
+1. **Exact diagnostic context spelling — resolved**
+   - Use `graya16-profile` for each structurally valid but unsupported explicit-profile input. [VERIFIED: 62-RESEARCH.md]
+   - The error must use the existing `@codec.capability_unavailable("png-decode", "graya16-profile")` shape; do not introduce a new error type. [VERIFIED: codebase]
 
 ## Environment Availability
 
