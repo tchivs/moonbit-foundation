@@ -1,5 +1,18 @@
 # Project Milestones: MoonBit Native Foundation
 
+## v0.22 RGBA16 PNG Encode (Shipped: 2026-07-23)
+
+**Phases completed:** 4 phases, 4 plans, 6 tasks
+
+**Key accomplishments:**
+
+- Eager PNG encoding now writes checked packed `rgba16` images as non-interlaced Type-6/16 streams while preserving the generic RGB8/RGBA8 encoder contract.
+- Explicit non-interlaced RGBA16 chunk factories now reuse the bounded encoder machine and prove eager parity plus atomic sticky-terminal behavior.
+- Explicit eager and caller-buffered RGBA16 Adam7 selectors now emit legal Type-6/16 PNGs while preserving every packed little-endian source lane.
+- Independent normal Type-6/16 RGBA16 raster qualification, retained Adam7 and hostile public evidence, and a passing four-target PNG package gate.
+
+---
+
 ## v0.21 RGBA16 PNG Decode (Shipped: 2026-07-23)
 
 **Phases completed:** 4 phases, 4 plans, 9 tasks

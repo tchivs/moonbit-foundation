@@ -10,21 +10,15 @@ The primary audience is MoonBit library authors and application developers build
 
 MoonBit developers can reuse stable, high-performance native infrastructure contracts instead of rebuilding incompatible foundations for every graphics, document, media, or automation product.
 
-## Current State: v0.21 RGBA16 PNG Decode Shipped
+## Current State: v0.22 RGBA16 PNG Encode Shipped
 
-**Delivered:** `mb-image` now provides an explicit packed little-endian `rgba16` representation plus eager `PngDecoder::decode_rgba16` and caller-buffered `PngChunkDecoder::new_rgba16` selectors. Legal default/sRGB Type-6/16 input preserves every straight-alpha component as `Rlo,Rhi,Glo,Ghi,Blo,Bhi,Alo,Ahi` on the existing bounded decoder machine; generic eager and chunk decoding remain the frozen `RGBA8(Rhi,Ghi,Bhi,Ahi)` façade.
+**Delivered:** `mb-image` now provides explicit eager and caller-buffered Type-6/16 PNG encoding from checked packed little-endian `rgba16` images. Explicit Adam7 selectors reuse the same bounded encoder machine, preserve every U16 source lane in PNG big-endian wire order, and leave generic RGB8/RGBA8 plus legacy non-interlaced routes unchanged.
 
-**Validated:** Independent all-five-filter and all-seven-pass Adam7 wire literals, hostile metadata/resource/chunk paths, generic compatibility, and exact/one-less allocation bounds are covered. The ordinary PNG package passed 245/245 tests on each of `wasm`, `wasm-gc`, `js`, and `native`; the milestone audit passed all four requirements, phase verifications, integration links, and public flows.
+**Validated:** Independent normal 17-byte and Adam7 211-byte public wire vectors, explicit `decode_rgba16` lane restoration, hostile capability/resource/lease/replay behavior, frozen legacy vectors, and the ordinary PNG package all passed. The package completed 258/258 tests on each of `wasm`, `wasm-gc`, `js`, and `native`; the milestone audit passed all four requirements, phase verifications, integration links, and end-to-end flows.
 
-## Current Milestone: v0.22 RGBA16 PNG Encode
+## Next Milestone
 
-**Goal:** Complete the opt-in high-precision Type-6/16 PNG contract with portable, byte-exact encoding from the checked `rgba16` model, without changing legacy RGB8/RGBA8 output or adding a second encoder.
-
-**Target features:**
-
-- Add explicit eager Type-6/16 encoding with little-endian source to PNG big-endian wire fidelity.
-- Add caller-buffered encoding with eager-identical bytes, atomic admission, and existing sticky lease semantics.
-- Add opt-in Adam7 RGBA16 output and independent portable qualification through the explicit decoder.
+No next capability milestone has been selected. Future scope should start from a concrete consumer need and retain the established code-first policy; release automation and registry work remain deferred unless they directly unblock that work.
 
 ## Requirements
 
@@ -60,12 +54,13 @@ MoonBit developers can reuse stable, high-performance native infrastructure cont
 - [x] Add explicit bounded Adam7 GrayAlpha8 encoding while preserving frozen non-interlaced behavior, shared bounded replay semantics, and four-target public evidence. — Validated in v0.19 Phases 59-61.
 - [x] Provide explicit eager and caller-buffered Type-4/16 GrayAlpha decoding with exact packed-U16 lanes, Adam7/filter fidelity, hostile bounded behavior, frozen generic compatibility, and four-target proof. — Validated in v0.20 Phases 62-64.
 - [x] Provide explicit eager and caller-buffered Type-6/16 RGBA decoding with packed-U16 lane fidelity, profile/resource rejection, frozen generic compatibility, and four-target proof. — Validated in v0.21 Phases 65-68.
+- [x] Provide explicit eager Type-6/16 RGBA encoding from checked packed little-endian images without changing generic RGB8/RGBA8 output. — Validated in v0.22 Phase 69.
+- [x] Provide caller-buffered and Adam7 Type-6/16 RGBA encoding through the existing bounded machine. — Validated in v0.22 Phases 70-71.
+- [x] Prove exact RGBA16 wire/decode fidelity, hostile input and lease handling, frozen compatibility, and four-target portability. — Validated in v0.22 Phase 72.
 
 ### Active
 
-- [ ] Provide explicit eager Type-6/16 PNG encoding from checked packed `rgba16` images.
-- [ ] Provide caller-buffered and Adam7 Type-6/16 encoding while retaining the existing bounded machine and legacy output.
-- [ ] Prove exact wire/decode fidelity, hostile input/lease handling, and all-target compatibility for RGBA16 encoding.
+(Next-milestone requirements have not been selected.)
 
 ### Out of Scope
 
