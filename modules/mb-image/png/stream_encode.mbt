@@ -18,6 +18,23 @@ pub fn PngChunkEncoder::new(
   )
 }
 
+///| Constructs the explicit Indexed8 caller-buffered route: Type-3/8 with the
+///| shared Stored/filter-None/non-interlaced indexed frame machine.
+pub fn PngChunkEncoder::new_indexed8(
+  source : PngIndexedImage,
+  limits : @codec.CodecLimits,
+  budget : @budget.Budget,
+  diagnostics : @error.Diagnostics,
+) -> Result[PngChunkEncoder, @error.CoreError] {
+  let machine = match PngEncodeMachine::new_with_indexed(
+    source, limits, budget, diagnostics,
+  ) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  Ok({ state: PngChunkEncoderState::Active(machine), total_written: 0UL })
+}
+
 ///| Constructs the explicit Gray1 caller-buffered route: one-bit grayscale,
 /// Stored DEFLATE, filter None, and no interlace.
 pub fn PngChunkEncoder::new_gray1(
