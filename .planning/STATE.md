@@ -2,19 +2,19 @@
 gsd_state_version: 1.0
 milestone: v0.26
 milestone_name: Indexed8 Adam7 PNG Encode
-current_phase: 81
-current_phase_name: first of 2; planning
-status: planning
-stopped_at: Phase 81 context gathered
-last_updated: "2026-07-23T22:29:32.196Z"
+current_phase: 82
+current_phase_name: second of 2; planning
+status: ready_for_planning
+stopped_at: Completed 81-01-PLAN.md
+last_updated: "2026-07-23T23:08:42.418Z"
 last_activity: 2026-07-24
 last_activity_desc: Defined v0.26 requirements and roadmap from Indexed8 Adam7 research.
 progress:
   total_phases: 2
-  completed_phases: 0
-  total_plans: 0
-  completed_plans: 0
-  percent: 0
+  completed_phases: 1
+  total_plans: 1
+  completed_plans: 1
+  percent: 50
 ---
 
 # Project State
@@ -25,18 +25,18 @@ See `.planning/PROJECT.md`.
 
 **Core value:** MoonBit developers can reuse stable, high-performance native infrastructure contracts instead of rebuilding incompatible foundations for every graphics, document, media, or automation product.
 
-**Current focus:** Phase 81 — Indexed8 Adam7 Machine and Eager Wire Contract.
+**Current focus:** Phase 82 — Indexed8 Adam7 Streaming and Qualification.
 
 ## Current Position
 
-Phase: 81 (first of 2; planning)
+Phase: 82 (second of 2; planning)
 Plan: —
-Status: v0.26 roadmap ready; Phase 81 is next to plan.
-Last activity: 2026-07-24 — Defined v0.26 requirements and roadmap from Indexed8 Adam7 research.
+Status: Phase 81 implementation complete; Phase 82 is next to plan.
+Last activity: 2026-07-23 — Completed Phase 81 Indexed8 Adam7 machine and eager wire contract.
 
 ## Milestone Metrics
 
-**Current milestone:** v0.26 has 6 scoped requirements mapped exactly once across 2 planned phases; 0/2 phases and 0 plans are complete.
+**Current milestone:** v0.26 has 6 scoped requirements mapped exactly once across 2 planned phases; 1/2 phases and 1 plan are complete.
 
 **Previous milestone:** v0.25 shipped Indexed Type-3/1, /2, and /4 non-interlaced eager/chunk output through the existing machine. Its detailed history is archived at `.planning/milestones/v0.25-ROADMAP.md`.
 
@@ -54,6 +54,8 @@ Last activity: 2026-07-24 — Defined v0.26 requirements and roadmap from Indexe
 - [v0.26]: Indexed8 Adam7 is an additive Type-3/8 Stored/filter-None capability. Existing `encode_indexed8` and `new_indexed8` remain non-interlaced compatibility wrappers.
 - [v0.26]: Reuse `_png_adam7_passes(width, height, 1, 8)` and scalar `PngIndexedImage::index_at` traversal inside the single machine; do not stage a pass/image raster or create a second encoder.
 - [v0.26]: Indexed Type-3/1, /2, and /4 Adam7 remains deferred until packed pass traversal has a separately proven bounded contract.
+- [Phase 81]: Indexed8 Adam7 is opt-in through additive eager and chunk selectors; established Indexed8 and low-bit routes explicitly retain None.
+- [Phase 81]: Preflight and scalar output each consume _png_adam7_passes(width, height, 1UL, 8), without staging or an alternate encoder.
 
 ### Blockers/Concerns
 
@@ -73,10 +75,16 @@ Last activity: 2026-07-24 — Defined v0.26 requirements and roadmap from Indexe
 
 ## Session Continuity
 
-Last session: 2026-07-23T22:29:32.186Z
-Stopped at: Phase 81 context gathered
-Resume file: .planning/phases/81-indexed8-adam7-machine-and-eager-wire-contract/81-CONTEXT.md
+Last session: 2026-07-23T23:08:42.404Z
+Stopped at: Completed 81-01-PLAN.md
+Resume file: None
 
 ## Operator Next Steps
 
-- Plan Phase 81 with the v0.26 research summary and requirements as its contract.
+- Plan Phase 82 around hostile caller-buffered lease schedules and final qualification, retaining Phase 81's sole machine.
+
+## Performance Metrics
+
+| Plan | Duration | Tasks | Files |
+|------|----------|-------|-------|
+| Phase 81-indexed8-adam7-machine-and-eager-wire-contract P01 | 41min | 2 tasks | 5 files |

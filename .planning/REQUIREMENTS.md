@@ -8,10 +8,10 @@
 
 ### Explicit Indexed8 Adam7 output
 
-- [ ] **INDEXADAM7-01**: Library users can explicitly encode a valid `PngIndexedImage` as Type-3/8 Adam7 PNG through additive eager and caller-buffered APIs while legacy `encode_indexed8` and `new_indexed8` retain their non-interlaced signatures and bytes.
-- [ ] **INDEXADAM7-02**: Indexed8 Adam7 traversal derives every nonempty pass row from the checked shared Adam7 geometry and reads canonical source indices directly, without a second encoder or image-sized/pass-sized staging.
-- [ ] **INDEXADAM7-03**: Indexed8 Adam7 output preserves `IHDR → PLTE → optional canonical tRNS → IDAT → IEND` framing and publicly decodes every palette pixel as exact RGB8 or RGBA8.
-- [ ] **INDEXADAM7-04**: Layout-specific scanline, frame, work, output, and budget admission is checked and atomic: exact limits pass, while one-less limits leave eager writers, caller leases, and budgets unchanged.
+- [x] **INDEXADAM7-01**: Library users can explicitly encode a valid `PngIndexedImage` as Type-3/8 Adam7 PNG through additive eager and caller-buffered APIs while legacy `encode_indexed8` and `new_indexed8` retain their non-interlaced signatures and bytes.
+- [x] **INDEXADAM7-02**: Indexed8 Adam7 traversal derives every nonempty pass row from the checked shared Adam7 geometry and reads canonical source indices directly, without a second encoder or image-sized/pass-sized staging.
+- [x] **INDEXADAM7-03**: Indexed8 Adam7 output preserves `IHDR → PLTE → optional canonical tRNS → IDAT → IEND` framing and publicly decodes every palette pixel as exact RGB8 or RGBA8.
+- [x] **INDEXADAM7-04**: Layout-specific scanline, frame, work, output, and budget admission is checked and atomic: exact limits pass, while one-less limits leave eager writers, caller leases, and budgets unchanged.
 
 ### Streaming qualification and portability
 
@@ -36,10 +36,10 @@
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| INDEXADAM7-01 | Phase 81 | Pending |
-| INDEXADAM7-02 | Phase 81 | Pending |
-| INDEXADAM7-03 | Phase 81 | Pending |
-| INDEXADAM7-04 | Phase 81 | Pending |
+| INDEXADAM7-01 | Phase 81 | Complete |
+| INDEXADAM7-02 | Phase 81 | Complete |
+| INDEXADAM7-03 | Phase 81 | Complete |
+| INDEXADAM7-04 | Phase 81 | Complete |
 | INDEXADAM7-05 | Phase 82 | Pending |
 | INDEXADAM7-06 | Phase 82 | Pending |
 
