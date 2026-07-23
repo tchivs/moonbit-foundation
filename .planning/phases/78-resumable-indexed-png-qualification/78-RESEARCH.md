@@ -239,17 +239,15 @@ The existing eager tests already supply both a 89-byte opaque vector and a 112-b
 | A1 | The preferred public spelling is `PngChunkEncoder::new_indexed8`. It is inferred from `PngEncoder::encode_indexed8` and profile factory naming; the context leaves spelling discretionary. | Architecture Patterns / Code Examples | Public API naming could conflict with project convention; planner must confirm before implementation. |
 | A2 | The shown `?`-based MoonBit implementation shape is illustrative rather than syntax-verified in this session. | Architecture Patterns | The executor may need the repository's explicit `match` error-return style instead. |
 
-## Open Questions
+## Open Questions (RESOLVED)
 
 1. **Exact public constructor spelling**
    - What we know: Existing generic explicit profile factories use names such as `new_gray1`, and eager Indexed8 uses `encode_indexed8`. [VERIFIED: codebase inspection]
-   - What's unclear: No Indexed streaming factory exists yet. [VERIFIED: codebase inspection]
-   - Recommendation: Choose `new_indexed8` for direct profile symmetry, with the same four arguments and direct `match` style used by `new_gray1`. [ASSUMED]
+   - Resolution: Use `PngChunkEncoder::new_indexed8(source, limits, budget, diagnostics)`, following `new_gray1`'s direct `match`/`Active` factory shape. This is the Phase 78 public API. [RESOLVED]
 
 2. **Test file split**
    - What we know: `stream_encode_test.mbt` owns hostile leases/lifecycles; `encode_test.mbt` owns independent Indexed wire/CRC/public decode; `encode_wbtest.mbt` owns frame and acknowledgement internals. [VERIFIED: codebase inspection]
-   - What's unclear: Whether one plan or two gives clearer task ownership. [VERIFIED: 78-CONTEXT.md]
-   - Recommendation: Keep production adapter plus lease/atomic/sticky evidence together, and put independent wire/decode/frozen compatibility qualification in a separate test-focused task or plan. [ASSUMED]
+   - Resolution: Task 1 owns the adapter plus lifecycle, lease, terminal, and atomicity tests; Task 2 owns independent public wire/decode and frozen-compatibility qualification. Existing `encode_wbtest.mbt` acknowledgement-CRC coverage remains exercised by the unfiltered ordinary package suite. [RESOLVED]
 
 ## Environment Availability
 
