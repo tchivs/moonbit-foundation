@@ -184,6 +184,7 @@ pub(all) enum PngInterlaceStrategy {
 /// its explicit Stored/non-interlaced factories.
 priv enum PngEncodeProfile {
   LegacyRgbOrRgba
+  Indexed8
   Gray1
   Gray2
   Gray4
@@ -193,6 +194,131 @@ priv enum PngEncodeProfile {
   GrayAlpha16
   Rgba16
 } derive(Eq)
+
+///|
+/// An immutable PNG-only indexed source. Its raster is one unpacked U8 index
+/// per pixel and its palette is a contiguous sequence of RGB triples.
+pub struct PngIndexedImage {
+  priv width_value : UInt64
+  priv height_value : UInt64
+  priv indices_length_value : UInt64
+  priv owned_bytes : @bytes.OwnedBytes
+}
+
+///|
+priv struct PngIndexedBuiltinAllocator {}
+
+///|
+impl @bytes.Allocator for PngIndexedBuiltinAllocator with fn approve(
+  _self,
+  _length,
+) {
+  Ok(())
+}
+
+///|
+/// Validate the complete indexed source before taking the sole defensive copy.
+/// This deliberately does not widen ImageView or ImageFormat with PNG palette
+/// semantics.
+pub fn PngIndexedImage::new(
+  width : UInt64,
+  height : UInt64,
+  indices : Bytes,
+  rgb_palette : Bytes,
+  budget : @budget.Budget,
+) -> Result[PngIndexedImage, @error.CoreError] {
+  match _png_encode_u32(width) {
+    Err(error) => return Err(error)
+    Ok(_) => ()
+  }
+  match _png_encode_u32(height) {
+    Err(error) => return Err(error)
+    Ok(_) => ()
+  }
+  let pixels = match @checked.checked_mul(width, height) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  if indices.length().to_uint64() != pixels {
+    return Err(_png_encode_capability("indexed8-raster-length"))
+  }
+  let palette_length = rgb_palette.length().to_uint64()
+  if palette_length % 3UL != 0UL {
+    return Err(_png_encode_capability("indexed8-rgb-palette"))
+  }
+  let palette_entries = palette_length / 3UL
+  if palette_entries == 0UL || palette_entries > 256UL {
+    return Err(_png_encode_capability("indexed8-palette-count"))
+  }
+  for position = 0; position < indices.length(); position = position + 1 {
+    if indices[position].to_uint64() >= palette_entries {
+      return Err(_png_encode_capability("indexed8-palette-index"))
+    }
+  }
+  let total_length = match @checked.checked_add(pixels, palette_length) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  let allocator = PngIndexedBuiltinAllocator::{  } as &@bytes.Allocator
+  let owned_bytes = match @bytes.OwnedBytes::new_with_allocator_and_charge(
+    total_length, budget, allocator, width, height, pixels, 0UL,
+  ) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  match owned_bytes.with_mut(0UL, total_length, fn(lease) {
+    let mut offset = 0UL
+    for byte in indices {
+      match lease.set(offset, byte) {
+        Err(error) => return Err(error)
+        Ok(_) => offset = offset + 1UL
+      }
+    }
+    for byte in rgb_palette {
+      match lease.set(offset, byte) {
+        Err(error) => return Err(error)
+        Ok(_) => offset = offset + 1UL
+      }
+    }
+    Ok(())
+  }) {
+    Err(error) => return Err(error)
+    Ok(_) => ()
+  }
+  Ok({ width_value: width, height_value: height, indices_length_value: pixels, owned_bytes })
+}
+
+///|
+fn PngIndexedImage::width(self : PngIndexedImage) -> UInt64 {
+  self.width_value
+}
+
+///|
+fn PngIndexedImage::height(self : PngIndexedImage) -> UInt64 {
+  self.height_value
+}
+
+///|
+fn PngIndexedImage::index_at(
+  self : PngIndexedImage,
+  x : UInt64,
+  y : UInt64,
+) -> Result[Byte, @error.CoreError] {
+  self.owned_bytes.view().get(y * self.width_value + x)
+}
+
+///|
+fn PngIndexedImage::palette_length(self : PngIndexedImage) -> UInt64 {
+  self.owned_bytes.length() - self.indices_length_value
+}
+
+///|
+fn PngIndexedImage::palette_byte_at(
+  self : PngIndexedImage,
+  offset : UInt64,
+) -> Result[Byte, @error.CoreError] {
+  self.owned_bytes.view().get(self.indices_length_value + offset)
+}
 
 ///|
 /// A deterministic encoder for the strict RGB8 and straight-RGBA8 PNG profile.

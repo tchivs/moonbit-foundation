@@ -150,6 +150,8 @@ fn _png_encode_source(
     return Err(_png_encode_capability("opaque-metadata-unsupported"))
   }
   let channels = match profile {
+    PngEncodeProfile::Indexed8 =>
+      return Err(_png_encode_capability("indexed8-source-required"))
     PngEncodeProfile::LegacyRgbOrRgba => match format.channels() {
       @model.ChannelOrder::Rgb =>
         if format.component() != @model.ComponentType::U8 {
@@ -280,6 +282,42 @@ priv struct PngEncodePreflight {
   selected_work : UInt64
   adaptive_planning_facts : PngFilteredTraversalFacts
   adaptive_replay_facts : PngFilteredTraversalFacts
+  frame : PngFrameFacts
+}
+
+///| Scalar PNG chunk boundaries. A zero-length PLTE keeps the legacy offsets
+/// numerically identical; Indexed8 supplies the one variable ancillary span.
+priv struct PngFrameFacts {
+  plte_length : UInt64
+  plte_start : UInt64
+  idat_start : UInt64
+  iend_start : UInt64
+  total_length : UInt64
+}
+
+///|
+fn _png_frame_facts(
+  plte_length : UInt64,
+  idat_length : UInt64,
+) -> Result[PngFrameFacts, @error.CoreError] {
+  let plte_start = 33UL
+  let idat_start = if plte_length == 0UL {
+    plte_start
+  } else {
+    match @checked.checked_add(plte_start, 12UL + plte_length) {
+      Err(error) => return Err(error)
+      Ok(value) => value
+    }
+  }
+  let iend_start = match @checked.checked_add(idat_start, 12UL + idat_length) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  let total_length = match @checked.checked_add(iend_start, 12UL) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  Ok({ plte_length, plte_start, idat_start, iend_start, total_length })
 }
 
 ///| The adaptive ledger records executed row selection and residual work.  It
@@ -1932,6 +1970,10 @@ fn _png_encode_preflight_with_filter_layout_idat_limit_profile(
     Err(error) => return Err(error)
     Ok(value) => value
   }
+  let frame = match _png_frame_facts(0UL, idat_length) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
   match budget.charge(@budget.ResourceCharge::new(
     bytes=0UL, allocations=0UL, allocation_size=0UL, width=source.width(),
     height=source.height(), pixels=0UL, work=selected_work,
@@ -1941,7 +1983,112 @@ fn _png_encode_preflight_with_filter_layout_idat_limit_profile(
   }
   Ok({
     profile, channels, row_bytes, scanlines, blocks, idat_length, total_length, plan,
-    disposition, selected_work, adaptive_planning_facts, adaptive_replay_facts,
+    disposition, selected_work, adaptive_planning_facts, adaptive_replay_facts, frame,
+  })
+}
+
+///| Indexed8 has a deliberately fixed Stored/None/non-interlaced admission
+/// path, but uses the same bounded work and one-charge eager ledger as the
+/// existing machine.
+fn _png_indexed_stored_idat_length(
+  scanlines : UInt64,
+) -> Result[(UInt64, UInt64), @error.CoreError] {
+  if scanlines == 0UL {
+    return Err(_png_encode_capability("indexed8-scanlines"))
+  }
+  let blocks = match @checked.checked_add((scanlines - 1UL) / 65535UL, 1UL) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  let payload_and_adler = match @checked.checked_add(scanlines, 6UL) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  let block_headers = match @checked.checked_mul(blocks, 5UL) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  let idat_length = match @checked.checked_add(payload_and_adler, block_headers) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  if idat_length > 4294967295UL {
+    return Err(_png_encode_capability("png-idat-length"))
+  }
+  Ok((blocks, idat_length))
+}
+
+///|
+fn _png_encode_indexed_preflight(
+  source : PngIndexedImage,
+  limits : @codec.CodecLimits,
+  budget : @budget.Budget,
+) -> Result[PngEncodePreflight, @error.CoreError] {
+  let width = source.width()
+  let height = source.height()
+  match _png_encode_u32(width) {
+    Err(error) => return Err(error)
+    Ok(_) => ()
+  }
+  match _png_encode_u32(height) {
+    Err(error) => return Err(error)
+    Ok(_) => ()
+  }
+  let pixels = match @checked.checked_mul(width, height) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  let row_bytes = width
+  let scanline_width = match @checked.checked_add(row_bytes, 1UL) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  let scanlines = match @checked.checked_mul(scanline_width, height) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  let (blocks, idat_length) = match _png_indexed_stored_idat_length(scanlines) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  let frame = match _png_frame_facts(source.palette_length(), idat_length) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  let selected_work = frame.total_length
+  for item in [
+    ("width", width, limits.max_width()),
+    ("height", height, limits.max_height()),
+    ("pixels", pixels, limits.max_pixels()),
+    ("output-bytes", frame.total_length, limits.max_output_bytes()),
+    ("work", selected_work, limits.max_work()),
+  ] {
+    let (context, requested, limit) = item
+    match _png_encode_limit(context, requested, limit) {
+      Err(error) => return Err(error)
+      Ok(_) => ()
+    }
+  }
+  let disposition = match _png_empty_disposition() {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  match budget.charge(@budget.ResourceCharge::new(
+    bytes=0UL, allocations=0UL, allocation_size=0UL, width~, height~,
+    pixels~, work=selected_work,
+  )) {
+    Err(error) => return Err(error)
+    Ok(_) => ()
+  }
+  let traversal = PngFilteredTraversalFacts::{
+    resolved_rows: 0UL, candidate_residuals: 0UL, selected_residuals: 0UL,
+  }
+  Ok({
+    profile: PngEncodeProfile::Indexed8, channels: 1UL, row_bytes, scanlines,
+    blocks, idat_length, total_length: frame.total_length,
+    plan: PngDeflatePlan::Stored({ blocks, idat_length, total_length: frame.total_length }),
+    disposition, selected_work, adaptive_planning_facts: traversal,
+    adaptive_replay_facts: traversal, frame,
   })
 }
 
@@ -1958,6 +2105,51 @@ pub impl @codec.ImageEncoder for PngEncoder with fn encode(
   let machine = match PngEncodeMachine::new_with_profile(
     source, _self.profile, _self.strategy, _self.filter_strategy,
     _self.interlace_strategy, limits, budget, _diagnostics,
+  ) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  while true {
+    let byte = match machine.present() {
+      Err(error) => return Err(error)
+      Ok(None) => break
+      Ok(Some(value)) => value
+    }
+    let owner = match @bytes.OwnedBytes::from_bytes(
+      Bytes::from_array([byte]), _png_private_budget(1UL),
+    ) {
+      Err(error) => return Err(error)
+      Ok(value) => value
+    }
+    match writer.write(owner.view()) {
+      @io.WriteOutcome::Progress(1UL) => ()
+      @io.WriteOutcome::Progress(progress) => {
+        return Err(_png_encode_invalid_writer_progress(progress))
+      }
+      @io.WriteOutcome::Failed(error, _) => return Err(error)
+    }
+    match machine.acknowledge(byte) {
+      Err(error) => return Err(error)
+      Ok(_) => ()
+    }
+  }
+  Ok(@codec.EncodeResult::new(machine.disposition(), machine.completed()))
+}
+
+///| Eagerly encode an immutable PNG-only Indexed8 source. This entry point is
+/// intentionally outside ImageEncoder because ImageView has no palette/index
+/// contract. Its wire profile is fixed to Type-3/8, RGB PLTE, Stored, None,
+/// and non-interlaced output.
+pub fn PngEncoder::encode_indexed8(
+  _self : PngEncoder,
+  source : PngIndexedImage,
+  writer : &@io.Writer,
+  limits : @codec.CodecLimits,
+  budget : @budget.Budget,
+  diagnostics : @error.Diagnostics,
+) -> Result[@codec.EncodeResult, @error.CoreError] {
+  let machine = match PngEncodeMachine::new_with_indexed(
+    source, limits, budget, diagnostics,
   ) {
     Err(error) => return Err(error)
     Ok(value) => value

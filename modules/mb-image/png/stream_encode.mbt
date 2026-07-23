@@ -690,7 +690,8 @@ pub fn PngChunkEncoder::pull(
 /// Adaptive uses bounded method-0 row selection and replay cursors. A 32 KiB dictionary,
 /// FFI codec, host adapters, and output-sized staging remain excluded.
 priv struct PngEncodeMachine {
-  source : @storage.ImageView
+  source : @storage.ImageView?
+  indexed_source : PngIndexedImage?
   profile : PngEncodeProfile
   strategy : PngCompressionStrategy
   filter_strategy : PngFilterStrategy
@@ -702,6 +703,7 @@ priv struct PngEncodeMachine {
   scanlines : UInt64
   blocks : UInt64
   idat_length : UInt64
+  frame : PngFrameFacts
   total_length_value : UInt64
   source_revision : UInt64
   plan : PngDeflatePlan
@@ -715,6 +717,7 @@ priv struct PngEncodeMachine {
   mut fixed_state : PngFixedState?
   mut dynamic_state : PngDynamicState?
   mut ihdr_crc : UInt64
+  mut plte_crc : UInt64
   mut idat_crc : UInt64
   mut adler : UInt64
   mut finished : Bool
@@ -835,7 +838,8 @@ fn PngEncodeMachine::new_with_profile(
     Ok(value) => value
   }
   Ok({
-    source,
+    source: Some(source),
+    indexed_source: None,
     profile: facts.profile,
     strategy,
     filter_strategy,
@@ -847,6 +851,7 @@ fn PngEncodeMachine::new_with_profile(
     scanlines: facts.scanlines,
     blocks: facts.blocks,
     idat_length: facts.idat_length,
+    frame: facts.frame,
     total_length_value: facts.total_length,
     source_revision: source.mutation_revision(),
     plan: facts.plan,
@@ -893,8 +898,42 @@ fn PngEncodeMachine::new_with_profile(
       _ => None
     },
     ihdr_crc: _png_crc_for_type([b'I', b'H', b'D', b'R']),
+    plte_crc: _png_crc_for_type([b'P', b'L', b'T', b'E']),
     idat_crc: _png_crc_for_type([b'I', b'D', b'A', b'T']),
     adler: 1UL,
+    finished: false,
+  })
+}
+
+///| Indexed8 reuses the same pending-byte machine but supplies its immutable
+/// index raster directly and fixes the only admitted wire profile.
+fn PngEncodeMachine::new_with_indexed(
+  source : PngIndexedImage,
+  limits : @codec.CodecLimits,
+  budget : @budget.Budget,
+  _diagnostics : @error.Diagnostics,
+) -> Result[PngEncodeMachine, @error.CoreError] {
+  let facts = match _png_encode_indexed_preflight(source, limits, budget) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  Ok({
+    source: None,
+    indexed_source: Some(source),
+    profile: facts.profile,
+    strategy: PngCompressionStrategy::Stored,
+    filter_strategy: PngFilterStrategy::None,
+    interlace_strategy: PngInterlaceStrategy::None,
+    width: source.width(), height: source.height(), channels: facts.channels,
+    row_bytes: facts.row_bytes, scanlines: facts.scanlines, blocks: facts.blocks,
+    idat_length: facts.idat_length, frame: facts.frame,
+    total_length_value: facts.total_length, source_revision: 0UL, plan: facts.plan,
+    disposition: facts.disposition, emitted: 0UL, pending: None,
+    pending_stored: None, pending_fixed: None, pending_dynamic: None,
+    stored_cursor: None, fixed_state: None, dynamic_state: None,
+    ihdr_crc: _png_crc_for_type([b'I', b'H', b'D', b'R']),
+    plte_crc: _png_crc_for_type([b'P', b'L', b'T', b'E']),
+    idat_crc: _png_crc_for_type([b'I', b'D', b'A', b'T']), adler: 1UL,
     finished: false,
   })
 }
@@ -924,8 +963,23 @@ fn PngEncodeMachine::scanline_byte(
   self : PngEncodeMachine,
   index : UInt64,
 ) -> Result[Byte, @error.CoreError] {
+  match self.indexed_source {
+    Some(source) => {
+      let row_width = self.row_bytes + 1UL
+      let in_row = index % row_width
+      if in_row == 0UL {
+        return Ok(b'\x00')
+      }
+      return source.index_at(in_row - 1UL, index / row_width)
+    }
+    None => ()
+  }
+  let source = match self.source {
+    Some(value) => value
+    None => return Err(_png_encode_machine_state_error("png-encode-source"))
+  }
   _png_filtered_scanline_byte(
-    self.source, self.profile, self.row_bytes, self.channels, self.filter_strategy, index,
+    source, self.profile, self.row_bytes, self.channels, self.filter_strategy, index,
   )
 }
 
@@ -1000,7 +1054,11 @@ fn _png_fixed_put_bits(
 fn PngEncodeMachine::validate_replay_revision(
   self : PngEncodeMachine,
 ) -> Result[Unit, @error.CoreError] {
-  if self.source.mutation_revision() == self.source_revision { return Ok(()) }
+  let source = match self.source {
+    None => return Ok(())
+    Some(value) => value
+  }
+  if source.mutation_revision() == self.source_revision { return Ok(()) }
   match self.plan {
     PngDeflatePlan::Fixed(_) =>
       Err(_png_encode_machine_state_error("png-encode-fixed-replay-drift"))
@@ -1051,7 +1109,7 @@ fn PngEncodeMachine::fixed_preview_byte(
           (length, distance, work)
         }
         None => match _png_fixed_match_at(
-          self.source, self.profile, self.row_bytes, self.channels, self.scanlines, raw_cursor,
+          self.source.unwrap(), self.profile, self.row_bytes, self.channels, self.scanlines, raw_cursor,
         ) { Err(error) => return Err(error); Ok(value) => value }
       }
       matcher_work = match _png_fixed_add(matcher_work, work) {
@@ -1090,7 +1148,7 @@ fn PngEncodeMachine::fixed_preview_byte(
               value
             }
             None => match _png_fixed_scanline_byte(
-              self.source, self.profile, self.row_bytes, self.channels, raw_cursor + index,
+              self.source.unwrap(), self.profile, self.row_bytes, self.channels, raw_cursor + index,
             ) { Err(error) => return Err(error); Ok(value) => value }
           }
           adler = _png_adler_step(adler, byte)
@@ -1108,7 +1166,7 @@ fn PngEncodeMachine::fixed_preview_byte(
             value
           }
           None => match _png_fixed_scanline_byte(
-            self.source, self.profile, self.row_bytes, self.channels, raw_cursor,
+            self.source.unwrap(), self.profile, self.row_bytes, self.channels, raw_cursor,
           ) { Err(error) => return Err(error); Ok(value) => value }
         }
         let (code, code_bits) = _png_fixed_literal_code(byte.to_uint64())
@@ -1252,7 +1310,7 @@ fn PngEncodeMachine::dynamic_preview_byte(
             (length, distance, work)
           }
           None => match _png_fixed_match_at(
-            self.source, self.profile, self.row_bytes, self.channels, self.scanlines, raw_cursor,
+            self.source.unwrap(), self.profile, self.row_bytes, self.channels, self.scanlines, raw_cursor,
           ) { Err(error) => return Err(error); Ok(value) => value }
         }
         matcher_work = match _png_fixed_add(matcher_work, work) { Err(error) => return Err(error); Ok(value) => value }
@@ -1276,7 +1334,7 @@ fn PngEncodeMachine::dynamic_preview_byte(
                 value
               }
               None => match _png_fixed_scanline_byte(
-                self.source, self.profile, self.row_bytes, self.channels, raw_cursor + index,
+                self.source.unwrap(), self.profile, self.row_bytes, self.channels, raw_cursor + index,
               ) { Err(error) => return Err(error); Ok(value) => value }
             }
             adler = _png_adler_step(adler, byte)
@@ -1292,7 +1350,7 @@ fn PngEncodeMachine::dynamic_preview_byte(
               value
             }
             None => match _png_fixed_scanline_byte(
-              self.source, self.profile, self.row_bytes, self.channels, raw_cursor,
+              self.source.unwrap(), self.profile, self.row_bytes, self.channels, raw_cursor,
             ) { Err(error) => return Err(error); Ok(value) => value }
           }
           let (next_value, next_count) = _png_dynamic_put_code(bit_value, bit_count, plan.literals, byte.to_int())
@@ -1353,6 +1411,7 @@ fn PngEncodeMachine::byte_at(
     if payload < 4UL { return Ok(_png_encode_machine_u32_byte(self.width, payload)) }
     if payload < 8UL { return Ok(_png_encode_machine_u32_byte(self.height, payload - 4UL)) }
     let colour_type = match self.profile {
+      PngEncodeProfile::Indexed8 => b'\x03'
       PngEncodeProfile::Gray1 | PngEncodeProfile::Gray2 | PngEncodeProfile::Gray4 |
       PngEncodeProfile::Gray8 | PngEncodeProfile::Gray16 => b'\x00'
       PngEncodeProfile::GrayAlpha8 | PngEncodeProfile::GrayAlpha16 => b'\x04'
@@ -1366,15 +1425,33 @@ fn PngEncodeMachine::byte_at(
     return Ok([bit_depth, colour_type, b'\x00', b'\x00', if self.interlace_strategy == PngInterlaceStrategy::Adam7 { b'\x01' } else { b'\x00' }][(payload - 8UL).to_int()])
   }
   if offset < 33UL { return Ok(_png_encode_machine_u32_byte(self.ihdr_crc ^ 4294967295UL, offset - 29UL)) }
-  if offset < 37UL { return Ok(_png_encode_machine_u32_byte(self.idat_length, offset - 33UL)) }
-  if offset < 41UL { return Ok([b'I', b'D', b'A', b'T'][(offset - 37UL).to_int()]) }
-  if offset < 41UL + self.idat_length {
-    return self.zlib_byte(offset - 41UL)
+  if self.frame.plte_length > 0UL && offset < self.frame.idat_start {
+    let plte = offset - self.frame.plte_start
+    if plte < 4UL {
+      return Ok(_png_encode_machine_u32_byte(self.frame.plte_length, plte))
+    }
+    if plte < 8UL { return Ok([b'P', b'L', b'T', b'E'][(plte - 4UL).to_int()]) }
+    if plte < 8UL + self.frame.plte_length {
+      let source = match self.indexed_source {
+        Some(value) => value
+        None => return Err(_png_encode_machine_state_error("png-encode-palette"))
+      }
+      return source.palette_byte_at(plte - 8UL)
+    }
+    return Ok(_png_encode_machine_u32_byte(
+      self.plte_crc ^ 4294967295UL, plte - 8UL - self.frame.plte_length,
+    ))
   }
-  if offset < 45UL + self.idat_length {
-    return Ok(_png_encode_machine_u32_byte(self.idat_crc ^ 4294967295UL, offset - 41UL - self.idat_length))
+  let idat = offset - self.frame.idat_start
+  if idat < 4UL { return Ok(_png_encode_machine_u32_byte(self.idat_length, idat)) }
+  if idat < 8UL { return Ok([b'I', b'D', b'A', b'T'][(idat - 4UL).to_int()]) }
+  if idat < 8UL + self.idat_length { return self.zlib_byte(idat - 8UL) }
+  if idat < 12UL + self.idat_length {
+    return Ok(_png_encode_machine_u32_byte(
+      self.idat_crc ^ 4294967295UL, idat - 8UL - self.idat_length,
+    ))
   }
-  let iend = offset - 45UL - self.idat_length
+  let iend = offset - self.frame.iend_start
   if iend < 4UL { return Ok(b'\x00') }
   if iend < 8UL { return Ok([b'I', b'E', b'N', b'D'][(iend - 4UL).to_int()]) }
   if iend < 12UL { return Ok(_png_encode_machine_u32_byte(_png_crc_for_type([b'I', b'E', b'N', b'D']) ^ 4294967295UL, iend - 8UL)) }
@@ -1417,9 +1494,15 @@ fn PngEncodeMachine::acknowledge(
   if offset >= 16UL && offset < 29UL {
     self.ihdr_crc = _png_crc_step(self.ihdr_crc, accepted)
   }
-  if offset >= 41UL && offset < 41UL + self.idat_length {
+  if self.frame.plte_length > 0UL &&
+    offset >= self.frame.plte_start + 8UL &&
+    offset < self.frame.plte_start + 8UL + self.frame.plte_length {
+    self.plte_crc = _png_crc_step(self.plte_crc, accepted)
+  }
+  if offset >= self.frame.idat_start + 8UL &&
+    offset < self.frame.idat_start + 8UL + self.idat_length {
     self.idat_crc = _png_crc_step(self.idat_crc, accepted)
-    let zlib_offset = offset - 41UL
+    let zlib_offset = offset - self.frame.idat_start - 8UL
     match self.plan {
       PngDeflatePlan::Stored(_) => {
         let stored_end = self.idat_length - 4UL

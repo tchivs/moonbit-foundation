@@ -10,6 +10,14 @@ fn png_encode_budget(
 }
 
 ///|
+fn png_encode_zero_pixels_budget() -> @budget.Budget {
+  @budget.Budget::new(@budget.ResourceLimits::new(
+    bytes=512UL, allocations=8UL, allocation_size=512UL, width=64UL,
+    height=64UL, pixels=0UL, depth=0UL, work=1024UL,
+  ))
+}
+
+///|
 fn png_encode_limits(
   output? : UInt64 = 512UL,
   work? : UInt64 = 1024UL,
@@ -873,6 +881,180 @@ fn png_adam7_same_remaining(
     left.pixels() == right.pixels() &&
     left.depth() == right.depth() &&
     left.work() == right.work()
+}
+
+///|
+test "PNG Indexed8 eager emits an RGB palette PNG that generic decode expands" {
+  let source = PngIndexedImage::new(
+    2UL, 1UL, b"\x00\x01", b"\x12\x34\x56\xa0\xb0\xc0",
+    png_encode_budget(),
+  ).unwrap()
+  let writer = @io.MemoryWriter::new(
+    128UL, png_encode_budget(bytes=128UL, work=0UL),
+  ).unwrap()
+  ignore(PngEncoder::encode_indexed8(
+    PngEncoder::new(), source, writer as &@io.Writer, png_encode_limits(),
+    png_encode_budget(), @error.Diagnostics::new(),
+  ).unwrap())
+  let encoded = png_encode_prefix(writer)
+  inspect(encoded[25] == b'\x03', content="true")
+  let owned = @bytes.OwnedBytes::from_bytes(
+    encoded, png_encode_budget(bytes=128UL, work=0UL),
+  ).unwrap()
+  let decoded = @codec.ImageDecoder::decode(
+    PngDecoder::new(), @io.MemoryReader::new(owned.view()) as &@io.Reader,
+    @codec.DecodeOptions::new(
+      require_complete_input=true, preserve_opaque_metadata=false,
+    ), png_encode_limits(), png_encode_budget(), @error.Diagnostics::new(),
+  ).unwrap()
+  let view = decoded.image().view()
+  inspect(view.get_byte(0UL, 0UL, 0UL).unwrap() == b'\x12', content="true")
+  inspect(view.get_byte(0UL, 0UL, 2UL).unwrap() == b'\x56', content="true")
+  inspect(view.get_byte(1UL, 0UL, 0UL).unwrap() == b'\xa0', content="true")
+  inspect(view.get_byte(1UL, 0UL, 2UL).unwrap() == b'\xc0', content="true")
+}
+
+///| A test-local CRC-32 oracle; it intentionally does not call PNG helpers.
+fn png_indexed_crc32(value : Bytes, start : Int, length : Int) -> UInt64 {
+  let mut crc = 4294967295UL
+  for index = 0; index < length; index = index + 1 {
+    crc = crc ^ value[start + index].to_uint64()
+    for bit = 0; bit < 8; bit = bit + 1 {
+      crc = if (crc & 1UL) == 1UL {
+        (crc >> 1) ^ 3988292384UL
+      } else {
+        crc >> 1
+      }
+    }
+  }
+  crc ^ 4294967295UL
+}
+
+///|
+fn png_indexed_u32(value : Bytes, start : Int) -> UInt64 {
+  (value[start].to_uint64() << 24) |
+    (value[start + 1].to_uint64() << 16) |
+    (value[start + 2].to_uint64() << 8) |
+    value[start + 3].to_uint64()
+}
+
+///|
+fn png_indexed_slice(value : Bytes, start : Int, length : Int) -> Bytes {
+  let result : Array[Byte] = []
+  for index = 0; index < length; index = index + 1 {
+    result.push(value[start + index])
+  }
+  Bytes::from_array(result)
+}
+
+///|
+test "PNG Indexed8 wire order CRCs and Stored scanlines are exact" {
+  let source = PngIndexedImage::new(
+    2UL, 1UL, b"\x00\x01", b"\x12\x34\x56\xa0\xb0\xc0",
+    png_encode_budget(),
+  ).unwrap()
+  let writer = @io.MemoryWriter::new(
+    128UL, png_encode_budget(bytes=128UL, work=0UL),
+  ).unwrap()
+  ignore(PngEncoder::encode_indexed8(
+    PngEncoder::new(), source, writer as &@io.Writer, png_encode_limits(),
+    png_encode_budget(), @error.Diagnostics::new(),
+  ).unwrap())
+  let bytes = png_encode_prefix(writer)
+  inspect(bytes.length(), content="89")
+  inspect(png_indexed_slice(bytes, 0, 8) == b"\x89PNG\r\n\x1a\n", content="true")
+  inspect(png_indexed_u32(bytes, 8) == 13UL, content="true")
+  inspect(png_indexed_slice(bytes, 12, 4) == b"IHDR", content="true")
+  inspect(png_indexed_u32(bytes, 16) == 2UL, content="true")
+  inspect(png_indexed_u32(bytes, 20) == 1UL, content="true")
+  inspect(bytes[24] == b'\x08' && bytes[25] == b'\x03', content="true")
+  inspect(bytes[26] == b'\x00' && bytes[27] == b'\x00' && bytes[28] == b'\x00', content="true")
+  inspect(png_indexed_crc32(bytes, 12, 17) == png_indexed_u32(bytes, 29), content="true")
+  inspect(png_indexed_u32(bytes, 33) == 6UL, content="true")
+  inspect(png_indexed_slice(bytes, 37, 4) == b"PLTE", content="true")
+  inspect(png_indexed_slice(bytes, 41, 6) == b"\x12\x34\x56\xa0\xb0\xc0", content="true")
+  inspect(png_indexed_crc32(bytes, 37, 10) == png_indexed_u32(bytes, 47), content="true")
+  inspect(png_indexed_u32(bytes, 51) == 14UL && png_indexed_slice(bytes, 55, 4) == b"IDAT", content="true")
+  inspect(png_indexed_slice(bytes, 59, 10) == b"\x78\x01\x01\x03\x00\xfc\xff\x00\x00\x01", content="true")
+  inspect(png_indexed_crc32(bytes, 55, 18) == png_indexed_u32(bytes, 73), content="true")
+  inspect(png_indexed_u32(bytes, 77) == 0UL && png_indexed_slice(bytes, 81, 4) == b"IEND", content="true")
+  inspect(png_indexed_crc32(bytes, 81, 4) == png_indexed_u32(bytes, 85), content="true")
+}
+
+///|
+test "PNG Indexed8 source and eager admissions are atomic" {
+  let source_budget = png_encode_budget()
+  let before_source = source_budget.remaining()
+  inspect(PngIndexedImage::new(
+    0UL, 1UL, b"", b"\x12\x34\x56", source_budget,
+  ) is Err(_), content="true")
+  inspect(PngIndexedImage::new(
+    1UL, 0UL, b"", b"\x12\x34\x56", source_budget,
+  ) is Err(_), content="true")
+  inspect(png_adam7_same_remaining(before_source, source_budget.remaining()), content="true")
+  inspect(PngIndexedImage::new(
+    1UL, 1UL, b"\x00", b"\x12\x34", source_budget,
+  ) is Err(_), content="true")
+  inspect(png_adam7_same_remaining(before_source, source_budget.remaining()), content="true")
+  inspect(PngIndexedImage::new(
+    1UL, 1UL, b"\x01", b"\x12\x34\x56", png_encode_budget(),
+  ) is Err(_), content="true")
+  let zero_source_pixels = png_encode_zero_pixels_budget()
+  let before_zero_source_pixels = zero_source_pixels.remaining()
+  inspect(PngIndexedImage::new(
+    1UL, 1UL, b"\x00", b"\x12\x34\x56", zero_source_pixels,
+  ) is Err(_), content="true")
+  inspect(
+    png_adam7_same_remaining(
+      before_zero_source_pixels, zero_source_pixels.remaining(),
+    ),
+    content="true",
+  )
+  let compact_budget = png_encode_budget(bytes=8UL, work=0UL)
+  ignore(PngIndexedImage::new(
+    2UL, 1UL, b"\x00\x01", b"\x12\x34\x56\xa0\xb0\xc0", compact_budget,
+  ).unwrap())
+  inspect(compact_budget.remaining().bytes(), content="0")
+  inspect(compact_budget.remaining().allocations(), content="7")
+  let source = PngIndexedImage::new(
+    2UL, 1UL, b"\x00\x01", b"\x12\x34\x56\xa0\xb0\xc0",
+    png_encode_budget(),
+  ).unwrap()
+  let limited = @io.MemoryWriter::new(
+    128UL, png_encode_budget(bytes=128UL, work=0UL),
+  ).unwrap()
+  inspect(PngEncoder::encode_indexed8(
+    PngEncoder::new(), source, limited as &@io.Writer, png_encode_limits(output=88UL),
+    png_encode_budget(), @error.Diagnostics::new(),
+  ) is Err(_), content="true")
+  inspect(limited.position(), content="0")
+  let work_budget = png_encode_budget(work=88UL)
+  let before_work = work_budget.remaining()
+  let restricted = @io.MemoryWriter::new(
+    128UL, png_encode_budget(bytes=128UL, work=0UL),
+  ).unwrap()
+  inspect(PngEncoder::encode_indexed8(
+    PngEncoder::new(), source, restricted as &@io.Writer, png_encode_limits(),
+    work_budget, @error.Diagnostics::new(),
+  ) is Err(_), content="true")
+  inspect(restricted.position(), content="0")
+  inspect(png_adam7_same_remaining(before_work, work_budget.remaining()), content="true")
+  let zero_encode_pixels = png_encode_zero_pixels_budget()
+  let before_zero_encode_pixels = zero_encode_pixels.remaining()
+  let pixels_restricted = @io.MemoryWriter::new(
+    128UL, png_encode_budget(bytes=128UL, work=0UL),
+  ).unwrap()
+  inspect(PngEncoder::encode_indexed8(
+    PngEncoder::new(), source, pixels_restricted as &@io.Writer, png_encode_limits(),
+    zero_encode_pixels, @error.Diagnostics::new(),
+  ) is Err(_), content="true")
+  inspect(pixels_restricted.position(), content="0")
+  inspect(
+    png_adam7_same_remaining(
+      before_zero_encode_pixels, zero_encode_pixels.remaining(),
+    ),
+    content="true",
+  )
 }
 
 ///| A compact multi-pass source whose component at `(x, y, channel)` is its

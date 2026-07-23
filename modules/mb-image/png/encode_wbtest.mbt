@@ -1086,3 +1086,43 @@ test "PNG dynamic selected work boundary charges once" {
     content="true",
   )
 }
+
+///|
+test "PNG Indexed8 frame facts shift PLTE while zero-PLTE offsets remain frozen" {
+  let indexed = PngIndexedImage::new(
+    2UL, 1UL, b"\x00\x01", b"\x12\x34\x56\xa0\xb0\xc0",
+    png_wb_budget(bytes=64UL, work=0UL),
+  ).unwrap()
+  let indexed_facts = _png_encode_indexed_preflight(
+    indexed, png_wb_limits(), png_wb_budget(work=1024UL),
+  ).unwrap()
+  inspect(indexed_facts.frame.plte_length, content="6")
+  inspect(indexed_facts.frame.plte_start, content="33")
+  inspect(indexed_facts.frame.idat_start, content="51")
+  inspect(indexed_facts.frame.iend_start, content="77")
+  inspect(indexed_facts.frame.total_length, content="89")
+  let machine = PngEncodeMachine::new_with_indexed(
+    indexed, png_wb_limits(), png_wb_budget(work=1024UL), @error.Diagnostics::new(),
+  ).unwrap()
+  while machine.completed() < 47UL {
+    let byte = machine.present().unwrap().unwrap()
+    machine.acknowledge(byte).unwrap()
+  }
+  inspect(machine.present().unwrap().unwrap() == b'\xf7', content="true")
+  let legacy = _png_encode_preflight(
+    png_wb_image(3UL, b"\x12\x34\x56").view(), PngCompressionStrategy::Stored,
+    png_wb_limits(), png_wb_budget(work=1024UL),
+  ).unwrap()
+  inspect(legacy.frame.plte_length, content="0")
+  inspect(legacy.frame.idat_start, content="33")
+  inspect(legacy.frame.iend_start, content="60")
+  inspect(legacy.frame.total_length, content="72")
+}
+
+///|
+test "PNG Indexed8 preflight rejects empty scanlines and oversized IDAT" {
+  inspect(_png_indexed_stored_idat_length(0UL) is Err(_), content="true")
+  inspect(
+    _png_indexed_stored_idat_length(4294967295UL) is Err(_), content="true",
+  )
+}
