@@ -148,6 +148,41 @@ fn png_wb_adaptive_rgb_image() -> @storage.OwnedImage {
   image
 }
 
+///| A legal little-endian four-byte GrayAlpha16 source makes the profile-aware
+/// Adam7 cursor's filter history and U16 wire lanes independently observable.
+fn png_wb_graya16_adam7_image() -> @storage.OwnedImage {
+  let descriptor = @model.ImageDescriptor::new(
+    5UL, 5UL, @model.ImageFormat::graya16(),
+    [@model.PlaneDescriptor::new(0UL, 100UL, 20UL, 20UL, 1UL, 1UL, 5UL, 5UL).unwrap()],
+    100UL,
+    @model.ImageMetadata::new(
+      @color.ColorSpaceIdentity::Srgb, @color.TransferIdentity::EncodedSrgb,
+      Some(@color.AlphaMode::Straight), @profile.ProfileIdentity::builtin_srgb(),
+      @model.Orientation::TopLeft,
+      @metadata.OpaqueMetadata::from_entries(
+        [], @metadata.MetadataLimits::new(
+          max_entries=1UL, max_token_bytes=16UL, max_value_bytes=1UL,
+          max_total_bytes=32UL, max_disposition_fields=4UL,
+        ), png_wb_budget(bytes=0UL, work=0UL),
+      ).unwrap(),
+    ),
+  ).unwrap()
+  let image = @storage.OwnedImage::new(descriptor, png_wb_budget(bytes=100UL, work=0UL)).unwrap()
+  image.with_mut_view(fn(view) {
+    for y = 0UL; y < 5UL; y = y + 1UL {
+      for x = 0UL; x < 5UL; x = x + 1UL {
+        let sample = y * 5UL + x
+        view.set_component_byte(x, y, 0UL, 0UL, sample.to_byte()).unwrap()
+        view.set_component_byte(x, y, 0UL, 1UL, (b'\x80'.to_uint64() + sample).to_byte()).unwrap()
+        view.set_component_byte(x, y, 1UL, 0UL, (b'\x40'.to_uint64() + sample).to_byte()).unwrap()
+        view.set_component_byte(x, y, 1UL, 1UL, (b'\xc0'.to_uint64() + sample).to_byte()).unwrap()
+      }
+    }
+    Ok(())
+  }).unwrap()
+  image
+}
+
 ///|
 ///| PNGF-02/03: admission records actual adaptive forward traversals rather
 /// than a copied two-sweep formula.  The helper deliberately uses the facts
@@ -334,6 +369,60 @@ test "PNG Adam7 Adaptive resets pass history and retains exact atomic admission"
         png_wb_limits(), one_less,
       ).unwrap_err()
       inspect(error.context() == Some("work") && png_wb_same_remaining(before, one_less.remaining()), content="true")
+  }
+}
+
+///| GrayAlpha16 uses the same profile-aware Adam7 cursor for every legal
+/// filter/compression selection: each pass starts with local predictor history
+/// and preflight charges selected work only after all checks succeed.
+test "PNG GrayAlpha16 Adam7 profile cursor keeps pass history and exact work" {
+  let image = png_wb_graya16_adam7_image()
+  let channels = 4UL
+  let passes = _png_adam7_passes(5UL, 5UL, channels, 8).unwrap()
+  let mut cursor = PngFilteredCursor::new_with_interlace(
+    image.view(), 20UL, channels, PngFilterStrategy::Adaptive,
+    PngInterlaceStrategy::Adam7, profile=PngEncodeProfile::GrayAlpha16,
+  )
+  let mut offset = 0UL
+  for pass in passes {
+    if pass.width == 0UL || pass.height == 0UL { continue }
+    while cursor.index < offset {
+      let (_, next) = cursor.next().unwrap(); cursor = next
+    }
+    let (tag, next) = cursor.next().unwrap()
+    if tag == b'\x02' || tag == b'\x03' || tag == b'\x04' {
+      abort("png graya16 adam7 pass inherited predictor")
+    }
+    cursor = next
+    offset = offset + (pass.row_bytes + 1UL) * pass.height
+  }
+  for strategy in [
+    PngCompressionStrategy::Stored,
+    PngCompressionStrategy::FixedOrStored,
+    PngCompressionStrategy::DynamicOrFixedOrStored,
+  ] {
+    for filter_strategy in [PngFilterStrategy::None, PngFilterStrategy::Adaptive] {
+      let admitted = _png_encode_preflight_with_interlace_profile(
+        image.view(), PngEncodeProfile::GrayAlpha16, strategy, filter_strategy,
+        PngInterlaceStrategy::Adam7, png_wb_limits(), png_wb_budget(work=1048576UL),
+      ).unwrap()
+      let exact = png_wb_budget(work=admitted.selected_work)
+      ignore(_png_encode_preflight_with_interlace_profile(
+        image.view(), PngEncodeProfile::GrayAlpha16, strategy, filter_strategy,
+        PngInterlaceStrategy::Adam7, png_wb_limits(), exact,
+      ).unwrap())
+      inspect(exact.remaining().work() == 0UL, content="true")
+      let one_less = png_wb_budget(work=admitted.selected_work - 1UL)
+      let before = one_less.remaining()
+      let error = _png_encode_preflight_with_interlace_profile(
+        image.view(), PngEncodeProfile::GrayAlpha16, strategy, filter_strategy,
+        PngInterlaceStrategy::Adam7, png_wb_limits(), one_less,
+      ).unwrap_err()
+      inspect(
+        error.context() == Some("work") && png_wb_same_remaining(before, one_less.remaining()),
+        content="true",
+      )
+    }
   }
 }
 

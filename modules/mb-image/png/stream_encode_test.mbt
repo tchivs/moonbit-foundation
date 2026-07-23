@@ -3513,3 +3513,60 @@ test "PNG GrayAlpha16 Adam7 bounded tracer" {
     PngFilterStrategy::Adaptive, [1UL, 3UL, 2UL, 5UL],
   )
 }
+
+///| One legal GrayAlpha16 Adam7 pair runs both compact accepted-byte schedules
+/// against fresh eager and caller-buffered instances.
+fn png_graya16_adam7_chunk_strategy_pair(
+  strategy : PngCompressionStrategy,
+  filter_strategy : PngFilterStrategy,
+) -> Unit {
+  png_graya16_adam7_chunk_drain(
+    png_stream_graya16_adam7_image(), strategy, filter_strategy, [1UL],
+  )
+  png_graya16_adam7_chunk_drain(
+    png_stream_graya16_adam7_image(), strategy, filter_strategy, [1UL, 3UL, 2UL, 5UL],
+  )
+}
+
+///| Every legal GrayAlpha16 Adam7 selector drains fresh eager and chunk
+/// instances through the same bounded profile-aware machine.
+test "PNG GrayAlpha16 Adam7 Stored None chunk parity" {
+  png_graya16_adam7_chunk_strategy_pair(
+    PngCompressionStrategy::Stored, PngFilterStrategy::None,
+  )
+}
+
+///|
+test "PNG GrayAlpha16 Adam7 Stored Adaptive chunk parity" {
+  png_graya16_adam7_chunk_strategy_pair(
+    PngCompressionStrategy::Stored, PngFilterStrategy::Adaptive,
+  )
+}
+
+///|
+test "PNG GrayAlpha16 Adam7 Fixed None chunk parity" {
+  png_graya16_adam7_chunk_strategy_pair(
+    PngCompressionStrategy::FixedOrStored, PngFilterStrategy::None,
+  )
+}
+
+///|
+test "PNG GrayAlpha16 Adam7 Fixed Adaptive chunk parity" {
+  png_graya16_adam7_chunk_strategy_pair(
+    PngCompressionStrategy::FixedOrStored, PngFilterStrategy::Adaptive,
+  )
+}
+
+///|
+test "PNG GrayAlpha16 Adam7 Dynamic None chunk parity" {
+  png_graya16_adam7_chunk_strategy_pair(
+    PngCompressionStrategy::DynamicOrFixedOrStored, PngFilterStrategy::None,
+  )
+}
+
+///|
+test "PNG GrayAlpha16 Adam7 Dynamic Adaptive chunk parity" {
+  png_graya16_adam7_chunk_strategy_pair(
+    PngCompressionStrategy::DynamicOrFixedOrStored, PngFilterStrategy::Adaptive,
+  )
+}

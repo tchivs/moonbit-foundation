@@ -1247,6 +1247,69 @@ test "PNG GrayAlpha16 eager factories preserve four-byte wire and strategy parit
   )
 }
 
+///| One legal all-strategy GrayAlpha16 Adam7 eager selection retains the
+/// shared four-byte Type-4/16 profile and explicit Adam7 framing.
+fn png_encode_graya16_adam7_eager_strategy(
+  strategy : PngCompressionStrategy,
+  filter_strategy : PngFilterStrategy,
+) -> Unit {
+  let (_, writer) = png_adam7_encode_with(
+    PngEncoder::new_graya16_with_all_strategies(
+      strategy, filter_strategy, PngInterlaceStrategy::Adam7,
+    ),
+    png_encode_graya16_adam7_image(),
+  )
+  let bytes = png_encode_prefix(writer)
+  if bytes[0] != b'\x89' || bytes[24] != b'\x10' || bytes[25] != b'\x04' ||
+    bytes[26] != b'\x00' || bytes[27] != b'\x00' || bytes[28] != b'\x01' ||
+    bytes[bytes.length() - 1] != b'\x82' {
+    abort("png graya16 adam7 eager profile")
+  }
+}
+
+///| Every legal all-strategy GrayAlpha16 Adam7 selection reaches the shared
+/// eager profile-aware route.
+test "PNG GrayAlpha16 Adam7 eager Stored None profile" {
+  png_encode_graya16_adam7_eager_strategy(
+    PngCompressionStrategy::Stored, PngFilterStrategy::None,
+  )
+}
+
+///|
+test "PNG GrayAlpha16 Adam7 eager Stored Adaptive profile" {
+  png_encode_graya16_adam7_eager_strategy(
+    PngCompressionStrategy::Stored, PngFilterStrategy::Adaptive,
+  )
+}
+
+///|
+test "PNG GrayAlpha16 Adam7 eager Fixed None profile" {
+  png_encode_graya16_adam7_eager_strategy(
+    PngCompressionStrategy::FixedOrStored, PngFilterStrategy::None,
+  )
+}
+
+///|
+test "PNG GrayAlpha16 Adam7 eager Fixed Adaptive profile" {
+  png_encode_graya16_adam7_eager_strategy(
+    PngCompressionStrategy::FixedOrStored, PngFilterStrategy::Adaptive,
+  )
+}
+
+///|
+test "PNG GrayAlpha16 Adam7 eager Dynamic None profile" {
+  png_encode_graya16_adam7_eager_strategy(
+    PngCompressionStrategy::DynamicOrFixedOrStored, PngFilterStrategy::None,
+  )
+}
+
+///|
+test "PNG GrayAlpha16 Adam7 eager Dynamic Adaptive profile" {
+  png_encode_graya16_adam7_eager_strategy(
+    PngCompressionStrategy::DynamicOrFixedOrStored, PngFilterStrategy::Adaptive,
+  )
+}
+
 ///| All Gray+Alpha8 eager factory forms use the same non-interlaced bounded
 /// route, including every compression/filter strategy pair.
 test "PNG GrayAlpha8 eager factory strategies preserve framing" {
