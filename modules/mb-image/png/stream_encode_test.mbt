@@ -2686,6 +2686,7 @@ fn png_graya8_combined_public_reject(
 /// or expose a caller-owned lease.
 fn png_graya16_combined_public_reject(
   image : @storage.OwnedImage,
+  interlace_strategy : PngInterlaceStrategy,
   limits : @codec.CodecLimits,
   work : UInt64,
 ) -> Unit {
@@ -2699,7 +2700,9 @@ fn png_graya16_combined_public_reject(
       let eager_before = eager_budget.remaining()
       let writer = @io.MemoryWriter::new(1048576UL, png_stream_test_budget(work=0UL)).unwrap()
       let eager = @codec.ImageEncoder::encode(
-        PngEncoder::new_graya16_with_strategies(strategy, filter_strategy),
+        PngEncoder::new_graya16_with_all_strategies(
+          strategy, filter_strategy, interlace_strategy,
+        ),
         image.view(), writer as &@io.Writer,
         @codec.EncodeOptions::new(lossless_required=true, preserve_opaque_metadata=false),
         limits, eager_budget, @error.Diagnostics::new(),
@@ -2711,8 +2714,8 @@ fn png_graya16_combined_public_reject(
       let chunk_budget = png_stream_test_budget(work=work)
       let chunk_before = chunk_budget.remaining()
       let sentinel = png_chunk_test_owner(7UL, fill=b'Z')
-      let chunk = PngChunkEncoder::new_graya16_with_strategies(
-        image.view(), strategy, filter_strategy, limits, chunk_budget,
+      let chunk = PngChunkEncoder::new_graya16_with_all_strategies(
+        image.view(), strategy, filter_strategy, interlace_strategy, limits, chunk_budget,
         @error.Diagnostics::new(),
       ).unwrap_err()
       if !png_chunk_test_same_error(eager, chunk) ||
@@ -2853,19 +2856,50 @@ test "PNG GrayAlpha8 strategy admission is atomic" {
 /// construction and is deliberately not a PNG-admission parity case.
 test "PNG GrayAlpha16 strategy admission is atomic" {
   png_graya16_combined_public_reject(
-    png_stream_test_image(3UL), png_fixed_or_stored_limits(), 1048576UL,
+    png_stream_test_image(3UL), PngInterlaceStrategy::None,
+    png_fixed_or_stored_limits(), 1048576UL,
   )
   png_graya16_combined_public_reject(
-    png_stream_graya16_image(), png_fixed_or_stored_limits(width=1UL), 1048576UL,
+    png_stream_graya16_image(), PngInterlaceStrategy::None,
+    png_fixed_or_stored_limits(width=1UL), 1048576UL,
   )
   png_graya16_combined_public_reject(
-    png_stream_graya16_image(), png_fixed_or_stored_limits(output=1UL), 1048576UL,
+    png_stream_graya16_image(), PngInterlaceStrategy::None,
+    png_fixed_or_stored_limits(output=1UL), 1048576UL,
   )
   png_graya16_combined_public_reject(
-    png_stream_graya16_image(), png_fixed_or_stored_limits(work=1UL), 1048576UL,
+    png_stream_graya16_image(), PngInterlaceStrategy::None,
+    png_fixed_or_stored_limits(work=1UL), 1048576UL,
   )
   png_graya16_combined_public_reject(
-    png_stream_graya16_image(), png_fixed_or_stored_limits(), 1UL,
+    png_stream_graya16_image(), PngInterlaceStrategy::None,
+    png_fixed_or_stored_limits(), 1UL,
+  )
+}
+
+///| The Adam7 selector remains on the same profile-aware preflight ledger:
+/// all six legal strategy pairs must reject invalid admission before eager
+/// output, resource charges, or a caller-owned chunk lease can be exposed.
+test "PNG GrayAlpha16 Adam7 strategy admission is atomic" {
+  png_graya16_combined_public_reject(
+    png_stream_test_image(3UL), PngInterlaceStrategy::Adam7,
+    png_fixed_or_stored_limits(), 1048576UL,
+  )
+  png_graya16_combined_public_reject(
+    png_stream_graya16_adam7_image(), PngInterlaceStrategy::Adam7,
+    png_fixed_or_stored_limits(width=1UL), 1048576UL,
+  )
+  png_graya16_combined_public_reject(
+    png_stream_graya16_adam7_image(), PngInterlaceStrategy::Adam7,
+    png_fixed_or_stored_limits(output=1UL), 1048576UL,
+  )
+  png_graya16_combined_public_reject(
+    png_stream_graya16_adam7_image(), PngInterlaceStrategy::Adam7,
+    png_fixed_or_stored_limits(work=1UL), 1048576UL,
+  )
+  png_graya16_combined_public_reject(
+    png_stream_graya16_adam7_image(), PngInterlaceStrategy::Adam7,
+    png_fixed_or_stored_limits(), 1UL,
   )
 }
 
