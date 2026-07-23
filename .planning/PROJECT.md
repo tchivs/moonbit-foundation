@@ -16,9 +16,15 @@ MoonBit developers can reuse stable, high-performance native infrastructure cont
 
 **Validated:** Independent all-five-filter and all-seven-pass Adam7 wire literals, hostile metadata/resource/chunk paths, generic compatibility, and exact/one-less allocation bounds are covered. The ordinary PNG package passed 245/245 tests on each of `wasm`, `wasm-gc`, `js`, and `native`; the milestone audit passed all four requirements, phase verifications, integration links, and public flows.
 
-## Next Milestone Goals
+## Current Milestone: v0.22 RGBA16 PNG Encode
 
-- Select the next code-first native foundation capability from concrete downstream needs while retaining the bounded, additive PNG profile architecture.
+**Goal:** Complete the opt-in high-precision Type-6/16 PNG contract with portable, byte-exact encoding from the checked `rgba16` model, without changing legacy RGB8/RGBA8 output or adding a second encoder.
+
+**Target features:**
+
+- Add explicit eager Type-6/16 encoding with little-endian source to PNG big-endian wire fidelity.
+- Add caller-buffered encoding with eager-identical bytes, atomic admission, and existing sticky lease semantics.
+- Add opt-in Adam7 RGBA16 output and independent portable qualification through the explicit decoder.
 
 ## Requirements
 
@@ -57,7 +63,9 @@ MoonBit developers can reuse stable, high-performance native infrastructure cont
 
 ### Active
 
-- [ ] Select the next code-first native foundation capability from concrete downstream needs.
+- [ ] Provide explicit eager Type-6/16 PNG encoding from checked packed `rgba16` images.
+- [ ] Provide caller-buffered and Adam7 Type-6/16 encoding while retaining the existing bounded machine and legacy output.
+- [ ] Prove exact wire/decode fidelity, hostile input/lease handling, and all-target compatibility for RGBA16 encoding.
 
 ### Out of Scope
 
