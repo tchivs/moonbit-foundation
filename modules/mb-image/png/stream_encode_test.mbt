@@ -4932,6 +4932,52 @@ fn png_stream_indexed_low_bit_eager(
   Bytes::from_array(output)
 }
 
+///|
+fn png_stream_indexed_low_bit_eager_with_compression(
+  source : PngIndexedImage,
+  bit_depth : PngIndexedBitDepth,
+  strategy : PngCompressionStrategy,
+) -> Bytes {
+  let writer = @io.MemoryWriter::new(
+    1048576UL, png_stream_test_budget(work=0UL),
+  ).unwrap()
+  ignore(PngEncoder::encode_indexed_with_compression_strategy(
+    PngEncoder::new(), source, bit_depth, strategy, writer as &@io.Writer,
+    png_stream_test_limits(), png_stream_test_budget(work=4096UL), @error.Diagnostics::new(),
+  ).unwrap())
+  let output : Array[Byte] = []
+  for index = 0UL; index < writer.position(); index = index + 1UL {
+    output.push(writer.view().get(index).unwrap())
+  }
+  Bytes::from_array(output)
+}
+
+///| Selected-depth chunk selectors must use the same admitted plan and expose
+/// no caller-buffered encoder for the unavailable Dynamic request.
+test "PNG indexed compression chunk selectors match eager matrix bytes" {
+  for depth in [
+    PngIndexedBitDepth::One, PngIndexedBitDepth::Two, PngIndexedBitDepth::Four,
+  ] {
+    let source = png_indexed_compression_source(depth)
+    let eager = png_stream_indexed_low_bit_eager_with_compression(
+      source, depth, PngCompressionStrategy::FixedOrStored,
+    )
+    let encoder = PngChunkEncoder::new_indexed_with_compression_strategy(
+      source, depth, PngCompressionStrategy::FixedOrStored, png_stream_test_limits(),
+      png_stream_test_budget(work=4096UL), @error.Diagnostics::new(),
+    ).unwrap()
+    inspect(
+      png_chunk_test_drain_encoder(encoder, [32UL]).unwrap() == eager,
+      content="true",
+    )
+    let rejected = PngChunkEncoder::new_indexed_with_compression_strategy(
+      source, depth, PngCompressionStrategy::DynamicOrFixedOrStored,
+      png_stream_test_limits(), png_stream_test_budget(work=4096UL), @error.Diagnostics::new(),
+    ).unwrap_err()
+    inspect(rejected.context() == Some("indexed-dynamic-compression-unavailable"), content="true")
+  }
+}
+
 ///| The selected-depth chunk route starts with a Type-3/2 tracer so its public
 ///| lease lifecycle is proven against the already-qualified eager oracle.
 test "PNG Indexed2 chunk tracer retains eager bytes" {

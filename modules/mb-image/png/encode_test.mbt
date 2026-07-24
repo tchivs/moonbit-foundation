@@ -967,6 +967,65 @@ test "PNG Indexed8 compression selectors preserve Stored and select Fixed" {
 }
 
 ///|
+fn png_indexed_compression_source(bit_depth : PngIndexedBitDepth) -> PngIndexedImage {
+  let cap = match bit_depth {
+    PngIndexedBitDepth::One => 2
+    PngIndexedBitDepth::Two => 4
+    PngIndexedBitDepth::Four => 16
+  }
+  let palette : Array[Byte] = []
+  let alpha : Array[Byte] = []
+  for entry = 0; entry < cap; entry = entry + 1 {
+    palette.push(entry.to_byte())
+    palette.push((entry + 1).to_byte())
+    palette.push((entry + 2).to_byte())
+    alpha.push(if entry == 0 { b'\x00' } else { b'\xff' })
+  }
+  PngIndexedImage::new(
+    64UL, 1UL, Bytes::from_array(Array::make(64, b'\x00')),
+    Bytes::from_array(palette), Bytes::from_array(alpha), png_encode_budget(),
+  ).unwrap()
+}
+
+///| Every selected low-bit facade preserves its Stored baseline and shares the
+/// same deterministic Fixed winner as Indexed8.
+test "PNG indexed compression selectors preserve Stored and select the matrix plan" {
+  for depth in [
+    PngIndexedBitDepth::One, PngIndexedBitDepth::Two, PngIndexedBitDepth::Four,
+  ] {
+    let source = png_indexed_compression_source(depth)
+    let legacy_writer = @io.MemoryWriter::new(512UL, png_encode_budget(bytes=512UL, work=0UL)).unwrap()
+    ignore(PngEncoder::encode_indexed(
+      PngEncoder::new(), source, depth, legacy_writer as &@io.Writer, png_encode_limits(),
+      png_encode_budget(work=4096UL), @error.Diagnostics::new(),
+    ).unwrap())
+    let stored_writer = @io.MemoryWriter::new(512UL, png_encode_budget(bytes=512UL, work=0UL)).unwrap()
+    ignore(PngEncoder::encode_indexed_with_compression_strategy(
+      PngEncoder::new(), source, depth, PngCompressionStrategy::Stored,
+      stored_writer as &@io.Writer, png_encode_limits(), png_encode_budget(work=4096UL),
+      @error.Diagnostics::new(),
+    ).unwrap())
+    let fixed_writer = @io.MemoryWriter::new(512UL, png_encode_budget(bytes=512UL, work=0UL)).unwrap()
+    ignore(PngEncoder::encode_indexed_with_compression_strategy(
+      PngEncoder::new(), source, depth, PngCompressionStrategy::FixedOrStored,
+      fixed_writer as &@io.Writer, png_encode_limits(), png_encode_budget(work=4096UL),
+      @error.Diagnostics::new(),
+    ).unwrap())
+    inspect(png_encode_prefix(legacy_writer) == png_encode_prefix(stored_writer), content="true")
+    inspect(png_encode_prefix(fixed_writer).length() < png_encode_prefix(stored_writer).length(), content="true")
+    let budget = png_encode_budget(work=4096UL)
+    let before = budget.remaining()
+    let rejected = PngEncoder::encode_indexed_with_compression_strategy(
+      PngEncoder::new(), source, depth, PngCompressionStrategy::DynamicOrFixedOrStored,
+      (@io.MemoryWriter::new(512UL, png_encode_budget(bytes=512UL, work=0UL)).unwrap()) as &@io.Writer,
+      png_encode_limits(), budget, @error.Diagnostics::new(),
+    ).unwrap_err()
+    inspect(rejected.context() == Some("indexed-dynamic-compression-unavailable"), content="true")
+    inspect(png_adam7_same_remaining(before, budget.remaining()), content="true")
+  }
+}
+
+///|
 test "PNG Indexed8 eager canonical tRNS decodes palette alpha as RGBA8" {
   let source = PngIndexedImage::new(
     4UL, 1UL, b"\x00\x01\x02\x03",
