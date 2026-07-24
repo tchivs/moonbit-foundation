@@ -20,8 +20,8 @@
 
 ### Hostile streaming and independent qualification
 
-- [ ] **ADAM7COMP-04**: Adam7 Fixed winners and Stored fallbacks reproduce fresh eager bytes under zero-capacity, one-byte, and ragged leases with accepted-only progress and untouched rejected tails; released leases, replay-work drift, and post-finish pulls are sticky zero-write outcomes.
-- [ ] **ADAM7COMP-05**: Independent test-local parsing of eager and collected Adam7 Type-3 bytes proves seven-pass framing, Fixed/Stored DEFLATE, PLTE/tRNS canonicalisation, packed-row tails, Adler/CRCs, public RGB8/RGBA8 decode, frozen legacy vectors, and the ordinary PNG package gate on native, wasm, wasm-gc, and js.
+- [x] **ADAM7COMP-04**: Adam7 Fixed winners and Stored fallbacks reproduce fresh eager bytes under zero-capacity, one-byte, and ragged leases with accepted-only progress and untouched rejected tails; released leases, replay-work drift, and post-finish pulls are sticky zero-write outcomes.
+- [x] **ADAM7COMP-05**: Independent test-local parsing of eager and collected Adam7 Type-3 bytes proves seven-pass framing, Fixed/Stored DEFLATE, PLTE/tRNS canonicalisation, packed-row tails, Adler/CRCs, public RGB8/RGBA8 decode, frozen legacy vectors, and the ordinary PNG package gate on native, wasm, wasm-gc, and js.
 
 ## Future Requirements
 
@@ -44,8 +44,8 @@
 | ADAM7COMP-01 | Phase 88 | Complete |
 | ADAM7COMP-02 | Phase 89 | Complete |
 | ADAM7COMP-03 | Phase 89 | Complete |
-| ADAM7COMP-04 | Phase 90 | Pending |
-| ADAM7COMP-05 | Phase 90 | Pending |
+| ADAM7COMP-04 | Phase 90 | Complete |
+| ADAM7COMP-05 | Phase 90 | Complete |
 
 **Coverage:**
 

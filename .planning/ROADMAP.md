@@ -38,7 +38,7 @@
 
 - [x] **Phase 88: Indexed Adam7 API and Fixed Wire Contract** - Add additive Adam7 Stored/Fixed-or-Stored selectors and the bounded pass-aware Fixed candidate contract for Indexed1/2/4/8. (completed 2026-07-24)
 - [x] **Phase 89: Pass-Aware Preflight and Shared-Machine Integration** - Admit the exact palette-aware Adam7 candidate atomically through the established acknowledged machine. (completed 2026-07-24)
-- [ ] **Phase 90: Hostile Streaming and Independent Qualification** - Prove hostile lease behavior, independent wire/decode evidence, frozen compatibility, and four-target portability.
+- [x] **Phase 90: Hostile Streaming and Independent Qualification** - Prove hostile lease behavior, independent wire/decode evidence, frozen compatibility, and four-target portability. (completed 2026-07-24)
 
 ## Phase Details
 
@@ -95,7 +95,7 @@
 4. Existing non-interlaced v0.28 Indexed1/2/4/8 vectors and all prior Adam7 Stored/filter-None vectors remain byte-identical.
 5. The ordinary PNG package gate passes on native, wasm, wasm-gc, and js (including the aggregate `--target all` lane).
 
-**Plans:** TBD
+**Plans:** 1/1 plans complete
 
 ## Progress
 
@@ -103,7 +103,7 @@
 |-------|----------------|--------|-----------|
 | 88. Indexed Adam7 API and Fixed Wire Contract | 1/1 | Complete    | 2026-07-24 |
 | 89. Pass-Aware Preflight and Shared-Machine Integration | 1/1 | Complete    | 2026-07-24 |
-| 90. Hostile Streaming and Independent Qualification | 0/0 | Not started | - |
+| 90. Hostile Streaming and Independent Qualification | 1/1 | Complete    | 2026-07-24 |
 
 ---
 *Roadmap last updated: 2026-07-24 after v0.29 roadmap definition.*
