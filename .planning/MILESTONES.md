@@ -1,5 +1,16 @@
 # Project Milestones: MoonBit Native Foundation
 
+## v0.27 Low-Bit Indexed Adam7 PNG Encode (Shipped: 2026-07-24)
+
+**Phases completed:** 2 phases, 2 plans, 4 tasks
+
+**Key accomplishments:**
+
+- Type-3 Indexed1, Indexed2, and Indexed4 Adam7 output now uses the existing acknowledged PNG machine with checked pass-local packing and atomic frame admission.
+- Caller-owned Indexed1/2/4 Adam7 streams now have independent Type-3 PNG, packed-pass, lifecycle, and RGB/RGBA decode evidence across all supported targets.
+
+---
+
 ## v0.26 v0.26 (Shipped: 2026-07-24)
 
 **Phases completed:** 2 phases, 2 plans, 4 tasks

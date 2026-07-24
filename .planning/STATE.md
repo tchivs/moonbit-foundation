@@ -2,18 +2,18 @@
 gsd_state_version: 1.0
 milestone: v0.27
 milestone_name: Low-Bit Indexed Adam7 PNG Encode
-current_phase: 84
-status: completed
+status: Awaiting next milestone
 stopped_at: Phase 84 context gathered
-last_updated: "2026-07-24T04:16:07.029Z"
+last_updated: "2026-07-24T04:24:33.401Z"
 last_activity: 2026-07-24
-last_activity_desc: Phase 84 complete
+last_activity_desc: Milestone v0.27 completed and archived
 progress:
   total_phases: 2
   completed_phases: 2
   total_plans: 2
   completed_plans: 2
   percent: 100
+current_phase: 84
 current_phase_name: low-bit-indexed-adam7-streaming-qualification
 ---
 
@@ -29,10 +29,10 @@ See `.planning/PROJECT.md`.
 
 ## Current Position
 
-Phase: 84
-Plan: Not started
-Status: All phases complete
-Last activity: 2026-07-24 — Phase 84 complete
+Phase: Milestone v0.27 complete
+Plan: —
+Status: Awaiting next milestone
+Last activity: 2026-07-24 — Milestone v0.27 completed and archived
 
 ## Milestone Metrics
 
@@ -87,7 +87,7 @@ Resume file: .planning/phases/84-low-bit-indexed-adam7-streaming-qualification/8
 
 ## Operator Next Steps
 
-- Plan Phase 84 with /gsd-plan-phase 84
+- Start the next milestone with /gsd-new-milestone
 
 ## Performance Metrics
 
