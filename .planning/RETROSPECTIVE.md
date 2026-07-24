@@ -333,6 +333,39 @@
 - Model mix and session count are not captured by the local GSD runtime.
 - The final ordinary PNG gate was 315/315 per declared target; the main cost was cross-target qualification and independent oracle coverage.
 
+---
+
+## Milestone: v0.29 — Indexed Adam7 Compression Profiles
+
+**Shipped:** 2026-07-24  
+**Phases:** 3 | **Plans:** 3 | **Tasks:** 3
+
+### What Was Built
+
+- Additive Adam7 Indexed1/2/4/8 `Stored` and `FixedOrStored` selectors over the existing bounded eager and acknowledged caller-buffered machines.
+- Pass-aware exact preflight for palette/tRNS-aware frame facts, work limits, and one-charge atomic admission.
+- Independent hostile-lease, wire, decode, and four-target qualification for Fixed winners and Stored fallbacks.
+
+### What Worked
+
+- Reusing the established producer and acknowledgement lifecycle kept the change additive and avoided a second encoder or staging tree.
+- A small independent parser plus public decode checks proved seven-pass framing, packed tails, Adler/CRC, PLTE/tRNS canonicalisation, and RGB8/RGBA8 results without trusting production planning helpers.
+- Closing the milestone immediately archived all phase artifacts and left the active planning tree ready for the next code-first cycle.
+
+### What Was Inefficient
+
+- Earlier work had accumulated temporary phase/debug directories; keeping qualification on one shared machine and archiving at closeout avoids repeating that residue.
+
+### Key Lessons
+
+1. Adam7 compression selection must remain pass-aware while sharing one bounded replay owner across eager and chunked APIs.
+2. Hostile lease schedules and independent wire/decode checks are the shortest reliable proof for a streaming codec contract.
+3. Closeout should archive phase artifacts and remove the active requirements file so the next milestone starts with a small, unambiguous planning surface.
+
+### Cost Observations
+
+- The ordinary PNG package completed at 320/320 on wasm, wasm-gc, js, and native; no release automation or source-tree copies were added.
+
 ## Cross-Milestone Trends
 
 ### Process Evolution
@@ -347,6 +380,7 @@
 | v0.20 | 3 | 3 | Added opt-in high-precision GrayAlpha16 decode while retaining generic RGBA8 and one bounded machine. |
 | v0.21 | 4 | 4 | Added opt-in Type-6/16 RGBA decode with exact U16 lanes, chunk parity, and portable qualification. |
 | v0.28 | 3 | 3 | Added bounded indexed Fixed-or-Stored compression with independent hostile-stream and four-target qualification. |
+| v0.29 | 3 | 3 | Extended the bounded indexed profile contract to Adam7 with pass-aware admission and independent hostile-stream qualification. |
 
 ### Cumulative Quality
 
@@ -360,6 +394,7 @@
 | v0.20 | 235/235 PNG tests per target | 3/3 | 3/3 phase verifications, 100/100 integration, 4/4 flows |
 | v0.21 | 245/245 PNG tests per target | 4/4 | 4/4 phase verifications, 5/5 integration links, 2/2 public flows |
 | v0.28 | 315/315 PNG tests per target | 5/5 | 3/3 phase verifications, no open artifact records |
+| v0.29 | 320/320 PNG tests per target | 5/5 | 3/3 phase verifications, no open artifact records |
 
 ### Top Lessons
 
