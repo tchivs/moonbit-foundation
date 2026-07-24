@@ -10,11 +10,10 @@
 // Path2 filled with the even-odd rule (so overlap self-intersections do not
 // double-cover).
 //
-// Coverage: butt/square/round cap, miter/bevel join (miter extends to the join
-// intersection and falls back to bevel beyond miter_limit), and dash patterns
-// (alternating on/off lengths, repeating). Round join is approximated as bevel
-// in this revision (the miter/bevel offset path is used; true round joins would
-// insert arc points at each corner and are a follow-up refinement).
+// Coverage: butt/square/round cap, miter/bevel/round join (miter extends to the
+// join intersection and falls back to bevel beyond miter_limit; round inserts a
+// circular fillet at each interior vertex), and dash patterns (alternating
+// on/off lengths, repeating).
 
 // A polyline is a sequence of vertex points forming a single subpath. `closed`
 // indicates the original subpath was closed (Close), so joins wrap around and no
@@ -293,7 +292,14 @@ fn stroke_polyline(
   }
   outline.push(@math.PathCommand::MoveTo(left[0]))
   for i = 1; i < n; i = i + 1 {
-    outline.push(@math.PathCommand::LineTo(left[i]))
+    // At an interior vertex with a round join, connect the previous left offset
+    // point to this one with a circular arc centered on the centerline vertex.
+    // The arc replaces the sharp LineTo with a rounded fillet on the convex side.
+    if style.join == Round && i < n - 1 {
+      emit_round_join(outline, pl.points[i], left[i - 1], left[i], half)
+    } else {
+      outline.push(@math.PathCommand::LineTo(left[i]))
+    }
   }
   // Far-end cap (open polyline only).
   if !pl.closed {
@@ -304,6 +310,10 @@ fn stroke_polyline(
     }
   }
   for i = n - 1; i >= 0; i = i + -1 {
+    // Mirror the round-join fillet on the right side for interior vertices.
+    if style.join == Round && i > 0 && i < n - 1 {
+      emit_round_join(outline, pl.points[i], right[i + 1], right[i], half)
+    }
     outline.push(@math.PathCommand::LineTo(right[i]))
   }
   // Near-end cap (open polyline only).
@@ -380,6 +390,57 @@ fn emit_round_cap(
   let fwd_out = @math.Point2::new(fwd.x() + snx * kappa, fwd.y() + sny * kappa)
   let to_t = @math.Point2::new(to_pt.x() - tx * kappa, to_pt.y() - ty * kappa)
   outline.push(@math.PathCommand::CubicTo(fwd_out, to_t, to_pt))
+}
+
+// Emit a round join fillet connecting `prev_pt` to `cur_pt`, both at distance
+// `half` from `center` (the centerline vertex). The fillet is a circular arc of
+// radius `half` centered at `center`, approximated by a single cubic Bézier whose
+// control points sit along the tangents at each endpoint. When prev_pt and
+// cur_pt nearly coincide (a near-straight vertex) this degenerates to a line.
+fn emit_round_join(
+  outline : @math.Path2,
+  center : @math.Point2,
+  prev_pt : @math.Point2,
+  cur_pt : @math.Point2,
+  half : Double,
+) -> Unit {
+  // Radius directions from center to each offset point.
+  let r0x = prev_pt.x() - center.x()
+  let r0y = prev_pt.y() - center.y()
+  let r1x = cur_pt.x() - center.x()
+  let r1y = cur_pt.y() - center.y()
+  // Half-angle between the two radius directions; the Bézier control distance
+  // for a circular arc is κ = (4/3)·tan(θ/4)·r. For small join angles a single
+  // cubic is a good fit; for very large angles the arc is split implicitly by
+  // the per-vertex offset already being at half-width.
+  let dot = r0x * r1x + r0y * r1y
+  let cross = r0x * r1y - r0y * r1x
+  // The arc sweeps from prev_pt to cur_pt. Control points are placed along the
+  // tangent at each endpoint (perpendicular to the radius, in the sweep direction).
+  let cos_theta = dot / (half * half)
+  let c = if cos_theta > 1.0 {
+    1.0
+  } else if cos_theta < -1.0 {
+    -1.0
+  } else {
+    cos_theta
+  }
+  // θ/4 tangent magnitude.
+  let half_angle = 0.5 * @math.acos(c).abs()
+  let kappa = (4.0 / 3.0) * @math.tan(half_angle * 0.5) * half
+  // Tangent at prev_pt: perpendicular to r0, oriented by the sweep sign (cross).
+  let sign = if cross >= 0.0 {
+    1.0
+  } else {
+    -1.0
+  }
+  let t0x = -r0y / half * sign
+  let t0y = r0x / half * sign
+  let t1x = -r1y / half * sign
+  let t1y = r1x / half * sign
+  let c0 = @math.Point2::new(prev_pt.x() + t0x * kappa, prev_pt.y() + t0y * kappa)
+  let c1 = @math.Point2::new(cur_pt.x() - t1x * kappa, cur_pt.y() - t1y * kappa)
+  outline.push(@math.PathCommand::CubicTo(c0, c1, cur_pt))
 }
 
 // Unit direction from `a` to `b`, or (0,0) if coincident.

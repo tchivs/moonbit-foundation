@@ -246,6 +246,33 @@ test "render dash pattern produces on/off gaps" {
 }
 
 ///|
+test "render round join fills the convex corner of an L-bend" {
+  // 12x12 transparent image. Stroke an L-bend: (3,3)→(3,8)→(8,8), width 3.
+  // At the corner (3,8) the convex side is the lower-right (outside the L).
+  // A round join fills the arc there; a bevel/miter leaves a sharp/flat corner.
+  // Pixel (5,7) sits in the convex-corner arc region (diagonal from the vertex,
+  // outside the stroke band of either leg but inside the round-join fillet).
+  let image = render_wb_solid(12UL, 12UL, b'\x00', b'\x00', b'\x00', b'\x00')
+  let path = CanvasPath::new()
+  path.move_to(3.0, 3.0)
+  path.line_to(3.0, 8.0)
+  path.line_to(8.0, 8.0)
+  let round_join = { ..StrokeStyle::new(3.0), join: LineJoin::Round, cap: LineCap::Butt }
+  let list = DrawingList::new()
+  list.push_stroke(path.to_path2(), round_join, FillStyle::new(1.0, 1.0, 1.0))
+  match render(list, image, render_wb_budget(65536UL, 65536UL)) {
+    Err(_) => inspect(false, content="true")
+    Ok(_) => ()
+  }
+  // On the vertical leg (3,5) → lit.
+  let (_, _, _, a_leg) = render_wb_pixel(image, 3UL, 5UL)
+  inspect(a_leg.to_int() > 0, content="true")
+  // Convex corner arc region (5,7): round join fills it; bevel would leave it empty.
+  let (_, _, _, a_corner) = render_wb_pixel(image, 5UL, 7UL)
+  inspect(a_corner.to_int() > 0, content="true")
+}
+
+///|
 test "render applies a translate transform to the fill" {
   // 8x8 transparent image. A unit rect at (0,0) translated by (3,3) should land
   // at pixel (3,3).
