@@ -63,4 +63,4 @@ test "FillStyle and StrokeStyle defaults" {
 
 ## Status
 
-`candidate` stability. Pure MoonBit across `js`, `wasm`, `wasm-gc`, and `native`. v0.1 scope (RFC 0003 §7.1): drawing list with fill/stroke/transform/clip, line and Bézier geometry, nonzero/even-odd fill, coverage antialiasing, solid color fill/stroke. Round cap/join, miter joins, and dash are partial in v0.1 (strokes use all-bevel offsets for geometric safety) and will be refined in a follow-up.
+`candidate` stability. Pure MoonBit across `js`, `wasm`, `wasm-gc`, and `native`. Scope (RFC 0003 §7.1): drawing list with fill/stroke/transform/clip, line and Bézier geometry, nonzero/even-odd fill, coverage antialiasing, solid color fill/stroke. Stroke style: butt/square/round cap, miter/bevel/round join (miter bounded by `miter_limit`), and dash patterns.

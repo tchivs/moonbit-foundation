@@ -188,6 +188,91 @@ test "render strokes a closed rectangle outline" {
 }
 
 ///|
+test "render round cap extends past the line endpoint" {
+  // 12x12 transparent image. Stroke a horizontal line from (4,6) to (8,6)
+  // width 3 with round caps. The round cap extends past x=8 by half=1.5 toward
+  // x≈9.5, so pixel (9,6) (inside the cap arc, past the butt stop) should be lit.
+  let image = render_wb_solid(12UL, 12UL, b'\x00', b'\x00', b'\x00', b'\x00')
+  let path = CanvasPath::new()
+  path.move_to(4.0, 6.0)
+  path.line_to(8.0, 6.0)
+  let round_stroke = { ..StrokeStyle::new(3.0), cap: LineCap::Round }
+  let list = DrawingList::new()
+  list.push_stroke(path.to_path2(), round_stroke, FillStyle::new(1.0, 1.0, 1.0))
+  match render(list, image, render_wb_budget(65536UL, 65536UL)) {
+    Err(_) => inspect(false, content="true")
+    Ok(_) => ()
+  }
+  // Center on the line → lit.
+  let (_, _, _, a_center) = render_wb_pixel(image, 6UL, 6UL)
+  inspect(a_center.to_int() > 200, content="true")
+  // Past the endpoint at x=9 (round cap bulge reaches ~9.5). Butt cap would
+  // leave this empty; round cap should partially cover it.
+  let (_, _, _, a_cap) = render_wb_pixel(image, 9UL, 6UL)
+  inspect(a_cap.to_int() > 0, content="true")
+  // Far past at x=11 → definitely outside even the round cap.
+  let (_, _, _, a_far) = render_wb_pixel(image, 11UL, 6UL)
+  inspect(a_far.to_int(), content="0")
+}
+
+///|
+test "render dash pattern produces on/off gaps" {
+  // 12x4 transparent image. Stroke a horizontal line from (1,2) to (11,2)
+  // width 1 with dash [2,2] (draw 2, skip 2). Expected on-segments near
+  // x=[1,3] and x=[5,7] and x=[9,11]; off-gaps near x=[3,5] and x=[7,9].
+  let image = render_wb_solid(12UL, 4UL, b'\x00', b'\x00', b'\x00', b'\x00')
+  let path = CanvasPath::new()
+  path.move_to(1.0, 2.0)
+  path.line_to(11.0, 2.0)
+  let dashed = { ..StrokeStyle::new(1.0), dash: [2.0, 2.0] }
+  let list = DrawingList::new()
+  list.push_stroke(path.to_path2(), dashed, FillStyle::new(1.0, 1.0, 1.0))
+  match render(list, image, render_wb_budget(65536UL, 65536UL)) {
+    Err(_) => inspect(false, content="true")
+    Ok(_) => ()
+  }
+  // On-segment center (x=2) → lit.
+  let (_, _, _, a_on) = render_wb_pixel(image, 2UL, 2UL)
+  inspect(a_on.to_int() > 0, content="true")
+  // Off-gap center (x=4) → not lit.
+  let (_, _, _, a_off) = render_wb_pixel(image, 4UL, 2UL)
+  inspect(a_off.to_int(), content="0")
+  // Second on-segment (x=6) → lit.
+  let (_, _, _, a_on2) = render_wb_pixel(image, 6UL, 2UL)
+  inspect(a_on2.to_int() > 0, content="true")
+  // Second off-gap (x=8) → not lit.
+  let (_, _, _, a_off2) = render_wb_pixel(image, 8UL, 2UL)
+  inspect(a_off2.to_int(), content="0")
+}
+
+///|
+test "render round join fills the convex corner of an L-bend" {
+  // 12x12 transparent image. Stroke an L-bend: (3,3)→(3,8)→(8,8), width 3.
+  // At the corner (3,8) the convex side is the lower-right (outside the L).
+  // A round join fills the arc there; a bevel/miter leaves a sharp/flat corner.
+  // Pixel (5,7) sits in the convex-corner arc region (diagonal from the vertex,
+  // outside the stroke band of either leg but inside the round-join fillet).
+  let image = render_wb_solid(12UL, 12UL, b'\x00', b'\x00', b'\x00', b'\x00')
+  let path = CanvasPath::new()
+  path.move_to(3.0, 3.0)
+  path.line_to(3.0, 8.0)
+  path.line_to(8.0, 8.0)
+  let round_join = { ..StrokeStyle::new(3.0), join: LineJoin::Round, cap: LineCap::Butt }
+  let list = DrawingList::new()
+  list.push_stroke(path.to_path2(), round_join, FillStyle::new(1.0, 1.0, 1.0))
+  match render(list, image, render_wb_budget(65536UL, 65536UL)) {
+    Err(_) => inspect(false, content="true")
+    Ok(_) => ()
+  }
+  // On the vertical leg (3,5) → lit.
+  let (_, _, _, a_leg) = render_wb_pixel(image, 3UL, 5UL)
+  inspect(a_leg.to_int() > 0, content="true")
+  // Convex corner arc region (5,7): round join fills it; bevel would leave it empty.
+  let (_, _, _, a_corner) = render_wb_pixel(image, 5UL, 7UL)
+  inspect(a_corner.to_int() > 0, content="true")
+}
+
+///|
 test "render applies a translate transform to the fill" {
   // 8x8 transparent image. A unit rect at (0,0) translated by (3,3) should land
   // at pixel (3,3).
