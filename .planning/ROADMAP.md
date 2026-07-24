@@ -56,7 +56,7 @@
 3. Each selected-depth output has legal capped actual-entry PLTE, shortest canonical tRNS, valid chunk framing and CRCs, a Stored/filter-None seven-pass IDAT raster, and public RGB8/RGBA8 palette-exact decode.
 4. Before writer progress, chunk lease exposure, or budget mutation, preflight validates selected-depth dimensions/palette capacity and checked packed pass/frame/work/output facts; exact limits pass and all one-less, overflow, or arithmetic failures are atomic.
 
-**Plans:** 1/1 plans executed
+**Plans:** 1/1 plans complete
 
 - [x] 83-01-PLAN.md
 
@@ -84,5 +84,5 @@
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 83. Low-Bit Indexed Adam7 Machine and Eager Contract | 1/1 | Complete | 2026-07-24 |
+| 83. Low-Bit Indexed Adam7 Machine and Eager Contract | 1/1 | Complete    | 2026-07-24 |
 | 84. Low-Bit Indexed Adam7 Streaming Qualification | 0/0 | Not started | - |
