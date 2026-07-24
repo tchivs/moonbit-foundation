@@ -78,11 +78,13 @@
 4. Existing Type-3/1, /2, and /4 non-interlaced literals and Type-3/8 Adam7 vectors remain frozen.
 5. The ordinary frozen PNG package gate passes on wasm, wasm-gc, js, and native.
 
-**Plans:** TBD
+**Plans:** 1/1 plans executed
+
+- [x] 84-01-PLAN.md
 
 ## Progress
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 83. Low-Bit Indexed Adam7 Machine and Eager Contract | 1/1 | Complete    | 2026-07-24 |
-| 84. Low-Bit Indexed Adam7 Streaming Qualification | 0/0 | Not started | - |
+| 84. Low-Bit Indexed Adam7 Streaming Qualification | 1/1 | In Progress|  |
