@@ -4,15 +4,15 @@ milestone: v0.28
 milestone_name: Indexed PNG Compression Profiles
 current_phase: 86
 current_phase_name: Ancillary-Aware Preflight and Shared-Machine Integration
-status: planning
+status: executing
 stopped_at: Phase 86 context gathered
-last_updated: "2026-07-24T06:18:55.892Z"
+last_updated: "2026-07-24T06:41:55.837Z"
 last_activity: 2026-07-24
 last_activity_desc: Phase 85 complete, transitioned to Phase 86
 progress:
   total_phases: 3
   completed_phases: 1
-  total_plans: 1
+  total_plans: 2
   completed_plans: 1
   percent: 33
 ---
@@ -31,7 +31,7 @@ See `.planning/PROJECT.md`.
 
 Phase: 86 — Ancillary-Aware Preflight and Shared-Machine Integration
 Plan: Not started
-Status: Ready to plan
+Status: Ready to execute
 Last activity: 2026-07-24 — Phase 85 complete, transitioned to Phase 86
 
 ## Milestone Metrics
