@@ -1,20 +1,16 @@
 ---
 gsd_state_version: 1.0
-milestone: v0.26
-milestone_name: Indexed8 Adam7 PNG Encode
-status: Awaiting next milestone
-stopped_at: Completed 82-01-PLAN.md
-last_updated: "2026-07-24T00:55:51.856Z"
+milestone: v0.27
+milestone_name: Low-Bit Indexed Adam7 PNG Encode
+status: planning
+last_updated: "2026-07-24T09:04:29.355+08:00"
 last_activity: 2026-07-24
-last_activity_desc: Milestone v0.26 completed and archived
 progress:
   total_phases: 2
-  completed_phases: 2
-  total_plans: 2
-  completed_plans: 2
-  percent: 100
-current_phase: 82
-current_phase_name: Indexed8 Adam7 Streaming and Qualification
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
+  percent: 0
 ---
 
 # Project State
@@ -25,20 +21,20 @@ See `.planning/PROJECT.md`.
 
 **Core value:** MoonBit developers can reuse stable, high-performance native infrastructure contracts instead of rebuilding incompatible foundations for every graphics, document, media, or automation product.
 
-**Current focus:** v0.26 implementation complete — Indexed8 Adam7 PNG Encode.
+**Current focus:** v0.27 planning — Low-Bit Indexed Adam7 PNG Encode.
 
 ## Current Position
 
-Phase: Milestone v0.26 complete
+Phase: 83 — Low-Bit Indexed Adam7 Machine and Eager Contract
 Plan: —
-Status: Awaiting next milestone
-Last activity: 2026-07-24 — Milestone v0.26 completed and archived
+Status: Ready for planning
+Last activity: 2026-07-24 — Roadmap and requirements for Phases 83-84 created
 
 ## Milestone Metrics
 
-**Current milestone:** v0.26 has 6 scoped requirements mapped exactly once across 2 planned phases; 2/2 phases and 2 plans are complete.
+**Current milestone:** v0.27 has 6 scoped requirements mapped exactly once across 2 planned phases; 0/2 phases and 0 plans are complete.
 
-**Previous milestone:** v0.25 shipped Indexed Type-3/1, /2, and /4 non-interlaced eager/chunk output through the existing machine. Its detailed history is archived at `.planning/milestones/v0.25-ROADMAP.md`.
+**Previous milestone:** v0.26 shipped Type-3/8 Adam7 eager/chunk output through the existing acknowledged machine. Its detailed history is archived at `.planning/milestones/v0.26-ROADMAP.md`.
 
 ## Accumulated Context
 
@@ -53,37 +49,39 @@ Last activity: 2026-07-24 — Milestone v0.26 completed and archived
 - [v0.25]: Public `PngIndexedBitDepth` selects One, Two, or Four while Indexed8 remains on its established API; low-bit indexed pixels pack directly in the acknowledged machine.
 - [v0.26]: Indexed8 Adam7 is an additive Type-3/8 Stored/filter-None capability. Existing `encode_indexed8` and `new_indexed8` remain non-interlaced compatibility wrappers.
 - [v0.26]: Reuse `_png_adam7_passes(width, height, 1, 8)` and scalar `PngIndexedImage::index_at` traversal inside the single machine; do not stage a pass/image raster or create a second encoder.
-- [v0.26]: Indexed Type-3/1, /2, and /4 Adam7 remains deferred until packed pass traversal has a separately proven bounded contract.
+- [v0.26]: Indexed Type-3/1, /2, and /4 Adam7 remained deferred until packed pass traversal had a separately proven bounded contract.
 - [Phase 81]: Indexed8 Adam7 is opt-in through additive eager and chunk selectors; established Indexed8 and low-bit routes explicitly retain None.
 - [Phase 81]: Preflight and scalar output each consume _png_adam7_passes(width, height, 1UL, 8), without staging or an alternate encoder.
 - [Phase 82]: Indexed8 Adam7 stream qualification stays test-only and exercises the existing Phase 81 selector/machine.
 - [Phase 82]: Zero-capacity leases use a sentinel-backed zero-length view; recurring zero pulls preserve prior accepted totals.
+- [v0.27]: Low-bit Indexed Adam7 is opt-in through the existing selected-depth eager/chunk selector families; non-interlaced Indexed1/2/4 and Indexed8 routes remain explicit `None` compatibility forwards.
+- [v0.27]: Low-bit Adam7 pass facts must use `_png_adam7_passes(width, height, 1UL, depth)` in both preflight and output; each pass row packs anew from local column zero with deterministic zero tails.
+- [v0.27]: Type-3/1, /2, and /4 Adam7 retains Stored DEFLATE/filter None and the sole acknowledged machine; qualification must parse collected chunk-origin bytes independently of eager parity.
 
 ### Blockers/Concerns
 
-- No current blocker. Verify the public spelling of the additive eager/chunk Indexed8 interlace selectors while preserving legacy method signatures.
-- The 5×5 seven-pass raw-raster fixture is an independent oracle and must not be derived from production traversal helpers.
+- No current blocker. Preserve the established public spelling of the selected-depth eager/chunk selector methods while making their legacy wrappers explicit `None` forwards.
+- The compact all-seven-pass fixture must be non-symmetric and supplemented with odd/narrow dimensions so every selected depth has a non-byte-aligned tail; expected bytes must not call production Adam7, packer, row-byte, or preflight helpers.
 - Do not promise diagnostics-content assertions unless a stable public diagnostics query is confirmed during phase planning.
 
 ## Deferred Items
 
 | Category | Item | Status |
 |----------|------|--------|
-| scope | Indexed Type-3/1, /2, and /4 Adam7 / packed pass traversal | deferred pending a separate bounded contract |
 | scope | Indexed adaptive filters and Fixed/Dynamic compression selection | deferred |
-| scope | Generic indexed image-model widening, palette generation, quantization, dithering, and scaling | deferred |
+| scope | Generic indexed image-model widening, packed public source format, palette generation, quantization, dithering, scaling, and decoder changes | deferred |
 | implementation | Image/pass/output staging, alternate encoders, FFI, target wrappers, and copied source trees | deferred |
 | delivery | Registry publication and release automation | deferred |
 
 ## Session Continuity
 
-Last session: 2026-07-24T00:15:17.347Z
-Stopped at: Completed 82-01-PLAN.md
-Resume file: None
+Last session: 2026-07-24T09:04:29.355+08:00
+Stopped at: v0.27 roadmap creation
+Resume file: `.planning/ROADMAP.md` (Phase 83)
 
 ## Operator Next Steps
 
-- Start the next milestone with /gsd-new-milestone
+- Plan Phase 83 with /gsd-plan-phase 83
 
 ## Performance Metrics
 
