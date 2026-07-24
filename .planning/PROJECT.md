@@ -16,9 +16,17 @@ MoonBit developers can reuse stable, high-performance native infrastructure cont
 
 **Validated:** PLTE/tRNS-aware atomic admission, exact output/work limits, hostile zero/one/ragged leases, released-lease and replay-work sticky terminals, independent Type-3/DEFLATE/CRC/Adler/raster parsing, public RGB8/RGBA8 decode, frozen legacy vectors, and the ordinary PNG package gate passed 315/315 on native, wasm, wasm-gc, js, and `--target all`.
 
-## Next Milestone Goals
+## Current Milestone: v0.29 Indexed Adam7 Compression Profiles
 
-No next milestone has been selected yet. Keep delivery code-first; define the next scoped capability with `$gsd-new-milestone` before adding implementation work. Registry publication, release automation, Dynamic indexed DEFLATE, adaptive filters, and indexed Adam7 compression remain deferred until separately scoped and justified.
+**Goal:** Extend the proven Indexed1/2/4/8 `FixedOrStored` contract to explicit Adam7 output while preserving existing Stored/filter-None Adam7 bytes and all non-interlaced compatibility routes.
+
+**Target features:**
+
+- Add additive eager and caller-buffered Adam7 compression selectors for Indexed1/2/4/8; existing interlace selectors remain literal Stored forwards.
+- Reuse one bounded pass-aware indexed raw-byte/match producer and the acknowledged machine; choose Fixed only when the complete PLTE/tRNS-aware Adam7 frame is no larger than Stored.
+- Prove exact pass geometry, atomic admission, hostile leases, independent Type-3/DEFLATE/raster evidence, frozen compatibility, and four-target portability.
+
+**Scope boundary:** This milestone does not add Dynamic indexed DEFLATE, adaptive indexed filters, wider dictionaries, staging, a second encoder, decoder changes, FFI, registry publication, or release automation.
 
 ## Requirements
 
@@ -65,7 +73,10 @@ No next milestone has been selected yet. Keep delivery code-first; define the ne
 
 ### Active
 
-No active requirements. Define the next milestone before adding new implementation scope.
+- [ ] Add explicit Indexed1/2/4/8 Adam7 `Stored`/`FixedOrStored` eager and caller-buffered selectors while existing interlace APIs remain byte-identical Stored forwards.
+- [ ] Derive pass-aware packed rows through one bounded producer and select Fixed only on a complete PLTE/tRNS-aware frame win or tie, with exact atomic limits and one budget charge.
+- [ ] Preserve hostile lease, release, replay, and compatibility guarantees for Adam7 indexed output through the existing acknowledged machine.
+- [ ] Independently qualify pass framing, DEFLATE, checksums, packed tails, public RGB8/RGBA8 decode, and all supported targets.
 
 ### Out of Scope
 

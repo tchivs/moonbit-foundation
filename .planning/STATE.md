@@ -1,19 +1,19 @@
 ---
 gsd_state_version: 1.0
-milestone: v0.28
-milestone_name: Indexed PNG Compression Profiles
-status: Awaiting next milestone
-stopped_at: Milestone v0.28 completed and archived
-last_updated: "2026-07-24T10:54:17.180Z"
+milestone: v0.29
+milestone_name: Indexed Adam7 Compression Profiles
+current_phase: 88
+current_phase_name: Phase 88 — Indexed Adam7 API and Fixed Wire Contract
+status: planning
+stopped_at: Milestone v0.29 roadmap defined — ready for phase planning
+last_updated: "2026-07-24T20:55:00.000Z"
 last_activity: 2026-07-24
-last_activity_desc: Milestone v0.28 completed and archived
+last_activity_desc: v0.29 roadmap defined with phases 88-90
 progress:
-  total_phases: 0
+  total_phases: 3
   completed_phases: 0
   total_plans: 0
   completed_plans: 0
-current_phase: 87
-current_phase_name: Hostile Indexed Streaming and Independent Qualification
 ---
 
 # Project State
@@ -24,20 +24,20 @@ See `.planning/PROJECT.md`.
 
 **Core value:** MoonBit developers can reuse stable, high-performance native infrastructure contracts instead of rebuilding incompatible foundations for every graphics, document, media, or automation product.
 
-**Current focus:** Planning next milestone
+**Current focus:** v0.29 Indexed Adam7 Compression Profiles — Phase 88 API and Fixed wire contract
 
 ## Current Position
 
-Phase: —
+Phase: 88 — Indexed Adam7 API and Fixed Wire Contract (not started)
 Plan: —
-Status: Awaiting next milestone
-Last activity: 2026-07-24 — Milestone v0.28 completed and archived
+Status: Ready for planning
+Last activity: 2026-07-24 — v0.29 roadmap defined
 
 ## Milestone Metrics
 
-**Current milestone:** v0.28 has 5 scoped requirements mapped exactly once across 3 planned phases; 3/3 phases and 3 plans are complete.
+**Current milestone:** v0.29 has 3 planned phases, 0 plans started, and all 5 scoped requirements mapped exactly once (ADAM7COMP-01 → 88; ADAM7COMP-02/03 → 89; ADAM7COMP-04/05 → 90).
 
-**Previous milestone:** v0.27 shipped Low-Bit Indexed Adam7 PNG Encode; its detailed history is archived at .planning/milestones/v0.27-ROADMAP.md.
+**Previous milestone:** v0.28 shipped Indexed PNG Compression Profiles; its detailed history is archived at .planning/milestones/v0.28-ROADMAP.md.
 
 ## Accumulated Context
 
@@ -62,6 +62,9 @@ Last activity: 2026-07-24 — Milestone v0.28 completed and archived
 - [v0.27]: Type-3/1, /2, and /4 Adam7 retains Stored DEFLATE/filter None and the sole acknowledged machine; qualification must parse collected chunk-origin bytes independently of eager parity.
 - [Phase 83]: Low-bit Indexed Adam7 uses additive selected-depth eager/chunk selectors with legacy APIs explicitly forwarding None.
 - [Phase 83]: Selected-depth Adam7 preflight and scalar replay share profile-depth pass geometry; no staging or second encoder is introduced.
+- [v0.29 roadmap]: Adam7 Indexed1/2/4/8 compression selection is additive: new eager/chunk selectors expose Stored and FixedOrStored, while existing interlace and v0.28 non-interlaced routes remain literal Stored/filter-None compatibility forwards.
+- [v0.29 roadmap]: ADAM7COMP-02 and ADAM7COMP-03 are delivered together in Phase 89 through one pass-aware bounded producer, exact PLTE/tRNS-aware frame facts, one atomic budget charge, and the established acknowledged machine; no Dynamic/adaptive indexed compression, wider matching, staging, or second encoder is planned.
+- [v0.29 roadmap]: Phase 90 is evidence-only around the Phase 89 machine: hostile leases, sticky terminals, independent chunk-origin parsing/decode, frozen vectors, and four-target package qualification.
 
 ### Blockers/Concerns
 
@@ -73,20 +76,21 @@ Last activity: 2026-07-24 — Milestone v0.28 completed and archived
 
 | Category | Item | Status |
 |----------|------|--------|
-| scope | Indexed adaptive filters and Fixed/Dynamic compression selection | deferred |
+| scope | Indexed adaptive filters and Dynamic indexed compression selection | deferred |
+| scope | Wider indexed matching or a 32 KiB dictionary | deferred |
 | scope | Generic indexed image-model widening, packed public source format, palette generation, quantization, dithering, scaling, and decoder changes | deferred |
 | implementation | Image/pass/output staging, alternate encoders, FFI, target wrappers, and copied source trees | deferred |
 | delivery | Registry publication and release automation | deferred |
 
 ## Session Continuity
 
-Last session: 2026-07-24T10:54:17.168Z
-Stopped at: Milestone v0.28 completed and archived
+Last session: 2026-07-24T20:55:00.000Z
+Stopped at: v0.29 roadmap defined — ready for phase planning
 Resume file: None
 
 ## Operator Next Steps
 
-- Start the next milestone with /gsd-new-milestone
+- Plan the first active phase with `/gsd-plan-phase 88`.
 
 ## Performance Metrics
 
