@@ -6,9 +6,9 @@ current_phase: 83
 current_phase_name: Low-Bit Indexed Adam7 Machine and Eager Contract
 status: planning
 stopped_at: Phase 83 context gathered
-last_updated: "2026-07-24T01:06:17.767Z"
+last_updated: "2026-07-24T15:00:00.627Z"
 last_activity: 2026-07-24
-last_activity_desc: Roadmap and requirements for Phases 83-84 created
+last_activity_desc: Root README regenerated for the current candidate workspace
 progress:
   total_phases: 2
   completed_phases: 0
@@ -68,6 +68,12 @@ Last activity: 2026-07-24 — Roadmap and requirements for Phases 83-84 created
 - The compact all-seven-pass fixture must be non-symmetric and supplemented with odd/narrow dimensions so every selected depth has a non-byte-aligned tail; expected bytes must not call production Adam7, packer, row-byte, or preflight helpers.
 - Do not promise diagnostics-content assertions unless a stable public diagnostics query is confirmed during phase planning.
 
+### Quick Tasks Completed
+
+| # | Description | Date | Commit | Directory |
+|---|-------------|------|--------|-----------|
+| 260724-vy0 | Regenerate the root README to reflect the current MoonBit Native Foundation workspace, modules, examples, quality workflow, and candidate stability policy | 2026-07-24 | d35bc1f | [260724-vy0-regenerate-the-root-readme-to-reflect-th](./quick/260724-vy0-regenerate-the-root-readme-to-reflect-th/) |
+
 ## Deferred Items
 
 | Category | Item | Status |
@@ -79,13 +85,14 @@ Last activity: 2026-07-24 — Roadmap and requirements for Phases 83-84 created
 
 ## Session Continuity
 
-Last session: 2026-07-24T01:06:17.752Z
-Stopped at: Phase 83 context gathered
+Last session: 2026-07-24T15:00:00.627Z
+Stopped at: Root README regenerated and verified
 Resume file: .planning/phases/83-low-bit-indexed-adam7-machine-and-eager-contract/83-CONTEXT.md
 
 ## Operator Next Steps
 
 - Plan Phase 83 with /gsd-plan-phase 83
+- Continue code-first v0.27 work; README documentation is now aligned with the current workspace.
 
 ## Performance Metrics
 
