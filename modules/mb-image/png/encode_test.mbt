@@ -916,6 +916,56 @@ test "PNG Indexed8 eager emits an RGB palette PNG that generic decode expands" {
   inspect(view.get_byte(1UL, 0UL, 2UL).unwrap() == b'\xc0', content="true")
 }
 
+///| The explicit Indexed8 selector keeps the frozen Stored wire route while
+/// making the bounded Fixed plan opt-in and rejecting unavailable Dynamic work
+/// before either facade observes progress.
+test "PNG Indexed8 compression selectors preserve Stored and select Fixed" {
+  let source = PngIndexedImage::new(
+    64UL, 1UL, Bytes::from_array(Array::make(64, b'\x00')),
+    b"\x12\x34\x56\xa0\xb0\xc0", b"\x00\xff", png_encode_budget(),
+  ).unwrap()
+  let legacy_writer = @io.MemoryWriter::new(
+    512UL, png_encode_budget(bytes=512UL, work=0UL),
+  ).unwrap()
+  ignore(PngEncoder::encode_indexed8(
+    PngEncoder::new(), source, legacy_writer as &@io.Writer, png_encode_limits(),
+    png_encode_budget(work=4096UL), @error.Diagnostics::new(),
+  ).unwrap())
+  let stored_writer = @io.MemoryWriter::new(
+    512UL, png_encode_budget(bytes=512UL, work=0UL),
+  ).unwrap()
+  ignore(PngEncoder::encode_indexed8_with_compression_strategy(
+    PngEncoder::new(), source, PngCompressionStrategy::Stored,
+    stored_writer as &@io.Writer, png_encode_limits(), png_encode_budget(work=4096UL),
+    @error.Diagnostics::new(),
+  ).unwrap())
+  inspect(png_encode_prefix(legacy_writer) == png_encode_prefix(stored_writer), content="true")
+
+  let fixed_writer = @io.MemoryWriter::new(
+    512UL, png_encode_budget(bytes=512UL, work=0UL),
+  ).unwrap()
+  ignore(PngEncoder::encode_indexed8_with_compression_strategy(
+    PngEncoder::new(), source, PngCompressionStrategy::FixedOrStored,
+    fixed_writer as &@io.Writer, png_encode_limits(), png_encode_budget(work=4096UL),
+    @error.Diagnostics::new(),
+  ).unwrap())
+  inspect(png_encode_prefix(fixed_writer).length() < png_encode_prefix(stored_writer).length(), content="true")
+
+  let rejected_budget = png_encode_budget(work=4096UL)
+  let before = rejected_budget.remaining()
+  let rejected_writer = @io.MemoryWriter::new(
+    512UL, png_encode_budget(bytes=512UL, work=0UL),
+  ).unwrap()
+  let error = PngEncoder::encode_indexed8_with_compression_strategy(
+    PngEncoder::new(), source, PngCompressionStrategy::DynamicOrFixedOrStored,
+    rejected_writer as &@io.Writer, png_encode_limits(), rejected_budget,
+    @error.Diagnostics::new(),
+  ).unwrap_err()
+  inspect(error.context() == Some("indexed-dynamic-compression-unavailable"), content="true")
+  inspect(png_adam7_same_remaining(before, rejected_budget.remaining()), content="true")
+  inspect(png_encode_prefix(rejected_writer).length(), content="0")
+}
+
 ///|
 test "PNG Indexed8 eager canonical tRNS decodes palette alpha as RGBA8" {
   let source = PngIndexedImage::new(
