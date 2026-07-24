@@ -223,3 +223,47 @@ test "lower applies stroke-opacity and keeps fill opaque by default" {
     Err(_) => inspect("err", content="ok")
   }
 }
+
+///|
+test "lower wires stroke cap/join/miter/dash from attributes" {
+  let src = "<svg><rect width=\"4\" height=\"4\" fill=\"none\" stroke=\"black\" stroke-width=\"3\" stroke-linecap=\"round\" stroke-linejoin=\"bevel\" stroke-miterlimit=\"6\" stroke-dasharray=\"2 1 0.5\"/></svg>"
+  match parse_svg(src) {
+    Ok(scene) => {
+      let list = lower_to_drawing_list(scene)
+      // No fill → only the Stroke op is emitted.
+      match list.get(0) {
+        Some(Stroke(_, stroke, _)) => {
+          inspect(stroke.width, content="3")
+          inspect(stroke.cap == @canvas.LineCap::Round, content="true")
+          inspect(stroke.join == @canvas.LineJoin::Bevel, content="true")
+          inspect(stroke.miter_limit, content="6")
+          inspect(stroke.dash.length(), content="3")
+          inspect(stroke.dash[2], content="0.5")
+        }
+        other => inspect("other", content="other")
+      }
+    }
+    Err(_) => inspect("err", content="ok")
+  }
+}
+
+///|
+test "lower stroke defaults when no stroke attributes are given" {
+  // Only stroke color set; cap/join/miter/dash keep SVG defaults.
+  match parse_svg("<svg><rect width=\"4\" height=\"4\" stroke=\"black\"/></svg>") {
+    Ok(scene) => {
+      let list = lower_to_drawing_list(scene)
+      match list.get(0) {
+        Some(Stroke(_, stroke, _)) => {
+          inspect(stroke.width, content="1")
+          inspect(stroke.cap == @canvas.LineCap::Butt, content="true")
+          inspect(stroke.join == @canvas.LineJoin::Miter, content="true")
+          inspect(stroke.miter_limit, content="4")
+          inspect(stroke.dash.length(), content="0")
+        }
+        other => inspect("other", content="other")
+      }
+    }
+    Err(_) => inspect("err", content="ok")
+  }
+}

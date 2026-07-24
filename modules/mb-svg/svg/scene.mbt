@@ -46,6 +46,10 @@ pub struct Paint {
   fill_opacity : Double
   stroke_opacity : Double
   stroke_width : Double
+  stroke_cap : @canvas.LineCap
+  stroke_join : @canvas.LineJoin
+  stroke_miterlimit : Double
+  stroke_dash : Array[Double]
 }
 
 ///|
@@ -440,12 +444,60 @@ fn build_paint(attrs : Array[(String, String)]) -> Paint {
   let fill_opacity = attr_double(attrs, "fill-opacity", 1.0)
   let stroke_opacity = attr_double(attrs, "stroke-opacity", 1.0)
   let stroke_width = attr_double(attrs, "stroke-width", 1.0)
+  let stroke_cap = match attr_get(attrs, "stroke-linecap") {
+    None => @canvas.LineCap::Butt // SVG default
+    Some(s) => parse_linecap(s)
+  }
+  let stroke_join = match attr_get(attrs, "stroke-linejoin") {
+    None => @canvas.LineJoin::Miter // SVG default
+    Some(s) => parse_linejoin(s)
+  }
+  let stroke_miterlimit = attr_double(attrs, "stroke-miterlimit", 4.0)
+  let stroke_dash = match attr_get(attrs, "stroke-dasharray") {
+    None => [] // solid
+    Some(s) =>
+      if is_none_color(s) {
+        // "none" dasharray = solid.
+        []
+      } else {
+        match parse_number_list(s) {
+          Ok(nums) => nums
+          Err(_) => []
+        }
+      }
+  }
   {
     fill: fill,
     stroke: stroke,
     fill_opacity: fill_opacity,
     stroke_opacity: stroke_opacity,
     stroke_width: stroke_width,
+    stroke_cap: stroke_cap,
+    stroke_join: stroke_join,
+    stroke_miterlimit: stroke_miterlimit,
+    stroke_dash: stroke_dash,
+  }
+}
+
+// Parse an SVG stroke-linecap value; unknown values fall back to the SVG
+// default (Butt).
+fn parse_linecap(s : String) -> @canvas.LineCap {
+  match @text.trim(s) {
+    "butt" => @canvas.LineCap::Butt
+    "round" => @canvas.LineCap::Round
+    "square" => @canvas.LineCap::Square
+    _ => @canvas.LineCap::Butt
+  }
+}
+
+// Parse an SVG stroke-linejoin value; unknown values fall back to the SVG
+// default (Miter).
+fn parse_linejoin(s : String) -> @canvas.LineJoin {
+  match @text.trim(s) {
+    "miter" => @canvas.LineJoin::Miter
+    "round" => @canvas.LineJoin::Round
+    "bevel" => @canvas.LineJoin::Bevel
+    _ => @canvas.LineJoin::Miter
   }
 }
 

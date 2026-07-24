@@ -14,13 +14,27 @@
 // Known v0.1 limitations (flagged inline, deferred per RFC 0002 §6.2):
 //   - viewBox → viewport scale/translate mapping is not applied (identity).
 //   - preserveAspectRatio is ignored.
-//   - StrokeStyle cap/join/miter/dash use canvas defaults (no SVG attr wiring).
 //   - fill-rule / clip-rule attributes are not read; fills default to Nonzero.
 //   - rx/ry rounded corners on <rect> are ignored (treated as sharp).
 //
+// stroke-width/linecap/linejoin/miterlimit/dasharray ARE wired through to the
+// StrokeStyle setters. stroke-dashoffset is not yet handled (follow-up).
+//
 // fill-opacity/stroke-opacity ARE applied (via FillStyle::with_alpha, which
-// mb-canvas now exposes). group/element `opacity` (separate from paint
-// opacity) is a follow-up.
+// mb-canvas now exposes).
+//
+// DEFERRED — group/element `opacity` (the opacity attribute on <g>/<svg>):
+// SVG 1.1 §14.4 requires the group to render as if opacity=1, then the whole
+// group result is composited onto the backdrop at the given opacity. This
+// needs an offscreen layer (begin group → rasterize children → end group →
+// composite), but mb-canvas's DrawOp has no PushLayer/PopLayer (RFC 0003 §6
+// delegates raster-raster compositing to mb-image/ops, and §7 scopes the
+// drawing list to geometry+style+transform+clip — no layer state). A naive
+// approximation (multiplying opacity into each child's paint alpha) diverges
+// from the spec whenever semi-transparent shapes overlap inside the group, so
+// it is rejected here rather than shipping a wrong-but-cheap version. Group
+// opacity is deferred until mb-canvas gains a layer abstraction; this is a
+// cross-module decision, not something mb-svg can resolve alone.
 
 ///|
 /// Lower a scene tree into a drawing list. Returns a fresh DrawingList with
@@ -79,6 +93,10 @@ fn emit_shape(
   match paint.stroke {
     Some((r, g, b)) => {
       let stroke = @canvas.StrokeStyle::new(paint.stroke_width)
+        .with_cap(paint.stroke_cap)
+        .with_join(paint.stroke_join)
+        .with_miter_limit(paint.stroke_miterlimit)
+        .with_dash(paint.stroke_dash)
       let color = make_fill_style(r, g, b, paint.stroke_opacity)
       list.push_stroke(path, stroke, color)
     }
