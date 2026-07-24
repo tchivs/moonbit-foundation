@@ -15,8 +15,8 @@
 
 ### Streaming qualification and portability
 
-- [ ] **INDEXADAM7-05**: Caller-buffered Indexed8 Adam7 output reuses the bounded eager machine, remains byte-identical under zero/one/ragged leases, preserves accepted-only progress and untouched tails, and retains sticky terminal behavior.
-- [ ] **INDEXADAM7-06**: Independent seven-pass wire evidence, public decode, frozen Indexed8/low-bit compatibility vectors, and the ordinary PNG package gate qualify the feature on wasm, wasm-gc, js, and native.
+- [x] **INDEXADAM7-05**: Caller-buffered Indexed8 Adam7 output reuses the bounded eager machine, remains byte-identical under zero/one/ragged leases, preserves accepted-only progress and untouched tails, and retains sticky terminal behavior.
+- [x] **INDEXADAM7-06**: Independent seven-pass wire evidence, public decode, frozen Indexed8/low-bit compatibility vectors, and the ordinary PNG package gate qualify the feature on wasm, wasm-gc, js, and native.
 
 ## Future Requirements
 
@@ -40,8 +40,8 @@
 | INDEXADAM7-02 | Phase 81 | Complete |
 | INDEXADAM7-03 | Phase 81 | Complete |
 | INDEXADAM7-04 | Phase 81 | Complete |
-| INDEXADAM7-05 | Phase 82 | Pending |
-| INDEXADAM7-06 | Phase 82 | Pending |
+| INDEXADAM7-05 | Phase 82 | Complete |
+| INDEXADAM7-06 | Phase 82 | Complete |
 
 **Coverage:**
 

@@ -4,17 +4,17 @@ milestone: v0.26
 milestone_name: Indexed8 Adam7 PNG Encode
 current_phase: 82
 current_phase_name: Indexed8 Adam7 Streaming and Qualification
-status: executing
-stopped_at: Phase 82 context gathered
-last_updated: "2026-07-23T23:34:11.404Z"
+status: complete
+stopped_at: Completed 82-01-PLAN.md
+last_updated: "2026-07-24T00:15:17.361Z"
 last_activity: 2026-07-24
-last_activity_desc: Phase 81 complete, transitioned to Phase 82
+last_activity_desc: Phase 82 plan complete; Indexed8 Adam7 streaming qualified
 progress:
   total_phases: 2
-  completed_phases: 1
+  completed_phases: 2
   total_plans: 2
-  completed_plans: 1
-  percent: 50
+  completed_plans: 2
+  percent: 100
 ---
 
 # Project State
@@ -25,18 +25,18 @@ See `.planning/PROJECT.md`.
 
 **Core value:** MoonBit developers can reuse stable, high-performance native infrastructure contracts instead of rebuilding incompatible foundations for every graphics, document, media, or automation product.
 
-**Current focus:** Phase 82 — Indexed8 Adam7 Streaming and Qualification.
+**Current focus:** v0.26 implementation complete — Indexed8 Adam7 PNG Encode.
 
 ## Current Position
 
 Phase: 82 of 2 (Indexed8 Adam7 Streaming and Qualification)
-Plan: Not started
-Status: Ready to execute
-Last activity: 2026-07-24 — Phase 81 complete, transitioned to Phase 82
+Plan: 01 complete
+Status: Phase complete
+Last activity: 2026-07-24 — Phase 82 streaming qualification complete
 
 ## Milestone Metrics
 
-**Current milestone:** v0.26 has 6 scoped requirements mapped exactly once across 2 planned phases; 1/2 phases and 1 plan are complete.
+**Current milestone:** v0.26 has 6 scoped requirements mapped exactly once across 2 planned phases; 2/2 phases and 2 plans are complete.
 
 **Previous milestone:** v0.25 shipped Indexed Type-3/1, /2, and /4 non-interlaced eager/chunk output through the existing machine. Its detailed history is archived at `.planning/milestones/v0.25-ROADMAP.md`.
 
@@ -56,6 +56,8 @@ Last activity: 2026-07-24 — Phase 81 complete, transitioned to Phase 82
 - [v0.26]: Indexed Type-3/1, /2, and /4 Adam7 remains deferred until packed pass traversal has a separately proven bounded contract.
 - [Phase 81]: Indexed8 Adam7 is opt-in through additive eager and chunk selectors; established Indexed8 and low-bit routes explicitly retain None.
 - [Phase 81]: Preflight and scalar output each consume _png_adam7_passes(width, height, 1UL, 8), without staging or an alternate encoder.
+- [Phase 82]: Indexed8 Adam7 stream qualification stays test-only and exercises the existing Phase 81 selector/machine.
+- [Phase 82]: Zero-capacity leases use a sentinel-backed zero-length view; recurring zero pulls preserve prior accepted totals.
 
 ### Blockers/Concerns
 
@@ -75,16 +77,17 @@ Last activity: 2026-07-24 — Phase 81 complete, transitioned to Phase 82
 
 ## Session Continuity
 
-Last session: 2026-07-23T23:27:01.627Z
-Stopped at: Phase 82 context gathered
-Resume file: .planning/phases/82-indexed8-adam7-streaming-and-qualification/82-CONTEXT.md
+Last session: 2026-07-24T00:15:17.347Z
+Stopped at: Completed 82-01-PLAN.md
+Resume file: None
 
 ## Operator Next Steps
 
-- Plan Phase 82 around hostile caller-buffered lease schedules and final qualification, retaining Phase 81's sole machine.
+- Run phase verification and milestone review for v0.26.
 
 ## Performance Metrics
 
 | Plan | Duration | Tasks | Files |
 |------|----------|-------|-------|
 | Phase 81-indexed8-adam7-machine-and-eager-wire-contract P01 | 41min | 2 tasks | 5 files |
+| Phase 82 P01 | 39min | 2 tasks | 1 files |
