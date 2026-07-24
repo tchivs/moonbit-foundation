@@ -54,11 +54,14 @@ coverage:
         status: pass
     human_judgment: false
   - id: D4
-    description: Exact selected-depth frame and work limits admit once while rejected output, work, cap, and overflow cases remain atomic.
+    description: Exact selected-depth frame and work limits admit once while rejected output, work, cap, and public constructor boundary cases remain atomic.
     requirement: INDEXLOWADAM7-04
     verification:
       - kind: unit
         ref: modules/mb-image/png/encode_wbtest.mbt#PNG selected low-bit Adam7 preflight facts and admission are exact
+        status: pass
+      - kind: integration
+        ref: modules/mb-image/png/encode_test.mbt#PNG selected low-bit Adam7 constructor and public preflight are typed and atomic
         status: pass
     human_judgment: false
 duration: 15m
@@ -83,11 +86,13 @@ status: complete
 - Added additive eager and chunk selected-depth interlace selectors; existing low-bit and Indexed8 compatibility routes remain explicit non-interlaced forwards.
 - Generalized Adam7 preflight and replay to use profile-depth geometry, with per-pass local MSB-first packing and deterministic zero tails inside the sole machine.
 - Added independent 5x5 wire/frame/CRC/decode oracles, atomic preflight facts, and a sufficient-lease selector smoke without importing Phase 84 hostile-lifecycle scope.
+- Added WR-01 public regression coverage for typed oversized-dimension construction and selected low-bit Adam7 preflight rejection before writer or budget mutation.
 
 ## Task Commits
 
 1. **Task 1: Add independent failing 5×5 low-bit Adam7 wire, framing, preflight, and freeze tracers** — `db90dbb` (test)
 2. **Task 2: Generalize selected-depth Adam7 preflight and local packing in the sole machine** — `555877e` (feat)
+3. **WR-01: Cover public constructor and selected-depth Adam7 preflight rejection** — `7549722` (test)
 
 ## Files Created/Modified
 
@@ -122,6 +127,12 @@ status: complete
 
 - [Rule 3 - Blocking] The state SDK could not parse this repository's legacy `Plan: —` position field for `state.advance-plan`; the affected Phase 83/84 position and completed roadmap row were updated directly after all other named state handlers completed.
 
+## Post-Plan Review Follow-up
+
+- **WR-01:** `encode_test.mbt` now proves the public `PngIndexedImage` constructor rejects a dimension outside the PNG u32 range with `png-u32-dimensions` and leaves its budget unchanged.
+- The same public test exercises each selected low-bit Adam7 eager entry point under an output limit, requiring typed `output-bytes` rejection before writer progress or budget charge.
+- The existing white-box pass-total overflow test remains intact. A true public source with dimensions large enough to overflow pass geometry cannot be constructed without allocating its required indexed raster because `PngIndexedImage` fields are private; widening that seam would require production-code changes, outside this tests-only follow-up.
+
 ## TDD Gate Compliance
 
 - RED: `db90dbb` records the intended missing-selector test failure.
@@ -141,12 +152,12 @@ Phase 84 can qualify the existing selected-depth chunk facade under hostile leas
 
 ## Verification
 
-- `moon -C modules/mb-image test png --target native --frozen` — pass (294/294).
-- `moon -C modules/mb-image test png --target all --frozen` — pass (294/294 each on wasm, wasm-gc, js, and native).
+- `moon -C modules/mb-image test png --target native --frozen` — pass (295/295).
+- `moon -C modules/mb-image test png --target all --frozen` — pass (295/295 each on wasm, wasm-gc, js, and native).
 
 ## Self-Check: PASSED
 
-All five modified implementation/test files and both task commits are present.
+All five modified implementation/test files and the WR-01 follow-up test commit are present.
 
 *Phase: 83-low-bit-indexed-adam7-machine-and-eager-contract*
 *Completed: 2026-07-24*
