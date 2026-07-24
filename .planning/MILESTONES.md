@@ -1,5 +1,17 @@
 # Project Milestones: MoonBit Native Foundation
 
+## v0.29 Indexed Adam7 Compression Profiles (Shipped: 2026-07-24)
+
+**Phases completed:** 3 phases, 3 plans, 3 tasks
+
+**Key accomplishments:**
+
+- Indexed1/2/4/8 now share additive Adam7 Stored-or-FixedOrStored eager/chunked selectors over the existing bounded PNG machine.
+- Adam7 Indexed1/2/4/8 now have all-profile evidence that candidate frame facts, exact admission, and acknowledged replay remain on one bounded machine seam.
+- Indexed Adam7 FixedOrStored output is now independently parseable, hostile-lease safe, and publicly decodable across all four indexed depths.
+
+---
+
 ## v0.28 Indexed PNG Compression Profiles (Shipped: 2026-07-24)
 
 **Delivered:** Additive indexed PNG Fixed-or-Stored compression profiles with exact bounded admission, acknowledged streaming parity, independent wire/decode qualification, and four-target evidence.
