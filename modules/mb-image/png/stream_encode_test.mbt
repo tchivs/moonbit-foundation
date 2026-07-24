@@ -5577,6 +5577,27 @@ test "PNG selected Indexed1 Adam7 chunk hostile leases qualify stream-origin byt
   png_stream_indexed_low_bit_adam7_hostile_drain(PngIndexedBitDepth::One, [0UL, 1UL])
 }
 
+///| Every selected low-bit Adam7 stream must retain hostile lease semantics
+///| and independently prove the literal packed pass raster.
+test "PNG selected low-bit Adam7 chunk qualifies every hostile lease schedule" {
+  for bit_depth in [
+    PngIndexedBitDepth::One, PngIndexedBitDepth::Two, PngIndexedBitDepth::Four,
+  ] {
+    png_stream_indexed_low_bit_adam7_hostile_drain(bit_depth, [0UL, 1UL])
+    png_stream_indexed_low_bit_adam7_hostile_drain(bit_depth, [1UL])
+    png_stream_indexed_low_bit_adam7_hostile_drain(bit_depth, [0UL, 1UL, 3UL, 2UL, 5UL])
+  }
+}
+
+///| A released selected-depth Adam7 lease remains a sticky zero-write failure.
+test "PNG selected low-bit Adam7 chunk replays released lease failures" {
+  for bit_depth in [
+    PngIndexedBitDepth::One, PngIndexedBitDepth::Two, PngIndexedBitDepth::Four,
+  ] {
+    png_stream_indexed_low_bit_adam7_released_failure(bit_depth)
+  }
+}
+
 ///| Every selected Type-3 depth replays a released first lease as the same
 ///| terminal failure without mutating a later caller-owned lease.
 test "PNG selected Indexed chunk replays released lease failures" {
