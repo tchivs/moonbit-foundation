@@ -5594,10 +5594,135 @@ fn png_stream_indexed_low_bit_released_failure(
   }
 }
 
-///| Phase 87 RED gate: this test becomes the canonical hostile Fixed/Stored
-///| lifecycle tracer in the GREEN commit below.
+///| Drain one fresh Indexed2 Fixed-or-Stored machine through a caller-owned
+///| schedule. Only accepted prefixes enter the result; rejected tails remain
+///| sentinel-filled and terminal pulls are zero-write/sticky.
+fn png_phase87_indexed_matrix_source(
+  bit_depth : PngIndexedBitDepth,
+  stored_fallback : Bool,
+) -> PngIndexedImage {
+  let depth = match bit_depth {
+    PngIndexedBitDepth::One => 1UL
+    PngIndexedBitDepth::Two => 2UL
+    PngIndexedBitDepth::Four => 4UL
+  }
+  let width = 512UL / depth
+  let cap = 1UL << depth.to_int()
+  let packed : Array[Byte] = []
+  for index = 0; index < 64; index = index + 1 {
+    packed.push(if stored_fallback { (192 + index).to_byte() } else { b'\x00' })
+  }
+  let codes : Array[Byte] = []
+  let per_byte = 8UL / depth
+  for x = 0UL; x < width; x = x + 1UL {
+    let packed_byte = packed[(x / per_byte).to_int()].to_uint64()
+    let shift = 8UL - depth - (x % per_byte) * depth
+    codes.push(((packed_byte >> shift.to_int()) & ((1UL << depth.to_int()) - 1UL)).to_byte())
+  }
+  let palette : Array[Byte] = []
+  let alpha : Array[Byte] = []
+  for entry = 0UL; entry < cap; entry = entry + 1UL {
+    palette.push(entry.to_byte())
+    palette.push((entry + 1UL).to_byte())
+    palette.push((entry + 2UL).to_byte())
+    alpha.push(if entry == 0UL { b'\x00' } else { b'\xff' })
+  }
+  PngIndexedImage::new(
+    width, 1UL, Bytes::from_array(codes), Bytes::from_array(palette),
+    Bytes::from_array(alpha), png_stream_test_budget(),
+  ).unwrap()
+}
+
+fn png_phase87_hostile_fixed_tracer(schedule : Array[UInt64]) -> Unit {
+  let source = png_phase87_indexed_matrix_source(PngIndexedBitDepth::Two, false)
+  let expected = png_stream_indexed_low_bit_eager_with_compression(
+    source, PngIndexedBitDepth::Two, PngCompressionStrategy::FixedOrStored,
+  )
+  let encoder = PngChunkEncoder::new_indexed_with_compression_strategy(
+    source, PngIndexedBitDepth::Two, PngCompressionStrategy::FixedOrStored,
+    png_stream_test_limits(), png_stream_test_budget(work=4096UL),
+    @error.Diagnostics::new(),
+  ).unwrap()
+  let output : Array[Byte] = []
+  let mut turn = 0UL
+  while turn < 4096UL {
+    let capacity = schedule[(turn % schedule.length().to_uint64()).to_int()]
+    let owner = png_chunk_test_owner(if capacity == 0UL { 1UL } else { capacity }, fill=b'Z')
+    let before = output.length().to_uint64()
+    let pulled = owner.with_mut(0UL, capacity, fn(lease) { Ok(encoder.pull(lease)) }).unwrap()
+    if pulled.written() > capacity || pulled.total_written() != before + pulled.written() {
+      abort("png phase87 fixed tracer accepted-only progress")
+    }
+    if capacity == 0UL && (pulled.written() != 0UL || pulled.total_written() != before ||
+      !(pulled.outcome() is PngChunkPullOutcome::NeedOutput) ||
+      owner.view().get(0UL).unwrap() != b'Z') {
+      abort("png phase87 fixed tracer zero lease")
+    }
+    for index = 0UL; index < pulled.written(); index = index + 1UL {
+      output.push(owner.view().get(index).unwrap())
+    }
+    for index = pulled.written(); index < capacity; index = index + 1UL {
+      if owner.view().get(index).unwrap() != b'Z' {
+        abort("png phase87 fixed tracer sentinel tail")
+      }
+    }
+    match pulled.outcome() {
+      PngChunkPullOutcome::NeedOutput => turn = turn + 1UL
+      PngChunkPullOutcome::Failed(_) => abort("png phase87 fixed tracer failed")
+      PngChunkPullOutcome::Finished => {
+        if Bytes::from_array(output) != expected {
+          abort("png phase87 fixed tracer eager parity")
+        }
+        let later = png_chunk_test_owner(7UL, fill=b'Z')
+        let replay = later.with_mut(0UL, 7UL, fn(lease) { Ok(encoder.pull(lease)) }).unwrap()
+        if replay.written() != 0UL || replay.total_written() != pulled.total_written() ||
+          !(replay.outcome() is PngChunkPullOutcome::Finished) {
+          abort("png phase87 fixed tracer sticky Finished")
+        }
+        for index = 0UL; index < 7UL; index = index + 1UL {
+          if later.view().get(index).unwrap() != b'Z' {
+            abort("png phase87 fixed tracer terminal tail")
+          }
+        }
+        return ()
+      }
+    }
+  }
+  abort("png phase87 fixed tracer unreachable")
+}
+
+///| Phase 87 RED/green tracer: one canonical Fixed winner survives hostile
+///| leases, and a released first lease is a sticky zero-write failure.
 test "PNG indexed compression hostile tracer FixedOrStored" {
-  abort("phase87 hostile tracer qualification absent")
+  for schedule in [[0UL, 1UL], [1UL], [0UL, 1UL, 3UL, 2UL, 5UL]] {
+    png_phase87_hostile_fixed_tracer(schedule)
+  }
+  let source = png_phase87_indexed_matrix_source(PngIndexedBitDepth::Two, false)
+  let encoder = PngChunkEncoder::new_indexed_with_compression_strategy(
+    source, PngIndexedBitDepth::Two, PngCompressionStrategy::FixedOrStored,
+    png_stream_test_limits(), png_stream_test_budget(work=4096UL),
+    @error.Diagnostics::new(),
+  ).unwrap()
+  let released = png_chunk_test_owner(1UL, fill=b'Z')
+  let first = released.with_mut(0UL, 1UL, fn(lease) {
+    lease.release()
+    Ok(encoder.pull(lease))
+  }).unwrap()
+  let first_error = match first.outcome() {
+    PngChunkPullOutcome::Failed(error) => error
+    _ => abort("png phase87 fixed tracer released outcome")
+  }
+  let later = png_chunk_test_owner(1UL, fill=b'Z')
+  let replay = later.with_mut(0UL, 1UL, fn(lease) { Ok(encoder.pull(lease)) }).unwrap()
+  let replay_error = match replay.outcome() {
+    PngChunkPullOutcome::Failed(error) => error
+    _ => abort("png phase87 fixed tracer released replay")
+  }
+  if first.written() != 0UL || first.total_written() != 0UL || replay.written() != 0UL ||
+    replay.total_written() != 0UL || !png_chunk_test_same_error(first_error, replay_error) ||
+    released.view().get(0UL).unwrap() != b'Z' || later.view().get(0UL).unwrap() != b'Z' {
+    abort("png phase87 fixed tracer released terminal")
+  }
 }
 
 ///| Every selected Type-3 depth keeps eager parity and lease ownership under
