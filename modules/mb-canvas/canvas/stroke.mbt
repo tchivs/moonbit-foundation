@@ -10,9 +10,11 @@
 // Path2 filled with the even-odd rule (so overlap self-intersections do not
 // double-cover).
 //
-// v0.1 coverage: butt/square cap, miter/bevel join (miter falls back to bevel
-// beyond miter_limit). Round cap/join and dash are stubbed to their nearest
-// non-round equivalent and will be refined in a follow-up.
+// Coverage: butt/square/round cap, miter/bevel join (miter extends to the join
+// intersection and falls back to bevel beyond miter_limit), and dash patterns
+// (alternating on/off lengths, repeating). Round join is approximated as bevel
+// in this revision (the miter/bevel offset path is used; true round joins would
+// insert arc points at each corner and are a follow-up refinement).
 
 // A polyline is a sequence of vertex points forming a single subpath. `closed`
 // indicates the original subpath was closed (Close), so joins wrap around and no
@@ -36,9 +38,112 @@ fn expand_stroke(path : @math.Path2, style : StrokeStyle) -> @math.Path2 {
     if pl.points.length() < 2 {
       continue // a single point produces no stroke
     }
-    stroke_polyline(outline, pl, half, style)
+    if style.dash.is_empty() {
+      stroke_polyline(outline, pl, half, style)
+    } else {
+      // Dash pattern: split the centerline into on-segments and stroke each.
+      for sub in apply_dash(pl, style.dash) {
+        if sub.points.length() >= 2 {
+          stroke_polyline(outline, sub, half, style)
+        }
+      }
+    }
   }
   outline
+}
+
+// Split a polyline into "on" sub-polylines according to a dash pattern. The
+// pattern is alternating on/off lengths; the first entry is "on". The pattern
+// repeats and wraps if the polyline is longer than one cycle. Off segments and
+// the gaps they create are dropped; only on segments produce output polylines.
+fn apply_dash(pl : Polyline, dash : Array[Double]) -> Array[Polyline] {
+  let result : Array[Polyline] = []
+  if dash.is_empty() || pl.points.length() < 2 {
+    result.push(pl)
+    return result
+  }
+  let mut seg_idx = 0 // index into pl.points for the current centerline segment
+  // Walk the centerline accumulating distance; toggle on/off at pattern boundaries.
+  let mut remaining = dash[0] // distance left in the current dash entry
+  let mut on = true // dash[0] is "on"
+  let mut dash_idx = 0
+  let mut current_run : Array[@math.Point2] = []
+  let p0 = pl.points[0]
+  current_run.push(p0)
+  let mut cur_x = p0.x()
+  let mut cur_y = p0.y()
+  while seg_idx < pl.points.length() - 1 {
+    let p_next = pl.points[seg_idx + 1]
+    let dx = p_next.x() - cur_x
+    let dy = p_next.y() - cur_y
+    let seg_len = (dx * dx + dy * dy).sqrt()
+    if seg_len < 1.0e-12 {
+      // Degenerate skip.
+      seg_idx += 1
+      cur_x = p_next.x()
+      cur_y = p_next.y()
+      continue
+    }
+    let ux = dx / seg_len
+    let uy = dy / seg_len
+    if seg_len <= remaining {
+      // Whole remaining centerline segment fits in the current dash entry.
+      if on {
+        current_run.push(p_next)
+      }
+      remaining -= seg_len
+      cur_x = p_next.x()
+      cur_y = p_next.y()
+      seg_idx += 1
+    } else {
+      // The dash boundary falls inside this centerline segment.
+      let cut_x = cur_x + ux * remaining
+      let cut_y = cur_y + uy * remaining
+      let cut_pt = @math.Point2::new(cut_x, cut_y)
+      if on {
+        current_run.push(cut_pt)
+        // End of an "on" run.
+        if current_run.length() >= 2 {
+          result.push({ points: current_run, closed: false })
+        }
+        current_run = []
+      }
+      // Advance past the cut, toggle dash entry.
+      cur_x = cut_x
+      cur_y = cut_y
+      remaining = 0.0
+      // Move to next dash entry (toggle on/off), wrapping the pattern.
+      dash_idx = (dash_idx + 1) % dash.length()
+      remaining = dash[dash_idx]
+      on = (dash_idx % 2 == 0)
+      if on {
+        // Start a new "on" run at the cut point.
+        current_run = [cut_pt]
+      }
+      // Do not advance seg_idx; the rest of this centerline segment is processed
+      // in the next iteration against the new dash entry.
+    }
+    if remaining <= 1.0e-12 {
+      // Dash entry exhausted exactly at a vertex.
+      if on {
+        if current_run.length() >= 2 {
+          result.push({ points: current_run, closed: false })
+        }
+        current_run = []
+      }
+      dash_idx = (dash_idx + 1) % dash.length()
+      remaining = dash[dash_idx]
+      on = (dash_idx % 2 == 0)
+      if on {
+        current_run = [@math.Point2::new(cur_x, cur_y)]
+      }
+    }
+  }
+  // Flush a trailing "on" run.
+  if on && current_run.length() >= 2 {
+    result.push({ points: current_run, closed: false })
+  }
+  result
 }
 
 // Walk the PathCommand list and collect subpaths as polylines, flattening
@@ -179,7 +284,7 @@ fn stroke_polyline(
     }
     // Left normal = (-ty, tx).
     let (lnx, lny) = (-ty, tx)
-    let miter_len = miter_length(dx_in, dy_out, lnx, lny, half, style)
+    let miter_len = miter_length(dx_in, dy_in, dx_out, dy_out, lnx, lny, half, style)
     left.push(@math.Point2::new(p.x() + lnx * miter_len, p.y() + lny * miter_len))
     right.push(@math.Point2::new(p.x() - lnx * miter_len, p.y() - lny * miter_len))
   }
@@ -191,20 +296,22 @@ fn stroke_polyline(
     outline.push(@math.PathCommand::LineTo(left[i]))
   }
   // Far-end cap (open polyline only).
-  if not(pl.closed) {
+  if !pl.closed {
     match style.cap {
       Square => emit_square_cap(outline, pl.points[n - 1], pl.points[n - 2], half)
-      _ => ()
+      Round => emit_round_cap(outline, left[n - 1], right[n - 1], pl.points[n - 1], pl.points[n - 2], half)
+      Butt => ()
     }
   }
   for i = n - 1; i >= 0; i = i + -1 {
     outline.push(@math.PathCommand::LineTo(right[i]))
   }
   // Near-end cap (open polyline only).
-  if not(pl.closed) {
+  if !pl.closed {
     match style.cap {
       Square => emit_square_cap(outline, pl.points[0], pl.points[1], half)
-      _ => ()
+      Round => emit_round_cap(outline, right[0], left[0], pl.points[0], pl.points[1], half)
+      Butt => ()
     }
   }
   outline.push(@math.PathCommand::Close)
@@ -227,6 +334,52 @@ fn emit_square_cap(
   outline.push(
     @math.PathCommand::LineTo(@math.Point2::new(apex.x() - nx * half, apex.y() - ny * half)),
   )
+}
+
+// Emit a round (semicircle) cap connecting `from_pt` to `to_pt` around `center`,
+// bulging in the tangent direction (from `center` toward `back` reversed — i.e.
+// the cap protrudes past the endpoint). Approximated by two cubic Bézier arcs
+// (one per quarter turn), using the standard κ ≈ 0.5523 control-distance.
+fn emit_round_cap(
+  outline : @math.Path2,
+  from_pt : @math.Point2,
+  to_pt : @math.Point2,
+  center : @math.Point2,
+  back : @math.Point2,
+  half : Double,
+) -> Unit {
+  // Tangent direction at the endpoint: from `back` toward `center` (forward).
+  let (tx, ty) = unit_dir(back, center)
+  // The two cap-edge points are `from_pt` and `to_pt`, each at distance `half`
+  // perpendicular to the tangent from `center`. The semicircle bulges forward
+  // (past the endpoint) and sweeps from from_pt around to to_pt.
+  // We approximate the semicircle with two cubic Bézier quarter-arcs through
+  // an intermediate point at center + tangent*half (the forward pole).
+  let fwd = @math.Point2::new(center.x() + tx * half, center.y() + ty * half)
+  let kappa = 0.5522847498307936 * half
+  // Tangent control offsets at each quarter boundary (perpendicular to the
+  // local radius direction).
+  // Arc 1: from_pt → fwd. At from_pt the tangent is +tangent; at fwd it is
+  // rotated 90° toward to_pt.
+  let from_t = @math.Point2::new(from_pt.x() + tx * kappa, from_pt.y() + ty * kappa)
+  // At fwd, the incoming tangent is perpendicular to (fwd - from_pt) direction,
+  // which is the normal pointing from from_pt to fwd. Approximate by the normal
+  // of the forward direction pointing toward to_pt.
+  let (fnx, fny) = (-ty, tx) // left normal of tangent
+  // Determine which side to_pt is on, to orient the arc.
+  let side = (to_pt.x() - center.x()) * fnx + (to_pt.y() - center.y()) * fny
+  let (snx, sny) = if side >= 0.0 {
+    (fnx, fny)
+  } else {
+    (-fnx, -fny)
+  }
+  let fwd_in = @math.Point2::new(fwd.x() - snx * kappa, fwd.y() - sny * kappa)
+  outline.push(@math.PathCommand::CubicTo(from_t, fwd_in, fwd))
+  // Arc 2: fwd → to_pt. At fwd the outgoing tangent is +normal(snx,sny); at
+  // to_pt it is -tangent.
+  let fwd_out = @math.Point2::new(fwd.x() + snx * kappa, fwd.y() + sny * kappa)
+  let to_t = @math.Point2::new(to_pt.x() - tx * kappa, to_pt.y() - ty * kappa)
+  outline.push(@math.PathCommand::CubicTo(fwd_out, to_t, to_pt))
 }
 
 // Unit direction from `a` to `b`, or (0,0) if coincident.
@@ -256,19 +409,55 @@ fn unit_or_fallback(
   }
 }
 
-// Miter offset length at a vertex. v0.1 uses a plain half-width offset at every
-// vertex (effectively an all-bevel join): the left/right offset points sit at
-// exactly width/2 from the centerline along the averaged normal. This is
-// geometrically safe (no blow-up at sharp turns) and renders correct stroke
-// bands; true miter joins (sharp corners extended to the miter point, bounded by
-// miter_limit) are a follow-up refinement.
+// Miter offset length at a vertex. For a straight-through vertex (collinear
+// in/out tangents) this is exactly `half`. At a corner the two offset lines
+// meet further out: m = half / sin(θ/2) where θ is the angle between the
+// ingoing and outgoing tangents. When m exceeds miter_limit * half the join
+// falls back to a bevel (plain half-width offset). Non-miter joins (round,
+// bevel) always use a plain half offset — round inserts arc points elsewhere,
+// bevel leaves the corner chamfered.
 fn miter_length(
-  _dx_in : Double,
-  _dx_out : Double,
+  dx_in : Double,
+  dy_in : Double,
+  dx_out : Double,
+  dy_out : Double,
   _lnx : Double,
   _lny : Double,
   half : Double,
-  _style : StrokeStyle,
+  style : StrokeStyle,
 ) -> Double {
-  half
+  // Only the Miter join computes an extended offset; round/bevel use plain half.
+  match style.join {
+    Miter => ()
+    _ => return half
+  }
+  let in_len = (dx_in * dx_in + dy_in * dy_in).sqrt()
+  let out_len = (dx_out * dx_out + dy_out * dy_out).sqrt()
+  // Degenerate tangent (coincident points) → plain offset.
+  if in_len < 1.0e-12 || out_len < 1.0e-12 {
+    return half
+  }
+  // cos(θ) between the ingoing and outgoing unit tangents.
+  let cos_theta = (dx_in * dx_out + dy_in * dy_out) / (in_len * out_len)
+  // sin(θ/2) = sqrt((1 - cos θ) / 2). Clamp cos_theta to [-1,1] for safety.
+  let c = if cos_theta > 1.0 {
+    1.0
+  } else if cos_theta < -1.0 {
+    -1.0
+  } else {
+    cos_theta
+  }
+  let sin_half = ((1.0 - c) / 2.0).sqrt()
+  // Near-straight (θ ≈ 0): sin(θ/2) ≈ 0, miter ≈ half. Avoid division blow-up.
+  if sin_half < 1.0e-12 {
+    return half
+  }
+  let miter = half / sin_half
+  // Beyond the miter limit, fall back to bevel (plain half offset).
+  let limit = half * style.miter_limit
+  if miter > limit {
+    half
+  } else {
+    miter
+  }
 }
