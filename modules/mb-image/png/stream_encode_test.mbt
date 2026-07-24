@@ -4912,6 +4912,26 @@ fn png_stream_indexed_eager(source : PngIndexedImage) -> Bytes {
   Bytes::from_array(output)
 }
 
+///| The explicit Indexed8 eager selector is the caller-buffered strategy
+/// oracle, including the admitted Fixed-or-Stored plan.
+fn png_stream_indexed8_eager_with_compression(
+  source : PngIndexedImage,
+  strategy : PngCompressionStrategy,
+) -> Bytes {
+  let writer = @io.MemoryWriter::new(
+    1048576UL, png_stream_test_budget(work=0UL),
+  ).unwrap()
+  ignore(PngEncoder::encode_indexed8_with_compression_strategy(
+    PngEncoder::new(), source, strategy, writer as &@io.Writer,
+    png_stream_test_limits(), png_stream_test_budget(work=4096UL), @error.Diagnostics::new(),
+  ).unwrap())
+  let output : Array[Byte] = []
+  for index = 0UL; index < writer.position(); index = index + 1UL {
+    output.push(writer.view().get(index).unwrap())
+  }
+  Bytes::from_array(output)
+}
+
 ///| The public eager selected-depth route is the byte-for-byte oracle for
 ///| caller-buffered low-bit indexed output.
 fn png_stream_indexed_low_bit_eager(
@@ -4950,6 +4970,38 @@ fn png_stream_indexed_low_bit_eager_with_compression(
     output.push(writer.view().get(index).unwrap())
   }
   Bytes::from_array(output)
+}
+
+///| Indexed8 chunk selectors must drain exactly like their eager strategy
+/// oracles and reject unavailable Dynamic output before budget admission.
+test "PNG Indexed8 compression chunk selectors match eager bytes" {
+  let source = PngIndexedImage::new(
+    64UL, 1UL, Bytes::from_array(Array::make(64, b'\x00')),
+    b"\x12\x34\x56\xa0\xb0\xc0", b"\x00\xff", png_stream_test_budget(),
+  ).unwrap()
+  for strategy in [
+    PngCompressionStrategy::Stored, PngCompressionStrategy::FixedOrStored,
+  ] {
+    let eager = png_stream_indexed8_eager_with_compression(source, strategy)
+    let encoder = PngChunkEncoder::new_indexed8_with_compression_strategy(
+      source, strategy, png_stream_test_limits(), png_stream_test_budget(work=4096UL),
+      @error.Diagnostics::new(),
+    ).unwrap()
+    inspect(
+      png_chunk_test_drain_encoder(encoder, [32UL]).unwrap() == eager,
+      content="true",
+    )
+  }
+  let rejected_budget = png_stream_test_budget(work=4096UL)
+  let before = rejected_budget.remaining()
+  let rejected = PngChunkEncoder::new_indexed8_with_compression_strategy(
+    source, PngCompressionStrategy::DynamicOrFixedOrStored, png_stream_test_limits(),
+    rejected_budget, @error.Diagnostics::new(),
+  ).unwrap_err()
+  inspect(rejected.context() == Some("indexed-dynamic-compression-unavailable"), content="true")
+  inspect(
+    png_adam7_stream_same_remaining(before, rejected_budget.remaining()), content="true",
+  )
 }
 
 ///| Selected-depth chunk selectors must use the same admitted plan and expose
