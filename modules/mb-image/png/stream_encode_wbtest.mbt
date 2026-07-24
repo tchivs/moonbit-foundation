@@ -564,6 +564,55 @@ test "PNG fixed-or-stored preview is stable until acknowledgement at the fixed h
   inspect(machine.completed(), content="44")
 }
 
+///| Phase 89: the Adam7 Indexed1/2/4/8 chunk selectors all land in the same
+/// acknowledged machine and preview bytes remain stable until accepted.
+test "PNG indexed Adam7 FixedOrStored chunk uses shared acknowledged machine" {
+  for profile in [
+    PngIndexedWireProfile::One, PngIndexedWireProfile::Two,
+    PngIndexedWireProfile::Four, PngIndexedWireProfile::Eight,
+  ] {
+    let source = PngIndexedImage::new(
+      5UL, 5UL,
+      b"\x00\x01\x01\x00\x01\x01\x00\x00\x01\x00\x01\x01\x00\x01\x00\x01\x00\x01\x01\x00\x01\x00\x01\x01\x00",
+      b"\x12\x34\x56\xa0\xb0\xc0", b"\x00\x80",
+      png_stream_wb_budget(work=0UL),
+    ).unwrap()
+    let encoder = match profile {
+      PngIndexedWireProfile::One => PngChunkEncoder::new_indexed_with_interlace_and_compression_strategy(
+        source, PngIndexedBitDepth::One, PngInterlaceStrategy::Adam7,
+        PngCompressionStrategy::FixedOrStored, png_stream_wb_limits(),
+        png_stream_wb_budget(), @error.Diagnostics::new(),
+      ).unwrap()
+      PngIndexedWireProfile::Two => PngChunkEncoder::new_indexed_with_interlace_and_compression_strategy(
+        source, PngIndexedBitDepth::Two, PngInterlaceStrategy::Adam7,
+        PngCompressionStrategy::FixedOrStored, png_stream_wb_limits(),
+        png_stream_wb_budget(), @error.Diagnostics::new(),
+      ).unwrap()
+      PngIndexedWireProfile::Four => PngChunkEncoder::new_indexed_with_interlace_and_compression_strategy(
+        source, PngIndexedBitDepth::Four, PngInterlaceStrategy::Adam7,
+        PngCompressionStrategy::FixedOrStored, png_stream_wb_limits(),
+        png_stream_wb_budget(), @error.Diagnostics::new(),
+      ).unwrap()
+      PngIndexedWireProfile::Eight => PngChunkEncoder::new_indexed8_with_interlace_and_compression_strategy(
+        source, PngInterlaceStrategy::Adam7, PngCompressionStrategy::FixedOrStored,
+        png_stream_wb_limits(), png_stream_wb_budget(), @error.Diagnostics::new(),
+      ).unwrap()
+    }
+    match encoder.state {
+      PngChunkEncoderState::Active(machine) => {
+        inspect(machine.interlace_strategy == PngInterlaceStrategy::Adam7, content="true")
+        inspect(machine.indexed_source is Some(_), content="true")
+        let first = machine.present().unwrap().unwrap()
+        inspect(machine.present().unwrap() == Some(first), content="true")
+        inspect(machine.completed() == 0UL, content="true")
+        machine.acknowledge(first).unwrap()
+        inspect(machine.completed() == 1UL, content="true")
+      }
+      _ => panic()
+    }
+  }
+}
+
 ///|
 fn png_stream_wb_fixed_or_stored_replay_image() -> @storage.OwnedImage {
   let image = png_stream_wb_image(width=5UL)

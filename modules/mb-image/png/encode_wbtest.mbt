@@ -1231,6 +1231,104 @@ test "PNG selected low-bit Adam7 preflight facts and admission are exact" {
   inspect(_png_adam7_passes(18446744073709551615UL, 1UL, 1UL, 4) is Err(_), content="true")
 }
 
+///| Phase 89 keeps the Adam7 compression candidate and its complete Type-3
+/// frame facts in one atomic preflight for every indexed wire depth.
+fn png_phase89_adam7_source(
+  _profile : PngIndexedWireProfile,
+  noisy : Bool,
+) -> PngIndexedImage {
+  let indices = if noisy {
+    b"\x00\x01\x01\x00\x01\x01\x00\x00\x01\x00\x01\x01\x00\x01\x00\x01\x00\x01\x01\x00\x01\x00\x01\x01\x00"
+  } else {
+    b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+  }
+  PngIndexedImage::new(
+    5UL, 5UL, indices, b"\x12\x34\x56\xa0\xb0\xc0", b"\x00\x80",
+    png_wb_budget(bytes=4096UL, work=0UL),
+  ).unwrap()
+}
+
+///| Exact output/work limits and exact budget work admit once; every one-less
+/// rejection leaves the caller budget untouched.
+test "PNG indexed Adam7 FixedOrStored candidate facts and admission are exact" {
+  for profile in [
+    PngIndexedWireProfile::One, PngIndexedWireProfile::Two,
+    PngIndexedWireProfile::Four, PngIndexedWireProfile::Eight,
+  ] {
+    for noisy in [false, true] {
+      let source = png_phase89_adam7_source(profile, noisy)
+      let admitted = _png_encode_indexed_preflight_with_profile_and_strategy(
+        source, profile, PngInterlaceStrategy::Adam7,
+        PngCompressionStrategy::FixedOrStored,
+        png_wb_indexed_limits(4096UL, 1048576UL), png_wb_budget(bytes=4096UL, work=1048576UL),
+      ).unwrap()
+      let candidate_idat = match admitted.plan {
+        PngDeflatePlan::Stored(plan) => plan.idat_length
+        PngDeflatePlan::Fixed(plan) => plan.idat_length
+        PngDeflatePlan::Dynamic(_) => abort("png phase89 indexed dynamic plan")
+      }
+      let candidate_frame = _png_frame_facts(
+        source.palette_length(), 2UL, candidate_idat,
+      ).unwrap()
+      inspect(
+        admitted.frame.total_length == candidate_frame.total_length &&
+          admitted.total_length == candidate_frame.total_length &&
+          admitted.frame.plte_length == source.palette_length() &&
+          admitted.frame.trns_length == 2UL && admitted.selected_work > 0UL,
+        content="true",
+      )
+
+      let exact_budget = png_wb_budget(bytes=4096UL, work=admitted.selected_work)
+      let exact = _png_encode_indexed_preflight_with_profile_and_strategy(
+        source, profile, PngInterlaceStrategy::Adam7,
+        PngCompressionStrategy::FixedOrStored,
+        png_wb_indexed_limits(admitted.total_length, admitted.selected_work), exact_budget,
+      ).unwrap()
+      inspect(exact_budget.remaining().work() == 0UL, content="true")
+      inspect(exact.total_length == admitted.total_length, content="true")
+
+      let one_less_output_budget = png_wb_budget(bytes=4096UL, work=1048576UL)
+      let output_before = one_less_output_budget.remaining()
+      let output_error = _png_encode_indexed_preflight_with_profile_and_strategy(
+        source, profile, PngInterlaceStrategy::Adam7,
+        PngCompressionStrategy::FixedOrStored,
+        png_wb_indexed_limits(admitted.total_length - 1UL, 1048576UL), one_less_output_budget,
+      ).unwrap_err()
+      inspect(
+        output_error.context() == Some("output-bytes") &&
+          png_wb_same_remaining(output_before, one_less_output_budget.remaining()),
+        content="true",
+      )
+
+      let one_less_work_budget = png_wb_budget(bytes=4096UL, work=1048576UL)
+      let work_before = one_less_work_budget.remaining()
+      let work_error = _png_encode_indexed_preflight_with_profile_and_strategy(
+        source, profile, PngInterlaceStrategy::Adam7,
+        PngCompressionStrategy::FixedOrStored,
+        png_wb_indexed_limits(4096UL, admitted.selected_work - 1UL), one_less_work_budget,
+      ).unwrap_err()
+      inspect(
+        work_error.context() == Some("work") &&
+          png_wb_same_remaining(work_before, one_less_work_budget.remaining()),
+        content="true",
+      )
+
+      let one_less_budget = png_wb_budget(bytes=4096UL, work=admitted.selected_work - 1UL)
+      let budget_before = one_less_budget.remaining()
+      let budget_error = _png_encode_indexed_preflight_with_profile_and_strategy(
+        source, profile, PngInterlaceStrategy::Adam7,
+        PngCompressionStrategy::FixedOrStored,
+        png_wb_indexed_limits(4096UL, 1048576UL), one_less_budget,
+      ).unwrap_err()
+      inspect(
+        budget_error.context() == Some("work") &&
+          png_wb_same_remaining(budget_before, one_less_budget.remaining()),
+        content="true",
+      )
+    }
+  }
+}
+
 ///|
 test "PNG low-bit indexed profiles derive packed facts and reject before work charge" {
   for item in [
