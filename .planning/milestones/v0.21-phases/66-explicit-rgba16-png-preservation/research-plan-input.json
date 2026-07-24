@@ -1,0 +1,8 @@
+{
+  "ecosystem": "moonbit",
+  "config": { "exa_search": false, "brave_search": false, "firecrawl": false, "tavily_search": false },
+  "questions": [
+    { "text": "PNG Third Edition colour type 6 16-bit sample order, filtering bytes, and Adam7 pass reconstruction", "kind": "docs", "library": "PNG Specification" },
+    { "text": "PNG Third Edition sRGB iCCP gAMA cHRM colour management chunk precedence and compatibility", "kind": "docs", "library": "PNG Specification" }
+  ]
+}
