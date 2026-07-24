@@ -15,8 +15,8 @@
 
 ### Streaming qualification and portability
 
-- [ ] **INDEXLOWADAM7-05**: Caller-buffered low-bit Adam7 output reuses the one admitted eager machine and is byte-identical under zero-capacity, one-byte, and ragged hostile lease schedules; total progress counts accepted bytes only, rejected sentinel-filled tails remain untouched, released leases replay sticky zero-write failure, and completed pulls are zero-write `Finished` without destination mutation.
-- [ ] **INDEXLOWADAM7-06**: For each selected depth, independent test-local parsing of eager and collected chunk-origin bytes proves the Adam7 packed raw raster, tail zeros, framing, CRCs, and public decode; frozen Type-3 low-bit non-interlaced and Indexed8 Adam7 vectors remain unchanged, and the ordinary PNG package gate passes on wasm, wasm-gc, js, and native.
+- [x] **INDEXLOWADAM7-05**: Caller-buffered low-bit Adam7 output reuses the one admitted eager machine and is byte-identical under zero-capacity, one-byte, and ragged hostile lease schedules; total progress counts accepted bytes only, rejected sentinel-filled tails remain untouched, released leases replay sticky zero-write failure, and completed pulls are zero-write `Finished` without destination mutation.
+- [x] **INDEXLOWADAM7-06**: For each selected depth, independent test-local parsing of eager and collected chunk-origin bytes proves the Adam7 packed raw raster, tail zeros, framing, CRCs, and public decode; frozen Type-3 low-bit non-interlaced and Indexed8 Adam7 vectors remain unchanged, and the ordinary PNG package gate passes on wasm, wasm-gc, js, and native.
 
 ## Future Requirements
 
@@ -39,8 +39,8 @@
 | INDEXLOWADAM7-02 | Phase 83 | Complete |
 | INDEXLOWADAM7-03 | Phase 83 | Complete |
 | INDEXLOWADAM7-04 | Phase 83 | Complete |
-| INDEXLOWADAM7-05 | Phase 84 | Pending |
-| INDEXLOWADAM7-06 | Phase 84 | Pending |
+| INDEXLOWADAM7-05 | Phase 84 | Complete |
+| INDEXLOWADAM7-06 | Phase 84 | Complete |
 
 **Coverage:**
 

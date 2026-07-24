@@ -35,7 +35,7 @@
 ### 📋 v0.27 Low-Bit Indexed Adam7 PNG Encode
 
 - [x] **Phase 83: Low-Bit Indexed Adam7 Machine and Eager Contract** — Add selected-depth packed Adam7 traversal, exact framing, and atomic admission to the sole machine.
-- [ ] **Phase 84: Low-Bit Indexed Adam7 Streaming Qualification** — Qualify the admitted route under hostile leases with independent chunk-origin evidence, frozen compatibility, and four-target proof.
+- [x] **Phase 84: Low-Bit Indexed Adam7 Streaming Qualification** — Qualify the admitted route under hostile leases with independent chunk-origin evidence, frozen compatibility, and four-target proof. (completed 2026-07-24)
 
 ## Phase Details
 
@@ -78,7 +78,7 @@
 4. Existing Type-3/1, /2, and /4 non-interlaced literals and Type-3/8 Adam7 vectors remain frozen.
 5. The ordinary frozen PNG package gate passes on wasm, wasm-gc, js, and native.
 
-**Plans:** 1/1 plans executed
+**Plans:** 1/1 plans complete
 
 - [x] 84-01-PLAN.md
 
@@ -87,4 +87,4 @@
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 83. Low-Bit Indexed Adam7 Machine and Eager Contract | 1/1 | Complete    | 2026-07-24 |
-| 84. Low-Bit Indexed Adam7 Streaming Qualification | 1/1 | In Progress|  |
+| 84. Low-Bit Indexed Adam7 Streaming Qualification | 1/1 | Complete    | 2026-07-24 |
