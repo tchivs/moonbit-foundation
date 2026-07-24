@@ -59,13 +59,24 @@ pub fn PngChunkEncoder::new_indexed(
   budget : @budget.Budget,
   diagnostics : @error.Diagnostics,
 ) -> Result[PngChunkEncoder, @error.CoreError] {
-  let wire_profile = match bit_depth {
-    PngIndexedBitDepth::One => PngIndexedWireProfile::One
-    PngIndexedBitDepth::Two => PngIndexedWireProfile::Two
-    PngIndexedBitDepth::Four => PngIndexedWireProfile::Four
-  }
+  PngChunkEncoder::new_indexed_with_interlace_strategy(
+    source, bit_depth, PngInterlaceStrategy::None, limits, budget, diagnostics,
+  )
+}
+
+///| Constructs the additive selected low-bit Adam7 selector while retaining
+/// the existing acknowledged Stored/filter-None indexed machine.
+pub fn PngChunkEncoder::new_indexed_with_interlace_strategy(
+  source : PngIndexedImage,
+  bit_depth : PngIndexedBitDepth,
+  interlace_strategy : PngInterlaceStrategy,
+  limits : @codec.CodecLimits,
+  budget : @budget.Budget,
+  diagnostics : @error.Diagnostics,
+) -> Result[PngChunkEncoder, @error.CoreError] {
+  let wire_profile = _png_indexed_wire_profile(bit_depth)
   let machine = match PngEncodeMachine::new_with_indexed_profile(
-    source, wire_profile, PngInterlaceStrategy::None, limits, budget, diagnostics,
+    source, wire_profile, interlace_strategy, limits, budget, diagnostics,
   ) {
     Err(error) => return Err(error)
     Ok(value) => value
@@ -1013,15 +1024,17 @@ fn PngEncodeMachine::new_with_indexed(
   )
 }
 
-///| Locate one byte in the bounded Indexed8 Adam7 filtered stream without
-/// materialising pass rows. Preflight consumes this exact pass geometry first.
-fn _png_indexed8_adam7_scanline_byte(
+///| Locate one byte in the bounded selected-depth Indexed Adam7 filtered stream
+/// without materialising pass rows. Each low-bit payload byte starts from a
+/// local pass column and leaves all unused tail bits at zero.
+fn _png_indexed_adam7_scanline_byte(
   source : PngIndexedImage,
   width : UInt64,
   height : UInt64,
+  depth : UInt64,
   index : UInt64,
 ) -> Result[Byte, @error.CoreError] {
-  let passes = match _png_adam7_passes(width, height, 1UL, 8) {
+  let passes = match _png_adam7_passes(width, height, 1UL, depth.to_int()) {
     Err(error) => return Err(error)
     Ok(value) => value
   }
@@ -1045,15 +1058,39 @@ fn _png_indexed8_adam7_scanline_byte(
         let in_row = relative % row_width
         if in_row == 0UL { return Ok(b'\x00') }
         let pass_row = relative / row_width
-        let x = match @checked.checked_add(pass.x, (in_row - 1UL) * pass.dx) {
-          Err(error) => return Err(error)
-          Ok(value) => value
+        let payload_byte = in_row - 1UL
+        if depth == 8UL {
+          let x = match @checked.checked_add(pass.x, payload_byte * pass.dx) {
+            Err(error) => return Err(error)
+            Ok(value) => value
+          }
+          let y = match @checked.checked_add(pass.y, pass_row * pass.dy) {
+            Err(error) => return Err(error)
+            Ok(value) => value
+          }
+          return source.index_at(x, y)
         }
-        let y = match @checked.checked_add(pass.y, pass_row * pass.dy) {
-          Err(error) => return Err(error)
-          Ok(value) => value
+        let slots = 8UL / depth
+        let mut packed = 0UL
+        for slot = 0UL; slot < slots; slot = slot + 1UL {
+          let pass_column = payload_byte * slots + slot
+          if pass_column < pass.width {
+            let x = match @checked.checked_add(pass.x, pass_column * pass.dx) {
+              Err(error) => return Err(error)
+              Ok(value) => value
+            }
+            let y = match @checked.checked_add(pass.y, pass_row * pass.dy) {
+              Err(error) => return Err(error)
+              Ok(value) => value
+            }
+            let code = match source.index_at(x, y) {
+              Err(error) => return Err(error)
+              Ok(value) => value.to_uint64()
+            }
+            packed = packed | (code << (8UL - depth - slot * depth).to_int())
+          }
         }
-        return source.index_at(x, y)
+        return Ok(packed.to_byte())
       }
       offset = end
     }
@@ -1092,10 +1129,8 @@ fn PngEncodeMachine::scanline_byte(
         Some(value) => value
         None => return Err(_png_encode_machine_state_error("png-encode-indexed-profile"))
       }
-      if depth == 8UL {
-        if self.interlace_strategy == PngInterlaceStrategy::Adam7 {
-          return _png_indexed8_adam7_scanline_byte(source, self.width, self.height, index)
-        }
+      if self.interlace_strategy == PngInterlaceStrategy::Adam7 {
+        return _png_indexed_adam7_scanline_byte(source, self.width, self.height, depth, index)
       }
       let row_width = self.row_bytes + 1UL
       let in_row = index % row_width

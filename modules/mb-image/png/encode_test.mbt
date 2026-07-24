@@ -1087,7 +1087,7 @@ test "PNG selected low-bit Adam7 eager wires literal packed passes and palette d
   for item in [
     (
       PngIndexedBitDepth::One,
-      b"\x00\x01\x00\x01\x01\x01\x00\x01\x01\x00\x01\x01\x00\x00\x01\x00\x01\x01\x00\x00\x01\x01\x00\x01\x01",
+      b"\x00\x01\x00\x01\x01\x01\x00\x01\x01\x00\x01\x01\x00\x00\x01\x00\x01\x01\x00\x00\x01\x00\x00\x01\x01",
       b"\x10\x20\x30\x40\x50\x60", b"\x00\x80",
       b"\x00\x00\x00\x80\x00\xc0\x00\x00\x00\x00\x00\xa0\x00\xc0\x00\x80\x00\x40\x00\xb0\x00\x60",
       122UL,
@@ -1096,7 +1096,7 @@ test "PNG selected low-bit Adam7 eager wires literal packed passes and palette d
       PngIndexedBitDepth::Two,
       b"\x00\x01\x02\x03\x00\x02\x03\x00\x01\x02\x00\x01\x02\x03\x00\x02\x03\x00\x01\x02\x00\x01\x02\x03\x00",
       b"\x10\x20\x30\x40\x50\x60\x70\x80\x90\xa0\xb0\xc0", b"\x00\x40\x80\xc0",
-      b"\x00\x00\x00\x00\x00\x00\x00\x80\x00\x80\x00\x20\x00\x70\x00\x70\x00\x70\x00\xb4\x80\x00\xb4\x80",
+      b"\x00\x00\x00\x00\x00\x00\x00\x80\x00\x80\x00\x20\x00\x70\x00\x70\x00\x70\x00\xb1\x80\x00\xb1\x80",
       132UL,
     ),
     (
@@ -1183,6 +1183,37 @@ test "PNG selected low-bit Adam7 eager wires literal packed passes and palette d
         inspect(decoded.get_byte(x, y, channel.to_uint64()).unwrap() == palette[code * 3 + channel], content="true")
       }
       inspect(decoded.get_byte(x, y, 3UL).unwrap() == alpha[code], content="true")
+    }
+
+    let opaque_source = PngIndexedImage::new(
+      5UL, 5UL, codes, palette, Bytes::from_array(Array::make(alpha.length(), b'\xff')),
+      png_encode_budget(),
+    ).unwrap()
+    let opaque_writer = @io.MemoryWriter::new(
+      256UL, png_encode_budget(bytes=256UL, work=0UL),
+    ).unwrap()
+    ignore(PngEncoder::encode_indexed_with_interlace_strategy(
+      PngEncoder::new(), opaque_source, bit_depth, PngInterlaceStrategy::Adam7,
+      opaque_writer as &@io.Writer, png_encode_limits(), png_encode_budget(),
+      @error.Diagnostics::new(),
+    ).unwrap())
+    let opaque_bytes = png_encode_prefix(opaque_writer)
+    let opaque_owned = @bytes.OwnedBytes::from_bytes(
+      opaque_bytes, png_encode_budget(bytes=256UL, work=0UL),
+    ).unwrap()
+    let opaque_view = @codec.ImageDecoder::decode(
+      PngDecoder::new(), @io.MemoryReader::new(opaque_owned.view()) as &@io.Reader,
+      @codec.DecodeOptions::new(require_complete_input=true, preserve_opaque_metadata=false),
+      png_encode_limits(), png_encode_budget(), @error.Diagnostics::new(),
+    ).unwrap().image().view()
+    inspect(opaque_view.format().channels() == @model.ChannelOrder::Rgb, content="true")
+    for point = 0; point < 25; point = point + 1 {
+      let code = codes[point].to_int()
+      let x = (point % 5).to_uint64()
+      let y = (point / 5).to_uint64()
+      for channel = 0; channel < 3; channel = channel + 1 {
+        inspect(opaque_view.get_byte(x, y, channel.to_uint64()).unwrap() == palette[code * 3 + channel], content="true")
+      }
     }
   }
 }

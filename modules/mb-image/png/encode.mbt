@@ -104,6 +104,16 @@ fn _png_indexed_wire_depth(profile : PngEncodeProfile) -> UInt64? {
   }
 }
 
+///| Resolves the public selected low-bit depth once for both eager and chunk
+/// facades; Indexed8 keeps its fixed private profile and public selector.
+fn _png_indexed_wire_profile(bit_depth : PngIndexedBitDepth) -> PngIndexedWireProfile {
+  match bit_depth {
+    PngIndexedBitDepth::One => PngIndexedWireProfile::One
+    PngIndexedBitDepth::Two => PngIndexedWireProfile::Two
+    PngIndexedBitDepth::Four => PngIndexedWireProfile::Four
+  }
+}
+
 ///| Admit an exact low-bit grayscale level and return its unscaled PNG code.
 fn _png_packed_gray_code(
   profile : PngEncodeProfile,
@@ -2125,32 +2135,29 @@ fn _png_encode_indexed_preflight_with_profile(
       Err(error) => return Err(error)
       Ok(value) => value
     }
-    PngInterlaceStrategy::Adam7 => match wire_profile {
-      PngIndexedWireProfile::Eight => {
-        let passes = match _png_adam7_passes(width, height, 1UL, 8) {
-          Err(error) => return Err(error)
-          Ok(value) => value
-        }
-        let mut total = 0UL
-        for pass in passes {
-          if pass.width > 0UL && pass.height > 0UL {
-            let pass_scanline_width = match @checked.checked_add(pass.row_bytes, 1UL) {
-              Err(error) => return Err(error)
-              Ok(value) => value
-            }
-            let pass_scanlines = match @checked.checked_mul(pass_scanline_width, pass.height) {
-              Err(error) => return Err(error)
-              Ok(value) => value
-            }
-            total = match @checked.checked_add(total, pass_scanlines) {
-              Err(error) => return Err(error)
-              Ok(value) => value
-            }
+    PngInterlaceStrategy::Adam7 => {
+      let passes = match _png_adam7_passes(width, height, 1UL, wire_profile.depth().to_int()) {
+        Err(error) => return Err(error)
+        Ok(value) => value
+      }
+      let mut total = 0UL
+      for pass in passes {
+        if pass.width > 0UL && pass.height > 0UL {
+          let pass_scanline_width = match @checked.checked_add(pass.row_bytes, 1UL) {
+            Err(error) => return Err(error)
+            Ok(value) => value
+          }
+          let pass_scanlines = match @checked.checked_mul(pass_scanline_width, pass.height) {
+            Err(error) => return Err(error)
+            Ok(value) => value
+          }
+          total = match @checked.checked_add(total, pass_scanlines) {
+            Err(error) => return Err(error)
+            Ok(value) => value
           }
         }
-        total
       }
-      _ => return Err(_png_encode_capability("indexed-adam7-depth"))
+      total
     }
   }
   let (blocks, idat_length) = match _png_indexed_stored_idat_length(scanlines) {
@@ -2337,13 +2344,26 @@ pub fn PngEncoder::encode_indexed(
   budget : @budget.Budget,
   diagnostics : @error.Diagnostics,
 ) -> Result[@codec.EncodeResult, @error.CoreError] {
-  let wire_profile = match bit_depth {
-    PngIndexedBitDepth::One => PngIndexedWireProfile::One
-    PngIndexedBitDepth::Two => PngIndexedWireProfile::Two
-    PngIndexedBitDepth::Four => PngIndexedWireProfile::Four
-  }
+  PngEncoder::encode_indexed_with_interlace_strategy(
+    _self, source, bit_depth, PngInterlaceStrategy::None, writer, limits, budget, diagnostics,
+  )
+}
+
+///| Eagerly encodes a selected low-bit indexed source through the one shared
+/// machine, opting into Adam7 only when the caller explicitly requests it.
+pub fn PngEncoder::encode_indexed_with_interlace_strategy(
+  _self : PngEncoder,
+  source : PngIndexedImage,
+  bit_depth : PngIndexedBitDepth,
+  interlace_strategy : PngInterlaceStrategy,
+  writer : &@io.Writer,
+  limits : @codec.CodecLimits,
+  budget : @budget.Budget,
+  diagnostics : @error.Diagnostics,
+) -> Result[@codec.EncodeResult, @error.CoreError] {
+  let wire_profile = _png_indexed_wire_profile(bit_depth)
   let machine = match PngEncodeMachine::new_with_indexed_profile(
-    source, wire_profile, PngInterlaceStrategy::None, limits, budget, diagnostics,
+    source, wire_profile, interlace_strategy, limits, budget, diagnostics,
   ) {
     Err(error) => return Err(error)
     Ok(value) => value
