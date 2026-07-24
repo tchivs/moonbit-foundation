@@ -1,0 +1,11 @@
+import {
+  "tchivs/mb-core/error",
+  "tchivs/mb-core/math",
+  "tchivs/mb-core/text",
+  "tchivs/mb-color/model" @color,
+  "tchivs/mb-canvas/canvas" @canvas,
+}
+
+supported_targets = "+js+wasm+wasm-gc+native"
+
+warnings = "-29-35"
