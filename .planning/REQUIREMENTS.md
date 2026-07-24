@@ -13,7 +13,7 @@
 
 ### Ancillary-aware bounded admission and integration
 
-- [ ] **INDEXCOMP-03**: Before writer progress, caller lease exposure, or budget mutation, the selected non-interlaced indexed profile computes selected-depth geometry, actual PLTE and shortest canonical tRNS framing, and exact Stored/Fixed frame/output/work facts; exact limits admit exactly one budget charge and one-less output/work, palette overflow, or checked-arithmetic failure are atomic.
+- [x] **INDEXCOMP-03**: Before writer progress, caller lease exposure, or budget mutation, the selected non-interlaced indexed profile computes selected-depth geometry, actual PLTE and shortest canonical tRNS framing, and exact Stored/Fixed frame/output/work facts; exact limits admit exactly one budget charge and one-less output/work, palette overflow, or checked-arithmetic failure are atomic.
 
 ### Hostile streaming and independent qualification
 
@@ -41,7 +41,7 @@
 |-------------|-------|--------|
 | INDEXCOMP-01 | Phase 85 | Complete |
 | INDEXCOMP-02 | Phase 85 | Complete |
-| INDEXCOMP-03 | Phase 86 | Pending |
+| INDEXCOMP-03 | Phase 86 | Complete |
 | INDEXCOMP-04 | Phase 87 | Pending |
 | INDEXCOMP-05 | Phase 87 | Pending |
 

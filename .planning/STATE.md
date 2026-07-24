@@ -2,19 +2,19 @@
 gsd_state_version: 1.0
 milestone: v0.28
 milestone_name: Indexed PNG Compression Profiles
-current_phase: 86
-current_phase_name: Ancillary-Aware Preflight and Shared-Machine Integration
-status: executing
+current_phase: 87
+current_phase_name: Hostile Indexed Streaming and Independent Qualification
+status: planning
 stopped_at: Phase 86 context gathered
-last_updated: "2026-07-24T06:41:55.837Z"
+last_updated: "2026-07-24T09:13:01.048Z"
 last_activity: 2026-07-24
-last_activity_desc: Phase 85 complete, transitioned to Phase 86
+last_activity_desc: Phase 86 complete, transitioned to Phase 87
 progress:
   total_phases: 3
-  completed_phases: 1
+  completed_phases: 2
   total_plans: 2
-  completed_plans: 1
-  percent: 33
+  completed_plans: 2
+  percent: 67
 ---
 
 # Project State
@@ -25,18 +25,18 @@ See `.planning/PROJECT.md`.
 
 **Core value:** MoonBit developers can reuse stable, high-performance native infrastructure contracts instead of rebuilding incompatible foundations for every graphics, document, media, or automation product.
 
-**Current focus:** Phase 85 — Indexed Compression API and Fixed Wire Contract
+**Current focus:** Phase 87 — Hostile Indexed Streaming and Independent Qualification
 
 ## Current Position
 
-Phase: 86 — Ancillary-Aware Preflight and Shared-Machine Integration
+Phase: 87 — Hostile Indexed Streaming and Independent Qualification
 Plan: Not started
-Status: Ready to execute
-Last activity: 2026-07-24 — Phase 85 complete, transitioned to Phase 86
+Status: Ready to plan
+Last activity: 2026-07-24 — Phase 86 complete, transitioned to Phase 87
 
 ## Milestone Metrics
 
-**Current milestone:** v0.27 has 6 scoped requirements mapped exactly once across 2 planned phases; 1/2 phases and 1 plan are complete.
+**Current milestone:** v0.28 has 3 scoped requirements mapped exactly once across 3 planned phases; 2/3 phases and 2 plans are complete.
 
 **Previous milestone:** v0.26 shipped Type-3/8 Adam7 eager/chunk output through the existing acknowledged machine. Its detailed history is archived at `.planning/milestones/v0.26-ROADMAP.md`.
 
@@ -81,7 +81,7 @@ Last activity: 2026-07-24 — Phase 85 complete, transitioned to Phase 86
 
 ## Session Continuity
 
-Last session: 2026-07-24T06:18:55.875Z
+Last session: 2026-07-24T09:13:01.030Z
 Stopped at: Phase 86 context gathered
 Resume file: .planning/phases/86-ancillary-aware-preflight-and-shared-machine-integration/86-CONTEXT.md
 

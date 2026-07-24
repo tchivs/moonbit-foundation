@@ -36,7 +36,7 @@
 ### 📋 v0.28 Indexed PNG Compression Profiles
 
 - [x] **Phase 85: Indexed Compression API and Fixed Wire Contract** - Establish additive Stored-or-Fixed selectors and the exact bounded Fixed Type-3 contract. (completed 2026-07-24)
-- [ ] **Phase 86: Ancillary-Aware Preflight and Shared-Machine Integration** - Select and admit the exact palette-aware candidate plan through the existing eager and caller-buffered machine.
+- [x] **Phase 86: Ancillary-Aware Preflight and Shared-Machine Integration** - Select and admit the exact palette-aware candidate plan through the existing eager and caller-buffered machine. (completed 2026-07-24)
 - [ ] **Phase 87: Hostile Indexed Streaming and Independent Qualification** - Prove lifecycle safety, independent wire/decode behavior, compatibility, and four-target portability.
 
 ## Phase Details
@@ -75,7 +75,7 @@
 2. The selected candidate is admitted by exactly one budget charge and then drives both eager and caller-buffered output through the existing acknowledged machine.
 3. Exact selected limits pass, while one-less output/work, palette-capacity overflow, and checked-arithmetic failures expose no output or lease and leave the budget unchanged.
 
-**Plans:** 0/1 plans complete
+**Plans:** 1/1 plans complete
 
 ### Phase 87: Hostile Indexed Streaming and Independent Qualification
 
@@ -102,5 +102,5 @@
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 85. Indexed Compression API and Fixed Wire Contract | 1/1 | Complete    | 2026-07-24 |
-| 86. Ancillary-Aware Preflight and Shared-Machine Integration | 0/1 | Not started | - |
+| 86. Ancillary-Aware Preflight and Shared-Machine Integration | 1/1 | Complete    | 2026-07-24 |
 | 87. Hostile Indexed Streaming and Independent Qualification | 0/1 | Not started | - |
