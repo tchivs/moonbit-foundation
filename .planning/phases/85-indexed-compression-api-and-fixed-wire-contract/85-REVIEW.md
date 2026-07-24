@@ -1,6 +1,6 @@
 ---
 phase: 85-indexed-compression-api-and-fixed-wire-contract
-reviewed: 2026-07-24T05:58:33Z
+reviewed: 2026-07-24T06:09:03Z
 depth: standard
 files_reviewed: 5
 files_reviewed_list:
@@ -11,35 +11,33 @@ files_reviewed_list:
   - modules/mb-image/png/encode_wbtest.mbt
 findings:
   critical: 0
-  warning: 1
+  warning: 0
   info: 0
-  total: 1
-status: issues_found
+  total: 0
+status: clean
 ---
 
 # Phase 85: Code Review Report
 
-**Reviewed:** 2026-07-24T05:58:33Z
+**Reviewed:** 2026-07-24T06:09:03Z
 **Depth:** standard
 **Files Reviewed:** 5
-**Status:** issues_found
+**Status:** clean
 
 ## Summary
 
-The review traced both public selector families through indexed preflight and the sole acknowledged machine. Dynamic rejection precedes source admission and budget charging; Fixed selection uses palette-aware frame facts; and the new producer remains bounded and shared by Stored output, Fixed planning, and Fixed replay. The package native test suite passed (302/302). One public chunk API lacks regression coverage.
+Re-review verified that WR-01 is fixed: Indexed8 chunk tests now cover explicit Stored and FixedOrStored output against eager strategy oracles and verify early Dynamic rejection without a budget charge. The indexed preflight rejects Dynamic before source admission, selects Fixed using palette-aware complete-frame facts, and routes both Stored and Fixed replay through the existing acknowledged machine with fresh bounded indexed cursors. No remaining critical or warning findings were identified.
+
+`moon -C modules/mb-image test png --target native --frozen` passed: 303/303 tests.
+
+All reviewed files meet quality standards. No issues found.
 
 ## Narrative Findings (AI reviewer)
 
-## Warnings
-
-### WR-01: Indexed8 chunk compression selector has no regression coverage
-
-**File:** `modules/mb-image/png/stream_encode_test.mbt:4948`
-**Issue:** The new test iterates only `IndexedBitDepth::{One, Two, Four}` and invokes `PngChunkEncoder::new_indexed_with_compression_strategy`; no changed test invokes `PngChunkEncoder::new_indexed8_with_compression_strategy`. The eager Indexed8 test does not exercise caller-buffered acknowledgement, so a future divergence in the Indexed8 chunk constructor's strategy forwarding or Dynamic rejection would remain undetected.
-**Fix:** Add an Indexed8 chunk case that drains explicit Stored and FixedOrStored output against the eager byte oracle, and asserts `DynamicOrFixedOrStored` returns `indexed-dynamic-compression-unavailable` without exposing an encoder or charging its budget.
+No critical, warning, or info findings.
 
 ---
 
-_Reviewed: 2026-07-24T05:58:33Z_
+_Reviewed: 2026-07-24T06:09:03Z_
 _Reviewer: the agent (gsd-code-reviewer)_
 _Depth: standard_
