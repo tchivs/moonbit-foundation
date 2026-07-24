@@ -1152,11 +1152,106 @@ fn _png_filtered_scanline_byte(
 /// DEFLATE consumption. Probes may move `produced_exclusive` ahead, but only
 /// the token that is emitted may advance `logical_position`.
 priv struct PngFilteredMatchCursor {
-  producer : PngFilteredCursor
+  producer : PngMatchProducer
   logical_position : UInt64
   produced_exclusive : UInt64
   retained_start : UInt64
   window : Array[Byte]
+}
+
+///| The producer remains private to the bounded matcher.  Indexed Type-3
+/// routes add only their immutable filter-None scalar source; matching and
+/// retained-window ownership remain identical to generic filtered streams.
+priv enum PngMatchProducer {
+  Filtered(PngFilteredCursor)
+  IndexedNone(PngIndexedRawCursor)
+}
+
+///| Scalar Type-3 filter-None production for every indexed wire depth.
+priv struct PngIndexedRawCursor {
+  source : PngIndexedImage
+  row_bytes : UInt64
+  depth : UInt64
+  index : UInt64
+}
+
+///|
+fn PngIndexedRawCursor::new(
+  source : PngIndexedImage,
+  row_bytes : UInt64,
+  depth : UInt64,
+) -> PngIndexedRawCursor {
+  { source, row_bytes, depth, index: 0UL }
+}
+
+///|
+fn PngIndexedRawCursor::facts(
+  _self : PngIndexedRawCursor,
+) -> PngFilteredTraversalFacts {
+  { resolved_rows: 0UL, candidate_residuals: 0UL, selected_residuals: 0UL }
+}
+
+///|
+fn PngIndexedRawCursor::next(
+  self : PngIndexedRawCursor,
+) -> Result[(Byte, PngIndexedRawCursor), @error.CoreError] {
+  let row_width = match _png_fixed_add(self.row_bytes, 1UL) {
+    Err(error) => return Err(error); Ok(value) => value
+  }
+  let scanlines = match @checked.checked_mul(row_width, self.source.height()) {
+    Err(error) => return Err(error); Ok(value) => value
+  }
+  if self.index >= scanlines {
+    return Err(_png_encode_capability("png-indexed-cursor-end"))
+  }
+  let row = self.index / row_width
+  let in_row = self.index % row_width
+  if in_row == 0UL { return Ok((b'\x00', { ..self, index: self.index + 1UL })) }
+  let byte = if self.depth == 8UL {
+    match self.source.index_at(in_row - 1UL, row) {
+      Err(error) => return Err(error); Ok(value) => value
+    }
+  } else {
+    let first = (in_row - 1UL) * (8UL / self.depth)
+    let mut packed = 0UL
+    for slot = 0UL; slot < 8UL / self.depth; slot = slot + 1UL {
+      let x = first + slot
+      if x < self.source.width() {
+        let code = match self.source.index_at(x, row) {
+          Err(error) => return Err(error); Ok(value) => value.to_uint64()
+        }
+        packed = packed | (code << (8UL - self.depth - slot * self.depth).to_int())
+      }
+    }
+    packed.to_byte()
+  }
+  Ok((byte, { ..self, index: self.index + 1UL }))
+}
+
+///|
+fn PngMatchProducer::facts(
+  self : PngMatchProducer,
+) -> PngFilteredTraversalFacts {
+  match self {
+    Filtered(value) => value.facts()
+    IndexedNone(value) => value.facts()
+  }
+}
+
+///|
+fn PngMatchProducer::next(
+  self : PngMatchProducer,
+) -> Result[(Byte, PngMatchProducer), @error.CoreError] {
+  match self {
+    Filtered(value) => match value.next() {
+      Err(error) => Err(error)
+      Ok((byte, next)) => Ok((byte, Filtered(next)))
+    }
+    IndexedNone(value) => match value.next() {
+      Err(error) => Err(error)
+      Ok((byte, next)) => Ok((byte, IndexedNone(next)))
+    }
+  }
 }
 
 ///|
@@ -1181,7 +1276,18 @@ fn PngFilteredMatchCursor::new_with_interlace(
   interlace_strategy : PngInterlaceStrategy,
   profile? : PngEncodeProfile = PngEncodeProfile::LegacyRgbOrRgba,
 ) -> PngFilteredMatchCursor {
-  { producer: PngFilteredCursor::new_with_interlace(source, row_bytes, channels, filter_strategy, interlace_strategy, profile=profile),
+  { producer: PngMatchProducer::Filtered(PngFilteredCursor::new_with_interlace(source, row_bytes, channels, filter_strategy, interlace_strategy, profile=profile)),
+    logical_position: 0UL, produced_exclusive: 0UL, retained_start: 0UL,
+    window: Array::make(262, b'\x00') }
+}
+
+///|
+fn PngFilteredMatchCursor::new_indexed(
+  source : PngIndexedImage,
+  row_bytes : UInt64,
+  depth : UInt64,
+) -> PngFilteredMatchCursor {
+  { producer: PngMatchProducer::IndexedNone(PngIndexedRawCursor::new(source, row_bytes, depth)),
     logical_position: 0UL, produced_exclusive: 0UL, retained_start: 0UL,
     window: Array::make(262, b'\x00') }
 }
@@ -1670,9 +1776,18 @@ fn _png_fixed_plan_with_interlace(
   interlace_strategy : PngInterlaceStrategy,
   profile? : PngEncodeProfile = PngEncodeProfile::LegacyRgbOrRgba,
 ) -> Result[PngFixedPlan, @error.CoreError] {
-  let mut cursor = PngFilteredMatchCursor::new_with_interlace(
+  let cursor = PngFilteredMatchCursor::new_with_interlace(
     source, row_bytes, channels, filter_strategy, interlace_strategy, profile=profile,
   )
+  _png_fixed_plan_with_cursor(cursor, scanlines)
+}
+
+///| Both generic and indexed paths plan the same owned bounded matcher stream.
+fn _png_fixed_plan_with_cursor(
+  cursor : PngFilteredMatchCursor,
+  scanlines : UInt64,
+) -> Result[PngFixedPlan, @error.CoreError] {
+  let mut cursor = cursor
   let mut bits = 3UL
   let mut matcher_work = 0UL
   let mut fingerprint = 1UL
@@ -2100,6 +2215,25 @@ fn _png_encode_indexed_preflight_with_profile(
   limits : @codec.CodecLimits,
   budget : @budget.Budget,
 ) -> Result[PngEncodePreflight, @error.CoreError] {
+  _png_encode_indexed_preflight_with_profile_and_strategy(
+    source, wire_profile, interlace_strategy, PngCompressionStrategy::Stored, limits, budget,
+  )
+}
+
+///| Indexed compression is deliberately narrower than the generic profile:
+/// Dynamic has no indexed implementation and must fail before source facts or
+/// budget admission are observed.
+fn _png_encode_indexed_preflight_with_profile_and_strategy(
+  source : PngIndexedImage,
+  wire_profile : PngIndexedWireProfile,
+  interlace_strategy : PngInterlaceStrategy,
+  strategy : PngCompressionStrategy,
+  limits : @codec.CodecLimits,
+  budget : @budget.Budget,
+) -> Result[PngEncodePreflight, @error.CoreError] {
+  if strategy == PngCompressionStrategy::DynamicOrFixedOrStored {
+    return Err(_png_encode_capability("indexed-dynamic-compression-unavailable"))
+  }
   let width = source.width()
   let height = source.height()
   match _png_encode_u32(width) {
@@ -2172,13 +2306,55 @@ fn _png_encode_indexed_preflight_with_profile(
     }
     if alpha != b'\xff' { trns_length = entry + 1UL }
   }
-  let frame = match _png_frame_facts(
+  let stored_frame = match _png_frame_facts(
     source.palette_length(), trns_length, idat_length,
   ) {
     Err(error) => return Err(error)
     Ok(value) => value
   }
-  let selected_work = frame.total_length
+  let stored = PngStoredPlan::{ blocks, idat_length, total_length: stored_frame.total_length }
+  let (plan, frame, selected_work) = match strategy {
+    PngCompressionStrategy::Stored => (
+      PngDeflatePlan::Stored(stored), stored_frame, stored_frame.total_length,
+    )
+    PngCompressionStrategy::FixedOrStored => {
+      if interlace_strategy != PngInterlaceStrategy::None {
+        return Err(_png_encode_capability("indexed-compression-interlace-unavailable"))
+      }
+      let cursor = PngFilteredMatchCursor::new_indexed(
+        source, row_bytes, wire_profile.depth(),
+      )
+      let fixed = match _png_fixed_plan_with_cursor(cursor, scanlines) {
+        Err(error) => return Err(error); Ok(value) => value
+      }
+      if fixed.idat_length > 4294967295UL {
+        return Err(_png_encode_capability("png-idat-length"))
+      }
+      let fixed_frame = match _png_frame_facts(
+        source.palette_length(), trns_length, fixed.idat_length,
+      ) { Err(error) => return Err(error); Ok(value) => value }
+      if fixed_frame.total_length <= stored_frame.total_length {
+        let fixed = { ..fixed, total_length: fixed_frame.total_length }
+        let work = match _png_encode_selected_work(
+          fixed_frame.total_length, fixed.matcher_work, 0UL,
+        ) { Err(error) => return Err(error); Ok(value) => value }
+        (PngDeflatePlan::Fixed(fixed), fixed_frame, work)
+      } else {
+        (PngDeflatePlan::Stored(stored), stored_frame, stored_frame.total_length)
+      }
+    }
+    PngCompressionStrategy::DynamicOrFixedOrStored =>
+      return Err(_png_encode_capability("indexed-dynamic-compression-unavailable"))
+  }
+  let idat_length = match plan {
+    PngDeflatePlan::Stored(value) => value.idat_length
+    PngDeflatePlan::Fixed(value) => value.idat_length
+    PngDeflatePlan::Dynamic(value) => value.idat_length
+  }
+  let blocks = match plan {
+    PngDeflatePlan::Stored(value) => value.blocks
+    _ => 0UL
+  }
   for item in [
     ("width", width, limits.max_width()),
     ("height", height, limits.max_height()),
@@ -2208,8 +2384,7 @@ fn _png_encode_indexed_preflight_with_profile(
   }
   Ok({
     profile: wire_profile.profile(), channels: 1UL, row_bytes, scanlines,
-    blocks, idat_length, total_length: frame.total_length,
-    plan: PngDeflatePlan::Stored({ blocks, idat_length, total_length: frame.total_length }),
+    blocks, idat_length, total_length: frame.total_length, plan,
     disposition, selected_work, adaptive_planning_facts: traversal,
     adaptive_replay_facts: traversal, frame,
   })
@@ -2283,9 +2458,41 @@ pub fn PngEncoder::encode_indexed8(
   budget : @budget.Budget,
   diagnostics : @error.Diagnostics,
 ) -> Result[@codec.EncodeResult, @error.CoreError] {
-  PngEncoder::encode_indexed8_with_interlace_strategy(
-    _self, source, PngInterlaceStrategy::None, writer, limits, budget, diagnostics,
+  PngEncoder::encode_indexed8_with_compression_strategy(
+    _self, source, PngCompressionStrategy::Stored, writer, limits, budget, diagnostics,
   )
+}
+
+///| Selects the bounded non-interlaced Type-3/8 compression plan. Dynamic is
+/// intentionally unavailable for indexed sources.
+pub fn PngEncoder::encode_indexed8_with_compression_strategy(
+  _self : PngEncoder,
+  source : PngIndexedImage,
+  strategy : PngCompressionStrategy,
+  writer : &@io.Writer,
+  limits : @codec.CodecLimits,
+  budget : @budget.Budget,
+  diagnostics : @error.Diagnostics,
+) -> Result[@codec.EncodeResult, @error.CoreError] {
+  let machine = match PngEncodeMachine::new_with_indexed_profile_and_strategy(
+    source, PngIndexedWireProfile::Eight, PngInterlaceStrategy::None, strategy,
+    limits, budget, diagnostics,
+  ) { Err(error) => return Err(error); Ok(value) => value }
+  while true {
+    let byte = match machine.present() {
+      Err(error) => return Err(error); Ok(None) => break; Ok(Some(value)) => value
+    }
+    let owner = match @bytes.OwnedBytes::from_bytes(
+      Bytes::from_array([byte]), _png_private_budget(1UL),
+    ) { Err(error) => return Err(error); Ok(value) => value }
+    match writer.write(owner.view()) {
+      @io.WriteOutcome::Progress(1UL) => ()
+      @io.WriteOutcome::Progress(progress) => return Err(_png_encode_invalid_writer_progress(progress))
+      @io.WriteOutcome::Failed(error, _) => return Err(error)
+    }
+    match machine.acknowledge(byte) { Err(error) => return Err(error); Ok(_) => () }
+  }
+  Ok(@codec.EncodeResult::new(machine.disposition(), machine.completed()))
 }
 
 ///| Eagerly encode an immutable Indexed8 PNG through the shared bounded
@@ -2344,9 +2551,41 @@ pub fn PngEncoder::encode_indexed(
   budget : @budget.Budget,
   diagnostics : @error.Diagnostics,
 ) -> Result[@codec.EncodeResult, @error.CoreError] {
-  PngEncoder::encode_indexed_with_interlace_strategy(
-    _self, source, bit_depth, PngInterlaceStrategy::None, writer, limits, budget, diagnostics,
+  PngEncoder::encode_indexed_with_compression_strategy(
+    _self, source, bit_depth, PngCompressionStrategy::Stored, writer, limits, budget, diagnostics,
   )
+}
+
+///| Selects Stored or bounded Fixed DEFLATE for non-interlaced Indexed1/2/4.
+pub fn PngEncoder::encode_indexed_with_compression_strategy(
+  _self : PngEncoder,
+  source : PngIndexedImage,
+  bit_depth : PngIndexedBitDepth,
+  strategy : PngCompressionStrategy,
+  writer : &@io.Writer,
+  limits : @codec.CodecLimits,
+  budget : @budget.Budget,
+  diagnostics : @error.Diagnostics,
+) -> Result[@codec.EncodeResult, @error.CoreError] {
+  let machine = match PngEncodeMachine::new_with_indexed_profile_and_strategy(
+    source, _png_indexed_wire_profile(bit_depth), PngInterlaceStrategy::None, strategy,
+    limits, budget, diagnostics,
+  ) { Err(error) => return Err(error); Ok(value) => value }
+  while true {
+    let byte = match machine.present() {
+      Err(error) => return Err(error); Ok(None) => break; Ok(Some(value)) => value
+    }
+    let owner = match @bytes.OwnedBytes::from_bytes(
+      Bytes::from_array([byte]), _png_private_budget(1UL),
+    ) { Err(error) => return Err(error); Ok(value) => value }
+    match writer.write(owner.view()) {
+      @io.WriteOutcome::Progress(1UL) => ()
+      @io.WriteOutcome::Progress(progress) => return Err(_png_encode_invalid_writer_progress(progress))
+      @io.WriteOutcome::Failed(error, _) => return Err(error)
+    }
+    match machine.acknowledge(byte) { Err(error) => return Err(error); Ok(_) => () }
+  }
+  Ok(@codec.EncodeResult::new(machine.disposition(), machine.completed()))
 }
 
 ///| Eagerly encodes a selected low-bit indexed source through the one shared

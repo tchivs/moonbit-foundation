@@ -26,9 +26,25 @@ pub fn PngChunkEncoder::new_indexed8(
   budget : @budget.Budget,
   diagnostics : @error.Diagnostics,
 ) -> Result[PngChunkEncoder, @error.CoreError] {
-  PngChunkEncoder::new_indexed8_with_interlace_strategy(
-    source, PngInterlaceStrategy::None, limits, budget, diagnostics,
+  PngChunkEncoder::new_indexed8_with_compression_strategy(
+    source, PngCompressionStrategy::Stored, limits, budget, diagnostics,
   )
+}
+
+///| Constructs the non-interlaced Indexed8 Stored-or-Fixed selector through
+/// the existing acknowledged machine.
+pub fn PngChunkEncoder::new_indexed8_with_compression_strategy(
+  source : PngIndexedImage,
+  strategy : PngCompressionStrategy,
+  limits : @codec.CodecLimits,
+  budget : @budget.Budget,
+  diagnostics : @error.Diagnostics,
+) -> Result[PngChunkEncoder, @error.CoreError] {
+  let machine = match PngEncodeMachine::new_with_indexed_profile_and_strategy(
+    source, PngIndexedWireProfile::Eight, PngInterlaceStrategy::None, strategy,
+    limits, budget, diagnostics,
+  ) { Err(error) => return Err(error); Ok(value) => value }
+  Ok({ state: PngChunkEncoderState::Active(machine), total_written: 0UL })
 }
 
 ///| Constructs the additive Indexed8 caller-buffered Adam7 selector while
@@ -59,9 +75,25 @@ pub fn PngChunkEncoder::new_indexed(
   budget : @budget.Budget,
   diagnostics : @error.Diagnostics,
 ) -> Result[PngChunkEncoder, @error.CoreError] {
-  PngChunkEncoder::new_indexed_with_interlace_strategy(
-    source, bit_depth, PngInterlaceStrategy::None, limits, budget, diagnostics,
+  PngChunkEncoder::new_indexed_with_compression_strategy(
+    source, bit_depth, PngCompressionStrategy::Stored, limits, budget, diagnostics,
   )
+}
+
+///| Constructs the non-interlaced Indexed1/2/4 Stored-or-Fixed selector.
+pub fn PngChunkEncoder::new_indexed_with_compression_strategy(
+  source : PngIndexedImage,
+  bit_depth : PngIndexedBitDepth,
+  strategy : PngCompressionStrategy,
+  limits : @codec.CodecLimits,
+  budget : @budget.Budget,
+  diagnostics : @error.Diagnostics,
+) -> Result[PngChunkEncoder, @error.CoreError] {
+  let machine = match PngEncodeMachine::new_with_indexed_profile_and_strategy(
+    source, _png_indexed_wire_profile(bit_depth), PngInterlaceStrategy::None, strategy,
+    limits, budget, diagnostics,
+  ) { Err(error) => return Err(error); Ok(value) => value }
+  Ok({ state: PngChunkEncoderState::Active(machine), total_written: 0UL })
 }
 
 ///| Constructs the additive selected low-bit Adam7 selector while retaining
@@ -983,8 +1015,26 @@ fn PngEncodeMachine::new_with_indexed_profile(
   budget : @budget.Budget,
   _diagnostics : @error.Diagnostics,
 ) -> Result[PngEncodeMachine, @error.CoreError] {
-  let facts = match _png_encode_indexed_preflight_with_profile(
-    source, wire_profile, interlace_strategy, limits, budget,
+  PngEncodeMachine::new_with_indexed_profile_and_strategy(
+    source, wire_profile, interlace_strategy, PngCompressionStrategy::Stored,
+    limits, budget, _diagnostics,
+  )
+}
+
+///| The sole indexed construction seam validates the narrow strategy before
+/// preflight, then gives Stored and Fixed replay fresh identical bounded raw
+/// producers. No second indexed encoder owns caller acknowledgement.
+fn PngEncodeMachine::new_with_indexed_profile_and_strategy(
+  source : PngIndexedImage,
+  wire_profile : PngIndexedWireProfile,
+  interlace_strategy : PngInterlaceStrategy,
+  strategy : PngCompressionStrategy,
+  limits : @codec.CodecLimits,
+  budget : @budget.Budget,
+  _diagnostics : @error.Diagnostics,
+) -> Result[PngEncodeMachine, @error.CoreError] {
+  let facts = match _png_encode_indexed_preflight_with_profile_and_strategy(
+    source, wire_profile, interlace_strategy, strategy, limits, budget,
   ) {
     Err(error) => return Err(error)
     Ok(value) => value
@@ -993,7 +1043,7 @@ fn PngEncodeMachine::new_with_indexed_profile(
     source: None,
     indexed_source: Some(source),
     profile: facts.profile,
-    strategy: PngCompressionStrategy::Stored,
+    strategy,
     filter_strategy: PngFilterStrategy::None,
     interlace_strategy,
     width: source.width(), height: source.height(), channels: facts.channels,
@@ -1002,7 +1052,23 @@ fn PngEncodeMachine::new_with_indexed_profile(
     total_length_value: facts.total_length, source_revision: 0UL, plan: facts.plan,
     disposition: facts.disposition, emitted: 0UL, pending: None,
     pending_stored: None, pending_fixed: None, pending_dynamic: None,
-    stored_cursor: None, fixed_state: None, dynamic_state: None,
+    stored_cursor: if interlace_strategy == PngInterlaceStrategy::None {
+      Some(PngFilteredMatchCursor::new_indexed(
+        source, facts.row_bytes, wire_profile.depth(),
+      ))
+    } else { None },
+    fixed_state: match facts.plan {
+      PngDeflatePlan::Fixed(_) => Some({
+        raw_cursor: 0UL,
+        filtered_cursor: Some(PngFilteredMatchCursor::new_indexed(
+          source, facts.row_bytes, wire_profile.depth(),
+        )),
+        bit_value: 0UL, bit_count: 0UL, adler: 1UL,
+        fingerprint: 1UL, matcher_work: 0UL, header_written: false, eob_written: false,
+      })
+      _ => None
+    },
+    dynamic_state: None,
     ihdr_crc: _png_crc_for_type([b'I', b'H', b'D', b'R']),
     plte_crc: _png_crc_for_type([b'P', b'L', b'T', b'E']),
     trns_crc: _png_crc_for_type([b't', b'R', b'N', b'S']),
