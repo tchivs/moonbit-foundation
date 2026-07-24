@@ -8,4 +8,5 @@ members = [
   "./examples/ppm-native-cli",
   "./examples/qoi-portable",
   "./examples/png-portable",
+  "./examples/mb-svg-demo",
 ]

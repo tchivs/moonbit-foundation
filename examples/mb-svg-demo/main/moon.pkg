@@ -1,0 +1,14 @@
+import {
+  "tchivs/mb-core/budget",
+  "tchivs/mb-color/profile",
+  "tchivs/mb-color/model" @color,
+  "tchivs/mb-image/model" @imgmodel,
+  "tchivs/mb-image/metadata",
+  "tchivs/mb-image/storage" @storage,
+  "tchivs/mb-canvas/canvas" @canvas,
+  "tchivs/mb-svg/svg" @svg,
+}
+
+supported_targets = "+js+wasm+wasm-gc+native"
+
+pkgtype(kind: "executable")

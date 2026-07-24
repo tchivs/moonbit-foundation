@@ -114,7 +114,7 @@ pub fn parse_svg(source : String) -> Result[SceneNode, @error.CoreError] {
 // Internal: cursor over the flat MarkupToken stream
 // ---------------------------------------------------------------------------
 
-struct TokenCursor {
+priv struct TokenCursor {
   tokens : Array[@text.MarkupToken]
   mut pos : Int
   len : Int
