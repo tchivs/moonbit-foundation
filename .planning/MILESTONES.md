@@ -1,5 +1,31 @@
 # Project Milestones: MoonBit Native Foundation
 
+## v0.28 Indexed PNG Compression Profiles (Shipped: 2026-07-24)
+
+**Delivered:** Additive indexed PNG Fixed-or-Stored compression profiles with exact bounded admission, acknowledged streaming parity, independent wire/decode qualification, and four-target evidence.
+
+**Phases completed:** 3 phases, 3 plans, 7 tasks
+
+**Key accomplishments:**
+
+- Added explicit non-interlaced `Stored`/`FixedOrStored` selectors for Indexed1/2/4/8 while preserving frozen legacy routes and rejecting Dynamic before admission.
+- Integrated palette-aware PLTE/tRNS framing and exact output/work limits into one atomic admission through the existing acknowledged machine.
+- Proved hostile caller leases, sticky released/replay failures, independent Type-3/DEFLATE/CRC/Adler/raster parsing, and public RGB8/RGBA8 decode.
+- Passed the ordinary PNG package gate at 315/315 on native, wasm, wasm-gc, js, and aggregate `--target all`.
+
+**Stats:**
+
+- 36 files changed in the milestone history (including planning and verification artifacts)
+- 5,803 insertions and 96 deletions from the v0.28 research baseline
+- 3 phases, 3 plans, 7 tasks
+- Same-day delivery on 2026-07-24
+
+**Closeout:** Verified closeout; 3/3 phase verifications passed, all 5 requirements complete, and no open artifact records.
+
+**What's next:** Define the next code-first milestone; no new scope is invented at closeout.
+
+---
+
 ## v0.27 Low-Bit Indexed Adam7 PNG Encode (Shipped: 2026-07-24)
 
 **Phases completed:** 2 phases, 2 plans, 4 tasks

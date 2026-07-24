@@ -294,6 +294,45 @@
 
 ---
 
+## Milestone: v0.28 — Indexed PNG Compression Profiles
+
+**Shipped:** 2026-07-24  
+**Phases:** 3 | **Plans:** 3 | **Tasks:** 7
+
+### What Was Built
+
+- Additive non-interlaced Indexed1/2/4/8 `Stored` and `FixedOrStored` selectors with literal legacy Stored forwards and fail-closed Dynamic rejection.
+- Palette-aware PLTE/tRNS frame facts, exact output/work limits, and one-charge admission through the established acknowledged machine.
+- Independent hostile-stream qualification covering lease schedules, sticky terminals, Type-3/DEFLATE/CRC/Adler/raster parsing, public decode, frozen vectors, and all four targets.
+
+### What Worked
+
+- Keeping the implementation on the existing bounded producer and acknowledged machine made the capability additive and prevented a second encoder path.
+- Test-local parsers and a local corpus protected the wire contract without relying on production planning helpers as an oracle.
+- Named target gates plus the aggregate `--target all` run provided a compact, reproducible portability signal.
+
+### What Was Inefficient
+
+- Automatic accomplishment extraction surfaced deviation notes instead of shipped outcomes; the milestone entry was curated during closeout.
+- The aggregate target run initially waited on a shared Moon build lock and needed a longer retry, so parallel target invocations should remain bounded and observable.
+
+### Patterns Established
+
+- Indexed compression selection compares complete palette-aware frame facts, not only IDAT payload size.
+- Hostile caller schedules retain sentinel owners and append only accepted prefixes; replay-work drift is tested at the private seam.
+- Phase directories are archived immediately after verified milestone completion, keeping the active planning tree small.
+
+### Key Lessons
+
+1. Preserve compatibility by making new compression profiles explicit and keeping legacy constructors literal forwards.
+2. Independent wire/decode evidence is worth the extra test code when compression and packed-row contracts interact.
+3. Milestone closeout should correct generated summaries and stale project state before deleting the active requirements file.
+
+### Cost Observations
+
+- Model mix and session count are not captured by the local GSD runtime.
+- The final ordinary PNG gate was 315/315 per declared target; the main cost was cross-target qualification and independent oracle coverage.
+
 ## Cross-Milestone Trends
 
 ### Process Evolution
@@ -307,6 +346,7 @@
 | v0.19 | 3 | 5 | Extended that bounded profile path to GrayAlpha8 Adam7 with shared replay integrity and independent portable evidence. |
 | v0.20 | 3 | 3 | Added opt-in high-precision GrayAlpha16 decode while retaining generic RGBA8 and one bounded machine. |
 | v0.21 | 4 | 4 | Added opt-in Type-6/16 RGBA decode with exact U16 lanes, chunk parity, and portable qualification. |
+| v0.28 | 3 | 3 | Added bounded indexed Fixed-or-Stored compression with independent hostile-stream and four-target qualification. |
 
 ### Cumulative Quality
 
@@ -319,6 +359,7 @@
 | v0.19 | 227/227 PNG tests per target | 3/3 | 3/3 phase verifications, 100/100 integration, 4/4 flows |
 | v0.20 | 235/235 PNG tests per target | 3/3 | 3/3 phase verifications, 100/100 integration, 4/4 flows |
 | v0.21 | 245/245 PNG tests per target | 4/4 | 4/4 phase verifications, 5/5 integration links, 2/2 public flows |
+| v0.28 | 315/315 PNG tests per target | 5/5 | 3/3 phase verifications, no open artifact records |
 
 ### Top Lessons
 

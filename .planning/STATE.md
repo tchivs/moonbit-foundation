@@ -2,19 +2,18 @@
 gsd_state_version: 1.0
 milestone: v0.28
 milestone_name: Indexed PNG Compression Profiles
+status: Awaiting next milestone
+stopped_at: Milestone v0.28 completed and archived
+last_updated: "2026-07-24T10:54:17.180Z"
+last_activity: 2026-07-24
+last_activity_desc: Milestone v0.28 completed and archived
+progress:
+  total_phases: 0
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
 current_phase: 87
 current_phase_name: Hostile Indexed Streaming and Independent Qualification
-status: executing
-stopped_at: Phase 87 context gathered
-last_updated: "2026-07-24T09:44:26.190Z"
-last_activity: 2026-07-24
-last_activity_desc: Phase 86 complete, transitioned to Phase 87
-progress:
-  total_phases: 3
-  completed_phases: 2
-  total_plans: 3
-  completed_plans: 2
-  percent: 67
 ---
 
 # Project State
@@ -25,20 +24,20 @@ See `.planning/PROJECT.md`.
 
 **Core value:** MoonBit developers can reuse stable, high-performance native infrastructure contracts instead of rebuilding incompatible foundations for every graphics, document, media, or automation product.
 
-**Current focus:** Phase 87 — Hostile Indexed Streaming and Independent Qualification
+**Current focus:** Planning next milestone
 
 ## Current Position
 
-Phase: 87 — Hostile Indexed Streaming and Independent Qualification
-Plan: Not started
-Status: Ready to execute
-Last activity: 2026-07-24 — Phase 86 complete, transitioned to Phase 87
+Phase: —
+Plan: —
+Status: Awaiting next milestone
+Last activity: 2026-07-24 — Milestone v0.28 completed and archived
 
 ## Milestone Metrics
 
-**Current milestone:** v0.28 has 3 scoped requirements mapped exactly once across 3 planned phases; 2/3 phases and 2 plans are complete.
+**Current milestone:** v0.28 has 5 scoped requirements mapped exactly once across 3 planned phases; 3/3 phases and 3 plans are complete.
 
-**Previous milestone:** v0.26 shipped Type-3/8 Adam7 eager/chunk output through the existing acknowledged machine. Its detailed history is archived at `.planning/milestones/v0.26-ROADMAP.md`.
+**Previous milestone:** v0.27 shipped Low-Bit Indexed Adam7 PNG Encode; its detailed history is archived at .planning/milestones/v0.27-ROADMAP.md.
 
 ## Accumulated Context
 
@@ -81,9 +80,9 @@ Last activity: 2026-07-24 — Phase 86 complete, transitioned to Phase 87
 
 ## Session Continuity
 
-Last session: 2026-07-24T09:16:26.637Z
-Stopped at: Phase 87 context gathered
-Resume file: .planning/phases/87-hostile-indexed-streaming-and-independent-qualification/87-CONTEXT.md
+Last session: 2026-07-24T10:54:17.168Z
+Stopped at: Milestone v0.28 completed and archived
+Resume file: None
 
 ## Operator Next Steps
 

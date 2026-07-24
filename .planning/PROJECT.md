@@ -10,27 +10,15 @@ The primary audience is MoonBit library authors and application developers build
 
 MoonBit developers can reuse stable, high-performance native infrastructure contracts instead of rebuilding incompatible foundations for every graphics, document, media, or automation product.
 
-## Current State: v0.25 Indexed Low-Bit PNG Encode Shipped
+## Current State: v0.28 Indexed PNG Compression Profiles Shipped
 
-**Delivered:** `mb-image` now emits explicit bounded Type-3 PNG at 1, 2, and 4 bits from the canonical unpacked `PngIndexedImage`, with MSB-first zero-tailed rows, depth-capped PLTE, and canonical optional tRNS. Eager and caller-buffered low-bit routes share the existing acknowledged machine.
+**Delivered:** `mb-image` now exposes additive non-interlaced Indexed1/2/4/8 `Stored` and `FixedOrStored` eager and caller-buffered selectors. Fixed is emitted only when the complete palette-aware Type-3 frame wins or ties Stored; legacy/default indexed APIs remain literal Stored/filter-None forwards and Dynamic remains an explicit unavailable capability.
 
-**Validated:** Independent packed-wire/CRC and public RGB8/RGBA8 decode vectors, eager/chunk byte parity, hostile leases, sticky terminals, atomic admission, Indexed8 freezes, and the ordinary PNG package gate passed. On the final main-branch run, wasm, wasm-gc, js, and native each completed 286/286 tests.
+**Validated:** PLTE/tRNS-aware atomic admission, exact output/work limits, hostile zero/one/ragged leases, released-lease and replay-work sticky terminals, independent Type-3/DEFLATE/CRC/Adler/raster parsing, public RGB8/RGBA8 decode, frozen legacy vectors, and the ordinary PNG package gate passed 315/315 on native, wasm, wasm-gc, js, and `--target all`.
 
-## Current Milestone: v0.28 Indexed PNG Compression Profiles
+## Next Milestone Goals
 
-**Goal:** Add only explicit opt-in Fixed-or-Stored DEFLATE selection to non-interlaced indexed PNG encode paths while every legacy/default indexed route remains byte-identical Stored/filter-None output.
-
-**Target features:**
-
-- Add additive eager and caller-buffered Type-3/1, /2, /4, and /8 selectors that admit `Stored` and `FixedOrStored`, with old methods as literal Stored forwards.
-- Reuse one bounded indexed filter-None raw-byte/match producer and the acknowledged machine to select Fixed only when its exact complete palette-aware frame is no larger than Stored.
-- Prove ancillary-aware preflight, one atomic budget charge, hostile lease behavior, independent wire/decode evidence, frozen compatibility, and four-target portability.
-
-**Scope boundary:** This milestone does not add Dynamic indexed DEFLATE, adaptive filters, indexed Adam7 compression selection, generic source-model changes, FFI, release automation, or copied source trees. Existing indexed Adam7 APIs remain explicit Stored/filter-None compatibility baselines.
-
-**Phase 85 shipped:** Non-interlaced Indexed1/2/4/8 now expose explicit
-Stored-or-Fixed eager and caller-buffered selectors. Legacy bytes remain frozen,
-Dynamic is rejected before admission, and native PNG verification passed 303/303.
+No next milestone has been selected yet. Keep delivery code-first; define the next scoped capability with `$gsd-new-milestone` before adding implementation work. Registry publication, release automation, Dynamic indexed DEFLATE, adaptive filters, and indexed Adam7 compression remain deferred until separately scoped and justified.
 
 ## Requirements
 
@@ -74,9 +62,7 @@ Dynamic is rejected before admission, and native PNG verification passed 303/303
 
 ### Active
 
-- [ ] Compute PLTE/tRNS-aware exact candidate frame and work facts before one budget charge, then integrate the selected plan through the shared acknowledged eager and caller-buffered machine.
-- [ ] Preserve atomic failures and hostile caller-buffered lifecycle behavior for the new routes, including no observable bytes or lease after rejected admission and sticky terminal failures after released leases.
-- [ ] Independently qualify Fixed-or-Stored Type-3 wire bytes, public RGB8/RGBA8 decode, legacy vectors, and ordinary PNG package execution on wasm, wasm-gc, js, and native.
+No active requirements. Define the next milestone before adding new implementation scope.
 
 ### Out of Scope
 
@@ -205,6 +191,8 @@ Registry publication and release automation remain deferred unless a concrete co
 | Add Gray+Alpha16 through the existing bounded PNG profile | Preserve strict descriptor admission, avoid a staging path, and keep exact U16 wire fidelity distinct from U8 decoder canonicalization | ✓ Validated in v0.17 |
 | Extend GrayAlpha8 through opt-in Adam7 selectors | Preserve frozen non-interlaced bytes while reusing the profile-aware bounded pipeline and proving public four-target behavior | ✓ Validated in v0.19 |
 | Add RGBA16 decoding as an explicit opt-in profile | Preserve generic RGBA8 behavior and reuse the bounded decoder while exposing exact Type-6/16 source lanes | ✓ Validated in v0.21 |
+| Add indexed Fixed-or-Stored compression as an explicit non-interlaced profile | Preserve all legacy/default Indexed1/2/4/8 bytes while selecting a bounded Fixed block only on a complete palette-aware frame win or tie | ✓ Validated in v0.28 Phases 85-87 |
+| Keep indexed compression qualification independent from production planning | Test-local parsing and checksum/raster reconstruction protect the wire contract without turning production helpers into their own oracle | ✓ Validated in v0.28 Phase 87 |
 
 ## Evolution
 
@@ -224,4 +212,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update toolchain, compatibility, benchmark, and adoption context.
 
 ---
-*Last updated: 2026-07-24 after v0.25 closeout and v0.26 initialization*
+*Last updated: 2026-07-24 after v0.28 closeout*
