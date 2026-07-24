@@ -61,11 +61,12 @@ pub struct StrokeStyle {
   join : LineJoin
   miter_limit : Double
   dash : Array[Double]
+  dash_offset : Double
 }
 
 ///|
 /// Construct a stroke style with the given width, butt caps, miter joins, the
-/// default miter limit of 4.0, and a solid (no-dash) pattern.
+/// default miter limit of 4.0, a solid (no-dash) pattern, and zero dash offset.
 pub fn StrokeStyle::new(width : Double) -> StrokeStyle {
   {
     width,
@@ -73,6 +74,7 @@ pub fn StrokeStyle::new(width : Double) -> StrokeStyle {
     join: LineJoin::Miter,
     miter_limit: 4.0,
     dash: [],
+    dash_offset: 0.0,
   }
 }
 
@@ -162,6 +164,18 @@ pub fn StrokeStyle::with_dash(
   dash : Array[Double],
 ) -> StrokeStyle {
   { ..self, dash }
+}
+
+///|
+/// Return a copy of this style with the dash pattern's start offset set to
+/// `dash_offset` (in user units). A positive value shifts the pattern start
+/// forward along the path; negative shifts it backward. Values exceeding the
+/// pattern total length wrap modulo that length at rasterization time.
+pub fn StrokeStyle::with_dash_offset(
+  self : StrokeStyle,
+  dash_offset : Double,
+) -> StrokeStyle {
+  { ..self, dash_offset }
 }
 
 // Clamp a double into [0.0, 1.0]. NaN clamps to 0.0.

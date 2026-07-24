@@ -41,7 +41,7 @@ fn expand_stroke(path : @math.Path2, style : StrokeStyle) -> @math.Path2 {
       stroke_polyline(outline, pl, half, style)
     } else {
       // Dash pattern: split the centerline into on-segments and stroke each.
-      for sub in apply_dash(pl, style.dash) {
+      for sub in apply_dash(pl, style.dash, style.dash_offset) {
         if sub.points.length() >= 2 {
           stroke_polyline(outline, sub, half, style)
         }
@@ -55,20 +55,66 @@ fn expand_stroke(path : @math.Path2, style : StrokeStyle) -> @math.Path2 {
 // pattern is alternating on/off lengths; the first entry is "on". The pattern
 // repeats and wraps if the polyline is longer than one cycle. Off segments and
 // the gaps they create are dropped; only on segments produce output polylines.
-fn apply_dash(pl : Polyline, dash : Array[Double]) -> Array[Polyline] {
+//
+// `offset` shifts the pattern start: a positive value consumes that much of
+// the pattern before the path begins (so the first dash entry active at p0 is
+// whichever the pattern lands on after advancing `offset`); negative offsets
+// are normalized forward. The offset wraps modulo the pattern total length.
+fn apply_dash(
+  pl : Polyline,
+  dash : Array[Double],
+  offset : Double,
+) -> Array[Polyline] {
   let result : Array[Polyline] = []
   if dash.is_empty() || pl.points.length() < 2 {
     result.push(pl)
     return result
   }
-  let mut seg_idx = 0 // index into pl.points for the current centerline segment
-  // Walk the centerline accumulating distance; toggle on/off at pattern boundaries.
+  // Resolve the dash entry active at the path start, after consuming `offset`
+  // distance of the repeating pattern. SVG dash patterns start "on" at index 0;
+  // advancing offset toggles through on/off entries, wrapping modulo the total.
+  let mut pattern_total = 0.0
+  for d in dash {
+    pattern_total = pattern_total + d
+  }
   let mut remaining = dash[0] // distance left in the current dash entry
   let mut on = true // dash[0] is "on"
   let mut dash_idx = 0
+  // Normalize offset into [0, pattern_total). A non-positive pattern total
+  // (all-zero entries) means a solid stroke — return the polyline unchanged.
+  if pattern_total <= 0.0 {
+    result.push(pl)
+    return result
+  }
+  let mut off = offset % pattern_total
+  if off < 0.0 {
+    off = off + pattern_total
+  }
+  // Consume `off` distance of the pattern to land at the active entry. No
+  // output run is produced for this consumed prefix; if it lands inside an
+  // "on" entry, the run begins at p0 (the consumed prefix before p0 is dropped).
+  while off > 1.0e-12 {
+    if off >= remaining {
+      // Advance past the whole current entry.
+      off = off - remaining
+      dash_idx = (dash_idx + 1) % dash.length()
+      remaining = dash[dash_idx]
+      on = (dash_idx % 2 == 0)
+    } else {
+      // Lands inside this entry: trim the remaining distance.
+      remaining = remaining - off
+      off = 0.0
+    }
+  }
+  let mut seg_idx = 0 // index into pl.points for the current centerline segment
+  // Walk the centerline accumulating distance; toggle on/off at pattern boundaries.
   let mut current_run : Array[@math.Point2] = []
   let p0 = pl.points[0]
-  current_run.push(p0)
+  // If the active entry is "on", the run starts at p0 (the offset prefix
+  // before p0 is already consumed). If "off", no run starts yet.
+  if on {
+    current_run.push(p0)
+  }
   let mut cur_x = p0.x()
   let mut cur_y = p0.y()
   while seg_idx < pl.points.length() - 1 {
