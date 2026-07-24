@@ -5075,6 +5075,7 @@ test "PNG Indexed8 Adam7 chunk hostile leases qualify stream-origin bytes" {
   png_stream_indexed8_adam7_hostile_drain([0UL, 1UL])
   png_stream_indexed8_adam7_hostile_drain([1UL])
   png_stream_indexed8_adam7_hostile_drain([0UL, 1UL, 3UL, 2UL, 5UL])
+  png_stream_indexed8_adam7_hostile_drain([0UL, 1UL, 3UL, 2UL, 5UL, 7UL])
 }
 
 ///| A released first Adam7 destination must become a sticky zero-write failure
