@@ -5426,6 +5426,12 @@ test "PNG selected low-bit Adam7 chunk selector wires shared machine IHDR" {
   }
 }
 
+///| The selected Indexed1 Adam7 stream must retain caller ownership and prove
+///| its completed bytes through an independent Type-3 Adam7 wire oracle.
+test "PNG selected Indexed1 Adam7 chunk hostile leases qualify stream-origin bytes" {
+  png_stream_indexed_low_bit_adam7_hostile_drain(PngIndexedBitDepth::One, [0UL, 1UL])
+}
+
 ///| Every selected Type-3 depth replays a released first lease as the same
 ///| terminal failure without mutating a later caller-owned lease.
 test "PNG selected Indexed chunk replays released lease failures" {
