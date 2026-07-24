@@ -8,8 +8,8 @@
 
 ### Indexed Fixed-or-Stored API and exact wire contract
 
-- [ ] **INDEXCOMP-01**: Library users can explicitly select `Stored` or `FixedOrStored` for non-interlaced Type-3/1, /2, /4, and /8 `PngIndexedImage` eager and caller-buffered encoding; the existing indexed methods and the new `Stored` selection produce byte-identical Stored/filter-None compatibility bytes, while `DynamicOrFixedOrStored` fails before planning or budget charge with a stable unavailable-capability result.
-- [ ] **INDEXCOMP-02**: For an explicit indexed `FixedOrStored` request, the encoder derives canonical filter-None indexed raw bytes through one bounded shared raw-byte/match producer and emits an exact Fixed DEFLATE block only when its complete Type-3 PNG frame is no larger than Stored; otherwise it emits Stored, without image/pass/output/token staging, a second encoder, matcher widening, or a generic source-model change.
+- [x] **INDEXCOMP-01**: Library users can explicitly select `Stored` or `FixedOrStored` for non-interlaced Type-3/1, /2, /4, and /8 `PngIndexedImage` eager and caller-buffered encoding; the existing indexed methods and the new `Stored` selection produce byte-identical Stored/filter-None compatibility bytes, while `DynamicOrFixedOrStored` fails before planning or budget charge with a stable unavailable-capability result.
+- [x] **INDEXCOMP-02**: For an explicit indexed `FixedOrStored` request, the encoder derives canonical filter-None indexed raw bytes through one bounded shared raw-byte/match producer and emits an exact Fixed DEFLATE block only when its complete Type-3 PNG frame is no larger than Stored; otherwise it emits Stored, without image/pass/output/token staging, a second encoder, matcher widening, or a generic source-model change.
 
 ### Ancillary-aware bounded admission and integration
 
@@ -39,8 +39,8 @@
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| INDEXCOMP-01 | Phase 85 | Pending |
-| INDEXCOMP-02 | Phase 85 | Pending |
+| INDEXCOMP-01 | Phase 85 | Complete |
+| INDEXCOMP-02 | Phase 85 | Complete |
 | INDEXCOMP-03 | Phase 86 | Pending |
 | INDEXCOMP-04 | Phase 87 | Pending |
 | INDEXCOMP-05 | Phase 87 | Pending |

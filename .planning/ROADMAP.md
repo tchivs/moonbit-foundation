@@ -35,7 +35,7 @@
 
 ### 📋 v0.28 Indexed PNG Compression Profiles
 
-- [ ] **Phase 85: Indexed Compression API and Fixed Wire Contract** - Establish additive Stored-or-Fixed selectors and the exact bounded Fixed Type-3 contract.
+- [x] **Phase 85: Indexed Compression API and Fixed Wire Contract** - Establish additive Stored-or-Fixed selectors and the exact bounded Fixed Type-3 contract. (completed 2026-07-24)
 - [ ] **Phase 86: Ancillary-Aware Preflight and Shared-Machine Integration** - Select and admit the exact palette-aware candidate plan through the existing eager and caller-buffered machine.
 - [ ] **Phase 87: Hostile Indexed Streaming and Independent Qualification** - Prove lifecycle safety, independent wire/decode behavior, compatibility, and four-target portability.
 
@@ -57,7 +57,7 @@
 2. A Dynamic request receives the documented unavailable-capability failure before planning or budget charge, rather than silently selecting another compression profile.
 3. For a Fixed-or-Stored request, the bounded shared indexed raw-byte producer yields the exact filter-None scanline bytes used to choose and emit Fixed only when its complete Type-3 frame is no larger than Stored; a larger Fixed candidate falls back to Stored.
 
-**Plans:** 0/1 plans complete
+**Plans:** 1/1 plans complete
 
 ### Phase 86: Ancillary-Aware Preflight and Shared-Machine Integration
 
@@ -101,6 +101,6 @@
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 85. Indexed Compression API and Fixed Wire Contract | 0/1 | Not started | - |
+| 85. Indexed Compression API and Fixed Wire Contract | 1/1 | Complete    | 2026-07-24 |
 | 86. Ancillary-Aware Preflight and Shared-Machine Integration | 0/1 | Not started | - |
 | 87. Hostile Indexed Streaming and Independent Qualification | 0/1 | Not started | - |

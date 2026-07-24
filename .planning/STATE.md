@@ -2,18 +2,19 @@
 gsd_state_version: 1.0
 milestone: v0.28
 milestone_name: Indexed PNG Compression Profiles
-current_phase_name: defining requirements
-status: executing
+current_phase: 86
+current_phase_name: Ancillary-Aware Preflight and Shared-Machine Integration
+status: planning
 stopped_at: Phase 85 context gathered
-last_updated: "2026-07-24T05:02:15.562Z"
+last_updated: "2026-07-24T06:15:31.005Z"
 last_activity: 2026-07-24
-last_activity_desc: Milestone v0.28 started
+last_activity_desc: Phase 85 complete, transitioned to Phase 86
 progress:
   total_phases: 3
-  completed_phases: 0
+  completed_phases: 1
   total_plans: 1
-  completed_plans: 0
-  percent: 0
+  completed_plans: 1
+  percent: 33
 ---
 
 # Project State
@@ -24,14 +25,14 @@ See `.planning/PROJECT.md`.
 
 **Core value:** MoonBit developers can reuse stable, high-performance native infrastructure contracts instead of rebuilding incompatible foundations for every graphics, document, media, or automation product.
 
-**Current focus:** Phase 84 — low-bit-indexed-adam7-streaming-qualification
+**Current focus:** Phase 85 — Indexed Compression API and Fixed Wire Contract
 
 ## Current Position
 
-Phase: Not started (defining requirements)
-Plan: —
-Status: Ready to execute
-Last activity: 2026-07-24 — Milestone v0.28 started
+Phase: 86 — Ancillary-Aware Preflight and Shared-Machine Integration
+Plan: Not started
+Status: Ready to plan
+Last activity: 2026-07-24 — Phase 85 complete, transitioned to Phase 86
 
 ## Milestone Metrics
 
