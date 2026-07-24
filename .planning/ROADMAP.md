@@ -36,7 +36,7 @@
 
 ### 📋 v0.29 Indexed Adam7 Compression Profiles
 
-- [ ] **Phase 88: Indexed Adam7 API and Fixed Wire Contract** - Add additive Adam7 Stored/Fixed-or-Stored selectors and the bounded pass-aware Fixed candidate contract for Indexed1/2/4/8.
+- [x] **Phase 88: Indexed Adam7 API and Fixed Wire Contract** - Add additive Adam7 Stored/Fixed-or-Stored selectors and the bounded pass-aware Fixed candidate contract for Indexed1/2/4/8. (completed 2026-07-24)
 - [ ] **Phase 89: Pass-Aware Preflight and Shared-Machine Integration** - Admit the exact palette-aware Adam7 candidate atomically through the established acknowledged machine.
 - [ ] **Phase 90: Hostile Streaming and Independent Qualification** - Prove hostile lease behavior, independent wire/decode evidence, frozen compatibility, and four-target portability.
 
@@ -57,7 +57,7 @@
 1. Users can select `Stored` or `FixedOrStored` through additive eager and caller-buffered Adam7 APIs for Indexed1/2/4/8, while existing interlace APIs and all v0.28 non-interlaced selectors produce their frozen bytes.
 2. The selected Adam7 profile is carried consistently by eager and caller-buffered constructors without widening the indexed source model or introducing a decoder/FFI dependency; unsupported future profiles remain outside this API.
 
-**Plans:** TBD
+**Plans:** 1/1 plans complete
 
 ### Phase 89: Pass-Aware Preflight and Shared-Machine Integration
 
@@ -101,7 +101,7 @@
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 88. Indexed Adam7 API and Fixed Wire Contract | 0/0 | Not started | - |
+| 88. Indexed Adam7 API and Fixed Wire Contract | 1/1 | Complete    | 2026-07-24 |
 | 89. Pass-Aware Preflight and Shared-Machine Integration | 0/0 | Not started | - |
 | 90. Hostile Streaming and Independent Qualification | 0/0 | Not started | - |
 

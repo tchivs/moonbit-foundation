@@ -8,7 +8,7 @@
 
 ### Indexed Adam7 API and compatibility
 
-- [ ] **ADAM7COMP-01**: Library users can explicitly select `Stored` or `FixedOrStored` for Adam7 Type-3/1, /2, /4, and /8 eager and caller-buffered encoding; existing/default indexed interlace APIs remain byte-identical Stored/filter-None forwards, and non-interlaced v0.28 selectors remain unchanged.
+- [x] **ADAM7COMP-01**: Library users can explicitly select `Stored` or `FixedOrStored` for Adam7 Type-3/1, /2, /4, and /8 eager and caller-buffered encoding; existing/default indexed interlace APIs remain byte-identical Stored/filter-None forwards, and non-interlaced v0.28 selectors remain unchanged.
 
 ### Pass-aware bounded compression contract
 
@@ -41,7 +41,7 @@
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| ADAM7COMP-01 | Phase 88 | Pending |
+| ADAM7COMP-01 | Phase 88 | Complete |
 | ADAM7COMP-02 | Phase 89 | Pending |
 | ADAM7COMP-03 | Phase 89 | Pending |
 | ADAM7COMP-04 | Phase 90 | Pending |
