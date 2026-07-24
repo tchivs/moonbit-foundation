@@ -22,7 +22,8 @@
 // inherited `color` attribute (default black). See build_paint.
 //
 // Known follow-ups (deliberately out of v0.1 scope, flagged inline):
-//   - preserveAspectRatio is stored raw; viewport mapping belongs to lowering.
+//   - preserveAspectRatio is not parsed; lowering assumes the SVG default
+//     ("xMidYMid meet"). Other aspect-ratio modes are a follow-up.
 //
 // Error handling follows the rest of mb-svg: CoreError is a plain struct, so
 // plain Result + match / return Err is used throughout (no raise/try!).
@@ -54,6 +55,7 @@ pub struct Paint {
   stroke_join : @canvas.LineJoin
   stroke_miterlimit : Double
   stroke_dash : Array[Double]
+  fill_rule : @canvas.FillRule
 }
 
 // ---------------------------------------------------------------------------
@@ -84,6 +86,7 @@ struct PaintContext {
   fill_opacity : Double
   stroke_opacity : Double
   stroke_width : Double
+  fill_rule : @canvas.FillRule
   stroke_cap : @canvas.LineCap
   stroke_join : @canvas.LineJoin
   stroke_miterlimit : Double
@@ -100,6 +103,7 @@ fn root_paint_context() -> PaintContext {
     fill_opacity: 1.0,
     stroke_opacity: 1.0,
     stroke_width: 1.0,
+    fill_rule: @canvas.FillRule::Nonzero,
     stroke_cap: @canvas.LineCap::Butt,
     stroke_join: @canvas.LineJoin::Miter,
     stroke_miterlimit: 4.0,
@@ -540,6 +544,10 @@ fn build_paint(
     parent.stroke_opacity,
   )
   let stroke_width = inherit_double(attrs, "stroke-width", parent.stroke_width)
+  let fill_rule = match attr_get(attrs, "fill-rule") {
+    None => parent.fill_rule
+    Some(s) => parse_fillrule(s)
+  }
   let stroke_cap = match attr_get(attrs, "stroke-linecap") {
     None => parent.stroke_cap
     Some(s) => parse_linecap(s)
@@ -571,6 +579,7 @@ fn build_paint(
     fill_opacity: fill_opacity,
     stroke_opacity: stroke_opacity,
     stroke_width: stroke_width,
+    fill_rule: fill_rule,
     stroke_cap: stroke_cap,
     stroke_join: stroke_join,
     stroke_miterlimit: stroke_miterlimit,
@@ -583,6 +592,7 @@ fn build_paint(
     fill_opacity: fill_opacity,
     stroke_opacity: stroke_opacity,
     stroke_width: stroke_width,
+    fill_rule: fill_rule,
     stroke_cap: stroke_cap,
     stroke_join: stroke_join,
     stroke_miterlimit: stroke_miterlimit,
@@ -627,6 +637,16 @@ fn parse_linejoin(s : String) -> @canvas.LineJoin {
     "round" => @canvas.LineJoin::Round
     "bevel" => @canvas.LineJoin::Bevel
     _ => @canvas.LineJoin::Miter
+  }
+}
+
+// Parse an SVG fill-rule value; unknown values fall back to the SVG default
+// (Nonzero). SVG accepts "nonzero"/"evenodd" (and SVG 2 "nozero" alias is not
+// handled here).
+fn parse_fillrule(s : String) -> @canvas.FillRule {
+  match @text.trim(s) {
+    "evenodd" => @canvas.FillRule::EvenOdd
+    _ => @canvas.FillRule::Nonzero
   }
 }
 

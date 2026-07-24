@@ -267,3 +267,122 @@ test "lower stroke defaults when no stroke attributes are given" {
     Err(_) => inspect("err", content="ok")
   }
 }
+
+///|
+test "lower applies fill-rule=evenodd to the Fill op" {
+  match parse_svg("<svg><path d=\"M0 0 L4 0 L4 4 Z\" fill=\"black\" fill-rule=\"evenodd\"/></svg>") {
+    Ok(scene) => {
+      let list = lower_to_drawing_list(scene)
+      match list.get(0) {
+        Some(Fill(_, style)) =>
+          inspect(style.rule == @canvas.FillRule::EvenOdd, content="true")
+        other => inspect("other", content="other")
+      }
+    }
+    Err(_) => inspect("err", content="ok")
+  }
+}
+
+///|
+test "lower fill-rule defaults to Nonzero" {
+  match parse_svg("<svg><rect width=\"4\" height=\"4\"/></svg>") {
+    Ok(scene) => {
+      let list = lower_to_drawing_list(scene)
+      match list.get(0) {
+        Some(Fill(_, style)) =>
+          inspect(style.rule == @canvas.FillRule::Nonzero, content="true")
+        other => inspect("other", content="other")
+      }
+    }
+    Err(_) => inspect("err", content="ok")
+  }
+}
+
+///|
+test "lower rect rx>0 produces a rounded path (8 cubics + move + close = 10 cmds)" {
+  // A rounded rect has: move + 4*(line + cubic) + close = 1 + 4*2 + 1 = 10.
+  match parse_svg("<svg><rect width=\"10\" height=\"10\" rx=\"2\" ry=\"2\"/></svg>") {
+    Ok(scene) => {
+      let list = lower_to_drawing_list(scene)
+      match list.get(0) {
+        Some(Fill(p, _)) => inspect(p.length(), content="10")
+        other => inspect("other", content="other")
+      }
+    }
+    Err(_) => inspect("err", content="ok")
+  }
+}
+
+///|
+test "lower rect rx=ry=0 stays a sharp path (move + 3 lines + close = 5 cmds)" {
+  match parse_svg("<svg><rect width=\"10\" height=\"10\"/></svg>") {
+    Ok(scene) => {
+      let list = lower_to_drawing_list(scene)
+      match list.get(0) {
+        Some(Fill(p, _)) => inspect(p.length(), content="5")
+        other => inspect("other", content="other")
+      }
+    }
+    Err(_) => inspect("err", content="ok")
+  }
+}
+
+///|
+test "lower viewBox mapping wraps svg children in a transform" {
+  // viewBox 0 0 100 100 mapped to width=200 height=200 → uniform scale 2,
+  // centered: tx = (200 - 100*2)/2 - 0*2 = 0, ty = 0. So transform = scale 2.
+  match parse_svg("<svg viewBox=\"0 0 100 100\" width=\"200\" height=\"200\"><rect width=\"1\" height=\"1\"/></svg>") {
+    Ok(scene) => {
+      let list = lower_to_drawing_list(scene)
+      // Expect: PushTransform(scale 2), Fill, PopTransform.
+      inspect(list.length(), content="3")
+      match list.get(0) {
+        Some(PushTransform(t)) => {
+          inspect(t.a(), content="2")
+          inspect(t.d(), content="2")
+          inspect(t.tx(), content="0")
+        }
+        other => inspect("other", content="other")
+      }
+      match list.get(2) {
+        Some(PopTransform) => inspect("pop", content="pop")
+        other => inspect("other", content="other")
+      }
+    }
+    Err(_) => inspect("err", content="ok")
+  }
+}
+
+///|
+test "lower viewBox with offset viewport centers content (xMidYMid meet)" {
+  // viewBox 0 0 100 50 → width=200 height=200. scale = min(2, 4) = 2 (meet).
+  // tx = (200 - 100*2)/2 - 0 = 0; ty = (200 - 50*2)/2 - 0 = 50.
+  match parse_svg("<svg viewBox=\"0 0 100 50\" width=\"200\" height=\"200\"><rect width=\"1\" height=\"1\"/></svg>") {
+    Ok(scene) => {
+      let list = lower_to_drawing_list(scene)
+      match list.get(0) {
+        Some(PushTransform(t)) => {
+          inspect(t.a(), content="2")
+          inspect(t.d(), content="2")
+          inspect(t.tx(), content="0")
+          inspect(t.ty(), content="50")
+        }
+        other => inspect("other", content="other")
+      }
+    }
+    Err(_) => inspect("err", content="ok")
+  }
+}
+
+///|
+test "lower no viewBox means no viewport transform" {
+  // Without viewBox, children lower directly (no wrapping Push/Pop).
+  match parse_svg("<svg width=\"200\" height=\"200\"><rect width=\"1\" height=\"1\"/></svg>") {
+    Ok(scene) => {
+      let list = lower_to_drawing_list(scene)
+      // Just the Fill op, no transform wrap.
+      inspect(list.length(), content="1")
+    }
+    Err(_) => inspect("err", content="ok")
+  }
+}

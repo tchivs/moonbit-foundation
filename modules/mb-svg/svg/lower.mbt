@@ -1,7 +1,7 @@
 // SceneTree → mb-canvas DrawingList lowering.
 //
 // Walks a SceneNode tree and emits DrawOps onto an mb-canvas DrawingList:
-//   - Svg       → emit children (viewport/aspectRatio mapping is a follow-up)
+//   - Svg       → viewBox→viewport transform (xMidYMid meet) wraps children
 //   - Group     → PushTransform(child-transform) ... children ... PopTransform
 //   - shapes    → Fill and/or Stroke of the resolved Path2, applying Paint
 //
@@ -11,11 +11,9 @@
 // The DrawingList records pure data; rasterization (color resolution, scan
 // conversion) is mb-canvas's job.
 //
-// Known v0.1 limitations (flagged inline, deferred per RFC 0002 §6.2):
-//   - viewBox → viewport scale/translate mapping is not applied (identity).
-//   - preserveAspectRatio is ignored.
-//   - fill-rule / clip-rule attributes are not read; fills default to Nonzero.
-//   - rx/ry rounded corners on <rect> are ignored (treated as sharp).
+// viewBox→viewport mapping uses the SVG default preserveAspectRatio
+// ("xMidYMid meet"); other aspect-ratio modes and explicit preserveAspectRatio
+// values are a follow-up. clip-rule is not yet handled (follow-up).
 //
 // stroke-width/linecap/linejoin/miterlimit/dasharray ARE wired through to the
 // StrokeStyle setters. stroke-dashoffset is not yet handled (follow-up).
@@ -48,11 +46,21 @@ pub fn lower_to_drawing_list(root : SceneNode) -> @canvas.DrawingList {
 // Recursively lower one node, appending its ops to `list`.
 fn lower_node(node : SceneNode, list : @canvas.DrawingList) -> Unit {
   match node {
-    Svg(_, children) => {
-      // v0.1: no viewport mapping. viewBox scale/translate and
-      // preserveAspectRatio are follow-ups.
+    Svg(root, children) => {
+      // viewBox → viewport mapping (SVG default preserveAspectRatio=
+      // "xMidYMid meet"). If viewBox is absent, or width/height are absent,
+      // no mapping is applied (identity). meet keeps aspect ratio by using
+      // the smaller scale and centers the content (xMid/YMid).
+      let map = viewbox_transform(root)
+      let mapped = not(map.a() == 1.0 && map.d() == 1.0 && map.tx() == 0.0 && map.ty() == 0.0)
+      if mapped {
+        list.push_transform(map)
+      }
       for i = 0; i < children.length(); i = i + 1 {
         lower_node(children[i], list)
+      }
+      if mapped {
+        list.pop_transform()
       }
     }
     Group(transform, children) => {
@@ -62,9 +70,8 @@ fn lower_node(node : SceneNode, list : @canvas.DrawingList) -> Unit {
       }
       list.pop_transform()
     }
-    Rect(paint, x, y, w, h, _rx, _ry) =>
-      // rx/ry rounded corners are ignored in v0.1 (sharp rectangle).
-      emit_shape(paint, rect_path(x, y, w, h), list)
+    Rect(paint, x, y, w, h, rx, ry) =>
+      emit_shape(paint, rect_path(x, y, w, h, rx, ry), list)
     Circle(paint, cx, cy, r) =>
       emit_shape(paint, circle_path(cx, cy, r), list)
     Ellipse(paint, cx, cy, rx, ry) =>
@@ -87,7 +94,10 @@ fn emit_shape(
 ) -> Unit {
   match paint.fill {
     Some((r, g, b)) =>
-      list.push_fill(path, make_fill_style(r, g, b, paint.fill_opacity))
+      list.push_fill(
+        path,
+        make_fill_style(r, g, b, paint.fill_opacity, paint.fill_rule),
+      )
     None => ()
   }
   match paint.stroke {
@@ -97,7 +107,9 @@ fn emit_shape(
         .with_join(paint.stroke_join)
         .with_miter_limit(paint.stroke_miterlimit)
         .with_dash(paint.stroke_dash)
-      let color = make_fill_style(r, g, b, paint.stroke_opacity)
+      // Stroke color FillStyle: its rule is unused by the rasterizer (strokes
+      // fill as even-odd outlines internally), so Nonzero is passed here.
+      let color = make_fill_style(r, g, b, paint.stroke_opacity, @canvas.FillRule::Nonzero)
       list.push_stroke(path, stroke, color)
     }
     None => ()
@@ -108,30 +120,136 @@ fn emit_shape(
 // Style helpers
 // ---------------------------------------------------------------------------
 
-// Build a FillStyle from normalized sRGB components + straight alpha. Alpha
-// comes from the resolved fill-opacity/stroke-opacity (default 1.0) and is
-// applied via mb-canvas's with_alpha (clamped to [0,1] there). The Nonzero
-// winding rule is the SVG default; EvenOdd is a follow-up via fill-rule.
+// Build a FillStyle from normalized sRGB components + straight alpha + winding
+// rule. Alpha comes from the resolved fill-opacity/stroke-opacity (default
+// 1.0); rule comes from the resolved fill-rule (default Nonzero). Both applied
+// via the mb-canvas value setters.
 fn make_fill_style(
   r : Double,
   g : Double,
   b : Double,
   alpha : Double,
+  rule : @canvas.FillRule,
 ) -> @canvas.FillStyle {
-  @canvas.FillStyle::new(r, g, b).with_alpha(alpha)
+  @canvas.FillStyle::new(r, g, b).with_alpha(alpha).with_rule(rule)
+}
+
+// Compute the viewBox→viewport transform for an <svg> root (preserveAspectRatio
+// = "xMidYMid meet", the SVG default). Returns identity when viewBox or
+// width/height are absent. meet scales uniformly by min(scale_x, scale_y) so
+// the whole viewBox fits inside the viewport; xMid/YMid center the result.
+//   vb = (vbx, vby, vbw, vbh), vp = (vpw, vph) (viewport at origin 0,0)
+//   s   = min(vpw/vbw, vph/vbh)
+//   tx  = (vpw - vbw*s)/2 - vbx*s
+//   ty  = (vph - vbh*s)/2 - vby*s
+fn viewbox_transform(root : SvgRoot) -> @math.Affine2 {
+  match (root.view_box, root.width, root.height) {
+    (Some((vbx, vby, vbw, vbh)), Some(vpw), Some(vph)) =>
+      if vbw <= 0.0 || vbh <= 0.0 || vpw <= 0.0 || vph <= 0.0 {
+        @math.Affine2::identity()
+      } else {
+        let sx = vpw / vbw
+        let sy = vph / vbh
+        let s = if sx < sy { sx } else { sy }
+        let tx = (vpw - vbw * s) / 2.0 - vbx * s
+        let ty = (vph - vbh * s) / 2.0 - vby * s
+        @math.Affine2::new(s, 0.0, 0.0, s, tx, ty)
+      }
+    _ => @math.Affine2::identity()
+  }
 }
 
 // ---------------------------------------------------------------------------
 // Shape → Path2 geometry
 // ---------------------------------------------------------------------------
 
-// Closed rectangle as a subpath (matches CanvasPath::rect semantics).
-fn rect_path(x : Double, y : Double, w : Double, h : Double) -> @math.Path2 {
+// Closed rectangle as a subpath. rx/ry > 0 produce rounded corners; both 0
+// yield a sharp rectangle. SVG rules: if only one of rx/ry is set, the other
+// defaults to it; both are clamped to half the shorter side. Each corner is a
+// quarter-ellipse approximated by a single cubic Bézier (kappa=0.5522...,
+// the standard circle-approximation constant).
+fn rect_path(
+  x : Double,
+  y : Double,
+  w : Double,
+  h : Double,
+  rx_in : Double,
+  ry_in : Double,
+) -> @math.Path2 {
   let p = @math.Path2::new()
-  p.push(@math.PathCommand::MoveTo(@math.Point2::new(x, y)))
-  p.push(@math.PathCommand::LineTo(@math.Point2::new(x + w, y)))
-  p.push(@math.PathCommand::LineTo(@math.Point2::new(x + w, y + h)))
-  p.push(@math.PathCommand::LineTo(@math.Point2::new(x, y + h)))
+  // Sharp rectangle fast path.
+  if rx_in <= 0.0 && ry_in <= 0.0 {
+    p.push(@math.PathCommand::MoveTo(@math.Point2::new(x, y)))
+    p.push(@math.PathCommand::LineTo(@math.Point2::new(x + w, y)))
+    p.push(@math.PathCommand::LineTo(@math.Point2::new(x + w, y + h)))
+    p.push(@math.PathCommand::LineTo(@math.Point2::new(x, y + h)))
+    p.push(@math.PathCommand::Close)
+    return p
+  }
+  // Resolve rx/ry per SVG: one missing → equals the other; clamp to half-size.
+  let rx0 = if rx_in <= 0.0 { ry_in } else { rx_in }
+  let ry0 = if ry_in <= 0.0 { rx_in } else { ry_in }
+  let max_rx = w / 2.0
+  let max_ry = h / 2.0
+  let mut rx = if rx0 > max_rx { max_rx } else { rx0 }
+  let mut ry = if ry0 > max_ry { max_ry } else { ry0 }
+  // If clamping made rx exceed the ellipse bound for the other axis, scale
+  // proportionally (SVG: if rx > half-width, ry scales by (half-width/rx)).
+  if rx > 0.0 {
+    let ratio = max_rx / rx
+    if ratio < 1.0 {
+      ry = ry * ratio
+    }
+    let ratio_y = max_ry / ry
+    if ratio_y < 1.0 {
+      rx = rx * ratio_y
+    }
+  }
+  let kappa = 0.5522847498307936
+  let kx = rx * kappa
+  let ky = ry * kappa
+  let x0 = x
+  let y0 = y
+  let x1 = x + w
+  let y1 = y + h
+  // Start at the top edge, just after the top-right corner's curve start.
+  p.push(@math.PathCommand::MoveTo(@math.Point2::new(x + rx, y0)))
+  // Top edge → top-right corner.
+  p.push(@math.PathCommand::LineTo(@math.Point2::new(x1 - rx, y0)))
+  p.push(
+    @math.PathCommand::CubicTo(
+      @math.Point2::new(x1 - kx, y0),
+      @math.Point2::new(x1, y0 + ky),
+      @math.Point2::new(x1, y0 + ry),
+    ),
+  )
+  // Right edge → bottom-right corner.
+  p.push(@math.PathCommand::LineTo(@math.Point2::new(x1, y1 - ry)))
+  p.push(
+    @math.PathCommand::CubicTo(
+      @math.Point2::new(x1, y1 - ky),
+      @math.Point2::new(x1 - kx, y1),
+      @math.Point2::new(x1 - rx, y1),
+    ),
+  )
+  // Bottom edge → bottom-left corner.
+  p.push(@math.PathCommand::LineTo(@math.Point2::new(x0 + rx, y1)))
+  p.push(
+    @math.PathCommand::CubicTo(
+      @math.Point2::new(x0 + kx, y1),
+      @math.Point2::new(x0, y1 - ky),
+      @math.Point2::new(x0, y1 - ry),
+    ),
+  )
+  // Left edge → top-left corner.
+  p.push(@math.PathCommand::LineTo(@math.Point2::new(x0, y0 + ry)))
+  p.push(
+    @math.PathCommand::CubicTo(
+      @math.Point2::new(x0, y0 + ky),
+      @math.Point2::new(x0 + kx, y0),
+      @math.Point2::new(x0 + rx, y0),
+    ),
+  )
   p.push(@math.PathCommand::Close)
   p
 }
