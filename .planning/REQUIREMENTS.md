@@ -12,11 +12,11 @@
 
 ### Pass-aware bounded compression contract
 
-- [ ] **ADAM7COMP-02**: The Adam7 `FixedOrStored` route derives canonical pass-local filter-None packed rows through one bounded producer and emits an exact Fixed DEFLATE block only when its complete Type-3 frame is no larger than Stored, without image/pass/output staging, a second encoder, broader matching, or a generic source-model change.
+- [x] **ADAM7COMP-02**: The Adam7 `FixedOrStored` route derives canonical pass-local filter-None packed rows through one bounded producer and emits an exact Fixed DEFLATE block only when its complete Type-3 frame is no larger than Stored, without image/pass/output staging, a second encoder, broader matching, or a generic source-model change.
 
 ### Atomic admission and shared machine
 
-- [ ] **ADAM7COMP-03**: Before writer bytes, caller lease exposure, or budget mutation, selected-depth Adam7 geometry, actual PLTE, shortest canonical tRNS, Stored/Fixed frame facts, and pass-aware work are checked atomically; exact limits admit one budget charge and one established acknowledged machine.
+- [x] **ADAM7COMP-03**: Before writer bytes, caller lease exposure, or budget mutation, selected-depth Adam7 geometry, actual PLTE, shortest canonical tRNS, Stored/Fixed frame facts, and pass-aware work are checked atomically; exact limits admit one budget charge and one established acknowledged machine.
 
 ### Hostile streaming and independent qualification
 
@@ -42,8 +42,8 @@
 | Requirement | Phase | Status |
 |-------------|-------|--------|
 | ADAM7COMP-01 | Phase 88 | Complete |
-| ADAM7COMP-02 | Phase 89 | Pending |
-| ADAM7COMP-03 | Phase 89 | Pending |
+| ADAM7COMP-02 | Phase 89 | Complete |
+| ADAM7COMP-03 | Phase 89 | Complete |
 | ADAM7COMP-04 | Phase 90 | Pending |
 | ADAM7COMP-05 | Phase 90 | Pending |
 

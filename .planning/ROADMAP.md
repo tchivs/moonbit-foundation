@@ -37,7 +37,7 @@
 ### 📋 v0.29 Indexed Adam7 Compression Profiles
 
 - [x] **Phase 88: Indexed Adam7 API and Fixed Wire Contract** - Add additive Adam7 Stored/Fixed-or-Stored selectors and the bounded pass-aware Fixed candidate contract for Indexed1/2/4/8. (completed 2026-07-24)
-- [ ] **Phase 89: Pass-Aware Preflight and Shared-Machine Integration** - Admit the exact palette-aware Adam7 candidate atomically through the established acknowledged machine.
+- [x] **Phase 89: Pass-Aware Preflight and Shared-Machine Integration** - Admit the exact palette-aware Adam7 candidate atomically through the established acknowledged machine. (completed 2026-07-24)
 - [ ] **Phase 90: Hostile Streaming and Independent Qualification** - Prove hostile lease behavior, independent wire/decode evidence, frozen compatibility, and four-target portability.
 
 ## Phase Details
@@ -75,7 +75,7 @@
 2. Before any writer byte, caller lease exposure, or budget mutation, the constructor computes actual PLTE, shortest canonical tRNS, exact Stored/Fixed frame and work facts, and chooses Fixed only when the complete Type-3 frame is no larger than Stored.
 3. Exact selected limits admit one budget charge and both eager and caller-buffered APIs emit the selected plan through the established `present → accept → acknowledge` machine; one-less or overflowing output/work limits fail with output, lease, and budget state untouched.
 
-**Plans:** TBD
+**Plans:** 1/1 plans complete
 
 ### Phase 90: Hostile Streaming and Independent Qualification
 
@@ -102,7 +102,7 @@
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 88. Indexed Adam7 API and Fixed Wire Contract | 1/1 | Complete    | 2026-07-24 |
-| 89. Pass-Aware Preflight and Shared-Machine Integration | 0/0 | Not started | - |
+| 89. Pass-Aware Preflight and Shared-Machine Integration | 1/1 | Complete    | 2026-07-24 |
 | 90. Hostile Streaming and Independent Qualification | 0/0 | Not started | - |
 
 ---
