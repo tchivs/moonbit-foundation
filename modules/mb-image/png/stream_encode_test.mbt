@@ -5083,6 +5083,189 @@ test "PNG Indexed8 Adam7 chunk replays released lease failure" {
   png_stream_indexed8_adam7_released_failure()
 }
 
+///| Builds the literal 5x5 transparent Indexed8 Adam7 fixture with the same
+///| ample caller-buffer test budget used by the stream qualification harness.
+fn png_stream_indexed8_adam7_source() -> PngIndexedImage {
+  PngIndexedImage::new(
+    5UL, 5UL,
+    b"\x00\x01\x02\x03\x00\x02\x03\x00\x01\x02\x00\x01\x02\x03\x00\x02\x03\x00\x01\x02\x00\x01\x02\x03\x00",
+    b"\x12\x34\x56\xa0\xb0\xc0\xd0\xe0\xf0\x21\x43\x65", b"\x00\x80\x7f\xff",
+    png_stream_test_budget(),
+  ).unwrap()
+}
+
+///| Builds a fresh explicit eager Adam7 oracle for each caller-buffered run.
+fn png_stream_indexed8_adam7_eager() -> Bytes {
+  let writer = @io.MemoryWriter::new(
+    256UL, png_stream_test_budget(),
+  ).unwrap()
+  ignore(PngEncoder::encode_indexed8_with_interlace_strategy(
+    PngEncoder::new(), png_stream_indexed8_adam7_source(), PngInterlaceStrategy::Adam7,
+    writer as &@io.Writer, png_stream_test_limits(), png_stream_test_budget(),
+    @error.Diagnostics::new(),
+  ).unwrap())
+  let output : Array[Byte] = []
+  for index = 0UL; index < writer.position(); index = index + 1UL {
+    output.push(writer.view().get(index).unwrap())
+  }
+  Bytes::from_array(output)
+}
+
+///| Independently validates the completed caller-buffered bytes rather than
+///| using eager equality as the only wire or decode evidence.
+fn png_stream_indexed8_adam7_chunk_origin_qualification(bytes : Bytes) -> Unit {
+  if bytes.length() != 143 {
+    abort("png indexed8 Adam7 chunk length")
+  }
+  if png_indexed_u32(bytes, 8) != 13UL || png_indexed_slice(bytes, 12, 4) != b"IHDR" ||
+    png_indexed_slice(bytes, 16, 13) != b"\x00\x00\x00\x05\x00\x00\x00\x05\x08\x03\x00\x00\x01" ||
+    png_indexed_crc32(bytes, 12, 17) != png_indexed_u32(bytes, 29) {
+    abort("png indexed8 Adam7 chunk IHDR")
+  }
+  if png_indexed_u32(bytes, 33) != 12UL || png_indexed_slice(bytes, 37, 4) != b"PLTE" ||
+    png_indexed_slice(bytes, 41, 12) != b"\x12\x34\x56\xa0\xb0\xc0\xd0\xe0\xf0\x21\x43\x65" ||
+    png_indexed_crc32(bytes, 37, 16) != png_indexed_u32(bytes, 53) {
+    abort("png indexed8 Adam7 chunk PLTE")
+  }
+  if png_indexed_u32(bytes, 57) != 3UL || png_indexed_slice(bytes, 61, 4) != b"tRNS" ||
+    png_indexed_slice(bytes, 65, 3) != b"\x00\x80\x7f" ||
+    png_indexed_crc32(bytes, 61, 7) != png_indexed_u32(bytes, 68) {
+    abort("png indexed8 Adam7 chunk tRNS")
+  }
+  if png_indexed_u32(bytes, 72) != 47UL || png_indexed_slice(bytes, 76, 4) != b"IDAT" ||
+    png_indexed_crc32(bytes, 76, 51) != png_indexed_u32(bytes, 127) ||
+    png_indexed_u32(bytes, 131) != 0UL || png_indexed_slice(bytes, 135, 4) != b"IEND" ||
+    png_indexed_crc32(bytes, 135, 4) != png_indexed_u32(bytes, 139) {
+    abort("png indexed8 Adam7 chunk IDAT or IEND")
+  }
+  if png_encode_public_stored_scanlines(bytes, 36) != png_indexed8_adam7_expected_raw() {
+    abort("png indexed8 Adam7 chunk pass raster")
+  }
+
+  let owner = @bytes.OwnedBytes::from_bytes(
+    bytes, png_stream_test_budget(work=0UL),
+  ).unwrap()
+  let decoded = @codec.ImageDecoder::decode(
+    PngDecoder::new(), @io.MemoryReader::new(owner.view()) as &@io.Reader,
+    @codec.DecodeOptions::new(require_complete_input=true, preserve_opaque_metadata=false),
+    png_stream_test_limits(output=256UL, work=1048576UL),
+    png_stream_test_budget(work=1048576UL), @error.Diagnostics::new(),
+  ).unwrap().image().view()
+  if decoded.width() != 5UL || decoded.height() != 5UL ||
+    decoded.format().channels() != @model.ChannelOrder::Rgba ||
+    decoded.format().channel_count() != 4UL {
+    abort("png indexed8 Adam7 chunk decoded descriptor")
+  }
+  let expected = b"\x00\x01\x02\x03\x00\x02\x03\x00\x01\x02\x00\x01\x02\x03\x00\x02\x03\x00\x01\x02\x00\x01\x02\x03\x00"
+  let palette = b"\x12\x34\x56\xa0\xb0\xc0\xd0\xe0\xf0\x21\x43\x65"
+  let alpha = b"\x00\x80\x7f\xff"
+  for point = 0; point < 25; point = point + 1 {
+    let code = expected[point].to_int()
+    let x = (point % 5).to_uint64()
+    let y = (point / 5).to_uint64()
+    for channel = 0; channel < 3; channel = channel + 1 {
+      if decoded.get_byte(x, y, channel.to_uint64()).unwrap() != palette[code * 3 + channel] {
+        abort("png indexed8 Adam7 chunk decoded palette")
+      }
+    }
+    if decoded.get_byte(x, y, 3UL).unwrap() != alpha[code] {
+      abort("png indexed8 Adam7 chunk decoded alpha")
+    }
+  }
+}
+
+///| Drives one fresh explicit Adam7 chunk selector through caller-owned leases,
+///| validating accepted-only progress, tails, completion, and independent bytes.
+fn png_stream_indexed8_adam7_hostile_drain(schedule : Array[UInt64]) -> Unit {
+  let expected = png_stream_indexed8_adam7_eager()
+  let encoder = PngChunkEncoder::new_indexed8_with_interlace_strategy(
+    png_stream_indexed8_adam7_source(), PngInterlaceStrategy::Adam7,
+    png_stream_test_limits(), png_stream_test_budget(),
+    @error.Diagnostics::new(),
+  ).unwrap()
+  let output : Array[Byte] = []
+  let mut turn = 0UL
+  while turn < 4096UL {
+    let capacity = schedule[(turn % schedule.length().to_uint64()).to_int()]
+    let owner = png_chunk_test_owner(if capacity == 0UL { 1UL } else { capacity }, fill=b'Z')
+    let before = output.length().to_uint64()
+    let pulled = owner.with_mut(0UL, capacity, fn(lease) { Ok(encoder.pull(lease)) }).unwrap()
+    if pulled.written() > capacity || pulled.total_written() != before + pulled.written() {
+      abort("png indexed8 Adam7 hostile accepted-only progress")
+    }
+    if capacity == 0UL {
+      if pulled.written() != 0UL { abort("png indexed8 Adam7 hostile zero write") }
+      if pulled.total_written() != before || (before == 0UL && pulled.total_written() != 0UL) {
+        abort("png indexed8 Adam7 hostile zero total")
+      }
+      if !(pulled.outcome() is PngChunkPullOutcome::NeedOutput) {
+        abort("png indexed8 Adam7 hostile zero outcome")
+      }
+      if owner.view().get(0UL).unwrap() != b'Z' {
+        abort("png indexed8 Adam7 hostile zero sentinel")
+      }
+    }
+    for index = 0UL; index < pulled.written(); index = index + 1UL {
+      output.push(owner.view().get(index).unwrap())
+    }
+    for index = pulled.written(); index < capacity; index = index + 1UL {
+      if owner.view().get(index).unwrap() != b'Z' { abort("png indexed8 Adam7 hostile tail") }
+    }
+    match pulled.outcome() {
+      PngChunkPullOutcome::NeedOutput => turn = turn + 1UL
+      PngChunkPullOutcome::Failed(_) => abort("png indexed8 Adam7 hostile drain failed")
+      PngChunkPullOutcome::Finished => {
+        let chunk_bytes = Bytes::from_array(output)
+        if chunk_bytes != expected { abort("png indexed8 Adam7 hostile eager parity") }
+        png_stream_indexed8_adam7_chunk_origin_qualification(chunk_bytes)
+        let later = png_chunk_test_owner(7UL, fill=b'Z')
+        let replay = later.with_mut(0UL, 7UL, fn(lease) { Ok(encoder.pull(lease)) }).unwrap()
+        if replay.written() != 0UL || replay.total_written() != pulled.total_written() ||
+          !(replay.outcome() is PngChunkPullOutcome::Finished) {
+          abort("png indexed8 Adam7 sticky completed terminal")
+        }
+        for index = 0UL; index < 7UL; index = index + 1UL {
+          if later.view().get(index).unwrap() != b'Z' {
+            abort("png indexed8 Adam7 completed tail")
+          }
+        }
+        return ()
+      }
+    }
+  }
+  abort("png indexed8 Adam7 hostile drain unreachable")
+}
+
+///| A released first Adam7 lease becomes a cached zero-write failure without
+///| exposing either its original or a later caller-owned sentinel destination.
+fn png_stream_indexed8_adam7_released_failure() -> Unit {
+  let encoder = PngChunkEncoder::new_indexed8_with_interlace_strategy(
+    png_stream_indexed8_adam7_source(), PngInterlaceStrategy::Adam7,
+    png_stream_test_limits(), png_stream_test_budget(),
+    @error.Diagnostics::new(),
+  ).unwrap()
+  let released = png_chunk_test_owner(1UL, fill=b'Z')
+  let first = released.with_mut(0UL, 1UL, fn(lease) {
+    lease.release()
+    Ok(encoder.pull(lease))
+  }).unwrap()
+  let first_error = match first.outcome() {
+    PngChunkPullOutcome::Failed(error) => error
+    _ => abort("png indexed8 Adam7 released lease outcome")
+  }
+  let later = png_chunk_test_owner(1UL, fill=b'Z')
+  let replay = later.with_mut(0UL, 1UL, fn(lease) { Ok(encoder.pull(lease)) }).unwrap()
+  let replay_error = match replay.outcome() {
+    PngChunkPullOutcome::Failed(error) => error
+    _ => abort("png indexed8 Adam7 released lease replay")
+  }
+  if first.written() != 0UL || first.total_written() != 0UL || replay.written() != 0UL ||
+    replay.total_written() != 0UL || !png_chunk_test_same_error(first_error, replay_error) ||
+    released.view().get(0UL).unwrap() != b'Z' || later.view().get(0UL).unwrap() != b'Z' {
+    abort("png indexed8 Adam7 released lease terminal")
+  }
+}
+
 ///| Builds one bounded canonical source for each public low-bit Type-3 selector.
 fn png_stream_indexed_low_bit_source(bit_depth : PngIndexedBitDepth) -> PngIndexedImage {
   match bit_depth {
