@@ -118,6 +118,7 @@ portable compatibility floor.
 - [`docs/policies/`](docs/policies/) — API stability, targets, toolchain, licensing,
   and publication policy.
 - [`docs/governance/`](docs/governance/) — RFC process and review records.
+- [`CONTRIBUTING.md`](CONTRIBUTING.md) — contributor setup, coding standards, and pull request guidance.
 - Each module's `README.mbt.md` — executable public API documentation and
   package-specific examples.
 - [`docs/support.md`](docs/support.md) — support and issue-routing guidance.
