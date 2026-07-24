@@ -2,11 +2,14 @@
 gsd_state_version: 1.0
 milestone: v0.28
 milestone_name: Indexed PNG Compression Profiles
+current_phase_name: defining requirements
 status: planning
-last_updated: "2026-07-24T04:25:45.486Z"
+stopped_at: Phase 85 context gathered
+last_updated: "2026-07-24T04:38:07.477Z"
 last_activity: 2026-07-24
+last_activity_desc: Milestone v0.28 started
 progress:
-  total_phases: 0
+  total_phases: 3
   completed_phases: 0
   total_plans: 0
   completed_plans: 0
@@ -77,9 +80,9 @@ Last activity: 2026-07-24 — Milestone v0.28 started
 
 ## Session Continuity
 
-Last session: 2026-07-24T02:12:40.993Z
-Stopped at: Phase 84 context gathered
-Resume file: .planning/phases/84-low-bit-indexed-adam7-streaming-qualification/84-CONTEXT.md
+Last session: 2026-07-24T04:38:07.459Z
+Stopped at: Phase 85 context gathered
+Resume file: .planning/phases/85-indexed-compression-api-and-fixed-wire-contract/85-CONTEXT.md
 
 ## Operator Next Steps
 
