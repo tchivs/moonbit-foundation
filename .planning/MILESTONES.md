@@ -1,5 +1,16 @@
 # Project Milestones: MoonBit Native Foundation
 
+## v0.26 v0.26 (Shipped: 2026-07-24)
+
+**Phases completed:** 2 phases, 2 plans, 4 tasks
+
+**Key accomplishments:**
+
+- Type-3/8 Indexed8 Adam7 encoding now uses additive eager and chunk selectors over the existing bounded PNG machine, with literal seven-pass wire and atomic-admission coverage.
+- Indexed8 Adam7 chunk streaming is qualified under hostile caller leases with independent chunk-origin PNG framing, raw-raster, and public-decode evidence across every supported target.
+
+---
+
 ## v0.25 Indexed Low-Bit PNG Encode (Shipped: 2026-07-24)
 
 **Phases completed:** 2 phases, 2 plans, 4 tasks
