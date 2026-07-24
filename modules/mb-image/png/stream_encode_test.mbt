@@ -5601,11 +5601,22 @@ fn png_phase87_indexed_matrix_source(
   bit_depth : PngIndexedBitDepth,
   stored_fallback : Bool,
 ) -> PngIndexedImage {
-  let depth = match bit_depth {
+  let depth = png_phase87_indexed_depth(bit_depth)
+  png_phase87_indexed_matrix_source_depth(depth, stored_fallback)
+}
+
+fn png_phase87_indexed_depth(bit_depth : PngIndexedBitDepth) -> UInt64 {
+  match bit_depth {
     PngIndexedBitDepth::One => 1UL
     PngIndexedBitDepth::Two => 2UL
     PngIndexedBitDepth::Four => 4UL
   }
+}
+
+fn png_phase87_indexed_matrix_source_depth(
+  depth : UInt64,
+  stored_fallback : Bool,
+) -> PngIndexedImage {
   let width = 512UL / depth
   let cap = 1UL << depth.to_int()
   let packed : Array[Byte] = []
@@ -5722,6 +5733,573 @@ test "PNG indexed compression hostile tracer FixedOrStored" {
     replay.total_written() != 0UL || !png_chunk_test_same_error(first_error, replay_error) ||
     released.view().get(0UL).unwrap() != b'Z' || later.view().get(0UL).unwrap() != b'Z' {
     abort("png phase87 fixed tracer released terminal")
+  }
+}
+
+///| Independent LSB-first bit reader for the bounded Type-3 DEFLATE oracle.
+struct PngPhase87Bits {
+  bytes : Bytes
+  mut offset : Int
+  mut value : UInt64
+  mut available : Int
+}
+
+fn png_phase87_bits_new(bytes : Bytes) -> PngPhase87Bits {
+  { bytes, offset: 0, value: 0UL, available: 0 }
+}
+
+fn PngPhase87Bits::read(self : PngPhase87Bits, count : Int) -> Int {
+  if count < 0 || count > 16 { abort("png phase87 invalid bit count") }
+  while self.available < count {
+    if self.offset >= self.bytes.length() { abort("png phase87 truncated deflate") }
+    self.value = self.value | (self.bytes[self.offset].to_uint64() << self.available)
+    self.offset = self.offset + 1
+    self.available = self.available + 8
+  }
+  let mask = if count == 0 { 0UL } else { (1UL << count) - 1UL }
+  let result = (self.value & mask).to_int()
+  self.value = self.value >> count
+  self.available = self.available - count
+  result
+}
+
+fn PngPhase87Bits::align(self : PngPhase87Bits) -> Unit {
+  self.value = 0UL
+  self.available = 0
+}
+
+fn png_phase87_reverse(value : Int, width : Int) -> Int {
+  let mut input = value
+  let mut result = 0
+  for index = 0; index < width; index = index + 1 {
+    result = (result << 1) | (input & 1)
+    input = input >> 1
+  }
+  result
+}
+
+fn png_phase87_fixed_symbol_code(symbol : Int) -> (Int, Int) {
+  if symbol <= 143 {
+    (png_phase87_reverse(48 + symbol, 8), 8)
+  } else if symbol <= 255 {
+    (png_phase87_reverse(400 + symbol - 144, 9), 9)
+  } else if symbol <= 279 {
+    (png_phase87_reverse(symbol - 256, 7), 7)
+  } else {
+    (png_phase87_reverse(192 + symbol - 280, 8), 8)
+  }
+}
+
+fn png_phase87_fixed_symbol(bits : PngPhase87Bits) -> Int {
+  let mut code = 0
+  for width = 1; width <= 15; width = width + 1 {
+    code = code | (bits.read(1) << (width - 1))
+    let mut symbol = 0
+    while symbol < 288 {
+      let (_, symbol_width) = png_phase87_fixed_symbol_code(symbol)
+      if symbol_width == width {
+        let (candidate, _) = png_phase87_fixed_symbol_code(symbol)
+        if candidate == code { return symbol }
+      }
+      symbol = symbol + 1
+    }
+  }
+  abort("png phase87 unknown fixed symbol")
+}
+
+fn png_phase87_inflate(idat : Bytes, expect_fixed : Bool) -> Bytes {
+  if idat.length() < 7 || idat[0] != b'\x78' ||
+    ((idat[0].to_uint64() << 8) | idat[1].to_uint64()) % 31UL != 0UL {
+    abort("png phase87 zlib header")
+  }
+  let compressed : Array[Byte] = []
+  for index = 2; index < idat.length() - 4; index = index + 1 {
+    compressed.push(idat[index])
+  }
+  let bits = png_phase87_bits_new(Bytes::from_array(compressed))
+  let final = bits.read(1)
+  let block_type = bits.read(2)
+  if final != 1 || block_type != (if expect_fixed { 1 } else { 0 }) {
+    abort("png phase87 deflate block type")
+  }
+  let output : Array[Byte] = []
+  if block_type == 0 {
+    bits.align()
+    let length = bits.read(8) | (bits.read(8) << 8)
+    let inverse = bits.read(8) | (bits.read(8) << 8)
+    if (length ^ inverse) != 65535 { abort("png phase87 stored length") }
+    for index = 0; index < length; index = index + 1 { output.push(bits.read(8).to_byte()) }
+  } else {
+    let length_base = [3, 4, 5, 6, 7, 8, 9, 10, 11, 13, 15, 17, 19, 23, 27, 31, 35, 43, 51, 59, 67, 83, 99, 115, 131, 163, 195, 227, 258]
+    let length_extra = [0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 2, 2, 2, 2, 3, 3, 3, 3, 4, 4, 4, 4, 5, 5, 5, 5, 0]
+    let distance_base = [1, 2, 3, 4, 5, 7, 9, 13, 17, 25, 33, 49, 65, 97, 129, 193, 257, 385, 513, 769, 1025, 1537, 2049, 3073, 4097, 6145, 8193, 12289, 16385, 24577]
+    let distance_extra = [0, 0, 0, 0, 1, 1, 2, 2, 3, 3, 4, 4, 5, 5, 6, 6, 7, 7, 8, 8, 9, 9, 10, 10, 11, 11, 12, 12, 13, 13]
+    let mut done = false
+    while !done {
+      let symbol = png_phase87_fixed_symbol(bits)
+      if symbol < 256 {
+        output.push(symbol.to_byte())
+      } else if symbol == 256 {
+        done = true
+      } else if symbol <= 285 {
+        let length_index = symbol - 257
+        let length = length_base[length_index] + bits.read(length_extra[length_index])
+        let distance_code = png_phase87_reverse(bits.read(5), 5)
+        if distance_code < 0 || distance_code >= 30 { abort("png phase87 distance code") }
+        let distance = distance_base[distance_code] + bits.read(distance_extra[distance_code])
+        if distance > output.length() { abort("png phase87 distance bounds") }
+        for index = 0; index < length; index = index + 1 {
+          output.push(output[output.length() - distance])
+        }
+      } else {
+        abort("png phase87 length symbol")
+      }
+    }
+  }
+  Bytes::from_array(output)
+}
+
+fn png_phase87_adler32(raw : Bytes) -> UInt64 {
+  let mut a = 1UL
+  let mut b = 0UL
+  for byte in raw {
+    a = (a + byte.to_uint64()) % 65521UL
+    b = (b + a) % 65521UL
+  }
+  (b << 16) | a
+}
+
+fn png_phase87_crc32(value : Bytes, start : Int, length : Int) -> UInt64 {
+  let mut crc = 4294967295UL
+  for index = 0; index < length; index = index + 1 {
+    crc = crc ^ value[start + index].to_uint64()
+    for index = 0; index < 8; index = index + 1 {
+      crc = if (crc & 1UL) == 1UL { (crc >> 1) ^ 3988292384UL } else { crc >> 1 }
+    }
+  }
+  crc ^ 4294967295UL
+}
+
+fn png_phase87_u32(value : Bytes, start : Int) -> UInt64 {
+  (value[start].to_uint64() << 24) | (value[start + 1].to_uint64() << 16) |
+    (value[start + 2].to_uint64() << 8) | value[start + 3].to_uint64()
+}
+
+fn png_phase87_slice(value : Bytes, start : Int, length : Int) -> Bytes {
+  let result : Array[Byte] = []
+  for index = 0; index < length; index = index + 1 { result.push(value[start + index]) }
+  Bytes::from_array(result)
+}
+
+fn png_phase87_expected_raw(depth : UInt64, stored_fallback : Bool) -> Bytes {
+  let raw : Array[Byte] = [b'\x00']
+  let packed_length = 64UL
+  for index = 0UL; index < packed_length; index = index + 1UL {
+    raw.push(if stored_fallback { (192UL + index).to_byte() } else { b'\x00' })
+  }
+  Bytes::from_array(raw)
+}
+
+///| Parse both eager and caller-collected Type-3 bytes without consulting the
+/// encoder's frame facts, planner, matcher, or packing helpers.
+fn png_phase87_parse_indexed(
+  bytes : Bytes,
+  depth : UInt64,
+  expect_fixed : Bool,
+  stored_fallback : Bool,
+) -> Unit {
+  let width = 512UL / depth
+  let palette_entries = 1UL << depth.to_int()
+  if bytes.length() < 8 || png_phase87_slice(bytes, 0, 8) != b"\x89PNG\r\n\x1a\n" {
+    abort("png phase87 signature")
+  }
+  let idat : Array[Byte] = []
+  let mut cursor = 8
+  let mut stage = 0
+  let mut saw_iend = false
+  while cursor + 12 <= bytes.length() {
+    let length = png_phase87_u32(bytes, cursor).to_int()
+    if length < 0 || cursor + 12 + length > bytes.length() { abort("png phase87 chunk bounds") }
+    let kind = png_phase87_slice(bytes, cursor + 4, 4)
+    if png_phase87_crc32(bytes, cursor + 4, length + 4) != png_phase87_u32(bytes, cursor + 8 + length) {
+      abort("png phase87 chunk crc")
+    }
+    if kind == b"IHDR" {
+      if stage != 0 || length != 13 || png_phase87_u32(bytes, cursor + 8) != width ||
+        png_phase87_u32(bytes, cursor + 12) != 1UL || bytes[cursor + 16] != depth.to_byte() ||
+        bytes[cursor + 17] != b'\x03' || bytes[cursor + 18] != b'\x00' ||
+        bytes[cursor + 19] != b'\x00' || bytes[cursor + 20] != b'\x00' {
+        abort("png phase87 ihdr")
+      }
+      stage = 1
+    } else if kind == b"PLTE" {
+      if stage != 1 || length != (palette_entries * 3UL).to_int() { abort("png phase87 plte shape") }
+      for entry = 0UL; entry < palette_entries; entry = entry + 1UL {
+        let start = cursor + 8 + (entry * 3UL).to_int()
+        if bytes[start] != entry.to_byte() || bytes[start + 1] != (entry + 1UL).to_byte() ||
+          bytes[start + 2] != (entry + 2UL).to_byte() { abort("png phase87 plte value") }
+      }
+      stage = 2
+    } else if kind == b"tRNS" {
+      if stage != 2 || length != 1 || bytes[cursor + 8] != b'\x00' { abort("png phase87 trns") }
+      stage = 3
+    } else if kind == b"IDAT" {
+      if stage != 2 && stage != 3 { abort("png phase87 idat order") }
+      for index = 0; index < length; index = index + 1 { idat.push(bytes[cursor + 8 + index]) }
+      stage = 4
+    } else if kind == b"IEND" {
+      if stage != 4 || length != 0 { abort("png phase87 iend") }
+      saw_iend = true
+      cursor = cursor + 12
+      break
+    } else {
+      abort("png phase87 unexpected chunk")
+    }
+    cursor = cursor + 12 + length
+  }
+  if !saw_iend || cursor != bytes.length() || idat.length() < 7 { abort("png phase87 framing") }
+  let idat_bytes = Bytes::from_array(idat)
+  let raw = png_phase87_inflate(idat_bytes, expect_fixed)
+  let expected = png_phase87_expected_raw(depth, stored_fallback)
+  if raw != expected || png_phase87_u32(idat_bytes, idat_bytes.length() - 4) != png_phase87_adler32(raw) {
+    abort("png phase87 raster or adler")
+  }
+}
+
+fn png_phase87_eager_indexed(
+  source : PngIndexedImage,
+  depth : UInt64,
+  strategy : PngCompressionStrategy,
+) -> Bytes {
+  let writer = @io.MemoryWriter::new(1048576UL, png_stream_test_budget(work=0UL)).unwrap()
+  if depth == 8UL {
+    ignore(PngEncoder::encode_indexed8_with_compression_strategy(
+      PngEncoder::new(), source, strategy, writer as &@io.Writer,
+      png_stream_test_limits(), png_stream_test_budget(work=4096UL), @error.Diagnostics::new(),
+    ).unwrap())
+  } else {
+    let bit_depth = if depth == 1UL {
+      PngIndexedBitDepth::One
+    } else if depth == 2UL {
+      PngIndexedBitDepth::Two
+    } else {
+      PngIndexedBitDepth::Four
+    }
+    ignore(PngEncoder::encode_indexed_with_compression_strategy(
+      PngEncoder::new(), source, bit_depth, strategy, writer as &@io.Writer,
+      png_stream_test_limits(), png_stream_test_budget(work=4096UL), @error.Diagnostics::new(),
+    ).unwrap())
+  }
+  let output : Array[Byte] = []
+  for index = 0UL; index < writer.position(); index = index + 1UL {
+    output.push(writer.view().get(index).unwrap())
+  }
+  Bytes::from_array(output)
+}
+
+fn png_phase87_chunk_indexed(
+  source : PngIndexedImage,
+  depth : UInt64,
+  strategy : PngCompressionStrategy,
+) -> PngChunkEncoder {
+  if depth == 8UL {
+    PngChunkEncoder::new_indexed8_with_compression_strategy(
+      source, strategy, png_stream_test_limits(), png_stream_test_budget(work=4096UL),
+      @error.Diagnostics::new(),
+    ).unwrap()
+  } else {
+    let bit_depth = if depth == 1UL {
+      PngIndexedBitDepth::One
+    } else if depth == 2UL {
+      PngIndexedBitDepth::Two
+    } else {
+      PngIndexedBitDepth::Four
+    }
+    PngChunkEncoder::new_indexed_with_compression_strategy(
+      source, bit_depth, strategy, png_stream_test_limits(),
+      png_stream_test_budget(work=4096UL), @error.Diagnostics::new(),
+    ).unwrap()
+  }
+}
+
+fn png_phase87_decode_matrix(bytes : Bytes, depth : UInt64, stored_fallback : Bool) -> Unit {
+  let owner = @bytes.OwnedBytes::from_bytes(bytes, png_stream_test_budget(work=0UL)).unwrap()
+  let decoded = @codec.ImageDecoder::decode(
+    PngDecoder::new(), @io.MemoryReader::new(owner.view()) as &@io.Reader,
+    @codec.DecodeOptions::new(require_complete_input=true, preserve_opaque_metadata=false),
+    png_stream_test_limits(output=1048576UL, work=1048576UL),
+    png_stream_test_budget(work=1048576UL), @error.Diagnostics::new(),
+  ).unwrap().image().view()
+  if decoded.width() != 512UL / depth || decoded.height() != 1UL ||
+    decoded.format().channels() != @model.ChannelOrder::Rgba {
+    abort("png phase87 matrix rgba descriptor")
+  }
+  let per_byte = 8UL / depth
+  for x = 0UL; x < 512UL / depth; x = x + 1UL {
+    let packed = if stored_fallback { (192UL + x / per_byte).to_byte() } else { b'\x00' }
+    let shift = 8UL - depth - (x % per_byte) * depth
+    let code = ((packed.to_uint64() >> shift.to_int()) & ((1UL << depth.to_int()) - 1UL)).to_byte()
+    for channel = 0UL; channel < 3UL; channel = channel + 1UL {
+      if decoded.get_byte(x, 0UL, channel).unwrap() !=
+        (code.to_uint64() + channel).to_byte() {
+        abort("png phase87 matrix palette decode")
+      }
+    }
+    let expected_alpha = if code == b'\x00' { b'\x00' } else { b'\xff' }
+    if decoded.get_byte(x, 0UL, 3UL).unwrap() != expected_alpha {
+      abort("png phase87 matrix alpha decode")
+    }
+  }
+}
+
+fn png_phase87_indexed_hostile_matrix(
+  depth : UInt64,
+  stored_fallback : Bool,
+  strategy : PngCompressionStrategy,
+  schedule : Array[UInt64],
+) -> Unit {
+  let source = png_phase87_indexed_matrix_source_depth(depth, stored_fallback)
+  let expect_fixed = strategy is PngCompressionStrategy::FixedOrStored && !stored_fallback
+  let eager = png_phase87_eager_indexed(source, depth, strategy)
+  png_phase87_parse_indexed(eager, depth, expect_fixed, stored_fallback)
+  png_phase87_decode_matrix(eager, depth, stored_fallback)
+  let encoder = png_phase87_chunk_indexed(source, depth, strategy)
+  let output : Array[Byte] = []
+  let mut turn = 0UL
+  while turn < 4096UL {
+    let capacity = schedule[(turn % schedule.length().to_uint64()).to_int()]
+    let owner = png_chunk_test_owner(if capacity == 0UL { 1UL } else { capacity }, fill=b'Z')
+    let before = output.length().to_uint64()
+    let pulled = owner.with_mut(0UL, capacity, fn(lease) { Ok(encoder.pull(lease)) }).unwrap()
+    if pulled.written() > capacity || pulled.total_written() != before + pulled.written() {
+      abort("png phase87 matrix accepted-only progress")
+    }
+    if capacity == 0UL && (pulled.written() != 0UL || pulled.total_written() != before ||
+      !(pulled.outcome() is PngChunkPullOutcome::NeedOutput) || owner.view().get(0UL).unwrap() != b'Z') {
+      abort("png phase87 matrix zero capacity")
+    }
+    for index = 0UL; index < pulled.written(); index = index + 1UL {
+      output.push(owner.view().get(index).unwrap())
+    }
+    for index = pulled.written(); index < capacity; index = index + 1UL {
+      if owner.view().get(index).unwrap() != b'Z' { abort("png phase87 matrix sentinel tail") }
+    }
+    match pulled.outcome() {
+      PngChunkPullOutcome::NeedOutput => turn = turn + 1UL
+      PngChunkPullOutcome::Failed(_) => abort("png phase87 matrix drain failed")
+      PngChunkPullOutcome::Finished => {
+        let collected = Bytes::from_array(output)
+        png_phase87_parse_indexed(collected, depth, expect_fixed, stored_fallback)
+        png_phase87_decode_matrix(collected, depth, stored_fallback)
+        if collected != eager { abort("png phase87 matrix eager/chunk parity") }
+        let later = png_chunk_test_owner(7UL, fill=b'Z')
+        let replay = later.with_mut(0UL, 7UL, fn(lease) { Ok(encoder.pull(lease)) }).unwrap()
+        if replay.written() != 0UL || replay.total_written() != pulled.total_written() ||
+          !(replay.outcome() is PngChunkPullOutcome::Finished) {
+          abort("png phase87 matrix sticky finished")
+        }
+        for index = 0UL; index < 7UL; index = index + 1UL {
+          if later.view().get(index).unwrap() != b'Z' { abort("png phase87 matrix finished tail") }
+        }
+        return ()
+      }
+    }
+  }
+  abort("png phase87 matrix drain unreachable")
+}
+
+fn png_phase87_released_matrix_failure(depth : UInt64, strategy : PngCompressionStrategy) -> Unit {
+  let source = png_phase87_indexed_matrix_source_depth(depth, false)
+  let encoder = png_phase87_chunk_indexed(source, depth, strategy)
+  let released = png_chunk_test_owner(1UL, fill=b'Z')
+  let first = released.with_mut(0UL, 1UL, fn(lease) {
+    lease.release()
+    Ok(encoder.pull(lease))
+  }).unwrap()
+  let first_error = match first.outcome() {
+    PngChunkPullOutcome::Failed(error) => error
+    _ => abort("png phase87 matrix released outcome")
+  }
+  let later = png_chunk_test_owner(1UL, fill=b'Z')
+  let replay = later.with_mut(0UL, 1UL, fn(lease) { Ok(encoder.pull(lease)) }).unwrap()
+  let replay_error = match replay.outcome() {
+    PngChunkPullOutcome::Failed(error) => error
+    _ => abort("png phase87 matrix released replay")
+  }
+  if first.written() != 0UL || first.total_written() != 0UL || replay.written() != 0UL ||
+    replay.total_written() != 0UL || !png_chunk_test_same_error(first_error, replay_error) ||
+    released.view().get(0UL).unwrap() != b'Z' || later.view().get(0UL).unwrap() != b'Z' {
+    abort("png phase87 matrix released terminal")
+  }
+}
+
+///| Explicit Stored remains byte-identical to every frozen non-interlaced
+///| legacy Indexed1/2/4/8 selector, including the complete matrix corpus.
+test "PNG indexed compression Stored compatibility remains byte frozen" {
+  for depth in [1UL, 2UL, 4UL] {
+    let source = png_phase87_indexed_matrix_source_depth(depth, false)
+    let legacy = png_stream_indexed_low_bit_eager(
+      source,
+      if depth == 1UL { PngIndexedBitDepth::One } else if depth == 2UL {
+        PngIndexedBitDepth::Two
+      } else {
+        PngIndexedBitDepth::Four
+      },
+    )
+    inspect(png_phase87_eager_indexed(source, depth, PngCompressionStrategy::Stored) == legacy, content="true")
+  }
+  let indexed8 = png_phase87_indexed_matrix_source_depth(8UL, false)
+  inspect(
+    png_phase87_eager_indexed(indexed8, 8UL, PngCompressionStrategy::Stored) ==
+      png_stream_indexed_eager(indexed8),
+    content="true",
+  )
+}
+
+///| Every admitted indexed profile turns a released lease into the same
+///| sticky zero-write failure on replay.
+test "PNG indexed compression matrix released leases are sticky" {
+  for depth in [1UL, 2UL, 4UL, 8UL] {
+    for strategy in [PngCompressionStrategy::Stored, PngCompressionStrategy::FixedOrStored] {
+      png_phase87_released_matrix_failure(depth, strategy)
+    }
+  }
+}
+
+fn png_phase87_narrow_source(transparent : Bool) -> PngIndexedImage {
+  PngIndexedImage::new(
+    5UL, 3UL,
+    b"\x00\x01\x02\x03\x00\x01\x02\x03\x00\x01\x02\x03\x00\x01\x02",
+    b"\x10\x20\x30\x20\x30\x40\x30\x40\x50\x40\x50\x60",
+    if transparent { b"\x00\x40\x80\xff" } else { b"\xff\xff\xff\xff" },
+    png_stream_test_budget(),
+  ).unwrap()
+}
+
+fn png_phase87_narrow_raw(transparent : Bool) -> Bytes {
+  let rows = [
+    [b'\x00', b'\x01', b'\x02', b'\x03', b'\x00'],
+    [b'\x01', b'\x02', b'\x03', b'\x00', b'\x01'],
+    [b'\x02', b'\x03', b'\x00', b'\x01', b'\x02'],
+  ]
+  let raw : Array[Byte] = []
+  for row in rows {
+    raw.push(b'\x00')
+    let packed : Array[Byte] = [b'\x00', b'\x00']
+    for x = 0UL; x < 5UL; x = x + 1UL {
+      let shift = 6UL - (x % 4UL) * 2UL
+      packed[(x / 4UL).to_int()] = packed[(x / 4UL).to_int()] |
+        ((row[x.to_int()].to_uint64() & 3UL) << shift.to_int()).to_byte()
+    }
+    raw.push(packed[0]); raw.push(packed[1])
+  }
+  ignore(transparent)
+  Bytes::from_array(raw)
+}
+
+fn png_phase87_parse_narrow(bytes : Bytes, transparent : Bool) -> Unit {
+  if png_phase87_slice(bytes, 0, 8) != b"\x89PNG\r\n\x1a\n" { abort("png phase87 narrow signature") }
+  let idat : Array[Byte] = []
+  let mut cursor = 8
+  let mut saw_iend = false
+  let mut saw_trns = false
+  while cursor + 12 <= bytes.length() {
+    let length = png_phase87_u32(bytes, cursor).to_int()
+    if length < 0 || cursor + 12 + length > bytes.length() { abort("png phase87 narrow bounds") }
+    let kind = png_phase87_slice(bytes, cursor + 4, 4)
+    if png_phase87_crc32(bytes, cursor + 4, length + 4) != png_phase87_u32(bytes, cursor + 8 + length) {
+      abort("png phase87 narrow crc")
+    }
+    if kind == b"IHDR" {
+      if length != 13 || png_phase87_u32(bytes, cursor + 8) != 5UL ||
+        png_phase87_u32(bytes, cursor + 12) != 3UL || bytes[cursor + 16] != b'\x02' ||
+        bytes[cursor + 17] != b'\x03' || bytes[cursor + 18] != b'\x00' ||
+        bytes[cursor + 19] != b'\x00' || bytes[cursor + 20] != b'\x00' {
+        abort("png phase87 narrow ihdr")
+      }
+    } else if kind == b"PLTE" {
+      if length != 12 || png_phase87_slice(bytes, cursor + 8, 12) !=
+        b"\x10\x20\x30\x20\x30\x40\x30\x40\x50\x40\x50\x60" {
+        abort("png phase87 narrow plte")
+      }
+    } else if kind == b"tRNS" {
+      if !transparent || length != 3 || png_phase87_slice(bytes, cursor + 8, 3) != b"\x00\x40\x80" {
+        abort("png phase87 narrow trns")
+      }
+      saw_trns = true
+    } else if kind == b"IDAT" {
+      for index = 0; index < length; index = index + 1 { idat.push(bytes[cursor + 8 + index]) }
+    } else if kind == b"IEND" {
+      if length != 0 { abort("png phase87 narrow iend") }
+      saw_iend = true
+      cursor = cursor + 12
+      break
+    } else {
+      abort("png phase87 narrow chunk")
+    }
+    cursor = cursor + 12 + length
+  }
+  if !saw_iend || cursor != bytes.length() || saw_trns != transparent { abort("png phase87 narrow framing") }
+  let idat_bytes = Bytes::from_array(idat)
+  let raw = png_phase87_inflate(idat_bytes, false)
+  if raw != png_phase87_narrow_raw(transparent) ||
+    png_phase87_u32(idat_bytes, idat_bytes.length() - 4) != png_phase87_adler32(raw) {
+    abort("png phase87 narrow stored raster")
+  }
+}
+
+fn png_phase87_decode_narrow(bytes : Bytes, transparent : Bool) -> Unit {
+  let owner = @bytes.OwnedBytes::from_bytes(bytes, png_stream_test_budget(work=0UL)).unwrap()
+  let decoded = @codec.ImageDecoder::decode(
+    PngDecoder::new(), @io.MemoryReader::new(owner.view()) as &@io.Reader,
+    @codec.DecodeOptions::new(require_complete_input=true, preserve_opaque_metadata=false),
+    png_stream_test_limits(output=4096UL, work=1048576UL),
+    png_stream_test_budget(work=1048576UL), @error.Diagnostics::new(),
+  ).unwrap().image().view()
+  let expected_channels = if transparent { @model.ChannelOrder::Rgba } else { @model.ChannelOrder::Rgb }
+  if decoded.width() != 5UL || decoded.height() != 3UL || decoded.format().channels() != expected_channels {
+    abort("png phase87 narrow decode descriptor")
+  }
+  let codes = b"\x00\x01\x02\x03\x00\x01\x02\x03\x00\x01\x02\x03\x00\x01\x02"
+  let palette = b"\x10\x20\x30\x20\x30\x40\x30\x40\x50\x40\x50\x60"
+  let alpha = if transparent { b"\x00\x40\x80\xff" } else { b"\xff\xff\xff\xff" }
+  for point = 0; point < 15; point = point + 1 {
+    let code = codes[point].to_int()
+    let x = (point % 5).to_uint64()
+    let y = (point / 5).to_uint64()
+    for channel = 0UL; channel < 3UL; channel = channel + 1UL {
+      if decoded.get_byte(x, y, channel).unwrap() != palette[code * 3 + channel.to_int()] {
+        abort("png phase87 narrow palette decode")
+      }
+    }
+    if transparent && decoded.get_byte(x, y, 3UL).unwrap() != alpha[code] {
+      abort("png phase87 narrow alpha decode")
+    }
+  }
+}
+
+///| Odd-width packed tails remain zero and the public decoder exposes RGB8
+///| for opaque palettes and RGBA8 for partial-alpha palettes.
+test "PNG indexed compression narrow packed tails and public decode" {
+  for transparent in [false, true] {
+    let source = png_phase87_narrow_source(transparent)
+    let eager = png_phase87_eager_indexed(source, 2UL, PngCompressionStrategy::Stored)
+    png_phase87_parse_narrow(eager, transparent)
+    png_phase87_decode_narrow(eager, transparent)
+  }
+}
+
+///| All indexed depths and both admitted plans use independent eager/chunk
+///| framing, DEFLATE, packed-raster, decode, and hostile-lease evidence.
+test "PNG indexed compression hostile matrix independent qualification" {
+  for depth in [1UL, 2UL, 4UL, 8UL] {
+    for stored_fallback in [false, true] {
+      for strategy in [PngCompressionStrategy::Stored, PngCompressionStrategy::FixedOrStored] {
+        for schedule in [[0UL, 1UL], [1UL], [0UL, 1UL, 3UL, 2UL, 5UL]] {
+          png_phase87_indexed_hostile_matrix(depth, stored_fallback, strategy, schedule)
+        }
+      }
+    }
   }
 }
 

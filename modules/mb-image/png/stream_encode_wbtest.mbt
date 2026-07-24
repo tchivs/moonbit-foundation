@@ -697,3 +697,71 @@ test "PNG fixed-or-stored white-box replay mismatch is sticky" {
   inspect(png_stream_wb_same_error(first, replay), content="true")
   inspect(machine.completed(), content="57")
 }
+
+///| A compact immutable indexed source reaches the same Fixed producer through
+/// the private indexed seam. The work ledger is deliberately perturbed before
+/// EOB so replay fails closed and caches the typed zero-progress error.
+fn png_stream_wb_indexed_source() -> PngIndexedImage {
+  PngIndexedImage::new(
+    256UL, 1UL, Bytes::from_array(Array::make(256, b'\x00')),
+    b"\x00\x10\x20\x20\x30\x40\x40\x50\x60\x60\x70\x80",
+    b"\x00\xff\xff\xff", png_stream_wb_budget(),
+  ).unwrap()
+}
+
+test "PNG indexed fixed replay work fingerprint drift is sticky" {
+  let machine = PngEncodeMachine::new_with_indexed_profile_and_strategy(
+    png_stream_wb_indexed_source(), _png_indexed_wire_profile(PngIndexedBitDepth::Two),
+    PngInterlaceStrategy::None, PngCompressionStrategy::FixedOrStored,
+    png_stream_wb_limits(), png_stream_wb_budget(work=4096UL), @error.Diagnostics::new(),
+  ).unwrap()
+  inspect(machine.plan is PngDeflatePlan::Fixed(_), content="true")
+  let target = machine.row_bytes * machine.scanlines + machine.scanlines
+  match machine.fixed_state {
+    None => panic()
+    Some(_) => ()
+  }
+  let mut steps = 0UL
+  let mut stop_reason = 0
+  while steps < 50UL && stop_reason == 0 {
+    match machine.present() {
+      Err(_) => stop_reason = 1
+      Ok(None) => stop_reason = 2
+      Ok(Some(byte)) => {
+        match machine.acknowledge(byte) {
+          Err(_) => stop_reason = 3
+          Ok(_) => steps = steps + 1UL
+        }
+      }
+    }
+  }
+  inspect(steps, content="50")
+  inspect(stop_reason, content="0")
+  inspect(machine.fixed_state.unwrap().raw_cursor < target, content="true")
+  let state = machine.fixed_state.unwrap()
+  machine.fixed_state = Some({ ..state, matcher_work: state.matcher_work + 1UL })
+  let mut first_error : @error.CoreError? = None
+  let mut eob_steps = 0UL
+  while first_error is None && eob_steps < 4096UL {
+    match machine.present() {
+      Err(error) => first_error = Some(error)
+      Ok(None) => panic()
+      Ok(Some(byte)) => {
+        machine.acknowledge(byte).unwrap()
+        eob_steps = eob_steps + 1UL
+      }
+    }
+  }
+  let first = match first_error {
+    Some(error) => error
+    None => panic()
+  }
+  let before = machine.completed()
+  inspect(first.category() == @error.ErrorCategory::State, content="true")
+  inspect(first.context() == Some("png-encode-fixed-replay-work"), content="true")
+  inspect(machine.completed() == before, content="true")
+  inspect(machine.pending == None, content="true")
+  let replay = machine.present().unwrap_err()
+  inspect(png_stream_wb_same_error(first, replay), content="true")
+  inspect(machine.completed() == before, content="true")
+}
