@@ -6556,6 +6556,25 @@ fn png_stream_indexed_low_bit_adam7_eager(bit_depth : PngIndexedBitDepth) -> Byt
   Bytes::from_array(output)
 }
 
+///| Explicit compression selectors must retain the Stored wire baseline on the
+/// small reference frame while exercising the additive public method names.
+fn png_stream_indexed_low_bit_adam7_eager_strategy(
+  bit_depth : PngIndexedBitDepth,
+  strategy : PngCompressionStrategy,
+) -> Bytes {
+  let writer = @io.MemoryWriter::new(256UL, png_stream_test_budget(work=0UL)).unwrap()
+  ignore(PngEncoder::encode_indexed_with_interlace_and_compression_strategy(
+    PngEncoder::new(), png_stream_indexed_low_bit_adam7_source(bit_depth, true), bit_depth,
+    PngInterlaceStrategy::Adam7, strategy, writer as &@io.Writer, png_stream_test_limits(),
+    png_stream_test_budget(work=1048576UL), @error.Diagnostics::new(),
+  ).unwrap())
+  let output : Array[Byte] = []
+  for index = 0UL; index < writer.position(); index = index + 1UL {
+    output.push(writer.view().get(index).unwrap())
+  }
+  Bytes::from_array(output)
+}
+
 ///| Recomputes the 5x5 Adam7 local pass geometry and MSB-first packed bytes.
 ///| Partial data bytes are compared exactly, so their unused low tail bits must be zero.
 fn png_stream_indexed_low_bit_adam7_assert_literal_passes(
@@ -6803,6 +6822,50 @@ test "PNG selected low-bit Adam7 chunk replays released lease failures" {
     PngIndexedBitDepth::One, PngIndexedBitDepth::Two, PngIndexedBitDepth::Four,
   ] {
     png_stream_indexed_low_bit_adam7_released_failure(bit_depth)
+  }
+}
+
+///| Phase 88 freezes the additive eager/chunked selector surface. The small
+/// reference frame exercises all accepted low-bit depths without changing the
+/// existing Stored-only Adam7 oracle above.
+test "PNG indexed Adam7 explicit compression selectors cover all low-bit depths" {
+  for bit_depth in [
+    PngIndexedBitDepth::One, PngIndexedBitDepth::Two, PngIndexedBitDepth::Four,
+  ] {
+    let eager = png_stream_indexed_low_bit_adam7_eager_strategy(
+      bit_depth, PngCompressionStrategy::FixedOrStored,
+    )
+    if eager.length() == 0 { abort("png phase88 eager selector emitted no bytes") }
+    let chunk = PngChunkEncoder::new_indexed_with_interlace_and_compression_strategy(
+      png_stream_indexed_low_bit_adam7_source(bit_depth, true), bit_depth,
+      PngInterlaceStrategy::Adam7, PngCompressionStrategy::FixedOrStored,
+      png_stream_test_limits(), png_stream_test_budget(work=1048576UL), @error.Diagnostics::new(),
+    ).unwrap()
+    let owner = png_chunk_test_owner(1UL, fill=b'Z')
+    let pulled = owner.with_mut(0UL, 1UL, fn(lease) { Ok(chunk.pull(lease)) }).unwrap()
+    match pulled.outcome() {
+      PngChunkPullOutcome::Failed(_) => abort("png phase88 pull")
+      _ => ()
+    }
+  }
+  let indexed8_source = png_stream_indexed_low_bit_adam7_source(PngIndexedBitDepth::One, true)
+  let indexed8_writer = @io.MemoryWriter::new(256UL, png_stream_test_budget(work=0UL)).unwrap()
+  ignore(PngEncoder::encode_indexed8_with_interlace_and_compression_strategy(
+    PngEncoder::new(), indexed8_source, PngInterlaceStrategy::Adam7,
+    PngCompressionStrategy::FixedOrStored, indexed8_writer as &@io.Writer,
+    png_stream_test_limits(), png_stream_test_budget(work=1048576UL), @error.Diagnostics::new(),
+  ).unwrap())
+  if indexed8_writer.position() == 0UL { abort("png phase88 Indexed8 eager selector") }
+  let indexed8_chunk = PngChunkEncoder::new_indexed8_with_interlace_and_compression_strategy(
+    png_stream_indexed_low_bit_adam7_source(PngIndexedBitDepth::One, true),
+    PngInterlaceStrategy::Adam7, PngCompressionStrategy::FixedOrStored,
+    png_stream_test_limits(), png_stream_test_budget(work=1048576UL), @error.Diagnostics::new(),
+  ).unwrap()
+  let indexed8_owner = png_chunk_test_owner(1UL, fill=b'Z')
+  let indexed8_pull = indexed8_owner.with_mut(0UL, 1UL, fn(lease) { Ok(indexed8_chunk.pull(lease)) }).unwrap()
+  match indexed8_pull.outcome() {
+    PngChunkPullOutcome::Failed(_) => abort("png phase88 indexed8 pull")
+    _ => ()
   }
 }
 

@@ -1172,6 +1172,7 @@ priv struct PngIndexedRawCursor {
   source : PngIndexedImage
   row_bytes : UInt64
   depth : UInt64
+  interlace_strategy : PngInterlaceStrategy
   index : UInt64
 }
 
@@ -1181,7 +1182,20 @@ fn PngIndexedRawCursor::new(
   row_bytes : UInt64,
   depth : UInt64,
 ) -> PngIndexedRawCursor {
-  { source, row_bytes, depth, index: 0UL }
+  PngIndexedRawCursor::new_with_interlace(
+    source, row_bytes, depth, PngInterlaceStrategy::None,
+  )
+}
+
+///| The matcher uses the same scalar indexed producer for non-interlaced and
+/// Adam7 streams; only the pass-aware scanline lookup changes.
+fn PngIndexedRawCursor::new_with_interlace(
+  source : PngIndexedImage,
+  row_bytes : UInt64,
+  depth : UInt64,
+  interlace_strategy : PngInterlaceStrategy,
+) -> PngIndexedRawCursor {
+  { source, row_bytes, depth, interlace_strategy, index: 0UL }
 }
 
 ///|
@@ -1195,6 +1209,41 @@ fn PngIndexedRawCursor::facts(
 fn PngIndexedRawCursor::next(
   self : PngIndexedRawCursor,
 ) -> Result[(Byte, PngIndexedRawCursor), @error.CoreError] {
+  if self.interlace_strategy == PngInterlaceStrategy::Adam7 {
+    let passes = match _png_adam7_passes(
+      self.source.width(), self.source.height(), 1UL, self.depth.to_int(),
+    ) {
+      Err(error) => return Err(error)
+      Ok(value) => value
+    }
+    let mut scanlines = 0UL
+    for pass in passes {
+      if pass.width > 0UL && pass.height > 0UL {
+        let pass_width = match _png_fixed_add(pass.row_bytes, 1UL) {
+          Err(error) => return Err(error)
+          Ok(value) => value
+        }
+        let pass_scanlines = match @checked.checked_mul(pass_width, pass.height) {
+          Err(error) => return Err(error)
+          Ok(value) => value
+        }
+        scanlines = match @checked.checked_add(scanlines, pass_scanlines) {
+          Err(error) => return Err(error)
+          Ok(value) => value
+        }
+      }
+    }
+    if self.index >= scanlines {
+      return Err(_png_encode_capability("png-indexed-adam7-cursor-end"))
+    }
+    let byte = match _png_indexed_adam7_scanline_byte(
+      self.source, self.source.width(), self.source.height(), self.depth, self.index,
+    ) {
+      Err(error) => return Err(error)
+      Ok(value) => value
+    }
+    return Ok((byte, { ..self, index: self.index + 1UL }))
+  }
   let row_width = match _png_fixed_add(self.row_bytes, 1UL) {
     Err(error) => return Err(error); Ok(value) => value
   }
@@ -1287,7 +1336,19 @@ fn PngFilteredMatchCursor::new_indexed(
   row_bytes : UInt64,
   depth : UInt64,
 ) -> PngFilteredMatchCursor {
-  { producer: PngMatchProducer::IndexedNone(PngIndexedRawCursor::new(source, row_bytes, depth)),
+  PngFilteredMatchCursor::new_indexed_with_interlace(
+    source, row_bytes, depth, PngInterlaceStrategy::None,
+  )
+}
+
+///| Construct an indexed matcher cursor for the selected wire traversal.
+fn PngFilteredMatchCursor::new_indexed_with_interlace(
+  source : PngIndexedImage,
+  row_bytes : UInt64,
+  depth : UInt64,
+  interlace_strategy : PngInterlaceStrategy,
+) -> PngFilteredMatchCursor {
+  { producer: PngMatchProducer::IndexedNone(PngIndexedRawCursor::new_with_interlace(source, row_bytes, depth, interlace_strategy)),
     logical_position: 0UL, produced_exclusive: 0UL, retained_start: 0UL,
     window: Array::make(262, b'\x00') }
 }
@@ -2318,11 +2379,8 @@ fn _png_encode_indexed_preflight_with_profile_and_strategy(
       PngDeflatePlan::Stored(stored), stored_frame, stored_frame.total_length,
     )
     PngCompressionStrategy::FixedOrStored => {
-      if interlace_strategy != PngInterlaceStrategy::None {
-        return Err(_png_encode_capability("indexed-compression-interlace-unavailable"))
-      }
-      let cursor = PngFilteredMatchCursor::new_indexed(
-        source, row_bytes, wire_profile.depth(),
+      let cursor = PngFilteredMatchCursor::new_indexed_with_interlace(
+        source, row_bytes, wire_profile.depth(), interlace_strategy,
       )
       let fixed = match _png_fixed_plan_with_cursor(cursor, scanlines) {
         Err(error) => return Err(error); Ok(value) => value
@@ -2506,8 +2564,26 @@ pub fn PngEncoder::encode_indexed8_with_interlace_strategy(
   budget : @budget.Budget,
   diagnostics : @error.Diagnostics,
 ) -> Result[@codec.EncodeResult, @error.CoreError] {
-  let machine = match PngEncodeMachine::new_with_indexed_profile(
-    source, PngIndexedWireProfile::Eight, interlace_strategy, limits, budget, diagnostics,
+  PngEncoder::encode_indexed8_with_interlace_and_compression_strategy(
+    _self, source, interlace_strategy, PngCompressionStrategy::Stored,
+    writer, limits, budget, diagnostics,
+  )
+}
+
+///| Eagerly encodes Indexed8 with explicit Adam7 and compression selection.
+pub fn PngEncoder::encode_indexed8_with_interlace_and_compression_strategy(
+  _self : PngEncoder,
+  source : PngIndexedImage,
+  interlace_strategy : PngInterlaceStrategy,
+  strategy : PngCompressionStrategy,
+  writer : &@io.Writer,
+  limits : @codec.CodecLimits,
+  budget : @budget.Budget,
+  diagnostics : @error.Diagnostics,
+) -> Result[@codec.EncodeResult, @error.CoreError] {
+  let machine = match PngEncodeMachine::new_with_indexed_profile_and_strategy(
+    source, PngIndexedWireProfile::Eight, interlace_strategy, strategy,
+    limits, budget, diagnostics,
   ) {
     Err(error) => return Err(error)
     Ok(value) => value
@@ -2600,9 +2676,28 @@ pub fn PngEncoder::encode_indexed_with_interlace_strategy(
   budget : @budget.Budget,
   diagnostics : @error.Diagnostics,
 ) -> Result[@codec.EncodeResult, @error.CoreError] {
+  PngEncoder::encode_indexed_with_interlace_and_compression_strategy(
+    _self, source, bit_depth, interlace_strategy, PngCompressionStrategy::Stored,
+    writer, limits, budget, diagnostics,
+  )
+}
+
+///| Eagerly encodes a selected low-bit indexed source with explicit Adam7 and
+/// compression selection through the shared machine.
+pub fn PngEncoder::encode_indexed_with_interlace_and_compression_strategy(
+  _self : PngEncoder,
+  source : PngIndexedImage,
+  bit_depth : PngIndexedBitDepth,
+  interlace_strategy : PngInterlaceStrategy,
+  strategy : PngCompressionStrategy,
+  writer : &@io.Writer,
+  limits : @codec.CodecLimits,
+  budget : @budget.Budget,
+  diagnostics : @error.Diagnostics,
+) -> Result[@codec.EncodeResult, @error.CoreError] {
   let wire_profile = _png_indexed_wire_profile(bit_depth)
-  let machine = match PngEncodeMachine::new_with_indexed_profile(
-    source, wire_profile, interlace_strategy, limits, budget, diagnostics,
+  let machine = match PngEncodeMachine::new_with_indexed_profile_and_strategy(
+    source, wire_profile, interlace_strategy, strategy, limits, budget, diagnostics,
   ) {
     Err(error) => return Err(error)
     Ok(value) => value

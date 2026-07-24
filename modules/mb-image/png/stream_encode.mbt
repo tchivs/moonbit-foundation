@@ -56,8 +56,25 @@ pub fn PngChunkEncoder::new_indexed8_with_interlace_strategy(
   budget : @budget.Budget,
   diagnostics : @error.Diagnostics,
 ) -> Result[PngChunkEncoder, @error.CoreError] {
-  let machine = match PngEncodeMachine::new_with_indexed_profile(
-    source, PngIndexedWireProfile::Eight, interlace_strategy, limits, budget, diagnostics,
+  PngChunkEncoder::new_indexed8_with_interlace_and_compression_strategy(
+    source, interlace_strategy, PngCompressionStrategy::Stored,
+    limits, budget, diagnostics,
+  )
+}
+
+///| Constructs the additive Indexed8 caller-buffered Adam7 selector with an
+/// explicit Stored or bounded FixedOrStored compression strategy.
+pub fn PngChunkEncoder::new_indexed8_with_interlace_and_compression_strategy(
+  source : PngIndexedImage,
+  interlace_strategy : PngInterlaceStrategy,
+  strategy : PngCompressionStrategy,
+  limits : @codec.CodecLimits,
+  budget : @budget.Budget,
+  diagnostics : @error.Diagnostics,
+) -> Result[PngChunkEncoder, @error.CoreError] {
+  let machine = match PngEncodeMachine::new_with_indexed_profile_and_strategy(
+    source, PngIndexedWireProfile::Eight, interlace_strategy, strategy,
+    limits, budget, diagnostics,
   ) {
     Err(error) => return Err(error)
     Ok(value) => value
@@ -106,9 +123,26 @@ pub fn PngChunkEncoder::new_indexed_with_interlace_strategy(
   budget : @budget.Budget,
   diagnostics : @error.Diagnostics,
 ) -> Result[PngChunkEncoder, @error.CoreError] {
+  PngChunkEncoder::new_indexed_with_interlace_and_compression_strategy(
+    source, bit_depth, interlace_strategy, PngCompressionStrategy::Stored,
+    limits, budget, diagnostics,
+  )
+}
+
+///| Constructs the selected low-bit Adam7 caller-buffered route with explicit
+/// Stored or bounded FixedOrStored compression.
+pub fn PngChunkEncoder::new_indexed_with_interlace_and_compression_strategy(
+  source : PngIndexedImage,
+  bit_depth : PngIndexedBitDepth,
+  interlace_strategy : PngInterlaceStrategy,
+  strategy : PngCompressionStrategy,
+  limits : @codec.CodecLimits,
+  budget : @budget.Budget,
+  diagnostics : @error.Diagnostics,
+) -> Result[PngChunkEncoder, @error.CoreError] {
   let wire_profile = _png_indexed_wire_profile(bit_depth)
-  let machine = match PngEncodeMachine::new_with_indexed_profile(
-    source, wire_profile, interlace_strategy, limits, budget, diagnostics,
+  let machine = match PngEncodeMachine::new_with_indexed_profile_and_strategy(
+    source, wire_profile, interlace_strategy, strategy, limits, budget, diagnostics,
   ) {
     Err(error) => return Err(error)
     Ok(value) => value
@@ -1060,8 +1094,8 @@ fn PngEncodeMachine::new_with_indexed_profile_and_strategy(
     fixed_state: match facts.plan {
       PngDeflatePlan::Fixed(_) => Some({
         raw_cursor: 0UL,
-        filtered_cursor: Some(PngFilteredMatchCursor::new_indexed(
-          source, facts.row_bytes, wire_profile.depth(),
+        filtered_cursor: Some(PngFilteredMatchCursor::new_indexed_with_interlace(
+          source, facts.row_bytes, wire_profile.depth(), interlace_strategy,
         )),
         bit_value: 0UL, bit_count: 0UL, adler: 1UL,
         fingerprint: 1UL, matcher_work: 0UL, header_written: false, eob_written: false,
