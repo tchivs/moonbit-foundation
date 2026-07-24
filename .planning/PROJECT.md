@@ -59,6 +59,9 @@ No next milestone has been selected yet. Keep delivery code-first; define the ne
 - [x] Prove exact RGBA16 wire/decode fidelity, hostile input and lease handling, frozen compatibility, and four-target portability. — Validated in v0.22 Phase 72.
 - [x] Let library users explicitly select `Stored` or `FixedOrStored` for non-interlaced Type-3/1, /2, /4, and /8 eager and caller-buffered PNG encoding, while all existing/default indexed APIs remain byte-identical Stored/filter-None forwards and Dynamic is rejected as unavailable. — Validated in v0.28 Phase 85.
 - [x] Emit exact, deterministic Fixed DEFLATE blocks from bounded canonical indexed filter-None raw bytes only when the complete Type-3 frame is no larger than Stored, otherwise retain Stored, without a second encoder, staging, matcher widening, or a source-model change. — Validated in v0.28 Phase 85.
+- [x] Compute PLTE/tRNS-aware exact candidate frame and work facts before one budget charge, then integrate the selected plan through the shared acknowledged eager and caller-buffered machine. — Validated in v0.28 Phase 86.
+- [x] Preserve atomic failures and hostile caller-buffered lifecycle behavior for indexed compression, including untouched output/lease state before admission and sticky terminals after released leases or replay drift. — Validated in v0.28 Phase 87.
+- [x] Independently qualify Fixed-or-Stored Type-3 wire bytes, public RGB8/RGBA8 decode, frozen legacy vectors, and ordinary PNG package execution on wasm, wasm-gc, js, and native. — Validated in v0.28 Phase 87.
 
 ### Active
 
