@@ -1329,3 +1329,93 @@ test "PNG Indexed8 preflight rejects empty scanlines and oversized IDAT" {
     _png_indexed_stored_idat_length(4294967295UL) is Err(_), content="true",
   )
 }
+
+///| Builds one canonical unpacked Type-3 source whose packed filter-None row
+/// is either the all-zero Fixed winner or the literal-only Stored fallback.
+fn png_indexed_compression_matrix_source(
+  profile : PngIndexedWireProfile,
+  stored_fallback : Bool,
+) -> PngIndexedImage {
+  let depth = profile.depth()
+  let width = 512UL / depth
+  let cap = profile.palette_cap()
+  let packed : Array[Byte] = []
+  for index = 0; index < 64; index = index + 1 {
+    packed.push(if stored_fallback { (192 + index).to_byte() } else { b'\x00' })
+  }
+  let codes : Array[Byte] = []
+  let per_byte = 8UL / depth
+  for x = 0UL; x < width; x = x + 1UL {
+    let packed_byte = packed[(x / per_byte).to_int()].to_uint64()
+    let shift = 8UL - depth - (x % per_byte) * depth
+    codes.push(((packed_byte >> shift.to_int()) & ((1UL << depth.to_int()) - 1UL)).to_byte())
+  }
+  let palette : Array[Byte] = []
+  let alpha : Array[Byte] = []
+  for entry = 0UL; entry < cap; entry = entry + 1UL {
+    palette.push(entry.to_byte())
+    palette.push((entry + 1UL).to_byte())
+    palette.push((entry + 2UL).to_byte())
+    alpha.push(if entry == 0UL { b'\x00' } else { b'\xff' })
+  }
+  PngIndexedImage::new(
+    width, 1UL, Bytes::from_array(codes), Bytes::from_array(palette),
+    Bytes::from_array(alpha), png_indexed_compression_matrix_budget(),
+  ).unwrap()
+}
+
+///| The matrix deliberately reaches width 512 at Indexed1, beyond the compact
+/// default white-box fixture limits used by unrelated tests.
+fn png_indexed_compression_matrix_budget() -> @budget.Budget {
+  @budget.Budget::new(@budget.ResourceLimits::new(
+    bytes=1048576UL, allocations=8UL, allocation_size=1048576UL,
+    width=512UL, height=64UL, pixels=4096UL, depth=0UL, work=1048576UL,
+  ))
+}
+
+///|
+fn png_indexed_compression_matrix_limits() -> @codec.CodecLimits {
+  @codec.CodecLimits::new(
+    max_probe_bytes=8UL, max_input_bytes=1048576UL, max_output_bytes=1048576UL,
+    max_width=512UL, max_height=64UL, max_pixels=4096UL, max_work=1048576UL,
+  )
+}
+
+///| The bounded shared producer makes Type-3 selection from complete palette
+/// frames rather than the generic non-palette `+57` accounting.
+test "PNG indexed compression matrix selects Fixed and Stored at every depth" {
+  for profile in [
+    PngIndexedWireProfile::One, PngIndexedWireProfile::Two,
+    PngIndexedWireProfile::Four, PngIndexedWireProfile::Eight,
+  ] {
+    for stored_fallback in [false, true] {
+      let source = png_indexed_compression_matrix_source(profile, stored_fallback)
+      let fixed = _png_fixed_plan_with_cursor(
+        PngFilteredMatchCursor::new_indexed(source, 64UL, profile.depth()), 65UL,
+      ).unwrap()
+      let stored_idat = _png_indexed_stored_idat_length(65UL).unwrap().1
+      let stored_frame = _png_frame_facts(source.palette_length(), 1UL, stored_idat).unwrap()
+      let fixed_frame = _png_frame_facts(source.palette_length(), 1UL, fixed.idat_length).unwrap()
+      let selected = _png_encode_indexed_preflight_with_profile_and_strategy(
+        source, profile, PngInterlaceStrategy::None, PngCompressionStrategy::FixedOrStored,
+        png_indexed_compression_matrix_limits(), png_indexed_compression_matrix_budget(),
+      ).unwrap()
+      inspect(fixed.traversal_facts.resolved_rows == 0UL && fixed.matcher_work > 0UL, content="true")
+      inspect(selected.frame.trns_length == 1UL, content="true")
+      if stored_fallback {
+        inspect(stored_idat == 76UL && fixed.idat_length == 81UL, content="true")
+        inspect(fixed_frame.total_length > stored_frame.total_length, content="true")
+        match selected.plan {
+          PngDeflatePlan::Stored(_) => inspect(true, content="true")
+          _ => inspect(false, content="true")
+        }
+      } else {
+        inspect(fixed_frame.total_length <= stored_frame.total_length, content="true")
+        match selected.plan {
+          PngDeflatePlan::Fixed(_) => inspect(true, content="true")
+          _ => inspect(false, content="true")
+        }
+      }
+    }
+  }
+}
