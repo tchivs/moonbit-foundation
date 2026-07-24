@@ -1175,6 +1175,62 @@ test "PNG Indexed8 Adam7 preflight facts and admission are exact" {
   inspect(png_wb_same_remaining(output_before, one_less_output.remaining()), content="true")
 }
 
+///| The selected profiles use their own packed Adam7 rows before the one work
+/// charge. Literal totals here intentionally do not derive from a helper.
+test "PNG selected low-bit Adam7 preflight facts and admission are exact" {
+  for item in [
+    (PngIndexedWireProfile::One, 2UL, 22UL, 33UL, 122UL),
+    (PngIndexedWireProfile::Two, 4UL, 24UL, 35UL, 132UL),
+    (PngIndexedWireProfile::Four, 16UL, 27UL, 38UL, 183UL),
+  ] {
+    let (profile, cap, expected_scanlines, expected_idat, expected_total) = item
+    let indices = b"\x00\x01\x00\x01\x00\x00\x01\x00\x01\x00\x00\x01\x00\x01\x00\x01\x00\x00\x01\x00\x01\x00\x01\x00\x00"
+    let palette = Bytes::from_array(Array::make((cap * 3UL).to_int(), b'\x12'))
+    let alpha = Bytes::from_array(Array::make(cap.to_int(), b'\x80'))
+    let source = PngIndexedImage::new(
+      5UL, 5UL, indices, palette, alpha, png_wb_budget(bytes=256UL, work=0UL),
+    ).unwrap()
+    let exact = png_wb_budget(work=expected_total)
+    let facts = _png_encode_indexed_preflight_with_profile(
+      source, profile, PngInterlaceStrategy::Adam7,
+      png_wb_indexed_limits(expected_total, expected_total), exact,
+    ).unwrap()
+    inspect(facts.scanlines == expected_scanlines, content="true")
+    inspect(facts.blocks == 1UL && facts.idat_length == expected_idat, content="true")
+    inspect(facts.total_length == expected_total && facts.selected_work == expected_total, content="true")
+    inspect(exact.remaining().work() == 0UL, content="true")
+
+    let one_less_output = png_wb_budget(work=expected_total)
+    let output_before = one_less_output.remaining()
+    inspect(_png_encode_indexed_preflight_with_profile(
+      source, profile, PngInterlaceStrategy::Adam7,
+      png_wb_indexed_limits(expected_total - 1UL, expected_total), one_less_output,
+    ) is Err(_), content="true")
+    inspect(png_wb_same_remaining(output_before, one_less_output.remaining()), content="true")
+
+    let one_less_work = png_wb_budget(work=expected_total - 1UL)
+    let work_before = one_less_work.remaining()
+    inspect(_png_encode_indexed_preflight_with_profile(
+      source, profile, PngInterlaceStrategy::Adam7,
+      png_wb_indexed_limits(expected_total, expected_total), one_less_work,
+    ) is Err(_), content="true")
+    inspect(png_wb_same_remaining(work_before, one_less_work.remaining()), content="true")
+
+    let oversized = PngIndexedImage::new(
+      1UL, 1UL, b"\x00", Bytes::from_array(Array::make(((cap + 1UL) * 3UL).to_int(), b'\x12')),
+      Bytes::from_array(Array::make((cap + 1UL).to_int(), b'\x80')),
+      png_wb_budget(bytes=256UL, work=0UL),
+    ).unwrap()
+    let cap_budget = png_wb_budget()
+    let cap_before = cap_budget.remaining()
+    inspect(_png_encode_indexed_preflight_with_profile(
+      oversized, profile, PngInterlaceStrategy::Adam7, png_wb_limits(), cap_budget,
+    ) is Err(_), content="true")
+    inspect(png_wb_same_remaining(cap_before, cap_budget.remaining()), content="true")
+  }
+  inspect(_png_adam7_passes(18446744073709551615UL, 1UL, 1UL, 4) is Err(_), content="true")
+}
+
 ///|
 test "PNG low-bit indexed profiles derive packed facts and reject before work charge" {
   for item in [

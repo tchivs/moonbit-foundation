@@ -1080,6 +1080,113 @@ fn png_indexed_slice(value : Bytes, start : Int, length : Int) -> Bytes {
   Bytes::from_array(result)
 }
 
+///| The selected low-bit Adam7 vectors are deliberately test-local: each
+/// fixture supplies a full-cap palette, canonical tRNS, and hand-packed pass
+/// rows without consulting production geometry or packing helpers.
+test "PNG selected low-bit Adam7 eager wires literal packed passes and palette decode" {
+  for item in [
+    (
+      PngIndexedBitDepth::One,
+      b"\x00\x01\x00\x01\x01\x01\x00\x01\x01\x00\x01\x01\x00\x00\x01\x00\x01\x01\x00\x00\x01\x01\x00\x01\x01",
+      b"\x10\x20\x30\x40\x50\x60", b"\x00\x80",
+      b"\x00\x00\x00\x80\x00\xc0\x00\x00\x00\x00\x00\xa0\x00\xc0\x00\x80\x00\x40\x00\xb0\x00\x60",
+      122UL,
+    ),
+    (
+      PngIndexedBitDepth::Two,
+      b"\x00\x01\x02\x03\x00\x02\x03\x00\x01\x02\x00\x01\x02\x03\x00\x02\x03\x00\x01\x02\x00\x01\x02\x03\x00",
+      b"\x10\x20\x30\x40\x50\x60\x70\x80\x90\xa0\xb0\xc0", b"\x00\x40\x80\xc0",
+      b"\x00\x00\x00\x00\x00\x00\x00\x80\x00\x80\x00\x20\x00\x70\x00\x70\x00\x70\x00\xb4\x80\x00\xb4\x80",
+      132UL,
+    ),
+    (
+      PngIndexedBitDepth::Four,
+      b"\x00\x01\x02\x03\x04\x05\x06\x07\x08\x09\x0a\x0b\x0c\x0d\x0e\x0f\x00\x01\x02\x03\x04\x05\x06\x07\x08",
+      b"\x10\x20\x30\x40\x50\x60\x70\x80\x90\xa0\xb0\xc0\xd0\xe0\xf0\x01\x11\x21\x31\x41\x51\x61\x71\x81\x91\xa1\xb1\xc1\xd1\xe1\xf1\x02\x12\x22\x32\x42\x52\x62\x72\x82\x92\xa2\xb2\xc2\xd2\xe2\xf2\x03",
+      b"\x00\x11\x22\x33\x44\x55\x66\x77\x88\x99\xaa\xbb\xcc\xdd\xee\x7f",
+      b"\x00\x00\x00\x40\x00\x48\x00\x20\x00\x60\x00\xac\xe0\x00\x13\x00\xbd\x00\x57\x00\x56\x78\x90\x00\xf0\x12\x30",
+      183UL,
+    ),
+  ] {
+    let (bit_depth, codes, palette, alpha, expected_raw, expected_length) = item
+    let source = PngIndexedImage::new(
+      5UL, 5UL, codes, palette, alpha, png_encode_budget(),
+    ).unwrap()
+    let writer = @io.MemoryWriter::new(
+      256UL, png_encode_budget(bytes=256UL, work=0UL),
+    ).unwrap()
+    ignore(PngEncoder::encode_indexed_with_interlace_strategy(
+      PngEncoder::new(), source, bit_depth, PngInterlaceStrategy::Adam7,
+      writer as &@io.Writer, png_encode_limits(output=expected_length, work=expected_length),
+      png_encode_budget(work=expected_length), @error.Diagnostics::new(),
+    ).unwrap())
+    let bytes = png_encode_prefix(writer)
+    let depth = match bit_depth {
+      PngIndexedBitDepth::One => b'\x01'
+      PngIndexedBitDepth::Two => b'\x02'
+      PngIndexedBitDepth::Four => b'\x04'
+    }
+    let plte_start = 33
+    let trns_start = plte_start + 12 + palette.length()
+    let idat_start = trns_start + 12 + alpha.length()
+    let iend_start = idat_start + 12 + 11 + expected_raw.length()
+    inspect(bytes.length().to_uint64() == expected_length, content="true")
+    inspect(
+      png_indexed_u32(bytes, 8) == 13UL && png_indexed_slice(bytes, 12, 4) == b"IHDR" &&
+        png_indexed_slice(bytes, 24, 5) == Bytes::from_array([depth, b'\x03', b'\x00', b'\x00', b'\x01']),
+      content="true",
+    )
+    inspect(png_indexed_crc32(bytes, 12, 17) == png_indexed_u32(bytes, 29), content="true")
+    inspect(
+      png_indexed_u32(bytes, plte_start) == palette.length().to_uint64() &&
+        png_indexed_slice(bytes, plte_start + 4, 4) == b"PLTE" &&
+        png_indexed_slice(bytes, plte_start + 8, palette.length()) == palette &&
+        png_indexed_crc32(bytes, plte_start + 4, 4 + palette.length()) ==
+          png_indexed_u32(bytes, plte_start + 8 + palette.length()),
+      content="true",
+    )
+    inspect(
+      png_indexed_u32(bytes, trns_start) == alpha.length().to_uint64() &&
+        png_indexed_slice(bytes, trns_start + 4, 4) == b"tRNS" &&
+        png_indexed_slice(bytes, trns_start + 8, alpha.length()) == alpha &&
+        png_indexed_crc32(bytes, trns_start + 4, 4 + alpha.length()) ==
+          png_indexed_u32(bytes, trns_start + 8 + alpha.length()),
+      content="true",
+    )
+    inspect(
+      png_indexed_u32(bytes, idat_start) == expected_raw.length().to_uint64() + 11UL &&
+        png_indexed_slice(bytes, idat_start + 4, 4) == b"IDAT" &&
+        png_indexed_slice(bytes, idat_start + 8, 3) == b"\x78\x01\x01" &&
+        png_indexed_slice(bytes, idat_start + 15, expected_raw.length()) == expected_raw &&
+        png_indexed_crc32(bytes, idat_start + 4, 15 + expected_raw.length()) ==
+          png_indexed_u32(bytes, idat_start + 19 + expected_raw.length()),
+      content="true",
+    )
+    inspect(
+      png_indexed_u32(bytes, iend_start) == 0UL && png_indexed_slice(bytes, iend_start + 4, 4) == b"IEND" &&
+        png_indexed_crc32(bytes, iend_start + 4, 4) == png_indexed_u32(bytes, iend_start + 8),
+      content="true",
+    )
+
+    let owned = @bytes.OwnedBytes::from_bytes(bytes, png_encode_budget(bytes=256UL, work=0UL)).unwrap()
+    let decoded = @codec.ImageDecoder::decode(
+      PngDecoder::new(), @io.MemoryReader::new(owned.view()) as &@io.Reader,
+      @codec.DecodeOptions::new(require_complete_input=true, preserve_opaque_metadata=false),
+      png_encode_limits(), png_encode_budget(), @error.Diagnostics::new(),
+    ).unwrap().image().view()
+    inspect(decoded.format().channels() == @model.ChannelOrder::Rgba, content="true")
+    for point = 0; point < 25; point = point + 1 {
+      let code = codes[point].to_int()
+      let x = (point % 5).to_uint64()
+      let y = (point / 5).to_uint64()
+      for channel = 0; channel < 3; channel = channel + 1 {
+        inspect(decoded.get_byte(x, y, channel.to_uint64()).unwrap() == palette[code * 3 + channel], content="true")
+      }
+      inspect(decoded.get_byte(x, y, 3UL).unwrap() == alpha[code], content="true")
+    }
+  }
+}
+
 ///| A deliberately non-symmetric 5x5 Indexed8 raster. Its values are literal
 /// test data: `(x + 2*y) mod 4`, not a production traversal oracle.
 fn png_indexed8_adam7_source(transparent : Bool) -> PngIndexedImage {

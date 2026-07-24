@@ -5402,6 +5402,30 @@ test "PNG selected Indexed chunk hostile leases retain eager parity and sticky c
   }
 }
 
+///| Phase 83 only proves that the selected low-bit Adam7 facade reaches the
+/// existing machine with an ordinary sufficient-capacity lease.
+test "PNG selected low-bit Adam7 chunk selector wires shared machine IHDR" {
+  for bit_depth in [
+    PngIndexedBitDepth::One, PngIndexedBitDepth::Two, PngIndexedBitDepth::Four,
+  ] {
+    let encoder = PngChunkEncoder::new_indexed_with_interlace_strategy(
+      png_stream_indexed_low_bit_source(bit_depth), bit_depth, PngInterlaceStrategy::Adam7,
+      png_stream_test_limits(), png_stream_test_budget(), @error.Diagnostics::new(),
+    ).unwrap()
+    let bytes = png_chunk_test_drain_encoder(encoder, [256UL]).unwrap()
+    let depth = match bit_depth {
+      PngIndexedBitDepth::One => b'\x01'
+      PngIndexedBitDepth::Two => b'\x02'
+      PngIndexedBitDepth::Four => b'\x04'
+    }
+    inspect(
+      bytes[24] == depth && bytes[25] == b'\x03' && bytes[26] == b'\x00' &&
+        bytes[27] == b'\x00' && bytes[28] == b'\x01',
+      content="true",
+    )
+  }
+}
+
 ///| Every selected Type-3 depth replays a released first lease as the same
 ///| terminal failure without mutating a later caller-owned lease.
 test "PNG selected Indexed chunk replays released lease failures" {
