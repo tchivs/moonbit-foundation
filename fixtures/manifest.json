@@ -107,6 +107,18 @@
       "license": "Apache-2.0",
       "redistribution_status": "not-applicable",
       "expected_use": "COLR-04 project-derived quantization, alpha, profile-limit, and adversarial conformance cases"
+    },
+    {
+      "id": "svg-subset-conformance-vectors",
+      "path": "fixtures/svg/cases.json",
+      "origin": "generated",
+      "source": "RFC 0002 §6.1 in-scope subset (SVG 1.1 element/attribute grammar, https://www.w3.org/TR/SVG11/) plus repository-derived adversarial markup schedules",
+      "author": "MoonBit Native Foundation project generator",
+      "retrieval_date": "2026-07-24",
+      "sha256": "d807d3133a1535b583345a411a3f22dcfab1e071b9ffbd549eeac94b443dcd1a",
+      "license": "Apache-2.0",
+      "redistribution_status": "not-applicable",
+      "expected_use": "MBSVG parse, scene-build, and lower conformance for the RFC 0002 §6.1 subset: canonical valid, edge, and malformed-adversarial cases"
     }
   ]
 }
