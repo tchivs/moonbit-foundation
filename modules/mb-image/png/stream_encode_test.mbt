@@ -5966,6 +5966,241 @@ fn png_phase87_parse_indexed(
   }
 }
 
+///| Phase 90 independent Type-3 Adam7 parser: it validates chunk order/CRCs,
+/// canonical palette/tRNS presence, a Fixed DEFLATE block, Adler-32, and the
+/// seven-pass zero-filter packed raster without consulting production facts.
+fn png_phase90_parse_fixed_adam7(bytes : Bytes, depth : UInt64, transparent : Bool) -> Unit {
+  let idat : Array[Byte] = []
+  let mut cursor = 8
+  let mut stage = 0
+  let mut saw_iend = false
+  let mut saw_trns = false
+  while cursor + 12 <= bytes.length() {
+    let length = png_phase87_u32(bytes, cursor).to_int()
+    if length < 0 || cursor + 12 + length > bytes.length() { abort("png phase90 chunk bounds") }
+    let kind = png_phase87_slice(bytes, cursor + 4, 4)
+    if png_phase87_crc32(bytes, cursor + 4, length + 4) != png_phase87_u32(bytes, cursor + 8 + length) {
+      abort("png phase90 chunk crc")
+    }
+    if kind == b"IHDR" {
+      if stage != 0 || length != 13 || png_phase87_u32(bytes, cursor + 8) != 5UL ||
+        png_phase87_u32(bytes, cursor + 12) != 5UL || bytes[cursor + 16] != depth.to_byte() ||
+        bytes[cursor + 17] != b'\x03' || bytes[cursor + 20] != b'\x01' {
+        abort("png phase90 ihdr")
+      }
+      stage = 1
+    } else if kind == b"PLTE" {
+      if stage != 1 || length != 6 || png_phase87_slice(bytes, cursor + 8, 6) != b"\x12\x34\x56\xa0\xb0\xc0" {
+        abort("png phase90 plte")
+      }
+      stage = 2
+    } else if kind == b"tRNS" {
+      if !transparent || stage != 2 || length != 2 || png_phase87_slice(bytes, cursor + 8, 2) != b"\x00\x80" {
+        abort("png phase90 trns")
+      }
+      saw_trns = true
+      stage = 3
+    } else if kind == b"IDAT" {
+      if (transparent && stage != 3) || (!transparent && stage != 2) { abort("png phase90 idat order") }
+      for index = 0; index < length; index = index + 1 { idat.push(bytes[cursor + 8 + index]) }
+      stage = 4
+    } else if kind == b"IEND" {
+      if stage != 4 || length != 0 { abort("png phase90 iend") }
+      saw_iend = true
+      cursor = cursor + 12
+      break
+    } else {
+      abort("png phase90 unexpected chunk")
+    }
+    cursor = cursor + 12 + length
+  }
+  if !saw_iend || cursor != bytes.length() || (transparent != saw_trns) || idat.length() < 7 {
+    abort("png phase90 framing")
+  }
+  let idat_bytes = Bytes::from_array(idat)
+  let raw = png_phase87_inflate(idat_bytes, true)
+  let expected_length = match depth {
+    1UL => 22UL
+    2UL => 24UL
+    4UL => 27UL
+    8UL => 36UL
+    _ => abort("png phase90 depth")
+  }
+  if raw.length().to_uint64() != expected_length ||
+    png_phase87_u32(idat_bytes, idat_bytes.length() - 4) != png_phase87_adler32(raw) {
+    abort("png phase90 fixed raster or adler")
+  }
+  for byte in raw { if byte != b'\x00' { abort("png phase90 packed tail or filter") } }
+}
+
+///| A highly compressible independent fixture forces a complete Adam7 Fixed
+/// winner while still exercising both public RGB8 and RGBA8 decode surfaces.
+fn png_phase90_fixed_adam7_source(transparent : Bool) -> PngIndexedImage {
+  PngIndexedImage::new(
+    5UL, 5UL, Bytes::from_array(Array::make(25, b'\x00')),
+    b"\x12\x34\x56\xa0\xb0\xc0",
+    if transparent { b"\x00\x80" } else { b"\xff\xff" },
+    png_stream_test_budget(),
+  ).unwrap()
+}
+
+fn png_phase90_fixed_adam7_eager(
+  source : PngIndexedImage,
+  depth : UInt64,
+) -> Bytes {
+  let writer = @io.MemoryWriter::new(512UL, png_stream_test_budget(work=0UL)).unwrap()
+  if depth == 8UL {
+    ignore(PngEncoder::encode_indexed8_with_interlace_and_compression_strategy(
+      PngEncoder::new(), source, PngInterlaceStrategy::Adam7, PngCompressionStrategy::FixedOrStored,
+      writer as &@io.Writer, png_stream_test_limits(), png_stream_test_budget(), @error.Diagnostics::new(),
+    ).unwrap())
+  } else {
+    let bit_depth = if depth == 1UL { PngIndexedBitDepth::One } else if depth == 2UL {
+      PngIndexedBitDepth::Two
+    } else { PngIndexedBitDepth::Four }
+    ignore(PngEncoder::encode_indexed_with_interlace_and_compression_strategy(
+      PngEncoder::new(), source, bit_depth, PngInterlaceStrategy::Adam7,
+      PngCompressionStrategy::FixedOrStored, writer as &@io.Writer,
+      png_stream_test_limits(), png_stream_test_budget(), @error.Diagnostics::new(),
+    ).unwrap())
+  }
+  let output : Array[Byte] = []
+  for index = 0UL; index < writer.position(); index = index + 1UL {
+    output.push(writer.view().get(index).unwrap())
+  }
+  Bytes::from_array(output)
+}
+
+fn png_phase90_fixed_adam7_chunk(
+  source : PngIndexedImage,
+  depth : UInt64,
+) -> Bytes {
+  let encoder = if depth == 8UL {
+    PngChunkEncoder::new_indexed8_with_interlace_and_compression_strategy(
+      source, PngInterlaceStrategy::Adam7, PngCompressionStrategy::FixedOrStored,
+      png_stream_test_limits(), png_stream_test_budget(), @error.Diagnostics::new(),
+    ).unwrap()
+  } else {
+    let bit_depth = if depth == 1UL { PngIndexedBitDepth::One } else if depth == 2UL {
+      PngIndexedBitDepth::Two
+    } else { PngIndexedBitDepth::Four }
+    PngChunkEncoder::new_indexed_with_interlace_and_compression_strategy(
+      source, bit_depth, PngInterlaceStrategy::Adam7, PngCompressionStrategy::FixedOrStored,
+      png_stream_test_limits(), png_stream_test_budget(), @error.Diagnostics::new(),
+    ).unwrap()
+  }
+  let output : Array[Byte] = []
+  let schedule = [0UL, 1UL, 3UL, 2UL, 5UL]
+  let mut turn = 0UL
+  while turn < 4096UL {
+    let capacity = schedule[(turn % schedule.length().to_uint64()).to_int()]
+    let owner = png_chunk_test_owner(if capacity == 0UL { 1UL } else { capacity }, fill=b'Z')
+    let before = output.length().to_uint64()
+    let pulled = owner.with_mut(0UL, capacity, fn(lease) { Ok(encoder.pull(lease)) }).unwrap()
+    if pulled.written() > capacity || pulled.total_written() != before + pulled.written() {
+      abort("png phase90 accepted-only progress")
+    }
+    if capacity == 0UL {
+      if pulled.written() != 0UL || pulled.total_written() != before ||
+        !(pulled.outcome() is PngChunkPullOutcome::NeedOutput) || owner.view().get(0UL).unwrap() != b'Z' {
+        abort("png phase90 zero lease sentinel")
+      }
+    } else {
+      for index = pulled.written(); index < capacity; index = index + 1UL {
+        if owner.view().get(index).unwrap() != b'Z' { abort("png phase90 lease tail") }
+      }
+    }
+    for index = 0UL; index < pulled.written(); index = index + 1UL {
+      output.push(owner.view().get(index).unwrap())
+    }
+    match pulled.outcome() {
+      PngChunkPullOutcome::NeedOutput => turn = turn + 1UL
+      PngChunkPullOutcome::Failed(_) => abort("png phase90 fixed chunk failed")
+      PngChunkPullOutcome::Finished => {
+        let later = png_chunk_test_owner(7UL, fill=b'Z')
+        let replay = later.with_mut(0UL, 7UL, fn(lease) { Ok(encoder.pull(lease)) }).unwrap()
+        if replay.written() != 0UL || replay.total_written() != pulled.total_written() ||
+          !(replay.outcome() is PngChunkPullOutcome::Finished) {
+          abort("png phase90 sticky finished")
+        }
+        for index = 0UL; index < 7UL; index = index + 1UL {
+          if later.view().get(index).unwrap() != b'Z' { abort("png phase90 finished tail") }
+        }
+        return Bytes::from_array(output)
+      }
+    }
+  }
+  abort("png phase90 hostile schedule unreachable")
+}
+
+///| Fixed Adam7 eager and hostile chunk-origin bytes are equal, independently
+/// parsed, and decode as public RGB8/RGBA8 for every indexed wire depth.
+test "PNG indexed Adam7 FixedOrStored independent wire and decode qualification" {
+  for depth in [1UL, 2UL, 4UL, 8UL] {
+    for transparent in [true, false] {
+      let eager = png_phase90_fixed_adam7_eager(png_phase90_fixed_adam7_source(transparent), depth)
+      let chunk_source = png_phase90_fixed_adam7_source(transparent)
+      let collected = png_phase90_fixed_adam7_chunk(chunk_source, depth)
+      if collected != eager { abort("png phase90 fixed eager/chunk parity") }
+      png_phase90_parse_fixed_adam7(collected, depth, transparent)
+      let owner = @bytes.OwnedBytes::from_bytes(
+        collected, png_stream_test_budget(work=0UL),
+      ).unwrap()
+      let decoded = @codec.ImageDecoder::decode(
+        PngDecoder::new(), @io.MemoryReader::new(owner.view()) as &@io.Reader,
+        @codec.DecodeOptions::new(require_complete_input=true, preserve_opaque_metadata=false),
+        png_stream_test_limits(output=512UL, work=1048576UL),
+        png_stream_test_budget(work=1048576UL), @error.Diagnostics::new(),
+      ).unwrap().image().view()
+      let expected_channels = if transparent { @model.ChannelOrder::Rgba } else { @model.ChannelOrder::Rgb }
+      if decoded.width() != 5UL || decoded.height() != 5UL || decoded.format().channels() != expected_channels {
+        abort("png phase90 public decode descriptor")
+      }
+      for y = 0UL; y < 5UL; y = y + 1UL {
+        for x = 0UL; x < 5UL; x = x + 1UL {
+          if decoded.get_byte(x, y, 0UL).unwrap() != b'\x12' ||
+            decoded.get_byte(x, y, 1UL).unwrap() != b'\x34' ||
+            decoded.get_byte(x, y, 2UL).unwrap() != b'\x56' {
+            abort("png phase90 public decode palette")
+          }
+          if transparent && decoded.get_byte(x, y, 3UL).unwrap() != b'\x00' {
+            abort("png phase90 public decode alpha")
+          }
+        }
+      }
+    }
+  }
+}
+
+///| A released lease on the Fixed Adam7 route is a sticky zero-write failure.
+test "PNG indexed Adam7 FixedOrStored released lease failure is sticky" {
+  let encoder = PngChunkEncoder::new_indexed_with_interlace_and_compression_strategy(
+    png_phase90_fixed_adam7_source(true), PngIndexedBitDepth::One,
+    PngInterlaceStrategy::Adam7, PngCompressionStrategy::FixedOrStored,
+    png_stream_test_limits(), png_stream_test_budget(), @error.Diagnostics::new(),
+  ).unwrap()
+  let released = png_chunk_test_owner(1UL, fill=b'Z')
+  let first = released.with_mut(0UL, 1UL, fn(lease) {
+    lease.release()
+    Ok(encoder.pull(lease))
+  }).unwrap()
+  let first_error = match first.outcome() {
+    PngChunkPullOutcome::Failed(error) => error
+    _ => abort("png phase90 released lease outcome")
+  }
+  let later = png_chunk_test_owner(1UL, fill=b'Z')
+  let replay = later.with_mut(0UL, 1UL, fn(lease) { Ok(encoder.pull(lease)) }).unwrap()
+  let replay_error = match replay.outcome() {
+    PngChunkPullOutcome::Failed(error) => error
+    _ => abort("png phase90 released lease replay")
+  }
+  if first.written() != 0UL || first.total_written() != 0UL || replay.written() != 0UL ||
+    replay.total_written() != 0UL || !png_chunk_test_same_error(first_error, replay_error) ||
+    released.view().get(0UL).unwrap() != b'Z' || later.view().get(0UL).unwrap() != b'Z' {
+    abort("png phase90 released lease sticky state")
+  }
+}
+
 fn png_phase87_eager_indexed(
   source : PngIndexedImage,
   depth : UInt64,
