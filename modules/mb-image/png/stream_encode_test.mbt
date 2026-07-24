@@ -4986,6 +4986,105 @@ test "PNG indexed compression admission tracer chunk selector" {
   inspect(png_chunk_test_drain_encoder(encoder, [32UL]).unwrap() == eager, content="true")
 }
 
+///| Construction consumes the chosen work once; rejected constructors return no
+///| encoder and therefore cannot expose an active state or caller lease.
+fn png_stream_selected_depth_compression_admission(depth : PngIndexedBitDepth) -> Unit {
+  let source = png_indexed_compression_source(depth)
+  let discovery_budget = png_stream_test_budget(work=4096UL)
+  let discovery_before = discovery_budget.remaining()
+  let discovery = PngChunkEncoder::new_indexed_with_compression_strategy(
+    source, depth, PngCompressionStrategy::FixedOrStored, png_stream_test_limits(),
+    discovery_budget, @error.Diagnostics::new(),
+  ).unwrap()
+  let selected_work = discovery_before.work() - discovery_budget.remaining().work()
+  let expected = png_chunk_test_drain_encoder(discovery, [32UL]).unwrap()
+  let exact_limit = PngChunkEncoder::new_indexed_with_compression_strategy(
+    source, depth, PngCompressionStrategy::FixedOrStored,
+    png_stream_test_limits(work=selected_work), png_stream_test_budget(work=4096UL),
+    @error.Diagnostics::new(),
+  ).unwrap()
+  if png_chunk_test_drain_encoder(exact_limit, [32UL]).unwrap() != expected {
+    abort("png selected exact chunk limit")
+  }
+  let exact_budget = png_stream_test_budget(work=selected_work)
+  let exact = PngChunkEncoder::new_indexed_with_compression_strategy(
+    source, depth, PngCompressionStrategy::FixedOrStored, png_stream_test_limits(),
+    exact_budget, @error.Diagnostics::new(),
+  ).unwrap()
+  if exact_budget.remaining().work() != 0UL || png_chunk_test_drain_encoder(exact, [32UL]).unwrap() != expected {
+    abort("png selected exact chunk budget")
+  }
+  let work_budget = png_stream_test_budget(work=4096UL)
+  let work_before = work_budget.remaining()
+  if !(PngChunkEncoder::new_indexed_with_compression_strategy(
+    source, depth, PngCompressionStrategy::FixedOrStored,
+    png_stream_test_limits(work=selected_work - 1UL), work_budget, @error.Diagnostics::new(),
+  ) is Err(_)) || !png_adam7_stream_same_remaining(work_before, work_budget.remaining()) {
+    abort("png selected one-less chunk limit")
+  }
+  let budget_budget = png_stream_test_budget(work=selected_work - 1UL)
+  let budget_before = budget_budget.remaining()
+  if !(PngChunkEncoder::new_indexed_with_compression_strategy(
+    source, depth, PngCompressionStrategy::FixedOrStored, png_stream_test_limits(),
+    budget_budget, @error.Diagnostics::new(),
+  ) is Err(_)) || !png_adam7_stream_same_remaining(budget_before, budget_budget.remaining()) {
+    abort("png selected one-less chunk budget")
+  }
+  let output_budget = png_stream_test_budget(work=4096UL)
+  let output_before = output_budget.remaining()
+  if !(PngChunkEncoder::new_indexed_with_compression_strategy(
+    source, depth, PngCompressionStrategy::FixedOrStored,
+    png_stream_test_limits(output=expected.length().to_uint64() - 1UL), output_budget,
+    @error.Diagnostics::new(),
+  ) is Err(_)) || !png_adam7_stream_same_remaining(output_before, output_budget.remaining()) {
+    abort("png selected one-less chunk output")
+  }
+  let cap = match depth {
+    PngIndexedBitDepth::One => 2UL
+    PngIndexedBitDepth::Two => 4UL
+    PngIndexedBitDepth::Four => 16UL
+  }
+  let oversized = PngIndexedImage::new(
+    1UL, 1UL, b"\x00", Bytes::from_array(Array::make(((cap + 1UL) * 3UL).to_int(), b'\x12')),
+    Bytes::from_array(Array::make((cap + 1UL).to_int(), b'\xff')), png_stream_test_budget(),
+  ).unwrap()
+  let cap_budget = png_stream_test_budget(work=4096UL)
+  let cap_before = cap_budget.remaining()
+  if !(PngChunkEncoder::new_indexed_with_compression_strategy(
+    oversized, depth, PngCompressionStrategy::FixedOrStored, png_stream_test_limits(),
+    cap_budget, @error.Diagnostics::new(),
+  ) is Err(_)) || !png_adam7_stream_same_remaining(cap_before, cap_budget.remaining()) {
+    abort("png selected palette-cap chunk admission")
+  }
+}
+
+///| All low-bit public chunk selectors reject selected output/work before an
+///| active encoder can be returned, while exact construction drains normally.
+test "PNG indexed compression ancillary admission chunk is atomic" {
+  for depth in [PngIndexedBitDepth::One, PngIndexedBitDepth::Two, PngIndexedBitDepth::Four] {
+    png_stream_selected_depth_compression_admission(depth)
+  }
+  let source = PngIndexedImage::new(
+    64UL, 1UL, Bytes::from_array(Array::make(64, b'\x00')),
+    b"\x12\x34\x56\xa0\xb0\xc0", b"\x00\xff", png_stream_test_budget(),
+  ).unwrap()
+  let discovery_budget = png_stream_test_budget(work=4096UL)
+  let before = discovery_budget.remaining()
+  let encoder = PngChunkEncoder::new_indexed8_with_compression_strategy(
+    source, PngCompressionStrategy::FixedOrStored, png_stream_test_limits(), discovery_budget,
+    @error.Diagnostics::new(),
+  ).unwrap()
+  let selected_work = before.work() - discovery_budget.remaining().work()
+  ignore(png_chunk_test_drain_encoder(encoder, [32UL]).unwrap())
+  let rejected_budget = png_stream_test_budget(work=4096UL)
+  let rejected_before = rejected_budget.remaining()
+  inspect(PngChunkEncoder::new_indexed8_with_compression_strategy(
+    source, PngCompressionStrategy::FixedOrStored,
+    png_stream_test_limits(work=selected_work - 1UL), rejected_budget, @error.Diagnostics::new(),
+  ) is Err(_), content="true")
+  inspect(png_adam7_stream_same_remaining(rejected_before, rejected_budget.remaining()), content="true")
+}
+
 ///| Indexed8 chunk selectors must drain exactly like their eager strategy
 /// oracles and reject unavailable Dynamic output before budget admission.
 test "PNG Indexed8 compression chunk selectors match eager bytes" {

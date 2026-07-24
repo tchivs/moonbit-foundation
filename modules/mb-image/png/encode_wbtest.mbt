@@ -1366,18 +1366,23 @@ fn png_indexed_compression_matrix_source(
 
 ///| The matrix deliberately reaches width 512 at Indexed1, beyond the compact
 /// default white-box fixture limits used by unrelated tests.
-fn png_indexed_compression_matrix_budget() -> @budget.Budget {
+fn png_indexed_compression_matrix_budget(
+  work? : UInt64 = 1048576UL,
+) -> @budget.Budget {
   @budget.Budget::new(@budget.ResourceLimits::new(
     bytes=1048576UL, allocations=8UL, allocation_size=1048576UL,
-    width=512UL, height=64UL, pixels=4096UL, depth=0UL, work=1048576UL,
+    width=512UL, height=64UL, pixels=4096UL, depth=0UL, work~,
   ))
 }
 
 ///|
-fn png_indexed_compression_matrix_limits() -> @codec.CodecLimits {
+fn png_indexed_compression_matrix_limits(
+  output? : UInt64 = 1048576UL,
+  work? : UInt64 = 1048576UL,
+) -> @codec.CodecLimits {
   @codec.CodecLimits::new(
-    max_probe_bytes=8UL, max_input_bytes=1048576UL, max_output_bytes=1048576UL,
-    max_width=512UL, max_height=64UL, max_pixels=4096UL, max_work=1048576UL,
+    max_probe_bytes=8UL, max_input_bytes=1048576UL, max_output_bytes=output,
+    max_width=512UL, max_height=64UL, max_pixels=4096UL, max_work=work,
   )
 }
 
@@ -1434,5 +1439,117 @@ test "PNG indexed compression admission tracer selected facts" {
   match selected.plan {
     PngDeflatePlan::Fixed(_) => inspect(true, content="true")
     _ => inspect(false, content="true")
+  }
+}
+
+///| Complete Type-3 facts are selected before any charge.  Exact and one-less
+///| limits deliberately come from that retained admission instead of a test
+///| framing formula.
+test "PNG indexed compression ancillary admission selected facts are atomic" {
+  for profile in [
+    PngIndexedWireProfile::One, PngIndexedWireProfile::Two,
+    PngIndexedWireProfile::Four, PngIndexedWireProfile::Eight,
+  ] {
+    for stored_fallback in [false, true] {
+      let source = png_indexed_compression_matrix_source(profile, stored_fallback)
+      let admitted = _png_encode_indexed_preflight_with_profile_and_strategy(
+        source, profile, PngInterlaceStrategy::None, PngCompressionStrategy::FixedOrStored,
+        png_indexed_compression_matrix_limits(), png_indexed_compression_matrix_budget(),
+      ).unwrap()
+      inspect(
+        admitted.frame.plte_length == source.palette_length() &&
+          admitted.frame.trns_length == 1UL && admitted.selected_work > 0UL,
+        content="true",
+      )
+      match admitted.plan {
+        PngDeflatePlan::Fixed(_) => inspect(!stored_fallback, content="true")
+        PngDeflatePlan::Stored(_) => inspect(stored_fallback, content="true")
+        PngDeflatePlan::Dynamic(_) => inspect(false, content="true")
+      }
+
+      let exact_limit = png_indexed_compression_matrix_budget()
+      let exact_before = exact_limit.remaining()
+      let exact = _png_encode_indexed_preflight_with_profile_and_strategy(
+        source, profile, PngInterlaceStrategy::None, PngCompressionStrategy::FixedOrStored,
+        png_indexed_compression_matrix_limits(work=admitted.selected_work), exact_limit,
+      ).unwrap()
+      inspect(
+        exact.selected_work == admitted.selected_work &&
+          exact_before.work() - exact_limit.remaining().work() == admitted.selected_work,
+        content="true",
+      )
+
+      let one_less_limit = png_indexed_compression_matrix_budget()
+      let one_less_limit_before = one_less_limit.remaining()
+      let limit_error = _png_encode_indexed_preflight_with_profile_and_strategy(
+        source, profile, PngInterlaceStrategy::None, PngCompressionStrategy::FixedOrStored,
+        png_indexed_compression_matrix_limits(work=admitted.selected_work - 1UL), one_less_limit,
+      ).unwrap_err()
+      inspect(
+        limit_error.context() == Some("work") &&
+          png_wb_same_remaining(one_less_limit_before, one_less_limit.remaining()),
+        content="true",
+      )
+
+      let exact_budget = png_indexed_compression_matrix_budget(work=admitted.selected_work)
+      ignore(_png_encode_indexed_preflight_with_profile_and_strategy(
+        source, profile, PngInterlaceStrategy::None, PngCompressionStrategy::FixedOrStored,
+        png_indexed_compression_matrix_limits(), exact_budget,
+      ).unwrap())
+      inspect(exact_budget.remaining().work() == 0UL, content="true")
+
+      let one_less_budget = png_indexed_compression_matrix_budget(work=admitted.selected_work - 1UL)
+      let one_less_budget_before = one_less_budget.remaining()
+      let budget_error = _png_encode_indexed_preflight_with_profile_and_strategy(
+        source, profile, PngInterlaceStrategy::None, PngCompressionStrategy::FixedOrStored,
+        png_indexed_compression_matrix_limits(), one_less_budget,
+      ).unwrap_err()
+      inspect(
+        budget_error.context() == Some("work") &&
+          png_wb_same_remaining(one_less_budget_before, one_less_budget.remaining()),
+        content="true",
+      )
+
+      ignore(_png_encode_indexed_preflight_with_profile_and_strategy(
+        source, profile, PngInterlaceStrategy::None, PngCompressionStrategy::FixedOrStored,
+        png_indexed_compression_matrix_limits(output=admitted.total_length),
+        png_indexed_compression_matrix_budget(),
+      ).unwrap())
+      let one_less_output = png_indexed_compression_matrix_budget()
+      let one_less_output_before = one_less_output.remaining()
+      let output_error = _png_encode_indexed_preflight_with_profile_and_strategy(
+        source, profile, PngInterlaceStrategy::None, PngCompressionStrategy::FixedOrStored,
+        png_indexed_compression_matrix_limits(output=admitted.total_length - 1UL), one_less_output,
+      ).unwrap_err()
+      inspect(
+        output_error.context() == Some("output-bytes") &&
+          png_wb_same_remaining(one_less_output_before, one_less_output.remaining()),
+        content="true",
+      )
+
+      let cap = profile.palette_cap()
+      // Indexed8 already reaches PngIndexedImage's public 256-entry source
+      // maximum; cap-plus-one remains reachable for the selected low-bit APIs.
+      if cap < 256UL {
+        let oversized = PngIndexedImage::new(
+          1UL, 1UL, b"\x00",
+          Bytes::from_array(Array::make(((cap + 1UL) * 3UL).to_int(), b'\x12')),
+          Bytes::from_array(Array::make((cap + 1UL).to_int(), b'\xff')),
+          png_indexed_compression_matrix_budget(),
+        ).unwrap()
+        let cap_budget = png_indexed_compression_matrix_budget()
+        let cap_before = cap_budget.remaining()
+        let cap_error = _png_encode_indexed_preflight_with_profile_and_strategy(
+          oversized, profile, PngInterlaceStrategy::None, PngCompressionStrategy::FixedOrStored,
+          png_indexed_compression_matrix_limits(), cap_budget,
+        ).unwrap_err()
+        inspect(
+          cap_error.context() == Some("indexed-palette-cap") &&
+            png_wb_same_remaining(cap_before, cap_budget.remaining()),
+          content="true",
+        )
+      }
+
+    }
   }
 }

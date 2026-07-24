@@ -1002,6 +1002,107 @@ test "PNG indexed compression admission tracer eager selector" {
   inspect(png_encode_prefix(writer).length() > 0, content="true")
 }
 
+///| Measure selected work through a successful public admission, then reuse
+///| that fact for exact and one-less eager boundary observations.
+fn png_encode_selected_depth_compression_admission(depth : PngIndexedBitDepth) -> Unit {
+  let source = png_indexed_compression_source(depth)
+  let discovery = png_encode_budget(work=4096UL)
+  let before = discovery.remaining()
+  let writer = @io.MemoryWriter::new(512UL, png_encode_budget(bytes=512UL, work=0UL)).unwrap()
+  ignore(PngEncoder::encode_indexed_with_compression_strategy(
+    PngEncoder::new(), source, depth, PngCompressionStrategy::FixedOrStored,
+    writer as &@io.Writer, png_encode_limits(work=4096UL), discovery, @error.Diagnostics::new(),
+  ).unwrap())
+  let selected_output = writer.position()
+  let selected_work = before.work() - discovery.remaining().work()
+  let exact_budget = png_encode_budget(work=selected_work)
+  let exact_writer = @io.MemoryWriter::new(512UL, png_encode_budget(bytes=512UL, work=0UL)).unwrap()
+  ignore(PngEncoder::encode_indexed_with_compression_strategy(
+    PngEncoder::new(), source, depth, PngCompressionStrategy::FixedOrStored,
+    exact_writer as &@io.Writer, png_encode_limits(work=4096UL), exact_budget, @error.Diagnostics::new(),
+  ).unwrap())
+  if exact_budget.remaining().work() != 0UL || exact_writer.position() != selected_output {
+    abort("png selected exact eager admission")
+  }
+  let limit_budget = png_encode_budget(work=4096UL)
+  let limit_before = limit_budget.remaining()
+  let limit_writer = @io.MemoryWriter::new(512UL, png_encode_budget(bytes=512UL, work=0UL)).unwrap()
+  if !(PngEncoder::encode_indexed_with_compression_strategy(
+    PngEncoder::new(), source, depth, PngCompressionStrategy::FixedOrStored,
+    limit_writer as &@io.Writer, png_encode_limits(work=selected_work - 1UL), limit_budget,
+    @error.Diagnostics::new(),
+  ) is Err(_)) || limit_writer.position() != 0UL ||
+    !png_adam7_same_remaining(limit_before, limit_budget.remaining()) {
+    abort("png selected one-less work eager admission")
+  }
+  let output_budget = png_encode_budget(work=4096UL)
+  let output_before = output_budget.remaining()
+  let output_writer = @io.MemoryWriter::new(512UL, png_encode_budget(bytes=512UL, work=0UL)).unwrap()
+  if !(PngEncoder::encode_indexed_with_compression_strategy(
+    PngEncoder::new(), source, depth, PngCompressionStrategy::FixedOrStored,
+    output_writer as &@io.Writer, png_encode_limits(output=selected_output - 1UL, work=4096UL),
+    output_budget, @error.Diagnostics::new(),
+  ) is Err(_)) || output_writer.position() != 0UL ||
+    !png_adam7_same_remaining(output_before, output_budget.remaining()) {
+    abort("png selected one-less output eager admission")
+  }
+  let cap = match depth {
+    PngIndexedBitDepth::One => 2UL
+    PngIndexedBitDepth::Two => 4UL
+    PngIndexedBitDepth::Four => 16UL
+  }
+  let oversized = PngIndexedImage::new(
+    1UL, 1UL, b"\x00", Bytes::from_array(Array::make(((cap + 1UL) * 3UL).to_int(), b'\x12')),
+    Bytes::from_array(Array::make((cap + 1UL).to_int(), b'\xff')), png_encode_budget(),
+  ).unwrap()
+  let cap_budget = png_encode_budget(work=4096UL)
+  let cap_before = cap_budget.remaining()
+  let cap_writer = @io.MemoryWriter::new(512UL, png_encode_budget(bytes=512UL, work=0UL)).unwrap()
+  if !(PngEncoder::encode_indexed_with_compression_strategy(
+    PngEncoder::new(), oversized, depth, PngCompressionStrategy::FixedOrStored,
+    cap_writer as &@io.Writer, png_encode_limits(work=4096UL), cap_budget, @error.Diagnostics::new(),
+  ) is Err(_)) || cap_writer.position() != 0UL ||
+    !png_adam7_same_remaining(cap_before, cap_budget.remaining()) {
+    abort("png selected palette-cap eager admission")
+  }
+}
+
+///| Public eager selected-depth rejection remains pre-output and preserves the
+///| full caller budget for the selected work and frame boundaries.
+test "PNG indexed compression ancillary admission eager is atomic" {
+  let constructor_budget = png_encode_budget()
+  let constructor_before = constructor_budget.remaining()
+  inspect(PngIndexedImage::new(
+    4294967296UL, 1UL, b"\x00", b"\x12\x34\x56", b"\xff", constructor_budget,
+  ) is Err(_), content="true")
+  inspect(png_adam7_same_remaining(constructor_before, constructor_budget.remaining()), content="true")
+  for depth in [PngIndexedBitDepth::One, PngIndexedBitDepth::Two, PngIndexedBitDepth::Four] {
+    png_encode_selected_depth_compression_admission(depth)
+  }
+  let source = PngIndexedImage::new(
+    64UL, 1UL, Bytes::from_array(Array::make(64, b'\x00')),
+    b"\x12\x34\x56\xa0\xb0\xc0", b"\x00\xff", png_encode_budget(),
+  ).unwrap()
+  let discovery_budget = png_encode_budget(work=4096UL)
+  let before = discovery_budget.remaining()
+  let discovery_writer = @io.MemoryWriter::new(512UL, png_encode_budget(bytes=512UL, work=0UL)).unwrap()
+  ignore(PngEncoder::encode_indexed8_with_compression_strategy(
+    PngEncoder::new(), source, PngCompressionStrategy::FixedOrStored,
+    discovery_writer as &@io.Writer, png_encode_limits(work=4096UL), discovery_budget,
+    @error.Diagnostics::new(),
+  ).unwrap())
+  let selected_work = before.work() - discovery_budget.remaining().work()
+  let rejected_budget = png_encode_budget(work=4096UL)
+  let rejected_before = rejected_budget.remaining()
+  let rejected_writer = @io.MemoryWriter::new(512UL, png_encode_budget(bytes=512UL, work=0UL)).unwrap()
+  inspect(PngEncoder::encode_indexed8_with_compression_strategy(
+    PngEncoder::new(), source, PngCompressionStrategy::FixedOrStored,
+    rejected_writer as &@io.Writer, png_encode_limits(work=selected_work - 1UL), rejected_budget,
+    @error.Diagnostics::new(),
+  ) is Err(_), content="true")
+  inspect(rejected_writer.position() == 0UL && png_adam7_same_remaining(rejected_before, rejected_budget.remaining()), content="true")
+}
+
 ///| Every selected low-bit facade preserves its Stored baseline and shares the
 /// same deterministic Fixed winner as Indexed8.
 test "PNG indexed compression selectors preserve Stored and select the matrix plan" {
