@@ -28,6 +28,10 @@ MoonBit developers can reuse stable, high-performance native infrastructure cont
 
 **Scope boundary:** This milestone does not add Dynamic indexed DEFLATE, adaptive filters, indexed Adam7 compression selection, generic source-model changes, FFI, release automation, or copied source trees. Existing indexed Adam7 APIs remain explicit Stored/filter-None compatibility baselines.
 
+**Phase 85 shipped:** Non-interlaced Indexed1/2/4/8 now expose explicit
+Stored-or-Fixed eager and caller-buffered selectors. Legacy bytes remain frozen,
+Dynamic is rejected before admission, and native PNG verification passed 303/303.
+
 ## Requirements
 
 ### Validated
@@ -65,11 +69,11 @@ MoonBit developers can reuse stable, high-performance native infrastructure cont
 - [x] Provide explicit eager Type-6/16 RGBA encoding from checked packed little-endian images without changing generic RGB8/RGBA8 output. — Validated in v0.22 Phase 69.
 - [x] Provide caller-buffered and Adam7 Type-6/16 RGBA encoding through the existing bounded machine. — Validated in v0.22 Phases 70-71.
 - [x] Prove exact RGBA16 wire/decode fidelity, hostile input and lease handling, frozen compatibility, and four-target portability. — Validated in v0.22 Phase 72.
+- [x] Let library users explicitly select `Stored` or `FixedOrStored` for non-interlaced Type-3/1, /2, /4, and /8 eager and caller-buffered PNG encoding, while all existing/default indexed APIs remain byte-identical Stored/filter-None forwards and Dynamic is rejected as unavailable. — Validated in v0.28 Phase 85.
+- [x] Emit exact, deterministic Fixed DEFLATE blocks from bounded canonical indexed filter-None raw bytes only when the complete Type-3 frame is no larger than Stored, otherwise retain Stored, without a second encoder, staging, matcher widening, or a source-model change. — Validated in v0.28 Phase 85.
 
 ### Active
 
-- [ ] Let library users explicitly select `Stored` or `FixedOrStored` for non-interlaced Type-3/1, /2, /4, and /8 eager and caller-buffered PNG encoding, while all existing/default indexed APIs remain byte-identical Stored/filter-None forwards and Dynamic is rejected as unavailable.
-- [ ] Emit exact, deterministic Fixed DEFLATE blocks from bounded canonical indexed filter-None raw bytes only when the complete Type-3 frame is no larger than Stored, otherwise retain Stored, without a second encoder, staging, matcher widening, or a source-model change.
 - [ ] Compute PLTE/tRNS-aware exact candidate frame and work facts before one budget charge, then integrate the selected plan through the shared acknowledged eager and caller-buffered machine.
 - [ ] Preserve atomic failures and hostile caller-buffered lifecycle behavior for the new routes, including no observable bytes or lease after rejected admission and sticky terminal failures after released leases.
 - [ ] Independently qualify Fixed-or-Stored Type-3 wire bytes, public RGB8/RGBA8 decode, legacy vectors, and ordinary PNG package execution on wasm, wasm-gc, js, and native.
