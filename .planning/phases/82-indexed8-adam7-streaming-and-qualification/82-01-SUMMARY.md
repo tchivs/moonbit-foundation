@@ -62,6 +62,7 @@ status: complete
 ## Accomplishments
 
 - Added RED/GREEN TDD coverage for zero-capacity, one-byte, and ragged Indexed8 Adam7 caller leases, including accepted-only totals, untouched tails, and sticky Finished/Failed replay.
+- Added a ragged capacity-7 schedule that reaches `Finished` with an unaccepted caller-owned tail, proving the terminal pull preserves that `Z` sentinel.
 - Independently qualified drained chunk bytes for Type-3/8 Adam7 IHDR, PLTE/tRNS, CRCs, Stored seven-pass raster, and all 25 public RGBA palette pixels.
 - Kept all production files unchanged and passed the frozen PNG suite on wasm, wasm-gc, js, and native.
 
@@ -69,6 +70,7 @@ status: complete
 
 1. **Task 1: Add the failing Indexed8 Adam7 hostile lifecycle and chunk-origin tracer** — `5520dd1` (test)
 2. **Task 2: Implement only the test helper and close Indexed8 Adam7 streaming qualification** — `8e27a00` (test)
+3. **Code review follow-up: Retain Adam7 Finished lease tail** — `226192f` (test)
 
 ## Files Created/Modified
 
