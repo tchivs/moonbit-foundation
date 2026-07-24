@@ -1493,6 +1493,39 @@ test "PNG Indexed8 source and eager admissions are atomic" {
   )
 }
 
+///| The public indexed constructor rejects a dimension outside PNG's checked
+/// range, while every selected-depth Adam7 public admission fails before
+/// writer progress or its one budget charge.
+test "PNG selected low-bit Adam7 constructor and public preflight are typed and atomic" {
+  let constructor_budget = png_encode_budget()
+  let constructor_before = constructor_budget.remaining()
+  let constructor_error = PngIndexedImage::new(
+    4294967296UL, 1UL, b"\x00", b"\x12\x34\x56", b"\xff", constructor_budget,
+  ).unwrap_err()
+  inspect(constructor_error.context() == Some("png-u32-dimensions"), content="true")
+  inspect(png_adam7_same_remaining(constructor_before, constructor_budget.remaining()), content="true")
+
+  let source = PngIndexedImage::new(
+    1UL, 1UL, b"\x00", b"\x12\x34\x56", b"\xff", png_encode_budget(),
+  ).unwrap()
+  for bit_depth in [
+    PngIndexedBitDepth::One, PngIndexedBitDepth::Two, PngIndexedBitDepth::Four,
+  ] {
+    let writer = @io.MemoryWriter::new(
+      1UL, png_encode_budget(bytes=1UL, work=0UL),
+    ).unwrap()
+    let budget = png_encode_budget()
+    let before = budget.remaining()
+    let error = PngEncoder::encode_indexed_with_interlace_strategy(
+      PngEncoder::new(), source, bit_depth, PngInterlaceStrategy::Adam7,
+      writer as &@io.Writer, png_encode_limits(output=1UL), budget,
+      @error.Diagnostics::new(),
+    ).unwrap_err()
+    inspect(error.context() == Some("output-bytes"), content="true")
+    inspect(writer.position() == 0UL && png_adam7_same_remaining(before, budget.remaining()), content="true")
+  }
+}
+
 ///| A compact multi-pass source whose component at `(x, y, channel)` is its
 /// row-major byte offset.  The same source shape is used by the chunk tests.
 fn png_adam7_admission_image(
