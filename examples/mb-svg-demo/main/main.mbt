@@ -170,6 +170,81 @@ fn run_case(
   true
 }
 
+// Like run_case but renders onto a caller-specified opaque background instead
+// of a transparent one. Used for opacity-compositing cases where the result
+// depends on source-over blending against the backdrop.
+fn run_case_on_bg(
+  label : String,
+  svg_source : String,
+  width : UInt64,
+  height : UInt64,
+  bg_r : Byte,
+  bg_g : Byte,
+  bg_b : Byte,
+  bg_a : Byte,
+  inside : (UInt64, UInt64),
+) -> Bool {
+  let scene = match @svg.parse_svg(svg_source) {
+    Ok(s) => s
+    Err(_) => {
+      println(label + ": FAIL (parse_svg returned Err)")
+      return false
+    }
+  }
+  let list = @svg.lower_to_drawing_list(scene)
+  if list.length() == 0 {
+    println(label + ": FAIL (drawing list is empty)")
+    return false
+  }
+  let image = demo_solid(width, height, bg_r, bg_g, bg_b, bg_a)
+  match @canvas.render(list, image, demo_budget(65536UL, 65536UL)) {
+    Err(_) => {
+      println(label + ": FAIL (render returned Err)")
+      return false
+    }
+    Ok(_) => ()
+  }
+  let (px, py) = inside
+  let (r, g, b, a) = demo_pixel(image, px, py)
+  let got = (r.to_int(), g.to_int(), b.to_int(), a.to_int())
+  // For opacity cases the exact byte depends on mb-color's sRGB quantizer, so
+  // assert the invariant (alpha full, green==blue for red-over-white) rather
+  // than the brittle exact tuple. Print the actual value for visibility.
+  let invariant_ok = got.3 == 255 && got.1 == got.2 && got.1 > 0 && got.1 < 255
+  if not(invariant_ok) {
+    println(
+      label +
+        ": FAIL (pixel (" +
+        px.to_string() +
+        "," +
+        py.to_string() +
+        ") = " +
+        got.0.to_string() +
+        "," +
+        got.1.to_string() +
+        "," +
+        got.2.to_string() +
+        "," +
+        got.3.to_string() +
+        "; expected pink a=255, g==b in (0,255))",
+    )
+    return false
+  }
+  println(
+    label +
+      ": OK (pixel " +
+      got.0.to_string() +
+      "," +
+      got.1.to_string() +
+      "," +
+      got.2.to_string() +
+      "," +
+      got.3.to_string() +
+      ")",
+  )
+  true
+}
+
 fn main {
   // Case 1: a red rectangle covering the whole 8×8 image. Every pixel should
   // be opaque red (255,0,0,255).
@@ -206,7 +281,28 @@ fn main {
     }
     Err(_) => println("centered blue rect exterior: FAIL (parse)")
   }
-  if ok1 && ok2 {
+  // Case 3: fill-opacity compositing. A 50% opaque red rect drawn over an
+  // opaque white background. Source-over of (1,0,0,0.5) over (1,1,1,1):
+  //   out_a = 0.5 + 1*0.5 = 1.0
+  //   out_r = (1*0.5 + 1*0.5)/1 = 1.0   → 255
+  //   out_g = (0*0.5 + 1*0.5)/1 = 0.5   → mid-range (sRGB quantized)
+  //   out_b = 0.5                       → mid-range
+  // This proves fill-opacity flows end-to-end into real pixels, not just the
+  // FillStyle field. The exact G/B byte depends on mb-color's sRGB quantizer,
+  // so run_case_on_bg asserts the invariant (alpha full, green==blue in
+  // (0,255) — pink, not pure red or pure white) and prints the actual value.
+  let ok3 = run_case_on_bg(
+    "half-opacity red over white",
+    "<svg><rect width=\"8\" height=\"8\" fill=\"red\" fill-opacity=\"0.5\"/></svg>",
+    8UL,
+    8UL,
+    b'\xff',
+    b'\xff',
+    b'\xff',
+    b'\xff',
+    (4UL, 4UL),
+  )
+  if ok1 && ok2 && ok3 {
     println("mb-svg end-to-end: PASS")
   } else {
     println("mb-svg end-to-end: FAIL")

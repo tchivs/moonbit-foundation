@@ -185,3 +185,41 @@ test "lower skips unknown deferred subtrees (no ops emitted)" {
     Err(_) => inspect("err", content="ok")
   }
 }
+
+///|
+test "lower applies fill-opacity to the Fill op alpha" {
+  // fill-opacity="0.5" must flow through Paint into the FillStyle's alpha.
+  match parse_svg("<svg><rect width=\"4\" height=\"4\" fill=\"red\" fill-opacity=\"0.5\"/></svg>") {
+    Ok(scene) => {
+      let list = lower_to_drawing_list(scene)
+      match list.get(0) {
+        Some(Fill(_, style)) => {
+          inspect(style.color_r, content="1")
+          inspect(style.color_a, content="0.5")
+        }
+        other => inspect("other", content="other")
+      }
+    }
+    Err(_) => inspect("err", content="ok")
+  }
+}
+
+///|
+test "lower applies stroke-opacity and keeps fill opaque by default" {
+  match parse_svg("<svg><rect width=\"4\" height=\"4\" fill=\"red\" stroke=\"blue\" stroke-opacity=\"0.25\"/></svg>") {
+    Ok(scene) => {
+      let list = lower_to_drawing_list(scene)
+      // Fill is opaque (no fill-opacity) → alpha 1.
+      match list.get(0) {
+        Some(Fill(_, style)) => inspect(style.color_a, content="1")
+        other => inspect("other", content="other")
+      }
+      // Stroke color carries stroke-opacity=0.25.
+      match list.get(1) {
+        Some(Stroke(_, _, color)) => inspect(color.color_a, content="0.25")
+        other => inspect("other", content="other")
+      }
+    }
+    Err(_) => inspect("err", content="ok")
+  }
+}

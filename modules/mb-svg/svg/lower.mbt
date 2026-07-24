@@ -17,9 +17,10 @@
 //   - StrokeStyle cap/join/miter/dash use canvas defaults (no SVG attr wiring).
 //   - fill-rule / clip-rule attributes are not read; fills default to Nonzero.
 //   - rx/ry rounded corners on <rect> are ignored (treated as sharp).
-//   - fill-opacity/stroke-opacity are not applied: mb-canvas's FillStyle is
-//     cross-package read-only and its constructor pins alpha=1.0. Honoring
-//     opacity awaits an mb-canvas alpha surface.
+//
+// fill-opacity/stroke-opacity ARE applied (via FillStyle::with_alpha, which
+// mb-canvas now exposes). group/element `opacity` (separate from paint
+// opacity) is a follow-up.
 
 ///|
 /// Lower a scene tree into a drawing list. Returns a fresh DrawingList with
@@ -89,19 +90,17 @@ fn emit_shape(
 // Style helpers
 // ---------------------------------------------------------------------------
 
-// Build an opaque FillStyle from normalized sRGB components. mb-canvas's
-// FillStyle is read-only across packages and its constructor pins alpha=1.0,
-// so fill-opacity/stroke-opacity are not applied in v0.1; honoring them
-// awaits an mb-canvas alpha surface (setter or 4-arg constructor). The
-// Nonzero winding rule is the SVG default; EvenOdd is a follow-up.
+// Build a FillStyle from normalized sRGB components + straight alpha. Alpha
+// comes from the resolved fill-opacity/stroke-opacity (default 1.0) and is
+// applied via mb-canvas's with_alpha (clamped to [0,1] there). The Nonzero
+// winding rule is the SVG default; EvenOdd is a follow-up via fill-rule.
 fn make_fill_style(
   r : Double,
   g : Double,
   b : Double,
-  _alpha : Double,
+  alpha : Double,
 ) -> @canvas.FillStyle {
-  // _alpha intentionally unused until mb-canvas exposes alpha control.
-  @canvas.FillStyle::new(r, g, b)
+  @canvas.FillStyle::new(r, g, b).with_alpha(alpha)
 }
 
 // ---------------------------------------------------------------------------
