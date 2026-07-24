@@ -138,6 +138,15 @@ Consistent with RFC 0001 Section 4.4 and the `mb-core` resource-budget contracts
 - **Deterministic output.** A given SVG document and a given set of resolved context values (including `currentColor`) produce a single scene tree, and where rasterized, a single raster, on every target. No ambient state, no host clock, no nondeterministic iteration order in the public contract.
 - **Hostile inputs.** Malformed documents, pathologically deep nesting, exponential-complexity path expressions, and oversized coordinate values are rejected before allocation, consistent with the security and resource-limit posture RFC 0001 Section 10 requires for untrusted inputs.
 
+### 8.1 v0.1 status (bounds)
+
+The two bullets above (Checked geometry, Bounded input) describe the **target** contract. The v0.1 implementation delivers a subset of it and defers the rest, recorded here so the RFC does not over-claim what shipped:
+
+- **Delivered in v0.1:** malformed-markup rejection (unterminated tags/comments, unquoted attribute values, non-`svg` root, missing required attributes such as `<path d>`, bare `<`) through structured `CoreError`; deterministic output (pure functions of input + resolved context, no ambient state).
+- **Deferred from v0.1:** quantitative document-size, nesting-depth, path-command-count, and attribute-count budgets; checked `mb-core` arithmetic on coordinates/lengths (v0.1 uses `Double`). Wiring `mb-core/budget` through `parse_svg` and the per-element build functions is a follow-up phase; until then, pathologically large or deeply nested untrusted inputs are not rejected by a numeric ceiling. Callers handling untrusted SVG must apply their own outer size/depth caps until this lands.
+
+This deferral is consistent with RFC 0001 Section 6.4 (deferred layers may consume accepted lower-layer contracts but cannot redefine them through implementation alone): the budget contract is consumed, not redefined, once wired.
+
 ## 9. Alternatives considered and rejected
 
 - **Wrap a mature SVG library as the core implementation.** Rejected. It violates RFC 0001 Section 4.1 (MoonBit implementation by default) and contaminates a portable package with foreign code. A foreign library may appear only as an isolated, replaceable native adapter behind the rasterization seam.
@@ -162,6 +171,19 @@ Before `mb-svg` may merge, the implementing phases must produce, consistent with
 4. Deterministic benchmarks with declared workloads and reproducible baselines for performance-sensitive work (path expansion, transform composition, rasterization).
 5. A security and resource-limit review for untrusted SVG inputs, covering the bounds in Section 8.
 6. Phase-A evidence (no rasterization) and, separately, Phase-B evidence gated on the Section 7.2 decision.
+
+### 11.1 v0.1 verification status
+
+Evidence ledger for the v0.1 implementation (this revision records status against the six items above):
+
+| Item | Status | Evidence |
+|---|---|---|
+| §11.1 Tests | Delivered | Unit white-box tests for color/length/transform/path-data/scene/lower (paint inheritance, currentColor, opacity, stroke-style wiring, fill-rule, rx/ry, viewBox mapping, dashoffset) plus a black-box conformance suite; ~900 tests pass. |
+| §11.2 Four-target CI | Delivered | `moon test` green on `js`, `wasm`, `wasm-gc`, `native`; end-to-end render demo (`examples/mb-svg-demo`) runs to PASS on all four. |
+| §11.3 Conformance fixtures | Delivered | `fixtures/svg/cases.json` (canonical/edge/adversarial) with provenance/license in `fixtures/manifest.json`; consumed inline by `conformance_wbtest.mbt`. |
+| §11.4 Benchmarks | Deferred | No benchmark infrastructure exists in the repository yet; the first benchmark suite (declared workloads for path expansion, transform composition, full parse→lower→render) is a separate follow-up once `moon bench` conventions are established. |
+| §11.5 Security/resource review | Partial | Malformed-input rejection is covered (§8.1 delivered). Quantitative bounds (document-size/depth/path-count/attribute-count ceilings, checked arithmetic) are deferred per §8.1; the review therefore records "partial — malformed rejection only, numeric ceilings pending the budget-wiring phase". Callers handling untrusted SVG must apply outer caps until then. |
+| §11.6 Phase A / Phase B | Delivered | Phase A (parse + represent) and Phase B (rasterize) both reach end-to-end: `parse_svg` → `lower_to_drawing_list` → `mb-canvas render` → pixels, verified by the demo on all four targets. (Phase B used Section 7.2 option 1 — the accepted `mb-canvas` surface.) |
 
 ## 12. What this RFC does not decide
 
