@@ -1,52 +1,55 @@
 # Requirements: MoonBit Native Foundation
 
 **Defined:** 2026-07-24
-**Milestone:** v0.27 Low-Bit Indexed Adam7 PNG Encode
+**Milestone:** v0.28 Indexed PNG Compression Profiles
 **Core Value:** MoonBit developers can reuse stable, high-performance native infrastructure contracts instead of rebuilding incompatible foundations for every graphics, document, media, or automation product.
 
-## v0.27 Requirements
+## v0.28 Requirements
 
-### Packed low-bit Adam7 machine and eager contract
+### Indexed Fixed-or-Stored API and exact wire contract
 
-- [x] **INDEXLOWADAM7-01**: Library users can explicitly encode an existing canonical unpacked `PngIndexedImage` as a bounded Type-3 Adam7 PNG at selected depth 1, 2, or 4 through additive eager and caller-buffered selectors, while existing `encode_indexed` and `new_indexed` remain explicit non-interlaced forwards and every legacy Indexed1/2/4 and Indexed8 byte vector stays unchanged.
-- [x] **INDEXLOWADAM7-02**: Low-bit Adam7 traversal derives every nonempty pass's checked local width, height, and packed row bytes from the selected-depth shared seven-pass geometry, emits a filter-None byte per pass row, and packs canonical source indices MSB-first from pass-local coordinates with deterministic zero tails, without a packed source model, second encoder, or image/pass/output staging.
-- [x] **INDEXLOWADAM7-03**: Type-3/1, /2, and /4 Adam7 output preserves exact `IHDR → PLTE → optional canonical tRNS → IDAT → IEND` Stored/filter-None framing: PLTE capacity applies to actual entries, tRNS remains shortest canonical, and every source coordinate publicly decodes to its exact palette RGB8 or RGBA8 value.
-- [x] **INDEXLOWADAM7-04**: Selected-depth Adam7 preflight computes checked packed pass totals, Stored IDAT/frame/output/work facts, validates dimensions and palette capacity, applies all limits, and performs exactly one budget charge atomically: exact limits pass while one-less output/work, palette overflow, or arithmetic failure expose no eager bytes or caller lease and do not mutate budget.
+- [ ] **INDEXCOMP-01**: Library users can explicitly select `Stored` or `FixedOrStored` for non-interlaced Type-3/1, /2, /4, and /8 `PngIndexedImage` eager and caller-buffered encoding; the existing indexed methods and the new `Stored` selection produce byte-identical Stored/filter-None compatibility bytes, while `DynamicOrFixedOrStored` fails before planning or budget charge with a stable unavailable-capability result.
+- [ ] **INDEXCOMP-02**: For an explicit indexed `FixedOrStored` request, the encoder derives canonical filter-None indexed raw bytes through one bounded shared raw-byte/match producer and emits an exact Fixed DEFLATE block only when its complete Type-3 PNG frame is no larger than Stored; otherwise it emits Stored, without image/pass/output/token staging, a second encoder, matcher widening, or a generic source-model change.
 
-### Streaming qualification and portability
+### Ancillary-aware bounded admission and integration
 
-- [x] **INDEXLOWADAM7-05**: Caller-buffered low-bit Adam7 output reuses the one admitted eager machine and is byte-identical under zero-capacity, one-byte, and ragged hostile lease schedules; total progress counts accepted bytes only, rejected sentinel-filled tails remain untouched, released leases replay sticky zero-write failure, and completed pulls are zero-write `Finished` without destination mutation.
-- [x] **INDEXLOWADAM7-06**: For each selected depth, independent test-local parsing of eager and collected chunk-origin bytes proves the Adam7 packed raw raster, tail zeros, framing, CRCs, and public decode; frozen Type-3 low-bit non-interlaced and Indexed8 Adam7 vectors remain unchanged, and the ordinary PNG package gate passes on wasm, wasm-gc, js, and native.
+- [ ] **INDEXCOMP-03**: Before writer progress, caller lease exposure, or budget mutation, the selected non-interlaced indexed profile computes selected-depth geometry, actual PLTE and shortest canonical tRNS framing, and exact Stored/Fixed frame/output/work facts; exact limits admit exactly one budget charge and one-less output/work, palette overflow, or checked-arithmetic failure are atomic.
+
+### Hostile streaming and independent qualification
+
+- [ ] **INDEXCOMP-04**: The admitted indexed Fixed-or-Stored plan uses the existing acknowledged eager and caller-buffered machine so zero-capacity, one-byte, and ragged leases reproduce fresh eager bytes with accepted-only progress and untouched rejected sentinel tails; released leases and replay-accounting failures become sticky zero-write terminal errors, and completed pulls leave destinations unchanged.
+- [ ] **INDEXCOMP-05**: Independent test-local parsing of eager and collected chunk-origin Type-3 bytes proves Fixed-or-Stored selection, DEFLATE/wire framing, PLTE/tRNS canonicalisation, filter-None packed raw rows and tails, Adler/CRCs, public RGB8/RGBA8 decode, and frozen legacy vectors; the ordinary PNG package gate passes on wasm, wasm-gc, js, and native.
 
 ## Future Requirements
 
-- **INDEXCOMPRESS-01**: Consider low-bit indexed filter or compression strategies only after the fixed Stored/None indexed profiles remain stable.
+- **INDEXCOMP-FUTURE-01**: Consider Dynamic indexed DEFLATE only after a separately scoped strict-win contract and compatibility plan are approved.
+- **INDEXCOMP-FUTURE-02**: Consider adaptive indexed filtering only after it has a separately scoped packed-row and compression interaction contract.
+- **INDEXCOMP-FUTURE-03**: Consider Indexed Adam7 compression selection only after the non-interlaced profile has its own qualified compatibility baseline.
 
 ## Out of Scope
 
 | Feature | Reason |
 |---------|--------|
-| Generic indexed-model widening, a packed public source model, quantization, palette generation, dithering, scaling, or decoder changes | This milestone encodes only the existing canonical unpacked indexed source. |
-| Additional interlace, filter, or compression strategies | The explicit Adam7 selector and Stored/filter-None wire profile are the bounded compatibility baseline. |
-| Image/pass/output staging or a second eager/chunk encoder | The sole acknowledged machine must replay bounded pass-local output directly. |
-| FFI, target wrappers, copied source trees, registry publication, or release automation | None is required to implement or qualify this portable library capability. |
+| Dynamic indexed DEFLATE, adaptive indexed filters, or indexed Adam7 compression selection | v0.28 admits only explicit non-interlaced Stored-or-Fixed selection; existing Adam7 paths stay Stored/filter-None. |
+| Generic indexed-model widening, a packed public source model, quantization, palette generation, dithering, scaling, or decoder changes | This milestone operates only on the existing canonical unpacked indexed source. |
+| A 32 KiB dictionary or broader matching, image/pass/output/token staging, or a second encoder | The existing bounded producer, matcher, and acknowledged machine remain the sole path. |
+| FFI, host adapters, target wrappers, copied source trees, registry publication, or release automation | None is needed for this portable library capability. |
 
 ## Traceability
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| INDEXLOWADAM7-01 | Phase 83 | Complete |
-| INDEXLOWADAM7-02 | Phase 83 | Complete |
-| INDEXLOWADAM7-03 | Phase 83 | Complete |
-| INDEXLOWADAM7-04 | Phase 83 | Complete |
-| INDEXLOWADAM7-05 | Phase 84 | Complete |
-| INDEXLOWADAM7-06 | Phase 84 | Complete |
+| INDEXCOMP-01 | Phase 85 | Pending |
+| INDEXCOMP-02 | Phase 85 | Pending |
+| INDEXCOMP-03 | Phase 86 | Pending |
+| INDEXCOMP-04 | Phase 87 | Pending |
+| INDEXCOMP-05 | Phase 87 | Pending |
 
 **Coverage:**
 
-- v0.27 requirements: 6 total
-- Mapped to phases: 6
+- v0.28 requirements: 5 total
+- Mapped to phases: 5
 - Unmapped: 0 ✓
 
 ---
-*Requirements defined: 2026-07-24 from `research/v027-LOWBIT-ADAM7.md`*
+*Requirements defined: 2026-07-24 from `research/v028-INDEXED-PNG-COMPRESSION.md`; v0.27 requirements remain archived at `milestones/v0.27-REQUIREMENTS.md`.*

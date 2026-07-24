@@ -28,63 +28,79 @@
 - ✅ **v0.24 Indexed PNG Encode** — Phases 76-78 (shipped 2026-07-24). [Full history](./milestones/v0.24-ROADMAP.md)
 - ✅ **v0.25 Indexed Low-Bit PNG Encode** — Phases 79-80 (shipped 2026-07-24). [Full history](./milestones/v0.25-ROADMAP.md)
 - ✅ **v0.26 Indexed8 Adam7 PNG Encode** — Phases 81-82 (shipped 2026-07-24). [Full history](./milestones/v0.26-ROADMAP.md)
-- 📋 **v0.27 Low-Bit Indexed Adam7 PNG Encode** — Phases 83-84 (planned).
+- ✅ **v0.27 Low-Bit Indexed Adam7 PNG Encode** — Phases 83-84 (shipped 2026-07-24). [Full history](./milestones/v0.27-ROADMAP.md)
+- 📋 **v0.28 Indexed PNG Compression Profiles** — Phases 85-87 (planned).
 
 ## Phases
 
-### 📋 v0.27 Low-Bit Indexed Adam7 PNG Encode
+### 📋 v0.28 Indexed PNG Compression Profiles
 
-- [x] **Phase 83: Low-Bit Indexed Adam7 Machine and Eager Contract** — Add selected-depth packed Adam7 traversal, exact framing, and atomic admission to the sole machine.
-- [x] **Phase 84: Low-Bit Indexed Adam7 Streaming Qualification** — Qualify the admitted route under hostile leases with independent chunk-origin evidence, frozen compatibility, and four-target proof. (completed 2026-07-24)
+- [ ] **Phase 85: Indexed Compression API and Fixed Wire Contract** - Establish additive Stored-or-Fixed selectors and the exact bounded Fixed Type-3 contract.
+- [ ] **Phase 86: Ancillary-Aware Preflight and Shared-Machine Integration** - Select and admit the exact palette-aware candidate plan through the existing eager and caller-buffered machine.
+- [ ] **Phase 87: Hostile Indexed Streaming and Independent Qualification** - Prove lifecycle safety, independent wire/decode behavior, compatibility, and four-target portability.
 
 ## Phase Details
 
-### Phase 83: Low-Bit Indexed Adam7 Machine and Eager Contract
+### Phase 85: Indexed Compression API and Fixed Wire Contract
 
-**Goal:** Users can explicitly encode the canonical unpacked `PngIndexedImage` as bounded Type-3/1, /2, or /4 Adam7 output through the sole acknowledged machine, with deterministic packed pass rows, exact framing, and atomic resource admission.
+**Goal:** Library users can explicitly request deterministic non-interlaced Fixed-or-Stored compression for Type-3/1, /2, /4, and /8 PNG output without changing any legacy indexed Stored/filter-None byte stream.
 
-**Depends on:** Phase 82 (shipped)
+**Depends on:** Phase 84 (shipped)
 
-**Requirements:** INDEXLOWADAM7-01, INDEXLOWADAM7-02, INDEXLOWADAM7-03, INDEXLOWADAM7-04
+**Requirements:** INDEXCOMP-01, INDEXCOMP-02
 
-**Scope guard:** Add only selected-depth Adam7 to the existing low-bit selector families. Reuse one depth-aware `_png_adam7_passes(..., 1UL, depth)` fact source, `PngIndexedImage::index_at`, `PngFrameFacts`, and the sole `PngEncodeMachine`; no model widening, additional strategies, staging, second encoder, FFI, wrappers, copied trees, or release work.
-
-**Success criteria:**
-
-1. Additive eager and caller-buffered selectors accept `Adam7` at depths 1, 2, and 4, while established non-interlaced Indexed1/2/4 and Indexed8 APIs produce their frozen bytes.
-2. Every nonempty Adam7 pass row starts packing at its local first pixel, emits one filter-None tag, maps canonical source indices by pass coordinates, packs MSB-first, and zeroes unused final-byte tail bits.
-3. Each selected-depth output has legal capped actual-entry PLTE, shortest canonical tRNS, valid chunk framing and CRCs, a Stored/filter-None seven-pass IDAT raster, and public RGB8/RGBA8 palette-exact decode.
-4. Before writer progress, chunk lease exposure, or budget mutation, preflight validates selected-depth dimensions/palette capacity and checked packed pass/frame/work/output facts; exact limits pass and all one-less, overflow, or arithmetic failures are atomic.
-
-**Plans:** 1/1 plans complete
-
-- [x] 83-01-PLAN.md
-
-### Phase 84: Low-Bit Indexed Adam7 Streaming Qualification
-
-**Goal:** Each admitted low-bit Indexed Adam7 route is safe through caller-owned leases, independently wire-qualified from collected stream bytes, compatibility-frozen, and proven on all four declared targets.
-
-**Depends on:** Phase 83
-
-**Requirements:** INDEXLOWADAM7-05, INDEXLOWADAM7-06
-
-**Scope guard:** Do not alter encoder architecture: qualify the Phase 83 selector and its existing `present → destination.set → acknowledge` machine lifecycle only. No new stream/encoder, source-model changes, strategies, staging, FFI, wrappers, copied trees, or release automation.
+**Scope guard:** Add only non-interlaced indexed compression selectors. Old APIs must literally forward Stored; `DynamicOrFixedOrStored` is rejected as unavailable. Reuse one bounded filter-None indexed raw-byte/match producer, the existing 1--4-distance matcher, and Fixed emitter; no Dynamic DEFLATE, adaptive filters, Adam7 compression selection, generic model widening, staging, second encoder, FFI, copied trees, or release work.
 
 **Success criteria:**
 
-1. For depths 1, 2, and 4, zero-capacity, one-byte, and ragged caller leases reproduce fresh eager Adam7 bytes; accepted-only progress and every unaccepted sentinel-filled tail remain unchanged.
-2. A released lease yields a sticky zero-write failure replayed unchanged into later destinations, and pulls after completion are zero-write `Finished` with the entire destination untouched.
-3. Independently parsing collected chunk bytes proves Type-3 Adam7 chunk order, CRCs, each selected-depth packed raw pass raster including tail zeros, and public RGB8/RGBA8 decode without relying on eager bytes or production packer/preflight helpers.
-4. Existing Type-3/1, /2, and /4 non-interlaced literals and Type-3/8 Adam7 vectors remain frozen.
-5. The ordinary frozen PNG package gate passes on wasm, wasm-gc, js, and native.
+1. Users can choose `Stored` or `FixedOrStored` through additive eager and caller-buffered selectors for each non-interlaced Type-3 depth, while old/default routes and explicit Stored selection remain byte-identical compatibility output.
+2. A Dynamic request receives the documented unavailable-capability failure before planning or budget charge, rather than silently selecting another compression profile.
+3. For a Fixed-or-Stored request, the bounded shared indexed raw-byte producer yields the exact filter-None scanline bytes used to choose and emit Fixed only when its complete Type-3 frame is no larger than Stored; a larger Fixed candidate falls back to Stored.
 
-**Plans:** 1/1 plans complete
+**Plans:** 0/1 plans complete
 
-- [x] 84-01-PLAN.md
+### Phase 86: Ancillary-Aware Preflight and Shared-Machine Integration
+
+**Goal:** The selected indexed compression profile is fully preflighted with its actual palette/transparency framing and admitted once into the established acknowledged eager and caller-buffered machine.
+
+**Depends on:** Phase 85
+
+**Requirements:** INDEXCOMP-03
+
+**Scope guard:** Compute non-interlaced selected-depth facts only. `PngFrameFacts` remains the owner of PLTE/tRNS/IDAT/IEND offsets, and the existing acknowledgement lifecycle remains the sole output path; no new stream encoder, Dynamic route, filter choice, Adam7 compression, staging, FFI, wrappers, copied trees, or release automation.
+
+**Success criteria:**
+
+1. Before any writer byte, caller lease, or budget mutation, a selected Type-3 depth has checked geometry, actual PLTE, shortest canonical tRNS, and exact Stored/Fixed frame, output, and work facts.
+2. The selected candidate is admitted by exactly one budget charge and then drives both eager and caller-buffered output through the existing acknowledged machine.
+3. Exact selected limits pass, while one-less output/work, palette-capacity overflow, and checked-arithmetic failures expose no output or lease and leave the budget unchanged.
+
+**Plans:** 0/1 plans complete
+
+### Phase 87: Hostile Indexed Streaming and Independent Qualification
+
+**Goal:** Users can rely on the new indexed compression profile under hostile caller leases and obtain independently verifiable, decodable, portable PNG bytes without disturbing frozen indexed compatibility routes.
+
+**Depends on:** Phase 86
+
+**Requirements:** INDEXCOMP-04, INDEXCOMP-05
+
+**Scope guard:** Qualify the Phase 86 admitted machine only; no architecture redesign, new compression/filter/interlace profile, source-model change, staging, FFI, target wrapper, copied tree, registry work, or release automation.
+
+**Success criteria:**
+
+1. Fixed winners and Stored fallbacks produce fresh eager-identical bytes under zero-capacity, one-byte, and ragged leases, count only accepted bytes, and preserve every rejected sentinel-filled destination tail.
+2. Released leases and replay-accounting mismatches yield sticky zero-write terminal failures; pulls after finish are zero-write `Finished` and leave destinations unchanged.
+3. Independent test-local parsers of eager and collected chunk-origin bytes prove DEFLATE selection, Type-3 framing, PLTE/tRNS canonicalisation, filter-None packed rows/tails, Adler/CRCs, and public RGB8/RGBA8 decode without calling production planning, matching, packing, or frame helpers.
+4. Legacy non-interlaced Type-3/1, /2, /4, /8 Stored vectors and all existing indexed Adam7 Stored/None vectors remain byte-frozen.
+5. The ordinary PNG package gate passes on wasm, wasm-gc, js, and native.
+
+**Plans:** 0/1 plans complete
 
 ## Progress
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 83. Low-Bit Indexed Adam7 Machine and Eager Contract | 1/1 | Complete    | 2026-07-24 |
-| 84. Low-Bit Indexed Adam7 Streaming Qualification | 1/1 | Complete    | 2026-07-24 |
+| 85. Indexed Compression API and Fixed Wire Contract | 0/1 | Not started | - |
+| 86. Ancillary-Aware Preflight and Shared-Machine Integration | 0/1 | Not started | - |
+| 87. Hostile Indexed Streaming and Independent Qualification | 0/1 | Not started | - |

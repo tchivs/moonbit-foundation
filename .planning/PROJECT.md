@@ -16,17 +16,17 @@ MoonBit developers can reuse stable, high-performance native infrastructure cont
 
 **Validated:** Independent packed-wire/CRC and public RGB8/RGBA8 decode vectors, eager/chunk byte parity, hostile leases, sticky terminals, atomic admission, Indexed8 freezes, and the ordinary PNG package gate passed. On the final main-branch run, wasm, wasm-gc, js, and native each completed 286/286 tests.
 
-## Current Milestone: v0.26 Indexed8 Adam7 PNG Encode
+## Current Milestone: v0.28 Indexed PNG Compression Profiles
 
-**Goal:** Add explicit bounded Adam7 Type-3/8 output from the existing canonical `PngIndexedImage` while preserving every legacy non-interlaced Indexed8 and low-bit route.
+**Goal:** Add only explicit opt-in Fixed-or-Stored DEFLATE selection to non-interlaced indexed PNG encode paths while every legacy/default indexed route remains byte-identical Stored/filter-None output.
 
 **Target features:**
 
-- Add opt-in eager and caller-buffered Indexed8 Adam7 selectors that reuse the established bounded machine.
-- Derive exact pass-local preflight and scalar indexed traversal without staging or a second encoder.
-- Prove pass order, PLTE/tRNS framing, resource admission, hostile lease semantics, compatibility, public decode, and four-target portability.
+- Add additive eager and caller-buffered Type-3/1, /2, /4, and /8 selectors that admit `Stored` and `FixedOrStored`, with old methods as literal Stored forwards.
+- Reuse one bounded indexed filter-None raw-byte/match producer and the acknowledged machine to select Fixed only when its exact complete palette-aware frame is no larger than Stored.
+- Prove ancillary-aware preflight, one atomic budget charge, hostile lease behavior, independent wire/decode evidence, frozen compatibility, and four-target portability.
 
-**Versioning note:** Keep `PngIndexedImage` experimental until its alpha-aware constructor evolution is documented or an opaque compatibility constructor is selected.
+**Scope boundary:** This milestone does not add Dynamic indexed DEFLATE, adaptive filters, indexed Adam7 compression selection, generic source-model changes, FFI, release automation, or copied source trees. Existing indexed Adam7 APIs remain explicit Stored/filter-None compatibility baselines.
 
 ## Requirements
 
@@ -68,9 +68,11 @@ MoonBit developers can reuse stable, high-performance native infrastructure cont
 
 ### Active
 
-- [ ] Provide explicit Type-3/8 Adam7 PNG encoding from `PngIndexedImage` without changing legacy non-interlaced bytes.
-- [ ] Preserve bounded atomic preflight and caller-buffered lifecycle semantics for the selected indexed layout.
-- [ ] Prove independent pass wire fidelity, palette/transparency framing, public decode, compatibility, and portability on all targets.
+- [ ] Let library users explicitly select `Stored` or `FixedOrStored` for non-interlaced Type-3/1, /2, /4, and /8 eager and caller-buffered PNG encoding, while all existing/default indexed APIs remain byte-identical Stored/filter-None forwards and Dynamic is rejected as unavailable.
+- [ ] Emit exact, deterministic Fixed DEFLATE blocks from bounded canonical indexed filter-None raw bytes only when the complete Type-3 frame is no larger than Stored, otherwise retain Stored, without a second encoder, staging, matcher widening, or a source-model change.
+- [ ] Compute PLTE/tRNS-aware exact candidate frame and work facts before one budget charge, then integrate the selected plan through the shared acknowledged eager and caller-buffered machine.
+- [ ] Preserve atomic failures and hostile caller-buffered lifecycle behavior for the new routes, including no observable bytes or lease after rejected admission and sticky terminal failures after released leases.
+- [ ] Independently qualify Fixed-or-Stored Type-3 wire bytes, public RGB8/RGBA8 decode, legacy vectors, and ordinary PNG package execution on wasm, wasm-gc, js, and native.
 
 ### Out of Scope
 
