@@ -34,7 +34,7 @@
 
 ### 📋 v0.27 Low-Bit Indexed Adam7 PNG Encode
 
-- [ ] **Phase 83: Low-Bit Indexed Adam7 Machine and Eager Contract** — Add selected-depth packed Adam7 traversal, exact framing, and atomic admission to the sole machine.
+- [x] **Phase 83: Low-Bit Indexed Adam7 Machine and Eager Contract** — Add selected-depth packed Adam7 traversal, exact framing, and atomic admission to the sole machine.
 - [ ] **Phase 84: Low-Bit Indexed Adam7 Streaming Qualification** — Qualify the admitted route under hostile leases with independent chunk-origin evidence, frozen compatibility, and four-target proof.
 
 ## Phase Details
@@ -56,7 +56,9 @@
 3. Each selected-depth output has legal capped actual-entry PLTE, shortest canonical tRNS, valid chunk framing and CRCs, a Stored/filter-None seven-pass IDAT raster, and public RGB8/RGBA8 palette-exact decode.
 4. Before writer progress, chunk lease exposure, or budget mutation, preflight validates selected-depth dimensions/palette capacity and checked packed pass/frame/work/output facts; exact limits pass and all one-less, overflow, or arithmetic failures are atomic.
 
-**Plans:** TBD
+**Plans:** 1/1 plans executed
+
+- [x] 83-01-PLAN.md
 
 ### Phase 84: Low-Bit Indexed Adam7 Streaming Qualification
 
@@ -82,5 +84,5 @@
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 83. Low-Bit Indexed Adam7 Machine and Eager Contract | 0/0 | Not started | - |
+| 83. Low-Bit Indexed Adam7 Machine and Eager Contract | 1/1 | Complete | 2026-07-24 |
 | 84. Low-Bit Indexed Adam7 Streaming Qualification | 0/0 | Not started | - |

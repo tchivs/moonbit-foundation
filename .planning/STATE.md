@@ -2,19 +2,19 @@
 gsd_state_version: 1.0
 milestone: v0.27
 milestone_name: Low-Bit Indexed Adam7 PNG Encode
-current_phase: 83
-current_phase_name: Low-Bit Indexed Adam7 Machine and Eager Contract
+current_phase: 84
+current_phase_name: Low-Bit Indexed Adam7 Streaming Qualification
 status: planning
-stopped_at: Phase 83 context gathered
-last_updated: "2026-07-24T01:06:17.767Z"
+stopped_at: Completed 83-01-PLAN.md
+last_updated: "2026-07-24T01:41:03.465Z"
 last_activity: 2026-07-24
 last_activity_desc: Roadmap and requirements for Phases 83-84 created
 progress:
   total_phases: 2
-  completed_phases: 0
-  total_plans: 0
-  completed_plans: 0
-  percent: 0
+  completed_phases: 1
+  total_plans: 1
+  completed_plans: 1
+  percent: 50
 ---
 
 # Project State
@@ -25,18 +25,18 @@ See `.planning/PROJECT.md`.
 
 **Core value:** MoonBit developers can reuse stable, high-performance native infrastructure contracts instead of rebuilding incompatible foundations for every graphics, document, media, or automation product.
 
-**Current focus:** v0.27 planning — Low-Bit Indexed Adam7 PNG Encode.
+**Current focus:** v0.27 Phase 84 planning — Low-Bit Indexed Adam7 PNG Encode.
 
 ## Current Position
 
-Phase: 83 — Low-Bit Indexed Adam7 Machine and Eager Contract
+Phase: 84 — Low-Bit Indexed Adam7 Streaming Qualification
 Plan: —
 Status: Ready for planning
-Last activity: 2026-07-24 — Roadmap and requirements for Phases 83-84 created
+Last activity: 2026-07-24 — Phase 83 selected-depth Adam7 machine and eager contract completed
 
 ## Milestone Metrics
 
-**Current milestone:** v0.27 has 6 scoped requirements mapped exactly once across 2 planned phases; 0/2 phases and 0 plans are complete.
+**Current milestone:** v0.27 has 6 scoped requirements mapped exactly once across 2 planned phases; 1/2 phases and 1 plan are complete.
 
 **Previous milestone:** v0.26 shipped Type-3/8 Adam7 eager/chunk output through the existing acknowledged machine. Its detailed history is archived at `.planning/milestones/v0.26-ROADMAP.md`.
 
@@ -61,6 +61,8 @@ Last activity: 2026-07-24 — Roadmap and requirements for Phases 83-84 created
 - [v0.27]: Low-bit Indexed Adam7 is opt-in through the existing selected-depth eager/chunk selector families; non-interlaced Indexed1/2/4 and Indexed8 routes remain explicit `None` compatibility forwards.
 - [v0.27]: Low-bit Adam7 pass facts must use `_png_adam7_passes(width, height, 1UL, depth)` in both preflight and output; each pass row packs anew from local column zero with deterministic zero tails.
 - [v0.27]: Type-3/1, /2, and /4 Adam7 retains Stored DEFLATE/filter None and the sole acknowledged machine; qualification must parse collected chunk-origin bytes independently of eager parity.
+- [Phase 83]: Low-bit Indexed Adam7 uses additive selected-depth eager/chunk selectors with legacy APIs explicitly forwarding None.
+- [Phase 83]: Selected-depth Adam7 preflight and scalar replay share profile-depth pass geometry; no staging or second encoder is introduced.
 
 ### Blockers/Concerns
 
@@ -79,13 +81,13 @@ Last activity: 2026-07-24 — Roadmap and requirements for Phases 83-84 created
 
 ## Session Continuity
 
-Last session: 2026-07-24T01:06:17.752Z
-Stopped at: Phase 83 context gathered
-Resume file: .planning/phases/83-low-bit-indexed-adam7-machine-and-eager-contract/83-CONTEXT.md
+Last session: 2026-07-24T01:41:03.449Z
+Stopped at: Completed 83-01-PLAN.md
+Resume file: None
 
 ## Operator Next Steps
 
-- Plan Phase 83 with /gsd-plan-phase 83
+- Plan Phase 84 with /gsd-plan-phase 84
 
 ## Performance Metrics
 
@@ -93,3 +95,4 @@ Resume file: .planning/phases/83-low-bit-indexed-adam7-machine-and-eager-contrac
 |------|----------|-------|-------|
 | Phase 81-indexed8-adam7-machine-and-eager-wire-contract P01 | 41min | 2 tasks | 5 files |
 | Phase 82 P01 | 39min | 2 tasks | 1 files |
+| Phase 83 P01 | 15m | 2 tasks | 5 files |

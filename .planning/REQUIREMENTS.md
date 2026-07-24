@@ -8,10 +8,10 @@
 
 ### Packed low-bit Adam7 machine and eager contract
 
-- [ ] **INDEXLOWADAM7-01**: Library users can explicitly encode an existing canonical unpacked `PngIndexedImage` as a bounded Type-3 Adam7 PNG at selected depth 1, 2, or 4 through additive eager and caller-buffered selectors, while existing `encode_indexed` and `new_indexed` remain explicit non-interlaced forwards and every legacy Indexed1/2/4 and Indexed8 byte vector stays unchanged.
-- [ ] **INDEXLOWADAM7-02**: Low-bit Adam7 traversal derives every nonempty pass's checked local width, height, and packed row bytes from the selected-depth shared seven-pass geometry, emits a filter-None byte per pass row, and packs canonical source indices MSB-first from pass-local coordinates with deterministic zero tails, without a packed source model, second encoder, or image/pass/output staging.
-- [ ] **INDEXLOWADAM7-03**: Type-3/1, /2, and /4 Adam7 output preserves exact `IHDR → PLTE → optional canonical tRNS → IDAT → IEND` Stored/filter-None framing: PLTE capacity applies to actual entries, tRNS remains shortest canonical, and every source coordinate publicly decodes to its exact palette RGB8 or RGBA8 value.
-- [ ] **INDEXLOWADAM7-04**: Selected-depth Adam7 preflight computes checked packed pass totals, Stored IDAT/frame/output/work facts, validates dimensions and palette capacity, applies all limits, and performs exactly one budget charge atomically: exact limits pass while one-less output/work, palette overflow, or arithmetic failure expose no eager bytes or caller lease and do not mutate budget.
+- [x] **INDEXLOWADAM7-01**: Library users can explicitly encode an existing canonical unpacked `PngIndexedImage` as a bounded Type-3 Adam7 PNG at selected depth 1, 2, or 4 through additive eager and caller-buffered selectors, while existing `encode_indexed` and `new_indexed` remain explicit non-interlaced forwards and every legacy Indexed1/2/4 and Indexed8 byte vector stays unchanged.
+- [x] **INDEXLOWADAM7-02**: Low-bit Adam7 traversal derives every nonempty pass's checked local width, height, and packed row bytes from the selected-depth shared seven-pass geometry, emits a filter-None byte per pass row, and packs canonical source indices MSB-first from pass-local coordinates with deterministic zero tails, without a packed source model, second encoder, or image/pass/output staging.
+- [x] **INDEXLOWADAM7-03**: Type-3/1, /2, and /4 Adam7 output preserves exact `IHDR → PLTE → optional canonical tRNS → IDAT → IEND` Stored/filter-None framing: PLTE capacity applies to actual entries, tRNS remains shortest canonical, and every source coordinate publicly decodes to its exact palette RGB8 or RGBA8 value.
+- [x] **INDEXLOWADAM7-04**: Selected-depth Adam7 preflight computes checked packed pass totals, Stored IDAT/frame/output/work facts, validates dimensions and palette capacity, applies all limits, and performs exactly one budget charge atomically: exact limits pass while one-less output/work, palette overflow, or arithmetic failure expose no eager bytes or caller lease and do not mutate budget.
 
 ### Streaming qualification and portability
 
@@ -35,10 +35,10 @@
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| INDEXLOWADAM7-01 | Phase 83 | Pending |
-| INDEXLOWADAM7-02 | Phase 83 | Pending |
-| INDEXLOWADAM7-03 | Phase 83 | Pending |
-| INDEXLOWADAM7-04 | Phase 83 | Pending |
+| INDEXLOWADAM7-01 | Phase 83 | Complete |
+| INDEXLOWADAM7-02 | Phase 83 | Complete |
+| INDEXLOWADAM7-03 | Phase 83 | Complete |
+| INDEXLOWADAM7-04 | Phase 83 | Complete |
 | INDEXLOWADAM7-05 | Phase 84 | Pending |
 | INDEXLOWADAM7-06 | Phase 84 | Pending |
 
