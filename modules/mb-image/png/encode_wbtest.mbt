@@ -1419,3 +1419,20 @@ test "PNG indexed compression matrix selects Fixed and Stored at every depth" {
     }
   }
 }
+
+///| The selected preflight retains the complete Type-3 frame it admitted;
+///| this tracer deliberately reads those facts instead of rebuilding framing.
+test "PNG indexed compression admission tracer selected facts" {
+  let profile = PngIndexedWireProfile::Two
+  let source = png_indexed_compression_matrix_source(profile, false)
+  let selected = _png_encode_indexed_preflight_with_profile_and_strategy(
+    source, profile, PngInterlaceStrategy::None, PngCompressionStrategy::FixedOrStored,
+    png_indexed_compression_matrix_limits(), png_indexed_compression_matrix_budget(),
+  ).unwrap()
+  inspect(selected.frame.plte_length == source.palette_length(), content="true")
+  inspect(selected.frame.trns_length == 1UL && selected.selected_work > 0UL, content="true")
+  match selected.plan {
+    PngDeflatePlan::Fixed(_) => inspect(true, content="true")
+    _ => inspect(false, content="true")
+  }
+}

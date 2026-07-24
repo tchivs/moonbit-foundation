@@ -4972,6 +4972,20 @@ fn png_stream_indexed_low_bit_eager_with_compression(
   Bytes::from_array(output)
 }
 
+///| Caller-buffered construction traverses the same admitted selected-depth
+///| machine as the eager facade under an ordinary drain schedule.
+test "PNG indexed compression admission tracer chunk selector" {
+  let source = png_indexed_compression_source(PngIndexedBitDepth::Two)
+  let eager = png_stream_indexed_low_bit_eager_with_compression(
+    source, PngIndexedBitDepth::Two, PngCompressionStrategy::FixedOrStored,
+  )
+  let encoder = PngChunkEncoder::new_indexed_with_compression_strategy(
+    source, PngIndexedBitDepth::Two, PngCompressionStrategy::FixedOrStored,
+    png_stream_test_limits(), png_stream_test_budget(work=4096UL), @error.Diagnostics::new(),
+  ).unwrap()
+  inspect(png_chunk_test_drain_encoder(encoder, [32UL]).unwrap() == eager, content="true")
+}
+
 ///| Indexed8 chunk selectors must drain exactly like their eager strategy
 /// oracles and reject unavailable Dynamic output before budget admission.
 test "PNG Indexed8 compression chunk selectors match eager bytes" {

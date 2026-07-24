@@ -987,6 +987,21 @@ fn png_indexed_compression_source(bit_depth : PngIndexedBitDepth) -> PngIndexedI
   ).unwrap()
 }
 
+///| A public eager tracer reaches the admitted selected-depth machine only
+///| after its Fixed-or-Stored preflight succeeds.
+test "PNG indexed compression admission tracer eager selector" {
+  let source = png_indexed_compression_source(PngIndexedBitDepth::Two)
+  let writer = @io.MemoryWriter::new(
+    512UL, png_encode_budget(bytes=512UL, work=0UL),
+  ).unwrap()
+  ignore(PngEncoder::encode_indexed_with_compression_strategy(
+    PngEncoder::new(), source, PngIndexedBitDepth::Two,
+    PngCompressionStrategy::FixedOrStored, writer as &@io.Writer,
+    png_encode_limits(), png_encode_budget(work=4096UL), @error.Diagnostics::new(),
+  ).unwrap())
+  inspect(png_encode_prefix(writer).length() > 0, content="true")
+}
+
 ///| Every selected low-bit facade preserves its Stored baseline and shares the
 /// same deterministic Fixed winner as Indexed8.
 test "PNG indexed compression selectors preserve Stored and select the matrix plan" {
