@@ -34,7 +34,7 @@
 ### 📋 v0.26 Indexed8 Adam7 PNG Encode
 
 - [x] **Phase 81: Indexed8 Adam7 Machine and Eager Wire Contract** — Add the bounded Type-3/8 Adam7 machine path, frozen legacy wrappers, exact framing, and atomic admission.
-- [ ] **Phase 82: Indexed8 Adam7 Streaming and Qualification** — Expose the same machine to caller buffers and qualify lifecycle, independent wire/decode evidence, compatibility, and portability.
+- [x] **Phase 82: Indexed8 Adam7 Streaming and Qualification** — Expose the same machine to caller buffers and qualify lifecycle, independent wire/decode evidence, compatibility, and portability. (completed 2026-07-24)
 
 ## Phase Details
 
