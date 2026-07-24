@@ -166,3 +166,141 @@ test "parse_svg path without d attribute is an error" {
     Ok(_) => inspect("ok", content="err")
   }
 }
+
+// ---------------------------------------------------------------------------
+// Paint inheritance + currentColor (build-time resolution)
+// ---------------------------------------------------------------------------
+
+///|
+test "inherited fill flows from <g> to a child rect that omits fill" {
+  // rect has no fill attribute → inherits the group's red.
+  match parse_svg("<svg><g fill=\"red\"><rect width=\"1\" height=\"1\"/></g></svg>") {
+    Ok(Svg(_, children)) =>
+      match children[0] {
+        Group(_, gc) =>
+          match gc[0] {
+            Rect(paint, _, _, _, _, _, _) =>
+              match paint.fill {
+                Some((r, g, b)) => inspect((r, g, b), content="(1, 0, 0)")
+                None => inspect(false, content="true")
+              }
+            _ => inspect(false, content="true")
+          }
+        _ => inspect(false, content="true")
+      }
+    Ok(_) => inspect(false, content="true")
+    Err(_) => inspect("err", content="ok")
+  }
+}
+
+///|
+test "currentColor resolves against the inherited color attribute" {
+  // <g color="blue"> sets currentColor; child fill="currentColor" → blue.
+  match parse_svg("<svg><g color=\"blue\"><rect fill=\"currentColor\" width=\"1\" height=\"1\"/></g></svg>") {
+    Ok(Svg(_, children)) =>
+      match children[0] {
+        Group(_, gc) =>
+          match gc[0] {
+            Rect(paint, _, _, _, _, _, _) =>
+              match paint.fill {
+                Some((r, g, b)) => inspect((r, g, b), content="(0, 0, 1)")
+                None => inspect(false, content="true")
+              }
+            _ => inspect(false, content="true")
+          }
+        _ => inspect(false, content="true")
+      }
+    Ok(_) => inspect(false, content="true")
+    Err(_) => inspect("err", content="ok")
+  }
+}
+
+///|
+test "inheritance penetrates multiple nested groups" {
+  // Two nested <g>, innermost rect inherits the outer group's green fill.
+  match parse_svg("<svg><g fill=\"green\"><g><rect width=\"1\" height=\"1\"/></g></g></svg>") {
+    Ok(Svg(_, children)) =>
+      match children[0] {
+        Group(_, gc) =>
+          match gc[0] {
+            Group(_, ggc) =>
+              match ggc[0] {
+                Rect(paint, _, _, _, _, _, _) =>
+                  match paint.fill {
+                    // green = (0, 0.5019..., 0)
+                    Some((_, g, _)) => inspect(g > 0.49 && g < 0.51, content="true")
+                    None => inspect(false, content="true")
+                  }
+                _ => inspect(false, content="true")
+              }
+            _ => inspect(false, content="true")
+          }
+        _ => inspect(false, content="true")
+      }
+    Ok(_) => inspect(false, content="true")
+    Err(_) => inspect("err", content="ok")
+  }
+}
+
+///|
+test "explicit child fill overrides the inherited group fill" {
+  match parse_svg("<svg><g fill=\"red\"><rect fill=\"blue\" width=\"1\" height=\"1\"/></g></svg>") {
+    Ok(Svg(_, children)) =>
+      match children[0] {
+        Group(_, gc) =>
+          match gc[0] {
+            Rect(paint, _, _, _, _, _, _) =>
+              match paint.fill {
+                Some((r, g, b)) => inspect((r, g, b), content="(0, 0, 1)")
+                None => inspect(false, content="true")
+              }
+            _ => inspect(false, content="true")
+          }
+        _ => inspect(false, content="true")
+      }
+    Ok(_) => inspect(false, content="true")
+    Err(_) => inspect("err", content="ok")
+  }
+}
+
+///|
+test "explicit fill=none does NOT inherit the group fill" {
+  // rect fill="none" must stay none, not inherit the group's red.
+  match parse_svg("<svg><g fill=\"red\"><rect fill=\"none\" width=\"1\" height=\"1\"/></g></svg>") {
+    Ok(Svg(_, children)) =>
+      match children[0] {
+        Group(_, gc) =>
+          match gc[0] {
+            Rect(paint, _, _, _, _, _, _) => inspect(paint.fill, content="None")
+            _ => inspect(false, content="true")
+          }
+        _ => inspect(false, content="true")
+      }
+    Ok(_) => inspect(false, content="true")
+    Err(_) => inspect("err", content="ok")
+  }
+}
+
+///|
+test "inherited stroke and stroke-width flow to a child" {
+  // <g stroke="blue" stroke-width="3">; child rect (no stroke attrs) inherits.
+  match parse_svg("<svg><g stroke=\"blue\" stroke-width=\"3\"><rect fill=\"none\" width=\"1\" height=\"1\"/></g></svg>") {
+    Ok(Svg(_, children)) =>
+      match children[0] {
+        Group(_, gc) =>
+          match gc[0] {
+            Rect(paint, _, _, _, _, _, _) => {
+              match paint.stroke {
+                Some((r, g, b)) => inspect((r, g, b), content="(0, 0, 1)")
+                None => inspect(false, content="true")
+              }
+              inspect(paint.stroke_width, content="3")
+            }
+            _ => inspect(false, content="true")
+          }
+        _ => inspect(false, content="true")
+      }
+    Ok(_) => inspect(false, content="true")
+    Err(_) => inspect("err", content="ok")
+  }
+}

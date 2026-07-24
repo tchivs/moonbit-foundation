@@ -15,9 +15,13 @@
 // are RFC §6.2 deferred. They are skipped together with their whole subtree:
 // skipping is not implementation, so the deferral boundary stays intact.
 //
+// Paint inheritance and currentColor ARE implemented: a PaintContext of
+// resolved values is threaded down the build functions; each element merges
+// its own presentation attributes (fill, stroke, color, opacity, stroke-style
+// family) against the inherited context. currentColor resolves against the
+// inherited `color` attribute (default black). See build_paint.
+//
 // Known follow-ups (deliberately out of v0.1 scope, flagged inline):
-//   - Paint inheritance from ancestor <g> is not propagated to children.
-//   - currentColor is resolved with None (defaults to black).
 //   - preserveAspectRatio is stored raw; viewport mapping belongs to lowering.
 //
 // Error handling follows the rest of mb-svg: CoreError is a plain struct, so
@@ -50,6 +54,57 @@ pub struct Paint {
   stroke_join : @canvas.LineJoin
   stroke_miterlimit : Double
   stroke_dash : Array[Double]
+}
+
+// ---------------------------------------------------------------------------
+// Paint inheritance context
+//
+// SVG presentation attributes (fill, stroke, color, the opacity/stroke-style
+// family) are *inherited*: a child that does not set an attribute takes the
+// nearest ancestor's value, falling back to the SVG default only when no
+// ancestor sets it. Paint stores fully-resolved values, so inheritance is
+// resolved at build time by threading a PaintContext down the build functions.
+//
+// PaintContext holds RESOLVED values (the cumulative result from the root to
+// this element). build_paint merges each attribute: if the element sets it,
+// parse and use it; otherwise inherit the context value; if neither, use the
+// SVG default. The "explicit none" case (`fill="none"`) is carried as a
+// resolved Option=None and IS inherited as-is, which is correct: a child that
+// does not set fill inherits the ancestor's none. (SVG `fill="none"` on a
+// group makes the whole group unfilled unless a descendant re-specifies fill.)
+// ---------------------------------------------------------------------------
+
+// Resolved inherited values threaded through the build. `color` is the
+// currentColor source (the `color` attribute); fill/stroke use Option where
+// None = paint "none".
+struct PaintContext {
+  color : (Double, Double, Double)
+  fill : (Double, Double, Double)?
+  stroke : (Double, Double, Double)?
+  fill_opacity : Double
+  stroke_opacity : Double
+  stroke_width : Double
+  stroke_cap : @canvas.LineCap
+  stroke_join : @canvas.LineJoin
+  stroke_miterlimit : Double
+  stroke_dash : Array[Double]
+}
+
+// Root context: SVG defaults. color (currentColor) defaults to black; fill to
+// black; stroke to none; opacity 1.0; width 1.0; butt/miter/4/solid.
+fn root_paint_context() -> PaintContext {
+  {
+    color: (0.0, 0.0, 0.0),
+    fill: Some((0.0, 0.0, 0.0)),
+    stroke: None,
+    fill_opacity: 1.0,
+    stroke_opacity: 1.0,
+    stroke_width: 1.0,
+    stroke_cap: @canvas.LineCap::Butt,
+    stroke_join: @canvas.LineJoin::Miter,
+    stroke_miterlimit: 4.0,
+    stroke_dash: [],
+  }
 }
 
 ///|
@@ -100,7 +155,7 @@ pub fn parse_svg(source : String) -> Result[SceneNode, @error.CoreError] {
   match st.tokens[st.pos] {
     StartTag(name) =>
       if name == "svg" {
-        match build_svg_root(st) {
+        match build_svg_root(st, root_paint_context()) {
           Ok(node) => {
             ignore_trailing(st)
             Ok(node)
@@ -138,8 +193,13 @@ fn ignore_trailing(st : TokenCursor) -> Unit {
 }
 
 // Build the Svg node: read the root <svg ...> start tag, its children, and
-// the matching </svg>. Returns the Svg SceneNode.
-fn build_svg_root(st : TokenCursor) -> Result[SceneNode, @error.CoreError] {
+// the matching </svg>. Returns the Svg SceneNode. The root's own presentation
+// attributes (color, fill, ...) merge into the inherited context and thread
+// down to children.
+fn build_svg_root(
+  st : TokenCursor,
+  ctx : PaintContext,
+) -> Result[SceneNode, @error.CoreError] {
   // st.pos is at StartTag("svg").
   st.pos = st.pos + 1
   let (attrs, is_empty) = match build_attrs(st) {
@@ -147,10 +207,11 @@ fn build_svg_root(st : TokenCursor) -> Result[SceneNode, @error.CoreError] {
     Err(e) => return Err(e)
   }
   let root = build_svg_root_attrs(attrs)
+  let (_, child_ctx) = build_paint(attrs, ctx)
   if is_empty {
     return Ok(SceneNode::Svg(root, []))
   }
-  match build_children(st, "svg") {
+  match build_children(st, "svg", child_ctx) {
     Ok(children) => Ok(SceneNode::Svg(root, children))
     Err(e) => Err(e)
   }
@@ -198,15 +259,17 @@ fn build_attrs(
 
 // Read children of the element named `parent` until its matching EndTag.
 // Dispatches known §6.1 elements to their builders; skips unknown subtrees.
+// `ctx` is the inherited paint context for the children.
 fn build_children(
   st : TokenCursor,
   parent : String,
+  ctx : PaintContext,
 ) -> Result[Array[SceneNode], @error.CoreError] {
   let children : Array[SceneNode] = []
   while st.pos < st.len {
     match st.tokens[st.pos] {
       StartTag(name) =>
-        match build_element(st, name) {
+        match build_element(st, name, ctx) {
           Ok(Some(node)) => children.push(node)
           Ok(None) => () // skipped subtree (unknown/deferred element)
           Err(e) => return Err(e)
@@ -241,19 +304,21 @@ fn build_children(
 // Build one element subtree whose start tag is at st.pos. Returns:
 //   Ok(Some(node))  — a known §6.1 element was built
 //   Ok(None)        — the element was unknown/deferred; its subtree was skipped
+// `ctx` is the inherited paint context.
 fn build_element(
   st : TokenCursor,
   name : String,
+  ctx : PaintContext,
 ) -> Result[SceneNode?, @error.CoreError] {
   if name == "g" {
-    match build_group(st) {
+    match build_group(st, ctx) {
       Ok(node) => return Ok(Some(node))
       Err(e) => return Err(e)
     }
   }
   if name == "svg" {
     // Nested <svg> (SVG allows it). Build as Svg child.
-    match build_svg_root(st) {
+    match build_svg_root(st, ctx) {
       Ok(node) => return Ok(Some(node))
       Err(e) => return Err(e)
     }
@@ -268,14 +333,14 @@ fn build_element(
     Err(e) => return Err(e)
   }
   let node = match name {
-    "rect" => build_rect(attrs)
-    "circle" => build_circle(attrs)
-    "ellipse" => build_ellipse(attrs)
-    "line" => build_line(attrs)
-    "polyline" => build_polyline(attrs)
-    "polygon" => build_polygon(attrs)
+    "rect" => build_rect(attrs, ctx)
+    "circle" => build_circle(attrs, ctx)
+    "ellipse" => build_ellipse(attrs, ctx)
+    "line" => build_line(attrs, ctx)
+    "polyline" => build_polyline(attrs, ctx)
+    "polygon" => build_polygon(attrs, ctx)
     "path" =>
-      match build_path(attrs) {
+      match build_path(attrs, ctx) {
         Ok(n) => n
         Err(e) => return Err(e)
       }
@@ -294,8 +359,13 @@ fn build_element(
   Ok(Some(node))
 }
 
-// Build a <g> group: resolve transform (default identity) and recurse.
-fn build_group(st : TokenCursor) -> Result[SceneNode, @error.CoreError] {
+// Build a <g> group: resolve transform (default identity), merge this group's
+// presentation attributes into the inherited context, and recurse with the
+// merged context so children inherit the group's fill/stroke/color/etc.
+fn build_group(
+  st : TokenCursor,
+  ctx : PaintContext,
+) -> Result[SceneNode, @error.CoreError] {
   st.pos = st.pos + 1 // consume StartTag("g")
   let (attrs, is_empty) = match build_attrs(st) {
     Ok(a) => a
@@ -309,10 +379,11 @@ fn build_group(st : TokenCursor) -> Result[SceneNode, @error.CoreError] {
         Err(e) => return Err(e)
       }
   }
+  let (_, child_ctx) = build_paint(attrs, ctx)
   if is_empty {
     return Ok(SceneNode::Group(transform, []))
   }
-  match build_children(st, "g") {
+  match build_children(st, "g", child_ctx) {
     Ok(children) => Ok(SceneNode::Group(transform, children))
     Err(e) => Err(e)
   }
@@ -413,60 +484,88 @@ fn build_svg_root_attrs(attrs : Array[(String, String)]) -> SvgRoot {
   { width: width, height: height, view_box: view_box }
 }
 
-// Build a Paint from attributes. fill defaults to black, stroke to none.
-// On color parse failure, falls back to black fill (v0.1 lenient policy).
-fn build_paint(attrs : Array[(String, String)]) -> Paint {
+// Build a Paint and the child PaintContext from this element's attributes
+// plus the inherited parent context. For each inherited attribute: if this
+// element sets it, parse and use it (currentColor resolves against the
+// inherited color); otherwise inherit the parent's resolved value. On color
+// parse failure, falls back leniently (fill→black, stroke→none) as in v0.1.
+// Returns the fully-resolved Paint (for the leaf) and the context to thread
+// into this element's children.
+fn build_paint(
+  attrs : Array[(String, String)],
+  parent : PaintContext,
+) -> (Paint, PaintContext) {
+  // currentColor source: the `color` attribute, inherited (default black).
+  let color = match attr_get(attrs, "color") {
+    None => parent.color
+    Some(s) =>
+      if is_none_color(s) {
+        parent.color // "none" is not valid for color; keep inherited.
+      } else {
+        match parse_color(s, Some(parent.color)) {
+          Ok(c) => c
+          Err(_) => parent.color
+        }
+      }
+  }
+  // fill: explicit (incl. none) else inherit.
   let fill = match attr_get(attrs, "fill") {
-    None => Some((0.0, 0.0, 0.0)) // SVG default fill is black
+    None => parent.fill
     Some(s) =>
       if is_none_color(s) {
         None
       } else {
-        match parse_color(s, None) {
-          // currentColor resolves with None → black, see file header.
+        match parse_color(s, Some(color)) {
           Ok(c) => Some(c)
           Err(_) => Some((0.0, 0.0, 0.0))
         }
       }
   }
   let stroke = match attr_get(attrs, "stroke") {
-    None => None // SVG default stroke is none
+    None => parent.stroke
     Some(s) =>
       if is_none_color(s) {
         None
       } else {
-        match parse_color(s, None) {
+        match parse_color(s, Some(color)) {
           Ok(c) => Some(c)
           Err(_) => None
         }
       }
   }
-  let fill_opacity = attr_double(attrs, "fill-opacity", 1.0)
-  let stroke_opacity = attr_double(attrs, "stroke-opacity", 1.0)
-  let stroke_width = attr_double(attrs, "stroke-width", 1.0)
+  let fill_opacity = inherit_double(attrs, "fill-opacity", parent.fill_opacity)
+  let stroke_opacity = inherit_double(
+    attrs,
+    "stroke-opacity",
+    parent.stroke_opacity,
+  )
+  let stroke_width = inherit_double(attrs, "stroke-width", parent.stroke_width)
   let stroke_cap = match attr_get(attrs, "stroke-linecap") {
-    None => @canvas.LineCap::Butt // SVG default
+    None => parent.stroke_cap
     Some(s) => parse_linecap(s)
   }
   let stroke_join = match attr_get(attrs, "stroke-linejoin") {
-    None => @canvas.LineJoin::Miter // SVG default
+    None => parent.stroke_join
     Some(s) => parse_linejoin(s)
   }
-  let stroke_miterlimit = attr_double(attrs, "stroke-miterlimit", 4.0)
+  let stroke_miterlimit = inherit_double(
+    attrs,
+    "stroke-miterlimit",
+    parent.stroke_miterlimit,
+  )
   let stroke_dash = match attr_get(attrs, "stroke-dasharray") {
-    None => [] // solid
+    None => parent.stroke_dash
     Some(s) =>
       if is_none_color(s) {
-        // "none" dasharray = solid.
-        []
+        [] // "none" dasharray = solid.
       } else {
         match parse_number_list(s) {
           Ok(nums) => nums
-          Err(_) => []
+          Err(_) => parent.stroke_dash
         }
       }
   }
-  {
+  let paint = {
     fill: fill,
     stroke: stroke,
     fill_opacity: fill_opacity,
@@ -476,6 +575,36 @@ fn build_paint(attrs : Array[(String, String)]) -> Paint {
     stroke_join: stroke_join,
     stroke_miterlimit: stroke_miterlimit,
     stroke_dash: stroke_dash,
+  }
+  let ctx = {
+    color: color,
+    fill: fill,
+    stroke: stroke,
+    fill_opacity: fill_opacity,
+    stroke_opacity: stroke_opacity,
+    stroke_width: stroke_width,
+    stroke_cap: stroke_cap,
+    stroke_join: stroke_join,
+    stroke_miterlimit: stroke_miterlimit,
+    stroke_dash: stroke_dash,
+  }
+  (paint, ctx)
+}
+
+// Numeric attribute: parse if present, else inherit parent value. (No SVG
+// default fallback here — the context already carries the resolved value.)
+fn inherit_double(
+  attrs : Array[(String, String)],
+  name : String,
+  parent : Double,
+) -> Double {
+  match attr_get(attrs, name) {
+    None => parent
+    Some(s) =>
+      match parse_length(s) {
+        Ok(v) => v
+        Err(_) => parent
+      }
   }
 }
 
@@ -501,45 +630,60 @@ fn parse_linejoin(s : String) -> @canvas.LineJoin {
   }
 }
 
-fn build_rect(attrs : Array[(String, String)]) -> SceneNode {
+fn build_rect(attrs : Array[(String, String)], ctx : PaintContext) -> SceneNode {
   let x = attr_double(attrs, "x", 0.0)
   let y = attr_double(attrs, "y", 0.0)
   let w = attr_double(attrs, "width", 0.0)
   let h = attr_double(attrs, "height", 0.0)
   let rx = attr_double(attrs, "rx", 0.0)
   let ry = attr_double(attrs, "ry", 0.0)
-  SceneNode::Rect(build_paint(attrs), x, y, w, h, rx, ry)
+  let (paint, _) = build_paint(attrs, ctx)
+  SceneNode::Rect(paint, x, y, w, h, rx, ry)
 }
 
-fn build_circle(attrs : Array[(String, String)]) -> SceneNode {
+fn build_circle(attrs : Array[(String, String)], ctx : PaintContext) -> SceneNode {
   let cx = attr_double(attrs, "cx", 0.0)
   let cy = attr_double(attrs, "cy", 0.0)
   let r = attr_double(attrs, "r", 0.0)
-  SceneNode::Circle(build_paint(attrs), cx, cy, r)
+  let (paint, _) = build_paint(attrs, ctx)
+  SceneNode::Circle(paint, cx, cy, r)
 }
 
-fn build_ellipse(attrs : Array[(String, String)]) -> SceneNode {
+fn build_ellipse(
+  attrs : Array[(String, String)],
+  ctx : PaintContext,
+) -> SceneNode {
   let cx = attr_double(attrs, "cx", 0.0)
   let cy = attr_double(attrs, "cy", 0.0)
   let rx = attr_double(attrs, "rx", 0.0)
   let ry = attr_double(attrs, "ry", 0.0)
-  SceneNode::Ellipse(build_paint(attrs), cx, cy, rx, ry)
+  let (paint, _) = build_paint(attrs, ctx)
+  SceneNode::Ellipse(paint, cx, cy, rx, ry)
 }
 
-fn build_line(attrs : Array[(String, String)]) -> SceneNode {
+fn build_line(attrs : Array[(String, String)], ctx : PaintContext) -> SceneNode {
   let x1 = attr_double(attrs, "x1", 0.0)
   let y1 = attr_double(attrs, "y1", 0.0)
   let x2 = attr_double(attrs, "x2", 0.0)
   let y2 = attr_double(attrs, "y2", 0.0)
-  SceneNode::Line(build_paint(attrs), x1, y1, x2, y2)
+  let (paint, _) = build_paint(attrs, ctx)
+  SceneNode::Line(paint, x1, y1, x2, y2)
 }
 
-fn build_polyline(attrs : Array[(String, String)]) -> SceneNode {
-  SceneNode::Polyline(build_paint(attrs), points_from_attrs(attrs))
+fn build_polyline(
+  attrs : Array[(String, String)],
+  ctx : PaintContext,
+) -> SceneNode {
+  let (paint, _) = build_paint(attrs, ctx)
+  SceneNode::Polyline(paint, points_from_attrs(attrs))
 }
 
-fn build_polygon(attrs : Array[(String, String)]) -> SceneNode {
-  SceneNode::Polygon(build_paint(attrs), points_from_attrs(attrs))
+fn build_polygon(
+  attrs : Array[(String, String)],
+  ctx : PaintContext,
+) -> SceneNode {
+  let (paint, _) = build_paint(attrs, ctx)
+  SceneNode::Polygon(paint, points_from_attrs(attrs))
 }
 
 // Parse polyline/polygon points into Point2 pairs.
@@ -567,12 +711,16 @@ fn pair_points(nums : Array[Double]) -> Array[@math.Point2] {
 
 fn build_path(
   attrs : Array[(String, String)],
+  ctx : PaintContext,
 ) -> Result[SceneNode, @error.CoreError] {
   match attr_get(attrs, "d") {
     None => Err(svg_error("svg-scene", "<path> missing required 'd' attribute"))
     Some(d) =>
       match parse_path_data(d) {
-        Ok(p) => Ok(SceneNode::Path(build_paint(attrs), p))
+        Ok(p) =>
+          match build_paint(attrs, ctx) {
+            (paint, _) => Ok(SceneNode::Path(paint, p))
+          }
         Err(e) => Err(e)
       }
   }
