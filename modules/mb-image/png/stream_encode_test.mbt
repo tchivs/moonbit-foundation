@@ -5594,6 +5594,12 @@ fn png_stream_indexed_low_bit_released_failure(
   }
 }
 
+///| Phase 87 RED gate: this test becomes the canonical hostile Fixed/Stored
+///| lifecycle tracer in the GREEN commit below.
+test "PNG indexed compression hostile tracer FixedOrStored" {
+  abort("phase87 hostile tracer qualification absent")
+}
+
 ///| Every selected Type-3 depth keeps eager parity and lease ownership under
 ///| zero-capacity, one-byte, and ragged caller schedules.
 test "PNG selected Indexed chunk hostile leases retain eager parity and sticky completion" {
