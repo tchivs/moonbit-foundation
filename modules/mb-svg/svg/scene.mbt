@@ -55,6 +55,7 @@ pub struct Paint {
   stroke_join : @canvas.LineJoin
   stroke_miterlimit : Double
   stroke_dash : Array[Double]
+  stroke_dashoffset : Double
   fill_rule : @canvas.FillRule
 }
 
@@ -91,6 +92,7 @@ struct PaintContext {
   stroke_join : @canvas.LineJoin
   stroke_miterlimit : Double
   stroke_dash : Array[Double]
+  stroke_dashoffset : Double
 }
 
 // Root context: SVG defaults. color (currentColor) defaults to black; fill to
@@ -108,6 +110,7 @@ fn root_paint_context() -> PaintContext {
     stroke_join: @canvas.LineJoin::Miter,
     stroke_miterlimit: 4.0,
     stroke_dash: [],
+    stroke_dashoffset: 0.0,
   }
 }
 
@@ -573,6 +576,11 @@ fn build_paint(
         }
       }
   }
+  let stroke_dashoffset = inherit_double(
+    attrs,
+    "stroke-dashoffset",
+    parent.stroke_dashoffset,
+  )
   let paint = {
     fill: fill,
     stroke: stroke,
@@ -584,6 +592,7 @@ fn build_paint(
     stroke_join: stroke_join,
     stroke_miterlimit: stroke_miterlimit,
     stroke_dash: stroke_dash,
+    stroke_dashoffset: stroke_dashoffset,
   }
   let ctx = {
     color: color,
@@ -597,6 +606,7 @@ fn build_paint(
     stroke_join: stroke_join,
     stroke_miterlimit: stroke_miterlimit,
     stroke_dash: stroke_dash,
+    stroke_dashoffset: stroke_dashoffset,
   }
   (paint, ctx)
 }

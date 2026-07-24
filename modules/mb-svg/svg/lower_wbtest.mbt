@@ -386,3 +386,31 @@ test "lower no viewBox means no viewport transform" {
     Err(_) => inspect("err", content="ok")
   }
 }
+
+///|
+test "lower wires stroke-dashoffset into the StrokeStyle" {
+  match parse_svg("<svg><rect width=\"4\" height=\"4\" fill=\"none\" stroke=\"black\" stroke-dasharray=\"2 1\" stroke-dashoffset=\"5\"/></svg>") {
+    Ok(scene) => {
+      let list = lower_to_drawing_list(scene)
+      match list.get(0) {
+        Some(Stroke(_, stroke, _)) => inspect(stroke.dash_offset, content="5")
+        other => inspect("other", content="other")
+      }
+    }
+    Err(_) => inspect("err", content="ok")
+  }
+}
+
+///|
+test "lower stroke-dashoffset defaults to 0" {
+  match parse_svg("<svg><rect width=\"4\" height=\"4\" stroke=\"black\" stroke-dasharray=\"2 1\"/></svg>") {
+    Ok(scene) => {
+      let list = lower_to_drawing_list(scene)
+      match list.get(0) {
+        Some(Stroke(_, stroke, _)) => inspect(stroke.dash_offset, content="0")
+        other => inspect("other", content="other")
+      }
+    }
+    Err(_) => inspect("err", content="ok")
+  }
+}

@@ -15,8 +15,8 @@
 // ("xMidYMid meet"); other aspect-ratio modes and explicit preserveAspectRatio
 // values are a follow-up. clip-rule is not yet handled (follow-up).
 //
-// stroke-width/linecap/linejoin/miterlimit/dasharray ARE wired through to the
-// StrokeStyle setters. stroke-dashoffset is not yet handled (follow-up).
+// stroke-width/linecap/linejoin/miterlimit/dasharray/dashoffset ARE wired
+// through to the StrokeStyle setters.
 //
 // fill-opacity/stroke-opacity ARE applied (via FillStyle::with_alpha, which
 // mb-canvas now exposes).
@@ -107,6 +107,7 @@ fn emit_shape(
         .with_join(paint.stroke_join)
         .with_miter_limit(paint.stroke_miterlimit)
         .with_dash(paint.stroke_dash)
+        .with_dash_offset(paint.stroke_dashoffset)
       // Stroke color FillStyle: its rule is unused by the rasterizer (strokes
       // fill as even-odd outlines internally), so Nonzero is passed here.
       let color = make_fill_style(r, g, b, paint.stroke_opacity, @canvas.FillRule::Nonzero)
