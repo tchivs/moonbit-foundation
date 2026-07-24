@@ -5484,6 +5484,9 @@ fn png_stream_indexed_low_bit_adam7_one_chunk_origin_qualification(bytes : Bytes
     png_encode_public_stored_scanlines(bytes, 22) != raw {
     abort("png selected Indexed1 Adam7 chunk IDAT or IEND")
   }
+  png_stream_indexed_low_bit_adam7_assert_literal_passes(
+    raw, codes, PngIndexedBitDepth::One,
+  )
   let owner = @bytes.OwnedBytes::from_bytes(
     bytes, png_stream_test_budget(work=0UL),
   ).unwrap()
@@ -5519,7 +5522,7 @@ fn png_stream_indexed_low_bit_adam7_hostile_drain(
   schedule : Array[UInt64],
 ) -> Unit {
   if bit_depth != PngIndexedBitDepth::One {
-    abort("png selected Indexed Adam7 tracer depth")
+    return png_stream_indexed_low_bit_adam7_full_hostile_drain(bit_depth, schedule)
   }
   let expected = png_stream_indexed_low_bit_adam7_one_eager()
   let encoder = PngChunkEncoder::new_indexed_with_interlace_strategy(
@@ -5553,6 +5556,7 @@ fn png_stream_indexed_low_bit_adam7_hostile_drain(
         let collected = Bytes::from_array(output)
         if collected != expected { abort("png selected Indexed1 Adam7 eager parity") }
         png_stream_indexed_low_bit_adam7_one_chunk_origin_qualification(collected)
+        png_stream_indexed_low_bit_adam7_opaque_decode(PngIndexedBitDepth::One)
         let later = png_chunk_test_owner(7UL, fill=b'Z')
         let replay = later.with_mut(0UL, 7UL, fn(lease) { Ok(encoder.pull(lease)) }).unwrap()
         if replay.written() != 0UL || replay.total_written() != pulled.total_written() ||
@@ -5575,6 +5579,290 @@ fn png_stream_indexed_low_bit_adam7_hostile_drain(
 ///| its completed bytes through an independent Type-3 Adam7 wire oracle.
 test "PNG selected Indexed1 Adam7 chunk hostile leases qualify stream-origin bytes" {
   png_stream_indexed_low_bit_adam7_hostile_drain(PngIndexedBitDepth::One, [0UL, 1UL])
+}
+
+///| Supplies literal Phase-83 source, palette, alpha, and raw Adam7 pass data
+///| for each selected Type-3 depth without consulting production traversal.
+fn png_stream_indexed_low_bit_adam7_facts(
+  bit_depth : PngIndexedBitDepth,
+) -> (Bytes, Bytes, Bytes, Bytes, Int) {
+  match bit_depth {
+    PngIndexedBitDepth::One => (
+      b"\x00\x01\x00\x01\x01\x01\x00\x01\x01\x00\x01\x01\x00\x00\x01\x00\x01\x01\x00\x00\x01\x00\x00\x01\x01",
+      b"\x10\x20\x30\x40\x50\x60", b"\x00\x80",
+      b"\x00\x00\x00\x80\x00\xc0\x00\x00\x00\x00\x00\xa0\x00\xc0\x00\x80\x00\x40\x00\xb0\x00\x60", 122,
+    )
+    PngIndexedBitDepth::Two => (
+      b"\x00\x01\x02\x03\x00\x02\x03\x00\x01\x02\x00\x01\x02\x03\x00\x02\x03\x00\x01\x02\x00\x01\x02\x03\x00",
+      b"\x10\x20\x30\x40\x50\x60\x70\x80\x90\xa0\xb0\xc0", b"\x00\x40\x80\xc0",
+      b"\x00\x00\x00\x00\x00\x00\x00\x80\x00\x80\x00\x20\x00\x70\x00\x70\x00\x70\x00\xb1\x80\x00\xb1\x80", 132,
+    )
+    PngIndexedBitDepth::Four => (
+      b"\x00\x01\x02\x03\x04\x05\x06\x07\x08\x09\x0a\x0b\x0c\x0d\x0e\x0f\x00\x01\x02\x03\x04\x05\x06\x07\x08",
+      b"\x10\x20\x30\x40\x50\x60\x70\x80\x90\xa0\xb0\xc0\xd0\xe0\xf0\x01\x11\x21\x31\x41\x51\x61\x71\x81\x91\xa1\xb1\xc1\xd1\xe1\xf1\x02\x12\x22\x32\x42\x52\x62\x72\x82\x92\xa2\xb2\xc2\xd2\xe2\xf2\x03",
+      b"\x00\x11\x22\x33\x44\x55\x66\x77\x88\x99\xaa\xbb\xcc\xdd\xee\x7f",
+      b"\x00\x00\x00\x40\x00\x48\x00\x20\x00\x60\x00\xac\xe0\x00\x13\x00\xbd\x00\x57\x00\x56\x78\x90\x00\xf0\x12\x30", 183,
+    )
+  }
+}
+
+///| Builds an explicit selected-depth Adam7 source; opaque consumers receive
+///| an all-opaque tRNS table while preserving the canonical index literals.
+fn png_stream_indexed_low_bit_adam7_source(
+  bit_depth : PngIndexedBitDepth,
+  transparent : Bool,
+) -> PngIndexedImage {
+  let (codes, palette, alpha, _, _) = png_stream_indexed_low_bit_adam7_facts(bit_depth)
+  PngIndexedImage::new(
+    5UL, 5UL, codes, palette,
+    if transparent { alpha } else { Bytes::from_array(Array::make(alpha.length(), b'\xff')) },
+    png_stream_test_budget(),
+  ).unwrap()
+}
+
+///| Fresh eager bytes remain a lifecycle parity check and are never supplied
+///| to the independent stream frame, raster, or decode oracle.
+fn png_stream_indexed_low_bit_adam7_eager(bit_depth : PngIndexedBitDepth) -> Bytes {
+  let writer = @io.MemoryWriter::new(256UL, png_stream_test_budget(work=0UL)).unwrap()
+  ignore(PngEncoder::encode_indexed_with_interlace_strategy(
+    PngEncoder::new(), png_stream_indexed_low_bit_adam7_source(bit_depth, true), bit_depth,
+    PngInterlaceStrategy::Adam7, writer as &@io.Writer, png_stream_test_limits(),
+    png_stream_test_budget(), @error.Diagnostics::new(),
+  ).unwrap())
+  let output : Array[Byte] = []
+  for index = 0UL; index < writer.position(); index = index + 1UL {
+    output.push(writer.view().get(index).unwrap())
+  }
+  Bytes::from_array(output)
+}
+
+///| Recomputes the 5x5 Adam7 local pass geometry and MSB-first packed bytes.
+///| Partial data bytes are compared exactly, so their unused low tail bits must be zero.
+fn png_stream_indexed_low_bit_adam7_assert_literal_passes(
+  raw : Bytes,
+  codes : Bytes,
+  bit_depth : PngIndexedBitDepth,
+) -> Unit {
+  let depth = match bit_depth {
+    PngIndexedBitDepth::One => 1UL
+    PngIndexedBitDepth::Two => 2UL
+    PngIndexedBitDepth::Four => 4UL
+  }
+  let passes = [
+    (0UL, 0UL, 8UL, 8UL), (4UL, 0UL, 8UL, 8UL), (0UL, 4UL, 4UL, 8UL),
+    (2UL, 0UL, 4UL, 4UL), (0UL, 2UL, 2UL, 4UL), (1UL, 0UL, 2UL, 2UL),
+    (0UL, 1UL, 1UL, 2UL),
+  ]
+  let mut cursor = 0
+  for pass in passes {
+    let (start_x, start_y, step_x, step_y) = pass
+    let columns = if start_x >= 5UL { 0UL } else { (4UL - start_x) / step_x + 1UL }
+    let rows = if start_y >= 5UL { 0UL } else { (4UL - start_y) / step_y + 1UL }
+    let row_bytes = (columns * depth + 7UL) / 8UL
+    let pixels_per_byte = 8UL / depth
+    for row = 0UL; row < rows; row = row + 1UL {
+      if raw[cursor] != b'\x00' { abort("png selected low-bit Adam7 pass filter") }
+      cursor = cursor + 1
+      for byte_index = 0UL; byte_index < row_bytes; byte_index = byte_index + 1UL {
+        let mut packed = 0UL
+        for slot = 0UL; slot < pixels_per_byte; slot = slot + 1UL {
+          let local_x = byte_index * pixels_per_byte + slot
+          if local_x < columns {
+            let x = start_x + local_x * step_x
+            let y = start_y + row * step_y
+            let code = codes[(y * 5UL + x).to_int()].to_uint64()
+            packed = packed | (code << (8UL - depth * (slot + 1UL)).to_int())
+          }
+        }
+        if raw[cursor] != packed.to_byte() {
+          abort("png selected low-bit Adam7 pass packing or tail")
+        }
+        cursor = cursor + 1
+      }
+    }
+  }
+  if cursor != raw.length() { abort("png selected low-bit Adam7 pass length") }
+}
+
+///| Parses stream-origin chunks with local lengths and CRCs before comparing
+///| test-local Stored bytes and decoding the transparent public RGBA8 result.
+fn png_stream_indexed_low_bit_adam7_chunk_origin_qualification(
+  bytes : Bytes,
+  bit_depth : PngIndexedBitDepth,
+) -> Unit {
+  let (codes, palette, alpha, raw, expected_length) = png_stream_indexed_low_bit_adam7_facts(bit_depth)
+  let depth = match bit_depth {
+    PngIndexedBitDepth::One => b'\x01'
+    PngIndexedBitDepth::Two => b'\x02'
+    PngIndexedBitDepth::Four => b'\x04'
+  }
+  let plte_start = 33
+  let trns_start = plte_start + 12 + palette.length()
+  let idat_start = trns_start + 12 + alpha.length()
+  let idat_length = raw.length() + 11
+  let iend_start = idat_start + 12 + idat_length
+  if bytes.length() != expected_length || png_indexed_slice(bytes, 0, 8) != b"\x89\x50\x4e\x47\x0d\x0a\x1a\x0a" ||
+    png_indexed_u32(bytes, 8) != 13UL || png_indexed_slice(bytes, 12, 4) != b"IHDR" ||
+    png_indexed_slice(bytes, 16, 13) != Bytes::from_array([
+      b'\x00', b'\x00', b'\x00', b'\x05', b'\x00', b'\x00', b'\x00', b'\x05', depth,
+      b'\x03', b'\x00', b'\x00', b'\x01',
+    ]) || png_indexed_crc32(bytes, 12, 17) != png_indexed_u32(bytes, 29) {
+    abort("png selected low-bit Adam7 chunk IHDR")
+  }
+  if png_indexed_u32(bytes, plte_start) != palette.length().to_uint64() ||
+    png_indexed_slice(bytes, plte_start + 4, 4) != b"PLTE" ||
+    png_indexed_slice(bytes, plte_start + 8, palette.length()) != palette ||
+    png_indexed_crc32(bytes, plte_start + 4, 4 + palette.length()) !=
+      png_indexed_u32(bytes, plte_start + 8 + palette.length()) {
+    abort("png selected low-bit Adam7 chunk PLTE")
+  }
+  if png_indexed_u32(bytes, trns_start) != alpha.length().to_uint64() ||
+    png_indexed_slice(bytes, trns_start + 4, 4) != b"tRNS" ||
+    png_indexed_slice(bytes, trns_start + 8, alpha.length()) != alpha ||
+    png_indexed_crc32(bytes, trns_start + 4, 4 + alpha.length()) !=
+      png_indexed_u32(bytes, trns_start + 8 + alpha.length()) {
+    abort("png selected low-bit Adam7 chunk tRNS")
+  }
+  if png_indexed_u32(bytes, idat_start) != idat_length.to_uint64() ||
+    png_indexed_slice(bytes, idat_start + 4, 4) != b"IDAT" ||
+    png_indexed_crc32(bytes, idat_start + 4, 4 + idat_length) !=
+      png_indexed_u32(bytes, idat_start + 8 + idat_length) ||
+    png_indexed_u32(bytes, iend_start) != 0UL || png_indexed_slice(bytes, iend_start + 4, 4) != b"IEND" ||
+    png_indexed_crc32(bytes, iend_start + 4, 4) != png_indexed_u32(bytes, iend_start + 8) ||
+    png_encode_public_stored_scanlines(bytes, raw.length()) != raw {
+    abort("png selected low-bit Adam7 chunk IDAT or IEND")
+  }
+  png_stream_indexed_low_bit_adam7_assert_literal_passes(raw, codes, bit_depth)
+  let owner = @bytes.OwnedBytes::from_bytes(bytes, png_stream_test_budget(work=0UL)).unwrap()
+  let decoded = @codec.ImageDecoder::decode(
+    PngDecoder::new(), @io.MemoryReader::new(owner.view()) as &@io.Reader,
+    @codec.DecodeOptions::new(require_complete_input=true, preserve_opaque_metadata=false),
+    png_stream_test_limits(output=256UL, work=1048576UL),
+    png_stream_test_budget(work=1048576UL), @error.Diagnostics::new(),
+  ).unwrap().image().view()
+  if decoded.format().channels() != @model.ChannelOrder::Rgba { abort("png selected low-bit Adam7 RGBA decode") }
+  for point = 0; point < 25; point = point + 1 {
+    let code = codes[point].to_int()
+    let x = (point % 5).to_uint64()
+    let y = (point / 5).to_uint64()
+    for channel = 0; channel < 3; channel = channel + 1 {
+      if decoded.get_byte(x, y, channel.to_uint64()).unwrap() != palette[code * 3 + channel] {
+        abort("png selected low-bit Adam7 RGBA palette")
+      }
+    }
+    if decoded.get_byte(x, y, 3UL).unwrap() != alpha[code] { abort("png selected low-bit Adam7 RGBA alpha") }
+  }
+}
+
+///| The opaque caller-buffered stream proves the public decoder exposes RGB8
+///| palette values rather than an artificial alpha channel.
+fn png_stream_indexed_low_bit_adam7_opaque_decode(bit_depth : PngIndexedBitDepth) -> Unit {
+  let (codes, palette, _, _, _) = png_stream_indexed_low_bit_adam7_facts(bit_depth)
+  let encoder = PngChunkEncoder::new_indexed_with_interlace_strategy(
+    png_stream_indexed_low_bit_adam7_source(bit_depth, false), bit_depth,
+    PngInterlaceStrategy::Adam7, png_stream_test_limits(), png_stream_test_budget(),
+    @error.Diagnostics::new(),
+  ).unwrap()
+  let bytes = png_chunk_test_drain_encoder(encoder, [256UL]).unwrap()
+  let owner = @bytes.OwnedBytes::from_bytes(bytes, png_stream_test_budget(work=0UL)).unwrap()
+  let decoded = @codec.ImageDecoder::decode(
+    PngDecoder::new(), @io.MemoryReader::new(owner.view()) as &@io.Reader,
+    @codec.DecodeOptions::new(require_complete_input=true, preserve_opaque_metadata=false),
+    png_stream_test_limits(output=256UL, work=1048576UL),
+    png_stream_test_budget(work=1048576UL), @error.Diagnostics::new(),
+  ).unwrap().image().view()
+  if decoded.format().channels() != @model.ChannelOrder::Rgb { abort("png selected low-bit Adam7 RGB decode") }
+  for point = 0; point < 25; point = point + 1 {
+    let code = codes[point].to_int()
+    let x = (point % 5).to_uint64()
+    let y = (point / 5).to_uint64()
+    for channel = 0; channel < 3; channel = channel + 1 {
+      if decoded.get_byte(x, y, channel.to_uint64()).unwrap() != palette[code * 3 + channel] {
+        abort("png selected low-bit Adam7 RGB palette")
+      }
+    }
+  }
+}
+
+///| Runs the full caller-owned matrix for the expanded Two/Four selected-depth
+///| routes, retaining the same accepted-only and sentinel contracts as the tracer.
+fn png_stream_indexed_low_bit_adam7_full_hostile_drain(
+  bit_depth : PngIndexedBitDepth,
+  schedule : Array[UInt64],
+) -> Unit {
+  let expected = png_stream_indexed_low_bit_adam7_eager(bit_depth)
+  let encoder = PngChunkEncoder::new_indexed_with_interlace_strategy(
+    png_stream_indexed_low_bit_adam7_source(bit_depth, true), bit_depth,
+    PngInterlaceStrategy::Adam7, png_stream_test_limits(), png_stream_test_budget(),
+    @error.Diagnostics::new(),
+  ).unwrap()
+  let output : Array[Byte] = []
+  let mut turn = 0UL
+  while turn < 4096UL {
+    let capacity = schedule[(turn % schedule.length().to_uint64()).to_int()]
+    let owner = png_chunk_test_owner(if capacity == 0UL { 1UL } else { capacity }, fill=b'Z')
+    let before = output.length().to_uint64()
+    let pulled = owner.with_mut(0UL, capacity, fn(lease) { Ok(encoder.pull(lease)) }).unwrap()
+    if pulled.written() > capacity || pulled.total_written() != before + pulled.written() {
+      abort("png selected low-bit Adam7 accepted-only progress")
+    }
+    if capacity == 0UL && (pulled.written() != 0UL || pulled.total_written() != before ||
+      !(pulled.outcome() is PngChunkPullOutcome::NeedOutput) || owner.view().get(0UL).unwrap() != b'Z') {
+      abort("png selected low-bit Adam7 zero lease")
+    }
+    for index = 0UL; index < pulled.written(); index = index + 1UL { output.push(owner.view().get(index).unwrap()) }
+    for index = pulled.written(); index < capacity; index = index + 1UL {
+      if owner.view().get(index).unwrap() != b'Z' { abort("png selected low-bit Adam7 tail") }
+    }
+    match pulled.outcome() {
+      PngChunkPullOutcome::NeedOutput => turn = turn + 1UL
+      PngChunkPullOutcome::Failed(_) => abort("png selected low-bit Adam7 drain failed")
+      PngChunkPullOutcome::Finished => {
+        let collected = Bytes::from_array(output)
+        if collected != expected { abort("png selected low-bit Adam7 eager parity") }
+        png_stream_indexed_low_bit_adam7_chunk_origin_qualification(collected, bit_depth)
+        png_stream_indexed_low_bit_adam7_opaque_decode(bit_depth)
+        let later = png_chunk_test_owner(7UL, fill=b'Z')
+        let replay = later.with_mut(0UL, 7UL, fn(lease) { Ok(encoder.pull(lease)) }).unwrap()
+        if replay.written() != 0UL || replay.total_written() != pulled.total_written() ||
+          !(replay.outcome() is PngChunkPullOutcome::Finished) {
+          abort("png selected low-bit Adam7 completed terminal")
+        }
+        for index = 0UL; index < 7UL; index = index + 1UL {
+          if later.view().get(index).unwrap() != b'Z' { abort("png selected low-bit Adam7 completed tail") }
+        }
+        return ()
+      }
+    }
+  }
+  abort("png selected low-bit Adam7 hostile drain unreachable")
+}
+
+///| A released first selected-depth Adam7 lease must cache the same zero-write
+///| failure while preserving both original and later caller-owned sentinels.
+fn png_stream_indexed_low_bit_adam7_released_failure(bit_depth : PngIndexedBitDepth) -> Unit {
+  let encoder = PngChunkEncoder::new_indexed_with_interlace_strategy(
+    png_stream_indexed_low_bit_adam7_source(bit_depth, true), bit_depth,
+    PngInterlaceStrategy::Adam7, png_stream_test_limits(), png_stream_test_budget(),
+    @error.Diagnostics::new(),
+  ).unwrap()
+  let released = png_chunk_test_owner(1UL, fill=b'Z')
+  let first = released.with_mut(0UL, 1UL, fn(lease) { lease.release(); Ok(encoder.pull(lease)) }).unwrap()
+  let first_error = match first.outcome() {
+    PngChunkPullOutcome::Failed(error) => error
+    _ => abort("png selected low-bit Adam7 released lease outcome")
+  }
+  let later = png_chunk_test_owner(1UL, fill=b'Z')
+  let replay = later.with_mut(0UL, 1UL, fn(lease) { Ok(encoder.pull(lease)) }).unwrap()
+  let replay_error = match replay.outcome() {
+    PngChunkPullOutcome::Failed(error) => error
+    _ => abort("png selected low-bit Adam7 released lease replay")
+  }
+  if first.written() != 0UL || first.total_written() != 0UL || replay.written() != 0UL ||
+    replay.total_written() != 0UL || !png_chunk_test_same_error(first_error, replay_error) ||
+    released.view().get(0UL).unwrap() != b'Z' || later.view().get(0UL).unwrap() != b'Z' {
+    abort("png selected low-bit Adam7 released lease terminal")
+  }
 }
 
 ///| Every selected low-bit Adam7 stream must retain hostile lease semantics
