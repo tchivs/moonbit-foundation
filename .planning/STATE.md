@@ -73,7 +73,7 @@ Last activity: 2026-07-24 — Roadmap and requirements for Phases 83-84 created
 | # | Description | Date | Commit | Directory |
 |---|-------------|------|--------|-----------|
 | 260724-vy0 | Regenerate the root README to reflect the current MoonBit Native Foundation workspace, modules, examples, quality workflow, and candidate stability policy | 2026-07-24 | 85cd5ea | [260724-vy0-regenerate-the-root-readme-to-reflect-th](./quick/260724-vy0-regenerate-the-root-readme-to-reflect-th/) |
-| 260724-wx2 | Make the root README bilingual and add verified project badges | 2026-07-24 | pending | [260724-wx2-make-the-root-readme-bilingual-and-add-v](./quick/260724-wx2-make-the-root-readme-bilingual-and-add-v/) |
+| 260724-wx2 | Make the root README bilingual and add verified project badges | 2026-07-24 | 6d6b87c | [260724-wx2-make-the-root-readme-bilingual-and-add-v](./quick/260724-wx2-make-the-root-readme-bilingual-and-add-v/) |
 
 ## Deferred Items
 
