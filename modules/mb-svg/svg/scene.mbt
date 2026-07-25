@@ -992,11 +992,16 @@ fn build_element(
         Ok(n) => n
         Err(e) => return Err(e)
       }
-    _ =>
+    _ => {
       // Unknown/deferred element. build_attrs already consumed up to the
       // terminator; skip the element's body up to the matching EndTag,
       // accounting for nested same-name tags.
-      return skip_element_body(st, name, budget)
+      if is_empty {
+        return Ok(None)
+      } else {
+        return skip_element_body(st, name, budget)
+      }
+    }
   }
   if not(is_empty) {
     match consume_end_tag(st, name, budget) {

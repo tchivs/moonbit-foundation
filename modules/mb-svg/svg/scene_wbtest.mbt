@@ -143,6 +143,34 @@ test "parse_svg skips unknown/deferred subtrees" {
 }
 
 ///|
+test "parse_svg skips self-closing deferred elements without consuming siblings" {
+  let src = "<svg><defs/><rect x=\"1\" y=\"2\" width=\"3\" height=\"4\"/></svg>"
+  match parse_svg(src) {
+    Ok(Svg(_, children)) =>
+      match children.length() {
+        1 =>
+          match children[0] {
+            Rect(_, x, y, width, height, _, _) =>
+              inspect((x, y, width, height), content="(1, 2, 3, 4)")
+            _ => inspect(false, content="true")
+          }
+        _ => inspect(false, content="true")
+      }
+    Ok(_) => inspect(false, content="true")
+    Err(_) => inspect(false, content="true")
+  }
+}
+
+///|
+test "parse_svg accepts a self-closing deferred-only document" {
+  match parse_svg("<svg><metadata/></svg>") {
+    Ok(Svg(_, children)) => inspect(children.length(), content="0")
+    Ok(_) => inspect(false, content="true")
+    Err(_) => inspect(false, content="true")
+  }
+}
+
+///|
 test "parse_svg rejects non-svg root" {
   match parse_svg("<rect/>") {
     Err(_) => inspect("err", content="err")
