@@ -60,6 +60,35 @@ test "public parse keeps finite boundary and singular transform drawable" {
 }
 
 ///|
+test "public parse and lower retain compact supported SVG geometry" {
+  // This intentionally uses only exported parser/lowerer APIs. It combines
+  // root viewBox mapping, finite scale(0), omitted defaults, and all supported
+  // shape/path families so consumers retain one usable DrawingList contract.
+  let source = "<svg viewBox=\"0 0 4 2\" width=\"8\" height=\"8\"><g transform=\"scale(0)\"><rect width=\"1\" height=\"1\"/><circle r=\"1\"/><ellipse rx=\"1\" ry=\"0.5\"/><line x2=\"1\" y2=\"1\"/><polyline points=\"0,0 1,1\"/><polygon points=\"0,0 1,0 1,1\"/><path d=\"M0 0 L1 1 Z\"/></g></svg>"
+  match parse_svg(source) {
+    Err(_) => inspect(false, content="true")
+    Ok(scene) => {
+      let list = lower_to_drawing_list(scene)
+      // Root map, group transform, seven shapes, group pop, root pop.
+      inspect(list.length(), content="11")
+      match (list.get(0), list.get(1), list.get(9), list.get(10)) {
+        (Some(PushTransform(root_map)), Some(PushTransform(scale)), Some(PopTransform), Some(PopTransform)) => {
+          inspect((root_map.a(), root_map.d(), root_map.ty()), content="(2, 2, 2)")
+          inspect((scale.a(), scale.d()), content="(0, 0)")
+        }
+        _ => inspect(false, content="true")
+      }
+      for index = 2; index < 9; index = index + 1 {
+        match list.get(index) {
+          Some(Fill(_, _)) => ()
+          _ => inspect(false, content="true")
+        }
+      }
+    }
+  }
+}
+
+///|
 test "public parse rejects explicit paint scalar routes before a scene exists" {
   let cases = [
     ("<svg><rect fill=\"#ggg\"/></svg>", @error.ErrorCode::InvalidEncoding, "svg-numeric-source"),
