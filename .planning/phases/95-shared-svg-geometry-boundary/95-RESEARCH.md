@@ -295,12 +295,12 @@ The full command is established project precedent and the local CLI confirms tha
 | A1 | A newly added private test file will be named `geometry_wbtest.mbt`. The filename is only a recommendation; the existing package test convention supports such placement. [ASSUMED] | Recommended Project Structure / Test Strategy | Low — planner can place focused tests in `lower_wbtest.mbt` instead. |
 | A2 | The total-lowerer fallback may use identity for failed root affine facts and empty paths for failed shape facts. This preserves return totality and valid parser-produced behavior, but behavior for manually constructed invalid scenes is not specified by the locked decisions. [ASSUMED] | Pattern 1 | Medium — implementation must choose and test a deterministic fallback without altering valid output or adding an error API. |
 
-## Open Questions
+## Open Questions (RESOLVED)
 
 1. **Which deterministic fallback should the total lowerer use for a manually constructed invalid `SceneNode`?**
    - What we know: parser-produced scenes fail before publication; the public lowerer remains total for manually constructed scene values. [VERIFIED: modules/mb-svg/svg/scene.mbt; .planning/milestones/v0.30-MILESTONE-AUDIT.md]
    - What's unclear: existing invalid manually constructed geometry output is not documented as a compatibility oracle. [VERIFIED: codebase inspection]
-   - Recommendation: use an internal non-panicking fallback that preserves operation/layer sequencing as much as possible (identity transform / empty path), write one private totality test, and do not add a public policy promise. [ASSUMED]
+   - **RESOLVED:** Use an internal non-panicking identity fallback for failed root facts and an empty `Path2` fallback for failed primitive/path facts. Apply it only to manually constructed invalid `SceneNode` values, keep paint/layer sequencing in `emit_shape`, test it privately, and do not add a public policy promise. Valid parser-produced scenes continue to consume successful checked facts unchanged. [DECIDED: 95-01/95-02 plan]
 
 ## Environment Availability
 
@@ -349,7 +349,7 @@ None — this research is grounded in the repository’s current source, policy,
 
 ### Tertiary (LOW confidence)
 
-Only the two explicitly logged implementation choices (test filename and total-lowerer invalid-scene fallback) remain assumptions. [ASSUMED]
+Only the focused test filename remains an implementation-placement assumption; the total-lowerer invalid-scene fallback is resolved in this research record. [ASSUMED]
 
 ## Metadata
 
