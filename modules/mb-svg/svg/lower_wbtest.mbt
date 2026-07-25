@@ -822,18 +822,7 @@ fn assert_manual_invalid_scene_matrix() -> Unit raise {
         _ => inspect(false, content="true")
       }
 
-      let unsafe_group = @math.Affine2::translate(65537.0, 0.0)
-      match checked_compose_affine(@math.Affine2::identity(), unsafe_group) {
-        Ok(_) => inspect(false, content="true")
-        Err(error) => inspect(error.context(), content="Some(svg-numeric-derived)")
-      }
-      // Group lowering intentionally remains a direct DrawOp branch.  This
-      // focused differential is the sentinel for a future adapter repair.
-      let group_list = lower_to_drawing_list(Group(unsafe_group, 1.0, [Rect(paint, 0.0, 0.0, 1.0, 1.0, 0.0, 0.0)]))
-      match (group_list.get(0), group_list.get(1), group_list.get(4), group_list.get(5)) {
-        (Some(PushTransform(transform)), Some(PushLayer(0.25)), Some(PopLayer), Some(PopTransform)) => inspect(transform.tx(), content="65537")
-        _ => inspect(false, content="true")
-      }
+      assert_manual_inherited_affine_recovery(paint)
 
       assert_manual_checked_path_error(checked_rect_path(65536.0, 0.0, 1.0, 1.0, 0.0, 0.0))
       assert_manual_empty_path_twice(Rect(paint, 65536.0, 0.0, 1.0, 1.0, 0.0, 0.0))
@@ -860,6 +849,128 @@ fn assert_manual_invalid_scene_matrix() -> Unit raise {
       assert_manual_checked_path_error(checked_canvas_path(invalid_path_point))
       assert_manual_empty_path_twice(Path(paint, invalid_path_point))
     }
+    _ => inspect(false, content="true")
+  }
+}
+
+fn assert_manual_inherited_affine_recovery(paint : Paint) -> Unit raise {
+  let outer = @math.Affine2::translate(65536.0, 0.0)
+  let inner = @math.Affine2::translate(1.0, 0.0)
+  match checked_compose_affine(outer, inner) {
+    Ok(_) => inspect(false, content="true")
+    Err(error) => inspect(error.context(), content="Some(svg-numeric-derived)")
+  }
+
+  let nested = Group(
+    outer,
+    1.0,
+    [Group(inner, 1.0, [Rect(paint, 0.0, 0.0, 1.0, 1.0, 0.0, 0.0)])],
+  )
+  let first_nested = lower_to_drawing_list(nested)
+  let second_nested = lower_to_drawing_list(nested)
+  for list in [first_nested, second_nested] {
+    inspect(list.length(), content="8")
+    match (
+      list.get(0),
+      list.get(1),
+      list.get(2),
+      list.get(3),
+      list.get(4),
+      list.get(5),
+      list.get(6),
+      list.get(7),
+    ) {
+      (
+        Some(PushTransform(first)),
+        Some(PushTransform(second)),
+        Some(PushLayer(0.25)),
+        Some(Fill(_, _)),
+        Some(Stroke(_, _, _)),
+        Some(PopLayer),
+        Some(PopTransform),
+        Some(PopTransform),
+      ) => {
+        inspect(first.tx(), content="65536")
+        inspect((second.a(), second.d(), second.tx(), second.ty()), content="(1, 1, 0, 0)")
+      }
+      _ => inspect(false, content="true")
+    }
+  }
+
+  let root : SvgRoot = {
+    width: Some(65536.0),
+    height: Some(1.0),
+    view_box: Some((0.0, 0.0, 1.0, 1.0)),
+    preserve_aspect_ratio: { align_x: 1, align_y: 1, meet: true, none: true },
+  }
+  let local_scale = @math.Affine2::scale(2.0, 1.0)
+  match checked_viewbox_transform(root) {
+    Ok(map) =>
+      match checked_compose_affine(map, local_scale) {
+        Ok(_) => inspect(false, content="true")
+        Err(error) => inspect(error.context(), content="Some(svg-numeric-derived)")
+      }
+    Err(_) => inspect(false, content="true")
+  }
+  let viewbox_nested = Svg(
+    root,
+    [Group(local_scale, 1.0, [Rect(paint, 0.0, 0.0, 1.0, 1.0, 0.0, 0.0)])],
+  )
+  for list in [lower_to_drawing_list(viewbox_nested), lower_to_drawing_list(viewbox_nested)] {
+    inspect(list.length(), content="8")
+    match (
+      list.get(0),
+      list.get(1),
+      list.get(2),
+      list.get(3),
+      list.get(4),
+      list.get(5),
+      list.get(6),
+      list.get(7),
+    ) {
+      (
+        Some(PushTransform(map)),
+        Some(PushTransform(group)),
+        Some(PushLayer(0.25)),
+        Some(Fill(_, _)),
+        Some(Stroke(_, _, _)),
+        Some(PopLayer),
+        Some(PopTransform),
+        Some(PopTransform),
+      ) => {
+        inspect((map.a(), map.d()), content="(65536, 1)")
+        inspect((group.a(), group.d(), group.tx(), group.ty()), content="(1, 1, 0, 0)")
+      }
+      _ => inspect(false, content="true")
+    }
+  }
+
+  let valid = Group(
+    @math.Affine2::translate(10.0, 0.0),
+    1.0,
+    [Group(@math.Affine2::translate(1.0, 0.0), 1.0, [Rect(paint, 0.0, 0.0, 1.0, 1.0, 0.0, 0.0)])],
+  )
+  let valid_list = lower_to_drawing_list(valid)
+  match (
+    valid_list.get(0),
+    valid_list.get(1),
+    valid_list.get(2),
+    valid_list.get(3),
+    valid_list.get(4),
+    valid_list.get(5),
+    valid_list.get(6),
+    valid_list.get(7),
+  ) {
+    (
+      Some(PushTransform(first)),
+      Some(PushTransform(second)),
+      Some(PushLayer(0.25)),
+      Some(Fill(_, _)),
+      Some(Stroke(_, _, _)),
+      Some(PopLayer),
+      Some(PopTransform),
+      Some(PopTransform),
+    ) => inspect((first.tx(), second.tx()), content="(10, 1)")
     _ => inspect(false, content="true")
   }
 }
