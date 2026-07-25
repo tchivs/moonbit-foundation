@@ -266,12 +266,12 @@ This is a lowerer-compatibility test only; it must remain distinct from `parse_s
 
 All claims in this research were verified or cited — no user confirmation needed.
 
-## Open Questions
+## Open Questions (RESOLVED)
 
-1. **No blocking implementation question.**
+1. **RESOLVED — no blocking implementation question.**
    - What we know: existing test homes cover public parser errors, private checked facts, total-lowerer fallback, and opacity/layer semantic raster behavior. [VERIFIED: modules/mb-svg/svg/*test.mbt]
-   - What's unclear: the historical canonical-reference filename in `96-CONTEXT.md` does not match the repository file; the repository contains `docs/rfcs/0008-mb-canvas-layer.md`. [VERIFIED: 96-CONTEXT.md; docs/rfcs/0008-mb-canvas-layer.md]
-   - Recommendation: cite and preserve the actual RFC 0008 file; do not rename it in this phase. [VERIFIED: docs/rfcs/0008-mb-canvas-layer.md; 96-CONTEXT.md]
+   - **RESOLVED:** the historical canonical-reference filename in `96-CONTEXT.md` does not match the repository file; the authoritative repository path is `docs/rfcs/0008-mb-canvas-layer.md`. [VERIFIED: 96-CONTEXT.md; docs/rfcs/0008-mb-canvas-layer.md]
+   - Resolution: cite and preserve the actual RFC 0008 file; do not rename it in this phase. [VERIFIED: docs/rfcs/0008-mb-canvas-layer.md; 96-CONTEXT.md]
 
 ## Environment Availability
 
