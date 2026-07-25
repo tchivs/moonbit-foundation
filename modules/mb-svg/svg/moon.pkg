@@ -1,4 +1,5 @@
 import {
+  "moonbitlang/core/bench" @bench,
   "tchivs/mb-core/budget" @budget,
   "tchivs/mb-core/error",
   "tchivs/mb-core/math",
