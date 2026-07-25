@@ -301,7 +301,10 @@ fn build_svg_root(
     Ok(value) => value
     Err(error) => return Err(error)
   }
-  let (_, child_ctx) = build_paint(attrs, ctx)
+  let (_, child_ctx) = match build_paint(attrs, ctx) {
+    Ok(value) => value
+    Err(error) => return Err(error)
+  }
   if is_empty {
     return Ok(SceneNode::Svg(root, []))
   }
@@ -551,8 +554,14 @@ fn build_group(
       }
   }
   // Group `opacity` (the `opacity` attribute) is NOT inherited and defaults to 1.0.
-  let group_opacity = attr_double_or_default(attrs, "opacity", 1.0)
-  let (_, child_ctx) = build_paint(attrs, ctx)
+  let group_opacity = match attr_double(attrs, "opacity", 1.0) {
+    Ok(value) => value
+    Err(error) => return Err(error)
+  }
+  let (_, child_ctx) = match build_paint(attrs, ctx) {
+    Ok(value) => value
+    Err(error) => return Err(error)
+  }
   if is_empty {
     return Ok(SceneNode::Group(transform, group_opacity, []))
   }
@@ -749,13 +758,14 @@ fn parse_preserve_aspect_ratio(s : String) -> PreserveAspectRatio {
 // plus the inherited parent context. For each inherited attribute: if this
 // element sets it, parse and use it (currentColor resolves against the
 // inherited color); otherwise inherit the parent's resolved value. On color
-// parse failure, falls back leniently (fill→black, stroke→none) as in v0.1.
+// parse failure, nonnumeric color forms retain v0.1 fallbacks (fill→black,
+// stroke→none); numeric source failures are propagated.
 // Returns the fully-resolved Paint (for the leaf) and the context to thread
 // into this element's children.
 fn build_paint(
   attrs : Array[(String, String)],
   parent : PaintContext,
-) -> (Paint, PaintContext) {
+) -> Result[(Paint, PaintContext), @error.CoreError] {
   // currentColor source: the `color` attribute, inherited (default black).
   let color = match attr_get(attrs, "color") {
     None => parent.color
@@ -765,7 +775,12 @@ fn build_paint(
       } else {
         match parse_color(s, Some(parent.color)) {
           Ok(c) => c
-          Err(_) => parent.color
+          Err(error) =>
+            if is_svg_numeric_error(error) {
+              return Err(error)
+            } else {
+              parent.color
+            }
         }
       }
   }
@@ -778,7 +793,12 @@ fn build_paint(
       } else {
         match parse_color(s, Some(color)) {
           Ok(c) => Some(c)
-          Err(_) => Some((0.0, 0.0, 0.0))
+          Err(error) =>
+            if is_svg_numeric_error(error) {
+              return Err(error)
+            } else {
+              Some((0.0, 0.0, 0.0))
+            }
         }
       }
   }
@@ -790,17 +810,31 @@ fn build_paint(
       } else {
         match parse_color(s, Some(color)) {
           Ok(c) => Some(c)
-          Err(_) => None
+          Err(error) =>
+            if is_svg_numeric_error(error) {
+              return Err(error)
+            } else {
+              None
+            }
         }
       }
   }
-  let fill_opacity = inherit_double(attrs, "fill-opacity", parent.fill_opacity)
-  let stroke_opacity = inherit_double(
+  let fill_opacity = match inherit_double(attrs, "fill-opacity", parent.fill_opacity) {
+    Ok(value) => value
+    Err(error) => return Err(error)
+  }
+  let stroke_opacity = match inherit_double(
     attrs,
     "stroke-opacity",
     parent.stroke_opacity,
-  )
-  let stroke_width = inherit_double(attrs, "stroke-width", parent.stroke_width)
+  ) {
+    Ok(value) => value
+    Err(error) => return Err(error)
+  }
+  let stroke_width = match inherit_double(attrs, "stroke-width", parent.stroke_width) {
+    Ok(value) => value
+    Err(error) => return Err(error)
+  }
   let fill_rule = match attr_get(attrs, "fill-rule") {
     None => parent.fill_rule
     Some(s) => parse_fillrule(s)
@@ -813,11 +847,14 @@ fn build_paint(
     None => parent.stroke_join
     Some(s) => parse_linejoin(s)
   }
-  let stroke_miterlimit = inherit_double(
+  let stroke_miterlimit = match inherit_double(
     attrs,
     "stroke-miterlimit",
     parent.stroke_miterlimit,
-  )
+  ) {
+    Ok(value) => value
+    Err(error) => return Err(error)
+  }
   let stroke_dash = match attr_get(attrs, "stroke-dasharray") {
     None => parent.stroke_dash
     Some(s) =>
@@ -826,17 +863,23 @@ fn build_paint(
       } else {
         match parse_number_list(s) {
           Ok(nums) => nums
-          Err(_) => parent.stroke_dash
+          Err(error) => return Err(error)
         }
       }
   }
-  let stroke_dashoffset = inherit_double(
+  let stroke_dashoffset = match inherit_double(
     attrs,
     "stroke-dashoffset",
     parent.stroke_dashoffset,
-  )
+  ) {
+    Ok(value) => value
+    Err(error) => return Err(error)
+  }
   // Element `opacity` is NOT inherited (per SVG spec); default 1.0.
-  let opacity = attr_double_or_default(attrs, "opacity", 1.0)
+  let opacity = match attr_double(attrs, "opacity", 1.0) {
+    Ok(value) => value
+    Err(error) => return Err(error)
+  }
   let paint = {
     fill: fill,
     stroke: stroke,
@@ -865,7 +908,7 @@ fn build_paint(
     stroke_dash: stroke_dash,
     stroke_dashoffset: stroke_dashoffset,
   }
-  (paint, ctx)
+  Ok((paint, ctx))
 }
 
 // Numeric attribute: parse if present, else inherit parent value. (No SVG
@@ -874,14 +917,17 @@ fn inherit_double(
   attrs : Array[(String, String)],
   name : String,
   parent : Double,
-) -> Double {
+) -> Result[Double, @error.CoreError] {
   match attr_get(attrs, name) {
-    None => parent
-    Some(s) =>
-      match parse_length(s) {
-        Ok(v) => v
-        Err(_) => parent
-      }
+    None => Ok(parent)
+    Some(s) => parse_length(s)
+  }
+}
+
+fn is_svg_numeric_error(error : @error.CoreError) -> Bool {
+  match error.context() {
+    Some("svg-numeric-source") | Some("svg-numeric-nonfinite") | Some("svg-numeric-range") => true
+    _ => false
   }
 }
 
@@ -945,7 +991,10 @@ fn build_rect(
     Ok(value) => value
     Err(error) => return Err(error)
   }
-  let (paint, _) = build_paint(attrs, ctx)
+  let (paint, _) = match build_paint(attrs, ctx) {
+    Ok(value) => value
+    Err(error) => return Err(error)
+  }
   Ok(SceneNode::Rect(paint, x, y, w, h, rx, ry))
 }
 
@@ -965,7 +1014,10 @@ fn build_circle(
     Ok(value) => value
     Err(error) => return Err(error)
   }
-  let (paint, _) = build_paint(attrs, ctx)
+  let (paint, _) = match build_paint(attrs, ctx) {
+    Ok(value) => value
+    Err(error) => return Err(error)
+  }
   Ok(SceneNode::Circle(paint, cx, cy, r))
 }
 
@@ -989,7 +1041,10 @@ fn build_ellipse(
     Ok(value) => value
     Err(error) => return Err(error)
   }
-  let (paint, _) = build_paint(attrs, ctx)
+  let (paint, _) = match build_paint(attrs, ctx) {
+    Ok(value) => value
+    Err(error) => return Err(error)
+  }
   Ok(SceneNode::Ellipse(paint, cx, cy, rx, ry))
 }
 
@@ -1013,7 +1068,10 @@ fn build_line(
     Ok(value) => value
     Err(error) => return Err(error)
   }
-  let (paint, _) = build_paint(attrs, ctx)
+  let (paint, _) = match build_paint(attrs, ctx) {
+    Ok(value) => value
+    Err(error) => return Err(error)
+  }
   Ok(SceneNode::Line(paint, x1, y1, x2, y2))
 }
 
@@ -1021,7 +1079,10 @@ fn build_polyline(
   attrs : Array[(String, String)],
   ctx : PaintContext,
 ) -> Result[SceneNode, @error.CoreError] {
-  let (paint, _) = build_paint(attrs, ctx)
+  let (paint, _) = match build_paint(attrs, ctx) {
+    Ok(value) => value
+    Err(error) => return Err(error)
+  }
   let points = match points_from_attrs(attrs) {
     Ok(value) => value
     Err(error) => return Err(error)
@@ -1033,7 +1094,10 @@ fn build_polygon(
   attrs : Array[(String, String)],
   ctx : PaintContext,
 ) -> Result[SceneNode, @error.CoreError] {
-  let (paint, _) = build_paint(attrs, ctx)
+  let (paint, _) = match build_paint(attrs, ctx) {
+    Ok(value) => value
+    Err(error) => return Err(error)
+  }
   let points = match points_from_attrs(attrs) {
     Ok(value) => value
     Err(error) => return Err(error)
@@ -1077,7 +1141,8 @@ fn build_path(
       match parse_path_data_with_budget(d, budget) {
         Ok(p) =>
           match build_paint(attrs, ctx) {
-            (paint, _) => Ok(SceneNode::Path(paint, p))
+            Ok((paint, _)) => Ok(SceneNode::Path(paint, p))
+            Err(error) => Err(error)
           }
         Err(e) => Err(e)
       }
@@ -1108,16 +1173,5 @@ fn attr_double(
   match attr_get(attrs, name) {
     None => Ok(default)
     Some(s) => parse_length(s)
-  }
-}
-
-fn attr_double_or_default(
-  attrs : Array[(String, String)],
-  name : String,
-  default : Double,
-) -> Double {
-  match attr_double(attrs, name, default) {
-    Ok(value) => value
-    Err(_) => default
   }
 }

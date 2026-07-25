@@ -118,34 +118,64 @@ fn parse_func_color(
   let c1 = @text.trim(parts[1]).to_string()
   let c2 = @text.trim(parts[2]).to_string()
   if is_hsl {
-    let h = parse_double_or(c0, 0.0)
-    let s = parse_percent(c1)
-    let l = parse_percent(c2)
+    let h = match parse_color_scalar(c0) {
+      Ok(value) => value
+      Err(error) => return Err(error)
+    }
+    let s = match parse_percent(c1) {
+      Ok(value) => value
+      Err(error) => return Err(error)
+    }
+    let l = match parse_percent(c2) {
+      Ok(value) => value
+      Err(error) => return Err(error)
+    }
     let (r, g, b) = @color.hsl_to_rgb(h, s, l)
     Ok((r, g, b))
   } else {
-    Ok((parse_component(c0), parse_component(c1), parse_component(c2)))
+    let r = match parse_component(c0) {
+      Ok(value) => value
+      Err(error) => return Err(error)
+    }
+    let g = match parse_component(c1) {
+      Ok(value) => value
+      Err(error) => return Err(error)
+    }
+    let b = match parse_component(c2) {
+      Ok(value) => value
+      Err(error) => return Err(error)
+    }
+    Ok((r, g, b))
   }
 }
 
-fn parse_component(s : String) -> Double {
+fn parse_component(s : String) -> Result[Double, @error.CoreError] {
   if s.contains("%") {
     parse_percent(s)
   } else {
-    parse_double_or(s, 0.0) / 255.0
+    match parse_color_scalar(s) {
+      Ok(value) => Ok(value / 255.0)
+      Err(error) => Err(error)
+    }
   }
 }
 
-fn parse_percent(s : String) -> Double {
+fn parse_percent(s : String) -> Result[Double, @error.CoreError] {
   // Strip trailing '%'.
   let t = s.replace(old="%", new="")
-  parse_double_or(t, 0.0) / 100.0
+  match parse_color_scalar(t) {
+    Ok(value) => Ok(value / 100.0)
+    Err(error) => Err(error)
+  }
 }
 
-fn parse_double_or(s : String, default : Double) -> Double {
+fn parse_color_scalar(s : String) -> Result[Double, @error.CoreError] {
   match @text.parse_double(@text.trim(s).to_string()) {
-    Ok(v) => v
-    Err(_) => default
+    Ok(value) => admit_svg_numeric_source(value)
+    Err(_) => Err(svg_numeric_error(
+      @error.ErrorCode::InvalidEncoding,
+      "svg-numeric-source",
+    ))
   }
 }
 

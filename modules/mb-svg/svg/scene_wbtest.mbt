@@ -430,7 +430,7 @@ test "paint scalar ingress rejects explicit invalid values without changing omit
   for source in invalid_sources {
     match parse_svg(source) {
       Ok(_) => inspect(false, content="true")
-      Err(error) => inspect(error.operation(), content="Some(\"svg\")")
+      Err(error) => inspect(error.operation(), content="Some(svg)")
     }
   }
   match parse_svg("<svg><g fill=\"blue\"><rect width=\"1\" height=\"1\"/></g></svg>") {
