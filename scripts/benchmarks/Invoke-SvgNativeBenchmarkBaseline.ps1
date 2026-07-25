@@ -258,6 +258,13 @@ function Convert-ToAsciiJson([object]$Value) {
   $builder.ToString()
 }
 
+function Get-NamedValue([object]$Object, [string]$Name) {
+  if ($Object -is [Collections.IDictionary]) { return $Object[$Name] }
+  $property = $Object.PSObject.Properties[$Name]
+  if ($null -eq $property) { throw "Missing required evidence field: $Name" }
+  $property.Value
+}
+
 function Add-RunMarkdown([Text.StringBuilder]$Builder, [object]$Run) {
   $title = if ($Run.id -eq 'warmup') { 'Warmup (excluded from summary)' } else { 'Capture ' + $Run.id }
   Add-Line $Builder ('### ' + $title)
@@ -318,8 +325,8 @@ function New-BaselineDocument([object]$Evidence) {
   Add-Line $builder '## Toolchain and host facts'
   Add-Line $builder ''
   foreach ($key in @('moon', 'moonc', 'moonrun')) {
-    Add-Line $builder ('- ' + $key + ' observed: `' + $Evidence.toolchain.raw[$key] + '`')
-    Add-Line $builder ('- ' + $key + ' policy: `' + $Evidence.toolchain.policy_expected[$key] + '`')
+    Add-Line $builder ('- ' + $key + ' observed: `' + (Get-NamedValue $Evidence.toolchain.raw $key) + '`')
+    Add-Line $builder ('- ' + $key + ' policy: `' + (Get-NamedValue $Evidence.toolchain.policy_expected $key) + '`')
   }
   Add-Line $builder ('- PowerShell: `' + $Evidence.host.powershell + '`; .NET runtime: `' + $Evidence.host.dotnet_runtime + '`')
   foreach ($key in @('os', 'cpu', 'physical_memory_bytes', 'active_power_scheme')) {
