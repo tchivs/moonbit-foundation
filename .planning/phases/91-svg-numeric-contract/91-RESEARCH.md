@@ -34,6 +34,18 @@ None — SVG feature expansion, layer optimization, and native acceleration rema
 | SVGPR-01 | Library users receive a documented, target-neutral SVG numeric admission contract with route-matrix tests for every supported scalar ingress and derived-value path. | The documented 65,536 envelope, source/derived route matrix, stable error assertions, and four-target test command below. [VERIFIED: repository `REQUIREMENTS.md`, `modules/mb-svg/svg/`] |
 </phase_requirements>
 
+## Project Constraints (from AGENTS.md)
+
+- Core algorithms and shared data models should be written in MoonBit; the phase must not replace the portable numeric boundary with a foreign wrapper.
+- Native is the primary target, but portable targets are supported through capability boundaries and conformance tests; the contract and its evidence must hold on `js`, `wasm`, `wasm-gc`, and `native`.
+- Public packages must have acyclic, explicitly documented dependencies; do not introduce a reverse `mb-canvas`/`mb-svg` dependency for validation.
+- Public operations should be deterministic and usable without GUI state; the documented admission outcome and route matrix must be automation-friendly.
+- Public API stability follows Semantic Versioning after a package is stable; stable error fields are preferable to diagnostic-message text.
+- New modules and breaking architectural changes require RFCs; this phase keeps the existing `mb-svg` → `mb-canvas` ownership boundary.
+- `*_test.mbt` black-box tests validate public APIs and `*_wbtest.mbt` cover internal invariants; add route-matrix evidence in the existing MoonBit test convention.
+- Prefer codebase-memory graph tools for code discovery and fall back to text search only if the graph lacks the needed MoonBit symbols; the graph was queried first and had no usable MoonBit source-symbol index. [VERIFIED: `AGENTS.md`; VERIFIED: graph probe 2026-07-25]
+- Do not make direct production edits outside a GSD workflow; this research phase writes only its planning artifact. [VERIFIED: `AGENTS.md`]
+
 ## Summary
 
 The implementation-ready contract is: admit a scalar only when it is finite and lies in the inclusive portable envelope `[-65536.0, 65536.0]`; apply the same predicate to every value produced while building geometry or an affine transform. [VERIFIED: repository `modules/mb-svg/svg/{scene,path_data}.mbt`; inference from both default `ResourceLimits.width` and `.height` being `65536UL`] The magnitude is not a generic `Double` limit: it is the already-declared SVG resource dimension ceiling, and it remains safely representable by the canvas rasterizer's `Double -> Int -> UInt64` device-coordinate clamp. [VERIFIED: repository `modules/mb-svg/svg/{scene,path_data}.mbt`, `modules/mb-canvas/canvas/rasterize.mbt`]
