@@ -1,6 +1,6 @@
 ---
 phase: 92-fail-closed-svg-parsing
-reviewed: 2026-07-25T18:02:11Z
+reviewed: 2026-07-25T18:10:09Z
 depth: deep
 files_reviewed: 14
 files_reviewed_list:
@@ -19,51 +19,50 @@ files_reviewed_list:
   - modules/mb-svg/svg/transform.mbt
   - modules/mb-svg/svg/transform_wbtest.mbt
 findings:
-  critical: 2
+  critical: 0
   warning: 0
   info: 0
-  total: 2
-status: issues_found
-verdict: blocked
+  total: 0
+status: clean
+verdict: clean
 ---
 
 # Phase 92: Release Code Review
 
-**Reviewed:** 2026-07-25T18:02:11Z
-**Depth:** deep
+**Reviewed:** 2026-07-25T18:10:09Z
+**Depth:** deep (focused release regression)
 **Files Reviewed:** 14
-**Verdict:** **BLOCKED**
+**Verdict:** **CLEAN — release blockers cleared**
 
 ## Summary
 
-CR-01 through CR-10 are fixed. In particular, `3b98857` admits source size before SVG tokenization and applies balanced depth leases to nested non-empty `<svg>` elements; the corresponding bounds tests cover both repairs. Earlier fixes retain structured numeric errors, strict comma/hex handling, tangent-based skew, correct close-path state, and post-close scalar rejection.
+Validated the complete CR-01 through CR-12 chain after `9dd9c9e` and `60cca07`, limited to Phase 92's release contracts: fail-closed numeric and grammar admission, no partial public result, supported valid SVG grammar, and explicit bounded-input handling. No blocker-level defect remains.
 
-`moon test modules/mb-svg/svg --target all --frozen` passes: 114/114 on wasm, wasm-gc, js, and native. The release remains blocked by two untested public-input paths: direct path parsing still bypasses the caller's byte budget, and a valid self-closing deferred SVG element is rejected.
+`moon test modules/mb-svg/svg --target all --frozen` passes: 117/117 on wasm, wasm-gc, js, and native. `git diff --check 7fe2f1d..HEAD` is clean.
 
 ## Narrative Findings (AI reviewer)
 
-The review traced `parse_svg_with_budget` through tokenization, scene construction, paint/list/path/transform parsing, and derived-geometry preflight, and separately traced the public `parse_path_data_with_budget` entry point. No prior CR-01–CR-10 regression was found. The findings below are independent release blockers for the requested bounded-input and valid-SVG compatibility gates.
+No BLOCKER findings. The final call-chain review verified the following repaired conditions:
 
-## Critical Issues
+| Prior finding | Verification |
+|---|---|
+| CR-01 | Malformed supported functional colors return the structured numeric source error rather than reaching paint fallbacks. |
+| CR-02 | Percent components require one trailing `%`; embedded or repeated percent signs fail closed. |
+| CR-03 | `skewX`/`skewY` derive and admit `tan(degrees)` shear coefficients. |
+| CR-04 | `Z/z` restores the subpath current point before relative follow-up commands. |
+| CR-05 | The path scanner splits valid sign-adjacent scalar tokens while retaining exponent signs. |
+| CR-06 | Invalid hexadecimal paint syntax returns a numeric source error rather than decoding or falling back. |
+| CR-07 | Numeric-list and path separator grammar rejects leading, duplicate, and trailing commas. |
+| CR-08 | A scalar after `Z/z` clears the implicit command and immediately returns a source error; no close-command growth is exposed. |
+| CR-09 | Nested non-empty `<svg>` children acquire and release balanced depth leases. |
+| CR-10 | Document source is checked against the supplied byte ceiling before markup tokenization. |
+| CR-11 | The standalone public path parser checks source size before allocating `CanvasPath` or converting the input to a character array. The boundary and non-consuming-work cases are covered. |
+| CR-12 | Self-closing deferred elements return a skipped node immediately, preserving following siblings and accepting deferred-only valid documents. |
 
-### CR-11: Public path parser allocates and scans before honoring the byte budget
-
-**Classification:** BLOCKER
-**File:** `modules/mb-svg/svg/path_data.mbt:17-18, 31-42, 327-337`
-**Issue:** `parse_path_data_with_budget` creates `s.to_array()` before consulting `budget`; its only charge uses `bytes=0UL`. Thus a caller can provide a tiny byte budget and a very large `d` string, yet the parser allocates/scans the full character array before it can return a work or numeric error. The default path budget's 8 MiB `bytes` limit is likewise inert. This bypasses the public bounded-input contract for the standalone path API.
-
-**Fix:** Before `s.to_array()`, reject a source whose code-unit count exceeds `budget.remaining().bytes()` (or introduce a shared budget-aware scanner that charges bytes while scanning). Add all-target tests showing an oversized direct `parse_path_data_with_budget` input fails before conversion, while a boundary-sized valid path succeeds.
-
-### CR-12: Self-closing deferred elements are treated as unterminated subtrees
-
-**Classification:** BLOCKER
-**File:** `modules/mb-svg/svg/scene.mbt:955-999`
-**Issue:** For an unsupported/deferred element, `build_element` calls `skip_element_body` even when `build_attrs` reported `is_empty=true`. Consequently valid SVG such as `<svg><defs/></svg>` (or `<metadata/>`, `<linearGradient/>`) consumes the following tokens while seeking a nonexistent `</defs>` and returns `missing </defs> while skipping`. This breaks valid SVG compatibility at the documented deferred-element boundary.
-
-**Fix:** In the default/deferred branch, return `Ok(None)` immediately when `is_empty` is true; call `skip_element_body` only for non-empty elements. Add a regression for `<svg><defs/><rect .../></svg>` that asserts successful parsing and one retained drawable child, plus a self-closing deferred-only control.
+The `Result` boundaries are preserved from numeric/grammar failure through `parse_svg_with_budget` and `parse_path_data_with_budget`; callers receive `Err` rather than a partial `SceneNode` or `CanvasPath`. The parser's source, depth, and work gates remain explicit at their public bounded-input seams.
 
 ---
 
-_Reviewed: 2026-07-25T18:02:11Z_
+_Reviewed: 2026-07-25T18:10:09Z_
 _Reviewer: the agent (gsd-code-reviewer)_
-_Depth: deep_
+_Depth: deep (focused release regression)_
