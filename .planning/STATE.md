@@ -4,16 +4,16 @@ milestone: v0.31
 milestone_name: SVG Numeric Boundary Unification
 current_phase: 95
 current_phase_name: Shared SVG Geometry Boundary
-status: executing
-stopped_at: Completed 95-01-PLAN.md
-last_updated: "2026-07-25T21:46:32.698Z"
+status: verifying
+stopped_at: Completed 95-02-PLAN.md
+last_updated: "2026-07-25T21:52:22.370Z"
 last_activity: 2026-07-26
 last_activity_desc: Phase 95 execution started
 progress:
   total_phases: 1
-  completed_phases: 0
+  completed_phases: 1
   total_plans: 2
-  completed_plans: 1
+  completed_plans: 2
 ---
 
 # Project State
@@ -30,7 +30,7 @@ See `.planning/PROJECT.md`.
 
 Phase: 95 (Shared SVG Geometry Boundary) — EXECUTING
 Plan: 2 of 2
-Status: Ready to execute
+Status: Phase complete — ready for verification
 Last activity: 2026-07-26 — Phase 95 execution started
 
 ## Milestone Metrics
@@ -48,6 +48,8 @@ Last activity: 2026-07-26 — Phase 95 execution started
 - [v0.31 roadmap]: Public valid SVG output, the v0.30 numeric limits and structured errors, finite singular transforms, and RFC 0008 opacity/layer semantics are compatibility controls, not new feature work.
 - [Phase ?]: Shared checked SVG geometry facts preserve fail-closed parsing and total lowering recovery.
 - [Phase ?]: Coordinate admission remains after the accumulated affine to preserve finite scale(0).
+- [Phase ?]: Invalid manual SceneNode recovery remains a deterministic DrawingList fallback with no public error API.
+- [Phase ?]: SVG compatibility is qualified through operation semantics and frozen all-target package tests, not snapshots or timing comparisons.
 
 ### Blockers/Concerns
 
@@ -65,8 +67,8 @@ Last activity: 2026-07-26 — Phase 95 execution started
 
 ## Session Continuity
 
-Last session: 2026-07-25T21:46:32.686Z
-Stopped at: Completed 95-01-PLAN.md
+Last session: 2026-07-25T21:52:22.357Z
+Stopped at: Completed 95-02-PLAN.md
 Resume file: None
 
 ## Operator Next Steps
@@ -81,3 +83,4 @@ No v0.31 plans have been completed.
 | Plan | Duration | Tasks | Files |
 |------|----------|-------|-------|
 | Phase 95 P01 | 8min | 2 tasks | 4 files |
+| Phase 95 P02 | 6min | 2 tasks | 2 files |

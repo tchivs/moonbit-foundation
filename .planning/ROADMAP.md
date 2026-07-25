@@ -52,10 +52,10 @@
   2. Maintainers can verify that parser preflight and lowering obtain checked geometry facts for each supported geometry family from the same internal seam.
   3. Existing valid SVG behavior remains available without a new public API, changed numeric limit, or changed public error schema.
 
-**Plans**: 1/2 plans executed
+**Plans**: 2/2 plans executed
 
 - [x] 95-01-PLAN.md
-- [ ] 95-02-PLAN.md
+- [x] 95-02-PLAN.md
 
 ### Phase 96: SVG Boundary Parity Qualification
 
@@ -75,7 +75,7 @@
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 95. Shared SVG Geometry Boundary | 1/2 | In Progress|  |
+| 95. Shared SVG Geometry Boundary | 2/2 | In Progress|  |
 | 96. SVG Boundary Parity Qualification | 0/TBD | Not started | - |
 
 ---
