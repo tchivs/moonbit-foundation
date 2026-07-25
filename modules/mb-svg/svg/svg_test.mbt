@@ -66,6 +66,12 @@ test "public parse rejects explicit paint scalar routes before a scene exists" {
     ("<svg><rect stroke-dasharray=\"1,1e999\"/></svg>", @error.ErrorCode::InvalidEncoding, "svg-numeric-nonfinite"),
     ("<svg><rect fill=\"rgb(65537,0,0)\"/></svg>", @error.ErrorCode::InvalidRange, "svg-numeric-range"),
     ("<svg><rect fill=\"hsl(0,65537%,0%)\"/></svg>", @error.ErrorCode::InvalidRange, "svg-numeric-range"),
+    ("<svg><rect fill=\"rgb(1,2)\"/></svg>", @error.ErrorCode::InvalidEncoding, "svg-numeric-source"),
+    ("<svg><rect stroke=\"hsl(1,2%)\"/></svg>", @error.ErrorCode::InvalidEncoding, "svg-numeric-source"),
+    ("<svg><rect color=\"rgb(1,2)\"/></svg>", @error.ErrorCode::InvalidEncoding, "svg-numeric-source"),
+    ("<svg><rect fill=\"rgb(0,1%%,0)\"/></svg>", @error.ErrorCode::InvalidEncoding, "svg-numeric-source"),
+    ("<svg><rect fill=\"rgb(0,1%2,0)\"/></svg>", @error.ErrorCode::InvalidEncoding, "svg-numeric-source"),
+    ("<svg><rect fill=\"hsl(0,1,0%)\"/></svg>", @error.ErrorCode::InvalidEncoding, "svg-numeric-source"),
   ]
   for case in cases {
     let (source, code, context) = case

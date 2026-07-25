@@ -100,8 +100,8 @@ fn parse_func_color(
       close = i
     }
   }
-  if open == -1 || close == -1 || close <= open {
-    return Err(svg_error("svg-color", "malformed function color: " + t))
+  if open == -1 || close == -1 || close <= open || close != chars.length() - 1 {
+    return Err(color_source_error())
   }
   // Extract inner content as a String.
   let inner_chars : Array[Char] = []
@@ -112,7 +112,7 @@ fn parse_func_color(
   // Split on ',' and parse.
   let parts = split_on_comma(inner)
   if parts.length() < 3 {
-    return Err(svg_error("svg-color", "needs 3 components: " + t))
+    return Err(color_source_error())
   }
   let c0 = @text.trim(parts[0]).to_string()
   let c1 = @text.trim(parts[1]).to_string()
@@ -161,12 +161,27 @@ fn parse_component(s : String) -> Result[Double, @error.CoreError] {
 }
 
 fn parse_percent(s : String) -> Result[Double, @error.CoreError] {
-  // Strip trailing '%'.
-  let t = s.replace(old="%", new="")
-  match parse_color_scalar(t) {
+  // Percent components require exactly one trailing '%'. Removing every '%'
+  // would otherwise accept malformed forms such as "1%%" and "1%2".
+  let chars = @text.trim(s).to_string().to_array()
+  if chars.length() == 0 || chars[chars.length() - 1] != '%' {
+    return Err(color_source_error())
+  }
+  let scalar_chars : Array[Char] = []
+  for i = 0; i < chars.length() - 1; i = i + 1 {
+    if chars[i] == '%' {
+      return Err(color_source_error())
+    }
+    scalar_chars.push(chars[i])
+  }
+  match parse_color_scalar(String::from_array(scalar_chars)) {
     Ok(value) => Ok(value / 100.0)
     Err(error) => Err(error)
   }
+}
+
+fn color_source_error() -> @error.CoreError {
+  svg_numeric_error(@error.ErrorCode::InvalidEncoding, "svg-numeric-source")
 }
 
 fn parse_color_scalar(s : String) -> Result[Double, @error.CoreError] {
