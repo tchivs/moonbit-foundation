@@ -58,3 +58,17 @@ test "public parse keeps finite boundary and singular transform drawable" {
     }
   }
 }
+
+///|
+test "public parse rejects explicit paint scalar routes before a scene exists" {
+  let cases = [
+    ("<svg><rect opacity=\"bad\"/></svg>", @error.ErrorCode::InvalidEncoding, "svg-numeric-source"),
+    ("<svg><rect stroke-dasharray=\"1,1e999\"/></svg>", @error.ErrorCode::InvalidEncoding, "svg-numeric-nonfinite"),
+    ("<svg><rect fill=\"rgb(65537,0,0)\"/></svg>", @error.ErrorCode::InvalidRange, "svg-numeric-range"),
+    ("<svg><rect fill=\"hsl(0,65537%,0%)\"/></svg>", @error.ErrorCode::InvalidRange, "svg-numeric-range"),
+  ]
+  for case in cases {
+    let (source, code, context) = case
+    assert_public_numeric_error(parse_svg(source), code, context)
+  }
+}

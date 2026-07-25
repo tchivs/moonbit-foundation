@@ -413,3 +413,32 @@ test "numeric contract: scene ingress and absent controls" {
     Err(_) => inspect(false, content="true")
   }
 }
+
+///|
+test "paint scalar ingress rejects explicit invalid values without changing omitted inheritance" {
+  let invalid_sources = [
+    "<svg><rect fill-opacity=\"bad\"/></svg>",
+    "<svg><rect stroke-width=\"1e999\"/></svg>",
+    "<svg><rect stroke-dasharray=\"1,65537\"/></svg>",
+    "<svg><rect fill=\"rgb(bad,0,0)\"/></svg>",
+    "<svg><rect fill=\"rgb(1e999,0,0)\"/></svg>",
+    "<svg><rect fill=\"rgb(65537,0,0)\"/></svg>",
+    "<svg><rect fill=\"rgb(0,1e999%,0)\"/></svg>",
+    "<svg><rect fill=\"hsl(65537,0%,0%)\"/></svg>",
+    "<svg><rect fill=\"hsl(0,1e999%,0%)\"/></svg>",
+  ]
+  for source in invalid_sources {
+    match parse_svg(source) {
+      Ok(_) => inspect(false, content="true")
+      Err(error) => inspect(error.operation(), content="Some(\"svg\")")
+    }
+  }
+  match parse_svg("<svg><g fill=\"blue\"><rect width=\"1\" height=\"1\"/></g></svg>") {
+    Ok(Svg(_, children)) =>
+      match children[0] {
+        Group(_, _, [Rect(paint, _, _, _, _, _, _)]) => inspect(paint.fill, content="Some((0, 0, 1))")
+        _ => inspect(false, content="true")
+      }
+    _ => inspect(false, content="true")
+  }
+}
