@@ -4,16 +4,16 @@ milestone: v0.30
 milestone_name: SVG Production Readiness
 current_phase: 91
 current_phase_name: SVG Numeric Contract
-status: executing
-stopped_at: Completed 91-01-PLAN.md
-last_updated: "2026-07-25T15:40:11.428Z"
+status: verifying
+stopped_at: Completed 91-02-PLAN.md
+last_updated: "2026-07-25T15:49:31.516Z"
 last_activity: 2026-07-25
 last_activity_desc: Phase 91 execution started
 progress:
   total_phases: 1
-  completed_phases: 0
+  completed_phases: 1
   total_plans: 2
-  completed_plans: 1
+  completed_plans: 2
 ---
 
 # Project State
@@ -30,10 +30,10 @@ See `.planning/PROJECT.md`.
 
 Phase: 91 (SVG Numeric Contract) — EXECUTING
 Plan: 2 of 2
-Status: Ready to execute
+Status: Phase complete — ready for verification
 Last activity: 2026-07-25 — Phase 91 execution started
 
-Progress: [█████░░░░░] 50%
+Progress: [██████████] 100%
 
 ## Milestone Metrics
 
@@ -52,6 +52,8 @@ Progress: [█████░░░░░] 50%
 - [Phase ?]: Anchor SVG_NUMERIC_LIMIT at the existing 65536 SVG resource width/height ceiling rather than an arbitrary Double maximum.
 - [Phase ?]: Treat finite singular transforms such as scale(0) as valid; determinant zero is not numeric unsafety.
 - [Phase ?]: Reserve behavior-changing explicit-value rejection assertions for Phase 92 while Phase 91 proves valid boundary preservation.
+- [Phase ?]: Focused SVG numeric controls map each public SVG-NUM route identifier to valid finite behavior while keeping Phase 92 rejection coverage separate.
+- [Phase ?]: Finite scale(0), current lowerer behavior, and RFC 0008 opacity layer ordering remain compatibility controls without production source changes.
 
 ### Blockers/Concerns
 
@@ -69,8 +71,8 @@ Progress: [█████░░░░░] 50%
 
 ## Session Continuity
 
-Last session: 2026-07-25T15:40:11.415Z
-Stopped at: Completed 91-01-PLAN.md
+Last session: 2026-07-25T15:49:31.503Z
+Stopped at: Completed 91-02-PLAN.md
 Resume file: None
 
 ## Operator Next Steps
@@ -85,3 +87,4 @@ No v0.30 plans have been completed.
 | Plan | Duration | Tasks | Files |
 |------|----------|-------|-------|
 | Phase 91-svg-numeric-contract P01 | 12min | 2 tasks | 2 files |
+| Phase 91-svg-numeric-contract P02 | 12min | 2 tasks | 5 files |

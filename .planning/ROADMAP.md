@@ -53,10 +53,10 @@
   2. Supported SVG numeric inputs and derived calculations have route-matrix evidence that identifies their admission outcome under the documented envelope.
   3. Valid finite SVG controls at the documented boundary retain their established parse and lowering behavior.
 
-**Plans**: 1/2 plans executed
+**Plans**: 2/2 plans executed
 
 - [x] 91-01-PLAN.md
-- [ ] 91-02-PLAN.md
+- [x] 91-02-PLAN.md
 
 ### Phase 92: Fail-Closed SVG Parsing
 
@@ -103,7 +103,7 @@
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 91. SVG Numeric Contract | 1/2 | In Progress|  |
+| 91. SVG Numeric Contract | 2/2 | In Progress|  |
 | 92. Fail-Closed SVG Parsing | 0/TBD | Not started | - |
 | 93. SVG Compatibility & Portable Qualification | 0/TBD | Not started | - |
 | 94. SVG Benchmark Evidence | 0/TBD | Not started | - |
