@@ -631,3 +631,99 @@ test "parser-derived numeric rejection never reaches the total lowerer" {
     }
   }
 }
+
+///|
+test "lower checked geometry retains compact map and path operation forms" {
+  // The shared checked seam must leave the selected viewBox affine and every
+  // supported compact geometry representation visible to the DrawingList.
+  let source = "<svg viewBox=\"0 0 100 50\" width=\"200\" height=\"200\" preserveAspectRatio=\"none\"><rect width=\"10\" height=\"10\" rx=\"2\" ry=\"2\"/><ellipse cx=\"5\" cy=\"6\" rx=\"4\" ry=\"2\"/><polyline points=\"0,0 1,1 2,0\"/><path d=\"M0 0 L1 1 Z\"/></svg>"
+  match parse_svg(source) {
+    Err(_) => inspect(false, content="true")
+    Ok(scene) => {
+      let list = lower_to_drawing_list(scene)
+      inspect(list.length(), content="6")
+      match list.get(0) {
+        Some(PushTransform(map)) =>
+          inspect((map.a(), map.d(), map.tx(), map.ty()), content="(2, 4, 0, 0)")
+        _ => inspect(false, content="true")
+      }
+      match list.get(1) {
+        Some(Fill(path, _)) => inspect(path.length(), content="10")
+        _ => inspect(false, content="true")
+      }
+      match list.get(2) {
+        Some(Fill(path, _)) => {
+          inspect(path.length(), content="33")
+          match (path.get(0), path.get(32)) {
+            (Some(@math.PathCommand::MoveTo(_)), Some(@math.PathCommand::Close)) => ()
+            _ => inspect(false, content="true")
+          }
+        }
+        _ => inspect(false, content="true")
+      }
+      match list.get(3) {
+        Some(Fill(path, _)) => inspect(path.length(), content="3")
+        _ => inspect(false, content="true")
+      }
+      match list.get(4) {
+        Some(Fill(path, _)) => {
+          inspect(path.length(), content="3")
+          match (path.get(0), path.get(1), path.get(2)) {
+            (
+              Some(@math.PathCommand::MoveTo(_)),
+              Some(@math.PathCommand::LineTo(_)),
+              Some(@math.PathCommand::Close),
+            ) => ()
+            _ => inspect(false, content="true")
+          }
+        }
+        _ => inspect(false, content="true")
+      }
+      match list.get(5) {
+        Some(PopTransform) => ()
+        _ => inspect(false, content="true")
+      }
+    }
+  }
+}
+
+///|
+test "lower invalid manual scenes recover deterministically without moving layers" {
+  match parse_svg("<svg><rect width=\"1\" height=\"1\" fill=\"red\" stroke=\"blue\" opacity=\"0.25\"/></svg>") {
+    Ok(Svg(_, [Rect(paint, _, _, _, _, _, _)])) => {
+      // This root requires an out-of-envelope derived translation. The total
+      // adapter must recover with identity, leaving emit_shape's layer order.
+      let invalid_root : SvgRoot = {
+        width: Some(65536.0),
+        height: Some(1.0),
+        view_box: Some((2.0, 0.0, 1.0, 1.0)),
+        preserve_aspect_ratio: { align_x: 1, align_y: 1, meet: true, none: true },
+      }
+      let invalid_path = @canvas.CanvasPath::new()
+      invalid_path.move_to(65537.0, 0.0)
+      let invalid_scene = Svg(
+        invalid_root,
+        [
+          Rect(paint, 65536.0, 0.0, 1.0, 1.0, 0.0, 0.0),
+          Path(paint, invalid_path),
+        ],
+      )
+      let first = lower_to_drawing_list(invalid_scene)
+      let second = lower_to_drawing_list(invalid_scene)
+      inspect((first.length(), second.length()), content="(8, 8)")
+      for list in [first, second] {
+        match (list.get(0), list.get(1), list.get(2), list.get(3)) {
+          (Some(PushLayer(0.25)), Some(Fill(rect, _)), Some(Stroke(_, _, _)), Some(PopLayer)) =>
+            inspect(rect.length(), content="0")
+          _ => inspect(false, content="true")
+        }
+        match (list.get(4), list.get(5), list.get(6), list.get(7)) {
+          (Some(PushLayer(0.25)), Some(Fill(path, _)), Some(Stroke(_, _, _)), Some(PopLayer)) =>
+            inspect(path.length(), content="0")
+          _ => inspect(false, content="true")
+        }
+      }
+    }
+    _ => inspect(false, content="true")
+  }
+}
