@@ -380,3 +380,52 @@ test "portable qualification rejects a seventeenth SVG-originated opacity layer 
 test "portable qualification keeps RFC 0008 group and element opacity semantic" {
   assert_portable_rfc0008_opacity_contract()
 }
+
+fn assert_portable_rfc0008_opacity_contract() -> Unit raise {
+  // Group opacity is applied only after its element-opacity layer has resolved:
+  // PushTransform, group layer, element layer, Fill/Stroke, then balanced pops.
+  let source = "<svg><g opacity=\"0.5\"><rect width=\"8\" height=\"8\" fill=\"red\" opacity=\"0.25\" stroke=\"blue\" stroke-width=\"2\"/></g></svg>"
+  match parse_svg(source) {
+    Err(_) => inspect(false, content="true")
+    Ok(scene) => {
+      let list = lower_to_drawing_list(scene)
+      inspect(list.length(), content="8")
+      match (list.get(0), list.get(1), list.get(2), list.get(3), list.get(4), list.get(5), list.get(6), list.get(7)) {
+        (Some(PushTransform(_)), Some(PushLayer(group)), Some(PushLayer(element)), Some(Fill(_, _)), Some(Stroke(_, _, _)), Some(PopLayer), Some(PopLayer), Some(PopTransform)) =>
+          inspect((group, element), content="(0.5, 0.25)")
+        _ => inspect(false, content="true")
+      }
+
+      let opaque = qualification_image(b'\xff', b'\xff', b'\xff', b'\xff')
+      match @canvas.render(list, opaque, qualification_budget()) {
+        Err(_) => inspect(false, content="true")
+        Ok(_) => ()
+      }
+      let (opaque_r, opaque_g, opaque_b, opaque_a) = qualification_pixel(opaque, 4UL, 4UL)
+      inspect(
+        (opaque_r.to_int(), opaque_g.to_int(), opaque_b.to_int(), opaque_a.to_int()),
+        content="(255, 223, 223, 255)",
+      )
+
+      let transparent = qualification_image(b'\x00', b'\x00', b'\x00', b'\x00')
+      match @canvas.render(list, transparent, qualification_budget()) {
+        Err(_) => inspect(false, content="true")
+        Ok(_) => ()
+      }
+      let (transparent_r, transparent_g, transparent_b, transparent_a) = qualification_pixel(
+        transparent,
+        4UL,
+        4UL,
+      )
+      inspect(
+        (
+          transparent_r.to_int(),
+          transparent_g.to_int(),
+          transparent_b.to_int(),
+          transparent_a.to_int(),
+        ),
+        content="(255, 0, 0, 32)",
+      )
+    }
+  }
+}
