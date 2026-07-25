@@ -41,16 +41,16 @@
 
 | Requirement | Phase | Status |
 |---|---|---|
-| SVGPR-01 | TBD | Pending |
-| SVGPR-02 | TBD | Pending |
-| SVGPR-03 | TBD | Pending |
-| SVGPR-04 | TBD | Pending |
+| SVGPR-01 | Phase 91 | Pending |
+| SVGPR-02 | Phase 92 | Pending |
+| SVGPR-03 | Phase 93 | Pending |
+| SVGPR-04 | Phase 94 | Pending |
 
 **Coverage:**
 - v0.30 requirements: 4 total
-- Mapped to phases: 0
-- Unmapped: 4 (roadmap pending)
+- Mapped to phases: 4
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-07-25*
-*Last updated: 2026-07-25 after v0.30 research synthesis*
+*Last updated: 2026-07-25 after v0.30 roadmap creation*

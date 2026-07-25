@@ -31,14 +31,67 @@
 - ✅ **v0.27 Low-Bit Indexed Adam7 PNG Encode** — Phases 83-84 (shipped 2026-07-24). [Full history](./milestones/v0.27-ROADMAP.md)
 - ✅ **v0.28 Indexed PNG Compression Profiles** — Phases 85-87 (shipped 2026-07-24). [Full history](./milestones/v0.28-ROADMAP.md)
 - ✅ **v0.29 Indexed Adam7 Compression Profiles** — Phases 88-90 (shipped 2026-07-24). [Full history](./milestones/v0.29-ROADMAP.md)
+- 📋 **v0.30 SVG Production Readiness** — Phases 91-94 (planned).
 
 ## Phases
 
-No active milestone. Start the next code-first cycle with `$gsd-new-milestone`.
+- [ ] **Phase 91: SVG Numeric Contract** - Define the target-neutral numeric admission envelope and prove every scalar route is covered.
+- [ ] **Phase 92: Fail-Closed SVG Parsing** - Reject unsafe explicit SVG numbers before they can form a scene or drawing list.
+- [ ] **Phase 93: SVG Compatibility & Portable Qualification** - Preserve valid lowering, opacity layering, and canvas-capacity behavior across portable targets.
+- [ ] **Phase 94: SVG Benchmark Evidence** - Provide correctness-gated workloads and a reproducible native-release baseline.
+
+## Phase Details
+
+### Phase 91: SVG Numeric Contract
+**Goal**: Library users have a documented, target-neutral SVG numeric admission contract covering every supported scalar ingress and derived-value path.
+**Depends on**: Nothing (first phase)
+**Requirements**: SVGPR-01
+**Success Criteria** (what must be TRUE):
+  1. Library users can consult one documented finite, bounded SVG numeric admission contract that applies consistently on `js`, `wasm`, `wasm-gc`, and `native`.
+  2. Supported SVG numeric inputs and derived calculations have route-matrix evidence that identifies their admission outcome under the documented envelope.
+  3. Valid finite SVG controls at the documented boundary retain their established parse and lowering behavior.
+**Plans**: TBD
+
+### Phase 92: Fail-Closed SVG Parsing
+**Goal**: Explicitly unsafe SVG numeric input is rejected with a structured error before it can produce a scene or drawing list.
+**Depends on**: Phase 91
+**Requirements**: SVGPR-02
+**Success Criteria** (what must be TRUE):
+  1. A user who supplies a non-finite, malformed, or out-of-envelope coordinate, length, transform, viewBox, path, or paint scalar receives structured SVG error context.
+  2. An SVG value whose relative coordinate, viewBox, affine, trigonometric, or composition calculation becomes unsafe is rejected before lowering or rasterization.
+  3. Rejected SVG input produces neither a scene nor a drawing list, while omitted attributes retain their established SVG defaults.
+  4. Finite singular transforms remain valid according to the documented numeric contract.
+**Plans**: TBD
+
+### Phase 93: SVG Compatibility & Portable Qualification
+**Goal**: Library users retain deterministic valid SVG lowering and raster output, including isolated opacity semantics and the canvas layer-capacity boundary, on every portable target.
+**Depends on**: Phase 92
+**Requirements**: SVGPR-03
+**Success Criteria** (what must be TRUE):
+  1. Valid finite SVG fixtures retain deterministic drawing-operation and raster-output results on `js`, `wasm`, `wasm-gc`, and `native`.
+  2. Group, element, fill, stroke, and nested opacity compose through the existing isolated-layer semantics rather than changing per-paint output.
+  3. Documents within the existing 16-layer canvas capability render as before, while a 17th nested opacity layer reports the established capacity outcome.
+  4. Unsafe SVG rejection leaves no partial scene, drawing list, or raster result on all supported targets.
+**Plans**: TBD
+
+### Phase 94: SVG Benchmark Evidence
+**Goal**: Maintainers can reproduce correctness-gated SVG workload measurements and compare a documented native-release baseline responsibly.
+**Depends on**: Phase 93
+**Requirements**: SVGPR-04
+**Success Criteria** (what must be TRUE):
+  1. Maintainers can run accurately named, fixed path-parse, transform-composition, and parse-to-lower workloads after each verifies its expected command, affine, or drawing-operation facts.
+  2. The benchmark workloads build and run on `js`, `wasm`, `wasm-gc`, and `native` without using cross-target timings as a performance comparison.
+  3. A documented native release baseline records the exact command, corpus and correctness digests, toolchain and host facts, warmup, and seven captures for like-for-like comparison.
+**Plans**: TBD
 
 ## Progress
 
-All phases through v0.29 are complete and archived. Detailed phase plans, summaries, reviews, and verification reports are under `.planning/milestones/v0.29-phases/`.
+| Phase | Plans Complete | Status | Completed |
+|-------|----------------|--------|-----------|
+| 91. SVG Numeric Contract | 0/TBD | Not started | - |
+| 92. Fail-Closed SVG Parsing | 0/TBD | Not started | - |
+| 93. SVG Compatibility & Portable Qualification | 0/TBD | Not started | - |
+| 94. SVG Benchmark Evidence | 0/TBD | Not started | - |
 
 ---
-*Roadmap last updated: 2026-07-24 after v0.29 closeout.*
+*Roadmap last updated: 2026-07-25 for v0.30 planning.*
