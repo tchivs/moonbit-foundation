@@ -1,6 +1,6 @@
 ---
 phase: 94-svg-benchmark-evidence
-reviewed: 2026-07-25T20:43:06Z
+reviewed: 2026-07-25T20:52:49Z
 depth: deep
 files_reviewed: 3
 files_reviewed_list:
@@ -8,49 +8,36 @@ files_reviewed_list:
   - scripts/benchmarks/Invoke-SvgNativeBenchmarkBaseline.ps1
   - docs/benchmarks/mb-svg-native-release-baseline.md
 findings:
-  critical: 1
+  critical: 0
   warning: 0
   info: 0
-  total: 1
-status: issues_found
+  total: 0
+status: clean
 ---
 
-# Phase 94: Code Review Report
+# Phase 94: Release Sign-off Review
 
-**Reviewed:** 2026-07-25T20:43:06Z
+**Reviewed:** 2026-07-25T20:52:49Z
 **Depth:** deep
-**Files Reviewed:** 3
-**Status:** issues_found
+**Status:** clean
 
 ## Summary
 
-The prior CR-01, CR-02, WR-01, and WR-02 remediations are present: the audit canonically verifies all rendered Markdown, policy-owned toolchain fields are enforced, capture reads both redirected UTF-8 streams asynchronously, and the code parses under both Windows PowerShell 5.1 and pwsh. However, the committed evidence is not a canonical rendering of its embedded audit data. In a disposable clean detached worktree at `5bdd5cf`, `-Audit` fails identically under both hosts, so the baseline cannot currently be certified.
+Release sign-off is approved for SVGPR-04. The prior CR-01 is fixed: retained tool and host text is normalized to LF before both Markdown rendering and audit-data serialization. The committed `e20e240` baseline is therefore a canonical rendering of its embedded data.
+
+In a fresh, clean detached checkout at `e20e240`, both supported hosts passed the read-only audit:
+
+- `powershell.exe -NoProfile -File scripts/benchmarks/Invoke-SvgNativeBenchmarkBaseline.ps1 -Audit`
+- `pwsh -NoProfile -File scripts/benchmarks/Invoke-SvgNativeBenchmarkBaseline.ps1 -Audit`
+
+The audit revalidated the clean-worktree guard, fixed command and identity, policy toolchain pins, current source/corpus/correctness hashes, one warmup plus seven captures, all eight output digests, ordered runner summaries, seven-sample aggregates, and canonical visible-Markdown/JSON agreement. Static committed-file checks also confirmed LF-only/no-BOM Markdown, no retained carriage returns in embedded text facts, and successful parsing under both PowerShell engines.
 
 ## Narrative Findings (AI reviewer)
 
-## Critical Issues
-
-### CR-01: Committed baseline fails its own read-only audit after LF normalization
-
-**Classification:** BLOCKER
-
-**File:** `scripts/benchmarks/Invoke-SvgNativeBenchmarkBaseline.ps1:85, 328, 435-442`
-
-**Issue:** `Get-ToolOutput` retains CRLF in multi-line tool output, which is embedded both in the visible Markdown and as escaped `\r\n` in the audit JSON. The repository enforces LF for this Markdown file. Consequently, the visible `moon observed` block is LF-only while `ConvertFrom-Json` reconstructs CRLF from the JSON; `New-BaselineDocument` re-renders CRLF and `Assert-VisibleDocumentMatchesData` throws. A clean detached checkout at `5bdd5cf` produced this failure under both `powershell.exe` 5.1 and `pwsh`, despite an empty `git status --porcelain=v1 --untracked-files=all`.
-
-**Fix:** Normalize line endings of every retained text fact before both rendering and serialization, using a dedicated helper that converts CRLF/CR to LF without changing intentional terminal-newline semantics. Apply it in `Get-ToolOutput` (and any other captured multi-line host/tool fact), regenerate the baseline from a clean worktree, then require `-Audit` to pass under both supported PowerShell hosts.
-
-```powershell
-function Normalize-RecordedText([string]$Text) {
-  $Text.Replace("`r`n", "`n").Replace("`r", "`n")
-}
-
-# Keep the JSON and visible Markdown on the same LF representation.
-$output = Normalize-RecordedText ((& $Command @Arguments 2>&1 | Out-String).TrimEnd("`r", "`n"))
-```
+No BLOCKER or WARNING findings remain within the Phase 94 SVGPR-04 evidence scope.
 
 ---
 
-_Reviewed: 2026-07-25T20:43:06Z_
+_Reviewed: 2026-07-25T20:52:49Z_
 _Reviewer: the agent (gsd-code-reviewer)_
 _Depth: deep_
