@@ -198,8 +198,16 @@ pub fn parse_svg_with_budget(
       if name == "svg" {
         match build_svg_root(st, root_paint_context(), budget) {
           Ok(node) => {
-            ignore_trailing(st)
-            Ok(node)
+            // `SceneNode` is the public parser boundary. Validate every
+            // deterministic lowering derivation before exposing it; the total
+            // lowerer intentionally remains a consumer, not an error source.
+            match preflight_scene(node) {
+              Ok(_) => {
+                ignore_trailing(st)
+                Ok(node)
+              }
+              Err(error) => Err(error)
+            }
           }
           Err(e) => Err(e)
         }
@@ -226,6 +234,434 @@ fn default_parse_budget() -> @budget.Budget {
     depth=64UL,
     work=2000000UL,
   ))
+}
+
+// ---------------------------------------------------------------------------
+// Parser-side derived geometry preflight
+// ---------------------------------------------------------------------------
+//
+// These calculations mirror lower.mbt without allocating a DrawingList. They
+// admit every source-combination seam before parse_svg publishes SceneNode;
+// manually constructed SceneNode values deliberately keep the public total
+// lower_to_drawing_list contract.
+
+fn preflight_scene(node : SceneNode) -> Result[Unit, @error.CoreError] {
+  preflight_node(node, @math.Affine2::identity())
+}
+
+fn preflight_node(
+  node : SceneNode,
+  current : @math.Affine2,
+) -> Result[Unit, @error.CoreError] {
+  match node {
+    Svg(root, children) => {
+      let map = match preflight_viewbox_transform(root) {
+        Ok(value) => value
+        Err(error) => return Err(error)
+      }
+      let next = match preflight_compose(current, map) {
+        Ok(value) => value
+        Err(error) => return Err(error)
+      }
+      preflight_children(children, next)
+    }
+    Group(transform, _, children) => {
+      let next = match preflight_compose(current, transform) {
+        Ok(value) => value
+        Err(error) => return Err(error)
+      }
+      preflight_children(children, next)
+    }
+    Rect(_, x, y, w, h, rx, ry) => {
+      match preflight_rect(x, y, w, h, rx, ry) {
+        Ok(_) => preflight_path_points(rect_path(x, y, w, h, rx, ry), current)
+        Err(error) => Err(error)
+      }
+    }
+    Circle(_, cx, cy, r) => {
+      match preflight_ellipse(cx, cy, r, r) {
+        Ok(_) => preflight_path_points(circle_path(cx, cy, r), current)
+        Err(error) => Err(error)
+      }
+    }
+    Ellipse(_, cx, cy, rx, ry) => {
+      match preflight_ellipse(cx, cy, rx, ry) {
+        Ok(_) => preflight_path_points(ellipse_path(cx, cy, rx, ry), current)
+        Err(error) => Err(error)
+      }
+    }
+    Line(_, x1, y1, x2, y2) => {
+      match preflight_point(current, @math.Point2::new(x1, y1)) {
+        Ok(_) => preflight_point(current, @math.Point2::new(x2, y2))
+        Err(error) => Err(error)
+      }
+    }
+    Polyline(_, points) | Polygon(_, points) => preflight_points(points, current)
+    Path(_, path) => preflight_path_points(path.to_path2(), current)
+  }
+}
+
+fn preflight_children(
+  children : Array[SceneNode],
+  current : @math.Affine2,
+) -> Result[Unit, @error.CoreError] {
+  for child in children {
+    match preflight_node(child, current) {
+      Ok(_) => ()
+      Err(error) => return Err(error)
+    }
+  }
+  Ok(())
+}
+
+fn scene_derived_add(a : Double, b : Double) -> Result[Double, @error.CoreError] {
+  admit_derived(a + b)
+}
+
+fn scene_derived_sub(a : Double, b : Double) -> Result[Double, @error.CoreError] {
+  admit_derived(a - b)
+}
+
+fn scene_derived_mul(a : Double, b : Double) -> Result[Double, @error.CoreError] {
+  admit_derived(a * b)
+}
+
+fn scene_derived_div(a : Double, b : Double) -> Result[Double, @error.CoreError] {
+  admit_derived(a / b)
+}
+
+fn scene_product_sum(
+  a : Double,
+  b : Double,
+  c : Double,
+  d : Double,
+) -> Result[Double, @error.CoreError] {
+  let left = match scene_derived_mul(a, b) {
+    Ok(value) => value
+    Err(error) => return Err(error)
+  }
+  let right = match scene_derived_mul(c, d) {
+    Ok(value) => value
+    Err(error) => return Err(error)
+  }
+  scene_derived_add(left, right)
+}
+
+// Mirrors Affine2::compose: current first, then `other`, exactly as the
+// canvas transform stack combines successive PushTransform operations.
+fn preflight_compose(
+  current : @math.Affine2,
+  other : @math.Affine2,
+) -> Result[@math.Affine2, @error.CoreError] {
+  let a = match scene_product_sum(other.a(), current.a(), other.c(), current.b()) {
+    Ok(value) => value
+    Err(error) => return Err(error)
+  }
+  let b = match scene_product_sum(other.b(), current.a(), other.d(), current.b()) {
+    Ok(value) => value
+    Err(error) => return Err(error)
+  }
+  let c = match scene_product_sum(other.a(), current.c(), other.c(), current.d()) {
+    Ok(value) => value
+    Err(error) => return Err(error)
+  }
+  let d = match scene_product_sum(other.b(), current.c(), other.d(), current.d()) {
+    Ok(value) => value
+    Err(error) => return Err(error)
+  }
+  let tx_base = match scene_product_sum(other.a(), current.tx(), other.c(), current.ty()) {
+    Ok(value) => value
+    Err(error) => return Err(error)
+  }
+  let ty_base = match scene_product_sum(other.b(), current.tx(), other.d(), current.ty()) {
+    Ok(value) => value
+    Err(error) => return Err(error)
+  }
+  let tx = match scene_derived_add(tx_base, other.tx()) {
+    Ok(value) => value
+    Err(error) => return Err(error)
+  }
+  let ty = match scene_derived_add(ty_base, other.ty()) {
+    Ok(value) => value
+    Err(error) => return Err(error)
+  }
+  Ok(@math.Affine2::new(a, b, c, d, tx, ty))
+}
+
+fn preflight_viewbox_transform(root : SvgRoot) -> Result[@math.Affine2, @error.CoreError] {
+  let par = root.preserve_aspect_ratio
+  match (root.view_box, root.width, root.height) {
+    (Some((vbx, vby, vbw, vbh)), Some(vpw), Some(vph)) =>
+      if vbw <= 0.0 || vbh <= 0.0 || vpw <= 0.0 || vph <= 0.0 {
+        Ok(@math.Affine2::identity())
+      } else {
+        let sx = match scene_derived_div(vpw, vbw) {
+          Ok(value) => value
+          Err(error) => return Err(error)
+        }
+        let sy = match scene_derived_div(vph, vbh) {
+          Ok(value) => value
+          Err(error) => return Err(error)
+        }
+        if par.none {
+          let tx = match scene_derived_mul(-vbx, sx) {
+            Ok(value) => value
+            Err(error) => return Err(error)
+          }
+          let ty = match scene_derived_mul(-vby, sy) {
+            Ok(value) => value
+            Err(error) => return Err(error)
+          }
+          Ok(@math.Affine2::new(sx, 0.0, 0.0, sy, tx, ty))
+        } else {
+          let scale = if par.meet {
+            if sx < sy { sx } else { sy }
+          } else if sx > sy {
+            sx
+          } else {
+            sy
+          }
+          let width_scaled = match scene_derived_mul(vbw, scale) {
+            Ok(value) => value
+            Err(error) => return Err(error)
+          }
+          let height_scaled = match scene_derived_mul(vbh, scale) {
+            Ok(value) => value
+            Err(error) => return Err(error)
+          }
+          let diff_x = match scene_derived_sub(vpw, width_scaled) {
+            Ok(value) => value
+            Err(error) => return Err(error)
+          }
+          let diff_y = match scene_derived_sub(vph, height_scaled) {
+            Ok(value) => value
+            Err(error) => return Err(error)
+          }
+          let offset_x_product = match scene_derived_mul(par.align_x.to_double(), diff_x) {
+            Ok(value) => value
+            Err(error) => return Err(error)
+          }
+          let offset_y_product = match scene_derived_mul(par.align_y.to_double(), diff_y) {
+            Ok(value) => value
+            Err(error) => return Err(error)
+          }
+          let offset_x = match scene_derived_div(offset_x_product, 2.0) {
+            Ok(value) => value
+            Err(error) => return Err(error)
+          }
+          let offset_y = match scene_derived_div(offset_y_product, 2.0) {
+            Ok(value) => value
+            Err(error) => return Err(error)
+          }
+          let vbx_scaled = match scene_derived_mul(vbx, scale) {
+            Ok(value) => value
+            Err(error) => return Err(error)
+          }
+          let vby_scaled = match scene_derived_mul(vby, scale) {
+            Ok(value) => value
+            Err(error) => return Err(error)
+          }
+          let tx = match scene_derived_sub(offset_x, vbx_scaled) {
+            Ok(value) => value
+            Err(error) => return Err(error)
+          }
+          let ty = match scene_derived_sub(offset_y, vby_scaled) {
+            Ok(value) => value
+            Err(error) => return Err(error)
+          }
+          Ok(@math.Affine2::new(scale, 0.0, 0.0, scale, tx, ty))
+        }
+      }
+    _ => Ok(@math.Affine2::identity())
+  }
+}
+
+fn preflight_rect(
+  x : Double,
+  y : Double,
+  w : Double,
+  h : Double,
+  rx_in : Double,
+  ry_in : Double,
+) -> Result[Unit, @error.CoreError] {
+  if rx_in <= 0.0 && ry_in <= 0.0 {
+    return Ok(())
+  }
+  let rx0 = if rx_in <= 0.0 { ry_in } else { rx_in }
+  let ry0 = if ry_in <= 0.0 { rx_in } else { ry_in }
+  let max_rx = match scene_derived_div(w, 2.0) {
+    Ok(value) => value
+    Err(error) => return Err(error)
+  }
+  let max_ry = match scene_derived_div(h, 2.0) {
+    Ok(value) => value
+    Err(error) => return Err(error)
+  }
+  let mut rx = if rx0 > max_rx { max_rx } else { rx0 }
+  let mut ry = if ry0 > max_ry { max_ry } else { ry0 }
+  if rx > 0.0 {
+    let ratio = match scene_derived_div(max_rx, rx) {
+      Ok(value) => value
+      Err(error) => return Err(error)
+    }
+    if ratio < 1.0 {
+      ry = match scene_derived_mul(ry, ratio) {
+        Ok(value) => value
+        Err(error) => return Err(error)
+      }
+    }
+    let ratio_y = match scene_derived_div(max_ry, ry) {
+      Ok(value) => value
+      Err(error) => return Err(error)
+    }
+    if ratio_y < 1.0 {
+      rx = match scene_derived_mul(rx, ratio_y) {
+        Ok(value) => value
+        Err(error) => return Err(error)
+      }
+    }
+  }
+  match scene_derived_mul(rx, 0.5522847498307936) {
+    Ok(_) => ()
+    Err(error) => return Err(error)
+  }
+  match scene_derived_mul(ry, 0.5522847498307936) {
+    Ok(_) => ()
+    Err(error) => return Err(error)
+  }
+  // The path-point pass below admits every x±radius/y±radius construction.
+  let _ = x
+  let _ = y
+  Ok(())
+}
+
+fn preflight_ellipse(
+  cx : Double,
+  cy : Double,
+  rx : Double,
+  ry : Double,
+) -> Result[Unit, @error.CoreError] {
+  let step = match scene_derived_div(6.283185307179586, 32.0) {
+    Ok(value) => value
+    Err(error) => return Err(error)
+  }
+  for i = 0; i < 32; i = i + 1 {
+    let angle = match scene_derived_mul(step, i.to_double()) {
+      Ok(value) => value
+      Err(error) => return Err(error)
+    }
+    let cos_angle = match admit_derived(@math.cos(angle)) {
+      Ok(value) => value
+      Err(error) => return Err(error)
+    }
+    let sin_angle = match admit_derived(@math.sin(angle)) {
+      Ok(value) => value
+      Err(error) => return Err(error)
+    }
+    let x_delta = match scene_derived_mul(rx, cos_angle) {
+      Ok(value) => value
+      Err(error) => return Err(error)
+    }
+    let y_delta = match scene_derived_mul(ry, sin_angle) {
+      Ok(value) => value
+      Err(error) => return Err(error)
+    }
+    match scene_derived_add(cx, x_delta) {
+      Ok(_) => ()
+      Err(error) => return Err(error)
+    }
+    match scene_derived_add(cy, y_delta) {
+      Ok(_) => ()
+      Err(error) => return Err(error)
+    }
+  }
+  Ok(())
+}
+
+fn preflight_points(
+  points : Array[@math.Point2],
+  transform : @math.Affine2,
+) -> Result[Unit, @error.CoreError] {
+  for point in points {
+    match preflight_point(transform, point) {
+      Ok(_) => ()
+      Err(error) => return Err(error)
+    }
+  }
+  Ok(())
+}
+
+fn preflight_path_points(
+  path : @math.Path2,
+  transform : @math.Affine2,
+) -> Result[Unit, @error.CoreError] {
+  for i = 0; i < path.length(); i = i + 1 {
+    match path.get(i) {
+      Some(@math.PathCommand::MoveTo(point)) | Some(@math.PathCommand::LineTo(point)) =>
+        match preflight_point(transform, point) {
+          Ok(_) => ()
+          Err(error) => return Err(error)
+        }
+      Some(@math.PathCommand::QuadTo(control, endpoint)) => {
+        match preflight_point(transform, control) {
+          Ok(_) => ()
+          Err(error) => return Err(error)
+        }
+        match preflight_point(transform, endpoint) {
+          Ok(_) => ()
+          Err(error) => return Err(error)
+        }
+      }
+      Some(@math.PathCommand::CubicTo(control1, control2, endpoint)) => {
+        match preflight_point(transform, control1) {
+          Ok(_) => ()
+          Err(error) => return Err(error)
+        }
+        match preflight_point(transform, control2) {
+          Ok(_) => ()
+          Err(error) => return Err(error)
+        }
+        match preflight_point(transform, endpoint) {
+          Ok(_) => ()
+          Err(error) => return Err(error)
+        }
+      }
+      Some(@math.PathCommand::Close) | None => ()
+    }
+  }
+  Ok(())
+}
+
+fn preflight_point(
+  transform : @math.Affine2,
+  point : @math.Point2,
+) -> Result[Unit, @error.CoreError] {
+  let x = match preflight_component(transform.a(), point.x(), transform.c(), point.y(), transform.tx()) {
+    Ok(value) => value
+    Err(error) => return Err(error)
+  }
+  let y = match preflight_component(transform.b(), point.x(), transform.d(), point.y(), transform.ty()) {
+    Ok(value) => value
+    Err(error) => return Err(error)
+  }
+  match admit_derived(x) {
+    Ok(_) => admit_derived(y).map(fn(_) { () })
+    Err(error) => Err(error)
+  }
+}
+
+fn preflight_component(
+  a : Double,
+  x : Double,
+  c : Double,
+  y : Double,
+  translation : Double,
+) -> Result[Double, @error.CoreError] {
+  let linear = match scene_product_sum(a, x, c, y) {
+    Ok(value) => value
+    Err(error) => return Err(error)
+  }
+  scene_derived_add(linear, translation)
 }
 
 // Charge one unit of work for consuming a token. Returns Err on budget

@@ -335,13 +335,13 @@ test "inherited stroke and stroke-width flow to a child" {
 
 ///|
 test "numeric contract: scene ingress and absent controls" {
-  let finite_scene = "<svg width=\"65536\" height=\"65536\" viewBox=\"-65536 -65536 65536 65536\"><rect x=\"-65536\" y=\"-65536\" width=\"65536\" height=\"65536\" rx=\"1\" ry=\"1\" fill=\"rgb(255,0,0)\" stroke=\"rgb(100%,0%,0%)\" fill-opacity=\"65536\" stroke-opacity=\"65536\" stroke-width=\"65536\" stroke-miterlimit=\"65536\" stroke-dasharray=\"1,65536\" stroke-dashoffset=\"65536\"/><circle cx=\"65536\" cy=\"-65536\" r=\"65536\" fill=\"rgba(100%,0%,0%,0.25)\"/><ellipse cx=\"65536\" cy=\"65536\" rx=\"65536\" ry=\"1\" fill=\"hsl(120,100%,50%)\"/><line x1=\"-65536\" y1=\"-65536\" x2=\"65536\" y2=\"65536\" fill=\"hsla(0,100%,50%,0.25)\"/><polygon points=\"-65536,-65536 65536,-65536 65536,65536\" fill=\"hsl(0,0%,50%)\"/><polyline points=\"-65536,-65536 0,0 65536,65536\"/></svg>"
+  let finite_scene = "<svg width=\"65536\" height=\"65536\" viewBox=\"0 0 65536 65536\"><rect x=\"-65536\" y=\"-65536\" width=\"65536\" height=\"65536\" rx=\"1\" ry=\"1\" fill=\"rgb(255,0,0)\" stroke=\"rgb(100%,0%,0%)\" fill-opacity=\"65536\" stroke-opacity=\"65536\" stroke-width=\"65536\" stroke-miterlimit=\"65536\" stroke-dasharray=\"1,65536\" stroke-dashoffset=\"65536\"/><circle cx=\"0\" cy=\"0\" r=\"65536\" fill=\"rgba(100%,0%,0%,0.25)\"/><ellipse cx=\"0\" cy=\"0\" rx=\"65536\" ry=\"1\" fill=\"hsl(120,100%,50%)\"/><line x1=\"-65536\" y1=\"-65536\" x2=\"65536\" y2=\"65536\" fill=\"hsla(0,100%,50%,0.25)\"/><polygon points=\"-65536,-65536 65536,-65536 65536,65536\" fill=\"hsl(0,0%,50%)\"/><polyline points=\"-65536,-65536 0,0 65536,65536\"/></svg>"
   match parse_svg(finite_scene) {
     Ok(Svg(root, children)) => {
       // SVG-NUM-ROOT: finite root dimensions and all four viewBox scalars.
       inspect(root.width, content="Some(65536)")
       inspect(root.height, content="Some(65536)")
-      inspect(root.view_box, content="Some((-65536, -65536, 65536, 65536))")
+      inspect(root.view_box, content="Some((0, 0, 65536, 65536))")
       // SVG-NUM-GEOMETRY / SVG-NUM-PAINT-SCALAR / SVG-NUM-DASH-LIST.
       match children[0] {
         Rect(paint, x, y, width, height, _, _) => {
@@ -358,7 +358,7 @@ test "numeric contract: scene ingress and absent controls" {
       match children[1] {
         // SVG-NUM-RGB-PERCENT: rgba consumes the first three percent components.
         Circle(paint, cx, cy, radius) => {
-          inspect((cx, cy, radius), content="(65536, -65536, 65536)")
+          inspect((cx, cy, radius), content="(0, 0, 65536)")
           inspect(paint.fill, content="Some((1, 0, 0))")
         }
         _ => inspect(false, content="true")
