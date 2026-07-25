@@ -97,6 +97,16 @@ fn ok_cases() -> Array[(String, String, Bool)] {
       "<svg><g transform=\"rotate(90, 5, 5)\"><rect width=\"1\" height=\"1\"/></g></svg>",
       true,
     ),
+    (
+      "group-opacity",
+      "<svg><g opacity=\"0.5\"><rect width=\"1\" height=\"1\"/></g></svg>",
+      true,
+    ),
+    (
+      "element-opacity",
+      "<svg><rect width=\"1\" height=\"1\" opacity=\"0.5\"/></svg>",
+      true,
+    ),
     ("self-closed-vs-paired", "<svg><rect width=\"1\" height=\"1\"></rect></svg>", true),
     (
       "unknown-element-skipped",

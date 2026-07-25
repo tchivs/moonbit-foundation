@@ -115,7 +115,7 @@
       "source": "RFC 0002 §6.1 in-scope subset (SVG 1.1 element/attribute grammar, https://www.w3.org/TR/SVG11/) plus repository-derived adversarial markup schedules",
       "author": "MoonBit Native Foundation project generator",
       "retrieval_date": "2026-07-24",
-      "sha256": "b51e8a7b10f0f30b621406d6eae055cbdec7c6eee7ffa3716099143aaf632de0",
+      "sha256": "c243e4e0cd93b6c89e2e758e1aff947272294661e9288d75a416a02a6aaf8302",
       "license": "Apache-2.0",
       "redistribution_status": "not-applicable",
       "expected_use": "MBSVG parse, scene-build, and lower conformance for the RFC 0002 §6.1 subset: canonical valid, edge, and malformed-adversarial cases"

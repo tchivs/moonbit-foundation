@@ -68,6 +68,10 @@ pub struct Paint {
   stroke_join : @canvas.LineJoin
   stroke_miterlimit : Double
   stroke_dash : Array[Double]
+  // Element-level opacity (the `opacity` attribute): the whole element (fill
+  // and stroke together) is composited onto the backdrop at this opacity. 1.0
+  // = no effect. Distinct from fill_opacity/stroke_opacity (per-paint).
+  opacity : Double
   stroke_dashoffset : Double
   fill_rule : @canvas.FillRule
 }
@@ -132,7 +136,7 @@ fn root_paint_context() -> PaintContext {
 /// children; leaf shapes carry resolved geometry and paint.
 pub enum SceneNode {
   Svg(SvgRoot, Array[SceneNode])
-  Group(@math.Affine2, Array[SceneNode])
+  Group(@math.Affine2, Double, Array[SceneNode]) // transform, opacity, children
   Rect(
     Paint,
     Double,
@@ -519,9 +523,11 @@ fn build_group(
         Err(e) => return Err(e)
       }
   }
+  // Group `opacity` (the `opacity` attribute) is NOT inherited and defaults to 1.0.
+  let group_opacity = attr_double(attrs, "opacity", 1.0)
   let (_, child_ctx) = build_paint(attrs, ctx)
   if is_empty {
-    return Ok(SceneNode::Group(transform, []))
+    return Ok(SceneNode::Group(transform, group_opacity, []))
   }
   // Enter a depth lease for the group's children; this is the nesting-depth
   // bound (RFC §8). The scope MUST be left on every return path below.
@@ -533,7 +539,7 @@ fn build_group(
   let result = build_children(st, "g", child_ctx, child_budget)
   scope.leave()
   match result {
-    Ok(children) => Ok(SceneNode::Group(transform, children))
+    Ok(children) => Ok(SceneNode::Group(transform, group_opacity, children))
     Err(e) => Err(e)
   }
 }
@@ -800,6 +806,8 @@ fn build_paint(
     "stroke-dashoffset",
     parent.stroke_dashoffset,
   )
+  // Element `opacity` is NOT inherited (per SVG spec); default 1.0.
+  let opacity = attr_double(attrs, "opacity", 1.0)
   let paint = {
     fill: fill,
     stroke: stroke,
@@ -812,6 +820,7 @@ fn build_paint(
     stroke_miterlimit: stroke_miterlimit,
     stroke_dash: stroke_dash,
     stroke_dashoffset: stroke_dashoffset,
+    opacity: opacity,
   }
   let ctx = {
     color: color,

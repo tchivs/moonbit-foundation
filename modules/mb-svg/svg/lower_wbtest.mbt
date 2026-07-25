@@ -493,3 +493,53 @@ test "lower stroke-dashoffset defaults to 0" {
     Err(_) => inspect("err", content="ok")
   }
 }
+
+///|
+test "lower group opacity<1 wraps children in PushLayer/PopLayer" {
+  // <g opacity="0.5"> with one rect child → PushTransform, PushLayer(0.5),
+  // Fill, PopLayer, PopTransform (5 ops).
+  match parse_svg("<svg><g opacity=\"0.5\"><rect width=\"1\" height=\"1\"/></g></svg>") {
+    Ok(scene) => {
+      let list = lower_to_drawing_list(scene)
+      inspect(list.length(), content="5")
+      match list.get(1) {
+        Some(PushLayer(op)) => inspect(op, content="0.5")
+        other => inspect("other", content="other")
+      }
+      match list.get(3) {
+        Some(PopLayer) => inspect("pop", content="pop")
+        other => inspect("other", content="other")
+      }
+    }
+    Err(_) => inspect("err", content="ok")
+  }
+}
+
+///|
+test "lower group opacity=1 emits no layer ops" {
+  // Default opacity (1.0) → no PushLayer/PopLayer; just transform + fill.
+  match parse_svg("<svg><g><rect width=\"1\" height=\"1\"/></g></svg>") {
+    Ok(scene) => {
+      let list = lower_to_drawing_list(scene)
+      // PushTransform, Fill, PopTransform (3 ops).
+      inspect(list.length(), content="3")
+    }
+    Err(_) => inspect("err", content="ok")
+  }
+}
+
+///|
+test "lower element opacity<1 wraps the shape in a layer" {
+  // <rect opacity="0.5"> → PushLayer(0.5), Fill, PopLayer (3 ops).
+  match parse_svg("<svg><rect width=\"1\" height=\"1\" opacity=\"0.5\"/></svg>") {
+    Ok(scene) => {
+      let list = lower_to_drawing_list(scene)
+      inspect(list.length(), content="3")
+      match list.get(0) {
+        Some(PushLayer(op)) => inspect(op, content="0.5")
+        other => inspect("other", content="other")
+      }
+    }
+    Err(_) => inspect("err", content="ok")
+  }
+}

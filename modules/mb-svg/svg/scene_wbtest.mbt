@@ -35,7 +35,7 @@ test "parse_svg group with transform wraps a rect child" {
       match children.length() {
         1 =>
           match children[0] {
-            Group(t, gc) => {
+            Group(t, _, gc) => {
               inspect((t.a(), t.d(), t.tx(), t.ty()), content="(1, 1, 10, 0)")
               inspect(gc.length(), content="1")
               match gc[0] {
@@ -177,7 +177,7 @@ test "inherited fill flows from <g> to a child rect that omits fill" {
   match parse_svg("<svg><g fill=\"red\"><rect width=\"1\" height=\"1\"/></g></svg>") {
     Ok(Svg(_, children)) =>
       match children[0] {
-        Group(_, gc) =>
+        Group(_, _, gc) =>
           match gc[0] {
             Rect(paint, _, _, _, _, _, _) =>
               match paint.fill {
@@ -199,7 +199,7 @@ test "currentColor resolves against the inherited color attribute" {
   match parse_svg("<svg><g color=\"blue\"><rect fill=\"currentColor\" width=\"1\" height=\"1\"/></g></svg>") {
     Ok(Svg(_, children)) =>
       match children[0] {
-        Group(_, gc) =>
+        Group(_, _, gc) =>
           match gc[0] {
             Rect(paint, _, _, _, _, _, _) =>
               match paint.fill {
@@ -221,9 +221,9 @@ test "inheritance penetrates multiple nested groups" {
   match parse_svg("<svg><g fill=\"green\"><g><rect width=\"1\" height=\"1\"/></g></g></svg>") {
     Ok(Svg(_, children)) =>
       match children[0] {
-        Group(_, gc) =>
+        Group(_, _, gc) =>
           match gc[0] {
-            Group(_, ggc) =>
+            Group(_, _, ggc) =>
               match ggc[0] {
                 Rect(paint, _, _, _, _, _, _) =>
                   match paint.fill {
@@ -247,7 +247,7 @@ test "explicit child fill overrides the inherited group fill" {
   match parse_svg("<svg><g fill=\"red\"><rect fill=\"blue\" width=\"1\" height=\"1\"/></g></svg>") {
     Ok(Svg(_, children)) =>
       match children[0] {
-        Group(_, gc) =>
+        Group(_, _, gc) =>
           match gc[0] {
             Rect(paint, _, _, _, _, _, _) =>
               match paint.fill {
@@ -269,11 +269,39 @@ test "explicit fill=none does NOT inherit the group fill" {
   match parse_svg("<svg><g fill=\"red\"><rect fill=\"none\" width=\"1\" height=\"1\"/></g></svg>") {
     Ok(Svg(_, children)) =>
       match children[0] {
-        Group(_, gc) =>
+        Group(_, _, gc) =>
           match gc[0] {
             Rect(paint, _, _, _, _, _, _) => inspect(paint.fill, content="None")
             _ => inspect(false, content="true")
           }
+        _ => inspect(false, content="true")
+      }
+    Ok(_) => inspect(false, content="true")
+    Err(_) => inspect("err", content="ok")
+  }
+}
+
+///|
+test "group opacity attribute is captured on the Group node" {
+  // <g opacity="0.5"> → Group's opacity field == 0.5 (default 1.0 otherwise).
+  match parse_svg("<svg><g opacity=\"0.5\"><rect width=\"1\" height=\"1\"/></g></svg>") {
+    Ok(Svg(_, children)) =>
+      match children[0] {
+        Group(_, opacity, _) => inspect(opacity, content="0.5")
+        _ => inspect(false, content="true")
+      }
+    Ok(_) => inspect(false, content="true")
+    Err(_) => inspect("err", content="ok")
+  }
+}
+
+///|
+test "element opacity attribute is captured on the shape Paint" {
+  // <rect opacity="0.5"> → paint.opacity == 0.5.
+  match parse_svg("<svg><rect width=\"1\" height=\"1\" opacity=\"0.5\"/></svg>") {
+    Ok(Svg(_, children)) =>
+      match children[0] {
+        Rect(paint, _, _, _, _, _, _) => inspect(paint.opacity, content="0.5")
         _ => inspect(false, content="true")
       }
     Ok(_) => inspect(false, content="true")
@@ -287,7 +315,7 @@ test "inherited stroke and stroke-width flow to a child" {
   match parse_svg("<svg><g stroke=\"blue\" stroke-width=\"3\"><rect fill=\"none\" width=\"1\" height=\"1\"/></g></svg>") {
     Ok(Svg(_, children)) =>
       match children[0] {
-        Group(_, gc) =>
+        Group(_, _, gc) =>
           match gc[0] {
             Rect(paint, _, _, _, _, _, _) => {
               match paint.stroke {

@@ -20,18 +20,12 @@
 // fill-opacity/stroke-opacity ARE applied (via FillStyle::with_alpha, which
 // mb-canvas now exposes).
 //
-// DEFERRED — group/element `opacity` (the opacity attribute on <g>/<svg>):
-// SVG 1.1 §14.4 requires the group to render as if opacity=1, then the whole
-// group result is composited onto the backdrop at the given opacity. This
-// needs an offscreen layer (begin group → rasterize children → end group →
-// composite), but mb-canvas's DrawOp has no PushLayer/PopLayer (RFC 0003 §6
-// delegates raster-raster compositing to mb-image/ops, and §7 scopes the
-// drawing list to geometry+style+transform+clip — no layer state). A naive
-// approximation (multiplying opacity into each child's paint alpha) diverges
-// from the spec whenever semi-transparent shapes overlap inside the group, so
-// it is rejected here rather than shipping a wrong-but-cheap version. Group
-// opacity is deferred until mb-canvas gains a layer abstraction; this is a
-// cross-module decision, not something mb-svg can resolve alone.
+// group/element `opacity` (the `opacity` attribute) IS applied via raster
+// layers (RFC 0008 PushLayer/PopLayer): a group or element with opacity < 1 is
+// wrapped in a layer so the whole group/element composites onto the backdrop
+// at that opacity (SVG §14.4 precise semantics). This was previously deferred
+// for want of an mb-canvas layer primitive; RFC 0008 (Proposed) + its
+// implementation unblocked it.
 
 ///|
 /// Lower a scene tree into a drawing list. Returns a fresh DrawingList with
@@ -62,10 +56,21 @@ fn lower_node(node : SceneNode, list : @canvas.DrawingList) -> Unit {
         list.pop_transform()
       }
     }
-    Group(transform, children) => {
+    Group(transform, opacity, children) => {
       list.push_transform(transform)
+      // Group opacity (RFC 0002 §6.1): when opacity != 1, wrap the group's
+      // children in a raster layer (RFC 0008) so the whole group composites
+      // onto the backdrop at this opacity. Order: PushTransform, [PushLayer],
+      // children, [PopLayer], PopTransform.
+      let layered = opacity < 1.0
+      if layered {
+        list.push_layer(opacity)
+      }
       for i = 0; i < children.length(); i = i + 1 {
         lower_node(children[i], list)
+      }
+      if layered {
+        list.pop_layer()
       }
       list.pop_transform()
     }
@@ -91,6 +96,13 @@ fn emit_shape(
   path : @math.Path2,
   list : @canvas.DrawingList,
 ) -> Unit {
+  // Element opacity (the `opacity` attribute): when < 1, the whole element
+  // (fill and stroke together) composites onto the backdrop at this opacity.
+  // Wrap the fill+stroke ops in a raster layer (RFC 0008).
+  let layered = paint.opacity < 1.0
+  if layered {
+    list.push_layer(paint.opacity)
+  }
   match paint.fill {
     Some((r, g, b)) =>
       list.push_fill(
@@ -113,6 +125,9 @@ fn emit_shape(
       list.push_stroke(path, stroke, color)
     }
     None => ()
+  }
+  if layered {
+    list.pop_layer()
   }
 }
 

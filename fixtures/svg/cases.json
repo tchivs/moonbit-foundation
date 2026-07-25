@@ -33,6 +33,8 @@
     { "id": "preserve-aspect-ratio-slice", "svg": "<svg viewBox=\"0 0 100 50\" width=\"200\" height=\"200\" preserveAspectRatio=\"xMidYMid slice\"><rect width=\"1\" height=\"1\"/></svg>", "expect": "ok" },
     { "id": "preserve-aspect-ratio-none", "svg": "<svg viewBox=\"0 0 100 50\" width=\"200\" height=\"200\" preserveAspectRatio=\"none\"><rect width=\"1\" height=\"1\"/></svg>", "expect": "ok" },
     { "id": "rotate-with-center", "svg": "<svg><g transform=\"rotate(90, 5, 5)\"><rect width=\"1\" height=\"1\"/></g></svg>", "expect": "ok" },
+    { "id": "group-opacity", "svg": "<svg><g opacity=\"0.5\"><rect width=\"1\" height=\"1\"/></g></svg>", "expect": "ok" },
+    { "id": "element-opacity", "svg": "<svg><rect width=\"1\" height=\"1\" opacity=\"0.5\"/></svg>", "expect": "ok" },
     { "id": "self-closed-vs-paired", "svg": "<svg><rect width=\"1\" height=\"1\"></rect></svg>", "expect": "ok" },
     { "id": "unknown-element-skipped", "svg": "<svg><defs><linearGradient id=\"g\"/></defs><rect width=\"1\" height=\"1\"/></svg>", "expect": "ok" },
     { "id": "comment-ignored", "svg": "<svg><!-- note --><rect width=\"1\" height=\"1\"/></svg>", "expect": "ok" }
