@@ -1,6 +1,6 @@
 # RFC 0008: mb-canvas Layer and Group Opacity
 
-- **Status:** Draft
+- **Status:** Proposed
 - **Authors:** MNF contributors
 - **Created:** 2026-07-25
 - **Target:** Graphics Layer raster-layer extension to `tchivs/mb-canvas` (RFC 0003)
@@ -15,8 +15,9 @@
 | From | To | Evidence |
 |---|---|---|
 | — | Draft | Initial RFC in repository history |
+| Draft | Proposed | This revision resolves the two Draft open questions — the offscreen write-back strategy (§5: in-place source-over, reusing the rasterizer's existing `porter_duff_composite` per-pixel path) and the layer nesting-depth cap (§7: 16) — and concretizes the verification plan (§10). Repository history is the transition record |
 
-No transition to Proposed, Rejected, or Superseded has occurred. Under the simplified RFC process the lifecycle is `Draft -> Proposed`; a Proposed RFC is sufficient to proceed. This RFC is currently `Draft` because two implementation-shape questions (the offscreen write-back strategy in §5, and the bounded-extension note against RFC 0003 §6.1 in §3.2) are intentionally left as reviewable open questions rather than pre-emptively resolved. Every future transition must update this ledger.
+No transition to Rejected or Superseded has occurred. Under the simplified RFC process the lifecycle is `Draft -> Proposed`; a Proposed RFC is sufficient to proceed. Every future transition must update this ledger.
 
 ## 1. Abstract
 
@@ -67,7 +68,7 @@ The net effect is that §6.1's guarantee — "the rasterizer does not silently a
 Two variants are added to the `DrawOp` enum (RFC 0003 §5.2):
 
 - `DrawOp::PushLayer(opacity : Double)` — begin a raster layer. `opacity` is the straight-alpha multiplier applied when the layer is composited back, clamped to `[0, 1]` (NaN clamps to 0), matching the clamp policy of `FillStyle::with_alpha`. Rasterization semantics: allocate a transparent RGBA8 offscreen `OwnedImage` of the current render target's dimensions, push it onto the render-target stack, and direct subsequent rasterization onto it. The layer inherits the current transform and clip state at the point of `PushLayer`.
-- `DrawOp::PopLayer` — end the innermost raster layer. Pop the render-target stack, composite the offscreen surface onto the now-current parent target through `mb-image/ops::composite_source_over` with the source alpha scaled by the layer's opacity, and release the offscreen surface.
+- `DrawOp::PopLayer` — end the innermost raster layer. Pop the render-target stack and composite the offscreen surface onto the now-current parent target with source-over, scaling the source alpha by the layer's opacity, then release the offscreen surface. The composite is performed in-place per pixel (see §5), not via a second full-image allocation.
 
 The `DrawingList` builder gains two methods mirroring the existing transform/clip pair:
 
@@ -81,14 +82,11 @@ Balance and recovery rules follow the established `PopTransform` / `PopClip` con
 The reference rasterizer (RFC 0003 §6.1) maintains a **render-target stack** in addition to its existing transform and clip stacks. Each stack frame carries the active `MutImageView` plus, for offscreen layers, the owning `OwnedImage`. The primary (bottom-of-stack) target remains the caller-borrowed view.
 
 - On `PushLayer`: allocate a transparent RGBA8 `OwnedImage` of the current target's width × height, charging bytes and pixels against the budget; push a new frame whose view is the offscreen's mutable view. Initialize it transparent (all channels zero).
-- On `PopLayer`: read the inner frame's offscreen, composite onto the parent frame's view with source-over where the source alpha is multiplied by the layer opacity, pop the frame, release the offscreen.
+- On `PopLayer`: read the inner frame's offscreen and composite it onto the parent frame's view with source-over, scaling the source alpha by the layer opacity, then pop the frame and release the offscreen.
 
-Two write-back strategies are under review and are intentionally left open in this Draft:
+**Write-back strategy (resolved): in-place per-pixel source-over.** `PopLayer` walks the offscreen and parent views pixel-by-pixel and applies `mb-color/blend::porter_duff_composite(CompositeOp::SourceOver, ...)` directly into the parent view, with the source alpha pre-multiplied by the layer opacity. This reuses the exact per-pixel blend path the rasterizer already runs for fills and strokes (`composite_pixel` in `rasterize.mbt`, which already calls `@blend.porter_duff_composite(SourceOver, …)`), so no new composite machinery is introduced and **no second full-image allocation** occurs at `PopLayer`. The alternative — calling `mb-image/ops::composite_source_over`, which returns a fresh `ImageOperationResult` that must be copied back — is rejected for v0.x because it doubles per-layer allocation and adds a copy, with no accuracy benefit (the underlying porter-duff math is identical). The delegated `composite_source_over` op remains the canonical raster-raster composite for callers who want a standalone image-image blend; the layer path uses the rasterizer's own in-place blend for allocation efficiency.
 
-1. **Composite-then-write-back**: call `mb-image/ops::composite_source_over(offscreen_view, parent_view, budget)`, which returns a fresh `ImageOperationResult`, then copy its pixels back into the parent view. Simple, reuses the vetted composite op, but allocates a second intermediate image per `PopLayer`.
-2. **In-place source-over**: walk the offscreen and parent views pixel-by-pixel, applying `porter_duff_composite(SourceOver, ...)` with the opacity-scaled source alpha directly into the parent view (the rasterizer already links `mb-color/blend` for its own per-pixel source-over). No second allocation; more code in the rasterizer.
-
-Strategy 2 is preferred for v0.x (it avoids per-layer double allocation and keeps the rasterizer's existing per-pixel blend path consistent), but the decision is deferred to the revision that promotes this RFC to Proposed, so it can be made against a concrete implementation and benchmark rather than in the abstract.
+This decision is recorded as resolved (not open) because it follows directly from existing rasterizer structure: the per-pixel blend helper already exists and is already the path fills/strokes use, so the layer composite is a straightforward second consumer of it.
 
 ## 6. v0.x scope
 
@@ -114,7 +112,7 @@ Deferral is binding until a follow-up RFC or phase explicitly widens scope. Impl
 Consistent with RFC 0003 §8 and RFC 0001 §10:
 
 - **Bounded allocation.** Every offscreen `OwnedImage` is charged against the render's `mb-core/budget` (bytes and pixels). A budget whose allocation dimension is exhausted yields a structured `CoreError` before the offscreen is created, exactly as `mb-svg` bounds do at parse time (RFC 0002 §8.1).
-- **Bounded nesting.** Layer nesting depth is capped (the cap is charged through the budget's depth dimension or an explicit layer-stack ceiling; the specific number is fixed at implementation time and recorded in the transition to Proposed). A drawing list that nests layers beyond the cap fails with a structured error rather than recursing or allocating without limit.
+- **Bounded nesting.** Layer nesting depth is capped at **16**. Each layer holds a full-target-size RGBA8 offscreen, so 16 is chosen as a memory-bounded ceiling: it far exceeds any reasonable SVG group-nesting depth (real documents rarely exceed 4–5), while bounding worst-case offscreen memory to 16 × (target width × height × 4) bytes. This is stricter than the depth=64 used for transform/clip in `mb-svg`, because layers allocate a full intermediate surface per level whereas transform/clip stack frames are small. A drawing list that nests layers beyond 16 fails with a structured error rather than recursing or allocating without limit. The cap is enforced through the budget's depth dimension (the render's `Budget::enter_depth` is invoked at `PushLayer`, mirroring `mb-svg`'s group-depth bound).
 - **Deterministic output.** A given `DrawingList` and a given primary target produce a single raster on every target, under the declared antialiasing tolerance. Offscreen compositing is a pure function of the offscreen content, the parent content, and the opacity; no ambient state, no host clock, no nondeterministic iteration.
 - **Hostile drawing lists.** Deeply nested layers, pathologically large layer content, and oversized offscreen requests are rejected before allocation through the budget, consistent with the security posture RFC 0003 §8 requires.
 
@@ -138,19 +136,19 @@ The downstream consequence is that `mb-svg`'s deferred group/element `opacity` (
 Before the layer primitive may be considered delivered, the implementing phase must produce, consistent with RFC 0003 §11 and RFC 0001 §10:
 
 1. Unit tests for the rasterizer: `PushLayer`/`PopLayer` balance; opacity composite pixel correctness (a semi-transparent layer over an opaque backdrop yields the exact source-over result, e.g. a 50%-opacity red-over-white layer produces `(255,128,128,255)` as already verified in `mb-svg`'s paint-opacity path); nested layers; unbalanced `PopLayer` as no-op; transform/clip state correctly inherited by the layer and restored on pop.
-2. Bounds tests: a deeply nested layer list beyond the depth cap fails with a structured error; an oversized offscreen request rejected by the budget before allocation.
+2. Bounds tests: a 17-deep nested layer list (beyond the §7 cap of 16) fails with a structured error; an oversized offscreen request rejected by the budget before allocation.
 3. Determinism evidence: identical `DrawingList` + primary target produce identical rasters across `js`, `wasm`, `wasm-gc`, and `native`.
 4. Integration evidence: once `mb-svg` lowers group opacity onto this primitive, an end-to-end `<g opacity="...">` case renders correctly through `parse_svg` → `lower_to_drawing_list` → `render`.
 
 ## 11. What this RFC does not decide
 
-This RFC intentionally leaves the following open. They are decided in follow-up revisions or RFCs, not by this Draft:
+This RFC intentionally leaves the following open. They are decided in follow-up RFCs or phases, not by this document:
 
-- The specific offscreen write-back strategy (§5 options 1 vs 2). Resolved at the revision promoting this RFC to Proposed, against a concrete implementation.
-- The numeric layer nesting-depth cap (§7). Fixed at implementation time and recorded in the Proposed transition.
 - The blend-mode enumeration, filter chain, and mask semantics. All deferred (§6.2); each requires its own RFC.
 - The layer bounding-box optimization. A performance follow-up; v0.x uses full-target-size offscreens.
 - Any native-acceleration specifics for layers. RFC 0003 §6.2's seam is unchanged; a native layer path, if any, must meet the same pixel-identity-or-declared-deviation rule as other accelerated paths.
+
+The two questions this RFC opened as Draft — the offscreen write-back strategy (§5: in-place per-pixel source-over) and the layer nesting-depth cap (§7: 16) — are now resolved in this Proposed revision and are therefore no longer open.
 
 ## 12. References
 
