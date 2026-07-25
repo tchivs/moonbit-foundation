@@ -5,8 +5,8 @@
 // it is the rightmost matrix in the product: result = identity * first * second).
 // Parameters are comma-or-space-separated doubles inside parentheses.
 //
-// Per SVG 1.1, rotate/skewX/skewY take DEGREES; mb-core Affine2::rotate/skew
-// take radians, so angles are converted. rotate(angle, cx, cy) rotates about
+// Per SVG 1.1, rotate/skewX/skewY take DEGREES. Affine2::rotate takes radians;
+// Affine2::skew takes raw tangent shear coefficients. rotate(angle, cx, cy) rotates about
 // (cx, cy); rotate(angle) about the origin. The returned Affine2 is invertible
 // via Affine2::inverse (RFC 0002 §6.1 promises composition and inversion).
 
@@ -142,13 +142,18 @@ fn build_transform(
             Err(transform_source_error())
           }
         "skewX" =>
-          // SVG skewX takes DEGREES; Affine2::skew takes radians.
+          // SVG skewX takes degrees, while Affine2::skew stores the raw
+          // matrix shear coefficient. That coefficient is tan(angle).
           if args.length() == 1 {
             let radians = match degrees_to_radians(args[0]) {
               Ok(value) => value
               Err(error) => return Err(error)
             }
-            admit_affine(@math.Affine2::skew(radians, 0.0))
+            let shear = match admit_derived(@math.tan(radians)) {
+              Ok(value) => value
+              Err(error) => return Err(error)
+            }
+            admit_affine(@math.Affine2::skew(shear, 0.0))
           } else {
             Err(transform_source_error())
           }
@@ -158,7 +163,11 @@ fn build_transform(
               Ok(value) => value
               Err(error) => return Err(error)
             }
-            admit_affine(@math.Affine2::skew(0.0, radians))
+            let shear = match admit_derived(@math.tan(radians)) {
+              Ok(value) => value
+              Err(error) => return Err(error)
+            }
+            admit_affine(@math.Affine2::skew(0.0, shear))
           } else {
             Err(transform_source_error())
           }
@@ -171,8 +180,8 @@ fn is_space(c : Char) -> Bool {
   c == ' ' || c == '\t' || c == '\n' || c == '\r'
 }
 
-// SVG transform angles are in degrees; mb-core Affine2::rotate/skew take
-// radians. Convert per the SVG 1.1 transform spec.
+// SVG transform angles are in degrees; Affine2::rotate takes radians. Convert
+// per the SVG 1.1 transform spec before rotation or tangent calculation.
 fn degrees_to_radians(degrees : Double) -> Result[Double, @error.CoreError] {
   admit_derived(degrees * 0.017453292519943295) // π / 180
 }

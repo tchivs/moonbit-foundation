@@ -80,13 +80,13 @@ test "parse_transform multiple transforms compose" {
 }
 
 ///|
-test "parse_transform skewX and skewY" {
-  match parse_transform("skewX(0)") {
-    Ok(_) => inspect(true, content="true")
+test "parse_transform skewX and skewY use SVG tangent coefficients" {
+  match parse_transform("skewX(45)") {
+    Ok(m) => inspect((m.c() - 1.0).abs() < 1.0e-9, content="true")
     Err(_) => inspect(false, content="true")
   }
-  match parse_transform("skewY(0)") {
-    Ok(_) => inspect(true, content="true")
+  match parse_transform("skewY(45)") {
+    Ok(m) => inspect((m.b() - 1.0).abs() < 1.0e-9, content="true")
     Err(_) => inspect(false, content="true")
   }
 }
@@ -230,6 +230,8 @@ test "transform admission enforces exact arity and derived affine safety" {
   let derived_rejections = [
     "scale(65536) scale(2)",
     "rotate(65536,65536,65536)",
+    "skewX(90)",
+    "skewY(90)",
   ]
   for source in derived_rejections {
     match parse_transform(source) {
