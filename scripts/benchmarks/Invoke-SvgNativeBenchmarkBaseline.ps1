@@ -231,6 +231,10 @@ function Add-Line([Text.StringBuilder]$Builder, [string]$Text = '') {
   [void]$Builder.Append("`n")
 }
 
+function Convert-ToHtmlPre([string]$Text) {
+  $Text.Replace('&', '&amp;').Replace('<', '&lt;').Replace('>', '&gt;').Replace(' ', '&#32;')
+}
+
 function Convert-ToAsciiJson([object]$Value) {
   $json = $Value | ConvertTo-Json -Depth 12
   $builder = New-Object Text.StringBuilder
@@ -263,10 +267,10 @@ function Add-RunMarkdown([Text.StringBuilder]$Builder, [object]$Run) {
   Add-Line $Builder '<details>'
   Add-Line $Builder '<summary>Complete normalized UTF-8 merged stdout/stderr</summary>'
   Add-Line $Builder ''
-  Add-Line $Builder '```text'
-  [void]$Builder.Append($Run.output.TrimEnd("`n".ToCharArray()))
+  Add-Line $Builder '<pre class="svg-native-output">'
+  [void]$Builder.Append((Convert-ToHtmlPre $Run.output.TrimEnd("`n".ToCharArray())))
   Add-Line $Builder ''
-  Add-Line $Builder '```'
+  Add-Line $Builder '</pre>'
   Add-Line $Builder '</details>'
   Add-Line $Builder ''
 }
@@ -351,10 +355,10 @@ function Get-AuditData([string]$Document) {
 
 function Get-DocumentOutput([string]$Document, [string]$Id) {
   $heading = if ($Id -eq 'warmup') { '### Warmup \(excluded from summary\)' } else { '### Capture ' + [regex]::Escape($Id) }
-  $pattern = '(?s)' + $heading + '.*?<summary>Complete normalized UTF-8 merged stdout/stderr</summary>\s*```text\r?\n(?<output>.*?)\r?\n```'
+  $pattern = '(?s)' + $heading + '.*?<summary>Complete normalized UTF-8 merged stdout/stderr</summary>\s*<pre class="svg-native-output">\r?\n(?<output>.*?)\r?\n</pre>'
   $match = [regex]::Match($Document, $pattern)
   if (!$match.Success) { throw "Complete raw output block missing for $Id." }
-  Normalize-Text $match.Groups['output'].Value
+  Normalize-Text ([Net.WebUtility]::HtmlDecode($match.Groups['output'].Value))
 }
 
 function Assert-SummariesEqual([object[]]$Expected, [object[]]$Actual, [string]$Label) {
