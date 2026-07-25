@@ -5,15 +5,15 @@ milestone_name: SVG Numeric Boundary Unification
 current_phase: 96
 current_phase_name: SVG Boundary Parity Qualification gap closure
 status: executing
-stopped_at: Completed 96-02-PLAN.md
-last_updated: "2026-07-25T22:52:24.812Z"
+stopped_at: Completed 96-03-PLAN.md
+last_updated: "2026-07-25T22:56:54.087Z"
 last_activity: 2026-07-26
 last_activity_desc: Phase 96 execution started
 progress:
   total_phases: 2
-  completed_phases: 1
+  completed_phases: 2
   total_plans: 5
-  completed_plans: 4
+  completed_plans: 5
 ---
 
 # Project State
@@ -29,8 +29,8 @@ See `.planning/PROJECT.md`.
 ## Current Position
 
 Phase: 96 (SVG Boundary Parity Qualification gap closure) — EXECUTING
-Plan: 1 of 3
-Status: Executing Phase 96
+Plan: 2 of 3
+Status: Ready to execute
 Last activity: 2026-07-26 — Phase 96 execution started
 
 ## Milestone Metrics
@@ -55,6 +55,8 @@ Last activity: 2026-07-26 — Phase 96 execution started
 - [Phase ?]: Parser Err(CoreError) remains distinct from manual SceneNode total-lowerer recovery.
 - [Phase ?]: Manual Group affine remains a direct PushTransform differential sentinel until separately repaired.
 - [Phase ?]: RFC 0008 opacity qualification uses exact DrawOp order and semantic pixels across frozen targets.
+- [Phase ?]: Phase 96 Plan 03: Failed Group affine composition emits identity and preserves the last admitted inherited affine for descendants.
+- [Phase ?]: Phase 96 Plan 03: Svg viewBox maps are composed into inherited state before child traversal.
 
 ### Blockers/Concerns
 
@@ -72,8 +74,8 @@ Last activity: 2026-07-26 — Phase 96 execution started
 
 ## Session Continuity
 
-Last session: 2026-07-25T22:33:36.305Z
-Stopped at: Completed 96-02-PLAN.md
+Last session: 2026-07-25T22:56:54.073Z
+Stopped at: Completed 96-03-PLAN.md
 Resume file: None
 
 ## Operator Next Steps
@@ -91,3 +93,4 @@ No v0.31 plans have been completed.
 | Phase 95 P02 | 6min | 2 tasks | 2 files |
 | Phase 96 P01 | 4min | 2 tasks | 2 files |
 | Phase 96 P02 | 19min | 2 tasks | 2 files |
+| Phase 96 P03 | 9min | 2 tasks | 2 files |

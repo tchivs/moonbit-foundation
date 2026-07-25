@@ -69,9 +69,11 @@
   3. Valid finite singular transforms continue to lower successfully, and RFC 0008 opacity and layer behavior remains unchanged.
   4. The parity and compatibility controls pass on `wasm`, `wasm-gc`, `js`, and `native`.
 
-**Plans**: 2/2 plans executed
+**Plans**: 3/3 plans executed
 
 Plans:
+
+- [x] 96-03-PLAN.md
 
 - [x] 96-01-PLAN.md — Trace public parser failures to checked-seam parity controls.
 - [x] 96-02-PLAN.md — Qualify manual fallback, RFC 0008 semantics, and all targets.
@@ -81,7 +83,7 @@ Plans:
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 95. Shared SVG Geometry Boundary | 2/2 | Complete    | 2026-07-26 |
-| 96. SVG Boundary Parity Qualification | 2/2 | Complete    | 2026-07-26 |
+| 96. SVG Boundary Parity Qualification | 3/3 | In Progress|  |
 
 ---
 *Roadmap last updated: 2026-07-26 for v0.31 planning.*
