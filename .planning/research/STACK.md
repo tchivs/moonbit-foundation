@@ -1,96 +1,146 @@
 # Technology Stack
 
-**Project:** MoonBit Native Foundation — v0.17 GrayAlpha16 PNG Interchange
-**Researched:** 2026-07-23
-**Confidence:** HIGH for the implementation recommendation (current source, tests, and v0.15/v0.16 artifacts); LOW for the separately cited web-provider confidence on the normative PNG wording.
-
-## Executive Recommendation
-
-Implement GrayAlpha16 as an additive profile of the existing portable `mb-image` model and PNG encoder. Add no dependencies, packages, target-specific code, FFI, copied source, or parallel encoder. The current code already has the required foundations: packed U16 component-byte access, a profile-aware scalar PNG wire-byte producer, one shared eager/caller-buffered preflight-and-replay machine, and a decoder that accepts PNG colour type 4 at bit depth 16.
-
-The public source model should add `ImageFormat::graya16()` over the existing `ChannelOrder::GrayAlpha`, with packed U16, two components, and straight-alpha metadata. The PNG package should add a private `GrayAlpha16` profile and explicit `new_graya16*` factory families for `PngEncoder` and `PngChunkEncoder`. Their only supported raster profile is non-interlaced PNG bit depth 16, colour type 4. The shared bounded machine remains the sole implementation path.
+**Project:** MoonBit Native Foundation — v0.30 SVG Production Readiness
+**Researched:** 2026-07-25
+**Confidence:** MEDIUM — the installed pinned toolchain and current repository were exercised directly; official MoonBit documentation corroborates the public command/API surface. The research-provider confidence seam classified the web lookup as LOW, so version-sensitive details must remain pinned and rechecked in CI.
 
 ## Recommended Stack
 
-### Core implementation
+### Core Framework
 
 | Technology | Version | Purpose | Why |
 |---|---:|---|---|
-| MoonBit / existing `tchivs/mb-image` module | workspace `0.1.0` | Model, storage, PNG codec, and tests | The behavior is an additive extension of the current public module; a separate module would duplicate contracts and fragment compatibility. |
-| `mb-image/model` | existing package | `graya16()` format and descriptor admission | `ChannelOrder::GrayAlpha` already gives a two-component identity and descriptor validation centralizes metadata/layout policy. |
-| `mb-image/storage` | existing package | Packed U16 component construction and scalar reads | Checked `get_component_byte` / `set_component_byte` already support packed U16; do not create a special image owner or view. |
-| `mb-image/png` | existing package | Explicit eager/chunk factories and Type-4/16 profile | `PngEncodeProfile`, `_png_wire_byte`, filtering, compression planning, and `PngEncodeMachine::new_with_profile` already isolate profile differences. |
-| `mb-core` and `mb-color` workspace dependencies | existing `0.1.0` | Existing checked arithmetic, budgets, errors, byte leases, alpha and sRGB identities | Reuse the imports already declared by `mb-image`; no new dependency solves a missing problem. |
+| MoonBit `moon` / `moonc` / `moonrun` | `0.1.20260713` / `v0.10.4+2cc641edf` / `0.1.20260713` | Build, test, and native performance measurement | This is the repository's installed and already-pinned development toolchain. Do not introduce Criterion, a host-language runner, or FFI timing; MoonBit's own harness is portable and exercises the code actually shipped. |
+| `moonbitlang/core/bench` (`@bench`) | bundled with pinned toolchain | Bench test blocks, monotonic timing, statistical summaries | Use the official `test (b : @bench.T)` form, `b.bench`, and `b.keep`. It supplies automatic batch sizing and ten samples by default. The existing `svg_bench.mbt` is the right package-local home. |
+| `tchivs/mb-core/text` | workspace `0.1.0` | Controlled decimal grammar and structured `CoreError` results | Add a *new*, explicitly finite SVG-facing parser here rather than adding a parser dependency or silently changing the existing general `parse_double` contract. `mb-svg` already depends on this package. |
+| MoonBit `Double` built-ins | bundled with pinned toolchain | Portable non-finite detection | `Double::is_nan()` and `Double::is_inf()` are available on the installed core interface for every supported target. Define `is_finite(v) = !v.is_nan() && !v.is_inf()` once at the parsing boundary. |
 
-### Required additions
+### Database
 
-| Component | Add | Reuse | Contract |
-|---|---|---|---|
-| Public image format | `ImageFormat::graya16()` | `ChannelOrder::GrayAlpha`, `ImageDescriptor`, generic owned storage/views | Packed U16, two components per pixel, encoded sRGB, builtin profile, top-left orientation, and `AlphaMode::Straight`. |
-| Descriptor validation | Admit the U16 GrayAlpha identity while retaining the narrow U8 identity | Existing `GrayAlpha` validation branch | Reject planar, F32, premultiplied/missing alpha, non-sRGB/builtin metadata, and non-top-left input. |
-| Private PNG profile | `PngEncodeProfile::GrayAlpha16` | Existing `Gray16` and `GrayAlpha8` profile pattern | Enforce packed/tight U16 GrayAlpha source, four raster bytes per pixel, type 4, depth 16, and non-interlaced output. |
-| Wire-byte mapping | Four-byte per-pixel scalar mapping | `_png_wire_byte` and `get_component_byte` | Emit `gray-msb, gray-lsb, alpha-msb, alpha-lsb`, independent of host storage endianness, before filtering, planning, checksums, and replay. |
-| Public factories | `new_graya16`, compression-only, filter-only, and combined strategy factories on eager and chunk encoders | Exact `new_gray16*` / `new_graya8*` family shape | All factories bind `PngInterlaceStrategy::None`; legacy constructors stay unchanged. |
+No database, cache server, or telemetry product belongs in v0.30. Benchmark fixtures and baseline metadata are version-controlled repository artifacts, not mutable production data.
 
-## Dependency Policy
+### Infrastructure
 
-**Install nothing.** `modules/mb-image/moon.mod.json` already depends only on `tchivs/mb-core` and `tchivs/mb-color`; the model and PNG packages already declare the repository's shared target set. A third-party PNG codec would bypass the project-owned bounded preflight, caller-owned output lease, and deterministic byte contracts instead of extending them.
+| Technology | Version | Purpose | Why |
+|---|---:|---|---|
+| Versioned SVG fixture corpus | repository `fixtures/` | Fixed, reviewable benchmark inputs | A literal corpus avoids measuring `StringBuilder` construction, random generation, file-system timing, or host state. Include workload ID, input bytes/digest, SVG feature profile, expected parse/lower outcome, and declared size. |
+| `moon bench` | bundled with pinned toolchain | Native timing gate / baseline capture | The CLI supports `--target`, `--frozen`, path/package selection, and `--no-parallelize`. Native-only measurements are comparable; portable-target runs validate execution but must not share a native performance threshold. |
+| `moon test --target all` | bundled with pinned toolchain | Semantic portability verification | `--target all` covers `wasm`, `wasm-gc`, `js`, and `native` (not LLVM). The numeric rejection suite must pass on all four supported production targets. |
 
-```text
-mb-image/model ──> mb-image/storage ──> mb-image/png
-                         │                     │
-                         └── checked U16 access └── shared preflight/replay machine
-```
+### Supporting Libraries
 
-## Public API Shape
+| Library | Version | Purpose | When to Use |
+|---|---:|---|---|
+| `@bench.T::bench` | bundled | Timed named cases | Every reported SVG parsing/lowering workload. Create inputs and expected checksums outside the timed closure; sink the parse/lower result with `b.keep`. |
+| `@bench.T::keep` | bundled | Prevent dead-code elimination | Every pure benchmark result. Replace the current package-local `keep` no-op; that helper does not create an observable use and therefore is not a valid optimization barrier. |
+| `@bench.single_bench` + `Summary::to_json()` | bundled | Optional local raw diagnostic export | Use only for an explicitly experimental developer script. MoonBit documents `Summary` stability as not guaranteed, so do not make its JSON schema a release artifact or CI contract. |
+| `@text.parse_double` | existing workspace API | General decimal conversion after SVG lexical admission | Do not accept its `Ok` result as sufficient for SVG. The new finite wrapper must bound the exponent before conversion and reject a NaN or infinity result after conversion. |
+| `@error.CoreError` | existing workspace API | Deterministic failure representation | Use a stable SVG-specific operation/context such as `svg-parse-number` plus a machine-distinguishable cause (`exponent-too-long`, `exponent-out-of-range`, `non-finite`). Do not substitute zero or retain a partially parsed geometry value. |
+
+## Required Package and Target Policy
+
+`modules/mb-svg/svg/moon.pkg` already declares the correct portable surface:
 
 ```moonbit
-// Additive format factory; exact spelling follows existing `graya8` convention.
-let format = @model.ImageFormat::graya16()
-
-// Explicit, never selected by legacy generic constructors.
-let encoder = @png.PngEncoder::new_graya16_with_strategies(
-  @png.PngCompressionStrategy::Stored,
-  @png.PngFilterStrategy::None,
-)
+supported_targets = "+js+wasm+wasm-gc+native"
 ```
 
-The eager and caller-buffered APIs should expose the same three strategy levels already established for Gray16 and GrayAlpha8: baseline, compression-only, filter-only, and combined strategy constructors. Do not add an interlace-selecting GrayAlpha16 constructor.
+Keep v0.30 implementation in ordinary MoonBit source and leave that target set unchanged. `supported-targets` is metadata, while per-file `targets` is the mechanism for genuine backend-specific source. Neither a native-only numeric fast path nor a native FFI parser is justified: parsing a hostile SVG must have the same accept/reject semantics on JavaScript, Wasm, Wasm-GC, and native.
 
-## Existing Seams to Preserve
+The package already compiles the benchmark form successfully with the current toolchain. If a package needs an explicit declaration for benchmark-only code, follow the current MoonBit convention rather than placing `bench` in production imports:
 
-| Seam | Current evidence | v0.17 rule |
-|---|---|---|
-| U16 storage | `get_component_byte`/`set_component_byte` already distinguish U16 from packed-U8 access | Read components through this checked API; never introduce manual byte offsets in PNG code. |
-| Filtering | The filter stride is a byte distance, and Gray16 already maps storage bytes to PNG wire bytes before filters | GrayAlpha16 uses a stride of four bytes per pixel, not a logical channel count of two. |
-| Compression/replay | Stored, FixedOrStored, and DynamicOrFixedOrStored share scalar cursors and bounded replay | Feed the new wire-byte mapping into the existing cursors; retain no converted row, image-sized staging buffer, or second stream driver. |
-| Atomic construction | `PngEncodeMachine::new_with_profile` performs source/limit/work/budget admission before output state | Invalid source/profile/geometry/output/work/budget input must expose neither eager bytes nor a usable chunk encoder. |
-| Decode boundary | Existing raster decoding accepts type 4 at depth 16 and publishes RGBA8 high-byte canonicalization | Document and test this boundary; do not promise U16 decode round-trip through the current public decoder. |
+```moonbit
+import {
+  "moonbitlang/core/bench",
+} for "test"
+```
 
-## Alternatives Rejected
+Only add that block if `moon check`/`moon bench` needs it after the benchmark is revised; do not add an application dependency merely for test harness symbols. The prelude exposes the `Double` methods, so v0.30 needs no new runtime import for `is_nan`/`is_inf`.
 
-| Category | Recommended | Alternative | Why not |
+## Numeric-Safety Contract
+
+### Recommended new API
+
+Add an opt-in helper in `mb-core/text`, for example `parse_finite_double`, and migrate all SVG numeric ingress points to it: `parse_length`, `parse_number_list`, path-data token reading, transform arguments, viewBox values, geometry attributes, opacity/stroke values, and numeric colour components where SVG geometry can receive them.
+
+The helper must have a deliberately narrow contract:
+
+1. Trim only the allowed surrounding SVG whitespace and admit the existing signed decimal/exponent grammar.
+2. Bound exponent syntax before doing numeric work: cap digit count and reject an exponent whose magnitude is outside a documented safe range. This avoids an adversarial exponent driving the current repeated-`pow10` loop for millions of iterations.
+3. Delegate ordinary conversion to the existing deterministic parser.
+4. Reject `NaN`, positive infinity, and negative infinity using `Double::is_nan()` / `Double::is_inf()`; a syntactically valid but non-finite result is an error, never a sentinel.
+5. Require every transform constructor and each composed `Affine2` to have six finite components. Validate derived values such as degrees-to-radians and `sin`/`cos` outputs too, because finite source values can overflow during multiplication or produce a non-finite intermediate.
+
+This must be additive: preserve the existing general `@text.parse_double` API for other formats until its compatibility policy is separately decided. SVG calls the stricter finite API explicitly. That avoids accidentally changing a general parser's documented acceptance behavior while closing SVG's trust boundary.
+
+### Checked Parsing Is Not Integer Casting
+
+Never use `Double::to_int`, `to_uint`, or a clamp as the validity check. The installed core tests document saturation-like behavior for infinite conversion on some backends. SVG values must be rejected before they reach an affine matrix, path, canvas command, or allocation calculation. Rejecting is the fail-closed behavior; coercion changes drawing semantics and can conceal malformed/untrusted input.
+
+## Benchmark Workload Contract
+
+Adopt three immutable workload classes, each represented by a literal fixture and a stable ID in its benchmark name:
+
+| ID class | Timed operation | Required workload metadata | Outcome oracle outside timing |
 |---|---|---|---|
-| Model identity | Reuse `ChannelOrder::GrayAlpha` with a U16 factory | Add another channel-order enum case | The order is still grey then alpha; bit depth belongs to `ComponentType`. |
-| PNG implementation | Add one private profile to the shared machine | Build a dedicated GrayAlpha16 encoder | It would duplicate preflight, budgeting, filtering, compression, replay, and streaming semantics. |
-| Expected PNG bytes | Literal, non-symmetric wire assertions | Regenerate expected bytes with another current encoder | A second encoder call cannot detect a shared serialization defect. |
-| Decode claim | Explicit RGBA8 high-byte canonicalization | Claim public U16 model round-trip from decoder | Current decoder intentionally publishes U8 RGBA data; low bytes belong in wire-fidelity evidence. |
+| `svg-path-*` | `parse_path_data` | command count, bytes, command mix, numeric-token count | parsed command count / terminal point |
+| `svg-transform-*` | `parse_transform` | transform count, mix, numeric-token count, bytes | six affine components are finite and match a known transform |
+| `svg-document-*` | `parse_svg` then `lower_to_drawing_list` | elements, nesting depth, path/shape mix, bytes, feature profile | scene/lowering succeeds and has the expected operation summary |
 
-## Verification Stack
+Use benchmark source like this (the exact workload identifier and fixture helper are project decisions):
 
-| Layer | Evidence required |
-|---|---|
-| Model/storage | Construct a valid packed U16 pair image; check both components and reject invalid metadata/layout/component identities. |
-| Eager encode | Assert IHDR `(depth=16, colour-type=4, interlace=0)` and a literal Stored/None inflated scanline containing asymmetric U16 grey/alpha pairs. |
-| Decoder boundary | Decode those public bytes and assert `(R,G,B,A) = (gray-high, gray-high, gray-high, alpha-high)`; assert low bytes only at the wire boundary. |
-| Caller-buffered encode | For all 3 compression × 2 filter pairs, compare fresh chunk output with a fresh eager oracle under zero, one-byte, and deterministic ragged leases; assert accepted-only totals, unchanged unwritten tails, and sticky completion. |
-| Compatibility | Keep literal Gray8, Gray16, GrayAlpha8, RGB8, and straight-RGBA8 byte vectors in eager and chunk tests. |
+```moonbit
+test "svg-path-linear-1000-v1" (b : @bench.T) {
+  let input = fixture_svg_path_linear_1000() // setup is not timed
+  b.bench(name="parse_path_data", fn() {
+    b.keep(parse_path_data(input))
+  })
+}
+```
 
-The current native package invocation reported `196 passed, 0 failed`, then exceeded the local command timeout while waiting on `_build/.moon-lock`; treat that as a diagnostic observation, not a newly completed suite result. The v0.17 acceptance command should remain `moon -C modules/mb-image test png --target all --frozen`.
+For a `Result` pipeline, preserve the error/value as the kept value or match it and keep the resulting drawing list. Do not use a local `fn keep[T](_) { () }`: it cannot guarantee the computation remains observable. Do not use `Summary` JSON as the durable baseline format; retain the toolchain version, command line, target, CPU/OS runner identity, fixture digest, and the console summary in a human-reviewed artifact instead.
+
+### Commands
+
+```powershell
+# One reproducible native timing run. Pin target, avoid dependency mutation,
+# and serialize cases so the shared runner does not add parallel contention.
+moon -C modules/mb-svg bench svg --target native --frozen --no-parallelize
+
+# Compile the benchmark harness without timing it.
+moon -C modules/mb-svg bench svg --target native --frozen --build-only
+
+# Verify numeric rejection and regular SVG behavior on all production targets.
+moon -C modules/mb-svg test svg --target all --frozen
+```
+
+The first command was exercised against the current unmodified package: all three existing cases passed on native. Those timing values are intentionally not a baseline, because the current cases synthesize their inputs and use the ineffective local sink. Establish the first accepted baseline only after fixed fixtures and `b.keep` land, on a declared runner.
+
+## Alternatives Considered
+
+| Category | Recommended | Alternative | Why Not |
+|---|---|---|---|
+| Benchmark runner | `moon bench` + `@bench.T` | Criterion, Hyperfine, custom C/JS driver | It would measure a wrapper or introduce FFI and target drift instead of the package's public MoonBit behavior. |
+| Benchmark input | Checked-in literals / fixture loader outside closure | Build strings or randomized documents in the test | Construction cost and nondeterminism pollute the parser/lowering measurement. |
+| Optimization barrier | `b.keep(value)` | Local no-op `keep`, `ignore`, or output printing | The official benchmark API specifically provides `keep`; no-op sinks can be removed and printing distorts timing. |
+| Raw statistics | Console summary plus versioned run metadata | Commit `Summary.to_json()` schema | Official docs say `Summary` stability is not guaranteed. |
+| Numeric policy | Central bounded `parse_finite_double` used by SVG | Per-caller `is_nan` checks | Per-caller checks inevitably miss one ingress path and cannot bound pre-conversion exponent work. |
+| Numeric policy | Reject non-finite values | Clamp, substitute zero, or permit an infinity matrix | These conceal invalid SVG and allow impossible geometry to escape into canvas/lowering. |
+| Portability | MoonBit `Double` + all-target conformance tests | Native `strtod`, locale parser, or C math helper | Violates the project’s portable MoonBit-first constraint and risks different acceptance semantics by target. |
+
+## Installation
+
+No package installation is required. The pinned MoonBit toolchain already provides `@bench` and `Double` classification methods.
+
+```powershell
+# Inspect exact tool versions recorded with every baseline run.
+moon version --all --json
+```
 
 ## Sources
 
-- Local source and tests: `modules/mb-image/model/descriptor.mbt`, `storage/views.mbt`, `png/png.mbt`, `png/encode.mbt`, `png/stream_encode.mbt`, `png/raster_decode.mbt`, `png/encode_test.mbt`, and `png/stream_encode_test.mbt` — HIGH local evidence.
-- Archived implementation contracts: v0.15 Phases 47–49 and v0.16 Phases 50–52 in `.planning/milestones/` — HIGH local evidence.
-- [W3C PNG Specification, Third Edition](https://www.w3.org/TR/png-3/) — type 4 permits 8/16-bit samples, orders pixels grey then alpha, and stores 16-bit samples MSB-first. The source-provider confidence seam returned LOW; it corroborates, but does not replace, the local implementation evidence.
-- [MoonBit package documentation](https://docs.moonbitlang.com/en/stable/toolchain/moon/package.html) and [module documentation](https://docs.moonbitlang.com/en/latest/toolchain/moon/module.html) — current dependency and `supported-targets` semantics; source-provider confidence seam returned LOW.
+- [MoonBit: Writing Benchmarks](https://docs.moonbitlang.com/en/latest/language/benchmarks.html) — official documentation for `@bench.T`, `bench`, `keep`, automatic batching, and the explicitly unstable `Summary` JSON surface. Provider confidence: LOW; cross-checked against the installed `moonbitlang/core/bench` source and interface.
+- [MoonBit command-line help](https://docs.moonbitlang.com/en/latest/toolchain/moon/commands.html) — official `moon bench` command, target, frozen, build-only, and no-parallelize options. Provider confidence: LOW; direct package build and native run succeeded locally.
+- [MoonBit package configuration](https://docs.moonbitlang.com/en/latest/toolchain/moon/package.html) — official import and target-set semantics, including `--target all`. Provider confidence: LOW; cross-checked with `modules/mb-svg/svg/moon.pkg` and installed core package manifests.
+- Installed pinned toolchain: `moon version --all --json`, `D:/AI-Data/moonbit/lib/core/bench/`, and `D:/AI-Data/moonbit/lib/core/builtin/pkg.generated.mbti` — direct local evidence for `Bench::keep`, `Double::is_nan`, and `Double::is_inf`.
+- Current repository: `modules/mb-svg/svg/svg_bench.mbt`, `length.mbt`, `path_data.mbt`, `transform.mbt`, `modules/mb-core/text/number_parse.mbt`, and `modules/mb-svg/svg/moon.pkg` — direct local evidence for existing seams and the exponent/finite-value gap.

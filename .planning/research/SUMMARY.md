@@ -1,173 +1,167 @@
 # Project Research Summary
 
-**Project:** MoonBit Native Foundation — v0.19 GrayAlpha8 Adam7 PNG
-**Domain:** Portable, bounded Type-4/8 PNG interlaced encoding in MoonBit
-**Researched:** 2026-07-23
-**Confidence:** HIGH
+**Project:** MoonBit Native Foundation — v0.30 SVG Production Readiness
+**Domain:** Portable, bounded SVG parse-to-canvas lowering
+**Researched:** 2026-07-25
+**Confidence:** MEDIUM-HIGH
 
 ## Executive Summary
 
-v0.19 is a narrow, additive `mb-image` interoperability milestone: legal packed-U8, straight-alpha `GrayAlpha` sources gain an explicitly selected Adam7 PNG encoder route. The public result must be a Type-4/depth-8 PNG with `G,A` samples and interlace method `1`; existing GrayAlpha8 constructors remain non-interlaced and their bytes remain frozen. Both eager and caller-buffered users receive the same opt-in capability.
+v0.30 is a production-hardening milestone for the existing pure-MoonBit `mb-svg` subset, not an SVG feature-expansion project. The recommended implementation retains the established boundary: `mb-svg` parses untrusted text, validates and constructs a typed scene, `lower_to_drawing_list` deterministically emits canvas operations, and `mb-canvas` alone owns offscreen layer allocation and rasterization. The milestone should deliver declared benchmark workloads, fail-closed numeric admission, and all-target proof that existing RFC 0008 opacity semantics remain exact.
 
-The implementation should be deliberately small. The repository already has a complete `GrayAlpha8` profile, a shared profile-aware `PngEncodeMachine`, Adam7 pass geometry/cursors, filter selection, DEFLATE planning, atomic preflight, and resumable replay. Add the two established interlace-selection factory shapes on both public encoder facades, then remove only the `GrayAlpha8 + Adam7` rejection from shared preflight. Do not add a profile, encoder, cursor, decoder path, staging buffer, dependency, FFI, target branch, copied source tree, or release wrapper.
+The central recommendation is to make a successfully parsed `SceneNode` the numeric safety boundary. Route every explicit SVG scalar through one finite, bounded parser; validate every derived coordinate and affine component; then propagate a structured SVG error instead of replacing malformed input with zero, a default, or an inherited value. Keep finite singular transforms, preserve current finite opacity clamping and isolated `PushLayer`/`PopLayer` composition, and do not move SVG validation into canvas.
 
-The main risks are semantic rather than algorithmic: malformed seven-pass traversal, cross-pass adaptive predictor history, bypassing the atomic ledger, lease mutation before replay drift is rejected, and accidental legacy drift. The remedy is literal non-symmetric seven-pass evidence, all six compression/filter pairs, fresh hostile lease schedules, atomic-failure and pre-lease mutation tests, frozen legacy vectors, and the ordinary four-target PNG package command at one unchanged commit.
+The principal risks are incomplete numeric-route coverage, overflow after otherwise finite arithmetic, accidental opacity changes, and misleading timing evidence. Mitigate them with a route-matrix test contract before implementation, compatibility and overlap-sensitive rendering fixtures, and fixed correctness-gated benchmark fixtures. Four-target execution establishes semantic portability; a frozen native-release, seven-capture record is local regression evidence only—not a cross-target speed claim or CI latency threshold.
 
 ## Key Findings
 
 ### Recommended Stack
 
-This is not a stack-selection or model-extension problem. The current `mb-image/png` package already supplies the required portable primitives. The repository's `STACK.md` still describes the prior GrayAlpha16 milestone, so it is not used as a v0.19 design authority; the current feature, architecture, pitfall research and live v0.19 project context agree that no dependency or module changes are needed.
+Use the repository's already-pinned MoonBit toolchain (`moon`/`moonrun` `0.1.20260713`, `moonc` `v0.10.4+2cc641edf`) with the existing portable `mb-svg` package target set: `js`, `wasm`, `wasm-gc`, and `native`. No database, FFI, native parser, benchmark framework, or new public canvas API is warranted. The implementation belongs in normal MoonBit source and must produce the same acceptance/rejection outcome on all four targets.
 
 **Core technologies:**
 
-- **MoonBit and existing `tchivs/mb-image`:** portable PNG implementation and tests — all required behavior remains repository-owned across js, wasm, wasm-gc, and native.
-- **`PngEncodeProfile::GrayAlpha8`:** existing Type-4/8 source admission — retain it rather than creating a `GrayAlpha8Adam7` profile.
-- **`PngEncodeMachine::new_with_profile`:** one eager/chunk bounded preflight, planning, replay, and output-state machine — both new factory families must delegate directly here.
-- **`_png_adam7_passes` and `PngFilteredCursor`:** sole pass geometry, scalar traversal, and filter authority — use `channels=2`, `bit_depth=8` with no materialized pass raster.
-- **Existing decoder facades:** Type-4/8 interlaced input already canonicalizes to straight RGBA8 — prove this established boundary rather than widening decode/model semantics.
+- MoonBit `@bench.T` and `moon bench` — keep package-local benchmarks; use `b.keep` as the anti-DCE sink and fixed input outside the timed closure.
+- `mb-core/text` plus `CoreError` — add an explicit finite SVG-facing numeric helper while preserving the general `parse_double` contract for other consumers.
+- MoonBit `Double::is_nan()` / `Double::is_inf()` — reject non-finite conversion results before ordered range checks.
+- Versioned SVG fixtures and human-readable baseline record — make workload identity, correctness, toolchain, host, and execution mode auditable.
+- `moon test --target all --frozen` — qualify semantics on all production targets; use native release timing only for like-for-like local comparison.
 
 ### Expected Features
 
+The milestone has three required outcomes: (1) three named, fixed, correctness-gated public workloads for path parse, transform composition, and parse-to-lower; (2) structured rejection of non-finite, overflowing, malformed, and unsafe values before a scene or drawing list exists; and (3) all-target proof that valid SVG behavior and group/element opacity layering remain unchanged.
+
 **Must have (table stakes):**
 
-- Explicit eager `PngEncoder::new_graya8_with_interlace_strategy` and `new_graya8_with_all_strategies` selection; baseline interlace factory fixes Stored/None.
-- Matching explicit `PngChunkEncoder` factories that use the same profile and machine.
-- Legal Adam7 IHDR (`08 04 00 00 01`) and exact pass-by-pass raw samples in `G,A` order for a non-symmetric all-seven-pass fixture.
-- Shared Stored, FixedOrStored, DynamicOrFixedOrStored × None, Adaptive behavior, including adaptive predictor reset at each pass.
-- Atomic admission and pre-lease replay-mutation rejection with accepted-only accounting and sticky terminals.
-- Truthful Type-4/8 public decode to straight RGBA8: `(R,G,B,A)=(G,G,G,A)`.
-- Frozen non-interlaced GrayAlpha8 and historical PNG vectors plus a single frozen four-target package qualification.
+- Immutable, accurately named workload fixtures with pre-timing command/affine/draw-operation checks and `b.keep` inside the timed path.
+- A documented benchmark record with command, corpus and correctness digests, exact toolchain/host facts, warmup, and seven native release captures.
+- One shared scalar admission policy for lengths, lists, paths, transforms, viewBox, geometry, relevant stroke/paint values, and opacity; it rejects explicit malformed or unsafe input with stable SVG-specific error context.
+- Validation of derived relative coordinates, viewBox mapping, matrix construction/composition, and trigonometric results against one documented target-neutral envelope.
+- Public all-target numeric, compatibility, opacity-order, and raster-output evidence with no partial success object on rejection.
 
-**Should have (quality differentiators):**
+**Should have (production differentiators):**
 
-- Independent literal seven-pass Stored/None vector rather than a second encoder-derived expectation.
-- Fresh zero-capacity, one-byte, and deterministic ragged caller leases, including untouched tail assertions.
-- A source-revision guard generalized by replay semantics across U8 and U16 wire profiles, not an Adam7-specific workaround.
+- A centralized route matrix proving every numeric ingress and derived path fails before lower/raster work.
+- A compact frozen compatibility corpus for accepted finite syntax, transform order, unit policy, inherited paint, and isolated nested opacity.
+- Native timing evidence explicitly separated from portable benchmark build/run qualification.
 
-**Defer:**
-
-- Gray8 Adam7, palette/low-bit/`tRNS`, RGB16/RGBA16, APNG, color conversion, decoder model widening, image-sized staging, FFI/dependencies, release automation, and target wrappers.
+**Explicitly defer:** SVG text, gradients, masks, filters, `<use>`, animation, broader XML/CSS or percentage resolution, native acceleration, image-sized layer staging, new canvas/image/FFI APIs, release automation, and global timing thresholds.
 
 ### Architecture Approach
 
-The only production flow is:
-
-```text
-legal packed U8 straight-alpha GrayAlpha view
-  -> explicit eager/chunk GrayAlpha8 interlace factory
-  -> PngEncodeMachine::new_with_profile(GrayAlpha8, ..., Adam7)
-  -> shared atomic preflight and Adam7 filtered cursor
-  -> Stored / FixedOrStored / DynamicOrFixedOrStored replay
-  -> Type-4/8 Adam7 PNG -> existing RGBA8 decoder canonicalization
-```
+Keep the existing parse → validated scene → pure lowering → bounded canvas rasterization flow. `mb-svg` owns numeric grammar, SVG-specific errors, and checked derivation; `mb-canvas` remains generic and owns only drawing-list/layer execution. A successful `parse_svg` or `parse_svg_with_budget` must imply that all scene scalars and SVG-derived `Affine2` coefficients are finite and inside the declared envelope, allowing `lower_to_drawing_list` to stay total and infallible.
 
 **Major components:**
 
-1. **`png.mbt` eager facade** — add only the two explicit GrayAlpha8 interlace selectors; existing `new_graya8*` APIs keep `None`.
-2. **`stream_encode.mbt` chunk facade** — mirror those two selectors and delegate straight to the shared machine.
-3. **`encode.mbt` admission/preflight** — remove only the GrayAlpha8 non-`None` rejection; retain descriptor admission, exact ledger, all strategy traversals, and replay guard.
-4. **`structural.mbt` and filter cursors** — unchanged seven-pass geometry and pass-local filtering; no alternate source traversal or buffer.
-5. **Public PNG tests** — own wire, decode, six-pair, hostile lease, mutation, legacy, and four-target evidence; no decoder production change is expected.
+1. `mb-core/text` — optional additive bounded finite conversion primitive and deterministic `CoreError` support; do not silently alter generic number-parser compatibility.
+2. `mb-svg/length.mbt`, `path_data.mbt`, and `transform.mbt` — the shared scalar route, grammar/arity enforcement, and checked path/affine derivation.
+3. `mb-svg/scene.mbt` — distinguishes omitted attributes (existing SVG default/inheritance) from explicitly invalid attributes (error, no `SceneNode`).
+4. `mb-svg/lower.mbt` — relies on validated scene invariants and retains document-order transforms and isolated opacity layers.
+5. `mb-canvas` — preserves existing bounded layer allocation, source-over rendering, 16-layer capability limit, and partial-mutation protections.
+6. `svg_bench.mbt` and a tracked local baseline record — fixed public workloads and reproducible evidence, not a runtime subsystem or release gate.
 
 ### Critical Pitfalls
 
-1. **Treating Adam7 as reordered full rows** — derive totals, coordinates, filter tags, and `G,A` reads from `_png_adam7_passes(..., 2, 8)` only; use an asymmetric image reaching every nonempty pass.
-2. **Leaking Adaptive history across passes** — predictors and winner selection must reset per pass-local first row; test every strategy pair across pass transitions.
-3. **Creating a second admission/preflight path** — relax only the single profile gate, then retain the existing all-strategy transactional ledger before output state or leases exist.
-4. **Writing a lease before detecting source mutation** — revision validation must happen before `destination.set` for Stored, Fixed, and Dynamic; prove unchanged sentinels and a sticky typed failure.
-5. **Confusing caller leases with PNG/DEFLATE/pass boundaries** — preview remains private until acknowledgement; zero/one/ragged schedules must be eager-identical without duplicate/lost bytes.
-6. **Broadening compatibility by default** — new factory names make Adam7 opt-in; retain literal legacy vectors for GrayAlpha8, Gray8, Gray16, RGB8, and RGBA8.
-7. **Treating native as portability evidence** — qualification is the unmodified `moon -C modules/mb-image test png --target all --frozen` suite on all four targets.
-
-## Implementation Requirements
-
-| ID | Requirement | Acceptance evidence |
-|---|---|---|
-| **GRAYA8A7-01** | Legal packed-U8 straight-alpha GrayAlpha images can explicitly select eager and caller-buffered Adam7 Type-4/8 output; legacy GrayAlpha8 factories remain non-interlaced. | Narrow and all-strategy public factories; Adam7 IHDR `08 04 01`; legacy/explicit-None IHDR `08 04 00`; incompatible descriptors fail before output. |
-| **GRAYA8A7-02** | Adam7 GrayAlpha8 uses the one bounded profile-aware machine for all six compression/filter pairs, with pass-local Adaptive filtering and unchanged atomic/pre-lease replay semantics. | Literal 5x5 seven-pass `G,A` raster; six-pair eager/chunk identity and decode; separate ledger failures; mutation-after-prefix zero-write sticky terminal for Stored, Fixed, and Dynamic. |
-| **GRAYA8A7-03** | Public evidence proves wire/decode fidelity, hostile caller-buffered behavior, compatibility, and portability. | Fresh zero/one/ragged drains with accepted-only totals and untouched tails; frozen legacy literals; one frozen all-target PNG package run. |
+1. **Fail-open numeric fallbacks** — do not turn invalid present values into `0`, `None`, empty points, defaults, or inherited style; only absent attributes may use SVG defaults.
+2. **Checking sources but not arithmetic** — validate every relative/path, viewBox, trigonometric, matrix-build, and composition result; retain finite `scale(0)` rather than treating non-invertibility as unsafety.
+3. **Conflating numeric hardening, units, and opacity** — preserve the v0.1 absolute-unit policy, reject percentages/unsupported units and extra operands, reject non-finite values first, then retain finite opacity clamping and `PushLayer`/`PopLayer` composition.
+4. **A benchmark that measures a no-op or drifting corpus** — remove the local no-op sink, use `b.keep`, validate fixed workload facts before timing, and invalidate comparisons whenever source/corpus/correctness facts change.
+5. **Treating all-target timing as comparable performance** — all targets prove build/run and deterministic outcomes; only a declared native release environment provides a meaningful baseline. Also retain the documented 16-vs-17 nested-opacity layer capability test.
 
 ## Implications for Roadmap
 
-### Phase 59: GrayAlpha8 Adam7 Factory and Pass Profile
+### Phase 1: Numeric Contract, Envelope, and Route-Matrix Tests
 
-**Rationale:** Expose the missing public selection before broadening test matrices. The architecture identifies only factory additions and removal of one preflight rejection as production work.
+**Rationale:** The safe scalar magnitude and stable error taxonomy determine all downstream parser, scene, and compatibility decisions. Lock these before touching permissive fallback paths.
 
-**Delivers:** Eager/chunk explicit `with_interlace_strategy` and `with_all_strategies` GrayAlpha8 factories; legal shared `GrayAlpha8 + Adam7` preflight; a focused Stored/None public all-seven-pass vector; frozen legacy non-interlaced routes.
+**Delivers:** A documented SVG numeric admission/derived-value contract; target-neutral scalar envelope; stable `CoreError` category/context matrix; failing leaf/public route tests for all numeric paths; frozen valid finite compatibility controls.
 
-**Addresses:** GRAYA8A7-01 and the public API/Type-4/8 portion of GRAYA8A7-02.
+**Addresses:** SVGPR-02's policy/evidence foundation and SVGPR-03 compatibility boundary.
 
-**Avoids:** Implicit interlacing, broad grayscale admission, a second profile/machine, wrong two-channel pass geometry, and staging.
+**Avoids:** Partial ingress coverage, arbitrary numeric caps, accidentally rejecting finite singular transforms, unit-policy expansion, and brittle full-message assertions.
 
-### Phase 60: Bounded Adam7 Streaming Semantics
+### Phase 2: Fail-Closed Parsing and Validated Scene Construction
 
-**Rationale:** Once construction is legal, prove that every current safety contract composes with the Type-4/8 Adam7 cursor rather than writing a parallel implementation.
+**Rationale:** Once the contract is fixed, centralize scalar admission and make explicit attribute builders fallible before values can enter scene or affine data.
 
-**Delivers:** Six-pair eager/chunk parity, pass-local Adaptive proof, atomic failures across ledger stages, and a U8/U16-general prewrite mutation guard that protects Stored as well as Fixed/Dynamic replay.
+**Delivers:** Shared finite/bounded scalar helper; exact length/unit/arity handling; checked path and affine/viewBox derivations; `Result` propagation through root, group, shapes, points, transforms, and paint-style numeric readers; no scene/list on rejection.
 
-**Addresses:** The remaining GRAYA8A7-02 bounded behavior.
+**Addresses:** SVGPR-02.
 
-**Avoids:** Cross-pass filtering, strategy-specific admission, pre-lease source leakage, incorrect acknowledgement accounting, and pass/IDAT/DEFLATE boundary assumptions.
+**Avoids:** Defaulting malformed explicit fields, target-specific parser behavior, non-finite derived transforms, and moving SVG policy into `mb-canvas`.
 
-### Phase 61: Portable GrayAlpha8 Adam7 Public Evidence
+### Phase 3: Opacity, Capacity, Compatibility, and Four-Target Qualification
 
-**Rationale:** Keep consumer-facing interchange qualification independent of production changes and make portability a release gate rather than an inferred property.
+**Rationale:** Numeric changes are only production-ready when valid document output and the canvas integration contract are proven unchanged.
 
-**Delivers:** Literal multipass wire/decode coverage, hostile zero/one/ragged chunk schedules, sticky success terminals, frozen legacy vectors, and four-target qualification.
+**Delivers:** Draw-operation and pixel/digest fixtures for group, element, fill, stroke, and nested opacity; 16/17 opacity-layer capacity evidence; valid finite parse/lower corpus; hostile-input no-effect proof; `moon test --target all --frozen` qualification.
 
-**Addresses:** GRAYA8A7-03.
+**Addresses:** SVGPR-03 and the portability portion of SVGPR-01.
 
-**Avoids:** Encoder/decoder self-consistency-only tests, native-only confidence, and accidental legacy drift.
+**Avoids:** Per-paint substitution for isolated group opacity, changing default/inheritance semantics, and mistaking parse-depth success for raster-layer capacity.
+
+### Phase 4: Correctness-Gated Benchmarks and Native Baseline Record
+
+**Rationale:** Benchmark digests must reflect the finalized parser/lowering semantics, so timing evidence is captured after the safety and compatibility contract stabilizes.
+
+**Delivers:** Fixed path-parse, transform-parse (accurately 60 functions), and 50-rect parse-to-lower workloads; pre-timing correctness checks; `b.keep`; all-target benchmark build/run qualification; and a native frozen-release record with metadata, warmup, and seven captures.
+
+**Addresses:** SVGPR-01.
+
+**Avoids:** Dead-code-eliminated timing, error-path timing, incorrect workload cardinality, host/corpus drift, and false cross-target performance claims.
 
 ### Phase Ordering Rationale
 
-- Factory/profile enablement is the sole capability change and must precede shared-machine composition tests.
-- Streaming semantics then exercise the exact code selected by the new route across the full strategy and failure matrix.
-- Public evidence closes the milestone with independently auditable consumer behavior and the unchanged portability command.
+- The numeric envelope and error contract are architectural policy, so tests and decisions precede mechanical parser migration.
+- Parser/scene invariants must be in place before lowerer and raster evidence can credibly demonstrate no unsafe value crossed the boundary.
+- Opacity/capacity qualification guards the critical cross-module contract before performance evidence is frozen.
+- Benchmark correctness digests depend on final accepted semantics; create fixtures early if convenient, but capture the accepted baseline last.
 
 ### Research Flags
 
-Phases likely needing deeper local-code research during planning:
+Phases likely needing deeper research during planning:
 
-- **Phase 60:** Inspect all current Stored/Fixed/Dynamic replay paths and pre-lease revision checks before test design; the risk is a subtle shared-machine composition defect.
-- **Phase 61:** Confirm fresh all-target output and current package test count at the final unchanged HEAD; do not reuse archived counts as present evidence.
+- **Phase 1:** Select the exact portable scalar envelope from current canvas/raster/bounds limits; verify accepted lexical non-finite spellings and exponent behavior per target.
+- **Phase 2:** Map all actual numeric ingress and builder signatures to ensure no default-on-error route remains; confirm the most ergonomic additive `mb-core/text` API/error encoding.
+- **Phase 4:** Recheck the exact MoonBit package selector/command syntax after benchmark changes and define the baseline-record location/schema without coupling it to release qualification.
 
-Phases with standard patterns:
+Phases with established patterns (skip broad research-phase):
 
-- **Phase 59:** Directly mirror verified GrayAlpha16 Adam7 public factory/profile precedent; only a narrow current-source review is required.
+- **Phase 3:** Existing RFC 0008 layer tests, four-target selectors, and frozen-vector conventions provide a clear implementation pattern; focus planning on coverage rather than exploratory design.
 
 ## Confidence Assessment
 
 | Area | Confidence | Notes |
-|---|---|---|
-| Stack | HIGH | Existing portable module and dependencies already contain every needed primitive; the v0.17 stack research is stale for scope but confirms no dependency change. |
-| Features | HIGH | Current source boundary and completed v0.16/v0.18 evidence define measurable public behavior. |
-| Architecture | HIGH | Current production seams isolate the exact two facade additions and one preflight relaxation. |
-| Pitfalls | HIGH | Repository-specific risks map to concrete cursor, ledger, replay, and compatibility seams; PNG wording is corroborative. |
+|------|------------|-------|
+| Stack | MEDIUM | Installed pinned toolchain and repository seams were exercised; official MoonBit docs corroborate APIs, but provider confidence was low and command details should be rerun in CI. |
+| Features | HIGH | Directly anchored in `.planning/PROJECT.md`, RFC 0002/RFC 0008, current module behavior, and milestone exclusions. |
+| Architecture | HIGH | Component boundaries, unsafe fallback seams, lower ordering, and canvas ownership were inspected in the live repository. |
+| Pitfalls | HIGH | Critical paths derive from current parser/lowering/benchmark code; external SVG and MoonBit behavior provides medium-confidence corroboration. |
 
-**Overall confidence:** HIGH
+**Overall confidence:** MEDIUM-HIGH
 
 ### Gaps to Address
 
-- **Prewrite revision scope:** Phase 60 must establish whether U8 Stored already shares the prewrite guard; if not, generalize the existing guard by replay behavior and prove non-interlaced regression coverage as well.
-- **Fresh qualification:** Phase 61 must record a current four-target result rather than cite previous milestone counts.
-- **Existing Summary/Stack staleness:** Both prior v0.17 research artifacts describe GrayAlpha16. Replace/update their influence only through current v0.19 context; no production decision should inherit their non-interlaced restriction.
+- **Scalar envelope:** Do not guess a `Double` magnitude. Tie the public limit to current canvas/raster/bounds resource behavior, document whether it covers source and derived values, and test both boundaries.
+- **Lexical non-finites:** Establish tests from behavior observed on every target, including overflow-derived infinity, instead of assuming identical acceptance of every spelling.
+- **Benchmark command and record:** Verify final `moon bench` package/path syntax after source changes; retain `--release`, `--target native`, and `--frozen` regardless of selector form.
+- **Layer-depth policy:** v0.30 should document and test the existing canvas capability boundary, not silently flatten or reclassify it as a numeric parse error.
 
 ## Sources
 
 ### Primary (HIGH confidence)
 
-- `.planning/PROJECT.md` — v0.19 goal, constraints, and frozen-compatibility scope.
-- `.planning/research/FEATURES.md` — requirement candidates, public acceptance evidence, exclusions, and delivery order.
-- `.planning/research/ARCHITECTURE.md` — concrete factory, preflight, cursor, decode, and test ownership seams.
-- `.planning/research/PITFALLS.md` — Adam7/filter/preflight/replay/lease/compatibility risk controls.
-- Current `mb-image/png` implementation and completed v0.16/v0.18 milestone records — established GrayAlpha8 and GrayAlpha16 Adam7 precedents.
+- [.planning/PROJECT.md](../PROJECT.md) — v0.30 goal, active requirements, and explicit scope boundary.
+- [STACK.md](STACK.md), [FEATURES.md](FEATURES.md), [ARCHITECTURE.md](ARCHITECTURE.md), and [PITFALLS.md](PITFALLS.md) — direct repository research into toolchain, implementation seams, RFCs, tests, and existing benchmark evidence.
+- [RFC 0002: mb-svg Charter](../../docs/rfcs/0002-mb-svg.md) — declared SVG boundaries and checked-coordinate safety gap.
+- [RFC 0008: mb-canvas Layer and Group Opacity](../../docs/rfcs/0008-mb-canvas-layer.md) — isolated opacity layers, full-target staging scope, and four-target evidence expectations.
 
 ### Secondary (MEDIUM confidence)
 
-- [PNG Specification, Second Edition](https://www.libpng.org/pub/png/spec/iso/index-object.html) and [PNG 1.2 data representation](https://libpng.org/pub/png/spec/1.2/PNG-DataRep.html) — Type-4 sample order, Adam7 pass layout, filtering, and zlib/IDAT context.
+- [MoonBit benchmark guide](https://docs.moonbitlang.com/en/latest/language/benchmarks.html) — `@bench.T`, `b.keep`, automatic batching, and unstable `Summary` JSON.
+- [MoonBit command reference](https://docs.moonbitlang.com/en/latest/toolchain/moon/commands.html) — `moon bench`, frozen/release modes, and target selection.
+- [SVG 2 Basic Data Types](https://www.w3.org/TR/SVG2/types.html), [Coordinate Systems](https://www.w3.org/TR/SVG2/coords.html), [Rendering Model](https://www.w3.org/TR/SVG2/render.html), and [Painting](https://www.w3.org/TR/SVG2/painting.html) — finite values, transform/viewBox behavior, and isolated opacity semantics.
 
 ---
-*Research completed: 2026-07-23*
+*Research completed: 2026-07-25*
 *Ready for roadmap: yes*
