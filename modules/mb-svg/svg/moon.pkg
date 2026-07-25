@@ -1,4 +1,5 @@
 import {
+  "tchivs/mb-core/budget" @budget,
   "tchivs/mb-core/error",
   "tchivs/mb-core/math",
   "tchivs/mb-core/text",

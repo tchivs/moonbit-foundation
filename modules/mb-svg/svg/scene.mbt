@@ -153,11 +153,25 @@ pub enum SceneNode {
 ///|
 /// Parse an SVG source string into a scene tree rooted at a single <svg>
 /// element. Returns an error if the markup is malformed, the root element is
-/// not <svg>, or a required attribute (e.g. <path d>) is missing.
+/// not <svg>, a required attribute (e.g. <path d>) is missing, or the input
+/// exceeds the default resource budget (depth, token/work count).
 ///
 /// Leading trivia (whitespace Text, Comment) before the root <svg> is
 /// skipped. Trailing content after the root close is ignored.
 pub fn parse_svg(source : String) -> Result[SceneNode, @error.CoreError] {
+  parse_svg_with_budget(source, default_parse_budget())
+}
+
+///|
+/// Parse with a caller-supplied resource budget. Use this for untrusted input
+/// to enforce document-size, nesting-depth, path-command, and attribute-count
+/// ceilings (per RFC 0002 §8 "Bounded input"). A budget whose work dimension
+/// is exhausted, or whose depth limit is exceeded by nested groups, yields a
+/// structured error instead of unbounded allocation/recursion.
+pub fn parse_svg_with_budget(
+  source : String,
+  budget : @budget.Budget,
+) -> Result[SceneNode, @error.CoreError] {
   let tokens = match @text.tokenize_markup(source) {
     Ok(t) => t
     Err(e) => return Err(e)
@@ -168,14 +182,17 @@ pub fn parse_svg(source : String) -> Result[SceneNode, @error.CoreError] {
     len: tokens.length(),
   }
   // Skip leading Text/Comment trivia until the root start tag.
-  skip_leading_trivia(st)
+  match skip_leading_trivia(st, budget) {
+    Ok(_) => ()
+    Err(e) => return Err(e)
+  }
   if st.pos >= st.len {
     return Err(svg_error("svg-scene", "no root <svg> element"))
   }
   match st.tokens[st.pos] {
     StartTag(name) =>
       if name == "svg" {
-        match build_svg_root(st, root_paint_context()) {
+        match build_svg_root(st, root_paint_context(), budget) {
           Ok(node) => {
             ignore_trailing(st)
             Ok(node)
@@ -189,6 +206,41 @@ pub fn parse_svg(source : String) -> Result[SceneNode, @error.CoreError] {
   }
 }
 
+// Default budget for parse_svg: depth 64, work 2,000,000 (covers token count,
+// path commands, and attribute pairs), plus modest byte/allocation headroom
+// for scene construction. These are conservative ceilings far above any
+// reasonable SVG document; callers handling hostile input may pass tighter
+// limits via parse_svg_with_budget.
+fn default_parse_budget() -> @budget.Budget {
+  @budget.Budget::new(@budget.ResourceLimits::new(
+    bytes=16777216UL, // 16 MiB ceiling for scene allocations
+    allocations=262144UL,
+    allocation_size=16777216UL,
+    width=65536UL,
+    height=65536UL,
+    pixels=0UL,
+    depth=64UL,
+    work=2000000UL,
+  ))
+}
+
+// Charge one unit of work for consuming a token. Returns Err on budget
+// exhaustion (work dimension). Centralizes the per-token bound.
+fn charge_token(budget : @budget.Budget) -> Result[Unit, @error.CoreError] {
+  match budget.charge(@budget.ResourceCharge::new(
+    bytes=0UL,
+    allocations=0UL,
+    allocation_size=0UL,
+    width=0UL,
+    height=0UL,
+    pixels=0UL,
+    work=1UL,
+  )) {
+    Ok(_) => Ok(())
+    Err(_) => Err(svg_error("svg-budget", "work limit exceeded"))
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Internal: cursor over the flat MarkupToken stream
 // ---------------------------------------------------------------------------
@@ -199,13 +251,23 @@ priv struct TokenCursor {
   len : Int
 }
 
-fn skip_leading_trivia(st : TokenCursor) -> Unit {
+fn skip_leading_trivia(
+  st : TokenCursor,
+  budget : @budget.Budget,
+) -> Result[Unit, @error.CoreError] {
   while st.pos < st.len {
     match st.tokens[st.pos] {
-      Text(_) | Comment(_) => st.pos = st.pos + 1
+      Text(_) | Comment(_) => {
+        match charge_token(budget) {
+          Ok(_) => ()
+          Err(e) => return Err(e)
+        }
+        st.pos = st.pos + 1
+      }
       _ => break
     }
   }
+  Ok(())
 }
 
 fn ignore_trailing(st : TokenCursor) -> Unit {
@@ -219,10 +281,15 @@ fn ignore_trailing(st : TokenCursor) -> Unit {
 fn build_svg_root(
   st : TokenCursor,
   ctx : PaintContext,
+  budget : @budget.Budget,
 ) -> Result[SceneNode, @error.CoreError] {
-  // st.pos is at StartTag("svg").
+  // st.pos is at StartTag("svg"). Charge for the start tag token.
+  match charge_token(budget) {
+    Ok(_) => ()
+    Err(e) => return Err(e)
+  }
   st.pos = st.pos + 1
-  let (attrs, is_empty) = match build_attrs(st) {
+  let (attrs, is_empty) = match build_attrs(st, budget) {
     Ok(a) => a
     Err(e) => return Err(e)
   }
@@ -231,7 +298,7 @@ fn build_svg_root(
   if is_empty {
     return Ok(SceneNode::Svg(root, []))
   }
-  match build_children(st, "svg", child_ctx) {
+  match build_children(st, "svg", child_ctx, budget) {
     Ok(children) => Ok(SceneNode::Svg(root, children))
     Err(e) => Err(e)
   }
@@ -239,20 +306,32 @@ fn build_svg_root(
 
 // Read the attribute pairs of a start tag, then consume the tag terminator.
 // Returns the (name, value) list and whether the tag was self-closing
-// (EmptyTagEnd `/>`); a `>` terminator yields is_empty = false.
+// (EmptyTagEnd `/>`); a `>` terminator yields is_empty = false. Each consumed
+// token (AttributeName, AttributeValue, terminator) is charged against the
+// budget's work dimension, bounding per-element attribute count and total
+// token volume.
 fn build_attrs(
   st : TokenCursor,
+  budget : @budget.Budget,
 ) -> Result[(Array[(String, String)], Bool), @error.CoreError] {
   let attrs : Array[(String, String)] = []
   while st.pos < st.len {
     match st.tokens[st.pos] {
       AttributeName(name) => {
+        match charge_token(budget) {
+          Ok(_) => ()
+          Err(e) => return Err(e)
+        }
         st.pos = st.pos + 1
         if st.pos >= st.len {
           return Err(svg_error("svg-scene", "attribute '" + name + "' has no value"))
         }
         match st.tokens[st.pos] {
           AttributeValue(v) => {
+            match charge_token(budget) {
+              Ok(_) => ()
+              Err(e) => return Err(e)
+            }
             attrs.push((name, v))
             st.pos = st.pos + 1
           }
@@ -264,10 +343,18 @@ fn build_attrs(
         }
       }
       TagEnd => {
+        match charge_token(budget) {
+          Ok(_) => ()
+          Err(e) => return Err(e)
+        }
         st.pos = st.pos + 1
         return Ok((attrs, false))
       }
       EmptyTagEnd => {
+        match charge_token(budget) {
+          Ok(_) => ()
+          Err(e) => return Err(e)
+        }
         st.pos = st.pos + 1
         return Ok((attrs, true))
       }
@@ -279,17 +366,19 @@ fn build_attrs(
 
 // Read children of the element named `parent` until its matching EndTag.
 // Dispatches known §6.1 elements to their builders; skips unknown subtrees.
-// `ctx` is the inherited paint context for the children.
+// `ctx` is the inherited paint context for the children. Each consumed token
+// is charged, bounding document size.
 fn build_children(
   st : TokenCursor,
   parent : String,
   ctx : PaintContext,
+  budget : @budget.Budget,
 ) -> Result[Array[SceneNode], @error.CoreError] {
   let children : Array[SceneNode] = []
   while st.pos < st.len {
     match st.tokens[st.pos] {
       StartTag(name) =>
-        match build_element(st, name, ctx) {
+        match build_element(st, name, ctx, budget) {
           Ok(Some(node)) => children.push(node)
           Ok(None) => () // skipped subtree (unknown/deferred element)
           Err(e) => return Err(e)
@@ -297,10 +386,20 @@ fn build_children(
       EndTag(n) =>
         if n == parent {
           // Consume EndTag + its TagEnd.
+          match charge_token(budget) {
+            Ok(_) => ()
+            Err(e) => return Err(e)
+          }
           st.pos = st.pos + 1
           if st.pos < st.len {
             match st.tokens[st.pos] {
-              TagEnd => st.pos = st.pos + 1
+              TagEnd => {
+                match charge_token(budget) {
+                  Ok(_) => ()
+                  Err(e) => return Err(e)
+                }
+                st.pos = st.pos + 1
+              }
               _ => ()
             }
           }
@@ -312,10 +411,21 @@ fn build_children(
             "unexpected </" + n + "> inside <" + parent + ">",
           ))
         }
-      Text(_) | Comment(_) => st.pos = st.pos + 1 // ignore inter-element text
-      TagEnd | EmptyTagEnd | AttributeName(_) | AttributeValue(_) =>
+      Text(_) | Comment(_) => {
+        match charge_token(budget) {
+          Ok(_) => ()
+          Err(e) => return Err(e)
+        }
+        st.pos = st.pos + 1 // ignore inter-element text
+      }
+      TagEnd | EmptyTagEnd | AttributeName(_) | AttributeValue(_) => {
+        match charge_token(budget) {
+          Ok(_) => ()
+          Err(e) => return Err(e)
+        }
         // Stray structural token; skip defensively.
         st.pos = st.pos + 1
+      }
     }
   }
   Err(svg_error("svg-scene", "missing </" + parent + ">"))
@@ -329,16 +439,17 @@ fn build_element(
   st : TokenCursor,
   name : String,
   ctx : PaintContext,
+  budget : @budget.Budget,
 ) -> Result[SceneNode?, @error.CoreError] {
   if name == "g" {
-    match build_group(st, ctx) {
+    match build_group(st, ctx, budget) {
       Ok(node) => return Ok(Some(node))
       Err(e) => return Err(e)
     }
   }
   if name == "svg" {
     // Nested <svg> (SVG allows it). Build as Svg child.
-    match build_svg_root(st, ctx) {
+    match build_svg_root(st, ctx, budget) {
       Ok(node) => return Ok(Some(node))
       Err(e) => return Err(e)
     }
@@ -347,8 +458,12 @@ fn build_element(
   // elements have no children, so for a non-self-closing form like
   // `<rect></rect>` we still need to consume the matching `</name>` end tag;
   // for a self-closing `<rect/>` there is nothing more to consume.
+  match charge_token(budget) {
+    Ok(_) => ()
+    Err(e) => return Err(e)
+  }
   st.pos = st.pos + 1 // consume StartTag
-  let (attrs, is_empty) = match build_attrs(st) {
+  let (attrs, is_empty) = match build_attrs(st, budget) {
     Ok(a) => a
     Err(e) => return Err(e)
   }
@@ -360,7 +475,7 @@ fn build_element(
     "polyline" => build_polyline(attrs, ctx)
     "polygon" => build_polygon(attrs, ctx)
     "path" =>
-      match build_path(attrs, ctx) {
+      match build_path(attrs, ctx, budget) {
         Ok(n) => n
         Err(e) => return Err(e)
       }
@@ -368,10 +483,10 @@ fn build_element(
       // Unknown/deferred element. build_attrs already consumed up to the
       // terminator; skip the element's body up to the matching EndTag,
       // accounting for nested same-name tags.
-      return skip_element_body(st, name)
+      return skip_element_body(st, name, budget)
   }
   if not(is_empty) {
-    match consume_end_tag(st, name) {
+    match consume_end_tag(st, name, budget) {
       Ok(_) => ()
       Err(e) => return Err(e)
     }
@@ -385,9 +500,14 @@ fn build_element(
 fn build_group(
   st : TokenCursor,
   ctx : PaintContext,
+  budget : @budget.Budget,
 ) -> Result[SceneNode, @error.CoreError] {
+  match charge_token(budget) {
+    Ok(_) => ()
+    Err(e) => return Err(e)
+  }
   st.pos = st.pos + 1 // consume StartTag("g")
-  let (attrs, is_empty) = match build_attrs(st) {
+  let (attrs, is_empty) = match build_attrs(st, budget) {
     Ok(a) => a
     Err(e) => return Err(e)
   }
@@ -403,7 +523,16 @@ fn build_group(
   if is_empty {
     return Ok(SceneNode::Group(transform, []))
   }
-  match build_children(st, "g", child_ctx) {
+  // Enter a depth lease for the group's children; this is the nesting-depth
+  // bound (RFC §8). The scope MUST be left on every return path below.
+  let scope = match budget.enter_depth() {
+    Ok(s) => s
+    Err(_) => return Err(svg_error("svg-budget", "nesting depth exceeded"))
+  }
+  let child_budget = scope.budget()
+  let result = build_children(st, "g", child_ctx, child_budget)
+  scope.leave()
+  match result {
     Ok(children) => Ok(SceneNode::Group(transform, children))
     Err(e) => Err(e)
   }
@@ -412,17 +541,31 @@ fn build_group(
 // Consume a matching `</name>` end tag (and its trailing TagEnd) for a leaf
 // element whose start tag was non-self-closing, e.g. `<rect ...></rect>`.
 // Returns Ok(()) on match, Err if the next end tag is not `</name>`.
-fn consume_end_tag(st : TokenCursor, name : String) -> Result[Unit, @error.CoreError] {
+fn consume_end_tag(
+  st : TokenCursor,
+  name : String,
+  budget : @budget.Budget,
+) -> Result[Unit, @error.CoreError] {
   if st.pos >= st.len {
     return Err(svg_error("svg-scene", "missing </" + name + ">"))
   }
   match st.tokens[st.pos] {
     EndTag(n) =>
       if n == name {
+        match charge_token(budget) {
+          Ok(_) => ()
+          Err(e) => return Err(e)
+        }
         st.pos = st.pos + 1
         if st.pos < st.len {
           match st.tokens[st.pos] {
-            TagEnd => st.pos = st.pos + 1
+            TagEnd => {
+              match charge_token(budget) {
+                Ok(_) => ()
+                Err(e) => return Err(e)
+              }
+              st.pos = st.pos + 1
+            }
             _ => ()
           }
         }
@@ -436,26 +579,42 @@ fn consume_end_tag(st : TokenCursor, name : String) -> Result[Unit, @error.CoreE
 
 // Skip the body of an unknown element named `name`. Assumes the start tag and
 // its terminator have already been consumed. Consumes up to and including the
-// matching </name>. Returns Ok(None) so the caller records no child.
+// matching </name>. Returns Ok(None) so the caller records no child. Each
+// consumed token is charged, bounding the skipped subtree's size.
 fn skip_element_body(
   st : TokenCursor,
   name : String,
+  budget : @budget.Budget,
 ) -> Result[SceneNode?, @error.CoreError] {
   let mut depth = 1
   while st.pos < st.len {
     match st.tokens[st.pos] {
       StartTag(n) => {
+        match charge_token(budget) {
+          Ok(_) => ()
+          Err(e) => return Err(e)
+        }
         if n == name {
           depth = depth + 1
         }
         st.pos = st.pos + 1
       }
       EndTag(n) => {
+        match charge_token(budget) {
+          Ok(_) => ()
+          Err(e) => return Err(e)
+        }
         st.pos = st.pos + 1
         // consume trailing TagEnd if present
         if st.pos < st.len {
           match st.tokens[st.pos] {
-            TagEnd => st.pos = st.pos + 1
+            TagEnd => {
+              match charge_token(budget) {
+                Ok(_) => ()
+                Err(e) => return Err(e)
+              }
+              st.pos = st.pos + 1
+            }
             _ => ()
           }
         }
@@ -466,7 +625,13 @@ fn skip_element_body(
           }
         }
       }
-      _ => st.pos = st.pos + 1
+      _ => {
+        match charge_token(budget) {
+          Ok(_) => ()
+          Err(e) => return Err(e)
+        }
+        st.pos = st.pos + 1
+      }
     }
   }
   Err(svg_error("svg-scene", "missing </" + name + "> while skipping"))
@@ -796,11 +961,12 @@ fn pair_points(nums : Array[Double]) -> Array[@math.Point2] {
 fn build_path(
   attrs : Array[(String, String)],
   ctx : PaintContext,
+  budget : @budget.Budget,
 ) -> Result[SceneNode, @error.CoreError] {
   match attr_get(attrs, "d") {
     None => Err(svg_error("svg-scene", "<path> missing required 'd' attribute"))
     Some(d) =>
-      match parse_path_data(d) {
+      match parse_path_data_with_budget(d, budget) {
         Ok(p) =>
           match build_paint(attrs, ctx) {
             (paint, _) => Ok(SceneNode::Path(paint, p))

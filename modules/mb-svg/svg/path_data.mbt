@@ -11,8 +11,19 @@
 
 ///|
 /// Parse an SVG path data string into a CanvasPath. Returns an error on
-/// malformed input.
+/// malformed input. Uses a default budget bounding the command count.
 pub fn parse_path_data(s : String) -> Result[@canvas.CanvasPath, @error.CoreError] {
+  parse_path_data_with_budget(s, default_path_budget())
+}
+
+///|
+/// Parse path data with a caller-supplied budget. Each command group (a
+/// command letter or one implicit-repeat parameter set) charges one unit of
+/// work, bounding the total path command count against hostile `d` values.
+pub fn parse_path_data_with_budget(
+  s : String,
+  budget : @budget.Budget,
+) -> Result[@canvas.CanvasPath, @error.CoreError] {
   let path = @canvas.CanvasPath::new()
   let chars = s.to_array()
   let n = chars.length()
@@ -25,6 +36,19 @@ pub fn parse_path_data(s : String) -> Result[@canvas.CanvasPath, @error.CoreErro
   let mut last_ctrl_x = 0.0
   let mut last_ctrl_y = 0.0
   while i < n {
+    // Charge one work unit per command group (letter or implicit repeat).
+    match budget.charge(@budget.ResourceCharge::new(
+      bytes=0UL,
+      allocations=0UL,
+      allocation_size=0UL,
+      width=0UL,
+      height=0UL,
+      pixels=0UL,
+      work=1UL,
+    )) {
+      Ok(_) => ()
+      Err(_) => return Err(svg_error("svg-budget", "path command limit exceeded"))
+    }
     // Skip whitespace before each token group.
     while i < n && is_path_space(chars[i]) {
       i = i + 1
@@ -318,4 +342,20 @@ fn read_number(chars : Array[Char], start : Int, n : Int) -> (Double, Int) {
     Ok(v) => (v, i)
     Err(_) => (0.0, i)
   }
+}
+
+// Default budget for parse_path_data: work ceiling of 100,000 command groups.
+// A normal SVG path is far below this; the bound rejects pathological `d`
+// values (e.g. millions of repeated coordinates).
+fn default_path_budget() -> @budget.Budget {
+  @budget.Budget::new(@budget.ResourceLimits::new(
+    bytes=8388608UL,
+    allocations=131072UL,
+    allocation_size=8388608UL,
+    width=65536UL,
+    height=65536UL,
+    pixels=0UL,
+    depth=64UL,
+    work=100000UL,
+  ))
 }
