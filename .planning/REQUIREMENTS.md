@@ -8,7 +8,7 @@
 
 ### Numeric Safety
 
-- [ ] **SVGPR-01**: Library users receive a documented, target-neutral SVG numeric admission contract with route-matrix tests for every supported scalar ingress and derived-value path.
+- [x] **SVGPR-01**: Library users receive a documented, target-neutral SVG numeric admission contract with route-matrix tests for every supported scalar ingress and derived-value path.
 - [ ] **SVGPR-02**: Library users receive a structured error, with no scene or drawing list produced, when an explicitly supplied SVG coordinate, length, transform, viewBox, path, or paint scalar is non-finite, malformed, out of the accepted envelope, or produces an unsafe derived value.
 
 ### Compatibility and Portability
@@ -41,12 +41,13 @@
 
 | Requirement | Phase | Status |
 |---|---|---|
-| SVGPR-01 | Phase 91 | Pending |
+| SVGPR-01 | Phase 91 | Complete |
 | SVGPR-02 | Phase 92 | Pending |
 | SVGPR-03 | Phase 93 | Pending |
 | SVGPR-04 | Phase 94 | Pending |
 
 **Coverage:**
+
 - v0.30 requirements: 4 total
 - Mapped to phases: 4
 - Unmapped: 0
