@@ -97,3 +97,132 @@ test "portable qualification opaque rect reaches semantic raster" {
     }
   }
 }
+
+///|
+test "portable qualification preserves viewBox lowering and semantic blue raster" {
+  let source = "<svg viewBox=\"0 0 4 4\" width=\"8\" height=\"8\"><rect width=\"4\" height=\"4\" fill=\"blue\"/></svg>"
+  match parse_svg(source) {
+    Err(_) => inspect(false, content="true")
+    Ok(scene) => {
+      let list = lower_to_drawing_list(scene)
+      inspect(list.length(), content="3")
+      match (list.get(0), list.get(1), list.get(2)) {
+        (Some(PushTransform(_)), Some(Fill(_, _)), Some(PopTransform)) => ()
+        _ => inspect(false, content="true")
+      }
+      let image = qualification_image(b'\x00', b'\x00', b'\x00', b'\x00')
+      match @canvas.render(list, image, qualification_budget()) {
+        Err(_) => inspect(false, content="true")
+        Ok(_) => ()
+      }
+      let (r, g, b, a) = qualification_pixel(image, 4UL, 4UL)
+      inspect((r.to_int(), g.to_int(), b.to_int(), a.to_int()), content="(0, 0, 255, 255)")
+    }
+  }
+}
+
+///|
+test "portable qualification retains per-paint opacity without layers" {
+  let source = "<svg><rect x=\"1\" y=\"1\" width=\"6\" height=\"6\" fill=\"red\" fill-opacity=\"0.5\" stroke=\"blue\" stroke-width=\"2\" stroke-opacity=\"0.5\"/></svg>"
+  match parse_svg(source) {
+    Err(_) => inspect(false, content="true")
+    Ok(scene) => {
+      let list = lower_to_drawing_list(scene)
+      inspect(list.length(), content="2")
+      match (list.get(0), list.get(1)) {
+        (Some(Fill(_, fill)), Some(Stroke(_, _, stroke))) =>
+          inspect((fill.color_a, stroke.color_a), content="(0.5, 0.5)")
+        _ => inspect(false, content="true")
+      }
+      let image = qualification_image(b'\xff', b'\xff', b'\xff', b'\xff')
+      match @canvas.render(list, image, qualification_budget()) {
+        Err(_) => inspect(false, content="true")
+        Ok(_) => ()
+      }
+      let (fill_r, fill_g, fill_b, fill_a) = qualification_pixel(image, 4UL, 4UL)
+      inspect(
+        (fill_r.to_int(), fill_g.to_int(), fill_b.to_int(), fill_a.to_int()),
+        content="(255, 128, 128, 255)",
+      )
+      let (stroke_r, stroke_g, stroke_b, stroke_a) = qualification_pixel(image, 4UL, 1UL)
+      inspect(
+        (stroke_r.to_int(), stroke_g.to_int(), stroke_b.to_int(), stroke_a.to_int()),
+        content="(128, 64, 192, 255)",
+      )
+    }
+  }
+}
+
+///|
+test "portable qualification keeps group opacity isolated" {
+  let source = "<svg><g opacity=\"0.5\"><rect width=\"8\" height=\"8\" fill=\"red\"/><rect x=\"2\" y=\"2\" width=\"6\" height=\"6\" fill=\"blue\"/></g></svg>"
+  match parse_svg(source) {
+    Err(_) => inspect(false, content="true")
+    Ok(scene) => {
+      let list = lower_to_drawing_list(scene)
+      inspect(list.length(), content="6")
+      match (list.get(0), list.get(1), list.get(2), list.get(3), list.get(4), list.get(5)) {
+        (Some(PushTransform(_)), Some(PushLayer(opacity)), Some(Fill(_, _)), Some(Fill(_, _)), Some(PopLayer), Some(PopTransform)) =>
+          inspect(opacity, content="0.5")
+        _ => inspect(false, content="true")
+      }
+      let image = qualification_image(b'\xff', b'\xff', b'\xff', b'\xff')
+      match @canvas.render(list, image, qualification_budget()) {
+        Err(_) => inspect(false, content="true")
+        Ok(_) => ()
+      }
+      let (r, g, b, a) = qualification_pixel(image, 4UL, 4UL)
+      inspect((r.to_int(), g.to_int(), b.to_int(), a.to_int()), content="(128, 128, 255, 255)")
+    }
+  }
+}
+
+///|
+test "portable qualification nests group and element layers with semantic pixels" {
+  let source = "<svg><g opacity=\"0.5\"><rect width=\"8\" height=\"8\" fill=\"red\" opacity=\"0.5\" stroke=\"blue\" stroke-width=\"2\"/></g></svg>"
+  match parse_svg(source) {
+    Err(_) => inspect(false, content="true")
+    Ok(scene) => {
+      let list = lower_to_drawing_list(scene)
+      inspect(list.length(), content="8")
+      match (list.get(0), list.get(1), list.get(2), list.get(3), list.get(4), list.get(5), list.get(6), list.get(7)) {
+        (Some(PushTransform(_)), Some(PushLayer(group)), Some(PushLayer(element)), Some(Fill(_, _)), Some(Stroke(_, _, _)), Some(PopLayer), Some(PopLayer), Some(PopTransform)) =>
+          inspect((group, element), content="(0.5, 0.5)")
+        _ => inspect(false, content="true")
+      }
+      let opaque = qualification_image(b'\xff', b'\xff', b'\xff', b'\xff')
+      match @canvas.render(list, opaque, qualification_budget()) {
+        Err(_) => inspect(false, content="true")
+        Ok(_) => ()
+      }
+      let (opaque_r, opaque_g, opaque_b, opaque_a) = qualification_pixel(opaque, 4UL, 4UL)
+      inspect(
+        (opaque_r.to_int(), opaque_g.to_int(), opaque_b.to_int(), opaque_a.to_int()),
+        content="(255, 191, 191, 255)",
+      )
+      let transparent = qualification_image(b'\x00', b'\x00', b'\x00', b'\x00')
+      match @canvas.render(list, transparent, qualification_budget()) {
+        Err(_) => inspect(false, content="true")
+        Ok(_) => ()
+      }
+      let (transparent_r, transparent_g, transparent_b, transparent_a) = qualification_pixel(transparent, 4UL, 4UL)
+      inspect(
+        (transparent_r.to_int(), transparent_g.to_int(), transparent_b.to_int(), transparent_a.to_int()),
+        content="(255, 0, 0, 64)",
+      )
+    }
+  }
+}
+
+///|
+test "portable qualification retains parser rejection before lowering or raster" {
+  match parse_svg("<svg><rect opacity=\"bad\"/></svg>") {
+    Ok(_) => inspect(false, content="true")
+    Err(error) => {
+      inspect(error.category() == @error.ErrorCategory::Data, content="true")
+      inspect(error.code() == @error.ErrorCode::InvalidEncoding, content="true")
+      inspect(error.operation() == Some("svg"), content="true")
+      inspect(error.context() == Some("svg-numeric-source"), content="true")
+    }
+  }
+}
