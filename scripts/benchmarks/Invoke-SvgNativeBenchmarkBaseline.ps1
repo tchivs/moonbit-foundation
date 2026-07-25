@@ -140,13 +140,11 @@ function Get-PolicyAndToolchain {
 }
 
 function Convert-ToMilliseconds([double]$Value, [string]$Unit) {
-  switch ($Unit) {
-    'ns' { $Value / 1000000.0 }
-    'µs' { $Value / 1000.0 }
-    'ms' { $Value }
-    's' { $Value * 1000.0 }
-    default { throw "Unknown benchmark unit: $Unit" }
-  }
+  if ($Unit -eq 'ns') { return $Value / 1000000.0 }
+  if ($Unit -eq (([char]0x00B5).ToString() + 's')) { return $Value / 1000.0 }
+  if ($Unit -eq 'ms') { return $Value }
+  if ($Unit -eq 's') { return $Value * 1000.0 }
+  throw "Unknown benchmark unit: $Unit"
 }
 
 function Convert-BenchmarkOutput([string]$Text) {
@@ -157,7 +155,7 @@ function Convert-BenchmarkOutput([string]$Text) {
       $currentName = $Matches.name
       continue
     }
-    if ($null -ne $currentName -and $line -match '^\s*(?<mean>[0-9.]+)\s+(?<mu>ns|µs|ms|s)\s+±\s+(?<sigma>[0-9.]+)\s+(?<su>ns|µs|ms|s)\s+(?<min>[0-9.]+)\s+(?<minu>ns|µs|ms|s)\s+…\s+(?<max>[0-9.]+)\s+(?<maxu>ns|µs|ms|s)\s+in\s+(?<batch>\d+)\s+×\s+(?<runs>\d+)\s+runs$') {
+    if ($null -ne $currentName -and $line -match '^\s*(?<mean>[0-9.]+)\s+(?<mu>ns|\u00b5s|ms|s)\s+\u00b1\s+(?<sigma>[0-9.]+)\s+(?<su>ns|\u00b5s|ms|s)\s+(?<min>[0-9.]+)\s+(?<minu>ns|\u00b5s|ms|s)\s+\u2026\s+(?<max>[0-9.]+)\s+(?<maxu>ns|\u00b5s|ms|s)\s+in\s+(?<batch>\d+)\s+\u00d7\s+(?<runs>\d+)\s+runs$') {
       $summaries += [ordered]@{
         name = $currentName
         mean_ms = [Math]::Round((Convert-ToMilliseconds ([double]$Matches.mean) $Matches.mu), 9)
