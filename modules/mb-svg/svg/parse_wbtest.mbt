@@ -97,3 +97,24 @@ test "parse_number_list space and comma separated" {
     }
   }
 }
+
+///|
+test "numeric contract: lexical finite boundaries" {
+  // SVG-NUM-ROOT / SVG-NUM-POINTS: the published inclusive scalar envelope.
+  match parse_length("65536") {
+    Ok(v) => inspect(v, content="65536")
+    Err(_) => inspect(false, content="true")
+  }
+  match parse_length("-65536px") {
+    Ok(v) => inspect(v, content="-65536")
+    Err(_) => inspect(false, content="true")
+  }
+  match parse_number_list("-65536, 0, 65536") {
+    Ok(values) => inspect(values, content="[-65536, 0, 65536]")
+    Err(_) => inspect(false, content="true")
+  }
+  match parse_viewbox("-65536 -65536 65536 65536") {
+    Ok(bounds) => inspect(bounds, content="(-65536, -65536, 65536, 65536)")
+    Err(_) => inspect(false, content="true")
+  }
+}
