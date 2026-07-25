@@ -4,9 +4,13 @@
 // ceilings, while the default parse_svg accepts reasonable inputs.
 
 // A budget with tight limits for exercising the bounds. depth=3, work=20.
-fn tight_budget(depth : UInt64, work : UInt64) -> @budget.Budget {
+fn bounded_budget(
+  bytes : UInt64,
+  depth : UInt64,
+  work : UInt64,
+) -> @budget.Budget {
   @budget.Budget::new(@budget.ResourceLimits::new(
-    bytes=1048576UL,
+    bytes~,
     allocations=4096UL,
     allocation_size=1048576UL,
     width=256UL,
@@ -15,6 +19,10 @@ fn tight_budget(depth : UInt64, work : UInt64) -> @budget.Budget {
     depth~,
     work~,
   ))
+}
+
+fn tight_budget(depth : UInt64, work : UInt64) -> @budget.Budget {
+  bounded_budget(1048576UL, depth, work)
 }
 
 // Build a deeply nested SVG: <svg><g>...<g><rect/></g>...</g></svg> with
@@ -31,6 +39,36 @@ fn nested_svg(levels : Int) -> String {
   }
   s.write_string("</svg>")
   s.to_string()
+}
+
+// Build a deeply nested document using supported nested <svg> elements.
+fn nested_supported_svg(levels : Int) -> String {
+  let s = StringBuilder::new()
+  s.write_string("<svg>")
+  for i = 0; i < levels; i = i + 1 {
+    s.write_string("<svg>")
+  }
+  s.write_string("<rect width=\"1\" height=\"1\"/>")
+  for i = 0; i < levels; i = i + 1 {
+    s.write_string("</svg>")
+  }
+  s.write_string("</svg>")
+  s.to_string()
+}
+
+fn assert_svg_budget_error(
+  result : Result[SceneNode, @error.CoreError],
+) -> Unit raise {
+  match result {
+    Ok(_) => inspect(false, content="true")
+    Err(error) => {
+      inspect(error.operation() == Some("svg"), content="true")
+      match error.context() {
+        Some(context) => inspect(context.has_prefix("svg-budget:"), content="true")
+        None => inspect(false, content="true")
+      }
+    }
+  }
 }
 
 ///|
@@ -52,6 +90,24 @@ test "bounds: shallow nesting passes under adequate depth budget" {
 }
 
 ///|
+test "bounds: nested supported svg consumes the depth lease" {
+  // The root does not consume a lease; five non-empty nested <svg> elements
+  // must still exceed depth=3 before recursive scene construction continues.
+  assert_svg_budget_error(
+    parse_svg_with_budget(nested_supported_svg(5), tight_budget(3UL, 1000UL)),
+  )
+}
+
+///|
+test "bounds: shallow nested supported svg releases the depth lease" {
+  match parse_svg_with_budget(nested_supported_svg(2), tight_budget(3UL, 1000UL)) {
+    Ok(Svg(_, children)) => inspect(children.length(), content="1")
+    Ok(_) => inspect(false, content="true")
+    Err(_) => inspect(false, content="true")
+  }
+}
+
+///|
 test "bounds: work/token limit rejects a large document" {
   // A document with many tokens under work=20 should be rejected.
   let s = StringBuilder::new()
@@ -64,6 +120,23 @@ test "bounds: work/token limit rejects a large document" {
     Ok(_) => inspect("ok", content="err")
     Err(_) => inspect("err", content="err")
   }
+}
+
+///|
+test "bounds: oversized source fails before markup tokenization" {
+  // This is many valid tags, so a late work-limit check would first construct
+  // the full token array. The byte admission check rejects it while leaving
+  // work untouched, before normal scene construction can begin.
+  let s = StringBuilder::new()
+  s.write_string("<svg>")
+  for i = 0; i < 30; i = i + 1 {
+    s.write_string("<rect width=\"1\" height=\"1\"/>")
+  }
+  s.write_string("</svg>")
+  let budget = bounded_budget(256UL, 64UL, 1000UL)
+  let result = parse_svg_with_budget(s.to_string(), budget)
+  assert_svg_budget_error(result)
+  inspect(budget.remaining().work(), content="1000")
 }
 
 ///|

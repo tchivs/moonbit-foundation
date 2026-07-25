@@ -176,6 +176,13 @@ pub fn parse_svg_with_budget(
   source : String,
   budget : @budget.Budget,
 ) -> Result[SceneNode, @error.CoreError] {
+  // Bound untrusted source before the markup tokenizer can scan it and build
+  // its token array. Code-unit count is a conservative portable lower bound
+  // for the source bytes retained by the tokenizer on every target.
+  match admit_source_bytes(source, budget) {
+    Ok(_) => ()
+    Err(error) => return Err(error)
+  }
   let tokens = match @text.tokenize_markup(source) {
     Ok(t) => t
     Err(e) => return Err(e)
@@ -196,7 +203,7 @@ pub fn parse_svg_with_budget(
   match st.tokens[st.pos] {
     StartTag(name) =>
       if name == "svg" {
-        match build_svg_root(st, root_paint_context(), budget) {
+        match build_svg_root(st, root_paint_context(), budget, false) {
           Ok(node) => {
             // `SceneNode` is the public parser boundary. Validate every
             // deterministic lowering derivation before exposing it; the total
@@ -219,13 +226,13 @@ pub fn parse_svg_with_budget(
 }
 
 // Default budget for parse_svg: depth 64, work 2,000,000 (covers token count,
-// path commands, and attribute pairs), plus modest byte/allocation headroom
-// for scene construction. These are conservative ceilings far above any
-// reasonable SVG document; callers handling hostile input may pass tighter
-// limits via parse_svg_with_budget.
+// path commands, and attribute pairs), plus a 16 MiB source admission ceiling
+// and modest allocation headroom for scene construction. These are
+// conservative ceilings far above any reasonable SVG document; callers
+// handling hostile input may pass tighter limits via parse_svg_with_budget.
 fn default_parse_budget() -> @budget.Budget {
   @budget.Budget::new(@budget.ResourceLimits::new(
-    bytes=16777216UL, // 16 MiB ceiling for scene allocations
+    bytes=16777216UL, // 16 MiB source admission ceiling
     allocations=262144UL,
     allocation_size=16777216UL,
     width=65536UL,
@@ -681,6 +688,24 @@ fn charge_token(budget : @budget.Budget) -> Result[Unit, @error.CoreError] {
   }
 }
 
+// Check the whole source against the caller's byte limit before tokenization.
+// The source is supplied by the caller rather than allocated by this parser,
+// so this is an admission check instead of a consumable scene-allocation
+// charge. Once admitted, normal tree construction retains the existing work
+// accounting semantics.
+fn admit_source_bytes(
+  source : String,
+  budget : @budget.Budget,
+) -> Result[Unit, @error.CoreError] {
+  let source_units = source.code_units().length().to_uint64()
+  let remaining = budget.remaining()
+  if source_units > remaining.bytes() {
+    Err(svg_error("svg-budget", "source byte limit exceeded"))
+  } else {
+    Ok(())
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Internal: cursor over the flat MarkupToken stream
 // ---------------------------------------------------------------------------
@@ -722,6 +747,7 @@ fn build_svg_root(
   st : TokenCursor,
   ctx : PaintContext,
   budget : @budget.Budget,
+  nested : Bool,
 ) -> Result[SceneNode, @error.CoreError] {
   // st.pos is at StartTag("svg"). Charge for the start tag token.
   match charge_token(budget) {
@@ -744,9 +770,26 @@ fn build_svg_root(
   if is_empty {
     return Ok(SceneNode::Svg(root, []))
   }
-  match build_children(st, "svg", child_ctx, budget) {
-    Ok(children) => Ok(SceneNode::Svg(root, children))
-    Err(e) => Err(e)
+  if nested {
+    // Nested <svg> elements are structural recursion just like <g>. Enter a
+    // balanced depth lease for their children so supported nested documents
+    // cannot bypass the caller's nesting limit.
+    let scope = match budget.enter_depth() {
+      Ok(s) => s
+      Err(_) => return Err(svg_error("svg-budget", "nesting depth exceeded"))
+    }
+    let child_budget = scope.budget()
+    let result = build_children(st, "svg", child_ctx, child_budget)
+    scope.leave()
+    match result {
+      Ok(children) => Ok(SceneNode::Svg(root, children))
+      Err(error) => Err(error)
+    }
+  } else {
+    match build_children(st, "svg", child_ctx, budget) {
+      Ok(children) => Ok(SceneNode::Svg(root, children))
+      Err(e) => Err(e)
+    }
   }
 }
 
@@ -895,7 +938,7 @@ fn build_element(
   }
   if name == "svg" {
     // Nested <svg> (SVG allows it). Build as Svg child.
-    match build_svg_root(st, ctx, budget) {
+    match build_svg_root(st, ctx, budget, true) {
       Ok(node) => return Ok(Some(node))
       Err(e) => return Err(e)
     }
