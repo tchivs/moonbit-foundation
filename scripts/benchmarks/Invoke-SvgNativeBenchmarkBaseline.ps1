@@ -179,8 +179,16 @@ function Convert-BenchmarkOutput([string]$Text) {
 
 function Invoke-NativeCapture([string]$Id, [string]$Label) {
   $started = [DateTime]::UtcNow.ToString('o')
-  $lines = @(& moon @('bench', 'modules/mb-svg/svg', '--release', '--target', 'native', '--frozen') 2>&1 | ForEach-Object { [string]$_ })
-  $exitCode = $LASTEXITCODE
+  $previousErrorAction = $ErrorActionPreference
+  try {
+    # MoonBit can emit non-fatal warnings on stderr. Preserve them in the merged
+    # record instead of letting the script-wide Stop preference discard evidence.
+    $ErrorActionPreference = 'Continue'
+    $lines = @(& moon @('bench', 'modules/mb-svg/svg', '--release', '--target', 'native', '--frozen') 2>&1 | ForEach-Object { $_.ToString() })
+    $exitCode = $LASTEXITCODE
+  } finally {
+    $ErrorActionPreference = $previousErrorAction
+  }
   $output = Normalize-Text ($lines -join "`n")
   $ended = [DateTime]::UtcNow.ToString('o')
   if ($exitCode -ne 0) { throw "Native benchmark $Label failed with exit code $exitCode." }
