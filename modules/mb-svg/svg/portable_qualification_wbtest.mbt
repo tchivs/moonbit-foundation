@@ -70,6 +70,23 @@ fn qualification_pixel(
   )
 }
 
+fn qualification_nonuniform_image() -> @storage.OwnedImage {
+  let image = qualification_image(b'\x00', b'\x00', b'\x00', b'\x00')
+  let _ = image.with_mut_view(fn(view) {
+    for y = 0UL; y < 8UL; y = y + 1UL {
+      for x = 0UL; x < 8UL; x = x + 1UL {
+        let sample = y * 8UL + x
+        ignore(view.set_byte(x, y, 0, (16UL + sample).to_byte()))
+        ignore(view.set_byte(x, y, 1, (64UL + sample).to_byte()))
+        ignore(view.set_byte(x, y, 2, (128UL + sample).to_byte()))
+        ignore(view.set_byte(x, y, 3, (192UL + sample).to_byte()))
+      }
+    }
+    Ok(())
+  })
+  image
+}
+
 ///|
 test "portable qualification opaque rect reaches semantic raster" {
   let source = "<svg><rect x=\"2\" y=\"2\" width=\"4\" height=\"4\" fill=\"red\"/></svg>"
@@ -200,6 +217,20 @@ test "portable qualification nests group and element layers with semantic pixels
         (opaque_r.to_int(), opaque_g.to_int(), opaque_b.to_int(), opaque_a.to_int()),
         content="(255, 191, 191, 255)",
       )
+      let (opaque_stroke_r, opaque_stroke_g, opaque_stroke_b, opaque_stroke_a) = qualification_pixel(
+        opaque,
+        4UL,
+        0UL,
+      )
+      inspect(
+        (
+          opaque_stroke_r.to_int(),
+          opaque_stroke_g.to_int(),
+          opaque_stroke_b.to_int(),
+          opaque_stroke_a.to_int(),
+        ),
+        content="(191, 191, 255, 255)",
+      )
       let transparent = qualification_image(b'\x00', b'\x00', b'\x00', b'\x00')
       match @canvas.render(list, transparent, qualification_budget()) {
         Err(_) => inspect(false, content="true")
@@ -209,6 +240,20 @@ test "portable qualification nests group and element layers with semantic pixels
       inspect(
         (transparent_r.to_int(), transparent_g.to_int(), transparent_b.to_int(), transparent_a.to_int()),
         content="(255, 0, 0, 64)",
+      )
+      let (transparent_stroke_r, transparent_stroke_g, transparent_stroke_b, transparent_stroke_a) = qualification_pixel(
+        transparent,
+        4UL,
+        0UL,
+      )
+      inspect(
+        (
+          transparent_stroke_r.to_int(),
+          transparent_stroke_g.to_int(),
+          transparent_stroke_b.to_int(),
+          transparent_stroke_a.to_int(),
+        ),
+        content="(0, 0, 255, 64)",
       )
     }
   }
@@ -227,11 +272,13 @@ test "portable qualification retains parser rejection before lowering or raster"
   }
 }
 
-fn qualification_nested_opacity_svg(levels : Int) -> String {
+fn qualification_nested_opacity_svg(levels : Int, opacity : String) -> String {
   let source = StringBuilder::new()
   source.write_string("<svg>")
   for i = 0; i < levels; i = i + 1 {
-    source.write_string("<g opacity=\"0.5\">")
+    source.write_string("<g opacity=\"")
+    source.write_string(opacity)
+    source.write_string("\">")
   }
   source.write_string("<rect x=\"2\" y=\"2\" width=\"4\" height=\"4\" fill=\"red\"/>")
   for i = 0; i < levels; i = i + 1 {
@@ -241,11 +288,16 @@ fn qualification_nested_opacity_svg(levels : Int) -> String {
   source.to_string()
 }
 
-fn qualification_assert_nested_layers(list : @canvas.DrawingList, levels : Int) -> Unit raise {
+fn qualification_assert_nested_layers(
+  list : @canvas.DrawingList,
+  levels : Int,
+  expected_opacity : Double,
+) -> Unit raise {
   inspect(list.length(), content=(levels * 4 + 1).to_string())
   for i = 0; i < levels; i = i + 1 {
     match (list.get(i * 2), list.get(i * 2 + 1)) {
-      (Some(PushTransform(_)), Some(PushLayer(opacity))) => inspect(opacity, content="0.5")
+      (Some(PushTransform(_)), Some(PushLayer(opacity))) =>
+        inspect(opacity == expected_opacity, content="true")
       _ => inspect(false, content="true")
     }
   }
@@ -264,18 +316,21 @@ fn qualification_assert_nested_layers(list : @canvas.DrawingList, levels : Int) 
 
 ///|
 test "portable qualification renders sixteen SVG-originated opacity layers" {
-  match parse_svg(qualification_nested_opacity_svg(16)) {
+  match parse_svg(qualification_nested_opacity_svg(16, "0.99")) {
     Err(_) => inspect(false, content="true")
     Ok(scene) => {
       let list = lower_to_drawing_list(scene)
-      qualification_assert_nested_layers(list, 16)
+      qualification_assert_nested_layers(list, 16, 0.99)
       let image = qualification_image(b'\x10', b'\x20', b'\x30', b'\xff')
       match @canvas.render(list, image, qualification_budget()) {
         Err(_) => inspect(false, content="true")
         Ok(_) => ()
       }
-      let (_, _, _, center_a) = qualification_pixel(image, 4UL, 4UL)
-      inspect(center_a.to_int() > 0, content="true")
+      let (center_r, center_g, center_b, center_a) = qualification_pixel(image, 4UL, 4UL)
+      inspect(
+        (center_r.to_int(), center_g.to_int(), center_b.to_int(), center_a.to_int()),
+        content="(223, 4, 6, 255)",
+      )
       let (corner_r, corner_g, corner_b, corner_a) = qualification_pixel(image, 0UL, 0UL)
       inspect(
         (corner_r.to_int(), corner_g.to_int(), corner_b.to_int(), corner_a.to_int()),
@@ -287,12 +342,18 @@ test "portable qualification renders sixteen SVG-originated opacity layers" {
 
 ///|
 test "portable qualification rejects a seventeenth SVG-originated opacity layer atomically" {
-  match parse_svg(qualification_nested_opacity_svg(17)) {
+  match parse_svg(qualification_nested_opacity_svg(17, "0.99")) {
     Err(_) => inspect(false, content="true")
     Ok(scene) => {
       let list = lower_to_drawing_list(scene)
-      qualification_assert_nested_layers(list, 17)
-      let image = qualification_image(b'\x10', b'\x20', b'\x30', b'\xff')
+      qualification_assert_nested_layers(list, 17, 0.99)
+      let image = qualification_nonuniform_image()
+      let before : Array[(Byte, Byte, Byte, Byte)] = []
+      for y = 0UL; y < 8UL; y = y + 1UL {
+        for x = 0UL; x < 8UL; x = x + 1UL {
+          before.push(qualification_pixel(image, x, y))
+        }
+      }
       match @canvas.render(list, image, qualification_budget()) {
         Ok(_) => inspect(false, content="true")
         Err(error) => {
@@ -305,8 +366,12 @@ test "portable qualification rejects a seventeenth SVG-originated opacity layer 
           )
         }
       }
-      let (r, g, b, a) = qualification_pixel(image, 4UL, 4UL)
-      inspect((r.to_int(), g.to_int(), b.to_int(), a.to_int()), content="(16, 32, 48, 255)")
+      for y = 0UL; y < 8UL; y = y + 1UL {
+        for x = 0UL; x < 8UL; x = x + 1UL {
+          let expected = before[(y * 8UL + x).to_int()]
+          inspect(qualification_pixel(image, x, y) == expected, content="true")
+        }
+      }
     }
   }
 }
