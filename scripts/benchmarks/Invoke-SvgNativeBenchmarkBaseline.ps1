@@ -35,8 +35,14 @@ function Get-Sha256File([string]$Path) {
   Get-Sha256Bytes ([IO.File]::ReadAllBytes($Path))
 }
 
+function Normalize-RecordedText([string]$Text) {
+  # Normalize only line endings. Callers retain their deliberate terminal-newline
+  # policy so the rendered Markdown and serialized audit data describe one fact.
+  $Text.Replace("`r`n", "`n").Replace("`r", "`n")
+}
+
 function Normalize-Text([string]$Text) {
-  $normalized = $Text.Replace("`r`n", "`n").Replace("`r", "`n")
+  $normalized = Normalize-RecordedText $Text
   if (!$normalized.EndsWith("`n")) { $normalized += "`n" }
   $normalized
 }
@@ -82,14 +88,14 @@ function New-WorkloadRecords {
 }
 
 function Get-ToolOutput([string]$Command, [string[]]$Arguments) {
-  $output = (& $Command @Arguments 2>&1 | Out-String).TrimEnd("`r", "`n")
+  $output = Normalize-RecordedText ((& $Command @Arguments 2>&1 | Out-String).TrimEnd("`r", "`n"))
   if ($LASTEXITCODE -ne 0) { throw "Tool identity command failed: $Command" }
   $output
 }
 
 function Get-Probe([string]$Attempted, [scriptblock]$Probe) {
   try {
-    [ordered]@{ value = (& $Probe | Out-String).TrimEnd("`r", "`n"); attempted = $Attempted }
+    [ordered]@{ value = Normalize-RecordedText ((& $Probe | Out-String).TrimEnd("`r", "`n")); attempted = $Attempted }
   } catch {
     [ordered]@{ value = 'unavailable'; attempted = $Attempted }
   }
