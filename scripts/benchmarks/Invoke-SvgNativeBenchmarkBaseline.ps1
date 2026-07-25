@@ -153,7 +153,7 @@ function Convert-BenchmarkOutput([string]$Text) {
   $summaries = @()
   $currentName = $null
   foreach ($line in ($Text -split "`n")) {
-    if ($line -match '^\[.+\] bench .+ \("(?<name>[^\"]+)"\) ok$') {
+    if ($line -match '^\[.+\] bench .+ \("bench (?<name>[^\"]+)"\) ok$') {
       $currentName = $Matches.name
       continue
     }
@@ -179,17 +179,24 @@ function Convert-BenchmarkOutput([string]$Text) {
 
 function Invoke-NativeCapture([string]$Id, [string]$Label) {
   $started = [DateTime]::UtcNow.ToString('o')
-  $previousErrorAction = $ErrorActionPreference
-  try {
-    # MoonBit can emit non-fatal warnings on stderr. Preserve them in the merged
-    # record instead of letting the script-wide Stop preference discard evidence.
-    $ErrorActionPreference = 'Continue'
-    $lines = @(& moon @('bench', 'modules/mb-svg/svg', '--release', '--target', 'native', '--frozen') 2>&1 | ForEach-Object { $_.ToString() })
-    $exitCode = $LASTEXITCODE
-  } finally {
-    $ErrorActionPreference = $previousErrorAction
-  }
-  $output = Normalize-Text ($lines -join "`n")
+  # cmd.exe performs the literal command's 2>&1 redirection before PowerShell
+  # sees it, avoiding PowerShell's NativeCommandError treatment of warnings.
+  $startInfo = New-Object System.Diagnostics.ProcessStartInfo
+  $startInfo.FileName = $env:ComSpec
+  $startInfo.Arguments = '/d /c "' + $nativeCommand + ' 2>&1"'
+  $startInfo.WorkingDirectory = $repoRoot
+  $startInfo.UseShellExecute = $false
+  $startInfo.RedirectStandardOutput = $true
+  $startInfo.RedirectStandardError = $true
+  $process = New-Object System.Diagnostics.Process
+  $process.StartInfo = $startInfo
+  if (!$process.Start()) { throw "Could not start native benchmark $Label." }
+  $stdout = $process.StandardOutput.ReadToEnd()
+  $stderr = $process.StandardError.ReadToEnd()
+  $process.WaitForExit()
+  $exitCode = $process.ExitCode
+  $merged = if ([string]::IsNullOrEmpty($stderr)) { $stdout } else { $stdout + "`n" + $stderr }
+  $output = Normalize-Text $merged
   $ended = [DateTime]::UtcNow.ToString('o')
   if ($exitCode -ne 0) { throw "Native benchmark $Label failed with exit code $exitCode." }
   [ordered]@{
