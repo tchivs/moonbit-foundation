@@ -42,7 +42,7 @@ Qualify the shared SVG numeric boundary delivered by Phase 95: unsafe explicit a
 ### Established SVG contracts
 - `.planning/phases/95-shared-svg-geometry-boundary/95-CONTEXT.md` — shared-seam and total-lowering decisions to preserve.
 - `.planning/phases/95-shared-svg-geometry-boundary/95-VERIFICATION.md` — verified Phase 95 behavior and residual cleanup note.
-- `docs/rfcs/0008-mb-canvas-pushlayer-poplayer-and-mb-svg-group-opacity-lowering.md` — opacity and layer lowering contract.
+- `docs/rfcs/0008-mb-canvas-layer.md` — opacity and layer lowering contract.
 
 </canonical_refs>
 
