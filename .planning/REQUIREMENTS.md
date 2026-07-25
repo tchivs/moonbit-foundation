@@ -13,7 +13,7 @@
 
 ### Compatibility and Portability
 
-- [ ] **SVGPR-03**: Library users retain deterministic lowering and raster output for valid finite SVG, including isolated group/element opacity and the existing 16-layer canvas capability boundary, on `js`, `wasm`, `wasm-gc`, and `native`.
+- [x] **SVGPR-03**: Library users retain deterministic lowering and raster output for valid finite SVG, including isolated group/element opacity and the existing 16-layer canvas capability boundary, on `js`, `wasm`, `wasm-gc`, and `native`.
 
 ### Benchmark Evidence
 
@@ -43,7 +43,7 @@
 |---|---|---|
 | SVGPR-01 | Phase 91 | Complete |
 | SVGPR-02 | Phase 92 | Complete |
-| SVGPR-03 | Phase 93 | Pending |
+| SVGPR-03 | Phase 93 | Complete |
 | SVGPR-04 | Phase 94 | Pending |
 
 **Coverage:**
