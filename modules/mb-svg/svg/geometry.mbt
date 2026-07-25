@@ -128,8 +128,8 @@ fn checked_rect_path(
 ) -> Result[@math.Path2, @error.CoreError] {
   let p = @math.Path2::new()
   if rx_in <= 0.0 && ry_in <= 0.0 {
-    let x1 = match geometry_add(x, w) { Ok(value) => value; Err(error) => return Err(error) }
-    let y1 = match geometry_add(y, h) { Ok(value) => value; Err(error) => return Err(error) }
+    let x1 = x + w
+    let y1 = y + h
     p.push(@math.PathCommand::MoveTo(@math.Point2::new(x, y)))
     p.push(@math.PathCommand::LineTo(@math.Point2::new(x1, y)))
     p.push(@math.PathCommand::LineTo(@math.Point2::new(x1, y1)))
@@ -151,16 +151,16 @@ fn checked_rect_path(
   }
   let kx = match geometry_mul(rx, 0.5522847498307936) { Ok(value) => value; Err(error) => return Err(error) }
   let ky = match geometry_mul(ry, 0.5522847498307936) { Ok(value) => value; Err(error) => return Err(error) }
-  let x1 = match geometry_add(x, w) { Ok(value) => value; Err(error) => return Err(error) }
-  let y1 = match geometry_add(y, h) { Ok(value) => value; Err(error) => return Err(error) }
-  let x_rx = match geometry_add(x, rx) { Ok(value) => value; Err(error) => return Err(error) }
-  let x1_rx = match geometry_sub(x1, rx) { Ok(value) => value; Err(error) => return Err(error) }
-  let y1_ry = match geometry_sub(y1, ry) { Ok(value) => value; Err(error) => return Err(error) }
-  let y_ky = match geometry_add(y, ky) { Ok(value) => value; Err(error) => return Err(error) }
-  let x1_kx = match geometry_sub(x1, kx) { Ok(value) => value; Err(error) => return Err(error) }
-  let y1_ky = match geometry_sub(y1, ky) { Ok(value) => value; Err(error) => return Err(error) }
-  let x0_kx = match geometry_add(x, kx) { Ok(value) => value; Err(error) => return Err(error) }
-  let y0_ry = match geometry_add(y, ry) { Ok(value) => value; Err(error) => return Err(error) }
+  let x1 = x + w
+  let y1 = y + h
+  let x_rx = x + rx
+  let x1_rx = x1 - rx
+  let y1_ry = y1 - ry
+  let y_ky = y + ky
+  let x1_kx = x1 - kx
+  let y1_ky = y1 - ky
+  let x0_kx = x + kx
+  let y0_ry = y + ry
   p.push(@math.PathCommand::MoveTo(@math.Point2::new(x_rx, y)))
   p.push(@math.PathCommand::LineTo(@math.Point2::new(x1_rx, y)))
   p.push(@math.PathCommand::CubicTo(@math.Point2::new(x1_kx, y), @math.Point2::new(x1, y_ky), @math.Point2::new(x1, y0_ry)))
@@ -196,8 +196,8 @@ fn checked_ellipse_path(
     let sin_angle = match admit_derived(@math.sin(angle)) { Ok(value) => value; Err(error) => return Err(error) }
     let x_delta = match geometry_mul(rx, cos_angle) { Ok(value) => value; Err(error) => return Err(error) }
     let y_delta = match geometry_mul(ry, sin_angle) { Ok(value) => value; Err(error) => return Err(error) }
-    let x = match geometry_add(cx, x_delta) { Ok(value) => value; Err(error) => return Err(error) }
-    let y = match geometry_add(cy, y_delta) { Ok(value) => value; Err(error) => return Err(error) }
+    let x = cx + x_delta
+    let y = cy + y_delta
     let point = @math.Point2::new(x, y)
     if i == 0 {
       p.push(@math.PathCommand::MoveTo(point))
@@ -215,11 +215,9 @@ fn checked_line_path(
   x2 : Double,
   y2 : Double,
 ) -> Result[@math.Path2, @error.CoreError] {
-  let start = match checked_transform_point(@math.Affine2::identity(), @math.Point2::new(x1, y1)) { Ok(value) => value; Err(error) => return Err(error) }
-  let end = match checked_transform_point(@math.Affine2::identity(), @math.Point2::new(x2, y2)) { Ok(value) => value; Err(error) => return Err(error) }
   let p = @math.Path2::new()
-  p.push(@math.PathCommand::MoveTo(start))
-  p.push(@math.PathCommand::LineTo(end))
+  p.push(@math.PathCommand::MoveTo(@math.Point2::new(x1, y1)))
+  p.push(@math.PathCommand::LineTo(@math.Point2::new(x2, y2)))
   Ok(p)
 }
 
@@ -228,11 +226,10 @@ fn checked_polyline_path(
 ) -> Result[@math.Path2, @error.CoreError] {
   let p = @math.Path2::new()
   for i = 0; i < points.length(); i = i + 1 {
-    let point = match checked_transform_point(@math.Affine2::identity(), points[i]) { Ok(value) => value; Err(error) => return Err(error) }
     if i == 0 {
-      p.push(@math.PathCommand::MoveTo(point))
+      p.push(@math.PathCommand::MoveTo(points[i]))
     } else {
-      p.push(@math.PathCommand::LineTo(point))
+      p.push(@math.PathCommand::LineTo(points[i]))
     }
   }
   Ok(p)
@@ -250,8 +247,5 @@ fn checked_canvas_path(
   path : @canvas.CanvasPath,
 ) -> Result[@math.Path2, @error.CoreError] {
   let path2 = path.to_path2()
-  match checked_path_points(path2, @math.Affine2::identity()) {
-    Ok(_) => Ok(path2)
-    Err(error) => Err(error)
-  }
+  Ok(path2)
 }

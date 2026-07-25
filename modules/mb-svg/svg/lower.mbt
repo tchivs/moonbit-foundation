@@ -109,14 +109,21 @@ fn total_rect_path(
   ry : Double,
 ) -> @math.Path2 {
   match checked_rect_path(x, y, w, h, rx, ry) {
-    Ok(path) => path
+    Ok(path) => total_checked_path(path)
     Err(_) => @math.Path2::new()
   }
 }
 
 fn total_path(result : Result[@math.Path2, @error.CoreError]) -> @math.Path2 {
   match result {
-    Ok(path) => path
+    Ok(path) => total_checked_path(path)
+    Err(_) => @math.Path2::new()
+  }
+}
+
+fn total_checked_path(path : @math.Path2) -> @math.Path2 {
+  match checked_path_points(path, @math.Affine2::identity()) {
+    Ok(_) => path
     Err(_) => @math.Path2::new()
   }
 }
