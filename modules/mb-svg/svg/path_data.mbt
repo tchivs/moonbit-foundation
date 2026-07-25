@@ -14,6 +14,13 @@ pub fn parse_path_data_with_budget(
   s : String,
   budget : @budget.Budget,
 ) -> Result[@canvas.CanvasPath, @error.CoreError] {
+  // Admit caller-provided source before allocating a path or converting it to
+  // a character array. This matches document parsing: source admission is a
+  // non-consuming byte-limit check, while command parsing charges work below.
+  match admit_source_bytes(s, budget) {
+    Ok(_) => ()
+    Err(error) => return Err(error)
+  }
   let path = @canvas.CanvasPath::new()
   let chars = s.to_array()
   let n = chars.length()

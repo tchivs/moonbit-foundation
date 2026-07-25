@@ -168,6 +168,30 @@ test "bounds: path command limit rejects a pathological d" {
 }
 
 ///|
+test "bounds: direct path source admission rejects oversized input and accepts its boundary" {
+  // `source` is exactly nine portable code units. A smaller byte budget must
+  // fail before command parsing consumes work; the inclusive boundary remains
+  // valid for a normal direct path parse.
+  let source = "M0 0 L1 1"
+  let oversized_budget = bounded_budget(8UL, 64UL, 1000UL)
+  match parse_path_data_with_budget(source, oversized_budget) {
+    Ok(_) => inspect(false, content="true")
+    Err(error) => {
+      inspect(error.operation() == Some("svg"), content="true")
+      match error.context() {
+        Some(context) => inspect(context.has_prefix("svg-budget:"), content="true")
+        None => inspect(false, content="true")
+      }
+    }
+  }
+  inspect(oversized_budget.remaining().work(), content="1000")
+  match parse_path_data_with_budget(source, bounded_budget(9UL, 64UL, 1000UL)) {
+    Ok(_) => inspect(true, content="true")
+    Err(_) => inspect(false, content="true")
+  }
+}
+
+///|
 test "bounds: default parse_svg accepts normal nested documents" {
   // The default budget must not reject reasonable inputs. 20 nested groups
   // and several shapes — well within the default depth=64 / work=2,000,000.
