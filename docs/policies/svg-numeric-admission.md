@@ -16,7 +16,10 @@ opacity behavior.
 The limit is derived from the existing default SVG resource budget, whose
 width and height ceilings are both `65536UL`; it is not a generic maximum
 `Double` policy. The same predicate applies to source scalars and to every
-derived scalar or affine component produced while constructing SVG geometry.
+derived scalar or affine component produced while constructing SVG geometry on
+the supported Phase 91 routes. Smooth `S`/`s` and `T`/`t` path admission,
+including reflected-control derivation, is explicitly pending Phase 92 parser
+normalization and is not a Phase 91 public numeric-admission guarantee.
 
 Finite determinant-zero transforms remain admitted. In particular,
 `scale(0)` is a valid finite transform: non-invertibility alone is not numeric
@@ -63,8 +66,9 @@ make that migration and its focused evidence auditable.
 | `SVG-NUM-ROOT` | `build_svg_root_attrs`, `parse_viewbox` | Root `width`, `height`, and four `viewBox` source scalars | Source admission; only omitted `width`/`height` may retain `None`; validate derived viewport scale and translation. |
 | `SVG-NUM-GEOMETRY` | `attr_double` in scene construction | `rect`, `circle`, `ellipse`, and `line` geometry attributes | Source admission before node construction. |
 | `SVG-NUM-POINTS` | `points_from_attrs`, `parse_number_list` | Polyline/polygon list scalars and paired points | Source admission for every listed scalar and pair; an absent points attribute retains its existing empty branch only. |
-| `SVG-NUM-PATH` | `read_number` in `path_data` | Path command numeric arguments (`M/L/H/V/C/Q/S/T/A`) | Source admission for every command number. |
-| `SVG-NUM-RELATIVE` | Relative-path and smooth-control branches in `path_data` | Relative additions and reflected controls | Derived admission after every coordinate arithmetic result. |
+| `SVG-NUM-PATH` | `read_number` in `path_data` | Supported direct path command numeric arguments (`M/L/H/V/C/Q/A`) | Source admission for every argument in the listed direct-command routes. |
+| `SVG-NUM-RELATIVE` | Direct relative-path branches in `path_data` | Relative additions for the supported direct command routes | Derived admission after every direct relative-coordinate arithmetic result. |
+| `SVG-NUM-SMOOTH-PENDING` | `S`/`s` and `T`/`t` branches in `path_data` | Smooth-command numeric arguments and reflected-control derivations | Unsupported as a Phase 91 public numeric-admission route. Phase 92 parser normalization must establish source admission for every smooth argument and derived admission for each reflected control and relative result before this route can be supported. |
 | `SVG-NUM-TRANSFORM` | `parse_transform`, `parse_number_list` | Matrix, translate, scale, rotate, and skew source parameters | Source admission and exact transform arity before affine construction. |
 | `SVG-NUM-TRIG` | Degree conversion, `Affine2::rotate`, and skew construction | Radians and trigonometric affine components | Derived admission after conversion and for every produced component. |
 | `SVG-NUM-AFFINE` | `Affine2` construction and composition | Six affine coefficients | Derived admission for all coefficients after construction and every composition; a finite zero determinant remains valid. |
@@ -86,6 +90,12 @@ and `color()` are unsupported/non-ingress routes. They are not silently
 treated as supported admission paths.
 
 ## Scope and assumptions
+
+The Phase 91 route matrix deliberately does not claim coverage for every SVG
+path command family. In particular, smooth `S`/`s` and `T`/`t` command numeric
+admission and reflected-control derivations remain unsupported pending Phase 92
+parser normalization. This deferral does not weaken the documented guarantees
+for the listed direct path routes or their direct relative-coordinate results.
 
 This policy preserves RFC 0008 isolated group and element opacity behavior,
 including the existing `PushLayer`/`PopLayer` ownership in canvas. It does not

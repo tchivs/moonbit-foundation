@@ -72,15 +72,16 @@ test "parse_path_data arc approximated as line" {
 }
 
 ///|
-test "numeric contract: path source and relative controls" {
-  // SVG-NUM-PATH: direct-command finite source controls remain passing evidence.
-  // Smooth cubic `S` is intentionally excluded until Phase 92 corrects its
-  // parameter consumption and verifies its emitted controls and endpoint.
+test "numeric contract: supported direct path routes" {
+  // SVG-NUM-PATH: M/L/H/V/C/Q/A source arguments remain passing evidence.
+  // Smooth S/s and T/t argument admission, reflected-control derivation, and
+  // relative smooth-coordinate results are unsupported pending Phase 92 parser
+  // normalization; this tracer makes no coverage claim for those routes.
   match parse_path_data("M -65536 -65536 L 65536 -65536 H 65536 V 65536 C 1 2 3 4 5 6 Q 7 8 9 10 A 17 18 0 0 1 65536 65536 Z") {
     Ok(path) => inspect(path.to_path2().length(), content="8")
     Err(_) => inspect(false, content="true")
   }
-  // SVG-NUM-RELATIVE: finite relative arithmetic reaches the inclusive boundary.
+  // SVG-NUM-RELATIVE: direct relative arithmetic reaches the inclusive boundary.
   match parse_path_data("m 65535 65535 l 1 1") {
     Ok(path) =>
       match path.to_path2().get(1) {
