@@ -32,12 +32,17 @@
 /// fill/stroke/transform operations recorded in document order.
 pub fn lower_to_drawing_list(root : SceneNode) -> @canvas.DrawingList {
   let list = @canvas.DrawingList::new()
-  lower_node(root, list)
+  lower_node(root, @math.Affine2::identity(), list)
   list
 }
 
-// Recursively lower one node, appending its ops to `list`.
-fn lower_node(node : SceneNode, list : @canvas.DrawingList) -> Unit {
+// Recursively lower one node, carrying the admitted effective affine that is
+// already represented by ancestor DrawOps.
+fn lower_node(
+  node : SceneNode,
+  current : @math.Affine2,
+  list : @canvas.DrawingList,
+) -> Unit {
   match node {
     Svg(root, children) => {
       // viewBox → viewport mapping (SVG default preserveAspectRatio=
@@ -45,19 +50,33 @@ fn lower_node(node : SceneNode, list : @canvas.DrawingList) -> Unit {
       // no mapping is applied (identity). meet keeps aspect ratio by using
       // the smaller scale and centers the content (xMid/YMid).
       let map = total_viewbox_transform(root)
-      let mapped = not(map.a() == 1.0 && map.d() == 1.0 && map.tx() == 0.0 && map.ty() == 0.0)
+      let (local_map, child_current) = match checked_compose_affine(current, map) {
+        Ok(composed) => (map, composed)
+        // A manually assembled nested Svg can make an otherwise valid root map
+        // unsafe when combined with its inherited state. Keep total lowering
+        // deterministic by omitting that local contribution.
+        Err(_) => (@math.Affine2::identity(), current)
+      }
+      let mapped = not(local_map.a() == 1.0 && local_map.d() == 1.0 && local_map.tx() == 0.0 && local_map.ty() == 0.0)
       if mapped {
-        list.push_transform(map)
+        list.push_transform(local_map)
       }
       for i = 0; i < children.length(); i = i + 1 {
-        lower_node(children[i], list)
+        lower_node(children[i], child_current, list)
       }
       if mapped {
         list.pop_transform()
       }
     }
     Group(transform, opacity, children) => {
-      list.push_transform(transform)
+      let (local_transform, child_current) = match checked_compose_affine(current, transform) {
+        Ok(composed) => (transform, composed)
+        // Public SceneNode values can bypass parser preflight. Keep the total
+        // lowerer safe by recording identity and preserving the prior admitted
+        // effective transform for descendants.
+        Err(_) => (@math.Affine2::identity(), current)
+      }
+      list.push_transform(local_transform)
       // Group opacity (RFC 0002 §6.1): when opacity != 1, wrap the group's
       // children in a raster layer (RFC 0008) so the whole group composites
       // onto the backdrop at this opacity. Order: PushTransform, [PushLayer],
@@ -67,7 +86,7 @@ fn lower_node(node : SceneNode, list : @canvas.DrawingList) -> Unit {
         list.push_layer(opacity)
       }
       for i = 0; i < children.length(); i = i + 1 {
-        lower_node(children[i], list)
+        lower_node(children[i], child_current, list)
       }
       if layered {
         list.pop_layer()
