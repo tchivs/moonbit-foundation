@@ -72,6 +72,8 @@ test "public parse rejects explicit paint scalar routes before a scene exists" {
     ("<svg><rect fill=\"rgb(1,2)\"/></svg>", @error.ErrorCode::InvalidEncoding, "svg-numeric-source"),
     ("<svg><rect stroke=\"hsl(1,2%)\"/></svg>", @error.ErrorCode::InvalidEncoding, "svg-numeric-source"),
     ("<svg><rect color=\"rgb(1,2)\"/></svg>", @error.ErrorCode::InvalidEncoding, "svg-numeric-source"),
+    ("<svg><rect fill=\"rgb(1,2,3,garbage)\"/></svg>", @error.ErrorCode::InvalidEncoding, "svg-numeric-source"),
+    ("<svg><rect fill=\"hsl(1,2%,3%,garbage)\"/></svg>", @error.ErrorCode::InvalidEncoding, "svg-numeric-source"),
     ("<svg><rect fill=\"rgb(0,1%%,0)\"/></svg>", @error.ErrorCode::InvalidEncoding, "svg-numeric-source"),
     ("<svg><rect fill=\"rgb(0,1%2,0)\"/></svg>", @error.ErrorCode::InvalidEncoding, "svg-numeric-source"),
     ("<svg><rect fill=\"hsl(0,1,0%)\"/></svg>", @error.ErrorCode::InvalidEncoding, "svg-numeric-source"),

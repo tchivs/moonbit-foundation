@@ -34,11 +34,19 @@ pub fn parse_color(
   if t.has_prefix("#") {
     return parse_hex_color(t)
   }
-  if t.has_prefix("rgb(") || t.has_prefix("rgba(") {
-    return parse_func_color(t, false)
+  if t.has_prefix("rgb(") {
+    return parse_func_color(t, false, false)
   }
-  if t.has_prefix("hsl(") || t.has_prefix("hsla(") {
-    return parse_func_color(t, true)
+  if t.has_prefix("rgba(") {
+    // The scene model consumes only RGB. Preserve its established ignored-alpha
+    // compatibility boundary rather than admitting alpha as a new scalar route.
+    return parse_func_color(t, false, true)
+  }
+  if t.has_prefix("hsl(") {
+    return parse_func_color(t, true, false)
+  }
+  if t.has_prefix("hsla(") {
+    return parse_func_color(t, true, true)
   }
   match lookup_named_color(t) {
     Some(c) => Ok(c)
@@ -120,6 +128,7 @@ fn byte_to_norm(v : Int) -> Double {
 fn parse_func_color(
   t : String,
   is_hsl : Bool,
+  allows_ignored_alpha : Bool,
 ) -> Result[(Double, Double, Double), @error.CoreError] {
   let chars = t.to_array()
   // Find '(' and ')'.
@@ -144,7 +153,7 @@ fn parse_func_color(
   let inner = String::from_array(inner_chars)
   // Split on ',' and parse.
   let parts = split_on_comma(inner)
-  if parts.length() < 3 {
+  if parts.length() < 3 || (!allows_ignored_alpha && parts.length() != 3) {
     return Err(color_source_error())
   }
   let c0 = @text.trim(parts[0]).to_string()
