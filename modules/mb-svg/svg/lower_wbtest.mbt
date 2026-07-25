@@ -735,3 +735,131 @@ test "manual invalid SceneNode matrix keeps parser rejection distinct from total
   // never substituted with an empty DrawingList result.
   assert_manual_invalid_scene_matrix()
 }
+
+fn assert_manual_parser_derived_error(source : String) -> Unit raise {
+  match parse_svg(source) {
+    Ok(_) => inspect(false, content="true")
+    Err(error) => {
+      inspect(error.category() == @error.ErrorCategory::Data, content="true")
+      inspect(error.code() == @error.ErrorCode::InvalidRange, content="true")
+      inspect(error.operation() == Some("svg"), content="true")
+      inspect(error.context() == Some("svg-numeric-derived"), content="true")
+    }
+  }
+}
+
+fn assert_manual_checked_path_error(
+  result : Result[@math.Path2, @error.CoreError],
+) -> Unit raise {
+  match result {
+    Err(error) => inspect(error.context(), content="Some(svg-numeric-derived)")
+    Ok(path) =>
+      match checked_path_points(path, @math.Affine2::identity()) {
+        Ok(_) => inspect(false, content="true")
+        Err(error) => inspect(error.context(), content="Some(svg-numeric-derived)")
+      }
+  }
+}
+
+fn assert_manual_empty_path_twice(node : SceneNode) -> Unit raise {
+  let first = lower_to_drawing_list(node)
+  let second = lower_to_drawing_list(node)
+  inspect((first.length(), second.length()), content="(4, 4)")
+  match (first.get(0), first.get(1), first.get(2), first.get(3)) {
+    (Some(PushLayer(0.25)), Some(Fill(fill, _)), Some(Stroke(stroke, _, _)), Some(PopLayer)) =>
+      inspect((fill.length(), stroke.length()), content="(0, 0)")
+    _ => inspect(false, content="true")
+  }
+  match (second.get(0), second.get(1), second.get(2), second.get(3)) {
+    (Some(PushLayer(0.25)), Some(Fill(fill, _)), Some(Stroke(stroke, _, _)), Some(PopLayer)) =>
+      inspect((fill.length(), stroke.length()), content="(0, 0)")
+    _ => inspect(false, content="true")
+  }
+}
+
+fn assert_manual_invalid_scene_matrix() -> Unit raise {
+  // These public-parser assertions prove that parser-originated unsafe data is
+  // rejected before a SceneNode or DrawingList exists.  The total-lowering
+  // checks below use distinct, explicitly manual values.
+  let derived_sources = [
+    "<svg viewBox=\"-65536 0 1 1\" width=\"2\" height=\"2\"><rect width=\"1\" height=\"1\"/></svg>",
+    "<svg><g transform=\"scale(65536) scale(2)\"><rect width=\"1\" height=\"1\"/></g></svg>",
+    "<svg><rect x=\"65536\" width=\"1\" height=\"1\"/></svg>",
+    "<svg><circle cx=\"65536\" r=\"1\"/></svg>",
+    "<svg><ellipse cx=\"65536\" rx=\"1\" ry=\"1\"/></svg>",
+    "<svg><g transform=\"translate(1,0)\"><line x1=\"65536\" y1=\"0\" x2=\"0\" y2=\"0\"/></g></svg>",
+    "<svg><g transform=\"translate(1,0)\"><polyline points=\"65536,0 0,0\"/></g></svg>",
+    "<svg><g transform=\"translate(1,0)\"><polygon points=\"65536,0 0,0\"/></g></svg>",
+    "<svg><g transform=\"translate(1,0)\"><path d=\"M65536 0 L0 0\"/></g></svg>",
+  ]
+  for source in derived_sources {
+    assert_manual_parser_derived_error(source)
+  }
+
+  // The fixture is valid parser output and contributes the resolved paint
+  // shape (layer, fill, stroke, pop) used by each manually invalid row.
+  match parse_svg("<svg><rect width=\"1\" height=\"1\" fill=\"red\" stroke=\"blue\" opacity=\"0.25\"/></svg>") {
+    Ok(Svg(_, [Rect(paint, _, _, _, _, _, _)])) => {
+      let invalid_root : SvgRoot = {
+        width: Some(65536.0),
+        height: Some(1.0),
+        view_box: Some((2.0, 0.0, 1.0, 1.0)),
+        preserve_aspect_ratio: { align_x: 1, align_y: 1, meet: true, none: true },
+      }
+      match checked_viewbox_transform(invalid_root) {
+        Ok(_) => inspect(false, content="true")
+        Err(error) => inspect(error.context(), content="Some(svg-numeric-derived)")
+      }
+      let first_root = lower_to_drawing_list(Svg(invalid_root, [Rect(paint, 0.0, 0.0, 1.0, 1.0, 0.0, 0.0)]))
+      let second_root = lower_to_drawing_list(Svg(invalid_root, [Rect(paint, 0.0, 0.0, 1.0, 1.0, 0.0, 0.0)]))
+      inspect((first_root.length(), second_root.length()), content="(4, 4)")
+      match (first_root.get(0), first_root.get(1), first_root.get(2), first_root.get(3)) {
+        (Some(PushLayer(0.25)), Some(Fill(path, _)), Some(Stroke(_, _, _)), Some(PopLayer)) => inspect(path.length(), content="5")
+        _ => inspect(false, content="true")
+      }
+      match (second_root.get(0), second_root.get(1), second_root.get(2), second_root.get(3)) {
+        (Some(PushLayer(0.25)), Some(Fill(path, _)), Some(Stroke(_, _, _)), Some(PopLayer)) => inspect(path.length(), content="5")
+        _ => inspect(false, content="true")
+      }
+
+      let unsafe_group = @math.Affine2::translate(65537.0, 0.0)
+      match checked_compose_affine(@math.Affine2::identity(), unsafe_group) {
+        Ok(_) => inspect(false, content="true")
+        Err(error) => inspect(error.context(), content="Some(svg-numeric-derived)")
+      }
+      // Group lowering intentionally remains a direct DrawOp branch.  This
+      // focused differential is the sentinel for a future adapter repair.
+      let group_list = lower_to_drawing_list(Group(unsafe_group, 1.0, [Rect(paint, 0.0, 0.0, 1.0, 1.0, 0.0, 0.0)]))
+      match (group_list.get(0), group_list.get(1), group_list.get(4), group_list.get(5)) {
+        (Some(PushTransform(transform)), Some(PushLayer(0.25)), Some(PopLayer), Some(PopTransform)) => inspect(transform.tx(), content="65537")
+        _ => inspect(false, content="true")
+      }
+
+      assert_manual_checked_path_error(checked_rect_path(65536.0, 0.0, 1.0, 1.0, 0.0, 0.0))
+      assert_manual_empty_path_twice(Rect(paint, 65536.0, 0.0, 1.0, 1.0, 0.0, 0.0))
+      assert_manual_checked_path_error(checked_circle_path(65536.0, 0.0, 1.0))
+      assert_manual_empty_path_twice(Circle(paint, 65536.0, 0.0, 1.0))
+      assert_manual_checked_path_error(checked_ellipse_path(65536.0, 0.0, 1.0, 1.0))
+      assert_manual_empty_path_twice(Ellipse(paint, 65536.0, 0.0, 1.0, 1.0))
+      assert_manual_checked_path_error(checked_line_path(65537.0, 0.0, 0.0, 0.0))
+      assert_manual_empty_path_twice(Line(paint, 65537.0, 0.0, 0.0, 0.0))
+
+      let invalid_points = [@math.Point2::new(65537.0, 0.0), @math.Point2::new(0.0, 0.0)]
+      assert_manual_checked_path_error(checked_polyline_path(invalid_points))
+      assert_manual_empty_path_twice(Polyline(paint, invalid_points))
+      assert_manual_checked_path_error(checked_polygon_path(invalid_points))
+      assert_manual_empty_path_twice(Polygon(paint, invalid_points))
+
+      let invalid_canvas_path = @canvas.CanvasPath::new()
+      invalid_canvas_path.move_to(65537.0, 0.0)
+      assert_manual_checked_path_error(checked_canvas_path(invalid_canvas_path))
+      assert_manual_empty_path_twice(Path(paint, invalid_canvas_path))
+      let invalid_path_point = @canvas.CanvasPath::new()
+      invalid_path_point.move_to(65536.0, 0.0)
+      invalid_path_point.line_to(65537.0, 0.0)
+      assert_manual_checked_path_error(checked_canvas_path(invalid_path_point))
+      assert_manual_empty_path_twice(Path(paint, invalid_path_point))
+    }
+    _ => inspect(false, content="true")
+  }
+}
