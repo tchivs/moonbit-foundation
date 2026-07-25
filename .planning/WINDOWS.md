@@ -1,10 +1,10 @@
 ---
 schema_version: 1
-open_count: 11
+open_count: 12
 waived_count: 0
 fixed_count: 0
-total_count: 11
-last_updated: 2026-07-25T22:26:33.731Z
+total_count: 12
+last_updated: 2026-07-25T22:33:25.404Z
 ---
 
 # Broken Windows Ledger
@@ -26,6 +26,7 @@ last_updated: 2026-07-25T22:26:33.731Z
 | 9 | 94 | deviation | scripts/benchmarks/Invoke-SvgNativeBenchmarkBaseline.ps1 |  | Made Markdown audit data and aggregate validation Windows PowerShell 5.1-safe. | open |  | 2026-07-25T20:18:19.584Z |  |
 | 10 | 94 | deviation | docs/benchmarks/mb-svg-native-release-baseline.md |  | Escaped raw output in preformatted blocks to preserve exact bytes without diff whitespace. | open |  | 2026-07-25T20:18:20.030Z |  |
 | 11 | 96 | deviation | modules/mb-svg/svg/geometry_wbtest.mbt |  | Tracer helper Result type was corrected before verification. | open |  | 2026-07-25T22:26:33.731Z |  |
+| 12 | 96 | deviation | modules/mb-svg/svg/lower_wbtest.mbt |  | Manual line and point-list test rows use 65537 because 65536 is admitted without the parser fixture transform. | open |  | 2026-07-25T22:33:25.404Z |  |
 
 ````json
 [
@@ -159,6 +160,18 @@ last_updated: 2026-07-25T22:26:33.731Z
     "status": "open",
     "reason": "",
     "recorded_at": "2026-07-25T22:26:33.731Z",
+    "resolved_at": null
+  },
+  {
+    "id": 12,
+    "kind": "deviation",
+    "phase": "96",
+    "file": "modules/mb-svg/svg/lower_wbtest.mbt",
+    "line": null,
+    "description": "Manual line and point-list test rows use 65537 because 65536 is admitted without the parser fixture transform.",
+    "status": "open",
+    "reason": "",
+    "recorded_at": "2026-07-25T22:33:25.404Z",
     "resolved_at": null
   }
 ]

@@ -13,7 +13,7 @@
 
 ### Compatibility Qualification
 
-- [ ] **SVGUNI-03**: Maintainers have deterministic regression controls that detect parser/lowerer numeric-boundary divergence while preserving valid finite singular transforms and RFC 0008 opacity/layer behavior on wasm, wasm-gc, js, and native.
+- [x] **SVGUNI-03**: Maintainers have deterministic regression controls that detect parser/lowerer numeric-boundary divergence while preserving valid finite singular transforms and RFC 0008 opacity/layer behavior on wasm, wasm-gc, js, and native.
 
 ## Future Requirements
 
@@ -36,7 +36,7 @@
 |-------------|-------|--------|
 | SVGUNI-01 | Phase 95 | Complete |
 | SVGUNI-02 | Phase 96 | Complete |
-| SVGUNI-03 | Phase 96 | Pending |
+| SVGUNI-03 | Phase 96 | Complete |
 
 **Coverage:**
 
