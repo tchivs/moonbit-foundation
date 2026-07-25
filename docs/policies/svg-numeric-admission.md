@@ -25,10 +25,12 @@ unsafety.
 ## Ownership boundary
 
 Numeric validation belongs at SVG ingress and derived arithmetic before a
-validated `SceneNode` can be returned. `lower_to_drawing_list` remains a total
-consumer of a valid scene. `mb-canvas` retains ownership of RFC 0008 layer
-allocation, compositing, and group/element opacity semantics; this policy does
-not move that responsibility into SVG numeric admission.
+validated `SceneNode` can be returned. This includes geometry after the
+accumulated root and group affine has been applied; Phase 92 owns that
+validation route and its rejection evidence. `lower_to_drawing_list` remains a
+total consumer of a valid scene. `mb-canvas` retains ownership of RFC 0008
+layer allocation, compositing, and group/element opacity semantics; this policy
+does not move that responsibility into SVG numeric admission.
 
 ## Explicit values and stable errors
 
@@ -66,6 +68,7 @@ make that migration and its focused evidence auditable.
 | `SVG-NUM-TRANSFORM` | `parse_transform`, `parse_number_list` | Matrix, translate, scale, rotate, and skew source parameters | Source admission and exact transform arity before affine construction. |
 | `SVG-NUM-TRIG` | Degree conversion, `Affine2::rotate`, and skew construction | Radians and trigonometric affine components | Derived admission after conversion and for every produced component. |
 | `SVG-NUM-AFFINE` | `Affine2` construction and composition | Six affine coefficients | Derived admission for all coefficients after construction and every composition; a finite zero determinant remains valid. |
+| `SVG-NUM-TRANSFORMED-GEOMETRY` | `SceneNode::Group`, `viewbox_transform`, and the `lower_node` transform stack | Shape coordinates after the accumulated root and group affine, including transform lists | Phase 92 must apply the accumulated affine and admit every transformed coordinate before returning a validated scene; for example, `scale(65536)` around `x="65536"` must reject the derived `4294967296`. |
 | `SVG-NUM-VIEWBOX` | `viewbox_transform` in lowering | Viewport scale and translation | Derived admission before a usable scene reaches the total lowerer. |
 | `SVG-NUM-ROUND-RECT` | Rounded-rect clamp and ratio logic in lowering | Clamp and ratio intermediates | Derived admission for all arithmetic results; existing rounded-rect rendering policy remains unchanged. |
 | `SVG-NUM-ELLIPSE-SAMPLING` | Circle and ellipse lowering | Sampling coordinates and intermediates | Derived admission for every generated scalar before drawing operations are recorded. |
