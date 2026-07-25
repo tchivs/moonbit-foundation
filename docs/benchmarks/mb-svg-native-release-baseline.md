@@ -4,7 +4,7 @@
 
 ## Comparison identity
 
-- Git commit: `967bd9102f2d3ad29efebd9eebe47fc2fa2b6634`
+- Git commit: `14255e600395c786c67b3b9522d9fe8ac49c66b6`
 - worktree: (clean)
 - Working directory: `.`
 - Exact native command: `moon bench modules/mb-svg/svg --release --target native --frozen`
@@ -50,954 +50,954 @@ Feature flags enabled: rr_moon_mod,rr_moon_pkg`
 One successful warmup is retained for provenance and excluded from all statistics. Captures 1 through 7 are separate successful native release invocations.
 
 ### Warmup (excluded from summary)
-- UTC start: `2026-07-25T20:11:32.6842637Z`
-- UTC end: `2026-07-25T20:11:43.5716746Z`
+- UTC start: `2026-07-25T20:15:15.1132882Z`
+- UTC end: `2026-07-25T20:15:24.6262449Z`
 - Exit status: `0`
-- Output SHA-256: `7ba8cae90ee33a68d684be501625ba65e69597fc9859fe358cf73f9a422e3184`
+- Output SHA-256: `d0095556cf93cb9d6bd5b792d51beac2036d1673f72d1f5b718aa61f0572bbe5`
 - Fixed workload order: `path-parse/1000-line-to`, `transform-composition/50-segment`, `parse-to-lower/50-rect`
 
 | Workload | Mean (ms) | Sigma (ms) | Minimum (ms) | Maximum (ms) | Batch | Runs |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| path-parse/1000-line-to | 1.770000000 | 0.162700000 | 1.620000000 | 2.130000000 | 10 | 60 |
-| transform-composition/50-segment | 0.128490000 | 0.005350000 | 0.124640000 | 0.139630000 | 10 | 688 |
-| parse-to-lower/50-rect | 0.918960000 | 0.051220000 | 0.866250000 | 1.020000000 | 10 | 112 |
+| path-parse/1000-line-to | 1.750000000 | 0.164550000 | 1.590000000 | 2.110000000 | 10 | 59 |
+| transform-composition/50-segment | 0.136520000 | 0.017090000 | 0.122840000 | 0.168990000 | 10 | 560 |
+| parse-to-lower/50-rect | 0.914060000 | 0.043710000 | 0.847660000 | 0.980890000 | 10 | 116 |
 
 <details>
 <summary>Complete normalized UTF-8 merged stdout/stderr</summary>
 
-```text
-Warning: [0020]
-     ╭─[ D:\source\moonbit-foundation-phase94-02-capture-967bd91\modules\mb-canvas\canvas\stroke.mbt:319:23 ]
-     │
- 319 │     let (tx, ty) = if not(pl.closed) && (i == 0 || i == n - 1) {
-     │                       ─┬─  
-     │                        ╰─── Warning (deprecated): Use !expr instead
+<pre class="svg-native-output">
+Warning:&#32;[0020]
+&#32;&#32;&#32;&#32;&#32;╭─[&#32;D:\source\moonbit-foundation-phase94-02-capture-14255e6\modules\mb-canvas\canvas\stroke.mbt:319:23&#32;]
+&#32;&#32;&#32;&#32;&#32;│
+&#32;319&#32;│&#32;&#32;&#32;&#32;&#32;let&#32;(tx,&#32;ty)&#32;=&#32;if&#32;not(pl.closed)&#32;&amp;&amp;&#32;(i&#32;==&#32;0&#32;||&#32;i&#32;==&#32;n&#32;-&#32;1)&#32;{
+&#32;&#32;&#32;&#32;&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;─┬─&#32;&#32;
+&#32;&#32;&#32;&#32;&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;╰───&#32;Warning&#32;(deprecated):&#32;Use&#32;!expr&#32;instead
 ─────╯
-Warning: [0001]
-    ╭─[ D:\source\moonbit-foundation-phase94-02-capture-967bd91\modules\mb-core\math\bezier.mbt:57:4 ]
-    │
- 57 │ fn bezier2_derivative(p0 : Point2, p1 : Point2, p2 : Point2, t : Double) -> Vector2 {
-    │    ─────────┬────────  
-    │             ╰────────── Warning (unused_value): Unused function 'bezier2_derivative'
+Warning:&#32;[0001]
+&#32;&#32;&#32;&#32;╭─[&#32;D:\source\moonbit-foundation-phase94-02-capture-14255e6\modules\mb-core\math\bezier.mbt:57:4&#32;]
+&#32;&#32;&#32;&#32;│
+&#32;57&#32;│&#32;fn&#32;bezier2_derivative(p0&#32;:&#32;Point2,&#32;p1&#32;:&#32;Point2,&#32;p2&#32;:&#32;Point2,&#32;t&#32;:&#32;Double)&#32;-&gt;&#32;Vector2&#32;{
+&#32;&#32;&#32;&#32;│&#32;&#32;&#32;&#32;─────────┬────────&#32;&#32;
+&#32;&#32;&#32;&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;╰──────────&#32;Warning&#32;(unused_value):&#32;Unused&#32;function&#32;'bezier2_derivative'
 ────╯
-Warning: [0001]
-    ╭─[ D:\source\moonbit-foundation-phase94-02-capture-967bd91\modules\mb-core\math\bezier.mbt:68:4 ]
-    │
- 68 │ fn bezier3_derivative(
-    │    ─────────┬────────  
-    │             ╰────────── Warning (unused_value): Unused function 'bezier3_derivative'
+Warning:&#32;[0001]
+&#32;&#32;&#32;&#32;╭─[&#32;D:\source\moonbit-foundation-phase94-02-capture-14255e6\modules\mb-core\math\bezier.mbt:68:4&#32;]
+&#32;&#32;&#32;&#32;│
+&#32;68&#32;│&#32;fn&#32;bezier3_derivative(
+&#32;&#32;&#32;&#32;│&#32;&#32;&#32;&#32;─────────┬────────&#32;&#32;
+&#32;&#32;&#32;&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;╰──────────&#32;Warning&#32;(unused_value):&#32;Unused&#32;function&#32;'bezier3_derivative'
 ────╯
-Warning: [0020]
-     ╭─[ D:\source\moonbit-foundation-phase94-02-capture-967bd91\modules\mb-core\text\xml_escape.mbt:131:26 ]
-     │
- 131 │       let inner = entity.substring(start=2, end=entity.length() - 1)
-     │                          ────┬────  
-     │                              ╰────── Warning (deprecated): Use `str[:]` or `str[:].to_string()` instead
+Warning:&#32;[0020]
+&#32;&#32;&#32;&#32;&#32;╭─[&#32;D:\source\moonbit-foundation-phase94-02-capture-14255e6\modules\mb-core\text\xml_escape.mbt:131:26&#32;]
+&#32;&#32;&#32;&#32;&#32;│
+&#32;131&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;let&#32;inner&#32;=&#32;entity.substring(start=2,&#32;end=entity.length()&#32;-&#32;1)
+&#32;&#32;&#32;&#32;&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;────┬────&#32;&#32;
+&#32;&#32;&#32;&#32;&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;╰──────&#32;Warning&#32;(deprecated):&#32;Use&#32;`str[:]`&#32;or&#32;`str[:].to_string()`&#32;instead
 ─────╯
-Warning: [0020]
-     ╭─[ D:\source\moonbit-foundation-phase94-02-capture-967bd91\modules\mb-core\text\xml_escape.mbt:136:31 ]
-     │
- 136 │           let hex_str = inner.substring(start=1)
-     │                               ────┬────  
-     │                                   ╰────── Warning (deprecated): Use `str[:]` or `str[:].to_string()` instead
+Warning:&#32;[0020]
+&#32;&#32;&#32;&#32;&#32;╭─[&#32;D:\source\moonbit-foundation-phase94-02-capture-14255e6\modules\mb-core\text\xml_escape.mbt:136:31&#32;]
+&#32;&#32;&#32;&#32;&#32;│
+&#32;136&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;let&#32;hex_str&#32;=&#32;inner.substring(start=1)
+&#32;&#32;&#32;&#32;&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;────┬────&#32;&#32;
+&#32;&#32;&#32;&#32;&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;╰──────&#32;Warning&#32;(deprecated):&#32;Use&#32;`str[:]`&#32;or&#32;`str[:].to_string()`&#32;instead
 ─────╯
-Warning: [0020]
-     ╭─[ D:\source\moonbit-foundation-phase94-02-capture-967bd91\modules\mb-svg\svg\color.mbt:244:19 ]
-     │
- 244 │     result.push(p.to_string())
-     │                   ────┬────  
-     │                       ╰────── Warning (deprecated): Use `to_owned` to allocate an owned String from a StringView; use `Show::to_string` or format strings for display
+Warning:&#32;[0020]
+&#32;&#32;&#32;&#32;&#32;╭─[&#32;D:\source\moonbit-foundation-phase94-02-capture-14255e6\modules\mb-svg\svg\color.mbt:244:19&#32;]
+&#32;&#32;&#32;&#32;&#32;│
+&#32;244&#32;│&#32;&#32;&#32;&#32;&#32;result.push(p.to_string())
+&#32;&#32;&#32;&#32;&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;────┬────&#32;&#32;
+&#32;&#32;&#32;&#32;&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;╰──────&#32;Warning&#32;(deprecated):&#32;Use&#32;`to_owned`&#32;to&#32;allocate&#32;an&#32;owned&#32;String&#32;from&#32;a&#32;StringView;&#32;use&#32;`Show::to_string`&#32;or&#32;format&#32;strings&#32;for&#32;display
 ─────╯
-Warning: [0020]
-    ╭─[ D:\source\moonbit-foundation-phase94-02-capture-967bd91\modules\mb-svg\svg\length.mbt:29:16 ]
-    │
- 29 │       return t.substring(end=t.length() - sf.length())
-    │                ────┬────  
-    │                    ╰────── Warning (deprecated): Use `str[:]` or `str[:].to_string()` instead
+Warning:&#32;[0020]
+&#32;&#32;&#32;&#32;╭─[&#32;D:\source\moonbit-foundation-phase94-02-capture-14255e6\modules\mb-svg\svg\length.mbt:29:16&#32;]
+&#32;&#32;&#32;&#32;│
+&#32;29&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;return&#32;t.substring(end=t.length()&#32;-&#32;sf.length())
+&#32;&#32;&#32;&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;────┬────&#32;&#32;
+&#32;&#32;&#32;&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;╰──────&#32;Warning&#32;(deprecated):&#32;Use&#32;`str[:]`&#32;or&#32;`str[:].to_string()`&#32;instead
 ────╯
-Warning: [0002]
-    ╭─[ D:\source\moonbit-foundation-phase94-02-capture-967bd91\modules\mb-svg\svg\lower_wbtest.mbt:13:9 ]
-    │
- 13 │         other => inspect("other", content="other")
-    │         ──┬──  
-    │           ╰──── Warning (unused_value): Unused variable 'other'
+Warning:&#32;[0002]
+&#32;&#32;&#32;&#32;╭─[&#32;D:\source\moonbit-foundation-phase94-02-capture-14255e6\modules\mb-svg\svg\lower_wbtest.mbt:13:9&#32;]
+&#32;&#32;&#32;&#32;│
+&#32;13&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;other&#32;=&gt;&#32;inspect("other",&#32;content="other")
+&#32;&#32;&#32;&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;──┬──&#32;&#32;
+&#32;&#32;&#32;&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;╰────&#32;Warning&#32;(unused_value):&#32;Unused&#32;variable&#32;'other'
 ────╯
-Warning: [0002]
-    ╭─[ D:\source\moonbit-foundation-phase94-02-capture-967bd91\modules\mb-svg\svg\lower_wbtest.mbt:32:9 ]
-    │
- 32 │         other => inspect("other", content="other")
-    │         ──┬──  
-    │           ╰──── Warning (unused_value): Unused variable 'other'
+Warning:&#32;[0002]
+&#32;&#32;&#32;&#32;╭─[&#32;D:\source\moonbit-foundation-phase94-02-capture-14255e6\modules\mb-svg\svg\lower_wbtest.mbt:32:9&#32;]
+&#32;&#32;&#32;&#32;│
+&#32;32&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;other&#32;=&gt;&#32;inspect("other",&#32;content="other")
+&#32;&#32;&#32;&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;──┬──&#32;&#32;
+&#32;&#32;&#32;&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;╰────&#32;Warning&#32;(unused_value):&#32;Unused&#32;variable&#32;'other'
 ────╯
-Warning: [0002]
-    ╭─[ D:\source\moonbit-foundation-phase94-02-capture-967bd91\modules\mb-svg\svg\lower_wbtest.mbt:48:9 ]
-    │
- 48 │         other => inspect("other", content="other")
-    │         ──┬──  
-    │           ╰──── Warning (unused_value): Unused variable 'other'
+Warning:&#32;[0002]
+&#32;&#32;&#32;&#32;╭─[&#32;D:\source\moonbit-foundation-phase94-02-capture-14255e6\modules\mb-svg\svg\lower_wbtest.mbt:48:9&#32;]
+&#32;&#32;&#32;&#32;│
+&#32;48&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;other&#32;=&gt;&#32;inspect("other",&#32;content="other")
+&#32;&#32;&#32;&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;──┬──&#32;&#32;
+&#32;&#32;&#32;&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;╰────&#32;Warning&#32;(unused_value):&#32;Unused&#32;variable&#32;'other'
 ────╯
-Warning: [0002]
-    ╭─[ D:\source\moonbit-foundation-phase94-02-capture-967bd91\modules\mb-svg\svg\lower_wbtest.mbt:55:9 ]
-    │
- 55 │         other => inspect("other", content="other")
-    │         ──┬──  
-    │           ╰──── Warning (unused_value): Unused variable 'other'
+Warning:&#32;[0002]
+&#32;&#32;&#32;&#32;╭─[&#32;D:\source\moonbit-foundation-phase94-02-capture-14255e6\modules\mb-svg\svg\lower_wbtest.mbt:55:9&#32;]
+&#32;&#32;&#32;&#32;│
+&#32;55&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;other&#32;=&gt;&#32;inspect("other",&#32;content="other")
+&#32;&#32;&#32;&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;──┬──&#32;&#32;
+&#32;&#32;&#32;&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;╰────&#32;Warning&#32;(unused_value):&#32;Unused&#32;variable&#32;'other'
 ────╯
-Warning: [0002]
-    ╭─[ D:\source\moonbit-foundation-phase94-02-capture-967bd91\modules\mb-svg\svg\lower_wbtest.mbt:70:9 ]
-    │
- 70 │         other => inspect("other", content="other")
-    │         ──┬──  
-    │           ╰──── Warning (unused_value): Unused variable 'other'
+Warning:&#32;[0002]
+&#32;&#32;&#32;&#32;╭─[&#32;D:\source\moonbit-foundation-phase94-02-capture-14255e6\modules\mb-svg\svg\lower_wbtest.mbt:70:9&#32;]
+&#32;&#32;&#32;&#32;│
+&#32;70&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;other&#32;=&gt;&#32;inspect("other",&#32;content="other")
+&#32;&#32;&#32;&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;──┬──&#32;&#32;
+&#32;&#32;&#32;&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;╰────&#32;Warning&#32;(unused_value):&#32;Unused&#32;variable&#32;'other'
 ────╯
-Warning: [0002]
-    ╭─[ D:\source\moonbit-foundation-phase94-02-capture-967bd91\modules\mb-svg\svg\lower_wbtest.mbt:88:9 ]
-    │
- 88 │         other => inspect("other", content="other")
-    │         ──┬──  
-    │           ╰──── Warning (unused_value): Unused variable 'other'
+Warning:&#32;[0002]
+&#32;&#32;&#32;&#32;╭─[&#32;D:\source\moonbit-foundation-phase94-02-capture-14255e6\modules\mb-svg\svg\lower_wbtest.mbt:88:9&#32;]
+&#32;&#32;&#32;&#32;│
+&#32;88&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;other&#32;=&gt;&#32;inspect("other",&#32;content="other")
+&#32;&#32;&#32;&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;──┬──&#32;&#32;
+&#32;&#32;&#32;&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;╰────&#32;Warning&#32;(unused_value):&#32;Unused&#32;variable&#32;'other'
 ────╯
-Warning: [0002]
-    ╭─[ D:\source\moonbit-foundation-phase94-02-capture-967bd91\modules\mb-svg\svg\lower_wbtest.mbt:92:9 ]
-    │
- 92 │         other => inspect("other", content="other")
-    │         ──┬──  
-    │           ╰──── Warning (unused_value): Unused variable 'other'
+Warning:&#32;[0002]
+&#32;&#32;&#32;&#32;╭─[&#32;D:\source\moonbit-foundation-phase94-02-capture-14255e6\modules\mb-svg\svg\lower_wbtest.mbt:92:9&#32;]
+&#32;&#32;&#32;&#32;│
+&#32;92&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;other&#32;=&gt;&#32;inspect("other",&#32;content="other")
+&#32;&#32;&#32;&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;──┬──&#32;&#32;
+&#32;&#32;&#32;&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;╰────&#32;Warning&#32;(unused_value):&#32;Unused&#32;variable&#32;'other'
 ────╯
-Warning: [0002]
-    ╭─[ D:\source\moonbit-foundation-phase94-02-capture-967bd91\modules\mb-svg\svg\lower_wbtest.mbt:96:9 ]
-    │
- 96 │         other => inspect("other", content="other")
-    │         ──┬──  
-    │           ╰──── Warning (unused_value): Unused variable 'other'
+Warning:&#32;[0002]
+&#32;&#32;&#32;&#32;╭─[&#32;D:\source\moonbit-foundation-phase94-02-capture-14255e6\modules\mb-svg\svg\lower_wbtest.mbt:96:9&#32;]
+&#32;&#32;&#32;&#32;│
+&#32;96&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;other&#32;=&gt;&#32;inspect("other",&#32;content="other")
+&#32;&#32;&#32;&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;──┬──&#32;&#32;
+&#32;&#32;&#32;&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;╰────&#32;Warning&#32;(unused_value):&#32;Unused&#32;variable&#32;'other'
 ────╯
-Warning: [0002]
-     ╭─[ D:\source\moonbit-foundation-phase94-02-capture-967bd91\modules\mb-svg\svg\lower_wbtest.mbt:113:9 ]
-     │
- 113 │         other => inspect("other", content="other")
-     │         ──┬──  
-     │           ╰──── Warning (unused_value): Unused variable 'other'
+Warning:&#32;[0002]
+&#32;&#32;&#32;&#32;&#32;╭─[&#32;D:\source\moonbit-foundation-phase94-02-capture-14255e6\modules\mb-svg\svg\lower_wbtest.mbt:113:9&#32;]
+&#32;&#32;&#32;&#32;&#32;│
+&#32;113&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;other&#32;=&gt;&#32;inspect("other",&#32;content="other")
+&#32;&#32;&#32;&#32;&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;──┬──&#32;&#32;
+&#32;&#32;&#32;&#32;&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;╰────&#32;Warning&#32;(unused_value):&#32;Unused&#32;variable&#32;'other'
 ─────╯
-Warning: [0002]
-     ╭─[ D:\source\moonbit-foundation-phase94-02-capture-967bd91\modules\mb-svg\svg\lower_wbtest.mbt:117:9 ]
-     │
- 117 │         other => inspect("other", content="other")
-     │         ──┬──  
-     │           ╰──── Warning (unused_value): Unused variable 'other'
+Warning:&#32;[0002]
+&#32;&#32;&#32;&#32;&#32;╭─[&#32;D:\source\moonbit-foundation-phase94-02-capture-14255e6\modules\mb-svg\svg\lower_wbtest.mbt:117:9&#32;]
+&#32;&#32;&#32;&#32;&#32;│
+&#32;117&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;other&#32;=&gt;&#32;inspect("other",&#32;content="other")
+&#32;&#32;&#32;&#32;&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;──┬──&#32;&#32;
+&#32;&#32;&#32;&#32;&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;╰────&#32;Warning&#32;(unused_value):&#32;Unused&#32;variable&#32;'other'
 ─────╯
-Warning: [0002]
-     ╭─[ D:\source\moonbit-foundation-phase94-02-capture-967bd91\modules\mb-svg\svg\lower_wbtest.mbt:121:9 ]
-     │
- 121 │         other => inspect("other", content="other")
-     │         ──┬──  
-     │           ╰──── Warning (unused_value): Unused variable 'other'
+Warning:&#32;[0002]
+&#32;&#32;&#32;&#32;&#32;╭─[&#32;D:\source\moonbit-foundation-phase94-02-capture-14255e6\modules\mb-svg\svg\lower_wbtest.mbt:121:9&#32;]
+&#32;&#32;&#32;&#32;&#32;│
+&#32;121&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;other&#32;=&gt;&#32;inspect("other",&#32;content="other")
+&#32;&#32;&#32;&#32;&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;──┬──&#32;&#32;
+&#32;&#32;&#32;&#32;&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;╰────&#32;Warning&#32;(unused_value):&#32;Unused&#32;variable&#32;'other'
 ─────╯
-Warning: [0002]
-     ╭─[ D:\source\moonbit-foundation-phase94-02-capture-967bd91\modules\mb-svg\svg\lower_wbtest.mbt:125:9 ]
-     │
- 125 │         other => inspect("other", content="other")
-     │         ──┬──  
-     │           ╰──── Warning (unused_value): Unused variable 'other'
+Warning:&#32;[0002]
+&#32;&#32;&#32;&#32;&#32;╭─[&#32;D:\source\moonbit-foundation-phase94-02-capture-14255e6\modules\mb-svg\svg\lower_wbtest.mbt:125:9&#32;]
+&#32;&#32;&#32;&#32;&#32;│
+&#32;125&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;other&#32;=&gt;&#32;inspect("other",&#32;content="other")
+&#32;&#32;&#32;&#32;&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;──┬──&#32;&#32;
+&#32;&#32;&#32;&#32;&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;╰────&#32;Warning&#32;(unused_value):&#32;Unused&#32;variable&#32;'other'
 ─────╯
-Warning: [0002]
-     ╭─[ D:\source\moonbit-foundation-phase94-02-capture-967bd91\modules\mb-svg\svg\lower_wbtest.mbt:129:9 ]
-     │
- 129 │         other => inspect("other", content="other")
-     │         ──┬──  
-     │           ╰──── Warning (unused_value): Unused variable 'other'
+Warning:&#32;[0002]
+&#32;&#32;&#32;&#32;&#32;╭─[&#32;D:\source\moonbit-foundation-phase94-02-capture-14255e6\modules\mb-svg\svg\lower_wbtest.mbt:129:9&#32;]
+&#32;&#32;&#32;&#32;&#32;│
+&#32;129&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;other&#32;=&gt;&#32;inspect("other",&#32;content="other")
+&#32;&#32;&#32;&#32;&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;──┬──&#32;&#32;
+&#32;&#32;&#32;&#32;&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;╰────&#32;Warning&#32;(unused_value):&#32;Unused&#32;variable&#32;'other'
 ─────╯
-Warning: [0002]
-     ╭─[ D:\source\moonbit-foundation-phase94-02-capture-967bd91\modules\mb-svg\svg\lower_wbtest.mbt:148:9 ]
-     │
- 148 │         other => inspect("other", content="other")
-     │         ──┬──  
-     │           ╰──── Warning (unused_value): Unused variable 'other'
+Warning:&#32;[0002]
+&#32;&#32;&#32;&#32;&#32;╭─[&#32;D:\source\moonbit-foundation-phase94-02-capture-14255e6\modules\mb-svg\svg\lower_wbtest.mbt:148:9&#32;]
+&#32;&#32;&#32;&#32;&#32;│
+&#32;148&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;other&#32;=&gt;&#32;inspect("other",&#32;content="other")
+&#32;&#32;&#32;&#32;&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;──┬──&#32;&#32;
+&#32;&#32;&#32;&#32;&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;╰────&#32;Warning&#32;(unused_value):&#32;Unused&#32;variable&#32;'other'
 ─────╯
-Warning: [0002]
-     ╭─[ D:\source\moonbit-foundation-phase94-02-capture-967bd91\modules\mb-svg\svg\lower_wbtest.mbt:164:9 ]
-     │
- 164 │         other => inspect("other", content="other")
-     │         ──┬──  
-     │           ╰──── Warning (unused_value): Unused variable 'other'
+Warning:&#32;[0002]
+&#32;&#32;&#32;&#32;&#32;╭─[&#32;D:\source\moonbit-foundation-phase94-02-capture-14255e6\modules\mb-svg\svg\lower_wbtest.mbt:164:9&#32;]
+&#32;&#32;&#32;&#32;&#32;│
+&#32;164&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;other&#32;=&gt;&#32;inspect("other",&#32;content="other")
+&#32;&#32;&#32;&#32;&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;──┬──&#32;&#32;
+&#32;&#32;&#32;&#32;&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;╰────&#32;Warning&#32;(unused_value):&#32;Unused&#32;variable&#32;'other'
 ─────╯
-Warning: [0002]
-     ╭─[ D:\source\moonbit-foundation-phase94-02-capture-967bd91\modules\mb-svg\svg\lower_wbtest.mbt:168:9 ]
-     │
- 168 │         other => inspect("other", content="other")
-     │         ──┬──  
-     │           ╰──── Warning (unused_value): Unused variable 'other'
+Warning:&#32;[0002]
+&#32;&#32;&#32;&#32;&#32;╭─[&#32;D:\source\moonbit-foundation-phase94-02-capture-14255e6\modules\mb-svg\svg\lower_wbtest.mbt:168:9&#32;]
+&#32;&#32;&#32;&#32;&#32;│
+&#32;168&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;other&#32;=&gt;&#32;inspect("other",&#32;content="other")
+&#32;&#32;&#32;&#32;&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;──┬──&#32;&#32;
+&#32;&#32;&#32;&#32;&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;╰────&#32;Warning&#32;(unused_value):&#32;Unused&#32;variable&#32;'other'
 ─────╯
-Warning: [0002]
-     ╭─[ D:\source\moonbit-foundation-phase94-02-capture-967bd91\modules\mb-svg\svg\lower_wbtest.mbt:200:9 ]
-     │
- 200 │         other => inspect("other", content="other")
-     │         ──┬──  
-     │           ╰──── Warning (unused_value): Unused variable 'other'
+Warning:&#32;[0002]
+&#32;&#32;&#32;&#32;&#32;╭─[&#32;D:\source\moonbit-foundation-phase94-02-capture-14255e6\modules\mb-svg\svg\lower_wbtest.mbt:200:9&#32;]
+&#32;&#32;&#32;&#32;&#32;│
+&#32;200&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;other&#32;=&gt;&#32;inspect("other",&#32;content="other")
+&#32;&#32;&#32;&#32;&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;──┬──&#32;&#32;
+&#32;&#32;&#32;&#32;&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;╰────&#32;Warning&#32;(unused_value):&#32;Unused&#32;variable&#32;'other'
 ─────╯
-Warning: [0002]
-     ╭─[ D:\source\moonbit-foundation-phase94-02-capture-967bd91\modules\mb-svg\svg\lower_wbtest.mbt:215:9 ]
-     │
- 215 │         other => inspect("other", content="other")
-     │         ──┬──  
-     │           ╰──── Warning (unused_value): Unused variable 'other'
+Warning:&#32;[0002]
+&#32;&#32;&#32;&#32;&#32;╭─[&#32;D:\source\moonbit-foundation-phase94-02-capture-14255e6\modules\mb-svg\svg\lower_wbtest.mbt:215:9&#32;]
+&#32;&#32;&#32;&#32;&#32;│
+&#32;215&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;other&#32;=&gt;&#32;inspect("other",&#32;content="other")
+&#32;&#32;&#32;&#32;&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;──┬──&#32;&#32;
+&#32;&#32;&#32;&#32;&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;╰────&#32;Warning&#32;(unused_value):&#32;Unused&#32;variable&#32;'other'
 ─────╯
-Warning: [0002]
-     ╭─[ D:\source\moonbit-foundation-phase94-02-capture-967bd91\modules\mb-svg\svg\lower_wbtest.mbt:220:9 ]
-     │
- 220 │         other => inspect("other", content="other")
-     │         ──┬──  
-     │           ╰──── Warning (unused_value): Unused variable 'other'
+Warning:&#32;[0002]
+&#32;&#32;&#32;&#32;&#32;╭─[&#32;D:\source\moonbit-foundation-phase94-02-capture-14255e6\modules\mb-svg\svg\lower_wbtest.mbt:220:9&#32;]
+&#32;&#32;&#32;&#32;&#32;│
+&#32;220&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;other&#32;=&gt;&#32;inspect("other",&#32;content="other")
+&#32;&#32;&#32;&#32;&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;──┬──&#32;&#32;
+&#32;&#32;&#32;&#32;&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;╰────&#32;Warning&#32;(unused_value):&#32;Unused&#32;variable&#32;'other'
 ─────╯
-Warning: [0002]
-     ╭─[ D:\source\moonbit-foundation-phase94-02-capture-967bd91\modules\mb-svg\svg\lower_wbtest.mbt:243:9 ]
-     │
- 243 │         other => inspect("other", content="other")
-     │         ──┬──  
-     │           ╰──── Warning (unused_value): Unused variable 'other'
+Warning:&#32;[0002]
+&#32;&#32;&#32;&#32;&#32;╭─[&#32;D:\source\moonbit-foundation-phase94-02-capture-14255e6\modules\mb-svg\svg\lower_wbtest.mbt:243:9&#32;]
+&#32;&#32;&#32;&#32;&#32;│
+&#32;243&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;other&#32;=&gt;&#32;inspect("other",&#32;content="other")
+&#32;&#32;&#32;&#32;&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;──┬──&#32;&#32;
+&#32;&#32;&#32;&#32;&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;╰────&#32;Warning&#32;(unused_value):&#32;Unused&#32;variable&#32;'other'
 ─────╯
-Warning: [0002]
-     ╭─[ D:\source\moonbit-foundation-phase94-02-capture-967bd91\modules\mb-svg\svg\lower_wbtest.mbt:264:9 ]
-     │
- 264 │         other => inspect("other", content="other")
-     │         ──┬──  
-     │           ╰──── Warning (unused_value): Unused variable 'other'
+Warning:&#32;[0002]
+&#32;&#32;&#32;&#32;&#32;╭─[&#32;D:\source\moonbit-foundation-phase94-02-capture-14255e6\modules\mb-svg\svg\lower_wbtest.mbt:264:9&#32;]
+&#32;&#32;&#32;&#32;&#32;│
+&#32;264&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;other&#32;=&gt;&#32;inspect("other",&#32;content="other")
+&#32;&#32;&#32;&#32;&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;──┬──&#32;&#32;
+&#32;&#32;&#32;&#32;&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;╰────&#32;Warning&#32;(unused_value):&#32;Unused&#32;variable&#32;'other'
 ─────╯
-Warning: [0002]
-     ╭─[ D:\source\moonbit-foundation-phase94-02-capture-967bd91\modules\mb-svg\svg\lower_wbtest.mbt:279:9 ]
-     │
- 279 │         other => inspect("other", content="other")
-     │         ──┬──  
-     │           ╰──── Warning (unused_value): Unused variable 'other'
+Warning:&#32;[0002]
+&#32;&#32;&#32;&#32;&#32;╭─[&#32;D:\source\moonbit-foundation-phase94-02-capture-14255e6\modules\mb-svg\svg\lower_wbtest.mbt:279:9&#32;]
+&#32;&#32;&#32;&#32;&#32;│
+&#32;279&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;other&#32;=&gt;&#32;inspect("other",&#32;content="other")
+&#32;&#32;&#32;&#32;&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;──┬──&#32;&#32;
+&#32;&#32;&#32;&#32;&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;╰────&#32;Warning&#32;(unused_value):&#32;Unused&#32;variable&#32;'other'
 ─────╯
-Warning: [0002]
-     ╭─[ D:\source\moonbit-foundation-phase94-02-capture-967bd91\modules\mb-svg\svg\lower_wbtest.mbt:294:9 ]
-     │
- 294 │         other => inspect("other", content="other")
-     │         ──┬──  
-     │           ╰──── Warning (unused_value): Unused variable 'other'
+Warning:&#32;[0002]
+&#32;&#32;&#32;&#32;&#32;╭─[&#32;D:\source\moonbit-foundation-phase94-02-capture-14255e6\modules\mb-svg\svg\lower_wbtest.mbt:294:9&#32;]
+&#32;&#32;&#32;&#32;&#32;│
+&#32;294&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;other&#32;=&gt;&#32;inspect("other",&#32;content="other")
+&#32;&#32;&#32;&#32;&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;──┬──&#32;&#32;
+&#32;&#32;&#32;&#32;&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;╰────&#32;Warning&#32;(unused_value):&#32;Unused&#32;variable&#32;'other'
 ─────╯
-Warning: [0002]
-     ╭─[ D:\source\moonbit-foundation-phase94-02-capture-967bd91\modules\mb-svg\svg\lower_wbtest.mbt:309:9 ]
-     │
- 309 │         other => inspect("other", content="other")
-     │         ──┬──  
-     │           ╰──── Warning (unused_value): Unused variable 'other'
+Warning:&#32;[0002]
+&#32;&#32;&#32;&#32;&#32;╭─[&#32;D:\source\moonbit-foundation-phase94-02-capture-14255e6\modules\mb-svg\svg\lower_wbtest.mbt:309:9&#32;]
+&#32;&#32;&#32;&#32;&#32;│
+&#32;309&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;other&#32;=&gt;&#32;inspect("other",&#32;content="other")
+&#32;&#32;&#32;&#32;&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;──┬──&#32;&#32;
+&#32;&#32;&#32;&#32;&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;╰────&#32;Warning&#32;(unused_value):&#32;Unused&#32;variable&#32;'other'
 ─────╯
-Warning: [0002]
-     ╭─[ D:\source\moonbit-foundation-phase94-02-capture-967bd91\modules\mb-svg\svg\lower_wbtest.mbt:323:9 ]
-     │
- 323 │         other => inspect("other", content="other")
-     │         ──┬──  
-     │           ╰──── Warning (unused_value): Unused variable 'other'
+Warning:&#32;[0002]
+&#32;&#32;&#32;&#32;&#32;╭─[&#32;D:\source\moonbit-foundation-phase94-02-capture-14255e6\modules\mb-svg\svg\lower_wbtest.mbt:323:9&#32;]
+&#32;&#32;&#32;&#32;&#32;│
+&#32;323&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;other&#32;=&gt;&#32;inspect("other",&#32;content="other")
+&#32;&#32;&#32;&#32;&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;──┬──&#32;&#32;
+&#32;&#32;&#32;&#32;&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;╰────&#32;Warning&#32;(unused_value):&#32;Unused&#32;variable&#32;'other'
 ─────╯
-Warning: [0002]
-     ╭─[ D:\source\moonbit-foundation-phase94-02-capture-967bd91\modules\mb-svg\svg\lower_wbtest.mbt:345:9 ]
-     │
- 345 │         other => inspect("other", content="other")
-     │         ──┬──  
-     │           ╰──── Warning (unused_value): Unused variable 'other'
+Warning:&#32;[0002]
+&#32;&#32;&#32;&#32;&#32;╭─[&#32;D:\source\moonbit-foundation-phase94-02-capture-14255e6\modules\mb-svg\svg\lower_wbtest.mbt:345:9&#32;]
+&#32;&#32;&#32;&#32;&#32;│
+&#32;345&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;other&#32;=&gt;&#32;inspect("other",&#32;content="other")
+&#32;&#32;&#32;&#32;&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;──┬──&#32;&#32;
+&#32;&#32;&#32;&#32;&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;╰────&#32;Warning&#32;(unused_value):&#32;Unused&#32;variable&#32;'other'
 ─────╯
-Warning: [0002]
-     ╭─[ D:\source\moonbit-foundation-phase94-02-capture-967bd91\modules\mb-svg\svg\lower_wbtest.mbt:349:9 ]
-     │
- 349 │         other => inspect("other", content="other")
-     │         ──┬──  
-     │           ╰──── Warning (unused_value): Unused variable 'other'
+Warning:&#32;[0002]
+&#32;&#32;&#32;&#32;&#32;╭─[&#32;D:\source\moonbit-foundation-phase94-02-capture-14255e6\modules\mb-svg\svg\lower_wbtest.mbt:349:9&#32;]
+&#32;&#32;&#32;&#32;&#32;│
+&#32;349&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;other&#32;=&gt;&#32;inspect("other",&#32;content="other")
+&#32;&#32;&#32;&#32;&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;──┬──&#32;&#32;
+&#32;&#32;&#32;&#32;&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;╰────&#32;Warning&#32;(unused_value):&#32;Unused&#32;variable&#32;'other'
 ─────╯
-Warning: [0002]
-     ╭─[ D:\source\moonbit-foundation-phase94-02-capture-967bd91\modules\mb-svg\svg\lower_wbtest.mbt:370:9 ]
-     │
- 370 │         other => inspect("other", content="other")
-     │         ──┬──  
-     │           ╰──── Warning (unused_value): Unused variable 'other'
+Warning:&#32;[0002]
+&#32;&#32;&#32;&#32;&#32;╭─[&#32;D:\source\moonbit-foundation-phase94-02-capture-14255e6\modules\mb-svg\svg\lower_wbtest.mbt:370:9&#32;]
+&#32;&#32;&#32;&#32;&#32;│
+&#32;370&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;other&#32;=&gt;&#32;inspect("other",&#32;content="other")
+&#32;&#32;&#32;&#32;&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;──┬──&#32;&#32;
+&#32;&#32;&#32;&#32;&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;╰────&#32;Warning&#32;(unused_value):&#32;Unused&#32;variable&#32;'other'
 ─────╯
-Warning: [0002]
-     ╭─[ D:\source\moonbit-foundation-phase94-02-capture-967bd91\modules\mb-svg\svg\lower_wbtest.mbt:404:9 ]
-     │
- 404 │         other => inspect("other", content="other")
-     │         ──┬──  
-     │           ╰──── Warning (unused_value): Unused variable 'other'
+Warning:&#32;[0002]
+&#32;&#32;&#32;&#32;&#32;╭─[&#32;D:\source\moonbit-foundation-phase94-02-capture-14255e6\modules\mb-svg\svg\lower_wbtest.mbt:404:9&#32;]
+&#32;&#32;&#32;&#32;&#32;│
+&#32;404&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;other&#32;=&gt;&#32;inspect("other",&#32;content="other")
+&#32;&#32;&#32;&#32;&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;──┬──&#32;&#32;
+&#32;&#32;&#32;&#32;&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;╰────&#32;Warning&#32;(unused_value):&#32;Unused&#32;variable&#32;'other'
 ─────╯
-Warning: [0002]
-     ╭─[ D:\source\moonbit-foundation-phase94-02-capture-967bd91\modules\mb-svg\svg\lower_wbtest.mbt:422:9 ]
-     │
- 422 │         other => inspect("other", content="other")
-     │         ──┬──  
-     │           ╰──── Warning (unused_value): Unused variable 'other'
+Warning:&#32;[0002]
+&#32;&#32;&#32;&#32;&#32;╭─[&#32;D:\source\moonbit-foundation-phase94-02-capture-14255e6\modules\mb-svg\svg\lower_wbtest.mbt:422:9&#32;]
+&#32;&#32;&#32;&#32;&#32;│
+&#32;422&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;other&#32;=&gt;&#32;inspect("other",&#32;content="other")
+&#32;&#32;&#32;&#32;&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;──┬──&#32;&#32;
+&#32;&#32;&#32;&#32;&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;╰────&#32;Warning&#32;(unused_value):&#32;Unused&#32;variable&#32;'other'
 ─────╯
-Warning: [0002]
-     ╭─[ D:\source\moonbit-foundation-phase94-02-capture-967bd91\modules\mb-svg\svg\lower_wbtest.mbt:442:9 ]
-     │
- 442 │         other => inspect("other", content="other")
-     │         ──┬──  
-     │           ╰──── Warning (unused_value): Unused variable 'other'
+Warning:&#32;[0002]
+&#32;&#32;&#32;&#32;&#32;╭─[&#32;D:\source\moonbit-foundation-phase94-02-capture-14255e6\modules\mb-svg\svg\lower_wbtest.mbt:442:9&#32;]
+&#32;&#32;&#32;&#32;&#32;│
+&#32;442&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;other&#32;=&gt;&#32;inspect("other",&#32;content="other")
+&#32;&#32;&#32;&#32;&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;──┬──&#32;&#32;
+&#32;&#32;&#32;&#32;&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;╰────&#32;Warning&#32;(unused_value):&#32;Unused&#32;variable&#32;'other'
 ─────╯
-Warning: [0002]
-     ╭─[ D:\source\moonbit-foundation-phase94-02-capture-967bd91\modules\mb-svg\svg\lower_wbtest.mbt:462:9 ]
-     │
- 462 │         other => inspect("other", content="other")
-     │         ──┬──  
-     │           ╰──── Warning (unused_value): Unused variable 'other'
+Warning:&#32;[0002]
+&#32;&#32;&#32;&#32;&#32;╭─[&#32;D:\source\moonbit-foundation-phase94-02-capture-14255e6\modules\mb-svg\svg\lower_wbtest.mbt:462:9&#32;]
+&#32;&#32;&#32;&#32;&#32;│
+&#32;462&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;other&#32;=&gt;&#32;inspect("other",&#32;content="other")
+&#32;&#32;&#32;&#32;&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;──┬──&#32;&#32;
+&#32;&#32;&#32;&#32;&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;╰────&#32;Warning&#32;(unused_value):&#32;Unused&#32;variable&#32;'other'
 ─────╯
-Warning: [0002]
-     ╭─[ D:\source\moonbit-foundation-phase94-02-capture-967bd91\modules\mb-svg\svg\lower_wbtest.mbt:476:9 ]
-     │
- 476 │         other => inspect("other", content="other")
-     │         ──┬──  
-     │           ╰──── Warning (unused_value): Unused variable 'other'
+Warning:&#32;[0002]
+&#32;&#32;&#32;&#32;&#32;╭─[&#32;D:\source\moonbit-foundation-phase94-02-capture-14255e6\modules\mb-svg\svg\lower_wbtest.mbt:476:9&#32;]
+&#32;&#32;&#32;&#32;&#32;│
+&#32;476&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;other&#32;=&gt;&#32;inspect("other",&#32;content="other")
+&#32;&#32;&#32;&#32;&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;──┬──&#32;&#32;
+&#32;&#32;&#32;&#32;&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;╰────&#32;Warning&#32;(unused_value):&#32;Unused&#32;variable&#32;'other'
 ─────╯
-Warning: [0002]
-     ╭─[ D:\source\moonbit-foundation-phase94-02-capture-967bd91\modules\mb-svg\svg\lower_wbtest.mbt:490:9 ]
-     │
- 490 │         other => inspect("other", content="other")
-     │         ──┬──  
-     │           ╰──── Warning (unused_value): Unused variable 'other'
+Warning:&#32;[0002]
+&#32;&#32;&#32;&#32;&#32;╭─[&#32;D:\source\moonbit-foundation-phase94-02-capture-14255e6\modules\mb-svg\svg\lower_wbtest.mbt:490:9&#32;]
+&#32;&#32;&#32;&#32;&#32;│
+&#32;490&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;other&#32;=&gt;&#32;inspect("other",&#32;content="other")
+&#32;&#32;&#32;&#32;&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;──┬──&#32;&#32;
+&#32;&#32;&#32;&#32;&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;╰────&#32;Warning&#32;(unused_value):&#32;Unused&#32;variable&#32;'other'
 ─────╯
-Warning: [0002]
-     ╭─[ D:\source\moonbit-foundation-phase94-02-capture-967bd91\modules\mb-svg\svg\lower_wbtest.mbt:507:9 ]
-     │
- 507 │         other => inspect("other", content="other")
-     │         ──┬──  
-     │           ╰──── Warning (unused_value): Unused variable 'other'
+Warning:&#32;[0002]
+&#32;&#32;&#32;&#32;&#32;╭─[&#32;D:\source\moonbit-foundation-phase94-02-capture-14255e6\modules\mb-svg\svg\lower_wbtest.mbt:507:9&#32;]
+&#32;&#32;&#32;&#32;&#32;│
+&#32;507&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;other&#32;=&gt;&#32;inspect("other",&#32;content="other")
+&#32;&#32;&#32;&#32;&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;──┬──&#32;&#32;
+&#32;&#32;&#32;&#32;&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;╰────&#32;Warning&#32;(unused_value):&#32;Unused&#32;variable&#32;'other'
 ─────╯
-Warning: [0002]
-     ╭─[ D:\source\moonbit-foundation-phase94-02-capture-967bd91\modules\mb-svg\svg\lower_wbtest.mbt:511:9 ]
-     │
- 511 │         other => inspect("other", content="other")
-     │         ──┬──  
-     │           ╰──── Warning (unused_value): Unused variable 'other'
+Warning:&#32;[0002]
+&#32;&#32;&#32;&#32;&#32;╭─[&#32;D:\source\moonbit-foundation-phase94-02-capture-14255e6\modules\mb-svg\svg\lower_wbtest.mbt:511:9&#32;]
+&#32;&#32;&#32;&#32;&#32;│
+&#32;511&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;other&#32;=&gt;&#32;inspect("other",&#32;content="other")
+&#32;&#32;&#32;&#32;&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;──┬──&#32;&#32;
+&#32;&#32;&#32;&#32;&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;╰────&#32;Warning&#32;(unused_value):&#32;Unused&#32;variable&#32;'other'
 ─────╯
-Warning: [0002]
-     ╭─[ D:\source\moonbit-foundation-phase94-02-capture-967bd91\modules\mb-svg\svg\lower_wbtest.mbt:540:9 ]
-     │
- 540 │         other => inspect("other", content="other")
-     │         ──┬──  
-     │           ╰──── Warning (unused_value): Unused variable 'other'
+Warning:&#32;[0002]
+&#32;&#32;&#32;&#32;&#32;╭─[&#32;D:\source\moonbit-foundation-phase94-02-capture-14255e6\modules\mb-svg\svg\lower_wbtest.mbt:540:9&#32;]
+&#32;&#32;&#32;&#32;&#32;│
+&#32;540&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;other&#32;=&gt;&#32;inspect("other",&#32;content="other")
+&#32;&#32;&#32;&#32;&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;──┬──&#32;&#32;
+&#32;&#32;&#32;&#32;&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;╰────&#32;Warning&#32;(unused_value):&#32;Unused&#32;variable&#32;'other'
 ─────╯
-Warning: [0020]
-     ╭─[ D:\source\moonbit-foundation-phase94-02-capture-967bd91\modules\mb-svg\svg\lower_wbtest.mbt:591:23 ]
-     │
- 591 │               inspect((point.x(), point.y()), content="(32768, 0)")
-     │                       ───────────┬──────────  
-     │                                  ╰──────────── Warning (deprecated): Use Debug instead of Show for debugging purposes. See https://github.com/moonbitlang/core/blob/main/debug/README.mbt.md
+Warning:&#32;[0020]
+&#32;&#32;&#32;&#32;&#32;╭─[&#32;D:\source\moonbit-foundation-phase94-02-capture-14255e6\modules\mb-svg\svg\lower_wbtest.mbt:591:23&#32;]
+&#32;&#32;&#32;&#32;&#32;│
+&#32;591&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;inspect((point.x(),&#32;point.y()),&#32;content="(32768,&#32;0)")
+&#32;&#32;&#32;&#32;&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;───────────┬──────────&#32;&#32;
+&#32;&#32;&#32;&#32;&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;╰────────────&#32;Warning&#32;(deprecated):&#32;Use&#32;Debug&#32;instead&#32;of&#32;Show&#32;for&#32;debugging&#32;purposes.&#32;See&#32;https://github.com/moonbitlang/core/blob/main/debug/README.mbt.md
 ─────╯
-Warning: [0020]
-     ╭─[ D:\source\moonbit-foundation-phase94-02-capture-967bd91\modules\mb-svg\svg\lower_wbtest.mbt:609:23 ]
-     │
- 609 │               inspect((point.x(), point.y().abs() < 1.0e-9), content="(65536, true)")
-     │                       ──────────────────┬──────────────────  
-     │                                         ╰──────────────────── Warning (deprecated): Use Debug instead of Show for debugging purposes. See https://github.com/moonbitlang/core/blob/main/debug/README.mbt.md
+Warning:&#32;[0020]
+&#32;&#32;&#32;&#32;&#32;╭─[&#32;D:\source\moonbit-foundation-phase94-02-capture-14255e6\modules\mb-svg\svg\lower_wbtest.mbt:609:23&#32;]
+&#32;&#32;&#32;&#32;&#32;│
+&#32;609&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;inspect((point.x(),&#32;point.y().abs()&#32;&lt;&#32;1.0e-9),&#32;content="(65536,&#32;true)")
+&#32;&#32;&#32;&#32;&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;──────────────────┬──────────────────&#32;&#32;
+&#32;&#32;&#32;&#32;&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;╰────────────────────&#32;Warning&#32;(deprecated):&#32;Use&#32;Debug&#32;instead&#32;of&#32;Show&#32;for&#32;debugging&#32;purposes.&#32;See&#32;https://github.com/moonbitlang/core/blob/main/debug/README.mbt.md
 ─────╯
-Warning: [0020]
-     ╭─[ D:\source\moonbit-foundation-phase94-02-capture-967bd91\modules\mb-svg\svg\lower_wbtest.mbt:630:29 ]
-     │
- 630 │       Err(error) => inspect(error.context(), content="Some(svg-numeric-derived)")
-     │                             ───────┬───────  
-     │                                    ╰───────── Warning (deprecated): Use Debug instead of Show for debugging purposes. See https://github.com/moonbitlang/core/blob/main/debug/README.mbt.md
+Warning:&#32;[0020]
+&#32;&#32;&#32;&#32;&#32;╭─[&#32;D:\source\moonbit-foundation-phase94-02-capture-14255e6\modules\mb-svg\svg\lower_wbtest.mbt:630:29&#32;]
+&#32;&#32;&#32;&#32;&#32;│
+&#32;630&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;Err(error)&#32;=&gt;&#32;inspect(error.context(),&#32;content="Some(svg-numeric-derived)")
+&#32;&#32;&#32;&#32;&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;───────┬───────&#32;&#32;
+&#32;&#32;&#32;&#32;&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;╰─────────&#32;Warning&#32;(deprecated):&#32;Use&#32;Debug&#32;instead&#32;of&#32;Show&#32;for&#32;debugging&#32;purposes.&#32;See&#32;https://github.com/moonbitlang/core/blob/main/debug/README.mbt.md
 ─────╯
-Warning: [0020]
-    ╭─[ D:\source\moonbit-foundation-phase94-02-capture-967bd91\modules\mb-svg\svg\parse_wbtest.mbt:77:33 ]
-    │
- 77 │     Ok((x, y, w, h)) => inspect((x, y, w, h), content="(10, 20, 200, 150)")
-    │                                 ──────┬─────  
-    │                                       ╰─────── Warning (deprecated): Use Debug instead of Show for debugging purposes. See https://github.com/moonbitlang/core/blob/main/debug/README.mbt.md
+Warning:&#32;[0020]
+&#32;&#32;&#32;&#32;╭─[&#32;D:\source\moonbit-foundation-phase94-02-capture-14255e6\modules\mb-svg\svg\parse_wbtest.mbt:77:33&#32;]
+&#32;&#32;&#32;&#32;│
+&#32;77&#32;│&#32;&#32;&#32;&#32;&#32;Ok((x,&#32;y,&#32;w,&#32;h))&#32;=&gt;&#32;inspect((x,&#32;y,&#32;w,&#32;h),&#32;content="(10,&#32;20,&#32;200,&#32;150)")
+&#32;&#32;&#32;&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;──────┬─────&#32;&#32;
+&#32;&#32;&#32;&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;╰───────&#32;Warning&#32;(deprecated):&#32;Use&#32;Debug&#32;instead&#32;of&#32;Show&#32;for&#32;debugging&#32;purposes.&#32;See&#32;https://github.com/moonbitlang/core/blob/main/debug/README.mbt.md
 ────╯
-Warning: [0020]
-    ╭─[ D:\source\moonbit-foundation-phase94-02-capture-967bd91\modules\mb-svg\svg\parse_wbtest.mbt:89:24 ]
-    │
- 89 │     Ok(arr) => inspect(arr, content="[1, 2, 3]")
-    │                        ─┬─  
-    │                         ╰─── Warning (deprecated): Use Debug instead of Show for debugging purposes. See https://github.com/moonbitlang/core/blob/main/debug/README.mbt.md
+Warning:&#32;[0020]
+&#32;&#32;&#32;&#32;╭─[&#32;D:\source\moonbit-foundation-phase94-02-capture-14255e6\modules\mb-svg\svg\parse_wbtest.mbt:89:24&#32;]
+&#32;&#32;&#32;&#32;│
+&#32;89&#32;│&#32;&#32;&#32;&#32;&#32;Ok(arr)&#32;=&gt;&#32;inspect(arr,&#32;content="[1,&#32;2,&#32;3]")
+&#32;&#32;&#32;&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;─┬─&#32;&#32;
+&#32;&#32;&#32;&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;╰───&#32;Warning&#32;(deprecated):&#32;Use&#32;Debug&#32;instead&#32;of&#32;Show&#32;for&#32;debugging&#32;purposes.&#32;See&#32;https://github.com/moonbitlang/core/blob/main/debug/README.mbt.md
 ────╯
-Warning: [0020]
-     ╭─[ D:\source\moonbit-foundation-phase94-02-capture-967bd91\modules\mb-svg\svg\parse_wbtest.mbt:113:27 ]
-     │
- 113 │     Ok(values) => inspect(values, content="[1, 2, 3]")
-     │                           ───┬──  
-     │                              ╰──── Warning (deprecated): Use Debug instead of Show for debugging purposes. See https://github.com/moonbitlang/core/blob/main/debug/README.mbt.md
+Warning:&#32;[0020]
+&#32;&#32;&#32;&#32;&#32;╭─[&#32;D:\source\moonbit-foundation-phase94-02-capture-14255e6\modules\mb-svg\svg\parse_wbtest.mbt:113:27&#32;]
+&#32;&#32;&#32;&#32;&#32;│
+&#32;113&#32;│&#32;&#32;&#32;&#32;&#32;Ok(values)&#32;=&gt;&#32;inspect(values,&#32;content="[1,&#32;2,&#32;3]")
+&#32;&#32;&#32;&#32;&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;───┬──&#32;&#32;
+&#32;&#32;&#32;&#32;&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;╰────&#32;Warning&#32;(deprecated):&#32;Use&#32;Debug&#32;instead&#32;of&#32;Show&#32;for&#32;debugging&#32;purposes.&#32;See&#32;https://github.com/moonbitlang/core/blob/main/debug/README.mbt.md
 ─────╯
-Warning: [0020]
-     ╭─[ D:\source\moonbit-foundation-phase94-02-capture-967bd91\modules\mb-svg\svg\parse_wbtest.mbt:130:27 ]
-     │
- 130 │     Ok(values) => inspect(values, content="[-65536, 0, 65536]")
-     │                           ───┬──  
-     │                              ╰──── Warning (deprecated): Use Debug instead of Show for debugging purposes. See https://github.com/moonbitlang/core/blob/main/debug/README.mbt.md
+Warning:&#32;[0020]
+&#32;&#32;&#32;&#32;&#32;╭─[&#32;D:\source\moonbit-foundation-phase94-02-capture-14255e6\modules\mb-svg\svg\parse_wbtest.mbt:130:27&#32;]
+&#32;&#32;&#32;&#32;&#32;│
+&#32;130&#32;│&#32;&#32;&#32;&#32;&#32;Ok(values)&#32;=&gt;&#32;inspect(values,&#32;content="[-65536,&#32;0,&#32;65536]")
+&#32;&#32;&#32;&#32;&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;───┬──&#32;&#32;
+&#32;&#32;&#32;&#32;&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;╰────&#32;Warning&#32;(deprecated):&#32;Use&#32;Debug&#32;instead&#32;of&#32;Show&#32;for&#32;debugging&#32;purposes.&#32;See&#32;https://github.com/moonbitlang/core/blob/main/debug/README.mbt.md
 ─────╯
-Warning: [0020]
-     ╭─[ D:\source\moonbit-foundation-phase94-02-capture-967bd91\modules\mb-svg\svg\parse_wbtest.mbt:134:27 ]
-     │
- 134 │     Ok(bounds) => inspect(bounds, content="(-65536, -65536, 65536, 65536)")
-     │                           ───┬──  
-     │                              ╰──── Warning (deprecated): Use Debug instead of Show for debugging purposes. See https://github.com/moonbitlang/core/blob/main/debug/README.mbt.md
+Warning:&#32;[0020]
+&#32;&#32;&#32;&#32;&#32;╭─[&#32;D:\source\moonbit-foundation-phase94-02-capture-14255e6\modules\mb-svg\svg\parse_wbtest.mbt:134:27&#32;]
+&#32;&#32;&#32;&#32;&#32;│
+&#32;134&#32;│&#32;&#32;&#32;&#32;&#32;Ok(bounds)&#32;=&gt;&#32;inspect(bounds,&#32;content="(-65536,&#32;-65536,&#32;65536,&#32;65536)")
+&#32;&#32;&#32;&#32;&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;───┬──&#32;&#32;
+&#32;&#32;&#32;&#32;&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;╰────&#32;Warning&#32;(deprecated):&#32;Use&#32;Debug&#32;instead&#32;of&#32;Show&#32;for&#32;debugging&#32;purposes.&#32;See&#32;https://github.com/moonbitlang/core/blob/main/debug/README.mbt.md
 ─────╯
-Warning: [0020]
-     ╭─[ D:\source\moonbit-foundation-phase94-02-capture-967bd91\modules\mb-svg\svg\path_data.mbt:274:28 ]
-     │
- 274 │   if v >= 97 && v <= 122 { Char::from_int(v - 32) } else { c }
-     │                            ───────┬──────  
-     │                                   ╰──────── Warning (deprecated): Use `Int::unsafe_to_char` instead, and use `Int::to_char` for safe conversion
+Warning:&#32;[0020]
+&#32;&#32;&#32;&#32;&#32;╭─[&#32;D:\source\moonbit-foundation-phase94-02-capture-14255e6\modules\mb-svg\svg\path_data.mbt:274:28&#32;]
+&#32;&#32;&#32;&#32;&#32;│
+&#32;274&#32;│&#32;&#32;&#32;if&#32;v&#32;&gt;=&#32;97&#32;&amp;&amp;&#32;v&#32;&lt;=&#32;122&#32;{&#32;Char::from_int(v&#32;-&#32;32)&#32;}&#32;else&#32;{&#32;c&#32;}
+&#32;&#32;&#32;&#32;&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;───────┬──────&#32;&#32;
+&#32;&#32;&#32;&#32;&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;╰────────&#32;Warning&#32;(deprecated):&#32;Use&#32;`Int::unsafe_to_char`&#32;instead,&#32;and&#32;use&#32;`Int::to_char`&#32;for&#32;safe&#32;conversion
 ─────╯
-Warning: [0020]
-    ╭─[ D:\source\moonbit-foundation-phase94-02-capture-967bd91\modules\mb-svg\svg\path_data_wbtest.mbt:71:19 ]
-    │
- 71 │           inspect((start.x(), start.y(), end.x(), end.y()), content="(0, -10, 5, -3)")
-    │                   ────────────────────┬───────────────────  
-    │                                       ╰───────────────────── Warning (deprecated): Use Debug instead of Show for debugging purposes. See https://github.com/moonbitlang/core/blob/main/debug/README.mbt.md
+Warning:&#32;[0020]
+&#32;&#32;&#32;&#32;╭─[&#32;D:\source\moonbit-foundation-phase94-02-capture-14255e6\modules\mb-svg\svg\path_data_wbtest.mbt:71:19&#32;]
+&#32;&#32;&#32;&#32;│
+&#32;71&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;inspect((start.x(),&#32;start.y(),&#32;end.x(),&#32;end.y()),&#32;content="(0,&#32;-10,&#32;5,&#32;-3)")
+&#32;&#32;&#32;&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;────────────────────┬───────────────────&#32;&#32;
+&#32;&#32;&#32;&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;╰─────────────────────&#32;Warning&#32;(deprecated):&#32;Use&#32;Debug&#32;instead&#32;of&#32;Show&#32;for&#32;debugging&#32;purposes.&#32;See&#32;https://github.com/moonbitlang/core/blob/main/debug/README.mbt.md
 ────╯
-Warning: [0020]
-     ╭─[ D:\source\moonbit-foundation-phase94-02-capture-967bd91\modules\mb-svg\svg\path_data_wbtest.mbt:206:19 ]
-     │
- 206 │           inspect((cp1.x(), cp1.y(), cp2.x(), cp2.y(), endpoint.x(), endpoint.y()), content="(17, 18, 17, 18, 19, 20)")
-     │                   ────────────────────────────────┬───────────────────────────────  
-     │                                                   ╰───────────────────────────────── Warning (deprecated): Use Debug instead of Show for debugging purposes. See https://github.com/moonbitlang/core/blob/main/debug/README.mbt.md
+Warning:&#32;[0020]
+&#32;&#32;&#32;&#32;&#32;╭─[&#32;D:\source\moonbit-foundation-phase94-02-capture-14255e6\modules\mb-svg\svg\path_data_wbtest.mbt:206:19&#32;]
+&#32;&#32;&#32;&#32;&#32;│
+&#32;206&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;inspect((cp1.x(),&#32;cp1.y(),&#32;cp2.x(),&#32;cp2.y(),&#32;endpoint.x(),&#32;endpoint.y()),&#32;content="(17,&#32;18,&#32;17,&#32;18,&#32;19,&#32;20)")
+&#32;&#32;&#32;&#32;&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;────────────────────────────────┬───────────────────────────────&#32;&#32;
+&#32;&#32;&#32;&#32;&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;╰─────────────────────────────────&#32;Warning&#32;(deprecated):&#32;Use&#32;Debug&#32;instead&#32;of&#32;Show&#32;for&#32;debugging&#32;purposes.&#32;See&#32;https://github.com/moonbitlang/core/blob/main/debug/README.mbt.md
 ─────╯
-Warning: [0020]
-     ╭─[ D:\source\moonbit-foundation-phase94-02-capture-967bd91\modules\mb-svg\svg\path_data_wbtest.mbt:207:19 ]
-     │
- 207 │           inspect((control.x(), control.y(), quad_endpoint.x(), quad_endpoint.y()), content="(25, 26, 25, 26)")
-     │                   ────────────────────────────────┬───────────────────────────────  
-     │                                                   ╰───────────────────────────────── Warning (deprecated): Use Debug instead of Show for debugging purposes. See https://github.com/moonbitlang/core/blob/main/debug/README.mbt.md
+Warning:&#32;[0020]
+&#32;&#32;&#32;&#32;&#32;╭─[&#32;D:\source\moonbit-foundation-phase94-02-capture-14255e6\modules\mb-svg\svg\path_data_wbtest.mbt:207:19&#32;]
+&#32;&#32;&#32;&#32;&#32;│
+&#32;207&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;inspect((control.x(),&#32;control.y(),&#32;quad_endpoint.x(),&#32;quad_endpoint.y()),&#32;content="(25,&#32;26,&#32;25,&#32;26)")
+&#32;&#32;&#32;&#32;&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;────────────────────────────────┬───────────────────────────────&#32;&#32;
+&#32;&#32;&#32;&#32;&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;╰─────────────────────────────────&#32;Warning&#32;(deprecated):&#32;Use&#32;Debug&#32;instead&#32;of&#32;Show&#32;for&#32;debugging&#32;purposes.&#32;See&#32;https://github.com/moonbitlang/core/blob/main/debug/README.mbt.md
 ─────╯
-Warning: [0020]
-     ╭─[ D:\source\moonbit-foundation-phase94-02-capture-967bd91\modules\mb-svg\svg\path_data_wbtest.mbt:221:62 ]
-     │
- 221 │         Some(@math.PathCommand::LineTo(endpoint)) => inspect((endpoint.x(), endpoint.y()), content="(5, 0)")
-     │                                                              ──────────────┬─────────────  
-     │                                                                            ╰─────────────── Warning (deprecated): Use Debug instead of Show for debugging purposes. See https://github.com/moonbitlang/core/blob/main/debug/README.mbt.md
+Warning:&#32;[0020]
+&#32;&#32;&#32;&#32;&#32;╭─[&#32;D:\source\moonbit-foundation-phase94-02-capture-14255e6\modules\mb-svg\svg\path_data_wbtest.mbt:221:62&#32;]
+&#32;&#32;&#32;&#32;&#32;│
+&#32;221&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;Some(@math.PathCommand::LineTo(endpoint))&#32;=&gt;&#32;inspect((endpoint.x(),&#32;endpoint.y()),&#32;content="(5,&#32;0)")
+&#32;&#32;&#32;&#32;&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;──────────────┬─────────────&#32;&#32;
+&#32;&#32;&#32;&#32;&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;╰───────────────&#32;Warning&#32;(deprecated):&#32;Use&#32;Debug&#32;instead&#32;of&#32;Show&#32;for&#32;debugging&#32;purposes.&#32;See&#32;https://github.com/moonbitlang/core/blob/main/debug/README.mbt.md
 ─────╯
-Warning: [0020]
-     ╭─[ D:\source\moonbit-foundation-phase94-02-capture-967bd91\modules\mb-svg\svg\path_data_wbtest.mbt:230:19 ]
-     │
- 230 │           inspect((cp1.x(), cp1.y(), cp2.x(), cp2.y(), endpoint.x(), endpoint.y()), content="(0, 0, 1, 0, 2, 0)")
-     │                   ────────────────────────────────┬───────────────────────────────  
-     │                                                   ╰───────────────────────────────── Warning (deprecated): Use Debug instead of Show for debugging purposes. See https://github.com/moonbitlang/core/blob/main/debug/README.mbt.md
+Warning:&#32;[0020]
+&#32;&#32;&#32;&#32;&#32;╭─[&#32;D:\source\moonbit-foundation-phase94-02-capture-14255e6\modules\mb-svg\svg\path_data_wbtest.mbt:230:19&#32;]
+&#32;&#32;&#32;&#32;&#32;│
+&#32;230&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;inspect((cp1.x(),&#32;cp1.y(),&#32;cp2.x(),&#32;cp2.y(),&#32;endpoint.x(),&#32;endpoint.y()),&#32;content="(0,&#32;0,&#32;1,&#32;0,&#32;2,&#32;0)")
+&#32;&#32;&#32;&#32;&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;────────────────────────────────┬───────────────────────────────&#32;&#32;
+&#32;&#32;&#32;&#32;&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;╰─────────────────────────────────&#32;Warning&#32;(deprecated):&#32;Use&#32;Debug&#32;instead&#32;of&#32;Show&#32;for&#32;debugging&#32;purposes.&#32;See&#32;https://github.com/moonbitlang/core/blob/main/debug/README.mbt.md
 ─────╯
-Warning: [0020]
-     ╭─[ D:\source\moonbit-foundation-phase94-02-capture-967bd91\modules\mb-svg\svg\portable_qualification_wbtest.mbt:111:9 ]
-     │
- 111 │         (corner_r.to_int(), corner_g.to_int(), corner_b.to_int(), corner_a.to_int()),
-     │         ──────────────────────────────────────┬─────────────────────────────────────  
-     │                                               ╰─────────────────────────────────────── Warning (deprecated): Use Debug instead of Show for debugging purposes. See https://github.com/moonbitlang/core/blob/main/debug/README.mbt.md
+Warning:&#32;[0020]
+&#32;&#32;&#32;&#32;&#32;╭─[&#32;D:\source\moonbit-foundation-phase94-02-capture-14255e6\modules\mb-svg\svg\portable_qualification_wbtest.mbt:111:9&#32;]
+&#32;&#32;&#32;&#32;&#32;│
+&#32;111&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;(corner_r.to_int(),&#32;corner_g.to_int(),&#32;corner_b.to_int(),&#32;corner_a.to_int()),
+&#32;&#32;&#32;&#32;&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;──────────────────────────────────────┬─────────────────────────────────────&#32;&#32;
+&#32;&#32;&#32;&#32;&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;╰───────────────────────────────────────&#32;Warning&#32;(deprecated):&#32;Use&#32;Debug&#32;instead&#32;of&#32;Show&#32;for&#32;debugging&#32;purposes.&#32;See&#32;https://github.com/moonbitlang/core/blob/main/debug/README.mbt.md
 ─────╯
-Warning: [0020]
-     ╭─[ D:\source\moonbit-foundation-phase94-02-capture-967bd91\modules\mb-svg\svg\portable_qualification_wbtest.mbt:136:15 ]
-     │
- 136 │       inspect((r.to_int(), g.to_int(), b.to_int(), a.to_int()), content="(0, 0, 255, 255)")
-     │               ────────────────────────┬───────────────────────  
-     │                                       ╰───────────────────────── Warning (deprecated): Use Debug instead of Show for debugging purposes. See https://github.com/moonbitlang/core/blob/main/debug/README.mbt.md
+Warning:&#32;[0020]
+&#32;&#32;&#32;&#32;&#32;╭─[&#32;D:\source\moonbit-foundation-phase94-02-capture-14255e6\modules\mb-svg\svg\portable_qualification_wbtest.mbt:136:15&#32;]
+&#32;&#32;&#32;&#32;&#32;│
+&#32;136&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;inspect((r.to_int(),&#32;g.to_int(),&#32;b.to_int(),&#32;a.to_int()),&#32;content="(0,&#32;0,&#32;255,&#32;255)")
+&#32;&#32;&#32;&#32;&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;────────────────────────┬───────────────────────&#32;&#32;
+&#32;&#32;&#32;&#32;&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;╰─────────────────────────&#32;Warning&#32;(deprecated):&#32;Use&#32;Debug&#32;instead&#32;of&#32;Show&#32;for&#32;debugging&#32;purposes.&#32;See&#32;https://github.com/moonbitlang/core/blob/main/debug/README.mbt.md
 ─────╯
-Warning: [0020]
-     ╭─[ D:\source\moonbit-foundation-phase94-02-capture-967bd91\modules\mb-svg\svg\portable_qualification_wbtest.mbt:151:19 ]
-     │
- 151 │           inspect((fill.color_a, stroke.color_a), content="(0.5, 0.5)")
-     │                   ───────────────┬──────────────  
-     │                                  ╰──────────────── Warning (deprecated): Use Debug instead of Show for debugging purposes. See https://github.com/moonbitlang/core/blob/main/debug/README.mbt.md
+Warning:&#32;[0020]
+&#32;&#32;&#32;&#32;&#32;╭─[&#32;D:\source\moonbit-foundation-phase94-02-capture-14255e6\modules\mb-svg\svg\portable_qualification_wbtest.mbt:151:19&#32;]
+&#32;&#32;&#32;&#32;&#32;│
+&#32;151&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;inspect((fill.color_a,&#32;stroke.color_a),&#32;content="(0.5,&#32;0.5)")
+&#32;&#32;&#32;&#32;&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;───────────────┬──────────────&#32;&#32;
+&#32;&#32;&#32;&#32;&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;╰────────────────&#32;Warning&#32;(deprecated):&#32;Use&#32;Debug&#32;instead&#32;of&#32;Show&#32;for&#32;debugging&#32;purposes.&#32;See&#32;https://github.com/moonbitlang/core/blob/main/debug/README.mbt.md
 ─────╯
-Warning: [0020]
-     ╭─[ D:\source\moonbit-foundation-phase94-02-capture-967bd91\modules\mb-svg\svg\portable_qualification_wbtest.mbt:166:9 ]
-     │
- 166 │         (stroke_r.to_int(), stroke_g.to_int(), stroke_b.to_int(), stroke_a.to_int()),
-     │         ──────────────────────────────────────┬─────────────────────────────────────  
-     │                                               ╰─────────────────────────────────────── Warning (deprecated): Use Debug instead of Show for debugging purposes. See https://github.com/moonbitlang/core/blob/main/debug/README.mbt.md
+Warning:&#32;[0020]
+&#32;&#32;&#32;&#32;&#32;╭─[&#32;D:\source\moonbit-foundation-phase94-02-capture-14255e6\modules\mb-svg\svg\portable_qualification_wbtest.mbt:166:9&#32;]
+&#32;&#32;&#32;&#32;&#32;│
+&#32;166&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;(stroke_r.to_int(),&#32;stroke_g.to_int(),&#32;stroke_b.to_int(),&#32;stroke_a.to_int()),
+&#32;&#32;&#32;&#32;&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;──────────────────────────────────────┬─────────────────────────────────────&#32;&#32;
+&#32;&#32;&#32;&#32;&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;╰───────────────────────────────────────&#32;Warning&#32;(deprecated):&#32;Use&#32;Debug&#32;instead&#32;of&#32;Show&#32;for&#32;debugging&#32;purposes.&#32;See&#32;https://github.com/moonbitlang/core/blob/main/debug/README.mbt.md
 ─────╯
-Warning: [0020]
-     ╭─[ D:\source\moonbit-foundation-phase94-02-capture-967bd91\modules\mb-svg\svg\portable_qualification_wbtest.mbt:192:15 ]
-     │
- 192 │       inspect((r.to_int(), g.to_int(), b.to_int(), a.to_int()), content="(128, 128, 255, 255)")
-     │               ────────────────────────┬───────────────────────  
-     │                                       ╰───────────────────────── Warning (deprecated): Use Debug instead of Show for debugging purposes. See https://github.com/moonbitlang/core/blob/main/debug/README.mbt.md
+Warning:&#32;[0020]
+&#32;&#32;&#32;&#32;&#32;╭─[&#32;D:\source\moonbit-foundation-phase94-02-capture-14255e6\modules\mb-svg\svg\portable_qualification_wbtest.mbt:192:15&#32;]
+&#32;&#32;&#32;&#32;&#32;│
+&#32;192&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;inspect((r.to_int(),&#32;g.to_int(),&#32;b.to_int(),&#32;a.to_int()),&#32;content="(128,&#32;128,&#32;255,&#32;255)")
+&#32;&#32;&#32;&#32;&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;────────────────────────┬───────────────────────&#32;&#32;
+&#32;&#32;&#32;&#32;&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;╰─────────────────────────&#32;Warning&#32;(deprecated):&#32;Use&#32;Debug&#32;instead&#32;of&#32;Show&#32;for&#32;debugging&#32;purposes.&#32;See&#32;https://github.com/moonbitlang/core/blob/main/debug/README.mbt.md
 ─────╯
-Warning: [0020]
-     ╭─[ D:\source\moonbit-foundation-phase94-02-capture-967bd91\modules\mb-svg\svg\portable_qualification_wbtest.mbt:207:19 ]
-     │
- 207 │           inspect((group, element), content="(0.5, 0.5)")
-     │                   ────────┬───────  
-     │                           ╰───────── Warning (deprecated): Use Debug instead of Show for debugging purposes. See https://github.com/moonbitlang/core/blob/main/debug/README.mbt.md
+Warning:&#32;[0020]
+&#32;&#32;&#32;&#32;&#32;╭─[&#32;D:\source\moonbit-foundation-phase94-02-capture-14255e6\modules\mb-svg\svg\portable_qualification_wbtest.mbt:207:19&#32;]
+&#32;&#32;&#32;&#32;&#32;│
+&#32;207&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;inspect((group,&#32;element),&#32;content="(0.5,&#32;0.5)")
+&#32;&#32;&#32;&#32;&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;────────┬───────&#32;&#32;
+&#32;&#32;&#32;&#32;&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;╰─────────&#32;Warning&#32;(deprecated):&#32;Use&#32;Debug&#32;instead&#32;of&#32;Show&#32;for&#32;debugging&#32;purposes.&#32;See&#32;https://github.com/moonbitlang/core/blob/main/debug/README.mbt.md
 ─────╯
-Warning: [0020]
-     ╭─[ D:\source\moonbit-foundation-phase94-02-capture-967bd91\modules\mb-svg\svg\portable_qualification_wbtest.mbt:250:9 ]
-     │
- 250 │ ╭─▶         (
-     ┆ ┆   
- 255 │ ├─▶         ),
-     │ │                
-     │ ╰──────────────── Warning (deprecated): Use Debug instead of Show for debugging purposes. See https://github.com/moonbitlang/core/blob/main/debug/README.mbt.md
+Warning:&#32;[0020]
+&#32;&#32;&#32;&#32;&#32;╭─[&#32;D:\source\moonbit-foundation-phase94-02-capture-14255e6\modules\mb-svg\svg\portable_qualification_wbtest.mbt:250:9&#32;]
+&#32;&#32;&#32;&#32;&#32;│
+&#32;250&#32;│&#32;╭─▶&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;(
+&#32;&#32;&#32;&#32;&#32;┆&#32;┆&#32;&#32;&#32;
+&#32;255&#32;│&#32;├─▶&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;),
+&#32;&#32;&#32;&#32;&#32;│&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;
+&#32;&#32;&#32;&#32;&#32;│&#32;╰────────────────&#32;Warning&#32;(deprecated):&#32;Use&#32;Debug&#32;instead&#32;of&#32;Show&#32;for&#32;debugging&#32;purposes.&#32;See&#32;https://github.com/moonbitlang/core/blob/main/debug/README.mbt.md
 ─────╯
-Warning: [0020]
-     ╭─[ D:\source\moonbit-foundation-phase94-02-capture-967bd91\modules\mb-svg\svg\portable_qualification_wbtest.mbt:336:9 ]
-     │
- 336 │         (corner_r.to_int(), corner_g.to_int(), corner_b.to_int(), corner_a.to_int()),
-     │         ──────────────────────────────────────┬─────────────────────────────────────  
-     │                                               ╰─────────────────────────────────────── Warning (deprecated): Use Debug instead of Show for debugging purposes. See https://github.com/moonbitlang/core/blob/main/debug/README.mbt.md
+Warning:&#32;[0020]
+&#32;&#32;&#32;&#32;&#32;╭─[&#32;D:\source\moonbit-foundation-phase94-02-capture-14255e6\modules\mb-svg\svg\portable_qualification_wbtest.mbt:336:9&#32;]
+&#32;&#32;&#32;&#32;&#32;│
+&#32;336&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;(corner_r.to_int(),&#32;corner_g.to_int(),&#32;corner_b.to_int(),&#32;corner_a.to_int()),
+&#32;&#32;&#32;&#32;&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;──────────────────────────────────────┬─────────────────────────────────────&#32;&#32;
+&#32;&#32;&#32;&#32;&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;╰───────────────────────────────────────&#32;Warning&#32;(deprecated):&#32;Use&#32;Debug&#32;instead&#32;of&#32;Show&#32;for&#32;debugging&#32;purposes.&#32;See&#32;https://github.com/moonbitlang/core/blob/main/debug/README.mbt.md
 ─────╯
-Warning: [0004]
-     ╭─[ D:\source\moonbit-foundation-phase94-02-capture-967bd91\modules\mb-svg\svg\scene.mbt:100:8 ]
-     │
- 100 │ struct PaintContext {
-     │        ──────┬─────  
-     │              ╰─────── Warning (missing_priv): The type 'PaintContext' does not occur in public signature of current package, consider marking it as `priv`.
+Warning:&#32;[0004]
+&#32;&#32;&#32;&#32;&#32;╭─[&#32;D:\source\moonbit-foundation-phase94-02-capture-14255e6\modules\mb-svg\svg\scene.mbt:100:8&#32;]
+&#32;&#32;&#32;&#32;&#32;│
+&#32;100&#32;│&#32;struct&#32;PaintContext&#32;{
+&#32;&#32;&#32;&#32;&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;──────┬─────&#32;&#32;
+&#32;&#32;&#32;&#32;&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;╰───────&#32;Warning&#32;(missing_priv):&#32;The&#32;type&#32;'PaintContext'&#32;does&#32;not&#32;occur&#32;in&#32;public&#32;signature&#32;of&#32;current&#32;package,&#32;consider&#32;marking&#32;it&#32;as&#32;`priv`.
 ─────╯
-Warning: [0020]
-    ╭─[ D:\source\moonbit-foundation-phase94-02-capture-967bd91\modules\mb-svg\svg\scene_wbtest.mbt:19:15 ]
-    │
- 19 │       inspect(root.height, content="Some(20)")
-    │               ─────┬─────  
-    │                    ╰─────── Warning (deprecated): Use Debug instead of Show for debugging purposes. See https://github.com/moonbitlang/core/blob/main/debug/README.mbt.md
+Warning:&#32;[0020]
+&#32;&#32;&#32;&#32;╭─[&#32;D:\source\moonbit-foundation-phase94-02-capture-14255e6\modules\mb-svg\svg\scene_wbtest.mbt:19:15&#32;]
+&#32;&#32;&#32;&#32;│
+&#32;19&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;inspect(root.height,&#32;content="Some(20)")
+&#32;&#32;&#32;&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;─────┬─────&#32;&#32;
+&#32;&#32;&#32;&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;╰───────&#32;Warning&#32;(deprecated):&#32;Use&#32;Debug&#32;instead&#32;of&#32;Show&#32;for&#32;debugging&#32;purposes.&#32;See&#32;https://github.com/moonbitlang/core/blob/main/debug/README.mbt.md
 ────╯
-Warning: [0020]
-    ╭─[ D:\source\moonbit-foundation-phase94-02-capture-967bd91\modules\mb-svg\svg\scene_wbtest.mbt:21:39 ]
-    │
- 21 │         Some((x, y, w, h)) => inspect((x, y, w, h), content="(0, 0, 100, 50)")
-    │                                       ──────┬─────  
-    │                                             ╰─────── Warning (deprecated): Use Debug instead of Show for debugging purposes. See https://github.com/moonbitlang/core/blob/main/debug/README.mbt.md
+Warning:&#32;[0020]
+&#32;&#32;&#32;&#32;╭─[&#32;D:\source\moonbit-foundation-phase94-02-capture-14255e6\modules\mb-svg\svg\scene_wbtest.mbt:21:39&#32;]
+&#32;&#32;&#32;&#32;│
+&#32;21&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;Some((x,&#32;y,&#32;w,&#32;h))&#32;=&gt;&#32;inspect((x,&#32;y,&#32;w,&#32;h),&#32;content="(0,&#32;0,&#32;100,&#32;50)")
+&#32;&#32;&#32;&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;──────┬─────&#32;&#32;
+&#32;&#32;&#32;&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;╰───────&#32;Warning&#32;(deprecated):&#32;Use&#32;Debug&#32;instead&#32;of&#32;Show&#32;for&#32;debugging&#32;purposes.&#32;See&#32;https://github.com/moonbitlang/core/blob/main/debug/README.mbt.md
 ────╯
-Warning: [0020]
-    ╭─[ D:\source\moonbit-foundation-phase94-02-capture-967bd91\modules\mb-svg\svg\scene_wbtest.mbt:43:27 ]
-    │
- 43 │                   inspect((x, y, w, h), content="(1, 2, 3, 4)")
-    │                           ──────┬─────  
-    │                                 ╰─────── Warning (deprecated): Use Debug instead of Show for debugging purposes. See https://github.com/moonbitlang/core/blob/main/debug/README.mbt.md
+Warning:&#32;[0020]
+&#32;&#32;&#32;&#32;╭─[&#32;D:\source\moonbit-foundation-phase94-02-capture-14255e6\modules\mb-svg\svg\scene_wbtest.mbt:43:27&#32;]
+&#32;&#32;&#32;&#32;│
+&#32;43&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;inspect((x,&#32;y,&#32;w,&#32;h),&#32;content="(1,&#32;2,&#32;3,&#32;4)")
+&#32;&#32;&#32;&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;──────┬─────&#32;&#32;
+&#32;&#32;&#32;&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;╰───────&#32;Warning&#32;(deprecated):&#32;Use&#32;Debug&#32;instead&#32;of&#32;Show&#32;for&#32;debugging&#32;purposes.&#32;See&#32;https://github.com/moonbitlang/core/blob/main/debug/README.mbt.md
 ────╯
-Warning: [0020]
-    ╭─[ D:\source\moonbit-foundation-phase94-02-capture-967bd91\modules\mb-svg\svg\scene_wbtest.mbt:62:19 ]
-    │
- 62 │           inspect((x, y, w, h, rx, ry), content="(1, 2, 3, 4, 0, 0)")
-    │                   ──────────┬─────────  
-    │                             ╰─────────── Warning (deprecated): Use Debug instead of Show for debugging purposes. See https://github.com/moonbitlang/core/blob/main/debug/README.mbt.md
+Warning:&#32;[0020]
+&#32;&#32;&#32;&#32;╭─[&#32;D:\source\moonbit-foundation-phase94-02-capture-14255e6\modules\mb-svg\svg\scene_wbtest.mbt:62:19&#32;]
+&#32;&#32;&#32;&#32;│
+&#32;62&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;inspect((x,&#32;y,&#32;w,&#32;h,&#32;rx,&#32;ry),&#32;content="(1,&#32;2,&#32;3,&#32;4,&#32;0,&#32;0)")
+&#32;&#32;&#32;&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;──────────┬─────────&#32;&#32;
+&#32;&#32;&#32;&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;╰───────────&#32;Warning&#32;(deprecated):&#32;Use&#32;Debug&#32;instead&#32;of&#32;Show&#32;for&#32;debugging&#32;purposes.&#32;See&#32;https://github.com/moonbitlang/core/blob/main/debug/README.mbt.md
 ────╯
-Warning: [0020]
-    ╭─[ D:\source\moonbit-foundation-phase94-02-capture-967bd91\modules\mb-svg\svg\scene_wbtest.mbt:67:19 ]
-    │
- 67 │           inspect(paint.stroke, content="None")
-    │                   ──────┬─────  
-    │                         ╰─────── Warning (deprecated): Use Debug instead of Show for debugging purposes. See https://github.com/moonbitlang/core/blob/main/debug/README.mbt.md
+Warning:&#32;[0020]
+&#32;&#32;&#32;&#32;╭─[&#32;D:\source\moonbit-foundation-phase94-02-capture-14255e6\modules\mb-svg\svg\scene_wbtest.mbt:67:19&#32;]
+&#32;&#32;&#32;&#32;│
+&#32;67&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;inspect(paint.stroke,&#32;content="None")
+&#32;&#32;&#32;&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;──────┬─────&#32;&#32;
+&#32;&#32;&#32;&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;╰───────&#32;Warning&#32;(deprecated):&#32;Use&#32;Debug&#32;instead&#32;of&#32;Show&#32;for&#32;debugging&#32;purposes.&#32;See&#32;https://github.com/moonbitlang/core/blob/main/debug/README.mbt.md
 ────╯
-Warning: [0020]
-    ╭─[ D:\source\moonbit-foundation-phase94-02-capture-967bd91\modules\mb-svg\svg\scene_wbtest.mbt:83:19 ]
-    │
- 83 │           inspect(paint.fill, content="None")
-    │                   ─────┬────  
-    │                        ╰────── Warning (deprecated): Use Debug instead of Show for debugging purposes. See https://github.com/moonbitlang/core/blob/main/debug/README.mbt.md
+Warning:&#32;[0020]
+&#32;&#32;&#32;&#32;╭─[&#32;D:\source\moonbit-foundation-phase94-02-capture-14255e6\modules\mb-svg\svg\scene_wbtest.mbt:83:19&#32;]
+&#32;&#32;&#32;&#32;│
+&#32;83&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;inspect(paint.fill,&#32;content="None")
+&#32;&#32;&#32;&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;─────┬────&#32;&#32;
+&#32;&#32;&#32;&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;╰──────&#32;Warning&#32;(deprecated):&#32;Use&#32;Debug&#32;instead&#32;of&#32;Show&#32;for&#32;debugging&#32;purposes.&#32;See&#32;https://github.com/moonbitlang/core/blob/main/debug/README.mbt.md
 ────╯
-Warning: [0020]
-    ╭─[ D:\source\moonbit-foundation-phase94-02-capture-967bd91\modules\mb-svg\svg\scene_wbtest.mbt:85:40 ]
-    │
- 85 │             Some((r, g, b)) => inspect((r, g, b), content="(0, 0, 1)")
-    │                                        ────┬────  
-    │                                            ╰────── Warning (deprecated): Use Debug instead of Show for debugging purposes. See https://github.com/moonbitlang/core/blob/main/debug/README.mbt.md
+Warning:&#32;[0020]
+&#32;&#32;&#32;&#32;╭─[&#32;D:\source\moonbit-foundation-phase94-02-capture-14255e6\modules\mb-svg\svg\scene_wbtest.mbt:85:40&#32;]
+&#32;&#32;&#32;&#32;│
+&#32;85&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;Some((r,&#32;g,&#32;b))&#32;=&gt;&#32;inspect((r,&#32;g,&#32;b),&#32;content="(0,&#32;0,&#32;1)")
+&#32;&#32;&#32;&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;────┬────&#32;&#32;
+&#32;&#32;&#32;&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;╰──────&#32;Warning&#32;(deprecated):&#32;Use&#32;Debug&#32;instead&#32;of&#32;Show&#32;for&#32;debugging&#32;purposes.&#32;See&#32;https://github.com/moonbitlang/core/blob/main/debug/README.mbt.md
 ────╯
-Warning: [0020]
-     ╭─[ D:\source\moonbit-foundation-phase94-02-capture-967bd91\modules\mb-svg\svg\scene_wbtest.mbt:122:23 ]
-     │
- 122 │               inspect((p2.x(), p2.y()), content="(10, 10)")
-     │                       ────────┬───────  
-     │                               ╰───────── Warning (deprecated): Use Debug instead of Show for debugging purposes. See https://github.com/moonbitlang/core/blob/main/debug/README.mbt.md
+Warning:&#32;[0020]
+&#32;&#32;&#32;&#32;&#32;╭─[&#32;D:\source\moonbit-foundation-phase94-02-capture-14255e6\modules\mb-svg\svg\scene_wbtest.mbt:122:23&#32;]
+&#32;&#32;&#32;&#32;&#32;│
+&#32;122&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;inspect((p2.x(),&#32;p2.y()),&#32;content="(10,&#32;10)")
+&#32;&#32;&#32;&#32;&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;────────┬───────&#32;&#32;
+&#32;&#32;&#32;&#32;&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;╰─────────&#32;Warning&#32;(deprecated):&#32;Use&#32;Debug&#32;instead&#32;of&#32;Show&#32;for&#32;debugging&#32;purposes.&#32;See&#32;https://github.com/moonbitlang/core/blob/main/debug/README.mbt.md
 ─────╯
-Warning: [0020]
-     ╭─[ D:\source\moonbit-foundation-phase94-02-capture-967bd91\modules\mb-svg\svg\scene_wbtest.mbt:154:23 ]
-     │
- 154 │               inspect((x, y, width, height), content="(1, 2, 3, 4)")
-     │                       ──────────┬──────────  
-     │                                 ╰──────────── Warning (deprecated): Use Debug instead of Show for debugging purposes. See https://github.com/moonbitlang/core/blob/main/debug/README.mbt.md
+Warning:&#32;[0020]
+&#32;&#32;&#32;&#32;&#32;╭─[&#32;D:\source\moonbit-foundation-phase94-02-capture-14255e6\modules\mb-svg\svg\scene_wbtest.mbt:154:23&#32;]
+&#32;&#32;&#32;&#32;&#32;│
+&#32;154&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;inspect((x,&#32;y,&#32;width,&#32;height),&#32;content="(1,&#32;2,&#32;3,&#32;4)")
+&#32;&#32;&#32;&#32;&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;──────────┬──────────&#32;&#32;
+&#32;&#32;&#32;&#32;&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;╰────────────&#32;Warning&#32;(deprecated):&#32;Use&#32;Debug&#32;instead&#32;of&#32;Show&#32;for&#32;debugging&#32;purposes.&#32;See&#32;https://github.com/moonbitlang/core/blob/main/debug/README.mbt.md
 ─────╯
-Warning: [0020]
-     ╭─[ D:\source\moonbit-foundation-phase94-02-capture-967bd91\modules\mb-svg\svg\scene_wbtest.mbt:212:44 ]
-     │
- 212 │                 Some((r, g, b)) => inspect((r, g, b), content="(1, 0, 0)")
-     │                                            ────┬────  
-     │                                                ╰────── Warning (deprecated): Use Debug instead of Show for debugging purposes. See https://github.com/moonbitlang/core/blob/main/debug/README.mbt.md
+Warning:&#32;[0020]
+&#32;&#32;&#32;&#32;&#32;╭─[&#32;D:\source\moonbit-foundation-phase94-02-capture-14255e6\modules\mb-svg\svg\scene_wbtest.mbt:212:44&#32;]
+&#32;&#32;&#32;&#32;&#32;│
+&#32;212&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;Some((r,&#32;g,&#32;b))&#32;=&gt;&#32;inspect((r,&#32;g,&#32;b),&#32;content="(1,&#32;0,&#32;0)")
+&#32;&#32;&#32;&#32;&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;────┬────&#32;&#32;
+&#32;&#32;&#32;&#32;&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;╰──────&#32;Warning&#32;(deprecated):&#32;Use&#32;Debug&#32;instead&#32;of&#32;Show&#32;for&#32;debugging&#32;purposes.&#32;See&#32;https://github.com/moonbitlang/core/blob/main/debug/README.mbt.md
 ─────╯
-Warning: [0020]
-     ╭─[ D:\source\moonbit-foundation-phase94-02-capture-967bd91\modules\mb-svg\svg\scene_wbtest.mbt:234:44 ]
-     │
- 234 │                 Some((r, g, b)) => inspect((r, g, b), content="(0, 0, 1)")
-     │                                            ────┬────  
-     │                                                ╰────── Warning (deprecated): Use Debug instead of Show for debugging purposes. See https://github.com/moonbitlang/core/blob/main/debug/README.mbt.md
+Warning:&#32;[0020]
+&#32;&#32;&#32;&#32;&#32;╭─[&#32;D:\source\moonbit-foundation-phase94-02-capture-14255e6\modules\mb-svg\svg\scene_wbtest.mbt:234:44&#32;]
+&#32;&#32;&#32;&#32;&#32;│
+&#32;234&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;Some((r,&#32;g,&#32;b))&#32;=&gt;&#32;inspect((r,&#32;g,&#32;b),&#32;content="(0,&#32;0,&#32;1)")
+&#32;&#32;&#32;&#32;&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;────┬────&#32;&#32;
+&#32;&#32;&#32;&#32;&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;╰──────&#32;Warning&#32;(deprecated):&#32;Use&#32;Debug&#32;instead&#32;of&#32;Show&#32;for&#32;debugging&#32;purposes.&#32;See&#32;https://github.com/moonbitlang/core/blob/main/debug/README.mbt.md
 ─────╯
-Warning: [0020]
-     ╭─[ D:\source\moonbit-foundation-phase94-02-capture-967bd91\modules\mb-svg\svg\scene_wbtest.mbt:282:44 ]
-     │
- 282 │                 Some((r, g, b)) => inspect((r, g, b), content="(0, 0, 1)")
-     │                                            ────┬────  
-     │                                                ╰────── Warning (deprecated): Use Debug instead of Show for debugging purposes. See https://github.com/moonbitlang/core/blob/main/debug/README.mbt.md
+Warning:&#32;[0020]
+&#32;&#32;&#32;&#32;&#32;╭─[&#32;D:\source\moonbit-foundation-phase94-02-capture-14255e6\modules\mb-svg\svg\scene_wbtest.mbt:282:44&#32;]
+&#32;&#32;&#32;&#32;&#32;│
+&#32;282&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;Some((r,&#32;g,&#32;b))&#32;=&gt;&#32;inspect((r,&#32;g,&#32;b),&#32;content="(0,&#32;0,&#32;1)")
+&#32;&#32;&#32;&#32;&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;────┬────&#32;&#32;
+&#32;&#32;&#32;&#32;&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;╰──────&#32;Warning&#32;(deprecated):&#32;Use&#32;Debug&#32;instead&#32;of&#32;Show&#32;for&#32;debugging&#32;purposes.&#32;See&#32;https://github.com/moonbitlang/core/blob/main/debug/README.mbt.md
 ─────╯
-Warning: [0020]
-     ╭─[ D:\source\moonbit-foundation-phase94-02-capture-967bd91\modules\mb-svg\svg\scene_wbtest.mbt:302:54 ]
-     │
- 302 │             Rect(paint, _, _, _, _, _, _) => inspect(paint.fill, content="None")
-     │                                                      ─────┬────  
-     │                                                           ╰────── Warning (deprecated): Use Debug instead of Show for debugging purposes. See https://github.com/moonbitlang/core/blob/main/debug/README.mbt.md
+Warning:&#32;[0020]
+&#32;&#32;&#32;&#32;&#32;╭─[&#32;D:\source\moonbit-foundation-phase94-02-capture-14255e6\modules\mb-svg\svg\scene_wbtest.mbt:302:54&#32;]
+&#32;&#32;&#32;&#32;&#32;│
+&#32;302&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;Rect(paint,&#32;_,&#32;_,&#32;_,&#32;_,&#32;_,&#32;_)&#32;=&gt;&#32;inspect(paint.fill,&#32;content="None")
+&#32;&#32;&#32;&#32;&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;─────┬────&#32;&#32;
+&#32;&#32;&#32;&#32;&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;╰──────&#32;Warning&#32;(deprecated):&#32;Use&#32;Debug&#32;instead&#32;of&#32;Show&#32;for&#32;debugging&#32;purposes.&#32;See&#32;https://github.com/moonbitlang/core/blob/main/debug/README.mbt.md
 ─────╯
-Warning: [0020]
-     ╭─[ D:\source\moonbit-foundation-phase94-02-capture-967bd91\modules\mb-svg\svg\scene_wbtest.mbt:350:44 ]
-     │
- 350 │                 Some((r, g, b)) => inspect((r, g, b), content="(0, 0, 1)")
-     │                                            ────┬────  
-     │                                                ╰────── Warning (deprecated): Use Debug instead of Show for debugging purposes. See https://github.com/moonbitlang/core/blob/main/debug/README.mbt.md
+Warning:&#32;[0020]
+&#32;&#32;&#32;&#32;&#32;╭─[&#32;D:\source\moonbit-foundation-phase94-02-capture-14255e6\modules\mb-svg\svg\scene_wbtest.mbt:350:44&#32;]
+&#32;&#32;&#32;&#32;&#32;│
+&#32;350&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;Some((r,&#32;g,&#32;b))&#32;=&gt;&#32;inspect((r,&#32;g,&#32;b),&#32;content="(0,&#32;0,&#32;1)")
+&#32;&#32;&#32;&#32;&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;────┬────&#32;&#32;
+&#32;&#32;&#32;&#32;&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;╰──────&#32;Warning&#32;(deprecated):&#32;Use&#32;Debug&#32;instead&#32;of&#32;Show&#32;for&#32;debugging&#32;purposes.&#32;See&#32;https://github.com/moonbitlang/core/blob/main/debug/README.mbt.md
 ─────╯
-Warning: [0020]
-     ╭─[ D:\source\moonbit-foundation-phase94-02-capture-967bd91\modules\mb-svg\svg\scene_wbtest.mbt:372:15 ]
-     │
- 372 │       inspect(root.view_box, content="Some((0, 0, 65536, 65536))")
-     │               ──────┬──────  
-     │                     ╰──────── Warning (deprecated): Use Debug instead of Show for debugging purposes. See https://github.com/moonbitlang/core/blob/main/debug/README.mbt.md
+Warning:&#32;[0020]
+&#32;&#32;&#32;&#32;&#32;╭─[&#32;D:\source\moonbit-foundation-phase94-02-capture-14255e6\modules\mb-svg\svg\scene_wbtest.mbt:372:15&#32;]
+&#32;&#32;&#32;&#32;&#32;│
+&#32;372&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;inspect(root.view_box,&#32;content="Some((0,&#32;0,&#32;65536,&#32;65536))")
+&#32;&#32;&#32;&#32;&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;──────┬──────&#32;&#32;
+&#32;&#32;&#32;&#32;&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;╰────────&#32;Warning&#32;(deprecated):&#32;Use&#32;Debug&#32;instead&#32;of&#32;Show&#32;for&#32;debugging&#32;purposes.&#32;See&#32;https://github.com/moonbitlang/core/blob/main/debug/README.mbt.md
 ─────╯
-Warning: [0020]
-     ╭─[ D:\source\moonbit-foundation-phase94-02-capture-967bd91\modules\mb-svg\svg\scene_wbtest.mbt:376:19 ]
-     │
- 376 │           inspect((x, y, width, height), content="(-65536, -65536, 65536, 65536)")
-     │                   ──────────┬──────────  
-     │                             ╰──────────── Warning (deprecated): Use Debug instead of Show for debugging purposes. See https://github.com/moonbitlang/core/blob/main/debug/README.mbt.md
+Warning:&#32;[0020]
+&#32;&#32;&#32;&#32;&#32;╭─[&#32;D:\source\moonbit-foundation-phase94-02-capture-14255e6\modules\mb-svg\svg\scene_wbtest.mbt:376:19&#32;]
+&#32;&#32;&#32;&#32;&#32;│
+&#32;376&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;inspect((x,&#32;y,&#32;width,&#32;height),&#32;content="(-65536,&#32;-65536,&#32;65536,&#32;65536)")
+&#32;&#32;&#32;&#32;&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;──────────┬──────────&#32;&#32;
+&#32;&#32;&#32;&#32;&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;╰────────────&#32;Warning&#32;(deprecated):&#32;Use&#32;Debug&#32;instead&#32;of&#32;Show&#32;for&#32;debugging&#32;purposes.&#32;See&#32;https://github.com/moonbitlang/core/blob/main/debug/README.mbt.md
 ─────╯
-Warning: [0020]
-     ╭─[ D:\source\moonbit-foundation-phase94-02-capture-967bd91\modules\mb-svg\svg\scene_wbtest.mbt:377:19 ]
-     │
- 377 │           inspect(paint.stroke_dash, content="[1, 65536]")
-     │                   ────────┬────────  
-     │                           ╰────────── Warning (deprecated): Use Debug instead of Show for debugging purposes. See https://github.com/moonbitlang/core/blob/main/debug/README.mbt.md
+Warning:&#32;[0020]
+&#32;&#32;&#32;&#32;&#32;╭─[&#32;D:\source\moonbit-foundation-phase94-02-capture-14255e6\modules\mb-svg\svg\scene_wbtest.mbt:377:19&#32;]
+&#32;&#32;&#32;&#32;&#32;│
+&#32;377&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;inspect(paint.stroke_dash,&#32;content="[1,&#32;65536]")
+&#32;&#32;&#32;&#32;&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;────────┬────────&#32;&#32;
+&#32;&#32;&#32;&#32;&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;╰──────────&#32;Warning&#32;(deprecated):&#32;Use&#32;Debug&#32;instead&#32;of&#32;Show&#32;for&#32;debugging&#32;purposes.&#32;See&#32;https://github.com/moonbitlang/core/blob/main/debug/README.mbt.md
 ─────╯
-Warning: [0020]
-     ╭─[ D:\source\moonbit-foundation-phase94-02-capture-967bd91\modules\mb-svg\svg\scene_wbtest.mbt:378:19 ]
-     │
- 378 │           inspect((paint.fill_opacity, paint.stroke_opacity, paint.stroke_width, paint.stroke_miterlimit, paint.stroke_dashoffset), content="(65536, 65536, 65536, 65536, 65536)")
-     │                   ────────────────────────────────────────────────────────┬───────────────────────────────────────────────────────  
-     │                                                                           ╰───────────────────────────────────────────────────────── Warning (deprecated): Use Debug instead of Show for debugging purposes. See https://github.com/moonbitlang/core/blob/main/debug/README.mbt.md
+Warning:&#32;[0020]
+&#32;&#32;&#32;&#32;&#32;╭─[&#32;D:\source\moonbit-foundation-phase94-02-capture-14255e6\modules\mb-svg\svg\scene_wbtest.mbt:378:19&#32;]
+&#32;&#32;&#32;&#32;&#32;│
+&#32;378&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;inspect((paint.fill_opacity,&#32;paint.stroke_opacity,&#32;paint.stroke_width,&#32;paint.stroke_miterlimit,&#32;paint.stroke_dashoffset),&#32;content="(65536,&#32;65536,&#32;65536,&#32;65536,&#32;65536)")
+&#32;&#32;&#32;&#32;&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;────────────────────────────────────────────────────────┬───────────────────────────────────────────────────────&#32;&#32;
+&#32;&#32;&#32;&#32;&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;╰─────────────────────────────────────────────────────────&#32;Warning&#32;(deprecated):&#32;Use&#32;Debug&#32;instead&#32;of&#32;Show&#32;for&#32;debugging&#32;purposes.&#32;See&#32;https://github.com/moonbitlang/core/blob/main/debug/README.mbt.md
 ─────╯
-Warning: [0020]
-     ╭─[ D:\source\moonbit-foundation-phase94-02-capture-967bd91\modules\mb-svg\svg\scene_wbtest.mbt:426:15 ]
-     │
- 426 │       inspect(root.height, content="None")
-     │               ─────┬─────  
-     │                    ╰─────── Warning (deprecated): Use Debug instead of Show for debugging purposes. See https://github.com/moonbitlang/core/blob/main/debug/README.mbt.md
+Warning:&#32;[0020]
+&#32;&#32;&#32;&#32;&#32;╭─[&#32;D:\source\moonbit-foundation-phase94-02-capture-14255e6\modules\mb-svg\svg\scene_wbtest.mbt:426:15&#32;]
+&#32;&#32;&#32;&#32;&#32;│
+&#32;426&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;inspect(root.height,&#32;content="None")
+&#32;&#32;&#32;&#32;&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;─────┬─────&#32;&#32;
+&#32;&#32;&#32;&#32;&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;╰───────&#32;Warning&#32;(deprecated):&#32;Use&#32;Debug&#32;instead&#32;of&#32;Show&#32;for&#32;debugging&#32;purposes.&#32;See&#32;https://github.com/moonbitlang/core/blob/main/debug/README.mbt.md
 ─────╯
-Warning: [0020]
-     ╭─[ D:\source\moonbit-foundation-phase94-02-capture-967bd91\modules\mb-svg\svg\scene_wbtest.mbt:430:54 ]
-     │
- 430 │             Rect(paint, _, _, _, _, _, _) => inspect(paint.fill, content="Some((0, 0, 1))")
-     │                                                      ─────┬────  
-     │                                                           ╰────── Warning (deprecated): Use Debug instead of Show for debugging purposes. See https://github.com/moonbitlang/core/blob/main/debug/README.mbt.md
+Warning:&#32;[0020]
+&#32;&#32;&#32;&#32;&#32;╭─[&#32;D:\source\moonbit-foundation-phase94-02-capture-14255e6\modules\mb-svg\svg\scene_wbtest.mbt:430:54&#32;]
+&#32;&#32;&#32;&#32;&#32;│
+&#32;430&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;Rect(paint,&#32;_,&#32;_,&#32;_,&#32;_,&#32;_,&#32;_)&#32;=&gt;&#32;inspect(paint.fill,&#32;content="Some((0,&#32;0,&#32;1))")
+&#32;&#32;&#32;&#32;&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;─────┬────&#32;&#32;
+&#32;&#32;&#32;&#32;&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;╰──────&#32;Warning&#32;(deprecated):&#32;Use&#32;Debug&#32;instead&#32;of&#32;Show&#32;for&#32;debugging&#32;purposes.&#32;See&#32;https://github.com/moonbitlang/core/blob/main/debug/README.mbt.md
 ─────╯
-Warning: [0020]
-     ╭─[ D:\source\moonbit-foundation-phase94-02-capture-967bd91\modules\mb-svg\svg\scene_wbtest.mbt:461:29 ]
-     │
- 461 │       Err(error) => inspect(error.operation(), content="Some(svg)")
-     │                             ────────┬────────  
-     │                                     ╰────────── Warning (deprecated): Use Debug instead of Show for debugging purposes. See https://github.com/moonbitlang/core/blob/main/debug/README.mbt.md
+Warning:&#32;[0020]
+&#32;&#32;&#32;&#32;&#32;╭─[&#32;D:\source\moonbit-foundation-phase94-02-capture-14255e6\modules\mb-svg\svg\scene_wbtest.mbt:461:29&#32;]
+&#32;&#32;&#32;&#32;&#32;│
+&#32;461&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;Err(error)&#32;=&gt;&#32;inspect(error.operation(),&#32;content="Some(svg)")
+&#32;&#32;&#32;&#32;&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;────────┬────────&#32;&#32;
+&#32;&#32;&#32;&#32;&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;╰──────────&#32;Warning&#32;(deprecated):&#32;Use&#32;Debug&#32;instead&#32;of&#32;Show&#32;for&#32;debugging&#32;purposes.&#32;See&#32;https://github.com/moonbitlang/core/blob/main/debug/README.mbt.md
 ─────╯
-Warning: [0020]
-     ╭─[ D:\source\moonbit-foundation-phase94-02-capture-967bd91\modules\mb-svg\svg\scene_wbtest.mbt:467:65 ]
-     │
- 467 │         Group(_, _, [Rect(paint, _, _, _, _, _, _)]) => inspect(paint.fill, content="Some((0, 0, 1))")
-     │                                                                 ─────┬────  
-     │                                                                      ╰────── Warning (deprecated): Use Debug instead of Show for debugging purposes. See https://github.com/moonbitlang/core/blob/main/debug/README.mbt.md
+Warning:&#32;[0020]
+&#32;&#32;&#32;&#32;&#32;╭─[&#32;D:\source\moonbit-foundation-phase94-02-capture-14255e6\modules\mb-svg\svg\scene_wbtest.mbt:467:65&#32;]
+&#32;&#32;&#32;&#32;&#32;│
+&#32;467&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;Group(_,&#32;_,&#32;[Rect(paint,&#32;_,&#32;_,&#32;_,&#32;_,&#32;_,&#32;_)])&#32;=&gt;&#32;inspect(paint.fill,&#32;content="Some((0,&#32;0,&#32;1))")
+&#32;&#32;&#32;&#32;&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;─────┬────&#32;&#32;
+&#32;&#32;&#32;&#32;&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;╰──────&#32;Warning&#32;(deprecated):&#32;Use&#32;Debug&#32;instead&#32;of&#32;Show&#32;for&#32;debugging&#32;purposes.&#32;See&#32;https://github.com/moonbitlang/core/blob/main/debug/README.mbt.md
 ─────╯
-Warning: [0020]
-    ╭─[ D:\source\moonbit-foundation-phase94-02-capture-967bd91\modules\mb-svg\svg\transform_wbtest.mbt:40:22 ]
-    │
- 40 │     Ok(m) => inspect((tx(m), ty(m)), content="(5, 0)")
-    │                      ───────┬──────  
-    │                             ╰──────── Warning (deprecated): Use Debug instead of Show for debugging purposes. See https://github.com/moonbitlang/core/blob/main/debug/README.mbt.md
+Warning:&#32;[0020]
+&#32;&#32;&#32;&#32;╭─[&#32;D:\source\moonbit-foundation-phase94-02-capture-14255e6\modules\mb-svg\svg\transform_wbtest.mbt:40:22&#32;]
+&#32;&#32;&#32;&#32;│
+&#32;40&#32;│&#32;&#32;&#32;&#32;&#32;Ok(m)&#32;=&gt;&#32;inspect((tx(m),&#32;ty(m)),&#32;content="(5,&#32;0)")
+&#32;&#32;&#32;&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;───────┬──────&#32;&#32;
+&#32;&#32;&#32;&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;╰────────&#32;Warning&#32;(deprecated):&#32;Use&#32;Debug&#32;instead&#32;of&#32;Show&#32;for&#32;debugging&#32;purposes.&#32;See&#32;https://github.com/moonbitlang/core/blob/main/debug/README.mbt.md
 ────╯
-Warning: [0020]
-    ╭─[ D:\source\moonbit-foundation-phase94-02-capture-967bd91\modules\mb-svg\svg\transform_wbtest.mbt:52:22 ]
-    │
- 52 │     Ok(m) => inspect((m.a(), m.d()), content="(2, 3)")
-    │                      ───────┬──────  
-    │                             ╰──────── Warning (deprecated): Use Debug instead of Show for debugging purposes. See https://github.com/moonbitlang/core/blob/main/debug/README.mbt.md
+Warning:&#32;[0020]
+&#32;&#32;&#32;&#32;╭─[&#32;D:\source\moonbit-foundation-phase94-02-capture-14255e6\modules\mb-svg\svg\transform_wbtest.mbt:52:22&#32;]
+&#32;&#32;&#32;&#32;│
+&#32;52&#32;│&#32;&#32;&#32;&#32;&#32;Ok(m)&#32;=&gt;&#32;inspect((m.a(),&#32;m.d()),&#32;content="(2,&#32;3)")
+&#32;&#32;&#32;&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;───────┬──────&#32;&#32;
+&#32;&#32;&#32;&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;╰────────&#32;Warning&#32;(deprecated):&#32;Use&#32;Debug&#32;instead&#32;of&#32;Show&#32;for&#32;debugging&#32;purposes.&#32;See&#32;https://github.com/moonbitlang/core/blob/main/debug/README.mbt.md
 ────╯
-Warning: [0020]
-    ╭─[ D:\source\moonbit-foundation-phase94-02-capture-967bd91\modules\mb-svg\svg\transform_wbtest.mbt:60:22 ]
-    │
- 60 │     Ok(m) => inspect((m.a(), m.b(), m.c(), m.d(), tx(m), ty(m)), content="(1, 2, 3, 4, 5, 6)")
-    │                      ─────────────────────┬────────────────────  
-    │                                           ╰────────────────────── Warning (deprecated): Use Debug instead of Show for debugging purposes. See https://github.com/moonbitlang/core/blob/main/debug/README.mbt.md
+Warning:&#32;[0020]
+&#32;&#32;&#32;&#32;╭─[&#32;D:\source\moonbit-foundation-phase94-02-capture-14255e6\modules\mb-svg\svg\transform_wbtest.mbt:60:22&#32;]
+&#32;&#32;&#32;&#32;│
+&#32;60&#32;│&#32;&#32;&#32;&#32;&#32;Ok(m)&#32;=&gt;&#32;inspect((m.a(),&#32;m.b(),&#32;m.c(),&#32;m.d(),&#32;tx(m),&#32;ty(m)),&#32;content="(1,&#32;2,&#32;3,&#32;4,&#32;5,&#32;6)")
+&#32;&#32;&#32;&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;─────────────────────┬────────────────────&#32;&#32;
+&#32;&#32;&#32;&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;╰──────────────────────&#32;Warning&#32;(deprecated):&#32;Use&#32;Debug&#32;instead&#32;of&#32;Show&#32;for&#32;debugging&#32;purposes.&#32;See&#32;https://github.com/moonbitlang/core/blob/main/debug/README.mbt.md
 ────╯
-Warning: [0020]
-    ╭─[ D:\source\moonbit-foundation-phase94-02-capture-967bd91\modules\mb-svg\svg\transform_wbtest.mbt:76:15 ]
-    │
- 76 │       inspect((p.x(), p.y()), content="(12, 0)")
-    │               ───────┬──────  
-    │                      ╰──────── Warning (deprecated): Use Debug instead of Show for debugging purposes. See https://github.com/moonbitlang/core/blob/main/debug/README.mbt.md
+Warning:&#32;[0020]
+&#32;&#32;&#32;&#32;╭─[&#32;D:\source\moonbit-foundation-phase94-02-capture-14255e6\modules\mb-svg\svg\transform_wbtest.mbt:76:15&#32;]
+&#32;&#32;&#32;&#32;│
+&#32;76&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;inspect((p.x(),&#32;p.y()),&#32;content="(12,&#32;0)")
+&#32;&#32;&#32;&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;───────┬──────&#32;&#32;
+&#32;&#32;&#32;&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;╰────────&#32;Warning&#32;(deprecated):&#32;Use&#32;Debug&#32;instead&#32;of&#32;Show&#32;for&#32;debugging&#32;purposes.&#32;See&#32;https://github.com/moonbitlang/core/blob/main/debug/README.mbt.md
 ────╯
-Warning: [0020]
-     ╭─[ D:\source\moonbit-foundation-phase94-02-capture-967bd91\modules\mb-svg\svg\transform_wbtest.mbt:109:15 ]
-     │
- 109 │       inspect((p.x().abs() < 1.0e-9, (p.y() - 1.0).abs() < 1.0e-9), content="(true, true)")
-     │               ──────────────────────────┬─────────────────────────  
-     │                                         ╰─────────────────────────── Warning (deprecated): Use Debug instead of Show for debugging purposes. See https://github.com/moonbitlang/core/blob/main/debug/README.mbt.md
+Warning:&#32;[0020]
+&#32;&#32;&#32;&#32;&#32;╭─[&#32;D:\source\moonbit-foundation-phase94-02-capture-14255e6\modules\mb-svg\svg\transform_wbtest.mbt:109:15&#32;]
+&#32;&#32;&#32;&#32;&#32;│
+&#32;109&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;inspect((p.x().abs()&#32;&lt;&#32;1.0e-9,&#32;(p.y()&#32;-&#32;1.0).abs()&#32;&lt;&#32;1.0e-9),&#32;content="(true,&#32;true)")
+&#32;&#32;&#32;&#32;&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;──────────────────────────┬─────────────────────────&#32;&#32;
+&#32;&#32;&#32;&#32;&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;╰───────────────────────────&#32;Warning&#32;(deprecated):&#32;Use&#32;Debug&#32;instead&#32;of&#32;Show&#32;for&#32;debugging&#32;purposes.&#32;See&#32;https://github.com/moonbitlang/core/blob/main/debug/README.mbt.md
 ─────╯
-Warning: [0020]
-     ╭─[ D:\source\moonbit-foundation-phase94-02-capture-967bd91\modules\mb-svg\svg\transform_wbtest.mbt:125:15 ]
-     │
- 125 │       inspect(((q.x() - 1.0).abs() < 1.0e-9, (q.y() - 2.0).abs() < 1.0e-9), content="(true, true)")
-     │               ──────────────────────────────┬─────────────────────────────  
-     │                                             ╰─────────────────────────────── Warning (deprecated): Use Debug instead of Show for debugging purposes. See https://github.com/moonbitlang/core/blob/main/debug/README.mbt.md
+Warning:&#32;[0020]
+&#32;&#32;&#32;&#32;&#32;╭─[&#32;D:\source\moonbit-foundation-phase94-02-capture-14255e6\modules\mb-svg\svg\transform_wbtest.mbt:125:15&#32;]
+&#32;&#32;&#32;&#32;&#32;│
+&#32;125&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;inspect(((q.x()&#32;-&#32;1.0).abs()&#32;&lt;&#32;1.0e-9,&#32;(q.y()&#32;-&#32;2.0).abs()&#32;&lt;&#32;1.0e-9),&#32;content="(true,&#32;true)")
+&#32;&#32;&#32;&#32;&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;──────────────────────────────┬─────────────────────────────&#32;&#32;
+&#32;&#32;&#32;&#32;&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;╰───────────────────────────────&#32;Warning&#32;(deprecated):&#32;Use&#32;Debug&#32;instead&#32;of&#32;Show&#32;for&#32;debugging&#32;purposes.&#32;See&#32;https://github.com/moonbitlang/core/blob/main/debug/README.mbt.md
 ─────╯
-Warning: [0020]
-     ╭─[ D:\source\moonbit-foundation-phase94-02-capture-967bd91\modules\mb-svg\svg\transform_wbtest.mbt:164:22 ]
-     │
- 164 │     Ok(m) => inspect((m.a(), m.d(), tx(m), ty(m)), content="(1, 1, 65536, -65536)")
-     │                      ──────────────┬─────────────  
-     │                                    ╰─────────────── Warning (deprecated): Use Debug instead of Show for debugging purposes. See https://github.com/moonbitlang/core/blob/main/debug/README.mbt.md
+Warning:&#32;[0020]
+&#32;&#32;&#32;&#32;&#32;╭─[&#32;D:\source\moonbit-foundation-phase94-02-capture-14255e6\modules\mb-svg\svg\transform_wbtest.mbt:164:22&#32;]
+&#32;&#32;&#32;&#32;&#32;│
+&#32;164&#32;│&#32;&#32;&#32;&#32;&#32;Ok(m)&#32;=&gt;&#32;inspect((m.a(),&#32;m.d(),&#32;tx(m),&#32;ty(m)),&#32;content="(1,&#32;1,&#32;65536,&#32;-65536)")
+&#32;&#32;&#32;&#32;&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;──────────────┬─────────────&#32;&#32;
+&#32;&#32;&#32;&#32;&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;╰───────────────&#32;Warning&#32;(deprecated):&#32;Use&#32;Debug&#32;instead&#32;of&#32;Show&#32;for&#32;debugging&#32;purposes.&#32;See&#32;https://github.com/moonbitlang/core/blob/main/debug/README.mbt.md
 ─────╯
-Warning: [0020]
-     ╭─[ D:\source\moonbit-foundation-phase94-02-capture-967bd91\modules\mb-svg\svg\transform_wbtest.mbt:187:15 ]
-     │
- 187 │       inspect((point.x().abs() < 1.0e-9, (point.y() - 1.0).abs() < 1.0e-9), content="(true, true)")
-     │               ──────────────────────────────┬─────────────────────────────  
-     │                                             ╰─────────────────────────────── Warning (deprecated): Use Debug instead of Show for debugging purposes. See https://github.com/moonbitlang/core/blob/main/debug/README.mbt.md
+Warning:&#32;[0020]
+&#32;&#32;&#32;&#32;&#32;╭─[&#32;D:\source\moonbit-foundation-phase94-02-capture-14255e6\modules\mb-svg\svg\transform_wbtest.mbt:187:15&#32;]
+&#32;&#32;&#32;&#32;&#32;│
+&#32;187&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;inspect((point.x().abs()&#32;&lt;&#32;1.0e-9,&#32;(point.y()&#32;-&#32;1.0).abs()&#32;&lt;&#32;1.0e-9),&#32;content="(true,&#32;true)")
+&#32;&#32;&#32;&#32;&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;──────────────────────────────┬─────────────────────────────&#32;&#32;
+&#32;&#32;&#32;&#32;&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;╰───────────────────────────────&#32;Warning&#32;(deprecated):&#32;Use&#32;Debug&#32;instead&#32;of&#32;Show&#32;for&#32;debugging&#32;purposes.&#32;See&#32;https://github.com/moonbitlang/core/blob/main/debug/README.mbt.md
 ─────╯
-Warning: [0020]
-     ╭─[ D:\source\moonbit-foundation-phase94-02-capture-967bd91\modules\mb-svg\svg\transform_wbtest.mbt:203:15 ]
-     │
- 203 │       inspect((point.x(), point.y()), content="(65536, 0)")
-     │               ───────────┬──────────  
-     │                          ╰──────────── Warning (deprecated): Use Debug instead of Show for debugging purposes. See https://github.com/moonbitlang/core/blob/main/debug/README.mbt.md
+Warning:&#32;[0020]
+&#32;&#32;&#32;&#32;&#32;╭─[&#32;D:\source\moonbit-foundation-phase94-02-capture-14255e6\modules\mb-svg\svg\transform_wbtest.mbt:203:15&#32;]
+&#32;&#32;&#32;&#32;&#32;│
+&#32;203&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;inspect((point.x(),&#32;point.y()),&#32;content="(65536,&#32;0)")
+&#32;&#32;&#32;&#32;&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;───────────┬──────────&#32;&#32;
+&#32;&#32;&#32;&#32;&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;╰────────────&#32;Warning&#32;(deprecated):&#32;Use&#32;Debug&#32;instead&#32;of&#32;Show&#32;for&#32;debugging&#32;purposes.&#32;See&#32;https://github.com/moonbitlang/core/blob/main/debug/README.mbt.md
 ─────╯
-Warning: [0020]
-     ╭─[ D:\source\moonbit-foundation-phase94-02-capture-967bd91\modules\mb-svg\svg\transform_wbtest.mbt:239:29 ]
-     │
- 239 │       Err(error) => inspect(error.context(), content="Some(svg-numeric-derived)")
-     │                             ───────┬───────  
-     │                                    ╰───────── Warning (deprecated): Use Debug instead of Show for debugging purposes. See https://github.com/moonbitlang/core/blob/main/debug/README.mbt.md
+Warning:&#32;[0020]
+&#32;&#32;&#32;&#32;&#32;╭─[&#32;D:\source\moonbit-foundation-phase94-02-capture-14255e6\modules\mb-svg\svg\transform_wbtest.mbt:239:29&#32;]
+&#32;&#32;&#32;&#32;&#32;│
+&#32;239&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;Err(error)&#32;=&gt;&#32;inspect(error.context(),&#32;content="Some(svg-numeric-derived)")
+&#32;&#32;&#32;&#32;&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;───────┬───────&#32;&#32;
+&#32;&#32;&#32;&#32;&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;╰─────────&#32;Warning&#32;(deprecated):&#32;Use&#32;Debug&#32;instead&#32;of&#32;Show&#32;for&#32;debugging&#32;purposes.&#32;See&#32;https://github.com/moonbitlang/core/blob/main/debug/README.mbt.md
 ─────╯
-Warning: [0020]
-     ╭─[ D:\source\moonbit-foundation-phase94-02-capture-967bd91\modules\mb-svg\svg\transform_wbtest.mbt:243:22 ]
-     │
- 243 │     Ok(m) => inspect((m.a(), m.d()), content="(0, 0)")
-     │                      ───────┬──────  
-     │                             ╰──────── Warning (deprecated): Use Debug instead of Show for debugging purposes. See https://github.com/moonbitlang/core/blob/main/debug/README.mbt.md
+Warning:&#32;[0020]
+&#32;&#32;&#32;&#32;&#32;╭─[&#32;D:\source\moonbit-foundation-phase94-02-capture-14255e6\modules\mb-svg\svg\transform_wbtest.mbt:243:22&#32;]
+&#32;&#32;&#32;&#32;&#32;│
+&#32;243&#32;│&#32;&#32;&#32;&#32;&#32;Ok(m)&#32;=&gt;&#32;inspect((m.a(),&#32;m.d()),&#32;content="(0,&#32;0)")
+&#32;&#32;&#32;&#32;&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;───────┬──────&#32;&#32;
+&#32;&#32;&#32;&#32;&#32;│&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;╰────────&#32;Warning&#32;(deprecated):&#32;Use&#32;Debug&#32;instead&#32;of&#32;Show&#32;for&#32;debugging&#32;purposes.&#32;See&#32;https://github.com/moonbitlang/core/blob/main/debug/README.mbt.md
 ─────╯
-[tchivs/mb-svg] bench svg/svg_bench.mbt:64 ("bench path-parse/1000-line-to") ok
-time (mean ± σ)         range (min … max) 
-   1.77 ms ± 162.70 µs     1.62 ms …   2.13 ms  in 10 ×     60 runs
-[tchivs/mb-svg] bench svg/svg_bench.mbt:89 ("bench transform-composition/50-segment") ok
-time (mean ± σ)         range (min … max) 
- 128.49 µs ±   5.35 µs   124.64 µs … 139.63 µs  in 10 ×    688 runs
-[tchivs/mb-svg] bench svg/svg_bench.mbt:121 ("bench parse-to-lower/50-rect") ok
-time (mean ± σ)         range (min … max) 
- 918.96 µs ±  51.22 µs   866.25 µs …   1.02 ms  in 10 ×    112 runs
-Total tests: 3, passed: 3, failed: 0.
-```
+[tchivs/mb-svg]&#32;bench&#32;svg/svg_bench.mbt:64&#32;("bench&#32;path-parse/1000-line-to")&#32;ok
+time&#32;(mean&#32;±&#32;σ)&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;range&#32;(min&#32;…&#32;max)&#32;
+&#32;&#32;&#32;1.75&#32;ms&#32;±&#32;164.55&#32;µs&#32;&#32;&#32;&#32;&#32;1.59&#32;ms&#32;…&#32;&#32;&#32;2.11&#32;ms&#32;&#32;in&#32;10&#32;×&#32;&#32;&#32;&#32;&#32;59&#32;runs
+[tchivs/mb-svg]&#32;bench&#32;svg/svg_bench.mbt:89&#32;("bench&#32;transform-composition/50-segment")&#32;ok
+time&#32;(mean&#32;±&#32;σ)&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;range&#32;(min&#32;…&#32;max)&#32;
+&#32;136.52&#32;µs&#32;±&#32;&#32;17.09&#32;µs&#32;&#32;&#32;122.84&#32;µs&#32;…&#32;168.99&#32;µs&#32;&#32;in&#32;10&#32;×&#32;&#32;&#32;&#32;560&#32;runs
+[tchivs/mb-svg]&#32;bench&#32;svg/svg_bench.mbt:121&#32;("bench&#32;parse-to-lower/50-rect")&#32;ok
+time&#32;(mean&#32;±&#32;σ)&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;range&#32;(min&#32;…&#32;max)&#32;
+&#32;914.06&#32;µs&#32;±&#32;&#32;43.71&#32;µs&#32;&#32;&#32;847.66&#32;µs&#32;…&#32;980.89&#32;µs&#32;&#32;in&#32;10&#32;×&#32;&#32;&#32;&#32;116&#32;runs
+Total&#32;tests:&#32;3,&#32;passed:&#32;3,&#32;failed:&#32;0.
+</pre>
 </details>
 
 ### Capture 1
-- UTC start: `2026-07-25T20:11:43.6338213Z`
-- UTC end: `2026-07-25T20:11:47.7926826Z`
+- UTC start: `2026-07-25T20:15:24.6871462Z`
+- UTC end: `2026-07-25T20:15:28.5451775Z`
 - Exit status: `0`
-- Output SHA-256: `77f886459b74e3c7cc60e71204f99fc192174d8ebf94337ac5e22b254f3cee0a`
+- Output SHA-256: `5d1d01450d2bf5efbd86da764cb9d1eea0b55b5b8cf92b20e5e7b949fa938579`
 - Fixed workload order: `path-parse/1000-line-to`, `transform-composition/50-segment`, `parse-to-lower/50-rect`
 
 | Workload | Mean (ms) | Sigma (ms) | Minimum (ms) | Maximum (ms) | Batch | Runs |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| path-parse/1000-line-to | 1.760000000 | 0.156830000 | 1.650000000 | 2.160000000 | 10 | 61 |
-| transform-composition/50-segment | 0.132130000 | 0.007650000 | 0.121880000 | 0.148130000 | 10 | 725 |
-| parse-to-lower/50-rect | 0.956440000 | 0.127010000 | 0.859900000 | 1.170000000 | 10 | 118 |
+| path-parse/1000-line-to | 1.790000000 | 0.187750000 | 1.620000000 | 2.150000000 | 10 | 49 |
+| transform-composition/50-segment | 0.135040000 | 0.010780000 | 0.122990000 | 0.156980000 | 10 | 753 |
+| parse-to-lower/50-rect | 0.903120000 | 0.032150000 | 0.852270000 | 0.947990000 | 10 | 104 |
 
 <details>
 <summary>Complete normalized UTF-8 merged stdout/stderr</summary>
 
-```text
-[tchivs/mb-svg] bench svg/svg_bench.mbt:64 ("bench path-parse/1000-line-to") ok
-time (mean ± σ)         range (min … max) 
-   1.76 ms ± 156.83 µs     1.65 ms …   2.16 ms  in 10 ×     61 runs
-[tchivs/mb-svg] bench svg/svg_bench.mbt:89 ("bench transform-composition/50-segment") ok
-time (mean ± σ)         range (min … max) 
- 132.13 µs ±   7.65 µs   121.88 µs … 148.13 µs  in 10 ×    725 runs
-[tchivs/mb-svg] bench svg/svg_bench.mbt:121 ("bench parse-to-lower/50-rect") ok
-time (mean ± σ)         range (min … max) 
- 956.44 µs ± 127.01 µs   859.90 µs …   1.17 ms  in 10 ×    118 runs
-Total tests: 3, passed: 3, failed: 0.
-```
+<pre class="svg-native-output">
+[tchivs/mb-svg]&#32;bench&#32;svg/svg_bench.mbt:64&#32;("bench&#32;path-parse/1000-line-to")&#32;ok
+time&#32;(mean&#32;±&#32;σ)&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;range&#32;(min&#32;…&#32;max)&#32;
+&#32;&#32;&#32;1.79&#32;ms&#32;±&#32;187.75&#32;µs&#32;&#32;&#32;&#32;&#32;1.62&#32;ms&#32;…&#32;&#32;&#32;2.15&#32;ms&#32;&#32;in&#32;10&#32;×&#32;&#32;&#32;&#32;&#32;49&#32;runs
+[tchivs/mb-svg]&#32;bench&#32;svg/svg_bench.mbt:89&#32;("bench&#32;transform-composition/50-segment")&#32;ok
+time&#32;(mean&#32;±&#32;σ)&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;range&#32;(min&#32;…&#32;max)&#32;
+&#32;135.04&#32;µs&#32;±&#32;&#32;10.78&#32;µs&#32;&#32;&#32;122.99&#32;µs&#32;…&#32;156.98&#32;µs&#32;&#32;in&#32;10&#32;×&#32;&#32;&#32;&#32;753&#32;runs
+[tchivs/mb-svg]&#32;bench&#32;svg/svg_bench.mbt:121&#32;("bench&#32;parse-to-lower/50-rect")&#32;ok
+time&#32;(mean&#32;±&#32;σ)&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;range&#32;(min&#32;…&#32;max)&#32;
+&#32;903.12&#32;µs&#32;±&#32;&#32;32.15&#32;µs&#32;&#32;&#32;852.27&#32;µs&#32;…&#32;947.99&#32;µs&#32;&#32;in&#32;10&#32;×&#32;&#32;&#32;&#32;104&#32;runs
+Total&#32;tests:&#32;3,&#32;passed:&#32;3,&#32;failed:&#32;0.
+</pre>
 </details>
 
 ### Capture 2
-- UTC start: `2026-07-25T20:11:47.7944659Z`
-- UTC end: `2026-07-25T20:11:51.6058253Z`
+- UTC start: `2026-07-25T20:15:28.5485023Z`
+- UTC end: `2026-07-25T20:15:32.6415488Z`
 - Exit status: `0`
-- Output SHA-256: `25d50fa40dea28014b57af4237375988a5a0b62949db7f95004e9ea343ff3ace`
+- Output SHA-256: `e77ee207f5c11332bb90d020a5c69a658d499f58df371fb5b77ecb6a342a383e`
 - Fixed workload order: `path-parse/1000-line-to`, `transform-composition/50-segment`, `parse-to-lower/50-rect`
 
 | Workload | Mean (ms) | Sigma (ms) | Minimum (ms) | Maximum (ms) | Batch | Runs |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| path-parse/1000-line-to | 1.630000000 | 0.140980000 | 1.550000000 | 1.950000000 | 10 | 52 |
-| transform-composition/50-segment | 0.132780000 | 0.010190000 | 0.119720000 | 0.153120000 | 10 | 803 |
-| parse-to-lower/50-rect | 0.895800000 | 0.082960000 | 0.844980000 | 1.100000000 | 10 | 102 |
+| path-parse/1000-line-to | 1.710000000 | 0.113540000 | 1.610000000 | 1.980000000 | 10 | 65 |
+| transform-composition/50-segment | 0.124360000 | 0.002710000 | 0.120990000 | 0.128780000 | 10 | 727 |
+| parse-to-lower/50-rect | 0.898600000 | 0.036620000 | 0.847420000 | 0.952580000 | 10 | 101 |
 
 <details>
 <summary>Complete normalized UTF-8 merged stdout/stderr</summary>
 
-```text
-[tchivs/mb-svg] bench svg/svg_bench.mbt:64 ("bench path-parse/1000-line-to") ok
-time (mean ± σ)         range (min … max) 
-   1.63 ms ± 140.98 µs     1.55 ms …   1.95 ms  in 10 ×     52 runs
-[tchivs/mb-svg] bench svg/svg_bench.mbt:89 ("bench transform-composition/50-segment") ok
-time (mean ± σ)         range (min … max) 
- 132.78 µs ±  10.19 µs   119.72 µs … 153.12 µs  in 10 ×    803 runs
-[tchivs/mb-svg] bench svg/svg_bench.mbt:121 ("bench parse-to-lower/50-rect") ok
-time (mean ± σ)         range (min … max) 
- 895.80 µs ±  82.96 µs   844.98 µs …   1.10 ms  in 10 ×    102 runs
-Total tests: 3, passed: 3, failed: 0.
-```
+<pre class="svg-native-output">
+[tchivs/mb-svg]&#32;bench&#32;svg/svg_bench.mbt:64&#32;("bench&#32;path-parse/1000-line-to")&#32;ok
+time&#32;(mean&#32;±&#32;σ)&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;range&#32;(min&#32;…&#32;max)&#32;
+&#32;&#32;&#32;1.71&#32;ms&#32;±&#32;113.54&#32;µs&#32;&#32;&#32;&#32;&#32;1.61&#32;ms&#32;…&#32;&#32;&#32;1.98&#32;ms&#32;&#32;in&#32;10&#32;×&#32;&#32;&#32;&#32;&#32;65&#32;runs
+[tchivs/mb-svg]&#32;bench&#32;svg/svg_bench.mbt:89&#32;("bench&#32;transform-composition/50-segment")&#32;ok
+time&#32;(mean&#32;±&#32;σ)&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;range&#32;(min&#32;…&#32;max)&#32;
+&#32;124.36&#32;µs&#32;±&#32;&#32;&#32;2.71&#32;µs&#32;&#32;&#32;120.99&#32;µs&#32;…&#32;128.78&#32;µs&#32;&#32;in&#32;10&#32;×&#32;&#32;&#32;&#32;727&#32;runs
+[tchivs/mb-svg]&#32;bench&#32;svg/svg_bench.mbt:121&#32;("bench&#32;parse-to-lower/50-rect")&#32;ok
+time&#32;(mean&#32;±&#32;σ)&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;range&#32;(min&#32;…&#32;max)&#32;
+&#32;898.60&#32;µs&#32;±&#32;&#32;36.62&#32;µs&#32;&#32;&#32;847.42&#32;µs&#32;…&#32;952.58&#32;µs&#32;&#32;in&#32;10&#32;×&#32;&#32;&#32;&#32;101&#32;runs
+Total&#32;tests:&#32;3,&#32;passed:&#32;3,&#32;failed:&#32;0.
+</pre>
 </details>
 
 ### Capture 3
-- UTC start: `2026-07-25T20:11:51.6081694Z`
-- UTC end: `2026-07-25T20:11:55.7063290Z`
+- UTC start: `2026-07-25T20:15:32.6434824Z`
+- UTC end: `2026-07-25T20:15:36.5032299Z`
 - Exit status: `0`
-- Output SHA-256: `b3e543bef9028220aa6385ea2bb5a2344553475dd5ea2cac4e00894fa238d224`
+- Output SHA-256: `5429a9996adc56aa210074452138af400da2a1c2695b82e92dce32dc97786cf2`
 - Fixed workload order: `path-parse/1000-line-to`, `transform-composition/50-segment`, `parse-to-lower/50-rect`
 
 | Workload | Mean (ms) | Sigma (ms) | Minimum (ms) | Maximum (ms) | Batch | Runs |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| path-parse/1000-line-to | 1.650000000 | 0.067370000 | 1.570000000 | 1.740000000 | 10 | 63 |
-| transform-composition/50-segment | 0.136700000 | 0.009290000 | 0.130400000 | 0.152420000 | 10 | 736 |
-| parse-to-lower/50-rect | 0.929030000 | 0.049310000 | 0.869620000 | 1.010000000 | 10 | 117 |
+| path-parse/1000-line-to | 1.880000000 | 0.228000000 | 1.600000000 | 2.190000000 | 10 | 53 |
+| transform-composition/50-segment | 0.146190000 | 0.015140000 | 0.122960000 | 0.165950000 | 10 | 640 |
+| parse-to-lower/50-rect | 0.895970000 | 0.047650000 | 0.847050000 | 1.000000000 | 10 | 102 |
 
 <details>
 <summary>Complete normalized UTF-8 merged stdout/stderr</summary>
 
-```text
-[tchivs/mb-svg] bench svg/svg_bench.mbt:64 ("bench path-parse/1000-line-to") ok
-time (mean ± σ)         range (min … max) 
-   1.65 ms ±  67.37 µs     1.57 ms …   1.74 ms  in 10 ×     63 runs
-[tchivs/mb-svg] bench svg/svg_bench.mbt:89 ("bench transform-composition/50-segment") ok
-time (mean ± σ)         range (min … max) 
- 136.70 µs ±   9.29 µs   130.40 µs … 152.42 µs  in 10 ×    736 runs
-[tchivs/mb-svg] bench svg/svg_bench.mbt:121 ("bench parse-to-lower/50-rect") ok
-time (mean ± σ)         range (min … max) 
- 929.03 µs ±  49.31 µs   869.62 µs …   1.01 ms  in 10 ×    117 runs
-Total tests: 3, passed: 3, failed: 0.
-```
+<pre class="svg-native-output">
+[tchivs/mb-svg]&#32;bench&#32;svg/svg_bench.mbt:64&#32;("bench&#32;path-parse/1000-line-to")&#32;ok
+time&#32;(mean&#32;±&#32;σ)&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;range&#32;(min&#32;…&#32;max)&#32;
+&#32;&#32;&#32;1.88&#32;ms&#32;±&#32;228.00&#32;µs&#32;&#32;&#32;&#32;&#32;1.60&#32;ms&#32;…&#32;&#32;&#32;2.19&#32;ms&#32;&#32;in&#32;10&#32;×&#32;&#32;&#32;&#32;&#32;53&#32;runs
+[tchivs/mb-svg]&#32;bench&#32;svg/svg_bench.mbt:89&#32;("bench&#32;transform-composition/50-segment")&#32;ok
+time&#32;(mean&#32;±&#32;σ)&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;range&#32;(min&#32;…&#32;max)&#32;
+&#32;146.19&#32;µs&#32;±&#32;&#32;15.14&#32;µs&#32;&#32;&#32;122.96&#32;µs&#32;…&#32;165.95&#32;µs&#32;&#32;in&#32;10&#32;×&#32;&#32;&#32;&#32;640&#32;runs
+[tchivs/mb-svg]&#32;bench&#32;svg/svg_bench.mbt:121&#32;("bench&#32;parse-to-lower/50-rect")&#32;ok
+time&#32;(mean&#32;±&#32;σ)&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;range&#32;(min&#32;…&#32;max)&#32;
+&#32;895.97&#32;µs&#32;±&#32;&#32;47.65&#32;µs&#32;&#32;&#32;847.05&#32;µs&#32;…&#32;&#32;&#32;1.00&#32;ms&#32;&#32;in&#32;10&#32;×&#32;&#32;&#32;&#32;102&#32;runs
+Total&#32;tests:&#32;3,&#32;passed:&#32;3,&#32;failed:&#32;0.
+</pre>
 </details>
 
 ### Capture 4
-- UTC start: `2026-07-25T20:11:55.7086567Z`
-- UTC end: `2026-07-25T20:11:59.9728775Z`
+- UTC start: `2026-07-25T20:15:36.5054908Z`
+- UTC end: `2026-07-25T20:15:40.5469475Z`
 - Exit status: `0`
-- Output SHA-256: `3bf22da9cd5ab25bebd0a473c71d4f951f0f4f8fa30322ec9785d006fb276028`
+- Output SHA-256: `97ec9a285fd2ed28965c52ab0b1cf989f7decaa2656176ac1b0462fa726fe3aa`
 - Fixed workload order: `path-parse/1000-line-to`, `transform-composition/50-segment`, `parse-to-lower/50-rect`
 
 | Workload | Mean (ms) | Sigma (ms) | Minimum (ms) | Maximum (ms) | Batch | Runs |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| path-parse/1000-line-to | 1.790000000 | 0.127390000 | 1.610000000 | 1.980000000 | 10 | 63 |
-| transform-composition/50-segment | 0.128540000 | 0.006320000 | 0.121300000 | 0.141140000 | 10 | 825 |
-| parse-to-lower/50-rect | 0.960050000 | 0.162320000 | 0.850120000 | 1.300000000 | 10 | 119 |
+| path-parse/1000-line-to | 1.840000000 | 0.232700000 | 1.630000000 | 2.220000000 | 10 | 56 |
+| transform-composition/50-segment | 0.152090000 | 0.022360000 | 0.131160000 | 0.187680000 | 10 | 735 |
+| parse-to-lower/50-rect | 0.915390000 | 0.030500000 | 0.876430000 | 0.968440000 | 10 | 98 |
 
 <details>
 <summary>Complete normalized UTF-8 merged stdout/stderr</summary>
 
-```text
-[tchivs/mb-svg] bench svg/svg_bench.mbt:64 ("bench path-parse/1000-line-to") ok
-time (mean ± σ)         range (min … max) 
-   1.79 ms ± 127.39 µs     1.61 ms …   1.98 ms  in 10 ×     63 runs
-[tchivs/mb-svg] bench svg/svg_bench.mbt:89 ("bench transform-composition/50-segment") ok
-time (mean ± σ)         range (min … max) 
- 128.54 µs ±   6.32 µs   121.30 µs … 141.14 µs  in 10 ×    825 runs
-[tchivs/mb-svg] bench svg/svg_bench.mbt:121 ("bench parse-to-lower/50-rect") ok
-time (mean ± σ)         range (min … max) 
- 960.05 µs ± 162.32 µs   850.12 µs …   1.30 ms  in 10 ×    119 runs
-Total tests: 3, passed: 3, failed: 0.
-```
+<pre class="svg-native-output">
+[tchivs/mb-svg]&#32;bench&#32;svg/svg_bench.mbt:64&#32;("bench&#32;path-parse/1000-line-to")&#32;ok
+time&#32;(mean&#32;±&#32;σ)&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;range&#32;(min&#32;…&#32;max)&#32;
+&#32;&#32;&#32;1.84&#32;ms&#32;±&#32;232.70&#32;µs&#32;&#32;&#32;&#32;&#32;1.63&#32;ms&#32;…&#32;&#32;&#32;2.22&#32;ms&#32;&#32;in&#32;10&#32;×&#32;&#32;&#32;&#32;&#32;56&#32;runs
+[tchivs/mb-svg]&#32;bench&#32;svg/svg_bench.mbt:89&#32;("bench&#32;transform-composition/50-segment")&#32;ok
+time&#32;(mean&#32;±&#32;σ)&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;range&#32;(min&#32;…&#32;max)&#32;
+&#32;152.09&#32;µs&#32;±&#32;&#32;22.36&#32;µs&#32;&#32;&#32;131.16&#32;µs&#32;…&#32;187.68&#32;µs&#32;&#32;in&#32;10&#32;×&#32;&#32;&#32;&#32;735&#32;runs
+[tchivs/mb-svg]&#32;bench&#32;svg/svg_bench.mbt:121&#32;("bench&#32;parse-to-lower/50-rect")&#32;ok
+time&#32;(mean&#32;±&#32;σ)&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;range&#32;(min&#32;…&#32;max)&#32;
+&#32;915.39&#32;µs&#32;±&#32;&#32;30.50&#32;µs&#32;&#32;&#32;876.43&#32;µs&#32;…&#32;968.44&#32;µs&#32;&#32;in&#32;10&#32;×&#32;&#32;&#32;&#32;&#32;98&#32;runs
+Total&#32;tests:&#32;3,&#32;passed:&#32;3,&#32;failed:&#32;0.
+</pre>
 </details>
 
 ### Capture 5
-- UTC start: `2026-07-25T20:11:59.9798451Z`
-- UTC end: `2026-07-25T20:12:03.8949789Z`
+- UTC start: `2026-07-25T20:15:40.5481786Z`
+- UTC end: `2026-07-25T20:15:44.6525697Z`
 - Exit status: `0`
-- Output SHA-256: `84043a9caec404fb96afd9d5b33e9987610a0edb3f1f4bf9f12cfa4873930473`
+- Output SHA-256: `760e7851be3810657dbd2ae1628a51d972ffdf605f61ef69ef659f1eb482c28b`
 - Fixed workload order: `path-parse/1000-line-to`, `transform-composition/50-segment`, `parse-to-lower/50-rect`
 
 | Workload | Mean (ms) | Sigma (ms) | Minimum (ms) | Maximum (ms) | Batch | Runs |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| path-parse/1000-line-to | 1.840000000 | 0.216600000 | 1.570000000 | 2.240000000 | 10 | 52 |
-| transform-composition/50-segment | 0.135580000 | 0.015390000 | 0.123550000 | 0.178170000 | 10 | 727 |
-| parse-to-lower/50-rect | 0.898310000 | 0.062410000 | 0.843280000 | 1.030000000 | 10 | 109 |
+| path-parse/1000-line-to | 1.710000000 | 0.081810000 | 1.650000000 | 1.920000000 | 10 | 62 |
+| transform-composition/50-segment | 0.136220000 | 0.012260000 | 0.121320000 | 0.159590000 | 10 | 771 |
+| parse-to-lower/50-rect | 0.916970000 | 0.048530000 | 0.860990000 | 0.987570000 | 10 | 114 |
 
 <details>
 <summary>Complete normalized UTF-8 merged stdout/stderr</summary>
 
-```text
-[tchivs/mb-svg] bench svg/svg_bench.mbt:64 ("bench path-parse/1000-line-to") ok
-time (mean ± σ)         range (min … max) 
-   1.84 ms ± 216.60 µs     1.57 ms …   2.24 ms  in 10 ×     52 runs
-[tchivs/mb-svg] bench svg/svg_bench.mbt:89 ("bench transform-composition/50-segment") ok
-time (mean ± σ)         range (min … max) 
- 135.58 µs ±  15.39 µs   123.55 µs … 178.17 µs  in 10 ×    727 runs
-[tchivs/mb-svg] bench svg/svg_bench.mbt:121 ("bench parse-to-lower/50-rect") ok
-time (mean ± σ)         range (min … max) 
- 898.31 µs ±  62.41 µs   843.28 µs …   1.03 ms  in 10 ×    109 runs
-Total tests: 3, passed: 3, failed: 0.
-```
+<pre class="svg-native-output">
+[tchivs/mb-svg]&#32;bench&#32;svg/svg_bench.mbt:64&#32;("bench&#32;path-parse/1000-line-to")&#32;ok
+time&#32;(mean&#32;±&#32;σ)&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;range&#32;(min&#32;…&#32;max)&#32;
+&#32;&#32;&#32;1.71&#32;ms&#32;±&#32;&#32;81.81&#32;µs&#32;&#32;&#32;&#32;&#32;1.65&#32;ms&#32;…&#32;&#32;&#32;1.92&#32;ms&#32;&#32;in&#32;10&#32;×&#32;&#32;&#32;&#32;&#32;62&#32;runs
+[tchivs/mb-svg]&#32;bench&#32;svg/svg_bench.mbt:89&#32;("bench&#32;transform-composition/50-segment")&#32;ok
+time&#32;(mean&#32;±&#32;σ)&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;range&#32;(min&#32;…&#32;max)&#32;
+&#32;136.22&#32;µs&#32;±&#32;&#32;12.26&#32;µs&#32;&#32;&#32;121.32&#32;µs&#32;…&#32;159.59&#32;µs&#32;&#32;in&#32;10&#32;×&#32;&#32;&#32;&#32;771&#32;runs
+[tchivs/mb-svg]&#32;bench&#32;svg/svg_bench.mbt:121&#32;("bench&#32;parse-to-lower/50-rect")&#32;ok
+time&#32;(mean&#32;±&#32;σ)&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;range&#32;(min&#32;…&#32;max)&#32;
+&#32;916.97&#32;µs&#32;±&#32;&#32;48.53&#32;µs&#32;&#32;&#32;860.99&#32;µs&#32;…&#32;987.57&#32;µs&#32;&#32;in&#32;10&#32;×&#32;&#32;&#32;&#32;114&#32;runs
+Total&#32;tests:&#32;3,&#32;passed:&#32;3,&#32;failed:&#32;0.
+</pre>
 </details>
 
 ### Capture 6
-- UTC start: `2026-07-25T20:12:03.8961655Z`
-- UTC end: `2026-07-25T20:12:07.7348248Z`
+- UTC start: `2026-07-25T20:15:44.6555023Z`
+- UTC end: `2026-07-25T20:15:48.3993713Z`
 - Exit status: `0`
-- Output SHA-256: `b474880d12f55f8874a880e4777b8a9410878da7f7e8e5c587d96d5fc76e6cb8`
+- Output SHA-256: `32bc77abebd707b8243b9c6006b0d4486e07a827a0b31d8a90366baf2461336a`
 - Fixed workload order: `path-parse/1000-line-to`, `transform-composition/50-segment`, `parse-to-lower/50-rect`
 
 | Workload | Mean (ms) | Sigma (ms) | Minimum (ms) | Maximum (ms) | Batch | Runs |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| path-parse/1000-line-to | 1.750000000 | 0.230670000 | 1.570000000 | 2.230000000 | 10 | 56 |
-| transform-composition/50-segment | 0.129370000 | 0.010800000 | 0.122050000 | 0.151400000 | 10 | 600 |
-| parse-to-lower/50-rect | 0.964400000 | 0.183950000 | 0.855800000 | 1.330000000 | 10 | 110 |
+| path-parse/1000-line-to | 1.860000000 | 0.316260000 | 1.560000000 | 2.370000000 | 10 | 50 |
+| transform-composition/50-segment | 0.142370000 | 0.018080000 | 0.126750000 | 0.184200000 | 10 | 590 |
+| parse-to-lower/50-rect | 0.858860000 | 0.031930000 | 0.837900000 | 0.926510000 | 10 | 111 |
 
 <details>
 <summary>Complete normalized UTF-8 merged stdout/stderr</summary>
 
-```text
-[tchivs/mb-svg] bench svg/svg_bench.mbt:64 ("bench path-parse/1000-line-to") ok
-time (mean ± σ)         range (min … max) 
-   1.75 ms ± 230.67 µs     1.57 ms …   2.23 ms  in 10 ×     56 runs
-[tchivs/mb-svg] bench svg/svg_bench.mbt:89 ("bench transform-composition/50-segment") ok
-time (mean ± σ)         range (min … max) 
- 129.37 µs ±  10.80 µs   122.05 µs … 151.40 µs  in 10 ×    600 runs
-[tchivs/mb-svg] bench svg/svg_bench.mbt:121 ("bench parse-to-lower/50-rect") ok
-time (mean ± σ)         range (min … max) 
- 964.40 µs ± 183.95 µs   855.80 µs …   1.33 ms  in 10 ×    110 runs
-Total tests: 3, passed: 3, failed: 0.
-```
+<pre class="svg-native-output">
+[tchivs/mb-svg]&#32;bench&#32;svg/svg_bench.mbt:64&#32;("bench&#32;path-parse/1000-line-to")&#32;ok
+time&#32;(mean&#32;±&#32;σ)&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;range&#32;(min&#32;…&#32;max)&#32;
+&#32;&#32;&#32;1.86&#32;ms&#32;±&#32;316.26&#32;µs&#32;&#32;&#32;&#32;&#32;1.56&#32;ms&#32;…&#32;&#32;&#32;2.37&#32;ms&#32;&#32;in&#32;10&#32;×&#32;&#32;&#32;&#32;&#32;50&#32;runs
+[tchivs/mb-svg]&#32;bench&#32;svg/svg_bench.mbt:89&#32;("bench&#32;transform-composition/50-segment")&#32;ok
+time&#32;(mean&#32;±&#32;σ)&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;range&#32;(min&#32;…&#32;max)&#32;
+&#32;142.37&#32;µs&#32;±&#32;&#32;18.08&#32;µs&#32;&#32;&#32;126.75&#32;µs&#32;…&#32;184.20&#32;µs&#32;&#32;in&#32;10&#32;×&#32;&#32;&#32;&#32;590&#32;runs
+[tchivs/mb-svg]&#32;bench&#32;svg/svg_bench.mbt:121&#32;("bench&#32;parse-to-lower/50-rect")&#32;ok
+time&#32;(mean&#32;±&#32;σ)&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;range&#32;(min&#32;…&#32;max)&#32;
+&#32;858.86&#32;µs&#32;±&#32;&#32;31.93&#32;µs&#32;&#32;&#32;837.90&#32;µs&#32;…&#32;926.51&#32;µs&#32;&#32;in&#32;10&#32;×&#32;&#32;&#32;&#32;111&#32;runs
+Total&#32;tests:&#32;3,&#32;passed:&#32;3,&#32;failed:&#32;0.
+</pre>
 </details>
 
 ### Capture 7
-- UTC start: `2026-07-25T20:12:07.7377571Z`
-- UTC end: `2026-07-25T20:12:11.4775773Z`
+- UTC start: `2026-07-25T20:15:48.4016802Z`
+- UTC end: `2026-07-25T20:15:52.4094650Z`
 - Exit status: `0`
-- Output SHA-256: `ce85905fde08271155e6717d91d4534852a586c66544f25869711a713c296479`
+- Output SHA-256: `7b6c0eee733f4b87fea5f38e2c294bd4764f2a759bcc6faea74893d6bef3ed3e`
 - Fixed workload order: `path-parse/1000-line-to`, `transform-composition/50-segment`, `parse-to-lower/50-rect`
 
 | Workload | Mean (ms) | Sigma (ms) | Minimum (ms) | Maximum (ms) | Batch | Runs |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| path-parse/1000-line-to | 1.760000000 | 0.202920000 | 1.550000000 | 2.110000000 | 10 | 55 |
-| transform-composition/50-segment | 0.131060000 | 0.005800000 | 0.124590000 | 0.142530000 | 10 | 543 |
-| parse-to-lower/50-rect | 0.937120000 | 0.085300000 | 0.886180000 | 1.130000000 | 10 | 105 |
+| path-parse/1000-line-to | 1.650000000 | 0.132800000 | 1.570000000 | 1.990000000 | 10 | 63 |
+| transform-composition/50-segment | 0.127800000 | 0.005290000 | 0.122960000 | 0.139540000 | 10 | 745 |
+| parse-to-lower/50-rect | 0.928340000 | 0.076440000 | 0.842750000 | 1.050000000 | 10 | 111 |
 
 <details>
 <summary>Complete normalized UTF-8 merged stdout/stderr</summary>
 
-```text
-[tchivs/mb-svg] bench svg/svg_bench.mbt:64 ("bench path-parse/1000-line-to") ok
-time (mean ± σ)         range (min … max) 
-   1.76 ms ± 202.92 µs     1.55 ms …   2.11 ms  in 10 ×     55 runs
-[tchivs/mb-svg] bench svg/svg_bench.mbt:89 ("bench transform-composition/50-segment") ok
-time (mean ± σ)         range (min … max) 
- 131.06 µs ±   5.80 µs   124.59 µs … 142.53 µs  in 10 ×    543 runs
-[tchivs/mb-svg] bench svg/svg_bench.mbt:121 ("bench parse-to-lower/50-rect") ok
-time (mean ± σ)         range (min … max) 
- 937.12 µs ±  85.30 µs   886.18 µs …   1.13 ms  in 10 ×    105 runs
-Total tests: 3, passed: 3, failed: 0.
-```
+<pre class="svg-native-output">
+[tchivs/mb-svg]&#32;bench&#32;svg/svg_bench.mbt:64&#32;("bench&#32;path-parse/1000-line-to")&#32;ok
+time&#32;(mean&#32;±&#32;σ)&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;range&#32;(min&#32;…&#32;max)&#32;
+&#32;&#32;&#32;1.65&#32;ms&#32;±&#32;132.80&#32;µs&#32;&#32;&#32;&#32;&#32;1.57&#32;ms&#32;…&#32;&#32;&#32;1.99&#32;ms&#32;&#32;in&#32;10&#32;×&#32;&#32;&#32;&#32;&#32;63&#32;runs
+[tchivs/mb-svg]&#32;bench&#32;svg/svg_bench.mbt:89&#32;("bench&#32;transform-composition/50-segment")&#32;ok
+time&#32;(mean&#32;±&#32;σ)&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;range&#32;(min&#32;…&#32;max)&#32;
+&#32;127.80&#32;µs&#32;±&#32;&#32;&#32;5.29&#32;µs&#32;&#32;&#32;122.96&#32;µs&#32;…&#32;139.54&#32;µs&#32;&#32;in&#32;10&#32;×&#32;&#32;&#32;&#32;745&#32;runs
+[tchivs/mb-svg]&#32;bench&#32;svg/svg_bench.mbt:121&#32;("bench&#32;parse-to-lower/50-rect")&#32;ok
+time&#32;(mean&#32;±&#32;σ)&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;range&#32;(min&#32;…&#32;max)&#32;
+&#32;928.34&#32;µs&#32;±&#32;&#32;76.44&#32;µs&#32;&#32;&#32;842.75&#32;µs&#32;…&#32;&#32;&#32;1.05&#32;ms&#32;&#32;in&#32;10&#32;×&#32;&#32;&#32;&#32;111&#32;runs
+Total&#32;tests:&#32;3,&#32;passed:&#32;3,&#32;failed:&#32;0.
+</pre>
 </details>
 
 ## Native-host-specific seven-capture summary
 
 | Workload | Arithmetic mean (ms) | Median (ms) | Sample standard deviation (ms) | Minimum (ms) | Maximum (ms) | Coefficient of variation |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| path-parse/1000-line-to | 1.740000000 | 1.760000000 | 0.074833148 | 1.630000000 | 1.840000000 | 0.043007556 |
-| transform-composition/50-segment | 0.132308571 | 0.132130000 | 0.003017650 | 0.128540000 | 0.136700000 | 0.022807672 |
-| parse-to-lower/50-rect | 0.934450000 | 0.937120000 | 0.028496637 | 0.895800000 | 0.964400000 | 0.030495625 |
+| path-parse/1000-line-to | 1.777142857 | 1.790000000 | 0.088263674 | 1.650000000 | 1.880000000 | 0.049666055 |
+| transform-composition/50-segment | 0.137724286 | 0.136220000 | 0.009884235 | 0.124360000 | 0.152090000 | 0.071768277 |
+| parse-to-lower/50-rect | 0.902464286 | 0.903120000 | 0.022382711 | 0.858860000 | 0.928340000 | 0.024801770 |
 
 ## Read-only audit
 
@@ -1008,7 +1008,7 @@ Run `powershell.exe -NoProfile -File scripts/benchmarks/Invoke-SvgNativeBenchmar
     "schema_version":  1,
     "claim":  "native-host observation only; no threshold, ranking, regression conclusion, CI gate, cross-target comparison, or performance claim",
     "identity":  {
-                     "git_commit":  "967bd9102f2d3ad29efebd9eebe47fc2fa2b6634",
+                     "git_commit":  "14255e600395c786c67b3b9522d9fe8ac49c66b6",
                      "worktree":  "(clean)"
                  },
     "execution":  {
@@ -1077,34 +1077,34 @@ Run `powershell.exe -NoProfile -File scripts/benchmarks/Invoke-SvgNativeBenchmar
                        {
                            "name":  "path-parse/1000-line-to",
                            "values":  {
-                                          "mean_ms":  1.74,
-                                          "median_ms":  1.76,
-                                          "sample_standard_deviation_ms":  0.074833148,
-                                          "minimum_ms":  1.63,
-                                          "maximum_ms":  1.84,
-                                          "coefficient_of_variation":  0.043007556
+                                          "mean_ms":  1.777142857,
+                                          "median_ms":  1.79,
+                                          "sample_standard_deviation_ms":  0.088263674,
+                                          "minimum_ms":  1.65,
+                                          "maximum_ms":  1.88,
+                                          "coefficient_of_variation":  0.049666055
                                       }
                        },
                        {
                            "name":  "transform-composition/50-segment",
                            "values":  {
-                                          "mean_ms":  0.132308571,
-                                          "median_ms":  0.13213,
-                                          "sample_standard_deviation_ms":  0.00301765,
-                                          "minimum_ms":  0.12854,
-                                          "maximum_ms":  0.1367,
-                                          "coefficient_of_variation":  0.022807672
+                                          "mean_ms":  0.137724286,
+                                          "median_ms":  0.13622,
+                                          "sample_standard_deviation_ms":  0.009884235,
+                                          "minimum_ms":  0.12436,
+                                          "maximum_ms":  0.15209,
+                                          "coefficient_of_variation":  0.071768277
                                       }
                        },
                        {
                            "name":  "parse-to-lower/50-rect",
                            "values":  {
-                                          "mean_ms":  0.93445,
-                                          "median_ms":  0.93712,
-                                          "sample_standard_deviation_ms":  0.028496637,
-                                          "minimum_ms":  0.8958,
-                                          "maximum_ms":  0.9644,
-                                          "coefficient_of_variation":  0.030495625
+                                          "mean_ms":  0.902464286,
+                                          "median_ms":  0.90312,
+                                          "sample_standard_deviation_ms":  0.022382711,
+                                          "minimum_ms":  0.85886,
+                                          "maximum_ms":  0.92834,
+                                          "coefficient_of_variation":  0.02480177
                                       }
                        }
                    ],
@@ -1112,296 +1112,296 @@ Run `powershell.exe -NoProfile -File scripts/benchmarks/Invoke-SvgNativeBenchmar
                  {
                      "id":  "warmup",
                      "label":  "warmup",
-                     "started_utc":  "2026-07-25T20:11:32.6842637Z",
-                     "ended_utc":  "2026-07-25T20:11:43.5716746Z",
+                     "started_utc":  "2026-07-25T20:15:15.1132882Z",
+                     "ended_utc":  "2026-07-25T20:15:24.6262449Z",
                      "exit_code":  0,
-                     "output_sha256":  "7ba8cae90ee33a68d684be501625ba65e69597fc9859fe358cf73f9a422e3184",
+                     "output_sha256":  "d0095556cf93cb9d6bd5b792d51beac2036d1673f72d1f5b718aa61f0572bbe5",
                      "summaries":  [
                                        {
                                            "name":  "path-parse/1000-line-to",
-                                           "mean_ms":  1.77,
-                                           "sigma_ms":  0.1627,
-                                           "min_ms":  1.62,
-                                           "max_ms":  2.13,
+                                           "mean_ms":  1.75,
+                                           "sigma_ms":  0.16455,
+                                           "min_ms":  1.59,
+                                           "max_ms":  2.11,
                                            "batch_size":  10,
-                                           "runs":  60
+                                           "runs":  59
                                        },
                                        {
                                            "name":  "transform-composition/50-segment",
-                                           "mean_ms":  0.12849,
-                                           "sigma_ms":  0.00535,
-                                           "min_ms":  0.12464,
-                                           "max_ms":  0.13963,
+                                           "mean_ms":  0.13652,
+                                           "sigma_ms":  0.01709,
+                                           "min_ms":  0.12284,
+                                           "max_ms":  0.16899,
                                            "batch_size":  10,
-                                           "runs":  688
+                                           "runs":  560
                                        },
                                        {
                                            "name":  "parse-to-lower/50-rect",
-                                           "mean_ms":  0.91896,
-                                           "sigma_ms":  0.05122,
-                                           "min_ms":  0.86625,
-                                           "max_ms":  1.02,
+                                           "mean_ms":  0.91406,
+                                           "sigma_ms":  0.04371,
+                                           "min_ms":  0.84766,
+                                           "max_ms":  0.98089,
                                            "batch_size":  10,
-                                           "runs":  112
+                                           "runs":  116
                                        }
                                    ]
                  },
                  {
                      "id":  "1",
                      "label":  "capture 1",
-                     "started_utc":  "2026-07-25T20:11:43.6338213Z",
-                     "ended_utc":  "2026-07-25T20:11:47.7926826Z",
+                     "started_utc":  "2026-07-25T20:15:24.6871462Z",
+                     "ended_utc":  "2026-07-25T20:15:28.5451775Z",
                      "exit_code":  0,
-                     "output_sha256":  "77f886459b74e3c7cc60e71204f99fc192174d8ebf94337ac5e22b254f3cee0a",
+                     "output_sha256":  "5d1d01450d2bf5efbd86da764cb9d1eea0b55b5b8cf92b20e5e7b949fa938579",
                      "summaries":  [
                                        {
                                            "name":  "path-parse/1000-line-to",
-                                           "mean_ms":  1.76,
-                                           "sigma_ms":  0.15683,
-                                           "min_ms":  1.65,
-                                           "max_ms":  2.16,
+                                           "mean_ms":  1.79,
+                                           "sigma_ms":  0.18775,
+                                           "min_ms":  1.62,
+                                           "max_ms":  2.15,
                                            "batch_size":  10,
-                                           "runs":  61
+                                           "runs":  49
                                        },
                                        {
                                            "name":  "transform-composition/50-segment",
-                                           "mean_ms":  0.13213,
-                                           "sigma_ms":  0.00765,
-                                           "min_ms":  0.12188,
-                                           "max_ms":  0.14813,
+                                           "mean_ms":  0.13504,
+                                           "sigma_ms":  0.01078,
+                                           "min_ms":  0.12299,
+                                           "max_ms":  0.15698,
                                            "batch_size":  10,
-                                           "runs":  725
+                                           "runs":  753
                                        },
                                        {
                                            "name":  "parse-to-lower/50-rect",
-                                           "mean_ms":  0.95644,
-                                           "sigma_ms":  0.12701,
-                                           "min_ms":  0.8599,
-                                           "max_ms":  1.17,
+                                           "mean_ms":  0.90312,
+                                           "sigma_ms":  0.03215,
+                                           "min_ms":  0.85227,
+                                           "max_ms":  0.94799,
                                            "batch_size":  10,
-                                           "runs":  118
+                                           "runs":  104
                                        }
                                    ]
                  },
                  {
                      "id":  "2",
                      "label":  "capture 2",
-                     "started_utc":  "2026-07-25T20:11:47.7944659Z",
-                     "ended_utc":  "2026-07-25T20:11:51.6058253Z",
+                     "started_utc":  "2026-07-25T20:15:28.5485023Z",
+                     "ended_utc":  "2026-07-25T20:15:32.6415488Z",
                      "exit_code":  0,
-                     "output_sha256":  "25d50fa40dea28014b57af4237375988a5a0b62949db7f95004e9ea343ff3ace",
+                     "output_sha256":  "e77ee207f5c11332bb90d020a5c69a658d499f58df371fb5b77ecb6a342a383e",
                      "summaries":  [
                                        {
                                            "name":  "path-parse/1000-line-to",
-                                           "mean_ms":  1.63,
-                                           "sigma_ms":  0.14098,
-                                           "min_ms":  1.55,
-                                           "max_ms":  1.95,
+                                           "mean_ms":  1.71,
+                                           "sigma_ms":  0.11354,
+                                           "min_ms":  1.61,
+                                           "max_ms":  1.98,
                                            "batch_size":  10,
-                                           "runs":  52
+                                           "runs":  65
                                        },
                                        {
                                            "name":  "transform-composition/50-segment",
-                                           "mean_ms":  0.13278,
-                                           "sigma_ms":  0.01019,
-                                           "min_ms":  0.11972,
-                                           "max_ms":  0.15312,
+                                           "mean_ms":  0.12436,
+                                           "sigma_ms":  0.00271,
+                                           "min_ms":  0.12099,
+                                           "max_ms":  0.12878,
                                            "batch_size":  10,
-                                           "runs":  803
+                                           "runs":  727
                                        },
                                        {
                                            "name":  "parse-to-lower/50-rect",
-                                           "mean_ms":  0.8958,
-                                           "sigma_ms":  0.08296,
-                                           "min_ms":  0.84498,
-                                           "max_ms":  1.1,
+                                           "mean_ms":  0.8986,
+                                           "sigma_ms":  0.03662,
+                                           "min_ms":  0.84742,
+                                           "max_ms":  0.95258,
                                            "batch_size":  10,
-                                           "runs":  102
+                                           "runs":  101
                                        }
                                    ]
                  },
                  {
                      "id":  "3",
                      "label":  "capture 3",
-                     "started_utc":  "2026-07-25T20:11:51.6081694Z",
-                     "ended_utc":  "2026-07-25T20:11:55.7063290Z",
+                     "started_utc":  "2026-07-25T20:15:32.6434824Z",
+                     "ended_utc":  "2026-07-25T20:15:36.5032299Z",
                      "exit_code":  0,
-                     "output_sha256":  "b3e543bef9028220aa6385ea2bb5a2344553475dd5ea2cac4e00894fa238d224",
+                     "output_sha256":  "5429a9996adc56aa210074452138af400da2a1c2695b82e92dce32dc97786cf2",
                      "summaries":  [
                                        {
                                            "name":  "path-parse/1000-line-to",
-                                           "mean_ms":  1.65,
-                                           "sigma_ms":  0.06737,
-                                           "min_ms":  1.57,
-                                           "max_ms":  1.74,
+                                           "mean_ms":  1.88,
+                                           "sigma_ms":  0.228,
+                                           "min_ms":  1.6,
+                                           "max_ms":  2.19,
                                            "batch_size":  10,
-                                           "runs":  63
+                                           "runs":  53
                                        },
                                        {
                                            "name":  "transform-composition/50-segment",
-                                           "mean_ms":  0.1367,
-                                           "sigma_ms":  0.00929,
-                                           "min_ms":  0.1304,
-                                           "max_ms":  0.15242,
+                                           "mean_ms":  0.14619,
+                                           "sigma_ms":  0.01514,
+                                           "min_ms":  0.12296,
+                                           "max_ms":  0.16595,
                                            "batch_size":  10,
-                                           "runs":  736
+                                           "runs":  640
                                        },
                                        {
                                            "name":  "parse-to-lower/50-rect",
-                                           "mean_ms":  0.92903,
-                                           "sigma_ms":  0.04931,
-                                           "min_ms":  0.86962,
-                                           "max_ms":  1.01,
+                                           "mean_ms":  0.89597,
+                                           "sigma_ms":  0.04765,
+                                           "min_ms":  0.84705,
+                                           "max_ms":  1,
                                            "batch_size":  10,
-                                           "runs":  117
+                                           "runs":  102
                                        }
                                    ]
                  },
                  {
                      "id":  "4",
                      "label":  "capture 4",
-                     "started_utc":  "2026-07-25T20:11:55.7086567Z",
-                     "ended_utc":  "2026-07-25T20:11:59.9728775Z",
+                     "started_utc":  "2026-07-25T20:15:36.5054908Z",
+                     "ended_utc":  "2026-07-25T20:15:40.5469475Z",
                      "exit_code":  0,
-                     "output_sha256":  "3bf22da9cd5ab25bebd0a473c71d4f951f0f4f8fa30322ec9785d006fb276028",
+                     "output_sha256":  "97ec9a285fd2ed28965c52ab0b1cf989f7decaa2656176ac1b0462fa726fe3aa",
                      "summaries":  [
                                        {
                                            "name":  "path-parse/1000-line-to",
-                                           "mean_ms":  1.79,
-                                           "sigma_ms":  0.12739,
-                                           "min_ms":  1.61,
-                                           "max_ms":  1.98,
+                                           "mean_ms":  1.84,
+                                           "sigma_ms":  0.2327,
+                                           "min_ms":  1.63,
+                                           "max_ms":  2.22,
                                            "batch_size":  10,
-                                           "runs":  63
+                                           "runs":  56
                                        },
                                        {
                                            "name":  "transform-composition/50-segment",
-                                           "mean_ms":  0.12854,
-                                           "sigma_ms":  0.00632,
-                                           "min_ms":  0.1213,
-                                           "max_ms":  0.14114,
+                                           "mean_ms":  0.15209,
+                                           "sigma_ms":  0.02236,
+                                           "min_ms":  0.13116,
+                                           "max_ms":  0.18768,
                                            "batch_size":  10,
-                                           "runs":  825
+                                           "runs":  735
                                        },
                                        {
                                            "name":  "parse-to-lower/50-rect",
-                                           "mean_ms":  0.96005,
-                                           "sigma_ms":  0.16232,
-                                           "min_ms":  0.85012,
-                                           "max_ms":  1.3,
+                                           "mean_ms":  0.91539,
+                                           "sigma_ms":  0.0305,
+                                           "min_ms":  0.87643,
+                                           "max_ms":  0.96844,
                                            "batch_size":  10,
-                                           "runs":  119
+                                           "runs":  98
                                        }
                                    ]
                  },
                  {
                      "id":  "5",
                      "label":  "capture 5",
-                     "started_utc":  "2026-07-25T20:11:59.9798451Z",
-                     "ended_utc":  "2026-07-25T20:12:03.8949789Z",
+                     "started_utc":  "2026-07-25T20:15:40.5481786Z",
+                     "ended_utc":  "2026-07-25T20:15:44.6525697Z",
                      "exit_code":  0,
-                     "output_sha256":  "84043a9caec404fb96afd9d5b33e9987610a0edb3f1f4bf9f12cfa4873930473",
+                     "output_sha256":  "760e7851be3810657dbd2ae1628a51d972ffdf605f61ef69ef659f1eb482c28b",
                      "summaries":  [
                                        {
                                            "name":  "path-parse/1000-line-to",
-                                           "mean_ms":  1.84,
-                                           "sigma_ms":  0.2166,
-                                           "min_ms":  1.57,
-                                           "max_ms":  2.24,
+                                           "mean_ms":  1.71,
+                                           "sigma_ms":  0.08181,
+                                           "min_ms":  1.65,
+                                           "max_ms":  1.92,
                                            "batch_size":  10,
-                                           "runs":  52
+                                           "runs":  62
                                        },
                                        {
                                            "name":  "transform-composition/50-segment",
-                                           "mean_ms":  0.13558,
-                                           "sigma_ms":  0.01539,
-                                           "min_ms":  0.12355,
-                                           "max_ms":  0.17817,
+                                           "mean_ms":  0.13622,
+                                           "sigma_ms":  0.01226,
+                                           "min_ms":  0.12132,
+                                           "max_ms":  0.15959,
                                            "batch_size":  10,
-                                           "runs":  727
+                                           "runs":  771
                                        },
                                        {
                                            "name":  "parse-to-lower/50-rect",
-                                           "mean_ms":  0.89831,
-                                           "sigma_ms":  0.06241,
-                                           "min_ms":  0.84328,
-                                           "max_ms":  1.03,
+                                           "mean_ms":  0.91697,
+                                           "sigma_ms":  0.04853,
+                                           "min_ms":  0.86099,
+                                           "max_ms":  0.98757,
                                            "batch_size":  10,
-                                           "runs":  109
+                                           "runs":  114
                                        }
                                    ]
                  },
                  {
                      "id":  "6",
                      "label":  "capture 6",
-                     "started_utc":  "2026-07-25T20:12:03.8961655Z",
-                     "ended_utc":  "2026-07-25T20:12:07.7348248Z",
+                     "started_utc":  "2026-07-25T20:15:44.6555023Z",
+                     "ended_utc":  "2026-07-25T20:15:48.3993713Z",
                      "exit_code":  0,
-                     "output_sha256":  "b474880d12f55f8874a880e4777b8a9410878da7f7e8e5c587d96d5fc76e6cb8",
+                     "output_sha256":  "32bc77abebd707b8243b9c6006b0d4486e07a827a0b31d8a90366baf2461336a",
                      "summaries":  [
                                        {
                                            "name":  "path-parse/1000-line-to",
-                                           "mean_ms":  1.75,
-                                           "sigma_ms":  0.23067,
-                                           "min_ms":  1.57,
-                                           "max_ms":  2.23,
+                                           "mean_ms":  1.86,
+                                           "sigma_ms":  0.31626,
+                                           "min_ms":  1.56,
+                                           "max_ms":  2.37,
                                            "batch_size":  10,
-                                           "runs":  56
+                                           "runs":  50
                                        },
                                        {
                                            "name":  "transform-composition/50-segment",
-                                           "mean_ms":  0.12937,
-                                           "sigma_ms":  0.0108,
-                                           "min_ms":  0.12205,
-                                           "max_ms":  0.1514,
+                                           "mean_ms":  0.14237,
+                                           "sigma_ms":  0.01808,
+                                           "min_ms":  0.12675,
+                                           "max_ms":  0.1842,
                                            "batch_size":  10,
-                                           "runs":  600
+                                           "runs":  590
                                        },
                                        {
                                            "name":  "parse-to-lower/50-rect",
-                                           "mean_ms":  0.9644,
-                                           "sigma_ms":  0.18395,
-                                           "min_ms":  0.8558,
-                                           "max_ms":  1.33,
+                                           "mean_ms":  0.85886,
+                                           "sigma_ms":  0.03193,
+                                           "min_ms":  0.8379,
+                                           "max_ms":  0.92651,
                                            "batch_size":  10,
-                                           "runs":  110
+                                           "runs":  111
                                        }
                                    ]
                  },
                  {
                      "id":  "7",
                      "label":  "capture 7",
-                     "started_utc":  "2026-07-25T20:12:07.7377571Z",
-                     "ended_utc":  "2026-07-25T20:12:11.4775773Z",
+                     "started_utc":  "2026-07-25T20:15:48.4016802Z",
+                     "ended_utc":  "2026-07-25T20:15:52.4094650Z",
                      "exit_code":  0,
-                     "output_sha256":  "ce85905fde08271155e6717d91d4534852a586c66544f25869711a713c296479",
+                     "output_sha256":  "7b6c0eee733f4b87fea5f38e2c294bd4764f2a759bcc6faea74893d6bef3ed3e",
                      "summaries":  [
                                        {
                                            "name":  "path-parse/1000-line-to",
-                                           "mean_ms":  1.76,
-                                           "sigma_ms":  0.20292,
-                                           "min_ms":  1.55,
-                                           "max_ms":  2.11,
+                                           "mean_ms":  1.65,
+                                           "sigma_ms":  0.1328,
+                                           "min_ms":  1.57,
+                                           "max_ms":  1.99,
                                            "batch_size":  10,
-                                           "runs":  55
+                                           "runs":  63
                                        },
                                        {
                                            "name":  "transform-composition/50-segment",
-                                           "mean_ms":  0.13106,
-                                           "sigma_ms":  0.0058,
-                                           "min_ms":  0.12459,
-                                           "max_ms":  0.14253,
+                                           "mean_ms":  0.1278,
+                                           "sigma_ms":  0.00529,
+                                           "min_ms":  0.12296,
+                                           "max_ms":  0.13954,
                                            "batch_size":  10,
-                                           "runs":  543
+                                           "runs":  745
                                        },
                                        {
                                            "name":  "parse-to-lower/50-rect",
-                                           "mean_ms":  0.93712,
-                                           "sigma_ms":  0.0853,
-                                           "min_ms":  0.88618,
-                                           "max_ms":  1.13,
+                                           "mean_ms":  0.92834,
+                                           "sigma_ms":  0.07644,
+                                           "min_ms":  0.84275,
+                                           "max_ms":  1.05,
                                            "batch_size":  10,
-                                           "runs":  105
+                                           "runs":  111
                                        }
                                    ]
                  }
