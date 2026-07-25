@@ -72,6 +72,52 @@ test "parse_path_data arc approximated as line" {
 }
 
 ///|
+fn direct_relative_path_cases() -> Array[(String, String, Int, (Double, Double, Double, Double, Double, Double))] {
+  [
+    // A second relative move proves that `m` composes with its current point.
+    ("m", "m 65535 65535 m 1 1", 1, (65536.0, 65536.0, 0.0, 0.0, 0.0, 0.0)),
+    ("l", "M 65535 65535 l 1 1", 1, (65536.0, 65536.0, 0.0, 0.0, 0.0, 0.0)),
+    ("h", "M 65535 65535 h 1", 1, (65536.0, 65535.0, 0.0, 0.0, 0.0, 0.0)),
+    ("v", "M 65535 65535 v 1", 1, (65535.0, 65536.0, 0.0, 0.0, 0.0, 0.0)),
+    ("c", "M 65535 65535 c 1 0 0 1 1 1", 1, (65536.0, 65535.0, 65535.0, 65536.0, 65536.0, 65536.0)),
+    ("q", "M 65535 65535 q 1 0 1 1", 1, (65536.0, 65535.0, 65536.0, 65536.0, 0.0, 0.0)),
+    // `a` is currently represented by its relative endpoint as a line segment.
+    ("a", "M 65535 65535 a 1 2 3 0 1 1 1", 1, (65536.0, 65536.0, 0.0, 0.0, 0.0, 0.0)),
+  ]
+}
+
+///|
+fn direct_relative_case_matches(
+  route : String,
+  data : String,
+  command_index : Int,
+  expected : (Double, Double, Double, Double, Double, Double),
+) -> Bool {
+  let (x1, y1, x2, y2, x3, y3) = expected
+  match parse_path_data(data) {
+    Ok(path) =>
+      match path.to_path2().get(command_index) {
+        Some(@math.PathCommand::MoveTo(point)) =>
+          route == "m" && point.x() == x1 && point.y() == y1
+        Some(@math.PathCommand::LineTo(point)) =>
+          (route == "l" || route == "h" || route == "v" || route == "a") &&
+          point.x() == x1 && point.y() == y1
+        Some(@math.PathCommand::CubicTo(cp1, cp2, endpoint)) =>
+          route == "c" &&
+          cp1.x() == x1 && cp1.y() == y1 &&
+          cp2.x() == x2 && cp2.y() == y2 &&
+          endpoint.x() == x3 && endpoint.y() == y3
+        Some(@math.PathCommand::QuadTo(control, endpoint)) =>
+          route == "q" &&
+          control.x() == x1 && control.y() == y1 &&
+          endpoint.x() == x2 && endpoint.y() == y2
+        _ => false
+      }
+    Err(_) => false
+  }
+}
+
+///|
 test "numeric contract: supported direct path routes" {
   // SVG-NUM-PATH: M/L/H/V/C/Q/A source arguments remain passing evidence.
   // Smooth S/s and T/t argument admission, reflected-control derivation, and
@@ -81,14 +127,23 @@ test "numeric contract: supported direct path routes" {
     Ok(path) => inspect(path.to_path2().length(), content="8")
     Err(_) => inspect(false, content="true")
   }
-  // SVG-NUM-RELATIVE: direct relative arithmetic reaches the inclusive boundary.
-  match parse_path_data("m 65535 65535 l 1 1") {
-    Ok(path) =>
-      match path.to_path2().get(1) {
-        Some(@math.PathCommand::LineTo(point)) =>
-          inspect((point.x(), point.y()), content="(65536, 65536)")
-        _ => inspect(false, content="true")
-      }
-    Err(_) => inspect(false, content="true")
+}
+
+///|
+test "numeric contract: every direct relative path route" {
+  // SVG-NUM-RELATIVE: each currently supported direct relative family reaches
+  // or leaves the inclusive boundary through its endpoint and, for curves,
+  // every emitted control point. Smooth S/s and T/t remain intentionally
+  // outside this Phase 91 public numeric-admission contract pending Phase 92.
+  let cases = direct_relative_path_cases()
+  let mut failures = 0
+  for case in cases {
+    let (route, data, command_index, expected) = case
+    if !direct_relative_case_matches(route, data, command_index, expected) {
+      println("direct relative path route failed: " + route)
+      failures = failures + 1
+    }
   }
+  inspect(failures, content="0")
+  inspect(cases.length(), content="7")
 }
