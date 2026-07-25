@@ -5,15 +5,15 @@ milestone_name: SVG Numeric Boundary Unification
 current_phase: 95
 current_phase_name: Shared SVG Geometry Boundary
 status: executing
-stopped_at: Phase 95 context gathered
-last_updated: "2026-07-25T21:36:09.988Z"
+stopped_at: Completed 95-01-PLAN.md
+last_updated: "2026-07-25T21:46:32.698Z"
 last_activity: 2026-07-26
 last_activity_desc: Phase 95 execution started
 progress:
   total_phases: 1
   completed_phases: 0
   total_plans: 2
-  completed_plans: 0
+  completed_plans: 1
 ---
 
 # Project State
@@ -29,8 +29,8 @@ See `.planning/PROJECT.md`.
 ## Current Position
 
 Phase: 95 (Shared SVG Geometry Boundary) — EXECUTING
-Plan: 1 of 2
-Status: Executing Phase 95
+Plan: 2 of 2
+Status: Ready to execute
 Last activity: 2026-07-26 — Phase 95 execution started
 
 ## Milestone Metrics
@@ -46,6 +46,8 @@ Last activity: 2026-07-26 — Phase 95 execution started
 - [v0.31 roadmap]: Phase 95 consolidates parser preflight and lowering behind one internal checked seam for transforms, viewBox mapping, and shape/path coordinate derivation; it does not expand the public SVG surface.
 - [v0.31 roadmap]: Phase 96 owns both fail-closed unsafe-geometry proof and target-neutral divergence controls, because qualification must exercise the shared seam delivered by Phase 95.
 - [v0.31 roadmap]: Public valid SVG output, the v0.30 numeric limits and structured errors, finite singular transforms, and RFC 0008 opacity/layer semantics are compatibility controls, not new feature work.
+- [Phase ?]: Shared checked SVG geometry facts preserve fail-closed parsing and total lowering recovery.
+- [Phase ?]: Coordinate admission remains after the accumulated affine to preserve finite scale(0).
 
 ### Blockers/Concerns
 
@@ -63,9 +65,9 @@ Last activity: 2026-07-26 — Phase 95 execution started
 
 ## Session Continuity
 
-Last session: 2026-07-25T21:15:22.643Z
-Stopped at: Phase 95 context gathered
-Resume file: .planning/phases/95-shared-svg-geometry-boundary/95-CONTEXT.md
+Last session: 2026-07-25T21:46:32.686Z
+Stopped at: Completed 95-01-PLAN.md
+Resume file: None
 
 ## Operator Next Steps
 
@@ -74,3 +76,8 @@ Resume file: .planning/phases/95-shared-svg-geometry-boundary/95-CONTEXT.md
 ## Performance Metrics
 
 No v0.31 plans have been completed.
+**Per-Plan Metrics:**
+
+| Plan | Duration | Tasks | Files |
+|------|----------|-------|-------|
+| Phase 95 P01 | 8min | 2 tasks | 4 files |

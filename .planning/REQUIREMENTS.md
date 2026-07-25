@@ -8,7 +8,7 @@
 
 ### Shared Geometry Boundary
 
-- [ ] **SVGUNI-01**: Library consumers receive unchanged valid SVG scene and drawing-list behavior while parser preflight and lowering obtain transform, viewBox, shape, and path geometry facts from one checked internal implementation.
+- [x] **SVGUNI-01**: Library consumers receive unchanged valid SVG scene and drawing-list behavior while parser preflight and lowering obtain transform, viewBox, shape, and path geometry facts from one checked internal implementation.
 - [ ] **SVGUNI-02**: Explicit unsafe or derived-overflow SVG geometry returns the established structured error before a scene, drawing list, or raster operation is published, regardless of whether it reaches the parser or lowerer boundary.
 
 ### Compatibility Qualification
@@ -34,11 +34,12 @@
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| SVGUNI-01 | Phase 95 | Pending |
+| SVGUNI-01 | Phase 95 | Complete |
 | SVGUNI-02 | Phase 96 | Pending |
 | SVGUNI-03 | Phase 96 | Pending |
 
 **Coverage:**
+
 - v0.31 requirements: 3 total
 - Mapped to phases: 3
 - Unmapped: 0
