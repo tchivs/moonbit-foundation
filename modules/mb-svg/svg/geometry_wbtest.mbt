@@ -1,6 +1,15 @@
 // Direct controls for the checked geometry seam. These exercises the private
 // facts without coupling the proof to source-text implementation details.
 
+fn assert_private_point_derived_error(
+  result : Result[@math.Point2, @error.CoreError],
+) -> Unit raise {
+  match result {
+    Ok(_) => inspect(false, content="true")
+    Err(error) => inspect(error.context(), content="Some(svg-numeric-derived)")
+  }
+}
+
 ///|
 test "geometry tracer: root map group affine and rectangle parse then lower" {
   let source = "<svg viewBox=\"0 0 100 50\" width=\"200\" height=\"200\"><g transform=\"translate(10,0)\"><rect width=\"1\" height=\"1\"/></g></svg>"
@@ -41,9 +50,32 @@ test "geometry facts: root map affine point and rectangle are checked" {
 
 ///|
 test "geometry facts: derived overflow remains structured" {
-  match checked_transform_point(@math.Affine2::scale(65536.0, 1.0), @math.Point2::new(2.0, 0.0)) {
+  assert_private_point_derived_error(
+    checked_transform_point(
+      @math.Affine2::scale(65536.0, 1.0),
+      @math.Point2::new(2.0, 0.0),
+    ),
+  )
+}
+
+///|
+test "geometry tracer pairs derived root-map rejection with finite scale zero" {
+  let unsafe_root : SvgRoot = {
+    width: Some(2.0),
+    height: Some(2.0),
+    view_box: Some((-65536.0, 0.0, 1.0, 1.0)),
+    preserve_aspect_ratio: { align_x: 1, align_y: 1, meet: true, none: false },
+  }
+  match checked_viewbox_transform(unsafe_root) {
     Ok(_) => inspect(false, content="true")
     Err(error) => inspect(error.context(), content="Some(svg-numeric-derived)")
+  }
+  match checked_transform_point(
+    @math.Affine2::scale(0.0, 0.0),
+    @math.Point2::new(65536.0, -65536.0),
+  ) {
+    Ok(point) => inspect((point.x(), point.y()), content="(0, 0)")
+    Err(_) => inspect(false, content="true")
   }
 }
 

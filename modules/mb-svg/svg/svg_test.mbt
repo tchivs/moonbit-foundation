@@ -171,15 +171,16 @@ test "public parse rejects invalid path data before a scene exists" {
 test "public parse rejects unsafe derived geometry before lowering" {
   let cases = [
     // viewBox translation is -min_x * scale = 131072.
-    "<svg viewBox=\"-65536 0 1 1\" width=\"2\" height=\"2\"><rect width=\"1\" height=\"1\"/></svg>",
+    ("viewbox-root-map", "<svg viewBox=\"-65536 0 1 1\" width=\"2\" height=\"2\"><rect width=\"1\" height=\"1\"/></svg>"),
     // A source-valid group transform carries this coordinate out of range.
-    "<svg><g transform=\"translate(65536,0)\"><rect x=\"1\" width=\"1\" height=\"1\"/></g></svg>",
+    ("group-affine-child", "<svg><g transform=\"translate(65536,0)\"><rect x=\"1\" width=\"1\" height=\"1\"/></g></svg>"),
     // Rounded-rect edge construction calculates x + width = 65537.
-    "<svg><rect x=\"65536\" width=\"1\" height=\"1\" rx=\"1\"/></svg>",
+    ("rounded-rect-edge", "<svg><rect x=\"65536\" width=\"1\" height=\"1\" rx=\"1\"/></svg>"),
     // Ellipse sampling calculates cx + rx at its first point.
-    "<svg><ellipse cx=\"65536\" cy=\"0\" rx=\"1\" ry=\"1\"/></svg>",
+    ("ellipse-extremum", "<svg><ellipse cx=\"65536\" cy=\"0\" rx=\"1\" ry=\"1\"/></svg>"),
   ]
-  for source in cases {
+  for case in cases {
+    let (_, source) = case
     // Err establishes that there is no parser-produced SceneNode to lower.
     assert_public_numeric_error(
       parse_svg(source),
