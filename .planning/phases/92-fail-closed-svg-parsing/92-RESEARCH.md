@@ -318,15 +318,11 @@ Use this in a black-box `svg_test.mbt` helper and focused white-box tests; do no
 
 All findings were verified against the current repository, Phase 91 policy/verification, or the current all-target test run; no implementation-affecting assumptions remain. [VERIFIED: codebase grep] [VERIFIED: target test run]
 
-## Open Questions
+## Open Questions (RESOLVED)
 
-1. **Should Phase 92 add a public `svg_test.mbt` where the package currently relies on white-box tests?**
-   - What we know: AGENTS.md requires black-box tests for every public package, and `parse_svg` is the public API whose `Result` contract changes. [VERIFIED: AGENTS.md] [VERIFIED: codebase grep]
-   - Recommendation: Add a compact public error-contract suite in this phase; retain route-local `*_wbtest.mbt` for scanner, affine, and generated-path coverage. [VERIFIED: AGENTS.md]
+1. **Public black-box suite:** Adopted for Phase 92. Add and extend `svg_test.mbt` as the compact public error-contract suite for `parse_svg`, while retaining route-local `*_wbtest.mbt` coverage for scanner, affine, and generated-path details. This meets the AGENTS.md black-box-test requirement for the public package. [VERIFIED: AGENTS.md] [VERIFIED: codebase grep]
 
-2. **How should a manually constructed public `SceneNode` be treated?**
-   - What we know: `SceneNode` is a public enum and `lower_to_drawing_list` is total; the Phase 92 contract is specifically parser admission before `parse_svg` returns. [VERIFIED: codebase grep] [CITED: docs/policies/svg-numeric-admission.md]
-   - Recommendation: Do not make lowering fallible or add a new public wrapper in this phase; test only parser-produced scenes, as locked D-07 requires. [CITED: docs/policies/svg-numeric-admission.md]
+2. **Safety enforcement boundary:** Adopted at the parser-produced `SceneNode` boundary. `parse_svg` must reject unsafe explicit and derived values before returning a scene; `lower_to_drawing_list` remains the total consumer of a successful parser result. Manually constructed public `SceneNode` values are outside Phase 92 numeric admission, so no fallible lowerer or public wrapper is added. [VERIFIED: codebase grep] [CITED: docs/policies/svg-numeric-admission.md]
 
 ## Environment Availability
 
