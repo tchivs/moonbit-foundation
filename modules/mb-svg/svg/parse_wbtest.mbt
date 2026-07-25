@@ -118,3 +118,73 @@ test "numeric contract: lexical finite boundaries" {
     Err(_) => inspect(false, content="true")
   }
 }
+
+fn inspect_svg_numeric_error(
+  result : Result[Unit, @error.CoreError],
+  code : @error.ErrorCode,
+  context : String,
+) -> Unit raise {
+  match result {
+    Ok(_) => inspect(false, content="true")
+    Err(error) => {
+      inspect(error.category() == @error.ErrorCategory::Data, content="true")
+      inspect(error.code() == code, content="true")
+      inspect(error.operation() == Some("svg"), content="true")
+      inspect(error.context() == Some(context), content="true")
+    }
+  }
+}
+
+fn expect_parse_svg_numeric_error(
+  source : String,
+  code : @error.ErrorCode,
+  context : String,
+) -> Unit raise {
+  match parse_svg(source) {
+    Ok(_) => inspect_svg_numeric_error(Ok(()), code, context)
+    Err(error) => inspect_svg_numeric_error(Err(error), code, context)
+  }
+}
+
+///|
+test "numeric admission rejects explicit root and viewBox failures" {
+  expect_parse_svg_numeric_error(
+    "<svg width=\"not-a-number\"/>",
+    @error.ErrorCode::InvalidEncoding,
+    "svg-numeric-source",
+  )
+  expect_parse_svg_numeric_error(
+    "<svg width=\"1e999\"/>",
+    @error.ErrorCode::InvalidEncoding,
+    "svg-numeric-nonfinite",
+  )
+  expect_parse_svg_numeric_error(
+    "<svg viewBox=\"0 0 65537 1\"/>",
+    @error.ErrorCode::InvalidRange,
+    "svg-numeric-range",
+  )
+  expect_parse_svg_numeric_error(
+    "<svg viewBox=\"0 0 1\"/>",
+    @error.ErrorCode::InvalidEncoding,
+    "svg-numeric-source",
+  )
+}
+
+///|
+test "numeric admission rejects explicit geometry and points failures" {
+  expect_parse_svg_numeric_error(
+    "<svg><rect x=\"65537\"/></svg>",
+    @error.ErrorCode::InvalidRange,
+    "svg-numeric-range",
+  )
+  expect_parse_svg_numeric_error(
+    "<svg><circle r=\"broken\"/></svg>",
+    @error.ErrorCode::InvalidEncoding,
+    "svg-numeric-source",
+  )
+  expect_parse_svg_numeric_error(
+    "<svg><polyline points=\"0 0 1e999 1\"/></svg>",
+    @error.ErrorCode::InvalidEncoding,
+    "svg-numeric-nonfinite",
+  )
+}
