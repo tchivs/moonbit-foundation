@@ -17,7 +17,7 @@
 
 ### Benchmark Evidence
 
-- [ ] **SVGPR-04**: Maintainers can run three accurately named, correctness-gated `mb-svg` workloads (path parse, transform composition, parse-to-lower) and compare a documented native release baseline without treating cross-target timings as comparable performance.
+- [x] **SVGPR-04**: Maintainers can run three accurately named, correctness-gated `mb-svg` workloads (path parse, transform composition, parse-to-lower) and compare a documented native release baseline without treating cross-target timings as comparable performance.
 
 ## Future Requirements
 
@@ -44,7 +44,7 @@
 | SVGPR-01 | Phase 91 | Complete |
 | SVGPR-02 | Phase 92 | Complete |
 | SVGPR-03 | Phase 93 | Complete |
-| SVGPR-04 | Phase 94 | Pending |
+| SVGPR-04 | Phase 94 | Complete |
 
 **Coverage:**
 
