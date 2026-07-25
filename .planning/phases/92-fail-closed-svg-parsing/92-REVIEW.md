@@ -1,9 +1,10 @@
 ---
 phase: 92-fail-closed-svg-parsing
-reviewed: 2026-07-25T17:52:07Z
+reviewed: 2026-07-25T18:02:11Z
 depth: deep
-files_reviewed: 13
+files_reviewed: 14
 files_reviewed_list:
+  - modules/mb-svg/svg/bounds_wbtest.mbt
   - modules/mb-svg/svg/color.mbt
   - modules/mb-svg/svg/length.mbt
   - modules/mb-svg/svg/lower_wbtest.mbt
@@ -26,41 +27,43 @@ status: issues_found
 verdict: blocked
 ---
 
-# Phase 92: Final Code Re-Review Report
+# Phase 92: Release Code Review
 
-**Reviewed:** 2026-07-25T17:52:07Z
+**Reviewed:** 2026-07-25T18:02:11Z
 **Depth:** deep
-**Files Reviewed:** 13
-**Status:** issues_found — **BLOCKED**
+**Files Reviewed:** 14
+**Verdict:** **BLOCKED**
 
 ## Summary
 
-CR-01 through CR-08 are fixed in `5c6e093` through `78485a6`: malformed functional and hexadecimal paints now retain the numeric error identity; percent and comma grammar reject malformed input; skew uses tangent; close-path state and compact signed paths are correct; and scalars after `Z/z` fail immediately instead of consuming the command budget. The full SVG package suite passes on wasm, wasm-gc, js, and native (111 tests per target).
+CR-01 through CR-10 are fixed. In particular, `3b98857` admits source size before SVG tokenization and applies balanced depth leases to nested non-empty `<svg>` elements; the corresponding bounds tests cover both repairs. Earlier fixes retain structured numeric errors, strict comma/hex handling, tangent-based skew, correct close-path state, and post-close scalar rejection.
 
-SVGPR-02 is nevertheless blocked. The parser's documented resource boundary can be bypassed by nested supported `<svg>` elements, and its caller-provided budget is not applied until after unbounded markup tokenization and allocation. Both defects permit untrusted input to consume stack or heap outside the advertised limits.
+`moon test modules/mb-svg/svg --target all --frozen` passes: 114/114 on wasm, wasm-gc, js, and native. The release remains blocked by two untested public-input paths: direct path parsing still bypasses the caller's byte budget, and a valid self-closing deferred SVG element is rejected.
 
 ## Narrative Findings (AI reviewer)
 
-The re-review traced every Phase 92 ingress (`parse_svg` → scene builder → paint/list/path/transform parsers → preflight) and checked the repaired CR-01..CR-08 cases. It also traced the budget call chain into the markup tokenizer and compared nesting handling for `g` and nested `svg` structural nodes. No remaining malformed numeric route that was previously reported returns a scene; the remaining blockers are parser-resource defects.
+The review traced `parse_svg_with_budget` through tokenization, scene construction, paint/list/path/transform parsing, and derived-geometry preflight, and separately traced the public `parse_path_data_with_budget` entry point. No prior CR-01–CR-10 regression was found. The findings below are independent release blockers for the requested bounded-input and valid-SVG compatibility gates.
 
 ## Critical Issues
 
-### CR-09: Nested supported `<svg>` elements bypass the depth budget
+### CR-11: Public path parser allocates and scans before honoring the byte budget
 
 **Classification:** BLOCKER
-**File:** `modules/mb-svg/svg/scene.mbt:896-901, 1004-1015`
-**Issue:** `build_element` recursively dispatches every nested `<svg>` to `build_svg_root`, but `build_svg_root` never acquires a `Budget::enter_depth()` lease. Only `build_group` does. Thus `parse_svg_with_budget(source, budget)` accepts arbitrarily deep nested `<svg>` trees under a budget with a tiny depth ceiling, until recursion exhausts the runtime stack; `preflight_scene` then recurses through the same unbounded tree. This contradicts the public bounded-input contract and makes hostile input a denial-of-service path.
-**Fix:** Apply the same depth lease around non-empty nested `<svg>` child construction as `build_group` uses, releasing it on every return path. Add a tight-budget regression such as five nested `<svg>` elements under `depth=3` and assert a structured `svg-budget` error; retain a shallow nested-`svg` success control.
+**File:** `modules/mb-svg/svg/path_data.mbt:17-18, 31-42, 327-337`
+**Issue:** `parse_path_data_with_budget` creates `s.to_array()` before consulting `budget`; its only charge uses `bytes=0UL`. Thus a caller can provide a tiny byte budget and a very large `d` string, yet the parser allocates/scans the full character array before it can return a work or numeric error. The default path budget's 8 MiB `bytes` limit is likewise inert. This bypasses the public bounded-input contract for the standalone path API.
 
-### CR-10: The resource budget is applied only after unbounded markup tokenization
+**Fix:** Before `s.to_array()`, reject a source whose code-unit count exceeds `budget.remaining().bytes()` (or introduce a shared budget-aware scanner that charges bytes while scanning). Add all-target tests showing an oversized direct `parse_path_data_with_budget` input fails before conversion, while a boundary-sized valid path succeeds.
+
+### CR-12: Self-closing deferred elements are treated as unterminated subtrees
 
 **Classification:** BLOCKER
-**File:** `modules/mb-svg/svg/scene.mbt:175-182` (called parser: `modules/mb-core/text/xml_tokenize.mbt:53-82`)
-**Issue:** `parse_svg_with_budget` passes the entire untrusted source to `tokenize_markup` before charging any part of the supplied budget. The tokenizer scans the complete string and constructs an unbounded `Array[MarkupToken]`; `build_attrs`/`build_children` charge work only after that array already exists. Consequently a caller's byte, allocation, and work ceilings do not prevent tokenization-time memory or CPU consumption (for example, a document containing far more tokens than the work limit still allocates all of them before returning `svg-budget`). This violates the documented fail-closed resource boundary for untrusted SVG.
-**Fix:** Introduce a budget-aware tokenizer (preferred) that charges source bytes and each emitted token/allocation while scanning, or reserve/check the input byte budget before tokenization and enforce a bounded token count during lexing. Add a tight-budget test with an oversized many-tag document that asserts failure before a full token array is materialized.
+**File:** `modules/mb-svg/svg/scene.mbt:955-999`
+**Issue:** For an unsupported/deferred element, `build_element` calls `skip_element_body` even when `build_attrs` reported `is_empty=true`. Consequently valid SVG such as `<svg><defs/></svg>` (or `<metadata/>`, `<linearGradient/>`) consumes the following tokens while seeking a nonexistent `</defs>` and returns `missing </defs> while skipping`. This breaks valid SVG compatibility at the documented deferred-element boundary.
+
+**Fix:** In the default/deferred branch, return `Ok(None)` immediately when `is_empty` is true; call `skip_element_body` only for non-empty elements. Add a regression for `<svg><defs/><rect .../></svg>` that asserts successful parsing and one retained drawable child, plus a self-closing deferred-only control.
 
 ---
 
-_Reviewed: 2026-07-25T17:52:07Z_
+_Reviewed: 2026-07-25T18:02:11Z_
 _Reviewer: the agent (gsd-code-reviewer)_
 _Depth: deep_
