@@ -34,15 +34,15 @@
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| SVGUNI-01 | TBD | Pending |
-| SVGUNI-02 | TBD | Pending |
-| SVGUNI-03 | TBD | Pending |
+| SVGUNI-01 | Phase 95 | Pending |
+| SVGUNI-02 | Phase 96 | Pending |
+| SVGUNI-03 | Phase 96 | Pending |
 
 **Coverage:**
 - v0.31 requirements: 3 total
-- Mapped to phases: 0
-- Unmapped: 3 (roadmap pending)
+- Mapped to phases: 3
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-07-26*
-*Last updated: 2026-07-26 after v0.31 scope definition*
+*Last updated: 2026-07-26 after v0.31 roadmap creation*

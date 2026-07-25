@@ -3,10 +3,10 @@ gsd_state_version: 1.0
 milestone: v0.31
 milestone_name: SVG Numeric Boundary Unification
 status: planning
-last_updated: "2026-07-25T21:10:18.917Z"
+last_updated: "2026-07-25T21:11:51.4414318Z"
 last_activity: 2026-07-26
 progress:
-  total_phases: 0
+  total_phases: 2
   completed_phases: 0
   total_plans: 0
   completed_plans: 0
@@ -21,84 +21,53 @@ See `.planning/PROJECT.md`.
 
 **Core value:** MoonBit developers can reuse stable, high-performance native infrastructure contracts instead of rebuilding incompatible foundations for every graphics, document, media, or automation product.
 
-**Current focus:** Phase 94 — SVG Benchmark Evidence
+**Current focus:** Phase 95 — Shared SVG Geometry Boundary
 
 ## Current Position
 
-Phase: Not started (defining requirements)
+Phase: 95 of 96 (not started)
 Plan: —
-Status: Defining requirements
-Last activity: 2026-07-26 — Milestone v0.31 started
+Status: Roadmap created; ready for phase planning
+Last activity: 2026-07-26 — v0.31 roadmap created with complete requirement traceability
 
 ## Milestone Metrics
 
-**Current milestone:** v0.30 has 4 planned phases, 0 plans started, and all 4 scoped requirements mapped exactly once (SVGPR-01 → 91; SVGPR-02 → 92; SVGPR-03 → 93; SVGPR-04 → 94).
+**Current milestone:** v0.31 has 2 planned phases, 0 plans started, and all 3 scoped requirements mapped exactly once (SVGUNI-01 → 95; SVGUNI-02 → 96; SVGUNI-03 → 96).
 
-**Previous milestone:** v0.29 shipped Indexed Adam7 Compression Profiles; its detailed history is archived at `.planning/milestones/v0.29-ROADMAP.md`.
+**Previous milestone:** v0.30 shipped SVG Production Readiness across Phases 91-94; its detailed roadmap is archived at `.planning/milestones/v0.30-ROADMAP.md`.
 
 ## Accumulated Context
 
 ### Decisions
 
-- [v0.30 roadmap]: Phase 91 establishes the documented target-neutral numeric envelope and route-matrix evidence before parser migration.
-- [v0.30 roadmap]: Phase 92 makes every explicit SVG scalar and derived path fail closed before a scene or drawing list can exist; omitted attributes retain existing defaults and finite singular transforms remain valid.
-- [v0.30 roadmap]: Phase 93 is compatibility and four-target evidence for RFC 0008 isolated opacity and the existing 16-layer canvas capability, not a rendering-policy rewrite.
-- [v0.30 roadmap]: Phase 94 freezes correctness-gated path-parse, transform-composition, and parse-to-lower workloads only after final semantics; native release captures are local like-for-like evidence, not cross-target performance claims.
-- [Phase ?]: Anchor SVG_NUMERIC_LIMIT at the existing 65536 SVG resource width/height ceiling rather than an arbitrary Double maximum.
-- [Phase ?]: Treat finite singular transforms such as scale(0) as valid; determinant zero is not numeric unsafety.
-- [Phase ?]: Reserve behavior-changing explicit-value rejection assertions for Phase 92 while Phase 91 proves valid boundary preservation.
-- [Phase ?]: Focused SVG numeric controls map each public SVG-NUM route identifier to valid finite behavior while keeping Phase 92 rejection coverage separate.
-- [Phase ?]: Finite scale(0), current lowerer behavior, and RFC 0008 opacity layer ordering remain compatibility controls without production source changes.
-- [Phase 92]: Use stable typed SVG numeric error contexts for fail-closed source admission.
-- [Phase 92]: Preserve defaults only for absent SVG numeric attributes; explicit invalid values return Err.
-- [Phase ?]: Present SVG paint values return typed errors; only absent values inherit or default.
-- [Phase ?]: Transform arity errors are svg-numeric-source; unsafe constructed or composed affine values are svg-numeric-derived while scale(0) remains valid.
-- [Phase ?]: Path scanner rejects source and derived unsafe coordinates before CanvasPath publication.
-- [Phase ?]: parse_svg preflights deterministic lowering geometry while lower_to_drawing_list remains total.
-- [Phase ?]: Use semantic RGBA operation assertions rather than target snapshots for SVG portability.
-- [Phase ?]: No production seam repair: SVG-generated lists qualify unchanged on all four targets.
-- [Phase ?]: Three fixed SVG workloads validate their semantic result before timing.
-- [Phase ?]: All-target SVG benchmark output is runnable qualification, not cross-target performance evidence.
-- [Phase ?]: Native SVG evidence uses one excluded warmup and exactly seven retained release captures.
-- [Phase ?]: The audit decodes explicitly no-BOM UTF-8 evidence and revalidates full output digests without rerunning MoonBit.
-- [Phase ?]: Raw output is HTML-escaped in collapsible preformatted blocks so exact whitespace remains auditable while git diff --check stays clean.
+- [v0.31 roadmap]: Phase 95 consolidates parser preflight and lowering behind one internal checked seam for transforms, viewBox mapping, and shape/path coordinate derivation; it does not expand the public SVG surface.
+- [v0.31 roadmap]: Phase 96 owns both fail-closed unsafe-geometry proof and target-neutral divergence controls, because qualification must exercise the shared seam delivered by Phase 95.
+- [v0.31 roadmap]: Public valid SVG output, the v0.30 numeric limits and structured errors, finite singular transforms, and RFC 0008 opacity/layer semantics are compatibility controls, not new feature work.
 
 ### Blockers/Concerns
 
-- Select the exact SVG scalar envelope from existing canvas, raster, and resource bounds during Phase 91; do not guess a generic `Double` magnitude.
-- Ensure every explicit numeric ingress and derived arithmetic route propagates a stable structured SVG error; do not silently default invalid present attributes.
-- Keep benchmark corpus, correctness digests, toolchain/host facts, and execution mode coupled so native comparisons cannot drift.
+- Keep the shared seam internal and acyclic; no new public API, numeric limit, or public error schema is in scope.
+- Preserve error timing: unsafe explicit or derived geometry must fail before any scene, drawing list, or raster result can escape.
+- Four-target controls must test semantic parity rather than compare timing across targets.
 
 ## Deferred Items
 
 | Category | Item | Status |
 |----------|------|--------|
 | scope | SVG text, gradients, masks, filters, `<use>`, animation, broader XML/CSS, and percentage resolution | deferred |
-| scope | Native acceleration, FFI, a second rasterizer, or image-sized layer-staging optimization | deferred |
+| scope | Native acceleration, FFI, a second rasterizer, or a new numeric policy | deferred |
 | delivery | Registry publication, release automation, global timing thresholds, and cross-target timing comparisons | deferred |
 
 ## Session Continuity
 
-Last session: 2026-07-25T20:17:42.161Z
-Stopped at: Completed 94-02-PLAN.md
-Resume file: None
+Last session: 2026-07-26
+Stopped at: Created v0.31 roadmap
+Resume file: `.planning/ROADMAP.md`
 
 ## Operator Next Steps
 
-- Start the next milestone with /gsd-new-milestone
+- Start Phase 95 planning with `/gsd-plan-phase 95`.
 
 ## Performance Metrics
 
-No v0.30 plans have been completed.
-**Per-Plan Metrics:**
-
-| Plan | Duration | Tasks | Files |
-|------|----------|-------|-------|
-| Phase 91-svg-numeric-contract P01 | 12min | 2 tasks | 2 files |
-| Phase 91-svg-numeric-contract P02 | 12min | 2 tasks | 5 files |
-| Phase 92 P01 | 4 min | 2 tasks | 6 files |
-| Phase 92 P02 | 25 min | 2 tasks | 6 files |
-| Phase 92 P03 | 9min | 2 tasks | 7 files |
-| Phase 93 P01 | 5min | 3 tasks | 4 files |
-| Phase 94 P01 | 10 min | 2 tasks | 2 files |
-| Phase 94-svg-benchmark-evidence P02 | 17min | 3 tasks | 2 files |
+No v0.31 plans have been completed.
