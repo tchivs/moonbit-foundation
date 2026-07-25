@@ -375,3 +375,8 @@ test "portable qualification rejects a seventeenth SVG-originated opacity layer 
     }
   }
 }
+
+///|
+test "portable qualification keeps RFC 0008 group and element opacity semantic" {
+  assert_portable_rfc0008_opacity_contract()
+}
