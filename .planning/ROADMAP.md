@@ -103,10 +103,10 @@
   2. The benchmark workloads build and run on `js`, `wasm`, `wasm-gc`, and `native` without using cross-target timings as a performance comparison.
   3. A documented native release baseline records the exact command, corpus and correctness digests, toolchain and host facts, warmup, and seven captures for like-for-like comparison.
 
-**Plans**: 1/2 plans executed
+**Plans**: 2/2 plans executed
 
 - [x] 94-01-PLAN.md
-- [ ] 94-02-PLAN.md
+- [x] 94-02-PLAN.md
 
 ## Progress
 
@@ -115,7 +115,7 @@
 | 91. SVG Numeric Contract | 2/2 | Complete    | 2026-07-26 |
 | 92. Fail-Closed SVG Parsing | 3/3 | Complete    | 2026-07-26 |
 | 93. SVG Compatibility & Portable Qualification | 1/1 | Complete    | 2026-07-26 |
-| 94. SVG Benchmark Evidence | 1/2 | In Progress|  |
+| 94. SVG Benchmark Evidence | 2/2 | In Progress|  |
 
 ---
 *Roadmap last updated: 2026-07-25 for v0.30 planning.*
