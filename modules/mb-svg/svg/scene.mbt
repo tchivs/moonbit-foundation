@@ -262,26 +262,26 @@ fn preflight_node(
 ) -> Result[Unit, @error.CoreError] {
   match node {
     Svg(root, children) => {
-      let map = match preflight_viewbox_transform(root) {
+      let map = match checked_viewbox_transform(root) {
         Ok(value) => value
         Err(error) => return Err(error)
       }
-      let next = match preflight_compose(current, map) {
+      let next = match checked_compose_affine(current, map) {
         Ok(value) => value
         Err(error) => return Err(error)
       }
       preflight_children(children, next)
     }
     Group(transform, _, children) => {
-      let next = match preflight_compose(current, transform) {
+      let next = match checked_compose_affine(current, transform) {
         Ok(value) => value
         Err(error) => return Err(error)
       }
       preflight_children(children, next)
     }
     Rect(_, x, y, w, h, rx, ry) => {
-      match preflight_rect(x, y, w, h, rx, ry) {
-        Ok(_) => preflight_path_points(rect_path(x, y, w, h, rx, ry), current)
+      match checked_rect_path(x, y, w, h, rx, ry) {
+        Ok(path) => checked_path_points(path, current)
         Err(error) => Err(error)
       }
     }

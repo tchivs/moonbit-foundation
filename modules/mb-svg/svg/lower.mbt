@@ -44,7 +44,7 @@ fn lower_node(node : SceneNode, list : @canvas.DrawingList) -> Unit {
       // "xMidYMid meet"). If viewBox is absent, or width/height are absent,
       // no mapping is applied (identity). meet keeps aspect ratio by using
       // the smaller scale and centers the content (xMid/YMid).
-      let map = viewbox_transform(root)
+      let map = total_viewbox_transform(root)
       let mapped = not(map.a() == 1.0 && map.d() == 1.0 && map.tx() == 0.0 && map.ty() == 0.0)
       if mapped {
         list.push_transform(map)
@@ -75,7 +75,7 @@ fn lower_node(node : SceneNode, list : @canvas.DrawingList) -> Unit {
       list.pop_transform()
     }
     Rect(paint, x, y, w, h, rx, ry) =>
-      emit_shape(paint, rect_path(x, y, w, h, rx, ry), list)
+      emit_shape(paint, total_rect_path(x, y, w, h, rx, ry), list)
     Circle(paint, cx, cy, r) =>
       emit_shape(paint, circle_path(cx, cy, r), list)
     Ellipse(paint, cx, cy, rx, ry) =>
@@ -85,6 +85,32 @@ fn lower_node(node : SceneNode, list : @canvas.DrawingList) -> Unit {
     Polyline(paint, pts) => emit_shape(paint, polyline_path(pts), list)
     Polygon(paint, pts) => emit_shape(paint, polygon_path(pts), list)
     Path(paint, cp) => emit_shape(paint, cp.to_path2(), list)
+  }
+}
+
+// Parser-produced roots have already passed checked_viewbox_transform. A
+// manually constructed invalid root keeps the public lowerer total by using
+// identity instead of exposing a Result or panicking.
+fn total_viewbox_transform(root : SvgRoot) -> @math.Affine2 {
+  match checked_viewbox_transform(root) {
+    Ok(transform) => transform
+    Err(_) => @math.Affine2::identity()
+  }
+}
+
+// As above, invalid manually constructed leaf geometry is recovered as an
+// empty path; valid parser-produced rectangles use the shared checked fact.
+fn total_rect_path(
+  x : Double,
+  y : Double,
+  w : Double,
+  h : Double,
+  rx : Double,
+  ry : Double,
+) -> @math.Path2 {
+  match checked_rect_path(x, y, w, h, rx, ry) {
+    Ok(path) => path
+    Err(_) => @math.Path2::new()
   }
 }
 
