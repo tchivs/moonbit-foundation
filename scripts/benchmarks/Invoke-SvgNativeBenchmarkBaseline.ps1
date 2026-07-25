@@ -367,7 +367,11 @@ function Assert-SummariesEqual([object[]]$Expected, [object[]]$Actual, [string]$
 }
 
 function Assert-VisibleAggregate([string]$Document, [string]$Name, [object]$Aggregate) {
-  $line = [regex]::Match($Document, '(?m)^\| ' + [regex]::Escape($Name) + ' \| (?<mean>[0-9.]+) \| (?<median>[0-9.]+) \| (?<std>[0-9.]+) \| (?<min>[0-9.]+) \| (?<max>[0-9.]+) \| (?<cv>[0-9.]+) \|$')
+  $summaryMarker = '## Native-host-specific seven-capture summary'
+  $summaryIndex = $Document.IndexOf($summaryMarker, [StringComparison]::Ordinal)
+  if ($summaryIndex -lt 0) { throw 'Visible aggregate section is missing.' }
+  $summarySection = $Document.Substring($summaryIndex + $summaryMarker.Length)
+  $line = [regex]::Match($summarySection, '(?m)^\| ' + [regex]::Escape($Name) + ' \| (?<mean>[0-9.]+) \| (?<median>[0-9.]+) \| (?<std>[0-9.]+) \| (?<min>[0-9.]+) \| (?<max>[0-9.]+) \| (?<cv>[0-9.]+) \|$')
   if (!$line.Success) { throw "Visible aggregate row missing for $Name." }
   $expected = @((Format-Number $Aggregate.mean_ms), (Format-Number $Aggregate.median_ms), (Format-Number $Aggregate.sample_standard_deviation_ms), (Format-Number $Aggregate.minimum_ms), (Format-Number $Aggregate.maximum_ms), (Format-Number $Aggregate.coefficient_of_variation))
   $actual = @($line.Groups['mean'].Value, $line.Groups['median'].Value, $line.Groups['std'].Value, $line.Groups['min'].Value, $line.Groups['max'].Value, $line.Groups['cv'].Value)
