@@ -46,3 +46,41 @@ test "geometry facts: derived overflow remains structured" {
     Err(error) => inspect(error.context(), content="Some(svg-numeric-derived)")
   }
 }
+
+///|
+test "geometry facts: supported primitive paths preserve command forms" {
+  match checked_circle_path(0.0, 0.0, 2.0) {
+    Ok(path) => inspect(path.length(), content="33")
+    Err(_) => inspect(false, content="true")
+  }
+  match checked_ellipse_path(0.0, 0.0, 2.0, 1.0) {
+    Ok(path) => inspect(path.length(), content="33")
+    Err(_) => inspect(false, content="true")
+  }
+  match checked_line_path(0.0, 0.0, 2.0, 3.0) {
+    Ok(path) => inspect(path.length(), content="2")
+    Err(_) => inspect(false, content="true")
+  }
+  let points = [@math.Point2::new(0.0, 0.0), @math.Point2::new(1.0, 1.0)]
+  match (checked_polyline_path(points), checked_polygon_path(points)) {
+    (Ok(polyline), Ok(polygon)) => inspect((polyline.length(), polygon.length()), content="(2, 3)")
+    _ => inspect(false, content="true")
+  }
+}
+
+///|
+test "geometry facts: canvas path traversal and all shapes parse then lower" {
+  match parse_path_data("M0 0 Q1 2 3 4 C5 6 7 8 9 10 Z") {
+    Ok(canvas_path) =>
+      match checked_canvas_path(canvas_path) {
+        Ok(path) => inspect(path.length(), content="4")
+        Err(_) => inspect(false, content="true")
+      }
+    Err(_) => inspect(false, content="true")
+  }
+  let source = "<svg><circle r=\"1\"/><ellipse rx=\"2\" ry=\"1\"/><line x2=\"2\" y2=\"3\"/><polyline points=\"0,0 1,1\"/><polygon points=\"0,0 1,0 1,1\"/><path d=\"M0 0 L1 1 Z\"/></svg>"
+  match parse_svg(source) {
+    Ok(scene) => inspect(lower_to_drawing_list(scene).length(), content="6")
+    Err(_) => inspect(false, content="true")
+  }
+}
