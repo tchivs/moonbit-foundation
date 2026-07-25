@@ -4,6 +4,7 @@
 **Domain:** Portable, bounded SVG parse-to-canvas lowering
 **Researched:** 2026-07-25
 **Confidence:** MEDIUM-HIGH
+**Research commit:** `ed0b5de`
 
 ## Executive Summary
 
@@ -54,9 +55,9 @@ Keep the existing parse → validated scene → pure lowering → bounded canvas
 **Major components:**
 
 1. `mb-core/text` — optional additive bounded finite conversion primitive and deterministic `CoreError` support; do not silently alter generic number-parser compatibility.
-2. `mb-svg/length.mbt`, `path_data.mbt`, and `transform.mbt` — the shared scalar route, grammar/arity enforcement, and checked path/affine derivation.
-3. `mb-svg/scene.mbt` — distinguishes omitted attributes (existing SVG default/inheritance) from explicitly invalid attributes (error, no `SceneNode`).
-4. `mb-svg/lower.mbt` — relies on validated scene invariants and retains document-order transforms and isolated opacity layers.
+2. `modules/mb-svg/svg/length.mbt`, `path_data.mbt`, and `transform.mbt` — the shared scalar route, grammar/arity enforcement, and checked path/affine derivation.
+3. `modules/mb-svg/svg/scene.mbt` — distinguishes omitted attributes (existing SVG default/inheritance) from explicitly invalid attributes (error, no `SceneNode`).
+4. `modules/mb-svg/svg/lower.mbt` — relies on validated scene invariants and retains document-order transforms and isolated opacity layers.
 5. `mb-canvas` — preserves existing bounded layer allocation, source-over rendering, 16-layer capability limit, and partial-mutation protections.
 6. `svg_bench.mbt` and a tracked local baseline record — fixed public workloads and reproducible evidence, not a runtime subsystem or release gate.
 
