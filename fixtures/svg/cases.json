@@ -1,0 +1,59 @@
+{
+  "schema_version": "1.0.0",
+  "classification": {
+    "spec_derived": "SVG 1.1 (Second Edition) element/attribute grammar for the RFC 0002 §6.1 in-scope subset; no third-party fixture bytes copied",
+    "project_derived": "Repository-authored adversarial markup and edge schedules"
+  },
+  "source": "https://www.w3.org/TR/SVG11/ (SVG 1.1) plus repository-derived adversarial schedules",
+  "canonical_cases": [
+    { "id": "empty-svg", "svg": "<svg/>", "expect": "ok" },
+    { "id": "rect-default-fill", "svg": "<svg><rect width=\"10\" height=\"10\"/></svg>", "expect": "ok" },
+    { "id": "rect-fill-named", "svg": "<svg><rect width=\"10\" height=\"10\" fill=\"red\"/></svg>", "expect": "ok" },
+    { "id": "rect-fill-hex", "svg": "<svg><rect width=\"10\" height=\"10\" fill=\"#00ff00\"/></svg>", "expect": "ok" },
+    { "id": "rect-fill-rgb", "svg": "<svg><rect width=\"10\" height=\"10\" fill=\"rgb(0,0,255)\"/></svg>", "expect": "ok" },
+    { "id": "rect-rounded-rx-ry", "svg": "<svg><rect width=\"10\" height=\"10\" rx=\"2\" ry=\"2\"/></svg>", "expect": "ok" },
+    { "id": "circle", "svg": "<svg><circle cx=\"5\" cy=\"5\" r=\"4\" fill=\"blue\"/></svg>", "expect": "ok" },
+    { "id": "ellipse", "svg": "<svg><ellipse cx=\"5\" cy=\"5\" rx=\"4\" ry=\"2\"/></svg>", "expect": "ok" },
+    { "id": "line", "svg": "<svg><line x1=\"0\" y1=\"0\" x2=\"10\" y2=\"10\" stroke=\"black\"/></svg>", "expect": "ok" },
+    { "id": "polyline", "svg": "<svg><polyline points=\"0,0 5,5 10,0\"/></svg>", "expect": "ok" },
+    { "id": "polygon", "svg": "<svg><polygon points=\"0,0 10,0 10,10\" fill=\"green\"/></svg>", "expect": "ok" },
+    { "id": "path-moveto-lineto-close", "svg": "<svg><path d=\"M0 0 L5 5 Z\"/></svg>", "expect": "ok" },
+    { "id": "path-cubic", "svg": "<svg><path d=\"M0 0 C1 1 2 2 3 3\"/></svg>", "expect": "ok" },
+    { "id": "path-quad", "svg": "<svg><path d=\"M0 0 Q1 2 3 3\"/></svg>", "expect": "ok" },
+    { "id": "stroke-width-opacity", "svg": "<svg><rect width=\"10\" height=\"10\" fill=\"red\" stroke=\"blue\" stroke-width=\"2\" fill-opacity=\"0.5\" stroke-opacity=\"0.25\"/></svg>", "expect": "ok" },
+    { "id": "stroke-dasharray-offset", "svg": "<svg><rect width=\"10\" height=\"10\" stroke=\"black\" stroke-dasharray=\"2 1\" stroke-dashoffset=\"5\"/></svg>", "expect": "ok" },
+    { "id": "stroke-linecap-linejoin", "svg": "<svg><rect width=\"10\" height=\"10\" stroke=\"black\" stroke-linecap=\"round\" stroke-linejoin=\"bevel\" stroke-miterlimit=\"6\"/></svg>", "expect": "ok" },
+    { "id": "fill-rule-evenodd", "svg": "<svg><path d=\"M0 0 L10 0 L10 10 Z\" fill-rule=\"evenodd\"/></svg>", "expect": "ok" },
+    { "id": "group-transform", "svg": "<svg><g transform=\"translate(10,0) scale(2)\"><rect width=\"1\" height=\"1\"/></g></svg>", "expect": "ok" },
+    { "id": "paint-inheritance-fill", "svg": "<svg><g fill=\"red\"><rect width=\"1\" height=\"1\"/></g></svg>", "expect": "ok" },
+    { "id": "paint-inheritance-currentcolor", "svg": "<svg><g color=\"blue\"><rect fill=\"currentColor\" width=\"1\" height=\"1\"/></g></svg>", "expect": "ok" },
+    { "id": "nested-groups-inheritance", "svg": "<svg><g fill=\"red\"><g><rect width=\"1\" height=\"1\"/></g></g></svg>", "expect": "ok" },
+    { "id": "viewbox-mapping", "svg": "<svg viewBox=\"0 0 100 100\" width=\"200\" height=\"200\"><rect width=\"1\" height=\"1\"/></svg>", "expect": "ok" },
+    { "id": "preserve-aspect-ratio-meet", "svg": "<svg viewBox=\"0 0 100 50\" width=\"200\" height=\"200\" preserveAspectRatio=\"xMidYMid meet\"><rect width=\"1\" height=\"1\"/></svg>", "expect": "ok" },
+    { "id": "preserve-aspect-ratio-slice", "svg": "<svg viewBox=\"0 0 100 50\" width=\"200\" height=\"200\" preserveAspectRatio=\"xMidYMid slice\"><rect width=\"1\" height=\"1\"/></svg>", "expect": "ok" },
+    { "id": "preserve-aspect-ratio-none", "svg": "<svg viewBox=\"0 0 100 50\" width=\"200\" height=\"200\" preserveAspectRatio=\"none\"><rect width=\"1\" height=\"1\"/></svg>", "expect": "ok" },
+    { "id": "rotate-with-center", "svg": "<svg><g transform=\"rotate(90, 5, 5)\"><rect width=\"1\" height=\"1\"/></g></svg>", "expect": "ok" },
+    { "id": "group-opacity", "svg": "<svg><g opacity=\"0.5\"><rect width=\"1\" height=\"1\"/></g></svg>", "expect": "ok" },
+    { "id": "element-opacity", "svg": "<svg><rect width=\"1\" height=\"1\" opacity=\"0.5\"/></svg>", "expect": "ok" },
+    { "id": "self-closed-vs-paired", "svg": "<svg><rect width=\"1\" height=\"1\"></rect></svg>", "expect": "ok" },
+    { "id": "unknown-element-skipped", "svg": "<svg><defs><linearGradient id=\"g\"/></defs><rect width=\"1\" height=\"1\"/></svg>", "expect": "ok" },
+    { "id": "comment-ignored", "svg": "<svg><!-- note --><rect width=\"1\" height=\"1\"/></svg>", "expect": "ok" }
+  ],
+  "edge_cases": [
+    { "id": "root-only-no-children", "svg": "<svg></svg>", "expect": "ok" },
+    { "id": "zero-size-rect", "svg": "<svg><rect width=\"0\" height=\"0\"/></svg>", "expect": "ok" },
+    { "id": "single-point-polyline", "svg": "<svg><polyline points=\"0,0\"/></svg>", "expect": "ok" },
+    { "id": "empty-path-d", "svg": "<svg><path d=\"\"/></svg>", "expect": "ok" },
+    { "id": "negative-coordinates", "svg": "<svg><rect x=\"-5\" y=\"-5\" width=\"10\" height=\"10\"/></svg>", "expect": "ok" },
+    { "id": "viewbox-without-width-height", "svg": "<svg viewBox=\"0 0 100 100\"><rect width=\"1\" height=\"1\"/></svg>", "expect": "ok" }
+  ],
+  "adversarial_cases": [
+    { "id": "non-svg-root", "svg": "<rect/>", "expect": "err" },
+    { "id": "unquoted-attribute", "svg": "<svg><g id=x></g></svg>", "expect": "err" },
+    { "id": "unterminated-tag", "svg": "<svg><rect", "expect": "err" },
+    { "id": "unterminated-comment", "svg": "<svg><!-- oops</svg>", "expect": "err" },
+    { "id": "bare-less-than", "svg": "<", "expect": "err" },
+    { "id": "path-missing-d", "svg": "<svg><path fill=\"red\"/></svg>", "expect": "err" },
+    { "id": "truncated-attribute-value", "svg": "<svg><rect fill=\"red/></svg>", "expect": "err" }
+  ]
+}

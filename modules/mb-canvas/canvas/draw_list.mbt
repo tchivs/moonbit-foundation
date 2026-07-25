@@ -23,6 +23,13 @@ pub(all) enum DrawOp {
   PushClip(@math.Rect2)
   // Pop the most recent clip.
   PopClip
+  // Begin a raster layer (RFC 0008): allocate a transparent offscreen and
+  // direct subsequent rasterization onto it until PopLayer. The Double is the
+  // opacity (straight alpha in [0,1]) applied when compositing the layer back.
+  PushLayer(Double)
+  // End the innermost raster layer: composite it onto the parent target with
+  // source-over at the PushLayer opacity, then release the offscreen.
+  PopLayer
 }
 
 ///|
@@ -91,6 +98,23 @@ pub fn DrawingList::push_clip(self : DrawingList, clip : @math.Rect2) -> Unit {
 /// Pop the most recent clip. Unbalanced pops are no-ops at rasterization time.
 pub fn DrawingList::pop_clip(self : DrawingList) -> Unit {
   self.ops.push(DrawOp::PopClip)
+}
+
+///|
+/// Begin a raster layer. The rasterizer allocates a transparent offscreen of
+/// the current target's dimensions and directs subsequent operations onto it
+/// until `pop_layer`. `opacity` (straight alpha, clamped to [0,1] at use) is
+/// applied when the layer is composited back. See RFC 0008.
+pub fn DrawingList::push_layer(self : DrawingList, opacity : Double) -> Unit {
+  self.ops.push(DrawOp::PushLayer(opacity))
+}
+
+///|
+/// End the innermost raster layer: composite it onto the parent target at the
+/// `push_layer` opacity and release the offscreen. An unbalanced `pop_layer`
+/// (no matching `push_layer`) is a no-op at rasterization time. See RFC 0008.
+pub fn DrawingList::pop_layer(self : DrawingList) -> Unit {
+  self.ops.push(DrawOp::PopLayer)
 }
 
 ///|

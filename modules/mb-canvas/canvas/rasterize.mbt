@@ -3,7 +3,10 @@
 // Per RFC 0003 §6.1, the portable software rasterizer is the reference
 // implementation: it runs on js, wasm, wasm-gc, and native, produces
 // deterministic coverage-antialiased output, and writes into a borrowed
-// mb-image MutImageView. It does not allocate its own pixel store.
+// mb-image MutImageView. It does not allocate its own pixel store for the
+// primary target. RFC 0008 adds a bounded exception: raster layers
+// (PushLayer/PopLayer) allocate a transparent offscreen surface, charged
+// against the budget and capped at 16 nesting levels (see render_into).
 //
 // Color is resolved through mb-color (encoded-sRGB normalized domain) and
 // coverage-antialiased via supersampling (coverage.mbt). Source-over blending
@@ -23,47 +26,131 @@ pub fn render(
   target.with_mut_view(view => render_into(list, view, budget))
 }
 
-// Render the list into a borrowed mutable view. Transform and clip state are
-// replayed from the op sequence.
+// Render the list into a borrowed mutable view. Transform, clip, and
+// render-target state are replayed from the op sequence.
+//
+// Layer handling (RFC 0008) is recursive rather than stack-based: a MutImageView
+// is only obtainable through OwnedImage::with_mut_view (callback-scoped), so a
+// persistent view stack is not possible. render_segment processes ops from
+// `start_idx` until it hits the matching PopLayer (or end of list); on
+// PushLayer it allocates an offscreen, recurses into the offscreen's
+// with_mut_view, then composites the result back. Layer nesting is capped at
+// max_layer_depth (16).
 fn render_into(
   list : DrawingList,
   view : @storage.MutImageView,
   budget : @budget.Budget,
 ) -> Result[Unit, @error.CoreError] {
+  let ctx : RenderCtx = {
+    list: list,
+    budget: budget,
+    layer_depth: 0,
+  }
+  match render_segment(ctx, 0, view, @math.Affine2::identity(), None) {
+    Err(e) => Err(e)
+    Ok(_) => Ok(())
+  }
+}
+
+// Immutable render context shared across the recursion.
+priv struct RenderCtx {
+  list : DrawingList
+  budget : @budget.Budget
+  mut layer_depth : Int
+}
+
+// Process ops from `start_idx` into `view`, under `current` transform and
+// `clip` (None = unclipped), until the matching PopLayer or end of list.
+// Returns the index just past the consumed segment (i.e. past the matching
+// PopLayer, or list length at end). The returned index is used by the caller
+// (a PushLayer frame) to continue processing sibling ops.
+fn render_segment(
+  ctx : RenderCtx,
+  start_idx : Int,
+  view : @storage.MutImageView,
+  initial_transform : @math.Affine2,
+  initial_clip : @math.Rect2?,
+) -> Result[Int, @error.CoreError] {
+  let transform_stack : Array[@math.Affine2] = []
+  let mut current = initial_transform
+  let clip_stack : Array[@math.Rect2] = []
+  let mut clip = initial_clip
+  let is_rgba = view.format().channel_count() == 4
   let width = view.width()
   let height = view.height()
-  let channels = view.format().channel_count()
-  let is_rgba = channels == 4
-  // Transform stack; the current transform is the composed product.
-  let transform_stack : Array[@math.Affine2] = []
-  let mut current = @math.Affine2::identity()
-  // Clip stack in device space (intersection of all active clips).
-  let clip_stack : Array[@math.Rect2] = []
-  let mut clip : @math.Rect2? = None
-  let _ = budget
-  for i = 0; i < list.length(); i = i + 1 {
-    match list.get(i) {
+  let mut i = start_idx
+  while i < ctx.list.length() {
+    match ctx.list.get(i) {
+      None => {
+        i = i + 1
+      }
       Some(op) =>
         match op {
           DrawOp::PushTransform(t) => {
             transform_stack.push(current)
             current = current.compose(t)
+            i = i + 1
           }
-          DrawOp::PopTransform =>
+          DrawOp::PopTransform => {
             match transform_stack.pop() {
               Some(prev) => current = prev
               None => ()
             }
+            i = i + 1
+          }
           DrawOp::PushClip(rect) => {
             clip_stack.push(rect)
-            // Apply current transform to the clip rect's corners and take the
-            // axis-aligned bounding box of the transformed rectangle.
             clip = Some(transform_and_intersect_clip(clip, rect, current))
+            i = i + 1
           }
           DrawOp::PopClip => {
             let _ = clip_stack.pop()
-            // Recompute the effective clip from the remaining stack.
             clip = recompute_clip(clip_stack, current)
+            i = i + 1
+          }
+          DrawOp::PopLayer => {
+            // End of this segment (matched the PushLayer that spawned it, or an
+            // unbalanced PopLayer at top level which is a no-op terminator).
+            return Ok(i + 1)
+          }
+          DrawOp::PushLayer(opacity) => {
+            if ctx.layer_depth >= MAX_LAYER_DEPTH {
+              return Err(raster_error(
+                "canvas-layer-depth",
+                "layer nesting depth exceeded",
+              ))
+            }
+            ctx.layer_depth = ctx.layer_depth + 1
+            // Allocate the offscreen; recurse into its with_mut_view to render
+            // the layer's segment; then composite back onto this view.
+            match alloc_transparent_offscreen(width, height, ctx.budget) {
+              Err(e) => return Err(e)
+              Ok(offscreen) => {
+                let layer_opacity = clamp_unit(opacity)
+                let recurse_result = offscreen.with_mut_view(fn(oview) {
+                  render_segment(ctx, i + 1, oview, current, clip)
+                })
+                ctx.layer_depth = ctx.layer_depth - 1
+                match recurse_result {
+                  Err(e) => return Err(e)
+                  Ok(next_idx) => {
+                    // Composite the offscreen onto the current (parent) view.
+                    match composite_offscreen_onto(
+                        offscreen,
+                        view,
+                        is_rgba,
+                        layer_opacity,
+                      ) {
+                      Err(e) => return Err(e)
+                      Ok(_) => {
+                        i = next_idx
+                        ()
+                      }
+                    }
+                  }
+                }
+              }
+            }
           }
           DrawOp::Fill(path, style) => {
             let transformed = current.apply_to_path(path)
@@ -80,10 +167,11 @@ fn render_into(
               Err(e) => return Err(e)
               Ok(_) => ()
             }
+            i = i + 1
           }
           DrawOp::Stroke(path, stroke, color) => {
-            // Stroke rasterization is added in a later step; for now lower a
-            // stroke to a fill of the stroke's centerline-expanded outline.
+            // Stroke rasterization: lower a stroke to a fill of the stroke's
+            // centerline-expanded outline.
             let transformed = current.apply_to_path(path)
             let outline = expand_stroke(transformed, stroke)
             let segments = outline.flattened(0.1, 64)
@@ -107,12 +195,178 @@ fn render_into(
               Err(e) => return Err(e)
               Ok(_) => ()
             }
+            i = i + 1
           }
         }
-      None => ()
+    }
+  }
+  Ok(i)
+}
+
+// Maximum raster-layer nesting depth (RFC 0008 §7). Each layer holds a
+// full-target RGBA8 offscreen, so 16 bounds worst-case offscreen memory to
+// 16×(w×h×4) bytes while far exceeding real SVG group-nesting depth.
+const MAX_LAYER_DEPTH : Int = 16
+
+// Allocate a transparent RGBA8 offscreen of the given dimensions, charging the
+// budget. Returns the owning OwnedImage (all pixels transparent). The descriptor
+// construction mirrors the mb-canvas render test helper pattern.
+fn alloc_transparent_offscreen(
+  width : UInt64,
+  height : UInt64,
+  budget : @budget.Budget,
+) -> Result[@storage.OwnedImage, @error.CoreError] {
+  let length = width * height * 4UL
+  let descriptor = @imgmodel.ImageDescriptor::new(
+    width,
+    height,
+    @imgmodel.ImageFormat::rgba8(),
+    [
+      @imgmodel.PlaneDescriptor::new(
+        0UL,
+        length,
+        width * 4UL,
+        width * 4UL,
+        1UL,
+        1UL,
+        width,
+        height,
+      ).unwrap(),
+    ],
+    length,
+    @imgmodel.ImageMetadata::new(
+      @color.ColorSpaceIdentity::Srgb,
+      @color.TransferIdentity::EncodedSrgb,
+      Some(@color.AlphaMode::Straight),
+      @profile.ProfileIdentity::builtin_srgb(),
+      @imgmodel.Orientation::TopLeft,
+      @metadata.OpaqueMetadata::from_entries(
+        [],
+        @metadata.MetadataLimits::new(
+          max_entries=0UL,
+          max_token_bytes=16UL,
+          max_value_bytes=0UL,
+          max_total_bytes=0UL,
+          max_disposition_fields=8UL,
+        ),
+        budget,
+      ).unwrap(),
+    ),
+  ).unwrap()
+  let image = @storage.OwnedImage::new(descriptor, budget)
+  match image {
+    Err(e) => Err(e)
+    Ok(img) => {
+      // Initialize all pixels transparent (0,0,0,0). Offscreens start
+      // transparent so layer content composites correctly onto the parent.
+      let _ = img.with_mut_view(fn(v) {
+        for y = 0UL; y < height; y = y + 1UL {
+          for x = 0UL; x < width; x = x + 1UL {
+            ignore(v.set_byte(x, y, 0, b'\x00'))
+            ignore(v.set_byte(x, y, 1, b'\x00'))
+            ignore(v.set_byte(x, y, 2, b'\x00'))
+            ignore(v.set_byte(x, y, 3, b'\x00'))
+          }
+        }
+        Ok(())
+      })
+      Ok(img)
+    }
+  }
+}
+
+// Composite a popped layer's offscreen onto its parent target with source-over,
+// Composite an offscreen layer (read via its immutable view) onto a parent
+// MutImageView with source-over, scaling the source alpha by the layer
+// opacity. Walks pixel-by-pixel reusing the same porter_duff path as
+// composite_pixel (RFC 0008 §5).
+fn composite_offscreen_onto(
+  offscreen : @storage.OwnedImage,
+  dst : @storage.MutImageView,
+  parent_is_rgba : Bool,
+  opacity : Double,
+) -> Result[Unit, @error.CoreError] {
+  let src = offscreen.view()
+  let w = src.width()
+  let h = src.height()
+  // Clamp to the smaller of the two views (defensive; they should match).
+  let dw = dst.width()
+  let dh = dst.height()
+  let x_max = if w < dw { w } else { dw }
+  let y_max = if h < dh { h } else { dh }
+  for y = 0UL; y < y_max; y = y + 1UL {
+    for x = 0UL; x < x_max; x = x + 1UL {
+      // Source (layer) pixel — always RGBA8.
+      let sr_byte = src.get_byte(x, y, 0)
+      let sg_byte = src.get_byte(x, y, 1)
+      let sb_byte = src.get_byte(x, y, 2)
+      let sa_byte = src.get_byte(x, y, 3)
+      let (sr, sg, sb, sa) = match (sr_byte, sg_byte, sb_byte, sa_byte) {
+        (Ok(r), Ok(g), Ok(b), Ok(a)) =>
+          (
+            r.to_int().to_double() / 255.0,
+            g.to_int().to_double() / 255.0,
+            b.to_int().to_double() / 255.0,
+            a.to_int().to_double() / 255.0,
+          )
+        (Err(e), _, _, _) => return Err(e)
+        (_, Err(e), _, _) => return Err(e)
+        (_, _, Err(e), _) => return Err(e)
+        (_, _, _, Err(e)) => return Err(e)
+      }
+      let src_a = sa * opacity
+      if src_a <= 0.0 {
+        continue
+      }
+      // Destination (parent) pixel.
+      let dr_byte = dst.get_byte(x, y, 0)
+      let dg_byte = dst.get_byte(x, y, 1)
+      let db_byte = dst.get_byte(x, y, 2)
+      let (dr, dg, db, da) = match (dr_byte, dg_byte, db_byte) {
+        (Ok(rb), Ok(gb), Ok(bb)) => {
+          let d_alpha = if parent_is_rgba {
+            match dst.get_byte(x, y, 3) {
+              Ok(ab) => ab.to_int().to_double() / 255.0
+              Err(e) => return Err(e)
+            }
+          } else {
+            1.0
+          }
+          (
+            rb.to_int().to_double() / 255.0,
+            gb.to_int().to_double() / 255.0,
+            bb.to_int().to_double() / 255.0,
+            d_alpha,
+          )
+        }
+        (Err(e), _, _) => return Err(e)
+        (_, Err(e), _) => return Err(e)
+        (_, _, Err(e)) => return Err(e)
+      }
+      let (or, og, ob, oa) = @blend.porter_duff_composite(
+        @blend.CompositeOp::SourceOver,
+        (sr, sg, sb),
+        src_a,
+        (dr, dg, db),
+        da,
+      )
+      match write_color(dst, x, y, parent_is_rgba, or, og, ob, oa) {
+        Err(e) => return Err(e)
+        Ok(_) => ()
+      }
     }
   }
   Ok(())
+}
+
+// Construct a raster-layer CoreError.
+fn raster_error(context : String, message : String) -> @error.CoreError {
+  @error.CoreError::new(
+    @error.ErrorCategory::Resource,
+    @error.ErrorCode::BudgetExceeded,
+    operation="canvas-render",
+    context=context + ": " + message,
+  )
 }
 
 // Rasterize a single fill: for each pixel in the bounding box (clipped), compute

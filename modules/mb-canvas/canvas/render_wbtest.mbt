@@ -348,3 +348,122 @@ test "render transform push/pop isolates state" {
   inspect(a_origin.to_int(), content="0")
 }
 
+// ---------------------------------------------------------------------------
+// Raster layers (RFC 0008): PushLayer/PopLayer + opacity compositing.
+// ---------------------------------------------------------------------------
+
+// A budget with enough bytes/allocations for a layer offscreen allocation
+// (8×8 RGBA8 = 256 bytes per layer, plus headroom for several layers).
+fn layer_budget(bytes : UInt64, work : UInt64) -> @budget.Budget {
+  @budget.Budget::new(@budget.ResourceLimits::new(
+    bytes~,
+    allocations=64UL,
+    allocation_size=bytes,
+    width=16UL,
+    height=16UL,
+    pixels=4096UL,
+    depth=64UL,
+    work~,
+  ))
+}
+
+///|
+test "render layer composites opacity onto the backdrop (50% red over white)" {
+  // Opaque white backdrop; a layer with a full-canvas opaque red fill at
+  // opacity 0.5. Source-over of (1,0,0,0.5) over (1,1,1,1):
+  //   out_a = 1, out_rgb = (1*0.5 + 1*0.5, 0*0.5 + 1*0.5, 0*0.5 + 1*0.5) = (1, 0.5, 0.5)
+  // → (255, 128, 128, 255). This is RFC 0008 §10's canonical expectation.
+  let image = render_wb_solid(8UL, 8UL, b'\xff', b'\xff', b'\xff', b'\xff')
+  let path = @math.Path2::new()
+  path.push(@math.PathCommand::MoveTo(@math.Point2::new(0.0, 0.0)))
+  path.push(@math.PathCommand::LineTo(@math.Point2::new(8.0, 0.0)))
+  path.push(@math.PathCommand::LineTo(@math.Point2::new(8.0, 8.0)))
+  path.push(@math.PathCommand::LineTo(@math.Point2::new(0.0, 8.0)))
+  path.push(@math.PathCommand::Close)
+  let list = DrawingList::new()
+  list.push_layer(0.5)
+  list.push_fill(path, FillStyle::new(1.0, 0.0, 0.0))
+  list.pop_layer()
+  match render(list, image, layer_budget(65536UL, 65536UL)) {
+    Err(_) => inspect(false, content="true") // render errored
+    Ok(_) => ()
+  }
+  let (r, g, b, a) = render_wb_pixel(image, 4UL, 4UL)
+  inspect((r.to_int(), g.to_int(), b.to_int(), a.to_int()), content="(255, 128, 128, 255)")
+}
+
+///|
+test "render layer with opacity 1 is identical to no layer" {
+  // A layer at opacity 1 over an opaque red fill should leave the fill intact.
+  let image = render_wb_solid(8UL, 8UL, b'\x00', b'\x00', b'\x00', b'\x00')
+  let path = CanvasPath::new()
+  path.rect(0.0, 0.0, 8.0, 8.0)
+  let list = DrawingList::new()
+  list.push_layer(1.0)
+  list.push_fill(path.to_path2(), FillStyle::new(1.0, 0.0, 0.0))
+  list.pop_layer()
+  match render(list, image, layer_budget(65536UL, 65536UL)) {
+    Err(_) => inspect(false, content="true")
+    Ok(_) => ()
+  }
+  let (r, g, b, a) = render_wb_pixel(image, 4UL, 4UL)
+  inspect((r.to_int(), g.to_int(), b.to_int(), a.to_int()), content="(255, 0, 0, 255)")
+}
+
+///|
+test "render nested layers compose opacity multiplicatively" {
+  // Two nested 0.5-opacity layers each carrying an opaque red fill, over white.
+  // Trace: inner layer offscreen L2 = opaque red (1,0,0,1). PopLayer L2 @0.5
+  // onto L1 (transparent): source-over gives L1 = (1,0,0,0.5). PopLayer L1 @0.5
+  // onto white (1,1,1,1): src_a = 0.5*0.5 = 0.25; out = (1*0.25+1*0.75,
+  // 0*0.25+1*0.75, 0*0.25+1*0.75) = (1, 0.75, 0.75) → (255, 191, 191, 255).
+  // Verifies the opacity multiplies across nested PopLayer composites.
+  let image = render_wb_solid(8UL, 8UL, b'\xff', b'\xff', b'\xff', b'\xff')
+  let path = CanvasPath::new()
+  path.rect(0.0, 0.0, 8.0, 8.0)
+  let list = DrawingList::new()
+  list.push_layer(0.5)
+  list.push_layer(0.5)
+  list.push_fill(path.to_path2(), FillStyle::new(1.0, 0.0, 0.0))
+  list.pop_layer()
+  list.pop_layer()
+  match render(list, image, layer_budget(131072UL, 65536UL)) {
+    Err(_) => inspect(false, content="true")
+    Ok(_) => ()
+  }
+  let (r, g, b, a) = render_wb_pixel(image, 4UL, 4UL)
+  inspect((r.to_int(), g.to_int(), b.to_int(), a.to_int()), content="(255, 191, 191, 255)")
+}
+
+///|
+test "render unbalanced PopLayer is a no-op" {
+  // A PopLayer with no matching PushLayer must not panic and leaves the
+  // backdrop untouched.
+  let image = render_wb_solid(4UL, 4UL, b'\xaa', b'\xbb', b'\xcc', b'\xdd')
+  let list = DrawingList::new()
+  list.pop_layer()
+  match render(list, image, layer_budget(65536UL, 65536UL)) {
+    Err(_) => inspect(false, content="true")
+    Ok(_) => ()
+  }
+  let (r, g, b, a) = render_wb_pixel(image, 0UL, 0UL)
+  inspect((r.to_int(), g.to_int(), b.to_int(), a.to_int()), content="(170, 187, 204, 221)")
+}
+
+///|
+test "render layer depth cap rejects deeply nested layers" {
+  // 17 nested PushLayers exceeds the MAX_LAYER_DEPTH cap of 16 → render errors.
+  let image = render_wb_solid(4UL, 4UL, b'\x00', b'\x00', b'\x00', b'\x00')
+  let list = DrawingList::new()
+  for i = 0; i < 17; i = i + 1 {
+    list.push_layer(0.5)
+  }
+  for i = 0; i < 17; i = i + 1 {
+    list.pop_layer()
+  }
+  match render(list, image, layer_budget(1048576UL, 65536UL)) {
+    Err(_) => inspect("err", content="err")
+    Ok(_) => inspect("ok", content="err")
+  }
+}
+

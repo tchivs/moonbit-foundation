@@ -138,6 +138,15 @@ Consistent with RFC 0001 Section 4.4 and the `mb-core` resource-budget contracts
 - **Deterministic output.** A given SVG document and a given set of resolved context values (including `currentColor`) produce a single scene tree, and where rasterized, a single raster, on every target. No ambient state, no host clock, no nondeterministic iteration order in the public contract.
 - **Hostile inputs.** Malformed documents, pathologically deep nesting, exponential-complexity path expressions, and oversized coordinate values are rejected before allocation, consistent with the security and resource-limit posture RFC 0001 Section 10 requires for untrusted inputs.
 
+### 8.1 v0.1 status (bounds)
+
+The two bullets above (Checked geometry, Bounded input) describe the **target** contract. The v0.1 implementation status against it:
+
+- **Delivered in v0.1:** malformed-markup rejection (unterminated tags/comments, unquoted attribute values, non-`svg` root, missing required attributes such as `<path d>`, bare `<`) through structured `CoreError`; deterministic output (pure functions of input + resolved context, no ambient state); **quantitative bounds via `mb-core/budget`** — `parse_svg_with_budget(source, budget)` and `parse_path_data_with_budget(s, budget)` enforce nesting-depth (via `Budget::enter_depth`), token/attribute-count, and path-command-count ceilings against the budget's work and depth dimensions. The convenience entry points `parse_svg` and `parse_path_data` apply conservative default budgets (depth 64, work 2,000,000 for documents; work 100,000 for path commands). Hostile inputs that exceed these ceilings fail with a structured `CoreError` instead of unbounded allocation/recursion.
+- **Deferred from v0.1:** checked `mb-core` arithmetic on coordinates/lengths (v0.1 uses `Double`; overflow is not caught). This is a smaller residual gap than the broader bounds deferral previously recorded here, and is a follow-up.
+
+The budget wiring consumes `mb-core`'s accepted resource-budget contract (RFC 0001 Section 6.4), it does not redefine it.
+
 ## 9. Alternatives considered and rejected
 
 - **Wrap a mature SVG library as the core implementation.** Rejected. It violates RFC 0001 Section 4.1 (MoonBit implementation by default) and contaminates a portable package with foreign code. A foreign library may appear only as an isolated, replaceable native adapter behind the rasterization seam.
@@ -162,6 +171,19 @@ Before `mb-svg` may merge, the implementing phases must produce, consistent with
 4. Deterministic benchmarks with declared workloads and reproducible baselines for performance-sensitive work (path expansion, transform composition, rasterization).
 5. A security and resource-limit review for untrusted SVG inputs, covering the bounds in Section 8.
 6. Phase-A evidence (no rasterization) and, separately, Phase-B evidence gated on the Section 7.2 decision.
+
+### 11.1 v0.1 verification status
+
+Evidence ledger for the v0.1 implementation (this revision records status against the six items above):
+
+| Item | Status | Evidence |
+|---|---|---|
+| §11.1 Tests | Delivered | Unit white-box tests for color/length/transform/path-data/scene/lower (paint inheritance, currentColor, opacity, stroke-style wiring, fill-rule, rx/ry, viewBox mapping, dashoffset) plus a black-box conformance suite; ~900 tests pass. |
+| §11.2 Four-target CI | Delivered | `moon test` green on `js`, `wasm`, `wasm-gc`, `native`; end-to-end render demo (`examples/mb-svg-demo`) runs to PASS on all four. |
+| §11.3 Conformance fixtures | Delivered | `fixtures/svg/cases.json` (canonical/edge/adversarial) with provenance/license in `fixtures/manifest.json`; consumed inline by `conformance_wbtest.mbt`. |
+| §11.4 Benchmarks | Deferred | No benchmark infrastructure exists in the repository yet; the first benchmark suite (declared workloads for path expansion, transform composition, full parse→lower→render) is a separate follow-up once `moon bench` conventions are established. |
+| §11.5 Security/resource review | Delivered | Malformed-input rejection (§8.1) AND quantitative bounds via `mb-core/budget` — `parse_svg_with_budget` / `parse_path_data_with_budget` enforce nesting-depth, token/attribute-count, and path-command-count ceilings; default entry points apply conservative budgets. White-box bounds tests verify deep-nesting, oversized-document, and pathological-path rejection. Residual: checked coordinate arithmetic is still deferred (§8.1). |
+| §11.6 Phase A / Phase B | Delivered | Phase A (parse + represent) and Phase B (rasterize) both reach end-to-end: `parse_svg` → `lower_to_drawing_list` → `mb-canvas render` → pixels, verified by the demo on all four targets. (Phase B used Section 7.2 option 1 — the accepted `mb-canvas` surface.) |
 
 ## 12. What this RFC does not decide
 

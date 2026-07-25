@@ -96,3 +96,54 @@ test "DrawingList push_clip and push_stroke record ops" {
     _ => inspect(false, content="true")
   }
 }
+
+///|
+test "FillStyle::new_with_alpha sets alpha and keeps Nonzero default" {
+  let s = FillStyle::new_with_alpha(0.5, 0.25, 0.0, 0.5)
+  inspect(s.color_r, content="0.5")
+  inspect(s.color_a, content="0.5")
+  inspect(s.rule == FillRule::Nonzero, content="true")
+}
+
+///|
+test "FillStyle::with_alpha is value-typed and clamps to [0,1]" {
+  let base = FillStyle::new(1.0, 0.0, 0.0)
+  let half = base.with_alpha(0.5)
+  // Original is unchanged (value semantics).
+  inspect(base.color_a, content="1")
+  inspect(half.color_a, content="0.5")
+  // Over-range clamps to 1.0; under-range clamps to 0.0.
+  inspect(base.with_alpha(2.0).color_a, content="1")
+  inspect(base.with_alpha(-1.0).color_a, content="0")
+  // NaN clamps to 0.0.
+  inspect(base.with_alpha(0.0 / 0.0).color_a, content="0")
+  // alpha() accessor matches.
+  inspect(half.alpha(), content="0.5")
+}
+
+///|
+test "FillStyle::with_rule switches winding rule (value-typed)" {
+  let base = FillStyle::new(0.0, 0.0, 0.0)
+  let ee = base.with_rule(FillRule::EvenOdd)
+  inspect(base.rule == FillRule::Nonzero, content="true")
+  inspect(ee.rule == FillRule::EvenOdd, content="true")
+}
+
+///|
+test "StrokeStyle setters override defaults and compose by chaining" {
+  let s = StrokeStyle::new(1.0)
+    .with_width(2.5)
+    .with_cap(LineCap::Round)
+    .with_join(LineJoin::Bevel)
+    .with_miter_limit(6.0)
+    .with_dash([3.0, 1.0])
+  inspect(s.width, content="2.5")
+  inspect(s.cap == LineCap::Round, content="true")
+  inspect(s.join == LineJoin::Bevel, content="true")
+  inspect(s.miter_limit, content="6")
+  inspect(s.dash.length(), content="2")
+  // Original default-style is unaffected.
+  let d = StrokeStyle::new(1.0)
+  inspect(d.cap == LineCap::Butt, content="true")
+  inspect(d.dash.length(), content="0")
+}
