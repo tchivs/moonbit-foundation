@@ -81,11 +81,11 @@ test "numeric contract: path source and relative controls" {
     Err(_) => inspect(false, content="true")
   }
   // SVG-NUM-RELATIVE: finite relative arithmetic reaches the inclusive boundary.
-  match parse_path_data("m -65536 -65536 l 1 1") {
+  match parse_path_data("m 65535 65535 l 1 1") {
     Ok(path) =>
       match path.to_path2().get(1) {
         Some(@math.PathCommand::LineTo(point)) =>
-          inspect((point.x(), point.y()), content="(-65535, -65535)")
+          inspect((point.x(), point.y()), content="(65536, 65536)")
         _ => inspect(false, content="true")
       }
     Err(_) => inspect(false, content="true")
