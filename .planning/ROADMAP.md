@@ -83,7 +83,7 @@ Plans:
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 95. Shared SVG Geometry Boundary | 2/2 | Complete    | 2026-07-26 |
-| 96. SVG Boundary Parity Qualification | 3/3 | In Progress|  |
+| 96. SVG Boundary Parity Qualification | 3/3 | Complete    | 2026-07-26 |
 
 ---
 *Roadmap last updated: 2026-07-26 for v0.31 planning.*
