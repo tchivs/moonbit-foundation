@@ -56,6 +56,8 @@ pub fn parse_number_list(s : String) -> Result[Array[Double], @error.CoreError] 
   let chars = s.to_array()
   let nums : Array[Double] = []
   let token : Array[Char] = []
+  let mut saw_value = false
+  let mut comma_requires_value = false
   for c in chars {
     if c == ' ' || c == ',' || c == '\t' || c == '\n' {
       if token.length() > 0 {
@@ -64,10 +66,27 @@ pub fn parse_number_list(s : String) -> Result[Array[Double], @error.CoreError] 
           Err(e) => return Err(e)
         }
         token.clear()
+        saw_value = true
+      }
+      if c == ',' {
+        if !saw_value || comma_requires_value {
+          return Err(svg_numeric_error(
+            @error.ErrorCode::InvalidEncoding,
+            "svg-numeric-source",
+          ))
+        }
+        comma_requires_value = true
       }
     } else {
       token.push(c)
+      comma_requires_value = false
     }
+  }
+  if comma_requires_value {
+    return Err(svg_numeric_error(
+      @error.ErrorCode::InvalidEncoding,
+      "svg-numeric-source",
+    ))
   }
   // Flush trailing token.
   if token.length() > 0 {

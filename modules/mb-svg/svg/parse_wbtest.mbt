@@ -99,6 +99,23 @@ test "parse_number_list space and comma separated" {
 }
 
 ///|
+test "parse_number_list rejects malformed comma separators" {
+  let malformed = [",1", "1,,2", "1,", "1, ,2"]
+  let mut accepted = 0
+  for input in malformed {
+    match parse_number_list(input) {
+      Ok(_) => accepted = accepted + 1
+      Err(_) => ()
+    }
+  }
+  inspect(accepted, content="0")
+  match parse_number_list("1 , 2\t,\n3") {
+    Ok(values) => inspect(values, content="[1, 2, 3]")
+    Err(_) => inspect(false, content="true")
+  }
+}
+
+///|
 test "numeric contract: lexical finite boundaries" {
   // SVG-NUM-ROOT / SVG-NUM-POINTS: the published inclusive scalar envelope.
   match parse_length("65536") {

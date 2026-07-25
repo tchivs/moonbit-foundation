@@ -83,6 +83,23 @@ test "public parse rejects explicit paint scalar routes before a scene exists" {
 }
 
 ///|
+test "public parse rejects malformed numeric-list commas before a scene exists" {
+  let cases = [
+    "<svg viewBox=\"0,,0,1,1\"/>",
+    "<svg><g transform=\"translate(1,,2)\"/></svg>",
+    "<svg><rect stroke-dasharray=\"1,,2\"/></svg>",
+    "<svg><path d=\"M0,,0\"/></svg>",
+  ]
+  for source in cases {
+    assert_public_numeric_error(
+      parse_svg(source),
+      @error.ErrorCode::InvalidEncoding,
+      "svg-numeric-source",
+    )
+  }
+}
+
+///|
 test "public parse rejects unsafe group transforms before a group exists" {
   assert_public_numeric_error(
     parse_svg("<svg><g transform=\"scale(65536) scale(2)\"><rect width=\"1\" height=\"1\"/></g></svg>"),

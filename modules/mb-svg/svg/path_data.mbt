@@ -270,8 +270,15 @@ fn read_number(
   n : Int,
 ) -> Result[(Double, Int), @error.CoreError] {
   let mut i = start
+  let mut comma_count = 0
   while i < n && (is_path_space(chars[i]) || chars[i] == ',') {
+    if chars[i] == ',' {
+      comma_count = comma_count + 1
+    }
     i = i + 1
+  }
+  if comma_count > 1 || (comma_count > 0 && !has_path_value_before(chars, start)) {
+    return Err(path_source_error())
   }
   if i >= n || is_alpha_char(chars[i]) {
     return Err(path_source_error())
@@ -304,6 +311,14 @@ fn read_number(
       }
     Err(_) => Err(path_source_error())
   }
+}
+
+fn has_path_value_before(chars : Array[Char], start : Int) -> Bool {
+  let mut i = start - 1
+  while i >= 0 && is_path_space(chars[i]) {
+    i = i - 1
+  }
+  i >= 0 && !is_alpha_char(chars[i])
 }
 
 fn default_path_budget() -> @budget.Budget {

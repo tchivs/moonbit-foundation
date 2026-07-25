@@ -177,6 +177,7 @@ test "numeric contract: every direct relative path route" {
 test "path numeric admission rejects malformed and unsafe command groups" {
   let cases = [
     "M 0 nope",
+    "M 0,,0",
     "M 0 0 L 1e999 0",
     "M 65536 0 l 1 0",
     "M 0 0 A 1 1 0 0 1 65536 0 a 1 1 0 0 1 1 0",
