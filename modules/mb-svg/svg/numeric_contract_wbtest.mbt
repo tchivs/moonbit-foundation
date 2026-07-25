@@ -1,8 +1,8 @@
-// Numeric-admission policy tracer. Phase 91 deliberately exercises only the
-// documented valid boundary; Phase 92 owns rejection assertions.
+// Numeric-admission policy tracer. The public suite owns rejection assertions;
+// this package-local control keeps successful parse-to-lower behavior explicit.
 
 ///|
-test "numeric contract tracer: inclusive boundary parses and lowers" {
+test "numeric contract tracer: inclusive boundary and scale zero parse and lower" {
   let cases = [
     (
       "inclusive-boundary-with-finite-singular-transform",
