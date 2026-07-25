@@ -234,3 +234,16 @@ test "path close restores subpath current point and clears reflections" {
     Err(_) => inspect(false, content="true")
   }
 }
+
+///|
+test "path close rejects following scalars as numeric source" {
+  for data in ["M0 0 Z 1 1", "M0 0 Z,1"] {
+    match parse_path_data(data) {
+      Ok(_) => inspect(false, content="true")
+      Err(error) => {
+        inspect(error.code() == @error.ErrorCode::InvalidEncoding, content="true")
+        inspect(error.context() == Some("svg-numeric-source"), content="true")
+      }
+    }
+  }
+}

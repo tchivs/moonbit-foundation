@@ -100,6 +100,20 @@ test "public parse rejects malformed numeric-list commas before a scene exists" 
 }
 
 ///|
+test "public parse rejects scalars after path close before a scene exists" {
+  for source in [
+    "<svg><path d=\"M0 0 Z 1 1\"/></svg>",
+    "<svg><path d=\"M0 0 Z,1\"/></svg>",
+  ] {
+    assert_public_numeric_error(
+      parse_svg(source),
+      @error.ErrorCode::InvalidEncoding,
+      "svg-numeric-source",
+    )
+  }
+}
+
+///|
 test "public parse rejects unsafe group transforms before a group exists" {
   assert_public_numeric_error(
     parse_svg("<svg><g transform=\"scale(65536) scale(2)\"><rect width=\"1\" height=\"1\"/></g></svg>"),

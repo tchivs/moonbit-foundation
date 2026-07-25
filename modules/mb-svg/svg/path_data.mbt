@@ -222,6 +222,9 @@ pub fn parse_path_data_with_budget(
         cur_y = subpath_start_y
         last_ctrl_x = cur_x
         last_ctrl_y = cur_y
+        // Close has no implicit argument form; a following scalar must start
+        // with an explicit command rather than repeating Z indefinitely.
+        last_cmd = ' '
         last_curve = ' '
       }
       _ => return Err(path_source_error())
