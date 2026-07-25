@@ -29,3 +29,15 @@ test "numeric contract tracer: inclusive boundary and scale zero parse and lower
   inspect(failures, content="0")
   inspect(cases.length() > 0, content="true")
 }
+
+///|
+test "numeric contract: omitted defaults and nested opacity remain lowerable" {
+  match parse_svg("<svg><g transform=\"scale(0)\" opacity=\"0.5\"><rect/></g></svg>") {
+    Err(_) => inspect(false, content="true")
+    Ok(scene) => {
+      // Parser-produced scenes are validated before the unchanged total lowerer.
+      let list = lower_to_drawing_list(scene)
+      inspect(list.length(), content="5")
+    }
+  }
+}
