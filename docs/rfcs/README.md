@@ -23,6 +23,7 @@ RFCs govern architectural layers, module responsibilities, public dependency dir
 | [RFC 0005](0005-mb-text.md) | mb-text Charter | Proposed | Document and Scene Layer Unicode text layout, bidi, shaping, and line-breaking charter, text-versus-font/rasterization boundaries, and v0.x scope |
 | [RFC 0006](0006-mb-pdf.md) | mb-pdf Charter | Proposed | Document and Scene Layer PDF container parsing and serialization charter, container-versus-renderer boundary, and v0.x scope |
 | [RFC 0007](0007-mb-layout.md) | mb-layout Charter | Proposed | Document and Scene Layer document-flow pagination, columns, and float layout charter, paragraph-versus-document-flow boundary, and v0.x scope |
+| [RFC 0008](0008-mb-canvas-layer.md) | mb-canvas Layer and Group Opacity | Draft | Graphics Layer raster-layer extension to mb-canvas (PushLayer/PopLayer), opacity-only compositing, and the unblock path for SVG group opacity |
 
 ## Lifecycle
 
