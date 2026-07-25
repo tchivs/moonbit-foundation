@@ -1,19 +1,16 @@
 ---
 gsd_state_version: 1.0
-milestone: v0.30
-milestone_name: SVG Production Readiness
-status: Awaiting next milestone
-stopped_at: Completed 94-02-PLAN.md
-last_updated: "2026-07-25T21:04:03.737Z"
+milestone: v0.31
+milestone_name: SVG Numeric Boundary Unification
+status: planning
+last_updated: "2026-07-25T21:10:18.917Z"
 last_activity: 2026-07-26
-last_activity_desc: Milestone v0.30 completed and archived
 progress:
-  total_phases: 4
-  completed_phases: 4
-  total_plans: 8
-  completed_plans: 8
-current_phase: 94
-current_phase_name: SVG Benchmark Evidence
+  total_phases: 0
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
+  percent: 0
 ---
 
 # Project State
@@ -28,10 +25,10 @@ See `.planning/PROJECT.md`.
 
 ## Current Position
 
-Phase: Milestone v0.30 complete
+Phase: Not started (defining requirements)
 Plan: —
-Status: Awaiting next milestone
-Last activity: 2026-07-26 — Milestone v0.30 completed and archived
+Status: Defining requirements
+Last activity: 2026-07-26 — Milestone v0.31 started
 
 ## Milestone Metrics
 

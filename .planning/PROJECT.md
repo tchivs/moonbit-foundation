@@ -18,7 +18,23 @@ MoonBit developers can reuse stable, high-performance native infrastructure cont
 
 **Known maintenance debt:** Parser preflight duplicates some lowerer geometry arithmetic. Future lowerer changes must update the corresponding preflight cross-check to prevent semantic drift.
 
+## Current Milestone: v0.31 SVG Numeric Boundary Unification
+
+**Goal:** Eliminate the duplicated SVG geometry arithmetic between parser preflight and lowering, so the established numeric safety boundary has one checked implementation without changing public SVG semantics.
+
+**Target features:**
+
+- Route SVG parser preflight and lowering through a shared internal checked-geometry seam for transforms, viewBox mapping, and shape/path coordinate derivation.
+- Preserve the v0.30 public error facts, valid SVG output, finite singular-transform compatibility, and RFC 0008 layer/opacity behavior.
+- Add adversarial parity and four-target qualification proving that unsafe geometry cannot escape through either path or drift after future lowerer changes.
+
 ## Requirements
+
+### Active
+
+- [ ] **SVGUNI-01**: Library consumers receive unchanged valid SVG scene/lowering behavior while parser preflight and lowering use one checked geometry implementation.
+- [ ] **SVGUNI-02**: Explicit unsafe or derived-overflow SVG geometry returns the established structured error before a scene, drawing list, or raster operation is published.
+- [ ] **SVGUNI-03**: Maintainers have target-neutral regression controls that detect any parser/lowerer numeric-boundary divergence, including valid finite singular transforms and RFC 0008 opacity/layer compatibility.
 
 ### Validated
 
