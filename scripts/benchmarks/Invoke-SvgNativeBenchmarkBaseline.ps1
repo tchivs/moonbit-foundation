@@ -428,8 +428,16 @@ function Assert-RecordedToolchainMatchesPolicy([object]$Toolchain) {
 
 function Assert-VisibleDocumentMatchesData([string]$Document, [object]$RenderedEvidence) {
   $expected = New-BaselineDocument $RenderedEvidence
-  if ($Document -cne $expected) {
-    throw 'Visible Markdown or embedded audit data differs from the canonical rendering of verified evidence.'
+  $marker = '<!-- SVG-BASELINE-DATA'
+  $actualMarkerIndex = $Document.IndexOf($marker, [StringComparison]::Ordinal)
+  $expectedMarkerIndex = $expected.IndexOf($marker, [StringComparison]::Ordinal)
+  if ($actualMarkerIndex -lt 0 -or $expectedMarkerIndex -lt 0) { throw 'Baseline audit data marker is missing.' }
+  if ($Document.Substring(0, $actualMarkerIndex) -cne $expected.Substring(0, $expectedMarkerIndex)) {
+    throw 'Visible Markdown differs from the canonical rendering of verified evidence.'
+  }
+  $blocks = [regex]::Matches($Document, '(?s)<!-- SVG-BASELINE-DATA\r?\n.*?\r?\n-->')
+  if ($blocks.Count -ne 1 -or $blocks[0].Index -ne $actualMarkerIndex -or $blocks[0].Index + $blocks[0].Length -ne $Document.TrimEnd("`r", "`n").Length) {
+    throw 'Embedded audit data block is duplicated, malformed, or followed by unexpected content.'
   }
 }
 
