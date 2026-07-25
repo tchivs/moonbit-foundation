@@ -297,7 +297,10 @@ fn build_svg_root(
     Ok(a) => a
     Err(e) => return Err(e)
   }
-  let root = build_svg_root_attrs(attrs)
+  let root = match build_svg_root_attrs(attrs) {
+    Ok(value) => value
+    Err(error) => return Err(error)
+  }
   let (_, child_ctx) = build_paint(attrs, ctx)
   if is_empty {
     return Ok(SceneNode::Svg(root, []))
@@ -472,12 +475,36 @@ fn build_element(
     Err(e) => return Err(e)
   }
   let node = match name {
-    "rect" => build_rect(attrs, ctx)
-    "circle" => build_circle(attrs, ctx)
-    "ellipse" => build_ellipse(attrs, ctx)
-    "line" => build_line(attrs, ctx)
-    "polyline" => build_polyline(attrs, ctx)
-    "polygon" => build_polygon(attrs, ctx)
+    "rect" =>
+      match build_rect(attrs, ctx) {
+        Ok(node) => node
+        Err(error) => return Err(error)
+      }
+    "circle" =>
+      match build_circle(attrs, ctx) {
+        Ok(node) => node
+        Err(error) => return Err(error)
+      }
+    "ellipse" =>
+      match build_ellipse(attrs, ctx) {
+        Ok(node) => node
+        Err(error) => return Err(error)
+      }
+    "line" =>
+      match build_line(attrs, ctx) {
+        Ok(node) => node
+        Err(error) => return Err(error)
+      }
+    "polyline" =>
+      match build_polyline(attrs, ctx) {
+        Ok(node) => node
+        Err(error) => return Err(error)
+      }
+    "polygon" =>
+      match build_polygon(attrs, ctx) {
+        Ok(node) => node
+        Err(error) => return Err(error)
+      }
     "path" =>
       match build_path(attrs, ctx, budget) {
         Ok(n) => n
@@ -524,7 +551,7 @@ fn build_group(
       }
   }
   // Group `opacity` (the `opacity` attribute) is NOT inherited and defaults to 1.0.
-  let group_opacity = attr_double(attrs, "opacity", 1.0)
+  let group_opacity = attr_double_or_default(attrs, "opacity", 1.0)
   let (_, child_ctx) = build_paint(attrs, ctx)
   if is_empty {
     return Ok(SceneNode::Group(transform, group_opacity, []))
@@ -647,13 +674,15 @@ fn skip_element_body(
 // SvgRoot / Paint / shape builders
 // ---------------------------------------------------------------------------
 
-fn build_svg_root_attrs(attrs : Array[(String, String)]) -> SvgRoot {
+fn build_svg_root_attrs(
+  attrs : Array[(String, String)],
+) -> Result[SvgRoot, @error.CoreError] {
   let width = match attr_get(attrs, "width") {
     None => None
     Some(s) =>
       match parse_length(s) {
         Ok(v) => Some(v)
-        Err(_) => None
+        Err(error) => return Err(error)
       }
   }
   let height = match attr_get(attrs, "height") {
@@ -661,7 +690,7 @@ fn build_svg_root_attrs(attrs : Array[(String, String)]) -> SvgRoot {
     Some(s) =>
       match parse_length(s) {
         Ok(v) => Some(v)
-        Err(_) => None
+        Err(error) => return Err(error)
       }
   }
   let view_box = match attr_get(attrs, "viewBox") {
@@ -669,19 +698,19 @@ fn build_svg_root_attrs(attrs : Array[(String, String)]) -> SvgRoot {
     Some(s) =>
       match parse_viewbox(s) {
         Ok(vb) => Some(vb)
-        Err(_) => None
+        Err(error) => return Err(error)
       }
   }
   let preserve_aspect_ratio = match attr_get(attrs, "preserveAspectRatio") {
     None => default_preserve_aspect_ratio()
     Some(s) => parse_preserve_aspect_ratio(s)
   }
-  {
+  Ok({
     width: width,
     height: height,
     view_box: view_box,
     preserve_aspect_ratio: preserve_aspect_ratio,
-  }
+  })
 }
 
 // Default preserveAspectRatio per SVG 1.1: "xMidYMid meet".
@@ -807,7 +836,7 @@ fn build_paint(
     parent.stroke_dashoffset,
   )
   // Element `opacity` is NOT inherited (per SVG spec); default 1.0.
-  let opacity = attr_double(attrs, "opacity", 1.0)
+  let opacity = attr_double_or_default(attrs, "opacity", 1.0)
   let paint = {
     fill: fill,
     stroke: stroke,
@@ -888,70 +917,140 @@ fn parse_fillrule(s : String) -> @canvas.FillRule {
   }
 }
 
-fn build_rect(attrs : Array[(String, String)], ctx : PaintContext) -> SceneNode {
-  let x = attr_double(attrs, "x", 0.0)
-  let y = attr_double(attrs, "y", 0.0)
-  let w = attr_double(attrs, "width", 0.0)
-  let h = attr_double(attrs, "height", 0.0)
-  let rx = attr_double(attrs, "rx", 0.0)
-  let ry = attr_double(attrs, "ry", 0.0)
+fn build_rect(
+  attrs : Array[(String, String)],
+  ctx : PaintContext,
+) -> Result[SceneNode, @error.CoreError] {
+  let x = match attr_double(attrs, "x", 0.0) {
+    Ok(value) => value
+    Err(error) => return Err(error)
+  }
+  let y = match attr_double(attrs, "y", 0.0) {
+    Ok(value) => value
+    Err(error) => return Err(error)
+  }
+  let w = match attr_double(attrs, "width", 0.0) {
+    Ok(value) => value
+    Err(error) => return Err(error)
+  }
+  let h = match attr_double(attrs, "height", 0.0) {
+    Ok(value) => value
+    Err(error) => return Err(error)
+  }
+  let rx = match attr_double(attrs, "rx", 0.0) {
+    Ok(value) => value
+    Err(error) => return Err(error)
+  }
+  let ry = match attr_double(attrs, "ry", 0.0) {
+    Ok(value) => value
+    Err(error) => return Err(error)
+  }
   let (paint, _) = build_paint(attrs, ctx)
-  SceneNode::Rect(paint, x, y, w, h, rx, ry)
+  Ok(SceneNode::Rect(paint, x, y, w, h, rx, ry))
 }
 
-fn build_circle(attrs : Array[(String, String)], ctx : PaintContext) -> SceneNode {
-  let cx = attr_double(attrs, "cx", 0.0)
-  let cy = attr_double(attrs, "cy", 0.0)
-  let r = attr_double(attrs, "r", 0.0)
+fn build_circle(
+  attrs : Array[(String, String)],
+  ctx : PaintContext,
+) -> Result[SceneNode, @error.CoreError] {
+  let cx = match attr_double(attrs, "cx", 0.0) {
+    Ok(value) => value
+    Err(error) => return Err(error)
+  }
+  let cy = match attr_double(attrs, "cy", 0.0) {
+    Ok(value) => value
+    Err(error) => return Err(error)
+  }
+  let r = match attr_double(attrs, "r", 0.0) {
+    Ok(value) => value
+    Err(error) => return Err(error)
+  }
   let (paint, _) = build_paint(attrs, ctx)
-  SceneNode::Circle(paint, cx, cy, r)
+  Ok(SceneNode::Circle(paint, cx, cy, r))
 }
 
 fn build_ellipse(
   attrs : Array[(String, String)],
   ctx : PaintContext,
-) -> SceneNode {
-  let cx = attr_double(attrs, "cx", 0.0)
-  let cy = attr_double(attrs, "cy", 0.0)
-  let rx = attr_double(attrs, "rx", 0.0)
-  let ry = attr_double(attrs, "ry", 0.0)
+) -> Result[SceneNode, @error.CoreError] {
+  let cx = match attr_double(attrs, "cx", 0.0) {
+    Ok(value) => value
+    Err(error) => return Err(error)
+  }
+  let cy = match attr_double(attrs, "cy", 0.0) {
+    Ok(value) => value
+    Err(error) => return Err(error)
+  }
+  let rx = match attr_double(attrs, "rx", 0.0) {
+    Ok(value) => value
+    Err(error) => return Err(error)
+  }
+  let ry = match attr_double(attrs, "ry", 0.0) {
+    Ok(value) => value
+    Err(error) => return Err(error)
+  }
   let (paint, _) = build_paint(attrs, ctx)
-  SceneNode::Ellipse(paint, cx, cy, rx, ry)
+  Ok(SceneNode::Ellipse(paint, cx, cy, rx, ry))
 }
 
-fn build_line(attrs : Array[(String, String)], ctx : PaintContext) -> SceneNode {
-  let x1 = attr_double(attrs, "x1", 0.0)
-  let y1 = attr_double(attrs, "y1", 0.0)
-  let x2 = attr_double(attrs, "x2", 0.0)
-  let y2 = attr_double(attrs, "y2", 0.0)
+fn build_line(
+  attrs : Array[(String, String)],
+  ctx : PaintContext,
+) -> Result[SceneNode, @error.CoreError] {
+  let x1 = match attr_double(attrs, "x1", 0.0) {
+    Ok(value) => value
+    Err(error) => return Err(error)
+  }
+  let y1 = match attr_double(attrs, "y1", 0.0) {
+    Ok(value) => value
+    Err(error) => return Err(error)
+  }
+  let x2 = match attr_double(attrs, "x2", 0.0) {
+    Ok(value) => value
+    Err(error) => return Err(error)
+  }
+  let y2 = match attr_double(attrs, "y2", 0.0) {
+    Ok(value) => value
+    Err(error) => return Err(error)
+  }
   let (paint, _) = build_paint(attrs, ctx)
-  SceneNode::Line(paint, x1, y1, x2, y2)
+  Ok(SceneNode::Line(paint, x1, y1, x2, y2))
 }
 
 fn build_polyline(
   attrs : Array[(String, String)],
   ctx : PaintContext,
-) -> SceneNode {
+) -> Result[SceneNode, @error.CoreError] {
   let (paint, _) = build_paint(attrs, ctx)
-  SceneNode::Polyline(paint, points_from_attrs(attrs))
+  let points = match points_from_attrs(attrs) {
+    Ok(value) => value
+    Err(error) => return Err(error)
+  }
+  Ok(SceneNode::Polyline(paint, points))
 }
 
 fn build_polygon(
   attrs : Array[(String, String)],
   ctx : PaintContext,
-) -> SceneNode {
+) -> Result[SceneNode, @error.CoreError] {
   let (paint, _) = build_paint(attrs, ctx)
-  SceneNode::Polygon(paint, points_from_attrs(attrs))
+  let points = match points_from_attrs(attrs) {
+    Ok(value) => value
+    Err(error) => return Err(error)
+  }
+  Ok(SceneNode::Polygon(paint, points))
 }
 
 // Parse polyline/polygon points into Point2 pairs.
-fn points_from_attrs(attrs : Array[(String, String)]) -> Array[@math.Point2] {
+fn points_from_attrs(
+  attrs : Array[(String, String)],
+) -> Result[Array[@math.Point2], @error.CoreError] {
   match attr_get(attrs, "points") {
-    None => []
+    None => Ok([])
     Some(s) =>
       match parse_number_list(s) {
-        Err(_) => []
-        Ok(nums) => pair_points(nums)
+        Err(error) => Err(error)
+        Ok(nums) => Ok(pair_points(nums))
       }
   }
 }
@@ -1000,18 +1099,25 @@ fn attr_get(attrs : Array[(String, String)], name : String) -> String? {
   None
 }
 
-// Numeric attribute value, or `default` on missing/parse failure.
+// Numeric attribute value, or `default` only when the attribute is absent.
 fn attr_double(
   attrs : Array[(String, String)],
   name : String,
   default : Double,
-) -> Double {
+) -> Result[Double, @error.CoreError] {
   match attr_get(attrs, name) {
-    None => default
-    Some(s) =>
-      match parse_length(s) {
-        Ok(v) => v
-        Err(_) => default
-      }
+    None => Ok(default)
+    Some(s) => parse_length(s)
+  }
+}
+
+fn attr_double_or_default(
+  attrs : Array[(String, String)],
+  name : String,
+  default : Double,
+) -> Double {
+  match attr_double(attrs, name, default) {
+    Ok(value) => value
+    Err(_) => default
   }
 }

@@ -10,7 +10,13 @@
 /// Percentage lengths are not handled here (caller resolves against a reference).
 pub fn parse_length(s : String) -> Result[Double, @error.CoreError] {
   let t = strip_unit_suffix(@text.trim(s).to_string())
-  @text.parse_double(t)
+  match @text.parse_double(t) {
+    Ok(value) => admit_svg_numeric_source(value)
+    Err(_) => Err(svg_numeric_error(
+      @error.ErrorCode::InvalidEncoding,
+      "svg-numeric-source",
+    ))
+  }
 }
 
 // Strip a trailing unit suffix (px/pt/mm/cm/in) if present. Returns the
@@ -33,8 +39,11 @@ pub fn parse_viewbox(s : String) -> Result[(Double, Double, Double, Double), @er
   match nums {
     Err(e) => return Err(e)
     Ok(arr) =>
-      if arr.length() < 4 {
-        return Err(svg_error("svg-viewbox", "needs 4 numbers: " + s))
+      if arr.length() != 4 {
+        return Err(svg_numeric_error(
+          @error.ErrorCode::InvalidEncoding,
+          "svg-numeric-source",
+        ))
       } else {
         Ok((arr[0], arr[1], arr[2], arr[3]))
       }
@@ -71,5 +80,11 @@ pub fn parse_number_list(s : String) -> Result[Array[Double], @error.CoreError] 
 }
 
 fn parse_token(token : Array[Char]) -> Result[Double, @error.CoreError] {
-  @text.parse_double(String::from_array(token))
+  match @text.parse_double(String::from_array(token)) {
+    Ok(value) => admit_svg_numeric_source(value)
+    Err(_) => Err(svg_numeric_error(
+      @error.ErrorCode::InvalidEncoding,
+      "svg-numeric-source",
+    ))
+  }
 }
