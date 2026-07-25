@@ -10,13 +10,13 @@ The primary audience is MoonBit library authors and application developers build
 
 MoonBit developers can reuse stable, high-performance native infrastructure contracts instead of rebuilding incompatible foundations for every graphics, document, media, or automation product.
 
-## Current State: v0.30 SVG Production Readiness Shipped
+## Current State: v0.31 SVG Numeric Boundary Unification Shipped
 
-**Delivered:** `mb-svg` now has a documented, target-neutral numeric contract; fail-closed parsing for unsafe source and derived geometry; portable SVG opacity/layer qualification; and correctness-gated benchmark workloads with a reproducible native evidence baseline.
+**Delivered:** `mb-svg` now routes parser preflight and lowering through one checked internal geometry seam, with deterministic controls proving fail-closed unsafe-geometry rejection and total manual-scene recovery without public API changes.
 
-**Validated:** Phase 91 (6/6), Phase 92 (6/6), Phase 93 (5/5), and Phase 94 (5/5), including all four portable targets and a clean-worktree PowerShell 5.1/Pwsh audit of the native baseline.
+**Validated:** Phases 95 and 96 (7/7 must-haves each); the SVG package passes 137/137 tests on wasm, wasm-gc, js, and native, including `scale(0)`, viewBox/default behavior, and RFC 0008 opacity/layer semantics.
 
-**Known maintenance debt:** Parser preflight duplicates some lowerer geometry arithmetic. Future lowerer changes must update the corresponding preflight cross-check to prevent semantic drift.
+**Known maintenance debt:** Old private geometry helpers remain unused in `scene.mbt` and `lower.mbt`; they do not participate in runtime paths and can be removed in a focused cleanup phase.
 
 ## Current Milestone: v0.31 SVG Numeric Boundary Unification
 
@@ -30,13 +30,11 @@ MoonBit developers can reuse stable, high-performance native infrastructure cont
 
 ## Requirements
 
-### Active
-
-- [ ] **SVGUNI-01**: Library consumers receive unchanged valid SVG scene/lowering behavior while parser preflight and lowering use one checked geometry implementation.
-- [ ] **SVGUNI-02**: Explicit unsafe or derived-overflow SVG geometry returns the established structured error before a scene, drawing list, or raster operation is published.
-- [ ] **SVGUNI-03**: Maintainers have target-neutral regression controls that detect any parser/lowerer numeric-boundary divergence, including valid finite singular transforms and RFC 0008 opacity/layer compatibility.
-
 ### Validated
+
+- [x] **SVGUNI-01**: Library consumers receive unchanged valid SVG scene/lowering behavior while parser preflight and lowering use one checked geometry implementation. — Validated in Phase 95.
+- [x] **SVGUNI-02**: Explicit unsafe or derived-overflow SVG geometry returns the established structured error before a scene, drawing list, or raster operation is published. — Validated in Phase 96.
+- [x] **SVGUNI-03**: Maintainers have target-neutral regression controls that detect any parser/lowerer numeric-boundary divergence, including valid finite singular transforms and RFC 0008 opacity/layer compatibility. — Validated in Phase 96.
 
 - [x] Publish an accepted foundation RFC defining vision, terminology, layering, module boundaries, portability, and governance. — Validated in Phase 1: Foundation Charter and Reproducible Workspace.
 - [x] Establish a reproducible multi-module repository and CI quality contract for Native and portable targets. — Validated in Phase 1: Foundation Charter and Reproducible Workspace.
