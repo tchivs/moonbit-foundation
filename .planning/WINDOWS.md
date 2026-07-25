@@ -1,10 +1,10 @@
 ---
 schema_version: 1
-open_count: 6
+open_count: 10
 waived_count: 0
 fixed_count: 0
-total_count: 6
-last_updated: 2026-07-25T18:55:21.879Z
+total_count: 10
+last_updated: 2026-07-25T20:18:20.030Z
 ---
 
 # Broken Windows Ledger
@@ -21,6 +21,10 @@ last_updated: 2026-07-25T18:55:21.879Z
 | 4 | 80 | unrun-verify | modules/mb-image/png/stream_encode_test.mbt |  | moon -C modules/mb-image test png --target all --frozen did not complete; rerun four-target PNG package qualification | open |  | 2026-07-23T21:52:24.286Z |  |
 | 5 | 92 | deviation | modules/mb-svg/svg/scene_wbtest.mbt |  | Updated source-boundary fixture to use geometrically admissible values under derived-coordinate checks. | open |  | 2026-07-25T17:25:16.084Z |  |
 | 6 | 93 | deviation | .planning/STATE.md |  | Repaired malformed active-phase position before state advancement. | open |  | 2026-07-25T18:55:21.879Z |  |
+| 7 | 94 | deviation | scripts/benchmarks/Invoke-SvgNativeBenchmarkBaseline.ps1 |  | Captured MoonBit warning output and parsed runner glyphs safely in Windows PowerShell. | open |  | 2026-07-25T20:18:18.679Z |  |
+| 8 | 94 | deviation | scripts/benchmarks/Invoke-SvgNativeBenchmarkBaseline.ps1 |  | Created the planned baseline documentation directory when it was absent. | open |  | 2026-07-25T20:18:19.137Z |  |
+| 9 | 94 | deviation | scripts/benchmarks/Invoke-SvgNativeBenchmarkBaseline.ps1 |  | Made Markdown audit data and aggregate validation Windows PowerShell 5.1-safe. | open |  | 2026-07-25T20:18:19.584Z |  |
+| 10 | 94 | deviation | docs/benchmarks/mb-svg-native-release-baseline.md |  | Escaped raw output in preformatted blocks to preserve exact bytes without diff whitespace. | open |  | 2026-07-25T20:18:20.030Z |  |
 
 ````json
 [
@@ -94,6 +98,54 @@ last_updated: 2026-07-25T18:55:21.879Z
     "status": "open",
     "reason": "",
     "recorded_at": "2026-07-25T18:55:21.879Z",
+    "resolved_at": null
+  },
+  {
+    "id": 7,
+    "kind": "deviation",
+    "phase": "94",
+    "file": "scripts/benchmarks/Invoke-SvgNativeBenchmarkBaseline.ps1",
+    "line": null,
+    "description": "Captured MoonBit warning output and parsed runner glyphs safely in Windows PowerShell.",
+    "status": "open",
+    "reason": "",
+    "recorded_at": "2026-07-25T20:18:18.679Z",
+    "resolved_at": null
+  },
+  {
+    "id": 8,
+    "kind": "deviation",
+    "phase": "94",
+    "file": "scripts/benchmarks/Invoke-SvgNativeBenchmarkBaseline.ps1",
+    "line": null,
+    "description": "Created the planned baseline documentation directory when it was absent.",
+    "status": "open",
+    "reason": "",
+    "recorded_at": "2026-07-25T20:18:19.137Z",
+    "resolved_at": null
+  },
+  {
+    "id": 9,
+    "kind": "deviation",
+    "phase": "94",
+    "file": "scripts/benchmarks/Invoke-SvgNativeBenchmarkBaseline.ps1",
+    "line": null,
+    "description": "Made Markdown audit data and aggregate validation Windows PowerShell 5.1-safe.",
+    "status": "open",
+    "reason": "",
+    "recorded_at": "2026-07-25T20:18:19.584Z",
+    "resolved_at": null
+  },
+  {
+    "id": 10,
+    "kind": "deviation",
+    "phase": "94",
+    "file": "docs/benchmarks/mb-svg-native-release-baseline.md",
+    "line": null,
+    "description": "Escaped raw output in preformatted blocks to preserve exact bytes without diff whitespace.",
+    "status": "open",
+    "reason": "",
+    "recorded_at": "2026-07-25T20:18:20.030Z",
     "resolved_at": null
   }
 ]
