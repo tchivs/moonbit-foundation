@@ -286,25 +286,41 @@ fn preflight_node(
       }
     }
     Circle(_, cx, cy, r) => {
-      match preflight_ellipse(cx, cy, r, r) {
-        Ok(_) => preflight_path_points(circle_path(cx, cy, r), current)
+      match checked_circle_path(cx, cy, r) {
+        Ok(path) => checked_path_points(path, current)
         Err(error) => Err(error)
       }
     }
     Ellipse(_, cx, cy, rx, ry) => {
-      match preflight_ellipse(cx, cy, rx, ry) {
-        Ok(_) => preflight_path_points(ellipse_path(cx, cy, rx, ry), current)
+      match checked_ellipse_path(cx, cy, rx, ry) {
+        Ok(path) => checked_path_points(path, current)
         Err(error) => Err(error)
       }
     }
     Line(_, x1, y1, x2, y2) => {
-      match preflight_point(current, @math.Point2::new(x1, y1)) {
-        Ok(_) => preflight_point(current, @math.Point2::new(x2, y2))
+      match checked_line_path(x1, y1, x2, y2) {
+        Ok(path) => checked_path_points(path, current)
         Err(error) => Err(error)
       }
     }
-    Polyline(_, points) | Polygon(_, points) => preflight_points(points, current)
-    Path(_, path) => preflight_path_points(path.to_path2(), current)
+    Polyline(_, points) => {
+      match checked_polyline_path(points) {
+        Ok(path) => checked_path_points(path, current)
+        Err(error) => Err(error)
+      }
+    }
+    Polygon(_, points) => {
+      match checked_polygon_path(points) {
+        Ok(path) => checked_path_points(path, current)
+        Err(error) => Err(error)
+      }
+    }
+    Path(_, path) => {
+      match checked_canvas_path(path) {
+        Ok(path2) => checked_path_points(path2, current)
+        Err(error) => Err(error)
+      }
+    }
   }
 }
 

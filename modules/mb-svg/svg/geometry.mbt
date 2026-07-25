@@ -173,3 +173,85 @@ fn checked_rect_path(
   p.push(@math.PathCommand::Close)
   Ok(p)
 }
+
+fn checked_circle_path(
+  cx : Double,
+  cy : Double,
+  r : Double,
+) -> Result[@math.Path2, @error.CoreError] {
+  checked_ellipse_path(cx, cy, r, r)
+}
+
+fn checked_ellipse_path(
+  cx : Double,
+  cy : Double,
+  rx : Double,
+  ry : Double,
+) -> Result[@math.Path2, @error.CoreError] {
+  let p = @math.Path2::new()
+  let step = match geometry_div(6.283185307179586, 32.0) { Ok(value) => value; Err(error) => return Err(error) }
+  for i = 0; i < 32; i = i + 1 {
+    let angle = match geometry_mul(step, i.to_double()) { Ok(value) => value; Err(error) => return Err(error) }
+    let cos_angle = match admit_derived(@math.cos(angle)) { Ok(value) => value; Err(error) => return Err(error) }
+    let sin_angle = match admit_derived(@math.sin(angle)) { Ok(value) => value; Err(error) => return Err(error) }
+    let x_delta = match geometry_mul(rx, cos_angle) { Ok(value) => value; Err(error) => return Err(error) }
+    let y_delta = match geometry_mul(ry, sin_angle) { Ok(value) => value; Err(error) => return Err(error) }
+    let x = match geometry_add(cx, x_delta) { Ok(value) => value; Err(error) => return Err(error) }
+    let y = match geometry_add(cy, y_delta) { Ok(value) => value; Err(error) => return Err(error) }
+    let point = @math.Point2::new(x, y)
+    if i == 0 {
+      p.push(@math.PathCommand::MoveTo(point))
+    } else {
+      p.push(@math.PathCommand::LineTo(point))
+    }
+  }
+  p.push(@math.PathCommand::Close)
+  Ok(p)
+}
+
+fn checked_line_path(
+  x1 : Double,
+  y1 : Double,
+  x2 : Double,
+  y2 : Double,
+) -> Result[@math.Path2, @error.CoreError] {
+  let start = match checked_transform_point(@math.Affine2::identity(), @math.Point2::new(x1, y1)) { Ok(value) => value; Err(error) => return Err(error) }
+  let end = match checked_transform_point(@math.Affine2::identity(), @math.Point2::new(x2, y2)) { Ok(value) => value; Err(error) => return Err(error) }
+  let p = @math.Path2::new()
+  p.push(@math.PathCommand::MoveTo(start))
+  p.push(@math.PathCommand::LineTo(end))
+  Ok(p)
+}
+
+fn checked_polyline_path(
+  points : Array[@math.Point2],
+) -> Result[@math.Path2, @error.CoreError] {
+  let p = @math.Path2::new()
+  for i = 0; i < points.length(); i = i + 1 {
+    let point = match checked_transform_point(@math.Affine2::identity(), points[i]) { Ok(value) => value; Err(error) => return Err(error) }
+    if i == 0 {
+      p.push(@math.PathCommand::MoveTo(point))
+    } else {
+      p.push(@math.PathCommand::LineTo(point))
+    }
+  }
+  Ok(p)
+}
+
+fn checked_polygon_path(
+  points : Array[@math.Point2],
+) -> Result[@math.Path2, @error.CoreError] {
+  let p = match checked_polyline_path(points) { Ok(value) => value; Err(error) => return Err(error) }
+  p.push(@math.PathCommand::Close)
+  Ok(p)
+}
+
+fn checked_canvas_path(
+  path : @canvas.CanvasPath,
+) -> Result[@math.Path2, @error.CoreError] {
+  let path2 = path.to_path2()
+  match checked_path_points(path2, @math.Affine2::identity()) {
+    Ok(_) => Ok(path2)
+    Err(error) => Err(error)
+  }
+}

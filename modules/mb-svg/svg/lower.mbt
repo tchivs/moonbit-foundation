@@ -77,14 +77,14 @@ fn lower_node(node : SceneNode, list : @canvas.DrawingList) -> Unit {
     Rect(paint, x, y, w, h, rx, ry) =>
       emit_shape(paint, total_rect_path(x, y, w, h, rx, ry), list)
     Circle(paint, cx, cy, r) =>
-      emit_shape(paint, circle_path(cx, cy, r), list)
+      emit_shape(paint, total_path(checked_circle_path(cx, cy, r)), list)
     Ellipse(paint, cx, cy, rx, ry) =>
-      emit_shape(paint, ellipse_path(cx, cy, rx, ry), list)
+      emit_shape(paint, total_path(checked_ellipse_path(cx, cy, rx, ry)), list)
     Line(paint, x1, y1, x2, y2) =>
-      emit_shape(paint, line_path(x1, y1, x2, y2), list)
-    Polyline(paint, pts) => emit_shape(paint, polyline_path(pts), list)
-    Polygon(paint, pts) => emit_shape(paint, polygon_path(pts), list)
-    Path(paint, cp) => emit_shape(paint, cp.to_path2(), list)
+      emit_shape(paint, total_path(checked_line_path(x1, y1, x2, y2)), list)
+    Polyline(paint, pts) => emit_shape(paint, total_path(checked_polyline_path(pts)), list)
+    Polygon(paint, pts) => emit_shape(paint, total_path(checked_polygon_path(pts)), list)
+    Path(paint, cp) => emit_shape(paint, total_path(checked_canvas_path(cp)), list)
   }
 }
 
@@ -109,6 +109,13 @@ fn total_rect_path(
   ry : Double,
 ) -> @math.Path2 {
   match checked_rect_path(x, y, w, h, rx, ry) {
+    Ok(path) => path
+    Err(_) => @math.Path2::new()
+  }
+}
+
+fn total_path(result : Result[@math.Path2, @error.CoreError]) -> @math.Path2 {
+  match result {
     Ok(path) => path
     Err(_) => @math.Path2::new()
   }

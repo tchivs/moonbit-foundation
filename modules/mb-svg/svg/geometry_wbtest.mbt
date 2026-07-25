@@ -84,3 +84,24 @@ test "geometry facts: canvas path traversal and all shapes parse then lower" {
     Err(_) => inspect(false, content="true")
   }
 }
+
+///|
+test "geometry lowering stays total for manually invalid root and rectangle" {
+  match parse_svg("<svg><rect width=\"1\" height=\"1\"/></svg>") {
+    Ok(Svg(_, [Rect(paint, _, _, _, _, _, _)])) => {
+      let invalid_rect = Rect(paint, 65536.0, 0.0, 1.0, 1.0, 0.0, 0.0)
+      match lower_to_drawing_list(invalid_rect).get(0) {
+        Some(@canvas.DrawOp::Fill(path, _)) => inspect(path.length(), content="0")
+        _ => inspect(false, content="true")
+      }
+      let invalid_root : SvgRoot = {
+        width: Some(65536.0),
+        height: Some(1.0),
+        view_box: Some((2.0, 0.0, 1.0, 1.0)),
+        preserve_aspect_ratio: { align_x: 1, align_y: 1, meet: true, none: true },
+      }
+      inspect(lower_to_drawing_list(Svg(invalid_root, [Rect(paint, 0.0, 0.0, 1.0, 1.0, 0.0, 0.0)])).length(), content="1")
+    }
+    _ => inspect(false, content="true")
+  }
+}
