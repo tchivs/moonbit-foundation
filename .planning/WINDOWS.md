@@ -1,10 +1,10 @@
 ---
 schema_version: 1
-open_count: 4
+open_count: 5
 waived_count: 0
 fixed_count: 0
-total_count: 4
-last_updated: 2026-07-23T21:52:24.286Z
+total_count: 5
+last_updated: 2026-07-25T17:25:16.084Z
 ---
 
 # Broken Windows Ledger
@@ -19,6 +19,7 @@ last_updated: 2026-07-23T21:52:24.286Z
 | 2 | 57 | unrun-verify | modules/mb-image/png |  | Full native PNG suite did not complete because the current moon.exe stopped making CPU progress in the shared workspace; exact focused runs were used instead. | open |  | 2026-07-23T00:01:48.557Z |  |
 | 3 | 57 | deviation | modules/mb-image/png/stream_encode_test.mbt |  | Full native PNG suite hit existing png.whitebox_test.exe exit 0xc0000409; focused Phase 57 regressions passed. | open |  | 2026-07-23T00:11:23.125Z |  |
 | 4 | 80 | unrun-verify | modules/mb-image/png/stream_encode_test.mbt |  | moon -C modules/mb-image test png --target all --frozen did not complete; rerun four-target PNG package qualification | open |  | 2026-07-23T21:52:24.286Z |  |
+| 5 | 92 | deviation | modules/mb-svg/svg/scene_wbtest.mbt |  | Updated source-boundary fixture to use geometrically admissible values under derived-coordinate checks. | open |  | 2026-07-25T17:25:16.084Z |  |
 
 ````json
 [
@@ -68,6 +69,18 @@ last_updated: 2026-07-23T21:52:24.286Z
     "status": "open",
     "reason": "",
     "recorded_at": "2026-07-23T21:52:24.286Z",
+    "resolved_at": null
+  },
+  {
+    "id": 5,
+    "kind": "deviation",
+    "phase": "92",
+    "file": "modules/mb-svg/svg/scene_wbtest.mbt",
+    "line": null,
+    "description": "Updated source-boundary fixture to use geometrically admissible values under derived-coordinate checks.",
+    "status": "open",
+    "reason": "",
+    "recorded_at": "2026-07-25T17:25:16.084Z",
     "resolved_at": null
   }
 ]
