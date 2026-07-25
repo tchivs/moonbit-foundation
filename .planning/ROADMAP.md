@@ -36,7 +36,7 @@
 ## Phases
 
 - [x] **Phase 91: SVG Numeric Contract** - Define the target-neutral numeric admission envelope and prove every scalar route is covered. (completed 2026-07-26)
-- [ ] **Phase 92: Fail-Closed SVG Parsing** - Reject unsafe explicit SVG numbers before they can form a scene or drawing list.
+- [x] **Phase 92: Fail-Closed SVG Parsing** - Reject unsafe explicit SVG numbers before they can form a scene or drawing list. (completed 2026-07-26)
 - [ ] **Phase 93: SVG Compatibility & Portable Qualification** - Preserve valid lowering, opacity layering, and canvas-capacity behavior across portable targets.
 - [ ] **Phase 94: SVG Benchmark Evidence** - Provide correctness-gated workloads and a reproducible native-release baseline.
 
@@ -108,7 +108,7 @@
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 91. SVG Numeric Contract | 2/2 | Complete    | 2026-07-26 |
-| 92. Fail-Closed SVG Parsing | 3/3 | In Progress|  |
+| 92. Fail-Closed SVG Parsing | 3/3 | Complete    | 2026-07-26 |
 | 93. SVG Compatibility & Portable Qualification | 0/TBD | Not started | - |
 | 94. SVG Benchmark Evidence | 0/TBD | Not started | - |
 

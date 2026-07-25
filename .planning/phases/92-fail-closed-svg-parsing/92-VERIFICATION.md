@@ -1,30 +1,25 @@
 ---
 phase: 92-fail-closed-svg-parsing
-verified: 2026-07-25T18:14:20Z
-status: gaps_found
-score: 5/6 must-haves verified
+verified: 2026-07-25T18:20:11Z
+status: passed
+score: 6/6 must-haves verified
 behavior_unverified: 0
 overrides_applied: 0
-gaps:
-  - truth: "An explicitly malformed paint scalar is rejected with a structured SVG error before parse_svg can return a SceneNode."
-    status: failed
-    reason: "Functional color parsing accepts every component after the first three without validating its syntax or permitted arity. Consequently malformed rgb()/hsl() paint values can return Ok(SceneNode)."
-    artifacts:
-      - path: "modules/mb-svg/svg/color.mbt"
-        issue: "parse_func_color checks only parts.length() < 3 and parses parts[0..2], silently ignoring parts[3..]."
-      - path: "modules/mb-svg/svg/svg_test.mbt"
-        issue: "No public regression case covers extra/malformed trailing functional-color components."
-    missing:
-      - "Enforce the supported functional-color arity before returning a color, preserving only the documented ignored rgba()/hsla() alpha boundary if that compatibility is intentional."
-      - "Add public four-target regression cases such as rgb(1,2,3,garbage) and hsl(1,2%,3%,garbage), asserting the stable svg-numeric-source CoreError."
+re_verification:
+  previous_status: gaps_found
+  previous_score: 5/6
+  gaps_closed:
+    - "An explicitly malformed paint scalar is rejected with a structured SVG error before parse_svg can return a SceneNode."
+  gaps_remaining: []
+  regressions: []
 ---
 
 # Phase 92: Fail-Closed SVG Parsing Verification Report
 
 **Phase Goal:** Explicitly unsafe SVG numeric input is rejected with a structured error before it can produce a scene or drawing list.
-**Verified:** 2026-07-25T18:14:20Z
-**Status:** gaps_found
-**Re-verification:** No — initial verification
+**Verified:** 2026-07-25T18:20:11Z
+**Status:** passed
+**Re-verification:** Yes — after gap closure in `ce966aa`
 
 ## Goal Achievement
 
@@ -32,47 +27,46 @@ gaps:
 
 | # | Truth | Status | Evidence |
 | --- | --- | --- | --- |
-| 1 | Explicit malformed, non-finite, or out-of-envelope root, geometry, viewBox, path, transform, and paint input returns the structured SVG error. | ✗ FAILED | `color.mbt:146-152` accepts any functional-color list with at least three entries and never examines extras. Thus `rgb(1,2,3,garbage)` and `hsl(1,2%,3%,garbage)` are accepted instead of producing `svg-numeric-source`. This is an explicit malformed paint input, not an omission/default branch. |
-| 2 | Unsafe relative, viewBox, affine, trigonometric, transformed-geometry, rounded-rect, and sampling calculations reject before lowering. | ✓ VERIFIED | `transform.mbt` admits radians, tangent, constructed affine values, and compositions; `scene.mbt:255-671` preflights accumulated transforms, viewBox, generated geometry, and path points before the sole `Ok(node)` at `scene.mbt:211-215`. Derived-route tests execute in the all-target run. |
-| 3 | A rejected SVG exposes neither a scene nor a drawing list; omitted attributes alone preserve defaults/inheritance. | ✓ VERIFIED | `parse_svg_with_budget` propagates all builder/preflight errors and invokes `preflight_scene` immediately before `Ok(node)` (`scene.mbt:206-220`). `attr_double`, `inherit_double`, and root builders select defaults/inheritance only on `None` (`scene.mbt:1173-1196`, `1400-1408`, `1651-1660`). Public tests pattern-match `Err` before lowering. |
-| 4 | Finite singular transforms, including `scale(0)`, remain valid. | ✓ VERIFIED | Admission tests coefficients rather than determinant (`transform.mbt:193-213`); public and white-box controls parse and lower `scale(0)`. |
-| 5 | `S/s` and `T/t` use normalized SVG arity and compatible reflected-control state. | ✓ VERIFIED | `path_data.mbt` reads four values for `S/s`, two for `T/t`, gates reflection on `last_curve`, and derives checked reflected/relative values before appending the path command. `path_data_wbtest.mbt` covers exact arity and reflection. |
-| 6 | Public parser/path entry points retain bounded resource behavior. | ✓ VERIFIED | Document source is admitted before tokenization (`scene.mbt:179-185`, `696-706`); direct path source is admitted before allocating/converting input (`path_data.mbt:13-26`); budget work/depth tests are included in the package suite. |
+| 1 | Explicit malformed, non-finite, or out-of-envelope root, geometry, viewBox, path, transform, and paint input returns the structured SVG error. | ✓ VERIFIED | Shared source admission is used by length/list, path, transform, and color seams. `color.mbt:37-49` routes strict `rgb`/`hsl` through exact-arity parsing; `color.mbt:153-156` now rejects every non-three-argument strict form. The public parser cases added in `svg_test.mbt:75-76` prove malformed trailing `rgb` and `hsl` arguments return `InvalidEncoding` with `svg-numeric-source`. The existing `rgba`/`hsla` ignored-alpha compatibility boundary is intentionally retained and exercised by `scene_wbtest.mbt:366-419`. |
+| 2 | Unsafe relative, viewBox, affine, trigonometric, transformed-geometry, rounded-rect, and sampling calculations reject before lowering. | ✓ VERIFIED | `path_data.mbt` admits relative/reflected values through `checked_add`/`checked_reflect`; `transform.mbt:71-223` checks exact arity, radians, tangent, constructed affine values, and compositions; `scene.mbt:206-215` runs `preflight_scene` before its sole successful parser return. Public/internal derived-route tests are part of the four-target suite. |
+| 3 | A rejected SVG exposes neither a scene nor a drawing list, while omitted attributes retain established SVG defaults/inheritance. | ✓ VERIFIED | `parse_svg_with_budget` propagates builder or preflight `Err` and constructs `Ok(node)` only after preflight. `build_paint`, `inherit_double`, and `attr_double` take their inherited/default branches only on absent attributes. Public tests pattern-match `Err` before lowering; omitted/default controls parse and lower in `numeric_contract_wbtest.mbt:34-46` and `scene_wbtest.mbt:422-443`. |
+| 4 | Finite singular transforms, including `scale(0)`, remain valid. | ✓ VERIFIED | Transform admission checks finite coefficients rather than determinant/invertibility. `svg_test.mbt:50-60`, `numeric_contract_wbtest.mbt:6-31`, and `transform_wbtest.mbt:242-245` exercise parse-and-lower or parser controls for `scale(0)` on every target. |
+| 5 | `S/s` and `T/t` use normalized SVG arity and compatible reflected-control state. | ✓ VERIFIED | `path_data.mbt:160-223` consumes four `S/s` values and two `T/t` values; reflection is gated by the matching prior curve family and derived controls are admitted. `path_data_wbtest.mbt:199-214` verifies exact arity and compatible reflection. |
+| 6 | Public parser and direct-path entry points retain bounded resource behavior. | ✓ VERIFIED | `scene.mbt:179-185` admits document source before tokenization; `path_data.mbt:13-26` admits path source before allocation/conversion. `bounds_wbtest.mbt:126-190` verifies document/path ceilings, boundary acceptance, and no work consumption on early source rejection. |
 
-**Score:** 5/6 truths verified (0 present, behavior-unverified)
+**Score:** 6/6 truths verified (0 present, behavior-unverified)
 
 ### Required Artifacts
 
 | Artifact | Expected | Status | Details |
 | --- | --- | --- | --- |
-| `modules/mb-svg/svg/svg.mbt` | Stable numeric `CoreError` helpers | ✓ VERIFIED | `Data`, `svg`, source/nonfinite/range contexts, and inclusive envelope are implemented. |
-| `modules/mb-svg/svg/length.mbt` | Checked length/list/viewBox ingress | ✓ VERIFIED | Lexical/source, nonfinite, range, exact viewBox arity, and malformed comma checks propagate `Result`. |
-| `modules/mb-svg/svg/transform.mbt` | Exact-arity source and derived affine admission | ✓ VERIFIED | All supported forms check arity; radians, tangent, affine components, and composition pass through derived admission. |
-| `modules/mb-svg/svg/path_data.mbt` | Result-returning, normalized path scanner | ✓ VERIFIED | Source scanner, relative/reflection checks, smooth arity, close-state handling, and input budget seam are wired to public parsing. |
-| `modules/mb-svg/svg/scene.mbt` | Result-propagating scene construction and derived preflight | ✓ VERIFIED | Root/group/leaf builders return errors upward; preflight executes before public scene publication. |
-| `modules/mb-svg/svg/color.mbt` | Fail-closed supported functional-color scalar parsing | ✗ STUB / FAIL-OPEN | First three consumed components validate, but no upper arity/extra-component validation exists (`146-152`), permitting malformed `rgb`/`hsl` forms. |
-| `modules/mb-svg/svg/svg_test.mbt` | Public no-scene/no-list error contract | ⚠️ PARTIAL | Covers representative root, paint, transform, path, and derived routes, but omits the trailing functional-color grammar gap. |
-| `modules/mb-svg/svg/{parse,scene,transform,path_data,lower,numeric_contract,bounds}_wbtest.mbt` | Route and compatibility/budget regression evidence | ✓ VERIFIED | Included by `moon test modules/mb-svg/svg --target all --frozen`; all 117 tests pass on each target. |
+| `modules/mb-svg/svg/svg.mbt` | Stable numeric `CoreError` helpers | ✓ VERIFIED | Substantive helper implementation supplies Data/category, `svg` operation, source/nonfinite/range contexts, and the inclusive envelope; used by parser seams. |
+| `modules/mb-svg/svg/{length,color,transform,path_data}.mbt` | Fail-closed source and derived scalar admission | ✓ VERIFIED | All are substantive `Result` parsers and are called by scene construction. `color.mbt` has no strict functional-color trailing-argument bypass after `ce966aa`. |
+| `modules/mb-svg/svg/scene.mbt` | Result-propagating scene construction and derived preflight | ✓ VERIFIED | Builders propagate parser failures; parser-side preflight precedes the only `Ok(SceneNode)` publication path. |
+| `modules/mb-svg/svg/{svg,parse,scene,transform,path_data,lower,numeric_contract,bounds}_wbtest.mbt` | Four-target public/internal regression evidence | ✓ VERIFIED | 117 tests execute and pass on wasm, wasm-gc, js, and native. |
+
+`verify.artifacts` and `verify.key-links` cannot parse this phase's string-form frontmatter artifacts/links and returned zero entries; the artifact and link checks above were therefore completed directly against source and tests.
 
 ### Key Link Verification
 
 | From | To | Via | Status | Details |
 | --- | --- | --- | --- | --- |
-| `parse_svg` | scene builders | `Result` propagation | ✓ WIRED | `build_svg_root`/`build_element` errors return through `parse_svg_with_budget`; success enters preflight only once. |
-| `parse_svg_with_budget` | parser-side validation | `preflight_scene(node)` before `Ok(node)` | ✓ WIRED | `scene.mbt:206-220` proves no parser-produced scene is published before validation. |
-| `parse_path_data_with_budget` | source/derived numeric helpers | `read_number`, `checked_add`, `checked_reflect` | ✓ WIRED | Every command branch returns `Err` on scanner or derived failure. |
-| paint attributes | `build_paint` → `parse_color`/numeric parsers → `parse_svg` | Result propagation | ✗ NOT_FAIL_CLOSED | Normal failures propagate, but the functional-color parser itself accepts malformed trailing components, so this link has a fail-open success branch. |
+| `parse_svg` | scene builders | `Result` propagation | ✓ WIRED | Builder errors return from `parse_svg_with_budget`; no fallback creates a `SceneNode` for invalid numeric input. |
+| `parse_svg_with_budget` | parser-side validation | `preflight_scene(node)` before `Ok(node)` | ✓ WIRED | `scene.mbt:206-215` gates public scene publication on parser-side derived numeric checks. |
+| paint attributes | `build_paint` → `parse_color` → `parse_svg` | Numeric-error propagation | ✓ WIRED | `build_paint` returns every SVG numeric error rather than selecting an inheritance/fallback branch; strict functional-color malformed trailing components now reach this path. |
+| `parse_path_data_with_budget` | source/derived helpers | `read_number`, `checked_add`, `checked_reflect` | ✓ WIRED | Every command branch returns `Err` before a successful path is returned on source or derived numeric failure. |
 
 ### Data-Flow Trace (Level 4)
 
-Not applicable: this parser package has no UI/dynamic-render data source. The relevant flow is source text → parser `Result` → validated `SceneNode` → total lowerer, verified above.
+Not applicable: this is a parser package, not a dynamic-data rendering artifact. The relevant data flow is source text → typed `Result` → validated `SceneNode` → total lowerer; its error and success branches are traced above.
 
 ### Behavioral Spot-Checks
 
 | Behavior | Command | Result | Status |
 | --- | --- | --- | --- |
-| Package public/internal parser, lowering, compatibility, and bounds tests on all production targets | `moon test modules/mb-svg/svg --target all --frozen` | 117 passed / 0 failed on `wasm`, `wasm-gc`, `js`, and `native` | ✓ PASS |
-| Extra malformed functional-color component is rejected | Static disconfirmation of `color.mbt:146-152`; existing suite has no matching regression | Fails by inspection: entries after index 2 are ignored, so malformed `rgb`/`hsl` trailing data cannot produce the required error | ✗ FAIL |
+| Full SVG parser/lowering/compatibility/bounds suite on all production targets | `moon test modules/mb-svg/svg --target all --frozen` | 117 passed, 0 failed on wasm, wasm-gc, js, and native | ✓ PASS |
+| Strict trailing functional-color rejection | Public cases in `svg_test.mbt:75-76` exercised by the command above | `rgb(1,2,3,garbage)` and `hsl(1,2%,3%,garbage)` require `InvalidEncoding` / `svg-numeric-source` | ✓ PASS |
+| `rgba`/`hsla` ignored-alpha compatibility | `scene_wbtest.mbt:366-419`, exercised by the command above | Valid `rgba(...,0.25)` and `hsla(...,0.25)` parse in the finite scene control | ✓ PASS |
 
 ### Probe Execution
 
@@ -82,25 +76,21 @@ SKIPPED — no phase-declared or conventional `scripts/**/probe-*.sh` probe exis
 
 | Requirement | Source Plan | Description | Status | Evidence |
 | --- | --- | --- | --- | --- |
-| SVGPR-02 | 92-01, 92-02, 92-03 | Explicit unsafe SVG scalar input returns structured error with no scene/drawing list. | ✗ BLOCKED | The malformed functional-color fail-open path means the requirement is not universally true for explicit paint input. |
+| SVGPR-02 | 92-01, 92-02, 92-03 | Explicit unsafe SVG scalar input returns a structured error with no scene/drawing list. | ✓ SATISFIED | All six must-haves are verified; the prior malformed strict functional-color bypass is closed by source enforcement and public four-target regression coverage. |
 
 ### Anti-Patterns Found
 
-| File | Line | Pattern | Severity | Impact |
-| --- | --- | --- | --- | --- |
-| `modules/mb-svg/svg/color.mbt` | 147 | `parts.length() < 3` permits unlimited trailing arguments | 🛑 Blocker | Extra malformed numeric/text paint components are silently ignored and a scene can be returned. |
-
-No `TBD`, `FIXME`, or `XXX` debt markers were found in the Phase 92 source/test scope. `git diff --check 7fe2f1d..HEAD` is clean.
+No blocker or warning anti-patterns found in the Phase 92 source/test scope. There are no unreferenced `TBD`, `FIXME`, or `XXX` markers, and `git diff --check 7fe2f1d..HEAD` is clean.
 
 ### Human Verification Required
 
-None. The blocking condition is deterministic and observable from the functional-color parser's control flow; it requires code/test revision, not subjective testing.
+None.
 
 ### Gaps Summary
 
-The phase has broad, working source/derived admission and four-target evidence, but it does not meet its universal fail-closed paint-input promise. `parse_func_color` validates only the first three entries and accepts every trailing entry. This makes malformed forms such as `rgb(1,2,3,garbage)` succeed and allows `parse_svg` to publish a scene. Phase 93 is about valid compatibility/raster qualification and does not explicitly schedule this parser defect, so it is not deferred.
+The sole prior gap is closed. Strict `rgb()` and `hsl()` now reject any trailing argument before component conversion, and the rejection is tested through the public `parse_svg` error contract on all four targets. `rgba()` and `hsla()` retain the plan's explicit ignored-alpha compatibility boundary; their first three consumed components remain admitted and their unconsumed alpha does not become a new SVGPR-02 scalar route.
 
 ---
 
-_Verified: 2026-07-25T18:14:20Z_
+_Verified: 2026-07-25T18:20:11Z_
 _Verifier: the agent (gsd-verifier)_
