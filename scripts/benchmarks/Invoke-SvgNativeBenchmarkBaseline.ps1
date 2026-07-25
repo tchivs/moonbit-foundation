@@ -231,6 +231,20 @@ function Add-Line([Text.StringBuilder]$Builder, [string]$Text = '') {
   [void]$Builder.Append("`n")
 }
 
+function Convert-ToAsciiJson([object]$Value) {
+  $json = $Value | ConvertTo-Json -Depth 12
+  $builder = New-Object Text.StringBuilder
+  foreach ($character in $json.ToCharArray()) {
+    $codePoint = [int][char]$character
+    if ($codePoint -gt 127) {
+      [void]$builder.Append(('\u{0:X4}' -f $codePoint))
+    } else {
+      [void]$builder.Append($character)
+    }
+  }
+  $builder.ToString()
+}
+
 function Add-RunMarkdown([Text.StringBuilder]$Builder, [object]$Run) {
   $title = if ($Run.id -eq 'warmup') { 'Warmup (excluded from summary)' } else { 'Capture ' + $Run.id }
   Add-Line $Builder ('### ' + $title)
@@ -324,7 +338,7 @@ function New-BaselineDocument([object]$Evidence) {
     [ordered]@{ id = $_.id; label = $_.label; started_utc = $_.started_utc; ended_utc = $_.ended_utc; exit_code = $_.exit_code; output_sha256 = $_.output_sha256; summaries = $_.summaries }
   })
   Add-Line $builder '<!-- SVG-BASELINE-DATA'
-  Add-Line $builder ($auditEvidence | ConvertTo-Json -Depth 12)
+  Add-Line $builder (Convert-ToAsciiJson $auditEvidence)
   Add-Line $builder '-->'
   $builder.ToString()
 }
