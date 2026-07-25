@@ -36,7 +36,7 @@
 
 ## Phases
 
-- [ ] **Phase 95: Shared SVG Geometry Boundary** - Make parser preflight and lowering use one checked geometry seam while retaining valid SVG behavior.
+- [x] **Phase 95: Shared SVG Geometry Boundary** - Make parser preflight and lowering use one checked geometry seam while retaining valid SVG behavior. (completed 2026-07-26)
 - [ ] **Phase 96: SVG Boundary Parity Qualification** - Prove fail-closed unsafe geometry and compatibility parity on every supported target.
 
 ## Phase Details
@@ -75,7 +75,7 @@
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 95. Shared SVG Geometry Boundary | 2/2 | In Progress|  |
+| 95. Shared SVG Geometry Boundary | 2/2 | Complete    | 2026-07-26 |
 | 96. SVG Boundary Parity Qualification | 0/TBD | Not started | - |
 
 ---
