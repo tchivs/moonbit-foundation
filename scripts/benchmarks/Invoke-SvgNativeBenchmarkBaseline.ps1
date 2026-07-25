@@ -132,8 +132,11 @@ function Get-PolicyAndToolchain {
     moonrun = $policy.toolchain.moonrun.version + ' (' + $policy.toolchain.moonrun.commit + ' ' + $policy.toolchain.moonrun.release_date + ')'
   }
   foreach ($key in @('moon', 'moonc', 'moonrun')) {
-    if ($raw[$key] -notlike "*$($policy.toolchain.$key.version)*") {
-      throw "Toolchain policy mismatch for ${key}: expected version $($policy.toolchain.$key.version), observed $($raw[$key])"
+    foreach ($field in @('version', 'commit', 'release_date')) {
+      $value = $policy.toolchain.$key.$field
+      if ($null -ne $value -and $raw[$key] -notlike "*$value*") {
+        throw "Toolchain policy mismatch for ${key}: expected $field $value, observed $($raw[$key])"
+      }
     }
   }
   [ordered]@{ raw = $raw; policy_expected = $expected }
@@ -186,12 +189,18 @@ function Invoke-NativeCapture([string]$Id, [string]$Label) {
   $startInfo.UseShellExecute = $false
   $startInfo.RedirectStandardOutput = $true
   $startInfo.RedirectStandardError = $true
+  # Moon emits UTF-8; pin both redirected streams so evidence does not depend
+  # on the host ANSI code page before it is normalized, hashed, and rendered.
+  $startInfo.StandardOutputEncoding = $utf8
+  $startInfo.StandardErrorEncoding = $utf8
   $process = New-Object System.Diagnostics.Process
   $process.StartInfo = $startInfo
   if (!$process.Start()) { throw "Could not start native benchmark $Label." }
-  $stdout = $process.StandardOutput.ReadToEnd()
-  $stderr = $process.StandardError.ReadToEnd()
+  $stdoutTask = $process.StandardOutput.ReadToEndAsync()
+  $stderrTask = $process.StandardError.ReadToEndAsync()
   $process.WaitForExit()
+  $stdout = $stdoutTask.GetAwaiter().GetResult()
+  $stderr = $stderrTask.GetAwaiter().GetResult()
   $exitCode = $process.ExitCode
   $merged = if ([string]::IsNullOrEmpty($stderr)) { $stdout } else { $stdout + "`n" + $stderr }
   $output = Normalize-Text $merged
@@ -353,12 +362,67 @@ function Get-AuditData([string]$Document) {
   $match.Groups['json'].Value | ConvertFrom-Json
 }
 
-function Get-DocumentOutput([string]$Document, [string]$Id) {
-  $heading = if ($Id -eq 'warmup') { '### Warmup \(excluded from summary\)' } else { '### Capture ' + [regex]::Escape($Id) }
-  $pattern = '(?s)' + $heading + '.*?<summary>Complete normalized UTF-8 merged stdout/stderr</summary>\s*<pre class="svg-native-output">\r?\n(?<output>.*?)\r?\n</pre>'
-  $match = [regex]::Match($Document, $pattern)
-  if (!$match.Success) { throw "Complete raw output block missing for $Id." }
-  Normalize-Text ([Net.WebUtility]::HtmlDecode($match.Groups['output'].Value))
+function Get-VisibleRunSections([string]$Document) {
+  $matches = [regex]::Matches($Document, '(?m)^### (?<title>Warmup \(excluded from summary\)|Capture [1-7])\r?$')
+  if ($matches.Count -ne 8) { throw 'Baseline requires exactly one ordered visible section for the warmup and each of seven captures.' }
+  $summaryIndex = $Document.IndexOf('## Native-host-specific seven-capture summary', [StringComparison]::Ordinal)
+  if ($summaryIndex -lt 0) { throw 'Visible aggregate section is missing.' }
+  $sections = @()
+  for ($index = 0; $index -lt $matches.Count; $index++) {
+    $expectedTitle = if ($index -eq 0) { 'Warmup (excluded from summary)' } else { 'Capture ' + $index }
+    if ($matches[$index].Groups['title'].Value -cne $expectedTitle) { throw "Visible capture section order mismatch at $index." }
+    $bodyStart = $matches[$index].Index + $matches[$index].Length
+    $bodyEnd = if ($index -lt ($matches.Count - 1)) { $matches[$index + 1].Index } else { $summaryIndex }
+    if ($bodyEnd -le $bodyStart) { throw "Visible capture section is malformed for $expectedTitle." }
+    $sections += [PSCustomObject]@{ title = $expectedTitle; body = $Document.Substring($bodyStart, $bodyEnd - $bodyStart) }
+  }
+  $sections
+}
+
+function Get-DocumentOutput([string]$Section, [string]$Id) {
+  $matches = [regex]::Matches($Section, '(?s)<summary>Complete normalized UTF-8 merged stdout/stderr</summary>\s*<pre class="svg-native-output">\r?\n(?<output>.*?)\r?\n</pre>')
+  if ($matches.Count -ne 1) { throw "Complete raw output block missing or duplicated for $Id." }
+  Normalize-Text ([Net.WebUtility]::HtmlDecode($matches[0].Groups['output'].Value))
+}
+
+function New-RenderedEvidence([object]$Data, [object[]]$Sections) {
+  if ($Sections.Count -ne $Data.runs.Count) { throw 'Visible capture section count does not match audit data.' }
+  $evidence = [ordered]@{}
+  foreach ($property in $Data.PSObject.Properties) {
+    if ($property.Name -ne 'runs') { $evidence[$property.Name] = $property.Value }
+  }
+  $runs = @()
+  for ($index = 0; $index -lt $Data.runs.Count; $index++) {
+    $renderedRun = [ordered]@{}
+    foreach ($property in $Data.runs[$index].PSObject.Properties) { $renderedRun[$property.Name] = $property.Value }
+    $renderedRun.output = Get-DocumentOutput $Sections[$index].body "$($Data.runs[$index].id)"
+    $runs += $renderedRun
+  }
+  $evidence.runs = $runs
+  $evidence
+}
+
+function Assert-RecordedToolchainMatchesPolicy([object]$Toolchain) {
+  $policy = Get-Content -Raw -LiteralPath (Join-Path $repoRoot 'policy\foundation.json') | ConvertFrom-Json
+  foreach ($key in @('moon', 'moonc', 'moonrun')) {
+    $expected = if ($key -eq 'moonc') {
+      $policy.toolchain.$key.version + ' (' + $policy.toolchain.$key.release_date + ')'
+    } else {
+      $policy.toolchain.$key.version + ' (' + $policy.toolchain.$key.commit + ' ' + $policy.toolchain.$key.release_date + ')'
+    }
+    if ($Toolchain.policy_expected.$key -cne $expected) { throw "Recorded toolchain policy text mismatch for $key." }
+    foreach ($field in @('version', 'commit', 'release_date')) {
+      $value = $policy.toolchain.$key.$field
+      if ($null -ne $value -and $Toolchain.raw.$key -notlike "*$value*") { throw "Recorded toolchain pin mismatch for $key $field." }
+    }
+  }
+}
+
+function Assert-VisibleDocumentMatchesData([string]$Document, [object]$RenderedEvidence) {
+  $expected = New-BaselineDocument $RenderedEvidence
+  if ($Document -cne $expected) {
+    throw 'Visible Markdown or embedded audit data differs from the canonical rendering of verified evidence.'
+  }
 }
 
 function Assert-SummariesEqual([object[]]$Expected, [object[]]$Actual, [string]$Label) {
@@ -389,7 +453,10 @@ function Invoke-ReadOnlyAudit {
   # UTF-8 files without a BOM; read the evidence bytes with the declared encoder.
   $document = $utf8.GetString([IO.File]::ReadAllBytes($baselinePath))
   $data = Get-AuditData $document
+  $sections = @(Get-VisibleRunSections $document)
+  $renderedEvidence = New-RenderedEvidence $data $sections
   if ($data.schema_version -ne 1 -or $data.identity.worktree -cne '(clean)' -or $data.execution.command -cne $nativeCommand -or $data.execution.target -cne 'native' -or $data.execution.release -ne $true -or $data.execution.frozen -ne $true) { throw 'Baseline fixed comparison identity mismatch.' }
+  Assert-RecordedToolchainMatchesPolicy $data.toolchain
   if ($data.runs.Count -ne 8 -or $data.runs[0].id -cne 'warmup') { throw 'Baseline requires one warmup and seven captures.' }
   $sourceA = Get-Sha256File (Join-Path $repoRoot 'modules\mb-svg\svg\svg_bench.mbt')
   $sourceB = Get-Sha256File (Join-Path $repoRoot 'modules\mb-svg\svg\moon.pkg')
@@ -406,7 +473,7 @@ function Invoke-ReadOnlyAudit {
     $run = $data.runs[$runIndex]
     $expectedId = if ($runIndex -eq 0) { 'warmup' } else { "$runIndex" }
     if ("$($run.id)" -cne $expectedId -or [int]$run.exit_code -ne 0) { throw "Run identity or exit status mismatch at $runIndex." }
-    $output = Get-DocumentOutput $document "$($run.id)"
+    $output = $renderedEvidence.runs[$runIndex].output
     if ($run.output_sha256 -cne (Get-Sha256Text $output)) { throw "Output digest mismatch for $($run.id)." }
     $parsed = @(Convert-BenchmarkOutput $output)
     Assert-SummariesEqual @($run.summaries) $parsed "run $($run.id)"
@@ -423,7 +490,8 @@ function Invoke-ReadOnlyAudit {
     }
     Assert-VisibleAggregate $document $workloadNames[$i] $actual
   }
-  Write-Host 'SVG native baseline audit passed: clean worktree, eight output digests, ordered runner summaries, and seven-sample aggregates verified.'
+  Assert-VisibleDocumentMatchesData $document $renderedEvidence
+  Write-Host 'SVG native baseline audit passed: clean worktree, complete rendered identity/provenance/toolchain/host/run evidence, eight output digests, ordered runner summaries, and seven-sample aggregates verified.'
 }
 
 $previousLocation = Get-Location
