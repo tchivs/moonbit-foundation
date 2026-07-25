@@ -10,23 +10,23 @@ The primary audience is MoonBit library authors and application developers build
 
 MoonBit developers can reuse stable, high-performance native infrastructure contracts instead of rebuilding incompatible foundations for every graphics, document, media, or automation product.
 
-## Current State: v0.28 Indexed PNG Compression Profiles Shipped
+## Current State: v0.29 Indexed Adam7 Compression Profiles Shipped
 
-**Delivered:** `mb-image` now exposes additive non-interlaced Indexed1/2/4/8 `Stored` and `FixedOrStored` eager and caller-buffered selectors. Fixed is emitted only when the complete palette-aware Type-3 frame wins or ties Stored; legacy/default indexed APIs remain literal Stored/filter-None forwards and Dynamic remains an explicit unavailable capability.
+**Delivered:** `mb-image` now exposes additive Adam7 Indexed1/2/4/8 `Stored` and `FixedOrStored` eager and caller-buffered selectors. Existing interlace APIs and non-interlaced compatibility routes retain their literal Stored/filter-None bytes.
 
-**Validated:** PLTE/tRNS-aware atomic admission, exact output/work limits, hostile zero/one/ragged leases, released-lease and replay-work sticky terminals, independent Type-3/DEFLATE/CRC/Adler/raster parsing, public RGB8/RGBA8 decode, frozen legacy vectors, and the ordinary PNG package gate passed 315/315 on native, wasm, wasm-gc, js, and `--target all`.
+**Validated:** Pass-aware PLTE/tRNS-aware atomic admission, exact output/work limits, hostile zero/one/ragged leases, released-lease and replay-work sticky terminals, independent Type-3/DEFLATE/CRC/Adler/raster parsing, public RGB8/RGBA8 decode, frozen legacy vectors, and four-target qualification.
 
-## Current Milestone: v0.29 Indexed Adam7 Compression Profiles
+## Current Milestone: v0.30 SVG Production Readiness
 
-**Goal:** Extend the proven Indexed1/2/4/8 `FixedOrStored` contract to explicit Adam7 output while preserving existing Stored/filter-None Adam7 bytes and all non-interlaced compatibility routes.
+**Goal:** Turn the newly implemented portable `mb-canvas` layer and `mb-svg` lowering contracts into a production-ready foundation with reproducible performance evidence and fail-closed numeric input behavior.
 
 **Target features:**
 
-- Add additive eager and caller-buffered Adam7 compression selectors for Indexed1/2/4/8; existing interlace selectors remain literal Stored forwards.
-- Reuse one bounded pass-aware indexed raw-byte/match producer and the acknowledged machine; choose Fixed only when the complete PLTE/tRNS-aware Adam7 frame is no larger than Stored.
-- Prove exact pass geometry, atomic admission, hostile leases, independent Type-3/DEFLATE/raster evidence, frozen compatibility, and four-target portability.
+- Establish declared, reproducible `mb-svg` benchmark workloads for path parsing, transform composition, and parse-to-lower processing.
+- Reject non-finite and numerically unsafe SVG geometry/transform inputs before they can reach scene lowering or rasterization.
+- Preserve RFC 0008 layer semantics and verify SVG opacity, benchmark, and robustness behavior across all portable targets.
 
-**Scope boundary:** This milestone does not add Dynamic indexed DEFLATE, adaptive indexed filters, wider dictionaries, staging, a second encoder, decoder changes, FFI, registry publication, or release automation.
+**Scope boundary:** This milestone does not add SVG text, gradients, masks, filters, `<use>`, native acceleration, image-sized staging optimizations, or registry/release automation.
 
 ## Requirements
 
@@ -73,10 +73,10 @@ MoonBit developers can reuse stable, high-performance native infrastructure cont
 
 ### Active
 
-- [ ] Add explicit Indexed1/2/4/8 Adam7 `Stored`/`FixedOrStored` eager and caller-buffered selectors while existing interlace APIs remain byte-identical Stored forwards.
-- [ ] Derive pass-aware packed rows through one bounded producer and select Fixed only on a complete PLTE/tRNS-aware frame win or tie, with exact atomic limits and one budget charge.
-- [ ] Preserve hostile lease, release, replay, and compatibility guarantees for Adam7 indexed output through the existing acknowledged machine.
-- [ ] Independently qualify pass framing, DEFLATE, checksums, packed tails, public RGB8/RGBA8 decode, and all supported targets.
+- [ ] Establish reproducible public `mb-svg` benchmark workloads and documented execution baselines.
+- [ ] Reject non-finite and unsafe SVG coordinate, length, and transform values with structured errors.
+- [ ] Preserve exact `mb-canvas` layer and `mb-svg` group/element opacity semantics while hardening input boundaries.
+- [ ] Prove portable test and benchmark build behavior across `js`, `wasm`, `wasm-gc`, and `native`.
 
 ### Out of Scope
 

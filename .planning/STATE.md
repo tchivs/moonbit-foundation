@@ -1,20 +1,16 @@
 ---
 gsd_state_version: 1.0
-milestone: v0.29
-milestone_name: Indexed Adam7 Compression Profiles
-status: Awaiting next milestone
-stopped_at: v0.29 roadmap defined — ready for phase planning
-last_updated: "2026-07-24T14:08:16.717Z"
-last_activity: 2026-07-24
-last_activity_desc: Milestone v0.29 completed and archived
+milestone: v0.30
+milestone_name: SVG Production Readiness
+status: planning
+last_updated: "2026-07-25T14:50:57.085Z"
+last_activity: 2026-07-25
 progress:
-  total_phases: 3
-  completed_phases: 3
-  total_plans: 3
-  completed_plans: 3
-  percent: 100
-current_phase: 90
-current_phase_name: Hostile Streaming and Independent Qualification
+  total_phases: 0
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
+  percent: 0
 ---
 
 # Project State
@@ -29,10 +25,10 @@ See `.planning/PROJECT.md`.
 
 ## Current Position
 
-Phase: Milestone v0.29 complete
+Phase: Not started (defining requirements)
 Plan: —
-Status: Awaiting next milestone
-Last activity: 2026-07-24 — Milestone v0.29 completed and archived
+Status: Defining requirements
+Last activity: 2026-07-25 — Milestone v0.30 started
 
 ## Milestone Metrics
 
