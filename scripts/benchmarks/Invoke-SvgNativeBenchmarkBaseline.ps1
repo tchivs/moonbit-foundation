@@ -330,7 +330,8 @@ function New-BaselineDocument([object]$Evidence) {
   }
   Add-Line $builder ('- PowerShell: `' + $Evidence.host.powershell + '`; .NET runtime: `' + $Evidence.host.dotnet_runtime + '`')
   foreach ($key in @('os', 'cpu', 'physical_memory_bytes', 'active_power_scheme')) {
-    Add-Line $builder ('- ' + $key + ': `' + $Evidence.host[$key].value + '` (probe: `' + $Evidence.host[$key].attempted + '`)')
+    $fact = Get-NamedValue $Evidence.host $key
+    Add-Line $builder ('- ' + $key + ': `' + $fact.value + '` (probe: `' + $fact.attempted + '`)')
   }
   Add-Line $builder ''
   Add-Line $builder '## Captures'
