@@ -377,7 +377,9 @@ function Assert-VisibleAggregate([string]$Document, [string]$Name, [object]$Aggr
 function Invoke-ReadOnlyAudit {
   Assert-CleanWorktree
   if (!(Test-Path -LiteralPath $baselinePath -PathType Leaf)) { throw "Baseline missing: $baselinePath" }
-  $document = Get-Content -Raw -LiteralPath $baselinePath
+  # Get-Content in Windows PowerShell 5.1 assumes the active ANSI code page for
+  # UTF-8 files without a BOM; read the evidence bytes with the declared encoder.
+  $document = $utf8.GetString([IO.File]::ReadAllBytes($baselinePath))
   $data = Get-AuditData $document
   if ($data.schema_version -ne 1 -or $data.identity.worktree -cne '(clean)' -or $data.execution.command -cne $nativeCommand -or $data.execution.target -cne 'native' -or $data.execution.release -ne $true -or $data.execution.frozen -ne $true) { throw 'Baseline fixed comparison identity mismatch.' }
   if ($data.runs.Count -ne 8 -or $data.runs[0].id -cne 'warmup') { throw 'Baseline requires one warmup and seven captures.' }
