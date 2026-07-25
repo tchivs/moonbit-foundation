@@ -159,25 +159,27 @@ test "public parse rejects unsafe group transforms before a group exists" {
 }
 
 ///|
-test "public parse rejects invalid path data before a scene exists" {
-  assert_public_numeric_error(
-    parse_svg("<svg><path d=\"M 65536 0 l 1 0\"/></svg>"),
-    @error.ErrorCode::InvalidRange,
-    "svg-numeric-derived",
-  )
-}
-
-///|
 test "public parse rejects unsafe derived geometry before lowering" {
   let cases = [
     // viewBox translation is -min_x * scale = 131072.
     ("viewbox-root-map", "<svg viewBox=\"-65536 0 1 1\" width=\"2\" height=\"2\"><rect width=\"1\" height=\"1\"/></svg>"),
     // A source-valid group transform carries this coordinate out of range.
     ("group-affine-child", "<svg><g transform=\"translate(65536,0)\"><rect x=\"1\" width=\"1\" height=\"1\"/></g></svg>"),
+    // Two valid group transforms overflow when accumulated.
+    ("nested-group-affine", "<svg><g transform=\"translate(65536,0)\"><g transform=\"translate(1,0)\"><rect width=\"1\" height=\"1\"/></g></g></svg>"),
     // Rounded-rect edge construction calculates x + width = 65537.
     ("rounded-rect-edge", "<svg><rect x=\"65536\" width=\"1\" height=\"1\" rx=\"1\"/></svg>"),
+    // Circle and ellipse extrema become unsafe before a scene can publish.
+    ("circle-extremum", "<svg><circle cx=\"65536\" cy=\"0\" r=\"1\"/></svg>"),
     // Ellipse sampling calculates cx + rx at its first point.
     ("ellipse-extremum", "<svg><ellipse cx=\"65536\" cy=\"0\" rx=\"1\" ry=\"1\"/></svg>"),
+    // Endpoint and point-list families cross the envelope after a valid affine.
+    ("line-endpoint", "<svg><g transform=\"translate(1,0)\"><line x1=\"65536\" y1=\"0\" x2=\"0\" y2=\"0\"/></g></svg>"),
+    ("polyline-point", "<svg><g transform=\"translate(1,0)\"><polyline points=\"65536,0 0,0\"/></g></svg>"),
+    ("polygon-point", "<svg><g transform=\"translate(1,0)\"><polygon points=\"65536,0 0,0\"/></g></svg>"),
+    // Relative CanvasPath commands and transformed post-construction points.
+    ("canvas-path-command", "<svg><path d=\"M 65536 0 l 1 0\"/></svg>"),
+    ("path-point-transform", "<svg><g transform=\"translate(1,0)\"><path d=\"M 65536 0 L 0 0\"/></g></svg>"),
   ]
   for case in cases {
     let (_, source) = case

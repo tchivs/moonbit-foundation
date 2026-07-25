@@ -10,6 +10,25 @@ fn assert_private_point_derived_error(
   }
 }
 
+fn assert_private_derived_error(
+  result : Result[Unit, @error.CoreError],
+) -> Unit raise {
+  match result {
+    Ok(_) => inspect(false, content="true")
+    Err(error) => inspect(error.context(), content="Some(svg-numeric-derived)")
+  }
+}
+
+fn assert_private_path_derived_error(
+  result : Result[@math.Path2, @error.CoreError],
+  transform : @math.Affine2,
+) -> Unit raise {
+  match result {
+    Ok(path) => assert_private_derived_error(checked_path_points(path, transform))
+    Err(error) => inspect(error.context(), content="Some(svg-numeric-derived)")
+  }
+}
+
 ///|
 test "geometry tracer: root map group affine and rectangle parse then lower" {
   let source = "<svg viewBox=\"0 0 100 50\" width=\"200\" height=\"200\"><g transform=\"translate(10,0)\"><rect width=\"1\" height=\"1\"/></g></svg>"
@@ -77,6 +96,75 @@ test "geometry tracer pairs derived root-map rejection with finite scale zero" {
     Ok(point) => inspect((point.x(), point.y()), content="(0, 0)")
     Err(_) => inspect(false, content="true")
   }
+}
+
+///|
+test "geometry parity matrix observes every checked derived-geometry family" {
+  let overflow_translate = @math.Affine2::translate(1.0, 0.0)
+  let unsafe_root : SvgRoot = {
+    width: Some(2.0),
+    height: Some(2.0),
+    view_box: Some((-65536.0, 0.0, 1.0, 1.0)),
+    preserve_aspect_ratio: { align_x: 1, align_y: 1, meet: true, none: false },
+  }
+  // Root map and accumulated affine are direct Result facts, not a second
+  // arithmetic oracle.
+  match checked_viewbox_transform(unsafe_root) {
+    Ok(_) => inspect(false, content="true")
+    Err(error) => inspect(error.context(), content="Some(svg-numeric-derived)")
+  }
+  match checked_compose_affine(
+    @math.Affine2::translate(65536.0, 0.0),
+    overflow_translate,
+  ) {
+    Ok(_) => inspect(false, content="true")
+    Err(error) => inspect(error.context(), content="Some(svg-numeric-derived)")
+  }
+  assert_private_point_derived_error(
+    checked_transform_point(overflow_translate, @math.Point2::new(65536.0, 0.0)),
+  )
+
+  // Primitive builders are paired with the shared path-point admission seam.
+  assert_private_path_derived_error(
+    checked_rect_path(65536.0, 0.0, 1.0, 1.0, 1.0, 1.0),
+    @math.Affine2::identity(),
+  )
+  assert_private_path_derived_error(
+    checked_circle_path(65536.0, 0.0, 1.0),
+    @math.Affine2::identity(),
+  )
+  assert_private_path_derived_error(
+    checked_ellipse_path(65536.0, 0.0, 1.0, 1.0),
+    @math.Affine2::identity(),
+  )
+  assert_private_path_derived_error(
+    checked_line_path(65536.0, 0.0, 0.0, 0.0),
+    overflow_translate,
+  )
+
+  let boundary_points = [@math.Point2::new(65536.0, 0.0), @math.Point2::new(0.0, 0.0)]
+  assert_private_path_derived_error(
+    checked_polyline_path(boundary_points),
+    overflow_translate,
+  )
+  assert_private_path_derived_error(
+    checked_polygon_path(boundary_points),
+    overflow_translate,
+  )
+
+  // CanvasPath traversal and post-construction Path2 points take the same
+  // checked admission route without exposing a public helper.
+  match parse_path_data("M 65536 0 L 0 0") {
+    Ok(canvas_path) =>
+      assert_private_path_derived_error(
+        checked_canvas_path(canvas_path),
+        overflow_translate,
+      )
+    Err(_) => inspect(false, content="true")
+  }
+  let manual_path = @math.Path2::new()
+  manual_path.push(@math.PathCommand::MoveTo(@math.Point2::new(65536.0, 0.0)))
+  assert_private_derived_error(checked_path_points(manual_path, overflow_translate))
 }
 
 ///|
