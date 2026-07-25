@@ -366,6 +366,38 @@
 
 - The ordinary PNG package completed at 320/320 on wasm, wasm-gc, js, and native; no release automation or source-tree copies were added.
 
+---
+
+## Milestone: v0.30 — SVG Production Readiness
+
+**Shipped:** 2026-07-26
+**Phases:** 4 | **Plans:** 8 | **Tasks:** 16
+
+### What Was Built
+
+- A documented 65536.0 SVG numeric envelope, stable error contract, and focused four-target ingress/derivation controls.
+- Fail-closed source and derived geometry, paint, transform, and path admission before scene or drawing-list publication.
+- Portable RFC 0008 opacity/layer qualification plus three correctness-gated SVG workloads and an audited native release baseline.
+
+### What Worked
+
+- Independent phase verification and a final release-gate review caught fail-open paths before the milestone closed.
+- Native evidence was captured in a clean worktree with one excluded warmup, seven retained samples, immutable digests, and both Windows PowerShell 5.1 and Pwsh audits.
+
+### What Was Inefficient
+
+- Several review/fix cycles were needed because parser preflight duplicates lowerer geometry arithmetic; the semantic ownership boundary must be kept synchronized.
+
+### Key Lessons
+
+1. Numeric safety needs an explicit shared envelope and structured error facts, not target-dependent floating-point behavior.
+2. Portable benchmark execution qualifies buildability and correctness; native-only samples must never be presented as cross-target performance comparisons.
+3. SVG preflight changes require a corresponding lowerer cross-check until the duplicated geometry arithmetic is unified.
+
+### Cost Observations
+
+- Final SVG qualification passed 125/125 tests and all three benchmark workloads on wasm, wasm-gc, js, and native.
+
 ## Cross-Milestone Trends
 
 ### Process Evolution

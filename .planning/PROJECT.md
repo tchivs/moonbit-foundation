@@ -10,23 +10,13 @@ The primary audience is MoonBit library authors and application developers build
 
 MoonBit developers can reuse stable, high-performance native infrastructure contracts instead of rebuilding incompatible foundations for every graphics, document, media, or automation product.
 
-## Current State: v0.29 Indexed Adam7 Compression Profiles Shipped
+## Current State: v0.30 SVG Production Readiness Shipped
 
-**Delivered:** `mb-image` now exposes additive Adam7 Indexed1/2/4/8 `Stored` and `FixedOrStored` eager and caller-buffered selectors. Existing interlace APIs and non-interlaced compatibility routes retain their literal Stored/filter-None bytes.
+**Delivered:** `mb-svg` now has a documented, target-neutral numeric contract; fail-closed parsing for unsafe source and derived geometry; portable SVG opacity/layer qualification; and correctness-gated benchmark workloads with a reproducible native evidence baseline.
 
-**Validated:** Pass-aware PLTE/tRNS-aware atomic admission, exact output/work limits, hostile zero/one/ragged leases, released-lease and replay-work sticky terminals, independent Type-3/DEFLATE/CRC/Adler/raster parsing, public RGB8/RGBA8 decode, frozen legacy vectors, and four-target qualification.
+**Validated:** Phase 91 (6/6), Phase 92 (6/6), Phase 93 (5/5), and Phase 94 (5/5), including all four portable targets and a clean-worktree PowerShell 5.1/Pwsh audit of the native baseline.
 
-## Current Milestone: v0.30 SVG Production Readiness
-
-**Goal:** Turn the newly implemented portable `mb-canvas` layer and `mb-svg` lowering contracts into a production-ready foundation with reproducible performance evidence and fail-closed numeric input behavior.
-
-**Target features:**
-
-- Establish declared, reproducible `mb-svg` benchmark workloads for path parsing, transform composition, and parse-to-lower processing.
-- Reject non-finite and numerically unsafe SVG geometry/transform inputs before they can reach scene lowering or rasterization.
-- Preserve RFC 0008 layer semantics and verify SVG opacity, benchmark, and robustness behavior across all portable targets.
-
-**Scope boundary:** This milestone does not add SVG text, gradients, masks, filters, `<use>`, native acceleration, image-sized staging optimizations, or registry/release automation.
+**Known maintenance debt:** Parser preflight duplicates some lowerer geometry arithmetic. Future lowerer changes must update the corresponding preflight cross-check to prevent semantic drift.
 
 ## Requirements
 
@@ -71,12 +61,12 @@ MoonBit developers can reuse stable, high-performance native infrastructure cont
 - [x] Preserve atomic failures and hostile caller-buffered lifecycle behavior for indexed compression, including untouched output/lease state before admission and sticky terminals after released leases or replay drift. — Validated in v0.28 Phase 87.
 - [x] Independently qualify Fixed-or-Stored Type-3 wire bytes, public RGB8/RGBA8 decode, frozen legacy vectors, and ordinary PNG package execution on wasm, wasm-gc, js, and native. — Validated in v0.28 Phase 87.
 
-### Active
+### Validated
 
-- [ ] Establish reproducible public `mb-svg` benchmark workloads and documented execution baselines.
-- [ ] Reject non-finite and unsafe SVG coordinate, length, and transform values with structured errors.
-- [ ] Preserve exact `mb-canvas` layer and `mb-svg` group/element opacity semantics while hardening input boundaries.
-- [ ] Prove portable test and benchmark build behavior across `js`, `wasm`, `wasm-gc`, and `native`.
+- [x] Establish reproducible public `mb-svg` benchmark workloads and documented execution baselines. — Validated in Phase 94.
+- [x] Reject non-finite and unsafe SVG coordinate, length, and transform values with structured errors. — Validated in Phase 92.
+- [x] Preserve exact `mb-canvas` layer and `mb-svg` group/element opacity semantics while hardening input boundaries. — Validated in Phase 93.
+- [x] Prove portable test and benchmark build behavior across `js`, `wasm`, `wasm-gc`, and `native`. — Validated in Phases 91, 93, and 94.
 
 ### Out of Scope
 
@@ -226,4 +216,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update toolchain, compatibility, benchmark, and adoption context.
 
 ---
-*Last updated: 2026-07-24 after v0.28 closeout*
+*Last updated: 2026-07-26 after v0.30 closeout*

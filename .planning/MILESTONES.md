@@ -1,5 +1,23 @@
 # Project Milestones: MoonBit Native Foundation
 
+## v0.30 SVG Production Readiness (Shipped: 2026-07-26)
+
+**Phases completed:** 4 phases, 8 plans, 16 tasks
+
+**Key accomplishments:**
+
+- A documented 65536.0 SVG numeric envelope, stable structured-error fields, complete ingress/derivation matrix, and four-target parse-to-lower boundary tracer.
+- Focused all-target SVG numeric controls now cover every documented finite ingress and derivation route while preserving existing defaults, scale(0), and RFC 0008 layer ordering.
+- Typed fail-closed SVG source numeric admission for root, viewBox, geometry, and points values, with public no-scene/no-drawing-list proof.
+- Fail-closed SVG paint/color scalar parsing and exact, derived-safe affine transform construction across all four production targets.
+- Fail-closed SVG path normalization and parser-side validation of every lowering-owned geometry route before a SceneNode can escape.
+- A provenance-backed MoonBit suite now proves deterministic SVG parse-to-lower-to-raster behavior, opacity isolation, and the shared 16-layer limit on wasm, wasm-gc, js, and native.
+- A PowerShell 5.1-safe, clean-worktree native SVG evidence generator now preserves one warmup, seven release captures, complete auditable output, immutable SHA-256 provenance, and native-only summary statistics.
+
+**Closeout note:** Two pre-existing missing PDF/Text quick-task records remain deferred; they do not affect v0.30 verification.
+
+---
+
 ## v0.29 Indexed Adam7 Compression Profiles (Shipped: 2026-07-24)
 
 **Phases completed:** 3 phases, 3 plans, 3 tasks
