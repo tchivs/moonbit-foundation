@@ -62,6 +62,9 @@ test "public parse keeps finite boundary and singular transform drawable" {
 ///|
 test "public parse rejects explicit paint scalar routes before a scene exists" {
   let cases = [
+    ("<svg><rect fill=\"#ggg\"/></svg>", @error.ErrorCode::InvalidEncoding, "svg-numeric-source"),
+    ("<svg><rect stroke=\"#12\"/></svg>", @error.ErrorCode::InvalidEncoding, "svg-numeric-source"),
+    ("<svg><rect color=\"#12\"/></svg>", @error.ErrorCode::InvalidEncoding, "svg-numeric-source"),
     ("<svg><rect opacity=\"bad\"/></svg>", @error.ErrorCode::InvalidEncoding, "svg-numeric-source"),
     ("<svg><rect stroke-dasharray=\"1,1e999\"/></svg>", @error.ErrorCode::InvalidEncoding, "svg-numeric-nonfinite"),
     ("<svg><rect fill=\"rgb(65537,0,0)\"/></svg>", @error.ErrorCode::InvalidRange, "svg-numeric-range"),

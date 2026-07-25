@@ -50,31 +50,64 @@ fn parse_hex_color(t : String) -> Result[(Double, Double, Double), @error.CoreEr
   let chars = t.to_array()
   match chars.length() {
     4 => {
-      let r = hex_digit(chars[1])
-      let g = hex_digit(chars[2])
-      let b = hex_digit(chars[3])
+      let r = match hex_digit(chars[1]) {
+        Ok(value) => value
+        Err(error) => return Err(error)
+      }
+      let g = match hex_digit(chars[2]) {
+        Ok(value) => value
+        Err(error) => return Err(error)
+      }
+      let b = match hex_digit(chars[3]) {
+        Ok(value) => value
+        Err(error) => return Err(error)
+      }
       Ok((byte_to_norm(r * 16 + r), byte_to_norm(g * 16 + g), byte_to_norm(b * 16 + b)))
     }
     7 => {
-      let r = hex_digit(chars[1]) * 16 + hex_digit(chars[2])
-      let g = hex_digit(chars[3]) * 16 + hex_digit(chars[4])
-      let b = hex_digit(chars[5]) * 16 + hex_digit(chars[6])
+      let r1 = match hex_digit(chars[1]) {
+        Ok(value) => value
+        Err(error) => return Err(error)
+      }
+      let r2 = match hex_digit(chars[2]) {
+        Ok(value) => value
+        Err(error) => return Err(error)
+      }
+      let g1 = match hex_digit(chars[3]) {
+        Ok(value) => value
+        Err(error) => return Err(error)
+      }
+      let g2 = match hex_digit(chars[4]) {
+        Ok(value) => value
+        Err(error) => return Err(error)
+      }
+      let b1 = match hex_digit(chars[5]) {
+        Ok(value) => value
+        Err(error) => return Err(error)
+      }
+      let b2 = match hex_digit(chars[6]) {
+        Ok(value) => value
+        Err(error) => return Err(error)
+      }
+      let r = r1 * 16 + r2
+      let g = g1 * 16 + g2
+      let b = b1 * 16 + b2
       Ok((byte_to_norm(r), byte_to_norm(g), byte_to_norm(b)))
     }
-    _ => Err(svg_error("svg-color", "invalid hex length: " + t))
+    _ => Err(color_source_error())
   }
 }
 
-fn hex_digit(c : Char) -> Int {
+fn hex_digit(c : Char) -> Result[Int, @error.CoreError] {
   let v = c.to_int()
   if v >= 48 && v <= 57 {
-    v - 48 // '0'-'9'
+    Ok(v - 48) // '0'-'9'
   } else if v >= 97 && v <= 102 {
-    v - 87 // 'a'-'f'
+    Ok(v - 87) // 'a'-'f'
   } else if v >= 65 && v <= 70 {
-    v - 55 // 'A'-'F'
+    Ok(v - 55) // 'A'-'F'
   } else {
-    0
+    Err(color_source_error())
   }
 }
 
