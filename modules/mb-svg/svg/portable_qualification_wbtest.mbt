@@ -226,3 +226,87 @@ test "portable qualification retains parser rejection before lowering or raster"
     }
   }
 }
+
+fn qualification_nested_opacity_svg(levels : Int) -> String {
+  let source = StringBuilder::new()
+  source.write_string("<svg>")
+  for i = 0; i < levels; i = i + 1 {
+    source.write_string("<g opacity=\"0.5\">")
+  }
+  source.write_string("<rect x=\"2\" y=\"2\" width=\"4\" height=\"4\" fill=\"red\"/>")
+  for i = 0; i < levels; i = i + 1 {
+    source.write_string("</g>")
+  }
+  source.write_string("</svg>")
+  source.to_string()
+}
+
+fn qualification_assert_nested_layers(list : @canvas.DrawingList, levels : Int) -> Unit raise {
+  inspect(list.length(), content=(levels * 4 + 1).to_string())
+  for i = 0; i < levels; i = i + 1 {
+    match (list.get(i * 2), list.get(i * 2 + 1)) {
+      (Some(PushTransform(_)), Some(PushLayer(opacity))) => inspect(opacity, content="0.5")
+      _ => inspect(false, content="true")
+    }
+  }
+  match list.get(levels * 2) {
+    Some(Fill(_, _)) => ()
+    _ => inspect(false, content="true")
+  }
+  for i = 0; i < levels; i = i + 1 {
+    let offset = levels * 2 + 1 + i * 2
+    match (list.get(offset), list.get(offset + 1)) {
+      (Some(PopLayer), Some(PopTransform)) => ()
+      _ => inspect(false, content="true")
+    }
+  }
+}
+
+///|
+test "portable qualification renders sixteen SVG-originated opacity layers" {
+  match parse_svg(qualification_nested_opacity_svg(16)) {
+    Err(_) => inspect(false, content="true")
+    Ok(scene) => {
+      let list = lower_to_drawing_list(scene)
+      qualification_assert_nested_layers(list, 16)
+      let image = qualification_image(b'\x10', b'\x20', b'\x30', b'\xff')
+      match @canvas.render(list, image, qualification_budget()) {
+        Err(_) => inspect(false, content="true")
+        Ok(_) => ()
+      }
+      let (_, _, _, center_a) = qualification_pixel(image, 4UL, 4UL)
+      inspect(center_a.to_int() > 0, content="true")
+      let (corner_r, corner_g, corner_b, corner_a) = qualification_pixel(image, 0UL, 0UL)
+      inspect(
+        (corner_r.to_int(), corner_g.to_int(), corner_b.to_int(), corner_a.to_int()),
+        content="(16, 32, 48, 255)",
+      )
+    }
+  }
+}
+
+///|
+test "portable qualification rejects a seventeenth SVG-originated opacity layer atomically" {
+  match parse_svg(qualification_nested_opacity_svg(17)) {
+    Err(_) => inspect(false, content="true")
+    Ok(scene) => {
+      let list = lower_to_drawing_list(scene)
+      qualification_assert_nested_layers(list, 17)
+      let image = qualification_image(b'\x10', b'\x20', b'\x30', b'\xff')
+      match @canvas.render(list, image, qualification_budget()) {
+        Ok(_) => inspect(false, content="true")
+        Err(error) => {
+          inspect(error.category() == @error.ErrorCategory::Resource, content="true")
+          inspect(error.code() == @error.ErrorCode::BudgetExceeded, content="true")
+          inspect(error.operation() == Some("canvas-render"), content="true")
+          inspect(
+            error.context() == Some("canvas-layer-depth: layer nesting depth exceeded"),
+            content="true",
+          )
+        }
+      }
+      let (r, g, b, a) = qualification_pixel(image, 4UL, 4UL)
+      inspect((r.to_int(), g.to_int(), b.to_int(), a.to_int()), content="(16, 32, 48, 255)")
+    }
+  }
+}
