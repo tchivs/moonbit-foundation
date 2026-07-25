@@ -147,3 +147,42 @@ test "numeric contract: every direct relative path route" {
   inspect(failures, content="0")
   inspect(cases.length(), content="7")
 }
+
+///|
+test "path numeric admission rejects malformed and unsafe command groups" {
+  let cases = [
+    "M 0 nope",
+    "M 0 0 L 1e999 0",
+    "M 65536 0 l 1 0",
+    "M 0 0 A 1 1 0 0 1 65536 0 a 1 1 0 0 1 1 0",
+    "M 0 0 C 1 2 3 4 5",
+    "M 0 0 S 1 2 3",
+    "M 0 0 T 1",
+  ]
+  let mut accepted = 0
+  for data in cases {
+    match parse_path_data(data) {
+      Ok(_) => accepted = accepted + 1
+      Err(_) => ()
+    }
+  }
+  inspect(accepted, content="0")
+}
+
+///|
+test "path smooth commands use exact arity and compatible reflection" {
+  match parse_path_data("M 10 10 C 11 12 13 14 15 16 S 17 18 19 20 Q 21 22 23 24 T 25 26") {
+    Ok(path) => {
+      let commands = path.to_path2()
+      inspect(commands.length(), content="5")
+      match (commands.get(2), commands.get(4)) {
+        (Some(@math.PathCommand::CubicTo(cp1, cp2, endpoint)), Some(@math.PathCommand::QuadTo(control, quad_endpoint))) => {
+          inspect((cp1.x(), cp1.y(), cp2.x(), cp2.y(), endpoint.x(), endpoint.y()), content="(17, 18, 17, 18, 19, 20)")
+          inspect((control.x(), control.y(), quad_endpoint.x(), quad_endpoint.y()), content="(25, 26, 25, 26)")
+        }
+        _ => inspect(false, content="true")
+      }
+    }
+    Err(_) => inspect(false, content="true")
+  }
+}

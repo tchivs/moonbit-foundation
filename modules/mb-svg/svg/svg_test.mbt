@@ -86,3 +86,12 @@ test "public parse rejects unsafe group transforms before a group exists" {
     "svg-numeric-source",
   )
 }
+
+///|
+test "public parse rejects invalid path data before a scene exists" {
+  assert_public_numeric_error(
+    parse_svg("<svg><path d=\"M 65536 0 l 1 0\"/></svg>"),
+    @error.ErrorCode::InvalidRange,
+    "svg-numeric-derived",
+  )
+}
