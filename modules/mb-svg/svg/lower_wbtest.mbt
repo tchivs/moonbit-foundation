@@ -616,3 +616,18 @@ test "numeric contract: viewBox and opacity lower controls" {
     Err(_) => inspect(false, content="true")
   }
 }
+
+///|
+test "parser-derived numeric rejection never reaches the total lowerer" {
+  let cases = [
+    "<svg><g transform=\"translate(65536,0)\"><path d=\"M 1 0 L 2 0\"/></g></svg>",
+    "<svg><circle cx=\"65536\" cy=\"0\" r=\"1\"/></svg>",
+  ]
+  for source in cases {
+    match parse_svg(source) {
+      // A parser-produced SceneNode is the only input the total lowerer sees.
+      Ok(_) => inspect(false, content="true")
+      Err(error) => inspect(error.context(), content="Some(svg-numeric-derived)")
+    }
+  }
+}
