@@ -1,5 +1,19 @@
 # Project Milestones: MoonBit Native Foundation
 
+## v0.31 SVG Numeric Boundary Unification (Shipped: 2026-07-26)
+
+**Phases completed:** 2 phases, 5 plans, 10 tasks
+
+**Key accomplishments:**
+
+- One checked package-private SVG geometry seam now serves parser preflight and total drawing-list lowering for the supported transform, viewBox, shape, and path subset.
+- Checked SVG geometry now has semantic DrawOp and exported parse-to-lower regression coverage, qualified unchanged on wasm, wasm-gc, js, and native.
+- Public SVG numeric failures now have named, structured parser-boundary rows paired with direct checked-geometry Result evidence for every shared geometry family.
+- 1. [Rule 1 - Test expectation] Used out-of-envelope manual values for line and point-list lowerer rows
+- SVG lowering now admits every inherited Svg and Group affine through the shared checked seam, recovering manual effective overflow with identity DrawOps while preserving deterministic paint and layer order.
+
+---
+
 ## v0.30 SVG Production Readiness (Shipped: 2026-07-26)
 
 **Phases completed:** 4 phases, 8 plans, 16 tasks

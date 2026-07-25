@@ -2,17 +2,17 @@
 gsd_state_version: 1.0
 milestone: v0.31
 milestone_name: SVG Numeric Boundary Unification
-current_phase: 96
-status: completed
+status: Awaiting next milestone
 stopped_at: Completed 96-03-PLAN.md
-last_updated: "2026-07-25T23:01:27.504Z"
+last_updated: "2026-07-25T23:04:59.473Z"
 last_activity: 2026-07-26
-last_activity_desc: Phase 96 complete
+last_activity_desc: Milestone v0.31 completed and archived
 progress:
   total_phases: 2
   completed_phases: 2
   total_plans: 5
   completed_plans: 5
+current_phase: 96
 current_phase_name: SVG Boundary Parity Qualification gap closure
 ---
 
@@ -28,10 +28,10 @@ See `.planning/PROJECT.md`.
 
 ## Current Position
 
-Phase: 96
-Plan: Not started
-Status: All phases complete
-Last activity: 2026-07-26 — Phase 96 complete
+Phase: Milestone v0.31 complete
+Plan: —
+Status: Awaiting next milestone
+Last activity: 2026-07-26 — Milestone v0.31 completed and archived
 
 ## Milestone Metrics
 
@@ -80,7 +80,7 @@ Resume file: None
 
 ## Operator Next Steps
 
-- Start Phase 95 planning with `/gsd-plan-phase 95`.
+- Start the next milestone with /gsd-new-milestone
 
 ## Performance Metrics
 
