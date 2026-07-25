@@ -402,7 +402,13 @@ function New-RenderedEvidence([object]$Data, [object[]]$Sections) {
   $runs = @()
   for ($index = 0; $index -lt $Data.runs.Count; $index++) {
     $renderedRun = [ordered]@{}
-    foreach ($property in $Data.runs[$index].PSObject.Properties) { $renderedRun[$property.Name] = $property.Value }
+    foreach ($property in $Data.runs[$index].PSObject.Properties) {
+      $renderedRun[$property.Name] = if (($property.Name -eq 'started_utc' -or $property.Name -eq 'ended_utc') -and $property.Value -is [DateTime]) {
+        $property.Value.ToUniversalTime().ToString('o')
+      } else {
+        $property.Value
+      }
+    }
     $renderedRun.output = Get-DocumentOutput $Sections[$index].body "$($Data.runs[$index].id)"
     $runs += $renderedRun
   }
