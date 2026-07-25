@@ -268,15 +268,15 @@ The assertion values are the recommended Phase-91 contract; the current parser d
 |---|-------|---------|---------------|
 | A1 | None. The 65,536 recommendation is an explicit inference from the repository's two identical default SVG dimension limits, not a claim about an external SVG standard. | Numeric Admission Contract | The planner must keep that derivation and boundary tests visible so a future resource-policy change triggers an intentional contract review. [VERIFIED: repository `modules/mb-svg/svg/{scene,path_data}.mbt`] |
 
-## Open Questions
+## Open Questions (RESOLVED)
 
-1. **Should Phase 91 land intentionally failing tests before Phase 92?**
-   - What we know: the context explicitly assigns policy/tests to Phase 91 and parser/scene migration to Phase 92. [CITED: `91-CONTEXT.md`]
-   - Recommendation: publish the route matrix and valid-boundary controls in Phase 91; if red tests are unacceptable on the main branch, encode the cases as a documented test-data matrix and activate the rejection assertions in the first Phase-92 task. [CITED: `91-CONTEXT.md`; recommendation]
+1. **Should Phase 91 land intentionally failing tests before Phase 92? — RESOLVED: No.**
+   - Phase 91 keeps the passing `moon test modules/mb-svg/svg --target all --frozen` baseline. Its route matrix is executable through valid finite/boundary controls and parse-to-lower preservation checks; it does not assert rejection behavior that the current parser does not yet implement. [CITED: `91-CONTEXT.md` phase boundary; decision supplied for plan revision]
+   - Phase 92 owns behavior-changing rejection assertions for explicitly supplied malformed, non-finite, out-of-envelope, and unsafe-derived values, including the structured-error fields required by D-03 and D-04. This does not defer Phase 91 route coverage: the policy and valid controls name every route now. [CITED: `91-CONTEXT.md` D-03, D-04; decision supplied for plan revision]
 
-2. **Which colour-function numeric forms belong to SVGPR-01?**
-   - What we know: `color.mbt` uses `parse_double_or` for `rgb()`/`hsl()` components, but the locked scope names paint scalars. [VERIFIED: repository `modules/mb-svg/svg/color.mbt`; CITED: `91-CONTEXT.md` D-02]
-   - Recommendation: include them in the matrix and preserve their separate colour-range normalization after finite/envelope admission. [VERIFIED: repository `color.mbt`; recommendation]
+2. **Which colour-function numeric forms belong to SVGPR-01? — RESOLVED: Cover only current parser ingress.**
+   - Phase 91 tests the supported lowercase, comma-separated `rgb()`/`rgba()` routes through their three consumed components: numeric or percent RGB components. It also tests lowercase, comma-separated `hsl()`/`hsla()` through hue parsed as a number and saturation/lightness through the current percent-component path. The fourth alpha component in `rgba()`/`hsla()` is not a current numeric ingress because `parse_func_color` consumes only the first three components. [VERIFIED: repository `modules/mb-svg/svg/color.mbt`; decision supplied for plan revision]
+   - CSS Color 4 space-separated or slash-alpha forms, and unsupported functions such as `hwb()`, `lab()`, `lch()`, and `color()`, are unsupported/non-ingress for SVGPR-01. They are documented as excluded routes, not converted into tests of unsupported behavior. [VERIFIED: repository `modules/mb-svg/svg/color.mbt`; decision supplied for plan revision]
 
 ## Environment Availability
 
