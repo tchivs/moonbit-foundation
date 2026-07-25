@@ -543,3 +543,76 @@ test "lower element opacity<1 wraps the shape in a layer" {
     Err(_) => inspect("err", content="ok")
   }
 }
+
+///|
+test "numeric contract: viewBox and opacity lower controls" {
+  // SVG-NUM-VIEWBOX: a finite viewBox mapping remains a typed draw-operation path.
+  match parse_svg("<svg viewBox=\"0 0 65536 65536\" width=\"32768\" height=\"32768\"><rect width=\"1\" height=\"1\"/></svg>") {
+    Ok(scene) => {
+      let list = lower_to_drawing_list(scene)
+      inspect(list.length(), content="3")
+      match list.get(0) {
+        Some(PushTransform(transform)) => inspect((transform.a(), transform.d()), content="(0.5, 0.5)")
+        _ => inspect(false, content="true")
+      }
+      match list.get(1) {
+        Some(Fill(_, _)) => inspect(true, content="true")
+        _ => inspect(false, content="true")
+      }
+      match list.get(2) {
+        Some(PopTransform) => inspect(true, content="true")
+        _ => inspect(false, content="true")
+      }
+    }
+    Err(_) => inspect(false, content="true")
+  }
+  // D-06: RFC 0008 group and element opacity layers retain their nesting order.
+  match parse_svg("<svg><g opacity=\"0.5\"><rect width=\"1\" height=\"1\" opacity=\"0.25\"/></g></svg>") {
+    Ok(scene) => {
+      let list = lower_to_drawing_list(scene)
+      inspect(list.length(), content="7")
+      match (list.get(1), list.get(2), list.get(4), list.get(5)) {
+        (Some(PushLayer(group_opacity)), Some(PushLayer(element_opacity)), Some(PopLayer), Some(PopLayer)) =>
+          inspect((group_opacity, element_opacity), content="(0.5, 0.25)")
+        _ => inspect(false, content="true")
+      }
+    }
+    Err(_) => inspect(false, content="true")
+  }
+  // SVG-NUM-ROUND-RECT: finite clamp and ratio arithmetic yields a closed path.
+  match parse_svg("<svg><rect width=\"65536\" height=\"32768\" rx=\"65536\" ry=\"65536\"/></svg>") {
+    Ok(scene) => {
+      let list = lower_to_drawing_list(scene)
+      match list.get(0) {
+        Some(Fill(path, _)) => {
+          inspect(path.length(), content="10")
+          match (path.get(0), path.get(9)) {
+            (Some(@math.PathCommand::MoveTo(point)), Some(@math.PathCommand::Close)) =>
+              inspect((point.x(), point.y()), content="(32768, 0)")
+            _ => inspect(false, content="true")
+          }
+        }
+        _ => inspect(false, content="true")
+      }
+    }
+    Err(_) => inspect(false, content="true")
+  }
+  // SVG-NUM-ELLIPSE-SAMPLING: 32 finite samples plus Close are preserved at the limit.
+  match parse_svg("<svg><circle cx=\"0\" cy=\"0\" r=\"65536\"/></svg>") {
+    Ok(scene) => {
+      let list = lower_to_drawing_list(scene)
+      match list.get(0) {
+        Some(Fill(path, _)) => {
+          inspect(path.length(), content="33")
+          match (path.get(0), path.get(32)) {
+            (Some(@math.PathCommand::MoveTo(point)), Some(@math.PathCommand::Close)) =>
+              inspect((point.x(), point.y().abs() < 1.0e-9), content="(65536, true)")
+            _ => inspect(false, content="true")
+          }
+        }
+        _ => inspect(false, content="true")
+      }
+    }
+    Err(_) => inspect(false, content="true")
+  }
+}

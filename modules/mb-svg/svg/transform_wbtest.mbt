@@ -143,3 +143,57 @@ test "parse_transform rotate needs angle or angle,cx,cy (2 args errors)" {
     Err(_) => inspect(true, content="true")
   }
 }
+
+///|
+test "numeric contract: affine and trigonometric controls" {
+  // SVG-NUM-TRANSFORM / SVG-NUM-AFFINE: each constructor remains finite at the boundary.
+  match parse_transform("matrix(1,0,0,1,65536,-65536)") {
+    Ok(m) => inspect((m.a(), m.d(), tx(m), ty(m)), content="(1, 1, 65536, -65536)")
+    Err(_) => inspect(false, content="true")
+  }
+  match parse_transform("translate(65536,-65536)") {
+    Ok(m) => inspect((tx(m), ty(m)), content="(65536, -65536)")
+    Err(_) => inspect(false, content="true")
+  }
+  // D-05: finite singular transforms remain valid even though inverse() is None.
+  match parse_transform("scale(0,65536)") {
+    Ok(m) => {
+      inspect((m.a(), m.d()), content="(0, 65536)")
+      match m.inverse() {
+        None => inspect(true, content="true")
+        Some(_) => inspect(false, content="true")
+      }
+    }
+    Err(_) => inspect(false, content="true")
+  }
+  // SVG-NUM-TRIG: degree conversion and both skew constructors retain finite outputs.
+  match parse_transform("rotate(90)") {
+    Ok(m) => {
+      let point = m.apply(@math.Point2::new(1.0, 0.0))
+      inspect((point.x().abs() < 1.0e-9, (point.y() - 1.0).abs() < 1.0e-9), content="(true, true)")
+    }
+    Err(_) => inspect(false, content="true")
+  }
+  match parse_transform("skewX(45)") {
+    Ok(m) => {
+      let point = m.apply(@math.Point2::new(0.0, 1.0))
+      inspect(((point.x() - 0.7853981633974483).abs() < 1.0e-9, (point.y() - 1.0).abs() < 1.0e-9), content="(true, true)")
+    }
+    Err(_) => inspect(false, content="true")
+  }
+  match parse_transform("skewY(45)") {
+    Ok(m) => {
+      let point = m.apply(@math.Point2::new(1.0, 0.0))
+      inspect(((point.x() - 1.0).abs() < 1.0e-9, (point.y() - 0.7853981633974483).abs() < 1.0e-9), content="(true, true)")
+    }
+    Err(_) => inspect(false, content="true")
+  }
+  // SVG-NUM-AFFINE: composition preserves the documented finite endpoint.
+  match parse_transform("translate(65535,0) scale(0.5)") {
+    Ok(m) => {
+      let point = m.apply(@math.Point2::new(2.0, 0.0))
+      inspect((point.x(), point.y()), content="(65536, 0)")
+    }
+    Err(_) => inspect(false, content="true")
+  }
+}
