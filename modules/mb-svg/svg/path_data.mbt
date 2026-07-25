@@ -20,6 +20,8 @@ pub fn parse_path_data_with_budget(
   let mut i = 0
   let mut cur_x = 0.0
   let mut cur_y = 0.0
+  let mut subpath_start_x = 0.0
+  let mut subpath_start_y = 0.0
   let mut last_cmd : Char = ' '
   let mut last_ctrl_x = 0.0
   let mut last_ctrl_y = 0.0
@@ -66,6 +68,8 @@ pub fn parse_path_data_with_budget(
           cur_y = match checked_add(cur_y, y) { Ok(value) => value; Err(error) => return Err(error) }
         }
         path.move_to(cur_x, cur_y)
+        subpath_start_x = cur_x
+        subpath_start_y = cur_y
         last_cmd = if is_upper_char(last_cmd) { 'L' } else { 'l' }
         last_curve = ' '
       }
@@ -214,6 +218,10 @@ pub fn parse_path_data_with_budget(
       }
       'Z' => {
         path.close_path()
+        cur_x = subpath_start_x
+        cur_y = subpath_start_y
+        last_ctrl_x = cur_x
+        last_ctrl_y = cur_y
         last_curve = ' '
       }
       _ => return Err(path_source_error())
@@ -273,6 +281,14 @@ fn read_number(
     let c = chars[i]
     if is_path_space(c) || c == ',' || (is_alpha_char(c) && c != 'e' && c != 'E') {
       break
+    }
+    // SVG numbers may be adjacent when a sign starts the next scalar, but a
+    // sign immediately after an exponent marker remains part of that scalar.
+    if (c == '+' || c == '-') && tok.length() > 0 {
+      let previous = tok[tok.length() - 1]
+      if previous != 'e' && previous != 'E' {
+        break
+      }
     }
     tok.push(c)
     i = i + 1

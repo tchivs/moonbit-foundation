@@ -63,6 +63,31 @@ test "parse_path_data comma-separated args" {
 }
 
 ///|
+test "parse_path_data accepts compact sign-separated coordinates" {
+  match parse_path_data("M0-10L5-3") {
+    Ok(path) =>
+      match (path.to_path2().get(0), path.to_path2().get(1)) {
+        (Some(@math.PathCommand::MoveTo(start)), Some(@math.PathCommand::LineTo(end))) => {
+          inspect((start.x(), start.y(), end.x(), end.y()), content="(0, -10, 5, -3)")
+        }
+        _ => inspect(false, content="true")
+      }
+    Err(_) => inspect(false, content="true")
+  }
+  // The minus following e remains part of the exponent; the next minus starts
+  // the y coordinate without requiring comma or whitespace.
+  match parse_path_data("M1e-3-2") {
+    Ok(path) =>
+      match path.to_path2().get(0) {
+        Some(@math.PathCommand::MoveTo(point)) =>
+          inspect((point.x() - 0.001).abs() < 1.0e-12 && point.y() == -2.0, content="true")
+        _ => inspect(false, content="true")
+      }
+    Err(_) => inspect(false, content="true")
+  }
+}
+
+///|
 test "parse_path_data arc approximated as line" {
   // A command with 7 params; v0.1 approximates as line-to the endpoint.
   match parse_path_data("M 0 0 A 5 5 0 0 1 10 0") {
@@ -183,6 +208,28 @@ test "path smooth commands use exact arity and compatible reflection" {
         _ => inspect(false, content="true")
       }
     }
+    Err(_) => inspect(false, content="true")
+  }
+}
+
+///|
+test "path close restores subpath current point and clears reflections" {
+  match parse_path_data("M 0 0 L 10 0 Z l 5 0") {
+    Ok(path) =>
+      match path.to_path2().get(3) {
+        Some(@math.PathCommand::LineTo(endpoint)) => inspect((endpoint.x(), endpoint.y()), content="(5, 0)")
+        _ => inspect(false, content="true")
+      }
+    Err(_) => inspect(false, content="true")
+  }
+  match parse_path_data("M 0 0 C 1 0 2 0 3 0 Z s 1 0 2 0") {
+    Ok(path) =>
+      match path.to_path2().get(3) {
+        Some(@math.PathCommand::CubicTo(cp1, cp2, endpoint)) => {
+          inspect((cp1.x(), cp1.y(), cp2.x(), cp2.y(), endpoint.x(), endpoint.y()), content="(0, 0, 1, 0, 2, 0)")
+        }
+        _ => inspect(false, content="true")
+      }
     Err(_) => inspect(false, content="true")
   }
 }
