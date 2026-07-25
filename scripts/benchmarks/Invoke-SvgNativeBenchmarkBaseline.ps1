@@ -133,9 +133,9 @@ function Get-PolicyAndToolchain {
   }
   foreach ($key in @('moon', 'moonc', 'moonrun')) {
     foreach ($field in @('version', 'commit', 'release_date')) {
-      $value = $policy.toolchain.$key.$field
-      if ($null -ne $value -and $raw[$key] -notlike "*$value*") {
-        throw "Toolchain policy mismatch for ${key}: expected $field $value, observed $($raw[$key])"
+      $property = $policy.toolchain.$key.PSObject.Properties[$field]
+      if ($null -ne $property -and $raw[$key] -notlike "*$($property.Value)*") {
+        throw "Toolchain policy mismatch for ${key}: expected $field $($property.Value), observed $($raw[$key])"
       }
     }
   }
@@ -412,8 +412,8 @@ function Assert-RecordedToolchainMatchesPolicy([object]$Toolchain) {
     }
     if ($Toolchain.policy_expected.$key -cne $expected) { throw "Recorded toolchain policy text mismatch for $key." }
     foreach ($field in @('version', 'commit', 'release_date')) {
-      $value = $policy.toolchain.$key.$field
-      if ($null -ne $value -and $Toolchain.raw.$key -notlike "*$value*") { throw "Recorded toolchain pin mismatch for $key $field." }
+      $property = $policy.toolchain.$key.PSObject.Properties[$field]
+      if ($null -ne $property -and $Toolchain.raw.$key -notlike "*$($property.Value)*") { throw "Recorded toolchain pin mismatch for $key $field." }
     }
   }
 }
