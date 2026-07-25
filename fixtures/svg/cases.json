@@ -29,6 +29,10 @@
     { "id": "paint-inheritance-currentcolor", "svg": "<svg><g color=\"blue\"><rect fill=\"currentColor\" width=\"1\" height=\"1\"/></g></svg>", "expect": "ok" },
     { "id": "nested-groups-inheritance", "svg": "<svg><g fill=\"red\"><g><rect width=\"1\" height=\"1\"/></g></g></svg>", "expect": "ok" },
     { "id": "viewbox-mapping", "svg": "<svg viewBox=\"0 0 100 100\" width=\"200\" height=\"200\"><rect width=\"1\" height=\"1\"/></svg>", "expect": "ok" },
+    { "id": "preserve-aspect-ratio-meet", "svg": "<svg viewBox=\"0 0 100 50\" width=\"200\" height=\"200\" preserveAspectRatio=\"xMidYMid meet\"><rect width=\"1\" height=\"1\"/></svg>", "expect": "ok" },
+    { "id": "preserve-aspect-ratio-slice", "svg": "<svg viewBox=\"0 0 100 50\" width=\"200\" height=\"200\" preserveAspectRatio=\"xMidYMid slice\"><rect width=\"1\" height=\"1\"/></svg>", "expect": "ok" },
+    { "id": "preserve-aspect-ratio-none", "svg": "<svg viewBox=\"0 0 100 50\" width=\"200\" height=\"200\" preserveAspectRatio=\"none\"><rect width=\"1\" height=\"1\"/></svg>", "expect": "ok" },
+    { "id": "rotate-with-center", "svg": "<svg><g transform=\"rotate(90, 5, 5)\"><rect width=\"1\" height=\"1\"/></g></svg>", "expect": "ok" },
     { "id": "self-closed-vs-paired", "svg": "<svg><rect width=\"1\" height=\"1\"></rect></svg>", "expect": "ok" },
     { "id": "unknown-element-skipped", "svg": "<svg><defs><linearGradient id=\"g\"/></defs><rect width=\"1\" height=\"1\"/></svg>", "expect": "ok" },
     { "id": "comment-ignored", "svg": "<svg><!-- note --><rect width=\"1\" height=\"1\"/></svg>", "expect": "ok" }

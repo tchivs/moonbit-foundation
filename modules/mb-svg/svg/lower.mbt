@@ -1,7 +1,7 @@
 // SceneTree → mb-canvas DrawingList lowering.
 //
 // Walks a SceneNode tree and emits DrawOps onto an mb-canvas DrawingList:
-//   - Svg       → viewBox→viewport transform (xMidYMid meet) wraps children
+//   - Svg       → viewBox→viewport transform honoring preserveAspectRatio
 //   - Group     → PushTransform(child-transform) ... children ... PopTransform
 //   - shapes    → Fill and/or Stroke of the resolved Path2, applying Paint
 //
@@ -11,9 +11,8 @@
 // The DrawingList records pure data; rasterization (color resolution, scan
 // conversion) is mb-canvas's job.
 //
-// viewBox→viewport mapping uses the SVG default preserveAspectRatio
-// ("xMidYMid meet"); other aspect-ratio modes and explicit preserveAspectRatio
-// values are a follow-up. clip-rule is not yet handled (follow-up).
+// viewBox→viewport mapping honors preserveAspectRatio: align (xMin/Mid/Max ×
+// yMin/Mid/Max), meet/slice, and none. clip-rule is not yet handled (follow-up).
 //
 // stroke-width/linecap/linejoin/miterlimit/dasharray/dashoffset ARE wired
 // through to the StrokeStyle setters.
@@ -135,25 +134,41 @@ fn make_fill_style(
   @canvas.FillStyle::new(r, g, b).with_alpha(alpha).with_rule(rule)
 }
 
-// Compute the viewBox→viewport transform for an <svg> root (preserveAspectRatio
-// = "xMidYMid meet", the SVG default). Returns identity when viewBox or
-// width/height are absent. meet scales uniformly by min(scale_x, scale_y) so
-// the whole viewBox fits inside the viewport; xMid/YMid center the result.
+// Compute the viewBox→viewport transform for an <svg> root, honoring the
+// parsed preserveAspectRatio (align + meet/slice + none). Returns identity
+// when viewBox or width/height are absent or non-positive.
 //   vb = (vbx, vby, vbw, vbh), vp = (vpw, vph) (viewport at origin 0,0)
-//   s   = min(vpw/vbw, vph/vbh)
-//   tx  = (vpw - vbw*s)/2 - vbx*s
-//   ty  = (vph - vbh*s)/2 - vby*s
+//   sx = vpw/vbw, sy = vph/vbh
+// Scaling: none → non-uniform (sx, sy); meet → min(sx,sy); slice → max(sx,sy).
+// Alignment offset per axis: diff = vp_len - vb_len*s, placed at
+//   Min→0, Mid→diff/2, Max→diff  (align ∈ {0,1,2}).
 fn viewbox_transform(root : SvgRoot) -> @math.Affine2 {
+  let par = root.preserve_aspect_ratio
   match (root.view_box, root.width, root.height) {
     (Some((vbx, vby, vbw, vbh)), Some(vpw), Some(vph)) =>
       if vbw <= 0.0 || vbh <= 0.0 || vpw <= 0.0 || vph <= 0.0 {
         @math.Affine2::identity()
+      } else if par.none {
+        // Non-uniform: fill viewport, no centering; viewBox origin maps to
+        // viewport origin.
+        let sx = vpw / vbw
+        let sy = vph / vbh
+        @math.Affine2::new(sx, 0.0, 0.0, sy, -vbx * sx, -vby * sy)
       } else {
         let sx = vpw / vbw
         let sy = vph / vbh
-        let s = if sx < sy { sx } else { sy }
-        let tx = (vpw - vbw * s) / 2.0 - vbx * s
-        let ty = (vph - vbh * s) / 2.0 - vby * s
+        let s = if par.meet {
+          if sx < sy { sx } else { sy }
+        } else {
+          // slice: uniform max scale (viewBox overflows viewport).
+          if sx > sy { sx } else { sy }
+        }
+        let diff_x = vpw - vbw * s
+        let diff_y = vph - vbh * s
+        let offset_x = par.align_x.to_double() * diff_x / 2.0
+        let offset_y = par.align_y.to_double() * diff_y / 2.0
+        let tx = offset_x - vbx * s
+        let ty = offset_y - vby * s
         @math.Affine2::new(s, 0.0, 0.0, s, tx, ty)
       }
     _ => @math.Affine2::identity()

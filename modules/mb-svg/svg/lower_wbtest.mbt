@@ -388,6 +388,85 @@ test "lower no viewBox means no viewport transform" {
 }
 
 ///|
+test "lower preserveAspectRatio xMidYMid meet centers the smaller axis" {
+  // viewBox 0 0 100 50 → vp 200×200. meet: s=min(2,4)=2. diff_y=200-50*2=100,
+  // Mid → ty = 100/2 = 50. tx = (200-100*2)/2 = 0.
+  match parse_svg("<svg viewBox=\"0 0 100 50\" width=\"200\" height=\"200\" preserveAspectRatio=\"xMidYMid meet\"><rect width=\"1\" height=\"1\"/></svg>") {
+    Ok(scene) => {
+      let list = lower_to_drawing_list(scene)
+      match list.get(0) {
+        Some(PushTransform(t)) => {
+          inspect(t.a(), content="2")
+          inspect(t.d(), content="2")
+          inspect(t.tx(), content="0")
+          inspect(t.ty(), content="50")
+        }
+        other => inspect("other", content="other")
+      }
+    }
+    Err(_) => inspect("err", content="ok")
+  }
+}
+
+///|
+test "lower preserveAspectRatio xMinYMin meet aligns to top-left" {
+  // Same as above but Min: ty = 0 (no centering on the slack axis).
+  match parse_svg("<svg viewBox=\"0 0 100 50\" width=\"200\" height=\"200\" preserveAspectRatio=\"xMinYMin meet\"><rect width=\"1\" height=\"1\"/></svg>") {
+    Ok(scene) => {
+      let list = lower_to_drawing_list(scene)
+      match list.get(0) {
+        Some(PushTransform(t)) => {
+          inspect(t.ty(), content="0")
+          inspect(t.tx(), content="0")
+        }
+        other => inspect("other", content="other")
+      }
+    }
+    Err(_) => inspect("err", content="ok")
+  }
+}
+
+///|
+test "lower preserveAspectRatio slice scales up and centers (overflow)" {
+  // slice: s=max(2,4)=4. diff_x=200-400=-200, Mid → tx=-100. ty=0.
+  match parse_svg("<svg viewBox=\"0 0 100 50\" width=\"200\" height=\"200\" preserveAspectRatio=\"xMidYMid slice\"><rect width=\"1\" height=\"1\"/></svg>") {
+    Ok(scene) => {
+      let list = lower_to_drawing_list(scene)
+      match list.get(0) {
+        Some(PushTransform(t)) => {
+          inspect(t.a(), content="4")
+          inspect(t.d(), content="4")
+          inspect(t.tx(), content="-100")
+          inspect(t.ty(), content="0")
+        }
+        other => inspect("other", content="other")
+      }
+    }
+    Err(_) => inspect("err", content="ok")
+  }
+}
+
+///|
+test "lower preserveAspectRatio none uses non-uniform scaling" {
+  // none: sx=2, sy=4 independently; no centering; tx=ty=0.
+  match parse_svg("<svg viewBox=\"0 0 100 50\" width=\"200\" height=\"200\" preserveAspectRatio=\"none\"><rect width=\"1\" height=\"1\"/></svg>") {
+    Ok(scene) => {
+      let list = lower_to_drawing_list(scene)
+      match list.get(0) {
+        Some(PushTransform(t)) => {
+          inspect(t.a(), content="2")
+          inspect(t.d(), content="4")
+          inspect(t.tx(), content="0")
+          inspect(t.ty(), content="0")
+        }
+        other => inspect("other", content="other")
+      }
+    }
+    Err(_) => inspect("err", content="ok")
+  }
+}
+
+///|
 test "lower wires stroke-dashoffset into the StrokeStyle" {
   match parse_svg("<svg><rect width=\"4\" height=\"4\" fill=\"none\" stroke=\"black\" stroke-dasharray=\"2 1\" stroke-dashoffset=\"5\"/></svg>") {
     Ok(scene) => {

@@ -22,8 +22,7 @@
 // inherited `color` attribute (default black). See build_paint.
 //
 // Known follow-ups (deliberately out of v0.1 scope, flagged inline):
-//   - preserveAspectRatio is not parsed; lowering assumes the SVG default
-//     ("xMidYMid meet"). Other aspect-ratio modes are a follow-up.
+//   - clip-rule is not parsed (follow-up; lower assumes Nonzero for clips).
 //
 // Error handling follows the rest of mb-svg: CoreError is a plain struct, so
 // plain Result + match / return Err is used throughout (no raise/try!).
@@ -40,6 +39,20 @@ pub struct SvgRoot {
   width : Double?
   height : Double?
   view_box : (Double, Double, Double, Double)?
+  preserve_aspect_ratio : PreserveAspectRatio
+}
+
+///|
+/// Resolved `preserveAspectRatio` value. `align_x`/`align_y` are Min=0,
+/// Mid=1, Max=2; `meet` is true for "meet" (whole viewBox fits, default),
+/// false for "slice" (viewBox fills viewport, overflow clipped). When align
+/// is "none", both align fields are Mid and uniform scaling is disabled
+/// (signaled by the separate `none` flag).
+pub struct PreserveAspectRatio {
+  align_x : Int
+  align_y : Int
+  meet : Bool // true=meet, false=slice
+  none : Bool // align="none": non-uniform scaling, fill viewport
 }
 
 ///|
@@ -488,7 +501,48 @@ fn build_svg_root_attrs(attrs : Array[(String, String)]) -> SvgRoot {
         Err(_) => None
       }
   }
-  { width: width, height: height, view_box: view_box }
+  let preserve_aspect_ratio = match attr_get(attrs, "preserveAspectRatio") {
+    None => default_preserve_aspect_ratio()
+    Some(s) => parse_preserve_aspect_ratio(s)
+  }
+  {
+    width: width,
+    height: height,
+    view_box: view_box,
+    preserve_aspect_ratio: preserve_aspect_ratio,
+  }
+}
+
+// Default preserveAspectRatio per SVG 1.1: "xMidYMid meet".
+fn default_preserve_aspect_ratio() -> PreserveAspectRatio {
+  { align_x: 1, align_y: 1, meet: true, none: false }
+}
+
+// Parse a preserveAspectRatio attribute. Accepts "<align> [meet|slice]" where
+// align is one of xMinYMin/xMidYMin/.../xMaxYMax/none. Unknown tokens fall
+// back to the SVG default (xMidYMid meet); "none" disables uniform scaling.
+fn parse_preserve_aspect_ratio(s : String) -> PreserveAspectRatio {
+  let parts = @text.split_whitespace(s)
+  let mut par = default_preserve_aspect_ratio()
+  for p in parts {
+    let token = p.to_string()
+    match token {
+      "xMinYMin" => { par = { ..par, align_x: 0, align_y: 0, none: false } }
+      "xMidYMin" => { par = { ..par, align_x: 1, align_y: 0, none: false } }
+      "xMaxYMin" => { par = { ..par, align_x: 2, align_y: 0, none: false } }
+      "xMinYMid" => { par = { ..par, align_x: 0, align_y: 1, none: false } }
+      "xMidYMid" => { par = { ..par, align_x: 1, align_y: 1, none: false } }
+      "xMaxYMid" => { par = { ..par, align_x: 2, align_y: 1, none: false } }
+      "xMinYMax" => { par = { ..par, align_x: 0, align_y: 2, none: false } }
+      "xMidYMax" => { par = { ..par, align_x: 1, align_y: 2, none: false } }
+      "xMaxYMax" => { par = { ..par, align_x: 2, align_y: 2, none: false } }
+      "none" => { par = { ..par, none: true } }
+      "meet" => { par = { ..par, meet: true } }
+      "slice" => { par = { ..par, meet: false } }
+      _ => () // unknown token ignored, keep current
+    }
+  }
+  par
 }
 
 // Build a Paint and the child PaintContext from this element's attributes

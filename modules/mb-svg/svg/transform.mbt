@@ -4,6 +4,11 @@
 // compose left-to-right (the first listed is applied first to the geometry, so
 // it is the rightmost matrix in the product: result = identity * first * second).
 // Parameters are comma-or-space-separated doubles inside parentheses.
+//
+// Per SVG 1.1, rotate/skewX/skewY take DEGREES; mb-core Affine2::rotate/skew
+// take radians, so angles are converted. rotate(angle, cx, cy) rotates about
+// (cx, cy); rotate(angle) about the origin. The returned Affine2 is invertible
+// via Affine2::inverse (RFC 0002 §6.1 promises composition and inversion).
 
 ///|
 /// Parse an SVG transform attribute into a composed Affine2. An empty or
@@ -96,22 +101,33 @@ fn build_transform(
             Err(svg_error("svg-transform", "scale needs 1-2 args"))
           }
         "rotate" =>
-          // rotate(angle [, cx, cy]) = translate(cx,cy) rotate(angle) translate(-cx,-cy).
-          // v0.1 supports rotate(angle) only (no center); center is a follow-up.
-          if args.length() >= 1 {
-            Ok(@math.Affine2::rotate(args[0]))
+          // rotate(angle) rotates about the origin. rotate(angle, cx, cy)
+          // rotates about (cx, cy): translate(cx,cy) ∘ rotate(angle) ∘
+          // translate(-cx,-cy), applied to a point as
+          //   p ↦ translate(cx,cy)(rotate(angle)(translate(-cx,-cy)(p)))
+          // Compose semantics: a.compose(b).apply(p) = b(a(p)), so the chain
+          // t_neg.compose(r).compose(t_pos) yields apply = t_pos(r(t_neg(p))).
+          // SVG rotate takes DEGREES; Affine2::rotate takes radians.
+          if args.length() == 1 {
+            Ok(@math.Affine2::rotate(degrees_to_radians(args[0])))
+          } else if args.length() >= 3 {
+            let t_neg = @math.Affine2::translate(-args[1], -args[2])
+            let r = @math.Affine2::rotate(degrees_to_radians(args[0]))
+            let t_pos = @math.Affine2::translate(args[1], args[2])
+            Ok(t_neg.compose(r).compose(t_pos))
           } else {
-            Err(svg_error("svg-transform", "rotate needs angle"))
+            Err(svg_error("svg-transform", "rotate needs angle or angle,cx,cy"))
           }
         "skewX" =>
+          // SVG skewX takes DEGREES; Affine2::skew takes radians.
           if args.length() >= 1 {
-            Ok(@math.Affine2::skew(args[0], 0.0))
+            Ok(@math.Affine2::skew(degrees_to_radians(args[0]), 0.0))
           } else {
             Err(svg_error("svg-transform", "skewX needs angle"))
           }
         "skewY" =>
           if args.length() >= 1 {
-            Ok(@math.Affine2::skew(0.0, args[0]))
+            Ok(@math.Affine2::skew(0.0, degrees_to_radians(args[0])))
           } else {
             Err(svg_error("svg-transform", "skewY needs angle"))
           }
@@ -122,6 +138,12 @@ fn build_transform(
 
 fn is_space(c : Char) -> Bool {
   c == ' ' || c == '\t' || c == '\n' || c == '\r'
+}
+
+// SVG transform angles are in degrees; mb-core Affine2::rotate/skew take
+// radians. Convert per the SVG 1.1 transform spec.
+fn degrees_to_radians(degrees : Double) -> Double {
+  degrees * 0.017453292519943295 // π / 180
 }
 
 fn not(b : Bool) -> Bool {

@@ -77,6 +77,26 @@ fn ok_cases() -> Array[(String, String, Bool)] {
       "<svg viewBox=\"0 0 100 100\" width=\"200\" height=\"200\"><rect width=\"1\" height=\"1\"/></svg>",
       true,
     ),
+    (
+      "preserve-aspect-ratio-meet",
+      "<svg viewBox=\"0 0 100 50\" width=\"200\" height=\"200\" preserveAspectRatio=\"xMidYMid meet\"><rect width=\"1\" height=\"1\"/></svg>",
+      true,
+    ),
+    (
+      "preserve-aspect-ratio-slice",
+      "<svg viewBox=\"0 0 100 50\" width=\"200\" height=\"200\" preserveAspectRatio=\"xMidYMid slice\"><rect width=\"1\" height=\"1\"/></svg>",
+      true,
+    ),
+    (
+      "preserve-aspect-ratio-none",
+      "<svg viewBox=\"0 0 100 50\" width=\"200\" height=\"200\" preserveAspectRatio=\"none\"><rect width=\"1\" height=\"1\"/></svg>",
+      true,
+    ),
+    (
+      "rotate-with-center",
+      "<svg><g transform=\"rotate(90, 5, 5)\"><rect width=\"1\" height=\"1\"/></g></svg>",
+      true,
+    ),
     ("self-closed-vs-paired", "<svg><rect width=\"1\" height=\"1\"></rect></svg>", true),
     (
       "unknown-element-skipped",

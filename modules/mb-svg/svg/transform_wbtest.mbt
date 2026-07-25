@@ -85,3 +85,61 @@ test "parse_transform unknown function errors" {
     Err(_) => inspect(true, content="true")
   }
 }
+
+///|
+test "parse_transform rotate uses degrees (rotate(90) maps (1,0)→(0,1))" {
+  // SVG rotate takes degrees; 90° must send (1,0) to (0,1), not 90 radians.
+  match parse_transform("rotate(90)") {
+    Ok(m) => {
+      let p = m.apply(@math.Point2::new(1.0, 0.0))
+      // Allow tiny float error around the expected (0,1).
+      inspect((p.x().abs() < 1.0e-9, (p.y() - 1.0).abs() < 1.0e-9), content="(true, true)")
+    }
+    Err(_) => inspect(false, content="true")
+  }
+}
+
+///|
+test "parse_transform rotate with center keeps the center fixed" {
+  // rotate(90, 1, 1): the point AT the center (1,1) must stay at (1,1).
+  match parse_transform("rotate(90, 1, 1)") {
+    Ok(m) => {
+      let p = m.apply(@math.Point2::new(1.0, 1.0))
+      inspect(((p.x() - 1.0).abs() < 1.0e-9, (p.y() - 1.0).abs() < 1.0e-9), content="(true, true)")
+      // A point one unit to the right of the center, (2,1), rotates 90° about
+      // (1,1) to one unit above: (1,2).
+      let q = m.apply(@math.Point2::new(2.0, 1.0))
+      inspect(((q.x() - 1.0).abs() < 1.0e-9, (q.y() - 2.0).abs() < 1.0e-9), content="(true, true)")
+    }
+    Err(_) => inspect(false, content="true")
+  }
+}
+
+///|
+test "parse_transform result is invertible (T ∘ T⁻¹ = identity)" {
+  // RFC 0002 §6.1 promises transform composition AND inversion. parse_transform
+  // returns an Affine2 whose inverse() composes back to identity.
+  match parse_transform("translate(10,20) scale(2) rotate(45)") {
+    Ok(m) =>
+      match m.inverse() {
+        None => inspect(false, content="true") // non-invertible transform
+        Some(inv) => {
+          let id = m.compose(inv)
+          // identity has a=d=1, b=c=tx=ty=0.
+          inspect(
+            ((id.a() - 1.0).abs() < 1.0e-9 && (id.d() - 1.0).abs() < 1.0e-9 && id.tx().abs() < 1.0e-9 && id.ty().abs() < 1.0e-9),
+            content="true",
+          )
+        }
+      }
+    Err(_) => inspect(false, content="true")
+  }
+}
+
+///|
+test "parse_transform rotate needs angle or angle,cx,cy (2 args errors)" {
+  match parse_transform("rotate(90, 1)") {
+    Ok(_) => inspect(false, content="true")
+    Err(_) => inspect(true, content="true")
+  }
+}
