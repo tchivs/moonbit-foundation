@@ -438,6 +438,10 @@ try {
     aggregates = $aggregates
   }
   $document = New-BaselineDocument $evidence
+  $baselineDirectory = Split-Path -Parent $baselinePath
+  if (!(Test-Path -LiteralPath $baselineDirectory -PathType Container)) {
+    $null = New-Item -ItemType Directory -Path $baselineDirectory -Force
+  }
   [IO.File]::WriteAllText($baselinePath, $document, $utf8)
   Write-Host "SVG native baseline captured: $baselinePath"
 } finally {
