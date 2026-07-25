@@ -4,7 +4,11 @@ import {
   "tchivs/mb-core/math",
   "tchivs/mb-core/text",
   "tchivs/mb-color/model" @color,
+  "tchivs/mb-color/profile" @profile,
   "tchivs/mb-canvas/canvas" @canvas,
+  "tchivs/mb-image/metadata" @metadata,
+  "tchivs/mb-image/model" @imgmodel,
+  "tchivs/mb-image/storage" @storage,
 }
 
 supported_targets = "+js+wasm+wasm-gc+native"

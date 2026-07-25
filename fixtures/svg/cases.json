@@ -47,6 +47,15 @@
     { "id": "negative-coordinates", "svg": "<svg><rect x=\"-5\" y=\"-5\" width=\"10\" height=\"10\"/></svg>", "expect": "ok" },
     { "id": "viewbox-without-width-height", "svg": "<svg viewBox=\"0 0 100 100\"><rect width=\"1\" height=\"1\"/></svg>", "expect": "ok" }
   ],
+  "portable_qualification_cases": [
+    { "id": "opaque-rect", "svg": "<svg><rect x=\"2\" y=\"2\" width=\"4\" height=\"4\" fill=\"red\"/></svg>", "expect": "one fill; center rgba(255,0,0,255); transparent corner" },
+    { "id": "viewbox-blue-rect", "svg": "<svg viewBox=\"0 0 4 4\" width=\"8\" height=\"8\"><rect width=\"4\" height=\"4\" fill=\"blue\"/></svg>", "expect": "root transform then fill; opaque blue interior" },
+    { "id": "fill-stroke-opacity", "svg": "<svg><rect x=\"1\" y=\"1\" width=\"6\" height=\"6\" fill=\"red\" fill-opacity=\"0.5\" stroke=\"blue\" stroke-width=\"2\" stroke-opacity=\"0.5\"/></svg>", "expect": "per-paint alpha; no layers; fill and stroke semantic pixels" },
+    { "id": "isolated-group-overlap", "svg": "<svg><g opacity=\"0.5\"><rect width=\"8\" height=\"8\" fill=\"red\"/><rect x=\"2\" y=\"2\" width=\"6\" height=\"6\" fill=\"blue\"/></g></svg>", "expect": "one isolated group layer; discriminating overlap pixel" },
+    { "id": "nested-group-element-opacity", "svg": "<svg><g opacity=\"0.5\"><rect width=\"8\" height=\"8\" fill=\"red\" opacity=\"0.5\" stroke=\"blue\" stroke-width=\"2\"/></g></svg>", "expect": "nested group and element layers; mixed fill/stroke semantic pixels" },
+    { "id": "layer-depth-16", "svg": "generated: sixteen nested <g opacity=\"0.5\"> around one full-coverage rect", "expect": "sixteen balanced layers render" },
+    { "id": "layer-depth-17", "svg": "generated: seventeen nested <g opacity=\"0.5\"> around one full-coverage rect", "expect": "Resource/BudgetExceeded canvas-layer-depth and untouched primary" }
+  ],
   "adversarial_cases": [
     { "id": "non-svg-root", "svg": "<rect/>", "expect": "err" },
     { "id": "unquoted-attribute", "svg": "<svg><g id=x></g></svg>", "expect": "err" },
