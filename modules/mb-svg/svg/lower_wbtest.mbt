@@ -727,3 +727,11 @@ test "lower invalid manual scenes recover deterministically without moving layer
     _ => inspect(false, content="true")
   }
 }
+
+///|
+test "manual invalid SceneNode matrix keeps parser rejection distinct from total lowering" {
+  // The helper deliberately exercises values constructed outside parser
+  // provenance.  Parser Err(CoreError) remains a separate observation; it is
+  // never substituted with an empty DrawingList result.
+  assert_manual_invalid_scene_matrix()
+}
