@@ -1,25 +1,15 @@
 // SVG path data parsing: the `d` attribute of a <path> element.
 //
-// Parses SVG path commands M L H V C S Q T A Z (uppercase absolute, lowercase
-// relative) into a mb-canvas CanvasPath. Numbers are comma-or-space-separated;
-// repeated parameter groups reuse the current command (e.g. "L 1 1 2 2" = two
-// line-to operations).
-//
-// The A (arc) command is approximated via line segments in v0.1 (a precise
-// arc-to-cubic conversion is a follow-up). S/T (smooth cubic/quadratic) resolve
-// the reflected control point from the previous command.
+// All lexical path scalars are admitted before they become geometry. Relative
+// and smooth commands also admit their derived coordinates before appending a
+// CanvasPath command, so callers never receive a partial path on numeric error.
 
 ///|
-/// Parse an SVG path data string into a CanvasPath. Returns an error on
-/// malformed input. Uses a default budget bounding the command count.
 pub fn parse_path_data(s : String) -> Result[@canvas.CanvasPath, @error.CoreError] {
   parse_path_data_with_budget(s, default_path_budget())
 }
 
 ///|
-/// Parse path data with a caller-supplied budget. Each command group (a
-/// command letter or one implicit-repeat parameter set) charges one unit of
-/// work, bounding the total path command count against hostile `d` values.
 pub fn parse_path_data_with_budget(
   s : String,
   budget : @budget.Budget,
@@ -28,15 +18,14 @@ pub fn parse_path_data_with_budget(
   let chars = s.to_array()
   let n = chars.length()
   let mut i = 0
-  // Current point (for relative commands and H/V).
   let mut cur_x = 0.0
   let mut cur_y = 0.0
-  // Last command char (for implicit repeats) and last control point (for S/T).
   let mut last_cmd : Char = ' '
   let mut last_ctrl_x = 0.0
   let mut last_ctrl_y = 0.0
+  // `C` covers C/c/S/s and `Q` covers Q/q/T/t. No other command may reflect.
+  let mut last_curve : Char = ' '
   while i < n {
-    // Charge one work unit per command group (letter or implicit repeat).
     match budget.charge(@budget.ResourceCharge::new(
       bytes=0UL,
       allocations=0UL,
@@ -49,244 +38,208 @@ pub fn parse_path_data_with_budget(
       Ok(_) => ()
       Err(_) => return Err(svg_error("svg-budget", "path command limit exceeded"))
     }
-    // Skip whitespace before each token group.
     while i < n && is_path_space(chars[i]) {
       i = i + 1
     }
     if i >= n {
       break
     }
-    let c = chars[i]
-    if is_alpha_char(c) {
-      last_cmd = c
+    if is_alpha_char(chars[i]) {
+      last_cmd = chars[i]
       i = i + 1
-      // After consuming a command letter, continue to read its params below.
-      // But if the previous command was M (now switched to L for implicit
-      // repeats), an explicit letter overrides it — handled here.
     }
-    // Read numbers according to last_cmd.
     match to_upper_char(last_cmd) {
-      'M' | 'm' => {
-        let (x, ni) = read_number(chars, i, n)
-        i = ni
-        let (y, ni2) = read_number(chars, i, n)
-        i = ni2
+      'M' => {
+        let x = match read_number(chars, i, n) {
+          Ok((value, next)) => { i = next; value }
+          Err(error) => return Err(error)
+        }
+        let y = match read_number(chars, i, n) {
+          Ok((value, next)) => { i = next; value }
+          Err(error) => return Err(error)
+        }
         if is_upper_char(last_cmd) {
           cur_x = x
           cur_y = y
         } else {
-          cur_x = cur_x + x
-          cur_y = cur_y + y
+          cur_x = match checked_add(cur_x, x) { Ok(value) => value; Err(error) => return Err(error) }
+          cur_y = match checked_add(cur_y, y) { Ok(value) => value; Err(error) => return Err(error) }
         }
         path.move_to(cur_x, cur_y)
-        // After M/m, implicit repeats are L/l.
-        last_cmd = if is_upper_char(last_cmd) {
-          'L'
-        } else {
-          'l'
-        }
+        last_cmd = if is_upper_char(last_cmd) { 'L' } else { 'l' }
+        last_curve = ' '
       }
-      'L' | 'l' => {
-        let (x, ni) = read_number(chars, i, n)
-        i = ni
-        let (y, ni2) = read_number(chars, i, n)
-        i = ni2
+      'L' => {
+        let x = match read_number(chars, i, n) { Ok((value, next)) => { i = next; value }; Err(error) => return Err(error) }
+        let y = match read_number(chars, i, n) { Ok((value, next)) => { i = next; value }; Err(error) => return Err(error) }
         if is_upper_char(last_cmd) {
           cur_x = x
           cur_y = y
         } else {
-          cur_x = cur_x + x
-          cur_y = cur_y + y
+          cur_x = match checked_add(cur_x, x) { Ok(value) => value; Err(error) => return Err(error) }
+          cur_y = match checked_add(cur_y, y) { Ok(value) => value; Err(error) => return Err(error) }
         }
         path.line_to(cur_x, cur_y)
+        last_curve = ' '
       }
-      'H' | 'h' => {
-        let (x, ni) = read_number(chars, i, n)
-        i = ni
-        if is_upper_char(last_cmd) {
-          cur_x = x
+      'H' => {
+        let x = match read_number(chars, i, n) { Ok((value, next)) => { i = next; value }; Err(error) => return Err(error) }
+        cur_x = if is_upper_char(last_cmd) {
+          x
         } else {
-          cur_x = cur_x + x
+          match checked_add(cur_x, x) { Ok(value) => value; Err(error) => return Err(error) }
         }
         path.line_to(cur_x, cur_y)
+        last_curve = ' '
       }
-      'V' | 'v' => {
-        let (y, ni) = read_number(chars, i, n)
-        i = ni
-        if is_upper_char(last_cmd) {
-          cur_y = y
+      'V' => {
+        let y = match read_number(chars, i, n) { Ok((value, next)) => { i = next; value }; Err(error) => return Err(error) }
+        cur_y = if is_upper_char(last_cmd) {
+          y
         } else {
-          cur_y = cur_y + y
+          match checked_add(cur_y, y) { Ok(value) => value; Err(error) => return Err(error) }
         }
         path.line_to(cur_x, cur_y)
+        last_curve = ' '
       }
-      'C' | 'c' => {
-        let (cp1x, ni) = read_number(chars, i, n)
-        i = ni
-        let (cp1y, ni2) = read_number(chars, i, n)
-        i = ni2
-        let (cp2x, ni3) = read_number(chars, i, n)
-        i = ni3
-        let (cp2y, ni4) = read_number(chars, i, n)
-        i = ni4
-        let (x, ni5) = read_number(chars, i, n)
-        i = ni5
-        let (y, ni6) = read_number(chars, i, n)
-        i = ni6
+      'C' => {
+        let cp1x = match read_number(chars, i, n) { Ok((value, next)) => { i = next; value }; Err(error) => return Err(error) }
+        let cp1y = match read_number(chars, i, n) { Ok((value, next)) => { i = next; value }; Err(error) => return Err(error) }
+        let cp2x = match read_number(chars, i, n) { Ok((value, next)) => { i = next; value }; Err(error) => return Err(error) }
+        let cp2y = match read_number(chars, i, n) { Ok((value, next)) => { i = next; value }; Err(error) => return Err(error) }
+        let x = match read_number(chars, i, n) { Ok((value, next)) => { i = next; value }; Err(error) => return Err(error) }
+        let y = match read_number(chars, i, n) { Ok((value, next)) => { i = next; value }; Err(error) => return Err(error) }
+        let (a, b, cc, d, ex, ey) = if is_upper_char(last_cmd) {
+          (cp1x, cp1y, cp2x, cp2y, x, y)
+        } else {
+          let a = match checked_add(cur_x, cp1x) { Ok(value) => value; Err(error) => return Err(error) }
+          let b = match checked_add(cur_y, cp1y) { Ok(value) => value; Err(error) => return Err(error) }
+          let cc = match checked_add(cur_x, cp2x) { Ok(value) => value; Err(error) => return Err(error) }
+          let d = match checked_add(cur_y, cp2y) { Ok(value) => value; Err(error) => return Err(error) }
+          let ex = match checked_add(cur_x, x) { Ok(value) => value; Err(error) => return Err(error) }
+          let ey = match checked_add(cur_y, y) { Ok(value) => value; Err(error) => return Err(error) }
+          (a, b, cc, d, ex, ey)
+        }
+        path.cubic_to(a, b, cc, d, ex, ey)
+        last_ctrl_x = cc
+        last_ctrl_y = d
+        cur_x = ex
+        cur_y = ey
+        last_curve = 'C'
+      }
+      'Q' => {
+        let cpx = match read_number(chars, i, n) { Ok((value, next)) => { i = next; value }; Err(error) => return Err(error) }
+        let cpy = match read_number(chars, i, n) { Ok((value, next)) => { i = next; value }; Err(error) => return Err(error) }
+        let x = match read_number(chars, i, n) { Ok((value, next)) => { i = next; value }; Err(error) => return Err(error) }
+        let y = match read_number(chars, i, n) { Ok((value, next)) => { i = next; value }; Err(error) => return Err(error) }
+        let (a, b, ex, ey) = if is_upper_char(last_cmd) {
+          (cpx, cpy, x, y)
+        } else {
+          let a = match checked_add(cur_x, cpx) { Ok(value) => value; Err(error) => return Err(error) }
+          let b = match checked_add(cur_y, cpy) { Ok(value) => value; Err(error) => return Err(error) }
+          let ex = match checked_add(cur_x, x) { Ok(value) => value; Err(error) => return Err(error) }
+          let ey = match checked_add(cur_y, y) { Ok(value) => value; Err(error) => return Err(error) }
+          (a, b, ex, ey)
+        }
+        path.quad_to(a, b, ex, ey)
+        last_ctrl_x = a
+        last_ctrl_y = b
+        cur_x = ex
+        cur_y = ey
+        last_curve = 'Q'
+      }
+      'S' => {
+        // Exact SVG grammar: cp2x cp2y x y.
+        let cp2x = match read_number(chars, i, n) { Ok((value, next)) => { i = next; value }; Err(error) => return Err(error) }
+        let cp2y = match read_number(chars, i, n) { Ok((value, next)) => { i = next; value }; Err(error) => return Err(error) }
+        let x = match read_number(chars, i, n) { Ok((value, next)) => { i = next; value }; Err(error) => return Err(error) }
+        let y = match read_number(chars, i, n) { Ok((value, next)) => { i = next; value }; Err(error) => return Err(error) }
+        let cp1x = if last_curve == 'C' { match checked_reflect(cur_x, last_ctrl_x) { Ok(value) => value; Err(error) => return Err(error) } } else { cur_x }
+        let cp1y = if last_curve == 'C' { match checked_reflect(cur_y, last_ctrl_y) { Ok(value) => value; Err(error) => return Err(error) } } else { cur_y }
+        let (cc, d, ex, ey) = if is_upper_char(last_cmd) {
+          (cp2x, cp2y, x, y)
+        } else {
+          let cc = match checked_add(cur_x, cp2x) { Ok(value) => value; Err(error) => return Err(error) }
+          let d = match checked_add(cur_y, cp2y) { Ok(value) => value; Err(error) => return Err(error) }
+          let ex = match checked_add(cur_x, x) { Ok(value) => value; Err(error) => return Err(error) }
+          let ey = match checked_add(cur_y, y) { Ok(value) => value; Err(error) => return Err(error) }
+          (cc, d, ex, ey)
+        }
+        path.cubic_to(cp1x, cp1y, cc, d, ex, ey)
+        last_ctrl_x = cc
+        last_ctrl_y = d
+        cur_x = ex
+        cur_y = ey
+        last_curve = 'C'
+      }
+      'T' => {
+        // Exact SVG grammar: x y.
+        let x = match read_number(chars, i, n) { Ok((value, next)) => { i = next; value }; Err(error) => return Err(error) }
+        let y = match read_number(chars, i, n) { Ok((value, next)) => { i = next; value }; Err(error) => return Err(error) }
+        let cpx = if last_curve == 'Q' { match checked_reflect(cur_x, last_ctrl_x) { Ok(value) => value; Err(error) => return Err(error) } } else { cur_x }
+        let cpy = if last_curve == 'Q' { match checked_reflect(cur_y, last_ctrl_y) { Ok(value) => value; Err(error) => return Err(error) } } else { cur_y }
+        let (ex, ey) = if is_upper_char(last_cmd) {
+          (x, y)
+        } else {
+          let ex = match checked_add(cur_x, x) { Ok(value) => value; Err(error) => return Err(error) }
+          let ey = match checked_add(cur_y, y) { Ok(value) => value; Err(error) => return Err(error) }
+          (ex, ey)
+        }
+        path.quad_to(cpx, cpy, ex, ey)
+        last_ctrl_x = cpx
+        last_ctrl_y = cpy
+        cur_x = ex
+        cur_y = ey
+        last_curve = 'Q'
+      }
+      'A' => {
+        // Arc remains line approximated, but all seven source scalars and its
+        // endpoint are checked before the path receives its line segment.
+        let _rx = match read_number(chars, i, n) { Ok((value, next)) => { i = next; value }; Err(error) => return Err(error) }
+        let _ry = match read_number(chars, i, n) { Ok((value, next)) => { i = next; value }; Err(error) => return Err(error) }
+        let _rotation = match read_number(chars, i, n) { Ok((value, next)) => { i = next; value }; Err(error) => return Err(error) }
+        let _large_arc = match read_number(chars, i, n) { Ok((value, next)) => { i = next; value }; Err(error) => return Err(error) }
+        let _sweep = match read_number(chars, i, n) { Ok((value, next)) => { i = next; value }; Err(error) => return Err(error) }
+        let x = match read_number(chars, i, n) { Ok((value, next)) => { i = next; value }; Err(error) => return Err(error) }
+        let y = match read_number(chars, i, n) { Ok((value, next)) => { i = next; value }; Err(error) => return Err(error) }
         if is_upper_char(last_cmd) {
-          last_ctrl_x = cp2x
-          last_ctrl_y = cp2y
-          path.cubic_to(cp1x, cp1y, cp2x, cp2y, x, y)
           cur_x = x
           cur_y = y
         } else {
-          let a = cp1x + cur_x
-          let b = cp1y + cur_y
-          let cc = cp2x + cur_x
-          let d = cp2y + cur_y
-          let ex = x + cur_x
-          let ey = y + cur_y
-          last_ctrl_x = cc
-          last_ctrl_y = d
-          path.cubic_to(a, b, cc, d, ex, ey)
-          cur_x = ex
-          cur_y = ey
+          cur_x = match checked_add(cur_x, x) { Ok(value) => value; Err(error) => return Err(error) }
+          cur_y = match checked_add(cur_y, y) { Ok(value) => value; Err(error) => return Err(error) }
         }
+        path.line_to(cur_x, cur_y)
+        last_curve = ' '
       }
-      'Q' | 'q' => {
-        let (cpx, ni) = read_number(chars, i, n)
-        i = ni
-        let (cpy, ni2) = read_number(chars, i, n)
-        i = ni2
-        let (x, ni3) = read_number(chars, i, n)
-        i = ni3
-        let (y, ni4) = read_number(chars, i, n)
-        i = ni4
-        if is_upper_char(last_cmd) {
-          last_ctrl_x = cpx
-          last_ctrl_y = cpy
-          path.quad_to(cpx, cpy, x, y)
-          cur_x = x
-          cur_y = y
-        } else {
-          let a = cpx + cur_x
-          let b = cpy + cur_y
-          let ex = x + cur_x
-          let ey = y + cur_y
-          last_ctrl_x = a
-          last_ctrl_y = b
-          path.quad_to(a, b, ex, ey)
-          cur_x = ex
-          cur_y = ey
-        }
-      }
-      'Z' | 'z' => {
+      'Z' => {
         path.close_path()
-        // After close, reset current point (to start of next subpath; left at
-        // last position for v0.1 simplicity).
+        last_curve = ' '
       }
-      'S' | 'T' | 'A' | 'a' | 's' | 't' =>
-        // S/T (smooth) and A (arc) are approximated as line-to in v0.1. Read
-        // and skip their parameters, then line-to the endpoint. A precise
-        // implementation is a follow-up.
-        if last_cmd == 'S' || last_cmd == 's' {
-          // S has 4 params: cp2x cp2y x y.
-          let (_, ni) = read_number(chars, i, n)
-          i = ni
-          let (_, ni2) = read_number(chars, i, n)
-          i = ni2
-          let (cp2x, ni3) = read_number(chars, i, n)
-          i = ni3
-          let (cp2y, ni4) = read_number(chars, i, n)
-          i = ni4
-          let (x, ni5) = read_number(chars, i, n)
-          i = ni5
-          let (y, ni6) = read_number(chars, i, n)
-          i = ni6
-          // Reflect last control point.
-          let cp1x = 2.0 * cur_x - last_ctrl_x
-          let cp1y = 2.0 * cur_y - last_ctrl_y
-          if is_upper_char(last_cmd) {
-            last_ctrl_x = cp2x
-            last_ctrl_y = cp2y
-            path.cubic_to(cp1x, cp1y, cp2x, cp2y, x, y)
-            cur_x = x
-            cur_y = y
-          } else {
-            let a = cp1x
-            let b = cp1y
-            let cc = cp2x + cur_x
-            let d = cp2y + cur_y
-            let ex = x + cur_x
-            let ey = y + cur_y
-            last_ctrl_x = cc
-            last_ctrl_y = d
-            path.cubic_to(a, b, cc, d, ex, ey)
-            cur_x = ex
-            cur_y = ey
-          }
-        } else if last_cmd == 'T' || last_cmd == 't' {
-          // T has 2 params: x y; control point reflected from last quad.
-          let (x, ni) = read_number(chars, i, n)
-          i = ni
-          let (y, ni2) = read_number(chars, i, n)
-          i = ni2
-          let cpx = 2.0 * cur_x - last_ctrl_x
-          let cpy = 2.0 * cur_y - last_ctrl_y
-          if is_upper_char(last_cmd) {
-            last_ctrl_x = cpx
-            last_ctrl_y = cpy
-            path.quad_to(cpx, cpy, x, y)
-            cur_x = x
-            cur_y = y
-          } else {
-            let ex = x + cur_x
-            let ey = y + cur_y
-            last_ctrl_x = cpx
-            last_ctrl_y = cpy
-            path.quad_to(cpx, cpy, ex, ey)
-            cur_x = ex
-            cur_y = ey
-          }
-        } else {
-          // A (arc): 7 params rx ry x-rot large-arc sweep x y. v0.1 approximates
-          // as line-to the endpoint.
-          let (_, ni) = read_number(chars, i, n)
-          i = ni
-          let (_, ni2) = read_number(chars, i, n)
-          i = ni2
-          let (_, ni3) = read_number(chars, i, n)
-          i = ni3
-          let (_, ni4) = read_number(chars, i, n)
-          i = ni4
-          let (_, ni5) = read_number(chars, i, n)
-          i = ni5
-          let (x, ni6) = read_number(chars, i, n)
-          i = ni6
-          let (y, ni7) = read_number(chars, i, n)
-          i = ni7
-          if is_upper_char(last_cmd) {
-            cur_x = x
-            cur_y = y
-          } else {
-            cur_x = cur_x + x
-            cur_y = cur_y + y
-          }
-          path.line_to(cur_x, cur_y)
-        }
-      _ =>
-        // Unknown command: skip to next alpha or end.
-        i = i + 1
+      _ => return Err(path_source_error())
     }
   }
   Ok(path)
 }
 
-// Char helpers (MoonBit Char lacks is_alpha/is_upper/to_upper methods).
+fn checked_add(a : Double, b : Double) -> Result[Double, @error.CoreError] {
+  admit_derived(a + b)
+}
+
+fn checked_reflect(current : Double, control : Double) -> Result[Double, @error.CoreError] {
+  match admit_derived(2.0 * current) {
+    Ok(twice_current) => admit_derived(twice_current - control)
+    Err(error) => Err(error)
+  }
+}
+
+fn path_source_error() -> @error.CoreError {
+  svg_numeric_error(@error.ErrorCode::InvalidEncoding, "svg-numeric-source")
+}
 
 fn is_alpha_char(c : Char) -> Bool {
   let v = c.to_int()
-  (v >= 65 && v <= 90) || (v >= 97 && v <= 122) // A-Z or a-z
+  (v >= 65 && v <= 90) || (v >= 97 && v <= 122)
 }
 
 fn is_path_space(c : Char) -> Bool {
@@ -295,58 +248,48 @@ fn is_path_space(c : Char) -> Bool {
 
 fn is_upper_char(c : Char) -> Bool {
   let v = c.to_int()
-  v >= 65 && v <= 90 // A-Z
+  v >= 65 && v <= 90
 }
 
 fn to_upper_char(c : Char) -> Char {
   let v = c.to_int()
-  if v >= 97 && v <= 122 {
-    Char::from_int(v - 32)
-  } else {
-    c
-  }
+  if v >= 97 && v <= 122 { Char::from_int(v - 32) } else { c }
 }
 
-// Read a number starting at index i (skipping leading whitespace/commas).
-// Returns (value, new_index). Returns (0.0, n) at end of input.
-fn read_number(chars : Array[Char], start : Int, n : Int) -> (Double, Int) {
+fn read_number(
+  chars : Array[Char],
+  start : Int,
+  n : Int,
+) -> Result[(Double, Int), @error.CoreError] {
   let mut i = start
-  // Skip whitespace and commas.
-  while i < n {
-    let c = chars[i]
-    if c == ' ' || c == ',' || c == '\t' || c == '\n' || c == '\r' {
-      i = i + 1
-    } else {
-      break
-    }
+  while i < n && (is_path_space(chars[i]) || chars[i] == ',') {
+    i = i + 1
   }
-  if i >= n {
-    return (0.0, n)
+  if i >= n || is_alpha_char(chars[i]) {
+    return Err(path_source_error())
   }
-  // If the next char is alpha, this isn't a number (command switch).
-  if is_alpha_char(chars[i]) {
-    return (0.0, i)
-  }
-  // Collect the number token.
   let tok : Array[Char] = []
   while i < n {
     let c = chars[i]
-    if c == ' ' || c == ',' || c == '\t' || c == '\n' || c == '\r' || is_alpha_char(c) {
+    if is_path_space(c) || c == ',' || (is_alpha_char(c) && c != 'e' && c != 'E') {
       break
     }
     tok.push(c)
     i = i + 1
   }
-  let s = String::from_array(tok)
-  match @text.parse_double(s) {
-    Ok(v) => (v, i)
-    Err(_) => (0.0, i)
+  if tok.length() == 0 {
+    return Err(path_source_error())
+  }
+  match @text.parse_double(String::from_array(tok)) {
+    Ok(value) =>
+      match admit_svg_numeric_source(value) {
+        Ok(admitted) => Ok((admitted, i))
+        Err(error) => Err(error)
+      }
+    Err(_) => Err(path_source_error())
   }
 }
 
-// Default budget for parse_path_data: work ceiling of 100,000 command groups.
-// A normal SVG path is far below this; the bound rejects pathological `d`
-// values (e.g. millions of repeated coordinates).
 fn default_path_budget() -> @budget.Budget {
   @budget.Budget::new(@budget.ResourceLimits::new(
     bytes=8388608UL,
