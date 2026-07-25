@@ -205,3 +205,40 @@ test "numeric contract: affine and trigonometric controls" {
     Err(_) => inspect(false, content="true")
   }
 }
+
+///|
+test "transform admission enforces exact arity and derived affine safety" {
+  let source_rejections = [
+    ("matrix(1,0,0,1,0)", "svg-numeric-source"),
+    ("matrix(1,0,0,1,0,0,1)", "svg-numeric-source"),
+    ("translate(1,2,3)", "svg-numeric-source"),
+    ("scale(1,2,3)", "svg-numeric-source"),
+    ("rotate(1,2)", "svg-numeric-source"),
+    ("rotate(1,2,3,4)", "svg-numeric-source"),
+    ("skewX(1,2)", "svg-numeric-source"),
+    ("skewY(1,2)", "svg-numeric-source"),
+    ("matrix(65537,0,0,1,0,0)", "svg-numeric-range"),
+    ("translate(1e999,0)", "svg-numeric-nonfinite"),
+  ]
+  for case in source_rejections {
+    let (source, context) = case
+    match parse_transform(source) {
+      Ok(_) => inspect(false, content="true")
+      Err(error) => inspect(error.context(), content="Some(" + context + ")")
+    }
+  }
+  let derived_rejections = [
+    "scale(65536) scale(2)",
+    "rotate(65536,65536,65536)",
+  ]
+  for source in derived_rejections {
+    match parse_transform(source) {
+      Ok(_) => inspect(false, content="true")
+      Err(error) => inspect(error.context(), content="Some(svg-numeric-derived)")
+    }
+  }
+  match parse_transform("scale(0)") {
+    Ok(m) => inspect((m.a(), m.d()), content="(0, 0)")
+    Err(_) => inspect(false, content="true")
+  }
+}

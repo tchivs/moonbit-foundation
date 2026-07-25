@@ -72,3 +72,17 @@ test "public parse rejects explicit paint scalar routes before a scene exists" {
     assert_public_numeric_error(parse_svg(source), code, context)
   }
 }
+
+///|
+test "public parse rejects unsafe group transforms before a group exists" {
+  assert_public_numeric_error(
+    parse_svg("<svg><g transform=\"scale(65536) scale(2)\"><rect width=\"1\" height=\"1\"/></g></svg>"),
+    @error.ErrorCode::InvalidRange,
+    "svg-numeric-derived",
+  )
+  assert_public_numeric_error(
+    parse_svg("<svg><g transform=\"translate(1,2,3)\"><rect width=\"1\" height=\"1\"/></g></svg>"),
+    @error.ErrorCode::InvalidEncoding,
+    "svg-numeric-source",
+  )
+}
