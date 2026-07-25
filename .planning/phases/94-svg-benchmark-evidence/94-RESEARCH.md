@@ -67,7 +67,7 @@ The portable qualification command must remain a functional pass/fail check even
 |----------------|---------|---------|--------------|
 | MoonBit `moon` / `moonc` / `moonrun` | `0.1.20260713` / `v0.10.4+2cc641edf` / `0.1.20260713` | Compile, run, and record benchmark identity. | These exact toolchain identities are the repository’s canonical development pin. [VERIFIED: `policy/foundation.json` + local `moon --version`] |
 | `moonbitlang/core/bench` | bundled with pinned MoonBit toolchain | Provides `@bench.T`, `bench`, and `keep`; add it as an explicit package import. | The current benchmark uses `@bench.T`; the compiler warns that implicit core-package use is deprecated. [CITED: https://docs.moonbitlang.com/en/latest/language/benchmarks.html] [VERIFIED: local `moon bench` output] |
-| SHA-256 (`Get-FileHash`) | Windows PowerShell built-in | Identifies the benchmark source, fixture corpus, and complete command-output capture. | The repository already records fixture SHA-256 values and uses `Get-FileHash` for benchmark evidence. [VERIFIED: `fixtures/manifest.json` + `scripts/benchmarks/Invoke-PpmBenchmarks.ps1`] |
+| SHA-256 (`[Security.Cryptography.SHA256]::Create().ComputeHash()`) | .NET API present in Windows PowerShell 5.1 and PowerShell 7 | Identifies the benchmark source, fixture corpus, and complete command-output capture. | Render the returned bytes through `[BitConverter]::ToString(...).Replace('-', '').ToLowerInvariant()`; this exact route was verified on local Windows PowerShell 5.1, where `ToHexString` and `SHA256.HashData` are absent. [VERIFIED: local Windows PowerShell 5.1 probe] |
 
 ### Supporting
 
@@ -157,11 +157,23 @@ test "bench path-parse/1000-line-to" (b : @bench.T) {
 
 | Workload | Corpus ownership | Required pre-timing facts | Timed closure | Corpus digest | Correctness digest |
 |----------|------------------|---------------------------|---------------|---------------|--------------------|
-| `path-parse/1000-line-to` | Existing deterministic `M0 0` plus 1,000 generated implicit `L` commands. [VERIFIED: local `svg_bench.mbt`] | Require `Ok`; require exactly 1,001 path commands; require command 0 is `MoveTo(0,0)` and command 1,000 is `LineTo(99,99)`. [VERIFIED: builder arithmetic + local `path_data_wbtest.mbt` API] | `parse_path_data(corpus)` sunk with `b.keep`. [VERIFIED: local `svg_bench.mbt`] | SHA-256 of UTF-8 corpus bytes. [VERIFIED: repository fixture digest practice] | SHA-256 of canonical text `ok|commands=1001|first=M(0,0)|last=L(99,99)`. [ASSUMED] |
-| `transform-composition/50-segment` | Existing deterministic 10 repeats of five transform functions. [VERIFIED: local `svg_bench.mbt`] | Require `Ok`; require the six affine components are finite and within the documented numeric envelope; require the affine applies a fixed probe point to precomputed expected coordinates within the existing `1e-9` tolerance. Freeze the six expected values in the source once derived from the current fixed corpus—do not derive the expected value by reparsing at runtime. [VERIFIED: local `transform.mbt` + `transform_wbtest.mbt`] | `parse_transform(corpus)` sunk with `b.keep`. [VERIFIED: local `svg_bench.mbt`] | SHA-256 of UTF-8 corpus bytes. [VERIFIED: repository fixture digest practice] | SHA-256 of canonical text containing all six expected affine components and probe-point result in a locale-invariant format. [ASSUMED] |
-| `parse-to-lower/50-rect` | Existing deterministic `<svg>` with 50 generated red unit rectangles. [VERIFIED: local `svg_bench.mbt`] | Require `parse_svg` yields `Ok`; require the lowered list has exactly 50 operations and every index is `Fill`; require no transform/layer/stroke operation appears. [VERIFIED: local `lower.mbt` + `portable_qualification_wbtest.mbt`] | `parse_svg`, then `lower_to_drawing_list`, with the list sunk through `b.keep`. [VERIFIED: local `svg_bench.mbt`] | SHA-256 of UTF-8 corpus bytes. [VERIFIED: repository fixture digest practice] | SHA-256 of canonical text `ok|ops=50|all=Fill`. [ASSUMED] |
+| `path-parse/1000-line-to` | Existing deterministic `M0 0` plus 1,000 generated implicit `L` commands. [VERIFIED: local `svg_bench.mbt`] | Require `Ok`; require exactly 1,001 path commands; require command 0 is `MoveTo(0,0)` and command 1,000 is `LineTo(99,99)`. [VERIFIED: builder arithmetic + local `path_data_wbtest.mbt` API] | `parse_path_data(corpus)` sunk with `b.keep`. [VERIFIED: local `svg_bench.mbt`] | `e97e1c8a8e29fdb3e84c309e421de34d41cbab7583cf1e88cf94a67af51eb259`. [VERIFIED: local deterministic UTF-8 calculation] | `0c7d3af32d324a136215c1158c4aab127d11e160f4b9239991114a0303762f22`. [VERIFIED: local canonical UTF-8 calculation] |
+| `transform-composition/50-segment` | **Required fixed corpus:** 10 concatenated repeats of exactly `translate(1,1) scale(2) rotate(15) skewX(5) skewY(3)`—five transform functions per repeat. The pre-phase source includes an extra `matrix(...)` call (60 functions), so it must not be retained under the `50-segment` identity. [VERIFIED: local `svg_bench.mbt` + locked workload name] | Require `Ok`; require all six finite/in-envelope components and probe `(1.25,-2.5)` to equal the frozen values below within `1.0e-9`; never derive the expected values by reparsing at runtime. [VERIFIED: local `transform.mbt`, `affine.mbt`, and deterministic native-equivalent calculation] | `parse_transform(corpus)` sunk with `b.keep`. [VERIFIED: local `svg_bench.mbt`] | `c0ed3307e143d7cb20fd90e531e6208a14bbe2e42ce2816a0579d04cbd320840`. [VERIFIED: local deterministic UTF-8 calculation] | `ec32349185e19b24757e391c72ac5fa8709f889847a0035b7257fc3e0ba483ff`. [VERIFIED: local canonical UTF-8 calculation] |
+| `parse-to-lower/50-rect` | Existing deterministic `<svg>` with 50 generated red unit rectangles. [VERIFIED: local `svg_bench.mbt`] | Require `parse_svg` yields `Ok`; require the lowered list has exactly 50 operations and every index is `Fill`; require no transform/layer/stroke operation appears. [VERIFIED: local `lower.mbt` + `portable_qualification_wbtest.mbt`] | `parse_svg`, then `lower_to_drawing_list`, with the list sunk through `b.keep`. [VERIFIED: local `svg_bench.mbt`] | `db053c95e904e016041f8b2f4a5e6471ed4bf1b144cfd0fc99c44d7d670cdddc`. [VERIFIED: local deterministic UTF-8 calculation] | `e76479b6744a5f062c21d7e5502971a45388346767e9d91aea0119c4340c18e5`. [VERIFIED: local canonical UTF-8 calculation] |
 
 Use SHA-256 in the record rather than adding a MoonBit cryptography dependency or timing a digest function. The digest proves the fixed corpus/assertion contract; it is calculated by the capture procedure outside the benchmark timing closure. [VERIFIED: 94-CONTEXT.md D-02 + existing fixture policy]
+
+### Frozen canonical digest representations
+
+Every corpus and correctness digest is lower-case SHA-256 over the exact UTF-8 bytes **without a BOM and without a trailing newline**. `v1` is part of the correctness text; it is not a formatting note. The capture helper must construct these ASCII texts as literals and hash them, rather than formatting runtime doubles or serializing a data structure. [VERIFIED: local deterministic calculation + D-01/D-04]
+
+| Workload | Frozen canonical correctness text |
+|----------|-----------------------------------|
+| `path-parse/1000-line-to` | `v1|ok|commands=1001|first=M(0,0)|last=L(99,99)` |
+| `transform-composition/50-segment` | `v1|ok|a=-764.5825470346006|b=981.6717123516748|c=-550.8736348781798|d=-664.151879387284|tx=-1060.1606213143448|ty=997.9648720635827|probe_x=1.25|probe_y=-2.5|out_x=-638.704717912146|out_y=3885.434210971386|tolerance=1e-9` |
+| `parse-to-lower/50-rect` | `v1|ok|ops=50|all=Fill` |
+
+The transform gate must paste these source literals: affine `(a,b,c,d,tx,ty) = (-764.5825470346006, 981.6717123516748, -550.8736348781798, -664.151879387284, -1060.1606213143448, 997.9648720635827)` and probe `(1.25,-2.5) -> (-638.704717912146,3885.434210971386)`, each checked with absolute tolerance `1.0e-9`. They were calculated by applying the checked parser's `Affine2::compose` order to the exact ten five-function repeats; the test's expected vector is deliberately static. [VERIFIED: local `svg_bench.mbt`, `transform.mbt`, `affine.mbt`, and deterministic calculation]
 
 ### Pattern 2: Four-target run qualification, native-only retained evidence
 
@@ -189,15 +201,16 @@ Create `docs/benchmarks/mb-svg-native-release-baseline.md`. It is a baseline evi
 | Section / field | Required content |
 |-----------------|------------------|
 | Scope statement | Exact non-claim: native-host observation for like-for-like reproduction only; no cross-target comparison, threshold, ranking, or marketing claim. [VERIFIED: 94-CONTEXT.md] |
-| Benchmark identity | Git commit SHA; `svg_bench.mbt` SHA-256; `moon.pkg` SHA-256; combined source SHA-256; three names in fixed order; corpus and correctness SHA-256 per workload. [VERIFIED: local PPM baseline provenance pattern] |
+| Benchmark identity | Git commit SHA; `svg_bench.mbt` and `moon.pkg` file-byte SHA-256 values; and a combined-source SHA-256 over the no-BOM/no-newline UTF-8 text `v1|svg_bench.mbt=<digest>|moon.pkg=<digest>` in that exact order. List the three names in fixed order and the frozen corpus/correctness SHA-256 per workload. [VERIFIED: local PPM provenance pattern + Phase 94 canonical representation] |
 | Exact execution | Repository-relative working directory; exact native command above; `--release`, `--target native`, and `--frozen`; output capture encoding as UTF-8; no hidden environment-variable substitutions. [VERIFIED: local MoonBit CLI help + toolchain policy] |
 | Toolchain facts | Full first line from `moon --version`, `moonc -v`, and `moonrun --version`; include toolchain policy expected values and mark any mismatch as `MISMATCH`, not baseline evidence. [VERIFIED: `policy/foundation.json` + `docs/policies/toolchain.md` + local CLI] |
 | Host facts | OS caption/version/build/architecture; CPU name; physical-core count; logical-processor count; total physical memory; active power scheme; PowerShell version; current UTC timestamp. Capture each as returned, or literal `unavailable` with the attempted command. [VERIFIED: local PowerShell probes + existing PPM harness] |
-| Reproducibility controls | Record dirty-worktree state, commit SHA, `--frozen`, target, release optimization, one warmup, seven captures, and a SHA-256 for each complete captured stdout/stderr file. [VERIFIED: `docs/policies/toolchain.md` + local PPM harness] |
+| Reproducibility controls | **Preflight requires a clean worktree**: `git status --porcelain=v1 --untracked-files=all` must return no bytes before the warmup. Otherwise stop without writing a baseline. Record the clean preflight result verbatim as `(clean)`, commit SHA, `--frozen`, target, release optimization, one warmup, seven captures, and a SHA-256 for each complete retained merged-output text. This prevents a dirty observation from being mislabeled comparable to a clean baseline. [VERIFIED: D-04 + local git/PPM provenance patterns] |
 | Warmup | One successful native-release command using the exact command; record UTC start/end and output SHA-256, but label it `untimed / excluded from summary`. [VERIFIED: local PPM harness] |
 | Seven captures | Capture 1 through 7 separately; for each preserve UTC start/end, exit code, 3/3 result, full runner summaries for the three named workloads, and the full-output SHA-256. [VERIFIED: local MoonBit benchmark output + PPM baseline pattern] |
-| Transparent summary | Per workload, list all seven native runner means plus arithmetic mean, median, sample standard deviation, minimum, maximum, and coefficient of variation; label every value native-host-specific. [VERIFIED: local PPM baseline aggregation pattern] |
-| Comparison rule | Compare only when workload order/names, source/corpus/correctness digests, command flags, target, release mode, toolchain identity, and host fingerprint facts all match; otherwise report `not comparable` without inferring regression. [ASSUMED] |
+| Transparent summary | Per workload, list all seven native runner means plus arithmetic mean, median, sample standard deviation, minimum, maximum, and coefficient of variation; label every value native-host-specific. The audit recomputes all seven aggregates from the seven retained outputs instead of trusting the rendered table. [VERIFIED: local PPM aggregation pattern + D-04] |
+| Audit | The helper's audit path recomputes the two source-file digests, combined-source digest, all three corpus digests, all three canonical-correctness digests, all eight output digests (warmup plus captures 1–7), parses the retained capture summaries, and recomputes every seven-capture aggregate. It fails on any mismatch, missing capture, nonzero exit status, wrong workload order, or worktree state other than `(clean)`. [VERIFIED: D-01/D-04 + Phase 94 capture design] |
+| Comparison rule | A record is comparable only when workload order/names, source/corpus/correctness digests, command flags, target, release mode, toolchain identity, and recorded host facts exactly match; otherwise the document says `not comparable` and makes no regression inference. [VERIFIED: D-03/D-04 comparison scope] |
 
 ### Current capture-host fact availability
 
@@ -208,7 +221,7 @@ Create `docs/benchmarks/mb-svg-native-release-baseline.md`. It is a baseline evi
 | CPU | `Get-CimInstance Win32_Processor \| Select-Object -First 1` | `Intel(R) Xeon(R) Platinum 8378C CPU @ 2.80GHz`, 4 physical cores, 8 logical processors. [VERIFIED: local PowerShell probe] | Record returned values; do not infer clock governor or CPU affinity if no probe produced it. [VERIFIED: 94-CONTEXT.md D-04] |
 | Memory | `Get-CimInstance Win32_ComputerSystem` | `34,358,808,576` bytes installed physical memory. [VERIFIED: local PowerShell probe] | Record integer bytes, not a rounded marketing unit. [VERIFIED: local PPM harness] |
 | Power plan | `powercfg /GETACTIVESCHEME` | GUID `381b4222-f694-41f0-9685-ff5bb260df2e`, localized name `平衡`. [VERIFIED: local PowerShell probe] | Record raw command output; if unavailable, write `unavailable (command failed)` rather than guessing. [VERIFIED: 94-CONTEXT.md D-04] |
-| Git identity and dirtiness | `git rev-parse HEAD`; `git status --short` | Commit `af1f1aa8644a64ffe67d7befc95b4287bb3a8f5d`; the worktree currently contains unrelated untracked paths and an untracked `svg_bench.mbt`. [VERIFIED: local git probe] | A baseline may be captured only from a clean worktree or must reproduce the full status verbatim and be marked non-comparable to clean captures. [ASSUMED] |
+| Git identity and cleanliness | `git rev-parse HEAD`; `git status --porcelain=v1 --untracked-files=all` | This research host is not a capture candidate while other Phase 94 work is present. [VERIFIED: local git probe] | Require the porcelain output to be empty before the warmup; otherwise fail the preflight and write no baseline. The record stores literal `(clean)` only after that check passes. [VERIFIED: D-04 + selected Phase 94 clean-preflight policy] |
 
 ### Anti-Patterns to Avoid
 
@@ -216,6 +229,8 @@ Create `docs/benchmarks/mb-svg-native-release-baseline.md`. It is a baseline evi
 - **Capturing the all-target output as performance evidence:** `moon bench --target all` produces numbers, but D-03 prohibits treating them as comparable timings. Retain only target pass/fail qualification. [VERIFIED: 94-CONTEXT.md D-03 + local CLI execution]
 - **Reusing the PPM JSON release harness:** Its fixed workload cardinality and threshold policy would silently expand scope into performance gating. [VERIFIED: `release/qualification/benchmark-schema.json`]
 - **Digesting only the current `svg_bench.mbt`:** An import or `moon.pkg` change can alter compilation semantics. Digest both files and identify the git commit. [VERIFIED: existing PPM source-digest practice]
+- **Hashing with PowerShell 7-only APIs:** `[Convert]::ToHexString` and static `SHA256.HashData` are unavailable on Windows PowerShell 5.1. Use `[Security.Cryptography.SHA256]::Create().ComputeHash(...)`, render with `[BitConverter]::ToString(...).Replace('-', '').ToLowerInvariant()`, and dispose the instance. [VERIFIED: Windows PowerShell/.NET Framework compatibility requirement + local PPM helper inspection]
+- **Accepting a dirty baseline:** A verbatim dirty status can describe an observation, but it cannot be like-for-like clean baseline evidence. Phase 94 selects the stricter clean preflight: do not capture at all unless the complete porcelain output is empty. [VERIFIED: D-04 + selected Phase 94 policy]
 - **Inventing host facts:** Use exact probe output or `unavailable`; localized Windows display names are valid captured facts and should not be translated or normalized into guessed values. [VERIFIED: local host-fact probe + 94-CONTEXT.md D-04]
 
 ## Don't Hand-Roll
@@ -261,16 +276,36 @@ Create `docs/benchmarks/mb-svg-native-release-baseline.md`. It is a baseline evi
 ### Native evidence capture protocol
 
 ```powershell
-# Preconditions: clean or explicitly recorded worktree; pinned toolchain passes policy.
+# Preconditions: the pinned toolchain passes policy and this must emit no output.
+if ((& git status --porcelain=v1 --untracked-files=all).Count -ne 0) {
+  throw 'Refusing SVG baseline capture: worktree is not clean.'
+}
+
+# Windows PowerShell 5.1 and PowerShell 7-safe lower-case SHA-256. Do not use
+# [Convert]::ToHexString or [Security.Cryptography.SHA256]::HashData.
+function Get-Sha256Bytes([byte[]] $bytes) {
+  $sha = [Security.Cryptography.SHA256]::Create()
+  try {
+    ([BitConverter]::ToString($sha.ComputeHash($bytes))).Replace('-', '').ToLowerInvariant()
+  } finally {
+    $sha.Dispose()
+  }
+}
+
+# Hash every retained text field as UTF-8 without a BOM and normalize a captured
+# output to LF plus one final LF before both storing and hashing it.
+$utf8 = New-Object Text.UTF8Encoding($false)
 $command = 'moon bench modules/mb-svg/svg --release --target native --frozen'
 
-# 1. Run once, save the complete output and its SHA-256, label it excluded warmup.
-# 2. Run the exact same command seven separate times.
-# 3. Save each complete output as UTF-8; record its SHA-256 and the three summaries.
-# 4. Derive summary statistics only from the seven retained native captures.
+# Run the literal command once as an excluded warmup, then seven separate captures.
+# Embed each normalized complete merged stdout/stderr text in the Markdown record.
+# An audit re-extracts those eight blocks, recomputes each output digest, reparses
+# the three ordered summaries, and recomputes the three seven-sample aggregates.
 ```
 
-The capture script, if one is added, must not add threshold enforcement, CI gating, or cross-host comparison; Phase 94 needs a reproducible record only. [VERIFIED: deferred scope in 94-CONTEXT.md]
+**Chosen minimal helper:** implement one self-contained `scripts/benchmarks/Invoke-SvgNativeBenchmarkBaseline.ps1`, with an optional `-Audit` mode but no caller-supplied command, source path, output path, threshold, or comparison decision. It resolves the repository root from `$PSScriptRoot`, invokes the literal command through `& moon` with fixed arguments, captures merged stdout/stderr, renders `docs/benchmarks/mb-svg-native-release-baseline.md`, and immediately audits the rendered record. `-Audit` reads only the checked-in Markdown record and current fixed inputs; it does not rerun benchmarks. This is smaller and safer than adapting the PPM JSON harness because Phase 94 has three workloads, Markdown evidence, no threshold, and no CI gate. [VERIFIED: D-02/D-04 + local PPM harness scope]
+
+The capture script must not add threshold enforcement, CI gating, a hidden command override, or cross-host comparison; Phase 94 needs reproducible evidence only. [VERIFIED: deferred scope in 94-CONTEXT.md]
 
 ### Whole-package portability regression command
 
@@ -295,21 +330,15 @@ This validates existing SVG behavior across the same four targets; it complement
 
 | # | Claim | Section | Risk if Wrong |
 |---|-------|---------|---------------|
-| A1 | Canonical text hashed for the three correctness digests is the appropriate durable representation. | Correctness gates | A future baseline may need a revised digest encoding; document any such revision as a new workload identity. |
-| A2 | All identity fields must match before two native records are comparable. | Baseline schema / Pitfall 2 | This is conservative and may reject useful informal comparisons, but it avoids a false regression claim. |
 | A3 | The runner/host relationship explains why target and host values are not generally comparable. | Pitfall 2 | The policy already prohibits cross-target claims; this rationale should not be treated as a quantified performance result. |
 
-## Open Questions
+## Open Questions (Resolved)
 
-1. **Exact frozen affine constants for the current 50-segment corpus**
-   - What we know: `parse_transform` returns six public affine components and existing tests use `1e-9` tolerance for trigonometric results. [VERIFIED: local `transform.mbt` + `transform_wbtest.mbt`]
-   - What's unclear: The current benchmark has no frozen expected vector for its complex repeated transform list. [VERIFIED: local `svg_bench.mbt`]
-   - Recommendation: In the implementation task, compute the constants once from the fixed literal with the pinned toolchain, write them as explicit literals with the existing tolerance, then include those literals in the correctness-digest text. Do not calculate an expected value through the benchmarked parser. [ASSUMED]
+1. **Frozen transform oracle and digest:** resolved with ten five-function repeats (not the source's pre-phase six-function list), affine `(-764.5825470346006, 981.6717123516748, -550.8736348781798, -664.151879387284, -1060.1606213143448, 997.9648720635827)`, probe `(1.25,-2.5)`, expected point `(-638.704717912146,3885.434210971386)`, tolerance `1.0e-9`, and the exact `v1` canonical text/digest listed above. [VERIFIED: local transform/affine implementation and deterministic calculation]
 
-2. **Capture automation form**
-   - What we know: A Markdown document is required; no threshold or CI gate is in scope. [VERIFIED: D-04 + deferred ideas]
-   - What's unclear: Whether maintainers prefer a small PowerShell capture helper or a manually executed documented protocol. [VERIFIED: 94-CONTEXT.md discretion]
-   - Recommendation: Plan a minimal helper only if it writes complete capture files and the document; otherwise use an explicit copy/paste protocol. In either form, preserve the exact baseline schema above. [ASSUMED]
+2. **Capture automation:** resolved in favor of the narrow self-contained PowerShell helper described above, including immediate audit. It writes one Markdown baseline and does not import a package, alter CI, or reuse the PPM threshold schema. [VERIFIED: D-02/D-04 + local PPM harness scope]
+
+3. **Hashing and reproducibility:** resolved with PowerShell 5.1-safe `SHA256::Create().ComputeHash()` plus `BitConverter` hex rendering; every digest is lower-case SHA-256 of its stated no-BOM UTF-8 or file-byte representation. Capture requires a clean preflight and audit recomputes all input/output digests and all seven-capture aggregates from the retained Markdown outputs. [VERIFIED: D-04 + selected Phase 94 capture protocol]
 
 ## Environment Availability
 
@@ -318,7 +347,7 @@ This validates existing SVG behavior across the same four targets; it complement
 | `moon` | Four-target and native-release benchmark commands | ✓ | `0.1.20260713` (`75c7e1f`) | — [VERIFIED: local `moon --version`] |
 | `moonc` | Native compilation identity | ✓ | `v0.10.4+2cc641edf` | — [VERIFIED: local `moon --version`] |
 | `moonrun` | Runtime identity | ✓ | `0.1.20260713` (`75c7e1f`) | — [VERIFIED: local `moon --version`] |
-| PowerShell `Get-CimInstance` / `Get-FileHash` | Host facts and SHA-256 capture records | ✓ | Returned OS/CPU/memory data on this host | Write `unavailable` plus attempted command if absent on a future host. [VERIFIED: local probes] |
+| PowerShell `Get-CimInstance` / .NET SHA-256 | Host facts and SHA-256 capture records | ✓ | Returned OS/CPU/memory data; .NET hash route also executed successfully under local Windows PowerShell 5.1 | Write `unavailable` plus attempted command if a host probe is absent; the hash route has no fallback. [VERIFIED: local probes] |
 
 **Missing dependencies with no fallback:** None. [VERIFIED: local probes]
 
@@ -334,7 +363,7 @@ This validates existing SVG behavior across the same four targets; it complement
 | V3 Session Management | No | Phase 94 adds no session state. [VERIFIED: Phase 94 scope] |
 | V4 Access Control | No | Phase 94 adds no authorization path. [VERIFIED: Phase 94 scope] |
 | V5 Input Validation | Yes | Deterministic, source-controlled benchmark inputs are checked through the existing public SVG parser before timing; do not add a bypass. [VERIFIED: D-01 + local SVG APIs] |
-| V6 Cryptography | No | Use platform SHA-256 only to identify evidence; do not implement cryptography in MoonBit for this phase. [VERIFIED: D-02 + existing `Get-FileHash` use] |
+| V6 Cryptography | No | Use platform SHA-256 only to identify evidence; do not implement cryptography in MoonBit for this phase. Use the Windows PowerShell 5.1-safe `SHA256::Create().ComputeHash()`/`BitConverter` route. [VERIFIED: D-02 + local Windows PowerShell 5.1 probe] |
 
 ### Known Threat Patterns for this stack
 
