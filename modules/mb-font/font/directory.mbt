@@ -142,11 +142,19 @@ fn font_directory_work(
     Err(error) => return Err(error)
     Ok(value) => value
   }
-  let record_work = match @checked.checked_add(num_tables, overlap_work) {
+  let record_scan_work = match @checked.checked_add(num_tables, overlap_work) {
     Err(error) => return Err(error)
     Ok(value) => value
   }
-  @checked.checked_add(checksum_work, record_work)
+  // `font_parse_directory` normalizes every parsed record into the retained
+  // `TableWindow` array. Keep that copy pass in the shared directory total so
+  // both discovery preflight and the final atomic charge account it exactly
+  // once.
+  let directory_work = match @checked.checked_add(record_scan_work, num_tables) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  @checked.checked_add(checksum_work, directory_work)
 }
 
 ///|

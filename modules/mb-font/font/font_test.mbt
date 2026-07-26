@@ -979,15 +979,18 @@ test "glyph and work ceilings admit exact values and reject one short atomically
   let count_driven_work = 8UL
   let lookup_work = table_count * 27UL
   let table_iteration_work = table_count * 2UL
+  let directory_normalization_work = table_count
   let exact_work = source_length * 2UL +
     overlap_work +
     table_count +
+    directory_normalization_work +
     lookup_work +
     table_iteration_work +
     count_driven_work
   let discovery_work = source_length * 2UL +
     overlap_work +
     table_count +
+    directory_normalization_work +
     table_count * 4UL
   let directory_allocation_size = table_count * 64UL
   let exact_limits = FontLimits::new(
@@ -1108,6 +1111,86 @@ test "glyph and work ceilings admit exact values and reject one short atomically
     size_budget.remaining().allocation_size() == size_before.allocation_size(),
     content="true",
   )
+}
+
+///|
+test "directory normalization copy is preflighted and charged once per table" {
+  let source = font_test_horizontal_metric_truetype()
+  let source_length = source.length().to_uint64()
+  let table_count = font_test_read_u16(source, 4)
+  let overlap_work = table_count * (table_count - 1UL) / 2UL
+  let parsed_directory_work = source_length * 2UL + overlap_work + table_count
+  let normalization_copy_work = table_count
+  let discovery_work = parsed_directory_work +
+    normalization_copy_work +
+    table_count * 4UL
+  let work_without_copy = parsed_directory_work +
+    table_count * 27UL +
+    table_count * 2UL +
+    8UL
+  let exact_work = work_without_copy + normalization_copy_work
+  let directory_allocation_size = table_count * 64UL
+  let exact_limits = FontLimits::new(
+    max_source_bytes=source_length,
+    max_tables=table_count,
+    max_table_bytes=source_length,
+    max_glyphs=3UL,
+    max_name_records=1UL,
+    max_cmap_records=1UL,
+    max_post_name_bytes=32UL,
+    max_work=exact_work,
+  ).unwrap()
+
+  let preflight_short = font_test_budget_with_dimensions(
+    source_length,
+    allocations=3UL,
+    allocation_size=directory_allocation_size,
+    discovery_work - 1UL,
+  )
+  let preflight_before = preflight_short.remaining()
+  let preflight_error = Font::open(
+    font_test_owner(source).view(),
+    exact_limits,
+    preflight_short,
+  ).unwrap_err()
+  inspect(preflight_error.context() == Some("work"), content="true")
+  inspect(
+    preflight_short.remaining().work() == preflight_before.work(),
+    content="true",
+  )
+
+  let uncharged_copy_budget = font_test_budget_with_dimensions(
+    source_length,
+    allocations=3UL,
+    allocation_size=directory_allocation_size,
+    work_without_copy,
+  )
+  let uncharged_copy_before = uncharged_copy_budget.remaining()
+  let uncharged_copy_error = Font::open(
+    font_test_owner(source).view(),
+    exact_limits,
+    uncharged_copy_budget,
+  ).unwrap_err()
+  inspect(uncharged_copy_error.context() == Some("work"), content="true")
+  inspect(
+    uncharged_copy_budget.remaining().bytes() == uncharged_copy_before.bytes(),
+    content="true",
+  )
+  inspect(
+    uncharged_copy_budget.remaining().work() == uncharged_copy_before.work(),
+    content="true",
+  )
+
+  let exact_budget = font_test_budget_with_dimensions(
+    source_length,
+    allocations=3UL,
+    allocation_size=directory_allocation_size,
+    exact_work,
+  )
+  ignore(
+    Font::open(font_test_owner(source).view(), exact_limits, exact_budget).unwrap(),
+  )
+  inspect(exact_budget.remaining().work(), content="0")
 }
 
 ///|
