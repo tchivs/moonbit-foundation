@@ -476,6 +476,17 @@ fn font_test_mutate_u32(
 }
 
 ///|
+fn font_test_mutate_u16(
+  owner : @bytes.OwnedBytes,
+  offset : UInt64,
+  value : UInt64,
+) -> Unit {
+  let replacement : Array[Byte] = []
+  font_test_push_u16(replacement, value)
+  font_test_mutate_bytes(owner, offset, Bytes::from_array(replacement))
+}
+
+///|
 fn font_test_view_bytes(source : @bytes.ByteView) -> Bytes {
   let output : Array[Byte] = []
   let mut offset = 0UL
@@ -499,6 +510,42 @@ fn font_test_recompute_adjustment(
 }
 
 ///|
+fn font_test_distinct_global_metrics() -> @bytes.OwnedBytes {
+  let owner = font_test_owner(font_test_minimal_truetype())
+  font_test_mutate_u16(owner, 324UL, 0xFF88UL)
+  font_test_mutate_u16(owner, 326UL, 0xFF10UL)
+  font_test_mutate_u16(owner, 328UL, 700UL)
+  font_test_mutate_u16(owner, 330UL, 900UL)
+  font_test_mutate_u16(owner, 348UL, 800UL)
+  font_test_mutate_u16(owner, 350UL, 0xFF38UL)
+  font_test_mutate_u16(owner, 352UL, 90UL)
+  font_test_mutate_u16(owner, 240UL, 760UL)
+  font_test_mutate_u16(owner, 242UL, 0xFF10UL)
+  font_test_mutate_u16(owner, 244UL, 40UL)
+  font_test_mutate_u32(owner, 296UL, 0UL)
+  let os2 = owner.view().subview(172UL, 78UL).unwrap()
+  font_test_mutate_u32(
+    owner,
+    16UL,
+    font_test_checksum(font_test_view_bytes(os2)),
+  )
+  let head = owner.view().subview(288UL, 54UL).unwrap()
+  font_test_mutate_u32(
+    owner,
+    64UL,
+    font_test_checksum(font_test_view_bytes(head)),
+  )
+  let hhea = owner.view().subview(344UL, 36UL).unwrap()
+  font_test_mutate_u32(
+    owner,
+    80UL,
+    font_test_checksum(font_test_view_bytes(hhea)),
+  )
+  font_test_recompute_adjustment(owner)
+  owner
+}
+
+///|
 fn font_test_assert_revision_drift(error : @error.CoreError) -> Unit raise {
   inspect(error.category() == @error.ErrorCategory::State, content="true")
   inspect(error.code() == @error.ErrorCode::InvalidRange, content="true")
@@ -506,6 +553,50 @@ fn font_test_assert_revision_drift(error : @error.CoreError) -> Unit raise {
   inspect(
     error.context() == Some("font-source-revision-drift"),
     content="true",
+  )
+}
+
+///|
+test "font publishes separate exact global metric sources" {
+  let owner = font_test_distinct_global_metrics()
+  let font = Font::open(
+    owner.view(),
+    font_test_limits(),
+    font_test_budget(),
+  ).unwrap()
+  inspect(font.units_per_em().unwrap(), content="1000")
+  let bounds = font.global_bounds().unwrap()
+  inspect(bounds.x_min(), content="-120")
+  inspect(bounds.y_min(), content="-240")
+  inspect(bounds.x_max(), content="700")
+  inspect(bounds.y_max(), content="900")
+  let hhea = font.hhea_line_metrics().unwrap()
+  inspect(hhea.ascent(), content="800")
+  inspect(hhea.descent(), content="-200")
+  inspect(hhea.line_gap(), content="90")
+  let typographic = font.typographic_line_metrics().unwrap()
+  inspect(typographic.ascent(), content="760")
+  inspect(typographic.descent(), content="-240")
+  inspect(typographic.line_gap(), content="40")
+  inspect(hhea.ascent() != typographic.ascent(), content="true")
+  inspect(hhea.descent() != typographic.descent(), content="true")
+  inspect(hhea.line_gap() != typographic.line_gap(), content="true")
+}
+
+///|
+test "every cached global metric rejects retained source revision drift" {
+  let owner = font_test_distinct_global_metrics()
+  let font = Font::open(
+    owner.view(),
+    font_test_limits(),
+    font_test_budget(),
+  ).unwrap()
+  font_test_mutate_bytes(owner, 431UL, b"\x01")
+  font_test_assert_revision_drift(font.units_per_em().unwrap_err())
+  font_test_assert_revision_drift(font.global_bounds().unwrap_err())
+  font_test_assert_revision_drift(font.hhea_line_metrics().unwrap_err())
+  font_test_assert_revision_drift(
+    font.typographic_line_metrics().unwrap_err(),
   )
 }
 
