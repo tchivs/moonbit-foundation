@@ -4,16 +4,16 @@ milestone: v0.32
 milestone_name: TrueType Font Foundation
 current_phase: 97
 current_phase_name: Font Admission and Metrics
-status: executing
-stopped_at: Completed 97-02-PLAN.md
-last_updated: "2026-07-26T09:59:40.207Z"
+status: verifying
+stopped_at: Completed 97-03-PLAN.md
+last_updated: "2026-07-26T10:57:39.583Z"
 last_activity: 2026-07-26
 last_activity_desc: Phase 97 execution started
 progress:
   total_phases: 1
-  completed_phases: 0
+  completed_phases: 1
   total_plans: 3
-  completed_plans: 2
+  completed_plans: 3
 ---
 
 # Project State
@@ -30,10 +30,10 @@ See `.planning/PROJECT.md`.
 
 Phase: 97 (Font Admission and Metrics) — EXECUTING
 Plan: 3 of 3
-Status: Ready to execute
+Status: Phase complete — ready for verification
 Last activity: 2026-07-26 — Phase 97 execution started
 
-Progress: [███████░░░] 67%
+Progress: [██████████] 100%
 
 ## Milestone Metrics
 
@@ -55,6 +55,9 @@ Progress: [███████░░░] 67%
 - [Phase 97]: Font retains private directory, required-table, and metric-index state without exposing raw parser facts.
 - [Phase 97]: Required-table presence is checked without payload decoding before checksums to preserve the stable missing-table error contract.
 - [Phase 97]: Head bounds, hhea metrics, and OS/2 typographic metrics remain separate signed integer values with no implicit selector.
+- [Phase 97]: GlyphId remains opaque and every receiving Font revalidates its numeric range before lookup.
+- [Phase 97]: Every non-empty common glyf header is validated during admission before Font publication.
+- [Phase 97]: The mb-font semantic interface is frozen to limits, opaque font/glyph values, and named global/per-glyph metrics.
 
 ### Pending Todos
 
@@ -64,6 +67,7 @@ None yet.
 
 - Phase 99 planning must freeze composite point attachment, phantom-point/`USE_MY_METRICS`, offset-scaling, and F2DOT14 evaluation rules before implementation.
 - Phase 100 planning must finalize licensed real-font specimen provenance, redistribution records, digests, inventories, and independent semantic facts.
+- Full Required gate needs a separate governance quick: forward Lane through scripts/quality.ps1 and reconcile RFC 0001 Accepted policy with Proposed canonical RFC/index.
 
 ## Deferred Items
 
@@ -75,8 +79,8 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-07-26T09:59:40.195Z
-Stopped at: Completed 97-02-PLAN.md
+Last session: 2026-07-26T10:57:39.568Z
+Stopped at: Completed 97-03-PLAN.md
 Resume file: None
 
 ## Operator Next Steps
@@ -98,3 +102,4 @@ No v0.32 plans have been completed.
 |------|----------|-------|-------|
 | Phase 97 P01 | 39m | 3 tasks | 11 files |
 | Phase 97 P02 | 40m | 3 tasks | 7 files |
+| Phase 97 P03 | 42m | 3 tasks | 13 files |
