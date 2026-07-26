@@ -48,6 +48,30 @@ fn generated_put_u32_at(
 }
 
 ///|
+fn generated_put_u16_at(
+  output : Array[Byte],
+  offset : Int,
+  value : UInt64,
+) -> Unit {
+  output[offset] = (value >> 8).to_byte()
+  output[offset + 1] = value.to_byte()
+}
+
+///|
+fn generated_put_i16_at(
+  output : Array[Byte],
+  offset : Int,
+  value : Int,
+) -> Unit {
+  let encoded = if value < 0 {
+    (value + 0x10000).to_uint64()
+  } else {
+    value.to_uint64()
+  }
+  generated_put_u16_at(output, offset, encoded)
+}
+
+///|
 fn font_wb_put_u16(output : Array[Byte], value : UInt64) -> Unit {
   generated_put_u16(output, value)
 }
@@ -136,12 +160,12 @@ fn generated_head_table() -> Bytes {
   for index = 0; index < 16; index = index + 1 {
     output.push(b'\x00')
   }
-  for value in [0, 0, 0, 0] {
+  for value in [-10, -20, 100, 200] {
     generated_put_i16(output, value)
   }
   generated_put_u16(output, 0UL)
   generated_put_u16(output, 8UL)
-  generated_put_i16(output, 2)
+  generated_put_i16(output, 0)
   generated_put_i16(output, 0)
   generated_put_i16(output, 0)
   Bytes::from_array(output)
@@ -174,6 +198,9 @@ fn generated_cmap_table() -> Bytes {
 fn generated_hhea_table() -> Bytes {
   let output = Array::make(36, b'\x00')
   generated_put_u32_at(output, 0, 0x00010000UL)
+  generated_put_i16_at(output, 4, 800)
+  generated_put_i16_at(output, 6, -200)
+  generated_put_i16_at(output, 8, 50)
   output[35] = b'\x01'
   Bytes::from_array(output)
 }

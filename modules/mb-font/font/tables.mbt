@@ -188,7 +188,7 @@ fn font_table_min_length(
 fn font_decode_head(
   table : TableWindow,
 ) -> Result[HeadFacts, @error.CoreError] {
-  match font_table_exact_length(table, 54UL, "font-head") {
+  match font_table_exact_length(table, 54UL, "font-head-length") {
     Err(error) => return Err(error)
     Ok(_) => ()
   }
@@ -224,14 +224,43 @@ fn font_decode_head(
     Err(error) => return Err(error)
     Ok(value) => value
   }
-  if version != 0x00010000UL ||
-    magic != 0x5F0F3CF5UL ||
-    units_per_em < 16UL ||
-    units_per_em > 16384UL ||
-    x_min > x_max ||
-    y_min > y_max ||
-    (index_to_loc_format != 0 && index_to_loc_format != 1) {
+  if version != 0x00010000UL {
+    return Err(
+      font_data_error("font-head-version", source_offset=table.offset),
+    )
+  }
+  if magic != 0x5F0F3CF5UL {
+    let source_offset = match @checked.checked_add(table.offset, 12UL) {
+      Err(error) => return Err(error)
+      Ok(value) => value
+    }
+    return Err(font_data_error("font-head-magic", source_offset~))
+  }
+  if units_per_em < 16UL || units_per_em > 16384UL {
+    let source_offset = match @checked.checked_add(table.offset, 18UL) {
+      Err(error) => return Err(error)
+      Ok(value) => value
+    }
+    return Err(
+      font_data_error(
+        "font-units-per-em",
+        source_offset~,
+        requested=units_per_em,
+        limit=16384UL,
+      ),
+    )
+  }
+  if x_min > x_max || y_min > y_max {
     return Err(font_data_error("font-head", source_offset=table.offset))
+  }
+  if index_to_loc_format != 0 && index_to_loc_format != 1 {
+    let source_offset = match @checked.checked_add(table.offset, 50UL) {
+      Err(error) => return Err(error)
+      Ok(value) => value
+    }
+    return Err(
+      font_data_error("font-index-to-loc-format", source_offset~),
+    )
   }
   Ok({
     units_per_em,
