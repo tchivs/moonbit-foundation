@@ -2,7 +2,8 @@
 param(
   [ValidateSet('Required', 'Qoi', 'Png', 'LlvmExperimental')][string]$Lane,
   [string]$EvidenceDirectory = 'artifacts/release-qualification/current',
-  [switch]$CoreNarrowingSelfTest
+  [switch]$CoreNarrowingSelfTest,
+  [switch]$ImageFloatingPolicySelfTest
 )
 
 Set-StrictMode -Version Latest
@@ -540,6 +541,209 @@ function Assert-ColorQualificationNegativeFixtures {
   Write-Host 'Color topology, DAG, interface, publication, generated-vector, target, source, README, digest, and redistribution negatives all fail closed.'
 }
 
+function Test-ImageFloatingFormFunction {
+  [CmdletBinding()]
+  param(
+    [Parameter(Mandatory)][string]$Text,
+    [Parameter(Mandatory)][string]$FunctionName,
+    [Parameter(Mandatory)][int]$FormIndex
+  )
+
+  $declarations = [regex]::Matches(
+    $Text,
+    "(?m)^[ \t]*(?:pub(?:\([^)]*\))?[ \t]+)?fn[ \t]+$([regex]::Escape($FunctionName))[ \t]*\("
+  )
+  if ($declarations.Count -ne 1) { return $false }
+  $allDeclarations = [regex]::Matches(
+    $Text,
+    '(?m)^[ \t]*(?:pub(?:\([^)]*\))?[ \t]+)?fn[ \t]+[A-Za-z_][A-Za-z0-9_]*[ \t]*\('
+  )
+  $functionStart = $declarations[0].Index
+  $functionEnd = $Text.Length
+  foreach ($declaration in $allDeclarations) {
+    if ($declaration.Index -gt $functionStart) {
+      $functionEnd = $declaration.Index
+      break
+    }
+  }
+  return $FormIndex -ge $functionStart -and $FormIndex -lt $functionEnd
+}
+
+function Assert-ImageOpsFloatingPolicy {
+  [CmdletBinding()]
+  param(
+    [Parameter(Mandatory)][string]$RelativePath,
+    [Parameter(Mandatory)][string]$Text
+  )
+
+  if ($Text -cmatch '(?i)(?:[.]|\b)(?:round|floor|ceil)\s*\(') {
+    throw "Floating-point image operations policy forbids round/floor/ceil calls in '$RelativePath'."
+  }
+  if ($Text -cmatch '(?ms)^[ \t]*pub(?:\([^)]*\))?[ \t]+fn\b[^{]*\bDouble\b[^{]*\{') {
+    throw "Floating-point image operations policy forbids Double in a public declaration in '$RelativePath'."
+  }
+  if ($RelativePath -ceq 'modules/mb-image/ops/resize.mbt') {
+    if ($Text -cmatch '(?m)^[ \t]*let y_fraction = remainder_x[.]to_double\(\) / height[.]to_double\(\)[ \t]*\r?$') {
+      throw "Floating-point image operations policy rejects the wrong-axis y fraction in '$RelativePath'."
+    }
+    if ($Text -cmatch '(?m)^[ \t]*let x_fraction = remainder_y[.]to_double\(\) / width[.]to_double\(\)[ \t]*\r?$') {
+      throw "Floating-point image operations policy rejects the wrong-axis x fraction in '$RelativePath'."
+    }
+  }
+
+  $processingForms = @(
+    @{ Name = 'opaque normalized alpha'; Function = 'load_linear_premultiplied_rgb8'; Text = '@color.NormalizedAlpha::new(1.0).unwrap(),' },
+    @{ Name = 'source-over alpha factor'; Function = 'composite_source_over'; Text = 'let factor = 1.0 - sa' },
+    @{ Name = 'Rec.709 luminance'; Function = 'grayscale'; Text = 'let l = r.value() * 0.2126 + g.value() * 0.7152 + b.value() * 0.0722' },
+    @{ Name = 'box-blur red accumulator'; Function = 'box_blur'; Text = 'let mut rr = 0.0' },
+    @{ Name = 'box-blur green accumulator'; Function = 'box_blur'; Text = 'let mut gg = 0.0' },
+    @{ Name = 'box-blur blue accumulator'; Function = 'box_blur'; Text = 'let mut bb = 0.0' },
+    @{ Name = 'box-blur alpha accumulator'; Function = 'box_blur'; Text = 'let mut aa = 0.0' },
+    @{ Name = 'box-blur red normalization'; Function = 'box_blur'; Text = '@color.LinearSrgbComponent::new(rr / window.to_double()).unwrap(),' },
+    @{ Name = 'box-blur green normalization'; Function = 'box_blur'; Text = '@color.LinearSrgbComponent::new(gg / window.to_double()).unwrap(),' },
+    @{ Name = 'box-blur blue normalization'; Function = 'box_blur'; Text = '@color.LinearSrgbComponent::new(bb / window.to_double()).unwrap(),' },
+    @{ Name = 'box-blur alpha normalization'; Function = 'box_blur'; Text = '@color.NormalizedAlpha::new(aa / window.to_double()).unwrap(),' }
+  )
+  $resizeForms = @(
+    @{ Name = 'private x blend parameter'; Function = 'bilinear_interpolate'; Text = 'x_fraction : Double,' },
+    @{ Name = 'private y blend parameter'; Function = 'bilinear_interpolate'; Text = 'y_fraction : Double,' },
+    @{ Name = 'bounded y blend fraction'; Function = 'resize_bilinear'; Text = 'let y_fraction = remainder_y.to_double() / height.to_double()' },
+    @{ Name = 'bounded x blend fraction'; Function = 'resize_bilinear'; Text = 'let x_fraction = remainder_x.to_double() / width.to_double()' }
+  )
+
+  $allowedForms = @()
+  if ($RelativePath -ceq 'modules/mb-image/ops/processing.mbt') {
+    $allowedForms = $processingForms
+  } elseif ($RelativePath -ceq 'modules/mb-image/ops/resize.mbt') {
+    $allowedForms = $resizeForms
+  }
+
+  $residual = $Text
+  foreach ($form in $allowedForms) {
+    $pattern = [regex]::new(
+      "(?m)^[ \t]*$([regex]::Escape([string]$form.Text))[ \t]*\r?$",
+      [System.Text.RegularExpressions.RegexOptions]::Multiline
+    )
+    $matches = $pattern.Matches($Text)
+    if ($matches.Count -ne 1) {
+      throw "Floating-point image operations policy expected exactly one '$($form.Name)' form in '$RelativePath'; found $($matches.Count)."
+    }
+    if (-not (Test-ImageFloatingFormFunction -Text $Text -FunctionName ([string]$form.Function) -FormIndex $matches[0].Index)) {
+      throw "Floating-point image operations policy requires '$($form.Name)' to remain in '$($form.Function)' in '$RelativePath'."
+    }
+    $residual = $pattern.Replace($residual, '', 1)
+  }
+
+  $floatingToken = [regex]::Match($residual, '\bDouble\b|[.]to_double\s*\(')
+  if ($floatingToken.Success) {
+    throw "Floating-point image operations policy found unauthorized Double/to_double token '$($floatingToken.Value)' in '$RelativePath'."
+  }
+  $literal = [regex]::Match(
+    $residual,
+    '(?<![A-Za-z0-9_])(?:[0-9]+\.[0-9]*|\.[0-9]+|[0-9]+(?:\.[0-9]*)?[eE][+-]?[0-9]+)(?![A-Za-z0-9_])'
+  )
+  if ($literal.Success) {
+    throw "Floating-point image operations policy found unauthorized literal '$($literal.Value)' in '$RelativePath'."
+  }
+}
+
+function Invoke-ImageFloatingPolicySelfTest {
+  [CmdletBinding()]
+  param()
+
+  function Confirm-ImageFloatingPolicyRejected(
+    [string]$Name,
+    [string]$RelativePath,
+    [string]$Text,
+    [string]$Expected
+  ) {
+    $failure = $null
+    try {
+      Assert-ImageOpsFloatingPolicy -RelativePath $RelativePath -Text $Text
+    } catch {
+      $failure = $_.Exception.Message
+    }
+    if ($failure -cne $Expected) {
+      throw "Image floating policy self-test '$Name' failed for the wrong reason: '$failure'."
+    }
+  }
+
+  $processingPath = 'modules/mb-image/ops/processing.mbt'
+  $resizePath = 'modules/mb-image/ops/resize.mbt'
+  $fixturePath = 'modules/mb-image/ops/fixture.mbt'
+  $processingCanonical = @'
+fn load_linear_premultiplied_rgb8() {
+  @color.NormalizedAlpha::new(1.0).unwrap(),
+}
+fn composite_source_over() {
+  let factor = 1.0 - sa
+}
+pub fn grayscale() {
+  let l = r.value() * 0.2126 + g.value() * 0.7152 + b.value() * 0.0722
+}
+pub fn box_blur() {
+  let mut rr = 0.0
+  let mut gg = 0.0
+  let mut bb = 0.0
+  let mut aa = 0.0
+  @color.LinearSrgbComponent::new(rr / window.to_double()).unwrap(),
+  @color.LinearSrgbComponent::new(gg / window.to_double()).unwrap(),
+  @color.LinearSrgbComponent::new(bb / window.to_double()).unwrap(),
+  @color.NormalizedAlpha::new(aa / window.to_double()).unwrap(),
+}
+'@
+  $resizeCanonical = @'
+fn bilinear_interpolate(
+  x_fraction : Double,
+  y_fraction : Double,
+) {
+}
+pub fn resize_bilinear() {
+  let y_fraction = remainder_y.to_double() / height.to_double()
+  let x_fraction = remainder_x.to_double() / width.to_double()
+}
+'@
+
+  Assert-ImageOpsFloatingPolicy -RelativePath $processingPath -Text $processingCanonical
+  Assert-ImageOpsFloatingPolicy -RelativePath $resizePath -Text $resizeCanonical
+  Assert-ImageOpsFloatingPolicy -RelativePath $fixturePath -Text 'fn identifier() { let value1e3 = 1UL }'
+
+  Confirm-ImageFloatingPolicyRejected 'floor mapping' $fixturePath 'fn nearest(value : UInt64) -> UInt64 { value.floor() }' "Floating-point image operations policy forbids round/floor/ceil calls in '$fixturePath'."
+  Confirm-ImageFloatingPolicyRejected 'public Double geometry' $fixturePath 'pub fn resize(width : Double) -> Unit { () }' "Floating-point image operations policy forbids Double in a public declaration in '$fixturePath'."
+  Confirm-ImageFloatingPolicyRejected 'unauthorized conversion' $fixturePath 'fn map(value : UInt64) { value.to_double() }' "Floating-point image operations policy found unauthorized Double/to_double token '.to_double(' in '$fixturePath'."
+  Confirm-ImageFloatingPolicyRejected 'extra processing normalization' $processingPath ($processingCanonical.Replace(
+      '  @color.LinearSrgbComponent::new(rr / window.to_double()).unwrap(),',
+      "  @color.LinearSrgbComponent::new(rr / window.to_double()).unwrap(),`n  @color.LinearSrgbComponent::new(rr / window.to_double()).unwrap(),"
+    )) "Floating-point image operations policy expected exactly one 'box-blur red normalization' form in '$processingPath'; found 2."
+  Confirm-ImageFloatingPolicyRejected 'missing processing form' $processingPath ($processingCanonical.Replace('  let factor = 1.0 - sa', '')) "Floating-point image operations policy expected exactly one 'source-over alpha factor' form in '$processingPath'; found 0."
+  Confirm-ImageFloatingPolicyRejected 'processing form moved to another function' $processingPath ($processingCanonical.Replace('fn composite_source_over()', 'fn wrong_color_math()')) "Floating-point image operations policy requires 'source-over alpha factor' to remain in 'composite_source_over' in '$processingPath'."
+  Confirm-ImageFloatingPolicyRejected 'missing resize form' $resizePath ($resizeCanonical.Replace('  x_fraction : Double,', '')) "Floating-point image operations policy expected exactly one 'private x blend parameter' form in '$resizePath'; found 0."
+  Confirm-ImageFloatingPolicyRejected 'moved Double form' $fixturePath "fn fixture(`n  x_fraction : Double,`n) {}`n" "Floating-point image operations policy found unauthorized Double/to_double token 'Double' in '$fixturePath'."
+  Confirm-ImageFloatingPolicyRejected 'moved conversion form' $fixturePath 'fn fixture() { let x_fraction = remainder_x.to_double() / width.to_double() }' "Floating-point image operations policy found unauthorized Double/to_double token '.to_double(' in '$fixturePath'."
+  Confirm-ImageFloatingPolicyRejected 'wrong y axis' $resizePath ($resizeCanonical.Replace(
+      'let y_fraction = remainder_y.to_double() / height.to_double()',
+      'let y_fraction = remainder_x.to_double() / height.to_double()'
+    )) "Floating-point image operations policy rejects the wrong-axis y fraction in '$resizePath'."
+  Confirm-ImageFloatingPolicyRejected 'wrong x axis' $resizePath ($resizeCanonical.Replace(
+      'let x_fraction = remainder_x.to_double() / width.to_double()',
+      'let x_fraction = remainder_y.to_double() / width.to_double()'
+    )) "Floating-point image operations policy rejects the wrong-axis x fraction in '$resizePath'."
+
+  foreach ($spelling in @('0.5', '1.', '.5', '1e3', '1.0e-3')) {
+    Confirm-ImageFloatingPolicyRejected "literal $spelling" $fixturePath "fn geometry() { let mapped = $spelling }" "Floating-point image operations policy found unauthorized literal '$spelling' in '$fixturePath'."
+  }
+  Confirm-ImageFloatingPolicyRejected 'extra typed-color literal' $processingPath ($processingCanonical + "`nfn extra_color() { let channel = 0.25 }") "Floating-point image operations policy found unauthorized literal '0.25' in '$processingPath'."
+  Confirm-ImageFloatingPolicyRejected 'missing typed-color literal' $processingPath ($processingCanonical.Replace(
+      '  let l = r.value() * 0.2126 + g.value() * 0.7152 + b.value() * 0.0722',
+      ''
+    )) "Floating-point image operations policy expected exactly one 'Rec.709 luminance' form in '$processingPath'; found 0."
+  Confirm-ImageFloatingPolicyRejected 'moved typed-color literal' $fixturePath 'fn color() { let factor = 1.0 - sa }' "Floating-point image operations policy found unauthorized literal '1.0' in '$fixturePath'."
+
+  Assert-ImagePortableProhibitions
+  Assert-ImageQualificationNegativeFixtures
+  Write-Host 'Image floating policy self-test passed.'
+}
+
 function Assert-ImageSourceTextProhibitions {
   [CmdletBinding()]
   param(
@@ -562,8 +766,8 @@ function Assert-ImageSourceTextProhibitions {
   if ($Text -cmatch '(?m)UInt64[^\r\n]*[.]to_int\s*\(') {
     throw "Unchecked UInt64-to-Int narrowing found in '$RelativePath'."
   }
-  if ($RelativePath -like 'modules/mb-image/ops/*' -and $Text -cmatch '(?i)\bDouble\b|[.]to_double\s*\(|\b(?:round|floor|ceil)\s*\(') {
-    throw "Floating-point image operation mapping found in '$RelativePath'."
+  if ($RelativePath -like 'modules/mb-image/ops/*') {
+    Assert-ImageOpsFloatingPolicy -RelativePath $RelativePath -Text $Text
   }
   if ($RelativePath -like 'modules/mb-image/codec/*' -and $Text -cmatch '(?i)\bSeeker\b|https?://|\b(?:path|url|filesystem|registry|global_codec)\b|@(?:fs|http)\b') {
     throw "Host path, URL, registry, filesystem, or seeking policy found in '$RelativePath'."
@@ -572,7 +776,7 @@ function Assert-ImageSourceTextProhibitions {
     throw "Concrete codec implementation found in Phase 4 source '$RelativePath'."
   }
   if ($RelativePath -ceq 'modules/mb-image/storage/owned_image.mbt') {
-    $gate = $Text.IndexOf('require_packed_u8_view(', [System.StringComparison]::Ordinal)
+    $gate = $Text.IndexOf('require_packed_u8_or_u16_view(', [System.StringComparison]::Ordinal)
     $lease = $Text.IndexOf('self.storage.with_mut(', [System.StringComparison]::Ordinal)
     if ($gate -lt 0 -or $lease -lt 0 -or $gate -gt $lease) {
       throw 'OwnedImage mutable planar eligibility must reject before backing lease acquisition.'
@@ -597,7 +801,7 @@ function Assert-ImageReadmeContract {
     'reference operations deliberately accept only packed encoded-sRGB',
     'Invalid or unsupported input consumes no budget',
     'Raw mutable backing is never exposed',
-    'performs no filtering or hidden color conversion',
+    'performs no filtering, interpolation, hidden color conversion',
     'Neither contract requires seeking, paths, URLs, filesystem access, a registry',
     'Phase 5 owns the first bounded PPM P6 implementation',
     'exactly five package-local tables'
@@ -1056,7 +1260,11 @@ if ($CoreNarrowingSelfTest) {
   Invoke-CoreNarrowingSelfTest
   return
 }
+if ($ImageFloatingPolicySelfTest) {
+  Invoke-ImageFloatingPolicySelfTest
+  return
+}
 if (-not $PSBoundParameters.ContainsKey('Lane')) {
-  throw 'Lane is required unless -CoreNarrowingSelfTest is selected.'
+  throw 'Lane is required unless -CoreNarrowingSelfTest or -ImageFloatingPolicySelfTest is selected.'
 }
 Invoke-MoonQuality -Lane $Lane -EvidenceDirectory $EvidenceDirectory
