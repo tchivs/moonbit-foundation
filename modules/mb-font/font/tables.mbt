@@ -197,11 +197,23 @@ fn font_admission_charge(
     Err(error) => return Err(error)
     Ok(value) => value
   }
+  let table_count = directory.tables.length().to_uint64()
+  // Four count-discovery lookups, ten presence lookups, ten table-admission
+  // lookups, and three metric-index lookups each scan at most every record.
+  let lookup_work = match @checked.checked_mul(table_count, 27UL) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  // Profile validation and the per-table checksum loop each visit every table.
+  let table_iteration_work = match @checked.checked_mul(table_count, 2UL) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
   let mut work = directory.work
   for
     count in [
-      glyph_work, cmap_records, name_records, language_records, post_glyph_records,
-      post_name_bytes,
+      lookup_work, table_iteration_work, glyph_work, cmap_records, name_records,
+      language_records, post_glyph_records, post_name_bytes,
     ] {
     work = match @checked.checked_add(work, count) {
       Err(error) => return Err(error)
@@ -216,7 +228,7 @@ fn font_admission_charge(
     Ok(value) => value
   }
   let directory_allocation_size = match
-    font_directory_allocation_size(directory.tables.length().to_uint64()) {
+    font_directory_allocation_size(table_count) {
     Err(error) => return Err(error)
     Ok(value) => value
   }

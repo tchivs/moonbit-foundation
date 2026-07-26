@@ -976,7 +976,19 @@ test "glyph and work ceilings admit exact values and reject one short atomically
   let source_length = source.length().to_uint64()
   let table_count = font_test_read_u16(source, 4)
   let overlap_work = table_count * (table_count - 1UL) / 2UL
-  let exact_work = source_length * 2UL + overlap_work + 18UL
+  let count_driven_work = 8UL
+  let lookup_work = table_count * 27UL
+  let table_iteration_work = table_count * 2UL
+  let exact_work = source_length * 2UL +
+    overlap_work +
+    table_count +
+    lookup_work +
+    table_iteration_work +
+    count_driven_work
+  let discovery_work = source_length * 2UL +
+    overlap_work +
+    table_count +
+    table_count * 4UL
   let directory_allocation_size = table_count * 64UL
   let exact_limits = FontLimits::new(
     max_source_bytes=source_length,
@@ -1039,6 +1051,26 @@ test "glyph and work ceilings admit exact values and reject one short atomically
   let after = narrow_budget.remaining()
   inspect(after.bytes() == before.bytes(), content="true")
   inspect(after.work() == before.work(), content="true")
+
+  let discovery_budget = font_test_budget_with(
+    source_length,
+    discovery_work - 1UL,
+  )
+  let discovery_before = discovery_budget.remaining()
+  let discovery_error = Font::open(
+    font_test_owner(source).view(),
+    exact_limits,
+    discovery_budget,
+  ).unwrap_err()
+  inspect(discovery_error.context() == Some("work"), content="true")
+  inspect(
+    discovery_budget.remaining().bytes() == discovery_before.bytes(),
+    content="true",
+  )
+  inspect(
+    discovery_budget.remaining().work() == discovery_before.work(),
+    content="true",
+  )
 
   let allocation_budget = font_test_budget_with_dimensions(
     source_length,

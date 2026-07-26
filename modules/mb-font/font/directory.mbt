@@ -217,7 +217,18 @@ fn font_directory_discovery_charge(
       ),
     )
   }
-  let work = match font_directory_work(source.length(), num_tables) {
+  let directory_work = match font_directory_work(source.length(), num_tables) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  // Admission discovers four count-bearing required tables before it can form
+  // the final atomic charge. Authorize the worst-case linear scans here so a
+  // budget that cannot afford discovery fails before any of those lookups.
+  let precharge_lookup_work = match @checked.checked_mul(num_tables, 4UL) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  let work = match @checked.checked_add(directory_work, precharge_lookup_work) {
     Err(error) => return Err(error)
     Ok(value) => value
   }
