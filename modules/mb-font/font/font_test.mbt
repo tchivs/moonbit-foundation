@@ -1136,12 +1136,43 @@ test "cmap admission rejects empty aliased unsupported and short subtables" {
     short_format4.push(b'\x00')
   }
 
+  let zero_segments : Array[Byte] = []
+  font_test_push_u16(zero_segments, 0UL)
+  font_test_push_u16(zero_segments, 1UL)
+  font_test_push_u16(zero_segments, 3UL)
+  font_test_push_u16(zero_segments, 1UL)
+  font_test_push_u32(zero_segments, 12UL)
+  font_test_push_u16(zero_segments, 4UL)
+  font_test_push_u16(zero_segments, 16UL)
+  for _index = 0; _index < 12; _index = _index + 1 {
+    zero_segments.push(b'\x00')
+  }
+
+  let odd_segments = zero_segments.copy()
+  odd_segments[18] = b'\x00'
+  odd_segments[19] = b'\x01'
+
+  let missing_format12_group : Array[Byte] = []
+  font_test_push_u16(missing_format12_group, 0UL)
+  font_test_push_u16(missing_format12_group, 1UL)
+  font_test_push_u16(missing_format12_group, 3UL)
+  font_test_push_u16(missing_format12_group, 10UL)
+  font_test_push_u32(missing_format12_group, 12UL)
+  font_test_push_u16(missing_format12_group, 12UL)
+  font_test_push_u16(missing_format12_group, 0UL)
+  font_test_push_u32(missing_format12_group, 16UL)
+  font_test_push_u32(missing_format12_group, 0UL)
+  font_test_push_u32(missing_format12_group, 1UL)
+
   for
     cmap in [
       b"\x00\x00\x00\x00",
       Bytes::from_array(header_alias),
       Bytes::from_array(unsupported),
       Bytes::from_array(short_format4),
+      Bytes::from_array(zero_segments),
+      Bytes::from_array(odd_segments),
+      Bytes::from_array(missing_format12_group),
     ] {
     let error = Font::open(
       font_test_owner(font_test_truetype_with_cmap(cmap)).view(),

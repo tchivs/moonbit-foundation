@@ -492,41 +492,149 @@ fn font_cmap_subtable_length(
     Err(error) => return Err(error)
     Ok(value) => value
   }
-  let (length_offset, minimum) = match format {
+  match format {
     4UL => {
-      let field = match @checked.checked_add(offset, 2UL) {
-        Err(error) => return Err(error)
-        Ok(value) => value
-      }
-      (field, 16UL)
-    }
-    12UL => {
-      if remaining < 8UL {
+      if remaining < 16UL {
         return Err(font_data_error("font-cmap-envelope"))
       }
-      let field = match @checked.checked_add(offset, 4UL) {
+      let length_field = match @checked.checked_add(offset, 2UL) {
         Err(error) => return Err(error)
         Ok(value) => value
       }
-      (field, 16UL)
+      let length = match read_u16(table.view, length_field) {
+        Err(error) => return Err(error)
+        Ok(value) => value
+      }
+      let seg_count_field = match @checked.checked_add(offset, 6UL) {
+        Err(error) => return Err(error)
+        Ok(value) => value
+      }
+      let seg_count_x2 = match read_u16(table.view, seg_count_field) {
+        Err(error) => return Err(error)
+        Ok(value) => value
+      }
+      if seg_count_x2 == 0UL || seg_count_x2 % 2UL != 0UL {
+        return Err(font_data_error("font-cmap-envelope"))
+      }
+      let seg_count = seg_count_x2 / 2UL
+      let arrays_size = match @checked.checked_mul(seg_count, 8UL) {
+        Err(error) => return Err(error)
+        Ok(value) => value
+      }
+      let minimum = match @checked.checked_add(16UL, arrays_size) {
+        Err(error) => return Err(error)
+        Ok(value) => value
+      }
+      if length < minimum || length > remaining || length % 2UL != 0UL {
+        return Err(font_data_error("font-cmap-envelope"))
+      }
+      let code_array_size = match @checked.checked_mul(seg_count, 2UL) {
+        Err(error) => return Err(error)
+        Ok(value) => value
+      }
+      let reserved_delta = match @checked.checked_add(14UL, code_array_size) {
+        Err(error) => return Err(error)
+        Ok(value) => value
+      }
+      let reserved_field = match @checked.checked_add(offset, reserved_delta) {
+        Err(error) => return Err(error)
+        Ok(value) => value
+      }
+      let reserved = match read_u16(table.view, reserved_field) {
+        Err(error) => return Err(error)
+        Ok(value) => value
+      }
+      let final_segment_delta = match
+        @checked.checked_mul(
+          match @checked.checked_sub(seg_count, 1UL) {
+            Err(error) => return Err(error)
+            Ok(value) => value
+          },
+          2UL,
+        ) {
+        Err(error) => return Err(error)
+        Ok(value) => value
+      }
+      let final_end_code = match
+        @checked.checked_add(
+          offset,
+          match @checked.checked_add(14UL, final_segment_delta) {
+            Err(error) => return Err(error)
+            Ok(value) => value
+          },
+        ) {
+        Err(error) => return Err(error)
+        Ok(value) => value
+      }
+      let start_codes = match @checked.checked_add(reserved_field, 2UL) {
+        Err(error) => return Err(error)
+        Ok(value) => value
+      }
+      let final_start_code = match
+        @checked.checked_add(start_codes, final_segment_delta) {
+        Err(error) => return Err(error)
+        Ok(value) => value
+      }
+      let end_sentinel = match read_u16(table.view, final_end_code) {
+        Err(error) => return Err(error)
+        Ok(value) => value
+      }
+      let start_sentinel = match read_u16(table.view, final_start_code) {
+        Err(error) => return Err(error)
+        Ok(value) => value
+      }
+      if reserved != 0UL ||
+        end_sentinel != 0xFFFFUL ||
+        start_sentinel != 0xFFFFUL {
+        return Err(font_data_error("font-cmap-envelope"))
+      }
+      Ok(length)
+    }
+    12UL => {
+      if remaining < 16UL {
+        return Err(font_data_error("font-cmap-envelope"))
+      }
+      let reserved_field = match @checked.checked_add(offset, 2UL) {
+        Err(error) => return Err(error)
+        Ok(value) => value
+      }
+      let reserved = match read_u16(table.view, reserved_field) {
+        Err(error) => return Err(error)
+        Ok(value) => value
+      }
+      if reserved != 0UL {
+        return Err(font_data_error("font-cmap-envelope"))
+      }
+      let length_field = match @checked.checked_add(offset, 4UL) {
+        Err(error) => return Err(error)
+        Ok(value) => value
+      }
+      let length = match read_u32(table.view, length_field) {
+        Err(error) => return Err(error)
+        Ok(value) => value
+      }
+      let groups_field = match @checked.checked_add(offset, 12UL) {
+        Err(error) => return Err(error)
+        Ok(value) => value
+      }
+      let groups = match read_u32(table.view, groups_field) {
+        Err(error) => return Err(error)
+        Ok(value) => value
+      }
+      let group_bytes = match @checked.checked_mul(groups, 12UL) {
+        Err(error) => return Err(error)
+        Ok(value) => value
+      }
+      let expected = match @checked.checked_add(16UL, group_bytes) {
+        Err(error) => return Err(error)
+        Ok(value) => value
+      }
+      if length != expected || length > remaining {
+        return Err(font_data_error("font-cmap-envelope"))
+      }
+      Ok(length)
     }
     _ => return Err(font_data_error("font-cmap-envelope"))
-  }
-  let length = if format == 4UL {
-    match read_u16(table.view, length_offset) {
-      Err(error) => return Err(error)
-      Ok(value) => value
-    }
-  } else {
-    match read_u32(table.view, length_offset) {
-      Err(error) => return Err(error)
-      Ok(value) => value
-    }
-  }
-  if length < minimum {
-    Err(font_data_error("font-cmap-envelope"))
-  } else {
-    Ok(length)
   }
 }
 
