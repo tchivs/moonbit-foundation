@@ -320,7 +320,7 @@ test "lower rect rx=ry=0 stays a sharp path (move + 3 lines + close = 5 cmds)" {
       let list = lower_to_drawing_list(scene)
       match list.get(0) {
         Some(Fill(p, _)) => inspect(p.length(), content="5")
-        _ => fail("expected ellipse fill")
+        _ => fail("expected sharp rectangle fill")
       }
     }
     Err(_) => inspect("err", content="ok")
