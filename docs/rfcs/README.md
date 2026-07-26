@@ -2,11 +2,11 @@
 
 Architectural proposals and governance records for MoonBit Native Foundation.
 
-The [RFC process](../governance/rfc-process.md) defines lifecycle, review authority, evidence, and the changes that require an accepted RFC. Repository history and each RFC's transition ledger are the authoritative transition record.
+The [RFC process](../governance/rfc-process.md) defines lifecycle, review evidence, and the changes that require a Proposed RFC. Repository history and each RFC's transition ledger are the authoritative transition record.
 
 ## Status
 
-All RFCs are at **Proposed** status. The lifecycle is `Draft -> Proposed`; a Proposed RFC is reviewable and sufficient to guide implementation. The acceptance machinery this index previously described (authority routes, seven-day public-review windows, mandatory edge reviews) was removed on 2026-07-23 as disproportionate for a sole-owner project. The [historical acceptance records](../governance/decisions/) are retained as accurate history.
+RFC 0001 is **Accepted**; RFCs 0002-0008 are **Proposed**. For new RFCs, the lifecycle is `Draft -> Proposed`, and a Proposed RFC is reviewable and sufficient to guide implementation. The acceptance machinery this index previously described (authority routes, seven-day public-review windows, mandatory edge reviews) was removed for new RFCs on 2026-07-23 as disproportionate for a sole-owner project. RFC 0001 retains its already-evidenced 2026-07-17 Accepted state rather than receiving a new authorization; its [decision record](../governance/decisions/0001-sole-owner-bootstrap.md) remains the evidence.
 
 ## Scope
 
@@ -16,7 +16,7 @@ RFCs govern architectural layers, module responsibilities, public dependency dir
 
 | RFC | Title | Status | Scope |
 |---|---|---|---|
-| [RFC 0001](0001-moonbit-native-foundation.md) | MoonBit Native Foundation | Proposed | Canonical foundation charter and v0.1 architecture |
+| [RFC 0001](0001-moonbit-native-foundation.md) | MoonBit Native Foundation | Accepted | Canonical foundation charter and v0.1 architecture |
 | [RFC 0002](0002-mb-svg.md) | mb-svg Charter | Proposed | Document and Scene Layer SVG module charter, bounded v0.x subset, and rasterization-seam resolution |
 | [RFC 0003](0003-mb-canvas.md) | mb-canvas Charter | Proposed | Graphics Layer drawing-list and portable rasterization charter, compositing-delegation boundary, and v0.x scope |
 | [RFC 0004](0004-mb-font.md) | mb-font Charter | Proposed | Document and Scene Layer font-binary parsing and glyph outline/metrics charter, font-versus-rasterization boundary, and v0.x scope |
@@ -27,8 +27,8 @@ RFCs govern architectural layers, module responsibilities, public dependency dir
 
 ## Lifecycle
 
-The lifecycle is `Draft -> Proposed`. A Proposed RFC is reviewable and sufficient to proceed with the changes it describes. `Rejected` and `Superseded` are terminal states.
+For new RFCs, the lifecycle is `Draft -> Proposed`. A Proposed RFC is reviewable and sufficient to proceed with the changes it describes. `Rejected` and `Superseded` are terminal states. RFC 0001 retains its evidence-backed Accepted status as the canonical foundation charter.
 
 ## Next step
 
-Implement and qualify [RFC 0001](0001-moonbit-native-foundation.md) and the proposed module charters under the [normative RFC process](../governance/rfc-process.md). New modules, public dependency-direction changes, and breaking boundary changes require a Proposed RFC before implementation may merge.
+Implement and qualify accepted [RFC 0001](0001-moonbit-native-foundation.md) and the proposed module charters under the [normative RFC process](../governance/rfc-process.md). New modules, public dependency-direction changes, and breaking boundary changes require a Proposed RFC before implementation may merge.

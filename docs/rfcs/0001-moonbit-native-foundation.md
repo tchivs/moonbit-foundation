@@ -1,13 +1,13 @@
 # RFC 0001: MoonBit Native Foundation
 
-- **Status:** Proposed
+- **Status:** Accepted
 - **Authors:** MNF contributors
 - **Created:** 2026-07-16
 - **Target:** Foundation charter and v0.1 architecture
 - **Discussion:** To be established
 - **Normative process:** [RFC process](../governance/rfc-process.md)
 
-> **Note on governance history.** This RFC was originally `Accepted` on 2026-07-17 via the `sole-project-owner-bootstrap` route (see [Decision 0001](../governance/decisions/0001-sole-owner-bootstrap.md) for the historical record). On 2026-07-23 the project owner simplified the RFC process: the acceptance machinery (authority routes, seven-day public-review windows, mandatory edge reviews, maintainer approvals) was removed as disproportionate for a sole-owner project. The lifecycle is now `Draft -> Proposed`, with a Proposed RFC sufficient to proceed (see §11 and the [RFC process](../governance/rfc-process.md)). This RFC's status returns to `Proposed` under the simplified process; it remains the in-force foundation charter. The original acceptance evidence is retained as a historical record, not as a live authority route.
+> **Note on governance history.** This RFC was accepted on 2026-07-17 via the `sole-project-owner-bootstrap` route recorded in [Decision 0001](../governance/decisions/0001-sole-owner-bootstrap.md), including its owner-instruction and completed edge-review evidence. On 2026-07-23 the project owner simplified the process for new RFCs: the acceptance machinery (authority routes, seven-day public-review windows, mandatory edge reviews, maintainer approvals) was removed as disproportionate for a sole-owner project, and a Proposed RFC became sufficient to proceed (see §11 and the [RFC process](../governance/rfc-process.md)). That simplification did not reverse RFC 0001's evidenced transition or re-authorize it; this canonical charter retains its already-evidenced `Accepted` state.
 
 ## Transition history
 
@@ -15,10 +15,9 @@
 |---|---|---|
 | — | Draft | Initial RFC in repository history |
 | Draft | Proposed | This revision makes the charter reviewable; repository history is the transition record |
-| Proposed | Accepted | Historical (2026-07-17): docs/governance/decisions/0001-sole-owner-bootstrap.md — superseded by the row below |
-| Accepted | Proposed | 2026-07-23 governance simplification: the acceptance machinery was removed from the RFC process; this RFC returns to Proposed as the in-force foundation charter under the simplified lifecycle |
+| Proposed | Accepted | docs/governance/decisions/0001-sole-owner-bootstrap.md#owner-instruction; docs/governance/decisions/0001-sole-owner-bootstrap.md#edge-review-results |
 
-Under the simplified process the lifecycle is `Draft -> Proposed`. A transition to `Superseded` (by a replacement RFC) or `Rejected` remains available. The intermediate historical `Accepted` state is retained in this ledger as an accurate record but is no longer a live status in the process.
+For new RFCs, the simplified process uses `Draft -> Proposed`, and a Proposed RFC is sufficient to proceed. A transition to `Superseded` (by a replacement RFC) or `Rejected` remains available. RFC 0001 retains the current `Accepted` state established by the evidence above; no `Accepted -> Proposed` reversal occurred.
 
 ## 1. Abstract
 
@@ -179,11 +178,11 @@ Implementation PRs may refine internals within an established boundary, but they
 
 ## 12. Lifecycle
 
-The lifecycle is `Draft -> Proposed`. A Proposed RFC is reviewable and sufficient to proceed with implementation. `Rejected` and `Superseded` are terminal states available when a proposal is withdrawn or replaced by another RFC.
+For new RFCs, the lifecycle is `Draft -> Proposed`. A Proposed RFC is reviewable and sufficient to proceed with implementation. `Rejected` and `Superseded` are terminal states available when a proposal is withdrawn or replaced by another RFC. RFC 0001 retains its already-evidenced `Accepted` status from 2026-07-17; this retention records the existing transition and does not create a new approval.
 
 Every transition must be recorded in the RFC header's transition ledger and repository history. The [RFC process](../governance/rfc-process.md) defines the transition mechanics.
 
-> **Historical note.** This section previously defined a `Draft -> Proposed -> Accepted -> Implemented` lifecycle with three acceptance authority routes (maintainer approval, project-lead public review, and sole-project-owner bootstrap). That machinery was removed on 2026-07-23 as disproportionate for a sole-owner project. The original acceptance records are retained in [Decision 0001](../governance/decisions/0001-sole-owner-bootstrap.md) and the edge-review files as historical artifacts.
+> **Historical note.** This section previously defined a `Draft -> Proposed -> Accepted -> Implemented` lifecycle with three acceptance authority routes (maintainer approval, project-lead public review, and sole-project-owner bootstrap). That machinery was removed for new RFCs on 2026-07-23 as disproportionate for a sole-owner project. RFC 0001's completed acceptance records remain the evidence for its retained status in [Decision 0001](../governance/decisions/0001-sole-owner-bootstrap.md) and the edge-review files.
 
 ## 13. References
 

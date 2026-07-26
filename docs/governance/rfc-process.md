@@ -23,7 +23,7 @@ The lifecycle is `Draft -> Proposed`. `Rejected` and `Superseded` are terminal s
 
 Every transition MUST update the RFC header's status and transition ledger in the same change. Repository history records the change.
 
-> **Historical note.** This process previously defined `Accepted` and `Implemented` states with three acceptance authority routes (maintainer, project-lead public-review, sole-project-owner-bootstrap). Those were removed on 2026-07-23 as disproportionate for a sole-owner project. The historical acceptance and edge-review records under `docs/governance/decisions/` are retained as accurate history, not as live process requirements.
+> **Historical note.** This process previously defined `Accepted` and `Implemented` states with three acceptance authority routes (maintainer, project-lead public-review, sole-project-owner-bootstrap). Under that policy, the public review location and evidenced interval for the `project-lead-public-review` route were bound only to that route. Those routes were removed for new RFCs on 2026-07-23 as disproportionate for a sole-owner project. RFC 0001 completed and dispositioned both checks; the canonical evidence remains its [edge-review results](decisions/0001-sole-owner-bootstrap.md#edge-review-results). Its already-evidenced Accepted state is retained rather than re-authorized, while new RFCs follow the simplified process above.
 
 ## 3. Proposal and review
 
