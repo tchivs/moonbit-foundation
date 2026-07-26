@@ -7,15 +7,9 @@ test "utf8 encode produces correct byte sequences" {
   // 2-byte: U+00E9 ('é') -> C3 A9
   assert_eq(utf8_encode([0xe9]).unwrap(), b"\xc3\xa9".to_array())
   // 3-byte: U+4E2D ('中') -> E4 B8 AD
-  assert_eq(
-    utf8_encode([0x4e2d]).unwrap(),
-    b"\xe4\xb8\xad".to_array(),
-  )
+  assert_eq(utf8_encode([0x4e2d]).unwrap(), b"\xe4\xb8\xad".to_array())
   // 4-byte: U+1F600 -> F0 9F 98 80
-  assert_eq(
-    utf8_encode([0x1f600]).unwrap(),
-    b"\xf0\x9f\x98\x80".to_array(),
-  )
+  assert_eq(utf8_encode([0x1f600]).unwrap(), b"\xf0\x9f\x98\x80".to_array())
   // Empty
   assert_eq(utf8_encode([]).unwrap(), b"".to_array())
 }

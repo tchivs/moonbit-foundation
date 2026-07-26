@@ -36,16 +36,14 @@ pub fn render(
 // PushLayer it allocates an offscreen, recurses into the offscreen's
 // with_mut_view, then composites the result back. Layer nesting is capped at
 // max_layer_depth (16).
+
+///|
 fn render_into(
   list : DrawingList,
   view : @storage.MutImageView,
   budget : @budget.Budget,
 ) -> Result[Unit, @error.CoreError] {
-  let ctx : RenderCtx = {
-    list: list,
-    budget: budget,
-    layer_depth: 0,
-  }
+  let ctx : RenderCtx = { list, budget, layer_depth: 0 }
   match render_segment(ctx, 0, view, @math.Affine2::identity(), None) {
     Err(e) => Err(e)
     Ok(_) => Ok(())
@@ -53,6 +51,8 @@ fn render_into(
 }
 
 // Immutable render context shared across the recursion.
+
+///|
 priv struct RenderCtx {
   list : DrawingList
   budget : @budget.Budget
@@ -64,6 +64,8 @@ priv struct RenderCtx {
 // Returns the index just past the consumed segment (i.e. past the matching
 // PopLayer, or list length at end). The returned index is used by the caller
 // (a PushLayer frame) to continue processing sibling ops.
+
+///|
 fn render_segment(
   ctx : RenderCtx,
   start_idx : Int,
@@ -81,9 +83,7 @@ fn render_segment(
   let mut i = start_idx
   while i < ctx.list.length() {
     match ctx.list.get(i) {
-      None => {
-        i = i + 1
-      }
+      None => i = i + 1
       Some(op) =>
         match op {
           DrawOp::PushTransform(t) => {
@@ -108,17 +108,17 @@ fn render_segment(
             clip = recompute_clip(clip_stack, current)
             i = i + 1
           }
-          DrawOp::PopLayer => {
+          DrawOp::PopLayer =>
             // End of this segment (matched the PushLayer that spawned it, or an
             // unbalanced PopLayer at top level which is a no-op terminator).
             return Ok(i + 1)
-          }
           DrawOp::PushLayer(opacity) => {
             if ctx.layer_depth >= MAX_LAYER_DEPTH {
-              return Err(raster_error(
-                "canvas-layer-depth",
-                "layer nesting depth exceeded",
-              ))
+              return Err(
+                raster_error(
+                  "canvas-layer-depth", "layer nesting depth exceeded",
+                ),
+              )
             }
             ctx.layer_depth = ctx.layer_depth + 1
             // Allocate the offscreen; recurse into its with_mut_view to render
@@ -133,13 +133,11 @@ fn render_segment(
                 ctx.layer_depth = ctx.layer_depth - 1
                 match recurse_result {
                   Err(e) => return Err(e)
-                  Ok(next_idx) => {
+                  Ok(next_idx) =>
                     // Composite the offscreen onto the current (parent) view.
-                    match composite_offscreen_onto(
-                        offscreen,
-                        view,
-                        is_rgba,
-                        layer_opacity,
+                    match
+                      composite_offscreen_onto(
+                        offscreen, view, is_rgba, layer_opacity,
                       ) {
                       Err(e) => return Err(e)
                       Ok(_) => {
@@ -147,7 +145,6 @@ fn render_segment(
                         ()
                       }
                     }
-                  }
                 }
               }
             }
@@ -155,14 +152,9 @@ fn render_segment(
           DrawOp::Fill(path, style) => {
             let transformed = current.apply_to_path(path)
             let segments = transformed.flattened(0.1, 64)
-            match rasterize_fill(
-                segments,
-                style,
-                clip,
-                width,
-                height,
-                is_rgba,
-                view,
+            match
+              rasterize_fill(
+                segments, style, clip, width, height, is_rgba, view,
               ) {
               Err(e) => return Err(e)
               Ok(_) => ()
@@ -183,14 +175,9 @@ fn render_segment(
               color_a: color.color_a,
               rule: FillRule::EvenOdd,
             }
-            match rasterize_fill(
-                segments,
-                stroke_style,
-                clip,
-                width,
-                height,
-                is_rgba,
-                view,
+            match
+              rasterize_fill(
+                segments, stroke_style, clip, width, height, is_rgba, view,
               ) {
               Err(e) => return Err(e)
               Ok(_) => ()
@@ -206,11 +193,15 @@ fn render_segment(
 // Maximum raster-layer nesting depth (RFC 0008 §7). Each layer holds a
 // full-target RGBA8 offscreen, so 16 bounds worst-case offscreen memory to
 // 16×(w×h×4) bytes while far exceeding real SVG group-nesting depth.
+
+///|
 const MAX_LAYER_DEPTH : Int = 16
 
 // Allocate a transparent RGBA8 offscreen of the given dimensions, charging the
 // budget. Returns the owning OwnedImage (all pixels transparent). The descriptor
 // construction mirrors the mb-canvas render test helper pattern.
+
+///|
 fn alloc_transparent_offscreen(
   width : UInt64,
   height : UInt64,
@@ -280,6 +271,8 @@ fn alloc_transparent_offscreen(
 // MutImageView with source-over, scaling the source alpha by the layer
 // opacity. Walks pixel-by-pixel reusing the same porter_duff path as
 // composite_pixel (RFC 0008 §5).
+
+///|
 fn composite_offscreen_onto(
   offscreen : @storage.OwnedImage,
   dst : @storage.MutImageView,
@@ -360,6 +353,8 @@ fn composite_offscreen_onto(
 }
 
 // Construct a raster-layer CoreError.
+
+///|
 fn raster_error(context : String, message : String) -> @error.CoreError {
   @error.CoreError::new(
     @error.ErrorCategory::Resource,
@@ -371,6 +366,8 @@ fn raster_error(context : String, message : String) -> @error.CoreError {
 
 // Rasterize a single fill: for each pixel in the bounding box (clipped), compute
 // coverage and source-over composite the fill color into the view.
+
+///|
 fn rasterize_fill(
   segments : Array[@math.LineSegment],
   style : FillStyle,
@@ -405,11 +402,28 @@ fn rasterize_fill(
     let fy = py.to_double()
     for px = x_start; px <= x_end; px = px + 1 {
       let fx = px.to_double()
-      let coverage = pixel_coverage(segments, style.rule, fx, fy, default_samples)
+      let coverage = pixel_coverage(
+        segments,
+        style.rule,
+        fx,
+        fy,
+        default_samples,
+      )
       if coverage <= 0.0 {
         continue
       }
-      match composite_pixel(view, px, py, is_rgba, style.color_r, style.color_g, style.color_b, style.color_a, coverage) {
+      match
+        composite_pixel(
+          view,
+          px,
+          py,
+          is_rgba,
+          style.color_r,
+          style.color_g,
+          style.color_b,
+          style.color_a,
+          coverage,
+        ) {
         Err(e) => return Err(e)
         Ok(_) => ()
       }
@@ -419,6 +433,8 @@ fn rasterize_fill(
 }
 
 // Source-over composite a source color (modulated by coverage) into a pixel.
+
+///|
 fn composite_pixel(
   view : @storage.MutImageView,
   px : UInt64,
@@ -473,6 +489,8 @@ fn composite_pixel(
 }
 
 // Write a normalized-sRGB color (with straight alpha) into a pixel via set_byte.
+
+///|
 fn write_color(
   view : @storage.MutImageView,
   px : UInt64,
@@ -510,14 +528,10 @@ fn write_color(
 
 // Quantize a normalized-sRGB component in [0,1] to a byte via mb-color, with a
 // fast clamp for out-of-range values.
+
+///|
 fn quantize_byte(v : Double) -> Byte {
-  let clamped = if v < 0.0 {
-    0.0
-  } else if v > 1.0 {
-    1.0
-  } else {
-    v
-  }
+  let clamped = if v < 0.0 { 0.0 } else if v > 1.0 { 1.0 } else { v }
   match @color.EncodedSrgbComponent::new(clamped) {
     Ok(c) => @quantize.quantize_encoded_srgb(c).value()
     Err(_) => b'\x00'
@@ -525,6 +539,8 @@ fn quantize_byte(v : Double) -> Byte {
 }
 
 // Axis-aligned bounding box of a set of line segments.
+
+///|
 fn path_bounds(segments : Array[@math.LineSegment]) -> @math.Rect2? {
   if segments.is_empty() {
     return None
@@ -544,6 +560,7 @@ fn path_bounds(segments : Array[@math.LineSegment]) -> @math.Rect2? {
   Some(@math.Rect2::new(min_x, min_y, max_x - min_x, max_y - min_y))
 }
 
+///|
 fn min_f(a : Double, b : Double) -> Double {
   if a < b {
     a
@@ -552,6 +569,7 @@ fn min_f(a : Double, b : Double) -> Double {
   }
 }
 
+///|
 fn max_f(a : Double, b : Double) -> Double {
   if a > b {
     a
@@ -561,12 +579,14 @@ fn max_f(a : Double, b : Double) -> Double {
 }
 
 // Clamp a device coordinate to the integer pixel range [0, limit-1].
+
+///|
 fn clamp_pixel(coord : Double, limit : UInt64) -> UInt64 {
   let mut i = coord.floor().to_int()
   if i < 0 {
     i = 0
   }
-  let lim = (limit.to_int()) - 1
+  let lim = limit.to_int() - 1
   if i > lim {
     i = lim
   }
@@ -575,16 +595,26 @@ fn clamp_pixel(coord : Double, limit : UInt64) -> UInt64 {
 
 // Transform a user-space clip rect to device space and intersect with the
 // current effective clip.
+
+///|
 fn transform_and_intersect_clip(
   current_clip : @math.Rect2?,
   user_rect : @math.Rect2,
   transform : @math.Affine2,
 ) -> @math.Rect2 {
   // Transform the four corners and take the axis-aligned bounding box.
-  let c0 = transform.apply(@math.Point2::new(user_rect.min_x(), user_rect.min_y()))
-  let c1 = transform.apply(@math.Point2::new(user_rect.max_x(), user_rect.min_y()))
-  let c2 = transform.apply(@math.Point2::new(user_rect.max_x(), user_rect.max_y()))
-  let c3 = transform.apply(@math.Point2::new(user_rect.min_x(), user_rect.max_y()))
+  let c0 = transform.apply(
+    @math.Point2::new(user_rect.min_x(), user_rect.min_y()),
+  )
+  let c1 = transform.apply(
+    @math.Point2::new(user_rect.max_x(), user_rect.min_y()),
+  )
+  let c2 = transform.apply(
+    @math.Point2::new(user_rect.max_x(), user_rect.max_y()),
+  )
+  let c3 = transform.apply(
+    @math.Point2::new(user_rect.min_x(), user_rect.max_y()),
+  )
   let min_x = min_f(min_f(c0.x(), c1.x()), min_f(c2.x(), c3.x()))
   let max_x = max_f(max_f(c0.x(), c1.x()), max_f(c2.x(), c3.x()))
   let min_y = min_f(min_f(c0.y(), c1.y()), min_f(c2.y(), c3.y()))
@@ -597,6 +627,8 @@ fn transform_and_intersect_clip(
 }
 
 // Recompute the effective clip by transforming and intersecting the whole stack.
+
+///|
 fn recompute_clip(
   stack : Array[@math.Rect2],
   transform : @math.Affine2,

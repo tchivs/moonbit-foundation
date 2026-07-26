@@ -12,20 +12,25 @@
 // Image / budget scaffolding (mirrors mb-canvas/canvas/render_wbtest.mbt)
 // ---------------------------------------------------------------------------
 
+///|
 fn demo_budget(bytes : UInt64, work : UInt64) -> @budget.Budget {
-  @budget.Budget::new(@budget.ResourceLimits::new(
-    bytes~,
-    allocations=1UL,
-    allocation_size=bytes,
-    width=16UL,
-    height=16UL,
-    pixels=256UL,
-    depth=0UL,
-    work~,
-  ))
+  @budget.Budget::new(
+    @budget.ResourceLimits::new(
+      bytes~,
+      allocations=1UL,
+      allocation_size=bytes,
+      width=16UL,
+      height=16UL,
+      pixels=256UL,
+      depth=0UL,
+      work~,
+    ),
+  )
 }
 
 // A solid RGBA8 test image of the given size filled with (r,g,b,a) bytes.
+
+///|
 fn demo_solid(
   width : UInt64,
   height : UInt64,
@@ -87,6 +92,8 @@ fn demo_solid(
 }
 
 // Read the 4 channels of a pixel from an owned image's immutable view.
+
+///|
 fn demo_pixel(
   image : @storage.OwnedImage,
   x : UInt64,
@@ -104,6 +111,7 @@ fn demo_pixel(
 // End-to-end: SVG → DrawingList → rendered RGBA8 pixels
 // ---------------------------------------------------------------------------
 
+///|
 fn run_case(
   label : String,
   svg_source : String,
@@ -142,27 +150,27 @@ fn run_case(
   if got != expected_inside {
     println(
       label +
-        ": FAIL (pixel (" +
-        px.to_string() +
-        "," +
-        py.to_string() +
-        ") = " +
-        got.0.to_string() +
-        "," +
-        got.1.to_string() +
-        "," +
-        got.2.to_string() +
-        "," +
-        got.3.to_string() +
-        ", expected " +
-        expected_inside.0.to_string() +
-        "," +
-        expected_inside.1.to_string() +
-        "," +
-        expected_inside.2.to_string() +
-        "," +
-        expected_inside.3.to_string() +
-        ")",
+      ": FAIL (pixel (" +
+      px.to_string() +
+      "," +
+      py.to_string() +
+      ") = " +
+      got.0.to_string() +
+      "," +
+      got.1.to_string() +
+      "," +
+      got.2.to_string() +
+      "," +
+      got.3.to_string() +
+      ", expected " +
+      expected_inside.0.to_string() +
+      "," +
+      expected_inside.1.to_string() +
+      "," +
+      expected_inside.2.to_string() +
+      "," +
+      expected_inside.3.to_string() +
+      ")",
     )
     return false
   }
@@ -173,6 +181,8 @@ fn run_case(
 // Like run_case but renders onto a caller-specified opaque background instead
 // of a transparent one. Used for opacity-compositing cases where the result
 // depends on source-over blending against the backdrop.
+
+///|
 fn run_case_on_bg(
   label : String,
   svg_source : String,
@@ -214,25 +224,11 @@ fn run_case_on_bg(
   if !invariant_ok {
     println(
       label +
-        ": FAIL (pixel (" +
-        px.to_string() +
-        "," +
-        py.to_string() +
-        ") = " +
-        got.0.to_string() +
-        "," +
-        got.1.to_string() +
-        "," +
-        got.2.to_string() +
-        "," +
-        got.3.to_string() +
-        "; expected pink a=255, g==b in (0,255))",
-    )
-    return false
-  }
-  println(
-    label +
-      ": OK (pixel " +
+      ": FAIL (pixel (" +
+      px.to_string() +
+      "," +
+      py.to_string() +
+      ") = " +
       got.0.to_string() +
       "," +
       got.1.to_string() +
@@ -240,11 +236,26 @@ fn run_case_on_bg(
       got.2.to_string() +
       "," +
       got.3.to_string() +
-      ")",
+      "; expected pink a=255, g==b in (0,255))",
+    )
+    return false
+  }
+  println(
+    label +
+    ": OK (pixel " +
+    got.0.to_string() +
+    "," +
+    got.1.to_string() +
+    "," +
+    got.2.to_string() +
+    "," +
+    got.3.to_string() +
+    ")",
   )
   true
 }
 
+///|
 fn main {
   // Case 1: a red rectangle covering the whole 8×8 image. Every pixel should
   // be opaque red (255,0,0,255).
@@ -268,7 +279,10 @@ fn main {
   )
   // Verify the exterior pixel of case 2 explicitly.
   let image2 = demo_solid(8UL, 8UL, b'\x00', b'\x00', b'\x00', b'\x00')
-  match @svg.parse_svg("<svg><rect x=\"2\" y=\"2\" width=\"4\" height=\"4\" fill=\"blue\"/></svg>") {
+  match
+    @svg.parse_svg(
+      "<svg><rect x=\"2\" y=\"2\" width=\"4\" height=\"4\" fill=\"blue\"/></svg>",
+    ) {
     Ok(scene) => {
       let list = @svg.lower_to_drawing_list(scene)
       let _ = @canvas.render(list, image2, demo_budget(65536UL, 65536UL))

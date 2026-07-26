@@ -67,12 +67,14 @@ test "parse_path_data accepts compact sign-separated coordinates" {
   match parse_path_data("M0-10L5-3") {
     Ok(path) =>
       match (path.to_path2().get(0), path.to_path2().get(1)) {
-        (Some(@math.PathCommand::MoveTo(start)), Some(@math.PathCommand::LineTo(end))) => {
+        (
+          Some(@math.PathCommand::MoveTo(start)),
+          Some(@math.PathCommand::LineTo(end)),
+        ) =>
           assert_eq(
             (start.x(), start.y(), end.x(), end.y()),
             (0.0, -10.0, 5.0, -3.0),
           )
-        }
         _ => inspect(false, content="true")
       }
     Err(_) => inspect(false, content="true")
@@ -83,7 +85,10 @@ test "parse_path_data accepts compact sign-separated coordinates" {
     Ok(path) =>
       match path.to_path2().get(0) {
         Some(@math.PathCommand::MoveTo(point)) =>
-          inspect((point.x() - 0.001).abs() < 1.0e-12 && point.y() == -2.0, content="true")
+          inspect(
+            (point.x() - 0.001).abs() < 1.0e-12 && point.y() == -2.0,
+            content="true",
+          )
         _ => inspect(false, content="true")
       }
     Err(_) => inspect(false, content="true")
@@ -100,17 +105,34 @@ test "parse_path_data arc approximated as line" {
 }
 
 ///|
-fn direct_relative_path_cases() -> Array[(String, String, Int, (Double, Double, Double, Double, Double, Double))] {
+fn direct_relative_path_cases() -> Array[
+  (String, String, Int, (Double, Double, Double, Double, Double, Double)),
+] {
   [
     // A second relative move proves that `m` composes with its current point.
     ("m", "m 65535 65535 m 1 1", 1, (65536.0, 65536.0, 0.0, 0.0, 0.0, 0.0)),
     ("l", "M 65535 65535 l 1 1", 1, (65536.0, 65536.0, 0.0, 0.0, 0.0, 0.0)),
     ("h", "M 65535 65535 h 1", 1, (65536.0, 65535.0, 0.0, 0.0, 0.0, 0.0)),
     ("v", "M 65535 65535 v 1", 1, (65535.0, 65536.0, 0.0, 0.0, 0.0, 0.0)),
-    ("c", "M 65535 65535 c 1 0 0 1 1 1", 1, (65536.0, 65535.0, 65535.0, 65536.0, 65536.0, 65536.0)),
-    ("q", "M 65535 65535 q 1 0 1 1", 1, (65536.0, 65535.0, 65536.0, 65536.0, 0.0, 0.0)),
+    (
+      "c",
+      "M 65535 65535 c 1 0 0 1 1 1",
+      1,
+      (65536.0, 65535.0, 65535.0, 65536.0, 65536.0, 65536.0),
+    ),
+    (
+      "q",
+      "M 65535 65535 q 1 0 1 1",
+      1,
+      (65536.0, 65535.0, 65536.0, 65536.0, 0.0, 0.0),
+    ),
     // `a` is currently represented by its relative endpoint as a line segment.
-    ("a", "M 65535 65535 a 1 2 3 0 1 1 1", 1, (65536.0, 65536.0, 0.0, 0.0, 0.0, 0.0)),
+    (
+      "a",
+      "M 65535 65535 a 1 2 3 0 1 1 1",
+      1,
+      (65536.0, 65536.0, 0.0, 0.0, 0.0, 0.0),
+    ),
   ]
 }
 
@@ -129,16 +151,22 @@ fn direct_relative_case_matches(
           route == "m" && point.x() == x1 && point.y() == y1
         Some(@math.PathCommand::LineTo(point)) =>
           (route == "l" || route == "h" || route == "v" || route == "a") &&
-          point.x() == x1 && point.y() == y1
+          point.x() == x1 &&
+          point.y() == y1
         Some(@math.PathCommand::CubicTo(cp1, cp2, endpoint)) =>
           route == "c" &&
-          cp1.x() == x1 && cp1.y() == y1 &&
-          cp2.x() == x2 && cp2.y() == y2 &&
-          endpoint.x() == x3 && endpoint.y() == y3
+          cp1.x() == x1 &&
+          cp1.y() == y1 &&
+          cp2.x() == x2 &&
+          cp2.y() == y2 &&
+          endpoint.x() == x3 &&
+          endpoint.y() == y3
         Some(@math.PathCommand::QuadTo(control, endpoint)) =>
           route == "q" &&
-          control.x() == x1 && control.y() == y1 &&
-          endpoint.x() == x2 && endpoint.y() == y2
+          control.x() == x1 &&
+          control.y() == y1 &&
+          endpoint.x() == x2 &&
+          endpoint.y() == y2
         _ => false
       }
     Err(_) => false
@@ -151,7 +179,10 @@ test "numeric contract: supported direct path routes" {
   // Smooth S/s and T/t argument admission, reflected-control derivation, and
   // relative smooth-coordinate results are unsupported pending Phase 92 parser
   // normalization; this tracer makes no coverage claim for those routes.
-  match parse_path_data("M -65536 -65536 L 65536 -65536 H 65536 V 65536 C 1 2 3 4 5 6 Q 7 8 9 10 A 17 18 0 0 1 65536 65536 Z") {
+  match
+    parse_path_data(
+      "M -65536 -65536 L 65536 -65536 H 65536 V 65536 C 1 2 3 4 5 6 Q 7 8 9 10 A 17 18 0 0 1 65536 65536 Z",
+    ) {
     Ok(path) => inspect(path.to_path2().length(), content="8")
     Err(_) => inspect(false, content="true")
   }
@@ -179,14 +210,8 @@ test "numeric contract: every direct relative path route" {
 ///|
 test "path numeric admission rejects malformed and unsafe command groups" {
   let cases = [
-    "M 0 nope",
-    "M 0,,0",
-    "M 0 0 L 1e999 0",
-    "M 65536 0 l 1 0",
-    "M 0 0 A 1 1 0 0 1 65536 0 a 1 1 0 0 1 1 0",
-    "M 0 0 C 1 2 3 4 5",
-    "M 0 0 S 1 2 3",
-    "M 0 0 T 1",
+    "M 0 nope", "M 0,,0", "M 0 0 L 1e999 0", "M 65536 0 l 1 0", "M 0 0 A 1 1 0 0 1 65536 0 a 1 1 0 0 1 1 0",
+    "M 0 0 C 1 2 3 4 5", "M 0 0 S 1 2 3", "M 0 0 T 1",
   ]
   let mut accepted = 0
   for data in cases {
@@ -200,12 +225,18 @@ test "path numeric admission rejects malformed and unsafe command groups" {
 
 ///|
 test "path smooth commands use exact arity and compatible reflection" {
-  match parse_path_data("M 10 10 C 11 12 13 14 15 16 S 17 18 19 20 Q 21 22 23 24 T 25 26") {
+  match
+    parse_path_data(
+      "M 10 10 C 11 12 13 14 15 16 S 17 18 19 20 Q 21 22 23 24 T 25 26",
+    ) {
     Ok(path) => {
       let commands = path.to_path2()
       inspect(commands.length(), content="5")
       match (commands.get(2), commands.get(4)) {
-        (Some(@math.PathCommand::CubicTo(cp1, cp2, endpoint)), Some(@math.PathCommand::QuadTo(control, quad_endpoint))) => {
+        (
+          Some(@math.PathCommand::CubicTo(cp1, cp2, endpoint)),
+          Some(@math.PathCommand::QuadTo(control, quad_endpoint)),
+        ) => {
           assert_eq(
             (cp1.x(), cp1.y(), cp2.x(), cp2.y(), endpoint.x(), endpoint.y()),
             (17.0, 18.0, 17.0, 18.0, 19.0, 20.0),
@@ -236,12 +267,11 @@ test "path close restores subpath current point and clears reflections" {
   match parse_path_data("M 0 0 C 1 0 2 0 3 0 Z s 1 0 2 0") {
     Ok(path) =>
       match path.to_path2().get(3) {
-        Some(@math.PathCommand::CubicTo(cp1, cp2, endpoint)) => {
+        Some(@math.PathCommand::CubicTo(cp1, cp2, endpoint)) =>
           assert_eq(
             (cp1.x(), cp1.y(), cp2.x(), cp2.y(), endpoint.x(), endpoint.y()),
             (0.0, 0.0, 1.0, 0.0, 2.0, 0.0),
           )
-        }
         _ => inspect(false, content="true")
       }
     Err(_) => inspect(false, content="true")
@@ -254,7 +284,10 @@ test "path close rejects following scalars as numeric source" {
     match parse_path_data(data) {
       Ok(_) => inspect(false, content="true")
       Err(error) => {
-        inspect(error.code() == @error.ErrorCode::InvalidEncoding, content="true")
+        inspect(
+          error.code() == @error.ErrorCode::InvalidEncoding,
+          content="true",
+        )
         inspect(error.context() == Some("svg-numeric-source"), content="true")
       }
     }

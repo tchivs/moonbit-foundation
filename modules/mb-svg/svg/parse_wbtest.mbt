@@ -1,14 +1,21 @@
 // White-box tests for color and length parsing. Results are unwrapped before
 // inspect because CoreError does not implement Show.
 
-fn unwrap_rgb(r : Result[(Double, Double, Double), @error.CoreError]) -> (Double, Double, Double) {
+///|
+fn unwrap_rgb(
+  r : Result[(Double, Double, Double), @error.CoreError],
+) -> (Double, Double, Double) {
   match r {
     Ok(v) => v
     Err(_) => abort("expected Ok")
   }
 }
 
-fn approx_eq(a : (Double, Double, Double), b : (Double, Double, Double)) -> Bool {
+///|
+fn approx_eq(
+  a : (Double, Double, Double),
+  b : (Double, Double, Double),
+) -> Bool {
   let tol = 1.0e-9
   let (a1, a2, a3) = a
   let (b1, b2, b3) = b
@@ -17,30 +24,69 @@ fn approx_eq(a : (Double, Double, Double), b : (Double, Double, Double)) -> Bool
 
 ///|
 test "parse_color named colors" {
-  inspect(approx_eq(unwrap_rgb(parse_color("red", None)), (1.0, 0.0, 0.0)), content="true")
-  inspect(approx_eq(unwrap_rgb(parse_color("blue", None)), (0.0, 0.0, 1.0)), content="true")
-  inspect(approx_eq(unwrap_rgb(parse_color("white", None)), (1.0, 1.0, 1.0)), content="true")
-  inspect(approx_eq(unwrap_rgb(parse_color("black", None)), (0.0, 0.0, 0.0)), content="true")
+  inspect(
+    approx_eq(unwrap_rgb(parse_color("red", None)), (1.0, 0.0, 0.0)),
+    content="true",
+  )
+  inspect(
+    approx_eq(unwrap_rgb(parse_color("blue", None)), (0.0, 0.0, 1.0)),
+    content="true",
+  )
+  inspect(
+    approx_eq(unwrap_rgb(parse_color("white", None)), (1.0, 1.0, 1.0)),
+    content="true",
+  )
+  inspect(
+    approx_eq(unwrap_rgb(parse_color("black", None)), (0.0, 0.0, 0.0)),
+    content="true",
+  )
 }
 
 ///|
 test "parse_color hex short and long" {
-  inspect(approx_eq(unwrap_rgb(parse_color("#f00", None)), (1.0, 0.0, 0.0)), content="true")
-  inspect(approx_eq(unwrap_rgb(parse_color("#ff0000", None)), (1.0, 0.0, 0.0)), content="true")
-  inspect(approx_eq(unwrap_rgb(parse_color("#00ff00", None)), (0.0, 1.0, 0.0)), content="true")
-  inspect(approx_eq(unwrap_rgb(parse_color("#0000ff", None)), (0.0, 0.0, 1.0)), content="true")
+  inspect(
+    approx_eq(unwrap_rgb(parse_color("#f00", None)), (1.0, 0.0, 0.0)),
+    content="true",
+  )
+  inspect(
+    approx_eq(unwrap_rgb(parse_color("#ff0000", None)), (1.0, 0.0, 0.0)),
+    content="true",
+  )
+  inspect(
+    approx_eq(unwrap_rgb(parse_color("#00ff00", None)), (0.0, 1.0, 0.0)),
+    content="true",
+  )
+  inspect(
+    approx_eq(unwrap_rgb(parse_color("#0000ff", None)), (0.0, 0.0, 1.0)),
+    content="true",
+  )
 }
 
 ///|
 test "parse_color rgb decimal" {
-  inspect(approx_eq(unwrap_rgb(parse_color("rgb(255,0,0)", None)), (1.0, 0.0, 0.0)), content="true")
-  inspect(approx_eq(unwrap_rgb(parse_color("rgb(0,255,0)", None)), (0.0, 1.0, 0.0)), content="true")
+  inspect(
+    approx_eq(unwrap_rgb(parse_color("rgb(255,0,0)", None)), (1.0, 0.0, 0.0)),
+    content="true",
+  )
+  inspect(
+    approx_eq(unwrap_rgb(parse_color("rgb(0,255,0)", None)), (0.0, 1.0, 0.0)),
+    content="true",
+  )
 }
 
 ///|
 test "parse_color currentColor resolves from context" {
-  inspect(approx_eq(unwrap_rgb(parse_color("currentColor", Some((0.2, 0.4, 0.6)))), (0.2, 0.4, 0.6)), content="true")
-  inspect(approx_eq(unwrap_rgb(parse_color("currentColor", None)), (0.0, 0.0, 0.0)), content="true")
+  inspect(
+    approx_eq(
+      unwrap_rgb(parse_color("currentColor", Some((0.2, 0.4, 0.6)))),
+      (0.2, 0.4, 0.6),
+    ),
+    content="true",
+  )
+  inspect(
+    approx_eq(unwrap_rgb(parse_color("currentColor", None)), (0.0, 0.0, 0.0)),
+    content="true",
+  )
 }
 
 ///|
@@ -131,12 +177,12 @@ test "numeric contract: lexical finite boundaries" {
     Err(_) => inspect(false, content="true")
   }
   match parse_viewbox("-65536 -65536 65536 65536") {
-    Ok(bounds) =>
-      assert_eq(bounds, (-65536.0, -65536.0, 65536.0, 65536.0))
+    Ok(bounds) => assert_eq(bounds, (-65536.0, -65536.0, 65536.0, 65536.0))
     Err(_) => inspect(false, content="true")
   }
 }
 
+///|
 fn inspect_svg_numeric_error(
   result : Result[Unit, @error.CoreError],
   code : @error.ErrorCode,
@@ -153,6 +199,7 @@ fn inspect_svg_numeric_error(
   }
 }
 
+///|
 fn expect_parse_svg_numeric_error(
   source : String,
   code : @error.ErrorCode,

@@ -10,7 +10,14 @@ fn example_budget(
 ) -> @budget.Budget {
   @budget.Budget::new(
     @budget.ResourceLimits::new(
-      bytes~, allocations~, allocation_size~, width~, height~, pixels~, depth=0UL, work~,
+      bytes~,
+      allocations~,
+      allocation_size~,
+      width~,
+      height~,
+      pixels~,
+      depth=0UL,
+      work~,
     ),
   )
 }
@@ -32,13 +39,18 @@ fn codec_limits() -> @codec.CodecLimits {
 fn digest(view : @bytes.ByteView, length : UInt64) -> UInt64 {
   let mut value = 0UL
   for index = 0UL; index < length; index = index + 1UL {
-    value = (value * 257UL + view.get(index).unwrap().to_uint64()) % 1000000007UL
+    value = (value * 257UL + view.get(index).unwrap().to_uint64()) %
+      1000000007UL
   }
   value
 }
 
 ///|
-fn matches(view : @bytes.ByteView, expected : @bytes.ByteView, length : UInt64) -> Bool {
+fn matches(
+  view : @bytes.ByteView,
+  expected : @bytes.ByteView,
+  length : UInt64,
+) -> Bool {
   if view.length() != length || expected.length() != length {
     false
   } else {
@@ -88,26 +100,23 @@ fn sha256_matches(view : @bytes.ByteView, length : UInt64) -> Bool {
     let left = words[index - 15]
     let right = words[index - 2]
     let small0 = rotate_right(left, 7) ^ rotate_right(left, 18) ^ (left >> 3)
-    let small1 = rotate_right(right, 17) ^ rotate_right(right, 19) ^ (right >> 10)
+    let small1 = rotate_right(right, 17) ^
+      rotate_right(right, 19) ^
+      (right >> 10)
     words[index] = (words[index - 16] + small0 + words[index - 7] + small1) %
       4294967296UL
   }
   let constants : Array[UInt64] = [
-    0x428a2f98UL, 0x71374491UL, 0xb5c0fbcfUL, 0xe9b5dba5UL,
-    0x3956c25bUL, 0x59f111f1UL, 0x923f82a4UL, 0xab1c5ed5UL,
-    0xd807aa98UL, 0x12835b01UL, 0x243185beUL, 0x550c7dc3UL,
-    0x72be5d74UL, 0x80deb1feUL, 0x9bdc06a7UL, 0xc19bf174UL,
-    0xe49b69c1UL, 0xefbe4786UL, 0x0fc19dc6UL, 0x240ca1ccUL,
-    0x2de92c6fUL, 0x4a7484aaUL, 0x5cb0a9dcUL, 0x76f988daUL,
-    0x983e5152UL, 0xa831c66dUL, 0xb00327c8UL, 0xbf597fc7UL,
-    0xc6e00bf3UL, 0xd5a79147UL, 0x06ca6351UL, 0x14292967UL,
-    0x27b70a85UL, 0x2e1b2138UL, 0x4d2c6dfcUL, 0x53380d13UL,
-    0x650a7354UL, 0x766a0abbUL, 0x81c2c92eUL, 0x92722c85UL,
-    0xa2bfe8a1UL, 0xa81a664bUL, 0xc24b8b70UL, 0xc76c51a3UL,
-    0xd192e819UL, 0xd6990624UL, 0xf40e3585UL, 0x106aa070UL,
-    0x19a4c116UL, 0x1e376c08UL, 0x2748774cUL, 0x34b0bcb5UL,
-    0x391c0cb3UL, 0x4ed8aa4aUL, 0x5b9cca4fUL, 0x682e6ff3UL,
-    0x748f82eeUL, 0x78a5636fUL, 0x84c87814UL, 0x8cc70208UL,
+    0x428a2f98UL, 0x71374491UL, 0xb5c0fbcfUL, 0xe9b5dba5UL, 0x3956c25bUL, 0x59f111f1UL,
+    0x923f82a4UL, 0xab1c5ed5UL, 0xd807aa98UL, 0x12835b01UL, 0x243185beUL, 0x550c7dc3UL,
+    0x72be5d74UL, 0x80deb1feUL, 0x9bdc06a7UL, 0xc19bf174UL, 0xe49b69c1UL, 0xefbe4786UL,
+    0x0fc19dc6UL, 0x240ca1ccUL, 0x2de92c6fUL, 0x4a7484aaUL, 0x5cb0a9dcUL, 0x76f988daUL,
+    0x983e5152UL, 0xa831c66dUL, 0xb00327c8UL, 0xbf597fc7UL, 0xc6e00bf3UL, 0xd5a79147UL,
+    0x06ca6351UL, 0x14292967UL, 0x27b70a85UL, 0x2e1b2138UL, 0x4d2c6dfcUL, 0x53380d13UL,
+    0x650a7354UL, 0x766a0abbUL, 0x81c2c92eUL, 0x92722c85UL, 0xa2bfe8a1UL, 0xa81a664bUL,
+    0xc24b8b70UL, 0xc76c51a3UL, 0xd192e819UL, 0xd6990624UL, 0xf40e3585UL, 0x106aa070UL,
+    0x19a4c116UL, 0x1e376c08UL, 0x2748774cUL, 0x34b0bcb5UL, 0x391c0cb3UL, 0x4ed8aa4aUL,
+    0x5b9cca4fUL, 0x682e6ff3UL, 0x748f82eeUL, 0x78a5636fUL, 0x84c87814UL, 0x8cc70208UL,
     0x90befffaUL, 0xa4506cebUL, 0xbef9a3f7UL, 0xc67178f2UL,
   ]
   let h0 = 0x6a09e667UL
@@ -154,8 +163,8 @@ fn sha256_matches(view : @bytes.ByteView, length : UInt64) -> Bool {
     (h7 + h) % 4294967296UL,
   ]
   let expected : Array[UInt64] = [
-    0x5dc3abfeUL, 0x81e722b2UL, 0x11af255fUL, 0x6f968052UL,
-    0x25f98435UL, 0xf1f9525cUL, 0x46df4821UL, 0x7f858df2UL,
+    0x5dc3abfeUL, 0x81e722b2UL, 0x11af255fUL, 0x6f968052UL, 0x25f98435UL, 0xf1f9525cUL,
+    0x46df4821UL, 0x7f858df2UL,
   ]
   for index = 0; index < 8; index = index + 1 {
     if actual[index] != expected[index] {
@@ -188,13 +197,16 @@ fn main {
   let mut input_cursor = 0UL
   let mut input_pushes = 0UL
   while input_cursor < source_view.length() {
-    let capacity = input_schedule[(input_pushes % input_schedule.length().to_uint64()).to_int()]
+    let capacity = input_schedule[(input_pushes %
+      input_schedule.length().to_uint64()).to_int()]
     let length = if input_cursor + capacity < source_view.length() {
       capacity
     } else {
       source_view.length() - input_cursor
     }
-    let pushed = decoder.push(source_view.subview(input_cursor, length).unwrap())
+    let pushed = decoder.push(
+      source_view.subview(input_cursor, length).unwrap(),
+    )
     if pushed.consumed() != length ||
       !(pushed.outcome() is @qoi.QoiStreamPushOutcome::NeedInput) {
       abort("qoi portable decoder progress check failed")
@@ -223,7 +235,8 @@ fn main {
   let mut output_pulls = 0UL
   let mut encoder_finished = false
   while !encoder_finished {
-    let capacity = output_schedule[(output_pulls % output_schedule.length().to_uint64()).to_int()]
+    let capacity = output_schedule[(output_pulls %
+      output_schedule.length().to_uint64()).to_int()]
     let pulled = output_owner
       .with_mut(0UL, capacity, fn(lease) { Ok(encoder.pull(lease)) })
       .unwrap()
@@ -238,7 +251,8 @@ fn main {
     match pulled.outcome() {
       @qoi.QoiStreamPullOutcome::NeedOutput => ()
       @qoi.QoiStreamPullOutcome::Finished => encoder_finished = true
-      @qoi.QoiStreamPullOutcome::Failed(_) => abort("qoi portable encoder failed")
+      @qoi.QoiStreamPullOutcome::Failed(_) =>
+        abort("qoi portable encoder failed")
     }
   }
   let encoded_bytes = Bytes::from_array(output)
@@ -268,5 +282,7 @@ fn main {
   if !valid {
     abort("qoi portable example evidence check failed")
   }
-  println("example=qoi-portable input_schedule=header-token-marker input_pushes=6 bytes_read=27 output_schedule=zero-header-token-marker output_pulls=5 bytes_written=24 width=2 height=1 flip_horizontal digest=750514177 sha256=5dc3abfe81e722b211af255f6f96805225f98435f1f9525c46df48217f858df2")
+  println(
+    "example=qoi-portable input_schedule=header-token-marker input_pushes=6 bytes_read=27 output_schedule=zero-header-token-marker output_pulls=5 bytes_written=24 width=2 height=1 flip_horizontal digest=750514177 sha256=5dc3abfe81e722b211af255f6f96805225f98435f1f9525c46df48217f858df2",
+  )
 }

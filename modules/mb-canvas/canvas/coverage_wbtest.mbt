@@ -6,6 +6,8 @@
 
 // Flattened segments of an axis-aligned rectangle [x0,x1]×[y0,y1] as a closed
 // loop of line commands.
+
+///|
 fn wb_rect_segments(
   x0 : Double,
   y0 : Double,

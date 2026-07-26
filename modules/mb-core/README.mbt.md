@@ -153,11 +153,7 @@ test "views and split mutable leases stay inside validated windows" {
   .unwrap()
   inspect(owned.view().get(0UL).unwrap() == b'A', content="true")
   inspect(owned.view().get(2UL).unwrap() == b'C', content="true")
-  owned
-  .with_mut(0UL, 4UL, fn(lease) {
-    lease.set(3UL, b'D')
-  })
-  .unwrap()
+  owned.with_mut(0UL, 4UL, fn(lease) { lease.set(3UL, b'D') }).unwrap()
   inspect(owned.view().get(3UL).unwrap() == b'D', content="true")
 }
 
@@ -165,8 +161,7 @@ test "views and split mutable leases stay inside validated windows" {
 test "injected allocator rejection is recoverable and does not charge" {
   let budget = @budget.Budget::new(example_limits(4UL))
   let allocator = ReadmeRejectingAllocator::{  } as &@bytes.Allocator
-  let error =
-    @bytes.OwnedBytes::new_with_allocator(4UL, budget, allocator).unwrap_err()
+  let error = @bytes.OwnedBytes::new_with_allocator(4UL, budget, allocator).unwrap_err()
   inspect(error.code() == @error.ErrorCode::AllocationFailed, content="true")
   inspect(budget.remaining().bytes(), content="4")
 }
@@ -205,8 +200,7 @@ test "exact read accumulates partial progress" {
   let budget = @budget.Budget::new(example_limits(2UL))
   let destination = @bytes.OwnedBytes::new(2UL, budget).unwrap()
   let reader = ReadmePartialReader::{ step: 0 }
-  let completed =
-    destination
+  let completed = destination
     .with_mut(0UL, 2UL, fn(lease) {
       @io.read_exact(reader as &@io.Reader, lease)
     })

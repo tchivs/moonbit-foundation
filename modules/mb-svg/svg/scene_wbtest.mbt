@@ -18,8 +18,7 @@ test "parse_svg root captures width/height/viewBox" {
       assert_eq(root.width, Some(10.0))
       assert_eq(root.height, Some(20.0))
       match root.view_box {
-        Some((x, y, w, h)) =>
-          assert_eq((x, y, w, h), (0.0, 0.0, 100.0, 50.0))
+        Some((x, y, w, h)) => assert_eq((x, y, w, h), (0.0, 0.0, 100.0, 50.0))
         None => inspect(false, content="true")
       }
     }
@@ -41,7 +40,7 @@ test "parse_svg group with transform wraps a rect child" {
               inspect(gc.length(), content="1")
               match gc[0] {
                 Rect(_, x, y, w, h, _, _) =>
-              assert_eq((x, y, w, h), (1.0, 2.0, 3.0, 4.0))
+                  assert_eq((x, y, w, h), (1.0, 2.0, 3.0, 4.0))
                 _ => inspect(false, content="true")
               }
             }
@@ -56,14 +55,14 @@ test "parse_svg group with transform wraps a rect child" {
 
 ///|
 test "parse_svg rect with fill parses geometry and paint" {
-  match parse_svg("<svg><rect x=\"1\" y=\"2\" width=\"3\" height=\"4\" fill=\"red\"/></svg>") {
+  match
+    parse_svg(
+      "<svg><rect x=\"1\" y=\"2\" width=\"3\" height=\"4\" fill=\"red\"/></svg>",
+    ) {
     Ok(Svg(_, children)) =>
       match children[0] {
         Rect(paint, x, y, w, h, rx, ry) => {
-          assert_eq(
-            (x, y, w, h, rx, ry),
-            (1.0, 2.0, 3.0, 4.0, 0.0, 0.0),
-          )
+          assert_eq((x, y, w, h, rx, ry), (1.0, 2.0, 3.0, 4.0, 0.0, 0.0))
           match paint.fill {
             Some((r, g, b)) => assert_eq((r, g, b), (1.0, 0.0, 0.0))
             None => inspect(false, content="true")
@@ -79,7 +78,10 @@ test "parse_svg rect with fill parses geometry and paint" {
 
 ///|
 test "parse_svg circle fill none / stroke blue" {
-  match parse_svg("<svg><circle cx=\"5\" cy=\"6\" r=\"2\" fill=\"none\" stroke=\"blue\"/></svg>") {
+  match
+    parse_svg(
+      "<svg><circle cx=\"5\" cy=\"6\" r=\"2\" fill=\"none\" stroke=\"blue\"/></svg>",
+    ) {
     Ok(Svg(_, children)) =>
       match children[0] {
         Circle(paint, cx, cy, r) => {
@@ -206,15 +208,15 @@ test "parse_svg path without d attribute is an error" {
 ///|
 test "inherited fill flows from <g> to a child rect that omits fill" {
   // rect has no fill attribute → inherits the group's red.
-  match parse_svg("<svg><g fill=\"red\"><rect width=\"1\" height=\"1\"/></g></svg>") {
+  match
+    parse_svg("<svg><g fill=\"red\"><rect width=\"1\" height=\"1\"/></g></svg>") {
     Ok(Svg(_, children)) =>
       match children[0] {
         Group(_, _, gc) =>
           match gc[0] {
             Rect(paint, _, _, _, _, _, _) =>
               match paint.fill {
-                        Some((r, g, b)) =>
-                          assert_eq((r, g, b), (1.0, 0.0, 0.0))
+                Some((r, g, b)) => assert_eq((r, g, b), (1.0, 0.0, 0.0))
                 None => inspect(false, content="true")
               }
             _ => inspect(false, content="true")
@@ -229,15 +231,17 @@ test "inherited fill flows from <g> to a child rect that omits fill" {
 ///|
 test "currentColor resolves against the inherited color attribute" {
   // <g color="blue"> sets currentColor; child fill="currentColor" → blue.
-  match parse_svg("<svg><g color=\"blue\"><rect fill=\"currentColor\" width=\"1\" height=\"1\"/></g></svg>") {
+  match
+    parse_svg(
+      "<svg><g color=\"blue\"><rect fill=\"currentColor\" width=\"1\" height=\"1\"/></g></svg>",
+    ) {
     Ok(Svg(_, children)) =>
       match children[0] {
         Group(_, _, gc) =>
           match gc[0] {
             Rect(paint, _, _, _, _, _, _) =>
               match paint.fill {
-                        Some((r, g, b)) =>
-                          assert_eq((r, g, b), (0.0, 0.0, 1.0))
+                Some((r, g, b)) => assert_eq((r, g, b), (0.0, 0.0, 1.0))
                 None => inspect(false, content="true")
               }
             _ => inspect(false, content="true")
@@ -252,7 +256,10 @@ test "currentColor resolves against the inherited color attribute" {
 ///|
 test "inheritance penetrates multiple nested groups" {
   // Two nested <g>, innermost rect inherits the outer group's green fill.
-  match parse_svg("<svg><g fill=\"green\"><g><rect width=\"1\" height=\"1\"/></g></g></svg>") {
+  match
+    parse_svg(
+      "<svg><g fill=\"green\"><g><rect width=\"1\" height=\"1\"/></g></g></svg>",
+    ) {
     Ok(Svg(_, children)) =>
       match children[0] {
         Group(_, _, gc) =>
@@ -262,7 +269,8 @@ test "inheritance penetrates multiple nested groups" {
                 Rect(paint, _, _, _, _, _, _) =>
                   match paint.fill {
                     // green = (0, 0.5019..., 0)
-                    Some((_, g, _)) => inspect(g > 0.49 && g < 0.51, content="true")
+                    Some((_, g, _)) =>
+                      inspect(g > 0.49 && g < 0.51, content="true")
                     None => inspect(false, content="true")
                   }
                 _ => inspect(false, content="true")
@@ -278,15 +286,17 @@ test "inheritance penetrates multiple nested groups" {
 
 ///|
 test "explicit child fill overrides the inherited group fill" {
-  match parse_svg("<svg><g fill=\"red\"><rect fill=\"blue\" width=\"1\" height=\"1\"/></g></svg>") {
+  match
+    parse_svg(
+      "<svg><g fill=\"red\"><rect fill=\"blue\" width=\"1\" height=\"1\"/></g></svg>",
+    ) {
     Ok(Svg(_, children)) =>
       match children[0] {
         Group(_, _, gc) =>
           match gc[0] {
             Rect(paint, _, _, _, _, _, _) =>
               match paint.fill {
-                        Some((r, g, b)) =>
-                          assert_eq((r, g, b), (0.0, 0.0, 1.0))
+                Some((r, g, b)) => assert_eq((r, g, b), (0.0, 0.0, 1.0))
                 None => inspect(false, content="true")
               }
             _ => inspect(false, content="true")
@@ -301,7 +311,10 @@ test "explicit child fill overrides the inherited group fill" {
 ///|
 test "explicit fill=none does NOT inherit the group fill" {
   // rect fill="none" must stay none, not inherit the group's red.
-  match parse_svg("<svg><g fill=\"red\"><rect fill=\"none\" width=\"1\" height=\"1\"/></g></svg>") {
+  match
+    parse_svg(
+      "<svg><g fill=\"red\"><rect fill=\"none\" width=\"1\" height=\"1\"/></g></svg>",
+    ) {
     Ok(Svg(_, children)) =>
       match children[0] {
         Group(_, _, gc) =>
@@ -319,7 +332,10 @@ test "explicit fill=none does NOT inherit the group fill" {
 ///|
 test "group opacity attribute is captured on the Group node" {
   // <g opacity="0.5"> → Group's opacity field == 0.5 (default 1.0 otherwise).
-  match parse_svg("<svg><g opacity=\"0.5\"><rect width=\"1\" height=\"1\"/></g></svg>") {
+  match
+    parse_svg(
+      "<svg><g opacity=\"0.5\"><rect width=\"1\" height=\"1\"/></g></svg>",
+    ) {
     Ok(Svg(_, children)) =>
       match children[0] {
         Group(_, opacity, _) => inspect(opacity, content="0.5")
@@ -333,7 +349,8 @@ test "group opacity attribute is captured on the Group node" {
 ///|
 test "element opacity attribute is captured on the shape Paint" {
   // <rect opacity="0.5"> → paint.opacity == 0.5.
-  match parse_svg("<svg><rect width=\"1\" height=\"1\" opacity=\"0.5\"/></svg>") {
+  match
+    parse_svg("<svg><rect width=\"1\" height=\"1\" opacity=\"0.5\"/></svg>") {
     Ok(Svg(_, children)) =>
       match children[0] {
         Rect(paint, _, _, _, _, _, _) => inspect(paint.opacity, content="0.5")
@@ -347,15 +364,17 @@ test "element opacity attribute is captured on the shape Paint" {
 ///|
 test "inherited stroke and stroke-width flow to a child" {
   // <g stroke="blue" stroke-width="3">; child rect (no stroke attrs) inherits.
-  match parse_svg("<svg><g stroke=\"blue\" stroke-width=\"3\"><rect fill=\"none\" width=\"1\" height=\"1\"/></g></svg>") {
+  match
+    parse_svg(
+      "<svg><g stroke=\"blue\" stroke-width=\"3\"><rect fill=\"none\" width=\"1\" height=\"1\"/></g></svg>",
+    ) {
     Ok(Svg(_, children)) =>
       match children[0] {
         Group(_, _, gc) =>
           match gc[0] {
             Rect(paint, _, _, _, _, _, _) => {
               match paint.stroke {
-                        Some((r, g, b)) =>
-                          assert_eq((r, g, b), (0.0, 0.0, 1.0))
+                Some((r, g, b)) => assert_eq((r, g, b), (0.0, 0.0, 1.0))
                 None => inspect(false, content="true")
               }
               inspect(paint.stroke_width, content="3")
@@ -419,8 +438,7 @@ test "numeric contract: scene ingress and absent controls" {
       }
       match children[3] {
         // SVG-NUM-HSL-PERCENT: saturation percent is an admitted source scalar.
-        Line(paint, _, _, _, _) =>
-          assert_eq(paint.fill, Some((1.0, 0.0, 0.0)))
+        Line(paint, _, _, _, _) => assert_eq(paint.fill, Some((1.0, 0.0, 0.0)))
         _ => inspect(false, content="true")
       }
       match children[4] {
@@ -442,7 +460,10 @@ test "numeric contract: scene ingress and absent controls" {
   }
 
   // D-03: only absent attributes retain their existing default or inheritance branch.
-  match parse_svg("<svg><g fill=\"blue\"><rect width=\"1\" height=\"1\"/></g><polygon/></svg>") {
+  match
+    parse_svg(
+      "<svg><g fill=\"blue\"><rect width=\"1\" height=\"1\"/></g><polygon/></svg>",
+    ) {
     Ok(Svg(root, children)) => {
       assert_eq(root.width, None)
       assert_eq(root.height, None)
@@ -468,14 +489,10 @@ test "numeric contract: scene ingress and absent controls" {
 ///|
 test "paint scalar ingress rejects explicit invalid values without changing omitted inheritance" {
   let invalid_sources = [
-    "<svg><rect fill-opacity=\"bad\"/></svg>",
-    "<svg><rect stroke-width=\"1e999\"/></svg>",
-    "<svg><rect stroke-dasharray=\"1,65537\"/></svg>",
-    "<svg><rect fill=\"rgb(bad,0,0)\"/></svg>",
-    "<svg><rect fill=\"rgb(1e999,0,0)\"/></svg>",
-    "<svg><rect fill=\"rgb(65537,0,0)\"/></svg>",
-    "<svg><rect fill=\"rgb(0,1e999%,0)\"/></svg>",
-    "<svg><rect fill=\"hsl(65537,0%,0%)\"/></svg>",
+    "<svg><rect fill-opacity=\"bad\"/></svg>", "<svg><rect stroke-width=\"1e999\"/></svg>",
+    "<svg><rect stroke-dasharray=\"1,65537\"/></svg>", "<svg><rect fill=\"rgb(bad,0,0)\"/></svg>",
+    "<svg><rect fill=\"rgb(1e999,0,0)\"/></svg>", "<svg><rect fill=\"rgb(65537,0,0)\"/></svg>",
+    "<svg><rect fill=\"rgb(0,1e999%,0)\"/></svg>", "<svg><rect fill=\"hsl(65537,0%,0%)\"/></svg>",
     "<svg><rect fill=\"hsl(0,1e999%,0%)\"/></svg>",
   ]
   for source in invalid_sources {
@@ -484,7 +501,10 @@ test "paint scalar ingress rejects explicit invalid values without changing omit
       Err(error) => assert_eq(error.operation(), Some("svg"))
     }
   }
-  match parse_svg("<svg><g fill=\"blue\"><rect width=\"1\" height=\"1\"/></g></svg>") {
+  match
+    parse_svg(
+      "<svg><g fill=\"blue\"><rect width=\"1\" height=\"1\"/></g></svg>",
+    ) {
     Ok(Svg(_, children)) =>
       match children[0] {
         Group(_, _, [Rect(paint, _, _, _, _, _, _)]) =>

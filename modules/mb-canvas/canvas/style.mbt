@@ -111,7 +111,7 @@ pub fn FillStyle::with_alpha(self : FillStyle, a : Double) -> FillStyle {
 ///|
 /// Return a copy of this style with the winding rule set to `rule`.
 pub fn FillStyle::with_rule(self : FillStyle, rule : FillRule) -> FillStyle {
-  { ..self, rule }
+  { ..self, rule, }
 }
 
 ///|
@@ -130,20 +130,26 @@ pub fn FillStyle::alpha(self : FillStyle) -> Double {
 
 ///|
 /// Return a copy of this style with the stroke width set to `width`.
-pub fn StrokeStyle::with_width(self : StrokeStyle, width : Double) -> StrokeStyle {
-  { ..self, width }
+pub fn StrokeStyle::with_width(
+  self : StrokeStyle,
+  width : Double,
+) -> StrokeStyle {
+  { ..self, width, }
 }
 
 ///|
 /// Return a copy of this style with the endpoint cap set to `cap`.
 pub fn StrokeStyle::with_cap(self : StrokeStyle, cap : LineCap) -> StrokeStyle {
-  { ..self, cap }
+  { ..self, cap, }
 }
 
 ///|
 /// Return a copy of this style with the interior join set to `join`.
-pub fn StrokeStyle::with_join(self : StrokeStyle, join : LineJoin) -> StrokeStyle {
-  { ..self, join }
+pub fn StrokeStyle::with_join(
+  self : StrokeStyle,
+  join : LineJoin,
+) -> StrokeStyle {
+  { ..self, join, }
 }
 
 ///|
@@ -152,7 +158,7 @@ pub fn StrokeStyle::with_miter_limit(
   self : StrokeStyle,
   miter_limit : Double,
 ) -> StrokeStyle {
-  { ..self, miter_limit }
+  { ..self, miter_limit, }
 }
 
 ///|
@@ -163,7 +169,7 @@ pub fn StrokeStyle::with_dash(
   self : StrokeStyle,
   dash : Array[Double],
 ) -> StrokeStyle {
-  { ..self, dash }
+  { ..self, dash, }
 }
 
 ///|
@@ -175,10 +181,12 @@ pub fn StrokeStyle::with_dash_offset(
   self : StrokeStyle,
   dash_offset : Double,
 ) -> StrokeStyle {
-  { ..self, dash_offset }
+  { ..self, dash_offset, }
 }
 
 // Clamp a double into [0.0, 1.0]. NaN clamps to 0.0.
+
+///|
 fn clamp_unit(v : Double) -> Double {
   if v.is_nan() {
     return 0.0

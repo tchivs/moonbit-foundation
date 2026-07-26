@@ -4,29 +4,36 @@
 // ceilings, while the default parse_svg accepts reasonable inputs.
 
 // A budget with tight limits for exercising the bounds. depth=3, work=20.
+
+///|
 fn bounded_budget(
   bytes : UInt64,
   depth : UInt64,
   work : UInt64,
 ) -> @budget.Budget {
-  @budget.Budget::new(@budget.ResourceLimits::new(
-    bytes~,
-    allocations=4096UL,
-    allocation_size=1048576UL,
-    width=256UL,
-    height=256UL,
-    pixels=0UL,
-    depth~,
-    work~,
-  ))
+  @budget.Budget::new(
+    @budget.ResourceLimits::new(
+      bytes~,
+      allocations=4096UL,
+      allocation_size=1048576UL,
+      width=256UL,
+      height=256UL,
+      pixels=0UL,
+      depth~,
+      work~,
+    ),
+  )
 }
 
+///|
 fn tight_budget(depth : UInt64, work : UInt64) -> @budget.Budget {
   bounded_budget(1048576UL, depth, work)
 }
 
 // Build a deeply nested SVG: <svg><g>...<g><rect/></g>...</g></svg> with
 // `levels` nested <g> elements.
+
+///|
 fn nested_svg(levels : Int) -> String {
   let s = StringBuilder::new()
   s.write_string("<svg>")
@@ -42,6 +49,8 @@ fn nested_svg(levels : Int) -> String {
 }
 
 // Build a deeply nested document using supported nested <svg> elements.
+
+///|
 fn nested_supported_svg(levels : Int) -> String {
   let s = StringBuilder::new()
   s.write_string("<svg>")
@@ -56,6 +65,7 @@ fn nested_supported_svg(levels : Int) -> String {
   s.to_string()
 }
 
+///|
 fn assert_svg_budget_error(
   result : Result[SceneNode, @error.CoreError],
 ) -> Unit raise {
@@ -64,7 +74,8 @@ fn assert_svg_budget_error(
     Err(error) => {
       inspect(error.operation() == Some("svg"), content="true")
       match error.context() {
-        Some(context) => inspect(context.has_prefix("svg-budget:"), content="true")
+        Some(context) =>
+          inspect(context.has_prefix("svg-budget:"), content="true")
         None => inspect(false, content="true")
       }
     }
@@ -100,7 +111,8 @@ test "bounds: nested supported svg consumes the depth lease" {
 
 ///|
 test "bounds: shallow nested supported svg releases the depth lease" {
-  match parse_svg_with_budget(nested_supported_svg(2), tight_budget(3UL, 1000UL)) {
+  match
+    parse_svg_with_budget(nested_supported_svg(2), tight_budget(3UL, 1000UL)) {
     Ok(Svg(_, children)) => inspect(children.length(), content="1")
     Ok(_) => inspect(false, content="true")
     Err(_) => inspect(false, content="true")
@@ -141,10 +153,11 @@ test "bounds: oversized source fails before markup tokenization" {
 
 ///|
 test "bounds: small document passes under adequate work budget" {
-  match parse_svg_with_budget(
-    "<svg><rect width=\"1\" height=\"1\"/></svg>",
-    tight_budget(64UL, 1000UL),
-  ) {
+  match
+    parse_svg_with_budget(
+      "<svg><rect width=\"1\" height=\"1\"/></svg>",
+      tight_budget(64UL, 1000UL),
+    ) {
     Ok(_) => inspect("ok", content="ok")
     Err(_) => inspect("err", content="ok")
   }
@@ -179,7 +192,8 @@ test "bounds: direct path source admission rejects oversized input and accepts i
     Err(error) => {
       inspect(error.operation() == Some("svg"), content="true")
       match error.context() {
-        Some(context) => inspect(context.has_prefix("svg-budget:"), content="true")
+        Some(context) =>
+          inspect(context.has_prefix("svg-budget:"), content="true")
         None => inspect(false, content="true")
       }
     }

@@ -71,6 +71,8 @@ pub fn parse_transform(s : String) -> Result[@math.Affine2, @error.CoreError] {
 }
 
 // Build a single Affine2 from a transform function name and its args string.
+
+///|
 fn build_transform(
   name : String,
   args_str : String,
@@ -83,7 +85,16 @@ fn build_transform(
           if args.length() != 6 {
             Err(transform_source_error())
           } else {
-            admit_affine(@math.Affine2::new(args[0], args[1], args[2], args[3], args[4], args[5]))
+            admit_affine(
+              @math.Affine2::new(
+                args[0],
+                args[1],
+                args[2],
+                args[3],
+                args[4],
+                args[5],
+              ),
+            )
           }
         "translate" =>
           if args.length() == 1 {
@@ -121,7 +132,8 @@ fn build_transform(
               Ok(value) => value
               Err(error) => return Err(error)
             }
-            let t_neg = match admit_affine(@math.Affine2::translate(-args[1], -args[2])) {
+            let t_neg = match
+              admit_affine(@math.Affine2::translate(-args[1], -args[2])) {
               Ok(value) => value
               Err(error) => return Err(error)
             }
@@ -129,7 +141,8 @@ fn build_transform(
               Ok(value) => value
               Err(error) => return Err(error)
             }
-            let t_pos = match admit_affine(@math.Affine2::translate(args[1], args[2])) {
+            let t_pos = match
+              admit_affine(@math.Affine2::translate(args[1], args[2])) {
               Ok(value) => value
               Err(error) => return Err(error)
             }
@@ -176,28 +189,36 @@ fn build_transform(
   }
 }
 
+///|
 fn is_space(c : Char) -> Bool {
   c == ' ' || c == '\t' || c == '\n' || c == '\r'
 }
 
 // SVG transform angles are in degrees; Affine2::rotate takes radians. Convert
 // per the SVG 1.1 transform spec before rotation or tangent calculation.
+
+///|
 fn degrees_to_radians(degrees : Double) -> Result[Double, @error.CoreError] {
   admit_derived(degrees * 0.017453292519943295) // π / 180
 }
 
+///|
 fn transform_source_error() -> @error.CoreError {
   svg_numeric_error(@error.ErrorCode::InvalidEncoding, "svg-numeric-source")
 }
 
+///|
 fn admit_derived(value : Double) -> Result[Double, @error.CoreError] {
   if value.is_nan() || value.is_inf() || value.abs() > 65536.0 {
-    Err(svg_numeric_error(@error.ErrorCode::InvalidRange, "svg-numeric-derived"))
+    Err(
+      svg_numeric_error(@error.ErrorCode::InvalidRange, "svg-numeric-derived"),
+    )
   } else {
     Ok(value)
   }
 }
 
+///|
 fn admit_affine(m : @math.Affine2) -> Result[@math.Affine2, @error.CoreError] {
   let components = [m.a(), m.b(), m.c(), m.d(), m.tx(), m.ty()]
   for value in components {
@@ -209,6 +230,7 @@ fn admit_affine(m : @math.Affine2) -> Result[@math.Affine2, @error.CoreError] {
   Ok(m)
 }
 
+///|
 fn compose_transforms(
   first : @math.Affine2,
   second : @math.Affine2,
@@ -216,6 +238,7 @@ fn compose_transforms(
   admit_affine(first.compose(second))
 }
 
+///|
 fn not(b : Bool) -> Bool {
   !b
 }

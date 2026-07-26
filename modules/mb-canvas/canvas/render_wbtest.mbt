@@ -2,14 +2,25 @@
 // into an mb-image OwnedImage, and assert pixels. The image-construction helper
 // mirrors mb-image/ops's white-box helper pattern.
 
+///|
 fn render_wb_budget(bytes : UInt64, work : UInt64) -> @budget.Budget {
-  @budget.Budget::new(@budget.ResourceLimits::new(
-    bytes~, allocations=1UL, allocation_size=bytes, width=16UL, height=16UL,
-    pixels=256UL, depth=0UL, work~,
-  ))
+  @budget.Budget::new(
+    @budget.ResourceLimits::new(
+      bytes~,
+      allocations=1UL,
+      allocation_size=bytes,
+      width=16UL,
+      height=16UL,
+      pixels=256UL,
+      depth=0UL,
+      work~,
+    ),
+  )
 }
 
 // A solid RGBA8 test image of the given size filled with (r,g,b,a) bytes.
+
+///|
 fn render_wb_solid(
   width : UInt64,
   height : UInt64,
@@ -55,7 +66,10 @@ fn render_wb_solid(
       ).unwrap(),
     ),
   ).unwrap()
-  let image = @storage.OwnedImage::new(descriptor, render_wb_budget(length, 0UL)).unwrap()
+  let image = @storage.OwnedImage::new(
+    descriptor,
+    render_wb_budget(length, 0UL),
+  ).unwrap()
   let _ = image.with_mut_view(fn(view) {
     for y = 0UL; y < height; y = y + 1UL {
       for x = 0UL; x < width; x = x + 1UL {
@@ -71,6 +85,8 @@ fn render_wb_solid(
 }
 
 // Read the 4 channels of a pixel from an owned image's immutable view.
+
+///|
 fn render_wb_pixel(
   image : @storage.OwnedImage,
   x : UInt64,
@@ -177,7 +193,11 @@ test "render strokes a closed rectangle outline" {
   let path = CanvasPath::new()
   path.rect(2.0, 2.0, 4.0, 4.0)
   let list = DrawingList::new()
-  list.push_stroke(path.to_path2(), StrokeStyle::new(1.0), FillStyle::new(0.0, 0.0, 0.0))
+  list.push_stroke(
+    path.to_path2(),
+    StrokeStyle::new(1.0),
+    FillStyle::new(0.0, 0.0, 0.0),
+  )
   match render(list, image, render_wb_budget(65536UL, 65536UL)) {
     Err(_) => inspect(false, content="true")
     Ok(_) => ()
@@ -260,7 +280,11 @@ test "render round join fills the convex corner of an L-bend" {
   path.move_to(3.0, 3.0)
   path.line_to(3.0, 8.0)
   path.line_to(8.0, 8.0)
-  let round_join = { ..StrokeStyle::new(3.0), join: LineJoin::Round, cap: LineCap::Butt }
+  let round_join = {
+    ..StrokeStyle::new(3.0),
+    join: LineJoin::Round,
+    cap: LineCap::Butt,
+  }
   let list = DrawingList::new()
   list.push_stroke(path.to_path2(), round_join, FillStyle::new(1.0, 1.0, 1.0))
   match render(list, image, render_wb_budget(65536UL, 65536UL)) {
@@ -357,17 +381,21 @@ test "render transform push/pop isolates state" {
 
 // A budget with enough bytes/allocations for a layer offscreen allocation
 // (8×8 RGBA8 = 256 bytes per layer, plus headroom for several layers).
+
+///|
 fn layer_budget(bytes : UInt64, work : UInt64) -> @budget.Budget {
-  @budget.Budget::new(@budget.ResourceLimits::new(
-    bytes~,
-    allocations=64UL,
-    allocation_size=bytes,
-    width=16UL,
-    height=16UL,
-    pixels=4096UL,
-    depth=64UL,
-    work~,
-  ))
+  @budget.Budget::new(
+    @budget.ResourceLimits::new(
+      bytes~,
+      allocations=64UL,
+      allocation_size=bytes,
+      width=16UL,
+      height=16UL,
+      pixels=4096UL,
+      depth=64UL,
+      work~,
+    ),
+  )
 }
 
 ///|

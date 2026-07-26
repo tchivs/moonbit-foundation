@@ -11,7 +11,16 @@ test "miter_length is exactly half for a straight-through vertex" {
 test "miter_length is half*sqrt(2) at a right-angle corner" {
   // 90° turn: t_in=(1,0), t_out=(0,1). θ=90°, sin(45°)=√2/2, miter=half/(√2/2)=half*√2.
   let half = 2.0
-  let m = miter_length(1.0, 0.0, 0.0, 1.0, 0.0, 0.0, half, StrokeStyle::new(half * 2.0))
+  let m = miter_length(
+    1.0,
+    0.0,
+    0.0,
+    1.0,
+    0.0,
+    0.0,
+    half,
+    StrokeStyle::new(half * 2.0),
+  )
   let expected = half * 1.4142135623730951
   inspect((m - expected).abs() < 1.0e-9, content="true")
 }
@@ -37,8 +46,14 @@ test "bevel and round joins always use plain half offset" {
 ///|
 test "miter_length handles degenerate (coincident) tangents" {
   // Zero-length tangent (coincident points) → plain half, no blow-up.
-  inspect(miter_length(0.0, 0.0, 1.0, 0.0, 0.0, 1.0, 2.0, StrokeStyle::new(4.0)), content="2")
-  inspect(miter_length(1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 2.0, StrokeStyle::new(4.0)), content="2")
+  inspect(
+    miter_length(0.0, 0.0, 1.0, 0.0, 0.0, 1.0, 2.0, StrokeStyle::new(4.0)),
+    content="2",
+  )
+  inspect(
+    miter_length(1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 2.0, StrokeStyle::new(4.0)),
+    content="2",
+  )
 }
 
 // ---------------------------------------------------------------------------
@@ -49,6 +64,8 @@ test "miter_length handles degenerate (coincident) tangents" {
 // ---------------------------------------------------------------------------
 
 // Build a straight polyline from (0,0) to (len,0): a single horizontal segment.
+
+///|
 fn dash_line(len : Double) -> Polyline {
   {
     points: [@math.Point2::new(0.0, 0.0), @math.Point2::new(len, 0.0)],

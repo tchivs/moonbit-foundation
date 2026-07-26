@@ -72,7 +72,10 @@ for round trips away from the published rounded-threshold discontinuities.
 test "typed sRGB transfer exposes its numerical contract" {
   let encoded = @model.EncodedSrgbComponent::new(0.5).unwrap()
   let linear = @transfer.decode_srgb(encoded)
-  inspect(linear.transfer() == @model.TransferIdentity::LinearSrgb, content="true")
+  inspect(
+    linear.transfer() == @model.TransferIdentity::LinearSrgb,
+    content="true",
+  )
   let roundtrip = @transfer.encode_srgb(linear)
   inspect(
     (roundtrip.value() - 0.5).abs() <= @transfer.roundtrip_absolute_tolerance(),
@@ -102,9 +105,9 @@ test "encoded sRGB and alpha quantize without losing identity" {
   inspect(color.value().to_uint64(), content="128")
   inspect(coverage.value().to_uint64(), content="128")
   inspect(
-    @quantize.quantize_encoded_srgb(
-      @quantize.dequantize_encoded_srgb(color),
-    ).value().to_uint64(),
+    @quantize.quantize_encoded_srgb(@quantize.dequantize_encoded_srgb(color))
+    .value()
+    .to_uint64(),
     content="128",
   )
 }
@@ -154,7 +157,8 @@ test "encoded alpha conversion is explicit, canonical, and fail closed" {
       readme_color8(0),
       readme_color8(0),
       readme_alpha8(1),
-    ) is Err(_),
+    )
+    is Err(_),
     content="true",
   )
 }

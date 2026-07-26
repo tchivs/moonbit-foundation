@@ -18,6 +18,8 @@
 // A polyline is a sequence of vertex points forming a single subpath. `closed`
 // indicates the original subpath was closed (Close), so joins wrap around and no
 // caps are emitted.
+
+///|
 priv struct Polyline {
   points : Array[@math.Point2]
   closed : Bool
@@ -60,6 +62,8 @@ fn expand_stroke(path : @math.Path2, style : StrokeStyle) -> @math.Path2 {
 // the pattern before the path begins (so the first dash entry active at p0 is
 // whichever the pattern lands on after advancing `offset`); negative offsets
 // are normalized forward. The offset wraps modulo the pattern total length.
+
+///|
 fn apply_dash(
   pl : Polyline,
   dash : Array[Double],
@@ -99,7 +103,7 @@ fn apply_dash(
       off = off - remaining
       dash_idx = (dash_idx + 1) % dash.length()
       remaining = dash[dash_idx]
-      on = (dash_idx % 2 == 0)
+      on = dash_idx % 2 == 0
     } else {
       // Lands inside this entry: trim the remaining distance.
       remaining = remaining - off
@@ -160,7 +164,7 @@ fn apply_dash(
       // Move to next dash entry (toggle on/off), wrapping the pattern.
       dash_idx = (dash_idx + 1) % dash.length()
       remaining = dash[dash_idx]
-      on = (dash_idx % 2 == 0)
+      on = dash_idx % 2 == 0
       if on {
         // Start a new "on" run at the cut point.
         current_run = [cut_pt]
@@ -178,7 +182,7 @@ fn apply_dash(
       }
       dash_idx = (dash_idx + 1) % dash.length()
       remaining = dash[dash_idx]
-      on = (dash_idx % 2 == 0)
+      on = dash_idx % 2 == 0
       if on {
         current_run = [@math.Point2::new(cur_x, cur_y)]
       }
@@ -193,88 +197,89 @@ fn apply_dash(
 
 // Walk the PathCommand list and collect subpaths as polylines, flattening
 // Bézier segments into multiple points so stroke offsets stay faithful.
+
+///|
 fn path_to_polylines(path : @math.Path2) -> Array[Polyline] {
   let polylines : Array[Polyline] = []
   let mut current : Array[@math.Point2] = []
   let mut last : @math.Point2? = None
   let mut start : @math.Point2? = None
   let mut started = false
-  path.each(
-    cmd =>
-      match cmd {
-        MoveTo(p) => {
-          if started && current.length() >= 2 {
-            polylines.push({ points: current, closed: false })
-          }
-          current = [p]
-          start = Some(p)
-          last = Some(p)
-          started = true
+  path.each(cmd => {
+    match cmd {
+      MoveTo(p) => {
+        if started && current.length() >= 2 {
+          polylines.push({ points: current, closed: false })
         }
-        LineTo(p) =>
-          match last {
-            Some(_) => {
-              current.push(p)
-              last = Some(p)
-            }
-            None => {
-              current = [p]
-              start = Some(p)
-              last = Some(p)
-              started = true
-            }
+        current = [p]
+        start = Some(p)
+        last = Some(p)
+        started = true
+      }
+      LineTo(p) =>
+        match last {
+          Some(_) => {
+            current.push(p)
+            last = Some(p)
           }
-        QuadTo(c, p) =>
-          match last {
-            Some(l) => {
-              match @math.bezier2_flatten(l, c, p, 0.25, 16) {
-                Ok(arr) =>
-                  for s in arr {
-                    current.push(s.end())
-                  }
-                Err(_) => current.push(p)
-              }
-              last = Some(p)
-            }
-            None => {
-              current = [p]
-              start = Some(p)
-              last = Some(p)
-              started = true
-            }
+          None => {
+            current = [p]
+            start = Some(p)
+            last = Some(p)
+            started = true
           }
-        CubicTo(c1, c2, p) =>
-          match last {
-            Some(l) => {
-              match @math.bezier3_flatten(l, c1, c2, p, 0.25, 16) {
-                Ok(arr) =>
-                  for s in arr {
-                    current.push(s.end())
-                  }
-                Err(_) => current.push(p)
-              }
-              last = Some(p)
+        }
+      QuadTo(c, p) =>
+        match last {
+          Some(l) => {
+            match @math.bezier2_flatten(l, c, p, 0.25, 16) {
+              Ok(arr) =>
+                for s in arr {
+                  current.push(s.end())
+                }
+              Err(_) => current.push(p)
             }
-            None => {
-              current = [p]
-              start = Some(p)
-              last = Some(p)
-              started = true
-            }
+            last = Some(p)
           }
-        Close =>
-          match start {
-            Some(_) => {
-              polylines.push({ points: current, closed: true })
-              current = []
-              start = None
-              last = None
-              started = false
-            }
-            None => ()
+          None => {
+            current = [p]
+            start = Some(p)
+            last = Some(p)
+            started = true
           }
-      },
-  )
+        }
+      CubicTo(c1, c2, p) =>
+        match last {
+          Some(l) => {
+            match @math.bezier3_flatten(l, c1, c2, p, 0.25, 16) {
+              Ok(arr) =>
+                for s in arr {
+                  current.push(s.end())
+                }
+              Err(_) => current.push(p)
+            }
+            last = Some(p)
+          }
+          None => {
+            current = [p]
+            start = Some(p)
+            last = Some(p)
+            started = true
+          }
+        }
+      Close =>
+        match start {
+          Some(_) => {
+            polylines.push({ points: current, closed: true })
+            current = []
+            start = None
+            last = None
+            started = false
+          }
+          None => ()
+        }
+    }
+  })
   // Flush a trailing open subpath.
   if started && current.length() >= 2 {
     polylines.push({ points: current, closed: false })
@@ -285,6 +290,8 @@ fn path_to_polylines(path : @math.Path2) -> Array[Polyline] {
 // Stroke one polyline into the outline path. Emits a closed contour: the left
 // offset (forward) then the right offset (backward), joined at the caps or, for
 // closed polylines, wrapped with joins all the way around.
+
+///|
 fn stroke_polyline(
   outline : @math.Path2,
   pl : Polyline,
@@ -329,9 +336,15 @@ fn stroke_polyline(
     }
     // Left normal = (-ty, tx).
     let (lnx, lny) = (-ty, tx)
-    let miter_len = miter_length(dx_in, dy_in, dx_out, dy_out, lnx, lny, half, style)
-    left.push(@math.Point2::new(p.x() + lnx * miter_len, p.y() + lny * miter_len))
-    right.push(@math.Point2::new(p.x() - lnx * miter_len, p.y() - lny * miter_len))
+    let miter_len = miter_length(
+      dx_in, dy_in, dx_out, dy_out, lnx, lny, half, style,
+    )
+    left.push(
+      @math.Point2::new(p.x() + lnx * miter_len, p.y() + lny * miter_len),
+    )
+    right.push(
+      @math.Point2::new(p.x() - lnx * miter_len, p.y() - lny * miter_len),
+    )
   }
   if left.is_empty() {
     return
@@ -350,8 +363,17 @@ fn stroke_polyline(
   // Far-end cap (open polyline only).
   if !pl.closed {
     match style.cap {
-      Square => emit_square_cap(outline, pl.points[n - 1], pl.points[n - 2], half)
-      Round => emit_round_cap(outline, left[n - 1], right[n - 1], pl.points[n - 1], pl.points[n - 2], half)
+      Square =>
+        emit_square_cap(outline, pl.points[n - 1], pl.points[n - 2], half)
+      Round =>
+        emit_round_cap(
+          outline,
+          left[n - 1],
+          right[n - 1],
+          pl.points[n - 1],
+          pl.points[n - 2],
+          half,
+        )
       Butt => ()
     }
   }
@@ -366,7 +388,15 @@ fn stroke_polyline(
   if !pl.closed {
     match style.cap {
       Square => emit_square_cap(outline, pl.points[0], pl.points[1], half)
-      Round => emit_round_cap(outline, right[0], left[0], pl.points[0], pl.points[1], half)
+      Round =>
+        emit_round_cap(
+          outline,
+          right[0],
+          left[0],
+          pl.points[0],
+          pl.points[1],
+          half,
+        )
       Butt => ()
     }
   }
@@ -375,6 +405,8 @@ fn stroke_polyline(
 
 // Emit a square cap: extend the tangent past the tip by `ext`, adding the two
 // outer corners of the square so the outline traces the extended rectangle.
+
+///|
 fn emit_square_cap(
   outline : @math.Path2,
   tip : @math.Point2,
@@ -385,10 +417,14 @@ fn emit_square_cap(
   let apex = @math.Point2::new(tip.x() + dx * half, tip.y() + dy * half)
   let (nx, ny) = (-dy, dx)
   outline.push(
-    @math.PathCommand::LineTo(@math.Point2::new(apex.x() + nx * half, apex.y() + ny * half)),
+    @math.PathCommand::LineTo(
+      @math.Point2::new(apex.x() + nx * half, apex.y() + ny * half),
+    ),
   )
   outline.push(
-    @math.PathCommand::LineTo(@math.Point2::new(apex.x() - nx * half, apex.y() - ny * half)),
+    @math.PathCommand::LineTo(
+      @math.Point2::new(apex.x() - nx * half, apex.y() - ny * half),
+    ),
   )
 }
 
@@ -396,6 +432,8 @@ fn emit_square_cap(
 // bulging in the tangent direction (from `center` toward `back` reversed — i.e.
 // the cap protrudes past the endpoint). Approximated by two cubic Bézier arcs
 // (one per quarter turn), using the standard κ ≈ 0.5523 control-distance.
+
+///|
 fn emit_round_cap(
   outline : @math.Path2,
   from_pt : @math.Point2,
@@ -417,18 +455,17 @@ fn emit_round_cap(
   // local radius direction).
   // Arc 1: from_pt → fwd. At from_pt the tangent is +tangent; at fwd it is
   // rotated 90° toward to_pt.
-  let from_t = @math.Point2::new(from_pt.x() + tx * kappa, from_pt.y() + ty * kappa)
+  let from_t = @math.Point2::new(
+    from_pt.x() + tx * kappa,
+    from_pt.y() + ty * kappa,
+  )
   // At fwd, the incoming tangent is perpendicular to (fwd - from_pt) direction,
   // which is the normal pointing from from_pt to fwd. Approximate by the normal
   // of the forward direction pointing toward to_pt.
   let (fnx, fny) = (-ty, tx) // left normal of tangent
   // Determine which side to_pt is on, to orient the arc.
   let side = (to_pt.x() - center.x()) * fnx + (to_pt.y() - center.y()) * fny
-  let (snx, sny) = if side >= 0.0 {
-    (fnx, fny)
-  } else {
-    (-fnx, -fny)
-  }
+  let (snx, sny) = if side >= 0.0 { (fnx, fny) } else { (-fnx, -fny) }
   let fwd_in = @math.Point2::new(fwd.x() - snx * kappa, fwd.y() - sny * kappa)
   outline.push(@math.PathCommand::CubicTo(from_t, fwd_in, fwd))
   // Arc 2: fwd → to_pt. At fwd the outgoing tangent is +normal(snx,sny); at
@@ -443,6 +480,8 @@ fn emit_round_cap(
 // radius `half` centered at `center`, approximated by a single cubic Bézier whose
 // control points sit along the tangents at each endpoint. When prev_pt and
 // cur_pt nearly coincide (a near-straight vertex) this degenerates to a line.
+
+///|
 fn emit_round_join(
   outline : @math.Path2,
   center : @math.Point2,
@@ -473,23 +512,24 @@ fn emit_round_join(
   }
   // θ/4 tangent magnitude.
   let half_angle = 0.5 * @math.acos(c).abs()
-  let kappa = (4.0 / 3.0) * @math.tan(half_angle * 0.5) * half
+  let kappa = 4.0 / 3.0 * @math.tan(half_angle * 0.5) * half
   // Tangent at prev_pt: perpendicular to r0, oriented by the sweep sign (cross).
-  let sign = if cross >= 0.0 {
-    1.0
-  } else {
-    -1.0
-  }
+  let sign = if cross >= 0.0 { 1.0 } else { -1.0 }
   let t0x = -r0y / half * sign
   let t0y = r0x / half * sign
   let t1x = -r1y / half * sign
   let t1y = r1x / half * sign
-  let c0 = @math.Point2::new(prev_pt.x() + t0x * kappa, prev_pt.y() + t0y * kappa)
+  let c0 = @math.Point2::new(
+    prev_pt.x() + t0x * kappa,
+    prev_pt.y() + t0y * kappa,
+  )
   let c1 = @math.Point2::new(cur_pt.x() - t1x * kappa, cur_pt.y() - t1y * kappa)
   outline.push(@math.PathCommand::CubicTo(c0, c1, cur_pt))
 }
 
 // Unit direction from `a` to `b`, or (0,0) if coincident.
+
+///|
 fn unit_dir(a : @math.Point2, b : @math.Point2) -> (Double, Double) {
   let dx = b.x() - a.x()
   let dy = b.y() - a.y()
@@ -502,6 +542,8 @@ fn unit_dir(a : @math.Point2, b : @math.Point2) -> (Double, Double) {
 }
 
 // Normalize (x,y), falling back to (fx,fy) if it is degenerate.
+
+///|
 fn unit_or_fallback(
   x : Double,
   y : Double,
@@ -523,6 +565,8 @@ fn unit_or_fallback(
 // falls back to a bevel (plain half-width offset). Non-miter joins (round,
 // bevel) always use a plain half offset — round inserts arc points elsewhere,
 // bevel leaves the corner chamfered.
+
+///|
 fn miter_length(
   dx_in : Double,
   dy_in : Double,

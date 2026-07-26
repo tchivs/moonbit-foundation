@@ -1,34 +1,35 @@
 // Direct controls for the checked geometry seam. These exercises the private
 // facts without coupling the proof to source-text implementation details.
 
+///|
 fn assert_private_point_derived_error(
   result : Result[@math.Point2, @error.CoreError],
 ) -> Unit raise {
   match result {
     Ok(_) => inspect(false, content="true")
-    Err(error) =>
-      assert_eq(error.context(), Some("svg-numeric-derived"))
+    Err(error) => assert_eq(error.context(), Some("svg-numeric-derived"))
   }
 }
 
+///|
 fn assert_private_derived_error(
   result : Result[Unit, @error.CoreError],
 ) -> Unit raise {
   match result {
     Ok(_) => inspect(false, content="true")
-    Err(error) =>
-      assert_eq(error.context(), Some("svg-numeric-derived"))
+    Err(error) => assert_eq(error.context(), Some("svg-numeric-derived"))
   }
 }
 
+///|
 fn assert_private_path_derived_error(
   result : Result[@math.Path2, @error.CoreError],
   transform : @math.Affine2,
 ) -> Unit raise {
   match result {
-    Ok(path) => assert_private_derived_error(checked_path_points(path, transform))
-    Err(error) =>
-      assert_eq(error.context(), Some("svg-numeric-derived"))
+    Ok(path) =>
+      assert_private_derived_error(checked_path_points(path, transform))
+    Err(error) => assert_eq(error.context(), Some("svg-numeric-derived"))
   }
 }
 
@@ -53,14 +54,23 @@ test "geometry facts: root map affine point and rectangle are checked" {
     preserve_aspect_ratio: { align_x: 1, align_y: 1, meet: true, none: false },
   }
   match checked_viewbox_transform(root) {
-    Ok(map) => assert_eq((map.a(), map.d(), map.tx(), map.ty()), (2.0, 2.0, 0.0, 50.0))
+    Ok(map) =>
+      assert_eq((map.a(), map.d(), map.tx(), map.ty()), (2.0, 2.0, 0.0, 50.0))
     Err(_) => inspect(false, content="true")
   }
-  match checked_compose_affine(@math.Affine2::identity(), @math.Affine2::translate(3.0, 4.0)) {
+  match
+    checked_compose_affine(
+      @math.Affine2::identity(),
+      @math.Affine2::translate(3.0, 4.0),
+    ) {
     Ok(transform) => assert_eq((transform.tx(), transform.ty()), (3.0, 4.0))
     Err(_) => inspect(false, content="true")
   }
-  match checked_transform_point(@math.Affine2::scale(0.0, 0.0), @math.Point2::new(65536.0, -65536.0)) {
+  match
+    checked_transform_point(
+      @math.Affine2::scale(0.0, 0.0),
+      @math.Point2::new(65536.0, -65536.0),
+    ) {
     Ok(point) => assert_eq((point.x(), point.y()), (0.0, 0.0))
     Err(_) => inspect(false, content="true")
   }
@@ -90,13 +100,13 @@ test "geometry tracer pairs derived root-map rejection with finite scale zero" {
   }
   match checked_viewbox_transform(unsafe_root) {
     Ok(_) => inspect(false, content="true")
-    Err(error) =>
-      assert_eq(error.context(), Some("svg-numeric-derived"))
+    Err(error) => assert_eq(error.context(), Some("svg-numeric-derived"))
   }
-  match checked_transform_point(
-    @math.Affine2::scale(0.0, 0.0),
-    @math.Point2::new(65536.0, -65536.0),
-  ) {
+  match
+    checked_transform_point(
+      @math.Affine2::scale(0.0, 0.0),
+      @math.Point2::new(65536.0, -65536.0),
+    ) {
     Ok(point) => assert_eq((point.x(), point.y()), (0.0, 0.0))
     Err(_) => inspect(false, content="true")
   }
@@ -115,16 +125,15 @@ test "geometry parity matrix observes every checked derived-geometry family" {
   // arithmetic oracle.
   match checked_viewbox_transform(unsafe_root) {
     Ok(_) => inspect(false, content="true")
-    Err(error) =>
-      assert_eq(error.context(), Some("svg-numeric-derived"))
+    Err(error) => assert_eq(error.context(), Some("svg-numeric-derived"))
   }
-  match checked_compose_affine(
-    @math.Affine2::translate(65536.0, 0.0),
-    overflow_translate,
-  ) {
+  match
+    checked_compose_affine(
+      @math.Affine2::translate(65536.0, 0.0),
+      overflow_translate,
+    ) {
     Ok(_) => inspect(false, content="true")
-    Err(error) =>
-      assert_eq(error.context(), Some("svg-numeric-derived"))
+    Err(error) => assert_eq(error.context(), Some("svg-numeric-derived"))
   }
   assert_private_point_derived_error(
     checked_transform_point(overflow_translate, @math.Point2::new(65536.0, 0.0)),
@@ -148,7 +157,10 @@ test "geometry parity matrix observes every checked derived-geometry family" {
     overflow_translate,
   )
 
-  let boundary_points = [@math.Point2::new(65536.0, 0.0), @math.Point2::new(0.0, 0.0)]
+  let boundary_points = [
+    @math.Point2::new(65536.0, 0.0),
+    @math.Point2::new(0.0, 0.0),
+  ]
   assert_private_path_derived_error(
     checked_polyline_path(boundary_points),
     overflow_translate,
@@ -170,7 +182,9 @@ test "geometry parity matrix observes every checked derived-geometry family" {
   }
   let manual_path = @math.Path2::new()
   manual_path.push(@math.PathCommand::MoveTo(@math.Point2::new(65536.0, 0.0)))
-  assert_private_derived_error(checked_path_points(manual_path, overflow_translate))
+  assert_private_derived_error(
+    checked_path_points(manual_path, overflow_translate),
+  )
 }
 
 ///|
@@ -218,16 +232,27 @@ test "geometry lowering stays total for manually invalid root and rectangle" {
     Ok(Svg(_, [Rect(paint, _, _, _, _, _, _)])) => {
       let invalid_rect = Rect(paint, 65536.0, 0.0, 1.0, 1.0, 0.0, 0.0)
       match lower_to_drawing_list(invalid_rect).get(0) {
-        Some(@canvas.DrawOp::Fill(path, _)) => inspect(path.length(), content="0")
+        Some(@canvas.DrawOp::Fill(path, _)) =>
+          inspect(path.length(), content="0")
         _ => inspect(false, content="true")
       }
       let invalid_root : SvgRoot = {
         width: Some(65536.0),
         height: Some(1.0),
         view_box: Some((2.0, 0.0, 1.0, 1.0)),
-        preserve_aspect_ratio: { align_x: 1, align_y: 1, meet: true, none: true },
+        preserve_aspect_ratio: {
+          align_x: 1,
+          align_y: 1,
+          meet: true,
+          none: true,
+        },
       }
-      inspect(lower_to_drawing_list(Svg(invalid_root, [Rect(paint, 0.0, 0.0, 1.0, 1.0, 0.0, 0.0)])).length(), content="1")
+      inspect(
+        lower_to_drawing_list(
+          Svg(invalid_root, [Rect(paint, 0.0, 0.0, 1.0, 1.0, 0.0, 0.0)]),
+        ).length(),
+        content="1",
+      )
     }
     _ => inspect(false, content="true")
   }

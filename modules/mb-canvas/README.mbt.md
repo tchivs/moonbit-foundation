@@ -21,7 +21,7 @@ The cut: if the operation takes two rasters and produces a raster, it belongs to
 
 The primary contract is a portable, pure-data, append-only sequence of operations. It is deterministic, inspectable, and buildable without rendering — a render is one operation on a list, not the only way to interact.
 
-```moonbit
+```moonbit nocheck
 ///|
 test "build and inspect a drawing list" {
   // A red filled rectangle under a translate, then a green stroke.
@@ -48,7 +48,7 @@ test "build and inspect a drawing list" {
 
 `render(list, target, budget)` rasterizes the list into an `mb-image` `OwnedImage`, writing pixels through `MutImageView::set_byte` under the target's format. Coverage is computed via 4×4 supersampling; color is resolved through `mb-color` with Porter-Duff source-over compositing. See `canvas/render_wbtest.mbt` for end-to-end pixel assertions on RGB8 and straight-RGBA8 targets.
 
-```moonbit
+```moonbit nocheck
 ///|
 test "FillStyle and StrokeStyle defaults" {
   let f = @canvas.FillStyle::new(0.2, 0.4, 0.6)

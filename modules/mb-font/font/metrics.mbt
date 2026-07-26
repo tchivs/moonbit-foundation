@@ -52,8 +52,7 @@ fn font_hmtx_required_length(
     Err(error) => return Err(error)
     Ok(value) => value
   }
-  let tail_count = match
-    @checked.checked_sub(num_glyphs, number_of_h_metrics) {
+  let tail_count = match @checked.checked_sub(num_glyphs, number_of_h_metrics) {
     Err(error) => return Err(error)
     Ok(value) => value
   }
@@ -386,11 +385,7 @@ fn font_read_glyph_bounds(
   }
   if length < 10UL {
     return Err(
-      font_glyph_header_error(
-        "font-glyf-header",
-        requested=length,
-        limit=10UL,
-      ),
+      font_glyph_header_error("font-glyf-header", requested=length, limit=10UL),
     )
   }
   let glyph_view = match index.glyf.view.subview(start, length) {
@@ -465,10 +460,5 @@ fn font_lookup_horizontal_metrics(
     Err(error) => return Err(error)
     Ok(value) => value
   }
-  Ok({
-    advance_width,
-    left_side_bearing,
-    bounds,
-    right_side_bearing,
-  })
+  Ok({ advance_width, left_side_bearing, bounds, right_side_bearing })
 }

@@ -133,11 +133,13 @@ test "descriptor validation is explicit and allocation is caller-bounded" {
   inspect(image.descriptor().width(), content="2")
   inspect(image.view().row_stride(), content="8")
   inspect(image.metadata().orientation().code(), content="2")
-  inspect(image.metadata().opaque_metadata().entry(0).unwrap().canonical_key(), content="example:id:raw")
   inspect(
-    @model.PlaneDescriptor::new(
-      0UL, 5UL, 5UL, 6UL, 1UL, 1UL, 2UL, 1UL,
-    ) is Err(_),
+    image.metadata().opaque_metadata().entry(0).unwrap().canonical_key(),
+    content="example:id:raw",
+  )
+  inspect(
+    @model.PlaneDescriptor::new(0UL, 5UL, 5UL, 6UL, 1UL, 1UL, 2UL, 1UL)
+    is Err(_),
     content="true",
   )
 }
@@ -209,22 +211,44 @@ fn readme_bilinear_image(
 ) -> @storage.OwnedImage {
   let length = pixels.length().to_uint64()
   let width = length / channels
-  let format = if channels == 3UL { @model.ImageFormat::rgb8() } else { @model.ImageFormat::rgba8() }
+  let format = if channels == 3UL {
+    @model.ImageFormat::rgb8()
+  } else {
+    @model.ImageFormat::rgba8()
+  }
   let metadata = @model.ImageMetadata::new(
-    @color.ColorSpaceIdentity::Srgb, @color.TransferIdentity::EncodedSrgb, alpha,
-    @profile.ProfileIdentity::builtin_srgb(), @model.Orientation::TopLeft,
-    @metadata.OpaqueMetadata::from_entries([], @metadata.MetadataLimits::new(
-      max_entries=0UL, max_token_bytes=16UL, max_value_bytes=0UL,
-      max_total_bytes=0UL, max_disposition_fields=8UL,
-    ), readme_budget(0UL, 0UL)).unwrap(),
+    @color.ColorSpaceIdentity::Srgb,
+    @color.TransferIdentity::EncodedSrgb,
+    alpha,
+    @profile.ProfileIdentity::builtin_srgb(),
+    @model.Orientation::TopLeft,
+    @metadata.OpaqueMetadata::from_entries(
+      [],
+      @metadata.MetadataLimits::new(
+        max_entries=0UL,
+        max_token_bytes=16UL,
+        max_value_bytes=0UL,
+        max_total_bytes=0UL,
+        max_disposition_fields=8UL,
+      ),
+      readme_budget(0UL, 0UL),
+    ).unwrap(),
   )
   let descriptor = @model.ImageDescriptor::new(
-    width, 1UL, format,
-    [@model.PlaneDescriptor::new(0UL, length, length, length, 1UL, 1UL, width, 1UL).unwrap()],
-    length, metadata,
+    width,
+    1UL,
+    format,
+    [
+      @model.PlaneDescriptor::new(
+        0UL, length, length, length, 1UL, 1UL, width, 1UL,
+      ).unwrap(),
+    ],
+    length,
+    metadata,
   ).unwrap()
   let image = @storage.OwnedImage::new(descriptor, readme_budget(length, 0UL)).unwrap()
-  image.with_mut_view(fn(view) {
+  image
+  .with_mut_view(fn(view) {
     let mut index = 0
     for x = 0UL; x < width; x = x + 1UL {
       for channel = 0UL; channel < channels; channel = channel + 1UL {
@@ -233,7 +257,8 @@ fn readme_bilinear_image(
       }
     }
     Ok(())
-  }).unwrap()
+  })
+  .unwrap()
   image
 }
 
@@ -243,27 +268,47 @@ test "bilinear resize public vectors are deterministic and alpha correct" {
     b'\x00', b'\x00', b'\x00', b'\xff', b'\xff', b'\xff',
   ])
   let rgb = @ops.resize_bilinear(
-    black_white.view(), 3UL, 1UL, readme_budget(9UL, 12UL),
-  ).unwrap().image().view()
+      black_white.view(),
+      3UL,
+      1UL,
+      readme_budget(9UL, 12UL),
+    )
+    .unwrap()
+    .image()
+    .view()
   inspect(rgb.get_byte(1UL, 0UL, 0UL).unwrap(), content="b'\\xD5'")
   let transparent_red = readme_bilinear_image(
-    4UL, Some(@color.AlphaMode::Straight), [
-      b'\xff', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\xff',
-    ],
+    4UL,
+    Some(@color.AlphaMode::Straight),
+    [b'\xff', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\xff'],
   )
   let rgba = @ops.resize_bilinear(
-    transparent_red.view(), 3UL, 1UL, readme_budget(12UL, 12UL),
-  ).unwrap().image().view()
+      transparent_red.view(),
+      3UL,
+      1UL,
+      readme_budget(12UL, 12UL),
+    )
+    .unwrap()
+    .image()
+    .view()
   for channel = 0UL; channel < 3UL; channel = channel + 1UL {
     inspect(rgba.get_byte(1UL, 0UL, channel).unwrap(), content="b'\\x00'")
   }
   inspect(rgba.get_byte(1UL, 0UL, 3UL).unwrap(), content="b'\\xAA'")
   let one_transparent_red = readme_bilinear_image(
-    4UL, Some(@color.AlphaMode::Straight), [b'\xff', b'\x00', b'\x00', b'\x00'],
+    4UL,
+    Some(@color.AlphaMode::Straight),
+    [b'\xff', b'\x00', b'\x00', b'\x00'],
   )
   let expanded = @ops.resize_bilinear(
-    one_transparent_red.view(), 2UL, 3UL, readme_budget(24UL, 24UL),
-  ).unwrap().image().view()
+      one_transparent_red.view(),
+      2UL,
+      3UL,
+      readme_budget(24UL, 24UL),
+    )
+    .unwrap()
+    .image()
+    .view()
   for y = 0UL; y < 3UL; y = y + 1UL {
     for x = 0UL; x < 2UL; x = x + 1UL {
       for channel = 0UL; channel < 4UL; channel = channel + 1UL {
@@ -313,12 +358,11 @@ kernels, codecs, benchmarks, or release behavior.
 ///|
 test "views and operations expose lifetime and metadata disposition" {
   let image = readme_image()
-  image.with_mut_view(fn(view) {
-    view.set_byte(0UL, 0UL, 0UL, b'R')
-  }).unwrap()
-  let crop = image.view().crop(
-    @model.Rect::new(0UL, 0UL, 1UL, 2UL).unwrap(),
-  ).unwrap()
+  image.with_mut_view(fn(view) { view.set_byte(0UL, 0UL, 0UL, b'R') }).unwrap()
+  let crop = image
+    .view()
+    .crop(@model.Rect::new(0UL, 0UL, 1UL, 2UL).unwrap())
+    .unwrap()
   inspect(crop.row_stride(), content="8")
   inspect(crop.get_byte(0UL, 0UL, 0UL).unwrap() == b'R', content="true")
 
@@ -336,22 +380,22 @@ test "views and operations expose lifetime and metadata disposition" {
   inspect(rotated.image().descriptor().width(), content="2")
   inspect(rotated.image().descriptor().height(), content="1")
   inspect(rotated.image().metadata().orientation().code(), content="1")
-  inspect(rotated.disposition().transformed(0).unwrap().value(), content="orientation")
+  inspect(
+    rotated.disposition().transformed(0).unwrap().value(),
+    content="orientation",
+  )
 
   let copied = @ops.copy_image(image.view(), readme_budget(12UL, 12UL)).unwrap()
   inspect(copied.image().view().row_stride(), content="6")
   inspect(copied.disposition().preserved_length(), content="5")
-  let horizontal = @ops.flip_horizontal(
-    image.view(),
-    readme_budget(12UL, 12UL),
-  ).unwrap()
+  let horizontal = @ops.flip_horizontal(image.view(), readme_budget(12UL, 12UL)).unwrap()
   inspect(horizontal.image().metadata().orientation().code(), content="2")
-  let oriented = @ops.apply_orientation(
-    image.view(),
-    readme_budget(12UL, 12UL),
-  ).unwrap()
+  let oriented = @ops.apply_orientation(image.view(), readme_budget(12UL, 12UL)).unwrap()
   inspect(oriented.image().metadata().orientation().code(), content="1")
-  inspect(oriented.disposition().transformed(0).unwrap().value(), content="orientation")
+  inspect(
+    oriented.disposition().transformed(0).unwrap().value(),
+    content="orientation",
+  )
   let resized = @ops.resize_nearest(
     image.view(),
     1UL,
@@ -366,8 +410,15 @@ test "views and operations expose lifetime and metadata disposition" {
   inspect(rgba.image().descriptor().format().channel_count(), content="4")
   inspect(rgba.disposition().transformed(0).unwrap().value(), content="alpha")
   let gray = @ops.grayscale(rgba.image().view(), readme_budget(16UL, 4UL)).unwrap()
-  let blurred = @ops.box_blur(gray.image().view(), 0UL, readme_budget(16UL, 4UL)).unwrap()
-  inspect(blurred.image().metadata().alpha() == Some(@color.AlphaMode::Straight), content="true")
+  let blurred = @ops.box_blur(
+    gray.image().view(),
+    0UL,
+    readme_budget(16UL, 4UL),
+  ).unwrap()
+  inspect(
+    blurred.image().metadata().alpha() == Some(@color.AlphaMode::Straight),
+    content="true",
+  )
 }
 ```
 
@@ -418,7 +469,10 @@ test "codec policy is explicit without selecting a backend" {
   inspect(limits.max_probe_bytes(), content="16")
   inspect(decode.require_complete_input(), content="true")
   inspect(encode.lossless_required(), content="true")
-  inspect(@codec.ProbeOutcome::NeedMore(2UL) == @codec.ProbeOutcome::NeedMore(2UL), content="true")
+  inspect(
+    @codec.ProbeOutcome::NeedMore(2UL) == @codec.ProbeOutcome::NeedMore(2UL),
+    content="true",
+  )
 }
 ```
 
@@ -437,10 +491,18 @@ declarations.
 ```mbt check
 ///|
 fn readme_png_budget(bytes : UInt64, work : UInt64) -> @budget.Budget {
-  @budget.Budget::new(@budget.ResourceLimits::new(
-    bytes~, allocations=8UL, allocation_size=bytes, width=16UL,
-    height=16UL, pixels=256UL, depth=0UL, work~,
-  ))
+  @budget.Budget::new(
+    @budget.ResourceLimits::new(
+      bytes~,
+      allocations=8UL,
+      allocation_size=bytes,
+      width=16UL,
+      height=16UL,
+      pixels=256UL,
+      depth=0UL,
+      work~,
+    ),
+  )
 }
 
 ///|
@@ -450,16 +512,38 @@ test "PNG retained declarations expose metadata without transforming samples" {
     readme_png_budget(128UL, 0UL),
   ).unwrap()
   let decoded = @codec.ImageDecoder::decode(
-    @png.PngDecoder::new(), @io.MemoryReader::new(source.view()) as &@io.Reader,
-    @codec.DecodeOptions::new(require_complete_input=true, preserve_opaque_metadata=false),
-    @codec.CodecLimits::new(max_probe_bytes=8UL, max_input_bytes=128UL, max_output_bytes=64UL, max_width=4UL, max_height=4UL, max_pixels=16UL, max_work=256UL),
-    readme_png_budget(512UL, 256UL), @error.Diagnostics::new(),
+    @png.PngDecoder::new(),
+    @io.MemoryReader::new(source.view()) as &@io.Reader,
+    @codec.DecodeOptions::new(
+      require_complete_input=true,
+      preserve_opaque_metadata=false,
+    ),
+    @codec.CodecLimits::new(
+      max_probe_bytes=8UL,
+      max_input_bytes=128UL,
+      max_output_bytes=64UL,
+      max_width=4UL,
+      max_height=4UL,
+      max_pixels=16UL,
+      max_work=256UL,
+    ),
+    readme_png_budget(512UL, 256UL),
+    @error.Diagnostics::new(),
   ).unwrap()
   let descriptor = decoded.image().descriptor()
-  inspect(descriptor.metadata().transfer() == @color.TransferIdentity::LinearSrgb, content="true")
-  inspect(descriptor.metadata().opaque_metadata().entry(0).unwrap().canonical_key(), content="png:legacy:gamma")
+  inspect(
+    descriptor.metadata().transfer() == @color.TransferIdentity::LinearSrgb,
+    content="true",
+  )
+  inspect(
+    descriptor.metadata().opaque_metadata().entry(0).unwrap().canonical_key(),
+    content="png:legacy:gamma",
+  )
   inspect(!descriptor.supports_reference_operations(), content="true")
-  inspect(decoded.image().view().get_byte(0UL, 0UL, 0UL).unwrap(), content="b'\\x12'")
+  inspect(
+    decoded.image().view().get_byte(0UL, 0UL, 0UL).unwrap(),
+    content="b'\\x12'",
+  )
 }
 ```
 
@@ -480,22 +564,37 @@ test "PNG public chunk decode makes finish the ownership boundary" {
   ).unwrap()
   let decoder = @png.PngChunkDecoder::new(
     @codec.CodecLimits::new(
-      max_probe_bytes=8UL, max_input_bytes=128UL, max_output_bytes=64UL,
-      max_width=4UL, max_height=4UL, max_pixels=16UL, max_work=256UL,
+      max_probe_bytes=8UL,
+      max_input_bytes=128UL,
+      max_output_bytes=64UL,
+      max_width=4UL,
+      max_height=4UL,
+      max_pixels=16UL,
+      max_work=256UL,
     ),
-    readme_png_budget(512UL, 256UL), @error.Diagnostics::new(),
+    readme_png_budget(512UL, 256UL),
+    @error.Diagnostics::new(),
   )
   let empty = @bytes.OwnedBytes::from_bytes(b"", readme_png_budget(0UL, 0UL)).unwrap()
   let empty_push = decoder.push(empty.view())
   inspect(empty_push.consumed(), content="0")
-  inspect(empty_push.outcome() is @png.PngChunkPushOutcome::NeedInput, content="true")
+  inspect(
+    empty_push.outcome() is @png.PngChunkPushOutcome::NeedInput,
+    content="true",
+  )
   let pushed = decoder.push(source.view())
   inspect(pushed.consumed(), content="75")
-  inspect(pushed.outcome() is @png.PngChunkPushOutcome::NeedInput, content="true")
+  inspect(
+    pushed.outcome() is @png.PngChunkPushOutcome::NeedInput,
+    content="true",
+  )
   let decoded = decoder.finish().unwrap()
   inspect(decoded.image().descriptor().width(), content="1")
   inspect(decoded.image().descriptor().height(), content="1")
-  inspect(decoded.image().view().get_byte(0UL, 0UL, 0UL).unwrap(), content="b'\\x12'")
+  inspect(
+    decoded.image().view().get_byte(0UL, 0UL, 0UL).unwrap(),
+    content="b'\\x12'",
+  )
 }
 ```
 

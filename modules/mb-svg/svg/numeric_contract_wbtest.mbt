@@ -5,8 +5,7 @@
 test "numeric contract tracer: inclusive boundary and scale zero parse and lower" {
   let cases = [
     (
-      "inclusive-boundary-with-finite-singular-transform",
-      "<svg><g transform=\"scale(0)\"><rect x=\"65536\" y=\"-65536\" width=\"1\" height=\"1\"/></g></svg>",
+      "inclusive-boundary-with-finite-singular-transform", "<svg><g transform=\"scale(0)\"><rect x=\"65536\" y=\"-65536\" width=\"1\" height=\"1\"/></g></svg>",
     ),
   ]
   let mut failures = 0
@@ -32,7 +31,10 @@ test "numeric contract tracer: inclusive boundary and scale zero parse and lower
 
 ///|
 test "numeric contract: omitted defaults and nested opacity remain lowerable" {
-  match parse_svg("<svg><g transform=\"scale(0)\" opacity=\"0.5\"><rect/></g></svg>") {
+  match
+    parse_svg(
+      "<svg><g transform=\"scale(0)\" opacity=\"0.5\"><rect/></g></svg>",
+    ) {
     Err(_) => inspect(false, content="true")
     Ok(scene) => {
       // Parser-produced scenes are validated before the unchanged total lowerer.

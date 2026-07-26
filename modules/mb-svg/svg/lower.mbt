@@ -38,6 +38,8 @@ pub fn lower_to_drawing_list(root : SceneNode) -> @canvas.DrawingList {
 
 // Recursively lower one node, carrying the admitted effective affine that is
 // already represented by ancestor DrawOps.
+
+///|
 fn lower_node(
   node : SceneNode,
   current : @math.Affine2,
@@ -50,14 +52,20 @@ fn lower_node(
       // no mapping is applied (identity). meet keeps aspect ratio by using
       // the smaller scale and centers the content (xMid/YMid).
       let map = total_viewbox_transform(root)
-      let (local_map, child_current) = match checked_compose_affine(current, map) {
+      let (local_map, child_current) = match
+        checked_compose_affine(current, map) {
         Ok(composed) => (map, composed)
         // A manually assembled nested Svg can make an otherwise valid root map
         // unsafe when combined with its inherited state. Keep total lowering
         // deterministic by omitting that local contribution.
         Err(_) => (@math.Affine2::identity(), current)
       }
-      let mapped = not(local_map.a() == 1.0 && local_map.d() == 1.0 && local_map.tx() == 0.0 && local_map.ty() == 0.0)
+      let mapped = not(
+        local_map.a() == 1.0 &&
+        local_map.d() == 1.0 &&
+        local_map.tx() == 0.0 &&
+        local_map.ty() == 0.0,
+      )
       if mapped {
         list.push_transform(local_map)
       }
@@ -69,7 +77,8 @@ fn lower_node(
       }
     }
     Group(transform, opacity, children) => {
-      let (local_transform, child_current) = match checked_compose_affine(current, transform) {
+      let (local_transform, child_current) = match
+        checked_compose_affine(current, transform) {
         Ok(composed) => (transform, composed)
         // Public SceneNode values can bypass parser preflight. Keep the total
         // lowerer safe by recording identity and preserving the prior admitted
@@ -101,15 +110,20 @@ fn lower_node(
       emit_shape(paint, total_path(checked_ellipse_path(cx, cy, rx, ry)), list)
     Line(paint, x1, y1, x2, y2) =>
       emit_shape(paint, total_path(checked_line_path(x1, y1, x2, y2)), list)
-    Polyline(paint, pts) => emit_shape(paint, total_path(checked_polyline_path(pts)), list)
-    Polygon(paint, pts) => emit_shape(paint, total_path(checked_polygon_path(pts)), list)
-    Path(paint, cp) => emit_shape(paint, total_path(checked_canvas_path(cp)), list)
+    Polyline(paint, pts) =>
+      emit_shape(paint, total_path(checked_polyline_path(pts)), list)
+    Polygon(paint, pts) =>
+      emit_shape(paint, total_path(checked_polygon_path(pts)), list)
+    Path(paint, cp) =>
+      emit_shape(paint, total_path(checked_canvas_path(cp)), list)
   }
 }
 
 // Parser-produced roots have already passed checked_viewbox_transform. A
 // manually constructed invalid root keeps the public lowerer total by using
 // identity instead of exposing a Result or panicking.
+
+///|
 fn total_viewbox_transform(root : SvgRoot) -> @math.Affine2 {
   match checked_viewbox_transform(root) {
     Ok(transform) => transform
@@ -119,6 +133,8 @@ fn total_viewbox_transform(root : SvgRoot) -> @math.Affine2 {
 
 // As above, invalid manually constructed leaf geometry is recovered as an
 // empty path; valid parser-produced rectangles use the shared checked fact.
+
+///|
 fn total_rect_path(
   x : Double,
   y : Double,
@@ -133,6 +149,7 @@ fn total_rect_path(
   }
 }
 
+///|
 fn total_path(result : Result[@math.Path2, @error.CoreError]) -> @math.Path2 {
   match result {
     Ok(path) => total_checked_path(path)
@@ -140,6 +157,7 @@ fn total_path(result : Result[@math.Path2, @error.CoreError]) -> @math.Path2 {
   }
 }
 
+///|
 fn total_checked_path(path : @math.Path2) -> @math.Path2 {
   match checked_path_points(path, @math.Affine2::identity()) {
     Ok(_) => path
@@ -150,6 +168,8 @@ fn total_checked_path(path : @math.Path2) -> @math.Path2 {
 // Emit fill and (if any) stroke ops for a shape. Applies to both closed
 // shapes (rect/circle/ellipse/polygon/path) and open ones (polyline): SVG
 // permits filling open paths, so the same emission is used for both.
+
+///|
 fn emit_shape(
   paint : Paint,
   path : @math.Path2,
@@ -180,7 +200,13 @@ fn emit_shape(
         .with_dash_offset(paint.stroke_dashoffset)
       // Stroke color FillStyle: its rule is unused by the rasterizer (strokes
       // fill as even-odd outlines internally), so Nonzero is passed here.
-      let color = make_fill_style(r, g, b, paint.stroke_opacity, @canvas.FillRule::Nonzero)
+      let color = make_fill_style(
+        r,
+        g,
+        b,
+        paint.stroke_opacity,
+        @canvas.FillRule::Nonzero,
+      )
       list.push_stroke(path, stroke, color)
     }
     None => ()
@@ -198,6 +224,8 @@ fn emit_shape(
 // rule. Alpha comes from the resolved fill-opacity/stroke-opacity (default
 // 1.0); rule comes from the resolved fill-rule (default Nonzero). Both applied
 // via the mb-canvas value setters.
+
+///|
 fn make_fill_style(
   r : Double,
   g : Double,

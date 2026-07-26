@@ -54,7 +54,10 @@ pub fn parse_color(
   }
 }
 
-fn parse_hex_color(t : String) -> Result[(Double, Double, Double), @error.CoreError] {
+///|
+fn parse_hex_color(
+  t : String,
+) -> Result[(Double, Double, Double), @error.CoreError] {
   let chars = t.to_array()
   match chars.length() {
     4 => {
@@ -70,7 +73,13 @@ fn parse_hex_color(t : String) -> Result[(Double, Double, Double), @error.CoreEr
         Ok(value) => value
         Err(error) => return Err(error)
       }
-      Ok((byte_to_norm(r * 16 + r), byte_to_norm(g * 16 + g), byte_to_norm(b * 16 + b)))
+      Ok(
+        (
+          byte_to_norm(r * 16 + r),
+          byte_to_norm(g * 16 + g),
+          byte_to_norm(b * 16 + b),
+        ),
+      )
     }
     7 => {
       let r1 = match hex_digit(chars[1]) {
@@ -106,6 +115,7 @@ fn parse_hex_color(t : String) -> Result[(Double, Double, Double), @error.CoreEr
   }
 }
 
+///|
 fn hex_digit(c : Char) -> Result[Int, @error.CoreError] {
   let v = c.to_int()
   if v >= 48 && v <= 57 {
@@ -119,12 +129,15 @@ fn hex_digit(c : Char) -> Result[Int, @error.CoreError] {
   }
 }
 
+///|
 fn byte_to_norm(v : Int) -> Double {
   v.to_double() / 255.0
 }
 
 // Parse rgb()/rgba() or hsl()/hsla(): extract the content between the first '('
 // and the last ')', split on ',', parse each component.
+
+///|
 fn parse_func_color(
   t : String,
   is_hsl : Bool,
@@ -191,6 +204,7 @@ fn parse_func_color(
   }
 }
 
+///|
 fn parse_component(s : String) -> Result[Double, @error.CoreError] {
   if s.contains("%") {
     parse_percent(s)
@@ -202,6 +216,7 @@ fn parse_component(s : String) -> Result[Double, @error.CoreError] {
   }
 }
 
+///|
 fn parse_percent(s : String) -> Result[Double, @error.CoreError] {
   // Percent components require exactly one trailing '%'. Removing every '%'
   // would otherwise accept malformed forms such as "1%%" and "1%2".
@@ -222,21 +237,28 @@ fn parse_percent(s : String) -> Result[Double, @error.CoreError] {
   }
 }
 
+///|
 fn color_source_error() -> @error.CoreError {
   svg_numeric_error(@error.ErrorCode::InvalidEncoding, "svg-numeric-source")
 }
 
+///|
 fn parse_color_scalar(s : String) -> Result[Double, @error.CoreError] {
   match @text.parse_double(@text.trim(s).to_string()) {
     Ok(value) => admit_svg_numeric_source(value)
-    Err(_) => Err(svg_numeric_error(
-      @error.ErrorCode::InvalidEncoding,
-      "svg-numeric-source",
-    ))
+    Err(_) =>
+      Err(
+        svg_numeric_error(
+          @error.ErrorCode::InvalidEncoding,
+          "svg-numeric-source",
+        ),
+      )
   }
 }
 
 // Split a string on ',' keeping non-empty trimmed parts.
+
+///|
 fn split_on_comma(s : String) -> Array[String] {
   let parts = s.split(",")
   let result : Array[String] = []
@@ -247,6 +269,8 @@ fn split_on_comma(s : String) -> Array[String] {
 }
 
 // Lookup a CSS/SVG named color.
+
+///|
 fn lookup_named_color(name : String) -> (Double, Double, Double)? {
   match name {
     "black" => Some((0.0, 0.0, 0.0))
@@ -257,8 +281,10 @@ fn lookup_named_color(name : String) -> (Double, Double, Double)? {
     "yellow" => Some((1.0, 1.0, 0.0))
     "cyan" | "aqua" => Some((0.0, 1.0, 1.0))
     "magenta" | "fuchsia" => Some((1.0, 0.0, 1.0))
-    "silver" => Some((0.7529411764705882, 0.7529411764705882, 0.7529411764705882))
-    "gray" | "grey" => Some((0.5019607843137255, 0.5019607843137255, 0.5019607843137255))
+    "silver" =>
+      Some((0.7529411764705882, 0.7529411764705882, 0.7529411764705882))
+    "gray" | "grey" =>
+      Some((0.5019607843137255, 0.5019607843137255, 0.5019607843137255))
     "maroon" => Some((0.5019607843137255, 0.0, 0.0))
     "purple" => Some((0.5019607843137255, 0.0, 0.5019607843137255))
     "lime" => Some((0.0, 1.0, 0.0))

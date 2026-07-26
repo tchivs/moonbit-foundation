@@ -97,6 +97,8 @@ pub struct Paint {
 // Resolved inherited values threaded through the build. `color` is the
 // currentColor source (the `color` attribute); fill/stroke use Option where
 // None = paint "none".
+
+///|
 priv struct PaintContext {
   color : (Double, Double, Double)
   fill : (Double, Double, Double)?
@@ -114,6 +116,8 @@ priv struct PaintContext {
 
 // Root context: SVG defaults. color (currentColor) defaults to black; fill to
 // black; stroke to none; opacity 1.0; width 1.0; butt/miter/4/solid.
+
+///|
 fn root_paint_context() -> PaintContext {
   {
     color: (0.0, 0.0, 0.0),
@@ -137,15 +141,7 @@ fn root_paint_context() -> PaintContext {
 pub enum SceneNode {
   Svg(SvgRoot, Array[SceneNode])
   Group(@math.Affine2, Double, Array[SceneNode]) // transform, opacity, children
-  Rect(
-    Paint,
-    Double,
-    Double,
-    Double,
-    Double,
-    Double,
-    Double,
-  ) // paint, x, y, w, h, rx, ry
+  Rect(Paint, Double, Double, Double, Double, Double, Double) // paint, x, y, w, h, rx, ry
   Circle(Paint, Double, Double, Double) // paint, cx, cy, r
   Ellipse(Paint, Double, Double, Double, Double) // paint, cx, cy, rx, ry
   Line(Paint, Double, Double, Double, Double) // paint, x1, y1, x2, y2
@@ -187,11 +183,7 @@ pub fn parse_svg_with_budget(
     Ok(t) => t
     Err(e) => return Err(e)
   }
-  let st : TokenCursor = {
-    tokens: tokens,
-    pos: 0,
-    len: tokens.length(),
-  }
+  let st : TokenCursor = { tokens, pos: 0, len: tokens.length() }
   // Skip leading Text/Comment trivia until the root start tag.
   match skip_leading_trivia(st, budget) {
     Ok(_) => ()
@@ -204,7 +196,7 @@ pub fn parse_svg_with_budget(
     StartTag(name) =>
       if name == "svg" {
         match build_svg_root(st, root_paint_context(), budget, false) {
-          Ok(node) => {
+          Ok(node) =>
             // `SceneNode` is the public parser boundary. Validate every
             // deterministic lowering derivation before exposing it; the total
             // lowerer intentionally remains a consumer, not an error source.
@@ -215,7 +207,6 @@ pub fn parse_svg_with_budget(
               }
               Err(error) => Err(error)
             }
-          }
           Err(e) => Err(e)
         }
       } else {
@@ -230,17 +221,21 @@ pub fn parse_svg_with_budget(
 // and modest allocation headroom for scene construction. These are
 // conservative ceilings far above any reasonable SVG document; callers
 // handling hostile input may pass tighter limits via parse_svg_with_budget.
+
+///|
 fn default_parse_budget() -> @budget.Budget {
-  @budget.Budget::new(@budget.ResourceLimits::new(
-    bytes=16777216UL, // 16 MiB source admission ceiling
-    allocations=262144UL,
-    allocation_size=16777216UL,
-    width=65536UL,
-    height=65536UL,
-    pixels=0UL,
-    depth=64UL,
-    work=2000000UL,
-  ))
+  @budget.Budget::new(
+    @budget.ResourceLimits::new(
+      bytes=16777216UL, // 16 MiB source admission ceiling
+      allocations=262144UL,
+      allocation_size=16777216UL,
+      width=65536UL,
+      height=65536UL,
+      pixels=0UL,
+      depth=64UL,
+      work=2000000UL,
+    ),
+  )
 }
 
 // ---------------------------------------------------------------------------
@@ -252,10 +247,12 @@ fn default_parse_budget() -> @budget.Budget {
 // manually constructed SceneNode values deliberately keep the public total
 // lower_to_drawing_list contract.
 
+///|
 fn preflight_scene(node : SceneNode) -> Result[Unit, @error.CoreError] {
   preflight_node(node, @math.Affine2::identity())
 }
 
+///|
 fn preflight_node(
   node : SceneNode,
   current : @math.Affine2,
@@ -279,51 +276,45 @@ fn preflight_node(
       }
       preflight_children(children, next)
     }
-    Rect(_, x, y, w, h, rx, ry) => {
+    Rect(_, x, y, w, h, rx, ry) =>
       match checked_rect_path(x, y, w, h, rx, ry) {
         Ok(path) => checked_path_points(path, current)
         Err(error) => Err(error)
       }
-    }
-    Circle(_, cx, cy, r) => {
+    Circle(_, cx, cy, r) =>
       match checked_circle_path(cx, cy, r) {
         Ok(path) => checked_path_points(path, current)
         Err(error) => Err(error)
       }
-    }
-    Ellipse(_, cx, cy, rx, ry) => {
+    Ellipse(_, cx, cy, rx, ry) =>
       match checked_ellipse_path(cx, cy, rx, ry) {
         Ok(path) => checked_path_points(path, current)
         Err(error) => Err(error)
       }
-    }
-    Line(_, x1, y1, x2, y2) => {
+    Line(_, x1, y1, x2, y2) =>
       match checked_line_path(x1, y1, x2, y2) {
         Ok(path) => checked_path_points(path, current)
         Err(error) => Err(error)
       }
-    }
-    Polyline(_, points) => {
+    Polyline(_, points) =>
       match checked_polyline_path(points) {
         Ok(path) => checked_path_points(path, current)
         Err(error) => Err(error)
       }
-    }
-    Polygon(_, points) => {
+    Polygon(_, points) =>
       match checked_polygon_path(points) {
         Ok(path) => checked_path_points(path, current)
         Err(error) => Err(error)
       }
-    }
-    Path(_, path) => {
+    Path(_, path) =>
       match checked_canvas_path(path) {
         Ok(path2) => checked_path_points(path2, current)
         Err(error) => Err(error)
       }
-    }
   }
 }
 
+///|
 fn preflight_children(
   children : Array[SceneNode],
   current : @math.Affine2,
@@ -339,16 +330,21 @@ fn preflight_children(
 
 // Charge one unit of work for consuming a token. Returns Err on budget
 // exhaustion (work dimension). Centralizes the per-token bound.
+
+///|
 fn charge_token(budget : @budget.Budget) -> Result[Unit, @error.CoreError] {
-  match budget.charge(@budget.ResourceCharge::new(
-    bytes=0UL,
-    allocations=0UL,
-    allocation_size=0UL,
-    width=0UL,
-    height=0UL,
-    pixels=0UL,
-    work=1UL,
-  )) {
+  match
+    budget.charge(
+      @budget.ResourceCharge::new(
+        bytes=0UL,
+        allocations=0UL,
+        allocation_size=0UL,
+        width=0UL,
+        height=0UL,
+        pixels=0UL,
+        work=1UL,
+      ),
+    ) {
     Ok(_) => Ok(())
     Err(_) => Err(svg_error("svg-budget", "work limit exceeded"))
   }
@@ -359,6 +355,8 @@ fn charge_token(budget : @budget.Budget) -> Result[Unit, @error.CoreError] {
 // so this is an admission check instead of a consumable scene-allocation
 // charge. Once admitted, normal tree construction retains the existing work
 // accounting semantics.
+
+///|
 fn admit_source_bytes(
   source : String,
   budget : @budget.Budget,
@@ -376,12 +374,14 @@ fn admit_source_bytes(
 // Internal: cursor over the flat MarkupToken stream
 // ---------------------------------------------------------------------------
 
+///|
 priv struct TokenCursor {
   tokens : Array[@text.MarkupToken]
   mut pos : Int
   len : Int
 }
 
+///|
 fn skip_leading_trivia(
   st : TokenCursor,
   budget : @budget.Budget,
@@ -401,6 +401,7 @@ fn skip_leading_trivia(
   Ok(())
 }
 
+///|
 fn ignore_trailing(st : TokenCursor) -> Unit {
   st.pos = st.len
 }
@@ -409,6 +410,8 @@ fn ignore_trailing(st : TokenCursor) -> Unit {
 // the matching </svg>. Returns the Svg SceneNode. The root's own presentation
 // attributes (color, fill, ...) merge into the inherited context and thread
 // down to children.
+
+///|
 fn build_svg_root(
   st : TokenCursor,
   ctx : PaintContext,
@@ -465,6 +468,8 @@ fn build_svg_root(
 // token (AttributeName, AttributeValue, terminator) is charged against the
 // budget's work dimension, bounding per-element attribute count and total
 // token volume.
+
+///|
 fn build_attrs(
   st : TokenCursor,
   budget : @budget.Budget,
@@ -479,7 +484,9 @@ fn build_attrs(
         }
         st.pos = st.pos + 1
         if st.pos >= st.len {
-          return Err(svg_error("svg-scene", "attribute '" + name + "' has no value"))
+          return Err(
+            svg_error("svg-scene", "attribute '" + name + "' has no value"),
+          )
         }
         match st.tokens[st.pos] {
           AttributeValue(v) => {
@@ -491,10 +498,12 @@ fn build_attrs(
             st.pos = st.pos + 1
           }
           _ =>
-            return Err(svg_error(
-              "svg-scene",
-              "expected value for attribute '" + name + "'",
-            ))
+            return Err(
+              svg_error(
+                "svg-scene",
+                "expected value for attribute '" + name + "'",
+              ),
+            )
         }
       }
       TagEnd => {
@@ -523,6 +532,8 @@ fn build_attrs(
 // Dispatches known §6.1 elements to their builders; skips unknown subtrees.
 // `ctx` is the inherited paint context for the children. Each consumed token
 // is charged, bounding document size.
+
+///|
 fn build_children(
   st : TokenCursor,
   parent : String,
@@ -561,10 +572,12 @@ fn build_children(
           return Ok(children)
         } else {
           // Stray end tag: treat as error to surface malformed markup.
-          return Err(svg_error(
-            "svg-scene",
-            "unexpected </" + n + "> inside <" + parent + ">",
-          ))
+          return Err(
+            svg_error(
+              "svg-scene",
+              "unexpected </" + n + "> inside <" + parent + ">",
+            ),
+          )
         }
       Text(_) | Comment(_) => {
         match charge_token(budget) {
@@ -590,6 +603,8 @@ fn build_children(
 //   Ok(Some(node))  — a known §6.1 element was built
 //   Ok(None)        — the element was unknown/deferred; its subtree was skipped
 // `ctx` is the inherited paint context.
+
+///|
 fn build_element(
   st : TokenCursor,
   name : String,
@@ -658,7 +673,7 @@ fn build_element(
         Ok(n) => n
         Err(e) => return Err(e)
       }
-    _ => {
+    _ =>
       // Unknown/deferred element. build_attrs already consumed up to the
       // terminator; skip the element's body up to the matching EndTag,
       // accounting for nested same-name tags.
@@ -667,7 +682,6 @@ fn build_element(
       } else {
         return skip_element_body(st, name, budget)
       }
-    }
   }
   if not(is_empty) {
     match consume_end_tag(st, name, budget) {
@@ -681,6 +695,8 @@ fn build_element(
 // Build a <g> group: resolve transform (default identity), merge this group's
 // presentation attributes into the inherited context, and recurse with the
 // merged context so children inherit the group's fill/stroke/color/etc.
+
+///|
 fn build_group(
   st : TokenCursor,
   ctx : PaintContext,
@@ -733,6 +749,8 @@ fn build_group(
 // Consume a matching `</name>` end tag (and its trailing TagEnd) for a leaf
 // element whose start tag was non-self-closing, e.g. `<rect ...></rect>`.
 // Returns Ok(()) on match, Err if the next end tag is not `</name>`.
+
+///|
 fn consume_end_tag(
   st : TokenCursor,
   name : String,
@@ -763,7 +781,9 @@ fn consume_end_tag(
         }
         Ok(())
       } else {
-        Err(svg_error("svg-scene", "expected </" + name + ">, got </" + n + ">"))
+        Err(
+          svg_error("svg-scene", "expected </" + name + ">, got </" + n + ">"),
+        )
       }
     _ => Err(svg_error("svg-scene", "expected </" + name + "> end tag"))
   }
@@ -773,6 +793,8 @@ fn consume_end_tag(
 // its terminator have already been consumed. Consumes up to and including the
 // matching </name>. Returns Ok(None) so the caller records no child. Each
 // consumed token is charged, bounding the skipped subtree's size.
+
+///|
 fn skip_element_body(
   st : TokenCursor,
   name : String,
@@ -833,6 +855,7 @@ fn skip_element_body(
 // SvgRoot / Paint / shape builders
 // ---------------------------------------------------------------------------
 
+///|
 fn build_svg_root_attrs(
   attrs : Array[(String, String)],
 ) -> Result[SvgRoot, @error.CoreError] {
@@ -864,15 +887,12 @@ fn build_svg_root_attrs(
     None => default_preserve_aspect_ratio()
     Some(s) => parse_preserve_aspect_ratio(s)
   }
-  Ok({
-    width: width,
-    height: height,
-    view_box: view_box,
-    preserve_aspect_ratio: preserve_aspect_ratio,
-  })
+  Ok({ width, height, view_box, preserve_aspect_ratio })
 }
 
 // Default preserveAspectRatio per SVG 1.1: "xMidYMid meet".
+
+///|
 fn default_preserve_aspect_ratio() -> PreserveAspectRatio {
   { align_x: 1, align_y: 1, meet: true, none: false }
 }
@@ -880,24 +900,26 @@ fn default_preserve_aspect_ratio() -> PreserveAspectRatio {
 // Parse a preserveAspectRatio attribute. Accepts "<align> [meet|slice]" where
 // align is one of xMinYMin/xMidYMin/.../xMaxYMax/none. Unknown tokens fall
 // back to the SVG default (xMidYMid meet); "none" disables uniform scaling.
+
+///|
 fn parse_preserve_aspect_ratio(s : String) -> PreserveAspectRatio {
   let parts = @text.split_whitespace(s)
   let mut par = default_preserve_aspect_ratio()
   for p in parts {
     let token = p.to_string()
     match token {
-      "xMinYMin" => { par = { ..par, align_x: 0, align_y: 0, none: false } }
-      "xMidYMin" => { par = { ..par, align_x: 1, align_y: 0, none: false } }
-      "xMaxYMin" => { par = { ..par, align_x: 2, align_y: 0, none: false } }
-      "xMinYMid" => { par = { ..par, align_x: 0, align_y: 1, none: false } }
-      "xMidYMid" => { par = { ..par, align_x: 1, align_y: 1, none: false } }
-      "xMaxYMid" => { par = { ..par, align_x: 2, align_y: 1, none: false } }
-      "xMinYMax" => { par = { ..par, align_x: 0, align_y: 2, none: false } }
-      "xMidYMax" => { par = { ..par, align_x: 1, align_y: 2, none: false } }
-      "xMaxYMax" => { par = { ..par, align_x: 2, align_y: 2, none: false } }
-      "none" => { par = { ..par, none: true } }
-      "meet" => { par = { ..par, meet: true } }
-      "slice" => { par = { ..par, meet: false } }
+      "xMinYMin" => par = { ..par, align_x: 0, align_y: 0, none: false }
+      "xMidYMin" => par = { ..par, align_x: 1, align_y: 0, none: false }
+      "xMaxYMin" => par = { ..par, align_x: 2, align_y: 0, none: false }
+      "xMinYMid" => par = { ..par, align_x: 0, align_y: 1, none: false }
+      "xMidYMid" => par = { ..par, align_x: 1, align_y: 1, none: false }
+      "xMaxYMid" => par = { ..par, align_x: 2, align_y: 1, none: false }
+      "xMinYMax" => par = { ..par, align_x: 0, align_y: 2, none: false }
+      "xMidYMax" => par = { ..par, align_x: 1, align_y: 2, none: false }
+      "xMaxYMax" => par = { ..par, align_x: 2, align_y: 2, none: false }
+      "none" => par = { ..par, none: true }
+      "meet" => par = { ..par, meet: true }
+      "slice" => par = { ..par, meet: false }
       _ => () // unknown token ignored, keep current
     }
   }
@@ -912,6 +934,8 @@ fn parse_preserve_aspect_ratio(s : String) -> PreserveAspectRatio {
 // stroke→none); numeric source failures are propagated.
 // Returns the fully-resolved Paint (for the leaf) and the context to thread
 // into this element's children.
+
+///|
 fn build_paint(
   attrs : Array[(String, String)],
   parent : PaintContext,
@@ -969,19 +993,18 @@ fn build_paint(
         }
       }
   }
-  let fill_opacity = match inherit_double(attrs, "fill-opacity", parent.fill_opacity) {
+  let fill_opacity = match
+    inherit_double(attrs, "fill-opacity", parent.fill_opacity) {
     Ok(value) => value
     Err(error) => return Err(error)
   }
-  let stroke_opacity = match inherit_double(
-    attrs,
-    "stroke-opacity",
-    parent.stroke_opacity,
-  ) {
+  let stroke_opacity = match
+    inherit_double(attrs, "stroke-opacity", parent.stroke_opacity) {
     Ok(value) => value
     Err(error) => return Err(error)
   }
-  let stroke_width = match inherit_double(attrs, "stroke-width", parent.stroke_width) {
+  let stroke_width = match
+    inherit_double(attrs, "stroke-width", parent.stroke_width) {
     Ok(value) => value
     Err(error) => return Err(error)
   }
@@ -997,11 +1020,8 @@ fn build_paint(
     None => parent.stroke_join
     Some(s) => parse_linejoin(s)
   }
-  let stroke_miterlimit = match inherit_double(
-    attrs,
-    "stroke-miterlimit",
-    parent.stroke_miterlimit,
-  ) {
+  let stroke_miterlimit = match
+    inherit_double(attrs, "stroke-miterlimit", parent.stroke_miterlimit) {
     Ok(value) => value
     Err(error) => return Err(error)
   }
@@ -1017,11 +1037,8 @@ fn build_paint(
         }
       }
   }
-  let stroke_dashoffset = match inherit_double(
-    attrs,
-    "stroke-dashoffset",
-    parent.stroke_dashoffset,
-  ) {
+  let stroke_dashoffset = match
+    inherit_double(attrs, "stroke-dashoffset", parent.stroke_dashoffset) {
     Ok(value) => value
     Err(error) => return Err(error)
   }
@@ -1031,38 +1048,40 @@ fn build_paint(
     Err(error) => return Err(error)
   }
   let paint = {
-    fill: fill,
-    stroke: stroke,
-    fill_opacity: fill_opacity,
-    stroke_opacity: stroke_opacity,
-    stroke_width: stroke_width,
-    fill_rule: fill_rule,
-    stroke_cap: stroke_cap,
-    stroke_join: stroke_join,
-    stroke_miterlimit: stroke_miterlimit,
-    stroke_dash: stroke_dash,
-    stroke_dashoffset: stroke_dashoffset,
-    opacity: opacity,
+    fill,
+    stroke,
+    fill_opacity,
+    stroke_opacity,
+    stroke_width,
+    fill_rule,
+    stroke_cap,
+    stroke_join,
+    stroke_miterlimit,
+    stroke_dash,
+    stroke_dashoffset,
+    opacity,
   }
   let ctx = {
-    color: color,
-    fill: fill,
-    stroke: stroke,
-    fill_opacity: fill_opacity,
-    stroke_opacity: stroke_opacity,
-    stroke_width: stroke_width,
-    fill_rule: fill_rule,
-    stroke_cap: stroke_cap,
-    stroke_join: stroke_join,
-    stroke_miterlimit: stroke_miterlimit,
-    stroke_dash: stroke_dash,
-    stroke_dashoffset: stroke_dashoffset,
+    color,
+    fill,
+    stroke,
+    fill_opacity,
+    stroke_opacity,
+    stroke_width,
+    fill_rule,
+    stroke_cap,
+    stroke_join,
+    stroke_miterlimit,
+    stroke_dash,
+    stroke_dashoffset,
   }
   Ok((paint, ctx))
 }
 
 // Numeric attribute: parse if present, else inherit parent value. (No SVG
 // default fallback here — the context already carries the resolved value.)
+
+///|
 fn inherit_double(
   attrs : Array[(String, String)],
   name : String,
@@ -1074,15 +1093,20 @@ fn inherit_double(
   }
 }
 
+///|
 fn is_svg_numeric_error(error : @error.CoreError) -> Bool {
   match error.context() {
-    Some("svg-numeric-source") | Some("svg-numeric-nonfinite") | Some("svg-numeric-range") => true
+    Some("svg-numeric-source")
+    | Some("svg-numeric-nonfinite")
+    | Some("svg-numeric-range") => true
     _ => false
   }
 }
 
 // Parse an SVG stroke-linecap value; unknown values fall back to the SVG
 // default (Butt).
+
+///|
 fn parse_linecap(s : String) -> @canvas.LineCap {
   match @text.trim(s) {
     "butt" => @canvas.LineCap::Butt
@@ -1094,6 +1118,8 @@ fn parse_linecap(s : String) -> @canvas.LineCap {
 
 // Parse an SVG stroke-linejoin value; unknown values fall back to the SVG
 // default (Miter).
+
+///|
 fn parse_linejoin(s : String) -> @canvas.LineJoin {
   match @text.trim(s) {
     "miter" => @canvas.LineJoin::Miter
@@ -1106,6 +1132,8 @@ fn parse_linejoin(s : String) -> @canvas.LineJoin {
 // Parse an SVG fill-rule value; unknown values fall back to the SVG default
 // (Nonzero). SVG accepts "nonzero"/"evenodd" (and SVG 2 "nozero" alias is not
 // handled here).
+
+///|
 fn parse_fillrule(s : String) -> @canvas.FillRule {
   match @text.trim(s) {
     "evenodd" => @canvas.FillRule::EvenOdd
@@ -1113,6 +1141,7 @@ fn parse_fillrule(s : String) -> @canvas.FillRule {
   }
 }
 
+///|
 fn build_rect(
   attrs : Array[(String, String)],
   ctx : PaintContext,
@@ -1148,6 +1177,7 @@ fn build_rect(
   Ok(SceneNode::Rect(paint, x, y, w, h, rx, ry))
 }
 
+///|
 fn build_circle(
   attrs : Array[(String, String)],
   ctx : PaintContext,
@@ -1171,6 +1201,7 @@ fn build_circle(
   Ok(SceneNode::Circle(paint, cx, cy, r))
 }
 
+///|
 fn build_ellipse(
   attrs : Array[(String, String)],
   ctx : PaintContext,
@@ -1198,6 +1229,7 @@ fn build_ellipse(
   Ok(SceneNode::Ellipse(paint, cx, cy, rx, ry))
 }
 
+///|
 fn build_line(
   attrs : Array[(String, String)],
   ctx : PaintContext,
@@ -1225,6 +1257,7 @@ fn build_line(
   Ok(SceneNode::Line(paint, x1, y1, x2, y2))
 }
 
+///|
 fn build_polyline(
   attrs : Array[(String, String)],
   ctx : PaintContext,
@@ -1240,6 +1273,7 @@ fn build_polyline(
   Ok(SceneNode::Polyline(paint, points))
 }
 
+///|
 fn build_polygon(
   attrs : Array[(String, String)],
   ctx : PaintContext,
@@ -1256,6 +1290,8 @@ fn build_polygon(
 }
 
 // Parse polyline/polygon points into Point2 pairs.
+
+///|
 fn points_from_attrs(
   attrs : Array[(String, String)],
 ) -> Result[Array[@math.Point2], @error.CoreError] {
@@ -1269,6 +1305,7 @@ fn points_from_attrs(
   }
 }
 
+///|
 fn pair_points(nums : Array[Double]) -> Array[@math.Point2] {
   let pts : Array[@math.Point2] = []
   let n = nums.length()
@@ -1280,6 +1317,7 @@ fn pair_points(nums : Array[Double]) -> Array[@math.Point2] {
   pts
 }
 
+///|
 fn build_path(
   attrs : Array[(String, String)],
   ctx : PaintContext,
@@ -1304,6 +1342,8 @@ fn build_path(
 // ---------------------------------------------------------------------------
 
 // First value for a given attribute name, or None.
+
+///|
 fn attr_get(attrs : Array[(String, String)], name : String) -> String? {
   for i = 0; i < attrs.length(); i = i + 1 {
     let (k, v) = attrs[i]
@@ -1315,6 +1355,8 @@ fn attr_get(attrs : Array[(String, String)], name : String) -> String? {
 }
 
 // Numeric attribute value, or `default` only when the attribute is absent.
+
+///|
 fn attr_double(
   attrs : Array[(String, String)],
   name : String,

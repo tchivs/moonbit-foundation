@@ -103,11 +103,7 @@ pub fn CanvasPath::arc(
   a1 : Double,
 ) -> Unit {
   // Normalize so we always sweep in the positive (increasing-angle) direction.
-  let (start, end) = if a0 <= a1 {
-    (a0, a1)
-  } else {
-    (a1, a0)
-  }
+  let (start, end) = if a0 <= a1 { (a0, a1) } else { (a1, a0) }
   let span = end - start
   // Subdivide into ≤ π/2 segments for a good cubic fit.
   let half_pi = 1.5707963267948966
@@ -124,16 +120,15 @@ pub fn CanvasPath::arc(
   )
   for i = 0; i < segments; i = i + 1 {
     let a_from = angle
-    let a_to = if i == segments - 1 {
-      end
-    } else {
-      angle + step
-    }
+    let a_to = if i == segments - 1 { end } else { angle + step }
     let p0 = @math.Point2::new(
       cx + r * @math.cos(a_from),
       cy + r * @math.sin(a_from),
     )
-    let p3 = @math.Point2::new(cx + r * @math.cos(a_to), cy + r * @math.sin(a_to))
+    let p3 = @math.Point2::new(
+      cx + r * @math.cos(a_to),
+      cy + r * @math.sin(a_to),
+    )
     // Tangent control points: offset along the tangent direction by kappa * r.
     let p1 = @math.Point2::new(
       p0.x() - r * kappa * @math.sin(a_from),
@@ -156,6 +151,8 @@ pub fn CanvasPath::to_path2(self : CanvasPath) -> @math.Path2 {
 }
 
 // Local max helper to avoid pulling in another dependency for one call.
+
+///|
 fn js_max(a : Int, b : Int) -> Int {
   if a >= b {
     a

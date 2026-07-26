@@ -1,18 +1,24 @@
 // White-box tests for transform attribute parsing.
 
+///|
 fn tx(m : @math.Affine2) -> Double {
   m.tx()
 }
 
+///|
 fn ty(m : @math.Affine2) -> Double {
   m.ty()
 }
 
+///|
 fn finite_and_in_numeric_envelope(value : Double) -> Bool {
   !value.is_nan() && !value.is_inf() && value.abs() <= 65536.0
 }
 
-fn affine_components_are_finite_and_in_numeric_envelope(m : @math.Affine2) -> Bool {
+///|
+fn affine_components_are_finite_and_in_numeric_envelope(
+  m : @math.Affine2,
+) -> Bool {
   finite_and_in_numeric_envelope(m.a()) &&
   finite_and_in_numeric_envelope(m.b()) &&
   finite_and_in_numeric_envelope(m.c()) &&
@@ -153,7 +159,10 @@ test "parse_transform result is invertible (T ∘ T⁻¹ = identity)" {
           let id = m.compose(inv)
           // identity has a=d=1, b=c=tx=ty=0.
           inspect(
-            ((id.a() - 1.0).abs() < 1.0e-9 && (id.d() - 1.0).abs() < 1.0e-9 && id.tx().abs() < 1.0e-9 && id.ty().abs() < 1.0e-9),
+            (id.a() - 1.0).abs() < 1.0e-9 &&
+            (id.d() - 1.0).abs() < 1.0e-9 &&
+            id.tx().abs() < 1.0e-9 &&
+            id.ty().abs() < 1.0e-9,
             content="true",
           )
         }
@@ -175,10 +184,7 @@ test "numeric contract: affine and trigonometric controls" {
   // SVG-NUM-TRANSFORM / SVG-NUM-AFFINE: each constructor remains finite at the boundary.
   match parse_transform("matrix(1,0,0,1,65536,-65536)") {
     Ok(m) =>
-      assert_eq(
-        (m.a(), m.d(), tx(m), ty(m)),
-        (1.0, 1.0, 65536.0, -65536.0),
-      )
+      assert_eq((m.a(), m.d(), tx(m), ty(m)), (1.0, 1.0, 65536.0, -65536.0))
     Err(_) => inspect(false, content="true")
   }
   match parse_transform("translate(65536,-65536)") {
@@ -209,11 +215,19 @@ test "numeric contract: affine and trigonometric controls" {
     Err(_) => inspect(false, content="true")
   }
   match parse_transform("skewX(45)") {
-    Ok(m) => inspect(affine_components_are_finite_and_in_numeric_envelope(m), content="true")
+    Ok(m) =>
+      inspect(
+        affine_components_are_finite_and_in_numeric_envelope(m),
+        content="true",
+      )
     Err(_) => inspect(false, content="true")
   }
   match parse_transform("skewY(45)") {
-    Ok(m) => inspect(affine_components_are_finite_and_in_numeric_envelope(m), content="true")
+    Ok(m) =>
+      inspect(
+        affine_components_are_finite_and_in_numeric_envelope(m),
+        content="true",
+      )
     Err(_) => inspect(false, content="true")
   }
   // SVG-NUM-AFFINE: composition preserves the documented finite endpoint.
@@ -248,16 +262,12 @@ test "transform admission enforces exact arity and derived affine safety" {
     }
   }
   let derived_rejections = [
-    "scale(65536) scale(2)",
-    "rotate(65536,65536,65536)",
-    "skewX(90)",
-    "skewY(90)",
+    "scale(65536) scale(2)", "rotate(65536,65536,65536)", "skewX(90)", "skewY(90)",
   ]
   for source in derived_rejections {
     match parse_transform(source) {
       Ok(_) => inspect(false, content="true")
-      Err(error) =>
-        assert_eq(error.context(), Some("svg-numeric-derived"))
+      Err(error) => assert_eq(error.context(), Some("svg-numeric-derived"))
     }
   }
   match parse_transform("scale(0)") {
