@@ -9,7 +9,8 @@ param(
   [ValidateSet('runtime', 'compile-only')]
   [string]$NativeVerification = 'runtime',
   [string]$Report,
-  [switch]$IsolationProbe
+  [switch]$IsolationProbe,
+  [switch]$PublicImportContractSelfTest
 )
 
 Set-StrictMode -Version Latest
@@ -20,6 +21,27 @@ $portableRoot = Join-Path $repoRoot 'examples\ppm-portable'
 $nativeRoot = Join-Path $repoRoot 'examples\ppm-native-cli'
 $qoiRoot = Join-Path $repoRoot 'examples\qoi-portable'
 $schemaPath = Join-Path $repoRoot 'release\qualification\example-consumers-schema.json'
+$portableExpectedOutput = 'example=portable bytes_read=38+29 bytes_written=29 width=3 height=2 crop rotate_90 rgb8_to_straight_rgba8 grayscale box_blur composite_source_over straight_rgba8_to_rgb8 digest=714923673 sha256=005700d6602b144bafcf3d869deee85619c8279c749bf33ca6fea8b43dbe78bf'
+$portableReportDigest = 'rolling257-mod1000000007:714923673'
+$nativeExpectedOutput = 'example=native bytes_read=17 bytes_written=17 transform=flip_horizontal disposition=5 digest=806175100 short_progress=pass'
+$nativeReportDigest = 'rolling257-mod1000000007:806175100'
+$portablePublicImports = @(
+  'tchivs/mb-core/budget',
+  'tchivs/mb-core/bytes',
+  'tchivs/mb-core/error',
+  'tchivs/mb-core/io',
+  'tchivs/mb-image/codec',
+  'tchivs/mb-image/model',
+  'tchivs/mb-image/ops',
+  'tchivs/mb-image/ppm'
+)
+$sourceIsolationMembers = @(
+  [ordered]@{ Source = 'modules\mb-core'; Destination = 'modules\mb-core'; Member = './modules/mb-core' },
+  [ordered]@{ Source = 'modules\mb-color'; Destination = 'modules\mb-color'; Member = './modules/mb-color' },
+  [ordered]@{ Source = 'modules\mb-image'; Destination = 'modules\mb-image'; Member = './modules/mb-image' },
+  [ordered]@{ Source = 'examples\ppm-portable'; Destination = 'examples\ppm-portable'; Member = './examples/ppm-portable' },
+  [ordered]@{ Source = 'examples\ppm-native-cli'; Destination = 'examples\ppm-native-cli'; Member = './examples/ppm-native-cli' }
+)
 
 function Assert-QualificationSchema {
   if (-not (Test-Path -LiteralPath $schemaPath -PathType Leaf)) {
@@ -29,7 +51,9 @@ function Assert-QualificationSchema {
   if ($schema.properties.schema_version.const -cne '1.0.0' -or
       $schema.properties.source_audit.const -cne 'pass' -or
       $schema.properties.source_isolation.const -cne 'pass' -or
-      $schema.properties.registry_resolution.const -cne 'blocked_unpublished_namespace') {
+      $schema.properties.registry_resolution.const -cne 'blocked_unpublished_namespace' -or
+      $schema.properties.workspace_examples.properties.portable.properties.digest.const -cne $portableReportDigest -or
+      $schema.properties.workspace_examples.properties.native.properties.digest.const -cne $nativeReportDigest) {
     throw 'Example-consumer qualification schema does not freeze the required independent outcomes.'
   }
 }
@@ -136,16 +160,36 @@ function Remove-QualifiedTemp {
 function Invoke-SourceIsolation {
   $root = Join-Path ([System.IO.Path]::GetTempPath()) ('mnf-public-examples-source-' + [guid]::NewGuid().ToString('N'))
   try {
-    Copy-SourceTree -Source (Join-Path $repoRoot 'modules\mb-core') -Destination (Join-Path $root 'modules\mb-core')
-    Copy-SourceTree -Source (Join-Path $repoRoot 'modules\mb-color') -Destination (Join-Path $root 'modules\mb-color')
-    Copy-SourceTree -Source (Join-Path $repoRoot 'modules\mb-image') -Destination (Join-Path $root 'modules\mb-image')
-    Copy-SourceTree -Source $portableRoot -Destination (Join-Path $root 'examples\ppm-portable')
-    Copy-SourceTree -Source $nativeRoot -Destination (Join-Path $root 'examples\ppm-native-cli')
-    Copy-Item -LiteralPath (Join-Path $repoRoot 'moon.work') -Destination (Join-Path $root 'moon.work')
-    foreach ($runTarget in @('js', 'wasm', 'wasm-gc', 'native')) {
-      Invoke-MoonExampleVerification -WorkingRoot $root -Package 'examples/ppm-portable/main' -RunTarget $runTarget -Expected 'example=portable bytes_read=17 bytes_written=17 width=2 height=1 transform=flip_horizontal disposition=5 digest=806175100'
+    foreach ($entry in $sourceIsolationMembers) {
+      Copy-SourceTree -Source (Join-Path $repoRoot $entry.Source) -Destination (Join-Path $root $entry.Destination)
     }
-    Invoke-MoonExampleVerification -WorkingRoot $root -Package 'examples/ppm-native-cli/main' -RunTarget 'native' -Expected 'example=native bytes_read=17 bytes_written=17 transform=flip_horizontal disposition=5 digest=806175100 short_progress=pass'
+    $manifestPath = Join-Path $root 'moon.work'
+    $manifestLines = @($sourceIsolationMembers | ForEach-Object { '  "' + $_.Member + '",' })
+    $manifestText = "members = [`n$($manifestLines -join "`n")`n]`n"
+    [System.IO.File]::WriteAllText($manifestPath, $manifestText, [System.Text.UTF8Encoding]::new($false))
+
+    $manifestMembers = @(
+      [regex]::Matches(
+        (Get-Content -LiteralPath $manifestPath -Raw),
+        '"(?<member>[.]/(?:modules|examples)/[A-Za-z0-9._/-]+)"'
+      ) | ForEach-Object { [string]$_.Groups['member'].Value }
+    )
+    $copiedMembers = @(
+      foreach ($scope in @('modules', 'examples')) {
+        $scopePath = Join-Path $root $scope
+        Get-ChildItem -LiteralPath $scopePath -Directory |
+          ForEach-Object { "./$scope/$($_.Name)" }
+      }
+    )
+    $expectedMembers = @($sourceIsolationMembers | ForEach-Object { [string]$_.Member })
+    Assert-CaseSensitiveExactUniqueSet -Label 'Source isolation manifest set' -Actual $manifestMembers -Expected $expectedMembers -ItemName 'member(s)'
+    Assert-CaseSensitiveExactUniqueSet -Label 'Source isolation directory set' -Actual $copiedMembers -Expected $expectedMembers -ItemName 'member(s)'
+    Write-Host 'source_isolation_layout: pass (5 members)'
+
+    foreach ($runTarget in @('js', 'wasm', 'wasm-gc', 'native')) {
+      Invoke-MoonExampleVerification -WorkingRoot $root -Package 'examples/ppm-portable/main' -RunTarget $runTarget -Expected $portableExpectedOutput
+    }
+    Invoke-MoonExampleVerification -WorkingRoot $root -Package 'examples/ppm-native-cli/main' -RunTarget 'native' -Expected $nativeExpectedOutput
     return 'pass'
   } finally {
     Remove-QualifiedTemp -Path $root
@@ -191,12 +235,12 @@ function Write-QualificationReport {
       portable = [ordered]@{
         status = 'pass'
         targets = @('js', 'wasm', 'wasm-gc', 'native')
-        digest = 'rolling257-mod1000000007:806175100'
+        digest = $portableReportDigest
       }
       native = [ordered]@{
         status = 'pass'
         target = 'native'
-        digest = 'rolling257-mod1000000007:806175100'
+        digest = $nativeReportDigest
         short_progress = 'pass'
       }
     }
@@ -240,16 +284,46 @@ function Write-QualificationReport {
   } elseif ($roundTrip.source_audit -cne 'pass' -or
             $roundTrip.source_isolation -cne 'pass' -or
             $roundTrip.registry_resolution -cne 'blocked_unpublished_namespace' -or
-            $roundTrip.workspace_examples.portable.digest -cne 'rolling257-mod1000000007:806175100' -or
+            $roundTrip.workspace_examples.portable.digest -cne $portableReportDigest -or
+            $roundTrip.workspace_examples.native.digest -cne $nativeReportDigest -or
             $roundTrip.workspace_examples.native.short_progress -cne 'pass') {
     throw 'Written example-consumer report does not conform to the frozen runtime qualification outcomes.'
+  }
+}
+
+function Assert-CaseSensitiveExactUniqueSet {
+  param(
+    [Parameter(Mandatory)][string]$Label,
+    [Parameter(Mandatory)][string[]]$Actual,
+    [Parameter(Mandatory)][string[]]$Expected,
+    [string]$ItemName = 'item(s)'
+  )
+
+  $duplicates = @(
+    $Actual |
+      Group-Object -CaseSensitive |
+      Where-Object { $_.Count -gt 1 } |
+      ForEach-Object { [string]$_.Name } |
+      Sort-Object -CaseSensitive
+  )
+  if ($duplicates.Count -ne 0) {
+    throw "$Label contains duplicate ${ItemName}: $($duplicates -join ', ')"
+  }
+  $missing = @($Expected | Where-Object { $Actual -cnotcontains $_ } | Sort-Object -CaseSensitive)
+  if ($missing.Count -ne 0) {
+    throw "$Label is missing required ${ItemName}: $($missing -join ', ')"
+  }
+  $extra = @($Actual | Where-Object { $Expected -cnotcontains $_ } | Sort-Object -CaseSensitive)
+  if ($extra.Count -ne 0) {
+    throw "$Label contains unexpected ${ItemName}: $($extra -join ', ')"
   }
 }
 
 function Assert-PublicImports {
   param(
     [Parameter(Mandatory)][string]$Root,
-    [Parameter(Mandatory)][string[]]$AllowedImports
+    [Parameter(Mandatory)][string[]]$AllowedImports,
+    [switch]$ExactSet
   )
 
   $packageFiles = @(Get-ChildItem -LiteralPath $Root -Recurse -File -Filter 'moon.pkg')
@@ -261,14 +335,50 @@ function Assert-PublicImports {
       $imports += @([regex]::Matches($importBlock.Groups['body'].Value, '"([A-Za-z0-9._/-]+)"') | ForEach-Object { $_.Groups[1].Value })
     }
   }
-  $unexpected = @($imports | Where-Object { $AllowedImports -cnotcontains $_ })
-  if ($unexpected.Count -ne 0) {
-    throw "Public example imports a non-allowlisted package: $($unexpected -join ', ')"
+  if ($ExactSet) {
+    Assert-CaseSensitiveExactUniqueSet -Label 'Public example import set' -Actual $imports -Expected $AllowedImports -ItemName 'import(s)'
+  } else {
+    $unexpected = @($imports | Where-Object { $AllowedImports -cnotcontains $_ })
+    if ($unexpected.Count -ne 0) {
+      throw "Public example imports a non-allowlisted package: $($unexpected -join ', ')"
+    }
   }
   $source = @(Get-ChildItem -LiteralPath $Root -Recurse -File -Filter '*.mbt' | ForEach-Object { Get-Content -LiteralPath $_.FullName -Raw }) -join "`n"
   if ($source -cmatch '(?i)\b(?:priv|private)\b|@(?:fs|env|process)\b|\b(?:argv|getenv|registry|seeker)\b') {
     throw 'Public example source contains a private or ambient capability token.'
   }
+}
+
+function Invoke-PublicImportContractSelfTest {
+  [CmdletBinding()]
+  param()
+
+  function Confirm-ExactImportSetRejected(
+    [string]$Name,
+    [string[]]$Actual,
+    [string]$ExpectedFailure
+  ) {
+    $failure = $null
+    try {
+      Assert-CaseSensitiveExactUniqueSet -Label 'Public example import set' -Actual $Actual -Expected $portablePublicImports -ItemName 'import(s)'
+    } catch {
+      $failure = $_.Exception.Message
+    }
+    if ($failure -cne $ExpectedFailure) {
+      throw "Public import contract self-test '$Name' failed for the wrong reason: '$failure'."
+    }
+  }
+
+  Assert-CaseSensitiveExactUniqueSet -Label 'Public example import set' -Actual $portablePublicImports -Expected $portablePublicImports -ItemName 'import(s)'
+  Confirm-ExactImportSetRejected -Name 'missing import' -Actual @($portablePublicImports | Where-Object { $_ -cne 'tchivs/mb-core/io' }) -ExpectedFailure 'Public example import set is missing required import(s): tchivs/mb-core/io'
+  Confirm-ExactImportSetRejected -Name 'ninth import' -Actual @($portablePublicImports + 'tchivs/mb-image/unexpected') -ExpectedFailure 'Public example import set contains unexpected import(s): tchivs/mb-image/unexpected'
+  Confirm-ExactImportSetRejected -Name 'duplicate import' -Actual @($portablePublicImports + 'tchivs/mb-image/model') -ExpectedFailure 'Public example import set contains duplicate import(s): tchivs/mb-image/model'
+  Write-Host 'Public import contract self-test passed.'
+}
+
+if ($PublicImportContractSelfTest) {
+  Invoke-PublicImportContractSelfTest
+  return
 }
 
 if ($IsolationProbe) {
@@ -286,17 +396,10 @@ if ($IsolationProbe) {
 
 if ($Example -in @('portable', 'all')) {
   Assert-ExampleSource -Root $portableRoot -Files @('moon.mod.json', 'main\moon.pkg', 'main\main.mbt')
-  Assert-PublicImports -Root $portableRoot -AllowedImports @(
-    'tchivs/mb-core/budget',
-    'tchivs/mb-core/bytes',
-    'tchivs/mb-core/error',
-    'tchivs/mb-image/codec',
-    'tchivs/mb-image/ops',
-    'tchivs/mb-image/ppm'
-  )
+  Assert-PublicImports -Root $portableRoot -AllowedImports $portablePublicImports -ExactSet
   $targets = if ($Target -ceq 'all') { @('js', 'wasm', 'wasm-gc', 'native') } else { @($Target) }
   foreach ($runTarget in $targets) {
-    Invoke-MoonExampleVerification -WorkingRoot $repoRoot -Package 'examples/ppm-portable/main' -RunTarget $runTarget -Expected 'example=portable bytes_read=17 bytes_written=17 width=2 height=1 transform=flip_horizontal disposition=5 digest=806175100'
+    Invoke-MoonExampleVerification -WorkingRoot $repoRoot -Package 'examples/ppm-portable/main' -RunTarget $runTarget -Expected $portableExpectedOutput
   }
 }
 if ($Example -in @('native', 'all')) {
@@ -311,7 +414,7 @@ if ($Example -in @('native', 'all')) {
     'tchivs/mb-image/ops',
     'tchivs/mb-image/ppm'
   )
-  Invoke-MoonExampleVerification -WorkingRoot $repoRoot -Package 'examples/ppm-native-cli/main' -RunTarget 'native' -Expected 'example=native bytes_read=17 bytes_written=17 transform=flip_horizontal disposition=5 digest=806175100 short_progress=pass'
+  Invoke-MoonExampleVerification -WorkingRoot $repoRoot -Package 'examples/ppm-native-cli/main' -RunTarget 'native' -Expected $nativeExpectedOutput
 }
 
 if ($Example -ceq 'qoi') {
