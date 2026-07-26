@@ -413,7 +413,7 @@ test "rgba16 admission accepts only its documented identity" {
       work=0UL,
     ),
   )
-  let custom_profile = @profile.ProfileIdentity::opaque(
+  let custom_profile = @profile.ProfileIdentity::from_opaque(
     @profile.OpaqueProfile::from_bytes(
       @profile.ProfileFormatTag::icc(),
       b"x",
@@ -544,7 +544,7 @@ test "GrayAlpha admission accepts canonical identities and rejects unsupported i
       work=0UL,
     ),
   )
-  let custom_profile = @profile.ProfileIdentity::opaque(
+  let custom_profile = @profile.ProfileIdentity::from_opaque(
     @profile.OpaqueProfile::from_bytes(
       @profile.ProfileFormatTag::icc(),
       b"x",

@@ -716,7 +716,7 @@ test "PNG rgba16 profile admits legal facts and charges eight-byte output layout
 /// Create a narrow Rgba16 machine whose limits and owned-resource envelope
 /// can each be set independently for a first-IDAT-only boundary assertion.
 fn _png_rgba16_qualification_machine(
-  interlace : Byte,
+  _interlace : Byte,
   width : Byte,
   height : Byte,
   max_output : UInt64,
@@ -1363,10 +1363,11 @@ test "PNG private inflater delivers stored bytes directly to the raster sink" {
     PngBuiltinAllocator::{  } as &@bytes.Allocator,
     16UL,
   ).unwrap()
-  let sink = PngRasterSink::new(
+  let sink = PngRasterSink::new_with_profile(
     image,
     transport,
     false,
+    PngDecodeProfile::GenericRgba8,
     @budget.Budget::new(
       @budget.ResourceLimits::new(
         bytes=0UL,
@@ -1390,7 +1391,7 @@ test "PNG private inflater delivers stored bytes directly to the raster sink" {
   }
   inspect(inflate.complete(), content="true")
   sink.finish().unwrap()
-  let view = sink.image_view()
+  let view = sink.into_image().view()
   inspect(view.get_byte(0UL, 0UL, 0UL).unwrap(), content="b'\\x11'")
   inspect(view.get_byte(0UL, 0UL, 2UL).unwrap(), content="b'\\x33'")
 }
@@ -1431,10 +1432,11 @@ test "PNG private inflater preserves fixed-Huffman filter byte order" {
     PngBuiltinAllocator::{  } as &@bytes.Allocator,
     128UL,
   ).unwrap()
-  let sink = PngRasterSink::new(
+  let sink = PngRasterSink::new_with_profile(
     image,
     transport,
     false,
+    PngDecodeProfile::GenericRgba8,
     @budget.Budget::new(
       @budget.ResourceLimits::new(
         bytes=0UL,
@@ -1456,7 +1458,7 @@ test "PNG private inflater preserves fixed-Huffman filter byte order" {
   inspect(inflate.emitted_bytes() == 35UL, content="true")
   inspect(inflate.complete(), content="true")
   sink.finish().unwrap()
-  let view = sink.image_view()
+  let view = sink.into_image().view()
   inspect(view.get_byte(1UL, 4UL, 2UL).unwrap(), content="b'\\x8F'")
 }
 
@@ -1838,10 +1840,11 @@ test "PNG private inflater streams dynamic match pauses to the raster sink" {
     PngBuiltinAllocator::{  } as &@bytes.Allocator,
     1024UL,
   ).unwrap()
-  let sink = PngRasterSink::new(
+  let sink = PngRasterSink::new_with_profile(
     image,
     transport,
     false,
+    PngDecodeProfile::GenericRgba8,
     @budget.Budget::new(
       @budget.ResourceLimits::new(
         bytes=0UL,
@@ -2186,9 +2189,4 @@ fn PngDecodeMachine::has_private_colour_declaration(
   self.facts.colour_facts.saw_gamma ||
   self.facts.colour_facts.saw_chrm ||
   self.facts.colour_facts.saw_iccp
-}
-
-///|
-fn PngDecodeMachine::framing_chunk_complete(self : PngDecodeMachine) -> Bool {
-  self.last_chunk_complete
 }

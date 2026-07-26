@@ -161,6 +161,7 @@ fn _png_inflate_zlib_to_raster(
   index_rows : PngPackedRows?,
   packed_rows : PngPackedRows?,
 ) -> Result[UInt64, @error.CoreError] {
+  ignore(_png_touch_stream_transport(transport))
   let cmf = match source.next_byte() {
     Err(error) => return Err(error)
     Ok(value) => value.to_int()

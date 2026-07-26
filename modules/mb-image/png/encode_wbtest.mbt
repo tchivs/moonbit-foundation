@@ -2165,35 +2165,3 @@ test "PNG indexed compression ancillary admission selected facts are atomic" {
     }
   }
 }
-
-///|
-fn PngIndexedRawCursor::new(
-  source : PngIndexedImage,
-  row_bytes : UInt64,
-  depth : UInt64,
-) -> PngIndexedRawCursor {
-  PngIndexedRawCursor::new_with_interlace(
-    source,
-    row_bytes,
-    depth,
-    PngInterlaceStrategy::None,
-  )
-}
-
-///|
-fn PngFilteredMatchCursor::new(
-  source : @storage.ImageView,
-  row_bytes : UInt64,
-  channels : UInt64,
-  filter_strategy : PngFilterStrategy,
-  profile? : PngEncodeProfile = PngEncodeProfile::LegacyRgbOrRgba,
-) -> PngFilteredMatchCursor {
-  PngFilteredMatchCursor::new_with_interlace(
-    source,
-    row_bytes,
-    channels,
-    filter_strategy,
-    PngInterlaceStrategy::None,
-    profile~,
-  )
-}

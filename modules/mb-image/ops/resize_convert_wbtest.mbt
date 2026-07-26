@@ -436,7 +436,7 @@ test "bilinear rejects empty metadata overflow and each output charge boundary a
     content="true",
   )
 
-  let custom_profile = @profile.ProfileIdentity::opaque(
+  let custom_profile = @profile.ProfileIdentity::from_opaque(
     @profile.OpaqueProfile::from_bytes(
       @profile.ProfileFormatTag::icc(),
       b"x",

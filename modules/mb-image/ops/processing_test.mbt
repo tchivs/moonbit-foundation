@@ -307,7 +307,7 @@ test "public processing fixed translucent vectors preserve straight owned output
 test "public composite rejects all metadata incompatibilities before charging" {
   let pixels = [b'\x20', b'\x40', b'\x80', b'\x60']
   let base = processing_public_image(1UL, 1UL, pixels)
-  let custom_profile = @profile.ProfileIdentity::opaque(
+  let custom_profile = @profile.ProfileIdentity::from_opaque(
     @profile.OpaqueProfile::from_bytes(
       @profile.ProfileFormatTag::icc(),
       b"x",
