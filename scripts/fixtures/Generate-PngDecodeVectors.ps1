@@ -467,7 +467,7 @@ function Split-MoonBytesLiteral([string]$Literal, [int]$Width = 80) {
   $i = 0
   while ($i -lt $inner.Length) {
     $j = [Math]::Min($i + $Width, $inner.Length)
-    while ($j -lt $inner.Length -and $inner[$j - 1] -eq [char]'\\') {
+    while ($j -lt $inner.Length -and $inner[$j - 1] -eq [char]'\') {
       $j++
       if (($j - $i) -gt ($Width + 25)) { break }
     }
@@ -475,13 +475,21 @@ function Split-MoonBytesLiteral([string]$Literal, [int]$Width = 80) {
     $i = $j
   }
   if ($pieces.Count -eq 0) { [void]$pieces.Add('') }
-  return ,$pieces.ToArray()
+  return $pieces.ToArray()
 }
 
 function Add-MoonBytesField([Collections.Generic.List[string]]$Rows, [string]$Field, [string]$Literal) {
   $pieces = @(Split-MoonBytesLiteral $Literal 80)
   if ($pieces.Count -eq 1) {
     $Rows.Add("      ${Field}: b`"$($pieces[0])`",")
+    return
+  }
+  if ($pieces.Count -gt 64) {
+    $Rows.Add("      ${Field}: _generated_png_join_bytes([")
+    foreach ($piece in $pieces) {
+      $Rows.Add("        b`"$piece`",")
+    }
+    $Rows.Add('      ]),')
     return
   }
   # moonfmt prefers bare concat chains (no surrounding parentheses).
@@ -495,6 +503,20 @@ function Add-MoonBytesField([Collections.Generic.List[string]]$Rows, [string]$Fi
     }
   }
 }
+
+$rows.Add('///|')
+$rows.Add('fn _generated_png_join_bytes(parts : Array[Bytes]) -> Bytes {')
+$rows.Add('  let mut capacity = 0')
+$rows.Add('  for part in parts {')
+$rows.Add('    capacity += part.length()')
+$rows.Add('  }')
+$rows.Add('  let output : Array[Byte] = Array::new(capacity~)')
+$rows.Add('  for part in parts {')
+$rows.Add('    output.push_iter(part.iter())')
+$rows.Add('  }')
+$rows.Add('  Bytes::from_array(output)')
+$rows.Add('}')
+$rows.Add('')
 
 $partSize = 400
 $partCount = [Math]::Max(1, [Math]::Ceiling($records.Count / $partSize))
@@ -565,7 +587,6 @@ for ($part = 1; $part -le $partCount; $part++) {
 $rows.Add('  cases')
 $rows.Add('}')
 $rows.Add('')
-$text = $rows -join "`n"
 $text = $rows -join "`n"
 $sha = [Convert]::ToHexString([Security.Cryptography.SHA256]::HashData([IO.File]::ReadAllBytes($CasesPath))).ToLowerInvariant()
 $manifest = Get-Content -Raw $ManifestPath | ConvertFrom-Json
