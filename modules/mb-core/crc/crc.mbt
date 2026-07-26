@@ -43,7 +43,7 @@ fn build_crc32_table() -> Array[UInt64] {
 pub fn crc32(bytes : Array[Byte]) -> UInt64 {
   let mut crc = 0xffffffffUL
   for i = 0; i < bytes.length(); i = i + 1 {
-    let idx = ((crc ^ bytes[i].to_uint64()) & 0xffUL).to_int()
+    let idx = ((crc ^ bytes[i].to_uint64()) & 0xffUL).to_byte().to_int()
     crc = (crc >> 8) ^ crc32_table[idx]
   }
   crc ^ 0xffffffffUL
@@ -56,7 +56,7 @@ pub fn crc32(bytes : Array[Byte]) -> UInt64 {
 /// The result must be XORed with `0xffffffffUL` only once at the very end;
 /// intermediate calls pass the raw running value.
 pub fn crc32_update(initial : UInt64, byte : Byte) -> UInt64 {
-  let idx = ((initial ^ byte.to_uint64()) & 0xffUL).to_int()
+  let idx = ((initial ^ byte.to_uint64()) & 0xffUL).to_byte().to_int()
   (initial >> 8) ^ crc32_table[idx]
 }
 
