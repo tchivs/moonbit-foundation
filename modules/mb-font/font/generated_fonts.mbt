@@ -221,6 +221,15 @@ fn generated_post_table() -> Bytes {
 }
 
 ///|
+fn generated_os2_table() -> Bytes {
+  let output = Array::make(78, b'\x00')
+  generated_put_i16_at(output, 68, 750)
+  generated_put_i16_at(output, 70, -250)
+  generated_put_i16_at(output, 72, 25)
+  Bytes::from_array(output)
+}
+
+///|
 fn font_wb_table(tag : Bytes, payload : Bytes) -> GeneratedFontTable {
   { tag, payload }
 }
@@ -228,7 +237,7 @@ fn font_wb_table(tag : Bytes, payload : Bytes) -> GeneratedFontTable {
 ///|
 fn font_wb_required_tables() -> Array[GeneratedFontTable] {
   [
-    font_wb_table(b"OS/2", Bytes::from_array(Array::make(78, b'\x00'))),
+    font_wb_table(b"OS/2", generated_os2_table()),
     font_wb_table(b"cmap", generated_cmap_table()),
     font_wb_table(b"glyf", b""),
     font_wb_table(b"head", generated_head_table()),
