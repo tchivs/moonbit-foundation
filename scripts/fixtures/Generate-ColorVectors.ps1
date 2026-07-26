@@ -1,10 +1,11 @@
 [CmdletBinding()]
 param(
-  [Parameter(Mandatory)]
   [ValidateSet('fixtures', 'transfer', 'quantize', 'alpha', 'profile', 'all')]
   [string]$Artifacts,
 
-  [switch]$Check
+  [switch]$Check,
+
+  [switch]$ManifestSelfTest
 )
 
 Set-StrictMode -Version Latest
@@ -231,29 +232,57 @@ function Render-DerivedJson([object]$Data) {
   return ($json.TrimEnd() + "`n")
 }
 
+function Merge-ColorManifestRecords {
+  [CmdletBinding()]
+  param(
+    [Parameter(Mandatory)][AllowEmptyCollection()][object[]]$ExistingRecords,
+    [Parameter(Mandatory)][object]$SrgbRecord,
+    [Parameter(Mandatory)][object]$DerivedRecord
+  )
+
+  $srgbId = 'color-srgb-reference-vectors'
+  $derivedId = 'color-derived-edge-vectors'
+  $seen = @{ $srgbId = $false; $derivedId = $false }
+  $merged = [System.Collections.Generic.List[object]]::new()
+  foreach ($record in $ExistingRecords) {
+    $recordId = [string]$record.id
+    if ($recordId -ceq $srgbId -or $recordId -ceq $derivedId) {
+      if ($seen[$recordId]) {
+        throw "Duplicate owned Color manifest record ID '$recordId'."
+      }
+      $seen[$recordId] = $true
+      $merged.Add($(if ($recordId -ceq $srgbId) { $SrgbRecord } else { $DerivedRecord }))
+    } else {
+      $merged.Add($record)
+    }
+  }
+  if (-not $seen[$srgbId]) { $merged.Add($SrgbRecord) }
+  if (-not $seen[$derivedId]) { $merged.Add($DerivedRecord) }
+  return $merged.ToArray()
+}
+
 function Render-Manifest([string]$SrgbDigest, [string]$DerivedDigest) {
   $manifestPath = Join-Path $RepositoryRoot 'fixtures\manifest.json'
   $existingRecords = @()
   if (Test-Path -LiteralPath $manifestPath) {
     $existing = Get-Content -LiteralPath $manifestPath -Raw | ConvertFrom-Json
-    $existingRecords = @($existing.records | Where-Object { $_.id -cnotin @('color-srgb-reference-vectors', 'color-derived-edge-vectors') })
+    $existingRecords = @($existing.records)
   }
-  $records = @($existingRecords) + @(
-    [ordered]@{
-      id='color-srgb-reference-vectors'; path='fixtures/color/srgb-reference-vectors.json'; origin='generated'
-      source='https://www.w3.org/TR/css-color-4/#color-conversion-code and https://registry.color.org/rgb-registry/files/sRGB.pdf; values derived by scripts/fixtures/Generate-ColorVectors.ps1'
-      author='MoonBit Native Foundation project generator'; retrieval_date='2026-07-17'; sha256=$SrgbDigest
-      license='Apache-2.0'; redistribution_status='not-applicable'
-      expected_use='COLR-04 sRGB transfer endpoints, thresholds, adjacent values, monotonicity, and tolerance conformance'
-    },
-    [ordered]@{
-      id='color-derived-edge-vectors'; path='fixtures/color/derived-edge-vectors.json'; origin='generated'
-      source='repository-derived:scripts/fixtures/Generate-ColorVectors.ps1'
-      author='MoonBit Native Foundation project generator'; retrieval_date='2026-07-17'; sha256=$DerivedDigest
-      license='Apache-2.0'; redistribution_status='not-applicable'
-      expected_use='COLR-04 project-derived quantization, alpha, profile-limit, and adversarial conformance cases'
-    }
-  )
+  $srgbRecord = [ordered]@{
+    id='color-srgb-reference-vectors'; path='fixtures/color/srgb-reference-vectors.json'; origin='generated'
+    source='https://www.w3.org/TR/css-color-4/#color-conversion-code and https://registry.color.org/rgb-registry/files/sRGB.pdf; values derived by scripts/fixtures/Generate-ColorVectors.ps1'
+    author='MoonBit Native Foundation project generator'; retrieval_date='2026-07-17'; sha256=$SrgbDigest
+    license='Apache-2.0'; redistribution_status='not-applicable'
+    expected_use='COLR-04 sRGB transfer endpoints, thresholds, adjacent values, monotonicity, and tolerance conformance'
+  }
+  $derivedRecord = [ordered]@{
+    id='color-derived-edge-vectors'; path='fixtures/color/derived-edge-vectors.json'; origin='generated'
+    source='repository-derived:scripts/fixtures/Generate-ColorVectors.ps1'
+    author='MoonBit Native Foundation project generator'; retrieval_date='2026-07-17'; sha256=$DerivedDigest
+    license='Apache-2.0'; redistribution_status='not-applicable'
+    expected_use='COLR-04 project-derived quantization, alpha, profile-limit, and adversarial conformance cases'
+  }
+  $records = Merge-ColorManifestRecords -ExistingRecords $existingRecords -SrgbRecord $srgbRecord -DerivedRecord $derivedRecord
   $manifest = [ordered]@{
     schema_version='1.0.0'; preferred_origin='generated'
     required_record_fields=@('id','path','origin','source','author','retrieval_date','sha256','license','redistribution_status','expected_use')
@@ -264,6 +293,71 @@ function Render-Manifest([string]$SrgbDigest, [string]$DerivedDigest) {
   }
   $json = $manifest | ConvertTo-Json -Depth 20
   return ($json.Replace("`r`n", "`n").TrimEnd() + "`n")
+}
+
+function Invoke-ManifestSelfTest {
+  [CmdletBinding()]
+  param()
+
+  function Assert-SelfTest([bool]$Condition, [string]$Message) {
+    if (-not $Condition) { throw "Color manifest self-test failed: $Message" }
+  }
+  function Confirm-DuplicateRejected([string]$Id, [object[]]$Records, [object]$SrgbRecord, [object]$DerivedRecord) {
+    $expected = "Duplicate owned Color manifest record ID '$Id'."
+    $actual = $null
+    try {
+      Merge-ColorManifestRecords -ExistingRecords $Records -SrgbRecord $SrgbRecord -DerivedRecord $DerivedRecord | Out-Null
+    } catch {
+      $actual = $_.Exception.Message
+    }
+    if ($actual -cne $expected) {
+      throw "Color manifest self-test duplicate '$Id' expected '$expected', got '$actual'."
+    }
+  }
+
+  $srgbRecord = [ordered]@{ id='color-srgb-reference-vectors'; path='canonical-srgb'; sha256='srgb' }
+  $derivedRecord = [ordered]@{ id='color-derived-edge-vectors'; path='canonical-derived'; sha256='derived' }
+  $foreignA = [pscustomobject][ordered]@{ id='foreign-a'; path='a'; nested=[ordered]@{ value=1; label='alpha' } }
+  $foreignB = [pscustomobject][ordered]@{ id='foreign-b'; path='b'; nested=[ordered]@{ value=2; label='beta' } }
+  $foreignAJson = $foreignA | ConvertTo-Json -Depth 10 -Compress
+  $foreignBJson = $foreignB | ConvertTo-Json -Depth 10 -Compress
+
+  Confirm-DuplicateRejected -Id 'color-srgb-reference-vectors' -Records @(
+    [ordered]@{ id='color-srgb-reference-vectors' },
+    [ordered]@{ id='color-srgb-reference-vectors' }
+  ) -SrgbRecord $srgbRecord -DerivedRecord $derivedRecord
+  Confirm-DuplicateRejected -Id 'color-derived-edge-vectors' -Records @(
+    [ordered]@{ id='color-derived-edge-vectors' },
+    [ordered]@{ id='color-derived-edge-vectors' }
+  ) -SrgbRecord $srgbRecord -DerivedRecord $derivedRecord
+
+  $bothMissing = @(Merge-ColorManifestRecords -ExistingRecords @($foreignA, $foreignB) -SrgbRecord $srgbRecord -DerivedRecord $derivedRecord)
+  Assert-SelfTest ($bothMissing.Count -eq 4) 'both-missing merge count changed'
+  Assert-SelfTest ([object]::ReferenceEquals($bothMissing[0], $foreignA)) 'first foreign record identity changed'
+  Assert-SelfTest ([object]::ReferenceEquals($bothMissing[1], $foreignB)) 'second foreign record identity changed'
+  Assert-SelfTest ([object]::ReferenceEquals($bothMissing[2], $srgbRecord)) 'missing sRGB record was not appended first'
+  Assert-SelfTest ([object]::ReferenceEquals($bothMissing[3], $derivedRecord)) 'missing derived record was not appended second'
+
+  $presentDerived = [ordered]@{ id='color-derived-edge-vectors'; path='stale-derived' }
+  $oneMissing = @(Merge-ColorManifestRecords -ExistingRecords @($foreignA, $presentDerived, $foreignB) -SrgbRecord $srgbRecord -DerivedRecord $derivedRecord)
+  Assert-SelfTest ($oneMissing.Count -eq 4) 'one-missing merge count changed'
+  Assert-SelfTest ([object]::ReferenceEquals($oneMissing[0], $foreignA)) 'first foreign record moved around present owned record'
+  Assert-SelfTest ([object]::ReferenceEquals($oneMissing[1], $derivedRecord)) 'present derived record was not replaced in place'
+  Assert-SelfTest ([object]::ReferenceEquals($oneMissing[2], $foreignB)) 'second foreign record moved around present owned record'
+  Assert-SelfTest ([object]::ReferenceEquals($oneMissing[3], $srgbRecord)) 'missing sRGB record was not appended'
+  Assert-SelfTest (($oneMissing[0] | ConvertTo-Json -Depth 10 -Compress) -ceq $foreignAJson) 'first foreign record values changed'
+  Assert-SelfTest (($oneMissing[2] | ConvertTo-Json -Depth 10 -Compress) -ceq $foreignBJson) 'second foreign record values changed'
+
+  $completeInput = @($foreignA, $srgbRecord, $foreignB, $derivedRecord)
+  $completeBefore = $completeInput | ConvertTo-Json -Depth 10 -Compress
+  $completeOnce = @(Merge-ColorManifestRecords -ExistingRecords $completeInput -SrgbRecord $srgbRecord -DerivedRecord $derivedRecord)
+  $completeTwice = @(Merge-ColorManifestRecords -ExistingRecords $completeOnce -SrgbRecord $srgbRecord -DerivedRecord $derivedRecord)
+  Assert-SelfTest (($completeOnce | ConvertTo-Json -Depth 10 -Compress) -ceq $completeBefore) 'complete canonical input was not logically idempotent'
+  Assert-SelfTest (($completeTwice | ConvertTo-Json -Depth 10 -Compress) -ceq $completeBefore) 'second complete merge was not byte/logically idempotent'
+  Assert-SelfTest ([object]::ReferenceEquals($completeOnce[0], $foreignA)) 'complete merge changed first foreign identity'
+  Assert-SelfTest ([object]::ReferenceEquals($completeOnce[2], $foreignB)) 'complete merge changed second foreign identity'
+
+  Write-Host 'Color manifest self-test passed.'
 }
 
 function Render-TransferMoon([object]$Data) {
@@ -408,6 +502,14 @@ function Render-ProfileMoon([object]$Data) {
   $lines.Add(('  inspect(generated_profile_budget_rejection_cases().length(), content="{0}")' -f $budgetCaseCount))
   $lines.Add('}')
   return Join-Lines $lines.ToArray()
+}
+
+if ($ManifestSelfTest) {
+  Invoke-ManifestSelfTest
+  return
+}
+if (-not $PSBoundParameters.ContainsKey('Artifacts')) {
+  throw 'Artifacts is required unless -ManifestSelfTest is selected.'
 }
 
 $data = New-CanonicalData
