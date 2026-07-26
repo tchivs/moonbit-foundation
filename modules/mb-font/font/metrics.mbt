@@ -198,13 +198,17 @@ fn font_admit_metric_index(
     Err(error) => return Err(error)
     Ok(value) => value
   }
-  Ok({
+  let index = MetricIndexFacts::{
     hmtx,
     glyf,
     loca_offsets,
     num_glyphs: maxp.num_glyphs,
     number_of_h_metrics: hhea.number_of_h_metrics,
-  })
+  }
+  match font_validate_glyph_headers(index) {
+    Err(error) => Err(error)
+    Ok(_) => Ok(index)
+  }
 }
 
 ///|
@@ -417,6 +421,21 @@ fn font_read_glyph_bounds(
     return Err(font_glyph_header_error("font-glyf-bounds"))
   }
   Ok(Some({ x_min, y_min, x_max, y_max }))
+}
+
+///|
+fn font_validate_glyph_headers(
+  index : MetricIndexFacts,
+) -> Result[Unit, @error.CoreError] {
+  let mut glyph = 0UL
+  while glyph < index.num_glyphs {
+    match font_read_glyph_bounds(index, glyph) {
+      Err(error) => return Err(error)
+      Ok(_) => ()
+    }
+    glyph = glyph + 1UL
+  }
+  Ok(())
 }
 
 ///|

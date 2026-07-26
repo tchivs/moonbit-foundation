@@ -380,20 +380,10 @@ fn font_test_minimal_truetype() -> Bytes {
 }
 
 ///|
-fn font_test_metric_head_table() -> Bytes {
-  font_test_metric_head_table_with_format(0)
-}
-
-///|
 fn font_test_metric_head_table_with_format(format : Int) -> Bytes {
   let output = font_test_head_table().to_array()
   font_test_put_i16(output, 50, format)
   Bytes::from_array(output)
-}
-
-///|
-fn font_test_metric_hhea_table() -> Bytes {
-  font_test_metric_hhea_table_with_count(2UL)
 }
 
 ///|
