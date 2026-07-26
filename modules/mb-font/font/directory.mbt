@@ -1,0 +1,406 @@
+///|
+priv struct FontTableRecord {
+  tag : UInt64
+  checksum : UInt64
+  offset : UInt64
+  length : UInt64
+  view : @bytes.ByteView
+}
+
+///|
+priv struct FontDirectory {
+  records : Array[FontTableRecord]
+  work : UInt64
+}
+
+///|
+fn font_data_error(
+  context : String,
+  source_offset? : UInt64,
+  requested? : UInt64,
+  limit? : UInt64,
+) -> @error.CoreError {
+  @error.CoreError::new(
+    @error.ErrorCategory::Data,
+    @error.ErrorCode::InvalidEncoding,
+    operation="font-open",
+    source_offset?,
+    requested?,
+    limit?,
+    context~,
+  )
+}
+
+///|
+fn font_capability_error(context : String) -> @error.CoreError {
+  @error.CoreError::new(
+    @error.ErrorCategory::Capability,
+    @error.ErrorCode::CapabilityUnavailable,
+    operation="font-open",
+    context~,
+  )
+}
+
+///|
+fn font_limit_error(
+  context : String,
+  requested : UInt64,
+  limit : UInt64,
+) -> @error.CoreError {
+  @error.CoreError::new(
+    @error.ErrorCategory::Resource,
+    @error.ErrorCode::BudgetExceeded,
+    operation="font-open",
+    requested~,
+    limit~,
+    context~,
+  )
+}
+
+///|
+fn font_directory_search_facts(
+  num_tables : UInt64,
+) -> Result[(UInt64, UInt64, UInt64), @error.CoreError] {
+  let mut power = 1UL
+  let mut selector = 0UL
+  while power <= num_tables / 2UL {
+    power = match @checked.checked_mul(power, 2UL) {
+      Err(error) => return Err(error)
+      Ok(value) => value
+    }
+    selector = match @checked.checked_add(selector, 1UL) {
+      Err(error) => return Err(error)
+      Ok(value) => value
+    }
+  }
+  let search_range = match @checked.checked_mul(power, 16UL) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  let table_bytes = match @checked.checked_mul(num_tables, 16UL) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  let range_shift = match @checked.checked_sub(table_bytes, search_range) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  Ok((search_range, selector, range_shift))
+}
+
+///|
+fn font_records_overlap(
+  records : Array[FontTableRecord],
+  offset : UInt64,
+  length : UInt64,
+) -> Result[Bool, @error.CoreError] {
+  let candidate = match @checked.CheckedRange::from_start_length(offset, length) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  for record in records {
+    let existing = match
+      @checked.CheckedRange::from_start_length(record.offset, record.length) {
+      Err(error) => return Err(error)
+      Ok(value) => value
+    }
+    if candidate.overlaps(existing) {
+      return Ok(true)
+    }
+  }
+  Ok(false)
+}
+
+///|
+fn parse_font_directory(
+  source : @bytes.ByteView,
+  limits : FontLimits,
+) -> Result[FontDirectory, @error.CoreError] {
+  if source.length() > limits.max_source_bytes() {
+    return Err(
+      font_limit_error(
+        "max-source-bytes",
+        source.length(),
+        limits.max_source_bytes(),
+      ),
+    )
+  }
+  if source.length() < 4UL {
+    return Err(font_data_error("font-sfnt-header", requested=4UL, limit=source.length()))
+  }
+  let signature = match read_u32(source, 0UL) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  if signature != 0x00010000UL {
+    return Err(font_capability_error("font-outline-profile"))
+  }
+  if source.length() < 12UL {
+    return Err(
+      font_data_error(
+        "font-sfnt-header",
+        requested=12UL,
+        limit=source.length(),
+      ),
+    )
+  }
+  let num_tables = match read_u16(source, 4UL) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  if num_tables == 0UL {
+    return Err(font_data_error("font-table-count", source_offset=4UL))
+  }
+  if num_tables > limits.max_tables() {
+    return Err(
+      font_limit_error("max-tables", num_tables, limits.max_tables()),
+    )
+  }
+  let record_bytes = match @checked.checked_mul(num_tables, 16UL) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  let directory_end = match @checked.checked_add(12UL, record_bytes) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  if directory_end > source.length() {
+    return Err(
+      font_data_error(
+        "font-directory-range",
+        source_offset=12UL,
+        requested=record_bytes,
+        limit=source.length(),
+      ),
+    )
+  }
+  let (expected_search, expected_selector, expected_shift) = match
+    font_directory_search_facts(num_tables) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  let stored_search = match read_u16(source, 6UL) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  let stored_selector = match read_u16(source, 8UL) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  let stored_shift = match read_u16(source, 10UL) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  if stored_search != expected_search ||
+    stored_selector != expected_selector ||
+    stored_shift != expected_shift {
+    return Err(font_data_error("font-directory-search-facts"))
+  }
+  let records : Array[FontTableRecord] = []
+  let mut previous_tag : UInt64? = None
+  let mut index = 0UL
+  while index < num_tables {
+    let record_delta = match @checked.checked_mul(index, 16UL) {
+      Err(error) => return Err(error)
+      Ok(value) => value
+    }
+    let record_offset = match @checked.checked_add(12UL, record_delta) {
+      Err(error) => return Err(error)
+      Ok(value) => value
+    }
+    let tag = match read_u32(source, record_offset) {
+      Err(error) => return Err(error)
+      Ok(value) => value
+    }
+    match previous_tag {
+      Some(previous) =>
+        if tag <= previous {
+          return Err(
+            font_data_error(
+              "font-directory-tag-order",
+              source_offset=record_offset,
+            ),
+          )
+        }
+      None => ()
+    }
+    let checksum_offset = match @checked.checked_add(record_offset, 4UL) {
+      Err(error) => return Err(error)
+      Ok(value) => value
+    }
+    let table_offset_field = match @checked.checked_add(record_offset, 8UL) {
+      Err(error) => return Err(error)
+      Ok(value) => value
+    }
+    let table_length_field = match @checked.checked_add(record_offset, 12UL) {
+      Err(error) => return Err(error)
+      Ok(value) => value
+    }
+    let checksum = match read_u32(source, checksum_offset) {
+      Err(error) => return Err(error)
+      Ok(value) => value
+    }
+    let table_offset = match read_u32(source, table_offset_field) {
+      Err(error) => return Err(error)
+      Ok(value) => value
+    }
+    let table_length = match read_u32(source, table_length_field) {
+      Err(error) => return Err(error)
+      Ok(value) => value
+    }
+    if table_offset % 4UL != 0UL {
+      return Err(
+        font_data_error(
+          "font-table-alignment",
+          source_offset=table_offset_field,
+        ),
+      )
+    }
+    if table_length > limits.max_table_bytes() {
+      return Err(
+        font_limit_error(
+          "max-table-bytes",
+          table_length,
+          limits.max_table_bytes(),
+        ),
+      )
+    }
+    let table_end = match @checked.checked_add(table_offset, table_length) {
+      Err(error) => return Err(error)
+      Ok(value) => value
+    }
+    if table_end > source.length() {
+      return Err(
+        font_data_error(
+          "font-table-range",
+          source_offset=table_offset,
+          requested=table_length,
+          limit=source.length(),
+        ),
+      )
+    }
+    match font_records_overlap(records, table_offset, table_length) {
+      Err(error) => return Err(error)
+      Ok(true) =>
+        return Err(
+          font_data_error(
+            "font-table-overlap",
+            source_offset=table_offset,
+            requested=table_length,
+          ),
+        )
+      Ok(false) => ()
+    }
+    let table_view = match source.subview(table_offset, table_length) {
+      Err(error) => return Err(error)
+      Ok(value) => value
+    }
+    records.push({
+      tag,
+      checksum,
+      offset: table_offset,
+      length: table_length,
+      view: table_view,
+    })
+    previous_tag = Some(tag)
+    index = match @checked.checked_add(index, 1UL) {
+      Err(error) => return Err(error)
+      Ok(value) => value
+    }
+  }
+  let work = match @checked.checked_add(source.length(), num_tables) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  if work > limits.max_work() {
+    return Err(font_limit_error("max-work", work, limits.max_work()))
+  }
+  Ok({ records, work })
+}
+
+///|
+fn font_find_table(
+  directory : FontDirectory,
+  tag : UInt64,
+) -> Result[FontTableRecord, @error.CoreError] {
+  for record in directory.records {
+    if record.tag == tag {
+      return Ok(record)
+    }
+  }
+  Err(font_data_error("font-required-table"))
+}
+
+///|
+fn font_table_checksum(
+  record : FontTableRecord,
+) -> Result[UInt64, @error.CoreError] {
+  let mut checksum = 0UL
+  let mut offset = 0UL
+  while offset < record.length {
+    let mut word = 0UL
+    for delta in [0UL, 1UL, 2UL, 3UL] {
+      let index = match @checked.checked_add(offset, delta) {
+        Err(error) => return Err(error)
+        Ok(value) => value
+      }
+      let byte = if record.tag == 0x68656164UL &&
+        index >= 8UL &&
+        index < 12UL {
+        b'\x00'
+      } else if index < record.length {
+        match record.view.get(index) {
+          Err(error) => return Err(error)
+          Ok(value) => value
+        }
+      } else {
+        b'\x00'
+      }
+      word = (word << 8) | byte.to_uint64()
+    }
+    checksum = (checksum + word) & 0xFFFFFFFFUL
+    offset = match @checked.checked_add(offset, 4UL) {
+      Err(error) => return Err(error)
+      Ok(value) => value
+    }
+  }
+  Ok(checksum)
+}
+
+///|
+fn validate_tracer_tables(
+  directory : FontDirectory,
+) -> Result[FontTableRecord, @error.CoreError] {
+  for tag in [
+    0x4F532F32UL,
+    0x636D6170UL,
+    0x676C7966UL,
+    0x68656164UL,
+    0x68686561UL,
+    0x686D7478UL,
+    0x6C6F6361UL,
+    0x6D617870UL,
+    0x6E616D65UL,
+    0x706F7374UL,
+  ] {
+    match font_find_table(directory, tag) {
+      Err(error) => return Err(error)
+      Ok(_) => ()
+    }
+  }
+  for record in directory.records {
+    let computed = match font_table_checksum(record) {
+      Err(error) => return Err(error)
+      Ok(value) => value
+    }
+    if computed != record.checksum {
+      return Err(
+        font_data_error(
+          "font-table-checksum",
+          source_offset=record.offset,
+        ),
+      )
+    }
+  }
+  font_find_table(directory, 0x68656164UL)
+}
