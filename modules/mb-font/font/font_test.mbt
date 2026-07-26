@@ -178,6 +178,30 @@ fn font_test_put_u32(
 }
 
 ///|
+fn font_test_put_u16(
+  output : Array[Byte],
+  offset : Int,
+  value : UInt64,
+) -> Unit {
+  output[offset] = (value >> 8).to_byte()
+  output[offset + 1] = value.to_byte()
+}
+
+///|
+fn font_test_put_i16(
+  output : Array[Byte],
+  offset : Int,
+  value : Int,
+) -> Unit {
+  let encoded = if value < 0 {
+    (value + 0x10000).to_uint64()
+  } else {
+    value.to_uint64()
+  }
+  font_test_put_u16(output, offset, encoded)
+}
+
+///|
 fn font_test_checksum(source : Bytes) -> UInt64 {
   let mut checksum = 0UL
   let mut offset = 0
@@ -288,26 +312,14 @@ fn font_test_post_table() -> Bytes {
 }
 
 ///|
-fn font_test_minimal_truetype() -> Bytes {
-  let tables : Array[FontTestTable] = [
-    { tag: b"OS/2", payload: font_test_fixed_table(78) },
-    { tag: b"cmap", payload: font_test_cmap_table() },
-    { tag: b"glyf", payload: b"" },
-    { tag: b"head", payload: font_test_head_table() },
-    { tag: b"hhea", payload: font_test_hhea_table() },
-    { tag: b"hmtx", payload: b"\x01\xf4\x00\x00" },
-    { tag: b"loca", payload: b"\x00\x00\x00\x00" },
-    { tag: b"maxp", payload: font_test_maxp_table() },
-    { tag: b"name", payload: font_test_name_table() },
-    { tag: b"post", payload: font_test_post_table() },
-  ]
+fn font_test_build_truetype(tables : Array[FontTestTable]) -> Bytes {
   let output : Array[Byte] = []
   font_test_push_u32(output, 0x00010000UL)
-  font_test_push_u16(output, 10UL)
+  font_test_push_u16(output, tables.length().to_uint64())
   font_test_push_u16(output, 128UL)
   font_test_push_u16(output, 3UL)
   font_test_push_u16(output, 32UL)
-  let mut next_offset = 172UL
+  let mut next_offset = 12UL + tables.length().to_uint64() * 16UL
   let offsets : Array[UInt64] = []
   for table in tables {
     for byte in table.tag {
@@ -333,6 +345,76 @@ fn font_test_minimal_truetype() -> Bytes {
     0xFFFFFFFFUL
   font_test_put_u32(output, offsets[3].to_int() + 8, adjustment)
   Bytes::from_array(output)
+}
+
+///|
+fn font_test_minimal_truetype() -> Bytes {
+  font_test_build_truetype([
+    { tag: b"OS/2", payload: font_test_fixed_table(78) },
+    { tag: b"cmap", payload: font_test_cmap_table() },
+    { tag: b"glyf", payload: b"" },
+    { tag: b"head", payload: font_test_head_table() },
+    { tag: b"hhea", payload: font_test_hhea_table() },
+    { tag: b"hmtx", payload: b"\x01\xf4\x00\x00" },
+    { tag: b"loca", payload: b"\x00\x00\x00\x00" },
+    { tag: b"maxp", payload: font_test_maxp_table() },
+    { tag: b"name", payload: font_test_name_table() },
+    { tag: b"post", payload: font_test_post_table() },
+  ])
+}
+
+///|
+fn font_test_metric_head_table() -> Bytes {
+  let output = font_test_head_table().to_array()
+  font_test_put_i16(output, 50, 0)
+  Bytes::from_array(output)
+}
+
+///|
+fn font_test_metric_hhea_table() -> Bytes {
+  let output = font_test_hhea_table().to_array()
+  font_test_put_u16(output, 34, 2UL)
+  Bytes::from_array(output)
+}
+
+///|
+fn font_test_metric_maxp_table() -> Bytes {
+  let output = font_test_maxp_table().to_array()
+  font_test_put_u16(output, 4, 3UL)
+  Bytes::from_array(output)
+}
+
+///|
+fn font_test_metric_glyf_table() -> Bytes {
+  let output : Array[Byte] = []
+  for value in [1, -10, -20, 100, 200, 1, 5, -6, 55, 70] {
+    let encoded = if value < 0 {
+      (value + 0x10000).to_uint64()
+    } else {
+      value.to_uint64()
+    }
+    font_test_push_u16(output, encoded)
+  }
+  Bytes::from_array(output)
+}
+
+///|
+fn font_test_horizontal_metric_truetype() -> Bytes {
+  font_test_build_truetype([
+    { tag: b"OS/2", payload: font_test_fixed_table(78) },
+    { tag: b"cmap", payload: font_test_cmap_table() },
+    { tag: b"glyf", payload: font_test_metric_glyf_table() },
+    { tag: b"head", payload: font_test_metric_head_table() },
+    { tag: b"hhea", payload: font_test_metric_hhea_table() },
+    {
+      tag: b"hmtx",
+      payload: b"\x01\xf4\xff\xec\x02\x58\x00\x1e\xff\xd8",
+    },
+    { tag: b"loca", payload: b"\x00\x00\x00\x05\x00\x05\x00\x0a" },
+    { tag: b"maxp", payload: font_test_metric_maxp_table() },
+    { tag: b"name", payload: font_test_name_table() },
+    { tag: b"post", payload: font_test_post_table() },
+  ])
 }
 
 ///|
@@ -581,6 +663,110 @@ test "font publishes separate exact global metric sources" {
   inspect(hhea.ascent() != typographic.ascent(), content="true")
   inspect(hhea.descent() != typographic.descent(), content="true")
   inspect(hhea.line_gap() != typographic.line_gap(), content="true")
+}
+
+///|
+test "font publishes opaque direct tail and empty horizontal metrics" {
+  let owner = font_test_owner(font_test_horizontal_metric_truetype())
+  let font = Font::open(
+    owner.view(),
+    font_test_limits(),
+    font_test_budget(),
+  ).unwrap()
+  let glyph0 = font.glyph_id(0UL).unwrap()
+  let glyph1 = font.glyph_id(1UL).unwrap()
+  let glyph2 = font.glyph_id(2UL).unwrap()
+  inspect(glyph0.value(), content="0")
+  inspect(glyph2.value(), content="2")
+
+  let direct = font.horizontal_metrics(glyph0).unwrap()
+  inspect(direct.advance_width(), content="500")
+  inspect(direct.left_side_bearing(), content="-20")
+  let direct_bounds = direct.bounds().unwrap()
+  inspect(direct_bounds.x_min(), content="-10")
+  inspect(direct_bounds.y_min(), content="-20")
+  inspect(direct_bounds.x_max(), content="100")
+  inspect(direct_bounds.y_max(), content="200")
+  inspect(direct.right_side_bearing(), content="410")
+
+  let empty = font.horizontal_metrics(glyph1).unwrap()
+  inspect(empty.advance_width(), content="600")
+  inspect(empty.left_side_bearing(), content="30")
+  inspect(empty.bounds() is None, content="true")
+  inspect(empty.right_side_bearing(), content="570")
+
+  let tail = font.horizontal_metrics(glyph2).unwrap()
+  inspect(tail.advance_width(), content="600")
+  inspect(tail.left_side_bearing(), content="-40")
+  let tail_bounds = tail.bounds().unwrap()
+  inspect(tail_bounds.x_min(), content="5")
+  inspect(tail_bounds.y_min(), content="-6")
+  inspect(tail_bounds.x_max(), content="55")
+  inspect(tail_bounds.y_max(), content="70")
+  inspect(tail.right_side_bearing(), content="590")
+}
+
+///|
+test "glyph IDs are range checked by construction and receiving Font" {
+  let large_owner = font_test_owner(font_test_horizontal_metric_truetype())
+  let large = Font::open(
+    large_owner.view(),
+    font_test_limits(),
+    font_test_budget(),
+  ).unwrap()
+  let boundary = large.glyph_id(3UL).unwrap_err()
+  inspect(boundary.category() == @error.ErrorCategory::InvalidInput, content="true")
+  inspect(boundary.code() == @error.ErrorCode::InvalidRange, content="true")
+  inspect(boundary.operation() == Some("font-glyph-id"), content="true")
+  inspect(boundary.requested() == Some(3UL), content="true")
+  inspect(boundary.limit() == Some(3UL), content="true")
+  inspect(boundary.context() == Some("font-glyph-id-range"), content="true")
+
+  let glyph = large.glyph_id(2UL).unwrap()
+  let small_owner = font_test_owner(font_test_minimal_truetype())
+  let small = Font::open(
+    small_owner.view(),
+    font_test_limits(),
+    font_test_budget(),
+  ).unwrap()
+  let receiving = small.horizontal_metrics(glyph).unwrap_err()
+  inspect(
+    receiving.category() == @error.ErrorCategory::InvalidInput,
+    content="true",
+  )
+  inspect(receiving.code() == @error.ErrorCode::InvalidRange, content="true")
+  inspect(
+    receiving.operation() == Some("font-horizontal-metrics"),
+    content="true",
+  )
+  inspect(receiving.requested() == Some(2UL), content="true")
+  inspect(receiving.limit() == Some(1UL), content="true")
+  inspect(
+    receiving.context() == Some("font-glyph-id-range"),
+    content="true",
+  )
+}
+
+///|
+test "horizontal metric queries are repeatable and order independent" {
+  let owner = font_test_owner(font_test_horizontal_metric_truetype())
+  let font = Font::open(
+    owner.view(),
+    font_test_limits(),
+    font_test_budget(),
+  ).unwrap()
+  let glyph0 = font.glyph_id(0UL).unwrap()
+  let glyph2 = font.glyph_id(2UL).unwrap()
+  let tail_first = font.horizontal_metrics(glyph2).unwrap()
+  let direct = font.horizontal_metrics(glyph0).unwrap()
+  let tail_second = font.horizontal_metrics(glyph2).unwrap()
+  inspect(tail_first.advance_width(), content="600")
+  inspect(direct.advance_width(), content="500")
+  inspect(tail_second.advance_width(), content="600")
+  inspect(tail_first.left_side_bearing(), content="-40")
+  inspect(tail_second.left_side_bearing(), content="-40")
+  inspect(tail_first.right_side_bearing(), content="590")
+  inspect(tail_second.right_side_bearing(), content="590")
 }
 
 ///|
