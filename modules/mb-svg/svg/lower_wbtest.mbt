@@ -10,7 +10,7 @@ test "lower rect emits one fill op" {
       inspect(list.length(), content="1")
       match list.get(0) {
         Some(Fill(_, style)) => inspect(style.color_r, content="1")
-        other => inspect("other", content="other")
+        _ => fail("expected fill operation")
       }
     }
     Err(_) => inspect("err", content="ok")
@@ -29,7 +29,7 @@ test "lower circle emits one fill with black default" {
           inspect(style.color_g, content="0")
           inspect(style.color_b, content="0")
         }
-        other => inspect("other", content="other")
+        _ => fail("expected fill operation")
       }
     }
     Err(_) => inspect("err", content="ok")
@@ -45,14 +45,14 @@ test "lower stroke emits Fill then Stroke when both set" {
       inspect(list.length(), content="2")
       match list.get(0) {
         Some(Fill(_, style)) => inspect(style.color_b, content="0")
-        other => inspect("other", content="other")
+        _ => fail("expected fill operation")
       }
       match list.get(1) {
         Some(Stroke(_, stroke, color)) => {
           inspect(stroke.width, content="2")
           inspect(color.color_b, content="1")
         }
-        other => inspect("other", content="other")
+        _ => fail("expected stroke operation")
       }
     }
     Err(_) => inspect("err", content="ok")
@@ -67,7 +67,7 @@ test "lower fill none emits stroke only" {
       inspect(list.length(), content="1")
       match list.get(0) {
         Some(Stroke(_, _, _)) => inspect("stroke", content="stroke")
-        other => inspect("other", content="other")
+        _ => fail("expected stroke operation")
       }
     }
     Err(_) => inspect("err", content="ok")
@@ -85,15 +85,15 @@ test "lower group wraps children with push/pop transform" {
       inspect(list.length(), content="3")
       match list.get(0) {
         Some(PushTransform(t)) => inspect(t.tx(), content="10")
-        other => inspect("other", content="other")
+        _ => fail("expected push transform")
       }
       match list.get(1) {
         Some(Fill(_, _)) => inspect("fill", content="fill")
-        other => inspect("other", content="other")
+        _ => fail("expected fill operation")
       }
       match list.get(2) {
         Some(PopTransform) => inspect("pop", content="pop")
-        other => inspect("other", content="other")
+        _ => fail("expected pop transform")
       }
     }
     Err(_) => inspect("err", content="ok")
@@ -110,23 +110,23 @@ test "lower nested groups balance push/pop" {
       inspect(list.length(), content="5")
       match list.get(0) {
         Some(PushTransform(_)) => inspect("push", content="push")
-        other => inspect("other", content="other")
+        _ => fail("expected push transform")
       }
       match list.get(1) {
         Some(PushTransform(_)) => inspect("push", content="push")
-        other => inspect("other", content="other")
+        _ => fail("expected push transform")
       }
       match list.get(2) {
         Some(Fill(_, _)) => inspect("fill", content="fill")
-        other => inspect("other", content="other")
+        _ => fail("expected fill operation")
       }
       match list.get(3) {
         Some(PopTransform) => inspect("pop", content="pop")
-        other => inspect("other", content="other")
+        _ => fail("expected pop transform")
       }
       match list.get(4) {
         Some(PopTransform) => inspect("pop", content="pop")
-        other => inspect("other", content="other")
+        _ => fail("expected pop transform")
       }
     }
     Err(_) => inspect("err", content="ok")
@@ -145,7 +145,7 @@ test "lower path emits fill from parsed path data" {
           inspect(p.length(), content="3")
           inspect(style.color_b, content="1")
         }
-        other => inspect("other", content="other")
+        _ => fail("expected fill operation")
       }
     }
     Err(_) => inspect("err", content="ok")
@@ -161,11 +161,11 @@ test "lower polygon and polyline both lower" {
       inspect(list.length(), content="2")
       match list.get(0) {
         Some(Fill(_, _)) => inspect("fill", content="fill")
-        other => inspect("other", content="other")
+        _ => fail("expected fill operation")
       }
       match list.get(1) {
         Some(Fill(_, _)) => inspect("fill", content="fill")
-        other => inspect("other", content="other")
+        _ => fail("expected fill operation")
       }
     }
     Err(_) => inspect("err", content="ok")
@@ -197,7 +197,7 @@ test "lower applies fill-opacity to the Fill op alpha" {
           inspect(style.color_r, content="1")
           inspect(style.color_a, content="0.5")
         }
-        other => inspect("other", content="other")
+        _ => fail("expected fill operation")
       }
     }
     Err(_) => inspect("err", content="ok")
@@ -212,12 +212,12 @@ test "lower applies stroke-opacity and keeps fill opaque by default" {
       // Fill is opaque (no fill-opacity) → alpha 1.
       match list.get(0) {
         Some(Fill(_, style)) => inspect(style.color_a, content="1")
-        other => inspect("other", content="other")
+        _ => fail("expected fill operation")
       }
       // Stroke color carries stroke-opacity=0.25.
       match list.get(1) {
         Some(Stroke(_, _, color)) => inspect(color.color_a, content="0.25")
-        other => inspect("other", content="other")
+        _ => fail("expected stroke operation")
       }
     }
     Err(_) => inspect("err", content="ok")
@@ -240,7 +240,7 @@ test "lower wires stroke cap/join/miter/dash from attributes" {
           inspect(stroke.dash.length(), content="3")
           inspect(stroke.dash[2], content="0.5")
         }
-        other => inspect("other", content="other")
+        _ => fail("expected stroke operation")
       }
     }
     Err(_) => inspect("err", content="ok")
@@ -253,7 +253,7 @@ test "lower stroke defaults when no stroke attributes are given" {
   match parse_svg("<svg><rect width=\"4\" height=\"4\" stroke=\"black\"/></svg>") {
     Ok(scene) => {
       let list = lower_to_drawing_list(scene)
-      match list.get(0) {
+      match list.get(1) {
         Some(Stroke(_, stroke, _)) => {
           inspect(stroke.width, content="1")
           inspect(stroke.cap == @canvas.LineCap::Butt, content="true")
@@ -261,7 +261,7 @@ test "lower stroke defaults when no stroke attributes are given" {
           inspect(stroke.miter_limit, content="4")
           inspect(stroke.dash.length(), content="0")
         }
-        other => inspect("other", content="other")
+        _ => fail("expected stroke operation")
       }
     }
     Err(_) => inspect("err", content="ok")
@@ -276,7 +276,7 @@ test "lower applies fill-rule=evenodd to the Fill op" {
       match list.get(0) {
         Some(Fill(_, style)) =>
           inspect(style.rule == @canvas.FillRule::EvenOdd, content="true")
-        other => inspect("other", content="other")
+        _ => fail("expected evenodd fill operation")
       }
     }
     Err(_) => inspect("err", content="ok")
@@ -291,7 +291,7 @@ test "lower fill-rule defaults to Nonzero" {
       match list.get(0) {
         Some(Fill(_, style)) =>
           inspect(style.rule == @canvas.FillRule::Nonzero, content="true")
-        other => inspect("other", content="other")
+        _ => fail("expected nonzero fill operation")
       }
     }
     Err(_) => inspect("err", content="ok")
@@ -306,7 +306,7 @@ test "lower rect rx>0 produces a rounded path (8 cubics + move + close = 10 cmds
       let list = lower_to_drawing_list(scene)
       match list.get(0) {
         Some(Fill(p, _)) => inspect(p.length(), content="10")
-        other => inspect("other", content="other")
+        _ => fail("expected rounded rectangle fill")
       }
     }
     Err(_) => inspect("err", content="ok")
@@ -320,7 +320,7 @@ test "lower rect rx=ry=0 stays a sharp path (move + 3 lines + close = 5 cmds)" {
       let list = lower_to_drawing_list(scene)
       match list.get(0) {
         Some(Fill(p, _)) => inspect(p.length(), content="5")
-        other => inspect("other", content="other")
+        _ => fail("expected ellipse fill")
       }
     }
     Err(_) => inspect("err", content="ok")
@@ -342,11 +342,11 @@ test "lower viewBox mapping wraps svg children in a transform" {
           inspect(t.d(), content="2")
           inspect(t.tx(), content="0")
         }
-        other => inspect("other", content="other")
+        _ => fail("expected push transform")
       }
       match list.get(2) {
         Some(PopTransform) => inspect("pop", content="pop")
-        other => inspect("other", content="other")
+        _ => fail("expected pop transform")
       }
     }
     Err(_) => inspect("err", content="ok")
@@ -367,7 +367,7 @@ test "lower viewBox with offset viewport centers content (xMidYMid meet)" {
           inspect(t.tx(), content="0")
           inspect(t.ty(), content="50")
         }
-        other => inspect("other", content="other")
+        _ => fail("expected push transform")
       }
     }
     Err(_) => inspect("err", content="ok")
@@ -401,7 +401,7 @@ test "lower preserveAspectRatio xMidYMid meet centers the smaller axis" {
           inspect(t.tx(), content="0")
           inspect(t.ty(), content="50")
         }
-        other => inspect("other", content="other")
+        _ => fail("expected push transform")
       }
     }
     Err(_) => inspect("err", content="ok")
@@ -419,7 +419,7 @@ test "lower preserveAspectRatio xMinYMin meet aligns to top-left" {
           inspect(t.ty(), content="0")
           inspect(t.tx(), content="0")
         }
-        other => inspect("other", content="other")
+        _ => fail("expected push transform")
       }
     }
     Err(_) => inspect("err", content="ok")
@@ -439,7 +439,7 @@ test "lower preserveAspectRatio slice scales up and centers (overflow)" {
           inspect(t.tx(), content="-100")
           inspect(t.ty(), content="0")
         }
-        other => inspect("other", content="other")
+        _ => fail("expected push transform")
       }
     }
     Err(_) => inspect("err", content="ok")
@@ -459,7 +459,7 @@ test "lower preserveAspectRatio none uses non-uniform scaling" {
           inspect(t.tx(), content="0")
           inspect(t.ty(), content="0")
         }
-        other => inspect("other", content="other")
+        _ => fail("expected push transform")
       }
     }
     Err(_) => inspect("err", content="ok")
@@ -473,7 +473,7 @@ test "lower wires stroke-dashoffset into the StrokeStyle" {
       let list = lower_to_drawing_list(scene)
       match list.get(0) {
         Some(Stroke(_, stroke, _)) => inspect(stroke.dash_offset, content="5")
-        other => inspect("other", content="other")
+        _ => fail("expected stroke operation")
       }
     }
     Err(_) => inspect("err", content="ok")
@@ -485,9 +485,9 @@ test "lower stroke-dashoffset defaults to 0" {
   match parse_svg("<svg><rect width=\"4\" height=\"4\" stroke=\"black\" stroke-dasharray=\"2 1\"/></svg>") {
     Ok(scene) => {
       let list = lower_to_drawing_list(scene)
-      match list.get(0) {
+      match list.get(1) {
         Some(Stroke(_, stroke, _)) => inspect(stroke.dash_offset, content="0")
-        other => inspect("other", content="other")
+        _ => fail("expected stroke operation")
       }
     }
     Err(_) => inspect("err", content="ok")
@@ -504,11 +504,11 @@ test "lower group opacity<1 wraps children in PushLayer/PopLayer" {
       inspect(list.length(), content="5")
       match list.get(1) {
         Some(PushLayer(op)) => inspect(op, content="0.5")
-        other => inspect("other", content="other")
+        _ => fail("expected push layer")
       }
       match list.get(3) {
         Some(PopLayer) => inspect("pop", content="pop")
-        other => inspect("other", content="other")
+        _ => fail("expected pop layer")
       }
     }
     Err(_) => inspect("err", content="ok")
@@ -537,7 +537,7 @@ test "lower element opacity<1 wraps the shape in a layer" {
       inspect(list.length(), content="3")
       match list.get(0) {
         Some(PushLayer(op)) => inspect(op, content="0.5")
-        other => inspect("other", content="other")
+        _ => fail("expected push layer")
       }
     }
     Err(_) => inspect("err", content="ok")
@@ -552,7 +552,10 @@ test "numeric contract: viewBox and opacity lower controls" {
       let list = lower_to_drawing_list(scene)
       inspect(list.length(), content="3")
       match list.get(0) {
-        Some(PushTransform(transform)) => inspect((transform.a(), transform.d()), content="(0.5, 0.5)")
+        Some(PushTransform(transform)) => {
+          assert_eq(transform.a(), 0.5)
+          assert_eq(transform.d(), 0.5)
+        }
         _ => inspect(false, content="true")
       }
       match list.get(1) {
@@ -573,7 +576,10 @@ test "numeric contract: viewBox and opacity lower controls" {
       inspect(list.length(), content="7")
       match (list.get(1), list.get(2), list.get(4), list.get(5)) {
         (Some(PushLayer(group_opacity)), Some(PushLayer(element_opacity)), Some(PopLayer), Some(PopLayer)) =>
-          inspect((group_opacity, element_opacity), content="(0.5, 0.25)")
+          {
+            assert_eq(group_opacity, 0.5)
+            assert_eq(element_opacity, 0.25)
+          }
         _ => inspect(false, content="true")
       }
     }
@@ -588,7 +594,10 @@ test "numeric contract: viewBox and opacity lower controls" {
           inspect(path.length(), content="10")
           match (path.get(0), path.get(9)) {
             (Some(@math.PathCommand::MoveTo(point)), Some(@math.PathCommand::Close)) =>
-              inspect((point.x(), point.y()), content="(32768, 0)")
+              {
+                assert_eq(point.x(), 32768.0)
+                assert_eq(point.y(), 0.0)
+              }
             _ => inspect(false, content="true")
           }
         }
@@ -606,7 +615,10 @@ test "numeric contract: viewBox and opacity lower controls" {
           inspect(path.length(), content="33")
           match (path.get(0), path.get(32)) {
             (Some(@math.PathCommand::MoveTo(point)), Some(@math.PathCommand::Close)) =>
-              inspect((point.x(), point.y().abs() < 1.0e-9), content="(65536, true)")
+              {
+                assert_eq(point.x(), 65536.0)
+                assert_eq(point.y().abs() < 1.0e-9, true)
+              }
             _ => inspect(false, content="true")
           }
         }
@@ -627,7 +639,8 @@ test "parser-derived numeric rejection never reaches the total lowerer" {
     match parse_svg(source) {
       // A parser-produced SceneNode is the only input the total lowerer sees.
       Ok(_) => inspect(false, content="true")
-      Err(error) => inspect(error.context(), content="Some(svg-numeric-derived)")
+      Err(error) =>
+        assert_eq(error.context(), Some("svg-numeric-derived"))
     }
   }
 }
@@ -644,7 +657,12 @@ test "lower checked geometry retains compact map and path operation forms" {
       inspect(list.length(), content="6")
       match list.get(0) {
         Some(PushTransform(map)) =>
-          inspect((map.a(), map.d(), map.tx(), map.ty()), content="(2, 4, 0, 0)")
+          {
+            assert_eq(map.a(), 2.0)
+            assert_eq(map.d(), 4.0)
+            assert_eq(map.tx(), 0.0)
+            assert_eq(map.ty(), 0.0)
+          }
         _ => inspect(false, content="true")
       }
       match list.get(1) {
@@ -710,7 +728,8 @@ test "lower invalid manual scenes recover deterministically without moving layer
       )
       let first = lower_to_drawing_list(invalid_scene)
       let second = lower_to_drawing_list(invalid_scene)
-      inspect((first.length(), second.length()), content="(8, 8)")
+      assert_eq(first.length(), 8)
+      assert_eq(second.length(), 8)
       for list in [first, second] {
         match (list.get(0), list.get(1), list.get(2), list.get(3)) {
           (Some(PushLayer(0.25)), Some(Fill(rect, _)), Some(Stroke(_, _, _)), Some(PopLayer)) =>
@@ -752,11 +771,13 @@ fn assert_manual_checked_path_error(
   result : Result[@math.Path2, @error.CoreError],
 ) -> Unit raise {
   match result {
-    Err(error) => inspect(error.context(), content="Some(svg-numeric-derived)")
+    Err(error) =>
+      assert_eq(error.context(), Some("svg-numeric-derived"))
     Ok(path) =>
       match checked_path_points(path, @math.Affine2::identity()) {
         Ok(_) => inspect(false, content="true")
-        Err(error) => inspect(error.context(), content="Some(svg-numeric-derived)")
+        Err(error) =>
+          assert_eq(error.context(), Some("svg-numeric-derived"))
       }
   }
 }
@@ -764,15 +785,22 @@ fn assert_manual_checked_path_error(
 fn assert_manual_empty_path_twice(node : SceneNode) -> Unit raise {
   let first = lower_to_drawing_list(node)
   let second = lower_to_drawing_list(node)
-  inspect((first.length(), second.length()), content="(4, 4)")
+  assert_eq(first.length(), 4)
+  assert_eq(second.length(), 4)
   match (first.get(0), first.get(1), first.get(2), first.get(3)) {
     (Some(PushLayer(0.25)), Some(Fill(fill, _)), Some(Stroke(stroke, _, _)), Some(PopLayer)) =>
-      inspect((fill.length(), stroke.length()), content="(0, 0)")
+      {
+        assert_eq(fill.length(), 0)
+        assert_eq(stroke.length(), 0)
+      }
     _ => inspect(false, content="true")
   }
   match (second.get(0), second.get(1), second.get(2), second.get(3)) {
     (Some(PushLayer(0.25)), Some(Fill(fill, _)), Some(Stroke(stroke, _, _)), Some(PopLayer)) =>
-      inspect((fill.length(), stroke.length()), content="(0, 0)")
+      {
+        assert_eq(fill.length(), 0)
+        assert_eq(stroke.length(), 0)
+      }
     _ => inspect(false, content="true")
   }
 }
@@ -808,11 +836,13 @@ fn assert_manual_invalid_scene_matrix() -> Unit raise {
       }
       match checked_viewbox_transform(invalid_root) {
         Ok(_) => inspect(false, content="true")
-        Err(error) => inspect(error.context(), content="Some(svg-numeric-derived)")
+        Err(error) =>
+          assert_eq(error.context(), Some("svg-numeric-derived"))
       }
       let first_root = lower_to_drawing_list(Svg(invalid_root, [Rect(paint, 0.0, 0.0, 1.0, 1.0, 0.0, 0.0)]))
       let second_root = lower_to_drawing_list(Svg(invalid_root, [Rect(paint, 0.0, 0.0, 1.0, 1.0, 0.0, 0.0)]))
-      inspect((first_root.length(), second_root.length()), content="(4, 4)")
+      assert_eq(first_root.length(), 4)
+      assert_eq(second_root.length(), 4)
       match (first_root.get(0), first_root.get(1), first_root.get(2), first_root.get(3)) {
         (Some(PushLayer(0.25)), Some(Fill(path, _)), Some(Stroke(_, _, _)), Some(PopLayer)) => inspect(path.length(), content="5")
         _ => inspect(false, content="true")
@@ -858,7 +888,8 @@ fn assert_manual_inherited_affine_recovery(paint : Paint) -> Unit raise {
   let inner = @math.Affine2::translate(1.0, 0.0)
   match checked_compose_affine(outer, inner) {
     Ok(_) => inspect(false, content="true")
-    Err(error) => inspect(error.context(), content="Some(svg-numeric-derived)")
+    Err(error) =>
+      assert_eq(error.context(), Some("svg-numeric-derived"))
   }
 
   let nested = Group(
@@ -891,7 +922,10 @@ fn assert_manual_inherited_affine_recovery(paint : Paint) -> Unit raise {
         Some(PopTransform),
       ) => {
         inspect(first.tx(), content="65536")
-        inspect((second.a(), second.d(), second.tx(), second.ty()), content="(1, 1, 0, 0)")
+        assert_eq(second.a(), 1.0)
+        assert_eq(second.d(), 1.0)
+        assert_eq(second.tx(), 0.0)
+        assert_eq(second.ty(), 0.0)
       }
       _ => inspect(false, content="true")
     }
@@ -908,7 +942,8 @@ fn assert_manual_inherited_affine_recovery(paint : Paint) -> Unit raise {
     Ok(map) =>
       match checked_compose_affine(map, local_scale) {
         Ok(_) => inspect(false, content="true")
-        Err(error) => inspect(error.context(), content="Some(svg-numeric-derived)")
+        Err(error) =>
+          assert_eq(error.context(), Some("svg-numeric-derived"))
       }
     Err(_) => inspect(false, content="true")
   }
@@ -938,8 +973,12 @@ fn assert_manual_inherited_affine_recovery(paint : Paint) -> Unit raise {
         Some(PopTransform),
         Some(PopTransform),
       ) => {
-        inspect((map.a(), map.d()), content="(65536, 1)")
-        inspect((group.a(), group.d(), group.tx(), group.ty()), content="(1, 1, 0, 0)")
+        assert_eq(map.a(), 65536.0)
+        assert_eq(map.d(), 1.0)
+        assert_eq(group.a(), 1.0)
+        assert_eq(group.d(), 1.0)
+        assert_eq(group.tx(), 0.0)
+        assert_eq(group.ty(), 0.0)
       }
       _ => inspect(false, content="true")
     }
@@ -970,7 +1009,10 @@ fn assert_manual_inherited_affine_recovery(paint : Paint) -> Unit raise {
       Some(PopLayer),
       Some(PopTransform),
       Some(PopTransform),
-    ) => inspect((first.tx(), second.tx()), content="(10, 1)")
+    ) => {
+      assert_eq(first.tx(), 10.0)
+      assert_eq(second.tx(), 1.0)
+    }
     _ => inspect(false, content="true")
   }
 }
