@@ -6,9 +6,9 @@ current_phase: 97
 current_phase_name: Font Admission and Metrics
 status: verifying
 stopped_at: Completed 97-03-PLAN.md
-last_updated: "2026-07-26T10:57:39.583Z"
+last_updated: "2026-07-26T13:36:30.000Z"
 last_activity: 2026-07-26
-last_activity_desc: "Completed quick task 260726-r3a: Normalize MoonBit formatting for the Required WORK-04 module set and verify mb-core mb-color mb-image"
+last_activity_desc: "Completed quick task 260726-toy: Preserve fixture manifest ordering during color vector regeneration"
 progress:
   total_phases: 1
   completed_phases: 1
@@ -31,7 +31,7 @@ See `.planning/PROJECT.md`.
 Phase: 97 (Font Admission and Metrics) — EXECUTING
 Plan: 3 of 3
 Status: Phase complete — ready for verification
-Last activity: 2026-07-26 — Completed quick task 260726-r3a: Normalize MoonBit formatting for the Required WORK-04 module set and verify mb-core mb-color mb-image
+Last activity: 2026-07-26 — Completed quick task 260726-toy: Preserve fixture manifest ordering during color vector regeneration
 
 Progress: [██████████] 100%
 
@@ -74,6 +74,7 @@ None yet.
 | # | Description | Date | Commit | Status | Directory |
 |---|-------------|------|--------|--------|-----------|
 | 260726-r3a | Normalize MoonBit formatting for the Required WORK-04 module set and verify mb-core mb-color mb-image | 2026-07-26 | f20b8f2 | Verified | [260726-r3a-normalize-moonbit-formatting-for-the-req](./quick/260726-r3a-normalize-moonbit-formatting-for-the-req/) |
+| 260726-toy | Preserve fixture manifest ordering during color vector regeneration | 2026-07-26 | f11d085 | Verified | [260726-toy-preserve-fixture-manifest-ordering-durin](./quick/260726-toy-preserve-fixture-manifest-ordering-durin/) |
 
 ## Deferred Items
 
