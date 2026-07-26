@@ -243,11 +243,24 @@ test "font required table matrix enforces structural cardinalities" {
       font_wb_view(missing),
       font_wb_limits(),
     ).unwrap()
-    font_validate_checksums(missing_directory).unwrap()
     inspect(
       font_admit_required_tables(missing_directory, font_wb_limits())
       is Err(_),
       content="true",
     )
+  }
+}
+
+///|
+test "generated font admission cases preserve named outcomes" {
+  for item in font_wb_admission_cases() {
+    let directory = font_parse_directory(
+      font_wb_view(item.source),
+      font_wb_limits(),
+    ).unwrap()
+    let valid = font_validate_checksums(directory) is Ok(_)
+    if valid != item.accepted {
+      fail(item.id)
+    }
   }
 }

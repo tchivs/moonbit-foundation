@@ -5,6 +5,13 @@ priv struct GeneratedFontTable {
 }
 
 ///|
+priv struct FontAdmissionCase {
+  id : String
+  source : Bytes
+  accepted : Bool
+}
+
+///|
 fn generated_put_u16(output : Array[Byte], value : UInt64) -> Unit {
   output.push((value >> 8).to_byte())
   output.push(value.to_byte())
@@ -205,6 +212,17 @@ fn font_wb_required_tables() -> Array[GeneratedFontTable] {
     font_wb_table(b"name", b"\x00\x00\x00\x00\x00\x06"),
     font_wb_table(b"post", generated_post_table()),
   ]
+}
+
+///|
+fn font_wb_without_table(tag : Bytes) -> Array[GeneratedFontTable] {
+  let tables : Array[GeneratedFontTable] = []
+  for table in font_wb_required_tables() {
+    if table.tag != tag {
+      tables.push(table)
+    }
+  }
+  tables
 }
 
 ///|
@@ -417,6 +435,25 @@ fn font_wb_repair_checksum_adjustment(source : Bytes) -> Bytes {
   let zeroed = font_wb_put_u32_at_copy(source, head_offset + 8, 0UL)
   let adjustment = (0xB1B0AFBAUL - generated_checksum(zeroed)) & 0xFFFFFFFFUL
   font_wb_put_u32_at_copy(zeroed, head_offset + 8, adjustment)
+}
+
+///|
+fn font_wb_admission_cases() -> Array[FontAdmissionCase] {
+  let valid = font_wb_build_sfnt(font_wb_required_tables())
+  let unknown = font_wb_build_sfnt(
+    font_wb_required_tables() + [font_wb_table(b"zzzz", b"\x01\x02\x03")],
+  )
+  let bad_checksum = font_wb_mutate_table_field(
+    valid,
+    b"cmap",
+    0,
+    b"\x01",
+  )
+  [
+    { id: "valid", source: valid, accepted: true },
+    { id: "unknown-optional", source: unknown, accepted: true },
+    { id: "bad-table-checksum", source: bad_checksum, accepted: false },
+  ]
 }
 
 ///|

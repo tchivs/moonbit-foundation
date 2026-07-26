@@ -84,3 +84,624 @@ fn decode_head_table(
   }
   Ok({ units_per_em, index_to_loc_format })
 }
+
+///|
+priv struct HeadFacts {
+  units_per_em : UInt64
+  x_min : Int
+  y_min : Int
+  x_max : Int
+  y_max : Int
+  index_to_loc_format : Int
+}
+
+///|
+priv struct MaxpFacts {
+  num_glyphs : UInt64
+}
+
+///|
+priv struct HheaFacts {
+  ascent : Int
+  descent : Int
+  line_gap : Int
+  number_of_h_metrics : UInt64
+}
+
+///|
+priv struct Os2Facts {
+  version : UInt64
+  typo_ascent : Int
+  typo_descent : Int
+  typo_line_gap : Int
+}
+
+///|
+priv struct CmapEnvelope {
+  record_count : UInt64
+}
+
+///|
+priv struct NameEnvelope {
+  format : UInt64
+  record_count : UInt64
+}
+
+///|
+priv struct PostEnvelope {
+  version : UInt64
+  glyph_count : UInt64?
+}
+
+///|
+priv struct RequiredTableFacts {
+  head : HeadFacts
+  maxp : MaxpFacts
+  hhea : HheaFacts
+  os2 : Os2Facts
+  cmap : CmapEnvelope
+  name : NameEnvelope
+  post : PostEnvelope
+}
+
+///|
+fn font_table_exact_length(
+  table : TableWindow,
+  expected : UInt64,
+  context : String,
+) -> Result[Unit, @error.CoreError] {
+  if table.length_value != expected {
+    Err(
+      font_data_error(
+        context,
+        source_offset=table.offset,
+        requested=expected,
+        limit=table.length_value,
+      ),
+    )
+  } else {
+    Ok(())
+  }
+}
+
+///|
+fn font_table_min_length(
+  table : TableWindow,
+  minimum : UInt64,
+  context : String,
+) -> Result[Unit, @error.CoreError] {
+  if table.length_value < minimum {
+    Err(
+      font_data_error(
+        context,
+        source_offset=table.offset,
+        requested=minimum,
+        limit=table.length_value,
+      ),
+    )
+  } else {
+    Ok(())
+  }
+}
+
+///|
+fn font_decode_head(
+  table : TableWindow,
+) -> Result[HeadFacts, @error.CoreError] {
+  match font_table_exact_length(table, 54UL, "font-head") {
+    Err(error) => return Err(error)
+    Ok(_) => ()
+  }
+  let version = match read_u32(table.view, 0UL) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  let magic = match read_u32(table.view, 12UL) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  let units_per_em = match read_u16(table.view, 18UL) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  let x_min = match read_i16(table.view, 36UL) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  let y_min = match read_i16(table.view, 38UL) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  let x_max = match read_i16(table.view, 40UL) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  let y_max = match read_i16(table.view, 42UL) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  let index_to_loc_format = match read_i16(table.view, 50UL) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  if version != 0x00010000UL ||
+    magic != 0x5F0F3CF5UL ||
+    units_per_em < 16UL ||
+    units_per_em > 16384UL ||
+    x_min > x_max ||
+    y_min > y_max ||
+    (index_to_loc_format != 0 && index_to_loc_format != 1) {
+    return Err(font_data_error("font-head", source_offset=table.offset))
+  }
+  Ok({
+    units_per_em,
+    x_min,
+    y_min,
+    x_max,
+    y_max,
+    index_to_loc_format,
+  })
+}
+
+///|
+fn font_decode_maxp(
+  table : TableWindow,
+  limits : FontLimits,
+) -> Result[MaxpFacts, @error.CoreError] {
+  match font_table_exact_length(table, 32UL, "font-maxp") {
+    Err(error) => return Err(error)
+    Ok(_) => ()
+  }
+  let version = match read_u32(table.view, 0UL) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  let num_glyphs = match read_u16(table.view, 4UL) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  if version != 0x00010000UL || num_glyphs == 0UL {
+    return Err(font_data_error("font-maxp", source_offset=table.offset))
+  }
+  if num_glyphs > limits.max_glyphs() {
+    return Err(
+      font_limit_error("max-glyphs", num_glyphs, limits.max_glyphs()),
+    )
+  }
+  Ok({ num_glyphs, })
+}
+
+///|
+fn font_decode_hhea(
+  table : TableWindow,
+  maxp : MaxpFacts,
+) -> Result[HheaFacts, @error.CoreError] {
+  match font_table_exact_length(table, 36UL, "font-hhea") {
+    Err(error) => return Err(error)
+    Ok(_) => ()
+  }
+  let version = match read_u32(table.view, 0UL) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  let ascent = match read_i16(table.view, 4UL) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  let descent = match read_i16(table.view, 6UL) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  let line_gap = match read_i16(table.view, 8UL) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  for reserved in [24UL, 26UL, 28UL, 30UL] {
+    let value = match read_i16(table.view, reserved) {
+      Err(error) => return Err(error)
+      Ok(result) => result
+    }
+    if value != 0 {
+      return Err(font_data_error("font-hhea", source_offset=table.offset))
+    }
+  }
+  let metric_data_format = match read_i16(table.view, 32UL) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  let number_of_h_metrics = match read_u16(table.view, 34UL) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  if version != 0x00010000UL ||
+    metric_data_format != 0 ||
+    number_of_h_metrics == 0UL ||
+    number_of_h_metrics > maxp.num_glyphs {
+    return Err(font_data_error("font-hhea", source_offset=table.offset))
+  }
+  Ok({ ascent, descent, line_gap, number_of_h_metrics })
+}
+
+///|
+fn font_os2_required_length(
+  version : UInt64,
+) -> Result[UInt64, @error.CoreError] {
+  match version {
+    0UL => Ok(78UL)
+    1UL => Ok(86UL)
+    2UL..=4UL => Ok(96UL)
+    5UL => Ok(100UL)
+    _ => Err(font_data_error("font-os2"))
+  }
+}
+
+///|
+fn font_decode_os2(table : TableWindow) -> Result[Os2Facts, @error.CoreError] {
+  match font_table_min_length(table, 2UL, "font-os2") {
+    Err(error) => return Err(error)
+    Ok(_) => ()
+  }
+  let version = match read_u16(table.view, 0UL) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  let required = match font_os2_required_length(version) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  match font_table_min_length(table, required, "font-os2") {
+    Err(error) => return Err(error)
+    Ok(_) => ()
+  }
+  let typo_ascent = match read_i16(table.view, 68UL) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  let typo_descent = match read_i16(table.view, 70UL) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  let typo_line_gap = match read_i16(table.view, 72UL) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  Ok({ version, typo_ascent, typo_descent, typo_line_gap })
+}
+
+///|
+fn font_cmap_subtable_length(
+  table : TableWindow,
+  offset : UInt64,
+) -> Result[UInt64, @error.CoreError] {
+  let remaining = match @checked.checked_sub(table.length_value, offset) {
+    Err(_) => return Err(font_data_error("font-cmap-envelope"))
+    Ok(value) => value
+  }
+  if remaining < 4UL {
+    return Err(font_data_error("font-cmap-envelope"))
+  }
+  let format = match read_u16(table.view, offset) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  let length_offset = if format <= 6UL {
+    match @checked.checked_add(offset, 2UL) {
+      Err(error) => return Err(error)
+      Ok(value) => value
+    }
+  } else {
+    if remaining < 8UL {
+      return Err(font_data_error("font-cmap-envelope"))
+    }
+    match @checked.checked_add(offset, if format == 14UL { 2UL } else { 4UL }) {
+      Err(error) => return Err(error)
+      Ok(value) => value
+    }
+  }
+  if format <= 6UL {
+    read_u16(table.view, length_offset)
+  } else {
+    read_u32(table.view, length_offset)
+  }
+}
+
+///|
+fn font_admit_cmap_envelope(
+  table : TableWindow,
+  limits : FontLimits,
+) -> Result[CmapEnvelope, @error.CoreError] {
+  match font_table_min_length(table, 4UL, "font-cmap-envelope") {
+    Err(error) => return Err(error)
+    Ok(_) => ()
+  }
+  let version = match read_u16(table.view, 0UL) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  let record_count = match read_u16(table.view, 2UL) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  if version != 0UL {
+    return Err(font_data_error("font-cmap-envelope", source_offset=table.offset))
+  }
+  if record_count > limits.max_cmap_records() {
+    return Err(
+      font_limit_error(
+        "max-cmap-records",
+        record_count,
+        limits.max_cmap_records(),
+      ),
+    )
+  }
+  let record_bytes = match @checked.checked_mul(record_count, 8UL) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  let records_end = match @checked.checked_add(4UL, record_bytes) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  if records_end > table.length_value {
+    return Err(font_data_error("font-cmap-envelope"))
+  }
+  let mut index = 0UL
+  while index < record_count {
+    let record = match
+      @checked.checked_add(
+        4UL,
+        match @checked.checked_mul(index, 8UL) {
+          Err(error) => return Err(error)
+          Ok(value) => value
+        },
+      ) {
+      Err(error) => return Err(error)
+      Ok(value) => value
+    }
+    let subtable_field = match @checked.checked_add(record, 4UL) {
+      Err(error) => return Err(error)
+      Ok(value) => value
+    }
+    let subtable = match read_u32(table.view, subtable_field) {
+      Err(error) => return Err(error)
+      Ok(value) => value
+    }
+    let length = match font_cmap_subtable_length(table, subtable) {
+      Err(error) => return Err(error)
+      Ok(value) => value
+    }
+    let end = match @checked.checked_add(subtable, length) {
+      Err(error) => return Err(error)
+      Ok(value) => value
+    }
+    if length == 0UL || end > table.length_value {
+      return Err(font_data_error("font-cmap-envelope"))
+    }
+    index = index + 1UL
+  }
+  Ok({ record_count, })
+}
+
+///|
+fn font_admit_name_envelope(
+  table : TableWindow,
+  limits : FontLimits,
+) -> Result[NameEnvelope, @error.CoreError] {
+  match font_table_min_length(table, 6UL, "font-name-envelope") {
+    Err(error) => return Err(error)
+    Ok(_) => ()
+  }
+  let format = match read_u16(table.view, 0UL) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  let record_count = match read_u16(table.view, 2UL) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  let storage = match read_u16(table.view, 4UL) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  if format > 1UL {
+    return Err(font_data_error("font-name-envelope"))
+  }
+  if record_count > limits.max_name_records() {
+    return Err(
+      font_limit_error(
+        "max-name-records",
+        record_count,
+        limits.max_name_records(),
+      ),
+    )
+  }
+  let records_bytes = match @checked.checked_mul(record_count, 12UL) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  let records_end = match @checked.checked_add(6UL, records_bytes) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  if records_end > table.length_value ||
+    storage < records_end ||
+    storage > table.length_value {
+    return Err(font_data_error("font-name-envelope"))
+  }
+  let mut index = 0UL
+  while index < record_count {
+    let record = 6UL + index * 12UL
+    let length = match read_u16(table.view, record + 8UL) {
+      Err(error) => return Err(error)
+      Ok(value) => value
+    }
+    let relative = match read_u16(table.view, record + 10UL) {
+      Err(error) => return Err(error)
+      Ok(value) => value
+    }
+    let start = match @checked.checked_add(storage, relative) {
+      Err(error) => return Err(error)
+      Ok(value) => value
+    }
+    let end = match @checked.checked_add(start, length) {
+      Err(error) => return Err(error)
+      Ok(value) => value
+    }
+    if end > table.length_value {
+      return Err(font_data_error("font-name-envelope"))
+    }
+    index = index + 1UL
+  }
+  if format == 1UL {
+    if records_end + 2UL > table.length_value {
+      return Err(font_data_error("font-name-envelope"))
+    }
+    let language_count = match read_u16(table.view, records_end) {
+      Err(error) => return Err(error)
+      Ok(value) => value
+    }
+    if language_count > limits.max_name_records() {
+      return Err(
+        font_limit_error(
+          "max-name-records",
+          language_count,
+          limits.max_name_records(),
+        ),
+      )
+    }
+    let language_end = records_end + 2UL + language_count * 4UL
+    if language_end > table.length_value || storage < language_end {
+      return Err(font_data_error("font-name-envelope"))
+    }
+  }
+  Ok({ format, record_count })
+}
+
+///|
+fn font_admit_post_envelope(
+  table : TableWindow,
+  maxp : MaxpFacts,
+  limits : FontLimits,
+) -> Result[PostEnvelope, @error.CoreError] {
+  match font_table_min_length(table, 32UL, "font-post-envelope") {
+    Err(error) => return Err(error)
+    Ok(_) => ()
+  }
+  let version = match read_u32(table.view, 0UL) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  match version {
+    0x00010000UL | 0x00030000UL => Ok({ version, glyph_count: None })
+    0x00020000UL | 0x00025000UL => {
+      match font_table_min_length(table, 34UL, "font-post-envelope") {
+        Err(error) => return Err(error)
+        Ok(_) => ()
+      }
+      let glyph_count = match read_u16(table.view, 32UL) {
+        Err(error) => return Err(error)
+        Ok(value) => value
+      }
+      if glyph_count != maxp.num_glyphs {
+        return Err(font_data_error("font-post-envelope"))
+      }
+      let item_size = if version == 0x00020000UL { 2UL } else { 1UL }
+      let required = match
+        @checked.checked_add(
+          34UL,
+          match @checked.checked_mul(glyph_count, item_size) {
+            Err(error) => return Err(error)
+            Ok(value) => value
+          },
+        ) {
+        Err(error) => return Err(error)
+        Ok(value) => value
+      }
+      if required > table.length_value {
+        return Err(font_data_error("font-post-envelope"))
+      }
+      let custom_bytes = table.length_value - required
+      if custom_bytes > limits.max_post_name_bytes() {
+        return Err(
+          font_limit_error(
+            "max-post-name-bytes",
+            custom_bytes,
+            limits.max_post_name_bytes(),
+          ),
+        )
+      }
+      Ok({ version, glyph_count: Some(glyph_count) })
+    }
+    _ => Err(font_data_error("font-post-envelope"))
+  }
+}
+
+///|
+fn font_admit_required_tables(
+  directory : DirectoryFacts,
+  limits : FontLimits,
+) -> Result[RequiredTableFacts, @error.CoreError] {
+  let head_table = match font_table_window(directory, 0x68656164UL) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  let maxp_table = match font_table_window(directory, 0x6D617870UL) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  let hhea_table = match font_table_window(directory, 0x68686561UL) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  let os2_table = match font_table_window(directory, 0x4F532F32UL) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  let cmap_table = match font_table_window(directory, 0x636D6170UL) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  let name_table = match font_table_window(directory, 0x6E616D65UL) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  let post_table = match font_table_window(directory, 0x706F7374UL) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  for tag in [0x676C7966UL, 0x686D7478UL, 0x6C6F6361UL] {
+    match font_table_window(directory, tag) {
+      Err(error) => return Err(error)
+      Ok(_) => ()
+    }
+  }
+  let head = match font_decode_head(head_table) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  let maxp = match font_decode_maxp(maxp_table, limits) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  let hhea = match font_decode_hhea(hhea_table, maxp) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  let os2 = match font_decode_os2(os2_table) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  let cmap = match font_admit_cmap_envelope(cmap_table, limits) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  let name = match font_admit_name_envelope(name_table, limits) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  let post = match font_admit_post_envelope(post_table, maxp, limits) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  Ok({ head, maxp, hhea, os2, cmap, name, post })
+}
