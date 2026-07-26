@@ -53,3 +53,179 @@ test "directory size and table windows preserve checked boundaries" {
     content="true",
   )
 }
+
+///|
+fn font_wb_limits() -> FontLimits {
+  FontLimits::new(
+    max_source_bytes=4096UL,
+    max_tables=32UL,
+    max_table_bytes=1024UL,
+    max_glyphs=16UL,
+    max_name_records=16UL,
+    max_cmap_records=16UL,
+    max_post_name_bytes=256UL,
+    max_work=16384UL,
+  ).unwrap()
+}
+
+///|
+test "font directory matrix enforces canonical windows and checksums" {
+  let valid = generated_minimal_truetype()
+  let facts = font_parse_directory(font_wb_view(valid), font_wb_limits()).unwrap()
+  font_validate_profile(facts).unwrap()
+  font_validate_checksums(facts).unwrap()
+  let head = font_table_window(facts, 0x68656164UL).unwrap()
+  inspect(head.length(), content="54")
+  inspect(
+    font_sfnt_checksum(font_wb_view(b"\x01\x02\x03"), false).unwrap(),
+    content="16909056",
+  )
+
+  for offset in [6, 8, 10] {
+    let malformed = font_wb_put_u16(valid, offset, 0UL)
+    inspect(
+      font_parse_directory(font_wb_view(malformed), font_wb_limits()) is Err(_),
+      content="true",
+    )
+  }
+
+  let unknown = font_wb_build_sfnt(
+    font_wb_required_tables() +
+    [font_wb_table(b"zzzz", b"\x01\x02\x03")],
+  )
+  let unknown_facts = font_parse_directory(
+    font_wb_view(unknown),
+    font_wb_limits(),
+  ).unwrap()
+  font_validate_checksums(unknown_facts).unwrap()
+  inspect(
+    font_table_window(unknown_facts, 0x7A7A7A7AUL).unwrap().length(),
+    content="3",
+  )
+
+  let unsorted = font_wb_swap_directory_records(valid, 0, 1)
+  inspect(
+    font_parse_directory(font_wb_view(unsorted), font_wb_limits()) is Err(_),
+    content="true",
+  )
+  let duplicate = font_wb_copy_directory_tag(valid, 0, 1)
+  inspect(
+    font_parse_directory(font_wb_view(duplicate), font_wb_limits()) is Err(_),
+    content="true",
+  )
+  let inside_directory = font_wb_set_table_record_u32(
+    valid,
+    b"head",
+    8,
+    12UL,
+  )
+  inspect(
+    font_parse_directory(
+      font_wb_view(inside_directory),
+      font_wb_limits(),
+    ) is Err(_),
+    content="true",
+  )
+  let misaligned = font_wb_set_table_record_u32(
+    valid,
+    b"head",
+    8,
+    173UL,
+  )
+  inspect(
+    font_parse_directory(font_wb_view(misaligned), font_wb_limits()) is Err(_),
+    content="true",
+  )
+  let one_past_end = font_wb_set_table_record_u32(
+    valid,
+    b"head",
+    12,
+    valid.length().to_uint64(),
+  )
+  inspect(
+    font_parse_directory(font_wb_view(one_past_end), font_wb_limits()) is Err(_),
+    content="true",
+  )
+  let overlap = font_wb_overlap_table_with_previous(valid, b"head")
+  inspect(
+    font_parse_directory(font_wb_view(overlap), font_wb_limits()) is Err(_),
+    content="true",
+  )
+
+  let bad_table = font_wb_mutate_table_field(
+    valid,
+    b"cmap",
+    0,
+    b"\x01",
+  )
+  let bad_table_facts = font_parse_directory(
+    font_wb_view(bad_table),
+    font_wb_limits(),
+  ).unwrap()
+  inspect(font_validate_checksums(bad_table_facts) is Err(_), content="true")
+  let repaired_table = font_wb_repair_table_checksum(bad_table, b"cmap")
+  let repaired_font = font_wb_repair_checksum_adjustment(repaired_table)
+  let repaired_facts = font_parse_directory(
+    font_wb_view(repaired_font),
+    font_wb_limits(),
+  ).unwrap()
+  font_validate_checksums(repaired_facts).unwrap()
+
+  let bad_adjustment = font_wb_put_u32_at_copy(
+    valid,
+    font_wb_table_offset(valid, b"head") + 8,
+    0UL,
+  )
+  let bad_adjustment_facts = font_parse_directory(
+    font_wb_view(bad_adjustment),
+    font_wb_limits(),
+  ).unwrap()
+  inspect(
+    font_validate_checksums(bad_adjustment_facts) is Err(_),
+    content="true",
+  )
+}
+
+///|
+test "font directory rejects excluded container signatures distinctly" {
+  for signature in [
+    0x4F54544FUL,
+    0x74746366UL,
+    0x774F4646UL,
+    0x774F4632UL,
+    0x74727565UL,
+    0x74797031UL,
+  ] {
+    let source = font_wb_put_u32_at_copy(
+      generated_minimal_truetype(),
+      0,
+      signature,
+    )
+    let error = font_parse_directory(
+      font_wb_view(source),
+      font_wb_limits(),
+    ).unwrap_err()
+    inspect(
+      error.category() == @error.ErrorCategory::Capability,
+      content="true",
+    )
+    inspect(
+      error.code() == @error.ErrorCode::CapabilityUnavailable,
+      content="true",
+    )
+  }
+  let unknown = font_wb_put_u32_at_copy(
+    generated_minimal_truetype(),
+    0,
+    0xDEADBEEFUL,
+  )
+  let error = font_parse_directory(
+    font_wb_view(unknown),
+    font_wb_limits(),
+  ).unwrap_err()
+  inspect(error.category() == @error.ErrorCategory::Data, content="true")
+  inspect(
+    error.code() == @error.ErrorCode::InvalidEncoding,
+    content="true",
+  )
+}
