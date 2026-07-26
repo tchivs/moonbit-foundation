@@ -16,7 +16,7 @@ MoonBit developers can reuse stable, high-performance native infrastructure cont
 
 **Validated:** Phases 95 and 96 (7/7 must-haves each); the SVG package passes 137/137 tests on wasm, wasm-gc, js, and native, including `scale(0)`, viewBox/default behavior, and RFC 0008 opacity/layer semantics.
 
-**Known maintenance debt:** Old private geometry helpers remain unused in `scene.mbt` and `lower.mbt`; they do not participate in runtime paths and can be removed in a focused cleanup phase.
+**Known maintenance debt:** Resolved — unused private geometry helpers were removed from `scene.mbt` and `lower.mbt`; parser preflight and total lowering both use `geometry.mbt` only.
 
 ## Current Milestone: v0.32 TrueType Font Foundation
 
