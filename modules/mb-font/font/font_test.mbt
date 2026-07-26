@@ -1550,6 +1550,31 @@ test "head length magic and font adjustment fail at stable semantic gates" {
   )
   inspect(magic_error.context() == Some("font-head-magic"), content="true")
 
+  let bad_glyph_format = font_test_owner(font_test_minimal_truetype())
+  font_test_mutate_u16(bad_glyph_format, 340UL, 1UL)
+  font_test_mutate_u32(bad_glyph_format, 296UL, 0UL)
+  let glyph_format_head = bad_glyph_format.view().subview(288UL, 54UL).unwrap()
+  font_test_mutate_u32(
+    bad_glyph_format,
+    64UL,
+    font_test_checksum(font_test_view_bytes(glyph_format_head)),
+  )
+  font_test_recompute_adjustment(bad_glyph_format)
+  let glyph_format_error = Font::open(
+    bad_glyph_format.view(),
+    font_test_limits(),
+    font_test_budget(),
+  ).unwrap_err()
+  inspect(
+    glyph_format_error.category() == @error.ErrorCategory::Data,
+    content="true",
+  )
+  inspect(
+    glyph_format_error.context() == Some("font-glyph-data-format"),
+    content="true",
+  )
+  inspect(glyph_format_error.source_offset() == Some(340UL), content="true")
+
   let bad_adjustment = font_test_owner(font_test_minimal_truetype())
   let original_adjustment_byte = bad_adjustment.view().get(296UL).unwrap()
   font_test_mutate_bytes(

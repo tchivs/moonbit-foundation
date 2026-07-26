@@ -316,6 +316,10 @@ fn font_decode_head(table : TableWindow) -> Result[HeadFacts, @error.CoreError] 
     Err(error) => return Err(error)
     Ok(value) => value
   }
+  let glyph_data_format = match read_i16(table.view, 52UL) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
   if version != 0x00010000UL {
     return Err(font_data_error("font-head-version", source_offset=table.offset))
   }
@@ -349,6 +353,13 @@ fn font_decode_head(table : TableWindow) -> Result[HeadFacts, @error.CoreError] 
       Ok(value) => value
     }
     return Err(font_data_error("font-index-to-loc-format", source_offset~))
+  }
+  if glyph_data_format != 0 {
+    let source_offset = match @checked.checked_add(table.offset, 52UL) {
+      Err(error) => return Err(error)
+      Ok(value) => value
+    }
+    return Err(font_data_error("font-glyph-data-format", source_offset~))
   }
   Ok({ units_per_em, x_min, y_min, x_max, y_max, index_to_loc_format })
 }
