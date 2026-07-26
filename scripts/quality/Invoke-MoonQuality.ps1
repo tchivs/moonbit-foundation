@@ -1,7 +1,8 @@
 [CmdletBinding()]
 param(
-  [Parameter(Mandatory)][ValidateSet('Required', 'Qoi', 'Png', 'LlvmExperimental')][string]$Lane,
-  [string]$EvidenceDirectory = 'artifacts/release-qualification/current'
+  [ValidateSet('Required', 'Qoi', 'Png', 'LlvmExperimental')][string]$Lane,
+  [string]$EvidenceDirectory = 'artifacts/release-qualification/current',
+  [switch]$CoreNarrowingSelfTest
 )
 
 Set-StrictMode -Version Latest
@@ -42,6 +43,206 @@ function Invoke-MoonCommand {
     throw "$Context failed (exit $LASTEXITCODE): moon $($Arguments -join ' ')"
   }
   return ,$output
+}
+
+function ConvertFrom-CoreNarrowingHoverResult {
+  [CmdletBinding()]
+  param(
+    [Parameter(Mandatory)][string]$Location,
+    [Parameter(Mandatory)][int]$ExitCode,
+    [AllowEmptyString()][string]$StandardOutput,
+    [AllowEmptyString()][string]$StandardError
+  )
+
+  if ($ExitCode -ne 0) {
+    throw "Core narrowing hover failed at '$Location' with exit $ExitCode."
+  }
+  if ([string]::IsNullOrWhiteSpace($StandardOutput)) {
+    throw "Core narrowing hover produced no JSON stdout at '$Location'."
+  }
+  try {
+    $hover = $StandardOutput | ConvertFrom-Json -ErrorAction Stop
+  } catch {
+    throw "Core narrowing hover returned malformed JSON at '$Location'."
+  }
+  $contentsProperty = $hover.PSObject.Properties['contents']
+  if ($null -eq $contentsProperty -or $null -eq $contentsProperty.Value) {
+    throw "Core narrowing hover returned no signature at '$Location'."
+  }
+  $contents = @($contentsProperty.Value)
+  if ($contents.Count -eq 0) {
+    throw "Core narrowing hover returned no signature at '$Location'."
+  }
+  $signatureMatch = [regex]::Match([string]$contents[0], '\A```moonbit\r?\n(?<signature>[^\r\n]+)\r?\n```\z')
+  if (-not $signatureMatch.Success) {
+    throw "Core narrowing hover returned no signature at '$Location'."
+  }
+  return $signatureMatch.Groups['signature'].Value
+}
+
+function Resolve-CoreNarrowingReceiver {
+  [CmdletBinding()]
+  param(
+    [Parameter(Mandatory)][string]$Signature,
+    [Parameter(Mandatory)][string]$Location
+  )
+
+  switch -CaseSensitive ($Signature) {
+    'fn Byte::to_int(self : Byte) -> Int' { return 'Byte' }
+    'fn UInt16::to_int(self : UInt16) -> Int' { return 'UInt16' }
+    'fn Char::to_int(self : Char) -> Int' { return 'Char' }
+    'fn Double::to_int(self : Double) -> Int' { return 'Double' }
+    'fn UInt64::to_int(self : UInt64) -> Int' { return 'UInt64' }
+    default { throw "Unrecognized core narrowing signature at '$Location': '$Signature'." }
+  }
+}
+
+function Assert-CoreNarrowingReceiverPolicy {
+  [CmdletBinding()]
+  param(
+    [Parameter(Mandatory)][ValidateSet('Byte', 'UInt16', 'Char', 'Double', 'UInt64')][string]$Receiver,
+    [Parameter(Mandatory)][string]$RelativePath,
+    [Parameter(Mandatory)][string]$Location,
+    [Parameter(Mandatory)][int]$CanonicalUInt64Count
+  )
+
+  if ($Receiver -cne 'UInt64') {
+    return $CanonicalUInt64Count
+  }
+  if ($RelativePath -cne 'modules/mb-core/checked/checked.mbt') {
+    throw "Uncontrolled UInt64-to-Int narrowing exists at '$Location'."
+  }
+  if ($CanonicalUInt64Count -ne 0) {
+    throw "Multiple canonical UInt64-to-Int narrowings exist; second site is '$Location'."
+  }
+  return 1
+}
+
+function Invoke-CoreNarrowingHover {
+  [CmdletBinding()]
+  param([Parameter(Mandatory)][string]$Location)
+
+  $moonCommand = Get-Command moon -CommandType Application -ErrorAction Stop
+  $startInfo = [System.Diagnostics.ProcessStartInfo]::new()
+  $startInfo.FileName = $moonCommand.Source
+  $startInfo.UseShellExecute = $false
+  $startInfo.RedirectStandardOutput = $true
+  $startInfo.RedirectStandardError = $true
+  foreach ($argument in @('ide', 'hover', '--no-check', '--loc', $Location, '--output-json')) {
+    [void]$startInfo.ArgumentList.Add($argument)
+  }
+  $process = [System.Diagnostics.Process]::new()
+  $process.StartInfo = $startInfo
+  if (-not $process.Start()) {
+    throw "Core narrowing hover failed to start at '$Location'."
+  }
+  $standardOutputTask = $process.StandardOutput.ReadToEndAsync()
+  $standardErrorTask = $process.StandardError.ReadToEndAsync()
+  $process.WaitForExit()
+  $standardOutput = $standardOutputTask.GetAwaiter().GetResult()
+  $standardError = $standardErrorTask.GetAwaiter().GetResult()
+  return ConvertFrom-CoreNarrowingHoverResult -Location $Location -ExitCode $process.ExitCode -StandardOutput $standardOutput -StandardError $standardError
+}
+
+function Assert-CoreSemanticNarrowingProhibitions {
+  [CmdletBinding()]
+  param()
+
+  Invoke-MoonCommand -Context 'mb-core semantic hover warm-up' -Arguments @('-C', 'modules/mb-core', 'check', '--target', 'native', '--frozen')
+  $inventory = [ordered]@{ Byte = 0; UInt16 = 0; Char = 0; Double = 0; UInt64 = 0 }
+  $sites = [System.Collections.Generic.List[object]]::new()
+  $repositoryRoot = (Resolve-Path '.').Path
+  $sourceFiles = @(Get-ChildItem -LiteralPath 'modules/mb-core' -Recurse -File -Filter '*.mbt' | Sort-Object FullName)
+  foreach ($sourceFile in $sourceFiles) {
+    $text = Get-Content -LiteralPath $sourceFile.FullName -Raw
+    $relativePath = [System.IO.Path]::GetRelativePath($repositoryRoot, $sourceFile.FullName).Replace('\', '/')
+    foreach ($match in [regex]::Matches($text, '[.]to_int\s*\(')) {
+      $prefix = $text.Substring(0, $match.Index)
+      $line = ([regex]::Matches($prefix, "`n")).Count + 1
+      $lastNewline = $prefix.LastIndexOf("`n")
+      $column = $match.Index - $lastNewline + 1
+      $location = "${relativePath}:${line}:${column}"
+      $signature = Invoke-CoreNarrowingHover -Location $location
+      $receiver = Resolve-CoreNarrowingReceiver -Signature $signature -Location $location
+      $inventory[$receiver]++
+      $sites.Add([pscustomobject]@{ Receiver = $receiver; RelativePath = $relativePath; Location = $location })
+    }
+  }
+
+  Write-Host "mb-core to_int semantic inventory: Byte=$($inventory.Byte), UInt16=$($inventory.UInt16), Char=$($inventory.Char), Double=$($inventory.Double), UInt64=$($inventory.UInt64)"
+  $canonicalUInt64Count = 0
+  $violations = [System.Collections.Generic.List[string]]::new()
+  foreach ($site in $sites) {
+    try {
+      $canonicalUInt64Count = Assert-CoreNarrowingReceiverPolicy -Receiver $site.Receiver -RelativePath $site.RelativePath -Location $site.Location -CanonicalUInt64Count $canonicalUInt64Count
+    } catch {
+      $violations.Add($_.Exception.Message)
+    }
+  }
+  if ($canonicalUInt64Count -ne 1) {
+    $violations.Add("Expected exactly one canonical UInt64-to-Int narrowing in modules/mb-core/checked/checked.mbt; found $canonicalUInt64Count.")
+  }
+  if ($violations.Count -ne 0) {
+    throw ($violations -join ' ')
+  }
+  Write-Host 'mb-core compiler-semantic narrowing prohibition verified.'
+}
+
+function Invoke-CoreNarrowingSelfTest {
+  [CmdletBinding()]
+  param()
+
+  function Confirm-CoreNarrowingRejected([string]$Name, [string]$ExpectedMessage, [scriptblock]$Action) {
+    $actualMessage = $null
+    try { & $Action } catch { $actualMessage = $_.Exception.Message }
+    if ($actualMessage -cne $ExpectedMessage) {
+      throw "Core narrowing self-test '$Name' expected '$ExpectedMessage', got '$actualMessage'."
+    }
+    Write-Host "Core narrowing negative rejected: $Name"
+  }
+
+  foreach ($receiver in @('Byte', 'UInt16', 'Char', 'Double')) {
+    $signature = "fn ${receiver}::to_int(self : $receiver) -> Int"
+    $resolved = Resolve-CoreNarrowingReceiver -Signature $signature -Location "fixture.mbt:1:1"
+    if ($resolved -cne $receiver) {
+      throw "Core narrowing self-test safe signature '$signature' resolved as '$resolved'."
+    }
+    $count = Assert-CoreNarrowingReceiverPolicy -Receiver $resolved -RelativePath 'fixture.mbt' -Location 'fixture.mbt:1:1' -CanonicalUInt64Count 0
+    if ($count -ne 0) {
+      throw "Core narrowing self-test safe receiver '$receiver' changed the canonical UInt64 count."
+    }
+  }
+
+  $uint64Signature = 'fn UInt64::to_int(self : UInt64) -> Int'
+  $uint64Receiver = Resolve-CoreNarrowingReceiver -Signature $uint64Signature -Location 'modules/mb-core/checked/checked.mbt:1:1'
+  $canonicalCount = Assert-CoreNarrowingReceiverPolicy -Receiver $uint64Receiver -RelativePath 'modules/mb-core/checked/checked.mbt' -Location 'modules/mb-core/checked/checked.mbt:1:1' -CanonicalUInt64Count 0
+  if ($canonicalCount -ne 1) { throw 'Core narrowing self-test did not record the canonical UInt64 site.' }
+
+  Confirm-CoreNarrowingRejected 'UInt64 outside checked' "Uncontrolled UInt64-to-Int narrowing exists at 'modules/mb-core/crc/fixture.mbt:1:1'." {
+    Assert-CoreNarrowingReceiverPolicy -Receiver 'UInt64' -RelativePath 'modules/mb-core/crc/fixture.mbt' -Location 'modules/mb-core/crc/fixture.mbt:1:1' -CanonicalUInt64Count 0
+  }
+  Confirm-CoreNarrowingRejected 'second canonical UInt64' "Multiple canonical UInt64-to-Int narrowings exist; second site is 'modules/mb-core/checked/checked.mbt:2:1'." {
+    Assert-CoreNarrowingReceiverPolicy -Receiver 'UInt64' -RelativePath 'modules/mb-core/checked/checked.mbt' -Location 'modules/mb-core/checked/checked.mbt:2:1' -CanonicalUInt64Count 1
+  }
+  Confirm-CoreNarrowingRejected 'unknown signature' "Unrecognized core narrowing signature at 'fixture.mbt:1:1': 'fn Int::to_int(self : Int) -> Int'." {
+    Resolve-CoreNarrowingReceiver -Signature 'fn Int::to_int(self : Int) -> Int' -Location 'fixture.mbt:1:1'
+  }
+  Confirm-CoreNarrowingRejected 'malformed JSON' "Core narrowing hover returned malformed JSON at 'fixture.mbt:1:1'." {
+    ConvertFrom-CoreNarrowingHoverResult -Location 'fixture.mbt:1:1' -ExitCode 0 -StandardOutput '{' -StandardError ''
+  }
+  Confirm-CoreNarrowingRejected 'absent semantic data' "Core narrowing hover returned no signature at 'fixture.mbt:1:1'." {
+    ConvertFrom-CoreNarrowingHoverResult -Location 'fixture.mbt:1:1' -ExitCode 0 -StandardOutput '{}' -StandardError ''
+  }
+  Confirm-CoreNarrowingRejected 'absent signature' "Core narrowing hover returned no signature at 'fixture.mbt:1:1'." {
+    ConvertFrom-CoreNarrowingHoverResult -Location 'fixture.mbt:1:1' -ExitCode 0 -StandardOutput '{"contents":["documentation only"]}' -StandardError ''
+  }
+  Confirm-CoreNarrowingRejected 'simulated hover failure' "Core narrowing hover failed at 'fixture.mbt:1:1' with exit 9." {
+    ConvertFrom-CoreNarrowingHoverResult -Location 'fixture.mbt:1:1' -ExitCode 9 -StandardOutput '' -StandardError 'simulated failure'
+  }
+  Confirm-CoreNarrowingRejected 'stderr-only hover' "Core narrowing hover produced no JSON stdout at 'fixture.mbt:1:1'." {
+    ConvertFrom-CoreNarrowingHoverResult -Location 'fixture.mbt:1:1' -ExitCode 0 -StandardOutput '' -StandardError 'simulated stderr-only output'
+  }
+  Write-Host 'Core narrowing self-test passed.'
 }
 
 function Assert-GeneratedInterface {
@@ -131,9 +332,6 @@ function Assert-CoreSourceTextProhibitions {
     }
   }
 
-  if ($RelativePath -cne 'modules/mb-core/checked/checked.mbt' -and $Text -cmatch '[.]to_int\s*\(') {
-    throw "Unchecked UInt64-to-Int narrowing exists outside checked_narrow_int in '$RelativePath'."
-  }
   if ($RelativePath -like 'modules/mb-core/host/*' -and $Text -cmatch '(?i)@(?:env|fs|process)\b|\bgetenv\s*\(|\bglobal_(?:host|clock|files?)\b') {
     throw "Ambient process or host access token found in '$RelativePath'."
   }
@@ -172,6 +370,7 @@ function Assert-CorePortableProhibitions {
     $relative = [System.IO.Path]::GetRelativePath((Resolve-Path '.').Path, $sourceFile.FullName).Replace('\', '/')
     Assert-CoreSourceTextProhibitions -RelativePath $relative -Text $text
   }
+  Assert-CoreSemanticNarrowingProhibitions
 
   $readme = Get-Content -LiteralPath (Join-Path $coreRoot 'README.mbt.md') -Raw
   Assert-CoreReadmeProhibitions -Readme $readme
@@ -187,6 +386,14 @@ function Assert-CoreQualificationNegativeFixtures {
     $rejected = $false
     try { & $Action } catch { $rejected = $true }
     if (-not $rejected) { throw "Required quality accepted negative fixture '$Name'." }
+    Write-Host "Negative fixture rejected: $Name"
+  }
+  function Confirm-NarrowingRejected([string]$Name, [string]$ExpectedMessage, [scriptblock]$Action) {
+    $actualMessage = $null
+    try { & $Action } catch { $actualMessage = $_.Exception.Message }
+    if ($actualMessage -cne $ExpectedMessage) {
+      throw "Required quality narrowing fixture '$Name' expected '$ExpectedMessage', got '$actualMessage'."
+    }
     Write-Host "Negative fixture rejected: $Name"
   }
 
@@ -209,8 +416,8 @@ function Assert-CoreQualificationNegativeFixtures {
   Confirm-Rejected 'raw mutable backing' {
     Assert-CoreSourceTextProhibitions -RelativePath 'modules/mb-core/bytes/fixture.mbt' -Text 'pub fn backing() -> FixedArray[Byte] { abort("fixture") }'
   }
-  Confirm-Rejected 'unchecked narrowing' {
-    Assert-CoreSourceTextProhibitions -RelativePath 'modules/mb-core/io/fixture.mbt' -Text 'fn narrow(value : UInt64) -> Int { value.to_int() }'
+  Confirm-NarrowingRejected 'unchecked narrowing' "Uncontrolled UInt64-to-Int narrowing exists at 'modules/mb-core/io/fixture.mbt:1:39'." {
+    Assert-CoreNarrowingReceiverPolicy -Receiver 'UInt64' -RelativePath 'modules/mb-core/io/fixture.mbt' -Location 'modules/mb-core/io/fixture.mbt:1:39' -CanonicalUInt64Count 0
   }
   Confirm-Rejected 'ambient host access' {
     Assert-CoreSourceTextProhibitions -RelativePath 'modules/mb-core/host/fixture.mbt' -Text 'fn ambient() -> Unit { ignore(@fs.open("fixture")) }'
@@ -845,4 +1052,11 @@ function Invoke-MoonQuality {
   }
 }
 
+if ($CoreNarrowingSelfTest) {
+  Invoke-CoreNarrowingSelfTest
+  return
+}
+if (-not $PSBoundParameters.ContainsKey('Lane')) {
+  throw 'Lane is required unless -CoreNarrowingSelfTest is selected.'
+}
 Invoke-MoonQuality -Lane $Lane -EvidenceDirectory $EvidenceDirectory
