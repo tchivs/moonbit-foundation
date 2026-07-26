@@ -507,7 +507,9 @@
           "name": "tchivs/mb-core/math",
           "path": "math",
           "stability": "candidate",
-          "allowed_imports": [],
+          "allowed_imports": [
+            "moonbitlang/core/math"
+          ],
           "semantic_interface": [
             "package \"tchivs/mb-core/math\"",
             "pub fn bezier2_eval(Point2, Point2, Point2, Double) -> Point2",
@@ -1073,7 +1075,9 @@
           "name": "tchivs/mb-color/blend",
           "path": "blend",
           "stability": "candidate",
-          "allowed_imports": [],
+          "allowed_imports": [
+            "moonbitlang/core/math"
+          ],
           "semantic_interface": [
             "package \"tchivs/mb-color/blend\"",
             "pub fn blend_color_mode(Double, Double, Double, Double, Double, Double) -> (Double, Double, Double)",
@@ -1455,6 +1459,8 @@
             "tchivs/mb-color/alpha",
             "tchivs/mb-color/model",
             "tchivs/mb-color/profile",
+            "tchivs/mb-color/transfer",
+            "tchivs/mb-color/quantize",
             "tchivs/mb-image/metadata",
             "tchivs/mb-image/model",
             "tchivs/mb-image/storage"
@@ -1848,7 +1854,6 @@
             "tchivs/mb-core/checked",
             "tchivs/mb-core/budget",
             "tchivs/mb-core/math",
-            "moonbitlang/core/math",
             "tchivs/mb-color/model",
             "tchivs/mb-color/quantize",
             "tchivs/mb-color/alpha",
@@ -1938,6 +1943,121 @@
           ]
         }
       ]
+    },
+    {
+      "name": "tchivs/mb-font",
+      "path": "modules/mb-font",
+      "version": "0.1.0",
+      "description": "Portable bounded standalone TrueType admission with named global and per-glyph horizontal metrics for MoonBit Native Foundation.",
+      "repository": "https://github.com/tchivs/moonbit-foundation",
+      "stability": "candidate",
+      "preferred_target": "native",
+      "supported_targets": [
+        "js",
+        "wasm",
+        "wasm-gc",
+        "native"
+      ],
+      "direct_dependencies": [
+        "tchivs/mb-core"
+      ],
+      "publication_files": [
+        "CHANGELOG.md",
+        "README.mbt.md",
+        "font",
+        "font/cursor.mbt",
+        "font/directory.mbt",
+        "font/font.mbt",
+        "font/font_test.mbt",
+        "font/font_wbtest.mbt",
+        "font/generated_fonts.mbt",
+        "font/limits.mbt",
+        "font/metrics.mbt",
+        "font/moon.pkg",
+        "font/tables.mbt",
+        "moon.mod.json"
+      ],
+      "public_packages": [
+        {
+          "name": "tchivs/mb-font/font",
+          "path": "font",
+          "stability": "candidate",
+          "allowed_imports": [
+            "tchivs/mb-core/budget",
+            "tchivs/mb-core/bytes",
+            "tchivs/mb-core/checked",
+            "tchivs/mb-core/error"
+          ],
+          "production_sources": [
+            "moon.pkg",
+            "cursor.mbt",
+            "directory.mbt",
+            "font.mbt",
+            "generated_fonts.mbt",
+            "limits.mbt",
+            "metrics.mbt",
+            "tables.mbt"
+          ],
+          "test_sources": [
+            "font_test.mbt",
+            "font_wbtest.mbt"
+          ],
+          "semantic_interface": [
+            "package \"tchivs/mb-font/font\"",
+            "import {",
+            "  \"tchivs/mb-core/budget\",",
+            "  \"tchivs/mb-core/bytes\",",
+            "  \"tchivs/mb-core/error\",",
+            "}",
+            "pub struct Font {",
+            "}",
+            "pub fn Font::global_bounds(Self) -> Result[FontBounds, @error.CoreError]",
+            "pub fn Font::glyph_id(Self, UInt64) -> Result[GlyphId, @error.CoreError]",
+            "pub fn Font::hhea_line_metrics(Self) -> Result[FontLineMetrics, @error.CoreError]",
+            "pub fn Font::horizontal_metrics(Self, GlyphId) -> Result[GlyphHorizontalMetrics, @error.CoreError]",
+            "pub fn Font::open(@bytes.ByteView, FontLimits, @budget.Budget) -> Result[Self, @error.CoreError]",
+            "pub fn Font::typographic_line_metrics(Self) -> Result[FontLineMetrics, @error.CoreError]",
+            "pub fn Font::units_per_em(Self) -> Result[UInt64, @error.CoreError]",
+            "pub struct FontBounds {",
+            "}",
+            "pub fn FontBounds::x_max(Self) -> Int",
+            "pub fn FontBounds::x_min(Self) -> Int",
+            "pub fn FontBounds::y_max(Self) -> Int",
+            "pub fn FontBounds::y_min(Self) -> Int",
+            "pub struct FontLimits {",
+            "}",
+            "pub fn FontLimits::max_cmap_records(Self) -> UInt64",
+            "pub fn FontLimits::max_glyphs(Self) -> UInt64",
+            "pub fn FontLimits::max_name_records(Self) -> UInt64",
+            "pub fn FontLimits::max_post_name_bytes(Self) -> UInt64",
+            "pub fn FontLimits::max_source_bytes(Self) -> UInt64",
+            "pub fn FontLimits::max_table_bytes(Self) -> UInt64",
+            "pub fn FontLimits::max_tables(Self) -> UInt64",
+            "pub fn FontLimits::max_work(Self) -> UInt64",
+            "pub fn FontLimits::new(max_source_bytes~ : UInt64, max_tables~ : UInt64, max_table_bytes~ : UInt64, max_glyphs~ : UInt64, max_name_records~ : UInt64, max_cmap_records~ : UInt64, max_post_name_bytes~ : UInt64, max_work~ : UInt64) -> Result[Self, @error.CoreError]",
+            "pub struct FontLineMetrics {",
+            "}",
+            "pub fn FontLineMetrics::ascent(Self) -> Int",
+            "pub fn FontLineMetrics::descent(Self) -> Int",
+            "pub fn FontLineMetrics::line_gap(Self) -> Int",
+            "pub struct GlyphHorizontalMetrics {",
+            "}",
+            "pub fn GlyphHorizontalMetrics::advance_width(Self) -> UInt64",
+            "pub fn GlyphHorizontalMetrics::bounds(Self) -> FontBounds?",
+            "pub fn GlyphHorizontalMetrics::left_side_bearing(Self) -> Int",
+            "pub fn GlyphHorizontalMetrics::right_side_bearing(Self) -> Int",
+            "pub struct GlyphId {",
+            "}",
+            "pub fn GlyphId::value(Self) -> UInt64"
+          ],
+          "supported_targets": [
+            "js",
+            "wasm",
+            "wasm-gc",
+            "native"
+          ]
+        }
+      ]
     }
   ],
   "allowed_dependency_edges": [
@@ -1964,6 +2084,10 @@
     {
       "from": "tchivs/mb-canvas",
       "to": "tchivs/mb-image"
+    },
+    {
+      "from": "tchivs/mb-font",
+      "to": "tchivs/mb-core"
     }
   ],
   "stability": {

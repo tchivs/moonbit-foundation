@@ -711,15 +711,15 @@ function Assert-FoundationPolicy {
   Assert-ExactSet 'Stability labels' @($policy.stability.allowed_labels) @('experimental', 'candidate', 'stable')
   Assert-Condition ($policy.stability.default_label -ceq 'candidate') 'Default stability label must be candidate.'
 
-  $expectedModules = @('tchivs/mb-core', 'tchivs/mb-color', 'tchivs/mb-image')
-  $expectedPaths = @('modules/mb-core', 'modules/mb-color', 'modules/mb-image')
+  $expectedModules = @('tchivs/mb-core', 'tchivs/mb-color', 'tchivs/mb-image', 'tchivs/mb-canvas', 'tchivs/mb-font')
+  $expectedPaths = @('modules/mb-core', 'modules/mb-color', 'modules/mb-image', 'modules/mb-canvas', 'modules/mb-font')
   Assert-ExactSet 'Policy modules' @($policy.modules.name) $expectedModules
   Assert-ExactSet 'Policy module paths' @($policy.modules.path) $expectedPaths
   Assert-AcyclicDependencyGraph -Modules @($policy.modules) -AllowedEdges @($policy.allowed_dependency_edges)
 
   $workText = Get-Content -LiteralPath (Join-Path $repoRoot 'moon.work') -Raw
   $workMembers = @([regex]::Matches($workText, '"\./([^"\r\n]+)"') | ForEach-Object { $_.Groups[1].Value })
-  Assert-ExactSet 'moon.work members' $workMembers @($expectedPaths + @('examples/ppm-portable', 'examples/ppm-native-cli', 'examples/qoi-portable'))
+  Assert-ExactSet 'moon.work members' $workMembers @($expectedPaths + @('modules/mb-svg', 'examples/ppm-portable', 'examples/ppm-native-cli', 'examples/qoi-portable', 'examples/png-portable', 'examples/mb-svg-demo'))
 
   foreach ($module in $policy.modules) {
     Assert-Condition ($module.version -ceq '0.1.0') "Policy version drift for $($module.name)."
@@ -731,7 +731,7 @@ function Assert-FoundationPolicy {
     Assert-ExactSet "Public package paths for $($module.name)" @($packages.path) @($packages | ForEach-Object { [string]$_.path })
 
     if ($module.name -ceq 'tchivs/mb-core') {
-      $corePackagePaths = @('error', 'checked', 'budget', 'bytes', 'io', 'host')
+      $corePackagePaths = @('error', 'checked', 'budget', 'bytes', 'io', 'host', 'math', 'bits', 'crc', 'text', 'unicode')
       $corePackageNames = @($corePackagePaths | ForEach-Object { "tchivs/mb-core/$_" })
       Assert-ExactSequence 'mb-core public package spine' @($packages.name) $corePackageNames
       Assert-ExactSequence 'mb-core public package paths' @($packages.path) $corePackagePaths
@@ -741,7 +741,7 @@ function Assert-FoundationPolicy {
     }
 
     if ($module.name -ceq 'tchivs/mb-color') {
-      $colorPackagePaths = @('model', 'transfer', 'quantize', 'alpha', 'profile')
+      $colorPackagePaths = @('model', 'transfer', 'quantize', 'alpha', 'profile', 'blend')
       $colorPackageNames = @($colorPackagePaths | ForEach-Object { "tchivs/mb-color/$_" })
       Assert-ExactSequence 'mb-color publication package order' @($packages.name) $colorPackageNames
       Assert-ExactSequence 'mb-color public package paths' @($packages.path) $colorPackagePaths
@@ -763,7 +763,7 @@ function Assert-FoundationPolicy {
     }
 
     if ($module.name -ceq 'tchivs/mb-image') {
-      $imagePackagePaths = @('metadata', 'model', 'storage', 'ops', 'codec', 'ppm', 'qoi')
+      $imagePackagePaths = @('metadata', 'model', 'storage', 'ops', 'codec', 'ppm', 'qoi', 'png')
       $imagePackageNames = @($imagePackagePaths | ForEach-Object { "tchivs/mb-image/$_" })
       Assert-ExactSequence 'mb-image publication package order' @($packages.name) $imagePackageNames
       Assert-ExactSequence 'mb-image public package paths' @($packages.path) $imagePackagePaths
@@ -868,6 +868,7 @@ function Assert-FoundationPolicy {
 
   Assert-FixtureManifest -ManifestPath (Join-Path $repoRoot 'fixtures/manifest.json') -RepositoryRoot $repoRoot
   Assert-QoiFoundationPolicy -PolicyPath $PolicyPath
+  Assert-FontFoundationPolicy -PolicyPath $PolicyPath
 
   Write-Host 'Foundation policy, RFC, workspace inventory, target metadata, fixtures, publication block, and dependency DAG verified.'
 }
@@ -970,6 +971,100 @@ function Assert-QoiQualificationNegativeFixtures {
   $qoiFiles = @('moon.pkg', 'qoi.mbt', 'decode.mbt', 'decode_test.mbt', 'decode_wbtest.mbt', 'encode.mbt', 'encode_test.mbt', 'encode_wbtest.mbt', 'generated_vectors.mbt', 'stream_decode.mbt', 'stream_decode_test.mbt', 'stream_decode_wbtest.mbt', 'stream_encode.mbt', 'stream_encode_test.mbt', 'stream_encode_wbtest.mbt')
   Confirm-QoiRejected 'extra stream file' { Assert-ExactSet 'negative QOI files' @($qoiFiles + 'stream_registry.mbt') $qoiFiles } 'count mismatch'
   Write-Host 'QOI package, import, target, interface, source-order, and content negatives fail closed.'
+}
+
+function Assert-FontFoundationPolicy {
+  [CmdletBinding()]
+  param([Parameter(Mandatory)][string]$PolicyPath)
+
+  $policy = Read-QualityJson -Path $PolicyPath
+  $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
+  $fontModules = @($policy.modules | Where-Object { $_.name -ceq 'tchivs/mb-font' })
+  Assert-ExactSet 'Font module selection' @($fontModules.name) @('tchivs/mb-font')
+  $fontModule = $fontModules[0]
+  Assert-Condition ($fontModule.path -ceq 'modules/mb-font') 'Font module path drifted.'
+  Assert-Condition ($fontModule.stability -ceq 'candidate') 'Font module stability must remain candidate.'
+  Assert-ExactSet 'Font module dependencies' @($fontModule.direct_dependencies) @('tchivs/mb-core')
+  Assert-ExactSet 'Font module targets' @($fontModule.supported_targets) @('js', 'wasm', 'wasm-gc', 'native')
+
+  $fontEdges = @($policy.allowed_dependency_edges | Where-Object { $_.from -ceq 'tchivs/mb-font' })
+  Assert-ExactSet 'Font dependency edges' @($fontEdges.to) @('tchivs/mb-core')
+  Assert-Condition (@($policy.allowed_dependency_edges | Where-Object { $_.to -ceq 'tchivs/mb-font' }).Count -eq 0) 'No existing foundation module may depend on mb-font during Phase 97.'
+  Assert-AcyclicDependencyGraph -Modules @($policy.modules) -AllowedEdges @($policy.allowed_dependency_edges)
+
+  $publicationFiles = @(
+    'CHANGELOG.md',
+    'README.mbt.md',
+    'font',
+    'font/cursor.mbt',
+    'font/directory.mbt',
+    'font/font.mbt',
+    'font/font_test.mbt',
+    'font/font_wbtest.mbt',
+    'font/generated_fonts.mbt',
+    'font/limits.mbt',
+    'font/metrics.mbt',
+    'font/moon.pkg',
+    'font/tables.mbt',
+    'moon.mod.json'
+  )
+  Assert-ExactSet 'Font publication inventory' @($fontModule.publication_files) $publicationFiles
+
+  $fontPackages = @($fontModule.public_packages | Where-Object { $_.path -ceq 'font' })
+  Assert-ExactSet 'Font public package selection' @($fontPackages.name) @('tchivs/mb-font/font')
+  Assert-Condition (@($fontModule.public_packages).Count -eq 1) 'mb-font must publish exactly one public package.'
+  $font = $fontPackages[0]
+  $imports = @('tchivs/mb-core/budget', 'tchivs/mb-core/bytes', 'tchivs/mb-core/checked', 'tchivs/mb-core/error')
+  $productionSources = @('moon.pkg', 'cursor.mbt', 'directory.mbt', 'font.mbt', 'generated_fonts.mbt', 'limits.mbt', 'metrics.mbt', 'tables.mbt')
+  $testSources = @('font_test.mbt', 'font_wbtest.mbt')
+  Assert-ExactSet 'Font policy imports' @($font.allowed_imports) $imports
+  Assert-ExactSet 'Font policy targets' @($font.supported_targets) @('js', 'wasm', 'wasm-gc', 'native')
+  Assert-ExactSequence 'Font production source order' @($font.production_sources) $productionSources
+  Assert-ExactSequence 'Font test source order' @($font.test_sources) $testSources
+
+  $packageText = Get-Content -Raw -LiteralPath (Join-Path $repoRoot 'modules/mb-font/font/moon.pkg')
+  $target = [regex]::Match($packageText, '(?m)^supported_targets\s*=\s*"([^"]+)"\s*$')
+  Assert-Condition $target.Success 'Font moon.pkg lacks supported_targets.'
+  Assert-ExactSet 'Font moon.pkg targets' (Get-CompactTargetSet $target.Groups[1].Value 'Font package targets') @('js', 'wasm', 'wasm-gc', 'native')
+  Assert-ExactSet 'Font moon.pkg imports' @(Get-PackageImportSet -Text $packageText -Label 'Font moon.pkg') $imports
+
+  $actualFiles = @(
+    Get-ChildItem -LiteralPath (Join-Path $repoRoot 'modules/mb-font/font') -File |
+      Where-Object { $_.Name -cne 'pkg.generated.mbti' } |
+      ForEach-Object Name
+  )
+  Assert-ExactSet 'Font package directory contents' $actualFiles @($productionSources + $testSources)
+
+  $readmeText = Get-Content -Raw -LiteralPath (Join-Path $repoRoot 'modules/mb-font/README.mbt.md')
+  Assert-Condition ($readmeText -cmatch '\bcandidate\b') 'Font README must expose candidate stability.'
+  foreach ($requiredTarget in @('js', 'wasm', 'wasm-gc', 'native')) {
+    Assert-Condition ($readmeText -cmatch [regex]::Escape($requiredTarget)) "Font README must expose target '$requiredTarget'."
+  }
+  Assert-Condition ($readmeText -cmatch 'tchivs/mb-core' -and $readmeText -match 'only direct module dependency') 'Font README must document mb-core as its only direct dependency.'
+  Assert-Condition ($readmeText -cmatch 'Phase 100' -and $readmeText -cmatch 'generated micro-font') 'Font README must preserve the Phase 100 real-font evidence boundary.'
+
+  $changelogText = Get-Content -Raw -LiteralPath (Join-Path $repoRoot 'modules/mb-font/CHANGELOG.md')
+  Assert-Condition ($changelogText -cmatch 'independent release lifecycle') 'Font changelog must declare an independent release lifecycle.'
+  Assert-Condition ($changelogText -cmatch '0[.]1[.]0 candidate [(]unpublished[)]') 'Font changelog must record the unpublished 0.1.0 candidate.'
+
+  $interfaceText = @($font.semantic_interface | ForEach-Object { [string]$_ })
+  $privateLeakPattern = '(?i)(Cursor|TableWindow|TableRecord|DirectoryFacts|RequiredTableFacts|MetricIndexFacts|SfntTag|RawOffset|WindowDescriptor|source_offset)'
+  Assert-Condition (@($interfaceText | Where-Object { $_ -cmatch $privateLeakPattern }).Count -eq 0) 'Font semantic interface leaks a private cursor, table, tag, offset, or window descriptor.'
+  $deferredLines = @($interfaceText | Where-Object { $_ -cnotmatch '^pub fn FontLimits::(?:max_cmap_records|new)' })
+  $deferredLeakPattern = '(?i)(\bcmap\b|\bkern(?:ing)?\b|\boutline\b|\bPath2\b|\bfilesystem\b|\bffi\b|\bhost(?:_discovery)?\b|\bshap(?:e|ing)\b|\bhint(?:ing)?\b|\braster(?:ize|ization)?\b)'
+  Assert-Condition (@($deferredLines | Where-Object { $_ -cmatch $deferredLeakPattern }).Count -eq 0) 'Font semantic interface exposes a deferred Phase 98+ capability.'
+
+  & moon -C modules/mb-font info --target all --frozen
+  if ($LASTEXITCODE -ne 0) { throw "Font interface generation failed (exit $LASTEXITCODE)." }
+  if (Get-Command Assert-GeneratedInterface -ErrorAction SilentlyContinue) {
+    Assert-GeneratedInterface -ModulePolicy $fontModule
+  } else {
+    $interfacePath = Join-Path $repoRoot 'modules/mb-font/font/pkg.generated.mbti'
+    Assert-Condition (Test-Path -LiteralPath $interfacePath -PathType Leaf) "Font interface classifier cannot find '$interfacePath'."
+    $semanticLines = @(Get-Content -LiteralPath $interfacePath | ForEach-Object { $_.TrimEnd() } | Where-Object { $_ -ne '' -and -not $_.TrimStart().StartsWith('//') })
+    Assert-ExactSequence 'Font generated semantic interface' $semanticLines $interfaceText
+  }
+  Write-Host 'Font policy, dependency, publication, documentation, target, source, and semantic interface selection verified.'
 }
 
 function Assert-PngFoundationPolicy {
