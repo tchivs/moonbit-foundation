@@ -480,19 +480,20 @@ function Split-MoonBytesLiteral([string]$Literal, [int]$Width = 80) {
 
 function Add-MoonBytesField([Collections.Generic.List[string]]$Rows, [string]$Field, [string]$Literal) {
   $pieces = @(Split-MoonBytesLiteral $Literal 80)
-  if ($pieces.Count -eq 1 -and (("      ${Field}: b`"$($pieces[0])`",").Length -le 180)) {
+  if ($pieces.Count -eq 1) {
     $Rows.Add("      ${Field}: b`"$($pieces[0])`",")
     return
   }
-  $Rows.Add("      ${Field}: (")
+  # moonfmt prefers bare concat chains (no surrounding parentheses).
   for ($k = 0; $k -lt $pieces.Count; $k++) {
-    if ($k -lt ($pieces.Count - 1)) {
-      $Rows.Add("        b`"$($pieces[$k])`" +")
+    if ($k -eq 0) {
+      $Rows.Add("      ${Field}: b`"$($pieces[$k])`" +")
+    } elseif ($k -lt ($pieces.Count - 1)) {
+      $Rows.Add("      b`"$($pieces[$k])`" +")
     } else {
-      $Rows.Add("        b`"$($pieces[$k])`"")
+      $Rows.Add("      b`"$($pieces[$k])`",")
     }
   }
-  $Rows.Add('      ),')
 }
 
 $partSize = 400

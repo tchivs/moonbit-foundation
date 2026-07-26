@@ -911,7 +911,8 @@ test "PNG colour declaration helpers validate sRGB and iCCP envelopes" {
     content="true",
   )
   inspect(
-    _png_validate_srgb_payload([]).unwrap_err().context() == Some("png-srgb-length"),
+    _png_validate_srgb_payload([]).unwrap_err().context() ==
+    Some("png-srgb-length"),
     content="true",
   )
   inspect(
