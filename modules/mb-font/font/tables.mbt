@@ -771,9 +771,55 @@ fn font_admit_name_envelope(
     storage > table.length_value {
     return Err(font_data_error("font-name-envelope"))
   }
+  let language_count = if format == 1UL {
+    let language_records_start = match @checked.checked_add(records_end, 2UL) {
+      Err(error) => return Err(error)
+      Ok(value) => value
+    }
+    if language_records_start > table.length_value {
+      return Err(font_data_error("font-name-envelope"))
+    }
+    let count = match read_u16(table.view, records_end) {
+      Err(error) => return Err(error)
+      Ok(value) => value
+    }
+    if count > limits.max_name_records() {
+      return Err(
+        font_limit_error("max-name-records", count, limits.max_name_records()),
+      )
+    }
+    let language_bytes = match @checked.checked_mul(count, 4UL) {
+      Err(error) => return Err(error)
+      Ok(value) => value
+    }
+    let language_end = match
+      @checked.checked_add(language_records_start, language_bytes) {
+      Err(error) => return Err(error)
+      Ok(value) => value
+    }
+    if language_end > table.length_value || storage < language_end {
+      return Err(font_data_error("font-name-envelope"))
+    }
+    count
+  } else {
+    0UL
+  }
   let mut index = 0UL
   while index < record_count {
     let record = 6UL + index * 12UL
+    let language_id = match read_u16(table.view, record + 4UL) {
+      Err(error) => return Err(error)
+      Ok(value) => value
+    }
+    if language_id >= 0x8000UL {
+      let language_index = match @checked.checked_sub(language_id, 0x8000UL) {
+        Err(error) => return Err(error)
+        Ok(value) => value
+      }
+      if format == 0UL || language_index >= language_count {
+        return Err(font_data_error("font-name-envelope"))
+      }
+    }
     let length = match read_u16(table.view, record + 8UL) {
       Err(error) => return Err(error)
       Ok(value) => value
@@ -799,34 +845,6 @@ fn font_admit_name_envelope(
     let language_records_start = match @checked.checked_add(records_end, 2UL) {
       Err(error) => return Err(error)
       Ok(value) => value
-    }
-    if language_records_start > table.length_value {
-      return Err(font_data_error("font-name-envelope"))
-    }
-    let language_count = match read_u16(table.view, records_end) {
-      Err(error) => return Err(error)
-      Ok(value) => value
-    }
-    if language_count > limits.max_name_records() {
-      return Err(
-        font_limit_error(
-          "max-name-records",
-          language_count,
-          limits.max_name_records(),
-        ),
-      )
-    }
-    let language_bytes = match @checked.checked_mul(language_count, 4UL) {
-      Err(error) => return Err(error)
-      Ok(value) => value
-    }
-    let language_end = match
-      @checked.checked_add(language_records_start, language_bytes) {
-      Err(error) => return Err(error)
-      Ok(value) => value
-    }
-    if language_end > table.length_value || storage < language_end {
-      return Err(font_data_error("font-name-envelope"))
     }
     let mut language_index = 0UL
     while language_index < language_count {
@@ -888,6 +906,9 @@ fn font_validate_post2_names(
     let name_index = match read_u16(table.view, field) {
       Err(error) => return Err(error)
       Ok(value) => value
+    }
+    if name_index > 32767UL {
+      return Err(font_data_error("font-post-envelope"))
     }
     if name_index >= 258UL {
       let referenced_count = match @checked.checked_sub(name_index, 257UL) {

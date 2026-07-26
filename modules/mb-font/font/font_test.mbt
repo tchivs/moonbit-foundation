@@ -1188,6 +1188,18 @@ test "cmap admission rejects empty aliased unsupported and short subtables" {
 test "name language tags and post name references require exact envelopes" {
   let valid_name1 = b"\x00\x01\x00\x00\x00\x0c\x00\x01\x00\x01\x00\x00A"
   let invalid_name1 = b"\x00\x01\x00\x00\x00\x0c\x00\x01\x00\x01\x00\x01"
+  let dangling_language : Array[Byte] = []
+  font_test_push_u16(dangling_language, 1UL)
+  font_test_push_u16(dangling_language, 1UL)
+  font_test_push_u16(dangling_language, 20UL)
+  font_test_push_u16(dangling_language, 3UL)
+  font_test_push_u16(dangling_language, 1UL)
+  font_test_push_u16(dangling_language, 0x8000UL)
+  font_test_push_u16(dangling_language, 1UL)
+  font_test_push_u16(dangling_language, 1UL)
+  font_test_push_u16(dangling_language, 0UL)
+  font_test_push_u16(dangling_language, 0UL)
+  dangling_language.push(b'A')
   let valid_post2 = font_test_post_with_suffix(
     0x00020000UL, b"\x00\x01\x01\x02\x01A",
   )
@@ -1240,6 +1252,20 @@ test "name language tags and post name references require exact envelopes" {
     invalid_name_error.context() == Some("font-name-envelope"),
     content="true",
   )
+  let dangling_language_error = Font::open(
+    font_test_owner(
+      font_test_truetype_with_metadata(
+        Bytes::from_array(dangling_language),
+        font_test_post_table(),
+      ),
+    ).view(),
+    font_test_limits(),
+    font_test_budget(),
+  ).unwrap_err()
+  inspect(
+    dangling_language_error.context() == Some("font-name-envelope"),
+    content="true",
+  )
   for
     post in [
       missing_post2, truncated_post2, trailing_post2, invalid_post25, long_post25,
@@ -1255,6 +1281,37 @@ test "name language tags and post name references require exact envelopes" {
     inspect(error.category() == @error.ErrorCategory::Data, content="true")
     inspect(error.context() == Some("font-post-envelope"), content="true")
   }
+
+  let oversized_suffix : Array[Byte] = []
+  font_test_push_u16(oversized_suffix, 1UL)
+  font_test_push_u16(oversized_suffix, 0xFFFFUL)
+  for _index = 0UL; _index < 65278UL; _index = _index + 1UL {
+    oversized_suffix.push(b'\x00')
+  }
+  let oversized_source = font_test_truetype_with_metadata(
+    font_test_name_table(),
+    font_test_post_with_suffix(
+      0x00020000UL,
+      Bytes::from_array(oversized_suffix),
+    ),
+  )
+  let oversized_length = oversized_source.length().to_uint64()
+  let oversized_limits = FontLimits::new(
+    max_source_bytes=oversized_length,
+    max_tables=10UL,
+    max_table_bytes=oversized_length,
+    max_glyphs=1UL,
+    max_name_records=1UL,
+    max_cmap_records=1UL,
+    max_post_name_bytes=65278UL,
+    max_work=1000000UL,
+  ).unwrap()
+  let oversized_error = Font::open(
+    font_test_owner(oversized_source).view(),
+    oversized_limits,
+    font_test_budget_with(oversized_length, 1000000UL),
+  ).unwrap_err()
+  inspect(oversized_error.context() == Some("font-post-envelope"), content="true")
 }
 
 ///|
