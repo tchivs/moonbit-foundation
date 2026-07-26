@@ -165,11 +165,28 @@ fn font_admission_charge(
     Err(error) => return Err(error)
     Ok(value) => value
   }
-  let post_glyph_records = if post_version == 0x00020000UL ||
+  let (post_glyph_records, post_name_bytes) = if post_version == 0x00020000UL ||
     post_version == 0x00025000UL {
-    num_glyphs
+    let item_size = if post_version == 0x00020000UL { 2UL } else { 1UL }
+    let index_bytes = match @checked.checked_mul(num_glyphs, item_size) {
+      Err(error) => return Err(error)
+      Ok(value) => value
+    }
+    let names_start = match @checked.checked_add(34UL, index_bytes) {
+      Err(error) => return Err(error)
+      Ok(value) => value
+    }
+    if names_start > post_table.length_value {
+      return Err(font_data_error("font-post-envelope"))
+    }
+    let name_bytes = if post_version == 0x00020000UL {
+      post_table.length_value - names_start
+    } else {
+      0UL
+    }
+    (num_glyphs, name_bytes)
   } else {
-    0UL
+    (0UL, 0UL)
   }
 
   let loca_entries = match @checked.checked_add(num_glyphs, 1UL) {
@@ -184,6 +201,7 @@ fn font_admission_charge(
   for
     count in [
       glyph_work, cmap_records, name_records, language_records, post_glyph_records,
+      post_name_bytes,
     ] {
     work = match @checked.checked_add(work, count) {
       Err(error) => return Err(error)
@@ -660,7 +678,11 @@ fn font_admit_name_envelope(
     index = index + 1UL
   }
   if format == 1UL {
-    if records_end + 2UL > table.length_value {
+    let language_records_start = match @checked.checked_add(records_end, 2UL) {
+      Err(error) => return Err(error)
+      Ok(value) => value
+    }
+    if language_records_start > table.length_value {
       return Err(font_data_error("font-name-envelope"))
     }
     let language_count = match read_u16(table.view, records_end) {
@@ -676,10 +698,145 @@ fn font_admit_name_envelope(
         ),
       )
     }
-    let language_end = records_end + 2UL + language_count * 4UL
+    let language_bytes = match @checked.checked_mul(language_count, 4UL) {
+      Err(error) => return Err(error)
+      Ok(value) => value
+    }
+    let language_end = match
+      @checked.checked_add(language_records_start, language_bytes) {
+      Err(error) => return Err(error)
+      Ok(value) => value
+    }
     if language_end > table.length_value || storage < language_end {
       return Err(font_data_error("font-name-envelope"))
     }
+    let mut language_index = 0UL
+    while language_index < language_count {
+      let record_delta = match @checked.checked_mul(language_index, 4UL) {
+        Err(error) => return Err(error)
+        Ok(value) => value
+      }
+      let record = match
+        @checked.checked_add(language_records_start, record_delta) {
+        Err(error) => return Err(error)
+        Ok(value) => value
+      }
+      let length = match read_u16(table.view, record) {
+        Err(error) => return Err(error)
+        Ok(value) => value
+      }
+      let relative_field = match @checked.checked_add(record, 2UL) {
+        Err(error) => return Err(error)
+        Ok(value) => value
+      }
+      let relative = match read_u16(table.view, relative_field) {
+        Err(error) => return Err(error)
+        Ok(value) => value
+      }
+      let start = match @checked.checked_add(storage, relative) {
+        Err(error) => return Err(error)
+        Ok(value) => value
+      }
+      let end = match @checked.checked_add(start, length) {
+        Err(error) => return Err(error)
+        Ok(value) => value
+      }
+      if end > table.length_value {
+        return Err(font_data_error("font-name-envelope"))
+      }
+      language_index = language_index + 1UL
+    }
+  }
+  Ok(())
+}
+
+///|
+fn font_validate_post2_names(
+  table : TableWindow,
+  glyph_count : UInt64,
+  names_start : UInt64,
+) -> Result[Unit, @error.CoreError] {
+  let mut custom_count = 0UL
+  let mut glyph = 0UL
+  while glyph < glyph_count {
+    let index_delta = match @checked.checked_mul(glyph, 2UL) {
+      Err(error) => return Err(error)
+      Ok(value) => value
+    }
+    let field = match @checked.checked_add(34UL, index_delta) {
+      Err(error) => return Err(error)
+      Ok(value) => value
+    }
+    let name_index = match read_u16(table.view, field) {
+      Err(error) => return Err(error)
+      Ok(value) => value
+    }
+    if name_index >= 258UL {
+      let referenced_count = match @checked.checked_sub(name_index, 257UL) {
+        Err(error) => return Err(error)
+        Ok(value) => value
+      }
+      if referenced_count > custom_count {
+        custom_count = referenced_count
+      }
+    }
+    glyph = glyph + 1UL
+  }
+  let mut cursor = names_start
+  let mut custom = 0UL
+  while custom < custom_count {
+    if cursor >= table.length_value {
+      return Err(font_data_error("font-post-envelope"))
+    }
+    let length = match read_u8(table.view, cursor) {
+      Err(error) => return Err(error)
+      Ok(value) => value.to_uint64()
+    }
+    let payload_start = match @checked.checked_add(cursor, 1UL) {
+      Err(error) => return Err(error)
+      Ok(value) => value
+    }
+    cursor = match @checked.checked_add(payload_start, length) {
+      Err(error) => return Err(error)
+      Ok(value) => value
+    }
+    if cursor > table.length_value {
+      return Err(font_data_error("font-post-envelope"))
+    }
+    custom = custom + 1UL
+  }
+  if cursor != table.length_value {
+    Err(font_data_error("font-post-envelope"))
+  } else {
+    Ok(())
+  }
+}
+
+///|
+fn font_validate_post25_offsets(
+  table : TableWindow,
+  glyph_count : UInt64,
+) -> Result[Unit, @error.CoreError] {
+  let mut glyph = 0UL
+  while glyph < glyph_count {
+    let field = match @checked.checked_add(34UL, glyph) {
+      Err(error) => return Err(error)
+      Ok(value) => value
+    }
+    let encoded = match read_u8(table.view, field) {
+      Err(error) => return Err(error)
+      Ok(value) => value.to_uint64()
+    }
+    let delta = if encoded >= 128UL {
+      encoded.to_int() - 256
+    } else {
+      encoded.to_int()
+    }
+    let standard_index = glyph.to_int() + delta
+    if standard_index < 0 || standard_index > 257 {
+      return Err(font_data_error("font-post-envelope"))
+    }
+    glyph = glyph + 1UL
   }
   Ok(())
 }
@@ -699,8 +856,9 @@ fn font_admit_post_envelope(
     Ok(value) => value
   }
   match version {
-    0x00010000UL | 0x00030000UL => Ok(())
-    0x00020000UL | 0x00025000UL => {
+    0x00010000UL | 0x00030000UL =>
+      font_table_exact_length(table, 32UL, "font-post-envelope")
+    0x00020000UL => {
       match font_table_min_length(table, 34UL, "font-post-envelope") {
         Err(error) => return Err(error)
         Ok(_) => ()
@@ -712,11 +870,10 @@ fn font_admit_post_envelope(
       if glyph_count != maxp.num_glyphs {
         return Err(font_data_error("font-post-envelope"))
       }
-      let item_size = if version == 0x00020000UL { 2UL } else { 1UL }
       let required = match
         @checked.checked_add(
           34UL,
-          match @checked.checked_mul(glyph_count, item_size) {
+          match @checked.checked_mul(glyph_count, 2UL) {
             Err(error) => return Err(error)
             Ok(value) => value
           },
@@ -737,7 +894,29 @@ fn font_admit_post_envelope(
           ),
         )
       }
-      Ok(())
+      font_validate_post2_names(table, glyph_count, required)
+    }
+    0x00025000UL => {
+      match font_table_min_length(table, 34UL, "font-post-envelope") {
+        Err(error) => return Err(error)
+        Ok(_) => ()
+      }
+      let glyph_count = match read_u16(table.view, 32UL) {
+        Err(error) => return Err(error)
+        Ok(value) => value
+      }
+      if glyph_count != maxp.num_glyphs {
+        return Err(font_data_error("font-post-envelope"))
+      }
+      let required = match @checked.checked_add(34UL, glyph_count) {
+        Err(error) => return Err(error)
+        Ok(value) => value
+      }
+      match font_table_exact_length(table, required, "font-post-envelope") {
+        Err(error) => return Err(error)
+        Ok(_) => ()
+      }
+      font_validate_post25_offsets(table, glyph_count)
     }
     _ => Err(font_data_error("font-post-envelope"))
   }

@@ -390,6 +390,32 @@ fn font_test_truetype_with_cmap(cmap : Bytes) -> Bytes {
 }
 
 ///|
+fn font_test_truetype_with_metadata(name : Bytes, post : Bytes) -> Bytes {
+  font_test_build_truetype([
+    { tag: b"OS/2", payload: font_test_fixed_table(78) },
+    { tag: b"cmap", payload: font_test_cmap_table() },
+    { tag: b"glyf", payload: b"" },
+    { tag: b"head", payload: font_test_head_table() },
+    { tag: b"hhea", payload: font_test_hhea_table() },
+    { tag: b"hmtx", payload: b"\x01\xf4\x00\x00" },
+    { tag: b"loca", payload: b"\x00\x00\x00\x00" },
+    { tag: b"maxp", payload: font_test_maxp_table() },
+    { tag: b"name", payload: name },
+    { tag: b"post", payload: post },
+  ])
+}
+
+///|
+fn font_test_post_with_suffix(version : UInt64, suffix : Bytes) -> Bytes {
+  let output = Array::make(32, b'\x00')
+  font_test_put_u32(output, 0, version)
+  for byte in suffix {
+    output.push(byte)
+  }
+  Bytes::from_array(output)
+}
+
+///|
 fn font_test_metric_head_table_with_format(format : Int) -> Bytes {
   let output = font_test_head_table().to_array()
   font_test_put_i16(output, 50, format)
@@ -1096,6 +1122,79 @@ test "cmap admission rejects empty aliased unsupported and short subtables" {
     ).unwrap_err()
     inspect(error.category() == @error.ErrorCategory::Data, content="true")
     inspect(error.context() == Some("font-cmap-envelope"), content="true")
+  }
+}
+
+///|
+test "name language tags and post name references require exact envelopes" {
+  let valid_name1 = b"\x00\x01\x00\x00\x00\x0c\x00\x01\x00\x01\x00\x00A"
+  let invalid_name1 = b"\x00\x01\x00\x00\x00\x0c\x00\x01\x00\x01\x00\x01"
+  let valid_post2 = font_test_post_with_suffix(
+    0x00020000UL, b"\x00\x01\x01\x02\x01A",
+  )
+  let missing_post2 = font_test_post_with_suffix(
+    0x00020000UL, b"\x00\x01\xff\xff",
+  )
+  let truncated_post2 = font_test_post_with_suffix(
+    0x00020000UL, b"\x00\x01\x01\x02\x02A",
+  )
+  let trailing_post2 = font_test_post_with_suffix(
+    0x00020000UL, b"\x00\x01\x01\x02\x01AB",
+  )
+  let valid_post25 = font_test_post_with_suffix(0x00025000UL, b"\x00\x01\x00")
+  let invalid_post25 = font_test_post_with_suffix(0x00025000UL, b"\x00\x01\xff")
+  let long_post25 = font_test_post_with_suffix(
+    0x00025000UL, b"\x00\x01\x00\x00",
+  )
+  let long_post3 = font_test_post_with_suffix(0x00030000UL, b"\x00")
+
+  inspect(
+    Font::open(
+      font_test_owner(
+        font_test_truetype_with_metadata(valid_name1, valid_post2),
+      ).view(),
+      font_test_limits(),
+      font_test_budget(),
+    )
+    is Ok(_),
+    content="true",
+  )
+  inspect(
+    Font::open(
+      font_test_owner(
+        font_test_truetype_with_metadata(valid_name1, valid_post25),
+      ).view(),
+      font_test_limits(),
+      font_test_budget(),
+    )
+    is Ok(_),
+    content="true",
+  )
+  let invalid_name_error = Font::open(
+    font_test_owner(
+      font_test_truetype_with_metadata(invalid_name1, font_test_post_table()),
+    ).view(),
+    font_test_limits(),
+    font_test_budget(),
+  ).unwrap_err()
+  inspect(
+    invalid_name_error.context() == Some("font-name-envelope"),
+    content="true",
+  )
+  for
+    post in [
+      missing_post2, truncated_post2, trailing_post2, invalid_post25, long_post25,
+      long_post3,
+    ] {
+    let error = Font::open(
+      font_test_owner(
+        font_test_truetype_with_metadata(font_test_name_table(), post),
+      ).view(),
+      font_test_limits(),
+      font_test_budget(),
+    ).unwrap_err()
+    inspect(error.category() == @error.ErrorCategory::Data, content="true")
+    inspect(error.context() == Some("font-post-envelope"), content="true")
   }
 }
 
