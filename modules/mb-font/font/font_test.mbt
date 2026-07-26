@@ -520,11 +520,26 @@ fn font_test_budget() -> @budget.Budget {
 
 ///|
 fn font_test_budget_with(bytes : UInt64, work : UInt64) -> @budget.Budget {
+  font_test_budget_with_dimensions(
+    bytes,
+    allocations=3UL,
+    allocation_size=4096UL,
+    work,
+  )
+}
+
+///|
+fn font_test_budget_with_dimensions(
+  bytes : UInt64,
+  allocations~ : UInt64,
+  allocation_size~ : UInt64,
+  work : UInt64,
+) -> @budget.Budget {
   @budget.Budget::new(
     @budget.ResourceLimits::new(
       bytes~,
-      allocations=0UL,
-      allocation_size=0UL,
+      allocations~,
+      allocation_size~,
       width=0UL,
       height=0UL,
       pixels=0UL,
@@ -917,7 +932,7 @@ test "metric cardinality and location hostility fail before Font publication" {
 test "glyph and work ceilings admit exact values and reject one short atomically" {
   let source = font_test_horizontal_metric_truetype()
   let source_length = source.length().to_uint64()
-  let exact_work = source_length * 2UL + 10UL
+  let exact_work = source_length * 2UL + 18UL
   let exact_limits = FontLimits::new(
     max_source_bytes=source_length,
     max_tables=10UL,
@@ -928,11 +943,17 @@ test "glyph and work ceilings admit exact values and reject one short atomically
     max_post_name_bytes=32UL,
     max_work=exact_work,
   ).unwrap()
-  let exact_budget = font_test_budget_with(source_length, exact_work)
+  let exact_budget = font_test_budget_with_dimensions(
+    source_length,
+    allocations=3UL,
+    allocation_size=32UL,
+    exact_work,
+  )
   ignore(
     Font::open(font_test_owner(source).view(), exact_limits, exact_budget).unwrap(),
   )
   inspect(exact_budget.remaining().bytes(), content="0")
+  inspect(exact_budget.remaining().allocations(), content="0")
   inspect(exact_budget.remaining().work(), content="0")
 
   let glyph_limits = FontLimits::new(
@@ -973,6 +994,43 @@ test "glyph and work ceilings admit exact values and reject one short atomically
   let after = narrow_budget.remaining()
   inspect(after.bytes() == before.bytes(), content="true")
   inspect(after.work() == before.work(), content="true")
+
+  let allocation_budget = font_test_budget_with_dimensions(
+    source_length,
+    allocations=2UL,
+    allocation_size=32UL,
+    exact_work,
+  )
+  let allocation_before = allocation_budget.remaining()
+  let allocation_error = Font::open(
+    font_test_owner(source).view(),
+    exact_limits,
+    allocation_budget,
+  ).unwrap_err()
+  inspect(allocation_error.context() == Some("allocations"), content="true")
+  inspect(
+    allocation_budget.remaining().allocations() ==
+    allocation_before.allocations(),
+    content="true",
+  )
+
+  let size_budget = font_test_budget_with_dimensions(
+    source_length,
+    allocations=3UL,
+    allocation_size=31UL,
+    exact_work,
+  )
+  let size_before = size_budget.remaining()
+  let size_error = Font::open(
+    font_test_owner(source).view(),
+    exact_limits,
+    size_budget,
+  ).unwrap_err()
+  inspect(size_error.context() == Some("allocation_size"), content="true")
+  inspect(
+    size_budget.remaining().allocation_size() == size_before.allocation_size(),
+    content="true",
+  )
 }
 
 ///|

@@ -595,8 +595,8 @@ test "generated micro-font has a valid whole-font adjustment" {
   let budget = @budget.Budget::new(
     @budget.ResourceLimits::new(
       bytes=4096UL,
-      allocations=0UL,
-      allocation_size=0UL,
+      allocations=3UL,
+      allocation_size=4096UL,
       width=0UL,
       height=0UL,
       pixels=0UL,

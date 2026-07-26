@@ -115,6 +115,88 @@ fn font_directory_end(num_tables : UInt64) -> Result[UInt64, @error.CoreError] {
 }
 
 ///|
+fn font_directory_discovery_charge(
+  source : @bytes.ByteView,
+  limits : FontLimits,
+) -> Result[@budget.ResourceCharge, @error.CoreError] {
+  if source.length() > limits.max_source_bytes() {
+    return Err(
+      font_limit_error(
+        "max-source-bytes",
+        source.length(),
+        limits.max_source_bytes(),
+      ),
+    )
+  }
+  if source.length() < 4UL {
+    return Err(
+      font_data_error("font-sfnt-header", requested=4UL, limit=source.length()),
+    )
+  }
+  let signature = match read_u32(source, 0UL) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  if signature != 0x00010000UL {
+    if font_unsupported_signature(signature) {
+      return Err(font_capability_error("font-outline-profile"))
+    }
+    return Err(font_data_error("font-sfnt-signature", source_offset=0UL))
+  }
+  if source.length() < 12UL {
+    return Err(
+      font_data_error("font-sfnt-header", requested=12UL, limit=source.length()),
+    )
+  }
+  let num_tables = match read_u16(source, 4UL) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  if num_tables == 0UL {
+    return Err(font_data_error("font-table-count", source_offset=4UL))
+  }
+  if num_tables > limits.max_tables() {
+    return Err(font_limit_error("max-tables", num_tables, limits.max_tables()))
+  }
+  let directory_end = match font_directory_end(num_tables) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  if directory_end > source.length() {
+    return Err(
+      font_data_error(
+        "font-directory-range",
+        source_offset=12UL,
+        requested=directory_end - 12UL,
+        limit=source.length(),
+      ),
+    )
+  }
+  let checksum_work = match @checked.checked_mul(source.length(), 2UL) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  let work = match @checked.checked_add(checksum_work, num_tables) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  if work > limits.max_work() {
+    return Err(font_limit_error("max-work", work, limits.max_work()))
+  }
+  Ok(
+    @budget.ResourceCharge::new(
+      bytes=source.length(),
+      allocations=2UL,
+      allocation_size=0UL,
+      width=0UL,
+      height=0UL,
+      pixels=0UL,
+      work~,
+    ),
+  )
+}
+
+///|
 fn checked_font_table_view(
   source : @bytes.ByteView,
   offset : UInt64,

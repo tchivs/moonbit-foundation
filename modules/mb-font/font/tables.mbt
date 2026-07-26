@@ -47,6 +47,170 @@ priv struct RequiredTableFacts {
 }
 
 ///|
+fn font_admission_charge(
+  directory : DirectoryFacts,
+  limits : FontLimits,
+) -> Result[@budget.ResourceCharge, @error.CoreError] {
+  let maxp_table = match font_table_window(directory, 0x6D617870UL) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  match font_table_min_length(maxp_table, 6UL, "font-maxp") {
+    Err(error) => return Err(error)
+    Ok(_) => ()
+  }
+  let num_glyphs = match read_u16(maxp_table.view, 4UL) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  if num_glyphs == 0UL {
+    return Err(font_data_error("font-maxp", source_offset=maxp_table.offset))
+  }
+  if num_glyphs > limits.max_glyphs() {
+    return Err(font_limit_error("max-glyphs", num_glyphs, limits.max_glyphs()))
+  }
+
+  let cmap_table = match font_table_window(directory, 0x636D6170UL) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  match font_table_min_length(cmap_table, 4UL, "font-cmap-envelope") {
+    Err(error) => return Err(error)
+    Ok(_) => ()
+  }
+  let cmap_records = match read_u16(cmap_table.view, 2UL) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  if cmap_records > limits.max_cmap_records() {
+    return Err(
+      font_limit_error(
+        "max-cmap-records",
+        cmap_records,
+        limits.max_cmap_records(),
+      ),
+    )
+  }
+
+  let name_table = match font_table_window(directory, 0x6E616D65UL) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  match font_table_min_length(name_table, 6UL, "font-name-envelope") {
+    Err(error) => return Err(error)
+    Ok(_) => ()
+  }
+  let name_format = match read_u16(name_table.view, 0UL) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  let name_records = match read_u16(name_table.view, 2UL) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  if name_format > 1UL {
+    return Err(font_data_error("font-name-envelope"))
+  }
+  if name_records > limits.max_name_records() {
+    return Err(
+      font_limit_error(
+        "max-name-records",
+        name_records,
+        limits.max_name_records(),
+      ),
+    )
+  }
+  let name_record_bytes = match @checked.checked_mul(name_records, 12UL) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  let name_records_end = match @checked.checked_add(6UL, name_record_bytes) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  if name_records_end > name_table.length_value {
+    return Err(font_data_error("font-name-envelope"))
+  }
+  let language_records = if name_format == 1UL {
+    let language_count_end = match @checked.checked_add(name_records_end, 2UL) {
+      Err(error) => return Err(error)
+      Ok(value) => value
+    }
+    if language_count_end > name_table.length_value {
+      return Err(font_data_error("font-name-envelope"))
+    }
+    let count = match read_u16(name_table.view, name_records_end) {
+      Err(error) => return Err(error)
+      Ok(value) => value
+    }
+    if count > limits.max_name_records() {
+      return Err(
+        font_limit_error("max-name-records", count, limits.max_name_records()),
+      )
+    }
+    count
+  } else {
+    0UL
+  }
+
+  let post_table = match font_table_window(directory, 0x706F7374UL) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  match font_table_min_length(post_table, 4UL, "font-post-envelope") {
+    Err(error) => return Err(error)
+    Ok(_) => ()
+  }
+  let post_version = match read_u32(post_table.view, 0UL) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  let post_glyph_records = if post_version == 0x00020000UL ||
+    post_version == 0x00025000UL {
+    num_glyphs
+  } else {
+    0UL
+  }
+
+  let loca_entries = match @checked.checked_add(num_glyphs, 1UL) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  let glyph_work = match @checked.checked_add(loca_entries, num_glyphs) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  let mut work = directory.work
+  for
+    count in [
+      glyph_work, cmap_records, name_records, language_records, post_glyph_records,
+    ] {
+    work = match @checked.checked_add(work, count) {
+      Err(error) => return Err(error)
+      Ok(value) => value
+    }
+  }
+  if work > limits.max_work() {
+    return Err(font_limit_error("max-work", work, limits.max_work()))
+  }
+  let allocation_size = match @checked.checked_mul(loca_entries, 8UL) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  Ok(
+    @budget.ResourceCharge::new(
+      bytes=directory.source.length(),
+      allocations=3UL,
+      allocation_size~,
+      width=0UL,
+      height=0UL,
+      pixels=0UL,
+      work~,
+    ),
+  )
+}
+
+///|
 fn font_table_exact_length(
   table : TableWindow,
   expected : UInt64,

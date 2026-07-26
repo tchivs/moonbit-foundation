@@ -101,22 +101,23 @@ pub fn Font::open(
   budget : @budget.Budget,
 ) -> Result[Font, @error.CoreError] {
   let opening_revision = source.mutation_revision()
+  let discovery_charge = match font_directory_discovery_charge(source, limits) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  match budget.preflight(discovery_charge) {
+    Err(error) => return Err(error)
+    Ok(_) => ()
+  }
   let directory = match font_parse_directory(source, limits) {
     Err(error) => return Err(error)
     Ok(value) => value
   }
-  match
-    budget.charge(
-      @budget.ResourceCharge::new(
-        bytes=source.length(),
-        allocations=0UL,
-        allocation_size=0UL,
-        width=0UL,
-        height=0UL,
-        pixels=0UL,
-        work=directory.work,
-      ),
-    ) {
+  let admission_charge = match font_admission_charge(directory, limits) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  match budget.charge(admission_charge) {
     Err(error) => return Err(error)
     Ok(_) => ()
   }

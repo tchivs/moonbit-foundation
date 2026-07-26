@@ -97,6 +97,55 @@ test "per-operation allocation and dimension caps reject before consumption" {
 }
 
 ///|
+test "preflight checks every hierarchy window without consuming counters" {
+  let parent = @budget.Budget::new(generous_limits())
+  let child = parent
+    .child(
+      @budget.ResourceLimits::new(
+        bytes=5UL,
+        allocations=2UL,
+        allocation_size=5UL,
+        width=0UL,
+        height=0UL,
+        pixels=0UL,
+        depth=0UL,
+        work=5UL,
+      ),
+    )
+    .unwrap()
+  let charge = @budget.ResourceCharge::new(
+    bytes=5UL,
+    allocations=2UL,
+    allocation_size=5UL,
+    width=0UL,
+    height=0UL,
+    pixels=0UL,
+    work=5UL,
+  )
+  let parent_before = parent.remaining()
+  let child_before = child.remaining()
+  child.preflight(charge).unwrap()
+  inspect(parent.remaining().bytes() == parent_before.bytes(), content="true")
+  inspect(child.remaining().bytes() == child_before.bytes(), content="true")
+  parent
+  .charge(
+    @budget.ResourceCharge::new(
+      bytes=96UL,
+      allocations=0UL,
+      allocation_size=0UL,
+      width=0UL,
+      height=0UL,
+      pixels=0UL,
+      work=0UL,
+    ),
+  )
+  .unwrap()
+  let error = child.preflight(charge).unwrap_err()
+  inspect(error.context() == Some("bytes"), content="true")
+  inspect(child.remaining().bytes() == child_before.bytes(), content="true")
+}
+
+///|
 test "child budgets narrow locally while consuming the shared parent ledger" {
   let parent = @budget.Budget::new(generous_limits())
   let child_limits = @budget.ResourceLimits::new(

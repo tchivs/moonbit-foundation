@@ -311,9 +311,13 @@ pub fn Budget::current_depth(self : Budget) -> UInt64 {
 }
 
 ///|
-/// Preflight the full charge against every ancestor before committing any
-/// counter in any window.
-pub fn Budget::charge(
+/// Validate one prospective charge against this budget and every ancestor
+/// without consuming any counters.
+///
+/// Parsers can use this to reject an unaffordable bounded discovery pass
+/// before inspecting attacker-controlled declared counts, while retaining one
+/// atomic commit after the exact aggregate charge is known.
+pub fn Budget::preflight(
   self : Budget,
   charge : ResourceCharge,
 ) -> Result[Unit, @error.CoreError] {
@@ -322,6 +326,20 @@ pub fn Budget::charge(
       Err(error) => return Err(error)
       Ok(_) => ()
     }
+  }
+  Ok(())
+}
+
+///|
+/// Preflight the full charge against every ancestor before committing any
+/// counter in any window.
+pub fn Budget::charge(
+  self : Budget,
+  charge : ResourceCharge,
+) -> Result[Unit, @error.CoreError] {
+  match self.preflight(charge) {
+    Err(error) => return Err(error)
+    Ok(_) => ()
   }
   for window in self.windows {
     window.commit_charge(charge)
