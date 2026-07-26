@@ -464,24 +464,41 @@ fn font_cmap_subtable_length(
     Err(error) => return Err(error)
     Ok(value) => value
   }
-  let length_offset = if format <= 6UL {
-    match @checked.checked_add(offset, 2UL) {
+  let (length_offset, minimum) = match format {
+    4UL => {
+      let field = match @checked.checked_add(offset, 2UL) {
+        Err(error) => return Err(error)
+        Ok(value) => value
+      }
+      (field, 16UL)
+    }
+    12UL => {
+      if remaining < 8UL {
+        return Err(font_data_error("font-cmap-envelope"))
+      }
+      let field = match @checked.checked_add(offset, 4UL) {
+        Err(error) => return Err(error)
+        Ok(value) => value
+      }
+      (field, 16UL)
+    }
+    _ => return Err(font_data_error("font-cmap-envelope"))
+  }
+  let length = if format == 4UL {
+    match read_u16(table.view, length_offset) {
       Err(error) => return Err(error)
       Ok(value) => value
     }
   } else {
-    if remaining < 8UL {
-      return Err(font_data_error("font-cmap-envelope"))
-    }
-    match @checked.checked_add(offset, if format == 14UL { 2UL } else { 4UL }) {
+    match read_u32(table.view, length_offset) {
       Err(error) => return Err(error)
       Ok(value) => value
     }
   }
-  if format <= 6UL {
-    read_u16(table.view, length_offset)
+  if length < minimum {
+    Err(font_data_error("font-cmap-envelope"))
   } else {
-    read_u32(table.view, length_offset)
+    Ok(length)
   }
 }
 
@@ -503,6 +520,11 @@ fn font_admit_cmap_envelope(
     Ok(value) => value
   }
   if version != 0UL {
+    return Err(
+      font_data_error("font-cmap-envelope", source_offset=table.offset),
+    )
+  }
+  if record_count == 0UL {
     return Err(
       font_data_error("font-cmap-envelope", source_offset=table.offset),
     )
@@ -548,6 +570,9 @@ fn font_admit_cmap_envelope(
       Err(error) => return Err(error)
       Ok(value) => value
     }
+    if subtable < records_end {
+      return Err(font_data_error("font-cmap-envelope"))
+    }
     let length = match font_cmap_subtable_length(table, subtable) {
       Err(error) => return Err(error)
       Ok(value) => value
@@ -556,7 +581,7 @@ fn font_admit_cmap_envelope(
       Err(error) => return Err(error)
       Ok(value) => value
     }
-    if length == 0UL || end > table.length_value {
+    if end > table.length_value {
       return Err(font_data_error("font-cmap-envelope"))
     }
     index = index + 1UL

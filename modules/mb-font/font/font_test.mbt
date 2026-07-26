@@ -374,6 +374,22 @@ fn font_test_minimal_truetype() -> Bytes {
 }
 
 ///|
+fn font_test_truetype_with_cmap(cmap : Bytes) -> Bytes {
+  font_test_build_truetype([
+    { tag: b"OS/2", payload: font_test_fixed_table(78) },
+    { tag: b"cmap", payload: cmap },
+    { tag: b"glyf", payload: b"" },
+    { tag: b"head", payload: font_test_head_table() },
+    { tag: b"hhea", payload: font_test_hhea_table() },
+    { tag: b"hmtx", payload: b"\x01\xf4\x00\x00" },
+    { tag: b"loca", payload: b"\x00\x00\x00\x00" },
+    { tag: b"maxp", payload: font_test_maxp_table() },
+    { tag: b"name", payload: font_test_name_table() },
+    { tag: b"post", payload: font_test_post_table() },
+  ])
+}
+
+///|
 fn font_test_metric_head_table_with_format(format : Int) -> Bytes {
   let output = font_test_head_table().to_array()
   font_test_put_i16(output, 50, format)
@@ -1031,6 +1047,56 @@ test "glyph and work ceilings admit exact values and reject one short atomically
     size_budget.remaining().allocation_size() == size_before.allocation_size(),
     content="true",
   )
+}
+
+///|
+test "cmap admission rejects empty aliased unsupported and short subtables" {
+  let header_alias : Array[Byte] = []
+  font_test_push_u16(header_alias, 0UL)
+  font_test_push_u16(header_alias, 1UL)
+  font_test_push_u16(header_alias, 3UL)
+  font_test_push_u16(header_alias, 1UL)
+  font_test_push_u32(header_alias, 0UL)
+
+  let unsupported : Array[Byte] = []
+  font_test_push_u16(unsupported, 0UL)
+  font_test_push_u16(unsupported, 1UL)
+  font_test_push_u16(unsupported, 3UL)
+  font_test_push_u16(unsupported, 1UL)
+  font_test_push_u32(unsupported, 12UL)
+  font_test_push_u16(unsupported, 6UL)
+  font_test_push_u16(unsupported, 10UL)
+  for _index = 0; _index < 6; _index = _index + 1 {
+    unsupported.push(b'\x00')
+  }
+
+  let short_format4 : Array[Byte] = []
+  font_test_push_u16(short_format4, 0UL)
+  font_test_push_u16(short_format4, 1UL)
+  font_test_push_u16(short_format4, 3UL)
+  font_test_push_u16(short_format4, 1UL)
+  font_test_push_u32(short_format4, 12UL)
+  font_test_push_u16(short_format4, 4UL)
+  font_test_push_u16(short_format4, 15UL)
+  for _index = 0; _index < 11; _index = _index + 1 {
+    short_format4.push(b'\x00')
+  }
+
+  for
+    cmap in [
+      b"\x00\x00\x00\x00",
+      Bytes::from_array(header_alias),
+      Bytes::from_array(unsupported),
+      Bytes::from_array(short_format4),
+    ] {
+    let error = Font::open(
+      font_test_owner(font_test_truetype_with_cmap(cmap)).view(),
+      font_test_limits(),
+      font_test_budget(),
+    ).unwrap_err()
+    inspect(error.category() == @error.ErrorCategory::Data, content="true")
+    inspect(error.context() == Some("font-cmap-envelope"), content="true")
+  }
 }
 
 ///|
