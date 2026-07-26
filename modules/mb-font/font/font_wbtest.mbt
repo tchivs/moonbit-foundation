@@ -241,6 +241,24 @@ test "font required table matrix enforces structural cardinalities" {
   inspect(font_loca_required_length(1UL, 0).unwrap(), content="4")
   inspect(font_loca_required_length(1UL, 1).unwrap(), content="8")
   inspect(font_loca_required_length(1UL, 2) is Err(_), content="true")
+  inspect(
+    font_right_side_bearing(500UL, -20, 110UL).unwrap(),
+    content="410",
+  )
+  inspect(
+    font_right_side_bearing(600UL, 30, 0UL).unwrap(),
+    content="570",
+  )
+  inspect(
+    font_right_side_bearing(18446744073709551615UL, -1, 0UL).unwrap_err().code() ==
+    @error.ErrorCode::ArithmeticOverflow,
+    content="true",
+  )
+  inspect(
+    font_right_side_bearing(18446744073709551615UL, 0, 0UL).unwrap_err().code() ==
+    @error.ErrorCode::NarrowingFailed,
+    content="true",
+  )
 
   for
     tag in [
@@ -258,6 +276,50 @@ test "font required table matrix enforces structural cardinalities" {
       content="true",
     )
   }
+}
+
+///|
+test "metric admission validates short long and common glyph header ranges" {
+  for source in [
+    generated_horizontal_metric_truetype(),
+    generated_long_loca_metric_truetype(),
+  ] {
+    let directory = font_parse_directory(
+      font_wb_view(source),
+      font_wb_limits(),
+    ).unwrap()
+    font_validate_checksums(directory).unwrap()
+    let tables = font_admit_required_tables(
+      directory,
+      font_wb_limits(),
+    ).unwrap()
+    let index = font_admit_metric_index(
+      directory,
+      tables.head,
+      tables.maxp,
+      tables.hhea,
+    ).unwrap()
+    font_validate_glyph_headers(index).unwrap()
+  }
+  let short = generated_short_glyph_header_truetype()
+  let directory = font_parse_directory(
+    font_wb_view(short),
+    font_wb_limits(),
+  ).unwrap()
+  font_validate_checksums(directory).unwrap()
+  let tables = font_admit_required_tables(
+    directory,
+    font_wb_limits(),
+  ).unwrap()
+  inspect(
+    font_admit_metric_index(
+      directory,
+      tables.head,
+      tables.maxp,
+      tables.hhea,
+    ) is Err(_),
+    content="true",
+  )
 }
 
 ///|

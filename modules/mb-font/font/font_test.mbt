@@ -312,14 +312,30 @@ fn font_test_post_table() -> Bytes {
 }
 
 ///|
+fn font_test_search_facts(
+  num_tables : UInt64,
+) -> (UInt64, UInt64, UInt64) {
+  let mut power = 1UL
+  let mut selector = 0UL
+  while power <= num_tables / 2UL {
+    power = power * 2UL
+    selector = selector + 1UL
+  }
+  let search_range = power * 16UL
+  (search_range, selector, num_tables * 16UL - search_range)
+}
+
+///|
 fn font_test_build_truetype(tables : Array[FontTestTable]) -> Bytes {
   let output : Array[Byte] = []
+  let num_tables = tables.length().to_uint64()
+  let (search_range, selector, range_shift) = font_test_search_facts(num_tables)
   font_test_push_u32(output, 0x00010000UL)
-  font_test_push_u16(output, tables.length().to_uint64())
-  font_test_push_u16(output, 128UL)
-  font_test_push_u16(output, 3UL)
-  font_test_push_u16(output, 32UL)
-  let mut next_offset = 12UL + tables.length().to_uint64() * 16UL
+  font_test_push_u16(output, num_tables)
+  font_test_push_u16(output, search_range)
+  font_test_push_u16(output, selector)
+  font_test_push_u16(output, range_shift)
+  let mut next_offset = 12UL + num_tables * 16UL
   let offsets : Array[UInt64] = []
   for table in tables {
     for byte in table.tag {
@@ -365,22 +381,37 @@ fn font_test_minimal_truetype() -> Bytes {
 
 ///|
 fn font_test_metric_head_table() -> Bytes {
+  font_test_metric_head_table_with_format(0)
+}
+
+///|
+fn font_test_metric_head_table_with_format(format : Int) -> Bytes {
   let output = font_test_head_table().to_array()
-  font_test_put_i16(output, 50, 0)
+  font_test_put_i16(output, 50, format)
   Bytes::from_array(output)
 }
 
 ///|
 fn font_test_metric_hhea_table() -> Bytes {
+  font_test_metric_hhea_table_with_count(2UL)
+}
+
+///|
+fn font_test_metric_hhea_table_with_count(count : UInt64) -> Bytes {
   let output = font_test_hhea_table().to_array()
-  font_test_put_u16(output, 34, 2UL)
+  font_test_put_u16(output, 34, count)
   Bytes::from_array(output)
 }
 
 ///|
 fn font_test_metric_maxp_table() -> Bytes {
+  font_test_metric_maxp_table_with_count(3UL)
+}
+
+///|
+fn font_test_metric_maxp_table_with_count(count : UInt64) -> Bytes {
   let output = font_test_maxp_table().to_array()
-  font_test_put_u16(output, 4, 3UL)
+  font_test_put_u16(output, 4, count)
   Bytes::from_array(output)
 }
 
@@ -400,21 +431,65 @@ fn font_test_metric_glyf_table() -> Bytes {
 
 ///|
 fn font_test_horizontal_metric_truetype() -> Bytes {
-  font_test_build_truetype([
+  font_test_build_metric_truetype(
+    loca_format=0,
+    number_of_h_metrics=2UL,
+    hmtx=b"\x01\xf4\xff\xec\x02\x58\x00\x1e\xff\xd8",
+    loca=b"\x00\x00\x00\x05\x00\x05\x00\x0a",
+    glyf=font_test_metric_glyf_table(),
+  )
+}
+
+///|
+fn font_test_build_metric_truetype(
+  loca_format~ : Int,
+  number_of_h_metrics~ : UInt64,
+  hmtx~ : Bytes,
+  loca~ : Bytes,
+  glyf~ : Bytes,
+  optional_table? : Bool = false,
+) -> Bytes {
+  let tables : Array[FontTestTable] = [
     { tag: b"OS/2", payload: font_test_fixed_table(78) },
     { tag: b"cmap", payload: font_test_cmap_table() },
-    { tag: b"glyf", payload: font_test_metric_glyf_table() },
-    { tag: b"head", payload: font_test_metric_head_table() },
-    { tag: b"hhea", payload: font_test_metric_hhea_table() },
+    { tag: b"glyf", payload: glyf },
+    { tag: b"head", payload: font_test_metric_head_table_with_format(loca_format) },
     {
-      tag: b"hmtx",
-      payload: b"\x01\xf4\xff\xec\x02\x58\x00\x1e\xff\xd8",
+      tag: b"hhea",
+      payload: font_test_metric_hhea_table_with_count(number_of_h_metrics),
     },
-    { tag: b"loca", payload: b"\x00\x00\x00\x05\x00\x05\x00\x0a" },
+    { tag: b"hmtx", payload: hmtx },
+    { tag: b"loca", payload: loca },
     { tag: b"maxp", payload: font_test_metric_maxp_table() },
     { tag: b"name", payload: font_test_name_table() },
     { tag: b"post", payload: font_test_post_table() },
-  ])
+  ]
+  if optional_table {
+    tables.push({ tag: b"zzzz", payload: b"\x7a" })
+  }
+  font_test_build_truetype(tables)
+}
+
+///|
+fn font_test_long_loca_metric_truetype() -> Bytes {
+  font_test_build_metric_truetype(
+    loca_format=1,
+    number_of_h_metrics=2UL,
+    hmtx=b"\x01\xf4\xff\xec\x02\x58\x00\x1e\xff\xd8",
+    loca=b"\x00\x00\x00\x00\x00\x00\x00\x0a\x00\x00\x00\x0a\x00\x00\x00\x14",
+    glyf=font_test_metric_glyf_table(),
+  )
+}
+
+///|
+fn font_test_full_hmtx_truetype() -> Bytes {
+  font_test_build_metric_truetype(
+    loca_format=0,
+    number_of_h_metrics=3UL,
+    hmtx=b"\x01\xf4\xff\xec\x02\x58\x00\x1e\x02\xbc\xff\xd8",
+    loca=b"\x00\x00\x00\x05\x00\x05\x00\x0a",
+    glyf=font_test_metric_glyf_table(),
+  )
 }
 
 ///|
@@ -453,16 +528,21 @@ fn font_test_limits() -> FontLimits {
 
 ///|
 fn font_test_budget() -> @budget.Budget {
+  font_test_budget_with(4096UL, 16384UL)
+}
+
+///|
+fn font_test_budget_with(bytes : UInt64, work : UInt64) -> @budget.Budget {
   @budget.Budget::new(
     @budget.ResourceLimits::new(
-      bytes=4096UL,
+      bytes~,
       allocations=0UL,
       allocation_size=0UL,
       width=0UL,
       height=0UL,
       pixels=0UL,
       depth=0UL,
-      work=16384UL,
+      work~,
     ),
   )
 }
@@ -767,6 +847,267 @@ test "horizontal metric queries are repeatable and order independent" {
   inspect(tail_second.left_side_bearing(), content="-40")
   inspect(tail_first.right_side_bearing(), content="590")
   inspect(tail_second.right_side_bearing(), content="590")
+}
+
+///|
+test "long loca and full hmtx preserve identical glyph semantics" {
+  let long_owner = font_test_owner(font_test_long_loca_metric_truetype())
+  let long_font = Font::open(
+    long_owner.view(),
+    font_test_limits(),
+    font_test_budget(),
+  ).unwrap()
+  let long_tail = long_font.horizontal_metrics(
+    long_font.glyph_id(2UL).unwrap(),
+  ).unwrap()
+  inspect(long_tail.advance_width(), content="600")
+  inspect(long_tail.left_side_bearing(), content="-40")
+  inspect(long_tail.right_side_bearing(), content="590")
+
+  let full_owner = font_test_owner(font_test_full_hmtx_truetype())
+  let full_font = Font::open(
+    full_owner.view(),
+    font_test_limits(),
+    font_test_budget(),
+  ).unwrap()
+  let full = full_font.horizontal_metrics(
+    full_font.glyph_id(2UL).unwrap(),
+  ).unwrap()
+  inspect(full.advance_width(), content="700")
+  inspect(full.left_side_bearing(), content="-40")
+  inspect(full.right_side_bearing(), content="690")
+}
+
+///|
+test "metric cardinality and location hostility fail before Font publication" {
+  let valid_hmtx = b"\x01\xf4\xff\xec\x02\x58\x00\x1e\xff\xd8"
+  let valid_loca = b"\x00\x00\x00\x05\x00\x05\x00\x0a"
+  let valid_glyf = font_test_metric_glyf_table()
+  let cases : Array[Bytes] = [
+    font_test_build_metric_truetype(
+      loca_format=0, number_of_h_metrics=0UL, hmtx=valid_hmtx,
+      loca=valid_loca, glyf=valid_glyf,
+    ),
+    font_test_build_metric_truetype(
+      loca_format=0, number_of_h_metrics=4UL, hmtx=valid_hmtx,
+      loca=valid_loca, glyf=valid_glyf,
+    ),
+    font_test_build_metric_truetype(
+      loca_format=0, number_of_h_metrics=2UL,
+      hmtx=b"\x01\xf4\xff\xec\x02\x58\x00\x1e\xff",
+      loca=valid_loca, glyf=valid_glyf,
+    ),
+    font_test_build_metric_truetype(
+      loca_format=0, number_of_h_metrics=2UL,
+      hmtx=b"\x01\xf4\xff\xec\x02\x58\x00\x1e\xff\xd8\x00",
+      loca=valid_loca, glyf=valid_glyf,
+    ),
+    font_test_build_metric_truetype(
+      loca_format=0, number_of_h_metrics=2UL, hmtx=valid_hmtx,
+      loca=b"\x00\x00\x00\x05\x00\x05", glyf=valid_glyf,
+    ),
+    font_test_build_metric_truetype(
+      loca_format=0, number_of_h_metrics=2UL, hmtx=valid_hmtx,
+      loca=b"\x00\x00\x00\x05\x00\x04\x00\x0a", glyf=valid_glyf,
+    ),
+    font_test_build_metric_truetype(
+      loca_format=0, number_of_h_metrics=2UL, hmtx=valid_hmtx,
+      loca=b"\x00\x00\x00\x05\x00\x05\x00\x0b", glyf=valid_glyf,
+    ),
+    font_test_build_metric_truetype(
+      loca_format=1, number_of_h_metrics=2UL, hmtx=valid_hmtx,
+      loca=b"\x00\x00\x00\x00\x00\x00\x00\x09\x00\x00\x00\x09\x00\x00\x00\x09",
+      glyf=b"\x00\x01\x00\x00\x00\x00\x00\x00\x00",
+    ),
+  ]
+  for source in cases {
+    inspect(
+      Font::open(
+        font_test_owner(source).view(),
+        font_test_limits(),
+        font_test_budget(),
+      ) is Err(_),
+      content="true",
+    )
+  }
+}
+
+///|
+test "glyph and work ceilings admit exact values and reject one short atomically" {
+  let source = font_test_horizontal_metric_truetype()
+  let source_length = source.length().to_uint64()
+  let exact_work = source_length * 2UL + 10UL
+  let exact_limits = FontLimits::new(
+    max_source_bytes=source_length,
+    max_tables=10UL,
+    max_table_bytes=source_length,
+    max_glyphs=3UL,
+    max_name_records=1UL,
+    max_cmap_records=1UL,
+    max_post_name_bytes=32UL,
+    max_work=exact_work,
+  ).unwrap()
+  let exact_budget = font_test_budget_with(source_length, exact_work)
+  ignore(
+    Font::open(
+      font_test_owner(source).view(),
+      exact_limits,
+      exact_budget,
+    ).unwrap(),
+  )
+  inspect(exact_budget.remaining().bytes(), content="0")
+  inspect(exact_budget.remaining().work(), content="0")
+
+  let glyph_limits = FontLimits::new(
+    max_source_bytes=source_length,
+    max_tables=10UL,
+    max_table_bytes=source_length,
+    max_glyphs=2UL,
+    max_name_records=1UL,
+    max_cmap_records=1UL,
+    max_post_name_bytes=32UL,
+    max_work=exact_work,
+  ).unwrap()
+  let glyph_error = Font::open(
+    font_test_owner(source).view(),
+    glyph_limits,
+    font_test_budget_with(source_length, exact_work),
+  ).unwrap_err()
+  inspect(glyph_error.category() == @error.ErrorCategory::Resource, content="true")
+  inspect(glyph_error.context() == Some("max-glyphs"), content="true")
+  inspect(glyph_error.requested() == Some(3UL), content="true")
+  inspect(glyph_error.limit() == Some(2UL), content="true")
+
+  let narrow_budget = font_test_budget_with(source_length, exact_work - 1UL)
+  let before = narrow_budget.remaining()
+  let budget_error = Font::open(
+    font_test_owner(source).view(),
+    exact_limits,
+    narrow_budget,
+  ).unwrap_err()
+  inspect(budget_error.category() == @error.ErrorCategory::Resource, content="true")
+  inspect(budget_error.context() == Some("work"), content="true")
+  let after = narrow_budget.remaining()
+  inspect(after.bytes() == before.bytes(), content="true")
+  inspect(after.work() == before.work(), content="true")
+}
+
+///|
+fn font_test_read_u16(source : Bytes, offset : Int) -> UInt64 {
+  (source[offset].to_uint64() << 8) | source[offset + 1].to_uint64()
+}
+
+///|
+fn font_test_read_u32(source : Bytes, offset : Int) -> UInt64 {
+  (source[offset].to_uint64() << 24) |
+  (source[offset + 1].to_uint64() << 16) |
+  (source[offset + 2].to_uint64() << 8) |
+  source[offset + 3].to_uint64()
+}
+
+///|
+fn font_test_table_offset(source : Bytes, tag : Bytes) -> UInt64 {
+  let count = font_test_read_u16(source, 4).to_int()
+  for index = 0; index < count; index = index + 1 {
+    let record = 12 + index * 16
+    if source[record] == tag[0] &&
+      source[record + 1] == tag[1] &&
+      source[record + 2] == tag[2] &&
+      source[record + 3] == tag[3] {
+      return font_test_read_u32(source, record + 8)
+    }
+  }
+  0UL
+}
+
+///|
+fn font_test_assert_every_query_drift(font : Font, glyph : GlyphId) -> Unit raise {
+  font_test_assert_revision_drift(font.units_per_em().unwrap_err())
+  font_test_assert_revision_drift(font.global_bounds().unwrap_err())
+  font_test_assert_revision_drift(font.hhea_line_metrics().unwrap_err())
+  font_test_assert_revision_drift(font.typographic_line_metrics().unwrap_err())
+  font_test_assert_revision_drift(font.glyph_id(0UL).unwrap_err())
+  font_test_assert_revision_drift(font.horizontal_metrics(glyph).unwrap_err())
+}
+
+///|
+test "required optional glyph unread and mutate-back changes invalidate every query" {
+  let source = font_test_build_metric_truetype(
+    loca_format=0,
+    number_of_h_metrics=2UL,
+    hmtx=b"\x01\xf4\xff\xec\x02\x58\x00\x1e\xff\xd8",
+    loca=b"\x00\x00\x00\x05\x00\x05\x00\x0a",
+    glyf=font_test_metric_glyf_table(),
+    optional_table=true,
+  )
+  for tag in [b"head", b"zzzz", b"glyf", b"name"] {
+    let owner = font_test_owner(source)
+    let font = Font::open(
+      owner.view(),
+      font_test_limits(),
+      font_test_budget(),
+    ).unwrap()
+    let glyph = font.glyph_id(0UL).unwrap()
+    let offset = font_test_table_offset(source, tag)
+    let original = owner.view().get(offset).unwrap()
+    font_test_mutate_bytes(
+      owner,
+      offset,
+      Bytes::from_array([(original.to_uint64() ^ 1UL).to_byte()]),
+    )
+    font_test_assert_every_query_drift(font, glyph)
+  }
+
+  let restored_owner = font_test_owner(source)
+  let restored = Font::open(
+    restored_owner.view(),
+    font_test_limits(),
+    font_test_budget(),
+  ).unwrap()
+  let glyph = restored.glyph_id(0UL).unwrap()
+  let offset = font_test_table_offset(source, b"glyf")
+  let original = restored_owner.view().get(offset).unwrap()
+  font_test_mutate_bytes(restored_owner, offset, b"\xff")
+  font_test_mutate_bytes(
+    restored_owner,
+    offset,
+    Bytes::from_array([original]),
+  )
+  font_test_assert_every_query_drift(restored, glyph)
+}
+
+///|
+test "interleaved independent fonts retain isolated deterministic metrics" {
+  let short_owner = font_test_owner(font_test_horizontal_metric_truetype())
+  let short_font = Font::open(
+    short_owner.view(),
+    font_test_limits(),
+    font_test_budget(),
+  ).unwrap()
+  let long_owner = font_test_owner(font_test_full_hmtx_truetype())
+  let long_font = Font::open(
+    long_owner.view(),
+    font_test_limits(),
+    font_test_budget(),
+  ).unwrap()
+  let short_id = short_font.glyph_id(2UL).unwrap()
+  let long_id = long_font.glyph_id(2UL).unwrap()
+  inspect(
+    short_font.horizontal_metrics(short_id).unwrap().advance_width(),
+    content="600",
+  )
+  inspect(
+    long_font.horizontal_metrics(long_id).unwrap().advance_width(),
+    content="700",
+  )
+  inspect(
+    short_font.horizontal_metrics(short_id).unwrap().advance_width(),
+    content="600",
+  )
+  inspect(
+    long_font.horizontal_metrics(long_id).unwrap().advance_width(),
+    content="700",
+  )
 }
 
 ///|

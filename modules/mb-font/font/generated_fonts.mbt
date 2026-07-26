@@ -499,31 +499,72 @@ fn generated_minimal_truetype() -> Bytes {
 
 ///|
 fn generated_horizontal_metric_truetype() -> Bytes {
-  let head = font_wb_bytes_array(generated_head_table())
-  generated_put_i16_at(head, 50, 0)
-  let hhea = font_wb_bytes_array(generated_hhea_table())
-  generated_put_u16_at(hhea, 34, 2UL)
-  let maxp = font_wb_bytes_array(generated_maxp_table())
-  generated_put_u16_at(maxp, 4, 3UL)
+  font_wb_metric_truetype(
+    loca_format=0,
+    number_of_h_metrics=2UL,
+    hmtx=b"\x01\xf4\xff\xec\x02\x58\x00\x1e\xff\xd8",
+    loca=b"\x00\x00\x00\x05\x00\x05\x00\x0a",
+    glyf=generated_metric_glyf(),
+  )
+}
+
+///|
+fn generated_metric_glyf() -> Bytes {
   let glyf : Array[Byte] = []
   for value in [1, -10, -20, 100, 200, 1, 5, -6, 55, 70] {
     generated_put_i16(glyf, value)
   }
+  Bytes::from_array(glyf)
+}
+
+///|
+fn font_wb_metric_truetype(
+  loca_format~ : Int,
+  number_of_h_metrics~ : UInt64,
+  hmtx~ : Bytes,
+  loca~ : Bytes,
+  glyf~ : Bytes,
+) -> Bytes {
+  let head = font_wb_bytes_array(generated_head_table())
+  generated_put_i16_at(head, 50, loca_format)
+  let hhea = font_wb_bytes_array(generated_hhea_table())
+  generated_put_u16_at(hhea, 34, number_of_h_metrics)
+  let maxp = font_wb_bytes_array(generated_maxp_table())
+  generated_put_u16_at(maxp, 4, 3UL)
   font_wb_build_sfnt([
     font_wb_table(b"OS/2", generated_os2_table()),
     font_wb_table(b"cmap", generated_cmap_table()),
-    font_wb_table(b"glyf", Bytes::from_array(glyf)),
+    font_wb_table(b"glyf", glyf),
     font_wb_table(b"head", Bytes::from_array(head)),
     font_wb_table(b"hhea", Bytes::from_array(hhea)),
-    font_wb_table(
-      b"hmtx",
-      b"\x01\xf4\xff\xec\x02\x58\x00\x1e\xff\xd8",
-    ),
-    font_wb_table(b"loca", b"\x00\x00\x00\x05\x00\x05\x00\x0a"),
+    font_wb_table(b"hmtx", hmtx),
+    font_wb_table(b"loca", loca),
     font_wb_table(b"maxp", Bytes::from_array(maxp)),
     font_wb_table(b"name", b"\x00\x00\x00\x00\x00\x06"),
     font_wb_table(b"post", generated_post_table()),
   ])
+}
+
+///|
+fn generated_long_loca_metric_truetype() -> Bytes {
+  font_wb_metric_truetype(
+    loca_format=1,
+    number_of_h_metrics=2UL,
+    hmtx=b"\x01\xf4\xff\xec\x02\x58\x00\x1e\xff\xd8",
+    loca=b"\x00\x00\x00\x00\x00\x00\x00\x0a\x00\x00\x00\x0a\x00\x00\x00\x14",
+    glyf=generated_metric_glyf(),
+  )
+}
+
+///|
+fn generated_short_glyph_header_truetype() -> Bytes {
+  font_wb_metric_truetype(
+    loca_format=1,
+    number_of_h_metrics=2UL,
+    hmtx=b"\x01\xf4\xff\xec\x02\x58\x00\x1e\xff\xd8",
+    loca=b"\x00\x00\x00\x00\x00\x00\x00\x09\x00\x00\x00\x09\x00\x00\x00\x09",
+    glyf=b"\x00\x01\x00\x00\x00\x00\x00\x00\x00",
+  )
 }
 
 ///|
