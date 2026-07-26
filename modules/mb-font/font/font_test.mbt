@@ -2,7 +2,7 @@
 fn assert_invalid_font_limit(
   result : Result[FontLimits, @error.CoreError],
   context : String,
-) -> Unit {
+) -> Unit raise {
   let error = result.unwrap_err()
   inspect(
     error.category() == @error.ErrorCategory::InvalidInput,
