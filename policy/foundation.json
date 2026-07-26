@@ -277,6 +277,7 @@
             "pub fn Budget::current_depth(Self) -> UInt64",
             "pub fn Budget::enter_depth(Self) -> Result[BudgetScope, @error.CoreError]",
             "pub fn Budget::new(ResourceLimits) -> Self",
+            "pub fn Budget::preflight(Self, ResourceCharge) -> Result[Unit, @error.CoreError]",
             "pub fn Budget::remaining(Self) -> ResourceLimits",
             "pub struct BudgetScope {",
             "}",

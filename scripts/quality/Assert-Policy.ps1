@@ -973,6 +973,18 @@ function Assert-QoiQualificationNegativeFixtures {
   Write-Host 'QOI package, import, target, interface, source-order, and content negatives fail closed.'
 }
 
+function Assert-FontDeferredCapabilitySurface {
+  [CmdletBinding()]
+  param([Parameter(Mandatory)][string[]]$InterfaceLines)
+
+  $deferredLines = @(
+    $InterfaceLines |
+      ForEach-Object { ([string]$_) -creplace '\bmax_cmap_records\b', '' }
+  )
+  $deferredLeakPattern = '(?i)(\bcmap\b|\bkern(?:ing)?\b|\boutline\b|\bPath2\b|\bfilesystem\b|\bffi\b|\bhost(?:_discovery)?\b|\bshap(?:e|ing)\b|\bhint(?:ing)?\b|\braster(?:ize|ization)?\b)'
+  Assert-Condition (@($deferredLines | Where-Object { $_ -cmatch $deferredLeakPattern }).Count -eq 0) 'Font semantic interface exposes a deferred Phase 98+ capability.'
+}
+
 function Assert-FontFoundationPolicy {
   [CmdletBinding()]
   param([Parameter(Mandatory)][string]$PolicyPath)
@@ -1050,9 +1062,23 @@ function Assert-FontFoundationPolicy {
   $interfaceText = @($font.semantic_interface | ForEach-Object { [string]$_ })
   $privateLeakPattern = '(?i)(Cursor|TableWindow|TableRecord|DirectoryFacts|RequiredTableFacts|MetricIndexFacts|SfntTag|RawOffset|WindowDescriptor|source_offset)'
   Assert-Condition (@($interfaceText | Where-Object { $_ -cmatch $privateLeakPattern }).Count -eq 0) 'Font semantic interface leaks a private cursor, table, tag, offset, or window descriptor.'
-  $deferredLines = @($interfaceText | Where-Object { $_ -cnotmatch '^pub fn FontLimits::(?:max_cmap_records|new)' })
-  $deferredLeakPattern = '(?i)(\bcmap\b|\bkern(?:ing)?\b|\boutline\b|\bPath2\b|\bfilesystem\b|\bffi\b|\bhost(?:_discovery)?\b|\bshap(?:e|ing)\b|\bhint(?:ing)?\b|\braster(?:ize|ization)?\b)'
-  Assert-Condition (@($deferredLines | Where-Object { $_ -cmatch $deferredLeakPattern }).Count -eq 0) 'Font semantic interface exposes a deferred Phase 98+ capability.'
+  Assert-FontDeferredCapabilitySurface -InterfaceLines $interfaceText
+  $forbiddenConstructor = @(
+    $interfaceText | ForEach-Object {
+      if ($_ -cmatch '^pub fn FontLimits::new') {
+        $_.Replace('max_work~ : UInt64)', 'max_work~ : UInt64, outline~ : Bool)')
+      } else {
+        $_
+      }
+    }
+  )
+  $negativeFailure = $null
+  try {
+    Assert-FontDeferredCapabilitySurface -InterfaceLines $forbiddenConstructor
+  } catch {
+    $negativeFailure = $_.Exception.Message
+  }
+  Assert-Condition ($null -ne $negativeFailure -and $negativeFailure -cmatch 'deferred Phase 98[+] capability') 'Font deferred-capability selector accepted a forbidden constructor parameter.'
 
   & moon -C modules/mb-font info --target all --frozen
   if ($LASTEXITCODE -ne 0) { throw "Font interface generation failed (exit $LASTEXITCODE)." }
