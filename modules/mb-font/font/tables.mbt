@@ -830,16 +830,24 @@ fn font_admit_name_envelope(
   let mut index = 0UL
   while index < record_count {
     let record = 6UL + index * 12UL
+    let platform_id = match read_u16(table.view, record) {
+      Err(error) => return Err(error)
+      Ok(value) => value
+    }
     let language_id = match read_u16(table.view, record + 4UL) {
       Err(error) => return Err(error)
       Ok(value) => value
     }
     if language_id >= 0x8000UL {
-      let language_index = match @checked.checked_sub(language_id, 0x8000UL) {
-        Err(error) => return Err(error)
-        Ok(value) => value
-      }
-      if format == 0UL || language_index >= language_count {
+      if format == 1UL {
+        let language_index = match @checked.checked_sub(language_id, 0x8000UL) {
+          Err(error) => return Err(error)
+          Ok(value) => value
+        }
+        if language_index >= language_count {
+          return Err(font_data_error("font-name-envelope"))
+        }
+      } else if platform_id < 240UL || platform_id > 255UL {
         return Err(font_data_error("font-name-envelope"))
       }
     }

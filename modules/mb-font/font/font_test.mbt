@@ -1347,6 +1347,38 @@ test "name language tags and post name references require exact envelopes" {
 }
 
 ///|
+test "format-0 user-defined name languages preserve the platform domain" {
+  let valid_user_name0 = b"\x00\x00\x00\x01\x00\x12\x00\xf0\x00\x00\x80\x00\x00\x01\x00\x01\x00\x00A"
+  let invalid_registered_name0 = b"\x00\x00\x00\x01\x00\x12\x00\x03\x00\x01\x80\x00\x00\x01\x00\x01\x00\x00A"
+  inspect(
+    Font::open(
+      font_test_owner(
+        font_test_truetype_with_metadata(
+          valid_user_name0,
+          font_test_post_table(),
+        ),
+      ).view(),
+      font_test_limits(),
+      font_test_budget(),
+    )
+    is Ok(_),
+    content="true",
+  )
+  let error = Font::open(
+    font_test_owner(
+      font_test_truetype_with_metadata(
+        invalid_registered_name0,
+        font_test_post_table(),
+      ),
+    ).view(),
+    font_test_limits(),
+    font_test_budget(),
+  ).unwrap_err()
+  inspect(error.category() == @error.ErrorCategory::Data, content="true")
+  inspect(error.context() == Some("font-name-envelope"), content="true")
+}
+
+///|
 fn font_test_read_u16(source : Bytes, offset : Int) -> UInt64 {
   (source[offset].to_uint64() << 8) | source[offset + 1].to_uint64()
 }
