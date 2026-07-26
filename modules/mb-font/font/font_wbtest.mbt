@@ -197,3 +197,57 @@ test "font directory rejects excluded container signatures distinctly" {
   inspect(error.category() == @error.ErrorCategory::Data, content="true")
   inspect(error.code() == @error.ErrorCode::InvalidEncoding, content="true")
 }
+
+///|
+test "font required table matrix enforces structural cardinalities" {
+  let source = generated_minimal_truetype()
+  let directory = font_parse_directory(
+    font_wb_view(source),
+    font_wb_limits(),
+  ).unwrap()
+  font_validate_checksums(directory).unwrap()
+  let tables = font_admit_required_tables(directory, font_wb_limits()).unwrap()
+  inspect(tables.head.units_per_em, content="1000")
+  inspect(tables.maxp.num_glyphs, content="1")
+  inspect(tables.hhea.number_of_h_metrics, content="1")
+  inspect(tables.os2.typo_ascent, content="0")
+  inspect(tables.cmap.record_count, content="1")
+  inspect(tables.name.record_count, content="0")
+  inspect(tables.post.version, content="196608")
+  let index = font_admit_metric_index(
+    directory,
+    tables.head,
+    tables.maxp,
+    tables.hhea,
+  ).unwrap()
+  inspect(index.loca_offsets.length(), content="2")
+  inspect(index.loca_offsets[0], content="0")
+  inspect(index.loca_offsets[1], content="0")
+
+  inspect(font_hmtx_required_length(1UL, 1UL).unwrap(), content="4")
+  inspect(font_hmtx_required_length(3UL, 1UL).unwrap(), content="8")
+  inspect(font_hmtx_required_length(3UL, 3UL).unwrap(), content="12")
+  inspect(font_hmtx_required_length(1UL, 0UL) is Err(_), content="true")
+  inspect(font_hmtx_required_length(1UL, 2UL) is Err(_), content="true")
+  inspect(font_loca_required_length(1UL, 0).unwrap(), content="4")
+  inspect(font_loca_required_length(1UL, 1).unwrap(), content="8")
+  inspect(font_loca_required_length(1UL, 2) is Err(_), content="true")
+
+  for
+    tag in [
+      b"OS/2", b"cmap", b"glyf", b"head", b"hhea", b"hmtx", b"loca", b"maxp", b"name",
+      b"post",
+    ] {
+    let missing = font_wb_build_sfnt(font_wb_without_table(tag))
+    let missing_directory = font_parse_directory(
+      font_wb_view(missing),
+      font_wb_limits(),
+    ).unwrap()
+    font_validate_checksums(missing_directory).unwrap()
+    inspect(
+      font_admit_required_tables(missing_directory, font_wb_limits())
+      is Err(_),
+      content="true",
+    )
+  }
+}
