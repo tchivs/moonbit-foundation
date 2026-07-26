@@ -211,9 +211,19 @@ fn font_admission_charge(
   if work > limits.max_work() {
     return Err(font_limit_error("max-work", work, limits.max_work()))
   }
-  let allocation_size = match @checked.checked_mul(loca_entries, 8UL) {
+  let loca_allocation_size = match @checked.checked_mul(loca_entries, 8UL) {
     Err(error) => return Err(error)
     Ok(value) => value
+  }
+  let directory_allocation_size = match
+    font_directory_allocation_size(directory.tables.length().to_uint64()) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  let allocation_size = if directory_allocation_size > loca_allocation_size {
+    directory_allocation_size
+  } else {
+    loca_allocation_size
   }
   Ok(
     @budget.ResourceCharge::new(

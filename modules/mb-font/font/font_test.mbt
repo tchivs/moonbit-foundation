@@ -974,7 +974,10 @@ test "metric cardinality and location hostility fail before Font publication" {
 test "glyph and work ceilings admit exact values and reject one short atomically" {
   let source = font_test_horizontal_metric_truetype()
   let source_length = source.length().to_uint64()
-  let exact_work = source_length * 2UL + 18UL
+  let table_count = font_test_read_u16(source, 4)
+  let overlap_work = table_count * (table_count - 1UL) / 2UL
+  let exact_work = source_length * 2UL + overlap_work + 18UL
+  let directory_allocation_size = table_count * 64UL
   let exact_limits = FontLimits::new(
     max_source_bytes=source_length,
     max_tables=10UL,
@@ -988,7 +991,7 @@ test "glyph and work ceilings admit exact values and reject one short atomically
   let exact_budget = font_test_budget_with_dimensions(
     source_length,
     allocations=3UL,
-    allocation_size=32UL,
+    allocation_size=directory_allocation_size,
     exact_work,
   )
   ignore(
@@ -1040,7 +1043,7 @@ test "glyph and work ceilings admit exact values and reject one short atomically
   let allocation_budget = font_test_budget_with_dimensions(
     source_length,
     allocations=2UL,
-    allocation_size=32UL,
+    allocation_size=directory_allocation_size,
     exact_work,
   )
   let allocation_before = allocation_budget.remaining()
@@ -1059,7 +1062,7 @@ test "glyph and work ceilings admit exact values and reject one short atomically
   let size_budget = font_test_budget_with_dimensions(
     source_length,
     allocations=3UL,
-    allocation_size=31UL,
+    allocation_size=directory_allocation_size - 1UL,
     exact_work,
   )
   let size_before = size_budget.remaining()
@@ -1071,6 +1074,31 @@ test "glyph and work ceilings admit exact values and reject one short atomically
   inspect(size_error.context() == Some("allocation_size"), content="true")
   inspect(
     size_budget.remaining().allocation_size() == size_before.allocation_size(),
+    content="true",
+  )
+}
+
+///|
+test "many directory records set the retained allocation-size ceiling" {
+  let source = font_test_minimal_truetype()
+  let source_length = source.length().to_uint64()
+  let table_count = font_test_read_u16(source, 4)
+  inspect(table_count, content="10")
+  let budget = font_test_budget_with_dimensions(
+    source_length,
+    allocations=3UL,
+    allocation_size=table_count * 64UL - 1UL,
+    16384UL,
+  )
+  let before = budget.remaining()
+  let error = Font::open(
+    font_test_owner(source).view(),
+    font_test_limits(),
+    budget,
+  ).unwrap_err()
+  inspect(error.context() == Some("allocation_size"), content="true")
+  inspect(
+    budget.remaining().allocation_size() == before.allocation_size(),
     content="true",
   )
 }

@@ -115,6 +115,51 @@ fn font_directory_end(num_tables : UInt64) -> Result[UInt64, @error.CoreError] {
 }
 
 ///|
+fn font_directory_overlap_work(
+  num_tables : UInt64,
+) -> Result[UInt64, @error.CoreError] {
+  let earlier_tables = match @checked.checked_sub(num_tables, 1UL) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  let ordered_pairs = match @checked.checked_mul(num_tables, earlier_tables) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  Ok(ordered_pairs / 2UL)
+}
+
+///|
+fn font_directory_work(
+  source_length : UInt64,
+  num_tables : UInt64,
+) -> Result[UInt64, @error.CoreError] {
+  let checksum_work = match @checked.checked_mul(source_length, 2UL) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  let overlap_work = match font_directory_overlap_work(num_tables) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  let record_work = match @checked.checked_add(num_tables, overlap_work) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  @checked.checked_add(checksum_work, record_work)
+}
+
+///|
+fn font_directory_allocation_size(
+  num_tables : UInt64,
+) -> Result[UInt64, @error.CoreError] {
+  // Both retained directory representations contain four UInt64 facts plus a
+  // ByteView (backing, start, length, revision). Eight 64-bit accounting slots
+  // per entry are a stable, conservative portable budget model.
+  @checked.checked_mul(num_tables, 64UL)
+}
+
+///|
 fn font_directory_discovery_charge(
   source : @bytes.ByteView,
   limits : FontLimits,
@@ -172,11 +217,11 @@ fn font_directory_discovery_charge(
       ),
     )
   }
-  let checksum_work = match @checked.checked_mul(source.length(), 2UL) {
+  let work = match font_directory_work(source.length(), num_tables) {
     Err(error) => return Err(error)
     Ok(value) => value
   }
-  let work = match @checked.checked_add(checksum_work, num_tables) {
+  let allocation_size = match font_directory_allocation_size(num_tables) {
     Err(error) => return Err(error)
     Ok(value) => value
   }
@@ -187,7 +232,7 @@ fn font_directory_discovery_charge(
     @budget.ResourceCharge::new(
       bytes=source.length(),
       allocations=2UL,
-      allocation_size=0UL,
+      allocation_size~,
       width=0UL,
       height=0UL,
       pixels=0UL,
@@ -479,11 +524,7 @@ fn parse_font_directory(
       Ok(value) => value
     }
   }
-  let checksum_work = match @checked.checked_mul(source.length(), 2UL) {
-    Err(error) => return Err(error)
-    Ok(value) => value
-  }
-  let work = match @checked.checked_add(checksum_work, num_tables) {
+  let work = match font_directory_work(source.length(), num_tables) {
     Err(error) => return Err(error)
     Ok(value) => value
   }
