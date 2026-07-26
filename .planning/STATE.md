@@ -5,15 +5,15 @@ milestone_name: TrueType Font Foundation
 current_phase: 97
 current_phase_name: Font Admission and Metrics
 status: executing
-stopped_at: Completed 97-01-PLAN.md
-last_updated: "2026-07-26T09:09:02.633Z"
+stopped_at: Completed 97-02-PLAN.md
+last_updated: "2026-07-26T09:59:40.207Z"
 last_activity: 2026-07-26
 last_activity_desc: Phase 97 execution started
 progress:
   total_phases: 1
   completed_phases: 0
   total_plans: 3
-  completed_plans: 1
+  completed_plans: 2
 ---
 
 # Project State
@@ -29,11 +29,11 @@ See `.planning/PROJECT.md`.
 ## Current Position
 
 Phase: 97 (Font Admission and Metrics) — EXECUTING
-Plan: 2 of 3
+Plan: 3 of 3
 Status: Ready to execute
 Last activity: 2026-07-26 — Phase 97 execution started
 
-Progress: [███░░░░░░░] 33%
+Progress: [███████░░░] 67%
 
 ## Milestone Metrics
 
@@ -52,6 +52,9 @@ Progress: [███░░░░░░░] 33%
 - [Phase 97]: Font retains the caller ByteView and gates every query on the opening revision.
 - [Phase 97]: Admission uses table-local ByteViews and atomically charges bytes plus work before checksum scans.
 - [Phase 97]: Unsupported font profiles are capability failures while malformed admitted TrueType bytes are data failures.
+- [Phase 97]: Font retains private directory, required-table, and metric-index state without exposing raw parser facts.
+- [Phase 97]: Required-table presence is checked without payload decoding before checksums to preserve the stable missing-table error contract.
+- [Phase 97]: Head bounds, hhea metrics, and OS/2 typographic metrics remain separate signed integer values with no implicit selector.
 
 ### Pending Todos
 
@@ -72,8 +75,8 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-07-26T09:09:02.615Z
-Stopped at: Completed 97-01-PLAN.md
+Last session: 2026-07-26T09:59:40.195Z
+Stopped at: Completed 97-02-PLAN.md
 Resume file: None
 
 ## Operator Next Steps
@@ -94,3 +97,4 @@ No v0.32 plans have been completed.
 | Plan | Duration | Tasks | Files |
 |------|----------|-------|-------|
 | Phase 97 P01 | 39m | 3 tasks | 11 files |
+| Phase 97 P02 | 40m | 3 tasks | 7 files |
