@@ -476,6 +476,29 @@ fn font_test_mutate_u32(
 }
 
 ///|
+fn font_test_view_bytes(source : @bytes.ByteView) -> Bytes raise {
+  let output : Array[Byte] = []
+  let mut offset = 0UL
+  while offset < source.length() {
+    output.push(source.get(offset).unwrap())
+    offset = offset + 1UL
+  }
+  Bytes::from_array(output)
+}
+
+///|
+fn font_test_recompute_adjustment(
+  owner : @bytes.OwnedBytes,
+) -> Unit raise {
+  font_test_mutate_u32(owner, 296UL, 0UL)
+  let adjustment = (
+    0xB1B0AFBAUL - font_test_checksum(font_test_view_bytes(owner.view()))
+  ) &
+    0xFFFFFFFFUL
+  font_test_mutate_u32(owner, 296UL, adjustment)
+}
+
+///|
 fn font_test_assert_revision_drift(error : @error.CoreError) -> Unit raise {
   inspect(error.category() == @error.ErrorCategory::State, content="true")
   inspect(error.code() == @error.ErrorCode::InvalidRange, content="true")
@@ -547,6 +570,136 @@ test "directory table escape and missing head publish no Font" {
     missing_error.context() == Some("font-required-table"),
     content="true",
   )
+}
+
+///|
+test "head length magic and font adjustment fail at stable semantic gates" {
+  let short_head = font_test_owner(font_test_minimal_truetype())
+  font_test_mutate_u32(short_head, 64UL, 0UL)
+  font_test_mutate_u32(short_head, 72UL, 0UL)
+  font_test_recompute_adjustment(short_head)
+  let length_error = Font::open(
+    short_head.view(),
+    font_test_limits(),
+    font_test_budget(),
+  ).unwrap_err()
+  inspect(length_error.category() == @error.ErrorCategory::Data, content="true")
+  inspect(length_error.code() == @error.ErrorCode::InvalidEncoding, content="true")
+  inspect(length_error.context() == Some("font-head-length"), content="true")
+
+  let bad_magic = font_test_owner(font_test_minimal_truetype())
+  font_test_mutate_bytes(bad_magic, 300UL, b"\x00")
+  font_test_mutate_u32(bad_magic, 296UL, 0UL)
+  let head = bad_magic.view().subview(288UL, 54UL).unwrap()
+  font_test_mutate_u32(
+    bad_magic,
+    64UL,
+    font_test_checksum(font_test_view_bytes(head)),
+  )
+  font_test_recompute_adjustment(bad_magic)
+  let magic_error = Font::open(
+    bad_magic.view(),
+    font_test_limits(),
+    font_test_budget(),
+  ).unwrap_err()
+  inspect(magic_error.category() == @error.ErrorCategory::Data, content="true")
+  inspect(magic_error.code() == @error.ErrorCode::InvalidEncoding, content="true")
+  inspect(magic_error.context() == Some("font-head-magic"), content="true")
+
+  let bad_adjustment = font_test_owner(font_test_minimal_truetype())
+  let original_adjustment_byte = bad_adjustment.view().get(296UL).unwrap()
+  font_test_mutate_bytes(
+    bad_adjustment,
+    296UL,
+    Bytes::from_array([(original_adjustment_byte.to_uint64() ^ 1UL).to_byte()]),
+  )
+  let adjustment_error = Font::open(
+    bad_adjustment.view(),
+    font_test_limits(),
+    font_test_budget(),
+  ).unwrap_err()
+  inspect(
+    adjustment_error.category() == @error.ErrorCategory::Data,
+    content="true",
+  )
+  inspect(
+    adjustment_error.code() == @error.ErrorCode::InvalidEncoding,
+    content="true",
+  )
+  inspect(
+    adjustment_error.context() == Some("font-checksum-adjustment"),
+    content="true",
+  )
+}
+
+///|
+test "semantic source ceiling and atomic budget charge reject before publication" {
+  let source = font_test_minimal_truetype()
+  let length = source.length().to_uint64()
+  let semantic_budget = font_test_budget()
+  let semantic_before = semantic_budget.remaining()
+  let semantic_limits = FontLimits::new(
+    max_source_bytes=length - 1UL,
+    max_tables=32UL,
+    max_table_bytes=1024UL,
+    max_glyphs=16UL,
+    max_name_records=16UL,
+    max_cmap_records=16UL,
+    max_post_name_bytes=256UL,
+    max_work=16384UL,
+  ).unwrap()
+  let semantic_error = Font::open(
+    font_test_owner(source).view(),
+    semantic_limits,
+    semantic_budget,
+  ).unwrap_err()
+  inspect(
+    semantic_error.category() == @error.ErrorCategory::Resource,
+    content="true",
+  )
+  inspect(
+    semantic_error.code() == @error.ErrorCode::BudgetExceeded,
+    content="true",
+  )
+  inspect(
+    semantic_error.context() == Some("max-source-bytes"),
+    content="true",
+  )
+  let semantic_after = semantic_budget.remaining()
+  inspect(semantic_after.bytes() == semantic_before.bytes(), content="true")
+  inspect(semantic_after.work() == semantic_before.work(), content="true")
+
+  let narrow_budget = @budget.Budget::new(
+    @budget.ResourceLimits::new(
+      bytes=length - 1UL,
+      allocations=0UL,
+      allocation_size=0UL,
+      width=0UL,
+      height=0UL,
+      pixels=0UL,
+      depth=0UL,
+      work=16384UL,
+    ),
+  )
+  let narrow_before = narrow_budget.remaining()
+  let budget_error = Font::open(
+    font_test_owner(source).view(),
+    font_test_limits(),
+    narrow_budget,
+  ).unwrap_err()
+  inspect(
+    budget_error.category() == @error.ErrorCategory::Resource,
+    content="true",
+  )
+  inspect(
+    budget_error.code() == @error.ErrorCode::BudgetExceeded,
+    content="true",
+  )
+  inspect(budget_error.operation() == Some("budget_charge"), content="true")
+  inspect(budget_error.context() == Some("bytes"), content="true")
+  let narrow_after = narrow_budget.remaining()
+  inspect(narrow_after.bytes() == narrow_before.bytes(), content="true")
+  inspect(narrow_after.work() == narrow_before.work(), content="true")
 }
 
 ///|

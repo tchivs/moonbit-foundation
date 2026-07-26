@@ -9,6 +9,7 @@ priv struct FontTableRecord {
 
 ///|
 priv struct FontDirectory {
+  source : @bytes.ByteView
   records : Array[FontTableRecord]
   work : UInt64
 }
@@ -89,6 +90,45 @@ fn font_directory_search_facts(
 }
 
 ///|
+fn font_directory_end(
+  num_tables : UInt64,
+) -> Result[UInt64, @error.CoreError] {
+  let record_bytes = match @checked.checked_mul(num_tables, 16UL) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  @checked.checked_add(12UL, record_bytes)
+}
+
+///|
+fn checked_font_table_view(
+  source : @bytes.ByteView,
+  offset : UInt64,
+  length : UInt64,
+) -> Result[@bytes.ByteView, @error.CoreError] {
+  let source_range = match
+    @checked.CheckedRange::from_start_length(0UL, source.length()) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  let table_range = match source_range.subrange(offset, length) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  source.subview(table_range.start(), table_range.length())
+}
+
+///|
+fn font_unsupported_table_tag(tag : UInt64) -> Bool {
+  tag == 0x43464620UL ||
+  tag == 0x43464632UL ||
+  tag == 0x66766172UL ||
+  tag == 0x434F4C52UL ||
+  tag == 0x43424454UL ||
+  tag == 0x73626978UL
+}
+
+///|
 fn font_records_overlap(
   records : Array[FontTableRecord],
   offset : UInt64,
@@ -160,7 +200,7 @@ fn parse_font_directory(
     Err(error) => return Err(error)
     Ok(value) => value
   }
-  let directory_end = match @checked.checked_add(12UL, record_bytes) {
+  let directory_end = match font_directory_end(num_tables) {
     Err(error) => return Err(error)
     Ok(value) => value
   }
@@ -211,6 +251,9 @@ fn parse_font_directory(
     let tag = match read_u32(source, record_offset) {
       Err(error) => return Err(error)
       Ok(value) => value
+    }
+    if font_unsupported_table_tag(tag) {
+      return Err(font_capability_error("font-unsupported-profile"))
     }
     match previous_tag {
       Some(previous) =>
@@ -279,6 +322,16 @@ fn parse_font_directory(
         ),
       )
     }
+    if table_length > 0UL && table_offset < directory_end {
+      return Err(
+        font_data_error(
+          "font-table-directory-overlap",
+          source_offset=table_offset,
+          requested=table_length,
+          limit=directory_end,
+        ),
+      )
+    }
     match font_records_overlap(records, table_offset, table_length) {
       Err(error) => return Err(error)
       Ok(true) =>
@@ -291,7 +344,8 @@ fn parse_font_directory(
         )
       Ok(false) => ()
     }
-    let table_view = match source.subview(table_offset, table_length) {
+    let table_view = match
+      checked_font_table_view(source, table_offset, table_length) {
       Err(error) => return Err(error)
       Ok(value) => value
     }
@@ -308,14 +362,18 @@ fn parse_font_directory(
       Ok(value) => value
     }
   }
-  let work = match @checked.checked_add(source.length(), num_tables) {
+  let checksum_work = match @checked.checked_mul(source.length(), 2UL) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  let work = match @checked.checked_add(checksum_work, num_tables) {
     Err(error) => return Err(error)
     Ok(value) => value
   }
   if work > limits.max_work() {
     return Err(font_limit_error("max-work", work, limits.max_work()))
   }
-  Ok({ records, work })
+  Ok({ source, records, work })
 }
 
 ///|
@@ -368,6 +426,38 @@ fn font_table_checksum(
 }
 
 ///|
+fn font_source_checksum(
+  source : @bytes.ByteView,
+) -> Result[UInt64, @error.CoreError] {
+  let mut checksum = 0UL
+  let mut offset = 0UL
+  while offset < source.length() {
+    let mut word = 0UL
+    for delta in [0UL, 1UL, 2UL, 3UL] {
+      let index = match @checked.checked_add(offset, delta) {
+        Err(error) => return Err(error)
+        Ok(value) => value
+      }
+      let byte = if index < source.length() {
+        match source.get(index) {
+          Err(error) => return Err(error)
+          Ok(value) => value
+        }
+      } else {
+        b'\x00'
+      }
+      word = (word << 8) | byte.to_uint64()
+    }
+    checksum = (checksum + word) & 0xFFFFFFFFUL
+    offset = match @checked.checked_add(offset, 4UL) {
+      Err(error) => return Err(error)
+      Ok(value) => value
+    }
+  }
+  Ok(checksum)
+}
+
+///|
 fn validate_tracer_tables(
   directory : FontDirectory,
 ) -> Result[FontTableRecord, @error.CoreError] {
@@ -401,6 +491,13 @@ fn validate_tracer_tables(
         ),
       )
     }
+  }
+  let source_checksum = match font_source_checksum(directory.source) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  if source_checksum != 0xB1B0AFBAUL {
+    return Err(font_data_error("font-checksum-adjustment"))
   }
   font_find_table(directory, 0x68656164UL)
 }
