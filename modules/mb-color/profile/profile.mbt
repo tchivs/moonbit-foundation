@@ -160,7 +160,7 @@ pub fn ProfileIdentity::builtin_srgb() -> ProfileIdentity {
 }
 
 ///|
-#warnings("-35")
+#alias(opaque)
 pub fn ProfileIdentity::from_opaque(profile : OpaqueProfile) -> ProfileIdentity {
   { builtin_srgb_value: false, opaque_profile_value: Some(profile) }
 }

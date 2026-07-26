@@ -66,7 +66,6 @@ test "profile format tags reject empty invalid ASCII and overlong spellings" {
 }
 
 ///|
-#warnings("-35")
 test "empty and exact-limit opaque payloads round-trip exactly" {
   let empty_limits = @profile.ProfileLimits::new(0UL)
   inspect(empty_limits.max_payload_bytes(), content="0")
@@ -102,7 +101,7 @@ test "empty and exact-limit opaque payloads round-trip exactly" {
       content="true",
     )
   }
-  let identity = @profile.ProfileIdentity::from_opaque(exact)
+  let identity = @profile.ProfileIdentity::opaque(exact)
   inspect(identity.is_builtin_srgb(), content="false")
   inspect(identity.opaque_profile().unwrap().length(), content="4")
 }
