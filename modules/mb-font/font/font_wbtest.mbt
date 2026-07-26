@@ -35,3 +35,21 @@ test "checked big endian reads accept exact fit and reject one short" {
     content="true",
   )
 }
+
+///|
+test "directory size and table windows preserve checked boundaries" {
+  inspect(font_directory_end(10UL).unwrap(), content="172")
+  let overflow = font_directory_end(18446744073709551615UL).unwrap_err()
+  inspect(
+    overflow.code() == @error.ErrorCode::ArithmeticOverflow,
+    content="true",
+  )
+  let source = font_wb_view(b"\x00\x01\x02\x03\x04\x05\x06\x07")
+  let exact = checked_font_table_view(source, 4UL, 4UL).unwrap()
+  inspect(exact.length(), content="4")
+  inspect(exact.get(0UL).unwrap(), content="b'\\x04'")
+  inspect(
+    checked_font_table_view(source, 4UL, 5UL) is Err(_),
+    content="true",
+  )
+}

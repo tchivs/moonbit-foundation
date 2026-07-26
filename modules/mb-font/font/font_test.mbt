@@ -440,3 +440,148 @@ test "unsupported outline signature publishes no Font" {
   inspect(error.operation() == Some("font-open"), content="true")
   inspect(error.context() == Some("font-outline-profile"), content="true")
 }
+
+///|
+fn font_test_mutate_bytes(
+  owner : @bytes.OwnedBytes,
+  offset : UInt64,
+  replacement : Bytes,
+) -> Unit raise {
+  owner.with_mut(
+    offset,
+    replacement.length().to_uint64(),
+    fn(lease) {
+      let mut index = 0UL
+      while index < replacement.length().to_uint64() {
+        match lease.set(index, replacement[index.to_int()]) {
+          Err(error) => return Err(error)
+          Ok(_) => ()
+        }
+        index = index + 1UL
+      }
+      Ok(())
+    },
+  ).unwrap()
+}
+
+///|
+fn font_test_mutate_u32(
+  owner : @bytes.OwnedBytes,
+  offset : UInt64,
+  value : UInt64,
+) -> Unit raise {
+  let replacement : Array[Byte] = []
+  font_test_push_u32(replacement, value)
+  font_test_mutate_bytes(owner, offset, Bytes::from_array(replacement))
+}
+
+///|
+fn font_test_assert_revision_drift(error : @error.CoreError) -> Unit raise {
+  inspect(error.category() == @error.ErrorCategory::State, content="true")
+  inspect(error.code() == @error.ErrorCode::InvalidRange, content="true")
+  inspect(error.operation() == Some("font-query"), content="true")
+  inspect(
+    error.context() == Some("font-source-revision-drift"),
+    content="true",
+  )
+}
+
+///|
+test "required unrelated and mutate-back source changes invalidate every query" {
+  let required_owner = font_test_owner(font_test_minimal_truetype())
+  let required_font = Font::open(
+    required_owner.view(),
+    font_test_limits(),
+    font_test_budget(),
+  ).unwrap()
+  font_test_mutate_bytes(required_owner, 306UL, b"\x04")
+  font_test_assert_revision_drift(required_font.units_per_em().unwrap_err())
+  font_test_assert_revision_drift(required_font.units_per_em().unwrap_err())
+
+  let unrelated_owner = font_test_owner(font_test_minimal_truetype())
+  let unrelated_font = Font::open(
+    unrelated_owner.view(),
+    font_test_limits(),
+    font_test_budget(),
+  ).unwrap()
+  font_test_mutate_bytes(unrelated_owner, 431UL, b"\x01")
+  font_test_assert_revision_drift(unrelated_font.units_per_em().unwrap_err())
+
+  let restored_owner = font_test_owner(font_test_minimal_truetype())
+  let original = restored_owner.view().get(306UL).unwrap()
+  let restored_font = Font::open(
+    restored_owner.view(),
+    font_test_limits(),
+    font_test_budget(),
+  ).unwrap()
+  font_test_mutate_bytes(restored_owner, 306UL, b"\x04")
+  font_test_mutate_bytes(restored_owner, 306UL, Bytes::from_array([original]))
+  font_test_assert_revision_drift(restored_font.units_per_em().unwrap_err())
+}
+
+///|
+test "directory table escape and missing head publish no Font" {
+  let escaped = font_test_owner(font_test_minimal_truetype())
+  font_test_mutate_u32(escaped, 68UL, 0xFFFFFFFCUL)
+  let range_error = Font::open(
+    escaped.view(),
+    font_test_limits(),
+    font_test_budget(),
+  ).unwrap_err()
+  inspect(range_error.category() == @error.ErrorCategory::Data, content="true")
+  inspect(range_error.code() == @error.ErrorCode::InvalidEncoding, content="true")
+  inspect(range_error.operation() == Some("font-open"), content="true")
+  inspect(range_error.context() == Some("font-table-range"), content="true")
+
+  let missing = font_test_owner(font_test_minimal_truetype())
+  font_test_mutate_bytes(missing, 60UL, b"heaf")
+  let missing_error = Font::open(
+    missing.view(),
+    font_test_limits(),
+    font_test_budget(),
+  ).unwrap_err()
+  inspect(missing_error.category() == @error.ErrorCategory::Data, content="true")
+  inspect(missing_error.code() == @error.ErrorCode::InvalidEncoding, content="true")
+  inspect(missing_error.operation() == Some("font-open"), content="true")
+  inspect(
+    missing_error.context() == Some("font-required-table"),
+    content="true",
+  )
+}
+
+///|
+test "unsupported containers outlines variations color and bitmap profiles are capabilities" {
+  for signature in [b"ttcf", b"wOFF", b"wOF2", b"OTTO"] {
+    let owner = font_test_owner(font_test_minimal_truetype())
+    font_test_mutate_bytes(owner, 0UL, signature)
+    let error = Font::open(
+      owner.view(),
+      font_test_limits(),
+      font_test_budget(),
+    ).unwrap_err()
+    inspect(error.category() == @error.ErrorCategory::Capability, content="true")
+    inspect(
+      error.code() == @error.ErrorCode::CapabilityUnavailable,
+      content="true",
+    )
+    inspect(error.context() == Some("font-outline-profile"), content="true")
+  }
+  for tag in [b"CFF ", b"CFF2", b"fvar", b"COLR", b"CBDT", b"sbix"] {
+    let owner = font_test_owner(font_test_minimal_truetype())
+    font_test_mutate_bytes(owner, 44UL, tag)
+    let error = Font::open(
+      owner.view(),
+      font_test_limits(),
+      font_test_budget(),
+    ).unwrap_err()
+    inspect(error.category() == @error.ErrorCategory::Capability, content="true")
+    inspect(
+      error.code() == @error.ErrorCode::CapabilityUnavailable,
+      content="true",
+    )
+    inspect(
+      error.context() == Some("font-unsupported-profile"),
+      content="true",
+    )
+  }
+}
