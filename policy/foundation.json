@@ -2088,7 +2088,7 @@
         "font/font.mbt",
         "font/font_test.mbt",
         "font/font_wbtest.mbt",
-        "font/generated_fonts.mbt",
+        "font/generated_fonts_wbtest.mbt",
         "font/limits.mbt",
         "font/metrics.mbt",
         "font/moon.pkg",
@@ -2111,14 +2111,14 @@
             "cursor.mbt",
             "directory.mbt",
             "font.mbt",
-            "generated_fonts.mbt",
             "limits.mbt",
             "metrics.mbt",
             "tables.mbt"
           ],
           "test_sources": [
             "font_test.mbt",
-            "font_wbtest.mbt"
+            "font_wbtest.mbt",
+            "generated_fonts_wbtest.mbt"
           ],
           "semantic_interface": [
             "package \"tchivs/mb-font/font\"",

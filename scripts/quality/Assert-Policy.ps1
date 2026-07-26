@@ -1001,7 +1001,7 @@ function Assert-FontFoundationPolicy {
     'font/font.mbt',
     'font/font_test.mbt',
     'font/font_wbtest.mbt',
-    'font/generated_fonts.mbt',
+    'font/generated_fonts_wbtest.mbt',
     'font/limits.mbt',
     'font/metrics.mbt',
     'font/moon.pkg',
@@ -1015,8 +1015,8 @@ function Assert-FontFoundationPolicy {
   Assert-Condition (@($fontModule.public_packages).Count -eq 1) 'mb-font must publish exactly one public package.'
   $font = $fontPackages[0]
   $imports = @('tchivs/mb-core/budget', 'tchivs/mb-core/bytes', 'tchivs/mb-core/checked', 'tchivs/mb-core/error')
-  $productionSources = @('moon.pkg', 'cursor.mbt', 'directory.mbt', 'font.mbt', 'generated_fonts.mbt', 'limits.mbt', 'metrics.mbt', 'tables.mbt')
-  $testSources = @('font_test.mbt', 'font_wbtest.mbt')
+  $productionSources = @('moon.pkg', 'cursor.mbt', 'directory.mbt', 'font.mbt', 'limits.mbt', 'metrics.mbt', 'tables.mbt')
+  $testSources = @('font_test.mbt', 'font_wbtest.mbt', 'generated_fonts_wbtest.mbt')
   Assert-ExactSet 'Font policy imports' @($font.allowed_imports) $imports
   Assert-ExactSet 'Font policy targets' @($font.supported_targets) @('js', 'wasm', 'wasm-gc', 'native')
   Assert-ExactSequence 'Font production source order' @($font.production_sources) $productionSources

@@ -1,91 +1,4 @@
 ///|
-priv struct FontHeadFacts {
-  units_per_em : UInt64
-  index_to_loc_format : Int
-}
-
-///|
-fn font_table_source_offset(
-  record : FontTableRecord,
-  relative : UInt64,
-) -> Result[UInt64, @error.CoreError] {
-  @checked.checked_add(record.offset, relative)
-}
-
-///|
-fn decode_head_table(
-  record : FontTableRecord,
-) -> Result[FontHeadFacts, @error.CoreError] {
-  if record.length < 54UL {
-    return Err(
-      font_data_error(
-        "font-head-length",
-        source_offset=record.offset,
-        requested=54UL,
-        limit=record.length,
-      ),
-    )
-  }
-  let version = match read_u32(record.view, 0UL) {
-    Err(error) => return Err(error)
-    Ok(value) => value
-  }
-  if version != 0x00010000UL {
-    return Err(
-      font_data_error("font-head-version", source_offset=record.offset),
-    )
-  }
-  let magic_source_offset = match font_table_source_offset(record, 12UL) {
-    Err(error) => return Err(error)
-    Ok(value) => value
-  }
-  let magic = match read_u32(record.view, 12UL) {
-    Err(error) => return Err(error)
-    Ok(value) => value
-  }
-  if magic != 0x5F0F3CF5UL {
-    return Err(
-      font_data_error("font-head-magic", source_offset=magic_source_offset),
-    )
-  }
-  let units_source_offset = match font_table_source_offset(record, 18UL) {
-    Err(error) => return Err(error)
-    Ok(value) => value
-  }
-  let units_per_em = match read_u16(record.view, 18UL) {
-    Err(error) => return Err(error)
-    Ok(value) => value
-  }
-  if units_per_em < 16UL || units_per_em > 16384UL {
-    return Err(
-      font_data_error(
-        "font-units-per-em",
-        source_offset=units_source_offset,
-        requested=units_per_em,
-        limit=16384UL,
-      ),
-    )
-  }
-  let loca_source_offset = match font_table_source_offset(record, 50UL) {
-    Err(error) => return Err(error)
-    Ok(value) => value
-  }
-  let index_to_loc_format = match read_i16(record.view, 50UL) {
-    Err(error) => return Err(error)
-    Ok(value) => value
-  }
-  if index_to_loc_format != 0 && index_to_loc_format != 1 {
-    return Err(
-      font_data_error(
-        "font-index-to-loc-format",
-        source_offset=loca_source_offset,
-      ),
-    )
-  }
-  Ok({ units_per_em, index_to_loc_format })
-}
-
-///|
 priv struct HeadFacts {
   units_per_em : UInt64
   x_min : Int
@@ -110,38 +23,27 @@ priv struct HheaFacts {
 
 ///|
 priv struct Os2Facts {
-  version : UInt64
   typo_ascent : Int
   typo_descent : Int
   typo_line_gap : Int
 }
 
 ///|
+/// Retained for Phase 98 cmap record selection.
+#warnings("-7")
 priv struct CmapEnvelope {
   record_count : UInt64
 }
 
 ///|
-priv struct NameEnvelope {
-  format : UInt64
-  record_count : UInt64
-}
-
-///|
-priv struct PostEnvelope {
-  version : UInt64
-  glyph_count : UInt64?
-}
-
-///|
+/// Retains the admitted cmap envelope for Phase 98 cmap lookup.
+#warnings("-7")
 priv struct RequiredTableFacts {
   head : HeadFacts
   maxp : MaxpFacts
   hhea : HheaFacts
   os2 : Os2Facts
   cmap : CmapEnvelope
-  name : NameEnvelope
-  post : PostEnvelope
 }
 
 ///|
@@ -185,9 +87,7 @@ fn font_table_min_length(
 }
 
 ///|
-fn font_decode_head(
-  table : TableWindow,
-) -> Result[HeadFacts, @error.CoreError] {
+fn font_decode_head(table : TableWindow) -> Result[HeadFacts, @error.CoreError] {
   match font_table_exact_length(table, 54UL, "font-head-length") {
     Err(error) => return Err(error)
     Ok(_) => ()
@@ -225,9 +125,7 @@ fn font_decode_head(
     Ok(value) => value
   }
   if version != 0x00010000UL {
-    return Err(
-      font_data_error("font-head-version", source_offset=table.offset),
-    )
+    return Err(font_data_error("font-head-version", source_offset=table.offset))
   }
   if magic != 0x5F0F3CF5UL {
     let source_offset = match @checked.checked_add(table.offset, 12UL) {
@@ -258,18 +156,9 @@ fn font_decode_head(
       Err(error) => return Err(error)
       Ok(value) => value
     }
-    return Err(
-      font_data_error("font-index-to-loc-format", source_offset~),
-    )
+    return Err(font_data_error("font-index-to-loc-format", source_offset~))
   }
-  Ok({
-    units_per_em,
-    x_min,
-    y_min,
-    x_max,
-    y_max,
-    index_to_loc_format,
-  })
+  Ok({ units_per_em, x_min, y_min, x_max, y_max, index_to_loc_format })
 }
 
 ///|
@@ -293,9 +182,7 @@ fn font_decode_maxp(
     return Err(font_data_error("font-maxp", source_offset=table.offset))
   }
   if num_glyphs > limits.max_glyphs() {
-    return Err(
-      font_limit_error("max-glyphs", num_glyphs, limits.max_glyphs()),
-    )
+    return Err(font_limit_error("max-glyphs", num_glyphs, limits.max_glyphs()))
   }
   Ok({ num_glyphs, })
 }
@@ -394,7 +281,7 @@ fn font_decode_os2(table : TableWindow) -> Result[Os2Facts, @error.CoreError] {
     Err(error) => return Err(error)
     Ok(value) => value
   }
-  Ok({ version, typo_ascent, typo_descent, typo_line_gap })
+  Ok({ typo_ascent, typo_descent, typo_line_gap })
 }
 
 ///|
@@ -452,7 +339,9 @@ fn font_admit_cmap_envelope(
     Ok(value) => value
   }
   if version != 0UL {
-    return Err(font_data_error("font-cmap-envelope", source_offset=table.offset))
+    return Err(
+      font_data_error("font-cmap-envelope", source_offset=table.offset),
+    )
   }
   if record_count > limits.max_cmap_records() {
     return Err(
@@ -515,7 +404,7 @@ fn font_admit_cmap_envelope(
 fn font_admit_name_envelope(
   table : TableWindow,
   limits : FontLimits,
-) -> Result[NameEnvelope, @error.CoreError] {
+) -> Result[Unit, @error.CoreError] {
   match font_table_min_length(table, 6UL, "font-name-envelope") {
     Err(error) => return Err(error)
     Ok(_) => ()
@@ -603,7 +492,7 @@ fn font_admit_name_envelope(
       return Err(font_data_error("font-name-envelope"))
     }
   }
-  Ok({ format, record_count })
+  Ok(())
 }
 
 ///|
@@ -611,7 +500,7 @@ fn font_admit_post_envelope(
   table : TableWindow,
   maxp : MaxpFacts,
   limits : FontLimits,
-) -> Result[PostEnvelope, @error.CoreError] {
+) -> Result[Unit, @error.CoreError] {
   match font_table_min_length(table, 32UL, "font-post-envelope") {
     Err(error) => return Err(error)
     Ok(_) => ()
@@ -621,7 +510,7 @@ fn font_admit_post_envelope(
     Ok(value) => value
   }
   match version {
-    0x00010000UL | 0x00030000UL => Ok({ version, glyph_count: None })
+    0x00010000UL | 0x00030000UL => Ok(())
     0x00020000UL | 0x00025000UL => {
       match font_table_min_length(table, 34UL, "font-post-envelope") {
         Err(error) => return Err(error)
@@ -659,7 +548,7 @@ fn font_admit_post_envelope(
           ),
         )
       }
-      Ok({ version, glyph_count: Some(glyph_count) })
+      Ok(())
     }
     _ => Err(font_data_error("font-post-envelope"))
   }
@@ -724,13 +613,13 @@ fn font_admit_required_tables(
     Err(error) => return Err(error)
     Ok(value) => value
   }
-  let name = match font_admit_name_envelope(name_table, limits) {
+  match font_admit_name_envelope(name_table, limits) {
     Err(error) => return Err(error)
-    Ok(value) => value
+    Ok(_) => ()
   }
-  let post = match font_admit_post_envelope(post_table, maxp, limits) {
+  match font_admit_post_envelope(post_table, maxp, limits) {
     Err(error) => return Err(error)
-    Ok(value) => value
+    Ok(_) => ()
   }
-  Ok({ head, maxp, hhea, os2, cmap, name, post })
+  Ok({ head, maxp, hhea, os2, cmap })
 }

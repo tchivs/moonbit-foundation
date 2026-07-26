@@ -3,6 +3,9 @@
 ///
 /// The representation is private. Queries guard the retained source revision
 /// before returning immutable admitted facts.
+/// Phase 98 consumes the retained directory and required-table state for cmap
+/// lookup and kerning.
+#warnings("-7")
 pub struct Font {
   priv source : @bytes.ByteView
   priv opening_revision : UInt64
@@ -141,32 +144,30 @@ pub fn Font::open(
   if source.mutation_revision() != opening_revision {
     return Err(font_revision_error("font-open"))
   }
-  Ok(
-    {
-      source,
-      opening_revision,
-      units_per_em_value: tables.head.units_per_em,
-      global_bounds_value: {
-        x_min_value: tables.head.x_min,
-        y_min_value: tables.head.y_min,
-        x_max_value: tables.head.x_max,
-        y_max_value: tables.head.y_max,
-      },
-      hhea_line_metrics_value: {
-        ascent_value: tables.hhea.ascent,
-        descent_value: tables.hhea.descent,
-        line_gap_value: tables.hhea.line_gap,
-      },
-      typographic_line_metrics_value: {
-        ascent_value: tables.os2.typo_ascent,
-        descent_value: tables.os2.typo_descent,
-        line_gap_value: tables.os2.typo_line_gap,
-      },
-      directory,
-      tables,
-      metric_index,
+  Ok({
+    source,
+    opening_revision,
+    units_per_em_value: tables.head.units_per_em,
+    global_bounds_value: {
+      x_min_value: tables.head.x_min,
+      y_min_value: tables.head.y_min,
+      x_max_value: tables.head.x_max,
+      y_max_value: tables.head.y_max,
     },
-  )
+    hhea_line_metrics_value: {
+      ascent_value: tables.hhea.ascent,
+      descent_value: tables.hhea.descent,
+      line_gap_value: tables.hhea.line_gap,
+    },
+    typographic_line_metrics_value: {
+      ascent_value: tables.os2.typo_ascent,
+      descent_value: tables.os2.typo_descent,
+      line_gap_value: tables.os2.typo_line_gap,
+    },
+    directory,
+    tables,
+    metric_index,
+  })
 }
 
 ///|
@@ -239,11 +240,7 @@ pub fn Font::glyph_id(
   }
   if value >= self.metric_index.num_glyphs {
     Err(
-      font_glyph_id_error(
-        "font-glyph-id",
-        value,
-        self.metric_index.num_glyphs,
-      ),
+      font_glyph_id_error("font-glyph-id", value, self.metric_index.num_glyphs),
     )
   } else {
     Ok({ value_value: value })
@@ -285,16 +282,14 @@ pub fn Font::horizontal_metrics(
   Ok({
     advance_width_value: facts.advance_width,
     left_side_bearing_value: facts.left_side_bearing,
-    bounds_value: facts.bounds.map(
-      fn(bounds) {
-        FontBounds::{
-          x_min_value: bounds.x_min,
-          y_min_value: bounds.y_min,
-          x_max_value: bounds.x_max,
-          y_max_value: bounds.y_max,
-        }
-      },
-    ),
+    bounds_value: facts.bounds.map(fn(bounds) {
+      FontBounds::{
+        x_min_value: bounds.x_min,
+        y_min_value: bounds.y_min,
+        x_max_value: bounds.x_max,
+        y_max_value: bounds.y_max,
+      }
+    }),
     right_side_bearing_value: facts.right_side_bearing,
   })
 }

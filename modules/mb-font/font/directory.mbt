@@ -31,11 +31,6 @@ priv struct DirectoryFacts {
 }
 
 ///|
-fn TableWindow::length(self : TableWindow) -> UInt64 {
-  self.length_value
-}
-
-///|
 fn font_data_error(
   context : String,
   source_offset? : UInt64,
@@ -414,120 +409,6 @@ fn parse_font_directory(
     return Err(font_limit_error("max-work", work, limits.max_work()))
   }
   Ok({ source, records, work })
-}
-
-///|
-fn font_find_table(
-  directory : FontDirectory,
-  tag : UInt64,
-) -> Result[FontTableRecord, @error.CoreError] {
-  for record in directory.records {
-    if record.tag == tag {
-      return Ok(record)
-    }
-  }
-  Err(font_data_error("font-required-table"))
-}
-
-///|
-fn font_table_checksum(
-  record : FontTableRecord,
-) -> Result[UInt64, @error.CoreError] {
-  let mut checksum = 0UL
-  let mut offset = 0UL
-  while offset < record.length {
-    let mut word = 0UL
-    for delta in [0UL, 1UL, 2UL, 3UL] {
-      let index = match @checked.checked_add(offset, delta) {
-        Err(error) => return Err(error)
-        Ok(value) => value
-      }
-      let byte = if record.tag == 0x68656164UL && index >= 8UL && index < 12UL {
-        b'\x00'
-      } else if index < record.length {
-        match record.view.get(index) {
-          Err(error) => return Err(error)
-          Ok(value) => value
-        }
-      } else {
-        b'\x00'
-      }
-      word = (word << 8) | byte.to_uint64()
-    }
-    checksum = (checksum + word) & 0xFFFFFFFFUL
-    offset = match @checked.checked_add(offset, 4UL) {
-      Err(error) => return Err(error)
-      Ok(value) => value
-    }
-  }
-  Ok(checksum)
-}
-
-///|
-fn font_source_checksum(
-  source : @bytes.ByteView,
-) -> Result[UInt64, @error.CoreError] {
-  let mut checksum = 0UL
-  let mut offset = 0UL
-  while offset < source.length() {
-    let mut word = 0UL
-    for delta in [0UL, 1UL, 2UL, 3UL] {
-      let index = match @checked.checked_add(offset, delta) {
-        Err(error) => return Err(error)
-        Ok(value) => value
-      }
-      let byte = if index < source.length() {
-        match source.get(index) {
-          Err(error) => return Err(error)
-          Ok(value) => value
-        }
-      } else {
-        b'\x00'
-      }
-      word = (word << 8) | byte.to_uint64()
-    }
-    checksum = (checksum + word) & 0xFFFFFFFFUL
-    offset = match @checked.checked_add(offset, 4UL) {
-      Err(error) => return Err(error)
-      Ok(value) => value
-    }
-  }
-  Ok(checksum)
-}
-
-///|
-fn validate_tracer_tables(
-  directory : FontDirectory,
-) -> Result[FontTableRecord, @error.CoreError] {
-  for
-    tag in [
-      0x4F532F32UL, 0x636D6170UL, 0x676C7966UL, 0x68656164UL, 0x68686561UL, 0x686D7478UL,
-      0x6C6F6361UL, 0x6D617870UL, 0x6E616D65UL, 0x706F7374UL,
-    ] {
-    match font_find_table(directory, tag) {
-      Err(error) => return Err(error)
-      Ok(_) => ()
-    }
-  }
-  for record in directory.records {
-    let computed = match font_table_checksum(record) {
-      Err(error) => return Err(error)
-      Ok(value) => value
-    }
-    if computed != record.checksum {
-      return Err(
-        font_data_error("font-table-checksum", source_offset=record.offset),
-      )
-    }
-  }
-  let source_checksum = match font_source_checksum(directory.source) {
-    Err(error) => return Err(error)
-    Ok(value) => value
-  }
-  if source_checksum != 0xB1B0AFBAUL {
-    return Err(font_data_error("font-checksum-adjustment"))
-  }
-  font_find_table(directory, 0x68656164UL)
 }
 
 ///|

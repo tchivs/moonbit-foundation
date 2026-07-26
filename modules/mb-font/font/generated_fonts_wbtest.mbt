@@ -77,11 +77,6 @@ fn font_wb_put_u16(output : Array[Byte], value : UInt64) -> Unit {
 }
 
 ///|
-fn font_wb_put_i16(output : Array[Byte], value : Int) -> Unit {
-  generated_put_i16(output, value)
-}
-
-///|
 fn font_wb_put_u32(output : Array[Byte], value : UInt64) -> Unit {
   generated_put_u32(output, value)
 }
@@ -479,12 +474,7 @@ fn font_wb_admission_cases() -> Array[FontAdmissionCase] {
   let unknown = font_wb_build_sfnt(
     font_wb_required_tables() + [font_wb_table(b"zzzz", b"\x01\x02\x03")],
   )
-  let bad_checksum = font_wb_mutate_table_field(
-    valid,
-    b"cmap",
-    0,
-    b"\x01",
-  )
+  let bad_checksum = font_wb_mutate_table_field(valid, b"cmap", 0, b"\x01")
   [
     { id: "valid", source: valid, accepted: true },
     { id: "unknown-optional", source: unknown, accepted: true },

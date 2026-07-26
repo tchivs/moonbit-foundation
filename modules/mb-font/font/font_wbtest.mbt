@@ -74,7 +74,7 @@ test "font directory matrix enforces canonical windows and checksums" {
   font_validate_profile(facts).unwrap()
   font_validate_checksums(facts).unwrap()
   let head = font_table_window(facts, 0x68656164UL).unwrap()
-  inspect(head.length(), content="54")
+  inspect(head.length_value, content="54")
   inspect(
     font_sfnt_checksum(font_wb_view(b"\x01\x02\x03"), false).unwrap(),
     content="16909056",
@@ -97,7 +97,7 @@ test "font directory matrix enforces canonical windows and checksums" {
   ).unwrap()
   font_validate_checksums(unknown_facts).unwrap()
   inspect(
-    font_table_window(unknown_facts, 0x7A7A7A7AUL).unwrap().length(),
+    font_table_window(unknown_facts, 0x7A7A7A7AUL).unwrap().length_value,
     content="3",
   )
 
@@ -201,10 +201,7 @@ test "font directory rejects excluded container signatures distinctly" {
 ///|
 test "font required table matrix enforces structural cardinalities" {
   let source = generated_minimal_truetype()
-  let directory = font_parse_directory(
-    font_wb_view(source),
-    font_wb_limits(),
-  ).unwrap()
+  let directory = font_parse_directory(font_wb_view(source), font_wb_limits()).unwrap()
   font_validate_checksums(directory).unwrap()
   let tables = font_admit_required_tables(directory, font_wb_limits()).unwrap()
   inspect(tables.head.units_per_em, content="1000")
@@ -221,8 +218,6 @@ test "font required table matrix enforces structural cardinalities" {
   inspect(tables.os2.typo_descent, content="-250")
   inspect(tables.os2.typo_line_gap, content="25")
   inspect(tables.cmap.record_count, content="1")
-  inspect(tables.name.record_count, content="0")
-  inspect(tables.post.version, content="196608")
   let index = font_admit_metric_index(
     directory,
     tables.head,
@@ -241,14 +236,8 @@ test "font required table matrix enforces structural cardinalities" {
   inspect(font_loca_required_length(1UL, 0).unwrap(), content="4")
   inspect(font_loca_required_length(1UL, 1).unwrap(), content="8")
   inspect(font_loca_required_length(1UL, 2) is Err(_), content="true")
-  inspect(
-    font_right_side_bearing(500UL, -20, 110UL).unwrap(),
-    content="410",
-  )
-  inspect(
-    font_right_side_bearing(600UL, 30, 0UL).unwrap(),
-    content="570",
-  )
+  inspect(font_right_side_bearing(500UL, -20, 110UL).unwrap(), content="410")
+  inspect(font_right_side_bearing(600UL, 30, 0UL).unwrap(), content="570")
   inspect(
     font_right_side_bearing(18446744073709551615UL, -1, 0UL).unwrap_err().code() ==
     @error.ErrorCode::ArithmeticOverflow,
@@ -271,8 +260,7 @@ test "font required table matrix enforces structural cardinalities" {
       font_wb_limits(),
     ).unwrap()
     inspect(
-      font_admit_required_tables(missing_directory, font_wb_limits())
-      is Err(_),
+      font_admit_required_tables(missing_directory, font_wb_limits()) is Err(_),
       content="true",
     )
   }
@@ -280,19 +268,14 @@ test "font required table matrix enforces structural cardinalities" {
 
 ///|
 test "metric admission validates short long and common glyph header ranges" {
-  for source in [
-    generated_horizontal_metric_truetype(),
-    generated_long_loca_metric_truetype(),
-  ] {
-    let directory = font_parse_directory(
-      font_wb_view(source),
-      font_wb_limits(),
-    ).unwrap()
+  for
+    source in [
+      generated_horizontal_metric_truetype(),
+      generated_long_loca_metric_truetype(),
+    ] {
+    let directory = font_parse_directory(font_wb_view(source), font_wb_limits()).unwrap()
     font_validate_checksums(directory).unwrap()
-    let tables = font_admit_required_tables(
-      directory,
-      font_wb_limits(),
-    ).unwrap()
+    let tables = font_admit_required_tables(directory, font_wb_limits()).unwrap()
     let index = font_admit_metric_index(
       directory,
       tables.head,
@@ -302,22 +285,12 @@ test "metric admission validates short long and common glyph header ranges" {
     font_validate_glyph_headers(index).unwrap()
   }
   let short = generated_short_glyph_header_truetype()
-  let directory = font_parse_directory(
-    font_wb_view(short),
-    font_wb_limits(),
-  ).unwrap()
+  let directory = font_parse_directory(font_wb_view(short), font_wb_limits()).unwrap()
   font_validate_checksums(directory).unwrap()
-  let tables = font_admit_required_tables(
-    directory,
-    font_wb_limits(),
-  ).unwrap()
+  let tables = font_admit_required_tables(directory, font_wb_limits()).unwrap()
   inspect(
-    font_admit_metric_index(
-      directory,
-      tables.head,
-      tables.maxp,
-      tables.hhea,
-    ) is Err(_),
+    font_admit_metric_index(directory, tables.head, tables.maxp, tables.hhea)
+    is Err(_),
     content="true",
   )
 }
