@@ -56,7 +56,11 @@
   3. A library author can query any admitted glyph for its advance, left side bearing, bounds, and checked derived right side bearing, including empty glyphs and the repeated-final-advance `hmtx` tail.
   4. Unsupported containers/outlines, malformed or inconsistent required tables, exhausted limits, and changed backing storage return structured errors without publishing a partial font.
 
-**Plans**: TBD
+**Plans**: 1/3 plans executed
+
+- [x] 97-01-PLAN.md
+- [ ] 97-02-PLAN.md
+- [ ] 97-03-PLAN.md
 
 ### Phase 98: Unicode Mapping and Kerning
 
@@ -104,7 +108,7 @@
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 97. Font Admission and Metrics | 0/TBD | Not started | - |
+| 97. Font Admission and Metrics | 1/3 | In Progress|  |
 | 98. Unicode Mapping and Kerning | 0/TBD | Not started | - |
 | 99. Simple and Composite Outlines | 0/TBD | Not started | - |
 | 100. Portable Font Qualification | 0/TBD | Not started | - |

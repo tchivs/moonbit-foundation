@@ -3,18 +3,17 @@ gsd_state_version: 1.0
 milestone: v0.32
 milestone_name: TrueType Font Foundation
 current_phase: 97
-current_phase_name: 1 of 4 in v0.32
+current_phase_name: Font Admission and Metrics
 status: executing
-stopped_at: Created v0.32 roadmap; Phase 97 is ready to plan
-last_updated: "2026-07-26T08:26:11.003Z"
+stopped_at: Completed 97-01-PLAN.md
+last_updated: "2026-07-26T09:09:02.633Z"
 last_activity: 2026-07-26
-last_activity_desc: v0.32 roadmap created with 5/5 requirements mapped
+last_activity_desc: Phase 97 execution started
 progress:
   total_phases: 1
   completed_phases: 0
   total_plans: 3
-  completed_plans: 0
-  percent: 0
+  completed_plans: 1
 ---
 
 # Project State
@@ -29,12 +28,12 @@ See `.planning/PROJECT.md`.
 
 ## Current Position
 
-Phase: 97 of 100 (1 of 4 in v0.32) — Font Admission and Metrics
-Plan: —
+Phase: 97 (Font Admission and Metrics) — EXECUTING
+Plan: 2 of 3
 Status: Ready to execute
-Last activity: 2026-07-26 — v0.32 roadmap created with 5/5 requirements mapped
+Last activity: 2026-07-26 — Phase 97 execution started
 
-Progress: [░░░░░░░░░░] 0%
+Progress: [███░░░░░░░] 33%
 
 ## Milestone Metrics
 
@@ -50,6 +49,9 @@ Progress: [░░░░░░░░░░] 0%
 - [v0.32 roadmap]: Coarse granularity merges the research's simple/composite implementation slices into Phase 99 so FONT-03 has one complete verification owner.
 - [v0.32 roadmap]: Phase 98 owns both deterministic cmap selection and legacy kern semantics because both query admitted glyph identities without depending on outline geometry.
 - [v0.32 roadmap]: Phase 100 qualifies immutable generated and licensed real-font evidence through the public workflow on `js`, `wasm`, `wasm-gc`, and `native`.
+- [Phase 97]: Font retains the caller ByteView and gates every query on the opening revision.
+- [Phase 97]: Admission uses table-local ByteViews and atomically charges bytes plus work before checksum scans.
+- [Phase 97]: Unsupported font profiles are capability failures while malformed admitted TrueType bytes are data failures.
 
 ### Pending Todos
 
@@ -70,8 +72,8 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-07-26
-Stopped at: Created v0.32 roadmap; Phase 97 is ready to plan
+Last session: 2026-07-26T09:09:02.615Z
+Stopped at: Completed 97-01-PLAN.md
 Resume file: None
 
 ## Operator Next Steps
@@ -87,3 +89,8 @@ No v0.32 plans have been completed.
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
 | 97-100 | 0 | — | — |
+**Per-Plan Metrics:**
+
+| Plan | Duration | Tasks | Files |
+|------|----------|-------|-------|
+| Phase 97 P01 | 39m | 3 tasks | 11 files |
