@@ -41,6 +41,66 @@ fn generated_put_u32_at(
 }
 
 ///|
+fn font_wb_put_u16(output : Array[Byte], value : UInt64) -> Unit {
+  generated_put_u16(output, value)
+}
+
+///|
+fn font_wb_put_i16(output : Array[Byte], value : Int) -> Unit {
+  generated_put_i16(output, value)
+}
+
+///|
+fn font_wb_put_u32(output : Array[Byte], value : UInt64) -> Unit {
+  generated_put_u32(output, value)
+}
+
+///|
+fn font_wb_bytes_array(source : Bytes) -> Array[Byte] {
+  let output : Array[Byte] = []
+  for byte in source {
+    output.push(byte)
+  }
+  output
+}
+
+///|
+fn font_wb_read_u16(source : Bytes, offset : Int) -> UInt64 {
+  (source[offset].to_uint64() << 8) | source[offset + 1].to_uint64()
+}
+
+///|
+fn font_wb_read_u32(source : Bytes, offset : Int) -> UInt64 {
+  (source[offset].to_uint64() << 24) |
+  (source[offset + 1].to_uint64() << 16) |
+  (source[offset + 2].to_uint64() << 8) |
+  source[offset + 3].to_uint64()
+}
+
+///|
+fn font_wb_put_u16_at_copy(
+  source : Bytes,
+  offset : Int,
+  value : UInt64,
+) -> Bytes {
+  let output = font_wb_bytes_array(source)
+  output[offset] = (value >> 8).to_byte()
+  output[offset + 1] = value.to_byte()
+  Bytes::from_array(output)
+}
+
+///|
+fn font_wb_put_u32_at_copy(
+  source : Bytes,
+  offset : Int,
+  value : UInt64,
+) -> Bytes {
+  let output = font_wb_bytes_array(source)
+  generated_put_u32_at(output, offset, value)
+  Bytes::from_array(output)
+}
+
+///|
 fn generated_checksum(source : Bytes) -> UInt64 {
   let mut checksum = 0UL
   let mut offset = 0
@@ -48,11 +108,7 @@ fn generated_checksum(source : Bytes) -> UInt64 {
     let mut word = 0UL
     for delta in [0, 1, 2, 3] {
       let index = offset + delta
-      let byte = if index < source.length() {
-        source[index]
-      } else {
-        b'\x00'
-      }
+      let byte = if index < source.length() { source[index] } else { b'\x00' }
       word = (word << 8) | byte.to_uint64()
     }
     checksum = (checksum + word) & 0xFFFFFFFFUL
@@ -131,34 +187,57 @@ fn generated_post_table() -> Bytes {
 }
 
 ///|
-fn generated_minimal_truetype() -> Bytes {
-  let tables : Array[GeneratedFontTable] = [
-    { tag: b"OS/2", payload: Bytes::from_array(Array::make(78, b'\x00')) },
-    { tag: b"cmap", payload: generated_cmap_table() },
-    { tag: b"glyf", payload: b"" },
-    { tag: b"head", payload: generated_head_table() },
-    { tag: b"hhea", payload: generated_hhea_table() },
-    { tag: b"hmtx", payload: b"\x01\xf4\x00\x00" },
-    { tag: b"loca", payload: b"\x00\x00\x00\x00" },
-    { tag: b"maxp", payload: generated_maxp_table() },
-    { tag: b"name", payload: b"\x00\x00\x00\x00\x00\x06" },
-    { tag: b"post", payload: generated_post_table() },
+fn font_wb_table(tag : Bytes, payload : Bytes) -> GeneratedFontTable {
+  { tag, payload }
+}
+
+///|
+fn font_wb_required_tables() -> Array[GeneratedFontTable] {
+  [
+    font_wb_table(b"OS/2", Bytes::from_array(Array::make(78, b'\x00'))),
+    font_wb_table(b"cmap", generated_cmap_table()),
+    font_wb_table(b"glyf", b""),
+    font_wb_table(b"head", generated_head_table()),
+    font_wb_table(b"hhea", generated_hhea_table()),
+    font_wb_table(b"hmtx", b"\x01\xf4\x00\x00"),
+    font_wb_table(b"loca", b"\x00\x00\x00\x00"),
+    font_wb_table(b"maxp", generated_maxp_table()),
+    font_wb_table(b"name", b"\x00\x00\x00\x00\x00\x06"),
+    font_wb_table(b"post", generated_post_table()),
   ]
+}
+
+///|
+fn font_wb_search_facts(num_tables : UInt64) -> (UInt64, UInt64, UInt64) {
+  let mut power = 1UL
+  let mut selector = 0UL
+  while power <= num_tables / 2UL {
+    power = power * 2UL
+    selector = selector + 1UL
+  }
+  let search_range = power * 16UL
+  (search_range, selector, num_tables * 16UL - search_range)
+}
+
+///|
+fn font_wb_build_sfnt(tables : Array[GeneratedFontTable]) -> Bytes {
   let output : Array[Byte] = []
-  generated_put_u32(output, 0x00010000UL)
-  generated_put_u16(output, 10UL)
-  generated_put_u16(output, 128UL)
-  generated_put_u16(output, 3UL)
-  generated_put_u16(output, 32UL)
+  let num_tables = tables.length().to_uint64()
+  let (search_range, selector, range_shift) = font_wb_search_facts(num_tables)
+  font_wb_put_u32(output, 0x00010000UL)
+  font_wb_put_u16(output, num_tables)
+  font_wb_put_u16(output, search_range)
+  font_wb_put_u16(output, selector)
+  font_wb_put_u16(output, range_shift)
   let offsets : Array[UInt64] = []
-  let mut next_offset = 172UL
+  let mut next_offset = 12UL + num_tables * 16UL
   for table in tables {
     for byte in table.tag {
       output.push(byte)
     }
-    generated_put_u32(output, generated_checksum(table.payload))
-    generated_put_u32(output, next_offset)
-    generated_put_u32(output, table.payload.length().to_uint64())
+    font_wb_put_u32(output, generated_checksum(table.payload))
+    font_wb_put_u32(output, next_offset)
+    font_wb_put_u32(output, table.payload.length().to_uint64())
     offsets.push(next_offset)
     next_offset = (next_offset + table.payload.length().to_uint64() + 3UL) &
       0xFFFFFFFFFFFFFFFCUL
@@ -171,12 +250,178 @@ fn generated_minimal_truetype() -> Bytes {
       output.push(b'\x00')
     }
   }
-  let adjustment = (
-    0xB1B0AFBAUL - generated_checksum(Bytes::from_array(output.copy()))
-  ) &
-    0xFFFFFFFFUL
-  generated_put_u32_at(output, offsets[3].to_int() + 8, adjustment)
+  let mut head_index = -1
+  for index, table in tables {
+    if table.tag == b"head" {
+      head_index = index
+    }
+  }
+  if head_index >= 0 {
+    let adjustment = (
+        0xB1B0AFBAUL - generated_checksum(Bytes::from_array(output.copy()))
+      ) &
+      0xFFFFFFFFUL
+    generated_put_u32_at(output, offsets[head_index].to_int() + 8, adjustment)
+  }
   Bytes::from_array(output)
+}
+
+///|
+fn font_wb_record_index(source : Bytes, tag : Bytes) -> Int {
+  let num_tables = font_wb_read_u16(source, 4).to_int()
+  for index = 0; index < num_tables; index = index + 1 {
+    let record = 12 + index * 16
+    let mut matches = true
+    for delta = 0; delta < 4; delta = delta + 1 {
+      if source[record + delta] != tag[delta] {
+        matches = false
+      }
+    }
+    if matches {
+      return index
+    }
+  }
+  -1
+}
+
+///|
+fn font_wb_table_offset(source : Bytes, tag : Bytes) -> Int {
+  let index = font_wb_record_index(source, tag)
+  if index < 0 {
+    return -1
+  }
+  font_wb_read_u32(source, 12 + index * 16 + 8).to_int()
+}
+
+///|
+fn font_wb_set_table_record_u32(
+  source : Bytes,
+  tag : Bytes,
+  field_offset : Int,
+  value : UInt64,
+) -> Bytes {
+  let index = font_wb_record_index(source, tag)
+  if index < 0 {
+    return source
+  }
+  font_wb_put_u32_at_copy(source, 12 + index * 16 + field_offset, value)
+}
+
+///|
+fn font_wb_swap_directory_records(
+  source : Bytes,
+  left : Int,
+  right : Int,
+) -> Bytes {
+  let output = font_wb_bytes_array(source)
+  for delta = 0; delta < 16; delta = delta + 1 {
+    let left_index = 12 + left * 16 + delta
+    let right_index = 12 + right * 16 + delta
+    let value = output[left_index]
+    output[left_index] = output[right_index]
+    output[right_index] = value
+  }
+  Bytes::from_array(output)
+}
+
+///|
+fn font_wb_copy_directory_tag(source : Bytes, from : Int, to : Int) -> Bytes {
+  let output = font_wb_bytes_array(source)
+  for delta = 0; delta < 4; delta = delta + 1 {
+    output[12 + to * 16 + delta] = output[12 + from * 16 + delta]
+  }
+  Bytes::from_array(output)
+}
+
+///|
+fn font_wb_overlap_table_with_previous(source : Bytes, tag : Bytes) -> Bytes {
+  let index = font_wb_record_index(source, tag)
+  if index <= 0 {
+    return source
+  }
+  let mut previous = index - 1
+  while previous >= 0 &&
+        font_wb_read_u32(source, 12 + previous * 16 + 12) == 0UL {
+    previous = previous - 1
+  }
+  if previous < 0 {
+    return source
+  }
+  let previous_offset = font_wb_read_u32(source, 12 + previous * 16 + 8)
+  font_wb_set_table_record_u32(source, tag, 8, previous_offset)
+}
+
+///|
+fn font_wb_mutate_table_field(
+  source : Bytes,
+  tag : Bytes,
+  field_offset : Int,
+  replacement : Bytes,
+) -> Bytes {
+  let table_offset = font_wb_table_offset(source, tag)
+  if table_offset < 0 {
+    return source
+  }
+  let output = font_wb_bytes_array(source)
+  for index, byte in replacement {
+    output[table_offset + field_offset + index] = byte
+  }
+  Bytes::from_array(output)
+}
+
+///|
+fn font_wb_table_checksum(source : Bytes, tag : Bytes) -> UInt64 {
+  let index = font_wb_record_index(source, tag)
+  let table_offset = font_wb_read_u32(source, 12 + index * 16 + 8).to_int()
+  let table_length = font_wb_read_u32(source, 12 + index * 16 + 12).to_int()
+  let mut checksum = 0UL
+  let mut offset = 0
+  while offset < table_length {
+    let mut word = 0UL
+    for delta = 0; delta < 4; delta = delta + 1 {
+      let local_offset = offset + delta
+      let byte = if tag == b"head" && local_offset >= 8 && local_offset < 12 {
+        b'\x00'
+      } else if local_offset < table_length {
+        source[table_offset + local_offset]
+      } else {
+        b'\x00'
+      }
+      word = (word << 8) | byte.to_uint64()
+    }
+    checksum = (checksum + word) & 0xFFFFFFFFUL
+    offset = offset + 4
+  }
+  checksum
+}
+
+///|
+fn font_wb_repair_table_checksum(source : Bytes, tag : Bytes) -> Bytes {
+  let index = font_wb_record_index(source, tag)
+  if index < 0 {
+    return source
+  }
+  font_wb_put_u32_at_copy(
+    source,
+    12 + index * 16 + 4,
+    font_wb_table_checksum(source, tag),
+  )
+}
+
+///|
+fn font_wb_repair_checksum_adjustment(source : Bytes) -> Bytes {
+  let head_offset = font_wb_table_offset(source, b"head")
+  if head_offset < 0 {
+    return source
+  }
+  let zeroed = font_wb_put_u32_at_copy(source, head_offset + 8, 0UL)
+  let adjustment = (0xB1B0AFBAUL - generated_checksum(zeroed)) & 0xFFFFFFFFUL
+  font_wb_put_u32_at_copy(zeroed, head_offset + 8, adjustment)
+}
+
+///|
+fn generated_minimal_truetype() -> Bytes {
+  font_wb_build_sfnt(font_wb_required_tables())
 }
 
 ///|

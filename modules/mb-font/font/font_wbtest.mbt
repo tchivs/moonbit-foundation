@@ -15,7 +15,9 @@ fn font_wb_view(source : Bytes) -> @bytes.ByteView {
         work=0UL,
       ),
     ),
-  ).unwrap().view()
+  )
+  .unwrap()
+  .view()
 }
 
 ///|
@@ -48,10 +50,7 @@ test "directory size and table windows preserve checked boundaries" {
   let exact = checked_font_table_view(source, 4UL, 4UL).unwrap()
   inspect(exact.length(), content="4")
   inspect(exact.get(0UL).unwrap(), content="b'\\x04'")
-  inspect(
-    checked_font_table_view(source, 4UL, 5UL) is Err(_),
-    content="true",
-  )
+  inspect(checked_font_table_view(source, 4UL, 5UL) is Err(_), content="true")
 }
 
 ///|
@@ -82,7 +81,7 @@ test "font directory matrix enforces canonical windows and checksums" {
   )
 
   for offset in [6, 8, 10] {
-    let malformed = font_wb_put_u16(valid, offset, 0UL)
+    let malformed = font_wb_put_u16_at_copy(valid, offset, 0UL)
     inspect(
       font_parse_directory(font_wb_view(malformed), font_wb_limits()) is Err(_),
       content="true",
@@ -90,8 +89,7 @@ test "font directory matrix enforces canonical windows and checksums" {
   }
 
   let unknown = font_wb_build_sfnt(
-    font_wb_required_tables() +
-    [font_wb_table(b"zzzz", b"\x01\x02\x03")],
+    font_wb_required_tables() + [font_wb_table(b"zzzz", b"\x01\x02\x03")],
   )
   let unknown_facts = font_parse_directory(
     font_wb_view(unknown),
@@ -113,25 +111,13 @@ test "font directory matrix enforces canonical windows and checksums" {
     font_parse_directory(font_wb_view(duplicate), font_wb_limits()) is Err(_),
     content="true",
   )
-  let inside_directory = font_wb_set_table_record_u32(
-    valid,
-    b"head",
-    8,
-    12UL,
-  )
+  let inside_directory = font_wb_set_table_record_u32(valid, b"head", 8, 12UL)
   inspect(
-    font_parse_directory(
-      font_wb_view(inside_directory),
-      font_wb_limits(),
-    ) is Err(_),
+    font_parse_directory(font_wb_view(inside_directory), font_wb_limits())
+    is Err(_),
     content="true",
   )
-  let misaligned = font_wb_set_table_record_u32(
-    valid,
-    b"head",
-    8,
-    173UL,
-  )
+  let misaligned = font_wb_set_table_record_u32(valid, b"head", 8, 173UL)
   inspect(
     font_parse_directory(font_wb_view(misaligned), font_wb_limits()) is Err(_),
     content="true",
@@ -152,12 +138,7 @@ test "font directory matrix enforces canonical windows and checksums" {
     content="true",
   )
 
-  let bad_table = font_wb_mutate_table_field(
-    valid,
-    b"cmap",
-    0,
-    b"\x01",
-  )
+  let bad_table = font_wb_mutate_table_field(valid, b"cmap", 0, b"\x01")
   let bad_table_facts = font_parse_directory(
     font_wb_view(bad_table),
     font_wb_limits(),
@@ -188,23 +169,16 @@ test "font directory matrix enforces canonical windows and checksums" {
 
 ///|
 test "font directory rejects excluded container signatures distinctly" {
-  for signature in [
-    0x4F54544FUL,
-    0x74746366UL,
-    0x774F4646UL,
-    0x774F4632UL,
-    0x74727565UL,
-    0x74797031UL,
-  ] {
+  for
+    signature in [
+      0x4F54544FUL, 0x74746366UL, 0x774F4646UL, 0x774F4632UL, 0x74727565UL, 0x74797031UL,
+    ] {
     let source = font_wb_put_u32_at_copy(
       generated_minimal_truetype(),
       0,
       signature,
     )
-    let error = font_parse_directory(
-      font_wb_view(source),
-      font_wb_limits(),
-    ).unwrap_err()
+    let error = font_parse_directory(font_wb_view(source), font_wb_limits()).unwrap_err()
     inspect(
       error.category() == @error.ErrorCategory::Capability,
       content="true",
@@ -219,13 +193,7 @@ test "font directory rejects excluded container signatures distinctly" {
     0,
     0xDEADBEEFUL,
   )
-  let error = font_parse_directory(
-    font_wb_view(unknown),
-    font_wb_limits(),
-  ).unwrap_err()
+  let error = font_parse_directory(font_wb_view(unknown), font_wb_limits()).unwrap_err()
   inspect(error.category() == @error.ErrorCategory::Data, content="true")
-  inspect(
-    error.code() == @error.ErrorCode::InvalidEncoding,
-    content="true",
-  )
+  inspect(error.code() == @error.ErrorCode::InvalidEncoding, content="true")
 }
