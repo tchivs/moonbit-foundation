@@ -446,7 +446,7 @@ fn font_test_mutate_bytes(
   owner : @bytes.OwnedBytes,
   offset : UInt64,
   replacement : Bytes,
-) -> Unit raise {
+) -> Unit {
   owner.with_mut(
     offset,
     replacement.length().to_uint64(),
@@ -469,14 +469,14 @@ fn font_test_mutate_u32(
   owner : @bytes.OwnedBytes,
   offset : UInt64,
   value : UInt64,
-) -> Unit raise {
+) -> Unit {
   let replacement : Array[Byte] = []
   font_test_push_u32(replacement, value)
   font_test_mutate_bytes(owner, offset, Bytes::from_array(replacement))
 }
 
 ///|
-fn font_test_view_bytes(source : @bytes.ByteView) -> Bytes raise {
+fn font_test_view_bytes(source : @bytes.ByteView) -> Bytes {
   let output : Array[Byte] = []
   let mut offset = 0UL
   while offset < source.length() {
@@ -489,7 +489,7 @@ fn font_test_view_bytes(source : @bytes.ByteView) -> Bytes raise {
 ///|
 fn font_test_recompute_adjustment(
   owner : @bytes.OwnedBytes,
-) -> Unit raise {
+) -> Unit {
   font_test_mutate_u32(owner, 296UL, 0UL)
   let adjustment = (
     0xB1B0AFBAUL - font_test_checksum(font_test_view_bytes(owner.view()))

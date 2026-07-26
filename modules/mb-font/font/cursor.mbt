@@ -52,7 +52,7 @@ fn read_u16(
     Err(error) => return Err(error)
     Ok(_) => ()
   }
-  let high = match source.get(offset) {
+  let high = match read_u8(source, offset) {
     Err(error) => return Err(error)
     Ok(value) => value.to_uint64()
   }
@@ -60,7 +60,7 @@ fn read_u16(
     Err(error) => return Err(error)
     Ok(value) => value
   }
-  let low = match source.get(low_offset) {
+  let low = match read_u8(source, low_offset) {
     Err(error) => return Err(error)
     Ok(value) => value.to_uint64()
   }
