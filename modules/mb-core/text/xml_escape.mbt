@@ -128,7 +128,7 @@ fn decode_entity(entity : String) -> Char? {
     "&apos;" => Some('\''.to_int().to_char().unwrap())
     _ => {
       // Numeric: &#NN; or &#xHH;
-      let inner = entity.substring(start=2, end=entity.length() - 1)
+      let inner = entity[2:entity.length() - 1].to_owned()
       if entity.length() > 3 && entity.code_units()[1].to_int() == 0x23 {
         // '#'
         if inner.length() > 0 &&
@@ -137,7 +137,7 @@ fn decode_entity(entity : String) -> Char? {
             inner.code_units()[0].to_int() == 0x58
           ) {
           // 'x' or 'X' — hex
-          let hex_str = inner.substring(start=1)
+          let hex_str = inner[1:].to_owned()
           match parse_hex_int(hex_str) {
             Some(v) => v.to_char()
             None => None

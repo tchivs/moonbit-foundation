@@ -56,40 +56,6 @@ pub fn bezier3_eval(
 }
 
 ///|
-/// Derivative of a quadratic Bézier at parameter `t`.
-///
-///   B'(t) = 2(1-t)(P1-P0) + 2t(P2-P1)
-fn bezier2_derivative(
-  p0 : Point2,
-  p1 : Point2,
-  p2 : Point2,
-  t : Double,
-) -> Vector2 {
-  let u = 1.0 - t
-  let v0 = p0.vector_to(p1).scale(2.0 * u)
-  let v1 = p1.vector_to(p2).scale(2.0 * t)
-  v0.add(v1)
-}
-
-///|
-/// Derivative of a cubic Bézier at parameter `t`.
-///
-///   B'(t) = 3(1-t)²(P1-P0) + 6(1-t)t(P2-P1) + 3t²(P3-P2)
-fn bezier3_derivative(
-  p0 : Point2,
-  p1 : Point2,
-  p2 : Point2,
-  p3 : Point2,
-  t : Double,
-) -> Vector2 {
-  let u = 1.0 - t
-  let v0 = p0.vector_to(p1).scale(3.0 * u * u)
-  let v1 = p1.vector_to(p2).scale(6.0 * u * t)
-  let v2 = p2.vector_to(p3).scale(3.0 * t * t)
-  v0.add(v1).add(v2)
-}
-
-///|
 /// A flattened line segment as part of a Bézier approximation.
 pub struct LineSegment {
   start_value : Point2

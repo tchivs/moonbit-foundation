@@ -3,21 +3,21 @@
 ///|
 test "utf8 encode produces correct byte sequences" {
   // ASCII: 'A' = U+0041 -> 0x41
-  inspect(utf8_encode([0x41]).unwrap(), content="[b'\\x41']")
+  assert_eq(utf8_encode([0x41]).unwrap(), b"\x41".to_array())
   // 2-byte: U+00E9 ('é') -> C3 A9
-  inspect(utf8_encode([0xe9]).unwrap(), content="[b'\\xC3', b'\\xA9']")
+  assert_eq(utf8_encode([0xe9]).unwrap(), b"\xc3\xa9".to_array())
   // 3-byte: U+4E2D ('中') -> E4 B8 AD
-  inspect(
+  assert_eq(
     utf8_encode([0x4e2d]).unwrap(),
-    content="[b'\\xE4', b'\\xB8', b'\\xAD']",
+    b"\xe4\xb8\xad".to_array(),
   )
   // 4-byte: U+1F600 -> F0 9F 98 80
-  inspect(
+  assert_eq(
     utf8_encode([0x1f600]).unwrap(),
-    content="[b'\\xF0', b'\\x9F', b'\\x98', b'\\x80']",
+    b"\xf0\x9f\x98\x80".to_array(),
   )
   // Empty
-  inspect(utf8_encode([]).unwrap(), content="[]")
+  assert_eq(utf8_encode([]).unwrap(), b"".to_array())
 }
 
 ///|
