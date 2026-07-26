@@ -105,11 +105,11 @@ test "portable qualification opaque rect reaches semantic raster" {
         Ok(_) => ()
       }
       let (r, g, b, a) = qualification_pixel(image, 4UL, 4UL)
-      inspect((r.to_int(), g.to_int(), b.to_int(), a.to_int()), content="(255, 0, 0, 255)")
+      assert_eq((r.to_int(), g.to_int(), b.to_int(), a.to_int()), (255, 0, 0, 255))
       let (corner_r, corner_g, corner_b, corner_a) = qualification_pixel(image, 0UL, 0UL)
-      inspect(
+      assert_eq(
         (corner_r.to_int(), corner_g.to_int(), corner_b.to_int(), corner_a.to_int()),
-        content="(0, 0, 0, 0)",
+        (0, 0, 0, 0),
       )
     }
   }
@@ -133,7 +133,7 @@ test "portable qualification preserves viewBox lowering and semantic blue raster
         Ok(_) => ()
       }
       let (r, g, b, a) = qualification_pixel(image, 4UL, 4UL)
-      inspect((r.to_int(), g.to_int(), b.to_int(), a.to_int()), content="(0, 0, 255, 255)")
+      assert_eq((r.to_int(), g.to_int(), b.to_int(), a.to_int()), (0, 0, 255, 255))
     }
   }
 }
@@ -148,7 +148,7 @@ test "portable qualification retains per-paint opacity without layers" {
       inspect(list.length(), content="2")
       match (list.get(0), list.get(1)) {
         (Some(Fill(_, fill)), Some(Stroke(_, _, stroke))) =>
-          inspect((fill.color_a, stroke.color_a), content="(0.5, 0.5)")
+          assert_eq((fill.color_a, stroke.color_a), (0.5, 0.5))
         _ => inspect(false, content="true")
       }
       let image = qualification_image(b'\xff', b'\xff', b'\xff', b'\xff')
@@ -157,14 +157,14 @@ test "portable qualification retains per-paint opacity without layers" {
         Ok(_) => ()
       }
       let (fill_r, fill_g, fill_b, fill_a) = qualification_pixel(image, 4UL, 4UL)
-      inspect(
+      assert_eq(
         (fill_r.to_int(), fill_g.to_int(), fill_b.to_int(), fill_a.to_int()),
-        content="(255, 128, 128, 255)",
+        (255, 128, 128, 255),
       )
       let (stroke_r, stroke_g, stroke_b, stroke_a) = qualification_pixel(image, 4UL, 1UL)
-      inspect(
+      assert_eq(
         (stroke_r.to_int(), stroke_g.to_int(), stroke_b.to_int(), stroke_a.to_int()),
-        content="(128, 64, 192, 255)",
+        (128, 64, 192, 255),
       )
     }
   }
@@ -189,7 +189,10 @@ test "portable qualification keeps group opacity isolated" {
         Ok(_) => ()
       }
       let (r, g, b, a) = qualification_pixel(image, 4UL, 4UL)
-      inspect((r.to_int(), g.to_int(), b.to_int(), a.to_int()), content="(128, 128, 255, 255)")
+      assert_eq(
+        (r.to_int(), g.to_int(), b.to_int(), a.to_int()),
+        (128, 128, 255, 255),
+      )
     }
   }
 }
@@ -204,7 +207,7 @@ test "portable qualification nests group and element layers with semantic pixels
       inspect(list.length(), content="8")
       match (list.get(0), list.get(1), list.get(2), list.get(3), list.get(4), list.get(5), list.get(6), list.get(7)) {
         (Some(PushTransform(_)), Some(PushLayer(group)), Some(PushLayer(element)), Some(Fill(_, _)), Some(Stroke(_, _, _)), Some(PopLayer), Some(PopLayer), Some(PopTransform)) =>
-          inspect((group, element), content="(0.5, 0.5)")
+          assert_eq((group, element), (0.5, 0.5))
         _ => inspect(false, content="true")
       }
       let opaque = qualification_image(b'\xff', b'\xff', b'\xff', b'\xff')
@@ -213,23 +216,23 @@ test "portable qualification nests group and element layers with semantic pixels
         Ok(_) => ()
       }
       let (opaque_r, opaque_g, opaque_b, opaque_a) = qualification_pixel(opaque, 4UL, 4UL)
-      inspect(
+      assert_eq(
         (opaque_r.to_int(), opaque_g.to_int(), opaque_b.to_int(), opaque_a.to_int()),
-        content="(255, 191, 191, 255)",
+        (255, 191, 191, 255),
       )
       let (opaque_stroke_r, opaque_stroke_g, opaque_stroke_b, opaque_stroke_a) = qualification_pixel(
         opaque,
         4UL,
         0UL,
       )
-      inspect(
+      assert_eq(
         (
           opaque_stroke_r.to_int(),
           opaque_stroke_g.to_int(),
           opaque_stroke_b.to_int(),
           opaque_stroke_a.to_int(),
         ),
-        content="(191, 191, 255, 255)",
+        (191, 191, 255, 255),
       )
       let transparent = qualification_image(b'\x00', b'\x00', b'\x00', b'\x00')
       match @canvas.render(list, transparent, qualification_budget()) {
@@ -237,23 +240,23 @@ test "portable qualification nests group and element layers with semantic pixels
         Ok(_) => ()
       }
       let (transparent_r, transparent_g, transparent_b, transparent_a) = qualification_pixel(transparent, 4UL, 4UL)
-      inspect(
+      assert_eq(
         (transparent_r.to_int(), transparent_g.to_int(), transparent_b.to_int(), transparent_a.to_int()),
-        content="(255, 0, 0, 64)",
+        (255, 0, 0, 64),
       )
       let (transparent_stroke_r, transparent_stroke_g, transparent_stroke_b, transparent_stroke_a) = qualification_pixel(
         transparent,
         4UL,
         0UL,
       )
-      inspect(
+      assert_eq(
         (
           transparent_stroke_r.to_int(),
           transparent_stroke_g.to_int(),
           transparent_stroke_b.to_int(),
           transparent_stroke_a.to_int(),
         ),
-        content="(0, 0, 255, 64)",
+        (0, 0, 255, 64),
       )
     }
   }
@@ -327,14 +330,14 @@ test "portable qualification renders sixteen SVG-originated opacity layers" {
         Ok(_) => ()
       }
       let (center_r, center_g, center_b, center_a) = qualification_pixel(image, 4UL, 4UL)
-      inspect(
+      assert_eq(
         (center_r.to_int(), center_g.to_int(), center_b.to_int(), center_a.to_int()),
-        content="(223, 4, 6, 255)",
+        (223, 4, 6, 255),
       )
       let (corner_r, corner_g, corner_b, corner_a) = qualification_pixel(image, 0UL, 0UL)
-      inspect(
+      assert_eq(
         (corner_r.to_int(), corner_g.to_int(), corner_b.to_int(), corner_a.to_int()),
-        content="(16, 32, 48, 255)",
+        (16, 32, 48, 255),
       )
     }
   }
@@ -392,7 +395,7 @@ fn assert_portable_rfc0008_opacity_contract() -> Unit raise {
       inspect(list.length(), content="8")
       match (list.get(0), list.get(1), list.get(2), list.get(3), list.get(4), list.get(5), list.get(6), list.get(7)) {
         (Some(PushTransform(_)), Some(PushLayer(group)), Some(PushLayer(element)), Some(Fill(_, _)), Some(Stroke(_, _, _)), Some(PopLayer), Some(PopLayer), Some(PopTransform)) =>
-          inspect((group, element), content="(0.5, 0.25)")
+          assert_eq((group, element), (0.5, 0.25))
         _ => inspect(false, content="true")
       }
 
@@ -402,9 +405,9 @@ fn assert_portable_rfc0008_opacity_contract() -> Unit raise {
         Ok(_) => ()
       }
       let (opaque_r, opaque_g, opaque_b, opaque_a) = qualification_pixel(opaque, 4UL, 4UL)
-      inspect(
+      assert_eq(
         (opaque_r.to_int(), opaque_g.to_int(), opaque_b.to_int(), opaque_a.to_int()),
-        content="(255, 223, 223, 255)",
+        (255, 223, 223, 255),
       )
 
       let transparent = qualification_image(b'\x00', b'\x00', b'\x00', b'\x00')
@@ -417,14 +420,14 @@ fn assert_portable_rfc0008_opacity_contract() -> Unit raise {
         4UL,
         4UL,
       )
-      inspect(
+      assert_eq(
         (
           transparent_r.to_int(),
           transparent_g.to_int(),
           transparent_b.to_int(),
           transparent_a.to_int(),
         ),
-        content="(255, 0, 0, 32)",
+        (255, 0, 0, 32),
       )
     }
   }

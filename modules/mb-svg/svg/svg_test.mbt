@@ -73,8 +73,8 @@ test "public parse and lower retain compact supported SVG geometry" {
       inspect(list.length(), content="11")
       match (list.get(0), list.get(1), list.get(9), list.get(10)) {
         (Some(PushTransform(root_map)), Some(PushTransform(scale)), Some(PopTransform), Some(PopTransform)) => {
-          inspect((root_map.a(), root_map.d(), root_map.ty()), content="(2, 2, 2)")
-          inspect((scale.a(), scale.d()), content="(0, 0)")
+          assert_eq((root_map.a(), root_map.d(), root_map.ty()), (2.0, 2.0, 2.0))
+          assert_eq((scale.a(), scale.d()), (0.0, 0.0))
         }
         _ => inspect(false, content="true")
       }

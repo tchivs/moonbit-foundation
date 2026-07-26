@@ -68,7 +68,10 @@ test "parse_path_data accepts compact sign-separated coordinates" {
     Ok(path) =>
       match (path.to_path2().get(0), path.to_path2().get(1)) {
         (Some(@math.PathCommand::MoveTo(start)), Some(@math.PathCommand::LineTo(end))) => {
-          inspect((start.x(), start.y(), end.x(), end.y()), content="(0, -10, 5, -3)")
+          assert_eq(
+            (start.x(), start.y(), end.x(), end.y()),
+            (0.0, -10.0, 5.0, -3.0),
+          )
         }
         _ => inspect(false, content="true")
       }
@@ -203,8 +206,14 @@ test "path smooth commands use exact arity and compatible reflection" {
       inspect(commands.length(), content="5")
       match (commands.get(2), commands.get(4)) {
         (Some(@math.PathCommand::CubicTo(cp1, cp2, endpoint)), Some(@math.PathCommand::QuadTo(control, quad_endpoint))) => {
-          inspect((cp1.x(), cp1.y(), cp2.x(), cp2.y(), endpoint.x(), endpoint.y()), content="(17, 18, 17, 18, 19, 20)")
-          inspect((control.x(), control.y(), quad_endpoint.x(), quad_endpoint.y()), content="(25, 26, 25, 26)")
+          assert_eq(
+            (cp1.x(), cp1.y(), cp2.x(), cp2.y(), endpoint.x(), endpoint.y()),
+            (17.0, 18.0, 17.0, 18.0, 19.0, 20.0),
+          )
+          assert_eq(
+            (control.x(), control.y(), quad_endpoint.x(), quad_endpoint.y()),
+            (25.0, 26.0, 25.0, 26.0),
+          )
         }
         _ => inspect(false, content="true")
       }
@@ -218,7 +227,8 @@ test "path close restores subpath current point and clears reflections" {
   match parse_path_data("M 0 0 L 10 0 Z l 5 0") {
     Ok(path) =>
       match path.to_path2().get(3) {
-        Some(@math.PathCommand::LineTo(endpoint)) => inspect((endpoint.x(), endpoint.y()), content="(5, 0)")
+        Some(@math.PathCommand::LineTo(endpoint)) =>
+          assert_eq((endpoint.x(), endpoint.y()), (5.0, 0.0))
         _ => inspect(false, content="true")
       }
     Err(_) => inspect(false, content="true")
@@ -227,7 +237,10 @@ test "path close restores subpath current point and clears reflections" {
     Ok(path) =>
       match path.to_path2().get(3) {
         Some(@math.PathCommand::CubicTo(cp1, cp2, endpoint)) => {
-          inspect((cp1.x(), cp1.y(), cp2.x(), cp2.y(), endpoint.x(), endpoint.y()), content="(0, 0, 1, 0, 2, 0)")
+          assert_eq(
+            (cp1.x(), cp1.y(), cp2.x(), cp2.y(), endpoint.x(), endpoint.y()),
+            (0.0, 0.0, 1.0, 0.0, 2.0, 0.0),
+          )
         }
         _ => inspect(false, content="true")
       }

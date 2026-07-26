@@ -70,11 +70,11 @@ test "parse_length plain and unit-suffixed" {
 ///|
 test "parse_viewbox four numbers" {
   match parse_viewbox("0 0 100 100") {
-    Ok((x, y, w, h)) => inspect((x, y, w, h), content="(0, 0, 100, 100)")
+    Ok((x, y, w, h)) => assert_eq((x, y, w, h), (0.0, 0.0, 100.0, 100.0))
     Err(_) => inspect(false, content="true")
   }
   match parse_viewbox("10 20 200 150") {
-    Ok((x, y, w, h)) => inspect((x, y, w, h), content="(10, 20, 200, 150)")
+    Ok((x, y, w, h)) => assert_eq((x, y, w, h), (10.0, 20.0, 200.0, 150.0))
     Err(_) => inspect(false, content="true")
   }
 }
@@ -82,11 +82,11 @@ test "parse_viewbox four numbers" {
 ///|
 test "parse_number_list space and comma separated" {
   match parse_number_list("1 2 3") {
-    Ok(arr) => inspect(arr, content="[1, 2, 3]")
+    Ok(arr) => assert_eq(arr, [1.0, 2.0, 3.0])
     Err(_) => inspect(false, content="true")
   }
   match parse_number_list("1,2,3") {
-    Ok(arr) => inspect(arr, content="[1, 2, 3]")
+    Ok(arr) => assert_eq(arr, [1.0, 2.0, 3.0])
     Err(_) => inspect(false, content="true")
   }
   match parse_number_list("1.5, 2.5 3.5") {
@@ -110,7 +110,7 @@ test "parse_number_list rejects malformed comma separators" {
   }
   inspect(accepted, content="0")
   match parse_number_list("1 , 2\t,\n3") {
-    Ok(values) => inspect(values, content="[1, 2, 3]")
+    Ok(values) => assert_eq(values, [1.0, 2.0, 3.0])
     Err(_) => inspect(false, content="true")
   }
 }
@@ -127,11 +127,12 @@ test "numeric contract: lexical finite boundaries" {
     Err(_) => inspect(false, content="true")
   }
   match parse_number_list("-65536, 0, 65536") {
-    Ok(values) => inspect(values, content="[-65536, 0, 65536]")
+    Ok(values) => assert_eq(values, [-65536.0, 0.0, 65536.0])
     Err(_) => inspect(false, content="true")
   }
   match parse_viewbox("-65536 -65536 65536 65536") {
-    Ok(bounds) => inspect(bounds, content="(-65536, -65536, 65536, 65536)")
+    Ok(bounds) =>
+      assert_eq(bounds, (-65536.0, -65536.0, 65536.0, 65536.0))
     Err(_) => inspect(false, content="true")
   }
 }

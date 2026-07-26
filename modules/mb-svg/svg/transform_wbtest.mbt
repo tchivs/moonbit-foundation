@@ -32,12 +32,12 @@ test "parse_transform empty is identity" {
 ///|
 test "parse_transform translate" {
   match parse_transform("translate(10,20)") {
-    Ok(m) => inspect((tx(m), ty(m)), content="(10, 20)")
+    Ok(m) => assert_eq((tx(m), ty(m)), (10.0, 20.0))
     Err(_) => inspect(false, content="true")
   }
   // Single-arg translate: translate(x) → (x, 0).
   match parse_transform("translate(5)") {
-    Ok(m) => inspect((tx(m), ty(m)), content="(5, 0)")
+    Ok(m) => assert_eq((tx(m), ty(m)), (5.0, 0.0))
     Err(_) => inspect(false, content="true")
   }
 }
@@ -45,11 +45,11 @@ test "parse_transform translate" {
 ///|
 test "parse_transform scale" {
   match parse_transform("scale(2)") {
-    Ok(m) => inspect((m.a(), m.d()), content="(2, 2)")
+    Ok(m) => assert_eq((m.a(), m.d()), (2.0, 2.0))
     Err(_) => inspect(false, content="true")
   }
   match parse_transform("scale(2,3)") {
-    Ok(m) => inspect((m.a(), m.d()), content="(2, 3)")
+    Ok(m) => assert_eq((m.a(), m.d()), (2.0, 3.0))
     Err(_) => inspect(false, content="true")
   }
 }
@@ -57,7 +57,11 @@ test "parse_transform scale" {
 ///|
 test "parse_transform matrix" {
   match parse_transform("matrix(1,2,3,4,5,6)") {
-    Ok(m) => inspect((m.a(), m.b(), m.c(), m.d(), tx(m), ty(m)), content="(1, 2, 3, 4, 5, 6)")
+    Ok(m) =>
+      assert_eq(
+        (m.a(), m.b(), m.c(), m.d(), tx(m), ty(m)),
+        (1.0, 2.0, 3.0, 4.0, 5.0, 6.0),
+      )
     Err(_) => inspect(false, content="true")
   }
 }
@@ -73,7 +77,7 @@ test "parse_transform multiple transforms compose" {
   match parse_transform("translate(10,0) scale(2)") {
     Ok(m) => {
       let p = m.apply(@math.Point2::new(1.0, 0.0))
-      inspect((p.x(), p.y()), content="(12, 0)")
+      assert_eq((p.x(), p.y()), (12.0, 0.0))
     }
     Err(_) => inspect(false, content="true")
   }
@@ -106,7 +110,10 @@ test "parse_transform rotate uses degrees (rotate(90) maps (1,0)→(0,1))" {
     Ok(m) => {
       let p = m.apply(@math.Point2::new(1.0, 0.0))
       // Allow tiny float error around the expected (0,1).
-      inspect((p.x().abs() < 1.0e-9, (p.y() - 1.0).abs() < 1.0e-9), content="(true, true)")
+      assert_eq(
+        (p.x().abs() < 1.0e-9, (p.y() - 1.0).abs() < 1.0e-9),
+        (true, true),
+      )
     }
     Err(_) => inspect(false, content="true")
   }
@@ -118,11 +125,17 @@ test "parse_transform rotate with center keeps the center fixed" {
   match parse_transform("rotate(90, 1, 1)") {
     Ok(m) => {
       let p = m.apply(@math.Point2::new(1.0, 1.0))
-      inspect(((p.x() - 1.0).abs() < 1.0e-9, (p.y() - 1.0).abs() < 1.0e-9), content="(true, true)")
+      assert_eq(
+        ((p.x() - 1.0).abs() < 1.0e-9, (p.y() - 1.0).abs() < 1.0e-9),
+        (true, true),
+      )
       // A point one unit to the right of the center, (2,1), rotates 90° about
       // (1,1) to one unit above: (1,2).
       let q = m.apply(@math.Point2::new(2.0, 1.0))
-      inspect(((q.x() - 1.0).abs() < 1.0e-9, (q.y() - 2.0).abs() < 1.0e-9), content="(true, true)")
+      assert_eq(
+        ((q.x() - 1.0).abs() < 1.0e-9, (q.y() - 2.0).abs() < 1.0e-9),
+        (true, true),
+      )
     }
     Err(_) => inspect(false, content="true")
   }
@@ -161,17 +174,21 @@ test "parse_transform rotate needs angle or angle,cx,cy (2 args errors)" {
 test "numeric contract: affine and trigonometric controls" {
   // SVG-NUM-TRANSFORM / SVG-NUM-AFFINE: each constructor remains finite at the boundary.
   match parse_transform("matrix(1,0,0,1,65536,-65536)") {
-    Ok(m) => inspect((m.a(), m.d(), tx(m), ty(m)), content="(1, 1, 65536, -65536)")
+    Ok(m) =>
+      assert_eq(
+        (m.a(), m.d(), tx(m), ty(m)),
+        (1.0, 1.0, 65536.0, -65536.0),
+      )
     Err(_) => inspect(false, content="true")
   }
   match parse_transform("translate(65536,-65536)") {
-    Ok(m) => inspect((tx(m), ty(m)), content="(65536, -65536)")
+    Ok(m) => assert_eq((tx(m), ty(m)), (65536.0, -65536.0))
     Err(_) => inspect(false, content="true")
   }
   // D-05: finite singular transforms remain valid even though inverse() is None.
   match parse_transform("scale(0,65536)") {
     Ok(m) => {
-      inspect((m.a(), m.d()), content="(0, 65536)")
+      assert_eq((m.a(), m.d()), (0.0, 65536.0))
       match m.inverse() {
         None => inspect(true, content="true")
         Some(_) => inspect(false, content="true")
@@ -184,7 +201,10 @@ test "numeric contract: affine and trigonometric controls" {
   match parse_transform("rotate(90)") {
     Ok(m) => {
       let point = m.apply(@math.Point2::new(1.0, 0.0))
-      inspect((point.x().abs() < 1.0e-9, (point.y() - 1.0).abs() < 1.0e-9), content="(true, true)")
+      assert_eq(
+        (point.x().abs() < 1.0e-9, (point.y() - 1.0).abs() < 1.0e-9),
+        (true, true),
+      )
     }
     Err(_) => inspect(false, content="true")
   }
@@ -200,7 +220,7 @@ test "numeric contract: affine and trigonometric controls" {
   match parse_transform("translate(65535,0) scale(0.5)") {
     Ok(m) => {
       let point = m.apply(@math.Point2::new(2.0, 0.0))
-      inspect((point.x(), point.y()), content="(65536, 0)")
+      assert_eq((point.x(), point.y()), (65536.0, 0.0))
     }
     Err(_) => inspect(false, content="true")
   }
@@ -224,7 +244,7 @@ test "transform admission enforces exact arity and derived affine safety" {
     let (source, context) = case
     match parse_transform(source) {
       Ok(_) => inspect(false, content="true")
-      Err(error) => inspect(error.context(), content="Some(" + context + ")")
+      Err(error) => assert_eq(error.context(), Some(context))
     }
   }
   let derived_rejections = [
@@ -236,11 +256,12 @@ test "transform admission enforces exact arity and derived affine safety" {
   for source in derived_rejections {
     match parse_transform(source) {
       Ok(_) => inspect(false, content="true")
-      Err(error) => inspect(error.context(), content="Some(svg-numeric-derived)")
+      Err(error) =>
+        assert_eq(error.context(), Some("svg-numeric-derived"))
     }
   }
   match parse_transform("scale(0)") {
-    Ok(m) => inspect((m.a(), m.d()), content="(0, 0)")
+    Ok(m) => assert_eq((m.a(), m.d()), (0.0, 0.0))
     Err(_) => inspect(false, content="true")
   }
 }

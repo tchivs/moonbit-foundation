@@ -6,7 +6,8 @@ fn assert_private_point_derived_error(
 ) -> Unit raise {
   match result {
     Ok(_) => inspect(false, content="true")
-    Err(error) => inspect(error.context(), content="Some(svg-numeric-derived)")
+    Err(error) =>
+      assert_eq(error.context(), Some("svg-numeric-derived"))
   }
 }
 
@@ -15,7 +16,8 @@ fn assert_private_derived_error(
 ) -> Unit raise {
   match result {
     Ok(_) => inspect(false, content="true")
-    Err(error) => inspect(error.context(), content="Some(svg-numeric-derived)")
+    Err(error) =>
+      assert_eq(error.context(), Some("svg-numeric-derived"))
   }
 }
 
@@ -25,7 +27,8 @@ fn assert_private_path_derived_error(
 ) -> Unit raise {
   match result {
     Ok(path) => assert_private_derived_error(checked_path_points(path, transform))
-    Err(error) => inspect(error.context(), content="Some(svg-numeric-derived)")
+    Err(error) =>
+      assert_eq(error.context(), Some("svg-numeric-derived"))
   }
 }
 
@@ -50,15 +53,15 @@ test "geometry facts: root map affine point and rectangle are checked" {
     preserve_aspect_ratio: { align_x: 1, align_y: 1, meet: true, none: false },
   }
   match checked_viewbox_transform(root) {
-    Ok(map) => inspect((map.a(), map.d(), map.tx(), map.ty()), content="(2, 2, 0, 50)")
+    Ok(map) => assert_eq((map.a(), map.d(), map.tx(), map.ty()), (2.0, 2.0, 0.0, 50.0))
     Err(_) => inspect(false, content="true")
   }
   match checked_compose_affine(@math.Affine2::identity(), @math.Affine2::translate(3.0, 4.0)) {
-    Ok(transform) => inspect((transform.tx(), transform.ty()), content="(3, 4)")
+    Ok(transform) => assert_eq((transform.tx(), transform.ty()), (3.0, 4.0))
     Err(_) => inspect(false, content="true")
   }
   match checked_transform_point(@math.Affine2::scale(0.0, 0.0), @math.Point2::new(65536.0, -65536.0)) {
-    Ok(point) => inspect((point.x(), point.y()), content="(0, 0)")
+    Ok(point) => assert_eq((point.x(), point.y()), (0.0, 0.0))
     Err(_) => inspect(false, content="true")
   }
   match checked_rect_path(0.0, 0.0, 10.0, 10.0, 2.0, 2.0) {
@@ -87,13 +90,14 @@ test "geometry tracer pairs derived root-map rejection with finite scale zero" {
   }
   match checked_viewbox_transform(unsafe_root) {
     Ok(_) => inspect(false, content="true")
-    Err(error) => inspect(error.context(), content="Some(svg-numeric-derived)")
+    Err(error) =>
+      assert_eq(error.context(), Some("svg-numeric-derived"))
   }
   match checked_transform_point(
     @math.Affine2::scale(0.0, 0.0),
     @math.Point2::new(65536.0, -65536.0),
   ) {
-    Ok(point) => inspect((point.x(), point.y()), content="(0, 0)")
+    Ok(point) => assert_eq((point.x(), point.y()), (0.0, 0.0))
     Err(_) => inspect(false, content="true")
   }
 }
@@ -111,14 +115,16 @@ test "geometry parity matrix observes every checked derived-geometry family" {
   // arithmetic oracle.
   match checked_viewbox_transform(unsafe_root) {
     Ok(_) => inspect(false, content="true")
-    Err(error) => inspect(error.context(), content="Some(svg-numeric-derived)")
+    Err(error) =>
+      assert_eq(error.context(), Some("svg-numeric-derived"))
   }
   match checked_compose_affine(
     @math.Affine2::translate(65536.0, 0.0),
     overflow_translate,
   ) {
     Ok(_) => inspect(false, content="true")
-    Err(error) => inspect(error.context(), content="Some(svg-numeric-derived)")
+    Err(error) =>
+      assert_eq(error.context(), Some("svg-numeric-derived"))
   }
   assert_private_point_derived_error(
     checked_transform_point(overflow_translate, @math.Point2::new(65536.0, 0.0)),
@@ -183,7 +189,8 @@ test "geometry facts: supported primitive paths preserve command forms" {
   }
   let points = [@math.Point2::new(0.0, 0.0), @math.Point2::new(1.0, 1.0)]
   match (checked_polyline_path(points), checked_polygon_path(points)) {
-    (Ok(polyline), Ok(polygon)) => inspect((polyline.length(), polygon.length()), content="(2, 3)")
+    (Ok(polyline), Ok(polygon)) =>
+      assert_eq((polyline.length(), polygon.length()), (2, 3))
     _ => inspect(false, content="true")
   }
 }
