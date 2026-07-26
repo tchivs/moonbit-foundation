@@ -326,6 +326,7 @@
             "}",
             "pub fn ByteView::get(Self, UInt64) -> Result[Byte, @error.CoreError]",
             "pub fn ByteView::length(Self) -> UInt64",
+            "pub fn ByteView::mutation_revision(Self) -> UInt64",
             "pub fn ByteView::subview(Self, UInt64, UInt64) -> Result[Self, @error.CoreError]",
             "type LeaseGroup",
             "type LeaseState",
