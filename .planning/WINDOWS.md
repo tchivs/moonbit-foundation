@@ -1,10 +1,10 @@
 ---
 schema_version: 1
-open_count: 12
+open_count: 14
 waived_count: 0
 fixed_count: 3
-total_count: 15
-last_updated: 2026-07-26T09:59:23.761Z
+total_count: 17
+last_updated: 2026-07-26T10:53:41.483Z
 ---
 
 # Broken Windows Ledger
@@ -30,6 +30,8 @@ last_updated: 2026-07-26T09:59:23.761Z
 | 13 | 97 | deviation | modules/mb-font/font/font.mbt |  | Preserved, reviewed, and repaired an in-scope Task 3 draft with unknown provenance | fixed |  | 2026-07-26T09:58:43.531Z | 2026-07-26T09:59:22.595Z |
 | 14 | 97 | deviation | modules/mb-font/font/tables.mbt |  | Restored stable missing-table and detailed head error contracts during coordinator expansion | fixed |  | 2026-07-26T09:58:44.060Z | 2026-07-26T09:59:23.177Z |
 | 15 | 97 | deviation | modules/mb-font/font/generated_fonts.mbt |  | Stabilized a late generated OS/2 metric update across all four targets | fixed |  | 2026-07-26T09:58:44.599Z | 2026-07-26T09:59:23.761Z |
+| 16 | 97 | unrun-verify | docs/rfcs/0001-moonbit-native-foundation.md |  | Plan 97-03 full Required gate cannot complete because policy records RFC 0001 Accepted while the canonical RFC and index remain Proposed; root will resolve separately. | open |  | 2026-07-26T10:53:33.620Z |  |
+| 17 | 97 | deviation | policy/foundation.json |  | Reconciled pre-existing core utility, blend, image ops, and canvas import inventories so the planned exact mb-font selector could execute against the live workspace. | open |  | 2026-07-26T10:53:41.483Z |  |
 
 ````json
 [
@@ -212,6 +214,30 @@ last_updated: 2026-07-26T09:59:23.761Z
     "reason": "",
     "recorded_at": "2026-07-26T09:58:44.599Z",
     "resolved_at": "2026-07-26T09:59:23.761Z"
+  },
+  {
+    "id": 16,
+    "kind": "unrun-verify",
+    "phase": "97",
+    "file": "docs/rfcs/0001-moonbit-native-foundation.md",
+    "line": null,
+    "description": "Plan 97-03 full Required gate cannot complete because policy records RFC 0001 Accepted while the canonical RFC and index remain Proposed; root will resolve separately.",
+    "status": "open",
+    "reason": "",
+    "recorded_at": "2026-07-26T10:53:33.620Z",
+    "resolved_at": null
+  },
+  {
+    "id": 17,
+    "kind": "deviation",
+    "phase": "97",
+    "file": "policy/foundation.json",
+    "line": null,
+    "description": "Reconciled pre-existing core utility, blend, image ops, and canvas import inventories so the planned exact mb-font selector could execute against the live workspace.",
+    "status": "open",
+    "reason": "",
+    "recorded_at": "2026-07-26T10:53:41.483Z",
+    "resolved_at": null
   }
 ]
 ````
