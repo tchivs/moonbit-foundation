@@ -1,0 +1,12 @@
+{
+  "name": "tchivs/mb-font",
+  "version": "0.1.0",
+  "description": "Portable bounded TrueType font admission and named metrics for MoonBit Native Foundation.",
+  "license": "Apache-2.0",
+  "repository": "https://github.com/tchivs/moonbit-foundation",
+  "preferred-target": "native",
+  "supported-targets": "+js+wasm+wasm-gc+native",
+  "deps": {
+    "tchivs/mb-core": "0.1.0"
+  }
+}
