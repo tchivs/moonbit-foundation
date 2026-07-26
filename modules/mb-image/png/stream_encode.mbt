@@ -1326,28 +1326,6 @@ fn PngEncodeMachine::new_with_profile(
 }
 
 ///|
-/// Indexed8 reuses the same pending-byte machine but supplies its immutable
-/// index raster directly and fixes the only admitted wire profile.
-fn PngEncodeMachine::new_with_indexed_profile(
-  source : PngIndexedImage,
-  wire_profile : PngIndexedWireProfile,
-  interlace_strategy : PngInterlaceStrategy,
-  limits : @codec.CodecLimits,
-  budget : @budget.Budget,
-  _diagnostics : @error.Diagnostics,
-) -> Result[PngEncodeMachine, @error.CoreError] {
-  PngEncodeMachine::new_with_indexed_profile_and_strategy(
-    source,
-    wire_profile,
-    interlace_strategy,
-    PngCompressionStrategy::Stored,
-    limits,
-    budget,
-    _diagnostics,
-  )
-}
-
-///|
 /// The sole indexed construction seam validates the narrow strategy before
 /// preflight, then gives Stored and Fixed replay fresh identical bounded raw
 /// producers. No second indexed encoder owns caller acknowledgement.

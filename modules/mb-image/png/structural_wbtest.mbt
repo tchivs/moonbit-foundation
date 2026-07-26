@@ -7,6 +7,8 @@ test "PNG structural CRC uses type plus payload scope" {
 fn png_decode_generated_vector(
   item : PngGeneratedCase,
 ) -> Result[@codec.DecodeResult, @error.CoreError] {
+  ignore(item.category.length().to_uint64())
+  ignore(if item.immutable_caller_state { 1UL } else { 0UL })
   let length = item.bytes.length().to_uint64()
   let owner = @bytes.OwnedBytes::from_bytes(
     item.bytes,
@@ -904,25 +906,25 @@ test "PNG colour declaration helpers validate sRGB and iCCP envelopes" {
   )
   inspect(_png_validate_srgb_payload([b'\x00']) is Ok(b'\x00'), content="true")
   inspect(
-    _png_validate_srgb_payload([b'\x04']).unwrap_err().context(),
-    content="Some(png-srgb-intent)",
+    _png_validate_srgb_payload([b'\x04']).unwrap_err().context() ==
+    Some("png-srgb-intent"),
+    content="true",
   )
   inspect(
-    _png_validate_srgb_payload([]).unwrap_err().context(),
-    content="Some(png-srgb-length)",
+    _png_validate_srgb_payload([]).unwrap_err().context() == Some("png-srgb-length"),
+    content="true",
   )
   inspect(
     _png_validate_iccp_payload(b"profile\x00\x00\x78") is Ok(_),
     content="true",
   )
   inspect(
-    _png_validate_iccp_payload(b" profile\x00\x00\x78").unwrap_err().context(),
-    content="Some(png-iccp-name)",
+    _png_validate_iccp_payload(b" profile\x00\x00\x78").unwrap_err().context() ==
+    Some("png-iccp-name"),
+    content="true",
   )
-  inspect(
-    _png_validate_iccp_payload(b"profile\x00\x01\x78").unwrap_err().context(),
-    content="Some(png-iccp-method)",
-  )
+  let method_error = _png_validate_iccp_payload(b"profile\x00\x01\x78").unwrap_err()
+  inspect(method_error.context() == Some("png-iccp-method"), content="true")
 }
 
 ///|

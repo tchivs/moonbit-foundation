@@ -974,10 +974,11 @@ fn PngEncodeMachine::new_with_indexed(
   budget : @budget.Budget,
   diagnostics : @error.Diagnostics,
 ) -> Result[PngEncodeMachine, @error.CoreError] {
-  PngEncodeMachine::new_with_indexed_profile(
+  PngEncodeMachine::new_with_indexed_profile_and_strategy(
     source,
     PngIndexedWireProfile::Eight,
     PngInterlaceStrategy::None,
+    PngCompressionStrategy::Stored,
     limits,
     budget,
     diagnostics,

@@ -107,10 +107,11 @@ test "PNG private raster sink retains scanline filter state across byte pauses" 
     PngBuiltinAllocator::{  } as &@bytes.Allocator,
     64UL,
   ).unwrap()
-  let sink = PngRasterSink::new(
+  let sink = PngRasterSink::new_with_profile(
     image,
     transport,
     false,
+    PngDecodeProfile::GenericRgba8,
     @budget.Budget::new(
       @budget.ResourceLimits::new(
         bytes=0UL,
@@ -132,7 +133,7 @@ test "PNG private raster sink retains scanline filter state across byte pauses" 
     sink.emit(byte).unwrap()
   }
   sink.finish().unwrap()
-  let view = sink.image_view()
+  let view = sink.into_image().view()
   inspect(view.get_byte(1UL, 1UL, 2UL).unwrap(), content="b'\\x41'")
 }
 
@@ -172,10 +173,11 @@ test "PNG private raster sink retains Adam7 pass cursors across byte pauses" {
     PngBuiltinAllocator::{  } as &@bytes.Allocator,
     64UL,
   ).unwrap()
-  let sink = PngRasterSink::new(
+  let sink = PngRasterSink::new_with_profile(
     image,
     transport,
     true,
+    PngDecodeProfile::GenericRgba8,
     @budget.Budget::new(
       @budget.ResourceLimits::new(
         bytes=16UL,
@@ -193,7 +195,7 @@ test "PNG private raster sink retains Adam7 pass cursors across byte pauses" {
     sink.emit(byte).unwrap()
   }
   sink.finish().unwrap()
-  let view = sink.image_view()
+  let view = sink.into_image().view()
   inspect(view.get_byte(0UL, 0UL, 0UL).unwrap(), content="b'\\x11'")
   inspect(view.get_byte(0UL, 0UL, 2UL).unwrap(), content="b'\\x33'")
 }

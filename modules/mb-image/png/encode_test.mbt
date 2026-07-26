@@ -3518,7 +3518,7 @@ test "PNG Gray8 eager Stored output and profile admission are atomic" {
     budget,
     @error.Diagnostics::new(),
   ).unwrap_err()
-  inspect(error.context(), content="Some(gray8-required)")
+  inspect(error.context() == Some("gray8-required"), content="true")
   inspect(
     rejected.position() == 0UL &&
     png_adam7_same_remaining(before, budget.remaining()),
@@ -3563,7 +3563,7 @@ test "PNG Gray1 eager Stored output packs MSB-first and rejects atomically" {
     budget,
     @error.Diagnostics::new(),
   ).unwrap_err()
-  inspect(error.context(), content="Some(gray1-level-required)")
+  inspect(error.context() == Some("gray1-level-required"), content="true")
   inspect(
     rejected.position() == 0UL &&
     png_adam7_same_remaining(before, budget.remaining()),
@@ -3615,7 +3615,7 @@ test "PNG Gray2 and Gray4 eager Stored output packs exact levels atomically" {
     gray2_budget,
     @error.Diagnostics::new(),
   ).unwrap_err()
-  inspect(gray2_error.context(), content="Some(gray2-level-required)")
+  inspect(gray2_error.context() == Some("gray2-level-required"), content="true")
   inspect(
     gray2_rejected.position() == 0UL &&
     png_adam7_same_remaining(gray2_before, gray2_budget.remaining()),
@@ -3640,7 +3640,7 @@ test "PNG Gray2 and Gray4 eager Stored output packs exact levels atomically" {
     gray4_budget,
     @error.Diagnostics::new(),
   ).unwrap_err()
-  inspect(gray4_error.context(), content="Some(gray4-level-required)")
+  inspect(gray4_error.context() == Some("gray4-level-required"), content="true")
   inspect(
     gray4_rejected.position() == 0UL &&
     png_adam7_same_remaining(gray4_before, gray4_budget.remaining()),
@@ -3683,7 +3683,7 @@ test "PNG Gray16 eager Stored output uses type 0 big-endian samples atomically" 
     budget,
     @error.Diagnostics::new(),
   ).unwrap_err()
-  inspect(error.context(), content="Some(gray16-required)")
+  inspect(error.context() == Some("gray16-required"), content="true")
   inspect(rejected.position(), content="0")
   inspect(
     budget.remaining().bytes() == before.bytes() &&
@@ -3740,7 +3740,7 @@ test "PNG GrayAlpha8 public eager evidence" {
     budget,
     @error.Diagnostics::new(),
   ).unwrap_err()
-  inspect(error.context(), content="Some(graya8-required)")
+  inspect(error.context() == Some("graya8-required"), content="true")
   inspect(
     rejected.position() == 0UL &&
     png_adam7_same_remaining(before, budget.remaining()),
@@ -3941,7 +3941,7 @@ test "PNG RGBA16 eager factories retain atomic profile and resource admission" {
     png_encode_budget(),
     @error.Diagnostics::new(),
   ).unwrap_err()
-  inspect(generic.context(), content="Some(component-u8-required)")
+  inspect(generic.context() == Some("component-u8-required"), content="true")
   inspect(generic_writer.position(), content="0")
 
   let rgb_writer = @io.MemoryWriter::new(
@@ -3960,7 +3960,7 @@ test "PNG RGBA16 eager factories retain atomic profile and resource admission" {
     png_encode_budget(),
     @error.Diagnostics::new(),
   ).unwrap_err()
-  inspect(rgb.context(), content="Some(rgba16-required)")
+  inspect(rgb.context() == Some("rgba16-required"), content="true")
   inspect(rgb_writer.position(), content="0")
 }
 

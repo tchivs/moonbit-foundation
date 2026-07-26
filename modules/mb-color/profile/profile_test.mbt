@@ -102,7 +102,7 @@ test "empty and exact-limit opaque payloads round-trip exactly" {
       content="true",
     )
   }
-  let identity = @profile.ProfileIdentity::opaque(exact)
+  let identity = @profile.ProfileIdentity::from_opaque(exact)
   inspect(identity.is_builtin_srgb(), content="false")
   inspect(identity.opaque_profile().unwrap().length(), content="4")
 }

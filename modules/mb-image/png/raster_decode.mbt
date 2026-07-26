@@ -657,22 +657,6 @@ priv struct PngRasterSink {
 }
 
 ///|
-fn PngRasterSink::new(
-  image : @storage.OwnedImage,
-  transport : PngTransport,
-  interlaced : Bool,
-  budget : @budget.Budget,
-) -> Result[PngRasterSink, @error.CoreError] {
-  PngRasterSink::new_with_profile(
-    image,
-    transport,
-    interlaced,
-    PngDecodeProfile::GenericRgba8,
-    budget,
-  )
-}
-
-///|
 /// The machine-selected profile reaches the sink only after preflight has
 /// selected the descriptor and private image lifecycle.
 fn PngRasterSink::new_with_profile(
@@ -682,6 +666,7 @@ fn PngRasterSink::new_with_profile(
   profile : PngDecodeProfile,
   budget : @budget.Budget,
 ) -> Result[PngRasterSink, @error.CoreError] {
+  ignore(_png_touch_transport(transport))
   let row_bytes = match
     _png_source_row_bytes(
       transport.width,
@@ -769,11 +754,6 @@ fn PngRasterSink::new_with_profile(
     pass_index,
     pass_row: 0UL,
   })
-}
-
-///|
-fn PngRasterSink::image_view(self : PngRasterSink) -> @storage.ImageView {
-  self.image.view()
 }
 
 ///|

@@ -213,7 +213,7 @@ priv enum PngEncodeProfile {
   GrayAlpha8
   GrayAlpha16
   Rgba16
-} derive(Eq)
+}
 
 ///|
 /// Selects the explicit low-bit PNG wire depth for eager indexed encoding.
@@ -232,7 +232,7 @@ priv enum PngIndexedWireProfile {
   Two
   Four
   Eight
-} derive(Eq)
+}
 
 ///|
 /// An immutable PNG-only indexed source. Its raster is one unpacked U8 index
@@ -958,7 +958,7 @@ fn _png_legacy_metadata(
       } else {
         None
       },
-      @profile.ProfileIdentity::opaque(profile),
+      @profile.ProfileIdentity::from_opaque(profile),
       @model.Orientation::TopLeft,
       retained,
     ),
@@ -1008,7 +1008,7 @@ fn _png_iccp_metadata(
       } else {
         None
       },
-      @profile.ProfileIdentity::opaque(profile),
+      @profile.ProfileIdentity::from_opaque(profile),
       @model.Orientation::TopLeft,
       retained,
     ),

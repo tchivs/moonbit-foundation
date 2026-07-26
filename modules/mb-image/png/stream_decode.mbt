@@ -286,6 +286,12 @@ fn PngDecodeMachine::new_with_profile(
 }
 
 ///|
+/// Framing boundary flag used by private tests and finish-path diagnostics.
+fn PngDecodeMachine::framing_chunk_complete(self : PngDecodeMachine) -> Bool {
+  self.last_chunk_complete
+}
+
+///|
 /// Only the bounded chunks whose facts influence the eventual raster are
 /// copied over pauses. Unknown ancillary payloads are CRC-checked and then
 /// discarded byte by byte.
@@ -924,6 +930,7 @@ fn PngDecodeMachine::preflight_first_idat(
 fn PngDecodeMachine::finish(
   self : PngDecodeMachine,
 ) -> Result[Unit, @error.CoreError] {
+  ignore(self.framing_chunk_complete())
   match self.state {
     PngDecodeMachineState::PendingIendType => {
       let error = _png_error("png-iend-type")

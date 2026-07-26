@@ -1945,7 +1945,7 @@ test "PNG Gray8 chunk Stored output matches eager and rejects atomically" {
     budget,
     @error.Diagnostics::new(),
   ).unwrap_err()
-  inspect(error.context(), content="Some(gray8-required)")
+  inspect(error.context() == Some("gray8-required"), content="true")
   inspect(
     png_adam7_stream_same_remaining(before, budget.remaining()),
     content="true",
@@ -1980,7 +1980,7 @@ test "PNG Gray16 chunk Stored output matches eager and rejects atomically" {
     budget,
     @error.Diagnostics::new(),
   ).unwrap_err()
-  inspect(error.context(), content="Some(gray16-required)")
+  inspect(error.context() == Some("gray16-required"), content="true")
   inspect(
     budget.remaining().bytes() == before.bytes() &&
     budget.remaining().allocations() == before.allocations() &&
@@ -8477,9 +8477,9 @@ fn png_phase87_inflate(idat : Bytes, expect_fixed : Bool) -> Bytes {
     compressed.push(idat[index])
   }
   let bits = png_phase87_bits_new(Bytes::from_array(compressed))
-  let final = bits.read(1)
+  let is_final_block = bits.read(1)
   let block_type = bits.read(2)
-  if final != 1 || block_type != (if expect_fixed { 1 } else { 0 }) {
+  if is_final_block != 1 || block_type != (if expect_fixed { 1 } else { 0 }) {
     abort("png phase87 deflate block type")
   }
   let output : Array[Byte] = []
@@ -8586,7 +8586,7 @@ fn png_phase87_slice(value : Bytes, start : Int, length : Int) -> Bytes {
 }
 
 ///|
-fn png_phase87_expected_raw(depth : UInt64, stored_fallback : Bool) -> Bytes {
+fn png_phase87_expected_raw(_depth : UInt64, stored_fallback : Bool) -> Bytes {
   let raw : Array[Byte] = [b'\x00']
   let packed_length = 64UL
   for index = 0UL; index < packed_length; index = index + 1UL {
