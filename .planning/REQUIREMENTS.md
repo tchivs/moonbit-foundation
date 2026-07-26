@@ -55,16 +55,16 @@ Roadmap phases populate this table. Every v0.32 requirement must map to exactly 
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| FONT-01 | — | Pending |
-| FONT-02 | — | Pending |
-| FONT-03 | — | Pending |
-| FONT-04 | — | Pending |
-| FONT-05 | — | Pending |
+| FONT-01 | Phase 97 | Pending |
+| FONT-02 | Phase 98 | Pending |
+| FONT-03 | Phase 99 | Pending |
+| FONT-04 | Phase 98 | Pending |
+| FONT-05 | Phase 100 | Pending |
 
 **Coverage:**
 - v0.32 requirements: 5 total
-- Mapped to phases: 0
-- Unmapped: 5
+- Mapped to phases: 5
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-07-26*

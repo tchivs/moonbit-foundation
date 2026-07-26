@@ -3,10 +3,10 @@ gsd_state_version: 1.0
 milestone: v0.32
 milestone_name: TrueType Font Foundation
 status: planning
-last_updated: "2026-07-26T06:48:12.828Z"
+last_updated: "2026-07-26T15:23:03.678+08:00"
 last_activity: 2026-07-26
 progress:
-  total_phases: 0
+  total_phases: 4
   completed_phases: 0
   total_plans: 0
   completed_plans: 0
@@ -21,73 +21,65 @@ See `.planning/PROJECT.md`.
 
 **Core value:** MoonBit developers can reuse stable, high-performance native infrastructure contracts instead of rebuilding incompatible foundations for every graphics, document, media, or automation product.
 
-**Current focus:** Phase 96 — SVG Boundary Parity Qualification gap closure
+**Current focus:** Phase 97 — Font Admission and Metrics
 
 ## Current Position
 
-Phase: Not started (defining requirements)
+Phase: 97 of 100 (1 of 4 in v0.32) — Font Admission and Metrics
 Plan: —
-Status: Defining requirements
-Last activity: 2026-07-26 — Milestone v0.32 started
+Status: Ready to plan
+Last activity: 2026-07-26 — v0.32 roadmap created with 5/5 requirements mapped
+
+Progress: [░░░░░░░░░░] 0%
 
 ## Milestone Metrics
 
-**Current milestone:** v0.31 has 2 planned phases, 0 plans started, and all 3 scoped requirements mapped exactly once (SVGUNI-01 → 95; SVGUNI-02 → 96; SVGUNI-03 → 96).
+**Current milestone:** v0.32 has 4 planned phases, 0 plans started, and all 5 scoped requirements mapped exactly once.
 
-**Previous milestone:** v0.30 shipped SVG Production Readiness across Phases 91-94; its detailed roadmap is archived at `.planning/milestones/v0.30-ROADMAP.md`.
+**Previous milestone:** v0.31 shipped SVG Numeric Boundary Unification across Phases 95-96; its detailed roadmap is archived at `.planning/milestones/v0.31-ROADMAP.md`.
 
 ## Accumulated Context
 
 ### Decisions
 
-- [v0.31 roadmap]: Phase 95 consolidates parser preflight and lowering behind one internal checked seam for transforms, viewBox mapping, and shape/path coordinate derivation; it does not expand the public SVG surface.
-- [v0.31 roadmap]: Phase 96 owns both fail-closed unsafe-geometry proof and target-neutral divergence controls, because qualification must exercise the shared seam delivered by Phase 95.
-- [v0.31 roadmap]: Public valid SVG output, the v0.30 numeric limits and structured errors, finite singular transforms, and RFC 0008 opacity/layer semantics are compatibility controls, not new feature work.
-- [Phase ?]: Shared checked SVG geometry facts preserve fail-closed parsing and total lowering recovery.
-- [Phase ?]: Coordinate admission remains after the accumulated affine to preserve finite scale(0).
-- [Phase ?]: Invalid manual SceneNode recovery remains a deterministic DrawingList fallback with no public error API.
-- [Phase ?]: SVG compatibility is qualified through operation semantics and frozen all-target package tests, not snapshots or timing comparisons.
-- [Phase ?]: Phase 96 Plan 01: Parser failure evidence remains Err(CoreError) only; failed parser results are never lowered.
-- [Phase ?]: Phase 96 Plan 01: Public SVG numeric rows pair with existing checked Result facts instead of duplicate arithmetic.
-- [Phase ?]: Parser Err(CoreError) remains distinct from manual SceneNode total-lowerer recovery.
-- [Phase ?]: Manual Group affine remains a direct PushTransform differential sentinel until separately repaired.
-- [Phase ?]: RFC 0008 opacity qualification uses exact DrawOp order and semantic pixels across frozen targets.
-- [Phase ?]: Phase 96 Plan 03: Failed Group affine composition emits identity and preserves the last admitted inherited affine for descendants.
-- [Phase ?]: Phase 96 Plan 03: Svg viewBox maps are composed into inherited state before child traversal.
+- [v0.32 roadmap]: `tchivs/mb-font` remains pure MoonBit, portable, and independently publishable with `tchivs/mb-core` as its only public runtime dependency.
+- [v0.32 roadmap]: Coarse granularity merges the research's simple/composite implementation slices into Phase 99 so FONT-03 has one complete verification owner.
+- [v0.32 roadmap]: Phase 98 owns both deterministic cmap selection and legacy kern semantics because both query admitted glyph identities without depending on outline geometry.
+- [v0.32 roadmap]: Phase 100 qualifies immutable generated and licensed real-font evidence through the public workflow on `js`, `wasm`, `wasm-gc`, and `native`.
+
+### Pending Todos
+
+None yet.
 
 ### Blockers/Concerns
 
-- Keep the shared seam internal and acyclic; no new public API, numeric limit, or public error schema is in scope.
-- Preserve error timing: unsafe explicit or derived geometry must fail before any scene, drawing list, or raster result can escape.
-- Four-target controls must test semantic parity rather than compare timing across targets.
+- Phase 99 planning must freeze composite point attachment, phantom-point/`USE_MY_METRICS`, offset-scaling, and F2DOT14 evaluation rules before implementation.
+- Phase 100 planning must finalize licensed real-font specimen provenance, redistribution records, digests, inventories, and independent semantic facts.
 
 ## Deferred Items
 
-| Category | Item | Status |
-|----------|------|--------|
-| scope | SVG text, gradients, masks, filters, `<use>`, animation, broader XML/CSS, and percentage resolution | deferred |
-| scope | Native acceleration, FFI, a second rasterizer, or a new numeric policy | deferred |
-| delivery | Registry publication, release automation, global timing thresholds, and cross-target timing comparisons | deferred |
+| Category | Item | Status | Deferred At |
+|----------|------|--------|-------------|
+| font formats | CFF/CFF2, TTC/OTC, WOFF/WOFF2, variable, color, and bitmap fonts | deferred | v0.32 scope |
+| text/rendering | Shaping, bidi, layout, discovery/fallback, hinting, and rasterization | deferred | v0.32 scope |
+| authoring | Font writing, editing, subsetting, and serialization | deferred | v0.32 scope |
 
 ## Session Continuity
 
-Last session: 2026-07-25T22:56:54.073Z
-Stopped at: Completed 96-03-PLAN.md
+Last session: 2026-07-26
+Stopped at: Created v0.32 roadmap; Phase 97 is ready to plan
 Resume file: None
 
 ## Operator Next Steps
 
-- Start the next milestone with /gsd-new-milestone
+- Run `/gsd-plan-phase 97`.
 
 ## Performance Metrics
 
-No v0.31 plans have been completed.
-**Per-Plan Metrics:**
+No v0.32 plans have been completed.
 
-| Plan | Duration | Tasks | Files |
-|------|----------|-------|-------|
-| Phase 95 P01 | 8min | 2 tasks | 4 files |
-| Phase 95 P02 | 6min | 2 tasks | 2 files |
-| Phase 96 P01 | 4min | 2 tasks | 2 files |
-| Phase 96 P02 | 19min | 2 tasks | 2 files |
-| Phase 96 P03 | 9min | 2 tasks | 2 files |
+**Per-Phase Metrics:**
+
+| Phase | Plans | Total | Avg/Plan |
+|-------|-------|-------|----------|
+| 97-100 | 0 | — | — |
