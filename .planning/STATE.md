@@ -8,7 +8,7 @@ status: verifying
 stopped_at: Completed 97-03-PLAN.md
 last_updated: "2026-07-26T10:57:39.583Z"
 last_activity: 2026-07-26
-last_activity_desc: Phase 97 execution started
+last_activity_desc: "Completed quick task 260726-r3a: Normalize MoonBit formatting for the Required WORK-04 module set and verify mb-core mb-color mb-image"
 progress:
   total_phases: 1
   completed_phases: 1
@@ -31,7 +31,7 @@ See `.planning/PROJECT.md`.
 Phase: 97 (Font Admission and Metrics) — EXECUTING
 Plan: 3 of 3
 Status: Phase complete — ready for verification
-Last activity: 2026-07-26 — Phase 97 execution started
+Last activity: 2026-07-26 — Completed quick task 260726-r3a: Normalize MoonBit formatting for the Required WORK-04 module set and verify mb-core mb-color mb-image
 
 Progress: [██████████] 100%
 
@@ -68,6 +68,12 @@ None yet.
 - Phase 99 planning must freeze composite point attachment, phantom-point/`USE_MY_METRICS`, offset-scaling, and F2DOT14 evaluation rules before implementation.
 - Phase 100 planning must finalize licensed real-font specimen provenance, redistribution records, digests, inventories, and independent semantic facts.
 - Full Required gate needs a separate governance quick: forward Lane through scripts/quality.ps1 and reconcile RFC 0001 Accepted policy with Proposed canonical RFC/index.
+
+### Quick Tasks Completed
+
+| # | Description | Date | Commit | Status | Directory |
+|---|-------------|------|--------|--------|-----------|
+| 260726-r3a | Normalize MoonBit formatting for the Required WORK-04 module set and verify mb-core mb-color mb-image | 2026-07-26 | f20b8f2 | Verified | [260726-r3a-normalize-moonbit-formatting-for-the-req](./quick/260726-r3a-normalize-moonbit-formatting-for-the-req/) |
 
 ## Deferred Items
 
