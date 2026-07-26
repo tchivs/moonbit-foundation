@@ -316,7 +316,7 @@ fn stroke_polyline(
     let p = pl.points[i]
     let (dx_in, dy_in) = unit_dir(prev, p)
     let (dx_out, dy_out) = unit_dir(p, next)
-    let (tx, ty) = if not(pl.closed) && (i == 0 || i == n - 1) {
+    let (tx, ty) = if !pl.closed && (i == 0 || i == n - 1) {
       if i == 0 {
         (dx_out, dy_out)
       } else {

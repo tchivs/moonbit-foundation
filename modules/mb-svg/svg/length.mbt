@@ -26,7 +26,7 @@ fn strip_unit_suffix(t : String) -> String {
   for sf in suffixes {
     if t.has_suffix(sf) {
       // Remove the suffix: take everything before it.
-      return t.substring(end=t.length() - sf.length())
+      return t[:t.length() - sf.length()].to_owned()
     }
   }
   t

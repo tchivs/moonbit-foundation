@@ -271,7 +271,7 @@ fn is_upper_char(c : Char) -> Bool {
 
 fn to_upper_char(c : Char) -> Char {
   let v = c.to_int()
-  if v >= 97 && v <= 122 { Char::from_int(v - 32) } else { c }
+  if v >= 97 && v <= 122 { Int::unsafe_to_char(v - 32) } else { c }
 }
 
 fn read_number(

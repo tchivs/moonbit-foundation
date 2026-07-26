@@ -241,7 +241,7 @@ fn split_on_comma(s : String) -> Array[String] {
   let parts = s.split(",")
   let result : Array[String] = []
   for p in parts {
-    result.push(p.to_string())
+    result.push(p.to_owned())
   }
   result
 }

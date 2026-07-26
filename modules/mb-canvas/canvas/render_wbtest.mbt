@@ -103,10 +103,10 @@ test "render fills an opaque red rectangle into a transparent RGBA8 image" {
   }
   // Interior pixel (4,4) should be opaque red (255,0,0,255).
   let (r, g, b, a) = render_wb_pixel(image, 4UL, 4UL)
-  inspect((r.to_int(), g.to_int(), b.to_int(), a.to_int()), content="(255, 0, 0, 255)")
+  assert_eq((r.to_int(), g.to_int(), b.to_int(), a.to_int()), (255, 0, 0, 255))
   // Exterior pixel (0,0) should remain transparent.
   let (r0, g0, b0, a0) = render_wb_pixel(image, 0UL, 0UL)
-  inspect((r0.to_int(), g0.to_int(), b0.to_int(), a0.to_int()), content="(0, 0, 0, 0)")
+  assert_eq((r0.to_int(), g0.to_int(), b0.to_int(), a0.to_int()), (0, 0, 0, 0))
 }
 
 ///|
@@ -123,10 +123,10 @@ test "render leaves pixels outside the path untouched" {
   }
   // Corner (0,0) keeps its original color.
   let (r, g, b, a) = render_wb_pixel(image, 0UL, 0UL)
-  inspect((r.to_int(), g.to_int(), b.to_int(), a.to_int()), content="(16, 32, 48, 255)")
+  assert_eq((r.to_int(), g.to_int(), b.to_int(), a.to_int()), (16, 32, 48, 255))
   // Center (4,4) is inside the 2x2 rect → green.
   let (r2, g2, b2, _) = render_wb_pixel(image, 4UL, 4UL)
-  inspect((r2.to_int(), g2.to_int(), b2.to_int()), content="(0, 255, 0)")
+  assert_eq((r2.to_int(), g2.to_int(), b2.to_int()), (0, 255, 0))
 }
 
 ///|
@@ -138,7 +138,10 @@ test "render of an empty list is a no-op" {
     Ok(_) => ()
   }
   let (r, g, b, a) = render_wb_pixel(image, 0UL, 0UL)
-  inspect((r.to_int(), g.to_int(), b.to_int(), a.to_int()), content="(170, 187, 204, 221)")
+  assert_eq(
+    (r.to_int(), g.to_int(), b.to_int(), a.to_int()),
+    (170, 187, 204, 221),
+  )
 }
 
 ///|
@@ -389,7 +392,10 @@ test "render layer composites opacity onto the backdrop (50% red over white)" {
     Ok(_) => ()
   }
   let (r, g, b, a) = render_wb_pixel(image, 4UL, 4UL)
-  inspect((r.to_int(), g.to_int(), b.to_int(), a.to_int()), content="(255, 128, 128, 255)")
+  assert_eq(
+    (r.to_int(), g.to_int(), b.to_int(), a.to_int()),
+    (255, 128, 128, 255),
+  )
 }
 
 ///|
@@ -407,7 +413,7 @@ test "render layer with opacity 1 is identical to no layer" {
     Ok(_) => ()
   }
   let (r, g, b, a) = render_wb_pixel(image, 4UL, 4UL)
-  inspect((r.to_int(), g.to_int(), b.to_int(), a.to_int()), content="(255, 0, 0, 255)")
+  assert_eq((r.to_int(), g.to_int(), b.to_int(), a.to_int()), (255, 0, 0, 255))
 }
 
 ///|
@@ -432,7 +438,10 @@ test "render nested layers compose opacity multiplicatively" {
     Ok(_) => ()
   }
   let (r, g, b, a) = render_wb_pixel(image, 4UL, 4UL)
-  inspect((r.to_int(), g.to_int(), b.to_int(), a.to_int()), content="(255, 191, 191, 255)")
+  assert_eq(
+    (r.to_int(), g.to_int(), b.to_int(), a.to_int()),
+    (255, 191, 191, 255),
+  )
 }
 
 ///|
@@ -447,7 +456,10 @@ test "render unbalanced PopLayer is a no-op" {
     Ok(_) => ()
   }
   let (r, g, b, a) = render_wb_pixel(image, 0UL, 0UL)
-  inspect((r.to_int(), g.to_int(), b.to_int(), a.to_int()), content="(170, 187, 204, 221)")
+  assert_eq(
+    (r.to_int(), g.to_int(), b.to_int(), a.to_int()),
+    (170, 187, 204, 221),
+  )
 }
 
 ///|
@@ -466,4 +478,3 @@ test "render layer depth cap rejects deeply nested layers" {
     Ok(_) => inspect("ok", content="err")
   }
 }
-

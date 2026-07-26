@@ -97,7 +97,7 @@ pub struct Paint {
 // Resolved inherited values threaded through the build. `color` is the
 // currentColor source (the `color` attribute); fill/stroke use Option where
 // None = paint "none".
-struct PaintContext {
+priv struct PaintContext {
   color : (Double, Double, Double)
   fill : (Double, Double, Double)?
   stroke : (Double, Double, Double)?

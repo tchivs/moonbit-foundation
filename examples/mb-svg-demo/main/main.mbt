@@ -211,7 +211,7 @@ fn run_case_on_bg(
   // assert the invariant (alpha full, green==blue for red-over-white) rather
   // than the brittle exact tuple. Print the actual value for visibility.
   let invariant_ok = got.3 == 255 && got.1 == got.2 && got.1 > 0 && got.1 < 255
-  if not(invariant_ok) {
+  if !invariant_ok {
     println(
       label +
         ": FAIL (pixel (" +
