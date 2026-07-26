@@ -33,6 +33,24 @@ pub struct FontLineMetrics {
 }
 
 ///|
+/// An opaque glyph identity admitted by `Font::glyph_id`.
+///
+/// A receiving `Font` still validates the numeric value because an identifier
+/// may have originated from a different font.
+pub struct GlyphId {
+  priv value_value : UInt64
+}
+
+///|
+/// Exact integer horizontal metrics for one admitted glyph.
+pub struct GlyphHorizontalMetrics {
+  priv advance_width_value : UInt64
+  priv left_side_bearing_value : Int
+  priv bounds_value : FontBounds?
+  priv right_side_bearing_value : Int
+}
+
+///|
 fn font_revision_error(operation : String) -> @error.CoreError {
   @error.CoreError::new(
     @error.ErrorCategory::State,
@@ -191,6 +209,127 @@ pub fn Font::typographic_line_metrics(
     Err(error) => Err(error)
     Ok(_) => Ok(self.typographic_line_metrics_value)
   }
+}
+
+///|
+fn font_glyph_id_error(
+  operation : String,
+  requested : UInt64,
+  limit : UInt64,
+) -> @error.CoreError {
+  @error.CoreError::new(
+    @error.ErrorCategory::InvalidInput,
+    @error.ErrorCode::InvalidRange,
+    operation~,
+    requested~,
+    limit~,
+    context="font-glyph-id-range",
+  )
+}
+
+///|
+/// Construct an opaque glyph identity after validating it against this font.
+pub fn Font::glyph_id(
+  self : Font,
+  value : UInt64,
+) -> Result[GlyphId, @error.CoreError] {
+  match self.require_revision("font-query") {
+    Err(error) => return Err(error)
+    Ok(_) => ()
+  }
+  if value >= self.metric_index.num_glyphs {
+    Err(
+      font_glyph_id_error(
+        "font-glyph-id",
+        value,
+        self.metric_index.num_glyphs,
+      ),
+    )
+  } else {
+    Ok({ value_value: value })
+  }
+}
+
+///|
+/// Return exact per-glyph horizontal metrics from admitted table-local views.
+///
+/// The identifier is revalidated against this receiving font before any table
+/// read. Retained-source revision is checked both before lookup and immediately
+/// before publishing the result.
+pub fn Font::horizontal_metrics(
+  self : Font,
+  glyph : GlyphId,
+) -> Result[GlyphHorizontalMetrics, @error.CoreError] {
+  match self.require_revision("font-query") {
+    Err(error) => return Err(error)
+    Ok(_) => ()
+  }
+  if glyph.value_value >= self.metric_index.num_glyphs {
+    return Err(
+      font_glyph_id_error(
+        "font-horizontal-metrics",
+        glyph.value_value,
+        self.metric_index.num_glyphs,
+      ),
+    )
+  }
+  let facts = match
+    font_lookup_horizontal_metrics(self.metric_index, glyph.value_value) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  match self.require_revision("font-query") {
+    Err(error) => return Err(error)
+    Ok(_) => ()
+  }
+  Ok({
+    advance_width_value: facts.advance_width,
+    left_side_bearing_value: facts.left_side_bearing,
+    bounds_value: facts.bounds.map(
+      fn(bounds) {
+        FontBounds::{
+          x_min_value: bounds.x_min,
+          y_min_value: bounds.y_min,
+          x_max_value: bounds.x_max,
+          y_max_value: bounds.y_max,
+        }
+      },
+    ),
+    right_side_bearing_value: facts.right_side_bearing,
+  })
+}
+
+///|
+pub fn GlyphId::value(self : GlyphId) -> UInt64 {
+  self.value_value
+}
+
+///|
+pub fn GlyphHorizontalMetrics::advance_width(
+  self : GlyphHorizontalMetrics,
+) -> UInt64 {
+  self.advance_width_value
+}
+
+///|
+pub fn GlyphHorizontalMetrics::left_side_bearing(
+  self : GlyphHorizontalMetrics,
+) -> Int {
+  self.left_side_bearing_value
+}
+
+///|
+pub fn GlyphHorizontalMetrics::bounds(
+  self : GlyphHorizontalMetrics,
+) -> FontBounds? {
+  self.bounds_value
+}
+
+///|
+pub fn GlyphHorizontalMetrics::right_side_bearing(
+  self : GlyphHorizontalMetrics,
+) -> Int {
+  self.right_side_bearing_value
 }
 
 ///|
