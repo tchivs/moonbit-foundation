@@ -1,19 +1,16 @@
 ---
 gsd_state_version: 1.0
-milestone: v0.31
-milestone_name: SVG Numeric Boundary Unification
-status: Awaiting next milestone
-stopped_at: Completed 96-03-PLAN.md
-last_updated: "2026-07-25T23:04:59.473Z"
+milestone: v0.32
+milestone_name: TrueType Font Foundation
+status: planning
+last_updated: "2026-07-26T06:48:12.828Z"
 last_activity: 2026-07-26
-last_activity_desc: Milestone v0.31 completed and archived
 progress:
-  total_phases: 2
-  completed_phases: 2
-  total_plans: 5
-  completed_plans: 5
-current_phase: 96
-current_phase_name: SVG Boundary Parity Qualification gap closure
+  total_phases: 0
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
+  percent: 0
 ---
 
 # Project State
@@ -28,10 +25,10 @@ See `.planning/PROJECT.md`.
 
 ## Current Position
 
-Phase: Milestone v0.31 complete
+Phase: Not started (defining requirements)
 Plan: —
-Status: Awaiting next milestone
-Last activity: 2026-07-26 — Milestone v0.31 completed and archived
+Status: Defining requirements
+Last activity: 2026-07-26 — Milestone v0.32 started
 
 ## Milestone Metrics
 

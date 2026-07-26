@@ -18,17 +18,24 @@ MoonBit developers can reuse stable, high-performance native infrastructure cont
 
 **Known maintenance debt:** Old private geometry helpers remain unused in `scene.mbt` and `lower.mbt`; they do not participate in runtime paths and can be removed in a focused cleanup phase.
 
-## Current Milestone: v0.31 SVG Numeric Boundary Unification
+## Current Milestone: v0.32 TrueType Font Foundation
 
-**Goal:** Eliminate the duplicated SVG geometry arithmetic between parser preflight and lowering, so the established numeric safety boundary has one checked implementation without changing public SVG semantics.
+**Goal:** Let MoonBit library authors parse bounded TrueType fonts into deterministic Unicode mappings, metrics, and reusable glyph outlines without a foreign font stack.
 
 **Target features:**
 
-- Route SVG parser preflight and lowering through a shared internal checked-geometry seam for transforms, viewBox mapping, and shape/path coordinate derivation.
-- Preserve the v0.30 public error facts, valid SVG output, finite singular-transform compatibility, and RFC 0008 layer/opacity behavior.
-- Add adversarial parity and four-target qualification proving that unsafe geometry cannot escape through either path or drift after future lowerer changes.
+- Establish the independently publishable `tchivs/mb-font` module and bounded SFNT/TrueType table-directory model under RFC 0004.
+- Expose checked font metrics, Unicode `cmap` resolution, simple/composite `glyf` outlines, and basic legacy `kern` pair adjustments through a portable MoonBit API.
+- Qualify malformed-input rejection, deterministic public behavior, representative real-font interoperability, and identical execution on `js`, `wasm`, `wasm-gc`, and `native`.
 
 ## Requirements
+
+### Active
+
+- [ ] Library authors can open a bounded TrueType font and inspect stable font-wide and per-glyph metrics without FFI or target-specific behavior.
+- [ ] Library authors can map Unicode code points to glyph IDs and extract checked reusable glyph outlines, including bounded composite glyphs.
+- [ ] Library authors can query basic pair kerning and rely on deterministic structured rejection of malformed or resource-exhausting font data.
+- [ ] Maintainers can qualify the public font workflow and adversarial parser behavior on all four supported targets.
 
 ### Validated
 
@@ -211,6 +218,7 @@ Registry publication and release automation remain deferred unless a concrete co
 | Add RGBA16 decoding as an explicit opt-in profile | Preserve generic RGBA8 behavior and reuse the bounded decoder while exposing exact Type-6/16 source lanes | ✓ Validated in v0.21 |
 | Add indexed Fixed-or-Stored compression as an explicit non-interlaced profile | Preserve all legacy/default Indexed1/2/4/8 bytes while selecting a bounded Fixed block only on a complete palette-aware frame win or tie | ✓ Validated in v0.28 Phases 85-87 |
 | Keep indexed compression qualification independent from production planning | Test-local parsing and checksum/raster reconstruction protect the wire contract without turning production helpers into their own oracle | ✓ Validated in v0.28 Phase 87 |
+| Implement the bounded TrueType font foundation before text shaping or PDF rendering | `mb-font` is the RFC-defined lower dependency for reusable glyph IDs, metrics, and outlines; proving it first prevents sibling modules from inventing incompatible font parsers | — Pending in v0.32 |
 
 ## Evolution
 
@@ -230,4 +238,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update toolchain, compatibility, benchmark, and adoption context.
 
 ---
-*Last updated: 2026-07-26 after v0.30 closeout*
+*Last updated: 2026-07-26 at v0.32 milestone start*
