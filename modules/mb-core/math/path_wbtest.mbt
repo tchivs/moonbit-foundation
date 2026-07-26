@@ -102,7 +102,13 @@ test "path2 each iterates all commands in order" {
 test "path2 with cubic commands computes bounds correctly" {
   let path = Path2::new()
   path.push(MoveTo(Point2::new(0.0, 0.0)))
-  path.push(CubicTo(Point2::new(-5.0, 10.0), Point2::new(15.0, 10.0), Point2::new(10.0, 0.0)))
+  path.push(
+    CubicTo(
+      Point2::new(-5.0, 10.0),
+      Point2::new(15.0, 10.0),
+      Point2::new(10.0, 0.0),
+    ),
+  )
   match path.bounds() {
     Some(r) => {
       inspect(approx(r.min_x(), -5.0), content="true")
@@ -119,23 +125,34 @@ test "affine apply_to_path transforms all point commands" {
   path.push(MoveTo(Point2::new(1.0, 2.0)))
   path.push(LineTo(Point2::new(3.0, 4.0)))
   path.push(QuadTo(Point2::new(5.0, 6.0), Point2::new(7.0, 8.0)))
-  path.push(CubicTo(Point2::new(9.0, 10.0), Point2::new(11.0, 12.0), Point2::new(13.0, 14.0)))
+  path.push(
+    CubicTo(
+      Point2::new(9.0, 10.0),
+      Point2::new(11.0, 12.0),
+      Point2::new(13.0, 14.0),
+    ),
+  )
   path.push(Close)
   let t = Affine2::translate(10.0, 20.0)
   let out = t.apply_to_path(path)
   inspect(out.length(), content="5")
   match out.get(0) {
-    Some(MoveTo(p)) => inspect(approx(p.x(), 11.0) && approx(p.y(), 22.0), content="true")
+    Some(MoveTo(p)) =>
+      inspect(approx(p.x(), 11.0) && approx(p.y(), 22.0), content="true")
     _ => inspect(false, content="true")
   }
   match out.get(1) {
-    Some(LineTo(p)) => inspect(approx(p.x(), 13.0) && approx(p.y(), 24.0), content="true")
+    Some(LineTo(p)) =>
+      inspect(approx(p.x(), 13.0) && approx(p.y(), 24.0), content="true")
     _ => inspect(false, content="true")
   }
   match out.get(2) {
     Some(QuadTo(c, e)) =>
       inspect(
-        approx(c.x(), 15.0) && approx(c.y(), 26.0) && approx(e.x(), 17.0) && approx(e.y(), 28.0),
+        approx(c.x(), 15.0) &&
+        approx(c.y(), 26.0) &&
+        approx(e.x(), 17.0) &&
+        approx(e.y(), 28.0),
         content="true",
       )
     _ => inspect(false, content="true")
@@ -160,7 +177,8 @@ test "affine apply_to_path transforms all point commands" {
   // Source path is unchanged.
   inspect(path.length(), content="5")
   match path.get(0) {
-    Some(MoveTo(p)) => inspect(approx(p.x(), 1.0) && approx(p.y(), 2.0), content="true")
+    Some(MoveTo(p)) =>
+      inspect(approx(p.x(), 1.0) && approx(p.y(), 2.0), content="true")
     _ => inspect(false, content="true")
   }
 }

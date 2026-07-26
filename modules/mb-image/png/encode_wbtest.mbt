@@ -61,7 +61,8 @@ fn png_wb_limits() -> @codec.CodecLimits {
   )
 }
 
-///| The default white-box limits are intentionally generous. Exact selected
+///|
+/// The default white-box limits are intentionally generous. Exact selected
 /// Indexed8 Adam7 admission needs a compact local limit fixture.
 fn png_wb_indexed_limits(output : UInt64, work : UInt64) -> @codec.CodecLimits {
   @codec.CodecLimits::new(
@@ -162,43 +163,86 @@ fn png_wb_adaptive_rgb_image() -> @storage.OwnedImage {
   image
 }
 
-///| A legal little-endian four-byte GrayAlpha16 source makes the profile-aware
+///|
+/// A legal little-endian four-byte GrayAlpha16 source makes the profile-aware
 /// Adam7 cursor's filter history and U16 wire lanes independently observable.
 fn png_wb_graya16_adam7_image() -> @storage.OwnedImage {
   let descriptor = @model.ImageDescriptor::new(
-    5UL, 5UL, @model.ImageFormat::graya16(),
-    [@model.PlaneDescriptor::new(0UL, 100UL, 20UL, 20UL, 1UL, 1UL, 5UL, 5UL).unwrap()],
+    5UL,
+    5UL,
+    @model.ImageFormat::graya16(),
+    [
+      @model.PlaneDescriptor::new(0UL, 100UL, 20UL, 20UL, 1UL, 1UL, 5UL, 5UL).unwrap(),
+    ],
     100UL,
     @model.ImageMetadata::new(
-      @color.ColorSpaceIdentity::Srgb, @color.TransferIdentity::EncodedSrgb,
-      Some(@color.AlphaMode::Straight), @profile.ProfileIdentity::builtin_srgb(),
+      @color.ColorSpaceIdentity::Srgb,
+      @color.TransferIdentity::EncodedSrgb,
+      Some(@color.AlphaMode::Straight),
+      @profile.ProfileIdentity::builtin_srgb(),
       @model.Orientation::TopLeft,
       @metadata.OpaqueMetadata::from_entries(
-        [], @metadata.MetadataLimits::new(
-          max_entries=1UL, max_token_bytes=16UL, max_value_bytes=1UL,
-          max_total_bytes=32UL, max_disposition_fields=4UL,
-        ), png_wb_budget(bytes=0UL, work=0UL),
+        [],
+        @metadata.MetadataLimits::new(
+          max_entries=1UL,
+          max_token_bytes=16UL,
+          max_value_bytes=1UL,
+          max_total_bytes=32UL,
+          max_disposition_fields=4UL,
+        ),
+        png_wb_budget(bytes=0UL, work=0UL),
       ).unwrap(),
     ),
   ).unwrap()
-  let image = @storage.OwnedImage::new(descriptor, png_wb_budget(bytes=100UL, work=0UL)).unwrap()
-  image.with_mut_view(fn(view) {
+  let image = @storage.OwnedImage::new(
+    descriptor,
+    png_wb_budget(bytes=100UL, work=0UL),
+  ).unwrap()
+  image
+  .with_mut_view(fn(view) {
     for y = 0UL; y < 5UL; y = y + 1UL {
       for x = 0UL; x < 5UL; x = x + 1UL {
         let sample = y * 5UL + x
         view.set_component_byte(x, y, 0UL, 0UL, sample.to_byte()).unwrap()
-        view.set_component_byte(x, y, 0UL, 1UL, (b'\x80'.to_uint64() + sample).to_byte()).unwrap()
-        view.set_component_byte(x, y, 1UL, 0UL, (b'\x40'.to_uint64() + sample).to_byte()).unwrap()
-        view.set_component_byte(x, y, 1UL, 1UL, (b'\xc0'.to_uint64() + sample).to_byte()).unwrap()
+        view
+        .set_component_byte(
+          x,
+          y,
+          0UL,
+          1UL,
+          (b'\x80'.to_uint64() + sample).to_byte(),
+        )
+        .unwrap()
+        view
+        .set_component_byte(
+          x,
+          y,
+          1UL,
+          0UL,
+          (b'\x40'.to_uint64() + sample).to_byte(),
+        )
+        .unwrap()
+        view
+        .set_component_byte(
+          x,
+          y,
+          1UL,
+          1UL,
+          (b'\xc0'.to_uint64() + sample).to_byte(),
+        )
+        .unwrap()
       }
     }
     Ok(())
-  }).unwrap()
+  })
+  .unwrap()
   image
 }
 
 ///|
-///| PNGF-02/03: admission records actual adaptive forward traversals rather
+
+///|
+/// PNGF-02/03: admission records actual adaptive forward traversals rather
 /// than a copied two-sweep formula.  The helper deliberately uses the facts
 /// returned by preflight so Fixed and Dynamic can report their extra planning
 /// walks without teaching this test an implementation-specific pass count.
@@ -223,13 +267,15 @@ fn png_wb_adaptive_cursor_exact_work(
 ) -> Bool {
   let image = png_wb_adaptive_rgb_image()
   let exact = png_wb_budget(work=selected_work)
-  ignore(_png_encode_preflight_with_filter(
+  ignore(
+    _png_encode_preflight_with_filter(
       image.view(),
       strategy,
       PngFilterStrategy::Adaptive,
       png_wb_limits(),
       exact,
-    ).unwrap())
+    ).unwrap(),
+  )
   exact.remaining().work() == 0UL
 }
 
@@ -252,23 +298,32 @@ fn png_wb_adaptive_cursor_rejects_one_less(
   png_wb_same_remaining(unchanged, one_less.remaining())
 }
 
-///| Drain the real private logical source so this regression observes the
+///|
+/// Drain the real private logical source so this regression observes the
 /// canonical pass geometry only through the production cursor.
 fn png_wb_adam7_cursor_bytes(image : @storage.OwnedImage) -> Bytes {
   let channels = image.view().format().channel_count()
   let mut cursor = PngFilteredCursor::new_with_interlace(
-    image.view(), image.view().width() * channels, channels,
-    PngFilterStrategy::None, PngInterlaceStrategy::Adam7,
+    image.view(),
+    image.view().width() * channels,
+    channels,
+    PngFilterStrategy::None,
+    PngInterlaceStrategy::Adam7,
   )
   let expected_length = _png_adam7_passes(
-    image.view().width(), image.view().height(), channels, 8,
-  ).unwrap().fold(init=0UL, fn(total, pass) {
-    if pass.width == 0UL || pass.height == 0UL {
-      total
-    } else {
-      total + (pass.row_bytes + 1UL) * pass.height
-    }
-  })
+      image.view().width(),
+      image.view().height(),
+      channels,
+      8,
+    )
+    .unwrap()
+    .fold(init=0UL, fn(total, pass) {
+      if pass.width == 0UL || pass.height == 0UL {
+        total
+      } else {
+        total + (pass.row_bytes + 1UL) * pass.height
+      }
+    })
   let bytes : Array[Byte] = []
   while cursor.index < expected_length {
     let (byte, next) = cursor.next().unwrap()
@@ -278,115 +333,163 @@ fn png_wb_adam7_cursor_bytes(image : @storage.OwnedImage) -> Bytes {
   Bytes::from_array(bytes)
 }
 
-///| Adam7's seven nonempty 5x5 passes are consumed from the production
+///|
+/// Adam7's seven nonempty 5x5 passes are consumed from the production
 /// cursor.  Every row starts with filter None, followed by its source samples.
 test "PNG Adam7 filtered cursor emits canonical pass order and omits empties" {
   let rgb = png_wb_image(
-    3UL, Bytes::from_array(Array::make(75, b'\x00')), width=5UL, height=5UL,
+    3UL,
+    Bytes::from_array(Array::make(75, b'\x00')),
+    width=5UL,
+    height=5UL,
   )
-  rgb.with_mut_view(fn(view) {
+  rgb
+  .with_mut_view(fn(view) {
     for y = 0UL; y < 5UL; y = y + 1UL {
       for x = 0UL; x < 5UL; x = x + 1UL {
         for channel = 0UL; channel < 3UL; channel = channel + 1UL {
-          view.set_byte(x, y, channel, (y * 15UL + x * 3UL + channel).to_byte()).unwrap()
+          view
+          .set_byte(x, y, channel, (y * 15UL + x * 3UL + channel).to_byte())
+          .unwrap()
         }
       }
     }
     Ok(())
-  }).unwrap()
+  })
+  .unwrap()
   let rgb_actual = png_wb_adam7_cursor_bytes(rgb)
-  let rgb_expected =
-    b"\x00\x00\x01\x02\x00\x0c\x0d\x0e\x00\x3c\x3d\x3e\x48\x49\x4a\x00\x06\x07\x08\x00\x42\x43\x44\x00\x1e\x1f\x20\x24\x25\x26\x2a\x2b\x2c\x00\x03\x04\x05\x09\x0a\x0b\x00\x21\x22\x23\x27\x28\x29\x00\x3f\x40\x41\x45\x46\x47\x00\x0f\x10\x11\x12\x13\x14\x15\x16\x17\x18\x19\x1a\x1b\x1c\x1d\x00\x2d\x2e\x2f\x30\x31\x32\x33\x34\x35\x36\x37\x38\x39\x3a\x3b"
+  let rgb_expected = b"\x00\x00\x01\x02\x00\x0c\x0d\x0e\x00\x3c\x3d\x3e\x48\x49\x4a\x00\x06\x07\x08\x00\x42\x43\x44\x00\x1e\x1f\x20\x24\x25\x26\x2a\x2b\x2c\x00\x03\x04\x05\x09\x0a\x0b\x00\x21\x22\x23\x27\x28\x29\x00\x3f\x40\x41\x45\x46\x47\x00\x0f\x10\x11\x12\x13\x14\x15\x16\x17\x18\x19\x1a\x1b\x1c\x1d\x00\x2d\x2e\x2f\x30\x31\x32\x33\x34\x35\x36\x37\x38\x39\x3a\x3b"
   inspect(rgb_actual.length(), content=rgb_expected.length().to_string())
   for index = 0; index < rgb_actual.length(); index = index + 1 {
     if rgb_actual[index].to_int() != rgb_expected[index].to_int() {
       fail(
-        "PNG Adam7 RGB cursor at " + index.to_string() + " got " +
-        rgb_actual[index].to_int().to_string() + " expected " +
+        "PNG Adam7 RGB cursor at " +
+        index.to_string() +
+        " got " +
+        rgb_actual[index].to_int().to_string() +
+        " expected " +
         rgb_expected[index].to_int().to_string(),
       )
     }
   }
   let rgba = png_wb_image(
-    4UL, Bytes::from_array(Array::make(100, b'\x00')), width=5UL, height=5UL,
+    4UL,
+    Bytes::from_array(Array::make(100, b'\x00')),
+    width=5UL,
+    height=5UL,
   )
-  rgba.with_mut_view(fn(view) {
+  rgba
+  .with_mut_view(fn(view) {
     for y = 0UL; y < 5UL; y = y + 1UL {
       for x = 0UL; x < 5UL; x = x + 1UL {
         for channel = 0UL; channel < 4UL; channel = channel + 1UL {
-          view.set_byte(x, y, channel, (y * 20UL + x * 4UL + channel).to_byte()).unwrap()
+          view
+          .set_byte(x, y, channel, (y * 20UL + x * 4UL + channel).to_byte())
+          .unwrap()
         }
       }
     }
     Ok(())
-  }).unwrap()
+  })
+  .unwrap()
   inspect(
     png_wb_adam7_cursor_bytes(rgba) ==
     b"\x00\x00\x01\x02\x03\x00\x10\x11\x12\x13\x00\x50\x51\x52\x53\x60\x61\x62\x63\x00\x08\x09\x0a\x0b\x00\x58\x59\x5a\x5b\x00\x28\x29\x2a\x2b\x30\x31\x32\x33\x38\x39\x3a\x3b\x00\x04\x05\x06\x07\x0c\x0d\x0e\x0f\x00\x2c\x2d\x2e\x2f\x34\x35\x36\x37\x00\x54\x55\x56\x57\x5c\x5d\x5e\x5f\x00\x14\x15\x16\x17\x18\x19\x1a\x1b\x1c\x1d\x1e\x1f\x20\x21\x22\x23\x24\x25\x26\x27\x00\x3c\x3d\x3e\x3f\x40\x41\x42\x43\x44\x45\x46\x47\x48\x49\x4a\x4b\x4c\x4d\x4e\x4f",
     content="true",
   )
   for channels in [3UL, 4UL] {
-    let singleton = png_wb_image(channels, if channels == 3UL {
-      b"\xaa\xbb\xcc"
-    } else {
-      b"\xaa\xbb\xcc\xdd"
-    })
+    let singleton = png_wb_image(
+      channels,
+      if channels == 3UL {
+        b"\xaa\xbb\xcc"
+      } else {
+        b"\xaa\xbb\xcc\xdd"
+      },
+    )
     let expected = if channels == 3UL {
       b"\x00\xaa\xbb\xcc"
     } else {
       b"\x00\xaa\xbb\xcc\xdd"
     }
-    inspect(
-      png_wb_adam7_cursor_bytes(singleton) == expected,
-      content="true",
-    )
+    inspect(png_wb_adam7_cursor_bytes(singleton) == expected, content="true")
   }
 }
 
-///| Every first row is local to its pass, so Adaptive cannot select Up from a
+///|
+/// Every first row is local to its pass, so Adaptive cannot select Up from a
 /// preceding image/pass row. Exact and one-less work retains the one-charge
 /// preflight boundary for all available compression strategies.
 test "PNG Adam7 Adaptive resets pass history and retains exact atomic admission" {
   let image = png_wb_adaptive_rgb_image()
   let channels = 3UL
   let passes = _png_adam7_passes(2UL, 2UL, channels, 8).unwrap()
-    let mut cursor = PngFilteredCursor::new_with_interlace(
-      image.view(), 2UL * channels, channels, PngFilterStrategy::Adaptive,
-      PngInterlaceStrategy::Adam7,
-    )
-    let mut offset = 0UL
-    for pass in passes {
-      if pass.width == 0UL || pass.height == 0UL { continue }
-      while cursor.index < offset {
-        let (_, next) = cursor.next().unwrap(); cursor = next
-      }
-      let (tag, next) = cursor.next().unwrap()
-      inspect(tag != b'\x02', content="true")
-      cursor = next
-      offset = offset + (pass.row_bytes + 1UL) * pass.height
+  let mut cursor = PngFilteredCursor::new_with_interlace(
+    image.view(),
+    2UL * channels,
+    channels,
+    PngFilterStrategy::Adaptive,
+    PngInterlaceStrategy::Adam7,
+  )
+  let mut offset = 0UL
+  for pass in passes {
+    if pass.width == 0UL || pass.height == 0UL {
+      continue
     }
-  for strategy in [PngCompressionStrategy::Stored, PngCompressionStrategy::FixedOrStored, PngCompressionStrategy::DynamicOrFixedOrStored] {
-      let admitted = _png_encode_preflight_with_interlace(
-        image.view(), strategy, PngFilterStrategy::Adaptive, PngInterlaceStrategy::Adam7,
-        png_wb_limits(), png_wb_budget(work=1048576UL),
-      ).unwrap()
-      let exact = png_wb_budget(work=admitted.selected_work)
-      ignore(_png_encode_preflight_with_interlace(
-        image.view(), strategy, PngFilterStrategy::Adaptive, PngInterlaceStrategy::Adam7,
-        png_wb_limits(), exact,
-      ).unwrap())
-      inspect(exact.remaining().work() == 0UL, content="true")
-      let one_less = png_wb_budget(work=admitted.selected_work - 1UL)
-      let before = one_less.remaining()
-      let error = _png_encode_preflight_with_interlace(
-        image.view(), strategy, PngFilterStrategy::Adaptive, PngInterlaceStrategy::Adam7,
-        png_wb_limits(), one_less,
-      ).unwrap_err()
-      inspect(error.context() == Some("work") && png_wb_same_remaining(before, one_less.remaining()), content="true")
+    while cursor.index < offset {
+      let (_, next) = cursor.next().unwrap()
+      cursor = next
+    }
+    let (tag, next) = cursor.next().unwrap()
+    inspect(tag != b'\x02', content="true")
+    cursor = next
+    offset = offset + (pass.row_bytes + 1UL) * pass.height
+  }
+  for
+    strategy in [
+      PngCompressionStrategy::Stored,
+      PngCompressionStrategy::FixedOrStored,
+      PngCompressionStrategy::DynamicOrFixedOrStored,
+    ] {
+    let admitted = _png_encode_preflight_with_interlace(
+      image.view(),
+      strategy,
+      PngFilterStrategy::Adaptive,
+      PngInterlaceStrategy::Adam7,
+      png_wb_limits(),
+      png_wb_budget(work=1048576UL),
+    ).unwrap()
+    let exact = png_wb_budget(work=admitted.selected_work)
+    ignore(
+      _png_encode_preflight_with_interlace(
+        image.view(),
+        strategy,
+        PngFilterStrategy::Adaptive,
+        PngInterlaceStrategy::Adam7,
+        png_wb_limits(),
+        exact,
+      ).unwrap(),
+    )
+    inspect(exact.remaining().work() == 0UL, content="true")
+    let one_less = png_wb_budget(work=admitted.selected_work - 1UL)
+    let before = one_less.remaining()
+    let error = _png_encode_preflight_with_interlace(
+      image.view(),
+      strategy,
+      PngFilterStrategy::Adaptive,
+      PngInterlaceStrategy::Adam7,
+      png_wb_limits(),
+      one_less,
+    ).unwrap_err()
+    inspect(
+      error.context() == Some("work") &&
+      png_wb_same_remaining(before, one_less.remaining()),
+      content="true",
+    )
   }
 }
 
-///| GrayAlpha16 uses the same profile-aware Adam7 cursor for every legal
+///|
+/// GrayAlpha16 uses the same profile-aware Adam7 cursor for every legal
 /// filter/compression selection: each pass starts with local predictor history
 /// and preflight charges selected work only after all checks succeed.
 test "PNG GrayAlpha16 Adam7 profile cursor keeps pass history and exact work" {
@@ -394,14 +497,21 @@ test "PNG GrayAlpha16 Adam7 profile cursor keeps pass history and exact work" {
   let channels = 4UL
   let passes = _png_adam7_passes(5UL, 5UL, channels, 8).unwrap()
   let mut cursor = PngFilteredCursor::new_with_interlace(
-    image.view(), 20UL, channels, PngFilterStrategy::Adaptive,
-    PngInterlaceStrategy::Adam7, profile=PngEncodeProfile::GrayAlpha16,
+    image.view(),
+    20UL,
+    channels,
+    PngFilterStrategy::Adaptive,
+    PngInterlaceStrategy::Adam7,
+    profile=PngEncodeProfile::GrayAlpha16,
   )
   let mut offset = 0UL
   for pass in passes {
-    if pass.width == 0UL || pass.height == 0UL { continue }
+    if pass.width == 0UL || pass.height == 0UL {
+      continue
+    }
     while cursor.index < offset {
-      let (_, next) = cursor.next().unwrap(); cursor = next
+      let (_, next) = cursor.next().unwrap()
+      cursor = next
     }
     let (tag, next) = cursor.next().unwrap()
     if tag == b'\x02' || tag == b'\x03' || tag == b'\x04' {
@@ -410,30 +520,50 @@ test "PNG GrayAlpha16 Adam7 profile cursor keeps pass history and exact work" {
     cursor = next
     offset = offset + (pass.row_bytes + 1UL) * pass.height
   }
-  for strategy in [
-    PngCompressionStrategy::Stored,
-    PngCompressionStrategy::FixedOrStored,
-    PngCompressionStrategy::DynamicOrFixedOrStored,
-  ] {
-    for filter_strategy in [PngFilterStrategy::None, PngFilterStrategy::Adaptive] {
+  for
+    strategy in [
+      PngCompressionStrategy::Stored,
+      PngCompressionStrategy::FixedOrStored,
+      PngCompressionStrategy::DynamicOrFixedOrStored,
+    ] {
+    for
+      filter_strategy in [PngFilterStrategy::None, PngFilterStrategy::Adaptive] {
       let admitted = _png_encode_preflight_with_interlace_profile(
-        image.view(), PngEncodeProfile::GrayAlpha16, strategy, filter_strategy,
-        PngInterlaceStrategy::Adam7, png_wb_dynamic_limits(), png_wb_budget(work=1048576UL),
+        image.view(),
+        PngEncodeProfile::GrayAlpha16,
+        strategy,
+        filter_strategy,
+        PngInterlaceStrategy::Adam7,
+        png_wb_dynamic_limits(),
+        png_wb_budget(work=1048576UL),
       ).unwrap()
       let exact = png_wb_budget(work=admitted.selected_work)
-      ignore(_png_encode_preflight_with_interlace_profile(
-        image.view(), PngEncodeProfile::GrayAlpha16, strategy, filter_strategy,
-        PngInterlaceStrategy::Adam7, png_wb_dynamic_limits(), exact,
-      ).unwrap())
+      ignore(
+        _png_encode_preflight_with_interlace_profile(
+          image.view(),
+          PngEncodeProfile::GrayAlpha16,
+          strategy,
+          filter_strategy,
+          PngInterlaceStrategy::Adam7,
+          png_wb_dynamic_limits(),
+          exact,
+        ).unwrap(),
+      )
       inspect(exact.remaining().work() == 0UL, content="true")
       let one_less = png_wb_budget(work=admitted.selected_work - 1UL)
       let before = one_less.remaining()
       let error = _png_encode_preflight_with_interlace_profile(
-        image.view(), PngEncodeProfile::GrayAlpha16, strategy, filter_strategy,
-        PngInterlaceStrategy::Adam7, png_wb_dynamic_limits(), one_less,
+        image.view(),
+        PngEncodeProfile::GrayAlpha16,
+        strategy,
+        filter_strategy,
+        PngInterlaceStrategy::Adam7,
+        png_wb_dynamic_limits(),
+        one_less,
       ).unwrap_err()
       inspect(
-        error.context() == Some("work") && png_wb_same_remaining(before, one_less.remaining()),
+        error.context() == Some("work") &&
+        png_wb_same_remaining(before, one_less.remaining()),
         content="true",
       )
     }
@@ -447,25 +577,57 @@ test "PNG adaptive cursor work ledger covers Stored planning and replay" {
   inspect(facts.adaptive_replay_facts.resolved_rows, content="2")
   inspect(facts.adaptive_replay_facts.candidate_residuals, content="60")
   inspect(facts.adaptive_replay_facts.selected_residuals, content="12")
-  inspect(png_wb_adaptive_cursor_exact_work(PngCompressionStrategy::Stored, facts.selected_work), content="true")
-  inspect(png_wb_adaptive_cursor_rejects_one_less(PngCompressionStrategy::Stored, facts.selected_work), content="true")
+  inspect(
+    png_wb_adaptive_cursor_exact_work(
+      PngCompressionStrategy::Stored,
+      facts.selected_work,
+    ),
+    content="true",
+  )
+  inspect(
+    png_wb_adaptive_cursor_rejects_one_less(
+      PngCompressionStrategy::Stored,
+      facts.selected_work,
+    ),
+    content="true",
+  )
 }
 
 ///|
 test "PNG adaptive cursor work ledger covers FixedOrStored planning and replay" {
-  let facts = png_wb_adaptive_cursor_work_ledger(PngCompressionStrategy::FixedOrStored)
+  let facts = png_wb_adaptive_cursor_work_ledger(
+    PngCompressionStrategy::FixedOrStored,
+  )
   inspect(facts.adaptive_planning_facts.resolved_rows >= 2UL, content="true")
   inspect(facts.adaptive_replay_facts.resolved_rows, content="2")
-  inspect(png_wb_adaptive_cursor_exact_work(PngCompressionStrategy::FixedOrStored, facts.selected_work), content="true")
-  inspect(png_wb_adaptive_cursor_rejects_one_less(PngCompressionStrategy::FixedOrStored, facts.selected_work), content="true")
+  inspect(
+    png_wb_adaptive_cursor_exact_work(
+      PngCompressionStrategy::FixedOrStored,
+      facts.selected_work,
+    ),
+    content="true",
+  )
+  inspect(
+    png_wb_adaptive_cursor_rejects_one_less(
+      PngCompressionStrategy::FixedOrStored,
+      facts.selected_work,
+    ),
+    content="true",
+  )
 }
 
 ///|
+
 ///| Fixed planning probes every selected byte through a fresh forward traversal.
+
 ///| Stored establishes its candidate facts, Fixed establishes its matcher facts,
-///| and the winner receives one more replay traversal.
+
+///|
+/// and the winner receives one more replay traversal.
 test "PNG adaptive match cursor covers FixedOrStored probe traversals" {
-  let facts = png_wb_adaptive_cursor_work_ledger(PngCompressionStrategy::FixedOrStored)
+  let facts = png_wb_adaptive_cursor_work_ledger(
+    PngCompressionStrategy::FixedOrStored,
+  )
   inspect(facts.adaptive_planning_facts.resolved_rows, content="4")
   inspect(facts.adaptive_planning_facts.candidate_residuals, content="120")
   inspect(facts.adaptive_planning_facts.selected_residuals, content="24")
@@ -481,13 +643,28 @@ test "PNG adaptive cursor work ledger covers DynamicOrFixedOrStored planning and
   )
   inspect(facts.adaptive_planning_facts.resolved_rows >= 6UL, content="true")
   inspect(facts.adaptive_replay_facts.resolved_rows, content="2")
-  inspect(png_wb_adaptive_cursor_exact_work(PngCompressionStrategy::DynamicOrFixedOrStored, facts.selected_work), content="true")
-  inspect(png_wb_adaptive_cursor_rejects_one_less(PngCompressionStrategy::DynamicOrFixedOrStored, facts.selected_work), content="true")
+  inspect(
+    png_wb_adaptive_cursor_exact_work(
+      PngCompressionStrategy::DynamicOrFixedOrStored,
+      facts.selected_work,
+    ),
+    content="true",
+  )
+  inspect(
+    png_wb_adaptive_cursor_rejects_one_less(
+      PngCompressionStrategy::DynamicOrFixedOrStored,
+      facts.selected_work,
+    ),
+    content="true",
+  )
 }
 
 ///|
+
 ///| Dynamic establishes Stored, Fixed, frequency/fingerprint, and exact-bit
-///| traversals before selecting exactly one replay source.
+
+///|
+/// traversals before selecting exactly one replay source.
 test "PNG adaptive match cursor covers DynamicOrFixedOrStored probe traversals" {
   let facts = png_wb_adaptive_cursor_work_ledger(
     PngCompressionStrategy::DynamicOrFixedOrStored,
@@ -501,27 +678,46 @@ test "PNG adaptive match cursor covers DynamicOrFixedOrStored probe traversals" 
 }
 
 ///| A declined Dynamic candidate still owns the exact cursor facts it already
-///| consumed; its work must be admitted with the Fixed-or-Stored fallback.
+
+///|
+/// consumed; its work must be admitted with the Fixed-or-Stored fallback.
 test "PNG adaptive Dynamic decline facts are admitted" {
   let image = png_wb_adaptive_rgb_image()
   let outcome = _png_dynamic_plan_with_idat_limit(
-    image.view(), 6UL, 3UL, PngFilterStrategy::Adaptive, 14UL, 0UL,
+    image.view(),
+    6UL,
+    3UL,
+    PngFilterStrategy::Adaptive,
+    14UL,
+    0UL,
   ).unwrap()
   inspect(outcome.plan is None, content="true")
   inspect(outcome.frequency_facts.work().unwrap() > 0UL, content="true")
   inspect(outcome.bit_facts.work().unwrap() > 0UL, content="true")
   let preflight = _png_encode_preflight_with_filter_idat_limit(
-    image.view(), PngCompressionStrategy::DynamicOrFixedOrStored,
-    PngFilterStrategy::Adaptive, png_wb_limits(), png_wb_budget(), 0UL,
+    image.view(),
+    PngCompressionStrategy::DynamicOrFixedOrStored,
+    PngFilterStrategy::Adaptive,
+    png_wb_limits(),
+    png_wb_budget(),
+    0UL,
   ).unwrap()
   let expected_planning = _png_filtered_facts_add(
     _png_filtered_facts_add(
       _png_filtered_facts_add(
         _png_filtered_match_traverse(
-          image.view(), 6UL, 3UL, PngFilterStrategy::Adaptive, 14UL,
+          image.view(),
+          6UL,
+          3UL,
+          PngFilterStrategy::Adaptive,
+          14UL,
         ).unwrap(),
         _png_fixed_plan(
-          image.view(), 6UL, 3UL, PngFilterStrategy::Adaptive, 14UL,
+          image.view(),
+          6UL,
+          3UL,
+          PngFilterStrategy::Adaptive,
+          14UL,
         ).unwrap().traversal_facts,
       ).unwrap(),
       outcome.frequency_facts,
@@ -529,24 +725,41 @@ test "PNG adaptive Dynamic decline facts are admitted" {
     outcome.bit_facts,
   ).unwrap()
   inspect(
-    preflight.adaptive_planning_facts.resolved_rows == expected_planning.resolved_rows &&
-      preflight.adaptive_planning_facts.candidate_residuals == expected_planning.candidate_residuals &&
-      preflight.adaptive_planning_facts.selected_residuals == expected_planning.selected_residuals,
+    preflight.adaptive_planning_facts.resolved_rows ==
+    expected_planning.resolved_rows &&
+    preflight.adaptive_planning_facts.candidate_residuals ==
+    expected_planning.candidate_residuals &&
+    preflight.adaptive_planning_facts.selected_residuals ==
+    expected_planning.selected_residuals,
     content="true",
   )
   let exact = png_wb_budget(work=preflight.selected_work)
-  ignore(_png_encode_preflight_with_filter_idat_limit(
-    image.view(), PngCompressionStrategy::DynamicOrFixedOrStored,
-    PngFilterStrategy::Adaptive, png_wb_limits(), exact, 0UL,
-  ).unwrap())
+  ignore(
+    _png_encode_preflight_with_filter_idat_limit(
+      image.view(),
+      PngCompressionStrategy::DynamicOrFixedOrStored,
+      PngFilterStrategy::Adaptive,
+      png_wb_limits(),
+      exact,
+      0UL,
+    ).unwrap(),
+  )
   inspect(exact.remaining().work() == 0UL, content="true")
   let one_less = png_wb_budget(work=preflight.selected_work - 1UL)
   let before = one_less.remaining()
   let rejected = _png_encode_preflight_with_filter_idat_limit(
-    image.view(), PngCompressionStrategy::DynamicOrFixedOrStored,
-    PngFilterStrategy::Adaptive, png_wb_limits(), one_less, 0UL,
+    image.view(),
+    PngCompressionStrategy::DynamicOrFixedOrStored,
+    PngFilterStrategy::Adaptive,
+    png_wb_limits(),
+    one_less,
+    0UL,
   ).unwrap_err()
-  inspect(rejected.context() == Some("work") && png_wb_same_remaining(before, one_less.remaining()), content="true")
+  inspect(
+    rejected.context() == Some("work") &&
+    png_wb_same_remaining(before, one_less.remaining()),
+    content="true",
+  )
 }
 
 ///|
@@ -566,8 +779,14 @@ fn png_wb_image(
     },
     [
       @model.PlaneDescriptor::new(
-        0UL, channels * width * height, channels * width, channels * width,
-        1UL, 1UL, width, height,
+        0UL,
+        channels * width * height,
+        channels * width,
+        channels * width,
+        1UL,
+        1UL,
+        width,
+        height,
       ).unwrap(),
     ],
     channels * width * height,
@@ -603,7 +822,14 @@ fn png_wb_image(
     for y = 0UL; y < height; y = y + 1UL {
       for x = 0UL; x < width; x = x + 1UL {
         for index = 0UL; index < channels; index = index + 1UL {
-          view.set_byte(x, y, index, pixels[((y * width + x) * channels + index).to_int()]).unwrap()
+          view
+          .set_byte(
+            x,
+            y,
+            index,
+            pixels[((y * width + x) * channels + index).to_int()],
+          )
+          .unwrap()
         }
       }
     }
@@ -1104,11 +1330,17 @@ test "PNG dynamic selected work boundary charges once" {
 ///|
 test "PNG Indexed8 frame facts shift PLTE while zero-PLTE offsets remain frozen" {
   let indexed = PngIndexedImage::new(
-    2UL, 1UL, b"\x00\x01", b"\x12\x34\x56\xa0\xb0\xc0",
-    b"\xff\xff", png_wb_budget(bytes=64UL, work=0UL),
+    2UL,
+    1UL,
+    b"\x00\x01",
+    b"\x12\x34\x56\xa0\xb0\xc0",
+    b"\xff\xff",
+    png_wb_budget(bytes=64UL, work=0UL),
   ).unwrap()
   let indexed_facts = _png_encode_indexed_preflight(
-    indexed, png_wb_limits(), png_wb_budget(work=1024UL),
+    indexed,
+    png_wb_limits(),
+    png_wb_budget(work=1024UL),
   ).unwrap()
   inspect(indexed_facts.frame.plte_length, content="6")
   inspect(indexed_facts.frame.plte_start, content="33")
@@ -1118,7 +1350,10 @@ test "PNG Indexed8 frame facts shift PLTE while zero-PLTE offsets remain frozen"
   inspect(indexed_facts.frame.iend_start, content="77")
   inspect(indexed_facts.frame.total_length, content="89")
   let machine = PngEncodeMachine::new_with_indexed(
-    indexed, png_wb_limits(), png_wb_budget(work=1024UL), @error.Diagnostics::new(),
+    indexed,
+    png_wb_limits(),
+    png_wb_budget(work=1024UL),
+    @error.Diagnostics::new(),
   ).unwrap()
   while machine.completed() < 47UL {
     let byte = machine.present().unwrap().unwrap()
@@ -1126,8 +1361,10 @@ test "PNG Indexed8 frame facts shift PLTE while zero-PLTE offsets remain frozen"
   }
   inspect(machine.present().unwrap().unwrap() == b'\xf7', content="true")
   let legacy = _png_encode_preflight(
-    png_wb_image(3UL, b"\x12\x34\x56").view(), PngCompressionStrategy::Stored,
-    png_wb_limits(), png_wb_budget(work=1024UL),
+    png_wb_image(3UL, b"\x12\x34\x56").view(),
+    PngCompressionStrategy::Stored,
+    png_wb_limits(),
+    png_wb_budget(work=1024UL),
   ).unwrap()
   inspect(legacy.frame.plte_length, content="0")
   inspect(legacy.frame.trns_length, content="0")
@@ -1137,19 +1374,25 @@ test "PNG Indexed8 frame facts shift PLTE while zero-PLTE offsets remain frozen"
   inspect(legacy.frame.total_length, content="72")
 }
 
-///| Selected Indexed8 Adam7 facts must be charged once from the shared pass
+///|
+/// Selected Indexed8 Adam7 facts must be charged once from the shared pass
 /// geometry: exact admission reaches zero work, and one-less limits stay atomic.
 test "PNG Indexed8 Adam7 preflight facts and admission are exact" {
   let source = PngIndexedImage::new(
-    5UL, 5UL,
+    5UL,
+    5UL,
     b"\x00\x01\x02\x03\x00\x02\x03\x00\x01\x02\x00\x01\x02\x03\x00\x02\x03\x00\x01\x02\x00\x01\x02\x03\x00",
-    b"\x12\x34\x56\xa0\xb0\xc0\xd0\xe0\xf0\x21\x43\x65", b"\x00\x80\x7f\xff",
+    b"\x12\x34\x56\xa0\xb0\xc0\xd0\xe0\xf0\x21\x43\x65",
+    b"\x00\x80\x7f\xff",
     png_wb_budget(bytes=256UL, work=0UL),
   ).unwrap()
   let exact = png_wb_budget(work=143UL)
   let facts = _png_encode_indexed_preflight_with_profile(
-    source, PngIndexedWireProfile::Eight, PngInterlaceStrategy::Adam7,
-    png_wb_indexed_limits(143UL, 143UL), exact,
+    source,
+    PngIndexedWireProfile::Eight,
+    PngInterlaceStrategy::Adam7,
+    png_wb_indexed_limits(143UL, 143UL),
+    exact,
   ).unwrap()
   inspect(facts.scanlines, content="36")
   inspect(facts.blocks, content="1")
@@ -1160,78 +1403,153 @@ test "PNG Indexed8 Adam7 preflight facts and admission are exact" {
 
   let one_less_work = png_wb_budget(work=142UL)
   let work_before = one_less_work.remaining()
-  inspect(_png_encode_indexed_preflight_with_profile(
-    source, PngIndexedWireProfile::Eight, PngInterlaceStrategy::Adam7,
-    png_wb_indexed_limits(143UL, 143UL), one_less_work,
-  ) is Err(_), content="true")
-  inspect(png_wb_same_remaining(work_before, one_less_work.remaining()), content="true")
+  inspect(
+    _png_encode_indexed_preflight_with_profile(
+      source,
+      PngIndexedWireProfile::Eight,
+      PngInterlaceStrategy::Adam7,
+      png_wb_indexed_limits(143UL, 143UL),
+      one_less_work,
+    )
+    is Err(_),
+    content="true",
+  )
+  inspect(
+    png_wb_same_remaining(work_before, one_less_work.remaining()),
+    content="true",
+  )
 
   let one_less_output = png_wb_budget(work=143UL)
   let output_before = one_less_output.remaining()
-  inspect(_png_encode_indexed_preflight_with_profile(
-    source, PngIndexedWireProfile::Eight, PngInterlaceStrategy::Adam7,
-    png_wb_indexed_limits(142UL, 143UL), one_less_output,
-  ) is Err(_), content="true")
-  inspect(png_wb_same_remaining(output_before, one_less_output.remaining()), content="true")
+  inspect(
+    _png_encode_indexed_preflight_with_profile(
+      source,
+      PngIndexedWireProfile::Eight,
+      PngInterlaceStrategy::Adam7,
+      png_wb_indexed_limits(142UL, 143UL),
+      one_less_output,
+    )
+    is Err(_),
+    content="true",
+  )
+  inspect(
+    png_wb_same_remaining(output_before, one_less_output.remaining()),
+    content="true",
+  )
 }
 
-///| The selected profiles use their own packed Adam7 rows before the one work
+///|
+/// The selected profiles use their own packed Adam7 rows before the one work
 /// charge. Literal totals here intentionally do not derive from a helper.
 test "PNG selected low-bit Adam7 preflight facts and admission are exact" {
-  for item in [
-    (PngIndexedWireProfile::One, 2UL, 22UL, 33UL, 122UL),
-    (PngIndexedWireProfile::Two, 4UL, 24UL, 35UL, 132UL),
-    (PngIndexedWireProfile::Four, 16UL, 27UL, 38UL, 183UL),
-  ] {
+  for
+    item in [
+      (PngIndexedWireProfile::One, 2UL, 22UL, 33UL, 122UL),
+      (PngIndexedWireProfile::Two, 4UL, 24UL, 35UL, 132UL),
+      (PngIndexedWireProfile::Four, 16UL, 27UL, 38UL, 183UL),
+    ] {
     let (profile, cap, expected_scanlines, expected_idat, expected_total) = item
     let indices = b"\x00\x01\x00\x01\x00\x00\x01\x00\x01\x00\x00\x01\x00\x01\x00\x01\x00\x00\x01\x00\x01\x00\x01\x00\x00"
     let palette = Bytes::from_array(Array::make((cap * 3UL).to_int(), b'\x12'))
     let alpha = Bytes::from_array(Array::make(cap.to_int(), b'\x80'))
     let source = PngIndexedImage::new(
-      5UL, 5UL, indices, palette, alpha, png_wb_budget(bytes=256UL, work=0UL),
+      5UL,
+      5UL,
+      indices,
+      palette,
+      alpha,
+      png_wb_budget(bytes=256UL, work=0UL),
     ).unwrap()
     let exact = png_wb_budget(work=expected_total)
     let facts = _png_encode_indexed_preflight_with_profile(
-      source, profile, PngInterlaceStrategy::Adam7,
-      png_wb_indexed_limits(expected_total, expected_total), exact,
+      source,
+      profile,
+      PngInterlaceStrategy::Adam7,
+      png_wb_indexed_limits(expected_total, expected_total),
+      exact,
     ).unwrap()
     inspect(facts.scanlines == expected_scanlines, content="true")
-    inspect(facts.blocks == 1UL && facts.idat_length == expected_idat, content="true")
-    inspect(facts.total_length == expected_total && facts.selected_work == expected_total, content="true")
+    inspect(
+      facts.blocks == 1UL && facts.idat_length == expected_idat,
+      content="true",
+    )
+    inspect(
+      facts.total_length == expected_total &&
+      facts.selected_work == expected_total,
+      content="true",
+    )
     inspect(exact.remaining().work() == 0UL, content="true")
 
     let one_less_output = png_wb_budget(work=expected_total)
     let output_before = one_less_output.remaining()
-    inspect(_png_encode_indexed_preflight_with_profile(
-      source, profile, PngInterlaceStrategy::Adam7,
-      png_wb_indexed_limits(expected_total - 1UL, expected_total), one_less_output,
-    ) is Err(_), content="true")
-    inspect(png_wb_same_remaining(output_before, one_less_output.remaining()), content="true")
+    inspect(
+      _png_encode_indexed_preflight_with_profile(
+        source,
+        profile,
+        PngInterlaceStrategy::Adam7,
+        png_wb_indexed_limits(expected_total - 1UL, expected_total),
+        one_less_output,
+      )
+      is Err(_),
+      content="true",
+    )
+    inspect(
+      png_wb_same_remaining(output_before, one_less_output.remaining()),
+      content="true",
+    )
 
     let one_less_work = png_wb_budget(work=expected_total - 1UL)
     let work_before = one_less_work.remaining()
-    inspect(_png_encode_indexed_preflight_with_profile(
-      source, profile, PngInterlaceStrategy::Adam7,
-      png_wb_indexed_limits(expected_total, expected_total), one_less_work,
-    ) is Err(_), content="true")
-    inspect(png_wb_same_remaining(work_before, one_less_work.remaining()), content="true")
+    inspect(
+      _png_encode_indexed_preflight_with_profile(
+        source,
+        profile,
+        PngInterlaceStrategy::Adam7,
+        png_wb_indexed_limits(expected_total, expected_total),
+        one_less_work,
+      )
+      is Err(_),
+      content="true",
+    )
+    inspect(
+      png_wb_same_remaining(work_before, one_less_work.remaining()),
+      content="true",
+    )
 
     let oversized = PngIndexedImage::new(
-      1UL, 1UL, b"\x00", Bytes::from_array(Array::make(((cap + 1UL) * 3UL).to_int(), b'\x12')),
+      1UL,
+      1UL,
+      b"\x00",
+      Bytes::from_array(Array::make(((cap + 1UL) * 3UL).to_int(), b'\x12')),
       Bytes::from_array(Array::make((cap + 1UL).to_int(), b'\x80')),
       png_wb_budget(bytes=256UL, work=0UL),
     ).unwrap()
     let cap_budget = png_wb_budget()
     let cap_before = cap_budget.remaining()
-    inspect(_png_encode_indexed_preflight_with_profile(
-      oversized, profile, PngInterlaceStrategy::Adam7, png_wb_limits(), cap_budget,
-    ) is Err(_), content="true")
-    inspect(png_wb_same_remaining(cap_before, cap_budget.remaining()), content="true")
+    inspect(
+      _png_encode_indexed_preflight_with_profile(
+        oversized,
+        profile,
+        PngInterlaceStrategy::Adam7,
+        png_wb_limits(),
+        cap_budget,
+      )
+      is Err(_),
+      content="true",
+    )
+    inspect(
+      png_wb_same_remaining(cap_before, cap_budget.remaining()),
+      content="true",
+    )
   }
-  inspect(_png_adam7_passes(18446744073709551615UL, 1UL, 1UL, 4) is Err(_), content="true")
+  inspect(
+    _png_adam7_passes(18446744073709551615UL, 1UL, 1UL, 4) is Err(_),
+    content="true",
+  )
 }
 
-///| Phase 89 keeps the Adam7 compression candidate and its complete Type-3
+///|
+/// Phase 89 keeps the Adam7 compression candidate and its complete Type-3
 /// frame facts in one atomic preflight for every indexed wire depth.
 fn png_phase89_adam7_source(
   _profile : PngIndexedWireProfile,
@@ -1243,24 +1561,35 @@ fn png_phase89_adam7_source(
     b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
   }
   PngIndexedImage::new(
-    5UL, 5UL, indices, b"\x12\x34\x56\xa0\xb0\xc0", b"\x00\x80",
+    5UL,
+    5UL,
+    indices,
+    b"\x12\x34\x56\xa0\xb0\xc0",
+    b"\x00\x80",
     png_wb_budget(bytes=4096UL, work=0UL),
   ).unwrap()
 }
 
-///| Exact output/work limits and exact budget work admit once; every one-less
+///|
+/// Exact output/work limits and exact budget work admit once; every one-less
 /// rejection leaves the caller budget untouched.
 test "PNG indexed Adam7 FixedOrStored candidate facts and admission are exact" {
-  for profile in [
-    PngIndexedWireProfile::One, PngIndexedWireProfile::Two,
-    PngIndexedWireProfile::Four, PngIndexedWireProfile::Eight,
-  ] {
+  for
+    profile in [
+      PngIndexedWireProfile::One,
+      PngIndexedWireProfile::Two,
+      PngIndexedWireProfile::Four,
+      PngIndexedWireProfile::Eight,
+    ] {
     for noisy in [false, true] {
       let source = png_phase89_adam7_source(profile, noisy)
       let admitted = _png_encode_indexed_preflight_with_profile_and_strategy(
-        source, profile, PngInterlaceStrategy::Adam7,
+        source,
+        profile,
+        PngInterlaceStrategy::Adam7,
         PngCompressionStrategy::FixedOrStored,
-        png_wb_indexed_limits(4096UL, 1048576UL), png_wb_budget(bytes=4096UL, work=1048576UL),
+        png_wb_indexed_limits(4096UL, 1048576UL),
+        png_wb_budget(bytes=4096UL, work=1048576UL),
       ).unwrap()
       let candidate_idat = match admitted.plan {
         PngDeflatePlan::Stored(plan) => plan.idat_length
@@ -1268,21 +1597,30 @@ test "PNG indexed Adam7 FixedOrStored candidate facts and admission are exact" {
         PngDeflatePlan::Dynamic(_) => abort("png phase89 indexed dynamic plan")
       }
       let candidate_frame = _png_frame_facts(
-        source.palette_length(), 2UL, candidate_idat,
+        source.palette_length(),
+        2UL,
+        candidate_idat,
       ).unwrap()
       inspect(
         admitted.frame.total_length == candidate_frame.total_length &&
-          admitted.total_length == candidate_frame.total_length &&
-          admitted.frame.plte_length == source.palette_length() &&
-          admitted.frame.trns_length == 2UL && admitted.selected_work > 0UL,
+        admitted.total_length == candidate_frame.total_length &&
+        admitted.frame.plte_length == source.palette_length() &&
+        admitted.frame.trns_length == 2UL &&
+        admitted.selected_work > 0UL,
         content="true",
       )
 
-      let exact_budget = png_wb_budget(bytes=4096UL, work=admitted.selected_work)
+      let exact_budget = png_wb_budget(
+        bytes=4096UL,
+        work=admitted.selected_work,
+      )
       let exact = _png_encode_indexed_preflight_with_profile_and_strategy(
-        source, profile, PngInterlaceStrategy::Adam7,
+        source,
+        profile,
+        PngInterlaceStrategy::Adam7,
         PngCompressionStrategy::FixedOrStored,
-        png_wb_indexed_limits(admitted.total_length, admitted.selected_work), exact_budget,
+        png_wb_indexed_limits(admitted.total_length, admitted.selected_work),
+        exact_budget,
       ).unwrap()
       inspect(exact_budget.remaining().work() == 0UL, content="true")
       inspect(exact.total_length == admitted.total_length, content="true")
@@ -1290,39 +1628,51 @@ test "PNG indexed Adam7 FixedOrStored candidate facts and admission are exact" {
       let one_less_output_budget = png_wb_budget(bytes=4096UL, work=1048576UL)
       let output_before = one_less_output_budget.remaining()
       let output_error = _png_encode_indexed_preflight_with_profile_and_strategy(
-        source, profile, PngInterlaceStrategy::Adam7,
+        source,
+        profile,
+        PngInterlaceStrategy::Adam7,
         PngCompressionStrategy::FixedOrStored,
-        png_wb_indexed_limits(admitted.total_length - 1UL, 1048576UL), one_less_output_budget,
+        png_wb_indexed_limits(admitted.total_length - 1UL, 1048576UL),
+        one_less_output_budget,
       ).unwrap_err()
       inspect(
         output_error.context() == Some("output-bytes") &&
-          png_wb_same_remaining(output_before, one_less_output_budget.remaining()),
+        png_wb_same_remaining(output_before, one_less_output_budget.remaining()),
         content="true",
       )
 
       let one_less_work_budget = png_wb_budget(bytes=4096UL, work=1048576UL)
       let work_before = one_less_work_budget.remaining()
       let work_error = _png_encode_indexed_preflight_with_profile_and_strategy(
-        source, profile, PngInterlaceStrategy::Adam7,
+        source,
+        profile,
+        PngInterlaceStrategy::Adam7,
         PngCompressionStrategy::FixedOrStored,
-        png_wb_indexed_limits(4096UL, admitted.selected_work - 1UL), one_less_work_budget,
+        png_wb_indexed_limits(4096UL, admitted.selected_work - 1UL),
+        one_less_work_budget,
       ).unwrap_err()
       inspect(
         work_error.context() == Some("work") &&
-          png_wb_same_remaining(work_before, one_less_work_budget.remaining()),
+        png_wb_same_remaining(work_before, one_less_work_budget.remaining()),
         content="true",
       )
 
-      let one_less_budget = png_wb_budget(bytes=4096UL, work=admitted.selected_work - 1UL)
+      let one_less_budget = png_wb_budget(
+        bytes=4096UL,
+        work=admitted.selected_work - 1UL,
+      )
       let budget_before = one_less_budget.remaining()
       let budget_error = _png_encode_indexed_preflight_with_profile_and_strategy(
-        source, profile, PngInterlaceStrategy::Adam7,
+        source,
+        profile,
+        PngInterlaceStrategy::Adam7,
         PngCompressionStrategy::FixedOrStored,
-        png_wb_indexed_limits(4096UL, 1048576UL), one_less_budget,
+        png_wb_indexed_limits(4096UL, 1048576UL),
+        one_less_budget,
       ).unwrap_err()
       inspect(
         budget_error.context() == Some("work") &&
-          png_wb_same_remaining(budget_before, one_less_budget.remaining()),
+        png_wb_same_remaining(budget_before, one_less_budget.remaining()),
         content="true",
       )
     }
@@ -1331,49 +1681,85 @@ test "PNG indexed Adam7 FixedOrStored candidate facts and admission are exact" {
 
 ///|
 test "PNG low-bit indexed profiles derive packed facts and reject before work charge" {
-  for item in [
-    (PngIndexedWireProfile::One, 2UL, 9UL, 2UL),
-    (PngIndexedWireProfile::Two, 4UL, 5UL, 2UL),
-    (PngIndexedWireProfile::Four, 16UL, 3UL, 2UL),
-  ] {
+  for
+    item in [
+      (PngIndexedWireProfile::One, 2UL, 9UL, 2UL),
+      (PngIndexedWireProfile::Two, 4UL, 5UL, 2UL),
+      (PngIndexedWireProfile::Four, 16UL, 3UL, 2UL),
+    ] {
     let (profile, cap, width, expected_row_bytes) = item
     let indices = Bytes::from_array(Array::make(width.to_int(), b'\x00'))
     let palette = Bytes::from_array(Array::make((cap * 3UL).to_int(), b'\x12'))
     let alpha = Bytes::from_array(Array::make(cap.to_int(), b'\xff'))
     let source = PngIndexedImage::new(
-      width, 1UL, indices, palette, alpha, png_wb_budget(bytes=128UL, work=0UL),
+      width,
+      1UL,
+      indices,
+      palette,
+      alpha,
+      png_wb_budget(bytes=128UL, work=0UL),
     ).unwrap()
     let admitted = _png_encode_indexed_preflight_with_profile(
-      source, profile, PngInterlaceStrategy::None, png_wb_limits(), png_wb_budget(work=1024UL),
+      source,
+      profile,
+      PngInterlaceStrategy::None,
+      png_wb_limits(),
+      png_wb_budget(work=1024UL),
     ).unwrap()
     inspect(admitted.row_bytes == expected_row_bytes, content="true")
     inspect(admitted.scanlines == expected_row_bytes + 1UL, content="true")
     let exact = png_wb_budget(work=admitted.selected_work)
-    ignore(_png_encode_indexed_preflight_with_profile(
-      source, profile, PngInterlaceStrategy::None, png_wb_limits(), exact,
-    ).unwrap())
+    ignore(
+      _png_encode_indexed_preflight_with_profile(
+        source,
+        profile,
+        PngInterlaceStrategy::None,
+        png_wb_limits(),
+        exact,
+      ).unwrap(),
+    )
     inspect(exact.remaining().work() == 0UL, content="true")
     let one_less = png_wb_budget(work=admitted.selected_work - 1UL)
     let before = one_less.remaining()
     let error = _png_encode_indexed_preflight_with_profile(
-      source, profile, PngInterlaceStrategy::None, png_wb_limits(), one_less,
+      source,
+      profile,
+      PngInterlaceStrategy::None,
+      png_wb_limits(),
+      one_less,
     ).unwrap_err()
-    inspect(error.context() == Some("work") && png_wb_same_remaining(before, one_less.remaining()), content="true")
+    inspect(
+      error.context() == Some("work") &&
+      png_wb_same_remaining(before, one_less.remaining()),
+      content="true",
+    )
 
-    let oversized_palette = Bytes::from_array(Array::make(((cap + 1UL) * 3UL).to_int(), b'\x12'))
-    let oversized_alpha = Bytes::from_array(Array::make((cap + 1UL).to_int(), b'\xff'))
+    let oversized_palette = Bytes::from_array(
+      Array::make(((cap + 1UL) * 3UL).to_int(), b'\x12'),
+    )
+    let oversized_alpha = Bytes::from_array(
+      Array::make((cap + 1UL).to_int(), b'\xff'),
+    )
     let oversized = PngIndexedImage::new(
-      1UL, 1UL, b"\x00", oversized_palette, oversized_alpha,
+      1UL,
+      1UL,
+      b"\x00",
+      oversized_palette,
+      oversized_alpha,
       png_wb_budget(bytes=128UL, work=0UL),
     ).unwrap()
     let rejected_budget = png_wb_budget()
     let rejected_before = rejected_budget.remaining()
     let rejected = _png_encode_indexed_preflight_with_profile(
-      oversized, profile, PngInterlaceStrategy::None, png_wb_limits(), rejected_budget,
+      oversized,
+      profile,
+      PngInterlaceStrategy::None,
+      png_wb_limits(),
+      rejected_budget,
     ).unwrap_err()
     inspect(
       rejected.context() == Some("indexed-palette-cap") &&
-        png_wb_same_remaining(rejected_before, rejected_budget.remaining()),
+      png_wb_same_remaining(rejected_before, rejected_budget.remaining()),
       content="true",
     )
   }
@@ -1382,12 +1768,17 @@ test "PNG low-bit indexed profiles derive packed facts and reject before work ch
 ///|
 test "PNG Indexed8 tRNS frame facts and CRC advance only on acknowledgement" {
   let indexed = PngIndexedImage::new(
-    4UL, 1UL, b"\x00\x01\x02\x03",
+    4UL,
+    1UL,
+    b"\x00\x01\x02\x03",
     b"\x12\x34\x56\xa0\xb0\xc0\x11\x22\x33\x44\x55\x66",
-    b"\x00\xff\x80\xff", png_wb_budget(bytes=64UL, work=0UL),
+    b"\x00\xff\x80\xff",
+    png_wb_budget(bytes=64UL, work=0UL),
   ).unwrap()
   let facts = _png_encode_indexed_preflight(
-    indexed, png_wb_limits(), png_wb_budget(work=1024UL),
+    indexed,
+    png_wb_limits(),
+    png_wb_budget(work=1024UL),
   ).unwrap()
   inspect(facts.frame.plte_start, content="33")
   inspect(facts.frame.plte_length, content="12")
@@ -1397,7 +1788,10 @@ test "PNG Indexed8 tRNS frame facts and CRC advance only on acknowledgement" {
   inspect(facts.frame.iend_start, content="100")
   inspect(facts.frame.total_length, content="112")
   let machine = PngEncodeMachine::new_with_indexed(
-    indexed, png_wb_limits(), png_wb_budget(work=1024UL), @error.Diagnostics::new(),
+    indexed,
+    png_wb_limits(),
+    png_wb_budget(work=1024UL),
+    @error.Diagnostics::new(),
   ).unwrap()
   while machine.completed() < 65UL {
     let byte = machine.present().unwrap().unwrap()
@@ -1424,11 +1818,13 @@ test "PNG Indexed8 tRNS frame facts and CRC advance only on acknowledgement" {
 test "PNG Indexed8 preflight rejects empty scanlines and oversized IDAT" {
   inspect(_png_indexed_stored_idat_length(0UL) is Err(_), content="true")
   inspect(
-    _png_indexed_stored_idat_length(4294967295UL) is Err(_), content="true",
+    _png_indexed_stored_idat_length(4294967295UL) is Err(_),
+    content="true",
   )
 }
 
-///| Builds one canonical unpacked Type-3 source whose packed filter-None row
+///|
+/// Builds one canonical unpacked Type-3 source whose packed filter-None row
 /// is either the all-zero Fixed winner or the literal-only Stored fallback.
 fn png_indexed_compression_matrix_source(
   profile : PngIndexedWireProfile,
@@ -1445,8 +1841,10 @@ fn png_indexed_compression_matrix_source(
   let per_byte = 8UL / depth
   for x = 0UL; x < width; x = x + 1UL {
     let packed_byte = packed[(x / per_byte).to_int()].to_uint64()
-    let shift = 8UL - depth - (x % per_byte) * depth
-    codes.push(((packed_byte >> shift.to_int()) & ((1UL << depth.to_int()) - 1UL)).to_byte())
+    let shift = 8UL - depth - x % per_byte * depth
+    codes.push(
+      ((packed_byte >> shift.to_int()) & ((1UL << depth.to_int()) - 1UL)).to_byte(),
+    )
   }
   let palette : Array[Byte] = []
   let alpha : Array[Byte] = []
@@ -1457,20 +1855,33 @@ fn png_indexed_compression_matrix_source(
     alpha.push(if entry == 0UL { b'\x00' } else { b'\xff' })
   }
   PngIndexedImage::new(
-    width, 1UL, Bytes::from_array(codes), Bytes::from_array(palette),
-    Bytes::from_array(alpha), png_indexed_compression_matrix_budget(),
+    width,
+    1UL,
+    Bytes::from_array(codes),
+    Bytes::from_array(palette),
+    Bytes::from_array(alpha),
+    png_indexed_compression_matrix_budget(),
   ).unwrap()
 }
 
-///| The matrix deliberately reaches width 512 at Indexed1, beyond the compact
+///|
+/// The matrix deliberately reaches width 512 at Indexed1, beyond the compact
 /// default white-box fixture limits used by unrelated tests.
 fn png_indexed_compression_matrix_budget(
   work? : UInt64 = 1048576UL,
 ) -> @budget.Budget {
-  @budget.Budget::new(@budget.ResourceLimits::new(
-    bytes=1048576UL, allocations=8UL, allocation_size=1048576UL,
-    width=512UL, height=64UL, pixels=4096UL, depth=0UL, work~,
-  ))
+  @budget.Budget::new(
+    @budget.ResourceLimits::new(
+      bytes=1048576UL,
+      allocations=8UL,
+      allocation_size=1048576UL,
+      width=512UL,
+      height=64UL,
+      pixels=4096UL,
+      depth=0UL,
+      work~,
+    ),
+  )
 }
 
 ///|
@@ -1479,41 +1890,77 @@ fn png_indexed_compression_matrix_limits(
   work? : UInt64 = 1048576UL,
 ) -> @codec.CodecLimits {
   @codec.CodecLimits::new(
-    max_probe_bytes=8UL, max_input_bytes=1048576UL, max_output_bytes=output,
-    max_width=512UL, max_height=64UL, max_pixels=4096UL, max_work=work,
+    max_probe_bytes=8UL,
+    max_input_bytes=1048576UL,
+    max_output_bytes=output,
+    max_width=512UL,
+    max_height=64UL,
+    max_pixels=4096UL,
+    max_work=work,
   )
 }
 
-///| The bounded shared producer makes Type-3 selection from complete palette
+///|
+/// The bounded shared producer makes Type-3 selection from complete palette
 /// frames rather than the generic non-palette `+57` accounting.
 test "PNG indexed compression matrix selects Fixed and Stored at every depth" {
-  for profile in [
-    PngIndexedWireProfile::One, PngIndexedWireProfile::Two,
-    PngIndexedWireProfile::Four, PngIndexedWireProfile::Eight,
-  ] {
+  for
+    profile in [
+      PngIndexedWireProfile::One,
+      PngIndexedWireProfile::Two,
+      PngIndexedWireProfile::Four,
+      PngIndexedWireProfile::Eight,
+    ] {
     for stored_fallback in [false, true] {
-      let source = png_indexed_compression_matrix_source(profile, stored_fallback)
+      let source = png_indexed_compression_matrix_source(
+        profile, stored_fallback,
+      )
       let fixed = _png_fixed_plan_with_cursor(
-        PngFilteredMatchCursor::new_indexed(source, 64UL, profile.depth()), 65UL,
+        PngFilteredMatchCursor::new_indexed(source, 64UL, profile.depth()),
+        65UL,
       ).unwrap()
       let stored_idat = _png_indexed_stored_idat_length(65UL).unwrap().1
-      let stored_frame = _png_frame_facts(source.palette_length(), 1UL, stored_idat).unwrap()
-      let fixed_frame = _png_frame_facts(source.palette_length(), 1UL, fixed.idat_length).unwrap()
-      let selected = _png_encode_indexed_preflight_with_profile_and_strategy(
-        source, profile, PngInterlaceStrategy::None, PngCompressionStrategy::FixedOrStored,
-        png_indexed_compression_matrix_limits(), png_indexed_compression_matrix_budget(),
+      let stored_frame = _png_frame_facts(
+        source.palette_length(),
+        1UL,
+        stored_idat,
       ).unwrap()
-      inspect(fixed.traversal_facts.resolved_rows == 0UL && fixed.matcher_work > 0UL, content="true")
+      let fixed_frame = _png_frame_facts(
+        source.palette_length(),
+        1UL,
+        fixed.idat_length,
+      ).unwrap()
+      let selected = _png_encode_indexed_preflight_with_profile_and_strategy(
+        source,
+        profile,
+        PngInterlaceStrategy::None,
+        PngCompressionStrategy::FixedOrStored,
+        png_indexed_compression_matrix_limits(),
+        png_indexed_compression_matrix_budget(),
+      ).unwrap()
+      inspect(
+        fixed.traversal_facts.resolved_rows == 0UL && fixed.matcher_work > 0UL,
+        content="true",
+      )
       inspect(selected.frame.trns_length == 1UL, content="true")
       if stored_fallback {
-        inspect(stored_idat == 76UL && fixed.idat_length == 81UL, content="true")
-        inspect(fixed_frame.total_length > stored_frame.total_length, content="true")
+        inspect(
+          stored_idat == 76UL && fixed.idat_length == 81UL,
+          content="true",
+        )
+        inspect(
+          fixed_frame.total_length > stored_frame.total_length,
+          content="true",
+        )
         match selected.plan {
           PngDeflatePlan::Stored(_) => inspect(true, content="true")
           _ => inspect(false, content="true")
         }
       } else {
-        inspect(fixed_frame.total_length <= stored_frame.total_length, content="true")
+        inspect(
+          fixed_frame.total_length <= stored_frame.total_length,
+          content="true",
+        )
         match selected.plan {
           PngDeflatePlan::Fixed(_) => inspect(true, content="true")
           _ => inspect(false, content="true")
@@ -1524,16 +1971,25 @@ test "PNG indexed compression matrix selects Fixed and Stored at every depth" {
 }
 
 ///| The selected preflight retains the complete Type-3 frame it admitted;
-///| this tracer deliberately reads those facts instead of rebuilding framing.
+
+///|
+/// this tracer deliberately reads those facts instead of rebuilding framing.
 test "PNG indexed compression admission tracer selected facts" {
   let profile = PngIndexedWireProfile::Two
   let source = png_indexed_compression_matrix_source(profile, false)
   let selected = _png_encode_indexed_preflight_with_profile_and_strategy(
-    source, profile, PngInterlaceStrategy::None, PngCompressionStrategy::FixedOrStored,
-    png_indexed_compression_matrix_limits(), png_indexed_compression_matrix_budget(),
+    source,
+    profile,
+    PngInterlaceStrategy::None,
+    PngCompressionStrategy::FixedOrStored,
+    png_indexed_compression_matrix_limits(),
+    png_indexed_compression_matrix_budget(),
   ).unwrap()
   inspect(selected.frame.plte_length == source.palette_length(), content="true")
-  inspect(selected.frame.trns_length == 1UL && selected.selected_work > 0UL, content="true")
+  inspect(
+    selected.frame.trns_length == 1UL && selected.selected_work > 0UL,
+    content="true",
+  )
   match selected.plan {
     PngDeflatePlan::Fixed(_) => inspect(true, content="true")
     _ => inspect(false, content="true")
@@ -1541,22 +1997,35 @@ test "PNG indexed compression admission tracer selected facts" {
 }
 
 ///| Complete Type-3 facts are selected before any charge.  Exact and one-less
+
 ///| limits deliberately come from that retained admission instead of a test
-///| framing formula.
+
+///|
+/// framing formula.
 test "PNG indexed compression ancillary admission selected facts are atomic" {
-  for profile in [
-    PngIndexedWireProfile::One, PngIndexedWireProfile::Two,
-    PngIndexedWireProfile::Four, PngIndexedWireProfile::Eight,
-  ] {
+  for
+    profile in [
+      PngIndexedWireProfile::One,
+      PngIndexedWireProfile::Two,
+      PngIndexedWireProfile::Four,
+      PngIndexedWireProfile::Eight,
+    ] {
     for stored_fallback in [false, true] {
-      let source = png_indexed_compression_matrix_source(profile, stored_fallback)
+      let source = png_indexed_compression_matrix_source(
+        profile, stored_fallback,
+      )
       let admitted = _png_encode_indexed_preflight_with_profile_and_strategy(
-        source, profile, PngInterlaceStrategy::None, PngCompressionStrategy::FixedOrStored,
-        png_indexed_compression_matrix_limits(), png_indexed_compression_matrix_budget(),
+        source,
+        profile,
+        PngInterlaceStrategy::None,
+        PngCompressionStrategy::FixedOrStored,
+        png_indexed_compression_matrix_limits(),
+        png_indexed_compression_matrix_budget(),
       ).unwrap()
       inspect(
         admitted.frame.plte_length == source.palette_length() &&
-          admitted.frame.trns_length == 1UL && admitted.selected_work > 0UL,
+        admitted.frame.trns_length == 1UL &&
+        admitted.selected_work > 0UL,
         content="true",
       )
       match admitted.plan {
@@ -1568,60 +2037,100 @@ test "PNG indexed compression ancillary admission selected facts are atomic" {
       let exact_limit = png_indexed_compression_matrix_budget()
       let exact_before = exact_limit.remaining()
       let exact = _png_encode_indexed_preflight_with_profile_and_strategy(
-        source, profile, PngInterlaceStrategy::None, PngCompressionStrategy::FixedOrStored,
-        png_indexed_compression_matrix_limits(work=admitted.selected_work), exact_limit,
+        source,
+        profile,
+        PngInterlaceStrategy::None,
+        PngCompressionStrategy::FixedOrStored,
+        png_indexed_compression_matrix_limits(work=admitted.selected_work),
+        exact_limit,
       ).unwrap()
       inspect(
         exact.selected_work == admitted.selected_work &&
-          exact_before.work() - exact_limit.remaining().work() == admitted.selected_work,
+        exact_before.work() - exact_limit.remaining().work() ==
+        admitted.selected_work,
         content="true",
       )
 
       let one_less_limit = png_indexed_compression_matrix_budget()
       let one_less_limit_before = one_less_limit.remaining()
       let limit_error = _png_encode_indexed_preflight_with_profile_and_strategy(
-        source, profile, PngInterlaceStrategy::None, PngCompressionStrategy::FixedOrStored,
-        png_indexed_compression_matrix_limits(work=admitted.selected_work - 1UL), one_less_limit,
+        source,
+        profile,
+        PngInterlaceStrategy::None,
+        PngCompressionStrategy::FixedOrStored,
+        png_indexed_compression_matrix_limits(work=admitted.selected_work - 1UL),
+        one_less_limit,
       ).unwrap_err()
       inspect(
         limit_error.context() == Some("work") &&
-          png_wb_same_remaining(one_less_limit_before, one_less_limit.remaining()),
+        png_wb_same_remaining(one_less_limit_before, one_less_limit.remaining()),
         content="true",
       )
 
-      let exact_budget = png_indexed_compression_matrix_budget(work=admitted.selected_work)
-      ignore(_png_encode_indexed_preflight_with_profile_and_strategy(
-        source, profile, PngInterlaceStrategy::None, PngCompressionStrategy::FixedOrStored,
-        png_indexed_compression_matrix_limits(), exact_budget,
-      ).unwrap())
+      let exact_budget = png_indexed_compression_matrix_budget(
+        work=admitted.selected_work,
+      )
+      ignore(
+        _png_encode_indexed_preflight_with_profile_and_strategy(
+          source,
+          profile,
+          PngInterlaceStrategy::None,
+          PngCompressionStrategy::FixedOrStored,
+          png_indexed_compression_matrix_limits(),
+          exact_budget,
+        ).unwrap(),
+      )
       inspect(exact_budget.remaining().work() == 0UL, content="true")
 
-      let one_less_budget = png_indexed_compression_matrix_budget(work=admitted.selected_work - 1UL)
+      let one_less_budget = png_indexed_compression_matrix_budget(
+        work=admitted.selected_work - 1UL,
+      )
       let one_less_budget_before = one_less_budget.remaining()
       let budget_error = _png_encode_indexed_preflight_with_profile_and_strategy(
-        source, profile, PngInterlaceStrategy::None, PngCompressionStrategy::FixedOrStored,
-        png_indexed_compression_matrix_limits(), one_less_budget,
+        source,
+        profile,
+        PngInterlaceStrategy::None,
+        PngCompressionStrategy::FixedOrStored,
+        png_indexed_compression_matrix_limits(),
+        one_less_budget,
       ).unwrap_err()
       inspect(
         budget_error.context() == Some("work") &&
-          png_wb_same_remaining(one_less_budget_before, one_less_budget.remaining()),
+        png_wb_same_remaining(
+          one_less_budget_before,
+          one_less_budget.remaining(),
+        ),
         content="true",
       )
 
-      ignore(_png_encode_indexed_preflight_with_profile_and_strategy(
-        source, profile, PngInterlaceStrategy::None, PngCompressionStrategy::FixedOrStored,
-        png_indexed_compression_matrix_limits(output=admitted.total_length),
-        png_indexed_compression_matrix_budget(),
-      ).unwrap())
+      ignore(
+        _png_encode_indexed_preflight_with_profile_and_strategy(
+          source,
+          profile,
+          PngInterlaceStrategy::None,
+          PngCompressionStrategy::FixedOrStored,
+          png_indexed_compression_matrix_limits(output=admitted.total_length),
+          png_indexed_compression_matrix_budget(),
+        ).unwrap(),
+      )
       let one_less_output = png_indexed_compression_matrix_budget()
       let one_less_output_before = one_less_output.remaining()
       let output_error = _png_encode_indexed_preflight_with_profile_and_strategy(
-        source, profile, PngInterlaceStrategy::None, PngCompressionStrategy::FixedOrStored,
-        png_indexed_compression_matrix_limits(output=admitted.total_length - 1UL), one_less_output,
+        source,
+        profile,
+        PngInterlaceStrategy::None,
+        PngCompressionStrategy::FixedOrStored,
+        png_indexed_compression_matrix_limits(
+          output=admitted.total_length - 1UL,
+        ),
+        one_less_output,
       ).unwrap_err()
       inspect(
         output_error.context() == Some("output-bytes") &&
-          png_wb_same_remaining(one_less_output_before, one_less_output.remaining()),
+        png_wb_same_remaining(
+          one_less_output_before,
+          one_less_output.remaining(),
+        ),
         content="true",
       )
 
@@ -1630,7 +2139,9 @@ test "PNG indexed compression ancillary admission selected facts are atomic" {
       // maximum; cap-plus-one remains reachable for the selected low-bit APIs.
       if cap < 256UL {
         let oversized = PngIndexedImage::new(
-          1UL, 1UL, b"\x00",
+          1UL,
+          1UL,
+          b"\x00",
           Bytes::from_array(Array::make(((cap + 1UL) * 3UL).to_int(), b'\x12')),
           Bytes::from_array(Array::make((cap + 1UL).to_int(), b'\xff')),
           png_indexed_compression_matrix_budget(),
@@ -1638,16 +2149,51 @@ test "PNG indexed compression ancillary admission selected facts are atomic" {
         let cap_budget = png_indexed_compression_matrix_budget()
         let cap_before = cap_budget.remaining()
         let cap_error = _png_encode_indexed_preflight_with_profile_and_strategy(
-          oversized, profile, PngInterlaceStrategy::None, PngCompressionStrategy::FixedOrStored,
-          png_indexed_compression_matrix_limits(), cap_budget,
+          oversized,
+          profile,
+          PngInterlaceStrategy::None,
+          PngCompressionStrategy::FixedOrStored,
+          png_indexed_compression_matrix_limits(),
+          cap_budget,
         ).unwrap_err()
         inspect(
           cap_error.context() == Some("indexed-palette-cap") &&
-            png_wb_same_remaining(cap_before, cap_budget.remaining()),
+          png_wb_same_remaining(cap_before, cap_budget.remaining()),
           content="true",
         )
       }
-
     }
   }
+}
+
+///|
+fn PngIndexedRawCursor::new(
+  source : PngIndexedImage,
+  row_bytes : UInt64,
+  depth : UInt64,
+) -> PngIndexedRawCursor {
+  PngIndexedRawCursor::new_with_interlace(
+    source,
+    row_bytes,
+    depth,
+    PngInterlaceStrategy::None,
+  )
+}
+
+///|
+fn PngFilteredMatchCursor::new(
+  source : @storage.ImageView,
+  row_bytes : UInt64,
+  channels : UInt64,
+  filter_strategy : PngFilterStrategy,
+  profile? : PngEncodeProfile = PngEncodeProfile::LegacyRgbOrRgba,
+) -> PngFilteredMatchCursor {
+  PngFilteredMatchCursor::new_with_interlace(
+    source,
+    row_bytes,
+    channels,
+    filter_strategy,
+    PngInterlaceStrategy::None,
+    profile~,
+  )
 }

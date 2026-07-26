@@ -42,7 +42,10 @@ test "polygon area handles clockwise and counterclockwise" {
 test "polygon area returns zero for degenerate" {
   inspect(approx(polygon_area([]), 0.0), content="true")
   inspect(approx(polygon_area([Point2::new(0.0, 0.0)]), 0.0), content="true")
-  inspect(approx(polygon_area([Point2::new(0.0, 0.0), Point2::new(1.0, 1.0)]), 0.0), content="true")
+  inspect(
+    approx(polygon_area([Point2::new(0.0, 0.0), Point2::new(1.0, 1.0)]), 0.0),
+    content="true",
+  )
 }
 
 ///|
@@ -99,7 +102,12 @@ test "polygon centroid of degenerate returns None" {
     None => inspect(true, content="true")
   }
   // Zero-area (collinear) polygon.
-  match polygon_centroid([Point2::new(0.0, 0.0), Point2::new(1.0, 1.0), Point2::new(2.0, 2.0)]) {
+  match
+    polygon_centroid([
+      Point2::new(0.0, 0.0),
+      Point2::new(1.0, 1.0),
+      Point2::new(2.0, 2.0),
+    ]) {
     Some(_) => inspect(false, content="true")
     None => inspect(true, content="true")
   }

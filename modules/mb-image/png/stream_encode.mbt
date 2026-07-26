@@ -13,13 +13,20 @@ pub fn PngChunkEncoder::new(
   diagnostics : @error.Diagnostics,
 ) -> Result[PngChunkEncoder, @error.CoreError] {
   PngChunkEncoder::new_with_all_strategies(
-    source, PngCompressionStrategy::Stored, PngFilterStrategy::None,
-    PngInterlaceStrategy::None, limits, budget, diagnostics,
+    source,
+    PngCompressionStrategy::Stored,
+    PngFilterStrategy::None,
+    PngInterlaceStrategy::None,
+    limits,
+    budget,
+    diagnostics,
   )
 }
 
 ///| Constructs the explicit Indexed8 caller-buffered route: Type-3/8 with the
-///| shared Stored/filter-None/non-interlaced indexed frame machine.
+
+///|
+/// shared Stored/filter-None/non-interlaced indexed frame machine.
 pub fn PngChunkEncoder::new_indexed8(
   source : PngIndexedImage,
   limits : @codec.CodecLimits,
@@ -27,11 +34,16 @@ pub fn PngChunkEncoder::new_indexed8(
   diagnostics : @error.Diagnostics,
 ) -> Result[PngChunkEncoder, @error.CoreError] {
   PngChunkEncoder::new_indexed8_with_compression_strategy(
-    source, PngCompressionStrategy::Stored, limits, budget, diagnostics,
+    source,
+    PngCompressionStrategy::Stored,
+    limits,
+    budget,
+    diagnostics,
   )
 }
 
-///| Constructs the non-interlaced Indexed8 Stored-or-Fixed selector through
+///|
+/// Constructs the non-interlaced Indexed8 Stored-or-Fixed selector through
 /// the existing acknowledged machine.
 pub fn PngChunkEncoder::new_indexed8_with_compression_strategy(
   source : PngIndexedImage,
@@ -40,14 +52,24 @@ pub fn PngChunkEncoder::new_indexed8_with_compression_strategy(
   budget : @budget.Budget,
   diagnostics : @error.Diagnostics,
 ) -> Result[PngChunkEncoder, @error.CoreError] {
-  let machine = match PngEncodeMachine::new_with_indexed_profile_and_strategy(
-    source, PngIndexedWireProfile::Eight, PngInterlaceStrategy::None, strategy,
-    limits, budget, diagnostics,
-  ) { Err(error) => return Err(error); Ok(value) => value }
+  let machine = match
+    PngEncodeMachine::new_with_indexed_profile_and_strategy(
+      source,
+      PngIndexedWireProfile::Eight,
+      PngInterlaceStrategy::None,
+      strategy,
+      limits,
+      budget,
+      diagnostics,
+    ) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
   Ok({ state: PngChunkEncoderState::Active(machine), total_written: 0UL })
 }
 
-///| Constructs the additive Indexed8 caller-buffered Adam7 selector while
+///|
+/// Constructs the additive Indexed8 caller-buffered Adam7 selector while
 /// retaining one Stored/filter-None indexed frame machine.
 pub fn PngChunkEncoder::new_indexed8_with_interlace_strategy(
   source : PngIndexedImage,
@@ -57,12 +79,17 @@ pub fn PngChunkEncoder::new_indexed8_with_interlace_strategy(
   diagnostics : @error.Diagnostics,
 ) -> Result[PngChunkEncoder, @error.CoreError] {
   PngChunkEncoder::new_indexed8_with_interlace_and_compression_strategy(
-    source, interlace_strategy, PngCompressionStrategy::Stored,
-    limits, budget, diagnostics,
+    source,
+    interlace_strategy,
+    PngCompressionStrategy::Stored,
+    limits,
+    budget,
+    diagnostics,
   )
 }
 
-///| Constructs the additive Indexed8 caller-buffered Adam7 selector with an
+///|
+/// Constructs the additive Indexed8 caller-buffered Adam7 selector with an
 /// explicit Stored or bounded FixedOrStored compression strategy.
 pub fn PngChunkEncoder::new_indexed8_with_interlace_and_compression_strategy(
   source : PngIndexedImage,
@@ -72,10 +99,16 @@ pub fn PngChunkEncoder::new_indexed8_with_interlace_and_compression_strategy(
   budget : @budget.Budget,
   diagnostics : @error.Diagnostics,
 ) -> Result[PngChunkEncoder, @error.CoreError] {
-  let machine = match PngEncodeMachine::new_with_indexed_profile_and_strategy(
-    source, PngIndexedWireProfile::Eight, interlace_strategy, strategy,
-    limits, budget, diagnostics,
-  ) {
+  let machine = match
+    PngEncodeMachine::new_with_indexed_profile_and_strategy(
+      source,
+      PngIndexedWireProfile::Eight,
+      interlace_strategy,
+      strategy,
+      limits,
+      budget,
+      diagnostics,
+    ) {
     Err(error) => return Err(error)
     Ok(value) => value
   }
@@ -83,8 +116,11 @@ pub fn PngChunkEncoder::new_indexed8_with_interlace_and_compression_strategy(
 }
 
 ///| Constructs the explicit selected-depth indexed caller-buffered route:
+
 ///| Type-3/1, /2, or /4 with the shared Stored/filter-None/non-interlaced
-///| indexed frame machine.
+
+///|
+/// indexed frame machine.
 pub fn PngChunkEncoder::new_indexed(
   source : PngIndexedImage,
   bit_depth : PngIndexedBitDepth,
@@ -93,11 +129,17 @@ pub fn PngChunkEncoder::new_indexed(
   diagnostics : @error.Diagnostics,
 ) -> Result[PngChunkEncoder, @error.CoreError] {
   PngChunkEncoder::new_indexed_with_compression_strategy(
-    source, bit_depth, PngCompressionStrategy::Stored, limits, budget, diagnostics,
+    source,
+    bit_depth,
+    PngCompressionStrategy::Stored,
+    limits,
+    budget,
+    diagnostics,
   )
 }
 
-///| Constructs the non-interlaced Indexed1/2/4 Stored-or-Fixed selector.
+///|
+/// Constructs the non-interlaced Indexed1/2/4 Stored-or-Fixed selector.
 pub fn PngChunkEncoder::new_indexed_with_compression_strategy(
   source : PngIndexedImage,
   bit_depth : PngIndexedBitDepth,
@@ -106,14 +148,24 @@ pub fn PngChunkEncoder::new_indexed_with_compression_strategy(
   budget : @budget.Budget,
   diagnostics : @error.Diagnostics,
 ) -> Result[PngChunkEncoder, @error.CoreError] {
-  let machine = match PngEncodeMachine::new_with_indexed_profile_and_strategy(
-    source, _png_indexed_wire_profile(bit_depth), PngInterlaceStrategy::None, strategy,
-    limits, budget, diagnostics,
-  ) { Err(error) => return Err(error); Ok(value) => value }
+  let machine = match
+    PngEncodeMachine::new_with_indexed_profile_and_strategy(
+      source,
+      _png_indexed_wire_profile(bit_depth),
+      PngInterlaceStrategy::None,
+      strategy,
+      limits,
+      budget,
+      diagnostics,
+    ) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
   Ok({ state: PngChunkEncoderState::Active(machine), total_written: 0UL })
 }
 
-///| Constructs the additive selected low-bit Adam7 selector while retaining
+///|
+/// Constructs the additive selected low-bit Adam7 selector while retaining
 /// the existing acknowledged Stored/filter-None indexed machine.
 pub fn PngChunkEncoder::new_indexed_with_interlace_strategy(
   source : PngIndexedImage,
@@ -124,12 +176,18 @@ pub fn PngChunkEncoder::new_indexed_with_interlace_strategy(
   diagnostics : @error.Diagnostics,
 ) -> Result[PngChunkEncoder, @error.CoreError] {
   PngChunkEncoder::new_indexed_with_interlace_and_compression_strategy(
-    source, bit_depth, interlace_strategy, PngCompressionStrategy::Stored,
-    limits, budget, diagnostics,
+    source,
+    bit_depth,
+    interlace_strategy,
+    PngCompressionStrategy::Stored,
+    limits,
+    budget,
+    diagnostics,
   )
 }
 
-///| Constructs the selected low-bit Adam7 caller-buffered route with explicit
+///|
+/// Constructs the selected low-bit Adam7 caller-buffered route with explicit
 /// Stored or bounded FixedOrStored compression.
 pub fn PngChunkEncoder::new_indexed_with_interlace_and_compression_strategy(
   source : PngIndexedImage,
@@ -141,16 +199,18 @@ pub fn PngChunkEncoder::new_indexed_with_interlace_and_compression_strategy(
   diagnostics : @error.Diagnostics,
 ) -> Result[PngChunkEncoder, @error.CoreError] {
   let wire_profile = _png_indexed_wire_profile(bit_depth)
-  let machine = match PngEncodeMachine::new_with_indexed_profile_and_strategy(
-    source, wire_profile, interlace_strategy, strategy, limits, budget, diagnostics,
-  ) {
+  let machine = match
+    PngEncodeMachine::new_with_indexed_profile_and_strategy(
+      source, wire_profile, interlace_strategy, strategy, limits, budget, diagnostics,
+    ) {
     Err(error) => return Err(error)
     Ok(value) => value
   }
   Ok({ state: PngChunkEncoderState::Active(machine), total_written: 0UL })
 }
 
-///| Constructs the explicit Gray1 caller-buffered route: one-bit grayscale,
+///|
+/// Constructs the explicit Gray1 caller-buffered route: one-bit grayscale,
 /// Stored DEFLATE, filter None, and no interlace.
 pub fn PngChunkEncoder::new_gray1(
   source : @storage.ImageView,
@@ -158,17 +218,25 @@ pub fn PngChunkEncoder::new_gray1(
   budget : @budget.Budget,
   diagnostics : @error.Diagnostics,
 ) -> Result[PngChunkEncoder, @error.CoreError] {
-  let machine = match PngEncodeMachine::new_with_profile(
-    source, PngEncodeProfile::Gray1, PngCompressionStrategy::Stored,
-    PngFilterStrategy::None, PngInterlaceStrategy::None, limits, budget, diagnostics,
-  ) {
+  let machine = match
+    PngEncodeMachine::new_with_profile(
+      source,
+      PngEncodeProfile::Gray1,
+      PngCompressionStrategy::Stored,
+      PngFilterStrategy::None,
+      PngInterlaceStrategy::None,
+      limits,
+      budget,
+      diagnostics,
+    ) {
     Err(error) => return Err(error)
     Ok(value) => value
   }
   Ok({ state: PngChunkEncoderState::Active(machine), total_written: 0UL })
 }
 
-///| Constructs the explicit Gray2 caller-buffered route: two-bit grayscale,
+///|
+/// Constructs the explicit Gray2 caller-buffered route: two-bit grayscale,
 /// Stored DEFLATE, filter None, and no interlace.
 pub fn PngChunkEncoder::new_gray2(
   source : @storage.ImageView,
@@ -176,17 +244,25 @@ pub fn PngChunkEncoder::new_gray2(
   budget : @budget.Budget,
   diagnostics : @error.Diagnostics,
 ) -> Result[PngChunkEncoder, @error.CoreError] {
-  let machine = match PngEncodeMachine::new_with_profile(
-    source, PngEncodeProfile::Gray2, PngCompressionStrategy::Stored,
-    PngFilterStrategy::None, PngInterlaceStrategy::None, limits, budget, diagnostics,
-  ) {
+  let machine = match
+    PngEncodeMachine::new_with_profile(
+      source,
+      PngEncodeProfile::Gray2,
+      PngCompressionStrategy::Stored,
+      PngFilterStrategy::None,
+      PngInterlaceStrategy::None,
+      limits,
+      budget,
+      diagnostics,
+    ) {
     Err(error) => return Err(error)
     Ok(value) => value
   }
   Ok({ state: PngChunkEncoderState::Active(machine), total_written: 0UL })
 }
 
-///| Constructs the explicit Gray4 caller-buffered route: four-bit grayscale,
+///|
+/// Constructs the explicit Gray4 caller-buffered route: four-bit grayscale,
 /// Stored DEFLATE, filter None, and no interlace.
 pub fn PngChunkEncoder::new_gray4(
   source : @storage.ImageView,
@@ -194,17 +270,25 @@ pub fn PngChunkEncoder::new_gray4(
   budget : @budget.Budget,
   diagnostics : @error.Diagnostics,
 ) -> Result[PngChunkEncoder, @error.CoreError] {
-  let machine = match PngEncodeMachine::new_with_profile(
-    source, PngEncodeProfile::Gray4, PngCompressionStrategy::Stored,
-    PngFilterStrategy::None, PngInterlaceStrategy::None, limits, budget, diagnostics,
-  ) {
+  let machine = match
+    PngEncodeMachine::new_with_profile(
+      source,
+      PngEncodeProfile::Gray4,
+      PngCompressionStrategy::Stored,
+      PngFilterStrategy::None,
+      PngInterlaceStrategy::None,
+      limits,
+      budget,
+      diagnostics,
+    ) {
     Err(error) => return Err(error)
     Ok(value) => value
   }
   Ok({ state: PngChunkEncoderState::Active(machine), total_written: 0UL })
 }
 
-///| Constructs the explicit Gray8 caller-buffered route: 8-bit grayscale,
+///|
+/// Constructs the explicit Gray8 caller-buffered route: 8-bit grayscale,
 /// Stored DEFLATE, filter None, and no interlace.
 pub fn PngChunkEncoder::new_gray8(
   source : @storage.ImageView,
@@ -213,12 +297,17 @@ pub fn PngChunkEncoder::new_gray8(
   diagnostics : @error.Diagnostics,
 ) -> Result[PngChunkEncoder, @error.CoreError] {
   PngChunkEncoder::new_gray8_with_strategies(
-    source, PngCompressionStrategy::Stored, PngFilterStrategy::None,
-    limits, budget, diagnostics,
+    source,
+    PngCompressionStrategy::Stored,
+    PngFilterStrategy::None,
+    limits,
+    budget,
+    diagnostics,
   )
 }
 
-///| Constructs the explicit Gray16 caller-buffered route: 16-bit grayscale,
+///|
+/// Constructs the explicit Gray16 caller-buffered route: 16-bit grayscale,
 /// Stored DEFLATE, filter None, and no interlace.
 pub fn PngChunkEncoder::new_gray16(
   source : @storage.ImageView,
@@ -227,12 +316,17 @@ pub fn PngChunkEncoder::new_gray16(
   diagnostics : @error.Diagnostics,
 ) -> Result[PngChunkEncoder, @error.CoreError] {
   PngChunkEncoder::new_gray16_with_strategies(
-    source, PngCompressionStrategy::Stored, PngFilterStrategy::None,
-    limits, budget, diagnostics,
+    source,
+    PngCompressionStrategy::Stored,
+    PngFilterStrategy::None,
+    limits,
+    budget,
+    diagnostics,
   )
 }
 
-///| Constructs a Gray16 caller-buffered encoder with an explicit compression
+///|
+/// Constructs a Gray16 caller-buffered encoder with an explicit compression
 /// strategy and the filter-None route. Gray16 remains intentionally
 /// non-interlaced.
 pub fn PngChunkEncoder::new_gray16_with_compression_strategy(
@@ -243,11 +337,17 @@ pub fn PngChunkEncoder::new_gray16_with_compression_strategy(
   diagnostics : @error.Diagnostics,
 ) -> Result[PngChunkEncoder, @error.CoreError] {
   PngChunkEncoder::new_gray16_with_strategies(
-    source, strategy, PngFilterStrategy::None, limits, budget, diagnostics,
+    source,
+    strategy,
+    PngFilterStrategy::None,
+    limits,
+    budget,
+    diagnostics,
   )
 }
 
-///| Constructs a Gray16 caller-buffered encoder with an explicit filter
+///|
+/// Constructs a Gray16 caller-buffered encoder with an explicit filter
 /// strategy and Stored compression. Gray16 remains intentionally non-interlaced.
 pub fn PngChunkEncoder::new_gray16_with_filter_strategy(
   source : @storage.ImageView,
@@ -257,11 +357,17 @@ pub fn PngChunkEncoder::new_gray16_with_filter_strategy(
   diagnostics : @error.Diagnostics,
 ) -> Result[PngChunkEncoder, @error.CoreError] {
   PngChunkEncoder::new_gray16_with_strategies(
-    source, PngCompressionStrategy::Stored, filter_strategy, limits, budget, diagnostics,
+    source,
+    PngCompressionStrategy::Stored,
+    filter_strategy,
+    limits,
+    budget,
+    diagnostics,
   )
 }
 
-///| Constructs a Gray16 caller-buffered encoder with explicit compression and
+///|
+/// Constructs a Gray16 caller-buffered encoder with explicit compression and
 /// filter strategies. Its profile fixes PNG colour type 0 and excludes Adam7.
 pub fn PngChunkEncoder::new_gray16_with_strategies(
   source : @storage.ImageView,
@@ -271,17 +377,25 @@ pub fn PngChunkEncoder::new_gray16_with_strategies(
   budget : @budget.Budget,
   diagnostics : @error.Diagnostics,
 ) -> Result[PngChunkEncoder, @error.CoreError] {
-  let machine = match PngEncodeMachine::new_with_profile(
-    source, PngEncodeProfile::Gray16, strategy,
-    filter_strategy, PngInterlaceStrategy::None, limits, budget, diagnostics,
-  ) {
+  let machine = match
+    PngEncodeMachine::new_with_profile(
+      source,
+      PngEncodeProfile::Gray16,
+      strategy,
+      filter_strategy,
+      PngInterlaceStrategy::None,
+      limits,
+      budget,
+      diagnostics,
+    ) {
     Err(error) => return Err(error)
     Ok(value) => value
   }
   Ok({ state: PngChunkEncoderState::Active(machine), total_written: 0UL })
 }
 
-///| Constructs the explicit Gray+Alpha8 caller-buffered route: packed 8-bit
+///|
+/// Constructs the explicit Gray+Alpha8 caller-buffered route: packed 8-bit
 /// straight alpha, Stored DEFLATE, filter None, and no interlace.
 pub fn PngChunkEncoder::new_graya8(
   source : @storage.ImageView,
@@ -290,12 +404,17 @@ pub fn PngChunkEncoder::new_graya8(
   diagnostics : @error.Diagnostics,
 ) -> Result[PngChunkEncoder, @error.CoreError] {
   PngChunkEncoder::new_graya8_with_strategies(
-    source, PngCompressionStrategy::Stored, PngFilterStrategy::None,
-    limits, budget, diagnostics,
+    source,
+    PngCompressionStrategy::Stored,
+    PngFilterStrategy::None,
+    limits,
+    budget,
+    diagnostics,
   )
 }
 
-///| Constructs a Gray+Alpha8 caller-buffered encoder with an explicit
+///|
+/// Constructs a Gray+Alpha8 caller-buffered encoder with an explicit
 /// compression strategy and the filter-None route.
 pub fn PngChunkEncoder::new_graya8_with_compression_strategy(
   source : @storage.ImageView,
@@ -305,11 +424,17 @@ pub fn PngChunkEncoder::new_graya8_with_compression_strategy(
   diagnostics : @error.Diagnostics,
 ) -> Result[PngChunkEncoder, @error.CoreError] {
   PngChunkEncoder::new_graya8_with_strategies(
-    source, strategy, PngFilterStrategy::None, limits, budget, diagnostics,
+    source,
+    strategy,
+    PngFilterStrategy::None,
+    limits,
+    budget,
+    diagnostics,
   )
 }
 
-///| Constructs a Gray+Alpha8 caller-buffered encoder with an explicit filter
+///|
+/// Constructs a Gray+Alpha8 caller-buffered encoder with an explicit filter
 /// strategy and Stored compression.
 pub fn PngChunkEncoder::new_graya8_with_filter_strategy(
   source : @storage.ImageView,
@@ -319,12 +444,17 @@ pub fn PngChunkEncoder::new_graya8_with_filter_strategy(
   diagnostics : @error.Diagnostics,
 ) -> Result[PngChunkEncoder, @error.CoreError] {
   PngChunkEncoder::new_graya8_with_strategies(
-    source, PngCompressionStrategy::Stored, filter_strategy, limits, budget,
+    source,
+    PngCompressionStrategy::Stored,
+    filter_strategy,
+    limits,
+    budget,
     diagnostics,
   )
 }
 
-///| Constructs a Gray+Alpha8 caller-buffered encoder with explicit
+///|
+/// Constructs a Gray+Alpha8 caller-buffered encoder with explicit
 /// compression and filter strategies. This legacy family remains explicitly
 /// non-interlaced.
 pub fn PngChunkEncoder::new_graya8_with_strategies(
@@ -335,17 +465,25 @@ pub fn PngChunkEncoder::new_graya8_with_strategies(
   budget : @budget.Budget,
   diagnostics : @error.Diagnostics,
 ) -> Result[PngChunkEncoder, @error.CoreError] {
-  let machine = match PngEncodeMachine::new_with_profile(
-    source, PngEncodeProfile::GrayAlpha8, strategy,
-    filter_strategy, PngInterlaceStrategy::None, limits, budget, diagnostics,
-  ) {
+  let machine = match
+    PngEncodeMachine::new_with_profile(
+      source,
+      PngEncodeProfile::GrayAlpha8,
+      strategy,
+      filter_strategy,
+      PngInterlaceStrategy::None,
+      limits,
+      budget,
+      diagnostics,
+    ) {
     Err(error) => return Err(error)
     Ok(value) => value
   }
   Ok({ state: PngChunkEncoderState::Active(machine), total_written: 0UL })
 }
 
-///| Constructs a Gray+Alpha8 caller-buffered encoder with explicit interlace
+///|
+/// Constructs a Gray+Alpha8 caller-buffered encoder with explicit interlace
 /// selection and the Stored/filter-None route. Existing GrayAlpha8 factories
 /// remain explicitly non-interlaced.
 pub fn PngChunkEncoder::new_graya8_with_interlace_strategy(
@@ -356,12 +494,18 @@ pub fn PngChunkEncoder::new_graya8_with_interlace_strategy(
   diagnostics : @error.Diagnostics,
 ) -> Result[PngChunkEncoder, @error.CoreError] {
   PngChunkEncoder::new_graya8_with_all_strategies(
-    source, PngCompressionStrategy::Stored, PngFilterStrategy::None,
-    interlace_strategy, limits, budget, diagnostics,
+    source,
+    PngCompressionStrategy::Stored,
+    PngFilterStrategy::None,
+    interlace_strategy,
+    limits,
+    budget,
+    diagnostics,
   )
 }
 
-///| Constructs a Gray+Alpha8 caller-buffered encoder with independently
+///|
+/// Constructs a Gray+Alpha8 caller-buffered encoder with independently
 /// selected compression, filter, and interlace strategies.
 pub fn PngChunkEncoder::new_graya8_with_all_strategies(
   source : @storage.ImageView,
@@ -372,17 +516,25 @@ pub fn PngChunkEncoder::new_graya8_with_all_strategies(
   budget : @budget.Budget,
   diagnostics : @error.Diagnostics,
 ) -> Result[PngChunkEncoder, @error.CoreError] {
-  let machine = match PngEncodeMachine::new_with_profile(
-    source, PngEncodeProfile::GrayAlpha8, strategy,
-    filter_strategy, interlace_strategy, limits, budget, diagnostics,
-  ) {
+  let machine = match
+    PngEncodeMachine::new_with_profile(
+      source,
+      PngEncodeProfile::GrayAlpha8,
+      strategy,
+      filter_strategy,
+      interlace_strategy,
+      limits,
+      budget,
+      diagnostics,
+    ) {
     Err(error) => return Err(error)
     Ok(value) => value
   }
   Ok({ state: PngChunkEncoderState::Active(machine), total_written: 0UL })
 }
 
-///| Constructs the explicit Gray+Alpha16 caller-buffered route: packed 16-bit
+///|
+/// Constructs the explicit Gray+Alpha16 caller-buffered route: packed 16-bit
 /// straight alpha, Stored DEFLATE, filter None, and no interlace.
 pub fn PngChunkEncoder::new_graya16(
   source : @storage.ImageView,
@@ -391,12 +543,17 @@ pub fn PngChunkEncoder::new_graya16(
   diagnostics : @error.Diagnostics,
 ) -> Result[PngChunkEncoder, @error.CoreError] {
   PngChunkEncoder::new_graya16_with_strategies(
-    source, PngCompressionStrategy::Stored, PngFilterStrategy::None,
-    limits, budget, diagnostics,
+    source,
+    PngCompressionStrategy::Stored,
+    PngFilterStrategy::None,
+    limits,
+    budget,
+    diagnostics,
   )
 }
 
-///| Constructs a Gray+Alpha16 caller-buffered encoder with an explicit
+///|
+/// Constructs a Gray+Alpha16 caller-buffered encoder with an explicit
 /// compression strategy and the filter-None route.
 pub fn PngChunkEncoder::new_graya16_with_compression_strategy(
   source : @storage.ImageView,
@@ -406,11 +563,17 @@ pub fn PngChunkEncoder::new_graya16_with_compression_strategy(
   diagnostics : @error.Diagnostics,
 ) -> Result[PngChunkEncoder, @error.CoreError] {
   PngChunkEncoder::new_graya16_with_strategies(
-    source, strategy, PngFilterStrategy::None, limits, budget, diagnostics,
+    source,
+    strategy,
+    PngFilterStrategy::None,
+    limits,
+    budget,
+    diagnostics,
   )
 }
 
-///| Constructs a Gray+Alpha16 caller-buffered encoder with an explicit filter
+///|
+/// Constructs a Gray+Alpha16 caller-buffered encoder with an explicit filter
 /// strategy and Stored compression.
 pub fn PngChunkEncoder::new_graya16_with_filter_strategy(
   source : @storage.ImageView,
@@ -420,12 +583,17 @@ pub fn PngChunkEncoder::new_graya16_with_filter_strategy(
   diagnostics : @error.Diagnostics,
 ) -> Result[PngChunkEncoder, @error.CoreError] {
   PngChunkEncoder::new_graya16_with_strategies(
-    source, PngCompressionStrategy::Stored, filter_strategy, limits, budget,
+    source,
+    PngCompressionStrategy::Stored,
+    filter_strategy,
+    limits,
+    budget,
     diagnostics,
   )
 }
 
-///| Constructs a Gray+Alpha16 caller-buffered encoder with explicit
+///|
+/// Constructs a Gray+Alpha16 caller-buffered encoder with explicit
 /// compression and filter strategies. Its profile fixes PNG colour type 4 and
 /// excludes Adam7.
 pub fn PngChunkEncoder::new_graya16_with_strategies(
@@ -436,17 +604,25 @@ pub fn PngChunkEncoder::new_graya16_with_strategies(
   budget : @budget.Budget,
   diagnostics : @error.Diagnostics,
 ) -> Result[PngChunkEncoder, @error.CoreError] {
-  let machine = match PngEncodeMachine::new_with_profile(
-    source, PngEncodeProfile::GrayAlpha16, strategy,
-    filter_strategy, PngInterlaceStrategy::None, limits, budget, diagnostics,
-  ) {
+  let machine = match
+    PngEncodeMachine::new_with_profile(
+      source,
+      PngEncodeProfile::GrayAlpha16,
+      strategy,
+      filter_strategy,
+      PngInterlaceStrategy::None,
+      limits,
+      budget,
+      diagnostics,
+    ) {
     Err(error) => return Err(error)
     Ok(value) => value
   }
   Ok({ state: PngChunkEncoderState::Active(machine), total_written: 0UL })
 }
 
-///| Constructs the explicit RGBA16 caller-buffered route: packed 16-bit
+///|
+/// Constructs the explicit RGBA16 caller-buffered route: packed 16-bit
 /// straight alpha, Stored DEFLATE, filter None, and no interlace.
 pub fn PngChunkEncoder::new_rgba16(
   source : @storage.ImageView,
@@ -455,12 +631,17 @@ pub fn PngChunkEncoder::new_rgba16(
   diagnostics : @error.Diagnostics,
 ) -> Result[PngChunkEncoder, @error.CoreError] {
   PngChunkEncoder::new_rgba16_with_strategies(
-    source, PngCompressionStrategy::Stored, PngFilterStrategy::None,
-    limits, budget, diagnostics,
+    source,
+    PngCompressionStrategy::Stored,
+    PngFilterStrategy::None,
+    limits,
+    budget,
+    diagnostics,
   )
 }
 
-///| Constructs an RGBA16 caller-buffered encoder with an explicit compression
+///|
+/// Constructs an RGBA16 caller-buffered encoder with an explicit compression
 /// strategy and the filter-None route.
 pub fn PngChunkEncoder::new_rgba16_with_compression_strategy(
   source : @storage.ImageView,
@@ -470,11 +651,17 @@ pub fn PngChunkEncoder::new_rgba16_with_compression_strategy(
   diagnostics : @error.Diagnostics,
 ) -> Result[PngChunkEncoder, @error.CoreError] {
   PngChunkEncoder::new_rgba16_with_strategies(
-    source, strategy, PngFilterStrategy::None, limits, budget, diagnostics,
+    source,
+    strategy,
+    PngFilterStrategy::None,
+    limits,
+    budget,
+    diagnostics,
   )
 }
 
-///| Constructs an RGBA16 caller-buffered encoder with an explicit filter
+///|
+/// Constructs an RGBA16 caller-buffered encoder with an explicit filter
 /// strategy and Stored compression.
 pub fn PngChunkEncoder::new_rgba16_with_filter_strategy(
   source : @storage.ImageView,
@@ -484,12 +671,17 @@ pub fn PngChunkEncoder::new_rgba16_with_filter_strategy(
   diagnostics : @error.Diagnostics,
 ) -> Result[PngChunkEncoder, @error.CoreError] {
   PngChunkEncoder::new_rgba16_with_strategies(
-    source, PngCompressionStrategy::Stored, filter_strategy, limits, budget,
+    source,
+    PngCompressionStrategy::Stored,
+    filter_strategy,
+    limits,
+    budget,
     diagnostics,
   )
 }
 
-///| Constructs an RGBA16 caller-buffered encoder with explicit compression and
+///|
+/// Constructs an RGBA16 caller-buffered encoder with explicit compression and
 /// filter strategies. This legacy constructor fixes PNG colour type 6 and
 /// `PngInterlaceStrategy::None`; use the explicit interlace selector family to
 /// request Adam7.
@@ -501,17 +693,25 @@ pub fn PngChunkEncoder::new_rgba16_with_strategies(
   budget : @budget.Budget,
   diagnostics : @error.Diagnostics,
 ) -> Result[PngChunkEncoder, @error.CoreError] {
-  let machine = match PngEncodeMachine::new_with_profile(
-    source, PngEncodeProfile::Rgba16, strategy,
-    filter_strategy, PngInterlaceStrategy::None, limits, budget, diagnostics,
-  ) {
+  let machine = match
+    PngEncodeMachine::new_with_profile(
+      source,
+      PngEncodeProfile::Rgba16,
+      strategy,
+      filter_strategy,
+      PngInterlaceStrategy::None,
+      limits,
+      budget,
+      diagnostics,
+    ) {
     Err(error) => return Err(error)
     Ok(value) => value
   }
   Ok({ state: PngChunkEncoderState::Active(machine), total_written: 0UL })
 }
 
-///| Constructs an RGBA16 caller-buffered encoder with explicit interlace
+///|
+/// Constructs an RGBA16 caller-buffered encoder with explicit interlace
 /// selection and the Stored/filter-None route. Existing RGBA16 factories remain
 /// explicitly non-interlaced.
 pub fn PngChunkEncoder::new_rgba16_with_interlace_strategy(
@@ -522,12 +722,18 @@ pub fn PngChunkEncoder::new_rgba16_with_interlace_strategy(
   diagnostics : @error.Diagnostics,
 ) -> Result[PngChunkEncoder, @error.CoreError] {
   PngChunkEncoder::new_rgba16_with_all_strategies(
-    source, PngCompressionStrategy::Stored, PngFilterStrategy::None,
-    interlace_strategy, limits, budget, diagnostics,
+    source,
+    PngCompressionStrategy::Stored,
+    PngFilterStrategy::None,
+    interlace_strategy,
+    limits,
+    budget,
+    diagnostics,
   )
 }
 
-///| Constructs an RGBA16 caller-buffered encoder with independently selected
+///|
+/// Constructs an RGBA16 caller-buffered encoder with independently selected
 /// compression, filter, and interlace strategies.
 pub fn PngChunkEncoder::new_rgba16_with_all_strategies(
   source : @storage.ImageView,
@@ -538,17 +744,25 @@ pub fn PngChunkEncoder::new_rgba16_with_all_strategies(
   budget : @budget.Budget,
   diagnostics : @error.Diagnostics,
 ) -> Result[PngChunkEncoder, @error.CoreError] {
-  let machine = match PngEncodeMachine::new_with_profile(
-    source, PngEncodeProfile::Rgba16, strategy,
-    filter_strategy, interlace_strategy, limits, budget, diagnostics,
-  ) {
+  let machine = match
+    PngEncodeMachine::new_with_profile(
+      source,
+      PngEncodeProfile::Rgba16,
+      strategy,
+      filter_strategy,
+      interlace_strategy,
+      limits,
+      budget,
+      diagnostics,
+    ) {
     Err(error) => return Err(error)
     Ok(value) => value
   }
   Ok({ state: PngChunkEncoderState::Active(machine), total_written: 0UL })
 }
 
-///| Constructs a Gray+Alpha16 caller-buffered encoder with explicit interlace
+///|
+/// Constructs a Gray+Alpha16 caller-buffered encoder with explicit interlace
 /// selection and the Stored/filter-None route. Existing GrayAlpha16 factories
 /// remain explicitly non-interlaced.
 pub fn PngChunkEncoder::new_graya16_with_interlace_strategy(
@@ -559,12 +773,18 @@ pub fn PngChunkEncoder::new_graya16_with_interlace_strategy(
   diagnostics : @error.Diagnostics,
 ) -> Result[PngChunkEncoder, @error.CoreError] {
   PngChunkEncoder::new_graya16_with_all_strategies(
-    source, PngCompressionStrategy::Stored, PngFilterStrategy::None,
-    interlace_strategy, limits, budget, diagnostics,
+    source,
+    PngCompressionStrategy::Stored,
+    PngFilterStrategy::None,
+    interlace_strategy,
+    limits,
+    budget,
+    diagnostics,
   )
 }
 
-///| Constructs a Gray+Alpha16 caller-buffered encoder with independently
+///|
+/// Constructs a Gray+Alpha16 caller-buffered encoder with independently
 /// selected compression, filter, and interlace strategies.
 pub fn PngChunkEncoder::new_graya16_with_all_strategies(
   source : @storage.ImageView,
@@ -575,17 +795,25 @@ pub fn PngChunkEncoder::new_graya16_with_all_strategies(
   budget : @budget.Budget,
   diagnostics : @error.Diagnostics,
 ) -> Result[PngChunkEncoder, @error.CoreError] {
-  let machine = match PngEncodeMachine::new_with_profile(
-    source, PngEncodeProfile::GrayAlpha16, strategy,
-    filter_strategy, interlace_strategy, limits, budget, diagnostics,
-  ) {
+  let machine = match
+    PngEncodeMachine::new_with_profile(
+      source,
+      PngEncodeProfile::GrayAlpha16,
+      strategy,
+      filter_strategy,
+      interlace_strategy,
+      limits,
+      budget,
+      diagnostics,
+    ) {
     Err(error) => return Err(error)
     Ok(value) => value
   }
   Ok({ state: PngChunkEncoderState::Active(machine), total_written: 0UL })
 }
 
-///| Constructs a Gray8 caller-buffered encoder with an explicit compression
+///|
+/// Constructs a Gray8 caller-buffered encoder with an explicit compression
 /// strategy and the filter-None route. Gray8 remains intentionally
 /// non-interlaced.
 pub fn PngChunkEncoder::new_gray8_with_compression_strategy(
@@ -596,11 +824,17 @@ pub fn PngChunkEncoder::new_gray8_with_compression_strategy(
   diagnostics : @error.Diagnostics,
 ) -> Result[PngChunkEncoder, @error.CoreError] {
   PngChunkEncoder::new_gray8_with_strategies(
-    source, strategy, PngFilterStrategy::None, limits, budget, diagnostics,
+    source,
+    strategy,
+    PngFilterStrategy::None,
+    limits,
+    budget,
+    diagnostics,
   )
 }
 
-///| Constructs a Gray8 caller-buffered encoder with an explicit filter
+///|
+/// Constructs a Gray8 caller-buffered encoder with an explicit filter
 /// strategy and Stored compression. Gray8 remains intentionally non-interlaced.
 pub fn PngChunkEncoder::new_gray8_with_filter_strategy(
   source : @storage.ImageView,
@@ -610,11 +844,17 @@ pub fn PngChunkEncoder::new_gray8_with_filter_strategy(
   diagnostics : @error.Diagnostics,
 ) -> Result[PngChunkEncoder, @error.CoreError] {
   PngChunkEncoder::new_gray8_with_strategies(
-    source, PngCompressionStrategy::Stored, filter_strategy, limits, budget, diagnostics,
+    source,
+    PngCompressionStrategy::Stored,
+    filter_strategy,
+    limits,
+    budget,
+    diagnostics,
   )
 }
 
-///| Constructs a Gray8 caller-buffered encoder with explicit compression and
+///|
+/// Constructs a Gray8 caller-buffered encoder with explicit compression and
 /// filter strategies. Its profile fixes PNG colour type 0 and excludes Adam7.
 pub fn PngChunkEncoder::new_gray8_with_strategies(
   source : @storage.ImageView,
@@ -624,10 +864,17 @@ pub fn PngChunkEncoder::new_gray8_with_strategies(
   budget : @budget.Budget,
   diagnostics : @error.Diagnostics,
 ) -> Result[PngChunkEncoder, @error.CoreError] {
-  let machine = match PngEncodeMachine::new_with_profile(
-    source, PngEncodeProfile::Gray8, strategy, filter_strategy,
-    PngInterlaceStrategy::None, limits, budget, diagnostics,
-  ) {
+  let machine = match
+    PngEncodeMachine::new_with_profile(
+      source,
+      PngEncodeProfile::Gray8,
+      strategy,
+      filter_strategy,
+      PngInterlaceStrategy::None,
+      limits,
+      budget,
+      diagnostics,
+    ) {
     Err(error) => return Err(error)
     Ok(value) => value
   }
@@ -647,8 +894,13 @@ pub fn PngChunkEncoder::new_with_compression_strategy(
   diagnostics : @error.Diagnostics,
 ) -> Result[PngChunkEncoder, @error.CoreError] {
   PngChunkEncoder::new_with_all_strategies(
-    source, strategy, PngFilterStrategy::None, PngInterlaceStrategy::None,
-    limits, budget, diagnostics,
+    source,
+    strategy,
+    PngFilterStrategy::None,
+    PngInterlaceStrategy::None,
+    limits,
+    budget,
+    diagnostics,
   )
 }
 
@@ -665,8 +917,13 @@ pub fn PngChunkEncoder::new_with_filter_strategy(
   diagnostics : @error.Diagnostics,
 ) -> Result[PngChunkEncoder, @error.CoreError] {
   PngChunkEncoder::new_with_all_strategies(
-    source, PngCompressionStrategy::Stored, filter_strategy, PngInterlaceStrategy::None,
-    limits, budget, diagnostics,
+    source,
+    PngCompressionStrategy::Stored,
+    filter_strategy,
+    PngInterlaceStrategy::None,
+    limits,
+    budget,
+    diagnostics,
   )
 }
 
@@ -684,12 +941,18 @@ pub fn PngChunkEncoder::new_with_strategies(
   diagnostics : @error.Diagnostics,
 ) -> Result[PngChunkEncoder, @error.CoreError] {
   PngChunkEncoder::new_with_all_strategies(
-    source, strategy, filter_strategy, PngInterlaceStrategy::None,
-    limits, budget, diagnostics,
+    source,
+    strategy,
+    filter_strategy,
+    PngInterlaceStrategy::None,
+    limits,
+    budget,
+    diagnostics,
   )
 }
 
-///| Constructs a caller-buffered encoder with explicit interlace selection and
+///|
+/// Constructs a caller-buffered encoder with explicit interlace selection and
 /// the frozen Stored/filter-None route.
 pub fn PngChunkEncoder::new_with_interlace_strategy(
   source : @storage.ImageView,
@@ -699,12 +962,18 @@ pub fn PngChunkEncoder::new_with_interlace_strategy(
   diagnostics : @error.Diagnostics,
 ) -> Result[PngChunkEncoder, @error.CoreError] {
   PngChunkEncoder::new_with_all_strategies(
-    source, PngCompressionStrategy::Stored, PngFilterStrategy::None,
-    interlace_strategy, limits, budget, diagnostics,
+    source,
+    PngCompressionStrategy::Stored,
+    PngFilterStrategy::None,
+    interlace_strategy,
+    limits,
+    budget,
+    diagnostics,
   )
 }
 
-///| Constructs a caller-buffered encoder with independently selected
+///|
+/// Constructs a caller-buffered encoder with independently selected
 /// compression, filter, and interlace strategies.
 pub fn PngChunkEncoder::new_with_all_strategies(
   source : @storage.ImageView,
@@ -715,9 +984,10 @@ pub fn PngChunkEncoder::new_with_all_strategies(
   budget : @budget.Budget,
   diagnostics : @error.Diagnostics,
 ) -> Result[PngChunkEncoder, @error.CoreError] {
-  let machine = match PngEncodeMachine::new_with_all_strategies(
-    source, strategy, filter_strategy, interlace_strategy, limits, budget, diagnostics,
-  ) {
+  let machine = match
+    PngEncodeMachine::new_with_all_strategies(
+      source, strategy, filter_strategy, interlace_strategy, limits, budget, diagnostics,
+    ) {
     Err(error) => return Err(error)
     Ok(value) => value
   }
@@ -730,16 +1000,18 @@ pub fn PngChunkEncoder::pull(
   destination : @bytes.MutByteLease,
 ) -> PngChunkPullResult {
   match self.state {
-    PngChunkEncoderState::Finished => return {
-      written_value: 0UL,
-      total_written_value: self.total_written,
-      outcome_value: PngChunkPullOutcome::Finished,
-    }
-    PngChunkEncoderState::Failed(error) => return {
-      written_value: 0UL,
-      total_written_value: self.total_written,
-      outcome_value: PngChunkPullOutcome::Failed(error),
-    }
+    PngChunkEncoderState::Finished =>
+      return {
+        written_value: 0UL,
+        total_written_value: self.total_written,
+        outcome_value: PngChunkPullOutcome::Finished,
+      }
+    PngChunkEncoderState::Failed(error) =>
+      return {
+        written_value: 0UL,
+        total_written_value: self.total_written,
+        outcome_value: PngChunkPullOutcome::Failed(error),
+      }
     PngChunkEncoderState::Active(machine) => {
       match machine.validate_replay_revision() {
         Err(error) => {
@@ -856,7 +1128,8 @@ priv struct PngEncodeMachine {
   mut finished : Bool
 }
 
-///| All fixed emission state is scalar and advances only when the byte preview
+///|
+/// All fixed emission state is scalar and advances only when the byte preview
 /// that carried it is acknowledged by the eager Writer or caller lease.
 priv struct PngFixedState {
   raw_cursor : UInt64
@@ -870,7 +1143,8 @@ priv struct PngFixedState {
   eob_written : Bool
 }
 
-///| Dynamic replay retains only cursors, a bit accumulator, and scalar
+///|
+/// Dynamic replay retains only cursors, a bit accumulator, and scalar
 /// integrity/work facts.  It regenerates tokens from the caller image and does
 /// not retain scanlines, a history buffer, output, or a caller lease.
 priv struct PngDynamicState {
@@ -889,53 +1163,14 @@ priv struct PngDynamicState {
 ///|
 fn _png_encode_machine_state_error(context : String) -> @error.CoreError {
   _png_encode_error(
-    @error.ErrorCategory::State, @error.ErrorCode::InvalidRange, context,
+    @error.ErrorCategory::State,
+    @error.ErrorCode::InvalidRange,
+    context,
   )
 }
 
 ///|
-fn PngEncodeMachine::new(
-  source : @storage.ImageView,
-  limits : @codec.CodecLimits,
-  budget : @budget.Budget,
-  _diagnostics : @error.Diagnostics,
-) -> Result[PngEncodeMachine, @error.CoreError] {
-  PngEncodeMachine::new_with_all_strategies(
-    source, PngCompressionStrategy::Stored, PngFilterStrategy::None,
-    PngInterlaceStrategy::None, limits, budget, _diagnostics,
-  )
-}
-
-///|
-fn PngEncodeMachine::new_with_compression_strategy(
-  source : @storage.ImageView,
-  strategy : PngCompressionStrategy,
-  limits : @codec.CodecLimits,
-  budget : @budget.Budget,
-  _diagnostics : @error.Diagnostics,
-) -> Result[PngEncodeMachine, @error.CoreError] {
-  PngEncodeMachine::new_with_all_strategies(
-    source, strategy, PngFilterStrategy::None, PngInterlaceStrategy::None,
-    limits, budget, _diagnostics,
-  )
-}
-
-///|
-fn PngEncodeMachine::new_with_strategies(
-  source : @storage.ImageView,
-  strategy : PngCompressionStrategy,
-  filter_strategy : PngFilterStrategy,
-  limits : @codec.CodecLimits,
-  budget : @budget.Budget,
-  _diagnostics : @error.Diagnostics,
-) -> Result[PngEncodeMachine, @error.CoreError] {
-  PngEncodeMachine::new_with_all_strategies(
-    source, strategy, filter_strategy, PngInterlaceStrategy::None,
-    limits, budget, _diagnostics,
-  )
-}
-
-///| The one private construction seam retains the selected interlace intent and
+/// The one private construction seam retains the selected interlace intent and
 /// admits it atomically before source traversal, budget charging, or output state.
 fn PngEncodeMachine::new_with_all_strategies(
   source : @storage.ImageView,
@@ -947,12 +1182,19 @@ fn PngEncodeMachine::new_with_all_strategies(
   _diagnostics : @error.Diagnostics,
 ) -> Result[PngEncodeMachine, @error.CoreError] {
   PngEncodeMachine::new_with_profile(
-    source, PngEncodeProfile::LegacyRgbOrRgba, strategy, filter_strategy,
-    interlace_strategy, limits, budget, _diagnostics,
+    source,
+    PngEncodeProfile::LegacyRgbOrRgba,
+    strategy,
+    filter_strategy,
+    interlace_strategy,
+    limits,
+    budget,
+    _diagnostics,
   )
 }
 
-///| The profile-aware construction seam keeps Gray8 source admission atomic and
+///|
+/// The profile-aware construction seam keeps Gray8 source admission atomic and
 /// keeps unsupported Gray strategy combinations private and unavailable.
 fn PngEncodeMachine::new_with_profile(
   source : @storage.ImageView,
@@ -964,12 +1206,14 @@ fn PngEncodeMachine::new_with_profile(
   budget : @budget.Budget,
   _diagnostics : @error.Diagnostics,
 ) -> Result[PngEncodeMachine, @error.CoreError] {
-  let facts = match _png_encode_preflight_with_interlace_profile(
-    source, profile, strategy, filter_strategy, interlace_strategy, limits, budget,
-  ) {
+  let facts = match
+    _png_encode_preflight_with_interlace_profile(
+      source, profile, strategy, filter_strategy, interlace_strategy, limits, budget,
+    ) {
     Err(error) => return Err(error)
     Ok(value) => value
   }
+  _png_encode_preflight_observe(facts)
   Ok({
     source: Some(source),
     indexed_source: None,
@@ -997,37 +1241,79 @@ fn PngEncodeMachine::new_with_profile(
     stored_cursor: if _png_profile_uses_u16_component_wire(profile) ||
       interlace_strategy == PngInterlaceStrategy::Adam7 ||
       filter_strategy == PngFilterStrategy::Adaptive {
-      Some(PngFilteredMatchCursor::new_with_interlace(
-        source, facts.row_bytes, facts.channels, filter_strategy, interlace_strategy, profile=facts.profile,
-      ))
-    } else { None },
+      Some(
+        PngFilteredMatchCursor::new_with_interlace(
+          source,
+          facts.row_bytes,
+          facts.channels,
+          filter_strategy,
+          interlace_strategy,
+          profile=facts.profile,
+        ),
+      )
+    } else {
+      None
+    },
     fixed_state: match facts.plan {
       PngDeflatePlan::Stored(_) => None
-      PngDeflatePlan::Fixed(_) => Some({
-        raw_cursor: 0UL,
-        filtered_cursor: if _png_profile_uses_u16_component_wire(profile) ||
-          interlace_strategy == PngInterlaceStrategy::Adam7 ||
-          filter_strategy == PngFilterStrategy::Adaptive {
-          Some(PngFilteredMatchCursor::new_with_interlace(
-            source, facts.row_bytes, facts.channels, filter_strategy, interlace_strategy, profile=facts.profile,
-          ))
-        } else { None },
-        bit_value: 0UL, bit_count: 0UL, adler: 1UL,
-        fingerprint: 1UL, matcher_work: 0UL, header_written: false, eob_written: false,
-      })
+      PngDeflatePlan::Fixed(_) =>
+        Some({
+          raw_cursor: 0UL,
+          filtered_cursor: if _png_profile_uses_u16_component_wire(profile) ||
+            interlace_strategy == PngInterlaceStrategy::Adam7 ||
+            filter_strategy == PngFilterStrategy::Adaptive {
+            Some(
+              PngFilteredMatchCursor::new_with_interlace(
+                source,
+                facts.row_bytes,
+                facts.channels,
+                filter_strategy,
+                interlace_strategy,
+                profile=facts.profile,
+              ),
+            )
+          } else {
+            None
+          },
+          bit_value: 0UL,
+          bit_count: 0UL,
+          adler: 1UL,
+          fingerprint: 1UL,
+          matcher_work: 0UL,
+          header_written: false,
+          eob_written: false,
+        })
       PngDeflatePlan::Dynamic(_) => None
     },
     dynamic_state: match facts.plan {
-      PngDeflatePlan::Dynamic(_) => Some({ phase: 0, header_cursor: 0UL,
-        code_length_cursor: 0UL, rle_cursor: 0UL, raw_cursor: 0UL,
-        filtered_cursor: if _png_profile_uses_u16_component_wire(profile) ||
-          interlace_strategy == PngInterlaceStrategy::Adam7 ||
-          filter_strategy == PngFilterStrategy::Adaptive {
-          Some(PngFilteredMatchCursor::new_with_interlace(
-            source, facts.row_bytes, facts.channels, filter_strategy, interlace_strategy, profile=facts.profile,
-          ))
-        } else { None },
-        bit_value: 0UL, bit_count: 0UL, adler: 1UL, matcher_work: 0UL })
+      PngDeflatePlan::Dynamic(_) =>
+        Some({
+          phase: 0,
+          header_cursor: 0UL,
+          code_length_cursor: 0UL,
+          rle_cursor: 0UL,
+          raw_cursor: 0UL,
+          filtered_cursor: if _png_profile_uses_u16_component_wire(profile) ||
+            interlace_strategy == PngInterlaceStrategy::Adam7 ||
+            filter_strategy == PngFilterStrategy::Adaptive {
+            Some(
+              PngFilteredMatchCursor::new_with_interlace(
+                source,
+                facts.row_bytes,
+                facts.channels,
+                filter_strategy,
+                interlace_strategy,
+                profile=facts.profile,
+              ),
+            )
+          } else {
+            None
+          },
+          bit_value: 0UL,
+          bit_count: 0UL,
+          adler: 1UL,
+          matcher_work: 0UL,
+        })
       _ => None
     },
     ihdr_crc: _png_crc_for_type([b'I', b'H', b'D', b'R']),
@@ -1039,7 +1325,8 @@ fn PngEncodeMachine::new_with_profile(
   })
 }
 
-///| Indexed8 reuses the same pending-byte machine but supplies its immutable
+///|
+/// Indexed8 reuses the same pending-byte machine but supplies its immutable
 /// index raster directly and fixes the only admitted wire profile.
 fn PngEncodeMachine::new_with_indexed_profile(
   source : PngIndexedImage,
@@ -1050,12 +1337,18 @@ fn PngEncodeMachine::new_with_indexed_profile(
   _diagnostics : @error.Diagnostics,
 ) -> Result[PngEncodeMachine, @error.CoreError] {
   PngEncodeMachine::new_with_indexed_profile_and_strategy(
-    source, wire_profile, interlace_strategy, PngCompressionStrategy::Stored,
-    limits, budget, _diagnostics,
+    source,
+    wire_profile,
+    interlace_strategy,
+    PngCompressionStrategy::Stored,
+    limits,
+    budget,
+    _diagnostics,
   )
 }
 
-///| The sole indexed construction seam validates the narrow strategy before
+///|
+/// The sole indexed construction seam validates the narrow strategy before
 /// preflight, then gives Stored and Fixed replay fresh identical bounded raw
 /// producers. No second indexed encoder owns caller acknowledgement.
 fn PngEncodeMachine::new_with_indexed_profile_and_strategy(
@@ -1067,12 +1360,14 @@ fn PngEncodeMachine::new_with_indexed_profile_and_strategy(
   budget : @budget.Budget,
   _diagnostics : @error.Diagnostics,
 ) -> Result[PngEncodeMachine, @error.CoreError] {
-  let facts = match _png_encode_indexed_preflight_with_profile_and_strategy(
-    source, wire_profile, interlace_strategy, strategy, limits, budget,
-  ) {
+  let facts = match
+    _png_encode_indexed_preflight_with_profile_and_strategy(
+      source, wire_profile, interlace_strategy, strategy, limits, budget,
+    ) {
     Err(error) => return Err(error)
     Ok(value) => value
   }
+  _png_encode_preflight_observe(facts)
   Ok({
     source: None,
     indexed_source: Some(source),
@@ -1080,51 +1375,68 @@ fn PngEncodeMachine::new_with_indexed_profile_and_strategy(
     strategy,
     filter_strategy: PngFilterStrategy::None,
     interlace_strategy,
-    width: source.width(), height: source.height(), channels: facts.channels,
-    row_bytes: facts.row_bytes, scanlines: facts.scanlines, blocks: facts.blocks,
-    idat_length: facts.idat_length, frame: facts.frame,
-    total_length_value: facts.total_length, source_revision: 0UL, plan: facts.plan,
-    disposition: facts.disposition, emitted: 0UL, pending: None,
-    pending_stored: None, pending_fixed: None, pending_dynamic: None,
+    width: source.width(),
+    height: source.height(),
+    channels: facts.channels,
+    row_bytes: facts.row_bytes,
+    scanlines: facts.scanlines,
+    blocks: facts.blocks,
+    idat_length: facts.idat_length,
+    frame: facts.frame,
+    total_length_value: facts.total_length,
+    source_revision: 0UL,
+    plan: facts.plan,
+    disposition: facts.disposition,
+    emitted: 0UL,
+    pending: None,
+    pending_stored: None,
+    pending_fixed: None,
+    pending_dynamic: None,
     stored_cursor: if interlace_strategy == PngInterlaceStrategy::None {
-      Some(PngFilteredMatchCursor::new_indexed(
-        source, facts.row_bytes, wire_profile.depth(),
-      ))
-    } else { None },
+      Some(
+        PngFilteredMatchCursor::new_indexed(
+          source,
+          facts.row_bytes,
+          wire_profile.depth(),
+        ),
+      )
+    } else {
+      None
+    },
     fixed_state: match facts.plan {
-      PngDeflatePlan::Fixed(_) => Some({
-        raw_cursor: 0UL,
-        filtered_cursor: Some(PngFilteredMatchCursor::new_indexed_with_interlace(
-          source, facts.row_bytes, wire_profile.depth(), interlace_strategy,
-        )),
-        bit_value: 0UL, bit_count: 0UL, adler: 1UL,
-        fingerprint: 1UL, matcher_work: 0UL, header_written: false, eob_written: false,
-      })
+      PngDeflatePlan::Fixed(_) =>
+        Some({
+          raw_cursor: 0UL,
+          filtered_cursor: Some(
+            PngFilteredMatchCursor::new_indexed_with_interlace(
+              source,
+              facts.row_bytes,
+              wire_profile.depth(),
+              interlace_strategy,
+            ),
+          ),
+          bit_value: 0UL,
+          bit_count: 0UL,
+          adler: 1UL,
+          fingerprint: 1UL,
+          matcher_work: 0UL,
+          header_written: false,
+          eob_written: false,
+        })
       _ => None
     },
     dynamic_state: None,
     ihdr_crc: _png_crc_for_type([b'I', b'H', b'D', b'R']),
     plte_crc: _png_crc_for_type([b'P', b'L', b'T', b'E']),
     trns_crc: _png_crc_for_type([b't', b'R', b'N', b'S']),
-    idat_crc: _png_crc_for_type([b'I', b'D', b'A', b'T']), adler: 1UL,
+    idat_crc: _png_crc_for_type([b'I', b'D', b'A', b'T']),
+    adler: 1UL,
     finished: false,
   })
 }
 
-///| Fixed-Eight compatibility wrapper retained for Indexed8 eager, chunk, and
-/// white-box callers.
-fn PngEncodeMachine::new_with_indexed(
-  source : PngIndexedImage,
-  limits : @codec.CodecLimits,
-  budget : @budget.Budget,
-  diagnostics : @error.Diagnostics,
-) -> Result[PngEncodeMachine, @error.CoreError] {
-  PngEncodeMachine::new_with_indexed_profile(
-    source, PngIndexedWireProfile::Eight, PngInterlaceStrategy::None, limits, budget, diagnostics,
-  )
-}
-
-///| Locate one byte in the bounded selected-depth Indexed Adam7 filtered stream
+///|
+/// Locate one byte in the bounded selected-depth Indexed Adam7 filtered stream
 /// without materialising pass rows. Each low-bit payload byte starts from a
 /// local pass column and leaves all unused tail bits at zero.
 fn _png_indexed_adam7_scanline_byte(
@@ -1156,7 +1468,9 @@ fn _png_indexed_adam7_scanline_byte(
       if index < end {
         let relative = index - offset
         let in_row = relative % row_width
-        if in_row == 0UL { return Ok(b'\x00') }
+        if in_row == 0UL {
+          return Ok(b'\x00')
+        }
         let pass_row = relative / row_width
         let payload_byte = in_row - 1UL
         if depth == 8UL {
@@ -1200,6 +1514,8 @@ fn _png_indexed_adam7_scanline_byte(
 
 ///|
 fn PngEncodeMachine::total_length(self : PngEncodeMachine) -> UInt64 {
+  ignore(self.strategy)
+
   self.total_length_value
 }
 
@@ -1209,7 +1525,9 @@ fn PngEncodeMachine::completed(self : PngEncodeMachine) -> UInt64 {
 }
 
 ///|
-fn PngEncodeMachine::disposition(self : PngEncodeMachine) -> @metadata.MetadataDisposition {
+fn PngEncodeMachine::disposition(
+  self : PngEncodeMachine,
+) -> @metadata.MetadataDisposition {
   self.disposition
 }
 
@@ -1227,10 +1545,19 @@ fn PngEncodeMachine::scanline_byte(
     Some(source) => {
       let depth = match _png_indexed_wire_depth(self.profile) {
         Some(value) => value
-        None => return Err(_png_encode_machine_state_error("png-encode-indexed-profile"))
+        None =>
+          return Err(
+            _png_encode_machine_state_error("png-encode-indexed-profile"),
+          )
       }
       if self.interlace_strategy == PngInterlaceStrategy::Adam7 {
-        return _png_indexed_adam7_scanline_byte(source, self.width, self.height, depth, index)
+        return _png_indexed_adam7_scanline_byte(
+          source,
+          self.width,
+          self.height,
+          depth,
+          index,
+        )
       }
       let row_width = self.row_bytes + 1UL
       let in_row = index % row_width
@@ -1263,7 +1590,12 @@ fn PngEncodeMachine::scanline_byte(
     None => return Err(_png_encode_machine_state_error("png-encode-source"))
   }
   _png_filtered_scanline_byte(
-    source, self.profile, self.row_bytes, self.channels, self.filter_strategy, index,
+    source,
+    self.profile,
+    self.row_bytes,
+    self.channels,
+    self.filter_strategy,
+    index,
   )
 }
 
@@ -1277,8 +1609,12 @@ fn PngEncodeMachine::zlib_byte(
     PngDeflatePlan::Dynamic(_) => return self.dynamic_zlib_byte(offset)
     PngDeflatePlan::Stored(_) => ()
   }
-  if offset == 0UL { return Ok(b'\x78') }
-  if offset == 1UL { return Ok(b'\x01') }
+  if offset == 0UL {
+    return Ok(b'\x78')
+  }
+  if offset == 1UL {
+    return Ok(b'\x01')
+  }
   let relative = offset - 2UL
   let stored_length = self.idat_length - 6UL
   if relative >= stored_length {
@@ -1309,7 +1645,8 @@ fn PngEncodeMachine::zlib_byte(
     match self.stored_cursor {
       Some(cursor) => {
         let (byte, next) = match cursor.next() {
-          Err(error) => return Err(error); Ok(value) => value
+          Err(error) => return Err(error)
+          Ok(value) => value
         }
         self.pending_stored = Some(next)
         Ok(byte)
@@ -1331,7 +1668,8 @@ fn _png_fixed_put_bits(
   (value | (bits << count.to_int()), count + width)
 }
 
-///| Source revisions provide an O(1) pre-lease replay guard. The admitted
+///|
+/// Source revisions provide an O(1) pre-lease replay guard. The admitted
 /// Fixed/Dynamic fingerprint checks remain the terminal integrity backstop;
 /// this guard prevents a post-admission source mutation from first changing
 /// the caller's current lease.
@@ -1342,7 +1680,9 @@ fn PngEncodeMachine::validate_replay_revision(
     None => return Ok(())
     Some(value) => value
   }
-  if source.mutation_revision() == self.source_revision { return Ok(()) }
+  if source.mutation_revision() == self.source_revision {
+    return Ok(())
+  }
   match self.plan {
     PngDeflatePlan::Fixed(_) =>
       Err(_png_encode_machine_state_error("png-encode-fixed-replay-drift"))
@@ -1353,7 +1693,8 @@ fn PngEncodeMachine::validate_replay_revision(
   }
 }
 
-///| Simulate exactly one fixed DEFLATE byte without mutating the committed
+///|
+/// Simulate exactly one fixed DEFLATE byte without mutating the committed
 /// machine. The returned scalar state becomes visible only in acknowledge.
 fn PngEncodeMachine::fixed_preview_byte(
   self : PngEncodeMachine,
@@ -1364,7 +1705,8 @@ fn PngEncodeMachine::fixed_preview_byte(
   }
   let state = match self.fixed_state {
     Some(value) => value
-    None => return Err(_png_encode_machine_state_error("png-encode-fixed-state"))
+    None =>
+      return Err(_png_encode_machine_state_error("png-encode-fixed-state"))
   }
   let mut raw_cursor = state.raw_cursor
   let mut filtered_cursor = state.filtered_cursor
@@ -1386,15 +1728,27 @@ fn PngEncodeMachine::fixed_preview_byte(
     } else if raw_cursor < self.scanlines {
       let (length, distance, work) = match filtered_cursor {
         Some(cursor) => {
-          let (length, distance, work, next) = match _png_filtered_match_at(
-            cursor, self.scanlines,
-          ) { Err(error) => return Err(error); Ok(value) => value }
+          let (length, distance, work, next) = match
+            _png_filtered_match_at(cursor, self.scanlines) {
+            Err(error) => return Err(error)
+            Ok(value) => value
+          }
           filtered_cursor = Some(next)
           (length, distance, work)
         }
-        None => match _png_fixed_match_at(
-          self.source.unwrap(), self.profile, self.row_bytes, self.channels, self.scanlines, raw_cursor,
-        ) { Err(error) => return Err(error); Ok(value) => value }
+        None =>
+          match
+            _png_fixed_match_at(
+              self.source.unwrap(),
+              self.profile,
+              self.row_bytes,
+              self.channels,
+              self.scanlines,
+              raw_cursor,
+            ) {
+            Err(error) => return Err(error)
+            Ok(value) => value
+          }
       }
       matcher_work = match _png_fixed_add(matcher_work, work) {
         Err(error) => return Err(error)
@@ -1426,14 +1780,24 @@ fn PngEncodeMachine::fixed_preview_byte(
           let byte = match filtered_cursor {
             Some(cursor) => {
               let (value, next) = match cursor.next() {
-                Err(error) => return Err(error); Ok(value) => value
+                Err(error) => return Err(error)
+                Ok(value) => value
               }
               filtered_cursor = Some(next)
               value
             }
-            None => match _png_fixed_scanline_byte(
-              self.source.unwrap(), self.profile, self.row_bytes, self.channels, raw_cursor + index,
-            ) { Err(error) => return Err(error); Ok(value) => value }
+            None =>
+              match
+                _png_fixed_scanline_byte(
+                  self.source.unwrap(),
+                  self.profile,
+                  self.row_bytes,
+                  self.channels,
+                  raw_cursor + index,
+                ) {
+                Err(error) => return Err(error)
+                Ok(value) => value
+              }
           }
           adler = _png_adler_step(adler, byte)
           fingerprint = _png_adler_step(fingerprint, byte)
@@ -1444,14 +1808,24 @@ fn PngEncodeMachine::fixed_preview_byte(
         let byte = match filtered_cursor {
           Some(cursor) => {
             let (value, next) = match cursor.next() {
-              Err(error) => return Err(error); Ok(value) => value
+              Err(error) => return Err(error)
+              Ok(value) => value
             }
             filtered_cursor = Some(next)
             value
           }
-          None => match _png_fixed_scanline_byte(
-            self.source.unwrap(), self.profile, self.row_bytes, self.channels, raw_cursor,
-          ) { Err(error) => return Err(error); Ok(value) => value }
+          None =>
+            match
+              _png_fixed_scanline_byte(
+                self.source.unwrap(),
+                self.profile,
+                self.row_bytes,
+                self.channels,
+                raw_cursor,
+              ) {
+              Err(error) => return Err(error)
+              Ok(value) => value
+            }
         }
         let (code, code_bits) = _png_fixed_literal_code(byte.to_uint64())
         let (next_value, next_count) = _png_fixed_put_bits(
@@ -1465,10 +1839,14 @@ fn PngEncodeMachine::fixed_preview_byte(
       }
     } else if !eob_written {
       if matcher_work != plan.matcher_work {
-        return Err(_png_encode_machine_state_error("png-encode-fixed-replay-work"))
+        return Err(
+          _png_encode_machine_state_error("png-encode-fixed-replay-work"),
+        )
       }
       if fingerprint != plan.fingerprint {
-        return Err(_png_encode_machine_state_error("png-encode-fixed-replay-drift"))
+        return Err(
+          _png_encode_machine_state_error("png-encode-fixed-replay-drift"),
+        )
       }
       let (eob, eob_bits) = _png_fixed_literal_code(256UL)
       let (next_value, next_count) = _png_fixed_put_bits(
@@ -1479,17 +1857,41 @@ fn PngEncodeMachine::fixed_preview_byte(
       eob_written = true
     } else {
       let byte = bit_value.to_byte()
-      return Ok((byte, {
-        raw_cursor, filtered_cursor, bit_value: 0UL, bit_count: 0UL, adler, fingerprint, matcher_work, eob_written,
-        header_written,
-      }))
+      return Ok(
+        (
+          byte,
+          {
+            raw_cursor,
+            filtered_cursor,
+            bit_value: 0UL,
+            bit_count: 0UL,
+            adler,
+            fingerprint,
+            matcher_work,
+            eob_written,
+            header_written,
+          },
+        ),
+      )
     }
   }
   let byte = bit_value.to_byte()
-  Ok((byte, {
-    raw_cursor, filtered_cursor, bit_value: bit_value >> 8, bit_count: bit_count - 8UL,
-    adler, fingerprint, matcher_work, header_written, eob_written,
-  }))
+  Ok(
+    (
+      byte,
+      {
+        raw_cursor,
+        filtered_cursor,
+        bit_value: bit_value >> 8,
+        bit_count: bit_count - 8UL,
+        adler,
+        fingerprint,
+        matcher_work,
+        header_written,
+        eob_written,
+      },
+    ),
+  )
 }
 
 ///|
@@ -1501,8 +1903,12 @@ fn PngEncodeMachine::fixed_zlib_byte(
     PngDeflatePlan::Fixed(value) => value
     _ => return Err(_png_encode_machine_state_error("png-encode-fixed-plan"))
   }
-  if offset == 0UL { return Ok(b'\x78') }
-  if offset == 1UL { return Ok(b'\x01') }
+  if offset == 0UL {
+    return Ok(b'\x78')
+  }
+  if offset == 1UL {
+    return Ok(b'\x01')
+  }
   if offset < plan.deflate_bytes + 2UL {
     let (byte, next) = match self.fixed_preview_byte() {
       Err(error) => return Err(error)
@@ -1515,21 +1921,32 @@ fn PngEncodeMachine::fixed_zlib_byte(
   if adler_offset < 4UL {
     let state = match self.fixed_state {
       Some(value) => value
-      None => return Err(_png_encode_machine_state_error("png-encode-fixed-state"))
+      None =>
+        return Err(_png_encode_machine_state_error("png-encode-fixed-state"))
     }
     return Ok(_png_encode_machine_u32_byte(state.adler, adler_offset))
   }
   Err(_png_encode_machine_state_error("png-encode-fixed-cursor"))
 }
 
-///| Put a dynamic canonical code into the LSB-first DEFLATE accumulator.
+///|
+/// Put a dynamic canonical code into the LSB-first DEFLATE accumulator.
 fn _png_dynamic_put_code(
-  value : UInt64, count : UInt64, tree : PngHuffman, symbol : Int,
+  value : UInt64,
+  count : UInt64,
+  tree : PngHuffman,
+  symbol : Int,
 ) -> (UInt64, UInt64) {
-  _png_fixed_put_bits(value, count, tree.codes[symbol].to_uint64(), tree.lengths[symbol].to_uint64())
+  _png_fixed_put_bits(
+    value,
+    count,
+    tree.codes[symbol].to_uint64(),
+    tree.lengths[symbol].to_uint64(),
+  )
 }
 
-///| Preview one Dynamic DEFLATE byte.  Every returned state is private until the
+///|
+/// Preview one Dynamic DEFLATE byte.  Every returned state is private until the
 /// byte is acknowledged, which makes repeated `present` calls observational.
 fn PngEncodeMachine::dynamic_preview_byte(
   self : PngEncodeMachine,
@@ -1540,7 +1957,8 @@ fn PngEncodeMachine::dynamic_preview_byte(
   }
   let state = match self.dynamic_state {
     Some(value) => value
-    None => return Err(_png_encode_machine_state_error("png-encode-dynamic-state"))
+    None =>
+      return Err(_png_encode_machine_state_error("png-encode-dynamic-state"))
   }
   let mut phase = state.phase
   let mut header_cursor = state.header_cursor
@@ -1555,71 +1973,145 @@ fn PngEncodeMachine::dynamic_preview_byte(
   while bit_count < 8UL {
     if phase == 0 {
       let (value, count) = _png_fixed_put_bits(bit_value, bit_count, 5UL, 3UL)
-      bit_value = value; bit_count = count; phase = 1
+      bit_value = value
+      bit_count = count
+      phase = 1
     } else if phase == 1 {
-      let value = if header_cursor == 0UL { plan.hlit - 257UL } else if header_cursor == 1UL {
+      let value = if header_cursor == 0UL {
+        plan.hlit - 257UL
+      } else if header_cursor == 1UL {
         plan.hdist - 1UL
-      } else { plan.hclen - 4UL }
+      } else {
+        plan.hclen - 4UL
+      }
       let width = if header_cursor < 2UL { 5UL } else { 4UL }
-      let (next_value, next_count) = _png_fixed_put_bits(bit_value, bit_count, value, width)
-      bit_value = next_value; bit_count = next_count; header_cursor = header_cursor + 1UL
-      if header_cursor == 3UL { phase = 2 }
+      let (next_value, next_count) = _png_fixed_put_bits(
+        bit_value, bit_count, value, width,
+      )
+      bit_value = next_value
+      bit_count = next_count
+      header_cursor = header_cursor + 1UL
+      if header_cursor == 3UL {
+        phase = 2
+      }
     } else if phase == 2 {
-      let order = [16,17,18,0,8,7,9,6,10,5,11,4,12,3,13,2,14,1,15]
+      let order = [
+        16, 17, 18, 0, 8, 7, 9, 6, 10, 5, 11, 4, 12, 3, 13, 2, 14, 1, 15,
+      ]
       if code_length_cursor < plan.hclen {
         let length = plan.code_lengths.lengths[order[code_length_cursor.to_int()]].to_uint64()
-        let (next_value, next_count) = _png_fixed_put_bits(bit_value, bit_count, length, 3UL)
-        bit_value = next_value; bit_count = next_count; code_length_cursor = code_length_cursor + 1UL
-      } else { phase = 3 }
+        let (next_value, next_count) = _png_fixed_put_bits(
+          bit_value, bit_count, length, 3UL,
+        )
+        bit_value = next_value
+        bit_count = next_count
+        code_length_cursor = code_length_cursor + 1UL
+      } else {
+        phase = 3
+      }
     } else if phase == 3 {
       if rle_cursor < plan.rle_count {
         let symbol = plan.rle_symbols[rle_cursor.to_int()]
-        let (next_value, next_count) = _png_dynamic_put_code(bit_value, bit_count, plan.code_lengths, symbol)
-        bit_value = next_value; bit_count = next_count
+        let (next_value, next_count) = _png_dynamic_put_code(
+          bit_value,
+          bit_count,
+          plan.code_lengths,
+          symbol,
+        )
+        bit_value = next_value
+        bit_count = next_count
         let width = plan.rle_extra_bits[rle_cursor.to_int()]
         if width > 0UL {
-          let (extra_value, extra_count) = _png_fixed_put_bits(bit_value, bit_count, plan.rle_extras[rle_cursor.to_int()], width)
-          bit_value = extra_value; bit_count = extra_count
+          let (extra_value, extra_count) = _png_fixed_put_bits(
+            bit_value,
+            bit_count,
+            plan.rle_extras[rle_cursor.to_int()],
+            width,
+          )
+          bit_value = extra_value
+          bit_count = extra_count
         }
         rle_cursor = rle_cursor + 1UL
-      } else { phase = 4 }
+      } else {
+        phase = 4
+      }
     } else if phase == 4 {
       if raw_cursor < self.scanlines {
         let (length, distance, work) = match filtered_cursor {
           Some(cursor) => {
-            let (length, distance, work, next) = match _png_filtered_match_at(
-              cursor, self.scanlines,
-            ) { Err(error) => return Err(error); Ok(value) => value }
+            let (length, distance, work, next) = match
+              _png_filtered_match_at(cursor, self.scanlines) {
+              Err(error) => return Err(error)
+              Ok(value) => value
+            }
             filtered_cursor = Some(next)
             (length, distance, work)
           }
-          None => match _png_fixed_match_at(
-            self.source.unwrap(), self.profile, self.row_bytes, self.channels, self.scanlines, raw_cursor,
-          ) { Err(error) => return Err(error); Ok(value) => value }
+          None =>
+            match
+              _png_fixed_match_at(
+                self.source.unwrap(),
+                self.profile,
+                self.row_bytes,
+                self.channels,
+                self.scanlines,
+                raw_cursor,
+              ) {
+              Err(error) => return Err(error)
+              Ok(value) => value
+            }
         }
-        matcher_work = match _png_fixed_add(matcher_work, work) { Err(error) => return Err(error); Ok(value) => value }
+        matcher_work = match _png_fixed_add(matcher_work, work) {
+          Err(error) => return Err(error)
+          Ok(value) => value
+        }
         if length >= 3UL {
           let (symbol, extra, extra_bits) = _png_fixed_length_code(length)
-          let (next_value, next_count) = _png_dynamic_put_code(bit_value, bit_count, plan.literals, symbol.to_int())
-          bit_value = next_value; bit_count = next_count
+          let (next_value, next_count) = _png_dynamic_put_code(
+            bit_value,
+            bit_count,
+            plan.literals,
+            symbol.to_int(),
+          )
+          bit_value = next_value
+          bit_count = next_count
           if extra_bits > 0UL {
-            let (extra_value, extra_count) = _png_fixed_put_bits(bit_value, bit_count, extra, extra_bits)
-            bit_value = extra_value; bit_count = extra_count
+            let (extra_value, extra_count) = _png_fixed_put_bits(
+              bit_value, bit_count, extra, extra_bits,
+            )
+            bit_value = extra_value
+            bit_count = extra_count
           }
-          let (distance_value, distance_count) = _png_dynamic_put_code(bit_value, bit_count, plan.distances, (distance - 1UL).to_int())
-          bit_value = distance_value; bit_count = distance_count
+          let (distance_value, distance_count) = _png_dynamic_put_code(
+            bit_value,
+            bit_count,
+            plan.distances,
+            (distance - 1UL).to_int(),
+          )
+          bit_value = distance_value
+          bit_count = distance_count
           for index = 0UL; index < length; index = index + 1UL {
             let byte = match filtered_cursor {
               Some(cursor) => {
                 let (value, next) = match cursor.next() {
-                  Err(error) => return Err(error); Ok(value) => value
+                  Err(error) => return Err(error)
+                  Ok(value) => value
                 }
                 filtered_cursor = Some(next)
                 value
               }
-              None => match _png_fixed_scanline_byte(
-                self.source.unwrap(), self.profile, self.row_bytes, self.channels, raw_cursor + index,
-              ) { Err(error) => return Err(error); Ok(value) => value }
+              None =>
+                match
+                  _png_fixed_scanline_byte(
+                    self.source.unwrap(),
+                    self.profile,
+                    self.row_bytes,
+                    self.channels,
+                    raw_cursor + index,
+                  ) {
+                  Err(error) => return Err(error)
+                  Ok(value) => value
+                }
             }
             adler = _png_adler_step(adler, byte)
           }
@@ -1628,53 +2120,127 @@ fn PngEncodeMachine::dynamic_preview_byte(
           let byte = match filtered_cursor {
             Some(cursor) => {
               let (value, next) = match cursor.next() {
-                Err(error) => return Err(error); Ok(value) => value
+                Err(error) => return Err(error)
+                Ok(value) => value
               }
               filtered_cursor = Some(next)
               value
             }
-            None => match _png_fixed_scanline_byte(
-              self.source.unwrap(), self.profile, self.row_bytes, self.channels, raw_cursor,
-            ) { Err(error) => return Err(error); Ok(value) => value }
+            None =>
+              match
+                _png_fixed_scanline_byte(
+                  self.source.unwrap(),
+                  self.profile,
+                  self.row_bytes,
+                  self.channels,
+                  raw_cursor,
+                ) {
+                Err(error) => return Err(error)
+                Ok(value) => value
+              }
           }
-          let (next_value, next_count) = _png_dynamic_put_code(bit_value, bit_count, plan.literals, byte.to_int())
-          bit_value = next_value; bit_count = next_count; adler = _png_adler_step(adler, byte); raw_cursor = raw_cursor + 1UL
+          let (next_value, next_count) = _png_dynamic_put_code(
+            bit_value,
+            bit_count,
+            plan.literals,
+            byte.to_int(),
+          )
+          bit_value = next_value
+          bit_count = next_count
+          adler = _png_adler_step(adler, byte)
+          raw_cursor = raw_cursor + 1UL
         }
-      } else { phase = 5 }
+      } else {
+        phase = 5
+      }
     } else if phase == 5 {
       if matcher_work != plan.matcher_work || adler != plan.fingerprint {
-        return Err(_png_encode_machine_state_error("png-encode-dynamic-replay-drift"))
+        return Err(
+          _png_encode_machine_state_error("png-encode-dynamic-replay-drift"),
+        )
       }
-      let (next_value, next_count) = _png_dynamic_put_code(bit_value, bit_count, plan.literals, 256)
-      bit_value = next_value; bit_count = next_count; phase = 6
+      let (next_value, next_count) = _png_dynamic_put_code(
+        bit_value,
+        bit_count,
+        plan.literals,
+        256,
+      )
+      bit_value = next_value
+      bit_count = next_count
+      phase = 6
     } else if phase == 6 {
       let byte = bit_value.to_byte()
-      return Ok((byte, { phase: 7, header_cursor, code_length_cursor, rle_cursor, raw_cursor, filtered_cursor,
-        bit_value: 0UL, bit_count: 0UL, adler, matcher_work }))
+      return Ok(
+        (
+          byte,
+          {
+            phase: 7,
+            header_cursor,
+            code_length_cursor,
+            rle_cursor,
+            raw_cursor,
+            filtered_cursor,
+            bit_value: 0UL,
+            bit_count: 0UL,
+            adler,
+            matcher_work,
+          },
+        ),
+      )
     } else {
       return Err(_png_encode_machine_state_error("png-encode-dynamic-cursor"))
     }
   }
   let byte = bit_value.to_byte()
-  Ok((byte, { phase, header_cursor, code_length_cursor, rle_cursor, raw_cursor, filtered_cursor,
-    bit_value: bit_value >> 8, bit_count: bit_count - 8UL, adler, matcher_work }))
+  Ok(
+    (
+      byte,
+      {
+        phase,
+        header_cursor,
+        code_length_cursor,
+        rle_cursor,
+        raw_cursor,
+        filtered_cursor,
+        bit_value: bit_value >> 8,
+        bit_count: bit_count - 8UL,
+        adler,
+        matcher_work,
+      },
+    ),
+  )
 }
 
 ///|
 fn PngEncodeMachine::dynamic_zlib_byte(
-  self : PngEncodeMachine, offset : UInt64,
+  self : PngEncodeMachine,
+  offset : UInt64,
 ) -> Result[Byte, @error.CoreError] {
-  let plan = match self.plan { PngDeflatePlan::Dynamic(value) => value; _ => return Err(_png_encode_machine_state_error("png-encode-dynamic-plan")) }
-  if offset == 0UL { return Ok(b'\x78') }
-  if offset == 1UL { return Ok(b'\x01') }
+  let plan = match self.plan {
+    PngDeflatePlan::Dynamic(value) => value
+    _ => return Err(_png_encode_machine_state_error("png-encode-dynamic-plan"))
+  }
+  if offset == 0UL {
+    return Ok(b'\x78')
+  }
+  if offset == 1UL {
+    return Ok(b'\x01')
+  }
   if offset < plan.deflate_bytes + 2UL {
-    let (byte, next) = match self.dynamic_preview_byte() { Err(error) => return Err(error); Ok(value) => value }
+    let (byte, next) = match self.dynamic_preview_byte() {
+      Err(error) => return Err(error)
+      Ok(value) => value
+    }
     self.pending_dynamic = Some(next)
     return Ok(byte)
   }
   let adler_offset = offset - plan.deflate_bytes - 2UL
   if adler_offset < 4UL {
-    let state = match self.dynamic_state { Some(value) => value; None => return Err(_png_encode_machine_state_error("png-encode-dynamic-state")) }
+    let state = match self.dynamic_state {
+      Some(value) => value
+      None =>
+        return Err(_png_encode_machine_state_error("png-encode-dynamic-state"))
+    }
     return Ok(_png_encode_machine_u32_byte(state.adler, adler_offset))
   }
   Err(_png_encode_machine_state_error("png-encode-dynamic-cursor"))
@@ -1686,56 +2252,106 @@ fn PngEncodeMachine::byte_at(
   offset : UInt64,
 ) -> Result[Byte, @error.CoreError] {
   if offset < 8UL {
-    return Ok([b'\x89', b'P', b'N', b'G', b'\r', b'\n', b'\x1a', b'\n'][offset.to_int()])
+    return Ok(
+      [b'\x89', b'P', b'N', b'G', b'\r', b'\n', b'\x1a', b'\n'][offset.to_int()],
+    )
   }
-  if offset < 12UL { return Ok(_png_encode_machine_u32_byte(13UL, offset - 8UL)) }
-  if offset < 16UL { return Ok([b'I', b'H', b'D', b'R'][(offset - 12UL).to_int()]) }
+  if offset < 12UL {
+    return Ok(_png_encode_machine_u32_byte(13UL, offset - 8UL))
+  }
+  if offset < 16UL {
+    return Ok([b'I', b'H', b'D', b'R'][(offset - 12UL).to_int()])
+  }
   if offset < 29UL {
     let payload = offset - 16UL
-    if payload < 4UL { return Ok(_png_encode_machine_u32_byte(self.width, payload)) }
-    if payload < 8UL { return Ok(_png_encode_machine_u32_byte(self.height, payload - 4UL)) }
+    if payload < 4UL {
+      return Ok(_png_encode_machine_u32_byte(self.width, payload))
+    }
+    if payload < 8UL {
+      return Ok(_png_encode_machine_u32_byte(self.height, payload - 4UL))
+    }
     let colour_type = match self.profile {
-      PngEncodeProfile::Indexed1 | PngEncodeProfile::Indexed2 |
-      PngEncodeProfile::Indexed4 | PngEncodeProfile::Indexed8 => b'\x03'
-      PngEncodeProfile::Gray1 | PngEncodeProfile::Gray2 | PngEncodeProfile::Gray4 |
-      PngEncodeProfile::Gray8 | PngEncodeProfile::Gray16 => b'\x00'
+      PngEncodeProfile::Indexed1
+      | PngEncodeProfile::Indexed2
+      | PngEncodeProfile::Indexed4
+      | PngEncodeProfile::Indexed8 => b'\x03'
+      PngEncodeProfile::Gray1
+      | PngEncodeProfile::Gray2
+      | PngEncodeProfile::Gray4
+      | PngEncodeProfile::Gray8
+      | PngEncodeProfile::Gray16 => b'\x00'
       PngEncodeProfile::GrayAlpha8 | PngEncodeProfile::GrayAlpha16 => b'\x04'
       PngEncodeProfile::Rgba16 => b'\x06'
-      PngEncodeProfile::LegacyRgbOrRgba => if self.channels == 3UL { b'\x02' } else { b'\x06' }
+      PngEncodeProfile::LegacyRgbOrRgba =>
+        if self.channels == 3UL {
+          b'\x02'
+        } else {
+          b'\x06'
+        }
     }
     let bit_depth = match _png_indexed_wire_depth(self.profile) {
       Some(depth) => depth.to_byte()
-      None => match _png_profile_packed_gray_depth(self.profile) {
-      Some(depth) => depth.to_byte()
-      None => if _png_profile_uses_u16_component_wire(self.profile) { b'\x10' } else { b'\x08' }
-      }
+      None =>
+        match _png_profile_packed_gray_depth(self.profile) {
+          Some(depth) => depth.to_byte()
+          None =>
+            if _png_profile_uses_u16_component_wire(self.profile) {
+              b'\x10'
+            } else {
+              b'\x08'
+            }
+        }
     }
-    return Ok([bit_depth, colour_type, b'\x00', b'\x00', if self.interlace_strategy == PngInterlaceStrategy::Adam7 { b'\x01' } else { b'\x00' }][(payload - 8UL).to_int()])
+    return Ok(
+      [
+        bit_depth,
+        colour_type,
+        b'\x00',
+        b'\x00',
+        if self.interlace_strategy == PngInterlaceStrategy::Adam7 {
+          b'\x01'
+        } else {
+          b'\x00'
+        },
+      ][(payload - 8UL).to_int()],
+    )
   }
-  if offset < 33UL { return Ok(_png_encode_machine_u32_byte(self.ihdr_crc ^ 4294967295UL, offset - 29UL)) }
+  if offset < 33UL {
+    return Ok(
+      _png_encode_machine_u32_byte(self.ihdr_crc ^ 4294967295UL, offset - 29UL),
+    )
+  }
   if self.frame.plte_length > 0UL && offset < self.frame.trns_start {
     let plte = offset - self.frame.plte_start
     if plte < 4UL {
       return Ok(_png_encode_machine_u32_byte(self.frame.plte_length, plte))
     }
-    if plte < 8UL { return Ok([b'P', b'L', b'T', b'E'][(plte - 4UL).to_int()]) }
+    if plte < 8UL {
+      return Ok([b'P', b'L', b'T', b'E'][(plte - 4UL).to_int()])
+    }
     if plte < 8UL + self.frame.plte_length {
       let source = match self.indexed_source {
         Some(value) => value
-        None => return Err(_png_encode_machine_state_error("png-encode-palette"))
+        None =>
+          return Err(_png_encode_machine_state_error("png-encode-palette"))
       }
       return source.palette_byte_at(plte - 8UL)
     }
-    return Ok(_png_encode_machine_u32_byte(
-      self.plte_crc ^ 4294967295UL, plte - 8UL - self.frame.plte_length,
-    ))
+    return Ok(
+      _png_encode_machine_u32_byte(
+        self.plte_crc ^ 4294967295UL,
+        plte - 8UL - self.frame.plte_length,
+      ),
+    )
   }
   if self.frame.trns_length > 0UL && offset < self.frame.idat_start {
     let trns = offset - self.frame.trns_start
     if trns < 4UL {
       return Ok(_png_encode_machine_u32_byte(self.frame.trns_length, trns))
     }
-    if trns < 8UL { return Ok([b't', b'R', b'N', b'S'][(trns - 4UL).to_int()]) }
+    if trns < 8UL {
+      return Ok([b't', b'R', b'N', b'S'][(trns - 4UL).to_int()])
+    }
     if trns < 8UL + self.frame.trns_length {
       let source = match self.indexed_source {
         Some(value) => value
@@ -1743,32 +2359,59 @@ fn PngEncodeMachine::byte_at(
       }
       return source.alpha_at(trns - 8UL)
     }
-    return Ok(_png_encode_machine_u32_byte(
-      self.trns_crc ^ 4294967295UL, trns - 8UL - self.frame.trns_length,
-    ))
+    return Ok(
+      _png_encode_machine_u32_byte(
+        self.trns_crc ^ 4294967295UL,
+        trns - 8UL - self.frame.trns_length,
+      ),
+    )
   }
   let idat = offset - self.frame.idat_start
-  if idat < 4UL { return Ok(_png_encode_machine_u32_byte(self.idat_length, idat)) }
-  if idat < 8UL { return Ok([b'I', b'D', b'A', b'T'][(idat - 4UL).to_int()]) }
-  if idat < 8UL + self.idat_length { return self.zlib_byte(idat - 8UL) }
+  if idat < 4UL {
+    return Ok(_png_encode_machine_u32_byte(self.idat_length, idat))
+  }
+  if idat < 8UL {
+    return Ok([b'I', b'D', b'A', b'T'][(idat - 4UL).to_int()])
+  }
+  if idat < 8UL + self.idat_length {
+    return self.zlib_byte(idat - 8UL)
+  }
   if idat < 12UL + self.idat_length {
-    return Ok(_png_encode_machine_u32_byte(
-      self.idat_crc ^ 4294967295UL, idat - 8UL - self.idat_length,
-    ))
+    return Ok(
+      _png_encode_machine_u32_byte(
+        self.idat_crc ^ 4294967295UL,
+        idat - 8UL - self.idat_length,
+      ),
+    )
   }
   let iend = offset - self.frame.iend_start
-  if iend < 4UL { return Ok(b'\x00') }
-  if iend < 8UL { return Ok([b'I', b'E', b'N', b'D'][(iend - 4UL).to_int()]) }
-  if iend < 12UL { return Ok(_png_encode_machine_u32_byte(_png_crc_for_type([b'I', b'E', b'N', b'D']) ^ 4294967295UL, iend - 8UL)) }
+  if iend < 4UL {
+    return Ok(b'\x00')
+  }
+  if iend < 8UL {
+    return Ok([b'I', b'E', b'N', b'D'][(iend - 4UL).to_int()])
+  }
+  if iend < 12UL {
+    return Ok(
+      _png_encode_machine_u32_byte(
+        _png_crc_for_type([b'I', b'E', b'N', b'D']) ^ 4294967295UL,
+        iend - 8UL,
+      ),
+    )
+  }
   Err(_png_encode_machine_state_error("png-encode-total-cursor"))
 }
 
 ///|
-fn PngEncodeMachine::present(self : PngEncodeMachine) -> Result[Byte?, @error.CoreError] {
+fn PngEncodeMachine::present(
+  self : PngEncodeMachine,
+) -> Result[Byte?, @error.CoreError] {
   match self.pending {
     Some(byte) => Ok(Some(byte))
     None => {
-      if self.finished { return Ok(None) }
+      if self.finished {
+        return Ok(None)
+      }
       if self.emitted == self.total_length_value {
         self.finished = true
         return Ok(None)
@@ -1789,7 +2432,8 @@ fn PngEncodeMachine::acknowledge(
   accepted : Byte,
 ) -> Result[Unit, @error.CoreError] {
   let pending = match self.pending {
-    None => return Err(_png_encode_machine_state_error("png-encode-no-pending-byte"))
+    None =>
+      return Err(_png_encode_machine_state_error("png-encode-no-pending-byte"))
     Some(value) => value
   }
   if pending != accepted {
@@ -1816,7 +2460,9 @@ fn PngEncodeMachine::acknowledge(
     match self.plan {
       PngDeflatePlan::Stored(_) => {
         let stored_end = self.idat_length - 4UL
-        if zlib_offset >= 2UL && zlib_offset < stored_end && (zlib_offset - 2UL) % 65540UL >= 5UL {
+        if zlib_offset >= 2UL &&
+          zlib_offset < stored_end &&
+          (zlib_offset - 2UL) % 65540UL >= 5UL {
           self.adler = _png_adler_step(self.adler, accepted)
           match self.pending_stored {
             Some(next) => self.stored_cursor = Some(next)
@@ -1824,20 +2470,22 @@ fn PngEncodeMachine::acknowledge(
           }
         }
       }
-      PngDeflatePlan::Fixed(_) => match self.pending_fixed {
-        Some(next) => {
-          self.adler = next.adler
-          self.fixed_state = Some(next)
+      PngDeflatePlan::Fixed(_) =>
+        match self.pending_fixed {
+          Some(next) => {
+            self.adler = next.adler
+            self.fixed_state = Some(next)
+          }
+          None => ()
         }
-        None => ()
-      }
-      PngDeflatePlan::Dynamic(_) => match self.pending_dynamic {
-        Some(next) => {
-          self.adler = next.adler
-          self.dynamic_state = Some(next)
+      PngDeflatePlan::Dynamic(_) =>
+        match self.pending_dynamic {
+          Some(next) => {
+            self.adler = next.adler
+            self.dynamic_state = Some(next)
+          }
+          None => ()
         }
-        None => ()
-      }
     }
   }
   self.pending = None
@@ -1845,6 +2493,8 @@ fn PngEncodeMachine::acknowledge(
   self.pending_fixed = None
   self.pending_dynamic = None
   self.emitted = self.emitted + 1UL
-  if self.emitted == self.total_length_value { self.finished = true }
+  if self.emitted == self.total_length_value {
+    self.finished = true
+  }
   Ok(())
 }

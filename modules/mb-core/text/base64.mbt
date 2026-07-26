@@ -71,12 +71,14 @@ pub fn base64_decode(text : String) -> Result[Array[Byte], @error.CoreError] {
     return Ok([])
   }
   if len % 4 != 0 {
-    return Err(@error.CoreError::new(
-      @error.ErrorCategory::InvalidInput,
-      @error.ErrorCode::InvalidEncoding,
-      operation="text-base64-decode",
-      context="text-base64-decode-invalid-length",
-    ))
+    return Err(
+      @error.CoreError::new(
+        @error.ErrorCategory::InvalidInput,
+        @error.ErrorCode::InvalidEncoding,
+        operation="text-base64-decode",
+        context="text-base64-decode-invalid-length",
+      ),
+    )
   }
   let result : Array[Byte] = []
   let groups = len / 4
@@ -88,12 +90,14 @@ pub fn base64_decode(text : String) -> Result[Array[Byte], @error.CoreError] {
     let r2 = base64_char_value(units[offset + 2])
     let r3 = base64_char_value(units[offset + 3])
     if r0 is Err(_) || r1 is Err(_) || r2 is Err(_) || r3 is Err(_) {
-      return Err(@error.CoreError::new(
-        @error.ErrorCategory::InvalidInput,
-        @error.ErrorCode::InvalidEncoding,
-        operation="text-base64-decode",
-        context="text-base64-decode-invalid-character",
-      ))
+      return Err(
+        @error.CoreError::new(
+          @error.ErrorCategory::InvalidInput,
+          @error.ErrorCode::InvalidEncoding,
+          operation="text-base64-decode",
+          context="text-base64-decode-invalid-character",
+        ),
+      )
     }
     // Now safe to unwrap: data chars are Some(n), pad is None.
     let c0 = r0.unwrap()
@@ -118,28 +122,29 @@ pub fn base64_decode(text : String) -> Result[Array[Byte], @error.CoreError] {
             result.push(((full >> 16) & 0xff).to_byte())
             result.push(((full >> 8) & 0xff).to_byte())
           }
-          (None, None) => {
+          (None, None) =>
             // Two pads: emit 1 byte.
             result.push(((triple >> 16) & 0xff).to_byte())
-          }
-          _ => {
-            return Err(@error.CoreError::new(
-              @error.ErrorCategory::InvalidInput,
-              @error.ErrorCode::InvalidEncoding,
-              operation="text-base64-decode",
-              context="text-base64-decode-invalid-padding",
-            ))
-          }
+          _ =>
+            return Err(
+              @error.CoreError::new(
+                @error.ErrorCategory::InvalidInput,
+                @error.ErrorCode::InvalidEncoding,
+                operation="text-base64-decode",
+                context="text-base64-decode-invalid-padding",
+              ),
+            )
         }
       }
-      _ => {
-        return Err(@error.CoreError::new(
-          @error.ErrorCategory::InvalidInput,
-          @error.ErrorCode::InvalidEncoding,
-          operation="text-base64-decode",
-          context="text-base64-decode-invalid-character",
-        ))
-      }
+      _ =>
+        return Err(
+          @error.CoreError::new(
+            @error.ErrorCategory::InvalidInput,
+            @error.ErrorCode::InvalidEncoding,
+            operation="text-base64-decode",
+            context="text-base64-decode-invalid-character",
+          ),
+        )
     }
   }
   Ok(result)

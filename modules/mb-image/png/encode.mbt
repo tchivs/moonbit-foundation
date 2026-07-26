@@ -8,7 +8,13 @@ fn _png_encode_error(
   limit? : UInt64,
 ) -> @error.CoreError {
   @error.CoreError::new(
-    category, code, operation="png-encode", requested?, completed?, limit?, context~,
+    category,
+    code,
+    operation="png-encode",
+    requested?,
+    completed?,
+    limit?,
+    context~,
   )
 }
 
@@ -20,8 +26,12 @@ fn _png_encode_capability(context : String) -> @error.CoreError {
 ///|
 fn _png_encode_invalid_writer_progress(progress : UInt64) -> @error.CoreError {
   @error.CoreError::new(
-    @error.ErrorCategory::State, @error.ErrorCode::InvalidRange,
-    operation="png-encode-write", requested=progress, completed=0UL, limit=1UL,
+    @error.ErrorCategory::State,
+    @error.ErrorCode::InvalidRange,
+    operation="png-encode-write",
+    requested=progress,
+    completed=0UL,
+    limit=1UL,
   )
 }
 
@@ -32,10 +42,15 @@ fn _png_encode_limit(
   limit : UInt64,
 ) -> Result[Unit, @error.CoreError] {
   if requested > limit {
-    Err(_png_encode_error(
-      @error.ErrorCategory::Resource, @error.ErrorCode::BudgetExceeded,
-      context, requested~, limit~, 
-    ))
+    Err(
+      _png_encode_error(
+        @error.ErrorCategory::Resource,
+        @error.ErrorCode::BudgetExceeded,
+        context,
+        requested~,
+        limit~,
+      ),
+    )
   } else {
     Ok(())
   }
@@ -50,7 +65,8 @@ fn _png_encode_u32(value : UInt64) -> Result[UInt64, @error.CoreError] {
   }
 }
 
-///| The low-bit profiles serialize a canonical Gray/U8 source through a
+///|
+/// The low-bit profiles serialize a canonical Gray/U8 source through a
 /// packed PNG wire row while preserving the existing one-byte source layout.
 fn _png_profile_packed_gray_depth(profile : PngEncodeProfile) -> UInt64? {
   match profile {
@@ -84,7 +100,9 @@ fn PngIndexedWireProfile::palette_cap(self : PngIndexedWireProfile) -> UInt64 {
 }
 
 ///|
-fn PngIndexedWireProfile::profile(self : PngIndexedWireProfile) -> PngEncodeProfile {
+fn PngIndexedWireProfile::profile(
+  self : PngIndexedWireProfile,
+) -> PngEncodeProfile {
   match self {
     PngIndexedWireProfile::One => PngEncodeProfile::Indexed1
     PngIndexedWireProfile::Two => PngEncodeProfile::Indexed2
@@ -104,9 +122,12 @@ fn _png_indexed_wire_depth(profile : PngEncodeProfile) -> UInt64? {
   }
 }
 
-///| Resolves the public selected low-bit depth once for both eager and chunk
+///|
+/// Resolves the public selected low-bit depth once for both eager and chunk
 /// facades; Indexed8 keeps its fixed private profile and public selector.
-fn _png_indexed_wire_profile(bit_depth : PngIndexedBitDepth) -> PngIndexedWireProfile {
+fn _png_indexed_wire_profile(
+  bit_depth : PngIndexedBitDepth,
+) -> PngIndexedWireProfile {
   match bit_depth {
     PngIndexedBitDepth::One => PngIndexedWireProfile::One
     PngIndexedBitDepth::Two => PngIndexedWireProfile::Two
@@ -114,20 +135,25 @@ fn _png_indexed_wire_profile(bit_depth : PngIndexedBitDepth) -> PngIndexedWirePr
   }
 }
 
-///| Admit an exact low-bit grayscale level and return its unscaled PNG code.
+///|
+/// Admit an exact low-bit grayscale level and return its unscaled PNG code.
 fn _png_packed_gray_code(
   profile : PngEncodeProfile,
   sample : Byte,
 ) -> Result[Byte, @error.CoreError] {
   match profile {
     PngEncodeProfile::Gray1 =>
-      if sample == b'\x00' { Ok(b'\x00') } else if sample == b'\xff' {
+      if sample == b'\x00' {
+        Ok(b'\x00')
+      } else if sample == b'\xff' {
         Ok(b'\x01')
       } else {
         Err(_png_encode_capability("gray1-level-required"))
       }
     PngEncodeProfile::Gray2 =>
-      if sample == b'\x00' { Ok(b'\x00') } else if sample == b'\x55' {
+      if sample == b'\x00' {
+        Ok(b'\x00')
+      } else if sample == b'\x55' {
         Ok(b'\x01')
       } else if sample == b'\xaa' {
         Ok(b'\x02')
@@ -146,7 +172,8 @@ fn _png_packed_gray_code(
   }
 }
 
-///| Derive a wire row layout without changing the canonical source-row check.
+///|
+/// Derive a wire row layout without changing the canonical source-row check.
 fn _png_profile_wire_row_bytes(
   width : UInt64,
   channels : UInt64,
@@ -203,97 +230,108 @@ fn _png_encode_source(
     return Err(_png_encode_capability("opaque-metadata-unsupported"))
   }
   let channels = match profile {
-    PngEncodeProfile::Indexed1 | PngEncodeProfile::Indexed2 |
-    PngEncodeProfile::Indexed4 | PngEncodeProfile::Indexed8 =>
+    PngEncodeProfile::Indexed1
+    | PngEncodeProfile::Indexed2
+    | PngEncodeProfile::Indexed4
+    | PngEncodeProfile::Indexed8 =>
       return Err(_png_encode_capability("indexed8-source-required"))
-    PngEncodeProfile::LegacyRgbOrRgba => match format.channels() {
-      @model.ChannelOrder::Rgb =>
-        if format.component() != @model.ComponentType::U8 {
-          return Err(_png_encode_capability("component-u8-required"))
-        } else if metadata.alpha() is Some(_) {
-          return Err(_png_encode_capability("rgb-alpha-unsupported"))
-        } else {
-          3UL
-        }
-      @model.ChannelOrder::Rgba =>
-        if format.component() != @model.ComponentType::U8 {
-          return Err(_png_encode_capability("component-u8-required"))
-        } else {
-          match metadata.alpha() {
-            Some(@color.AlphaMode::Straight) => 4UL
-            _ => return Err(_png_encode_capability("straight-rgba-required"))
+    PngEncodeProfile::LegacyRgbOrRgba =>
+      match format.channels() {
+        @model.ChannelOrder::Rgb =>
+          if format.component() != @model.ComponentType::U8 {
+            return Err(_png_encode_capability("component-u8-required"))
+          } else if metadata.alpha() is Some(_) {
+            return Err(_png_encode_capability("rgb-alpha-unsupported"))
+          } else {
+            3UL
           }
-        }
-      _ => return Err(_png_encode_capability("rgb-or-rgba-required"))
-    }
-    PngEncodeProfile::Gray1 | PngEncodeProfile::Gray2 | PngEncodeProfile::Gray4 => match format.channels() {
-      @model.ChannelOrder::Gray =>
-        if format.component() != @model.ComponentType::U8 {
-          return Err(_png_encode_capability("component-u8-required"))
-        } else if metadata.alpha() is Some(_) {
-          return Err(_png_encode_capability("gray-alpha-unsupported"))
-        } else {
-          1UL
-        }
-      _ => return Err(_png_encode_capability("packed-gray-required"))
-    }
-    PngEncodeProfile::Gray8 => match format.channels() {
-      @model.ChannelOrder::Gray =>
-        if format.component() != @model.ComponentType::U8 {
-          return Err(_png_encode_capability("component-u8-required"))
-        } else if metadata.alpha() is Some(_) {
-          return Err(_png_encode_capability("gray-alpha-unsupported"))
-        } else {
-          1UL
-        }
-      _ => return Err(_png_encode_capability("gray8-required"))
-    }
-    PngEncodeProfile::Gray16 => match format.channels() {
-      @model.ChannelOrder::Gray =>
-        if metadata.alpha() is Some(_) {
-          return Err(_png_encode_capability("gray-alpha-unsupported"))
-        } else if format.component() != @model.ComponentType::U16 {
-          return Err(_png_encode_capability("component-u16-required"))
-        } else {
-          2UL
-        }
-      _ => return Err(_png_encode_capability("gray16-required"))
-    }
-    PngEncodeProfile::GrayAlpha8 => match format.channels() {
-      @model.ChannelOrder::GrayAlpha =>
-        if metadata.alpha() != Some(@color.AlphaMode::Straight) {
-          return Err(_png_encode_capability("straight-alpha-required"))
-        } else if format.component() != @model.ComponentType::U8 {
-          return Err(_png_encode_capability("component-u8-required"))
-        } else {
-          2UL
-        }
-      _ => return Err(_png_encode_capability("graya8-required"))
-    }
-    PngEncodeProfile::GrayAlpha16 => match format.channels() {
-      @model.ChannelOrder::GrayAlpha =>
-        if metadata.alpha() != Some(@color.AlphaMode::Straight) {
-          return Err(_png_encode_capability("straight-alpha-required"))
-        } else if format.component() != @model.ComponentType::U16 {
-          return Err(_png_encode_capability("component-u16-required"))
-        } else {
-          4UL
-        }
-      _ => return Err(_png_encode_capability("graya16-required"))
-    }
-    PngEncodeProfile::Rgba16 => match format.channels() {
-      @model.ChannelOrder::Rgba =>
-        if metadata.alpha() != Some(@color.AlphaMode::Straight) {
-          return Err(_png_encode_capability("straight-alpha-required"))
-        } else if format.component() != @model.ComponentType::U16 {
-          return Err(_png_encode_capability("component-u16-required"))
-        } else if format.endianness() != @model.Endianness::Little {
-          return Err(_png_encode_capability("little-endian-required"))
-        } else {
-          8UL
-        }
-      _ => return Err(_png_encode_capability("rgba16-required"))
-    }
+        @model.ChannelOrder::Rgba =>
+          if format.component() != @model.ComponentType::U8 {
+            return Err(_png_encode_capability("component-u8-required"))
+          } else {
+            match metadata.alpha() {
+              Some(@color.AlphaMode::Straight) => 4UL
+              _ => return Err(_png_encode_capability("straight-rgba-required"))
+            }
+          }
+        _ => return Err(_png_encode_capability("rgb-or-rgba-required"))
+      }
+    PngEncodeProfile::Gray1
+    | PngEncodeProfile::Gray2
+    | PngEncodeProfile::Gray4 =>
+      match format.channels() {
+        @model.ChannelOrder::Gray =>
+          if format.component() != @model.ComponentType::U8 {
+            return Err(_png_encode_capability("component-u8-required"))
+          } else if metadata.alpha() is Some(_) {
+            return Err(_png_encode_capability("gray-alpha-unsupported"))
+          } else {
+            1UL
+          }
+        _ => return Err(_png_encode_capability("packed-gray-required"))
+      }
+    PngEncodeProfile::Gray8 =>
+      match format.channels() {
+        @model.ChannelOrder::Gray =>
+          if format.component() != @model.ComponentType::U8 {
+            return Err(_png_encode_capability("component-u8-required"))
+          } else if metadata.alpha() is Some(_) {
+            return Err(_png_encode_capability("gray-alpha-unsupported"))
+          } else {
+            1UL
+          }
+        _ => return Err(_png_encode_capability("gray8-required"))
+      }
+    PngEncodeProfile::Gray16 =>
+      match format.channels() {
+        @model.ChannelOrder::Gray =>
+          if metadata.alpha() is Some(_) {
+            return Err(_png_encode_capability("gray-alpha-unsupported"))
+          } else if format.component() != @model.ComponentType::U16 {
+            return Err(_png_encode_capability("component-u16-required"))
+          } else {
+            2UL
+          }
+        _ => return Err(_png_encode_capability("gray16-required"))
+      }
+    PngEncodeProfile::GrayAlpha8 =>
+      match format.channels() {
+        @model.ChannelOrder::GrayAlpha =>
+          if metadata.alpha() != Some(@color.AlphaMode::Straight) {
+            return Err(_png_encode_capability("straight-alpha-required"))
+          } else if format.component() != @model.ComponentType::U8 {
+            return Err(_png_encode_capability("component-u8-required"))
+          } else {
+            2UL
+          }
+        _ => return Err(_png_encode_capability("graya8-required"))
+      }
+    PngEncodeProfile::GrayAlpha16 =>
+      match format.channels() {
+        @model.ChannelOrder::GrayAlpha =>
+          if metadata.alpha() != Some(@color.AlphaMode::Straight) {
+            return Err(_png_encode_capability("straight-alpha-required"))
+          } else if format.component() != @model.ComponentType::U16 {
+            return Err(_png_encode_capability("component-u16-required"))
+          } else {
+            4UL
+          }
+        _ => return Err(_png_encode_capability("graya16-required"))
+      }
+    PngEncodeProfile::Rgba16 =>
+      match format.channels() {
+        @model.ChannelOrder::Rgba =>
+          if metadata.alpha() != Some(@color.AlphaMode::Straight) {
+            return Err(_png_encode_capability("straight-alpha-required"))
+          } else if format.component() != @model.ComponentType::U16 {
+            return Err(_png_encode_capability("component-u16-required"))
+          } else if format.endianness() != @model.Endianness::Little {
+            return Err(_png_encode_capability("little-endian-required"))
+          } else {
+            8UL
+          }
+        _ => return Err(_png_encode_capability("rgba16-required"))
+      }
   }
   let row_bytes = match @checked.checked_mul(source.width(), channels) {
     Err(error) => return Err(error)
@@ -303,7 +341,7 @@ fn _png_encode_source(
     return Err(_png_encode_capability("tightly-packed-rows-required"))
   }
   match _png_profile_packed_gray_depth(profile) {
-    Some(_) => {
+    Some(_) =>
       for y = 0UL; y < source.height(); y = y + 1UL {
         for x = 0UL; x < source.width(); x = x + 1UL {
           let sample = match source.get_byte(x, y, 0UL) {
@@ -316,7 +354,6 @@ fn _png_encode_source(
           }
         }
       }
-    }
     None => ()
   }
   Ok(channels)
@@ -339,7 +376,25 @@ priv struct PngEncodePreflight {
   frame : PngFrameFacts
 }
 
-///| Scalar PNG chunk boundaries. Zero-length ancillary spans keep the legacy
+///|
+/// Keep ledger fields live for deny-warn without changing encode results.
+fn _png_encode_preflight_observe(preflight : PngEncodePreflight) -> Unit {
+  ignore(preflight.selected_work)
+  ignore(preflight.adaptive_planning_facts.resolved_rows)
+  ignore(preflight.adaptive_replay_facts.resolved_rows)
+  match preflight.plan {
+    PngDeflatePlan::Stored(_) => ()
+    PngDeflatePlan::Fixed(plan) => ignore(plan.deflate_bits)
+    PngDeflatePlan::Dynamic(plan) => {
+      ignore(plan.deflate_bits)
+      ignore(plan.frequency_facts.resolved_rows)
+      ignore(plan.bit_facts.resolved_rows)
+    }
+  }
+}
+
+///|
+/// Scalar PNG chunk boundaries. Zero-length ancillary spans keep the legacy
 /// offsets numerically identical; Indexed8 can supply PLTE and canonical tRNS.
 priv struct PngFrameFacts {
   plte_length : UInt64
@@ -394,7 +449,8 @@ fn _png_frame_facts(
   })
 }
 
-///| The adaptive ledger records executed row selection and residual work.  It
+///|
+/// The adaptive ledger records executed row selection and residual work.  It
 /// deliberately does not count byte lookups: a bounded replay may revisit a
 /// buffered byte without rescoring the source row.
 priv struct PngFilteredTraversalFacts {
@@ -415,26 +471,34 @@ fn _png_filtered_facts_add(
   left : PngFilteredTraversalFacts,
   right : PngFilteredTraversalFacts,
 ) -> Result[PngFilteredTraversalFacts, @error.CoreError] {
-  let resolved_rows = match _png_fixed_add(left.resolved_rows, right.resolved_rows) {
-    Err(error) => return Err(error); Ok(value) => value
+  let resolved_rows = match
+    _png_fixed_add(left.resolved_rows, right.resolved_rows) {
+    Err(error) => return Err(error)
+    Ok(value) => value
   }
-  let candidate_residuals = match _png_fixed_add(
-    left.candidate_residuals, right.candidate_residuals,
-  ) { Err(error) => return Err(error); Ok(value) => value }
-  let selected_residuals = match _png_fixed_add(
-    left.selected_residuals, right.selected_residuals,
-  ) { Err(error) => return Err(error); Ok(value) => value }
+  let candidate_residuals = match
+    _png_fixed_add(left.candidate_residuals, right.candidate_residuals) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  let selected_residuals = match
+    _png_fixed_add(left.selected_residuals, right.selected_residuals) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
   Ok({ resolved_rows, candidate_residuals, selected_residuals })
 }
 
-///| The explicit Stored plan preserves the historical emission arithmetic.
+///|
+/// The explicit Stored plan preserves the historical emission arithmetic.
 priv struct PngStoredPlan {
   blocks : UInt64
   idat_length : UInt64
   total_length : UInt64
 }
 
-///| The selected fixed plan keeps only scalar replay facts; it never stores
+///|
+/// The selected fixed plan keeps only scalar replay facts; it never stores
 /// tokens, scanlines, or compressed output.
 priv struct PngFixedPlan {
   deflate_bits : UInt64
@@ -446,7 +510,8 @@ priv struct PngFixedPlan {
   total_length : UInt64
 }
 
-///| A dynamic plan is deliberately bounded by DEFLATE's alphabets.  The RLE
+///|
+/// A dynamic plan is deliberately bounded by DEFLATE's alphabets.  The RLE
 /// arrays have their RFC maximum (286 + 30); no image-sized token/output buffer
 /// crosses the planning/replay boundary.
 priv struct PngDynamicPlan {
@@ -471,7 +536,9 @@ priv struct PngDynamicPlan {
 }
 
 ///| Dynamic planning returns cursor facts even when the ordinary bounded
-///| Huffman builder declines a candidate.
+
+///|
+/// Huffman builder declines a candidate.
 priv struct PngDynamicPlanOutcome {
   plan : PngDynamicPlan?
   frequency_facts : PngFilteredTraversalFacts
@@ -486,14 +553,18 @@ priv enum PngDeflatePlan {
 }
 
 ///|
-fn _png_fixed_add(left : UInt64, right : UInt64) -> Result[UInt64, @error.CoreError] {
+fn _png_fixed_add(
+  left : UInt64,
+  right : UInt64,
+) -> Result[UInt64, @error.CoreError] {
   match @checked.checked_add(left, right) {
     Ok(value) => Ok(value)
     Err(error) => Err(error)
   }
 }
 
-///| Checked work composition keeps resource admission independent of target
+///|
+/// Checked work composition keeps resource admission independent of target
 /// integer overflow behaviour.
 fn _png_encode_selected_work(
   total_length : UInt64,
@@ -501,15 +572,18 @@ fn _png_encode_selected_work(
   adaptive_filter_work : UInt64,
 ) -> Result[UInt64, @error.CoreError] {
   let with_planning = match _png_fixed_add(total_length, matcher_work) {
-    Err(error) => return Err(error); Ok(value) => value
+    Err(error) => return Err(error)
+    Ok(value) => value
   }
   let with_replay = match _png_fixed_add(with_planning, matcher_work) {
-    Err(error) => return Err(error); Ok(value) => value
+    Err(error) => return Err(error)
+    Ok(value) => value
   }
   _png_fixed_add(with_replay, adaptive_filter_work)
 }
 
-///| PNG method-0 filter candidates remain in their mandated stable order.
+///|
+/// PNG method-0 filter candidates remain in their mandated stable order.
 priv enum PngRowFilter {
   None
   Sub
@@ -519,7 +593,10 @@ priv enum PngRowFilter {
 } derive(Eq)
 
 ///|
-fn _png_filter_raw_byte(row : Bytes, position : UInt64) -> Result[Byte, @error.CoreError] {
+fn _png_filter_raw_byte(
+  row : Bytes,
+  position : UInt64,
+) -> Result[Byte, @error.CoreError] {
   if position >= row.length().to_uint64() {
     Err(_png_encode_capability("png-filter-row-access"))
   } else {
@@ -528,23 +605,50 @@ fn _png_filter_raw_byte(row : Bytes, position : UInt64) -> Result[Byte, @error.C
 }
 
 ///|
-fn _png_filter_above_byte(above : Bytes?, position : UInt64) -> Result[Byte, @error.CoreError] {
+fn _png_filter_above_byte(
+  above : Bytes?,
+  position : UInt64,
+) -> Result[Byte, @error.CoreError] {
   match above {
     None => Ok(b'\x00')
     Some(row) => _png_filter_raw_byte(row, position)
   }
 }
 
-///| The predictor's bounded Int arithmetic cannot overflow for Byte samples.
-fn _png_filter_paeth_predictor(left : Byte, above : Byte, upper_left : Byte) -> Byte {
+///|
+/// The predictor's bounded Int arithmetic cannot overflow for Byte samples.
+fn _png_filter_paeth_predictor(
+  left : Byte,
+  above : Byte,
+  upper_left : Byte,
+) -> Byte {
   let prediction = left.to_int() + above.to_int() - upper_left.to_int()
-  let pa = if prediction >= left.to_int() { prediction - left.to_int() } else { left.to_int() - prediction }
-  let pb = if prediction >= above.to_int() { prediction - above.to_int() } else { above.to_int() - prediction }
-  let pc = if prediction >= upper_left.to_int() { prediction - upper_left.to_int() } else { upper_left.to_int() - prediction }
-  if pa <= pb && pa <= pc { left } else if pb <= pc { above } else { upper_left }
+  let pa = if prediction >= left.to_int() {
+    prediction - left.to_int()
+  } else {
+    left.to_int() - prediction
+  }
+  let pb = if prediction >= above.to_int() {
+    prediction - above.to_int()
+  } else {
+    above.to_int() - prediction
+  }
+  let pc = if prediction >= upper_left.to_int() {
+    prediction - upper_left.to_int()
+  } else {
+    upper_left.to_int() - prediction
+  }
+  if pa <= pb && pa <= pc {
+    left
+  } else if pb <= pc {
+    above
+  } else {
+    upper_left
+  }
 }
 
-///| Return one PNG method-0 residual from original source-row samples.
+///|
+/// Return one PNG method-0 residual from original source-row samples.
 fn _png_filter_candidate_byte(
   filter : PngRowFilter,
   source : Bytes,
@@ -552,29 +656,47 @@ fn _png_filter_candidate_byte(
   channels : UInt64,
   position : UInt64,
 ) -> Result[Byte, @error.CoreError] {
-  if channels != 1UL && channels != 3UL && channels != 4UL { return Err(_png_encode_capability("png-filter-channels")) }
-  if source.length().to_uint64() % channels != 0UL { return Err(_png_encode_capability("png-filter-row-bytes")) }
+  if channels != 1UL && channels != 3UL && channels != 4UL {
+    return Err(_png_encode_capability("png-filter-channels"))
+  }
+  if source.length().to_uint64() % channels != 0UL {
+    return Err(_png_encode_capability("png-filter-row-bytes"))
+  }
   match above {
-    Some(row) if row.length() != source.length() => return Err(_png_encode_capability("png-filter-above-row-bytes"))
+    Some(row) if row.length() != source.length() =>
+      return Err(_png_encode_capability("png-filter-above-row-bytes"))
     _ => ()
   }
-  let sample = match _png_filter_raw_byte(source, position) { Err(error) => return Err(error); Ok(value) => value }
+  let sample = match _png_filter_raw_byte(source, position) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
   let left = if position < channels {
     b'\x00'
   } else {
-    match _png_filter_raw_byte(source, position - channels) { Err(error) => return Err(error); Ok(value) => value }
+    match _png_filter_raw_byte(source, position - channels) {
+      Err(error) => return Err(error)
+      Ok(value) => value
+    }
   }
-  let up = match _png_filter_above_byte(above, position) { Err(error) => return Err(error); Ok(value) => value }
+  let up = match _png_filter_above_byte(above, position) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
   let upper_left = if position < channels {
     b'\x00'
   } else {
-    match _png_filter_above_byte(above, position - channels) { Err(error) => return Err(error); Ok(value) => value }
+    match _png_filter_above_byte(above, position - channels) {
+      Err(error) => return Err(error)
+      Ok(value) => value
+    }
   }
   let predictor = match filter {
     PngRowFilter::None => b'\x00'
     PngRowFilter::Sub => left
     PngRowFilter::Up => up
-    PngRowFilter::Average => ((left.to_uint64() + up.to_uint64()) / 2UL).to_byte()
+    PngRowFilter::Average =>
+      ((left.to_uint64() + up.to_uint64()) / 2UL).to_byte()
     PngRowFilter::Paeth => _png_filter_paeth_predictor(left, up, upper_left)
   }
   Ok(sample - predictor)
@@ -583,10 +705,15 @@ fn _png_filter_candidate_byte(
 ///|
 fn _png_filter_signed_magnitude(residual : Byte) -> UInt64 {
   let value = residual.to_uint64()
-  if value <= 127UL { value } else { 256UL - value }
+  if value <= 127UL {
+    value
+  } else {
+    256UL - value
+  }
 }
 
-///| Score a complete candidate row with PNG's signed-residual heuristic.
+///|
+/// Score a complete candidate row with PNG's signed-residual heuristic.
 fn _png_filter_candidate_score(
   filter : PngRowFilter,
   source : Bytes,
@@ -594,12 +721,16 @@ fn _png_filter_candidate_score(
   channels : UInt64,
 ) -> Result[UInt64, @error.CoreError] {
   let mut score = 0UL
-  for position = 0UL; position < source.length().to_uint64(); position = position + 1UL {
-    let residual = match _png_filter_candidate_byte(filter, source, above, channels, position) {
+  for position = 0UL
+      position < source.length().to_uint64()
+      position = position + 1UL {
+    let residual = match
+      _png_filter_candidate_byte(filter, source, above, channels, position) {
       Err(error) => return Err(error)
       Ok(value) => value
     }
-    score = match _png_fixed_add(score, _png_filter_signed_magnitude(residual)) {
+    score = match
+      _png_fixed_add(score, _png_filter_signed_magnitude(residual)) {
       Err(error) => return Err(error)
       Ok(value) => value
     }
@@ -607,19 +738,28 @@ fn _png_filter_candidate_score(
   Ok(score)
 }
 
-///| Select the first minimum-scoring method-0 candidate in PNG's fixed order.
+///|
+/// Select the first minimum-scoring method-0 candidate in PNG's fixed order.
 fn _png_filter_row_winner(
   source : Bytes,
   above : Bytes?,
   channels : UInt64,
 ) -> Result[(PngRowFilter, UInt64), @error.CoreError] {
   let mut winner = PngRowFilter::None
-  let mut winner_score = match _png_filter_candidate_score(winner, source, above, channels) {
+  let mut winner_score = match
+    _png_filter_candidate_score(winner, source, above, channels) {
     Err(error) => return Err(error)
     Ok(value) => value
   }
-  for candidate in [PngRowFilter::Sub, PngRowFilter::Up, PngRowFilter::Average, PngRowFilter::Paeth] {
-    let score = match _png_filter_candidate_score(candidate, source, above, channels) {
+  for
+    candidate in [
+      PngRowFilter::Sub,
+      PngRowFilter::Up,
+      PngRowFilter::Average,
+      PngRowFilter::Paeth,
+    ] {
+    let score = match
+      _png_filter_candidate_score(candidate, source, above, channels) {
       Err(error) => return Err(error)
       Ok(value) => value
     }
@@ -631,16 +771,20 @@ fn _png_filter_row_winner(
   Ok((winner, winner_score))
 }
 
-///| Whether a profile maps its U16 source components to PNG big-endian wire
+///|
+/// Whether a profile maps its U16 source components to PNG big-endian wire
 /// bytes before every filter, planner, checksum, and replay traversal.
 fn _png_profile_uses_u16_component_wire(profile : PngEncodeProfile) -> Bool {
   match profile {
-    PngEncodeProfile::Gray16 | PngEncodeProfile::GrayAlpha16 | PngEncodeProfile::Rgba16 => true
+    PngEncodeProfile::Gray16
+    | PngEncodeProfile::GrayAlpha16
+    | PngEncodeProfile::Rgba16 => true
     _ => false
   }
 }
 
-///| Read one scalar PNG wire byte. U16 profiles map each storage-order
+///|
+/// Read one scalar PNG wire byte. U16 profiles map each storage-order
 /// component independently to mandatory big-endian PNG wire order.
 fn _png_wire_byte(
   source : @storage.ImageView,
@@ -650,11 +794,13 @@ fn _png_wire_byte(
   position : UInt64,
 ) -> Result[Byte, @error.CoreError] {
   match profile {
-    PngEncodeProfile::Gray1 | PngEncodeProfile::Gray2 | PngEncodeProfile::Gray4 => {
+    PngEncodeProfile::Gray1
+    | PngEncodeProfile::Gray2
+    | PngEncodeProfile::Gray4 => {
       let depth = _png_profile_packed_gray_depth(profile).unwrap()
-      let first = (position * 8UL) / depth
-      let end = if first + (8UL / depth) < source.width() {
-        first + (8UL / depth)
+      let first = position * 8UL / depth
+      let end = if first + 8UL / depth < source.width() {
+        first + 8UL / depth
       } else {
         source.width()
       }
@@ -674,20 +820,28 @@ fn _png_wire_byte(
       }
       Ok(packed.to_byte())
     }
-    PngEncodeProfile::Gray16 | PngEncodeProfile::GrayAlpha16 | PngEncodeProfile::Rgba16 => {
-      let component = (position % channels) / 2UL
+    PngEncodeProfile::Gray16
+    | PngEncodeProfile::GrayAlpha16
+    | PngEncodeProfile::Rgba16 => {
+      let component = position % channels / 2UL
       let wire_byte = position % 2UL
       let storage_byte = match source.format().endianness() {
         @model.Endianness::Little => 1UL - wire_byte
         @model.Endianness::Big => wire_byte
       }
-      source.get_component_byte(position / channels, row, component, storage_byte)
+      source.get_component_byte(
+        position / channels,
+        row,
+        component,
+        storage_byte,
+      )
     }
     _ => source.get_byte(position / channels, row, position % channels)
   }
 }
 
-///| Return a scanline byte without materialising a filter-None scanline.
+///|
+/// Return a scanline byte without materialising a filter-None scanline.
 fn _png_fixed_scanline_byte(
   source : @storage.ImageView,
   profile : PngEncodeProfile,
@@ -705,7 +859,8 @@ fn _png_fixed_scanline_byte(
   }
 }
 
-///| Convert the stable method-0 row selection to its on-wire filter tag.
+///|
+/// Convert the stable method-0 row selection to its on-wire filter tag.
 fn _png_filter_tag(filter : PngRowFilter) -> Byte {
   match filter {
     PngRowFilter::None => b'\x00'
@@ -716,7 +871,8 @@ fn _png_filter_tag(filter : PngRowFilter) -> Byte {
   }
 }
 
-///| Read a raw source row without materialising source or residual bytes.
+///|
+/// Read a raw source row without materialising source or residual bytes.
 fn _png_filter_image_raw_byte(
   source : @storage.ImageView,
   profile : PngEncodeProfile,
@@ -727,7 +883,8 @@ fn _png_filter_image_raw_byte(
   _png_wire_byte(source, profile, row, channels, position)
 }
 
-///| Apply a method-0 candidate directly to one ImageView row. This keeps the
+///|
+/// Apply a method-0 candidate directly to one ImageView row. This keeps the
 /// adaptive source bounded to scalar coordinates and pixel reads.
 fn _png_filter_image_candidate_byte(
   filter : PngRowFilter,
@@ -738,36 +895,66 @@ fn _png_filter_image_candidate_byte(
   channels : UInt64,
   position : UInt64,
 ) -> Result[Byte, @error.CoreError] {
-  if position >= row_bytes { return Err(_png_encode_capability("png-filter-row-access")) }
-  let sample = match _png_filter_image_raw_byte(source, profile, row, channels, position) {
-    Err(error) => return Err(error); Ok(value) => value
+  if position >= row_bytes {
+    return Err(_png_encode_capability("png-filter-row-access"))
   }
-  let left = if position < channels { b'\x00' } else {
-    match _png_filter_image_raw_byte(source, profile, row, channels, position - channels) {
-      Err(error) => return Err(error); Ok(value) => value
+  let sample = match
+    _png_filter_image_raw_byte(source, profile, row, channels, position) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  let left = if position < channels {
+    b'\x00'
+  } else {
+    match
+      _png_filter_image_raw_byte(
+        source,
+        profile,
+        row,
+        channels,
+        position - channels,
+      ) {
+      Err(error) => return Err(error)
+      Ok(value) => value
     }
   }
-  let up = if row == 0UL { b'\x00' } else {
-    match _png_filter_image_raw_byte(source, profile, row - 1UL, channels, position) {
-      Err(error) => return Err(error); Ok(value) => value
+  let up = if row == 0UL {
+    b'\x00'
+  } else {
+    match
+      _png_filter_image_raw_byte(source, profile, row - 1UL, channels, position) {
+      Err(error) => return Err(error)
+      Ok(value) => value
     }
   }
-  let upper_left = if row == 0UL || position < channels { b'\x00' } else {
-    match _png_filter_image_raw_byte(source, profile, row - 1UL, channels, position - channels) {
-      Err(error) => return Err(error); Ok(value) => value
+  let upper_left = if row == 0UL || position < channels {
+    b'\x00'
+  } else {
+    match
+      _png_filter_image_raw_byte(
+        source,
+        profile,
+        row - 1UL,
+        channels,
+        position - channels,
+      ) {
+      Err(error) => return Err(error)
+      Ok(value) => value
     }
   }
   let predictor = match filter {
     PngRowFilter::None => b'\x00'
     PngRowFilter::Sub => left
     PngRowFilter::Up => up
-    PngRowFilter::Average => ((left.to_uint64() + up.to_uint64()) / 2UL).to_byte()
+    PngRowFilter::Average =>
+      ((left.to_uint64() + up.to_uint64()) / 2UL).to_byte()
     PngRowFilter::Paeth => _png_filter_paeth_predictor(left, up, upper_left)
   }
   Ok(sample - predictor)
 }
 
-///| Select one row's first minimum candidate using only scalar positions.
+///|
+/// Select one row's first minimum candidate using only scalar positions.
 fn _png_filter_image_row_winner(
   source : @storage.ImageView,
   profile : PngEncodeProfile,
@@ -777,14 +964,27 @@ fn _png_filter_image_row_winner(
 ) -> Result[PngRowFilter, @error.CoreError] {
   let mut winner = PngRowFilter::None
   let mut winner_score = 0UL
-  for candidate in [PngRowFilter::None, PngRowFilter::Sub, PngRowFilter::Up, PngRowFilter::Average, PngRowFilter::Paeth] {
+  for
+    candidate in [
+      PngRowFilter::None,
+      PngRowFilter::Sub,
+      PngRowFilter::Up,
+      PngRowFilter::Average,
+      PngRowFilter::Paeth,
+    ] {
     let mut score = 0UL
     for position = 0UL; position < row_bytes; position = position + 1UL {
-      let residual = match _png_filter_image_candidate_byte(
-        candidate, source, profile, row, row_bytes, channels, position,
-      ) { Err(error) => return Err(error); Ok(value) => value }
-      score = match _png_fixed_add(score, _png_filter_signed_magnitude(residual)) {
-        Err(error) => return Err(error); Ok(value) => value
+      let residual = match
+        _png_filter_image_candidate_byte(
+          candidate, source, profile, row, row_bytes, channels, position,
+        ) {
+        Err(error) => return Err(error)
+        Ok(value) => value
+      }
+      score = match
+        _png_fixed_add(score, _png_filter_signed_magnitude(residual)) {
+        Err(error) => return Err(error)
+        Ok(value) => value
       }
     }
     if candidate == PngRowFilter::None || score < winner_score {
@@ -795,7 +995,8 @@ fn _png_filter_image_row_winner(
   Ok(winner)
 }
 
-///| Resolve one Adam7 logical byte from the checked structural pass records.
+///|
+/// Resolve one Adam7 logical byte from the checked structural pass records.
 /// The cursor retains no pass collection: every lookup obtains geometry from
 /// the sole authority and keeps only its scalar logical position.
 fn _png_adam7_cursor_location(
@@ -803,20 +1004,27 @@ fn _png_adam7_cursor_location(
   channels : UInt64,
   index : UInt64,
 ) -> Result[(PngAdam7Pass, UInt64, UInt64), @error.CoreError] {
-  let passes = match _png_adam7_passes(source.width(), source.height(), channels, 8) {
-    Err(error) => return Err(error); Ok(value) => value
+  let passes = match
+    _png_adam7_passes(source.width(), source.height(), channels, 8) {
+    Err(error) => return Err(error)
+    Ok(value) => value
   }
   let mut offset = 0UL
   for pass in passes {
-    if pass.width == 0UL || pass.height == 0UL { continue }
+    if pass.width == 0UL || pass.height == 0UL {
+      continue
+    }
     let row_width = match @checked.checked_add(pass.row_bytes, 1UL) {
-      Err(error) => return Err(error); Ok(value) => value
+      Err(error) => return Err(error)
+      Ok(value) => value
     }
     let bytes = match @checked.checked_mul(row_width, pass.height) {
-      Err(error) => return Err(error); Ok(value) => value
+      Err(error) => return Err(error)
+      Ok(value) => value
     }
     let end = match @checked.checked_add(offset, bytes) {
-      Err(error) => return Err(error); Ok(value) => value
+      Err(error) => return Err(error)
+      Ok(value) => value
     }
     if index < end {
       let relative = index - offset
@@ -827,7 +1035,8 @@ fn _png_adam7_cursor_location(
   Err(_png_encode_capability("png-adam7-cursor-end"))
 }
 
-///| Pass-local raw sample lookup.  `row` is deliberately the row within the
+///|
+/// Pass-local raw sample lookup.  `row` is deliberately the row within the
 /// selected pass, so Up/Average/Paeth never cross a pass boundary.
 fn _png_adam7_raw_byte(
   source : @storage.ImageView,
@@ -837,14 +1046,19 @@ fn _png_adam7_raw_byte(
   channels : UInt64,
   position : UInt64,
 ) -> Result[Byte, @error.CoreError] {
-  let source_position =
-    (pass.x + (position / channels) * pass.dx) * channels + position % channels
+  let source_position = (pass.x + position / channels * pass.dx) * channels +
+    position % channels
   _png_wire_byte(
-    source, profile, pass.y + row * pass.dy, channels, source_position,
+    source,
+    profile,
+    pass.y + row * pass.dy,
+    channels,
+    source_position,
   )
 }
 
-///| Apply a filter candidate without materialising an Adam7 pass row.
+///|
+/// Apply a filter candidate without materialising an Adam7 pass row.
 fn _png_adam7_candidate_byte(
   filter : PngRowFilter,
   source : @storage.ImageView,
@@ -854,36 +1068,68 @@ fn _png_adam7_candidate_byte(
   channels : UInt64,
   position : UInt64,
 ) -> Result[Byte, @error.CoreError] {
-  if position >= pass.row_bytes { return Err(_png_encode_capability("png-adam7-row-access")) }
-  let sample = match _png_adam7_raw_byte(source, profile, pass, row, channels, position) {
-    Err(error) => return Err(error); Ok(value) => value
+  if position >= pass.row_bytes {
+    return Err(_png_encode_capability("png-adam7-row-access"))
   }
-  let left = if position < channels { b'\x00' } else {
-    match _png_adam7_raw_byte(source, profile, pass, row, channels, position - channels) {
-      Err(error) => return Err(error); Ok(value) => value
+  let sample = match
+    _png_adam7_raw_byte(source, profile, pass, row, channels, position) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  let left = if position < channels {
+    b'\x00'
+  } else {
+    match
+      _png_adam7_raw_byte(
+        source,
+        profile,
+        pass,
+        row,
+        channels,
+        position - channels,
+      ) {
+      Err(error) => return Err(error)
+      Ok(value) => value
     }
   }
-  let up = if row == 0UL { b'\x00' } else {
-    match _png_adam7_raw_byte(source, profile, pass, row - 1UL, channels, position) {
-      Err(error) => return Err(error); Ok(value) => value
+  let up = if row == 0UL {
+    b'\x00'
+  } else {
+    match
+      _png_adam7_raw_byte(source, profile, pass, row - 1UL, channels, position) {
+      Err(error) => return Err(error)
+      Ok(value) => value
     }
   }
-  let upper_left = if row == 0UL || position < channels { b'\x00' } else {
-    match _png_adam7_raw_byte(source, profile, pass, row - 1UL, channels, position - channels) {
-      Err(error) => return Err(error); Ok(value) => value
+  let upper_left = if row == 0UL || position < channels {
+    b'\x00'
+  } else {
+    match
+      _png_adam7_raw_byte(
+        source,
+        profile,
+        pass,
+        row - 1UL,
+        channels,
+        position - channels,
+      ) {
+      Err(error) => return Err(error)
+      Ok(value) => value
     }
   }
   let predictor = match filter {
     PngRowFilter::None => b'\x00'
     PngRowFilter::Sub => left
     PngRowFilter::Up => up
-    PngRowFilter::Average => ((left.to_uint64() + up.to_uint64()) / 2UL).to_byte()
+    PngRowFilter::Average =>
+      ((left.to_uint64() + up.to_uint64()) / 2UL).to_byte()
     PngRowFilter::Paeth => _png_filter_paeth_predictor(left, up, upper_left)
   }
   Ok(sample - predictor)
 }
 
-///| Choose a method-0 filter for one local Adam7 row with scalar pixel reads.
+///|
+/// Choose a method-0 filter for one local Adam7 row with scalar pixel reads.
 fn _png_adam7_row_winner(
   source : @storage.ImageView,
   profile : PngEncodeProfile,
@@ -893,14 +1139,27 @@ fn _png_adam7_row_winner(
 ) -> Result[PngRowFilter, @error.CoreError] {
   let mut winner = PngRowFilter::None
   let mut winner_score = 0UL
-  for candidate in [PngRowFilter::None, PngRowFilter::Sub, PngRowFilter::Up, PngRowFilter::Average, PngRowFilter::Paeth] {
+  for
+    candidate in [
+      PngRowFilter::None,
+      PngRowFilter::Sub,
+      PngRowFilter::Up,
+      PngRowFilter::Average,
+      PngRowFilter::Paeth,
+    ] {
     let mut score = 0UL
     for position = 0UL; position < pass.row_bytes; position = position + 1UL {
-      let residual = match _png_adam7_candidate_byte(candidate, source, profile, pass, row, channels, position) {
-        Err(error) => return Err(error); Ok(value) => value
+      let residual = match
+        _png_adam7_candidate_byte(
+          candidate, source, profile, pass, row, channels, position,
+        ) {
+        Err(error) => return Err(error)
+        Ok(value) => value
       }
-      score = match _png_fixed_add(score, _png_filter_signed_magnitude(residual)) {
-        Err(error) => return Err(error); Ok(value) => value
+      score = match
+        _png_fixed_add(score, _png_filter_signed_magnitude(residual)) {
+        Err(error) => return Err(error)
+        Ok(value) => value
       }
     }
     if candidate == PngRowFilter::None || score < winner_score {
@@ -911,7 +1170,8 @@ fn _png_adam7_row_winner(
   Ok(winner)
 }
 
-///| A forward-only logical filter stream.  Adaptive resolves a row only when
+///|
+/// A forward-only logical filter stream.  Adaptive resolves a row only when
 /// its tag is first entered, retains that winner for its payload, and carries
 /// only scalar row state across the caller-owned replay boundary.
 priv struct PngFilteredCursor {
@@ -935,7 +1195,12 @@ fn PngFilteredCursor::new(
   profile? : PngEncodeProfile = PngEncodeProfile::LegacyRgbOrRgba,
 ) -> PngFilteredCursor {
   PngFilteredCursor::new_with_interlace(
-    source, row_bytes, channels, filter_strategy, PngInterlaceStrategy::None, profile=profile,
+    source,
+    row_bytes,
+    channels,
+    filter_strategy,
+    PngInterlaceStrategy::None,
+    profile~,
   )
 }
 
@@ -949,9 +1214,18 @@ fn PngFilteredCursor::new_with_interlace(
   profile? : PngEncodeProfile = PngEncodeProfile::LegacyRgbOrRgba,
 ) -> PngFilteredCursor {
   {
-    source, profile, row_bytes, channels, filter_strategy, interlace_strategy, index: 0UL, winner: None,
+    source,
+    profile,
+    row_bytes,
+    channels,
+    filter_strategy,
+    interlace_strategy,
+    index: 0UL,
+    winner: None,
     traversal_facts: {
-      resolved_rows: 0UL, candidate_residuals: 0UL, selected_residuals: 0UL,
+      resolved_rows: 0UL,
+      candidate_residuals: 0UL,
+      selected_residuals: 0UL,
     },
   }
 }
@@ -963,121 +1237,223 @@ fn PngFilteredCursor::facts(
   self.traversal_facts
 }
 
-///| Return the next logical filtered byte and an uncommitted successor.  This
+///|
+/// Return the next logical filtered byte and an uncommitted successor.  This
 /// persistent form lets `present` keep a preview private until acknowledgement.
 fn PngFilteredCursor::next(
   self : PngFilteredCursor,
 ) -> Result[(Byte, PngFilteredCursor), @error.CoreError] {
   if self.interlace_strategy == PngInterlaceStrategy::Adam7 {
-    let (pass, row, in_row) = match _png_adam7_cursor_location(
-      self.source, self.channels, self.index,
-    ) { Err(error) => return Err(error); Ok(value) => value }
+    let (pass, row, in_row) = match
+      _png_adam7_cursor_location(self.source, self.channels, self.index) {
+      Err(error) => return Err(error)
+      Ok(value) => value
+    }
     if in_row == 0UL {
       let winner = match self.filter_strategy {
         PngFilterStrategy::None => PngRowFilter::None
-        PngFilterStrategy::Adaptive => match _png_adam7_row_winner(
-          self.source, self.profile, pass, row, self.channels,
-        ) { Err(error) => return Err(error); Ok(value) => value }
+        PngFilterStrategy::Adaptive =>
+          match
+            _png_adam7_row_winner(
+              self.source,
+              self.profile,
+              pass,
+              row,
+              self.channels,
+            ) {
+            Err(error) => return Err(error)
+            Ok(value) => value
+          }
       }
       let candidate_residuals = match self.filter_strategy {
         PngFilterStrategy::None => self.traversal_facts.candidate_residuals
-        PngFilterStrategy::Adaptive => match _png_fixed_add(self.traversal_facts.candidate_residuals, 5UL * pass.row_bytes) {
-          Err(error) => return Err(error); Ok(value) => value
-        }
+        PngFilterStrategy::Adaptive =>
+          match
+            _png_fixed_add(
+              self.traversal_facts.candidate_residuals,
+              5UL * pass.row_bytes,
+            ) {
+            Err(error) => return Err(error)
+            Ok(value) => value
+          }
       }
       let resolved_rows = match self.filter_strategy {
         PngFilterStrategy::None => self.traversal_facts.resolved_rows
-        PngFilterStrategy::Adaptive => match _png_fixed_add(self.traversal_facts.resolved_rows, 1UL) {
-          Err(error) => return Err(error); Ok(value) => value
-        }
+        PngFilterStrategy::Adaptive =>
+          match _png_fixed_add(self.traversal_facts.resolved_rows, 1UL) {
+            Err(error) => return Err(error)
+            Ok(value) => value
+          }
       }
-      return Ok((_png_filter_tag(winner), { ..self, index: self.index + 1UL,
-        winner: Some(winner), traversal_facts: {
-          resolved_rows, candidate_residuals,
-          selected_residuals: self.traversal_facts.selected_residuals,
-        } }))
+      return Ok(
+        (
+          _png_filter_tag(winner),
+          {
+            ..self,
+            index: self.index + 1UL,
+            winner: Some(winner),
+            traversal_facts: {
+              resolved_rows,
+              candidate_residuals,
+              selected_residuals: self.traversal_facts.selected_residuals,
+            },
+          },
+        ),
+      )
     }
     let winner = match self.winner {
       Some(value) => value
       None => return Err(_png_encode_capability("png-adam7-cursor-winner"))
     }
-    let byte = match _png_adam7_candidate_byte(
-      winner, self.source, self.profile, pass, row, self.channels, in_row - 1UL,
-    ) { Err(error) => return Err(error); Ok(value) => value }
+    let byte = match
+      _png_adam7_candidate_byte(
+        winner,
+        self.source,
+        self.profile,
+        pass,
+        row,
+        self.channels,
+        in_row - 1UL,
+      ) {
+      Err(error) => return Err(error)
+      Ok(value) => value
+    }
     let selected_residuals = match self.filter_strategy {
       PngFilterStrategy::None => self.traversal_facts.selected_residuals
-      PngFilterStrategy::Adaptive => match _png_fixed_add(self.traversal_facts.selected_residuals, 1UL) {
-        Err(error) => return Err(error); Ok(value) => value
-      }
+      PngFilterStrategy::Adaptive =>
+        match _png_fixed_add(self.traversal_facts.selected_residuals, 1UL) {
+          Err(error) => return Err(error)
+          Ok(value) => value
+        }
     }
-    return Ok((byte, { ..self, index: self.index + 1UL, traversal_facts: {
-      resolved_rows: self.traversal_facts.resolved_rows,
-      candidate_residuals: self.traversal_facts.candidate_residuals, selected_residuals,
-    } }))
+    return Ok(
+      (
+        byte,
+        {
+          ..self,
+          index: self.index + 1UL,
+          traversal_facts: {
+            resolved_rows: self.traversal_facts.resolved_rows,
+            candidate_residuals: self.traversal_facts.candidate_residuals,
+            selected_residuals,
+          },
+        },
+      ),
+    )
   }
   let row_width = match @checked.checked_add(self.row_bytes, 1UL) {
-    Err(error) => return Err(error); Ok(value) => value
+    Err(error) => return Err(error)
+    Ok(value) => value
   }
   let scanlines = match @checked.checked_mul(row_width, self.source.height()) {
-    Err(error) => return Err(error); Ok(value) => value
+    Err(error) => return Err(error)
+    Ok(value) => value
   }
   if self.index >= scanlines {
     return Err(_png_encode_capability("png-filter-cursor-end"))
   }
   match self.filter_strategy {
     PngFilterStrategy::None => {
-      let byte = match _png_fixed_scanline_byte(
-        self.source, self.profile, self.row_bytes, self.channels, self.index,
-      ) { Err(error) => return Err(error); Ok(value) => value }
+      let byte = match
+        _png_fixed_scanline_byte(
+          self.source,
+          self.profile,
+          self.row_bytes,
+          self.channels,
+          self.index,
+        ) {
+        Err(error) => return Err(error)
+        Ok(value) => value
+      }
       Ok((byte, { ..self, index: self.index + 1UL }))
     }
     PngFilterStrategy::Adaptive => {
       let row = self.index / row_width
       let in_row = self.index % row_width
       if in_row == 0UL {
-        let winner = match _png_filter_image_row_winner(
-          self.source, self.profile, row, self.row_bytes, self.channels,
-        ) { Err(error) => return Err(error); Ok(value) => value }
-        let candidate_residuals = match _png_fixed_add(
-          self.traversal_facts.candidate_residuals, 5UL * self.row_bytes,
-        ) { Err(error) => return Err(error); Ok(value) => value }
-        let resolved_rows = match _png_fixed_add(
-          self.traversal_facts.resolved_rows, 1UL,
-        ) { Err(error) => return Err(error); Ok(value) => value }
-        Ok((_png_filter_tag(winner), {
-          ..self,
-          index: self.index + 1UL,
-          winner: Some(winner),
-          traversal_facts: {
-            resolved_rows, candidate_residuals,
-            selected_residuals: self.traversal_facts.selected_residuals,
-          },
-        }))
+        let winner = match
+          _png_filter_image_row_winner(
+            self.source,
+            self.profile,
+            row,
+            self.row_bytes,
+            self.channels,
+          ) {
+          Err(error) => return Err(error)
+          Ok(value) => value
+        }
+        let candidate_residuals = match
+          _png_fixed_add(
+            self.traversal_facts.candidate_residuals,
+            5UL * self.row_bytes,
+          ) {
+          Err(error) => return Err(error)
+          Ok(value) => value
+        }
+        let resolved_rows = match
+          _png_fixed_add(self.traversal_facts.resolved_rows, 1UL) {
+          Err(error) => return Err(error)
+          Ok(value) => value
+        }
+        Ok(
+          (
+            _png_filter_tag(winner),
+            {
+              ..self,
+              index: self.index + 1UL,
+              winner: Some(winner),
+              traversal_facts: {
+                resolved_rows,
+                candidate_residuals,
+                selected_residuals: self.traversal_facts.selected_residuals,
+              },
+            },
+          ),
+        )
       } else {
         let winner = match self.winner {
           Some(value) => value
           None => return Err(_png_encode_capability("png-filter-cursor-winner"))
         }
-        let byte = match _png_filter_image_candidate_byte(
-          winner, self.source, self.profile, row, self.row_bytes, self.channels, in_row - 1UL,
-        ) { Err(error) => return Err(error); Ok(value) => value }
-        let selected_residuals = match _png_fixed_add(
-          self.traversal_facts.selected_residuals, 1UL,
-        ) { Err(error) => return Err(error); Ok(value) => value }
-        Ok((byte, {
-          ..self, index: self.index + 1UL,
-          traversal_facts: {
-            resolved_rows: self.traversal_facts.resolved_rows,
-            candidate_residuals: self.traversal_facts.candidate_residuals,
-            selected_residuals,
-          },
-        }))
+        let byte = match
+          _png_filter_image_candidate_byte(
+            winner,
+            self.source,
+            self.profile,
+            row,
+            self.row_bytes,
+            self.channels,
+            in_row - 1UL,
+          ) {
+          Err(error) => return Err(error)
+          Ok(value) => value
+        }
+        let selected_residuals = match
+          _png_fixed_add(self.traversal_facts.selected_residuals, 1UL) {
+          Err(error) => return Err(error)
+          Ok(value) => value
+        }
+        Ok(
+          (
+            byte,
+            {
+              ..self,
+              index: self.index + 1UL,
+              traversal_facts: {
+                resolved_rows: self.traversal_facts.resolved_rows,
+                candidate_residuals: self.traversal_facts.candidate_residuals,
+                selected_residuals,
+              },
+            },
+          ),
+        )
       }
     }
   }
 }
 
-///| Execute one bounded forward traversal.  Each caller gets fresh scalar
+///|
+/// Execute one bounded forward traversal.  Each caller gets fresh scalar
 /// state, making the preflight ledger a sum of real planning/replay passes.
 fn _png_filtered_traverse(
   source : @storage.ImageView,
@@ -1088,11 +1464,16 @@ fn _png_filtered_traverse(
   scanlines : UInt64,
 ) -> Result[PngFilteredTraversalFacts, @error.CoreError] {
   let mut cursor = PngFilteredCursor::new(
-    source, row_bytes, channels, filter_strategy, profile=profile,
+    source,
+    row_bytes,
+    channels,
+    filter_strategy,
+    profile~,
   )
   while cursor.index < scanlines {
     let (_, next) = match cursor.next() {
-      Err(error) => return Err(error); Ok(value) => value
+      Err(error) => return Err(error)
+      Ok(value) => value
     }
     cursor = next
   }
@@ -1109,16 +1490,21 @@ fn _png_adaptive_traverse(
   scanlines : UInt64,
 ) -> Result[PngFilteredTraversalFacts, @error.CoreError] {
   match filter_strategy {
-    PngFilterStrategy::None => Ok({
-      resolved_rows: 0UL, candidate_residuals: 0UL, selected_residuals: 0UL,
-    })
-    PngFilterStrategy::Adaptive => _png_filtered_traverse(
-      source, profile, row_bytes, channels, filter_strategy, scanlines,
-    )
+    PngFilterStrategy::None =>
+      Ok({
+        resolved_rows: 0UL,
+        candidate_residuals: 0UL,
+        selected_residuals: 0UL,
+      })
+    PngFilterStrategy::Adaptive =>
+      _png_filtered_traverse(
+        source, profile, row_bytes, channels, filter_strategy, scanlines,
+      )
   }
 }
 
-///| The common logical filtered stream. None keeps its legacy provider exactly;
+///|
+/// The common logical filtered stream. None keeps its legacy provider exactly;
 /// Adaptive derives one tag and residual payload from the fixed scorer.
 fn _png_filtered_scanline_byte(
   source : @storage.ImageView,
@@ -1129,26 +1515,39 @@ fn _png_filtered_scanline_byte(
   index : UInt64,
 ) -> Result[Byte, @error.CoreError] {
   match filter_strategy {
-    PngFilterStrategy::None => _png_fixed_scanline_byte(source, profile, row_bytes, channels, index)
+    PngFilterStrategy::None =>
+      _png_fixed_scanline_byte(source, profile, row_bytes, channels, index)
     PngFilterStrategy::Adaptive => {
       let row_width = match @checked.checked_add(row_bytes, 1UL) {
-        Err(error) => return Err(error); Ok(value) => value
+        Err(error) => return Err(error)
+        Ok(value) => value
       }
       let row = index / row_width
       let in_row = index % row_width
-      let winner = match _png_filter_image_row_winner(source, profile, row, row_bytes, channels) {
-        Err(error) => return Err(error); Ok(value) => value
+      let winner = match
+        _png_filter_image_row_winner(source, profile, row, row_bytes, channels) {
+        Err(error) => return Err(error)
+        Ok(value) => value
       }
-      if in_row == 0UL { Ok(_png_filter_tag(winner)) } else {
+      if in_row == 0UL {
+        Ok(_png_filter_tag(winner))
+      } else {
         _png_filter_image_candidate_byte(
-          winner, source, profile, row, row_bytes, channels, in_row - 1UL,
+          winner,
+          source,
+          profile,
+          row,
+          row_bytes,
+          channels,
+          in_row - 1UL,
         )
       }
     }
   }
 }
 
-///| A match cursor deliberately separates the byte producer from logical
+///|
+/// A match cursor deliberately separates the byte producer from logical
 /// DEFLATE consumption. Probes may move `produced_exclusive` ahead, but only
 /// the token that is emitted may advance `logical_position`.
 priv struct PngFilteredMatchCursor {
@@ -1159,7 +1558,8 @@ priv struct PngFilteredMatchCursor {
   window : Array[Byte]
 }
 
-///| The producer remains private to the bounded matcher.  Indexed Type-3
+///|
+/// The producer remains private to the bounded matcher.  Indexed Type-3
 /// routes add only their immutable filter-None scalar source; matching and
 /// retained-window ownership remain identical to generic filtered streams.
 priv enum PngMatchProducer {
@@ -1167,7 +1567,8 @@ priv enum PngMatchProducer {
   IndexedNone(PngIndexedRawCursor)
 }
 
-///| Scalar Type-3 filter-None production for every indexed wire depth.
+///|
+/// Scalar Type-3 filter-None production for every indexed wire depth.
 priv struct PngIndexedRawCursor {
   source : PngIndexedImage
   row_bytes : UInt64
@@ -1177,17 +1578,7 @@ priv struct PngIndexedRawCursor {
 }
 
 ///|
-fn PngIndexedRawCursor::new(
-  source : PngIndexedImage,
-  row_bytes : UInt64,
-  depth : UInt64,
-) -> PngIndexedRawCursor {
-  PngIndexedRawCursor::new_with_interlace(
-    source, row_bytes, depth, PngInterlaceStrategy::None,
-  )
-}
-
-///| The matcher uses the same scalar indexed producer for non-interlaced and
+/// The matcher uses the same scalar indexed producer for non-interlaced and
 /// Adam7 streams; only the pass-aware scanline lookup changes.
 fn PngIndexedRawCursor::new_with_interlace(
   source : PngIndexedImage,
@@ -1210,9 +1601,13 @@ fn PngIndexedRawCursor::next(
   self : PngIndexedRawCursor,
 ) -> Result[(Byte, PngIndexedRawCursor), @error.CoreError] {
   if self.interlace_strategy == PngInterlaceStrategy::Adam7 {
-    let passes = match _png_adam7_passes(
-      self.source.width(), self.source.height(), 1UL, self.depth.to_int(),
-    ) {
+    let passes = match
+      _png_adam7_passes(
+        self.source.width(),
+        self.source.height(),
+        1UL,
+        self.depth.to_int(),
+      ) {
       Err(error) => return Err(error)
       Ok(value) => value
     }
@@ -1223,7 +1618,8 @@ fn PngIndexedRawCursor::next(
           Err(error) => return Err(error)
           Ok(value) => value
         }
-        let pass_scanlines = match @checked.checked_mul(pass_width, pass.height) {
+        let pass_scanlines = match
+          @checked.checked_mul(pass_width, pass.height) {
           Err(error) => return Err(error)
           Ok(value) => value
         }
@@ -1236,29 +1632,39 @@ fn PngIndexedRawCursor::next(
     if self.index >= scanlines {
       return Err(_png_encode_capability("png-indexed-adam7-cursor-end"))
     }
-    let byte = match _png_indexed_adam7_scanline_byte(
-      self.source, self.source.width(), self.source.height(), self.depth, self.index,
-    ) {
+    let byte = match
+      _png_indexed_adam7_scanline_byte(
+        self.source,
+        self.source.width(),
+        self.source.height(),
+        self.depth,
+        self.index,
+      ) {
       Err(error) => return Err(error)
       Ok(value) => value
     }
     return Ok((byte, { ..self, index: self.index + 1UL }))
   }
   let row_width = match _png_fixed_add(self.row_bytes, 1UL) {
-    Err(error) => return Err(error); Ok(value) => value
+    Err(error) => return Err(error)
+    Ok(value) => value
   }
   let scanlines = match @checked.checked_mul(row_width, self.source.height()) {
-    Err(error) => return Err(error); Ok(value) => value
+    Err(error) => return Err(error)
+    Ok(value) => value
   }
   if self.index >= scanlines {
     return Err(_png_encode_capability("png-indexed-cursor-end"))
   }
   let row = self.index / row_width
   let in_row = self.index % row_width
-  if in_row == 0UL { return Ok((b'\x00', { ..self, index: self.index + 1UL })) }
+  if in_row == 0UL {
+    return Ok((b'\x00', { ..self, index: self.index + 1UL }))
+  }
   let byte = if self.depth == 8UL {
     match self.source.index_at(in_row - 1UL, row) {
-      Err(error) => return Err(error); Ok(value) => value
+      Err(error) => return Err(error)
+      Ok(value) => value
     }
   } else {
     let first = (in_row - 1UL) * (8UL / self.depth)
@@ -1267,9 +1673,11 @@ fn PngIndexedRawCursor::next(
       let x = first + slot
       if x < self.source.width() {
         let code = match self.source.index_at(x, row) {
-          Err(error) => return Err(error); Ok(value) => value.to_uint64()
+          Err(error) => return Err(error)
+          Ok(value) => value.to_uint64()
         }
-        packed = packed | (code << (8UL - self.depth - slot * self.depth).to_int())
+        packed = packed |
+          (code << (8UL - self.depth - slot * self.depth).to_int())
       }
     }
     packed.to_byte()
@@ -1292,28 +1700,17 @@ fn PngMatchProducer::next(
   self : PngMatchProducer,
 ) -> Result[(Byte, PngMatchProducer), @error.CoreError] {
   match self {
-    Filtered(value) => match value.next() {
-      Err(error) => Err(error)
-      Ok((byte, next)) => Ok((byte, Filtered(next)))
-    }
-    IndexedNone(value) => match value.next() {
-      Err(error) => Err(error)
-      Ok((byte, next)) => Ok((byte, IndexedNone(next)))
-    }
+    Filtered(value) =>
+      match value.next() {
+        Err(error) => Err(error)
+        Ok((byte, next)) => Ok((byte, Filtered(next)))
+      }
+    IndexedNone(value) =>
+      match value.next() {
+        Err(error) => Err(error)
+        Ok((byte, next)) => Ok((byte, IndexedNone(next)))
+      }
   }
-}
-
-///|
-fn PngFilteredMatchCursor::new(
-  source : @storage.ImageView,
-  row_bytes : UInt64,
-  channels : UInt64,
-  filter_strategy : PngFilterStrategy,
-  profile? : PngEncodeProfile = PngEncodeProfile::LegacyRgbOrRgba,
-) -> PngFilteredMatchCursor {
-  PngFilteredMatchCursor::new_with_interlace(
-    source, row_bytes, channels, filter_strategy, PngInterlaceStrategy::None, profile=profile,
-  )
 }
 
 ///|
@@ -1325,9 +1722,22 @@ fn PngFilteredMatchCursor::new_with_interlace(
   interlace_strategy : PngInterlaceStrategy,
   profile? : PngEncodeProfile = PngEncodeProfile::LegacyRgbOrRgba,
 ) -> PngFilteredMatchCursor {
-  { producer: PngMatchProducer::Filtered(PngFilteredCursor::new_with_interlace(source, row_bytes, channels, filter_strategy, interlace_strategy, profile=profile)),
-    logical_position: 0UL, produced_exclusive: 0UL, retained_start: 0UL,
-    window: Array::make(262, b'\x00') }
+  {
+    producer: PngMatchProducer::Filtered(
+      PngFilteredCursor::new_with_interlace(
+        source,
+        row_bytes,
+        channels,
+        filter_strategy,
+        interlace_strategy,
+        profile~,
+      ),
+    ),
+    logical_position: 0UL,
+    produced_exclusive: 0UL,
+    retained_start: 0UL,
+    window: Array::make(262, b'\x00'),
+  }
 }
 
 ///|
@@ -1337,35 +1747,52 @@ fn PngFilteredMatchCursor::new_indexed(
   depth : UInt64,
 ) -> PngFilteredMatchCursor {
   PngFilteredMatchCursor::new_indexed_with_interlace(
-    source, row_bytes, depth, PngInterlaceStrategy::None,
+    source,
+    row_bytes,
+    depth,
+    PngInterlaceStrategy::None,
   )
 }
 
-///| Construct an indexed matcher cursor for the selected wire traversal.
+///|
+/// Construct an indexed matcher cursor for the selected wire traversal.
 fn PngFilteredMatchCursor::new_indexed_with_interlace(
   source : PngIndexedImage,
   row_bytes : UInt64,
   depth : UInt64,
   interlace_strategy : PngInterlaceStrategy,
 ) -> PngFilteredMatchCursor {
-  { producer: PngMatchProducer::IndexedNone(PngIndexedRawCursor::new_with_interlace(source, row_bytes, depth, interlace_strategy)),
-    logical_position: 0UL, produced_exclusive: 0UL, retained_start: 0UL,
-    window: Array::make(262, b'\x00') }
+  {
+    producer: PngMatchProducer::IndexedNone(
+      PngIndexedRawCursor::new_with_interlace(
+        source, row_bytes, depth, interlace_strategy,
+      ),
+    ),
+    logical_position: 0UL,
+    produced_exclusive: 0UL,
+    retained_start: 0UL,
+    window: Array::make(262, b'\x00'),
+  }
 }
 
 ///|
-fn PngFilteredMatchCursor::facts(self : PngFilteredMatchCursor) -> PngFilteredTraversalFacts {
+fn PngFilteredMatchCursor::facts(
+  self : PngFilteredMatchCursor,
+) -> PngFilteredTraversalFacts {
   self.producer.facts()
 }
 
 ///|
 fn _png_filtered_match_window_copy(window : Array[Byte]) -> Array[Byte] {
   let copied = Array::make(262, b'\x00')
-  for index = 0; index < 262; index = index + 1 { copied[index] = window[index] }
+  for index = 0; index < 262; index = index + 1 {
+    copied[index] = window[index]
+  }
   copied
 }
 
-///| Produce through the requested exclusive position without consuming it.
+///|
+/// Produce through the requested exclusive position without consuming it.
 fn PngFilteredMatchCursor::ensure(
   self : PngFilteredMatchCursor,
   exclusive_position : UInt64,
@@ -1386,22 +1813,30 @@ fn PngFilteredMatchCursor::ensure(
       retained_start = produced_exclusive - 262UL
     }
   }
-  Ok({ producer, logical_position: self.logical_position, produced_exclusive,
-    retained_start, window })
+  Ok({
+    producer,
+    logical_position: self.logical_position,
+    produced_exclusive,
+    retained_start,
+    window,
+  })
 }
 
-///| Read only a byte that remains in the fixed retained window.
+///|
+/// Read only a byte that remains in the fixed retained window.
 fn PngFilteredMatchCursor::read(
   self : PngFilteredMatchCursor,
   absolute_position : UInt64,
 ) -> Result[Byte, @error.CoreError] {
-  if absolute_position < self.retained_start || absolute_position >= self.produced_exclusive {
+  if absolute_position < self.retained_start ||
+    absolute_position >= self.produced_exclusive {
     return Err(_png_encode_machine_state_error("png-filter-match-retained"))
   }
   Ok(self.window[(absolute_position % 262UL).to_int()])
 }
 
-///| Commit logical consumption only after the corresponding token is emitted.
+///|
+/// Commit logical consumption only after the corresponding token is emitted.
 fn PngFilteredMatchCursor::consume(
   self : PngFilteredMatchCursor,
   count : UInt64,
@@ -1413,10 +1848,11 @@ fn PngFilteredMatchCursor::consume(
   if logical_position > self.produced_exclusive {
     return Err(_png_encode_machine_state_error("png-filter-match-consume"))
   }
-  Ok({ ..self, logical_position })
+  Ok({ ..self, logical_position, })
 }
 
-///| Read and commit one logical byte. This is the only convenience operation
+///|
+/// Read and commit one logical byte. This is the only convenience operation
 /// used by emitters; matcher probes use `ensure` and `read` directly.
 fn PngFilteredMatchCursor::next(
   self : PngFilteredMatchCursor,
@@ -1436,7 +1872,8 @@ fn PngFilteredMatchCursor::next(
   Ok((byte, next))
 }
 
-///| The bounded DEFLATE matcher over one owned selected-filter stream.
+///|
+/// The bounded DEFLATE matcher over one owned selected-filter stream.
 fn _png_filtered_match_at(
   cursor : PngFilteredMatchCursor,
   scanlines : UInt64,
@@ -1451,26 +1888,38 @@ fn _png_filtered_match_at(
   while distance <= 4UL && distance <= position {
     let mut length = 0UL
     while length < 258UL && length < remaining {
-      work = match _png_fixed_add(work, 3UL) { Err(error) => return Err(error); Ok(value) => value }
+      work = match _png_fixed_add(work, 3UL) {
+        Err(error) => return Err(error)
+        Ok(value) => value
+      }
       cursor = match cursor.ensure(position + length + 1UL) {
-        Err(error) => return Err(error); Ok(value) => value
+        Err(error) => return Err(error)
+        Ok(value) => value
       }
       let current = match cursor.read(position + length) {
-        Err(error) => return Err(error); Ok(value) => value
+        Err(error) => return Err(error)
+        Ok(value) => value
       }
       let prior = match cursor.read(position + length - distance) {
-        Err(error) => return Err(error); Ok(value) => value
+        Err(error) => return Err(error)
+        Ok(value) => value
       }
-      if current != prior { break }
+      if current != prior {
+        break
+      }
       length = length + 1UL
     }
-    if length >= 3UL && length > best_length { best_length = length; best_distance = distance }
+    if length >= 3UL && length > best_length {
+      best_length = length
+      best_distance = distance
+    }
     distance = distance + 1UL
   }
   Ok((best_length, best_distance, work, cursor))
 }
 
-///| Consume one complete cursor traversal for Stored planning or replay.
+///|
+/// Consume one complete cursor traversal for Stored planning or replay.
 fn _png_filtered_match_traverse(
   source : @storage.ImageView,
   row_bytes : UInt64,
@@ -1480,11 +1929,18 @@ fn _png_filtered_match_traverse(
   profile? : PngEncodeProfile = PngEncodeProfile::LegacyRgbOrRgba,
 ) -> Result[PngFilteredTraversalFacts, @error.CoreError] {
   _png_filtered_match_traverse_with_interlace(
-    source, row_bytes, channels, filter_strategy, scanlines, PngInterlaceStrategy::None, profile=profile,
+    source,
+    row_bytes,
+    channels,
+    filter_strategy,
+    scanlines,
+    PngInterlaceStrategy::None,
+    profile~,
   )
 }
 
-///| The selected layout is recreated for every planner/replay walk.
+///|
+/// The selected layout is recreated for every planner/replay walk.
 fn _png_filtered_match_traverse_with_interlace(
   source : @storage.ImageView,
   row_bytes : UInt64,
@@ -1495,20 +1951,28 @@ fn _png_filtered_match_traverse_with_interlace(
   profile? : PngEncodeProfile = PngEncodeProfile::LegacyRgbOrRgba,
 ) -> Result[PngFilteredTraversalFacts, @error.CoreError] {
   let mut cursor = PngFilteredMatchCursor::new_with_interlace(
-    source, row_bytes, channels, filter_strategy, interlace_strategy, profile=profile,
+    source,
+    row_bytes,
+    channels,
+    filter_strategy,
+    interlace_strategy,
+    profile~,
   )
   while cursor.logical_position < scanlines {
     cursor = match cursor.ensure(cursor.logical_position + 1UL) {
-      Err(error) => return Err(error); Ok(value) => value
+      Err(error) => return Err(error)
+      Ok(value) => value
     }
     cursor = match cursor.consume(1UL) {
-      Err(error) => return Err(error); Ok(value) => value
+      Err(error) => return Err(error)
+      Ok(value) => value
     }
   }
   Ok(cursor.facts())
 }
 
-///| A1: scan only distances 1 through 4 in ascending order. Strictly replacing
+///|
+/// A1: scan only distances 1 through 4 in ascending order. Strictly replacing
 /// the best length intentionally retains the smaller distance on ties.
 fn _png_fixed_match_at(
   source : @storage.ImageView,
@@ -1530,19 +1994,31 @@ fn _png_fixed_match_at(
         Err(error) => return Err(error)
         Ok(value) => value
       }
-      let current = match _png_fixed_scanline_byte(
-        source, profile, row_bytes, channels, position + length,
-      ) {
+      let current = match
+        _png_fixed_scanline_byte(
+          source,
+          profile,
+          row_bytes,
+          channels,
+          position + length,
+        ) {
         Err(error) => return Err(error)
         Ok(value) => value
       }
-      let prior = match _png_fixed_scanline_byte(
-        source, profile, row_bytes, channels, position + length - distance,
-      ) {
+      let prior = match
+        _png_fixed_scanline_byte(
+          source,
+          profile,
+          row_bytes,
+          channels,
+          position + length - distance,
+        ) {
         Err(error) => return Err(error)
         Ok(value) => value
       }
-      if current != prior { break }
+      if current != prior {
+        break
+      }
       length = length + 1UL
     }
     if length >= 3UL && length > best_length {
@@ -1554,7 +2030,8 @@ fn _png_fixed_match_at(
   Ok((best_length, best_distance, work))
 }
 
-///| Fixed literal/length canonical codes, reversed for DEFLATE's LSB stream.
+///|
+/// Fixed literal/length canonical codes, reversed for DEFLATE's LSB stream.
 fn _png_fixed_literal_code(symbol : UInt64) -> (UInt64, UInt64) {
   let (canonical, bits) = if symbol <= 143UL {
     (48UL + symbol, 8UL)
@@ -1568,12 +2045,22 @@ fn _png_fixed_literal_code(symbol : UInt64) -> (UInt64, UInt64) {
   (_png_reverse_bits(canonical.to_int(), bits.to_int()).to_uint64(), bits)
 }
 
-///| Translate a valid DEFLATE match length to its fixed literal/length symbol.
+///|
+/// Translate a valid DEFLATE match length to its fixed literal/length symbol.
 fn _png_fixed_length_code(length : UInt64) -> (UInt64, UInt64, UInt64) {
-  let bases = [3UL, 4UL, 5UL, 6UL, 7UL, 8UL, 9UL, 10UL, 11UL, 13UL, 15UL, 17UL, 19UL, 23UL, 27UL, 31UL, 35UL, 43UL, 51UL, 59UL, 67UL, 83UL, 99UL, 115UL, 131UL, 163UL, 195UL, 227UL, 258UL]
-  let extras = [0UL, 0UL, 0UL, 0UL, 0UL, 0UL, 0UL, 0UL, 1UL, 1UL, 1UL, 1UL, 2UL, 2UL, 2UL, 2UL, 3UL, 3UL, 3UL, 3UL, 4UL, 4UL, 4UL, 4UL, 5UL, 5UL, 5UL, 5UL, 0UL]
+  let bases = [
+    3UL, 4UL, 5UL, 6UL, 7UL, 8UL, 9UL, 10UL, 11UL, 13UL, 15UL, 17UL, 19UL, 23UL,
+    27UL, 31UL, 35UL, 43UL, 51UL, 59UL, 67UL, 83UL, 99UL, 115UL, 131UL, 163UL, 195UL,
+    227UL, 258UL,
+  ]
+  let extras = [
+    0UL, 0UL, 0UL, 0UL, 0UL, 0UL, 0UL, 0UL, 1UL, 1UL, 1UL, 1UL, 2UL, 2UL, 2UL, 2UL,
+    3UL, 3UL, 3UL, 3UL, 4UL, 4UL, 4UL, 4UL, 5UL, 5UL, 5UL, 5UL, 0UL,
+  ]
   let mut index = 0
-  while index + 1 < bases.length() && length >= bases[index + 1] { index = index + 1 }
+  while index + 1 < bases.length() && length >= bases[index + 1] {
+    index = index + 1
+  }
   (257UL + index.to_uint64(), length - bases[index], extras[index])
 }
 
@@ -1582,7 +2069,8 @@ fn _png_fixed_distance_code(distance : UInt64) -> (UInt64, UInt64) {
   (_png_reverse_bits((distance - 1UL).to_int(), 5).to_uint64(), 5UL)
 }
 
-///| Count a dynamic token walk while retaining only the bounded alphabets.
+///|
+/// Count a dynamic token walk while retaining only the bounded alphabets.
 fn _png_dynamic_frequencies(
   source : @storage.ImageView,
   row_bytes : UInt64,
@@ -1590,9 +2078,18 @@ fn _png_dynamic_frequencies(
   filter_strategy : PngFilterStrategy,
   scanlines : UInt64,
   profile? : PngEncodeProfile = PngEncodeProfile::LegacyRgbOrRgba,
-) -> Result[(Array[UInt64], Array[UInt64], UInt64, UInt64, PngFilteredTraversalFacts), @error.CoreError] {
+) -> Result[
+  (Array[UInt64], Array[UInt64], UInt64, UInt64, PngFilteredTraversalFacts),
+  @error.CoreError,
+] {
   _png_dynamic_frequencies_with_interlace(
-    source, row_bytes, channels, filter_strategy, scanlines, PngInterlaceStrategy::None, profile=profile,
+    source,
+    row_bytes,
+    channels,
+    filter_strategy,
+    scanlines,
+    PngInterlaceStrategy::None,
+    profile~,
   )
 }
 
@@ -1605,46 +2102,75 @@ fn _png_dynamic_frequencies_with_interlace(
   scanlines : UInt64,
   interlace_strategy : PngInterlaceStrategy,
   profile? : PngEncodeProfile = PngEncodeProfile::LegacyRgbOrRgba,
-) -> Result[(Array[UInt64], Array[UInt64], UInt64, UInt64, PngFilteredTraversalFacts), @error.CoreError] {
+) -> Result[
+  (Array[UInt64], Array[UInt64], UInt64, UInt64, PngFilteredTraversalFacts),
+  @error.CoreError,
+] {
   let literals = Array::make(286, 0UL)
   let distances = Array::make(30, 0UL)
   let mut cursor = PngFilteredMatchCursor::new_with_interlace(
-    source, row_bytes, channels, filter_strategy, interlace_strategy, profile=profile,
+    source,
+    row_bytes,
+    channels,
+    filter_strategy,
+    interlace_strategy,
+    profile~,
   )
   let mut work = 0UL
   let mut fingerprint = 1UL
   while cursor.logical_position < scanlines {
-    let (length, distance, match_work, matched) = match _png_filtered_match_at(cursor, scanlines) {
-      Err(error) => return Err(error); Ok(value) => value }
+    let (length, distance, match_work, matched) = match
+      _png_filtered_match_at(cursor, scanlines) {
+      Err(error) => return Err(error)
+      Ok(value) => value
+    }
     cursor = matched
-    work = match _png_fixed_add(work, match_work) { Err(error) => return Err(error); Ok(value) => value }
+    work = match _png_fixed_add(work, match_work) {
+      Err(error) => return Err(error)
+      Ok(value) => value
+    }
     if length >= 3UL {
       let (symbol, _, _) = _png_fixed_length_code(length)
       literals[symbol.to_int()] = literals[symbol.to_int()] + 1UL
-      distances[(distance - 1UL).to_int()] = distances[(distance - 1UL).to_int()] + 1UL
+      distances[(distance - 1UL).to_int()] = distances[(distance - 1UL).to_int()] +
+        1UL
       for offset = 0UL; offset < length; offset = offset + 1UL {
         let byte = match cursor.read(cursor.logical_position + offset) {
-          Err(error) => return Err(error); Ok(value) => value
+          Err(error) => return Err(error)
+          Ok(value) => value
         }
         fingerprint = _png_adler_step(fingerprint, byte)
       }
-      cursor = match cursor.consume(length) { Err(error) => return Err(error); Ok(value) => value }
+      cursor = match cursor.consume(length) {
+        Err(error) => return Err(error)
+        Ok(value) => value
+      }
     } else {
-      cursor = match cursor.ensure(cursor.logical_position + 1UL) { Err(error) => return Err(error); Ok(value) => value }
+      cursor = match cursor.ensure(cursor.logical_position + 1UL) {
+        Err(error) => return Err(error)
+        Ok(value) => value
+      }
       let byte = match cursor.read(cursor.logical_position) {
-        Err(error) => return Err(error); Ok(value) => value
+        Err(error) => return Err(error)
+        Ok(value) => value
       }
       literals[byte.to_int()] = literals[byte.to_int()] + 1UL
       fingerprint = _png_adler_step(fingerprint, byte)
-      cursor = match cursor.consume(1UL) { Err(error) => return Err(error); Ok(value) => value }
+      cursor = match cursor.consume(1UL) {
+        Err(error) => return Err(error)
+        Ok(value) => value
+      }
     }
   }
   literals[256] = literals[256] + 1UL
   Ok((literals, distances, work, fingerprint, cursor.facts()))
 }
 
-///| Encode a trimmed literal/distance length stream using RFC 1951 symbols.
-fn _png_dynamic_rle(lengths : Array[Int]) -> (Array[Int], Array[UInt64], Array[UInt64], UInt64) {
+///|
+/// Encode a trimmed literal/distance length stream using RFC 1951 symbols.
+fn _png_dynamic_rle(
+  lengths : Array[Int],
+) -> (Array[Int], Array[UInt64], Array[UInt64], UInt64) {
   let symbols = Array::make(316, 0)
   let extras = Array::make(316, 0UL)
   let extra_bits = Array::make(316, 0UL)
@@ -1653,32 +2179,48 @@ fn _png_dynamic_rle(lengths : Array[Int]) -> (Array[Int], Array[UInt64], Array[U
   while cursor < lengths.length() {
     let value = lengths[cursor]
     let mut run = 1
-    while cursor + run < lengths.length() && lengths[cursor + run] == value { run = run + 1 }
+    while cursor + run < lengths.length() && lengths[cursor + run] == value {
+      run = run + 1
+    }
     if value == 0 {
       let mut remaining = run
       while remaining > 0 {
         if remaining >= 11 {
           let take = if remaining > 138 { 138 } else { remaining }
-          symbols[count.to_int()] = 18; extras[count.to_int()] = (take - 11).to_uint64(); extra_bits[count.to_int()] = 7UL
-          count = count + 1UL; remaining = remaining - take
+          symbols[count.to_int()] = 18
+          extras[count.to_int()] = (take - 11).to_uint64()
+          extra_bits[count.to_int()] = 7UL
+          count = count + 1UL
+          remaining = remaining - take
         } else if remaining >= 3 {
           let take = if remaining > 10 { 10 } else { remaining }
-          symbols[count.to_int()] = 17; extras[count.to_int()] = (take - 3).to_uint64(); extra_bits[count.to_int()] = 3UL
-          count = count + 1UL; remaining = remaining - take
+          symbols[count.to_int()] = 17
+          extras[count.to_int()] = (take - 3).to_uint64()
+          extra_bits[count.to_int()] = 3UL
+          count = count + 1UL
+          remaining = remaining - take
         } else {
-          symbols[count.to_int()] = 0; count = count + 1UL; remaining = remaining - 1
+          symbols[count.to_int()] = 0
+          count = count + 1UL
+          remaining = remaining - 1
         }
       }
     } else {
-      symbols[count.to_int()] = value; count = count + 1UL
+      symbols[count.to_int()] = value
+      count = count + 1UL
       let mut remaining = run - 1
       while remaining > 0 {
         if remaining >= 3 {
           let take = if remaining > 6 { 6 } else { remaining }
-          symbols[count.to_int()] = 16; extras[count.to_int()] = (take - 3).to_uint64(); extra_bits[count.to_int()] = 2UL
-          count = count + 1UL; remaining = remaining - take
+          symbols[count.to_int()] = 16
+          extras[count.to_int()] = (take - 3).to_uint64()
+          extra_bits[count.to_int()] = 2UL
+          count = count + 1UL
+          remaining = remaining - take
         } else {
-          symbols[count.to_int()] = value; count = count + 1UL; remaining = remaining - 1
+          symbols[count.to_int()] = value
+          count = count + 1UL
+          remaining = remaining - 1
         }
       }
     }
@@ -1687,7 +2229,8 @@ fn _png_dynamic_rle(lengths : Array[Int]) -> (Array[Int], Array[UInt64], Array[U
   (symbols, extras, extra_bits, count)
 }
 
-///| Make one exact RFC dynamic candidate, or decline it without a length-limited
+///|
+/// Make one exact RFC dynamic candidate, or decline it without a length-limited
 /// algorithm when the ordinary builder cannot satisfy the 15-bit limit.
 fn _png_dynamic_plan(
   source : @storage.ImageView,
@@ -1698,12 +2241,20 @@ fn _png_dynamic_plan(
   profile? : PngEncodeProfile = PngEncodeProfile::LegacyRgbOrRgba,
 ) -> Result[PngDynamicPlanOutcome, @error.CoreError] {
   _png_dynamic_plan_with_idat_limit(
-    source, row_bytes, channels, filter_strategy, scanlines, 4294967295UL, profile=profile,
+    source,
+    row_bytes,
+    channels,
+    filter_strategy,
+    scanlines,
+    4294967295UL,
+    profile~,
   )
 }
 
 ///| The private bound directly exercises a post-bit-count decline without
-///| widening the public encoder surface.
+
+///|
+/// widening the public encoder surface.
 fn _png_dynamic_plan_with_idat_limit(
   source : @storage.ImageView,
   row_bytes : UInt64,
@@ -1714,8 +2265,14 @@ fn _png_dynamic_plan_with_idat_limit(
   profile? : PngEncodeProfile = PngEncodeProfile::LegacyRgbOrRgba,
 ) -> Result[PngDynamicPlanOutcome, @error.CoreError] {
   _png_dynamic_plan_with_interlace_idat_limit(
-    source, row_bytes, channels, filter_strategy, scanlines, max_idat_length,
-    PngInterlaceStrategy::None, profile=profile,
+    source,
+    row_bytes,
+    channels,
+    filter_strategy,
+    scanlines,
+    max_idat_length,
+    PngInterlaceStrategy::None,
+    profile~,
   )
 }
 
@@ -1730,90 +2287,216 @@ fn _png_dynamic_plan_with_interlace_idat_limit(
   interlace_strategy : PngInterlaceStrategy,
   profile? : PngEncodeProfile = PngEncodeProfile::LegacyRgbOrRgba,
 ) -> Result[PngDynamicPlanOutcome, @error.CoreError] {
-  let (literal_frequencies, distance_frequencies, matcher_work, fingerprint, frequency_facts) =
-    match _png_dynamic_frequencies_with_interlace(source, row_bytes, channels, filter_strategy, scanlines, interlace_strategy, profile=profile) {
-      Err(error) => return Err(error); Ok(value) => value
-    }
-  let literals = match _png_huffman_from_frequencies(literal_frequencies, true, false, true) {
-    Some(value) => value; None => return Ok({
-      plan: None, frequency_facts,
-      bit_facts: { resolved_rows: 0UL, candidate_residuals: 0UL, selected_residuals: 0UL },
-    })
+  let (
+    literal_frequencies,
+    distance_frequencies,
+    matcher_work,
+    fingerprint,
+    frequency_facts,
+  ) = match
+    _png_dynamic_frequencies_with_interlace(
+      source,
+      row_bytes,
+      channels,
+      filter_strategy,
+      scanlines,
+      interlace_strategy,
+      profile~,
+    ) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  let literals = match
+    _png_huffman_from_frequencies(literal_frequencies, true, false, true) {
+    Some(value) => value
+    None =>
+      return Ok({
+        plan: None,
+        frequency_facts,
+        bit_facts: {
+          resolved_rows: 0UL,
+          candidate_residuals: 0UL,
+          selected_residuals: 0UL,
+        },
+      })
   }
   let mut has_distance = false
-  for frequency in distance_frequencies { if frequency > 0UL { has_distance = true } }
-  if !has_distance { distance_frequencies[0] = 1UL }
-  let distances = match _png_huffman_from_frequencies(distance_frequencies, false, true, false) {
-    Some(value) => value; None => return Ok({
-      plan: None, frequency_facts,
-      bit_facts: { resolved_rows: 0UL, candidate_residuals: 0UL, selected_residuals: 0UL },
-    })
+  for frequency in distance_frequencies {
+    if frequency > 0UL {
+      has_distance = true
+    }
+  }
+  if !has_distance {
+    distance_frequencies[0] = 1UL
+  }
+  let distances = match
+    _png_huffman_from_frequencies(distance_frequencies, false, true, false) {
+    Some(value) => value
+    None =>
+      return Ok({
+        plan: None,
+        frequency_facts,
+        bit_facts: {
+          resolved_rows: 0UL,
+          candidate_residuals: 0UL,
+          selected_residuals: 0UL,
+        },
+      })
   }
   let mut hlit = 286
-  while hlit > 257 && literals.lengths[hlit - 1] == 0 { hlit = hlit - 1 }
+  while hlit > 257 && literals.lengths[hlit - 1] == 0 {
+    hlit = hlit - 1
+  }
   let mut hdist = 30
-  while hdist > 1 && distances.lengths[hdist - 1] == 0 { hdist = hdist - 1 }
+  while hdist > 1 && distances.lengths[hdist - 1] == 0 {
+    hdist = hdist - 1
+  }
   let combined = Array::make(hlit + hdist, 0)
-  for index = 0; index < hlit; index = index + 1 { combined[index] = literals.lengths[index] }
-  for index = 0; index < hdist; index = index + 1 { combined[hlit + index] = distances.lengths[index] }
-  let (rle_symbols, rle_extras, rle_extra_bits, rle_count) = _png_dynamic_rle(combined)
+  for index = 0; index < hlit; index = index + 1 {
+    combined[index] = literals.lengths[index]
+  }
+  for index = 0; index < hdist; index = index + 1 {
+    combined[hlit + index] = distances.lengths[index]
+  }
+  let (rle_symbols, rle_extras, rle_extra_bits, rle_count) = _png_dynamic_rle(
+    combined,
+  )
   let code_frequencies = Array::make(19, 0UL)
   for index = 0UL; index < rle_count; index = index + 1 {
-    code_frequencies[rle_symbols[index.to_int()]] = code_frequencies[rle_symbols[index.to_int()]] + 1UL
+    code_frequencies[rle_symbols[index.to_int()]] = code_frequencies[rle_symbols[index.to_int()]] +
+      1UL
   }
-  let code_lengths = match _png_huffman_from_frequencies(code_frequencies, false, false, true) {
-    Some(value) => value; None => return Ok({
-      plan: None, frequency_facts,
-      bit_facts: { resolved_rows: 0UL, candidate_residuals: 0UL, selected_residuals: 0UL },
-    })
+  let code_lengths = match
+    _png_huffman_from_frequencies(code_frequencies, false, false, true) {
+    Some(value) => value
+    None =>
+      return Ok({
+        plan: None,
+        frequency_facts,
+        bit_facts: {
+          resolved_rows: 0UL,
+          candidate_residuals: 0UL,
+          selected_residuals: 0UL,
+        },
+      })
   }
-  let order = [16,17,18,0,8,7,9,6,10,5,11,4,12,3,13,2,14,1,15]
+  let order = [16, 17, 18, 0, 8, 7, 9, 6, 10, 5, 11, 4, 12, 3, 13, 2, 14, 1, 15]
   let mut hclen = 19
-  while hclen > 4 && code_lengths.lengths[order[hclen - 1]] == 0 { hclen = hclen - 1 }
-  let mut bits = 3UL + 5UL + 5UL + 4UL + (hclen.to_uint64() * 3UL)
+  while hclen > 4 && code_lengths.lengths[order[hclen - 1]] == 0 {
+    hclen = hclen - 1
+  }
+  let mut bits = 3UL + 5UL + 5UL + 4UL + hclen.to_uint64() * 3UL
   for index = 0UL; index < rle_count; index = index + 1 {
     let symbol = rle_symbols[index.to_int()]
-    bits = match _png_fixed_add(bits, code_lengths.lengths[symbol].to_uint64() + rle_extra_bits[index.to_int()]) {
-      Err(error) => return Err(error); Ok(value) => value
+    bits = match
+      _png_fixed_add(
+        bits,
+        code_lengths.lengths[symbol].to_uint64() +
+        rle_extra_bits[index.to_int()],
+      ) {
+      Err(error) => return Err(error)
+      Ok(value) => value
     }
   }
   let mut cursor = PngFilteredMatchCursor::new_with_interlace(
-    source, row_bytes, channels, filter_strategy, interlace_strategy, profile=profile,
+    source,
+    row_bytes,
+    channels,
+    filter_strategy,
+    interlace_strategy,
+    profile~,
   )
   while cursor.logical_position < scanlines {
-    let (length, distance, _, matched) = match _png_filtered_match_at(cursor, scanlines) {
-      Err(error) => return Err(error); Ok(value) => value }
+    let (length, distance, _, matched) = match
+      _png_filtered_match_at(cursor, scanlines) {
+      Err(error) => return Err(error)
+      Ok(value) => value
+    }
     cursor = matched
     if length >= 3UL {
       let (symbol, _, extra_bits) = _png_fixed_length_code(length)
       let distance_symbol = (distance - 1UL).to_int()
-      bits = match _png_fixed_add(bits, literals.lengths[symbol.to_int()].to_uint64() + extra_bits + distances.lengths[distance_symbol].to_uint64()) {
-        Err(error) => return Err(error); Ok(value) => value
+      bits = match
+        _png_fixed_add(
+          bits,
+          literals.lengths[symbol.to_int()].to_uint64() +
+          extra_bits +
+          distances.lengths[distance_symbol].to_uint64(),
+        ) {
+        Err(error) => return Err(error)
+        Ok(value) => value
       }
-      cursor = match cursor.consume(length) { Err(error) => return Err(error); Ok(value) => value }
+      cursor = match cursor.consume(length) {
+        Err(error) => return Err(error)
+        Ok(value) => value
+      }
     } else {
-      cursor = match cursor.ensure(cursor.logical_position + 1UL) { Err(error) => return Err(error); Ok(value) => value }
-      let byte = match cursor.read(cursor.logical_position) { Err(error) => return Err(error); Ok(value) => value }
-      bits = match _png_fixed_add(bits, literals.lengths[byte.to_int()].to_uint64()) { Err(error) => return Err(error); Ok(value) => value }
-      cursor = match cursor.consume(1UL) { Err(error) => return Err(error); Ok(value) => value }
+      cursor = match cursor.ensure(cursor.logical_position + 1UL) {
+        Err(error) => return Err(error)
+        Ok(value) => value
+      }
+      let byte = match cursor.read(cursor.logical_position) {
+        Err(error) => return Err(error)
+        Ok(value) => value
+      }
+      bits = match
+        _png_fixed_add(bits, literals.lengths[byte.to_int()].to_uint64()) {
+        Err(error) => return Err(error)
+        Ok(value) => value
+      }
+      cursor = match cursor.consume(1UL) {
+        Err(error) => return Err(error)
+        Ok(value) => value
+      }
     }
   }
-  bits = match _png_fixed_add(bits, literals.lengths[256].to_uint64()) { Err(error) => return Err(error); Ok(value) => value }
-  let deflate_bytes = match _png_fixed_add(bits, 7UL) { Err(error) => return Err(error); Ok(value) => value / 8UL }
-  let idat_length = match _png_fixed_add(deflate_bytes, 6UL) { Err(error) => return Err(error); Ok(value) => value }
+  bits = match _png_fixed_add(bits, literals.lengths[256].to_uint64()) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  let deflate_bytes = match _png_fixed_add(bits, 7UL) {
+    Err(error) => return Err(error)
+    Ok(value) => value / 8UL
+  }
+  let idat_length = match _png_fixed_add(deflate_bytes, 6UL) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
   if idat_length > max_idat_length {
     return Ok({ plan: None, frequency_facts, bit_facts: cursor.facts() })
   }
-  let total_length = match _png_fixed_add(idat_length, 57UL) { Err(error) => return Err(error); Ok(value) => value }
+  let total_length = match _png_fixed_add(idat_length, 57UL) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
   Ok({
-    plan: Some({ literals, distances, code_lengths, rle_symbols, rle_extras, rle_extra_bits, rle_count,
-      hlit: hlit.to_uint64(), hdist: hdist.to_uint64(), hclen: hclen.to_uint64(), deflate_bits: bits,
-      deflate_bytes, matcher_work, fingerprint, frequency_facts, bit_facts: cursor.facts(), idat_length, total_length }),
-    frequency_facts, bit_facts: cursor.facts(),
+    plan: Some({
+      literals,
+      distances,
+      code_lengths,
+      rle_symbols,
+      rle_extras,
+      rle_extra_bits,
+      rle_count,
+      hlit: hlit.to_uint64(),
+      hdist: hdist.to_uint64(),
+      hclen: hclen.to_uint64(),
+      deflate_bits: bits,
+      deflate_bytes,
+      matcher_work,
+      fingerprint,
+      frequency_facts,
+      bit_facts: cursor.facts(),
+      idat_length,
+      total_length,
+    }),
+    frequency_facts,
+    bit_facts: cursor.facts(),
   })
 }
 
-///| Walk the bounded matcher once to calculate exact fixed DEFLATE bits.
+///|
+/// Walk the bounded matcher once to calculate exact fixed DEFLATE bits.
 fn _png_fixed_plan(
   source : @storage.ImageView,
   row_bytes : UInt64,
@@ -1823,7 +2506,13 @@ fn _png_fixed_plan(
   profile? : PngEncodeProfile = PngEncodeProfile::LegacyRgbOrRgba,
 ) -> Result[PngFixedPlan, @error.CoreError] {
   _png_fixed_plan_with_interlace(
-    source, row_bytes, channels, filter_strategy, scanlines, PngInterlaceStrategy::None, profile=profile,
+    source,
+    row_bytes,
+    channels,
+    filter_strategy,
+    scanlines,
+    PngInterlaceStrategy::None,
+    profile~,
   )
 }
 
@@ -1838,12 +2527,18 @@ fn _png_fixed_plan_with_interlace(
   profile? : PngEncodeProfile = PngEncodeProfile::LegacyRgbOrRgba,
 ) -> Result[PngFixedPlan, @error.CoreError] {
   let cursor = PngFilteredMatchCursor::new_with_interlace(
-    source, row_bytes, channels, filter_strategy, interlace_strategy, profile=profile,
+    source,
+    row_bytes,
+    channels,
+    filter_strategy,
+    interlace_strategy,
+    profile~,
   )
   _png_fixed_plan_with_cursor(cursor, scanlines)
 }
 
-///| Both generic and indexed paths plan the same owned bounded matcher stream.
+///|
+/// Both generic and indexed paths plan the same owned bounded matcher stream.
 fn _png_fixed_plan_with_cursor(
   cursor : PngFilteredMatchCursor,
   scanlines : UInt64,
@@ -1853,7 +2548,8 @@ fn _png_fixed_plan_with_cursor(
   let mut matcher_work = 0UL
   let mut fingerprint = 1UL
   while cursor.logical_position < scanlines {
-    let (length, distance, work, matched) = match _png_filtered_match_at(cursor, scanlines) {
+    let (length, distance, work, matched) = match
+      _png_filtered_match_at(cursor, scanlines) {
       Err(error) => return Err(error)
       Ok(value) => value
     }
@@ -1871,14 +2567,21 @@ fn _png_fixed_plan_with_cursor(
       }
       for offset = 0UL; offset < length; offset = offset + 1UL {
         let byte = match cursor.read(cursor.logical_position + offset) {
-          Err(error) => return Err(error); Ok(value) => value
+          Err(error) => return Err(error)
+          Ok(value) => value
         }
         fingerprint = _png_adler_step(fingerprint, byte)
       }
-      cursor = match cursor.consume(length) { Err(error) => return Err(error); Ok(value) => value }
+      cursor = match cursor.consume(length) {
+        Err(error) => return Err(error)
+        Ok(value) => value
+      }
       ignore(distance)
     } else {
-      cursor = match cursor.ensure(cursor.logical_position + 1UL) { Err(error) => return Err(error); Ok(value) => value }
+      cursor = match cursor.ensure(cursor.logical_position + 1UL) {
+        Err(error) => return Err(error)
+        Ok(value) => value
+      }
       let byte = match cursor.read(cursor.logical_position) {
         Err(error) => return Err(error)
         Ok(value) => value
@@ -1889,7 +2592,10 @@ fn _png_fixed_plan_with_cursor(
         Ok(value) => value
       }
       fingerprint = _png_adler_step(fingerprint, byte)
-      cursor = match cursor.consume(1UL) { Err(error) => return Err(error); Ok(value) => value }
+      cursor = match cursor.consume(1UL) {
+        Err(error) => return Err(error)
+        Ok(value) => value
+      }
     }
   }
   let (_, eob_bits) = _png_fixed_literal_code(256UL)
@@ -1909,8 +2615,15 @@ fn _png_fixed_plan_with_cursor(
     Err(error) => return Err(error)
     Ok(value) => value
   }
-  Ok({ deflate_bits: bits, deflate_bytes, matcher_work, fingerprint,
-    traversal_facts: cursor.facts(), idat_length, total_length })
+  Ok({
+    deflate_bits: bits,
+    deflate_bytes,
+    matcher_work,
+    fingerprint,
+    traversal_facts: cursor.facts(),
+    idat_length,
+    total_length,
+  })
 }
 
 ///|
@@ -1924,11 +2637,16 @@ fn _png_encode_preflight(
   budget : @budget.Budget,
 ) -> Result[PngEncodePreflight, @error.CoreError] {
   _png_encode_preflight_with_filter(
-    source, strategy, PngFilterStrategy::None, limits, budget,
+    source,
+    strategy,
+    PngFilterStrategy::None,
+    limits,
+    budget,
   )
 }
 
-///| The filter-aware atomic admission path. Every candidate and later replay
+///|
+/// The filter-aware atomic admission path. Every candidate and later replay
 /// observes this same logical byte stream before any output can be exposed.
 fn _png_encode_preflight_with_filter(
   source : @storage.ImageView,
@@ -1942,7 +2660,8 @@ fn _png_encode_preflight_with_filter(
   )
 }
 
-///| Interlace selection is admitted before the filter-aware preflight can read
+///|
+/// Interlace selection is admitted before the filter-aware preflight can read
 /// source pixels, plan compression, reserve budget, or create output state.
 fn _png_encode_preflight_with_interlace(
   source : @storage.ImageView,
@@ -1953,12 +2672,18 @@ fn _png_encode_preflight_with_interlace(
   budget : @budget.Budget,
 ) -> Result[PngEncodePreflight, @error.CoreError] {
   _png_encode_preflight_with_interlace_profile(
-    source, PngEncodeProfile::LegacyRgbOrRgba, strategy, filter_strategy,
-    interlace_strategy, limits, budget,
+    source,
+    PngEncodeProfile::LegacyRgbOrRgba,
+    strategy,
+    filter_strategy,
+    interlace_strategy,
+    limits,
+    budget,
   )
 }
 
-///| Profile-aware entry point for the private machine construction seam.
+///|
+/// Profile-aware entry point for the private machine construction seam.
 fn _png_encode_preflight_with_interlace_profile(
   source : @storage.ImageView,
   profile : PngEncodeProfile,
@@ -1987,7 +2712,8 @@ fn _png_encode_preflight_with_interlace_profile(
   )
 }
 
-///| The test-only bound takes the same atomic ledger path as production.
+///|
+/// The test-only bound takes the same atomic ledger path as production.
 fn _png_encode_preflight_with_filter_idat_limit(
   source : @storage.ImageView,
   strategy : PngCompressionStrategy,
@@ -1997,12 +2723,19 @@ fn _png_encode_preflight_with_filter_idat_limit(
   dynamic_max_idat_length : UInt64,
 ) -> Result[PngEncodePreflight, @error.CoreError] {
   _png_encode_preflight_with_filter_layout_idat_limit_profile(
-    source, PngEncodeProfile::LegacyRgbOrRgba, strategy, filter_strategy,
-    PngInterlaceStrategy::None, limits, budget, dynamic_max_idat_length,
+    source,
+    PngEncodeProfile::LegacyRgbOrRgba,
+    strategy,
+    filter_strategy,
+    PngInterlaceStrategy::None,
+    limits,
+    budget,
+    dynamic_max_idat_length,
   )
 }
 
-///| One atomic ledger parameterized only by the scalar raster layout.  Adam7
+///|
+/// One atomic ledger parameterized only by the scalar raster layout.  Adam7
 /// pass totals come from `_png_adam7_passes`; every planner and replay pass is
 /// a fresh traversal of that same bounded producer before the single charge.
 fn _png_encode_preflight_with_filter_layout_idat_limit(
@@ -2015,12 +2748,19 @@ fn _png_encode_preflight_with_filter_layout_idat_limit(
   dynamic_max_idat_length : UInt64,
 ) -> Result[PngEncodePreflight, @error.CoreError] {
   _png_encode_preflight_with_filter_layout_idat_limit_profile(
-    source, PngEncodeProfile::LegacyRgbOrRgba, strategy, filter_strategy,
-    interlace_strategy, limits, budget, dynamic_max_idat_length,
+    source,
+    PngEncodeProfile::LegacyRgbOrRgba,
+    strategy,
+    filter_strategy,
+    interlace_strategy,
+    limits,
+    budget,
+    dynamic_max_idat_length,
   )
 }
 
-///| One atomic ledger parameterized by profile and scalar raster layout.
+///|
+/// One atomic ledger parameterized by profile and scalar raster layout.
 fn _png_encode_preflight_with_filter_layout_idat_limit_profile(
   source : @storage.ImageView,
   profile : PngEncodeProfile,
@@ -2039,34 +2779,44 @@ fn _png_encode_preflight_with_filter_layout_idat_limit_profile(
     Err(error) => return Err(error)
     Ok(value) => value
   }
-  let row_bytes = match _png_profile_wire_row_bytes(source.width(), channels, profile) {
+  let row_bytes = match
+    _png_profile_wire_row_bytes(source.width(), channels, profile) {
     Err(error) => return Err(error)
     Ok(value) => value
   }
   let scanlines = match interlace_strategy {
     PngInterlaceStrategy::None => {
       let scanline_width = match @checked.checked_add(row_bytes, 1UL) {
-        Err(error) => return Err(error); Ok(value) => value
+        Err(error) => return Err(error)
+        Ok(value) => value
       }
       match @checked.checked_mul(scanline_width, source.height()) {
-        Err(error) => return Err(error); Ok(value) => value
+        Err(error) => return Err(error)
+        Ok(value) => value
       }
     }
     PngInterlaceStrategy::Adam7 => {
-      let passes = match _png_adam7_passes(source.width(), source.height(), channels, 8) {
-        Err(error) => return Err(error); Ok(value) => value
+      let passes = match
+        _png_adam7_passes(source.width(), source.height(), channels, 8) {
+        Err(error) => return Err(error)
+        Ok(value) => value
       }
       let mut total = 0UL
       for pass in passes {
-        if pass.width == 0UL || pass.height == 0UL { continue }
+        if pass.width == 0UL || pass.height == 0UL {
+          continue
+        }
         let per_row = match @checked.checked_add(pass.row_bytes, 1UL) {
-          Err(error) => return Err(error); Ok(value) => value
+          Err(error) => return Err(error)
+          Ok(value) => value
         }
         let bytes = match @checked.checked_mul(per_row, pass.height) {
-          Err(error) => return Err(error); Ok(value) => value
+          Err(error) => return Err(error)
+          Ok(value) => value
         }
         total = match @checked.checked_add(total, bytes) {
-          Err(error) => return Err(error); Ok(value) => value
+          Err(error) => return Err(error)
+          Ok(value) => value
         }
       }
       total
@@ -2084,44 +2834,85 @@ fn _png_encode_preflight_with_filter_layout_idat_limit_profile(
     Err(error) => return Err(error)
     Ok(value) => value
   }
-  let stored_idat_length = match @checked.checked_add(payload_and_adler, block_headers) {
+  let stored_idat_length = match
+    @checked.checked_add(payload_and_adler, block_headers) {
     Err(error) => return Err(error)
     Ok(value) => value
   }
-  let stored_total_length = match @checked.checked_add(stored_idat_length, 57UL) {
+  let stored_total_length = match
+    @checked.checked_add(stored_idat_length, 57UL) {
     Err(error) => return Err(error)
     Ok(value) => value
   }
   let stored = PngStoredPlan::{
-    blocks, idat_length: stored_idat_length, total_length: stored_total_length,
+    blocks,
+    idat_length: stored_idat_length,
+    total_length: stored_total_length,
   }
   let mut adaptive_planning_facts = PngFilteredTraversalFacts::{
-    resolved_rows: 0UL, candidate_residuals: 0UL, selected_residuals: 0UL,
+    resolved_rows: 0UL,
+    candidate_residuals: 0UL,
+    selected_residuals: 0UL,
   }
   let plan = match strategy {
     PngCompressionStrategy::Stored => {
-      let pass = match _png_filtered_match_traverse_with_interlace(
-        source, row_bytes, channels, filter_strategy, scanlines, interlace_strategy, profile=profile,
-      ) { Err(error) => return Err(error); Ok(value) => value }
-      adaptive_planning_facts = match _png_filtered_facts_add(
-        adaptive_planning_facts, pass,
-      ) { Err(error) => return Err(error); Ok(value) => value }
-      PngDeflatePlan::Stored(stored)
-    }
-    PngCompressionStrategy::FixedOrStored => {
-      let pass = match _png_filtered_match_traverse_with_interlace(
-        source, row_bytes, channels, filter_strategy, scanlines, interlace_strategy, profile=profile,
-      ) { Err(error) => return Err(error); Ok(value) => value }
-      adaptive_planning_facts = match _png_filtered_facts_add(
-        adaptive_planning_facts, pass,
-      ) { Err(error) => return Err(error); Ok(value) => value }
-      let fixed = match _png_fixed_plan_with_interlace(source, row_bytes, channels, filter_strategy, scanlines, interlace_strategy, profile=profile) {
+      let pass = match
+        _png_filtered_match_traverse_with_interlace(
+          source,
+          row_bytes,
+          channels,
+          filter_strategy,
+          scanlines,
+          interlace_strategy,
+          profile~,
+        ) {
         Err(error) => return Err(error)
         Ok(value) => value
       }
-      adaptive_planning_facts = match _png_filtered_facts_add(
-        adaptive_planning_facts, fixed.traversal_facts,
-      ) { Err(error) => return Err(error); Ok(value) => value }
+      adaptive_planning_facts = match
+        _png_filtered_facts_add(adaptive_planning_facts, pass) {
+        Err(error) => return Err(error)
+        Ok(value) => value
+      }
+      PngDeflatePlan::Stored(stored)
+    }
+    PngCompressionStrategy::FixedOrStored => {
+      let pass = match
+        _png_filtered_match_traverse_with_interlace(
+          source,
+          row_bytes,
+          channels,
+          filter_strategy,
+          scanlines,
+          interlace_strategy,
+          profile~,
+        ) {
+        Err(error) => return Err(error)
+        Ok(value) => value
+      }
+      adaptive_planning_facts = match
+        _png_filtered_facts_add(adaptive_planning_facts, pass) {
+        Err(error) => return Err(error)
+        Ok(value) => value
+      }
+      let fixed = match
+        _png_fixed_plan_with_interlace(
+          source,
+          row_bytes,
+          channels,
+          filter_strategy,
+          scanlines,
+          interlace_strategy,
+          profile~,
+        ) {
+        Err(error) => return Err(error)
+        Ok(value) => value
+      }
+      adaptive_planning_facts = match
+        _png_filtered_facts_add(adaptive_planning_facts, fixed.traversal_facts) {
+        Err(error) => return Err(error)
+        Ok(value) => value
+      }
       if fixed.idat_length > 4294967295UL {
         return Err(_png_encode_capability("png-idat-length"))
       }
@@ -2132,84 +2923,171 @@ fn _png_encode_preflight_with_filter_layout_idat_limit_profile(
       }
     }
     PngCompressionStrategy::DynamicOrFixedOrStored => {
-      let stored_pass = match _png_filtered_match_traverse_with_interlace(
-        source, row_bytes, channels, filter_strategy, scanlines, interlace_strategy, profile=profile,
-      ) { Err(error) => return Err(error); Ok(value) => value }
-      adaptive_planning_facts = match _png_filtered_facts_add(
-        adaptive_planning_facts, stored_pass,
-      ) { Err(error) => return Err(error); Ok(value) => value }
-      let fixed = match _png_fixed_plan_with_interlace(source, row_bytes, channels, filter_strategy, scanlines, interlace_strategy, profile=profile) {
-        Err(error) => return Err(error); Ok(value) => value
+      let stored_pass = match
+        _png_filtered_match_traverse_with_interlace(
+          source,
+          row_bytes,
+          channels,
+          filter_strategy,
+          scanlines,
+          interlace_strategy,
+          profile~,
+        ) {
+        Err(error) => return Err(error)
+        Ok(value) => value
       }
-      adaptive_planning_facts = match _png_filtered_facts_add(
-        adaptive_planning_facts, fixed.traversal_facts,
-      ) { Err(error) => return Err(error); Ok(value) => value }
-      if fixed.idat_length > 4294967295UL { return Err(_png_encode_capability("png-idat-length")) }
+      adaptive_planning_facts = match
+        _png_filtered_facts_add(adaptive_planning_facts, stored_pass) {
+        Err(error) => return Err(error)
+        Ok(value) => value
+      }
+      let fixed = match
+        _png_fixed_plan_with_interlace(
+          source,
+          row_bytes,
+          channels,
+          filter_strategy,
+          scanlines,
+          interlace_strategy,
+          profile~,
+        ) {
+        Err(error) => return Err(error)
+        Ok(value) => value
+      }
+      adaptive_planning_facts = match
+        _png_filtered_facts_add(adaptive_planning_facts, fixed.traversal_facts) {
+        Err(error) => return Err(error)
+        Ok(value) => value
+      }
+      if fixed.idat_length > 4294967295UL {
+        return Err(_png_encode_capability("png-idat-length"))
+      }
       let winner = if fixed.total_length <= stored.total_length {
         PngDeflatePlan::Fixed(fixed)
-      } else { PngDeflatePlan::Stored(stored) }
+      } else {
+        PngDeflatePlan::Stored(stored)
+      }
       let winner_length = match winner {
         PngDeflatePlan::Stored(value) => value.total_length
         PngDeflatePlan::Fixed(value) => value.total_length
         PngDeflatePlan::Dynamic(value) => value.total_length
       }
-      match _png_dynamic_plan_with_interlace_idat_limit(
-        source, row_bytes, channels, filter_strategy, scanlines, dynamic_max_idat_length, interlace_strategy, profile=profile,
-      ) {
+      match
+        _png_dynamic_plan_with_interlace_idat_limit(
+          source,
+          row_bytes,
+          channels,
+          filter_strategy,
+          scanlines,
+          dynamic_max_idat_length,
+          interlace_strategy,
+          profile~,
+        ) {
         Err(error) => return Err(error)
         Ok(dynamic_outcome) => {
-          adaptive_planning_facts = match _png_filtered_facts_add(
-            adaptive_planning_facts, dynamic_outcome.frequency_facts,
-          ) { Err(error) => return Err(error); Ok(value) => value }
-          adaptive_planning_facts = match _png_filtered_facts_add(
-            adaptive_planning_facts, dynamic_outcome.bit_facts,
-          ) { Err(error) => return Err(error); Ok(value) => value }
+          adaptive_planning_facts = match
+            _png_filtered_facts_add(
+              adaptive_planning_facts,
+              dynamic_outcome.frequency_facts,
+            ) {
+            Err(error) => return Err(error)
+            Ok(value) => value
+          }
+          adaptive_planning_facts = match
+            _png_filtered_facts_add(
+              adaptive_planning_facts,
+              dynamic_outcome.bit_facts,
+            ) {
+            Err(error) => return Err(error)
+            Ok(value) => value
+          }
           match dynamic_outcome.plan {
-            Some(dynamic) => if dynamic.total_length < winner_length {
-              PngDeflatePlan::Dynamic(dynamic)
-            } else { winner }
+            Some(dynamic) =>
+              if dynamic.total_length < winner_length {
+                PngDeflatePlan::Dynamic(dynamic)
+              } else {
+                winner
+              }
             None => winner
           }
         }
       }
     }
   }
-  let adaptive_replay_facts = match _png_filtered_match_traverse_with_interlace(
-    source, row_bytes, channels, filter_strategy, scanlines, interlace_strategy, profile=profile,
-  ) { Err(error) => return Err(error); Ok(value) => value }
-  let adaptive_filter_work = match _png_filtered_facts_add(
-    adaptive_planning_facts, adaptive_replay_facts,
-  ) { Err(error) => return Err(error); Ok(value) => value }
+  let adaptive_replay_facts = match
+    _png_filtered_match_traverse_with_interlace(
+      source,
+      row_bytes,
+      channels,
+      filter_strategy,
+      scanlines,
+      interlace_strategy,
+      profile~,
+    ) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  let adaptive_filter_work = match
+    _png_filtered_facts_add(adaptive_planning_facts, adaptive_replay_facts) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
   let adaptive_filter_work = match adaptive_filter_work.work() {
-    Err(error) => return Err(error); Ok(value) => value
+    Err(error) => return Err(error)
+    Ok(value) => value
   }
   let (blocks, idat_length, total_length, selected_work) = match plan {
-    PngDeflatePlan::Stored(value) => (
-      value.blocks, value.idat_length, value.total_length,
-      match _png_fixed_add(value.total_length, adaptive_filter_work) { Err(error) => return Err(error); Ok(value) => value },
-    )
-    PngDeflatePlan::Fixed(value) => (
-      0UL, value.idat_length, value.total_length,
-      match _png_encode_selected_work(value.total_length, value.matcher_work, adaptive_filter_work) {
-        Err(error) => return Err(error); Ok(value) => value
-      },
-    )
+    PngDeflatePlan::Stored(value) =>
+      (
+        value.blocks,
+        value.idat_length,
+        value.total_length,
+        match _png_fixed_add(value.total_length, adaptive_filter_work) {
+          Err(error) => return Err(error)
+          Ok(value) => value
+        },
+      )
+    PngDeflatePlan::Fixed(value) =>
+      (
+        0UL,
+        value.idat_length,
+        value.total_length,
+        match
+          _png_encode_selected_work(
+            value.total_length,
+            value.matcher_work,
+            adaptive_filter_work,
+          ) {
+          Err(error) => return Err(error)
+          Ok(value) => value
+        },
+      )
     // The exact ledger is selected bytes + planning matcher walk + replay
     // matcher walk; header/tree work is fixed by the RFC alphabet bounds.
-    PngDeflatePlan::Dynamic(value) => (
-      0UL, value.idat_length, value.total_length,
-      match _png_encode_selected_work(value.total_length, value.matcher_work, adaptive_filter_work) {
-        Err(error) => return Err(error); Ok(value) => value
-      },
-    )
+    PngDeflatePlan::Dynamic(value) =>
+      (
+        0UL,
+        value.idat_length,
+        value.total_length,
+        match
+          _png_encode_selected_work(
+            value.total_length,
+            value.matcher_work,
+            adaptive_filter_work,
+          ) {
+          Err(error) => return Err(error)
+          Ok(value) => value
+        },
+      )
   }
-  for item in [
-    ("width", source.width(), limits.max_width()),
-    ("height", source.height(), limits.max_height()),
-    ("pixels", pixels, limits.max_pixels()),
-    ("output-bytes", total_length, limits.max_output_bytes()),
-    ("work", selected_work, limits.max_work()),
-  ] {
+  for
+    item in [
+      ("width", source.width(), limits.max_width()),
+      ("height", source.height(), limits.max_height()),
+      ("pixels", pixels, limits.max_pixels()),
+      ("output-bytes", total_length, limits.max_output_bytes()),
+      ("work", selected_work, limits.max_work()),
+    ] {
     let (context, requested, limit) = item
     match _png_encode_limit(context, requested, limit) {
       Err(error) => return Err(error)
@@ -2224,20 +3102,40 @@ fn _png_encode_preflight_with_filter_layout_idat_limit_profile(
     Err(error) => return Err(error)
     Ok(value) => value
   }
-  match budget.charge(@budget.ResourceCharge::new(
-    bytes=0UL, allocations=0UL, allocation_size=0UL, width=source.width(),
-    height=source.height(), pixels=0UL, work=selected_work,
-  )) {
+  match
+    budget.charge(
+      @budget.ResourceCharge::new(
+        bytes=0UL,
+        allocations=0UL,
+        allocation_size=0UL,
+        width=source.width(),
+        height=source.height(),
+        pixels=0UL,
+        work=selected_work,
+      ),
+    ) {
     Err(error) => return Err(error)
     Ok(_) => ()
   }
   Ok({
-    profile, channels, row_bytes, scanlines, blocks, idat_length, total_length, plan,
-    disposition, selected_work, adaptive_planning_facts, adaptive_replay_facts, frame,
+    profile,
+    channels,
+    row_bytes,
+    scanlines,
+    blocks,
+    idat_length,
+    total_length,
+    plan,
+    disposition,
+    selected_work,
+    adaptive_planning_facts,
+    adaptive_replay_facts,
+    frame,
   })
 }
 
-///| Indexed8 has a deliberately fixed Stored/None/non-interlaced admission
+///|
+/// Indexed8 has a deliberately fixed Stored/None/non-interlaced admission
 /// path, but uses the same bounded work and one-charge eager ledger as the
 /// existing machine.
 fn _png_indexed_stored_idat_length(
@@ -2258,7 +3156,8 @@ fn _png_indexed_stored_idat_length(
     Err(error) => return Err(error)
     Ok(value) => value
   }
-  let idat_length = match @checked.checked_add(payload_and_adler, block_headers) {
+  let idat_length = match
+    @checked.checked_add(payload_and_adler, block_headers) {
     Err(error) => return Err(error)
     Ok(value) => value
   }
@@ -2277,11 +3176,17 @@ fn _png_encode_indexed_preflight_with_profile(
   budget : @budget.Budget,
 ) -> Result[PngEncodePreflight, @error.CoreError] {
   _png_encode_indexed_preflight_with_profile_and_strategy(
-    source, wire_profile, interlace_strategy, PngCompressionStrategy::Stored, limits, budget,
+    source,
+    wire_profile,
+    interlace_strategy,
+    PngCompressionStrategy::Stored,
+    limits,
+    budget,
   )
 }
 
-///| Indexed compression is deliberately narrower than the generic profile:
+///|
+/// Indexed compression is deliberately narrower than the generic profile:
 /// Dynamic has no indexed implementation and must fail before source facts or
 /// budget admission are observed.
 fn _png_encode_indexed_preflight_with_profile_and_strategy(
@@ -2293,7 +3198,9 @@ fn _png_encode_indexed_preflight_with_profile_and_strategy(
   budget : @budget.Budget,
 ) -> Result[PngEncodePreflight, @error.CoreError] {
   if strategy == PngCompressionStrategy::DynamicOrFixedOrStored {
-    return Err(_png_encode_capability("indexed-dynamic-compression-unavailable"))
+    return Err(
+      _png_encode_capability("indexed-dynamic-compression-unavailable"),
+    )
   }
   let width = source.width()
   let height = source.height()
@@ -2326,23 +3233,27 @@ fn _png_encode_indexed_preflight_with_profile_and_strategy(
     Ok(value) => value
   }
   let scanlines = match interlace_strategy {
-    PngInterlaceStrategy::None => match @checked.checked_mul(scanline_width, height) {
-      Err(error) => return Err(error)
-      Ok(value) => value
-    }
+    PngInterlaceStrategy::None =>
+      match @checked.checked_mul(scanline_width, height) {
+        Err(error) => return Err(error)
+        Ok(value) => value
+      }
     PngInterlaceStrategy::Adam7 => {
-      let passes = match _png_adam7_passes(width, height, 1UL, wire_profile.depth().to_int()) {
+      let passes = match
+        _png_adam7_passes(width, height, 1UL, wire_profile.depth().to_int()) {
         Err(error) => return Err(error)
         Ok(value) => value
       }
       let mut total = 0UL
       for pass in passes {
         if pass.width > 0UL && pass.height > 0UL {
-          let pass_scanline_width = match @checked.checked_add(pass.row_bytes, 1UL) {
+          let pass_scanline_width = match
+            @checked.checked_add(pass.row_bytes, 1UL) {
             Err(error) => return Err(error)
             Ok(value) => value
           }
-          let pass_scanlines = match @checked.checked_mul(pass_scanline_width, pass.height) {
+          let pass_scanlines = match
+            @checked.checked_mul(pass_scanline_width, pass.height) {
             Err(error) => return Err(error)
             Ok(value) => value
           }
@@ -2365,44 +3276,70 @@ fn _png_encode_indexed_preflight_with_profile_and_strategy(
       Err(error) => return Err(error)
       Ok(value) => value
     }
-    if alpha != b'\xff' { trns_length = entry + 1UL }
+    if alpha != b'\xff' {
+      trns_length = entry + 1UL
+    }
   }
-  let stored_frame = match _png_frame_facts(
-    source.palette_length(), trns_length, idat_length,
-  ) {
+  let stored_frame = match
+    _png_frame_facts(source.palette_length(), trns_length, idat_length) {
     Err(error) => return Err(error)
     Ok(value) => value
   }
-  let stored = PngStoredPlan::{ blocks, idat_length, total_length: stored_frame.total_length }
+  let stored = PngStoredPlan::{
+    blocks,
+    idat_length,
+    total_length: stored_frame.total_length,
+  }
   let (plan, frame, selected_work) = match strategy {
-    PngCompressionStrategy::Stored => (
-      PngDeflatePlan::Stored(stored), stored_frame, stored_frame.total_length,
-    )
+    PngCompressionStrategy::Stored =>
+      (PngDeflatePlan::Stored(stored), stored_frame, stored_frame.total_length)
     PngCompressionStrategy::FixedOrStored => {
       let cursor = PngFilteredMatchCursor::new_indexed_with_interlace(
-        source, row_bytes, wire_profile.depth(), interlace_strategy,
+        source,
+        row_bytes,
+        wire_profile.depth(),
+        interlace_strategy,
       )
       let fixed = match _png_fixed_plan_with_cursor(cursor, scanlines) {
-        Err(error) => return Err(error); Ok(value) => value
+        Err(error) => return Err(error)
+        Ok(value) => value
       }
       if fixed.idat_length > 4294967295UL {
         return Err(_png_encode_capability("png-idat-length"))
       }
-      let fixed_frame = match _png_frame_facts(
-        source.palette_length(), trns_length, fixed.idat_length,
-      ) { Err(error) => return Err(error); Ok(value) => value }
+      let fixed_frame = match
+        _png_frame_facts(
+          source.palette_length(),
+          trns_length,
+          fixed.idat_length,
+        ) {
+        Err(error) => return Err(error)
+        Ok(value) => value
+      }
       if fixed_frame.total_length <= stored_frame.total_length {
         let fixed = { ..fixed, total_length: fixed_frame.total_length }
-        let work = match _png_encode_selected_work(
-          fixed_frame.total_length, fixed.matcher_work, 0UL,
-        ) { Err(error) => return Err(error); Ok(value) => value }
+        let work = match
+          _png_encode_selected_work(
+            fixed_frame.total_length,
+            fixed.matcher_work,
+            0UL,
+          ) {
+          Err(error) => return Err(error)
+          Ok(value) => value
+        }
         (PngDeflatePlan::Fixed(fixed), fixed_frame, work)
       } else {
-        (PngDeflatePlan::Stored(stored), stored_frame, stored_frame.total_length)
+        (
+          PngDeflatePlan::Stored(stored),
+          stored_frame,
+          stored_frame.total_length,
+        )
       }
     }
     PngCompressionStrategy::DynamicOrFixedOrStored =>
-      return Err(_png_encode_capability("indexed-dynamic-compression-unavailable"))
+      return Err(
+        _png_encode_capability("indexed-dynamic-compression-unavailable"),
+      )
   }
   let idat_length = match plan {
     PngDeflatePlan::Stored(value) => value.idat_length
@@ -2413,13 +3350,14 @@ fn _png_encode_indexed_preflight_with_profile_and_strategy(
     PngDeflatePlan::Stored(value) => value.blocks
     _ => 0UL
   }
-  for item in [
-    ("width", width, limits.max_width()),
-    ("height", height, limits.max_height()),
-    ("pixels", pixels, limits.max_pixels()),
-    ("output-bytes", frame.total_length, limits.max_output_bytes()),
-    ("work", selected_work, limits.max_work()),
-  ] {
+  for
+    item in [
+      ("width", width, limits.max_width()),
+      ("height", height, limits.max_height()),
+      ("pixels", pixels, limits.max_pixels()),
+      ("output-bytes", frame.total_length, limits.max_output_bytes()),
+      ("work", selected_work, limits.max_work()),
+    ] {
     let (context, requested, limit) = item
     match _png_encode_limit(context, requested, limit) {
       Err(error) => return Err(error)
@@ -2430,21 +3368,40 @@ fn _png_encode_indexed_preflight_with_profile_and_strategy(
     Err(error) => return Err(error)
     Ok(value) => value
   }
-  match budget.charge(@budget.ResourceCharge::new(
-    bytes=0UL, allocations=0UL, allocation_size=0UL, width~, height~,
-    pixels~, work=selected_work,
-  )) {
+  match
+    budget.charge(
+      @budget.ResourceCharge::new(
+        bytes=0UL,
+        allocations=0UL,
+        allocation_size=0UL,
+        width~,
+        height~,
+        pixels~,
+        work=selected_work,
+      ),
+    ) {
     Err(error) => return Err(error)
     Ok(_) => ()
   }
   let traversal = PngFilteredTraversalFacts::{
-    resolved_rows: 0UL, candidate_residuals: 0UL, selected_residuals: 0UL,
+    resolved_rows: 0UL,
+    candidate_residuals: 0UL,
+    selected_residuals: 0UL,
   }
   Ok({
-    profile: wire_profile.profile(), channels: 1UL, row_bytes, scanlines,
-    blocks, idat_length, total_length: frame.total_length, plan,
-    disposition, selected_work, adaptive_planning_facts: traversal,
-    adaptive_replay_facts: traversal, frame,
+    profile: wire_profile.profile(),
+    channels: 1UL,
+    row_bytes,
+    scanlines,
+    blocks,
+    idat_length,
+    total_length: frame.total_length,
+    plan,
+    disposition,
+    selected_work,
+    adaptive_planning_facts: traversal,
+    adaptive_replay_facts: traversal,
+    frame,
   })
 }
 
@@ -2456,7 +3413,11 @@ fn _png_encode_indexed_preflight(
   budget : @budget.Budget,
 ) -> Result[PngEncodePreflight, @error.CoreError] {
   _png_encode_indexed_preflight_with_profile(
-    source, PngIndexedWireProfile::Eight, PngInterlaceStrategy::None, limits, budget,
+    source,
+    PngIndexedWireProfile::Eight,
+    PngInterlaceStrategy::None,
+    limits,
+    budget,
   )
 }
 
@@ -2470,10 +3431,17 @@ pub impl @codec.ImageEncoder for PngEncoder with fn encode(
   budget,
   _diagnostics,
 ) {
-  let machine = match PngEncodeMachine::new_with_profile(
-    source, _self.profile, _self.strategy, _self.filter_strategy,
-    _self.interlace_strategy, limits, budget, _diagnostics,
-  ) {
+  let machine = match
+    PngEncodeMachine::new_with_profile(
+      source,
+      _self.profile,
+      _self.strategy,
+      _self.filter_strategy,
+      _self.interlace_strategy,
+      limits,
+      budget,
+      _diagnostics,
+    ) {
     Err(error) => return Err(error)
     Ok(value) => value
   }
@@ -2483,17 +3451,18 @@ pub impl @codec.ImageEncoder for PngEncoder with fn encode(
       Ok(None) => break
       Ok(Some(value)) => value
     }
-    let owner = match @bytes.OwnedBytes::from_bytes(
-      Bytes::from_array([byte]), _png_private_budget(1UL),
-    ) {
+    let owner = match
+      @bytes.OwnedBytes::from_bytes(
+        Bytes::from_array([byte]),
+        _png_private_budget(1UL),
+      ) {
       Err(error) => return Err(error)
       Ok(value) => value
     }
     match writer.write(owner.view()) {
       @io.WriteOutcome::Progress(1UL) => ()
-      @io.WriteOutcome::Progress(progress) => {
+      @io.WriteOutcome::Progress(progress) =>
         return Err(_png_encode_invalid_writer_progress(progress))
-      }
       @io.WriteOutcome::Failed(error, _) => return Err(error)
     }
     match machine.acknowledge(byte) {
@@ -2504,7 +3473,8 @@ pub impl @codec.ImageEncoder for PngEncoder with fn encode(
   Ok(@codec.EncodeResult::new(machine.disposition(), machine.completed()))
 }
 
-///| Eagerly encode an immutable PNG-only Indexed8 source. This entry point is
+///|
+/// Eagerly encode an immutable PNG-only Indexed8 source. This entry point is
 /// intentionally outside ImageEncoder because ImageView has no palette/index
 /// contract. Its wire profile is fixed to Type-3/8, RGB PLTE, Stored, None,
 /// and non-interlaced output.
@@ -2517,11 +3487,18 @@ pub fn PngEncoder::encode_indexed8(
   diagnostics : @error.Diagnostics,
 ) -> Result[@codec.EncodeResult, @error.CoreError] {
   PngEncoder::encode_indexed8_with_compression_strategy(
-    _self, source, PngCompressionStrategy::Stored, writer, limits, budget, diagnostics,
+    _self,
+    source,
+    PngCompressionStrategy::Stored,
+    writer,
+    limits,
+    budget,
+    diagnostics,
   )
 }
 
-///| Selects the bounded non-interlaced Type-3/8 compression plan. Dynamic is
+///|
+/// Selects the bounded non-interlaced Type-3/8 compression plan. Dynamic is
 /// intentionally unavailable for indexed sources.
 pub fn PngEncoder::encode_indexed8_with_compression_strategy(
   _self : PngEncoder,
@@ -2532,28 +3509,49 @@ pub fn PngEncoder::encode_indexed8_with_compression_strategy(
   budget : @budget.Budget,
   diagnostics : @error.Diagnostics,
 ) -> Result[@codec.EncodeResult, @error.CoreError] {
-  let machine = match PngEncodeMachine::new_with_indexed_profile_and_strategy(
-    source, PngIndexedWireProfile::Eight, PngInterlaceStrategy::None, strategy,
-    limits, budget, diagnostics,
-  ) { Err(error) => return Err(error); Ok(value) => value }
+  let machine = match
+    PngEncodeMachine::new_with_indexed_profile_and_strategy(
+      source,
+      PngIndexedWireProfile::Eight,
+      PngInterlaceStrategy::None,
+      strategy,
+      limits,
+      budget,
+      diagnostics,
+    ) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
   while true {
     let byte = match machine.present() {
-      Err(error) => return Err(error); Ok(None) => break; Ok(Some(value)) => value
+      Err(error) => return Err(error)
+      Ok(None) => break
+      Ok(Some(value)) => value
     }
-    let owner = match @bytes.OwnedBytes::from_bytes(
-      Bytes::from_array([byte]), _png_private_budget(1UL),
-    ) { Err(error) => return Err(error); Ok(value) => value }
+    let owner = match
+      @bytes.OwnedBytes::from_bytes(
+        Bytes::from_array([byte]),
+        _png_private_budget(1UL),
+      ) {
+      Err(error) => return Err(error)
+      Ok(value) => value
+    }
     match writer.write(owner.view()) {
       @io.WriteOutcome::Progress(1UL) => ()
-      @io.WriteOutcome::Progress(progress) => return Err(_png_encode_invalid_writer_progress(progress))
+      @io.WriteOutcome::Progress(progress) =>
+        return Err(_png_encode_invalid_writer_progress(progress))
       @io.WriteOutcome::Failed(error, _) => return Err(error)
     }
-    match machine.acknowledge(byte) { Err(error) => return Err(error); Ok(_) => () }
+    match machine.acknowledge(byte) {
+      Err(error) => return Err(error)
+      Ok(_) => ()
+    }
   }
   Ok(@codec.EncodeResult::new(machine.disposition(), machine.completed()))
 }
 
-///| Eagerly encode an immutable Indexed8 PNG through the shared bounded
+///|
+/// Eagerly encode an immutable Indexed8 PNG through the shared bounded
 /// machine, selecting the additive Adam7 layout only when explicitly requested.
 pub fn PngEncoder::encode_indexed8_with_interlace_strategy(
   _self : PngEncoder,
@@ -2565,12 +3563,19 @@ pub fn PngEncoder::encode_indexed8_with_interlace_strategy(
   diagnostics : @error.Diagnostics,
 ) -> Result[@codec.EncodeResult, @error.CoreError] {
   PngEncoder::encode_indexed8_with_interlace_and_compression_strategy(
-    _self, source, interlace_strategy, PngCompressionStrategy::Stored,
-    writer, limits, budget, diagnostics,
+    _self,
+    source,
+    interlace_strategy,
+    PngCompressionStrategy::Stored,
+    writer,
+    limits,
+    budget,
+    diagnostics,
   )
 }
 
-///| Eagerly encodes Indexed8 with explicit Adam7 and compression selection.
+///|
+/// Eagerly encodes Indexed8 with explicit Adam7 and compression selection.
 pub fn PngEncoder::encode_indexed8_with_interlace_and_compression_strategy(
   _self : PngEncoder,
   source : PngIndexedImage,
@@ -2581,10 +3586,16 @@ pub fn PngEncoder::encode_indexed8_with_interlace_and_compression_strategy(
   budget : @budget.Budget,
   diagnostics : @error.Diagnostics,
 ) -> Result[@codec.EncodeResult, @error.CoreError] {
-  let machine = match PngEncodeMachine::new_with_indexed_profile_and_strategy(
-    source, PngIndexedWireProfile::Eight, interlace_strategy, strategy,
-    limits, budget, diagnostics,
-  ) {
+  let machine = match
+    PngEncodeMachine::new_with_indexed_profile_and_strategy(
+      source,
+      PngIndexedWireProfile::Eight,
+      interlace_strategy,
+      strategy,
+      limits,
+      budget,
+      diagnostics,
+    ) {
     Err(error) => return Err(error)
     Ok(value) => value
   }
@@ -2594,17 +3605,18 @@ pub fn PngEncoder::encode_indexed8_with_interlace_and_compression_strategy(
       Ok(None) => break
       Ok(Some(value)) => value
     }
-    let owner = match @bytes.OwnedBytes::from_bytes(
-      Bytes::from_array([byte]), _png_private_budget(1UL),
-    ) {
+    let owner = match
+      @bytes.OwnedBytes::from_bytes(
+        Bytes::from_array([byte]),
+        _png_private_budget(1UL),
+      ) {
       Err(error) => return Err(error)
       Ok(value) => value
     }
     match writer.write(owner.view()) {
       @io.WriteOutcome::Progress(1UL) => ()
-      @io.WriteOutcome::Progress(progress) => {
+      @io.WriteOutcome::Progress(progress) =>
         return Err(_png_encode_invalid_writer_progress(progress))
-      }
       @io.WriteOutcome::Failed(error, _) => return Err(error)
     }
     match machine.acknowledge(byte) {
@@ -2615,7 +3627,8 @@ pub fn PngEncoder::encode_indexed8_with_interlace_and_compression_strategy(
   Ok(@codec.EncodeResult::new(machine.disposition(), machine.completed()))
 }
 
-///| Eagerly encode an immutable indexed source using the explicitly selected
+///|
+/// Eagerly encode an immutable indexed source using the explicitly selected
 /// Type-3 low-bit profile. The source remains unpacked; packing happens only
 /// while the existing acknowledged machine emits a scanline.
 pub fn PngEncoder::encode_indexed(
@@ -2628,11 +3641,19 @@ pub fn PngEncoder::encode_indexed(
   diagnostics : @error.Diagnostics,
 ) -> Result[@codec.EncodeResult, @error.CoreError] {
   PngEncoder::encode_indexed_with_compression_strategy(
-    _self, source, bit_depth, PngCompressionStrategy::Stored, writer, limits, budget, diagnostics,
+    _self,
+    source,
+    bit_depth,
+    PngCompressionStrategy::Stored,
+    writer,
+    limits,
+    budget,
+    diagnostics,
   )
 }
 
-///| Selects Stored or bounded Fixed DEFLATE for non-interlaced Indexed1/2/4.
+///|
+/// Selects Stored or bounded Fixed DEFLATE for non-interlaced Indexed1/2/4.
 pub fn PngEncoder::encode_indexed_with_compression_strategy(
   _self : PngEncoder,
   source : PngIndexedImage,
@@ -2643,28 +3664,49 @@ pub fn PngEncoder::encode_indexed_with_compression_strategy(
   budget : @budget.Budget,
   diagnostics : @error.Diagnostics,
 ) -> Result[@codec.EncodeResult, @error.CoreError] {
-  let machine = match PngEncodeMachine::new_with_indexed_profile_and_strategy(
-    source, _png_indexed_wire_profile(bit_depth), PngInterlaceStrategy::None, strategy,
-    limits, budget, diagnostics,
-  ) { Err(error) => return Err(error); Ok(value) => value }
+  let machine = match
+    PngEncodeMachine::new_with_indexed_profile_and_strategy(
+      source,
+      _png_indexed_wire_profile(bit_depth),
+      PngInterlaceStrategy::None,
+      strategy,
+      limits,
+      budget,
+      diagnostics,
+    ) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
   while true {
     let byte = match machine.present() {
-      Err(error) => return Err(error); Ok(None) => break; Ok(Some(value)) => value
+      Err(error) => return Err(error)
+      Ok(None) => break
+      Ok(Some(value)) => value
     }
-    let owner = match @bytes.OwnedBytes::from_bytes(
-      Bytes::from_array([byte]), _png_private_budget(1UL),
-    ) { Err(error) => return Err(error); Ok(value) => value }
+    let owner = match
+      @bytes.OwnedBytes::from_bytes(
+        Bytes::from_array([byte]),
+        _png_private_budget(1UL),
+      ) {
+      Err(error) => return Err(error)
+      Ok(value) => value
+    }
     match writer.write(owner.view()) {
       @io.WriteOutcome::Progress(1UL) => ()
-      @io.WriteOutcome::Progress(progress) => return Err(_png_encode_invalid_writer_progress(progress))
+      @io.WriteOutcome::Progress(progress) =>
+        return Err(_png_encode_invalid_writer_progress(progress))
       @io.WriteOutcome::Failed(error, _) => return Err(error)
     }
-    match machine.acknowledge(byte) { Err(error) => return Err(error); Ok(_) => () }
+    match machine.acknowledge(byte) {
+      Err(error) => return Err(error)
+      Ok(_) => ()
+    }
   }
   Ok(@codec.EncodeResult::new(machine.disposition(), machine.completed()))
 }
 
-///| Eagerly encodes a selected low-bit indexed source through the one shared
+///|
+/// Eagerly encodes a selected low-bit indexed source through the one shared
 /// machine, opting into Adam7 only when the caller explicitly requests it.
 pub fn PngEncoder::encode_indexed_with_interlace_strategy(
   _self : PngEncoder,
@@ -2677,12 +3719,20 @@ pub fn PngEncoder::encode_indexed_with_interlace_strategy(
   diagnostics : @error.Diagnostics,
 ) -> Result[@codec.EncodeResult, @error.CoreError] {
   PngEncoder::encode_indexed_with_interlace_and_compression_strategy(
-    _self, source, bit_depth, interlace_strategy, PngCompressionStrategy::Stored,
-    writer, limits, budget, diagnostics,
+    _self,
+    source,
+    bit_depth,
+    interlace_strategy,
+    PngCompressionStrategy::Stored,
+    writer,
+    limits,
+    budget,
+    diagnostics,
   )
 }
 
-///| Eagerly encodes a selected low-bit indexed source with explicit Adam7 and
+///|
+/// Eagerly encodes a selected low-bit indexed source with explicit Adam7 and
 /// compression selection through the shared machine.
 pub fn PngEncoder::encode_indexed_with_interlace_and_compression_strategy(
   _self : PngEncoder,
@@ -2696,9 +3746,10 @@ pub fn PngEncoder::encode_indexed_with_interlace_and_compression_strategy(
   diagnostics : @error.Diagnostics,
 ) -> Result[@codec.EncodeResult, @error.CoreError] {
   let wire_profile = _png_indexed_wire_profile(bit_depth)
-  let machine = match PngEncodeMachine::new_with_indexed_profile_and_strategy(
-    source, wire_profile, interlace_strategy, strategy, limits, budget, diagnostics,
-  ) {
+  let machine = match
+    PngEncodeMachine::new_with_indexed_profile_and_strategy(
+      source, wire_profile, interlace_strategy, strategy, limits, budget, diagnostics,
+    ) {
     Err(error) => return Err(error)
     Ok(value) => value
   }
@@ -2708,15 +3759,18 @@ pub fn PngEncoder::encode_indexed_with_interlace_and_compression_strategy(
       Ok(None) => break
       Ok(Some(value)) => value
     }
-    let owner = match @bytes.OwnedBytes::from_bytes(
-      Bytes::from_array([byte]), _png_private_budget(1UL),
-    ) {
+    let owner = match
+      @bytes.OwnedBytes::from_bytes(
+        Bytes::from_array([byte]),
+        _png_private_budget(1UL),
+      ) {
       Err(error) => return Err(error)
       Ok(value) => value
     }
     match writer.write(owner.view()) {
       @io.WriteOutcome::Progress(1UL) => ()
-      @io.WriteOutcome::Progress(progress) => return Err(_png_encode_invalid_writer_progress(progress))
+      @io.WriteOutcome::Progress(progress) =>
+        return Err(_png_encode_invalid_writer_progress(progress))
       @io.WriteOutcome::Failed(error, _) => return Err(error)
     }
     match machine.acknowledge(byte) {

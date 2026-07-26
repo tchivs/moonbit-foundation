@@ -100,9 +100,7 @@ pub fn QoiStreamPullResult::written(self : QoiStreamPullResult) -> UInt64 {
 }
 
 ///|
-pub fn QoiStreamPullResult::total_written(
-  self : QoiStreamPullResult,
-) -> UInt64 {
+pub fn QoiStreamPullResult::total_written(self : QoiStreamPullResult) -> UInt64 {
   self.total_written_value
 }
 

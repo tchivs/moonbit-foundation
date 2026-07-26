@@ -64,7 +64,11 @@ test "percent encode then decode is identity" {
 test "percent decode rejects truncated percent" {
   match percent_decode("abc%2") {
     Ok(_) => inspect(false, content="true")
-    Err(e) => inspect(e.context() == Some("text-percent-decode-truncated"), content="true")
+    Err(e) =>
+      inspect(
+        e.context() == Some("text-percent-decode-truncated"),
+        content="true",
+      )
   }
   match percent_decode("abc%") {
     Ok(_) => inspect(false, content="true")
@@ -76,6 +80,10 @@ test "percent decode rejects truncated percent" {
 test "percent decode rejects invalid hex" {
   match percent_decode("abc%XY") {
     Ok(_) => inspect(false, content="true")
-    Err(e) => inspect(e.context() == Some("text-percent-decode-invalid-hex"), content="true")
+    Err(e) =>
+      inspect(
+        e.context() == Some("text-percent-decode-invalid-hex"),
+        content="true",
+      )
   }
 }

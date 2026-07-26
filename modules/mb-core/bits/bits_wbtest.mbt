@@ -15,7 +15,11 @@ test "bit reader reads individual bits MSB-first" {
   // Now at end: next read fails.
   match reader.read_bit() {
     Ok(_) => inspect(false, content="true")
-    Err(e) => inspect(e.context() == Some("bit-reader-read-end-of-stream"), content="true")
+    Err(e) =>
+      inspect(
+        e.context() == Some("bit-reader-read-end-of-stream"),
+        content="true",
+      )
   }
 }
 
@@ -50,7 +54,11 @@ test "bit reader tracks position and remaining" {
 
 ///|
 test "bit reader aligns to byte boundary" {
-  let reader = BitReader::new([(0x00).to_byte(), (0x00).to_byte(), (0x00).to_byte()])
+  let reader = BitReader::new([
+    (0x00).to_byte(),
+    (0x00).to_byte(),
+    (0x00).to_byte(),
+  ])
   ignore(reader.read_bits(3))
   inspect(reader.position(), content="3")
   let skipped = reader.align_to_byte()
@@ -66,11 +74,19 @@ test "bit reader rejects invalid count" {
   let reader = BitReader::new([(0x00).to_byte()])
   match reader.read_bits(0) {
     Ok(_) => inspect(false, content="true")
-    Err(e) => inspect(e.context() == Some("bit-reader-read-invalid-count"), content="true")
+    Err(e) =>
+      inspect(
+        e.context() == Some("bit-reader-read-invalid-count"),
+        content="true",
+      )
   }
   match reader.read_bits(33) {
     Ok(_) => inspect(false, content="true")
-    Err(e) => inspect(e.context() == Some("bit-reader-read-invalid-count"), content="true")
+    Err(e) =>
+      inspect(
+        e.context() == Some("bit-reader-read-invalid-count"),
+        content="true",
+      )
   }
 }
 
@@ -119,7 +135,11 @@ test "bit writer rejects value overflow" {
   // 3 bits can hold 0-7; 8 is too large.
   match writer.write_bits(8, 3) {
     Ok(_) => inspect(false, content="true")
-    Err(e) => inspect(e.context() == Some("bit-writer-write-value-overflow"), content="true")
+    Err(e) =>
+      inspect(
+        e.context() == Some("bit-writer-write-value-overflow"),
+        content="true",
+      )
   }
 }
 
@@ -128,11 +148,19 @@ test "bit writer rejects invalid count" {
   let writer = BitWriter::new()
   match writer.write_bits(0, 0) {
     Ok(_) => inspect(false, content="true")
-    Err(e) => inspect(e.context() == Some("bit-writer-write-invalid-count"), content="true")
+    Err(e) =>
+      inspect(
+        e.context() == Some("bit-writer-write-invalid-count"),
+        content="true",
+      )
   }
   match writer.write_bits(0, 33) {
     Ok(_) => inspect(false, content="true")
-    Err(e) => inspect(e.context() == Some("bit-writer-write-invalid-count"), content="true")
+    Err(e) =>
+      inspect(
+        e.context() == Some("bit-writer-write-invalid-count"),
+        content="true",
+      )
   }
 }
 

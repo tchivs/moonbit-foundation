@@ -39,12 +39,14 @@ pub fn hex_decode(text : String) -> Result[Array[Byte], @error.CoreError] {
   let units = text.code_units()
   let len = units.length()
   if len % 2 != 0 {
-    return Err(@error.CoreError::new(
-      @error.ErrorCategory::InvalidInput,
-      @error.ErrorCode::InvalidEncoding,
-      operation="text-hex-decode",
-      context="text-hex-decode-odd-length",
-    ))
+    return Err(
+      @error.CoreError::new(
+        @error.ErrorCategory::InvalidInput,
+        @error.ErrorCode::InvalidEncoding,
+        operation="text-hex-decode",
+        context="text-hex-decode-odd-length",
+      ),
+    )
   }
   let result : Array[Byte] = []
   let half = len / 2
@@ -53,14 +55,15 @@ pub fn hex_decode(text : String) -> Result[Array[Byte], @error.CoreError] {
     let lo = hex_value(units[i * 2 + 1].to_int())
     match (hi, lo) {
       (Ok(h), Ok(l)) => result.push(((h << 4) | l).to_byte())
-      _ => {
-        return Err(@error.CoreError::new(
-          @error.ErrorCategory::InvalidInput,
-          @error.ErrorCode::InvalidEncoding,
-          operation="text-hex-decode",
-          context="text-hex-decode-invalid-character",
-        ))
-      }
+      _ =>
+        return Err(
+          @error.CoreError::new(
+            @error.ErrorCategory::InvalidInput,
+            @error.ErrorCode::InvalidEncoding,
+            operation="text-hex-decode",
+            context="text-hex-decode-invalid-character",
+          ),
+        )
     }
   }
   Ok(result)

@@ -2,7 +2,10 @@
 
 ///|
 test "escape_xml_text escapes ampersand lt gt" {
-  inspect(escape_xml_text("a < b & c > d") == "a &lt; b &amp; c &gt; d", content="true")
+  inspect(
+    escape_xml_text("a < b & c > d") == "a &lt; b &amp; c &gt; d",
+    content="true",
+  )
 }
 
 ///|
@@ -13,10 +16,16 @@ test "escape_xml_text leaves normal text unchanged" {
 
 ///|
 test "escape_xml_attribute escapes quotes" {
-  inspect(escape_xml_attribute("say \"hi\"") == "say &quot;hi&quot;", content="true")
+  inspect(
+    escape_xml_attribute("say \"hi\"") == "say &quot;hi&quot;",
+    content="true",
+  )
   inspect(escape_xml_attribute("it's") == "it&apos;s", content="true")
   // Also escapes &, <, >.
-  inspect(escape_xml_attribute("x < y & z > w") == "x &lt; y &amp; z &gt; w", content="true")
+  inspect(
+    escape_xml_attribute("x < y & z > w") == "x &lt; y &amp; z &gt; w",
+    content="true",
+  )
 }
 
 ///|

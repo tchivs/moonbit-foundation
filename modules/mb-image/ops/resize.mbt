@@ -203,10 +203,16 @@ fn bilinear_source_coordinate(
 fn supports_bilinear_format(source : @storage.ImageView) -> Bool {
   source.format().component() == @model.ComponentType::U8 &&
   source.format().layout() == @model.PlaneLayout::Packed &&
-  ((source.format().channels() == @model.ChannelOrder::Rgb &&
-    source.metadata().alpha() == None) ||
-    (source.format().channels() == @model.ChannelOrder::Rgba &&
-      source.metadata().alpha() == Some(@color.AlphaMode::Straight)))
+  (
+    (
+      source.format().channels() == @model.ChannelOrder::Rgb &&
+      source.metadata().alpha() == None
+    ) ||
+    (
+      source.format().channels() == @model.ChannelOrder::Rgba &&
+      source.metadata().alpha() == Some(@color.AlphaMode::Straight)
+    )
+  )
 }
 
 ///|
@@ -232,11 +238,13 @@ fn bilinear_interpolate(
   let top_r = ar.value() + (br.value() - ar.value()) * x_fraction
   let top_g = ag.value() + (bg.value() - ag.value()) * x_fraction
   let top_b = ab.value() + (bb.value() - ab.value()) * x_fraction
-  let top_a = a.alpha().value() + (b.alpha().value() - a.alpha().value()) * x_fraction
+  let top_a = a.alpha().value() +
+    (b.alpha().value() - a.alpha().value()) * x_fraction
   let bottom_r = cr.value() + (dr.value() - cr.value()) * x_fraction
   let bottom_g = cg.value() + (dg.value() - cg.value()) * x_fraction
   let bottom_b = cb.value() + (db.value() - cb.value()) * x_fraction
-  let bottom_a = c.alpha().value() + (d.alpha().value() - c.alpha().value()) * x_fraction
+  let bottom_a = c.alpha().value() +
+    (d.alpha().value() - c.alpha().value()) * x_fraction
   @alpha.PremultipliedNormalizedSrgba::linear(
     @color.LinearSrgbComponent::new(top_r + (bottom_r - top_r) * y_fraction).unwrap(),
     @color.LinearSrgbComponent::new(top_g + (bottom_g - top_g) * y_fraction).unwrap(),
@@ -368,12 +376,18 @@ pub fn resize_bilinear(
         }
         let value = bilinear_interpolate(aa, bb, cc, dd, x_fraction, y_fraction)
         if rgb_output {
-          match store_linear_premultiplied_rgb8(destination, destination_x, destination_y, value) {
+          match
+            store_linear_premultiplied_rgb8(
+              destination, destination_x, destination_y, value,
+            ) {
             Ok(_) => ()
             Err(error) => return Err(error)
           }
         } else {
-          match store_linear_premultiplied(destination, destination_x, destination_y, value) {
+          match
+            store_linear_premultiplied(
+              destination, destination_x, destination_y, value,
+            ) {
             Ok(_) => ()
             Err(error) => return Err(error)
           }

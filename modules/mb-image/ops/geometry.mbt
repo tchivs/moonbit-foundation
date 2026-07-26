@@ -31,10 +31,11 @@ fn geometry_descriptor(
     Err(error) => return Err(error)
     Ok(_) => ()
   }
-  let pixel_bytes = match @checked.checked_mul(
-    source.format().bytes_per_component(),
-    source.format().channel_count(),
-  ) {
+  let pixel_bytes = match
+    @checked.checked_mul(
+      source.format().bytes_per_component(),
+      source.format().channel_count(),
+    ) {
     Ok(value) => value
     Err(error) => return Err(error)
   }
@@ -46,15 +47,22 @@ fn geometry_descriptor(
     Ok(value) => value
     Err(error) => return Err(error)
   }
-  let plane = match @model.PlaneDescriptor::new(
-    0UL, length, row_bytes, row_bytes, 1UL, 1UL, width, height,
-  ) {
+  let plane = match
+    @model.PlaneDescriptor::new(
+      0UL, length, row_bytes, row_bytes, 1UL, 1UL, width, height,
+    ) {
     Ok(value) => value
     Err(error) => return Err(error)
   }
-  let descriptor = match @model.ImageDescriptor::new(
-    width, height, source.format(), [plane], length, metadata,
-  ) {
+  let descriptor = match
+    @model.ImageDescriptor::new(
+      width,
+      height,
+      source.format(),
+      [plane],
+      length,
+      metadata,
+    ) {
     Ok(value) => value
     Err(error) => return Err(error)
   }
@@ -69,41 +77,53 @@ pub fn crop(
 ) -> Result[ImageOperationResult, @error.CoreError] {
   let operation = "image-crop"
   if !supports_copy_flip(source) {
-    return Err(operation_error(
-      @error.ErrorCategory::Capability,
-      @error.ErrorCode::CapabilityUnavailable,
-      operation,
-      "image-crop-format",
-    ))
+    return Err(
+      operation_error(
+        @error.ErrorCategory::Capability,
+        @error.ErrorCode::CapabilityUnavailable,
+        operation,
+        "image-crop-format",
+      ),
+    )
   }
   if region.is_empty() {
-    return Err(operation_error(
-      @error.ErrorCategory::InvalidInput,
-      @error.ErrorCode::InvalidDimensions,
-      operation,
-      "empty-crop-region",
-    ))
+    return Err(
+      operation_error(
+        @error.ErrorCategory::InvalidInput,
+        @error.ErrorCode::InvalidDimensions,
+        operation,
+        "empty-crop-region",
+      ),
+    )
   }
   if region.right() > source.width() || region.bottom() > source.height() {
-    return Err(operation_error(
-      @error.ErrorCategory::InvalidInput,
-      @error.ErrorCode::InvalidRange,
-      operation,
-      "crop-region-outside-source",
-    ))
+    return Err(
+      operation_error(
+        @error.ErrorCategory::InvalidInput,
+        @error.ErrorCode::InvalidRange,
+        operation,
+        "crop-region-outside-source",
+      ),
+    )
   }
-  let (descriptor, work) = match geometry_descriptor(
-    source, region.width(), region.height(), source.metadata(), operation,
-  ) {
+  let (descriptor, work) = match
+    geometry_descriptor(
+      source,
+      region.width(),
+      region.height(),
+      source.metadata(),
+      operation,
+    ) {
     Ok(value) => value
     Err(error) => return Err(error)
   }
-  let output = match @storage.OwnedImage::new_operation(
-    descriptor,
-    budget,
-    GeometryBuiltinAllocator::{  } as &@bytes.Allocator,
-    work,
-  ) {
+  let output = match
+    @storage.OwnedImage::new_operation(
+      descriptor,
+      budget,
+      GeometryBuiltinAllocator::{  } as &@bytes.Allocator,
+      work,
+    ) {
     Ok(value) => value
     Err(error) => return Err(error)
   }
@@ -113,7 +133,8 @@ pub fn crop(
         for channel = 0UL
             channel < source.format().channel_count()
             channel = channel + 1UL {
-          let value = match source.get_byte(region.x() + x, region.y() + y, channel) {
+          let value = match
+            source.get_byte(region.x() + x, region.y() + y, channel) {
             Ok(value) => value
             Err(error) => return Err(error)
           }
@@ -127,7 +148,8 @@ pub fn crop(
     Ok(())
   })
   match copied {
-    Ok(_) => Ok({ image_value: output, disposition_value: preserve_all_disposition() })
+    Ok(_) =>
+      Ok({ image_value: output, disposition_value: preserve_all_disposition() })
     Err(error) => Err(error)
   }
 }
@@ -141,20 +163,23 @@ fn new_rotation_output(
   operation : String,
 ) -> Result[@storage.OwnedImage, @error.CoreError] {
   if !supports_copy_flip(source) {
-    return Err(operation_error(
-      @error.ErrorCategory::Capability,
-      @error.ErrorCode::CapabilityUnavailable,
-      operation,
-      operation + "-format",
-    ))
+    return Err(
+      operation_error(
+        @error.ErrorCategory::Capability,
+        @error.ErrorCode::CapabilityUnavailable,
+        operation,
+        operation + "-format",
+      ),
+    )
   }
-  let (descriptor, work) = match geometry_descriptor(
-    source,
-    width,
-    height,
-    normalized_orientation_metadata(source.metadata()),
-    operation,
-  ) {
+  let (descriptor, work) = match
+    geometry_descriptor(
+      source,
+      width,
+      height,
+      normalized_orientation_metadata(source.metadata()),
+      operation,
+    ) {
     Ok(value) => value
     Err(error) => return Err(error)
   }
@@ -171,9 +196,14 @@ pub fn rotate_90(
   source : @storage.ImageView,
   budget : @budget.Budget,
 ) -> Result[ImageOperationResult, @error.CoreError] {
-  let output = match new_rotation_output(
-    source, source.height(), source.width(), budget, "image-rotate-90",
-  ) {
+  let output = match
+    new_rotation_output(
+      source,
+      source.height(),
+      source.width(),
+      budget,
+      "image-rotate-90",
+    ) {
     Ok(value) => value
     Err(error) => return Err(error)
   }
@@ -187,7 +217,13 @@ pub fn rotate_90(
             Ok(value) => value
             Err(error) => return Err(error)
           }
-          match destination.set_byte(source.height() - 1UL - source_y, source_x, channel, value) {
+          match
+            destination.set_byte(
+              source.height() - 1UL - source_y,
+              source_x,
+              channel,
+              value,
+            ) {
             Ok(_) => ()
             Err(error) => return Err(error)
           }
@@ -197,7 +233,8 @@ pub fn rotate_90(
     Ok(())
   })
   match written {
-    Ok(_) => Ok({ image_value: output, disposition_value: orientation_disposition() })
+    Ok(_) =>
+      Ok({ image_value: output, disposition_value: orientation_disposition() })
     Err(error) => Err(error)
   }
 }
@@ -207,9 +244,14 @@ pub fn rotate_180(
   source : @storage.ImageView,
   budget : @budget.Budget,
 ) -> Result[ImageOperationResult, @error.CoreError] {
-  let output = match new_rotation_output(
-    source, source.width(), source.height(), budget, "image-rotate-180",
-  ) {
+  let output = match
+    new_rotation_output(
+      source,
+      source.width(),
+      source.height(),
+      budget,
+      "image-rotate-180",
+    ) {
     Ok(value) => value
     Err(error) => return Err(error)
   }
@@ -223,12 +265,13 @@ pub fn rotate_180(
             Ok(value) => value
             Err(error) => return Err(error)
           }
-          match destination.set_byte(
-            source.width() - 1UL - source_x,
-            source.height() - 1UL - source_y,
-            channel,
-            value,
-          ) {
+          match
+            destination.set_byte(
+              source.width() - 1UL - source_x,
+              source.height() - 1UL - source_y,
+              channel,
+              value,
+            ) {
             Ok(_) => ()
             Err(error) => return Err(error)
           }
@@ -238,7 +281,8 @@ pub fn rotate_180(
     Ok(())
   })
   match written {
-    Ok(_) => Ok({ image_value: output, disposition_value: orientation_disposition() })
+    Ok(_) =>
+      Ok({ image_value: output, disposition_value: orientation_disposition() })
     Err(error) => Err(error)
   }
 }
@@ -248,9 +292,14 @@ pub fn rotate_270(
   source : @storage.ImageView,
   budget : @budget.Budget,
 ) -> Result[ImageOperationResult, @error.CoreError] {
-  let output = match new_rotation_output(
-    source, source.height(), source.width(), budget, "image-rotate-270",
-  ) {
+  let output = match
+    new_rotation_output(
+      source,
+      source.height(),
+      source.width(),
+      budget,
+      "image-rotate-270",
+    ) {
     Ok(value) => value
     Err(error) => return Err(error)
   }
@@ -264,7 +313,13 @@ pub fn rotate_270(
             Ok(value) => value
             Err(error) => return Err(error)
           }
-          match destination.set_byte(source_y, source.width() - 1UL - source_x, channel, value) {
+          match
+            destination.set_byte(
+              source_y,
+              source.width() - 1UL - source_x,
+              channel,
+              value,
+            ) {
             Ok(_) => ()
             Err(error) => return Err(error)
           }
@@ -274,7 +329,8 @@ pub fn rotate_270(
     Ok(())
   })
   match written {
-    Ok(_) => Ok({ image_value: output, disposition_value: orientation_disposition() })
+    Ok(_) =>
+      Ok({ image_value: output, disposition_value: orientation_disposition() })
     Err(error) => Err(error)
   }
 }

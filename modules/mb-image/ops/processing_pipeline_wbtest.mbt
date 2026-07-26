@@ -9,9 +9,18 @@ fn processing_pipeline_limits(
   depth : UInt64,
   work : UInt64,
 ) -> @budget.Budget {
-  @budget.Budget::new(@budget.ResourceLimits::new(
-    bytes~, allocations~, allocation_size~, width~, height~, pixels~, depth~, work~,
-  ))
+  @budget.Budget::new(
+    @budget.ResourceLimits::new(
+      bytes~,
+      allocations~,
+      allocation_size~,
+      width~,
+      height~,
+      pixels~,
+      depth~,
+      work~,
+    ),
+  )
 }
 
 ///|
@@ -58,17 +67,36 @@ fn processing_pipeline_rgb_image(
     width,
     height,
     @model.ImageFormat::rgb8(),
-    [@model.PlaneDescriptor::new(
-      0UL, length, width * 3UL, width * 3UL, 1UL, 1UL, width, height,
-    ).unwrap()],
+    [
+      @model.PlaneDescriptor::new(
+        0UL,
+        length,
+        width * 3UL,
+        width * 3UL,
+        1UL,
+        1UL,
+        width,
+        height,
+      ).unwrap(),
+    ],
     length,
     metadata,
   ).unwrap()
   let image = @storage.OwnedImage::new(
     descriptor,
-    processing_pipeline_limits(length, 1UL, length, width, height, width * height, 0UL, 0UL),
+    processing_pipeline_limits(
+      length,
+      1UL,
+      length,
+      width,
+      height,
+      width * height,
+      0UL,
+      0UL,
+    ),
   ).unwrap()
-  image.with_mut_view(fn(view) {
+  image
+  .with_mut_view(fn(view) {
     let mut index = 0
     for y = 0UL; y < height; y = y + 1UL {
       for x = 0UL; x < width; x = x + 1UL {
@@ -79,7 +107,8 @@ fn processing_pipeline_rgb_image(
       }
     }
     Ok(())
-  }).unwrap()
+  })
+  .unwrap()
   image
 }
 
@@ -105,18 +134,37 @@ test "processing pipeline insufficient resource leaves budget unchanged" {
     destination.view(),
     processing_pipeline_limits(8UL, 1UL, 8UL, 2UL, 1UL, 2UL, 0UL, 8UL),
   ).unwrap()
-  let budget = processing_pipeline_limits(8UL, 1UL, 8UL, 2UL, 1UL, 2UL, 0UL, 1UL)
+  let budget = processing_pipeline_limits(
+    8UL, 1UL, 8UL, 2UL, 1UL, 2UL, 0UL, 1UL,
+  )
   let before = budget.remaining()
-  match composite_source_over(source_rgba.image().view(), destination_rgba.image().view(), budget) {
+  match
+    composite_source_over(
+      source_rgba.image().view(),
+      destination_rgba.image().view(),
+      budget,
+    ) {
     Err(error) => {
-      inspect(error.category() == @error.ErrorCategory::Resource, content="true")
+      inspect(
+        error.category() == @error.ErrorCategory::Resource,
+        content="true",
+      )
       inspect(error.code() == @error.ErrorCode::BudgetExceeded, content="true")
-      inspect(error.operation() == Some("image-composite-source-over"), content="true")
-      inspect(error.context() == Some("image-composite-source-over-output-budget"), content="true")
+      inspect(
+        error.operation() == Some("image-composite-source-over"),
+        content="true",
+      )
+      inspect(
+        error.context() == Some("image-composite-source-over-output-budget"),
+        content="true",
+      )
     }
     Ok(_) => fail("insufficient composite work must reject")
   }
-  inspect(processing_pipeline_unchanged(before, budget.remaining()), content="true")
+  inspect(
+    processing_pipeline_unchanged(before, budget.remaining()),
+    content="true",
+  )
 }
 
 ///|
@@ -127,7 +175,8 @@ test "processing pipeline box blur insufficient work leaves budget unchanged" {
     b'\x07', b'\x08', b'\x09', b'\x80', b'\x80', b'\x80', b'\x20', b'\x20', b'\x20',
   ])
   let cropped = crop(
-    foreground.view(), @model.Rect::new(1UL, 0UL, 2UL, 3UL).unwrap(),
+    foreground.view(),
+    @model.Rect::new(1UL, 0UL, 2UL, 3UL).unwrap(),
     processing_pipeline_limits(18UL, 1UL, 18UL, 2UL, 3UL, 6UL, 0UL, 18UL),
   ).unwrap()
   let rotated = rotate_90(
@@ -142,16 +191,27 @@ test "processing pipeline box blur insufficient work leaves budget unchanged" {
     source_rgba.image().view(),
     processing_pipeline_limits(24UL, 1UL, 24UL, 3UL, 2UL, 6UL, 0UL, 6UL),
   ).unwrap()
-  let budget = processing_pipeline_limits(24UL, 1UL, 24UL, 3UL, 2UL, 6UL, 0UL, 53UL)
+  let budget = processing_pipeline_limits(
+    24UL, 1UL, 24UL, 3UL, 2UL, 6UL, 0UL, 53UL,
+  )
   let before = budget.remaining()
   match box_blur(grayscale_result.image().view(), 1UL, budget) {
     Err(error) => {
-      inspect(error.category() == @error.ErrorCategory::Resource, content="true")
+      inspect(
+        error.category() == @error.ErrorCategory::Resource,
+        content="true",
+      )
       inspect(error.code() == @error.ErrorCode::BudgetExceeded, content="true")
       inspect(error.operation() == Some("image-box-blur"), content="true")
-      inspect(error.context() == Some("image-box-blur-output-budget"), content="true")
+      inspect(
+        error.context() == Some("image-box-blur-output-budget"),
+        content="true",
+      )
     }
     Ok(_) => fail("53-work radius-one blur must reject")
   }
-  inspect(processing_pipeline_unchanged(before, budget.remaining()), content="true")
+  inspect(
+    processing_pipeline_unchanged(before, budget.remaining()),
+    content="true",
+  )
 }

@@ -77,7 +77,10 @@ pub fn line_intersection(
 ///
 /// Consumed by mb-canvas (clip region enforcement) and mb-svg (viewport
 /// clipping).
-pub fn clip_segment_to_rect(segment : LineSegment, rect : Rect2) -> LineSegment? {
+pub fn clip_segment_to_rect(
+  segment : LineSegment,
+  rect : Rect2,
+) -> LineSegment? {
   let mut x0 = segment.start().x()
   let mut y0 = segment.start().y()
   let mut x1 = segment.end().x()
@@ -142,11 +145,20 @@ pub fn clip_segment_to_rect(segment : LineSegment, rect : Rect2) -> LineSegment?
 }
 
 // Outcode bit flags for Cohen-Sutherland.
+
+///|
 const INSIDE_LEFT : Int = 1
+
+///|
 const INSIDE_RIGHT : Int = 2
+
+///|
 const INSIDE_BOTTOM : Int = 4
+
+///|
 const INSIDE_TOP : Int = 8
 
+///|
 fn compute_outcode(
   x : Double,
   y : Double,

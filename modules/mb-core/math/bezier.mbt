@@ -16,7 +16,12 @@
 ///
 /// Given control points P0 (start), P1 (control), P2 (end):
 ///   B(t) = (1-t)²·P0 + 2(1-t)t·P1 + t²·P2
-pub fn bezier2_eval(p0 : Point2, p1 : Point2, p2 : Point2, t : Double) -> Point2 {
+pub fn bezier2_eval(
+  p0 : Point2,
+  p1 : Point2,
+  p2 : Point2,
+  t : Double,
+) -> Point2 {
   let u = 1.0 - t
   let a = u * u
   let b = 2.0 * u * t
@@ -54,7 +59,12 @@ pub fn bezier3_eval(
 /// Derivative of a quadratic Bézier at parameter `t`.
 ///
 ///   B'(t) = 2(1-t)(P1-P0) + 2t(P2-P1)
-fn bezier2_derivative(p0 : Point2, p1 : Point2, p2 : Point2, t : Double) -> Vector2 {
+fn bezier2_derivative(
+  p0 : Point2,
+  p1 : Point2,
+  p2 : Point2,
+  t : Double,
+) -> Vector2 {
   let u = 1.0 - t
   let v0 = p0.vector_to(p1).scale(2.0 * u)
   let v1 = p1.vector_to(p2).scale(2.0 * t)
@@ -149,7 +159,12 @@ pub fn bezier3_flatten(
 ///|
 /// Test whether a quadratic Bézier is flat enough: the control point
 /// deviates from the chord P0-P2 by less than `tolerance`.
-fn bezier2_is_flat(p0 : Point2, p1 : Point2, p2 : Point2, tolerance : Double) -> Bool {
+fn bezier2_is_flat(
+  p0 : Point2,
+  p1 : Point2,
+  p2 : Point2,
+  tolerance : Double,
+) -> Bool {
   // Distance from P1 to the line P0-P2, using the cross-product method.
   let dx = p2.x() - p0.x()
   let dy = p2.y() - p0.y()
@@ -215,8 +230,10 @@ fn bezier2_subdivide(
   let m01 = Point2::new((p0.x() + p1.x()) / 2.0, (p0.y() + p1.y()) / 2.0)
   let m12 = Point2::new((p1.x() + p2.x()) / 2.0, (p1.y() + p2.y()) / 2.0)
   let mid = Point2::new((m01.x() + m12.x()) / 2.0, (m01.y() + m12.y()) / 2.0)
-  match bezier2_subdivide(p0, m01, mid, tolerance, max_depth, depth + 1, segments) {
-    Ok(_) => bezier2_subdivide(mid, m12, p2, tolerance, max_depth, depth + 1, segments)
+  match
+    bezier2_subdivide(p0, m01, mid, tolerance, max_depth, depth + 1, segments) {
+    Ok(_) =>
+      bezier2_subdivide(mid, m12, p2, tolerance, max_depth, depth + 1, segments)
     Err(e) => Err(e)
   }
 }
@@ -243,9 +260,32 @@ fn bezier3_subdivide(
   let m23 = Point2::new((p2.x() + p3.x()) / 2.0, (p2.y() + p3.y()) / 2.0)
   let m012 = Point2::new((m01.x() + m12.x()) / 2.0, (m01.y() + m12.y()) / 2.0)
   let m123 = Point2::new((m12.x() + m23.x()) / 2.0, (m12.y() + m23.y()) / 2.0)
-  let mid = Point2::new((m012.x() + m123.x()) / 2.0, (m012.y() + m123.y()) / 2.0)
-  match bezier3_subdivide(p0, m01, m012, mid, tolerance, max_depth, depth + 1, segments) {
-    Ok(_) => bezier3_subdivide(mid, m123, m23, p3, tolerance, max_depth, depth + 1, segments)
+  let mid = Point2::new(
+    (m012.x() + m123.x()) / 2.0,
+    (m012.y() + m123.y()) / 2.0,
+  )
+  match
+    bezier3_subdivide(
+      p0,
+      m01,
+      m012,
+      mid,
+      tolerance,
+      max_depth,
+      depth + 1,
+      segments,
+    ) {
+    Ok(_) =>
+      bezier3_subdivide(
+        mid,
+        m123,
+        m23,
+        p3,
+        tolerance,
+        max_depth,
+        depth + 1,
+        segments,
+      )
     Err(e) => Err(e)
   }
 }

@@ -20,7 +20,9 @@ pub fn polygon_area(vertices : Array[Point2]) -> Double {
   let mut sum = 0.0
   for i = 0; i < n; i = i + 1 {
     let j = (i + 1) % n
-    sum = sum + vertices[i].x() * vertices[j].y() - vertices[j].x() * vertices[i].y()
+    sum = sum +
+      vertices[i].x() * vertices[j].y() -
+      vertices[j].x() * vertices[i].y()
   }
   if sum < 0.0 {
     -sum * 0.5
@@ -81,7 +83,8 @@ pub fn polygon_centroid(vertices : Array[Point2]) -> Point2? {
   let mut area = 0.0
   for i = 0; i < n; i = i + 1 {
     let j = (i + 1) % n
-    let cross = vertices[i].x() * vertices[j].y() - vertices[j].x() * vertices[i].y()
+    let cross = vertices[i].x() * vertices[j].y() -
+      vertices[j].x() * vertices[i].y()
     area = area + cross
     cx = cx + (vertices[i].x() + vertices[j].x()) * cross
     cy = cy + (vertices[i].y() + vertices[j].y()) * cross

@@ -2,15 +2,12 @@
 //
 // Uses exact double comparisons with small tolerance for trig operations.
 
+///|
 let math_tolerance : Double = 1.0e-10
 
 ///|
 fn approx(a : Double, b : Double) -> Bool {
-  let diff = if a > b {
-    a - b
-  } else {
-    b - a
-  }
+  let diff = if a > b { a - b } else { b - a }
   diff <= math_tolerance
 }
 
@@ -89,7 +86,9 @@ test "skew transform shears coordinates" {
 ///|
 test "compose translate then scale applies in order" {
   // First translate by (10, 20), then scale by (2, 2).
-  let combined = Affine2::translate(10.0, 20.0).compose(Affine2::scale(2.0, 2.0))
+  let combined = Affine2::translate(10.0, 20.0).compose(
+    Affine2::scale(2.0, 2.0),
+  )
   let p = Point2::new(1.0, 1.0)
   // scale(translate(1,1)) = scale(11,21) = (22,42).
   inspect(point_approx(combined.apply(p), 22.0, 42.0), content="true")

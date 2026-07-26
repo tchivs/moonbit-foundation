@@ -65,7 +65,10 @@ test "tokenize rejects unquoted attribute value" {
     Ok(_) => inspect(false, content="true")
     Err(e) => {
       inspect(e.code() is InvalidEncoding, content="true")
-      inspect(e.context() is Some("text-markup-unquoted-attribute-value"), content="true")
+      inspect(
+        e.context() is Some("text-markup-unquoted-attribute-value"),
+        content="true",
+      )
     }
   }
 }
@@ -75,7 +78,10 @@ test "tokenize rejects unterminated comment" {
   match tokenize_markup("<!--oops") {
     Ok(_) => inspect(false, content="true")
     Err(e) =>
-      inspect(e.context() is Some("text-markup-unterminated-comment"), content="true")
+      inspect(
+        e.context() is Some("text-markup-unterminated-comment"),
+        content="true",
+      )
   }
 }
 

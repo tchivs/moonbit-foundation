@@ -81,7 +81,7 @@ pub fn Path2::bounds(self : Path2) -> Rect2? {
   let mut has_point = false
   for i = 0; i < self.commands.length(); i = i + 1 {
     match self.commands[i] {
-      MoveTo(p) => {
+      MoveTo(p) =>
         if !has_point {
           min_x = p.x()
           min_y = p.y()
@@ -102,8 +102,7 @@ pub fn Path2::bounds(self : Path2) -> Rect2? {
             max_y = p.y()
           }
         }
-      }
-      LineTo(p) => {
+      LineTo(p) =>
         if !has_point {
           min_x = p.x()
           min_y = p.y()
@@ -124,8 +123,7 @@ pub fn Path2::bounds(self : Path2) -> Rect2? {
             max_y = p.y()
           }
         }
-      }
-      QuadTo(control, end) => {
+      QuadTo(control, end) =>
         for p in [control, end] {
           if !has_point {
             min_x = p.x()
@@ -148,8 +146,7 @@ pub fn Path2::bounds(self : Path2) -> Rect2? {
             }
           }
         }
-      }
-      CubicTo(c1, c2, end) => {
+      CubicTo(c1, c2, end) =>
         for p in [c1, c2, end] {
           if !has_point {
             min_x = p.x()
@@ -172,7 +169,6 @@ pub fn Path2::bounds(self : Path2) -> Rect2? {
             }
           }
         }
-      }
       Close => {
         let _ = i // no-op
       }
@@ -218,7 +214,11 @@ pub fn Affine2::apply_to_path(self : Affine2, path : Path2) -> Path2 {
 /// Returns the flattened segments. The result is empty if the path contains
 /// no geometry (only Close commands). Each subpath starts at the last MoveTo
 /// point; Close commands emit a segment back to the subpath start.
-pub fn Path2::flattened(self : Path2, tolerance : Double, max_depth : Int) -> Array[LineSegment] {
+pub fn Path2::flattened(
+  self : Path2,
+  tolerance : Double,
+  max_depth : Int,
+) -> Array[LineSegment] {
   let segments : Array[LineSegment] = []
   let mut subpath_start = Point2::origin()
   let mut current = Point2::origin()
@@ -243,15 +243,13 @@ pub fn Path2::flattened(self : Path2, tolerance : Double, max_depth : Int) -> Ar
       QuadTo(control, end) => {
         if has_current {
           match bezier2_flatten(current, control, end, tolerance, max_depth) {
-            Ok(curve_segments) => {
+            Ok(curve_segments) =>
               for seg in curve_segments {
                 segments.push(seg)
               }
-            }
-            Err(_) => {
+            Err(_) =>
               // On failure, emit a straight line as fallback.
               segments.push({ start_value: current, end_value: end })
-            }
           }
         }
         current = end
@@ -259,24 +257,21 @@ pub fn Path2::flattened(self : Path2, tolerance : Double, max_depth : Int) -> Ar
       CubicTo(c1, c2, end) => {
         if has_current {
           match bezier3_flatten(current, c1, c2, end, tolerance, max_depth) {
-            Ok(curve_segments) => {
+            Ok(curve_segments) =>
               for seg in curve_segments {
                 segments.push(seg)
               }
-            }
-            Err(_) => {
-              segments.push({ start_value: current, end_value: end })
-            }
+            Err(_) => segments.push({ start_value: current, end_value: end })
           }
         }
         current = end
       }
-      Close => {
-        if has_current && (current.x() != subpath_start.x() || current.y() != subpath_start.y()) {
+      Close =>
+        if has_current &&
+          (current.x() != subpath_start.x() || current.y() != subpath_start.y()) {
           segments.push({ start_value: current, end_value: subpath_start })
           current = subpath_start
         }
-      }
     }
   })
   segments

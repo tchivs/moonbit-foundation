@@ -34,7 +34,13 @@ test "path2 flattened with quadratic bezier produces multiple segments" {
 test "path2 flattened with cubic bezier produces multiple segments" {
   let path = Path2::new()
   path.push(MoveTo(Point2::new(0.0, 0.0)))
-  path.push(CubicTo(Point2::new(0.0, 100.0), Point2::new(100.0, 100.0), Point2::new(100.0, 0.0)))
+  path.push(
+    CubicTo(
+      Point2::new(0.0, 100.0),
+      Point2::new(100.0, 100.0),
+      Point2::new(100.0, 0.0),
+    ),
+  )
   let segments = path.flattened(0.5, 20)
   inspect(segments.length() > 1, content="true")
   inspect(segments[0].start().x() == 0.0, content="true")
@@ -68,7 +74,8 @@ test "path2 flattened segments are connected" {
   let connected = {
     let mut ok = true
     for i = 1; i < segments.length(); i = i + 1 {
-      if segments[i - 1].end().x() != segments[i].start().x() || segments[i - 1].end().y() != segments[i].start().y() {
+      if segments[i - 1].end().x() != segments[i].start().x() ||
+        segments[i - 1].end().y() != segments[i].start().y() {
         ok = false
         break
       }

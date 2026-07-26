@@ -19,12 +19,14 @@ pub fn parse_int(text : String) -> Result[Int, @error.CoreError] {
   let trimmed = text.trim()
   let units = trimmed.code_units()
   if units.length() == 0 {
-    return Err(@error.CoreError::new(
-      @error.ErrorCategory::InvalidInput,
-      @error.ErrorCode::InvalidEncoding,
-      operation="text-parse-int",
-      context="text-parse-int-empty",
-    ))
+    return Err(
+      @error.CoreError::new(
+        @error.ErrorCategory::InvalidInput,
+        @error.ErrorCode::InvalidEncoding,
+        operation="text-parse-int",
+        context="text-parse-int-empty",
+      ),
+    )
   }
   let mut i = 0
   let mut negative = false
@@ -37,44 +39,46 @@ pub fn parse_int(text : String) -> Result[Int, @error.CoreError] {
     i = 1
   }
   if i >= units.length() {
-    return Err(@error.CoreError::new(
-      @error.ErrorCategory::InvalidInput,
-      @error.ErrorCode::InvalidEncoding,
-      operation="text-parse-int",
-      context="text-parse-int-sign-only",
-    ))
+    return Err(
+      @error.CoreError::new(
+        @error.ErrorCategory::InvalidInput,
+        @error.ErrorCode::InvalidEncoding,
+        operation="text-parse-int",
+        context="text-parse-int-sign-only",
+      ),
+    )
   }
   let mut result = 0
   while i < units.length() {
     let c = units[i].to_int()
     if c < 0x30 || c > 0x39 {
-      return Err(@error.CoreError::new(
-        @error.ErrorCategory::InvalidInput,
-        @error.ErrorCode::InvalidEncoding,
-        operation="text-parse-int",
-        context="text-parse-int-invalid-character",
-      ))
+      return Err(
+        @error.CoreError::new(
+          @error.ErrorCategory::InvalidInput,
+          @error.ErrorCode::InvalidEncoding,
+          operation="text-parse-int",
+          context="text-parse-int-invalid-character",
+        ),
+      )
     }
     let digit = c - 0x30
     // Check overflow: if result > max/10, or result == max/10 and digit > max%10
     let max_div_10 = 214748364
     let max_mod_10 = 7
     if result > max_div_10 || (result == max_div_10 && digit > max_mod_10) {
-      return Err(@error.CoreError::new(
-        @error.ErrorCategory::InvalidInput,
-        @error.ErrorCode::ArithmeticOverflow,
-        operation="text-parse-int",
-        context="text-parse-int-overflow",
-      ))
+      return Err(
+        @error.CoreError::new(
+          @error.ErrorCategory::InvalidInput,
+          @error.ErrorCode::ArithmeticOverflow,
+          operation="text-parse-int",
+          context="text-parse-int-overflow",
+        ),
+      )
     }
     result = result * 10 + digit
     i = i + 1
   }
-  Ok(if negative {
-    -result
-  } else {
-    result
-  })
+  Ok(if negative { -result } else { result })
 }
 
 ///|
@@ -88,12 +92,14 @@ pub fn parse_double(text : String) -> Result[Double, @error.CoreError] {
   let units = trimmed.code_units()
   let len = units.length()
   if len == 0 {
-    return Err(@error.CoreError::new(
-      @error.ErrorCategory::InvalidInput,
-      @error.ErrorCode::InvalidEncoding,
-      operation="text-parse-double",
-      context="text-parse-double-empty",
-    ))
+    return Err(
+      @error.CoreError::new(
+        @error.ErrorCategory::InvalidInput,
+        @error.ErrorCode::InvalidEncoding,
+        operation="text-parse-double",
+        context="text-parse-double-empty",
+      ),
+    )
   }
   let mut i = 0
   let mut negative = false
@@ -187,11 +193,7 @@ pub fn parse_double(text : String) -> Result[Double, @error.CoreError] {
   } else {
     mantissa
   }
-  Ok(if negative {
-    -result
-  } else {
-    result
-  })
+  Ok(if negative { -result } else { result })
 }
 
 ///|

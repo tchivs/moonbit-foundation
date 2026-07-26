@@ -17,7 +17,8 @@ priv enum PngTransparency {
   Indexed(Bytes)
 }
 
-///| Authenticated PNG colour declarations are transported separately from the
+///|
+/// Authenticated PNG colour declarations are transported separately from the
 /// raster. Legacy declarations deliberately use a non-sRGB metadata identity:
 /// decoded samples are never transformed or silently relabelled as encoded sRGB.
 priv enum PngColourDeclaration {
@@ -44,7 +45,19 @@ priv struct PngColourFacts {
 
 ///|
 fn _png_new_colour_facts() -> PngColourFacts {
-  { saw_srgb: false, srgb_intent: None, saw_gamma: false, gamma_is_srgb: false, gamma: None, saw_chrm: false, chrm_is_srgb: false, chrm: None, saw_iccp: false, iccp_name: None, iccp_profile: None }
+  {
+    saw_srgb: false,
+    srgb_intent: None,
+    saw_gamma: false,
+    gamma_is_srgb: false,
+    gamma: None,
+    saw_chrm: false,
+    chrm_is_srgb: false,
+    chrm: None,
+    saw_iccp: false,
+    iccp_name: None,
+    iccp_profile: None,
+  }
 }
 
 ///|
@@ -55,20 +68,30 @@ fn _png_is_recognised_colour(kind : Array[Byte]) -> Bool {
   _png_type_is(kind, b'i', b'C', b'C', b'P')
 }
 
-///| Returns the only legal payload length for fixed-size recognised colour
+///|
+/// Returns the only legal payload length for fixed-size recognised colour
 /// chunks. iCCP deliberately remains on its streaming envelope path.
 fn _png_fixed_colour_length(kind : Array[Byte]) -> UInt64? {
-  if _png_type_is(kind, b's', b'R', b'G', b'B') { Some(1UL) }
-  else if _png_type_is(kind, b'g', b'A', b'M', b'A') { Some(4UL) }
-  else if _png_type_is(kind, b'c', b'H', b'R', b'M') { Some(32UL) }
-  else { None }
+  if _png_type_is(kind, b's', b'R', b'G', b'B') {
+    Some(1UL)
+  } else if _png_type_is(kind, b'g', b'A', b'M', b'A') {
+    Some(4UL)
+  } else if _png_type_is(kind, b'c', b'H', b'R', b'M') {
+    Some(32UL)
+  } else {
+    None
+  }
 }
 
 ///|
 fn _png_require_colour_before_palette_or_idat(
   saw_palette : Bool,
 ) -> Result[Unit, @error.CoreError] {
-  if saw_palette { Err(_png_error("png-colour-order")) } else { Ok(()) }
+  if saw_palette {
+    Err(_png_error("png-colour-order"))
+  } else {
+    Ok(())
+  }
 }
 
 ///|
@@ -80,26 +103,46 @@ fn _png_u32_at(payload : Array[Byte], offset : Int) -> UInt64 {
 }
 
 ///|
-fn _png_validate_srgb_payload(payload : Array[Byte]) -> Result[Byte, @error.CoreError] {
-  if payload.length() != 1 { return Err(_png_error("png-srgb-length")) }
-  if payload[0].to_int() > 3 { return Err(_png_error("png-srgb-intent")) }
+fn _png_validate_srgb_payload(
+  payload : Array[Byte],
+) -> Result[Byte, @error.CoreError] {
+  if payload.length() != 1 {
+    return Err(_png_error("png-srgb-length"))
+  }
+  if payload[0].to_int() > 3 {
+    return Err(_png_error("png-srgb-intent"))
+  }
   Ok(payload[0])
 }
 
 ///|
-fn _png_validate_gamma_payload(payload : Array[Byte]) -> Result[Bool, @error.CoreError] {
-  if payload.length() != 4 { return Err(_png_error("png-gama-length")) }
+fn _png_validate_gamma_payload(
+  payload : Array[Byte],
+) -> Result[Bool, @error.CoreError] {
+  if payload.length() != 4 {
+    return Err(_png_error("png-gama-length"))
+  }
   let gamma = _png_u32_at(payload, 0)
-  if gamma == 0UL { return Err(_png_error("png-gama-zero")) }
+  if gamma == 0UL {
+    return Err(_png_error("png-gama-zero"))
+  }
   Ok(gamma == 45455UL)
 }
 
 ///|
-fn _png_validate_chrm_payload(payload : Array[Byte]) -> Result[Bool, @error.CoreError] {
-  if payload.length() != 32 { return Err(_png_error("png-chrm-length")) }
-  let expected = [31270UL, 32900UL, 64000UL, 33000UL, 30000UL, 60000UL, 15000UL, 6000UL]
+fn _png_validate_chrm_payload(
+  payload : Array[Byte],
+) -> Result[Bool, @error.CoreError] {
+  if payload.length() != 32 {
+    return Err(_png_error("png-chrm-length"))
+  }
+  let expected = [
+    31270UL, 32900UL, 64000UL, 33000UL, 30000UL, 60000UL, 15000UL, 6000UL,
+  ]
   for index = 0; index < 8; index = index + 1 {
-    if _png_u32_at(payload, index * 4) != expected[index] { return Ok(false) }
+    if _png_u32_at(payload, index * 4) != expected[index] {
+      return Ok(false)
+    }
   }
   Ok(true)
 }
@@ -110,32 +153,50 @@ fn _png_is_iccp_name_byte(byte : Byte) -> Bool {
   (value >= 32 && value <= 126) || (value >= 161 && value <= 255)
 }
 
-///| This test-facing helper uses an already bounded payload. The decoder's
+///|
+/// This test-facing helper uses an already bounded payload. The decoder's
 /// streaming path below performs the same grammar checks without retaining it.
-fn _png_validate_iccp_payload(payload : Bytes) -> Result[Unit, @error.CoreError] {
+fn _png_validate_iccp_payload(
+  payload : Bytes,
+) -> Result[Unit, @error.CoreError] {
   let mut index = 0
   let mut last_space = false
   while index < payload.length() && payload[index] != b'\x00' {
     let byte = payload[index]
-    if !_png_is_iccp_name_byte(byte) || (index == 0 && byte == b' ') || (byte == b' ' && last_space) || index >= 79 {
+    if !_png_is_iccp_name_byte(byte) ||
+      (index == 0 && byte == b' ') ||
+      (byte == b' ' && last_space) ||
+      index >= 79 {
       return Err(_png_error("png-iccp-name"))
     }
     last_space = byte == b' '
     index = index + 1
   }
-  if index == 0 || index == payload.length() || last_space { return Err(_png_error("png-iccp-name")) }
-  if index + 2 >= payload.length() { return Err(_png_error("png-iccp-envelope")) }
-  if payload[index + 1] != b'\x00' { return Err(_png_error("png-iccp-method")) }
+  if index == 0 || index == payload.length() || last_space {
+    return Err(_png_error("png-iccp-name"))
+  }
+  if index + 2 >= payload.length() {
+    return Err(_png_error("png-iccp-envelope"))
+  }
+  if payload[index + 1] != b'\x00' {
+    return Err(_png_error("png-iccp-method"))
+  }
   Ok(())
 }
 
-///| Inflate an iCCP payload through the existing private DEFLATE bit and
+///|
+/// Inflate an iCCP payload through the existing private DEFLATE bit and
 /// Huffman machinery, with a deliberately small opaque-profile ceiling.
 fn _png_iccp_output_limit(limits : @codec.CodecLimits) -> UInt64 {
-  if limits.max_output_bytes() < 65536UL { limits.max_output_bytes() } else { 65536UL }
+  if limits.max_output_bytes() < 65536UL {
+    limits.max_output_bytes()
+  } else {
+    65536UL
+  }
 }
 
-///| The colour-chunk reader knows the exact remaining compressed payload
+///|
+/// The colour-chunk reader knows the exact remaining compressed payload
 /// length before it collects a byte. Reserve all three temporary buffers and
 /// the caller's DEFLATE work allowance before the first collection allocation.
 fn _png_iccp_temporary_budget(
@@ -149,17 +210,32 @@ fn _png_iccp_temporary_budget(
   let output = _png_iccp_output_limit(limits)
   let bytes = match @checked.checked_add(compressed_length, 32768UL) {
     Err(error) => return Err(error)
-    Ok(value) => match @checked.checked_add(value, output) {
-      Err(error) => return Err(error)
-      Ok(total) => total
-    }
+    Ok(value) =>
+      match @checked.checked_add(value, output) {
+        Err(error) => return Err(error)
+        Ok(total) => total
+      }
   }
   let allocation_size = if compressed_length > 32768UL {
-    if compressed_length > output { compressed_length } else { output }
-  } else if 32768UL > output { 32768UL } else { output }
+    if compressed_length > output {
+      compressed_length
+    } else {
+      output
+    }
+  } else if 32768UL > output {
+    32768UL
+  } else {
+    output
+  }
   let temporary_limits = @budget.ResourceLimits::new(
-    bytes~, allocations=3UL, allocation_size~, width=0UL, height=0UL,
-    pixels=0UL, depth=0UL, work=limits.max_work(),
+    bytes~,
+    allocations=3UL,
+    allocation_size~,
+    width=0UL,
+    height=0UL,
+    pixels=0UL,
+    depth=0UL,
+    work=limits.max_work(),
   )
   // iCCP buffers are released before image construction. Preflight their full
   // envelope against the caller, then charge an isolated lease so transient
@@ -170,7 +246,8 @@ fn _png_iccp_temporary_budget(
   }
 }
 
-///| Reserve a conservative bound for source bits, Huffman decisions, and
+///|
+/// Reserve a conservative bound for source bits, Huffman decisions, and
 /// emitted bytes before entering the private DEFLATE loop.
 fn _png_iccp_work_reservation(
   compressed_length : UInt64,
@@ -196,18 +273,62 @@ fn _png_inflate_iccp(
   budget : @budget.Budget,
 ) -> Result[Bytes, @error.CoreError] {
   let maximum = _png_iccp_output_limit(limits)
-  let source = PngIdatSource::{ reader, scratch, limits, options: @codec.DecodeOptions::new(require_complete_input=true, preserve_opaque_metadata=false), data: Some(compressed), data_index: 0UL, consumed: 0UL, idat_state: PngIdatState::new() }
-  let cmf = match source.next_byte() { Err(error) => return Err(error); Ok(value) => value.to_int() }
-  let flg = match source.next_byte() { Err(error) => return Err(error); Ok(value) => value.to_int() }
-  if (cmf & 15) != 8 || (cmf >> 4) > 7 || ((cmf << 8) + flg) % 31 != 0 { return Err(_png_error("png-iccp-zlib")) }
-  if (flg & 32) != 0 { return Err(_png_error("png-iccp-zlib")) }
+  let source = PngIdatSource::{
+    reader,
+    scratch,
+    limits,
+    options: @codec.DecodeOptions::new(
+      require_complete_input=true,
+      preserve_opaque_metadata=false,
+    ),
+    data: Some(compressed),
+    data_index: 0UL,
+    consumed: 0UL,
+    idat_state: PngIdatState::new(),
+  }
+  let cmf = match source.next_byte() {
+    Err(error) => return Err(error)
+    Ok(value) => value.to_int()
+  }
+  let flg = match source.next_byte() {
+    Err(error) => return Err(error)
+    Ok(value) => value.to_int()
+  }
+  if (cmf & 15) != 8 || cmf >> 4 > 7 || ((cmf << 8) + flg) % 31 != 0 {
+    return Err(_png_error("png-iccp-zlib"))
+  }
+  if (flg & 32) != 0 {
+    return Err(_png_error("png-iccp-zlib"))
+  }
   let bits = _png_deflate_bits_new(source)
-  match budget.charge(@budget.ResourceCharge::new(bytes=32768UL, allocations=1UL, allocation_size=32768UL, width=0UL, height=0UL, pixels=0UL, work=0UL)) {
+  match
+    budget.charge(
+      @budget.ResourceCharge::new(
+        bytes=32768UL,
+        allocations=1UL,
+        allocation_size=32768UL,
+        width=0UL,
+        height=0UL,
+        pixels=0UL,
+        work=0UL,
+      ),
+    ) {
     Err(error) => return Err(error)
     Ok(_) => ()
   }
   let history = Array::make(32768, b'\x00')
-  match budget.charge(@budget.ResourceCharge::new(bytes=maximum, allocations=1UL, allocation_size=maximum, width=0UL, height=0UL, pixels=0UL, work=0UL)) {
+  match
+    budget.charge(
+      @budget.ResourceCharge::new(
+        bytes=maximum,
+        allocations=1UL,
+        allocation_size=maximum,
+        width=0UL,
+        height=0UL,
+        pixels=0UL,
+        work=0UL,
+      ),
+    ) {
     Err(error) => return Err(error)
     Ok(_) => ()
   }
@@ -216,90 +337,207 @@ fn _png_inflate_iccp(
   let mut history_pos = 0
   let mut adler = 1UL
   let emit = fn(byte : Byte) -> Result[Unit, @error.CoreError] {
-    if output.length().to_uint64() >= maximum { return Err(_png_limit("png-iccp-inflated", output.length().to_uint64() + 1UL, maximum)) }
+    if output.length().to_uint64() >= maximum {
+      return Err(
+        _png_limit(
+          "png-iccp-inflated",
+          output.length().to_uint64() + 1UL,
+          maximum,
+        ),
+      )
+    }
     output.push(byte)
     history[history_pos] = byte
     history_pos = (history_pos + 1) % 32768
-    if history_size < 32768 { history_size = history_size + 1 }
+    if history_size < 32768 {
+      history_size = history_size + 1
+    }
     adler = _png_adler_step(adler, byte)
     Ok(())
   }
   let mut final_block = 0
   while final_block == 0 {
-    final_block = match bits.read(1) { Err(error) => return Err(error); Ok(value) => value }
-    let block_type = match bits.read(2) { Err(error) => return Err(error); Ok(value) => value }
+    final_block = match bits.read(1) {
+      Err(error) => return Err(error)
+      Ok(value) => value
+    }
+    let block_type = match bits.read(2) {
+      Err(error) => return Err(error)
+      Ok(value) => value
+    }
     if block_type == 0 {
       bits.align()
-      let low = match bits.read_aligned_byte() { Err(error) => return Err(error); Ok(value) => value.to_int() }
-      let high = match bits.read_aligned_byte() { Err(error) => return Err(error); Ok(value) => value.to_int() }
-      let nlow = match bits.read_aligned_byte() { Err(error) => return Err(error); Ok(value) => value.to_int() }
-      let nhigh = match bits.read_aligned_byte() { Err(error) => return Err(error); Ok(value) => value.to_int() }
+      let low = match bits.read_aligned_byte() {
+        Err(error) => return Err(error)
+        Ok(value) => value.to_int()
+      }
+      let high = match bits.read_aligned_byte() {
+        Err(error) => return Err(error)
+        Ok(value) => value.to_int()
+      }
+      let nlow = match bits.read_aligned_byte() {
+        Err(error) => return Err(error)
+        Ok(value) => value.to_int()
+      }
+      let nhigh = match bits.read_aligned_byte() {
+        Err(error) => return Err(error)
+        Ok(value) => value.to_int()
+      }
       let length = low | (high << 8)
-      if (length ^ (nlow | (nhigh << 8))) != 65535 { return Err(_png_error("png-iccp-deflate")) }
+      if (length ^ (nlow | (nhigh << 8))) != 65535 {
+        return Err(_png_error("png-iccp-deflate"))
+      }
       for index = 0; index < length; index = index + 1 {
-        let byte = match bits.read_aligned_byte() { Err(error) => return Err(error); Ok(value) => value }
-        match emit(byte) { Err(error) => return Err(error); Ok(_) => () }
+        let byte = match bits.read_aligned_byte() {
+          Err(error) => return Err(error)
+          Ok(value) => value
+        }
+        match emit(byte) {
+          Err(error) => return Err(error)
+          Ok(_) => ()
+        }
       }
     } else {
-      let (literal_tree, distance_tree) = if block_type == 1 { (_png_fixed_literal_tree(), _png_fixed_distance_tree()) } else if block_type == 2 { match _png_dynamic_trees(bits) { Err(error) => return Err(error); Ok(value) => value } } else { return Err(_png_error("png-iccp-deflate")) }
+      let (literal_tree, distance_tree) = if block_type == 1 {
+        (_png_fixed_literal_tree(), _png_fixed_distance_tree())
+      } else if block_type == 2 {
+        match _png_dynamic_trees(bits) {
+          Err(error) => return Err(error)
+          Ok(value) => value
+        }
+      } else {
+        return Err(_png_error("png-iccp-deflate"))
+      }
       let mut finished = false
       while !finished {
-        let symbol = match literal_tree.symbol(bits) { Err(error) => return Err(error); Ok(value) => value }
-        if symbol < 256 { match emit(symbol.to_byte()) { Err(error) => return Err(error); Ok(_) => () } }
-        else if symbol == 256 { finished = true }
-        else {
-          let length = match _png_length(symbol, bits) { Err(error) => return Err(error); Ok(value) => value }
-          let distance_symbol = match distance_tree.symbol(bits) { Err(error) => return Err(error); Ok(value) => value }
-          let distance = match _png_distance(distance_symbol, bits) { Err(error) => return Err(error); Ok(value) => value }
-          if distance > history_size { return Err(_png_error("png-iccp-deflate")) }
+        let symbol = match literal_tree.symbol(bits) {
+          Err(error) => return Err(error)
+          Ok(value) => value
+        }
+        if symbol < 256 {
+          match emit(symbol.to_byte()) {
+            Err(error) => return Err(error)
+            Ok(_) => ()
+          }
+        } else if symbol == 256 {
+          finished = true
+        } else {
+          let length = match _png_length(symbol, bits) {
+            Err(error) => return Err(error)
+            Ok(value) => value
+          }
+          let distance_symbol = match distance_tree.symbol(bits) {
+            Err(error) => return Err(error)
+            Ok(value) => value
+          }
+          let distance = match _png_distance(distance_symbol, bits) {
+            Err(error) => return Err(error)
+            Ok(value) => value
+          }
+          if distance > history_size {
+            return Err(_png_error("png-iccp-deflate"))
+          }
           for index = 0; index < length; index = index + 1 {
             let position = (history_pos - distance + 32768) % 32768
-            match emit(history[position]) { Err(error) => return Err(error); Ok(_) => () }
+            match emit(history[position]) {
+              Err(error) => return Err(error)
+              Ok(_) => ()
+            }
           }
         }
       }
     }
   }
   bits.align()
-  let a = match bits.source.next_byte() { Err(error) => return Err(error); Ok(value) => value.to_int().to_uint64() }
-  let b = match bits.source.next_byte() { Err(error) => return Err(error); Ok(value) => value.to_int().to_uint64() }
-  let c = match bits.source.next_byte() { Err(error) => return Err(error); Ok(value) => value.to_int().to_uint64() }
-  let d = match bits.source.next_byte() { Err(error) => return Err(error); Ok(value) => value.to_int().to_uint64() }
-  if ((a << 24) | (b << 16) | (c << 8) | d) != adler { return Err(_png_error("png-iccp-adler")) }
-  if bits.source.data_index != compressed.length().to_uint64() { return Err(_png_error("png-iccp-trailing")) }
+  let a = match bits.source.next_byte() {
+    Err(error) => return Err(error)
+    Ok(value) => value.to_int().to_uint64()
+  }
+  let b = match bits.source.next_byte() {
+    Err(error) => return Err(error)
+    Ok(value) => value.to_int().to_uint64()
+  }
+  let c = match bits.source.next_byte() {
+    Err(error) => return Err(error)
+    Ok(value) => value.to_int().to_uint64()
+  }
+  let d = match bits.source.next_byte() {
+    Err(error) => return Err(error)
+    Ok(value) => value.to_int().to_uint64()
+  }
+  if ((a << 24) | (b << 16) | (c << 8) | d) != adler {
+    return Err(_png_error("png-iccp-adler"))
+  }
+  if bits.source.data_index != compressed.length().to_uint64() {
+    return Err(_png_error("png-iccp-trailing"))
+  }
   Ok(Bytes::from_array(output))
 }
 
-///| ICC is retained only after its minimum envelope proves the declared size,
+///|
+/// ICC is retained only after its minimum envelope proves the declared size,
 /// signature, and source-family-compatible device colour space.
-fn _png_validate_iccp_profile(profile : Bytes, grayscale : Bool) -> Result[Unit, @error.CoreError] {
-  if profile.length() < 128 { return Err(_png_error("png-iccp-header")) }
-  let declared = (profile[0].to_int().to_uint64() << 24) | (profile[1].to_int().to_uint64() << 16) | (profile[2].to_int().to_uint64() << 8) | profile[3].to_int().to_uint64()
-  if declared != profile.length().to_uint64() { return Err(_png_error("png-iccp-size")) }
-  if profile[36] != b'a' || profile[37] != b'c' || profile[38] != b's' || profile[39] != b'p' { return Err(_png_error("png-iccp-signature")) }
-  let gray = profile[16] == b'G' && profile[17] == b'R' && profile[18] == b'A' && profile[19] == b'Y'
-  let rgb = profile[16] == b'R' && profile[17] == b'G' && profile[18] == b'B' && profile[19] == b' '
-  if (grayscale && !gray) || (!grayscale && !rgb) { return Err(_png_error("png-iccp-space")) }
+fn _png_validate_iccp_profile(
+  profile : Bytes,
+  grayscale : Bool,
+) -> Result[Unit, @error.CoreError] {
+  if profile.length() < 128 {
+    return Err(_png_error("png-iccp-header"))
+  }
+  let declared = (profile[0].to_int().to_uint64() << 24) |
+    (profile[1].to_int().to_uint64() << 16) |
+    (profile[2].to_int().to_uint64() << 8) |
+    profile[3].to_int().to_uint64()
+  if declared != profile.length().to_uint64() {
+    return Err(_png_error("png-iccp-size"))
+  }
+  if profile[36] != b'a' ||
+    profile[37] != b'c' ||
+    profile[38] != b's' ||
+    profile[39] != b'p' {
+    return Err(_png_error("png-iccp-signature"))
+  }
+  let gray = profile[16] == b'G' &&
+    profile[17] == b'R' &&
+    profile[18] == b'A' &&
+    profile[19] == b'Y'
+  let rgb = profile[16] == b'R' &&
+    profile[17] == b'G' &&
+    profile[18] == b'B' &&
+    profile[19] == b' '
+  if (grayscale && !gray) || (!grayscale && !rgb) {
+    return Err(_png_error("png-iccp-space"))
+  }
   Ok(())
 }
 
 ///|
-fn _png_colour_declaration(facts : PngColourFacts, grayscale : Bool) -> Result[PngColourDeclaration, @error.CoreError] {
+fn _png_colour_declaration(
+  facts : PngColourFacts,
+  grayscale : Bool,
+) -> Result[PngColourDeclaration, @error.CoreError] {
   if facts.saw_iccp {
     match (facts.iccp_name, facts.iccp_profile) {
-      (Some(name), Some(profile)) => {
-        match _png_validate_iccp_profile(profile, grayscale) { Err(error) => return Err(error); Ok(_) => return Ok(PngColourDeclaration::Icc(name, profile)) }
-      }
+      (Some(name), Some(profile)) =>
+        match _png_validate_iccp_profile(profile, grayscale) {
+          Err(error) => return Err(error)
+          Ok(_) => return Ok(PngColourDeclaration::Icc(name, profile))
+        }
       _ => return Err(_png_error("png-iccp-profile"))
     }
   }
   if facts.saw_srgb {
-    if (facts.saw_gamma && !facts.gamma_is_srgb) || (facts.saw_chrm && !facts.chrm_is_srgb) {
+    if (facts.saw_gamma && !facts.gamma_is_srgb) ||
+      (facts.saw_chrm && !facts.chrm_is_srgb) {
       return Err(_png_error("png-srgb-legacy-conflict"))
     }
     return Ok(PngColourDeclaration::Srgb(facts.srgb_intent.unwrap()))
   }
-  if facts.saw_gamma || facts.saw_chrm { Ok(PngColourDeclaration::Legacy(facts.gamma, facts.chrm)) } else { Ok(PngColourDeclaration::Default) }
+  if facts.saw_gamma || facts.saw_chrm {
+    Ok(PngColourDeclaration::Legacy(facts.gamma, facts.chrm))
+  } else {
+    Ok(PngColourDeclaration::Default)
+  }
 }
 
 ///|
@@ -515,7 +753,8 @@ fn _png_limit_value(
   }
 }
 
-///| Computes the encoded byte width of a grayscale scanline, including only
+///|
+/// Computes the encoded byte width of a grayscale scanline, including only
 /// the bytes required by its packed samples.
 fn _png_grayscale_row_bytes(
   width : UInt64,
@@ -532,7 +771,8 @@ fn _png_grayscale_row_bytes(
   Ok(rounded / 8UL)
 }
 
-///| The filter byte distance is an encoded-source fact, never an exposed RGB8
+///|
+/// The filter byte distance is an encoded-source fact, never an exposed RGB8
 /// channel count.  Sixteen-bit samples retain their big-endian byte pairs.
 fn _png_source_bytes_per_pixel(
   source_channels : UInt64,
@@ -545,7 +785,8 @@ fn _png_source_bytes_per_pixel(
   }
 }
 
-///| Computes an encoded source row before RGB8/RGBA8 expansion.
+///|
+/// Computes an encoded source row before RGB8/RGBA8 expansion.
 fn _png_source_row_bytes(
   width : UInt64,
   source_channels : UInt64,
@@ -554,7 +795,8 @@ fn _png_source_row_bytes(
   if source_channels == 1UL && bit_depth < 8 {
     _png_grayscale_row_bytes(width, bit_depth)
   } else {
-    let bytes_per_pixel = match _png_source_bytes_per_pixel(source_channels, bit_depth) {
+    let bytes_per_pixel = match
+      _png_source_bytes_per_pixel(source_channels, bit_depth) {
       Err(error) => return Err(error)
       Ok(value) => value
     }
@@ -562,7 +804,8 @@ fn _png_source_row_bytes(
   }
 }
 
-///| Adam7 geometry is kept in one private representation so the structural
+///|
+/// Adam7 geometry is kept in one private representation so the structural
 /// preflight, inflater, and scatter writers cannot drift from one another.
 priv struct PngAdam7Pass {
   x : UInt64
@@ -575,8 +818,14 @@ priv struct PngAdam7Pass {
 }
 
 ///|
-fn _png_adam7_dimension(size : UInt64, start : UInt64, stride : UInt64) -> Result[UInt64, @error.CoreError] {
-  if size <= start { return Ok(0UL) }
+fn _png_adam7_dimension(
+  size : UInt64,
+  start : UInt64,
+  stride : UInt64,
+) -> Result[UInt64, @error.CoreError] {
+  if size <= start {
+    return Ok(0UL)
+  }
   let remaining = match @checked.checked_add(size - start, stride - 1UL) {
     Err(error) => return Err(error)
     Ok(value) => value
@@ -592,17 +841,45 @@ fn _png_adam7_passes(
   bit_depth : Int,
 ) -> Result[Array[PngAdam7Pass], @error.CoreError] {
   let result : Array[PngAdam7Pass] = []
-  for item in [(0UL, 0UL, 8UL, 8UL), (4UL, 0UL, 8UL, 8UL), (0UL, 4UL, 4UL, 8UL), (2UL, 0UL, 4UL, 4UL), (0UL, 2UL, 2UL, 4UL), (1UL, 0UL, 2UL, 2UL), (0UL, 1UL, 1UL, 2UL)] {
+  for
+    item in [
+      (0UL, 0UL, 8UL, 8UL),
+      (4UL, 0UL, 8UL, 8UL),
+      (0UL, 4UL, 4UL, 8UL),
+      (2UL, 0UL, 4UL, 4UL),
+      (0UL, 2UL, 2UL, 4UL),
+      (1UL, 0UL, 2UL, 2UL),
+      (0UL, 1UL, 1UL, 2UL),
+    ] {
     let (x, y, dx, dy) = item
-    let pass_width = match _png_adam7_dimension(width, x, dx) { Err(error) => return Err(error); Ok(value) => value }
-    let pass_height = match _png_adam7_dimension(height, y, dy) { Err(error) => return Err(error); Ok(value) => value }
-    let row_bytes = match _png_source_row_bytes(pass_width, source_channels, bit_depth) { Err(error) => return Err(error); Ok(value) => value }
-    result.push({ x, y, dx, dy, width: pass_width, height: pass_height, row_bytes })
+    let pass_width = match _png_adam7_dimension(width, x, dx) {
+      Err(error) => return Err(error)
+      Ok(value) => value
+    }
+    let pass_height = match _png_adam7_dimension(height, y, dy) {
+      Err(error) => return Err(error)
+      Ok(value) => value
+    }
+    let row_bytes = match
+      _png_source_row_bytes(pass_width, source_channels, bit_depth) {
+      Err(error) => return Err(error)
+      Ok(value) => value
+    }
+    result.push({
+      x,
+      y,
+      dx,
+      dy,
+      width: pass_width,
+      height: pass_height,
+      row_bytes,
+    })
   }
   Ok(result)
 }
 
-///| Reserves the completed image and exactly two reusable maximum-width source
+///|
+/// Reserves the completed image and exactly two reusable maximum-width source
 /// rows, while charging the precise sum of nonempty filtered Adam7 rows.
 fn _png_adam7_decode_budget(
   width : UInt64,
@@ -613,31 +890,85 @@ fn _png_adam7_decode_budget(
   limits : @codec.CodecLimits,
   budget : @budget.Budget,
 ) -> Result[@budget.Budget, @error.CoreError] {
-  let pixels = match @checked.checked_mul(width, height) { Err(error) => return Err(error); Ok(value) => value }
-  let image_bytes = match @checked.checked_mul(pixels, channels) { Err(error) => return Err(error); Ok(value) => value }
-  let passes = match _png_adam7_passes(width, height, source_channels, bit_depth) { Err(error) => return Err(error); Ok(value) => value }
+  let pixels = match @checked.checked_mul(width, height) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  let image_bytes = match @checked.checked_mul(pixels, channels) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  let passes = match
+    _png_adam7_passes(width, height, source_channels, bit_depth) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
   let mut maximum_row = 0UL
   let mut filtered = 0UL
   for pass in passes {
     if pass.width > 0UL && pass.height > 0UL {
-      if pass.row_bytes > maximum_row { maximum_row = pass.row_bytes }
-      let per_row = match @checked.checked_add(pass.row_bytes, 1UL) { Err(error) => return Err(error); Ok(value) => value }
-      let bytes = match @checked.checked_mul(per_row, pass.height) { Err(error) => return Err(error); Ok(value) => value }
-      filtered = match @checked.checked_add(filtered, bytes) { Err(error) => return Err(error); Ok(value) => value }
+      if pass.row_bytes > maximum_row {
+        maximum_row = pass.row_bytes
+      }
+      let per_row = match @checked.checked_add(pass.row_bytes, 1UL) {
+        Err(error) => return Err(error)
+        Ok(value) => value
+      }
+      let bytes = match @checked.checked_mul(per_row, pass.height) {
+        Err(error) => return Err(error)
+        Ok(value) => value
+      }
+      filtered = match @checked.checked_add(filtered, bytes) {
+        Err(error) => return Err(error)
+        Ok(value) => value
+      }
     }
   }
-  let rows = match @checked.checked_mul(maximum_row, 2UL) { Err(error) => return Err(error); Ok(value) => value }
-  let bytes = match @checked.checked_add(image_bytes, rows) { Err(error) => return Err(error); Ok(value) => value }
-  let work = match @checked.checked_add(image_bytes, filtered) { Err(error) => return Err(error); Ok(value) => value }
-  let allocation_size = if image_bytes > maximum_row { image_bytes } else { maximum_row }
-  for item in [("image-bytes", image_bytes, limits.max_output_bytes()), ("output-bytes", filtered, limits.max_output_bytes()), ("work", work, limits.max_work())] {
-    let (context, requested, limit) = item
-    match _png_limit_value(context, requested, limit) { Err(error) => return Err(error); Ok(_) => () }
+  let rows = match @checked.checked_mul(maximum_row, 2UL) {
+    Err(error) => return Err(error)
+    Ok(value) => value
   }
-  budget.child(@budget.ResourceLimits::new(bytes~, allocations=3UL, allocation_size~, width~, height~, pixels~, depth=0UL, work=limits.max_work()))
+  let bytes = match @checked.checked_add(image_bytes, rows) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  let work = match @checked.checked_add(image_bytes, filtered) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  let allocation_size = if image_bytes > maximum_row {
+    image_bytes
+  } else {
+    maximum_row
+  }
+  for
+    item in [
+      ("image-bytes", image_bytes, limits.max_output_bytes()),
+      ("output-bytes", filtered, limits.max_output_bytes()),
+      ("work", work, limits.max_work()),
+    ] {
+    let (context, requested, limit) = item
+    match _png_limit_value(context, requested, limit) {
+      Err(error) => return Err(error)
+      Ok(_) => ()
+    }
+  }
+  budget.child(
+    @budget.ResourceLimits::new(
+      bytes~,
+      allocations=3UL,
+      allocation_size~,
+      width~,
+      height~,
+      pixels~,
+      depth=0UL,
+      work=limits.max_work(),
+    ),
+  )
 }
 
-///| Sixteen-bit decode reserves the expanded image and exactly
+///|
+/// Sixteen-bit decode reserves the expanded image and exactly
 /// two encoded source rows.  The source bytes are filtered before high-byte mapping.
 fn _png_16bit_decode_budget(
   width : UInt64,
@@ -647,26 +978,71 @@ fn _png_16bit_decode_budget(
   limits : @codec.CodecLimits,
   budget : @budget.Budget,
 ) -> Result[@budget.Budget, @error.CoreError] {
-  let pixels = match @checked.checked_mul(width, height) { Err(error) => return Err(error); Ok(value) => value }
-  let image_bytes = match @checked.checked_mul(pixels, channels) { Err(error) => return Err(error); Ok(value) => value }
-  let row_bytes = match @checked.checked_mul(width, source_bytes_per_pixel) { Err(error) => return Err(error); Ok(value) => value }
-  let rows = match @checked.checked_mul(row_bytes, 2UL) { Err(error) => return Err(error); Ok(value) => value }
-  let bytes = match @checked.checked_add(image_bytes, rows) { Err(error) => return Err(error); Ok(value) => value }
-  let allocation_size = if image_bytes > row_bytes { image_bytes } else { row_bytes }
-  let filtered_row = match @checked.checked_add(row_bytes, 1UL) { Err(error) => return Err(error); Ok(value) => value }
-  let filtered = match @checked.checked_mul(filtered_row, height) { Err(error) => return Err(error); Ok(value) => value }
-  let work = match @checked.checked_add(image_bytes, filtered) { Err(error) => return Err(error); Ok(value) => value }
-  for item in [("image-bytes", image_bytes, limits.max_output_bytes()), ("output-bytes", filtered, limits.max_output_bytes()), ("work", work, limits.max_work())] {
-    let (context, requested, limit) = item
-    match _png_limit_value(context, requested, limit) { Err(error) => return Err(error); Ok(_) => () }
+  let pixels = match @checked.checked_mul(width, height) {
+    Err(error) => return Err(error)
+    Ok(value) => value
   }
-  budget.child(@budget.ResourceLimits::new(
-    bytes~, allocations=3UL, allocation_size~,
-    width~, height~, pixels~, depth=0UL, work=limits.max_work(),
-  ))
+  let image_bytes = match @checked.checked_mul(pixels, channels) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  let row_bytes = match @checked.checked_mul(width, source_bytes_per_pixel) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  let rows = match @checked.checked_mul(row_bytes, 2UL) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  let bytes = match @checked.checked_add(image_bytes, rows) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  let allocation_size = if image_bytes > row_bytes {
+    image_bytes
+  } else {
+    row_bytes
+  }
+  let filtered_row = match @checked.checked_add(row_bytes, 1UL) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  let filtered = match @checked.checked_mul(filtered_row, height) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  let work = match @checked.checked_add(image_bytes, filtered) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  for
+    item in [
+      ("image-bytes", image_bytes, limits.max_output_bytes()),
+      ("output-bytes", filtered, limits.max_output_bytes()),
+      ("work", work, limits.max_work()),
+    ] {
+    let (context, requested, limit) = item
+    match _png_limit_value(context, requested, limit) {
+      Err(error) => return Err(error)
+      Ok(_) => ()
+    }
+  }
+  budget.child(
+    @budget.ResourceLimits::new(
+      bytes~,
+      allocations=3UL,
+      allocation_size~,
+      width~,
+      height~,
+      pixels~,
+      depth=0UL,
+      work=limits.max_work(),
+    ),
+  )
 }
 
-///| A grayscale image owns its expanded image and precisely two packed rows.
+///|
+/// A grayscale image owns its expanded image and precisely two packed rows.
 fn _png_grayscale_decode_budget(
   width : UInt64,
   height : UInt64,
@@ -675,22 +1051,62 @@ fn _png_grayscale_decode_budget(
   limits : @codec.CodecLimits,
   budget : @budget.Budget,
 ) -> Result[@budget.Budget, @error.CoreError] {
-  let pixels = match @checked.checked_mul(width, height) { Err(error) => return Err(error); Ok(value) => value }
-  let image_bytes = match @checked.checked_mul(pixels, channels) { Err(error) => return Err(error); Ok(value) => value }
-  let row_bytes = match _png_grayscale_row_bytes(width, bit_depth) { Err(error) => return Err(error); Ok(value) => value }
-  let rows = match @checked.checked_mul(row_bytes, 2UL) { Err(error) => return Err(error); Ok(value) => value }
-  let bytes = match @checked.checked_add(image_bytes, rows) { Err(error) => return Err(error); Ok(value) => value }
-  let filtered_row = match @checked.checked_add(row_bytes, 1UL) { Err(error) => return Err(error); Ok(value) => value }
-  let filtered = match @checked.checked_mul(filtered_row, height) { Err(error) => return Err(error); Ok(value) => value }
-  let work = match @checked.checked_add(image_bytes, filtered) { Err(error) => return Err(error); Ok(value) => value }
-  for item in [("image-bytes", image_bytes, limits.max_output_bytes()), ("output-bytes", filtered, limits.max_output_bytes()), ("work", work, limits.max_work())] {
-    let (context, requested, limit) = item
-    match _png_limit_value(context, requested, limit) { Err(error) => return Err(error); Ok(_) => () }
+  let pixels = match @checked.checked_mul(width, height) {
+    Err(error) => return Err(error)
+    Ok(value) => value
   }
-  budget.child(@budget.ResourceLimits::new(
-    bytes~, allocations=3UL, allocation_size=image_bytes,
-    width~, height~, pixels~, depth=0UL, work=limits.max_work(),
-  ))
+  let image_bytes = match @checked.checked_mul(pixels, channels) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  let row_bytes = match _png_grayscale_row_bytes(width, bit_depth) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  let rows = match @checked.checked_mul(row_bytes, 2UL) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  let bytes = match @checked.checked_add(image_bytes, rows) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  let filtered_row = match @checked.checked_add(row_bytes, 1UL) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  let filtered = match @checked.checked_mul(filtered_row, height) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  let work = match @checked.checked_add(image_bytes, filtered) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  for
+    item in [
+      ("image-bytes", image_bytes, limits.max_output_bytes()),
+      ("output-bytes", filtered, limits.max_output_bytes()),
+      ("work", work, limits.max_work()),
+    ] {
+    let (context, requested, limit) = item
+    match _png_limit_value(context, requested, limit) {
+      Err(error) => return Err(error)
+      Ok(_) => ()
+    }
+  }
+  budget.child(
+    @budget.ResourceLimits::new(
+      bytes~,
+      allocations=3UL,
+      allocation_size=image_bytes,
+      width~,
+      height~,
+      pixels~,
+      depth=0UL,
+      work=limits.max_work(),
+    ),
+  )
 }
 
 ///|
@@ -712,12 +1128,18 @@ fn _png_preflight_ihdr(
   }
   let bit_depth = ihdr[8].to_int()
   let source_channels = if ihdr[9] == 0 {
-    if bit_depth != 1 && bit_depth != 2 && bit_depth != 4 && bit_depth != 8 && bit_depth != 16 {
+    if bit_depth != 1 &&
+      bit_depth != 2 &&
+      bit_depth != 4 &&
+      bit_depth != 8 &&
+      bit_depth != 16 {
       return Err(_png_error("png-bit-depth"))
     }
     1UL
   } else if ihdr[9] == 2 {
-    if bit_depth != 8 && bit_depth != 16 { return Err(_png_error("png-bit-depth")) }
+    if bit_depth != 8 && bit_depth != 16 {
+      return Err(_png_error("png-bit-depth"))
+    }
     3UL
   } else if ihdr[9] == 3 {
     if bit_depth != 1 && bit_depth != 2 && bit_depth != 4 && bit_depth != 8 {
@@ -725,10 +1147,14 @@ fn _png_preflight_ihdr(
     }
     1UL
   } else if ihdr[9] == 4 {
-    if bit_depth != 8 && bit_depth != 16 { return Err(_png_error("png-bit-depth")) }
+    if bit_depth != 8 && bit_depth != 16 {
+      return Err(_png_error("png-bit-depth"))
+    }
     2UL
   } else if ihdr[9] == 6 {
-    if bit_depth != 8 && bit_depth != 16 { return Err(_png_error("png-bit-depth")) }
+    if bit_depth != 8 && bit_depth != 16 {
+      return Err(_png_error("png-bit-depth"))
+    }
     4UL
   } else {
     return Err(_png_error("png-colour-type"))
@@ -747,12 +1173,19 @@ fn _png_preflight_ihdr(
     Ok(value) => value
   }
   if ihdr[12] == 1 {
-    match _png_adam7_decode_budget(width, height, source_channels, bit_depth, output_channels, limits, budget) {
+    match
+      _png_adam7_decode_budget(
+        width, height, source_channels, bit_depth, output_channels, limits, budget,
+      ) {
       Err(error) => return Err(error)
       Ok(_) => return Ok(())
     }
   }
-  let row_bytes = match _png_source_row_bytes(width, source_channels, bit_depth) { Err(error) => return Err(error); Ok(value) => value }
+  let row_bytes = match
+    _png_source_row_bytes(width, source_channels, bit_depth) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
   let filtered_row = match @checked.checked_add(row_bytes, 1UL) {
     Err(error) => return Err(error)
     Ok(value) => value
@@ -839,17 +1272,34 @@ fn _png_indexed_decode_budget(
     Err(error) => return Err(error)
     Ok(value) => value
   }
-  for item in [("image-bytes", image_bytes, limits.max_output_bytes()), ("output-bytes", filtered, limits.max_output_bytes()), ("work", work, limits.max_work())] {
+  for
+    item in [
+      ("image-bytes", image_bytes, limits.max_output_bytes()),
+      ("output-bytes", filtered, limits.max_output_bytes()),
+      ("work", work, limits.max_work()),
+    ] {
     let (context, requested, limit) = item
-    match _png_limit_value(context, requested, limit) { Err(error) => return Err(error); Ok(_) => () }
+    match _png_limit_value(context, requested, limit) {
+      Err(error) => return Err(error)
+      Ok(_) => ()
+    }
   }
-  budget.child(@budget.ResourceLimits::new(
-    bytes~, allocations=3UL, allocation_size=image_bytes,
-    width~, height~, pixels~, depth=0UL, work=limits.max_work(),
-  ))
+  budget.child(
+    @budget.ResourceLimits::new(
+      bytes~,
+      allocations=3UL,
+      allocation_size=image_bytes,
+      width~,
+      height~,
+      pixels~,
+      depth=0UL,
+      work=limits.max_work(),
+    ),
+  )
 }
 
-///| The transparent profiles retain the encoded row width while reserving RGBA8.
+///|
+/// The transparent profiles retain the encoded row width while reserving RGBA8.
 fn _png_transparent_decode_budget(
   width : UInt64,
   height : UInt64,
@@ -857,43 +1307,112 @@ fn _png_transparent_decode_budget(
   limits : @codec.CodecLimits,
   budget : @budget.Budget,
 ) -> Result[@budget.Budget, @error.CoreError] {
-  let pixels = match @checked.checked_mul(width, height) { Err(error) => return Err(error); Ok(value) => value }
-  let image_bytes = match @checked.checked_mul(pixels, 4UL) { Err(error) => return Err(error); Ok(value) => value }
-  let row_bytes = match @checked.checked_mul(width, source_channels) { Err(error) => return Err(error); Ok(value) => value }
-  let filtered = match @checked.checked_mul(row_bytes + 1UL, height) { Err(error) => return Err(error); Ok(value) => value }
-  let work = match @checked.checked_add(image_bytes, filtered) { Err(error) => return Err(error); Ok(value) => value }
-  for item in [("image-bytes", image_bytes, limits.max_output_bytes()), ("output-bytes", filtered, limits.max_output_bytes()), ("work", work, limits.max_work())] {
-    let (context, requested, limit) = item
-    match _png_limit_value(context, requested, limit) { Err(error) => return Err(error); Ok(_) => () }
+  let pixels = match @checked.checked_mul(width, height) {
+    Err(error) => return Err(error)
+    Ok(value) => value
   }
-  budget.child(@budget.ResourceLimits::new(
-    bytes=image_bytes, allocations=1UL, allocation_size=image_bytes,
-    width~, height~, pixels~, depth=0UL, work=limits.max_work(),
-  ))
+  let image_bytes = match @checked.checked_mul(pixels, 4UL) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  let row_bytes = match @checked.checked_mul(width, source_channels) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  let filtered = match @checked.checked_mul(row_bytes + 1UL, height) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  let work = match @checked.checked_add(image_bytes, filtered) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  for
+    item in [
+      ("image-bytes", image_bytes, limits.max_output_bytes()),
+      ("output-bytes", filtered, limits.max_output_bytes()),
+      ("work", work, limits.max_work()),
+    ] {
+    let (context, requested, limit) = item
+    match _png_limit_value(context, requested, limit) {
+      Err(error) => return Err(error)
+      Ok(_) => ()
+    }
+  }
+  budget.child(
+    @budget.ResourceLimits::new(
+      bytes=image_bytes,
+      allocations=1UL,
+      allocation_size=image_bytes,
+      width~,
+      height~,
+      pixels~,
+      depth=0UL,
+      work=limits.max_work(),
+    ),
+  )
 }
 
-///| Native-alpha grayscale retains two source bytes per pixel and two filter rows.
+///|
+/// Native-alpha grayscale retains two source bytes per pixel and two filter rows.
 fn _png_grayscale_alpha_decode_budget(
   width : UInt64,
   height : UInt64,
   limits : @codec.CodecLimits,
   budget : @budget.Budget,
 ) -> Result[@budget.Budget, @error.CoreError] {
-  let pixels = match @checked.checked_mul(width, height) { Err(error) => return Err(error); Ok(value) => value }
-  let image_bytes = match @checked.checked_mul(pixels, 4UL) { Err(error) => return Err(error); Ok(value) => value }
-  let row_bytes = match @checked.checked_mul(width, 2UL) { Err(error) => return Err(error); Ok(value) => value }
-  let rows = match @checked.checked_mul(row_bytes, 2UL) { Err(error) => return Err(error); Ok(value) => value }
-  let bytes = match @checked.checked_add(image_bytes, rows) { Err(error) => return Err(error); Ok(value) => value }
-  let filtered = match @checked.checked_mul(row_bytes + 1UL, height) { Err(error) => return Err(error); Ok(value) => value }
-  let work = match @checked.checked_add(image_bytes, filtered) { Err(error) => return Err(error); Ok(value) => value }
-  for item in [("image-bytes", image_bytes, limits.max_output_bytes()), ("output-bytes", filtered, limits.max_output_bytes()), ("work", work, limits.max_work())] {
-    let (context, requested, limit) = item
-    match _png_limit_value(context, requested, limit) { Err(error) => return Err(error); Ok(_) => () }
+  let pixels = match @checked.checked_mul(width, height) {
+    Err(error) => return Err(error)
+    Ok(value) => value
   }
-  budget.child(@budget.ResourceLimits::new(
-    bytes~, allocations=3UL, allocation_size=image_bytes,
-    width~, height~, pixels~, depth=0UL, work=limits.max_work(),
-  ))
+  let image_bytes = match @checked.checked_mul(pixels, 4UL) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  let row_bytes = match @checked.checked_mul(width, 2UL) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  let rows = match @checked.checked_mul(row_bytes, 2UL) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  let bytes = match @checked.checked_add(image_bytes, rows) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  let filtered = match @checked.checked_mul(row_bytes + 1UL, height) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  let work = match @checked.checked_add(image_bytes, filtered) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  for
+    item in [
+      ("image-bytes", image_bytes, limits.max_output_bytes()),
+      ("output-bytes", filtered, limits.max_output_bytes()),
+      ("work", work, limits.max_work()),
+    ] {
+    let (context, requested, limit) = item
+    match _png_limit_value(context, requested, limit) {
+      Err(error) => return Err(error)
+      Ok(_) => ()
+    }
+  }
+  budget.child(
+    @budget.ResourceLimits::new(
+      bytes~,
+      allocations=3UL,
+      allocation_size=image_bytes,
+      width~,
+      height~,
+      pixels~,
+      depth=0UL,
+      work=limits.max_work(),
+    ),
+  )
 }
 
 ///|
@@ -935,7 +1454,9 @@ fn _png_read_payload_and_crc(
 }
 
 ///|
-///| Reads a recognised colour chunk exactly once through the CRC path. iCCP
+
+///|
+/// Reads a recognised colour chunk exactly once through the CRC path. iCCP
 /// profile bytes are discarded after envelope validation; only grammar facts
 /// are retained for Phase 24's explicit capability boundary.
 fn _png_read_colour_chunk(
@@ -955,13 +1476,23 @@ fn _png_read_colour_chunk(
   match fixed_length {
     Some(expected) => {
       if length != expected {
-        if is_srgb { return Err(_png_error("png-srgb-length")) }
-        if is_gamma { return Err(_png_error("png-gama-length")) }
+        if is_srgb {
+          return Err(_png_error("png-srgb-length"))
+        }
+        if is_gamma {
+          return Err(_png_error("png-gama-length"))
+        }
         return Err(_png_error("png-chrm-length"))
       }
-      if is_srgb && facts.saw_srgb { return Err(_png_error("png-srgb-duplicate")) }
-      if is_gamma && facts.saw_gamma { return Err(_png_error("png-gama-duplicate")) }
-      if is_chrm && facts.saw_chrm { return Err(_png_error("png-chrm-duplicate")) }
+      if is_srgb && facts.saw_srgb {
+        return Err(_png_error("png-srgb-duplicate"))
+      }
+      if is_gamma && facts.saw_gamma {
+        return Err(_png_error("png-gama-duplicate"))
+      }
+      if is_chrm && facts.saw_chrm {
+        return Err(_png_error("png-chrm-duplicate"))
+      }
     }
     None => if facts.saw_iccp { return Err(_png_error("png-iccp-duplicate")) }
   }
@@ -988,10 +1519,15 @@ fn _png_read_colour_chunk(
       payload.push(byte)
     } else if !saw_nul {
       if byte == b'\x00' {
-        if name_length == 0UL || last_space { return Err(_png_error("png-iccp-name")) }
+        if name_length == 0UL || last_space {
+          return Err(_png_error("png-iccp-name"))
+        }
         saw_nul = true
       } else {
-        if !_png_is_iccp_name_byte(byte) || name_length >= 79UL || (name_length == 0UL && byte == b' ') || (byte == b' ' && last_space) {
+        if !_png_is_iccp_name_byte(byte) ||
+          name_length >= 79UL ||
+          (name_length == 0UL && byte == b' ') ||
+          (byte == b' ' && last_space) {
           return Err(_png_error("png-iccp-name"))
         }
         name_length = name_length + 1UL
@@ -999,15 +1535,29 @@ fn _png_read_colour_chunk(
         iccp_name.push(byte)
       }
     } else if !saw_method {
-      if byte != b'\x00' { return Err(_png_error("png-iccp-method")) }
+      if byte != b'\x00' {
+        return Err(_png_error("png-iccp-method"))
+      }
       saw_method = true
     } else {
       if iccp_budget is None {
-        let temporary = match _png_iccp_temporary_budget(length - index, limits, budget) {
+        let temporary = match
+          _png_iccp_temporary_budget(length - index, limits, budget) {
           Err(error) => return Err(error)
           Ok(value) => value
         }
-        match temporary.charge(@budget.ResourceCharge::new(bytes=length - index, allocations=1UL, allocation_size=length - index, width=0UL, height=0UL, pixels=0UL, work=0UL)) {
+        match
+          temporary.charge(
+            @budget.ResourceCharge::new(
+              bytes=length - index,
+              allocations=1UL,
+              allocation_size=length - index,
+              width=0UL,
+              height=0UL,
+              pixels=0UL,
+              work=0UL,
+            ),
+          ) {
           Err(error) => return Err(error)
           Ok(_) => ()
         }
@@ -1015,7 +1565,18 @@ fn _png_read_colour_chunk(
           Err(error) => return Err(error)
           Ok(value) => value
         }
-        match temporary.charge(@budget.ResourceCharge::new(bytes=0UL, allocations=0UL, allocation_size=0UL, width=0UL, height=0UL, pixels=0UL, work~)) {
+        match
+          temporary.charge(
+            @budget.ResourceCharge::new(
+              bytes=0UL,
+              allocations=0UL,
+              allocation_size=0UL,
+              width=0UL,
+              height=0UL,
+              pixels=0UL,
+              work~,
+            ),
+          ) {
           Err(error) => return Err(error)
           Ok(_) => ()
         }
@@ -1026,28 +1587,125 @@ fn _png_read_colour_chunk(
     }
     index = index + 1UL
   }
-  let (stored_crc, next) = match _png_read_u32(reader, scratch, cursor, limits) {
+  let (stored_crc, next) = match
+    _png_read_u32(reader, scratch, cursor, limits) {
     Err(error) => return Err(error)
     Ok(value) => value
   }
-  if (crc ^ 4294967295UL) != stored_crc { return Err(_png_error("png-crc")) }
+  if (crc ^ 4294967295UL) != stored_crc {
+    return Err(_png_error("png-crc"))
+  }
   if is_srgb {
-    let intent = match _png_validate_srgb_payload(payload) { Err(error) => return Err(error); Ok(value) => value }
-    return Ok(({ saw_srgb: true, srgb_intent: Some(intent), saw_gamma: facts.saw_gamma, gamma_is_srgb: facts.gamma_is_srgb, gamma: facts.gamma, saw_chrm: facts.saw_chrm, chrm_is_srgb: facts.chrm_is_srgb, chrm: facts.chrm, saw_iccp: facts.saw_iccp, iccp_name: facts.iccp_name, iccp_profile: facts.iccp_profile }, next))
+    let intent = match _png_validate_srgb_payload(payload) {
+      Err(error) => return Err(error)
+      Ok(value) => value
+    }
+    return Ok(
+      (
+        {
+          saw_srgb: true,
+          srgb_intent: Some(intent),
+          saw_gamma: facts.saw_gamma,
+          gamma_is_srgb: facts.gamma_is_srgb,
+          gamma: facts.gamma,
+          saw_chrm: facts.saw_chrm,
+          chrm_is_srgb: facts.chrm_is_srgb,
+          chrm: facts.chrm,
+          saw_iccp: facts.saw_iccp,
+          iccp_name: facts.iccp_name,
+          iccp_profile: facts.iccp_profile,
+        },
+        next,
+      ),
+    )
   }
   if is_gamma {
-    let standard = match _png_validate_gamma_payload(payload) { Err(error) => return Err(error); Ok(value) => value }
-    return Ok(({ saw_srgb: facts.saw_srgb, srgb_intent: facts.srgb_intent, saw_gamma: true, gamma_is_srgb: standard, gamma: Some(Bytes::from_array(payload)), saw_chrm: facts.saw_chrm, chrm_is_srgb: facts.chrm_is_srgb, chrm: facts.chrm, saw_iccp: facts.saw_iccp, iccp_name: facts.iccp_name, iccp_profile: facts.iccp_profile }, next))
+    let standard = match _png_validate_gamma_payload(payload) {
+      Err(error) => return Err(error)
+      Ok(value) => value
+    }
+    return Ok(
+      (
+        {
+          saw_srgb: facts.saw_srgb,
+          srgb_intent: facts.srgb_intent,
+          saw_gamma: true,
+          gamma_is_srgb: standard,
+          gamma: Some(Bytes::from_array(payload)),
+          saw_chrm: facts.saw_chrm,
+          chrm_is_srgb: facts.chrm_is_srgb,
+          chrm: facts.chrm,
+          saw_iccp: facts.saw_iccp,
+          iccp_name: facts.iccp_name,
+          iccp_profile: facts.iccp_profile,
+        },
+        next,
+      ),
+    )
   }
   if is_chrm {
-    let standard = match _png_validate_chrm_payload(payload) { Err(error) => return Err(error); Ok(value) => value }
-    return Ok(({ saw_srgb: facts.saw_srgb, srgb_intent: facts.srgb_intent, saw_gamma: facts.saw_gamma, gamma_is_srgb: facts.gamma_is_srgb, gamma: facts.gamma, saw_chrm: true, chrm_is_srgb: standard, chrm: Some(Bytes::from_array(payload)), saw_iccp: facts.saw_iccp, iccp_name: facts.iccp_name, iccp_profile: facts.iccp_profile }, next))
+    let standard = match _png_validate_chrm_payload(payload) {
+      Err(error) => return Err(error)
+      Ok(value) => value
+    }
+    return Ok(
+      (
+        {
+          saw_srgb: facts.saw_srgb,
+          srgb_intent: facts.srgb_intent,
+          saw_gamma: facts.saw_gamma,
+          gamma_is_srgb: facts.gamma_is_srgb,
+          gamma: facts.gamma,
+          saw_chrm: true,
+          chrm_is_srgb: standard,
+          chrm: Some(Bytes::from_array(payload)),
+          saw_iccp: facts.saw_iccp,
+          iccp_name: facts.iccp_name,
+          iccp_profile: facts.iccp_profile,
+        },
+        next,
+      ),
+    )
   }
-  if !saw_nul || !saw_method { return Err(_png_error("png-iccp-envelope")) }
-  if profile_bytes == 0UL { return Err(_png_error("png-iccp-data")) }
-  let temporary = match iccp_budget { Some(value) => value; None => return Err(_png_error("png-iccp-data")) }
-  let profile = match _png_inflate_iccp(Bytes::from_array(iccp_compressed), reader, scratch, limits, temporary) { Err(error) => return Err(error); Ok(value) => value }
-  Ok(({ saw_srgb: facts.saw_srgb, srgb_intent: facts.srgb_intent, saw_gamma: facts.saw_gamma, gamma_is_srgb: facts.gamma_is_srgb, gamma: facts.gamma, saw_chrm: facts.saw_chrm, chrm_is_srgb: facts.chrm_is_srgb, chrm: facts.chrm, saw_iccp: true, iccp_name: Some(Bytes::from_array(iccp_name)), iccp_profile: Some(profile) }, next))
+  if !saw_nul || !saw_method {
+    return Err(_png_error("png-iccp-envelope"))
+  }
+  if profile_bytes == 0UL {
+    return Err(_png_error("png-iccp-data"))
+  }
+  let temporary = match iccp_budget {
+    Some(value) => value
+    None => return Err(_png_error("png-iccp-data"))
+  }
+  let profile = match
+    _png_inflate_iccp(
+      Bytes::from_array(iccp_compressed),
+      reader,
+      scratch,
+      limits,
+      temporary,
+    ) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  Ok(
+    (
+      {
+        saw_srgb: facts.saw_srgb,
+        srgb_intent: facts.srgb_intent,
+        saw_gamma: facts.saw_gamma,
+        gamma_is_srgb: facts.gamma_is_srgb,
+        gamma: facts.gamma,
+        saw_chrm: facts.saw_chrm,
+        chrm_is_srgb: facts.chrm_is_srgb,
+        chrm: facts.chrm,
+        saw_iccp: true,
+        iccp_name: Some(Bytes::from_array(iccp_name)),
+        iccp_profile: Some(profile),
+      },
+      next,
+    ),
+  )
 }
 
 ///|
@@ -1057,7 +1715,8 @@ fn _png_require_eof(
   consumed : UInt64,
   limits : @codec.CodecLimits,
 ) -> Result[Unit, @error.CoreError] {
-  match scratch.with_mut(0UL, 1UL, fn(lease) { @io.read_exact(reader, lease) }) {
+  match
+    scratch.with_mut(0UL, 1UL, fn(lease) { @io.read_exact(reader, lease) }) {
     Err(error) =>
       if error.code() == @error.ErrorCode::UnexpectedEndOfStream {
         Ok(())
@@ -1189,7 +1848,7 @@ fn _png_validate_transport(
   }
 }
 
-///| 
+///|
 /// Private decode transport.  It deliberately keeps the framing checks in this
 /// package: callers never observe a compressed stream or an image before the
 /// physical PNG stream (including IEND and EOF) has been authenticated.
@@ -1222,11 +1881,14 @@ fn _png_read_transport(
   let signature = [b'\x89', b'P', b'N', b'G', b'\r', b'\n', b'\x1a', b'\n']
   let mut consumed = 0UL
   for expected in signature {
-    let (actual, next) = match _png_read_one(reader, scratch, consumed, limits) {
+    let (actual, next) = match
+      _png_read_one(reader, scratch, consumed, limits) {
       Err(error) => return Err(error)
       Ok(value) => value
     }
-    if actual != expected { return Err(_png_error("png-signature")) }
+    if actual != expected {
+      return Err(_png_error("png-signature"))
+    }
     consumed = next
   }
   let mut state = PngChunkState::BeforeIhdr
@@ -1236,12 +1898,16 @@ fn _png_read_transport(
   let mut channels = 0UL
   let idat : Array[Byte] = []
   while true {
-    let (length, after_length) = match _png_read_u32(reader, scratch, consumed, limits) {
+    let (length, after_length) = match
+      _png_read_u32(reader, scratch, consumed, limits) {
       Err(error) => return Err(error)
       Ok(value) => value
     }
-    if length > 2147483647UL { return Err(_png_error("png-chunk-length")) }
-    let (kind, after_type) = match _png_read_type(reader, scratch, after_length, limits) {
+    if length > 2147483647UL {
+      return Err(_png_error("png-chunk-length"))
+    }
+    let (kind, after_type) = match
+      _png_read_type(reader, scratch, after_length, limits) {
       Err(error) => return Err(error)
       Ok(value) => value
     }
@@ -1261,52 +1927,114 @@ fn _png_read_transport(
         Err(error) => return Err(error)
         Ok(value) => value
       }
-      if is_ihdr || is_idat { payload.push(byte) }
+      if is_ihdr || is_idat {
+        payload.push(byte)
+      }
       crc = _png_crc_step(crc, byte)
       cursor = next
       index = index + 1UL
     }
-    let (stored_crc, next) = match _png_read_u32(reader, scratch, cursor, limits) {
+    let (stored_crc, next) = match
+      _png_read_u32(reader, scratch, cursor, limits) {
       Err(error) => return Err(error)
       Ok(value) => value
     }
-    if (crc ^ 4294967295UL) != stored_crc { return Err(_png_error("png-crc")) }
+    if (crc ^ 4294967295UL) != stored_crc {
+      return Err(_png_error("png-crc"))
+    }
     consumed = next
     if is_ihdr {
-      if state != PngChunkState::BeforeIhdr { return Err(_png_error("png-ihdr-order")) }
-      if length != 13UL { return Err(_png_error("png-ihdr-length")) }
+      if state != PngChunkState::BeforeIhdr {
+        return Err(_png_error("png-ihdr-order"))
+      }
+      if length != 13UL {
+        return Err(_png_error("png-ihdr-length"))
+      }
       match _png_preflight_ihdr(payload, limits, budget) {
         Err(error) => return Err(error)
         Ok(_) => ()
       }
-      width = (payload[0].to_int().to_uint64() << 24) | (payload[1].to_int().to_uint64() << 16) | (payload[2].to_int().to_uint64() << 8) | payload[3].to_int().to_uint64()
-      height = (payload[4].to_int().to_uint64() << 24) | (payload[5].to_int().to_uint64() << 16) | (payload[6].to_int().to_uint64() << 8) | payload[7].to_int().to_uint64()
-      source_channels = if payload[9] == 0 || payload[9] == 3 { 1UL } else if payload[9] == 2 { 3UL } else if payload[9] == 4 { 2UL } else { 4UL }
+      width = (payload[0].to_int().to_uint64() << 24) |
+        (payload[1].to_int().to_uint64() << 16) |
+        (payload[2].to_int().to_uint64() << 8) |
+        payload[3].to_int().to_uint64()
+      height = (payload[4].to_int().to_uint64() << 24) |
+        (payload[5].to_int().to_uint64() << 16) |
+        (payload[6].to_int().to_uint64() << 8) |
+        payload[7].to_int().to_uint64()
+      source_channels = if payload[9] == 0 || payload[9] == 3 {
+        1UL
+      } else if payload[9] == 2 {
+        3UL
+      } else if payload[9] == 4 {
+        2UL
+      } else {
+        4UL
+      }
       channels = if payload[9] == 4 || payload[9] == 6 { 4UL } else { 3UL }
       state = PngChunkState::BeforeIdat
     } else {
-      if state == PngChunkState::BeforeIhdr { return Err(_png_error("png-ihdr-first")) }
+      if state == PngChunkState::BeforeIhdr {
+        return Err(_png_error("png-ihdr-first"))
+      }
       if is_iend {
-        if state != PngChunkState::InIdat && state != PngChunkState::AfterIdat { return Err(_png_error("png-iend-order")) }
-        if length != 0UL { return Err(_png_error("png-iend-length")) }
+        if state != PngChunkState::InIdat && state != PngChunkState::AfterIdat {
+          return Err(_png_error("png-iend-order"))
+        }
+        if length != 0UL {
+          return Err(_png_error("png-iend-length"))
+        }
         match _png_require_eof(reader, scratch, consumed, limits) {
           Err(error) => return Err(error)
           Ok(_) => ()
         }
-        return Ok({ width, height, bit_depth: 8, source_channels, source_bytes_per_pixel: source_channels, channels, indexed: false, palette: b"", palette_entries: 0UL, transparency: PngTransparency::Opaque, idat: Bytes::from_array(idat), consumed })
+        return Ok({
+          width,
+          height,
+          bit_depth: 8,
+          source_channels,
+          source_bytes_per_pixel: source_channels,
+          channels,
+          indexed: false,
+          palette: b"",
+          palette_entries: 0UL,
+          transparency: PngTransparency::Opaque,
+          idat: Bytes::from_array(idat),
+          consumed,
+        })
       } else if is_idat {
-        if state == PngChunkState::AfterIdat { return Err(_png_error("png-idat-contiguous")) }
-        if state != PngChunkState::BeforeIdat && state != PngChunkState::InIdat { return Err(_png_error("png-idat-order")) }
-        for byte in payload { idat.push(byte) }
+        if state == PngChunkState::AfterIdat {
+          return Err(_png_error("png-idat-contiguous"))
+        }
+        if state != PngChunkState::BeforeIdat && state != PngChunkState::InIdat {
+          return Err(_png_error("png-idat-order"))
+        }
+        for byte in payload {
+          idat.push(byte)
+        }
         state = PngChunkState::InIdat
       } else {
-        if _png_is_known_semantic(kind) { return Err(_png_error("png-semantic-chunk")) }
-        if _png_is_critical(kind) { return Err(_png_error("png-unknown-critical")) }
-        if options.preserve_opaque_metadata() { return Err(@codec.capability_unavailable("png-decode", "opaque-metadata-preservation")) }
-        if state == PngChunkState::InIdat { state = PngChunkState::AfterIdat }
+        if _png_is_known_semantic(kind) {
+          return Err(_png_error("png-semantic-chunk"))
+        }
+        if _png_is_critical(kind) {
+          return Err(_png_error("png-unknown-critical"))
+        }
+        if options.preserve_opaque_metadata() {
+          return Err(
+            @codec.capability_unavailable(
+              "png-decode", "opaque-metadata-preservation",
+            ),
+          )
+        }
+        if state == PngChunkState::InIdat {
+          state = PngChunkState::AfterIdat
+        }
       }
     }
-  } nobreak { Err(_png_error("png-finished")) }
+  } nobreak {
+    Err(_png_error("png-finished"))
+  }
 }
 
 ///|
@@ -1353,26 +2081,74 @@ fn _png_output_budget_for(
 ) -> Result[@budget.Budget, @error.CoreError] {
   let width = _png_u32_at(ihdr, 0)
   let height = _png_u32_at(ihdr, 4)
-  let source_channels = if ihdr[9] == 0 || ihdr[9] == 3 { 1UL } else if ihdr[9] == 2 { 3UL } else if ihdr[9] == 4 { 2UL } else { 4UL }
-  let source_bytes_per_pixel = match _png_source_bytes_per_pixel(source_channels, ihdr[8].to_int()) { Err(error) => return Err(error); Ok(value) => value }
+  let source_channels = if ihdr[9] == 0 || ihdr[9] == 3 {
+    1UL
+  } else if ihdr[9] == 2 {
+    3UL
+  } else if ihdr[9] == 4 {
+    2UL
+  } else {
+    4UL
+  }
+  let source_bytes_per_pixel = match
+    _png_source_bytes_per_pixel(source_channels, ihdr[8].to_int()) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
   if ihdr[12] == 1 {
-    _png_adam7_decode_budget(width, height, source_channels, ihdr[8].to_int(), channels, limits, budget)
-  } else if ihdr[8] == b'\x10' && (ihdr[9] == 0 || ihdr[9] == 2 || ihdr[9] == 4 || ihdr[9] == 6) {
-    _png_16bit_decode_budget(width, height, source_bytes_per_pixel, channels, limits, budget)
+    _png_adam7_decode_budget(
+      width,
+      height,
+      source_channels,
+      ihdr[8].to_int(),
+      channels,
+      limits,
+      budget,
+    )
+  } else if ihdr[8] == b'\x10' &&
+    (ihdr[9] == 0 || ihdr[9] == 2 || ihdr[9] == 4 || ihdr[9] == 6) {
+    _png_16bit_decode_budget(
+      width, height, source_bytes_per_pixel, channels, limits, budget,
+    )
   } else if indexed {
-    _png_indexed_decode_budget(width, height, ihdr[8].to_int(), channels, limits, budget)
+    _png_indexed_decode_budget(
+      width,
+      height,
+      ihdr[8].to_int(),
+      channels,
+      limits,
+      budget,
+    )
   } else if ihdr[9] == 0 {
-    _png_grayscale_decode_budget(width, height, ihdr[8].to_int(), channels, limits, budget)
+    _png_grayscale_decode_budget(
+      width,
+      height,
+      ihdr[8].to_int(),
+      channels,
+      limits,
+      budget,
+    )
   } else if ihdr[9] == 4 {
     _png_grayscale_alpha_decode_budget(width, height, limits, budget)
   } else if channels == 4UL && ihdr[9] != 6 {
-    _png_transparent_decode_budget(width, height, if ihdr[9] == 0 { 1UL } else { 3UL }, limits, budget)
+    _png_transparent_decode_budget(
+      width,
+      height,
+      if ihdr[9] == 0 {
+        1UL
+      } else {
+        3UL
+      },
+      limits,
+      budget,
+    )
   } else {
     Ok(budget)
   }
 }
 
-///| A valid sRGB chunk owns exactly one metadata byte. The metadata is built
+///|
+/// A valid sRGB chunk owns exactly one metadata byte. The metadata is built
 /// before any raster allocation, preserving failure atomicity while the
 /// profile-specific raster preflight retains its own allocation envelope.
 fn _png_srgb_budget(
@@ -1382,15 +2158,32 @@ fn _png_srgb_budget(
   limits : @codec.CodecLimits,
   budget : @budget.Budget,
 ) -> Result[(@budget.Budget, @budget.Budget), @error.CoreError] {
-  let metadata = match budget.child(@budget.ResourceLimits::new(
-    bytes=1UL, allocations=1UL, allocation_size=1UL, width=0UL,
-    height=0UL, pixels=0UL, depth=0UL, work=0UL,
-  )) { Err(error) => return Err(error); Ok(value) => value }
-  let raster = match _png_output_budget_for(ihdr, indexed, channels, limits, budget) { Err(error) => return Err(error); Ok(value) => value }
+  let metadata = match
+    budget.child(
+      @budget.ResourceLimits::new(
+        bytes=1UL,
+        allocations=1UL,
+        allocation_size=1UL,
+        width=0UL,
+        height=0UL,
+        pixels=0UL,
+        depth=0UL,
+        work=0UL,
+      ),
+    ) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  let raster = match
+    _png_output_budget_for(ihdr, indexed, channels, limits, budget) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
   Ok((metadata, raster))
 }
 
-///| Retained declarations are copied once into the opaque profile identity and
+///|
+/// Retained declarations are copied once into the opaque profile identity and
 /// once into canonical PNG metadata. Reserve both allocations before raster
 /// construction so failure never exposes an image.
 fn _png_non_srgb_budget(
@@ -1401,12 +2194,31 @@ fn _png_non_srgb_budget(
   limits : @codec.CodecLimits,
   budget : @budget.Budget,
 ) -> Result[(@budget.Budget, @budget.Budget), @error.CoreError] {
-  let total = match @checked.checked_mul(value_bytes, 2UL) { Err(error) => return Err(error); Ok(value) => value }
-  let metadata = match budget.child(@budget.ResourceLimits::new(
-    bytes=total, allocations=2UL, allocation_size=value_bytes, width=0UL,
-    height=0UL, pixels=0UL, depth=0UL, work=0UL,
-  )) { Err(error) => return Err(error); Ok(value) => value }
-  let raster = match _png_output_budget_for(ihdr, indexed, channels, limits, budget) { Err(error) => return Err(error); Ok(value) => value }
+  let total = match @checked.checked_mul(value_bytes, 2UL) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  let metadata = match
+    budget.child(
+      @budget.ResourceLimits::new(
+        bytes=total,
+        allocations=2UL,
+        allocation_size=value_bytes,
+        width=0UL,
+        height=0UL,
+        pixels=0UL,
+        depth=0UL,
+        work=0UL,
+      ),
+    ) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  let raster = match
+    _png_output_budget_for(ihdr, indexed, channels, limits, budget) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
   Ok((metadata, raster))
 }
 
@@ -1424,21 +2236,50 @@ fn _png_read_stream_transport(
   let signature = [b'\x89', b'P', b'N', b'G', b'\r', b'\n', b'\x1a', b'\n']
   let mut consumed = 0UL
   for expected in signature {
-    let (actual, next) = match _png_read_one(reader, scratch, consumed, limits) {
+    let (actual, next) = match
+      _png_read_one(reader, scratch, consumed, limits) {
       Err(error) => return Err(error)
       Ok(value) => value
     }
-    if actual != expected { return Err(_png_error("png-signature")) }
+    if actual != expected {
+      return Err(_png_error("png-signature"))
+    }
     consumed = next
   }
-  let (ihdr_length, after_length) = match _png_read_u32(reader, scratch, consumed, limits) { Err(error) => return Err(error); Ok(value) => value }
-  if ihdr_length > 2147483647UL { return Err(_png_error("png-chunk-length")) }
-  let (ihdr_kind, after_type) = match _png_read_type(reader, scratch, after_length, limits) { Err(error) => return Err(error); Ok(value) => value }
-  match _png_validate_type_form(ihdr_kind) { Err(error) => return Err(error); Ok(_) => () }
-  if !_png_type_is(ihdr_kind, b'I', b'H', b'D', b'R') { return Err(_png_error("png-ihdr-first")) }
-  if ihdr_length != 13UL { return Err(_png_error("png-ihdr-length")) }
-  let (ihdr, after_ihdr) = match _png_read_payload_and_crc(reader, scratch, ihdr_length, ihdr_kind, after_type, limits) { Err(error) => return Err(error); Ok(value) => value }
-  match _png_preflight_ihdr(ihdr, limits, budget) { Err(error) => return Err(error); Ok(_) => () }
+  let (ihdr_length, after_length) = match
+    _png_read_u32(reader, scratch, consumed, limits) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  if ihdr_length > 2147483647UL {
+    return Err(_png_error("png-chunk-length"))
+  }
+  let (ihdr_kind, after_type) = match
+    _png_read_type(reader, scratch, after_length, limits) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  match _png_validate_type_form(ihdr_kind) {
+    Err(error) => return Err(error)
+    Ok(_) => ()
+  }
+  if !_png_type_is(ihdr_kind, b'I', b'H', b'D', b'R') {
+    return Err(_png_error("png-ihdr-first"))
+  }
+  if ihdr_length != 13UL {
+    return Err(_png_error("png-ihdr-length"))
+  }
+  let (ihdr, after_ihdr) = match
+    _png_read_payload_and_crc(
+      reader, scratch, ihdr_length, ihdr_kind, after_type, limits,
+    ) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  match _png_preflight_ihdr(ihdr, limits, budget) {
+    Err(error) => return Err(error)
+    Ok(_) => ()
+  }
   consumed = after_ihdr
   let indexed = ihdr[9] == 3
   let palette : Array[Byte] = []
@@ -1448,17 +2289,35 @@ fn _png_read_stream_transport(
   let mut saw_transparency = false
   let mut colour_facts = _png_new_colour_facts()
   while true {
-    let (length, next_length) = match _png_read_u32(reader, scratch, consumed, limits) { Err(error) => return Err(error); Ok(value) => value }
-    if length > 2147483647UL { return Err(_png_error("png-chunk-length")) }
-    let (kind, next_type) = match _png_read_type(reader, scratch, next_length, limits) { Err(error) => return Err(error); Ok(value) => value }
-    match _png_validate_type_form(kind) { Err(error) => return Err(error); Ok(_) => () }
-    if _png_type_is(kind, b'I', b'H', b'D', b'R') { return Err(_png_error("png-ihdr-order")) }
+    let (length, next_length) = match
+      _png_read_u32(reader, scratch, consumed, limits) {
+      Err(error) => return Err(error)
+      Ok(value) => value
+    }
+    if length > 2147483647UL {
+      return Err(_png_error("png-chunk-length"))
+    }
+    let (kind, next_type) = match
+      _png_read_type(reader, scratch, next_length, limits) {
+      Err(error) => return Err(error)
+      Ok(value) => value
+    }
+    match _png_validate_type_form(kind) {
+      Err(error) => return Err(error)
+      Ok(_) => ()
+    }
+    if _png_type_is(kind, b'I', b'H', b'D', b'R') {
+      return Err(_png_error("png-ihdr-order"))
+    }
     if _png_is_recognised_colour(kind) {
       match _png_require_colour_before_palette_or_idat(saw_palette) {
         Err(error) => return Err(error)
         Ok(_) => ()
       }
-      let (next_facts, next) = match _png_read_colour_chunk(reader, scratch, length, kind, next_type, limits, budget, colour_facts) {
+      let (next_facts, next) = match
+        _png_read_colour_chunk(
+          reader, scratch, length, kind, next_type, limits, budget, colour_facts,
+        ) {
         Err(error) => return Err(error)
         Ok(value) => value
       }
@@ -1467,38 +2326,89 @@ fn _png_read_stream_transport(
       continue
     }
     if _png_type_is(kind, b'I', b'D', b'A', b'T') {
-      if indexed && !saw_palette { return Err(_png_error("png-plte-required")) }
-      let channels = match transparency { PngTransparency::Opaque => if ihdr[9] == 4 || ihdr[9] == 6 { 4UL } else { 3UL }; _ => 4UL }
-      let source_channels = if ihdr[9] == 0 || ihdr[9] == 3 { 1UL } else if ihdr[9] == 2 { 3UL } else if ihdr[9] == 4 { 2UL } else { 4UL }
-      let source_bytes_per_pixel = match _png_source_bytes_per_pixel(source_channels, ihdr[8].to_int()) { Err(error) => return Err(error); Ok(value) => value }
-      let declaration = match _png_colour_declaration(colour_facts, ihdr[9] == 0 || ihdr[9] == 4) {
+      if indexed && !saw_palette {
+        return Err(_png_error("png-plte-required"))
+      }
+      let channels = match transparency {
+        PngTransparency::Opaque =>
+          if ihdr[9] == 4 || ihdr[9] == 6 {
+            4UL
+          } else {
+            3UL
+          }
+        _ => 4UL
+      }
+      let source_channels = if ihdr[9] == 0 || ihdr[9] == 3 {
+        1UL
+      } else if ihdr[9] == 2 {
+        3UL
+      } else if ihdr[9] == 4 {
+        2UL
+      } else {
+        4UL
+      }
+      let source_bytes_per_pixel = match
+        _png_source_bytes_per_pixel(source_channels, ihdr[8].to_int()) {
         Err(error) => return Err(error)
         Ok(value) => value
       }
-      let output_budget = match _png_output_budget_for(
-        ihdr, indexed, channels, limits, budget,
-      ) { Err(error) => return Err(error); Ok(value) => value }
+      let declaration = match
+        _png_colour_declaration(colour_facts, ihdr[9] == 0 || ihdr[9] == 4) {
+        Err(error) => return Err(error)
+        Ok(value) => value
+      }
+      let output_budget = match
+        _png_output_budget_for(ihdr, indexed, channels, limits, budget) {
+        Err(error) => return Err(error)
+        Ok(value) => value
+      }
       let (result_budget, metadata_budget, srgb_intent) = match declaration {
-        PngColourDeclaration::Srgb(intent) => match _png_srgb_budget(ihdr, indexed, channels, limits, budget) {
-          Err(error) => return Err(error)
-          Ok((metadata, raster)) => (raster, Some(metadata), Some(intent))
-        }
+        PngColourDeclaration::Srgb(intent) =>
+          match _png_srgb_budget(ihdr, indexed, channels, limits, budget) {
+            Err(error) => return Err(error)
+            Ok((metadata, raster)) => (raster, Some(metadata), Some(intent))
+          }
         PngColourDeclaration::Legacy(gamma, chrm) => {
-          let value_bytes = (match gamma { Some(value) => value.length().to_uint64(); None => 0UL }) + (match chrm { Some(value) => value.length().to_uint64(); None => 0UL })
-          match _png_non_srgb_budget(ihdr, indexed, channels, value_bytes, limits, budget) {
+          let value_bytes = (match gamma {
+              Some(value) => value.length().to_uint64()
+              None => 0UL
+            }) +
+            (match chrm {
+              Some(value) => value.length().to_uint64()
+              None => 0UL
+            })
+          match
+            _png_non_srgb_budget(
+              ihdr, indexed, channels, value_bytes, limits, budget,
+            ) {
             Err(error) => return Err(error)
             Ok((metadata, raster)) => (raster, Some(metadata), None)
           }
         }
-        PngColourDeclaration::Icc(name, profile) => match _png_non_srgb_budget(ihdr, indexed, channels, profile.length().to_uint64() + name.length().to_uint64(), limits, budget) {
-          Err(error) => return Err(error)
-          Ok((metadata, raster)) => (raster, Some(metadata), None)
-        }
+        PngColourDeclaration::Icc(name, profile) =>
+          match
+            _png_non_srgb_budget(
+              ihdr,
+              indexed,
+              channels,
+              profile.length().to_uint64() + name.length().to_uint64(),
+              limits,
+              budget,
+            ) {
+            Err(error) => return Err(error)
+            Ok((metadata, raster)) => (raster, Some(metadata), None)
+          }
         _ => (output_budget, None, None)
       }
       return Ok({
-        width: (ihdr[0].to_int().to_uint64() << 24) | (ihdr[1].to_int().to_uint64() << 16) | (ihdr[2].to_int().to_uint64() << 8) | ihdr[3].to_int().to_uint64(),
-        height: (ihdr[4].to_int().to_uint64() << 24) | (ihdr[5].to_int().to_uint64() << 16) | (ihdr[6].to_int().to_uint64() << 8) | ihdr[7].to_int().to_uint64(),
+        width: (ihdr[0].to_int().to_uint64() << 24) |
+        (ihdr[1].to_int().to_uint64() << 16) |
+        (ihdr[2].to_int().to_uint64() << 8) |
+        ihdr[3].to_int().to_uint64(),
+        height: (ihdr[4].to_int().to_uint64() << 24) |
+        (ihdr[5].to_int().to_uint64() << 16) |
+        (ihdr[6].to_int().to_uint64() << 8) |
+        ihdr[7].to_int().to_uint64(),
         bit_depth: ihdr[8].to_int(),
         source_channels,
         source_bytes_per_pixel,
@@ -1512,68 +2422,168 @@ fn _png_read_stream_transport(
         colour_declaration: declaration,
         metadata_budget,
         budget: result_budget,
-        source: { reader, scratch, limits, options, data: None, data_index: 0UL, consumed: next_type, idat_state: _png_new_idat_state(length, kind).unwrap() },
+        source: {
+          reader,
+          scratch,
+          limits,
+          options,
+          data: None,
+          data_index: 0UL,
+          consumed: next_type,
+          idat_state: _png_new_idat_state(length, kind).unwrap(),
+        },
       })
     }
     if _png_type_is(kind, b't', b'R', b'N', b'S') {
-      if saw_transparency { return Err(_png_error("png-trns-order")) }
-      let (payload, next) = match _png_read_payload_and_crc(reader, scratch, length, kind, next_type, limits) { Err(error) => return Err(error); Ok(value) => value }
+      if saw_transparency {
+        return Err(_png_error("png-trns-order"))
+      }
+      let (payload, next) = match
+        _png_read_payload_and_crc(
+          reader, scratch, length, kind, next_type, limits,
+        ) {
+        Err(error) => return Err(error)
+        Ok(value) => value
+      }
       if ihdr[9] == 0 {
-        if length != 2UL { return Err(_png_error("png-trns-length")) }
+        if length != 2UL {
+          return Err(_png_error("png-trns-length"))
+        }
         if ihdr[8] == b'\x10' {
           transparency = PngTransparency::Grayscale16(payload[0], payload[1])
         } else {
-          if payload[0] != b'\x00' { return Err(_png_error("png-trns-sample")) }
-          let mask = if ihdr[8] == b'\x01' { 1 } else if ihdr[8] == b'\x02' { 3 } else if ihdr[8] == b'\x04' { 15 } else { 255 }
-          if payload[1].to_int() > mask { return Err(_png_error("png-trns-sample")) }
+          if payload[0] != b'\x00' {
+            return Err(_png_error("png-trns-sample"))
+          }
+          let mask = if ihdr[8] == b'\x01' {
+            1
+          } else if ihdr[8] == b'\x02' {
+            3
+          } else if ihdr[8] == b'\x04' {
+            15
+          } else {
+            255
+          }
+          if payload[1].to_int() > mask {
+            return Err(_png_error("png-trns-sample"))
+          }
           transparency = PngTransparency::Grayscale(payload[1])
         }
       } else if ihdr[9] == 2 {
-        if length != 6UL { return Err(_png_error("png-trns-length")) }
+        if length != 6UL {
+          return Err(_png_error("png-trns-length"))
+        }
         if ihdr[8] == b'\x10' {
-          transparency = PngTransparency::Rgb16(payload[0], payload[1], payload[2], payload[3], payload[4], payload[5])
+          transparency = PngTransparency::Rgb16(
+            payload[0],
+            payload[1],
+            payload[2],
+            payload[3],
+            payload[4],
+            payload[5],
+          )
         } else {
-          if payload[0] != b'\x00' || payload[2] != b'\x00' || payload[4] != b'\x00' { return Err(_png_error("png-trns-sample")) }
-          transparency = PngTransparency::Rgb(payload[1], payload[3], payload[5])
+          if payload[0] != b'\x00' ||
+            payload[2] != b'\x00' ||
+            payload[4] != b'\x00' {
+            return Err(_png_error("png-trns-sample"))
+          }
+          transparency = PngTransparency::Rgb(
+            payload[1],
+            payload[3],
+            payload[5],
+          )
         }
       } else if ihdr[9] == 3 {
-        if !saw_palette { return Err(_png_error("png-trns-order")) }
-        if length > palette_entries { return Err(_png_error("png-trns-length")) }
+        if !saw_palette {
+          return Err(_png_error("png-trns-order"))
+        }
+        if length > palette_entries {
+          return Err(_png_error("png-trns-length"))
+        }
         transparency = PngTransparency::Indexed(Bytes::from_array(payload))
-      } else { return Err(_png_error("png-semantic-chunk")) }
+      } else {
+        return Err(_png_error("png-semantic-chunk"))
+      }
       saw_transparency = true
       consumed = next
       continue
     }
     if _png_type_is(kind, b'P', b'L', b'T', b'E') {
-      if !indexed { return Err(_png_error("png-semantic-chunk")) }
-      if saw_palette { return Err(_png_error("png-plte-order")) }
+      if !indexed {
+        return Err(_png_error("png-semantic-chunk"))
+      }
+      if saw_palette {
+        return Err(_png_error("png-plte-order"))
+      }
       if length < 3UL || length > 768UL || length % 3UL != 0UL {
         return Err(_png_error("png-plte-length"))
       }
-      let maximum_entries = if ihdr[8] == b'\x01' { 2UL } else if ihdr[8] == b'\x02' { 4UL } else if ihdr[8] == b'\x04' { 16UL } else { 256UL }
-      if length / 3UL > maximum_entries { return Err(_png_error("png-plte-length")) }
-      let (payload, next) = match _png_read_payload_and_crc(reader, scratch, length, kind, next_type, limits) { Err(error) => return Err(error); Ok(value) => value }
-      for byte in payload { palette.push(byte) }
+      let maximum_entries = if ihdr[8] == b'\x01' {
+        2UL
+      } else if ihdr[8] == b'\x02' {
+        4UL
+      } else if ihdr[8] == b'\x04' {
+        16UL
+      } else {
+        256UL
+      }
+      if length / 3UL > maximum_entries {
+        return Err(_png_error("png-plte-length"))
+      }
+      let (payload, next) = match
+        _png_read_payload_and_crc(
+          reader, scratch, length, kind, next_type, limits,
+        ) {
+        Err(error) => return Err(error)
+        Ok(value) => value
+      }
+      for byte in payload {
+        palette.push(byte)
+      }
       palette_entries = length / 3UL
       saw_palette = true
       consumed = next
       continue
     }
-    if _png_type_is(kind, b'I', b'E', b'N', b'D') { return Err(_png_error("png-iend-order")) }
-    if _png_is_known_semantic(kind) { return Err(_png_error("png-semantic-chunk")) }
-    if _png_is_critical(kind) { return Err(_png_error("png-unknown-critical")) }
-    if options.preserve_opaque_metadata() { return Err(@codec.capability_unavailable("png-decode", "opaque-metadata-preservation")) }
-    let (_, next) = match _png_read_payload_and_crc(reader, scratch, length, kind, next_type, limits) { Err(error) => return Err(error); Ok(value) => value }
+    if _png_type_is(kind, b'I', b'E', b'N', b'D') {
+      return Err(_png_error("png-iend-order"))
+    }
+    if _png_is_known_semantic(kind) {
+      return Err(_png_error("png-semantic-chunk"))
+    }
+    if _png_is_critical(kind) {
+      return Err(_png_error("png-unknown-critical"))
+    }
+    if options.preserve_opaque_metadata() {
+      return Err(
+        @codec.capability_unavailable(
+          "png-decode", "opaque-metadata-preservation",
+        ),
+      )
+    }
+    let (_, next) = match
+      _png_read_payload_and_crc(
+        reader, scratch, length, kind, next_type, limits,
+      ) {
+      Err(error) => return Err(error)
+      Ok(value) => value
+    }
     consumed = next
-  } nobreak { Err(_png_error("png-idat-order")) }
+  } nobreak {
+    Err(_png_error("png-idat-order"))
+  }
 }
 
 ///|
-fn PngIdatSource::next_byte(self : PngIdatSource) -> Result[Byte, @error.CoreError] {
+fn PngIdatSource::next_byte(
+  self : PngIdatSource,
+) -> Result[Byte, @error.CoreError] {
   match self.data {
     Some(data) => {
-      if self.data_index >= data.length().to_uint64() { return Err(_png_error("zlib-truncated")) }
+      if self.data_index >= data.length().to_uint64() {
+        return Err(_png_error("zlib-truncated"))
+      }
       let byte = data[self.data_index.to_int()]
       self.data_index = self.data_index + 1UL
       return Ok(byte)
@@ -1581,61 +2591,181 @@ fn PngIdatSource::next_byte(self : PngIdatSource) -> Result[Byte, @error.CoreErr
     None => ()
   }
   if self.idat_state.awaiting_crc() {
-    let (stored, after_crc) = match _png_read_u32(self.reader, self.scratch, self.consumed, self.limits) { Err(error) => return Err(error); Ok(value) => value }
-    for shift in [24, 16, 8, 0] { match self.idat_state.accept_crc_byte((stored >> shift).to_byte()) { Err(error) => return Err(error); Ok(_) => () } }
+    let (stored, after_crc) = match
+      _png_read_u32(self.reader, self.scratch, self.consumed, self.limits) {
+      Err(error) => return Err(error)
+      Ok(value) => value
+    }
+    for shift in [24, 16, 8, 0] {
+      match self.idat_state.accept_crc_byte((stored >> shift).to_byte()) {
+        Err(error) => return Err(error)
+        Ok(_) => ()
+      }
+    }
     self.consumed = after_crc
   }
   while self.idat_state.chunk_complete() {
-    let (length, after_length) = match _png_read_u32(self.reader, self.scratch, self.consumed, self.limits) { Err(error) => return Err(error); Ok(value) => value }
-    if length > 2147483647UL { return Err(_png_error("png-chunk-length")) }
-    let (kind, after_type) = match _png_read_type(self.reader, self.scratch, after_length, self.limits) { Err(error) => return Err(error); Ok(value) => value }
-    match _png_validate_type_form(kind) { Err(error) => return Err(error); Ok(_) => () }
+    let (length, after_length) = match
+      _png_read_u32(self.reader, self.scratch, self.consumed, self.limits) {
+      Err(error) => return Err(error)
+      Ok(value) => value
+    }
+    if length > 2147483647UL {
+      return Err(_png_error("png-chunk-length"))
+    }
+    let (kind, after_type) = match
+      _png_read_type(self.reader, self.scratch, after_length, self.limits) {
+      Err(error) => return Err(error)
+      Ok(value) => value
+    }
+    match _png_validate_type_form(kind) {
+      Err(error) => return Err(error)
+      Ok(_) => ()
+    }
     if !_png_type_is(kind, b'I', b'D', b'A', b'T') {
-      if _png_type_is(kind, b'I', b'H', b'D', b'R') { return Err(_png_error("png-ihdr-order")) }
-      if _png_type_is(kind, b'P', b'L', b'T', b'E') { return Err(_png_error("png-semantic-chunk")) }
-      if _png_is_recognised_colour(kind) { return Err(_png_error("png-colour-order")) }
+      if _png_type_is(kind, b'I', b'H', b'D', b'R') {
+        return Err(_png_error("png-ihdr-order"))
+      }
+      if _png_type_is(kind, b'P', b'L', b'T', b'E') {
+        return Err(_png_error("png-semantic-chunk"))
+      }
+      if _png_is_recognised_colour(kind) {
+        return Err(_png_error("png-colour-order"))
+      }
       return Err(_png_error("zlib-truncated"))
     }
     self.consumed = after_type
-    self.idat_state = match _png_new_idat_state(length, kind) { Err(error) => return Err(error); Ok(value) => value }
+    self.idat_state = match _png_new_idat_state(length, kind) {
+      Err(error) => return Err(error)
+      Ok(value) => value
+    }
     if self.idat_state.awaiting_crc() {
-      let (stored, after_crc) = match _png_read_u32(self.reader, self.scratch, self.consumed, self.limits) { Err(error) => return Err(error); Ok(value) => value }
-      for shift in [24, 16, 8, 0] { match self.idat_state.accept_crc_byte((stored >> shift).to_byte()) { Err(error) => return Err(error); Ok(_) => () } }
+      let (stored, after_crc) = match
+        _png_read_u32(self.reader, self.scratch, self.consumed, self.limits) {
+        Err(error) => return Err(error)
+        Ok(value) => value
+      }
+      for shift in [24, 16, 8, 0] {
+        match self.idat_state.accept_crc_byte((stored >> shift).to_byte()) {
+          Err(error) => return Err(error)
+          Ok(_) => ()
+        }
+      }
       self.consumed = after_crc
     }
   }
-  let (byte, next) = match _png_read_one(self.reader, self.scratch, self.consumed, self.limits) { Err(error) => return Err(error); Ok(value) => value }
+  let (byte, next) = match
+    _png_read_one(self.reader, self.scratch, self.consumed, self.limits) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
   self.consumed = next
-  match self.idat_state.accept_payload_byte(byte) { Err(error) => return Err(error); Ok(_) => () }
+  match self.idat_state.accept_payload_byte(byte) {
+    Err(error) => return Err(error)
+    Ok(_) => ()
+  }
   Ok(byte)
 }
 
 ///|
-fn PngIdatSource::finish(self : PngIdatSource) -> Result[UInt64, @error.CoreError] {
-  if self.idat_state.remaining_bytes() != 0UL { return Err(_png_error("zlib-trailing")) }
+fn PngIdatSource::finish(
+  self : PngIdatSource,
+) -> Result[UInt64, @error.CoreError] {
+  if self.idat_state.remaining_bytes() != 0UL {
+    return Err(_png_error("zlib-trailing"))
+  }
   if self.idat_state.awaiting_crc() {
-    let (stored, after_crc) = match _png_read_u32(self.reader, self.scratch, self.consumed, self.limits) { Err(error) => return Err(error); Ok(value) => value }
-    for shift in [24, 16, 8, 0] { match self.idat_state.accept_crc_byte((stored >> shift).to_byte()) { Err(error) => return Err(error); Ok(_) => () } }
+    let (stored, after_crc) = match
+      _png_read_u32(self.reader, self.scratch, self.consumed, self.limits) {
+      Err(error) => return Err(error)
+      Ok(value) => value
+    }
+    for shift in [24, 16, 8, 0] {
+      match self.idat_state.accept_crc_byte((stored >> shift).to_byte()) {
+        Err(error) => return Err(error)
+        Ok(_) => ()
+      }
+    }
     self.consumed = after_crc
   }
   while true {
-    let (length, after_length) = match _png_read_u32(self.reader, self.scratch, self.consumed, self.limits) { Err(error) => return Err(error); Ok(value) => value }
-    if length > 2147483647UL { return Err(_png_error("png-chunk-length")) }
-    let (kind, after_type) = match _png_read_type(self.reader, self.scratch, after_length, self.limits) { Err(error) => return Err(error); Ok(value) => value }
-    match _png_validate_type_form(kind) { Err(error) => return Err(error); Ok(_) => () }
-    if _png_type_is(kind, b'I', b'D', b'A', b'T') { return Err(_png_error("png-idat-contiguous")) }
-    if _png_type_is(kind, b'I', b'E', b'N', b'D') {
-      if length != 0UL { return Err(_png_error("png-iend-length")) }
-      let (_, next) = match _png_read_payload_and_crc(self.reader, self.scratch, length, kind, after_type, self.limits) { Err(error) => return Err(error); Ok(value) => value }
-      match _png_require_eof(self.reader, self.scratch, next, self.limits) { Err(error) => return Err(error); Ok(_) => return Ok(next) }
+    let (length, after_length) = match
+      _png_read_u32(self.reader, self.scratch, self.consumed, self.limits) {
+      Err(error) => return Err(error)
+      Ok(value) => value
     }
-    if _png_type_is(kind, b't', b'R', b'N', b'S') { return Err(_png_error("png-trns-order")) }
-    if _png_type_is(kind, b'P', b'L', b'T', b'E') { return Err(_png_error("png-plte-order")) }
-    if _png_is_recognised_colour(kind) { return Err(_png_error("png-colour-order")) }
-    if _png_is_known_semantic(kind) { return Err(_png_error("png-semantic-chunk")) }
-    if _png_is_critical(kind) { return Err(_png_error("png-unknown-critical")) }
-    if self.options.preserve_opaque_metadata() { return Err(@codec.capability_unavailable("png-decode", "opaque-metadata-preservation")) }
-    let (_, next) = match _png_read_payload_and_crc(self.reader, self.scratch, length, kind, after_type, self.limits) { Err(error) => return Err(error); Ok(value) => value }
+    if length > 2147483647UL {
+      return Err(_png_error("png-chunk-length"))
+    }
+    let (kind, after_type) = match
+      _png_read_type(self.reader, self.scratch, after_length, self.limits) {
+      Err(error) => return Err(error)
+      Ok(value) => value
+    }
+    match _png_validate_type_form(kind) {
+      Err(error) => return Err(error)
+      Ok(_) => ()
+    }
+    if _png_type_is(kind, b'I', b'D', b'A', b'T') {
+      return Err(_png_error("png-idat-contiguous"))
+    }
+    if _png_type_is(kind, b'I', b'E', b'N', b'D') {
+      if length != 0UL {
+        return Err(_png_error("png-iend-length"))
+      }
+      let (_, next) = match
+        _png_read_payload_and_crc(
+          self.reader,
+          self.scratch,
+          length,
+          kind,
+          after_type,
+          self.limits,
+        ) {
+        Err(error) => return Err(error)
+        Ok(value) => value
+      }
+      match _png_require_eof(self.reader, self.scratch, next, self.limits) {
+        Err(error) => return Err(error)
+        Ok(_) => return Ok(next)
+      }
+    }
+    if _png_type_is(kind, b't', b'R', b'N', b'S') {
+      return Err(_png_error("png-trns-order"))
+    }
+    if _png_type_is(kind, b'P', b'L', b'T', b'E') {
+      return Err(_png_error("png-plte-order"))
+    }
+    if _png_is_recognised_colour(kind) {
+      return Err(_png_error("png-colour-order"))
+    }
+    if _png_is_known_semantic(kind) {
+      return Err(_png_error("png-semantic-chunk"))
+    }
+    if _png_is_critical(kind) {
+      return Err(_png_error("png-unknown-critical"))
+    }
+    if self.options.preserve_opaque_metadata() {
+      return Err(
+        @codec.capability_unavailable(
+          "png-decode", "opaque-metadata-preservation",
+        ),
+      )
+    }
+    let (_, next) = match
+      _png_read_payload_and_crc(
+        self.reader,
+        self.scratch,
+        length,
+        kind,
+        after_type,
+        self.limits,
+      ) {
+      Err(error) => return Err(error)
+      Ok(value) => value
+    }
     self.consumed = next
-  } nobreak { Err(_png_error("png-finished")) }
+  } nobreak {
+    Err(_png_error("png-finished"))
+  }
 }

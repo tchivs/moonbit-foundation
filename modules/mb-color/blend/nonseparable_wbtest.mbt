@@ -1,7 +1,14 @@
 // White-box tests for W3C non-separable blend modes (Section 5.4).
 
 ///|
-fn approx3(r1 : Double, g1 : Double, b1 : Double, r2 : Double, g2 : Double, b2 : Double) -> Bool {
+fn approx3(
+  r1 : Double,
+  g1 : Double,
+  b1 : Double,
+  r2 : Double,
+  g2 : Double,
+  b2 : Double,
+) -> Bool {
   let tol = 1.0e-10
   let dr = if r1 > r2 { r1 - r2 } else { r2 - r1 }
   let dg = if g1 > g2 { g1 - g2 } else { g2 - g1 }

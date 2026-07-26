@@ -89,9 +89,9 @@ fn gray16_descriptor() -> @model.ImageDescriptor {
       @model.PlaneLayout::Packed,
       @model.Endianness::Little,
     ).unwrap(),
-    [@model.PlaneDescriptor::new(
-      0UL, 4UL, 4UL, 4UL, 1UL, 1UL, 2UL, 1UL,
-    ).unwrap()],
+    [
+      @model.PlaneDescriptor::new(0UL, 4UL, 4UL, 4UL, 1UL, 1UL, 2UL, 1UL).unwrap(),
+    ],
     4UL,
     packed_descriptor().metadata(),
   ).unwrap()
@@ -111,9 +111,9 @@ fn graya8_descriptor() -> @model.ImageDescriptor {
     2UL,
     1UL,
     @model.ImageFormat::graya8(),
-    [@model.PlaneDescriptor::new(
-      0UL, 4UL, 4UL, 4UL, 1UL, 1UL, 2UL, 1UL,
-    ).unwrap()],
+    [
+      @model.PlaneDescriptor::new(0UL, 4UL, 4UL, 4UL, 1UL, 1UL, 2UL, 1UL).unwrap(),
+    ],
     4UL,
     metadata,
   ).unwrap()
@@ -133,9 +133,9 @@ fn graya16_descriptor() -> @model.ImageDescriptor {
     1UL,
     1UL,
     @model.ImageFormat::graya16(),
-    [@model.PlaneDescriptor::new(
-      0UL, 4UL, 4UL, 4UL, 1UL, 1UL, 1UL, 1UL,
-    ).unwrap()],
+    [
+      @model.PlaneDescriptor::new(0UL, 4UL, 4UL, 4UL, 1UL, 1UL, 1UL, 1UL).unwrap(),
+    ],
     4UL,
     metadata,
   ).unwrap()
@@ -155,9 +155,9 @@ fn rgba16_descriptor() -> @model.ImageDescriptor {
     1UL,
     1UL,
     @model.ImageFormat::rgba16(),
-    [@model.PlaneDescriptor::new(
-      0UL, 8UL, 8UL, 8UL, 1UL, 1UL, 1UL, 1UL,
-    ).unwrap()],
+    [
+      @model.PlaneDescriptor::new(0UL, 8UL, 8UL, 8UL, 1UL, 1UL, 1UL, 1UL).unwrap(),
+    ],
     8UL,
     metadata,
   ).unwrap()
@@ -193,28 +193,39 @@ test "immutable view retains padded rows and representable crop is zero copy" {
 
 ///|
 test "packed component-byte access constructs and observes U16 storage order" {
-  let image = @storage.OwnedImage::new(
-    gray16_descriptor(),
-    storage_budget(4UL),
-  ).unwrap()
-  image.with_mut_view(fn(view) {
+  let image = @storage.OwnedImage::new(gray16_descriptor(), storage_budget(4UL)).unwrap()
+  image
+  .with_mut_view(fn(view) {
     view.set_component_byte(0UL, 0UL, 0UL, 0UL, b'\x34').unwrap()
     view.set_component_byte(0UL, 0UL, 0UL, 1UL, b'\x12').unwrap()
     view.set_component_byte(1UL, 0UL, 0UL, 0UL, b'\xcd').unwrap()
     view.set_component_byte(1UL, 0UL, 0UL, 1UL, b'\xab').unwrap()
     Ok(())
-  }).unwrap()
+  })
+  .unwrap()
   let view = image.view()
-  inspect(view.get_component_byte(0UL, 0UL, 0UL, 0UL).unwrap(), content="b'\\x34'")
-  inspect(view.get_component_byte(0UL, 0UL, 0UL, 1UL).unwrap(), content="b'\\x12'")
-  inspect(view.get_component_byte(1UL, 0UL, 0UL, 0UL).unwrap(), content="b'\\xCD'")
-  inspect(view.get_component_byte(1UL, 0UL, 0UL, 1UL).unwrap(), content="b'\\xAB'")
+  inspect(
+    view.get_component_byte(0UL, 0UL, 0UL, 0UL).unwrap(),
+    content="b'\\x34'",
+  )
+  inspect(
+    view.get_component_byte(0UL, 0UL, 0UL, 1UL).unwrap(),
+    content="b'\\x12'",
+  )
+  inspect(
+    view.get_component_byte(1UL, 0UL, 0UL, 0UL).unwrap(),
+    content="b'\\xCD'",
+  )
+  inspect(
+    view.get_component_byte(1UL, 0UL, 0UL, 1UL).unwrap(),
+    content="b'\\xAB'",
+  )
   inspect(view.get_component_byte(0UL, 0UL, 0UL, 2UL) is Err(_), content="true")
   inspect(view.get_byte(0UL, 0UL, 0UL) is Err(_), content="true")
   let u8 = @storage.OwnedImage::new(packed_descriptor(), storage_budget(24UL)).unwrap()
   inspect(
     u8.view().get_component_byte(0UL, 0UL, 0UL, 0UL).unwrap() ==
-      u8.view().get_byte(0UL, 0UL, 0UL).unwrap(),
+    u8.view().get_byte(0UL, 0UL, 0UL).unwrap(),
     content="true",
   )
 }
@@ -222,13 +233,15 @@ test "packed component-byte access constructs and observes U16 storage order" {
 ///|
 test "checked packed views retain distinct GrayAlpha components" {
   let image = @storage.OwnedImage::new(graya8_descriptor(), storage_budget(4UL)).unwrap()
-  image.with_mut_view(fn(view) {
+  image
+  .with_mut_view(fn(view) {
     view.set_byte(0UL, 0UL, 0UL, b'\x13').unwrap()
     view.set_byte(0UL, 0UL, 1UL, b'\xe7').unwrap()
     view.set_byte(1UL, 0UL, 0UL, b'\xc1').unwrap()
     view.set_byte(1UL, 0UL, 1UL, b'\x2a').unwrap()
     Ok(())
-  }).unwrap()
+  })
+  .unwrap()
   let view = image.view()
   inspect(view.get_byte(0UL, 0UL, 0UL).unwrap(), content="b'\\x13'")
   inspect(view.get_byte(0UL, 0UL, 1UL).unwrap(), content="b'\\xE7'")
@@ -239,19 +252,36 @@ test "checked packed views retain distinct GrayAlpha components" {
 
 ///|
 test "checked packed views retain both GrayAlpha16 component byte pairs" {
-  let image = @storage.OwnedImage::new(graya16_descriptor(), storage_budget(4UL)).unwrap()
-  image.with_mut_view(fn(view) {
+  let image = @storage.OwnedImage::new(
+    graya16_descriptor(),
+    storage_budget(4UL),
+  ).unwrap()
+  image
+  .with_mut_view(fn(view) {
     view.set_component_byte(0UL, 0UL, 0UL, 0UL, b'\x34').unwrap()
     view.set_component_byte(0UL, 0UL, 0UL, 1UL, b'\x12').unwrap()
     view.set_component_byte(0UL, 0UL, 1UL, 0UL, b'\xc5').unwrap()
     view.set_component_byte(0UL, 0UL, 1UL, 1UL, b'\xa7').unwrap()
     Ok(())
-  }).unwrap()
+  })
+  .unwrap()
   let view = image.view()
-  inspect(view.get_component_byte(0UL, 0UL, 0UL, 0UL).unwrap(), content="b'\\x34'")
-  inspect(view.get_component_byte(0UL, 0UL, 0UL, 1UL).unwrap(), content="b'\\x12'")
-  inspect(view.get_component_byte(0UL, 0UL, 1UL, 0UL).unwrap(), content="b'\\xC5'")
-  inspect(view.get_component_byte(0UL, 0UL, 1UL, 1UL).unwrap(), content="b'\\xA7'")
+  inspect(
+    view.get_component_byte(0UL, 0UL, 0UL, 0UL).unwrap(),
+    content="b'\\x34'",
+  )
+  inspect(
+    view.get_component_byte(0UL, 0UL, 0UL, 1UL).unwrap(),
+    content="b'\\x12'",
+  )
+  inspect(
+    view.get_component_byte(0UL, 0UL, 1UL, 0UL).unwrap(),
+    content="b'\\xC5'",
+  )
+  inspect(
+    view.get_component_byte(0UL, 0UL, 1UL, 1UL).unwrap(),
+    content="b'\\xA7'",
+  )
   inspect(view.get_component_byte(0UL, 0UL, 2UL, 0UL) is Err(_), content="true")
   inspect(view.get_component_byte(0UL, 0UL, 0UL, 2UL) is Err(_), content="true")
   inspect(view.get_byte(0UL, 0UL, 0UL) is Err(_), content="true")
@@ -260,7 +290,8 @@ test "checked packed views retain both GrayAlpha16 component byte pairs" {
 ///|
 test "checked packed views retain all rgba16 component byte pairs" {
   let image = @storage.OwnedImage::new(rgba16_descriptor(), storage_budget(8UL)).unwrap()
-  image.with_mut_view(fn(view) {
+  image
+  .with_mut_view(fn(view) {
     view.set_component_byte(0UL, 0UL, 0UL, 0UL, b'\x34').unwrap()
     view.set_component_byte(0UL, 0UL, 0UL, 1UL, b'\x12').unwrap()
     view.set_component_byte(0UL, 0UL, 1UL, 0UL, b'\xc5').unwrap()
@@ -270,16 +301,41 @@ test "checked packed views retain all rgba16 component byte pairs" {
     view.set_component_byte(0UL, 0UL, 3UL, 0UL, b'\x2b').unwrap()
     view.set_component_byte(0UL, 0UL, 3UL, 1UL, b'\xf0').unwrap()
     Ok(())
-  }).unwrap()
+  })
+  .unwrap()
   let view = image.view()
-  inspect(view.get_component_byte(0UL, 0UL, 0UL, 0UL).unwrap(), content="b'\\x34'")
-  inspect(view.get_component_byte(0UL, 0UL, 0UL, 1UL).unwrap(), content="b'\\x12'")
-  inspect(view.get_component_byte(0UL, 0UL, 1UL, 0UL).unwrap(), content="b'\\xC5'")
-  inspect(view.get_component_byte(0UL, 0UL, 1UL, 1UL).unwrap(), content="b'\\xA7'")
-  inspect(view.get_component_byte(0UL, 0UL, 2UL, 0UL).unwrap(), content="b'\\x5E'")
-  inspect(view.get_component_byte(0UL, 0UL, 2UL, 1UL).unwrap(), content="b'\\x9D'")
-  inspect(view.get_component_byte(0UL, 0UL, 3UL, 0UL).unwrap(), content="b'\\x2B'")
-  inspect(view.get_component_byte(0UL, 0UL, 3UL, 1UL).unwrap(), content="b'\\xF0'")
+  inspect(
+    view.get_component_byte(0UL, 0UL, 0UL, 0UL).unwrap(),
+    content="b'\\x34'",
+  )
+  inspect(
+    view.get_component_byte(0UL, 0UL, 0UL, 1UL).unwrap(),
+    content="b'\\x12'",
+  )
+  inspect(
+    view.get_component_byte(0UL, 0UL, 1UL, 0UL).unwrap(),
+    content="b'\\xC5'",
+  )
+  inspect(
+    view.get_component_byte(0UL, 0UL, 1UL, 1UL).unwrap(),
+    content="b'\\xA7'",
+  )
+  inspect(
+    view.get_component_byte(0UL, 0UL, 2UL, 0UL).unwrap(),
+    content="b'\\x5E'",
+  )
+  inspect(
+    view.get_component_byte(0UL, 0UL, 2UL, 1UL).unwrap(),
+    content="b'\\x9D'",
+  )
+  inspect(
+    view.get_component_byte(0UL, 0UL, 3UL, 0UL).unwrap(),
+    content="b'\\x2B'",
+  )
+  inspect(
+    view.get_component_byte(0UL, 0UL, 3UL, 1UL).unwrap(),
+    content="b'\\xF0'",
+  )
   inspect(view.get_component_byte(0UL, 0UL, 4UL, 0UL) is Err(_), content="true")
   inspect(view.get_component_byte(0UL, 0UL, 0UL, 2UL) is Err(_), content="true")
   inspect(view.get_byte(0UL, 0UL, 0UL) is Err(_), content="true")

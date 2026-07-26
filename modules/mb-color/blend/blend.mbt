@@ -71,7 +71,7 @@ fn blend_multiply(cb : Double, cs : Double) -> Double {
 
 ///|
 fn blend_screen(cb : Double, cs : Double) -> Double {
-  cb + cs - (cb * cs)
+  cb + cs - cb * cs
 }
 
 ///|
@@ -121,7 +121,7 @@ fn blend_color_burn(cb : Double, cs : Double) -> Double {
   } else if cb >= 1.0 {
     1.0
   } else {
-    let v = 1.0 - ((1.0 - cb) / cs)
+    let v = 1.0 - (1.0 - cb) / cs
     if v < 0.0 {
       0.0
     } else {

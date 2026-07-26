@@ -46,7 +46,12 @@ test "rgb_to_hsl of white and black" {
 
 ///|
 test "hsl_to_rgb round-trips through rgb_to_hsl" {
-  let cases = [(0.3, 0.6, 0.9), (0.1, 0.2, 0.3), (0.8, 0.1, 0.5), (1.0, 1.0, 0.0)]
+  let cases = [
+    (0.3, 0.6, 0.9),
+    (0.1, 0.2, 0.3),
+    (0.8, 0.1, 0.5),
+    (1.0, 1.0, 0.0),
+  ]
   for c in cases {
     let (h, s, l) = rgb_to_hsl(c.0, c.1, c.2)
     let (r2, g2, b2) = hsl_to_rgb(h, s, l)
@@ -68,7 +73,12 @@ test "rgb_to_hsv of gray has zero saturation" {
 
 ///|
 test "hsv_to_rgb round-trips through rgb_to_hsv" {
-  let cases = [(0.3, 0.6, 0.9), (0.1, 0.2, 0.3), (0.8, 0.1, 0.5), (0.0, 1.0, 0.0)]
+  let cases = [
+    (0.3, 0.6, 0.9),
+    (0.1, 0.2, 0.3),
+    (0.8, 0.1, 0.5),
+    (0.0, 1.0, 0.0),
+  ]
   for c in cases {
     let (h, s, v) = rgb_to_hsv(c.0, c.1, c.2)
     let (r2, g2, b2) = hsv_to_rgb(h, s, v)
@@ -78,7 +88,12 @@ test "hsv_to_rgb round-trips through rgb_to_hsv" {
 
 ///|
 test "hsl and hsv produce values in valid ranges" {
-  let cases = [(0.0, 0.0, 0.0), (1.0, 1.0, 1.0), (0.3, 0.6, 0.9), (0.5, 0.5, 0.5)]
+  let cases = [
+    (0.0, 0.0, 0.0),
+    (1.0, 1.0, 1.0),
+    (0.3, 0.6, 0.9),
+    (0.5, 0.5, 0.5),
+  ]
   for c in cases {
     let (h_hsl, s_hsl, l) = rgb_to_hsl(c.0, c.1, c.2)
     inspect(h_hsl >= 0.0 && h_hsl < 360.0, content="true")

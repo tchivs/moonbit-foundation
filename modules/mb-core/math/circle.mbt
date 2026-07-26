@@ -52,7 +52,8 @@ pub fn Circle::circumference(self : Circle) -> Double {
 ///|
 /// Check whether a point is inside or on the circle.
 pub fn Circle::contains(self : Circle, point : Point2) -> Bool {
-  self.center_value.distance_squared_to(point) <= self.radius_value * self.radius_value
+  self.center_value.distance_squared_to(point) <=
+  self.radius_value * self.radius_value
 }
 
 ///|
@@ -88,7 +89,11 @@ pub struct Ellipse {
 }
 
 ///|
-pub fn Ellipse::new(center : Point2, radius_x : Double, radius_y : Double) -> Ellipse {
+pub fn Ellipse::new(
+  center : Point2,
+  radius_x : Double,
+  radius_y : Double,
+) -> Ellipse {
   { center_value: center, radius_x_value: radius_x, radius_y_value: radius_y }
 }
 

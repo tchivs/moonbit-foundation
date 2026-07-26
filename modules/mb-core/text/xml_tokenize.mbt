@@ -198,7 +198,9 @@ fn tokenize_markup_start_tag(
             toks.push(AttributeName(attr_name))
             let mut k = skip_ws(units, after_attr, len)
             if k >= len || units[k].to_int() != 0x3d {
-              return Err(markup_error("text-markup-missing-attribute-equals", after_attr))
+              return Err(
+                markup_error("text-markup-missing-attribute-equals", after_attr),
+              )
             }
             k = skip_ws(units, k + 1, len)
             match read_quoted_value(units, k, len) {
@@ -297,7 +299,11 @@ fn is_name_char(code : Int) -> Bool {
 }
 
 ///|
-fn slice_units(units : ArrayView[UInt16], start : Int, end_index : Int) -> String {
+fn slice_units(
+  units : ArrayView[UInt16],
+  start : Int,
+  end_index : Int,
+) -> String {
   let buffer = StringBuilder::new()
   for i = start; i < end_index; i = i + 1 {
     buffer.write_char(units[i].to_int().to_char().unwrap())
@@ -307,11 +313,7 @@ fn slice_units(units : ArrayView[UInt16], start : Int, end_index : Int) -> Strin
 
 ///|
 fn markup_error(context : String, offset : Int) -> @error.CoreError {
-  let source_offset = if offset < 0 {
-    0UL
-  } else {
-    offset.to_uint64()
-  }
+  let source_offset = if offset < 0 { 0UL } else { offset.to_uint64() }
   @error.CoreError::new(
     @error.ErrorCategory::InvalidInput,
     @error.ErrorCode::InvalidEncoding,

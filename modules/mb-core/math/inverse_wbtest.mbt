@@ -38,8 +38,16 @@ test "affine inverse of rotate undoes rotation" {
       let p = Point2::new(3.0, 4.0)
       let rotated = r.apply(p)
       let restored = inv.apply(rotated)
-      let dx = if restored.x() > 3.0 { restored.x() - 3.0 } else { 3.0 - restored.x() }
-      let dy = if restored.y() > 4.0 { restored.y() - 4.0 } else { 4.0 - restored.y() }
+      let dx = if restored.x() > 3.0 {
+        restored.x() - 3.0
+      } else {
+        3.0 - restored.x()
+      }
+      let dy = if restored.y() > 4.0 {
+        restored.y() - 4.0
+      } else {
+        4.0 - restored.y()
+      }
       inspect(dx < 1.0e-9, content="true")
       inspect(dy < 1.0e-9, content="true")
     }

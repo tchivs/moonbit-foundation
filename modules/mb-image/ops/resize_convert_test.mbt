@@ -231,7 +231,10 @@ test "bilinear resize filters RGB8 in linear light" {
     b'\x00', b'\x00', b'\x00', b'\xff', b'\xff', b'\xff',
   ])
   let result = @ops.resize_bilinear(
-    source.view(), 3UL, 1UL, resize_convert_limits(9UL, 12UL),
+    source.view(),
+    3UL,
+    1UL,
+    resize_convert_limits(9UL, 12UL),
   ).unwrap()
   let output = result.image()
   inspect(
@@ -240,9 +243,18 @@ test "bilinear resize filters RGB8 in linear light" {
   )
   inspect(output.metadata().alpha() == None, content="true")
   for channel = 0UL; channel < 3UL; channel = channel + 1UL {
-    inspect(output.view().get_byte(0UL, 0UL, channel).unwrap(), content="b'\\x00'")
-    inspect(output.view().get_byte(1UL, 0UL, channel).unwrap(), content="b'\\xD5'")
-    inspect(output.view().get_byte(2UL, 0UL, channel).unwrap(), content="b'\\xFF'")
+    inspect(
+      output.view().get_byte(0UL, 0UL, channel).unwrap(),
+      content="b'\\x00'",
+    )
+    inspect(
+      output.view().get_byte(1UL, 0UL, channel).unwrap(),
+      content="b'\\xD5'",
+    )
+    inspect(
+      output.view().get_byte(2UL, 0UL, channel).unwrap(),
+      content="b'\\xFF'",
+    )
   }
 }
 
@@ -260,23 +272,35 @@ test "bilinear resize preserves opaque RGB8 and straight RGBA8 identity and pari
   for dimensions in [(1UL, 1UL), (2UL, 3UL), (4UL, 2UL)] {
     let pixels = dimensions.0 * dimensions.1
     let rgb_output = @ops.resize_bilinear(
-      rgb_identity.view(),
-      dimensions.0,
-      dimensions.1,
-      resize_convert_limits(pixels * 3UL, pixels * 4UL),
-    ).unwrap().image().view()
+        rgb_identity.view(),
+        dimensions.0,
+        dimensions.1,
+        resize_convert_limits(pixels * 3UL, pixels * 4UL),
+      )
+      .unwrap()
+      .image()
+      .view()
     let rgba_output = @ops.resize_bilinear(
-      rgba_identity.view(),
-      dimensions.0,
-      dimensions.1,
-      resize_convert_limits(pixels * 4UL, pixels * 4UL),
-    ).unwrap().image().view()
+        rgba_identity.view(),
+        dimensions.0,
+        dimensions.1,
+        resize_convert_limits(pixels * 4UL, pixels * 4UL),
+      )
+      .unwrap()
+      .image()
+      .view()
     for y = 0UL; y < dimensions.1; y = y + 1UL {
       for x = 0UL; x < dimensions.0; x = x + 1UL {
         for channel = 0UL; channel < 3UL; channel = channel + 1UL {
           let expected = expected_rgb[channel.to_int()]
-          inspect(rgb_output.get_byte(x, y, channel).unwrap() == expected, content="true")
-          inspect(rgba_output.get_byte(x, y, channel).unwrap() == expected, content="true")
+          inspect(
+            rgb_output.get_byte(x, y, channel).unwrap() == expected,
+            content="true",
+          )
+          inspect(
+            rgba_output.get_byte(x, y, channel).unwrap() == expected,
+            content="true",
+          )
           inspect(
             rgb_output.get_byte(x, y, channel).unwrap() ==
             rgba_output.get_byte(x, y, channel).unwrap(),
@@ -289,8 +313,8 @@ test "bilinear resize preserves opaque RGB8 and straight RGBA8 identity and pari
   }
 
   let rgb_interpolation = resize_convert_image(2UL, 2UL, 3UL, None, [
-    b'\x10', b'\x20', b'\x30', b'\x40', b'\x50', b'\x60',
-    b'\x70', b'\x80', b'\x90', b'\xa0', b'\xb0', b'\xc0',
+    b'\x10', b'\x20', b'\x30', b'\x40', b'\x50', b'\x60', b'\x70', b'\x80', b'\x90',
+    b'\xa0', b'\xb0', b'\xc0',
   ])
   let rgba_interpolation = resize_convert_image(
     2UL,
@@ -298,16 +322,28 @@ test "bilinear resize preserves opaque RGB8 and straight RGBA8 identity and pari
     4UL,
     Some(@color.AlphaMode::Straight),
     [
-      b'\x10', b'\x20', b'\x30', b'\xff', b'\x40', b'\x50', b'\x60', b'\xff',
-      b'\x70', b'\x80', b'\x90', b'\xff', b'\xa0', b'\xb0', b'\xc0', b'\xff',
+      b'\x10', b'\x20', b'\x30', b'\xff', b'\x40', b'\x50', b'\x60', b'\xff', b'\x70',
+      b'\x80', b'\x90', b'\xff', b'\xa0', b'\xb0', b'\xc0', b'\xff',
     ],
   )
   let rgb_output = @ops.resize_bilinear(
-    rgb_interpolation.view(), 3UL, 4UL, resize_convert_limits(36UL, 48UL),
-  ).unwrap().image().view()
+      rgb_interpolation.view(),
+      3UL,
+      4UL,
+      resize_convert_limits(36UL, 48UL),
+    )
+    .unwrap()
+    .image()
+    .view()
   let rgba_output = @ops.resize_bilinear(
-    rgba_interpolation.view(), 3UL, 4UL, resize_convert_limits(48UL, 48UL),
-  ).unwrap().image().view()
+      rgba_interpolation.view(),
+      3UL,
+      4UL,
+      resize_convert_limits(48UL, 48UL),
+    )
+    .unwrap()
+    .image()
+    .view()
   for y = 0UL; y < 4UL; y = y + 1UL {
     for x = 0UL; x < 3UL; x = x + 1UL {
       for channel = 0UL; channel < 3UL; channel = channel + 1UL {
@@ -325,13 +361,20 @@ test "bilinear resize preserves opaque RGB8 and straight RGBA8 identity and pari
 ///|
 test "bilinear resize filters straight RGBA without transparent colour fringes" {
   let source = resize_convert_image(
-    2UL, 1UL, 4UL, Some(@color.AlphaMode::Straight), [
-      b'\xff', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\xff',
-    ],
+    2UL,
+    1UL,
+    4UL,
+    Some(@color.AlphaMode::Straight),
+    [b'\xff', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\xff'],
   )
   let output = @ops.resize_bilinear(
-    source.view(), 3UL, 1UL, resize_convert_limits(12UL, 12UL),
-  ).unwrap().image()
+      source.view(),
+      3UL,
+      1UL,
+      resize_convert_limits(12UL, 12UL),
+    )
+    .unwrap()
+    .image()
   inspect(
     output.view().format().channels() == @model.ChannelOrder::Rgba,
     content="true",
@@ -341,29 +384,52 @@ test "bilinear resize filters straight RGBA without transparent colour fringes" 
     content="true",
   )
   for channel = 0UL; channel < 3UL; channel = channel + 1UL {
-    inspect(output.view().get_byte(1UL, 0UL, channel).unwrap(), content="b'\\x00'")
+    inspect(
+      output.view().get_byte(1UL, 0UL, channel).unwrap(),
+      content="b'\\x00'",
+    )
   }
   inspect(output.view().get_byte(1UL, 0UL, 3UL).unwrap(), content="b'\\xAA'")
 
   let subquantum = resize_convert_image(
-    2UL, 1UL, 4UL, Some(@color.AlphaMode::Straight), [
-      b'\xff', b'\x00', b'\x00', b'\x01', b'\x00', b'\x00', b'\x00', b'\x00',
-    ],
+    2UL,
+    1UL,
+    4UL,
+    Some(@color.AlphaMode::Straight),
+    [b'\xff', b'\x00', b'\x00', b'\x01', b'\x00', b'\x00', b'\x00', b'\x00'],
   )
   let subquantum_output = @ops.resize_bilinear(
-    subquantum.view(), 3UL, 1UL, resize_convert_limits(12UL, 12UL),
-  ).unwrap().image().view()
+      subquantum.view(),
+      3UL,
+      1UL,
+      resize_convert_limits(12UL, 12UL),
+    )
+    .unwrap()
+    .image()
+    .view()
   for channel = 0UL; channel < 4UL; channel = channel + 1UL {
-    inspect(subquantum_output.get_byte(1UL, 0UL, channel).unwrap(), content="b'\\x00'")
+    inspect(
+      subquantum_output.get_byte(1UL, 0UL, channel).unwrap(),
+      content="b'\\x00'",
+    )
   }
 
   let transparent = resize_convert_image(
-    1UL, 1UL, 4UL, Some(@color.AlphaMode::Straight),
+    1UL,
+    1UL,
+    4UL,
+    Some(@color.AlphaMode::Straight),
     [b'\xff', b'\x00', b'\x00', b'\x00'],
   )
   let expanded = @ops.resize_bilinear(
-    transparent.view(), 2UL, 3UL, resize_convert_limits(24UL, 24UL),
-  ).unwrap().image().view()
+      transparent.view(),
+      2UL,
+      3UL,
+      resize_convert_limits(24UL, 24UL),
+    )
+    .unwrap()
+    .image()
+    .view()
   for y = 0UL; y < 3UL; y = y + 1UL {
     for x = 0UL; x < 2UL; x = x + 1UL {
       for channel = 0UL; channel < 4UL; channel = channel + 1UL {

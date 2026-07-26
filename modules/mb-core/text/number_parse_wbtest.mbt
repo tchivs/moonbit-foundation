@@ -18,11 +18,16 @@ test "parse_int trims whitespace" {
 test "parse_int rejects non-digits and empty" {
   match parse_int("") {
     Ok(_) => inspect(false, content="true")
-    Err(e) => inspect(e.context() == Some("text-parse-int-empty"), content="true")
+    Err(e) =>
+      inspect(e.context() == Some("text-parse-int-empty"), content="true")
   }
   match parse_int("abc") {
     Ok(_) => inspect(false, content="true")
-    Err(e) => inspect(e.context() == Some("text-parse-int-invalid-character"), content="true")
+    Err(e) =>
+      inspect(
+        e.context() == Some("text-parse-int-invalid-character"),
+        content="true",
+      )
   }
   match parse_int("12x") {
     Ok(_) => inspect(false, content="true")
@@ -30,7 +35,8 @@ test "parse_int rejects non-digits and empty" {
   }
   match parse_int("-") {
     Ok(_) => inspect(false, content="true")
-    Err(e) => inspect(e.context() == Some("text-parse-int-sign-only"), content="true")
+    Err(e) =>
+      inspect(e.context() == Some("text-parse-int-sign-only"), content="true")
   }
 }
 
@@ -66,11 +72,16 @@ test "parse_double trims whitespace" {
 test "parse_double rejects malformed input" {
   match parse_double("") {
     Ok(_) => inspect(false, content="true")
-    Err(e) => inspect(e.context() == Some("text-parse-double-empty"), content="true")
+    Err(e) =>
+      inspect(e.context() == Some("text-parse-double-empty"), content="true")
   }
   match parse_double(".") {
     Ok(_) => inspect(false, content="true")
-    Err(e) => inspect(e.context() == Some("text-parse-double-no-digits"), content="true")
+    Err(e) =>
+      inspect(
+        e.context() == Some("text-parse-double-no-digits"),
+        content="true",
+      )
   }
   match parse_double("3.14.15") {
     Ok(_) => inspect(false, content="true")
@@ -86,6 +97,7 @@ test "parse_double rejects malformed input" {
 test "parse_int rejects overflow" {
   match parse_int("2147483648") {
     Ok(_) => inspect(false, content="true")
-    Err(e) => inspect(e.code() is @error.ErrorCode::ArithmeticOverflow, content="true")
+    Err(e) =>
+      inspect(e.code() is @error.ErrorCode::ArithmeticOverflow, content="true")
   }
 }

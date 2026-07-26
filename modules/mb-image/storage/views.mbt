@@ -36,8 +36,10 @@ fn require_packed_u8_or_u16_view(
   context : String,
 ) -> Result[Unit, @error.CoreError] {
   if format.layout() == @model.PlaneLayout::Packed &&
-    (format.component() == @model.ComponentType::U8 ||
-      format.component() == @model.ComponentType::U16) {
+    (
+      format.component() == @model.ComponentType::U8 ||
+      format.component() == @model.ComponentType::U16
+    ) {
     Ok(())
   } else {
     Err(

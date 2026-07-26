@@ -19,7 +19,11 @@
 /// saturation and lightness are in [0, 1].
 ///
 /// - `r`, `g`, `b`: normalized sRGB component values in [0, 1].
-pub fn rgb_to_hsl(r : Double, g : Double, b : Double) -> (Double, Double, Double) {
+pub fn rgb_to_hsl(
+  r : Double,
+  g : Double,
+  b : Double,
+) -> (Double, Double, Double) {
   let max_c = max3(r, g, b)
   let min_c = min3(r, g, b)
   let delta = max_c - min_c
@@ -35,7 +39,7 @@ pub fn rgb_to_hsl(r : Double, g : Double, b : Double) -> (Double, Double, Double
   }
   // Hue calculation.
   let h = if max_c == r {
-    ((g - b) / delta) % 6.0
+    (g - b) / delta % 6.0
   } else if max_c == g {
     (b - r) / delta + 2.0
   } else {
@@ -53,7 +57,11 @@ pub fn rgb_to_hsl(r : Double, g : Double, b : Double) -> (Double, Double, Double
 /// - `l`: lightness in [0, 1]
 ///
 /// Returns `(r, g, b)` in [0, 1].
-pub fn hsl_to_rgb(h : Double, s : Double, l : Double) -> (Double, Double, Double) {
+pub fn hsl_to_rgb(
+  h : Double,
+  s : Double,
+  l : Double,
+) -> (Double, Double, Double) {
   if s < 1.0e-12 {
     // Achromatic: all channels equal lightness.
     return (l, l, l)
@@ -87,7 +95,11 @@ pub fn hsl_to_rgb(h : Double, s : Double, l : Double) -> (Double, Double, Double
 ///
 /// Returns `(hue, saturation, value)` where hue is in [0, 360),
 /// saturation and value are in [0, 1].
-pub fn rgb_to_hsv(r : Double, g : Double, b : Double) -> (Double, Double, Double) {
+pub fn rgb_to_hsv(
+  r : Double,
+  g : Double,
+  b : Double,
+) -> (Double, Double, Double) {
   let max_c = max3(r, g, b)
   let min_c = min3(r, g, b)
   let delta = max_c - min_c
@@ -97,7 +109,7 @@ pub fn rgb_to_hsv(r : Double, g : Double, b : Double) -> (Double, Double, Double
   }
   let s = delta / max_c
   let h = if max_c == r {
-    ((g - b) / delta) % 6.0
+    (g - b) / delta % 6.0
   } else if max_c == g {
     (b - r) / delta + 2.0
   } else {
@@ -115,7 +127,11 @@ pub fn rgb_to_hsv(r : Double, g : Double, b : Double) -> (Double, Double, Double
 /// - `v`: value in [0, 1]
 ///
 /// Returns `(r, g, b)` in [0, 1].
-pub fn hsv_to_rgb(h : Double, s : Double, v : Double) -> (Double, Double, Double) {
+pub fn hsv_to_rgb(
+  h : Double,
+  s : Double,
+  v : Double,
+) -> (Double, Double, Double) {
   if s < 1.0e-12 {
     return (v, v, v)
   }

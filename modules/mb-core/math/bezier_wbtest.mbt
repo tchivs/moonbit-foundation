@@ -8,7 +8,10 @@ test "quadratic bezier evaluates endpoints and midpoint correctly" {
   // t=0 -> P0
   inspect(point_approx(bezier2_eval(p0, p1, p2, 0.0), 0.0, 0.0), content="true")
   // t=1 -> P2
-  inspect(point_approx(bezier2_eval(p0, p1, p2, 1.0), 10.0, 0.0), content="true")
+  inspect(
+    point_approx(bezier2_eval(p0, p1, p2, 1.0), 10.0, 0.0),
+    content="true",
+  )
   // t=0.5 -> (1-t)^2*0 + 2*(0.5)*(0.5)*5 + 0.25*10 = 5, y: 2*0.25*10 = 5
   inspect(point_approx(bezier2_eval(p0, p1, p2, 0.5), 5.0, 5.0), content="true")
 }
@@ -20,12 +23,21 @@ test "cubic bezier evaluates endpoints and midpoint correctly" {
   let p2 = Point2::new(10.0, 10.0)
   let p3 = Point2::new(10.0, 0.0)
   // t=0 -> P0
-  inspect(point_approx(bezier3_eval(p0, p1, p2, p3, 0.0), 0.0, 0.0), content="true")
+  inspect(
+    point_approx(bezier3_eval(p0, p1, p2, p3, 0.0), 0.0, 0.0),
+    content="true",
+  )
   // t=1 -> P3
-  inspect(point_approx(bezier3_eval(p0, p1, p2, p3, 1.0), 10.0, 0.0), content="true")
+  inspect(
+    point_approx(bezier3_eval(p0, p1, p2, p3, 1.0), 10.0, 0.0),
+    content="true",
+  )
   // t=0.5 -> x: 0.125*0 + 0.375*0 + 0.375*10 + 0.125*10 = 5.0
   //          y: 0.125*0 + 0.375*10 + 0.375*10 + 0.125*0 = 7.5
-  inspect(point_approx(bezier3_eval(p0, p1, p2, p3, 0.5), 5.0, 7.5), content="true")
+  inspect(
+    point_approx(bezier3_eval(p0, p1, p2, p3, 0.5), 5.0, 7.5),
+    content="true",
+  )
 }
 
 ///|
@@ -48,7 +60,8 @@ test "quadratic bezier flatten produces connected segments" {
         for i = 1; i < segments.length(); i = i + 1 {
           let prev_end = segments[i - 1].end()
           let curr_start = segments[i].start()
-          if !approx(prev_end.x(), curr_start.x()) || !approx(prev_end.y(), curr_start.y()) {
+          if !approx(prev_end.x(), curr_start.x()) ||
+            !approx(prev_end.y(), curr_start.y()) {
             ok = false
             break
           }

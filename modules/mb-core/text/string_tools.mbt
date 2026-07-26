@@ -47,10 +47,8 @@ pub fn split_any(text : String, delimiters : Array[Int]) -> Array[String] {
         result.push(substring_from_units(units, start, i))
         start = -1
       }
-    } else {
-      if start < 0 {
-        start = i
-      }
+    } else if start < 0 {
+      start = i
     }
     i = i + 1
   }
@@ -103,7 +101,11 @@ fn is_delimiter(c : Int, delimiters : Array[Int]) -> Bool {
 
 ///|
 /// Extract a substring from a code_units array view range [start, end).
-fn substring_from_units(units : ArrayView[UInt16], start : Int, end : Int) -> String {
+fn substring_from_units(
+  units : ArrayView[UInt16],
+  start : Int,
+  end : Int,
+) -> String {
   let buffer = StringBuilder::new()
   for i = start; i < end; i = i + 1 {
     ignore(buffer.write_char(units[i].to_int().to_char().unwrap()))

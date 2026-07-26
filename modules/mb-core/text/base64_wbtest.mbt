@@ -9,9 +9,18 @@ test "base64 encode follows RFC 4648 test vectors" {
   inspect(base64_encode([b'\x66']), content="Zg==")
   inspect(base64_encode([b'\x66', b'\x6f']), content="Zm8=")
   inspect(base64_encode([b'\x66', b'\x6f', b'\x6f']), content="Zm9v")
-  inspect(base64_encode([b'\x66', b'\x6f', b'\x6f', b'\x62']), content="Zm9vYg==")
-  inspect(base64_encode([b'\x66', b'\x6f', b'\x6f', b'\x62', b'\x61']), content="Zm9vYmE=")
-  inspect(base64_encode([b'\x66', b'\x6f', b'\x6f', b'\x62', b'\x61', b'\x72']), content="Zm9vYmFy")
+  inspect(
+    base64_encode([b'\x66', b'\x6f', b'\x6f', b'\x62']),
+    content="Zm9vYg==",
+  )
+  inspect(
+    base64_encode([b'\x66', b'\x6f', b'\x6f', b'\x62', b'\x61']),
+    content="Zm9vYmE=",
+  )
+  inspect(
+    base64_encode([b'\x66', b'\x6f', b'\x6f', b'\x62', b'\x61', b'\x72']),
+    content="Zm9vYmFy",
+  )
 }
 
 ///|
@@ -60,7 +69,10 @@ test "base64 decode rejects non-multiple-of-4 length" {
     Ok(_) => inspect(false, content="true")
     Err(e) => {
       inspect(e.operation() == Some("text-base64-decode"), content="true")
-      inspect(e.context() == Some("text-base64-decode-invalid-length"), content="true")
+      inspect(
+        e.context() == Some("text-base64-decode-invalid-length"),
+        content="true",
+      )
     }
   }
 }
@@ -69,7 +81,11 @@ test "base64 decode rejects non-multiple-of-4 length" {
 test "base64 decode rejects invalid characters" {
   match base64_decode("Zm9!Yg==") {
     Ok(_) => inspect(false, content="true")
-    Err(e) => inspect(e.context() == Some("text-base64-decode-invalid-character"), content="true")
+    Err(e) =>
+      inspect(
+        e.context() == Some("text-base64-decode-invalid-character"),
+        content="true",
+      )
   }
 }
 
@@ -78,14 +94,20 @@ test "base64 decode rejects misplaced padding" {
   // Pad in first position of a group is structurally invalid.
   match base64_decode("=m9vYg==") {
     Ok(_) => inspect(false, content="true")
-    Err(e) => inspect(e.context() == Some("text-base64-decode-invalid-character"), content="true")
+    Err(e) =>
+      inspect(
+        e.context() == Some("text-base64-decode-invalid-character"),
+        content="true",
+      )
   }
   // One pad then data in the same group is invalid padding.
   match base64_decode("Zg=v") {
     Ok(_) => inspect(false, content="true")
-    Err(e) => {
-      inspect(e.context() == Some("text-base64-decode-invalid-padding"), content="true")
-    }
+    Err(e) =>
+      inspect(
+        e.context() == Some("text-base64-decode-invalid-padding"),
+        content="true",
+      )
   }
 }
 

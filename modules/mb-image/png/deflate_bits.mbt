@@ -1,4 +1,4 @@
-///| 
+///|
 /// LSB-first DEFLATE bit reader over a forward-only sequence of IDAT payloads.
 /// Chunk boundaries have no semantic effect and no compressed byte array is
 /// retained by the decoder.
@@ -14,8 +14,13 @@ fn _png_deflate_bits_new(source : PngIdatSource) -> PngDeflateBits {
 }
 
 ///|
-fn PngDeflateBits::read(self : PngDeflateBits, count : Int) -> Result[Int, @error.CoreError] {
-  if count < 0 || count > 16 { return Err(_png_error("deflate-bit-count")) }
+fn PngDeflateBits::read(
+  self : PngDeflateBits,
+  count : Int,
+) -> Result[Int, @error.CoreError] {
+  if count < 0 || count > 16 {
+    return Err(_png_error("deflate-bit-count"))
+  }
   while self.available < count {
     let byte = match self.source.next_byte() {
       Err(error) => return Err(error)
@@ -38,12 +43,15 @@ fn PngDeflateBits::align(self : PngDeflateBits) -> Unit {
 }
 
 ///|
-fn PngDeflateBits::read_aligned_byte(self : PngDeflateBits) -> Result[Byte, @error.CoreError] {
+fn PngDeflateBits::read_aligned_byte(
+  self : PngDeflateBits,
+) -> Result[Byte, @error.CoreError] {
   self.align()
   self.source.next_byte()
 }
 
-///| A read from the byte-fed inflater. `NeedInput` is a normal continuation
+///|
+/// A read from the byte-fed inflater. `NeedInput` is a normal continuation
 /// boundary, never a truncated-zlib error: the caller may supply exactly one
 /// more authenticated IDAT byte and continue from the retained accumulator.
 priv enum PngInflateRead {
@@ -51,7 +59,8 @@ priv enum PngInflateRead {
   NeedInput
 }
 
-///| Bit state used by the private byte-fed continuation. It deliberately owns
+///|
+/// Bit state used by the private byte-fed continuation. It deliberately owns
 /// only a single unconsumed compressed byte in addition to the LSB accumulator.
 priv struct PngInflateBits {
   mut value : UInt64
@@ -65,16 +74,27 @@ fn PngInflateBits::new() -> PngInflateBits {
 }
 
 ///|
-fn PngInflateBits::supply(self : PngInflateBits, byte : Byte) -> Result[Unit, @error.CoreError] {
+fn PngInflateBits::supply(
+  self : PngInflateBits,
+  byte : Byte,
+) -> Result[Unit, @error.CoreError] {
   match self.pending {
     Some(_) => Err(_png_error("deflate-input-state"))
-    None => { self.pending = Some(byte); Ok(()) }
+    None => {
+      self.pending = Some(byte)
+      Ok(())
+    }
   }
 }
 
 ///|
-fn PngInflateBits::read(self : PngInflateBits, count : Int) -> Result[PngInflateRead, @error.CoreError] {
-  if count < 0 || count > 16 { return Err(_png_error("deflate-bit-count")) }
+fn PngInflateBits::read(
+  self : PngInflateBits,
+  count : Int,
+) -> Result[PngInflateRead, @error.CoreError] {
+  if count < 0 || count > 16 {
+    return Err(_png_error("deflate-bit-count"))
+  }
   if self.available < count {
     match self.pending {
       None => return Ok(PngInflateRead::NeedInput)
@@ -85,7 +105,9 @@ fn PngInflateBits::read(self : PngInflateBits, count : Int) -> Result[PngInflate
       }
     }
   }
-  if self.available < count { return Ok(PngInflateRead::NeedInput) }
+  if self.available < count {
+    return Ok(PngInflateRead::NeedInput)
+  }
   let mask = if count == 0 { 0UL } else { (1UL << count) - 1UL }
   let result = (self.value & mask).to_int()
   self.value = self.value >> count

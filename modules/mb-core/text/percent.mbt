@@ -41,12 +41,14 @@ pub fn percent_decode(text : String) -> Result[Array[Byte], @error.CoreError] {
     if c == 0x25 {
       // '%'
       if i + 2 >= len {
-        return Err(@error.CoreError::new(
-          @error.ErrorCategory::InvalidInput,
-          @error.ErrorCode::InvalidEncoding,
-          operation="text-percent-decode",
-          context="text-percent-decode-truncated",
-        ))
+        return Err(
+          @error.CoreError::new(
+            @error.ErrorCategory::InvalidInput,
+            @error.ErrorCode::InvalidEncoding,
+            operation="text-percent-decode",
+            context="text-percent-decode-truncated",
+          ),
+        )
       }
       let hi = hex_digit_value(units[i + 1].to_int())
       let lo = hex_digit_value(units[i + 2].to_int())
@@ -55,14 +57,15 @@ pub fn percent_decode(text : String) -> Result[Array[Byte], @error.CoreError] {
           result.push(((h << 4) | l).to_byte())
           i = i + 3
         }
-        _ => {
-          return Err(@error.CoreError::new(
-            @error.ErrorCategory::InvalidInput,
-            @error.ErrorCode::InvalidEncoding,
-            operation="text-percent-decode",
-            context="text-percent-decode-invalid-hex",
-          ))
-        }
+        _ =>
+          return Err(
+            @error.CoreError::new(
+              @error.ErrorCategory::InvalidInput,
+              @error.ErrorCode::InvalidEncoding,
+              operation="text-percent-decode",
+              context="text-percent-decode-invalid-hex",
+            ),
+          )
       }
     } else {
       result.push(c.to_byte())

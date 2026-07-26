@@ -8,7 +8,8 @@ pub fn PngDecoder::new() -> PngDecoder {
   PngDecoder::{  }
 }
 
-///| Decodes the explicit non-interlaced Type-4/16 encoded-sRGB profile into
+///|
+/// Decodes the explicit non-interlaced Type-4/16 encoded-sRGB profile into
 /// packed little-endian straight-alpha `graya16` storage.
 pub fn PngDecoder::decode_graya16(
   reader : &@io.Reader,
@@ -19,11 +20,15 @@ pub fn PngDecoder::decode_graya16(
 ) -> Result[@codec.DecodeResult, @error.CoreError] {
   ignore(diagnostics)
   PngDecodeMachine::new_with_profile(
-    PngDecodeProfile::GrayAlpha16, options, limits, budget,
+    PngDecodeProfile::GrayAlpha16,
+    options,
+    limits,
+    budget,
   ).decode_reader(reader)
 }
 
-///| Decodes the explicit Type-6/16 encoded-sRGB profile into packed
+///|
+/// Decodes the explicit Type-6/16 encoded-sRGB profile into packed
 /// little-endian straight-alpha `rgba16` storage without widening `decode`.
 pub fn PngDecoder::decode_rgba16(
   reader : &@io.Reader,
@@ -34,7 +39,10 @@ pub fn PngDecoder::decode_rgba16(
 ) -> Result[@codec.DecodeResult, @error.CoreError] {
   ignore(diagnostics)
   PngDecodeMachine::new_with_profile(
-    PngDecodeProfile::Rgba16, options, limits, budget,
+    PngDecodeProfile::Rgba16,
+    options,
+    limits,
+    budget,
   ).decode_reader(reader)
 }
 
@@ -85,19 +93,22 @@ pub fn PngChunkDecoder::new(
   {
     limits,
     _diagnostics: diagnostics,
-    state: PngChunkDecoderState::Active(PngDecodeMachine::new(
-      @codec.DecodeOptions::new(
-        require_complete_input=true,
-        preserve_opaque_metadata=false,
+    state: PngChunkDecoderState::Active(
+      PngDecodeMachine::new(
+        @codec.DecodeOptions::new(
+          require_complete_input=true,
+          preserve_opaque_metadata=false,
+        ),
+        limits,
+        budget,
       ),
-      limits,
-      budget,
-    )),
+    ),
     consumed_total: 0UL,
   }
 }
 
-///| Constructs the explicit non-interlaced Type-4/16 preservation route for
+///|
+/// Constructs the explicit non-interlaced Type-4/16 preservation route for
 /// caller-owned chunks. Completion, accounting, and terminal behavior remain
 /// owned by the shared chunk machine.
 pub fn PngChunkDecoder::new_graya16(
@@ -108,20 +119,23 @@ pub fn PngChunkDecoder::new_graya16(
   {
     limits,
     _diagnostics: diagnostics,
-    state: PngChunkDecoderState::Active(PngDecodeMachine::new_with_profile(
-      PngDecodeProfile::GrayAlpha16,
-      @codec.DecodeOptions::new(
-        require_complete_input=true,
-        preserve_opaque_metadata=false,
+    state: PngChunkDecoderState::Active(
+      PngDecodeMachine::new_with_profile(
+        PngDecodeProfile::GrayAlpha16,
+        @codec.DecodeOptions::new(
+          require_complete_input=true,
+          preserve_opaque_metadata=false,
+        ),
+        limits,
+        budget,
       ),
-      limits,
-      budget,
-    )),
+    ),
     consumed_total: 0UL,
   }
 }
 
-///| Constructs the explicit Type-6/16 preservation route for caller-owned
+///|
+/// Constructs the explicit Type-6/16 preservation route for caller-owned
 /// chunks. Completion, accounting, and terminal behavior remain owned by the
 /// shared chunk machine.
 pub fn PngChunkDecoder::new_rgba16(
@@ -132,15 +146,17 @@ pub fn PngChunkDecoder::new_rgba16(
   {
     limits,
     _diagnostics: diagnostics,
-    state: PngChunkDecoderState::Active(PngDecodeMachine::new_with_profile(
-      PngDecodeProfile::Rgba16,
-      @codec.DecodeOptions::new(
-        require_complete_input=true,
-        preserve_opaque_metadata=false,
+    state: PngChunkDecoderState::Active(
+      PngDecodeMachine::new_with_profile(
+        PngDecodeProfile::Rgba16,
+        @codec.DecodeOptions::new(
+          require_complete_input=true,
+          preserve_opaque_metadata=false,
+        ),
+        limits,
+        budget,
       ),
-      limits,
-      budget,
-    )),
+    ),
     consumed_total: 0UL,
   }
 }
@@ -170,7 +186,8 @@ pub(all) enum PngFilterStrategy {
   Adaptive
 } derive(Eq)
 
-///| PNG interlace selection for the strict RGB8 and straight-RGBA8 profile.
+///|
+/// PNG interlace selection for the strict RGB8 and straight-RGBA8 profile.
 /// `None` preserves every established non-interlaced output route. `Adam7` is
 /// explicit because its encoder traversal is not available until Phase 42.
 pub(all) enum PngInterlaceStrategy {
@@ -286,41 +303,45 @@ pub fn PngIndexedImage::new(
     Err(error) => return Err(error)
     Ok(value) => value
   }
-  let total_length = match @checked.checked_add(
-    indexed_and_palette, palette_alpha.length().to_uint64(),
-  ) {
+  let total_length = match
+    @checked.checked_add(
+      indexed_and_palette,
+      palette_alpha.length().to_uint64(),
+    ) {
     Err(error) => return Err(error)
     Ok(value) => value
   }
   let allocator = PngIndexedBuiltinAllocator::{  } as &@bytes.Allocator
-  let owned_bytes = match @bytes.OwnedBytes::new_with_allocator_and_charge(
-    total_length, budget, allocator, width, height, pixels, 0UL,
-  ) {
+  let owned_bytes = match
+    @bytes.OwnedBytes::new_with_allocator_and_charge(
+      total_length, budget, allocator, width, height, pixels, 0UL,
+    ) {
     Err(error) => return Err(error)
     Ok(value) => value
   }
-  match owned_bytes.with_mut(0UL, total_length, fn(lease) {
-    let mut offset = 0UL
-    for byte in indices {
-      match lease.set(offset, byte) {
-        Err(error) => return Err(error)
-        Ok(_) => offset = offset + 1UL
+  match
+    owned_bytes.with_mut(0UL, total_length, fn(lease) {
+      let mut offset = 0UL
+      for byte in indices {
+        match lease.set(offset, byte) {
+          Err(error) => return Err(error)
+          Ok(_) => offset = offset + 1UL
+        }
       }
-    }
-    for byte in rgb_palette {
-      match lease.set(offset, byte) {
-        Err(error) => return Err(error)
-        Ok(_) => offset = offset + 1UL
+      for byte in rgb_palette {
+        match lease.set(offset, byte) {
+          Err(error) => return Err(error)
+          Ok(_) => offset = offset + 1UL
+        }
       }
-    }
-    for byte in palette_alpha {
-      match lease.set(offset, byte) {
-        Err(error) => return Err(error)
-        Ok(_) => offset = offset + 1UL
+      for byte in palette_alpha {
+        match lease.set(offset, byte) {
+          Err(error) => return Err(error)
+          Ok(_) => offset = offset + 1UL
+        }
       }
-    }
-    Ok(())
-  }) {
+      Ok(())
+    }) {
     Err(error) => return Err(error)
     Ok(_) => ()
   }
@@ -370,9 +391,9 @@ fn PngIndexedImage::alpha_at(
   self : PngIndexedImage,
   entry : UInt64,
 ) -> Result[Byte, @error.CoreError] {
-  self.owned_bytes.view().get(
-    self.indices_length_value + self.palette_length_value + entry,
-  )
+  self.owned_bytes
+  .view()
+  .get(self.indices_length_value + self.palette_length_value + entry)
 }
 
 ///|
@@ -389,20 +410,24 @@ pub struct PngEncoder {
 ///|
 pub fn PngEncoder::new() -> PngEncoder {
   PngEncoder::new_with_all_strategies(
-    PngCompressionStrategy::Stored, PngFilterStrategy::None,
+    PngCompressionStrategy::Stored,
+    PngFilterStrategy::None,
     PngInterlaceStrategy::None,
   )
 }
 
-///| Constructs the explicit Gray8 PNG route: 8-bit grayscale, Stored DEFLATE,
+///|
+/// Constructs the explicit Gray8 PNG route: 8-bit grayscale, Stored DEFLATE,
 /// filter None, and no interlace.
 pub fn PngEncoder::new_gray8() -> PngEncoder {
   PngEncoder::new_gray8_with_strategies(
-    PngCompressionStrategy::Stored, PngFilterStrategy::None,
+    PngCompressionStrategy::Stored,
+    PngFilterStrategy::None,
   )
 }
 
-///| Constructs the explicit Gray1 PNG route: 1-bit grayscale, Stored DEFLATE,
+///|
+/// Constructs the explicit Gray1 PNG route: 1-bit grayscale, Stored DEFLATE,
 /// filter None, and no interlace.
 pub fn PngEncoder::new_gray1() -> PngEncoder {
   {
@@ -413,7 +438,8 @@ pub fn PngEncoder::new_gray1() -> PngEncoder {
   }
 }
 
-///| Constructs the explicit Gray2 PNG route: 2-bit grayscale, Stored DEFLATE,
+///|
+/// Constructs the explicit Gray2 PNG route: 2-bit grayscale, Stored DEFLATE,
 /// filter None, and no interlace.
 pub fn PngEncoder::new_gray2() -> PngEncoder {
   {
@@ -424,7 +450,8 @@ pub fn PngEncoder::new_gray2() -> PngEncoder {
   }
 }
 
-///| Constructs the explicit Gray4 PNG route: 4-bit grayscale, Stored DEFLATE,
+///|
+/// Constructs the explicit Gray4 PNG route: 4-bit grayscale, Stored DEFLATE,
 /// filter None, and no interlace.
 pub fn PngEncoder::new_gray4() -> PngEncoder {
   {
@@ -435,15 +462,18 @@ pub fn PngEncoder::new_gray4() -> PngEncoder {
   }
 }
 
-///| Constructs the explicit Gray16 PNG route: 16-bit grayscale, Stored
+///|
+/// Constructs the explicit Gray16 PNG route: 16-bit grayscale, Stored
 /// DEFLATE, filter None, and no interlace.
 pub fn PngEncoder::new_gray16() -> PngEncoder {
   PngEncoder::new_gray16_with_strategies(
-    PngCompressionStrategy::Stored, PngFilterStrategy::None,
+    PngCompressionStrategy::Stored,
+    PngFilterStrategy::None,
   )
 }
 
-///| Constructs a Gray16 encoder with an explicit compression strategy and the
+///|
+/// Constructs a Gray16 encoder with an explicit compression strategy and the
 /// filter-None route. Gray16 remains intentionally non-interlaced.
 pub fn PngEncoder::new_gray16_with_compression_strategy(
   strategy : PngCompressionStrategy,
@@ -451,17 +481,20 @@ pub fn PngEncoder::new_gray16_with_compression_strategy(
   PngEncoder::new_gray16_with_strategies(strategy, PngFilterStrategy::None)
 }
 
-///| Constructs a Gray16 encoder with an explicit filter strategy and Stored
+///|
+/// Constructs a Gray16 encoder with an explicit filter strategy and Stored
 /// compression. Gray16 remains intentionally non-interlaced.
 pub fn PngEncoder::new_gray16_with_filter_strategy(
   filter_strategy : PngFilterStrategy,
 ) -> PngEncoder {
   PngEncoder::new_gray16_with_strategies(
-    PngCompressionStrategy::Stored, filter_strategy,
+    PngCompressionStrategy::Stored,
+    filter_strategy,
   )
 }
 
-///| Constructs a Gray16 encoder with explicit compression and filter
+///|
+/// Constructs a Gray16 encoder with explicit compression and filter
 /// strategies. Its profile fixes PNG colour type 0 and excludes Adam7.
 pub fn PngEncoder::new_gray16_with_strategies(
   strategy : PngCompressionStrategy,
@@ -475,15 +508,18 @@ pub fn PngEncoder::new_gray16_with_strategies(
   }
 }
 
-///| Constructs the explicit Gray+Alpha8 PNG route: packed 8-bit straight
+///|
+/// Constructs the explicit Gray+Alpha8 PNG route: packed 8-bit straight
 /// alpha, Stored DEFLATE, filter None, and no interlace.
 pub fn PngEncoder::new_graya8() -> PngEncoder {
   PngEncoder::new_graya8_with_strategies(
-    PngCompressionStrategy::Stored, PngFilterStrategy::None,
+    PngCompressionStrategy::Stored,
+    PngFilterStrategy::None,
   )
 }
 
-///| Constructs a Gray+Alpha8 encoder with an explicit compression strategy and
+///|
+/// Constructs a Gray+Alpha8 encoder with an explicit compression strategy and
 /// the filter-None route. Gray+Alpha8 remains intentionally non-interlaced.
 pub fn PngEncoder::new_graya8_with_compression_strategy(
   strategy : PngCompressionStrategy,
@@ -491,17 +527,20 @@ pub fn PngEncoder::new_graya8_with_compression_strategy(
   PngEncoder::new_graya8_with_strategies(strategy, PngFilterStrategy::None)
 }
 
-///| Constructs a Gray+Alpha8 encoder with an explicit filter strategy and
+///|
+/// Constructs a Gray+Alpha8 encoder with an explicit filter strategy and
 /// Stored compression. Gray+Alpha8 remains intentionally non-interlaced.
 pub fn PngEncoder::new_graya8_with_filter_strategy(
   filter_strategy : PngFilterStrategy,
 ) -> PngEncoder {
   PngEncoder::new_graya8_with_strategies(
-    PngCompressionStrategy::Stored, filter_strategy,
+    PngCompressionStrategy::Stored,
+    filter_strategy,
   )
 }
 
-///| Constructs a Gray+Alpha8 encoder with explicit compression and filter
+///|
+/// Constructs a Gray+Alpha8 encoder with explicit compression and filter
 /// strategies. This legacy family remains explicitly non-interlaced.
 pub fn PngEncoder::new_graya8_with_strategies(
   strategy : PngCompressionStrategy,
@@ -515,18 +554,22 @@ pub fn PngEncoder::new_graya8_with_strategies(
   }
 }
 
-///| Constructs a Gray+Alpha8 encoder with explicit interlace selection and the
+///|
+/// Constructs a Gray+Alpha8 encoder with explicit interlace selection and the
 /// Stored/filter-None route. Adam7 is opt-in; existing GrayAlpha8 factories
 /// retain their explicit non-interlaced output.
 pub fn PngEncoder::new_graya8_with_interlace_strategy(
   interlace_strategy : PngInterlaceStrategy,
 ) -> PngEncoder {
   PngEncoder::new_graya8_with_all_strategies(
-    PngCompressionStrategy::Stored, PngFilterStrategy::None, interlace_strategy,
+    PngCompressionStrategy::Stored,
+    PngFilterStrategy::None,
+    interlace_strategy,
   )
 }
 
-///| Constructs a Gray+Alpha8 encoder with independently selected compression,
+///|
+/// Constructs a Gray+Alpha8 encoder with independently selected compression,
 /// filter, and interlace strategies.
 pub fn PngEncoder::new_graya8_with_all_strategies(
   strategy : PngCompressionStrategy,
@@ -541,15 +584,18 @@ pub fn PngEncoder::new_graya8_with_all_strategies(
   }
 }
 
-///| Constructs the explicit Gray+Alpha16 PNG route: packed 16-bit straight
+///|
+/// Constructs the explicit Gray+Alpha16 PNG route: packed 16-bit straight
 /// alpha, Stored DEFLATE, filter None, and no interlace.
 pub fn PngEncoder::new_graya16() -> PngEncoder {
   PngEncoder::new_graya16_with_strategies(
-    PngCompressionStrategy::Stored, PngFilterStrategy::None,
+    PngCompressionStrategy::Stored,
+    PngFilterStrategy::None,
   )
 }
 
-///| Constructs a Gray+Alpha16 encoder with an explicit compression strategy
+///|
+/// Constructs a Gray+Alpha16 encoder with an explicit compression strategy
 /// and the filter-None route. Gray+Alpha16 remains intentionally non-interlaced.
 pub fn PngEncoder::new_graya16_with_compression_strategy(
   strategy : PngCompressionStrategy,
@@ -557,17 +603,20 @@ pub fn PngEncoder::new_graya16_with_compression_strategy(
   PngEncoder::new_graya16_with_strategies(strategy, PngFilterStrategy::None)
 }
 
-///| Constructs a Gray+Alpha16 encoder with an explicit filter strategy and
+///|
+/// Constructs a Gray+Alpha16 encoder with an explicit filter strategy and
 /// Stored compression. Gray+Alpha16 remains intentionally non-interlaced.
 pub fn PngEncoder::new_graya16_with_filter_strategy(
   filter_strategy : PngFilterStrategy,
 ) -> PngEncoder {
   PngEncoder::new_graya16_with_strategies(
-    PngCompressionStrategy::Stored, filter_strategy,
+    PngCompressionStrategy::Stored,
+    filter_strategy,
   )
 }
 
-///| Constructs a Gray+Alpha16 encoder with explicit compression and filter
+///|
+/// Constructs a Gray+Alpha16 encoder with explicit compression and filter
 /// strategies. Its profile fixes PNG colour type 4 and excludes Adam7.
 pub fn PngEncoder::new_graya16_with_strategies(
   strategy : PngCompressionStrategy,
@@ -581,18 +630,22 @@ pub fn PngEncoder::new_graya16_with_strategies(
   }
 }
 
-///| Constructs a Gray+Alpha16 encoder with explicit interlace selection and the
+///|
+/// Constructs a Gray+Alpha16 encoder with explicit interlace selection and the
 /// Stored/filter-None route. Adam7 is opt-in; existing GrayAlpha16 factories
 /// retain their explicit non-interlaced output.
 pub fn PngEncoder::new_graya16_with_interlace_strategy(
   interlace_strategy : PngInterlaceStrategy,
 ) -> PngEncoder {
   PngEncoder::new_graya16_with_all_strategies(
-    PngCompressionStrategy::Stored, PngFilterStrategy::None, interlace_strategy,
+    PngCompressionStrategy::Stored,
+    PngFilterStrategy::None,
+    interlace_strategy,
   )
 }
 
-///| Constructs a Gray+Alpha16 encoder with independently selected compression,
+///|
+/// Constructs a Gray+Alpha16 encoder with independently selected compression,
 /// filter, and interlace strategies.
 pub fn PngEncoder::new_graya16_with_all_strategies(
   strategy : PngCompressionStrategy,
@@ -607,15 +660,18 @@ pub fn PngEncoder::new_graya16_with_all_strategies(
   }
 }
 
-///| Constructs the explicit RGBA16 PNG route: packed little-endian U16
+///|
+/// Constructs the explicit RGBA16 PNG route: packed little-endian U16
 /// straight alpha, Stored DEFLATE, filter None, and no interlace.
 pub fn PngEncoder::new_rgba16() -> PngEncoder {
   PngEncoder::new_rgba16_with_strategies(
-    PngCompressionStrategy::Stored, PngFilterStrategy::None,
+    PngCompressionStrategy::Stored,
+    PngFilterStrategy::None,
   )
 }
 
-///| Constructs an RGBA16 encoder with an explicit compression strategy and the
+///|
+/// Constructs an RGBA16 encoder with an explicit compression strategy and the
 /// filter-None route. RGBA16 remains intentionally non-interlaced.
 pub fn PngEncoder::new_rgba16_with_compression_strategy(
   strategy : PngCompressionStrategy,
@@ -623,17 +679,20 @@ pub fn PngEncoder::new_rgba16_with_compression_strategy(
   PngEncoder::new_rgba16_with_strategies(strategy, PngFilterStrategy::None)
 }
 
-///| Constructs an RGBA16 encoder with an explicit filter strategy and Stored
+///|
+/// Constructs an RGBA16 encoder with an explicit filter strategy and Stored
 /// compression. RGBA16 remains intentionally non-interlaced.
 pub fn PngEncoder::new_rgba16_with_filter_strategy(
   filter_strategy : PngFilterStrategy,
 ) -> PngEncoder {
   PngEncoder::new_rgba16_with_strategies(
-    PngCompressionStrategy::Stored, filter_strategy,
+    PngCompressionStrategy::Stored,
+    filter_strategy,
   )
 }
 
-///| Constructs an RGBA16 encoder with explicit compression and filter
+///|
+/// Constructs an RGBA16 encoder with explicit compression and filter
 /// strategies. This legacy constructor fixes PNG colour type 6 and
 /// `PngInterlaceStrategy::None`; use the explicit interlace selector family to
 /// request Adam7.
@@ -649,18 +708,22 @@ pub fn PngEncoder::new_rgba16_with_strategies(
   }
 }
 
-///| Constructs an RGBA16 encoder with explicit interlace selection and the
+///|
+/// Constructs an RGBA16 encoder with explicit interlace selection and the
 /// Stored/filter-None route. Adam7 remains opt-in; existing RGBA16 factories
 /// retain their explicit non-interlaced output.
 pub fn PngEncoder::new_rgba16_with_interlace_strategy(
   interlace_strategy : PngInterlaceStrategy,
 ) -> PngEncoder {
   PngEncoder::new_rgba16_with_all_strategies(
-    PngCompressionStrategy::Stored, PngFilterStrategy::None, interlace_strategy,
+    PngCompressionStrategy::Stored,
+    PngFilterStrategy::None,
+    interlace_strategy,
   )
 }
 
-///| Constructs an RGBA16 encoder with independently selected compression,
+///|
+/// Constructs an RGBA16 encoder with independently selected compression,
 /// filter, and interlace strategies.
 pub fn PngEncoder::new_rgba16_with_all_strategies(
   strategy : PngCompressionStrategy,
@@ -675,7 +738,8 @@ pub fn PngEncoder::new_rgba16_with_all_strategies(
   }
 }
 
-///| Constructs a Gray8 encoder with an explicit compression strategy and the
+///|
+/// Constructs a Gray8 encoder with an explicit compression strategy and the
 /// filter-None route. Gray8 remains intentionally non-interlaced.
 pub fn PngEncoder::new_gray8_with_compression_strategy(
   strategy : PngCompressionStrategy,
@@ -683,17 +747,20 @@ pub fn PngEncoder::new_gray8_with_compression_strategy(
   PngEncoder::new_gray8_with_strategies(strategy, PngFilterStrategy::None)
 }
 
-///| Constructs a Gray8 encoder with an explicit filter strategy and Stored
+///|
+/// Constructs a Gray8 encoder with an explicit filter strategy and Stored
 /// compression. Gray8 remains intentionally non-interlaced.
 pub fn PngEncoder::new_gray8_with_filter_strategy(
   filter_strategy : PngFilterStrategy,
 ) -> PngEncoder {
   PngEncoder::new_gray8_with_strategies(
-    PngCompressionStrategy::Stored, filter_strategy,
+    PngCompressionStrategy::Stored,
+    filter_strategy,
   )
 }
 
-///| Constructs a Gray8 encoder with explicit compression and filter
+///|
+/// Constructs a Gray8 encoder with explicit compression and filter
 /// strategies. Its profile fixes PNG colour type 0 and excludes Adam7.
 pub fn PngEncoder::new_gray8_with_strategies(
   strategy : PngCompressionStrategy,
@@ -716,7 +783,9 @@ pub fn PngEncoder::new_with_compression_strategy(
   strategy : PngCompressionStrategy,
 ) -> PngEncoder {
   PngEncoder::new_with_all_strategies(
-    strategy, PngFilterStrategy::None, PngInterlaceStrategy::None,
+    strategy,
+    PngFilterStrategy::None,
+    PngInterlaceStrategy::None,
   )
 }
 
@@ -729,10 +798,13 @@ pub fn PngEncoder::new_with_filter_strategy(
   filter_strategy : PngFilterStrategy,
 ) -> PngEncoder {
   PngEncoder::new_with_all_strategies(
-    PngCompressionStrategy::Stored, filter_strategy, PngInterlaceStrategy::None,
+    PngCompressionStrategy::Stored,
+    filter_strategy,
+    PngInterlaceStrategy::None,
   )
 }
 
+///|
 /// Constructs an encoder with explicit PNG compression and filter strategies.
 /// With `Adaptive`, method-0 candidates are evaluated in None, Sub, Up, Average,
 /// Paeth order and scored by signed-absolute residual magnitude; only a strictly
@@ -744,21 +816,27 @@ pub fn PngEncoder::new_with_strategies(
   filter_strategy : PngFilterStrategy,
 ) -> PngEncoder {
   PngEncoder::new_with_all_strategies(
-    strategy, filter_strategy, PngInterlaceStrategy::None,
+    strategy,
+    filter_strategy,
+    PngInterlaceStrategy::None,
   )
 }
 
-///| Constructs an encoder with explicit interlace selection and the frozen
+///|
+/// Constructs an encoder with explicit interlace selection and the frozen
 /// Stored/filter-None route.
 pub fn PngEncoder::new_with_interlace_strategy(
   interlace_strategy : PngInterlaceStrategy,
 ) -> PngEncoder {
   PngEncoder::new_with_all_strategies(
-    PngCompressionStrategy::Stored, PngFilterStrategy::None, interlace_strategy,
+    PngCompressionStrategy::Stored,
+    PngFilterStrategy::None,
+    interlace_strategy,
   )
 }
 
-///| Constructs an encoder with independently selected compression, filter, and
+///|
+/// Constructs an encoder with independently selected compression, filter, and
 /// interlace strategies. Adam7 is an explicit pending capability until its
 /// seven-pass encoder implementation is added.
 pub fn PngEncoder::new_with_all_strategies(
@@ -816,7 +894,8 @@ pub fn PngChunkPullResult::outcome(
   self.outcome_value
 }
 
-///| Legacy PNG declarations have no transform in this portable profile. Their
+///|
+/// Legacy PNG declarations have no transform in this portable profile. Their
 /// canonical raw PNG values are retained and the descriptor intentionally
 /// avoids the encoded-sRGB identity used by reference operations.
 fn _png_legacy_metadata(
@@ -829,35 +908,65 @@ fn _png_legacy_metadata(
   let entries : Array[(String, String, String, Bytes)] = []
   match gamma {
     Some(value) => {
-      for byte in value { profile_bytes.push(byte) }
+      for byte in value {
+        profile_bytes.push(byte)
+      }
       entries.push(("png", "legacy", "gamma", value))
     }
     None => ()
   }
   match chrm {
     Some(value) => {
-      for byte in value { profile_bytes.push(byte) }
+      for byte in value {
+        profile_bytes.push(byte)
+      }
       entries.push(("png", "legacy", "chromaticity", value))
     }
     None => ()
   }
-  let profile = match @profile.OpaqueProfile::from_bytes(
-    @profile.ProfileFormatTag::new("png-legacy").unwrap(), Bytes::from_array(profile_bytes),
-    @profile.ProfileLimits::new(36UL), budget,
-  ) { Err(error) => return Err(error); Ok(value) => value }
-  let retained = match @metadata.OpaqueMetadata::from_entries(
-    entries,
-    @metadata.MetadataLimits::new(max_entries=2UL, max_token_bytes=16UL, max_value_bytes=32UL, max_total_bytes=128UL, max_disposition_fields=2UL),
-    budget,
-  ) { Err(error) => return Err(error); Ok(value) => value }
-  Ok(@model.ImageMetadata::new(
-    @color.ColorSpaceIdentity::Srgb, @color.TransferIdentity::LinearSrgb,
-    if channels == 4UL { Some(@color.AlphaMode::Straight) } else { None },
-    @profile.ProfileIdentity::opaque(profile), @model.Orientation::TopLeft, retained,
-  ))
+  let profile = match
+    @profile.OpaqueProfile::from_bytes(
+      @profile.ProfileFormatTag::new("png-legacy").unwrap(),
+      Bytes::from_array(profile_bytes),
+      @profile.ProfileLimits::new(36UL),
+      budget,
+    ) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  let retained = match
+    @metadata.OpaqueMetadata::from_entries(
+      entries,
+      @metadata.MetadataLimits::new(
+        max_entries=2UL,
+        max_token_bytes=16UL,
+        max_value_bytes=32UL,
+        max_total_bytes=128UL,
+        max_disposition_fields=2UL,
+      ),
+      budget,
+    ) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  Ok(
+    @model.ImageMetadata::new(
+      @color.ColorSpaceIdentity::Srgb,
+      @color.TransferIdentity::LinearSrgb,
+      if channels == 4UL {
+        Some(@color.AlphaMode::Straight)
+      } else {
+        None
+      },
+      @profile.ProfileIdentity::opaque(profile),
+      @model.Orientation::TopLeft,
+      retained,
+    ),
+  )
 }
 
-///| iCCP profiles remain opaque. The profile bytes live in the bounded profile
+///|
+/// iCCP profiles remain opaque. The profile bytes live in the bounded profile
 /// identity while the validated PNG profile name remains canonical metadata.
 fn _png_iccp_metadata(
   channels : UInt64,
@@ -865,20 +974,45 @@ fn _png_iccp_metadata(
   bytes : Bytes,
   budget : @budget.Budget,
 ) -> Result[@model.ImageMetadata, @error.CoreError] {
-  let profile = match @profile.OpaqueProfile::from_bytes(
-    @profile.ProfileFormatTag::icc(), bytes,
-    @profile.ProfileLimits::new(65536UL), budget,
-  ) { Err(error) => return Err(error); Ok(value) => value }
-  let retained = match @metadata.OpaqueMetadata::from_entries(
-    [("png", "icc", "name", name)],
-    @metadata.MetadataLimits::new(max_entries=1UL, max_token_bytes=16UL, max_value_bytes=79UL, max_total_bytes=79UL, max_disposition_fields=1UL),
-    budget,
-  ) { Err(error) => return Err(error); Ok(value) => value }
-  Ok(@model.ImageMetadata::new(
-    @color.ColorSpaceIdentity::Srgb, @color.TransferIdentity::LinearSrgb,
-    if channels == 4UL { Some(@color.AlphaMode::Straight) } else { None },
-    @profile.ProfileIdentity::opaque(profile), @model.Orientation::TopLeft, retained,
-  ))
+  let profile = match
+    @profile.OpaqueProfile::from_bytes(
+      @profile.ProfileFormatTag::icc(),
+      bytes,
+      @profile.ProfileLimits::new(65536UL),
+      budget,
+    ) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  let retained = match
+    @metadata.OpaqueMetadata::from_entries(
+      [("png", "icc", "name", name)],
+      @metadata.MetadataLimits::new(
+        max_entries=1UL,
+        max_token_bytes=16UL,
+        max_value_bytes=79UL,
+        max_total_bytes=79UL,
+        max_disposition_fields=1UL,
+      ),
+      budget,
+    ) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  Ok(
+    @model.ImageMetadata::new(
+      @color.ColorSpaceIdentity::Srgb,
+      @color.TransferIdentity::LinearSrgb,
+      if channels == 4UL {
+        Some(@color.AlphaMode::Straight)
+      } else {
+        None
+      },
+      @profile.ProfileIdentity::opaque(profile),
+      @model.Orientation::TopLeft,
+      retained,
+    ),
+  )
 }
 
 ///|

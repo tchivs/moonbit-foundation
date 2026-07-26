@@ -5,7 +5,12 @@
 // absolute tolerance that accommodates IEEE-754 double precision.
 
 ///|
-fn blend_close(mode : BlendMode, cb : Double, cs : Double, expected : Double) -> Bool {
+fn blend_close(
+  mode : BlendMode,
+  cb : Double,
+  cs : Double,
+  expected : Double,
+) -> Bool {
   let actual = blend_separable(mode, cb, cs)
   let diff = if actual > expected {
     actual - expected
@@ -88,7 +93,10 @@ test "hard light blend follows W3C 5.3.8" {
 test "soft light blend follows W3C 5.3.9 PegTop definition" {
   inspect(blend_close(SoftLight, 0.5, 0.3, 0.4), content="true")
   let d = @math.pow(0.5, 0.5)
-  inspect(blend_close(SoftLight, 0.5, 0.7, 0.5 + 0.4 * (d - 0.5)), content="true")
+  inspect(
+    blend_close(SoftLight, 0.5, 0.7, 0.5 + 0.4 * (d - 0.5)),
+    content="true",
+  )
   inspect(blend_close(SoftLight, 0.2, 0.3, 0.136), content="true")
 }
 
@@ -110,7 +118,20 @@ test "exclusion blend follows W3C 5.3.11 B = Cb + Cs - 2*Cb*Cs" {
 
 ///|
 test "blend clamps out-of-range floating results to 0..1" {
-  for mode in [Multiply, Screen, Overlay, Darken, Lighten, ColorDodge, ColorBurn, HardLight, SoftLight, Difference, Exclusion] {
+  for
+    mode in [
+      Multiply,
+      Screen,
+      Overlay,
+      Darken,
+      Lighten,
+      ColorDodge,
+      ColorBurn,
+      HardLight,
+      SoftLight,
+      Difference,
+      Exclusion,
+    ] {
     for cb in [0.0, 0.25, 0.5, 0.75, 1.0] {
       for cs in [0.0, 0.25, 0.5, 0.75, 1.0] {
         let r = blend_separable(mode, cb, cs)

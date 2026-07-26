@@ -49,10 +49,13 @@ test "segment intersection at endpoints" {
 
 ///|
 test "line intersection computes infinite line crossing" {
-  match line_intersection(
-    Point2::new(0.0, 0.0), Vector2::new(1.0, 1.0),
-    Point2::new(0.0, 10.0), Vector2::new(1.0, -1.0),
-  ) {
+  match
+    line_intersection(
+      Point2::new(0.0, 0.0),
+      Vector2::new(1.0, 1.0),
+      Point2::new(0.0, 10.0),
+      Vector2::new(1.0, -1.0),
+    ) {
     Some(p) => {
       inspect(approx(p.x(), 5.0), content="true")
       inspect(approx(p.y(), 5.0), content="true")
@@ -63,10 +66,13 @@ test "line intersection computes infinite line crossing" {
 
 ///|
 test "line intersection returns None for parallel lines" {
-  match line_intersection(
-    Point2::new(0.0, 0.0), Vector2::new(1.0, 0.0),
-    Point2::new(0.0, 5.0), Vector2::new(1.0, 0.0),
-  ) {
+  match
+    line_intersection(
+      Point2::new(0.0, 0.0),
+      Vector2::new(1.0, 0.0),
+      Point2::new(0.0, 5.0),
+      Vector2::new(1.0, 0.0),
+    ) {
     Some(_) => inspect(false, content="true")
     None => inspect(true, content="true")
   }

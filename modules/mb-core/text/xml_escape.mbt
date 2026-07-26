@@ -131,7 +131,11 @@ fn decode_entity(entity : String) -> Char? {
       let inner = entity.substring(start=2, end=entity.length() - 1)
       if entity.length() > 3 && entity.code_units()[1].to_int() == 0x23 {
         // '#'
-        if inner.length() > 0 && (inner.code_units()[0].to_int() == 0x78 || inner.code_units()[0].to_int() == 0x58) {
+        if inner.length() > 0 &&
+          (
+            inner.code_units()[0].to_int() == 0x78 ||
+            inner.code_units()[0].to_int() == 0x58
+          ) {
           // 'x' or 'X' — hex
           let hex_str = inner.substring(start=1)
           match parse_hex_int(hex_str) {

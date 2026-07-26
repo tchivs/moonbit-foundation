@@ -249,9 +249,9 @@ test "GrayAlpha is a packed two-component straight-alpha descriptor" {
     2UL,
     1UL,
     @model.ImageFormat::graya8(),
-    [@model.PlaneDescriptor::new(
-      0UL, 4UL, 4UL, 4UL, 1UL, 1UL, 2UL, 1UL,
-    ).unwrap()],
+    [
+      @model.PlaneDescriptor::new(0UL, 4UL, 4UL, 4UL, 1UL, 1UL, 2UL, 1UL).unwrap(),
+    ],
     4UL,
     image_metadata(
       Some(@color.AlphaMode::Straight),
@@ -262,13 +262,25 @@ test "GrayAlpha is a packed two-component straight-alpha descriptor" {
     descriptor.format().channels() == @model.ChannelOrder::GrayAlpha,
     content="true",
   )
-  inspect(descriptor.format().component() == @model.ComponentType::U8, content="true")
-  inspect(descriptor.format().layout() == @model.PlaneLayout::Packed, content="true")
-  inspect(descriptor.format().endianness() == @model.Endianness::Little, content="true")
+  inspect(
+    descriptor.format().component() == @model.ComponentType::U8,
+    content="true",
+  )
+  inspect(
+    descriptor.format().layout() == @model.PlaneLayout::Packed,
+    content="true",
+  )
+  inspect(
+    descriptor.format().endianness() == @model.Endianness::Little,
+    content="true",
+  )
   inspect(descriptor.format().channel_count(), content="2")
   inspect(descriptor.plane_count(), content="1")
   inspect(descriptor.plane(0).unwrap().row_bytes(), content="4")
-  inspect(descriptor.metadata().alpha() == Some(@color.AlphaMode::Straight), content="true")
+  inspect(
+    descriptor.metadata().alpha() == Some(@color.AlphaMode::Straight),
+    content="true",
+  )
   inspect(descriptor.metadata().profile().is_builtin_srgb(), content="true")
   inspect(descriptor.supports_reference_operations(), content="false")
 }
@@ -279,29 +291,44 @@ test "GrayAlpha16 is a packed two-component straight-alpha descriptor" {
     1UL,
     1UL,
     @model.ImageFormat::graya16(),
-    [@model.PlaneDescriptor::new(
-      0UL, 4UL, 4UL, 4UL, 1UL, 1UL, 1UL, 1UL,
-    ).unwrap()],
+    [
+      @model.PlaneDescriptor::new(0UL, 4UL, 4UL, 4UL, 1UL, 1UL, 1UL, 1UL).unwrap(),
+    ],
     4UL,
     image_metadata(
       Some(@color.AlphaMode::Straight),
       @model.Orientation::TopLeft,
     ),
   ).unwrap()
-  inspect(descriptor.format().component() == @model.ComponentType::U16, content="true")
+  inspect(
+    descriptor.format().component() == @model.ComponentType::U16,
+    content="true",
+  )
   inspect(
     descriptor.format().channels() == @model.ChannelOrder::GrayAlpha,
     content="true",
   )
-  inspect(descriptor.format().layout() == @model.PlaneLayout::Packed, content="true")
-  inspect(descriptor.format().endianness() == @model.Endianness::Little, content="true")
+  inspect(
+    descriptor.format().layout() == @model.PlaneLayout::Packed,
+    content="true",
+  )
+  inspect(
+    descriptor.format().endianness() == @model.Endianness::Little,
+    content="true",
+  )
   inspect(descriptor.format().channel_count(), content="2")
   inspect(descriptor.format().bytes_per_component(), content="2")
   inspect(descriptor.plane_count(), content="1")
   inspect(descriptor.plane(0).unwrap().row_bytes(), content="4")
-  inspect(descriptor.metadata().alpha() == Some(@color.AlphaMode::Straight), content="true")
+  inspect(
+    descriptor.metadata().alpha() == Some(@color.AlphaMode::Straight),
+    content="true",
+  )
   inspect(descriptor.metadata().profile().is_builtin_srgb(), content="true")
-  inspect(descriptor.metadata().orientation() == @model.Orientation::TopLeft, content="true")
+  inspect(
+    descriptor.metadata().orientation() == @model.Orientation::TopLeft,
+    content="true",
+  )
   inspect(descriptor.supports_reference_operations(), content="false")
 }
 
@@ -311,34 +338,52 @@ test "rgba16 is a packed four-component straight-alpha descriptor" {
     1UL,
     1UL,
     @model.ImageFormat::rgba16(),
-    [@model.PlaneDescriptor::new(
-      0UL, 8UL, 8UL, 8UL, 1UL, 1UL, 1UL, 1UL,
-    ).unwrap()],
+    [
+      @model.PlaneDescriptor::new(0UL, 8UL, 8UL, 8UL, 1UL, 1UL, 1UL, 1UL).unwrap(),
+    ],
     8UL,
     image_metadata(
       Some(@color.AlphaMode::Straight),
       @model.Orientation::TopLeft,
     ),
   ).unwrap()
-  inspect(descriptor.format().component() == @model.ComponentType::U16, content="true")
-  inspect(descriptor.format().channels() == @model.ChannelOrder::Rgba, content="true")
-  inspect(descriptor.format().layout() == @model.PlaneLayout::Packed, content="true")
-  inspect(descriptor.format().endianness() == @model.Endianness::Little, content="true")
+  inspect(
+    descriptor.format().component() == @model.ComponentType::U16,
+    content="true",
+  )
+  inspect(
+    descriptor.format().channels() == @model.ChannelOrder::Rgba,
+    content="true",
+  )
+  inspect(
+    descriptor.format().layout() == @model.PlaneLayout::Packed,
+    content="true",
+  )
+  inspect(
+    descriptor.format().endianness() == @model.Endianness::Little,
+    content="true",
+  )
   inspect(descriptor.format().channel_count(), content="4")
   inspect(descriptor.format().bytes_per_component(), content="2")
   inspect(descriptor.plane_count(), content="1")
   inspect(descriptor.plane(0).unwrap().row_bytes(), content="8")
-  inspect(descriptor.metadata().alpha() == Some(@color.AlphaMode::Straight), content="true")
+  inspect(
+    descriptor.metadata().alpha() == Some(@color.AlphaMode::Straight),
+    content="true",
+  )
   inspect(descriptor.metadata().profile().is_builtin_srgb(), content="true")
-  inspect(descriptor.metadata().orientation() == @model.Orientation::TopLeft, content="true")
+  inspect(
+    descriptor.metadata().orientation() == @model.Orientation::TopLeft,
+    content="true",
+  )
   inspect(descriptor.supports_reference_operations(), content="false")
 }
 
 ///|
 test "rgba16 admission accepts only its documented identity" {
-  let rgba16_plane = [@model.PlaneDescriptor::new(
-    0UL, 8UL, 8UL, 8UL, 1UL, 1UL, 1UL, 1UL,
-  ).unwrap()]
+  let rgba16_plane = [
+    @model.PlaneDescriptor::new(0UL, 8UL, 8UL, 8UL, 1UL, 1UL, 1UL, 1UL).unwrap(),
+  ]
   let straight = image_metadata(
     Some(@color.AlphaMode::Straight),
     @model.Orientation::TopLeft,
@@ -388,51 +433,88 @@ test "rgba16 admission accepts only its documented identity" {
     Some(@color.AlphaMode::Straight),
     @model.Orientation::TopRight,
   )
-  inspect(@model.ImageDescriptor::new(
-    1UL,
-    1UL,
-    @model.ImageFormat::rgba16(),
-    rgba16_plane,
-    8UL,
-    straight,
-  ) is Ok(_), content="true")
-  inspect(rejects_invalid_rgba16(@model.ImageFormat::rgba16(), rgba16_plane, missing_alpha), content="true")
-  inspect(rejects_invalid_rgba16(@model.ImageFormat::rgba16(), rgba16_plane, premultiplied), content="true")
-  inspect(rejects_invalid_rgba16(
-    @model.ImageFormat::new(
-      @model.ComponentType::U16,
-      @model.ChannelOrder::Rgba,
-      @model.PlaneLayout::Planar,
-      @model.Endianness::Little,
-    ).unwrap(),
-    [
-      @model.PlaneDescriptor::new(0UL, 2UL, 2UL, 2UL, 1UL, 1UL, 1UL, 1UL).unwrap(),
-      @model.PlaneDescriptor::new(2UL, 2UL, 2UL, 2UL, 1UL, 1UL, 1UL, 1UL).unwrap(),
-      @model.PlaneDescriptor::new(4UL, 2UL, 2UL, 2UL, 1UL, 1UL, 1UL, 1UL).unwrap(),
-      @model.PlaneDescriptor::new(6UL, 2UL, 2UL, 2UL, 1UL, 1UL, 1UL, 1UL).unwrap(),
-    ],
-    straight,
-  ), content="true")
-  inspect(rejects_invalid_rgba16(
-    @model.ImageFormat::new(
-      @model.ComponentType::U16,
-      @model.ChannelOrder::Rgba,
-      @model.PlaneLayout::Packed,
-      @model.Endianness::Big,
-    ).unwrap(),
-    rgba16_plane,
-    straight,
-  ), content="true")
-  inspect(rejects_invalid_rgba16(@model.ImageFormat::rgba16(), rgba16_plane, linear), content="true")
-  inspect(rejects_invalid_rgba16(@model.ImageFormat::rgba16(), rgba16_plane, non_builtin), content="true")
-  inspect(rejects_invalid_rgba16(@model.ImageFormat::rgba16(), rgba16_plane, rotated), content="true")
+  inspect(
+    @model.ImageDescriptor::new(
+      1UL,
+      1UL,
+      @model.ImageFormat::rgba16(),
+      rgba16_plane,
+      8UL,
+      straight,
+    )
+    is Ok(_),
+    content="true",
+  )
+  inspect(
+    rejects_invalid_rgba16(
+      @model.ImageFormat::rgba16(),
+      rgba16_plane,
+      missing_alpha,
+    ),
+    content="true",
+  )
+  inspect(
+    rejects_invalid_rgba16(
+      @model.ImageFormat::rgba16(),
+      rgba16_plane,
+      premultiplied,
+    ),
+    content="true",
+  )
+  inspect(
+    rejects_invalid_rgba16(
+      @model.ImageFormat::new(
+        @model.ComponentType::U16,
+        @model.ChannelOrder::Rgba,
+        @model.PlaneLayout::Planar,
+        @model.Endianness::Little,
+      ).unwrap(),
+      [
+        @model.PlaneDescriptor::new(0UL, 2UL, 2UL, 2UL, 1UL, 1UL, 1UL, 1UL).unwrap(),
+        @model.PlaneDescriptor::new(2UL, 2UL, 2UL, 2UL, 1UL, 1UL, 1UL, 1UL).unwrap(),
+        @model.PlaneDescriptor::new(4UL, 2UL, 2UL, 2UL, 1UL, 1UL, 1UL, 1UL).unwrap(),
+        @model.PlaneDescriptor::new(6UL, 2UL, 2UL, 2UL, 1UL, 1UL, 1UL, 1UL).unwrap(),
+      ],
+      straight,
+    ),
+    content="true",
+  )
+  inspect(
+    rejects_invalid_rgba16(
+      @model.ImageFormat::new(
+        @model.ComponentType::U16,
+        @model.ChannelOrder::Rgba,
+        @model.PlaneLayout::Packed,
+        @model.Endianness::Big,
+      ).unwrap(),
+      rgba16_plane,
+      straight,
+    ),
+    content="true",
+  )
+  inspect(
+    rejects_invalid_rgba16(@model.ImageFormat::rgba16(), rgba16_plane, linear),
+    content="true",
+  )
+  inspect(
+    rejects_invalid_rgba16(
+      @model.ImageFormat::rgba16(),
+      rgba16_plane,
+      non_builtin,
+    ),
+    content="true",
+  )
+  inspect(
+    rejects_invalid_rgba16(@model.ImageFormat::rgba16(), rgba16_plane, rotated),
+    content="true",
+  )
 }
 
 ///|
 test "GrayAlpha admission accepts canonical identities and rejects unsupported identity" {
-  let packed = [@model.PlaneDescriptor::new(
-    0UL, 2UL, 2UL, 2UL, 1UL, 1UL, 1UL, 1UL,
-  ).unwrap()]
+  let packed = [
+    @model.PlaneDescriptor::new(0UL, 2UL, 2UL, 2UL, 1UL, 1UL, 1UL, 1UL).unwrap(),
+  ]
   let straight = image_metadata(
     Some(@color.AlphaMode::Straight),
     @model.Orientation::TopLeft,
@@ -482,86 +564,146 @@ test "GrayAlpha admission accepts canonical identities and rejects unsupported i
     Some(@color.AlphaMode::Straight),
     @model.Orientation::TopRight,
   )
-  let graya16_plane = [@model.PlaneDescriptor::new(
-    0UL, 4UL, 4UL, 4UL, 1UL, 1UL, 1UL, 1UL,
-  ).unwrap()]
-  inspect(rejects_invalid_graya(@model.ImageFormat::graya8(), packed, missing_alpha), content="true")
-  inspect(rejects_invalid_graya(@model.ImageFormat::graya8(), packed, premultiplied), content="true")
-  inspect(@model.ImageDescriptor::new(
-    1UL,
-    1UL,
-    @model.ImageFormat::graya16(),
-    [@model.PlaneDescriptor::new(
-      0UL, 4UL, 4UL, 4UL, 1UL, 1UL, 1UL, 1UL,
-    ).unwrap()],
-    4UL,
-    straight,
-  ) is Ok(_), content="true")
-  inspect(rejects_invalid_graya(@model.ImageFormat::graya16(), graya16_plane, missing_alpha), content="true")
-  inspect(rejects_invalid_graya(@model.ImageFormat::graya16(), graya16_plane, premultiplied), content="true")
-  inspect(rejects_invalid_graya(
-    @model.ImageFormat::new(
-      @model.ComponentType::F32,
-      @model.ChannelOrder::GrayAlpha,
-      @model.PlaneLayout::Packed,
-      @model.Endianness::Little,
-    ).unwrap(),
-    graya16_plane,
-    straight,
-  ), content="true")
-  inspect(rejects_invalid_graya(
-    @model.ImageFormat::new(
-      @model.ComponentType::U16,
-      @model.ChannelOrder::GrayAlpha,
-      @model.PlaneLayout::Planar,
-      @model.Endianness::Little,
-    ).unwrap(),
-    [
-      @model.PlaneDescriptor::new(0UL, 2UL, 2UL, 2UL, 1UL, 1UL, 1UL, 1UL).unwrap(),
-      @model.PlaneDescriptor::new(2UL, 2UL, 2UL, 2UL, 1UL, 1UL, 1UL, 1UL).unwrap(),
-    ],
-    straight,
-  ), content="true")
-  inspect(rejects_invalid_graya(
-    @model.ImageFormat::new(
-      @model.ComponentType::U16,
-      @model.ChannelOrder::GrayAlpha,
-      @model.PlaneLayout::Packed,
-      @model.Endianness::Big,
-    ).unwrap(),
-    graya16_plane,
-    straight,
-  ), content="true")
-  inspect(rejects_invalid_graya(
-    @model.ImageFormat::new(
-      @model.ComponentType::U8,
-      @model.ChannelOrder::GrayAlpha,
-      @model.PlaneLayout::Planar,
-      @model.Endianness::Little,
-    ).unwrap(),
-    [
-      @model.PlaneDescriptor::new(0UL, 1UL, 1UL, 1UL, 1UL, 1UL, 1UL, 1UL).unwrap(),
-      @model.PlaneDescriptor::new(1UL, 1UL, 1UL, 1UL, 1UL, 1UL, 1UL, 1UL).unwrap(),
-    ],
-    straight,
-  ), content="true")
-  inspect(rejects_invalid_graya(@model.ImageFormat::graya8(), packed, linear), content="true")
-  inspect(rejects_invalid_graya(@model.ImageFormat::graya8(), packed, non_builtin), content="true")
-  inspect(rejects_invalid_graya(@model.ImageFormat::graya8(), packed, rotated), content="true")
-  inspect(rejects_invalid_graya(@model.ImageFormat::graya16(), graya16_plane, linear), content="true")
-  inspect(rejects_invalid_graya(@model.ImageFormat::graya16(), graya16_plane, non_builtin), content="true")
-  inspect(rejects_invalid_graya(@model.ImageFormat::graya16(), graya16_plane, rotated), content="true")
-  match @model.ImageDescriptor::new(
-    1UL,
-    1UL,
-    @model.ImageFormat::graya16(),
-    [@model.PlaneDescriptor::new(
-      0UL, 3UL, 3UL, 3UL, 1UL, 1UL, 1UL, 1UL,
-    ).unwrap()],
-    4UL,
-    straight,
-  ) {
-    Err(error) => inspect(error.code() == @error.ErrorCode::InvalidRange, content="true")
+  let graya16_plane = [
+    @model.PlaneDescriptor::new(0UL, 4UL, 4UL, 4UL, 1UL, 1UL, 1UL, 1UL).unwrap(),
+  ]
+  inspect(
+    rejects_invalid_graya(@model.ImageFormat::graya8(), packed, missing_alpha),
+    content="true",
+  )
+  inspect(
+    rejects_invalid_graya(@model.ImageFormat::graya8(), packed, premultiplied),
+    content="true",
+  )
+  inspect(
+    @model.ImageDescriptor::new(
+      1UL,
+      1UL,
+      @model.ImageFormat::graya16(),
+      [
+        @model.PlaneDescriptor::new(0UL, 4UL, 4UL, 4UL, 1UL, 1UL, 1UL, 1UL).unwrap(),
+      ],
+      4UL,
+      straight,
+    )
+    is Ok(_),
+    content="true",
+  )
+  inspect(
+    rejects_invalid_graya(
+      @model.ImageFormat::graya16(),
+      graya16_plane,
+      missing_alpha,
+    ),
+    content="true",
+  )
+  inspect(
+    rejects_invalid_graya(
+      @model.ImageFormat::graya16(),
+      graya16_plane,
+      premultiplied,
+    ),
+    content="true",
+  )
+  inspect(
+    rejects_invalid_graya(
+      @model.ImageFormat::new(
+        @model.ComponentType::F32,
+        @model.ChannelOrder::GrayAlpha,
+        @model.PlaneLayout::Packed,
+        @model.Endianness::Little,
+      ).unwrap(),
+      graya16_plane,
+      straight,
+    ),
+    content="true",
+  )
+  inspect(
+    rejects_invalid_graya(
+      @model.ImageFormat::new(
+        @model.ComponentType::U16,
+        @model.ChannelOrder::GrayAlpha,
+        @model.PlaneLayout::Planar,
+        @model.Endianness::Little,
+      ).unwrap(),
+      [
+        @model.PlaneDescriptor::new(0UL, 2UL, 2UL, 2UL, 1UL, 1UL, 1UL, 1UL).unwrap(),
+        @model.PlaneDescriptor::new(2UL, 2UL, 2UL, 2UL, 1UL, 1UL, 1UL, 1UL).unwrap(),
+      ],
+      straight,
+    ),
+    content="true",
+  )
+  inspect(
+    rejects_invalid_graya(
+      @model.ImageFormat::new(
+        @model.ComponentType::U16,
+        @model.ChannelOrder::GrayAlpha,
+        @model.PlaneLayout::Packed,
+        @model.Endianness::Big,
+      ).unwrap(),
+      graya16_plane,
+      straight,
+    ),
+    content="true",
+  )
+  inspect(
+    rejects_invalid_graya(
+      @model.ImageFormat::new(
+        @model.ComponentType::U8,
+        @model.ChannelOrder::GrayAlpha,
+        @model.PlaneLayout::Planar,
+        @model.Endianness::Little,
+      ).unwrap(),
+      [
+        @model.PlaneDescriptor::new(0UL, 1UL, 1UL, 1UL, 1UL, 1UL, 1UL, 1UL).unwrap(),
+        @model.PlaneDescriptor::new(1UL, 1UL, 1UL, 1UL, 1UL, 1UL, 1UL, 1UL).unwrap(),
+      ],
+      straight,
+    ),
+    content="true",
+  )
+  inspect(
+    rejects_invalid_graya(@model.ImageFormat::graya8(), packed, linear),
+    content="true",
+  )
+  inspect(
+    rejects_invalid_graya(@model.ImageFormat::graya8(), packed, non_builtin),
+    content="true",
+  )
+  inspect(
+    rejects_invalid_graya(@model.ImageFormat::graya8(), packed, rotated),
+    content="true",
+  )
+  inspect(
+    rejects_invalid_graya(@model.ImageFormat::graya16(), graya16_plane, linear),
+    content="true",
+  )
+  inspect(
+    rejects_invalid_graya(
+      @model.ImageFormat::graya16(),
+      graya16_plane,
+      non_builtin,
+    ),
+    content="true",
+  )
+  inspect(
+    rejects_invalid_graya(@model.ImageFormat::graya16(), graya16_plane, rotated),
+    content="true",
+  )
+  match
+    @model.ImageDescriptor::new(
+      1UL,
+      1UL,
+      @model.ImageFormat::graya16(),
+      [
+        @model.PlaneDescriptor::new(0UL, 3UL, 3UL, 3UL, 1UL, 1UL, 1UL, 1UL).unwrap(),
+      ],
+      4UL,
+      straight,
+    ) {
+    Err(error) =>
+      inspect(error.code() == @error.ErrorCode::InvalidRange, content="true")
     Ok(_) => inspect(false, content="true")
   }
 }

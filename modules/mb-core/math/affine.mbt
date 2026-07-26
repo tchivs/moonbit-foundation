@@ -198,7 +198,14 @@ pub struct Affine2 {
 ///|
 /// The identity transform (no change).
 pub fn Affine2::identity() -> Affine2 {
-  { a_value: 1.0, b_value: 0.0, c_value: 0.0, d_value: 1.0, tx_value: 0.0, ty_value: 0.0 }
+  {
+    a_value: 1.0,
+    b_value: 0.0,
+    c_value: 0.0,
+    d_value: 1.0,
+    tx_value: 0.0,
+    ty_value: 0.0,
+  }
 }
 
 ///|
@@ -217,13 +224,27 @@ pub fn Affine2::new(
 ///|
 /// A translation by (tx, ty).
 pub fn Affine2::translate(tx : Double, ty : Double) -> Affine2 {
-  { a_value: 1.0, b_value: 0.0, c_value: 0.0, d_value: 1.0, tx_value: tx, ty_value: ty }
+  {
+    a_value: 1.0,
+    b_value: 0.0,
+    c_value: 0.0,
+    d_value: 1.0,
+    tx_value: tx,
+    ty_value: ty,
+  }
 }
 
 ///|
 /// A uniform + non-uniform scale by (sx, sy).
 pub fn Affine2::scale(sx : Double, sy : Double) -> Affine2 {
-  { a_value: sx, b_value: 0.0, c_value: 0.0, d_value: sy, tx_value: 0.0, ty_value: 0.0 }
+  {
+    a_value: sx,
+    b_value: 0.0,
+    c_value: 0.0,
+    d_value: sy,
+    tx_value: 0.0,
+    ty_value: 0.0,
+  }
 }
 
 ///|
@@ -235,13 +256,27 @@ pub fn Affine2::scale(sx : Double, sy : Double) -> Affine2 {
 pub fn Affine2::rotate(radians : Double) -> Affine2 {
   let cos_r = @stdlib_math.cos(radians)
   let sin_r = @stdlib_math.sin(radians)
-  { a_value: cos_r, b_value: sin_r, c_value: -sin_r, d_value: cos_r, tx_value: 0.0, ty_value: 0.0 }
+  {
+    a_value: cos_r,
+    b_value: sin_r,
+    c_value: -sin_r,
+    d_value: cos_r,
+    tx_value: 0.0,
+    ty_value: 0.0,
+  }
 }
 
 ///|
 /// A shear (skew) by (shx, shy).
 pub fn Affine2::skew(shx : Double, shy : Double) -> Affine2 {
-  { a_value: 1.0, b_value: shy, c_value: shx, d_value: 1.0, tx_value: 0.0, ty_value: 0.0 }
+  {
+    a_value: 1.0,
+    b_value: shy,
+    c_value: shx,
+    d_value: 1.0,
+    tx_value: 0.0,
+    ty_value: 0.0,
+  }
 }
 
 ///|
@@ -266,8 +301,12 @@ pub fn Affine2::compose(self : Affine2, other : Affine2) -> Affine2 {
   let b = other.b_value * self.a_value + other.d_value * self.b_value
   let c = other.a_value * self.c_value + other.c_value * self.d_value
   let d = other.b_value * self.c_value + other.d_value * self.d_value
-  let tx = other.a_value * self.tx_value + other.c_value * self.ty_value + other.tx_value
-  let ty = other.b_value * self.tx_value + other.d_value * self.ty_value + other.ty_value
+  let tx = other.a_value * self.tx_value +
+    other.c_value * self.ty_value +
+    other.tx_value
+  let ty = other.b_value * self.tx_value +
+    other.d_value * self.ty_value +
+    other.ty_value
   Affine2::new(a, b, c, d, tx, ty)
 }
 

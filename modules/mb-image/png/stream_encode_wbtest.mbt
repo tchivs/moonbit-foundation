@@ -190,50 +190,85 @@ fn png_stream_wb_drain(machine : PngEncodeMachine) -> Bytes {
   Bytes::from_array(bytes)
 }
 
-///| A 5x5 row-major RGB8/RGBA8 source forces all seven Adam7 passes to emit,
+///|
+/// A 5x5 row-major RGB8/RGBA8 source forces all seven Adam7 passes to emit,
 /// so a DEFLATE preview exercises a real multi-pass cursor successor.
 fn png_stream_wb_adam7_image(channels : UInt64) -> @storage.OwnedImage {
   let descriptor = @model.ImageDescriptor::new(
-    5UL, 5UL,
-    if channels == 3UL { @model.ImageFormat::rgb8() } else { @model.ImageFormat::rgba8() },
-    [@model.PlaneDescriptor::new(
-      0UL, channels * 25UL, channels * 5UL, channels * 5UL,
-      1UL, 1UL, 5UL, 5UL,
-    ).unwrap()],
+    5UL,
+    5UL,
+    if channels == 3UL {
+      @model.ImageFormat::rgb8()
+    } else {
+      @model.ImageFormat::rgba8()
+    },
+    [
+      @model.PlaneDescriptor::new(
+        0UL,
+        channels * 25UL,
+        channels * 5UL,
+        channels * 5UL,
+        1UL,
+        1UL,
+        5UL,
+        5UL,
+      ).unwrap(),
+    ],
     channels * 25UL,
     @model.ImageMetadata::new(
       @color.ColorSpaceIdentity::Srgb,
       @color.TransferIdentity::EncodedSrgb,
-      if channels == 4UL { Some(@color.AlphaMode::Straight) } else { None },
+      if channels == 4UL {
+        Some(@color.AlphaMode::Straight)
+      } else {
+        None
+      },
       @profile.ProfileIdentity::builtin_srgb(),
       @model.Orientation::TopLeft,
       @metadata.OpaqueMetadata::from_entries(
         [],
         @metadata.MetadataLimits::new(
-          max_entries=0UL, max_token_bytes=1UL, max_value_bytes=0UL,
-          max_total_bytes=0UL, max_disposition_fields=4UL,
-        ), png_stream_wb_budget(work=0UL),
+          max_entries=0UL,
+          max_token_bytes=1UL,
+          max_value_bytes=0UL,
+          max_total_bytes=0UL,
+          max_disposition_fields=4UL,
+        ),
+        png_stream_wb_budget(work=0UL),
       ).unwrap(),
     ),
   ).unwrap()
   let image = @storage.OwnedImage::new(
-    descriptor, png_stream_wb_budget(work=0UL),
+    descriptor,
+    png_stream_wb_budget(work=0UL),
   ).unwrap()
-  image.with_mut_view(fn(view) {
+  image
+  .with_mut_view(fn(view) {
     for y = 0UL; y < 5UL; y = y + 1UL {
       for x = 0UL; x < 5UL; x = x + 1UL {
         for channel = 0UL; channel < channels; channel = channel + 1UL {
-          view.set_byte(x, y, channel, (y * channels * 5UL + x * channels + channel).to_byte()).unwrap()
+          view
+          .set_byte(
+            x,
+            y,
+            channel,
+            (y * channels * 5UL + x * channels + channel).to_byte(),
+          )
+          .unwrap()
         }
       }
     }
     Ok(())
-  }).unwrap()
+  })
+  .unwrap()
   image
 }
 
 ///|
-fn png_stream_wb_append(machine : PngEncodeMachine, bytes : Array[Byte]) -> Unit {
+fn png_stream_wb_append(
+  machine : PngEncodeMachine,
+  bytes : Array[Byte],
+) -> Unit {
   while machine.present().unwrap() is Some(_) {
     let byte = machine.present().unwrap().unwrap()
     bytes.push(byte)
@@ -241,19 +276,25 @@ fn png_stream_wb_append(machine : PngEncodeMachine, bytes : Array[Byte]) -> Unit
   }
 }
 
-///| `present` may cache a DEFLATE byte, but it must not commit the real Adam7
+///|
+/// `present` may cache a DEFLATE byte, but it must not commit the real Adam7
 /// cursor, CRC, or Adler successor until the caller acknowledges that byte.
 test "PNG Adam7 multi-pass preview waits for acknowledgement" {
   for channels in [3UL, 4UL] {
     let image = png_stream_wb_adam7_image(channels)
-    for strategy in [
-      PngCompressionStrategy::Stored,
-      PngCompressionStrategy::FixedOrStored,
-      PngCompressionStrategy::DynamicOrFixedOrStored,
-    ] {
+    for
+      strategy in [
+        PngCompressionStrategy::Stored,
+        PngCompressionStrategy::FixedOrStored,
+        PngCompressionStrategy::DynamicOrFixedOrStored,
+      ] {
       let delayed = PngEncodeMachine::new_with_all_strategies(
-        image.view(), strategy, PngFilterStrategy::None, PngInterlaceStrategy::Adam7,
-        png_stream_wb_limits(), png_stream_wb_budget(work=1048576UL),
+        image.view(),
+        strategy,
+        PngFilterStrategy::None,
+        PngInterlaceStrategy::Adam7,
+        png_stream_wb_limits(),
+        png_stream_wb_budget(work=1048576UL),
         @error.Diagnostics::new(),
       ).unwrap()
       let delayed_bytes : Array[Byte] = []
@@ -268,7 +309,8 @@ test "PNG Adam7 multi-pass preview waits for acknowledgement" {
       let adler = delayed.adler
       for _ in [0, 1, 2] {
         if delayed.present().unwrap() != Some(preview) ||
-          delayed.completed() != completed || delayed.idat_crc != idat_crc ||
+          delayed.completed() != completed ||
+          delayed.idat_crc != idat_crc ||
           delayed.adler != adler {
           abort("png adam7 preview advanced before acknowledgement")
         }
@@ -278,8 +320,12 @@ test "PNG Adam7 multi-pass preview waits for acknowledgement" {
       png_stream_wb_append(delayed, delayed_bytes)
 
       let immediate = PngEncodeMachine::new_with_all_strategies(
-        image.view(), strategy, PngFilterStrategy::None, PngInterlaceStrategy::Adam7,
-        png_stream_wb_limits(), png_stream_wb_budget(work=1048576UL),
+        image.view(),
+        strategy,
+        PngFilterStrategy::None,
+        PngInterlaceStrategy::Adam7,
+        png_stream_wb_limits(),
+        png_stream_wb_budget(work=1048576UL),
         @error.Diagnostics::new(),
       ).unwrap()
       let immediate_bytes : Array[Byte] = []
@@ -401,7 +447,10 @@ test "PNG adaptive planner cursor replays selected RGB and RGBA rows" {
 test "PNG adaptive planner cursor keeps row selection pending until acknowledgement" {
   let image = png_wb_adaptive_rgb_image()
   let cursor = PngFilteredCursor::new(
-    image.view(), 6UL, 3UL, PngFilterStrategy::Adaptive,
+    image.view(),
+    6UL,
+    3UL,
+    PngFilterStrategy::Adaptive,
   )
   let (first, preview) = cursor.next().unwrap()
   inspect(first == b'\x01', content="true")
@@ -417,9 +466,13 @@ test "PNG adaptive planner cursor keeps row selection pending until acknowledgem
 }
 
 ///|
+
 ///| The matcher probe must use the same one-row-at-a-time source that later
+
 ///| becomes the acknowledged replay successor; a Fixed preflight therefore has
-///| Stored and Fixed planning traversals before its one replay traversal.
+
+///|
+/// Stored and Fixed planning traversals before its one replay traversal.
 test "PNG adaptive match cursor keeps Fixed preview accounting bounded" {
   let image = png_wb_adaptive_rgb_image()
   let facts = _png_encode_preflight_with_filter(
@@ -564,43 +617,72 @@ test "PNG fixed-or-stored preview is stable until acknowledgement at the fixed h
   inspect(machine.completed(), content="44")
 }
 
-///| Phase 89: the Adam7 Indexed1/2/4/8 chunk selectors all land in the same
+///|
+/// Phase 89: the Adam7 Indexed1/2/4/8 chunk selectors all land in the same
 /// acknowledged machine and preview bytes remain stable until accepted.
 test "PNG indexed Adam7 FixedOrStored chunk uses shared acknowledged machine" {
-  for profile in [
-    PngIndexedWireProfile::One, PngIndexedWireProfile::Two,
-    PngIndexedWireProfile::Four, PngIndexedWireProfile::Eight,
-  ] {
+  for
+    profile in [
+      PngIndexedWireProfile::One,
+      PngIndexedWireProfile::Two,
+      PngIndexedWireProfile::Four,
+      PngIndexedWireProfile::Eight,
+    ] {
     let source = PngIndexedImage::new(
-      5UL, 5UL,
+      5UL,
+      5UL,
       b"\x00\x01\x01\x00\x01\x01\x00\x00\x01\x00\x01\x01\x00\x01\x00\x01\x00\x01\x01\x00\x01\x00\x01\x01\x00",
-      b"\x12\x34\x56\xa0\xb0\xc0", b"\x00\x80",
+      b"\x12\x34\x56\xa0\xb0\xc0",
+      b"\x00\x80",
       png_stream_wb_budget(work=0UL),
     ).unwrap()
     let encoder = match profile {
-      PngIndexedWireProfile::One => PngChunkEncoder::new_indexed_with_interlace_and_compression_strategy(
-        source, PngIndexedBitDepth::One, PngInterlaceStrategy::Adam7,
-        PngCompressionStrategy::FixedOrStored, png_stream_wb_limits(),
-        png_stream_wb_budget(), @error.Diagnostics::new(),
-      ).unwrap()
-      PngIndexedWireProfile::Two => PngChunkEncoder::new_indexed_with_interlace_and_compression_strategy(
-        source, PngIndexedBitDepth::Two, PngInterlaceStrategy::Adam7,
-        PngCompressionStrategy::FixedOrStored, png_stream_wb_limits(),
-        png_stream_wb_budget(), @error.Diagnostics::new(),
-      ).unwrap()
-      PngIndexedWireProfile::Four => PngChunkEncoder::new_indexed_with_interlace_and_compression_strategy(
-        source, PngIndexedBitDepth::Four, PngInterlaceStrategy::Adam7,
-        PngCompressionStrategy::FixedOrStored, png_stream_wb_limits(),
-        png_stream_wb_budget(), @error.Diagnostics::new(),
-      ).unwrap()
-      PngIndexedWireProfile::Eight => PngChunkEncoder::new_indexed8_with_interlace_and_compression_strategy(
-        source, PngInterlaceStrategy::Adam7, PngCompressionStrategy::FixedOrStored,
-        png_stream_wb_limits(), png_stream_wb_budget(), @error.Diagnostics::new(),
-      ).unwrap()
+      PngIndexedWireProfile::One =>
+        PngChunkEncoder::new_indexed_with_interlace_and_compression_strategy(
+          source,
+          PngIndexedBitDepth::One,
+          PngInterlaceStrategy::Adam7,
+          PngCompressionStrategy::FixedOrStored,
+          png_stream_wb_limits(),
+          png_stream_wb_budget(),
+          @error.Diagnostics::new(),
+        ).unwrap()
+      PngIndexedWireProfile::Two =>
+        PngChunkEncoder::new_indexed_with_interlace_and_compression_strategy(
+          source,
+          PngIndexedBitDepth::Two,
+          PngInterlaceStrategy::Adam7,
+          PngCompressionStrategy::FixedOrStored,
+          png_stream_wb_limits(),
+          png_stream_wb_budget(),
+          @error.Diagnostics::new(),
+        ).unwrap()
+      PngIndexedWireProfile::Four =>
+        PngChunkEncoder::new_indexed_with_interlace_and_compression_strategy(
+          source,
+          PngIndexedBitDepth::Four,
+          PngInterlaceStrategy::Adam7,
+          PngCompressionStrategy::FixedOrStored,
+          png_stream_wb_limits(),
+          png_stream_wb_budget(),
+          @error.Diagnostics::new(),
+        ).unwrap()
+      PngIndexedWireProfile::Eight =>
+        PngChunkEncoder::new_indexed8_with_interlace_and_compression_strategy(
+          source,
+          PngInterlaceStrategy::Adam7,
+          PngCompressionStrategy::FixedOrStored,
+          png_stream_wb_limits(),
+          png_stream_wb_budget(),
+          @error.Diagnostics::new(),
+        ).unwrap()
     }
     match encoder.state {
       PngChunkEncoderState::Active(machine) => {
-        inspect(machine.interlace_strategy == PngInterlaceStrategy::Adam7, content="true")
+        inspect(
+          machine.interlace_strategy == PngInterlaceStrategy::Adam7,
+          content="true",
+        )
         inspect(machine.indexed_source is Some(_), content="true")
         let first = machine.present().unwrap().unwrap()
         inspect(machine.present().unwrap() == Some(first), content="true")
@@ -747,22 +829,31 @@ test "PNG fixed-or-stored white-box replay mismatch is sticky" {
   inspect(machine.completed(), content="57")
 }
 
-///| A compact immutable indexed source reaches the same Fixed producer through
+///|
+/// A compact immutable indexed source reaches the same Fixed producer through
 /// the private indexed seam. The work ledger is deliberately perturbed before
 /// EOB so replay fails closed and caches the typed zero-progress error.
 fn png_stream_wb_indexed_source() -> PngIndexedImage {
   PngIndexedImage::new(
-    256UL, 1UL, Bytes::from_array(Array::make(256, b'\x00')),
+    256UL,
+    1UL,
+    Bytes::from_array(Array::make(256, b'\x00')),
     b"\x00\x10\x20\x20\x30\x40\x40\x50\x60\x60\x70\x80",
-    b"\x00\xff\xff\xff", png_stream_wb_budget(),
+    b"\x00\xff\xff\xff",
+    png_stream_wb_budget(),
   ).unwrap()
 }
 
+///|
 test "PNG indexed fixed replay work fingerprint drift is sticky" {
   let machine = PngEncodeMachine::new_with_indexed_profile_and_strategy(
-    png_stream_wb_indexed_source(), _png_indexed_wire_profile(PngIndexedBitDepth::Two),
-    PngInterlaceStrategy::None, PngCompressionStrategy::FixedOrStored,
-    png_stream_wb_limits(), png_stream_wb_budget(work=4096UL), @error.Diagnostics::new(),
+    png_stream_wb_indexed_source(),
+    _png_indexed_wire_profile(PngIndexedBitDepth::Two),
+    PngInterlaceStrategy::None,
+    PngCompressionStrategy::FixedOrStored,
+    png_stream_wb_limits(),
+    png_stream_wb_budget(work=4096UL),
+    @error.Diagnostics::new(),
   ).unwrap()
   inspect(machine.plan is PngDeflatePlan::Fixed(_), content="true")
   let target = machine.row_bytes * machine.scanlines + machine.scanlines
@@ -776,12 +867,11 @@ test "PNG indexed fixed replay work fingerprint drift is sticky" {
     match machine.present() {
       Err(_) => stop_reason = 1
       Ok(None) => stop_reason = 2
-      Ok(Some(byte)) => {
+      Ok(Some(byte)) =>
         match machine.acknowledge(byte) {
           Err(_) => stop_reason = 3
           Ok(_) => steps = steps + 1UL
         }
-      }
     }
   }
   inspect(steps, content="50")
@@ -807,10 +897,89 @@ test "PNG indexed fixed replay work fingerprint drift is sticky" {
   }
   let before = machine.completed()
   inspect(first.category() == @error.ErrorCategory::State, content="true")
-  inspect(first.context() == Some("png-encode-fixed-replay-work"), content="true")
+  inspect(
+    first.context() == Some("png-encode-fixed-replay-work"),
+    content="true",
+  )
   inspect(machine.completed() == before, content="true")
   inspect(machine.pending == None, content="true")
   let replay = machine.present().unwrap_err()
   inspect(png_stream_wb_same_error(first, replay), content="true")
   inspect(machine.completed() == before, content="true")
+}
+
+///|
+fn PngEncodeMachine::new(
+  source : @storage.ImageView,
+  limits : @codec.CodecLimits,
+  budget : @budget.Budget,
+  _diagnostics : @error.Diagnostics,
+) -> Result[PngEncodeMachine, @error.CoreError] {
+  PngEncodeMachine::new_with_all_strategies(
+    source,
+    PngCompressionStrategy::Stored,
+    PngFilterStrategy::None,
+    PngInterlaceStrategy::None,
+    limits,
+    budget,
+    _diagnostics,
+  )
+}
+
+///|
+fn PngEncodeMachine::new_with_compression_strategy(
+  source : @storage.ImageView,
+  strategy : PngCompressionStrategy,
+  limits : @codec.CodecLimits,
+  budget : @budget.Budget,
+  _diagnostics : @error.Diagnostics,
+) -> Result[PngEncodeMachine, @error.CoreError] {
+  PngEncodeMachine::new_with_all_strategies(
+    source,
+    strategy,
+    PngFilterStrategy::None,
+    PngInterlaceStrategy::None,
+    limits,
+    budget,
+    _diagnostics,
+  )
+}
+
+///|
+fn PngEncodeMachine::new_with_strategies(
+  source : @storage.ImageView,
+  strategy : PngCompressionStrategy,
+  filter_strategy : PngFilterStrategy,
+  limits : @codec.CodecLimits,
+  budget : @budget.Budget,
+  _diagnostics : @error.Diagnostics,
+) -> Result[PngEncodeMachine, @error.CoreError] {
+  PngEncodeMachine::new_with_all_strategies(
+    source,
+    strategy,
+    filter_strategy,
+    PngInterlaceStrategy::None,
+    limits,
+    budget,
+    _diagnostics,
+  )
+}
+
+///|
+/// Fixed-Eight compatibility wrapper retained for Indexed8 eager, chunk, and
+/// white-box callers.
+fn PngEncodeMachine::new_with_indexed(
+  source : PngIndexedImage,
+  limits : @codec.CodecLimits,
+  budget : @budget.Budget,
+  diagnostics : @error.Diagnostics,
+) -> Result[PngEncodeMachine, @error.CoreError] {
+  PngEncodeMachine::new_with_indexed_profile(
+    source,
+    PngIndexedWireProfile::Eight,
+    PngInterlaceStrategy::None,
+    limits,
+    budget,
+    diagnostics,
+  )
 }

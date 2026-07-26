@@ -478,7 +478,8 @@ fn validate_alpha_identity(
 ) -> Result[Unit, @error.CoreError] {
   let valid = match format.channels() {
     ChannelOrder::Rgba => metadata.alpha() is Some(_)
-    ChannelOrder::GrayAlpha => metadata.alpha() is Some(@color.AlphaMode::Straight)
+    ChannelOrder::GrayAlpha =>
+      metadata.alpha() is Some(@color.AlphaMode::Straight)
     _ => metadata.alpha() is None
   }
   if valid {
@@ -503,8 +504,10 @@ fn validate_gray_alpha_identity(
   if format.channels() != ChannelOrder::GrayAlpha {
     return Ok(())
   }
-  let valid = (format.component() == ComponentType::U8 ||
-    format.component() == ComponentType::U16) &&
+  let valid = (
+      format.component() == ComponentType::U8 ||
+      format.component() == ComponentType::U16
+    ) &&
     format.layout() == PlaneLayout::Packed &&
     format.endianness() == Endianness::Little &&
     metadata.space() == @color.ColorSpaceIdentity::Srgb &&

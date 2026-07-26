@@ -19,7 +19,12 @@ fn lum(r : Double, g : Double, b : Double) -> Double {
 
 ///|
 /// Set the luminance of a color to a target value, clipping to [0, 1].
-fn set_lum(r : Double, g : Double, b : Double, target : Double) -> (Double, Double, Double) {
+fn set_lum(
+  r : Double,
+  g : Double,
+  b : Double,
+  target : Double,
+) -> (Double, Double, Double) {
   let l = lum(r, g, b)
   let d = target - l
   let nr = r + d
@@ -64,7 +69,12 @@ fn sat(r : Double, g : Double, b : Double) -> Double {
 ///
 /// The W3C algorithm orders the components, then scales the intermediate
 /// values between min and max to achieve the target saturation.
-fn set_sat(r : Double, g : Double, b : Double, target : Double) -> (Double, Double, Double) {
+fn set_sat(
+  r : Double,
+  g : Double,
+  b : Double,
+  target : Double,
+) -> (Double, Double, Double) {
   // Identify the component ordering (min, mid, max) while preserving which
   // channel each value belongs to.
   // W3C set_sat: find min, mid, max indices, then:
@@ -95,7 +105,11 @@ fn set_sat(r : Double, g : Double, b : Double, target : Double) -> (Double, Doub
 ///|
 /// Sort an array of (value, index) pairs by value ascending.
 fn sort3(arr : Array[(Double, Int)]) -> Array[(Double, Int)] {
-  let result = [(arr[0].0, arr[0].1), (arr[1].0, arr[1].1), (arr[2].0, arr[2].1)]
+  let result = [
+    (arr[0].0, arr[0].1),
+    (arr[1].0, arr[1].1),
+    (arr[2].0, arr[2].1),
+  ]
   // Simple insertion sort for 3 elements.
   if result[0].0 > result[1].0 {
     swap(result, 0, 1)
@@ -151,7 +165,14 @@ fn max3(a : Double, b : Double, c : Double) -> Double {
 /// of the backdrop.
 ///
 /// B(Cb, Cs) = SetLum(SetSat(Cs, Sat(Cb)), Lum(Cb))
-pub fn blend_hue(cb_r : Double, cb_g : Double, cb_b : Double, cs_r : Double, cs_g : Double, cs_b : Double) -> (Double, Double, Double) {
+pub fn blend_hue(
+  cb_r : Double,
+  cb_g : Double,
+  cb_b : Double,
+  cs_r : Double,
+  cs_g : Double,
+  cs_b : Double,
+) -> (Double, Double, Double) {
   let (sr, sg, sb) = set_sat(cs_r, cs_g, cs_b, sat(cb_r, cb_g, cb_b))
   set_lum(sr, sg, sb, lum(cb_r, cb_g, cb_b))
 }
@@ -161,7 +182,14 @@ pub fn blend_hue(cb_r : Double, cb_g : Double, cb_b : Double, cs_r : Double, cs_
 /// luminance of the backdrop.
 ///
 /// B(Cb, Cs) = SetLum(SetSat(Cb, Sat(Cs)), Lum(Cb))
-pub fn blend_saturation(cb_r : Double, cb_g : Double, cb_b : Double, cs_r : Double, cs_g : Double, cs_b : Double) -> (Double, Double, Double) {
+pub fn blend_saturation(
+  cb_r : Double,
+  cb_g : Double,
+  cb_b : Double,
+  cs_r : Double,
+  cs_g : Double,
+  cs_b : Double,
+) -> (Double, Double, Double) {
   let (sr, sg, sb) = set_sat(cb_r, cb_g, cb_b, sat(cs_r, cs_g, cs_b))
   set_lum(sr, sg, sb, lum(cb_r, cb_g, cb_b))
 }
@@ -171,7 +199,14 @@ pub fn blend_saturation(cb_r : Double, cb_g : Double, cb_b : Double, cs_r : Doub
 /// luminance of the backdrop.
 ///
 /// B(Cb, Cs) = SetLum(Cs, Lum(Cb))
-pub fn blend_color_mode(cb_r : Double, cb_g : Double, cb_b : Double, cs_r : Double, cs_g : Double, cs_b : Double) -> (Double, Double, Double) {
+pub fn blend_color_mode(
+  cb_r : Double,
+  cb_g : Double,
+  cb_b : Double,
+  cs_r : Double,
+  cs_g : Double,
+  cs_b : Double,
+) -> (Double, Double, Double) {
   set_lum(cs_r, cs_g, cs_b, lum(cb_r, cb_g, cb_b))
 }
 
@@ -180,6 +215,13 @@ pub fn blend_color_mode(cb_r : Double, cb_g : Double, cb_b : Double, cs_r : Doub
 /// saturation of the backdrop.
 ///
 /// B(Cb, Cs) = SetLum(Cb, Lum(Cs))
-pub fn blend_luminosity(cb_r : Double, cb_g : Double, cb_b : Double, cs_r : Double, cs_g : Double, cs_b : Double) -> (Double, Double, Double) {
+pub fn blend_luminosity(
+  cb_r : Double,
+  cb_g : Double,
+  cb_b : Double,
+  cs_r : Double,
+  cs_g : Double,
+  cs_b : Double,
+) -> (Double, Double, Double) {
   set_lum(cb_r, cb_g, cb_b, lum(cs_r, cs_g, cs_b))
 }

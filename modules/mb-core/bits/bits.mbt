@@ -50,22 +50,29 @@ pub fn BitReader::remaining(self : BitReader) -> Int {
 ///
 /// Returns `Err` if `count` is outside [1, 32] or if there are not enough
 /// bits remaining. The reader advances by `count` bits.
-pub fn BitReader::read_bits(self : BitReader, count : Int) -> Result[Int, @error.CoreError] {
+pub fn BitReader::read_bits(
+  self : BitReader,
+  count : Int,
+) -> Result[Int, @error.CoreError] {
   if count < 1 || count > 32 {
-    return Err(@error.CoreError::new(
-      @error.ErrorCategory::InvalidInput,
-      @error.ErrorCode::InvalidRange,
-      operation="bit-reader-read",
-      context="bit-reader-read-invalid-count",
-    ))
+    return Err(
+      @error.CoreError::new(
+        @error.ErrorCategory::InvalidInput,
+        @error.ErrorCode::InvalidRange,
+        operation="bit-reader-read",
+        context="bit-reader-read-invalid-count",
+      ),
+    )
   }
   if self.bit_position + count > self.total_bits() {
-    return Err(@error.CoreError::new(
-      @error.ErrorCategory::InvalidInput,
-      @error.ErrorCode::UnexpectedEndOfStream,
-      operation="bit-reader-read",
-      context="bit-reader-read-end-of-stream",
-    ))
+    return Err(
+      @error.CoreError::new(
+        @error.ErrorCategory::InvalidInput,
+        @error.ErrorCode::UnexpectedEndOfStream,
+        operation="bit-reader-read",
+        context="bit-reader-read-end-of-stream",
+      ),
+    )
   }
   let mut result = 0
   for _i = 0; _i < count; _i = _i + 1 {
@@ -131,12 +138,14 @@ pub fn BitWriter::write_bits(
   count : Int,
 ) -> Result[Unit, @error.CoreError] {
   if count < 1 || count > 32 {
-    return Err(@error.CoreError::new(
-      @error.ErrorCategory::InvalidInput,
-      @error.ErrorCode::InvalidRange,
-      operation="bit-writer-write",
-      context="bit-writer-write-invalid-count",
-    ))
+    return Err(
+      @error.CoreError::new(
+        @error.ErrorCategory::InvalidInput,
+        @error.ErrorCode::InvalidRange,
+        operation="bit-writer-write",
+        context="bit-writer-write-invalid-count",
+      ),
+    )
   }
   // Check that value fits in count bits.
   let max_value = 1 << count
@@ -144,12 +153,14 @@ pub fn BitWriter::write_bits(
     // For count=32 the shift would overflow, but 32-bit values that are
     // non-negative always fit since Int is 32-bit.
     if count != 32 && value >= max_value {
-      return Err(@error.CoreError::new(
-        @error.ErrorCategory::InvalidInput,
-        @error.ErrorCode::InvalidRange,
-        operation="bit-writer-write",
-        context="bit-writer-write-value-overflow",
-      ))
+      return Err(
+        @error.CoreError::new(
+          @error.ErrorCategory::InvalidInput,
+          @error.ErrorCode::InvalidRange,
+          operation="bit-writer-write",
+          context="bit-writer-write-value-overflow",
+        ),
+      )
     }
   }
   for i = count - 1; i >= 0; i = i - 1 {
@@ -162,7 +173,8 @@ pub fn BitWriter::write_bits(
     }
     // MSB-first: bit 0 of a byte is the most significant (0x80).
     if bit == 1 {
-      self.output[byte_index] = self.output[byte_index] | (0x80 >> bit_index).to_byte()
+      self.output[byte_index] = self.output[byte_index] |
+        (0x80 >> bit_index).to_byte()
     }
     self.bit_position = self.bit_position + 1
   }
@@ -171,7 +183,10 @@ pub fn BitWriter::write_bits(
 
 ///|
 /// Write a single bit (0 or 1).
-pub fn BitWriter::write_bit(self : BitWriter, value : Int) -> Result[Unit, @error.CoreError] {
+pub fn BitWriter::write_bit(
+  self : BitWriter,
+  value : Int,
+) -> Result[Unit, @error.CoreError] {
   self.write_bits(value, 1)
 }
 

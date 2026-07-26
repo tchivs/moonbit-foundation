@@ -14,25 +14,31 @@
 /// Codepoints above U+10FFFF and surrogate codepoints (U+D800-U+DFFF) are
 /// rejected with `InvalidEncoding`. Each valid codepoint produces 1-4 bytes
 /// per RFC 3629.
-pub fn utf8_encode(codepoints : Array[Int]) -> Result[Array[Byte], @error.CoreError] {
+pub fn utf8_encode(
+  codepoints : Array[Int],
+) -> Result[Array[Byte], @error.CoreError] {
   let result : Array[Byte] = []
   for i = 0; i < codepoints.length(); i = i + 1 {
     let cp = codepoints[i]
     if cp < 0 || cp > 0x10ffff {
-      return Err(@error.CoreError::new(
-        @error.ErrorCategory::InvalidInput,
-        @error.ErrorCode::InvalidEncoding,
-        operation="text-utf8-encode",
-        context="text-utf8-encode-out-of-range",
-      ))
+      return Err(
+        @error.CoreError::new(
+          @error.ErrorCategory::InvalidInput,
+          @error.ErrorCode::InvalidEncoding,
+          operation="text-utf8-encode",
+          context="text-utf8-encode-out-of-range",
+        ),
+      )
     }
     if cp >= 0xd800 && cp <= 0xdfff {
-      return Err(@error.CoreError::new(
-        @error.ErrorCategory::InvalidInput,
-        @error.ErrorCode::InvalidEncoding,
-        operation="text-utf8-encode",
-        context="text-utf8-encode-surrogate",
-      ))
+      return Err(
+        @error.CoreError::new(
+          @error.ErrorCategory::InvalidInput,
+          @error.ErrorCode::InvalidEncoding,
+          operation="text-utf8-encode",
+          context="text-utf8-encode-surrogate",
+        ),
+      )
     }
     if cp <= 0x7f {
       // 1 byte: 0xxxxxxx
@@ -121,7 +127,10 @@ pub fn utf8_decode(bytes : Array[Byte]) -> Result[Array[Int], @error.CoreError] 
       if (b1 & 0xc0) != 0x80 || (b2 & 0xc0) != 0x80 || (b3 & 0xc0) != 0x80 {
         return Err(utf8_error("text-utf8-decode-invalid-continuation"))
       }
-      let cp = ((b0 & 0x07) << 18) | ((b1 & 0x3f) << 12) | ((b2 & 0x3f) << 6) | (b3 & 0x3f)
+      let cp = ((b0 & 0x07) << 18) |
+        ((b1 & 0x3f) << 12) |
+        ((b2 & 0x3f) << 6) |
+        (b3 & 0x3f)
       // Reject overlong (must be >= 0x10000 for 4-byte).
       if cp < 0x10000 {
         return Err(utf8_error("text-utf8-decode-overlong"))

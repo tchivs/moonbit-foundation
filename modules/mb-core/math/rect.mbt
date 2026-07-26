@@ -18,7 +18,12 @@ pub struct Rect2 {
 /// Construct a rectangle from (min_x, min_y, width, height).
 /// Negative width or height are normalized so the result always stores
 /// non-negative dimensions.
-pub fn Rect2::new(min_x : Double, min_y : Double, width : Double, height : Double) -> Rect2 {
+pub fn Rect2::new(
+  min_x : Double,
+  min_y : Double,
+  width : Double,
+  height : Double,
+) -> Rect2 {
   let (nx, nw) = if width < 0.0 {
     (min_x + width, -width)
   } else {

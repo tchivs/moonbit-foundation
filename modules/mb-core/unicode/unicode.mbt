@@ -142,7 +142,11 @@ fn latin1_general_category(code : Int) -> GeneralCategory {
 /// True if the codepoint is a letter (any [L*] category).
 pub fn is_letter(codepoint : Int) -> Bool {
   match general_category(codepoint) {
-    UppercaseLetter | LowercaseLetter | TitlecaseLetter | ModifierLetter | OtherLetter => true
+    UppercaseLetter
+    | LowercaseLetter
+    | TitlecaseLetter
+    | ModifierLetter
+    | OtherLetter => true
     _ => false
   }
 }
@@ -158,7 +162,14 @@ pub fn is_digit(codepoint : Int) -> Bool {
 pub fn is_whitespace(codepoint : Int) -> Bool {
   // ASCII whitespace per UAX #29 segmentation: space, tab, line tab,
   // form feed, carriage return, newline.
-  codepoint == 0x20 || codepoint == 0x09 || codepoint == 0x0b || codepoint == 0x0c || codepoint == 0x0d || codepoint == 0x0a || codepoint == 0x85 || codepoint == 0xa0
+  codepoint == 0x20 ||
+  codepoint == 0x09 ||
+  codepoint == 0x0b ||
+  codepoint == 0x0c ||
+  codepoint == 0x0d ||
+  codepoint == 0x0a ||
+  codepoint == 0x85 ||
+  codepoint == 0xa0
 }
 
 // ---------------------------------------------------------------------------
@@ -237,7 +248,12 @@ pub fn bidi_class(codepoint : Int) -> BidiClass {
     return CommonSeparator // comma, period
   }
   // European terminators
-  if codepoint == 0x25 || codepoint == 0xa2 || codepoint == 0xa3 || codepoint == 0xa4 || codepoint == 0xa5 || codepoint == 0xa9 {
+  if codepoint == 0x25 ||
+    codepoint == 0xa2 ||
+    codepoint == 0xa3 ||
+    codepoint == 0xa4 ||
+    codepoint == 0xa5 ||
+    codepoint == 0xa9 {
     return EuropeanTerminator // %, ¢, £, ¤, ¥, ©
   }
   // Default: LTR for letters, OtherNeutral for the rest

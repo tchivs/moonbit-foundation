@@ -80,7 +80,11 @@ pub fn porter_duff_composite(
 ///
 /// Per W3C Table 5.1: each operator defines how much of the source (Fa)
 /// and backdrop (Fb) contribute based on their alphas.
-fn porter_duff_factors(op : CompositeOp, src_a : Double, dst_a : Double) -> (Double, Double) {
+fn porter_duff_factors(
+  op : CompositeOp,
+  src_a : Double,
+  dst_a : Double,
+) -> (Double, Double) {
   match op {
     Clear => (0.0, 0.0)
     Source => (1.0, 0.0)

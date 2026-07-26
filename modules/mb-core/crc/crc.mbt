@@ -86,16 +86,8 @@ pub fn adler32(bytes : Array[Byte]) -> UInt64 {
 /// The result is the updated value; no finalization step is needed.
 pub fn adler32_update(initial : UInt64, byte : Byte) -> UInt64 {
   let a = (initial & 0xffffUL) + byte.to_uint64()
-  let a_mod = if a >= 65521UL {
-    a - 65521UL
-  } else {
-    a
-  }
+  let a_mod = if a >= 65521UL { a - 65521UL } else { a }
   let b = (initial >> 16) + a_mod
-  let b_mod = if b >= 65521UL {
-    b - 65521UL
-  } else {
-    b
-  }
+  let b_mod = if b >= 65521UL { b - 65521UL } else { b }
   (b_mod << 16) | a_mod
 }

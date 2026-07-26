@@ -203,9 +203,9 @@ test "copy rejects GrayAlpha before consuming operation budget" {
     1UL,
     1UL,
     @model.ImageFormat::graya8(),
-    [@model.PlaneDescriptor::new(
-      0UL, 2UL, 2UL, 2UL, 1UL, 1UL, 1UL, 1UL,
-    ).unwrap()],
+    [
+      @model.PlaneDescriptor::new(0UL, 2UL, 2UL, 2UL, 1UL, 1UL, 1UL, 1UL).unwrap(),
+    ],
     2UL,
     operation_metadata(
       Some(@color.AlphaMode::Straight),
@@ -217,7 +217,10 @@ test "copy rejects GrayAlpha before consuming operation budget" {
   let before = budget.remaining()
   match @ops.copy_image(source.view(), budget) {
     Err(error) => {
-      inspect(error.code() == @error.ErrorCode::CapabilityUnavailable, content="true")
+      inspect(
+        error.code() == @error.ErrorCode::CapabilityUnavailable,
+        content="true",
+      )
       inspect(error.context() == Some("image-copy-format"), content="true")
     }
     Ok(_) => fail("GrayAlpha copy must remain unavailable")

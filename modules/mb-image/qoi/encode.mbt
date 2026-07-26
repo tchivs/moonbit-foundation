@@ -363,7 +363,12 @@ fn qoi_encode_tokens_new(
     source,
     channels,
     pixels,
-    index: Array::make(64, QoiPixel::{ r: b'\x00', g: b'\x00', b: b'\x00', a: b'\x00' }),
+    index: Array::make(64, QoiPixel::{
+      r: b'\x00',
+      g: b'\x00',
+      b: b'\x00',
+      a: b'\x00',
+    }),
     previous: QoiPixel::{ r: b'\x00', g: b'\x00', b: b'\x00', a: b'\xff' },
     position: 0UL,
     run: 0UL,
@@ -373,14 +378,15 @@ fn qoi_encode_tokens_new(
 ///|
 fn QoiEncodeTokens::next(
   self : QoiEncodeTokens,
-) -> Result[Option[Bytes], @error.CoreError] {
+) -> Result[Bytes?, @error.CoreError] {
   while self.position < self.pixels {
-    let pixel = match qoi_source_pixel(
-      self.source,
-      self.position % self.source.width(),
-      self.position / self.source.width(),
-      self.channels,
-    ) {
+    let pixel = match
+      qoi_source_pixel(
+        self.source,
+        self.position % self.source.width(),
+        self.position / self.source.width(),
+        self.channels,
+      ) {
       Err(error) => return Err(error)
       Ok(value) => value
     }
@@ -388,13 +394,17 @@ fn QoiEncodeTokens::next(
       self.run = self.run + 1UL
       self.position = self.position + 1UL
       if self.run == 62UL || self.position == self.pixels {
-        let token = Bytes::from_array([(0xc0 + (self.run - 1UL).to_int()).to_byte()])
+        let token = Bytes::from_array([
+          (0xc0 + (self.run - 1UL).to_int()).to_byte(),
+        ])
         self.run = 0UL
         return Ok(Some(token))
       }
     } else {
       if self.run > 0UL {
-        let token = Bytes::from_array([(0xc0 + (self.run - 1UL).to_int()).to_byte()])
+        let token = Bytes::from_array([
+          (0xc0 + (self.run - 1UL).to_int()).to_byte(),
+        ])
         self.run = 0UL
         return Ok(Some(token))
       }
@@ -406,10 +416,27 @@ fn QoiEncodeTokens::next(
         let dr = qoi_signed_delta(pixel.r, self.previous.r)
         let dg = qoi_signed_delta(pixel.g, self.previous.g)
         let db = qoi_signed_delta(pixel.b, self.previous.b)
-        if pixel.a == self.previous.a && dr >= -2 && dr <= 1 && dg >= -2 && dg <= 1 && db >= -2 && db <= 1 {
-          Bytes::from_array([(0x40 + ((dr + 2) << 4) + ((dg + 2) << 2) + (db + 2)).to_byte()])
-        } else if pixel.a == self.previous.a && dg >= -32 && dg <= 31 && dr - dg >= -8 && dr - dg <= 7 && db - dg >= -8 && db - dg <= 7 {
-          Bytes::from_array([(0x80 + dg + 32).to_byte(), (((dr - dg + 8) << 4) + (db - dg + 8)).to_byte()])
+        if pixel.a == self.previous.a &&
+          dr >= -2 &&
+          dr <= 1 &&
+          dg >= -2 &&
+          dg <= 1 &&
+          db >= -2 &&
+          db <= 1 {
+          Bytes::from_array([
+            (0x40 + ((dr + 2) << 4) + ((dg + 2) << 2) + (db + 2)).to_byte(),
+          ])
+        } else if pixel.a == self.previous.a &&
+          dg >= -32 &&
+          dg <= 31 &&
+          dr - dg >= -8 &&
+          dr - dg <= 7 &&
+          db - dg >= -8 &&
+          db - dg <= 7 {
+          Bytes::from_array([
+            (0x80 + dg + 32).to_byte(),
+            (((dr - dg + 8) << 4) + (db - dg + 8)).to_byte(),
+          ])
         } else if pixel.a == self.previous.a {
           Bytes::from_array([b'\xfe', pixel.r, pixel.g, pixel.b])
         } else {
@@ -441,10 +468,11 @@ fn qoi_write_chunks(
     match tokens.next() {
       Err(error) => return Err(error)
       Ok(None) => return Ok(cursor)
-      Ok(Some(token)) => match qoi_write_part(writer, token, requested, cursor) {
-        Err(error) => return Err(error)
-        Ok(value) => cursor = value
-      }
+      Ok(Some(token)) =>
+        match qoi_write_part(writer, token, requested, cursor) {
+          Err(error) => return Err(error)
+          Ok(value) => cursor = value
+        }
     }
   }
   Ok(cursor)
@@ -472,28 +500,32 @@ fn qoi_encode_preflight(
     Err(error) => return Err(error)
     Ok(value) => value
   }
-  for item in [
-    ("output-bytes", total, limits.max_output_bytes()),
-    ("width", source.width(), limits.max_width()),
-    ("height", source.height(), limits.max_height()),
-    ("pixels", pixels, limits.max_pixels()),
-    ("work", total, limits.max_work()),
-  ] {
+  for
+    item in [
+      ("output-bytes", total, limits.max_output_bytes()),
+      ("width", source.width(), limits.max_width()),
+      ("height", source.height(), limits.max_height()),
+      ("pixels", pixels, limits.max_pixels()),
+      ("work", total, limits.max_work()),
+    ] {
     let (context, requested, limit) = item
     match qoi_encode_limit(context, requested, limit) {
       Err(error) => return Err(error)
       Ok(_) => ()
     }
   }
-  match budget.charge(@budget.ResourceCharge::new(
-    bytes=0UL,
-    allocations=0UL,
-    allocation_size=0UL,
-    width=source.width(),
-    height=source.height(),
-    pixels=0UL,
-    work=total,
-  )) {
+  match
+    budget.charge(
+      @budget.ResourceCharge::new(
+        bytes=0UL,
+        allocations=0UL,
+        allocation_size=0UL,
+        width=source.width(),
+        height=source.height(),
+        pixels=0UL,
+        work=total,
+      ),
+    ) {
     Err(error) => Err(error)
     Ok(_) => Ok((channels, color_space, total))
   }

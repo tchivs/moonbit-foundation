@@ -69,7 +69,10 @@ test "hex decode rejects invalid characters" {
     Ok(_) => inspect(false, content="true")
     Err(e) => {
       inspect(e.operation() == Some("text-hex-decode"), content="true")
-      inspect(e.context() == Some("text-hex-decode-invalid-character"), content="true")
+      inspect(
+        e.context() == Some("text-hex-decode-invalid-character"),
+        content="true",
+      )
     }
   }
 }

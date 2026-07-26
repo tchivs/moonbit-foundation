@@ -214,7 +214,12 @@ pub fn ByteView::subview(
     Ok(value) => value
     Err(error) => return Err(error)
   }
-  Ok({ backing: self.backing, start, length_value: view_length, revision: self.revision })
+  Ok({
+    backing: self.backing,
+    start,
+    length_value: view_length,
+    revision: self.revision,
+  })
 }
 
 ///|
