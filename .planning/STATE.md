@@ -5,17 +5,17 @@ milestone_name: TrueType Font Foundation
 current_phase: 99
 current_phase_name: Simple and Composite Outlines
 status: verifying
-stopped_at: Completed 99-03-PLAN.md
-last_updated: "2026-07-27T11:06:07.443Z"
+stopped_at: Completed 99-04-PLAN.md
+last_updated: "2026-07-27T12:39:18.484Z"
 last_activity: 2026-07-27
-last_activity_desc: Phase 99 Plan 03 complete, portable outline qualification verified
+last_activity_desc: Phase 99 Plan 04 complete, publication gaps closed for re-verification
 progress:
   total_phases: 3
   completed_phases: 3
-  total_plans: 9
-  completed_plans: 9
-current_plan: 3
-total_plans_in_phase: 3
+  total_plans: 10
+  completed_plans: 10
+current_plan: 4
+total_plans_in_phase: 4
 ---
 
 # Project State
@@ -31,15 +31,15 @@ See `.planning/PROJECT.md` (updated 2026-07-27 after Phase 98 validation).
 ## Current Position
 
 Phase: 99 — Simple and Composite Outlines
-Plan: 3 of 3
-Status: Phase complete — ready for verification
-Last activity: 2026-07-27 — Phase 99 Plan 03 complete, portable outline qualification verified
+Plan: 4 of 4
+Status: Gap closure complete — ready for re-verification
+Last activity: 2026-07-27 — Phase 99 Plan 04 complete, publication gaps closed for re-verification
 
-Progress: [██████████] 100% (3/4 phases; 9/9 completed plans)
+Progress: [██████████] 100% (3/4 phases; 10/10 completed plans)
 
 ## Milestone Metrics
 
-**Current milestone:** v0.32 has 4 planned phases; Phases 97-99 have completed all 9 implementation plans. FONT-01, FONT-02, FONT-03, and FONT-04 have implementation evidence; Phase 99 is ready for verification before Phase 100 qualification planning.
+**Current milestone:** v0.32 has 4 planned phases; Phases 97-99 have completed all 10 implementation and gap-closure plans. FONT-01, FONT-02, FONT-03, and FONT-04 have implementation evidence; Phase 99 is ready for re-verification before Phase 100 qualification planning.
 
 **Previous milestone:** v0.31 shipped SVG Numeric Boundary Unification across Phases 95-96; its detailed roadmap is archived at `.planning/milestones/v0.31-ROADMAP.md`.
 
@@ -78,6 +78,8 @@ Progress: [██████████] 100% (3/4 phases; 9/9 completed plans
 - [Phase 99]: Phase 99 permanent qualification uses one empty/simple/composite checksum-correct font through the public outline workflow.
 - [Phase 99]: Phase 99 publication keeps pkg.generated.mbti ignored while policy and an independent classifier freeze its exact 56 semantic lines.
 - [Phase 99]: Phase 99 documents generated four-target evidence while reserving licensed real-font workflow qualification for Phase 100.
+- [Phase 99]: The focused font selector independently enforces case-sensitive manifest-description equality with policy.
+- [Phase 99]: README taxonomy checks are bullet-scoped: maxp underclaims are Data, while FontLimits, max_work, and Budget exhaustion are Resource.
 
 ### Pending Todos
 
@@ -110,8 +112,8 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-07-27T11:06:07.424Z
-Stopped at: Completed 99-03-PLAN.md
+Last session: 2026-07-27T12:38:47.752Z
+Stopped at: Completed 99-04-PLAN.md
 Resume file: None
 
 ## Operator Next Steps
@@ -120,7 +122,7 @@ Resume file: None
 
 ## Performance Metrics
 
-Phases 97-99 completed all nine plans. Phase 99 passed 87/87 isolated font tests on every supported target plus exact interface, policy, manifest, and four-target documentation gates.
+Phases 97-99 completed all ten plans. Phase 99 Plan 04 passed 92/92 isolated font tests on every supported target plus focused/repository-wide policy, exact manifest, and four-target documentation gates.
 
 **Per-Phase Metrics:**
 
@@ -143,3 +145,4 @@ Phases 97-99 completed all nine plans. Phase 99 passed 87/87 isolated font tests
 | Phase 99 P01 | 21min | 2 tasks | 9 files |
 | Phase 99 P02 | 17min | 2 tasks | 5 files |
 | Phase 99 P03 | 12min | 3 tasks | 8 files |
+| Phase 99 P04 | 4min | 2 tasks | 3 files |
