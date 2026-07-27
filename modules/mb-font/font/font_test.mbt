@@ -24,6 +24,8 @@ test "font limits preserve every explicit semantic ceiling" {
     max_glyphs=4UL,
     max_name_records=3UL,
     max_cmap_records=2UL,
+    max_kern_subtables=5UL,
+    max_kern_pairs=7UL,
     max_post_name_bytes=64UL,
     max_work=4096UL,
   ).unwrap()
@@ -33,6 +35,8 @@ test "font limits preserve every explicit semantic ceiling" {
   inspect(limits.max_glyphs(), content="4")
   inspect(limits.max_name_records(), content="3")
   inspect(limits.max_cmap_records(), content="2")
+  inspect(limits.max_kern_subtables(), content="5")
+  inspect(limits.max_kern_pairs(), content="7")
   inspect(limits.max_post_name_bytes(), content="64")
   inspect(limits.max_work(), content="4096")
 }
@@ -51,6 +55,36 @@ test "font limits reject every zero semantic ceiling" {
       max_work=1UL,
     ),
     "max-source-bytes",
+  )
+  assert_invalid_font_limit(
+    FontLimits::new(
+      max_source_bytes=1UL,
+      max_tables=1UL,
+      max_table_bytes=1UL,
+      max_glyphs=1UL,
+      max_name_records=1UL,
+      max_cmap_records=1UL,
+      max_kern_subtables=0UL,
+      max_kern_pairs=1UL,
+      max_post_name_bytes=1UL,
+      max_work=1UL,
+    ),
+    "max-kern-subtables",
+  )
+  assert_invalid_font_limit(
+    FontLimits::new(
+      max_source_bytes=1UL,
+      max_tables=1UL,
+      max_table_bytes=1UL,
+      max_glyphs=1UL,
+      max_name_records=1UL,
+      max_cmap_records=1UL,
+      max_kern_subtables=1UL,
+      max_kern_pairs=0UL,
+      max_post_name_bytes=1UL,
+      max_work=1UL,
+    ),
+    "max-kern-pairs",
   )
   assert_invalid_font_limit(
     FontLimits::new(
