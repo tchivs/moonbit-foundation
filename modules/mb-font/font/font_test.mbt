@@ -349,6 +349,44 @@ fn font_test_cmap_subtable(source : Bytes) -> Bytes {
 }
 
 ///|
+fn font_test_kern_format0(
+  pairs : Array[(UInt64, UInt64, Int)],
+) -> Bytes {
+  let output : Array[Byte] = []
+  let pair_count = pairs.length().to_uint64()
+  let mut power = if pair_count == 0UL { 0UL } else { 1UL }
+  let mut selector = 0UL
+  while power != 0UL && power <= pair_count / 2UL {
+    power = power * 2UL
+    selector = selector + 1UL
+  }
+  let search_range = power * 6UL
+  font_test_push_u16(output, 0UL)
+  font_test_push_u16(output, 1UL)
+  font_test_push_u16(output, 0UL)
+  font_test_push_u16(output, 14UL + pair_count * 6UL)
+  font_test_push_u16(output, 0x0001UL)
+  font_test_push_u16(output, pair_count)
+  font_test_push_u16(output, search_range)
+  font_test_push_u16(output, selector)
+  font_test_push_u16(output, pair_count * 6UL - search_range)
+  for pair in pairs {
+    let (left, right, value) = pair
+    font_test_push_u16(output, left)
+    font_test_push_u16(output, right)
+    font_test_push_u16(
+      output,
+      if value < 0 {
+        (value + 0x10000).to_uint64()
+      } else {
+        value.to_uint64()
+      },
+    )
+  }
+  Bytes::from_array(output)
+}
+
+///|
 fn font_test_cmap_records(
   records : Array[(UInt64, UInt64, Int)],
   subtables : Array[Bytes],
@@ -573,6 +611,34 @@ fn font_test_truetype_with_cmap_and_glyphs(
     { tag: b"head", payload: font_test_head_table() },
     { tag: b"hhea", payload: font_test_hhea_table() },
     { tag: b"hmtx", payload: Bytes::from_array(hmtx) },
+    { tag: b"loca", payload: Bytes::from_array(loca) },
+    { tag: b"maxp", payload: font_test_maxp_table_with_glyphs(glyph_count) },
+    { tag: b"name", payload: font_test_name_table() },
+    { tag: b"post", payload: font_test_post_table() },
+  ])
+}
+
+///|
+fn font_test_truetype_with_kern_and_glyphs(
+  kern : Bytes,
+  glyph_count : UInt64,
+) -> Bytes {
+  let hmtx = b"\x01\xf4\x00\x00".to_array()
+  for _index = 1UL; _index < glyph_count; _index = _index + 1UL {
+    font_test_push_u16(hmtx, 0UL)
+  }
+  let loca : Array[Byte] = []
+  for _index = 0UL; _index <= glyph_count; _index = _index + 1UL {
+    font_test_push_u16(loca, 0UL)
+  }
+  font_test_build_truetype([
+    { tag: b"OS/2", payload: font_test_fixed_table(78) },
+    { tag: b"cmap", payload: font_test_cmap_table() },
+    { tag: b"glyf", payload: b"" },
+    { tag: b"head", payload: font_test_head_table() },
+    { tag: b"hhea", payload: font_test_hhea_table() },
+    { tag: b"hmtx", payload: Bytes::from_array(hmtx) },
+    { tag: b"kern", payload: kern },
     { tag: b"loca", payload: Bytes::from_array(loca) },
     { tag: b"maxp", payload: font_test_maxp_table_with_glyphs(glyph_count) },
     { tag: b"name", payload: font_test_name_table() },
@@ -834,6 +900,93 @@ test "scalar query rejects retained source mutation before publication" {
     Bytes::from_array([(original.to_uint64() ^ 1UL).to_byte()]),
   )
   font_test_assert_revision_drift(font.glyph_for_scalar(0x0041).unwrap_err())
+}
+
+///|
+test "optional supported kern returns signed hits and neutral misses" {
+  let absent = Font::open(
+    font_test_owner(font_test_minimal_truetype()).view(),
+    font_test_limits(),
+    font_test_budget(),
+  ).unwrap()
+  let absent_glyph = absent.glyph_id(0UL).unwrap()
+  inspect(absent.kerning(absent_glyph, absent_glyph).unwrap(), content="0")
+
+  let source = font_test_truetype_with_kern_and_glyphs(
+    font_test_kern_format0([(1UL, 2UL, 40), (2UL, 1UL, -20)]),
+    3UL,
+  )
+  let budget = font_test_budget()
+  let font = Font::open(
+    font_test_owner(source).view(),
+    font_test_limits(),
+    budget,
+  ).unwrap()
+  let left = font.glyph_id(1UL).unwrap()
+  let right = font.glyph_id(2UL).unwrap()
+  let after_open = budget.remaining()
+  inspect(font.kerning(left, right).unwrap(), content="40")
+  inspect(font.kerning(right, left).unwrap(), content="-20")
+  inspect(font.kerning(right, right).unwrap(), content="0")
+  inspect(font.kerning(left, right).unwrap(), content="40")
+  let after_queries = budget.remaining()
+  inspect(after_queries.bytes() == after_open.bytes(), content="true")
+  inspect(after_queries.work() == after_open.work(), content="true")
+}
+
+///|
+test "kerning revalidates both glyphs against the receiving font" {
+  let larger = Font::open(
+    font_test_owner(
+      font_test_truetype_with_cmap_and_glyphs(font_test_cmap_table(), 4UL),
+    ).view(),
+    font_test_limits(),
+    font_test_budget(),
+  ).unwrap()
+  let smaller = Font::open(
+    font_test_owner(
+      font_test_truetype_with_kern_and_glyphs(
+        font_test_kern_format0([(0UL, 1UL, 10)]),
+        2UL,
+      ),
+    ).view(),
+    font_test_limits(),
+    font_test_budget(),
+  ).unwrap()
+  let local_glyph = smaller.glyph_id(0UL).unwrap()
+  let foreign = larger.glyph_id(3UL).unwrap()
+  for result in [
+    smaller.kerning(foreign, local_glyph),
+    smaller.kerning(local_glyph, foreign),
+  ] {
+    let error = result.unwrap_err()
+    inspect(error.category() == @error.ErrorCategory::InvalidInput, content="true")
+    inspect(error.code() == @error.ErrorCode::InvalidRange, content="true")
+    inspect(error.operation() == Some("font-kerning"), content="true")
+    inspect(error.requested() == Some(3UL), content="true")
+    inspect(error.limit() == Some(2UL), content="true")
+    inspect(error.context() == Some("font-glyph-id-range"), content="true")
+  }
+}
+
+///|
+test "kerning rejects retained source mutation before publication" {
+  let source = font_test_truetype_with_kern_and_glyphs(
+    font_test_kern_format0([(1UL, 2UL, 40)]),
+    3UL,
+  )
+  let owner = font_test_owner(source)
+  let font = Font::open(owner.view(), font_test_limits(), font_test_budget()).unwrap()
+  let left = font.glyph_id(1UL).unwrap()
+  let right = font.glyph_id(2UL).unwrap()
+  let kern = font_test_table_offset(source, b"kern")
+  let original = owner.view().get(kern + 22UL).unwrap()
+  font_test_mutate_bytes(
+    owner,
+    kern + 22UL,
+    Bytes::from_array([(original.to_uint64() ^ 1UL).to_byte()]),
+  )
+  font_test_assert_revision_drift(font.kerning(left, right).unwrap_err())
 }
 
 ///|
