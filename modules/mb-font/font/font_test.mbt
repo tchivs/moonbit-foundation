@@ -1322,6 +1322,138 @@ test "generated standalone TrueType opens and returns exact units per em" {
 }
 
 ///|
+test "one generated font traces empty repeated implied and attached outlines" {
+  let owner = font_test_owner(font_test_portable_outline_matrix_truetype())
+  let font = Font::open(
+    owner.view(),
+    font_test_limits(),
+    font_test_budget(),
+  ).unwrap()
+  let empty_glyph = font.glyph_id(0UL).unwrap()
+  let simple_glyph = font.glyph_id(1UL).unwrap()
+  let composite_glyph = font.glyph_id(2UL).unwrap()
+  inspect(
+    font.outline(empty_glyph, font_test_composite_budget()).unwrap().length(),
+    content="0",
+  )
+
+  let simple = font
+    .outline(simple_glyph, font_test_composite_budget())
+    .unwrap()
+  inspect(simple.length(), content="5")
+  match simple.get(0) {
+    Some(@math.PathCommand::MoveTo(point)) => {
+      inspect(point.x(), content="0")
+      inspect(point.y(), content="0")
+    }
+    _ => fail("expected portable simple MoveTo")
+  }
+  match simple.get(1) {
+    Some(@math.PathCommand::QuadTo(control, endpoint)) => {
+      inspect(control.x(), content="50")
+      inspect(control.y(), content="0")
+      inspect(endpoint.x(), content="75")
+      inspect(endpoint.y(), content="0")
+    }
+    _ => fail("expected portable implied-midpoint QuadTo")
+  }
+  match simple.get(2) {
+    Some(@math.PathCommand::QuadTo(control, endpoint)) => {
+      inspect(control.x(), content="100")
+      inspect(control.y(), content="0")
+      inspect(endpoint.x(), content="100")
+      inspect(endpoint.y(), content="100")
+    }
+    _ => fail("expected portable explicit-endpoint QuadTo")
+  }
+  match simple.get(3) {
+    Some(@math.PathCommand::LineTo(point)) => {
+      inspect(point.x(), content="0")
+      inspect(point.y(), content="100")
+    }
+    _ => fail("expected portable simple LineTo")
+  }
+  inspect(simple.get(4) is Some(@math.PathCommand::Close), content="true")
+
+  let composite = font
+    .outline(composite_glyph, font_test_composite_budget())
+    .unwrap()
+  inspect(composite.length(), content="10")
+  match composite.get(0) {
+    Some(@math.PathCommand::MoveTo(point)) => {
+      inspect(point.x(), content="10")
+      inspect(point.y(), content="-4")
+    }
+    _ => fail("expected portable first-component MoveTo")
+  }
+  match composite.get(1) {
+    Some(@math.PathCommand::QuadTo(control, endpoint)) => {
+      inspect(control.x(), content="35")
+      inspect(control.y(), content="-4")
+      inspect(endpoint.x(), content="47.5")
+      inspect(endpoint.y(), content="-4")
+    }
+    _ => fail("expected portable first-component implied QuadTo")
+  }
+  match composite.get(2) {
+    Some(@math.PathCommand::QuadTo(control, endpoint)) => {
+      inspect(control.x(), content="60")
+      inspect(control.y(), content="-4")
+      inspect(endpoint.x(), content="60")
+      inspect(endpoint.y(), content="46")
+    }
+    _ => fail("expected portable first-component terminal QuadTo")
+  }
+  match composite.get(3) {
+    Some(@math.PathCommand::LineTo(point)) => {
+      inspect(point.x(), content="10")
+      inspect(point.y(), content="46")
+    }
+    _ => fail("expected portable first-component LineTo")
+  }
+  inspect(composite.get(4) is Some(@math.PathCommand::Close), content="true")
+  match composite.get(5) {
+    Some(@math.PathCommand::MoveTo(point)) => {
+      inspect(point.x(), content="60")
+      inspect(point.y(), content="46")
+    }
+    _ => fail("expected portable attached-component MoveTo")
+  }
+  match composite.get(6) {
+    Some(@math.PathCommand::QuadTo(control, endpoint)) => {
+      inspect(control.x(), content="85")
+      inspect(control.y(), content="46")
+      inspect(endpoint.x(), content="97.5")
+      inspect(endpoint.y(), content="46")
+    }
+    _ => fail("expected portable attached implied QuadTo")
+  }
+  match composite.get(7) {
+    Some(@math.PathCommand::QuadTo(control, endpoint)) => {
+      inspect(control.x(), content="110")
+      inspect(control.y(), content="46")
+      inspect(endpoint.x(), content="110")
+      inspect(endpoint.y(), content="96")
+    }
+    _ => fail("expected portable attached terminal QuadTo")
+  }
+  match composite.get(8) {
+    Some(@math.PathCommand::LineTo(point)) => {
+      inspect(point.x(), content="60")
+      inspect(point.y(), content="96")
+    }
+    _ => fail("expected portable attached LineTo")
+  }
+  inspect(composite.get(9) is Some(@math.PathCommand::Close), content="true")
+
+  for glyph in [empty_glyph, simple_glyph, composite_glyph] {
+    let metrics = font.horizontal_metrics(glyph).unwrap()
+    inspect(metrics.advance_width(), content="500")
+    inspect(metrics.left_side_bearing(), content="0")
+  }
+}
+
+///|
 test "outline traces one simple quadratic contour into shared Path2" {
   let owner = font_test_owner(font_test_simple_outline_truetype())
   let admission_budget = font_test_budget()
