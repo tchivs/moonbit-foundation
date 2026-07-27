@@ -1697,6 +1697,64 @@ test "format 4 traversal preflights and charges exact single and shared work" {
 }
 
 ///|
+test "semantic max work gates cmap discovery before attacker-driven loops" {
+  let source = font_test_truetype_with_cmap(
+    font_test_cmap_format4_two_segments(),
+  )
+  let source_length = source.length().to_uint64()
+  let table_count = font_test_read_u16(source, 4)
+  let overlap_work = table_count * (table_count - 1UL) / 2UL
+  let directory_work = source_length * 2UL +
+    overlap_work +
+    table_count +
+    table_count
+  let discovery_base_work = directory_work + table_count * 4UL
+  // One encoding record is scanned at the first boundary. Its two format-4
+  // segments are scanned only after the second cumulative boundary succeeds.
+  for case in [
+    (discovery_base_work + 1UL, discovery_base_work),
+    (discovery_base_work + 3UL, discovery_base_work + 2UL),
+  ] {
+    let (requested_work, max_work) = case
+    let limits = FontLimits::new(
+      max_source_bytes=source_length,
+      max_tables=table_count,
+      max_table_bytes=source_length,
+      max_glyphs=1UL,
+      max_name_records=1UL,
+      max_cmap_records=1UL,
+      max_post_name_bytes=32UL,
+      max_work~,
+    ).unwrap()
+    let ample_budget = font_test_budget_with_dimensions(
+      source_length,
+      allocations=3UL,
+      allocation_size=table_count * 64UL,
+      1000000UL,
+    )
+    let before = ample_budget.remaining()
+    let error = Font::open(
+      font_test_owner(source).view(),
+      limits,
+      ample_budget,
+    ).unwrap_err()
+    inspect(error.category() == @error.ErrorCategory::Resource, content="true")
+    inspect(error.code() == @error.ErrorCode::BudgetExceeded, content="true")
+    inspect(error.context() == Some("max-work"), content="true")
+    inspect(error.requested() == Some(requested_work), content="true")
+    inspect(error.limit() == Some(max_work), content="true")
+    inspect(
+      ample_budget.remaining().bytes() == before.bytes(),
+      content="true",
+    )
+    inspect(
+      ample_budget.remaining().work() == before.work(),
+      content="true",
+    )
+  }
+}
+
+///|
 test "name language tags and post name references require exact envelopes" {
   let valid_name1 = b"\x00\x01\x00\x00\x00\x0c\x00\x01\x00\x01\x00\x00A"
   let invalid_name1 = b"\x00\x01\x00\x00\x00\x0c\x00\x01\x00\x01\x00\x01"

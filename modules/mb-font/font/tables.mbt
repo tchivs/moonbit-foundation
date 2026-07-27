@@ -128,6 +128,7 @@ fn font_admission_charge(
       cmap_table,
       cmap_records,
       budget,
+      limits.max_work(),
       cmap_discovery_base_work,
     ) {
     Err(error) => return Err(error)
@@ -734,8 +735,12 @@ fn font_cmap_subtable_facts(
 ///|
 fn font_preflight_admission_work(
   budget : @budget.Budget,
+  max_work : UInt64,
   work : UInt64,
 ) -> Result[Unit, @error.CoreError] {
+  if work > max_work {
+    return Err(font_limit_error("max-work", work, max_work))
+  }
   budget.preflight(
     @budget.ResourceCharge::new(
       bytes=0UL,
@@ -855,6 +860,7 @@ fn font_cmap_declared_work(
   table : TableWindow,
   record_count : UInt64,
   budget : @budget.Budget,
+  max_work : UInt64,
   discovery_base_work : UInt64,
 ) -> Result[CmapAdmissionWork, @error.CoreError] {
   let record_bytes = match @checked.checked_mul(record_count, 8UL) {
@@ -873,7 +879,11 @@ fn font_cmap_declared_work(
     Err(error) => return Err(error)
     Ok(value) => value
   }
-  match font_preflight_admission_work(budget, record_discovery_work) {
+  match font_preflight_admission_work(
+    budget,
+    max_work,
+    record_discovery_work,
+  ) {
     Err(error) => return Err(error)
     Ok(_) => ()
   }
@@ -932,7 +942,7 @@ fn font_cmap_declared_work(
         Err(error) => return Err(error)
         Ok(value) => value
       }
-      match font_preflight_admission_work(budget, preflight_work) {
+      match font_preflight_admission_work(budget, max_work, preflight_work) {
         Err(error) => return Err(error)
         Ok(_) => ()
       }
