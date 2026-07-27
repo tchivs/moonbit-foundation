@@ -1,13 +1,150 @@
-[CmdletBinding()]
+[CmdletBinding(DefaultParameterSetName = 'Run')]
 param(
-  [Parameter(Mandatory)]
+  [Parameter(Mandatory, ParameterSetName = 'Run')]
   [string]$EvidenceDirectory,
+  [Parameter(ParameterSetName = 'Run')]
   [ValidateRange(1, 86400)]
-  [int]$TimeoutSeconds = 900
+  [int]$TimeoutSeconds = 900,
+  [Parameter(Mandatory, ParameterSetName = 'Import')]
+  [switch]$ImportOnly
 )
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
+
+function Get-RequiredProcessSnapshot {
+  if ([OperatingSystem]::IsWindows()) {
+    return @(
+      Get-CimInstance -ClassName Win32_Process -ErrorAction Stop |
+        ForEach-Object {
+          [pscustomobject]@{
+            Id = [int]$_.ProcessId
+            ParentId = [int]$_.ParentProcessId
+          }
+        }
+    )
+  }
+
+  $output = @(& ps -e -o pid=,ppid= 2>&1)
+  if ($LASTEXITCODE -ne 0) {
+    throw "Unable to enumerate processes with ps: $($output -join ' ')"
+  }
+  return @(
+    foreach ($line in $output) {
+      if ([string]$line -match '^\s*(\d+)\s+(\d+)\s*$') {
+        [pscustomobject]@{
+          Id = [int]$Matches[1]
+          ParentId = [int]$Matches[2]
+        }
+      }
+    }
+  )
+}
+
+function Get-RequiredDescendantProcessIds {
+  param(
+    [Parameter(Mandatory)][int]$RootProcessId,
+    [Parameter(Mandatory)][object[]]$Snapshot
+  )
+
+  $descendants = [Collections.Generic.HashSet[int]]::new()
+  $parents = [Collections.Generic.Queue[int]]::new()
+  $parents.Enqueue($RootProcessId)
+  while ($parents.Count -gt 0) {
+    $parent = $parents.Dequeue()
+    foreach ($candidate in $Snapshot) {
+      if ($candidate.ParentId -eq $parent -and
+          $descendants.Add([int]$candidate.Id)) {
+        $parents.Enqueue([int]$candidate.Id)
+      }
+    }
+  }
+  return @($descendants | Sort-Object)
+}
+
+function Test-RequiredProcessAlive {
+  param([Parameter(Mandatory)][int]$ProcessId)
+
+  try {
+    $candidate = [Diagnostics.Process]::GetProcessById($ProcessId)
+    try {
+      return -not $candidate.HasExited
+    } finally {
+      $candidate.Dispose()
+    }
+  } catch [ArgumentException] {
+    return $false
+  }
+}
+
+function Wait-RequiredTrackedProcessesExit {
+  param(
+    [Parameter(Mandatory)][int[]]$ProcessIds,
+    [Parameter(Mandatory)][ValidateRange(1, 120000)]
+    [int]$TimeoutMilliseconds
+  )
+
+  $deadline = [DateTime]::UtcNow.AddMilliseconds($TimeoutMilliseconds)
+  do {
+    $live = @($ProcessIds | Where-Object {
+      Test-RequiredProcessAlive -ProcessId $_
+    })
+    if ($live.Count -eq 0) {
+      return $true
+    }
+    Start-Sleep -Milliseconds 100
+  } while ([DateTime]::UtcNow -lt $deadline)
+  return $false
+}
+
+function Stop-RequiredProcessTreeVerified {
+  param(
+    [Parameter(Mandatory)][Diagnostics.Process]$Process,
+    [ValidateRange(1, 120000)]
+    [int]$CleanupTimeoutMilliseconds = 30000
+  )
+
+  $snapshot = @(Get-RequiredProcessSnapshot)
+  $descendants = @(
+    Get-RequiredDescendantProcessIds `
+      -RootProcessId $Process.Id `
+      -Snapshot $snapshot
+  )
+  $tracked = @([int]$Process.Id) + $descendants
+  try {
+    if (-not $Process.HasExited) {
+      $Process.Kill($true)
+    }
+  } catch {
+    # Individual tracked termination below remains authoritative.
+  }
+  foreach ($processId in @($descendants | Sort-Object -Descending)) {
+    try {
+      $descendant = [Diagnostics.Process]::GetProcessById($processId)
+      try {
+        if (-not $descendant.HasExited) {
+          $descendant.Kill($true)
+        }
+      } finally {
+        $descendant.Dispose()
+      }
+    } catch [ArgumentException] {
+      # The tracked descendant has already exited.
+    }
+  }
+  $terminated = Wait-RequiredTrackedProcessesExit `
+    -ProcessIds $tracked `
+    -TimeoutMilliseconds $CleanupTimeoutMilliseconds
+  return [pscustomobject]@{
+    ProcessTreeTerminated = $terminated
+    TerminationStatus = if ($terminated) {
+      'killed-verified'
+    } else {
+      'kill-verification-timeout'
+    }
+    TrackedProcessIds = $tracked
+  }
+}
 
 function Invoke-RequiredBounded {
   [CmdletBinding()]
@@ -99,14 +236,11 @@ function Invoke-RequiredBounded {
     } else {
       $timedOut = $true
       try {
-        $process.Kill($true)
-        if ($process.WaitForExit(30000)) {
-          $process.WaitForExit()
-          $processTreeTerminated = $true
-          $terminationStatus = 'killed'
-        } else {
-          $terminationStatus = 'kill-wait-timeout'
-        }
+        $termination = Stop-RequiredProcessTreeVerified `
+          -Process $process `
+          -CleanupTimeoutMilliseconds 30000
+        $processTreeTerminated = $termination.ProcessTreeTerminated
+        $terminationStatus = $termination.TerminationStatus
       } catch {
         $terminationStatus = 'kill-failed'
         $stderr = "Required process-tree termination failed: $($_.Exception.Message)`n"
@@ -177,6 +311,10 @@ function Invoke-RequiredBounded {
     RecordPath = $recordPath
     Record = $record
   }
+}
+
+if ($ImportOnly) {
+  return
 }
 
 $result = Invoke-RequiredBounded `
