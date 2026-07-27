@@ -293,17 +293,104 @@ their table-local work and before publishing a value. Any mutation, including
 mutation followed by restoration of the original byte, permanently invalidates
 that admitted value because the revision changed.
 
+## Portable qualification contract
+
+Phase 100 qualifies the candidate contract with two complementary immutable-byte
+oracles: a generated micro-font and a licensed real-font specimen.
+`font-complete-public` is the exact compact complete-feature command
+oracle: its 580-byte checksum-correct font has `unitsPerEm=1000`, maps U+0041 to
+glyph 1 and U+10300 to glyph 2, reports zero global and named line metrics,
+publishes an exact 5-command simple `Path2` and 10-command one-level composite
+`Path2`, and returns `-37` for the glyph 1/glyph 2 kerning pair. The simple and
+composite command fingerprints are respectively
+`5fc6ebd87a17e0b581a44ccdb3e800c1f6b9f8b1f6da6cef5c4471021d626ed9`
+and
+`33f2ddb06317d5002afea389c0cb73c031bfc83458097c4bc4b466134e6a9a88`.
+This small fixture makes the complete public call sequence, including the
+format-4 branch, readable and exact.
+
+DejaVu Sans 2.37 is the representative interoperability oracle. The repository
+contains the exact 757,076-byte `DejaVuSans.ttf` with SHA-256
+`7da195a74c55bef988d0d48f9508bd5d849425c1770dba5d7bfc6ce9ed848954`
+and its exact 8,816-byte notice with SHA-256
+`7a083b136e64d064794c3419751e5c7dd10d2f64c108fe5ba161eae5e5958a93`.
+Both came from the immutable upstream release URL
+`https://github.com/dejavu-fonts/dejavu-fonts/releases/download/version_2_37/dejavu-sans-ttf-2.37.zip`,
+were retrieved on 2026-07-27, retain the exact license expression
+`Bitstream-Vera AND LicenseRef-DejaVu-Arev`, and have confirmed redistribution
+status in `fixtures/manifest.json`.
+
+The separately versioned
+`mnf-powershell-closed-sfnt-reader/1.0.0` oracle does not invoke `mb-font`.
+Against its independently checked facts, the public workflow freezes:
+
+- `unitsPerEm=2048`, global bounds `(-2090,-948)..(3673,2524)`,
+  `hhea=(1901,-483,0)`, and typographic metrics `(1556,-492,410)`;
+- U+0041 to glyph 36 with `(advance=1401, lsb=16)`, bounds
+  `(16,0)..(1384,1493)`, and a 13-command `Path2` fingerprint of
+  `ccb4bab2977fff264d8a8421ccb01e333b837e02bc7b5eb6c67e435ffcd2d308`;
+- U+034C to glyph 765 with `(advance=0, lsb=-842)`, bounds
+  `(-842,1221)..(-182,1680)`, and a 48-command one-level composite `Path2`
+  fingerprint of
+  `f5dfde0b4b9620c9de27a766cdd3fee9efa89f7fd1044c9d9f68ce2e94aed827`;
+- U+10300 to glyph 5373 with `(advance=1550, lsb=100)`, bounds
+  `(100,-29)..(1450,1493)`, and a 13-command `Path2` fingerprint of
+  `c082fb5502ff6694c084a4ebce10d0208171a9c8079051cb544868b44e92267a`;
+- glyph 36/glyph 57 legacy kerning of `-131`; and U+00E9 mapping, metrics,
+  and bounds with its outline correctly reported as
+  `CapabilityUnavailable` at the grid-rounding boundary.
+
+Component identities, raw table inventory, raw `cmap` records, selected-record
+internals, contour classification, and other parser facts remain
+offline-oracle-only. They are not public `mb-font` assertions.
+
+The closed hostile matrix covers malformed directory ranges, recognized
+unsupported profiles, retained-source mutation, checked range overflow,
+source-limit exact/one-short, open-budget exact/one-short, outline-budget
+exact/one-short, and recognized nested composites. Every case freezes the
+public stage, category, code, stable context, requested/limit fields when
+applicable, and publication outcome; failed opens publish no `Font`, and failed
+outlines publish no partial `Path2`.
+
+Run the complete focused contract on `js`, `wasm`, `wasm-gc`, and `native`:
+
+```powershell
+./scripts/quality.ps1 `
+  -Lane FontQualification `
+  -EvidenceDirectory artifacts/release-qualification/font
+```
+
+The command checks fixture provenance and generated-source drift, the exact
+public interface and sole `mb-core` dependency, all public and hostile tests on
+each target, and literate examples. It writes one closed evidence record per
+target plus `comparison.json`. Only top-level `target` and `runner` fields are
+removed for comparison; all fixture, toolchain, dependency, public, hostile,
+and pass facts remain byte-visible. The four records must have identical
+normalized semantics before evidence is considered passing.
+
+The repository-wide Required lane is separate evidence and is deliberately
+bounded:
+
+```powershell
+./scripts/quality/Invoke-RequiredBounded.ps1 `
+  -EvidenceDirectory artifacts/release-qualification/required `
+  -TimeoutSeconds 900
+```
+
+A Required failure or timeout remains a failure with captured diagnostics; it
+does not modify or relabel focused font qualification evidence.
+
 ## Deliberate boundary
 
-Phase 99 provides admission, named global/per-glyph metrics, one-scalar Unicode
-mapping, scoped legacy pair kerning, complete unhinted simple outlines, and
-bounded one-level composite `Path2` extraction. It deliberately excludes deeper
-composite geometry, phantom-point placement, grid rounding and TrueType hinting
-execution, rasterization, variations, CFF/CFF2, color and bitmap glyphs,
-shaping/layout/discovery/fallback, writing/editing/subsetting, collection and
-web-font containers, FFI, and ambient host discovery.
+The qualified candidate provides admission, named global/per-glyph metrics,
+one-scalar Unicode mapping, scoped legacy pair kerning, complete unhinted simple
+outlines, and bounded one-level composite `Path2` extraction. It deliberately
+excludes runtime file or host-font discovery, FFI, GUI or canvas state, shaping,
+layout, fallback, hinting execution, grid rounding, rasterization, CFF/CFF2,
+variations, color and bitmap glyphs, collection and web-font containers,
+writing/editing/subsetting, additional formats, and deeper composite expansion.
+The offline qualification tools may inspect committed bytes, but production and
+portable tests acquire no ambient host capability.
 
-Phase 99 conformance uses deterministic generated micro-fonts across the four
-package targets. Licensed real-font workflow evidence, including provenance,
-redistribution records, digests, and independently checked semantic facts,
-belongs to Phase 100 and is not claimed by this candidate.
+This qualification does not publish the module, promote it to stable, add a
+public API, or broaden the accepted font profile.

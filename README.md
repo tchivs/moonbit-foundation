@@ -26,11 +26,12 @@ stable and have not been published as a public release. The active line is
 v0.32 TrueType Font Foundation, focused on bounded standalone TrueType
 admission, named metrics, deterministic Unicode mapping, legacy horizontal
 kerning, and complete unhinted simple plus bounded one-level composite `Path2`
-outlines in `mb-font`. Outline qualification at this phase uses generated
-portable package evidence; licensed real-font workflow qualification remains
-pending. The completed v0.27 line delivered low-bit indexed Adam7 PNG encoding;
-the workspace also contains candidate `mb-canvas` and `mb-svg`
-implementations.
+outlines in `mb-font`. Phase 100 now qualifies the complete compact public
+workflow and the licensed immutable DejaVu Sans 2.37 interoperability workflow,
+including hostile inputs, with byte-equivalent semantic evidence on `js`,
+`wasm`, `wasm-gc`, and `native`. The completed v0.27 line delivered low-bit
+indexed Adam7 PNG encoding; the workspace also contains candidate `mb-canvas`
+and `mb-svg` implementations.
 
 Publication remains gated on verifying the exact Mooncakes namespace authority.
 No candidate API should be treated as a stable compatibility promise.
@@ -48,7 +49,7 @@ preferred performance and system-integration target.
 | [`tchivs/mb-image`](modules/mb-image/README.mbt.md) | Image descriptors, storage/views, raster operations, codec contracts, PPM, QOI, and PNG | `mb-core`, `mb-color` |
 | [`tchivs/mb-canvas`](modules/mb-canvas/README.mbt.md) | Deterministic drawing lists and coverage-antialiased rasterization into `mb-image` surfaces | `mb-core`, `mb-color`, `mb-image` |
 | [`tchivs/mb-svg`](modules/mb-svg/README.mbt.md) | Bounded SVG parsing and scene-tree lowering into an `mb-canvas` drawing list | `mb-core`, `mb-color`, `mb-image`, `mb-canvas` |
-| [`tchivs/mb-font`](modules/mb-font/README.mbt.md) | Bounded standalone TrueType admission, named global/per-glyph metrics, deterministic Unicode mapping, basic legacy horizontal kerning, and complete unhinted simple plus bounded one-level composite `Path2` outlines from generated package evidence | `mb-core` |
+| [`tchivs/mb-font`](modules/mb-font/README.mbt.md) | Bounded standalone TrueType admission, named global/per-glyph metrics, deterministic Unicode mapping, basic legacy horizontal kerning, and complete unhinted simple plus bounded one-level composite `Path2` outlines qualified by compact and licensed DejaVu Sans workflows on four targets | `mb-core` |
 
 The dependency direction is deliberately downward: SVG parses documents, canvas
 executes geometry, image owns pixels/codecs, color owns color semantics, and
@@ -65,12 +66,20 @@ The CI-verified development baseline is:
 - `moonc v0.10.4+2cc641edf`
 - `moonrun 0.1.20260713` (`75c7e1f`)
 
-Run the required quality lane from PowerShell:
+Run the focused four-target font qualification from PowerShell:
 
 ```powershell
 ./scripts/quality.ps1 `
-  -Lane Required `
-  -EvidenceDirectory artifacts/release-qualification/local
+  -Lane FontQualification `
+  -EvidenceDirectory artifacts/release-qualification/font
+```
+
+Run the separate bounded repository Required lane:
+
+```powershell
+./scripts/quality/Invoke-RequiredBounded.ps1 `
+  -EvidenceDirectory artifacts/release-qualification/required `
+  -TimeoutSeconds 900
 ```
 
 Run the SVG end-to-end example:
@@ -133,10 +142,11 @@ MCP 服务、IDE 扩展、桌面软件和 WebAssembly 应用复用的基础合�
 已经完成公开发布。当前主线是 v0.32 TrueType Font Foundation，重点是在
 `mb-font` 中实现有界独立 TrueType 接纳、具名度量、确定性 Unicode 映射、
 旧式水平字偶距调整，以及完整的无 hint 简单轮廓和有界单层复合 `Path2`
-轮廓。本阶段的轮廓资格证据来自生成式可移植包测试；获许可真实字体的完整
-工作流资格验证仍待 Phase 100 完成。已完成的 v0.27 主线交付了低位深索引
-Adam7 PNG 编码；工作区同时包含 candidate 状态的 `mb-canvas` 和 `mb-svg`
-实现。
+轮廓。Phase 100 现已用精简的完整公共工作流和获许可、不可变的 DejaVu Sans
+2.37 互操作工作流完成资格验证；包括恶意输入在内的语义证据在 `js`、
+`wasm`、`wasm-gc` 和 `native` 上逐字节一致。已完成的 v0.27 主线交付了
+低位深索引 Adam7 PNG 编码；工作区同时包含 candidate 状态的 `mb-canvas`
+和 `mb-svg` 实现。
 
 发布仍需先验证 Mooncakes 的确切命名空间权限。任何 candidate API 都不应
 被视为稳定兼容承诺。
@@ -150,7 +160,7 @@ Adam7 PNG 编码；工作区同时包含 candidate 状态的 `mb-canvas` 和 `mb
 | [`tchivs/mb-image`](modules/mb-image/README.mbt.md) | 图像描述、存储/视图、栅格操作、编解码合同、PPM、QOI、PNG | `mb-core`、`mb-color` |
 | [`tchivs/mb-canvas`](modules/mb-canvas/README.mbt.md) | 确定性的绘制列表和覆盖率抗锯齿栅格化 | `mb-core`、`mb-color`、`mb-image` |
 | [`tchivs/mb-svg`](modules/mb-svg/README.mbt.md) | 有界 SVG 解析，并降级为 `mb-canvas` 绘制列表 | `mb-core`、`mb-color`、`mb-image`、`mb-canvas` |
-| [`tchivs/mb-font`](modules/mb-font/README.mbt.md) | 有界独立 TrueType 接纳、具名全局/逐字形度量、确定性 Unicode 映射、基础旧式水平字偶距调整，以及由生成式包证据验证的完整无 hint 简单轮廓和有界单层复合 `Path2` 轮廓 | `mb-core` |
+| [`tchivs/mb-font`](modules/mb-font/README.mbt.md) | 有界独立 TrueType 接纳、具名全局/逐字形度量、确定性 Unicode 映射、基础旧式水平字偶距调整，以及由精简字体与获许可 DejaVu Sans 四目标工作流验证的完整无 hint 简单轮廓和有界单层复合 `Path2` 轮廓 | `mb-core` |
 
 依赖方向保持向下：SVG 负责文档解析，Canvas 负责几何执行，Image 负责
 像素和编解码，Color 负责颜色语义，Core 负责安全和能力基础。Font 接纳与
@@ -165,12 +175,20 @@ CI 验证的工具链基线为：
 - `moonc v0.10.4+2cc641edf`
 - `moonrun 0.1.20260713`（`75c7e1f`）
 
-在 PowerShell 中运行必需质量检查：
+在 PowerShell 中运行聚焦的四目标字体资格检查：
 
 ```powershell
 ./scripts/quality.ps1 `
-  -Lane Required `
-  -EvidenceDirectory artifacts/release-qualification/local
+  -Lane FontQualification `
+  -EvidenceDirectory artifacts/release-qualification/font
+```
+
+另行运行有界的仓库 Required 检查：
+
+```powershell
+./scripts/quality/Invoke-RequiredBounded.ps1 `
+  -EvidenceDirectory artifacts/release-qualification/required `
+  -TimeoutSeconds 900
 ```
 
 运行 SVG 到像素的端到端示例：

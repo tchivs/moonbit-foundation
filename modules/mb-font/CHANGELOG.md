@@ -46,10 +46,29 @@ Compatibility status: candidate. No stable API or public release is claimed.
   geometry publication.
 - Deterministic generated micro-font qualification across `js`, `wasm`,
   `wasm-gc`, and `native`.
+- FONT-05 complete public-workflow qualification with the exact 580-byte compact
+  command oracle and the licensed, immutable 757,076-byte DejaVu Sans 2.37
+  interoperability specimen.
+- Independently derived DejaVu mapping, named metric, `Path2`, capability, and
+  legacy-kerning facts bound to the upstream font and notice digests and their
+  exact `Bitstream-Vera AND LicenseRef-DejaVu-Arev` provenance.
+- A closed eleven-case hostile matrix for malformed data, unsupported
+  capabilities, mutation, checked ranges, source limits, admission and outline
+  budgets, and nested composites, executed identically on `js`, `wasm`,
+  `wasm-gc`, and `native`.
+- Canonical four-target evidence records whose normalized semantics retain all
+  public, hostile, fixture, toolchain, and dependency facts.
 
-Phase 99 does not claim deeper composite geometry, phantom-point placement,
-grid rounding or hinting execution, rasterization, variations, CFF/CFF2,
-color/bitmap glyphs, text shaping/layout/discovery, font writing/editing,
-filesystem/host discovery, FFI, collection/web-font support, or licensed
-real-font evidence. Licensed real-font end-to-end qualification is reserved for
-Phase 100.
+### Fixed
+
+- Valid Macintosh platform 1, encoding 0, format-6 `cmap` records may coexist
+  with a canonical format-4/12 Unicode map. Format 6 remains private,
+  non-selectable, non-queryable, and uncharged as supported mapping-body work;
+  malformed or wrong-domain records still fail closed.
+
+The candidate still does not claim deeper composite geometry, phantom-point
+placement, grid rounding or hinting execution, rasterization, variations,
+CFF/CFF2, color/bitmap glyphs, text shaping/layout/discovery, font
+writing/editing, filesystem/host discovery, FFI, additional formats, or
+collection/web-font support. FONT-05 qualification does not claim publication,
+stability promotion, or a new public API.
