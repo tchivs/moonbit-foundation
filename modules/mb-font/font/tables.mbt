@@ -338,6 +338,15 @@ fn font_admission_charge(
   } else {
     loca_allocation_size
   }
+  let kern_charged_work = match
+    @checked.checked_add(kern.subtable_work, kern.pair_work) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  let remaining_work = match @checked.checked_sub(work, kern_charged_work) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
   Ok({
     charge: @budget.ResourceCharge::new(
       bytes=directory.source.length(),
@@ -346,7 +355,7 @@ fn font_admission_charge(
       width=0UL,
       height=0UL,
       pixels=0UL,
-      work~,
+      work=remaining_work,
     ),
     kern: kern.state,
   })
@@ -789,6 +798,27 @@ fn font_preflight_admission_work(
     return Err(font_limit_error("max-work", work, max_work))
   }
   budget.preflight(
+    @budget.ResourceCharge::new(
+      bytes=0UL,
+      allocations=0UL,
+      allocation_size=0UL,
+      width=0UL,
+      height=0UL,
+      pixels=0UL,
+      work~,
+    ),
+  )
+}
+
+///|
+/// Commit already-preflighted attacker-declared scan work immediately before
+/// the consuming loop. Bytes and allocations remain part of the later atomic
+/// admission charge.
+fn font_charge_admission_work(
+  budget : @budget.Budget,
+  work : UInt64,
+) -> Result[Unit, @error.CoreError] {
+  budget.charge(
     @budget.ResourceCharge::new(
       bytes=0UL,
       allocations=0UL,

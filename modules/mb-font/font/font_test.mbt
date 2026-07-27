@@ -1267,6 +1267,7 @@ fn font_test_assert_kern_open_data(
   kern : Bytes,
   glyph_count : UInt64,
   context : String,
+  expected_work : UInt64,
 ) -> Unit raise {
   let budget = font_test_budget()
   let before = budget.remaining()
@@ -1285,7 +1286,10 @@ fn font_test_assert_kern_open_data(
     budget.remaining().allocations() == before.allocations(),
     content="true",
   )
-  inspect(budget.remaining().work() == before.work(), content="true")
+  inspect(
+    budget.remaining().work() == before.work() - expected_work,
+    content="true",
+  )
 }
 
 ///|
@@ -1319,20 +1323,28 @@ test "recognized classic and Apple kern envelope malformations fail opening" {
   let malformed_classic = font_test_kern_classic([
     supported, b"\x00\x00\x00\x05\x00\x01",
   ])
-  let malformed_classic_edges = [
-    b"", b"\x00", b"\x00\x00", b"\x00\x00\x00", b"\x00\x00\x00\x01", b"\x00\x00\x00\x01\x00\x00\x00\x06\x00",
-    b"\x00\x00\x00\x01\x00\x00\x00\x05\x00\x01", b"\x00\x00\x00\x01\x00\x00\x00\x07\x00\x01",
-    b"\x00\x00\x00\x00\x00",
+  let malformed_classic_cases = [
+    (malformed_classic, 2UL),
+    (b"", 0UL),
+    (b"\x00", 0UL),
+    (b"\x00\x00", 0UL),
+    (b"\x00\x00\x00", 0UL),
+    (b"\x00\x00\x00\x01", 1UL),
+    (b"\x00\x00\x00\x01\x00\x00\x00\x06\x00", 1UL),
+    (b"\x00\x00\x00\x01\x00\x00\x00\x05\x00\x01", 1UL),
+    (b"\x00\x00\x00\x01\x00\x00\x00\x07\x00\x01", 1UL),
+    (b"\x00\x00\x00\x00\x00", 0UL),
   ]
-  let malformed_apple = [
-    b"\x00\x01\x00\x00",
-    b"\x00\x01\x00\x00\x00\x00\x00\x01",
-    b"\x00\x01\x00\x00\x00\x00\x00\x01\x00\x00\x00\x08\x00\x00\x00",
-    b"\x00\x01\x00\x00\x00\x00\x00\x01\x00\x00\x00\x09\x00\x00\x00\x00",
-    font_test_kern_apple([font_test_kern_apple_subtable(7UL, b"")]),
-    font_test_kern_apple([font_test_kern_apple_subtable(8UL, b"\x00")]),
+  let malformed_apple_cases = [
+    (b"\x00\x01\x00\x00", 0UL),
+    (b"\x00\x01\x00\x00\x00\x00\x00\x01", 1UL),
+    (b"\x00\x01\x00\x00\x00\x00\x00\x01\x00\x00\x00\x08\x00\x00\x00", 1UL),
+    (b"\x00\x01\x00\x00\x00\x00\x00\x01\x00\x00\x00\x09\x00\x00\x00\x00", 1UL),
+    (font_test_kern_apple([font_test_kern_apple_subtable(7UL, b"")]), 1UL),
+    (font_test_kern_apple([font_test_kern_apple_subtable(8UL, b"\x00")]), 1UL),
   ]
-  for kern in [malformed_classic] + malformed_classic_edges + malformed_apple {
+  for case in malformed_classic_cases + malformed_apple_cases {
+    let (kern, expected_work) = case
     let budget = font_test_budget()
     let before = budget.remaining()
     let result = Font::open(
@@ -1353,7 +1365,10 @@ test "recognized classic and Apple kern envelope malformations fail opening" {
       Ok(_) => ()
     }
     inspect(budget.remaining().bytes() == before.bytes(), content="true")
-    inspect(budget.remaining().work() == before.work(), content="true")
+    inspect(
+      budget.remaining().work() == before.work() - expected_work,
+      content="true",
+    )
   }
 }
 
@@ -1374,14 +1389,54 @@ test "malformed supported kern pairs fail opening with exact data taxonomy" {
   font_test_put_u16(out_of_range, 18, 3UL)
   for
     case in [
-      (Bytes::from_array(bad_length), "font-kern-envelope"),
-      (Bytes::from_array(bad_search), "font-kern-search"),
-      (Bytes::from_array(descending), "font-kern-pair-order"),
-      (Bytes::from_array(duplicate), "font-kern-pair-order"),
-      (Bytes::from_array(out_of_range), "font-kern-glyph-range"),
+      (Bytes::from_array(bad_length), "font-kern-envelope", 1UL),
+      (Bytes::from_array(bad_search), "font-kern-search", 3UL),
+      (Bytes::from_array(descending), "font-kern-pair-order", 3UL),
+      (Bytes::from_array(duplicate), "font-kern-pair-order", 3UL),
+      (Bytes::from_array(out_of_range), "font-kern-glyph-range", 3UL),
     ] {
-    let (kern, context) = case
-    font_test_assert_kern_open_data(kern, 3UL, context)
+    let (kern, context, expected_work) = case
+    font_test_assert_kern_open_data(kern, 3UL, context, expected_work)
+  }
+}
+
+///|
+test "repeated malformed last kern pairs consume one shared work budget" {
+  let pairs = [
+    (0UL, 0UL, 0),
+    (0UL, 1UL, 1),
+    (0UL, 2UL, 2),
+    (0UL, 3UL, 3),
+    (0UL, 4UL, 4),
+    (0UL, 5UL, 5),
+    (0UL, 6UL, 6),
+    (0UL, 7UL, 7),
+    (0UL, 8UL, 8),
+    (0UL, 9UL, 9),
+    (0UL, 10UL, 10),
+    (0UL, 11UL, 11),
+    (0UL, 12UL, 12),
+    (0UL, 13UL, 13),
+    (0UL, 14UL, 14),
+    (0UL, 15UL, 15),
+  ]
+  let malformed = font_test_kern_format0(pairs).to_array()
+  font_test_put_u16(malformed, malformed.length() - 4, 14UL)
+  let owner = font_test_owner(
+    font_test_truetype_with_kern_and_glyphs(Bytes::from_array(malformed), 16UL),
+  )
+  let budget = font_test_budget()
+  let before = budget.remaining()
+  for attempt = 1UL; attempt <= 3UL; attempt = attempt + 1UL {
+    let error = Font::open(owner.view(), font_test_limits(), budget).unwrap_err()
+    inspect(error.category() == @error.ErrorCategory::Data, content="true")
+    inspect(error.code() == @error.ErrorCode::InvalidEncoding, content="true")
+    inspect(error.operation() == Some("font-open"), content="true")
+    inspect(error.context() == Some("font-kern-pair-order"), content="true")
+    let remaining = budget.remaining()
+    inspect(remaining.bytes() == before.bytes(), content="true")
+    inspect(remaining.allocations() == before.allocations(), content="true")
+    inspect(remaining.work() == before.work() - attempt * 17UL, content="true")
   }
 }
 
@@ -1411,15 +1466,17 @@ test "kern semantic ceilings reject before subtable and pair scans" {
         two_subtables,
         font_test_limits_with_kern(1UL, 2UL),
         "max-kern-subtables",
+        0UL,
       ),
       (
         two_apple_subtables,
         font_test_limits_with_kern(1UL, 2UL),
         "max-kern-subtables",
+        0UL,
       ),
-      (two_pairs, font_test_limits_with_kern(1UL, 1UL), "max-kern-pairs"),
+      (two_pairs, font_test_limits_with_kern(1UL, 1UL), "max-kern-pairs", 1UL),
     ] {
-    let (source, limits, context) = case
+    let (source, limits, context, expected_work) = case
     let budget = font_test_budget()
     let before = budget.remaining()
     let result = Font::open(font_test_owner(source).view(), limits, budget)
@@ -1439,7 +1496,10 @@ test "kern semantic ceilings reject before subtable and pair scans" {
       Ok(_) => ()
     }
     inspect(budget.remaining().bytes() == before.bytes(), content="true")
-    inspect(budget.remaining().work() == before.work(), content="true")
+    inspect(
+      budget.remaining().work() == before.work() - expected_work,
+      content="true",
+    )
   }
 }
 
@@ -1471,6 +1531,8 @@ test "kern work admits exact fit and rejects one short atomically" {
     table_count +
     directory_normalization_work +
     table_count * 5UL
+  // One cmap record follows discovery before one kern subtable and two pairs.
+  let pair_preflight_work = discovery_work + 1UL + 1UL + 2UL
   let directory_allocation_size = table_count * 64UL
   let exact_limits = FontLimits::new(
     max_source_bytes=source_length,
@@ -1498,6 +1560,42 @@ test "kern work admits exact fit and rejects one short atomically" {
   let right = font.glyph_id(2UL).unwrap()
   inspect(font.kerning(left, right).unwrap(), content="-5")
   inspect(exact_budget.remaining().work() == after_open.work(), content="true")
+
+  let pair_preflight_limits = FontLimits::new(
+    max_source_bytes=source_length,
+    max_tables=table_count,
+    max_table_bytes=source_length,
+    max_glyphs=3UL,
+    max_name_records=1UL,
+    max_cmap_records=1UL,
+    max_kern_subtables=1UL,
+    max_kern_pairs=2UL,
+    max_post_name_bytes=32UL,
+    max_work=pair_preflight_work - 1UL,
+  ).unwrap()
+  let pair_preflight_budget = font_test_budget_with(source_length, exact_work)
+  let pair_preflight_before = pair_preflight_budget.remaining()
+  let pair_preflight_error = Font::open(
+    font_test_owner(source).view(),
+    pair_preflight_limits,
+    pair_preflight_budget,
+  ).unwrap_err()
+  inspect(pair_preflight_error.context() == Some("max-work"), content="true")
+  inspect(
+    pair_preflight_budget.remaining().bytes() ==
+      pair_preflight_before.bytes(),
+    content="true",
+  )
+  inspect(
+    pair_preflight_budget.remaining().allocations() ==
+      pair_preflight_before.allocations(),
+    content="true",
+  )
+  inspect(
+    pair_preflight_budget.remaining().work() ==
+      pair_preflight_before.work() - 1UL,
+    content="true",
+  )
 
   let narrow_limits = FontLimits::new(
     max_source_bytes=source_length,
@@ -1528,7 +1626,7 @@ test "kern work admits exact fit and rejects one short atomically" {
     content="true",
   )
   inspect(
-    ample_budget.remaining().work() == ample_before.work(),
+    ample_budget.remaining().work() == ample_before.work() - 3UL,
     content="true",
   )
 
@@ -1549,7 +1647,7 @@ test "kern work admits exact fit and rejects one short atomically" {
     content="true",
   )
   inspect(
-    narrow_budget.remaining().work() == narrow_before.work(),
+    narrow_budget.remaining().work() == narrow_before.work() - 3UL,
     content="true",
   )
 

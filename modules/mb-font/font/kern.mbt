@@ -339,6 +339,10 @@ fn font_admit_kern_bounded(
       Err(error) => return Err(error)
       Ok(_) => ()
     }
+    match font_charge_admission_work(budget, subtable_count) {
+      Err(error) => return Err(error)
+      Ok(_) => ()
+    }
     let profile = match font_kern_classic_envelope(table, subtable_count) {
       Err(error) => return Err(error)
       Ok(value) => value
@@ -368,12 +372,25 @@ fn font_admit_kern_bounded(
           Err(error) => return Err(error)
           Ok(result) => result
         }
+        if pair_work > limits.max_work() {
+          return Err(
+            font_limit_error("max-work", pair_work, limits.max_work()),
+          )
+        }
+        let pair_budget_work = match @checked.checked_add(base_work, pair_count) {
+          Err(error) => return Err(error)
+          Ok(result) => result
+        }
         match
           font_preflight_admission_work(
             budget,
             limits.max_work(),
-            pair_work,
+            pair_budget_work,
           ) {
+          Err(error) => return Err(error)
+          Ok(_) => ()
+        }
+        match font_charge_admission_work(budget, pair_count) {
           Err(error) => return Err(error)
           Ok(_) => ()
         }
@@ -413,6 +430,10 @@ fn font_admit_kern_bounded(
     }
     match
       font_preflight_admission_work(budget, limits.max_work(), subtable_work) {
+      Err(error) => return Err(error)
+      Ok(_) => ()
+    }
+    match font_charge_admission_work(budget, subtable_count) {
       Err(error) => return Err(error)
       Ok(_) => ()
     }
