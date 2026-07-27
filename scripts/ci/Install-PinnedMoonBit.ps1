@@ -5,12 +5,12 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
 $ToolchainArchive = [pscustomobject][ordered]@{
-  Url = 'https://cli.moonbitlang.com/binaries/latest/moonbit-linux-x86_64.tar.gz'
+  Url = 'https://github.com/tchivs/moonbit-foundation/releases/download/ci-toolchain-0.1.20260713-75c7e1f/moonbit-linux-x86_64-0.1.20260713-75c7e1f.tar.gz'
   Length = [long]73033507
   Sha256 = '31b7fc5cc78657964a6d545792ecd7fb8eed51b97c7431a17458b58734303381'
 }
 $CoreArchive = [pscustomobject][ordered]@{
-  Url = 'https://cli.moonbitlang.com/cores/core-latest.tar.gz'
+  Url = 'https://github.com/tchivs/moonbit-foundation/releases/download/ci-toolchain-0.1.20260713-75c7e1f/moonbit-core-0.1.20260713-75c7e1f.tar.gz'
   Length = [long]1302919
   Sha256 = '03ad55b99f3e431f3cb81b4e2bb28bb98173304e4a1b18a891ea027cabba5d1c'
 }
@@ -250,8 +250,8 @@ try {
     -MaximumRetryCount 3 `
     -RetryIntervalSec 2
 
-  # Mutable "latest" URLs are transport only. Both compressed byte streams are
-  # authenticated before tar sees either archive.
+  # Immutable release assets remain authenticated before tar sees either
+  # compressed byte stream.
   Assert-PinnedArchive -Path $toolchainPath -Identity $ToolchainArchive
   Assert-PinnedArchive -Path $corePath -Identity $CoreArchive
   Expand-PinnedArchive `

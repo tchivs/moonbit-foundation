@@ -1190,8 +1190,10 @@ function Assert-QualityWorkflowToolchainTransport {
     $AllWorkflowText -cnotmatch 'hustcer/setup-moonbit'
   ) 'CI workflows must not use the unavailable setup-moonbit transport.'
   Assert-Condition (
-    $AllWorkflowText -cnotmatch 'cli\.moonbitlang\.com/.+latest'
-  ) 'Mutable MoonBit archive URLs must remain inside the pinned installer.'
+    $AllWorkflowText -cnotmatch (
+      "https://[^'`"\s]*latest[^'`"\s]*\.tar\.gz"
+    )
+  ) 'CI workflows must not use mutable latest archive URLs.'
 
   $installCommand = './scripts/ci/Install-PinnedMoonBit.ps1'
   Assert-Condition (
@@ -1253,17 +1255,22 @@ function Assert-QualityWorkflowToolchainTransport {
     ) "Quality workflow job '$jobName' must invoke the installer with pwsh."
   }
 
-  $toolchainUrl = 'https://cli.moonbitlang.com/binaries/latest/moonbit-linux-x86_64.tar.gz'
-  $coreUrl = 'https://cli.moonbitlang.com/cores/core-latest.tar.gz'
-  $latestUrls = @(
+  $toolchainUrl = 'https://github.com/tchivs/moonbit-foundation/releases/download/ci-toolchain-0.1.20260713-75c7e1f/moonbit-linux-x86_64-0.1.20260713-75c7e1f.tar.gz'
+  $coreUrl = 'https://github.com/tchivs/moonbit-foundation/releases/download/ci-toolchain-0.1.20260713-75c7e1f/moonbit-core-0.1.20260713-75c7e1f.tar.gz'
+  Assert-Condition (
+    $InstallerText -cnotmatch (
+      "https://[^'`"\s]*latest[^'`"\s]*\.tar\.gz"
+    )
+  ) 'Pinned MoonBit installer must not use mutable latest archive URLs.'
+  $archiveUrls = @(
     [regex]::Matches(
       $InstallerText,
-      "https://[^'`"\s]*latest[^'`"\s]*"
+      "https://[^'`"\s]*\.tar\.gz"
     ) | ForEach-Object Value
   )
   Assert-ExactSequence `
-    'Pinned MoonBit mutable transport URL set' `
-    $latestUrls `
+    'Pinned MoonBit immutable archive URL set' `
+    $archiveUrls `
     @($toolchainUrl, $coreUrl)
 
   $toolchainBlock = [regex]::Match(

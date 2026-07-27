@@ -107,16 +107,20 @@ Invoke-WorkflowPolicyCase `
   -ExpectedFailurePattern 'archive identity drifted'
 
 Invoke-WorkflowPolicyCase `
-  -Name 'unapproved latest transport URL is forbidden' `
+  -Name 'installer latest transport URL is forbidden' `
   -Arrange {
     param($state)
-    $state.Installer += (
-      "`n`$Unapproved = " +
-      "'https://cli.moonbitlang.com/binaries/latest/other.tar.gz'`n"
+    $state.Installer = $state.Installer.Replace(
+      (
+        'https://github.com/tchivs/moonbit-foundation/releases/download/' +
+        'ci-toolchain-0.1.20260713-75c7e1f/' +
+        'moonbit-linux-x86_64-0.1.20260713-75c7e1f.tar.gz'
+      ),
+      'https://cli.moonbitlang.com/binaries/latest/moonbit-linux-x86_64.tar.gz'
     )
   } `
   -ShouldPass $false `
-  -ExpectedFailurePattern 'mutable transport URL set'
+  -ExpectedFailurePattern 'must not use mutable latest archive URLs'
 
 Invoke-WorkflowPolicyCase `
   -Name 'core cannot precede binary verification' `
