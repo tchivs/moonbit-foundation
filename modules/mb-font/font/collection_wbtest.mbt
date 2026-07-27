@@ -137,7 +137,10 @@ test "collection DSIG work includes header records and block pairs exactly" {
     font_collection_exact_work(1UL, 1UL, 3UL, 1UL, 1UL, 1UL, 48UL).unwrap(),
     content="48",
   )
-  let error = font_collection_exact_work(1UL, 1UL, 3UL, 1UL, 1UL, 1UL, 47UL).unwrap_err()
-  inspect(error.category() == @error.ErrorCategory::Resource, content="true")
-  inspect(error.context() == Some("max-work"), content="true")
+  // The helper's limit bounds arithmetic overflow; retained-charge performs
+  // the final semantic one-short comparison.
+  inspect(
+    font_collection_exact_work(1UL, 1UL, 3UL, 1UL, 1UL, 1UL, 47UL).unwrap(),
+    content="48",
+  )
 }

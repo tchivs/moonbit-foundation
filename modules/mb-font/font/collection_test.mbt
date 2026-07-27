@@ -1077,7 +1077,11 @@ test "TTC-01 DSIG body rejects malformed and complete unsupported facts" {
     ] {
     let (field, value, category, context) = item
     let malformed = source.to_array()
-    font_collection_test_put_u32(malformed, field, value)
+    if field == 72 || field == 74 {
+      font_collection_test_put_u16(malformed, field, value)
+    } else {
+      font_collection_test_put_u32(malformed, field, value)
+    }
     let owner = font_collection_test_owner(Bytes::from_array(malformed))
     let budget = font_collection_test_dsig_budget(48UL)
     let before = budget.remaining()
