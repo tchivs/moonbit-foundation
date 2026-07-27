@@ -43,6 +43,42 @@ fn font_collection_wb_view(source : Bytes) -> @bytes.ByteView {
 }
 
 ///|
+fn font_collection_wb_owner(source : Bytes) -> @bytes.OwnedBytes {
+  let length = source.length().to_uint64()
+  @bytes.OwnedBytes::from_bytes(
+    source,
+    @budget.Budget::new(
+      @budget.ResourceLimits::new(
+        bytes=length,
+        allocations=1UL,
+        allocation_size=length,
+        width=0UL,
+        height=0UL,
+        pixels=0UL,
+        depth=0UL,
+        work=0UL,
+      ),
+    ),
+  ).unwrap()
+}
+
+///|
+fn font_collection_wb_mutate_restore(
+  owner : @bytes.OwnedBytes,
+  offset : UInt64,
+) -> Unit {
+  let original = owner.view().get(offset).unwrap()
+  owner
+  .with_mut(offset, 1UL, fn(lease) {
+    lease.set(0UL, (original.to_uint64() ^ 1UL).to_byte())
+  })
+  .unwrap()
+  owner
+  .with_mut(offset, 1UL, fn(lease) { lease.set(0UL, original) })
+  .unwrap()
+}
+
+///|
 fn font_collection_wb_two_face_v2() -> Bytes {
   let output = Array::make(160, b'\x00')
   font_collection_wb_put_u32(output, 0, 0x74746366UL)
@@ -110,10 +146,7 @@ test "collection structural pass keeps root ranges and face order" {
   inspect(facts.faces[0].directory_start, content="48")
   inspect(facts.faces[0].profile == FontFaceProfile::Cff, content="true")
   inspect(facts.faces[1].directory_start, content="80")
-  inspect(
-    facts.faces[1].profile == FontFaceProfile::StaticGlyf,
-    content="true",
-  )
+  inspect(facts.faces[1].profile == FontFaceProfile::StaticGlyf, content="true")
   inspect(facts.protected_ranges.length(), content="3")
   inspect(facts.protected_ranges[0].end, content="32")
   inspect(facts.protected_ranges[1].start, content="48")
@@ -122,37 +155,73 @@ test "collection structural pass keeps root ranges and face order" {
 
 ///|
 test "collection accounting formula includes every protected and alias pair" {
+  inspect(font_collection_choose_two(0UL, 48UL).unwrap(), content="0")
+  inspect(font_collection_choose_two(3UL, 48UL).unwrap(), content="3")
   inspect(
-    font_collection_choose_two(0UL, 48UL).unwrap(),
-    content="0",
-  )
-  inspect(
-    font_collection_choose_two(3UL, 48UL).unwrap(),
-    content="3",
-  )
-  inspect(
-    font_collection_exact_work(
-      2UL,
-      2UL,
-      3UL,
-      0UL,
-      0UL,
-      0UL,
-      48UL,
-    ).unwrap(),
+    font_collection_exact_work(2UL, 2UL, 3UL, 0UL, 0UL, 0UL, 48UL).unwrap(),
     content="48",
   )
-  let overflow = font_collection_choose_two(
-    18446744073709551615UL,
-    48UL,
-  ).unwrap_err()
-  inspect(
-    overflow.category() == @error.ErrorCategory::Resource,
-    content="true",
-  )
-  inspect(
-    overflow.code() == @error.ErrorCode::BudgetExceeded,
-    content="true",
-  )
+  let overflow = font_collection_choose_two(18446744073709551615UL, 48UL).unwrap_err()
+  inspect(overflow.category() == @error.ErrorCategory::Resource, content="true")
+  inspect(overflow.code() == @error.ErrorCode::BudgetExceeded, content="true")
   inspect(overflow.context() == Some("max-work"), content="true")
+}
+
+///|
+test "collection DSIG work includes header records and block pairs exactly" {
+  inspect(
+    font_collection_exact_work(1UL, 1UL, 3UL, 1UL, 1UL, 1UL, 48UL).unwrap(),
+    content="48",
+  )
+  // The helper's limit bounds arithmetic overflow; retained-charge performs
+  // the final semantic one-short comparison.
+  inspect(
+    font_collection_exact_work(1UL, 1UL, 3UL, 1UL, 1UL, 1UL, 47UL).unwrap(),
+    content="48",
+  )
+}
+
+///|
+test "collection final revision guard rejects mutate-restoration atomically" {
+  let owner = font_collection_wb_owner(font_collection_wb_two_face_v2())
+  let budget = @budget.Budget::new(
+    @budget.ResourceLimits::new(
+      bytes=248UL,
+      allocations=2UL,
+      allocation_size=80UL,
+      width=0UL,
+      height=0UL,
+      pixels=0UL,
+      depth=0UL,
+      work=64UL,
+    ),
+  )
+  let before = budget.remaining()
+  let mut callback_count = 0
+  let result = FontCollection::open_after_normalize(
+    owner.view(),
+    font_collection_wb_limits(),
+    budget,
+    fn() {
+      callback_count = callback_count + 1
+      font_collection_wb_mutate_restore(owner, 132UL)
+    },
+  )
+  let error = result.unwrap_err()
+  inspect(error.category() == @error.ErrorCategory::State, content="true")
+  inspect(error.code() == @error.ErrorCode::InvalidRange, content="true")
+  inspect(
+    error.operation() == Some("font-collection-open"),
+    content="true",
+  )
+  inspect(
+    error.context() == Some("font-collection-source-revision-drift"),
+    content="true",
+  )
+  inspect(callback_count, content="1")
+  let after = budget.remaining()
+  inspect(after.bytes() == before.bytes(), content="true")
+  inspect(after.allocations() == before.allocations(), content="true")
+  inspect(after.allocation_size() == before.allocation_size(), content="true")
+  inspect(after.work() == before.work(), content="true")
 }

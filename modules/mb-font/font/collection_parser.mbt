@@ -19,6 +19,18 @@ priv struct CollectionTableRecord {
 }
 
 ///|
+priv struct CollectionDsigRecord {
+  format : UInt64
+  start : UInt64
+  end : UInt64
+}
+
+///|
+priv struct CollectionDsigFacts {
+  record_count : UInt64
+}
+
+///|
 priv struct CollectionDeclarationFacts {
   version : UInt64
   face_count : UInt64
@@ -27,7 +39,6 @@ priv struct CollectionDeclarationFacts {
   dsig_present : Bool
   dsig_start : UInt64
   dsig_end : UInt64
-  dsig_records : UInt64
 }
 
 ///|
@@ -316,6 +327,405 @@ fn font_collection_table_range(
           limit=source.length(),
         ),
       )
+  }
+}
+
+///|
+fn font_collection_dsig_range(
+  source : @bytes.ByteView,
+  start : UInt64,
+  length : UInt64,
+) -> Result[@checked.CheckedRange, @error.CoreError] {
+  let root = match
+    @checked.CheckedRange::from_start_length(0UL, source.length()) {
+    Ok(value) => value
+    Err(_) =>
+      return Err(font_collection_data_error("font-collection-source-range"))
+  }
+  match root.subrange(start, length) {
+    Ok(value) => Ok(value)
+    Err(_) =>
+      Err(
+        font_collection_data_error(
+          "font-collection-dsig-range",
+          source_offset=start,
+          requested=length,
+          limit=source.length(),
+        ),
+      )
+  }
+}
+
+///|
+fn font_collection_dsig_block_range(
+  declaration : CollectionDeclarationFacts,
+  relative_start : UInt64,
+  length : UInt64,
+) -> Result[@checked.CheckedRange, @error.CoreError] {
+  let dsig_length = declaration.dsig_end - declaration.dsig_start
+  let outer = match
+    @checked.CheckedRange::from_start_length(
+      declaration.dsig_start,
+      dsig_length,
+    ) {
+    Ok(value) => value
+    Err(_) =>
+      return Err(
+        font_collection_data_error("font-collection-dsig-block-range"),
+      )
+  }
+  match outer.subrange(relative_start, length) {
+    Ok(value) => Ok(value)
+    Err(_) =>
+      Err(
+        font_collection_data_error(
+          "font-collection-dsig-block-range",
+          source_offset=declaration.dsig_start,
+          requested=length,
+          limit=dsig_length,
+        ),
+      )
+  }
+}
+
+///|
+fn font_collection_dsig_record(
+  source : @bytes.ByteView,
+  declaration : CollectionDeclarationFacts,
+  record_array_end : UInt64,
+  index : UInt64,
+) -> Result[CollectionDsigRecord, @error.CoreError] {
+  let delta = match
+    font_collection_data_mul(
+      index,
+      12UL,
+      "font-collection-dsig-record-array",
+    ) {
+    Ok(value) => value
+    Err(error) => return Err(error)
+  }
+  let record_start = match
+    font_collection_data_add(
+      declaration.dsig_start + 8UL,
+      delta,
+      "font-collection-dsig-record-array",
+    ) {
+    Ok(value) => value
+    Err(error) => return Err(error)
+  }
+  let format = match
+    font_collection_read_u32(
+      source,
+      record_start,
+      "font-collection-dsig-record",
+    ) {
+    Ok(value) => value
+    Err(error) => return Err(error)
+  }
+  let length = match
+    font_collection_read_u32(
+      source,
+      record_start + 4UL,
+      "font-collection-dsig-record",
+    ) {
+    Ok(value) => value
+    Err(error) => return Err(error)
+  }
+  let relative_start = match
+    font_collection_read_u32(
+      source,
+      record_start + 8UL,
+      "font-collection-dsig-record",
+    ) {
+    Ok(value) => value
+    Err(error) => return Err(error)
+  }
+  if length < 8UL {
+    return Err(
+      font_collection_data_error(
+        "font-collection-dsig-block-length",
+        source_offset=record_start + 4UL,
+        requested=length,
+        limit=8UL,
+      ),
+    )
+  }
+  let block = match
+    font_collection_dsig_block_range(
+      declaration,
+      relative_start,
+      length,
+    ) {
+    Ok(value) => value
+    Err(error) => return Err(error)
+  }
+  if block.start() < record_array_end {
+    return Err(
+      font_collection_data_error(
+        "font-collection-dsig-block-range",
+        source_offset=block.start(),
+        requested=length,
+        limit=record_array_end,
+      ),
+    )
+  }
+  let reserved_one = match
+    font_collection_read_u16(
+      source,
+      block.start(),
+      "font-collection-dsig-reserved",
+    ) {
+    Ok(value) => value
+    Err(error) => return Err(error)
+  }
+  let reserved_two = match
+    font_collection_read_u16(
+      source,
+      block.start() + 2UL,
+      "font-collection-dsig-reserved",
+    ) {
+    Ok(value) => value
+    Err(error) => return Err(error)
+  }
+  if reserved_one != 0UL || reserved_two != 0UL {
+    return Err(
+      font_collection_data_error(
+        "font-collection-dsig-reserved",
+        source_offset=block.start(),
+      ),
+    )
+  }
+  let payload_length = match
+    font_collection_read_u32(
+      source,
+      block.start() + 4UL,
+      "font-collection-dsig-payload-length",
+    ) {
+    Ok(value) => value
+    Err(error) => return Err(error)
+  }
+  if payload_length == 0UL {
+    return Err(
+      font_collection_data_error(
+        "font-collection-dsig-payload-length",
+        source_offset=block.start() + 4UL,
+      ),
+    )
+  }
+  let exact_length = match
+    font_collection_data_add(
+      8UL,
+      payload_length,
+      "font-collection-dsig-block-length",
+    ) {
+    Ok(value) => value
+    Err(error) => return Err(error)
+  }
+  if exact_length != length {
+    return Err(
+      font_collection_data_error(
+        "font-collection-dsig-block-length",
+        source_offset=block.start(),
+        requested=exact_length,
+        limit=length,
+      ),
+    )
+  }
+  Ok({ format, start: block.start(), end: block.end() })
+}
+
+///|
+fn font_collection_validate_dsig_blocks(
+  source : @bytes.ByteView,
+  declaration : CollectionDeclarationFacts,
+  record_count : UInt64,
+  record_array_end : UInt64,
+) -> Result[Unit, @error.CoreError] {
+  let mut final_end = record_array_end
+  let mut current_index = 0UL
+  while current_index < record_count {
+    let current = match
+      font_collection_dsig_record(
+        source,
+        declaration,
+        record_array_end,
+        current_index,
+      ) {
+      Ok(value) => value
+      Err(error) => return Err(error)
+    }
+    let mut earlier_index = 0UL
+    while earlier_index < current_index {
+      let earlier = match
+        font_collection_dsig_record(
+          source,
+          declaration,
+          record_array_end,
+          earlier_index,
+        ) {
+        Ok(value) => value
+        Err(error) => return Err(error)
+      }
+      if font_collection_ranges_overlap(
+        earlier.start,
+        earlier.end,
+        current.start,
+        current.end,
+      ) {
+        return Err(
+          font_collection_data_error(
+            "font-collection-dsig-block-overlap",
+            source_offset=current.start,
+            requested=current.end - current.start,
+          ),
+        )
+      }
+      earlier_index = earlier_index + 1UL
+    }
+    if current.end > final_end {
+      final_end = current.end
+    }
+    if current.format != 1UL {
+      return Err(
+        font_collection_capability_error("font-collection-dsig-format"),
+      )
+    }
+    current_index = current_index + 1UL
+  }
+  if final_end != declaration.dsig_end {
+    return Err(
+      font_collection_data_error(
+        "font-collection-dsig-outer-length",
+        source_offset=final_end,
+        requested=declaration.dsig_end - final_end,
+        limit=declaration.dsig_end,
+      ),
+    )
+  }
+  Ok(())
+}
+
+///|
+fn font_collection_parse_dsig_envelope(
+  source : @bytes.ByteView,
+  declaration : CollectionDeclarationFacts,
+  limits : FontCollectionLimits,
+) -> Result[CollectionDsigFacts, @error.CoreError] {
+  if !declaration.dsig_present {
+    return Ok({ record_count: 0UL })
+  }
+  let length = declaration.dsig_end - declaration.dsig_start
+  if length < 8UL {
+    return Err(
+      font_collection_data_error(
+        "font-collection-dsig-header",
+        source_offset=declaration.dsig_start,
+        requested=8UL,
+        limit=length,
+      ),
+    )
+  }
+  let version = match
+    font_collection_read_u32(
+      source,
+      declaration.dsig_start,
+      "font-collection-dsig-version",
+    ) {
+    Ok(value) => value
+    Err(error) => return Err(error)
+  }
+  let record_count = match
+    font_collection_read_u16(
+      source,
+      declaration.dsig_start + 4UL,
+      "font-collection-dsig-count",
+    ) {
+    Ok(value) => value
+    Err(error) => return Err(error)
+  }
+  let flags = match
+    font_collection_read_u16(
+      source,
+      declaration.dsig_start + 6UL,
+      "font-collection-dsig-flags",
+    ) {
+    Ok(value) => value
+    Err(error) => return Err(error)
+  }
+  if version != 1UL {
+    return Err(
+      font_collection_capability_error("font-collection-dsig-version"),
+    )
+  }
+  if record_count == 0UL {
+    return Err(
+      font_collection_data_error(
+        "font-collection-dsig-count",
+        source_offset=declaration.dsig_start + 4UL,
+      ),
+    )
+  }
+  if record_count > limits.max_dsig_records() {
+    return Err(
+      font_collection_limit_error(
+        "max-dsig-records",
+        record_count,
+        limits.max_dsig_records(),
+      ),
+    )
+  }
+  if (flags & 0xFFFEUL) != 0UL {
+    return Err(
+      font_collection_data_error(
+        "font-collection-dsig-flags",
+        source_offset=declaration.dsig_start + 6UL,
+      ),
+    )
+  }
+  let record_bytes = match
+    font_collection_data_mul(
+      record_count,
+      12UL,
+      "font-collection-dsig-record-array",
+    ) {
+    Ok(value) => value
+    Err(error) => return Err(error)
+  }
+  let record_array_length = match
+    font_collection_data_add(
+      8UL,
+      record_bytes,
+      "font-collection-dsig-record-array",
+    ) {
+    Ok(value) => value
+    Err(error) => return Err(error)
+  }
+  let record_array = match
+    font_collection_dsig_block_range(
+      declaration,
+      0UL,
+      record_array_length,
+    ) {
+    Ok(value) => value
+    Err(_) =>
+      return Err(
+        font_collection_data_error(
+          "font-collection-dsig-record-array",
+          source_offset=declaration.dsig_start,
+          requested=record_array_length,
+          limit=length,
+        ),
+      )
+  }
+  match
+    font_collection_validate_dsig_blocks(
+      source,
+      declaration,
+      record_count,
+      record_array.end(),
+    ) {
+    Ok(_) => Ok({ record_count, })
+    Err(error) => Err(error)
   }
 }
 
@@ -880,16 +1290,11 @@ fn font_collection_declaration_facts(
           ),
         )
       }
-      let end = match
-        font_collection_data_add(
-          offset,
-          length,
-          "font-collection-dsig-range",
-        ) {
+      let range = match font_collection_dsig_range(source, offset, length) {
         Ok(value) => value
         Err(error) => return Err(error)
       }
-      if end != source.length() {
+      if range.end() != source.length() {
         return Err(
           font_collection_data_error(
             "font-collection-dsig-range",
@@ -900,8 +1305,8 @@ fn font_collection_declaration_facts(
         )
       }
       dsig_present = true
-      dsig_start = offset
-      dsig_end = end
+      dsig_start = range.start()
+      dsig_end = range.end()
     }
   }
   let mut table_records = 0UL
@@ -1009,7 +1414,6 @@ fn font_collection_declaration_facts(
     dsig_present,
     dsig_start,
     dsig_end,
-    dsig_records: 0UL,
   })
 }
 
@@ -1614,13 +2018,18 @@ fn font_collection_parse(
     Ok(_) => ()
     Err(error) => return Err(error)
   }
+  let dsig = match
+    font_collection_parse_dsig_envelope(source, declaration, limits) {
+    Ok(value) => value
+    Err(error) => return Err(error)
+  }
   let charge = match
     font_collection_retained_charge(
       declaration.face_count,
       declaration.table_records,
       declaration.version,
       declaration.dsig_present,
-      declaration.dsig_records,
+      dsig.record_count,
       limits,
     ) {
     Ok(value) => value
