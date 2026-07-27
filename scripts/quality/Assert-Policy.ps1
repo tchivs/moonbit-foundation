@@ -986,8 +986,7 @@ function Assert-FontPhase101Surface {
   # coordinated policy and implementation edit cannot silently admit a private
   # parser fact or a deferred Phase 102+ capability. Every public line is
   # reviewed here independently.
-  $approvedPhase101Lines = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::Ordinal)
-  foreach ($approvedLine in @(
+  $approvedPhase101Lines = @(
     'package "tchivs/mb-font/font"',
     'import {',
     '  "tchivs/mb-core/budget",',
@@ -996,6 +995,7 @@ function Assert-FontPhase101Surface {
     '  "tchivs/mb-core/math",',
     '}',
     'pub struct Font {',
+    '}',
     'pub fn Font::global_bounds(Self) -> Result[FontBounds, @error.CoreError]',
     'pub fn Font::glyph_for_scalar(Self, Int) -> Result[GlyphId, @error.CoreError]',
     'pub fn Font::glyph_id(Self, UInt64) -> Result[GlyphId, @error.CoreError]',
@@ -1007,6 +1007,7 @@ function Assert-FontPhase101Surface {
     'pub fn Font::typographic_line_metrics(Self) -> Result[FontLineMetrics, @error.CoreError]',
     'pub fn Font::units_per_em(Self) -> Result[UInt64, @error.CoreError]',
     'pub struct FontBounds {',
+    '}',
     'pub fn FontBounds::x_max(Self) -> Int',
     'pub fn FontBounds::x_min(Self) -> Int',
     'pub fn FontBounds::y_max(Self) -> Int',
@@ -1040,6 +1041,7 @@ function Assert-FontPhase101Surface {
     '  OtherUnsupported',
     '} derive(Eq)',
     'pub struct FontLimits {',
+    '}',
     'pub fn FontLimits::max_cmap_records(Self) -> UInt64',
     'pub fn FontLimits::max_glyphs(Self) -> UInt64',
     'pub fn FontLimits::max_kern_pairs(Self) -> UInt64',
@@ -1056,21 +1058,24 @@ function Assert-FontPhase101Surface {
     'pub fn FontLimits::max_work(Self) -> UInt64',
     'pub fn FontLimits::new(max_source_bytes~ : UInt64, max_tables~ : UInt64, max_table_bytes~ : UInt64, max_glyphs~ : UInt64, max_name_records~ : UInt64, max_cmap_records~ : UInt64, max_kern_subtables~ : UInt64, max_kern_pairs~ : UInt64, max_outline_points~ : UInt64, max_outline_contours~ : UInt64, max_outline_components~ : UInt64, max_outline_instruction_bytes~ : UInt64, max_post_name_bytes~ : UInt64, max_work~ : UInt64) -> Result[Self, @error.CoreError]',
     'pub struct FontLineMetrics {',
+    '}',
     'pub fn FontLineMetrics::ascent(Self) -> Int',
     'pub fn FontLineMetrics::descent(Self) -> Int',
     'pub fn FontLineMetrics::line_gap(Self) -> Int',
     'pub struct GlyphHorizontalMetrics {',
+    '}',
     'pub fn GlyphHorizontalMetrics::advance_width(Self) -> UInt64',
     'pub fn GlyphHorizontalMetrics::bounds(Self) -> FontBounds?',
     'pub fn GlyphHorizontalMetrics::left_side_bearing(Self) -> Int',
     'pub fn GlyphHorizontalMetrics::right_side_bearing(Self) -> Int',
     'pub struct GlyphId {',
+    '}',
     'pub fn GlyphId::value(Self) -> UInt64'
-  )) {
-    [void]$approvedPhase101Lines.Add($approvedLine)
-  }
-  $unreviewedLines = @($InterfaceLines | Where-Object { -not $approvedPhase101Lines.Contains([string]$_) })
-  Assert-Condition ($unreviewedLines.Count -eq 0) 'Font semantic interface exposes a private or deferred Phase 102+ capability.'
+  )
+  Assert-ExactSequence `
+    'Font semantic interface exposes a private or deferred Phase 102+ capability; Phase 101 exact interface' `
+    $InterfaceLines `
+    $approvedPhase101Lines
 
   $deferredLines = @(
     $InterfaceLines |
@@ -2398,6 +2403,53 @@ function Assert-FontFoundationPolicy {
   $privateLeakPattern = '(?i)(Cursor|TableWindow|TableRecord|DirectoryFacts|RequiredTableFacts|MetricIndexFacts|Collection(?:Face|Protected|Parse|Directory|Record|Range|Storage)Facts|Dsig(?:Record|Block|Payload)|CmapLookupFacts|CmapFormat4Facts|CmapFormat12Facts|KernState|KernFormat0Facts|SfntTag|RawOffset|WindowDescriptor|source_offset|retained_revision|mutation_revision|GlyphWindow|OutlinePoint|OutlineGeometry|F2Dot14|Composite(?:Placement|Descriptor|Parse|Frame|Classification)|OutlineWork|GraphColor|RealPoint|ImpliedPoint|PhantomPoint|Q15)'
   Assert-Condition (@($interfaceText | Where-Object { $_ -cmatch $privateLeakPattern }).Count -eq 0) 'Font semantic interface leaks a private collection, cmap, kern, outline, cursor, table, graph, Q15, tag, offset, range, revision, or window fact.'
   Assert-FontPhase101Surface -InterfaceLines $interfaceText
+  $missingApprovedMethod = @(
+    $interfaceText |
+      Where-Object {
+        $_ -cne 'pub fn FontCollection::face_count(Self) -> Result[UInt64, @error.CoreError]'
+      }
+  )
+  $negativeFailure = $null
+  try {
+    Assert-FontPhase101Surface -InterfaceLines $missingApprovedMethod
+  } catch {
+    $negativeFailure = $_.Exception.Message
+  }
+  Assert-Condition (
+    $null -ne $negativeFailure -and
+    $negativeFailure -cmatch 'count mismatch'
+  ) 'Font Phase 101 exact selector accepted a removed approved method.'
+
+  $duplicatedApprovedLine = @(
+    $interfaceText +
+      'pub fn FontCollection::face_count(Self) -> Result[UInt64, @error.CoreError]'
+  )
+  $negativeFailure = $null
+  try {
+    Assert-FontPhase101Surface -InterfaceLines $duplicatedApprovedLine
+  } catch {
+    $negativeFailure = $_.Exception.Message
+  }
+  Assert-Condition (
+    $null -ne $negativeFailure -and
+    $negativeFailure -cmatch 'count mismatch'
+  ) 'Font Phase 101 exact selector accepted a duplicated approved line.'
+
+  $reorderedApprovedLines = @($interfaceText)
+  $reorderedTemporary = $reorderedApprovedLines[0]
+  $reorderedApprovedLines[0] = $reorderedApprovedLines[1]
+  $reorderedApprovedLines[1] = $reorderedTemporary
+  $negativeFailure = $null
+  try {
+    Assert-FontPhase101Surface -InterfaceLines $reorderedApprovedLines
+  } catch {
+    $negativeFailure = $_.Exception.Message
+  }
+  Assert-Condition (
+    $null -ne $negativeFailure -and
+    $negativeFailure -cmatch 'order mismatch'
+  ) 'Font Phase 101 exact selector accepted reordered approved declarations.'
+
   $forbiddenConstructor = @(
     $interfaceText | ForEach-Object {
       if ($_ -cmatch '^pub fn FontLimits::new') {
