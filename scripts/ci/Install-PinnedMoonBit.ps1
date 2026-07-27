@@ -334,7 +334,58 @@ try {
   }
 
   Move-Item -LiteralPath $stagingPath -Destination $destination
-  $binPath = Join-Path $destination 'bin'
+  $binPath = [IO.Path]::GetFullPath((Join-Path $destination 'bin'))
+  $finalCorePath = [IO.Path]::GetFullPath((
+    Join-Path $destination 'lib/core'
+  ))
+  if (-not (Test-Path -LiteralPath (
+        Join-Path $finalCorePath 'moon.mod'
+      ) -PathType Leaf)) {
+    throw 'P08-TOOLCHAIN-CORE-FINAL: core/moon.mod'
+  }
+  $bundleMoonPath = Join-Path $binPath 'moon'
+  $bundlePreviousPath = [string]$env:PATH
+  try {
+    $env:PATH = if ([string]::IsNullOrEmpty($bundlePreviousPath)) {
+      $binPath
+    } else {
+      $binPath + [IO.Path]::PathSeparator + $bundlePreviousPath
+    }
+    & $bundleMoonPath `
+      -C $finalCorePath `
+      bundle `
+      --warn-list `
+      -a `
+      --all
+    if ($LASTEXITCODE -ne 0) {
+      throw 'P08-TOOLCHAIN-CORE-BUNDLE: --all failed.'
+    }
+    & $bundleMoonPath `
+      -C $finalCorePath `
+      bundle `
+      --warn-list `
+      -a `
+      --target wasm-gc `
+      --quiet
+    if ($LASTEXITCODE -ne 0) {
+      throw 'P08-TOOLCHAIN-CORE-BUNDLE: wasm-gc failed.'
+    }
+  } finally {
+    $env:PATH = $bundlePreviousPath
+  }
+  $bundleTargets = @('js', 'wasm', 'wasm-gc', 'native')
+  $bundleLeaves = @('prelude/prelude.mi', 'math/math.mi')
+  foreach ($target in $bundleTargets) {
+    $bundleRoot = Join-Path (
+      Join-Path $finalCorePath "_build/$target/release"
+    ) 'bundle'
+    foreach ($leaf in $bundleLeaves) {
+      $bundleLeaf = Join-Path $bundleRoot $leaf
+      if (-not (Test-Path -LiteralPath $bundleLeaf -PathType Leaf)) {
+        throw "P08-TOOLCHAIN-CORE-BUNDLE-MISSING: $target/$leaf"
+      }
+    }
+  }
   Add-Content `
     -LiteralPath $env:GITHUB_PATH `
     -Value $binPath `

@@ -348,4 +348,114 @@ Invoke-WorkflowPolicyCase `
   -ShouldPass $false `
   -ExpectedFailurePattern 'validated before moving'
 
+Invoke-WorkflowPolicyCase `
+  -Name 'core bundle all-target command is required' `
+  -Arrange {
+    param($state)
+    $state.Installer = $state.Installer.Replace(
+      '      --all',
+      '      --target js'
+    )
+  } `
+  -ShouldPass $false `
+  -ExpectedFailurePattern 'pinned setup behavior'
+
+Invoke-WorkflowPolicyCase `
+  -Name 'core bundle commands cannot be reordered' `
+  -Arrange {
+    param($state)
+    $allBlock = @(
+      '    & $bundleMoonPath `',
+      '      -C $finalCorePath `',
+      '      bundle `',
+      '      --warn-list `',
+      '      -a `',
+      '      --all',
+      '    if ($LASTEXITCODE -ne 0) {',
+      '      throw ''P08-TOOLCHAIN-CORE-BUNDLE: --all failed.''',
+      '    }'
+    ) -join "`n"
+    $wasmGcBlock = @(
+      '    & $bundleMoonPath `',
+      '      -C $finalCorePath `',
+      '      bundle `',
+      '      --warn-list `',
+      '      -a `',
+      '      --target wasm-gc `',
+      '      --quiet',
+      '    if ($LASTEXITCODE -ne 0) {',
+      '      throw ''P08-TOOLCHAIN-CORE-BUNDLE: wasm-gc failed.''',
+      '    }'
+    ) -join "`n"
+    $state.Installer = $state.Installer.Replace(
+      $allBlock,
+      '__MNF_BUNDLE_ALL__'
+    ).Replace(
+      $wasmGcBlock,
+      '__MNF_BUNDLE_WASM_GC__'
+    ).Replace(
+      '__MNF_BUNDLE_ALL__',
+      $wasmGcBlock
+    ).Replace(
+      '__MNF_BUNDLE_WASM_GC__',
+      $allBlock
+    )
+  } `
+  -ShouldPass $false `
+  -ExpectedFailurePattern 'pinned bundle commands'
+
+Invoke-WorkflowPolicyCase `
+  -Name 'core bundle PATH cannot expose the install root' `
+  -Arrange {
+    param($state)
+    $state.Installer = $state.Installer.Replace(
+      (
+        '      $binPath + [IO.Path]::PathSeparator + ' +
+        '$bundlePreviousPath'
+      ),
+      (
+        '      $destination + [IO.Path]::PathSeparator + ' +
+        '$bundlePreviousPath'
+      )
+    )
+  } `
+  -ShouldPass $false `
+  -ExpectedFailurePattern 'scoped process PATH'
+
+Invoke-WorkflowPolicyCase `
+  -Name 'core bundle PATH is restored in finally' `
+  -Arrange {
+    param($state)
+    $state.Installer = $state.Installer.Replace(
+      '    $env:PATH = $bundlePreviousPath',
+      '    $env:PATH = $binPath'
+    )
+  } `
+  -ShouldPass $false `
+  -ExpectedFailurePattern 'restored in finally'
+
+Invoke-WorkflowPolicyCase `
+  -Name 'core bundle verification requires all four targets' `
+  -Arrange {
+    param($state)
+    $state.Installer = $state.Installer.Replace(
+      '$bundleTargets = @(''js'', ''wasm'', ''wasm-gc'', ''native'')',
+      '$bundleTargets = @(''js'', ''wasm'', ''wasm-gc'')'
+    )
+  } `
+  -ShouldPass $false `
+  -ExpectedFailurePattern 'bundle targets'
+
+Invoke-WorkflowPolicyCase `
+  -Name 'core bundle verification requires both interface leaves' `
+  -Arrange {
+    param($state)
+    $state.Installer = $state.Installer.Replace(
+      '$bundleLeaves = @(''prelude/prelude.mi'', ''math/math.mi'')',
+      '$bundleLeaves = @(''prelude/prelude.mi'')'
+    )
+  } `
+  -ShouldPass $false `
+  -ExpectedFailurePattern 'bundle leaves'
+
 Write-Host 'Quality workflow content-addressed toolchain policy matrix passed.'

@@ -1408,7 +1408,7 @@ function Assert-QualityWorkflowToolchainTransport {
     ([regex]::Matches(
       $InstallerText,
       '(?m)^\s*\$env:PATH\s*='
-    )).Count -eq 2
+    )).Count -eq 4
   ) 'Pinned MoonBit installer must not expose a broader process PATH.'
   Assert-Condition (
     ([regex]::Matches(
@@ -1507,6 +1507,120 @@ function Assert-QualityWorkflowToolchainTransport {
   Assert-Condition ($corePromotion.Count -eq 1) (
     'Pinned MoonBit core must be validated before moving only core/ into an ' +
     'absent toolchain lib/core destination and verifying the final marker.'
+  )
+  Assert-Condition (
+    ([regex]::Matches(
+      $InstallerText,
+      [regex]::Escape(
+        "`$binPath = [IO.Path]::GetFullPath((Join-Path " +
+        "`$destination 'bin'))"
+      )
+    )).Count -eq 1
+  ) 'Pinned MoonBit bundle PATH must use the exact installed bin directory.'
+  $bundlePathExposure = [regex]::Matches(
+    $InstallerText,
+    (
+      '(?ms)^\s*\$bundlePreviousPath = \[string\]\$env:PATH\s*\r?\n' +
+      '\s*try\s*\{\s*\r?\n' +
+      '\s*\$env:PATH = if ' +
+      '\(\[string\]::IsNullOrEmpty\(\$bundlePreviousPath\)\)\s*\{' +
+      '\s*\$binPath\s*\}\s*else\s*\{\s*' +
+      '\$binPath \+ \[IO\.Path\]::PathSeparator \+ ' +
+      '\$bundlePreviousPath\s*\}\s*\r?\n\s*& \$bundleMoonPath'
+    )
+  )
+  Assert-Condition ($bundlePathExposure.Count -eq 1) (
+    'Pinned MoonBit core bundling must expose only the exact installed bin ' +
+    'directory through a scoped process PATH.'
+  )
+  Assert-Condition (
+    ([regex]::Matches(
+      $InstallerText,
+      (
+        '(?ms)^\s*\} finally \{\s*\r?\n' +
+        '\s*\$env:PATH = \$bundlePreviousPath\s*\r?\n\s*\}'
+      )
+    )).Count -eq 1
+  ) 'Pinned MoonBit core bundle PATH must be restored in finally.'
+  $bundleAllCommand = @(
+    '    & $bundleMoonPath `',
+    '      -C $finalCorePath `',
+    '      bundle `',
+    '      --warn-list `',
+    '      -a `',
+    '      --all',
+    '    if ($LASTEXITCODE -ne 0) {',
+    '      throw ''P08-TOOLCHAIN-CORE-BUNDLE: --all failed.''',
+    '    }'
+  ) -join "`n"
+  $bundleWasmGcCommand = @(
+    '    & $bundleMoonPath `',
+    '      -C $finalCorePath `',
+    '      bundle `',
+    '      --warn-list `',
+    '      -a `',
+    '      --target wasm-gc `',
+    '      --quiet',
+    '    if ($LASTEXITCODE -ne 0) {',
+    '      throw ''P08-TOOLCHAIN-CORE-BUNDLE: wasm-gc failed.''',
+    '    }'
+  ) -join "`n"
+  foreach ($bundleCommand in @($bundleAllCommand, $bundleWasmGcCommand)) {
+    Assert-Condition (
+      ([regex]::Matches(
+        $normalizedInstallerText,
+        [regex]::Escape($bundleCommand)
+      )).Count -eq 1
+    ) 'Pinned MoonBit core bundle commands must match pinned setup behavior.'
+  }
+  $bundleTargetScope = [regex]::Match(
+    $InstallerText,
+    '(?m)^\s*\$bundleTargets\s*=\s*@\((?<body>[^\r\n]+)\)\s*$'
+  )
+  Assert-Condition $bundleTargetScope.Success (
+    'Pinned MoonBit core bundle target verification is missing.'
+  )
+  $bundleTargets = @(
+    [regex]::Matches(
+      $bundleTargetScope.Groups['body'].Value,
+      "'([^']+)'"
+    ) | ForEach-Object { $_.Groups[1].Value }
+  )
+  Assert-ExactSequence `
+    'Pinned MoonBit core bundle targets' `
+    $bundleTargets `
+    @('js', 'wasm', 'wasm-gc', 'native')
+  $bundleLeafScope = [regex]::Match(
+    $InstallerText,
+    '(?m)^\s*\$bundleLeaves\s*=\s*@\((?<body>[^\r\n]+)\)\s*$'
+  )
+  Assert-Condition $bundleLeafScope.Success (
+    'Pinned MoonBit core bundle leaf verification is missing.'
+  )
+  $bundleLeaves = @(
+    [regex]::Matches(
+      $bundleLeafScope.Groups['body'].Value,
+      "'([^']+)'"
+    ) | ForEach-Object { $_.Groups[1].Value }
+  )
+  Assert-ExactSequence `
+    'Pinned MoonBit core bundle leaves' `
+    $bundleLeaves `
+    @('prelude/prelude.mi', 'math/math.mi')
+  $bundleOutputVerification = [regex]::Matches(
+    $InstallerText,
+    (
+      '(?ms)^\s*foreach \(\$target in \$bundleTargets\)\s*\{' +
+      '.*?\$bundleRoot = Join-Path .*?''bundle''.*?' +
+      'foreach \(\$leaf in \$bundleLeaves\)\s*\{' +
+      '.*?\$bundleLeaf = Join-Path \$bundleRoot \$leaf.*?' +
+      'Test-Path -LiteralPath \$bundleLeaf -PathType Leaf.*?' +
+      'P08-TOOLCHAIN-CORE-BUNDLE-MISSING.*?^\s*\}\s*^\s*\}'
+    )
+  )
+  Assert-Condition ($bundleOutputVerification.Count -eq 1) (
+    'Pinned MoonBit installer must verify both required bundle leaves for ' +
+    'all four production targets.'
   )
 
   $toolchainArchiveCheck = $InstallerText.IndexOf(
@@ -1613,6 +1727,54 @@ function Assert-QualityWorkflowToolchainTransport {
     'Move-Item -LiteralPath $stagingPath -Destination $destination',
     [StringComparison]::Ordinal
   )
+  $finalCoreVerification = $InstallerText.IndexOf(
+    'P08-TOOLCHAIN-CORE-FINAL: core/moon.mod',
+    [StringComparison]::Ordinal
+  )
+  $bundlePathCapture = $InstallerText.IndexOf(
+    '$bundlePreviousPath = [string]$env:PATH',
+    [StringComparison]::Ordinal
+  )
+  $bundlePathScope = $InstallerText.IndexOf(
+    '$env:PATH = if ([string]::IsNullOrEmpty($bundlePreviousPath))',
+    [StringComparison]::Ordinal
+  )
+  $bundleAll = $InstallerText.IndexOf(
+    '--all',
+    [StringComparison]::Ordinal
+  )
+  $bundleAllExit = $InstallerText.IndexOf(
+    'P08-TOOLCHAIN-CORE-BUNDLE: --all failed.',
+    [StringComparison]::Ordinal
+  )
+  $bundleWasmGc = $InstallerText.IndexOf(
+    '--target wasm-gc',
+    [StringComparison]::Ordinal
+  )
+  $bundleWasmGcExit = $InstallerText.IndexOf(
+    'P08-TOOLCHAIN-CORE-BUNDLE: wasm-gc failed.',
+    [StringComparison]::Ordinal
+  )
+  $bundlePathRestoration = $InstallerText.IndexOf(
+    '$env:PATH = $bundlePreviousPath',
+    [StringComparison]::Ordinal
+  )
+  $bundleTargetVerification = $InstallerText.IndexOf(
+    '$bundleTargets = @(',
+    [StringComparison]::Ordinal
+  )
+  $bundleLeafVerification = $InstallerText.IndexOf(
+    '$bundleLeaves = @(',
+    [StringComparison]::Ordinal
+  )
+  $bundleOutputVerificationIndex = $InstallerText.IndexOf(
+    'foreach ($target in $bundleTargets)',
+    [StringComparison]::Ordinal
+  )
+  $pathExport = $InstallerText.IndexOf(
+    '-LiteralPath $env:GITHUB_PATH',
+    [StringComparison]::Ordinal
+  )
   Assert-Condition (
     $toolchainArchiveCheck -ge 0 -and
     $coreArchiveCheck -gt $toolchainArchiveCheck -and
@@ -1639,13 +1801,26 @@ function Assert-QualityWorkflowToolchainTransport {
     $coreDestinationAbsence -gt $legacyCoreRejection -and
     $coreMove -gt $coreDestinationAbsence -and
     $installedCoreVerification -gt $coreMove -and
-    $finalInstall -gt $installedCoreVerification
+    $finalInstall -gt $installedCoreVerification -and
+    $finalCoreVerification -gt $finalInstall -and
+    $bundlePathCapture -gt $finalCoreVerification -and
+    $bundlePathScope -gt $bundlePathCapture -and
+    $bundleAll -gt $bundlePathScope -and
+    $bundleAllExit -gt $bundleAll -and
+    $bundleWasmGc -gt $bundleAllExit -and
+    $bundleWasmGcExit -gt $bundleWasmGc -and
+    $bundlePathRestoration -gt $bundleWasmGcExit -and
+    $bundleTargetVerification -gt $bundlePathRestoration -and
+    $bundleLeafVerification -gt $bundleTargetVerification -and
+    $bundleOutputVerificationIndex -gt $bundleLeafVerification -and
+    $pathExport -gt $bundleOutputVerificationIndex
   ) (
     'Pinned MoonBit installer must authenticate both archives before ' +
     'extraction, hash binaries before scoped chmod, verify execute bits, ' +
     'expose only authenticated staging/bin for identity checks, restore ' +
-    'PATH, bundle core last, validate it in isolation before promotion, and ' +
-    'install only after final marker verification.'
+    'PATH, bundle core last, validate it in isolation before promotion, ' +
+    'install it, reproduce the pinned bundle commands with scoped PATH, ' +
+    'verify four-target outputs, and only then export the toolchain path.'
   )
 }
 
