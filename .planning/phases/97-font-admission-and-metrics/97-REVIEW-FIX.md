@@ -1,53 +1,61 @@
 ---
 phase: 97-font-admission-and-metrics
-fixed_at: 2026-07-27T00:25:53Z
+fixed_at: 2026-07-27T01:02:05Z
 review_path: .planning/phases/97-font-admission-and-metrics/97-REVIEW.md
 iteration: 1
-findings_in_scope: 2
-fixed: 2
+findings_in_scope: 3
+fixed: 3
 skipped: 0
 status: all_fixed
 ---
 
 # Phase 97: Code Review Fix Report
 
-**Fixed at:** 2026-07-27T00:25:53Z
+**Fixed at:** 2026-07-27T01:02:05Z
 **Source review:** `.planning/phases/97-font-admission-and-metrics/97-REVIEW.md`
 **Iteration:** 1
 
 **Summary:**
 
-- Findings in scope: 2
-- Fixed: 2
+- Findings in scope: 3
+- Fixed: 3
 - Skipped: 0
 
 ## Fixed Issues
 
-### WR-01: Deferred-capability gate misses compound PascalCase and camelCase identifiers
+### CR-01: The post-name ceiling is enforced only after the budget transaction
+
+**Status:** fixed
+**Files modified:** `modules/mb-font/font/tables.mbt`, `modules/mb-font/font/font_test.mbt`
+**Commit:** 313472e0
+**Applied fix:** Enforced `max_post_name_bytes` during admission-charge derivation, before the aggregate work calculation and authoritative budget transaction. Added an exact-limit success and one-short rejection that verifies the rejected caller budget retains its bytes, allocations, allocation-size, and work dimensions.
+
+### WR-01: Compound deferred-capability names still bypass the policy selector
 
 **Status:** fixed
 **Files modified:** `scripts/quality/Assert-Policy.ps1`
-**Commit:** 6b4a9611
-**Applied fix:** Normalized camelCase, PascalCase, and acronym-to-word identifier boundaries before applying the deferred-capability denylist. Expanded shape, hint, and raster noun-form matching, including `rasterizer`. Added fail-closed fixtures for `GlyphOutline`, `CmapLookup`, `FontRasterizer`, `Font::cmapLookup`, and `Font::openFile` while preserving the allowed `max_cmap_records` policy field.
+**Commit:** 94b7afcb
+**Applied fix:** Normalized `CMap` acronym spellings to the protected `cmap` token and rejected ordered `open`/`file` and `from`/`path` token co-occurrence even when a domain token occurs between them. Added the reported `CMapLookup`, `openFontFile`, and `fromFontPath` bypasses to the negative fixture matrix.
 
-### WR-02: Policy checks invoke Moon relative to the process working directory
+### WR-02: The real interface-checker branch remains foreign-CWD dependent
 
 **Status:** fixed
-**Files modified:** `scripts/quality/Assert-Policy.ps1`, `scripts/quality/Test-PolicyWorkingDirectory.ps1`
-**Commit:** 1f5509dc
-**Applied fix:** Anchored QOI, font, and PNG `moon -C` invocations to absolute module paths derived from the script-owned repository root. Anchored the QOI generated-interface fallback to the same root and added a regression that runs all three policy selectors from a temporary foreign working directory.
+**Files modified:** `scripts/quality/Assert-Policy.ps1`, `scripts/quality/Invoke-MoonQuality.ps1`, `scripts/quality/Test-PolicyWorkingDirectory.ps1`
+**Commit:** cc511884
+**Applied fix:** Rooted the production generated-interface checker against an explicit or script-derived repository root, passed the selector-owned root through the QOI and font production branches, and added a library-mode import that lets the foreign-CWD regression exercise both local fallback and real production checker branches.
 
 ## Verification
 
-- PowerShell AST parsing passed for both policy scripts.
-- Focused deferred-capability fixtures rejected compound PascalCase/camelCase APIs while accepting the legitimate `max_cmap_records` field.
-- QOI, font, and PNG policy/interface selectors passed when invoked from the repository root.
-- `Test-PolicyWorkingDirectory.ps1` passed when launched from `C:\Windows\Temp`; all three selectors generated and compared interfaces successfully from a foreign caller cwd.
-- `moon -C modules/mb-font check --target all --deny-warn --frozen` passed for JS, Wasm, Wasm-GC, and native.
-- An additional full `moon -C modules/mb-font test --target all --frozen` run exceeded the ten-minute execution window without emitting a failure; its owned process was terminated and it was not used as the acceptance gate for these policy-only fixes.
+- `moon check --target all --deny-warn --frozen` passed for the mb-font module.
+- Full mb-font/workspace tests passed independently on all supported targets: wasm, wasm-gc, JS, and native each reported 1,041/1,041 tests passing.
+- The focused post-name exact/one-short test passed on wasm, wasm-gc, JS, and native.
+- PowerShell AST parsing passed for `Assert-Policy.ps1`, `Invoke-MoonQuality.ps1`, and `Test-PolicyWorkingDirectory.ps1`.
+- The three reported deferred-capability fixtures were rejected while the legitimate `max_cmap_records` interface remained accepted.
+- QOI and font selectors passed from the repository root through both fallback and production interface-checker branches.
+- `Test-PolicyWorkingDirectory.ps1` passed from a temporary foreign working directory, covering QOI/font fallback and production branches plus the PNG selector.
 
 ---
 
-_Fixed: 2026-07-27T00:25:53Z_
+_Fixed: 2026-07-27T01:02:05Z_
 _Fixer: the agent (gsd-code-fixer)_
 _Iteration: 1_
