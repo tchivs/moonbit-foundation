@@ -18,10 +18,18 @@ Compatibility status: candidate. No stable API or public release is claimed.
 - Exact per-glyph `hmtx` advance/left-bearing semantics, optional common-header
   `glyf` bounds, empty-glyph handling, and checked right-side-bearing
   derivation.
+- Deterministic one-scalar Unicode mapping through the canonical format-12 or
+  format-4 `cmap`, returning an opaque glyph identity and glyph zero for a valid
+  miss.
+- Optional basic legacy horizontal `kern` version-0 format-0 pair lookup with
+  exact signed adjustments and distinct absent, miss, unsupported, malformed,
+  and retained-source mutation outcomes.
+- Explicit nonzero `max_kern_subtables` and `max_kern_pairs` ceilings with
+  preflighted exact work and caller-budget accounting.
 - Deterministic generated micro-font qualification across `js`, `wasm`,
   `wasm-gc`, and `native`.
 
-Phase 97 does not claim cmap lookup, kerning, outline/path decoding, shaping,
-hinting, rasterization, filesystem/host discovery, FFI, collection/web-font
-support, or licensed real-font evidence. Licensed real-font end-to-end
-qualification is reserved for Phase 100.
+Phase 98 does not claim outline/path decoding, text shaping, GPOS/GSUB, string
+normalization, hinting, rasterization, filesystem/host discovery, FFI,
+collection/web-font support, or licensed real-font evidence. Licensed real-font
+end-to-end qualification is reserved for Phase 100.

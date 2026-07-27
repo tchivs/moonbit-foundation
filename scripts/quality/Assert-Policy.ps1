@@ -983,8 +983,8 @@ function Assert-FontDeferredCapabilitySurface {
 
   # Keep this classification independent from policy/foundation.json so a
   # coordinated policy and implementation edit cannot silently admit a new
-  # Phase 98+ capability. Every new public line must be reviewed here.
-  $approvedPhase97Lines = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::Ordinal)
+  # Phase 99+ capability. Every new public line must be reviewed here.
+  $approvedPhase98Lines = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::Ordinal)
   foreach ($approvedLine in @(
     'package "tchivs/mb-font/font"',
     'import {',
@@ -994,9 +994,11 @@ function Assert-FontDeferredCapabilitySurface {
     '}',
     'pub struct Font {',
     'pub fn Font::global_bounds(Self) -> Result[FontBounds, @error.CoreError]',
+    'pub fn Font::glyph_for_scalar(Self, Int) -> Result[GlyphId, @error.CoreError]',
     'pub fn Font::glyph_id(Self, UInt64) -> Result[GlyphId, @error.CoreError]',
     'pub fn Font::hhea_line_metrics(Self) -> Result[FontLineMetrics, @error.CoreError]',
     'pub fn Font::horizontal_metrics(Self, GlyphId) -> Result[GlyphHorizontalMetrics, @error.CoreError]',
+    'pub fn Font::kerning(Self, GlyphId, GlyphId) -> Result[Int, @error.CoreError]',
     'pub fn Font::open(@bytes.ByteView, FontLimits, @budget.Budget) -> Result[Self, @error.CoreError]',
     'pub fn Font::typographic_line_metrics(Self) -> Result[FontLineMetrics, @error.CoreError]',
     'pub fn Font::units_per_em(Self) -> Result[UInt64, @error.CoreError]',
@@ -1008,13 +1010,15 @@ function Assert-FontDeferredCapabilitySurface {
     'pub struct FontLimits {',
     'pub fn FontLimits::max_cmap_records(Self) -> UInt64',
     'pub fn FontLimits::max_glyphs(Self) -> UInt64',
+    'pub fn FontLimits::max_kern_pairs(Self) -> UInt64',
+    'pub fn FontLimits::max_kern_subtables(Self) -> UInt64',
     'pub fn FontLimits::max_name_records(Self) -> UInt64',
     'pub fn FontLimits::max_post_name_bytes(Self) -> UInt64',
     'pub fn FontLimits::max_source_bytes(Self) -> UInt64',
     'pub fn FontLimits::max_table_bytes(Self) -> UInt64',
     'pub fn FontLimits::max_tables(Self) -> UInt64',
     'pub fn FontLimits::max_work(Self) -> UInt64',
-    'pub fn FontLimits::new(max_source_bytes~ : UInt64, max_tables~ : UInt64, max_table_bytes~ : UInt64, max_glyphs~ : UInt64, max_name_records~ : UInt64, max_cmap_records~ : UInt64, max_post_name_bytes~ : UInt64, max_work~ : UInt64) -> Result[Self, @error.CoreError]',
+    'pub fn FontLimits::new(max_source_bytes~ : UInt64, max_tables~ : UInt64, max_table_bytes~ : UInt64, max_glyphs~ : UInt64, max_name_records~ : UInt64, max_cmap_records~ : UInt64, max_kern_subtables~ : UInt64, max_kern_pairs~ : UInt64, max_post_name_bytes~ : UInt64, max_work~ : UInt64) -> Result[Self, @error.CoreError]',
     'pub struct FontLineMetrics {',
     'pub fn FontLineMetrics::ascent(Self) -> Int',
     'pub fn FontLineMetrics::descent(Self) -> Int',
@@ -1027,10 +1031,10 @@ function Assert-FontDeferredCapabilitySurface {
     'pub struct GlyphId {',
     'pub fn GlyphId::value(Self) -> UInt64'
   )) {
-    [void]$approvedPhase97Lines.Add($approvedLine)
+    [void]$approvedPhase98Lines.Add($approvedLine)
   }
-  $unreviewedLines = @($InterfaceLines | Where-Object { -not $approvedPhase97Lines.Contains([string]$_) })
-  Assert-Condition ($unreviewedLines.Count -eq 0) 'Font semantic interface exposes a deferred Phase 98+ capability.'
+  $unreviewedLines = @($InterfaceLines | Where-Object { -not $approvedPhase98Lines.Contains([string]$_) })
+  Assert-Condition ($unreviewedLines.Count -eq 0) 'Font semantic interface exposes a deferred Phase 99+ capability.'
 
   $deferredLines = @(
     $InterfaceLines |
@@ -1042,8 +1046,8 @@ function Assert-FontDeferredCapabilitySurface {
         $line -creplace '_', ' '
       }
   )
-  $deferredLeakPattern = '(?i)(\bcmap\b|\bkern(?:ing)?\b|\boutline\b|\bPath2\b|\bfile\s*system\b|\bsystem\s+font\b|\bfont\s+(?:file|source)\b|\b(?:load|read|open|from)\b[^\r\n]*\b(?:file|path|disk|uri)\b|\bffi\b|\bforeign\s+function\s+interface\b|\bforeign(?:\s+call)?\b|\bnative\b|\bextern\b|\bbindings?\b|\bc\s+abi\b|\b(?:adapter|bridge)\b|\bhost(?:\s+discovery)?\b|\bshap(?:e|er|ing)\b|\bhint(?:er|ing)?\b|\braster(?:ize|izer|ization)?\b)'
-  Assert-Condition (@($deferredLines | Where-Object { $_ -cmatch $deferredLeakPattern }).Count -eq 0) 'Font semantic interface exposes a deferred Phase 98+ capability.'
+  $deferredLeakPattern = '(?i)(\boutline\b|\bPath2\b|\bfile\s*system\b|\bsystem\s+font\b|\bfont\s+(?:file|source)\b|\b(?:load|read|open|from)\b[^\r\n]*\b(?:file|path|disk|uri)\b|\bffi\b|\bforeign\s+function\s+interface\b|\bforeign(?:\s+call)?\b|\bnative\b|\bextern\b|\bbindings?\b|\bc\s+abi\b|\b(?:adapter|bridge)\b|\bhost(?:\s+discovery)?\b|\bshap(?:e|er|ing)\b|\bhint(?:er|ing)?\b|\braster(?:ize|izer|ization)?\b)'
+  Assert-Condition (@($deferredLines | Where-Object { $_ -cmatch $deferredLeakPattern }).Count -eq 0) 'Font semantic interface exposes a deferred Phase 99+ capability.'
 }
 
 function Assert-FontFoundationPolicy {
@@ -1062,19 +1066,21 @@ function Assert-FontFoundationPolicy {
 
   $fontEdges = @($policy.allowed_dependency_edges | Where-Object { $_.from -ceq 'tchivs/mb-font' })
   Assert-ExactSet 'Font dependency edges' @($fontEdges.to) @('tchivs/mb-core')
-  Assert-Condition (@($policy.allowed_dependency_edges | Where-Object { $_.to -ceq 'tchivs/mb-font' }).Count -eq 0) 'No existing foundation module may depend on mb-font during Phase 97.'
+  Assert-Condition (@($policy.allowed_dependency_edges | Where-Object { $_.to -ceq 'tchivs/mb-font' }).Count -eq 0) 'No existing foundation module may depend on mb-font during Phase 98.'
   Assert-AcyclicDependencyGraph -Modules @($policy.modules) -AllowedEdges @($policy.allowed_dependency_edges)
 
   $publicationFiles = @(
     'CHANGELOG.md',
     'README.mbt.md',
     'font',
+    'font/cmap.mbt',
     'font/cursor.mbt',
     'font/directory.mbt',
     'font/font.mbt',
     'font/font_test.mbt',
     'font/font_wbtest.mbt',
     'font/generated_fonts_wbtest.mbt',
+    'font/kern.mbt',
     'font/limits.mbt',
     'font/metrics.mbt',
     'font/moon.pkg',
@@ -1088,7 +1094,7 @@ function Assert-FontFoundationPolicy {
   Assert-Condition (@($fontModule.public_packages).Count -eq 1) 'mb-font must publish exactly one public package.'
   $font = $fontPackages[0]
   $imports = @('tchivs/mb-core/budget', 'tchivs/mb-core/bytes', 'tchivs/mb-core/checked', 'tchivs/mb-core/error')
-  $productionSources = @('moon.pkg', 'cursor.mbt', 'directory.mbt', 'font.mbt', 'limits.mbt', 'metrics.mbt', 'tables.mbt')
+  $productionSources = @('moon.pkg', 'cmap.mbt', 'cursor.mbt', 'directory.mbt', 'font.mbt', 'kern.mbt', 'limits.mbt', 'metrics.mbt', 'tables.mbt')
   $testSources = @('font_test.mbt', 'font_wbtest.mbt', 'generated_fonts_wbtest.mbt')
   Assert-ExactSet 'Font policy imports' @($font.allowed_imports) $imports
   Assert-ExactSet 'Font policy targets' @($font.supported_targets) @('js', 'wasm', 'wasm-gc', 'native')
@@ -1121,8 +1127,8 @@ function Assert-FontFoundationPolicy {
   Assert-Condition ($changelogText -cmatch '0[.]1[.]0 candidate [(]unpublished[)]') 'Font changelog must record the unpublished 0.1.0 candidate.'
 
   $interfaceText = @($font.semantic_interface | ForEach-Object { [string]$_ })
-  $privateLeakPattern = '(?i)(Cursor|TableWindow|TableRecord|DirectoryFacts|RequiredTableFacts|MetricIndexFacts|SfntTag|RawOffset|WindowDescriptor|source_offset)'
-  Assert-Condition (@($interfaceText | Where-Object { $_ -cmatch $privateLeakPattern }).Count -eq 0) 'Font semantic interface leaks a private cursor, table, tag, offset, or window descriptor.'
+  $privateLeakPattern = '(?i)(Cursor|TableWindow|TableRecord|DirectoryFacts|RequiredTableFacts|MetricIndexFacts|CmapLookupFacts|CmapFormat4Facts|CmapFormat12Facts|KernState|KernFormat0Facts|SfntTag|RawOffset|WindowDescriptor|source_offset)'
+  Assert-Condition (@($interfaceText | Where-Object { $_ -cmatch $privateLeakPattern }).Count -eq 0) 'Font semantic interface leaks a private cmap, kern, cursor, table, tag, offset, or window descriptor.'
   Assert-FontDeferredCapabilitySurface -InterfaceLines $interfaceText
   $forbiddenConstructor = @(
     $interfaceText | ForEach-Object {
@@ -1139,7 +1145,7 @@ function Assert-FontFoundationPolicy {
   } catch {
     $negativeFailure = $_.Exception.Message
   }
-  Assert-Condition ($null -ne $negativeFailure -and $negativeFailure -cmatch 'deferred Phase 98[+] capability') 'Font deferred-capability selector accepted a forbidden constructor parameter.'
+  Assert-Condition ($null -ne $negativeFailure -and $negativeFailure -cmatch 'deferred Phase 99[+] capability') 'Font deferred-capability selector accepted a forbidden constructor parameter.'
   foreach ($forbiddenLine in @(
     'pub fn Font::cmap_lookup(Self, UInt64) -> UInt64',
     'pub fn Font::outline_path(Self) -> Unit',
@@ -1173,7 +1179,7 @@ function Assert-FontFoundationPolicy {
     } catch {
       $negativeFailure = $_.Exception.Message
     }
-    Assert-Condition ($null -ne $negativeFailure -and $negativeFailure -cmatch 'deferred Phase 98[+] capability') "Font deferred-capability selector accepted forbidden fixture '$forbiddenLine'."
+    Assert-Condition ($null -ne $negativeFailure -and $negativeFailure -cmatch 'deferred Phase 99[+] capability') "Font deferred-capability selector accepted forbidden fixture '$forbiddenLine'."
   }
 
   $fontModulePath = Join-Path $repoRoot 'modules/mb-font'

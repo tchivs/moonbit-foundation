@@ -12,9 +12,10 @@ moonbit:
 # mb-font
 
 `tchivs/mb-font` admits a bounded standalone TrueType-outline SFNT from a
-caller-provided byte view and exposes named integer font metrics. It is a pure
-MoonBit foundation package: it does not discover files, call host font APIs, or
-decode outline paths.
+caller-provided byte view and exposes named integer font metrics, deterministic
+Unicode scalar mapping, and basic legacy horizontal kerning. It is a pure
+MoonBit foundation package: it does not discover files, call host font APIs,
+decode outline paths, or shape text.
 
 ## 0.1.0 candidate contract
 
@@ -30,7 +31,7 @@ decode outline paths.
 The package retains the caller-provided `ByteView`; it does not copy the whole
 font or take filesystem ownership. The caller supplies both semantic
 `FontLimits` and an authoritative `Budget`. Admission validates the complete
-Phase 97 profile and charges its byte/work cost before publishing an opaque
+Phase 98 profile and charges its byte/work cost before publishing an opaque
 `Font`.
 
 ```mbt check
@@ -117,19 +118,70 @@ width; every tail glyph keeps its own signed left side bearing. Equal adjacent
 `loca` offsets identify an empty glyph, whose bounds are `None` and whose ink
 extent is zero for right-bearing derivation.
 
+## Deterministic Unicode mapping
+
+`Font::glyph_for_scalar(scalar)` accepts exactly one signed `Int` Unicode scalar
+and returns one opaque `GlyphId`. For example,
+`font.glyph_for_scalar(0x0041)` is one valid BMP query and
+`font.glyph_for_scalar(0x1F600)` uses the same method for a supplementary
+scalar. Negative values, surrogate values in `0xD800..0xDFFF`, and values above
+`0x10FFFF` return `InvalidInput`/`InvalidRange` with the
+`font-unicode-scalar-range` context. A valid scalar absent from the selected map
+returns glyph zero; that neutral result never masks malformed or unsupported
+font data.
+
+Opening validates every supported format-4 or format-12 record and selects one
+Unicode mapping by this fixed priority:
+
+1. platform 0, encoding 4, format 12;
+2. platform 3, encoding 10, format 12;
+3. platform 0, encoding 3, format 4;
+4. platform 3, encoding 1, format 4.
+
+Record order cannot change the winner. Aliased records may share one checked
+subtable, but duplicate canonical keys are rejected. A miss in the selected map
+does not fall back to a lower-ranked record. Queries binary-search compact
+admitted facts without allocating a decoded character map or consuming the
+opening budget.
+
+## Basic legacy horizontal kerning
+
+`Font::kerning(left, right)` accepts exactly one pair of opaque glyph IDs,
+revalidates both IDs against the receiving font, and returns one signed `Int`
+adjustment in font units. The query supports only the classic OpenType version-0
+table with exactly one horizontal kerning-value format-0 subtable whose coverage
+is `0x0001`.
+
+- An absent `kern` table, an empty supported pair set, or a pair miss returns
+  zero.
+- A supported pair hit returns its exact positive or negative signed value.
+- A structurally valid but unsupported profile returns
+  `Capability`/`CapabilityUnavailable` from `kerning`.
+- Malformed recognized envelopes, lengths, search helpers, pair order, or glyph
+  ranges fail `Font::open` with `Data`/`InvalidEncoding`; they never become a
+  neutral-zero query result.
+
+`max_kern_subtables` and `max_kern_pairs` are explicit nonzero admission
+ceilings. Subtable and pair scans are preflighted with `max_work` and the
+authoritative budget before attacker-controlled loops. Successful queries are
+allocation-free and budget-neutral binary searches over already admitted facts.
+
 ## Retained-source validity
 
 Every public `Font` query checks the retained root view's mutation revision.
-Queries that read table-local views check again before returning. Any mutation,
-including mutation followed by restoration of the original byte, permanently
-invalidates that admitted value because the revision changed.
+Unicode mapping, per-glyph metrics, and kerning check again after their
+table-local reads and before publishing a value. Any mutation, including
+mutation followed by restoration of the original byte, permanently invalidates
+that admitted value because the revision changed.
 
 ## Deliberate boundary
 
-Phase 97 provides admission and named global/per-glyph metrics only. It does not
-provide cmap lookup, kerning, outline/path decoding, shaping, hinting,
-rasterization, collection/web-font support, FFI, or ambient host discovery.
+Phase 98 provides admission, named global/per-glyph metrics, one-scalar Unicode
+mapping, and the scoped legacy pair-kerning profile above. It does not provide
+outline/path decoding, text shaping, GPOS/GSUB, string normalization,
+discovery/fallback, hinting, rasterization, collection/web-font support, FFI, or
+ambient host discovery.
 
-Phase 97 conformance uses deterministic generated micro-fonts. Licensed
+Phase 98 conformance uses deterministic generated micro-fonts. Licensed
 real-font end-to-end evidence, including provenance records, belongs to
 Phase 100 and is not claimed by this candidate.
