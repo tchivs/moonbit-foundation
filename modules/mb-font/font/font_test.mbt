@@ -672,6 +672,27 @@ fn font_test_minimal_truetype() -> Bytes {
 }
 
 ///|
+fn font_test_simple_outline_glyf() -> Bytes {
+  b"\x00\x01\x00\x00\x00\x00\x00\x64\x00\x64\x00\x02\x00\x00\x31\x33\x34\x64\x64\x00"
+}
+
+///|
+fn font_test_simple_outline_truetype() -> Bytes {
+  font_test_build_truetype([
+    { tag: b"OS/2", payload: font_test_fixed_table(78) },
+    { tag: b"cmap", payload: font_test_cmap_table() },
+    { tag: b"glyf", payload: font_test_simple_outline_glyf() },
+    { tag: b"head", payload: font_test_head_table() },
+    { tag: b"hhea", payload: font_test_hhea_table() },
+    { tag: b"hmtx", payload: b"\x01\xf4\x00\x00" },
+    { tag: b"loca", payload: b"\x00\x00\x00\x0a" },
+    { tag: b"maxp", payload: font_test_maxp_table() },
+    { tag: b"name", payload: font_test_name_table() },
+    { tag: b"post", payload: font_test_post_table() },
+  ])
+}
+
+///|
 fn font_test_truetype_with_cmap(cmap : Bytes) -> Bytes {
   font_test_build_truetype([
     { tag: b"OS/2", payload: font_test_fixed_table(78) },
@@ -1005,6 +1026,45 @@ test "generated standalone TrueType opens and returns exact units per em" {
   let after_queries = budget.remaining()
   inspect(after_queries.bytes() == after_open.bytes(), content="true")
   inspect(after_queries.work() == after_open.work(), content="true")
+}
+
+///|
+test "outline traces one simple quadratic contour into shared Path2" {
+  let owner = font_test_owner(font_test_simple_outline_truetype())
+  let font = Font::open(
+    owner.view(),
+    font_test_limits(),
+    font_test_budget(),
+  ).unwrap()
+  let path = font.outline(font.glyph_id(0UL).unwrap(), font_test_budget()).unwrap()
+  inspect(path.length(), content="4")
+  match path.get(0) {
+    Some(@math.PathCommand::MoveTo(point)) => {
+      inspect(point.x(), content="0")
+      inspect(point.y(), content="0")
+    }
+    _ => fail("expected MoveTo")
+  }
+  match path.get(1) {
+    Some(@math.PathCommand::LineTo(point)) => {
+      inspect(point.x(), content="100")
+      inspect(point.y(), content="0")
+    }
+    _ => fail("expected LineTo")
+  }
+  match path.get(2) {
+    Some(@math.PathCommand::QuadTo(control, endpoint)) => {
+      inspect(control.x(), content="100")
+      inspect(control.y(), content="100")
+      inspect(endpoint.x(), content="0")
+      inspect(endpoint.y(), content="0")
+    }
+    _ => fail("expected QuadTo")
+  }
+  match path.get(3) {
+    Some(@math.PathCommand::Close) => ()
+    _ => fail("expected Close")
+  }
 }
 
 ///|
