@@ -1,10 +1,10 @@
 ---
 schema_version: 1
-open_count: 20
+open_count: 24
 waived_count: 0
 fixed_count: 3
-total_count: 23
-last_updated: 2026-07-27T11:06:57.004Z
+total_count: 27
+last_updated: 2026-07-27T14:48:26.488Z
 ---
 
 # Broken Windows Ledger
@@ -38,6 +38,10 @@ last_updated: 2026-07-27T11:06:57.004Z
 | 21 | 98 | deviation | .planning/STATE.md |  | Reconciled stale Plan 98-02 activity, 5/6 progress prose, open-requirement text, Phase ? decision labels, and operator next step after final plan advancement. | open |  | 2026-07-27T07:21:06.464Z |  |
 | 22 | 99 | deviation | .planning/STATE.md |  | SDK advance left machine-readable plan position and continuity prose stale; normalized to completed 99-02 state. | open |  | 2026-07-27T10:51:22.018Z |  |
 | 23 | 99 | deviation | .planning/STATE.md |  | Normalized stale final-phase progress prose and metrics after SDK advanced Plan 99-03 to verification. | open |  | 2026-07-27T11:06:57.004Z |  |
+| 24 | 100 | deviation | modules/mb-font/font/outline.mbt |  | Accepted normative 0-3 byte zero glyph alignment padding with strict rejection coverage. | open |  | 2026-07-27T14:47:22.500Z |  |
+| 25 | 100 | deviation | fixtures/font/dejavu-sans-2.37/oracle.json |  | Qualified U+034C as the supported composite while preserving the U+00E9 grid-rounding capability boundary. | open |  | 2026-07-27T14:47:23.453Z |  |
+| 26 | 100 | deviation | fixtures/font/qualification-cases.json |  | Corrected staged one-short outline budget requested and limit expectations. | open |  | 2026-07-27T14:47:24.109Z |  |
+| 27 | 100 | deviation | .planning/STATE.md |  | Normalized stale machine-readable plan position and Phase 100 decision attribution after SDK advancement. | open |  | 2026-07-27T14:48:26.488Z |  |
 
 ````json
 [
@@ -315,6 +319,54 @@ last_updated: 2026-07-27T11:06:57.004Z
     "status": "open",
     "reason": "",
     "recorded_at": "2026-07-27T11:06:57.004Z",
+    "resolved_at": null
+  },
+  {
+    "id": 24,
+    "kind": "deviation",
+    "phase": "100",
+    "file": "modules/mb-font/font/outline.mbt",
+    "line": null,
+    "description": "Accepted normative 0-3 byte zero glyph alignment padding with strict rejection coverage.",
+    "status": "open",
+    "reason": "",
+    "recorded_at": "2026-07-27T14:47:22.500Z",
+    "resolved_at": null
+  },
+  {
+    "id": 25,
+    "kind": "deviation",
+    "phase": "100",
+    "file": "fixtures/font/dejavu-sans-2.37/oracle.json",
+    "line": null,
+    "description": "Qualified U+034C as the supported composite while preserving the U+00E9 grid-rounding capability boundary.",
+    "status": "open",
+    "reason": "",
+    "recorded_at": "2026-07-27T14:47:23.453Z",
+    "resolved_at": null
+  },
+  {
+    "id": 26,
+    "kind": "deviation",
+    "phase": "100",
+    "file": "fixtures/font/qualification-cases.json",
+    "line": null,
+    "description": "Corrected staged one-short outline budget requested and limit expectations.",
+    "status": "open",
+    "reason": "",
+    "recorded_at": "2026-07-27T14:47:24.109Z",
+    "resolved_at": null
+  },
+  {
+    "id": 27,
+    "kind": "deviation",
+    "phase": "100",
+    "file": ".planning/STATE.md",
+    "line": null,
+    "description": "Normalized stale machine-readable plan position and Phase 100 decision attribution after SDK advancement.",
+    "status": "open",
+    "reason": "",
+    "recorded_at": "2026-07-27T14:48:26.488Z",
     "resolved_at": null
   }
 ]
