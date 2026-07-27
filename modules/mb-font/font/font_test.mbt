@@ -813,6 +813,7 @@ fn font_test_composite_glyph(records : Array[Bytes]) -> Bytes {
 fn font_test_outline_graph_truetype(
   glyphs : Array[Bytes],
   max_component_depth? : UInt64 = 4UL,
+  max_component_elements? : UInt64 = 16UL,
 ) -> Bytes {
   let glyf : Array[Byte] = []
   let loca : Array[Byte] = []
@@ -832,6 +833,7 @@ fn font_test_outline_graph_truetype(
     hmtx.push(b'\x00')
   }
   let maxp = font_test_maxp_table_with_glyphs(glyphs.length().to_uint64()).to_array()
+  font_test_put_u16(maxp, 28, max_component_elements)
   font_test_put_u16(maxp, 30, max_component_depth)
   font_test_build_truetype([
     { tag: b"OS/2", payload: font_test_fixed_table(78) },
@@ -845,6 +847,25 @@ fn font_test_outline_graph_truetype(
     { tag: b"name", payload: font_test_name_table() },
     { tag: b"post", payload: font_test_post_table() },
   ])
+}
+
+///|
+fn font_test_single_composite_path(
+  flags : UInt64,
+  arg1 : Int,
+  arg2 : Int,
+  coefficients : Array[Int],
+) -> @math.Path2 {
+  let parent = font_test_composite_glyph([
+    font_test_component_record(flags, 0UL, arg1, arg2, coefficients),
+  ])
+  let owner = font_test_owner(
+    font_test_outline_graph_truetype([font_test_simple_outline_glyf(), parent]),
+  )
+  let font = Font::open(owner.view(), font_test_limits(), font_test_budget()).unwrap()
+  font
+  .outline(font.glyph_id(1UL).unwrap(), font_test_composite_budget())
+  .unwrap()
 }
 
 ///|
@@ -1350,7 +1371,7 @@ test "outline traces one signed XY uniformly scaled component" {
   let owner = font_test_owner(font_test_uniform_composite_outline_truetype())
   let font = Font::open(owner.view(), font_test_limits(), font_test_budget()).unwrap()
   let path = font
-    .outline(font.glyph_id(1UL).unwrap(), font_test_budget())
+    .outline(font.glyph_id(1UL).unwrap(), font_test_composite_budget())
     .unwrap()
   inspect(path.length(), content="4")
   match path.get(0) {
@@ -1384,26 +1405,11 @@ test "outline traces one signed XY uniformly scaled component" {
 
 ///|
 test "outline preserves component order and attaches transformed real points" {
-  let first = font_test_component_record(
-    0x0023UL,
-    0UL,
-    10,
-    0,
-    [],
-  )
-  let second = font_test_component_record(
-    0x0009UL,
-    0UL,
-    2,
-    0,
-    [8192],
-  )
+  let first = font_test_component_record(0x0023UL, 0UL, 10, 0, [])
+  let second = font_test_component_record(0x0009UL, 0UL, 2, 0, [8192])
   let parent = font_test_composite_glyph([first, second])
   let owner = font_test_owner(
-    font_test_outline_graph_truetype([
-      font_test_simple_outline_glyf(),
-      parent,
-    ]),
+    font_test_outline_graph_truetype([font_test_simple_outline_glyf(), parent]),
   )
   let font = Font::open(owner.view(), font_test_limits(), font_test_budget()).unwrap()
   let path = font
@@ -1436,6 +1442,85 @@ test "outline preserves component order and attaches transformed real points" {
 }
 
 ///|
+test "outline composite matrices and offset policies preserve exact Q15 facts" {
+  let independent = font_test_single_composite_path(0x0043UL, 0, 0, [
+    8192, 32767,
+  ])
+  match independent.get(1) {
+    Some(@math.PathCommand::LineTo(point)) => {
+      inspect(point.x(), content="50")
+      inspect(point.y(), content="0")
+    }
+    _ => fail("expected independent-axis LineTo")
+  }
+  match independent.get(2) {
+    Some(@math.PathCommand::QuadTo(control, _)) => {
+      inspect(control.x(), content="50")
+      inspect(control.y(), content="199.993896484375")
+    }
+    _ => fail("expected independent-axis QuadTo")
+  }
+
+  let matrix = font_test_single_composite_path(0x0083UL, 0, 0, [
+    16384, 8192, -8192, 16384,
+  ])
+  match matrix.get(1) {
+    Some(@math.PathCommand::LineTo(point)) => {
+      inspect(point.x(), content="100")
+      inspect(point.y(), content="50")
+    }
+    _ => fail("expected two-by-two LineTo")
+  }
+  match matrix.get(2) {
+    Some(@math.PathCommand::QuadTo(control, _)) => {
+      inspect(control.x(), content="50")
+      inspect(control.y(), content="150")
+    }
+    _ => fail("expected two-by-two QuadTo")
+  }
+
+  for
+    offset_case in [
+      (0x080BUL, 5.0, 2.0),
+      (0x100BUL, 10.0, 4.0),
+      (0x000BUL, 10.0, 4.0),
+    ] {
+    let (flags, x, y) = offset_case
+    let path = font_test_single_composite_path(flags, 10, 4, [8192])
+    match path.get(0) {
+      Some(@math.PathCommand::MoveTo(point)) => {
+        inspect(point.x() == x, content="true")
+        inspect(point.y() == y, content="true")
+      }
+      _ => fail("expected offset-policy MoveTo")
+    }
+  }
+}
+
+///|
+test "outline overlap and unique metrics flags are geometry and metric neutral" {
+  let parent = font_test_composite_glyph([
+    font_test_component_record(0x0603UL, 0UL, 0, 0, []),
+  ])
+  let owner = font_test_owner(
+    font_test_outline_graph_truetype([font_test_simple_outline_glyf(), parent]),
+  )
+  let font = Font::open(owner.view(), font_test_limits(), font_test_budget()).unwrap()
+  let before = font.horizontal_metrics(font.glyph_id(1UL).unwrap()).unwrap()
+  let path = font
+    .outline(font.glyph_id(1UL).unwrap(), font_test_composite_budget())
+    .unwrap()
+  let after = font.horizontal_metrics(font.glyph_id(1UL).unwrap()).unwrap()
+  inspect(path.length(), content="4")
+  inspect(before.advance_width(), content="500")
+  inspect(after.advance_width(), content="500")
+  inspect(
+    before.left_side_bearing() == after.left_side_bearing(),
+    content="true",
+  )
+}
+
+///|
 test "outline composite graph and flag taxonomy is stable" {
   let simple = font_test_simple_outline_glyf()
   let self_cycle = font_test_composite_glyph([
@@ -1447,7 +1532,10 @@ test "outline composite graph and flag taxonomy is stable" {
     .outline(font.glyph_id(0UL).unwrap(), font_test_composite_budget())
     .unwrap_err()
   inspect(cycle.category() == @error.ErrorCategory::Data, content="true")
-  inspect(cycle.context() == Some("font-outline-composite-cycle"), content="true")
+  inspect(
+    cycle.context() == Some("font-outline-composite-cycle"),
+    content="true",
+  )
 
   let child_parent = font_test_composite_glyph([
     font_test_component_record(0x0003UL, 0UL, 0, 0, []),
@@ -1495,6 +1583,213 @@ test "outline composite graph and flag taxonomy is stable" {
     metrics.context() == Some("font-outline-use-my-metrics"),
     content="true",
   )
+
+  let first_cycle = font_test_composite_glyph([
+    font_test_component_record(0x0003UL, 1UL, 0, 0, []),
+  ])
+  let second_cycle = font_test_composite_glyph([
+    font_test_component_record(0x0003UL, 0UL, 0, 0, []),
+  ])
+  let multi_owner = font_test_owner(
+    font_test_outline_graph_truetype([first_cycle, second_cycle]),
+  )
+  let multi = Font::open(
+    multi_owner.view(),
+    font_test_limits(),
+    font_test_budget(),
+  ).unwrap()
+  let multi_cycle = multi
+    .outline(multi.glyph_id(0UL).unwrap(), font_test_composite_budget())
+    .unwrap_err()
+  inspect(multi_cycle.category() == @error.ErrorCategory::Data, content="true")
+  inspect(
+    multi_cycle.context() == Some("font-outline-composite-cycle"),
+    content="true",
+  )
+}
+
+///|
+test "outline composite phantom malformed and resource outcomes are distinct" {
+  let simple = font_test_simple_outline_glyf()
+  let first = font_test_component_record(0x0023UL, 0UL, 0, 0, [])
+  for attachment in [(3, 0), (0, 3)] {
+    let (parent_index, child_index) = attachment
+    let parent = font_test_composite_glyph([
+      first,
+      font_test_component_record(0x0001UL, 0UL, parent_index, child_index, []),
+    ])
+    let owner = font_test_owner(
+      font_test_outline_graph_truetype([simple, parent]),
+    )
+    let font = Font::open(owner.view(), font_test_limits(), font_test_budget()).unwrap()
+    let error = font
+      .outline(font.glyph_id(1UL).unwrap(), font_test_composite_budget())
+      .unwrap_err()
+    inspect(
+      error.category() == @error.ErrorCategory::Capability,
+      content="true",
+    )
+    inspect(
+      error.context() == Some("font-outline-phantom-point"),
+      content="true",
+    )
+  }
+
+  for flags in [0x0001UL, 0x0013UL, 0x1803UL, 0x004BUL] {
+    let parent = font_test_composite_glyph([
+      font_test_component_record(flags, 0UL, 0, 0, []),
+    ])
+    let owner = font_test_owner(
+      font_test_outline_graph_truetype([simple, parent]),
+    )
+    let font = Font::open(owner.view(), font_test_limits(), font_test_budget()).unwrap()
+    let error = font
+      .outline(font.glyph_id(1UL).unwrap(), font_test_composite_budget())
+      .unwrap_err()
+    inspect(error.category() == @error.ErrorCategory::Data, content="true")
+  }
+
+  let grid_parent = font_test_composite_glyph([
+    font_test_component_record(0x0007UL, 0UL, 0, 0, []),
+  ])
+  let grid_owner = font_test_owner(
+    font_test_outline_graph_truetype([simple, grid_parent]),
+  )
+  let grid_font = Font::open(
+    grid_owner.view(),
+    font_test_limits(),
+    font_test_budget(),
+  ).unwrap()
+  let grid = grid_font
+    .outline(grid_font.glyph_id(1UL).unwrap(), font_test_composite_budget())
+    .unwrap_err()
+  inspect(grid.category() == @error.ErrorCategory::Capability, content="true")
+  inspect(grid.context() == Some("font-outline-grid-rounding"), content="true")
+
+  let bad_point_parent = font_test_composite_glyph([
+    first,
+    font_test_component_record(0x0001UL, 0UL, 7, 0, []),
+  ])
+  let bad_point_owner = font_test_owner(
+    font_test_outline_graph_truetype([simple, bad_point_parent]),
+  )
+  let bad_point_font = Font::open(
+    bad_point_owner.view(),
+    font_test_limits(),
+    font_test_budget(),
+  ).unwrap()
+  let bad_point = bad_point_font
+    .outline(
+      bad_point_font.glyph_id(1UL).unwrap(),
+      font_test_composite_budget(),
+    )
+    .unwrap_err()
+  inspect(bad_point.category() == @error.ErrorCategory::Data, content="true")
+  inspect(
+    bad_point.context() == Some("font-outline-parent-point"),
+    content="true",
+  )
+
+  let bad_glyph_parent = font_test_composite_glyph([
+    font_test_component_record(0x0003UL, 9UL, 0, 0, []),
+  ])
+  let bad_glyph_owner = font_test_owner(
+    font_test_outline_graph_truetype([simple, bad_glyph_parent]),
+  )
+  let bad_glyph_font = Font::open(
+    bad_glyph_owner.view(),
+    font_test_limits(),
+    font_test_budget(),
+  ).unwrap()
+  let bad_glyph = bad_glyph_font
+    .outline(
+      bad_glyph_font.glyph_id(1UL).unwrap(),
+      font_test_composite_budget(),
+    )
+    .unwrap_err()
+  inspect(bad_glyph.category() == @error.ErrorCategory::Data, content="true")
+  inspect(
+    bad_glyph.context() == Some("font-outline-component-glyph"),
+    content="true",
+  )
+
+  let limited_parent = font_test_composite_glyph([
+    first,
+    font_test_component_record(0x0003UL, 0UL, 0, 0, []),
+  ])
+  let limited_owner = font_test_owner(
+    font_test_outline_graph_truetype(
+      [simple, limited_parent],
+      max_component_elements=1UL,
+    ),
+  )
+  let limited = Font::open(
+    limited_owner.view(),
+    font_test_limits(),
+    font_test_budget(),
+  ).unwrap()
+  let maxp_error = limited
+    .outline(limited.glyph_id(1UL).unwrap(), font_test_composite_budget())
+    .unwrap_err()
+  inspect(maxp_error.category() == @error.ErrorCategory::Data, content="true")
+  inspect(
+    maxp_error.context() == Some("font-outline-maxp-components"),
+    content="true",
+  )
+
+  let resource_owner = font_test_owner(
+    font_test_outline_graph_truetype([simple, limited_parent]),
+  )
+  let resource_font = Font::open(
+    resource_owner.view(),
+    font_test_outline_limits_result(4096UL, 256UL, 1UL, 1024UL, 16384UL).unwrap(),
+    font_test_budget(),
+  ).unwrap()
+  let resource = resource_font
+    .outline(resource_font.glyph_id(1UL).unwrap(), font_test_composite_budget())
+    .unwrap_err()
+  inspect(resource.category() == @error.ErrorCategory::Resource, content="true")
+  inspect(resource.context() == Some("max-outline-components"), content="true")
+
+  let exact_parent = font_test_composite_glyph([
+    font_test_component_record(0x0003UL, 0UL, 0, 0, []),
+  ])
+  let exact_owner = font_test_owner(
+    font_test_outline_graph_truetype([simple, exact_parent]),
+  )
+  let exact_font = Font::open(
+    exact_owner.view(),
+    font_test_limits(),
+    font_test_budget(),
+  ).unwrap()
+  let exact = font_test_budget_with_dimensions(
+    0UL,
+    allocations=6UL,
+    allocation_size=1280UL,
+    25UL,
+  )
+  inspect(
+    exact_font
+    .outline(exact_font.glyph_id(1UL).unwrap(), exact)
+    .unwrap()
+    .length(),
+    content="4",
+  )
+  inspect(exact.remaining().work(), content="0")
+  let short = font_test_budget_with_dimensions(
+    0UL,
+    allocations=6UL,
+    allocation_size=1280UL,
+    24UL,
+  )
+  let short_error = exact_font
+    .outline(exact_font.glyph_id(1UL).unwrap(), short)
+    .unwrap_err()
+  inspect(
+    short_error.category() == @error.ErrorCategory::Resource,
+    content="true",
+  )
+  inspect(short.remaining().work(), content="4")
 }
 
 ///|

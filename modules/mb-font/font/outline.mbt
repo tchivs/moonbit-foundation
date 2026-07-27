@@ -20,6 +20,41 @@ priv struct F2Dot14Matrix {
 }
 
 ///|
+priv enum CompositePlacement {
+  ComponentXY(Int64, Int64)
+  ComponentPoints(UInt64, UInt64)
+}
+
+///|
+priv struct CompositeDescriptor {
+  flags : UInt64
+  glyph_index : UInt64
+  placement : CompositePlacement
+  matrix : F2Dot14Matrix
+}
+
+///|
+priv struct CompositeParse {
+  descriptors : Array[CompositeDescriptor]
+  saw_grid_rounding : Bool
+}
+
+///|
+priv struct CompositeFrame {
+  glyph_index : UInt64
+  descriptors : Array[CompositeDescriptor]
+  mut next : Int
+  depth : UInt64
+}
+
+///|
+priv struct CompositeClassification {
+  root_descriptors : Array[CompositeDescriptor]
+  saw_deeper : Bool
+  saw_grid_rounding : Bool
+}
+
+///|
 priv struct OutlineWork {
   mut used : UInt64
 }
@@ -171,11 +206,7 @@ fn transform_q15(
     Err(error) => return Err(error)
     Ok(value) => value
   }
-  Ok({
-    x_q15: x_num / 16384L,
-    y_q15: y_num / 16384L,
-    on_curve: point.on_curve,
-  })
+  Ok({ x_q15: x_num / 16384L, y_q15: y_num / 16384L, on_curve: point.on_curve })
 }
 
 ///|
@@ -739,12 +770,7 @@ fn font_decode_simple_outline(
 ) -> Result[@math.Path2, @error.CoreError] {
   let geometry = match
     font_decode_simple_geometry(
-      source,
-      contour_count,
-      maxp,
-      limits,
-      ledger,
-      budget,
+      source, contour_count, maxp, limits, ledger, budget,
     ) {
     Err(error) => return Err(error)
     Ok(value) => value
@@ -828,6 +854,7 @@ fn font_outline_read_i8(
 }
 
 ///|
+#warnings("-1")
 fn font_decode_tracer_composite_outline(
   source : @bytes.ByteView,
   index : MetricIndexFacts,
@@ -908,11 +935,13 @@ fn font_decode_tracer_composite_outline(
   let words = (flags & 0x0001UL) != 0UL
   let (arg1, arg2, start_cursor) = if words {
     let first = match read_i16(source, 14UL) {
-      Err(_) => return Err(font_outline_data_error("font-outline-component-args"))
+      Err(_) =>
+        return Err(font_outline_data_error("font-outline-component-args"))
       Ok(value) => value.to_int64()
     }
     let second = match read_i16(source, 16UL) {
-      Err(_) => return Err(font_outline_data_error("font-outline-component-args"))
+      Err(_) =>
+        return Err(font_outline_data_error("font-outline-component-args"))
       Ok(value) => value.to_int64()
     }
     (first, second, 18UL)
@@ -936,7 +965,8 @@ fn font_decode_tracer_composite_outline(
   }
   if (flags & 0x0008UL) != 0UL {
     let scale = match read_i16(source, cursor) {
-      Err(_) => return Err(font_outline_data_error("font-outline-component-transform"))
+      Err(_) =>
+        return Err(font_outline_data_error("font-outline-component-transform"))
       Ok(value) => value.to_int64()
     }
     matrix = {
@@ -948,11 +978,13 @@ fn font_decode_tracer_composite_outline(
     cursor = cursor + 2UL
   } else if (flags & 0x0040UL) != 0UL {
     let xscale = match read_i16(source, cursor) {
-      Err(_) => return Err(font_outline_data_error("font-outline-component-transform"))
+      Err(_) =>
+        return Err(font_outline_data_error("font-outline-component-transform"))
       Ok(value) => value.to_int64()
     }
     let yscale = match read_i16(source, cursor + 2UL) {
-      Err(_) => return Err(font_outline_data_error("font-outline-component-transform"))
+      Err(_) =>
+        return Err(font_outline_data_error("font-outline-component-transform"))
       Ok(value) => value.to_int64()
     }
     matrix = {
@@ -964,22 +996,31 @@ fn font_decode_tracer_composite_outline(
     cursor = cursor + 4UL
   } else if (flags & 0x0080UL) != 0UL {
     let xscale = match read_i16(source, cursor) {
-      Err(_) => return Err(font_outline_data_error("font-outline-component-transform"))
+      Err(_) =>
+        return Err(font_outline_data_error("font-outline-component-transform"))
       Ok(value) => value.to_int64()
     }
     let scale01 = match read_i16(source, cursor + 2UL) {
-      Err(_) => return Err(font_outline_data_error("font-outline-component-transform"))
+      Err(_) =>
+        return Err(font_outline_data_error("font-outline-component-transform"))
       Ok(value) => value.to_int64()
     }
     let scale10 = match read_i16(source, cursor + 4UL) {
-      Err(_) => return Err(font_outline_data_error("font-outline-component-transform"))
+      Err(_) =>
+        return Err(font_outline_data_error("font-outline-component-transform"))
       Ok(value) => value.to_int64()
     }
     let yscale = match read_i16(source, cursor + 6UL) {
-      Err(_) => return Err(font_outline_data_error("font-outline-component-transform"))
+      Err(_) =>
+        return Err(font_outline_data_error("font-outline-component-transform"))
       Ok(value) => value.to_int64()
     }
-    matrix = { xscale_raw: xscale, scale01_raw: scale01, scale10_raw: scale10, yscale_raw: yscale }
+    matrix = {
+      xscale_raw: xscale,
+      scale01_raw: scale01,
+      scale10_raw: scale10,
+      yscale_raw: yscale,
+    }
     cursor = cursor + 8UL
   }
   if (flags & 0x0100UL) != 0UL {
@@ -1027,7 +1068,8 @@ fn font_decode_tracer_composite_outline(
     Ok(_) => ()
   }
   let child = match font_glyph_window(index, child_index) {
-    Err(_) => return Err(font_outline_data_error("font-outline-component-glyph"))
+    Err(_) =>
+      return Err(font_outline_data_error("font-outline-component-glyph"))
     Ok(None) =>
       return font_outline_lower_contours(
         [],
@@ -1050,13 +1092,7 @@ fn font_decode_tracer_composite_outline(
   }
   let geometry = if contour_count == 0 {
     match
-      font_decode_zero_contour_outline(
-        child,
-        maxp,
-        limits,
-        ledger,
-        budget,
-      ) {
+      font_decode_zero_contour_outline(child, maxp, limits, ledger, budget) {
       Err(error) => return Err(error)
       Ok(_) => { points: [], endpoints: [] }
     }
@@ -1145,6 +1181,673 @@ fn font_decode_tracer_composite_outline(
 }
 
 ///|
+fn font_parse_composite_descriptors(
+  source : @bytes.ByteView,
+  maxp : MaxpFacts,
+  limits : FontLimits,
+  ledger : OutlineWork,
+  budget : @budget.Budget,
+) -> Result[CompositeParse, @error.CoreError] {
+  match
+    font_outline_charge_allocation(budget, maxp.max_component_elements * 80UL) {
+    Err(error) => return Err(error)
+    Ok(_) => ()
+  }
+  let descriptors : Array[CompositeDescriptor] = []
+  let mut cursor = 10UL
+  let mut more = true
+  let mut saw_grid_rounding = false
+  let mut metrics_components = 0UL
+  let mut last_flags = 0UL
+  while more {
+    let component_count = descriptors.length().to_uint64() + 1UL
+    if component_count > maxp.max_component_elements {
+      return Err(
+        font_outline_data_error(
+          "font-outline-maxp-components",
+          requested=component_count,
+          limit=maxp.max_component_elements,
+        ),
+      )
+    }
+    if component_count > limits.max_outline_components() {
+      return Err(
+        font_outline_limit_error(
+          "max-outline-components",
+          component_count,
+          limits.max_outline_components(),
+        ),
+      )
+    }
+    match font_outline_charge_work(ledger, budget, limits.max_work(), 1UL) {
+      Err(error) => return Err(error)
+      Ok(_) => ()
+    }
+    let flags = match read_u16(source, cursor) {
+      Err(_) => return Err(font_outline_data_error("font-outline-component"))
+      Ok(value) => value
+    }
+    let glyph_index = match read_u16(source, cursor + 2UL) {
+      Err(_) => return Err(font_outline_data_error("font-outline-component"))
+      Ok(value) => value
+    }
+    cursor = cursor + 4UL
+    if (flags & 0xE010UL) != 0UL {
+      return Err(font_outline_data_error("font-outline-component-flags"))
+    }
+    if (flags & 0x0100UL) != 0UL && (flags & 0x0020UL) != 0UL {
+      return Err(font_outline_data_error("font-outline-component-flags"))
+    }
+    if (flags & 0x1800UL) == 0x1800UL {
+      return Err(font_outline_data_error("font-outline-component-offset-flags"))
+    }
+    let transform_count = (if (flags & 0x0008UL) != 0UL { 1 } else { 0 }) +
+      (if (flags & 0x0040UL) != 0UL { 1 } else { 0 }) +
+      (if (flags & 0x0080UL) != 0UL { 1 } else { 0 })
+    if transform_count > 1 {
+      return Err(font_outline_data_error("font-outline-component-transform"))
+    }
+    let xy = (flags & 0x0002UL) != 0UL
+    if descriptors.length() == 0 && !xy {
+      return Err(font_outline_data_error("font-outline-first-component-xy"))
+    }
+    if !xy && (flags & 0x1800UL) != 0UL {
+      return Err(font_outline_data_error("font-outline-component-offset-flags"))
+    }
+    if (flags & 0x0004UL) != 0UL {
+      saw_grid_rounding = true
+    }
+    if (flags & 0x0200UL) != 0UL {
+      metrics_components = metrics_components + 1UL
+      if metrics_components > 1UL {
+        return Err(font_outline_data_error("font-outline-use-my-metrics"))
+      }
+    }
+    let words = (flags & 0x0001UL) != 0UL
+    let placement = if xy {
+      let first = if words {
+        match read_i16(source, cursor) {
+          Err(_) =>
+            return Err(font_outline_data_error("font-outline-component-args"))
+          Ok(value) => value.to_int64()
+        }
+      } else {
+        match font_outline_read_i8(source, cursor) {
+          Err(error) => return Err(error)
+          Ok(value) => value
+        }
+      }
+      let second_offset = cursor + (if words { 2UL } else { 1UL })
+      let second = if words {
+        match read_i16(source, second_offset) {
+          Err(_) =>
+            return Err(font_outline_data_error("font-outline-component-args"))
+          Ok(value) => value.to_int64()
+        }
+      } else {
+        match font_outline_read_i8(source, second_offset) {
+          Err(error) => return Err(error)
+          Ok(value) => value
+        }
+      }
+      ComponentXY(first, second)
+    } else {
+      let first = if words {
+        match read_u16(source, cursor) {
+          Err(_) =>
+            return Err(font_outline_data_error("font-outline-component-args"))
+          Ok(value) => value
+        }
+      } else {
+        match read_u8(source, cursor) {
+          Err(_) =>
+            return Err(font_outline_data_error("font-outline-component-args"))
+          Ok(value) => value.to_uint64()
+        }
+      }
+      let second_offset = cursor + (if words { 2UL } else { 1UL })
+      let second = if words {
+        match read_u16(source, second_offset) {
+          Err(_) =>
+            return Err(font_outline_data_error("font-outline-component-args"))
+          Ok(value) => value
+        }
+      } else {
+        match read_u8(source, second_offset) {
+          Err(_) =>
+            return Err(font_outline_data_error("font-outline-component-args"))
+          Ok(value) => value.to_uint64()
+        }
+      }
+      ComponentPoints(first, second)
+    }
+    cursor = cursor + (if words { 4UL } else { 2UL })
+    let mut matrix : F2Dot14Matrix = {
+      xscale_raw: 16384L,
+      scale01_raw: 0L,
+      scale10_raw: 0L,
+      yscale_raw: 16384L,
+    }
+    if (flags & 0x0008UL) != 0UL {
+      let scale = match read_i16(source, cursor) {
+        Err(_) =>
+          return Err(
+            font_outline_data_error("font-outline-component-transform"),
+          )
+        Ok(value) => value.to_int64()
+      }
+      matrix = {
+        xscale_raw: scale,
+        scale01_raw: 0L,
+        scale10_raw: 0L,
+        yscale_raw: scale,
+      }
+      cursor = cursor + 2UL
+    } else if (flags & 0x0040UL) != 0UL {
+      let xscale = match read_i16(source, cursor) {
+        Err(_) =>
+          return Err(
+            font_outline_data_error("font-outline-component-transform"),
+          )
+        Ok(value) => value.to_int64()
+      }
+      let yscale = match read_i16(source, cursor + 2UL) {
+        Err(_) =>
+          return Err(
+            font_outline_data_error("font-outline-component-transform"),
+          )
+        Ok(value) => value.to_int64()
+      }
+      matrix = {
+        xscale_raw: xscale,
+        scale01_raw: 0L,
+        scale10_raw: 0L,
+        yscale_raw: yscale,
+      }
+      cursor = cursor + 4UL
+    } else if (flags & 0x0080UL) != 0UL {
+      let xscale = match read_i16(source, cursor) {
+        Err(_) =>
+          return Err(
+            font_outline_data_error("font-outline-component-transform"),
+          )
+        Ok(value) => value.to_int64()
+      }
+      let scale01 = match read_i16(source, cursor + 2UL) {
+        Err(_) =>
+          return Err(
+            font_outline_data_error("font-outline-component-transform"),
+          )
+        Ok(value) => value.to_int64()
+      }
+      let scale10 = match read_i16(source, cursor + 4UL) {
+        Err(_) =>
+          return Err(
+            font_outline_data_error("font-outline-component-transform"),
+          )
+        Ok(value) => value.to_int64()
+      }
+      let yscale = match read_i16(source, cursor + 6UL) {
+        Err(_) =>
+          return Err(
+            font_outline_data_error("font-outline-component-transform"),
+          )
+        Ok(value) => value.to_int64()
+      }
+      matrix = {
+        xscale_raw: xscale,
+        scale01_raw: scale01,
+        scale10_raw: scale10,
+        yscale_raw: yscale,
+      }
+      cursor = cursor + 8UL
+    }
+    descriptors.push({ flags, glyph_index, placement, matrix })
+    last_flags = flags
+    more = (flags & 0x0020UL) != 0UL
+  }
+  if (last_flags & 0x0100UL) != 0UL {
+    let instruction_length = match read_u16(source, cursor) {
+      Err(_) => return Err(font_outline_data_error("font-outline-instructions"))
+      Ok(value) => value
+    }
+    if instruction_length > maxp.max_size_of_instructions {
+      return Err(
+        font_outline_data_error(
+          "font-outline-maxp-instructions",
+          requested=instruction_length,
+          limit=maxp.max_size_of_instructions,
+        ),
+      )
+    }
+    if instruction_length > limits.max_outline_instruction_bytes() {
+      return Err(
+        font_outline_limit_error(
+          "max-outline-instruction-bytes",
+          instruction_length,
+          limits.max_outline_instruction_bytes(),
+        ),
+      )
+    }
+    match
+      font_outline_charge_work(
+        ledger,
+        budget,
+        limits.max_work(),
+        instruction_length,
+      ) {
+      Err(error) => return Err(error)
+      Ok(_) => ()
+    }
+    cursor = cursor + 2UL
+    match require_read_window(source, cursor, instruction_length) {
+      Err(_) => return Err(font_outline_data_error("font-outline-instructions"))
+      Ok(_) => ()
+    }
+    cursor = cursor + instruction_length
+  }
+  match font_outline_validate_trailing(source, cursor) {
+    Err(error) => return Err(error)
+    Ok(_) => Ok({ descriptors, saw_grid_rounding })
+  }
+}
+
+///|
+fn font_classify_composite_graph(
+  root_glyph : UInt64,
+  root_source : @bytes.ByteView,
+  index : MetricIndexFacts,
+  maxp : MaxpFacts,
+  limits : FontLimits,
+  ledger : OutlineWork,
+  budget : @budget.Budget,
+) -> Result[CompositeClassification, @error.CoreError] {
+  if maxp.max_component_depth == 0UL {
+    return Err(
+      font_outline_data_error(
+        "font-outline-maxp-component-depth",
+        requested=1UL,
+        limit=0UL,
+      ),
+    )
+  }
+  match font_outline_charge_allocation(budget, index.num_glyphs) {
+    Err(error) => return Err(error)
+    Ok(_) => ()
+  }
+  match
+    font_outline_charge_allocation(budget, maxp.max_component_depth * 64UL) {
+    Err(error) => return Err(error)
+    Ok(_) => ()
+  }
+  let root = match
+    font_parse_composite_descriptors(root_source, maxp, limits, ledger, budget) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  let states : Array[Int] = Array::make(index.num_glyphs.to_int(), 0)
+  let root_index = root_glyph.to_int()
+  states[root_index] = 1
+  let stack : Array[CompositeFrame] = [
+    {
+      glyph_index: root_glyph,
+      descriptors: root.descriptors,
+      next: 0,
+      depth: 1UL,
+    },
+  ]
+  let mut total_components = root.descriptors.length().to_uint64()
+  let mut saw_deeper = false
+  let mut saw_grid_rounding = root.saw_grid_rounding
+  while stack.length() > 0 {
+    let frame = stack.pop().unwrap()
+    if frame.next >= frame.descriptors.length() {
+      states[frame.glyph_index.to_int()] = 2
+      continue
+    }
+    let descriptor = frame.descriptors[frame.next]
+    frame.next = frame.next + 1
+    let parent_depth = frame.depth
+    stack.push(frame)
+    if descriptor.glyph_index >= index.num_glyphs {
+      return Err(
+        font_outline_data_error(
+          "font-outline-component-glyph",
+          requested=descriptor.glyph_index,
+          limit=index.num_glyphs,
+        ),
+      )
+    }
+    let child = match font_glyph_window(index, descriptor.glyph_index) {
+      Err(_) =>
+        return Err(font_outline_data_error("font-outline-component-glyph"))
+      Ok(None) => continue
+      Ok(Some(value)) => value
+    }
+    if child.length() < 10UL {
+      return Err(font_outline_data_error("font-outline-glyph-header"))
+    }
+    let contour_count = match read_i16(child, 0UL) {
+      Err(_) => return Err(font_outline_data_error("font-outline-glyph-header"))
+      Ok(value) => value
+    }
+    if contour_count >= 0 {
+      continue
+    }
+    saw_deeper = true
+    let child_state = states[descriptor.glyph_index.to_int()]
+    if child_state == 1 {
+      return Err(font_outline_data_error("font-outline-composite-cycle"))
+    }
+    if child_state == 2 {
+      continue
+    }
+    let depth = parent_depth + 1UL
+    if depth > maxp.max_component_depth {
+      return Err(
+        font_outline_data_error(
+          "font-outline-maxp-component-depth",
+          requested=depth,
+          limit=maxp.max_component_depth,
+        ),
+      )
+    }
+    let parsed = match
+      font_parse_composite_descriptors(child, maxp, limits, ledger, budget) {
+      Err(error) => return Err(error)
+      Ok(value) => value
+    }
+    total_components = match
+      @checked.checked_add(
+        total_components,
+        parsed.descriptors.length().to_uint64(),
+      ) {
+      Err(_) => return Err(font_outline_data_error("font-outline-components"))
+      Ok(value) => value
+    }
+    if total_components > limits.max_outline_components() {
+      return Err(
+        font_outline_limit_error(
+          "max-outline-components",
+          total_components,
+          limits.max_outline_components(),
+        ),
+      )
+    }
+    if parsed.saw_grid_rounding {
+      saw_grid_rounding = true
+    }
+    states[descriptor.glyph_index.to_int()] = 1
+    stack.push({
+      glyph_index: descriptor.glyph_index,
+      descriptors: parsed.descriptors,
+      next: 0,
+      depth,
+    })
+  }
+  Ok({ root_descriptors: root.descriptors, saw_deeper, saw_grid_rounding })
+}
+
+///|
+fn font_outline_point_index(
+  index : UInt64,
+  real_count : UInt64,
+  context : String,
+) -> Result[Int, @error.CoreError] {
+  if index < real_count {
+    match @checked.checked_narrow_int(index) {
+      Err(_) => Err(font_outline_data_error(context))
+      Ok(value) => Ok(value)
+    }
+  } else if index < real_count + 4UL {
+    Err(font_outline_capability_error("font-outline-phantom-point"))
+  } else {
+    Err(
+      font_outline_data_error(context, requested=index, limit=real_count + 4UL),
+    )
+  }
+}
+
+///|
+fn font_decode_composite_outline(
+  root_glyph : UInt64,
+  source : @bytes.ByteView,
+  index : MetricIndexFacts,
+  maxp : MaxpFacts,
+  limits : FontLimits,
+  ledger : OutlineWork,
+  budget : @budget.Budget,
+) -> Result[@math.Path2, @error.CoreError] {
+  let graph = match
+    font_classify_composite_graph(
+      root_glyph, source, index, maxp, limits, ledger, budget,
+    ) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  if graph.saw_deeper {
+    return Err(font_outline_capability_error("font-outline-nested-composite"))
+  }
+  if graph.saw_grid_rounding {
+    return Err(font_outline_capability_error("font-outline-grid-rounding"))
+  }
+  let parent_points : Array[OutlinePoint] = []
+  let parent_endpoints : Array[UInt64] = []
+  for descriptor_index = 0
+      descriptor_index < graph.root_descriptors.length()
+      descriptor_index = descriptor_index + 1 {
+    let descriptor = graph.root_descriptors[descriptor_index]
+    let child = match font_glyph_window(index, descriptor.glyph_index) {
+      Err(_) =>
+        return Err(font_outline_data_error("font-outline-component-glyph"))
+      Ok(None) => None
+      Ok(Some(value)) => Some(value)
+    }
+    let geometry : OutlineGeometry = match child {
+      None => { points: [], endpoints: [] }
+      Some(value) => {
+        if value.length() < 10UL {
+          return Err(font_outline_data_error("font-outline-glyph-header"))
+        }
+        let contour_count = match read_i16(value, 0UL) {
+          Err(_) =>
+            return Err(font_outline_data_error("font-outline-glyph-header"))
+          Ok(result) => result
+        }
+        if contour_count < 0 {
+          return Err(
+            font_outline_capability_error("font-outline-nested-composite"),
+          )
+        }
+        if contour_count == 0 {
+          match
+            font_decode_zero_contour_outline(
+              value, maxp, limits, ledger, budget,
+            ) {
+            Err(error) => return Err(error)
+            Ok(_) => { points: [], endpoints: [] }
+          }
+        } else {
+          match
+            font_decode_simple_geometry(
+              value,
+              contour_count.to_uint64(),
+              maxp,
+              limits,
+              ledger,
+              budget,
+            ) {
+            Err(error) => return Err(error)
+            Ok(result) => result
+          }
+        }
+      }
+    }
+    let child_points = geometry.points.length().to_uint64()
+    let child_contours = geometry.endpoints.length().to_uint64()
+    let total_points = match
+      @checked.checked_add(parent_points.length().to_uint64(), child_points) {
+      Err(_) =>
+        return Err(font_outline_data_error("font-outline-composite-points"))
+      Ok(value) => value
+    }
+    let total_contours = match
+      @checked.checked_add(
+        parent_endpoints.length().to_uint64(),
+        child_contours,
+      ) {
+      Err(_) =>
+        return Err(font_outline_data_error("font-outline-composite-contours"))
+      Ok(value) => value
+    }
+    if total_points > maxp.max_composite_points {
+      return Err(
+        font_outline_data_error(
+          "font-outline-maxp-composite-points",
+          requested=total_points,
+          limit=maxp.max_composite_points,
+        ),
+      )
+    }
+    if total_contours > maxp.max_composite_contours {
+      return Err(
+        font_outline_data_error(
+          "font-outline-maxp-composite-contours",
+          requested=total_contours,
+          limit=maxp.max_composite_contours,
+        ),
+      )
+    }
+    if total_points > limits.max_outline_points() {
+      return Err(
+        font_outline_limit_error(
+          "max-outline-points",
+          total_points,
+          limits.max_outline_points(),
+        ),
+      )
+    }
+    if total_contours > limits.max_outline_contours() {
+      return Err(
+        font_outline_limit_error(
+          "max-outline-contours",
+          total_contours,
+          limits.max_outline_contours(),
+        ),
+      )
+    }
+    match
+      font_outline_charge_work(
+        ledger,
+        budget,
+        limits.max_work(),
+        child_points * 2UL,
+      ) {
+      Err(error) => return Err(error)
+      Ok(_) => ()
+    }
+    match font_outline_charge_allocation(budget, child_points * 32UL) {
+      Err(error) => return Err(error)
+      Ok(_) => ()
+    }
+    let transformed : Array[OutlinePoint] = []
+    for point in geometry.points {
+      transformed.push(
+        match transform_q15(point, descriptor.matrix) {
+          Err(error) => return Err(error)
+          Ok(value) => value
+        },
+      )
+    }
+    let (translate_x, translate_y) = match descriptor.placement {
+      ComponentXY(dx, dy) => {
+        let raw : OutlinePoint = {
+          x_q15: match outline_checked_mul(dx, 32768L) {
+            Err(error) => return Err(error)
+            Ok(value) => value
+          },
+          y_q15: match outline_checked_mul(dy, 32768L) {
+            Err(error) => return Err(error)
+            Ok(value) => value
+          },
+          on_curve: true,
+        }
+        let offset = if (descriptor.flags & 0x0800UL) != 0UL {
+          match transform_q15(raw, descriptor.matrix) {
+            Err(error) => return Err(error)
+            Ok(value) => value
+          }
+        } else {
+          raw
+        }
+        (offset.x_q15, offset.y_q15)
+      }
+      ComponentPoints(parent_index, child_index) => {
+        let parent = match
+          font_outline_point_index(
+            parent_index,
+            parent_points.length().to_uint64(),
+            "font-outline-parent-point",
+          ) {
+          Err(error) => return Err(error)
+          Ok(value) => parent_points[value]
+        }
+        let child_point = match
+          font_outline_point_index(
+            child_index,
+            transformed.length().to_uint64(),
+            "font-outline-child-point",
+          ) {
+          Err(error) => return Err(error)
+          Ok(value) => transformed[value]
+        }
+        let x = match
+          outline_checked_subtract(parent.x_q15, child_point.x_q15) {
+          Err(error) => return Err(error)
+          Ok(value) => value
+        }
+        let y = match
+          outline_checked_subtract(parent.y_q15, child_point.y_q15) {
+          Err(error) => return Err(error)
+          Ok(value) => value
+        }
+        (x, y)
+      }
+    }
+    let base = parent_points.length().to_uint64()
+    for point in transformed {
+      parent_points.push({
+        x_q15: match outline_checked_add(point.x_q15, translate_x) {
+          Err(error) => return Err(error)
+          Ok(value) => value
+        },
+        y_q15: match outline_checked_add(point.y_q15, translate_y) {
+          Err(error) => return Err(error)
+          Ok(value) => value
+        },
+        on_curve: point.on_curve,
+      })
+    }
+    for endpoint in geometry.endpoints {
+      parent_endpoints.push(
+        match @checked.checked_add(base, endpoint) {
+          Err(_) =>
+            return Err(font_outline_data_error("font-outline-endpoints"))
+          Ok(value) => value
+        },
+      )
+    }
+  }
+  font_outline_lower_contours(
+    parent_points,
+    parent_endpoints,
+    ledger,
+    limits.max_work(),
+    budget,
+  )
+}
+
+///|
 fn font_decode_outline(
   index : MetricIndexFacts,
   maxp : MaxpFacts,
@@ -1166,13 +1869,8 @@ fn font_decode_outline(
     Ok(value) => value
   }
   if contour_count < 0 {
-    return font_decode_tracer_composite_outline(
-      glyph,
-      index,
-      maxp,
-      limits,
-      ledger,
-      budget,
+    return font_decode_composite_outline(
+      glyph_index, glyph, index, maxp, limits, ledger, budget,
     )
   }
   if contour_count == 0 {

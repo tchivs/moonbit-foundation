@@ -57,6 +57,22 @@ fn font_wb_open_budget() -> @budget.Budget {
 }
 
 ///|
+fn font_wb_outline_budget() -> @budget.Budget {
+  @budget.Budget::new(
+    @budget.ResourceLimits::new(
+      bytes=0UL,
+      allocations=32UL,
+      allocation_size=4096UL,
+      width=0UL,
+      height=0UL,
+      pixels=0UL,
+      depth=0UL,
+      work=16384UL,
+    ),
+  )
+}
+
+///|
 fn font_wb_mutate_one_byte(owner : @bytes.OwnedBytes, offset : UInt64) -> Unit {
   let original = owner.view().get(offset).unwrap()
   owner
@@ -108,11 +124,7 @@ test "outline Q15 midpoint and checked overflow stay private data facts" {
 
 ///|
 test "outline Q15 matrix order and signed attachment subtraction are exact" {
-  let point : OutlinePoint = {
-    x_q15: 32768L,
-    y_q15: 65536L,
-    on_curve: true,
-  }
+  let point : OutlinePoint = { x_q15: 32768L, y_q15: 65536L, on_curve: true }
   let matrix : F2Dot14Matrix = {
     xscale_raw: 16384L,
     scale01_raw: -8192L,
@@ -122,34 +134,34 @@ test "outline Q15 matrix order and signed attachment subtraction are exact" {
   let transformed = transform_q15(point, matrix).unwrap()
   inspect(transformed.x_q15, content="65536")
   inspect(transformed.y_q15, content="49152")
-  inspect(
-    outline_checked_subtract(32768L, -16384L).unwrap(),
-    content="49152",
-  )
+  inspect(outline_checked_subtract(32768L, -16384L).unwrap(), content="49152")
 }
 
 ///|
 test "generated composite fixtures reach the private full placement seam" {
-  let first = generated_composite_component(
-    0x0023UL,
-    0UL,
-    10,
-    0,
-    [],
+  let first = generated_composite_component(0x0023UL, 0UL, 10, 0, [])
+  let second = generated_composite_component(0x0009UL, 0UL, 2, 0, [8192])
+  let parent = generated_composite_glyph(-32768, -32768, 32767, 32767, [
+    first, second,
+  ])
+  let owner = font_wb_owner(
+    generated_outline_graph_truetype([generated_simple_outline_body(), parent]),
   )
-  let second = generated_composite_component(
-    0x0009UL,
-    0UL,
-    2,
-    0,
-    [8192],
-  )
+  let font = Font::open(owner.view(), font_wb_limits(), font_wb_open_budget()).unwrap()
+  let path = font
+    .outline(font.glyph_id(1UL).unwrap(), font_wb_outline_budget())
+    .unwrap()
+  inspect(path.length(), content="8")
+}
+
+///|
+test "uniform composite tracer remains a directly verified production slice" {
   let parent = generated_composite_glyph(
-    -32768,
-    -32768,
-    32767,
-    32767,
-    [first, second],
+    10,
+    -4,
+    60,
+    46,
+    [generated_composite_component(0x000BUL, 0UL, 10, -4, [8192])],
   )
   let owner = font_wb_owner(
     generated_outline_graph_truetype([
@@ -158,10 +170,24 @@ test "generated composite fixtures reach the private full placement seam" {
     ]),
   )
   let font = Font::open(owner.view(), font_wb_limits(), font_wb_open_budget()).unwrap()
-  let path = font
-    .outline(font.glyph_id(1UL).unwrap(), font_wb_open_budget())
-    .unwrap()
-  inspect(path.length(), content="8")
+  let source = font_glyph_window(font.metric_index, 1UL).unwrap().unwrap()
+  let ledger : OutlineWork = { used: 0UL }
+  let path = font_decode_tracer_composite_outline(
+    source,
+    font.metric_index,
+    font.tables.maxp,
+    font.limits,
+    ledger,
+    font_wb_outline_budget(),
+  ).unwrap()
+  inspect(path.length(), content="4")
+  match path.get(0) {
+    Some(@math.PathCommand::MoveTo(point)) => {
+      inspect(point.x(), content="10")
+      inspect(point.y(), content="-4")
+    }
+    _ => fail("expected direct tracer MoveTo")
+  }
 }
 
 ///|
@@ -486,6 +512,39 @@ test "outline rejects post-decode revision drift without path publication" {
   })
   match result {
     Ok(_) => fail("post-decode revision drift must not publish a Path2")
+    Err(error) => {
+      inspect(error.category() == @error.ErrorCategory::State, content="true")
+      inspect(error.code() == @error.ErrorCode::InvalidRange, content="true")
+      inspect(error.operation() == Some("font-outline"), content="true")
+      inspect(
+        error.context() == Some("font-source-revision-drift"),
+        content="true",
+      )
+    }
+  }
+  inspect(callback_count, content="1")
+}
+
+///|
+test "composite outline rejects post-decode revision drift without publication" {
+  let parent = generated_composite_glyph(-32768, -32768, 32767, 32767, [
+    generated_composite_component(0x0003UL, 0UL, 0, 0, []),
+  ])
+  let owner = font_wb_owner(
+    generated_outline_graph_truetype([generated_simple_outline_body(), parent]),
+  )
+  let font = Font::open(owner.view(), font_wb_limits(), font_wb_open_budget()).unwrap()
+  let glyph = font.glyph_id(1UL).unwrap()
+  let mut callback_count = 0
+  let result = font.outline_after_decode(glyph, font_wb_outline_budget(), fn(
+    _path,
+  ) {
+    callback_count = callback_count + 1
+    font_wb_mutate_one_byte(owner, 0UL)
+  })
+  match result {
+    Ok(_) =>
+      fail("post-decode revision drift must not publish a composite Path2")
     Err(error) => {
       inspect(error.category() == @error.ErrorCategory::State, content="true")
       inspect(error.code() == @error.ErrorCode::InvalidRange, content="true")
