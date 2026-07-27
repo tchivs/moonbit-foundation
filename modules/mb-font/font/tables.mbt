@@ -158,6 +158,11 @@ fn font_admission_charge(
     Err(error) => return Err(error)
     Ok(value) => value
   }
+  // Cmap record and format-4 discovery scans have already consumed their
+  // declared work. Only the uncharged discovery prefix remains relevant to
+  // the shared budget, while kern still compares its cumulative work against
+  // the full semantic max_work total.
+  let kern_budget_base_work = cmap_discovery_base_work
   let kern = match
     font_admit_kern_bounded(
       font_optional_table_window(directory, 0x6B65726EUL),
@@ -165,6 +170,7 @@ fn font_admission_charge(
       limits,
       budget,
       kern_base_work,
+      kern_budget_base_work,
     ) {
     Err(error) => return Err(error)
     Ok(value) => value
@@ -338,12 +344,22 @@ fn font_admission_charge(
   } else {
     loca_allocation_size
   }
+  let cmap_charged_work = match
+    @checked.checked_add(cmap_records, cmap_work.format4_discovery_work) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
   let kern_charged_work = match
     @checked.checked_add(kern.subtable_work, kern.pair_work) {
     Err(error) => return Err(error)
     Ok(value) => value
   }
-  let remaining_work = match @checked.checked_sub(work, kern_charged_work) {
+  let charged_work = match
+    @checked.checked_add(cmap_charged_work, kern_charged_work) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  let remaining_work = match @checked.checked_sub(work, charged_work) {
     Err(error) => return Err(error)
     Ok(value) => value
   }
@@ -957,6 +973,10 @@ fn font_cmap_declared_work(
     Err(error) => return Err(error)
     Ok(_) => ()
   }
+  match font_charge_admission_work(budget, record_count) {
+    Err(error) => return Err(error)
+    Ok(_) => ()
+  }
   let mut body_records = 0UL
   let mut format4_discovery_work = 0UL
   let mut search_work = 0UL
@@ -1012,7 +1032,24 @@ fn font_cmap_declared_work(
         Err(error) => return Err(error)
         Ok(value) => value
       }
-      match font_preflight_admission_work(budget, max_work, preflight_work) {
+      if preflight_work > max_work {
+        return Err(font_limit_error("max-work", preflight_work, max_work))
+      }
+      let budget_preflight_work = match
+        @checked.checked_add(discovery_base_work, facts.body_records) {
+        Err(error) => return Err(error)
+        Ok(value) => value
+      }
+      match
+        font_preflight_admission_work(
+          budget,
+          max_work,
+          budget_preflight_work,
+        ) {
+        Err(error) => return Err(error)
+        Ok(_) => ()
+      }
+      match font_charge_admission_work(budget, facts.body_records) {
         Err(error) => return Err(error)
         Ok(_) => ()
       }

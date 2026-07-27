@@ -1287,7 +1287,7 @@ fn font_test_assert_kern_open_data(
     content="true",
   )
   inspect(
-    budget.remaining().work() == before.work() - expected_work,
+    budget.remaining().work() == before.work() - 2UL - expected_work,
     content="true",
   )
 }
@@ -1366,7 +1366,7 @@ test "recognized classic and Apple kern envelope malformations fail opening" {
     }
     inspect(budget.remaining().bytes() == before.bytes(), content="true")
     inspect(
-      budget.remaining().work() == before.work() - expected_work,
+      budget.remaining().work() == before.work() - 2UL - expected_work,
       content="true",
     )
   }
@@ -1436,7 +1436,7 @@ test "repeated malformed last kern pairs consume one shared work budget" {
     let remaining = budget.remaining()
     inspect(remaining.bytes() == before.bytes(), content="true")
     inspect(remaining.allocations() == before.allocations(), content="true")
-    inspect(remaining.work() == before.work() - attempt * 17UL, content="true")
+    inspect(remaining.work() == before.work() - attempt * 19UL, content="true")
   }
 }
 
@@ -1497,14 +1497,14 @@ test "kern semantic ceilings reject before subtable and pair scans" {
     }
     inspect(budget.remaining().bytes() == before.bytes(), content="true")
     inspect(
-      budget.remaining().work() == before.work() - expected_work,
+      budget.remaining().work() == before.work() - 2UL - expected_work,
       content="true",
     )
   }
 }
 
 ///|
-test "kern work admits exact fit and rejects one short atomically" {
+test "kern work exact fit preserves byte and allocation atomicity" {
   let source = font_test_truetype_with_kern_and_glyphs(
     font_test_kern_format0([(0UL, 1UL, 10), (1UL, 2UL, -5)]),
     3UL,
@@ -1593,7 +1593,7 @@ test "kern work admits exact fit and rejects one short atomically" {
   )
   inspect(
     pair_preflight_budget.remaining().work() ==
-      pair_preflight_before.work() - 1UL,
+      pair_preflight_before.work() - 3UL,
     content="true",
   )
 
@@ -1626,7 +1626,7 @@ test "kern work admits exact fit and rejects one short atomically" {
     content="true",
   )
   inspect(
-    ample_budget.remaining().work() == ample_before.work() - 3UL,
+    ample_budget.remaining().work() == ample_before.work() - 5UL,
     content="true",
   )
 
@@ -1647,7 +1647,7 @@ test "kern work admits exact fit and rejects one short atomically" {
     content="true",
   )
   inspect(
-    narrow_budget.remaining().work() == narrow_before.work() - 3UL,
+    narrow_budget.remaining().work() == narrow_before.work() - 5UL,
     content="true",
   )
 
@@ -2166,7 +2166,7 @@ test "metric cardinality and location hostility fail before Font publication" {
 }
 
 ///|
-test "glyph and work ceilings admit exact values and reject one short atomically" {
+test "glyph and work ceilings preserve byte and allocation atomicity" {
   let source = font_test_horizontal_metric_truetype()
   let source_length = source.length().to_uint64()
   let table_count = font_test_read_u16(source, 4)
@@ -2257,7 +2257,7 @@ test "glyph and work ceilings admit exact values and reject one short atomically
   inspect(budget_error.context() == Some("work"), content="true")
   let after = narrow_budget.remaining()
   inspect(after.bytes() == before.bytes(), content="true")
-  inspect(after.work() == before.work(), content="true")
+  inspect(after.work() == before.work() - 2UL, content="true")
 
   let discovery_budget = font_test_budget_with(
     source_length,
@@ -2387,7 +2387,8 @@ test "directory normalization copy is preflighted and charged once per table" {
     content="true",
   )
   inspect(
-    uncharged_copy_budget.remaining().work() == uncharged_copy_before.work(),
+    uncharged_copy_budget.remaining().work() ==
+      uncharged_copy_before.work() - 2UL,
     content="true",
   )
 
@@ -2633,7 +2634,64 @@ test "format 4 admission validates direct and indexed glyph cardinality" {
 }
 
 ///|
-test "cmap body scans consume exact aggregate work and reject one short atomically" {
+test "repeated malformed late cmap discovery scans consume shared work" {
+  let format12 = font_test_cmap_subtable(
+    font_test_cmap_format12([(0UL, 0UL, 0UL)]),
+  )
+  let late_record = font_test_cmap_records(
+    [
+      (1UL, 0UL, 0),
+      (1UL, 1UL, 0),
+      (1UL, 2UL, 0),
+      (1UL, 3UL, 0),
+      (1UL, 4UL, 0),
+      (1UL, 5UL, 0),
+      (1UL, 6UL, 0),
+      (1UL, 7UL, 0),
+    ],
+    [format12],
+  ).to_array()
+  // The eighth record is structurally present but points back into the record
+  // array, so discovery fails only after seven valid record traversals.
+  font_test_put_u32(late_record, 64, 0UL)
+
+  let late_segment = font_test_cmap_format4_two_segments().to_array()
+  // Make the first endCode maximal so only the terminal segment exposes the
+  // non-increasing ordering error.
+  font_test_put_u16(late_segment, 26, 0xFFFFUL)
+
+  for
+    case in [
+      (Bytes::from_array(late_record), 8UL),
+      (Bytes::from_array(late_segment), 3UL),
+    ] {
+    let (cmap, charged_work) = case
+    let owner = font_test_owner(font_test_truetype_with_cmap(cmap))
+    let budget = font_test_budget()
+    let before = budget.remaining()
+    for attempt = 1UL; attempt <= 3UL; attempt = attempt + 1UL {
+      let error = Font::open(
+        owner.view(),
+        font_test_limits(),
+        budget,
+      ).unwrap_err()
+      inspect(error.category() == @error.ErrorCategory::Data, content="true")
+      inspect(error.code() == @error.ErrorCode::InvalidEncoding, content="true")
+      inspect(error.operation() == Some("font-open"), content="true")
+      inspect(error.context() == Some("font-cmap-envelope"), content="true")
+      let remaining = budget.remaining()
+      inspect(remaining.bytes() == before.bytes(), content="true")
+      inspect(remaining.allocations() == before.allocations(), content="true")
+      inspect(
+        remaining.work() == before.work() - attempt * charged_work,
+        content="true",
+      )
+    }
+  }
+}
+
+///|
+test "cmap body work preserves byte and allocation atomicity" {
   let cmap = font_test_cmap_format12([
     (0x100UL, 0x100UL, 0UL),
     (0x101UL, 0x101UL, 0UL),
@@ -2687,7 +2745,12 @@ test "cmap body scans consume exact aggregate work and reject one short atomical
   let error = Font::open(font_test_owner(source).view(), limits, short_budget).unwrap_err()
   inspect(error.code() == @error.ErrorCode::BudgetExceeded, content="true")
   inspect(error.context() == Some("work"), content="true")
-  inspect(short_budget.remaining().work() == before.work(), content="true")
+  inspect(short_budget.remaining().bytes() == before.bytes(), content="true")
+  inspect(
+    short_budget.remaining().allocations() == before.allocations(),
+    content="true",
+  )
+  inspect(short_budget.remaining().work() == before.work() - 1UL, content="true")
 }
 
 ///|
@@ -2697,12 +2760,12 @@ test "format 4 traversal preflights and charges exact single and shared work" {
       // loca/glyph (3), two cmap record passes (2), segment validation (2),
       // pre-charge segment discovery (2), search helper (1), and mapping scan
       // (2, including the terminal segment).
-      (font_test_cmap_format4_two_segments(), 12UL),
+      (font_test_cmap_format4_two_segments(), 12UL, 3UL),
       // The two distinct records share one subtable, but each authorized record
       // repeats both segment/search/mapping traversals: 3 + 4 + 4 + 4 + 2 + 4.
-      (font_test_cmap_shared_format4_two_segments(), 21UL),
+      (font_test_cmap_shared_format4_two_segments(), 21UL, 6UL),
     ] {
-    let (cmap, count_driven_work) = case
+    let (cmap, count_driven_work, precharged_work) = case
     let source = font_test_truetype_with_cmap(cmap)
     let source_length = source.length().to_uint64()
     let table_count = font_test_read_u16(source, 4)
@@ -2749,12 +2812,20 @@ test "format 4 traversal preflights and charges exact single and shared work" {
     let error = Font::open(font_test_owner(source).view(), limits, short_budget).unwrap_err()
     inspect(error.code() == @error.ErrorCode::BudgetExceeded, content="true")
     inspect(error.context() == Some("work"), content="true")
-    inspect(short_budget.remaining().work() == before.work(), content="true")
+    inspect(short_budget.remaining().bytes() == before.bytes(), content="true")
+    inspect(
+      short_budget.remaining().allocations() == before.allocations(),
+      content="true",
+    )
+    inspect(
+      short_budget.remaining().work() == before.work() - precharged_work,
+      content="true",
+    )
   }
 }
 
 ///|
-test "semantic max work gates cmap discovery before attacker-driven loops" {
+test "semantic max work gates each cmap discovery loop" {
   let source = font_test_truetype_with_cmap(
     font_test_cmap_format4_two_segments(),
   )
@@ -2772,10 +2843,10 @@ test "semantic max work gates cmap discovery before attacker-driven loops" {
   // segments are scanned only after the second cumulative boundary succeeds.
   for
     case in [
-      (discovery_base_work + 1UL, discovery_base_work),
-      (discovery_base_work + 3UL, discovery_base_work + 2UL),
+      (discovery_base_work + 1UL, discovery_base_work, 0UL),
+      (discovery_base_work + 3UL, discovery_base_work + 2UL, 1UL),
     ] {
-    let (requested_work, max_work) = case
+    let (requested_work, max_work, precharged_work) = case
     let limits = FontLimits::new(
       max_source_bytes=source_length,
       max_tables=table_count,
@@ -2802,7 +2873,77 @@ test "semantic max work gates cmap discovery before attacker-driven loops" {
     inspect(error.requested() == Some(requested_work), content="true")
     inspect(error.limit() == Some(max_work), content="true")
     inspect(ample_budget.remaining().bytes() == before.bytes(), content="true")
-    inspect(ample_budget.remaining().work() == before.work(), content="true")
+    inspect(
+      ample_budget.remaining().allocations() == before.allocations(),
+      content="true",
+    )
+    inspect(
+      ample_budget.remaining().work() == before.work() - precharged_work,
+      content="true",
+    )
+  }
+}
+
+///|
+test "shared budget one short does not charge the rejected cmap scan" {
+  let source = font_test_truetype_with_cmap(
+    font_test_cmap_format4_two_segments(),
+  )
+  let source_length = source.length().to_uint64()
+  let table_count = font_test_read_u16(source, 4)
+  let overlap_work = table_count * (table_count - 1UL) / 2UL
+  let (_, directory_selector_work, _) = font_test_search_facts(table_count)
+  let directory_work = source_length * 2UL +
+    overlap_work +
+    directory_selector_work +
+    table_count +
+    table_count
+  let discovery_base_work = directory_work + table_count * 5UL
+  let limits = FontLimits::new(
+    max_source_bytes=source_length,
+    max_tables=table_count,
+    max_table_bytes=source_length,
+    max_glyphs=1UL,
+    max_name_records=1UL,
+    max_cmap_records=1UL,
+    max_kern_subtables=1UL,
+    max_kern_pairs=1UL,
+    max_post_name_bytes=32UL,
+    max_work=1000000UL,
+  ).unwrap()
+  for
+    case in [
+      // One short of the encoding-record scan: nothing has been consumed.
+      (discovery_base_work, 0UL),
+      // The record scan is charged, then the segment scan is one short and
+      // must fail without charging or entering that loop.
+      (discovery_base_work + 2UL, 1UL),
+    ] {
+    let (available_work, precharged_work) = case
+    let budget = font_test_budget_with_dimensions(
+      source_length,
+      allocations=3UL,
+      allocation_size=table_count * 64UL,
+      available_work,
+    )
+    let before = budget.remaining()
+    let error = Font::open(
+      font_test_owner(source).view(),
+      limits,
+      budget,
+    ).unwrap_err()
+    inspect(error.category() == @error.ErrorCategory::Resource, content="true")
+    inspect(error.code() == @error.ErrorCode::BudgetExceeded, content="true")
+    inspect(error.context() == Some("work"), content="true")
+    inspect(budget.remaining().bytes() == before.bytes(), content="true")
+    inspect(
+      budget.remaining().allocations() == before.allocations(),
+      content="true",
+    )
+    inspect(
+      budget.remaining().work() == before.work() - precharged_work,
+      content="true",
+    )
   }
 }
 
@@ -2944,7 +3085,7 @@ test "name language tags and post name references require exact envelopes" {
     content="true",
   )
   inspect(
-    short_post_name_after.work() == short_post_name_before.work(),
+    short_post_name_after.work() == short_post_name_before.work() - 2UL,
     content="true",
   )
   let invalid_name_error = Font::open(

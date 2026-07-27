@@ -305,6 +305,7 @@ fn font_admit_kern_bounded(
   limits : FontLimits,
   budget : @budget.Budget,
   base_work : UInt64,
+  base_budget_work : UInt64,
 ) -> Result[KernAdmissionFacts, @error.CoreError] {
   let table = match table {
     None =>
@@ -334,8 +335,22 @@ fn font_admit_kern_bounded(
       Err(error) => return Err(error)
       Ok(value) => value
     }
+    if subtable_work > limits.max_work() {
+      return Err(
+        font_limit_error("max-work", subtable_work, limits.max_work()),
+      )
+    }
+    let subtable_budget_work = match
+      @checked.checked_add(base_budget_work, subtable_count) {
+      Err(error) => return Err(error)
+      Ok(value) => value
+    }
     match
-      font_preflight_admission_work(budget, limits.max_work(), subtable_work) {
+      font_preflight_admission_work(
+        budget,
+        limits.max_work(),
+        subtable_budget_work,
+      ) {
       Err(error) => return Err(error)
       Ok(_) => ()
     }
@@ -377,7 +392,8 @@ fn font_admit_kern_bounded(
             font_limit_error("max-work", pair_work, limits.max_work()),
           )
         }
-        let pair_budget_work = match @checked.checked_add(base_work, pair_count) {
+        let pair_budget_work = match
+          @checked.checked_add(base_budget_work, pair_count) {
           Err(error) => return Err(error)
           Ok(result) => result
         }
@@ -428,8 +444,22 @@ fn font_admit_kern_bounded(
       Err(error) => return Err(error)
       Ok(value) => value
     }
+    if subtable_work > limits.max_work() {
+      return Err(
+        font_limit_error("max-work", subtable_work, limits.max_work()),
+      )
+    }
+    let subtable_budget_work = match
+      @checked.checked_add(base_budget_work, subtable_count) {
+      Err(error) => return Err(error)
+      Ok(value) => value
+    }
     match
-      font_preflight_admission_work(budget, limits.max_work(), subtable_work) {
+      font_preflight_admission_work(
+        budget,
+        limits.max_work(),
+        subtable_budget_work,
+      ) {
       Err(error) => return Err(error)
       Ok(_) => ()
     }
