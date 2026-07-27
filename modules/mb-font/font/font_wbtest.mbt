@@ -96,6 +96,28 @@ test "checked big endian reads accept exact fit and reject one short" {
 }
 
 ///|
+test "outline Q15 midpoint and checked overflow stay private data facts" {
+  let left : OutlinePoint = {
+    x_q15: -32768L,
+    y_q15: 0L,
+    on_curve: false,
+  }
+  let right : OutlinePoint = {
+    x_q15: 0L,
+    y_q15: 32768L,
+    on_curve: false,
+  }
+  let midpoint = midpoint_q15(left, right).unwrap()
+  inspect(midpoint.x_q15, content="-16384")
+  inspect(midpoint.y_q15, content="16384")
+  inspect(midpoint.on_curve, content="true")
+  let overflow = outline_checked_add(9223372036854775807L, 1L).unwrap_err()
+  inspect(overflow.category() == @error.ErrorCategory::Data, content="true")
+  inspect(overflow.code() == @error.ErrorCode::InvalidEncoding, content="true")
+  inspect(overflow.operation() == Some("font-outline"), content="true")
+}
+
+///|
 test "directory size and table windows preserve checked boundaries" {
   inspect(font_directory_end(10UL).unwrap(), content="172")
   let overflow = font_directory_end(18446744073709551615UL).unwrap_err()

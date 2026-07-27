@@ -26,6 +26,10 @@ test "font limits preserve every explicit semantic ceiling" {
     max_cmap_records=2UL,
     max_kern_subtables=5UL,
     max_kern_pairs=7UL,
+    max_outline_points=11UL,
+    max_outline_contours=13UL,
+    max_outline_components=17UL,
+    max_outline_instruction_bytes=19UL,
     max_post_name_bytes=64UL,
     max_work=4096UL,
   ).unwrap()
@@ -37,6 +41,10 @@ test "font limits preserve every explicit semantic ceiling" {
   inspect(limits.max_cmap_records(), content="2")
   inspect(limits.max_kern_subtables(), content="5")
   inspect(limits.max_kern_pairs(), content="7")
+  inspect(limits.max_outline_points(), content="11")
+  inspect(limits.max_outline_contours(), content="13")
+  inspect(limits.max_outline_components(), content="17")
+  inspect(limits.max_outline_instruction_bytes(), content="19")
   inspect(limits.max_post_name_bytes(), content="64")
   inspect(limits.max_work(), content="4096")
 }
@@ -712,6 +720,25 @@ fn font_test_zero_contour_outline_truetype() -> Bytes {
 }
 
 ///|
+fn font_test_repeated_flag_outline_truetype() -> Bytes {
+  font_test_build_truetype([
+    { tag: b"OS/2", payload: font_test_fixed_table(78) },
+    { tag: b"cmap", payload: font_test_cmap_table() },
+    {
+      tag: b"glyf",
+      payload: b"\x00\x01\x00\x0a\x00\x00\x00\x1e\x00\x00\x00\x02\x00\x00\x3b\x02\x0a\x0a\x0a\x00",
+    },
+    { tag: b"head", payload: font_test_head_table() },
+    { tag: b"hhea", payload: font_test_hhea_table() },
+    { tag: b"hmtx", payload: b"\x01\xf4\x00\x00" },
+    { tag: b"loca", payload: b"\x00\x00\x00\x0a" },
+    { tag: b"maxp", payload: font_test_maxp_table() },
+    { tag: b"name", payload: font_test_name_table() },
+    { tag: b"post", payload: font_test_post_table() },
+  ])
+}
+
+///|
 fn font_test_truetype_with_cmap(cmap : Bytes) -> Bytes {
   font_test_build_truetype([
     { tag: b"OS/2", payload: font_test_fixed_table(78) },
@@ -1137,6 +1164,30 @@ test "outline guards empty and zero-contour glyph results" {
   inspect(error.requested() == Some(2UL), content="true")
   inspect(error.limit() == Some(1UL), content="true")
   inspect(error.context() == Some("font-glyph-id-range"), content="true")
+}
+
+///|
+test "outline expands repeated flags to the exact point count" {
+  let owner = font_test_owner(font_test_repeated_flag_outline_truetype())
+  let font = Font::open(
+    owner.view(),
+    font_test_limits(),
+    font_test_budget(),
+  ).unwrap()
+  let path = font
+    .outline(font.glyph_id(0UL).unwrap(), font_test_budget())
+    .unwrap()
+  inspect(path.length(), content="4")
+  match path.get(0) {
+    Some(@math.PathCommand::MoveTo(point)) =>
+      inspect((point.x(), point.y()), content="(10, 0)")
+    _ => fail("expected repeated-flag MoveTo")
+  }
+  match path.get(2) {
+    Some(@math.PathCommand::LineTo(point)) =>
+      inspect((point.x(), point.y()), content="(30, 0)")
+    _ => fail("expected repeated-flag final LineTo")
+  }
 }
 
 ///|
