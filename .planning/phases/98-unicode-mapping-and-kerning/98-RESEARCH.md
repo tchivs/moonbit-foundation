@@ -72,7 +72,7 @@ OpenType requires clients to use one non-variation `cmap`, prefer a 32-bit Unico
 | Capability | Primary Tier | Secondary Tier | Rationale |
 |------------|-------------|----------------|-----------|
 | Scalar validity and public query contract | `mb-font/font` public facade | `mb-core/error` | The font owns one-scalar mapping; shared structured errors carry invalid-input facts. [VERIFIED: RFC 0004; `font.mbt`] |
-| Canonical cmap selection and conflict rejection | Font admission | Table-local cmap decoder | Selection is an admitted-font invariant and must complete before `Font` publication. [VERIFIED: `98-CONTEXT.md`] |
+| Canonical cmap selection and same-priority uniqueness | Font admission | Table-local cmap decoder | Selection is an admitted-font invariant and must complete before `Font` publication. [RESOLVED: `98-CONTEXT.md`] |
 | Format 4/12 lookup | Private cmap decoder | Retained `ByteView` | Queries binary-search already validated table-local facts without decoded maps. [VERIFIED: `tables.mbt`; CITED: OpenType cmap] |
 | Optional kern capability classification | Font admission | Directory optional lookup | Absence, supported facts, and unsupported capability must be retained distinctly. [VERIFIED: `98-CONTEXT.md`] |
 | Pair revalidation and result publication | `Font` public facade | Private kern decoder | The receiving font owns glyph cardinality and revision guards; the decoder returns an exact signed FWORD. [VERIFIED: `font.mbt`; CITED: OpenType kern] |
@@ -126,7 +126,7 @@ caller ByteView + FontLimits + Budget
   cmap record scan             optional kern lookup
   validate every 4/12          absent -> Absent
   candidate + rank             supported -> validate pairs
-  compare eligible peers       other profile -> Unsupported
+  enforce key uniqueness       other profile -> Unsupported
           |                         |
           +-----------+-------------+
                       v
@@ -153,7 +153,7 @@ This keeps all attacker-controlled structural decisions inside atomic opening an
 modules/mb-font/font/
 ├── font.mbt          # Font fields, public scalar/kern methods, revision/glyph guards
 ├── tables.mbt        # existing aggregate admission and RequiredTableFacts integration
-├── cmap.mbt          # canonical rank, candidate consistency, compact facts, lookup
+├── cmap.mbt          # canonical rank, same-priority uniqueness, compact facts, lookup
 ├── kern.mbt          # optional envelope/profile state, pair validation, lookup
 ├── limits.mbt        # new non-zero kern limits/accessors
 ├── directory.mbt     # add optional table-window lookup; keep required lookup unchanged
@@ -196,13 +196,11 @@ priv struct CmapFormat12Facts {
 
 Compute all offsets with `checked_add`/`checked_mul` during admission and retain only table-local offsets. [VERIFIED: existing `font_validate_cmap_subtable` pattern]
 
-### Pattern 2: Exact Rank, Then Same-Format Consistency
+### Pattern 2: Validate Every Supported Record, Then Select One Frozen Rank
 
-Assign candidates only the four ranks fixed by D-05. First choose the lowest numeric rank; never select legacy/symbol records. If multiple eligible records of the chosen format exist, accept an identical alias immediately, but require distinct subtables to represent the same mapping before retaining the ranked representative. [VERIFIED: D-04 through D-06]
+Structurally validate every supported format-4/12 record under the Phase 97 rules, assign canonical candidates only the four ranks fixed by D-05, and retain the lowest numeric rank independent of directory order. Same-offset aliases are one already-validated mapping. Candidate consistency is scoped only to records at the same winning priority: the directory record-key uniqueness invariant rejects a second distinct record with the same `(platform, encoding)` key before selection, so no unbounded cross-map equality pass is required. [RESOLVED: D-04 through D-07]
 
-For format 12, compare two sorted piecewise sequential mappings with a two-pointer range walk; do not enumerate all 1,114,112 possible scalar values. For format 4, the domain is fixed at 65,536 values and the existing admission already charges covered-span scans; a direct semantic comparison over the bounded BMP domain is acceptable if its work is added before the loop. [ASSUMED]
-
-Do not consult a lower-ranked table after a selected-table miss. OpenType says non-format-14 subtables are exclusive and applications should use one mapping. [CITED: https://learn.microsoft.com/en-us/typography/opentype/spec/cmap]
+Lower-ranked eligible records are neither consulted nor compared semantically after the winning priority is known. A selected-table miss never falls through to another record. This resolves D-06 while preserving OpenType's exclusive-subtable model and the frozen D-05 priority. [RESOLVED: D-05, D-06; CITED: https://learn.microsoft.com/en-us/typography/opentype/spec/cmap]
 
 ### Pattern 3: Optional Kern Tri-State
 
@@ -218,15 +216,14 @@ priv(all) enum KernState {
 
 Add a `font_optional_table_window` returning `TableWindow?`; do not weaken `font_table_window`, because its missing-table error is part of required-table admission. [VERIFIED: `directory.mbt`, `font.mbt`]
 
-For the supported profile, validate:
+Classify the envelope before profile support:
 
-- top header length at least 4, table version `0`, and `nTables == 1`; [CITED: https://learn.microsoft.com/en-us/typography/opentype/spec/kern]
-- subtable header version `0`, coverage exactly `0x0001`, format 0, and declared subtable length contained in and exactly exhausting the table; [VERIFIED: D-08, D-11; CITED: OpenType kern]
-- `subtable_length == 14 + 6 * nPairs` and `table_length == 4 + subtable_length`, using checked arithmetic; [CITED: OpenType kern layout]
-- canonical 6-byte search fields, strict `(left << 16) | right` ordering, no duplicates, and both glyph IDs below `numGlyphs`; [VERIFIED: D-11; CITED: OpenType kern]
-- the signed adjustment through existing `read_i16`. [VERIFIED: `cursor.mbt`; CITED: OpenType kern]
+- Fewer than 4 bytes is `Data`.
+- If the top-level `uint16` version is `0`, require the complete 4-byte OpenType header and preflight `nTables`. Every subtable must have a contained 6-byte header, `uint16 length >= 6`, a checked cumulative end, and a final cumulative end exactly equal to the table length. Any structural failure is `Data`. Only after this pass classify subtable version/coverage/format/profile: exactly one version-0, coverage-`0x0001`, format-0 subtable may become `Supported`; multiple supported subtables or any structurally valid out-of-profile composition becomes cached `Unsupported`. [RESOLVED: D-08, D-10, D-10a; CITED: https://learn.microsoft.com/en-us/typography/opentype/spec/kern]
+- If the exact top-level `uint32` version is `0x00010000`, require the complete 8-byte Apple header, bound and preflight its `uint32 nTables`, and require every Apple subtable to have a contained 8-byte header, `uint32 length >= 8`, checked cumulative end, and exact final exhaustion of the table. Envelope failure is `Data`; any structurally valid Apple table is cached `Unsupported`, and only `Font::kerning` returns `Capability`. Do not parse Apple format bodies. [RESOLVED: D-10, D-10a; CITED: https://developer.apple.com/fonts/TrueType-Reference-Manual/RM06/Chap6kern.html]
+- Any other nonzero/unknown version with a complete 4-byte version/header prefix becomes cached `Unsupported` without attacker-driven subtable traversal. Truncation remains `Data`. [RESOLVED: D-10, D-10a]
 
-Recognized structurally readable but out-of-profile data becomes `Unsupported`; a truncated/internally inconsistent version-0 envelope is a data error. The implementation plan should explicitly list which non-version-0 headers can be classified as unsupported without interpreting extension-specific bodies; avoid claiming full Apple validation. [ASSUMED]
+For the one supported OpenType profile, additionally validate `subtable_length == 14 + 6 * nPairs`, canonical 6-byte search fields, strict `(left << 16) | right` ordering with no duplicates, both glyph IDs below `numGlyphs`, and signed adjustments through existing `read_i16`. [VERIFIED: D-08, D-11; CITED: https://learn.microsoft.com/en-us/typography/opentype/spec/kern]
 
 ### Pattern 4: Guard → Validate → Read → Guard → Publish
 
@@ -248,8 +245,8 @@ Both public queries must mirror `Font::horizontal_metrics`: check revision first
 |---------------|-----------------|---------------------|
 | `CmapEnvelope { record_count }` | Replace/extend with selected `CmapLookupFacts`; preserve record count only if still needed. [VERIFIED: `tables.mbt`] | One task should own cmap admission facts and lookup together. |
 | `font_cmap_domain_supported` | Separate “structurally admitted supported format” from “eligible canonical Unicode record.” [VERIFIED: D-05, D-07] | Legacy format-4/12 records may be structurally valid but never selected. |
-| `font_admit_cmap_envelope` | Validate, rank, compare selected-format eligible candidates, and return lookup facts. [VERIFIED: `tables.mbt`, D-04–D-07] | Preserve all existing failure checks and exact work preflights. |
-| `font_admission_charge` | Discover optional kern counts and add subtable/pair/comparison work before any declared loop. [VERIFIED: `tables.mbt`, D-13] | Recompute every exact-work oracle; do not patch expected constants blindly. |
+| `font_admit_cmap_envelope` | Validate every supported record, enforce record-key uniqueness/alias rules, rank canonical candidates, and return the winning lookup facts without lower-rank semantic comparison. [RESOLVED: `tables.mbt`, D-04–D-07] | Preserve all existing failure checks and exact work preflights. |
+| `font_admission_charge` | Add `directory.numTables` once for the optional-kern directory scan, preflight before that scan, then discover kern counts and add subtable/pair work before their declared loops. [RESOLVED: `tables.mbt`, D-13] | Charge the directory-record scan exactly once and add exact-fit/one-short oracles before recomputing the remaining exact-work cases. |
 | `RequiredTableFacts` | Add selected cmap descriptor plus `KernState`. [VERIFIED: `tables.mbt`, D-12] | `Font::open` continues to publish once. |
 | `font_table_window` | Keep required semantics; add optional lookup returning `None`. [VERIFIED: `directory.mbt`] | Kern absence becomes neutral instead of a missing-required-table data error. |
 | `FontLimits::new` | Add non-zero `max_kern_subtables` and `max_kern_pairs`, fields, accessors, tests. [VERIFIED: D-13] | This is an intentional public constructor/interface change; update every call site. |
@@ -325,7 +322,7 @@ Both public queries must mirror `Font::horizontal_metrics`: check revision first
 
 **What goes wrong:** hostile counts consume CPU before the budget rejects them. [VERIFIED: existing admission design]
 
-**How to avoid:** extend the current count-discovery preflight chain for cmap consistency scans, kern subtable headers, and pair scans, then add them to the single aggregate admission charge. [VERIFIED: `font_admission_charge`, D-13]
+**How to avoid:** add `directory.numTables` to declared discovery work for the one optional-kern lookup, preflight before iterating `directory.tables`, and include that scan exactly once in the aggregate charge. Apply the same discover/preflight/aggregate discipline to kern subtable headers and pair scans. [RESOLVED: `font_admission_charge`, D-13]
 
 ### Pitfall 8: Policy Allowlist Drift
 
@@ -417,11 +414,11 @@ The research-time 60-second probes of the module `check/test` commands did not c
 
 - BMP format-4 direct delta hit, glyph-array hit, raw-array zero miss, hole miss, and U+FFFF behavior. [VERIFIED: D-15; CITED: OpenType cmap]
 - format-12 BMP and supplementary hits, gap misses, first/last group boundaries, and format-12 precedence. [VERIFIED: D-15]
-- canonical record ranks, same-offset aliases, distinct consistent candidates, distinct conflicts, legacy-only capability failure, and no per-scalar fallback. [VERIFIED: D-05–D-07a, D-15]
+- canonical record ranks, same-offset aliases, duplicate same-priority record-key rejection, lower-ranked disagreement ignored after winner selection, legacy-only capability failure, and no per-scalar fallback. [RESOLVED: D-05–D-07a, D-15]
 - negative, surrogate endpoints/interior, `0x110000`, valid noncharacters/unassigned values, and ordinary valid misses. [VERIFIED: D-01; CITED: Unicode D76]
 - kern absent, empty supported pair set, first/middle/last pair hit, pair miss, positive/negative adjustment, foreign-font glyph IDs, and mutation drift. [VERIFIED: D-09, D-15]
-- unsupported version/coverage/format/multiple-subtable states versus malformed length/search/order/duplicate/out-of-range pair data. [VERIFIED: D-08–D-11, D-15]
-- exact `max_kern_subtables`, `max_kern_pairs`, `max_work`, and budget fits plus one-short atomic rejection and unchanged query budget. [VERIFIED: D-13–D-15]
+- classic OpenType, exact Apple-v1, and unknown-version classifier boundaries; unsupported coverage/format/multiple-subtable states versus malformed envelope/length/search/order/duplicate/out-of-range pair data. [RESOLVED: D-08–D-11, D-15; CITED: OpenType 1.9.1 kern and Apple TrueType Reference Manual kern]
+- exact optional-directory-record scan, `max_kern_subtables`, `max_kern_pairs`, `max_work`, and budget fits plus one-short atomic rejection and unchanged query budget. [RESOLVED: D-13–D-15]
 
 ### Required White-Box Cases
 
@@ -475,20 +472,17 @@ Security enforcement is enabled because `.planning/config.json` does not explici
 
 | # | Claim | Section | Risk if Wrong |
 |---|-------|---------|---------------|
-| A1 | Distinct eligible format-4 candidates can be compared semantically by a charged bounded BMP-domain walk; format-12 candidates should use a two-pointer interval comparison. | Architecture Pattern 2 | Planner may choose a different no-allocation equivalence algorithm, but must preserve D-06 and resource charging. |
-| A2 | Non-version-0 kern headers can be retained as unsupported after safe top-level recognition without fully validating Apple extension bodies. | Architecture Pattern 3 | Error taxonomy for malformed Apple-style bytes needs an explicit implementation decision/test boundary. |
-| A3 | Suggested method names and code sketches compile after adjustment to current MoonBit syntax. | Code Examples | Names are discretionary; planner must use `moon check` and regenerate `.mbti`. |
+| A1 | Suggested method names and code sketches compile after adjustment to current MoonBit syntax. | Code Examples | Names are discretionary; planner must use `moon check` and regenerate `.mbti`. |
 
-## Open Questions
+## Resolved Questions
 
-1. **What exact byte-level boundary distinguishes malformed Apple-style `kern` data from a well-formed unsupported extension?**
-   - What we know: OpenType 1.9.1 defines version-0 headers/subtables and says Apple extensions are not supported; D-10a requires malformed envelope versus unsupported capability. [CITED: OpenType kern; VERIFIED: D-10a]
-   - What's unclear: The locked context does not define how far an Apple extension envelope must be parsed.
-   - Recommendation: Plan a focused test-first classifier boundary: safely recognize non-version-0 data as unsupported, and reserve data errors for truncation/inconsistency in the recognized OpenType version-0 envelope unless an official Apple envelope parser is explicitly added. [ASSUMED]
+1. **RESOLVED — exact byte-level boundary for classic OpenType, Apple v1, and unknown `kern` versions.**
+   - Classic OpenType uses the complete structural pass described in Pattern 3: 4-byte header, preflighted `nTables`, contained 6-byte headers, `length >= 6`, checked cumulative ends, and exact final exhaustion before profile classification. Structural failure is `Data`; a valid profile outside the single supported subtable is cached `Unsupported`.
+   - Exact Apple `0x00010000` uses an 8-byte header, bounded/preflighted `uint32 nTables`, contained 8-byte subtable headers, `uint32 length >= 8`, checked cumulative ends, and exact final exhaustion. Structural failure is `Data`; structural success is cached `Unsupported`, without parsing Apple format bodies.
+   - Other complete nonzero/unknown 4-byte prefixes are cached `Unsupported` without attacker-driven traversal; fewer than 4 bytes is `Data`. [RESOLVED: D-08, D-10, D-10a; CITED: Apple TrueType Reference Manual kern; OpenType 1.9.1 kern]
 
-2. **Does D-06 require semantic equality across both eligible format-12 platform records even though D-05 ranks platform 0 above platform 3?**
-   - What we know: D-15 explicitly requires aliased/conflicting record cases, and D-06 rejects distinct equally eligible conflicts. [VERIFIED: `98-CONTEXT.md`]
-   - Recommendation: Treat all eligible candidates of the selected format as consistency peers, then retain the D-05 highest-ranked representative. This is deterministic and catches the intended conflict fixture without merging tables. [ASSUMED]
+2. **RESOLVED — D-06 consistency scope is the winning priority only.**
+   - Validate every supported record and select by the frozen D-05 rank. Record-key uniqueness rejects a second distinct same-priority record before selection, while aliased offsets are one mapping. Lower-ranked records are never consulted or compared semantically, and queries never perform per-scalar fallback. No cross-map equality pass is required. [RESOLVED: D-04 through D-07]
 
 ## Environment Availability
 
@@ -519,7 +513,8 @@ Security enforcement is enabled because `.planning/config.json` does not explici
 ### Official External Documentation (MEDIUM confidence via research seam)
 
 - https://learn.microsoft.com/en-us/typography/opentype/spec/cmap — header/record selection, platform IDs, formats 4/12, glyph-zero misses, ordering, indexing, and search-field guidance.
-- https://learn.microsoft.com/en-us/typography/opentype/spec/kern — version-0 envelope, coverage bits, format-0 fields, pair key order, and signed font-unit values.
+- https://learn.microsoft.com/en-us/typography/opentype/spec/kern — OpenType 1.9.1 version-0 envelope, coverage bits, format-0 fields, pair key order, signed font-unit values, and explicit non-support for Apple extensions.
+- https://developer.apple.com/fonts/TrueType-Reference-Manual/RM06/Chap6kern.html — Apple TrueType Reference Manual `kern` version `0x00010000`, 32-bit table count, and Apple subtable-header envelope.
 - https://learn.microsoft.com/en-us/typography/opentype/spec/recom — current relationship of legacy kern and GPOS/variations.
 - https://www.unicode.org/versions/Unicode17.0.0/core-spec/chapter-3/ — D76 Unicode scalar value.
 
@@ -531,7 +526,7 @@ Security enforcement is enabled because `.planning/config.json` does not explici
 - Architecture: HIGH — exact Phase 97 functions/types and locked Phase 98 decisions inspected directly.
 - Normative cmap/kern details: MEDIUM — current official Microsoft OpenType 1.9.1 pages fetched through websearch fallback and cached by the research seam.
 - Unicode scalar definition: MEDIUM — official Unicode 17.0 chapter fetched and cached by the research seam.
-- Apple-extension classification boundary: LOW — intentionally left as an explicit planner question.
+- Apple-extension classification boundary: HIGH — exact envelope-only boundary is resolved from the Apple TrueType Reference Manual and OpenType 1.9.1, without implementing Apple format bodies.
 
 **Research date:** 2026-07-27
 **Valid until:** 2026-08-26 for repository architecture; recheck official spec pages if the project changes its OpenType/Unicode baseline.
