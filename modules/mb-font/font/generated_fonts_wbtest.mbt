@@ -201,10 +201,25 @@ fn generated_hhea_table() -> Bytes {
 }
 
 ///|
-fn generated_maxp_table() -> Bytes {
+fn generated_maxp_table(
+  max_points? : UInt64 = 64UL,
+  max_contours? : UInt64 = 16UL,
+  max_composite_points? : UInt64 = 64UL,
+  max_composite_contours? : UInt64 = 16UL,
+  max_size_of_instructions? : UInt64 = 64UL,
+  max_component_elements? : UInt64 = 16UL,
+  max_component_depth? : UInt64 = 1UL,
+) -> Bytes {
   let output = Array::make(32, b'\x00')
   generated_put_u32_at(output, 0, 0x00010000UL)
   output[5] = b'\x01'
+  generated_put_u16_at(output, 6, max_points)
+  generated_put_u16_at(output, 8, max_contours)
+  generated_put_u16_at(output, 10, max_composite_points)
+  generated_put_u16_at(output, 12, max_composite_contours)
+  generated_put_u16_at(output, 26, max_size_of_instructions)
+  generated_put_u16_at(output, 28, max_component_elements)
+  generated_put_u16_at(output, 30, max_component_depth)
   Bytes::from_array(output)
 }
 
@@ -488,6 +503,44 @@ fn generated_minimal_truetype() -> Bytes {
 }
 
 ///|
+fn generated_outline_truetype(glyf : Bytes, loca : Bytes) -> Bytes {
+  font_wb_build_sfnt([
+    font_wb_table(b"OS/2", generated_os2_table()),
+    font_wb_table(b"cmap", generated_cmap_table()),
+    font_wb_table(b"glyf", glyf),
+    font_wb_table(b"head", generated_head_table()),
+    font_wb_table(b"hhea", generated_hhea_table()),
+    font_wb_table(b"hmtx", b"\x01\xf4\x00\x00"),
+    font_wb_table(b"loca", loca),
+    font_wb_table(b"maxp", generated_maxp_table()),
+    font_wb_table(b"name", b"\x00\x00\x00\x00\x00\x06"),
+    font_wb_table(b"post", generated_post_table()),
+  ])
+}
+
+///|
+fn generated_simple_outline_truetype() -> Bytes {
+  generated_outline_truetype(
+    b"\x00\x01\x00\x00\x00\x00\x00\x64\x00\x64\x00\x02\x00\x00\x31\x33\x34\x64\x64\x00",
+    b"\x00\x00\x00\x0a",
+  )
+}
+
+///|
+fn generated_zero_contour_outline_truetype() -> Bytes {
+  generated_outline_truetype(
+    b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x02\xaa\xbb", b"\x00\x00\x00\x07",
+  )
+}
+
+///|
+fn generated_degenerate_outline_truetype() -> Bytes {
+  generated_outline_truetype(
+    b"\x00\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x31\x00", b"\x00\x00\x00\x08",
+  )
+}
+
+///|
 fn generated_horizontal_metric_truetype() -> Bytes {
   font_wb_metric_truetype(
     loca_format=0,
@@ -591,6 +644,10 @@ test "generated micro-font has a valid whole-font adjustment" {
     max_cmap_records=16UL,
     max_kern_subtables=16UL,
     max_kern_pairs=256UL,
+    max_outline_points=4096UL,
+    max_outline_contours=256UL,
+    max_outline_components=256UL,
+    max_outline_instruction_bytes=1024UL,
     max_post_name_bytes=256UL,
     max_work=16384UL,
   ).unwrap()

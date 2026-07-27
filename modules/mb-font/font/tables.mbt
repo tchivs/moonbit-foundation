@@ -9,8 +9,16 @@ priv struct HeadFacts {
 }
 
 ///|
+#warnings("-7")
 priv struct MaxpFacts {
   num_glyphs : UInt64
+  max_points : UInt64
+  max_contours : UInt64
+  max_composite_points : UInt64
+  max_composite_contours : UInt64
+  max_size_of_instructions : UInt64
+  max_component_elements : UInt64
+  max_component_depth : UInt64
 }
 
 ///|
@@ -147,10 +155,7 @@ fn font_admission_charge(
     @checked.checked_add(
       cmap_discovery_base_work,
       match
-        @checked.checked_add(
-          cmap_records,
-          cmap_work.format4_discovery_work,
-        ) {
+        @checked.checked_add(cmap_records, cmap_work.format4_discovery_work) {
         Err(error) => return Err(error)
         Ok(value) => value
       },
@@ -526,7 +531,44 @@ fn font_decode_maxp(
   if num_glyphs > limits.max_glyphs() {
     return Err(font_limit_error("max-glyphs", num_glyphs, limits.max_glyphs()))
   }
-  Ok({ num_glyphs, })
+  let max_points = match read_u16(table.view, 6UL) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  let max_contours = match read_u16(table.view, 8UL) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  let max_composite_points = match read_u16(table.view, 10UL) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  let max_composite_contours = match read_u16(table.view, 12UL) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  let max_size_of_instructions = match read_u16(table.view, 26UL) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  let max_component_elements = match read_u16(table.view, 28UL) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  let max_component_depth = match read_u16(table.view, 30UL) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  Ok({
+    num_glyphs,
+    max_points,
+    max_contours,
+    max_composite_points,
+    max_composite_contours,
+    max_size_of_instructions,
+    max_component_elements,
+    max_component_depth,
+  })
 }
 
 ///|
@@ -1041,11 +1083,7 @@ fn font_cmap_declared_work(
         Ok(value) => value
       }
       match
-        font_preflight_admission_work(
-          budget,
-          max_work,
-          budget_preflight_work,
-        ) {
+        font_preflight_admission_work(budget, max_work, budget_preflight_work) {
         Err(error) => return Err(error)
         Ok(_) => ()
       }

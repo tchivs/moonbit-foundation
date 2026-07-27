@@ -71,10 +71,7 @@ fn font_wb_assert_revision_drift(error : @error.CoreError) -> Unit raise {
   inspect(error.category() == @error.ErrorCategory::State, content="true")
   inspect(error.code() == @error.ErrorCode::InvalidRange, content="true")
   inspect(error.operation() == Some("font-query"), content="true")
-  inspect(
-    error.context() == Some("font-source-revision-drift"),
-    content="true",
-  )
+  inspect(error.context() == Some("font-source-revision-drift"), content="true")
 }
 
 ///|
@@ -97,16 +94,8 @@ test "checked big endian reads accept exact fit and reject one short" {
 
 ///|
 test "outline Q15 midpoint and checked overflow stay private data facts" {
-  let left : OutlinePoint = {
-    x_q15: -32768L,
-    y_q15: 0L,
-    on_curve: false,
-  }
-  let right : OutlinePoint = {
-    x_q15: 0L,
-    y_q15: 32768L,
-    on_curve: false,
-  }
+  let left : OutlinePoint = { x_q15: -32768L, y_q15: 0L, on_curve: false }
+  let right : OutlinePoint = { x_q15: 0L, y_q15: 32768L, on_curve: false }
   let midpoint = midpoint_q15(left, right).unwrap()
   inspect(midpoint.x_q15, content="-16384")
   inspect(midpoint.y_q15, content="16384")
@@ -115,6 +104,57 @@ test "outline Q15 midpoint and checked overflow stay private data facts" {
   inspect(overflow.category() == @error.ErrorCategory::Data, content="true")
   inspect(overflow.code() == @error.ErrorCode::InvalidEncoding, content="true")
   inspect(overflow.operation() == Some("font-outline"), content="true")
+}
+
+///|
+test "outline max_work charges completed stages before transactional failure" {
+  let maxp : MaxpFacts = {
+    num_glyphs: 1UL,
+    max_points: 3UL,
+    max_contours: 1UL,
+    max_composite_points: 0UL,
+    max_composite_contours: 0UL,
+    max_size_of_instructions: 0UL,
+    max_component_elements: 0UL,
+    max_component_depth: 0UL,
+  }
+  let limits = FontLimits::new(
+    max_source_bytes=4096UL,
+    max_tables=32UL,
+    max_table_bytes=1024UL,
+    max_glyphs=16UL,
+    max_name_records=16UL,
+    max_cmap_records=16UL,
+    max_kern_subtables=16UL,
+    max_kern_pairs=256UL,
+    max_outline_points=3UL,
+    max_outline_contours=1UL,
+    max_outline_components=1UL,
+    max_outline_instruction_bytes=1UL,
+    max_post_name_bytes=256UL,
+    max_work=17UL,
+  ).unwrap()
+  let budget = font_wb_open_budget()
+  let before = budget.remaining().work()
+  let ledger : OutlineWork = { used: 0UL }
+  let error = font_decode_simple_outline(
+    font_wb_view(
+      b"\x00\x01\x00\x00\x00\x00\x00\x64\x00\x64\x00\x02\x00\x00\x31\x33\x34\x64\x64\x00",
+    ),
+    1UL,
+    maxp,
+    limits,
+    ledger,
+    budget,
+  ).unwrap_err()
+  inspect(error.category() == @error.ErrorCategory::Resource, content="true")
+  inspect(error.code() == @error.ErrorCode::BudgetExceeded, content="true")
+  inspect(error.operation() == Some("font-outline"), content="true")
+  inspect(error.context() == Some("max-work"), content="true")
+  inspect(error.requested() == Some(18UL), content="true")
+  inspect(error.limit() == Some(17UL), content="true")
+  inspect(ledger.used, content="13")
+  inspect(budget.remaining().work() == before - 13UL, content="true")
 }
 
 ///|
@@ -375,6 +415,63 @@ test "kerning rejects post-read revision drift" {
 }
 
 ///|
+test "outline rejects post-decode revision drift without path publication" {
+  let owner = font_wb_owner(generated_simple_outline_truetype())
+  let font = Font::open(owner.view(), font_wb_limits(), font_wb_open_budget()).unwrap()
+  let glyph = font.glyph_id(0UL).unwrap()
+  let mut callback_count = 0
+  let result = font.outline_after_decode(glyph, font_wb_open_budget(), fn(
+    _path,
+  ) {
+    callback_count = callback_count + 1
+    font_wb_mutate_one_byte(owner, 0UL)
+  })
+  match result {
+    Ok(_) => fail("post-decode revision drift must not publish a Path2")
+    Err(error) => {
+      inspect(error.category() == @error.ErrorCategory::State, content="true")
+      inspect(error.code() == @error.ErrorCode::InvalidRange, content="true")
+      inspect(error.operation() == Some("font-outline"), content="true")
+      inspect(
+        error.context() == Some("font-source-revision-drift"),
+        content="true",
+      )
+    }
+  }
+  inspect(callback_count, content="1")
+}
+
+///|
+test "outline generated zero and degenerate glyphs remain observable" {
+  let zero_owner = font_wb_owner(generated_zero_contour_outline_truetype())
+  let zero = Font::open(
+    zero_owner.view(),
+    font_wb_limits(),
+    font_wb_open_budget(),
+  ).unwrap()
+  inspect(
+    zero
+    .outline(zero.glyph_id(0UL).unwrap(), font_wb_open_budget())
+    .unwrap()
+    .length(),
+    content="0",
+  )
+
+  let degenerate_owner = font_wb_owner(generated_degenerate_outline_truetype())
+  let degenerate = Font::open(
+    degenerate_owner.view(),
+    font_wb_limits(),
+    font_wb_open_budget(),
+  ).unwrap()
+  let path = degenerate
+    .outline(degenerate.glyph_id(0UL).unwrap(), font_wb_open_budget())
+    .unwrap()
+  inspect(path.length(), content="2")
+  inspect(path.get(0) is Some(@math.PathCommand::MoveTo(_)), content="true")
+  inspect(path.get(1) is Some(@math.PathCommand::Close), content="true")
+}
+
+///|
 test "kern helper fields keys signed values and binary search are canonical" {
   for
     case in [
@@ -515,6 +612,10 @@ fn font_wb_limits() -> FontLimits {
     max_cmap_records=16UL,
     max_kern_subtables=16UL,
     max_kern_pairs=256UL,
+    max_outline_points=4096UL,
+    max_outline_contours=256UL,
+    max_outline_components=256UL,
+    max_outline_instruction_bytes=1024UL,
     max_post_name_bytes=256UL,
     max_work=16384UL,
   ).unwrap()
@@ -663,6 +764,13 @@ test "font required table matrix enforces structural cardinalities" {
   inspect(tables.head.x_max, content="100")
   inspect(tables.head.y_max, content="200")
   inspect(tables.maxp.num_glyphs, content="1")
+  inspect(tables.maxp.max_points, content="64")
+  inspect(tables.maxp.max_contours, content="16")
+  inspect(tables.maxp.max_composite_points, content="64")
+  inspect(tables.maxp.max_composite_contours, content="16")
+  inspect(tables.maxp.max_size_of_instructions, content="64")
+  inspect(tables.maxp.max_component_elements, content="16")
+  inspect(tables.maxp.max_component_depth, content="1")
   inspect(tables.hhea.ascent, content="800")
   inspect(tables.hhea.descent, content="-200")
   inspect(tables.hhea.line_gap, content="50")

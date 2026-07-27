@@ -52,6 +52,22 @@ test "font limits preserve every explicit semantic ceiling" {
 ///|
 test "font limits reject every zero semantic ceiling" {
   assert_invalid_font_limit(
+    font_test_outline_limits_result(0UL, 1UL, 1UL, 1UL, 1UL),
+    "max-outline-points",
+  )
+  assert_invalid_font_limit(
+    font_test_outline_limits_result(1UL, 0UL, 1UL, 1UL, 1UL),
+    "max-outline-contours",
+  )
+  assert_invalid_font_limit(
+    font_test_outline_limits_result(1UL, 1UL, 0UL, 1UL, 1UL),
+    "max-outline-components",
+  )
+  assert_invalid_font_limit(
+    font_test_outline_limits_result(1UL, 1UL, 1UL, 0UL, 1UL),
+    "max-outline-instruction-bytes",
+  )
+  assert_invalid_font_limit(
     FontLimits::new(
       max_source_bytes=0UL,
       max_tables=1UL,
@@ -61,6 +77,10 @@ test "font limits reject every zero semantic ceiling" {
       max_cmap_records=1UL,
       max_kern_subtables=1UL,
       max_kern_pairs=1UL,
+      max_outline_points=4096UL,
+      max_outline_contours=256UL,
+      max_outline_components=256UL,
+      max_outline_instruction_bytes=1024UL,
       max_post_name_bytes=1UL,
       max_work=1UL,
     ),
@@ -76,6 +96,10 @@ test "font limits reject every zero semantic ceiling" {
       max_cmap_records=1UL,
       max_kern_subtables=0UL,
       max_kern_pairs=1UL,
+      max_outline_points=4096UL,
+      max_outline_contours=256UL,
+      max_outline_components=256UL,
+      max_outline_instruction_bytes=1024UL,
       max_post_name_bytes=1UL,
       max_work=1UL,
     ),
@@ -91,6 +115,10 @@ test "font limits reject every zero semantic ceiling" {
       max_cmap_records=1UL,
       max_kern_subtables=1UL,
       max_kern_pairs=0UL,
+      max_outline_points=4096UL,
+      max_outline_contours=256UL,
+      max_outline_components=256UL,
+      max_outline_instruction_bytes=1024UL,
       max_post_name_bytes=1UL,
       max_work=1UL,
     ),
@@ -106,6 +134,10 @@ test "font limits reject every zero semantic ceiling" {
       max_cmap_records=1UL,
       max_kern_subtables=1UL,
       max_kern_pairs=1UL,
+      max_outline_points=4096UL,
+      max_outline_contours=256UL,
+      max_outline_components=256UL,
+      max_outline_instruction_bytes=1024UL,
       max_post_name_bytes=1UL,
       max_work=1UL,
     ),
@@ -121,6 +153,10 @@ test "font limits reject every zero semantic ceiling" {
       max_cmap_records=1UL,
       max_kern_subtables=1UL,
       max_kern_pairs=1UL,
+      max_outline_points=4096UL,
+      max_outline_contours=256UL,
+      max_outline_components=256UL,
+      max_outline_instruction_bytes=1024UL,
       max_post_name_bytes=1UL,
       max_work=1UL,
     ),
@@ -136,6 +172,10 @@ test "font limits reject every zero semantic ceiling" {
       max_cmap_records=1UL,
       max_kern_subtables=1UL,
       max_kern_pairs=1UL,
+      max_outline_points=4096UL,
+      max_outline_contours=256UL,
+      max_outline_components=256UL,
+      max_outline_instruction_bytes=1024UL,
       max_post_name_bytes=1UL,
       max_work=1UL,
     ),
@@ -151,6 +191,10 @@ test "font limits reject every zero semantic ceiling" {
       max_cmap_records=1UL,
       max_kern_subtables=1UL,
       max_kern_pairs=1UL,
+      max_outline_points=4096UL,
+      max_outline_contours=256UL,
+      max_outline_components=256UL,
+      max_outline_instruction_bytes=1024UL,
       max_post_name_bytes=1UL,
       max_work=1UL,
     ),
@@ -166,6 +210,10 @@ test "font limits reject every zero semantic ceiling" {
       max_cmap_records=0UL,
       max_kern_subtables=1UL,
       max_kern_pairs=1UL,
+      max_outline_points=4096UL,
+      max_outline_contours=256UL,
+      max_outline_components=256UL,
+      max_outline_instruction_bytes=1024UL,
       max_post_name_bytes=1UL,
       max_work=1UL,
     ),
@@ -181,6 +229,10 @@ test "font limits reject every zero semantic ceiling" {
       max_cmap_records=1UL,
       max_kern_subtables=1UL,
       max_kern_pairs=1UL,
+      max_outline_points=4096UL,
+      max_outline_contours=256UL,
+      max_outline_components=256UL,
+      max_outline_instruction_bytes=1024UL,
       max_post_name_bytes=0UL,
       max_work=1UL,
     ),
@@ -196,6 +248,10 @@ test "font limits reject every zero semantic ceiling" {
       max_cmap_records=1UL,
       max_kern_subtables=1UL,
       max_kern_pairs=1UL,
+      max_outline_points=4096UL,
+      max_outline_contours=256UL,
+      max_outline_components=256UL,
+      max_outline_instruction_bytes=1024UL,
       max_post_name_bytes=1UL,
       max_work=0UL,
     ),
@@ -566,6 +622,13 @@ fn font_test_maxp_table() -> Bytes {
   font_test_put_u32(output, 0, 0x00010000UL)
   output[4] = b'\x00'
   output[5] = b'\x01'
+  font_test_put_u16(output, 6, 64UL)
+  font_test_put_u16(output, 8, 16UL)
+  font_test_put_u16(output, 10, 64UL)
+  font_test_put_u16(output, 12, 16UL)
+  font_test_put_u16(output, 26, 64UL)
+  font_test_put_u16(output, 28, 16UL)
+  font_test_put_u16(output, 30, 1UL)
   Bytes::from_array(output)
 }
 
@@ -685,19 +748,39 @@ fn font_test_simple_outline_glyf() -> Bytes {
 }
 
 ///|
-fn font_test_simple_outline_truetype() -> Bytes {
+fn font_test_byte_at_copy(source : Bytes, offset : Int, value : Byte) -> Bytes {
+  let output = source.to_array()
+  output[offset] = value
+  Bytes::from_array(output)
+}
+
+///|
+fn font_test_outline_truetype_with(
+  glyf : Bytes,
+  loca : Bytes,
+  maxp : Bytes,
+) -> Bytes {
   font_test_build_truetype([
     { tag: b"OS/2", payload: font_test_fixed_table(78) },
     { tag: b"cmap", payload: font_test_cmap_table() },
-    { tag: b"glyf", payload: font_test_simple_outline_glyf() },
+    { tag: b"glyf", payload: glyf },
     { tag: b"head", payload: font_test_head_table() },
     { tag: b"hhea", payload: font_test_hhea_table() },
     { tag: b"hmtx", payload: b"\x01\xf4\x00\x00" },
-    { tag: b"loca", payload: b"\x00\x00\x00\x0a" },
-    { tag: b"maxp", payload: font_test_maxp_table() },
+    { tag: b"loca", payload: loca },
+    { tag: b"maxp", payload: maxp },
     { tag: b"name", payload: font_test_name_table() },
     { tag: b"post", payload: font_test_post_table() },
   ])
+}
+
+///|
+fn font_test_simple_outline_truetype() -> Bytes {
+  font_test_outline_truetype_with(
+    font_test_simple_outline_glyf(),
+    b"\x00\x00\x00\x0a",
+    font_test_maxp_table(),
+  )
 }
 
 ///|
@@ -721,21 +804,20 @@ fn font_test_zero_contour_outline_truetype() -> Bytes {
 
 ///|
 fn font_test_repeated_flag_outline_truetype() -> Bytes {
-  font_test_build_truetype([
-    { tag: b"OS/2", payload: font_test_fixed_table(78) },
-    { tag: b"cmap", payload: font_test_cmap_table() },
-    {
-      tag: b"glyf",
-      payload: b"\x00\x01\x00\x0a\x00\x00\x00\x1e\x00\x00\x00\x02\x00\x00\x3b\x02\x0a\x0a\x0a\x00",
-    },
-    { tag: b"head", payload: font_test_head_table() },
-    { tag: b"hhea", payload: font_test_hhea_table() },
-    { tag: b"hmtx", payload: b"\x01\xf4\x00\x00" },
-    { tag: b"loca", payload: b"\x00\x00\x00\x0a" },
-    { tag: b"maxp", payload: font_test_maxp_table() },
-    { tag: b"name", payload: font_test_name_table() },
-    { tag: b"post", payload: font_test_post_table() },
-  ])
+  font_test_outline_truetype_with(
+    b"\x00\x01\x00\x0a\x00\x00\x00\x1e\x00\x00\x00\x02\x00\x00\x3b\x02\x0a\x0a\x0a\x00",
+    b"\x00\x00\x00\x0a",
+    font_test_maxp_table(),
+  )
+}
+
+///|
+fn font_test_delta_outline_truetype() -> Bytes {
+  font_test_outline_truetype_with(
+    b"\x00\x01\xff\xfb\xfe\xd4\x01\x2c\x00\x05\x00\x03\x00\x00\x31\x17\x26\x01\x05\x0a\x01\x31\x05\x0a\xfe\xcf",
+    b"\x00\x00\x00\x0d",
+    font_test_maxp_table(),
+  )
 }
 
 ///|
@@ -1001,9 +1083,39 @@ fn font_test_limits() -> FontLimits {
     max_cmap_records=16UL,
     max_kern_subtables=16UL,
     max_kern_pairs=256UL,
+    max_outline_points=4096UL,
+    max_outline_contours=256UL,
+    max_outline_components=256UL,
+    max_outline_instruction_bytes=1024UL,
     max_post_name_bytes=256UL,
     max_work=16384UL,
   ).unwrap()
+}
+
+///|
+fn font_test_outline_limits_result(
+  max_outline_points : UInt64,
+  max_outline_contours : UInt64,
+  max_outline_components : UInt64,
+  max_outline_instruction_bytes : UInt64,
+  max_work : UInt64,
+) -> Result[FontLimits, @error.CoreError] {
+  FontLimits::new(
+    max_source_bytes=4096UL,
+    max_tables=32UL,
+    max_table_bytes=1024UL,
+    max_glyphs=16UL,
+    max_name_records=16UL,
+    max_cmap_records=16UL,
+    max_kern_subtables=16UL,
+    max_kern_pairs=256UL,
+    max_outline_points~,
+    max_outline_contours~,
+    max_outline_components~,
+    max_outline_instruction_bytes~,
+    max_post_name_bytes=256UL,
+    max_work~,
+  )
 }
 
 ///|
@@ -1020,6 +1132,10 @@ fn font_test_limits_with_kern(
     max_cmap_records=16UL,
     max_kern_subtables~,
     max_kern_pairs~,
+    max_outline_points=4096UL,
+    max_outline_contours=256UL,
+    max_outline_components=256UL,
+    max_outline_instruction_bytes=1024UL,
     max_post_name_bytes=256UL,
     max_work=16384UL,
   ).unwrap()
@@ -1078,18 +1194,17 @@ test "generated standalone TrueType opens and returns exact units per em" {
 test "outline traces one simple quadratic contour into shared Path2" {
   let owner = font_test_owner(font_test_simple_outline_truetype())
   let admission_budget = font_test_budget()
-  let font = Font::open(
-    owner.view(),
-    font_test_limits(),
-    admission_budget,
-  ).unwrap()
+  let font = Font::open(owner.view(), font_test_limits(), admission_budget).unwrap()
   let after_open = admission_budget.remaining()
   let outline_budget = font_test_budget()
   let outline_before = outline_budget.remaining()
   let path = font.outline(font.glyph_id(0UL).unwrap(), outline_budget).unwrap()
   let outline_after = outline_budget.remaining()
   inspect(outline_after.work() < outline_before.work(), content="true")
-  inspect(admission_budget.remaining().work() == after_open.work(), content="true")
+  inspect(
+    admission_budget.remaining().work() == after_open.work(),
+    content="true",
+  )
   inspect(path.length(), content="4")
   match path.get(0) {
     Some(@math.PathCommand::MoveTo(point)) => {
@@ -1158,7 +1273,10 @@ test "outline guards empty and zero-contour glyph results" {
   ).unwrap()
   let foreign = larger.glyph_id(2UL).unwrap()
   let error = empty.outline(foreign, font_test_budget()).unwrap_err()
-  inspect(error.category() == @error.ErrorCategory::InvalidInput, content="true")
+  inspect(
+    error.category() == @error.ErrorCategory::InvalidInput,
+    content="true",
+  )
   inspect(error.code() == @error.ErrorCode::InvalidRange, content="true")
   inspect(error.operation() == Some("font-outline"), content="true")
   inspect(error.requested() == Some(2UL), content="true")
@@ -1169,25 +1287,147 @@ test "outline guards empty and zero-contour glyph results" {
 ///|
 test "outline expands repeated flags to the exact point count" {
   let owner = font_test_owner(font_test_repeated_flag_outline_truetype())
-  let font = Font::open(
-    owner.view(),
-    font_test_limits(),
-    font_test_budget(),
-  ).unwrap()
+  let font = Font::open(owner.view(), font_test_limits(), font_test_budget()).unwrap()
   let path = font
     .outline(font.glyph_id(0UL).unwrap(), font_test_budget())
     .unwrap()
   inspect(path.length(), content="4")
   match path.get(0) {
-    Some(@math.PathCommand::MoveTo(point)) =>
-      inspect((point.x(), point.y()), content="(10, 0)")
+    Some(@math.PathCommand::MoveTo(point)) => {
+      inspect(point.x(), content="10")
+      inspect(point.y(), content="0")
+    }
     _ => fail("expected repeated-flag MoveTo")
   }
   match path.get(2) {
-    Some(@math.PathCommand::LineTo(point)) =>
-      inspect((point.x(), point.y()), content="(30, 0)")
+    Some(@math.PathCommand::LineTo(point)) => {
+      inspect(point.x(), content="30")
+      inspect(point.y(), content="0")
+    }
     _ => fail("expected repeated-flag final LineTo")
   }
+}
+
+///|
+test "outline decodes every signed short same and long delta form" {
+  let owner = font_test_owner(font_test_delta_outline_truetype())
+  let font = Font::open(owner.view(), font_test_limits(), font_test_budget()).unwrap()
+  let path = font
+    .outline(font.glyph_id(0UL).unwrap(), font_test_budget())
+    .unwrap()
+  inspect(path.length(), content="4")
+  match path.get(1) {
+    Some(@math.PathCommand::LineTo(point)) => {
+      inspect(point.x(), content="5")
+      inspect(point.y(), content="-5")
+    }
+    _ => fail("expected signed short LineTo")
+  }
+  match path.get(2) {
+    Some(@math.PathCommand::QuadTo(control, endpoint)) => {
+      inspect(control.x(), content="-5")
+      inspect(control.y(), content="5")
+      inspect(endpoint.x(), content="300")
+      inspect(endpoint.y(), content="-300")
+    }
+    _ => fail("expected mixed-delta QuadTo")
+  }
+}
+
+///|
+test "outline rejects hostile flags padding and maxp before caller limits" {
+  let base = font_test_simple_outline_glyf()
+  for
+    malformed in [
+      font_test_byte_at_copy(base, 14, b'\xb1'),
+      font_test_byte_at_copy(base, 19, b'\x01'),
+      b"\x00\x01\x00\x00\x00\x00\x00\x64\x00\x64\x00\x02\x00\x00\x39\x03\x64\x64",
+    ] {
+    let words = (malformed.length().to_uint64() + 1UL) / 2UL
+    let loca : Array[Byte] = [b'\x00', b'\x00']
+    font_test_push_u16(loca, words)
+    let padded = if malformed.length() % 2 == 0 {
+      malformed
+    } else {
+      Bytes::from_array(malformed.to_array() + [b'\x00'])
+    }
+    let owner = font_test_owner(
+      font_test_outline_truetype_with(
+        padded,
+        Bytes::from_array(loca),
+        font_test_maxp_table(),
+      ),
+    )
+    let font = Font::open(owner.view(), font_test_limits(), font_test_budget()).unwrap()
+    let error = font
+      .outline(font.glyph_id(0UL).unwrap(), font_test_budget())
+      .unwrap_err()
+    inspect(error.category() == @error.ErrorCategory::Data, content="true")
+    inspect(error.code() == @error.ErrorCode::InvalidEncoding, content="true")
+    inspect(error.operation() == Some("font-outline"), content="true")
+  }
+
+  let maxp = font_test_maxp_table().to_array()
+  font_test_put_u16(maxp, 6, 2UL)
+  let owner = font_test_owner(
+    font_test_outline_truetype_with(
+      base,
+      b"\x00\x00\x00\x0a",
+      Bytes::from_array(maxp),
+    ),
+  )
+  let font = Font::open(owner.view(), font_test_limits(), font_test_budget()).unwrap()
+  let error = font
+    .outline(font.glyph_id(0UL).unwrap(), font_test_budget())
+    .unwrap_err()
+  inspect(error.category() == @error.ErrorCategory::Data, content="true")
+  inspect(error.context() == Some("font-outline-maxp-points"), content="true")
+  inspect(error.requested() == Some(3UL), content="true")
+  inspect(error.limit() == Some(2UL), content="true")
+}
+
+///|
+test "outline point ceiling and caller budget exact fit are authoritative" {
+  let owner = font_test_owner(font_test_simple_outline_truetype())
+  let narrow = Font::open(
+    owner.view(),
+    font_test_outline_limits_result(2UL, 1UL, 1UL, 1UL, 16384UL).unwrap(),
+    font_test_budget(),
+  ).unwrap()
+  let limit_error = narrow
+    .outline(narrow.glyph_id(0UL).unwrap(), font_test_budget())
+    .unwrap_err()
+  inspect(
+    limit_error.category() == @error.ErrorCategory::Resource,
+    content="true",
+  )
+  inspect(limit_error.context() == Some("max-outline-points"), content="true")
+
+  let font = Font::open(
+    owner.view(),
+    font_test_outline_limits_result(3UL, 1UL, 1UL, 1UL, 16384UL).unwrap(),
+    font_test_budget(),
+  ).unwrap()
+  let exact = font_test_budget_with_dimensions(
+    0UL,
+    allocations=2UL,
+    allocation_size=160UL,
+    18UL,
+  )
+  inspect(
+    font.outline(font.glyph_id(0UL).unwrap(), exact).unwrap().length(),
+    content="4",
+  )
+  inspect(exact.remaining().work(), content="0")
+  let short = font_test_budget_with_dimensions(
+    0UL,
+    allocations=2UL,
+    allocation_size=160UL,
+    17UL,
+  )
+  let error = font.outline(font.glyph_id(0UL).unwrap(), short).unwrap_err()
+  inspect(error.category() == @error.ErrorCategory::Resource, content="true")
+  inspect(short.remaining().work(), content="4")
 }
 
 ///|
@@ -1726,6 +1966,10 @@ test "kern work exact fit preserves byte and allocation atomicity" {
     max_cmap_records=1UL,
     max_kern_subtables=1UL,
     max_kern_pairs=2UL,
+    max_outline_points=4096UL,
+    max_outline_contours=256UL,
+    max_outline_components=256UL,
+    max_outline_instruction_bytes=1024UL,
     max_post_name_bytes=32UL,
     max_work=exact_work,
   ).unwrap()
@@ -1753,6 +1997,10 @@ test "kern work exact fit preserves byte and allocation atomicity" {
     max_cmap_records=1UL,
     max_kern_subtables=1UL,
     max_kern_pairs=2UL,
+    max_outline_points=4096UL,
+    max_outline_contours=256UL,
+    max_outline_components=256UL,
+    max_outline_instruction_bytes=1024UL,
     max_post_name_bytes=32UL,
     max_work=pair_preflight_work - 1UL,
   ).unwrap()
@@ -1765,18 +2013,17 @@ test "kern work exact fit preserves byte and allocation atomicity" {
   ).unwrap_err()
   inspect(pair_preflight_error.context() == Some("max-work"), content="true")
   inspect(
-    pair_preflight_budget.remaining().bytes() ==
-      pair_preflight_before.bytes(),
+    pair_preflight_budget.remaining().bytes() == pair_preflight_before.bytes(),
     content="true",
   )
   inspect(
     pair_preflight_budget.remaining().allocations() ==
-      pair_preflight_before.allocations(),
+    pair_preflight_before.allocations(),
     content="true",
   )
   inspect(
     pair_preflight_budget.remaining().work() ==
-      pair_preflight_before.work() - 3UL,
+    pair_preflight_before.work() - 3UL,
     content="true",
   )
 
@@ -1789,6 +2036,10 @@ test "kern work exact fit preserves byte and allocation atomicity" {
     max_cmap_records=1UL,
     max_kern_subtables=1UL,
     max_kern_pairs=2UL,
+    max_outline_points=4096UL,
+    max_outline_contours=256UL,
+    max_outline_components=256UL,
+    max_outline_instruction_bytes=1024UL,
     max_post_name_bytes=32UL,
     max_work=exact_work - 1UL,
   ).unwrap()
@@ -2385,6 +2636,10 @@ test "glyph and work ceilings preserve byte and allocation atomicity" {
     max_cmap_records=1UL,
     max_kern_subtables=1UL,
     max_kern_pairs=1UL,
+    max_outline_points=4096UL,
+    max_outline_contours=256UL,
+    max_outline_components=256UL,
+    max_outline_instruction_bytes=1024UL,
     max_post_name_bytes=32UL,
     max_work=exact_work,
   ).unwrap()
@@ -2410,6 +2665,10 @@ test "glyph and work ceilings preserve byte and allocation atomicity" {
     max_cmap_records=1UL,
     max_kern_subtables=1UL,
     max_kern_pairs=1UL,
+    max_outline_points=4096UL,
+    max_outline_contours=256UL,
+    max_outline_components=256UL,
+    max_outline_instruction_bytes=1024UL,
     max_post_name_bytes=32UL,
     max_work=exact_work,
   ).unwrap()
@@ -2530,6 +2789,10 @@ test "directory normalization copy is preflighted and charged once per table" {
     max_cmap_records=1UL,
     max_kern_subtables=1UL,
     max_kern_pairs=1UL,
+    max_outline_points=4096UL,
+    max_outline_contours=256UL,
+    max_outline_components=256UL,
+    max_outline_instruction_bytes=1024UL,
     max_post_name_bytes=32UL,
     max_work=exact_work,
   ).unwrap()
@@ -2571,7 +2834,7 @@ test "directory normalization copy is preflighted and charged once per table" {
   )
   inspect(
     uncharged_copy_budget.remaining().work() ==
-      uncharged_copy_before.work() - 2UL,
+    uncharged_copy_before.work() - 2UL,
     content="true",
   )
 
@@ -2853,11 +3116,7 @@ test "repeated malformed late cmap discovery scans consume shared work" {
     let budget = font_test_budget()
     let before = budget.remaining()
     for attempt = 1UL; attempt <= 3UL; attempt = attempt + 1UL {
-      let error = Font::open(
-        owner.view(),
-        font_test_limits(),
-        budget,
-      ).unwrap_err()
+      let error = Font::open(owner.view(), font_test_limits(), budget).unwrap_err()
       inspect(error.category() == @error.ErrorCategory::Data, content="true")
       inspect(error.code() == @error.ErrorCode::InvalidEncoding, content="true")
       inspect(error.operation() == Some("font-open"), content="true")
@@ -2904,6 +3163,10 @@ test "cmap body work preserves byte and allocation atomicity" {
     max_cmap_records=1UL,
     max_kern_subtables=1UL,
     max_kern_pairs=1UL,
+    max_outline_points=4096UL,
+    max_outline_contours=256UL,
+    max_outline_components=256UL,
+    max_outline_instruction_bytes=1024UL,
     max_post_name_bytes=32UL,
     max_work=exact_work,
   ).unwrap()
@@ -2933,7 +3196,10 @@ test "cmap body work preserves byte and allocation atomicity" {
     short_budget.remaining().allocations() == before.allocations(),
     content="true",
   )
-  inspect(short_budget.remaining().work() == before.work() - 1UL, content="true")
+  inspect(
+    short_budget.remaining().work() == before.work() - 1UL,
+    content="true",
+  )
 }
 
 ///|
@@ -2971,6 +3237,10 @@ test "format 4 traversal preflights and charges exact single and shared work" {
       max_cmap_records=2UL,
       max_kern_subtables=1UL,
       max_kern_pairs=1UL,
+      max_outline_points=4096UL,
+      max_outline_contours=256UL,
+      max_outline_components=256UL,
+      max_outline_instruction_bytes=1024UL,
       max_post_name_bytes=32UL,
       max_work=exact_work,
     ).unwrap()
@@ -3039,6 +3309,10 @@ test "semantic max work gates each cmap discovery loop" {
       max_cmap_records=1UL,
       max_kern_subtables=1UL,
       max_kern_pairs=1UL,
+      max_outline_points=4096UL,
+      max_outline_contours=256UL,
+      max_outline_components=256UL,
+      max_outline_instruction_bytes=1024UL,
       max_post_name_bytes=32UL,
       max_work~,
     ).unwrap()
@@ -3091,6 +3365,10 @@ test "shared budget one short does not charge the rejected cmap scan" {
     max_cmap_records=1UL,
     max_kern_subtables=1UL,
     max_kern_pairs=1UL,
+    max_outline_points=4096UL,
+    max_outline_contours=256UL,
+    max_outline_components=256UL,
+    max_outline_instruction_bytes=1024UL,
     max_post_name_bytes=32UL,
     max_work=1000000UL,
   ).unwrap()
@@ -3110,11 +3388,7 @@ test "shared budget one short does not charge the rejected cmap scan" {
       available_work,
     )
     let before = budget.remaining()
-    let error = Font::open(
-      font_test_owner(source).view(),
-      limits,
-      budget,
-    ).unwrap_err()
+    let error = Font::open(font_test_owner(source).view(), limits, budget).unwrap_err()
     inspect(error.category() == @error.ErrorCategory::Resource, content="true")
     inspect(error.code() == @error.ErrorCode::BudgetExceeded, content="true")
     inspect(error.context() == Some("work"), content="true")
@@ -3216,6 +3490,10 @@ test "name language tags and post name references require exact envelopes" {
     max_cmap_records=1UL,
     max_kern_subtables=1UL,
     max_kern_pairs=1UL,
+    max_outline_points=4096UL,
+    max_outline_contours=256UL,
+    max_outline_components=256UL,
+    max_outline_instruction_bytes=1024UL,
     max_post_name_bytes=2UL,
     max_work=16384UL,
   ).unwrap()
@@ -3237,6 +3515,10 @@ test "name language tags and post name references require exact envelopes" {
     max_cmap_records=1UL,
     max_kern_subtables=1UL,
     max_kern_pairs=1UL,
+    max_outline_points=4096UL,
+    max_outline_contours=256UL,
+    max_outline_components=256UL,
+    max_outline_instruction_bytes=1024UL,
     max_post_name_bytes=1UL,
     max_work=16384UL,
   ).unwrap()
@@ -3336,6 +3618,10 @@ test "name language tags and post name references require exact envelopes" {
     max_cmap_records=1UL,
     max_kern_subtables=1UL,
     max_kern_pairs=1UL,
+    max_outline_points=4096UL,
+    max_outline_contours=256UL,
+    max_outline_components=256UL,
+    max_outline_instruction_bytes=1024UL,
     max_post_name_bytes=130556UL,
     max_work=1000000UL,
   ).unwrap()
@@ -3727,6 +4013,10 @@ test "semantic source ceiling and atomic budget charge reject before publication
     max_cmap_records=16UL,
     max_kern_subtables=16UL,
     max_kern_pairs=256UL,
+    max_outline_points=4096UL,
+    max_outline_contours=256UL,
+    max_outline_components=256UL,
+    max_outline_instruction_bytes=1024UL,
     max_post_name_bytes=256UL,
     max_work=16384UL,
   ).unwrap()

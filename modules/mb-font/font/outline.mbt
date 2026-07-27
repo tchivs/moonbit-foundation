@@ -6,6 +6,11 @@ priv struct OutlinePoint {
 }
 
 ///|
+priv struct OutlineWork {
+  mut used : UInt64
+}
+
+///|
 fn font_outline_data_error(
   context : String,
   requested? : UInt64,
@@ -54,8 +59,7 @@ fn outline_checked_add(
 ) -> Result[Int64, @error.CoreError] {
   let max = 9223372036854775807L
   let min = -9223372036854775807L - 1L
-  if (right > 0L && left > max - right) ||
-    (right < 0L && left < min - right) {
+  if (right > 0L && left > max - right) || (right < 0L && left < min - right) {
     Err(font_outline_data_error("font-outline-arithmetic"))
   } else {
     Ok(left + right)
@@ -76,7 +80,11 @@ fn outline_checked_mul(
     return Err(font_outline_data_error("font-outline-arithmetic"))
   }
   let overflow = if left > 0L {
-    if right > 0L { left > max / right } else { right < min / left }
+    if right > 0L {
+      left > max / right
+    } else {
+      right < min / left
+    }
   } else if right > 0L {
     left < min / right
   } else {
@@ -129,12 +137,17 @@ fn font_outline_point(point : OutlinePoint) -> @math.Point2 {
 
 ///|
 fn font_outline_charge_work(
+  ledger : OutlineWork,
   budget : @budget.Budget,
   max_work : UInt64,
   work : UInt64,
 ) -> Result[Unit, @error.CoreError] {
-  if work > max_work {
-    return Err(font_outline_limit_error("max-work", work, max_work))
+  let total = match @checked.checked_add(ledger.used, work) {
+    Err(_) => return Err(font_outline_data_error("font-outline-work"))
+    Ok(value) => value
+  }
+  if total > max_work {
+    return Err(font_outline_limit_error("max-work", total, max_work))
   }
   let charge = @budget.ResourceCharge::new(
     bytes=0UL,
@@ -149,7 +162,13 @@ fn font_outline_charge_work(
     Err(error) => return Err(error)
     Ok(_) => ()
   }
-  budget.charge(charge)
+  match budget.charge(charge) {
+    Err(error) => Err(error)
+    Ok(_) => {
+      ledger.used = total
+      Ok(())
+    }
+  }
 }
 
 ///|
@@ -280,15 +299,23 @@ fn font_outline_validate_trailing(
 fn font_outline_lower_contours(
   points : Array[OutlinePoint],
   endpoints : Array[UInt64],
+  ledger : OutlineWork,
+  max_work : UInt64,
   budget : @budget.Budget,
 ) -> Result[@math.Path2, @error.CoreError] {
-  let command_bound = match
-    @checked.checked_add(
-      points.length().to_uint64(),
-      endpoints.length().to_uint64() * 2UL,
-    ) {
+  let contour_commands = match
+    @checked.checked_mul(endpoints.length().to_uint64(), 2UL) {
     Err(_) => return Err(font_outline_data_error("font-outline-command-bound"))
     Ok(value) => value
+  }
+  let command_bound = match
+    @checked.checked_add(points.length().to_uint64(), contour_commands) {
+    Err(_) => return Err(font_outline_data_error("font-outline-command-bound"))
+    Ok(value) => value
+  }
+  match font_outline_charge_work(ledger, budget, max_work, command_bound) {
+    Err(error) => return Err(error)
+    Ok(_) => ()
   }
   match font_outline_charge_allocation(budget, command_bound * 32UL) {
     Err(error) => return Err(error)
@@ -375,10 +402,31 @@ fn font_outline_lower_contours(
 fn font_decode_simple_outline(
   source : @bytes.ByteView,
   contour_count : UInt64,
+  maxp : MaxpFacts,
   limits : FontLimits,
+  ledger : OutlineWork,
   budget : @budget.Budget,
 ) -> Result[@math.Path2, @error.CoreError] {
-  match font_outline_charge_work(budget, limits.max_work(), contour_count) {
+  if contour_count > maxp.max_contours {
+    return Err(
+      font_outline_data_error(
+        "font-outline-maxp-contours",
+        requested=contour_count,
+        limit=maxp.max_contours,
+      ),
+    )
+  }
+  if contour_count > limits.max_outline_contours() {
+    return Err(
+      font_outline_limit_error(
+        "max-outline-contours",
+        contour_count,
+        limits.max_outline_contours(),
+      ),
+    )
+  }
+  match
+    font_outline_charge_work(ledger, budget, limits.max_work(), contour_count) {
     Err(error) => return Err(error)
     Ok(_) => ()
   }
@@ -416,9 +464,28 @@ fn font_decode_simple_outline(
     None => 0UL
     Some(value) =>
       match @checked.checked_add(value, 1UL) {
-        Err(_) => return Err(font_outline_data_error("font-outline-point-count"))
+        Err(_) =>
+          return Err(font_outline_data_error("font-outline-point-count"))
         Ok(result) => result
       }
+  }
+  if point_count > maxp.max_points {
+    return Err(
+      font_outline_data_error(
+        "font-outline-maxp-points",
+        requested=point_count,
+        limit=maxp.max_points,
+      ),
+    )
+  }
+  if point_count > limits.max_outline_points() {
+    return Err(
+      font_outline_limit_error(
+        "max-outline-points",
+        point_count,
+        limits.max_outline_points(),
+      ),
+    )
   }
   let instruction_length = match read_u16(source, endpoints_end) {
     Err(_) => return Err(font_outline_data_error("font-outline-instructions"))
@@ -428,11 +495,31 @@ fn font_decode_simple_outline(
     Err(_) => return Err(font_outline_data_error("font-outline-instructions"))
     Ok(value) => value
   }
-  match font_outline_charge_work(
-    budget,
-    limits.max_work(),
-    instruction_length,
-  ) {
+  if instruction_length > maxp.max_size_of_instructions {
+    return Err(
+      font_outline_data_error(
+        "font-outline-maxp-instructions",
+        requested=instruction_length,
+        limit=maxp.max_size_of_instructions,
+      ),
+    )
+  }
+  if instruction_length > limits.max_outline_instruction_bytes() {
+    return Err(
+      font_outline_limit_error(
+        "max-outline-instruction-bytes",
+        instruction_length,
+        limits.max_outline_instruction_bytes(),
+      ),
+    )
+  }
+  match
+    font_outline_charge_work(
+      ledger,
+      budget,
+      limits.max_work(),
+      instruction_length,
+    ) {
     Err(error) => return Err(error)
     Ok(_) => ()
   }
@@ -449,7 +536,8 @@ fn font_decode_simple_outline(
     Err(_) => return Err(font_outline_data_error("font-outline-point-count"))
     Ok(value) => value
   }
-  match font_outline_charge_work(budget, limits.max_work(), point_work) {
+  match
+    font_outline_charge_work(ledger, budget, limits.max_work(), point_work) {
     Err(error) => return Err(error)
     Ok(_) => ()
   }
@@ -458,16 +546,49 @@ fn font_decode_simple_outline(
     Ok(_) => ()
   }
   let flags : Array[UInt64] = []
-  for _point = 0UL; _point < point_count; _point = _point + 1UL {
+  let mut stored_flag_index = 0UL
+  while flags.length().to_uint64() < point_count {
     let flag = match read_u8(source, cursor) {
       Err(_) => return Err(font_outline_data_error("font-outline-flags"))
       Ok(value) => value.to_uint64()
     }
-    if (flag & 0x80UL) != 0UL || (flag & 0x08UL) != 0UL {
+    if (flag & 0x80UL) != 0UL ||
+      ((flag & 0x40UL) != 0UL && stored_flag_index != 0UL) {
       return Err(font_outline_data_error("font-outline-flags"))
     }
-    flags.push(flag)
     cursor = cursor + 1UL
+    let repeat = if (flag & 0x08UL) != 0UL {
+      let value = match read_u8(source, cursor) {
+        Err(_) => return Err(font_outline_data_error("font-outline-flags"))
+        Ok(byte) => byte.to_uint64()
+      }
+      cursor = cursor + 1UL
+      value
+    } else {
+      0UL
+    }
+    let expansion = match @checked.checked_add(repeat, 1UL) {
+      Err(_) => return Err(font_outline_data_error("font-outline-flags"))
+      Ok(value) => value
+    }
+    let expanded = match
+      @checked.checked_add(flags.length().to_uint64(), expansion) {
+      Err(_) => return Err(font_outline_data_error("font-outline-flags"))
+      Ok(value) => value
+    }
+    if expanded > point_count {
+      return Err(
+        font_outline_data_error(
+          "font-outline-flags",
+          requested=expanded,
+          limit=point_count,
+        ),
+      )
+    }
+    for _copy = 0UL; _copy < expansion; _copy = _copy + 1UL {
+      flags.push(flag & 0x3FUL)
+    }
+    stored_flag_index = stored_flag_index + 1UL
   }
   let x_values : Array[Int64] = []
   let mut x = 0L
@@ -522,13 +643,63 @@ fn font_decode_simple_outline(
     Err(error) => return Err(error)
     Ok(_) => ()
   }
-  font_outline_lower_contours(points, endpoints, budget)
+  let x_min = match read_i16(source, 2UL) {
+    Err(_) => return Err(font_outline_data_error("font-outline-glyph-header"))
+    Ok(value) => value.to_int64()
+  }
+  let y_min = match read_i16(source, 4UL) {
+    Err(_) => return Err(font_outline_data_error("font-outline-glyph-header"))
+    Ok(value) => value.to_int64()
+  }
+  let x_max = match read_i16(source, 6UL) {
+    Err(_) => return Err(font_outline_data_error("font-outline-glyph-header"))
+    Ok(value) => value.to_int64()
+  }
+  let y_max = match read_i16(source, 8UL) {
+    Err(_) => return Err(font_outline_data_error("font-outline-glyph-header"))
+    Ok(value) => value.to_int64()
+  }
+  let mut actual_x_min = x_values[0]
+  let mut actual_x_max = x_values[0]
+  let mut actual_y_min = points[0].y_q15 / 32768L
+  let mut actual_y_max = actual_y_min
+  for index = 0; index < points.length(); index = index + 1 {
+    let point_x = x_values[index]
+    let point_y = points[index].y_q15 / 32768L
+    if point_x < actual_x_min {
+      actual_x_min = point_x
+    }
+    if point_x > actual_x_max {
+      actual_x_max = point_x
+    }
+    if point_y < actual_y_min {
+      actual_y_min = point_y
+    }
+    if point_y > actual_y_max {
+      actual_y_max = point_y
+    }
+  }
+  if actual_x_min != x_min ||
+    actual_y_min != y_min ||
+    actual_x_max != x_max ||
+    actual_y_max != y_max {
+    return Err(font_outline_data_error("font-outline-bounds"))
+  }
+  font_outline_lower_contours(
+    points,
+    endpoints,
+    ledger,
+    limits.max_work(),
+    budget,
+  )
 }
 
 ///|
 fn font_decode_zero_contour_outline(
   source : @bytes.ByteView,
+  maxp : MaxpFacts,
   limits : FontLimits,
+  ledger : OutlineWork,
   budget : @budget.Budget,
 ) -> Result[@math.Path2, @error.CoreError] {
   if source.length() == 10UL {
@@ -538,11 +709,31 @@ fn font_decode_zero_contour_outline(
     Err(_) => return Err(font_outline_data_error("font-outline-instructions"))
     Ok(value) => value
   }
-  match font_outline_charge_work(
-    budget,
-    limits.max_work(),
-    instruction_length,
-  ) {
+  if instruction_length > maxp.max_size_of_instructions {
+    return Err(
+      font_outline_data_error(
+        "font-outline-maxp-instructions",
+        requested=instruction_length,
+        limit=maxp.max_size_of_instructions,
+      ),
+    )
+  }
+  if instruction_length > limits.max_outline_instruction_bytes() {
+    return Err(
+      font_outline_limit_error(
+        "max-outline-instruction-bytes",
+        instruction_length,
+        limits.max_outline_instruction_bytes(),
+      ),
+    )
+  }
+  match
+    font_outline_charge_work(
+      ledger,
+      budget,
+      limits.max_work(),
+      instruction_length,
+    ) {
     Err(error) => return Err(error)
     Ok(_) => ()
   }
@@ -563,11 +754,12 @@ fn font_decode_zero_contour_outline(
 ///|
 fn font_decode_outline(
   index : MetricIndexFacts,
-  _maxp : MaxpFacts,
+  maxp : MaxpFacts,
   limits : FontLimits,
   glyph_index : UInt64,
   budget : @budget.Budget,
 ) -> Result[@math.Path2, @error.CoreError] {
+  let ledger : OutlineWork = { used: 0UL }
   let glyph = match font_outline_glyph_view(index, glyph_index) {
     Err(error) => return Err(error)
     Ok(None) => return Ok(@math.Path2::new())
@@ -581,12 +773,14 @@ fn font_decode_outline(
     return Err(font_outline_capability_error("font-outline-composite"))
   }
   if contour_count == 0 {
-    font_decode_zero_contour_outline(glyph, limits, budget)
+    font_decode_zero_contour_outline(glyph, maxp, limits, ledger, budget)
   } else {
     font_decode_simple_outline(
       glyph,
       contour_count.to_uint64(),
+      maxp,
       limits,
+      ledger,
       budget,
     )
   }

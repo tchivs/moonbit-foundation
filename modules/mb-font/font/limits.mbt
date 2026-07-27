@@ -13,6 +13,10 @@ pub struct FontLimits {
   priv max_cmap_records_value : UInt64
   priv max_kern_subtables_value : UInt64
   priv max_kern_pairs_value : UInt64
+  priv max_outline_points_value : UInt64
+  priv max_outline_contours_value : UInt64
+  priv max_outline_components_value : UInt64
+  priv max_outline_instruction_bytes_value : UInt64
   priv max_post_name_bytes_value : UInt64
   priv max_work_value : UInt64
 }
@@ -40,6 +44,10 @@ pub fn FontLimits::new(
   max_cmap_records~ : UInt64,
   max_kern_subtables~ : UInt64,
   max_kern_pairs~ : UInt64,
+  max_outline_points~ : UInt64,
+  max_outline_contours~ : UInt64,
+  max_outline_components~ : UInt64,
+  max_outline_instruction_bytes~ : UInt64,
   max_post_name_bytes~ : UInt64,
   max_work~ : UInt64,
 ) -> Result[FontLimits, @error.CoreError] {
@@ -67,6 +75,18 @@ pub fn FontLimits::new(
   if max_kern_pairs == 0UL {
     return Err(invalid_font_limit("max-kern-pairs"))
   }
+  if max_outline_points == 0UL {
+    return Err(invalid_font_limit("max-outline-points"))
+  }
+  if max_outline_contours == 0UL {
+    return Err(invalid_font_limit("max-outline-contours"))
+  }
+  if max_outline_components == 0UL {
+    return Err(invalid_font_limit("max-outline-components"))
+  }
+  if max_outline_instruction_bytes == 0UL {
+    return Err(invalid_font_limit("max-outline-instruction-bytes"))
+  }
   if max_post_name_bytes == 0UL {
     return Err(invalid_font_limit("max-post-name-bytes"))
   }
@@ -82,6 +102,10 @@ pub fn FontLimits::new(
     max_cmap_records_value: max_cmap_records,
     max_kern_subtables_value: max_kern_subtables,
     max_kern_pairs_value: max_kern_pairs,
+    max_outline_points_value: max_outline_points,
+    max_outline_contours_value: max_outline_contours,
+    max_outline_components_value: max_outline_components,
+    max_outline_instruction_bytes_value: max_outline_instruction_bytes,
     max_post_name_bytes_value: max_post_name_bytes,
     max_work_value: max_work,
   })
@@ -125,6 +149,26 @@ pub fn FontLimits::max_kern_subtables(self : FontLimits) -> UInt64 {
 ///|
 pub fn FontLimits::max_kern_pairs(self : FontLimits) -> UInt64 {
   self.max_kern_pairs_value
+}
+
+///|
+pub fn FontLimits::max_outline_points(self : FontLimits) -> UInt64 {
+  self.max_outline_points_value
+}
+
+///|
+pub fn FontLimits::max_outline_contours(self : FontLimits) -> UInt64 {
+  self.max_outline_contours_value
+}
+
+///|
+pub fn FontLimits::max_outline_components(self : FontLimits) -> UInt64 {
+  self.max_outline_components_value
+}
+
+///|
+pub fn FontLimits::max_outline_instruction_bytes(self : FontLimits) -> UInt64 {
+  self.max_outline_instruction_bytes_value
 }
 
 ///|
