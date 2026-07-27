@@ -37,7 +37,7 @@
 
 ## Phases
 
-- [ ] **Phase 97: Font Admission and Metrics** - Open bounded TrueType SFNT data through `mb-font` and expose checked global and per-glyph metrics.
+- [x] **Phase 97: Font Admission and Metrics** - Open bounded TrueType SFNT data through `mb-font` and expose checked global and per-glyph metrics. (completed 2026-07-27)
 - [ ] **Phase 98: Unicode Mapping and Kerning** - Resolve Unicode scalars and legacy horizontal kerning through deterministic, distinguishable query outcomes.
 - [ ] **Phase 99: Simple and Composite Outlines** - Extract complete transactional `Path2`-compatible outlines for simple and bounded one-level composite glyphs.
 - [ ] **Phase 100: Portable Font Qualification** - Prove the complete public font workflow and hostile-input behavior on all four supported targets.
@@ -108,7 +108,7 @@
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 97. Font Admission and Metrics | 3/3 | In Progress|  |
+| 97. Font Admission and Metrics | 3/3 | Complete    | 2026-07-27 |
 | 98. Unicode Mapping and Kerning | 0/TBD | Not started | - |
 | 99. Simple and Composite Outlines | 0/TBD | Not started | - |
 | 100. Portable Font Qualification | 0/TBD | Not started | - |
