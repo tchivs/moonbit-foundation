@@ -21,6 +21,19 @@ $RecordKeys = @(
   'runner',
   'pass'
 )
+$HostileOutcomeIds = @(
+  'malformed-directory-range',
+  'unsupported-outline-profile',
+  'mutation-after-open',
+  'checked-range-overflow',
+  'limit-source-exact',
+  'limit-source-one-short',
+  'budget-open-exact',
+  'budget-open-one-short',
+  'budget-outline-exact',
+  'budget-outline-one-short',
+  'nested-composite-recognized'
+)
 
 function Get-FontQualificationSha256 {
   param([Parameter(Mandatory)][byte[]]$Bytes)
@@ -80,6 +93,80 @@ function Assert-FontQualificationClosedKeys {
   for ($index = 0; $index -lt $Expected.Count; $index++) {
     if ($actual[$index] -cne $Expected[$index]) {
       throw "$Label key order drifted at ${index}: expected $($Expected[$index]), got $($actual[$index])."
+    }
+  }
+}
+
+function Assert-FontQualificationEvidenceRecord {
+  param([Parameter(Mandatory)]$Record)
+
+  Assert-FontQualificationClosedKeys $Record $RecordKeys "$($Record.target) record"
+  Assert-FontQualificationClosedKeys $Record.toolchain @('moon','moonc','moonrun') "$($Record.target) toolchain"
+  Assert-FontQualificationClosedKeys $Record.fixtures @(
+    'dejavu_sans_237',
+    'dejavu_license',
+    'independent_oracle',
+    'hostile_cases',
+    'generated_source',
+    'workflow_test',
+    'hostile_test'
+  ) "$($Record.target) fixtures"
+  foreach ($fixture in $Record.fixtures.PSObject.Properties) {
+    Assert-FontQualificationClosedKeys $fixture.Value @('path','length','sha256') "$($Record.target) fixture $($fixture.Name)"
+  }
+  Assert-FontQualificationClosedKeys $Record.public_facts @('compact','dejavu_sans_237') "$($Record.target) public facts"
+  Assert-FontQualificationClosedKeys $Record.dependency_facts @(
+    'module_name',
+    'module_version',
+    'module_dependencies',
+    'package_imports',
+    'supported_targets'
+  ) "$($Record.target) dependency facts"
+  if ($Record.dependency_facts.module_name -cne 'tchivs/mb-font' -or
+      @($Record.dependency_facts.module_dependencies).Count -ne 1 -or
+      $Record.dependency_facts.module_dependencies[0].name -cne 'tchivs/mb-core' -or
+      $Record.dependency_facts.supported_targets -cne '+js+wasm+wasm-gc+native') {
+    throw "$($Record.target) dependency evidence drifted."
+  }
+  $expectedImports = @(
+    'tchivs/mb-core/budget',
+    'tchivs/mb-core/bytes',
+    'tchivs/mb-core/checked',
+    'tchivs/mb-core/error',
+    'tchivs/mb-core/math'
+  )
+  if ((Compare-Object $expectedImports @($Record.dependency_facts.package_imports))) {
+    throw "$($Record.target) package-import evidence drifted."
+  }
+  Assert-FontQualificationClosedKeys $Record.runner @(
+    'generator_command',
+    'check_command',
+    'test_command',
+    'target_directory',
+    'no_parallelize'
+  ) "$($Record.target) runner"
+  if ($Record.schema_version -cne '1.0.0' -or
+      $Record.workflow_id -cne 'font-complete-public-v1' -or
+      $Record.pass -ne $true) {
+    throw "$($Record.target) qualification identity or pass state drifted."
+  }
+  $outcomes = @($Record.hostile_outcomes)
+  if ($outcomes.Count -ne $HostileOutcomeIds.Count) {
+    throw "$($Record.target) hostile outcome count drifted."
+  }
+  for ($index = 0; $index -lt $HostileOutcomeIds.Count; $index++) {
+    Assert-FontQualificationClosedKeys $outcomes[$index] @(
+      'id',
+      'stage',
+      'category',
+      'code',
+      'context',
+      'requested',
+      'limit',
+      'publication'
+    ) "$($Record.target) hostile outcome $index"
+    if ($outcomes[$index].id -cne $HostileOutcomeIds[$index]) {
+      throw "$($Record.target) hostile outcome ID drifted at index $index."
     }
   }
 }
@@ -324,6 +411,7 @@ function New-FontQualificationEvidenceRecord {
     dependency_facts = $DependencyFacts
     runner = [pscustomobject][ordered]@{
       generator_command = './scripts/fixtures/Generate-FontQualification.ps1 -Check'
+      check_command = "moon -C modules/mb-font check --target $Target --frozen --target-dir `"$TargetDirectory`" --serial"
       test_command = "moon -C modules/mb-font test font --target $Target --frozen --target-dir `"$TargetDirectory`" --no-parallelize"
       target_directory = $TargetDirectory.Replace('\', '/')
       no_parallelize = $true
@@ -341,9 +429,15 @@ function Compare-FontQualificationEvidence {
   if ($Records.Count -ne 4) {
     throw 'Exactly four target evidence records are required.'
   }
+  $recordTargets = @($Records | ForEach-Object { [string]$_.target })
+  for ($index = 0; $index -lt $Targets.Count; $index++) {
+    if ($recordTargets[$index] -cne $Targets[$index]) {
+      throw "Target evidence order drifted at index ${index}: expected $($Targets[$index]), got $($recordTargets[$index])."
+    }
+  }
   $semanticPayloads = @(
     foreach ($record in $Records) {
-      Assert-FontQualificationClosedKeys $record $RecordKeys "$($record.target) record"
+      Assert-FontQualificationEvidenceRecord $record
       [pscustomobject][ordered]@{
         schema_version = $record.schema_version
         workflow_id = $record.workflow_id
@@ -385,6 +479,20 @@ function Compare-FontQualificationEvidence {
   return $comparison
 }
 
+function Confirm-FontQualificationEvidenceRejected {
+  param(
+    [Parameter(Mandatory)][string]$Name,
+    [Parameter(Mandatory)][scriptblock]$Action,
+    [Parameter(Mandatory)][string]$ExpectedPattern
+  )
+
+  $failure = $null
+  try { & $Action } catch { $failure = $_.Exception.Message }
+  if ($null -eq $failure -or $failure -cnotmatch $ExpectedPattern) {
+    throw "Font evidence accepted negative probe '$Name': '$failure'."
+  }
+}
+
 Push-Location $RepositoryRoot
 try {
   & ./scripts/fixtures/Generate-FontQualification.ps1 -Check
@@ -392,12 +500,21 @@ try {
     throw 'Font qualification generator check failed.'
   }
 
+  . ./scripts/quality/Assert-Policy.ps1
+  Assert-FontFoundationPolicy -PolicyPath ./policy/foundation.json
+
   $resolvedEvidence = if ([IO.Path]::IsPathRooted($EvidenceDirectory)) {
     [IO.Path]::GetFullPath($EvidenceDirectory)
   } else {
     [IO.Path]::GetFullPath((Join-Path $RepositoryRoot $EvidenceDirectory))
   }
   [void](New-Item -ItemType Directory -Force -Path $resolvedEvidence)
+  foreach ($evidenceName in @($Targets | ForEach-Object { "$_.json" }) + 'comparison.json') {
+    $staleEvidence = Join-Path $resolvedEvidence $evidenceName
+    if (Test-Path -LiteralPath $staleEvidence) {
+      Remove-Item -LiteralPath $staleEvidence -Force
+    }
+  }
 
   $oracle = Get-Content -Raw -LiteralPath (
     'fixtures/font/dejavu-sans-2.37/oracle.json'
@@ -435,6 +552,11 @@ try {
   $records = @(
     foreach ($target in $Targets) {
       $targetDirectory = "target/phase100-font-qualification-$target"
+      & moon -C modules/mb-font check --target $target --frozen `
+        --target-dir $targetDirectory --serial | Out-Host
+      if ($LASTEXITCODE -ne 0) {
+        throw "Font qualification check for target $target failed with exit $LASTEXITCODE."
+      }
       & moon -C modules/mb-font test font --target $target --frozen `
         --target-dir $targetDirectory --no-parallelize | Out-Host
       if ($LASTEXITCODE -ne 0) {
@@ -448,18 +570,38 @@ try {
         -HostileOutcomes $hostileOutcomes `
         -DependencyFacts $dependencyFacts `
         -TargetDirectory $targetDirectory
-      Assert-FontQualificationClosedKeys $record $RecordKeys "$target record"
-      $path = Join-Path $resolvedEvidence "$target.json"
-      Write-FontQualificationJson $path $record
-      $readBack = Get-Content -Raw -LiteralPath $path | ConvertFrom-Json
-      Assert-FontQualificationClosedKeys $readBack $RecordKeys "$target persisted record"
-      if ($readBack.pass -ne $true) {
-        throw "$target evidence did not persist pass=true."
-      }
+      Assert-FontQualificationEvidenceRecord $record
       $record
     }
   )
+  foreach ($record in $records) {
+      $target = [string]$record.target
+      $path = Join-Path $resolvedEvidence "$target.json"
+      Write-FontQualificationJson $path $record
+      $readBack = Get-Content -Raw -LiteralPath $path | ConvertFrom-Json
+      Assert-FontQualificationEvidenceRecord $readBack
+  }
+  Confirm-FontQualificationEvidenceRejected 'missing target evidence record' {
+    Compare-FontQualificationEvidence @($records | Select-Object -First 3) $resolvedEvidence
+  } 'Exactly four target evidence records are required'
+  $divergentRecords = @(
+    $records | ForEach-Object {
+      ConvertTo-FontQualificationJson $_ -Compress | ConvertFrom-Json
+    }
+  )
+  $divergentRecords[3].public_facts.compact.source_length = 581
+  Confirm-FontQualificationEvidenceRejected 'semantic evidence divergence' {
+    Compare-FontQualificationEvidence $divergentRecords $resolvedEvidence
+  } 'Four-target font qualification semantics differ'
   $comparison = Compare-FontQualificationEvidence $records $resolvedEvidence
+  foreach ($target in $Targets) {
+    $readmeTargetDirectory = "target/phase100-font-readme-$target"
+    & moon -C modules/mb-font check README.mbt.md --target $target --frozen `
+      --target-dir $readmeTargetDirectory --serial | Out-Host
+    if ($LASTEXITCODE -ne 0) {
+      throw "Font README check for target $target failed with exit $LASTEXITCODE."
+    }
+  }
   Write-Host (
     "Font qualification passed for $($Targets -join ', '); semantic SHA-256 $($comparison.semantic_sha256)."
   )

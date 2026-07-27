@@ -1058,6 +1058,243 @@ function Assert-FontPhase99Surface {
   Assert-Condition (@($deferredLines | Where-Object { $_ -cmatch $deferredLeakPattern }).Count -eq 0) 'Font semantic interface exposes a private or deferred Phase 100+ capability.'
 }
 
+function Assert-FontQualificationFixtureManifest {
+  [CmdletBinding()]
+  param(
+    [Parameter(Mandatory)][string]$ManifestPath,
+    [Parameter(Mandatory)][string]$RepositoryRoot
+  )
+
+  Assert-FixtureManifest -ManifestPath $ManifestPath -RepositoryRoot $RepositoryRoot
+  $manifest = Read-QualityJson -Path $ManifestPath
+  $expectedIds = @(
+    'image-operation-vectors',
+    'ppm-p6-conformance-vectors',
+    'qoi-1.0-conformance-vectors',
+    'png-decode-vectors',
+    'png-structural-safety-vectors',
+    'color-srgb-reference-vectors',
+    'color-derived-edge-vectors',
+    'svg-subset-conformance-vectors',
+    'font-dejavu-sans-2.37',
+    'font-dejavu-sans-2.37-license',
+    'font-qualification-cases'
+  )
+  Assert-ExactSequence 'Fixture manifest record order' @($manifest.records.id) $expectedIds
+
+  $expectedFontRecords = @(
+    [pscustomobject][ordered]@{
+      id = 'font-dejavu-sans-2.37'
+      path = 'fixtures/font/dejavu-sans-2.37/DejaVuSans.ttf'
+      origin = 'external'
+      source = 'https://github.com/dejavu-fonts/dejavu-fonts/releases/download/version_2_37/dejavu-sans-ttf-2.37.zip'
+      author = 'DejaVu Fonts project; derived from Bitstream Vera and Arev'
+      retrieval_date = '2026-07-27'
+      sha256 = '7da195a74c55bef988d0d48f9508bd5d849425c1770dba5d7bfc6ce9ed848954'
+      license = 'Bitstream-Vera AND LicenseRef-DejaVu-Arev'
+      redistribution_status = 'confirmed'
+      expected_use = 'Phase 100 licensed real-font public workflow and interoperability qualification'
+    },
+    [pscustomobject][ordered]@{
+      id = 'font-dejavu-sans-2.37-license'
+      path = 'fixtures/font/dejavu-sans-2.37/LICENSE'
+      origin = 'external'
+      source = 'https://github.com/dejavu-fonts/dejavu-fonts/releases/download/version_2_37/dejavu-sans-ttf-2.37.zip'
+      author = 'DejaVu Fonts project; Bitstream, Inc.; Tavmjong Bah'
+      retrieval_date = '2026-07-27'
+      sha256 = '7a083b136e64d064794c3419751e5c7dd10d2f64c108fe5ba161eae5e5958a93'
+      license = 'Bitstream-Vera AND LicenseRef-DejaVu-Arev'
+      redistribution_status = 'confirmed'
+      expected_use = 'Phase 100 notice accompanying redistribution of DejaVu Sans 2.37'
+    },
+    [pscustomobject][ordered]@{
+      id = 'font-qualification-cases'
+      path = 'fixtures/font/qualification-cases.json'
+      origin = 'generated'
+      source = 'repository-derived:scripts/fixtures/Generate-FontQualification.ps1'
+      author = 'MoonBit Native Foundation project generator'
+      retrieval_date = '2026-07-27'
+      sha256 = 'a9a86ed5c080571fffe3317eead29865c5fdad222475251423621fddb09c1d18'
+      license = 'Apache-2.0'
+      redistribution_status = 'not-applicable'
+      expected_use = 'Phase 100 closed hostile-input and transactional font qualification matrix'
+    }
+  )
+  foreach ($expected in $expectedFontRecords) {
+    $actual = @($manifest.records | Where-Object { $_.id -ceq $expected.id })
+    Assert-Condition ($actual.Count -eq 1) "Font fixture manifest record '$($expected.id)' must occur exactly once."
+    Assert-ExactSequence "Font fixture '$($expected.id)' fields" @($actual[0].PSObject.Properties.Name) @($expected.PSObject.Properties.Name)
+    foreach ($property in $expected.PSObject.Properties) {
+      Assert-Condition ([string]$actual[0].($property.Name) -ceq [string]$property.Value) "Font fixture '$($expected.id)' field '$($property.Name)' drifted."
+    }
+  }
+}
+
+function Get-FontExecutableSourceText {
+  param([Parameter(Mandatory)][string]$Path)
+
+  $text = Get-Content -Raw -LiteralPath $Path
+  $text = [regex]::Replace($text, '(?s)/[*].*?[*]/', ' ')
+  $text = [regex]::Replace($text, '(?m)//.*$', ' ')
+  $text = [regex]::Replace($text, '(?s)(?:b)?"(?:[\\].|[^"\\])*"', '""')
+  $text = [regex]::Replace($text, "(?s)(?:b)?'(?:[\\].|[^'\\])*'", "''")
+  return $text
+}
+
+function Assert-FontPortableSourceBoundary {
+  [CmdletBinding()]
+  param([Parameter(Mandatory)][string[]]$SourcePaths)
+
+  $forbidden = [ordered]@{
+    'FFI or native stub' = '(?im)(?:^\s*(?:extern\b|#(?:external|import)\b|#(?:if|elseif)\s+native\b)|\b(?:ffi|foreign_call|native_binding|c_abi)\w*\s*[(])'
+    'filesystem or host-font discovery' = '(?i)(?:\b(?:file_system|filesystem|host_font|system_font|discover_font|open_file|from_path|load_file|read_file|open_path|read_uri|load_from_disk)\w*\s*[(]|@(?:fs|filesystem|path)\b)'
+    'GUI canvas image or color dependency' = '(?i)(?:\b(?:gui|canvas|image|color)\w*\s*[(]|@(?:gui|canvas|image|color)\b)'
+    'shaping execution' = '(?i)(?:\b(?:shape|shaper|shaping|bidi|layout)\w*\s*[(]|@(?:shape|shaping|layout)\b)'
+    'hinting execution' = '(?i)(?:\b(?:hint|hinter|grid_fit|grid_round)\w*\s*[(]|@(?:hint|hinting)\b)'
+    'CFF or CFF2 execution' = '(?i)(?:\b(?:cff|cff2)\w*\s*[(]|@(?:cff|cff2)\b)'
+    'rasterization execution' = '(?i)(?:\b(?:raster|rasterize|rasterizer|rasterization)\w*\s*[(]|@(?:raster|rasterizer)\b)'
+  }
+  foreach ($sourcePath in $SourcePaths) {
+    Assert-Condition (Test-Path -LiteralPath $sourcePath -PathType Leaf) "Font source boundary cannot find '$sourcePath'."
+    $source = Get-FontExecutableSourceText -Path $sourcePath
+    foreach ($entry in $forbidden.GetEnumerator()) {
+      Assert-Condition ($source -cnotmatch [string]$entry.Value) "Font source '$sourcePath' acquires forbidden $($entry.Key)."
+    }
+  }
+}
+
+function Confirm-FontQualificationRejected {
+  param(
+    [Parameter(Mandatory)][string]$Name,
+    [Parameter(Mandatory)][scriptblock]$Action,
+    [Parameter(Mandatory)][string]$ExpectedPattern
+  )
+
+  $failure = $null
+  try { & $Action } catch { $failure = $_.Exception.Message }
+  Assert-Condition ($null -ne $failure -and $failure -cmatch $ExpectedPattern) "Font qualification accepted negative probe '$Name': '$failure'."
+}
+
+function Assert-FontQualificationArtifacts {
+  [CmdletBinding()]
+  param(
+    [Parameter(Mandatory)][object]$Policy,
+    [Parameter(Mandatory)][string]$RepositoryRoot
+  )
+
+  $fontModule = @($Policy.modules | Where-Object { $_.name -ceq 'tchivs/mb-font' })[0]
+  $font = @($fontModule.public_packages | Where-Object { $_.path -ceq 'font' })[0]
+  $productionSources = @('moon.pkg', 'cmap.mbt', 'cursor.mbt', 'directory.mbt', 'font.mbt', 'kern.mbt', 'limits.mbt', 'metrics.mbt', 'outline.mbt', 'tables.mbt')
+  $testSources = @(
+    'font_test.mbt',
+    'font_wbtest.mbt',
+    'generated_fonts_wbtest.mbt',
+    'generated_font_qualification_test.mbt',
+    'font_qualification_test.mbt',
+    'font_qualification_hostile_test.mbt'
+  )
+  $publicationFiles = @(
+    'CHANGELOG.md',
+    'README.mbt.md',
+    'font',
+    'font/cmap.mbt',
+    'font/cursor.mbt',
+    'font/directory.mbt',
+    'font/font.mbt',
+    'font/font_qualification_hostile_test.mbt',
+    'font/font_qualification_test.mbt',
+    'font/font_test.mbt',
+    'font/font_wbtest.mbt',
+    'font/generated_font_qualification_test.mbt',
+    'font/generated_fonts_wbtest.mbt',
+    'font/kern.mbt',
+    'font/limits.mbt',
+    'font/metrics.mbt',
+    'font/moon.pkg',
+    'font/outline.mbt',
+    'font/tables.mbt',
+    'moon.mod.json'
+  )
+  Assert-ExactSequence 'Font qualification production source order' @($font.production_sources) $productionSources
+  Assert-ExactSequence 'Font qualification test source order' @($font.test_sources) $testSources
+  Assert-ExactSet 'Font qualification publication inventory' @($fontModule.publication_files) $publicationFiles
+  Assert-Condition (@($font.semantic_interface).Count -eq 56) 'Font semantic interface must remain exactly 56 lines.'
+  Assert-FontPhase99Surface -InterfaceLines @($font.semantic_interface | ForEach-Object { [string]$_ })
+  Assert-ExactSet 'Font qualification module dependencies' @($fontModule.direct_dependencies) @('tchivs/mb-core')
+  Assert-ExactSet 'Font qualification dependency edge' @($Policy.allowed_dependency_edges | Where-Object from -CEQ 'tchivs/mb-font' | ForEach-Object to) @('tchivs/mb-core')
+  Assert-Condition (@($Policy.allowed_dependency_edges | Where-Object to -CEQ 'tchivs/mb-font').Count -eq 0) 'No foundation module may depend on mb-font during qualification.'
+
+  $manifestPath = Join-Path $RepositoryRoot 'fixtures/manifest.json'
+  Assert-FontQualificationFixtureManifest -ManifestPath $manifestPath -RepositoryRoot $RepositoryRoot
+
+  $oracle = Read-QualityJson -Path (Join-Path $RepositoryRoot 'fixtures/font/dejavu-sans-2.37/oracle.json')
+  Assert-ExactSequence 'Font oracle top-level schema' @($oracle.PSObject.Properties.Name) @('schema_version','oracle','source','tables','profile','metrics','cmap','glyphs','kern','maxp')
+  Assert-Condition ($oracle.schema_version -ceq '1.0.0' -and $oracle.oracle.implementation -ceq 'mnf-powershell-closed-sfnt-reader' -and $oracle.oracle.version -ceq '1.0.0' -and $oracle.oracle.independence -ceq 'offline parser; does not invoke tchivs/mb-font') 'Font oracle identity or independence contract drifted.'
+  Assert-ExactSequence 'Font oracle identity schema' @($oracle.oracle.PSObject.Properties.Name) @('implementation','version','independence')
+  Assert-ExactSequence 'Font oracle source schema' @($oracle.source.PSObject.Properties.Name) @('path','length','sha256','sfnt_signature')
+  Assert-ExactSequence 'Font oracle table schema' @($oracle.tables[0].PSObject.Properties.Name) @('tag','checksum','offset','length')
+  Assert-ExactSequence 'Font oracle profile schema' @($oracle.profile.PSObject.Properties.Name) @('units_per_em','loca_format','glyph_count')
+  Assert-ExactSequence 'Font oracle metrics schema' @($oracle.metrics.PSObject.Properties.Name) @('global_bounds','hhea','os2_typographic')
+  Assert-ExactSequence 'Font oracle cmap schema' @($oracle.cmap.PSObject.Properties.Name) @('records','selected_record')
+  Assert-ExactSequence 'Font oracle cmap record schema' @($oracle.cmap.records[0].PSObject.Properties.Name) @('platform_id','encoding_id','format','offset')
+  Assert-ExactSequence 'Font oracle glyph schema' @($oracle.glyphs[0].PSObject.Properties.Name) @('scalar','glyph_id','horizontal_metrics','classification','contours','bounds','components','path')
+  Assert-ExactSequence 'Font oracle path schema' @($oracle.glyphs[0].path.PSObject.Properties.Name) @('command_count','fingerprint_sha256','selected_commands')
+  Assert-ExactSequence 'Font oracle kern schema' @($oracle.kern.PSObject.Properties.Name) @('version','subtable_count','format','horizontal','pair_count','selected_pair')
+  Assert-ExactSequence 'Font oracle maxp schema' @($oracle.maxp.PSObject.Properties.Name) @('max_points','max_contours','max_composite_points','max_composite_contours','max_instruction_bytes','max_component_elements','max_component_depth')
+
+  $cases = Read-QualityJson -Path (Join-Path $RepositoryRoot 'fixtures/font/qualification-cases.json')
+  Assert-ExactSequence 'Font hostile document schema' @($cases.PSObject.Properties.Name) @('schema_version','license','cases')
+  Assert-Condition ($cases.schema_version -ceq '1.0.0' -and $cases.license -ceq 'Apache-2.0') 'Font hostile document identity or license drifted.'
+  Assert-ExactSequence 'Font hostile case schema' @($cases.cases[0].PSObject.Properties.Name) @('id','stage','category','code','context','requested','limit','publication')
+  Assert-ExactSequence 'Font hostile case IDs' @($cases.cases.id) @(
+    'malformed-directory-range',
+    'unsupported-outline-profile',
+    'mutation-after-open',
+    'checked-range-overflow',
+    'limit-source-exact',
+    'limit-source-one-short',
+    'budget-open-exact',
+    'budget-open-one-short',
+    'budget-outline-exact',
+    'budget-outline-one-short',
+    'nested-composite-recognized'
+  )
+
+  $generatedPath = Join-Path $RepositoryRoot 'modules/mb-font/font/generated_font_qualification_test.mbt'
+  $generatedHeader = @((Get-Content -LiteralPath $generatedPath -TotalCount 5))
+  Assert-ExactSequence 'Generated font qualification provenance header' $generatedHeader @(
+    '// Generated by scripts/fixtures/Generate-FontQualification.ps1. Do not edit.',
+    '// Canonical source: fixtures/font/dejavu-sans-2.37/DejaVuSans.ttf',
+    '// SHA-256: 7da195a74c55bef988d0d48f9508bd5d849425c1770dba5d7bfc6ce9ed848954',
+    '// Upstream license: Bitstream-Vera AND LicenseRef-DejaVu-Arev',
+    '// Literal chunk size: 4096 bytes'
+  )
+
+  $sourcePaths = @(
+    @($productionSources | Where-Object { $_ -cne 'moon.pkg' })
+    $testSources
+  ) | ForEach-Object { Join-Path $RepositoryRoot "modules/mb-font/font/$_" }
+  Assert-FontPortableSourceBoundary -SourcePaths $sourcePaths
+
+  Confirm-FontQualificationRejected 'extra public interface line' {
+    Assert-FontPhase99Surface -InterfaceLines @(@($font.semantic_interface) + 'pub fn Font::rasterize(Self) -> Unit')
+  } 'private or deferred Phase 100[+] capability'
+  Confirm-FontQualificationRejected 'extra dependency' {
+    Assert-ExactSet 'Negative font dependency set' @($fontModule.direct_dependencies + 'tchivs/mb-image') @('tchivs/mb-core')
+  } 'count mismatch'
+  $negativeSource = Join-Path ([IO.Path]::GetTempPath()) ('mnf-font-boundary-' + [guid]::NewGuid().ToString('N') + '.mbt')
+  try {
+    [IO.File]::WriteAllText($negativeSource, "fn forbidden_probe() { rasterize_font() }`n", [Text.UTF8Encoding]::new($false))
+    Confirm-FontQualificationRejected 'forbidden executable source call' {
+      Assert-FontPortableSourceBoundary -SourcePaths @($negativeSource)
+    } 'forbidden rasterization execution'
+  } finally {
+    if (Test-Path -LiteralPath $negativeSource) { Remove-Item -LiteralPath $negativeSource -Force }
+  }
+
+  Write-Host 'Font qualification fixtures, schemas, inventories, dependencies, interface, and portable source boundary verified.'
+}
+
 function Assert-FontFoundationPolicy {
   [CmdletBinding()]
   param([Parameter(Mandatory)][string]$PolicyPath)
@@ -1087,8 +1324,11 @@ function Assert-FontFoundationPolicy {
     'font/cursor.mbt',
     'font/directory.mbt',
     'font/font.mbt',
+    'font/font_qualification_hostile_test.mbt',
+    'font/font_qualification_test.mbt',
     'font/font_test.mbt',
     'font/font_wbtest.mbt',
+    'font/generated_font_qualification_test.mbt',
     'font/generated_fonts_wbtest.mbt',
     'font/kern.mbt',
     'font/limits.mbt',
@@ -1106,7 +1346,14 @@ function Assert-FontFoundationPolicy {
   $font = $fontPackages[0]
   $imports = @('tchivs/mb-core/budget', 'tchivs/mb-core/bytes', 'tchivs/mb-core/checked', 'tchivs/mb-core/error', 'tchivs/mb-core/math')
   $productionSources = @('moon.pkg', 'cmap.mbt', 'cursor.mbt', 'directory.mbt', 'font.mbt', 'kern.mbt', 'limits.mbt', 'metrics.mbt', 'outline.mbt', 'tables.mbt')
-  $testSources = @('font_test.mbt', 'font_wbtest.mbt', 'generated_fonts_wbtest.mbt')
+  $testSources = @(
+    'font_test.mbt',
+    'font_wbtest.mbt',
+    'generated_fonts_wbtest.mbt',
+    'generated_font_qualification_test.mbt',
+    'font_qualification_test.mbt',
+    'font_qualification_hostile_test.mbt'
+  )
   Assert-ExactSet 'Font policy imports' @($font.allowed_imports) $imports
   Assert-ExactSet 'Font policy targets' @($font.supported_targets) @('js', 'wasm', 'wasm-gc', 'native')
   Assert-ExactSequence 'Font production source order' @($font.production_sources) $productionSources
@@ -1124,6 +1371,7 @@ function Assert-FontFoundationPolicy {
       ForEach-Object Name
   )
   Assert-ExactSet 'Font package directory contents' $actualFiles @($productionSources + $testSources)
+  Assert-FontQualificationArtifacts -Policy $policy -RepositoryRoot $repoRoot
 
   $readmeText = Get-Content -Raw -LiteralPath (Join-Path $repoRoot 'modules/mb-font/README.mbt.md')
   Assert-Condition ($readmeText -cmatch '\bcandidate\b') 'Font README must expose candidate stability.'

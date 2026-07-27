@@ -59,6 +59,80 @@ Invoke-FixtureCase 'retrieval date rejects invalid day' { param($root,$manifest)
 Invoke-FixtureCase 'retrieval date rejects non-leap February 29' { param($root,$manifest) $manifest.records[0].retrieval_date='2025-02-29' } $false 'invalid retrieval date'
 Invoke-FixtureCase 'retrieval date accepts leap February 29' { param($root,$manifest) $manifest.records[0].retrieval_date='2024-02-29' } $true $null
 
+function Invoke-FontFixtureCase(
+  [string]$Name,
+  [scriptblock]$Arrange,
+  [bool]$ShouldPass,
+  [string]$ExpectedFailurePattern
+) {
+  $repositoryRoot = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
+  $temporaryManifest = Join-Path (
+    [System.IO.Path]::GetTempPath()
+  ) ('mnf-font-manifest-' + [guid]::NewGuid().ToString('N') + '.json')
+  try {
+    $manifest = Get-Content -Raw -LiteralPath (
+      Join-Path $repositoryRoot 'fixtures/manifest.json'
+    ) | ConvertFrom-Json
+    if ($Arrange) { & $Arrange $manifest }
+    Write-TestJson -Path $temporaryManifest -Value $manifest
+    $passed = $true
+    $failure = $null
+    try {
+      Assert-FontQualificationFixtureManifest `
+        -ManifestPath $temporaryManifest `
+        -RepositoryRoot $repositoryRoot
+    } catch {
+      $passed = $false
+      $failure = $_.Exception.Message
+    }
+    if ($ShouldPass -and -not $passed) {
+      throw "Font fixture case '$Name' expected success but failed: $failure"
+    }
+    if (-not $ShouldPass -and (
+        $passed -or $failure -cnotmatch $ExpectedFailurePattern
+      )) {
+      throw "Font fixture case '$Name' expected failure '$ExpectedFailurePattern'; got '$failure'."
+    }
+    Write-Host "PASS: $Name"
+  } finally {
+    if (Test-Path -LiteralPath $temporaryManifest) {
+      Remove-Item -LiteralPath $temporaryManifest -Force
+    }
+  }
+}
+
+Invoke-FontFixtureCase 'canonical font qualification manifest' $null $true $null
+Invoke-FontFixtureCase 'font digest drift' {
+  param($manifest)
+  $manifest.records[8].sha256 = '0' * 64
+} $false 'SHA-256 does not match'
+Invoke-FontFixtureCase 'font notice digest drift' {
+  param($manifest)
+  $manifest.records[9].sha256 = '0' * 64
+} $false 'SHA-256 does not match'
+Invoke-FontFixtureCase 'font license drift' {
+  param($manifest)
+  $manifest.records[8].license = 'Apache-2.0'
+} $false "field 'license' drifted"
+Invoke-FontFixtureCase 'font notice license drift' {
+  param($manifest)
+  $manifest.records[9].license = 'Apache-2.0'
+} $false "field 'license' drifted"
+Invoke-FontFixtureCase 'font redistribution drift' {
+  param($manifest)
+  $manifest.records[8].redistribution_status = 'unconfirmed'
+} $false 'lacks confirmed redistribution'
+Invoke-FontFixtureCase 'font path containment drift' {
+  param($manifest)
+  $manifest.records[8].path = '../DejaVuSans.ttf'
+} $false 'parent traversal'
+Invoke-FontFixtureCase 'font manifest order drift' {
+  param($manifest)
+  $temporary = $manifest.records[8]
+  $manifest.records[8] = $manifest.records[9]
+  $manifest.records[9] = $temporary
+} $false 'record order order mismatch'
+
 $external = Join-Path ([System.IO.Path]::GetTempPath()) ('mnf-fixture-external-' + [guid]::NewGuid().ToString('N') + '.bin')
 try {
   [System.IO.File]::WriteAllBytes($external, [byte[]](4,5,6))

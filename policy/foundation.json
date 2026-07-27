@@ -2202,8 +2202,11 @@
         "font/cursor.mbt",
         "font/directory.mbt",
         "font/font.mbt",
+        "font/font_qualification_hostile_test.mbt",
+        "font/font_qualification_test.mbt",
         "font/font_test.mbt",
         "font/font_wbtest.mbt",
+        "font/generated_font_qualification_test.mbt",
         "font/generated_fonts_wbtest.mbt",
         "font/kern.mbt",
         "font/limits.mbt",
@@ -2240,7 +2243,10 @@
           "test_sources": [
             "font_test.mbt",
             "font_wbtest.mbt",
-            "generated_fonts_wbtest.mbt"
+            "generated_fonts_wbtest.mbt",
+            "generated_font_qualification_test.mbt",
+            "font_qualification_test.mbt",
+            "font_qualification_hostile_test.mbt"
           ],
           "semantic_interface": [
             "package \"tchivs/mb-font/font\"",
