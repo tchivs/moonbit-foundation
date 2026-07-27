@@ -1,61 +1,69 @@
 ---
 phase: 97-font-admission-and-metrics
-fixed_at: 2026-07-27T01:02:05Z
+fixed_at: 2026-07-27T02:02:48Z
 review_path: .planning/phases/97-font-admission-and-metrics/97-REVIEW.md
 iteration: 1
-findings_in_scope: 3
-fixed: 3
+findings_in_scope: 4
+fixed: 4
 skipped: 0
 status: all_fixed
 ---
 
 # Phase 97: Code Review Fix Report
 
-**Fixed at:** 2026-07-27T01:02:05Z
+**Fixed at:** 2026-07-27T02:02:48Z
 **Source review:** `.planning/phases/97-font-admission-and-metrics/97-REVIEW.md`
 **Iteration:** 1
 
 **Summary:**
 
-- Findings in scope: 3
-- Fixed: 3
+- Findings in scope: 4
+- Fixed: 4
 - Skipped: 0
 
 ## Fixed Issues
 
-### CR-01: The post-name ceiling is enforced only after the budget transaction
+### CR-01: Cmap admission validates byte counts but publishes malformed mappings
 
-**Status:** fixed
+**Status:** fixed: requires human verification
 **Files modified:** `modules/mb-font/font/tables.mbt`, `modules/mb-font/font/font_test.mbt`
-**Commit:** 313472e0
-**Applied fix:** Enforced `max_post_name_bytes` during admission-charge derivation, before the aggregate work calculation and authoritative budget transaction. Added an exact-limit success and one-short rejection that verifies the rejected caller budget retains its bytes, allocations, allocation-size, and work dimensions.
+**Commit:** de3c3401
+**Applied fix:** Added complete structural admission for supported format-4 and format-12 subtables: derived search fields, strict segment/group ordering, valid ranges, bounded nonzero `idRangeOffset` addressing, Unicode and glyph-cardinality bounds, and sorted unique encoding-record keys in explicitly supported platform/encoding domains. Count discovery now includes both encoding-record passes and every segment/group validation loop in the one aggregate work charge. Added checksummed hostile bodies, record-key/domain cases, and exact/one-short work coverage.
 
-### WR-01: Compound deferred-capability names still bypass the policy selector
+### CR-02: The post validator rejects valid uint16 indices and omits the version-1 glyph contract
+
+**Status:** fixed: requires human verification
+**Files modified:** `modules/mb-font/font/tables.mbt`, `modules/mb-font/font/font_test.mbt`
+**Commit:** 0ad8cedc
+**Applied fix:** Removed the artificial 32767 glyph-name-index ceiling, retained checked traversal through the full 258..65535 custom-name domain, and validated every Pascal name against the 63-byte ASCII identifier contract. Split post 1.0 from 3.0 and required the standard 258-glyph cardinality for version 1.0. Replaced the former `0xFFFF` rejection with a fully backed high-index success and added invalid-character, overlength-name, and version-1/non-258 regressions.
+
+### CR-03: Name admission never enforces canonical record ordering
+
+**Status:** fixed: requires human verification
+**Files modified:** `modules/mb-font/font/tables.mbt`, `modules/mb-font/font/font_test.mbt`
+**Commit:** f42ef277
+**Applied fix:** Read all four name-record key fields and enforced nondecreasing lexicographic order by platform ID, encoding ID, language ID, then name ID. The selected profile explicitly permits duplicate keys while rejecting every decreasing key. Added a sorted success plus hostile encoding-only and name-ID-only inversions.
+
+### WR-01: Deferred filesystem and FFI capabilities still have ordinary selector bypasses
 
 **Status:** fixed
 **Files modified:** `scripts/quality/Assert-Policy.ps1`
-**Commit:** 94b7afcb
-**Applied fix:** Normalized `CMap` acronym spellings to the protected `cmap` token and rejected ordered `open`/`file` and `from`/`path` token co-occurrence even when a domain token occurs between them. Added the reported `CMapLookup`, `openFontFile`, and `fromFontPath` bypasses to the negative fixture matrix.
-
-### WR-02: The real interface-checker branch remains foreign-CWD dependent
-
-**Status:** fixed
-**Files modified:** `scripts/quality/Assert-Policy.ps1`, `scripts/quality/Invoke-MoonQuality.ps1`, `scripts/quality/Test-PolicyWorkingDirectory.ps1`
-**Commit:** cc511884
-**Applied fix:** Rooted the production generated-interface checker against an explicit or script-derived repository root, passed the selector-owned root through the QOI and font production branches, and added a library-mode import that lets the foreign-CWD regression exercise both local fallback and real production checker branches.
+**Commit:** 2d306839
+**Applied fix:** Extended normalized-token capability classification to catch split `file system`, expanded `foreign function interface`, and load/read/open/from verbs paired with file/path tokens. Added all six reported bypass spellings to the selector's fail-closed negative matrix.
 
 ## Verification
 
-- `moon check --target all --deny-warn --frozen` passed for the mb-font module.
-- Full mb-font/workspace tests passed independently on all supported targets: wasm, wasm-gc, JS, and native each reported 1,041/1,041 tests passing.
-- The focused post-name exact/one-short test passed on wasm, wasm-gc, JS, and native.
-- PowerShell AST parsing passed for `Assert-Policy.ps1`, `Invoke-MoonQuality.ps1`, and `Test-PolicyWorkingDirectory.ps1`.
-- The three reported deferred-capability fixtures were rejected while the legitimate `max_cmap_records` interface remained accepted.
-- QOI and font selectors passed from the repository root through both fallback and production interface-checker branches.
-- `Test-PolicyWorkingDirectory.ps1` passed from a temporary foreign working directory, covering QOI/font fallback and production branches plus the PNG selector.
+- `moon check --target all --deny-warn --frozen` passed on the final source state.
+- `moon -C modules/mb-font test --target all --deny-warn --frozen` passed on wasm, wasm-gc, JS, and native with 1,044/1,044 tests on each target.
+- Focused JS selectors passed for malformed cmap structures, exact cmap body work, post name references, and canonical four-part name ordering.
+- `Assert-FoundationPolicy -PolicyPath policy/foundation.json` passed, including the font semantic-interface and embedded negative selectors.
+- `Test-PolicyWorkingDirectory.ps1` passed the repository-root and foreign-working-directory policy branches.
+- PowerShell AST parsing passed, and all six new filesystem/FFI fixtures were rejected while `max_cmap_records` remained accepted.
+- Pinned `moonfmt.exe` equality passed for both modified MoonBit files; canonical-only changes are recorded in `d86e75b1`.
+- `git diff --check` passed.
 
 ---
 
-_Fixed: 2026-07-27T01:02:05Z_
+_Fixed: 2026-07-27T02:02:48Z_
 _Fixer: the agent (gsd-code-fixer)_
 _Iteration: 1_
