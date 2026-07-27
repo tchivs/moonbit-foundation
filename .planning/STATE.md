@@ -2,44 +2,44 @@
 gsd_state_version: 1.0
 milestone: v0.32
 milestone_name: TrueType Font Foundation
-current_phase: 98
-current_phase_name: Unicode Mapping and Kerning
-status: verifying
-stopped_at: Completed 98-03-PLAN.md
-last_updated: "2026-07-27T07:20:26.265Z"
+current_phase: 99
+current_phase_name: Simple and Composite Outlines
+status: planning
+stopped_at: Phase 98 complete, ready to discuss Phase 99
+last_updated: "2026-07-27T09:05:00.000Z"
 last_activity: 2026-07-27
-last_activity_desc: Completed Phase 98 Plan 03
+last_activity_desc: Phase 98 complete, transitioned to Phase 99
 progress:
-  total_phases: 2
+  total_phases: 4
   completed_phases: 2
   total_plans: 6
   completed_plans: 6
-current_plan: 3
-total_plans_in_phase: 3
+current_plan: 0
+total_plans_in_phase: 0
 ---
 
 # Project State
 
 ## Project Reference
 
-See `.planning/PROJECT.md` (updated 2026-07-27 after Phase 97 validation).
+See `.planning/PROJECT.md` (updated 2026-07-27 after Phase 98 validation).
 
 **Core value:** MoonBit developers can reuse stable, high-performance native infrastructure contracts instead of rebuilding incompatible foundations for every graphics, document, media, or automation product.
 
-**Current focus:** Phase 98 — Unicode Mapping and Kerning
+**Current focus:** Phase 99 — Simple and Composite Outlines
 
 ## Current Position
 
-Phase: 98 — Unicode Mapping and Kerning
-Plan: 3 of 3
-Status: Phase complete — ready for verification
-Last activity: 2026-07-27 — Completed quick task 260727-nip: normalize Phase 98 coverage verification kinds
+Phase: 99 — Simple and Composite Outlines
+Plan: Not started
+Status: Ready to plan
+Last activity: 2026-07-27 — Phase 98 complete, transitioned to Phase 99
 
 Progress: [██████████] 100% (2/4 phases; 6/6 completed plans)
 
 ## Milestone Metrics
 
-**Current milestone:** v0.32 has 4 planned phases; Phases 97-98 have completed all 6 planned implementation plans, FONT-02/FONT-04 are complete, and Phase 98 is ready for verification.
+**Current milestone:** v0.32 has 4 planned phases; Phases 97-98 have completed all 6 implementation plans and passed verification, deep review, security, and automated UAT. FONT-01, FONT-02, and FONT-04 are complete; Phase 99 is ready for discussion and planning.
 
 **Previous milestone:** v0.31 shipped SVG Numeric Boundary Unification across Phases 95-96; its detailed roadmap is archived at `.planning/milestones/v0.31-ROADMAP.md`.
 
@@ -78,7 +78,7 @@ None yet.
 
 - Phase 99 planning must freeze composite point attachment, phantom-point/`USE_MY_METRICS`, offset-scaling, and F2DOT14 evaluation rules before implementation.
 - Phase 100 planning must finalize licensed real-font specimen provenance, redistribution records, digests, inventories, and independent semantic facts.
-- Phase 98 scoped all-target font, interface, policy, and documentation checks pass; the full Required lane remains subject to the known Windows unscoped `mb-image/png` driver stall recorded in `.planning/WINDOWS.md`.
+- [Windows] The workspace-wide Required lane remains subject to the known unscoped `mb-image/png` driver stall recorded in `.planning/WINDOWS.md`; isolated Phase 98 font, interface, policy, and documentation gates all pass.
 
 ### Quick Tasks Completed
 
@@ -102,17 +102,17 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-07-27T07:20:26.249Z
-Stopped at: Completed 98-03-PLAN.md
+Last session: 2026-07-27T09:05:00.000Z
+Stopped at: Phase 98 complete, ready to discuss Phase 99
 Resume file: None
 
 ## Operator Next Steps
 
-- Run Phase 98 verification.
+- Discuss Phase 99 and freeze simple/composite outline semantics before planning.
 
 ## Performance Metrics
 
-Phase 97 completed all three plans and passed code review, security verification, canonical verification, automated UAT, and the Required quality lane.
+Phases 97-98 completed all six plans. Phase 98 passed final deep review, 19/19 security verification, 16/16 canonical verification, 9/9 automated UAT, and 65/65 isolated font tests on every supported target.
 
 **Per-Phase Metrics:**
 
@@ -120,6 +120,7 @@ Phase 97 completed all three plans and passed code review, security verification
 |-------|-------|-------|----------|
 | 97-100 | 3 | 121m | 40m |
 | 97 | 3 | 121m | 40m |
+| 98 | 3 | - | - |
 **Per-Plan Metrics:**
 
 | Plan | Duration | Tasks | Files |
