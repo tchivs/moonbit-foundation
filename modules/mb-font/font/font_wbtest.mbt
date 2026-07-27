@@ -284,7 +284,7 @@ test "outline max_work charges completed stages before transactional failure" {
     max_post_name_bytes=256UL,
     max_work=17UL,
   ).unwrap()
-  let budget = font_wb_open_budget()
+  let budget = font_wb_outline_budget()
   let before = budget.remaining().work()
   let ledger : OutlineWork = { used: 0UL }
   let error = font_decode_simple_outline(
@@ -570,7 +570,7 @@ test "outline rejects post-decode revision drift without path publication" {
   let font = Font::open(owner.view(), font_wb_limits(), font_wb_open_budget()).unwrap()
   let glyph = font.glyph_id(0UL).unwrap()
   let mut callback_count = 0
-  let result = font.outline_after_decode(glyph, font_wb_open_budget(), fn(
+  let result = font.outline_after_decode(glyph, font_wb_outline_budget(), fn(
     _path,
   ) {
     callback_count = callback_count + 1
@@ -634,7 +634,7 @@ test "outline generated zero and degenerate glyphs remain observable" {
   ).unwrap()
   inspect(
     zero
-    .outline(zero.glyph_id(0UL).unwrap(), font_wb_open_budget())
+    .outline(zero.glyph_id(0UL).unwrap(), font_wb_outline_budget())
     .unwrap()
     .length(),
     content="0",
@@ -647,7 +647,7 @@ test "outline generated zero and degenerate glyphs remain observable" {
     font_wb_open_budget(),
   ).unwrap()
   let path = degenerate
-    .outline(degenerate.glyph_id(0UL).unwrap(), font_wb_open_budget())
+    .outline(degenerate.glyph_id(0UL).unwrap(), font_wb_outline_budget())
     .unwrap()
   inspect(path.length(), content="2")
   inspect(path.get(0) is Some(@math.PathCommand::MoveTo(_)), content="true")
