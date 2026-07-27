@@ -16,7 +16,18 @@ MoonBit developers can reuse stable, high-performance native infrastructure cont
 
 **Validated:** Phase 100 passed 4/4 goal must-haves, 18/18 automated UAT deliverables, a clean deep code review, and 35/35 security threat checks. Fresh local runs passed 103/103 font tests on each of `js`, `wasm`, `wasm-gc`, and `native`; hosted GitHub Actions run `30297979654` passed the complete Required, focused font-qualification, POSIX containment, and experimental LLVM jobs on the exact implementation commit. Required diagnostics prove exit 0 with verified full-session termination, while focused evidence proves equal four-target semantics and complete 74-command outline assertions.
 
-**Next:** Start v0.33 by evaluating bounded TrueType container adapters, preserving the existing standalone-SFNT API and keeping CFF, shaping, discovery, hinting, and rasterization behind explicit future boundaries.
+**Next:** Deliver v0.33 bounded TrueType Collection adapters while preserving the existing standalone-SFNT API and keeping compressed containers, CFF, shaping, discovery, hinting, and rasterization behind explicit future boundaries.
+
+## Current Milestone: v0.33 TrueType Collection Adapters
+
+**Goal:** Let MoonBit library authors select and admit one supported TrueType face from bounded TTC/OTC bytes, then use the existing metrics, mapping, kerning, and outline contracts unchanged.
+
+**Target features:**
+
+- Parse and validate bounded TTC/OTC collection headers, face directories, and caller-selected face indices without ambient I/O.
+- Reuse the existing atomic TrueType admission transaction through an offset-aware, no-copy adapter while preserving mutation, budget, limit, and structured-error guarantees.
+- Reject unsupported CFF/CFF2 faces and malformed or resource-exhausting collections before publishing a partial collection or font.
+- Qualify generated and licensed collection fixtures, hostile cases, standalone-SFNT compatibility, and identical behavior on `js`, `wasm`, `wasm-gc`, and `native`.
 
 ## Latest Milestone: v0.32 TrueType Font Foundation
 
@@ -28,20 +39,14 @@ MoonBit developers can reuse stable, high-performance native infrastructure cont
 - Expose checked font metrics, Unicode `cmap` resolution, simple/composite `glyf` outlines, and basic legacy `kern` pair adjustments through a portable MoonBit API.
 - Qualify malformed-input rejection, deterministic public behavior, representative real-font interoperability, and identical execution on `js`, `wasm`, `wasm-gc`, and `native`.
 
-## Next Milestone Goals
-
-The leading v0.33 direction is **Font Container Adapters**:
-
-- Admit bounded container bytes without weakening the existing standalone TrueType admission transaction.
-- Prioritize container formats that can deliver the already supported TrueType outline profile through a narrow adapter boundary.
-- Preserve `mb-font -> mb-core` as the only public runtime dependency and retain identical behavior on all four targets.
-- Keep CFF/CFF2 outlines, variation instantiation, shaping, discovery, hinting, rasterization, and ambient filesystem access out of scope unless research proves a separate RFC and milestone are required.
-
 ## Requirements
 
 ### Active
 
-(None — define the next active requirements during the next milestone cycle.)
+- [ ] Library authors can inspect a bounded TTC/OTC container and select one in-range face without copying the complete font.
+- [ ] A selected `glyf`-based TrueType face exposes the existing `Font` metrics, Unicode mapping, kerning, and outline behavior unchanged.
+- [ ] Malformed collections, unsupported face profiles, mutation, exhausted limits, and exhausted budgets fail atomically with structured outcomes.
+- [ ] Maintainers can reproduce standalone and collection behavior with generated, licensed, hostile, and four-target evidence.
 
 ### Validated
 
@@ -249,4 +254,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update toolchain, compatibility, benchmark, and adoption context.
 
 ---
-*Last updated: 2026-07-28 after v0.32 milestone completion*
+*Last updated: 2026-07-28 after starting v0.33 milestone*

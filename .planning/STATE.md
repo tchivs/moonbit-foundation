@@ -1,21 +1,16 @@
 ---
 gsd_state_version: 1.0
-milestone: v0.32
-milestone_name: TrueType Font Foundation
-status: Awaiting next milestone
-stopped_at: v0.32 archived; ready to start v0.33
-last_updated: "2026-07-28T04:14:00+08:00"
+milestone: v0.33
+milestone_name: TrueType Collection Adapters
+status: planning
+last_updated: "2026-07-27T20:19:00.746Z"
 last_activity: 2026-07-28
-last_activity_desc: Milestone v0.32 completed and archived
 progress:
-  total_phases: 4
-  completed_phases: 4
-  total_plans: 16
-  completed_plans: 16
-current_phase: 100
-current_phase_name: Portable Font Qualification
-current_plan: 6
-total_plans_in_phase: 6
+  total_phases: 0
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
+  percent: 0
 ---
 
 # Project State
@@ -30,10 +25,10 @@ See `.planning/PROJECT.md` (updated 2026-07-28 after Phase 100 validation).
 
 ## Current Position
 
-Phase: Milestone v0.32 complete
+Phase: Not started (defining requirements)
 Plan: —
-Status: Awaiting next milestone
-Last activity: 2026-07-28 — Milestone v0.32 completed and archived
+Status: Defining requirements
+Last activity: 2026-07-28 — Milestone v0.33 started
 
 ## Milestone Metrics
 
