@@ -813,6 +813,16 @@ test "TTC-01 exact sharing and touching pass while every overlap conflict fails"
       100UL,
       4UL,
     ),
+    font_collection_test_pair_ttc(
+      name,
+      7UL,
+      96UL,
+      0UL,
+      name,
+      9UL,
+      96UL,
+      0UL,
+    ),
   ] {
     let owner = font_collection_test_owner(source)
     ignore(
@@ -901,6 +911,41 @@ test "TTC-01 exact sharing and touching pass while every overlap conflict fails"
     @error.ErrorCode::InvalidEncoding,
   )
   font_collection_test_assert_budget_unchanged(before, same_face_budget)
+  let duplicate_directory = font_collection_test_pair_ttc(
+    name,
+    7UL,
+    96UL,
+    4UL,
+    name,
+    9UL,
+    100UL,
+    4UL,
+  ).to_array()
+  font_collection_test_put_u32(duplicate_directory, 16, 32UL)
+  let duplicate_owner = font_collection_test_owner(
+    Bytes::from_array(duplicate_directory),
+  )
+  let duplicate_budget = font_collection_test_pair_budget(
+    248UL,
+    2UL,
+    80UL,
+    48UL,
+  )
+  let duplicate_before = duplicate_budget.remaining()
+  let duplicate_error = FontCollection::open(
+    duplicate_owner.view(),
+    font_collection_test_pair_limits(248UL, 48UL),
+    duplicate_budget,
+  ).unwrap_err()
+  font_collection_test_assert_error(
+    duplicate_error,
+    @error.ErrorCategory::Data,
+    @error.ErrorCode::InvalidEncoding,
+  )
+  font_collection_test_assert_budget_unchanged(
+    duplicate_before,
+    duplicate_budget,
+  )
 }
 
 ///|
@@ -977,6 +1022,50 @@ test "TTC-01 compact charge exact fit succeeds and every one-short is atomic" {
       @error.ErrorCategory::Resource,
       @error.ErrorCode::BudgetExceeded,
     )
+    font_collection_test_assert_budget_unchanged(before, budget)
+  }
+}
+
+///|
+test "TTC-01 declaration ceilings fail before dependent structural work" {
+  let source = font_collection_test_multi_ttc()
+  for item in [
+    (4UL, 3UL, 8UL, "max-faces"),
+    (5UL, 2UL, 8UL, "max-tables-per-face"),
+    (5UL, 3UL, 7UL, "max-table-records"),
+  ] {
+    let (faces, per_face, records, context) = item
+    let owner = font_collection_test_owner(source)
+    let budget = @budget.Budget::new(
+      @budget.ResourceLimits::new(
+        bytes=440UL,
+        allocations=2UL,
+        allocation_size=200UL,
+        width=0UL,
+        height=0UL,
+        pixels=0UL,
+        depth=0UL,
+        work=195UL,
+      ),
+    )
+    let before = budget.remaining()
+    let limits = FontCollectionLimits::new(
+      max_source_bytes=400UL,
+      max_faces=faces,
+      max_tables_per_face=per_face,
+      max_table_records=records,
+      max_dsig_records=1UL,
+      max_dsig_bytes=1UL,
+      max_retained_bookkeeping_bytes=440UL,
+      max_work=195UL,
+    ).unwrap()
+    let error = FontCollection::open(owner.view(), limits, budget).unwrap_err()
+    font_collection_test_assert_error(
+      error,
+      @error.ErrorCategory::Resource,
+      @error.ErrorCode::BudgetExceeded,
+    )
+    inspect(error.context() == Some(context), content="true")
     font_collection_test_assert_budget_unchanged(before, budget)
   }
 }

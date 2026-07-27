@@ -264,6 +264,451 @@ fn font_collection_directory_end(
 }
 
 ///|
+fn font_collection_directory_range(
+  source : @bytes.ByteView,
+  directory_start : UInt64,
+  table_count : UInt64,
+) -> Result[@checked.CheckedRange, @error.CoreError] {
+  let end = match
+    font_collection_directory_end(directory_start, table_count) {
+    Ok(value) => value
+    Err(error) => return Err(error)
+  }
+  if end > source.length() {
+    return Err(
+      font_collection_data_error(
+        "font-collection-directory-range",
+        source_offset=directory_start,
+        requested=end - directory_start,
+        limit=source.length(),
+      ),
+    )
+  }
+  match
+    @checked.CheckedRange::from_start_length(
+      directory_start,
+      end - directory_start,
+    ) {
+    Ok(value) => Ok(value)
+    Err(_) => Err(font_collection_data_error("font-collection-directory-range"))
+  }
+}
+
+///|
+fn font_collection_table_range(
+  source : @bytes.ByteView,
+  table_start : UInt64,
+  table_length : UInt64,
+) -> Result[@checked.CheckedRange, @error.CoreError] {
+  let root = match
+    @checked.CheckedRange::from_start_length(0UL, source.length()) {
+    Ok(value) => value
+    Err(_) => return Err(font_collection_data_error("font-collection-source-range"))
+  }
+  match root.subrange(table_start, table_length) {
+    Ok(value) => Ok(value)
+    Err(_) =>
+      Err(
+        font_collection_data_error(
+          "font-collection-table-range",
+          source_offset=table_start,
+          requested=table_length,
+          limit=source.length(),
+        ),
+      )
+  }
+}
+
+///|
+fn font_collection_table_record(
+  source : @bytes.ByteView,
+  face_index : UInt64,
+  table_index : UInt64,
+) -> Result[CollectionTableRecord, @error.CoreError] {
+  let directory_start = match
+    font_collection_directory_offset(source, face_index) {
+    Ok(value) => value
+    Err(error) => return Err(error)
+  }
+  let delta = match
+    font_collection_data_mul(
+      table_index,
+      16UL,
+      "font-collection-directory-record",
+    ) {
+    Ok(value) => value
+    Err(error) => return Err(error)
+  }
+  let record_start = match
+    font_collection_data_add(
+      directory_start,
+      12UL,
+      "font-collection-directory-record",
+    ) {
+    Ok(value) => value
+    Err(error) => return Err(error)
+  }
+  let record_offset = match
+    font_collection_data_add(
+      record_start,
+      delta,
+      "font-collection-directory-record",
+    ) {
+    Ok(value) => value
+    Err(error) => return Err(error)
+  }
+  let tag = match
+    font_collection_read_u32(
+      source,
+      record_offset,
+      "font-collection-table-tag",
+    ) {
+    Ok(value) => value
+    Err(error) => return Err(error)
+  }
+  let checksum = match
+    font_collection_read_u32(
+      source,
+      record_offset + 4UL,
+      "font-collection-table-checksum",
+    ) {
+    Ok(value) => value
+    Err(error) => return Err(error)
+  }
+  let start = match
+    font_collection_read_u32(
+      source,
+      record_offset + 8UL,
+      "font-collection-table-range",
+    ) {
+    Ok(value) => value
+    Err(error) => return Err(error)
+  }
+  let length = match
+    font_collection_read_u32(
+      source,
+      record_offset + 12UL,
+      "font-collection-table-range",
+    ) {
+    Ok(value) => value
+    Err(error) => return Err(error)
+  }
+  let range = match font_collection_table_range(source, start, length) {
+    Ok(value) => value
+    Err(error) => return Err(error)
+  }
+  Ok({
+    face_index,
+    tag,
+    checksum,
+    start: range.start(),
+    end: range.end(),
+    length,
+  })
+}
+
+///|
+fn font_collection_protected_count(
+  declaration : CollectionDeclarationFacts,
+) -> UInt64 {
+  let dsig_count = if declaration.dsig_present { 1UL } else { 0UL }
+  1UL + declaration.face_count + dsig_count
+}
+
+///|
+fn font_collection_protected_range_at(
+  source : @bytes.ByteView,
+  declaration : CollectionDeclarationFacts,
+  index : UInt64,
+) -> Result[CollectionProtectedRange, @error.CoreError] {
+  if index == 0UL {
+    return Ok({
+      start: 0UL,
+      end: declaration.header_end,
+      kind: 0UL,
+      owner: 0UL,
+    })
+  }
+  if index <= declaration.face_count {
+    let face_index = index - 1UL
+    let directory_start = match
+      font_collection_directory_offset(source, face_index) {
+      Ok(value) => value
+      Err(error) => return Err(error)
+    }
+    let table_count = match
+      font_collection_read_u16(
+        source,
+        directory_start + 4UL,
+        "font-collection-table-count",
+      ) {
+      Ok(value) => value
+      Err(error) => return Err(error)
+    }
+    let range = match
+      font_collection_directory_range(source, directory_start, table_count) {
+      Ok(value) => value
+      Err(error) => return Err(error)
+    }
+    return Ok({
+      start: range.start(),
+      end: range.end(),
+      kind: 1UL,
+      owner: face_index,
+    })
+  }
+  if declaration.dsig_present && index == declaration.face_count + 1UL {
+    return Ok({
+      start: declaration.dsig_start,
+      end: declaration.dsig_end,
+      kind: 2UL,
+      owner: 0UL,
+    })
+  }
+  Err(font_collection_data_error("font-collection-protected-index"))
+}
+
+///|
+fn font_collection_validate_protected_ranges(
+  source : @bytes.ByteView,
+  declaration : CollectionDeclarationFacts,
+) -> Result[Unit, @error.CoreError] {
+  let count = font_collection_protected_count(declaration)
+  let mut current_index = 0UL
+  while current_index < count {
+    let current = match
+      font_collection_protected_range_at(
+        source,
+        declaration,
+        current_index,
+      ) {
+      Ok(value) => value
+      Err(error) => return Err(error)
+    }
+    let mut earlier_index = 0UL
+    while earlier_index < current_index {
+      let earlier = match
+        font_collection_protected_range_at(
+          source,
+          declaration,
+          earlier_index,
+        ) {
+        Ok(value) => value
+        Err(error) => return Err(error)
+      }
+      if font_collection_ranges_overlap(
+        current.start,
+        current.end,
+        earlier.start,
+        earlier.end,
+      ) {
+        return Err(
+          font_collection_data_error(
+            "font-collection-protected-overlap",
+            source_offset=current.start,
+            requested=current.end - current.start,
+          ),
+        )
+      }
+      earlier_index = earlier_index + 1UL
+    }
+    current_index = current_index + 1UL
+  }
+  Ok(())
+}
+
+///|
+fn font_collection_validate_table_protected_ranges(
+  source : @bytes.ByteView,
+  declaration : CollectionDeclarationFacts,
+) -> Result[Unit, @error.CoreError] {
+  let protected_count = font_collection_protected_count(declaration)
+  let mut face_index = 0UL
+  while face_index < declaration.face_count {
+    let directory_start = match
+      font_collection_directory_offset(source, face_index) {
+      Ok(value) => value
+      Err(error) => return Err(error)
+    }
+    let table_count = match
+      font_collection_read_u16(
+        source,
+        directory_start + 4UL,
+        "font-collection-table-count",
+      ) {
+      Ok(value) => value
+      Err(error) => return Err(error)
+    }
+    let mut table_index = 0UL
+    while table_index < table_count {
+      let record = match
+        font_collection_table_record(source, face_index, table_index) {
+        Ok(value) => value
+        Err(error) => return Err(error)
+      }
+      if record.length > 0UL {
+        let mut protected_index = 0UL
+        while protected_index < protected_count {
+          let protected_range = match
+            font_collection_protected_range_at(
+              source,
+              declaration,
+              protected_index,
+            ) {
+            Ok(value) => value
+            Err(error) => return Err(error)
+          }
+          if font_collection_ranges_overlap(
+            record.start,
+            record.end,
+            protected_range.start,
+            protected_range.end,
+          ) {
+            return Err(
+              font_collection_data_error(
+                "font-collection-table-protected-overlap",
+                source_offset=record.start,
+                requested=record.length,
+              ),
+            )
+          }
+          protected_index = protected_index + 1UL
+        }
+      }
+      table_index = table_index + 1UL
+    }
+    face_index = face_index + 1UL
+  }
+  Ok(())
+}
+
+///|
+fn font_collection_validate_record_pair(
+  earlier : CollectionTableRecord,
+  current : CollectionTableRecord,
+) -> Result[Unit, @error.CoreError] {
+  if earlier.length == 0UL || current.length == 0UL {
+    return Ok(())
+  }
+  if !font_collection_ranges_overlap(
+    earlier.start,
+    earlier.end,
+    current.start,
+    current.end,
+  ) {
+    return Ok(())
+  }
+  if earlier.face_index == current.face_index {
+    return Err(
+      font_collection_data_error(
+        "font-collection-same-face-overlap",
+        source_offset=current.start,
+        requested=current.length,
+      ),
+    )
+  }
+  let exact_range = earlier.start == current.start &&
+    earlier.end == current.end
+  let exact_metadata = earlier.tag == current.tag &&
+    earlier.length == current.length &&
+    earlier.checksum == current.checksum
+  if exact_range && exact_metadata {
+    Ok(())
+  } else {
+    Err(
+      font_collection_data_error(
+        if exact_range {
+          "font-collection-shared-metadata"
+        } else {
+          "font-collection-cross-face-overlap"
+        },
+        source_offset=current.start,
+        requested=current.length,
+      ),
+    )
+  }
+}
+
+///|
+fn font_collection_validate_aliases(
+  source : @bytes.ByteView,
+  declaration : CollectionDeclarationFacts,
+) -> Result[Unit, @error.CoreError] {
+  let mut current_face = 0UL
+  while current_face < declaration.face_count {
+    let current_directory = match
+      font_collection_directory_offset(source, current_face) {
+      Ok(value) => value
+      Err(error) => return Err(error)
+    }
+    let current_count = match
+      font_collection_read_u16(
+        source,
+        current_directory + 4UL,
+        "font-collection-table-count",
+      ) {
+      Ok(value) => value
+      Err(error) => return Err(error)
+    }
+    let mut current_table = 0UL
+    while current_table < current_count {
+      let current = match
+        font_collection_table_record(
+          source,
+          current_face,
+          current_table,
+        ) {
+        Ok(value) => value
+        Err(error) => return Err(error)
+      }
+      let mut earlier_face = 0UL
+      while earlier_face <= current_face {
+        let earlier_directory = match
+          font_collection_directory_offset(source, earlier_face) {
+          Ok(value) => value
+          Err(error) => return Err(error)
+        }
+        let earlier_count = match
+          font_collection_read_u16(
+            source,
+            earlier_directory + 4UL,
+            "font-collection-table-count",
+          ) {
+          Ok(value) => value
+          Err(error) => return Err(error)
+        }
+        let stop = if earlier_face == current_face {
+          current_table
+        } else {
+          earlier_count
+        }
+        let mut earlier_table = 0UL
+        while earlier_table < stop {
+          let earlier = match
+            font_collection_table_record(
+              source,
+              earlier_face,
+              earlier_table,
+            ) {
+            Ok(value) => value
+            Err(error) => return Err(error)
+          }
+          match font_collection_validate_record_pair(earlier, current) {
+            Ok(_) => ()
+            Err(error) => return Err(error)
+          }
+          earlier_table = earlier_table + 1UL
+        }
+        earlier_face = earlier_face + 1UL
+      }
+      current_table = current_table + 1UL
+    }
+    current_face = current_face + 1UL
+  }
+  Ok(())
+}
+
+///|
 fn font_collection_declaration_facts(
   source : @bytes.ByteView,
   limits : FontCollectionLimits,
@@ -1155,6 +1600,19 @@ fn font_collection_parse(
     }
     ignore(face)
     face_index = face_index + 1UL
+  }
+  match font_collection_validate_protected_ranges(source, declaration) {
+    Ok(_) => ()
+    Err(error) => return Err(error)
+  }
+  match
+    font_collection_validate_table_protected_ranges(source, declaration) {
+    Ok(_) => ()
+    Err(error) => return Err(error)
+  }
+  match font_collection_validate_aliases(source, declaration) {
+    Ok(_) => ()
+    Err(error) => return Err(error)
   }
   let charge = match
     font_collection_retained_charge(
