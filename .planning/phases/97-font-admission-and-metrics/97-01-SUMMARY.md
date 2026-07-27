@@ -42,17 +42,38 @@ key-decisions:
   - "Unsupported containers and deferred profiles return capability errors; malformed supported TrueType data returns data errors."
 requirements-completed: [FONT-01]
 coverage:
-  - deliverable: portable font contract
-    result: pass
-    evidence: "moon -C modules/mb-font test --target all --frozen"
+  - id: D1
+    description: "`tchivs/mb-font` is a portable, independently consumable module with an opaque Font, explicit FontLimits, checked standalone TrueType admission, and units-per-em access."
+    requirement: FONT-01
+    verification:
+      - kind: integration
+        ref: "moon -C modules/mb-font test --target all --frozen"
+        status: pass
+      - kind: integration
+        ref: "moon -C modules/mb-font info --target all --frozen"
+        status: pass
     human_judgment: false
-  - deliverable: generated standalone TrueType opens and reports units-per-em
-    result: pass
-    evidence: "font_test.mbt generated standalone TrueType tracer"
+  - id: D2
+    description: "A generated checksum-correct standalone TrueType font opens successfully and reports its exact units-per-em value."
+    requirement: FONT-01
+    verification:
+      - kind: unit
+        ref: "modules/mb-font/font/font_test.mbt#generated standalone TrueType opens and returns exact units per em"
+        status: pass
+      - kind: integration
+        ref: "moon -C modules/mb-font test --target all --frozen"
+        status: pass
     human_judgment: false
-  - deliverable: malformed, unsupported, over-limit, over-budget, and mutated inputs fail closed
-    result: pass
-    evidence: "font_test.mbt and font_wbtest.mbt boundary suites"
+  - id: D3
+    description: "Malformed, unsupported, over-limit, over-budget, and retained-source-mutated inputs fail closed deterministically without partial budget mutation."
+    requirement: FONT-01
+    verification:
+      - kind: unit
+        ref: "modules/mb-font/font/font_test.mbt and modules/mb-font/font/font_wbtest.mbt boundary suites"
+        status: pass
+      - kind: integration
+        ref: "moon -C modules/mb-font test --target all --frozen"
+        status: pass
     human_judgment: false
 duration: 39min
 completed: 2026-07-26
