@@ -91,6 +91,62 @@ function Write-FontQualificationJson {
   [IO.File]::WriteAllText($Path, $json, $Utf8NoBom)
 }
 
+function Assert-FontQualificationEvidencePathHasNoLinks {
+  param(
+    [Parameter(Mandatory)][string]$Directory,
+    [Parameter(Mandatory)][string]$ManagedRoot
+  )
+
+  $canonicalRoot = [IO.Path]::GetFullPath($ManagedRoot).TrimEnd(
+    [IO.Path]::DirectorySeparatorChar,
+    [IO.Path]::AltDirectorySeparatorChar
+  )
+  $candidate = [IO.Path]::GetFullPath($Directory).TrimEnd(
+    [IO.Path]::DirectorySeparatorChar,
+    [IO.Path]::AltDirectorySeparatorChar
+  )
+  $prefix = $canonicalRoot + [IO.Path]::DirectorySeparatorChar
+  $comparison = if ([OperatingSystem]::IsWindows()) {
+    [StringComparison]::OrdinalIgnoreCase
+  } else {
+    [StringComparison]::Ordinal
+  }
+  if ($candidate -cne $canonicalRoot -and
+      -not $candidate.StartsWith($prefix, $comparison)) {
+    throw "EvidenceDirectory must be contained by '$canonicalRoot'."
+  }
+
+  $components = [Collections.Generic.List[string]]::new()
+  $components.Add($canonicalRoot)
+  $relative = [IO.Path]::GetRelativePath($canonicalRoot, $candidate)
+  if ($relative -cne '.') {
+    $current = $canonicalRoot
+    foreach ($segment in $relative.Split(
+      [char[]]@(
+        [IO.Path]::DirectorySeparatorChar,
+        [IO.Path]::AltDirectorySeparatorChar
+      ),
+      [StringSplitOptions]::RemoveEmptyEntries
+    )) {
+      $current = Join-Path $current $segment
+      $components.Add($current)
+    }
+  }
+
+  foreach ($component in $components) {
+    $item = Get-Item -Force -LiteralPath $component -ErrorAction SilentlyContinue
+    if ($null -eq $item) {
+      break
+    }
+    if (($item.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) {
+      throw "EvidenceDirectory must not traverse a link or reparse point: '$component'."
+    }
+    if (-not $item.PSIsContainer) {
+      throw "EvidenceDirectory component is not a directory: '$component'."
+    }
+  }
+}
+
 function Resolve-FontQualificationEvidencePath {
   param(
     [Parameter(Mandatory)][string]$EvidenceDirectory,
@@ -116,6 +172,9 @@ function Resolve-FontQualificationEvidencePath {
   if (-not $candidate.StartsWith($prefix, $comparison)) {
     throw "EvidenceDirectory must be a child of '$canonicalRoot'."
   }
+  Assert-FontQualificationEvidencePathHasNoLinks `
+    -Directory $candidate `
+    -ManagedRoot $canonicalRoot
   return $candidate
 }
 
@@ -142,13 +201,25 @@ function Assert-FontQualificationEvidenceMarker {
 }
 
 function Initialize-FontQualificationEvidenceDirectory {
-  param([Parameter(Mandatory)][string]$Directory)
+  param(
+    [Parameter(Mandatory)][string]$Directory,
+    [Parameter(Mandatory)][string]$ManagedRoot
+  )
 
+  Assert-FontQualificationEvidencePathHasNoLinks `
+    -Directory $Directory `
+    -ManagedRoot $ManagedRoot
   if (-not (Test-Path -LiteralPath $Directory -PathType Container)) {
     [void](New-Item -ItemType Directory -Path $Directory)
   }
+  Assert-FontQualificationEvidencePathHasNoLinks `
+    -Directory $Directory `
+    -ManagedRoot $ManagedRoot
   $markerPath = Join-Path $Directory $EvidenceMarkerName
   if (Test-Path -LiteralPath $markerPath) {
+    Assert-FontQualificationEvidencePathHasNoLinks `
+      -Directory $Directory `
+      -ManagedRoot $ManagedRoot
     Assert-FontQualificationEvidenceMarker $Directory
     return
   }
@@ -157,6 +228,9 @@ function Initialize-FontQualificationEvidenceDirectory {
       "Refusing non-empty unowned font qualification evidence directory '$Directory'."
     )
   }
+  Assert-FontQualificationEvidencePathHasNoLinks `
+    -Directory $Directory `
+    -ManagedRoot $ManagedRoot
   Write-FontQualificationJson $markerPath ([pscustomobject][ordered]@{
     schema = $EvidenceMarkerSchema
     workflow_id = 'font-complete-public-v1'
@@ -164,10 +238,19 @@ function Initialize-FontQualificationEvidenceDirectory {
 }
 
 function Clear-FontQualificationEvidenceFiles {
-  param([Parameter(Mandatory)][string]$Directory)
+  param(
+    [Parameter(Mandatory)][string]$Directory,
+    [Parameter(Mandatory)][string]$ManagedRoot
+  )
 
+  Assert-FontQualificationEvidencePathHasNoLinks `
+    -Directory $Directory `
+    -ManagedRoot $ManagedRoot
   Assert-FontQualificationEvidenceMarker $Directory
   foreach ($evidenceName in @($Targets | ForEach-Object { "$_.json" }) + 'comparison.json') {
+    Assert-FontQualificationEvidencePathHasNoLinks `
+      -Directory $Directory `
+      -ManagedRoot $ManagedRoot
     $staleEvidence = Join-Path $Directory $evidenceName
     if (Test-Path -LiteralPath $staleEvidence -PathType Leaf) {
       Remove-Item -LiteralPath $staleEvidence -Force
@@ -657,7 +740,9 @@ $resolvedEvidence = Resolve-FontQualificationEvidencePath `
   -EvidenceDirectory $EvidenceDirectory `
   -ManagedRoot $managedEvidenceRoot `
   -RepositoryRoot $RepositoryRoot
-Initialize-FontQualificationEvidenceDirectory $resolvedEvidence
+Initialize-FontQualificationEvidenceDirectory `
+  -Directory $resolvedEvidence `
+  -ManagedRoot $managedEvidenceRoot
 
 Push-Location $RepositoryRoot
 try {
@@ -669,7 +754,9 @@ try {
   . ./scripts/quality/Assert-Policy.ps1
   Assert-FontFoundationPolicy -PolicyPath ./policy/foundation.json
 
-  Clear-FontQualificationEvidenceFiles $resolvedEvidence
+  Clear-FontQualificationEvidenceFiles `
+    -Directory $resolvedEvidence `
+    -ManagedRoot $managedEvidenceRoot
 
   $oracle = Get-Content -Raw -LiteralPath (
     'fixtures/font/dejavu-sans-2.37/oracle.json'

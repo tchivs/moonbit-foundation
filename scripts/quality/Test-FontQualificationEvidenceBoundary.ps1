@@ -12,6 +12,7 @@ $testRoot = Join-Path $temporaryBase (
 )
 $managedRoot = Join-Path $testRoot 'managed'
 $outsideRoot = Join-Path $testRoot 'caller-owned'
+$linkPath = $null
 
 function Assert-Rejected {
   param(
@@ -57,19 +58,25 @@ try {
   $unownedJson = Join-Path $unowned 'native.json'
   [IO.File]::WriteAllText($unownedJson, 'caller-owned')
   Assert-Rejected {
-    Initialize-FontQualificationEvidenceDirectory $unowned
+    Initialize-FontQualificationEvidenceDirectory `
+      -Directory $unowned `
+      -ManagedRoot $managedRoot
   } 'non-empty unowned'
   if ([IO.File]::ReadAllText($unownedJson) -cne 'caller-owned') {
     throw 'Unowned managed-subtree evidence was mutated.'
   }
 
   $owned = Join-Path $managedRoot 'owned'
-  Initialize-FontQualificationEvidenceDirectory $owned
+  Initialize-FontQualificationEvidenceDirectory `
+    -Directory $owned `
+    -ManagedRoot $managedRoot
   $ownedKnown = Join-Path $owned 'js.json'
   $ownedUnrelated = Join-Path $owned 'notes.json'
   [IO.File]::WriteAllText($ownedKnown, 'stale evidence')
   [IO.File]::WriteAllText($ownedUnrelated, 'preserve me')
-  Clear-FontQualificationEvidenceFiles $owned
+  Clear-FontQualificationEvidenceFiles `
+    -Directory $owned `
+    -ManagedRoot $managedRoot
   if (Test-Path -LiteralPath $ownedKnown) {
     throw 'Known stale evidence was not removed from an owned directory.'
   }
@@ -81,14 +88,51 @@ try {
   [IO.File]::WriteAllText($markerPath, '{"schema":"wrong","workflow_id":"wrong"}')
   [IO.File]::WriteAllText($ownedKnown, 'preserve after marker corruption')
   Assert-Rejected {
-    Clear-FontQualificationEvidenceFiles $owned
+    Clear-FontQualificationEvidenceFiles `
+      -Directory $owned `
+      -ManagedRoot $managedRoot
   } 'marker is invalid'
   if ([IO.File]::ReadAllText($ownedKnown) -cne 'preserve after marker corruption') {
     throw 'Cleanup ran after ownership-marker validation failed.'
   }
 
+  $linkedOutside = Join-Path $outsideRoot 'linked-target'
+  [void](New-Item -ItemType Directory -Path $linkedOutside)
+  Write-FontQualificationJson `
+    -Path (Join-Path $linkedOutside $EvidenceMarkerName) `
+    -Value ([pscustomobject][ordered]@{
+      schema = $EvidenceMarkerSchema
+      workflow_id = 'font-complete-public-v1'
+    })
+  $linkedOutsideJson = Join-Path $linkedOutside 'js.json'
+  [IO.File]::WriteAllText($linkedOutsideJson, 'outside caller-owned evidence')
+  $linkPath = Join-Path $managedRoot 'linked-evidence'
+  if ([OperatingSystem]::IsWindows()) {
+    [void](New-Item -ItemType Junction -Path $linkPath -Target $linkedOutside)
+  } else {
+    [void](New-Item -ItemType SymbolicLink -Path $linkPath -Target $linkedOutside)
+  }
+  Assert-Rejected {
+    $linked = Resolve-FontQualificationEvidencePath `
+      -EvidenceDirectory $linkPath `
+      -ManagedRoot $managedRoot `
+      -RepositoryRoot $testRoot
+    Initialize-FontQualificationEvidenceDirectory `
+      -Directory $linked `
+      -ManagedRoot $managedRoot
+    Clear-FontQualificationEvidenceFiles `
+      -Directory $linked `
+      -ManagedRoot $managedRoot
+  } 'link or reparse point'
+  if ([IO.File]::ReadAllText($linkedOutsideJson) -cne 'outside caller-owned evidence') {
+    throw 'Rejected linked evidence cleanup mutated the outside js.json.'
+  }
+
   Write-Host 'PASS: font qualification evidence destructive boundaries'
 } finally {
+  if ($null -ne $linkPath -and (Test-Path -LiteralPath $linkPath)) {
+    Remove-Item -LiteralPath $linkPath -Force
+  }
   $resolvedTestRoot = [IO.Path]::GetFullPath($testRoot)
   $requiredPrefix = $temporaryBase + [IO.Path]::DirectorySeparatorChar
   if ($resolvedTestRoot.StartsWith($requiredPrefix, [StringComparison]::OrdinalIgnoreCase) -and
