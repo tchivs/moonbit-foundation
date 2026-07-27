@@ -1318,6 +1318,49 @@ function Assert-QualityWorkflowToolchainTransport {
     ) "Pinned MoonBit binary identity drifted: '$requiredValue'."
   }
 
+  $identityCapture = [regex]::Matches(
+    $InstallerText,
+    '(?ms)^\s*\$output\s*=\s*@\(\s*\r?\n\s*switch\s*\(\$Name\)\s*\{'
+  )
+  Assert-Condition ($identityCapture.Count -eq 1) (
+    'Pinned MoonBit identity output must use one outer array capture.'
+  )
+  $chmodScope = [regex]::Match(
+    $InstallerText,
+    '(?ms)^\s*\$verifiedBinaryPaths\s*=\s*@\(\s*(?<body>.*?)^\s*\)\s*$'
+  )
+  Assert-Condition $chmodScope.Success (
+    'Pinned MoonBit executable permission scope is missing.'
+  )
+  $chmodNames = @(
+    [regex]::Matches(
+      $chmodScope.Groups['body'].Value,
+      "\`$binaryPaths\['([^']+)'\]"
+    ) | ForEach-Object { $_.Groups[1].Value }
+  )
+  Assert-ExactSequence `
+    'Pinned MoonBit executable permission scope' `
+    $chmodNames `
+    @('moon', 'moonc', 'moonrun')
+  Assert-Condition (
+    ([regex]::Matches(
+      $InstallerText,
+      [regex]::Escape(
+        "& `$chmodCommand.Source 'a+x' '--' @verifiedBinaryPaths"
+      )
+    )).Count -eq 1
+  ) 'Pinned MoonBit installer must chmod exactly the verified binary scope.'
+  Assert-Condition (
+    $InstallerText.Contains(
+      '[IO.File]::GetUnixFileMode($path)',
+      [StringComparison]::Ordinal
+    ) -and
+    $InstallerText.Contains(
+      "throw `"P08-TOOLCHAIN-BINARY-MODE: '`$path' is not executable.`"",
+      [StringComparison]::Ordinal
+    )
+  ) 'Pinned MoonBit installer must verify executable mode bits.'
+
   $toolchainArchiveCheck = $InstallerText.IndexOf(
     'Assert-PinnedArchive -Path $toolchainPath',
     [StringComparison]::Ordinal
@@ -1334,6 +1377,18 @@ function Assert-QualityWorkflowToolchainTransport {
     'foreach ($name in $BinaryHashes.Keys)',
     [StringComparison]::Ordinal
   )
+  $chmodScopeIndex = $InstallerText.IndexOf(
+    '$verifiedBinaryPaths = @(',
+    [StringComparison]::Ordinal
+  )
+  $chmodInvocation = $InstallerText.IndexOf(
+    "& `$chmodCommand.Source 'a+x' '--' @verifiedBinaryPaths",
+    [StringComparison]::Ordinal
+  )
+  $executeVerification = $InstallerText.IndexOf(
+    '[IO.File]::GetUnixFileMode($path)',
+    [StringComparison]::Ordinal
+  )
   $binaryIdentityCheck = $InstallerText.IndexOf(
     'foreach ($name in $BinaryIdentities.Keys)',
     [StringComparison]::Ordinal
@@ -1347,11 +1402,15 @@ function Assert-QualityWorkflowToolchainTransport {
     $coreArchiveCheck -gt $toolchainArchiveCheck -and
     $toolchainExtraction -gt $coreArchiveCheck -and
     $binaryDigestCheck -gt $toolchainExtraction -and
-    $binaryIdentityCheck -gt $binaryDigestCheck -and
+    $chmodScopeIndex -gt $binaryDigestCheck -and
+    $chmodInvocation -gt $chmodScopeIndex -and
+    $executeVerification -gt $chmodInvocation -and
+    $binaryIdentityCheck -gt $executeVerification -and
     $coreExtraction -gt $binaryIdentityCheck
   ) (
     'Pinned MoonBit installer must authenticate both archives before ' +
-    'extraction, verify binaries before execution, and bundle core last.'
+    'extraction, hash binaries before scoped chmod, verify execute bits, ' +
+    'capture identity output as an array, and bundle core last.'
   )
 }
 

@@ -133,4 +133,47 @@ Invoke-WorkflowPolicyCase `
   -ShouldPass $false `
   -ExpectedFailurePattern 'bundle core last'
 
+Invoke-WorkflowPolicyCase `
+  -Name 'chmod scope is exactly three verified binaries' `
+  -Arrange {
+    param($state)
+    $state.Installer = $state.Installer.Replace(
+      "    `$binaryPaths['moonrun']`n",
+      (
+        "    `$binaryPaths['moonrun'],`n" +
+        "    `$binaryPaths['moonfmt']`n"
+      )
+    )
+  } `
+  -ShouldPass $false `
+  -ExpectedFailurePattern 'executable permission scope'
+
+Invoke-WorkflowPolicyCase `
+  -Name 'chmod cannot precede binary digests' `
+  -Arrange {
+    param($state)
+    $chmodLine = (
+      "  & `$chmodCommand.Source 'a+x' '--' @verifiedBinaryPaths`n"
+    )
+    $state.Installer = $state.Installer.Replace($chmodLine, '')
+    $state.Installer = $state.Installer.Replace(
+      "  `$binaryPaths = [ordered]@{}`n",
+      ($chmodLine + "  `$binaryPaths = [ordered]@{}`n")
+    )
+  } `
+  -ShouldPass $false `
+  -ExpectedFailurePattern 'hash binaries before scoped chmod'
+
+Invoke-WorkflowPolicyCase `
+  -Name 'identity output requires outer array capture' `
+  -Arrange {
+    param($state)
+    $state.Installer = $state.Installer.Replace(
+      "  `$output = @(`n    switch (`$Name) {",
+      "  `$output = (`n    switch (`$Name) {"
+    )
+  } `
+  -ShouldPass $false `
+  -ExpectedFailurePattern 'outer array capture'
+
 Write-Host 'Quality workflow content-addressed toolchain policy matrix passed.'

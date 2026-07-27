@@ -101,12 +101,14 @@ function Get-PinnedBinaryIdentity {
     [Parameter(Mandatory)][string]$Path
   )
 
-  $output = switch ($Name) {
-    'moon' { @(& $Path version) }
-    'moonc' { @(& $Path -v) }
-    'moonrun' { @(& $Path --version) }
-    default { throw "Unexpected pinned MoonBit binary '$Name'." }
-  }
+  $output = @(
+    switch ($Name) {
+      'moon' { & $Path version }
+      'moonc' { & $Path -v }
+      'moonrun' { & $Path --version }
+      default { throw "Unexpected pinned MoonBit binary '$Name'." }
+    }
+  )
   if ($LASTEXITCODE -ne 0 -or $output.Count -eq 0) {
     throw "P08-TOOLCHAIN-IDENTITY: '$Name' did not report its identity."
   }
@@ -127,6 +129,9 @@ if ([Runtime.InteropServices.RuntimeInformation]::OSArchitecture -ne
 
 $tarCommand = @(
   Get-Command tar -CommandType Application -ErrorAction Stop
+)[0]
+$chmodCommand = @(
+  Get-Command chmod -CommandType Application -ErrorAction Stop
 )[0]
 $temporaryBase = [IO.Path]::GetFullPath([IO.Path]::GetTempPath()).TrimEnd(
   [IO.Path]::DirectorySeparatorChar
@@ -182,6 +187,26 @@ try {
       )
     }
     $binaryPaths[$name] = $path
+  }
+  $verifiedBinaryPaths = @(
+    $binaryPaths['moon'],
+    $binaryPaths['moonc'],
+    $binaryPaths['moonrun']
+  )
+  & $chmodCommand.Source 'a+x' '--' @verifiedBinaryPaths
+  if ($LASTEXITCODE -ne 0) {
+    throw 'P08-TOOLCHAIN-BINARY-MODE: chmod a+x failed.'
+  }
+  $executeMask = (
+    [IO.UnixFileMode]::UserExecute -bor
+    [IO.UnixFileMode]::GroupExecute -bor
+    [IO.UnixFileMode]::OtherExecute
+  )
+  foreach ($path in $verifiedBinaryPaths) {
+    $mode = [IO.File]::GetUnixFileMode($path)
+    if (($mode -band $executeMask) -ne $executeMask) {
+      throw "P08-TOOLCHAIN-BINARY-MODE: '$path' is not executable."
+    }
   }
   foreach ($name in $BinaryIdentities.Keys) {
     $actualIdentity = Get-PinnedBinaryIdentity `
