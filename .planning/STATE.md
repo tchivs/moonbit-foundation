@@ -33,7 +33,7 @@ See `.planning/PROJECT.md` (updated 2026-07-27 after Phase 97 validation).
 Phase: 98 — Unicode Mapping and Kerning
 Plan: 3 of 3
 Status: Phase complete — ready for verification
-Last activity: 2026-07-27 — Completed quick task 260727-loc: deterministic Phase 98 post-read revision tests
+Last activity: 2026-07-27 — Completed quick task 260727-nip: normalize Phase 98 coverage verification kinds
 
 Progress: [██████████] 100% (2/4 phases; 6/6 completed plans)
 
@@ -90,6 +90,7 @@ None yet.
 | 260726-uhq | Scope image floating policy to audited typed color math | 2026-07-26 | d0afa0e | Verified | [260726-uhq-scope-the-image-floating-prohibition-to-](./quick/260726-uhq-scope-the-image-floating-prohibition-to-/) |
 | 260727-h6r | Normalize Phase 97 legacy coverage schema and close automated UAT | 2026-07-27 | b10f4263 | Complete | [260727-h6r-normalize-phase-97-legacy-coverage-schem](./quick/260727-h6r-normalize-phase-97-legacy-coverage-schem/) |
 | 260727-loc | Add deterministic mid-query revision drift tests for Phase 98 glyph and kerning post-read guards | 2026-07-27 | 96c09619 | Verified | [260727-loc-add-deterministic-mid-query-revision-dri](./quick/260727-loc-add-deterministic-mid-query-revision-dri/) |
+| 260727-nip | Normalize Phase 98 coverage verification kinds for automated UAT | 2026-07-27 | 456ce4bb | Complete | [260727-nip-normalize-phase-98-coverage-verification](./quick/260727-nip-normalize-phase-98-coverage-verification/) |
 
 ## Deferred Items
 
