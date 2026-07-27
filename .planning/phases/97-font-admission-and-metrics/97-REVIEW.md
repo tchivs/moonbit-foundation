@@ -1,7 +1,7 @@
 ---
 phase: 97-font-admission-and-metrics
-reviewed: 2026-07-26T22:22:18Z
-depth: standard
+reviewed: 2026-07-27T02:53:25Z
+depth: deep
 files_reviewed: 14
 files_reviewed_list:
   - modules/mb-font/CHANGELOG.md
@@ -19,103 +19,72 @@ files_reviewed_list:
   - policy/foundation.json
   - scripts/quality/Assert-Policy.ps1
 findings:
-  critical: 3
-  warning: 1
+  critical: 0
+  warning: 0
   info: 0
-  total: 4
-status: issues_found
+  total: 0
+status: clean
 ---
 
 # Phase 97: Code Review Report
 
-**Reviewed:** 2026-07-26T22:22:18Z
-**Depth:** standard
+**Reviewed:** 2026-07-27T02:53:25Z
+**Depth:** deep
 **Files Reviewed:** 14
-**Status:** issues_found
+**Status:** clean
 
 ## Summary
 
-The new font module establishes a narrow public surface and consistently uses checked table-local reads, but the trusted admission boundary is incomplete. The shared budget is consulted only after attacker-driven directory work and does not include later count-driven allocation/validation. In addition, malformed `cmap`, format-1 `name`, and version-2 `post` references can pass `Font::open` and be published as admitted facts. The policy selector also has a blind spot that can hide deferred capabilities added to the limits constructor.
+The exact original 14-file Phase 97 scope was reviewed at HEAD `9c6e450a`
+after fixes `d8d947ac`, `3d724111`, and `c2fcaa49`. No remaining correctness,
+security, or maintainability defect was found.
 
-The native test command did not complete within the 60-second review window and remained in native compilation, so no passing test result is claimed.
+The requested clean-gate repairs are effective:
+
+| Gate | Deep-review result |
+| --- | --- |
+| Terminal format-4 glyph validation | Direct and indexed terminal mappings now use the ordinary mapping formula, reject non-zero glyph IDs outside `maxp.numGlyphs`, and include the terminal span in aggregate work. |
+| Semantic cmap work preflights | Encoding-record discovery and each cumulative format-4 segment-discovery pass check both `FontLimits.max_work` and the shared `Budget` before entering the attacker-count-driven loop. |
+| Directory selector ledger | Directory search facts use a bounded selector helper, selector work is included in the shared directory total, and discovery preflight and final charge reuse that same total. |
+
+The broader admission call chain was also re-traced from `Font::open` through
+directory discovery and normalization, aggregate charge formation, checksum
+and profile validation, required-table admission, cmap/name/post envelopes,
+metric-index construction, retained-source revision checks, and public metric
+queries. Earlier fixes remain present: overlap and normalization work,
+directory and `loca` allocation ceilings, repeated lookup/table scans,
+format-4 and format-12 structural and glyph-cardinality validation, canonical
+cmap/name ordering, name-language and post-name domains, `head`
+`glyphDataFormat`, malformed-data classification, and pre-charge post-name
+limits.
+
+The independent policy selector still fails closed through its exact Phase 97
+interface allowlist. Constructor, snake-case, camel-case, acronym, compound
+filesystem/host/FFI, and deferred font-capability aliases are covered by
+negative probes, while production interface generation is rooted at
+`modules/mb-font`.
+
+The repository knowledge graph was indexed first. Its current extractor
+exposed file and documentation nodes for `mb-font` but no MoonBit function
+call edges, so the required MoonBit call-chain analysis was completed by full
+source inspection and targeted direct call-site tracing.
+
+Verification completed successfully:
+
+- `moon -C modules/mb-font check --target all --frozen --deny-warn` passed.
+- `moon -C modules/mb-font test --target all --frozen --deny-warn -p tchivs/mb-font/font` passed 39/39 tests on each of `wasm`, `wasm-gc`, `js`, and `native`.
+- `Assert-FontFoundationPolicy -PolicyPath .\policy\foundation.json` passed, including generated-interface and deferred-capability negative checks.
+- `policy/foundation.json` parsed as JSON and `Assert-Policy.ps1` parsed through the PowerShell AST without errors.
+- `git diff --check` passed for the exact review scope.
+
+All reviewed files meet the Phase 97 quality gate. No issues found.
 
 ## Narrative Findings (AI reviewer)
 
-### Critical Issues
-
-#### CR-01: Admission performs and undercharges attacker-driven work outside the authoritative budget
-
-**Classification:** BLOCKER
-
-**File:** `D:/AI-Data/temp/Admin/mnf-260726-sss-exec-118e99a5514745129bd6e2559fb7f13d/modules/mb-font/font/font.mbt:104-121`
-
-**Issue:** `Font::open` fully parses the directory before calling `Budget::charge`, so a budget that is known to be too small still permits the record scan and the construction of the directory arrays. The eventual charge declares `allocations=0` and derives `work` only as `source.length() * 2 + num_tables` (`directory.mbt:400-409`). After that charge, admission allocates `loca_offsets` (`metrics.mbt:110-150`) and performs glyph-, cmap-, and name-count-driven loops, including a full glyph-header pass (`metrics.mbt:422-431`), without charging those allocations or work. A caller can therefore supply an allocation budget of zero and only `2 * source bytes + table count` work yet successfully trigger all of these allocations and scans; the public exact-budget test at `font_test.mbt:917-936` currently codifies that undercharge. This bypasses the caller-owned authoritative resource boundary and leaves hostile input able to consume substantially more work and memory than the shared budget authorizes.
-
-**Fix:**
-
-Preflight the directory scan against `budget.remaining()` before entering any count-driven loop, then derive one checked aggregate charge that includes every later declared-count scan and retained array allocation. Commit that charge before allocating or iterating:
-
-```mbt
-let total_work = checked_directory_work
-  |> checked_add(num_glyphs)
-  |> checked_add(cmap_record_count)
-  |> checked_add(name_record_count)
-  |> checked_add(language_record_count)
-let index_bytes = checked_mul(num_glyphs + 1UL, 8UL)
-
-budget.charge(
-  @budget.ResourceCharge::new(
-    bytes=source.length(),
-    allocations=3UL,
-    allocation_size=index_bytes,
-    width=0UL,
-    height=0UL,
-    pixels=0UL,
-    work=total_work,
-  ),
-)
-```
-
-If the one-transaction contract prevents committing until all counts are known, add a non-mutating budget preflight helper or conservatively preflight each bounded discovery stage against `remaining()` before doing the work, while retaining one final atomic commit.
-
-#### CR-02: Malformed cmap records can point into the cmap header and still be admitted
-
-**Classification:** BLOCKER
-
-**File:** `D:/AI-Data/temp/Admin/mnf-260726-sss-exec-118e99a5514745129bd6e2559fb7f13d/modules/mb-font/font/tables.mbt:288-400`
-
-**Issue:** `font_admit_cmap_envelope` verifies only that a referenced offset has enough bytes to read a format and length and that the declared positive length ends within the table. It never requires the subtable to begin after the encoding-record array, never rejects a zero-record cmap, never restricts the format to a structurally supported format, and never verifies that the declared length is at least the format's own header. For a one-record cmap, setting the subtable offset to `0` makes the outer version bytes look like format 0 and the outer record count look like a declared subtable length of 1; `length != 0` and `end <= table.length_value` both pass. `Font::open` can therefore publish a malformed required cmap as admitted, breaking the invariant later cmap code is intended to rely on.
-
-**Fix:**
-
-Reject `record_count == 0`, require each subtable offset to be at least `records_end`, accept only explicitly supported structural formats, and validate a per-format minimum header length before accepting the checked subrange. Shared subtables may reuse the same valid checked range, but none may alias the cmap header or record directory.
-
-#### CR-03: Required name and post tables do not validate their referenced string envelopes
-
-**Classification:** BLOCKER
-
-**File:** `D:/AI-Data/temp/Admin/mnf-260726-sss-exec-118e99a5514745129bd6e2559fb7f13d/modules/mb-font/font/tables.mbt:404-555`
-
-**Issue:** Format-1 `name` admission checks that the language-tag record array fits before string storage, but it never reads each language-tag record's length/offset pair or proves that the referenced string lies within the table. A record with an out-of-range relative offset is accepted. Similarly, post version 2.0 admission verifies only the glyphNameIndex array size and treats every remaining byte as bounded custom-name data; it never validates glyph name indices or the Pascal-string sequence they reference. A glyphNameIndex of `0xFFFF` with no custom strings passes when the table ends immediately after the index array. These are malformed required tables, yet the public `Font` is published as fully admitted.
-
-**Fix:**
-
-For name format 1, iterate all language-tag records and checked-validate `storage + relative + length <= table.length_value`, just as ordinary name records are validated. For post 2.0, validate every glyphNameIndex and parse the required number of bounded Pascal strings, rejecting missing, truncated, or unreferenced malformed suffixes. For post 2.5 and fixed-size versions, enforce their version-specific exact envelope instead of treating arbitrary trailing bytes as custom-name storage.
-
-### Warnings
-
-#### WR-01: Deferred-capability policy scan skips the entire FontLimits constructor
-
-**Classification:** WARNING
-
-**File:** `D:/AI-Data/temp/Admin/mnf-260726-sss-exec-118e99a5514745129bd6e2559fb7f13d/scripts/quality/Assert-Policy.ps1:1053-1055`
-
-**Issue:** To permit `max_cmap_records`, the selector removes the whole `FontLimits::new` semantic-interface line from the deferred-capability scan. If a future policy and generated interface add a forbidden constructor parameter such as an outline, filesystem, or host-discovery option, the exact-interface comparison can still agree with the modified policy and this leak guard will not see the forbidden term. The gate therefore does not enforce its stated Phase 98+ boundary for one of the public API's most extensible lines.
-
-**Fix:** Scan the complete constructor after removing only the specifically allowed identifier, for example by replacing `max_cmap_records` with an empty string before applying `$deferredLeakPattern`. Add a negative fixture that injects a forbidden constructor parameter and proves the selector rejects it.
+No Critical, Warning, or Info findings remain in the reviewed scope.
 
 ---
 
-_Reviewed: 2026-07-26T22:22:18Z_
+_Reviewed: 2026-07-27T02:53:25Z_
 _Reviewer: the agent (gsd-code-reviewer)_
-_Depth: standard_
+_Depth: deep_
