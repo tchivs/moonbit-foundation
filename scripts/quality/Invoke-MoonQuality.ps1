@@ -3,7 +3,8 @@ param(
   [ValidateSet('Required', 'Qoi', 'Png', 'LlvmExperimental')][string]$Lane,
   [string]$EvidenceDirectory = 'artifacts/release-qualification/current',
   [switch]$CoreNarrowingSelfTest,
-  [switch]$ImageFloatingPolicySelfTest
+  [switch]$ImageFloatingPolicySelfTest,
+  [switch]$LibraryMode
 )
 
 Set-StrictMode -Version Latest
@@ -249,14 +250,20 @@ function Invoke-CoreNarrowingSelfTest {
 function Assert-GeneratedInterface {
   [CmdletBinding()]
   param(
-    [Parameter(Mandatory)][object]$ModulePolicy
+    [Parameter(Mandatory)][object]$ModulePolicy,
+    [string]$RepositoryRoot = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
   )
 
+  $modulePath = [string]$ModulePolicy.path
+  if (-not [System.IO.Path]::IsPathRooted($modulePath)) {
+    $modulePath = Join-Path $RepositoryRoot $modulePath
+  }
+  $modulePath = [System.IO.Path]::GetFullPath($modulePath)
   foreach ($package in @($ModulePolicy.public_packages)) {
     $interfacePath = if ([string]$package.path -ceq '.') {
-      Join-Path ([string]$ModulePolicy.path) 'pkg.generated.mbti'
+      Join-Path $modulePath 'pkg.generated.mbti'
     } else {
-      Join-Path (Join-Path ([string]$ModulePolicy.path) ([string]$package.path)) 'pkg.generated.mbti'
+      Join-Path (Join-Path $modulePath ([string]$package.path)) 'pkg.generated.mbti'
     }
     if (-not (Test-Path -LiteralPath $interfacePath -PathType Leaf)) {
       throw "Interface classifier for $($package.name) cannot find '$interfacePath'."
@@ -1256,6 +1263,9 @@ function Invoke-MoonQuality {
   }
 }
 
+if ($LibraryMode) {
+  return
+}
 if ($CoreNarrowingSelfTest) {
   Invoke-CoreNarrowingSelfTest
   return

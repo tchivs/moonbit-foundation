@@ -921,7 +921,7 @@ function Assert-QoiFoundationPolicy {
   if ($LASTEXITCODE -ne 0) { throw "QOI interface generation failed (exit $LASTEXITCODE)." }
   if (Get-Command Assert-GeneratedInterface -ErrorAction SilentlyContinue) {
     $scopedModule = [pscustomobject]@{ name = 'tchivs/mb-image'; path = 'modules/mb-image'; public_packages = @($qoi) }
-    Assert-GeneratedInterface -ModulePolicy $scopedModule
+    Assert-GeneratedInterface -ModulePolicy $scopedModule -RepositoryRoot $repoRoot
   } else {
     Assert-QoiGeneratedInterface -QoiPolicy $qoi -RepositoryRoot $repoRoot
   }
@@ -1116,7 +1116,7 @@ function Assert-FontFoundationPolicy {
   & moon -C $fontModulePath info --target all --frozen
   if ($LASTEXITCODE -ne 0) { throw "Font interface generation failed (exit $LASTEXITCODE)." }
   if (Get-Command Assert-GeneratedInterface -ErrorAction SilentlyContinue) {
-    Assert-GeneratedInterface -ModulePolicy $fontModule
+    Assert-GeneratedInterface -ModulePolicy $fontModule -RepositoryRoot $repoRoot
   } else {
     $interfacePath = Join-Path $repoRoot 'modules/mb-font/font/pkg.generated.mbti'
     Assert-Condition (Test-Path -LiteralPath $interfacePath -PathType Leaf) "Font interface classifier cannot find '$interfacePath'."

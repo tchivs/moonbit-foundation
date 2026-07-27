@@ -13,9 +13,16 @@ New-Item -ItemType Directory -Path $foreignDirectory -ErrorAction Stop | Out-Nul
 try {
   Push-Location -LiteralPath $foreignDirectory
   try {
+    # First exercise the local fallback interface classifiers.
     Assert-QoiFoundationPolicy -PolicyPath $policyPath
     Assert-FontFoundationPolicy -PolicyPath $policyPath
     Assert-PngFoundationPolicy -PolicyPath $policyPath
+
+    # Then load the real quality-runner checker and exercise its conditional
+    # branches from the same foreign working directory.
+    . (Join-Path $PSScriptRoot 'Invoke-MoonQuality.ps1') -LibraryMode
+    Assert-QoiFoundationPolicy -PolicyPath $policyPath
+    Assert-FontFoundationPolicy -PolicyPath $policyPath
   } finally {
     Pop-Location
   }
