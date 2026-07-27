@@ -1,10 +1,10 @@
 ---
 schema_version: 1
-open_count: 19
+open_count: 20
 waived_count: 0
 fixed_count: 3
-total_count: 22
-last_updated: 2026-07-27T10:51:22.018Z
+total_count: 23
+last_updated: 2026-07-27T11:06:57.004Z
 ---
 
 # Broken Windows Ledger
@@ -37,6 +37,7 @@ last_updated: 2026-07-27T10:51:22.018Z
 | 20 | 98 | deviation | scripts/quality/Assert-Policy.ps1 |  | Phase 98 advanced the independent font policy classifier and exact cmap/kern inventories so the generated public interface can pass fail-closed policy validation. | open |  | 2026-07-27T07:18:53.803Z |  |
 | 21 | 98 | deviation | .planning/STATE.md |  | Reconciled stale Plan 98-02 activity, 5/6 progress prose, open-requirement text, Phase ? decision labels, and operator next step after final plan advancement. | open |  | 2026-07-27T07:21:06.464Z |  |
 | 22 | 99 | deviation | .planning/STATE.md |  | SDK advance left machine-readable plan position and continuity prose stale; normalized to completed 99-02 state. | open |  | 2026-07-27T10:51:22.018Z |  |
+| 23 | 99 | deviation | .planning/STATE.md |  | Normalized stale final-phase progress prose and metrics after SDK advanced Plan 99-03 to verification. | open |  | 2026-07-27T11:06:57.004Z |  |
 
 ````json
 [
@@ -302,6 +303,18 @@ last_updated: 2026-07-27T10:51:22.018Z
     "status": "open",
     "reason": "",
     "recorded_at": "2026-07-27T10:51:22.018Z",
+    "resolved_at": null
+  },
+  {
+    "id": 23,
+    "kind": "deviation",
+    "phase": "99",
+    "file": ".planning/STATE.md",
+    "line": null,
+    "description": "Normalized stale final-phase progress prose and metrics after SDK advanced Plan 99-03 to verification.",
+    "status": "open",
+    "reason": "",
+    "recorded_at": "2026-07-27T11:06:57.004Z",
     "resolved_at": null
   }
 ]

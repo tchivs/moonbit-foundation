@@ -4,16 +4,16 @@ milestone: v0.32
 milestone_name: TrueType Font Foundation
 current_phase: 99
 current_phase_name: Simple and Composite Outlines
-status: executing
-stopped_at: Completed 99-02-PLAN.md
-last_updated: "2026-07-27T10:50:31.993Z"
+status: verifying
+stopped_at: Completed 99-03-PLAN.md
+last_updated: "2026-07-27T11:06:07.443Z"
 last_activity: 2026-07-27
-last_activity_desc: Phase 99 Plan 02 complete, bounded composite outlines verified
+last_activity_desc: Phase 99 Plan 03 complete, portable outline qualification verified
 progress:
   total_phases: 3
-  completed_phases: 2
+  completed_phases: 3
   total_plans: 9
-  completed_plans: 8
+  completed_plans: 9
 current_plan: 3
 total_plans_in_phase: 3
 ---
@@ -32,14 +32,14 @@ See `.planning/PROJECT.md` (updated 2026-07-27 after Phase 98 validation).
 
 Phase: 99 — Simple and Composite Outlines
 Plan: 3 of 3
-Status: Ready to execute
-Last activity: 2026-07-27 — Phase 99 Plan 02 complete, bounded composite outlines verified
+Status: Phase complete — ready for verification
+Last activity: 2026-07-27 — Phase 99 Plan 03 complete, portable outline qualification verified
 
-Progress: [█████████░] 89% (2/4 phases; 8/9 completed plans)
+Progress: [██████████] 100% (3/4 phases; 9/9 completed plans)
 
 ## Milestone Metrics
 
-**Current milestone:** v0.32 has 4 planned phases; Phases 97-98 are complete and Phase 99 has completed 2 of 3 implementation plans. FONT-01, FONT-02, FONT-03, and FONT-04 have implementation evidence; Phase 99 interface and four-target closure remains.
+**Current milestone:** v0.32 has 4 planned phases; Phases 97-99 have completed all 9 implementation plans. FONT-01, FONT-02, FONT-03, and FONT-04 have implementation evidence; Phase 99 is ready for verification before Phase 100 qualification planning.
 
 **Previous milestone:** v0.31 shipped SVG Numeric Boundary Unification across Phases 95-96; its detailed roadmap is archived at `.planning/milestones/v0.31-ROADMAP.md`.
 
@@ -69,12 +69,15 @@ Progress: [█████████░] 89% (2/4 phases; 8/9 completed plans)
 - [Phase 98]: Phase 98 uses one checksum-correct generated font as the permanent Unicode-to-opaque-glyph-to-signed-kern tracer.
 - [Phase 98]: Phase 98 publication exposes only glyph_for_scalar, kerning, two kern ceilings, and the expanded FontLimits constructor; cmap/kern facts remain private.
 - [Phase 98]: The independent font policy classifier approves the exact Phase 98 surface while rejecting raw cmap/kern facts and Phase 99+ capabilities.
-- [Phase ?]: Phase 99 simple outlines keep all format arithmetic in private checked Int64 Q15 until final Point2 construction.
-- [Phase ?]: Outline queries cumulatively enforce maxp claims, retained limits and max_work, and caller Budget before traversal or allocation.
-- [Phase ?]: Generated interfaces remain ignored local tool output; semantic baseline and final hashes are recorded without force-staging.
-- [Phase ?]: Phase 99 composites classify every reachable descriptor graph before unsupported-capability publication, so cycles remain Data.
-- [Phase ?]: Phase 99 composite transforms and attachments remain checked Int64 Q15 until final Path2 Point2 construction.
-- [Phase ?]: Metrics and outline component lookup share one admitted table-local glyph-window helper.
+- [Phase 99]: Phase 99 simple outlines keep all format arithmetic in private checked Int64 Q15 until final Point2 construction.
+- [Phase 99]: Outline queries cumulatively enforce maxp claims, retained limits and max_work, and caller Budget before traversal or allocation.
+- [Phase 99]: Generated interfaces remain ignored local tool output; semantic baseline and final hashes are recorded without force-staging.
+- [Phase 99]: Phase 99 composites classify every reachable descriptor graph before unsupported-capability publication, so cycles remain Data.
+- [Phase 99]: Phase 99 composite transforms and attachments remain checked Int64 Q15 until final Path2 Point2 construction.
+- [Phase 99]: Metrics and outline component lookup share one admitted table-local glyph-window helper.
+- [Phase 99]: Phase 99 permanent qualification uses one empty/simple/composite checksum-correct font through the public outline workflow.
+- [Phase 99]: Phase 99 publication keeps pkg.generated.mbti ignored while policy and an independent classifier freeze its exact 56 semantic lines.
+- [Phase 99]: Phase 99 documents generated four-target evidence while reserving licensed real-font workflow qualification for Phase 100.
 
 ### Pending Todos
 
@@ -83,7 +86,7 @@ None yet.
 ### Blockers/Concerns
 
 - Phase 100 planning must finalize licensed real-font specimen provenance, redistribution records, digests, inventories, and independent semantic facts.
-- [Windows] The workspace-wide Required lane remains subject to the known unscoped `mb-image/png` driver stall recorded in `.planning/WINDOWS.md`; isolated Phase 98 font, interface, policy, and documentation gates all pass.
+- [Windows] The workspace-wide Required lane remains subject to the known unscoped `mb-image/png` driver stall recorded in `.planning/WINDOWS.md`; isolated Phase 99 font, interface, policy, manifest, and documentation gates all pass.
 
 ### Quick Tasks Completed
 
@@ -107,25 +110,26 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-07-27T10:50:31.972Z
-Stopped at: Completed 99-02-PLAN.md
+Last session: 2026-07-27T11:06:07.424Z
+Stopped at: Completed 99-03-PLAN.md
 Resume file: None
 
 ## Operator Next Steps
 
-- Execute Phase 99 Plan 03 for four-target, interface, policy, and documentation closure.
+- Verify Phase 99, then plan Phase 100 portable font qualification.
 
 ## Performance Metrics
 
-Phases 97-98 completed all six plans. Phase 98 passed final deep review, 19/19 security verification, 16/16 canonical verification, 9/9 automated UAT, and 65/65 isolated font tests on every supported target.
+Phases 97-99 completed all nine plans. Phase 99 passed 87/87 isolated font tests on every supported target plus exact interface, policy, manifest, and four-target documentation gates.
 
 **Per-Phase Metrics:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
-| 97-100 | 3 | 121m | 40m |
+| 97-100 | 9 | 171m | 19m |
 | 97 | 3 | 121m | 40m |
 | 98 | 3 | - | - |
+| 99 | 3 | 50m | 17m |
 **Per-Plan Metrics:**
 
 | Plan | Duration | Tasks | Files |
@@ -138,3 +142,4 @@ Phases 97-98 completed all six plans. Phase 98 passed final deep review, 19/19 s
 | Phase 98 P03 | 20min | 2 tasks | 7 files |
 | Phase 99 P01 | 21min | 2 tasks | 9 files |
 | Phase 99 P02 | 17min | 2 tasks | 5 files |
+| Phase 99 P03 | 12min | 3 tasks | 8 files |

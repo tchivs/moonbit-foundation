@@ -99,7 +99,7 @@
   3. Empty and degenerate valid glyphs return deterministic complete outline results without executing TrueType hinting or rasterizing pixels.
   4. Malformed streams, invalid component references or flags, cycles, checked-arithmetic failures, mutation, and resource exhaustion return structured errors without exposing partial points, contours, or path commands.
 
-**Plans**: 2/3 plans executed
+**Plans**: 3/3 plans executed
 **Wave 1**
 
 - [x] 99-01-PLAN.md — Repair the Phase 98 interface baseline and deliver complete transactional simple outline extraction.
@@ -110,7 +110,7 @@
 
 **Wave 3** *(blocked on Waves 1-2 completion)*
 
-- [ ] 99-03-PLAN.md — Qualify FONT-03 on all four targets and freeze the final interface, policy, and documentation.
+- [x] 99-03-PLAN.md — Qualify FONT-03 on all four targets and freeze the final interface, policy, and documentation.
 
 ### Phase 100: Portable Font Qualification
 
@@ -132,7 +132,7 @@
 |-------|----------------|--------|-----------|
 | 97. Font Admission and Metrics | 3/3 | Complete    | 2026-07-27 |
 | 98. Unicode Mapping and Kerning | 3/3 | Complete    | 2026-07-27 |
-| 99. Simple and Composite Outlines | 2/3 | In Progress|  |
+| 99. Simple and Composite Outlines | 3/3 | In Progress|  |
 | 100. Portable Font Qualification | 0/TBD | Not started | - |
 
 ---
