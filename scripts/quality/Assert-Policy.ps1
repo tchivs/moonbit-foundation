@@ -1229,7 +1229,7 @@ function Assert-FontQualificationArtifacts {
 
   $oracle = Read-QualityJson -Path (Join-Path $RepositoryRoot 'fixtures/font/dejavu-sans-2.37/oracle.json')
   Assert-ExactSequence 'Font oracle top-level schema' @($oracle.PSObject.Properties.Name) @('schema_version','oracle','source','tables','profile','metrics','cmap','glyphs','kern','maxp')
-  Assert-Condition ($oracle.schema_version -ceq '1.0.0' -and $oracle.oracle.implementation -ceq 'mnf-powershell-closed-sfnt-reader' -and $oracle.oracle.version -ceq '1.0.0' -and $oracle.oracle.independence -ceq 'offline parser; does not invoke tchivs/mb-font') 'Font oracle identity or independence contract drifted.'
+  Assert-Condition ($oracle.schema_version -ceq '1.1.0' -and $oracle.oracle.implementation -ceq 'mnf-powershell-closed-sfnt-reader' -and $oracle.oracle.version -ceq '1.1.0' -and $oracle.oracle.independence -ceq 'offline parser; does not invoke tchivs/mb-font') 'Font oracle identity or independence contract drifted.'
   Assert-ExactSequence 'Font oracle identity schema' @($oracle.oracle.PSObject.Properties.Name) @('implementation','version','independence')
   Assert-ExactSequence 'Font oracle source schema' @($oracle.source.PSObject.Properties.Name) @('path','length','sha256','sfnt_signature')
   Assert-ExactSequence 'Font oracle table schema' @($oracle.tables[0].PSObject.Properties.Name) @('tag','checksum','offset','length')
@@ -1238,7 +1238,26 @@ function Assert-FontQualificationArtifacts {
   Assert-ExactSequence 'Font oracle cmap schema' @($oracle.cmap.PSObject.Properties.Name) @('records','selected_record')
   Assert-ExactSequence 'Font oracle cmap record schema' @($oracle.cmap.records[0].PSObject.Properties.Name) @('platform_id','encoding_id','format','offset')
   Assert-ExactSequence 'Font oracle glyph schema' @($oracle.glyphs[0].PSObject.Properties.Name) @('scalar','glyph_id','horizontal_metrics','classification','contours','bounds','components','path')
-  Assert-ExactSequence 'Font oracle path schema' @($oracle.glyphs[0].path.PSObject.Properties.Name) @('command_count','fingerprint_sha256','selected_commands')
+  Assert-ExactSequence 'Font oracle path schema' @($oracle.glyphs[0].path.PSObject.Properties.Name) @('command_count','fingerprint_sha256','commands')
+  $supportedOracleGlyphs = @(
+    [ordered]@{ scalar = 'U+0041'; glyph_id = 36; command_count = 13 },
+    [ordered]@{ scalar = 'U+034C'; glyph_id = 765; command_count = 48 },
+    [ordered]@{ scalar = 'U+10300'; glyph_id = 5373; command_count = 13 }
+  )
+  foreach ($expectedGlyph in $supportedOracleGlyphs) {
+    $matches = @($oracle.glyphs | Where-Object { $_.scalar -ceq $expectedGlyph.scalar })
+    Assert-Condition ($matches.Count -eq 1) "Font oracle supported glyph $($expectedGlyph.scalar) is missing or duplicated."
+    $glyph = $matches[0]
+    Assert-Condition (
+      [int]$glyph.glyph_id -eq [int]$expectedGlyph.glyph_id -and
+      [int]$glyph.path.command_count -eq [int]$expectedGlyph.command_count -and
+      @($glyph.path.commands).Count -eq [int]$expectedGlyph.command_count -and
+      -not [string]::IsNullOrWhiteSpace([string]$glyph.path.fingerprint_sha256)
+    ) "Font oracle supported glyph $($expectedGlyph.scalar) complete path drifted."
+  }
+  foreach ($glyph in @($oracle.glyphs)) {
+    Assert-Condition ([int]$glyph.path.command_count -eq @($glyph.path.commands).Count) "Font oracle glyph $($glyph.scalar) command count/vector drifted."
+  }
   Assert-ExactSequence 'Font oracle kern schema' @($oracle.kern.PSObject.Properties.Name) @('version','subtable_count','format','horizontal','pair_count','selected_pair')
   Assert-ExactSequence 'Font oracle maxp schema' @($oracle.maxp.PSObject.Properties.Name) @('max_points','max_contours','max_composite_points','max_composite_contours','max_instruction_bytes','max_component_elements','max_component_depth')
 
@@ -1269,6 +1288,14 @@ function Assert-FontQualificationArtifacts {
     '// Upstream license: Bitstream-Vera AND LicenseRef-DejaVu-Arev',
     '// Literal chunk size: 4096 bytes'
   )
+  $generatedSource = Get-Content -Raw -LiteralPath $generatedPath
+  foreach ($symbol in @(
+      'struct FontQualificationExpectedCommand',
+      'struct FontQualificationOutlineExpectation',
+      'fn font_qualification_dejavu_supported_outlines'
+    )) {
+    Assert-Condition ($generatedSource.Contains($symbol, [StringComparison]::Ordinal)) "Generated font qualification expectation symbol missing: $symbol"
+  }
 
   $sourcePaths = @(
     @($productionSources | Where-Object { $_ -cne 'moon.pkg' })
