@@ -398,6 +398,49 @@
 
 - Final SVG qualification passed 125/125 tests and all three benchmark workloads on wasm, wasm-gc, js, and native.
 
+## Milestone: v0.32 — TrueType Font Foundation
+
+**Shipped:** 2026-07-28
+**Phases:** 4 | **Plans:** 16 | **Tasks:** 36
+
+### What Was Built
+
+- A pure-MoonBit, bounded `mb-font` admission and metrics layer.
+- Deterministic Unicode mapping and legacy kerning support.
+- Transactional simple and composite TrueType outline extraction.
+- Licensed DejaVu fixture qualification with exact four-target and hosted Required evidence.
+
+### What Worked
+
+- Horizontal package layers and a narrow public facade kept the dependency graph acyclic.
+- Independent reference-oracle checks and complete command-vector assertions made qualification evidence reproducible.
+- Deep review caught format-6 mapping, path identity, process containment, and toolchain provenance gaps before release.
+- Immutable hosted artifacts tied toolchain identity, test output, and digests to the exact implementation commit.
+
+### What Was Inefficient
+
+- CI installer, timeout, and process-cleanup behavior required several iterations before the hosted gate was trustworthy.
+- Incomplete quick-task closeout metadata and generated milestone accomplishments required reconstruction and curation.
+- The Required all-target runtime varied enough that early timeout budgets were too tight.
+
+### Patterns Established
+
+- Verify immutable address, digest, and tool identity before admitting a binary to `PATH`.
+- Use suspended Windows Job Objects and POSIX `setsid` boundaries so timeout cleanup is enforceable and observable.
+- Capture evidence only after the exact focused gates pass.
+- Compare complete outline path arrays rather than sampled values or opaque hashes.
+
+### Lessons Learned
+
+1. Qualification fingerprints must cover full command vectors, not only command names.
+2. Process containment needs dynamic termination evidence in addition to static workflow inspection.
+3. CI timeout budgets must include workload variance and cleanup latency.
+4. Open planning artifacts must be audited and closed before milestone archival.
+
+### Cost Observations
+
+- The milestone comprised 271 commits and 304 changed files; licensed fixture data dominated the diff volume.
+
 ## Cross-Milestone Trends
 
 ### Process Evolution
@@ -413,6 +456,7 @@
 | v0.21 | 4 | 4 | Added opt-in Type-6/16 RGBA decode with exact U16 lanes, chunk parity, and portable qualification. |
 | v0.28 | 3 | 3 | Added bounded indexed Fixed-or-Stored compression with independent hostile-stream and four-target qualification. |
 | v0.29 | 3 | 3 | Extended the bounded indexed profile contract to Adam7 with pass-aware admission and independent hostile-stream qualification. |
+| v0.32 | 4 | 16 | Added a pure-MoonBit TrueType foundation with immutable licensed-font and exact four-target qualification. |
 
 ### Cumulative Quality
 
@@ -427,6 +471,7 @@
 | v0.21 | 245/245 PNG tests per target | 4/4 | 4/4 phase verifications, 5/5 integration links, 2/2 public flows |
 | v0.28 | 315/315 PNG tests per target | 5/5 | 3/3 phase verifications, no open artifact records |
 | v0.29 | 320/320 PNG tests per target | 5/5 | 3/3 phase verifications, no open artifact records |
+| v0.32 | 103/103 font tests per target plus hosted Required | 5/5 | 4/4 phase verifications, 8/8 links, 4/4 flows |
 
 ### Top Lessons
 
