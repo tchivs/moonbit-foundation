@@ -358,24 +358,33 @@ fn font_read_hmtx_metric(
 }
 
 ///|
-fn font_read_glyph_bounds(
+fn font_glyph_window(
   index : MetricIndexFacts,
-  glyph : UInt64,
-) -> Result[GlyphBoundsFacts?, @error.CoreError] {
-  let glyph_index = match @checked.checked_narrow_int(glyph) {
+  glyph_index : UInt64,
+) -> Result[@bytes.ByteView?, @error.CoreError] {
+  if glyph_index >= index.num_glyphs {
+    return Err(
+      font_metric_cardinality_error(
+        "font-glyf-glyph-range",
+        requested=glyph_index,
+        limit=index.num_glyphs,
+      ),
+    )
+  }
+  let current = match @checked.checked_narrow_int(glyph_index) {
     Err(error) => return Err(error)
     Ok(value) => value
   }
-  let next_index = match @checked.checked_add(glyph, 1UL) {
+  let next = match @checked.checked_add(glyph_index, 1UL) {
     Err(error) => return Err(error)
     Ok(value) => value
   }
-  let next_glyph_index = match @checked.checked_narrow_int(next_index) {
+  let following = match @checked.checked_narrow_int(next) {
     Err(error) => return Err(error)
     Ok(value) => value
   }
-  let start = index.loca_offsets[glyph_index]
-  let end = index.loca_offsets[next_glyph_index]
+  let start = index.loca_offsets[current]
+  let end = index.loca_offsets[following]
   if start == end {
     return Ok(None)
   }
@@ -383,14 +392,27 @@ fn font_read_glyph_bounds(
     Err(error) => return Err(error)
     Ok(value) => value
   }
+  match index.glyf.view.subview(start, length) {
+    Err(error) => Err(error)
+    Ok(value) => Ok(Some(value))
+  }
+}
+
+///|
+fn font_read_glyph_bounds(
+  index : MetricIndexFacts,
+  glyph : UInt64,
+) -> Result[GlyphBoundsFacts?, @error.CoreError] {
+  let glyph_view = match font_glyph_window(index, glyph) {
+    Err(error) => return Err(error)
+    Ok(None) => return Ok(None)
+    Ok(Some(value)) => value
+  }
+  let length = glyph_view.length()
   if length < 10UL {
     return Err(
       font_glyph_header_error("font-glyf-header", requested=length, limit=10UL),
     )
-  }
-  let glyph_view = match index.glyf.view.subview(start, length) {
-    Err(error) => return Err(error)
-    Ok(value) => value
   }
   let _number_of_contours = match read_i16(glyph_view, 0UL) {
     Err(error) => return Err(error)

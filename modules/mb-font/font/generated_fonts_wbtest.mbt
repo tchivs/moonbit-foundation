@@ -202,6 +202,7 @@ fn generated_hhea_table() -> Bytes {
 
 ///|
 fn generated_maxp_table(
+  num_glyphs? : UInt64 = 1UL,
   max_points? : UInt64 = 64UL,
   max_contours? : UInt64 = 16UL,
   max_composite_points? : UInt64 = 64UL,
@@ -212,7 +213,7 @@ fn generated_maxp_table(
 ) -> Bytes {
   let output = Array::make(32, b'\x00')
   generated_put_u32_at(output, 0, 0x00010000UL)
-  output[5] = b'\x01'
+  generated_put_u16_at(output, 4, num_glyphs)
   generated_put_u16_at(output, 6, max_points)
   generated_put_u16_at(output, 8, max_contours)
   generated_put_u16_at(output, 10, max_composite_points)
@@ -519,9 +520,110 @@ fn generated_outline_truetype(glyf : Bytes, loca : Bytes) -> Bytes {
 }
 
 ///|
+fn generated_simple_outline_body() -> Bytes {
+  b"\x00\x01\x00\x00\x00\x00\x00\x64\x00\x64\x00\x02\x00\x00\x31\x33\x34\x64\x64\x00"
+}
+
+///|
+fn generated_composite_component(
+  flags : UInt64,
+  glyph_index : UInt64,
+  arg1 : Int,
+  arg2 : Int,
+  coefficients : Array[Int],
+) -> Bytes {
+  let output : Array[Byte] = []
+  generated_put_u16(output, flags)
+  generated_put_u16(output, glyph_index)
+  if (flags & 0x0001UL) != 0UL {
+    generated_put_i16(output, arg1)
+    generated_put_i16(output, arg2)
+  } else {
+    output.push((arg1 & 0xFF).to_byte())
+    output.push((arg2 & 0xFF).to_byte())
+  }
+  for coefficient in coefficients {
+    generated_put_i16(output, coefficient)
+  }
+  Bytes::from_array(output)
+}
+
+///|
+fn generated_composite_glyph(
+  x_min : Int,
+  y_min : Int,
+  x_max : Int,
+  y_max : Int,
+  records : Array[Bytes],
+) -> Bytes {
+  let output : Array[Byte] = []
+  generated_put_i16(output, -1)
+  generated_put_i16(output, x_min)
+  generated_put_i16(output, y_min)
+  generated_put_i16(output, x_max)
+  generated_put_i16(output, y_max)
+  for record in records {
+    for byte in record {
+      output.push(byte)
+    }
+  }
+  Bytes::from_array(output)
+}
+
+///|
+fn generated_outline_graph_truetype(
+  glyphs : Array[Bytes],
+  max_composite_points? : UInt64 = 64UL,
+  max_composite_contours? : UInt64 = 16UL,
+  max_component_elements? : UInt64 = 16UL,
+  max_component_depth? : UInt64 = 1UL,
+) -> Bytes {
+  let glyf : Array[Byte] = []
+  let loca : Array[Byte] = []
+  generated_put_u16(loca, 0UL)
+  let mut offset = 0UL
+  for glyph in glyphs {
+    for byte in glyph {
+      glyf.push(byte)
+    }
+    if glyph.length() % 2 != 0 {
+      glyf.push(b'\x00')
+    }
+    offset = glyf.length().to_uint64()
+    generated_put_u16(loca, offset / 2UL)
+  }
+  let hmtx : Array[Byte] = [b'\x01', b'\xf4', b'\x00', b'\x00']
+  for _glyph = 1; _glyph < glyphs.length(); _glyph = _glyph + 1 {
+    hmtx.push(b'\x00')
+    hmtx.push(b'\x00')
+  }
+  font_wb_build_sfnt([
+    font_wb_table(b"OS/2", generated_os2_table()),
+    font_wb_table(b"cmap", generated_cmap_table()),
+    font_wb_table(b"glyf", Bytes::from_array(glyf)),
+    font_wb_table(b"head", generated_head_table()),
+    font_wb_table(b"hhea", generated_hhea_table()),
+    font_wb_table(b"hmtx", Bytes::from_array(hmtx)),
+    font_wb_table(b"loca", Bytes::from_array(loca)),
+    font_wb_table(
+      b"maxp",
+      generated_maxp_table(
+        num_glyphs=glyphs.length().to_uint64(),
+        max_composite_points~,
+        max_composite_contours~,
+        max_component_elements~,
+        max_component_depth~,
+      ),
+    ),
+    font_wb_table(b"name", b"\x00\x00\x00\x00\x00\x06"),
+    font_wb_table(b"post", generated_post_table()),
+  ])
+}
+
+///|
 fn generated_simple_outline_truetype() -> Bytes {
   generated_outline_truetype(
-    b"\x00\x01\x00\x00\x00\x00\x00\x64\x00\x64\x00\x02\x00\x00\x31\x33\x34\x64\x64\x00",
+    generated_simple_outline_body(),
     b"\x00\x00\x00\x0a",
   )
 }

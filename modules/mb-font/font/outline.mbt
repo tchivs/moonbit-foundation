@@ -6,6 +6,20 @@ priv struct OutlinePoint {
 }
 
 ///|
+priv struct OutlineGeometry {
+  points : Array[OutlinePoint]
+  endpoints : Array[UInt64]
+}
+
+///|
+priv struct F2Dot14Matrix {
+  xscale_raw : Int64
+  scale01_raw : Int64
+  scale10_raw : Int64
+  yscale_raw : Int64
+}
+
+///|
 priv struct OutlineWork {
   mut used : UInt64
 }
@@ -95,6 +109,73 @@ fn outline_checked_mul(
   } else {
     Ok(left * right)
   }
+}
+
+///|
+fn outline_checked_subtract(
+  left : Int64,
+  right : Int64,
+) -> Result[Int64, @error.CoreError] {
+  let min = -9223372036854775807L - 1L
+  if right == min {
+    if left >= 0L {
+      Err(font_outline_data_error("font-outline-arithmetic"))
+    } else {
+      Ok(left - right)
+    }
+  } else {
+    outline_checked_add(left, -right)
+  }
+}
+
+///|
+fn outline_checked_sum_of_products(
+  left_a : Int64,
+  left_b : Int64,
+  right_a : Int64,
+  right_b : Int64,
+) -> Result[Int64, @error.CoreError] {
+  let left = match outline_checked_mul(left_a, left_b) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  let right = match outline_checked_mul(right_a, right_b) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  outline_checked_add(left, right)
+}
+
+///|
+fn transform_q15(
+  point : OutlinePoint,
+  matrix : F2Dot14Matrix,
+) -> Result[OutlinePoint, @error.CoreError] {
+  let x_num = match
+    outline_checked_sum_of_products(
+      matrix.xscale_raw,
+      point.x_q15,
+      matrix.scale10_raw,
+      point.y_q15,
+    ) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  let y_num = match
+    outline_checked_sum_of_products(
+      matrix.scale01_raw,
+      point.x_q15,
+      matrix.yscale_raw,
+      point.y_q15,
+    ) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  Ok({
+    x_q15: x_num / 16384L,
+    y_q15: y_num / 16384L,
+    on_curve: point.on_curve,
+  })
 }
 
 ///|
@@ -190,47 +271,6 @@ fn font_outline_charge_allocation(
     Ok(_) => ()
   }
   budget.charge(charge)
-}
-
-///|
-fn font_outline_glyph_view(
-  index : MetricIndexFacts,
-  glyph_index : UInt64,
-) -> Result[@bytes.ByteView?, @error.CoreError] {
-  let current = match @checked.checked_narrow_int(glyph_index) {
-    Err(_) => return Err(font_outline_data_error("font-outline-glyph-window"))
-    Ok(value) => value
-  }
-  let next = match @checked.checked_add(glyph_index, 1UL) {
-    Err(_) => return Err(font_outline_data_error("font-outline-glyph-window"))
-    Ok(value) => value
-  }
-  let following = match @checked.checked_narrow_int(next) {
-    Err(_) => return Err(font_outline_data_error("font-outline-glyph-window"))
-    Ok(value) => value
-  }
-  let start = index.loca_offsets[current]
-  let end = index.loca_offsets[following]
-  if start == end {
-    return Ok(None)
-  }
-  let length = match @checked.checked_sub(end, start) {
-    Err(_) => return Err(font_outline_data_error("font-outline-glyph-window"))
-    Ok(value) => value
-  }
-  if length < 10UL {
-    return Err(
-      font_outline_data_error(
-        "font-outline-glyph-header",
-        requested=length,
-        limit=10UL,
-      ),
-    )
-  }
-  match index.glyf.view.subview(start, length) {
-    Err(_) => Err(font_outline_data_error("font-outline-glyph-window"))
-    Ok(value) => Ok(Some(value))
-  }
 }
 
 ///|
@@ -399,14 +439,14 @@ fn font_outline_lower_contours(
 }
 
 ///|
-fn font_decode_simple_outline(
+fn font_decode_simple_geometry(
   source : @bytes.ByteView,
   contour_count : UInt64,
   maxp : MaxpFacts,
   limits : FontLimits,
   ledger : OutlineWork,
   budget : @budget.Budget,
-) -> Result[@math.Path2, @error.CoreError] {
+) -> Result[OutlineGeometry, @error.CoreError] {
   if contour_count > maxp.max_contours {
     return Err(
       font_outline_data_error(
@@ -685,9 +725,33 @@ fn font_decode_simple_outline(
     actual_y_max != y_max {
     return Err(font_outline_data_error("font-outline-bounds"))
   }
+  Ok({ points, endpoints })
+}
+
+///|
+fn font_decode_simple_outline(
+  source : @bytes.ByteView,
+  contour_count : UInt64,
+  maxp : MaxpFacts,
+  limits : FontLimits,
+  ledger : OutlineWork,
+  budget : @budget.Budget,
+) -> Result[@math.Path2, @error.CoreError] {
+  let geometry = match
+    font_decode_simple_geometry(
+      source,
+      contour_count,
+      maxp,
+      limits,
+      ledger,
+      budget,
+    ) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
   font_outline_lower_contours(
-    points,
-    endpoints,
+    geometry.points,
+    geometry.endpoints,
     ledger,
     limits.max_work(),
     budget,
@@ -752,6 +816,335 @@ fn font_decode_zero_contour_outline(
 }
 
 ///|
+fn font_outline_read_i8(
+  source : @bytes.ByteView,
+  offset : UInt64,
+) -> Result[Int64, @error.CoreError] {
+  let value = match read_u8(source, offset) {
+    Err(_) => return Err(font_outline_data_error("font-outline-component-args"))
+    Ok(byte) => byte.to_int()
+  }
+  Ok((if value >= 128 { value - 256 } else { value }).to_int64())
+}
+
+///|
+fn font_decode_tracer_composite_outline(
+  source : @bytes.ByteView,
+  index : MetricIndexFacts,
+  maxp : MaxpFacts,
+  limits : FontLimits,
+  ledger : OutlineWork,
+  budget : @budget.Budget,
+) -> Result[@math.Path2, @error.CoreError] {
+  if maxp.max_component_depth < 1UL {
+    return Err(
+      font_outline_data_error(
+        "font-outline-maxp-component-depth",
+        requested=1UL,
+        limit=maxp.max_component_depth,
+      ),
+    )
+  }
+  if maxp.max_component_elements < 1UL {
+    return Err(
+      font_outline_data_error(
+        "font-outline-maxp-components",
+        requested=1UL,
+        limit=maxp.max_component_elements,
+      ),
+    )
+  }
+  if limits.max_outline_components() < 1UL {
+    return Err(
+      font_outline_limit_error(
+        "max-outline-components",
+        1UL,
+        limits.max_outline_components(),
+      ),
+    )
+  }
+  match font_outline_charge_work(ledger, budget, limits.max_work(), 1UL) {
+    Err(error) => return Err(error)
+    Ok(_) => ()
+  }
+  let flags = match read_u16(source, 10UL) {
+    Err(_) => return Err(font_outline_data_error("font-outline-component"))
+    Ok(value) => value
+  }
+  let child_index = match read_u16(source, 12UL) {
+    Err(_) => return Err(font_outline_data_error("font-outline-component"))
+    Ok(value) => value
+  }
+  if child_index >= index.num_glyphs {
+    return Err(
+      font_outline_data_error(
+        "font-outline-component-glyph",
+        requested=child_index,
+        limit=index.num_glyphs,
+      ),
+    )
+  }
+  if (flags & 0xE010UL) != 0UL {
+    return Err(font_outline_data_error("font-outline-component-flags"))
+  }
+  if (flags & 0x0004UL) != 0UL {
+    return Err(font_outline_capability_error("font-outline-grid-rounding"))
+  }
+  if (flags & 0x0020UL) != 0UL {
+    return Err(font_outline_capability_error("font-outline-components"))
+  }
+  if (flags & 0x0002UL) == 0UL {
+    return Err(font_outline_data_error("font-outline-first-component-xy"))
+  }
+  if (flags & 0x1800UL) == 0x1800UL {
+    return Err(font_outline_data_error("font-outline-component-offset-flags"))
+  }
+  let transform_count = (if (flags & 0x0008UL) != 0UL { 1 } else { 0 }) +
+    (if (flags & 0x0040UL) != 0UL { 1 } else { 0 }) +
+    (if (flags & 0x0080UL) != 0UL { 1 } else { 0 })
+  if transform_count > 1 {
+    return Err(font_outline_data_error("font-outline-component-transform"))
+  }
+  let words = (flags & 0x0001UL) != 0UL
+  let (arg1, arg2, start_cursor) = if words {
+    let first = match read_i16(source, 14UL) {
+      Err(_) => return Err(font_outline_data_error("font-outline-component-args"))
+      Ok(value) => value.to_int64()
+    }
+    let second = match read_i16(source, 16UL) {
+      Err(_) => return Err(font_outline_data_error("font-outline-component-args"))
+      Ok(value) => value.to_int64()
+    }
+    (first, second, 18UL)
+  } else {
+    let first = match font_outline_read_i8(source, 14UL) {
+      Err(error) => return Err(error)
+      Ok(value) => value
+    }
+    let second = match font_outline_read_i8(source, 15UL) {
+      Err(error) => return Err(error)
+      Ok(value) => value
+    }
+    (first, second, 16UL)
+  }
+  let mut cursor = start_cursor
+  let mut matrix : F2Dot14Matrix = {
+    xscale_raw: 16384L,
+    scale01_raw: 0L,
+    scale10_raw: 0L,
+    yscale_raw: 16384L,
+  }
+  if (flags & 0x0008UL) != 0UL {
+    let scale = match read_i16(source, cursor) {
+      Err(_) => return Err(font_outline_data_error("font-outline-component-transform"))
+      Ok(value) => value.to_int64()
+    }
+    matrix = {
+      xscale_raw: scale,
+      scale01_raw: 0L,
+      scale10_raw: 0L,
+      yscale_raw: scale,
+    }
+    cursor = cursor + 2UL
+  } else if (flags & 0x0040UL) != 0UL {
+    let xscale = match read_i16(source, cursor) {
+      Err(_) => return Err(font_outline_data_error("font-outline-component-transform"))
+      Ok(value) => value.to_int64()
+    }
+    let yscale = match read_i16(source, cursor + 2UL) {
+      Err(_) => return Err(font_outline_data_error("font-outline-component-transform"))
+      Ok(value) => value.to_int64()
+    }
+    matrix = {
+      xscale_raw: xscale,
+      scale01_raw: 0L,
+      scale10_raw: 0L,
+      yscale_raw: yscale,
+    }
+    cursor = cursor + 4UL
+  } else if (flags & 0x0080UL) != 0UL {
+    let xscale = match read_i16(source, cursor) {
+      Err(_) => return Err(font_outline_data_error("font-outline-component-transform"))
+      Ok(value) => value.to_int64()
+    }
+    let scale01 = match read_i16(source, cursor + 2UL) {
+      Err(_) => return Err(font_outline_data_error("font-outline-component-transform"))
+      Ok(value) => value.to_int64()
+    }
+    let scale10 = match read_i16(source, cursor + 4UL) {
+      Err(_) => return Err(font_outline_data_error("font-outline-component-transform"))
+      Ok(value) => value.to_int64()
+    }
+    let yscale = match read_i16(source, cursor + 6UL) {
+      Err(_) => return Err(font_outline_data_error("font-outline-component-transform"))
+      Ok(value) => value.to_int64()
+    }
+    matrix = { xscale_raw: xscale, scale01_raw: scale01, scale10_raw: scale10, yscale_raw: yscale }
+    cursor = cursor + 8UL
+  }
+  if (flags & 0x0100UL) != 0UL {
+    let instruction_length = match read_u16(source, cursor) {
+      Err(_) => return Err(font_outline_data_error("font-outline-instructions"))
+      Ok(value) => value
+    }
+    if instruction_length > maxp.max_size_of_instructions {
+      return Err(
+        font_outline_data_error(
+          "font-outline-maxp-instructions",
+          requested=instruction_length,
+          limit=maxp.max_size_of_instructions,
+        ),
+      )
+    }
+    if instruction_length > limits.max_outline_instruction_bytes() {
+      return Err(
+        font_outline_limit_error(
+          "max-outline-instruction-bytes",
+          instruction_length,
+          limits.max_outline_instruction_bytes(),
+        ),
+      )
+    }
+    match
+      font_outline_charge_work(
+        ledger,
+        budget,
+        limits.max_work(),
+        instruction_length,
+      ) {
+      Err(error) => return Err(error)
+      Ok(_) => ()
+    }
+    cursor = cursor + 2UL
+    match require_read_window(source, cursor, instruction_length) {
+      Err(_) => return Err(font_outline_data_error("font-outline-instructions"))
+      Ok(_) => ()
+    }
+    cursor = cursor + instruction_length
+  }
+  match font_outline_validate_trailing(source, cursor) {
+    Err(error) => return Err(error)
+    Ok(_) => ()
+  }
+  let child = match font_glyph_window(index, child_index) {
+    Err(_) => return Err(font_outline_data_error("font-outline-component-glyph"))
+    Ok(None) =>
+      return font_outline_lower_contours(
+        [],
+        [],
+        ledger,
+        limits.max_work(),
+        budget,
+      )
+    Ok(Some(value)) => value
+  }
+  if child.length() < 10UL {
+    return Err(font_outline_data_error("font-outline-glyph-header"))
+  }
+  let contour_count = match read_i16(child, 0UL) {
+    Err(_) => return Err(font_outline_data_error("font-outline-glyph-header"))
+    Ok(value) => value
+  }
+  if contour_count < 0 {
+    return Err(font_outline_capability_error("font-outline-nested-composite"))
+  }
+  let geometry = if contour_count == 0 {
+    match
+      font_decode_zero_contour_outline(
+        child,
+        maxp,
+        limits,
+        ledger,
+        budget,
+      ) {
+      Err(error) => return Err(error)
+      Ok(_) => { points: [], endpoints: [] }
+    }
+  } else {
+    match
+      font_decode_simple_geometry(
+        child,
+        contour_count.to_uint64(),
+        maxp,
+        limits,
+        ledger,
+        budget,
+      ) {
+      Err(error) => return Err(error)
+      Ok(value) => value
+    }
+  }
+  let point_count = geometry.points.length().to_uint64()
+  let contour_total = geometry.endpoints.length().to_uint64()
+  if point_count > maxp.max_composite_points {
+    return Err(
+      font_outline_data_error(
+        "font-outline-maxp-composite-points",
+        requested=point_count,
+        limit=maxp.max_composite_points,
+      ),
+    )
+  }
+  if contour_total > maxp.max_composite_contours {
+    return Err(
+      font_outline_data_error(
+        "font-outline-maxp-composite-contours",
+        requested=contour_total,
+        limit=maxp.max_composite_contours,
+      ),
+    )
+  }
+  match font_outline_charge_allocation(budget, point_count * 32UL) {
+    Err(error) => return Err(error)
+    Ok(_) => ()
+  }
+  let raw_offset : OutlinePoint = {
+    x_q15: match outline_checked_mul(arg1, 32768L) {
+      Err(error) => return Err(error)
+      Ok(value) => value
+    },
+    y_q15: match outline_checked_mul(arg2, 32768L) {
+      Err(error) => return Err(error)
+      Ok(value) => value
+    },
+    on_curve: true,
+  }
+  let offset = if (flags & 0x0800UL) != 0UL {
+    match transform_q15(raw_offset, matrix) {
+      Err(error) => return Err(error)
+      Ok(value) => value
+    }
+  } else {
+    raw_offset
+  }
+  let placed : Array[OutlinePoint] = []
+  for point in geometry.points {
+    let transformed = match transform_q15(point, matrix) {
+      Err(error) => return Err(error)
+      Ok(value) => value
+    }
+    placed.push({
+      x_q15: match outline_checked_add(transformed.x_q15, offset.x_q15) {
+        Err(error) => return Err(error)
+        Ok(value) => value
+      },
+      y_q15: match outline_checked_add(transformed.y_q15, offset.y_q15) {
+        Err(error) => return Err(error)
+        Ok(value) => value
+      },
+      on_curve: transformed.on_curve,
+    })
+  }
+  font_outline_lower_contours(
+    placed,
+    geometry.endpoints,
+    ledger,
+    limits.max_work(),
+    budget,
+  )
+}
+
+///|
 fn font_decode_outline(
   index : MetricIndexFacts,
   maxp : MaxpFacts,
@@ -760,17 +1153,27 @@ fn font_decode_outline(
   budget : @budget.Budget,
 ) -> Result[@math.Path2, @error.CoreError] {
   let ledger : OutlineWork = { used: 0UL }
-  let glyph = match font_outline_glyph_view(index, glyph_index) {
+  let glyph = match font_glyph_window(index, glyph_index) {
     Err(error) => return Err(error)
     Ok(None) => return Ok(@math.Path2::new())
     Ok(Some(value)) => value
+  }
+  if glyph.length() < 10UL {
+    return Err(font_outline_data_error("font-outline-glyph-header"))
   }
   let contour_count = match read_i16(glyph, 0UL) {
     Err(_) => return Err(font_outline_data_error("font-outline-glyph-header"))
     Ok(value) => value
   }
   if contour_count < 0 {
-    return Err(font_outline_capability_error("font-outline-composite"))
+    return font_decode_tracer_composite_outline(
+      glyph,
+      index,
+      maxp,
+      limits,
+      ledger,
+      budget,
+    )
   }
   if contour_count == 0 {
     font_decode_zero_contour_outline(glyph, maxp, limits, ledger, budget)
