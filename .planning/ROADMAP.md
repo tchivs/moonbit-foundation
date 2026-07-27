@@ -34,10 +34,65 @@
 - ✅ **v0.30 SVG Production Readiness** — Phases 91-94 (shipped 2026-07-26). [Full history](./milestones/v0.30-ROADMAP.md)
 - ✅ **v0.31 SVG Numeric Boundary Unification** — Phases 95-96 (shipped 2026-07-26). [Full history](./milestones/v0.31-ROADMAP.md)
 - ✅ **v0.32 TrueType Font Foundation** — Phases 97-100 (shipped 2026-07-28). [Full history](./milestones/v0.32-ROADMAP.md)
+- 📋 **v0.33 TrueType Collection Adapters** — Phases 101-103 (planned).
 
 ## Phases
 
-No active phases. Start the next milestone to define requirements and continue numbering from Phase 101.
+- [ ] **Phase 101: Collection Contract and Bounded Envelope** - Open and inspect bounded raw TTC/OTC version 1 and 2 collections through a compact semantic contract.
+- [ ] **Phase 102: Root-Relative Selected-Face Admission** - Select one supported collection face and use the existing `Font` behavior through a no-copy root-relative adapter.
+- [ ] **Phase 103: Hostile, Licensed, and Four-Target Qualification** - Prove atomic failures, standalone compatibility, licensed interoperability, and identical portable behavior.
+
+## Phase Details
+
+### Phase 101: Collection Contract and Bounded Envelope
+
+**Goal**: Library authors can open caller-provided raw TTC/OTC version 1 or 2 bytes under explicit authority and inspect the collection's bounded semantic face facts without exposing parser internals.
+**Depends on**: Phase 100
+**Requirements**: TTC-01
+**Success Criteria** (what must be TRUE):
+
+  1. A library author can open immutable TTC/OTC version 1 or 2 bytes and observe the exact non-zero face count without copying the complete collection or materializing standalone fonts.
+  2. A library author can inspect every zero-based face through a closed bounded profile that distinguishes supported static `glyf`, CFF/CFF2, variable, and other unsupported faces without exposing raw offsets or table records.
+  3. A library author can distinguish a version-2 collection with no DSIG from one with a structurally present but explicitly unverified DSIG envelope.
+
+**Plans**: TBD
+
+### Phase 102: Root-Relative Selected-Face Admission
+
+**Goal**: Library authors can select one supported static TrueType face from an admitted collection and use the existing opaque `Font` contract unchanged.
+**Depends on**: Phase 101
+**Requirements**: TTC-02, TTC-03
+**Success Criteria** (what must be TRUE):
+
+  1. A library author can select any in-range static `glyf`-based TrueType face and receive the existing `Font`, with metrics, Unicode mapping, kerning, glyph identity, and unhinted outlines matching the equivalent standalone logical font.
+  2. Valid selected faces work when their table bytes occur before or after their non-zero face directory because table offsets are resolved against the collection root.
+  3. A selected face admits correctly whether its table bytes are distinct or validly shared at exact ranges with sibling faces, without copying the retained collection root.
+  4. A supported selected face remains usable beside unsupported CFF/CFF2 or variable siblings, while collection-specific table and checksum semantics remain enforced without disabling standalone checks.
+
+**Plans**: TBD
+
+### Phase 103: Hostile, Licensed, and Four-Target Qualification
+
+**Goal**: Maintainers can reproduce the complete collection-to-`Font` workflow and its fail-closed boundaries with generated and licensed evidence on every supported target.
+**Depends on**: Phase 102
+**Requirements**: TTC-04, TTC-05
+**Success Criteria** (what must be TRUE):
+
+  1. Malformed collection structure, invalid face indices, unsupported selected profiles, checked-arithmetic failures, exhausted semantic limits, and exhausted budgets return deterministic structured outcomes without exposing a partial collection or font or charging an uncommitted transaction.
+  2. Mutation before or during collection inspection, selected-face admission, or inherited `Font` queries fails closed without publishing stale semantic facts or partial geometry.
+  3. Maintainers can reproduce generated TTC v1/v2, DSIG, sharing, mixed-profile, non-zero-base, hostile, and complete public collection-to-`Font` workflows from immutable fixtures.
+  4. At least one provenance-tracked licensed collection or reproducible licensed derivative proves public interoperability while the complete v0.32 standalone-SFNT behavior remains unchanged.
+  5. Independent `js`, `wasm`, `wasm-gc`, and `native` runs report identical semantic facts and preserve pure MoonBit execution, `mb-font -> mb-core` as the only runtime dependency, and the explicit WOFF/CFF implementation boundary.
+
+**Plans**: TBD
+
+## Progress
+
+| Phase | Plans Complete | Status | Completed |
+|-------|----------------|--------|-----------|
+| 101. Collection Contract and Bounded Envelope | 0/TBD | Not started | - |
+| 102. Root-Relative Selected-Face Admission | 0/TBD | Not started | - |
+| 103. Hostile, Licensed, and Four-Target Qualification | 0/TBD | Not started | - |
 
 ---
-*Roadmap last updated: 2026-07-28 after v0.32 milestone archive.*
+*Roadmap last updated: 2026-07-28 for v0.33 roadmap creation.*

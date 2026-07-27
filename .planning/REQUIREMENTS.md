@@ -53,17 +53,17 @@ Populated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| TTC-01 | TBD | Pending |
-| TTC-02 | TBD | Pending |
-| TTC-03 | TBD | Pending |
-| TTC-04 | TBD | Pending |
-| TTC-05 | TBD | Pending |
+| TTC-01 | Phase 101 | Pending |
+| TTC-02 | Phase 102 | Pending |
+| TTC-03 | Phase 102 | Pending |
+| TTC-04 | Phase 103 | Pending |
+| TTC-05 | Phase 103 | Pending |
 
 **Coverage:**
 - v0.33 requirements: 5 total
-- Mapped to phases: 0
-- Unmapped: 5
+- Mapped to phases: 5
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-07-28*
-*Last updated: 2026-07-28 after v0.33 research*
+*Last updated: 2026-07-28 after v0.33 roadmap creation*
