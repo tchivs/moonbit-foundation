@@ -1498,7 +1498,7 @@ test "glyph and work ceilings admit exact values and reject one short atomically
   // loca/glyph scans (7), two cmap-record scans (2), one format-4
   // validation scan (2), and one pre-charge format-4 discovery scan (2).
   let count_driven_work = 12UL
-  let lookup_work = table_count * 27UL
+  let lookup_work = table_count * 29UL
   let table_iteration_work = table_count * 2UL
   let directory_normalization_work = table_count
   let exact_work = source_length * 2UL +
@@ -1514,7 +1514,7 @@ test "glyph and work ceilings admit exact values and reject one short atomically
     directory_selector_work +
     table_count +
     directory_normalization_work +
-    table_count * 4UL
+    table_count * 5UL
   let directory_allocation_size = table_count * 64UL
   let exact_limits = FontLimits::new(
     max_source_bytes=source_length,
@@ -1650,9 +1650,9 @@ test "directory normalization copy is preflighted and charged once per table" {
   let normalization_copy_work = table_count
   let discovery_work = parsed_directory_work +
     normalization_copy_work +
-    table_count * 4UL
+    table_count * 5UL
   let work_without_copy = parsed_directory_work +
-    table_count * 27UL +
+    table_count * 29UL +
     table_count * 2UL +
     12UL
   let exact_work = work_without_copy + normalization_copy_work
@@ -1966,7 +1966,7 @@ test "cmap body scans consume exact aggregate work and reject one short atomical
     directory_selector_work +
     table_count +
     table_count +
-    table_count * 27UL +
+    table_count * 29UL +
     table_count * 2UL +
     count_driven_work
   let limits = FontLimits::new(
@@ -2025,7 +2025,7 @@ test "format 4 traversal preflights and charges exact single and shared work" {
       directory_selector_work +
       table_count +
       table_count +
-      table_count * 27UL +
+      table_count * 29UL +
       table_count * 2UL +
       count_driven_work
     let limits = FontLimits::new(
@@ -2081,7 +2081,7 @@ test "semantic max work gates cmap discovery before attacker-driven loops" {
     directory_selector_work +
     table_count +
     table_count
-  let discovery_base_work = directory_work + table_count * 4UL
+  let discovery_base_work = directory_work + table_count * 5UL
   // One encoding record is scanned at the first boundary. Its two format-4
   // segments are scanned only after the second cumulative boundary succeeds.
   for case in [
@@ -2454,6 +2454,7 @@ fn font_test_assert_every_query_drift(
   font_test_assert_revision_drift(font.glyph_for_scalar(0x0041).unwrap_err())
   font_test_assert_revision_drift(font.glyph_id(0UL).unwrap_err())
   font_test_assert_revision_drift(font.horizontal_metrics(glyph).unwrap_err())
+  font_test_assert_revision_drift(font.kerning(glyph, glyph).unwrap_err())
 }
 
 ///|

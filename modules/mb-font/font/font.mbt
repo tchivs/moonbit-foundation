@@ -113,7 +113,8 @@ pub fn Font::open(
     Err(error) => return Err(error)
     Ok(value) => value
   }
-  let admission_charge = match font_admission_charge(directory, limits, budget) {
+  let admission_charge = match
+    font_admission_charge(directory, limits, budget) {
     Err(error) => return Err(error)
     Ok(value) => value
   }
@@ -253,9 +254,7 @@ pub fn Font::glyph_for_scalar(
     Err(error) => return Err(error)
     Ok(_) => ()
   }
-  if scalar < 0 ||
-    scalar > 0x10FFFF ||
-    (scalar >= 0xD800 && scalar <= 0xDFFF) {
+  if scalar < 0 || scalar > 0x10FFFF || (scalar >= 0xD800 && scalar <= 0xDFFF) {
     return Err(font_unicode_scalar_error())
   }
   let value = match
@@ -334,6 +333,50 @@ pub fn Font::horizontal_metrics(
     }),
     right_side_bearing_value: facts.right_side_bearing,
   })
+}
+
+///|
+/// Return the exact signed legacy horizontal adjustment for one glyph pair.
+///
+/// Both opaque identifiers are revalidated against this receiving font before
+/// pair-key construction. Absence and a supported-table miss return zero.
+pub fn Font::kerning(
+  self : Font,
+  left : GlyphId,
+  right : GlyphId,
+) -> Result[Int, @error.CoreError] {
+  match self.require_revision("font-query") {
+    Err(error) => return Err(error)
+    Ok(_) => ()
+  }
+  if left.value_value >= self.metric_index.num_glyphs {
+    return Err(
+      font_glyph_id_error(
+        "font-kerning",
+        left.value_value,
+        self.metric_index.num_glyphs,
+      ),
+    )
+  }
+  if right.value_value >= self.metric_index.num_glyphs {
+    return Err(
+      font_glyph_id_error(
+        "font-kerning",
+        right.value_value,
+        self.metric_index.num_glyphs,
+      ),
+    )
+  }
+  let adjustment = match
+    font_lookup_kern(self.tables.kern, left.value_value, right.value_value) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  match self.require_revision("font-query") {
+    Err(error) => return Err(error)
+    Ok(_) => ()
+  }
+  Ok(adjustment)
 }
 
 ///|

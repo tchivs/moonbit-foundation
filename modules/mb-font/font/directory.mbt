@@ -178,7 +178,8 @@ fn font_directory_work(
   // `TableWindow` array. Keep that copy pass in the shared directory total so
   // both discovery preflight and the final atomic charge account it exactly
   // once.
-  let directory_work = match @checked.checked_add(record_scan_work, num_tables) {
+  let directory_work = match
+    @checked.checked_add(record_scan_work, num_tables) {
     Err(error) => return Err(error)
     Ok(value) => value
   }
@@ -263,10 +264,10 @@ fn font_directory_discovery_charge(
     Err(error) => return Err(error)
     Ok(value) => value
   }
-  // Admission discovers four count-bearing required tables before it can form
-  // the final atomic charge. Authorize the worst-case linear scans here so a
-  // budget that cannot afford discovery fails before any of those lookups.
-  let precharge_lookup_work = match @checked.checked_mul(num_tables, 4UL) {
+  // Admission discovers four count-bearing required tables plus the optional
+  // kern record before it can form the final atomic charge. Authorize the
+  // worst-case linear scans before any of those lookups.
+  let precharge_lookup_work = match @checked.checked_mul(num_tables, 5UL) {
     Err(error) => return Err(error)
     Ok(value) => value
   }
@@ -620,6 +621,19 @@ fn font_table_window(
     }
   }
   Err(font_data_error("font-required-table"))
+}
+
+///|
+fn font_optional_table_window(
+  directory : DirectoryFacts,
+  tag : UInt64,
+) -> TableWindow? {
+  for table in directory.tables {
+    if table.tag == tag {
+      return Some(table)
+    }
+  }
+  None
 }
 
 ///|

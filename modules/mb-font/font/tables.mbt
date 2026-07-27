@@ -61,6 +61,7 @@ priv struct RequiredTableFacts {
   hhea : HheaFacts
   os2 : Os2Facts
   cmap : CmapEnvelope
+  kern : KernState
 }
 
 ///|
@@ -88,10 +89,10 @@ fn font_admission_charge(
     return Err(font_limit_error("max-glyphs", num_glyphs, limits.max_glyphs()))
   }
   let table_count = directory.tables.length().to_uint64()
-  // The initial preflight authorizes the directory work plus these four
-  // count-bearing table lookups. Carry that exact prefix into the cumulative
-  // cmap discovery preflights below.
-  let precharge_lookup_work = match @checked.checked_mul(table_count, 4UL) {
+  // The initial preflight authorizes the directory work plus four required
+  // count lookups and the optional kern lookup. Carry that exact prefix into
+  // the cumulative declared-work preflights below.
+  let precharge_lookup_work = match @checked.checked_mul(table_count, 5UL) {
     Err(error) => return Err(error)
     Ok(value) => value
   }
@@ -134,6 +135,53 @@ fn font_admission_charge(
     ) {
     Err(error) => return Err(error)
     Ok(value) => value
+  }
+
+  let (kern_subtables, kern_pairs) = match
+    font_optional_table_window(directory, 0x6B65726EUL) {
+    None => (0UL, 0UL)
+    Some(kern_table) => {
+      match font_table_min_length(kern_table, 4UL, "font-kern-envelope") {
+        Err(error) => return Err(error)
+        Ok(_) => ()
+      }
+      let version = match read_u16(kern_table.view, 0UL) {
+        Err(_) => return Err(font_data_error("font-kern-envelope"))
+        Ok(value) => value
+      }
+      let subtable_count = match read_u16(kern_table.view, 2UL) {
+        Err(_) => return Err(font_data_error("font-kern-envelope"))
+        Ok(value) => value
+      }
+      let pair_count = if version == 0UL && subtable_count == 1UL {
+        match font_table_min_length(kern_table, 18UL, "font-kern-envelope") {
+          Err(error) => return Err(error)
+          Ok(_) => ()
+        }
+        match read_u16(kern_table.view, 10UL) {
+          Err(_) => return Err(font_data_error("font-kern-format0"))
+          Ok(value) => value
+        }
+      } else {
+        0UL
+      }
+      let kern_declared_work = match
+        @checked.checked_add(subtable_count, pair_count) {
+        Err(error) => return Err(error)
+        Ok(value) => value
+      }
+      let kern_preflight = match
+        @checked.checked_add(cmap_discovery_base_work, kern_declared_work) {
+        Err(error) => return Err(error)
+        Ok(value) => value
+      }
+      match
+        font_preflight_admission_work(budget, limits.max_work(), kern_preflight) {
+        Err(error) => return Err(error)
+        Ok(_) => ()
+      }
+      (subtable_count, pair_count)
+    }
   }
 
   let name_table = match font_table_window(directory, 0x6E616D65UL) {
@@ -250,9 +298,9 @@ fn font_admission_charge(
     Err(error) => return Err(error)
     Ok(value) => value
   }
-  // Four count-discovery lookups, ten presence lookups, ten table-admission
+  // Five count-discovery lookups, ten presence lookups, eleven table-admission
   // lookups, and three metric-index lookups each scan at most every record.
-  let lookup_work = match @checked.checked_mul(table_count, 27UL) {
+  let lookup_work = match @checked.checked_mul(table_count, 29UL) {
     Err(error) => return Err(error)
     Ok(value) => value
   }
@@ -264,12 +312,23 @@ fn font_admission_charge(
   let mut work = directory.work
   for
     count in [
-      lookup_work, table_iteration_work, glyph_work, cmap_records, name_records,
+      lookup_work,
+      table_iteration_work,
+      glyph_work,
+      cmap_records,
+      name_records,
       // The first cmap count covers the pre-charge subtable-count discovery;
       // the second covers the post-charge encoding-record validation loop.
-      cmap_records, cmap_work.body_records, cmap_work.format4_discovery_work,
-      cmap_work.search_work, cmap_work.mapping_work, language_records,
-      post_glyph_records, post_name_bytes,
+      cmap_records,
+      cmap_work.body_records,
+      cmap_work.format4_discovery_work,
+      cmap_work.search_work,
+      cmap_work.mapping_work,
+      language_records,
+      post_glyph_records,
+      post_name_bytes,
+      kern_subtables,
+      kern_pairs,
     ] {
     work = match @checked.checked_add(work, count) {
       Err(error) => return Err(error)
@@ -829,10 +888,7 @@ fn font_cmap_format4_mapping_work(
       Ok(value) => value
     }
     if start_code > end_code ||
-      (
-        index > 0UL &&
-        (end_code <= previous_end || start_code <= previous_end)
-      ) {
+      (index > 0UL && (end_code <= previous_end || start_code <= previous_end)) {
       return Err(font_data_error("font-cmap-envelope"))
     }
     let span = match
@@ -880,11 +936,7 @@ fn font_cmap_declared_work(
     Err(error) => return Err(error)
     Ok(value) => value
   }
-  match font_preflight_admission_work(
-    budget,
-    max_work,
-    record_discovery_work,
-  ) {
+  match font_preflight_admission_work(budget, max_work, record_discovery_work) {
     Err(error) => return Err(error)
     Ok(_) => ()
   }
@@ -1741,6 +1793,14 @@ fn font_admit_required_tables(
     Err(error) => return Err(error)
     Ok(value) => value
   }
+  let kern = match
+    font_admit_kern(
+      font_optional_table_window(directory, 0x6B65726EUL),
+      maxp.num_glyphs,
+    ) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
   match font_admit_name_envelope(name_table, limits) {
     Err(error) => return Err(error)
     Ok(_) => ()
@@ -1749,5 +1809,5 @@ fn font_admit_required_tables(
     Err(error) => return Err(error)
     Ok(_) => ()
   }
-  Ok({ head, maxp, hhea, os2, cmap })
+  Ok({ head, maxp, hhea, os2, cmap, kern })
 }
