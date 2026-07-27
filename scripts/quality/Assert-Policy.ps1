@@ -981,6 +981,57 @@ function Assert-FontDeferredCapabilitySurface {
   [CmdletBinding()]
   param([Parameter(Mandatory)][string[]]$InterfaceLines)
 
+  # Keep this classification independent from policy/foundation.json so a
+  # coordinated policy and implementation edit cannot silently admit a new
+  # Phase 98+ capability. Every new public line must be reviewed here.
+  $approvedPhase97Lines = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::Ordinal)
+  foreach ($approvedLine in @(
+    'package "tchivs/mb-font/font"',
+    'import {',
+    '  "tchivs/mb-core/budget",',
+    '  "tchivs/mb-core/bytes",',
+    '  "tchivs/mb-core/error",',
+    '}',
+    'pub struct Font {',
+    'pub fn Font::global_bounds(Self) -> Result[FontBounds, @error.CoreError]',
+    'pub fn Font::glyph_id(Self, UInt64) -> Result[GlyphId, @error.CoreError]',
+    'pub fn Font::hhea_line_metrics(Self) -> Result[FontLineMetrics, @error.CoreError]',
+    'pub fn Font::horizontal_metrics(Self, GlyphId) -> Result[GlyphHorizontalMetrics, @error.CoreError]',
+    'pub fn Font::open(@bytes.ByteView, FontLimits, @budget.Budget) -> Result[Self, @error.CoreError]',
+    'pub fn Font::typographic_line_metrics(Self) -> Result[FontLineMetrics, @error.CoreError]',
+    'pub fn Font::units_per_em(Self) -> Result[UInt64, @error.CoreError]',
+    'pub struct FontBounds {',
+    'pub fn FontBounds::x_max(Self) -> Int',
+    'pub fn FontBounds::x_min(Self) -> Int',
+    'pub fn FontBounds::y_max(Self) -> Int',
+    'pub fn FontBounds::y_min(Self) -> Int',
+    'pub struct FontLimits {',
+    'pub fn FontLimits::max_cmap_records(Self) -> UInt64',
+    'pub fn FontLimits::max_glyphs(Self) -> UInt64',
+    'pub fn FontLimits::max_name_records(Self) -> UInt64',
+    'pub fn FontLimits::max_post_name_bytes(Self) -> UInt64',
+    'pub fn FontLimits::max_source_bytes(Self) -> UInt64',
+    'pub fn FontLimits::max_table_bytes(Self) -> UInt64',
+    'pub fn FontLimits::max_tables(Self) -> UInt64',
+    'pub fn FontLimits::max_work(Self) -> UInt64',
+    'pub fn FontLimits::new(max_source_bytes~ : UInt64, max_tables~ : UInt64, max_table_bytes~ : UInt64, max_glyphs~ : UInt64, max_name_records~ : UInt64, max_cmap_records~ : UInt64, max_post_name_bytes~ : UInt64, max_work~ : UInt64) -> Result[Self, @error.CoreError]',
+    'pub struct FontLineMetrics {',
+    'pub fn FontLineMetrics::ascent(Self) -> Int',
+    'pub fn FontLineMetrics::descent(Self) -> Int',
+    'pub fn FontLineMetrics::line_gap(Self) -> Int',
+    'pub struct GlyphHorizontalMetrics {',
+    'pub fn GlyphHorizontalMetrics::advance_width(Self) -> UInt64',
+    'pub fn GlyphHorizontalMetrics::bounds(Self) -> FontBounds?',
+    'pub fn GlyphHorizontalMetrics::left_side_bearing(Self) -> Int',
+    'pub fn GlyphHorizontalMetrics::right_side_bearing(Self) -> Int',
+    'pub struct GlyphId {',
+    'pub fn GlyphId::value(Self) -> UInt64'
+  )) {
+    [void]$approvedPhase97Lines.Add($approvedLine)
+  }
+  $unreviewedLines = @($InterfaceLines | Where-Object { -not $approvedPhase97Lines.Contains([string]$_) })
+  Assert-Condition ($unreviewedLines.Count -eq 0) 'Font semantic interface exposes a deferred Phase 98+ capability.'
+
   $deferredLines = @(
     $InterfaceLines |
       ForEach-Object {
@@ -991,7 +1042,7 @@ function Assert-FontDeferredCapabilitySurface {
         $line -creplace '_', ' '
       }
   )
-  $deferredLeakPattern = '(?i)(\bcmap\b|\bkern(?:ing)?\b|\boutline\b|\bPath2\b|\bfile\s*system\b|\b(?:load|read|open|from)\b[^\r\n]*\b(?:file|path)\b|\bffi\b|\bforeign\s+function\s+interface\b|\bhost(?:\s+discovery)?\b|\bshap(?:e|er|ing)\b|\bhint(?:er|ing)?\b|\braster(?:ize|izer|ization)?\b)'
+  $deferredLeakPattern = '(?i)(\bcmap\b|\bkern(?:ing)?\b|\boutline\b|\bPath2\b|\bfile\s*system\b|\bsystem\s+font\b|\bfont\s+(?:file|source)\b|\b(?:load|read|open|from)\b[^\r\n]*\b(?:file|path|disk|uri)\b|\bffi\b|\bforeign\s+function\s+interface\b|\bforeign(?:\s+call)?\b|\bnative\b|\bextern\b|\bbindings?\b|\bc\s+abi\b|\b(?:adapter|bridge)\b|\bhost(?:\s+discovery)?\b|\bshap(?:e|er|ing)\b|\bhint(?:er|ing)?\b|\braster(?:ize|izer|ization)?\b)'
   Assert-Condition (@($deferredLines | Where-Object { $_ -cmatch $deferredLeakPattern }).Count -eq 0) 'Font semantic interface exposes a deferred Phase 98+ capability.'
 }
 
@@ -1107,7 +1158,14 @@ function Assert-FontFoundationPolicy {
     'pub fn Font::from_file(String) -> Self',
     'pub fn Font::open_path(String) -> Self',
     'pub fn Font::readFontFile(String) -> Self',
-    'pub struct ForeignFunctionInterface {'
+    'pub struct ForeignFunctionInterface {',
+    'pub struct SystemFontLoader {',
+    'pub struct FontFileSource {',
+    'pub fn Font::loadFromDisk(String) -> Self',
+    'pub struct NativeFontBindings {',
+    'pub struct ForeignCallBridge {',
+    'pub struct CAbiFontAdapter {',
+    'pub fn Font::read_uri(String) -> Self'
   )) {
     $negativeFailure = $null
     try {
