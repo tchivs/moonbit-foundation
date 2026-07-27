@@ -61,7 +61,7 @@ Phase 100 should be implemented as a qualification layer around the existing pub
 
 The real font immediately exposes one concrete compatibility defect: its `cmap` contains four supported Unicode format-4/12 records plus a valid Macintosh format-6 record, while both `font_cmap_declared_work` and `font_admit_cmap_lookup` currently parse every encoding record through a format-4/12-only decoder. Opening the specimen therefore reaches `font-cmap-envelope` before the selected format-12 map can be retained. Fix this narrowly by bounding and ignoring non-selected, recognized cmap formats while continuing to fully validate every candidate format-4/12 subtable; add the real-font regression and a compact format-6 coexistence regression without exposing format 6 publicly. [VERIFIED: `modules/mb-font/font/tables.mbt`, `cmap.mbt`, and independently parsed DejaVu bytes]
 
-**Primary recommendation:** Intake DejaVu once through a fail-closed PowerShell generator/oracle, generate deterministic 4 KiB MoonBit byte-literal chunks plus closed JSON facts, repair only the cmap coexistence defect, then qualify identical normalized semantics and hostile outcomes on four isolated targets before running the repository Required lane. [VERIFIED: repository generator and quality patterns] [ASSUMED]
+**Primary recommendation:** Intake DejaVu once through a fail-closed PowerShell generator/oracle, generate deterministic 4,096-byte MoonBit byte-literal chunks plus closed JSON facts, repair only the cmap coexistence defect, then compile and test that generated representation on `js`, `wasm`, `wasm-gc`, and `native` before qualifying identical normalized semantics and hostile outcomes and running the repository Required lane. The 4,096-byte chunk size is a reversible implementation choice: if any backend rejects it, reduce the generator-owned chunk size and regenerate without changing the canonical TTF bytes, digest, license, oracle facts, or fixture identity. [VERIFIED: repository generator and quality patterns]
 
 ## Architectural Responsibility Map
 
@@ -226,7 +226,7 @@ artifacts/release-qualification/font/
 
 Canonical TTF/license/hostile JSON inputs generate MoonBit source; generated MoonBit output never updates the oracle. `-Check` regenerates into memory or a temporary file and compares exact UTF-8-without-BOM bytes. [VERIFIED: existing fixture generator conventions]
 
-Generate 4,096-byte `Bytes` literal chunks, join them deterministically in one helper, and place source length plus SHA-256 in the generated header. The generator must reconstruct the emitted literal bytes and verify exact length/hash before write. [CITED: https://docs.moonbitlang.com/en/latest/language/fundamentals.html] [ASSUMED]
+Generate 4,096-byte `Bytes` literal chunks, join them deterministically in one helper, and place source length plus SHA-256 in the generated header. Treat 4,096 bytes as the selected, reversible source-layout choice rather than fixture identity. Phase 100 execution must compile and test the generated literal on `js`, `wasm`, `wasm-gc`, and `native`; if a backend rejects that source layout, reduce the generator-owned chunk size and regenerate while preserving exact round-trip length, SHA-256, canonical TTF bytes, license, and oracle facts. The generator must reconstruct the emitted literal bytes and verify exact length/hash before write. [CITED: https://docs.moonbitlang.com/en/latest/language/fundamentals.html] [VERIFIED: CONTEXT D-05/D-06]
 
 ### Pattern 2: Closed independent oracle
 
@@ -363,8 +363,8 @@ This ordering keeps expensive generated-source churn ahead of semantic test auth
 **Avoid:** remove only target/command runner metadata and byte-compare the complete semantic payload.
 
 ### Compiler/source-size instability
-**What goes wrong:** one enormous literal or array expression becomes slow or exceeds a backend/compiler limit. [ASSUMED]  
-**Avoid:** deterministic bounded chunk functions, a Wave-1 four-target compile probe, and generator-owned chunk size.
+**What goes wrong:** a generated literal source layout can be rejected by a backend or prove impractical to compile. [VERIFIED: portability acceptance risk identified by CONTEXT D-05]
+**Avoid:** select deterministic 4,096-byte chunk functions, compile and test them on all four targets during Phase 100 execution, and reduce only the generator-owned chunk size if a backend rejects that layout. Such a reduction must not change canonical fixture identity or semantic evidence.
 
 ### Oversized real-font limits obscure limit semantics
 **What goes wrong:** happy-path ceilings are copied into hostile exact-fit tests or declared maxp values are mistaken for caller limits. [VERIFIED: Phase 99 taxonomy]  
@@ -403,17 +403,14 @@ This ordering keeps expensive generated-source churn ahead of semantic test auth
 
 ## Assumptions Log
 
-| # | Claim | Section | Risk if wrong |
-|---|-------|---------|---------------|
-| A1 | 4,096-byte generated literal chunks are a practical initial compiler size. | Architecture Pattern 1 | Four-target compile probe may require a smaller/larger chunk, changing only generated source layout. |
-| A2 | Compiler/source-size instability is possible for a single 757 KiB literal. | Common Pitfalls | If false, chunking remains deterministic but slightly more verbose. |
+All implementation decisions in this research are resolved or verified. The 4,096-byte chunk size is an explicitly selected reversible source-layout choice, not an assumed fixture property. [VERIFIED: Phase 100 research decision]
 
-## Open Questions
+## Open Questions (RESOLVED)
 
-1. **Final chunk size after four-target compile probe**
-   - What we know: byte and `Bytes` literals are documented and portable; no documented file-inclusion primitive was found in the pinned toolchain. [CITED: https://docs.moonbitlang.com/en/latest/language/fundamentals.html]
-   - What's unclear: the most efficient generated chunk size for this exact compiler build.
-   - Recommendation: start at 4,096 bytes and let the generator own a single constant so a compile-proven adjustment does not change fixture identity.
+1. **Generated literal chunk size — resolved**
+   - Decision: use 4,096-byte chunks generated from the canonical TTF. [VERIFIED: Phase 100 research decision]
+   - Required validation: Phase 100 execution compiles and tests the generated representation on `js`, `wasm`, `wasm-gc`, and `native`.
+   - Reversible fallback: if any backend rejects the selected layout, reduce the generator-owned chunk size and regenerate. The canonical TTF bytes, length, SHA-256, license, oracle facts, manifest identity, and public semantic evidence remain unchanged.
 
 ## Sources
 
@@ -435,7 +432,7 @@ This ordering keeps expensive generated-source churn ahead of semantic test auth
 
 ### Tertiary (LOW confidence)
 
-- Literal chunk-size assumption only; compile-probe before freezing.
+- None.
 
 ## Metadata
 
