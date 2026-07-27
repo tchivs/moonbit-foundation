@@ -2123,6 +2123,7 @@ function Assert-FontQualificationArtifacts {
   $productionSources = @('moon.pkg', 'cmap.mbt', 'collection.mbt', 'collection_limits.mbt', 'collection_parser.mbt', 'cursor.mbt', 'directory.mbt', 'font.mbt', 'kern.mbt', 'limits.mbt', 'metrics.mbt', 'outline.mbt', 'tables.mbt')
   $testSources = @(
     'collection_test.mbt',
+    'collection_wbtest.mbt',
     'font_test.mbt',
     'font_wbtest.mbt',
     'generated_fonts_wbtest.mbt',
@@ -2312,6 +2313,7 @@ function Assert-FontFoundationPolicy {
     'font/collection_limits.mbt',
     'font/collection_parser.mbt',
     'font/collection_test.mbt',
+    'font/collection_wbtest.mbt',
     'font/cursor.mbt',
     'font/directory.mbt',
     'font/font.mbt',
