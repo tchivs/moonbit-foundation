@@ -110,10 +110,7 @@ test "collection structural pass keeps root ranges and face order" {
   inspect(facts.faces[0].directory_start, content="48")
   inspect(facts.faces[0].profile == FontFaceProfile::Cff, content="true")
   inspect(facts.faces[1].directory_start, content="80")
-  inspect(
-    facts.faces[1].profile == FontFaceProfile::StaticGlyf,
-    content="true",
-  )
+  inspect(facts.faces[1].profile == FontFaceProfile::StaticGlyf, content="true")
   inspect(facts.protected_ranges.length(), content="3")
   inspect(facts.protected_ranges[0].end, content="32")
   inspect(facts.protected_ranges[1].start, content="48")
@@ -122,37 +119,25 @@ test "collection structural pass keeps root ranges and face order" {
 
 ///|
 test "collection accounting formula includes every protected and alias pair" {
+  inspect(font_collection_choose_two(0UL, 48UL).unwrap(), content="0")
+  inspect(font_collection_choose_two(3UL, 48UL).unwrap(), content="3")
   inspect(
-    font_collection_choose_two(0UL, 48UL).unwrap(),
-    content="0",
-  )
-  inspect(
-    font_collection_choose_two(3UL, 48UL).unwrap(),
-    content="3",
-  )
-  inspect(
-    font_collection_exact_work(
-      2UL,
-      2UL,
-      3UL,
-      0UL,
-      0UL,
-      0UL,
-      48UL,
-    ).unwrap(),
+    font_collection_exact_work(2UL, 2UL, 3UL, 0UL, 0UL, 0UL, 48UL).unwrap(),
     content="48",
   )
-  let overflow = font_collection_choose_two(
-    18446744073709551615UL,
-    48UL,
-  ).unwrap_err()
-  inspect(
-    overflow.category() == @error.ErrorCategory::Resource,
-    content="true",
-  )
-  inspect(
-    overflow.code() == @error.ErrorCode::BudgetExceeded,
-    content="true",
-  )
+  let overflow = font_collection_choose_two(18446744073709551615UL, 48UL).unwrap_err()
+  inspect(overflow.category() == @error.ErrorCategory::Resource, content="true")
+  inspect(overflow.code() == @error.ErrorCode::BudgetExceeded, content="true")
   inspect(overflow.context() == Some("max-work"), content="true")
+}
+
+///|
+test "collection DSIG work includes header records and block pairs exactly" {
+  inspect(
+    font_collection_exact_work(1UL, 1UL, 3UL, 1UL, 1UL, 1UL, 48UL).unwrap(),
+    content="48",
+  )
+  let error = font_collection_exact_work(1UL, 1UL, 3UL, 1UL, 1UL, 1UL, 47UL).unwrap_err()
+  inspect(error.category() == @error.ErrorCategory::Resource, content="true")
+  inspect(error.context() == Some("max-work"), content="true")
 }
