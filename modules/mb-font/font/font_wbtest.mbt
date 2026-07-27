@@ -21,6 +21,63 @@ fn font_wb_view(source : Bytes) -> @bytes.ByteView {
 }
 
 ///|
+fn font_wb_owner(source : Bytes) -> @bytes.OwnedBytes {
+  let length = source.length().to_uint64()
+  @bytes.OwnedBytes::from_bytes(
+    source,
+    @budget.Budget::new(
+      @budget.ResourceLimits::new(
+        bytes=length,
+        allocations=1UL,
+        allocation_size=length,
+        width=0UL,
+        height=0UL,
+        pixels=0UL,
+        depth=0UL,
+        work=0UL,
+      ),
+    ),
+  ).unwrap()
+}
+
+///|
+fn font_wb_open_budget() -> @budget.Budget {
+  @budget.Budget::new(
+    @budget.ResourceLimits::new(
+      bytes=4096UL,
+      allocations=3UL,
+      allocation_size=4096UL,
+      width=0UL,
+      height=0UL,
+      pixels=0UL,
+      depth=0UL,
+      work=16384UL,
+    ),
+  )
+}
+
+///|
+fn font_wb_mutate_one_byte(owner : @bytes.OwnedBytes, offset : UInt64) -> Unit {
+  let original = owner.view().get(offset).unwrap()
+  owner
+  .with_mut(offset, 1UL, fn(lease) {
+    lease.set(0UL, (original.to_uint64() ^ 1UL).to_byte())
+  })
+  .unwrap()
+}
+
+///|
+fn font_wb_assert_revision_drift(error : @error.CoreError) -> Unit raise {
+  inspect(error.category() == @error.ErrorCategory::State, content="true")
+  inspect(error.code() == @error.ErrorCode::InvalidRange, content="true")
+  inspect(error.operation() == Some("font-query"), content="true")
+  inspect(
+    error.context() == Some("font-source-revision-drift"),
+    content="true",
+  )
+}
+
+///|
 test "checked big endian reads accept exact fit and reject one short" {
   inspect(read_u8(font_wb_view(b"\x12"), 0UL).unwrap(), content="b'\\x12'")
   inspect(read_u8(font_wb_view(b""), 0UL) is Err(_), content="true")
@@ -250,6 +307,49 @@ fn font_wb_kern_format0(pairs : Array[(UInt64, UInt64, Int)]) -> Bytes {
     )
   }
   Bytes::from_array(output)
+}
+
+///|
+test "glyph_for_scalar rejects post-read revision drift" {
+  let owner = font_wb_owner(generated_minimal_truetype())
+  let font = Font::open(owner.view(), font_wb_limits(), font_wb_open_budget()).unwrap()
+  let mut callback_count = 0
+  let result = font.glyph_for_scalar_after_lookup(0x0041, fn() {
+    callback_count = callback_count + 1
+    font_wb_mutate_one_byte(owner, 0UL)
+  })
+  match result {
+    Ok(_) => fail("post-read revision drift must not publish a GlyphId")
+    Err(error) => font_wb_assert_revision_drift(error)
+  }
+  inspect(callback_count, content="1")
+}
+
+///|
+test "kerning rejects post-read revision drift" {
+  let required = font_wb_required_tables()
+  let tables : Array[GeneratedFontTable] = []
+  for index, table in required {
+    if index == 6 {
+      tables.push(
+        font_wb_table(b"kern", font_wb_kern_format0([(0UL, 0UL, -7)])),
+      )
+    }
+    tables.push(table)
+  }
+  let owner = font_wb_owner(font_wb_build_sfnt(tables))
+  let font = Font::open(owner.view(), font_wb_limits(), font_wb_open_budget()).unwrap()
+  let glyph = font.glyph_id(0UL).unwrap()
+  let mut callback_count = 0
+  let result = font.kerning_after_lookup(glyph, glyph, fn() {
+    callback_count = callback_count + 1
+    font_wb_mutate_one_byte(owner, 0UL)
+  })
+  match result {
+    Ok(_) => fail("post-read revision drift must not publish an adjustment")
+    Err(error) => font_wb_assert_revision_drift(error)
+  }
+  inspect(callback_count, content="1")
 }
 
 ///|
