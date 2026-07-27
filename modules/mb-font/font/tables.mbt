@@ -239,8 +239,7 @@ fn font_admission_charge(
       lookup_work, table_iteration_work, glyph_work, cmap_records, name_records,
       // The first cmap count covers the pre-charge subtable-count discovery;
       // the second covers the post-charge encoding-record validation loop.
-      cmap_records, cmap_body_records, language_records, post_glyph_records,
-      post_name_bytes,
+       cmap_records, cmap_body_records, language_records, post_glyph_records, post_name_bytes,
     ] {
     work = match @checked.checked_add(work, count) {
       Err(error) => return Err(error)
@@ -646,12 +645,7 @@ fn font_cmap_subtable_facts(
         start_sentinel != 0xFFFFUL {
         return Err(font_data_error("font-cmap-envelope"))
       }
-      Ok({
-        format,
-        length,
-        language,
-        body_records: seg_count,
-      })
+      Ok({ format, length, language, body_records: seg_count })
     }
     12UL => {
       if remaining < 16UL {
@@ -703,12 +697,7 @@ fn font_cmap_subtable_facts(
       if length != expected || length > remaining {
         return Err(font_data_error("font-cmap-envelope"))
       }
-      Ok({
-        format,
-        length,
-        language,
-        body_records: groups,
-      })
+      Ok({ format, length, language, body_records: groups })
     }
     _ => return Err(font_data_error("font-cmap-envelope"))
   }
@@ -777,9 +766,7 @@ fn font_cmap_declared_body_records(
 }
 
 ///|
-fn font_cmap_search_facts(
-  seg_count : UInt64,
-) -> (UInt64, UInt64, UInt64) {
+fn font_cmap_search_facts(seg_count : UInt64) -> (UInt64, UInt64, UInt64) {
   let mut power = 1UL
   let mut selector = 0UL
   while power <= seg_count / 2UL {
@@ -843,8 +830,7 @@ fn font_validate_cmap_subtable(
         Err(error) => return Err(error)
         Ok(value) => value
       }
-      let id_deltas = match
-        @checked.checked_add(start_codes, code_array_size) {
+      let id_deltas = match @checked.checked_add(start_codes, code_array_size) {
         Err(error) => return Err(error)
         Ok(value) => value
       }
@@ -874,8 +860,10 @@ fn font_validate_cmap_subtable(
           Ok(value) => value
         }
         if start_code > end_code ||
-          (index > 0UL &&
-          (end_code <= previous_end || start_code <= previous_end)) {
+          (
+            index > 0UL &&
+            (end_code <= previous_end || start_code <= previous_end)
+          ) {
           return Err(font_data_error("font-cmap-envelope"))
         }
         let range_field = id_range_offsets + delta
@@ -986,15 +974,12 @@ fn font_cmap_domain_supported(
 ) -> Bool {
   match platform {
     0UL =>
-      (format == 4UL && encoding <= 3UL) ||
-      (format == 12UL && encoding == 4UL)
+      (format == 4UL && encoding <= 3UL) || (format == 12UL && encoding == 4UL)
     1UL => format == 4UL && encoding <= 32UL
     2UL => format == 4UL && encoding <= 2UL
     3UL =>
-      (format == 4UL && encoding <= 6UL) ||
-      (format == 12UL && encoding == 10UL)
-    value if value >= 240UL && value <= 255UL =>
-      format == 4UL || format == 12UL
+      (format == 4UL && encoding <= 6UL) || (format == 12UL && encoding == 10UL)
+    value if value >= 240UL && value <= 255UL => format == 4UL || format == 12UL
     _ => false
   }
 }
@@ -1093,10 +1078,19 @@ fn font_admit_cmap_envelope(
       return Err(font_data_error("font-cmap-envelope"))
     }
     if has_previous &&
-      (platform < previous_platform ||
-      (platform == previous_platform &&
-      (encoding < previous_encoding ||
-      (encoding == previous_encoding && facts.language <= previous_language)))) {
+      (
+        platform < previous_platform ||
+        (
+          platform == previous_platform &&
+          (
+            encoding < previous_encoding ||
+            (
+              encoding == previous_encoding &&
+              facts.language <= previous_language
+            )
+          )
+        )
+      ) {
       return Err(font_data_error("font-cmap-envelope"))
     }
     let end = match @checked.checked_add(subtable, facts.length) {
@@ -1221,12 +1215,22 @@ fn font_admit_name_envelope(
       Ok(value) => value
     }
     if has_previous &&
-      (platform_id < previous_platform ||
-      (platform_id == previous_platform &&
-      (encoding_id < previous_encoding ||
-      (encoding_id == previous_encoding &&
-      (language_id < previous_language ||
-      (language_id == previous_language && name_id < previous_name)))))) {
+      (
+        platform_id < previous_platform ||
+        (
+          platform_id == previous_platform &&
+          (
+            encoding_id < previous_encoding ||
+            (
+              encoding_id == previous_encoding &&
+              (
+                language_id < previous_language ||
+                (language_id == previous_language && name_id < previous_name)
+              )
+            )
+          )
+        )
+      ) {
       return Err(font_data_error("font-name-envelope"))
     }
     if language_id >= 0x8000UL {
@@ -1443,8 +1447,7 @@ fn font_admit_post_envelope(
       }
       font_table_exact_length(table, 32UL, "font-post-envelope")
     }
-    0x00030000UL =>
-      font_table_exact_length(table, 32UL, "font-post-envelope")
+    0x00030000UL => font_table_exact_length(table, 32UL, "font-post-envelope")
     0x00020000UL => {
       match font_table_min_length(table, 34UL, "font-post-envelope") {
         Err(error) => return Err(error)

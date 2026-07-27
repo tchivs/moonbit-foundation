@@ -300,9 +300,7 @@ fn font_test_cmap_format4_two_segments() -> Bytes {
 }
 
 ///|
-fn font_test_cmap_format12(
-  groups : Array[(UInt64, UInt64, UInt64)],
-) -> Bytes {
+fn font_test_cmap_format12(groups : Array[(UInt64, UInt64, UInt64)]) -> Bytes {
   let output : Array[Byte] = []
   font_test_push_u16(output, 0UL)
   font_test_push_u16(output, 1UL)
@@ -1411,9 +1409,7 @@ test "cmap admission rejects malformed supported bodies and record keys" {
   font_test_put_u16(reversed_segment, 32, 0x0042UL)
   let dangling_range = font_test_cmap_format4_two_segments().to_array()
   font_test_put_u16(dangling_range, 40, 6UL)
-  let reversed_group = font_test_cmap_format12([
-    (0x101UL, 0x100UL, 0UL),
-  ])
+  let reversed_group = font_test_cmap_format12([(0x101UL, 0x100UL, 0UL)])
   let overlapping_groups = font_test_cmap_format12([
     (0x100UL, 0x100UL, 0UL),
     (0x100UL, 0x100UL, 0UL),
@@ -1493,17 +1489,10 @@ test "cmap body scans consume exact aggregate work and reject one short atomical
     exact_work - 1UL,
   )
   let before = short_budget.remaining()
-  let error = Font::open(
-    font_test_owner(source).view(),
-    limits,
-    short_budget,
-  ).unwrap_err()
+  let error = Font::open(font_test_owner(source).view(), limits, short_budget).unwrap_err()
   inspect(error.code() == @error.ErrorCode::BudgetExceeded, content="true")
   inspect(error.context() == Some("work"), content="true")
-  inspect(
-    short_budget.remaining().work() == before.work(),
-    content="true",
-  )
+  inspect(short_budget.remaining().work() == before.work(), content="true")
 }
 
 ///|
@@ -1612,10 +1601,7 @@ test "name language tags and post name references require exact envelopes" {
     max_post_name_bytes=1UL,
     max_work=16384UL,
   ).unwrap()
-  let short_post_name_budget = font_test_budget_with(
-    post_name_length,
-    16384UL,
-  )
+  let short_post_name_budget = font_test_budget_with(post_name_length, 16384UL)
   let short_post_name_before = short_post_name_budget.remaining()
   let short_post_name_error = Font::open(
     font_test_owner(post_name_source).view(),
@@ -1634,8 +1620,7 @@ test "name language tags and post name references require exact envelopes" {
     content="true",
   )
   inspect(
-    short_post_name_after.allocations() ==
-    short_post_name_before.allocations(),
+    short_post_name_after.allocations() == short_post_name_before.allocations(),
     content="true",
   )
   inspect(
@@ -1674,8 +1659,8 @@ test "name language tags and post name references require exact envelopes" {
   )
   for
     post in [
-      missing_post2, truncated_post2, trailing_post2, invalid_character_post2,
-      long_name_post2, invalid_post25, long_post25, long_post3, one_glyph_post1,
+      missing_post2, truncated_post2, trailing_post2, invalid_character_post2, long_name_post2,
+      invalid_post25, long_post25, long_post3, one_glyph_post1,
     ] {
     let error = Font::open(
       font_test_owner(
