@@ -23,10 +23,11 @@ incompatible foundations.
 
 The repository is in active `0.1.x` candidate development. The modules are not
 stable and have not been published as a public release. The active line is
-v0.27, focused on low-bit indexed Adam7 PNG encoding; the workspace also
-contains candidate `mb-canvas` and `mb-svg` implementations plus bounded
-standalone TrueType admission, named metrics, deterministic Unicode mapping,
-and basic legacy horizontal kerning in `mb-font`.
+v0.32 TrueType Font Foundation, focused on bounded standalone TrueType
+admission, named metrics, deterministic Unicode mapping, legacy horizontal
+kerning, and reusable glyph outlines in `mb-font`. The completed v0.27 line
+delivered low-bit indexed Adam7 PNG encoding; the workspace also contains
+candidate `mb-canvas` and `mb-svg` implementations.
 
 Publication remains gated on verifying the exact Mooncakes namespace authority.
 No candidate API should be treated as a stable compatibility promise.
@@ -125,10 +126,11 @@ MCP 服务、IDE 扩展、桌面软件和 WebAssembly 应用复用的基础合�
 ### 当前状态
 
 仓库目前处于 `0.1.x` candidate 开发阶段，模块尚未声明稳定，也没有声称
-已经完成公开发布。当前主线是 v0.27，重点是低位深索引 Adam7 PNG 编码；
-工作区同时包含 candidate 状态的 `mb-canvas`、`mb-svg`，以及在 `mb-font`
-中实现的有界独立 TrueType 接纳、具名度量、确定性 Unicode 映射和基础旧式
-水平字偶距调整。
+已经完成公开发布。当前主线是 v0.32 TrueType Font Foundation，重点是在
+`mb-font` 中实现有界独立 TrueType 接纳、具名度量、确定性 Unicode 映射、
+旧式水平字偶距调整和可复用字形轮廓。已完成的 v0.27 主线交付了低位深索引
+Adam7 PNG 编码；工作区同时包含 candidate 状态的 `mb-canvas` 和 `mb-svg`
+实现。
 
 发布仍需先验证 Mooncakes 的确切命名空间权限。任何 candidate API 都不应
 被视为稳定兼容承诺。
