@@ -15,7 +15,7 @@
 
 ### Glyph Outlines
 
-- [ ] **FONT-03**: Library authors can extract complete unhinted `Path2`-compatible outlines for valid simple glyphs and bounded one-level composite glyphs, with checked arithmetic and no partial geometry on failure.
+- [x] **FONT-03**: Library authors can extract complete unhinted `Path2`-compatible outlines for valid simple glyphs and bounded one-level composite glyphs, with checked arithmetic and no partial geometry on failure.
 
 ### Kerning
 
@@ -57,7 +57,7 @@ Roadmap phases populate this table. Every v0.32 requirement must map to exactly 
 |-------------|-------|--------|
 | FONT-01 | Phase 97 | Complete |
 | FONT-02 | Phase 98 | Complete |
-| FONT-03 | Phase 99 | Pending |
+| FONT-03 | Phase 99 | Complete |
 | FONT-04 | Phase 98 | Complete |
 | FONT-05 | Phase 100 | Pending |
 

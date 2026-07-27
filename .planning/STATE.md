@@ -5,17 +5,17 @@ milestone_name: TrueType Font Foundation
 current_phase: 99
 current_phase_name: Simple and Composite Outlines
 status: executing
-stopped_at: Phase 99 context gathered
-last_updated: "2026-07-27T10:04:54.301Z"
+stopped_at: Completed 99-01-PLAN.md
+last_updated: "2026-07-27T10:28:56.612Z"
 last_activity: 2026-07-27
 last_activity_desc: Phase 98 complete, transitioned to Phase 99
 progress:
   total_phases: 3
   completed_phases: 2
   total_plans: 9
-  completed_plans: 6
-current_plan: 0
-total_plans_in_phase: 0
+  completed_plans: 7
+current_plan: 1
+total_plans_in_phase: 3
 ---
 
 # Project State
@@ -31,11 +31,11 @@ See `.planning/PROJECT.md` (updated 2026-07-27 after Phase 98 validation).
 ## Current Position
 
 Phase: 99 — Simple and Composite Outlines
-Plan: Not started
+Plan: 2 of 3
 Status: Ready to execute
 Last activity: 2026-07-27 — Phase 98 complete, transitioned to Phase 99
 
-Progress: [██████████] 100% (2/4 phases; 6/6 completed plans)
+Progress: [████████░░] 78% (2/4 phases; 6/6 completed plans)
 
 ## Milestone Metrics
 
@@ -69,6 +69,9 @@ Progress: [██████████] 100% (2/4 phases; 6/6 completed plans
 - [Phase 98]: Phase 98 uses one checksum-correct generated font as the permanent Unicode-to-opaque-glyph-to-signed-kern tracer.
 - [Phase 98]: Phase 98 publication exposes only glyph_for_scalar, kerning, two kern ceilings, and the expanded FontLimits constructor; cmap/kern facts remain private.
 - [Phase 98]: The independent font policy classifier approves the exact Phase 98 surface while rejecting raw cmap/kern facts and Phase 99+ capabilities.
+- [Phase ?]: Phase 99 simple outlines keep all format arithmetic in private checked Int64 Q15 until final Point2 construction.
+- [Phase ?]: Outline queries cumulatively enforce maxp claims, retained limits and max_work, and caller Budget before traversal or allocation.
+- [Phase ?]: Generated interfaces remain ignored local tool output; semantic baseline and final hashes are recorded without force-staging.
 
 ### Pending Todos
 
@@ -102,9 +105,9 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-07-27T09:12:28.725Z
-Stopped at: Phase 99 context gathered
-Resume file: .planning/phases/99-simple-and-composite-outlines/99-CONTEXT.md
+Last session: 2026-07-27T10:28:32.623Z
+Stopped at: Completed 99-01-PLAN.md
+Resume file: None
 
 ## Operator Next Steps
 
@@ -131,3 +134,4 @@ Phases 97-98 completed all six plans. Phase 98 passed final deep review, 19/19 s
 | Phase 98 P01 | 42m | 2 tasks | 5 files |
 | Phase 98 P02 | 36min | 3 tasks | 9 files |
 | Phase 98 P03 | 20min | 2 tasks | 7 files |
+| Phase 99 P01 | 21min | 2 tasks | 9 files |
