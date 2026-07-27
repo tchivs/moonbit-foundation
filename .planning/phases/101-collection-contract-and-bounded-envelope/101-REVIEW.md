@@ -1,6 +1,6 @@
 ---
 phase: 101-collection-contract-and-bounded-envelope
-reviewed: 2026-07-27T22:26:41Z
+reviewed: 2026-07-27T23:27:45Z
 depth: standard
 files_reviewed: 7
 files_reviewed_list:
@@ -12,85 +12,42 @@ files_reviewed_list:
   - policy/foundation.json
   - scripts/quality/Assert-Policy.ps1
 findings:
-  critical: 3
-  warning: 2
+  critical: 1
+  warning: 0
   info: 0
-  total: 5
+  total: 1
 status: issues_found
 ---
 
 # Phase 101: Code Review Report
 
-**Reviewed:** 2026-07-27T22:26:41Z
+**Reviewed:** 2026-07-27T23:27:45Z
 **Depth:** standard
 **Files Reviewed:** 7
 **Status:** issues_found
 
 ## Summary
 
-The public facade and checked range helpers are generally structured defensively, but the implementation does not yet enforce its work authority before attacker-controlled traversal. Two related accounting defects let a collection consume substantially more work than the accepted `max_work` and caller `Budget` charge. The parser also accepts a malformed zero-length table record that violates the package's established alignment rule. Test and policy gates leave important security branches and exact-interface invariants insufficiently protected.
+The original five findings are directly addressed: traversal now has staged work authority, normalization re-reads are charged, empty table offsets are aligned, the two-record DSIG matrix is executable, and the independent interface gate enforces the exact ordered surface. The focused native suite passes 26/26 tests, `moon check --target all --frozen`, `Assert-FontFoundationPolicy`, PowerShell parsing, JSON parsing, and `git diff --check` all pass.
+
+The iteration-2 precedence blocker is only partially fixed. The new combined-conflict tests use limits one below the *complete* charge but still above the structural-stage charge, so they do not exercise the point where staged authority actually changes the public error. DSIG declaration validation also still runs before all face, protected-range, and alias facts. Consequently the implementation does not implement the unconditional D-18 sequence claimed by the context and Plan 101-03.
 
 ## Narrative Findings (AI reviewer)
 
 ### Critical Issues
 
-#### CR-01 [BLOCKER]: Work authority is checked only after all bounded and quadratic traversals finish
+#### CR-01 [BLOCKER]: Staged authority still violates D-18 at its stage boundary and DSIG declarations remain out of order
 
-**File:** `modules/mb-font/font/collection_parser.mbt:1988-2039`
+**File:** `D:/AI-Data/temp/Admin/mnf-phase100-exec/modules/mb-font/font/collection_parser.mbt:2134-2166`
 
-**Issue:** `font_collection_parse` performs every face scan, protected-range pair comparison, table-by-protected comparison, unordered table-pair comparison, and DSIG block-pair comparison before calling `font_collection_retained_charge`, where `max_work` is finally compared, and before `Budget::preflight`. Consequently, `max_work=1` or a one-unit caller work budget does not prevent any of the declared `C2(P)`, `R*P`, `C2(R)`, or `C2(N)` work from executing. With caller-authorized but hostile counts this is a CPU denial-of-service and directly violates the phase contract that exact work authority precede pair traversal.
+**Issue:** The fix preflights `structural_work` at lines 2141-2166 before the first face scan at line 2167. For the shipped one-face DSIG fixture the structural charge is 43 and the complete charge is 57. The new regressions at `collection_test.mbt:1243-1328` use `max_work=56` or caller work 56, so structural traversal is authorized and the malformed fact correctly wins. With `max_work=42` or caller work 42, however, the same malformed face/alias/DSIG-block candidate returns `Resource/BudgetExceeded` before the structural error. D-18 and Plan 101-03 specify face, protected/alias, and DSIG facts before the retained/work/budget tiers; no decision artifact narrows that promise to budgets above the structural charge.
 
-**Fix:** Split DSIG declaration/count parsing from DSIG block traversal, compute the complete checked work charge as soon as `F`, `R`, `P`, `S`, and `N` are known, compare it with `limits.max_work()`, and preflight the caller budget before entering structural/pair loops. Alternatively, use a checked work meter that reserves the complete charge before traversal and never performs an operation before its authority is established.
+There is a second observable ordering hole in the same path: `font_collection_parse_dsig_declaration` is called at lines 2134-2138 before face scanning and validates DSIG version/count/flags. A v2 candidate with both malformed face search facts and an unsupported DSIG version therefore returns DSIG `Capability` before the face `Data` error, despite Plan 101-03 explicitly ordering face and protected/alias facts before DSIG tuple/body facts. The added precedence matrix covers only a late DSIG reserved-field error, not DSIG declaration errors.
 
-#### CR-02 [BLOCKER]: The advertised exact work charge omits the second full directory/table scan
-
-**File:** `modules/mb-font/font/collection_parser.mbt:2042-2065`
-
-**Issue:** Normalization calls `font_collection_scan_face` again for every face. That helper rereads the directory header, search fields, and every table record and repeats ordering, range, alignment, and profile work. However, `font_collection_exact_work` accounts for normalization only as `1 + face_count + protected_count` at lines 1835-1849; it does not include the repeated per-record scan. A successful open therefore consumes more work than the supposedly exact value charged to `Budget`, and the discrepancy grows with table count.
-
-**Fix:** Preserve the compact `CollectionFaceFacts` produced by the authorized structural pass and move them into the retained array without rescanning untrusted bytes. If rescanning is intentional, add its complete face/record cost to the formula and preflight that larger value before either scan.
-
-#### CR-03 [BLOCKER]: Zero-length tables bypass mandatory table-offset alignment
-
-**File:** `modules/mb-font/font/collection_parser.mbt:1615`
-
-**Issue:** Alignment is rejected only when `table_length > 0`. A zero-length record with an in-range offset such as `97` is therefore admitted even though the established SFNT parser applies the four-byte table-offset rule unconditionally. Empty ranges should be excluded from overlap checks, but emptiness does not make a malformed offset aligned. This creates divergent standalone-versus-collection admission semantics and accepts invalid TTC directory records.
-
-**Fix:**
-
-```moonbit
-if table_offset % 4UL != 0UL {
-  return Err(
-    font_collection_data_error(
-      "font-collection-table-alignment",
-      source_offset=record_offset + 8UL,
-    ),
-  )
-}
-```
-
-Add a black-box case with `length=0` and a misaligned in-bounds offset and assert `Data/InvalidEncoding`.
-
-### Warnings
-
-#### WR-01 [WARNING]: DSIG pairwise containment and overlap branches have no executable tests
-
-**File:** `modules/mb-font/font/collection_test.mbt:948-1145`
-
-**Issue:** Every DSIG fixture declares exactly one signature. The white-box suite checks only the arithmetic formula and likewise never opens a two-record DSIG. As a result, the security-sensitive `earlier_index < current_index` overlap loop, touching-block acceptance, out-of-order disjoint blocks, and multi-record outer-end behavior are untested despite the phase plan and summary claiming a complete block-pair matrix.
-
-**Fix:** Add generated two-record DSIG fixtures covering disjoint/touching blocks, partial and exact overlap, a block entering the complete record array, non-monotonic but disjoint offsets, trailing gaps, and exact `max_dsig_records`/`max_work` boundaries. Assert both the precise error fields and unchanged budget.
-
-#### WR-02 [WARNING]: The “independent” public-surface gate checks membership, not the required interface
-
-**File:** `scripts/quality/Assert-Policy.ps1:989-1073`
-
-**Issue:** `Assert-FontPhase101Surface` stores approved lines in a `HashSet` and only rejects lines outside that set. It does not independently reject missing approved declarations, duplicates, or reordering. The JSON golden and generated-interface comparison catch ordinary drift, but a coordinated policy/implementation edit can weaken or reorder the contract while still passing this purportedly independent gate, particularly if the fixed line count is preserved.
-
-**Fix:** Keep the approved declarations in one ordered array and call `Assert-ExactSequence` against `InterfaceLines`. Retain the forbidden-pattern checks as defense in depth, and add negative fixtures for a removed method, a duplicated approved line, and reordered declarations.
+**Fix:** Resolve the contract conflict through the GSD decision flow rather than another local parser-only change. The defensible security-first contract is to document declaration-stage and structural-stage work/budget preflights as explicit earlier precedence tiers, amend D-18 and the Plan 101-03 truth accordingly, and add exact `declaration_work-1`, `structural_work-1`, and `exact_work-1` tests for both collection and caller authority. Separately split DSIG authority discovery from DSIG semantic validation: gather only the bounded counts needed for the structural charge, defer version/flags/record semantics until after face and protected/alias validation, and add combined malformed-face versus DSIG tuple/version/count/flags cases. If D-18 must remain unchanged, the implementation cannot expose the current early stage failures and needs a different authority model.
 
 ---
 
-_Reviewed: 2026-07-27T22:26:41Z_
+_Reviewed: 2026-07-27T23:27:45Z_
 _Reviewer: the agent (gsd-code-reviewer)_
 _Depth: standard_
