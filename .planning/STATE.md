@@ -5,16 +5,16 @@ milestone_name: TrueType Font Foundation
 current_phase: 100
 current_phase_name: Portable Font Qualification
 status: executing
-stopped_at: Completed 100-03-PLAN.md
-last_updated: "2026-07-27T14:47:48.945Z"
+stopped_at: Completed 100-04-PLAN.md
+last_updated: "2026-07-27T15:01:10.551Z"
 last_activity: 2026-07-27
-last_activity_desc: Completed Phase 100 Plan 03 public font qualification evidence
+last_activity_desc: Completed Phase 100 Plan 04 focused font qualification boundary
 progress:
   total_phases: 4
   completed_phases: 3
   total_plans: 15
-  completed_plans: 13
-current_plan: 4
+  completed_plans: 14
+current_plan: 5
 total_plans_in_phase: 5
 ---
 
@@ -31,11 +31,11 @@ See `.planning/PROJECT.md` (updated 2026-07-27 after Phase 99 validation).
 ## Current Position
 
 Phase: 100 (Portable Font Qualification) — EXECUTING
-Plan: 4 of 5
+Plan: 5 of 5
 Status: Ready to execute
-Last activity: 2026-07-27 — Completed Phase 100 Plan 03 public font qualification evidence
+Last activity: 2026-07-27 — Completed Phase 100 Plan 04 focused font qualification boundary
 
-Progress: [█████████░] 87%
+Progress: [█████████░] 93%
 
 ## Milestone Metrics
 
@@ -89,6 +89,9 @@ Progress: [█████████░] 87%
 - [Phase 100]: Use U+034C as the independently qualified supported DejaVu composite; keep U+00E9 at the explicit font-outline-grid-rounding capability boundary.
 - [Phase 100]: Normalize only top-level target and runner fields before byte-comparing four-target font qualification evidence.
 - [Phase 100]: Permit only zero-valued 0-3 byte TrueType glyph alignment padding after an otherwise valid outline.
+- [Phase 100]: Keep FontQualification as a dedicated selector that forwards EvidenceDirectory and never invokes or replaces Required.
+- [Phase 100]: Audit executable MoonBit source separately from comments and string literals so provenance text and unsupported-profile test data cannot self-trigger capability gates.
+- [Phase 100]: Remove only target and runner metadata from comparison; every public, hostile, fixture, toolchain, and dependency fact remains byte-visible.
 
 ### Pending Todos
 
@@ -120,17 +123,17 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-07-27T14:47:48.920Z
-Stopped at: Completed 100-03-PLAN.md
+Last session: 2026-07-27T15:01:10.523Z
+Stopped at: Completed 100-04-PLAN.md
 Resume file: None
 
 ## Operator Next Steps
 
-- Execute Phase 100 Plan 04 workspace and dependency qualification.
+- Execute Phase 100 Plan 05 documentation, CI, and final closure.
 
 ## Performance Metrics
 
-Phases 97-99 completed all ten plans. Phase 99 Plan 04 passed 92/92 isolated font tests on every supported target plus focused/repository-wide policy, exact manifest, and four-target documentation gates.
+Phases 97-99 completed all ten plans. Phase 100 Plan 04 passed 102/102 focused font tests on every supported target plus exact fixture, interface, dependency, capability, and semantic-evidence gates.
 
 **Per-Phase Metrics:**
 
@@ -157,3 +160,4 @@ Phases 97-99 completed all ten plans. Phase 99 Plan 04 passed 92/92 isolated fon
 | Phase 100 P01 | 14min | 2 tasks | 7 files |
 | Phase 100 P02 | 16min | 2 tasks | 5 files |
 | Phase 100 P03 | 25min | 2 tasks | 10 files |
+| Phase 100 P04 | 10min | 1 tasks | 5 files |
