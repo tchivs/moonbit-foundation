@@ -874,9 +874,12 @@ function Assert-FoundationPolicy {
 }
 
 function Assert-QoiGeneratedInterface {
-  param([Parameter(Mandatory)][object]$QoiPolicy)
+  param(
+    [Parameter(Mandatory)][object]$QoiPolicy,
+    [Parameter(Mandatory)][string]$RepositoryRoot
+  )
 
-  $interfacePath = 'modules/mb-image/qoi/pkg.generated.mbti'
+  $interfacePath = Join-Path $RepositoryRoot 'modules/mb-image/qoi/pkg.generated.mbti'
   Assert-Condition (Test-Path -LiteralPath $interfacePath -PathType Leaf) "QOI interface classifier cannot find '$interfacePath'."
   $semanticLines = @(Get-Content -LiteralPath $interfacePath | ForEach-Object { $_.TrimEnd() } | Where-Object { $_ -ne '' -and -not $_.TrimStart().StartsWith('//') })
   Assert-ExactSequence 'QOI generated semantic interface' $semanticLines @($QoiPolicy.semantic_interface | ForEach-Object { [string]$_ })
@@ -913,13 +916,14 @@ function Assert-QoiFoundationPolicy {
   $qoiFiles = @(Get-ChildItem -LiteralPath (Join-Path $repoRoot 'modules/mb-image/qoi') -File | Where-Object { $_.Name -cne 'pkg.generated.mbti' } | ForEach-Object { $_.Name })
   Assert-ExactSet 'QOI directory contents' $qoiFiles @('moon.pkg', 'qoi.mbt', 'decode.mbt', 'decode_test.mbt', 'decode_wbtest.mbt', 'encode.mbt', 'encode_test.mbt', 'encode_wbtest.mbt', 'generated_vectors.mbt', 'stream_decode.mbt', 'stream_decode_test.mbt', 'stream_decode_wbtest.mbt', 'stream_encode.mbt', 'stream_encode_test.mbt', 'stream_encode_wbtest.mbt')
 
-  & moon -C modules/mb-image info --target all --frozen
+  $imageModulePath = Join-Path $repoRoot 'modules/mb-image'
+  & moon -C $imageModulePath info --target all --frozen
   if ($LASTEXITCODE -ne 0) { throw "QOI interface generation failed (exit $LASTEXITCODE)." }
   if (Get-Command Assert-GeneratedInterface -ErrorAction SilentlyContinue) {
     $scopedModule = [pscustomobject]@{ name = 'tchivs/mb-image'; path = 'modules/mb-image'; public_packages = @($qoi) }
     Assert-GeneratedInterface -ModulePolicy $scopedModule
   } else {
-    Assert-QoiGeneratedInterface -QoiPolicy $qoi
+    Assert-QoiGeneratedInterface -QoiPolicy $qoi -RepositoryRoot $repoRoot
   }
   Write-Host 'QOI policy, interface, target, source-order, package, and public-example selection verified.'
 }
@@ -1104,7 +1108,8 @@ function Assert-FontFoundationPolicy {
     Assert-Condition ($null -ne $negativeFailure -and $negativeFailure -cmatch 'deferred Phase 98[+] capability') "Font deferred-capability selector accepted forbidden fixture '$forbiddenLine'."
   }
 
-  & moon -C modules/mb-font info --target all --frozen
+  $fontModulePath = Join-Path $repoRoot 'modules/mb-font'
+  & moon -C $fontModulePath info --target all --frozen
   if ($LASTEXITCODE -ne 0) { throw "Font interface generation failed (exit $LASTEXITCODE)." }
   if (Get-Command Assert-GeneratedInterface -ErrorAction SilentlyContinue) {
     Assert-GeneratedInterface -ModulePolicy $fontModule
@@ -1145,7 +1150,8 @@ function Assert-PngFoundationPolicy {
   }
   Assert-Condition (@($png.semantic_interface) -cnotcontains 'pub struct PngStreamDecoder {') 'PNG policy must reject the obsolete PngStreamDecoder surface.'
   Assert-Condition (@($png.semantic_interface) -cnotcontains 'pub struct PngStreamEncoder {') 'PNG policy must reject the obsolete PngStreamEncoder surface.'
-  & moon -C modules/mb-image info --target all --frozen
+  $imageModulePath = Join-Path $repoRoot 'modules/mb-image'
+  & moon -C $imageModulePath info --target all --frozen
   if ($LASTEXITCODE -ne 0) { throw "PNG interface generation failed (exit $LASTEXITCODE)." }
   $interfacePath = Join-Path $repoRoot 'modules/mb-image/png/pkg.generated.mbti'
   $semanticLines = @(Get-Content -LiteralPath $interfacePath | ForEach-Object { $_.TrimEnd() } | Where-Object { $_ -ne '' -and -not $_.TrimStart().StartsWith('//') })
