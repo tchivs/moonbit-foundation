@@ -321,7 +321,7 @@ were retrieved on 2026-07-27, retain the exact license expression
 status in `fixtures/manifest.json`.
 
 The separately versioned
-`mnf-powershell-closed-sfnt-reader/1.0.0` oracle does not invoke `mb-font`.
+`mnf-powershell-closed-sfnt-reader/1.1.0` oracle does not invoke `mb-font`.
 Against its independently checked facts, the public workflow freezes:
 
 - `unitsPerEm=2048`, global bounds `(-2090,-948)..(3673,2524)`,
