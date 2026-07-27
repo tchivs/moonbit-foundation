@@ -258,13 +258,10 @@ pub fn Font::glyph_for_scalar(
     (scalar >= 0xD800 && scalar <= 0xDFFF) {
     return Err(font_unicode_scalar_error())
   }
-  let value = match self.tables.cmap.lookup {
-    Some(facts) =>
-      match font_lookup_cmap(facts, scalar.to_uint64()) {
-        Err(error) => return Err(error)
-        Ok(value) => value
-      }
-    None => 0UL
+  let value = match
+    font_lookup_cmap(self.tables.cmap.lookup, scalar.to_uint64()) {
+    Err(error) => return Err(error)
+    Ok(value) => value
   }
   match self.require_revision("font-query") {
     Err(error) => return Err(error)

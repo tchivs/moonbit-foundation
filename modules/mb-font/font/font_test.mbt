@@ -321,30 +321,6 @@ fn font_test_cmap_format12(groups : Array[(UInt64, UInt64, UInt64)]) -> Bytes {
   Bytes::from_array(output)
 }
 
-///|
-fn font_test_cmap_shared_format4_records(
-  first_platform : UInt64,
-  first_encoding : UInt64,
-  second_platform : UInt64,
-  second_encoding : UInt64,
-) -> Bytes {
-  let output : Array[Byte] = []
-  font_test_push_u16(output, 0UL)
-  font_test_push_u16(output, 2UL)
-  font_test_push_u16(output, first_platform)
-  font_test_push_u16(output, first_encoding)
-  font_test_push_u32(output, 20UL)
-  font_test_push_u16(output, second_platform)
-  font_test_push_u16(output, second_encoding)
-  font_test_push_u32(output, 20UL)
-  let format4 = font_test_cmap_table()
-  for index = 12; index < format4.length(); index = index + 1 {
-    output.push(format4[index])
-  }
-  Bytes::from_array(output)
-}
-
-///|
 fn font_test_cmap_shared_format4_two_segments() -> Bytes {
   let output : Array[Byte] = []
   font_test_push_u16(output, 0UL)
@@ -972,11 +948,12 @@ test "cmap aliases share one mapping while duplicate canonical keys reject" {
 
 ///|
 test "well formed legacy-only cmap is a distinct capability failure" {
-  let legacy = font_test_truetype_with_cmap(
+  let legacy = font_test_truetype_with_cmap_and_glyphs(
     font_test_cmap_records(
       [(1UL, 0UL, 0)],
       [font_test_cmap_format4_range(false)],
     ),
+    4UL,
   )
   let error = Font::open(
     font_test_owner(legacy).view(),
@@ -1719,7 +1696,6 @@ test "cmap admission rejects malformed supported bodies and record keys" {
       Bytes::from_array(dangling_range),
       reversed_group,
       overlapping_groups,
-      font_test_cmap_shared_format4_records(3UL, 1UL, 3UL, 1UL),
     ] {
     let error = Font::open(
       font_test_owner(font_test_truetype_with_cmap(cmap)).view(),

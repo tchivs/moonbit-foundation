@@ -99,6 +99,33 @@ fn font_wb_cmap_format12_groups(
 }
 
 ///|
+fn font_wb_cmap_format4_range(indexed : Bool) -> Bytes {
+  let output : Array[Byte] = []
+  font_wb_put_u16(output, 4UL)
+  font_wb_put_u16(output, if indexed { 38UL } else { 32UL })
+  font_wb_put_u16(output, 0UL)
+  font_wb_put_u16(output, 4UL)
+  font_wb_put_u16(output, 4UL)
+  font_wb_put_u16(output, 1UL)
+  font_wb_put_u16(output, 0UL)
+  font_wb_put_u16(output, 0x0043UL)
+  font_wb_put_u16(output, 0xFFFFUL)
+  font_wb_put_u16(output, 0UL)
+  font_wb_put_u16(output, 0x0041UL)
+  font_wb_put_u16(output, 0xFFFFUL)
+  font_wb_put_u16(output, if indexed { 1UL } else { 0xFFC0UL })
+  font_wb_put_u16(output, 1UL)
+  font_wb_put_u16(output, if indexed { 4UL } else { 0UL })
+  font_wb_put_u16(output, 0UL)
+  if indexed {
+    font_wb_put_u16(output, 1UL)
+    font_wb_put_u16(output, 0UL)
+    font_wb_put_u16(output, 3UL)
+  }
+  Bytes::from_array(output)
+}
+
+///|
 test "cmap rank and format-12 lower bound preserve canonical boundaries" {
   inspect(font_cmap_rank(0UL, 4UL, 12UL) == Some(0), content="true")
   inspect(font_cmap_rank(3UL, 10UL, 12UL) == Some(1), content="true")
@@ -136,6 +163,44 @@ test "cmap rank and format-12 lower bound preserve canonical boundaries" {
   ] {
     let (scalar, expected) = case
     inspect(font_lookup_cmap_format12(facts, scalar).unwrap() == expected, content="true")
+  }
+}
+
+///|
+test "format-4 admitted bases and binary search cover direct and indexed edges" {
+  for case in [
+    (font_wb_cmap_format4_range(false), [1UL, 2UL, 3UL]),
+    (font_wb_cmap_format4_range(true), [2UL, 0UL, 4UL]),
+  ] {
+    let (source, expected) = case
+    let view = font_wb_view(source)
+    let table : TableWindow = {
+      tag: 0x636D6170UL,
+      checksum: 0UL,
+      offset: 0UL,
+      length_value: source.length().to_uint64(),
+      view,
+    }
+    let facts = font_cmap_format4_facts(table, 0UL, 2UL).unwrap()
+    inspect(facts.end_codes, content="14")
+    inspect(facts.start_codes, content="20")
+    inspect(facts.id_deltas, content="24")
+    inspect(facts.id_range_offsets, content="28")
+    inspect(font_lookup_cmap_format4(facts, 0x0040UL).unwrap(), content="0")
+    inspect(
+      font_lookup_cmap_format4(facts, 0x0041UL).unwrap() == expected[0],
+      content="true",
+    )
+    inspect(
+      font_lookup_cmap_format4(facts, 0x0042UL).unwrap() == expected[1],
+      content="true",
+    )
+    inspect(
+      font_lookup_cmap_format4(facts, 0x0043UL).unwrap() == expected[2],
+      content="true",
+    )
+    inspect(font_lookup_cmap_format4(facts, 0x0044UL).unwrap(), content="0")
+    inspect(font_lookup_cmap_format4(facts, 0x1F600UL).unwrap(), content="0")
   }
 }
 

@@ -33,7 +33,7 @@ priv struct Os2Facts {
 #warnings("-7")
 priv struct CmapEnvelope {
   record_count : UInt64
-  lookup : CmapLookupFacts?
+  lookup : CmapLookupFacts
 }
 
 ///|
@@ -1216,20 +1216,11 @@ fn font_validate_cmap_subtable(
 
 ///|
 fn font_cmap_domain_supported(
-  platform : UInt64,
-  encoding : UInt64,
+  _platform : UInt64,
+  _encoding : UInt64,
   format : UInt64,
 ) -> Bool {
-  match platform {
-    0UL =>
-      (format == 4UL && encoding <= 3UL) || (format == 12UL && encoding == 4UL)
-    1UL => format == 4UL && encoding <= 32UL
-    2UL => format == 4UL && encoding <= 2UL
-    3UL =>
-      (format == 4UL && encoding <= 6UL) || (format == 12UL && encoding == 10UL)
-    value if value >= 240UL && value <= 255UL => format == 4UL || format == 12UL
-    _ => false
-  }
+  format == 4UL || format == 12UL
 }
 
 ///|
