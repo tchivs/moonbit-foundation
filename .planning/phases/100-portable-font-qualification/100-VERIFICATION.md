@@ -1,15 +1,14 @@
 ---
 phase: 100-portable-font-qualification
-verified: 2026-07-27T16:01:56Z
+verified: 2026-07-27T19:52:40Z
 status: passed
 score: 4/4 must-haves verified
 behavior_unverified: 0
 overrides_applied: 0
 re_verification:
-  previous_status: human_needed
+  previous_status: passed
   previous_score: 4/4
-  gaps_closed:
-    - "Every published supported DejaVu outline fingerprint is now bound to a complete independently generated command vector and an exhaustive target-side assertion executed before evidence publication."
+  gaps_closed: []
   gaps_remaining: []
   regressions: []
 ---
@@ -17,9 +16,9 @@ re_verification:
 # Phase 100: Portable Font Qualification Verification Report
 
 **Phase Goal:** Maintainers can reproduce the complete public font workflow and hostile-input behavior with immutable fixtures on every supported target.
-**Verified:** 2026-07-27T16:01:56Z
+**Verified:** 2026-07-27T19:52:40Z
 **Status:** passed
-**Re-verification:** Yes — after closing the fingerprint evidence gap in Plan 100-06
+**Re-verification:** Yes — final independent verification after code-review hardening
 
 ## Goal Achievement
 
@@ -27,154 +26,147 @@ re_verification:
 
 | # | Truth | Status | Evidence |
 |---|---|---|---|
-| 1 | A maintainer can run one immutable public workflow that opens a font, maps BMP and supplementary scalars, reads metrics, extracts simple and composite outlines, and queries kerning with identical facts on all four targets. | ✓ VERIFIED | Fresh `FontQualification` execution passed the exact exhaustive DejaVu test 1/1 and the complete package 102/102 on each of `js`, `wasm`, `wasm-gc`, and `native`. Compact workflow coverage remains intact. |
-| 2 | Generated adversarial fixtures produce identical structured malformed-input, unsupported-feature, mutation, arithmetic, and resource-limit outcomes on all targets. | ✓ VERIFIED | The complete four-target package suite still passes, including the closed 11-case public hostile matrix and transactional exact/one-short assertions. |
-| 3 | A licensed real-font specimen has immutable bytes, provenance/license, digest, inventory, and reproducible public interoperability facts. | ✓ VERIFIED | Exact DejaVu Sans 2.37 TTF/notice identities and license remain unchanged. Oracle schema/reader 1.1.0 contains complete ordered command vectors; all supported fingerprints were independently recomputed and matched. |
-| 4 | Isolated font and workspace controls preserve `mb-font -> mb-core` only and exclude forbidden ambient/deferred capabilities. | ✓ VERIFIED | Exact 56-line public interface still matches the Phase 100 baseline and policy. Module dependency remains solely `tchivs/mb-core`; package imports and four targets are unchanged. Plan 100-06 changes only tests, generated test data, offline tooling, policy, and evidence gating. |
+| 1 | A maintainer can run one immutable public workflow that opens a font, maps BMP and supplementary scalars, reads metrics, extracts simple and composite outlines, and queries kerning with identical facts on all four targets. | ✓ VERIFIED | A fresh local `FontQualification` run passed the focused outline assertion 1/1 and the complete package 103/103 on each of `js`, `wasm`, `wasm-gc`, and `native`. Hosted job `90083617417` independently passed the same gates on exact code commit `8897f1c17bd7b35cd41213c7d00055265f13b953`. |
+| 2 | Generated adversarial fixtures produce identical structured malformed-input, unsupported-feature, mutation, arithmetic, and resource-limit outcomes on all targets. | ✓ VERIFIED | The fresh local run passed the exact hostile assertion 1/1 on every target. Every local and hosted target record has `hostile_assertion_passed=true`, 11 hostile outcomes, and `pass=true`; normalized records compare equal. |
+| 3 | A licensed real-font specimen has immutable bytes, provenance/license, digest, inventory, and reproducible public interoperability facts. | ✓ VERIFIED | The DejaVu Sans 2.37 fixture, notice, manifest, oracle 1.1.0, generator `-Check`, and focused policy gate all passed. Complete command-vector fingerprints remain independently bound to target-side exhaustive outline assertions. |
+| 4 | Isolated font and workspace controls preserve `mb-font -> mb-core` only and exclude forbidden ambient/deferred capabilities. | ✓ VERIFIED | The generated interface contains exactly 56 semantic lines and matches both the recorded baseline and policy allowlist in exact order. `moon.mod.json` still declares only `tchivs/mb-core: 0.1.0`; `moon.pkg` still imports the five approved mb-core packages and supports all four targets. Exact hosted Required completed successfully through the bounded wrapper. |
 
 **Score:** 4/4 truths verified (0 present-but-behavior-unverified)
 
-### FONT-05
+## Final Hosted Evidence
 
-**Status: ✓ SATISFIED.**
+GitHub Actions run `30297979654` completed successfully for exact code commit
+`8897f1c17bd7b35cd41213c7d00055265f13b953`. The current verification worktree
+HEAD, `5fdbfcfaba203fa951c782d4f41690918e615f18`, differs from that code commit
+only by the two review reports.
 
-Fresh command:
+| Job | Job ID | Result | Direct evidence |
+|---|---:|---|---|
+| Required | `90083617352` | ✓ PASS | Exact pinned toolchain installed; POSIX descendant-containment probe passed; real Required ran with `-TimeoutSeconds 1800` and passed. |
+| FontQualification | `90083617417` | ✓ PASS | Focused outline 1/1, focused hostile 1/1, and package 103/103 on all four supported targets. |
+| LLVM | `90083617339` | ✓ PASS | Experimental job passed and remains explicitly non-blocking. |
 
-`./scripts/quality.ps1 -Lane FontQualification -EvidenceDirectory artifacts/release-qualification/font-reverification`
+The artifacts were independently downloaded, hashed, and inspected:
 
-Result:
+| Artifact | Artifact ID | ZIP SHA-256 | Inspected result |
+|---|---:|---|---|
+| `required-diagnostic` | `8666037685` | `4e56a2126e38df10419e917c7e5c5b4008b0d488a222c9389430785f3e2be75a` | `timeout_seconds=1800`, `timed_out=false`, `exit_code=0`, `process_tree_terminated=true`, `termination_status=exited-session-terminated-verified`, `status=pass`. |
+| `font-qualification-evidence` | `8665402336` | `df2266437bbf4ccfa0241c202b18d2b7bfc1acb24bd6a2bace2b3a4eeef692b3` | Four target records have `pass=true`, 11 hostile outcomes, and both focused assertions true. `comparison.json` has `equal=true` and semantic SHA-256 `65b63177ed296ffa4cb1f46a4c6943d6036a71d70eb1b8409830a35e65fcdef8`. |
 
-- exact DejaVu exhaustive assertion: 1/1 on each target;
-- complete font package: 102/102 on each target;
-- semantic comparison: `equal=true`;
-- normalization removes only `target` and `runner`;
-- semantic SHA-256: `65b63177ed296ffa4cb1f46a4c6943d6036a71d70eb1b8409830a35e65fcdef8`.
+All hosted jobs checked out the exact code commit and reported the authenticated
+pinned identity `moon 0.1.20260713 (75c7e1f 2026-07-13)`.
 
-## Re-verification of Previous Gap
+## Previous Gap Closure Regression
 
-### Independent complete oracle vectors
+The previously closed fingerprint-evidence gap remains closed:
 
-The offline PowerShell oracle now emits `path.commands` under schema/reader version 1.1.0. I independently recomputed SHA-256 over each UTF-8 pipe-joined complete vector:
-
-| Scalar | Commands | Recomputed / Stored Fingerprint | Status |
+| Scalar | Complete commands | Independently recomputed fingerprint | Status |
 |---|---:|---|---|
 | U+0041 | 13 | `ccb4bab2977fff264d8a8421ccb01e333b837e02bc7b5eb6c67e435ffcd2d308` | ✓ MATCH |
 | U+034C | 48 | `f5dfde0b4b9620c9de27a766cdd3fee9efa89f7fd1044c9d9f68ce2e94aed827` | ✓ MATCH |
 | U+10300 | 13 | `c082fb5502ff6694c084a4ebce10d0208171a9c8079051cb544868b44e92267a` | ✓ MATCH |
 
-The partition is exactly 13 + 48 + 13 = 74 commands. Every command matches the closed `M`, `L`, `Q`, or `Z` grammar.
-
-### Oracle-to-generated-test link
-
-`Generate-FontQualification.ps1`:
-
-1. independently parses the immutable TTF into complete ordered commands;
-2. computes each fingerprint from that same complete vector;
-3. requires count, vector length, and fingerprint equality;
-4. converts every command to structured test-private fields;
-5. emits `font_qualification_dejavu_supported_outlines()` in deterministic generated MoonBit;
-6. rejects drift through `-Check`.
-
-Fresh generator `-Check` and `Assert-FontFoundationPolicy` both passed.
-
-### Exhaustive public Path2 assertions
-
-`font_qualification_test.mbt` consumes all three generated outline expectations. For every command index it checks:
-
-- exact path length, preventing missing or extra commands;
-- exact `MoveTo` and `LineTo` coordinates;
-- exact `QuadTo` control and endpoint coordinates;
-- exact `Close` variant;
-- rejection of unexpected cubic or missing commands.
-
-The test iterates every generated expectation and every command. This is complete target-side verification of all 74 commands, not selected-coordinate sampling.
-
-### Target-test-to-evidence gate
-
-`Invoke-FontQualification.ps1` executes, in this order for each target:
-
-1. target-specific `moon check`;
-2. the exact filtered DejaVu test;
-3. require exit 0 and exactly `Total tests: 1, passed: 1, failed: 0.`;
-4. the complete 102-test package suite;
-5. only then construct and validate the target evidence record.
-
-Each fresh record has:
-
-- `runner.outline_assertion_passed=true`;
-- exact test name `font-complete-public freezes DejaVu Sans 2.37 public facts`;
-- a target-bound assertion command;
-- exactly three supported path fingerprints matching the independent oracle.
-
-The previous partial key link is now **✓ WIRED**.
+All 74 ordered commands remain generated from the immutable TTF through the
+independent oracle and are exhaustively asserted through the public `Font::outline`
+and `Path2` API before evidence publication.
 
 ## Required Artifacts
 
-| Artifact | Status | Re-verification evidence |
-|---|---|---|
-| `fixtures/font/dejavu-sans-2.37/oracle.json` | ✓ VERIFIED | Schema 1.1.0; complete vectors; exact counts and independently recomputed fingerprints. |
-| `scripts/fixtures/Generate-FontQualification.ps1` | ✓ VERIFIED | Complete vector derivation, closed grammar conversion, fingerprint/count validation, deterministic generation, passing `-Check`. |
-| `modules/mb-font/font/generated_font_qualification_test.mbt` | ✓ VERIFIED | Test-private structured expectations for all 74 commands and three stored fingerprints. |
-| `modules/mb-font/font/font_qualification_test.mbt` | ✓ VERIFIED | Exhaustive ordered PathCommand assertions through the public Font/Path2 API. |
-| `scripts/quality/Invoke-FontQualification.ps1` | ✓ VERIFIED | Per-target focused test gate precedes full suite and evidence construction. |
-| `scripts/quality/Assert-Policy.ps1` | ✓ VERIFIED | Freezes oracle schema, command counts/vectors, generated symbols, interface, dependencies, and source boundaries. |
+| Artifact | Expected | Status | Details |
+|---|---|---|---|
+| `fixtures/font/dejavu-sans-2.37/DejaVuSans.ttf` and license/manifest | Immutable licensed real-font specimen | ✓ VERIFIED | Exact provenance, digest, license, and redistribution policy pass the focused selector. |
+| `fixtures/font/dejavu-sans-2.37/oracle.json` | Independent complete public facts | ✓ VERIFIED | Oracle 1.1.0 retains the complete command vectors and exact fingerprints. |
+| `scripts/fixtures/Generate-FontQualification.ps1` | Deterministic fixture/oracle-to-test generation | ✓ VERIFIED | Fresh `-Check` passed; generated data remains drift-free. |
+| `modules/mb-font/font/generated_font_qualification_test.mbt` | Test-private immutable facts | ✓ VERIFIED | Contains all three supported outline expectations and 74 ordered commands. |
+| `modules/mb-font/font/font_qualification_test.mbt` | Complete public-workflow and exhaustive outline assertions | ✓ VERIFIED | Focused outline assertion passed on every target locally and in hosted CI. |
+| `modules/mb-font/font/font_qualification_hostile_test.mbt` | Closed hostile-input behavior matrix | ✓ VERIFIED | Focused hostile assertion passed on every target locally and in hosted CI. |
+| `modules/mb-font/font/tables.mbt` | Strict bounded cmap classification | ✓ VERIFIED | Format 6 now requires the checked exact declared length `10 + entryCount * 2`; the regression is exercised by the passing package tests. |
+| `scripts/quality/Invoke-FontQualification.ps1` | Fail-closed four-target evidence runner | ✓ VERIFIED | Separately gates exact outline and hostile tests before full-suite evidence construction. |
+| `scripts/quality/Invoke-RequiredBounded.ps1` | Bounded process-tree-contained Required execution | ✓ VERIFIED | Local Windows containment regression passed; hosted POSIX containment and real Required diagnostic passed. |
+| `scripts/ci/Install-PinnedMoonBit.ps1` and `.github/workflows/quality.yml` | Authenticated immutable toolchain and bounded jobs | ✓ VERIFIED | Hosted run used the exact installer and identity; policy mutations fail closed. |
 
 ## Key Link Verification
 
 | From | To | Via | Status | Details |
 |---|---|---|---|---|
-| Immutable DejaVu TTF | Independent oracle | Closed offline SFNT parser | ✓ WIRED | Complete vectors and hashes are recomputed from immutable bytes without mb-font output. |
-| Independent oracle | Generated MoonBit expectations | Deterministic structured generator | ✓ WIRED | Count/vector/hash invariants and generated drift checks pass. |
-| Generated expectations | Public Path2 results | Exhaustive black-box test | ✓ WIRED | All 74 ordered commands are structurally checked on every target. |
-| Focused target test | Target evidence record | Exit/pass-summary gate before record construction | ✓ WIRED | Each target records exact assertion provenance and publishes matching fingerprints only after the test and full suite pass. |
-| Target records | Canonical comparison | Remove only target/runner | ✓ WIRED | Four records compare equal; semantic fields remain byte-visible. |
+| Immutable DejaVu TTF | Independent oracle | Closed offline SFNT parser | ✓ WIRED | Complete vectors and hashes are derived from immutable bytes without using mb-font output. |
+| Independent oracle | Generated MoonBit expectations | Deterministic generator | ✓ WIRED | Count, vector, and hash invariants pass; generated drift check passes. |
+| Generated expectations | Public Path2 results | Exhaustive black-box outline test | ✓ WIRED | All 74 ordered commands are structurally asserted on all four targets. |
+| Hostile descriptors | Structured public errors | Exact focused hostile test | ✓ WIRED | All 11 outcomes are target-exercised before evidence publication. |
+| Focused tests | Target evidence | Exact exit-code and one-test-summary gates | ✓ WIRED | Each target record states both focused assertions passed. |
+| Target records | Canonical comparison | Normalize only `target` and `runner` | ✓ WIRED | Four records compare equal with the expected semantic digest. |
+| Workflow | Pinned toolchain installer | Exact named step with `shell: pwsh` | ✓ WIRED | Hosted jobs report the exact authenticated MoonBit identity. |
+| Required workflow step | Bounded wrapper | 35-minute outer timeout and 1800-second wrapper | ✓ WIRED | Hosted Required diagnostic proves pass and verified process-tree termination. |
 
 ## Data-Flow Trace (Level 4)
 
-| Data | Source | Consumer | Status |
-|---|---|---|---|
-| Complete DejaVu commands | Independent parsed TTF geometry | Oracle `path.commands` | ✓ FLOWING |
-| Structured expectations | Oracle complete commands | Generated MoonBit black-box test | ✓ FLOWING |
-| Actual runtime geometry | Public `Font::outline` Path2 | Exhaustive target assertions | ✓ FLOWING |
-| Supported fingerprints | Independently validated oracle vectors | Evidence records gated by matching complete assertions | ✓ FLOWING |
+| Data | Source | Consumer | Produces real data | Status |
+|---|---|---|---|---|
+| Complete DejaVu commands | Independent parsing of immutable TTF bytes | Oracle `path.commands` | Yes | ✓ FLOWING |
+| Structured expected commands | Oracle complete vectors | Generated MoonBit black-box test | Yes | ✓ FLOWING |
+| Runtime outline geometry | Public `Font::outline` | Exhaustive target assertions | Yes | ✓ FLOWING |
+| Hostile outcomes | Generated malformed/adversarial fixtures | Public error assertions and target records | Yes | ✓ FLOWING |
+| Required status | Real hosted Required process | Uploaded `required-invocation.json` | Yes | ✓ FLOWING |
+
+## Code-Review Hardening Verification
+
+| Finding | Verification | Status |
+|---|---|---|
+| CR-01: format 6 cmap length validation | Source requires checked exact length; four-target 103-test suites pass. | ✓ CLOSED |
+| CR-02: evidence cleanup boundary | `Test-FontQualificationEvidenceBoundary.ps1` passed, including linked/reparse containment. | ✓ CLOSED |
+| CR-03: descendant termination | Local Windows Job Object test passed; hosted POSIX session sentinel and Required diagnostic prove dynamic containment. | ✓ CLOSED |
+| CR-04: hostile evidence gate | Fresh and hosted records require and report `hostile_assertion_passed=true`. | ✓ CLOSED |
+| WR-01: oracle documentation | README identifies oracle 1.1.0. | ✓ CLOSED |
+| WR-02/03: pinned immutable toolchain | Hosted jobs authenticated exact immutable archives and exact tool identities. | ✓ CLOSED |
+| WR-04: installer shell binding | Workflow policy mutation matrix passed and hosted step executed through exact `shell: pwsh`. | ✓ CLOSED |
+| Required timeout budget | Policy enforces 35 minutes / 1800 seconds; hosted real Required passed and uploaded unconditional diagnostics. | ✓ CLOSED |
+
+The current `100-REVIEW.md` is clean with zero findings. That review is
+corroborating evidence; the verdict above is based on direct source inspection,
+local executions, hosted job results, and independently inspected artifacts.
 
 ## Public Surface, Dependency, and Scope Regression
 
 | Check | Result | Status |
 |---|---|---|
-| Public semantic interface | 56 generated lines = 56 baseline lines = 56 policy lines | ✓ PASS |
+| Generated interface | 80 physical lines, exactly 56 semantic lines after the project’s blank/comment filter | ✓ PASS |
+| Semantic interface identity | Exact ordered match to both Phase 100 baseline and `policy/foundation.json` | ✓ PASS |
 | Runtime module dependency | Exactly `tchivs/mb-core: 0.1.0` | ✓ PASS |
-| Package imports | Existing five mb-core packages only | ✓ PASS |
+| Package imports | Approved `budget`, `bytes`, `checked`, `error`, and `math` mb-core packages only | ✓ PASS |
 | Supported targets | `+js+wasm+wasm-gc+native` | ✓ PASS |
-| Production source changes in 100-06 | None | ✓ PASS |
-| Public/runtime SHA addition | None; SHA-256 remains offline PowerShell tooling | ✓ PASS |
-| Forbidden/deferred capabilities | No FFI, filesystem/host discovery, GUI/canvas/image/color, shaping, hinting, CFF/CFF2, or rasterization expansion | ✓ PASS |
+| Code delta after hosted commit | Current HEAD adds only `100-REVIEW.md` and `100-REVIEW-FIX.md` | ✓ PASS |
+| Forbidden/deferred capabilities | Focused policy and source-boundary checks pass | ✓ PASS |
 
 ## Behavioral Spot-Checks
 
-| Behavior | Result | Status |
-|---|---|---|
-| Independent vector/hash invariant | Exact 13/48/13 vectors; all three recomputed hashes match | ✓ PASS |
-| Generator and policy drift gates | Both pass | ✓ PASS |
-| Target exhaustive assertion | 1/1 on js, wasm, wasm-gc, native | ✓ PASS |
-| Complete font regression suite | 102/102 on js, wasm, wasm-gc, native | ✓ PASS |
-| Evidence provenance/fingerprints | All four records target-bound and oracle-equal | ✓ PASS |
-| Semantic comparison | `equal=true`, target/runner-only normalization | ✓ PASS |
-| Exact public interface | Unchanged 56-line sequence | ✓ PASS |
+| Behavior | Command/evidence | Result | Status |
+|---|---|---|---|
+| Complete portable font qualification | `./scripts/quality.ps1 -Lane FontQualification -EvidenceDirectory artifacts/release-qualification/font-final-verification` | Outline 1/1, hostile 1/1, package 103/103 on all four targets; comparison equal | ✓ PASS |
+| Evidence destructive boundary | `./scripts/quality/Test-FontQualificationEvidenceBoundary.ps1` | Boundary test passed | ✓ PASS |
+| Workflow/toolchain policy | `./scripts/quality/Test-QualityWorkflowPolicy.ps1` | Complete mutation matrix passed | ✓ PASS |
+| Windows descendant containment | `./scripts/quality/Test-RequiredProcessTreeTermination.ps1` | Normal, late, and ephemeral descendants contained | ✓ PASS |
+| Hosted POSIX descendant containment | Required job `90083617352` | Exact POSIX sentinel passed | ✓ PASS |
+| Hosted real Required | Artifact `8666037685` | Exit 0, no timeout, verified termination, status pass | ✓ PASS |
+
+## Probe Execution
+
+No phase-declared `probe-*.sh` is part of the Phase 100 contract. The dedicated
+PowerShell behavioral checks are recorded above.
 
 ## Requirements Coverage
 
-| Requirement | Status | Evidence |
-|---|---|---|
-| FONT-05 | ✓ SATISFIED | Licensed immutable complete workflow and hostile qualification pass on all four targets; complete supported DejaVu geometry is now target-asserted before fingerprint evidence publication. |
+| Requirement | Source Plans | Description | Status | Evidence |
+|---|---|---|---|---|
+| FONT-05 | 100-01 through 100-06 | Licensed immutable complete public font workflow and hostile qualification on all supported targets | ✓ SATISFIED | Fresh local and exact-commit hosted qualification pass all four targets; artifacts are reproducible and independently inspected. |
+
+No additional Phase 100 requirement is orphaned from the phase plans.
 
 ## Anti-Patterns Found
 
-No unresolved debt marker, placeholder implementation, test skip, runtime/public hash dependency, production parser change, public API expansion, or evidence-before-test construction was found in Plan 100-06.
-
-## Workspace-Wide Required Diagnostic
-
-The existing bounded Windows Required record remains an honest separate failure (`timed_out=true`, process tree terminated, status `failure`) at the known unscoped `mb-image/png` workspace boundary. Plan 100-06 does not modify or relabel it. The fresh focused four-target font gate passes independently.
+No unresolved `TBD`, `FIXME`, or `XXX` debt marker, placeholder implementation,
+empty handler, evidence-before-test construction, mutable toolchain transport,
+public API expansion, dependency expansion, or target exception was found in the
+final hardened scope.
 
 ## Human Verification Required
 
@@ -182,9 +174,10 @@ None.
 
 ## Gaps Summary
 
-The previous fingerprint evidence gap is closed. No gaps, regressions, behavior-unverified truths, or human decisions remain.
+No gaps, regressions, behavior-unverified truths, unresolved prohibitions, or
+human decisions remain. The phase goal is achieved.
 
 ---
 
-_Verified: 2026-07-27T16:01:56Z_
+_Verified: 2026-07-27T19:52:40Z_
 _Verifier: the agent (gsd-verifier)_
