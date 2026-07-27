@@ -1,10 +1,10 @@
 ---
 schema_version: 1
-open_count: 15
+open_count: 18
 waived_count: 0
 fixed_count: 3
-total_count: 18
-last_updated: 2026-07-27T06:16:12.454Z
+total_count: 21
+last_updated: 2026-07-27T07:21:06.464Z
 ---
 
 # Broken Windows Ledger
@@ -33,6 +33,9 @@ last_updated: 2026-07-27T06:16:12.454Z
 | 16 | 97 | unrun-verify | docs/rfcs/0001-moonbit-native-foundation.md |  | Plan 97-03 full Required gate cannot complete because policy records RFC 0001 Accepted while the canonical RFC and index remain Proposed; root will resolve separately. | open |  | 2026-07-26T10:53:33.620Z |  |
 | 17 | 97 | deviation | policy/foundation.json |  | Reconciled pre-existing core utility, blend, image ops, and canvas import inventories so the planned exact mb-font selector could execute against the live workspace. | open |  | 2026-07-26T10:53:41.483Z |  |
 | 18 | 98 | deviation | .planning/STATE.md |  | Repaired legacy Phase 98 state counters so plan advancement is parseable | open |  | 2026-07-27T06:16:12.454Z |  |
+| 19 | 98 | unrun-verify | scripts/quality.ps1 |  | Full Required lane reached the known Windows unscoped moon test --target js stall in mb-image/png after all Phase 98 policy and scoped checks passed; exact process tree was terminated and the command was not retried. | open |  | 2026-07-27T07:18:53.174Z |  |
+| 20 | 98 | deviation | scripts/quality/Assert-Policy.ps1 |  | Phase 98 advanced the independent font policy classifier and exact cmap/kern inventories so the generated public interface can pass fail-closed policy validation. | open |  | 2026-07-27T07:18:53.803Z |  |
+| 21 | 98 | deviation | .planning/STATE.md |  | Reconciled stale Plan 98-02 activity, 5/6 progress prose, open-requirement text, Phase ? decision labels, and operator next step after final plan advancement. | open |  | 2026-07-27T07:21:06.464Z |  |
 
 ````json
 [
@@ -250,6 +253,42 @@ last_updated: 2026-07-27T06:16:12.454Z
     "status": "open",
     "reason": "",
     "recorded_at": "2026-07-27T06:16:12.454Z",
+    "resolved_at": null
+  },
+  {
+    "id": 19,
+    "kind": "unrun-verify",
+    "phase": "98",
+    "file": "scripts/quality.ps1",
+    "line": null,
+    "description": "Full Required lane reached the known Windows unscoped moon test --target js stall in mb-image/png after all Phase 98 policy and scoped checks passed; exact process tree was terminated and the command was not retried.",
+    "status": "open",
+    "reason": "",
+    "recorded_at": "2026-07-27T07:18:53.174Z",
+    "resolved_at": null
+  },
+  {
+    "id": 20,
+    "kind": "deviation",
+    "phase": "98",
+    "file": "scripts/quality/Assert-Policy.ps1",
+    "line": null,
+    "description": "Phase 98 advanced the independent font policy classifier and exact cmap/kern inventories so the generated public interface can pass fail-closed policy validation.",
+    "status": "open",
+    "reason": "",
+    "recorded_at": "2026-07-27T07:18:53.803Z",
+    "resolved_at": null
+  },
+  {
+    "id": 21,
+    "kind": "deviation",
+    "phase": "98",
+    "file": ".planning/STATE.md",
+    "line": null,
+    "description": "Reconciled stale Plan 98-02 activity, 5/6 progress prose, open-requirement text, Phase ? decision labels, and operator next step after final plan advancement.",
+    "status": "open",
+    "reason": "",
+    "recorded_at": "2026-07-27T07:21:06.464Z",
     "resolved_at": null
   }
 ]

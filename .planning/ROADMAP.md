@@ -74,7 +74,7 @@
   3. A library author can query a legacy version-0 horizontal format-0 kerning pair and receive its signed adjustment, with table absence and supported pair miss both returning neutral zero.
   4. Present-but-unsupported kerning data and malformed kerning data remain distinguishable from absence or a pair miss.
 
-**Plans**: 2/3 plans executed
+**Plans**: 3/3 plans executed
 **Wave 1**
 
 - [x] 98-01-PLAN.md — Deliver the end-to-end Unicode scalar tracer and complete deterministic format-12/format-4 selection and lookup.
@@ -85,7 +85,7 @@
 
 **Wave 3** *(blocked on Wave 2 completion)*
 
-- [ ] 98-03-PLAN.md — Qualify both queries on all targets and close generated-interface, policy, and documentation publication.
+- [x] 98-03-PLAN.md — Qualify both queries on all targets and close generated-interface, policy, and documentation publication.
 
 ### Phase 99: Simple and Composite Outlines
 
@@ -120,7 +120,7 @@
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 97. Font Admission and Metrics | 3/3 | Complete    | 2026-07-27 |
-| 98. Unicode Mapping and Kerning | 2/3 | In Progress|  |
+| 98. Unicode Mapping and Kerning | 3/3 | In Progress|  |
 | 99. Simple and Composite Outlines | 0/TBD | Not started | - |
 | 100. Portable Font Qualification | 0/TBD | Not started | - |
 

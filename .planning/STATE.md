@@ -4,16 +4,16 @@ milestone: v0.32
 milestone_name: TrueType Font Foundation
 current_phase: 98
 current_phase_name: Unicode Mapping and Kerning
-status: executing
-stopped_at: Completed 98-02-PLAN.md
-last_updated: "2026-07-27T06:56:28.866Z"
+status: verifying
+stopped_at: Completed 98-03-PLAN.md
+last_updated: "2026-07-27T07:20:26.265Z"
 last_activity: 2026-07-27
-last_activity_desc: Completed Phase 98 Plan 02
+last_activity_desc: Completed Phase 98 Plan 03
 progress:
   total_phases: 2
-  completed_phases: 1
+  completed_phases: 2
   total_plans: 6
-  completed_plans: 5
+  completed_plans: 6
 current_plan: 3
 total_plans_in_phase: 3
 ---
@@ -32,14 +32,14 @@ See `.planning/PROJECT.md` (updated 2026-07-27 after Phase 97 validation).
 
 Phase: 98 — Unicode Mapping and Kerning
 Plan: 3 of 3
-Status: Ready to execute
-Last activity: 2026-07-27 — Completed Phase 98 Plan 02
+Status: Phase complete — ready for verification
+Last activity: 2026-07-27 — Completed Phase 98 Plan 03
 
-Progress: [████████░░] 83% (1/4 phases; 5/6 completed plans)
+Progress: [██████████] 100% (2/4 phases; 6/6 completed plans)
 
 ## Milestone Metrics
 
-**Current milestone:** v0.32 has 4 planned phases; Phase 97 is complete, Phase 98 has completed 2/3 plans, and 2 scoped requirements remain open.
+**Current milestone:** v0.32 has 4 planned phases; Phases 97-98 have completed all 6 planned implementation plans, FONT-02/FONT-04 are complete, and Phase 98 is ready for verification.
 
 **Previous milestone:** v0.31 shipped SVG Numeric Boundary Unification across Phases 95-96; its detailed roadmap is archived at `.planning/milestones/v0.31-ROADMAP.md`.
 
@@ -66,6 +66,9 @@ Progress: [████████░░] 83% (1/4 phases; 5/6 completed plans)
 - [Phase 98]: Only one classic version-0 coverage-0x0001 format-0 subtable is queryable; structurally valid alternatives remain Unsupported.
 - [Phase 98]: Exact Apple v1 envelopes are validated without parsing format bodies, while complete unknown prefixes defer to Capability without traversal.
 - [Phase 98]: FontAdmissionPlan retains pre-admitted KernState so optional, subtable, and pair scans are preflighted and charged exactly once.
+- [Phase 98]: Phase 98 uses one checksum-correct generated font as the permanent Unicode-to-opaque-glyph-to-signed-kern tracer.
+- [Phase 98]: Phase 98 publication exposes only glyph_for_scalar, kerning, two kern ceilings, and the expanded FontLimits constructor; cmap/kern facts remain private.
+- [Phase 98]: The independent font policy classifier approves the exact Phase 98 surface while rejecting raw cmap/kern facts and Phase 99+ capabilities.
 
 ### Pending Todos
 
@@ -75,7 +78,7 @@ None yet.
 
 - Phase 99 planning must freeze composite point attachment, phantom-point/`USE_MY_METRICS`, offset-scaling, and F2DOT14 evaluation rules before implementation.
 - Phase 100 planning must finalize licensed real-font specimen provenance, redistribution records, digests, inventories, and independent semantic facts.
-- The full Required quality lane now passes; its PNG fixture-manifest newline regression was repaired and captured in the resolved debug record.
+- Phase 98 scoped all-target font, interface, policy, and documentation checks pass; the full Required lane remains subject to the known Windows unscoped `mb-image/png` driver stall recorded in `.planning/WINDOWS.md`.
 
 ### Quick Tasks Completed
 
@@ -97,13 +100,13 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-07-27T06:56:28.851Z
-Stopped at: Completed 98-02-PLAN.md
+Last session: 2026-07-27T07:20:26.249Z
+Stopped at: Completed 98-03-PLAN.md
 Resume file: None
 
 ## Operator Next Steps
 
-- Continue with `98-03-PLAN.md`.
+- Run Phase 98 verification.
 
 ## Performance Metrics
 
@@ -124,3 +127,4 @@ Phase 97 completed all three plans and passed code review, security verification
 | Phase 97 P03 | 42m | 3 tasks | 13 files |
 | Phase 98 P01 | 42m | 2 tasks | 5 files |
 | Phase 98 P02 | 36min | 3 tasks | 9 files |
+| Phase 98 P03 | 20min | 2 tasks | 7 files |
