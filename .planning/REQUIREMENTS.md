@@ -11,7 +11,7 @@
 
 ### Unicode Mapping
 
-- [ ] **FONT-02**: Library authors can map any valid Unicode scalar through deterministic cmap format 12/4 selection, receiving glyph zero for a valid miss and a structured error for an invalid scalar or malformed mapping.
+- [x] **FONT-02**: Library authors can map any valid Unicode scalar through deterministic cmap format 12/4 selection, receiving glyph zero for a valid miss and a structured error for an invalid scalar or malformed mapping.
 
 ### Glyph Outlines
 
@@ -56,7 +56,7 @@ Roadmap phases populate this table. Every v0.32 requirement must map to exactly 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
 | FONT-01 | Phase 97 | Complete |
-| FONT-02 | Phase 98 | Pending |
+| FONT-02 | Phase 98 | Complete |
 | FONT-03 | Phase 99 | Pending |
 | FONT-04 | Phase 98 | Pending |
 | FONT-05 | Phase 100 | Pending |

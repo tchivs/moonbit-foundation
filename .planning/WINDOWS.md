@@ -1,10 +1,10 @@
 ---
 schema_version: 1
-open_count: 14
+open_count: 15
 waived_count: 0
 fixed_count: 3
-total_count: 17
-last_updated: 2026-07-26T10:53:41.483Z
+total_count: 18
+last_updated: 2026-07-27T06:16:12.454Z
 ---
 
 # Broken Windows Ledger
@@ -32,6 +32,7 @@ last_updated: 2026-07-26T10:53:41.483Z
 | 15 | 97 | deviation | modules/mb-font/font/generated_fonts.mbt |  | Stabilized a late generated OS/2 metric update across all four targets | fixed |  | 2026-07-26T09:58:44.599Z | 2026-07-26T09:59:23.761Z |
 | 16 | 97 | unrun-verify | docs/rfcs/0001-moonbit-native-foundation.md |  | Plan 97-03 full Required gate cannot complete because policy records RFC 0001 Accepted while the canonical RFC and index remain Proposed; root will resolve separately. | open |  | 2026-07-26T10:53:33.620Z |  |
 | 17 | 97 | deviation | policy/foundation.json |  | Reconciled pre-existing core utility, blend, image ops, and canvas import inventories so the planned exact mb-font selector could execute against the live workspace. | open |  | 2026-07-26T10:53:41.483Z |  |
+| 18 | 98 | deviation | .planning/STATE.md |  | Repaired legacy Phase 98 state counters so plan advancement is parseable | open |  | 2026-07-27T06:16:12.454Z |  |
 
 ````json
 [
@@ -237,6 +238,18 @@ last_updated: 2026-07-26T10:53:41.483Z
     "status": "open",
     "reason": "",
     "recorded_at": "2026-07-26T10:53:41.483Z",
+    "resolved_at": null
+  },
+  {
+    "id": 18,
+    "kind": "deviation",
+    "phase": "98",
+    "file": ".planning/STATE.md",
+    "line": null,
+    "description": "Repaired legacy Phase 98 state counters so plan advancement is parseable",
+    "status": "open",
+    "reason": "",
+    "recorded_at": "2026-07-27T06:16:12.454Z",
     "resolved_at": null
   }
 ]

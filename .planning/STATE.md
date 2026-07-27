@@ -4,16 +4,18 @@ milestone: v0.32
 milestone_name: TrueType Font Foundation
 current_phase: 98
 current_phase_name: Unicode Mapping and Kerning
-status: planning
-stopped_at: Phase 98 context gathered
-last_updated: "2026-07-27T04:46:25.984Z"
+current_plan: 2
+total_plans_in_phase: 3
+status: executing
+stopped_at: Completed 98-01-PLAN.md
+last_updated: "2026-07-27T06:15:45.720Z"
 last_activity: 2026-07-27
-last_activity_desc: Phase 97 complete, transitioned to Phase 98
+last_activity_desc: Completed Phase 98 Plan 01
 progress:
   total_phases: 2
   completed_phases: 1
-  total_plans: 3
-  completed_plans: 3
+  total_plans: 6
+  completed_plans: 4
 ---
 
 # Project State
@@ -29,15 +31,15 @@ See `.planning/PROJECT.md` (updated 2026-07-27 after Phase 97 validation).
 ## Current Position
 
 Phase: 98 — Unicode Mapping and Kerning
-Plan: Not started
-Status: Ready to discuss
-Last activity: 2026-07-27 — Phase 97 complete, transitioned to Phase 98
+Plan: 2 of 3
+Status: In progress
+Last activity: 2026-07-27 — Completed Phase 98 Plan 01
 
-Progress: [███░░░░░░░] 25% (1/4 phases; 3/3 completed plans)
+Progress: [███████░░░] 67% (1/4 phases; 4/6 completed plans)
 
 ## Milestone Metrics
 
-**Current milestone:** v0.32 has 4 planned phases; Phase 97 is complete with 3/3 plans, and all 5 scoped requirements remain mapped exactly once.
+**Current milestone:** v0.32 has 4 planned phases; Phase 97 is complete, Phase 98 has completed 1/3 plans, and 4 scoped requirements remain open.
 
 **Previous milestone:** v0.31 shipped SVG Numeric Boundary Unification across Phases 95-96; its detailed roadmap is archived at `.planning/milestones/v0.31-ROADMAP.md`.
 
@@ -58,6 +60,9 @@ Progress: [███░░░░░░░] 25% (1/4 phases; 3/3 completed plans)
 - [Phase 97]: GlyphId remains opaque and every receiving Font revalidates its numeric range before lookup.
 - [Phase 97]: Every non-empty common glyf header is validated during admission before Font publication.
 - [Phase 97]: The mb-font semantic interface is frozen to limits, opaque font/glyph values, and named global/per-glyph metrics.
+- [Phase 98]: Canonical cmap priority is 0/4/12, 3/10/12, 0/3/4, then 3/1/4.
+- [Phase 98]: Supported noncanonical format-4/12 records are validated but never selected or used as fallback.
+- [Phase 98]: Duplicate canonical cmap keys fail admission while different encoding records may alias one checked subtable.
 
 ### Pending Todos
 
@@ -89,13 +94,13 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-07-27T04:46:25.968Z
-Stopped at: Phase 98 context gathered
-Resume file: .planning/phases/98-unicode-mapping-and-kerning/98-CONTEXT.md
+Last session: 2026-07-27T06:15:45.701Z
+Stopped at: Completed 98-01-PLAN.md
+Resume file: None
 
 ## Operator Next Steps
 
-- Run `/gsd-discuss-phase 98 --auto`, then continue through planning and execution.
+- Continue with `98-02-PLAN.md`.
 
 ## Performance Metrics
 
@@ -114,3 +119,4 @@ Phase 97 completed all three plans and passed code review, security verification
 | Phase 97 P01 | 39m | 3 tasks | 11 files |
 | Phase 97 P02 | 40m | 3 tasks | 7 files |
 | Phase 97 P03 | 42m | 3 tasks | 13 files |
+| Phase 98 P01 | 42m | 2 tasks | 5 files |
