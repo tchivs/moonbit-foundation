@@ -2179,7 +2179,7 @@ test "outline rejects hostile flags padding and maxp before caller limits" {
     )
     let font = Font::open(owner.view(), font_test_limits(), font_test_budget()).unwrap()
     let error = font
-      .outline(font.glyph_id(0UL).unwrap(), font_test_budget())
+      .outline(font.glyph_id(0UL).unwrap(), font_test_outline_budget())
       .unwrap_err()
     inspect(error.category() == @error.ErrorCategory::Data, content="true")
     inspect(error.code() == @error.ErrorCode::InvalidEncoding, content="true")
@@ -2197,7 +2197,7 @@ test "outline rejects hostile flags padding and maxp before caller limits" {
   )
   let font = Font::open(owner.view(), font_test_limits(), font_test_budget()).unwrap()
   let error = font
-    .outline(font.glyph_id(0UL).unwrap(), font_test_budget())
+    .outline(font.glyph_id(0UL).unwrap(), font_test_outline_budget())
     .unwrap_err()
   inspect(error.category() == @error.ErrorCategory::Data, content="true")
   inspect(error.context() == Some("font-outline-maxp-points"), content="true")
