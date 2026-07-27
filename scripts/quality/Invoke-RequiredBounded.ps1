@@ -77,72 +77,156 @@ function Test-RequiredProcessAlive {
   }
 }
 
-function Wait-RequiredTrackedProcessesExit {
+function New-RequiredProcessTracker {
+  param([Parameter(Mandatory)][int]$RootProcessId)
+
+  $processIds = [Collections.Generic.HashSet[int]]::new()
+  [void]$processIds.Add($RootProcessId)
+  return [pscustomobject]@{
+    RootProcessId = $RootProcessId
+    ProcessIds = $processIds
+  }
+}
+
+function Update-RequiredProcessTracker {
+  param([Parameter(Mandatory)]$Tracker)
+
+  $snapshot = @(Get-RequiredProcessSnapshot)
+  $added = $true
+  while ($added) {
+    $added = $false
+    foreach ($candidate in $snapshot) {
+      if ($Tracker.ProcessIds.Contains([int]$candidate.ParentId) -and
+          $Tracker.ProcessIds.Add([int]$candidate.Id)) {
+        $added = $true
+      }
+    }
+  }
+}
+
+function Get-RequiredLiveTrackedProcessIds {
+  param([Parameter(Mandatory)]$Tracker)
+
+  return @($Tracker.ProcessIds | Where-Object {
+    Test-RequiredProcessAlive -ProcessId $_
+  })
+}
+
+function Wait-RequiredRootExitTracked {
   param(
-    [Parameter(Mandatory)][int[]]$ProcessIds,
-    [Parameter(Mandatory)][ValidateRange(1, 120000)]
+    [Parameter(Mandatory)][Diagnostics.Process]$Process,
+    [Parameter(Mandatory)]$Tracker,
+    [Parameter(Mandatory)][ValidateRange(1, 86400000)]
     [int]$TimeoutMilliseconds
   )
 
   $deadline = [DateTime]::UtcNow.AddMilliseconds($TimeoutMilliseconds)
   do {
-    $live = @($ProcessIds | Where-Object {
-      Test-RequiredProcessAlive -ProcessId $_
-    })
-    if ($live.Count -eq 0) {
+    Update-RequiredProcessTracker $Tracker
+    if ($Process.HasExited) {
+      $Process.WaitForExit()
+      Update-RequiredProcessTracker $Tracker
       return $true
     }
-    Start-Sleep -Milliseconds 100
+    $remaining = [int][Math]::Ceiling(
+      ($deadline - [DateTime]::UtcNow).TotalMilliseconds
+    )
+    if ($remaining -le 0) {
+      break
+    }
+    $wait = [Math]::Min(500, $remaining)
+    if ($Process.WaitForExit($wait)) {
+      $Process.WaitForExit()
+      Update-RequiredProcessTracker $Tracker
+      return $true
+    }
   } while ([DateTime]::UtcNow -lt $deadline)
+  Update-RequiredProcessTracker $Tracker
   return $false
 }
 
 function Stop-RequiredProcessTreeVerified {
   param(
     [Parameter(Mandatory)][Diagnostics.Process]$Process,
+    [Parameter(Mandatory)]$Tracker,
+    [switch]$RootExited,
     [ValidateRange(1, 120000)]
     [int]$CleanupTimeoutMilliseconds = 30000
   )
 
-  $snapshot = @(Get-RequiredProcessSnapshot)
-  $descendants = @(
-    Get-RequiredDescendantProcessIds `
-      -RootProcessId $Process.Id `
-      -Snapshot $snapshot
-  )
-  $tracked = @([int]$Process.Id) + $descendants
-  try {
-    if (-not $Process.HasExited) {
-      $Process.Kill($true)
+  $deadline = [DateTime]::UtcNow.AddMilliseconds($CleanupTimeoutMilliseconds)
+
+  # Reach a fixed point over repeated snapshots before termination. This closes
+  # the single-snapshot gap when a tracked process creates another descendant
+  # while cleanup is beginning.
+  $stableDiscoveryPasses = 0
+  while ($stableDiscoveryPasses -lt 3 -and
+         [DateTime]::UtcNow -lt $deadline) {
+    $before = $Tracker.ProcessIds.Count
+    Update-RequiredProcessTracker $Tracker
+    if ($Tracker.ProcessIds.Count -eq $before) {
+      $stableDiscoveryPasses = $stableDiscoveryPasses + 1
+    } else {
+      $stableDiscoveryPasses = 0
     }
-  } catch {
-    # Individual tracked termination below remains authoritative.
+    Start-Sleep -Milliseconds 100
   }
-  foreach ($processId in @($descendants | Sort-Object -Descending)) {
-    try {
-      $descendant = [Diagnostics.Process]::GetProcessById($processId)
+
+  $stableEmptyPasses = 0
+  do {
+    Update-RequiredProcessTracker $Tracker
+    $ordered = @($Tracker.RootProcessId) + @(
+      $Tracker.ProcessIds |
+        Where-Object { $_ -ne $Tracker.RootProcessId } |
+        Sort-Object -Descending
+    )
+    foreach ($processId in $ordered) {
       try {
-        if (-not $descendant.HasExited) {
-          $descendant.Kill($true)
+        $trackedProcess = [Diagnostics.Process]::GetProcessById($processId)
+        try {
+          if (-not $trackedProcess.HasExited) {
+            $trackedProcess.Kill($true)
+          }
+        } finally {
+          $trackedProcess.Dispose()
         }
-      } finally {
-        $descendant.Dispose()
+      } catch [ArgumentException] {
+        # The tracked process has already exited.
       }
-    } catch [ArgumentException] {
-      # The tracked descendant has already exited.
     }
-  }
-  $terminated = Wait-RequiredTrackedProcessesExit `
-    -ProcessIds $tracked `
-    -TimeoutMilliseconds $CleanupTimeoutMilliseconds
+
+    # Discover again after kill requests so descendants born after an earlier
+    # snapshot are added before their parents disappear from the process table.
+    Update-RequiredProcessTracker $Tracker
+    $live = @(Get-RequiredLiveTrackedProcessIds $Tracker)
+    if ($live.Count -eq 0) {
+      $stableEmptyPasses = $stableEmptyPasses + 1
+      if ($stableEmptyPasses -ge 2) {
+        break
+      }
+    } else {
+      $stableEmptyPasses = 0
+    }
+    Start-Sleep -Milliseconds 100
+  } while ([DateTime]::UtcNow -lt $deadline)
+
+  $terminated = $stableEmptyPasses -ge 2
   return [pscustomobject]@{
     ProcessTreeTerminated = $terminated
     TerminationStatus = if ($terminated) {
-      'killed-verified'
+      if ($RootExited) {
+        'exited-descendants-drained-verified'
+      } else {
+        'killed-verified'
+      }
     } else {
-      'kill-verification-timeout'
+      if ($RootExited) {
+        'exit-drain-verification-timeout'
+      } else {
+        'kill-verification-timeout'
+      }
     }
-    TrackedProcessIds = $tracked
+    TrackedProcessIds = @($Tracker.ProcessIds | Sort-Object)
   }
 }
 
@@ -197,6 +281,7 @@ function Invoke-RequiredBounded {
   $stdout = ''
   $stderr = ''
   $process = $null
+  $processTracker = $null
   $stdoutTask = $null
   $stderrTask = $null
 
@@ -227,17 +312,31 @@ function Invoke-RequiredBounded {
     }
     $stdoutTask = $process.StandardOutput.ReadToEndAsync()
     $stderrTask = $process.StandardError.ReadToEndAsync()
+    $processTracker = New-RequiredProcessTracker -RootProcessId $process.Id
     $timeoutMilliseconds = $TimeoutSeconds * 1000
-    if ($process.WaitForExit($timeoutMilliseconds)) {
-      $process.WaitForExit()
-      $processTreeTerminated = $true
-      $terminationStatus = 'exited'
+    if (Wait-RequiredRootExitTracked `
+        -Process $process `
+        -Tracker $processTracker `
+        -TimeoutMilliseconds $timeoutMilliseconds) {
       $exitCode = [int]$process.ExitCode
+      try {
+        $termination = Stop-RequiredProcessTreeVerified `
+          -Process $process `
+          -Tracker $processTracker `
+          -RootExited `
+          -CleanupTimeoutMilliseconds 30000
+        $processTreeTerminated = $termination.ProcessTreeTerminated
+        $terminationStatus = $termination.TerminationStatus
+      } catch {
+        $terminationStatus = 'exit-drain-failed'
+        $stderr = "Required process-tree exit drain failed: $($_.Exception.Message)`n"
+      }
     } else {
       $timedOut = $true
       try {
         $termination = Stop-RequiredProcessTreeVerified `
           -Process $process `
+          -Tracker $processTracker `
           -CleanupTimeoutMilliseconds 30000
         $processTreeTerminated = $termination.ProcessTreeTerminated
         $terminationStatus = $termination.TerminationStatus
