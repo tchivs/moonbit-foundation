@@ -203,6 +203,120 @@ Invoke-WorkflowPolicyCase `
   -ExpectedFailurePattern 'without extra, duplicated, or reordered fields'
 
 Invoke-WorkflowPolicyCase `
+  -Name 'Required outer timeout cannot drift independently' `
+  -Arrange {
+    param($state)
+    $state.Quality = $state.Quality.Replace(
+      "  required:`n    name: Required quality contract`n" +
+        "    runs-on: ubuntu-latest`n    timeout-minutes: 25",
+      "  required:`n    name: Required quality contract`n" +
+        "    runs-on: ubuntu-latest`n    timeout-minutes: 26"
+    )
+  } `
+  -ShouldPass $false `
+  -ExpectedFailurePattern 'exact paired timeout budget'
+
+Invoke-WorkflowPolicyCase `
+  -Name 'Required wrapper timeout cannot drift independently' `
+  -Arrange {
+    param($state)
+    $state.Quality = $state.Quality.Replace(
+      '-TimeoutSeconds 1200',
+      '-TimeoutSeconds 1199'
+    )
+  } `
+  -ShouldPass $false `
+  -ExpectedFailurePattern 'exact paired timeout budget'
+
+Invoke-WorkflowPolicyCase `
+  -Name 'Required paired timeout cannot drift together' `
+  -Arrange {
+    param($state)
+    $state.Quality = $state.Quality.Replace(
+      "  required:`n    name: Required quality contract`n" +
+        "    runs-on: ubuntu-latest`n    timeout-minutes: 25",
+      "  required:`n    name: Required quality contract`n" +
+        "    runs-on: ubuntu-latest`n    timeout-minutes: 30"
+    ).Replace(
+      '-TimeoutSeconds 1200',
+      '-TimeoutSeconds 1500'
+    )
+  } `
+  -ShouldPass $false `
+  -ExpectedFailurePattern 'exact paired timeout budget'
+
+Invoke-WorkflowPolicyCase `
+  -Name 'Required timeout pair cannot invert cleanup margin' `
+  -Arrange {
+    param($state)
+    $state.Quality = $state.Quality.Replace(
+      "  required:`n    name: Required quality contract`n" +
+        "    runs-on: ubuntu-latest`n    timeout-minutes: 25",
+      "  required:`n    name: Required quality contract`n" +
+        "    runs-on: ubuntu-latest`n    timeout-minutes: 19"
+    )
+  } `
+  -ShouldPass $false `
+  -ExpectedFailurePattern 'must exceed its bounded wrapper timeout'
+
+Invoke-WorkflowPolicyCase `
+  -Name 'non-Required job budgets cannot expand' `
+  -Arrange {
+    param($state)
+    $state.Quality = $state.Quality.Replace(
+      "  font-qualification:`n    name: Portable font qualification`n" +
+        "    runs-on: ubuntu-latest`n    timeout-minutes: 20",
+      "  font-qualification:`n    name: Portable font qualification`n" +
+        "    runs-on: ubuntu-latest`n    timeout-minutes: 25"
+    )
+  } `
+  -ShouldPass $false `
+  -ExpectedFailurePattern 'Only the Required job may use the expanded'
+
+Invoke-WorkflowPolicyCase `
+  -Name 'Required bounded step remains fail-closed' `
+  -Arrange {
+    param($state)
+    $state.Quality = $state.Quality.Replace(
+      '        run: ./scripts/quality/Invoke-RequiredBounded.ps1 ' +
+        '-EvidenceDirectory artifacts/release-qualification/ci-required ' +
+        '-TimeoutSeconds 1200',
+      '        continue-on-error: true' + "`n" +
+        '        run: ./scripts/quality/Invoke-RequiredBounded.ps1 ' +
+        '-EvidenceDirectory artifacts/release-qualification/ci-required ' +
+        '-TimeoutSeconds 1200'
+    )
+  } `
+  -ShouldPass $false `
+  -ExpectedFailurePattern 'exact fail-closed bounded quality step'
+
+Invoke-WorkflowPolicyCase `
+  -Name 'Required diagnostic upload remains unconditional' `
+  -Arrange {
+    param($state)
+    $state.Quality = $state.Quality.Replace(
+      '        if: ${{ always() }}',
+      '        if: ${{ success() }}'
+    )
+  } `
+  -ShouldPass $false `
+  -ExpectedFailurePattern 'must always upload'
+
+Invoke-WorkflowPolicyCase `
+  -Name 'Required POSIX containment gate cannot be removed' `
+  -Arrange {
+    param($state)
+    $posixStep = @(
+      '      - name: Verify Required POSIX process containment',
+      '        shell: pwsh',
+      '        run: ./scripts/quality/Test-RequiredProcessTreeTermination.ps1'
+    ) -join "`n"
+    $state.Quality = $state.Quality.Replace($posixStep + "`n", '')
+  } `
+  -ShouldPass $false `
+  -ExpectedFailurePattern 'blocking POSIX containment gate'
+
+Invoke-WorkflowPolicyCase `
   -Name 'toolchain archive digest is exact' `
   -Arrange {
     param($state)

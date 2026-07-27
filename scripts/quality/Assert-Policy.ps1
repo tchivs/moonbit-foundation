@@ -1220,6 +1220,8 @@ function Assert-QualityWorkflowToolchainTransport {
   if ($null -ne $currentJob) {
     $jobBodies[$currentJob] = $currentBody.ToString()
   }
+  $jobTimeoutMinutes = @{}
+  $jobStepBodies = @{}
   $expectedInstallStep = @(
     '      - name: Install content-addressed MoonBit toolchain',
     '        shell: pwsh',
@@ -1234,6 +1236,18 @@ function Assert-QualityWorkflowToolchainTransport {
       "Quality workflow job '$jobName' is missing."
     )
     $jobBody = [string]$jobBodies[$jobName]
+    $jobTimeoutMatches = @(
+      [regex]::Matches(
+        $jobBody,
+        '(?m)^    timeout-minutes:\s*(?<minutes>\d+)\s*$'
+      )
+    )
+    Assert-Condition ($jobTimeoutMatches.Count -eq 1) (
+      "Quality workflow job '$jobName' must declare exactly one timeout."
+    )
+    $jobTimeoutMinutes[$jobName] = [int](
+      $jobTimeoutMatches[0].Groups['minutes'].Value
+    )
     $jobSteps = @(
       [regex]::Matches(
         $jobBody,
@@ -1242,6 +1256,7 @@ function Assert-QualityWorkflowToolchainTransport {
         $_.Value.Replace("`r`n", "`n").TrimEnd()
       }
     )
+    $jobStepBodies[$jobName] = $jobSteps
     $installSteps = @(
       $jobSteps | Where-Object {
         $_.Contains(
@@ -1261,6 +1276,108 @@ function Assert-QualityWorkflowToolchainTransport {
       'duplicated, or reordered fields.'
     )
   }
+  Assert-Condition (
+    $jobTimeoutMinutes['font-qualification'] -eq 20 -and
+    $jobTimeoutMinutes['llvm-experimental'] -eq 20
+  ) 'Only the Required job may use the expanded timeout budget.'
+  $requiredJobBody = [string]$jobBodies['required']
+  $requiredWrapperTimeoutMatches = @(
+    [regex]::Matches(
+      $requiredJobBody,
+      '(?m)-TimeoutSeconds\s+(?<seconds>\d+)\s*$'
+    )
+  )
+  Assert-Condition ($requiredWrapperTimeoutMatches.Count -eq 1) (
+    'Required job must declare exactly one bounded wrapper timeout.'
+  )
+  $requiredWrapperTimeoutSeconds = [int](
+    $requiredWrapperTimeoutMatches[0].Groups['seconds'].Value
+  )
+  Assert-Condition (
+    ($jobTimeoutMinutes['required'] * 60) -gt
+    $requiredWrapperTimeoutSeconds
+  ) (
+    'Required runner timeout must exceed its bounded wrapper timeout to ' +
+    'preserve cleanup and diagnostic upload time.'
+  )
+  Assert-Condition (
+    $jobTimeoutMinutes['required'] -eq 25 -and
+    $requiredWrapperTimeoutSeconds -eq 1200
+  ) (
+    'Required job must use the exact paired timeout budget: 25 runner ' +
+    'minutes and 1200 wrapper seconds.'
+  )
+  $requiredSteps = @($jobStepBodies['required'])
+  $expectedRequiredPosixStep = @(
+    '      - name: Verify Required POSIX process containment',
+    '        shell: pwsh',
+    '        run: ./scripts/quality/Test-RequiredProcessTreeTermination.ps1'
+  ) -join "`n"
+  $requiredPosixSteps = @(
+    $requiredSteps | Where-Object {
+      $_.Contains(
+        'name: Verify Required POSIX process containment',
+        [StringComparison]::Ordinal
+      ) -or
+      $_.Contains(
+        './scripts/quality/Test-RequiredProcessTreeTermination.ps1',
+        [StringComparison]::Ordinal
+      )
+    }
+  )
+  Assert-Condition (
+    $requiredPosixSteps.Count -eq 1 -and
+    $requiredPosixSteps[0] -ceq $expectedRequiredPosixStep
+  ) 'Required job must retain the exact blocking POSIX containment gate.'
+  $expectedRequiredRunStep = @(
+    '      - name: Run required quality lane',
+    '        shell: pwsh',
+    '        run: ./scripts/quality/Invoke-RequiredBounded.ps1 -EvidenceDirectory artifacts/release-qualification/ci-required -TimeoutSeconds 1200'
+  ) -join "`n"
+  $requiredRunSteps = @(
+    $requiredSteps | Where-Object {
+      $_.Contains(
+        'name: Run required quality lane',
+        [StringComparison]::Ordinal
+      ) -or
+      $_.Contains(
+        './scripts/quality/Invoke-RequiredBounded.ps1',
+        [StringComparison]::Ordinal
+      )
+    }
+  )
+  Assert-Condition (
+    $requiredRunSteps.Count -eq 1 -and
+    $requiredRunSteps[0] -ceq $expectedRequiredRunStep
+  ) (
+    'Required job must retain the exact fail-closed bounded quality step.'
+  )
+  $expectedRequiredUploadStep = @(
+    '      - name: Upload Required diagnostic evidence',
+    '        if: ${{ always() }}',
+    '        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02',
+    '        with:',
+    '          name: required-diagnostic',
+    '          path: artifacts/release-qualification/ci-required'
+  ) -join "`n"
+  $requiredUploadSteps = @(
+    $requiredSteps | Where-Object {
+      $_.Contains(
+        'name: Upload Required diagnostic evidence',
+        [StringComparison]::Ordinal
+      ) -or
+      $_.Contains(
+        'name: required-diagnostic',
+        [StringComparison]::Ordinal
+      )
+    }
+  )
+  Assert-Condition (
+    $requiredUploadSteps.Count -eq 1 -and
+    $requiredUploadSteps[0] -ceq $expectedRequiredUploadStep
+  ) (
+    'Required job must always upload its exact diagnostic evidence path.'
+  )
   Assert-Condition (
     ([regex]::Matches(
       $QualityWorkflowText,
