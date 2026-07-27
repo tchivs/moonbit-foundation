@@ -1006,6 +1006,37 @@ test "one scalar query maps BMP and supplementary code points with stable bounda
 }
 
 ///|
+test "one generated font maps Unicode scalars into a signed kern pair" {
+  let source = font_test_truetype_with_unicode_and_kern(
+    font_test_cmap_format12([
+      (0x0041UL, 0x0041UL, 1UL),
+      (0x1F600UL, 0x1F600UL, 2UL),
+    ]),
+    font_test_kern_format0([(1UL, 2UL, -37)]),
+    3UL,
+  )
+  let budget = font_test_budget()
+  let font = Font::open(
+    font_test_owner(source).view(),
+    font_test_limits(),
+    budget,
+  ).unwrap()
+  let after_open = budget.remaining()
+  let bmp = font.glyph_for_scalar(0x0041).unwrap()
+  let supplementary = font.glyph_for_scalar(0x1F600).unwrap()
+  inspect(bmp.value(), content="1")
+  inspect(supplementary.value(), content="2")
+  inspect(font.kerning(bmp, supplementary).unwrap(), content="-37")
+  inspect(font.kerning(supplementary, bmp).unwrap(), content="0")
+  inspect(font.glyph_for_scalar(0x0041).unwrap().value(), content="1")
+  inspect(font.kerning(bmp, supplementary).unwrap(), content="-37")
+  let after_queries = budget.remaining()
+  inspect(after_queries.bytes() == after_open.bytes(), content="true")
+  inspect(after_queries.allocations() == after_open.allocations(), content="true")
+  inspect(after_queries.work() == after_open.work(), content="true")
+}
+
+///|
 test "scalar query rejects retained source mutation before publication" {
   let source = font_test_truetype_with_cmap_and_glyphs(
     font_test_cmap_format12([(0x0041UL, 0x0041UL, 1UL)]),
