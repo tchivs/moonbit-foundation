@@ -5,16 +5,16 @@ milestone_name: TrueType Font Foundation
 current_phase: 100
 current_phase_name: Portable Font Qualification
 status: executing
-stopped_at: Completed 100-01-PLAN.md
-last_updated: "2026-07-27T13:59:30.538Z"
+stopped_at: Completed 100-02-PLAN.md
+last_updated: "2026-07-27T14:18:12.426Z"
 last_activity: 2026-07-27
 last_activity_desc: Phase 100 execution started
 progress:
   total_phases: 4
   completed_phases: 3
   total_plans: 15
-  completed_plans: 11
-current_plan: 2
+  completed_plans: 12
+current_plan: 3
 total_plans_in_phase: 5
 ---
 
@@ -31,11 +31,11 @@ See `.planning/PROJECT.md` (updated 2026-07-27 after Phase 99 validation).
 ## Current Position
 
 Phase: 100 (Portable Font Qualification) — EXECUTING
-Plan: 2 of 5
+Plan: 3 of 5
 Status: Ready to execute
 Last activity: 2026-07-27 — Phase 100 execution started
 
-Progress: [███████░░░] 73%
+Progress: [████████░░] 80%
 
 ## Milestone Metrics
 
@@ -83,6 +83,9 @@ Progress: [███████░░░] 73%
 - [Phase ?]: Phase 100 Plan 01 freezes a versioned closed PowerShell SFNT oracle that cannot be updated from mb-font output.
 - [Phase ?]: Phase 100 keeps 4096-byte DejaVu literal chunks after successful compilation on js, wasm, wasm-gc, and native.
 - [Phase ?]: Phase 100 uses a 580-byte checksum-correct compact font for minimal complete workflow qualification.
+- [Phase ?]: Recognize only platform 1, encoding 0, format 6 as a bounded non-selected coexistence record.
+- [Phase ?]: Keep CmapLookupFacts, canonical ranks, supported decoding, and public API limited to formats 4 and 12.
+- [Phase ?]: Charge a recognized non-selected format-6 record only for the existing encoding-record scan, never for body traversal.
 
 ### Pending Todos
 
@@ -115,8 +118,8 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-07-27T13:59:16.384Z
-Stopped at: Completed 100-01-PLAN.md
+Last session: 2026-07-27T14:18:12.400Z
+Stopped at: Completed 100-02-PLAN.md
 Resume file: None
 
 ## Operator Next Steps
@@ -150,3 +153,4 @@ Phases 97-99 completed all ten plans. Phase 99 Plan 04 passed 92/92 isolated fon
 | Phase 99 P03 | 12min | 3 tasks | 8 files |
 | Phase 99 P04 | 4min | 2 tasks | 3 files |
 | Phase 100 P01 | 14min | 2 tasks | 7 files |
+| Phase 100 P02 | 16min | 2 tasks | 5 files |
