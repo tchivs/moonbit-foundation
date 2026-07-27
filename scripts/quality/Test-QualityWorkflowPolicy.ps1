@@ -208,9 +208,9 @@ Invoke-WorkflowPolicyCase `
     param($state)
     $state.Quality = $state.Quality.Replace(
       "  required:`n    name: Required quality contract`n" +
-        "    runs-on: ubuntu-latest`n    timeout-minutes: 25",
+        "    runs-on: ubuntu-latest`n    timeout-minutes: 35",
       "  required:`n    name: Required quality contract`n" +
-        "    runs-on: ubuntu-latest`n    timeout-minutes: 26"
+        "    runs-on: ubuntu-latest`n    timeout-minutes: 36"
     )
   } `
   -ShouldPass $false `
@@ -221,8 +221,8 @@ Invoke-WorkflowPolicyCase `
   -Arrange {
     param($state)
     $state.Quality = $state.Quality.Replace(
-      '-TimeoutSeconds 1200',
-      '-TimeoutSeconds 1199'
+      '-TimeoutSeconds 1800',
+      '-TimeoutSeconds 1799'
     )
   } `
   -ShouldPass $false `
@@ -234,12 +234,12 @@ Invoke-WorkflowPolicyCase `
     param($state)
     $state.Quality = $state.Quality.Replace(
       "  required:`n    name: Required quality contract`n" +
-        "    runs-on: ubuntu-latest`n    timeout-minutes: 25",
+        "    runs-on: ubuntu-latest`n    timeout-minutes: 35",
       "  required:`n    name: Required quality contract`n" +
-        "    runs-on: ubuntu-latest`n    timeout-minutes: 30"
+        "    runs-on: ubuntu-latest`n    timeout-minutes: 40"
     ).Replace(
-      '-TimeoutSeconds 1200',
-      '-TimeoutSeconds 1500'
+      '-TimeoutSeconds 1800',
+      '-TimeoutSeconds 2100'
     )
   } `
   -ShouldPass $false `
@@ -251,9 +251,9 @@ Invoke-WorkflowPolicyCase `
     param($state)
     $state.Quality = $state.Quality.Replace(
       "  required:`n    name: Required quality contract`n" +
-        "    runs-on: ubuntu-latest`n    timeout-minutes: 25",
+        "    runs-on: ubuntu-latest`n    timeout-minutes: 35",
       "  required:`n    name: Required quality contract`n" +
-        "    runs-on: ubuntu-latest`n    timeout-minutes: 19"
+        "    runs-on: ubuntu-latest`n    timeout-minutes: 29"
     )
   } `
   -ShouldPass $false `
@@ -280,11 +280,11 @@ Invoke-WorkflowPolicyCase `
     $state.Quality = $state.Quality.Replace(
       '        run: ./scripts/quality/Invoke-RequiredBounded.ps1 ' +
         '-EvidenceDirectory artifacts/release-qualification/ci-required ' +
-        '-TimeoutSeconds 1200',
+        '-TimeoutSeconds 1800',
       '        continue-on-error: true' + "`n" +
         '        run: ./scripts/quality/Invoke-RequiredBounded.ps1 ' +
         '-EvidenceDirectory artifacts/release-qualification/ci-required ' +
-        '-TimeoutSeconds 1200'
+        '-TimeoutSeconds 1800'
     )
   } `
   -ShouldPass $false `

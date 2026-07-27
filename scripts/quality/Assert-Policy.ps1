@@ -1301,11 +1301,11 @@ function Assert-QualityWorkflowToolchainTransport {
     'preserve cleanup and diagnostic upload time.'
   )
   Assert-Condition (
-    $jobTimeoutMinutes['required'] -eq 25 -and
-    $requiredWrapperTimeoutSeconds -eq 1200
+    $jobTimeoutMinutes['required'] -eq 35 -and
+    $requiredWrapperTimeoutSeconds -eq 1800
   ) (
-    'Required job must use the exact paired timeout budget: 25 runner ' +
-    'minutes and 1200 wrapper seconds.'
+    'Required job must use the exact paired timeout budget: 35 runner ' +
+    'minutes and 1800 wrapper seconds.'
   )
   $requiredSteps = @($jobStepBodies['required'])
   $expectedRequiredPosixStep = @(
@@ -1332,7 +1332,7 @@ function Assert-QualityWorkflowToolchainTransport {
   $expectedRequiredRunStep = @(
     '      - name: Run required quality lane',
     '        shell: pwsh',
-    '        run: ./scripts/quality/Invoke-RequiredBounded.ps1 -EvidenceDirectory artifacts/release-qualification/ci-required -TimeoutSeconds 1200'
+    '        run: ./scripts/quality/Invoke-RequiredBounded.ps1 -EvidenceDirectory artifacts/release-qualification/ci-required -TimeoutSeconds 1800'
   ) -join "`n"
   $requiredRunSteps = @(
     $requiredSteps | Where-Object {
