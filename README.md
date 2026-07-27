@@ -25,9 +25,12 @@ The repository is in active `0.1.x` candidate development. The modules are not
 stable and have not been published as a public release. The active line is
 v0.32 TrueType Font Foundation, focused on bounded standalone TrueType
 admission, named metrics, deterministic Unicode mapping, legacy horizontal
-kerning, and reusable glyph outlines in `mb-font`. The completed v0.27 line
-delivered low-bit indexed Adam7 PNG encoding; the workspace also contains
-candidate `mb-canvas` and `mb-svg` implementations.
+kerning, and complete unhinted simple plus bounded one-level composite `Path2`
+outlines in `mb-font`. Outline qualification at this phase uses generated
+portable package evidence; licensed real-font workflow qualification remains
+pending. The completed v0.27 line delivered low-bit indexed Adam7 PNG encoding;
+the workspace also contains candidate `mb-canvas` and `mb-svg`
+implementations.
 
 Publication remains gated on verifying the exact Mooncakes namespace authority.
 No candidate API should be treated as a stable compatibility promise.
@@ -45,13 +48,14 @@ preferred performance and system-integration target.
 | [`tchivs/mb-image`](modules/mb-image/README.mbt.md) | Image descriptors, storage/views, raster operations, codec contracts, PPM, QOI, and PNG | `mb-core`, `mb-color` |
 | [`tchivs/mb-canvas`](modules/mb-canvas/README.mbt.md) | Deterministic drawing lists and coverage-antialiased rasterization into `mb-image` surfaces | `mb-core`, `mb-color`, `mb-image` |
 | [`tchivs/mb-svg`](modules/mb-svg/README.mbt.md) | Bounded SVG parsing and scene-tree lowering into an `mb-canvas` drawing list | `mb-core`, `mb-color`, `mb-image`, `mb-canvas` |
-| [`tchivs/mb-font`](modules/mb-font/README.mbt.md) | Bounded standalone TrueType admission, named global/per-glyph metrics, deterministic Unicode mapping, and basic legacy horizontal kerning | `mb-core` |
+| [`tchivs/mb-font`](modules/mb-font/README.mbt.md) | Bounded standalone TrueType admission, named global/per-glyph metrics, deterministic Unicode mapping, basic legacy horizontal kerning, and complete unhinted simple plus bounded one-level composite `Path2` outlines from generated package evidence | `mb-core` |
 
 The dependency direction is deliberately downward: SVG parses documents, canvas
 executes geometry, image owns pixels/codecs, color owns color semantics, and
 core owns safety and capability primitives. Font admission and metrics depend
 only on those core primitives; Unicode mapping and legacy kerning remain inside
-the same isolated font layer and do not import the graphics stack.
+the same isolated font layer, while outlines reuse `mb-core` path geometry
+without importing the graphics stack.
 
 ### Quick start
 
@@ -128,7 +132,9 @@ MCP 服务、IDE 扩展、桌面软件和 WebAssembly 应用复用的基础合�
 仓库目前处于 `0.1.x` candidate 开发阶段，模块尚未声明稳定，也没有声称
 已经完成公开发布。当前主线是 v0.32 TrueType Font Foundation，重点是在
 `mb-font` 中实现有界独立 TrueType 接纳、具名度量、确定性 Unicode 映射、
-旧式水平字偶距调整和可复用字形轮廓。已完成的 v0.27 主线交付了低位深索引
+旧式水平字偶距调整，以及完整的无 hint 简单轮廓和有界单层复合 `Path2`
+轮廓。本阶段的轮廓资格证据来自生成式可移植包测试；获许可真实字体的完整
+工作流资格验证仍待 Phase 100 完成。已完成的 v0.27 主线交付了低位深索引
 Adam7 PNG 编码；工作区同时包含 candidate 状态的 `mb-canvas` 和 `mb-svg`
 实现。
 
@@ -144,12 +150,12 @@ Adam7 PNG 编码；工作区同时包含 candidate 状态的 `mb-canvas` 和 `mb
 | [`tchivs/mb-image`](modules/mb-image/README.mbt.md) | 图像描述、存储/视图、栅格操作、编解码合同、PPM、QOI、PNG | `mb-core`、`mb-color` |
 | [`tchivs/mb-canvas`](modules/mb-canvas/README.mbt.md) | 确定性的绘制列表和覆盖率抗锯齿栅格化 | `mb-core`、`mb-color`、`mb-image` |
 | [`tchivs/mb-svg`](modules/mb-svg/README.mbt.md) | 有界 SVG 解析，并降级为 `mb-canvas` 绘制列表 | `mb-core`、`mb-color`、`mb-image`、`mb-canvas` |
-| [`tchivs/mb-font`](modules/mb-font/README.mbt.md) | 有界独立 TrueType 接纳、具名全局/逐字形度量、确定性 Unicode 映射和基础旧式水平字偶距调整 | `mb-core` |
+| [`tchivs/mb-font`](modules/mb-font/README.mbt.md) | 有界独立 TrueType 接纳、具名全局/逐字形度量、确定性 Unicode 映射、基础旧式水平字偶距调整，以及由生成式包证据验证的完整无 hint 简单轮廓和有界单层复合 `Path2` 轮廓 | `mb-core` |
 
 依赖方向保持向下：SVG 负责文档解析，Canvas 负责几何执行，Image 负责
 像素和编解码，Color 负责颜色语义，Core 负责安全和能力基础。Font 接纳与
 度量只依赖这些 Core 原语；Unicode 映射与旧式字偶距调整仍位于同一隔离
-字体层中，不导入图形栈。
+字体层中，而轮廓复用 `mb-core` 路径几何且不导入图形栈。
 
 ### 快速开始
 
