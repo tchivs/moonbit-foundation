@@ -592,7 +592,7 @@ function Read-FontQualificationSfntOracle {
       path = [ordered]@{
         command_count = $commands.Count
         fingerprint_sha256 = $fingerprint
-        selected_commands = @($commands | Select-Object -First 8)
+        commands = @($commands)
       }
     })
   }
@@ -616,10 +616,10 @@ function Read-FontQualificationSfntOracle {
   if ($kerning -ne -131) { throw 'Oracle A/V kerning drift.' }
 
   $oracle = [ordered]@{
-    schema_version = '1.0.0'
+    schema_version = '1.1.0'
     oracle = [ordered]@{
       implementation = 'mnf-powershell-closed-sfnt-reader'
-      version = '1.0.0'
+      version = '1.1.0'
       independence = 'offline parser; does not invoke tchivs/mb-font'
     }
     source = [ordered]@{
@@ -963,15 +963,126 @@ function ConvertTo-MoonOptionalUInt64 {
   return "Some($([uint64]$Value)UL)"
 }
 
+function ConvertTo-MoonDoubleLiteral {
+  param([Parameter(Mandatory)][string]$Value)
+
+  if ($Value -cnotmatch '^-?(?:0|[1-9][0-9]*)(?:\.[0-9]+)?$') {
+    throw "Malformed font qualification coordinate '$Value'."
+  }
+  $number = [double]::Parse(
+    $Value,
+    [Globalization.NumberStyles]::AllowLeadingSign -bor
+      [Globalization.NumberStyles]::AllowDecimalPoint,
+    [Globalization.CultureInfo]::InvariantCulture
+  )
+  $canonical = Format-FontQualificationCoordinate $number
+  if ($canonical -cne $Value) {
+    throw "Noncanonical font qualification coordinate '$Value'."
+  }
+  if ($canonical.Contains('.', [StringComparison]::Ordinal)) {
+    return $canonical
+  }
+  return "$canonical.0"
+}
+
+function ConvertFrom-FontQualificationCommand {
+  param([Parameter(Mandatory)][string]$Command)
+
+  if ($Command -ceq 'Z') {
+    return [ordered]@{
+      kind = 'Z'
+      x1 = '0.0'
+      y1 = '0.0'
+      x2 = '0.0'
+      y2 = '0.0'
+    }
+  }
+  $match = [regex]::Match(
+    $Command,
+    '^(?<kind>M|L):(?<x1>-?(?:0|[1-9][0-9]*)(?:\.[0-9]+)?),(?<y1>-?(?:0|[1-9][0-9]*)(?:\.[0-9]+)?)$',
+    [Text.RegularExpressions.RegexOptions]::CultureInvariant
+  )
+  if ($match.Success) {
+    return [ordered]@{
+      kind = $match.Groups['kind'].Value
+      x1 = ConvertTo-MoonDoubleLiteral $match.Groups['x1'].Value
+      y1 = ConvertTo-MoonDoubleLiteral $match.Groups['y1'].Value
+      x2 = '0.0'
+      y2 = '0.0'
+    }
+  }
+  $match = [regex]::Match(
+    $Command,
+    '^Q:(?<x1>-?(?:0|[1-9][0-9]*)(?:\.[0-9]+)?),(?<y1>-?(?:0|[1-9][0-9]*)(?:\.[0-9]+)?):(?<x2>-?(?:0|[1-9][0-9]*)(?:\.[0-9]+)?),(?<y2>-?(?:0|[1-9][0-9]*)(?:\.[0-9]+)?)$',
+    [Text.RegularExpressions.RegexOptions]::CultureInvariant
+  )
+  if ($match.Success) {
+    return [ordered]@{
+      kind = 'Q'
+      x1 = ConvertTo-MoonDoubleLiteral $match.Groups['x1'].Value
+      y1 = ConvertTo-MoonDoubleLiteral $match.Groups['y1'].Value
+      x2 = ConvertTo-MoonDoubleLiteral $match.Groups['x2'].Value
+      y2 = ConvertTo-MoonDoubleLiteral $match.Groups['y2'].Value
+    }
+  }
+  throw "Unsupported or malformed font qualification command '$Command'."
+}
+
+function Get-FontQualificationSupportedOutlines {
+  param([Parameter(Mandatory)]$Oracle)
+
+  $expected = @(
+    [ordered]@{ scalar = 'U+0041'; scalar_value = 0x41UL; glyph_id = 36; command_count = 13 },
+    [ordered]@{ scalar = 'U+034C'; scalar_value = 0x34CUL; glyph_id = 765; command_count = 48 },
+    [ordered]@{ scalar = 'U+10300'; scalar_value = 0x10300UL; glyph_id = 5373; command_count = 13 }
+  )
+  $supported = [Collections.Generic.List[object]]::new()
+  foreach ($item in $expected) {
+    $matches = @($Oracle.glyphs | Where-Object { $_.scalar -ceq $item.scalar })
+    if ($matches.Count -ne 1) {
+      throw "Independent oracle supported glyph $($item.scalar) is missing or duplicated."
+    }
+    $glyph = $matches[0]
+    $commands = @($glyph.path.commands)
+    if ([int]$glyph.glyph_id -ne [int]$item.glyph_id -or
+        [int]$glyph.path.command_count -ne [int]$item.command_count -or
+        $commands.Count -ne [int]$item.command_count) {
+      throw "Independent oracle supported glyph $($item.scalar) identity or command count drifted."
+    }
+    $fingerprint = Get-FontQualificationSha256 -Bytes $Utf8NoBom.GetBytes(
+      $commands -join '|'
+    )
+    if ([string]::IsNullOrWhiteSpace([string]$glyph.path.fingerprint_sha256) -or
+        $fingerprint -cne [string]$glyph.path.fingerprint_sha256) {
+      throw "Independent oracle supported glyph $($item.scalar) fingerprint drifted."
+    }
+    $structured = @(
+      foreach ($command in $commands) {
+        ConvertFrom-FontQualificationCommand -Command ([string]$command)
+      }
+    )
+    $supported.Add([ordered]@{
+      scalar = $item.scalar
+      scalar_value = [uint64]$item.scalar_value
+      glyph_id = [int]$item.glyph_id
+      fingerprint_sha256 = [string]$glyph.path.fingerprint_sha256
+      commands = $structured
+    })
+  }
+  return @($supported)
+}
+
 function Write-FontQualificationGeneratedSource {
   [CmdletBinding()]
   param(
     [Parameter(Mandatory)][byte[]]$FontBytes,
+    [Parameter(Mandatory)]$Oracle,
     [Parameter(Mandatory)]$CasesDocument,
     [switch]$CheckOnly
   )
 
   Assert-ExactBytesIdentity 'generated DejaVu source' $FontBytes $FontLength $FontSha256
+  $supportedOutlines = @(Get-FontQualificationSupportedOutlines -Oracle $Oracle)
   $rows = [Collections.Generic.List[string]]::new()
   $rows.Add('// Generated by scripts/fixtures/Generate-FontQualification.ps1. Do not edit.')
   $rows.Add('// Canonical source: fixtures/font/dejavu-sans-2.37/DejaVuSans.ttf')
@@ -992,6 +1103,23 @@ function Write-FontQualificationGeneratedSource {
   $rows.Add('}')
   $rows.Add('')
   $rows.Add('///|')
+  $rows.Add('struct FontQualificationExpectedCommand {')
+  $rows.Add('  kind : String')
+  $rows.Add('  x1 : Double')
+  $rows.Add('  y1 : Double')
+  $rows.Add('  x2 : Double')
+  $rows.Add('  y2 : Double')
+  $rows.Add('}')
+  $rows.Add('')
+  $rows.Add('///|')
+  $rows.Add('struct FontQualificationOutlineExpectation {')
+  $rows.Add('  scalar : UInt64')
+  $rows.Add('  glyph_id : UInt64')
+  $rows.Add('  fingerprint_sha256 : String')
+  $rows.Add('  commands : Array[FontQualificationExpectedCommand]')
+  $rows.Add('}')
+  $rows.Add('')
+  $rows.Add('///|')
   $rows.Add('fn _font_qualification_join_bytes(parts : Array[Bytes]) -> Bytes {')
   $rows.Add('  let mut capacity = 0')
   $rows.Add('  for part in parts {')
@@ -1002,6 +1130,31 @@ function Write-FontQualificationGeneratedSource {
   $rows.Add('    output.push_iter(part.iter())')
   $rows.Add('  }')
   $rows.Add('  Bytes::from_array(output)')
+  $rows.Add('}')
+  $rows.Add('')
+
+  $rows.Add('///|')
+  $rows.Add('fn font_qualification_dejavu_supported_outlines() -> Array[FontQualificationOutlineExpectation] {')
+  $rows.Add('  [')
+  foreach ($outline in $supportedOutlines) {
+    $rows.Add('    {')
+    $rows.Add(('      scalar: 0x{0:x}UL,' -f [uint64]$outline.scalar_value))
+    $rows.Add("      glyph_id: $([uint64]$outline.glyph_id)UL,")
+    $rows.Add("      fingerprint_sha256: `"$($outline.fingerprint_sha256)`",")
+    $rows.Add('      commands: [')
+    foreach ($command in @($outline.commands)) {
+      $rows.Add('        {')
+      $rows.Add("          kind: `"$($command.kind)`",")
+      $rows.Add("          x1: $($command.x1),")
+      $rows.Add("          y1: $($command.y1),")
+      $rows.Add("          x2: $($command.x2),")
+      $rows.Add("          y2: $($command.y2),")
+      $rows.Add('        },')
+    }
+    $rows.Add('      ],')
+    $rows.Add('    },')
+  }
+  $rows.Add('  ]')
   $rows.Add('}')
   $rows.Add('')
 
@@ -1131,6 +1284,8 @@ function Write-FontQualificationGeneratedSource {
 }
 
 function Test-FontQualificationInputs {
+  param([Parameter(Mandatory)]$Oracle)
+
   foreach ($path in @($FontPath, $LicensePath, $OraclePath, $ManifestPath)) {
     if (-not (Test-Path -LiteralPath $path -PathType Leaf)) {
       throw "Font qualification input is missing: $path"
@@ -1140,9 +1295,7 @@ function Test-FontQualificationInputs {
   $licenseBytes = [IO.File]::ReadAllBytes($LicensePath)
   Assert-ExactBytesIdentity 'DejaVuSans.ttf' $fontBytes $FontLength $FontSha256
   Assert-ExactBytesIdentity 'DejaVu LICENSE' $licenseBytes $LicenseLength $LicenseSha256
-  $expectedOracle = ConvertTo-StableJson (
-    Read-FontQualificationSfntOracle -Bytes $fontBytes
-  )
+  $expectedOracle = ConvertTo-StableJson $Oracle
   $actualOracle = [IO.File]::ReadAllText($OraclePath, $Utf8NoBom).Replace("`r`n", "`n")
   if ($actualOracle -cne $expectedOracle) {
     throw 'Independent oracle schema, keys, facts, or serialization drifted.'
@@ -1156,18 +1309,25 @@ if ($Intake -and $Check) {
 if ($Intake) {
   Invoke-FontQualificationIntake
 }
-Test-FontQualificationInputs
+$fontBytes = [IO.File]::ReadAllBytes($FontPath)
+$oracle = Read-FontQualificationSfntOracle -Bytes $fontBytes
+if (-not $Check) {
+  [IO.File]::WriteAllText($OraclePath, (ConvertTo-StableJson $oracle), $Utf8NoBom)
+}
+Test-FontQualificationInputs -Oracle $oracle
 $casesDocument = Read-FontQualificationCases
 if ($Check) {
   Update-OrCheckCasesManifest -CheckOnly
   Write-FontQualificationGeneratedSource `
-    -FontBytes ([IO.File]::ReadAllBytes($FontPath)) `
+    -FontBytes $fontBytes `
+    -Oracle $oracle `
     -CasesDocument $casesDocument `
     -CheckOnly
 } else {
   Update-OrCheckCasesManifest
   Write-FontQualificationGeneratedSource `
-    -FontBytes ([IO.File]::ReadAllBytes($FontPath)) `
+    -FontBytes $fontBytes `
+    -Oracle $oracle `
     -CasesDocument $casesDocument
 }
 Write-Host 'Font qualification intake, oracle, hostile matrix, and generated source verification passed.'
