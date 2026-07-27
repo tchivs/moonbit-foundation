@@ -1305,9 +1305,6 @@ fn font_validate_post2_names(
       Err(error) => return Err(error)
       Ok(value) => value
     }
-    if name_index > 32767UL {
-      return Err(font_data_error("font-post-envelope"))
-    }
     if name_index >= 258UL {
       let referenced_count = match @checked.checked_sub(name_index, 257UL) {
         Err(error) => return Err(error)
@@ -1329,6 +1326,9 @@ fn font_validate_post2_names(
       Err(error) => return Err(error)
       Ok(value) => value.to_uint64()
     }
+    if length > 63UL {
+      return Err(font_data_error("font-post-envelope"))
+    }
     let payload_start = match @checked.checked_add(cursor, 1UL) {
       Err(error) => return Err(error)
       Ok(value) => value
@@ -1339,6 +1339,21 @@ fn font_validate_post2_names(
     }
     if cursor > table.length_value {
       return Err(font_data_error("font-post-envelope"))
+    }
+    let mut character = payload_start
+    while character < cursor {
+      let value = match read_u8(table.view, character) {
+        Err(error) => return Err(error)
+        Ok(byte) => byte.to_uint64()
+      }
+      if !((value >= 0x41UL && value <= 0x5AUL) ||
+        (value >= 0x61UL && value <= 0x7AUL) ||
+        (value >= 0x30UL && value <= 0x39UL) ||
+        value == 0x2EUL ||
+        value == 0x5FUL) {
+        return Err(font_data_error("font-post-envelope"))
+      }
+      character = character + 1UL
     }
     custom = custom + 1UL
   }
@@ -1393,7 +1408,13 @@ fn font_admit_post_envelope(
     Ok(value) => value
   }
   match version {
-    0x00010000UL | 0x00030000UL =>
+    0x00010000UL => {
+      if maxp.num_glyphs != 258UL {
+        return Err(font_data_error("font-post-envelope"))
+      }
+      font_table_exact_length(table, 32UL, "font-post-envelope")
+    }
+    0x00030000UL =>
       font_table_exact_length(table, 32UL, "font-post-envelope")
     0x00020000UL => {
       match font_table_min_length(table, 34UL, "font-post-envelope") {

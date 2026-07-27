@@ -1509,12 +1509,27 @@ test "name language tags and post name references require exact envelopes" {
   let trailing_post2 = font_test_post_with_suffix(
     0x00020000UL, b"\x00\x01\x01\x02\x01AB",
   )
+  let invalid_character_post2 = font_test_post_with_suffix(
+    0x00020000UL, b"\x00\x01\x01\x02\x01-",
+  )
+  let long_name_suffix : Array[Byte] = []
+  font_test_push_u16(long_name_suffix, 1UL)
+  font_test_push_u16(long_name_suffix, 258UL)
+  long_name_suffix.push(b'\x40')
+  for _index = 0; _index < 64; _index = _index + 1 {
+    long_name_suffix.push(b'A')
+  }
+  let long_name_post2 = font_test_post_with_suffix(
+    0x00020000UL,
+    Bytes::from_array(long_name_suffix),
+  )
   let valid_post25 = font_test_post_with_suffix(0x00025000UL, b"\x00\x01\x00")
   let invalid_post25 = font_test_post_with_suffix(0x00025000UL, b"\x00\x01\xff")
   let long_post25 = font_test_post_with_suffix(
     0x00025000UL, b"\x00\x01\x00\x00",
   )
   let long_post3 = font_test_post_with_suffix(0x00030000UL, b"\x00")
+  let one_glyph_post1 = font_test_post_with_suffix(0x00010000UL, b"")
 
   inspect(
     Font::open(
@@ -1634,8 +1649,8 @@ test "name language tags and post name references require exact envelopes" {
   )
   for
     post in [
-      missing_post2, truncated_post2, trailing_post2, invalid_post25, long_post25,
-      long_post3,
+      missing_post2, truncated_post2, trailing_post2, invalid_character_post2,
+      long_name_post2, invalid_post25, long_post25, long_post3, one_glyph_post1,
     ] {
     let error = Font::open(
       font_test_owner(
@@ -1648,36 +1663,40 @@ test "name language tags and post name references require exact envelopes" {
     inspect(error.context() == Some("font-post-envelope"), content="true")
   }
 
-  let oversized_suffix : Array[Byte] = []
-  font_test_push_u16(oversized_suffix, 1UL)
-  font_test_push_u16(oversized_suffix, 0xFFFFUL)
+  let high_index_suffix : Array[Byte] = []
+  font_test_push_u16(high_index_suffix, 1UL)
+  font_test_push_u16(high_index_suffix, 0xFFFFUL)
   for _index = 0UL; _index < 65278UL; _index = _index + 1UL {
-    oversized_suffix.push(b'\x00')
+    high_index_suffix.push(b'\x01')
+    high_index_suffix.push(b'A')
   }
-  let oversized_source = font_test_truetype_with_metadata(
+  let high_index_source = font_test_truetype_with_metadata(
     font_test_name_table(),
     font_test_post_with_suffix(
       0x00020000UL,
-      Bytes::from_array(oversized_suffix),
+      Bytes::from_array(high_index_suffix),
     ),
   )
-  let oversized_length = oversized_source.length().to_uint64()
-  let oversized_limits = FontLimits::new(
-    max_source_bytes=oversized_length,
+  let high_index_length = high_index_source.length().to_uint64()
+  let high_index_limits = FontLimits::new(
+    max_source_bytes=high_index_length,
     max_tables=10UL,
-    max_table_bytes=oversized_length,
+    max_table_bytes=high_index_length,
     max_glyphs=1UL,
     max_name_records=1UL,
     max_cmap_records=1UL,
-    max_post_name_bytes=65278UL,
+    max_post_name_bytes=130556UL,
     max_work=1000000UL,
   ).unwrap()
-  let oversized_error = Font::open(
-    font_test_owner(oversized_source).view(),
-    oversized_limits,
-    font_test_budget_with(oversized_length, 1000000UL),
-  ).unwrap_err()
-  inspect(oversized_error.context() == Some("font-post-envelope"), content="true")
+  inspect(
+    Font::open(
+      font_test_owner(high_index_source).view(),
+      high_index_limits,
+      font_test_budget_with(high_index_length, 1000000UL),
+    )
+    is Ok(_),
+    content="true",
+  )
 }
 
 ///|
