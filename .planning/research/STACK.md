@@ -1,219 +1,264 @@
-# Stack Research
+# Technology Stack
 
-**Domain:** Bounded SFNT/TrueType parsing and portable glyph-outline extraction
-**Project:** MoonBit Native Foundation — v0.32 TrueType Font Foundation
-**Researched:** 2026-07-26
-**Confidence:** HIGH for repository integration and the normative format profile; MEDIUM for the proposed real-font fixture until its extracted file digest and table inventory are recorded in-repository
+**Project:** MoonBit Native Foundation — v0.33 TrueType Collection Adapters
+**Domain:** Bounded, no-copy TTC/OTC face selection over the existing pure-MoonBit TrueType implementation
+**Researched:** 2026-07-28
+**Overall confidence:** MEDIUM under the GSD provider classifier; all external conclusions below were cross-checked against current official specifications, and repository/toolchain facts were verified locally
 
 ## Executive Recommendation
 
-Add one independently publishable pure-MoonBit module, `tchivs/mb-font@0.1.0`, with exactly one runtime dependency: `tchivs/mb-core@0.1.0`. Implement the v0.32 parser against **OpenType Specification 1.9.1** (released May 2024 and still the current official edition), restricted to a single-font TrueType-outline SFNT with `sfntVersion = 0x00010000`. Support `cmap` formats 4 and 12, horizontal metrics, simple and bounded composite `glyf` outlines, and optional OpenType `kern` version 0 / format 0. Do not add FreeType, HarfBuzz, FontTools, C stubs, host filesystem access, WOFF, TTC, CFF, hinting, variations, GPOS, or a font registry to the runtime stack.
+Add **no runtime technology and no new module**. Extend the existing `tchivs/mb-font@0.1.0` module and its existing public `font` package with a bounded collection adapter written entirely in MoonBit. Preserve `tchivs/mb-core@0.1.0` as the module's only dependency and retain the existing `+js+wasm+wasm-gc+native` target set. The installed and documented v0.33 implementation baseline remains `moon 0.1.20260713`, `moonc v0.10.4+2cc641edf`, and `moonrun 0.1.20260713`.
 
-The parser should accept a caller-provided `tchivs/mb-core/bytes.ByteView` and `tchivs/mb-core/budget.Budget`. SFNT is random-access, so use private big-endian cursors over checked `ByteView::subview` table windows. `mb-core/io.BoundedReader` is a sequential, non-seeking logical window and is not the right primary abstraction for table-directory offsets. A future streaming convenience API may stage a size-capped font into `OwnedBytes` using `BoundedReader` and `read_exact`, but that copy is not needed for the foundational API.
+Implement the adapter against **OpenType Specification 1.9.1**, released May 2024 and still identified by Microsoft as the current revision. Both TTC and OTC use the same `ttcf` container structure. Support TTC header versions 1.0 and 2.0, but admit only caller-selected faces that satisfy the already-supported static TrueType-outline profile: `sfntVersion = 0x00010000`, required `glyf` and `loca`, and no CFF/CFF2 outline dependency. File extensions are guidance, not an admission authority; caller-provided bytes may not have a filename, an OTC may contain mixed outline types, and the `ttcf` tag is used for all collection outline kinds.
 
-Keep exact font data as integers for as long as possible. Decode signed design coordinates and metrics into `Int`/`Int64`, use `checked_add`, `checked_mul`, `CheckedRange`, and explicit narrowing at every offset/length/count boundary, and convert outline coordinates to `Double` only when constructing the existing `mb-core/math.Path2`. TrueType coordinates are integral font units and composite transforms are F2Dot14 binary fractions, so this preserves the wire model while composing directly with `mb-canvas` without a dependency on canvas.
+The essential implementation change is an **offset-aware internal admission seam**, not a decompressor or a reconstructed standalone font. In a collection, each face directory can begin at a non-zero offset, while every table record's offset is measured from byte zero of the entire collection. Keep the original collection `ByteView`, validate a selected directory offset, and resolve table windows against the root view. Do not pass `source.subview(face_directory_offset, ...)` to the current standalone parser: that would incorrectly rebase absolute table offsets and cannot preserve shared tables.
+
+WOFF1 and WOFF2 must remain explicitly out of v0.33. WOFF1 requires zlib-compatible decompression of potentially compressed tables and is a separate web packaging format. WOFF2 does define collection packaging, but requires Brotli decompression plus optional reconstruction transforms for `glyf`, `loca`, and `hmtx`; reconstructed glyph bytes can differ from the source, and the WOFF2 specification warns that declared original lengths are not safe allocation authorities for transformed tables. Either format would replace the milestone's no-copy adapter with a decompression, materialization, and new resource-accounting project.
 
 ## Recommended Stack
 
-### Core Technologies
+### Core Framework
 
-| Technology | Version | Purpose | Why Recommended |
+| Technology | Verified version | Purpose | Why |
 |---|---:|---|---|
-| MoonBit `moon` / `moonc` / `moonrun` | `0.1.20260713` / `v0.10.4+2cc641edf` / `0.1.20260713` | Build, test, document, and qualify the new module | This is the installed repository baseline. Pin it exactly in CI for the candidate line and record all three versions in evidence. |
-| `tchivs/mb-core` | workspace `0.1.0` | Bytes, checked ranges/arithmetic, budgets, structured errors, and shared path geometry | These are already validated on `js`, `wasm`, `wasm-gc`, and `native`; adding another safety/runtime library would duplicate accepted contracts. |
-| OpenType Specification | **1.9.1** (May 2024) | Normative SFNT and TrueType binary contract | This is the current official Microsoft specification. Reference exact table chapters in code comments and tests rather than an undated “TrueType” description. |
-| Unicode Standard | **17.0.0** | Public `cmap` input validity | Definition D76 gives the exact scalar-value domain: `U+0000..U+D7FF` and `U+E000..U+10FFFF`. Valid-but-unmapped scalars return glyph ID 0; surrogate or out-of-range inputs are invalid input. |
+| MoonBit `moon` | `0.1.20260713` (`75c7e1f`, 2026-07-13) | Workspace build, checks, tests, documentation, and qualification | This is the existing pinned project baseline. The collection adapter uses only ordinary portable language and package features. |
+| MoonBit compiler `moonc` | `v0.10.4+2cc641edf` (2026-07-15) | Compile the module on all production backends | Locally verified with `moon version --all`; no compiler upgrade is required by the format work. |
+| MoonBit runner `moonrun` | `0.1.20260713` (`75c7e1f`, 2026-07-13) | Execute portable qualification artifacts | Retain the exact runner paired with the pinned toolchain. |
+| `tchivs/mb-font` | workspace `0.1.0` | Existing standalone TrueType admission and metrics/cmap/kern/outline contracts | Extend in place so a selected collection face returns the same opaque `Font` and all existing query behavior remains unchanged. |
+| `tchivs/mb-core` | workspace `0.1.0` | `ByteView`, checked ranges/arithmetic, budget transactions, structured errors, and `Path2` | It already supplies every primitive needed for a bounded collection adapter. Keep it as the only runtime dependency. |
+| OpenType Specification | **1.9.1** (May 2024) | Normative TTC/OTC and table-directory contract | Current official revision; it defines the shared `ttcf` structure, versions 1.0/2.0, absolute collection offsets, sharing, checksums, and outline table profiles. |
 
-### Existing `mb-core` Integration
+### Database
 
-| Contract | Use in `mb-font` | Important constraint |
-|---|---|---|
-| `@bytes.ByteView` | Immutable root font bytes and zero-copy table subviews | Every table is admitted with `CheckedRange::from_start_length` before a subview is created. Never cast unchecked `uint32` offsets or lengths to `Int`. |
-| `@checked.CheckedRange` | Directory, table, subtable, glyph, and array windows | Use nested `subrange` checks for `cmap`, `loca`/`glyf`, and `kern`; reject overflow before reading or allocating. |
-| `@checked.checked_add`, `checked_mul`, `checked_sub`, `checked_narrow_int` | Count-derived sizes and index arithmetic | Apply before `12 + numTables*16`, `numGlyphs+1`, `numberOfHMetrics*4`, contour/point arrays, format-4 array positions, format-12 group ranges, and kern-pair records. |
-| `@budget.Budget` + `ResourceCharge` | Bytes/work/allocation admission | Charge work per directory record, cmap segment/group, decoded point, component, emitted path command, and kern pair. Charge allocations before arrays become visible. |
-| `@budget.with_depth` | Composite glyph extraction | The font-declared `maxComponentDepth` is untrusted metadata, not a safety limit. Enforce the RFC 0004 candidate limit of one composite level plus an explicit visited-glyph set; cycles fail deterministically. |
-| `@error.CoreError` | Stable malformed/resource failure | Populate `operation`, `source_offset`, `requested`, `limit`, and a stable table/glyph context. Do not return partially parsed fonts or partially built outlines. |
-| `@math.Path2`, `Point2`, `PathCommand` | Public reusable outline | Emit `MoveTo`, `LineTo`, `QuadTo`, and `Close`. `mb-canvas` already consumes this type, so `mb-font` must not import `mb-canvas`. |
-| `@io.BoundedReader` / `read_exact` | Optional future stream-to-owned-buffer adapter only | It has no seeking contract. Do not emulate SFNT random access by repeatedly consuming or rebuilding readers. |
+No database, registry, cache service, or persistent index belongs in this milestone. A collection is admitted from one caller-provided `ByteView`; the resulting collection and selected `Font` retain only validated in-memory facts and the source revision.
 
-### Module and Package Shape
+### Infrastructure
 
-Create `modules/mb-font/moon.mod.json` in the same publication style as the existing modules:
+| Technology | Version | Purpose | Policy |
+|---|---:|---|---|
+| Existing `moon.work` | current repository workspace | Resolve `tchivs/mb-core` locally for `mb-font` | No workspace member or publication unit is added. |
+| Existing `moon.mod.json` for `mb-font` | module version `0.1.0` | Declare target set and sole dependency | Keep `preferred-target: native`, `supported-targets: +js+wasm+wasm-gc+native`, and only `tchivs/mb-core: 0.1.0`. |
+| Existing GitHub Actions/toolchain pin | exact repository baseline | Four-target candidate evidence | No system font, native codec, zlib, Brotli, or filesystem package may enter required CI. |
+| Repository fixture generation | deterministic project tooling | Build compact TTC v1/v2 and hostile test bytes | Development/test-only; generated bytes are embedded or otherwise consumed identically on all four targets. |
 
-```json
-{
-  "name": "tchivs/mb-font",
-  "version": "0.1.0",
-  "description": "Portable bounded TrueType font parsing, Unicode mapping, metrics, kerning, and reusable glyph outlines for MoonBit Native Foundation.",
-  "license": "Apache-2.0",
-  "repository": "https://github.com/tchivs/moonbit-foundation",
-  "readme": "README.mbt.md",
-  "preferred-target": "native",
-  "supported-targets": "+js+wasm+wasm-gc+native",
-  "deps": {
-    "tchivs/mb-core": "0.1.0"
-  }
-}
-```
+### Supporting Libraries
 
-Add `./modules/mb-font` to `moon.work`. Start with one public `font` package and private files grouped by responsibility (`cursor`, `directory`, `head_maxp`, `metrics`, `cmap`, `loca_glyf`, `kern`, `outline`). Do not create separately importable “internal” packages until a real second consumer needs those boundaries; independent packages enlarge the public module surface.
+| Library | Version | Purpose | When to Use |
+|---|---:|---|---|
+| `tchivs/mb-core/bytes` | `0.1.0` | Retain the root collection `ByteView`, create checked shared-table views, observe mutation revision | Always; never copy the whole collection or rebase a face by slicing at its directory. |
+| `tchivs/mb-core/checked` | `0.1.0` | Check `12 + 4*numFonts`, optional v2 trailer size, directory windows, table records, offsets, lengths, and index narrowing | Before every derived offset, range, count multiplication, or allocation. |
+| `tchivs/mb-core/budget` | `0.1.0` | Authoritative collection discovery and selected-face admission transactions | Charge header/offset discovery and compact retained facts before publishing a collection; use the established face admission charge when selecting. |
+| `tchivs/mb-core/error` | `0.1.0` | Stable malformed, unsupported, resource, mutation, and out-of-range outcomes | Reuse the existing structured error model; do not introduce string-only collection errors. |
+| Existing private `mb-font` cursor/directory code | module-local | Big-endian reads and SFNT table admission | Refactor behind a directory-base plus checksum-mode parameter; do not fork a second parser. |
 
-The package imports only the required `mb-core` packages:
+No compression library, cryptography library, I/O library, FFI binding, or foreign font engine is recommended.
+
+## Exact Normative Container Profile
+
+### TTC/OTC Header
+
+| Field or rule | v0.33 policy |
+|---|---|
+| Signature | Require `0x74746366` (`ttcf`) at collection byte 0. Keep standalone `Font::open` behavior unchanged for `0x00010000`. |
+| Header version | Accept exactly 1.0 or 2.0. Reject unknown major versions rather than interpreting an unknown layout. |
+| Face count | Read `numFonts` as `uint32`, require a non-zero count, enforce a new explicit `max_faces` semantic ceiling, and checked-narrow before any array/index use. |
+| Directory offset array | Validate `numFonts` 32-bit offsets under checked `12 + 4*numFonts` arithmetic before publishing a collection. Every offset is relative to collection byte 0. |
+| Version 2 trailer | After the offset array, validate the `dsigTag`, `dsigLength`, and `dsigOffset` triple. All-null means no signature. A present DSIG uses tag `DSIG`, has a checked in-bounds range, and is structurally last. |
+| Signature semantics | Structural DSIG validation only. Do not claim cryptographic authentication and do not add a crypto dependency. Signature verification is a separate capability. |
+| File naming | Ignore `.ttc`/`.otc` for admission. OpenType recommends `.ttc` for TrueType-outline collections and `.otc` for CFF/CFF2 collections, but both use `ttcf` and collections may mix outline types. |
+
+The collection adapter should expose a distinct bounded limit type, conceptually `FontCollectionLimits`, containing at least `max_source_bytes`, `max_faces`, and `max_work`. Do not overload `FontLimits.max_tables` to mean face count. Continue to apply the caller's existing `FontLimits` to the selected face.
+
+### Selected Face Profile
+
+| Check | Required behavior |
+|---|---|
+| Caller index | Reject `index >= numFonts` before reading a face directory or spending selected-face work. |
+| Directory window | Validate a complete 12-byte SFNT directory header at the chosen absolute offset, then checked `numTables * 16` records within the root collection. |
+| SFNT version | Require `0x00010000` for the selected face. `OTTO` is not admitted by the existing TrueType implementation. |
+| Outline tables | Require the existing `glyf`/`loca` pair and all currently required TrueType tables. Reject faces containing only `CFF ` or `CFF2` as unsupported, even though their collection container is valid. |
+| Table offsets | Interpret every `TableRecord.offset` from collection byte 0. Preserve table sharing naturally when multiple directories point to the same root range. |
+| Table checksums | Verify each selected face table checksum using the bytes as stored in the collection. |
+| `head.checksumAdjustment` | Do **not** apply the standalone whole-font `0xB1B0AFBA` equation in collection mode. OpenType 1.9.1 says this field is not used for collections and may be zero. |
+| Atomicity | Do not publish `FontCollection` or `Font` until its full transaction, source-revision checks, and structural/profile validation succeed. |
+
+The adapter does not need to deduplicate table bytes or discover which tables are shared. Sharing is already represented by equal absolute ranges in different face directories. The parser only needs to permit those equal ranges while still rejecting invalid partial overlap and out-of-bounds ranges according to the existing directory policy.
+
+## Integration with the Existing `mb-font` Module
+
+### Public Additions
+
+Use additive APIs in the existing `font` package. The exact naming can be settled during phase design, but the stack boundary should be:
 
 ```moonbit
-import {
-  "tchivs/mb-core/budget",
-  "tchivs/mb-core/bytes",
-  "tchivs/mb-core/checked",
-  "tchivs/mb-core/error",
-  "tchivs/mb-core/math",
-}
+pub struct FontCollection
 
-supported_targets = "+js+wasm+wasm-gc+native"
-```
-
-The public construction seam should be conceptually:
-
-```moonbit
-pub fn Font::parse(
+pub fn FontCollection::open(
   source : @bytes.ByteView,
+  limits : FontCollectionLimits,
+  budget : @budget.Budget,
+) -> Result[FontCollection, @error.CoreError]
+
+pub fn FontCollection::face_count(
+  self : FontCollection,
+) -> Result[UInt64, @error.CoreError]
+
+pub fn FontCollection::open_face(
+  self : FontCollection,
+  index : UInt64,
+  limits : FontLimits,
   budget : @budget.Budget,
 ) -> Result[Font, @error.CoreError]
 ```
 
-The parsed `Font` should retain the immutable root view plus validated table ranges and compact indexes, rather than copying every table. Outline extraction is a separate budgeted operation so a caller can parse metadata without paying for every glyph.
+The selected result must be the existing `Font`, not a parallel collection-face type. That preserves `units_per_em`, line metrics, `glyph_for_scalar`, `glyph_id`, horizontal metrics, legacy kerning, and outline calls without adapters at every query.
 
-## Exact Normative Profile
+### Private Refactor
 
-### Container and Directory
+Factor current `Font::open` admission into a private function conceptually shaped as:
 
-| Item | v0.32 policy | Normative source |
-|---|---|---|
-| Container | Accept one SFNT at byte 0 with `sfntVersion = 0x00010000` | OpenType 1.9.1, “The OpenType Font File” |
-| Directory | Validate `12 + numTables*16`, sorted ascending unique tags, valid search fields, 4-byte-aligned table starts, checked offset/length windows, and no table overlap in the single-font profile | OpenType 1.9.1, TableDirectory and TableRecord |
-| Checksums | Verify every admitted table checksum using zero-padding to a 4-byte boundary and verify the whole-font `head.checksumAdjustment` equation | OpenType 1.9.1, “Calculating Checksums” and `head` |
-| Required tables | Require `cmap`, `head`, `hhea`, `hmtx`, `maxp`, `name`, `OS/2`, `post`, `glyf`, and `loca`; v0.32 may expose only the metric/mapping/outline fields but must validate presence and bounded ranges | OpenType 1.9.1 required-table and TrueType-outline lists; RFC 0004 |
-| Excluded signatures | Reject `OTTO` (CFF/CFF2), `ttcf` (collections), WOFF/WOFF2, Apple `'true'`/`'typ1'`, and embedded bitmap-only outlines | Explicit milestone scope |
-
-### Tables and Cross-Table Rules
-
-| Table | Supported edition/format | Required validation and behavior |
-|---|---|---|
-| `head` | version 1.0 | `magicNumber = 0x5F0F3CF5`; `unitsPerEm` in the specified 16..16384 range; `indexToLocFormat` exactly 0 or 1; checked global bounds. |
-| `maxp` | TrueType version 1.0 | Read `numGlyphs` and declared maxima, but treat maxima only as consistency checks. Actual counts must also fit caller budget and implementation ceilings. |
-| `hhea` | version 1.0 | Validate reserved fields and `metricDataFormat = 0`; require `1 <= numberOfHMetrics <= numGlyphs`. Use its ascender, descender, and lineGap as the v0.32 named font-wide horizontal metrics. |
-| `hmtx` | current OpenType 1.9.1 layout | Decode `numberOfHMetrics` long records; remaining glyphs reuse the final advance width and consume individual left side bearings. Compute right side bearing with checked widened arithmetic. |
-| `cmap` | header version 0; formats 4 and 12 only | Validate encoding records and complete subtable lengths before indexing. Prefer a Unicode format 12 subtable over format 4 as the specification directs when both exist. Use a fixed selection order: platform 0 full-repertoire format 12, platform 3/10 format 12, platform 0 BMP format 4, platform 3/1 format 4. Map valid misses to glyph 0 and reject any derived glyph ID outside `numGlyphs`. |
-| `loca` | short (0) and long (1) | Require exactly `numGlyphs + 1` entries, monotonic offsets, short offsets multiplied by two with checked arithmetic, and every offset within `glyf.length`. Equal adjacent offsets represent an empty glyph. |
-| `glyf` simple | OpenType 1.9.1 | Bound contour count, increasing end-point indices, instruction length, expanded repeat flags, point count, and accumulated coordinate deltas. Implement implied on-curve midpoints for consecutive off-curve points and contour start/end rules before emitting `Path2`. Parse and skip instruction bytes; never execute hinting. |
-| `glyf` composite | OpenType 1.9.1 | Validate component glyph IDs, complete flag-dependent arguments, XY and point-matching placement, F2Dot14 scale/x-y-scale/2×2 transforms, and complete instruction ranges. Enforce an acyclic visited set, work/point/command limits, and the RFC candidate depth of one. |
-| `kern` | table version 0, horizontal subtable format 0 | Validate subtable lengths, sorted pair keys, pair glyph IDs, and signed FWORD values. Use supported horizontal non-cross-stream format-0 data; safely skip well-formed unsupported subtables. Do not combine this query API with GPOS policy. |
-
-The cmap selection order is project policy where OpenType permits a consistent application choice between same-format Unicode platform records. Freeze it in black-box tests so all four targets choose the same subtable.
-
-## Fixture and Conformance Strategy
-
-### Canonical Fixture Layers
-
-| Layer | Contents | Purpose |
-|---|---|---|
-| Spec-derived micro-fonts | Project-generated minimal SFNTs with exact table bytes | Isolate every supported encoding branch and failure boundary without relying on a large third-party font. |
-| Mutation corpus | One controlled corruption per fixture: every truncation boundary, offset/length overflow, duplicate/unsorted tags, checksum failure, invalid count, bad cmap ordering, descending `loca`, repeated-flag overflow, composite cycle/depth/work exhaustion, unsorted/out-of-range kern pair | Prove structured fail-closed behavior and atomicity. |
-| Real-font specimen | **DejaVu Sans 2.37**, obtained from the official single-font archive whose published archive SHA-256 is `5c6e497a2f36552cb5ffb112c413a6af39c0f3c47653662b90b4fa6499822fd7` | Representative interoperability for real table sizes, BMP/supplementary mapping, metrics, simple/composite glyphs, and legacy kerning where present. Record the extracted `DejaVuSans.ttf` SHA-256 and inspected table inventory before accepting the fixture. |
-| Public workflow vector | A tiny generated font with `.notdef`, space, `A`, `V`, an accented composite, and one supplementary-plane mapping | Stable end-to-end `parse → cmap → metrics → outline → kern` evidence on all targets. |
-
-The source of truth belongs under `fixtures/font/`. Extend `fixtures/manifest.json` with fixture ID, path, generator or official URL, exact upstream version, retrieval date, upstream archive digest, extracted-file digest, license, redistribution status, table inventory, and intended tests. Include the full DejaVu license notice beside the vendored font.
-
-Portable tests must not read host files. A deterministic fixture generator should convert the checked-in binary corpus into a test-only MoonBit byte-literal package (or equivalent build-time generated test data) so `js`, `wasm`, `wasm-gc`, and `native` consume identical bytes. Verify generated bytes against the manifest SHA-256 before committing them. Do not put fixture loading, a filesystem capability, or a decoder for archive formats in the runtime package.
-
-Expected facts should be semantic and compact: selected cmap record, codepoint→glyph pairs, font metrics, glyph bounds, ordered path commands/control points, kern pairs, and canonical rendered `CoreError` values. Do not snapshot opaque binary output. For the real font, independently record a one-time table inventory and oracle values using a pinned external inspector during fixture curation; portable CI compares against the committed facts and does not install or execute that foreign tool.
-
-### Required Test Placement
-
-| Test kind | File form | Coverage |
-|---|---|---|
-| Public contract | `*_test.mbt` | Parse API, metrics, cmap, outline, kern, error stability, public workflow |
-| Internal invariants | `*_wbtest.mbt` and inline tests | Big-endian cursor, checked ranges, format-4 `idRangeOffset`, flag expansion, implied points, composite transforms/cycles, checksum arithmetic |
-| Documentation | `README.mbt.md` and `mbt check` examples | Black-box parse/query workflow with generated tiny bytes |
-| Four-target qualification | Isolated package selector plus workspace lane | Same fixture IDs, results, command counts, and error renderings on all four targets |
-
-## Development Tools
-
-| Tool | Purpose | Policy |
-|---|---|---|
-| `moon check` / `moon test` | Compilation and semantic conformance | Run with `--target all --frozen`; this expands to `wasm`, `wasm-gc`, `js`, and `native`, not LLVM. |
-| `moon info` | Regenerate/check public interfaces | Review generated `.mbti` diffs as the candidate API contract. |
-| Repository fixture generator | Emit minimal SFNT bytes, correct checksums, mutations, and test literals | Keep it deterministic and versioned; it is test tooling, never a runtime dependency. |
-| Optional pinned FontTools `ttx` | One-time independent oracle during fixture curation | Do not add to `moon.mod.json`, runtime packages, or mandatory four-target CI. Record its exact version and output facts if used. |
-| SHA-256 tooling | Fixture identity | Use existing repository fixture/manifest conventions; fail generation if bytes differ from the recorded digest. |
-
-## Installation and Qualification
-
-No external package installation is required for the implementation.
-
-```powershell
-# After creating the module, register it in the existing workspace.
-moon work use modules/mb-font
-
-# Check and run the isolated module on all production targets.
-moon -C modules/mb-font check --target all --frozen
-moon -C modules/mb-font test --target all --frozen
-
-# Confirm workspace-wide dependency and target compatibility.
-moon check --target all --frozen
-moon test --target all --frozen
-
-# Record the exact toolchain with qualification evidence.
-moon version --all --json
+```moonbit
+fn font_open_at(
+  source : @bytes.ByteView,
+  directory_offset : UInt64,
+  checksum_mode : FontChecksumMode,
+  limits : FontLimits,
+  budget : @budget.Budget,
+) -> Result[Font, @error.CoreError]
 ```
 
-Use an isolated `mb-font` selector for fast iteration and a workspace-wide lane before milestone acceptance. Native-only performance benchmarks may be added after semantics stabilize, but portable-target execution is a correctness gate, not a cross-runtime timing comparison.
+- Standalone `Font::open` calls it with directory offset `0` and standalone checksum mode.
+- `FontCollection::open_face` calls it with the validated absolute directory offset and collection checksum mode.
+- Directory parsing reads directory fields at `directory_offset + local_field_offset`.
+- Table record offsets remain root-relative and are never incremented by `directory_offset`.
+- Collection mode verifies table checksums but skips the standalone whole-source checksum-adjustment equation.
+- Both modes retain the root `ByteView` and its mutation revision, preserving existing pre-query and post-query drift checks.
+
+Do not duplicate `font_parse_directory`, `font_validate_profile`, required-table admission, cmap, kern, metrics, or outline code. The v0.33 implementation should make the existing standalone path one parameterization of the same admission transaction, with black-box byte compatibility tests proving that the old API remains unchanged.
+
+### Resource Accounting
+
+The stack already supports the required authority model. Extend it, rather than importing a collection parser:
+
+1. Collection discovery preflights the bounded header, face count, directory offset array, optional v2 DSIG trailer, retained offset facts, and associated work.
+2. Collection publication charges once and records the opening source revision.
+3. Face selection checks the collection revision and index before selected-face work.
+4. Existing `Font` admission performs its own authoritative budget transaction over the selected directory and referenced tables.
+5. A second collection revision guard runs immediately before publishing the selected `Font`.
+
+Do not charge the complete collection byte length again as if it were a copied face allocation. Bytes remain caller-owned. Resource facts must distinguish referenced source bytes from newly allocated bookkeeping and from parsing work.
+
+## Why WOFF1 and WOFF2 Are Excluded
+
+### WOFF1
+
+WOFF File Format 1.0 is a W3C Recommendation dated 13 December 2012. It is a webfont package with signature `wOFF`, a 44-byte header, a replacement table directory, optional metadata/private blocks, and potentially compressed font tables. A conforming decoder must support zlib-compatible decompression for compressed tables; metadata, when present, is also zlib-compressed.
+
+WOFF1 should not be added because:
+
+- It does not expose raw TTC table-directory offsets that can be adapted in place.
+- Compressed tables must be materialized or exposed through a new decompressed-table storage abstraction.
+- Admission needs decompression ratio, output-byte, allocation, and work ceilings that do not exist in the TTC header adapter.
+- A pure-MoonBit zlib/DEFLATE decoder might be reusable from other MNF work, but wiring it into `mb-font` would create a new public dependency edge and broaden this milestone from collection selection into webfont decoding.
+
+Policy: reject `wOFF` at the collection and standalone font boundaries with the existing structured unsupported-container outcome. If WOFF1 is later implemented, place decompression in a separate adapter that yields bounded owned SFNT bytes and then calls `mb-font`.
+
+### WOFF2
+
+WOFF File Format 2.0 is a W3C Recommendation dated 8 August 2024. Unlike WOFF1, it explicitly supports collections when `flavor = ttcf`; it has a collection directory mapping each nested font to unique table-directory entries.
+
+WOFF2 still should not be added because:
+
+- All table data is carried in a combined Brotli-compressed stream.
+- `glyf`, `loca`, and `hmtx` may have format-specific transforms requiring reconstruction after decompression.
+- Transformed `glyf` reconstruction can produce semantically equivalent bytes that differ from the original.
+- The specification says transformed-table original lengths are reference values and must not be trusted as allocation authority.
+- Collection decoding must restore nested font directories, shared-table relationships, and `glyf`/`loca` pairing before the existing SFNT parser can run.
+- Brotli, UIntBase128 parsing, transform reconstruction, output storage, and hostile compression accounting are independently substantial portable infrastructure.
+
+Policy: reject `wOF2` in v0.33. A future WOFF2 milestone should first establish a bounded pure-MoonBit Brotli and WOFF2 reconstruction layer, then hand reconstructed owned TTC/SFNT bytes to the unchanged `mb-font` contract. Do not make `mb-font` depend directly on WOFF2.
 
 ## Alternatives Considered
 
-| Recommended | Alternative | Why the alternative is not the v0.32 stack |
-|---|---|---|
-| Pure MoonBit parser over `ByteView` | FreeType, HarfBuzz, stb_truetype, Rust/fontations, or a C FFI wrapper | Violates the milestone’s no-foreign-font-stack goal, becomes native-specific, and bypasses the contracts this milestone exists to establish. |
-| Private random-access SFNT cursor | `BoundedReader` as the primary parser | SFNT table offsets require random access; `BoundedReader` deliberately has no seeking contract. |
-| Existing `mb-core/math.Path2` output | A new font-only path or a dependency on `mb-canvas` | Duplicates geometry or reverses the RFC dependency direction. |
-| Checked integer wire model, late `Double` conversion | Decode all values immediately as `Double` | Loses the exact signed/unsigned table semantics and makes bounds/index arithmetic harder to audit. |
-| Project-generated micro-fonts plus one pinned real font | Only system-installed fonts or a large third-party test corpus | System fonts are non-reproducible; a large borrowed corpus obscures licenses, provenance, and feature intent. |
-| Committed semantic oracle facts | Run FontTools/FreeType in portable CI | Adds a foreign test-runtime dependency and can turn differential agreement into the acceptance criterion instead of the normative spec. |
+| Category | Recommended | Alternative | Why Not |
+|---|---|---|---|
+| Module placement | Extend existing `tchivs/mb-font` | Add `mb-font-collection` module | Splits one format admission boundary, forces a second publication unit, and complicates returning the existing private `Font`. |
+| Face admission | Root `ByteView` plus absolute directory offset | Slice the collection at the selected face directory | TTC table offsets are measured from collection byte 0; slicing rebases them incorrectly and breaks shared tables. |
+| Parser structure | Parameterize the existing atomic admission | Copy the standalone parser into collection-specific files | Creates two validation/checksum/profile implementations that will drift. |
+| Selected result | Existing `Font` | New `CollectionFace` query surface | Duplicates metrics, cmap, kern, outline, limits, and error contracts. |
+| Checksum policy | Table checksums plus collection-mode `head` handling | Reuse standalone whole-source checksum verification | OpenType does not use `head.checksumAdjustment` for collections; the standalone whole-font equation is inapplicable. |
+| Outline support | `glyf`/`loca` only | Add `CFF ` or `CFF2` | Those are different cubic CharString systems and exceed the existing quadratic outline foundation. |
+| Compression | Raw TTC/OTC only | Add WOFF1 | Requires zlib-compatible decompression and table materialization, contrary to the no-copy milestone. |
+| Compression | Raw TTC/OTC only | Add WOFF2 collections | Requires Brotli plus font-table transforms and reconstructed collection storage; it is a separate project. |
+| Native integration | Pure MoonBit on four targets | FreeType/fontconfig/CoreText/DirectWrite FFI | Adds ambient discovery and platform-specific ownership/behavior while bypassing the portable contract. |
+| I/O | Caller-provided `ByteView` | Filesystem path or installed-font lookup | Breaks deterministic portable use and introduces ambient authority. |
+| DSIG | Structural fields only | Cryptographic signature verification | Needs trust-store and cryptographic policy not required to select and parse a face. |
 
 ## What NOT to Add
 
-| Avoid | Why | Use Instead |
+| Avoid | Reason | Use Instead |
 |---|---|---|
-| C/C++/Rust/native stubs in core parsing | Breaks four-target identity and obscures ownership/error behavior | MoonBit plus `mb-core` checked/budget contracts |
-| `mb-color`, `mb-image`, or `mb-canvas` dependencies | Fonts produce geometry and metrics, not pixels or color | Return `mb-core/math.Path2`; let consumers import canvas |
-| WOFF/WOFF2, TTC/OTC, CFF/CFF2 | Separate containers/outline systems outside this milestone | Reject signatures explicitly and reserve later RFC phases |
-| TrueType hinting VM | Large hostile bytecode interpreter with target-sensitive rendering behavior | Parse/skip bounded instruction bytes and return unhinted outlines |
-| GPOS/GSUB, shaping, bidi, fallback | String-level text policy owned by `mb-text` | Expose only cmap, metrics, outlines, and legacy kern query |
-| Variable/color/bitmap fonts | Introduces `fvar/gvar/HVAR`, COLR/CPAL/SVG, or bitmap stacks | Static monochrome TrueType `glyf` only |
-| Ambient filesystem or installed-font discovery | Not portable or deterministic | Caller-provided bytes and explicit host capability outside `mb-font` |
-| Permissive recovery from malformed offsets/counts | Can publish partial or ambiguous font state | Atomic structured rejection with source offsets and limits |
+| New runtime dependencies | All required primitives already exist in `mb-core` | Existing bytes/checked/budget/error contracts |
+| `mb-image`, `mb-canvas`, `mb-color`, or `mb-svg` dependency | A collection selects a font; it does not render pixels or scenes | Return the existing `Font` and `Path2` behavior |
+| C/C++/Rust stubs | Violates four-target equality and no-FFI scope | Pure MoonBit parsing |
+| `@fs`, URLs, streams, or system font discovery | Introduces ambient I/O and target-specific behavior | Explicit caller-owned bounded bytes |
+| Copied standalone SFNT reconstruction | Defeats no-copy sharing and changes budget semantics | Root-relative directory adapter |
+| CFF/CFF2 CharString interpreter | Separate outline model and variable-font surface | Structured unsupported-face outcome |
+| WOFF1 zlib/DEFLATE dependency | New decompression and allocation boundary | Defer to a future outer adapter |
+| WOFF2 Brotli and transforms | New compression and reconstruction subsystem | Defer to a dedicated future milestone |
+| DSIG trust or crypto stack | Not needed for structural collection admission | Validate header fields/range only |
+| Shaping, GPOS/GSUB, variation, hinting, rasterization | Not collection-container responsibilities | Preserve explicit future boundaries |
+| Version bump during implementation | Project milestone `v0.33` is not automatically a module release | Keep workspace `0.1.0`; change only through release governance |
+
+## Installation and Qualification
+
+No package installation is required.
+
+```powershell
+# Verify the pinned toolchain.
+moon version --all
+
+# Isolated module checks on every production target.
+moon -C modules/mb-font check --target all --frozen
+moon -C modules/mb-font test --target all --frozen
+
+# Workspace integration gate.
+moon check --target all --frozen
+moon test --target all --frozen
+
+# Review the additive public API contract.
+moon -C modules/mb-font info
+```
+
+Required fixtures should include generated TTC v1.0 and v2.0 containers, shared-table faces, independent-table faces, mixed `glyf`/CFF face directories, invalid selected indices, hostile counts/offsets/ranges, structurally invalid DSIG triples, collection-mode checksum cases, and the shipped standalone SFNT corpus. Any licensed real collection belongs in repository fixture metadata with an exact digest and license; portable tests must not discover or read system fonts.
 
 ## Version Compatibility
 
 | Component | Compatible With | Notes |
 |---|---|---|
-| `tchivs/mb-font@0.1.0` | `tchivs/mb-core@0.1.0` | Exact candidate dependency; only allowed public runtime edge. |
-| MoonBit `0.1.20260713` / `moonc 0.10.4` | Existing `moon.mod.json`, `moon.pkg`, and `moon.work` files | Keep current JSON module manifest style for this milestone; use existing `moon.pkg` DSL for packages. |
-| OpenType 1.9.1 TrueType subset | Static single-font SFNT `0x00010000` | The implementation is intentionally not a claim of all OpenType 1.9.1 features. |
-| Unicode 17.0.0 scalar contract | cmap formats 4 and 12 | No Unicode database dependency is needed; only scalar validation and numeric mapping are required. |
-| `@math.Path2` | Existing `mb-canvas` fill/stroke consumers | Quadratic `QuadTo` directly represents TrueType outlines; no canvas import in `mb-font`. |
+| `tchivs/mb-font@0.1.0` | `tchivs/mb-core@0.1.0` | Preserve as the only public runtime dependency. |
+| TTC/OTC adapter | OpenType 1.9.1 TTCHeader 1.0 and 2.0 | Supports raw `ttcf` containers and selected static `glyf` faces only. |
+| Existing standalone API | Standalone SFNT `0x00010000` | Must remain source- and behavior-compatible; old checksums and admission semantics stay frozen. |
+| MoonBit targets | `js`, `wasm`, `wasm-gc`, `native` | Same source, fixtures, structured outcomes, and public facts on all four. |
+| WOFF1 | Not supported | W3C 2012 packaging requires zlib-compatible decompression. |
+| WOFF2 | Not supported | W3C 2024 packaging requires Brotli and optional table transforms, despite having collection support. |
 
 ## Sources
 
-- [OpenType Specification 1.9.1](https://learn.microsoft.com/en-us/typography/opentype/spec/) and [version archive](https://learn.microsoft.com/en-us/typography/opentype/opentypeversions) — current edition and May 2024 release. **Confidence: HIGH** (official Microsoft specification).
-- [The OpenType Font File](https://learn.microsoft.com/en-us/typography/opentype/spec/otff) — SFNT directory, table records, required tables, alignment, and checksum rules. **Confidence: HIGH**.
-- Official OpenType 1.9.1 table chapters: [`head`](https://learn.microsoft.com/en-us/typography/opentype/spec/head), [`maxp`](https://learn.microsoft.com/en-us/typography/opentype/spec/maxp), [`hhea`](https://learn.microsoft.com/en-us/typography/opentype/spec/hhea), [`hmtx`](https://learn.microsoft.com/en-us/typography/opentype/spec/hmtx), [`cmap`](https://learn.microsoft.com/en-us/typography/opentype/spec/cmap), [`loca`](https://learn.microsoft.com/en-us/typography/opentype/spec/loca), [`glyf`](https://learn.microsoft.com/en-us/typography/opentype/spec/glyf), and [`kern`](https://learn.microsoft.com/en-us/typography/opentype/spec/kern). **Confidence: HIGH**.
-- [Unicode Standard 17.0.0, Chapter 3](https://www.unicode.org/versions/Unicode17.0.0/core-spec/chapter-3/) — definition D76 for Unicode scalar values. **Confidence: HIGH** (official Unicode Consortium standard).
-- Official MoonBit v0.10.4 documentation: [workspaces](https://docs.moonbitlang.com/en/latest/toolchain/moon/workspace.html), [module configuration](https://docs.moonbitlang.com/en/latest/toolchain/moon/module.html), [package/target configuration](https://docs.moonbitlang.com/en/latest/toolchain/moon/package.html), [tests](https://docs.moonbitlang.com/en/latest/language/tests.html), and [documentation tests](https://docs.moonbitlang.com/en/latest/language/docs.html). **Confidence: HIGH**, cross-checked against the installed toolchain and repository manifests.
-- [DejaVu Fonts official download](https://dejavu-fonts.github.io/Download.html) and [license](https://dejavu-fonts.github.io/License.html) — version 2.37 archive identity and redistribution terms. **Confidence: MEDIUM** until the extracted TTF digest/table inventory are captured in `fixtures/manifest.json`.
-- Repository evidence: `docs/rfcs/0004-mb-font.md`, `modules/mb-core/{bytes,checked,budget,error,io,math}`, `moon.work`, current module manifests, and `fixtures/manifest.json`. **Confidence: HIGH** (direct local inspection).
+- [OpenType Specification 1.9.1](https://learn.microsoft.com/en-us/typography/opentype/spec/) and [OpenType version archive](https://learn.microsoft.com/en-us/typography/opentype/opentypeversions) — current revision and May 2024 release date. **Confidence: MEDIUM** under the GSD verified-provider classifier; official Microsoft primary source.
+- [OpenType font file — Font Collections, TTC Header, checksums, and outline-table profiles](https://learn.microsoft.com/en-us/typography/opentype/spec/otff) — TTC/OTC shared structure, header 1.0/2.0 fields, root-relative offsets, table sharing, DSIG placement, and collection checksum rules. **Confidence: MEDIUM**; official normative source.
+- [OpenType comparison of `glyf`, `CFF `, and `CFF2`](https://learn.microsoft.com/en-us/typography/opentype/spec/glyphformatcomparison) — alternate outline systems and quadratic-versus-cubic distinction. **Confidence: MEDIUM**; official primary source.
+- [WOFF File Format 1.0](https://www.w3.org/TR/WOFF/) — W3C Recommendation, 13 December 2012; WOFF header/directory and mandatory zlib-compatible decoder behavior. **Confidence: MEDIUM**; official W3C standard.
+- [WOFF File Format 2.0](https://www.w3.org/TR/WOFF2/) — W3C Recommendation, 8 August 2024; Brotli stream, explicit collection directory, and `glyf`/`loca`/`hmtx` transforms. **Confidence: MEDIUM**; official W3C standard.
+- [MoonBit v0.10.4 release](https://www.moonbitlang.com/updates/2026/07/13/moonbit-0-10-4-release) and [official module configuration](https://docs.moonbitlang.com/en/latest/toolchain/moon/module.html) — current toolchain line, dependency metadata, and supported-target declarations. **Confidence: MEDIUM** under the provider classifier; official MoonBit sources, cross-checked locally.
+- Repository evidence: `.planning/PROJECT.md`, `modules/mb-font/moon.mod.json`, `modules/mb-font/font/moon.pkg`, `modules/mb-font/font/{font,directory,cursor,limits}.mbt`, and `moon.work`. **Confidence: HIGH**; direct local inspection on 2026-07-28.
+
+## Research Gaps and Phase Flags
+
+- OpenType defines collection structure and sharing, but the project must freeze its own structured error taxonomy for malformed collection headers, unsupported selected faces, and index failures during phase planning.
+- DSIG cryptographic verification is intentionally not researched because it is out of scope; structural v2 header validation is sufficient for v0.33.
+- A licensed collection fixture and its exact digest/license should be selected during fixture planning. This does not affect the runtime stack.
+- Any future WOFF2 phase needs separate feasibility research for a bounded pure-MoonBit Brotli implementation and the WOFF2 transform reconstruction rules; it must not be treated as a small extension of this adapter.
 
 ---
-*Stack research for: MoonBit Native Foundation v0.32 TrueType Font Foundation*
-*Researched: 2026-07-26*
+*Stack research for MoonBit Native Foundation v0.33 TrueType Collection Adapters*

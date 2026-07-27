@@ -1,240 +1,217 @@
 # Project Research Summary
 
-**Project:** MoonBit Native Foundation — v0.32 TrueType Font Foundation
-**Domain:** Portable, bounded SFNT/TrueType parsing and reusable glyph-outline extraction
-**Researched:** 2026-07-26
-**Confidence:** HIGH
+**Project:** MoonBit Native Foundation — v0.33 TrueType Collection Adapters
+**Domain:** Portable, bounded, no-copy TTC/OTC inspection and selected static-`glyf` face admission
+**Researched:** 2026-07-28
+**Confidence:** HIGH for scope and repository integration; MEDIUM for the new pre-1.0 API and exact resource/error policy
 
 ## Executive Summary
 
-v0.32 should establish a small, independently publishable `tchivs/mb-font@0.1.0` module that turns caller-provided static TrueType bytes into trustworthy metrics, Unicode mappings, legacy kerning values, and unhinted reusable outlines. Expert implementations treat fonts as hostile random-access binary structures: they validate the complete SFNT directory and its cross-table graph before publishing a font, retain only checked table windows and bounded indexes, and decode glyph geometry on demand. The module must remain pure MoonBit, portable across `js`, `wasm`, `wasm-gc`, and `native`, depend only on `tchivs/mb-core`, and return `mb-core/math.Path2` rather than importing canvas or a foreign font stack.
+v0.33 should extend the existing `tchivs/mb-font@0.1.0` package with a narrow `FontCollection` adapter for raw TTC/OTC version 1.0 and 2.0 containers. The product is not a new font engine, decompressor, discovery service, or collection authoring tool. It accepts a caller-owned bounded `ByteView`, validates the collection envelope atomically, exposes zero-based face selection and minimal capability inspection, and returns the existing opaque `Font` only for a selected static TrueType face with `sfntVersion = 0x00010000` and `glyf`/`loca` outlines. CFF, CFF2, variable faces, WOFF, WOFF2, shaping, discovery, hinting, rasterization, and cryptographic signature verification remain explicit future boundaries.
 
-The recommended architecture is an opaque `Font` opened from `ByteView`, explicit semantic `FontLimits`, and a shared `Budget`. Admission validates a standalone `0x00010000` SFNT, table ranges/checksums, required tables, and the `head`/`maxp`/`hhea`/`hmtx`/`loca`/`glyf`/`cmap` relationships. Queries then provide named global metrics, per-glyph horizontal metrics, deterministic cmap format 12-then-4 mapping, optional version-0 format-0 horizontal kerning, and transactional simple or one-level composite outline extraction. Exact integer and fixed-point facts should be retained until the final `Path2` conversion.
+The implementation should add no runtime dependency, module, FFI, ambient I/O, or target-specific path. The one necessary architectural change is to parameterize the existing private SFNT admission seam with an absolute face-directory offset and an explicit checksum policy. Directory fields are read at that non-zero base, but every table-record offset remains relative to byte zero of the collection. Selected tables become checked subviews of the retained root source, preserving legitimate table sharing, the existing mutation revision, and all shipped metrics, cmap, kern, limits, budget, error, and outline behavior.
 
-The dominant risks are arithmetic overflow before bounds checks, individually valid tables that disagree, packed glyph data that expands beyond its input size, incorrect quadratic or composite geometry, source mutation after zero-copy admission, and tests that are portable or legally reproducible only by accident. Prevent them at the architecture boundary: checked ranges before narrowing, a single cross-table publication gate, caller-authoritative semantic limits, active-stack cycle detection, a private numbered-point model, mutation-revision checks on every source-reading query, no partial `Font` or path results, and immutable generated plus licensed real-font fixtures with semantic assertions on all four targets.
+The principal risks are accidentally rebasing root-relative table offsets, applying standalone whole-font checksum rules to a collection face, allowing counts or offsets to become allocation authority, confusing exact cross-face sharing with malformed overlap, and publishing facts across a source-revision or budget boundary. Mitigate them with checked `UInt64` range arithmetic before narrowing, separate collection and selected-face atomic transactions, protected structural ranges, per-table checksums with collection-specific `head.checksumAdjustment` handling, pre/post revision guards, a closed error-precedence matrix, and independently generated/licensed qualification on `js`, `wasm`, `wasm-gc`, and `native`.
 
 ## Key Findings
 
-### Hard Constraints and Recommended Decisions
+### Hard Scope and Resolved Decisions
 
-The research distinguishes milestone/RFC obligations from implementation choices that can still be refined without changing v0.32's product boundary.
+The four research reports agree on the core design. Roadmap and requirements should use these resolved rules where the reports left implementation choices open:
 
-**Hard constraints:**
-
-- The runtime implementation is pure MoonBit and independently publishable as `tchivs/mb-font`; its only public runtime dependency is `tchivs/mb-core`.
-- The same public contract runs on `js`, `wasm`, `wasm-gc`, and `native`. No FFI, ambient filesystem access, installed-font discovery, target-specific parser, or foreign runtime oracle is allowed.
-- Input is a caller-provided retained byte view. Every attacker-controlled offset, length, count, expansion, allocation, and unit of work is checked and budgeted before unsafe use.
-- v0.32 accepts one static TrueType-outline SFNT with `sfntVersion = 0x00010000`. CFF/CFF2, TTC/OTC, WOFF/WOFF2, variations, color/bitmap glyphs, hinting execution, shaping, rasterization, authoring, and font selection remain outside the milestone.
-- Admission and outline extraction are atomic. Malformed data, unsupported capabilities, invalid queries, resource exhaustion, and changed backing storage remain distinguishable structured outcomes; no partial font or geometry is published.
-- Outlines use the existing `mb-core/math.Path2` seam. `mb-font` must not depend on `mb-canvas`, `mb-image`, or `mb-color`.
-
-**Recommended implementation decisions:**
-
-- Use one public `font` package with private files/components rather than publishing raw `sfnt`, `cmap`, or `glyf` packages.
-- Prefer `Font::open(source, limits, budget)` as the candidate constructor because semantic `FontLimits` are a first-class contract; the shorter `Font::parse(source, budget)` in stack research is conceptual, not a competing requirement.
-- Retain validated directory/core-table/`loca`/cmap metadata, but decode outlines on demand. Do not add a persistent implicit glyph cache; a bounded request-local composite memo is acceptable.
-- Use generated micro-fonts for branch isolation and at least one provenance-tracked real font for interoperability. Two complementary real specimens are preferred if licensing and feature coverage can be made explicit without bloating the repository.
+1. **One additive adapter, one existing font model.** Add `FontCollection` and `FontCollectionLimits` to the existing public `font` package. Keep `Font::open` standalone-only and behavior-compatible. `open_face` returns the existing `Font`; do not create a parallel `CollectionFace` query API.
+2. **Raw TTC/OTC v1/v2 only.** Admit bytes by the `ttcf` signature, never by filename extension. Support TTCHeader 1.0 and 2.0. Explicitly reject WOFF/WOFF2 and do not add zlib, Brotli, table-transform reconstruction, or materialized standalone-font output.
+3. **Static `glyf` selection only.** Collection structure is outline-neutral, so a supported face can coexist with CFF, CFF2, variable, or otherwise deferred siblings. Minimal semantic face inspection should classify supported static `glyf`, CFF, CFF2, variable, and other unsupported profiles; only the selected supported static `glyf` face is fully admitted.
+4. **Minimal inspection wins over omission or raw exposure.** Architecture research considered omitting `face_profile`, while feature research requires useful mixed-collection inspection. Include a small closed semantic classification but keep raw directory offsets, table records, names, and table views private. Final type/function names may change during API review without weakening the capability.
+5. **DSIG is structural, never trusted.** For TTC v2, accept an all-zero DSIG tuple as absent. For a present tuple, require `DSIG`, a checked non-empty range ending at collection EOF, and bounded version-1/format-1 record envelopes; keep payload bytes opaque and expose only `present_unverified`. Malformed structure is `Data`; a well-formed unsupported version/format is `Capability`. Do not add cryptography or trust-store policy.
+6. **Two-stage validation is mandatory.** Collection opening validates the header, full offset array, every face-directory envelope, protected structural ranges, compact profile facts, and the DSIG envelope. It does not checksum or semantically admit every sibling table graph. `open_face` performs full existing font admission for exactly one selected face.
+7. **Sharing policy is fail-closed and scoped.** Preserve unique ordered tags and non-overlapping distinct tables within each face. Across faces, permit exact shared ranges with consistent length/checksum metadata; reject partial overlaps, conflicting metadata, and any table intersection with protected collection/directory ranges. Do not add a global table cache.
+8. **Resource accounting distinguishes retention from work.** A selected `Font` may enforce its source-retention ceiling against the root collection extent because it retains that root. The budget must not count the same root bytes as copied allocation or rescan the whole collection per selection. Collection bookkeeping/work and selected directory/table work are separate authoritative transactions. Freeze the exact requested/limit facts before implementation.
 
 ### Recommended Stack
 
-Use the repository-pinned MoonBit toolchain: `moon` and `moonrun` `0.1.20260713` (`75c7e1f`, 2026-07-13) with `moonc v0.10.4+2cc641edf` (2026-07-15). The normative binary profile is OpenType Specification 1.9.1, and Unicode scalar validation follows Unicode 17.0.0. The implementation should use only existing `mb-core@0.1.0` contracts and require no external package installation.
+Use the existing repository stack unchanged:
 
-**Core technologies:**
+- **MoonBit `moon` / `moonrun` `0.1.20260713` and `moonc v0.10.4+2cc641edf`** — exact current build and qualification baseline; no toolchain upgrade is required.
+- **`tchivs/mb-font@0.1.0`** — add the collection facade and reuse the shipped `Font` behavior.
+- **`tchivs/mb-core@0.1.0`** — remain the only runtime dependency, supplying retained `ByteView`s, mutation revisions, checked ranges/arithmetic, budgets, structured errors, and `Path2`.
+- **OpenType Specification 1.9.1** — normative authority for TTCHeader 1.0/2.0, root-relative table offsets, table sharing, collection checksums, DSIG placement, and outline-profile distinctions.
+- **Existing `moon.work`, `moon.mod.json`, and CI patterns** — retain `preferred-target: native` and `supported-targets: +js+wasm+wasm-gc+native`.
 
-- `mb-core/bytes.ByteView` — retained root bytes and zero-copy checked table subviews; pair with the opening mutation revision.
-- `mb-core/checked` — `CheckedRange`, checked add/multiply/subtract, and explicit narrowing for every derived range, count, and index.
-- `mb-core/budget.Budget` plus semantic `FontLimits` — shared bytes/allocation/work/depth accounting plus font-specific ceilings for tables, glyphs, cmap structures, instructions, points, contours, components, kern pairs, transforms, and output commands.
-- `mb-core/error.CoreError` — stable categories and context for operation, table/glyph, source offset, requested amount, and limit.
-- `mb-core/math.Path2` — public `MoveTo`, `LineTo`, `QuadTo`, and `Close` geometry consumed directly by downstream canvas/document tools.
-- Private big-endian random-access cursor — table-local checked reads over `ByteView`; `BoundedReader` remains appropriate only for a future stream-to-owned-buffer adapter because it does not seek.
+No database, persistent index, compression library, cryptography library, filesystem/network layer, foreign font engine, or native stub belongs in v0.33. Deterministic fixture tooling is development/test-only and must not become a production dependency or runtime oracle.
 
-Keep the current JSON module manifest style and declare `preferred-target: native` with `supported-targets: +js+wasm+wasm-gc+native`. Run isolated and workspace-wide `moon check`/`moon test --target all --frozen`, review generated `.mbti` changes, and record exact tool versions in qualification evidence.
+Critical version requirements:
+
+- TTC/OTC container profile: exactly TTCHeader 1.0 and 2.0.
+- Selected supported face: `sfntVersion = 0x00010000`, static `glyf` plus `loca`, and the existing v0.32 required-table profile.
+- Existing module versions remain `0.1.0`; milestone numbering does not imply a publication-version bump.
 
 ### Expected Features
 
-**Must have (v0.32 table stakes):**
+**Must have (table stakes):**
 
-- Portable module, opaque font/ID model, immutable source lifetime, explicit limits and budgets, stable structured errors, and no dependency beyond `mb-core`.
-- Fail-closed SFNT admission: signature, checked directory size, sorted unique tags, aligned/contained/non-overlapping table windows, checksums including `head.checksumAdjustment`, and allowance for unknown well-formed optional tables.
-- Structural presence/validation of `cmap`, `head`, `hhea`, `hmtx`, `maxp`, `name`, `OS/2`, `post`, `loca`, and `glyf`.
-- Named font-wide facts: units-per-em, global bounds, `hhea` ascent/descent/lineGap, and `OS/2` typographic ascent/descent/lineGap. Do not invent one “best” line metric.
-- Per-glyph advance, left side bearing, bounds, and checked derived right side bearing, including the `hmtx` repeat-final-advance tail rule and metrics for empty glyphs.
-- Deterministic Unicode cmap formats 12 and 4, supplementary-plane support, valid-scalar misses mapped to glyph zero, invalid-scalar query errors, and range checking against `numGlyphs`.
-- Transactional simple outlines with exact flag/delta decoding, implied on-curve points, contour order/winding/closure preservation, bounded skipped instructions, and late conversion to `Path2`.
-- Bounded one-level composite outlines with byte/word arguments, XY and point attachment, uniform/nonuniform/2×2 F2DOT14 transforms, cycle/fan-out/depth controls, metric interaction policy, and exact checked intermediates.
-- Optional legacy `kern` version-0 horizontal format-0 pair lookup: signed hit, zero for absence or supported miss, and distinct unsupported/malformed outcomes.
-- Generated conformance/adversarial vectors, licensed immutable real-font evidence, and identical public semantic facts and errors on all four targets.
+- Separate bounded `FontCollection` entry point with frozen standalone `Font::open` behavior.
+- Atomic TTC/OTC v1/v2 header, offset-array, all-directory-envelope, and optional v2 DSIG structural validation.
+- Exact non-zero face count and explicit zero-based index semantics; no clamping, implicit face zero, raw-offset selection, or name-based identity.
+- Distinct `FontCollectionLimits` covering at least source bytes, faces, cumulative directory records, DSIG records/bytes, retained bookkeeping, and work.
+- Root-retaining, no-copy selected-face admission with table records resolved against collection byte zero.
+- Existing per-table checksums in both modes, with the standalone aggregate checksum equation used only by standalone `Font::open`.
+- Legitimate exact cross-face table sharing and strict fail-closed handling of same-face overlap, partial aliasing, conflicting metadata, or protected-range intersection.
+- Per-face classification and capability isolation so unsupported CFF/CFF2/variable siblings do not poison a supported static-`glyf` face.
+- Root source identity and permanent mutation-revision propagation through collection operations and every derived `Font`.
+- Stable stage-specific `InvalidInput`, `Data`, `Capability`, `Resource`, and `State` outcomes with atomic budget charges and no partial publication.
+- Generated, licensed, hostile, standalone-compatibility, and public-workflow qualification with identical semantic facts on all four production targets.
 
 **Should have (differentiators):**
 
-- Direct outline-to-`Path2` composition without canvas coupling.
-- Cross-table validation rather than isolated record decoding.
-- Caller limits intersected with valid font declarations; `maxp` never grants resource permission.
-- Operation-local atomicity so one bad or over-budget glyph does not poison a valid admitted font.
-- Deterministic cmap/kern capability selection and compact public-workflow semantic digests.
+- Inspect the bounded collection once, then pay full TrueType admission cost only for the chosen face.
+- Small semantic profile and DSIG-presence facts without exposing storage internals.
+- Exact one-short/exact collection and selected-face resource evidence.
+- Adversarial offset-origin fixtures that remain in-bounds under an incorrect rebase, making the most dangerous bug observable.
+- Public equivalence evidence showing a collection-selected face preserves the existing metrics, Unicode mapping, kerning, glyph IDs, outlines, and revision failures of its standalone logical equivalent.
 
-**Defer to v0.32.x only with evidence:**
+**Defer to later milestones:**
 
-- Caller-owned outline cache with explicit identity and byte/entry limits.
-- Composite depth beyond one if licensed corpus evidence shows the v0.32 boundary is impractical.
-- Additional read-only `name`, `post`, or `OS/2` fields and additional legacy cmap/kern formats required by a concrete consumer.
-
-**Defer to later focused milestones:**
-
-- CFF/CFF2, variable and color/bitmap fonts, hinting, TTC/OTC and WOFF/WOFF2 adapters, shaping/GPOS/GSUB/bidi/fallback, discovery/registry APIs, rasterization, and font writing/subsetting.
+- WOFF1 and WOFF2 decoding, decompression, and transformed-table reconstruction.
+- CFF/CFF2 charstrings, variable-font instances, color/bitmap profiles, and broader font formats.
+- DSIG cryptographic verification, PKCS#7/X.509 parsing, trust stores, certificate policy, or authenticity claims.
+- Localized name/family/style discovery, fallback, shaping, GSUB/GPOS, bidi, hinting, rasterization, and system-font access.
+- Collection extraction, authoring, merging, subsetting, rewriting, standalone materialization, and persistent shared-table/font caching.
 
 ### Architecture Approach
 
-Create one opaque validated font index over retained bytes. `Font::open` first passes a top-level SFNT gate, then a cross-table gate, then atomically publishes bounded structural indexes. Every decoder receives a checked table or glyph subview, never root bytes plus a raw offset. Cmap, metrics, and kern queries use validated indexes; outline queries decode on demand into private numbered points and contours, resolve simple/composite geometry, and lower once to `Path2`.
+Normalize the container difference at one private boundary. `FontCollection::open` retains the root `ByteView`, opening revision, protected structural ranges, and compact per-face facts. `open_face(index, limits, budget)` checks revision and index, parses one SFNT directory at the stored absolute directory offset, resolves each table record unchanged against the root view, selects collection checksum mode, and enters the same private font-admission transaction used by standalone `Font::open`.
+
+All downstream table readers remain collection-unaware because they already consume checked table-local views. `cmap`, metrics, kern, loca/glyf, and outline code should not acquire collection branches.
 
 **Major components:**
 
-1. **Public facade and limits** — opaque `Font`, `GlyphId`, metrics/outline values, query methods, `FontLimits`, and stable error construction.
-2. **Checked binary substrate** — table-local big-endian cursor, range/narrowing helpers, and budget charging.
-3. **SFNT structural gate** — signature, directory, tags, ranges, overlap, alignment, checksum verification, and retained table records.
-4. **Cross-table index** — supported `head`, `maxp`, `hhea`, `OS/2`, exact `hmtx`, normalized `loca`, required-table presence, and mutation revision.
-5. **Character map** — fully validated selected format 12 or 4 index and binary lookup with glyph-range enforcement.
-6. **Metrics and kerning** — named global/per-glyph facts and optional validated legacy pair search.
-7. **Glyph model and decoders** — simple packed data and bounded composite resolution into numbered points/contours with request-local scratch.
-8. **Outline normalizer** — implied-point rules and transactional `Path2` construction.
-9. **Fixture and qualification system** — deterministic micro-font generator, mutation corpus, licensed specimen manifest, portable byte literals, semantic oracles, and four-target selectors.
+1. **Public collection facade** — bounded open, revision-guarded face count/profile facts, DSIG presence status, and explicit selected-face admission.
+2. **Collection limits and error policy** — semantic ceilings, authoritative transaction plans, stable operation/context names, and deterministic precedence.
+3. **TTC header/parser** — exact v1/v2 parsing, checked count/offset arithmetic, all-face directory envelopes, protected ranges, and v2 DSIG structure.
+4. **Offset-aware SFNT directory seam** — absolute directory-base reads, root-relative table windows, per-face tag/overlap rules, and cross-face exact sharing.
+5. **Explicit checksum policy** — selected per-table checksums in both modes; standalone aggregate `0xB1B0AFBA` validation only for the standalone facade.
+6. **Shared font admission transaction** — unchanged required-table, profile, cmap, kern, metrics, loca/glyf, outline, budget, and final revision gates producing the existing `Font`.
+7. **Qualification system** — independent micro-collection builder/oracle, licensed specimen manifest, hostile mutation matrix, standalone regressions, and four-target canonical selectors.
 
-The dependency remains `mb-font -> mb-core <- mb-canvas`. Expected repository integration includes `modules/mb-font`, a public portable example, `fixtures/font`, `fixtures/manifest.json`, workspace/policy inventory, and quality-script qualification; existing `mb-core` and `mb-canvas` APIs should not need modification.
-
-### Reconciled Research Decisions
-
-The four reports agree on the architecture but use different shorthand in a few places. Roadmap planning should use these resolved rules:
-
-1. **Constructor and limits:** adopt the architecture form `Font::open(source, limits, budget)` for planning. A separate semantic `FontLimits` type is required because generic budget dimensions do not express font-specific expansion ceilings.
-2. **Required tables:** require all ten tables named by stack/features (`cmap`, `head`, `hhea`, `hmtx`, `maxp`, `name`, `OS/2`, `post`, `loca`, `glyf`). The shorter architecture gate list describes actively decoded dependencies, not permission to omit `name`, `OS/2`, or `post`; `OS/2` is decoded for named metrics while `name`/`post` need only bounded structural/version validation in v0.32.
-3. **Directory search fields:** derive lookup/search behavior from `numTables` and never trust stored helpers. If the chosen strict profile requires canonical stored fields, validate them as data but do not use them to navigate.
-4. **Unsupported `kern`:** validate every subtable envelope. Well-formed unsupported subtables may be skipped while searching for a supported one; if a present table provides no supported profile, the capability/query returns `UnsupportedFeature`, not zero. Malformed data remains an error; absence and supported misses return zero.
-5. **Composite depth:** implement cycle-safe recursive machinery with active-stack detection and cumulative limits, but enforce the v0.32 public capability at one composite level. A recursive implementation is a safety mechanism, not a broader feature claim.
-6. **Kerning phase:** place `kern` in Phase 2 with glyph IDs and metrics. It has no outline dependency, and early completion clarifies absent/miss/unsupported semantics before geometry work.
-7. **Real-font corpus:** DejaVu Sans 2.37 is a candidate, not yet accepted evidence. Record its extracted TTF digest, table inventory, source/license notice, and intended facts. Prefer a second complementary licensed font to satisfy broader feature research, but treat exact specimen count as a planning acceptance choice; immutable provenance and required feature coverage are non-negotiable.
+Likely repository changes are concentrated in `modules/mb-font/font/collection.mbt`, `limits.mbt` or a sibling collection-limits file, `directory.mbt`, `font.mbt`, focused tests, `fixtures/font`, fixture manifests, and font qualification scripts. `mb-core`, downstream modules, and public dependency policy should remain unchanged.
 
 ### Critical Pitfalls
 
-1. **Unchecked arithmetic before narrowing** — keep wire values widened; use checked add/multiply/range/subrange and narrow only after containment. Generate exact-fit, one-short, overflow, and backend-narrowing vectors for every derived expression.
-2. **Trusting the table directory or parsing tables independently** — reject duplicate/unsorted/overlapping/misaligned/out-of-range/checksum-invalid records and publish only after all cardinalities and glyph references agree.
-3. **Budgeting bytes but not logical expansion** — charge expanded flags, points, contours, cmap groups, components, transforms, checksum scans, allocations, and emitted commands; `maxp` is a consistency claim, never resource authority.
-4. **Losing TrueType geometry during lowering** — retain full numbered contours, decode streams separately, insert implied midpoints deterministically, and keep composite point attachment/transforms in exact integer/fixed-point domains before one final `Path2` lowering.
-5. **Unsafe composite traversal and metric approximation** — enforce depth plus active-stack cycle detection, cumulative fan-out limits, transform flag rules, and an explicit phantom-point/`USE_MY_METRICS` policy; reject unsupported vertical phantom behavior rather than inventing it.
-6. **Time-of-check/time-of-use mutation** — retain and verify `mutation_revision` before every operation that reads source bytes, even if bytes were changed back to their original value.
-7. **Portable-looking but non-reproducible evidence** — never read host fonts or network in tests; record exact fixture bytes/digests, provenance, license, table inventory, and semantic expectations, then run identical vectors independently on all four targets.
+1. **Rebasing root-relative table offsets** — never feed a face-directory subview to the standalone parser and never compute `directory_offset + record.offset`; add the base only when reading directory-local fields.
+2. **Using zero-base ordering as overlap validation** — build checked absolute protected ranges for the TTC header and every face directory, then test actual intersection; valid collection tables may appear before or after a selected directory.
+3. **Conflating sharing with arbitrary aliasing** — allow deliberate exact cross-face sharing, retain strict per-face tags/ranges, and reject partial/conflicting aliases under bounded deterministic work.
+4. **Applying standalone checksum semantics to TTC** — keep selected table checksums active, zero the `head.checksumAdjustment` field only for the `head` table checksum calculation, and skip only the standalone whole-source invariant.
+5. **Letting counts/offsets authorize allocation or work** — keep wire values in checked `UInt64`, compare semantic limits before narrowing/allocation, preflight cumulative directory and DSIG work, and commit one exact transaction per operation.
+6. **Eagerly admitting all faces or poisoning supported siblings** — validate all directory envelopes structurally but defer table checksums and semantics to the selected face; classify well-formed unsupported profiles as capabilities.
+7. **Leaving a collection-to-font mutation window** — use the same root revision before and after collection open, inspection, face admission, and later font queries; mutation followed by restoration remains invalidation.
+8. **Claiming portability or fixture legitimacy by convention** — prohibit host/network fonts in tests, record source and derivative digests/licenses/tooling, use independent expected facts, and execute separate canonical runs on all four targets.
 
 ## Implications for Roadmap
 
-Based on the combined dependency graph and pitfall timing, use five phases. Each phase must add its own hostile boundary tests; Phase 5 verifies the whole system but must not be the first point where safety is addressed.
+Use three implementation phases. This grouping follows the two-stage architecture and keeps qualification independent without deferring phase-local hostile tests.
 
-### Phase 1: Module Contract and SFNT Admission
+### Phase 1: Collection Contract and Bounded Envelope
 
-**Rationale:** Every later feature depends on one trusted table map and stable ownership/resource/error contracts. Establishing this first prevents each table decoder from inventing offset or budget rules.
+**Rationale:** The new public identity, error, resource, and structural-validation contract must be frozen before the parser is generalized. It establishes the only new container trust boundary and prevents attacker-controlled counts from reaching allocation or repeated work.
 
-**Delivers:** `tchivs/mb-font@0.1.0` skeleton; one public portable package; opaque public types; `FontLimits`; checked big-endian cursor; retained `ByteView` and mutation revision; signature/directory/tag/range/alignment/overlap/checksum gate; required-table discovery; atomic font publication; workspace/policy/quality integration; initial deterministic fixture generator.
+**Delivers:** Additive opaque `FontCollection`, `FontCollectionLimits`, minimal `FontFaceProfile`, and structural DSIG-presence types; exact TTCHeader 1.0/2.0 parsing; checked `numFonts` and offset array; complete all-face directory envelopes and protected ranges; compact face facts; source-revision ownership; collection budget transaction; stable index/error semantics; no change to `Font::open`.
 
-**Addresses:** Portable module, bounded immutable-byte admission, SFNT integrity, required-table contract, stable error/limit semantics.
+**Addresses:** TTC-01 and the collection half of TTC-03/TTC-04: bounded container inspection, exact count/index behavior, mixed-profile visibility, DSIG structural status, atomic publication, and permanent mutation fail-closed behavior.
 
-**Avoids:** Offset/count overflow, duplicate or aliased table records, host-state/FFI coupling, partial font publication, input-byte-only budgets, and zero-copy mutation races.
+**Avoids:** Header/version ambiguity, unchecked arithmetic and premature narrowing, raw offsets or names as identity, eager semantic admission of every face, false DSIG trust, inconsistent errors, and partial collection publication.
 
-### Phase 2: Core Tables, Metrics, Cmap, and Kern
+**Planning decisions to freeze:** exact public names; whether profile classification is enum or opaque facts; cumulative directory/DSIG limits; protected-range and cross-face partial-overlap policy; collection charge formula; validation/error precedence; fixture provenance policy.
 
-**Rationale:** Metrics, normalized glyph locations, glyph identity, and the composite metric policy form the cross-table contract required by all geometry. Legacy kerning depends only on admitted glyph IDs, so it belongs here rather than with composites.
+### Phase 2: Root-Relative Selected-Face Admission
 
-**Delivers:** Supported `head`, `maxp`, `hhea`, `OS/2`, `hmtx`, and `loca`; exact cross-table cardinalities; named global/per-glyph metrics; empty-glyph behavior; deterministic cmap format 12/4 selection and Unicode scalar API; validated optional kern format-0 lookup; contract decision for horizontal phantom points and `USE_MY_METRICS`.
+**Rationale:** Once collection topology and authority are stable, refactor the existing SFNT seam exactly once and route both standalone and selected collection faces through one admission transaction. This phase carries the highest correctness risk because standalone assumptions previously coincided with offset zero.
 
-**Addresses:** Global/per-glyph metrics, Unicode mapping, legacy kerning, cross-table validation, normalized checked glyph windows.
+**Delivers:** Private directory parser parameterized by absolute directory offset; root-relative table windows; strict per-face overlap plus exact cross-face sharing; explicit standalone/collection checksum modes; static-`glyf` capability gate; selected-face `FontLimits` and budget transaction; pre/post revision guards; unchanged existing `Font` queries and standalone behavior.
 
-**Avoids:** Incorrect short/long `loca`, flattened `hmtx` tails, out-of-range glyph references, platform-dependent cmap selection, malformed/unsupported kern ambiguity, and undocumented line-metric or phantom-point policy.
+**Addresses:** TTC-02 and TTC-03 plus selected-face TTC-04: supported face selection, shared tables, collection checksum rules, sibling capability isolation, and existing metrics/cmap/kern/outline behavior.
 
-### Phase 3: Simple Glyph Outlines
+**Avoids:** Double-basing offsets, directory subview parsing, global overlap rejection, disabling all checksums, whole-collection rescans per selection, CFF/CFF2 leakage into `glyf`, duplicated font APIs/parsers, and publication across revision or resource failure.
 
-**Rationale:** Composite correctness depends on a complete, exact private representation of simple children and a proven normalization seam.
+**Planning decisions to freeze:** exact selected-source retention versus budget facts; equal-range metadata consistency; table/protected-range interaction; collection-mode work formula; multi-fault error precedence.
 
-**Delivers:** Simple `glyf` header/contour validation; bounded instruction skipping; exact repeated-flag and x/y delta expansion; checked coordinate accumulation; private numbered points/contours; implied on-curve midpoint and wraparound rules; transactional `Path2` emission in original contour order/winding.
+### Phase 3: Hostile, Licensed, and Four-Target Qualification
 
-**Addresses:** Simple unhinted outline extraction and direct `Path2` composition.
+**Rationale:** The adapter is complete only when offset origin, sharing, mixed profiles, resource atomicity, mutation, provenance, standalone compatibility, and target equality are proved at the public workflow boundary. This phase consolidates evidence; Phases 1 and 2 still add their own focused hostile tests as implementation proceeds.
 
-**Avoids:** Compact expansion bombs, repeat off-by-one errors, reset/overflowed deltas, malformed stream repair, lost implied points, degenerate-contour panics, partial paths, and premature floating-point conversion.
+**Delivers:** Generated TTC v1/v2, null/present DSIG, non-zero-base, before/after-directory table, shared/distinct table, mixed-profile, corrupt selected/unselected face, limit/budget, error-precedence, and mutation fixtures; one compact provenance-tracked licensed positive collection or derivative; optional licensed unsupported-profile specimen only if size justifies it; unchanged v0.32 standalone suite; public collection-to-Font workflow; independent `js`, `wasm`, `wasm-gc`, and `native` canonical evidence.
 
-### Phase 4: Composite Glyph Outlines
+**Addresses:** TTC-05 and final acceptance of TTC-01 through TTC-04: reproducibility, interoperability, compatibility, deterministic errors/facts, and full four-target behavior.
 
-**Rationale:** Composite decoding layers recursion, cumulative budgets, transforms, point attachment, and metric inheritance over the Phase 2/3 contracts; it is the milestone's highest semantic-risk phase.
-
-**Delivers:** Bounded one-level composite capability; active-stack cycle detection; request-local charged memo/scratch; byte/word XY and point arguments; uniform, x/y, and 2×2 F2DOT14 transforms; scaled/unscaled/default offset behavior; parent/child point attachment; approved phantom-point and `USE_MY_METRICS` behavior; exact checked accumulation and final `Path2` lowering.
-
-**Addresses:** Credible accented/reused TrueType outlines and operation-local atomicity.
-
-**Avoids:** Trusting `maxComponentDepth`, exponential fan-out, false global “seen” rejection, contradictory flags, wrong transform order/signedness, missing point numbering, phantom-point approximation, and cross-target numeric drift.
-
-### Phase 5: Hostile, Interoperable, and Portable Qualification
-
-**Rationale:** Acceptance requires reproducible proof at the public workflow boundary, not only parser unit tests. Qualification follows stable semantics so fixture facts and public digests do not churn.
-
-**Delivers:** Complete generated micro-font and mutation matrix; short/long `loca`, cmap, metrics, simple/composite, kern, budget, mutation, and error vectors; provenance/licensing checks; accepted real-font specimens; public `bytes -> font -> cmap -> metrics -> outline -> kern` example; isolated and workspace-wide four-target qualification; documented API and evidence.
-
-**Addresses:** Four-target conformance, real-font interoperability, fixture governance, error stability, and the full FONT-01 through FONT-05 workflow.
-
-**Avoids:** Host-installed or moving fixtures, missing extracted digests/licenses, production-code-generated oracles, foreign-tool runtime dependency, visual-only geometry assertions, and target-specific semantic drift.
+**Avoids:** Happy-path-only evidence, self-confirming builders/oracles, system-font or network dependency, incomplete derivative licensing, face-zero-only coverage, hidden backend narrowing, and regression disguised as updated baselines.
 
 ### Phase Ordering Rationale
 
-- A validated table-window invariant, limits, ownership, and errors must precede every table implementation.
-- Metrics and cmap establish glyph identity and valid glyph windows; composite metric/phantom behavior must be decided before composite code.
-- Simple outlines supply the private numbered-point model and normalization algorithm that composites reuse.
-- Composite work follows simple geometry because it adds recursion and transforms but must not redefine base contour semantics.
-- Qualification is last for frozen public facts, while adversarial unit vectors are created alongside each phase so safety is never deferred.
+- Public identity, structural-versus-semantic boundaries, protected ranges, limits, errors, and source ownership must exist before selected-face parsing can rely on them.
+- The parser/checksum refactor is isolated from fixture/CI breadth so standalone behavior can be compared continuously while the one critical offset seam changes.
+- Generated hostile tests accompany each implementation phase, while the final phase freezes licensed evidence, complete workflow facts, and independent target runs after API semantics settle.
+- Three phases are sufficient: adding separate phases for WOFF, CFF/CFF2, DSIG crypto, discovery, or authoring would violate the v0.33 product boundary.
 
 ### Research Flags
 
-Phases likely needing deeper research during planning:
+Phases needing targeted planning research:
 
-- **Phase 4:** Resolve unhinted horizontal phantom-point numbering, `USE_MY_METRICS`, multiple/conflicting metric flags, point-attachment references, default scaled/unscaled component-offset behavior, and the exact fixed-point evaluation/rounding rule from authoritative OpenType text.
-- **Phase 5:** Finalize the real-font corpus, extracted SHA-256 values, table inventories, redistribution notices, portable byte-literal generation, and independent semantic oracle facts. DejaVu Sans 2.37 remains provisional until those records exist.
+- **Phase 1:** Confirm the exact TTC v2 DSIG envelope depth from the current linked OpenType DSIG definition; freeze the structural-versus-selected validation boundary, cumulative directory/DSIG limits, partial-overlap policy, and error precedence.
+- **Phase 2:** Inspect the existing `directory.mbt` and budget formulas in detail before planning edits; freeze selected-source retention versus allocation/work charges and the exact consistent-metadata rule for shared ranges.
+- **Phase 3:** Audit the chosen licensed TTC/derivative, notice obligations, exact generator command/version, source/output SHA-256 values, and independent oracle facts before committing binary evidence.
 
-Phases with established patterns (skip broad research-phase):
+Phases with established patterns that do not need broad ecosystem research:
 
-- **Phase 1:** Repository module/workspace/policy conventions and `mb-core` checked range, budget, error, retained-view, and mutation contracts are directly available; planning should inspect exact local APIs rather than repeat ecosystem research.
-- **Phase 2:** OpenType table layouts and required validation matrices are well documented in the existing research; targeted spec checks are sufficient.
-- **Phase 3:** Simple `glyf` packing and quadratic normalization have explicit normative rules and a clear generated-vector test strategy.
+- **Phase 1:** TTCHeader 1.0/2.0, root-relative offsets, mixed outline profiles, collection checksums, and the repository's checked/budget/revision primitives are already documented. Only the project policy choices above remain.
+- **Phase 2:** The target architecture and existing local font admission seams are clear; planning needs code-level inspection, not another technology survey.
+- **Phase 3:** Four-target execution, fixture manifests, canonical selectors, and standalone qualification have established repository patterns. Research is limited to specimen provenance and coverage.
 
 ## Confidence Assessment
 
 | Area | Confidence | Notes |
 |------|------------|-------|
-| Stack | HIGH | Exact repository toolchain and `mb-core` seams were inspected; OpenType 1.9.1 and Unicode 17.0.0 are official normative sources. Real-font fixture selection remains provisional. |
-| Features | HIGH | Scope and module boundaries align with RFC 0004, current project constraints, and official table behavior; exact pre-1.0 API names remain intentionally open. |
-| Architecture | HIGH | The validated-index, checked-subview, on-demand decode, private point model, and `Path2` dependency direction converge across all research and existing repository contracts. |
-| Pitfalls | HIGH | Failure modes are concrete, mapped to the earliest prevention phase, and paired with boundary/adversarial verification. A few composite edge semantics require targeted confirmation. |
+| Stack | HIGH | Exact MoonBit/toolchain/module/dependency facts are locally verified; official OpenType and W3C specifications support the format boundaries. |
+| Features | HIGH | TTC/OTC v1/v2 selection, mixed-profile isolation, no-copy sharing, structured failures, and four-target qualification converge across all reports and the project goal. Exact API names remain pre-1.0 choices. |
+| Architecture | HIGH | Repository source confirms downstream parsing is table-local and can reuse root-backed subviews; the root-relative offset and collection checksum rules are normative. |
+| Pitfalls | HIGH | Failure modes map to concrete current zero-base assumptions, checked-resource contracts, and adversarial verification cases. |
+| DSIG policy | MEDIUM | Structural placement is well supported, but exact public status shape and record-envelope depth should be frozen during Phase 1 planning. |
+| Resource/error policy | MEDIUM | Atomic budget/revision patterns already exist, but collection-versus-selected source-byte accounting and multi-fault precedence are project decisions. |
+| Fixture corpus | MEDIUM | Existing DejaVu provenance is a strong base; the exact v0.33 TTC derivative, digest, and independent facts have not yet been selected. |
 
-**Overall confidence:** HIGH
+**Overall confidence:** HIGH for the roadmap and milestone boundary; MEDIUM for the small policy choices explicitly flagged for phase planning.
 
 ### Gaps to Address
 
-- **Composite phantom points and metrics:** Freeze supported horizontal phantom references, vertical-reference rejection, `USE_MY_METRICS`, and multiple-flag behavior in Phase 2 planning, then validate implementation in Phase 4.
-- **Composite transform arithmetic:** Specify exact F2DOT14 composition order, offset default, rounding/conversion, safe geometry envelope, and canonical cross-target numeric evidence before coding transforms.
-- **Strict directory profile:** Confirm whether noncanonical stored `searchRange`/`entrySelector`/`rangeShift` values are rejected or merely ignored; navigation must always use derived facts.
-- **`name`/`post` structural depth:** Define the minimum bounded/version validation needed for required-table admission without accidentally promising a metadata API.
-- **Real-font evidence:** Capture extracted-file digests, exact table inventories, source dates, licenses/notices, redistribution status, and feature-purpose mappings; select a second specimen only if it adds demonstrable coverage.
-- **Candidate API shape:** Review `.mbti` ergonomics for `Font::open`, `FontLimits`, opaque `GlyphId`, `GlyphOutline`, and kerning capability errors before stabilizing the 0.1 surface.
+- **Selected-source accounting:** Decide whether `FontLimits.max_source_bytes` records the retained root extent, selected referenced-table extent, or both as separate facts. Never misreport retained caller bytes as copied allocation or make selection work scan unrelated payloads.
+- **Cross-face alias policy:** Freeze exact sharing as same absolute range plus consistent length/checksum metadata and specify deterministic rejection/context for partial or conflicting aliases without unbounded all-pairs work.
+- **DSIG envelope:** Confirm record-count, byte, version/format, and EOF rules; keep payload opaque and status unverified.
+- **Public inspection shape:** Keep profile facts minimal and closed. Confirm whether DSIG status belongs on collection inspection or a dedicated method, without exposing raw storage.
+- **Error precedence:** Specify revision, invalid index, malformed data, unsupported profile/signature, semantic limit, and budget ordering with multi-fault vectors.
+- **Licensed specimen:** Select the smallest redistributable TTC or deterministic derivative that proves real shared-table static-`glyf` behavior; record source/output digests, license/notice, exact transformation, and independent semantic expectations.
+- **Qualification commands:** Verify whether `moon ... --target all` is sufficient evidence or whether selectors must invoke four explicit target runs to freeze independent canonical results; acceptance must show all four target identities.
 
 ## Sources
 
 ### Primary (HIGH confidence)
 
-- [RFC 0004: `mb-font` charter](../../docs/rfcs/0004-mb-font.md) — authoritative module boundary, portable targets, hostile-input posture, unhinted geometry, and downstream ownership.
-- [`STACK.md`](STACK.md), [`FEATURES.md`](FEATURES.md), [`ARCHITECTURE.md`](ARCHITECTURE.md), and [`PITFALLS.md`](PITFALLS.md) — detailed repository and domain research synthesized here.
-- [OpenType Specification 1.9.1](https://learn.microsoft.com/en-us/typography/opentype/spec/) and [OpenType Font File](https://learn.microsoft.com/en-us/typography/opentype/spec/otff) — normative SFNT structure, directory, alignment, checksums, and required tables.
-- Official OpenType table specifications: [`head`](https://learn.microsoft.com/en-us/typography/opentype/spec/head), [`maxp`](https://learn.microsoft.com/en-us/typography/opentype/spec/maxp), [`hhea`](https://learn.microsoft.com/en-us/typography/opentype/spec/hhea), [`hmtx`](https://learn.microsoft.com/en-us/typography/opentype/spec/hmtx), [`OS/2`](https://learn.microsoft.com/en-us/typography/opentype/spec/os2), [`cmap`](https://learn.microsoft.com/en-us/typography/opentype/spec/cmap), [`loca`](https://learn.microsoft.com/en-us/typography/opentype/spec/loca), [`glyf`](https://learn.microsoft.com/en-us/typography/opentype/spec/glyf), and [`kern`](https://learn.microsoft.com/en-us/typography/opentype/spec/kern).
-- [Unicode Standard 17.0.0, Chapter 3](https://www.unicode.org/versions/Unicode17.0.0/core-spec/chapter-3/) — Unicode scalar-value validity.
-- Repository `modules/mb-core/{bytes,checked,budget,error,io,math}`, `modules/mb-canvas`, `moon.work`, `policy/foundation.json`, `scripts/quality`, and `fixtures/manifest.json` — existing implementation and integration contracts.
+- [Project definition and v0.33 milestone](../PROJECT.md) — goal, target features, project constraints, and frozen v0.32 behavior.
+- [RFC 0004: `mb-font` Charter](../../docs/rfcs/0004-mb-font.md) — module boundary, portability, hostile-input posture, and downstream contracts.
+- [`STACK.md`](STACK.md), [`FEATURES.md`](FEATURES.md), [`ARCHITECTURE.md`](ARCHITECTURE.md), and [`PITFALLS.md`](PITFALLS.md) — detailed research synthesized here.
+- [OpenType Specification 1.9.1](https://learn.microsoft.com/en-us/typography/opentype/spec/) and [OpenType Font File / Font Collections](https://learn.microsoft.com/en-us/typography/opentype/spec/otff) — TTCHeader v1/v2, collection-root-relative offsets, table sharing, mixed outline profiles, DSIG tuple, and collection checksum semantics.
+- [OpenType `head` table](https://learn.microsoft.com/en-us/typography/opentype/spec/head) — collection treatment of `checksumAdjustment`.
+- [OpenType glyph format comparison](https://learn.microsoft.com/en-us/typography/opentype/spec/glyphformatcomparison) — distinct `glyf`, `CFF `, and CFF2 outline models.
+- [OpenType DSIG table](https://learn.microsoft.com/en-us/typography/opentype/spec/dsig) — collection-wide signature envelope and placement; v0.33 uses structure only, not trust.
+- [WOFF 1.0](https://www.w3.org/TR/WOFF/) and [WOFF2](https://www.w3.org/TR/WOFF2/) — official compression/reconstruction requirements supporting their exclusion.
+- Repository `modules/mb-font/font/{font,directory,tables,limits,cmap,kern,metrics,outline}.mbt`, `modules/mb-core/bytes/views.mbt`, module manifests, `moon.work`, and font qualification artifacts — existing code and integration authority.
 
 ### Secondary (MEDIUM confidence)
 
-- [Official MoonBit workspace, module, package, test, and documentation guides](https://docs.moonbitlang.com/en/latest/) — toolchain/project configuration, cross-target tests, and documentation tests, cross-checked against the installed repository baseline.
-- [DejaVu Fonts download](https://dejavu-fonts.github.io/Download.html) and [license](https://dejavu-fonts.github.io/License.html) — candidate DejaVu Sans 2.37 fixture provenance and redistribution terms; acceptance awaits the extracted TTF digest and table inventory.
-- A pinned external inspector such as FontTools may be used once during fixture curation, but its output must be reduced to committed semantic facts and it is never a runtime or portable-CI dependency.
+- [FreeType 2.14.3 Face Creation](https://freetype.org/freetype2/docs/reference/ft2-face_creation.html) — established zero-based face-index/count behavior.
+- [`ttf-parser` 0.25.1 `RawFace`](https://docs.rs/ttf-parser/latest/ttf_parser/struct.RawFace.html) — established explicit collection-index parsing and differentiated face errors.
+- [fontTools `TTCollection`](https://fonttools.readthedocs.io/en/latest/ttLib/ttCollection.html) — established collection/member-font and table-sharing model; tooling may aid offline fixture curation only.
+- [DejaVu Fonts license](https://dejavu-fonts.github.io/License.html) and the repository's existing DejaVu fixture manifest — candidate derivative provenance baseline.
+- [Noto CJK repository](https://github.com/notofonts/noto-cjk) and [OFL 1.1 license](https://github.com/notofonts/noto-cjk/blob/main/Sans/LICENSE) — optional real OTC unsupported-profile evidence if repository size and licensing metadata justify inclusion.
 
 ---
-*Research completed: 2026-07-26*
+*Research completed: 2026-07-28*
 *Ready for roadmap: yes*
