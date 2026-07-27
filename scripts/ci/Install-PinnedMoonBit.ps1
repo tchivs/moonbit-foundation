@@ -186,6 +186,7 @@ $workRoot = Join-Path $temporaryBase (
 $toolchainPath = Join-Path $workRoot 'moonbit-linux-x86_64.tar.gz'
 $corePath = Join-Path $workRoot 'core-latest.tar.gz'
 $stagingPath = Join-Path $workRoot 'staging'
+$coreStagingPath = Join-Path $workRoot 'core-staging'
 $destination = Join-Path $HOME '.moon'
 
 try {
@@ -290,26 +291,46 @@ try {
 
   # Core is bundled only after the executable digests and identities pass.
   $libraryPath = Join-Path $stagingPath 'lib'
+  if (Test-Path -LiteralPath $coreStagingPath) {
+    throw "P08-TOOLCHAIN-CORE-STAGING: '$coreStagingPath' already exists."
+  }
+  [void](New-Item -ItemType Directory -Path $coreStagingPath)
   Expand-PinnedArchive `
     -TarPath $tarCommand.Source `
     -ArchivePath $corePath `
-    -Destination $libraryPath `
+    -Destination $coreStagingPath `
     -ExpectedRoot './core/' `
     -RequiredMember './core/moon.mod' `
     -ForbiddenMembers @('./core/moon.mod.json')
-  $coreRoots = @(Get-ChildItem -LiteralPath $libraryPath -Force)
+  $coreRoots = @(Get-ChildItem -LiteralPath $coreStagingPath -Force)
   if ($coreRoots.Count -ne 1 -or
       $coreRoots[0].Name -cne 'core' -or
       -not $coreRoots[0].PSIsContainer) {
     throw 'P08-TOOLCHAIN-CORE-LAYOUT: expected only core/'
   }
-  $coreMarker = Join-Path $libraryPath 'core/moon.mod'
+  $coreMarker = Join-Path $coreStagingPath 'core/moon.mod'
   if (-not (Test-Path -LiteralPath $coreMarker -PathType Leaf)) {
     throw 'P08-TOOLCHAIN-CORE-MISSING: core/moon.mod'
   }
-  $legacyCoreMarker = Join-Path $libraryPath 'core/moon.mod.json'
+  $legacyCoreMarker = Join-Path $coreStagingPath 'core/moon.mod.json'
   if (Test-Path -LiteralPath $legacyCoreMarker) {
     throw 'P08-TOOLCHAIN-CORE-LEGACY: core/moon.mod.json'
+  }
+  $installedCorePath = Join-Path $libraryPath 'core'
+  if (Test-Path -LiteralPath $installedCorePath) {
+    throw "P08-TOOLCHAIN-CORE-DESTINATION: '$installedCorePath' exists."
+  }
+  Move-Item `
+    -LiteralPath $coreRoots[0].FullName `
+    -Destination $installedCorePath
+  $installedCoreMarker = Join-Path $installedCorePath 'moon.mod'
+  if (-not (Test-Path -LiteralPath $installedCoreMarker -PathType Leaf)) {
+    throw 'P08-TOOLCHAIN-CORE-INSTALL: core/moon.mod'
+  }
+  if (Test-Path -LiteralPath (
+      Join-Path $installedCorePath 'moon.mod.json'
+    )) {
+    throw 'P08-TOOLCHAIN-CORE-INSTALL-LEGACY: core/moon.mod.json'
   }
 
   Move-Item -LiteralPath $stagingPath -Destination $destination

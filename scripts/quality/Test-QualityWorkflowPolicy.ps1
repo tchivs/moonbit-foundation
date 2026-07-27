@@ -307,11 +307,45 @@ Invoke-WorkflowPolicyCase `
   -Arrange {
     param($state)
     $state.Installer = $state.Installer.Replace(
-      "  `$coreMarker = Join-Path `$libraryPath 'core/moon.mod'",
-      "  `$coreMarker = Join-Path `$libraryPath 'core/moon.mod.json'"
+      "  `$coreMarker = Join-Path `$coreStagingPath 'core/moon.mod'",
+      "  `$coreMarker = Join-Path `$coreStagingPath 'core/moon.mod.json'"
     )
   } `
   -ShouldPass $false `
-  -ExpectedFailurePattern 'extracted core'
+  -ExpectedFailurePattern 'isolated core staging'
+
+Invoke-WorkflowPolicyCase `
+  -Name 'core archive cannot extract directly into toolchain lib' `
+  -Arrange {
+    param($state)
+    $state.Installer = $state.Installer.Replace(
+      '    -Destination $coreStagingPath `',
+      '    -Destination $libraryPath `'
+    )
+  } `
+  -ShouldPass $false `
+  -ExpectedFailurePattern 'exact ./core/ layout'
+
+Invoke-WorkflowPolicyCase `
+  -Name 'core promotion cannot precede isolated validation' `
+  -Arrange {
+    param($state)
+    $moveBlock = (
+      "  Move-Item ```n" +
+      "    -LiteralPath `$coreRoots[0].FullName ```n" +
+      "    -Destination `$installedCorePath`n"
+    )
+    $state.Installer = $state.Installer.Replace($moveBlock, '')
+    $state.Installer = $state.Installer.Replace(
+      '  $coreRoots = @(Get-ChildItem -LiteralPath $coreStagingPath -Force)',
+      (
+        $moveBlock +
+        '  $coreRoots = @(' +
+        'Get-ChildItem -LiteralPath $coreStagingPath -Force)'
+      )
+    )
+  } `
+  -ShouldPass $false `
+  -ExpectedFailurePattern 'validated before moving'
 
 Write-Host 'Quality workflow content-addressed toolchain policy matrix passed.'

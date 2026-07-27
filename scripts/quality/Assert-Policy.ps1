@@ -1410,12 +1410,23 @@ function Assert-QualityWorkflowToolchainTransport {
       '(?m)^\s*\$env:PATH\s*='
     )).Count -eq 2
   ) 'Pinned MoonBit installer must not expose a broader process PATH.'
+  Assert-Condition (
+    ([regex]::Matches(
+      $InstallerText,
+      [regex]::Escape(
+        "`$coreStagingPath = Join-Path `$workRoot 'core-staging'"
+      )
+    )).Count -eq 1
+  ) (
+    'Pinned MoonBit core extraction must use one dedicated work-root ' +
+    'staging directory.'
+  )
   $normalizedInstallerText = $InstallerText.Replace("`r`n", "`n")
   $coreArchiveLayout = @(
     '  Expand-PinnedArchive `',
     '    -TarPath $tarCommand.Source `',
     '    -ArchivePath $corePath `',
-    '    -Destination $libraryPath `',
+    '    -Destination $coreStagingPath `',
     '    -ExpectedRoot ''./core/'' `',
     '    -RequiredMember ''./core/moon.mod'' `',
     '    -ForbiddenMembers @(''./core/moon.mod.json'')'
@@ -1454,24 +1465,48 @@ function Assert-QualityWorkflowToolchainTransport {
     $InstallerText,
     (
       '(?ms)^\s*\$coreRoots\s*=\s*@\(Get-ChildItem ' +
-      '-LiteralPath \$libraryPath -Force\)\s*\r?\n' +
+      '-LiteralPath \$coreStagingPath -Force\)\s*\r?\n' +
       '\s*if \(\$coreRoots\.Count -ne 1 -or\s*' +
       '\$coreRoots\[0\]\.Name -cne ''core'' -or\s*' +
       '-not \$coreRoots\[0\]\.PSIsContainer\)\s*\{.*?' +
       'P08-TOOLCHAIN-CORE-LAYOUT.*?^\s*\}\s*\r?\n' +
-      '\s*\$coreMarker = Join-Path \$libraryPath ''core/moon\.mod''\s*' +
+      '\s*\$coreMarker = Join-Path \$coreStagingPath ''core/moon\.mod''\s*' +
       '\r?\n\s*if \(-not \(Test-Path -LiteralPath \$coreMarker ' +
       '-PathType Leaf\)\)\s*\{.*?P08-TOOLCHAIN-CORE-MISSING: ' +
       'core/moon\.mod.*?^\s*\}\s*\r?\n' +
-      '\s*\$legacyCoreMarker = Join-Path \$libraryPath ' +
+      '\s*\$legacyCoreMarker = Join-Path \$coreStagingPath ' +
       '''core/moon\.mod\.json''\s*\r?\n' +
       '\s*if \(Test-Path -LiteralPath \$legacyCoreMarker\)\s*\{' +
       '.*?P08-TOOLCHAIN-CORE-LEGACY: core/moon\.mod\.json.*?^\s*\}'
     )
   )
   Assert-Condition ($coreInstallLayout.Count -eq 1) (
-    'Pinned MoonBit extracted core must contain only the core/ root and ' +
-    'moon.mod and must reject the legacy moon.mod.json marker.'
+    'Pinned MoonBit isolated core staging must contain only the core/ root ' +
+    'and moon.mod and must reject the legacy moon.mod.json marker.'
+  )
+  $corePromotion = [regex]::Matches(
+    $InstallerText,
+    (
+      '(?ms)^\s*\$installedCorePath = Join-Path \$libraryPath ''core''\s*' +
+      '\r?\n\s*if \(Test-Path -LiteralPath \$installedCorePath\)\s*\{' +
+      '.*?P08-TOOLCHAIN-CORE-DESTINATION.*?^\s*\}\s*\r?\n' +
+      '\s*Move-Item\s*`\r?\n' +
+      '\s*-LiteralPath \$coreRoots\[0\]\.FullName\s*`\r?\n' +
+      '\s*-Destination \$installedCorePath\s*\r?\n' +
+      '\s*\$installedCoreMarker = Join-Path \$installedCorePath ' +
+      '''moon\.mod''\s*\r?\n' +
+      '\s*if \(-not \(Test-Path -LiteralPath \$installedCoreMarker ' +
+      '-PathType Leaf\)\)\s*\{.*?P08-TOOLCHAIN-CORE-INSTALL: ' +
+      'core/moon\.mod.*?^\s*\}\s*\r?\n' +
+      '\s*if \(Test-Path -LiteralPath \(\s*Join-Path ' +
+      '\$installedCorePath ''moon\.mod\.json''\s*\)\)\s*\{' +
+      '.*?P08-TOOLCHAIN-CORE-INSTALL-LEGACY: ' +
+      'core/moon\.mod\.json.*?^\s*\}'
+    )
+  )
+  Assert-Condition ($corePromotion.Count -eq 1) (
+    'Pinned MoonBit core must be validated before moving only core/ into an ' +
+    'absent toolchain lib/core destination and verifying the final marker.'
   )
 
   $toolchainArchiveCheck = $InstallerText.IndexOf(
@@ -1526,6 +1561,14 @@ function Assert-QualityWorkflowToolchainTransport {
     '$env:PATH = $previousPath',
     [StringComparison]::Ordinal
   )
+  $coreStagingAbsence = $InstallerText.IndexOf(
+    'if (Test-Path -LiteralPath $coreStagingPath)',
+    [StringComparison]::Ordinal
+  )
+  $coreStagingPreparation = $InstallerText.IndexOf(
+    '[void](New-Item -ItemType Directory -Path $coreStagingPath)',
+    [StringComparison]::Ordinal
+  )
   $coreExtraction = $InstallerText.IndexOf(
     '-ArchivePath $corePath',
     [StringComparison]::Ordinal
@@ -1543,15 +1586,27 @@ function Assert-QualityWorkflowToolchainTransport {
     [StringComparison]::Ordinal
   )
   $coreRootVerification = $InstallerText.IndexOf(
-    '$coreRoots = @(Get-ChildItem -LiteralPath $libraryPath -Force)',
+    '$coreRoots = @(Get-ChildItem -LiteralPath $coreStagingPath -Force)',
     [StringComparison]::Ordinal
   )
   $coreMarkerVerification = $InstallerText.IndexOf(
-    "`$coreMarker = Join-Path `$libraryPath 'core/moon.mod'",
+    "`$coreMarker = Join-Path `$coreStagingPath 'core/moon.mod'",
     [StringComparison]::Ordinal
   )
   $legacyCoreRejection = $InstallerText.IndexOf(
-    "`$legacyCoreMarker = Join-Path `$libraryPath 'core/moon.mod.json'",
+    "`$legacyCoreMarker = Join-Path `$coreStagingPath 'core/moon.mod.json'",
+    [StringComparison]::Ordinal
+  )
+  $coreDestinationAbsence = $InstallerText.IndexOf(
+    'if (Test-Path -LiteralPath $installedCorePath)',
+    [StringComparison]::Ordinal
+  )
+  $coreMove = $InstallerText.IndexOf(
+    '-LiteralPath $coreRoots[0].FullName',
+    [StringComparison]::Ordinal
+  )
+  $installedCoreVerification = $InstallerText.IndexOf(
+    "`$installedCoreMarker = Join-Path `$installedCorePath 'moon.mod'",
     [StringComparison]::Ordinal
   )
   $finalInstall = $InstallerText.IndexOf(
@@ -1572,20 +1627,25 @@ function Assert-QualityWorkflowToolchainTransport {
     $identityPathExposure -gt $identityPathCapture -and
     $binaryIdentityCheck -gt $identityPathExposure -and
     $identityPathRestoration -gt $binaryIdentityCheck -and
-    $coreExtraction -gt $identityPathRestoration -and
+    $coreStagingAbsence -gt $identityPathRestoration -and
+    $coreStagingPreparation -gt $coreStagingAbsence -and
+    $coreExtraction -gt $coreStagingPreparation -and
     $coreArchiveRootPolicy -gt $coreExtraction -and
     $coreArchiveMarkerPolicy -gt $coreArchiveRootPolicy -and
     $coreArchiveLegacyPolicy -gt $coreArchiveMarkerPolicy -and
     $coreRootVerification -gt $coreArchiveLegacyPolicy -and
     $coreMarkerVerification -gt $coreRootVerification -and
     $legacyCoreRejection -gt $coreMarkerVerification -and
-    $finalInstall -gt $legacyCoreRejection
+    $coreDestinationAbsence -gt $legacyCoreRejection -and
+    $coreMove -gt $coreDestinationAbsence -and
+    $installedCoreVerification -gt $coreMove -and
+    $finalInstall -gt $installedCoreVerification
   ) (
     'Pinned MoonBit installer must authenticate both archives before ' +
     'extraction, hash binaries before scoped chmod, verify execute bits, ' +
     'expose only authenticated staging/bin for identity checks, restore ' +
-    'PATH, bundle core last, validate its exact layout, and install only ' +
-    'after verification.'
+    'PATH, bundle core last, validate it in isolation before promotion, and ' +
+    'install only after final marker verification.'
   )
 }
 
