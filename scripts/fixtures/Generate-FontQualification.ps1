@@ -39,6 +39,15 @@ function Get-FontQualificationSha256 {
   ).ToLowerInvariant()
 }
 
+function Format-FontQualificationCoordinate {
+  param([Parameter(Mandatory)][double]$Value)
+
+  return $Value.ToString(
+    '0.################',
+    [Globalization.CultureInfo]::InvariantCulture
+  )
+}
+
 function Assert-ExactBytesIdentity {
   param(
     [Parameter(Mandatory)][string]$Label,
@@ -284,8 +293,10 @@ function Read-CompositeGlyphFacts {
       $arg2 = Read-I16BE $Glyf ($offset + 2)
       $offset += 4
     } else {
-      $arg1 = [sbyte]$Glyf[$offset]
-      $arg2 = [sbyte]$Glyf[$offset + 1]
+      $arg1Byte = [int]$Glyf[$offset]
+      $arg2Byte = [int]$Glyf[$offset + 1]
+      $arg1 = if ($arg1Byte -ge 128) { $arg1Byte - 256 } else { $arg1Byte }
+      $arg2 = if ($arg2Byte -ge 128) { $arg2Byte - 256 } else { $arg2Byte }
       $offset += 2
     }
     $a = 16384; $b = 0; $c = 0; $d = 16384
@@ -334,11 +345,13 @@ function Convert-GeometryToCommands {
       $startX = [int]$last.x; $startY = [int]$last.y
       $index = $contourStart
     } else {
-      $startX = [int](($first.x + $last.x) / 2)
-      $startY = [int](($first.y + $last.y) / 2)
+      $startX = ($first.x + $last.x) / 2.0
+      $startY = ($first.y + $last.y) / 2.0
       $index = $contourStart
     }
-    $commands.Add("M:$startX,$startY")
+    $commands.Add(
+      "M:$(Format-FontQualificationCoordinate $startX),$(Format-FontQualificationCoordinate $startY)"
+    )
     $traversalEnd = if (-not $first.on_curve -and $last.on_curve) {
       $endpoint - 1
     } else {
@@ -358,9 +371,11 @@ function Convert-GeometryToCommands {
         if ($null -eq $control) {
           $control = $point
         } else {
-          $midX = [int](($control.x + $point.x) / 2)
-          $midY = [int](($control.y + $point.y) / 2)
-          $commands.Add("Q:$($control.x),$($control.y):$midX,$midY")
+          $midX = ($control.x + $point.x) / 2.0
+          $midY = ($control.y + $point.y) / 2.0
+          $commands.Add(
+            "Q:$($control.x),$($control.y):$(Format-FontQualificationCoordinate $midX),$(Format-FontQualificationCoordinate $midY)"
+          )
           $control = $point
         }
       }
@@ -538,6 +553,7 @@ function Read-FontQualificationSfntOracle {
   $glyphSpecs = @(
     [ordered]@{ scalar='U+0041'; value=0x41UL; expected=36 },
     [ordered]@{ scalar='U+00E9'; value=0xE9UL; expected=171 },
+    [ordered]@{ scalar='U+034C'; value=0x34CUL; expected=765 },
     [ordered]@{ scalar='U+10300'; value=0x10300UL; expected=5373 }
   )
   $glyphFacts = [Collections.Generic.List[object]]::new()

@@ -269,16 +269,70 @@
       ],
       "path": {
         "command_count": 28,
-        "fingerprint_sha256": "40a322507400bae7ad27d553e72600ecffba04c0f120f841e80768ee8d1c84bc",
+        "fingerprint_sha256": "d53920ec886de81ca97f0acc058c8ed72f6f950cd2331b09c80c0a58f6d56da5",
         "selected_commands": [
           "M:1151,606",
           "L:1151,516",
           "L:305,516",
-          "Q:317,326:420,226",
+          "Q:317,326:419.5,226.5",
           "Q:522,127:705,127",
-          "Q:811,127:910,153",
+          "Q:811,127:910.5,153",
           "Q:1010,179:1108,231",
           "L:1108,57"
+        ]
+      }
+    },
+    {
+      "scalar": "U+034C",
+      "glyph_id": 765,
+      "horizontal_metrics": {
+        "advance": 0,
+        "lsb": -842
+      },
+      "classification": "composite",
+      "contours": 2,
+      "bounds": {
+        "x_min": -842,
+        "y_min": 1221,
+        "x_max": -182,
+        "y_max": 1680
+      },
+      "components": [
+        {
+          "glyph_id": 5924,
+          "x": 0,
+          "y": -73,
+          "transform_q14": [
+            16384,
+            0,
+            0,
+            16384
+          ]
+        },
+        {
+          "glyph_id": 5924,
+          "x": 0,
+          "y": 167,
+          "transform_q14": [
+            16384,
+            0,
+            0,
+            16384
+          ]
+        }
+      ],
+      "path": {
+        "command_count": 48,
+        "fingerprint_sha256": "f5dfde0b4b9620c9de27a766cdd3fee9efa89f7fd1044c9d9f68ce2e94aed827",
+        "selected_commands": [
+          "M:-516,1264",
+          "L:-573,1297",
+          "Q:-598,1311:-613.5,1316.5",
+          "Q:-629,1322:-641,1322",
+          "Q:-677,1322:-697,1297",
+          "Q:-717,1272:-717,1227",
+          "L:-717,1221",
+          "L:-842,1221"
         ]
       }
     },
