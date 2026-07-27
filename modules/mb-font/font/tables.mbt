@@ -807,6 +807,7 @@ fn font_cmap_format4_mapping_work(
     Ok(value) => value
   }
   let mut mapping_work = 0UL
+  let mut previous_end = 0UL
   let mut index = 0UL
   while index < facts.body_records {
     let delta = match @checked.checked_mul(index, 2UL) {
@@ -820,6 +821,13 @@ fn font_cmap_format4_mapping_work(
     let start_code = match read_u16(table.view, start_codes + delta) {
       Err(error) => return Err(error)
       Ok(value) => value
+    }
+    if start_code > end_code ||
+      (
+        index > 0UL &&
+        (end_code <= previous_end || start_code <= previous_end)
+      ) {
+      return Err(font_data_error("font-cmap-envelope"))
     }
     if index + 1UL < facts.body_records {
       let span = match
@@ -838,6 +846,7 @@ fn font_cmap_format4_mapping_work(
         Ok(value) => value
       }
     }
+    previous_end = end_code
     index = index + 1UL
   }
   Ok(mapping_work)
