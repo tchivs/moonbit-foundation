@@ -151,7 +151,7 @@
       "source": "repository-derived:scripts/fixtures/Generate-FontQualification.ps1",
       "author": "MoonBit Native Foundation project generator",
       "retrieval_date": "2026-07-27",
-      "sha256": "1b6de9e02d223bf4402555da3ff47ec1a66b4cad97ab30bb9f387789f2c406b8",
+      "sha256": "a9a86ed5c080571fffe3317eead29865c5fdad222475251423621fddb09c1d18",
       "license": "Apache-2.0",
       "redistribution_status": "not-applicable",
       "expected_use": "Phase 100 closed hostile-input and transactional font qualification matrix"

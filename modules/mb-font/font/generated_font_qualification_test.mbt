@@ -1287,8 +1287,8 @@ fn font_qualification_cases() -> Array[FontQualificationCase] {
       category: "Resource",
       code: "BudgetExceeded",
       context: "work",
-      requested: Some(18UL),
-      limit: Some(17UL),
+      requested: Some(5UL),
+      limit: Some(4UL),
       publication: "font-only",
     },
     {

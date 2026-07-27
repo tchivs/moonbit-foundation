@@ -98,8 +98,8 @@
       "category": "Resource",
       "code": "BudgetExceeded",
       "context": "work",
-      "requested": 18,
-      "limit": 17,
+      "requested": 5,
+      "limit": 4,
       "publication": "font-only"
     },
     {
