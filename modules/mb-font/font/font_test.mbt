@@ -748,6 +748,25 @@ fn font_test_simple_outline_glyf() -> Bytes {
 }
 
 ///|
+fn font_test_uniform_composite_outline_truetype() -> Bytes {
+  let child = font_test_simple_outline_glyf()
+  let parent = b"\xff\xff\x00\x0a\xff\xfc\x00\x3c\x00\x2e\x00\x0b\x00\x00\x00\x0a\xff\xfc\x20\x00"
+  let glyf = Bytes::from_array(child.to_array() + parent.to_array())
+  font_test_build_truetype([
+    { tag: b"OS/2", payload: font_test_fixed_table(78) },
+    { tag: b"cmap", payload: font_test_cmap_table() },
+    { tag: b"glyf", payload: glyf },
+    { tag: b"head", payload: font_test_head_table() },
+    { tag: b"hhea", payload: font_test_hhea_table() },
+    { tag: b"hmtx", payload: b"\x01\xf4\x00\x00\x00\x00" },
+    { tag: b"loca", payload: b"\x00\x00\x00\x0a\x00\x14" },
+    { tag: b"maxp", payload: font_test_maxp_table_with_glyphs(2UL) },
+    { tag: b"name", payload: font_test_name_table() },
+    { tag: b"post", payload: font_test_post_table() },
+  ])
+}
+
+///|
 fn font_test_byte_at_copy(source : Bytes, offset : Int, value : Byte) -> Bytes {
   let output = source.to_array()
   output[offset] = value
@@ -1232,6 +1251,43 @@ test "outline traces one simple quadratic contour into shared Path2" {
   match path.get(3) {
     Some(@math.PathCommand::Close) => ()
     _ => fail("expected Close")
+  }
+}
+
+///|
+test "outline traces one signed XY uniformly scaled component" {
+  let owner = font_test_owner(font_test_uniform_composite_outline_truetype())
+  let font = Font::open(owner.view(), font_test_limits(), font_test_budget()).unwrap()
+  let path = font
+    .outline(font.glyph_id(1UL).unwrap(), font_test_budget())
+    .unwrap()
+  inspect(path.length(), content="4")
+  match path.get(0) {
+    Some(@math.PathCommand::MoveTo(point)) => {
+      inspect(point.x(), content="10")
+      inspect(point.y(), content="-4")
+    }
+    _ => fail("expected composite MoveTo")
+  }
+  match path.get(1) {
+    Some(@math.PathCommand::LineTo(point)) => {
+      inspect(point.x(), content="60")
+      inspect(point.y(), content="-4")
+    }
+    _ => fail("expected composite LineTo")
+  }
+  match path.get(2) {
+    Some(@math.PathCommand::QuadTo(control, endpoint)) => {
+      inspect(control.x(), content="60")
+      inspect(control.y(), content="46")
+      inspect(endpoint.x(), content="10")
+      inspect(endpoint.y(), content="-4")
+    }
+    _ => fail("expected composite QuadTo")
+  }
+  match path.get(3) {
+    Some(@math.PathCommand::Close) => ()
+    _ => fail("expected composite Close")
   }
 }
 
