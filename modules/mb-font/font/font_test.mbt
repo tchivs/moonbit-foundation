@@ -1356,6 +1356,75 @@ test "name language tags and post name references require exact envelopes" {
     is Ok(_),
     content="true",
   )
+  let post_name_source = font_test_truetype_with_metadata(
+    font_test_name_table(),
+    valid_post2,
+  )
+  let post_name_length = post_name_source.length().to_uint64()
+  let exact_post_name_limits = FontLimits::new(
+    max_source_bytes=post_name_length,
+    max_tables=10UL,
+    max_table_bytes=post_name_length,
+    max_glyphs=1UL,
+    max_name_records=1UL,
+    max_cmap_records=1UL,
+    max_post_name_bytes=2UL,
+    max_work=16384UL,
+  ).unwrap()
+  inspect(
+    Font::open(
+      font_test_owner(post_name_source).view(),
+      exact_post_name_limits,
+      font_test_budget_with(post_name_length, 16384UL),
+    )
+    is Ok(_),
+    content="true",
+  )
+  let short_post_name_limits = FontLimits::new(
+    max_source_bytes=post_name_length,
+    max_tables=10UL,
+    max_table_bytes=post_name_length,
+    max_glyphs=1UL,
+    max_name_records=1UL,
+    max_cmap_records=1UL,
+    max_post_name_bytes=1UL,
+    max_work=16384UL,
+  ).unwrap()
+  let short_post_name_budget = font_test_budget_with(
+    post_name_length,
+    16384UL,
+  )
+  let short_post_name_before = short_post_name_budget.remaining()
+  let short_post_name_error = Font::open(
+    font_test_owner(post_name_source).view(),
+    short_post_name_limits,
+    short_post_name_budget,
+  ).unwrap_err()
+  inspect(
+    short_post_name_error.context() == Some("max-post-name-bytes"),
+    content="true",
+  )
+  inspect(short_post_name_error.requested() == Some(2UL), content="true")
+  inspect(short_post_name_error.limit() == Some(1UL), content="true")
+  let short_post_name_after = short_post_name_budget.remaining()
+  inspect(
+    short_post_name_after.bytes() == short_post_name_before.bytes(),
+    content="true",
+  )
+  inspect(
+    short_post_name_after.allocations() ==
+    short_post_name_before.allocations(),
+    content="true",
+  )
+  inspect(
+    short_post_name_after.allocation_size() ==
+    short_post_name_before.allocation_size(),
+    content="true",
+  )
+  inspect(
+    short_post_name_after.work() == short_post_name_before.work(),
+    content="true",
+  )
   let invalid_name_error = Font::open(
     font_test_owner(
       font_test_truetype_with_metadata(invalid_name1, font_test_post_table()),

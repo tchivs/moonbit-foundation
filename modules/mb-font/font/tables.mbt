@@ -188,6 +188,15 @@ fn font_admission_charge(
   } else {
     (0UL, 0UL)
   }
+  if post_name_bytes > limits.max_post_name_bytes() {
+    return Err(
+      font_limit_error(
+        "max-post-name-bytes",
+        post_name_bytes,
+        limits.max_post_name_bytes(),
+      ),
+    )
+  }
 
   let loca_entries = match @checked.checked_add(num_glyphs, 1UL) {
     Err(error) => return Err(error)
