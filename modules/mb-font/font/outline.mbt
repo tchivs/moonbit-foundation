@@ -1193,7 +1193,14 @@ fn font_classify_composite_graph(
       ),
     )
   }
-  match font_outline_charge_allocation(budget, index.num_glyphs) {
+  // Account for each Array[Int] entry as a conservative eight-byte portable slot.
+  let state_allocation_size = match
+    @checked.checked_mul(index.num_glyphs, 8UL) {
+    Err(_) =>
+      return Err(font_outline_data_error("font-outline-composite-state"))
+    Ok(value) => value
+  }
+  match font_outline_charge_allocation(budget, state_allocation_size) {
     Err(error) => return Err(error)
     Ok(_) => ()
   }

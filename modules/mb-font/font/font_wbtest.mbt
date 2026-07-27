@@ -228,6 +228,112 @@ test "portable outline fixture freezes expanded points descriptors and graph" {
 }
 
 ///|
+test "composite graph state allocation enforces exact portable slot bytes" {
+  let parent = generated_composite_glyph(-32768, -32768, 32767, 32767, [
+    generated_composite_component(0x0003UL, 0UL, 0, 0, []),
+  ])
+  let glyphs : Array[Bytes] = []
+  for _glyph = 0; _glyph < 10; _glyph = _glyph + 1 {
+    glyphs.push(b"")
+  }
+  glyphs.push(parent)
+  let owner = font_wb_owner(
+    generated_outline_graph_truetype(
+      glyphs,
+      max_composite_points=0UL,
+      max_composite_contours=0UL,
+      max_component_elements=1UL,
+      max_component_depth=1UL,
+    ),
+  )
+  let font = Font::open(owner.view(), font_wb_limits(), font_wb_open_budget()).unwrap()
+  let root_source = font_glyph_window(font.metric_index, 10UL).unwrap().unwrap()
+  let exact = @budget.Budget::new(
+    @budget.ResourceLimits::new(
+      bytes=0UL,
+      allocations=3UL,
+      allocation_size=88UL,
+      width=0UL,
+      height=0UL,
+      pixels=0UL,
+      depth=0UL,
+      work=16384UL,
+    ),
+  )
+  let exact_ledger : OutlineWork = { used: 0UL }
+  let classification = font_classify_composite_graph(
+    10UL,
+    root_source,
+    font.metric_index,
+    font.tables.maxp,
+    font.limits,
+    exact_ledger,
+    exact,
+  ).unwrap()
+  inspect(classification.root_descriptors.length(), content="1")
+  inspect(exact.remaining().allocations(), content="0")
+
+  let one_short = @budget.Budget::new(
+    @budget.ResourceLimits::new(
+      bytes=0UL,
+      allocations=3UL,
+      allocation_size=87UL,
+      width=0UL,
+      height=0UL,
+      pixels=0UL,
+      depth=0UL,
+      work=16384UL,
+    ),
+  )
+  let one_short_ledger : OutlineWork = { used: 0UL }
+  let one_short_error = font_classify_composite_graph(
+    10UL,
+    root_source,
+    font.metric_index,
+    font.tables.maxp,
+    font.limits,
+    one_short_ledger,
+    one_short,
+  ).unwrap_err()
+  inspect(
+    one_short_error.category() == @error.ErrorCategory::Resource,
+    content="true",
+  )
+  inspect(
+    one_short_error.code() == @error.ErrorCode::BudgetExceeded,
+    content="true",
+  )
+  inspect(one_short_error.context() == Some("allocation_size"), content="true")
+  inspect(one_short_error.requested() == Some(88UL), content="true")
+  inspect(one_short_error.limit() == Some(87UL), content="true")
+  inspect(one_short.remaining().allocations(), content="3")
+
+  let overflow_index : MetricIndexFacts = {
+    hmtx: font.metric_index.hmtx,
+    glyf: font.metric_index.glyf,
+    loca_offsets: font.metric_index.loca_offsets,
+    num_glyphs: 18446744073709551615UL,
+    number_of_h_metrics: font.metric_index.number_of_h_metrics,
+  }
+  let overflow_ledger : OutlineWork = { used: 0UL }
+  let overflow = font_classify_composite_graph(
+    10UL,
+    root_source,
+    overflow_index,
+    font.tables.maxp,
+    font.limits,
+    overflow_ledger,
+    font_wb_outline_budget(),
+  ).unwrap_err()
+  inspect(overflow.category() == @error.ErrorCategory::Data, content="true")
+  inspect(overflow.code() == @error.ErrorCode::InvalidEncoding, content="true")
+  inspect(
+    overflow.context() == Some("font-outline-composite-state"),
+    content="true",
+  )
+}
+
+///|
 test "uniform composite public production path remains directly verified" {
   let parent = generated_composite_glyph(
     10,
