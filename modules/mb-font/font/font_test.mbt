@@ -1331,6 +1331,16 @@ fn font_test_composite_budget() -> @budget.Budget {
 }
 
 ///|
+fn font_test_outline_budget() -> @budget.Budget {
+  font_test_budget_with_dimensions(
+    0UL,
+    allocations=5UL,
+    allocation_size=4096UL,
+    16384UL,
+  )
+}
+
+///|
 test "generated standalone TrueType opens and returns exact units per em" {
   let owner = font_test_owner(font_test_minimal_truetype())
   let budget = font_test_budget()
@@ -1475,7 +1485,7 @@ test "outline traces one simple quadratic contour into shared Path2" {
   let admission_budget = font_test_budget()
   let font = Font::open(owner.view(), font_test_limits(), admission_budget).unwrap()
   let after_open = admission_budget.remaining()
-  let outline_budget = font_test_budget()
+  let outline_budget = font_test_outline_budget()
   let outline_before = outline_budget.remaining()
   let path = font.outline(font.glyph_id(0UL).unwrap(), outline_budget).unwrap()
   let outline_after = outline_budget.remaining()
@@ -2098,7 +2108,7 @@ test "outline expands repeated flags to the exact point count" {
   let owner = font_test_owner(font_test_repeated_flag_outline_truetype())
   let font = Font::open(owner.view(), font_test_limits(), font_test_budget()).unwrap()
   let path = font
-    .outline(font.glyph_id(0UL).unwrap(), font_test_budget())
+    .outline(font.glyph_id(0UL).unwrap(), font_test_outline_budget())
     .unwrap()
   inspect(path.length(), content="4")
   match path.get(0) {
@@ -2122,7 +2132,7 @@ test "outline decodes every signed short same and long delta form" {
   let owner = font_test_owner(font_test_delta_outline_truetype())
   let font = Font::open(owner.view(), font_test_limits(), font_test_budget()).unwrap()
   let path = font
-    .outline(font.glyph_id(0UL).unwrap(), font_test_budget())
+    .outline(font.glyph_id(0UL).unwrap(), font_test_outline_budget())
     .unwrap()
   inspect(path.length(), content="4")
   match path.get(1) {
