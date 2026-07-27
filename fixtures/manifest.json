@@ -119,6 +119,30 @@
       "license": "Apache-2.0",
       "redistribution_status": "not-applicable",
       "expected_use": "MBSVG parse, scene-build, and lower conformance for the RFC 0002 §6.1 subset: canonical valid, edge, malformed-adversarial, and SVGPR-03 portable parse-to-lower-to-raster opacity/layer-capacity qualification cases"
+    },
+    {
+      "id": "font-dejavu-sans-2.37",
+      "path": "fixtures/font/dejavu-sans-2.37/DejaVuSans.ttf",
+      "origin": "external",
+      "source": "https://github.com/dejavu-fonts/dejavu-fonts/releases/download/version_2_37/dejavu-sans-ttf-2.37.zip",
+      "author": "DejaVu Fonts project; derived from Bitstream Vera and Arev",
+      "retrieval_date": "2026-07-27",
+      "sha256": "7da195a74c55bef988d0d48f9508bd5d849425c1770dba5d7bfc6ce9ed848954",
+      "license": "Bitstream-Vera AND LicenseRef-DejaVu-Arev",
+      "redistribution_status": "confirmed",
+      "expected_use": "Phase 100 licensed real-font public workflow and interoperability qualification"
+    },
+    {
+      "id": "font-dejavu-sans-2.37-license",
+      "path": "fixtures/font/dejavu-sans-2.37/LICENSE",
+      "origin": "external",
+      "source": "https://github.com/dejavu-fonts/dejavu-fonts/releases/download/version_2_37/dejavu-sans-ttf-2.37.zip",
+      "author": "DejaVu Fonts project; Bitstream, Inc.; Tavmjong Bah",
+      "retrieval_date": "2026-07-27",
+      "sha256": "7a083b136e64d064794c3419751e5c7dd10d2f64c108fe5ba161eae5e5958a93",
+      "license": "Bitstream-Vera AND LicenseRef-DejaVu-Arev",
+      "redistribution_status": "confirmed",
+      "expected_use": "Phase 100 notice accompanying redistribution of DejaVu Sans 2.37"
     }
   ]
 }

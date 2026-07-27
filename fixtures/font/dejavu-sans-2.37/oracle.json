@@ -1,0 +1,338 @@
+{
+  "schema_version": "1.0.0",
+  "oracle": {
+    "implementation": "mnf-powershell-closed-sfnt-reader",
+    "version": "1.0.0",
+    "independence": "offline parser; does not invoke tchivs/mb-font"
+  },
+  "source": {
+    "path": "fixtures/font/dejavu-sans-2.37/DejaVuSans.ttf",
+    "length": 757076,
+    "sha256": "7da195a74c55bef988d0d48f9508bd5d849425c1770dba5d7bfc6ce9ed848954",
+    "sfnt_signature": "0x00010000"
+  },
+  "tables": [
+    {
+      "tag": "FFTM",
+      "checksum": "73c1f4f0",
+      "offset": 332,
+      "length": 28
+    },
+    {
+      "tag": "GDEF",
+      "checksum": "94cf8ee6",
+      "offset": 360,
+      "length": 660
+    },
+    {
+      "tag": "GPOS",
+      "checksum": "5680c435",
+      "offset": 1020,
+      "length": 40586
+    },
+    {
+      "tag": "GSUB",
+      "checksum": "c1d04059",
+      "offset": 41608,
+      "length": 5598
+    },
+    {
+      "tag": "MATH",
+      "checksum": "a732387d",
+      "offset": 47208,
+      "length": 1598
+    },
+    {
+      "tag": "OS/2",
+      "checksum": "592d762d",
+      "offset": 48808,
+      "length": 86
+    },
+    {
+      "tag": "cmap",
+      "checksum": "c0492600",
+      "offset": 48896,
+      "length": 5914
+    },
+    {
+      "tag": "cvt ",
+      "checksum": "00691d39",
+      "offset": 54812,
+      "length": 510
+    },
+    {
+      "tag": "fpgm",
+      "checksum": "7134766a",
+      "offset": 55324,
+      "length": 171
+    },
+    {
+      "tag": "gasp",
+      "checksum": "00070007",
+      "offset": 55496,
+      "length": 12
+    },
+    {
+      "tag": "glyf",
+      "checksum": "610cf706",
+      "offset": 55508,
+      "length": 556004
+    },
+    {
+      "tag": "head",
+      "checksum": "0ce601d6",
+      "offset": 611512,
+      "length": 54
+    },
+    {
+      "tag": "hhea",
+      "checksum": "0d9f1fcb",
+      "offset": 611568,
+      "length": 36
+    },
+    {
+      "tag": "hmtx",
+      "checksum": "25a1dfad",
+      "offset": 611604,
+      "length": 24982
+    },
+    {
+      "tag": "kern",
+      "checksum": "0c99083b",
+      "offset": 636588,
+      "length": 16380
+    },
+    {
+      "tag": "loca",
+      "checksum": "60e48f28",
+      "offset": 652968,
+      "length": 25016
+    },
+    {
+      "tag": "maxp",
+      "checksum": "1cda0671",
+      "offset": 677984,
+      "length": 32
+    },
+    {
+      "tag": "name",
+      "checksum": "1f6f4da3",
+      "offset": 678016,
+      "length": 15624
+    },
+    {
+      "tag": "post",
+      "checksum": "48c89654",
+      "offset": 693640,
+      "length": 62052
+    },
+    {
+      "tag": "prep",
+      "checksum": "3b07f100",
+      "offset": 755692,
+      "length": 1384
+    }
+  ],
+  "profile": {
+    "units_per_em": 2048,
+    "loca_format": "long",
+    "glyph_count": 6253
+  },
+  "metrics": {
+    "global_bounds": {
+      "x_min": -2090,
+      "y_min": -948,
+      "x_max": 3673,
+      "y_max": 2524
+    },
+    "hhea": {
+      "ascent": 1901,
+      "descent": -483,
+      "line_gap": 0,
+      "long_metric_count": 6238
+    },
+    "os2_typographic": {
+      "ascent": 1556,
+      "descent": -492,
+      "line_gap": 410
+    }
+  },
+  "cmap": {
+    "records": [
+      {
+        "platform_id": 0,
+        "encoding_id": 3,
+        "format": 4,
+        "offset": 44
+      },
+      {
+        "platform_id": 0,
+        "encoding_id": 10,
+        "format": 12,
+        "offset": 2004
+      },
+      {
+        "platform_id": 1,
+        "encoding_id": 0,
+        "format": 6,
+        "offset": 5392
+      },
+      {
+        "platform_id": 3,
+        "encoding_id": 1,
+        "format": 4,
+        "offset": 44
+      },
+      {
+        "platform_id": 3,
+        "encoding_id": 10,
+        "format": 12,
+        "offset": 2004
+      }
+    ],
+    "selected_record": {
+      "platform_id": 3,
+      "encoding_id": 10,
+      "format": 12
+    }
+  },
+  "glyphs": [
+    {
+      "scalar": "U+0041",
+      "glyph_id": 36,
+      "horizontal_metrics": {
+        "advance": 1401,
+        "lsb": 16
+      },
+      "classification": "simple",
+      "contours": 2,
+      "bounds": {
+        "x_min": 16,
+        "y_min": 0,
+        "x_max": 1384,
+        "y_max": 1493
+      },
+      "components": [],
+      "path": {
+        "command_count": 13,
+        "fingerprint_sha256": "ccb4bab2977fff264d8a8421ccb01e333b837e02bc7b5eb6c67e435ffcd2d308",
+        "selected_commands": [
+          "M:700,1294",
+          "L:426,551",
+          "L:975,551",
+          "Z",
+          "M:586,1493",
+          "L:815,1493",
+          "L:1384,0",
+          "L:1174,0"
+        ]
+      }
+    },
+    {
+      "scalar": "U+00E9",
+      "glyph_id": 171,
+      "horizontal_metrics": {
+        "advance": 1260,
+        "lsb": 113
+      },
+      "classification": "composite",
+      "contours": 3,
+      "bounds": {
+        "x_min": 113,
+        "y_min": -29,
+        "x_max": 1151,
+        "y_max": 1638
+      },
+      "components": [
+        {
+          "glyph_id": 72,
+          "x": 0,
+          "y": 0,
+          "transform_q14": [
+            16384,
+            0,
+            0,
+            16384
+          ]
+        },
+        {
+          "glyph_id": 118,
+          "x": 139,
+          "y": 0,
+          "transform_q14": [
+            16384,
+            0,
+            0,
+            16384
+          ]
+        }
+      ],
+      "path": {
+        "command_count": 28,
+        "fingerprint_sha256": "40a322507400bae7ad27d553e72600ecffba04c0f120f841e80768ee8d1c84bc",
+        "selected_commands": [
+          "M:1151,606",
+          "L:1151,516",
+          "L:305,516",
+          "Q:317,326:420,226",
+          "Q:522,127:705,127",
+          "Q:811,127:910,153",
+          "Q:1010,179:1108,231",
+          "L:1108,57"
+        ]
+      }
+    },
+    {
+      "scalar": "U+10300",
+      "glyph_id": 5373,
+      "horizontal_metrics": {
+        "advance": 1550,
+        "lsb": 100
+      },
+      "classification": "simple",
+      "contours": 2,
+      "bounds": {
+        "x_min": 100,
+        "y_min": -29,
+        "x_max": 1450,
+        "y_max": 1493
+      },
+      "components": [],
+      "path": {
+        "command_count": 13,
+        "fingerprint_sha256": "c082fb5502ff6694c084a4ebce10d0208171a9c8079051cb544868b44e92267a",
+        "selected_commands": [
+          "M:100,35",
+          "L:660,1493",
+          "L:890,1493",
+          "L:1450,35",
+          "L:1282,-29",
+          "L:1089,473",
+          "L:461,473",
+          "L:268,-29"
+        ]
+      }
+    }
+  ],
+  "kern": {
+    "version": 0,
+    "subtable_count": 1,
+    "format": 0,
+    "horizontal": true,
+    "pair_count": 2727,
+    "selected_pair": {
+      "left_glyph": 36,
+      "right_glyph": 57,
+      "adjustment": -131
+    }
+  },
+  "maxp": {
+    "max_points": 852,
+    "max_contours": 43,
+    "max_composite_points": 104,
+    "max_composite_contours": 12,
+    "max_instruction_bytes": 534,
+    "max_component_elements": 8,
+    "max_component_depth": 4
+  }
+}
