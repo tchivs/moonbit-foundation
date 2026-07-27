@@ -755,6 +755,47 @@ test "generated standalone TrueType opens and returns exact units per em" {
 }
 
 ///|
+test "one scalar query maps BMP and supplementary code points with stable boundaries" {
+  let source = font_test_truetype_with_cmap_and_glyphs(
+    font_test_cmap_format12([
+      (0x0041UL, 0x0041UL, 1UL),
+      (0x1F600UL, 0x1F600UL, 2UL),
+    ]),
+    3UL,
+  )
+  let owner = font_test_owner(source)
+  let font = Font::open(owner.view(), font_test_limits(), font_test_budget()).unwrap()
+  inspect(font.glyph_for_scalar(0x0041).unwrap().value(), content="1")
+  inspect(font.glyph_for_scalar(0x1F600).unwrap().value(), content="2")
+  inspect(font.glyph_for_scalar(0x0042).unwrap().value(), content="0")
+  for scalar in [-1, 0xD800, 0xDFFF, 0x110000] {
+    let error = font.glyph_for_scalar(scalar).unwrap_err()
+    inspect(error.category() == @error.ErrorCategory::InvalidInput, content="true")
+    inspect(error.code() == @error.ErrorCode::InvalidRange, content="true")
+    inspect(error.operation() == Some("font-glyph-for-scalar"), content="true")
+    inspect(error.context() == Some("font-unicode-scalar-range"), content="true")
+  }
+}
+
+///|
+test "scalar query rejects retained source mutation before publication" {
+  let source = font_test_truetype_with_cmap_and_glyphs(
+    font_test_cmap_format12([(0x0041UL, 0x0041UL, 1UL)]),
+    2UL,
+  )
+  let owner = font_test_owner(source)
+  let font = Font::open(owner.view(), font_test_limits(), font_test_budget()).unwrap()
+  let cmap = font_test_table_offset(source, b"cmap")
+  let original = owner.view().get(cmap + 28UL).unwrap()
+  font_test_mutate_bytes(
+    owner,
+    cmap + 28UL,
+    Bytes::from_array([(original.to_uint64() ^ 1UL).to_byte()]),
+  )
+  font_test_assert_revision_drift(font.glyph_for_scalar(0x0041).unwrap_err())
+}
+
+///|
 test "unsupported outline signature publishes no Font" {
   let owner = font_test_owner(font_test_minimal_truetype())
   owner
