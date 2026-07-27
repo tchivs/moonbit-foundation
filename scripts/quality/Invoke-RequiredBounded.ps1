@@ -614,56 +614,6 @@ function Stop-RequiredWindowsJobVerified {
   }
 }
 
-function Get-RequiredProcessSnapshot {
-  if ([OperatingSystem]::IsWindows()) {
-    return @(
-      Get-CimInstance -ClassName Win32_Process -ErrorAction Stop |
-        ForEach-Object {
-          [pscustomobject]@{
-            Id = [int]$_.ProcessId
-            ParentId = [int]$_.ParentProcessId
-          }
-        }
-    )
-  }
-
-  $output = @(& ps -e -o pid=,ppid= 2>&1)
-  if ($LASTEXITCODE -ne 0) {
-    throw "Unable to enumerate processes with ps: $($output -join ' ')"
-  }
-  return @(
-    foreach ($line in $output) {
-      if ([string]$line -match '^\s*(\d+)\s+(\d+)\s*$') {
-        [pscustomobject]@{
-          Id = [int]$Matches[1]
-          ParentId = [int]$Matches[2]
-        }
-      }
-    }
-  )
-}
-
-function Get-RequiredDescendantProcessIds {
-  param(
-    [Parameter(Mandatory)][int]$RootProcessId,
-    [Parameter(Mandatory)][object[]]$Snapshot
-  )
-
-  $descendants = [Collections.Generic.HashSet[int]]::new()
-  $parents = [Collections.Generic.Queue[int]]::new()
-  $parents.Enqueue($RootProcessId)
-  while ($parents.Count -gt 0) {
-    $parent = $parents.Dequeue()
-    foreach ($candidate in $Snapshot) {
-      if ($candidate.ParentId -eq $parent -and
-          $descendants.Add([int]$candidate.Id)) {
-        $parents.Enqueue([int]$candidate.Id)
-      }
-    }
-  }
-  return @($descendants | Sort-Object)
-}
-
 function Test-RequiredProcessAlive {
   param([Parameter(Mandatory)][int]$ProcessId)
 
@@ -679,156 +629,312 @@ function Test-RequiredProcessAlive {
   }
 }
 
-function New-RequiredProcessTracker {
-  param([Parameter(Mandatory)][int]$RootProcessId)
-
-  $processIds = [Collections.Generic.HashSet[int]]::new()
-  [void]$processIds.Add($RootProcessId)
-  return [pscustomobject]@{
-    RootProcessId = $RootProcessId
-    ProcessIds = $processIds
-  }
-}
-
-function Update-RequiredProcessTracker {
-  param([Parameter(Mandatory)]$Tracker)
-
-  $snapshot = @(Get-RequiredProcessSnapshot)
-  $added = $true
-  while ($added) {
-    $added = $false
-    foreach ($candidate in $snapshot) {
-      if ($Tracker.ProcessIds.Contains([int]$candidate.ParentId) -and
-          $Tracker.ProcessIds.Add([int]$candidate.Id)) {
-        $added = $true
-      }
-    }
-  }
-}
-
-function Get-RequiredLiveTrackedProcessIds {
-  param([Parameter(Mandatory)]$Tracker)
-
-  return @($Tracker.ProcessIds | Where-Object {
-    Test-RequiredProcessAlive -ProcessId $_
-  })
-}
-
-function Wait-RequiredRootExitTracked {
+function Resolve-RequiredPosixTool {
   param(
-    [Parameter(Mandatory)][Diagnostics.Process]$Process,
-    [Parameter(Mandatory)]$Tracker,
-    [Parameter(Mandatory)][ValidateRange(1, 86400000)]
-    [int]$TimeoutMilliseconds
+    [Parameter(Mandatory)][string]$Name
   )
 
-  $deadline = [DateTime]::UtcNow.AddMilliseconds($TimeoutMilliseconds)
-  do {
-    Update-RequiredProcessTracker $Tracker
-    if ($Process.HasExited) {
-      $Process.WaitForExit()
-      Update-RequiredProcessTracker $Tracker
-      return $true
+  $command = @(
+    Get-Command $Name -CommandType Application -ErrorAction SilentlyContinue
+  ) | Select-Object -First 1
+  if ($null -eq $command) {
+    throw "Required POSIX containment needs the '$Name' executable."
+  }
+  return $command.Source
+}
+
+function Invoke-RequiredPosixTool {
+  param(
+    [Parameter(Mandatory)][string]$FileName,
+    [Parameter(Mandatory)][string[]]$Arguments
+  )
+
+  $startInfo = [Diagnostics.ProcessStartInfo]::new()
+  $startInfo.FileName = $FileName
+  $startInfo.UseShellExecute = $false
+  $startInfo.CreateNoWindow = $true
+  $startInfo.RedirectStandardOutput = $true
+  $startInfo.RedirectStandardError = $true
+  foreach ($argument in $Arguments) {
+    [void]$startInfo.ArgumentList.Add($argument)
+  }
+  $process = [Diagnostics.Process]::new()
+  $process.StartInfo = $startInfo
+  try {
+    if (-not $process.Start()) {
+      throw "Unable to start POSIX containment tool '$FileName'."
     }
-    $remaining = [int][Math]::Ceiling(
-      ($deadline - [DateTime]::UtcNow).TotalMilliseconds
+    $stdoutTask = $process.StandardOutput.ReadToEndAsync()
+    $stderrTask = $process.StandardError.ReadToEndAsync()
+    $process.WaitForExit()
+    return [pscustomobject]@{
+      ExitCode = [int]$process.ExitCode
+      Stdout = $stdoutTask.GetAwaiter().GetResult()
+      Stderr = $stderrTask.GetAwaiter().GetResult()
+    }
+  } finally {
+    $process.Dispose()
+  }
+}
+
+function Get-RequiredPosixSessionMembers {
+  param(
+    [Parameter(Mandatory)]$Containment
+  )
+
+  $result = Invoke-RequiredPosixTool `
+    -FileName $Containment.PsPath `
+    -Arguments @('-e', '-o', 'pid=,pgid=,sid=,stat=')
+  if ($result.ExitCode -ne 0) {
+    throw (
+      "Unable to inspect Required POSIX session: $($result.Stderr.Trim())"
     )
-    if ($remaining -le 0) {
-      break
+  }
+  return @(
+    foreach ($line in ($result.Stdout -split "`n")) {
+      if ($line -match '^\s*(\d+)\s+(\d+)\s+(\d+)\s+(\S+)\s*$') {
+        $processId = [int]$Matches[1]
+        $processGroupId = [int]$Matches[2]
+        $sessionId = [int]$Matches[3]
+        if ($processGroupId -eq $Containment.ProcessGroupId -or
+            $sessionId -eq $Containment.SessionId) {
+          [pscustomobject]@{
+            ProcessId = $processId
+            ProcessGroupId = $processGroupId
+            SessionId = $sessionId
+            State = $Matches[4]
+          }
+        }
+      }
     }
-    $wait = [Math]::Min(500, $remaining)
-    if ($Process.WaitForExit($wait)) {
-      $Process.WaitForExit()
-      Update-RequiredProcessTracker $Tracker
-      return $true
+  )
+}
+
+function Send-RequiredPosixSessionSignal {
+  param(
+    [Parameter(Mandatory)]$Containment,
+    [Parameter(Mandatory)][ValidateSet('TERM', 'KILL')]
+    [string]$Signal
+  )
+
+  $members = @(Get-RequiredPosixSessionMembers $Containment)
+  $groupIds = @(
+    $members |
+      ForEach-Object { $_.ProcessGroupId } |
+      Where-Object { $_ -gt 0 } |
+      Sort-Object -Unique
+  )
+  foreach ($groupId in $groupIds) {
+    # Negative IDs address every process in the group. A nonzero result may be
+    # a normal exit race; the subsequent session-membership query is authority.
+    [void](Invoke-RequiredPosixTool `
+      -FileName $Containment.KillPath `
+      -Arguments @("-$Signal", '--', "-$groupId"))
+  }
+}
+
+function Wait-RequiredPosixSessionEmpty {
+  param(
+    [Parameter(Mandatory)]$Containment,
+    [Parameter(Mandatory)][DateTime]$Deadline,
+    [Parameter(Mandatory)][ValidateSet('TERM', 'KILL')]
+    [string]$Signal
+  )
+
+  $emptyPasses = 0
+  do {
+    if ($Containment.Process.HasExited) {
+      # Reap the session leader so a dead direct child is not mistaken for a
+      # live group member while descendants are being drained.
+      $Containment.Process.WaitForExit()
     }
-  } while ([DateTime]::UtcNow -lt $deadline)
-  Update-RequiredProcessTracker $Tracker
+    $members = @(Get-RequiredPosixSessionMembers $Containment)
+    if ($members.Count -eq 0) {
+      $emptyPasses = $emptyPasses + 1
+      if ($emptyPasses -ge 2) {
+        return $true
+      }
+    } else {
+      $emptyPasses = 0
+      Send-RequiredPosixSessionSignal `
+        -Containment $Containment `
+        -Signal $Signal
+    }
+    Start-Sleep -Milliseconds 100
+  } while ([DateTime]::UtcNow -lt $Deadline)
   return $false
 }
 
-function Stop-RequiredProcessTreeVerified {
+function Start-RequiredPosixSessionProcess {
   param(
-    [Parameter(Mandatory)][Diagnostics.Process]$Process,
-    [Parameter(Mandatory)]$Tracker,
+    [Parameter(Mandatory)][string]$FileName,
+    [Parameter(Mandatory)][string[]]$Arguments,
+    [Parameter(Mandatory)][string]$WorkingDirectory
+  )
+
+  if ([OperatingSystem]::IsWindows()) {
+    throw 'POSIX session containment is unavailable on Windows.'
+  }
+  $setsidPath = Resolve-RequiredPosixTool 'setsid'
+  $shPath = Resolve-RequiredPosixTool 'sh'
+  $psPath = Resolve-RequiredPosixTool 'ps'
+  $killPath = Resolve-RequiredPosixTool 'kill'
+  $handshake = @'
+IFS= read -r gate || exit 125
+[ "$gate" = "GO" ] || exit 126
+exec "$@"
+'@
+  $startInfo = [Diagnostics.ProcessStartInfo]::new()
+  $startInfo.FileName = $setsidPath
+  $startInfo.WorkingDirectory = $WorkingDirectory
+  $startInfo.UseShellExecute = $false
+  $startInfo.CreateNoWindow = $true
+  $startInfo.RedirectStandardInput = $true
+  $startInfo.RedirectStandardOutput = $true
+  $startInfo.RedirectStandardError = $true
+  foreach ($argument in @(
+      '--',
+      $shPath,
+      '-c',
+      $handshake,
+      'mnf-required-session',
+      $FileName
+    ) + $Arguments) {
+    [void]$startInfo.ArgumentList.Add($argument)
+  }
+
+  $process = [Diagnostics.Process]::new()
+  $process.StartInfo = $startInfo
+  $containment = $null
+  try {
+    if (-not $process.Start()) {
+      throw 'Unable to start Required POSIX session launcher.'
+    }
+    $stdoutTask = $process.StandardOutput.ReadToEndAsync()
+    $stderrTask = $process.StandardError.ReadToEndAsync()
+    $containment = [pscustomobject]@{
+      Process = $process
+      ProcessId = [int]$process.Id
+      ProcessGroupId = [int]$process.Id
+      SessionId = [int]$process.Id
+      PsPath = $psPath
+      KillPath = $killPath
+      StdoutTask = $stdoutTask
+      StderrTask = $stderrTask
+    }
+
+    # setsid executes the blocking shell under the same PID. Do not release its
+    # stdin until the kernel-visible PGID and SID prove containment is active.
+    $deadline = [DateTime]::UtcNow.AddSeconds(10)
+    $verified = $false
+    do {
+      if ($process.HasExited) {
+        $process.WaitForExit()
+        $diagnostic = $stderrTask.GetAwaiter().GetResult().Trim()
+        throw (
+          "Required POSIX session launcher exited before verification " +
+          "(exit=$($process.ExitCode)): $diagnostic"
+        )
+      }
+      $members = @(Get-RequiredPosixSessionMembers $containment)
+      $leader = @(
+        $members | Where-Object {
+          $_.ProcessId -eq $containment.ProcessId -and
+          $_.ProcessGroupId -eq $containment.ProcessGroupId -and
+          $_.SessionId -eq $containment.SessionId
+        }
+      )
+      if ($leader.Count -eq 1) {
+        $verified = $true
+        break
+      }
+      Start-Sleep -Milliseconds 25
+    } while ([DateTime]::UtcNow -lt $deadline)
+    if (-not $verified) {
+      throw (
+        'Required POSIX launcher did not establish PID == PGID == SID ' +
+        'before target release.'
+      )
+    }
+
+    $process.StandardInput.WriteLine('GO')
+    $process.StandardInput.Flush()
+    $process.StandardInput.Close()
+    return $containment
+  } catch {
+    if ($null -ne $containment) {
+      try {
+        Send-RequiredPosixSessionSignal -Containment $containment -Signal KILL
+      } catch {
+        # The target is still blocked unless the release write partially won.
+      }
+    }
+    try {
+      $process.StandardInput.Close()
+    } catch {
+      # Start failed before redirected standard input became available.
+    }
+    if (-not $process.HasExited) {
+      $process.Kill($true)
+      [void]$process.WaitForExit(5000)
+    }
+    $process.Dispose()
+    throw
+  }
+}
+
+function Stop-RequiredPosixSessionVerified {
+  param(
+    [Parameter(Mandatory)]$Containment,
     [switch]$RootExited,
     [ValidateRange(1, 120000)]
     [int]$CleanupTimeoutMilliseconds = 30000
   )
 
-  $deadline = [DateTime]::UtcNow.AddMilliseconds($CleanupTimeoutMilliseconds)
-
-  # Reach a fixed point over repeated snapshots before termination. This closes
-  # the single-snapshot gap when a tracked process creates another descendant
-  # while cleanup is beginning.
-  $stableDiscoveryPasses = 0
-  while ($stableDiscoveryPasses -lt 3 -and
-         [DateTime]::UtcNow -lt $deadline) {
-    $before = $Tracker.ProcessIds.Count
-    Update-RequiredProcessTracker $Tracker
-    if ($Tracker.ProcessIds.Count -eq $before) {
-      $stableDiscoveryPasses = $stableDiscoveryPasses + 1
-    } else {
-      $stableDiscoveryPasses = 0
-    }
-    Start-Sleep -Milliseconds 100
+  $activeBeforeTermination = @(
+    Get-RequiredPosixSessionMembers $Containment
+  ).Count
+  $deadline = [DateTime]::UtcNow.AddMilliseconds(
+    $CleanupTimeoutMilliseconds
+  )
+  $termDeadline = [DateTime]::UtcNow.AddMilliseconds(
+    [Math]::Min(2000, $CleanupTimeoutMilliseconds)
+  )
+  $empty = Wait-RequiredPosixSessionEmpty `
+    -Containment $Containment `
+    -Deadline $termDeadline `
+    -Signal TERM
+  if (-not $empty -and [DateTime]::UtcNow -lt $deadline) {
+    $empty = Wait-RequiredPosixSessionEmpty `
+      -Containment $Containment `
+      -Deadline $deadline `
+      -Signal KILL
   }
+  $activeAfterTermination = @(
+    Get-RequiredPosixSessionMembers $Containment
+  ).Count
+  if (-not $Containment.Process.HasExited) {
+    [void]$Containment.Process.WaitForExit(1000)
+  }
+  $verified = (
+    $empty -and
+    $activeAfterTermination -eq 0 -and
+    $Containment.Process.HasExited
+  )
 
-  $stableEmptyPasses = 0
-  do {
-    Update-RequiredProcessTracker $Tracker
-    $ordered = @($Tracker.RootProcessId) + @(
-      $Tracker.ProcessIds |
-        Where-Object { $_ -ne $Tracker.RootProcessId } |
-        Sort-Object -Descending
-    )
-    foreach ($processId in $ordered) {
-      try {
-        $trackedProcess = [Diagnostics.Process]::GetProcessById($processId)
-        try {
-          if (-not $trackedProcess.HasExited) {
-            $trackedProcess.Kill($true)
-          }
-        } finally {
-          $trackedProcess.Dispose()
-        }
-      } catch [ArgumentException] {
-        # The tracked process has already exited.
-      }
-    }
-
-    # Discover again after kill requests so descendants born after an earlier
-    # snapshot are added before their parents disappear from the process table.
-    Update-RequiredProcessTracker $Tracker
-    $live = @(Get-RequiredLiveTrackedProcessIds $Tracker)
-    if ($live.Count -eq 0) {
-      $stableEmptyPasses = $stableEmptyPasses + 1
-      if ($stableEmptyPasses -ge 2) {
-        break
-      }
-    } else {
-      $stableEmptyPasses = 0
-    }
-    Start-Sleep -Milliseconds 100
-  } while ([DateTime]::UtcNow -lt $deadline)
-
-  $terminated = $stableEmptyPasses -ge 2
   return [pscustomobject]@{
-    ProcessTreeTerminated = $terminated
-    TerminationStatus = if ($terminated) {
+    ProcessTreeTerminated = $verified
+    TerminationStatus = if ($verified) {
       if ($RootExited) {
-        'exited-descendants-drained-verified'
+        'exited-session-terminated-verified'
       } else {
-        'killed-verified'
+        'session-terminated-verified'
       }
     } else {
-      if ($RootExited) {
-        'exit-drain-verification-timeout'
-      } else {
-        'kill-verification-timeout'
-      }
+      'session-termination-verification-timeout'
     }
-    TrackedProcessIds = @($Tracker.ProcessIds | Sort-Object)
+    ActiveBeforeTermination = $activeBeforeTermination
+    ActiveAfterTermination = $activeAfterTermination
   }
 }
 
@@ -883,10 +989,10 @@ function Invoke-RequiredBounded {
   $stdout = ''
   $stderr = ''
   $process = $null
-  $processTracker = $null
   $stdoutTask = $null
   $stderrTask = $null
   $windowsContainment = $null
+  $posixContainment = $null
   $useWindowsContainment = [OperatingSystem]::IsWindows()
 
   try {
@@ -923,60 +1029,34 @@ function Invoke-RequiredBounded {
       $processTreeTerminated = $termination.ProcessTreeTerminated
       $terminationStatus = $termination.TerminationStatus
     } else {
-      $startInfo = [Diagnostics.ProcessStartInfo]::new()
-      $startInfo.FileName = $pwshPath
-      $startInfo.WorkingDirectory = $repositoryRoot
-      $startInfo.UseShellExecute = $false
-      $startInfo.CreateNoWindow = $true
-      $startInfo.RedirectStandardOutput = $true
-      $startInfo.RedirectStandardError = $true
-      [void]$startInfo.ArgumentList.Add('-NoProfile')
-      [void]$startInfo.ArgumentList.Add('-File')
-      [void]$startInfo.ArgumentList.Add($qualityPath)
-      [void]$startInfo.ArgumentList.Add('-Lane')
-      [void]$startInfo.ArgumentList.Add('Required')
-      [void]$startInfo.ArgumentList.Add('-EvidenceDirectory')
-      [void]$startInfo.ArgumentList.Add($resolvedEvidence)
-
-      $process = [Diagnostics.Process]::new()
-      $process.StartInfo = $startInfo
-      if (-not $process.Start()) {
-        throw 'System.Diagnostics.Process.Start returned false.'
-      }
-      $stdoutTask = $process.StandardOutput.ReadToEndAsync()
-      $stderrTask = $process.StandardError.ReadToEndAsync()
-      $processTracker = New-RequiredProcessTracker -RootProcessId $process.Id
-      if (Wait-RequiredRootExitTracked `
-          -Process $process `
-          -Tracker $processTracker `
-          -TimeoutMilliseconds $timeoutMilliseconds) {
+      $posixContainment = Start-RequiredPosixSessionProcess `
+        -FileName $pwshPath `
+        -Arguments @(
+          '-NoProfile',
+          '-File',
+          $qualityPath,
+          '-Lane',
+          'Required',
+          '-EvidenceDirectory',
+          $resolvedEvidence
+        ) `
+        -WorkingDirectory $repositoryRoot
+      $process = $posixContainment.Process
+      $stdoutTask = $posixContainment.StdoutTask
+      $stderrTask = $posixContainment.StderrTask
+      $rootExited = $process.WaitForExit($timeoutMilliseconds)
+      if ($rootExited) {
+        $process.WaitForExit()
         $exitCode = [int]$process.ExitCode
-        try {
-          $termination = Stop-RequiredProcessTreeVerified `
-            -Process $process `
-            -Tracker $processTracker `
-            -RootExited `
-            -CleanupTimeoutMilliseconds 30000
-          $processTreeTerminated = $termination.ProcessTreeTerminated
-          $terminationStatus = $termination.TerminationStatus
-        } catch {
-          $terminationStatus = 'exit-drain-failed'
-          $stderr = "Required process-tree exit drain failed: $($_.Exception.Message)`n"
-        }
       } else {
         $timedOut = $true
-        try {
-          $termination = Stop-RequiredProcessTreeVerified `
-            -Process $process `
-            -Tracker $processTracker `
-            -CleanupTimeoutMilliseconds 30000
-          $processTreeTerminated = $termination.ProcessTreeTerminated
-          $terminationStatus = $termination.TerminationStatus
-        } catch {
-          $terminationStatus = 'kill-failed'
-          $stderr = "Required process-tree termination failed: $($_.Exception.Message)`n"
-        }
       }
+      $termination = Stop-RequiredPosixSessionVerified `
+        -Containment $posixContainment `
+        -RootExited:$rootExited `
+        -CleanupTimeoutMilliseconds 30000
+      $processTreeTerminated = $termination.ProcessTreeTerminated
+      $terminationStatus = $termination.TerminationStatus
 
       if ($processTreeTerminated) {
         $stdout = $stdoutTask.GetAwaiter().GetResult()
@@ -998,6 +1078,27 @@ function Invoke-RequiredBounded {
   } catch {
     $stderr += "Required invocation failed: $($_.Exception.Message)`n"
   } finally {
+    if ($null -ne $posixContainment -and -not $processTreeTerminated) {
+      try {
+        [void](Invoke-RequiredPosixTool `
+          -FileName $posixContainment.KillPath `
+          -Arguments @(
+            '-KILL',
+            '--',
+            "-$($posixContainment.ProcessGroupId)"
+          ))
+      } catch {
+        # The recorded result remains fail-closed if emergency cleanup fails.
+      }
+      try {
+        if (-not $posixContainment.Process.HasExited) {
+          $posixContainment.Process.Kill($true)
+          [void]$posixContainment.Process.WaitForExit(5000)
+        }
+      } catch {
+        # The recorded result remains fail-closed if emergency cleanup fails.
+      }
+    }
     if ($null -ne $process) {
       $process.Dispose()
     }

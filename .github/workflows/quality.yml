@@ -79,6 +79,9 @@ jobs:
           if ([string]@(& moon version)[0] -cne 'moon 0.1.20260713 (75c7e1f 2026-07-13)' -or
               [string]@(& moonc -v)[0] -cne 'v0.10.4+2cc641edf (2026-07-15)' -or
               [string]@(& moonrun --version)[0] -cne 'moonrun 0.1.20260713 (75c7e1f 2026-07-13)') { throw 'P08-TOOLCHAIN-IDENTITY' }
+      - name: Verify Required POSIX process containment
+        shell: pwsh
+        run: ./scripts/quality/Test-RequiredProcessTreeTermination.ps1
       - name: Run required quality lane
         shell: pwsh
         run: ./scripts/quality/Invoke-RequiredBounded.ps1 -EvidenceDirectory artifacts/release-qualification/ci-required -TimeoutSeconds 900
