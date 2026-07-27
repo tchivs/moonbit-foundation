@@ -991,7 +991,7 @@ function Assert-FontDeferredCapabilitySurface {
         $line -creplace '_', ' '
       }
   )
-  $deferredLeakPattern = '(?i)(\bcmap\b|\bkern(?:ing)?\b|\boutline\b|\bPath2\b|\bfilesystem\b|\bopen\b.*\bfile\b|\bfrom\b.*\bpath\b|\bffi\b|\bhost(?:\s+discovery)?\b|\bshap(?:e|er|ing)\b|\bhint(?:er|ing)?\b|\braster(?:ize|izer|ization)?\b)'
+  $deferredLeakPattern = '(?i)(\bcmap\b|\bkern(?:ing)?\b|\boutline\b|\bPath2\b|\bfile\s*system\b|\b(?:load|read|open|from)\b[^\r\n]*\b(?:file|path)\b|\bffi\b|\bforeign\s+function\s+interface\b|\bhost(?:\s+discovery)?\b|\bshap(?:e|er|ing)\b|\bhint(?:er|ing)?\b|\braster(?:ize|izer|ization)?\b)'
   Assert-Condition (@($deferredLines | Where-Object { $_ -cmatch $deferredLeakPattern }).Count -eq 0) 'Font semantic interface exposes a deferred Phase 98+ capability.'
 }
 
@@ -1101,7 +1101,13 @@ function Assert-FontFoundationPolicy {
     'pub fn Font::openFile(String) -> Self',
     'pub struct CMapLookup {',
     'pub fn Font::openFontFile(String) -> Self',
-    'pub fn Font::fromFontPath(String) -> Self'
+    'pub fn Font::fromFontPath(String) -> Self',
+    'pub struct FileSystemFontLoader {',
+    'pub fn Font::load_file(String) -> Self',
+    'pub fn Font::from_file(String) -> Self',
+    'pub fn Font::open_path(String) -> Self',
+    'pub fn Font::readFontFile(String) -> Self',
+    'pub struct ForeignFunctionInterface {'
   )) {
     $negativeFailure = $null
     try {
