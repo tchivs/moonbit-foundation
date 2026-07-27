@@ -213,6 +213,8 @@ fn font_wb_limits() -> FontLimits {
     max_glyphs=16UL,
     max_name_records=16UL,
     max_cmap_records=16UL,
+    max_kern_subtables=16UL,
+    max_kern_pairs=256UL,
     max_post_name_bytes=256UL,
     max_work=16384UL,
   ).unwrap()

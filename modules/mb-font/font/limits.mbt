@@ -11,6 +11,8 @@ pub struct FontLimits {
   priv max_glyphs_value : UInt64
   priv max_name_records_value : UInt64
   priv max_cmap_records_value : UInt64
+  priv max_kern_subtables_value : UInt64
+  priv max_kern_pairs_value : UInt64
   priv max_post_name_bytes_value : UInt64
   priv max_work_value : UInt64
 }
@@ -36,6 +38,8 @@ pub fn FontLimits::new(
   max_glyphs~ : UInt64,
   max_name_records~ : UInt64,
   max_cmap_records~ : UInt64,
+  max_kern_subtables~ : UInt64,
+  max_kern_pairs~ : UInt64,
   max_post_name_bytes~ : UInt64,
   max_work~ : UInt64,
 ) -> Result[FontLimits, @error.CoreError] {
@@ -57,6 +61,12 @@ pub fn FontLimits::new(
   if max_cmap_records == 0UL {
     return Err(invalid_font_limit("max-cmap-records"))
   }
+  if max_kern_subtables == 0UL {
+    return Err(invalid_font_limit("max-kern-subtables"))
+  }
+  if max_kern_pairs == 0UL {
+    return Err(invalid_font_limit("max-kern-pairs"))
+  }
   if max_post_name_bytes == 0UL {
     return Err(invalid_font_limit("max-post-name-bytes"))
   }
@@ -70,6 +80,8 @@ pub fn FontLimits::new(
     max_glyphs_value: max_glyphs,
     max_name_records_value: max_name_records,
     max_cmap_records_value: max_cmap_records,
+    max_kern_subtables_value: max_kern_subtables,
+    max_kern_pairs_value: max_kern_pairs,
     max_post_name_bytes_value: max_post_name_bytes,
     max_work_value: max_work,
   })
@@ -103,6 +115,16 @@ pub fn FontLimits::max_name_records(self : FontLimits) -> UInt64 {
 ///|
 pub fn FontLimits::max_cmap_records(self : FontLimits) -> UInt64 {
   self.max_cmap_records_value
+}
+
+///|
+pub fn FontLimits::max_kern_subtables(self : FontLimits) -> UInt64 {
+  self.max_kern_subtables_value
+}
+
+///|
+pub fn FontLimits::max_kern_pairs(self : FontLimits) -> UInt64 {
+  self.max_kern_pairs_value
 }
 
 ///|
