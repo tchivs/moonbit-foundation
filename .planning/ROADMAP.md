@@ -33,14 +33,14 @@
 - ✅ **v0.29 Indexed Adam7 Compression Profiles** — Phases 88-90 (shipped 2026-07-24). [Full history](./milestones/v0.29-ROADMAP.md)
 - ✅ **v0.30 SVG Production Readiness** — Phases 91-94 (shipped 2026-07-26). [Full history](./milestones/v0.30-ROADMAP.md)
 - ✅ **v0.31 SVG Numeric Boundary Unification** — Phases 95-96 (shipped 2026-07-26). [Full history](./milestones/v0.31-ROADMAP.md)
-- 📋 **v0.32 TrueType Font Foundation** — Phases 97-100 (planned).
+- 🚧 **v0.32 TrueType Font Foundation** — Phases 97-100 complete; milestone audit pending.
 
 ## Phases
 
 - [x] **Phase 97: Font Admission and Metrics** - Open bounded TrueType SFNT data through `mb-font` and expose checked global and per-glyph metrics. (completed 2026-07-27)
 - [x] **Phase 98: Unicode Mapping and Kerning** - Resolve Unicode scalars and legacy horizontal kerning through deterministic, distinguishable query outcomes. (completed 2026-07-27)
 - [x] **Phase 99: Simple and Composite Outlines** - Extract complete transactional `Path2`-compatible outlines for simple and bounded one-level composite glyphs. (completed 2026-07-27)
-- [ ] **Phase 100: Portable Font Qualification** - Prove the complete public font workflow and hostile-input behavior on all four supported targets.
+- [x] **Phase 100: Portable Font Qualification** - Prove the complete public font workflow and hostile-input behavior on all four supported targets. (completed 2026-07-28)
 
 ## Phase Details
 
@@ -162,7 +162,7 @@
 | 97. Font Admission and Metrics | 3/3 | Complete    | 2026-07-27 |
 | 98. Unicode Mapping and Kerning | 3/3 | Complete    | 2026-07-27 |
 | 99. Simple and Composite Outlines | 4/4 | Complete    | 2026-07-27 |
-| 100. Portable Font Qualification | 6/6 | In Progress|  |
+| 100. Portable Font Qualification | 6/6 | Complete    | 2026-07-28 |
 
 ---
-*Roadmap last updated: 2026-07-27 after Phase 100 plan execution.*
+*Roadmap last updated: 2026-07-28 after Phase 100 completion.*

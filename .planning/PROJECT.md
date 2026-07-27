@@ -10,13 +10,13 @@ The primary audience is MoonBit library authors and application developers build
 
 MoonBit developers can reuse stable, high-performance native infrastructure contracts instead of rebuilding incompatible foundations for every graphics, document, media, or automation product.
 
-## Current State: v0.32 TrueType Font Foundation In Progress
+## Current State: v0.32 TrueType Font Foundation Qualification Complete
 
-**Delivered:** Phases 97-99 established the independently publishable, pure-MoonBit `tchivs/mb-font` module. Library authors can open bounded standalone TrueType SFNT bytes, inspect checked font-wide and per-glyph horizontal metrics, resolve BMP and supplementary Unicode scalars through one canonical cmap, query distinguishable legacy horizontal kerning outcomes, and extract transactional unhinted `Path2` outlines for simple glyphs and bounded one-level composites.
+**Delivered:** Phases 97-100 established and qualified the independently publishable, pure-MoonBit `tchivs/mb-font` module. Library authors can open bounded standalone TrueType SFNT bytes, inspect checked font-wide and per-glyph horizontal metrics, resolve BMP and supplementary Unicode scalars through one canonical cmap, query distinguishable legacy horizontal kerning outcomes, and extract transactional unhinted `Path2` outlines for simple glyphs and bounded one-level composites. Maintainers can reproduce the complete workflow against immutable compact and licensed DejaVu Sans fixtures on every supported target.
 
-**Validated:** Phase 99 passed 14/14 canonical verification criteria, 11/11 automated UAT checks, a clean final review after closing all findings, 21/21 security threat checks, and 92/92 isolated font tests on each of `wasm`, `wasm-gc`, `js`, and `native`. Exact interface, focused/repository-wide policy, manifest, and four-target literate documentation gates also pass. The workspace-wide Required lane remains affected only by the documented Windows unscoped `mb-image/png` driver stall.
+**Validated:** Phase 100 passed 4/4 goal must-haves, 18/18 automated UAT deliverables, a clean deep code review, and 35/35 security threat checks. Fresh local runs passed 103/103 font tests on each of `js`, `wasm`, `wasm-gc`, and `native`; hosted GitHub Actions run `30297979654` passed the complete Required, focused font-qualification, POSIX containment, and experimental LLVM jobs on the exact implementation commit. Required diagnostics prove exit 0 with verified full-session termination, while focused evidence proves equal four-target semantics and complete 74-command outline assertions.
 
-**Next:** Phase 100 qualifies the complete public font workflow, adversarial outcomes, and at least one licensed immutable real-font specimen on all four targets.
+**Next:** Audit and archive v0.32, then define the next RFC-led module or capability milestone from the remaining ecosystem backlog.
 
 ## Current Milestone: v0.32 TrueType Font Foundation
 
@@ -32,10 +32,11 @@ MoonBit developers can reuse stable, high-performance native infrastructure cont
 
 ### Active
 
-- [ ] Maintainers can qualify the public font workflow and adversarial parser behavior on all four supported targets.
+(None — define the next active requirements during the next milestone cycle.)
 
 ### Validated
 
+- [x] Maintainers can qualify the public font workflow and adversarial parser behavior on all four supported targets. — Validated in Phase 100.
 - [x] Library authors can extract checked reusable unhinted `Path2` glyph outlines, including bounded one-level composite glyphs, with exact Q15 transforms, explicit resource authority, and no partial geometry on failure. — Validated in Phase 99.
 - [x] Library authors can open a bounded TrueType font and inspect stable font-wide and per-glyph metrics without FFI or target-specific behavior. — Validated in Phase 97.
 - [x] Library authors can map BMP and supplementary Unicode scalars through one deterministic canonical format-12/format-4 selection and receive opaque glyph identities with structured invalid/malformed outcomes. — Validated in Phase 98.
@@ -219,7 +220,7 @@ Registry publication and release automation remain deferred unless a concrete co
 | Add RGBA16 decoding as an explicit opt-in profile | Preserve generic RGBA8 behavior and reuse the bounded decoder while exposing exact Type-6/16 source lanes | ✓ Validated in v0.21 |
 | Add indexed Fixed-or-Stored compression as an explicit non-interlaced profile | Preserve all legacy/default Indexed1/2/4/8 bytes while selecting a bounded Fixed block only on a complete palette-aware frame win or tie | ✓ Validated in v0.28 Phases 85-87 |
 | Keep indexed compression qualification independent from production planning | Test-local parsing and checksum/raster reconstruction protect the wire contract without turning production helpers into their own oracle | ✓ Validated in v0.28 Phase 87 |
-| Implement the bounded TrueType font foundation before text shaping or PDF rendering | `mb-font` is the RFC-defined lower dependency for reusable glyph IDs, metrics, and outlines; proving it first prevents sibling modules from inventing incompatible font parsers | In progress — admission, metrics, Unicode mapping, kerning, and transactional outlines validated through Phase 99; Phase 100 qualification remains |
+| Implement the bounded TrueType font foundation before text shaping or PDF rendering | `mb-font` is the RFC-defined lower dependency for reusable glyph IDs, metrics, and outlines; proving it first prevents sibling modules from inventing incompatible font parsers | ✓ Validated in v0.32 Phases 97-100 |
 
 ## Evolution
 
@@ -239,4 +240,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update toolchain, compatibility, benchmark, and adoption context.
 
 ---
-*Last updated: 2026-07-27 after Phase 99 validation*
+*Last updated: 2026-07-28 after Phase 100 validation*
