@@ -251,4 +251,67 @@ Invoke-WorkflowPolicyCase `
   -ShouldPass $false `
   -ExpectedFailurePattern 'broader process PATH'
 
+Invoke-WorkflowPolicyCase `
+  -Name 'core archive requires the current moon.mod marker' `
+  -Arrange {
+    param($state)
+    $state.Installer = $state.Installer.Replace(
+      "    -RequiredMember './core/moon.mod' ``",
+      "    -RequiredMember './core/README.md' ``"
+    )
+  } `
+  -ShouldPass $false `
+  -ExpectedFailurePattern 'exact ./core/ layout'
+
+Invoke-WorkflowPolicyCase `
+  -Name 'core archive rejects a legacy-only marker policy' `
+  -Arrange {
+    param($state)
+    $state.Installer = $state.Installer.Replace(
+      "    -RequiredMember './core/moon.mod' ``",
+      "    -RequiredMember './core/moon.mod.json' ``"
+    ).Replace(
+      "    -ForbiddenMembers @('./core/moon.mod.json')",
+      "    -ForbiddenMembers @('./core/moon.mod')"
+    )
+  } `
+  -ShouldPass $false `
+  -ExpectedFailurePattern 'exact ./core/ layout'
+
+Invoke-WorkflowPolicyCase `
+  -Name 'core archive rejects ambiguous current and legacy markers' `
+  -Arrange {
+    param($state)
+    $state.Installer = $state.Installer.Replace(
+      "    -ForbiddenMembers @('./core/moon.mod.json')",
+      '    -ForbiddenMembers @()'
+    )
+  } `
+  -ShouldPass $false `
+  -ExpectedFailurePattern 'exact ./core/ layout'
+
+Invoke-WorkflowPolicyCase `
+  -Name 'core archive rejects a broadened root layout' `
+  -Arrange {
+    param($state)
+    $state.Installer = $state.Installer.Replace(
+      "    -ExpectedRoot './core/' ``",
+      "    -ExpectedRoot './' ``"
+    )
+  } `
+  -ShouldPass $false `
+  -ExpectedFailurePattern 'exact ./core/ layout'
+
+Invoke-WorkflowPolicyCase `
+  -Name 'extracted core cannot regress to the legacy marker' `
+  -Arrange {
+    param($state)
+    $state.Installer = $state.Installer.Replace(
+      "  `$coreMarker = Join-Path `$libraryPath 'core/moon.mod'",
+      "  `$coreMarker = Join-Path `$libraryPath 'core/moon.mod.json'"
+    )
+  } `
+  -ShouldPass $false `
+  -ExpectedFailurePattern 'extracted core'
+
 Write-Host 'Quality workflow content-addressed toolchain policy matrix passed.'

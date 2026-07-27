@@ -52,7 +52,10 @@ function Assert-PinnedArchive {
 function Assert-PinnedArchiveMembers {
   param(
     [Parameter(Mandatory)][string]$TarPath,
-    [Parameter(Mandatory)][string]$ArchivePath
+    [Parameter(Mandatory)][string]$ArchivePath,
+    [string]$ExpectedRoot,
+    [string]$RequiredMember,
+    [string[]]$ForbiddenMembers = @()
   )
 
   $members = @(& $TarPath -tzf $ArchivePath 2>&1)
@@ -62,8 +65,10 @@ function Assert-PinnedArchiveMembers {
   if ($members.Count -eq 0) {
     throw "P08-TOOLCHAIN-ARCHIVE-EMPTY: '$ArchivePath'"
   }
+  $normalizedMembers = @()
   foreach ($memberValue in $members) {
     $member = ([string]$memberValue).Replace('\', '/')
+    $normalizedMembers += $member
     $segments = @(
       $member.Split(
         '/',
@@ -77,18 +82,57 @@ function Assert-PinnedArchiveMembers {
       )
     }
   }
+  $hasExpectedRoot = -not [string]::IsNullOrEmpty($ExpectedRoot)
+  $hasRequiredMember = -not [string]::IsNullOrEmpty($RequiredMember)
+  if ($hasExpectedRoot -ne $hasRequiredMember -or
+      ($ForbiddenMembers.Count -gt 0 -and -not $hasExpectedRoot)) {
+    throw 'P08-TOOLCHAIN-ARCHIVE-LAYOUT-POLICY'
+  }
+  if ($hasExpectedRoot) {
+    foreach ($member in $normalizedMembers) {
+      if (-not $member.StartsWith(
+          $ExpectedRoot,
+          [StringComparison]::Ordinal
+        )) {
+        throw (
+          "P08-TOOLCHAIN-ARCHIVE-ROOT: '$ArchivePath' contains '$member'; " +
+          "expected root '$ExpectedRoot'."
+        )
+      }
+    }
+    $requiredCount = @(
+      $normalizedMembers | Where-Object { $_ -ceq $RequiredMember }
+    ).Count
+    if ($requiredCount -ne 1) {
+      throw (
+        "P08-TOOLCHAIN-ARCHIVE-MARKER: '$RequiredMember' count=" +
+        "$requiredCount."
+      )
+    }
+    foreach ($forbiddenMember in $ForbiddenMembers) {
+      if ($normalizedMembers -ccontains $forbiddenMember) {
+        throw "P08-TOOLCHAIN-ARCHIVE-FORBIDDEN: '$forbiddenMember'"
+      }
+    }
+  }
 }
 
 function Expand-PinnedArchive {
   param(
     [Parameter(Mandatory)][string]$TarPath,
     [Parameter(Mandatory)][string]$ArchivePath,
-    [Parameter(Mandatory)][string]$Destination
+    [Parameter(Mandatory)][string]$Destination,
+    [string]$ExpectedRoot,
+    [string]$RequiredMember,
+    [string[]]$ForbiddenMembers = @()
   )
 
   Assert-PinnedArchiveMembers `
     -TarPath $TarPath `
-    -ArchivePath $ArchivePath
+    -ArchivePath $ArchivePath `
+    -ExpectedRoot $ExpectedRoot `
+    -RequiredMember $RequiredMember `
+    -ForbiddenMembers $ForbiddenMembers
   & $TarPath -xzf $ArchivePath -C $Destination
   if ($LASTEXITCODE -ne 0) {
     throw "P08-TOOLCHAIN-ARCHIVE-EXTRACT: '$ArchivePath'"
@@ -249,11 +293,23 @@ try {
   Expand-PinnedArchive `
     -TarPath $tarCommand.Source `
     -ArchivePath $corePath `
-    -Destination $libraryPath
-  if (-not (Test-Path -LiteralPath (
-        Join-Path $libraryPath 'core/moon.mod.json'
-      ) -PathType Leaf)) {
-    throw 'P08-TOOLCHAIN-CORE-MISSING: core/moon.mod.json'
+    -Destination $libraryPath `
+    -ExpectedRoot './core/' `
+    -RequiredMember './core/moon.mod' `
+    -ForbiddenMembers @('./core/moon.mod.json')
+  $coreRoots = @(Get-ChildItem -LiteralPath $libraryPath -Force)
+  if ($coreRoots.Count -ne 1 -or
+      $coreRoots[0].Name -cne 'core' -or
+      -not $coreRoots[0].PSIsContainer) {
+    throw 'P08-TOOLCHAIN-CORE-LAYOUT: expected only core/'
+  }
+  $coreMarker = Join-Path $libraryPath 'core/moon.mod'
+  if (-not (Test-Path -LiteralPath $coreMarker -PathType Leaf)) {
+    throw 'P08-TOOLCHAIN-CORE-MISSING: core/moon.mod'
+  }
+  $legacyCoreMarker = Join-Path $libraryPath 'core/moon.mod.json'
+  if (Test-Path -LiteralPath $legacyCoreMarker) {
+    throw 'P08-TOOLCHAIN-CORE-LEGACY: core/moon.mod.json'
   }
 
   Move-Item -LiteralPath $stagingPath -Destination $destination
