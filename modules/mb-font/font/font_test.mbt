@@ -3210,6 +3210,28 @@ test "format 6 coexists with canonical Unicode cmap without becoming selectable"
 }
 
 ///|
+test "inconsistent format 6 entry count rejects beside canonical Unicode cmap" {
+  let source = font_test_truetype_with_cmap_and_glyphs(
+    font_test_cmap_records([(1UL, 0UL, 0), (0UL, 4UL, 1)], [
+      font_test_cmap_format6(10UL, [0UL]),
+      font_test_cmap_subtable(
+        font_test_cmap_format12([(0x0041UL, 0x0041UL, 1UL)]),
+      ),
+    ]),
+    2UL,
+  )
+  let error = Font::open(
+    font_test_owner(source).view(),
+    font_test_limits(),
+    font_test_budget(),
+  ).unwrap_err()
+  inspect(error.category() == @error.ErrorCategory::Data, content="true")
+  inspect(error.code() == @error.ErrorCode::InvalidEncoding, content="true")
+  inspect(error.operation() == Some("font-open"), content="true")
+  inspect(error.context() == Some("font-cmap-envelope"), content="true")
+}
+
+///|
 test "DejaVu Sans 2.37 opens with its non-selected format 6 cmap" {
   let source = font_qualification_dejavu_sans_237_bytes()
   inspect(source.length(), content="757076")

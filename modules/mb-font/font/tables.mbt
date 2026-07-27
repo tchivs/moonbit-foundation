@@ -721,7 +721,23 @@ fn font_cmap_subtable_envelope(
         Err(error) => return Err(error)
         Ok(value) => value
       }
-      if length < 10UL || length > remaining || length % 2UL != 0UL {
+      let entry_count_field = match @checked.checked_add(offset, 8UL) {
+        Err(_) => return Err(font_data_error("font-cmap-envelope"))
+        Ok(value) => value
+      }
+      let entry_count = match read_u16(table.view, entry_count_field) {
+        Err(_) => return Err(font_data_error("font-cmap-envelope"))
+        Ok(value) => value
+      }
+      let glyph_bytes = match @checked.checked_mul(entry_count, 2UL) {
+        Err(_) => return Err(font_data_error("font-cmap-envelope"))
+        Ok(value) => value
+      }
+      let expected_length = match @checked.checked_add(10UL, glyph_bytes) {
+        Err(_) => return Err(font_data_error("font-cmap-envelope"))
+        Ok(value) => value
+      }
+      if length != expected_length || length > remaining {
         return Err(font_data_error("font-cmap-envelope"))
       }
       Ok({ format, length })
