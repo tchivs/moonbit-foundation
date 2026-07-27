@@ -28,6 +28,7 @@ priv struct CollectionDsigRecord {
 ///|
 priv struct CollectionDsigFacts {
   record_count : UInt64
+  record_array_end : UInt64
 }
 
 ///|
@@ -606,13 +607,13 @@ fn font_collection_validate_dsig_blocks(
 }
 
 ///|
-fn font_collection_parse_dsig_envelope(
+fn font_collection_parse_dsig_declaration(
   source : @bytes.ByteView,
   declaration : CollectionDeclarationFacts,
   limits : FontCollectionLimits,
 ) -> Result[CollectionDsigFacts, @error.CoreError] {
   if !declaration.dsig_present {
-    return Ok({ record_count: 0UL })
+    return Ok({ record_count: 0UL, record_array_end: 0UL })
   }
   let length = declaration.dsig_end - declaration.dsig_start
   if length < 8UL {
@@ -717,16 +718,24 @@ fn font_collection_parse_dsig_envelope(
         ),
       )
   }
-  match
-    font_collection_validate_dsig_blocks(
-      source,
-      declaration,
-      record_count,
-      record_array.end(),
-    ) {
-    Ok(_) => Ok({ record_count, })
-    Err(error) => Err(error)
+  Ok({ record_count, record_array_end: record_array.end() })
+}
+
+///|
+fn font_collection_validate_dsig_envelope(
+  source : @bytes.ByteView,
+  declaration : CollectionDeclarationFacts,
+  dsig : CollectionDsigFacts,
+) -> Result[Unit, @error.CoreError] {
+  if !declaration.dsig_present {
+    return Ok(())
   }
+  font_collection_validate_dsig_blocks(
+    source,
+    declaration,
+    dsig.record_count,
+    dsig.record_array_end,
+  )
 }
 
 ///|
@@ -1990,6 +1999,27 @@ fn font_collection_parse(
     Ok(value) => value
     Err(error) => return Err(error)
   }
+  let dsig = match
+    font_collection_parse_dsig_declaration(source, declaration, limits) {
+    Ok(value) => value
+    Err(error) => return Err(error)
+  }
+  let charge = match
+    font_collection_retained_charge(
+      declaration.face_count,
+      declaration.table_records,
+      declaration.version,
+      declaration.dsig_present,
+      dsig.record_count,
+      limits,
+    ) {
+    Ok(value) => value
+    Err(error) => return Err(error)
+  }
+  match budget.preflight(charge) {
+    Ok(_) => ()
+    Err(error) => return Err(error)
+  }
   let mut face_index = 0UL
   while face_index < declaration.face_count {
     let face = match
@@ -2018,24 +2048,7 @@ fn font_collection_parse(
     Ok(_) => ()
     Err(error) => return Err(error)
   }
-  let dsig = match
-    font_collection_parse_dsig_envelope(source, declaration, limits) {
-    Ok(value) => value
-    Err(error) => return Err(error)
-  }
-  let charge = match
-    font_collection_retained_charge(
-      declaration.face_count,
-      declaration.table_records,
-      declaration.version,
-      declaration.dsig_present,
-      dsig.record_count,
-      limits,
-    ) {
-    Ok(value) => value
-    Err(error) => return Err(error)
-  }
-  match budget.preflight(charge) {
+  match font_collection_validate_dsig_envelope(source, declaration, dsig) {
     Ok(_) => ()
     Err(error) => return Err(error)
   }

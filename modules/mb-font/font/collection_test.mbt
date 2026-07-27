@@ -1143,3 +1143,34 @@ test "TTC-01 DSIG record and work ceilings are exact and atomic" {
     ignore(owner)
   }
 }
+
+///|
+test "TTC-01 work authority precedes DSIG block traversal" {
+  let malformed = font_collection_test_dsig_ttc().to_array()
+  // This reserved field is rejected only while traversing the signature block.
+  font_collection_test_put_u32(malformed, 88, 1UL)
+  let source = Bytes::from_array(malformed)
+  for item in [(47UL, 48UL, true), (48UL, 47UL, false)] {
+    let (max_work, budget_work, limited_by_collection) = item
+    let owner = font_collection_test_owner(source)
+    let budget = font_collection_test_dsig_budget(budget_work)
+    let before = budget.remaining()
+    let error = FontCollection::open(
+      owner.view(),
+      font_collection_test_dsig_limits(1UL, 32UL, max_work),
+      budget,
+    ).unwrap_err()
+    if limited_by_collection {
+      font_collection_test_assert_error(
+        error,
+        @error.ErrorCategory::Resource,
+        @error.ErrorCode::BudgetExceeded,
+      )
+      inspect(error.context() == Some("max-work"), content="true")
+    } else {
+      inspect(error.category() == @error.ErrorCategory::Resource, content="true")
+      inspect(error.code() == @error.ErrorCode::BudgetExceeded, content="true")
+    }
+    font_collection_test_assert_budget_unchanged(before, budget)
+  }
+}
