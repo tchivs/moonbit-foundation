@@ -276,12 +276,13 @@ again after the complete private result is ready. Its structured failures keep
 the five public categories distinct:
 
 - `InvalidInput` for a foreign or out-of-range glyph identity;
-- `Data` for malformed streams, descriptors, cycles, references, bounds, or
-  checked-arithmetic failure;
+- `Data` for malformed streams, descriptors, cycles, references, bounds,
+  checked-arithmetic failure, or actual glyph point, contour, component, or
+  instruction facts that exceed admitted `maxp` claims;
 - `Capability` for a valid but deferred profile such as deeper composite
   geometry, phantom-point attachment, or grid rounding;
-- `Resource` for `maxp`, retained-limit, `max_work`, or caller-budget
-  exhaustion;
+- `Resource` for exhaustion of retained `FontLimits`, cumulative `max_work`, or
+  the caller's query `Budget`;
 - `State` for retained-source revision drift before publication.
 
 ## Retained-source validity
