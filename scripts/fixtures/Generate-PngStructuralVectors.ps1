@@ -11,6 +11,26 @@ $TestOutputPath = Join-Path $Root 'modules\mb-image\png\generated_vectors_test.m
 $ManifestPath = Join-Path $Root 'fixtures\manifest.json'
 $Signature = [byte[]](0x89,0x50,0x4e,0x47,0x0d,0x0a,0x1a,0x0a)
 
+function ConvertTo-CanonicalText([string]$Text) {
+  $normalized = $Text.Replace("`r`n", "`n").Replace("`r", "`n")
+  return $normalized.TrimEnd([char[]]"`n") + "`n"
+}
+function Assert-CanonicalTextContract {
+  $cases = @(
+    @{ Name='CRLF'; Input="alpha`r`nbeta`r`n"; Expected="alpha`nbeta`n" },
+    @{ Name='LF'; Input="alpha`nbeta`n"; Expected="alpha`nbeta`n" },
+    @{ Name='no terminal newline'; Input='alpha'; Expected="alpha`n" },
+    @{ Name='repeated terminal newlines'; Input="alpha`r`n`r`n"; Expected="alpha`n" }
+  )
+  foreach ($case in $cases) {
+    $actual = ConvertTo-CanonicalText ([string]$case.Input)
+    if ($actual -cne [string]$case.Expected) {
+      throw "Canonical text self-test '$($case.Name)' failed."
+    }
+  }
+}
+Assert-CanonicalTextContract
+
 function Join-ByteArrays([object[]]$Parts) {
   $result = [Collections.Generic.List[byte]]::new()
   foreach ($part in $Parts) { if ($null -ne $part) { $result.AddRange([byte[]]$part) } }
@@ -153,6 +173,6 @@ function Render-Table([string]$Name) {
   ($lines -join "`n") + "`n"
 }
 $text=Render-Table '_generated_png_structural_cases'; $testText=Render-Table '_generated_png_public_cases'
-$sha=[Convert]::ToHexString([Security.Cryptography.SHA256]::HashData([IO.File]::ReadAllBytes($CasesPath))).ToLowerInvariant(); $manifest=Get-Content -Raw $ManifestPath | ConvertFrom-Json; $record=@($manifest.records|Where-Object {$_.id -ceq 'png-structural-safety-vectors'}); if($record.Count-ne 1){throw 'PNG manifest record missing.'}; foreach($field in $manifest.required_record_fields){if($null-eq $record[0].PSObject.Properties[$field] -or [string]::IsNullOrWhiteSpace([string]$record[0].$field)){throw "PNG manifest field missing: $field"}}; if($record[0].path -cne 'fixtures/png/cases.json' -or $record[0].origin -cne 'generated' -or $record[0].license -cne 'Apache-2.0'){throw 'PNG fixture manifest identity is invalid.'}; if($Check -and $record[0].sha256 -cne $sha){throw 'PNG fixture manifest digest is stale.'}; if(-not $Check){$record[0].sha256=$sha;[IO.File]::WriteAllText($ManifestPath,(($manifest|ConvertTo-Json -Depth 20)+"`n"),$Utf8NoBom)}
+$sha=[Convert]::ToHexString([Security.Cryptography.SHA256]::HashData([IO.File]::ReadAllBytes($CasesPath))).ToLowerInvariant(); $manifest=Get-Content -Raw $ManifestPath | ConvertFrom-Json; $record=@($manifest.records|Where-Object {$_.id -ceq 'png-structural-safety-vectors'}); if($record.Count-ne 1){throw 'PNG manifest record missing.'}; foreach($field in $manifest.required_record_fields){if($null-eq $record[0].PSObject.Properties[$field] -or [string]::IsNullOrWhiteSpace([string]$record[0].$field)){throw "PNG manifest field missing: $field"}}; if($record[0].path -cne 'fixtures/png/cases.json' -or $record[0].origin -cne 'generated' -or $record[0].license -cne 'Apache-2.0'){throw 'PNG fixture manifest identity is invalid.'}; if($Check -and $record[0].sha256 -cne $sha){throw 'PNG fixture manifest digest is stale.'}; if(-not $Check){$record[0].sha256=$sha;$manifestText=ConvertTo-CanonicalText ($manifest|ConvertTo-Json -Depth 20);[IO.File]::WriteAllText($ManifestPath,$manifestText,$Utf8NoBom)}
 if($Check){if(-not(Test-Path $OutputPath)-or([IO.File]::ReadAllText($OutputPath,$Utf8NoBom).Replace("`r`n","`n"))-cne$text){throw "Generated artifact stale: $OutputPath"};if(-not(Test-Path $TestOutputPath)-or([IO.File]::ReadAllText($TestOutputPath,$Utf8NoBom).Replace("`r`n","`n"))-cne$testText){throw "Generated artifact stale: $TestOutputPath"}}else{[IO.File]::WriteAllText($OutputPath,$text,$Utf8NoBom);[IO.File]::WriteAllText($TestOutputPath,$testText,$Utf8NoBom)}
 Write-Host "PNG structural vector generation/check passed ($($cases.cases.Count) P+W cases)."
