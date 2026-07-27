@@ -1,6 +1,6 @@
 ---
 phase: 98-unicode-mapping-and-kerning
-verified: 2026-07-27T08:53:05.757Z
+verified: 2026-07-27T09:00:53.502Z
 status: passed
 score: 16/16 must-haves verified
 behavior_unverified: 0
@@ -9,10 +9,7 @@ re_verification:
   previous_status: passed
   previous_score: 16/16
   gaps_closed:
-    - "CR-98-001: failed kern subtable and pair scans now consume shared work immediately while bytes and allocations remain atomic."
-    - "CR-98-002: failed cmap record and format-4 discovery scans now consume shared work immediately while one-short preflight does not charge the rejected scan."
-    - "WR-98-001: the module manifest description is now enforced as an exact policy value."
-    - "WR-98-002: bilingual root discovery text now identifies v0.32 TrueType Font Foundation as the active line."
+    - "Phase 98 Plan 03 D1/D2 cross-target evidence now uses the classifier-valid integration kind; all nine phase coverage entries auto-pass."
   gaps_remaining: []
   regressions: []
 ---
@@ -20,9 +17,9 @@ re_verification:
 # Phase 98: Unicode Mapping and Kerning Verification Report
 
 **Phase Goal:** Library authors can resolve Unicode scalars and basic legacy horizontal kerning through deterministic queries over the admitted font.
-**Verified:** 2026-07-27T08:53:05.757Z
+**Verified:** 2026-07-27T09:00:53.502Z
 **Status:** passed
-**Re-verification:** Yes — final post-review-fix regression verification
+**Re-verification:** Yes — metadata-only coverage-classifier refresh
 
 ## Goal Achievement
 
@@ -51,7 +48,9 @@ re_verification:
 
 ### Re-verification Evidence
 
-This final pass independently inspected the implementation introduced by review-fix commits `1d2fb155`, `5bb88f20`, `d5597d55`, and `4f916918`; the clean review/security narratives were used only to identify claims to falsify.
+Commits `456ce4bb` and `cb6d1a83` change planning metadata only. Git object comparison against the immediately preceding verification commit `739d4674` proves `modules/mb-font`, `scripts/quality/Assert-Policy.ps1`, `policy/foundation.json`, and the root `README.md` are byte-identical. No implementation, interface, policy, documentation, test, or behavior changed, so the final 16/16 must-have and four-target 65/65 evidence remains valid.
+
+The retained post-review evidence is:
 
 - Cmap record discovery commits `record_count` work immediately before traversal. Each format-4 segment scan separately proves the semantic cumulative `max_work`, preflights the remaining shared budget, then commits only that scan's work.
 - Kern subtable and pair scans use the same ordering. Semantic checks include the full cumulative cmap/kern work, while shared-budget preflights include previously charged work implicitly through the reduced remaining budget.
@@ -59,6 +58,19 @@ This final pass independently inspected the implementation introduced by review-
 - One-short shared-budget tests prove the rejected scan is neither entered nor charged. Failure-path tests repeat late malformed cmap and kern inputs against one shared budget and observe cumulative work consumption, while bytes and allocations remain unchanged.
 - Deterministic post-read revision interleaving still passes 2/2, and the complete package passes 65/65 independently on all four supported targets.
 - The generated interface is byte-stable, the exact manifest description policy passes, and bilingual discovery text identifies v0.32 as active. No regression or human-only item remains.
+
+### Coverage Metadata Classification
+
+The classifier was rerun independently against every Phase 98 SUMMARY:
+
+| Summary | Mode | Total | Auto-passed | Present | Errors | IDs |
+|---|---|---:|---:|---:|---:|---|
+| `98-01-SUMMARY.md` | coverage | 3 | 3 | 0 | 0 | D1, D2, D3 |
+| `98-02-SUMMARY.md` | coverage | 3 | 3 | 0 | 0 | D1, D2, D3 |
+| `98-03-SUMMARY.md` | coverage | 3 | 3 | 0 | 0 | D1, D2, D3 |
+| **Aggregate** | **coverage** | **9** | **9** | **0** | **0** | **D1-D3 per summary** |
+
+All three results report `all_auto_covered: true`. The task commit `456ce4bb` changes exactly two scalars in `98-03-SUMMARY.md`, both from invalid `kind: portability` to valid `kind: integration`; descriptions, references, statuses, requirements, ordering, and `human_judgment: false` remain unchanged.
 
 ### Prohibition Verification
 
@@ -151,9 +163,9 @@ No failed Phase 98 truth was deferred. Phase 99 outline extraction and Phase 100
 
 ### Gaps Summary
 
-All post-review findings are closed in executable code and policy/documentation gates. No implementation, wiring, resource-accounting, policy, interface, requirement, behavioral, security, or human-verification gap remains. Phase 98 achieves its goal and is ready to proceed.
+All post-review findings remain closed in executable code and policy/documentation gates. Coverage classification is now 9/9 auto-passed with no present entries or errors. No implementation, wiring, resource-accounting, policy, interface, requirement, behavioral, security, metadata, or human-verification gap remains. Phase 98 achieves its goal and is ready to proceed.
 
 ---
 
-_Verified: 2026-07-27T08:53:05.757Z_
+_Verified: 2026-07-27T09:00:53.502Z_
 _Verifier: the agent (gsd-verifier)_
