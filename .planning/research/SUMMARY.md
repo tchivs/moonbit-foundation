@@ -94,7 +94,7 @@ All downstream table readers remain collection-unaware because they already cons
 6. **Shared font admission transaction** — unchanged required-table, profile, cmap, kern, metrics, loca/glyf, outline, budget, and final revision gates producing the existing `Font`.
 7. **Qualification system** — independent micro-collection builder/oracle, licensed specimen manifest, hostile mutation matrix, standalone regressions, and four-target canonical selectors.
 
-Likely repository changes are concentrated in `modules/mb-font/font/collection.mbt`, `limits.mbt` or a sibling collection-limits file, `directory.mbt`, `font.mbt`, focused tests, `fixtures/font`, fixture manifests, and font qualification scripts. `mb-core`, downstream modules, and public dependency policy should remain unchanged.
+Likely future repository changes are concentrated in the mb-font collection facade, its limits and directory/font admission internals, focused tests, font fixtures and manifests, and qualification scripts. This is a planning forecast rather than a claim that those files already exist. mb-core, downstream modules, and public dependency policy should remain unchanged.
 
 ### Critical Pitfalls
 
