@@ -228,7 +228,7 @@ test "portable outline fixture freezes expanded points descriptors and graph" {
 }
 
 ///|
-test "uniform composite tracer remains a directly verified production slice" {
+test "uniform composite public production path remains directly verified" {
   let parent = generated_composite_glyph(
     10,
     -4,
@@ -243,23 +243,16 @@ test "uniform composite tracer remains a directly verified production slice" {
     ]),
   )
   let font = Font::open(owner.view(), font_wb_limits(), font_wb_open_budget()).unwrap()
-  let source = font_glyph_window(font.metric_index, 1UL).unwrap().unwrap()
-  let ledger : OutlineWork = { used: 0UL }
-  let path = font_decode_tracer_composite_outline(
-    source,
-    font.metric_index,
-    font.tables.maxp,
-    font.limits,
-    ledger,
-    font_wb_outline_budget(),
-  ).unwrap()
+  let path = font
+    .outline(font.glyph_id(1UL).unwrap(), font_wb_outline_budget())
+    .unwrap()
   inspect(path.length(), content="4")
   match path.get(0) {
     Some(@math.PathCommand::MoveTo(point)) => {
       inspect(point.x(), content="10")
       inspect(point.y(), content="-4")
     }
-    _ => fail("expected direct tracer MoveTo")
+    _ => fail("expected production composite MoveTo")
   }
 }
 
