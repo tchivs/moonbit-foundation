@@ -44,6 +44,14 @@ priv struct CmapSubtableFacts {
 }
 
 ///|
+priv struct CmapAdmissionWork {
+  body_records : UInt64
+  format4_discovery_work : UInt64
+  search_work : UInt64
+  mapping_work : UInt64
+}
+
+///|
 /// Retains the admitted cmap envelope for Phase 98 cmap lookup.
 #warnings("-7")
 priv struct RequiredTableFacts {
@@ -58,6 +66,7 @@ priv struct RequiredTableFacts {
 fn font_admission_charge(
   directory : DirectoryFacts,
   limits : FontLimits,
+  budget : @budget.Budget,
 ) -> Result[@budget.ResourceCharge, @error.CoreError] {
   let maxp_table = match font_table_window(directory, 0x6D617870UL) {
     Err(error) => return Err(error)
@@ -76,6 +85,19 @@ fn font_admission_charge(
   }
   if num_glyphs > limits.max_glyphs() {
     return Err(font_limit_error("max-glyphs", num_glyphs, limits.max_glyphs()))
+  }
+  let table_count = directory.tables.length().to_uint64()
+  // The initial preflight authorizes the directory work plus these four
+  // count-bearing table lookups. Carry that exact prefix into the cumulative
+  // cmap discovery preflights below.
+  let precharge_lookup_work = match @checked.checked_mul(table_count, 4UL) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  let cmap_discovery_base_work = match
+    @checked.checked_add(directory.work, precharge_lookup_work) {
+    Err(error) => return Err(error)
+    Ok(value) => value
   }
 
   let cmap_table = match font_table_window(directory, 0x636D6170UL) {
@@ -101,8 +123,13 @@ fn font_admission_charge(
   }
   // Count discovery is intentionally separate from semantic validation: it
   // determines the exact later scan work before the one authoritative charge.
-  let cmap_body_records = match
-    font_cmap_declared_body_records(cmap_table, cmap_records) {
+  let cmap_work = match
+    font_cmap_declared_work(
+      cmap_table,
+      cmap_records,
+      budget,
+      cmap_discovery_base_work,
+    ) {
     Err(error) => return Err(error)
     Ok(value) => value
   }
@@ -221,7 +248,6 @@ fn font_admission_charge(
     Err(error) => return Err(error)
     Ok(value) => value
   }
-  let table_count = directory.tables.length().to_uint64()
   // Four count-discovery lookups, ten presence lookups, ten table-admission
   // lookups, and three metric-index lookups each scan at most every record.
   let lookup_work = match @checked.checked_mul(table_count, 27UL) {
@@ -239,7 +265,9 @@ fn font_admission_charge(
       lookup_work, table_iteration_work, glyph_work, cmap_records, name_records,
       // The first cmap count covers the pre-charge subtable-count discovery;
       // the second covers the post-charge encoding-record validation loop.
-       cmap_records, cmap_body_records, language_records, post_glyph_records, post_name_bytes,
+      cmap_records, cmap_work.body_records, cmap_work.format4_discovery_work,
+      cmap_work.search_work, cmap_work.mapping_work, language_records,
+      post_glyph_records, post_name_bytes,
     ] {
     work = match @checked.checked_add(work, count) {
       Err(error) => return Err(error)
@@ -704,10 +732,124 @@ fn font_cmap_subtable_facts(
 }
 
 ///|
-fn font_cmap_declared_body_records(
+fn font_preflight_admission_work(
+  budget : @budget.Budget,
+  work : UInt64,
+) -> Result[Unit, @error.CoreError] {
+  budget.preflight(
+    @budget.ResourceCharge::new(
+      bytes=0UL,
+      allocations=0UL,
+      allocation_size=0UL,
+      width=0UL,
+      height=0UL,
+      pixels=0UL,
+      work~,
+    ),
+  )
+}
+
+///|
+fn font_cmap_search_selector(seg_count : UInt64) -> UInt64 {
+  if seg_count >= 16384UL {
+    14UL
+  } else if seg_count >= 8192UL {
+    13UL
+  } else if seg_count >= 4096UL {
+    12UL
+  } else if seg_count >= 2048UL {
+    11UL
+  } else if seg_count >= 1024UL {
+    10UL
+  } else if seg_count >= 512UL {
+    9UL
+  } else if seg_count >= 256UL {
+    8UL
+  } else if seg_count >= 128UL {
+    7UL
+  } else if seg_count >= 64UL {
+    6UL
+  } else if seg_count >= 32UL {
+    5UL
+  } else if seg_count >= 16UL {
+    4UL
+  } else if seg_count >= 8UL {
+    3UL
+  } else if seg_count >= 4UL {
+    2UL
+  } else if seg_count >= 2UL {
+    1UL
+  } else {
+    0UL
+  }
+}
+
+///|
+fn font_cmap_format4_mapping_work(
+  table : TableWindow,
+  offset : UInt64,
+  facts : CmapSubtableFacts,
+) -> Result[UInt64, @error.CoreError] {
+  let code_array_size = match @checked.checked_mul(facts.body_records, 2UL) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  let end_codes = match @checked.checked_add(offset, 14UL) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  let reserved = match @checked.checked_add(end_codes, code_array_size) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  let start_codes = match @checked.checked_add(reserved, 2UL) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  let mut mapping_work = 0UL
+  let mut index = 0UL
+  while index < facts.body_records {
+    let delta = match @checked.checked_mul(index, 2UL) {
+      Err(error) => return Err(error)
+      Ok(value) => value
+    }
+    let end_code = match read_u16(table.view, end_codes + delta) {
+      Err(error) => return Err(error)
+      Ok(value) => value
+    }
+    let start_code = match read_u16(table.view, start_codes + delta) {
+      Err(error) => return Err(error)
+      Ok(value) => value
+    }
+    if index + 1UL < facts.body_records {
+      let span = match
+        @checked.checked_add(
+          match @checked.checked_sub(end_code, start_code) {
+            Err(_) => return Err(font_data_error("font-cmap-envelope"))
+            Ok(value) => value
+          },
+          1UL,
+        ) {
+        Err(error) => return Err(error)
+        Ok(value) => value
+      }
+      mapping_work = match @checked.checked_add(mapping_work, span) {
+        Err(error) => return Err(error)
+        Ok(value) => value
+      }
+    }
+    index = index + 1UL
+  }
+  Ok(mapping_work)
+}
+
+///|
+fn font_cmap_declared_work(
   table : TableWindow,
   record_count : UInt64,
-) -> Result[UInt64, @error.CoreError] {
+  budget : @budget.Budget,
+  discovery_base_work : UInt64,
+) -> Result[CmapAdmissionWork, @error.CoreError] {
   let record_bytes = match @checked.checked_mul(record_count, 8UL) {
     Err(error) => return Err(error)
     Ok(value) => value
@@ -719,7 +861,19 @@ fn font_cmap_declared_body_records(
   if records_end > table.length_value {
     return Err(font_data_error("font-cmap-envelope"))
   }
+  let record_discovery_work = match
+    @checked.checked_add(discovery_base_work, record_count) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  match font_preflight_admission_work(budget, record_discovery_work) {
+    Err(error) => return Err(error)
+    Ok(_) => ()
+  }
   let mut body_records = 0UL
+  let mut format4_discovery_work = 0UL
+  let mut search_work = 0UL
+  let mut mapping_work = 0UL
   let mut index = 0UL
   while index < record_count {
     let record = match
@@ -760,9 +914,45 @@ fn font_cmap_declared_body_records(
       Err(error) => return Err(error)
       Ok(value) => value
     }
+    if facts.format == 4UL {
+      let next_discovery_work = match
+        @checked.checked_add(format4_discovery_work, facts.body_records) {
+        Err(error) => return Err(error)
+        Ok(value) => value
+      }
+      let preflight_work = match
+        @checked.checked_add(record_discovery_work, next_discovery_work) {
+        Err(error) => return Err(error)
+        Ok(value) => value
+      }
+      match font_preflight_admission_work(budget, preflight_work) {
+        Err(error) => return Err(error)
+        Ok(_) => ()
+      }
+      format4_discovery_work = next_discovery_work
+      search_work = match
+        @checked.checked_add(
+          search_work,
+          font_cmap_search_selector(facts.body_records),
+        ) {
+        Err(error) => return Err(error)
+        Ok(value) => value
+      }
+      mapping_work = match
+        @checked.checked_add(
+          mapping_work,
+          match font_cmap_format4_mapping_work(table, subtable, facts) {
+            Err(error) => return Err(error)
+            Ok(value) => value
+          },
+        ) {
+        Err(error) => return Err(error)
+        Ok(value) => value
+      }
+    }
     index = index + 1UL
   }
-  Ok(body_records)
+  Ok({ body_records, format4_discovery_work, search_work, mapping_work })
 }
 
 ///|

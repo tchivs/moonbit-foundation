@@ -345,6 +345,24 @@ fn font_test_cmap_shared_format4_records(
 }
 
 ///|
+fn font_test_cmap_shared_format4_two_segments() -> Bytes {
+  let output : Array[Byte] = []
+  font_test_push_u16(output, 0UL)
+  font_test_push_u16(output, 2UL)
+  font_test_push_u16(output, 0UL)
+  font_test_push_u16(output, 3UL)
+  font_test_push_u32(output, 20UL)
+  font_test_push_u16(output, 3UL)
+  font_test_push_u16(output, 1UL)
+  font_test_push_u32(output, 20UL)
+  let format4 = font_test_cmap_format4_two_segments()
+  for index = 12; index < format4.length(); index = index + 1 {
+    output.push(format4[index])
+  }
+  Bytes::from_array(output)
+}
+
+///|
 fn font_test_fixed_table(length : Int) -> Bytes {
   Bytes::from_array(Array::make(length, b'\x00'))
 }
@@ -1108,9 +1126,9 @@ test "glyph and work ceilings admit exact values and reject one short atomically
   let source_length = source.length().to_uint64()
   let table_count = font_test_read_u16(source, 4)
   let overlap_work = table_count * (table_count - 1UL) / 2UL
-  // loca/glyph scans (7), two cmap-record scans (2), and one format-4
-  // segment scan (1).
-  let count_driven_work = 10UL
+  // loca/glyph scans (7), two cmap-record scans (2), one format-4
+  // validation scan (1), and one pre-charge format-4 discovery scan (1).
+  let count_driven_work = 11UL
   let lookup_work = table_count * 27UL
   let table_iteration_work = table_count * 2UL
   let directory_normalization_work = table_count
@@ -1261,7 +1279,7 @@ test "directory normalization copy is preflighted and charged once per table" {
   let work_without_copy = parsed_directory_work +
     table_count * 27UL +
     table_count * 2UL +
-    10UL
+    11UL
   let exact_work = work_without_copy + normalization_copy_work
   let directory_allocation_size = table_count * 64UL
   let exact_limits = FontLimits::new(
@@ -1579,6 +1597,67 @@ test "cmap body scans consume exact aggregate work and reject one short atomical
   inspect(error.code() == @error.ErrorCode::BudgetExceeded, content="true")
   inspect(error.context() == Some("work"), content="true")
   inspect(short_budget.remaining().work() == before.work(), content="true")
+}
+
+///|
+test "format 4 traversal preflights and charges exact single and shared work" {
+  for case in [
+    // loca/glyph (3), two cmap record passes (2), segment validation (2),
+    // pre-charge segment discovery (2), search helper (1), mapping scan (1).
+    (font_test_cmap_format4_two_segments(), 11UL),
+    // The two distinct records share one subtable, but each authorized record
+    // repeats both segment/search/mapping traversals: 3 + 4 + 4 + 4 + 2 + 2.
+    (font_test_cmap_shared_format4_two_segments(), 19UL),
+  ] {
+    let (cmap, count_driven_work) = case
+    let source = font_test_truetype_with_cmap(cmap)
+    let source_length = source.length().to_uint64()
+    let table_count = font_test_read_u16(source, 4)
+    let overlap_work = table_count * (table_count - 1UL) / 2UL
+    let exact_work = source_length * 2UL +
+      overlap_work +
+      table_count +
+      table_count +
+      table_count * 27UL +
+      table_count * 2UL +
+      count_driven_work
+    let limits = FontLimits::new(
+      max_source_bytes=source_length,
+      max_tables=table_count,
+      max_table_bytes=source_length,
+      max_glyphs=1UL,
+      max_name_records=1UL,
+      max_cmap_records=2UL,
+      max_post_name_bytes=32UL,
+      max_work=exact_work,
+    ).unwrap()
+    let exact_budget = font_test_budget_with_dimensions(
+      source_length,
+      allocations=3UL,
+      allocation_size=table_count * 64UL,
+      exact_work,
+    )
+    ignore(
+      Font::open(font_test_owner(source).view(), limits, exact_budget).unwrap(),
+    )
+    inspect(exact_budget.remaining().work(), content="0")
+
+    let short_budget = font_test_budget_with_dimensions(
+      source_length,
+      allocations=3UL,
+      allocation_size=table_count * 64UL,
+      exact_work - 1UL,
+    )
+    let before = short_budget.remaining()
+    let error = Font::open(
+      font_test_owner(source).view(),
+      limits,
+      short_budget,
+    ).unwrap_err()
+    inspect(error.code() == @error.ErrorCode::BudgetExceeded, content="true")
+    inspect(error.context() == Some("work"), content="true")
+    inspect(short_budget.remaining().work() == before.work(), content="true")
+  }
 }
 
 ///|

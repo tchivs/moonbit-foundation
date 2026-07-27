@@ -113,7 +113,7 @@ pub fn Font::open(
     Err(error) => return Err(error)
     Ok(value) => value
   }
-  let admission_charge = match font_admission_charge(directory, limits) {
+  let admission_charge = match font_admission_charge(directory, limits, budget) {
     Err(error) => return Err(error)
     Ok(value) => value
   }
