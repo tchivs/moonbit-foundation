@@ -2181,7 +2181,7 @@
       "name": "tchivs/mb-font",
       "path": "modules/mb-font",
       "version": "0.1.0",
-      "description": "Portable bounded standalone TrueType admission with named metrics, deterministic Unicode mapping, and basic legacy horizontal kerning for MoonBit Native Foundation.",
+      "description": "Portable bounded standalone TrueType admission with named metrics, deterministic Unicode mapping, basic legacy horizontal kerning, and transactional simple plus one-level composite Path2 outlines for MoonBit Native Foundation.",
       "repository": "https://github.com/tchivs/moonbit-foundation",
       "stability": "candidate",
       "preferred_target": "native",
@@ -2209,6 +2209,7 @@
         "font/limits.mbt",
         "font/metrics.mbt",
         "font/moon.pkg",
+        "font/outline.mbt",
         "font/tables.mbt",
         "moon.mod.json"
       ],
@@ -2221,7 +2222,8 @@
             "tchivs/mb-core/budget",
             "tchivs/mb-core/bytes",
             "tchivs/mb-core/checked",
-            "tchivs/mb-core/error"
+            "tchivs/mb-core/error",
+            "tchivs/mb-core/math"
           ],
           "production_sources": [
             "moon.pkg",
@@ -2232,6 +2234,7 @@
             "kern.mbt",
             "limits.mbt",
             "metrics.mbt",
+            "outline.mbt",
             "tables.mbt"
           ],
           "test_sources": [
@@ -2245,6 +2248,7 @@
             "  \"tchivs/mb-core/budget\",",
             "  \"tchivs/mb-core/bytes\",",
             "  \"tchivs/mb-core/error\",",
+            "  \"tchivs/mb-core/math\",",
             "}",
             "pub struct Font {",
             "}",
@@ -2255,6 +2259,7 @@
             "pub fn Font::horizontal_metrics(Self, GlyphId) -> Result[GlyphHorizontalMetrics, @error.CoreError]",
             "pub fn Font::kerning(Self, GlyphId, GlyphId) -> Result[Int, @error.CoreError]",
             "pub fn Font::open(@bytes.ByteView, FontLimits, @budget.Budget) -> Result[Self, @error.CoreError]",
+            "pub fn Font::outline(Self, GlyphId, @budget.Budget) -> Result[@math.Path2, @error.CoreError]",
             "pub fn Font::typographic_line_metrics(Self) -> Result[FontLineMetrics, @error.CoreError]",
             "pub fn Font::units_per_em(Self) -> Result[UInt64, @error.CoreError]",
             "pub struct FontBounds {",
@@ -2270,12 +2275,16 @@
             "pub fn FontLimits::max_kern_pairs(Self) -> UInt64",
             "pub fn FontLimits::max_kern_subtables(Self) -> UInt64",
             "pub fn FontLimits::max_name_records(Self) -> UInt64",
+            "pub fn FontLimits::max_outline_components(Self) -> UInt64",
+            "pub fn FontLimits::max_outline_contours(Self) -> UInt64",
+            "pub fn FontLimits::max_outline_instruction_bytes(Self) -> UInt64",
+            "pub fn FontLimits::max_outline_points(Self) -> UInt64",
             "pub fn FontLimits::max_post_name_bytes(Self) -> UInt64",
             "pub fn FontLimits::max_source_bytes(Self) -> UInt64",
             "pub fn FontLimits::max_table_bytes(Self) -> UInt64",
             "pub fn FontLimits::max_tables(Self) -> UInt64",
             "pub fn FontLimits::max_work(Self) -> UInt64",
-            "pub fn FontLimits::new(max_source_bytes~ : UInt64, max_tables~ : UInt64, max_table_bytes~ : UInt64, max_glyphs~ : UInt64, max_name_records~ : UInt64, max_cmap_records~ : UInt64, max_kern_subtables~ : UInt64, max_kern_pairs~ : UInt64, max_post_name_bytes~ : UInt64, max_work~ : UInt64) -> Result[Self, @error.CoreError]",
+            "pub fn FontLimits::new(max_source_bytes~ : UInt64, max_tables~ : UInt64, max_table_bytes~ : UInt64, max_glyphs~ : UInt64, max_name_records~ : UInt64, max_cmap_records~ : UInt64, max_kern_subtables~ : UInt64, max_kern_pairs~ : UInt64, max_outline_points~ : UInt64, max_outline_contours~ : UInt64, max_outline_components~ : UInt64, max_outline_instruction_bytes~ : UInt64, max_post_name_bytes~ : UInt64, max_work~ : UInt64) -> Result[Self, @error.CoreError]",
             "pub struct FontLineMetrics {",
             "}",
             "pub fn FontLineMetrics::ascent(Self) -> Int",
