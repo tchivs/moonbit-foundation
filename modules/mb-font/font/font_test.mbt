@@ -1127,8 +1127,8 @@ test "glyph and work ceilings admit exact values and reject one short atomically
   let table_count = font_test_read_u16(source, 4)
   let overlap_work = table_count * (table_count - 1UL) / 2UL
   // loca/glyph scans (7), two cmap-record scans (2), one format-4
-  // validation scan (1), and one pre-charge format-4 discovery scan (1).
-  let count_driven_work = 11UL
+  // validation scan (2), and one pre-charge format-4 discovery scan (2).
+  let count_driven_work = 12UL
   let lookup_work = table_count * 27UL
   let table_iteration_work = table_count * 2UL
   let directory_normalization_work = table_count
@@ -1279,7 +1279,7 @@ test "directory normalization copy is preflighted and charged once per table" {
   let work_without_copy = parsed_directory_work +
     table_count * 27UL +
     table_count * 2UL +
-    11UL
+    12UL
   let exact_work = work_without_copy + normalization_copy_work
   let directory_allocation_size = table_count * 64UL
   let exact_limits = FontLimits::new(
@@ -1513,6 +1513,27 @@ test "format 4 admission validates direct and indexed glyph cardinality" {
     inspect(error.context() == Some("font-cmap-envelope"), content="true")
   }
 
+  let terminal_direct_invalid = font_test_cmap_format4_two_segments().to_array()
+  // A zero sentinel delta maps U+FFFF to glyph 65535, not the missing glyph.
+  font_test_put_u16(terminal_direct_invalid, 38, 0UL)
+  let terminal_indexed_invalid = font_test_cmap_format4_two_segments().to_array()
+  // The terminal range-offset field at byte 42 addresses the glyph word at 44.
+  font_test_put_u16(terminal_indexed_invalid, 42, 2UL)
+  font_test_put_u16(terminal_indexed_invalid, 44, 1UL)
+  font_test_put_u16(terminal_indexed_invalid, 38, 0UL)
+  for cmap in [
+    Bytes::from_array(terminal_direct_invalid),
+    Bytes::from_array(terminal_indexed_invalid),
+  ] {
+    let error = Font::open(
+      font_test_owner(font_test_truetype_with_cmap(cmap)).view(),
+      font_test_limits(),
+      font_test_budget(),
+    ).unwrap_err()
+    inspect(error.category() == @error.ErrorCategory::Data, content="true")
+    inspect(error.context() == Some("font-cmap-envelope"), content="true")
+  }
+
   let direct_last_valid = font_test_cmap_format4_two_segments().to_array()
   font_test_put_u16(direct_last_valid, 40, 0UL)
   // U+0041 + 0xFFC0 wraps to glyph 1, the final glyph in a two-glyph font.
@@ -1522,6 +1543,20 @@ test "format 4 admission validates direct and indexed glyph cardinality" {
       font_test_owner(
         font_test_truetype_with_cmap_and_glyphs(
           Bytes::from_array(direct_last_valid),
+          2UL,
+        ),
+      ).view(),
+      font_test_limits(),
+      font_test_budget(),
+    ).unwrap(),
+  )
+  let terminal_last_valid = font_test_cmap_format4_two_segments().to_array()
+  font_test_put_u16(terminal_last_valid, 38, 2UL)
+  ignore(
+    Font::open(
+      font_test_owner(
+        font_test_truetype_with_cmap_and_glyphs(
+          Bytes::from_array(terminal_last_valid),
           2UL,
         ),
       ).view(),
@@ -1603,11 +1638,12 @@ test "cmap body scans consume exact aggregate work and reject one short atomical
 test "format 4 traversal preflights and charges exact single and shared work" {
   for case in [
     // loca/glyph (3), two cmap record passes (2), segment validation (2),
-    // pre-charge segment discovery (2), search helper (1), mapping scan (1).
-    (font_test_cmap_format4_two_segments(), 11UL),
+    // pre-charge segment discovery (2), search helper (1), and mapping scan
+    // (2, including the terminal segment).
+    (font_test_cmap_format4_two_segments(), 12UL),
     // The two distinct records share one subtable, but each authorized record
-    // repeats both segment/search/mapping traversals: 3 + 4 + 4 + 4 + 2 + 2.
-    (font_test_cmap_shared_format4_two_segments(), 19UL),
+    // repeats both segment/search/mapping traversals: 3 + 4 + 4 + 4 + 2 + 4.
+    (font_test_cmap_shared_format4_two_segments(), 21UL),
   ] {
     let (cmap, count_driven_work) = case
     let source = font_test_truetype_with_cmap(cmap)
