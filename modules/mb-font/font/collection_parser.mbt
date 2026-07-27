@@ -2020,6 +2020,7 @@ fn font_collection_parse(
     Ok(_) => ()
     Err(error) => return Err(error)
   }
+  let faces : Array[CollectionFaceFacts] = []
   let mut face_index = 0UL
   while face_index < declaration.face_count {
     let face = match
@@ -2032,7 +2033,7 @@ fn font_collection_parse(
       Ok(value) => value
       Err(error) => return Err(error)
     }
-    ignore(face)
+    faces.push(face)
     face_index = face_index + 1UL
   }
   match font_collection_validate_protected_ranges(source, declaration) {
@@ -2052,30 +2053,19 @@ fn font_collection_parse(
     Ok(_) => ()
     Err(error) => return Err(error)
   }
-  let faces : Array[CollectionFaceFacts] = []
   let protected_ranges : Array[CollectionProtectedRange] = [
     { start: 0UL, end: declaration.header_end, kind: 0UL, owner: 0UL },
   ]
-  face_index = 0UL
-  while face_index < declaration.face_count {
-    let face = match
-      font_collection_scan_face(
-        source,
-        declaration.header_end,
-        face_index,
-        limits,
-      ) {
-      Ok(value) => value
-      Err(error) => return Err(error)
-    }
+  let mut retained_face_index = 0
+  while retained_face_index < faces.length() {
+    let face = faces[retained_face_index]
     protected_ranges.push({
       start: face.directory_start,
       end: face.directory_end,
       kind: 1UL,
-      owner: face_index,
+      owner: retained_face_index.to_uint64(),
     })
-    faces.push(face)
-    face_index = face_index + 1UL
+    retained_face_index = retained_face_index + 1
   }
   if declaration.dsig_present {
     protected_ranges.push({
