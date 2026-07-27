@@ -208,16 +208,40 @@ try {
       throw "P08-TOOLCHAIN-BINARY-MODE: '$path' is not executable."
     }
   }
-  foreach ($name in $BinaryIdentities.Keys) {
-    $actualIdentity = Get-PinnedBinaryIdentity `
-      -Name $name `
-      -Path $binaryPaths[$name]
-    if ($actualIdentity -cne $BinaryIdentities[$name]) {
-      throw (
-        "P08-TOOLCHAIN-IDENTITY: $name actual='$actualIdentity' " +
-        "expected='$($BinaryIdentities[$name])'"
-      )
+
+  $identityBinPath = [IO.Path]::GetFullPath((Join-Path $stagingPath 'bin'))
+  foreach ($path in $verifiedBinaryPaths) {
+    $binaryParent = [IO.Path]::GetDirectoryName(
+      [IO.Path]::GetFullPath($path)
+    )
+    if (-not [string]::Equals(
+        $binaryParent,
+        $identityBinPath,
+        [StringComparison]::Ordinal
+      )) {
+      throw "P08-TOOLCHAIN-IDENTITY-PATH: '$path'"
     }
+  }
+  $previousPath = [string]$env:PATH
+  try {
+    $env:PATH = if ([string]::IsNullOrEmpty($previousPath)) {
+      $identityBinPath
+    } else {
+      $identityBinPath + [IO.Path]::PathSeparator + $previousPath
+    }
+    foreach ($name in $BinaryIdentities.Keys) {
+      $actualIdentity = Get-PinnedBinaryIdentity `
+        -Name $name `
+        -Path $binaryPaths[$name]
+      if ($actualIdentity -cne $BinaryIdentities[$name]) {
+        throw (
+          "P08-TOOLCHAIN-IDENTITY: $name actual='$actualIdentity' " +
+          "expected='$($BinaryIdentities[$name])'"
+        )
+      }
+    }
+  } finally {
+    $env:PATH = $previousPath
   }
 
   # Core is bundled only after the executable digests and identities pass.

@@ -176,4 +176,79 @@ Invoke-WorkflowPolicyCase `
   -ShouldPass $false `
   -ExpectedFailurePattern 'outer array capture'
 
+Invoke-WorkflowPolicyCase `
+  -Name 'identity PATH is exactly authenticated staging bin' `
+  -Arrange {
+    param($state)
+    $state.Installer = $state.Installer.Replace(
+      (
+        "`$identityBinPath = [IO.Path]::GetFullPath((Join-Path " +
+        "`$stagingPath 'bin'))"
+      ),
+      '$identityBinPath = [IO.Path]::GetFullPath($stagingPath)'
+    )
+  } `
+  -ShouldPass $false `
+  -ExpectedFailurePattern 'exactly authenticated staging/bin'
+
+Invoke-WorkflowPolicyCase `
+  -Name 'identity PATH cannot precede execute-bit verification' `
+  -Arrange {
+    param($state)
+    $scopeStartMarker = "  `$previousPath = [string]`$env:PATH`n"
+    $scopeEndMarker = (
+      "  } finally {`n" +
+      "    `$env:PATH = `$previousPath`n" +
+      "  }`n"
+    )
+    $scopeStart = $state.Installer.IndexOf(
+      $scopeStartMarker,
+      [StringComparison]::Ordinal
+    )
+    $scopeEnd = $state.Installer.IndexOf(
+      $scopeEndMarker,
+      $scopeStart,
+      [StringComparison]::Ordinal
+    ) + $scopeEndMarker.Length
+    $scope = $state.Installer.Substring(
+      $scopeStart,
+      $scopeEnd - $scopeStart
+    )
+    $state.Installer = $state.Installer.Remove(
+      $scopeStart,
+      $scopeEnd - $scopeStart
+    )
+    $executeCheck = $state.Installer.IndexOf(
+      '  $executeMask = (',
+      [StringComparison]::Ordinal
+    )
+    $state.Installer = $state.Installer.Insert($executeCheck, $scope)
+  } `
+  -ShouldPass $false `
+  -ExpectedFailurePattern 'verify execute bits'
+
+Invoke-WorkflowPolicyCase `
+  -Name 'identity PATH is restored in finally' `
+  -Arrange {
+    param($state)
+    $state.Installer = $state.Installer.Replace(
+      '    $env:PATH = $previousPath',
+      '    $env:PATH = $identityBinPath'
+    )
+  } `
+  -ShouldPass $false `
+  -ExpectedFailurePattern 'finally restoration'
+
+Invoke-WorkflowPolicyCase `
+  -Name 'identity checks cannot expose a broader process PATH' `
+  -Arrange {
+    param($state)
+    $state.Installer = $state.Installer.Replace(
+      '  $previousPath = [string]$env:PATH',
+      "  `$env:PATH = `$stagingPath`n  `$previousPath = [string]`$env:PATH"
+    )
+  } `
+  -ShouldPass $false `
+  -ExpectedFailurePattern 'broader process PATH'
+
 Write-Host 'Quality workflow content-addressed toolchain policy matrix passed.'

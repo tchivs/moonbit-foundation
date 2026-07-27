@@ -1360,6 +1360,56 @@ function Assert-QualityWorkflowToolchainTransport {
       [StringComparison]::Ordinal
     )
   ) 'Pinned MoonBit installer must verify executable mode bits.'
+  Assert-Condition (
+    ([regex]::Matches(
+      $InstallerText,
+      [regex]::Escape(
+        "`$identityBinPath = [IO.Path]::GetFullPath((Join-Path " +
+        "`$stagingPath 'bin'))"
+      )
+    )).Count -eq 1
+  ) (
+    'Pinned MoonBit identity PATH must expose exactly authenticated ' +
+    'staging/bin.'
+  )
+  $identityPathValidation = [regex]::Matches(
+    $InstallerText,
+    (
+      '(?ms)^\s*foreach\s*\(\$path in \$verifiedBinaryPaths\)\s*\{\s*' +
+      '\$binaryParent\s*=\s*\[IO\.Path\]::GetDirectoryName\(\s*' +
+      '\[IO\.Path\]::GetFullPath\(\$path\)\s*\)\s*' +
+      'if\s*\(-not \[string\]::Equals\(\s*\$binaryParent,\s*' +
+      '\$identityBinPath,\s*\[StringComparison\]::Ordinal\s*\)\)\s*\{' +
+      '.*?P08-TOOLCHAIN-IDENTITY-PATH.*?^\s*\}'
+    )
+  )
+  Assert-Condition ($identityPathValidation.Count -eq 1) (
+    'Pinned MoonBit identity PATH must contain only authenticated binaries.'
+  )
+  $identityPathScope = [regex]::Matches(
+    $InstallerText,
+    (
+      '(?ms)^\s*\$previousPath\s*=\s*\[string\]\$env:PATH\s*\r?\n' +
+      '\s*try\s*\{\s*\r?\n' +
+      '\s*\$env:PATH\s*=\s*if\s*' +
+      '\(\[string\]::IsNullOrEmpty\(\$previousPath\)\)\s*\{\s*\r?\n' +
+      '\s*\$identityBinPath\s*\r?\n\s*\}\s*else\s*\{\s*\r?\n' +
+      '\s*\$identityBinPath\s*\+\s*\[IO\.Path\]::PathSeparator\s*\+' +
+      '\s*\$previousPath\s*\r?\n\s*\}\s*\r?\n' +
+      '\s*foreach\s*\(\$name in \$BinaryIdentities\.Keys\)\s*\{' +
+      '.*?^\s*\}\s*\r?\n\s*\}\s*finally\s*\{\s*\r?\n' +
+      '\s*\$env:PATH\s*=\s*\$previousPath\s*\r?\n\s*\}'
+    )
+  )
+  Assert-Condition ($identityPathScope.Count -eq 1) (
+    'Pinned MoonBit identity PATH must be scoped with finally restoration.'
+  )
+  Assert-Condition (
+    ([regex]::Matches(
+      $InstallerText,
+      '(?m)^\s*\$env:PATH\s*='
+    )).Count -eq 2
+  ) 'Pinned MoonBit installer must not expose a broader process PATH.'
 
   $toolchainArchiveCheck = $InstallerText.IndexOf(
     'Assert-PinnedArchive -Path $toolchainPath',
@@ -1389,12 +1439,36 @@ function Assert-QualityWorkflowToolchainTransport {
     '[IO.File]::GetUnixFileMode($path)',
     [StringComparison]::Ordinal
   )
+  $identityBinScopeIndex = $InstallerText.IndexOf(
+    '$identityBinPath = [IO.Path]::GetFullPath((Join-Path $stagingPath ''bin''))',
+    [StringComparison]::Ordinal
+  )
+  $identityPathValidationIndex = $InstallerText.IndexOf(
+    '$binaryParent = [IO.Path]::GetDirectoryName(',
+    [StringComparison]::Ordinal
+  )
+  $identityPathCapture = $InstallerText.IndexOf(
+    '$previousPath = [string]$env:PATH',
+    [StringComparison]::Ordinal
+  )
+  $identityPathExposure = $InstallerText.IndexOf(
+    '$env:PATH = if ([string]::IsNullOrEmpty($previousPath))',
+    [StringComparison]::Ordinal
+  )
   $binaryIdentityCheck = $InstallerText.IndexOf(
     'foreach ($name in $BinaryIdentities.Keys)',
     [StringComparison]::Ordinal
   )
+  $identityPathRestoration = $InstallerText.IndexOf(
+    '$env:PATH = $previousPath',
+    [StringComparison]::Ordinal
+  )
   $coreExtraction = $InstallerText.IndexOf(
     '-ArchivePath $corePath',
+    [StringComparison]::Ordinal
+  )
+  $finalInstall = $InstallerText.IndexOf(
+    'Move-Item -LiteralPath $stagingPath -Destination $destination',
     [StringComparison]::Ordinal
   )
   Assert-Condition (
@@ -1405,12 +1479,19 @@ function Assert-QualityWorkflowToolchainTransport {
     $chmodScopeIndex -gt $binaryDigestCheck -and
     $chmodInvocation -gt $chmodScopeIndex -and
     $executeVerification -gt $chmodInvocation -and
-    $binaryIdentityCheck -gt $executeVerification -and
-    $coreExtraction -gt $binaryIdentityCheck
+    $identityBinScopeIndex -gt $executeVerification -and
+    $identityPathValidationIndex -gt $identityBinScopeIndex -and
+    $identityPathCapture -gt $identityPathValidationIndex -and
+    $identityPathExposure -gt $identityPathCapture -and
+    $binaryIdentityCheck -gt $identityPathExposure -and
+    $identityPathRestoration -gt $binaryIdentityCheck -and
+    $coreExtraction -gt $identityPathRestoration -and
+    $finalInstall -gt $coreExtraction
   ) (
     'Pinned MoonBit installer must authenticate both archives before ' +
     'extraction, hash binaries before scoped chmod, verify execute bits, ' +
-    'capture identity output as an array, and bundle core last.'
+    'expose only authenticated staging/bin for identity checks, restore ' +
+    'PATH, bundle core last, and install only after verification.'
   )
 }
 
