@@ -70,11 +70,22 @@ pub fn FontCollection::open(
   limits : FontCollectionLimits,
   budget : @budget.Budget,
 ) -> Result[FontCollection, @error.CoreError] {
+  FontCollection::open_after_normalize(source, limits, budget, fn() { () })
+}
+
+///|
+fn FontCollection::open_after_normalize(
+  source : @bytes.ByteView,
+  limits : FontCollectionLimits,
+  budget : @budget.Budget,
+  after_normalize : () -> Unit,
+) -> Result[FontCollection, @error.CoreError] {
   let opening_revision = source.mutation_revision()
   let facts = match font_collection_parse(source, limits, budget) {
     Ok(value) => value
     Err(error) => return Err(error)
   }
+  after_normalize()
   if source.mutation_revision() != opening_revision {
     return Err(font_collection_revision_error("font-collection-open"))
   }
