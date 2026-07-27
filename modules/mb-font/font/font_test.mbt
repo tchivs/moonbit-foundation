@@ -1738,6 +1738,27 @@ test "outline overlap and unique metrics flags are geometry and metric neutral" 
 }
 
 ///|
+test "outline rejects overlap flag after the first component" {
+  let simple = font_test_simple_outline_glyf()
+  let parent = font_test_composite_glyph([
+    font_test_component_record(0x0023UL, 0UL, 0, 0, []),
+    font_test_component_record(0x0403UL, 0UL, 100, 0, []),
+  ])
+  let owner = font_test_owner(
+    font_test_outline_graph_truetype([simple, parent]),
+  )
+  let font = Font::open(owner.view(), font_test_limits(), font_test_budget()).unwrap()
+  let error = font
+    .outline(font.glyph_id(1UL).unwrap(), font_test_composite_budget())
+    .unwrap_err()
+  inspect(error.category() == @error.ErrorCategory::Data, content="true")
+  inspect(
+    error.context() == Some("font-outline-overlap-compound"),
+    content="true",
+  )
+}
+
+///|
 test "outline composite graph and flag taxonomy is stable" {
   let simple = font_test_simple_outline_glyf()
   let self_cycle = font_test_composite_glyph([

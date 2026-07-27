@@ -1235,6 +1235,9 @@ fn font_parse_composite_descriptors(
     if (flags & 0xE010UL) != 0UL {
       return Err(font_outline_data_error("font-outline-component-flags"))
     }
+    if (flags & 0x0400UL) != 0UL && descriptors.length() != 0 {
+      return Err(font_outline_data_error("font-outline-overlap-compound"))
+    }
     if (flags & 0x0100UL) != 0UL {
       saw_instructions = true
     }
