@@ -17,6 +17,7 @@ pub(all) enum FontCollectionDsigStatus {
 
 ///|
 /// An opaque, revision-guarded identity for one admitted font collection.
+#warnings("-7")
 pub struct FontCollection {
   priv source : @bytes.ByteView
   priv opening_revision : UInt64

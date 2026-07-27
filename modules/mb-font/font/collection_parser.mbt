@@ -1,4 +1,5 @@
 ///|
+#warnings("-7")
 priv struct CollectionFaceFacts {
   directory_start : UInt64
   directory_end : UInt64
@@ -8,6 +9,7 @@ priv struct CollectionFaceFacts {
 }
 
 ///|
+#warnings("-7")
 priv struct CollectionProtectedRange {
   start : UInt64
   end : UInt64
