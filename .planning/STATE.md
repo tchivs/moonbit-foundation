@@ -4,18 +4,18 @@ milestone: v0.32
 milestone_name: TrueType Font Foundation
 current_phase: 98
 current_phase_name: Unicode Mapping and Kerning
-current_plan: 2
-total_plans_in_phase: 3
 status: executing
-stopped_at: Completed 98-01-PLAN.md
-last_updated: "2026-07-27T06:15:45.720Z"
+stopped_at: Completed 98-02-PLAN.md
+last_updated: "2026-07-27T06:56:28.866Z"
 last_activity: 2026-07-27
-last_activity_desc: Completed Phase 98 Plan 01
+last_activity_desc: Completed Phase 98 Plan 02
 progress:
   total_phases: 2
   completed_phases: 1
   total_plans: 6
-  completed_plans: 4
+  completed_plans: 5
+current_plan: 3
+total_plans_in_phase: 3
 ---
 
 # Project State
@@ -31,15 +31,15 @@ See `.planning/PROJECT.md` (updated 2026-07-27 after Phase 97 validation).
 ## Current Position
 
 Phase: 98 — Unicode Mapping and Kerning
-Plan: 2 of 3
-Status: In progress
-Last activity: 2026-07-27 — Completed Phase 98 Plan 01
+Plan: 3 of 3
+Status: Ready to execute
+Last activity: 2026-07-27 — Completed Phase 98 Plan 02
 
-Progress: [███████░░░] 67% (1/4 phases; 4/6 completed plans)
+Progress: [████████░░] 83% (1/4 phases; 5/6 completed plans)
 
 ## Milestone Metrics
 
-**Current milestone:** v0.32 has 4 planned phases; Phase 97 is complete, Phase 98 has completed 1/3 plans, and 4 scoped requirements remain open.
+**Current milestone:** v0.32 has 4 planned phases; Phase 97 is complete, Phase 98 has completed 2/3 plans, and 2 scoped requirements remain open.
 
 **Previous milestone:** v0.31 shipped SVG Numeric Boundary Unification across Phases 95-96; its detailed roadmap is archived at `.planning/milestones/v0.31-ROADMAP.md`.
 
@@ -63,6 +63,9 @@ Progress: [███████░░░] 67% (1/4 phases; 4/6 completed plans)
 - [Phase 98]: Canonical cmap priority is 0/4/12, 3/10/12, 0/3/4, then 3/1/4.
 - [Phase 98]: Supported noncanonical format-4/12 records are validated but never selected or used as fallback.
 - [Phase 98]: Duplicate canonical cmap keys fail admission while different encoding records may alias one checked subtable.
+- [Phase 98]: Only one classic version-0 coverage-0x0001 format-0 subtable is queryable; structurally valid alternatives remain Unsupported.
+- [Phase 98]: Exact Apple v1 envelopes are validated without parsing format bodies, while complete unknown prefixes defer to Capability without traversal.
+- [Phase 98]: FontAdmissionPlan retains pre-admitted KernState so optional, subtable, and pair scans are preflighted and charged exactly once.
 
 ### Pending Todos
 
@@ -94,13 +97,13 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-07-27T06:15:45.701Z
-Stopped at: Completed 98-01-PLAN.md
+Last session: 2026-07-27T06:56:28.851Z
+Stopped at: Completed 98-02-PLAN.md
 Resume file: None
 
 ## Operator Next Steps
 
-- Continue with `98-02-PLAN.md`.
+- Continue with `98-03-PLAN.md`.
 
 ## Performance Metrics
 
@@ -120,3 +123,4 @@ Phase 97 completed all three plans and passed code review, security verification
 | Phase 97 P02 | 40m | 3 tasks | 7 files |
 | Phase 97 P03 | 42m | 3 tasks | 13 files |
 | Phase 98 P01 | 42m | 2 tasks | 5 files |
+| Phase 98 P02 | 36min | 3 tasks | 9 files |

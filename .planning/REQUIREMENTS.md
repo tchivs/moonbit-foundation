@@ -19,7 +19,7 @@
 
 ### Kerning
 
-- [ ] **FONT-04**: Library authors can query basic legacy horizontal format-0 kerning and distinguish neutral table absence or pair miss from present-but-unsupported or malformed kerning data.
+- [x] **FONT-04**: Library authors can query basic legacy horizontal format-0 kerning and distinguish neutral table absence or pair miss from present-but-unsupported or malformed kerning data.
 
 ### Qualification
 
@@ -58,7 +58,7 @@ Roadmap phases populate this table. Every v0.32 requirement must map to exactly 
 | FONT-01 | Phase 97 | Complete |
 | FONT-02 | Phase 98 | Complete |
 | FONT-03 | Phase 99 | Pending |
-| FONT-04 | Phase 98 | Pending |
+| FONT-04 | Phase 98 | Complete |
 | FONT-05 | Phase 100 | Pending |
 
 **Coverage:**
