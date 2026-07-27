@@ -1132,6 +1132,20 @@ function Assert-FontFoundationPolicy {
   }
   Assert-Condition ($readmeText -cmatch 'tchivs/mb-core' -and $readmeText -match 'only direct module dependency') 'Font README must document mb-core as its only direct dependency.'
   Assert-Condition ($readmeText -cmatch 'Phase 100' -and $readmeText -cmatch 'generated micro-font') 'Font README must preserve the Phase 100 real-font evidence boundary.'
+  $outlineDataTaxonomy = [regex]::Match($readmeText, '(?ms)^- `Data`.*?(?=^- `Capability`)').Value
+  $outlineResourceTaxonomy = [regex]::Match($readmeText, '(?ms)^- `Resource`.*?(?=^- `State`)').Value
+  Assert-Condition (
+    -not [string]::IsNullOrWhiteSpace($outlineResourceTaxonomy) -and
+    $outlineResourceTaxonomy -cmatch 'FontLimits' -and
+    $outlineResourceTaxonomy -cmatch 'max_work' -and
+    $outlineResourceTaxonomy -cmatch 'Budget' -and
+    $outlineResourceTaxonomy -cnotmatch 'maxp'
+  ) 'Font README Resource taxonomy must contain only retained FontLimits, max_work, and caller Budget exhaustion.'
+  Assert-Condition (
+    -not [string]::IsNullOrWhiteSpace($outlineDataTaxonomy) -and
+    $outlineDataTaxonomy -cmatch 'maxp' -and
+    $outlineDataTaxonomy -cmatch '(underclaim|exceed)'
+  ) 'Font README Data taxonomy does not classify maxp underclaims.'
 
   $changelogText = Get-Content -Raw -LiteralPath (Join-Path $repoRoot 'modules/mb-font/CHANGELOG.md')
   Assert-Condition ($changelogText -cmatch 'independent release lifecycle') 'Font changelog must declare an independent release lifecycle.'
