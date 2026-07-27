@@ -107,6 +107,64 @@ test "outline Q15 midpoint and checked overflow stay private data facts" {
 }
 
 ///|
+test "outline Q15 matrix order and signed attachment subtraction are exact" {
+  let point : OutlinePoint = {
+    x_q15: 32768L,
+    y_q15: 65536L,
+    on_curve: true,
+  }
+  let matrix : F2Dot14Matrix = {
+    xscale_raw: 16384L,
+    scale01_raw: -8192L,
+    scale10_raw: 8192L,
+    yscale_raw: 16384L,
+  }
+  let transformed = transform_q15(point, matrix).unwrap()
+  inspect(transformed.x_q15, content="65536")
+  inspect(transformed.y_q15, content="49152")
+  inspect(
+    outline_checked_subtract(32768L, -16384L).unwrap(),
+    content="49152",
+  )
+}
+
+///|
+test "generated composite fixtures reach the private full placement seam" {
+  let first = generated_composite_component(
+    0x0023UL,
+    0UL,
+    10,
+    0,
+    [],
+  )
+  let second = generated_composite_component(
+    0x0009UL,
+    0UL,
+    2,
+    0,
+    [8192],
+  )
+  let parent = generated_composite_glyph(
+    -32768,
+    -32768,
+    32767,
+    32767,
+    [first, second],
+  )
+  let owner = font_wb_owner(
+    generated_outline_graph_truetype([
+      generated_simple_outline_body(),
+      parent,
+    ]),
+  )
+  let font = Font::open(owner.view(), font_wb_limits(), font_wb_open_budget()).unwrap()
+  let path = font
+    .outline(font.glyph_id(1UL).unwrap(), font_wb_open_budget())
+    .unwrap()
+  inspect(path.length(), content="8")
+}
+
+///|
 test "outline max_work charges completed stages before transactional failure" {
   let maxp : MaxpFacts = {
     num_glyphs: 1UL,

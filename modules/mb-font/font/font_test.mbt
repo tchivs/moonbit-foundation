@@ -272,6 +272,11 @@ fn font_test_push_u16(output : Array[Byte], value : UInt64) -> Unit {
 }
 
 ///|
+fn font_test_push_i16(output : Array[Byte], value : Int) -> Unit {
+  font_test_push_u16(output, (value & 0xFFFF).to_uint64())
+}
+
+///|
 fn font_test_push_u32(output : Array[Byte], value : UInt64) -> Unit {
   output.push((value >> 24).to_byte())
   output.push((value >> 16).to_byte())
@@ -767,6 +772,82 @@ fn font_test_uniform_composite_outline_truetype() -> Bytes {
 }
 
 ///|
+fn font_test_component_record(
+  flags : UInt64,
+  glyph_index : UInt64,
+  arg1 : Int,
+  arg2 : Int,
+  coefficients : Array[Int],
+) -> Bytes {
+  let output : Array[Byte] = []
+  font_test_push_u16(output, flags)
+  font_test_push_u16(output, glyph_index)
+  if (flags & 0x0001UL) != 0UL {
+    font_test_push_i16(output, arg1)
+    font_test_push_i16(output, arg2)
+  } else {
+    output.push((arg1 & 0xFF).to_byte())
+    output.push((arg2 & 0xFF).to_byte())
+  }
+  for coefficient in coefficients {
+    font_test_push_i16(output, coefficient)
+  }
+  Bytes::from_array(output)
+}
+
+///|
+fn font_test_composite_glyph(records : Array[Bytes]) -> Bytes {
+  let output : Array[Byte] = []
+  for value in [-1, -32768, -32768, 32767, 32767] {
+    font_test_push_i16(output, value)
+  }
+  for record in records {
+    for byte in record {
+      output.push(byte)
+    }
+  }
+  Bytes::from_array(output)
+}
+
+///|
+fn font_test_outline_graph_truetype(
+  glyphs : Array[Bytes],
+  max_component_depth? : UInt64 = 4UL,
+) -> Bytes {
+  let glyf : Array[Byte] = []
+  let loca : Array[Byte] = []
+  font_test_push_u16(loca, 0UL)
+  for glyph in glyphs {
+    for byte in glyph {
+      glyf.push(byte)
+    }
+    if glyph.length() % 2 != 0 {
+      glyf.push(b'\x00')
+    }
+    font_test_push_u16(loca, glyf.length().to_uint64() / 2UL)
+  }
+  let hmtx : Array[Byte] = [b'\x01', b'\xf4', b'\x00', b'\x00']
+  for _glyph = 1; _glyph < glyphs.length(); _glyph = _glyph + 1 {
+    hmtx.push(b'\x00')
+    hmtx.push(b'\x00')
+  }
+  let maxp = font_test_maxp_table_with_glyphs(glyphs.length().to_uint64()).to_array()
+  font_test_put_u16(maxp, 30, max_component_depth)
+  font_test_build_truetype([
+    { tag: b"OS/2", payload: font_test_fixed_table(78) },
+    { tag: b"cmap", payload: font_test_cmap_table() },
+    { tag: b"glyf", payload: Bytes::from_array(glyf) },
+    { tag: b"head", payload: font_test_head_table() },
+    { tag: b"hhea", payload: font_test_hhea_table() },
+    { tag: b"hmtx", payload: Bytes::from_array(hmtx) },
+    { tag: b"loca", payload: Bytes::from_array(loca) },
+    { tag: b"maxp", payload: Bytes::from_array(maxp) },
+    { tag: b"name", payload: font_test_name_table() },
+    { tag: b"post", payload: font_test_post_table() },
+  ])
+}
+
+///|
 fn font_test_byte_at_copy(source : Bytes, offset : Int, value : Byte) -> Bytes {
   let output = source.to_array()
   output[offset] = value
@@ -1197,6 +1278,16 @@ fn font_test_budget_with_dimensions(
 }
 
 ///|
+fn font_test_composite_budget() -> @budget.Budget {
+  font_test_budget_with_dimensions(
+    0UL,
+    allocations=32UL,
+    allocation_size=4096UL,
+    16384UL,
+  )
+}
+
+///|
 test "generated standalone TrueType opens and returns exact units per em" {
   let owner = font_test_owner(font_test_minimal_truetype())
   let budget = font_test_budget()
@@ -1289,6 +1380,121 @@ test "outline traces one signed XY uniformly scaled component" {
     Some(@math.PathCommand::Close) => ()
     _ => fail("expected composite Close")
   }
+}
+
+///|
+test "outline preserves component order and attaches transformed real points" {
+  let first = font_test_component_record(
+    0x0023UL,
+    0UL,
+    10,
+    0,
+    [],
+  )
+  let second = font_test_component_record(
+    0x0009UL,
+    0UL,
+    2,
+    0,
+    [8192],
+  )
+  let parent = font_test_composite_glyph([first, second])
+  let owner = font_test_owner(
+    font_test_outline_graph_truetype([
+      font_test_simple_outline_glyf(),
+      parent,
+    ]),
+  )
+  let font = Font::open(owner.view(), font_test_limits(), font_test_budget()).unwrap()
+  let path = font
+    .outline(font.glyph_id(1UL).unwrap(), font_test_composite_budget())
+    .unwrap()
+  inspect(path.length(), content="8")
+  match path.get(4) {
+    Some(@math.PathCommand::MoveTo(point)) => {
+      inspect(point.x(), content="110")
+      inspect(point.y(), content="100")
+    }
+    _ => fail("expected attached component MoveTo")
+  }
+  match path.get(5) {
+    Some(@math.PathCommand::LineTo(point)) => {
+      inspect(point.x(), content="160")
+      inspect(point.y(), content="100")
+    }
+    _ => fail("expected transformed attached LineTo")
+  }
+  match path.get(6) {
+    Some(@math.PathCommand::QuadTo(control, endpoint)) => {
+      inspect(control.x(), content="160")
+      inspect(control.y(), content="150")
+      inspect(endpoint.x(), content="110")
+      inspect(endpoint.y(), content="100")
+    }
+    _ => fail("expected transformed attached QuadTo")
+  }
+}
+
+///|
+test "outline composite graph and flag taxonomy is stable" {
+  let simple = font_test_simple_outline_glyf()
+  let self_cycle = font_test_composite_glyph([
+    font_test_component_record(0x0003UL, 0UL, 0, 0, []),
+  ])
+  let owner = font_test_owner(font_test_outline_graph_truetype([self_cycle]))
+  let font = Font::open(owner.view(), font_test_limits(), font_test_budget()).unwrap()
+  let cycle = font
+    .outline(font.glyph_id(0UL).unwrap(), font_test_composite_budget())
+    .unwrap_err()
+  inspect(cycle.category() == @error.ErrorCategory::Data, content="true")
+  inspect(cycle.context() == Some("font-outline-composite-cycle"), content="true")
+
+  let child_parent = font_test_composite_glyph([
+    font_test_component_record(0x0003UL, 0UL, 0, 0, []),
+  ])
+  let deeper_parent = font_test_composite_glyph([
+    font_test_component_record(0x0003UL, 1UL, 0, 0, []),
+  ])
+  let nested_owner = font_test_owner(
+    font_test_outline_graph_truetype([simple, child_parent, deeper_parent]),
+  )
+  let nested = Font::open(
+    nested_owner.view(),
+    font_test_limits(),
+    font_test_budget(),
+  ).unwrap()
+  let capability = nested
+    .outline(nested.glyph_id(2UL).unwrap(), font_test_composite_budget())
+    .unwrap_err()
+  inspect(
+    capability.category() == @error.ErrorCategory::Capability,
+    content="true",
+  )
+  inspect(
+    capability.context() == Some("font-outline-nested-composite"),
+    content="true",
+  )
+
+  let duplicate_metrics = font_test_composite_glyph([
+    font_test_component_record(0x0223UL, 0UL, 0, 0, []),
+    font_test_component_record(0x0203UL, 0UL, 0, 0, []),
+  ])
+  let duplicate_owner = font_test_owner(
+    font_test_outline_graph_truetype([simple, duplicate_metrics]),
+  )
+  let duplicate = Font::open(
+    duplicate_owner.view(),
+    font_test_limits(),
+    font_test_budget(),
+  ).unwrap()
+  let metrics = duplicate
+    .outline(duplicate.glyph_id(1UL).unwrap(), font_test_composite_budget())
+    .unwrap_err()
+  inspect(metrics.category() == @error.ErrorCategory::Data, content="true")
+  inspect(
+    metrics.context() == Some("font-outline-use-my-metrics"),
+    content="true",
+  )
 }
 
 ///|
