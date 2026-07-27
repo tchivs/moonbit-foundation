@@ -166,6 +166,48 @@ fn font_collection_test_assert_invalid_limit(
 }
 
 ///|
+fn font_collection_test_mutate(
+  owner : @bytes.OwnedBytes,
+  offset : UInt64,
+  replacement : Byte,
+) -> Unit {
+  owner
+  .with_mut(offset, 1UL, fn(lease) { lease.set(0UL, replacement) })
+  .unwrap()
+}
+
+///|
+fn font_collection_test_assert_query_drift(
+  error : @error.CoreError,
+) -> Unit raise {
+  inspect(error.category() == @error.ErrorCategory::State, content="true")
+  inspect(error.code() == @error.ErrorCode::InvalidRange, content="true")
+  inspect(
+    error.operation() == Some("font-collection-query"),
+    content="true",
+  )
+  inspect(
+    error.context() == Some("font-collection-source-revision-drift"),
+    content="true",
+  )
+}
+
+///|
+fn font_collection_test_assert_every_query_drift(
+  collection : FontCollection,
+) -> Unit raise {
+  font_collection_test_assert_query_drift(
+    collection.face_count().unwrap_err(),
+  )
+  font_collection_test_assert_query_drift(
+    collection.face_profile(0UL).unwrap_err(),
+  )
+  font_collection_test_assert_query_drift(
+    collection.dsig_status().unwrap_err(),
+  )
+}
+
+///|
 fn font_collection_test_limits_result(
   max_source_bytes : UInt64,
   max_faces : UInt64,
@@ -325,5 +367,83 @@ test "font collection limits reject every zero ceiling in argument order" {
   font_collection_test_assert_invalid_limit(
     font_collection_test_limits_result(1UL, 1UL, 1UL, 1UL, 1UL, 1UL, 1UL, 0UL),
     "max-work",
+  )
+}
+
+///|
+test "collection queries expose exact unchanged index errors" {
+  let owner = font_collection_test_owner(font_collection_test_ttc())
+  let collection = FontCollection::open(
+    owner.view(),
+    font_collection_test_limits(),
+    font_collection_test_budget(),
+  ).unwrap()
+  let error = collection.face_profile(1UL).unwrap_err()
+  inspect(
+    error.category() == @error.ErrorCategory::InvalidInput,
+    content="true",
+  )
+  inspect(error.code() == @error.ErrorCode::InvalidRange, content="true")
+  inspect(
+    error.operation() == Some("font-collection-query"),
+    content="true",
+  )
+  inspect(error.requested() == Some(1UL), content="true")
+  inspect(error.limit() == Some(1UL), content="true")
+  inspect(
+    error.context() == Some("font-collection-face-index"),
+    content="true",
+  )
+}
+
+///|
+test "required unrelated and restored mutations invalidate every collection query" {
+  for offset in [80UL, 87UL] {
+    let owner = font_collection_test_owner(font_collection_test_ttc())
+    let collection = FontCollection::open(
+      owner.view(),
+      font_collection_test_limits(),
+      font_collection_test_budget(),
+    ).unwrap()
+    font_collection_test_mutate(owner, offset, b'\x01')
+    font_collection_test_assert_every_query_drift(collection)
+  }
+  let restored_owner = font_collection_test_owner(font_collection_test_ttc())
+  let restored = FontCollection::open(
+    restored_owner.view(),
+    font_collection_test_limits(),
+    font_collection_test_budget(),
+  ).unwrap()
+  font_collection_test_mutate(restored_owner, 80UL, b'\x01')
+  font_collection_test_mutate(restored_owner, 80UL, b'\x00')
+  font_collection_test_assert_every_query_drift(restored)
+}
+
+///|
+test "revision drift precedes index validation and remains owner-local" {
+  let drifted_owner = font_collection_test_owner(font_collection_test_ttc())
+  let drifted = FontCollection::open(
+    drifted_owner.view(),
+    font_collection_test_limits(),
+    font_collection_test_budget(),
+  ).unwrap()
+  let stable_owner = font_collection_test_owner(font_collection_test_ttc())
+  let stable = FontCollection::open(
+    stable_owner.view(),
+    font_collection_test_limits(),
+    font_collection_test_budget(),
+  ).unwrap()
+  font_collection_test_mutate(drifted_owner, 87UL, b'\x01')
+  font_collection_test_assert_query_drift(
+    drifted.face_profile(1UL).unwrap_err(),
+  )
+  inspect(stable.face_count().unwrap(), content="1")
+  inspect(
+    stable.face_profile(0UL).unwrap() == FontFaceProfile::StaticGlyf,
+    content="true",
+  )
+  inspect(
+    stable.dsig_status().unwrap() == FontCollectionDsigStatus::Absent,
+    content="true",
   )
 }
