@@ -1,5 +1,35 @@
 # Project Milestones: MoonBit Native Foundation
 
+## v0.32 TrueType Font Foundation (Shipped: 2026-07-28)
+
+**Delivered:** A pure-MoonBit, four-target `tchivs/mb-font` foundation for bounded TrueType admission, metrics, Unicode mapping, legacy kerning, transactional simple/composite outlines, and reproducible licensed-font qualification.
+
+**Phases completed:** 4 phases, 16 plans, 36 tasks
+
+**Key accomplishments:**
+
+- Published bounded atomic TrueType admission with named global/per-glyph metrics, retained immutable-byte revision guards, structured failures, and explicit resource authority.
+- Added deterministic format-12/4 Unicode mapping and classic horizontal format-0 kerning while keeping opaque glyph identity and query work allocation-free.
+- Added transactional unhinted `Path2` extraction for strict simple glyphs and bounded one-level composites with exact checked Q15 placement and no partial geometry.
+- Qualified exact DejaVu Sans 2.37 bytes through a versioned independent oracle, complete 74-command target assertions, and a closed 11-case hostile matrix.
+- Passed 103/103 font tests on `js`, `wasm`, `wasm-gc`, and `native`, plus exact hosted Required, process-containment, evidence, policy, review, UAT, security, and milestone-integration gates.
+
+**Stats:**
+
+- 4 phases, 16 plans, 36 tasks
+- 271 milestone commits
+- 304 files changed
+- 212,177 text lines added, 16,203 removed (licensed/generated fixture data dominates)
+- 2 calendar days from milestone start to ship
+
+**Git range:** `04ea0231` → `bb0d9cbc`
+
+**Closeout:** Verified closeout; milestone audit 5/5 requirements, 8/8 integration links, and 4/4 end-to-end flows.
+
+**What's next:** v0.33 will evaluate bounded TrueType container adapters before expanding into shaping, discovery, hinting, or CFF outlines.
+
+---
+
 ## v0.31 SVG Numeric Boundary Unification (Shipped: 2026-07-26)
 
 **Phases completed:** 2 phases, 5 plans, 10 tasks

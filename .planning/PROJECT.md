@@ -10,15 +10,15 @@ The primary audience is MoonBit library authors and application developers build
 
 MoonBit developers can reuse stable, high-performance native infrastructure contracts instead of rebuilding incompatible foundations for every graphics, document, media, or automation product.
 
-## Current State: v0.32 TrueType Font Foundation Qualification Complete
+## Current State: v0.32 TrueType Font Foundation Shipped
 
 **Delivered:** Phases 97-100 established and qualified the independently publishable, pure-MoonBit `tchivs/mb-font` module. Library authors can open bounded standalone TrueType SFNT bytes, inspect checked font-wide and per-glyph horizontal metrics, resolve BMP and supplementary Unicode scalars through one canonical cmap, query distinguishable legacy horizontal kerning outcomes, and extract transactional unhinted `Path2` outlines for simple glyphs and bounded one-level composites. Maintainers can reproduce the complete workflow against immutable compact and licensed DejaVu Sans fixtures on every supported target.
 
 **Validated:** Phase 100 passed 4/4 goal must-haves, 18/18 automated UAT deliverables, a clean deep code review, and 35/35 security threat checks. Fresh local runs passed 103/103 font tests on each of `js`, `wasm`, `wasm-gc`, and `native`; hosted GitHub Actions run `30297979654` passed the complete Required, focused font-qualification, POSIX containment, and experimental LLVM jobs on the exact implementation commit. Required diagnostics prove exit 0 with verified full-session termination, while focused evidence proves equal four-target semantics and complete 74-command outline assertions.
 
-**Next:** Audit and archive v0.32, then define the next RFC-led module or capability milestone from the remaining ecosystem backlog.
+**Next:** Start v0.33 by evaluating bounded TrueType container adapters, preserving the existing standalone-SFNT API and keeping CFF, shaping, discovery, hinting, and rasterization behind explicit future boundaries.
 
-## Current Milestone: v0.32 TrueType Font Foundation
+## Latest Milestone: v0.32 TrueType Font Foundation
 
 **Goal:** Let MoonBit library authors parse bounded TrueType fonts into deterministic Unicode mappings, metrics, and reusable glyph outlines without a foreign font stack.
 
@@ -27,6 +27,15 @@ MoonBit developers can reuse stable, high-performance native infrastructure cont
 - Establish the independently publishable `tchivs/mb-font` module and bounded SFNT/TrueType table-directory model under RFC 0004.
 - Expose checked font metrics, Unicode `cmap` resolution, simple/composite `glyf` outlines, and basic legacy `kern` pair adjustments through a portable MoonBit API.
 - Qualify malformed-input rejection, deterministic public behavior, representative real-font interoperability, and identical execution on `js`, `wasm`, `wasm-gc`, and `native`.
+
+## Next Milestone Goals
+
+The leading v0.33 direction is **Font Container Adapters**:
+
+- Admit bounded container bytes without weakening the existing standalone TrueType admission transaction.
+- Prioritize container formats that can deliver the already supported TrueType outline profile through a narrow adapter boundary.
+- Preserve `mb-font -> mb-core` as the only public runtime dependency and retain identical behavior on all four targets.
+- Keep CFF/CFF2 outlines, variation instantiation, shaping, discovery, hinting, rasterization, and ambient filesystem access out of scope unless research proves a separate RFC and milestone are required.
 
 ## Requirements
 
@@ -240,4 +249,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update toolchain, compatibility, benchmark, and adoption context.
 
 ---
-*Last updated: 2026-07-28 after Phase 100 validation*
+*Last updated: 2026-07-28 after v0.32 milestone completion*
