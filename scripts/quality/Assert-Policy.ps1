@@ -1071,6 +1071,8 @@ function Assert-FontFoundationPolicy {
   Assert-Condition ($fontModule.stability -ceq 'candidate') 'Font module stability must remain candidate.'
   Assert-ExactSet 'Font module dependencies' @($fontModule.direct_dependencies) @('tchivs/mb-core')
   Assert-ExactSet 'Font module targets' @($fontModule.supported_targets) @('js', 'wasm', 'wasm-gc', 'native')
+  $fontManifest = Read-QualityJson -Path (Join-Path $repoRoot 'modules/mb-font/moon.mod.json')
+  Assert-Condition ($fontManifest.description -ceq $fontModule.description) 'Manifest description drift in modules/mb-font.'
 
   $fontEdges = @($policy.allowed_dependency_edges | Where-Object { $_.from -ceq 'tchivs/mb-font' })
   Assert-ExactSet 'Font dependency edges' @($fontEdges.to) @('tchivs/mb-core')
