@@ -1325,41 +1325,146 @@ function Assert-QualityWorkflowToolchainTransport {
   Assert-Condition ($identityCapture.Count -eq 1) (
     'Pinned MoonBit identity output must use one outer array capture.'
   )
-  $chmodScope = [regex]::Match(
+  $executableMemberScope = [regex]::Match(
+    $InstallerText,
+    '(?ms)^\$ExecutableMembers\s*=\s*@\(\s*(?<body>.*?)^\)\s*$'
+  )
+  Assert-Condition $executableMemberScope.Success (
+    'Pinned MoonBit executable member manifest is missing.'
+  )
+  $executableMembers = @(
+    [regex]::Matches(
+      $executableMemberScope.Groups['body'].Value,
+      "'([^']+)'"
+    ) | ForEach-Object { $_.Groups[1].Value }
+  )
+  Assert-ExactSequence `
+    'Pinned MoonBit executable member manifest' `
+    $executableMembers `
+    @(
+      'bin/internal/tcc',
+      'bin/moon',
+      'bin/moon_cove_report',
+      'bin/moon-cram',
+      'bin/moon-ide',
+      'bin/moon-lsp',
+      'bin/moon-wasm-opt',
+      'bin/moonc',
+      'bin/mooncake',
+      'bin/moondoc',
+      'bin/moonfmt',
+      'bin/mooninfo',
+      'bin/moonrun'
+    )
+  $dataMemberScope = [regex]::Match(
+    $InstallerText,
+    '(?ms)^\$DataMembers\s*=\s*@\(\s*(?<body>.*?)^\)\s*$'
+  )
+  Assert-Condition $dataMemberScope.Success (
+    'Pinned MoonBit data member manifest is missing.'
+  )
+  $dataMembers = @(
+    [regex]::Matches(
+      $dataMemberScope.Groups['body'].Value,
+      "'([^']+)'"
+    ) | ForEach-Object { $_.Groups[1].Value }
+  )
+  Assert-ExactSequence `
+    'Pinned MoonBit data member manifest' `
+    $dataMembers `
+    @('bin/moonlex.wasm', 'bin/moonyacc.wasm')
+  Assert-Condition (
+    @($executableMembers | Where-Object { $dataMembers -ccontains $_ }).Count -eq 0
+  ) 'Pinned MoonBit executable and data member manifests must be disjoint.'
+  $verifiedBinaryScope = [regex]::Match(
     $InstallerText,
     '(?ms)^\s*\$verifiedBinaryPaths\s*=\s*@\(\s*(?<body>.*?)^\s*\)\s*$'
   )
-  Assert-Condition $chmodScope.Success (
-    'Pinned MoonBit executable permission scope is missing.'
+  Assert-Condition $verifiedBinaryScope.Success (
+    'Pinned MoonBit verified binary identity scope is missing.'
   )
-  $chmodNames = @(
+  $verifiedBinaryNames = @(
     [regex]::Matches(
-      $chmodScope.Groups['body'].Value,
+      $verifiedBinaryScope.Groups['body'].Value,
       "\`$binaryPaths\['([^']+)'\]"
     ) | ForEach-Object { $_.Groups[1].Value }
   )
   Assert-ExactSequence `
-    'Pinned MoonBit executable permission scope' `
-    $chmodNames `
+    'Pinned MoonBit verified binary identity scope' `
+    $verifiedBinaryNames `
     @('moon', 'moonc', 'moonrun')
+  $binDirectoryScope = [regex]::Match(
+    $InstallerText,
+    '(?m)^\$BinDirectories\s*=\s*@\((?<body>[^\r\n]+)\)\s*$'
+  )
+  Assert-Condition $binDirectoryScope.Success (
+    'Pinned MoonBit bin directory manifest is missing.'
+  )
+  $binDirectories = @(
+    [regex]::Matches(
+      $binDirectoryScope.Groups['body'].Value,
+      "'([^']+)'"
+    ) | ForEach-Object { $_.Groups[1].Value }
+  )
+  Assert-ExactSequence `
+    'Pinned MoonBit bin directory manifest' `
+    $binDirectories `
+    @('bin/internal')
+  Assert-Condition (
+    ([regex]::Matches(
+      $InstallerText,
+      "(?m)^\s*Assert-PinnedSequence\s*``\r?\n" +
+        "\s*-Name 'BIN-DIRECTORIES'\s*``$"
+    )).Count -eq 1 -and
+    ([regex]::Matches(
+      $InstallerText,
+      "(?m)^\s*Assert-PinnedSequence\s*``\r?\n" +
+        "\s*-Name 'BIN-LEAVES'\s*``$"
+    )).Count -eq 1
+  ) 'Pinned MoonBit installer must verify the exact extracted bin tree.'
+  $executablePathScope = [regex]::Matches(
+    $InstallerText,
+    (
+      '(?ms)^\s*\$executablePaths\s*=\s*@\(\s*' +
+      '\$ExecutableMembers \| ForEach-Object\s*\{\s*' +
+      'Join-Path \$stagingPath \$_\s*\}\s*\)'
+    )
+  )
+  Assert-Condition ($executablePathScope.Count -eq 1) (
+    'Pinned MoonBit executable paths must derive only from the manifest.'
+  )
   Assert-Condition (
     ([regex]::Matches(
       $InstallerText,
       [regex]::Escape(
-        "& `$chmodCommand.Source 'a+x' '--' @verifiedBinaryPaths"
+        "& `$chmodCommand.Source 'a+x' '--' @executablePaths"
       )
     )).Count -eq 1
-  ) 'Pinned MoonBit installer must chmod exactly the verified binary scope.'
+  ) 'Pinned MoonBit installer must chmod exactly the executable manifest.'
   Assert-Condition (
-    $InstallerText.Contains(
-      '[IO.File]::GetUnixFileMode($path)',
-      [StringComparison]::Ordinal
-    ) -and
-    $InstallerText.Contains(
-      "throw `"P08-TOOLCHAIN-BINARY-MODE: '`$path' is not executable.`"",
-      [StringComparison]::Ordinal
-    )
+    ([regex]::Matches(
+      $InstallerText,
+      (
+        '(?ms)^\s*foreach \(\$path in \$executablePaths\)\s*\{' +
+        '.*?\[IO\.File\]::GetUnixFileMode\(\$path\).*?' +
+        'P08-TOOLCHAIN-BINARY-MODE.*?^\s*\}'
+      )
+    )).Count -eq 1
   ) 'Pinned MoonBit installer must verify executable mode bits.'
+  Assert-Condition (
+    ([regex]::Matches(
+      $InstallerText,
+      (
+        '(?ms)^\s*\$dataPaths\s*=\s*@\(\s*' +
+        '\$DataMembers \| ForEach-Object\s*\{\s*' +
+        'Join-Path \$stagingPath \$_\s*\}\s*\)\s*' +
+        'foreach \(\$path in \$dataPaths\)\s*\{' +
+        '.*?\[IO\.File\]::GetUnixFileMode\(\$path\).*?' +
+        '\[int\]\(\$mode -band \$executeMask\) -ne 0.*?' +
+        'P08-TOOLCHAIN-DATA-MODE.*?^\s*\}'
+      )
+    )).Count -eq 1
+  ) 'Pinned MoonBit installer must keep wasm data members non-executable.'
   Assert-Condition (
     ([regex]::Matches(
       $InstallerText,
@@ -1635,20 +1740,28 @@ function Assert-QualityWorkflowToolchainTransport {
     '-ArchivePath $toolchainPath',
     [StringComparison]::Ordinal
   )
+  $binManifestVerification = $InstallerText.IndexOf(
+    "-Name 'BIN-DIRECTORIES'",
+    [StringComparison]::Ordinal
+  )
   $binaryDigestCheck = $InstallerText.IndexOf(
     'foreach ($name in $BinaryHashes.Keys)',
     [StringComparison]::Ordinal
   )
   $chmodScopeIndex = $InstallerText.IndexOf(
-    '$verifiedBinaryPaths = @(',
+    '$executablePaths = @(',
     [StringComparison]::Ordinal
   )
   $chmodInvocation = $InstallerText.IndexOf(
-    "& `$chmodCommand.Source 'a+x' '--' @verifiedBinaryPaths",
+    "& `$chmodCommand.Source 'a+x' '--' @executablePaths",
     [StringComparison]::Ordinal
   )
   $executeVerification = $InstallerText.IndexOf(
-    '[IO.File]::GetUnixFileMode($path)',
+    'foreach ($path in $executablePaths)',
+    [StringComparison]::Ordinal
+  )
+  $dataModeVerification = $InstallerText.IndexOf(
+    'foreach ($path in $dataPaths)',
     [StringComparison]::Ordinal
   )
   $identityBinScopeIndex = $InstallerText.IndexOf(
@@ -1779,11 +1892,13 @@ function Assert-QualityWorkflowToolchainTransport {
     $toolchainArchiveCheck -ge 0 -and
     $coreArchiveCheck -gt $toolchainArchiveCheck -and
     $toolchainExtraction -gt $coreArchiveCheck -and
-    $binaryDigestCheck -gt $toolchainExtraction -and
+    $binManifestVerification -gt $toolchainExtraction -and
+    $binaryDigestCheck -gt $binManifestVerification -and
     $chmodScopeIndex -gt $binaryDigestCheck -and
     $chmodInvocation -gt $chmodScopeIndex -and
     $executeVerification -gt $chmodInvocation -and
-    $identityBinScopeIndex -gt $executeVerification -and
+    $dataModeVerification -gt $executeVerification -and
+    $identityBinScopeIndex -gt $dataModeVerification -and
     $identityPathValidationIndex -gt $identityBinScopeIndex -and
     $identityPathCapture -gt $identityPathValidationIndex -and
     $identityPathExposure -gt $identityPathCapture -and
@@ -1816,7 +1931,8 @@ function Assert-QualityWorkflowToolchainTransport {
     $pathExport -gt $bundleOutputVerificationIndex
   ) (
     'Pinned MoonBit installer must authenticate both archives before ' +
-    'extraction, hash binaries before scoped chmod, verify execute bits, ' +
+    'extraction, verify the exact bin tree, hash binaries before scoped ' +
+    'chmod, verify executable and data mode bits, ' +
     'expose only authenticated staging/bin for identity checks, restore ' +
     'PATH, bundle core last, validate it in isolation before promotion, ' +
     'install it, reproduce the pinned bundle commands with scoped PATH, ' +

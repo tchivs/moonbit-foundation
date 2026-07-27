@@ -24,6 +24,49 @@ $BinaryIdentities = [ordered]@{
   moonc = 'v0.10.4+2cc641edf (2026-07-15)'
   moonrun = 'moonrun 0.1.20260713 (75c7e1f 2026-07-13)'
 }
+$ExecutableMembers = @(
+  'bin/internal/tcc',
+  'bin/moon',
+  'bin/moon_cove_report',
+  'bin/moon-cram',
+  'bin/moon-ide',
+  'bin/moon-lsp',
+  'bin/moon-wasm-opt',
+  'bin/moonc',
+  'bin/mooncake',
+  'bin/moondoc',
+  'bin/moonfmt',
+  'bin/mooninfo',
+  'bin/moonrun'
+)
+$DataMembers = @(
+  'bin/moonlex.wasm',
+  'bin/moonyacc.wasm'
+)
+$BinDirectories = @('bin/internal')
+
+function Assert-PinnedSequence {
+  param(
+    [Parameter(Mandatory)][string]$Name,
+    [Parameter(Mandatory)][string[]]$Actual,
+    [Parameter(Mandatory)][string[]]$Expected
+  )
+
+  if ($Actual.Count -ne $Expected.Count) {
+    throw (
+      "P08-TOOLCHAIN-$Name`: count=$($Actual.Count) " +
+      "expected=$($Expected.Count)"
+    )
+  }
+  for ($index = 0; $index -lt $Expected.Count; $index++) {
+    if ($Actual[$index] -cne $Expected[$index]) {
+      throw (
+        "P08-TOOLCHAIN-$Name`: index=$index actual='$($Actual[$index])' " +
+        "expected='$($Expected[$index])'"
+      )
+    }
+  }
+}
 
 function Assert-PinnedArchive {
   param(
@@ -216,6 +259,49 @@ try {
     -ArchivePath $toolchainPath `
     -Destination $stagingPath
 
+  $stagingBinPath = Join-Path $stagingPath 'bin'
+  if (-not (Test-Path -LiteralPath $stagingBinPath -PathType Container)) {
+    throw "P08-TOOLCHAIN-BIN-ROOT: '$stagingBinPath'"
+  }
+  $actualBinDirectories = @(
+    Get-ChildItem `
+      -LiteralPath $stagingBinPath `
+      -Directory `
+      -Recurse |
+      ForEach-Object {
+        [IO.Path]::GetRelativePath(
+          $stagingPath,
+          $_.FullName
+        ).Replace('\', '/')
+      } |
+      Sort-Object -CaseSensitive
+  )
+  $actualBinLeaves = @(
+    Get-ChildItem `
+      -LiteralPath $stagingBinPath `
+      -File `
+      -Recurse |
+      ForEach-Object {
+        [IO.Path]::GetRelativePath(
+          $stagingPath,
+          $_.FullName
+        ).Replace('\', '/')
+      } |
+      Sort-Object -CaseSensitive
+  )
+  $expectedBinLeaves = @(
+    @($ExecutableMembers) + @($DataMembers) |
+      Sort-Object -CaseSensitive
+  )
+  Assert-PinnedSequence `
+    -Name 'BIN-DIRECTORIES' `
+    -Actual $actualBinDirectories `
+    -Expected $BinDirectories
+  Assert-PinnedSequence `
+    -Name 'BIN-LEAVES' `
+    -Actual $actualBinLeaves `
+    -Expected $expectedBinLeaves
+
   $binaryPaths = [ordered]@{}
   foreach ($name in $BinaryHashes.Keys) {
     $path = Join-Path $stagingPath "bin/$name"
@@ -238,7 +324,12 @@ try {
     $binaryPaths['moonc'],
     $binaryPaths['moonrun']
   )
-  & $chmodCommand.Source 'a+x' '--' @verifiedBinaryPaths
+  $executablePaths = @(
+    $ExecutableMembers | ForEach-Object {
+      Join-Path $stagingPath $_
+    }
+  )
+  & $chmodCommand.Source 'a+x' '--' @executablePaths
   if ($LASTEXITCODE -ne 0) {
     throw 'P08-TOOLCHAIN-BINARY-MODE: chmod a+x failed.'
   }
@@ -247,10 +338,21 @@ try {
     [IO.UnixFileMode]::GroupExecute -bor
     [IO.UnixFileMode]::OtherExecute
   )
-  foreach ($path in $verifiedBinaryPaths) {
+  foreach ($path in $executablePaths) {
     $mode = [IO.File]::GetUnixFileMode($path)
     if (($mode -band $executeMask) -ne $executeMask) {
       throw "P08-TOOLCHAIN-BINARY-MODE: '$path' is not executable."
+    }
+  }
+  $dataPaths = @(
+    $DataMembers | ForEach-Object {
+      Join-Path $stagingPath $_
+    }
+  )
+  foreach ($path in $dataPaths) {
+    $mode = [IO.File]::GetUnixFileMode($path)
+    if ([int]($mode -band $executeMask) -ne 0) {
+      throw "P08-TOOLCHAIN-DATA-MODE: '$path' must not be executable."
     }
   }
 

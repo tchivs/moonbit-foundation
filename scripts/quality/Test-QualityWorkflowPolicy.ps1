@@ -134,26 +134,60 @@ Invoke-WorkflowPolicyCase `
   -ExpectedFailurePattern 'bundle core last'
 
 Invoke-WorkflowPolicyCase `
-  -Name 'chmod scope is exactly three verified binaries' `
+  -Name 'executable member manifest rejects a missing helper' `
   -Arrange {
     param($state)
     $state.Installer = $state.Installer.Replace(
-      "    `$binaryPaths['moonrun']`n",
-      (
-        "    `$binaryPaths['moonrun'],`n" +
-        "    `$binaryPaths['moonfmt']`n"
-      )
+      "  'bin/mooninfo',`n",
+      ''
     )
   } `
   -ShouldPass $false `
-  -ExpectedFailurePattern 'executable permission scope'
+  -ExpectedFailurePattern 'executable member manifest'
+
+Invoke-WorkflowPolicyCase `
+  -Name 'executable member manifest rejects an extra helper' `
+  -Arrange {
+    param($state)
+    $state.Installer = $state.Installer.Replace(
+      "  'bin/moonrun'`n)",
+      "  'bin/moonrun',`n  'bin/extra-helper'`n)"
+    )
+  } `
+  -ShouldPass $false `
+  -ExpectedFailurePattern 'executable member manifest'
+
+Invoke-WorkflowPolicyCase `
+  -Name 'chmod scope cannot use a wildcard' `
+  -Arrange {
+    param($state)
+    $state.Installer = $state.Installer.Replace(
+      "& `$chmodCommand.Source 'a+x' '--' @executablePaths",
+      "& `$chmodCommand.Source 'a+x' '--' " +
+        "(Join-Path `$stagingPath 'bin/*')"
+    )
+  } `
+  -ShouldPass $false `
+  -ExpectedFailurePattern 'chmod exactly the executable manifest'
+
+Invoke-WorkflowPolicyCase `
+  -Name 'wasm data member cannot become executable' `
+  -Arrange {
+    param($state)
+    $state.Installer = $state.Installer.Replace(
+      "  'bin/moonrun'`n)",
+      "  'bin/moonrun',`n  'bin/moonlex.wasm'`n)"
+    )
+  } `
+  -ShouldPass $false `
+  -ExpectedFailurePattern 'executable member manifest|must be disjoint'
 
 Invoke-WorkflowPolicyCase `
   -Name 'chmod cannot precede binary digests' `
   -Arrange {
     param($state)
     $chmodLine = (
-      "  & `$chmodCommand.Source 'a+x' '--' @verifiedBinaryPaths`n"
+      "  & `$chmodCommand.Source 'a+x' '--' @executablePaths`n"
     )
     $state.Installer = $state.Installer.Replace($chmodLine, '')
     $state.Installer = $state.Installer.Replace(
@@ -225,7 +259,7 @@ Invoke-WorkflowPolicyCase `
     $state.Installer = $state.Installer.Insert($executeCheck, $scope)
   } `
   -ShouldPass $false `
-  -ExpectedFailurePattern 'verify execute bits'
+  -ExpectedFailurePattern 'verify executable and data mode bits'
 
 Invoke-WorkflowPolicyCase `
   -Name 'identity PATH is restored in finally' `
