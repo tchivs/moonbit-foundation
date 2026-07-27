@@ -1,6 +1,6 @@
 ---
 phase: 98-unicode-mapping-and-kerning
-reviewed: 2026-07-27T08:19:33Z
+reviewed: 2026-07-27T08:44:25Z
 depth: deep
 files_reviewed: 14
 files_reviewed_list:
@@ -19,115 +19,49 @@ files_reviewed_list:
   - scripts/quality/Assert-Policy.ps1
   - README.md
 findings:
-  critical: 1
-  warning: 2
+  critical: 0
+  warning: 0
   info: 0
-  total: 3
-status: issues_found
+  total: 0
+status: clean
 ---
 
 # Phase 98: Code Review Report
 
-**Reviewed:** 2026-07-27T08:19:33Z
+**Reviewed:** 2026-07-27T08:44:25Z
 **Depth:** deep
 **Files Reviewed:** 14
-**Status:** issues_found
+**Status:** clean
 
 ## Summary
 
-The review traced the new `cmap` and `kern` admission/query paths through
-`Font::open`, shared-budget accounting, source revision guards, public tests,
-generated fixtures, policy metadata, and the quality gate. The native font
-suite passes all 62 tests and the font policy gate passes, but those checks
-preserve or miss one resource-accounting bypass and two repository metadata
-defects. The budget bypass is release-blocking because malformed fonts can
-repeatedly perform attacker-sized scans without consuming the caller's
-authoritative shared work budget.
+All reviewed files meet the Phase 98 correctness, security, and maintainability
+requirements. No actionable issues remain.
+
+The final review traced every Phase 98 `cmap` and `kern` admission traversal
+through its semantic `max_work` comparison, shared-budget preflight, immediate
+work charge where discovery can fail, final exact-once aggregate charge, and
+post-charge semantic validation. Encoding-record, format-4 segment, classic
+and Apple subtable, and supported pair scans are now charged before traversal.
+Malformed late records, segments, subtables, and pairs retain their data-error
+taxonomy while consuming cumulative shared work; rejected one-short scans do
+not charge or run; bytes and allocations remain atomic on failed admission.
+Successful admission subtracts every precharged scan exactly once, and the
+separate cumulative and remaining-budget bases compose correctly when `cmap`
+and `kern` are both present.
+
+The review also reverified exact manifest-description policy enforcement and
+the bilingual v0.32 active-milestone statements. Scoped evidence passed:
+65/65 native font tests in a unique external target directory, the font policy
+gate, exact manifest-description equality, bilingual README assertions, and
+`git diff --check`.
 
 ## Narrative Findings (AI reviewer)
 
-### Critical Issues
-
-#### CR-01: Malformed `kern` scans bypass the authoritative shared work budget
-
-**Classification:** BLOCKER
-
-**File:** `modules/mb-font/font/kern.mbt:338-381`
-
-**Related:** `modules/mb-font/font/font.mbt:117-121`,
-`modules/mb-font/font/font_test.mbt:1266-1288`,
-`modules/mb-font/font/font_test.mbt:1315-1384`
-
-**Issue:** `font_admit_kern_bounded` only calls
-`font_preflight_admission_work` before traversing the attacker-declared
-subtable and pair counts. The mutating `budget.charge(admission.charge)` does
-not occur until the entire admission helper returns successfully. A malformed
-last subtable or last format-0 pair therefore makes the parser perform nearly
-the maximum allowed scan, returns a data error, and leaves the caller-owned
-`Budget` unchanged. The tests explicitly require this unchanged-budget
-behavior for malformed envelopes and supported pairs. Repeating the same
-hostile open defeats the shared budget's purpose: `max_work` bounds each
-attempt, but the authoritative budget does not bound cumulative work. This
-also violates Phase 98 decision D-13, which requires every attacker-declared
-subtable and pair scan to be charged before its consuming loop.
-
-**Fix:** Charge the subtable work immediately before
-`font_kern_classic_envelope` and charge the pair work immediately before
-`font_kern_format0_facts`, subtracting those amounts from the final successful
-admission charge to avoid double charging. If successful admission must remain
-transactional for bytes and allocations, add a work reservation/commit API
-whose consumed work remains charged when later semantic validation fails.
-Change the malformed-envelope and malformed-pair tests to assert that work
-actually consumed by a scan is deducted, while bytes and allocations may
-remain unchanged.
-
-### Warnings
-
-#### WR-01: The policy gate accepts stale public module descriptions
-
-**Classification:** WARNING
-
-**File:** `policy/foundation.json:2184`
-
-**Related:** `scripts/quality/Assert-Policy.ps1:802-817`,
-`modules/mb-font/moon.mod.json:4`
-
-**Issue:** The policy now describes deterministic Unicode mapping and legacy
-horizontal kerning, while the publishable `moon.mod.json` description still
-advertises only admission and named metrics. The generic manifest checks
-compare name, version, license, readme, targets, and dependencies, but never
-compare `description`. Consequently `Assert-FontFoundationPolicy` passes even
-though the public registry metadata is stale, so future capability additions
-can drift the same way unnoticed.
-
-**Fix:** Update `modules/mb-font/moon.mod.json` to the policy description and
-add an exact assertion such as
-`Assert-Condition ($manifest.description -ceq $module.description)` alongside
-the existing manifest drift checks. Consider checking `repository` there as
-well if it is intended to be governed metadata.
-
-#### WR-02: The root status still identifies the shipped v0.27 line as active
-
-**Classification:** WARNING
-
-**File:** `README.md:24-29`
-
-**Related:** `README.md:127-131`, `.planning/PROJECT.md:13-21`,
-`.planning/STATE.md:3-4`
-
-**Issue:** Both English and Chinese status sections say the active/current
-line is v0.27, although the project state identifies v0.32 TrueType Font
-Foundation as the current milestone and Phase 98 is part of it. This is not
-merely historical prose: it is the repository's public current-status
-statement, so contributors and consumers are directed to the wrong active
-workstream.
-
-**Fix:** Update both status paragraphs to name v0.32 TrueType Font Foundation
-as the active line. Refer to v0.27 as a completed or shipped milestone if that
-history is still useful.
+No Critical, Warning, or Info findings remain in the reviewed scope.
 
 ---
 
-_Reviewed: 2026-07-27T08:19:33Z_
+_Reviewed: 2026-07-27T08:44:25Z_
 _Reviewer: the agent (gsd-code-reviewer)_
 _Depth: deep_
