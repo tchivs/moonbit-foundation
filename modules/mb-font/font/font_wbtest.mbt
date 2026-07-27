@@ -548,6 +548,49 @@ test "cmap rank and format-12 lower bound preserve canonical boundaries" {
 }
 
 ///|
+test "format-6 coexistence is bounded without supported body work" {
+  let source : Array[Byte] = []
+  font_wb_put_u16(source, 0UL)
+  font_wb_put_u16(source, 1UL)
+  font_wb_put_u16(source, 1UL)
+  font_wb_put_u16(source, 0UL)
+  font_wb_put_u32(source, 12UL)
+  font_wb_put_u16(source, 6UL)
+  font_wb_put_u16(source, 12UL)
+  font_wb_put_u16(source, 0UL)
+  font_wb_put_u16(source, 0UL)
+  font_wb_put_u16(source, 1UL)
+  font_wb_put_u16(source, 0UL)
+  let bytes = Bytes::from_array(source)
+  let table : TableWindow = {
+    tag: 0x636D6170UL,
+    checksum: 0UL,
+    offset: 0UL,
+    length_value: bytes.length().to_uint64(),
+    view: font_wb_view(bytes),
+  }
+  let envelope = font_cmap_subtable_envelope(table, 12UL).unwrap()
+  inspect(envelope.format, content="6")
+  inspect(envelope.length, content="12")
+  inspect(font_cmap_recognized_nonselected(1UL, 0UL, 6UL), content="true")
+  for tuple in [(0UL, 0UL, 6UL), (1UL, 1UL, 6UL), (1UL, 0UL, 4UL)] {
+    let (platform, encoding, format) = tuple
+    inspect(
+      !font_cmap_recognized_nonselected(platform, encoding, format),
+      content="true",
+    )
+  }
+  let budget = font_wb_open_budget()
+  let before = budget.remaining()
+  let work = font_cmap_declared_work(table, 1UL, budget, 1UL, 0UL).unwrap()
+  inspect(work.body_records, content="0")
+  inspect(work.format4_discovery_work, content="0")
+  inspect(work.search_work, content="0")
+  inspect(work.mapping_work, content="0")
+  inspect(budget.remaining().work() == before.work() - 1UL, content="true")
+}
+
+///|
 test "format-4 admitted bases and binary search cover direct and indexed edges" {
   for
     case in [

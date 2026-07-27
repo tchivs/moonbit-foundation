@@ -53,6 +53,13 @@ priv struct CmapSubtableFacts {
 }
 
 ///|
+/// Checked common facts for every cmap record before format-specific decoding.
+priv struct CmapSubtableEnvelope {
+  format : UInt64
+  length : UInt64
+}
+
+///|
 priv struct CmapAdmissionWork {
   body_records : UInt64
   format4_discovery_work : UInt64
@@ -669,10 +676,10 @@ fn font_decode_os2(table : TableWindow) -> Result[Os2Facts, @error.CoreError] {
 }
 
 ///|
-fn font_cmap_subtable_facts(
+fn font_cmap_subtable_envelope(
   table : TableWindow,
   offset : UInt64,
-) -> Result[CmapSubtableFacts, @error.CoreError] {
+) -> Result[CmapSubtableEnvelope, @error.CoreError] {
   let remaining = match @checked.checked_sub(table.length_value, offset) {
     Err(_) => return Err(font_data_error("font-cmap-envelope"))
     Ok(value) => value
@@ -697,6 +704,62 @@ fn font_cmap_subtable_facts(
         Err(error) => return Err(error)
         Ok(value) => value
       }
+      if length < 16UL || length > remaining || length % 2UL != 0UL {
+        return Err(font_data_error("font-cmap-envelope"))
+      }
+      Ok({ format, length })
+    }
+    6UL => {
+      if remaining < 10UL {
+        return Err(font_data_error("font-cmap-envelope"))
+      }
+      let length_field = match @checked.checked_add(offset, 2UL) {
+        Err(error) => return Err(error)
+        Ok(value) => value
+      }
+      let length = match read_u16(table.view, length_field) {
+        Err(error) => return Err(error)
+        Ok(value) => value
+      }
+      if length < 10UL || length > remaining || length % 2UL != 0UL {
+        return Err(font_data_error("font-cmap-envelope"))
+      }
+      Ok({ format, length })
+    }
+    12UL => {
+      if remaining < 16UL {
+        return Err(font_data_error("font-cmap-envelope"))
+      }
+      let length_field = match @checked.checked_add(offset, 4UL) {
+        Err(error) => return Err(error)
+        Ok(value) => value
+      }
+      let length = match read_u32(table.view, length_field) {
+        Err(error) => return Err(error)
+        Ok(value) => value
+      }
+      if length < 16UL || length > remaining {
+        return Err(font_data_error("font-cmap-envelope"))
+      }
+      Ok({ format, length })
+    }
+    _ => Err(font_data_error("font-cmap-envelope"))
+  }
+}
+
+///|
+fn font_cmap_subtable_facts(
+  table : TableWindow,
+  offset : UInt64,
+) -> Result[CmapSubtableFacts, @error.CoreError] {
+  let envelope = match font_cmap_subtable_envelope(table, offset) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  let format = envelope.format
+  let length = envelope.length
+  match format {
+    4UL => {
       let language_field = match @checked.checked_add(offset, 4UL) {
         Err(error) => return Err(error)
         Ok(value) => value
@@ -725,7 +788,7 @@ fn font_cmap_subtable_facts(
         Err(error) => return Err(error)
         Ok(value) => value
       }
-      if length < minimum || length > remaining || length % 2UL != 0UL {
+      if length < minimum {
         return Err(font_data_error("font-cmap-envelope"))
       }
       let code_array_size = match @checked.checked_mul(seg_count, 2UL) {
@@ -791,9 +854,6 @@ fn font_cmap_subtable_facts(
       Ok({ format, length, language, body_records: seg_count })
     }
     12UL => {
-      if remaining < 16UL {
-        return Err(font_data_error("font-cmap-envelope"))
-      }
       let reserved_field = match @checked.checked_add(offset, 2UL) {
         Err(error) => return Err(error)
         Ok(value) => value
@@ -804,14 +864,6 @@ fn font_cmap_subtable_facts(
       }
       if reserved != 0UL {
         return Err(font_data_error("font-cmap-envelope"))
-      }
-      let length_field = match @checked.checked_add(offset, 4UL) {
-        Err(error) => return Err(error)
-        Ok(value) => value
-      }
-      let length = match read_u32(table.view, length_field) {
-        Err(error) => return Err(error)
-        Ok(value) => value
       }
       let language_field = match @checked.checked_add(offset, 8UL) {
         Err(error) => return Err(error)
@@ -837,7 +889,7 @@ fn font_cmap_subtable_facts(
         Err(error) => return Err(error)
         Ok(value) => value
       }
-      if length != expected || length > remaining {
+      if length != expected {
         return Err(font_data_error("font-cmap-envelope"))
       }
       Ok({ format, length, language, body_records: groups })
@@ -1047,69 +1099,79 @@ fn font_cmap_declared_work(
     if subtable < records_end {
       return Err(font_data_error("font-cmap-envelope"))
     }
-    let facts = match font_cmap_subtable_facts(table, subtable) {
+    let envelope = match font_cmap_subtable_envelope(table, subtable) {
       Err(error) => return Err(error)
       Ok(value) => value
     }
-    let end = match @checked.checked_add(subtable, facts.length) {
+    let end = match @checked.checked_add(subtable, envelope.length) {
       Err(error) => return Err(error)
       Ok(value) => value
     }
     if end > table.length_value {
       return Err(font_data_error("font-cmap-envelope"))
     }
-    body_records = match
-      @checked.checked_add(body_records, facts.body_records) {
-      Err(error) => return Err(error)
-      Ok(value) => value
-    }
-    if facts.format == 4UL {
-      let next_discovery_work = match
-        @checked.checked_add(format4_discovery_work, facts.body_records) {
+    if envelope.format == 4UL || envelope.format == 12UL {
+      let facts = match font_cmap_subtable_facts(table, subtable) {
         Err(error) => return Err(error)
         Ok(value) => value
       }
-      let preflight_work = match
-        @checked.checked_add(record_discovery_work, next_discovery_work) {
+      body_records = match
+        @checked.checked_add(body_records, facts.body_records) {
         Err(error) => return Err(error)
         Ok(value) => value
       }
-      if preflight_work > max_work {
-        return Err(font_limit_error("max-work", preflight_work, max_work))
-      }
-      let budget_preflight_work = match
-        @checked.checked_add(discovery_base_work, facts.body_records) {
-        Err(error) => return Err(error)
-        Ok(value) => value
-      }
-      match
-        font_preflight_admission_work(budget, max_work, budget_preflight_work) {
-        Err(error) => return Err(error)
-        Ok(_) => ()
-      }
-      match font_charge_admission_work(budget, facts.body_records) {
-        Err(error) => return Err(error)
-        Ok(_) => ()
-      }
-      format4_discovery_work = next_discovery_work
-      search_work = match
-        @checked.checked_add(
-          search_work,
-          font_cmap_search_selector(facts.body_records),
-        ) {
-        Err(error) => return Err(error)
-        Ok(value) => value
-      }
-      mapping_work = match
-        @checked.checked_add(
-          mapping_work,
-          match font_cmap_format4_mapping_work(table, subtable, facts) {
-            Err(error) => return Err(error)
-            Ok(value) => value
-          },
-        ) {
-        Err(error) => return Err(error)
-        Ok(value) => value
+      if facts.format == 4UL {
+        let next_discovery_work = match
+          @checked.checked_add(format4_discovery_work, facts.body_records) {
+          Err(error) => return Err(error)
+          Ok(value) => value
+        }
+        let preflight_work = match
+          @checked.checked_add(record_discovery_work, next_discovery_work) {
+          Err(error) => return Err(error)
+          Ok(value) => value
+        }
+        if preflight_work > max_work {
+          return Err(font_limit_error("max-work", preflight_work, max_work))
+        }
+        let budget_preflight_work = match
+          @checked.checked_add(discovery_base_work, facts.body_records) {
+          Err(error) => return Err(error)
+          Ok(value) => value
+        }
+        match
+          font_preflight_admission_work(
+            budget,
+            max_work,
+            budget_preflight_work,
+          ) {
+          Err(error) => return Err(error)
+          Ok(_) => ()
+        }
+        match font_charge_admission_work(budget, facts.body_records) {
+          Err(error) => return Err(error)
+          Ok(_) => ()
+        }
+        format4_discovery_work = next_discovery_work
+        search_work = match
+          @checked.checked_add(
+            search_work,
+            font_cmap_search_selector(facts.body_records),
+          ) {
+          Err(error) => return Err(error)
+          Ok(value) => value
+        }
+        mapping_work = match
+          @checked.checked_add(
+            mapping_work,
+            match font_cmap_format4_mapping_work(table, subtable, facts) {
+              Err(error) => return Err(error)
+              Ok(value) => value
+            },
+          ) {
+          Err(error) => return Err(error)
+          Ok(value) => value
+        }
       }
     }
     index = index + 1UL

@@ -48,6 +48,16 @@ fn font_cmap_rank(
 }
 
 ///|
+/// Recognize only the bounded Macintosh Roman format-6 coexistence record.
+fn font_cmap_recognized_nonselected(
+  platform : UInt64,
+  encoding : UInt64,
+  format : UInt64,
+) -> Bool {
+  platform == 1UL && encoding == 0UL && format == 6UL
+}
+
+///|
 fn font_cmap_format4_facts(
   table : TableWindow,
   offset : UInt64,
@@ -175,6 +185,21 @@ fn font_admit_cmap_lookup(
       Ok(value) => value
     }
     if subtable < records_end {
+      return Err(font_data_error("font-cmap-envelope"))
+    }
+    let envelope = match font_cmap_subtable_envelope(table, subtable) {
+      Err(error) => return Err(error)
+      Ok(value) => value
+    }
+    if font_cmap_recognized_nonselected(
+      platform,
+      encoding,
+      envelope.format,
+    ) {
+      index = index + 1UL
+      continue
+    }
+    if envelope.format != 4UL && envelope.format != 12UL {
       return Err(font_data_error("font-cmap-envelope"))
     }
     let facts = match
