@@ -16,6 +16,7 @@ pub struct Font {
   priv directory : DirectoryFacts
   priv tables : RequiredTableFacts
   priv metric_index : MetricIndexFacts
+  priv limits : FontLimits
 }
 
 ///|
@@ -170,6 +171,7 @@ pub fn Font::open(
     directory,
     tables,
     metric_index,
+    limits,
   })
 }
 
@@ -399,6 +401,58 @@ fn Font::kerning_after_lookup(
     Ok(_) => ()
   }
   Ok(adjustment)
+}
+
+///|
+/// Decode one complete unhinted TrueType outline with caller-authorized work.
+///
+/// The opaque glyph belongs to the receiving font, and no path is published
+/// until the retained source has passed both revision guards.
+pub fn Font::outline(
+  self : Font,
+  glyph : GlyphId,
+  budget : @budget.Budget,
+) -> Result[@math.Path2, @error.CoreError] {
+  self.outline_after_decode(glyph, budget, fn(_path) { () })
+}
+
+///|
+fn Font::outline_after_decode(
+  self : Font,
+  glyph : GlyphId,
+  budget : @budget.Budget,
+  after_decode : (@math.Path2) -> Unit,
+) -> Result[@math.Path2, @error.CoreError] {
+  match self.require_revision("font-outline") {
+    Err(error) => return Err(error)
+    Ok(_) => ()
+  }
+  if glyph.value_value >= self.metric_index.num_glyphs {
+    return Err(
+      font_glyph_id_error(
+        "font-outline",
+        glyph.value_value,
+        self.metric_index.num_glyphs,
+      ),
+    )
+  }
+  let path = match
+    font_decode_outline(
+      self.metric_index,
+      self.tables.maxp,
+      self.limits,
+      glyph.value_value,
+      budget,
+    ) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  after_decode(path)
+  match self.require_revision("font-outline") {
+    Err(error) => return Err(error)
+    Ok(_) => ()
+  }
+  Ok(path)
 }
 
 ///|
