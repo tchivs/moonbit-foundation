@@ -119,7 +119,7 @@ fn font_collection_wb_limits() -> FontCollectionLimits {
     max_dsig_records=1UL,
     max_dsig_bytes=1UL,
     max_retained_bookkeeping_bytes=248UL,
-    max_work=64UL,
+    max_work=86UL,
   ).unwrap()
 }
 
@@ -134,7 +134,7 @@ test "collection structural pass keeps root ranges and face order" {
       height=0UL,
       pixels=0UL,
       depth=0UL,
-      work=64UL,
+      work=86UL,
     ),
   )
   let facts = font_collection_parse(
@@ -162,8 +162,8 @@ test "collection accounting formula includes every protected and alias pair" {
   inspect(font_collection_choose_two(0UL, 48UL).unwrap(), content="0")
   inspect(font_collection_choose_two(3UL, 48UL).unwrap(), content="3")
   inspect(
-    font_collection_exact_work(2UL, 2UL, 3UL, 0UL, 0UL, 0UL, 48UL).unwrap(),
-    content="48",
+    font_collection_exact_work(2UL, 2UL, 3UL, 0UL, 0UL, 0UL, 66UL).unwrap(),
+    content="66",
   )
   let overflow = font_collection_choose_two(18446744073709551615UL, 48UL).unwrap_err()
   inspect(overflow.category() == @error.ErrorCategory::Resource, content="true")
@@ -174,18 +174,24 @@ test "collection accounting formula includes every protected and alias pair" {
 ///|
 test "collection DSIG work includes header records and block pairs exactly" {
   inspect(
-    font_collection_exact_work(1UL, 1UL, 3UL, 1UL, 1UL, 1UL, 48UL).unwrap(),
-    content="48",
+    font_collection_structural_work(
+      1UL, 1UL, 3UL, 1UL, 1UL, 1UL, 43UL,
+    ).unwrap(),
+    content="43",
+  )
+  inspect(
+    font_collection_exact_work(1UL, 1UL, 3UL, 1UL, 1UL, 1UL, 57UL).unwrap(),
+    content="57",
   )
   // The helper's limit bounds arithmetic overflow; retained-charge performs
   // the final semantic one-short comparison.
   inspect(
-    font_collection_exact_work(1UL, 1UL, 3UL, 1UL, 1UL, 1UL, 47UL).unwrap(),
-    content="48",
+    font_collection_exact_work(1UL, 1UL, 3UL, 1UL, 1UL, 1UL, 56UL).unwrap(),
+    content="57",
   )
   inspect(
-    font_collection_exact_work(1UL, 1UL, 3UL, 1UL, 1UL, 2UL, 55UL).unwrap(),
-    content="55",
+    font_collection_exact_work(1UL, 1UL, 3UL, 1UL, 1UL, 2UL, 64UL).unwrap(),
+    content="64",
   )
 }
 
@@ -201,7 +207,7 @@ test "collection final revision guard rejects mutate-restoration atomically" {
       height=0UL,
       pixels=0UL,
       depth=0UL,
-      work=64UL,
+      work=86UL,
     ),
   )
   let before = budget.remaining()

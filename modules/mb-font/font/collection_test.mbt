@@ -305,7 +305,7 @@ fn font_collection_test_limits_with_source(
     max_dsig_records=1UL,
     max_dsig_bytes=1UL,
     max_retained_bookkeeping_bytes=184UL,
-    max_work=34UL,
+    max_work=47UL,
   ).unwrap()
 }
 
@@ -325,7 +325,7 @@ fn font_collection_test_budget() -> @budget.Budget {
       height=0UL,
       pixels=0UL,
       depth=0UL,
-      work=34UL,
+      work=47UL,
     ),
   )
 }
@@ -652,7 +652,7 @@ test "TTC-01 all-face structure preserves v2 offset order and closed profiles" {
     max_dsig_records=1UL,
     max_dsig_bytes=1UL,
     max_retained_bookkeeping_bytes=440UL,
-    max_work=195UL,
+    max_work=252UL,
   ).unwrap()
   let budget = @budget.Budget::new(
     @budget.ResourceLimits::new(
@@ -663,7 +663,7 @@ test "TTC-01 all-face structure preserves v2 offset order and closed profiles" {
       height=0UL,
       pixels=0UL,
       depth=0UL,
-      work=195UL,
+      work=252UL,
     ),
   )
   let collection = FontCollection::open(owner.view(), limits, budget).unwrap()
@@ -697,7 +697,7 @@ test "TTC-01 table offsets remain collection-root relative" {
     max_dsig_records=1UL,
     max_dsig_bytes=1UL,
     max_retained_bookkeeping_bytes=184UL,
-    max_work=27UL,
+    max_work=36UL,
   ).unwrap()
   let budget = @budget.Budget::new(
     @budget.ResourceLimits::new(
@@ -708,7 +708,7 @@ test "TTC-01 table offsets remain collection-root relative" {
       height=0UL,
       pixels=0UL,
       depth=0UL,
-      work=27UL,
+      work=36UL,
     ),
   )
   let collection = FontCollection::open(owner.view(), limits, budget).unwrap()
@@ -735,7 +735,7 @@ test "TTC-01 v2 offset array and final directory record truncate as Data" {
       max_dsig_records=1UL,
       max_dsig_bytes=1UL,
       max_retained_bookkeeping_bytes=440UL,
-      max_work=195UL,
+      max_work=252UL,
     ).unwrap()
     let error = FontCollection::open(owner.view(), limits, budget).unwrap_err()
     font_collection_test_assert_error(
@@ -760,8 +760,8 @@ test "TTC-01 exact sharing and touching pass while every overlap conflict fails"
     ignore(
       FontCollection::open(
         owner.view(),
-        font_collection_test_pair_limits(248UL, 48UL),
-        font_collection_test_pair_budget(248UL, 2UL, 80UL, 48UL),
+        font_collection_test_pair_limits(248UL, 66UL),
+        font_collection_test_pair_budget(248UL, 2UL, 80UL, 66UL),
       ).unwrap(),
     )
   }
@@ -772,11 +772,11 @@ test "TTC-01 exact sharing and touching pass while every overlap conflict fails"
       font_collection_test_pair_ttc(name, 7UL, 64UL, 4UL, name, 9UL, 100UL, 4UL),
     ] {
     let owner = font_collection_test_owner(source)
-    let budget = font_collection_test_pair_budget(248UL, 2UL, 80UL, 48UL)
+    let budget = font_collection_test_pair_budget(248UL, 2UL, 80UL, 66UL)
     let before = budget.remaining()
     let error = FontCollection::open(
       owner.view(),
-      font_collection_test_pair_limits(248UL, 48UL),
+      font_collection_test_pair_limits(248UL, 66UL),
       budget,
     ).unwrap_err()
     font_collection_test_assert_error(
@@ -790,7 +790,7 @@ test "TTC-01 exact sharing and touching pass while every overlap conflict fails"
     font_collection_test_same_face_overlap_ttc(),
   )
   let same_face_budget = font_collection_test_pair_budget(
-    184UL, 2UL, 48UL, 34UL,
+    184UL, 2UL, 48UL, 47UL,
   )
   let before = same_face_budget.remaining()
   let limits = FontCollectionLimits::new(
@@ -801,7 +801,7 @@ test "TTC-01 exact sharing and touching pass while every overlap conflict fails"
     max_dsig_records=1UL,
     max_dsig_bytes=1UL,
     max_retained_bookkeeping_bytes=184UL,
-    max_work=34UL,
+    max_work=47UL,
   ).unwrap()
   let error = FontCollection::open(
     same_face_owner.view(),
@@ -822,12 +822,12 @@ test "TTC-01 exact sharing and touching pass while every overlap conflict fails"
     Bytes::from_array(duplicate_directory),
   )
   let duplicate_budget = font_collection_test_pair_budget(
-    248UL, 2UL, 80UL, 48UL,
+    248UL, 2UL, 80UL, 66UL,
   )
   let duplicate_before = duplicate_budget.remaining()
   let duplicate_error = FontCollection::open(
     duplicate_owner.view(),
-    font_collection_test_pair_limits(248UL, 48UL),
+    font_collection_test_pair_limits(248UL, 66UL),
     duplicate_budget,
   ).unwrap_err()
   font_collection_test_assert_error(
@@ -853,11 +853,11 @@ test "TTC-01 empty table offsets remain four-byte aligned" {
     4UL,
   )
   let owner = font_collection_test_owner(source)
-  let budget = font_collection_test_pair_budget(248UL, 2UL, 80UL, 48UL)
+  let budget = font_collection_test_pair_budget(248UL, 2UL, 80UL, 66UL)
   let before = budget.remaining()
   let error = FontCollection::open(
     owner.view(),
-    font_collection_test_pair_limits(248UL, 48UL),
+    font_collection_test_pair_limits(248UL, 66UL),
     budget,
   ).unwrap_err()
   font_collection_test_assert_error(
@@ -879,11 +879,11 @@ test "TTC-01 compact charge exact fit succeeds and every one-short is atomic" {
     0x6E616D65UL, 7UL, 96UL, 4UL, 0x6E616D65UL, 7UL, 96UL, 4UL,
   )
   let exact_owner = font_collection_test_owner(shared)
-  let exact_budget = font_collection_test_pair_budget(248UL, 2UL, 80UL, 48UL)
+  let exact_budget = font_collection_test_pair_budget(248UL, 2UL, 80UL, 66UL)
   ignore(
     FontCollection::open(
       exact_owner.view(),
-      font_collection_test_pair_limits(248UL, 48UL),
+      font_collection_test_pair_limits(248UL, 66UL),
       exact_budget,
     ).unwrap(),
   )
@@ -893,10 +893,10 @@ test "TTC-01 compact charge exact fit succeeds and every one-short is atomic" {
   inspect(exact_budget.remaining().work(), content="0")
   for
     item in [
-      (247UL, 2UL, 80UL, 48UL),
-      (248UL, 1UL, 80UL, 48UL),
-      (248UL, 2UL, 79UL, 48UL),
-      (248UL, 2UL, 80UL, 47UL),
+      (247UL, 2UL, 80UL, 66UL),
+      (248UL, 1UL, 80UL, 66UL),
+      (248UL, 2UL, 79UL, 66UL),
+      (248UL, 2UL, 80UL, 65UL),
     ] {
     let (bytes, allocations, allocation_size, work) = item
     let owner = font_collection_test_owner(shared)
@@ -906,17 +906,17 @@ test "TTC-01 compact charge exact fit succeeds and every one-short is atomic" {
     let before = budget.remaining()
     let error = FontCollection::open(
       owner.view(),
-      font_collection_test_pair_limits(248UL, 48UL),
+      font_collection_test_pair_limits(248UL, 66UL),
       budget,
     ).unwrap_err()
     inspect(error.category() == @error.ErrorCategory::Resource, content="true")
     inspect(error.code() == @error.ErrorCode::BudgetExceeded, content="true")
     font_collection_test_assert_budget_unchanged(before, budget)
   }
-  for item in [(247UL, 48UL), (248UL, 47UL)] {
+  for item in [(247UL, 66UL), (248UL, 65UL)] {
     let (retained, work) = item
     let owner = font_collection_test_owner(shared)
-    let budget = font_collection_test_pair_budget(248UL, 2UL, 80UL, 48UL)
+    let budget = font_collection_test_pair_budget(248UL, 2UL, 80UL, 66UL)
     let before = budget.remaining()
     let error = FontCollection::open(
       owner.view(),
@@ -952,7 +952,7 @@ test "TTC-01 declaration ceilings fail before dependent structural work" {
         height=0UL,
         pixels=0UL,
         depth=0UL,
-        work=195UL,
+        work=252UL,
       ),
     )
     let before = budget.remaining()
@@ -964,7 +964,7 @@ test "TTC-01 declaration ceilings fail before dependent structural work" {
       max_dsig_records=1UL,
       max_dsig_bytes=1UL,
       max_retained_bookkeeping_bytes=440UL,
-      max_work=195UL,
+      max_work=252UL,
     ).unwrap()
     let error = FontCollection::open(owner.view(), limits, budget).unwrap_err()
     font_collection_test_assert_error(
@@ -1099,10 +1099,10 @@ fn font_collection_test_dsig_budget(work : UInt64) -> @budget.Budget {
 test "TTC-01 DSIG tuple and supported envelope remain explicitly unverified" {
   let source = font_collection_test_dsig_ttc()
   let owner = font_collection_test_owner(source)
-  let budget = font_collection_test_dsig_budget(48UL)
+  let budget = font_collection_test_dsig_budget(57UL)
   let collection = FontCollection::open(
     owner.view(),
-    font_collection_test_dsig_limits(1UL, 32UL, 48UL),
+    font_collection_test_dsig_limits(1UL, 32UL, 57UL),
     budget,
   ).unwrap()
   inspect(
@@ -1124,11 +1124,11 @@ test "TTC-01 DSIG tuple and supported envelope remain explicitly unverified" {
     let malformed_owner = font_collection_test_owner(
       Bytes::from_array(malformed),
     )
-    let malformed_budget = font_collection_test_dsig_budget(48UL)
+    let malformed_budget = font_collection_test_dsig_budget(57UL)
     let before = malformed_budget.remaining()
     let error = FontCollection::open(
       malformed_owner.view(),
-      font_collection_test_dsig_limits(1UL, 32UL, 48UL),
+      font_collection_test_dsig_limits(1UL, 32UL, 57UL),
       malformed_budget,
     ).unwrap_err()
     font_collection_test_assert_error(
@@ -1178,11 +1178,11 @@ test "TTC-01 DSIG body rejects malformed and complete unsupported facts" {
       font_collection_test_put_u32(malformed, field, value)
     }
     let owner = font_collection_test_owner(Bytes::from_array(malformed))
-    let budget = font_collection_test_dsig_budget(48UL)
+    let budget = font_collection_test_dsig_budget(57UL)
     let before = budget.remaining()
     let error = FontCollection::open(
       owner.view(),
-      font_collection_test_dsig_limits(1UL, 32UL, 48UL),
+      font_collection_test_dsig_limits(1UL, 32UL, 57UL),
       budget,
     ).unwrap_err()
     font_collection_test_assert_error(
@@ -1204,13 +1204,13 @@ test "TTC-01 DSIG record and work ceilings are exact and atomic" {
   let source = font_collection_test_dsig_ttc()
   for
     item in [
-      (0UL, 32UL, 48UL, "max-dsig-records"),
-      (1UL, 31UL, 48UL, "max-dsig-bytes"),
-      (1UL, 32UL, 47UL, "max-work"),
+      (0UL, 32UL, 57UL, "max-dsig-records"),
+      (1UL, 31UL, 57UL, "max-dsig-bytes"),
+      (1UL, 32UL, 56UL, "max-work"),
     ] {
     let (records, bytes, work, context) = item
     let owner = font_collection_test_owner(source)
-    let budget = font_collection_test_dsig_budget(48UL)
+    let budget = font_collection_test_dsig_budget(57UL)
     let before = budget.remaining()
     let limits = if records == 0UL {
       // Public constructors reject zero, so prove the one-over declaration by
@@ -1240,14 +1240,12 @@ test "TTC-01 DSIG record and work ceilings are exact and atomic" {
 }
 
 ///|
-test "TTC-01 work authority precedes DSIG block traversal" {
-  let malformed = font_collection_test_dsig_ttc().to_array()
-  // This reserved field is rejected only while traversing the signature block.
-  font_collection_test_put_u32(malformed, 88, 1UL)
-  let source = Bytes::from_array(malformed)
-  for item in [(47UL, 48UL, true), (48UL, 47UL, false)] {
-    let (max_work, budget_work, limited_by_collection) = item
-    let owner = font_collection_test_owner(source)
+test "TTC-01 D-18 structural facts precede full-work and caller-budget errors" {
+  let malformed_face = font_collection_test_dsig_ttc().to_array()
+  font_collection_test_put_u16(malformed_face, 38, 0UL)
+  for item in [(56UL, 57UL), (57UL, 56UL)] {
+    let (max_work, budget_work) = item
+    let owner = font_collection_test_owner(Bytes::from_array(malformed_face))
     let budget = font_collection_test_dsig_budget(budget_work)
     let before = budget.remaining()
     let error = FontCollection::open(
@@ -1255,17 +1253,77 @@ test "TTC-01 work authority precedes DSIG block traversal" {
       font_collection_test_dsig_limits(1UL, 32UL, max_work),
       budget,
     ).unwrap_err()
-    if limited_by_collection {
-      font_collection_test_assert_error(
-        error,
-        @error.ErrorCategory::Resource,
-        @error.ErrorCode::BudgetExceeded,
-      )
-      inspect(error.context() == Some("max-work"), content="true")
-    } else {
-      inspect(error.category() == @error.ErrorCategory::Resource, content="true")
-      inspect(error.code() == @error.ErrorCode::BudgetExceeded, content="true")
-    }
+    font_collection_test_assert_error(
+      error,
+      @error.ErrorCategory::Data,
+      @error.ErrorCode::InvalidEncoding,
+    )
+    inspect(
+      error.context() == Some("font-collection-search-facts"),
+      content="true",
+    )
+    inspect(error.source_offset() == None, content="true")
+    font_collection_test_assert_budget_unchanged(before, budget)
+  }
+
+  let malformed_alias = font_collection_test_pair_ttc(
+    0x6E616D65UL,
+    7UL,
+    96UL,
+    8UL,
+    0x6E616D65UL,
+    7UL,
+    100UL,
+    8UL,
+  )
+  for item in [(65UL, 66UL), (66UL, 65UL)] {
+    let (max_work, budget_work) = item
+    let owner = font_collection_test_owner(malformed_alias)
+    let budget = font_collection_test_pair_budget(
+      248UL, 2UL, 80UL, budget_work,
+    )
+    let before = budget.remaining()
+    let error = FontCollection::open(
+      owner.view(),
+      font_collection_test_pair_limits(248UL, max_work),
+      budget,
+    ).unwrap_err()
+    font_collection_test_assert_error(
+      error,
+      @error.ErrorCategory::Data,
+      @error.ErrorCode::InvalidEncoding,
+    )
+    inspect(
+      error.context() == Some("font-collection-cross-face-overlap"),
+      content="true",
+    )
+    inspect(error.source_offset() == Some(100UL), content="true")
+    inspect(error.requested() == Some(8UL), content="true")
+    font_collection_test_assert_budget_unchanged(before, budget)
+  }
+
+  let malformed_dsig = font_collection_test_dsig_ttc().to_array()
+  font_collection_test_put_u32(malformed_dsig, 88, 1UL)
+  for item in [(56UL, 57UL), (57UL, 56UL)] {
+    let (max_work, budget_work) = item
+    let owner = font_collection_test_owner(Bytes::from_array(malformed_dsig))
+    let budget = font_collection_test_dsig_budget(budget_work)
+    let before = budget.remaining()
+    let error = FontCollection::open(
+      owner.view(),
+      font_collection_test_dsig_limits(1UL, 32UL, max_work),
+      budget,
+    ).unwrap_err()
+    font_collection_test_assert_error(
+      error,
+      @error.ErrorCategory::Data,
+      @error.ErrorCode::InvalidEncoding,
+    )
+    inspect(
+      error.context() == Some("font-collection-dsig-reserved"),
+      content="true",
+    )
+    inspect(error.source_offset() == Some(88UL), content="true")
     font_collection_test_assert_budget_unchanged(before, budget)
   }
 }
@@ -1278,10 +1336,10 @@ test "TTC-01 two-record DSIG accepts touching and unordered disjoint blocks" {
       font_collection_test_two_dsig_ttc(44UL, 32UL, 56UL),
     ] {
     let owner = font_collection_test_owner(source)
-    let budget = font_collection_test_dsig_budget(55UL)
+    let budget = font_collection_test_dsig_budget(64UL)
     let collection = FontCollection::open(
       owner.view(),
-      font_collection_test_two_dsig_limits(2UL, 56UL, 55UL),
+      font_collection_test_two_dsig_limits(2UL, 56UL, 64UL),
       budget,
     ).unwrap()
     inspect(
@@ -1328,11 +1386,11 @@ test "TTC-01 two-record DSIG rejects overlap containment and trailing gaps" {
     ] {
     let (source, context, source_offset, requested, limit) = item
     let owner = font_collection_test_owner(source)
-    let budget = font_collection_test_dsig_budget(55UL)
+    let budget = font_collection_test_dsig_budget(64UL)
     let before = budget.remaining()
     let error = FontCollection::open(
       owner.view(),
-      font_collection_test_two_dsig_limits(2UL, 60UL, 55UL),
+      font_collection_test_two_dsig_limits(2UL, 60UL, 64UL),
       budget,
     ).unwrap_err()
     font_collection_test_assert_error(
@@ -1353,9 +1411,9 @@ test "TTC-01 two-record DSIG record and work boundaries are exact" {
   let source = font_collection_test_two_dsig_ttc(32UL, 44UL, 56UL)
   for
     item in [
-      (1UL, 56UL, 55UL, 55UL, "max-dsig-records", true),
-      (2UL, 56UL, 54UL, 55UL, "max-work", true),
-      (2UL, 56UL, 55UL, 54UL, "", false),
+      (1UL, 56UL, 64UL, 64UL, "max-dsig-records", true),
+      (2UL, 56UL, 63UL, 64UL, "max-work", true),
+      (2UL, 56UL, 64UL, 63UL, "", false),
     ] {
     let (records, bytes, max_work, budget_work, context, collection_limit) = item
     let owner = font_collection_test_owner(source)

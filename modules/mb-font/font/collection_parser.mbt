@@ -104,6 +104,19 @@ fn font_collection_limit_error(
 }
 
 ///|
+fn font_collection_work_charge(work : UInt64) -> @budget.ResourceCharge {
+  @budget.ResourceCharge::new(
+    bytes=0UL,
+    allocations=0UL,
+    allocation_size=0UL,
+    width=0UL,
+    height=0UL,
+    pixels=0UL,
+    work~,
+  )
+}
+
+///|
 fn font_collection_read_u16(
   source : @bytes.ByteView,
   offset : UInt64,
@@ -1131,6 +1144,7 @@ fn font_collection_validate_aliases(
 fn font_collection_declaration_facts(
   source : @bytes.ByteView,
   limits : FontCollectionLimits,
+  budget : @budget.Budget,
 ) -> Result[CollectionDeclarationFacts, @error.CoreError] {
   if source.length() > limits.max_source_bytes() {
     return Err(
@@ -1317,6 +1331,30 @@ fn font_collection_declaration_facts(
       dsig_start = range.start()
       dsig_end = range.end()
     }
+  }
+  let work_limit = limits.max_work()
+  let declaration_work = match
+    font_collection_declaration_work(
+      face_count,
+      if version == 0x00020000UL { 1UL } else { 0UL },
+      if dsig_present { 1UL } else { 0UL },
+      work_limit,
+    ) {
+    Ok(value) => value
+    Err(error) => return Err(error)
+  }
+  if declaration_work > work_limit {
+    return Err(
+      font_collection_limit_error(
+        "max-work",
+        declaration_work,
+        work_limit,
+      ),
+    )
+  }
+  match budget.preflight(font_collection_work_charge(declaration_work)) {
+    Ok(_) => ()
+    Err(error) => return Err(error)
   }
   let mut table_records = 0UL
   let mut face_index = 0UL
@@ -1719,13 +1757,10 @@ fn font_collection_scan_face(
 }
 
 ///|
-fn font_collection_exact_work(
+fn font_collection_declaration_work(
   face_count : UInt64,
-  table_records : UInt64,
-  protected_count : UInt64,
   version_two : UInt64,
   dsig_present : UInt64,
-  dsig_records : UInt64,
   limit : UInt64,
 ) -> Result[UInt64, @error.CoreError] {
   let face_twice = match
@@ -1755,6 +1790,35 @@ fn font_collection_exact_work(
       Ok(value) => value
       Err(error) => return Err(error)
     }
+  }
+  Ok(declaration_reads)
+}
+
+///|
+fn font_collection_measured_work(
+  face_count : UInt64,
+  table_records : UInt64,
+  protected_count : UInt64,
+  version_two : UInt64,
+  dsig_present : UInt64,
+  dsig_records : UInt64,
+  include_normalization : Bool,
+  limit : UInt64,
+) -> Result[UInt64, @error.CoreError] {
+  let version_reads = match
+    font_collection_resource_mul(version_two, 3UL, "max-work", limit) {
+    Ok(value) => value
+    Err(error) => return Err(error)
+  }
+  let declaration_reads = match
+    font_collection_declaration_work(
+      face_count,
+      version_two,
+      dsig_present,
+      limit,
+    ) {
+    Ok(value) => value
+    Err(error) => return Err(error)
   }
   let structural_face = match
     font_collection_resource_mul(face_count, 5UL, "max-work", limit) {
@@ -1841,20 +1905,44 @@ fn font_collection_exact_work(
     Ok(value) => value
     Err(error) => return Err(error)
   }
-  let normalization_base = match
-    font_collection_resource_add(1UL, face_count, "max-work", limit) {
-    Ok(value) => value
-    Err(error) => return Err(error)
-  }
-  let normalization = match
-    font_collection_resource_add(
-      normalization_base,
-      protected_count,
-      "max-work",
-      limit,
-    ) {
-    Ok(value) => value
-    Err(error) => return Err(error)
+  let normalization = if include_normalization {
+    let normalization_base = match
+      font_collection_resource_add(1UL, face_count, "max-work", limit) {
+      Ok(value) => value
+      Err(error) => return Err(error)
+    }
+    let retained_facts = match
+      font_collection_resource_add(
+        normalization_base,
+        protected_count,
+        "max-work",
+        limit,
+      ) {
+      Ok(value) => value
+      Err(error) => return Err(error)
+    }
+    let normalization_faces = match
+      font_collection_resource_add(
+        structural_face,
+        structural_records,
+        "max-work",
+        limit,
+      ) {
+      Ok(value) => value
+      Err(error) => return Err(error)
+    }
+    match
+      font_collection_resource_add(
+        retained_facts,
+        normalization_faces,
+        "max-work",
+        limit,
+      ) {
+      Ok(value) => value
+      Err(error) => return Err(error)
+    }
+  } else {
+    0UL
   }
   let mut work = declaration_reads
   for term in [
@@ -1872,6 +1960,50 @@ fn font_collection_exact_work(
     }
   }
   Ok(work)
+}
+
+///|
+fn font_collection_structural_work(
+  face_count : UInt64,
+  table_records : UInt64,
+  protected_count : UInt64,
+  version_two : UInt64,
+  dsig_present : UInt64,
+  dsig_records : UInt64,
+  limit : UInt64,
+) -> Result[UInt64, @error.CoreError] {
+  font_collection_measured_work(
+    face_count,
+    table_records,
+    protected_count,
+    version_two,
+    dsig_present,
+    dsig_records,
+    false,
+    limit,
+  )
+}
+
+///|
+fn font_collection_exact_work(
+  face_count : UInt64,
+  table_records : UInt64,
+  protected_count : UInt64,
+  version_two : UInt64,
+  dsig_present : UInt64,
+  dsig_records : UInt64,
+  limit : UInt64,
+) -> Result[UInt64, @error.CoreError] {
+  font_collection_measured_work(
+    face_count,
+    table_records,
+    protected_count,
+    version_two,
+    dsig_present,
+    dsig_records,
+    true,
+    limit,
+  )
 }
 
 ///|
@@ -1995,13 +2127,72 @@ fn font_collection_parse(
   budget : @budget.Budget,
 ) -> Result[CollectionParseFacts, @error.CoreError] {
   let declaration = match
-    font_collection_declaration_facts(source, limits) {
+    font_collection_declaration_facts(source, limits, budget) {
     Ok(value) => value
     Err(error) => return Err(error)
   }
   let dsig = match
     font_collection_parse_dsig_declaration(source, declaration, limits) {
     Ok(value) => value
+    Err(error) => return Err(error)
+  }
+  let protected_count = font_collection_protected_count(declaration)
+  let work_limit = limits.max_work()
+  let structural_work = match
+    font_collection_structural_work(
+      declaration.face_count,
+      declaration.table_records,
+      protected_count,
+      if declaration.version == 0x00020000UL { 1UL } else { 0UL },
+      if declaration.dsig_present { 1UL } else { 0UL },
+      dsig.record_count,
+      work_limit,
+    ) {
+    Ok(value) => value
+    Err(error) => return Err(error)
+  }
+  if structural_work > work_limit {
+    return Err(
+      font_collection_limit_error("max-work", structural_work, work_limit),
+    )
+  }
+  // The staged work-only preflight establishes exact authority for the
+  // allocation-free structural traversal. The complete retained charge is
+  // checked only after structural facts, preserving D-18 precedence.
+  match
+    budget.preflight(font_collection_work_charge(structural_work)) {
+    Ok(_) => ()
+    Err(error) => return Err(error)
+  }
+  let mut face_index = 0UL
+  while face_index < declaration.face_count {
+    match
+      font_collection_scan_face(
+        source,
+        declaration.header_end,
+        face_index,
+        limits,
+      ) {
+      Ok(_) => ()
+      Err(error) => return Err(error)
+    }
+    face_index = face_index + 1UL
+  }
+  match font_collection_validate_protected_ranges(source, declaration) {
+    Ok(_) => ()
+    Err(error) => return Err(error)
+  }
+  match
+    font_collection_validate_table_protected_ranges(source, declaration) {
+    Ok(_) => ()
+    Err(error) => return Err(error)
+  }
+  match font_collection_validate_aliases(source, declaration) {
+    Ok(_) => ()
+    Err(error) => return Err(error)
+  }
+  match font_collection_validate_dsig_envelope(source, declaration, dsig) {
+    Ok(_) => ()
     Err(error) => return Err(error)
   }
   let charge = match
@@ -2021,7 +2212,7 @@ fn font_collection_parse(
     Err(error) => return Err(error)
   }
   let faces : Array[CollectionFaceFacts] = []
-  let mut face_index = 0UL
+  face_index = 0UL
   while face_index < declaration.face_count {
     let face = match
       font_collection_scan_face(
@@ -2035,23 +2226,6 @@ fn font_collection_parse(
     }
     faces.push(face)
     face_index = face_index + 1UL
-  }
-  match font_collection_validate_protected_ranges(source, declaration) {
-    Ok(_) => ()
-    Err(error) => return Err(error)
-  }
-  match
-    font_collection_validate_table_protected_ranges(source, declaration) {
-    Ok(_) => ()
-    Err(error) => return Err(error)
-  }
-  match font_collection_validate_aliases(source, declaration) {
-    Ok(_) => ()
-    Err(error) => return Err(error)
-  }
-  match font_collection_validate_dsig_envelope(source, declaration, dsig) {
-    Ok(_) => ()
-    Err(error) => return Err(error)
   }
   let protected_ranges : Array[CollectionProtectedRange] = [
     { start: 0UL, end: declaration.header_end, kind: 0UL, owner: 0UL },
