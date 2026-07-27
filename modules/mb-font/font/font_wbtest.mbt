@@ -54,6 +54,32 @@ test "directory size and table windows preserve checked boundaries" {
 }
 
 ///|
+test "directory search selector work is exact at power-of-two boundaries" {
+  for case in [
+    (1UL, 0UL),
+    (2UL, 1UL),
+    (3UL, 1UL),
+    (4UL, 2UL),
+    (7UL, 2UL),
+    (8UL, 3UL),
+    (9UL, 3UL),
+  ] {
+    let (table_count, expected_selector) = case
+    let (_, selector, _) = font_directory_search_facts(table_count).unwrap()
+    inspect(selector == expected_selector, content="true")
+    let overlap_work = table_count * (table_count - 1UL) / 2UL
+    let expected_work = overlap_work +
+      table_count +
+      table_count +
+      expected_selector
+    inspect(
+      font_directory_work(0UL, table_count).unwrap() == expected_work,
+      content="true",
+    )
+  }
+}
+
+///|
 fn font_wb_limits() -> FontLimits {
   FontLimits::new(
     max_source_bytes=4096UL,

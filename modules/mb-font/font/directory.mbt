@@ -75,21 +75,49 @@ fn font_limit_error(
 }
 
 ///|
+fn font_directory_search_power_and_selector(
+  num_tables : UInt64,
+) -> (UInt64, UInt64) {
+  if num_tables >= 32768UL {
+    (32768UL, 15UL)
+  } else if num_tables >= 16384UL {
+    (16384UL, 14UL)
+  } else if num_tables >= 8192UL {
+    (8192UL, 13UL)
+  } else if num_tables >= 4096UL {
+    (4096UL, 12UL)
+  } else if num_tables >= 2048UL {
+    (2048UL, 11UL)
+  } else if num_tables >= 1024UL {
+    (1024UL, 10UL)
+  } else if num_tables >= 512UL {
+    (512UL, 9UL)
+  } else if num_tables >= 256UL {
+    (256UL, 8UL)
+  } else if num_tables >= 128UL {
+    (128UL, 7UL)
+  } else if num_tables >= 64UL {
+    (64UL, 6UL)
+  } else if num_tables >= 32UL {
+    (32UL, 5UL)
+  } else if num_tables >= 16UL {
+    (16UL, 4UL)
+  } else if num_tables >= 8UL {
+    (8UL, 3UL)
+  } else if num_tables >= 4UL {
+    (4UL, 2UL)
+  } else if num_tables >= 2UL {
+    (2UL, 1UL)
+  } else {
+    (1UL, 0UL)
+  }
+}
+
+///|
 fn font_directory_search_facts(
   num_tables : UInt64,
 ) -> Result[(UInt64, UInt64, UInt64), @error.CoreError] {
-  let mut power = 1UL
-  let mut selector = 0UL
-  while power <= num_tables / 2UL {
-    power = match @checked.checked_mul(power, 2UL) {
-      Err(error) => return Err(error)
-      Ok(value) => value
-    }
-    selector = match @checked.checked_add(selector, 1UL) {
-      Err(error) => return Err(error)
-      Ok(value) => value
-    }
-  }
+  let (power, selector) = font_directory_search_power_and_selector(num_tables)
   let search_range = match @checked.checked_mul(power, 16UL) {
     Err(error) => return Err(error)
     Ok(value) => value
@@ -154,7 +182,13 @@ fn font_directory_work(
     Err(error) => return Err(error)
     Ok(value) => value
   }
-  @checked.checked_add(checksum_work, directory_work)
+  let (_, selector_work) = font_directory_search_power_and_selector(num_tables)
+  let directory_with_selector = match
+    @checked.checked_add(directory_work, selector_work) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  @checked.checked_add(checksum_work, directory_with_selector)
 }
 
 ///|

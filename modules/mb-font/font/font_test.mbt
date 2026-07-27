@@ -1126,6 +1126,7 @@ test "glyph and work ceilings admit exact values and reject one short atomically
   let source_length = source.length().to_uint64()
   let table_count = font_test_read_u16(source, 4)
   let overlap_work = table_count * (table_count - 1UL) / 2UL
+  let (_, directory_selector_work, _) = font_test_search_facts(table_count)
   // loca/glyph scans (7), two cmap-record scans (2), one format-4
   // validation scan (2), and one pre-charge format-4 discovery scan (2).
   let count_driven_work = 12UL
@@ -1134,6 +1135,7 @@ test "glyph and work ceilings admit exact values and reject one short atomically
   let directory_normalization_work = table_count
   let exact_work = source_length * 2UL +
     overlap_work +
+    directory_selector_work +
     table_count +
     directory_normalization_work +
     lookup_work +
@@ -1141,6 +1143,7 @@ test "glyph and work ceilings admit exact values and reject one short atomically
     count_driven_work
   let discovery_work = source_length * 2UL +
     overlap_work +
+    directory_selector_work +
     table_count +
     directory_normalization_work +
     table_count * 4UL
@@ -1271,7 +1274,11 @@ test "directory normalization copy is preflighted and charged once per table" {
   let source_length = source.length().to_uint64()
   let table_count = font_test_read_u16(source, 4)
   let overlap_work = table_count * (table_count - 1UL) / 2UL
-  let parsed_directory_work = source_length * 2UL + overlap_work + table_count
+  let (_, directory_selector_work, _) = font_test_search_facts(table_count)
+  let parsed_directory_work = source_length * 2UL +
+    overlap_work +
+    directory_selector_work +
+    table_count
   let normalization_copy_work = table_count
   let discovery_work = parsed_directory_work +
     normalization_copy_work +
@@ -1590,11 +1597,13 @@ test "cmap body scans consume exact aggregate work and reject one short atomical
   let source_length = source.length().to_uint64()
   let table_count = font_test_read_u16(source, 4)
   let overlap_work = table_count * (table_count - 1UL) / 2UL
+  let (_, directory_selector_work, _) = font_test_search_facts(table_count)
   // loca/glyph scans (3), two cmap-record scans (2), and two format-12
   // group scans (2).
   let count_driven_work = 7UL
   let exact_work = source_length * 2UL +
     overlap_work +
+    directory_selector_work +
     table_count +
     table_count +
     table_count * 27UL +
@@ -1650,8 +1659,10 @@ test "format 4 traversal preflights and charges exact single and shared work" {
     let source_length = source.length().to_uint64()
     let table_count = font_test_read_u16(source, 4)
     let overlap_work = table_count * (table_count - 1UL) / 2UL
+    let (_, directory_selector_work, _) = font_test_search_facts(table_count)
     let exact_work = source_length * 2UL +
       overlap_work +
+      directory_selector_work +
       table_count +
       table_count +
       table_count * 27UL +
@@ -1704,8 +1715,10 @@ test "semantic max work gates cmap discovery before attacker-driven loops" {
   let source_length = source.length().to_uint64()
   let table_count = font_test_read_u16(source, 4)
   let overlap_work = table_count * (table_count - 1UL) / 2UL
+  let (_, directory_selector_work, _) = font_test_search_facts(table_count)
   let directory_work = source_length * 2UL +
     overlap_work +
+    directory_selector_work +
     table_count +
     table_count
   let discovery_base_work = directory_work + table_count * 4UL
