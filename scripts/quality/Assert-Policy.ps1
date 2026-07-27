@@ -803,6 +803,7 @@ function Assert-FoundationPolicy {
     $manifest = Read-QualityJson -Path (Join-Path $modulePath 'moon.mod.json')
     Assert-Condition ($manifest.name -ceq $module.name) "Manifest name drift in $($module.path)."
     Assert-Condition ($manifest.version -ceq $module.version) "Manifest version drift in $($module.path)."
+    Assert-Condition ($manifest.description -ceq $module.description) "Manifest description drift in $($module.path)."
     Assert-Condition ($manifest.license -ceq $policy.license) "Manifest license drift in $($module.path)."
     Assert-Condition ($manifest.readme -ceq 'README.mbt.md') "Manifest readme drift in $($module.path)."
     Assert-Condition ($manifest.'preferred-target' -ceq $module.preferred_target) "Preferred target drift in $($module.path)."

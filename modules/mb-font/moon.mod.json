@@ -1,7 +1,7 @@
 {
   "name": "tchivs/mb-font",
   "version": "0.1.0",
-  "description": "Portable bounded TrueType font admission and named metrics for MoonBit Native Foundation.",
+  "description": "Portable bounded standalone TrueType admission with named metrics, deterministic Unicode mapping, and basic legacy horizontal kerning for MoonBit Native Foundation.",
   "license": "Apache-2.0",
   "repository": "https://github.com/tchivs/moonbit-foundation",
   "readme": "README.mbt.md",
