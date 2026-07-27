@@ -377,20 +377,29 @@ fn font_outline_validate_trailing(
     Err(_) => return Err(font_outline_data_error("font-outline-trailing"))
     Ok(value) => value
   }
-  if remaining == 1UL {
-    let padding = match read_u8(source, cursor) {
-      Err(_) => return Err(font_outline_data_error("font-outline-trailing"))
-      Ok(value) => value
+  if remaining <= 3UL {
+    for offset = 0UL; offset < remaining; offset = offset + 1UL {
+      let padding = match read_u8(source, cursor + offset) {
+        Err(_) => return Err(font_outline_data_error("font-outline-trailing"))
+        Ok(value) => value
+      }
+      if padding != b'\x00' {
+        return Err(
+          font_outline_data_error(
+            "font-outline-trailing",
+            requested=remaining,
+            limit=3UL,
+          ),
+        )
+      }
     }
-    if padding == b'\x00' {
-      return Ok(())
-    }
+    return Ok(())
   }
   Err(
     font_outline_data_error(
       "font-outline-trailing",
       requested=remaining,
-      limit=1UL,
+      limit=3UL,
     ),
   )
 }

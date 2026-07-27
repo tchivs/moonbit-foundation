@@ -73,6 +73,42 @@ fn font_wb_outline_budget() -> @budget.Budget {
 }
 
 ///|
+test "outline accepts only zero padding within four-byte glyph alignment" {
+  for padding in [b"", b"\x00", b"\x00\x00", b"\x00\x00\x00"] {
+    inspect(
+      font_outline_validate_trailing(font_wb_view(padding), 0UL) is Ok(_),
+      content="true",
+    )
+  }
+  for padding in [b"\x01", b"\x00\x01", b"\x00\x00\x01"] {
+    let error = font_outline_validate_trailing(
+      font_wb_view(padding),
+      0UL,
+    ).unwrap_err()
+    inspect(error.category() == @error.ErrorCategory::Data, content="true")
+    inspect(error.code() == @error.ErrorCode::InvalidEncoding, content="true")
+    inspect(error.context() == Some("font-outline-trailing"), content="true")
+    inspect(
+      error.requested() == Some(padding.length().to_uint64()),
+      content="true",
+    )
+    inspect(error.limit() == Some(3UL), content="true")
+  }
+  let over_aligned = font_outline_validate_trailing(
+    font_wb_view(b"\x00\x00\x00\x00"),
+    0UL,
+  ).unwrap_err()
+  inspect(over_aligned.category() == @error.ErrorCategory::Data, content="true")
+  inspect(over_aligned.code() == @error.ErrorCode::InvalidEncoding, content="true")
+  inspect(
+    over_aligned.context() == Some("font-outline-trailing"),
+    content="true",
+  )
+  inspect(over_aligned.requested() == Some(4UL), content="true")
+  inspect(over_aligned.limit() == Some(3UL), content="true")
+}
+
+///|
 fn font_wb_mutate_one_byte(owner : @bytes.OwnedBytes, offset : UInt64) -> Unit {
   let original = owner.view().get(offset).unwrap()
   owner
