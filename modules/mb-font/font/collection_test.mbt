@@ -1011,6 +1011,50 @@ fn font_collection_test_dsig_ttc() -> Bytes {
 }
 
 ///|
+fn font_collection_test_two_dsig_ttc(
+  first_relative_start : UInt64,
+  second_relative_start : UInt64,
+  outer_length : UInt64,
+) -> Bytes {
+  let output = Array::make((68UL + outer_length).to_int(), b'\x00')
+  font_collection_test_put_u32(output, 0, 0x74746366UL)
+  font_collection_test_put_u32(output, 4, 0x00020000UL)
+  font_collection_test_put_u32(output, 8, 1UL)
+  font_collection_test_put_u32(output, 12, 32UL)
+  font_collection_test_put_u32(output, 16, 0x44534947UL)
+  font_collection_test_put_u32(output, 20, outer_length)
+  font_collection_test_put_u32(output, 24, 68UL)
+  font_collection_test_write_directory(
+    output,
+    32,
+    0x00010000UL,
+    [0x6E616D65UL],
+    [64UL],
+  )
+  font_collection_test_put_u32(output, 68, 1UL)
+  font_collection_test_put_u16(output, 72, 2UL)
+  font_collection_test_put_u16(output, 74, 1UL)
+  for item in [(76, first_relative_start), (88, second_relative_start)] {
+    let (record, relative_start) = item
+    font_collection_test_put_u32(output, record, 1UL)
+    font_collection_test_put_u32(output, record + 4, 12UL)
+    font_collection_test_put_u32(output, record + 8, relative_start)
+  }
+  // Invalid containment fixtures intentionally point into the record array;
+  // do not overwrite the declarations that must diagnose that condition.
+  for relative_start in [first_relative_start, second_relative_start] {
+    if relative_start >= 32UL && relative_start + 12UL <= outer_length {
+      font_collection_test_put_u32(
+        output,
+        (68UL + relative_start + 4UL).to_int(),
+        4UL,
+      )
+    }
+  }
+  Bytes::from_array(output)
+}
+
+///|
 fn font_collection_test_dsig_limits(
   max_records : UInt64,
   max_bytes : UInt64,
@@ -1018,6 +1062,24 @@ fn font_collection_test_dsig_limits(
 ) -> FontCollectionLimits {
   FontCollectionLimits::new(
     max_source_bytes=100UL,
+    max_faces=1UL,
+    max_tables_per_face=1UL,
+    max_table_records=1UL,
+    max_dsig_records=max_records,
+    max_dsig_bytes=max_bytes,
+    max_retained_bookkeeping_bytes=208UL,
+    max_work~,
+  ).unwrap()
+}
+
+///|
+fn font_collection_test_two_dsig_limits(
+  max_records : UInt64,
+  max_bytes : UInt64,
+  max_work : UInt64,
+) -> FontCollectionLimits {
+  FontCollectionLimits::new(
+    max_source_bytes=128UL,
     max_faces=1UL,
     max_tables_per_face=1UL,
     max_table_records=1UL,
@@ -1200,6 +1262,117 @@ test "TTC-01 work authority precedes DSIG block traversal" {
         @error.ErrorCode::BudgetExceeded,
       )
       inspect(error.context() == Some("max-work"), content="true")
+    } else {
+      inspect(error.category() == @error.ErrorCategory::Resource, content="true")
+      inspect(error.code() == @error.ErrorCode::BudgetExceeded, content="true")
+    }
+    font_collection_test_assert_budget_unchanged(before, budget)
+  }
+}
+
+///|
+test "TTC-01 two-record DSIG accepts touching and unordered disjoint blocks" {
+  for
+    source in [
+      font_collection_test_two_dsig_ttc(32UL, 44UL, 56UL),
+      font_collection_test_two_dsig_ttc(44UL, 32UL, 56UL),
+    ] {
+    let owner = font_collection_test_owner(source)
+    let budget = font_collection_test_dsig_budget(55UL)
+    let collection = FontCollection::open(
+      owner.view(),
+      font_collection_test_two_dsig_limits(2UL, 56UL, 55UL),
+      budget,
+    ).unwrap()
+    inspect(
+      collection.dsig_status().unwrap() ==
+      FontCollectionDsigStatus::PresentUnverified,
+      content="true",
+    )
+    inspect(budget.remaining().work(), content="0")
+  }
+}
+
+///|
+test "TTC-01 two-record DSIG rejects overlap containment and trailing gaps" {
+  for
+    item in [
+      (
+        font_collection_test_two_dsig_ttc(32UL, 40UL, 52UL),
+        "font-collection-dsig-block-overlap",
+        108UL,
+        12UL,
+        None,
+      ),
+      (
+        font_collection_test_two_dsig_ttc(32UL, 32UL, 44UL),
+        "font-collection-dsig-block-overlap",
+        100UL,
+        12UL,
+        None,
+      ),
+      (
+        font_collection_test_two_dsig_ttc(28UL, 44UL, 56UL),
+        "font-collection-dsig-block-range",
+        96UL,
+        12UL,
+        Some(100UL),
+      ),
+      (
+        font_collection_test_two_dsig_ttc(32UL, 44UL, 60UL),
+        "font-collection-dsig-outer-length",
+        124UL,
+        4UL,
+        Some(128UL),
+      ),
+    ] {
+    let (source, context, source_offset, requested, limit) = item
+    let owner = font_collection_test_owner(source)
+    let budget = font_collection_test_dsig_budget(55UL)
+    let before = budget.remaining()
+    let error = FontCollection::open(
+      owner.view(),
+      font_collection_test_two_dsig_limits(2UL, 60UL, 55UL),
+      budget,
+    ).unwrap_err()
+    font_collection_test_assert_error(
+      error,
+      @error.ErrorCategory::Data,
+      @error.ErrorCode::InvalidEncoding,
+    )
+    inspect(error.context() == Some(context), content="true")
+    inspect(error.source_offset() == Some(source_offset), content="true")
+    inspect(error.requested() == Some(requested), content="true")
+    inspect(error.limit() == limit, content="true")
+    font_collection_test_assert_budget_unchanged(before, budget)
+  }
+}
+
+///|
+test "TTC-01 two-record DSIG record and work boundaries are exact" {
+  let source = font_collection_test_two_dsig_ttc(32UL, 44UL, 56UL)
+  for
+    item in [
+      (1UL, 56UL, 55UL, 55UL, "max-dsig-records", true),
+      (2UL, 56UL, 54UL, 55UL, "max-work", true),
+      (2UL, 56UL, 55UL, 54UL, "", false),
+    ] {
+    let (records, bytes, max_work, budget_work, context, collection_limit) = item
+    let owner = font_collection_test_owner(source)
+    let budget = font_collection_test_dsig_budget(budget_work)
+    let before = budget.remaining()
+    let error = FontCollection::open(
+      owner.view(),
+      font_collection_test_two_dsig_limits(records, bytes, max_work),
+      budget,
+    ).unwrap_err()
+    if collection_limit {
+      font_collection_test_assert_error(
+        error,
+        @error.ErrorCategory::Resource,
+        @error.ErrorCode::BudgetExceeded,
+      )
+      inspect(error.context() == Some(context), content="true")
     } else {
       inspect(error.category() == @error.ErrorCategory::Resource, content="true")
       inspect(error.code() == @error.ErrorCode::BudgetExceeded, content="true")

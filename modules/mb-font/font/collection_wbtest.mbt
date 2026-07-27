@@ -183,6 +183,10 @@ test "collection DSIG work includes header records and block pairs exactly" {
     font_collection_exact_work(1UL, 1UL, 3UL, 1UL, 1UL, 1UL, 47UL).unwrap(),
     content="48",
   )
+  inspect(
+    font_collection_exact_work(1UL, 1UL, 3UL, 1UL, 1UL, 2UL, 55UL).unwrap(),
+    content="55",
+  )
 }
 
 ///|
