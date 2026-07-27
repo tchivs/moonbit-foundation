@@ -747,6 +747,35 @@ fn font_test_truetype_with_kern_and_glyphs(
 }
 
 ///|
+fn font_test_truetype_with_unicode_and_kern(
+  cmap : Bytes,
+  kern : Bytes,
+  glyph_count : UInt64,
+) -> Bytes {
+  let hmtx = b"\x01\xf4\x00\x00".to_array()
+  for _index = 1UL; _index < glyph_count; _index = _index + 1UL {
+    font_test_push_u16(hmtx, 0UL)
+  }
+  let loca : Array[Byte] = []
+  for _index = 0UL; _index <= glyph_count; _index = _index + 1UL {
+    font_test_push_u16(loca, 0UL)
+  }
+  font_test_build_truetype([
+    { tag: b"OS/2", payload: font_test_fixed_table(78) },
+    { tag: b"cmap", payload: cmap },
+    { tag: b"glyf", payload: b"" },
+    { tag: b"head", payload: font_test_head_table() },
+    { tag: b"hhea", payload: font_test_hhea_table() },
+    { tag: b"hmtx", payload: Bytes::from_array(hmtx) },
+    { tag: b"kern", payload: kern },
+    { tag: b"loca", payload: Bytes::from_array(loca) },
+    { tag: b"maxp", payload: font_test_maxp_table_with_glyphs(glyph_count) },
+    { tag: b"name", payload: font_test_name_table() },
+    { tag: b"post", payload: font_test_post_table() },
+  ])
+}
+
+///|
 fn font_test_truetype_with_metadata(name : Bytes, post : Bytes) -> Bytes {
   font_test_build_truetype([
     { tag: b"OS/2", payload: font_test_fixed_table(78) },
