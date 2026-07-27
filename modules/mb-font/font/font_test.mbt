@@ -272,6 +272,81 @@ fn font_test_cmap_table() -> Bytes {
 }
 
 ///|
+fn font_test_cmap_format4_two_segments() -> Bytes {
+  let output : Array[Byte] = []
+  font_test_push_u16(output, 0UL)
+  font_test_push_u16(output, 1UL)
+  font_test_push_u16(output, 3UL)
+  font_test_push_u16(output, 1UL)
+  font_test_push_u32(output, 12UL)
+  font_test_push_u16(output, 4UL)
+  font_test_push_u16(output, 34UL)
+  font_test_push_u16(output, 0UL)
+  font_test_push_u16(output, 4UL)
+  font_test_push_u16(output, 4UL)
+  font_test_push_u16(output, 1UL)
+  font_test_push_u16(output, 0UL)
+  font_test_push_u16(output, 0x0041UL)
+  font_test_push_u16(output, 0xFFFFUL)
+  font_test_push_u16(output, 0UL)
+  font_test_push_u16(output, 0x0041UL)
+  font_test_push_u16(output, 0xFFFFUL)
+  font_test_push_u16(output, 0UL)
+  font_test_push_u16(output, 1UL)
+  font_test_push_u16(output, 4UL)
+  font_test_push_u16(output, 0UL)
+  font_test_push_u16(output, 0UL)
+  Bytes::from_array(output)
+}
+
+///|
+fn font_test_cmap_format12(
+  groups : Array[(UInt64, UInt64, UInt64)],
+) -> Bytes {
+  let output : Array[Byte] = []
+  font_test_push_u16(output, 0UL)
+  font_test_push_u16(output, 1UL)
+  font_test_push_u16(output, 3UL)
+  font_test_push_u16(output, 10UL)
+  font_test_push_u32(output, 12UL)
+  font_test_push_u16(output, 12UL)
+  font_test_push_u16(output, 0UL)
+  font_test_push_u32(output, 16UL + groups.length().to_uint64() * 12UL)
+  font_test_push_u32(output, 0UL)
+  font_test_push_u32(output, groups.length().to_uint64())
+  for group in groups {
+    let (start_code, end_code, start_glyph) = group
+    font_test_push_u32(output, start_code)
+    font_test_push_u32(output, end_code)
+    font_test_push_u32(output, start_glyph)
+  }
+  Bytes::from_array(output)
+}
+
+///|
+fn font_test_cmap_shared_format4_records(
+  first_platform : UInt64,
+  first_encoding : UInt64,
+  second_platform : UInt64,
+  second_encoding : UInt64,
+) -> Bytes {
+  let output : Array[Byte] = []
+  font_test_push_u16(output, 0UL)
+  font_test_push_u16(output, 2UL)
+  font_test_push_u16(output, first_platform)
+  font_test_push_u16(output, first_encoding)
+  font_test_push_u32(output, 20UL)
+  font_test_push_u16(output, second_platform)
+  font_test_push_u16(output, second_encoding)
+  font_test_push_u32(output, 20UL)
+  let format4 = font_test_cmap_table()
+  for index = 12; index < format4.length(); index = index + 1 {
+    output.push(format4[index])
+  }
+  Bytes::from_array(output)
+}
+
+///|
 fn font_test_fixed_table(length : Int) -> Bytes {
   Bytes::from_array(Array::make(length, b'\x00'))
 }
@@ -976,7 +1051,9 @@ test "glyph and work ceilings admit exact values and reject one short atomically
   let source_length = source.length().to_uint64()
   let table_count = font_test_read_u16(source, 4)
   let overlap_work = table_count * (table_count - 1UL) / 2UL
-  let count_driven_work = 8UL
+  // loca/glyph scans (7), two cmap-record scans (2), and one format-4
+  // segment scan (1).
+  let count_driven_work = 10UL
   let lookup_work = table_count * 27UL
   let table_iteration_work = table_count * 2UL
   let directory_normalization_work = table_count
@@ -1127,7 +1204,7 @@ test "directory normalization copy is preflighted and charged once per table" {
   let work_without_copy = parsed_directory_work +
     table_count * 27UL +
     table_count * 2UL +
-    8UL
+    10UL
   let exact_work = work_without_copy + normalization_copy_work
   let directory_allocation_size = table_count * 64UL
   let exact_limits = FontLimits::new(
@@ -1297,6 +1374,111 @@ test "cmap admission rejects empty aliased unsupported and short subtables" {
     inspect(error.category() == @error.ErrorCategory::Data, content="true")
     inspect(error.context() == Some("font-cmap-envelope"), content="true")
   }
+}
+
+///|
+test "cmap admission rejects malformed supported bodies and record keys" {
+  let invalid_search = font_test_cmap_table().to_array()
+  font_test_put_u16(invalid_search, 20, 0UL)
+  let decreasing_end = font_test_cmap_format4_two_segments().to_array()
+  font_test_put_u16(decreasing_end, 26, 0xFFFFUL)
+  let reversed_segment = font_test_cmap_format4_two_segments().to_array()
+  font_test_put_u16(reversed_segment, 32, 0x0042UL)
+  let dangling_range = font_test_cmap_format4_two_segments().to_array()
+  font_test_put_u16(dangling_range, 40, 6UL)
+  let reversed_group = font_test_cmap_format12([
+    (0x101UL, 0x100UL, 0UL),
+  ])
+  let overlapping_groups = font_test_cmap_format12([
+    (0x100UL, 0x100UL, 0UL),
+    (0x100UL, 0x100UL, 0UL),
+  ])
+  let invalid_platform = font_test_cmap_table().to_array()
+  font_test_put_u16(invalid_platform, 4, 5UL)
+  let invalid_encoding = font_test_cmap_table().to_array()
+  font_test_put_u16(invalid_encoding, 6, 10UL)
+  for
+    cmap in [
+      Bytes::from_array(invalid_search),
+      Bytes::from_array(decreasing_end),
+      Bytes::from_array(reversed_segment),
+      Bytes::from_array(dangling_range),
+      reversed_group,
+      overlapping_groups,
+      font_test_cmap_shared_format4_records(3UL, 1UL, 0UL, 3UL),
+      font_test_cmap_shared_format4_records(3UL, 1UL, 3UL, 1UL),
+      Bytes::from_array(invalid_platform),
+      Bytes::from_array(invalid_encoding),
+    ] {
+    let error = Font::open(
+      font_test_owner(font_test_truetype_with_cmap(cmap)).view(),
+      font_test_limits(),
+      font_test_budget(),
+    ).unwrap_err()
+    inspect(error.category() == @error.ErrorCategory::Data, content="true")
+    inspect(error.context() == Some("font-cmap-envelope"), content="true")
+  }
+}
+
+///|
+test "cmap body scans consume exact aggregate work and reject one short atomically" {
+  let cmap = font_test_cmap_format12([
+    (0x100UL, 0x100UL, 0UL),
+    (0x101UL, 0x101UL, 0UL),
+  ])
+  let source = font_test_truetype_with_cmap(cmap)
+  let source_length = source.length().to_uint64()
+  let table_count = font_test_read_u16(source, 4)
+  let overlap_work = table_count * (table_count - 1UL) / 2UL
+  // loca/glyph scans (3), two cmap-record scans (2), and two format-12
+  // group scans (2).
+  let count_driven_work = 7UL
+  let exact_work = source_length * 2UL +
+    overlap_work +
+    table_count +
+    table_count +
+    table_count * 27UL +
+    table_count * 2UL +
+    count_driven_work
+  let limits = FontLimits::new(
+    max_source_bytes=source_length,
+    max_tables=table_count,
+    max_table_bytes=source_length,
+    max_glyphs=1UL,
+    max_name_records=1UL,
+    max_cmap_records=1UL,
+    max_post_name_bytes=32UL,
+    max_work=exact_work,
+  ).unwrap()
+  let exact_budget = font_test_budget_with_dimensions(
+    source_length,
+    allocations=3UL,
+    allocation_size=table_count * 64UL,
+    exact_work,
+  )
+  ignore(
+    Font::open(font_test_owner(source).view(), limits, exact_budget).unwrap(),
+  )
+  inspect(exact_budget.remaining().work(), content="0")
+
+  let short_budget = font_test_budget_with_dimensions(
+    source_length,
+    allocations=3UL,
+    allocation_size=table_count * 64UL,
+    exact_work - 1UL,
+  )
+  let before = short_budget.remaining()
+  let error = Font::open(
+    font_test_owner(source).view(),
+    limits,
+    short_budget,
+  ).unwrap_err()
+  inspect(error.code() == @error.ErrorCode::BudgetExceeded, content="true")
+  inspect(error.context() == Some("work"), content="true")
+  inspect(
+    short_budget.remaining().work() == before.work(),
+    content="true",
+  )
 }
 
 ///|

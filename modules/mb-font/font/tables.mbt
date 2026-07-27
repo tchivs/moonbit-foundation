@@ -36,6 +36,14 @@ priv struct CmapEnvelope {
 }
 
 ///|
+priv struct CmapSubtableFacts {
+  format : UInt64
+  length : UInt64
+  language : UInt64
+  body_records : UInt64
+}
+
+///|
 /// Retains the admitted cmap envelope for Phase 98 cmap lookup.
 #warnings("-7")
 priv struct RequiredTableFacts {
@@ -90,6 +98,13 @@ fn font_admission_charge(
         limits.max_cmap_records(),
       ),
     )
+  }
+  // Count discovery is intentionally separate from semantic validation: it
+  // determines the exact later scan work before the one authoritative charge.
+  let cmap_body_records = match
+    font_cmap_declared_body_records(cmap_table, cmap_records) {
+    Err(error) => return Err(error)
+    Ok(value) => value
   }
 
   let name_table = match font_table_window(directory, 0x6E616D65UL) {
@@ -222,7 +237,10 @@ fn font_admission_charge(
   for
     count in [
       lookup_work, table_iteration_work, glyph_work, cmap_records, name_records,
-      language_records, post_glyph_records, post_name_bytes,
+      // The first cmap count covers the pre-charge subtable-count discovery;
+      // the second covers the post-charge encoding-record validation loop.
+      cmap_records, cmap_body_records, language_records, post_glyph_records,
+      post_name_bytes,
     ] {
     work = match @checked.checked_add(work, count) {
       Err(error) => return Err(error)
@@ -509,10 +527,10 @@ fn font_decode_os2(table : TableWindow) -> Result[Os2Facts, @error.CoreError] {
 }
 
 ///|
-fn font_cmap_subtable_length(
+fn font_cmap_subtable_facts(
   table : TableWindow,
   offset : UInt64,
-) -> Result[UInt64, @error.CoreError] {
+) -> Result[CmapSubtableFacts, @error.CoreError] {
   let remaining = match @checked.checked_sub(table.length_value, offset) {
     Err(_) => return Err(font_data_error("font-cmap-envelope"))
     Ok(value) => value
@@ -534,6 +552,14 @@ fn font_cmap_subtable_length(
         Ok(value) => value
       }
       let length = match read_u16(table.view, length_field) {
+        Err(error) => return Err(error)
+        Ok(value) => value
+      }
+      let language_field = match @checked.checked_add(offset, 4UL) {
+        Err(error) => return Err(error)
+        Ok(value) => value
+      }
+      let language = match read_u16(table.view, language_field) {
         Err(error) => return Err(error)
         Ok(value) => value
       }
@@ -620,7 +646,12 @@ fn font_cmap_subtable_length(
         start_sentinel != 0xFFFFUL {
         return Err(font_data_error("font-cmap-envelope"))
       }
-      Ok(length)
+      Ok({
+        format,
+        length,
+        language,
+        body_records: seg_count,
+      })
     }
     12UL => {
       if remaining < 16UL {
@@ -645,6 +676,14 @@ fn font_cmap_subtable_length(
         Err(error) => return Err(error)
         Ok(value) => value
       }
+      let language_field = match @checked.checked_add(offset, 8UL) {
+        Err(error) => return Err(error)
+        Ok(value) => value
+      }
+      let language = match read_u32(table.view, language_field) {
+        Err(error) => return Err(error)
+        Ok(value) => value
+      }
       let groups_field = match @checked.checked_add(offset, 12UL) {
         Err(error) => return Err(error)
         Ok(value) => value
@@ -664,15 +703,306 @@ fn font_cmap_subtable_length(
       if length != expected || length > remaining {
         return Err(font_data_error("font-cmap-envelope"))
       }
-      Ok(length)
+      Ok({
+        format,
+        length,
+        language,
+        body_records: groups,
+      })
     }
     _ => return Err(font_data_error("font-cmap-envelope"))
   }
 }
 
 ///|
+fn font_cmap_declared_body_records(
+  table : TableWindow,
+  record_count : UInt64,
+) -> Result[UInt64, @error.CoreError] {
+  let record_bytes = match @checked.checked_mul(record_count, 8UL) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  let records_end = match @checked.checked_add(4UL, record_bytes) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  if records_end > table.length_value {
+    return Err(font_data_error("font-cmap-envelope"))
+  }
+  let mut body_records = 0UL
+  let mut index = 0UL
+  while index < record_count {
+    let record = match
+      @checked.checked_add(
+        4UL,
+        match @checked.checked_mul(index, 8UL) {
+          Err(error) => return Err(error)
+          Ok(value) => value
+        },
+      ) {
+      Err(error) => return Err(error)
+      Ok(value) => value
+    }
+    let subtable_field = match @checked.checked_add(record, 4UL) {
+      Err(error) => return Err(error)
+      Ok(value) => value
+    }
+    let subtable = match read_u32(table.view, subtable_field) {
+      Err(error) => return Err(error)
+      Ok(value) => value
+    }
+    if subtable < records_end {
+      return Err(font_data_error("font-cmap-envelope"))
+    }
+    let facts = match font_cmap_subtable_facts(table, subtable) {
+      Err(error) => return Err(error)
+      Ok(value) => value
+    }
+    let end = match @checked.checked_add(subtable, facts.length) {
+      Err(error) => return Err(error)
+      Ok(value) => value
+    }
+    if end > table.length_value {
+      return Err(font_data_error("font-cmap-envelope"))
+    }
+    body_records = match
+      @checked.checked_add(body_records, facts.body_records) {
+      Err(error) => return Err(error)
+      Ok(value) => value
+    }
+    index = index + 1UL
+  }
+  Ok(body_records)
+}
+
+///|
+fn font_cmap_search_facts(
+  seg_count : UInt64,
+) -> (UInt64, UInt64, UInt64) {
+  let mut power = 1UL
+  let mut selector = 0UL
+  while power <= seg_count / 2UL {
+    power = power * 2UL
+    selector = selector + 1UL
+  }
+  let search_range = power * 2UL
+  (search_range, selector, seg_count * 2UL - search_range)
+}
+
+///|
+fn font_validate_cmap_subtable(
+  table : TableWindow,
+  offset : UInt64,
+  glyph_count : UInt64,
+) -> Result[CmapSubtableFacts, @error.CoreError] {
+  let facts = match font_cmap_subtable_facts(table, offset) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  let subtable_end = match @checked.checked_add(offset, facts.length) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  match facts.format {
+    4UL => {
+      let search_range = match read_u16(table.view, offset + 8UL) {
+        Err(error) => return Err(error)
+        Ok(value) => value
+      }
+      let entry_selector = match read_u16(table.view, offset + 10UL) {
+        Err(error) => return Err(error)
+        Ok(value) => value
+      }
+      let range_shift = match read_u16(table.view, offset + 12UL) {
+        Err(error) => return Err(error)
+        Ok(value) => value
+      }
+      let (expected_search, expected_selector, expected_shift) = font_cmap_search_facts(
+        facts.body_records,
+      )
+      if search_range != expected_search ||
+        entry_selector != expected_selector ||
+        range_shift != expected_shift {
+        return Err(font_data_error("font-cmap-envelope"))
+      }
+      let code_array_size = match
+        @checked.checked_mul(facts.body_records, 2UL) {
+        Err(error) => return Err(error)
+        Ok(value) => value
+      }
+      let end_codes = match @checked.checked_add(offset, 14UL) {
+        Err(error) => return Err(error)
+        Ok(value) => value
+      }
+      let reserved = match @checked.checked_add(end_codes, code_array_size) {
+        Err(error) => return Err(error)
+        Ok(value) => value
+      }
+      let start_codes = match @checked.checked_add(reserved, 2UL) {
+        Err(error) => return Err(error)
+        Ok(value) => value
+      }
+      let id_deltas = match
+        @checked.checked_add(start_codes, code_array_size) {
+        Err(error) => return Err(error)
+        Ok(value) => value
+      }
+      let id_range_offsets = match
+        @checked.checked_add(id_deltas, code_array_size) {
+        Err(error) => return Err(error)
+        Ok(value) => value
+      }
+      let glyph_array_start = match
+        @checked.checked_add(id_range_offsets, code_array_size) {
+        Err(error) => return Err(error)
+        Ok(value) => value
+      }
+      let mut previous_end = 0UL
+      let mut index = 0UL
+      while index < facts.body_records {
+        let delta = match @checked.checked_mul(index, 2UL) {
+          Err(error) => return Err(error)
+          Ok(value) => value
+        }
+        let end_code = match read_u16(table.view, end_codes + delta) {
+          Err(error) => return Err(error)
+          Ok(value) => value
+        }
+        let start_code = match read_u16(table.view, start_codes + delta) {
+          Err(error) => return Err(error)
+          Ok(value) => value
+        }
+        if start_code > end_code ||
+          (index > 0UL &&
+          (end_code <= previous_end || start_code <= previous_end)) {
+          return Err(font_data_error("font-cmap-envelope"))
+        }
+        let range_field = id_range_offsets + delta
+        let range_offset = match read_u16(table.view, range_field) {
+          Err(error) => return Err(error)
+          Ok(value) => value
+        }
+        if range_offset != 0UL {
+          if range_offset % 2UL != 0UL {
+            return Err(font_data_error("font-cmap-envelope"))
+          }
+          let first_glyph = match
+            @checked.checked_add(range_field, range_offset) {
+            Err(error) => return Err(error)
+            Ok(value) => value
+          }
+          let range_length = match @checked.checked_sub(end_code, start_code) {
+            Err(error) => return Err(error)
+            Ok(value) => value
+          }
+          let range_bytes = match @checked.checked_mul(range_length, 2UL) {
+            Err(error) => return Err(error)
+            Ok(value) => value
+          }
+          let last_glyph_end = match
+            @checked.checked_add(
+              match @checked.checked_add(first_glyph, range_bytes) {
+                Err(error) => return Err(error)
+                Ok(value) => value
+              },
+              2UL,
+            ) {
+            Err(error) => return Err(error)
+            Ok(value) => value
+          }
+          if first_glyph < glyph_array_start || last_glyph_end > subtable_end {
+            return Err(font_data_error("font-cmap-envelope"))
+          }
+        }
+        previous_end = end_code
+        index = index + 1UL
+      }
+    }
+    12UL => {
+      let groups_start = match @checked.checked_add(offset, 16UL) {
+        Err(error) => return Err(error)
+        Ok(value) => value
+      }
+      let mut previous_end = 0UL
+      let mut index = 0UL
+      while index < facts.body_records {
+        let group = match
+          @checked.checked_add(
+            groups_start,
+            match @checked.checked_mul(index, 12UL) {
+              Err(error) => return Err(error)
+              Ok(value) => value
+            },
+          ) {
+          Err(error) => return Err(error)
+          Ok(value) => value
+        }
+        let start_code = match read_u32(table.view, group) {
+          Err(error) => return Err(error)
+          Ok(value) => value
+        }
+        let end_code = match read_u32(table.view, group + 4UL) {
+          Err(error) => return Err(error)
+          Ok(value) => value
+        }
+        let start_glyph = match read_u32(table.view, group + 8UL) {
+          Err(error) => return Err(error)
+          Ok(value) => value
+        }
+        if start_code > end_code ||
+          end_code > 0x10FFFFUL ||
+          (index > 0UL && start_code <= previous_end) {
+          return Err(font_data_error("font-cmap-envelope"))
+        }
+        let final_glyph = match
+          @checked.checked_add(
+            start_glyph,
+            match @checked.checked_sub(end_code, start_code) {
+              Err(error) => return Err(error)
+              Ok(value) => value
+            },
+          ) {
+          Err(error) => return Err(error)
+          Ok(value) => value
+        }
+        if final_glyph >= glyph_count {
+          return Err(font_data_error("font-cmap-envelope"))
+        }
+        previous_end = end_code
+        index = index + 1UL
+      }
+    }
+    _ => return Err(font_data_error("font-cmap-envelope"))
+  }
+  Ok(facts)
+}
+
+///|
+fn font_cmap_domain_supported(
+  platform : UInt64,
+  encoding : UInt64,
+  format : UInt64,
+) -> Bool {
+  match platform {
+    0UL =>
+      (format == 4UL && encoding <= 3UL) ||
+      (format == 12UL && encoding == 4UL)
+    1UL => format == 4UL && encoding <= 32UL
+    2UL => format == 4UL && encoding <= 2UL
+    3UL =>
+      (format == 4UL && encoding <= 6UL) ||
+      (format == 12UL && encoding == 10UL)
+    value if value >= 240UL && value <= 255UL =>
+      format == 4UL || format == 12UL
+    _ => false
+  }
+}
+
+///|
 fn font_admit_cmap_envelope(
   table : TableWindow,
+  maxp : MaxpFacts,
   limits : FontLimits,
 ) -> Result[CmapEnvelope, @error.CoreError] {
   match font_table_min_length(table, 4UL, "font-cmap-envelope") {
@@ -717,6 +1047,10 @@ fn font_admit_cmap_envelope(
   if records_end > table.length_value {
     return Err(font_data_error("font-cmap-envelope"))
   }
+  let mut has_previous = false
+  let mut previous_platform = 0UL
+  let mut previous_encoding = 0UL
+  let mut previous_language = 0UL
   let mut index = 0UL
   while index < record_count {
     let record = match
@@ -727,6 +1061,14 @@ fn font_admit_cmap_envelope(
           Ok(value) => value
         },
       ) {
+      Err(error) => return Err(error)
+      Ok(value) => value
+    }
+    let platform = match read_u16(table.view, record) {
+      Err(error) => return Err(error)
+      Ok(value) => value
+    }
+    let encoding = match read_u16(table.view, record + 2UL) {
       Err(error) => return Err(error)
       Ok(value) => value
     }
@@ -741,17 +1083,33 @@ fn font_admit_cmap_envelope(
     if subtable < records_end {
       return Err(font_data_error("font-cmap-envelope"))
     }
-    let length = match font_cmap_subtable_length(table, subtable) {
+    let facts = match
+      font_validate_cmap_subtable(table, subtable, maxp.num_glyphs) {
       Err(error) => return Err(error)
       Ok(value) => value
     }
-    let end = match @checked.checked_add(subtable, length) {
+    if !font_cmap_domain_supported(platform, encoding, facts.format) ||
+      (platform != 1UL && facts.language != 0UL) {
+      return Err(font_data_error("font-cmap-envelope"))
+    }
+    if has_previous &&
+      (platform < previous_platform ||
+      (platform == previous_platform &&
+      (encoding < previous_encoding ||
+      (encoding == previous_encoding && facts.language <= previous_language)))) {
+      return Err(font_data_error("font-cmap-envelope"))
+    }
+    let end = match @checked.checked_add(subtable, facts.length) {
       Err(error) => return Err(error)
       Ok(value) => value
     }
     if end > table.length_value {
       return Err(font_data_error("font-cmap-envelope"))
     }
+    has_previous = true
+    previous_platform = platform
+    previous_encoding = encoding
+    previous_language = facts.language
     index = index + 1UL
   }
   Ok({ record_count, })
@@ -1156,7 +1514,7 @@ fn font_admit_required_tables(
     Err(error) => return Err(error)
     Ok(value) => value
   }
-  let cmap = match font_admit_cmap_envelope(cmap_table, limits) {
+  let cmap = match font_admit_cmap_envelope(cmap_table, maxp, limits) {
     Err(error) => return Err(error)
     Ok(value) => value
   }
