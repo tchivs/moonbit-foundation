@@ -1175,6 +1175,186 @@ function Confirm-FontQualificationRejected {
   Assert-Condition ($null -ne $failure -and $failure -cmatch $ExpectedPattern) "Font qualification accepted negative probe '$Name': '$failure'."
 }
 
+function Assert-QualityWorkflowToolchainTransport {
+  [CmdletBinding()]
+  param(
+    [Parameter(Mandatory)][string]$QualityWorkflowText,
+    [Parameter(Mandatory)][string]$AllWorkflowText,
+    [Parameter(Mandatory)][string]$InstallerText
+  )
+
+  Assert-Condition (
+    $AllWorkflowText -cnotmatch '(?m)^\s*version:\s*latest\s*$'
+  ) 'CI workflows must not request setup action version latest.'
+  Assert-Condition (
+    $AllWorkflowText -cnotmatch 'hustcer/setup-moonbit'
+  ) 'CI workflows must not use the unavailable setup-moonbit transport.'
+  Assert-Condition (
+    $AllWorkflowText -cnotmatch 'cli\.moonbitlang\.com/.+latest'
+  ) 'Mutable MoonBit archive URLs must remain inside the pinned installer.'
+
+  $installCommand = './scripts/ci/Install-PinnedMoonBit.ps1'
+  Assert-Condition (
+    ([regex]::Matches(
+      $QualityWorkflowText,
+      [regex]::Escape($installCommand)
+    )).Count -eq 3
+  ) 'Quality workflow must invoke the pinned MoonBit installer exactly three times.'
+  Assert-Condition (
+    ([regex]::Matches(
+      $QualityWorkflowText,
+      '(?m)^\s*- name: Install content-addressed MoonBit toolchain\s*$'
+    )).Count -eq 3
+  ) 'Quality workflow must expose exactly three content-addressed install steps.'
+  $jobBodies = @{}
+  $inJobs = $false
+  $currentJob = $null
+  $currentBody = $null
+  foreach ($line in ($QualityWorkflowText -split "\r?\n")) {
+    if ($line -ceq 'jobs:') {
+      $inJobs = $true
+      continue
+    }
+    if ($inJobs -and $line -match '^  ([A-Za-z0-9_-]+):\s*$') {
+      if ($null -ne $currentJob) {
+        $jobBodies[$currentJob] = $currentBody.ToString()
+      }
+      $currentJob = $Matches[1]
+      $currentBody = [Text.StringBuilder]::new()
+      continue
+    }
+    if ($null -ne $currentBody) {
+      [void]$currentBody.AppendLine($line)
+    }
+  }
+  if ($null -ne $currentJob) {
+    $jobBodies[$currentJob] = $currentBody.ToString()
+  }
+  foreach ($jobName in @(
+      'font-qualification',
+      'required',
+      'llvm-experimental'
+    )) {
+    Assert-Condition $jobBodies.ContainsKey($jobName) (
+      "Quality workflow job '$jobName' is missing."
+    )
+    $jobBody = [string]$jobBodies[$jobName]
+    Assert-Condition (
+      ([regex]::Matches(
+        $jobBody,
+        [regex]::Escape($installCommand)
+      )).Count -eq 1
+    ) "Quality workflow job '$jobName' must invoke the pinned installer once."
+    Assert-Condition (
+      ([regex]::Matches(
+        $jobBody,
+        '(?m)^\s*shell:\s*pwsh\s*$'
+      )).Count -ge 1
+    ) "Quality workflow job '$jobName' must invoke the installer with pwsh."
+  }
+
+  $toolchainUrl = 'https://cli.moonbitlang.com/binaries/latest/moonbit-linux-x86_64.tar.gz'
+  $coreUrl = 'https://cli.moonbitlang.com/cores/core-latest.tar.gz'
+  $latestUrls = @(
+    [regex]::Matches(
+      $InstallerText,
+      "https://[^'`"\s]*latest[^'`"\s]*"
+    ) | ForEach-Object Value
+  )
+  Assert-ExactSequence `
+    'Pinned MoonBit mutable transport URL set' `
+    $latestUrls `
+    @($toolchainUrl, $coreUrl)
+
+  $toolchainBlock = [regex]::Match(
+    $InstallerText,
+    '(?ms)^\$ToolchainArchive\s*=.*?^\}'
+  ).Value
+  $coreBlock = [regex]::Match(
+    $InstallerText,
+    '(?ms)^\$CoreArchive\s*=.*?^\}'
+  ).Value
+  foreach ($expectation in @(
+      [pscustomobject]@{
+        Block = $toolchainBlock
+        Values = @(
+          $toolchainUrl,
+          'Length = [long]73033507',
+          "Sha256 = '31b7fc5cc78657964a6d545792ecd7fb8eed51b97c7431a17458b58734303381'"
+        )
+      },
+      [pscustomobject]@{
+        Block = $coreBlock
+        Values = @(
+          $coreUrl,
+          'Length = [long]1302919',
+          "Sha256 = '03ad55b99f3e431f3cb81b4e2bb28bb98173304e4a1b18a891ea027cabba5d1c'"
+        )
+      }
+    )) {
+    Assert-Condition (
+      -not [string]::IsNullOrWhiteSpace($expectation.Block)
+    ) 'Pinned MoonBit archive identity block is missing.'
+    foreach ($requiredValue in $expectation.Values) {
+      Assert-Condition (
+        $expectation.Block.Contains(
+          $requiredValue,
+          [StringComparison]::Ordinal
+        )
+      ) "Pinned MoonBit archive identity drifted: '$requiredValue'."
+    }
+  }
+
+  foreach ($requiredValue in @(
+      "moon = '50913178bee7e904850fc37d5b16adda7e6c1616d2704994714b70ac86f9a7ab'",
+      "moonc = '31633647318a571d6aac9a2144a0e1ba3c946ea806d1409778894fe76e604511'",
+      "moonrun = '44b7d5427837c8c0f7379a9d4fa9f3e1aac0f433041b3ffe16e78e1c5f151ab4'",
+      "moon = 'moon 0.1.20260713 (75c7e1f 2026-07-13)'",
+      "moonc = 'v0.10.4+2cc641edf (2026-07-15)'",
+      "moonrun = 'moonrun 0.1.20260713 (75c7e1f 2026-07-13)'"
+    )) {
+    Assert-Condition (
+      $InstallerText.Contains($requiredValue, [StringComparison]::Ordinal)
+    ) "Pinned MoonBit binary identity drifted: '$requiredValue'."
+  }
+
+  $toolchainArchiveCheck = $InstallerText.IndexOf(
+    'Assert-PinnedArchive -Path $toolchainPath',
+    [StringComparison]::Ordinal
+  )
+  $coreArchiveCheck = $InstallerText.IndexOf(
+    'Assert-PinnedArchive -Path $corePath',
+    [StringComparison]::Ordinal
+  )
+  $toolchainExtraction = $InstallerText.IndexOf(
+    '-ArchivePath $toolchainPath',
+    [StringComparison]::Ordinal
+  )
+  $binaryDigestCheck = $InstallerText.IndexOf(
+    'foreach ($name in $BinaryHashes.Keys)',
+    [StringComparison]::Ordinal
+  )
+  $binaryIdentityCheck = $InstallerText.IndexOf(
+    'foreach ($name in $BinaryIdentities.Keys)',
+    [StringComparison]::Ordinal
+  )
+  $coreExtraction = $InstallerText.IndexOf(
+    '-ArchivePath $corePath',
+    [StringComparison]::Ordinal
+  )
+  Assert-Condition (
+    $toolchainArchiveCheck -ge 0 -and
+    $coreArchiveCheck -gt $toolchainArchiveCheck -and
+    $toolchainExtraction -gt $coreArchiveCheck -and
+    $binaryDigestCheck -gt $toolchainExtraction -and
+    $binaryIdentityCheck -gt $binaryDigestCheck -and
+    $coreExtraction -gt $binaryIdentityCheck
+  ) (
+    'Pinned MoonBit installer must authenticate both archives before ' +
+    'extraction, verify binaries before execution, and bundle core last.'
+  )
+}
+
 function Assert-FontQualificationArtifacts {
   [CmdletBinding()]
   param(
@@ -1223,6 +1403,24 @@ function Assert-FontQualificationArtifacts {
   Assert-ExactSet 'Font qualification module dependencies' @($fontModule.direct_dependencies) @('tchivs/mb-core')
   Assert-ExactSet 'Font qualification dependency edge' @($Policy.allowed_dependency_edges | Where-Object from -CEQ 'tchivs/mb-font' | ForEach-Object to) @('tchivs/mb-core')
   Assert-Condition (@($Policy.allowed_dependency_edges | Where-Object to -CEQ 'tchivs/mb-font').Count -eq 0) 'No foundation module may depend on mb-font during qualification.'
+
+  $workflowDirectory = Join-Path $RepositoryRoot '.github/workflows'
+  $qualityWorkflowText = Get-Content -Raw -LiteralPath (
+    Join-Path $workflowDirectory 'quality.yml'
+  )
+  $allWorkflowText = @(
+    Get-ChildItem -LiteralPath $workflowDirectory -File |
+      Where-Object { $_.Extension -in @('.yml', '.yaml') } |
+      Sort-Object Name |
+      ForEach-Object { Get-Content -Raw -LiteralPath $_.FullName }
+  ) -join "`n"
+  $installerText = Get-Content -Raw -LiteralPath (
+    Join-Path $RepositoryRoot 'scripts/ci/Install-PinnedMoonBit.ps1'
+  )
+  Assert-QualityWorkflowToolchainTransport `
+    -QualityWorkflowText $qualityWorkflowText `
+    -AllWorkflowText $allWorkflowText `
+    -InstallerText $installerText
 
   $manifestPath = Join-Path $RepositoryRoot 'fixtures/manifest.json'
   Assert-FontQualificationFixtureManifest -ManifestPath $manifestPath -RepositoryRoot $RepositoryRoot

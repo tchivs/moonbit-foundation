@@ -1011,6 +1011,9 @@ function Invoke-RequiredQuality {
   Invoke-QualityStage 'Fixture provenance fail-closed matrix' {
     & ./scripts/quality/Test-FixturePolicy.ps1
   }
+  Invoke-QualityStage 'CI toolchain transport fail-closed matrix' {
+    & ./scripts/quality/Test-QualityWorkflowPolicy.ps1
+  }
   Invoke-QualityStage 'Source inventory fail-closed matrix' {
     & ./scripts/quality/Test-SourceAudit.ps1
   }
