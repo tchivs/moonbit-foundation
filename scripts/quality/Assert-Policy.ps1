@@ -980,10 +980,13 @@ function Assert-FontDeferredCapabilitySurface {
   $deferredLines = @(
     $InterfaceLines |
       ForEach-Object {
-        (([string]$_) -creplace '\bmax_cmap_records\b', '') -creplace '_', ' '
+        $line = ([string]$_) -creplace '\bmax_cmap_records\b', ''
+        $line = [regex]::Replace($line, '(?<=[A-Z])(?=[A-Z][a-z])', ' ')
+        $line = [regex]::Replace($line, '(?<=[a-z0-9])(?=[A-Z])', ' ')
+        $line -creplace '_', ' '
       }
   )
-  $deferredLeakPattern = '(?i)(\bcmap\b|\bkern(?:ing)?\b|\boutline\b|\bPath2\b|\bfilesystem\b|\bopen\s+file\b|\bfrom\s+path\b|\bffi\b|\bhost(?:\s+discovery)?\b|\bshap(?:e|ing)\b|\bhint(?:ing)?\b|\braster(?:ize|ization)?\b)'
+  $deferredLeakPattern = '(?i)(\bcmap\b|\bkern(?:ing)?\b|\boutline\b|\bPath2\b|\bfilesystem\b|\bopen\s+file\b|\bfrom\s+path\b|\bffi\b|\bhost(?:\s+discovery)?\b|\bshap(?:e|er|ing)\b|\bhint(?:er|ing)?\b|\braster(?:ize|izer|ization)?\b)'
   Assert-Condition (@($deferredLines | Where-Object { $_ -cmatch $deferredLeakPattern }).Count -eq 0) 'Font semantic interface exposes a deferred Phase 98+ capability.'
 }
 
@@ -1085,7 +1088,12 @@ function Assert-FontFoundationPolicy {
     'pub fn Font::cmap_lookup(Self, UInt64) -> UInt64',
     'pub fn Font::outline_path(Self) -> Unit',
     'pub fn Font::open_file(String) -> Self',
-    'pub fn Font::from_path(String) -> Self'
+    'pub fn Font::from_path(String) -> Self',
+    'pub struct GlyphOutline {',
+    'pub struct CmapLookup {',
+    'pub struct FontRasterizer {',
+    'pub fn Font::cmapLookup(Self, UInt64) -> UInt64',
+    'pub fn Font::openFile(String) -> Self'
   )) {
     $negativeFailure = $null
     try {
@@ -1093,7 +1101,7 @@ function Assert-FontFoundationPolicy {
     } catch {
       $negativeFailure = $_.Exception.Message
     }
-    Assert-Condition ($null -ne $negativeFailure -and $negativeFailure -cmatch 'deferred Phase 98[+] capability') "Font deferred-capability selector accepted snake_case fixture '$forbiddenLine'."
+    Assert-Condition ($null -ne $negativeFailure -and $negativeFailure -cmatch 'deferred Phase 98[+] capability') "Font deferred-capability selector accepted forbidden fixture '$forbiddenLine'."
   }
 
   & moon -C modules/mb-font info --target all --frozen
