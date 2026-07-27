@@ -39,7 +39,7 @@
 
 - [x] **Phase 97: Font Admission and Metrics** - Open bounded TrueType SFNT data through `mb-font` and expose checked global and per-glyph metrics. (completed 2026-07-27)
 - [x] **Phase 98: Unicode Mapping and Kerning** - Resolve Unicode scalars and legacy horizontal kerning through deterministic, distinguishable query outcomes. (completed 2026-07-27)
-- [ ] **Phase 99: Simple and Composite Outlines** - Extract complete transactional `Path2`-compatible outlines for simple and bounded one-level composite glyphs.
+- [x] **Phase 99: Simple and Composite Outlines** - Extract complete transactional `Path2`-compatible outlines for simple and bounded one-level composite glyphs. (completed 2026-07-27)
 - [ ] **Phase 100: Portable Font Qualification** - Prove the complete public font workflow and hostile-input behavior on all four supported targets.
 
 ## Phase Details
@@ -101,8 +101,6 @@
 
 **Plans**: 4/4 plans executed
 
-- [x] 99-04-PLAN.md
-
 **Wave 1**
 
 - [x] 99-01-PLAN.md — Repair the Phase 98 interface baseline and deliver complete transactional simple outline extraction.
@@ -114,6 +112,10 @@
 **Wave 3** *(blocked on Waves 1-2 completion)*
 
 - [x] 99-03-PLAN.md — Qualify FONT-03 on all four targets and freeze the final interface, policy, and documentation.
+
+**Wave 4** *(verification gap closure; blocked on Wave 3 completion)*
+
+- [x] 99-04-PLAN.md — Synchronize manifest policy and correct the public outline error taxonomy.
 
 ### Phase 100: Portable Font Qualification
 
@@ -135,8 +137,8 @@
 |-------|----------------|--------|-----------|
 | 97. Font Admission and Metrics | 3/3 | Complete    | 2026-07-27 |
 | 98. Unicode Mapping and Kerning | 3/3 | Complete    | 2026-07-27 |
-| 99. Simple and Composite Outlines | 4/4 | In Progress|  |
+| 99. Simple and Composite Outlines | 4/4 | Complete    | 2026-07-27 |
 | 100. Portable Font Qualification | 0/TBD | Not started | - |
 
 ---
-*Roadmap last updated: 2026-07-26 for v0.32 planning.*
+*Roadmap last updated: 2026-07-27 after Phase 99 completion.*
