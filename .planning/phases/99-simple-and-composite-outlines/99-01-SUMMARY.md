@@ -37,15 +37,30 @@ patterns-established:
   - Hostile variable-length font data is validated and charged before scratch or output allocation.
 requirements-completed: [FONT-03]
 coverage:
-  - dimension: guarded direct Path2 query
-    reference: focused native outline tests
-    status: pass
-  - dimension: exact simple-glyf decoding and Q15 lowering
-    reference: 12 focused native outline tests
-    status: pass
-  - dimension: limits, maxp, max_work, Budget, and hostile boundaries
-    reference: 75 native font package tests
-    status: pass
+  - id: D1
+    description: Guarded direct Path2 queries validate glyph identity and source revisions before publishing one complete result.
+    requirement: FONT-03
+    verification:
+      - kind: integration
+        ref: focused native outline tests
+        status: pass
+    human_judgment: false
+  - id: D2
+    description: Simple glyf decoding preserves exact repeated flags, coordinate deltas, implied points, winding, contour order, and Q15 lowering.
+    requirement: FONT-03
+    verification:
+      - kind: unit
+        ref: 12 focused native outline tests
+        status: pass
+    human_judgment: false
+  - id: D3
+    description: Limits, maxp validation, max_work, caller Budget, and hostile simple-outline boundaries fail closed without partial geometry.
+    requirement: FONT-03
+    verification:
+      - kind: integration
+        ref: 75 native font package tests
+        status: pass
+    human_judgment: false
 metrics:
   duration: 21min
   completed: 2026-07-27
