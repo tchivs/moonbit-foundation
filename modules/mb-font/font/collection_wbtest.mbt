@@ -119,3 +119,40 @@ test "collection structural pass keeps root ranges and face order" {
   inspect(facts.protected_ranges[1].start, content="48")
   inspect(facts.protected_ranges[2].start, content="80")
 }
+
+///|
+test "collection accounting formula includes every protected and alias pair" {
+  inspect(
+    font_collection_choose_two(0UL, 48UL).unwrap(),
+    content="0",
+  )
+  inspect(
+    font_collection_choose_two(3UL, 48UL).unwrap(),
+    content="3",
+  )
+  inspect(
+    font_collection_exact_work(
+      2UL,
+      2UL,
+      3UL,
+      0UL,
+      0UL,
+      0UL,
+      48UL,
+    ).unwrap(),
+    content="48",
+  )
+  let overflow = font_collection_choose_two(
+    18446744073709551615UL,
+    48UL,
+  ).unwrap_err()
+  inspect(
+    overflow.category() == @error.ErrorCategory::Resource,
+    content="true",
+  )
+  inspect(
+    overflow.code() == @error.ErrorCode::BudgetExceeded,
+    content="true",
+  )
+  inspect(overflow.context() == Some("max-work"), content="true")
+}
