@@ -5,16 +5,16 @@ milestone_name: TrueType Font Foundation
 current_phase: 99
 current_phase_name: Simple and Composite Outlines
 status: executing
-stopped_at: Completed 99-01-PLAN.md
-last_updated: "2026-07-27T10:28:56.612Z"
+stopped_at: Completed 99-02-PLAN.md
+last_updated: "2026-07-27T10:50:31.993Z"
 last_activity: 2026-07-27
-last_activity_desc: Phase 98 complete, transitioned to Phase 99
+last_activity_desc: Phase 99 Plan 02 complete, bounded composite outlines verified
 progress:
   total_phases: 3
   completed_phases: 2
   total_plans: 9
-  completed_plans: 7
-current_plan: 2
+  completed_plans: 8
+current_plan: 3
 total_plans_in_phase: 3
 ---
 
@@ -31,15 +31,15 @@ See `.planning/PROJECT.md` (updated 2026-07-27 after Phase 98 validation).
 ## Current Position
 
 Phase: 99 — Simple and Composite Outlines
-Plan: 2 of 3
+Plan: 3 of 3
 Status: Ready to execute
-Last activity: 2026-07-27 — Phase 98 complete, transitioned to Phase 99
+Last activity: 2026-07-27 — Phase 99 Plan 02 complete, bounded composite outlines verified
 
-Progress: [████████░░] 78% (2/4 phases; 6/6 completed plans)
+Progress: [█████████░] 89% (2/4 phases; 8/9 completed plans)
 
 ## Milestone Metrics
 
-**Current milestone:** v0.32 has 4 planned phases; Phases 97-98 have completed all 6 implementation plans and passed verification, deep review, security, and automated UAT. FONT-01, FONT-02, and FONT-04 are complete; Phase 99 is ready for discussion and planning.
+**Current milestone:** v0.32 has 4 planned phases; Phases 97-98 are complete and Phase 99 has completed 2 of 3 implementation plans. FONT-01, FONT-02, FONT-03, and FONT-04 have implementation evidence; Phase 99 interface and four-target closure remains.
 
 **Previous milestone:** v0.31 shipped SVG Numeric Boundary Unification across Phases 95-96; its detailed roadmap is archived at `.planning/milestones/v0.31-ROADMAP.md`.
 
@@ -72,6 +72,9 @@ Progress: [████████░░] 78% (2/4 phases; 6/6 completed plans)
 - [Phase ?]: Phase 99 simple outlines keep all format arithmetic in private checked Int64 Q15 until final Point2 construction.
 - [Phase ?]: Outline queries cumulatively enforce maxp claims, retained limits and max_work, and caller Budget before traversal or allocation.
 - [Phase ?]: Generated interfaces remain ignored local tool output; semantic baseline and final hashes are recorded without force-staging.
+- [Phase ?]: Phase 99 composites classify every reachable descriptor graph before unsupported-capability publication, so cycles remain Data.
+- [Phase ?]: Phase 99 composite transforms and attachments remain checked Int64 Q15 until final Path2 Point2 construction.
+- [Phase ?]: Metrics and outline component lookup share one admitted table-local glyph-window helper.
 
 ### Pending Todos
 
@@ -79,7 +82,6 @@ None yet.
 
 ### Blockers/Concerns
 
-- Phase 99 planning must freeze composite point attachment, phantom-point/`USE_MY_METRICS`, offset-scaling, and F2DOT14 evaluation rules before implementation.
 - Phase 100 planning must finalize licensed real-font specimen provenance, redistribution records, digests, inventories, and independent semantic facts.
 - [Windows] The workspace-wide Required lane remains subject to the known unscoped `mb-image/png` driver stall recorded in `.planning/WINDOWS.md`; isolated Phase 98 font, interface, policy, and documentation gates all pass.
 
@@ -105,13 +107,13 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-07-27T10:28:32.623Z
-Stopped at: Completed 99-01-PLAN.md
+Last session: 2026-07-27T10:50:31.972Z
+Stopped at: Completed 99-02-PLAN.md
 Resume file: None
 
 ## Operator Next Steps
 
-- Discuss Phase 99 and freeze simple/composite outline semantics before planning.
+- Execute Phase 99 Plan 03 for four-target, interface, policy, and documentation closure.
 
 ## Performance Metrics
 
@@ -135,3 +137,4 @@ Phases 97-98 completed all six plans. Phase 98 passed final deep review, 19/19 s
 | Phase 98 P02 | 36min | 3 tasks | 9 files |
 | Phase 98 P03 | 20min | 2 tasks | 7 files |
 | Phase 99 P01 | 21min | 2 tasks | 9 files |
+| Phase 99 P02 | 17min | 2 tasks | 5 files |
