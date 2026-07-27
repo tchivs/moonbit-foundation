@@ -230,6 +230,50 @@ fn font_glyph_id_error(
 }
 
 ///|
+fn font_unicode_scalar_error() -> @error.CoreError {
+  @error.CoreError::new(
+    @error.ErrorCategory::InvalidInput,
+    @error.ErrorCode::InvalidRange,
+    operation="font-glyph-for-scalar",
+    context="font-unicode-scalar-range",
+  )
+}
+
+///|
+/// Map one signed Unicode scalar through the single mapping selected at open.
+///
+/// Valid misses produce glyph zero. The retained source revision is checked
+/// before validation and again immediately before the opaque result is
+/// published.
+pub fn Font::glyph_for_scalar(
+  self : Font,
+  scalar : Int,
+) -> Result[GlyphId, @error.CoreError] {
+  match self.require_revision("font-query") {
+    Err(error) => return Err(error)
+    Ok(_) => ()
+  }
+  if scalar < 0 ||
+    scalar > 0x10FFFF ||
+    (scalar >= 0xD800 && scalar <= 0xDFFF) {
+    return Err(font_unicode_scalar_error())
+  }
+  let value = match self.tables.cmap.lookup {
+    Some(facts) =>
+      match font_lookup_cmap(facts, scalar.to_uint64()) {
+        Err(error) => return Err(error)
+        Ok(value) => value
+      }
+    None => 0UL
+  }
+  match self.require_revision("font-query") {
+    Err(error) => return Err(error)
+    Ok(_) => ()
+  }
+  Ok({ value_value: value })
+}
+
+///|
 /// Construct an opaque glyph identity after validating it against this font.
 pub fn Font::glyph_id(
   self : Font,

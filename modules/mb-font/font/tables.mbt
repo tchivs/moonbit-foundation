@@ -33,6 +33,7 @@ priv struct Os2Facts {
 #warnings("-7")
 priv struct CmapEnvelope {
   record_count : UInt64
+  lookup : CmapLookupFacts?
 }
 
 ///|
@@ -1279,81 +1280,12 @@ fn font_admit_cmap_envelope(
   if records_end > table.length_value {
     return Err(font_data_error("font-cmap-envelope"))
   }
-  let mut has_previous = false
-  let mut previous_platform = 0UL
-  let mut previous_encoding = 0UL
-  let mut previous_language = 0UL
-  let mut index = 0UL
-  while index < record_count {
-    let record = match
-      @checked.checked_add(
-        4UL,
-        match @checked.checked_mul(index, 8UL) {
-          Err(error) => return Err(error)
-          Ok(value) => value
-        },
-      ) {
-      Err(error) => return Err(error)
-      Ok(value) => value
-    }
-    let platform = match read_u16(table.view, record) {
-      Err(error) => return Err(error)
-      Ok(value) => value
-    }
-    let encoding = match read_u16(table.view, record + 2UL) {
-      Err(error) => return Err(error)
-      Ok(value) => value
-    }
-    let subtable_field = match @checked.checked_add(record, 4UL) {
-      Err(error) => return Err(error)
-      Ok(value) => value
-    }
-    let subtable = match read_u32(table.view, subtable_field) {
-      Err(error) => return Err(error)
-      Ok(value) => value
-    }
-    if subtable < records_end {
-      return Err(font_data_error("font-cmap-envelope"))
-    }
-    let facts = match
-      font_validate_cmap_subtable(table, subtable, maxp.num_glyphs) {
-      Err(error) => return Err(error)
-      Ok(value) => value
-    }
-    if !font_cmap_domain_supported(platform, encoding, facts.format) ||
-      (platform != 1UL && facts.language != 0UL) {
-      return Err(font_data_error("font-cmap-envelope"))
-    }
-    if has_previous &&
-      (
-        platform < previous_platform ||
-        (
-          platform == previous_platform &&
-          (
-            encoding < previous_encoding ||
-            (
-              encoding == previous_encoding &&
-              facts.language <= previous_language
-            )
-          )
-        )
-      ) {
-      return Err(font_data_error("font-cmap-envelope"))
-    }
-    let end = match @checked.checked_add(subtable, facts.length) {
-      Err(error) => return Err(error)
-      Ok(value) => value
-    }
-    if end > table.length_value {
-      return Err(font_data_error("font-cmap-envelope"))
-    }
-    has_previous = true
-    previous_platform = platform
-    previous_encoding = encoding
-    previous_language = facts.language
-    index = index + 1UL
+  let lookup = match
+    font_admit_cmap_lookup(table, record_count, records_end, maxp) {
+    Err(error) => return Err(error)
+    Ok(value) => value
   }
-  Ok({ record_count, })
+  Ok({ record_count, lookup })
 }
 
 ///|
