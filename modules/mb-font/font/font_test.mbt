@@ -441,6 +441,23 @@ fn font_test_cmap_format12(groups : Array[(UInt64, UInt64, UInt64)]) -> Bytes {
 }
 
 ///|
+fn font_test_cmap_format6(
+  declared_length : UInt64,
+  glyphs : Array[UInt64],
+) -> Bytes {
+  let output : Array[Byte] = []
+  font_test_push_u16(output, 6UL)
+  font_test_push_u16(output, declared_length)
+  font_test_push_u16(output, 0UL)
+  font_test_push_u16(output, 0UL)
+  font_test_push_u16(output, glyphs.length().to_uint64())
+  for glyph in glyphs {
+    font_test_push_u16(output, glyph)
+  }
+  Bytes::from_array(output)
+}
+
+///|
 fn font_test_cmap_shared_format4_two_segments() -> Bytes {
   let output : Array[Byte] = []
   font_test_push_u16(output, 0UL)
@@ -3162,6 +3179,120 @@ test "cmap aliases share one mapping while duplicate canonical keys reject" {
   inspect(error.category() == @error.ErrorCategory::Data, content="true")
   inspect(error.code() == @error.ErrorCode::InvalidEncoding, content="true")
   inspect(error.context() == Some("font-cmap-record-key"), content="true")
+}
+
+///|
+test "format 6 coexists with canonical Unicode cmap without becoming selectable" {
+  let source = font_test_truetype_with_cmap_and_glyphs(
+    font_test_cmap_records([(1UL, 0UL, 0), (0UL, 4UL, 1)], [
+      font_test_cmap_format6(12UL, [0UL]),
+      font_test_cmap_subtable(
+        font_test_cmap_format12([(0x0041UL, 0x0041UL, 1UL)]),
+      ),
+    ]),
+    2UL,
+  )
+  match
+    Font::open(
+      font_test_owner(source).view(),
+      font_test_limits(),
+      font_test_budget(),
+    ) {
+    Ok(font) =>
+      inspect(font.glyph_for_scalar(0x0041).unwrap().value(), content="1")
+    Err(error) => {
+      inspect(error.category() == @error.ErrorCategory::Data, content="true")
+      inspect(error.code() == @error.ErrorCode::InvalidEncoding, content="true")
+      inspect(error.context() == Some("font-cmap-envelope"), content="true")
+      inspect(false, content="true")
+    }
+  }
+}
+
+///|
+test "DejaVu Sans 2.37 opens with its non-selected format 6 cmap" {
+  let source = font_qualification_dejavu_sans_237_bytes()
+  inspect(source.length(), content="757076")
+  let owner = font_test_owner(source)
+  let limits = FontLimits::new(
+    max_source_bytes=800000UL,
+    max_tables=32UL,
+    max_table_bytes=600000UL,
+    max_glyphs=7000UL,
+    max_name_records=32UL,
+    max_cmap_records=8UL,
+    max_kern_subtables=4UL,
+    max_kern_pairs=3000UL,
+    max_outline_points=1024UL,
+    max_outline_contours=64UL,
+    max_outline_components=16UL,
+    max_outline_instruction_bytes=1024UL,
+    max_post_name_bytes=65536UL,
+    max_work=10000000UL,
+  ).unwrap()
+  let budget = font_test_budget_with_dimensions(
+    800000UL,
+    allocations=3UL,
+    allocation_size=100000UL,
+    10000000UL,
+  )
+  match Font::open(owner.view(), limits, budget) {
+    Ok(font) =>
+      inspect(font.glyph_for_scalar(0x0041).unwrap().value(), content="36")
+    Err(error) => {
+      inspect(error.category() == @error.ErrorCategory::Data, content="true")
+      inspect(error.code() == @error.ErrorCode::InvalidEncoding, content="true")
+      inspect(error.context() == Some("font-cmap-envelope"), content="true")
+      inspect(false, content="true")
+    }
+  }
+}
+
+///|
+test "format 6 remains non-queryable without canonical Unicode cmap" {
+  let source = font_test_truetype_with_cmap_and_glyphs(
+    font_test_cmap_records([(1UL, 0UL, 0)], [
+      font_test_cmap_format6(12UL, [1UL]),
+    ]),
+    2UL,
+  )
+  let error = Font::open(
+    font_test_owner(source).view(),
+    font_test_limits(),
+    font_test_budget(),
+  ).unwrap_err()
+  inspect(error.category() == @error.ErrorCategory::Capability, content="true")
+  inspect(
+    error.code() == @error.ErrorCode::CapabilityUnavailable,
+    content="true",
+  )
+  inspect(error.operation() == Some("font-open"), content="true")
+  inspect(error.context() == Some("font-cmap-unicode"), content="true")
+}
+
+///|
+test "malformed format 6 envelopes remain cmap data failures" {
+  for
+    format6 in [
+      b"\x00\x06\x00",
+      font_test_cmap_format6(8UL, []),
+      font_test_cmap_format6(11UL, [0UL]),
+      font_test_cmap_format6(14UL, [0UL]),
+    ] {
+    let source = font_test_truetype_with_cmap_and_glyphs(
+      font_test_cmap_records([(1UL, 0UL, 0)], [format6]),
+      2UL,
+    )
+    let error = Font::open(
+      font_test_owner(source).view(),
+      font_test_limits(),
+      font_test_budget(),
+    ).unwrap_err()
+    inspect(error.category() == @error.ErrorCategory::Data, content="true")
+    inspect(error.code() == @error.ErrorCode::InvalidEncoding, content="true")
+    inspect(error.operation() == Some("font-open"), content="true")
+    inspect(error.context() == Some("font-cmap-envelope"), content="true")
+  }
 }
 
 ///|
