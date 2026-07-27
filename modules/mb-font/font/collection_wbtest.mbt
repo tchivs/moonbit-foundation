@@ -43,6 +43,42 @@ fn font_collection_wb_view(source : Bytes) -> @bytes.ByteView {
 }
 
 ///|
+fn font_collection_wb_owner(source : Bytes) -> @bytes.OwnedBytes {
+  let length = source.length().to_uint64()
+  @bytes.OwnedBytes::from_bytes(
+    source,
+    @budget.Budget::new(
+      @budget.ResourceLimits::new(
+        bytes=length,
+        allocations=1UL,
+        allocation_size=length,
+        width=0UL,
+        height=0UL,
+        pixels=0UL,
+        depth=0UL,
+        work=0UL,
+      ),
+    ),
+  ).unwrap()
+}
+
+///|
+fn font_collection_wb_mutate_restore(
+  owner : @bytes.OwnedBytes,
+  offset : UInt64,
+) -> Unit {
+  let original = owner.view().get(offset).unwrap()
+  owner
+  .with_mut(offset, 1UL, fn(lease) {
+    lease.set(0UL, (original.to_uint64() ^ 1UL).to_byte())
+  })
+  .unwrap()
+  owner
+  .with_mut(offset, 1UL, fn(lease) { lease.set(0UL, original) })
+  .unwrap()
+}
+
+///|
 fn font_collection_wb_two_face_v2() -> Bytes {
   let output = Array::make(160, b'\x00')
   font_collection_wb_put_u32(output, 0, 0x74746366UL)
@@ -143,4 +179,49 @@ test "collection DSIG work includes header records and block pairs exactly" {
     font_collection_exact_work(1UL, 1UL, 3UL, 1UL, 1UL, 1UL, 47UL).unwrap(),
     content="48",
   )
+}
+
+///|
+test "collection final revision guard rejects mutate-restoration atomically" {
+  let owner = font_collection_wb_owner(font_collection_wb_two_face_v2())
+  let budget = @budget.Budget::new(
+    @budget.ResourceLimits::new(
+      bytes=248UL,
+      allocations=2UL,
+      allocation_size=80UL,
+      width=0UL,
+      height=0UL,
+      pixels=0UL,
+      depth=0UL,
+      work=64UL,
+    ),
+  )
+  let before = budget.remaining()
+  let mut callback_count = 0
+  let result = FontCollection::open_after_normalize(
+    owner.view(),
+    font_collection_wb_limits(),
+    budget,
+    fn() {
+      callback_count = callback_count + 1
+      font_collection_wb_mutate_restore(owner, 132UL)
+    },
+  )
+  let error = result.unwrap_err()
+  inspect(error.category() == @error.ErrorCategory::State, content="true")
+  inspect(error.code() == @error.ErrorCode::InvalidRange, content="true")
+  inspect(
+    error.operation() == Some("font-collection-open"),
+    content="true",
+  )
+  inspect(
+    error.context() == Some("font-collection-source-revision-drift"),
+    content="true",
+  )
+  inspect(callback_count, content="1")
+  let after = budget.remaining()
+  inspect(after.bytes() == before.bytes(), content="true")
+  inspect(after.allocations() == before.allocations(), content="true")
+  inspect(after.allocation_size() == before.allocation_size(), content="true")
+  inspect(after.work() == before.work(), content="true")
 }
