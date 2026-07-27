@@ -1,69 +1,60 @@
 ---
 phase: 97-font-admission-and-metrics
-fixed_at: 2026-07-27T02:02:48Z
+fixed_at: 2026-07-27T02:26:30Z
 review_path: .planning/phases/97-font-admission-and-metrics/97-REVIEW.md
 iteration: 1
-findings_in_scope: 4
-fixed: 4
+findings_in_scope: 3
+fixed: 3
 skipped: 0
 status: all_fixed
 ---
 
 # Phase 97: Code Review Fix Report
 
-**Fixed at:** 2026-07-27T02:02:48Z
+**Fixed at:** 2026-07-27T02:26:30Z
 **Source review:** `.planning/phases/97-font-admission-and-metrics/97-REVIEW.md`
 **Iteration:** 1
 
 **Summary:**
 
-- Findings in scope: 4
-- Fixed: 4
+- Findings in scope: 3
+- Fixed: 3
 - Skipped: 0
 
 ## Fixed Issues
 
-### CR-01: Cmap admission validates byte counts but publishes malformed mappings
+### CR-01: Format-4 cmap admission still publishes glyph IDs outside `maxp`
 
 **Status:** fixed: requires human verification
 **Files modified:** `modules/mb-font/font/tables.mbt`, `modules/mb-font/font/font_test.mbt`
-**Commit:** de3c3401
-**Applied fix:** Added complete structural admission for supported format-4 and format-12 subtables: derived search fields, strict segment/group ordering, valid ranges, bounded nonzero `idRangeOffset` addressing, Unicode and glyph-cardinality bounds, and sorted unique encoding-record keys in explicitly supported platform/encoding domains. Count discovery now includes both encoding-record passes and every segment/group validation loop in the one aggregate work charge. Added checksummed hostile bodies, record-key/domain cases, and exact/one-short work coverage.
+**Commit:** 240214e6
+**Applied fix:** Evaluated both format-4 mapping formulas for every non-sentinel character. Zero remains the missing glyph; every nonzero direct-delta or indexed/delta-adjusted result must be below `maxp.numGlyphs`. Added checksum-correct negatives for both mapping paths plus exact last-valid-glyph positives in a two-glyph font.
 
-### CR-02: The post validator rejects valid uint16 indices and omits the version-1 glyph contract
-
-**Status:** fixed: requires human verification
-**Files modified:** `modules/mb-font/font/tables.mbt`, `modules/mb-font/font/font_test.mbt`
-**Commit:** 0ad8cedc
-**Applied fix:** Removed the artificial 32767 glyph-name-index ceiling, retained checked traversal through the full 258..65535 custom-name domain, and validated every Pascal name against the 63-byte ASCII identifier contract. Split post 1.0 from 3.0 and required the standard 258-glyph cardinality for version 1.0. Replaced the former `0xFFFF` rejection with a fully backed high-index success and added invalid-character, overlength-name, and version-1/non-258 regressions.
-
-### CR-03: Name admission never enforces canonical record ordering
+### CR-02: Nontrivial format-4 validation performs uncharged attacker-driven work
 
 **Status:** fixed: requires human verification
-**Files modified:** `modules/mb-font/font/tables.mbt`, `modules/mb-font/font/font_test.mbt`
-**Commit:** f42ef277
-**Applied fix:** Read all four name-record key fields and enforced nondecreasing lexicographic order by platform ID, encoding ID, language ID, then name ID. The selected profile explicitly permits duplicate keys while rejecting every decreasing key. Added a sorted success plus hostile encoding-only and name-ID-only inversions.
+**Files modified:** `modules/mb-font/font/tables.mbt`, `modules/mb-font/font/font.mbt`, `modules/mb-font/font/font_test.mbt`
+**Commits:** 15b056af, 3a58d1eb
+**Applied fix:** Added cumulative non-mutating preflights before cmap record and format-4 segment discovery. The one atomic charge now includes encoding-record passes, body validation, exact pre-charge segment discovery, search-helper iterations, and every direct/indexed mapping iteration, including repeated work for distinct records sharing a subtable. Pre-charge discovery now enforces the same ordering invariants so malformed inputs retain deterministic data-envelope errors. Added exact and one-short work tests for single-record and shared-subtable format 4.
 
-### WR-01: Deferred filesystem and FFI capabilities still have ordinary selector bypasses
+### WR-01: Filesystem and FFI policy enforcement remains trivially aliasable
 
 **Status:** fixed
 **Files modified:** `scripts/quality/Assert-Policy.ps1`
-**Commit:** 2d306839
-**Applied fix:** Extended normalized-token capability classification to catch split `file system`, expanded `foreign function interface`, and load/read/open/from verbs paired with file/path tokens. Added all six reported bypass spellings to the selector's fail-closed negative matrix.
+**Commit:** a18e7349
+**Applied fix:** Added an explicit Phase 97 reviewed-surface allowlist independent from `policy/foundation.json`, so coordinated policy and implementation edits cannot introduce an unclassified public line. Broadened token defense for system-font, font-file/source, disk/URI, native/extern/foreign-call, bindings, C ABI, adapter, and bridge concepts. Added all seven reported aliases to the fail-closed negative matrix.
 
 ## Verification
 
-- `moon check --target all --deny-warn --frozen` passed on the final source state.
-- `moon -C modules/mb-font test --target all --deny-warn --frozen` passed on wasm, wasm-gc, JS, and native with 1,044/1,044 tests on each target.
-- Focused JS selectors passed for malformed cmap structures, exact cmap body work, post name references, and canonical four-part name ordering.
-- `Assert-FoundationPolicy -PolicyPath policy/foundation.json` passed, including the font semantic-interface and embedded negative selectors.
-- `Test-PolicyWorkingDirectory.ps1` passed the repository-root and foreign-working-directory policy branches.
-- PowerShell AST parsing passed, and all six new filesystem/FFI fixtures were rejected while `max_cmap_records` remained accepted.
-- Pinned `moonfmt.exe` equality passed for both modified MoonBit files; canonical-only changes are recorded in `d86e75b1`.
-- `git diff --check` passed.
+- `moon check --target all --deny-warn` passed for wasm, wasm-gc, JS, and native.
+- `moon test --target all --deny-warn -p tchivs/mb-font/font` passed 37/37 tests on each of wasm, wasm-gc, JS, and native.
+- Focused native tests passed for format-4 glyph cardinality, exact traversal budgets, and malformed-body classification.
+- `Assert-FontFoundationPolicy -PolicyPath policy/foundation.json` passed from repository root.
+- `scripts/quality/Test-PolicyWorkingDirectory.ps1` passed the fallback and real font policy selectors from a foreign working directory.
+- PowerShell AST parsing and `git diff --check` passed.
 
 ---
 
-_Fixed: 2026-07-27T02:02:48Z_
+_Fixed: 2026-07-27T02:26:30Z_
 _Fixer: the agent (gsd-code-fixer)_
 _Iteration: 1_
