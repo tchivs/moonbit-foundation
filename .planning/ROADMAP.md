@@ -55,7 +55,11 @@
   2. A library author can inspect every zero-based face through a closed bounded profile that distinguishes supported static `glyf`, CFF/CFF2, variable, and other unsupported faces without exposing raw offsets or table records.
   3. A library author can distinguish a version-2 collection with no DSIG from one with a structurally present but explicitly unverified DSIG envelope.
 
-**Plans**: TBD
+**Plans**: 1/3 plans executed
+
+- [x] 101-01-PLAN.md
+- [ ] 101-02-PLAN.md
+- [ ] 101-03-PLAN.md
 
 ### Phase 102: Root-Relative Selected-Face Admission
 
@@ -90,7 +94,7 @@
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 101. Collection Contract and Bounded Envelope | 0/TBD | Not started | - |
+| 101. Collection Contract and Bounded Envelope | 1/3 | In Progress|  |
 | 102. Root-Relative Selected-Face Admission | 0/TBD | Not started | - |
 | 103. Hostile, Licensed, and Four-Target Qualification | 0/TBD | Not started | - |
 
