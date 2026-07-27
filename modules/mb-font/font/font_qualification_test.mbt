@@ -112,6 +112,28 @@ fn font_qualification_assert_command(
 }
 
 ///|
+fn font_qualification_assert_outline_expectation(
+  font : Font,
+  expectation : FontQualificationOutlineExpectation,
+) -> Unit raise {
+  let glyph = font.glyph_for_scalar(expectation.scalar).unwrap()
+  inspect(glyph.value() == expectation.glyph_id, content="true")
+  let path = font.outline(glyph, font_qualification_outline_budget()).unwrap()
+  inspect(path.length() == expectation.commands.length(), content="true")
+  for index, command in expectation.commands {
+    font_qualification_assert_command(
+      path,
+      index,
+      command.kind,
+      command.x1,
+      command.y1,
+      command.x2,
+      command.y2,
+    )
+  }
+}
+
+///|
 fn font_qualification_assert_metrics(
   font : Font,
   glyph : GlyphId,
@@ -285,17 +307,6 @@ test "font-complete-public freezes DejaVu Sans 2.37 public facts" {
     1493,
   )
 
-  let a_path = font.outline(a, font_qualification_outline_budget()).unwrap()
-  inspect(a_path.length(), content="13")
-  font_qualification_assert_command(a_path, 0, "M", 700.0, 1294.0, 0.0, 0.0)
-  font_qualification_assert_command(a_path, 1, "L", 426.0, 551.0, 0.0, 0.0)
-  font_qualification_assert_command(a_path, 2, "L", 975.0, 551.0, 0.0, 0.0)
-  font_qualification_assert_command(a_path, 3, "Z", 0.0, 0.0, 0.0, 0.0)
-  font_qualification_assert_command(a_path, 4, "M", 586.0, 1493.0, 0.0, 0.0)
-  font_qualification_assert_command(a_path, 5, "L", 815.0, 1493.0, 0.0, 0.0)
-  font_qualification_assert_command(a_path, 6, "L", 1384.0, 0.0, 0.0, 0.0)
-  font_qualification_assert_command(a_path, 7, "L", 1174.0, 0.0, 0.0, 0.0)
-
   let e_error = font
     .outline(e_acute, font_qualification_outline_budget())
     .unwrap_err()
@@ -309,95 +320,11 @@ test "font-complete-public freezes DejaVu Sans 2.37 public facts" {
     content="true",
   )
 
-  let composite_path = font
-    .outline(combining_almost_equal, font_qualification_outline_budget())
-    .unwrap()
-  inspect(composite_path.length(), content="48")
-  font_qualification_assert_command(
-    composite_path,
-    0,
-    "M",
-    -516.0,
-    1264.0,
-    0.0,
-    0.0,
-  )
-  font_qualification_assert_command(
-    composite_path,
-    1,
-    "L",
-    -573.0,
-    1297.0,
-    0.0,
-    0.0,
-  )
-  font_qualification_assert_command(
-    composite_path,
-    2,
-    "Q",
-    -598.0,
-    1311.0,
-    -613.5,
-    1316.5,
-  )
-  font_qualification_assert_command(
-    composite_path,
-    3,
-    "Q",
-    -629.0,
-    1322.0,
-    -641.0,
-    1322.0,
-  )
-  font_qualification_assert_command(
-    composite_path,
-    4,
-    "Q",
-    -677.0,
-    1322.0,
-    -697.0,
-    1297.0,
-  )
-  font_qualification_assert_command(
-    composite_path,
-    5,
-    "Q",
-    -717.0,
-    1272.0,
-    -717.0,
-    1227.0,
-  )
-  font_qualification_assert_command(
-    composite_path,
-    6,
-    "L",
-    -717.0,
-    1221.0,
-    0.0,
-    0.0,
-  )
-  font_qualification_assert_command(
-    composite_path,
-    7,
-    "L",
-    -842.0,
-    1221.0,
-    0.0,
-    0.0,
-  )
-
-  let old_italic_path = font
-    .outline(old_italic_a, font_qualification_outline_budget())
-    .unwrap()
-  inspect(old_italic_path.length(), content="13")
-  font_qualification_assert_command(old_italic_path, 0, "M", 100.0, 35.0, 0.0, 0.0)
-  font_qualification_assert_command(old_italic_path, 1, "L", 660.0, 1493.0, 0.0, 0.0)
-  font_qualification_assert_command(old_italic_path, 2, "L", 890.0, 1493.0, 0.0, 0.0)
-  font_qualification_assert_command(old_italic_path, 3, "L", 1450.0, 35.0, 0.0, 0.0)
-  font_qualification_assert_command(old_italic_path, 4, "L", 1282.0, -29.0, 0.0, 0.0)
-  font_qualification_assert_command(old_italic_path, 5, "L", 1089.0, 473.0, 0.0, 0.0)
-  font_qualification_assert_command(old_italic_path, 6, "L", 461.0, 473.0, 0.0, 0.0)
-  font_qualification_assert_command(old_italic_path, 7, "L", 268.0, -29.0, 0.0, 0.0)
+  let supported_outlines = font_qualification_dejavu_supported_outlines()
+  inspect(supported_outlines.length(), content="3")
+  for expectation in supported_outlines {
+    font_qualification_assert_outline_expectation(font, expectation)
+  }
 
   let v = font.glyph_id(57UL).unwrap()
   inspect(font.kerning(a, v).unwrap(), content="-131")

@@ -141,10 +141,19 @@ function Assert-FontQualificationEvidenceRecord {
   Assert-FontQualificationClosedKeys $Record.runner @(
     'generator_command',
     'check_command',
+    'outline_assertion_test',
+    'outline_assertion_command',
+    'outline_assertion_passed',
     'test_command',
     'target_directory',
     'no_parallelize'
   ) "$($Record.target) runner"
+  $expectedOutlineAssertion = 'font-complete-public freezes DejaVu Sans 2.37 public facts'
+  if ($Record.runner.outline_assertion_test -cne $expectedOutlineAssertion -or
+      $Record.runner.outline_assertion_passed -ne $true -or
+      [string]$Record.runner.outline_assertion_command -cnotmatch [regex]::Escape("--target $($Record.target)")) {
+    throw "$($Record.target) focused outline assertion evidence drifted."
+  }
   if ($Record.schema_version -cne '1.0.0' -or
       $Record.workflow_id -cne 'font-complete-public-v1' -or
       $Record.pass -ne $true) {
