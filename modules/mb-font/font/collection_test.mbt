@@ -19,6 +19,241 @@ fn font_collection_test_push_u32(
 }
 
 ///|
+fn font_collection_test_put_u16(
+  output : Array[Byte],
+  offset : Int,
+  value : UInt64,
+) -> Unit {
+  output[offset] = (value >> 8).to_byte()
+  output[offset + 1] = value.to_byte()
+}
+
+///|
+fn font_collection_test_put_u32(
+  output : Array[Byte],
+  offset : Int,
+  value : UInt64,
+) -> Unit {
+  output[offset] = (value >> 24).to_byte()
+  output[offset + 1] = (value >> 16).to_byte()
+  output[offset + 2] = (value >> 8).to_byte()
+  output[offset + 3] = value.to_byte()
+}
+
+///|
+fn font_collection_test_write_directory(
+  output : Array[Byte],
+  start : Int,
+  sfnt_version : UInt64,
+  tags : Array[UInt64],
+  table_offsets : Array[UInt64],
+) -> Unit {
+  let count = tags.length()
+  font_collection_test_put_u32(output, start, sfnt_version)
+  font_collection_test_put_u16(output, start + 4, count.to_uint64())
+  let search_range = if count >= 2 { 32UL } else { 16UL }
+  let selector = if count >= 2 { 1UL } else { 0UL }
+  let range_shift = count.to_uint64() * 16UL - search_range
+  font_collection_test_put_u16(output, start + 6, search_range)
+  font_collection_test_put_u16(output, start + 8, selector)
+  font_collection_test_put_u16(output, start + 10, range_shift)
+  let mut index = 0
+  while index < count {
+    let record = start + 12 + index * 16
+    font_collection_test_put_u32(output, record, tags[index])
+    font_collection_test_put_u32(output, record + 4, 0x10203040UL)
+    font_collection_test_put_u32(output, record + 8, table_offsets[index])
+    font_collection_test_put_u32(output, record + 12, 4UL)
+    index = index + 1
+  }
+}
+
+///|
+fn font_collection_test_multi_ttc() -> Bytes {
+  let output = Array::make(400, b'\x00')
+  font_collection_test_put_u32(output, 0, 0x74746366UL)
+  font_collection_test_put_u32(output, 4, 0x00020000UL)
+  font_collection_test_put_u32(output, 8, 5UL)
+  for item in [
+    (12, 64UL),
+    (16, 112UL),
+    (20, 144UL),
+    (24, 176UL),
+    (28, 240UL),
+  ] {
+    let (field, directory) = item
+    font_collection_test_put_u32(output, field, directory)
+  }
+  // TTC v2 DSIG tuple is all-zero: structurally absent.
+  font_collection_test_write_directory(
+    output,
+    64,
+    0x00010000UL,
+    [0x676C7966UL, 0x6C6F6361UL],
+    [272UL, 276UL],
+  )
+  font_collection_test_write_directory(
+    output,
+    112,
+    0x4F54544FUL,
+    [0x43464620UL],
+    [280UL],
+  )
+  font_collection_test_write_directory(
+    output,
+    144,
+    0x4F54544FUL,
+    [0x43464632UL],
+    [284UL],
+  )
+  font_collection_test_write_directory(
+    output,
+    176,
+    0x00010000UL,
+    [0x66766172UL, 0x676C7966UL, 0x6C6F6361UL],
+    [288UL, 292UL, 296UL],
+  )
+  font_collection_test_write_directory(
+    output,
+    240,
+    0x00010000UL,
+    [0x6E616D65UL],
+    [300UL],
+  )
+  Bytes::from_array(output)
+}
+
+///|
+fn font_collection_test_wrong_rebase_ttc() -> Bytes {
+  let output = Array::make(128, b'\x00')
+  font_collection_test_put_u32(output, 0, 0x74746366UL)
+  font_collection_test_put_u32(output, 4, 0x00010000UL)
+  font_collection_test_put_u32(output, 8, 1UL)
+  font_collection_test_put_u32(output, 12, 64UL)
+  // Root range [20, 24) is valid. Incorrectly rebasing it at directory 64
+  // yields [84, 88), an in-bounds overlap with the directory itself.
+  font_collection_test_write_directory(
+    output,
+    64,
+    0x00010000UL,
+    [0x6E616D65UL],
+    [20UL],
+  )
+  Bytes::from_array(output)
+}
+
+///|
+fn font_collection_test_pair_ttc(
+  left_tag : UInt64,
+  left_checksum : UInt64,
+  left_offset : UInt64,
+  left_length : UInt64,
+  right_tag : UInt64,
+  right_checksum : UInt64,
+  right_offset : UInt64,
+  right_length : UInt64,
+) -> Bytes {
+  let output = Array::make(160, b'\x00')
+  font_collection_test_put_u32(output, 0, 0x74746366UL)
+  font_collection_test_put_u32(output, 4, 0x00010000UL)
+  font_collection_test_put_u32(output, 8, 2UL)
+  font_collection_test_put_u32(output, 12, 32UL)
+  font_collection_test_put_u32(output, 16, 64UL)
+  for item in [
+    (
+      32,
+      left_tag,
+      left_checksum,
+      left_offset,
+      left_length,
+    ),
+    (
+      64,
+      right_tag,
+      right_checksum,
+      right_offset,
+      right_length,
+    ),
+  ] {
+    let (start, tag, checksum, offset, length) = item
+    font_collection_test_put_u32(output, start, 0x00010000UL)
+    font_collection_test_put_u16(output, start + 4, 1UL)
+    font_collection_test_put_u16(output, start + 6, 16UL)
+    font_collection_test_put_u32(output, start + 12, tag)
+    font_collection_test_put_u32(output, start + 16, checksum)
+    font_collection_test_put_u32(output, start + 20, offset)
+    font_collection_test_put_u32(output, start + 24, length)
+  }
+  Bytes::from_array(output)
+}
+
+///|
+fn font_collection_test_same_face_overlap_ttc() -> Bytes {
+  let output = Array::make(128, b'\x00')
+  font_collection_test_put_u32(output, 0, 0x74746366UL)
+  font_collection_test_put_u32(output, 4, 0x00010000UL)
+  font_collection_test_put_u32(output, 8, 1UL)
+  font_collection_test_put_u32(output, 12, 32UL)
+  font_collection_test_write_directory(
+    output,
+    32,
+    0x00010000UL,
+    [0x676C7966UL, 0x6C6F6361UL],
+    [96UL, 96UL],
+  )
+  Bytes::from_array(output)
+}
+
+///|
+fn font_collection_test_pair_limits(
+  max_retained : UInt64,
+  max_work : UInt64,
+) -> FontCollectionLimits {
+  FontCollectionLimits::new(
+    max_source_bytes=160UL,
+    max_faces=2UL,
+    max_tables_per_face=1UL,
+    max_table_records=2UL,
+    max_dsig_records=1UL,
+    max_dsig_bytes=1UL,
+    max_retained_bookkeeping_bytes=max_retained,
+    max_work~,
+  ).unwrap()
+}
+
+///|
+fn font_collection_test_pair_budget(
+  bytes : UInt64,
+  allocations : UInt64,
+  allocation_size : UInt64,
+  work : UInt64,
+) -> @budget.Budget {
+  @budget.Budget::new(
+    @budget.ResourceLimits::new(
+      bytes~,
+      allocations~,
+      allocation_size~,
+      width=0UL,
+      height=0UL,
+      pixels=0UL,
+      depth=0UL,
+      work~,
+    ),
+  )
+}
+
+///|
+fn font_collection_test_prefix(source : Bytes, length : Int) -> Bytes {
+  let output : Array[Byte] = []
+  let mut index = 0
+  while index < length {
+    output.push(source[index])
+    index = index + 1
+  }
+  Bytes::from_array(output)
+}
+
+///|
 fn font_collection_test_zeroes(output : Array[Byte], count : Int) -> Unit {
   let mut index = 0
   while index < count {
@@ -446,4 +681,391 @@ test "revision drift precedes index validation and remains owner-local" {
     stable.dsig_status().unwrap() == FontCollectionDsigStatus::Absent,
     content="true",
   )
+}
+
+///|
+test "TTC-01 all-face structure preserves v2 offset order and closed profiles" {
+  let owner = font_collection_test_owner(font_collection_test_multi_ttc())
+  let limits = FontCollectionLimits::new(
+    max_source_bytes=400UL,
+    max_faces=5UL,
+    max_tables_per_face=3UL,
+    max_table_records=8UL,
+    max_dsig_records=1UL,
+    max_dsig_bytes=1UL,
+    max_retained_bookkeeping_bytes=440UL,
+    max_work=195UL,
+  ).unwrap()
+  let budget = @budget.Budget::new(
+    @budget.ResourceLimits::new(
+      bytes=440UL,
+      allocations=2UL,
+      allocation_size=200UL,
+      width=0UL,
+      height=0UL,
+      pixels=0UL,
+      depth=0UL,
+      work=195UL,
+    ),
+  )
+  let collection = FontCollection::open(owner.view(), limits, budget).unwrap()
+  inspect(collection.face_count().unwrap(), content="5")
+  for item in [
+    (0UL, FontFaceProfile::StaticGlyf),
+    (1UL, FontFaceProfile::Cff),
+    (2UL, FontFaceProfile::Cff2),
+    (3UL, FontFaceProfile::Variable),
+    (4UL, FontFaceProfile::OtherUnsupported),
+  ] {
+    let (index, expected) = item
+    inspect(collection.face_profile(index).unwrap() == expected, content="true")
+  }
+  inspect(
+    collection.dsig_status().unwrap() == FontCollectionDsigStatus::Absent,
+    content="true",
+  )
+}
+
+///|
+test "TTC-01 table offsets remain collection-root relative" {
+  let source = font_collection_test_wrong_rebase_ttc()
+  let owner = font_collection_test_owner(source)
+  let limits = FontCollectionLimits::new(
+    max_source_bytes=128UL,
+    max_faces=1UL,
+    max_tables_per_face=1UL,
+    max_table_records=1UL,
+    max_dsig_records=1UL,
+    max_dsig_bytes=1UL,
+    max_retained_bookkeeping_bytes=184UL,
+    max_work=27UL,
+  ).unwrap()
+  let budget = @budget.Budget::new(
+    @budget.ResourceLimits::new(
+      bytes=184UL,
+      allocations=2UL,
+      allocation_size=48UL,
+      width=0UL,
+      height=0UL,
+      pixels=0UL,
+      depth=0UL,
+      work=27UL,
+    ),
+  )
+  let collection = FontCollection::open(owner.view(), limits, budget).unwrap()
+  inspect(
+    collection.face_profile(0UL).unwrap() ==
+    FontFaceProfile::OtherUnsupported,
+    content="true",
+  )
+}
+
+///|
+test "TTC-01 v2 offset array and final directory record truncate as Data" {
+  let complete = font_collection_test_multi_ttc()
+  for length in [15, 31, 43, 267] {
+    let owner = font_collection_test_owner(
+      font_collection_test_prefix(complete, length),
+    )
+    let budget = font_collection_test_budget()
+    let before = budget.remaining()
+    let limits = FontCollectionLimits::new(
+      max_source_bytes=400UL,
+      max_faces=5UL,
+      max_tables_per_face=3UL,
+      max_table_records=8UL,
+      max_dsig_records=1UL,
+      max_dsig_bytes=1UL,
+      max_retained_bookkeeping_bytes=440UL,
+      max_work=195UL,
+    ).unwrap()
+    let error = FontCollection::open(owner.view(), limits, budget).unwrap_err()
+    font_collection_test_assert_error(
+      error,
+      @error.ErrorCategory::Data,
+      @error.ErrorCode::InvalidEncoding,
+    )
+    font_collection_test_assert_budget_unchanged(before, budget)
+  }
+}
+
+///|
+test "TTC-01 exact sharing and touching pass while every overlap conflict fails" {
+  let name = 0x6E616D65UL
+  for source in [
+    font_collection_test_pair_ttc(
+      name,
+      7UL,
+      96UL,
+      4UL,
+      name,
+      7UL,
+      96UL,
+      4UL,
+    ),
+    font_collection_test_pair_ttc(
+      name,
+      7UL,
+      96UL,
+      4UL,
+      name,
+      9UL,
+      100UL,
+      4UL,
+    ),
+    font_collection_test_pair_ttc(
+      name,
+      7UL,
+      96UL,
+      0UL,
+      name,
+      9UL,
+      96UL,
+      0UL,
+    ),
+  ] {
+    let owner = font_collection_test_owner(source)
+    ignore(
+      FontCollection::open(
+        owner.view(),
+        font_collection_test_pair_limits(248UL, 48UL),
+        font_collection_test_pair_budget(248UL, 2UL, 80UL, 48UL),
+      ).unwrap(),
+    )
+  }
+  for source in [
+    font_collection_test_pair_ttc(
+      name,
+      7UL,
+      96UL,
+      8UL,
+      name,
+      7UL,
+      100UL,
+      8UL,
+    ),
+    font_collection_test_pair_ttc(
+      name,
+      7UL,
+      96UL,
+      4UL,
+      name,
+      8UL,
+      96UL,
+      4UL,
+    ),
+    font_collection_test_pair_ttc(
+      name,
+      7UL,
+      64UL,
+      4UL,
+      name,
+      9UL,
+      100UL,
+      4UL,
+    ),
+  ] {
+    let owner = font_collection_test_owner(source)
+    let budget = font_collection_test_pair_budget(248UL, 2UL, 80UL, 48UL)
+    let before = budget.remaining()
+    let error = FontCollection::open(
+      owner.view(),
+      font_collection_test_pair_limits(248UL, 48UL),
+      budget,
+    ).unwrap_err()
+    font_collection_test_assert_error(
+      error,
+      @error.ErrorCategory::Data,
+      @error.ErrorCode::InvalidEncoding,
+    )
+    font_collection_test_assert_budget_unchanged(before, budget)
+  }
+  let same_face_owner = font_collection_test_owner(
+    font_collection_test_same_face_overlap_ttc(),
+  )
+  let same_face_budget = font_collection_test_pair_budget(
+    184UL,
+    2UL,
+    48UL,
+    34UL,
+  )
+  let before = same_face_budget.remaining()
+  let limits = FontCollectionLimits::new(
+    max_source_bytes=128UL,
+    max_faces=1UL,
+    max_tables_per_face=2UL,
+    max_table_records=2UL,
+    max_dsig_records=1UL,
+    max_dsig_bytes=1UL,
+    max_retained_bookkeeping_bytes=184UL,
+    max_work=34UL,
+  ).unwrap()
+  let error = FontCollection::open(
+    same_face_owner.view(),
+    limits,
+    same_face_budget,
+  ).unwrap_err()
+  font_collection_test_assert_error(
+    error,
+    @error.ErrorCategory::Data,
+    @error.ErrorCode::InvalidEncoding,
+  )
+  font_collection_test_assert_budget_unchanged(before, same_face_budget)
+  let duplicate_directory = font_collection_test_pair_ttc(
+    name,
+    7UL,
+    96UL,
+    4UL,
+    name,
+    9UL,
+    100UL,
+    4UL,
+  ).to_array()
+  font_collection_test_put_u32(duplicate_directory, 16, 32UL)
+  let duplicate_owner = font_collection_test_owner(
+    Bytes::from_array(duplicate_directory),
+  )
+  let duplicate_budget = font_collection_test_pair_budget(
+    248UL,
+    2UL,
+    80UL,
+    48UL,
+  )
+  let duplicate_before = duplicate_budget.remaining()
+  let duplicate_error = FontCollection::open(
+    duplicate_owner.view(),
+    font_collection_test_pair_limits(248UL, 48UL),
+    duplicate_budget,
+  ).unwrap_err()
+  font_collection_test_assert_error(
+    duplicate_error,
+    @error.ErrorCategory::Data,
+    @error.ErrorCode::InvalidEncoding,
+  )
+  font_collection_test_assert_budget_unchanged(
+    duplicate_before,
+    duplicate_budget,
+  )
+}
+
+///|
+test "TTC-01 compact charge exact fit succeeds and every one-short is atomic" {
+  let shared = font_collection_test_pair_ttc(
+    0x6E616D65UL,
+    7UL,
+    96UL,
+    4UL,
+    0x6E616D65UL,
+    7UL,
+    96UL,
+    4UL,
+  )
+  let exact_owner = font_collection_test_owner(shared)
+  let exact_budget = font_collection_test_pair_budget(
+    248UL,
+    2UL,
+    80UL,
+    48UL,
+  )
+  ignore(
+    FontCollection::open(
+      exact_owner.view(),
+      font_collection_test_pair_limits(248UL, 48UL),
+      exact_budget,
+    ).unwrap(),
+  )
+  inspect(exact_budget.remaining().bytes(), content="0")
+  inspect(exact_budget.remaining().allocations(), content="0")
+  inspect(exact_budget.remaining().allocation_size(), content="80")
+  inspect(exact_budget.remaining().work(), content="0")
+  for item in [
+    (247UL, 2UL, 80UL, 48UL),
+    (248UL, 1UL, 80UL, 48UL),
+    (248UL, 2UL, 79UL, 48UL),
+    (248UL, 2UL, 80UL, 47UL),
+  ] {
+    let (bytes, allocations, allocation_size, work) = item
+    let owner = font_collection_test_owner(shared)
+    let budget = font_collection_test_pair_budget(
+      bytes,
+      allocations,
+      allocation_size,
+      work,
+    )
+    let before = budget.remaining()
+    let error = FontCollection::open(
+      owner.view(),
+      font_collection_test_pair_limits(248UL, 48UL),
+      budget,
+    ).unwrap_err()
+    inspect(error.category() == @error.ErrorCategory::Resource, content="true")
+    inspect(error.code() == @error.ErrorCode::BudgetExceeded, content="true")
+    font_collection_test_assert_budget_unchanged(before, budget)
+  }
+  for item in [(247UL, 48UL), (248UL, 47UL)] {
+    let (retained, work) = item
+    let owner = font_collection_test_owner(shared)
+    let budget = font_collection_test_pair_budget(
+      248UL,
+      2UL,
+      80UL,
+      48UL,
+    )
+    let before = budget.remaining()
+    let error = FontCollection::open(
+      owner.view(),
+      font_collection_test_pair_limits(retained, work),
+      budget,
+    ).unwrap_err()
+    font_collection_test_assert_error(
+      error,
+      @error.ErrorCategory::Resource,
+      @error.ErrorCode::BudgetExceeded,
+    )
+    font_collection_test_assert_budget_unchanged(before, budget)
+  }
+}
+
+///|
+test "TTC-01 declaration ceilings fail before dependent structural work" {
+  let source = font_collection_test_multi_ttc()
+  for item in [
+    (4UL, 3UL, 8UL, "max-faces"),
+    (5UL, 2UL, 8UL, "max-tables-per-face"),
+    (5UL, 3UL, 7UL, "max-table-records"),
+  ] {
+    let (faces, per_face, records, context) = item
+    let owner = font_collection_test_owner(source)
+    let budget = @budget.Budget::new(
+      @budget.ResourceLimits::new(
+        bytes=440UL,
+        allocations=2UL,
+        allocation_size=200UL,
+        width=0UL,
+        height=0UL,
+        pixels=0UL,
+        depth=0UL,
+        work=195UL,
+      ),
+    )
+    let before = budget.remaining()
+    let limits = FontCollectionLimits::new(
+      max_source_bytes=400UL,
+      max_faces=faces,
+      max_tables_per_face=per_face,
+      max_table_records=records,
+      max_dsig_records=1UL,
+      max_dsig_bytes=1UL,
+      max_retained_bookkeeping_bytes=440UL,
+      max_work=195UL,
+    ).unwrap()
+    let error = FontCollection::open(owner.view(), limits, budget).unwrap_err()
+    font_collection_test_assert_error(
+      error,
+      @error.ErrorCategory::Resource,
+      @error.ErrorCode::BudgetExceeded,
+    )
+    inspect(error.context() == Some(context), content="true")
+    font_collection_test_assert_budget_unchanged(before, budget)
+  }
 }
