@@ -1196,18 +1196,6 @@ function Assert-QualityWorkflowToolchainTransport {
   ) 'CI workflows must not use mutable latest archive URLs.'
 
   $installCommand = './scripts/ci/Install-PinnedMoonBit.ps1'
-  Assert-Condition (
-    ([regex]::Matches(
-      $QualityWorkflowText,
-      [regex]::Escape($installCommand)
-    )).Count -eq 3
-  ) 'Quality workflow must invoke the pinned MoonBit installer exactly three times.'
-  Assert-Condition (
-    ([regex]::Matches(
-      $QualityWorkflowText,
-      '(?m)^\s*- name: Install content-addressed MoonBit toolchain\s*$'
-    )).Count -eq 3
-  ) 'Quality workflow must expose exactly three content-addressed install steps.'
   $jobBodies = @{}
   $inJobs = $false
   $currentJob = $null
@@ -1232,6 +1220,11 @@ function Assert-QualityWorkflowToolchainTransport {
   if ($null -ne $currentJob) {
     $jobBodies[$currentJob] = $currentBody.ToString()
   }
+  $expectedInstallStep = @(
+    '      - name: Install content-addressed MoonBit toolchain',
+    '        shell: pwsh',
+    '        run: ./scripts/ci/Install-PinnedMoonBit.ps1'
+  ) -join "`n"
   foreach ($jobName in @(
       'font-qualification',
       'required',
@@ -1241,19 +1234,45 @@ function Assert-QualityWorkflowToolchainTransport {
       "Quality workflow job '$jobName' is missing."
     )
     $jobBody = [string]$jobBodies[$jobName]
-    Assert-Condition (
-      ([regex]::Matches(
+    $jobSteps = @(
+      [regex]::Matches(
         $jobBody,
-        [regex]::Escape($installCommand)
-      )).Count -eq 1
-    ) "Quality workflow job '$jobName' must invoke the pinned installer once."
-    Assert-Condition (
-      ([regex]::Matches(
-        $jobBody,
-        '(?m)^\s*shell:\s*pwsh\s*$'
-      )).Count -ge 1
-    ) "Quality workflow job '$jobName' must invoke the installer with pwsh."
+        '(?ms)^      - .*?(?=^      - |\z)'
+      ) | ForEach-Object {
+        $_.Value.Replace("`r`n", "`n").TrimEnd()
+      }
+    )
+    $installSteps = @(
+      $jobSteps | Where-Object {
+        $_.Contains(
+          'name: Install content-addressed MoonBit toolchain',
+          [StringComparison]::Ordinal
+        ) -or
+        $_.Contains($installCommand, [StringComparison]::Ordinal)
+      }
+    )
+    Assert-Condition ($installSteps.Count -eq 1) (
+      "Quality workflow job '$jobName' must contain exactly one installer " +
+      'step candidate.'
+    )
+    Assert-Condition ($installSteps[0] -ceq $expectedInstallStep) (
+      "Quality workflow job '$jobName' must bind the exact installer name, " +
+      'immediate shell: pwsh, and exact run command without extra, ' +
+      'duplicated, or reordered fields.'
+    )
   }
+  Assert-Condition (
+    ([regex]::Matches(
+      $QualityWorkflowText,
+      [regex]::Escape($installCommand)
+    )).Count -eq 3
+  ) 'Quality workflow must invoke the pinned MoonBit installer exactly three times.'
+  Assert-Condition (
+    ([regex]::Matches(
+      $QualityWorkflowText,
+      '(?m)^\s*- name: Install content-addressed MoonBit toolchain\s*$'
+    )).Count -eq 3
+  ) 'Quality workflow must expose exactly three content-addressed install steps.'
 
   $toolchainUrl = 'https://github.com/tchivs/moonbit-foundation/releases/download/ci-toolchain-0.1.20260713-75c7e1f/moonbit-linux-x86_64-0.1.20260713-75c7e1f.tar.gz'
   $coreUrl = 'https://github.com/tchivs/moonbit-foundation/releases/download/ci-toolchain-0.1.20260713-75c7e1f/moonbit-core-0.1.20260713-75c7e1f.tar.gz'

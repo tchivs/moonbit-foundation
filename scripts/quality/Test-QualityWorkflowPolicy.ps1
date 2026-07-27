@@ -83,6 +83,126 @@ Invoke-WorkflowPolicyCase `
   -ExpectedFailurePattern 'setup-moonbit transport'
 
 Invoke-WorkflowPolicyCase `
+  -Name 'all installer step shells reject bash' `
+  -Arrange {
+    param($state)
+    $installStep = @(
+      '      - name: Install content-addressed MoonBit toolchain',
+      '        shell: pwsh',
+      '        run: ./scripts/ci/Install-PinnedMoonBit.ps1'
+    ) -join "`n"
+    $bashInstallStep = $installStep.Replace(
+      '        shell: pwsh',
+      '        shell: bash'
+    )
+    $state.Quality = $state.Quality.Replace(
+      $installStep,
+      $bashInstallStep
+    )
+  } `
+  -ShouldPass $false `
+  -ExpectedFailurePattern 'must bind the exact installer name'
+
+Invoke-WorkflowPolicyCase `
+  -Name 'installer shell cannot be omitted despite pwsh elsewhere' `
+  -Arrange {
+    param($state)
+    $installStep = @(
+      '      - name: Install content-addressed MoonBit toolchain',
+      '        shell: pwsh',
+      '        run: ./scripts/ci/Install-PinnedMoonBit.ps1'
+    ) -join "`n"
+    $state.Quality = $state.Quality.Replace(
+      $installStep,
+      $installStep.Replace("        shell: pwsh`n", '')
+    )
+  } `
+  -ShouldPass $false `
+  -ExpectedFailurePattern 'must bind the exact installer name'
+
+Invoke-WorkflowPolicyCase `
+  -Name 'installer shell cannot rely on an inherited pwsh default' `
+  -Arrange {
+    param($state)
+    $installStep = @(
+      '      - name: Install content-addressed MoonBit toolchain',
+      '        shell: pwsh',
+      '        run: ./scripts/ci/Install-PinnedMoonBit.ps1'
+    ) -join "`n"
+    $state.Quality = $state.Quality.Replace(
+      "jobs:`n",
+      "defaults:`n  run:`n    shell: pwsh`njobs:`n"
+    ).Replace(
+      $installStep,
+      $installStep.Replace("        shell: pwsh`n", '')
+    )
+  } `
+  -ShouldPass $false `
+  -ExpectedFailurePattern 'must bind the exact installer name'
+
+Invoke-WorkflowPolicyCase `
+  -Name 'installer shell field cannot be duplicated' `
+  -Arrange {
+    param($state)
+    $installStep = @(
+      '      - name: Install content-addressed MoonBit toolchain',
+      '        shell: pwsh',
+      '        run: ./scripts/ci/Install-PinnedMoonBit.ps1'
+    ) -join "`n"
+    $state.Quality = $state.Quality.Replace(
+      $installStep,
+      $installStep.Replace(
+        '        shell: pwsh',
+        "        shell: pwsh`n        shell: pwsh"
+      )
+    )
+  } `
+  -ShouldPass $false `
+  -ExpectedFailurePattern 'without extra, duplicated, or reordered fields'
+
+Invoke-WorkflowPolicyCase `
+  -Name 'installer shell and run fields cannot be reordered' `
+  -Arrange {
+    param($state)
+    $installStep = @(
+      '      - name: Install content-addressed MoonBit toolchain',
+      '        shell: pwsh',
+      '        run: ./scripts/ci/Install-PinnedMoonBit.ps1'
+    ) -join "`n"
+    $reorderedInstallStep = @(
+      '      - name: Install content-addressed MoonBit toolchain',
+      '        run: ./scripts/ci/Install-PinnedMoonBit.ps1',
+      '        shell: pwsh'
+    ) -join "`n"
+    $state.Quality = $state.Quality.Replace(
+      $installStep,
+      $reorderedInstallStep
+    )
+  } `
+  -ShouldPass $false `
+  -ExpectedFailurePattern 'without extra, duplicated, or reordered fields'
+
+Invoke-WorkflowPolicyCase `
+  -Name 'installer run field cannot be duplicated' `
+  -Arrange {
+    param($state)
+    $installStep = @(
+      '      - name: Install content-addressed MoonBit toolchain',
+      '        shell: pwsh',
+      '        run: ./scripts/ci/Install-PinnedMoonBit.ps1'
+    ) -join "`n"
+    $state.Quality = $state.Quality.Replace(
+      $installStep,
+      (
+        $installStep + "`n" +
+        '        run: ./scripts/ci/Install-PinnedMoonBit.ps1'
+      )
+    )
+  } `
+  -ShouldPass $false `
+  -ExpectedFailurePattern 'without extra, duplicated, or reordered fields'
+
+Invoke-WorkflowPolicyCase `
   -Name 'toolchain archive digest is exact' `
   -Arrange {
     param($state)
