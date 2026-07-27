@@ -4,16 +4,16 @@ milestone: v0.32
 milestone_name: TrueType Font Foundation
 current_phase: 100
 current_phase_name: Portable Font Qualification
-status: executing
-stopped_at: Completed 100-04-PLAN.md
-last_updated: "2026-07-27T15:01:10.551Z"
+status: verifying
+stopped_at: Completed 100-05-PLAN.md
+last_updated: "2026-07-27T15:29:14.825Z"
 last_activity: 2026-07-27
-last_activity_desc: Completed Phase 100 Plan 04 focused font qualification boundary
+last_activity_desc: Completed Phase 100 Plan 05 documentation, bounded Required, and CI closure
 progress:
   total_phases: 4
-  completed_phases: 3
+  completed_phases: 4
   total_plans: 15
-  completed_plans: 14
+  completed_plans: 15
 current_plan: 5
 total_plans_in_phase: 5
 ---
@@ -30,16 +30,16 @@ See `.planning/PROJECT.md` (updated 2026-07-27 after Phase 99 validation).
 
 ## Current Position
 
-Phase: 100 (Portable Font Qualification) — EXECUTING
+Phase: 100 (Portable Font Qualification) — VERIFYING
 Plan: 5 of 5
-Status: Ready to execute
-Last activity: 2026-07-27 — Completed Phase 100 Plan 04 focused font qualification boundary
+Status: Phase complete — ready for verification
+Last activity: 2026-07-27 — Completed Phase 100 Plan 05 documentation, bounded Required, and CI closure
 
-Progress: [█████████░] 93%
+Progress: [██████████] 100%
 
 ## Milestone Metrics
 
-**Current milestone:** v0.32 has 4 planned phases; Phases 97-99 have completed and verified all 10 implementation and gap-closure plans. FONT-01 through FONT-04 are validated; Phase 100 now owns complete generated/adversarial workflow and licensed real-font qualification.
+**Current milestone:** v0.32 has completed all 15 implementation plans across Phases 97-100. FONT-01 through FONT-05 have implementation evidence; Phase 100 is ready for goal verification.
 
 **Previous milestone:** v0.31 shipped SVG Numeric Boundary Unification across Phases 95-96; its detailed roadmap is archived at `.planning/milestones/v0.31-ROADMAP.md`.
 
@@ -92,6 +92,9 @@ Progress: [█████████░] 93%
 - [Phase 100]: Keep FontQualification as a dedicated selector that forwards EvidenceDirectory and never invokes or replaces Required.
 - [Phase 100]: Audit executable MoonBit source separately from comments and string literals so provenance text and unsupported-profile test data cannot self-trigger capability gates.
 - [Phase 100]: Remove only target and runner metadata from comparison; every public, hostile, fixture, toolchain, and dependency fact remains byte-visible.
+- [Phase 100]: Label only successfully validated focused records as font-qualification-evidence; upload Required output separately as required-diagnostic.
+- [Phase 100]: Require a Required-named evidence path and record timeout, exit, streams, and process-tree termination without touching focused evidence.
+- [Phase 100]: Preserve the workspace Required timeout as a real failure while treating the independently passing focused font evidence as a separate boundary.
 
 ### Pending Todos
 
@@ -99,7 +102,7 @@ None yet.
 
 ### Blockers/Concerns
 
-- [Windows] The workspace-wide Required lane remains subject to the known unscoped `mb-image/png` driver stall recorded in `.planning/WINDOWS.md`; isolated Phase 99 font, interface, policy, manifest, and documentation gates all pass.
+- [Windows] The bounded Phase 100 workspace Required lane reproduced the known unscoped `mb-image/png` driver stall and terminated its full process tree at 900 seconds; isolated FONT-05 fixture, interface, policy, documentation, and four-target gates pass.
 
 ### Quick Tasks Completed
 
@@ -123,26 +126,27 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-07-27T15:01:10.523Z
-Stopped at: Completed 100-04-PLAN.md
+Last session: 2026-07-27T15:29:14.797Z
+Stopped at: Completed 100-05-PLAN.md
 Resume file: None
 
 ## Operator Next Steps
 
-- Execute Phase 100 Plan 05 documentation, CI, and final closure.
+- Run Phase 100 goal verification; keep the separate bounded Required timeout visible as a workspace concern.
 
 ## Performance Metrics
 
-Phases 97-99 completed all ten plans. Phase 100 Plan 04 passed 102/102 focused font tests on every supported target plus exact fixture, interface, dependency, capability, and semantic-evidence gates.
+Phases 97-100 completed all 15 implementation plans. Phase 100 Plan 05 reconfirmed 102/102 focused font tests on every supported target, exact fixture/interface/dependency/capability evidence, and truthful bounded Required failure semantics.
 
 **Per-Phase Metrics:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
-| 97-100 | 10 | 273m | 27m |
+| 97-100 | 15 | 363m | 24m |
 | 97 | 3 | 121m | 40m |
 | 98 | 3 | 98m | 33m |
 | 99 | 4 | 54m | 14m |
+| 100 | 5 | 90m | 18m |
 **Per-Plan Metrics:**
 
 | Plan | Duration | Tasks | Files |
@@ -161,3 +165,4 @@ Phases 97-99 completed all ten plans. Phase 100 Plan 04 passed 102/102 focused f
 | Phase 100 P02 | 16min | 2 tasks | 5 files |
 | Phase 100 P03 | 25min | 2 tasks | 10 files |
 | Phase 100 P04 | 10min | 1 tasks | 5 files |
+| Phase 100 P05 | 25min | 2 tasks | 5 files |
