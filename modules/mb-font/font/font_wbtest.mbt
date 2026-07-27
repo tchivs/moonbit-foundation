@@ -155,6 +155,79 @@ test "generated composite fixtures reach the private full placement seam" {
 }
 
 ///|
+test "portable outline fixture freezes expanded points descriptors and graph" {
+  let owner = font_wb_owner(generated_portable_outline_matrix_truetype())
+  let font = Font::open(owner.view(), font_wb_limits(), font_wb_open_budget()).unwrap()
+  let simple_source = font_glyph_window(font.metric_index, 1UL)
+    .unwrap()
+    .unwrap()
+  let simple_ledger : OutlineWork = { used: 0UL }
+  let geometry = font_decode_simple_geometry(
+    simple_source,
+    1UL,
+    font.tables.maxp,
+    font.limits,
+    simple_ledger,
+    font_wb_outline_budget(),
+  ).unwrap()
+  inspect(geometry.points.length(), content="5")
+  inspect(geometry.endpoints.length(), content="1")
+  inspect(geometry.endpoints[0], content="4")
+  inspect(geometry.points[0].on_curve, content="true")
+  inspect(geometry.points[1].on_curve, content="false")
+  inspect(geometry.points[2].on_curve, content="false")
+  inspect(geometry.points[3].on_curve, content="true")
+  inspect(geometry.points[4].on_curve, content="true")
+  inspect(geometry.points[1].x_q15, content="1638400")
+  inspect(geometry.points[2].x_q15, content="3276800")
+  inspect(geometry.points[3].y_q15, content="3276800")
+
+  let composite_source = font_glyph_window(font.metric_index, 2UL)
+    .unwrap()
+    .unwrap()
+  let parse_ledger : OutlineWork = { used: 0UL }
+  let parsed = font_parse_composite_descriptors(
+    composite_source,
+    font.tables.maxp,
+    font.limits,
+    parse_ledger,
+    font_wb_outline_budget(),
+  ).unwrap()
+  inspect(parsed.descriptors.length(), content="2")
+  inspect(parsed.descriptors[0].flags, content="43")
+  inspect(parsed.descriptors[0].glyph_index, content="1")
+  inspect(parsed.descriptors[0].matrix.xscale_raw, content="8192")
+  inspect(parsed.descriptors[0].matrix.yscale_raw, content="8192")
+  match parsed.descriptors[0].placement {
+    ComponentXY(x, y) => {
+      inspect(x, content="10")
+      inspect(y, content="-4")
+    }
+    _ => fail("expected first descriptor XY placement")
+  }
+  match parsed.descriptors[1].placement {
+    ComponentPoints(parent, child) => {
+      inspect(parent, content="3")
+      inspect(child, content="0")
+    }
+    _ => fail("expected second descriptor real-point placement")
+  }
+  let graph_ledger : OutlineWork = { used: 0UL }
+  let classification = font_classify_composite_graph(
+    2UL,
+    composite_source,
+    font.metric_index,
+    font.tables.maxp,
+    font.limits,
+    graph_ledger,
+    font_wb_outline_budget(),
+  ).unwrap()
+  inspect(classification.root_descriptors.length(), content="2")
+  inspect(classification.saw_deeper, content="false")
+  inspect(classification.saw_grid_rounding, content="false")
+}
+
+///|
 test "uniform composite tracer remains a directly verified production slice" {
   let parent = generated_composite_glyph(
     10,

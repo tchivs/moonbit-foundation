@@ -850,6 +850,15 @@ fn font_test_outline_graph_truetype(
 }
 
 ///|
+fn font_test_portable_outline_matrix_truetype() -> Bytes {
+  let simple = b"\x00\x01\x00\x00\x00\x00\x00\x64\x00\x64\x00\x04\x00\x00\x31\x3a\x01\x35\x23\x32\x32\x64\x64"
+  let first = font_test_component_record(0x002BUL, 1UL, 10, -4, [8192])
+  let second = font_test_component_record(0x0009UL, 1UL, 3, 0, [8192])
+  let composite = font_test_composite_glyph([first, second])
+  font_test_outline_graph_truetype([b"", simple, composite])
+}
+
+///|
 fn font_test_single_composite_path(
   flags : UInt64,
   arg1 : Int,
@@ -1324,11 +1333,7 @@ test "generated standalone TrueType opens and returns exact units per em" {
 ///|
 test "one generated font traces empty repeated implied and attached outlines" {
   let owner = font_test_owner(font_test_portable_outline_matrix_truetype())
-  let font = Font::open(
-    owner.view(),
-    font_test_limits(),
-    font_test_budget(),
-  ).unwrap()
+  let font = Font::open(owner.view(), font_test_limits(), font_test_budget()).unwrap()
   let empty_glyph = font.glyph_id(0UL).unwrap()
   let simple_glyph = font.glyph_id(1UL).unwrap()
   let composite_glyph = font.glyph_id(2UL).unwrap()
@@ -1337,9 +1342,7 @@ test "one generated font traces empty repeated implied and attached outlines" {
     content="0",
   )
 
-  let simple = font
-    .outline(simple_glyph, font_test_composite_budget())
-    .unwrap()
+  let simple = font.outline(simple_glyph, font_test_composite_budget()).unwrap()
   inspect(simple.length(), content="5")
   match simple.get(0) {
     Some(@math.PathCommand::MoveTo(point)) => {

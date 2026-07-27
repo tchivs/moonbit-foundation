@@ -621,6 +621,17 @@ fn generated_outline_graph_truetype(
 }
 
 ///|
+fn generated_portable_outline_matrix_truetype() -> Bytes {
+  let simple = b"\x00\x01\x00\x00\x00\x00\x00\x64\x00\x64\x00\x04\x00\x00\x31\x3a\x01\x35\x23\x32\x32\x64\x64"
+  let first = generated_composite_component(0x002BUL, 1UL, 10, -4, [8192])
+  let second = generated_composite_component(0x0009UL, 1UL, 3, 0, [8192])
+  let composite = generated_composite_glyph(-32768, -32768, 32767, 32767, [
+    first, second,
+  ])
+  generated_outline_graph_truetype([b"", simple, composite])
+}
+
+///|
 fn generated_simple_outline_truetype() -> Bytes {
   generated_outline_truetype(
     generated_simple_outline_body(),
