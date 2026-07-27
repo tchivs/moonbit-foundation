@@ -1,10 +1,10 @@
 ---
 schema_version: 1
-open_count: 24
+open_count: 26
 waived_count: 0
 fixed_count: 3
-total_count: 27
-last_updated: 2026-07-27T14:48:26.488Z
+total_count: 29
+last_updated: 2026-07-27T15:59:12.307Z
 ---
 
 # Broken Windows Ledger
@@ -42,6 +42,8 @@ last_updated: 2026-07-27T14:48:26.488Z
 | 25 | 100 | deviation | fixtures/font/dejavu-sans-2.37/oracle.json |  | Qualified U+034C as the supported composite while preserving the U+00E9 grid-rounding capability boundary. | open |  | 2026-07-27T14:47:23.453Z |  |
 | 26 | 100 | deviation | fixtures/font/qualification-cases.json |  | Corrected staged one-short outline budget requested and limit expectations. | open |  | 2026-07-27T14:47:24.109Z |  |
 | 27 | 100 | deviation | .planning/STATE.md |  | Normalized stale machine-readable plan position and Phase 100 decision attribution after SDK advancement. | open |  | 2026-07-27T14:48:26.488Z |  |
+| 28 | 100 | deviation | scripts/fixtures/Generate-FontQualification.ps1 |  | Corrected generated scalar expectations from UInt64 to the public glyph_for_scalar Int input type. | open |  | 2026-07-27T15:59:11.669Z |  |
+| 29 | 100 | deviation | .planning/STATE.md |  | Synchronized final Plan 6 of 6 verification state after stale SDK metadata output. | open |  | 2026-07-27T15:59:12.307Z |  |
 
 ````json
 [
@@ -367,6 +369,30 @@ last_updated: 2026-07-27T14:48:26.488Z
     "status": "open",
     "reason": "",
     "recorded_at": "2026-07-27T14:48:26.488Z",
+    "resolved_at": null
+  },
+  {
+    "id": 28,
+    "kind": "deviation",
+    "phase": "100",
+    "file": "scripts/fixtures/Generate-FontQualification.ps1",
+    "line": null,
+    "description": "Corrected generated scalar expectations from UInt64 to the public glyph_for_scalar Int input type.",
+    "status": "open",
+    "reason": "",
+    "recorded_at": "2026-07-27T15:59:11.669Z",
+    "resolved_at": null
+  },
+  {
+    "id": 29,
+    "kind": "deviation",
+    "phase": "100",
+    "file": ".planning/STATE.md",
+    "line": null,
+    "description": "Synchronized final Plan 6 of 6 verification state after stale SDK metadata output.",
+    "status": "open",
+    "reason": "",
+    "recorded_at": "2026-07-27T15:59:12.307Z",
     "resolved_at": null
   }
 ]

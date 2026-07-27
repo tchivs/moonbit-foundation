@@ -129,9 +129,7 @@
   3. At least one licensed real-font specimen has immutable bytes, recorded provenance/license, digest, table inventory, and reproducible public interoperability facts.
   4. Isolated `mb-font` and workspace-wide qualification demonstrate the public dependency remains `mb-font -> mb-core` with no FFI, canvas dependency, host font discovery, GUI state, shaping, hinting, CFF, or rasterization.
 
-**Plans**: 5/6 plans executed
-
-- [ ] 100-06-PLAN.md
+**Plans**: 6/6 plans executed
 
 **Wave 1**
 
@@ -153,6 +151,10 @@
 
 - [x] 100-05-PLAN.md
 
+**Wave 6** *(verification gap closure; blocked on Wave 5 completion)*
+
+- [x] 100-06-PLAN.md
+
 ## Progress
 
 | Phase | Plans Complete | Status | Completed |
@@ -160,7 +162,7 @@
 | 97. Font Admission and Metrics | 3/3 | Complete    | 2026-07-27 |
 | 98. Unicode Mapping and Kerning | 3/3 | Complete    | 2026-07-27 |
 | 99. Simple and Composite Outlines | 4/4 | Complete    | 2026-07-27 |
-| 100. Portable Font Qualification | 5/6 | In Progress|  |
+| 100. Portable Font Qualification | 6/6 | In Progress|  |
 
 ---
 *Roadmap last updated: 2026-07-27 after Phase 100 plan execution.*
