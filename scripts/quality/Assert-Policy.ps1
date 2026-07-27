@@ -985,12 +985,13 @@ function Assert-FontDeferredCapabilitySurface {
     $InterfaceLines |
       ForEach-Object {
         $line = ([string]$_) -creplace '\bmax_cmap_records\b', ''
+        $line = [regex]::Replace($line, '(?i)cmap', 'cmap')
         $line = [regex]::Replace($line, '(?<=[A-Z])(?=[A-Z][a-z])', ' ')
         $line = [regex]::Replace($line, '(?<=[a-z0-9])(?=[A-Z])', ' ')
         $line -creplace '_', ' '
       }
   )
-  $deferredLeakPattern = '(?i)(\bcmap\b|\bkern(?:ing)?\b|\boutline\b|\bPath2\b|\bfilesystem\b|\bopen\s+file\b|\bfrom\s+path\b|\bffi\b|\bhost(?:\s+discovery)?\b|\bshap(?:e|er|ing)\b|\bhint(?:er|ing)?\b|\braster(?:ize|izer|ization)?\b)'
+  $deferredLeakPattern = '(?i)(\bcmap\b|\bkern(?:ing)?\b|\boutline\b|\bPath2\b|\bfilesystem\b|\bopen\b.*\bfile\b|\bfrom\b.*\bpath\b|\bffi\b|\bhost(?:\s+discovery)?\b|\bshap(?:e|er|ing)\b|\bhint(?:er|ing)?\b|\braster(?:ize|izer|ization)?\b)'
   Assert-Condition (@($deferredLines | Where-Object { $_ -cmatch $deferredLeakPattern }).Count -eq 0) 'Font semantic interface exposes a deferred Phase 98+ capability.'
 }
 
@@ -1097,7 +1098,10 @@ function Assert-FontFoundationPolicy {
     'pub struct CmapLookup {',
     'pub struct FontRasterizer {',
     'pub fn Font::cmapLookup(Self, UInt64) -> UInt64',
-    'pub fn Font::openFile(String) -> Self'
+    'pub fn Font::openFile(String) -> Self',
+    'pub struct CMapLookup {',
+    'pub fn Font::openFontFile(String) -> Self',
+    'pub fn Font::fromFontPath(String) -> Self'
   )) {
     $negativeFailure = $null
     try {
