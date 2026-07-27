@@ -1629,6 +1629,36 @@ test "outline accepts composite instructions declared on any component" {
 }
 
 ///|
+test "outline ignores XY-only flags on point-attached components" {
+  let simple = font_test_simple_outline_glyf()
+  for flags in [0x0001UL, 0x0005UL, 0x0801UL, 0x1001UL] {
+    let parent = font_test_composite_glyph([
+      font_test_component_record(0x0023UL, 0UL, 10, 0, []),
+      font_test_component_record(flags, 0UL, 2, 0, []),
+    ])
+    let owner = font_test_owner(
+      font_test_outline_graph_truetype([simple, parent]),
+    )
+    let font = Font::open(
+      owner.view(),
+      font_test_limits(),
+      font_test_budget(),
+    ).unwrap()
+    let path = font
+      .outline(font.glyph_id(1UL).unwrap(), font_test_composite_budget())
+      .unwrap()
+    inspect(path.length(), content="8")
+    match path.get(4) {
+      Some(@math.PathCommand::MoveTo(point)) => {
+        inspect(point.x(), content="110")
+        inspect(point.y(), content="100")
+      }
+      _ => fail("expected point-attached MoveTo")
+    }
+  }
+}
+
+///|
 test "outline composite matrices and offset policies preserve exact Q15 facts" {
   let independent = font_test_single_composite_path(0x0043UL, 0, 0, [
     8192, 32767,

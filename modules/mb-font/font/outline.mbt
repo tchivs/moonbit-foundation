@@ -1251,10 +1251,7 @@ fn font_parse_composite_descriptors(
     if descriptors.length() == 0 && !xy {
       return Err(font_outline_data_error("font-outline-first-component-xy"))
     }
-    if !xy && (flags & 0x1800UL) != 0UL {
-      return Err(font_outline_data_error("font-outline-component-offset-flags"))
-    }
-    if (flags & 0x0004UL) != 0UL {
+    if xy && (flags & 0x0004UL) != 0UL {
       saw_grid_rounding = true
     }
     if (flags & 0x0200UL) != 0UL {
