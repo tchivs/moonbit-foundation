@@ -1,0 +1,116 @@
+{
+  "schema_version": "1.0.0",
+  "license": "Apache-2.0",
+  "cases": [
+    {
+      "id": "malformed-directory-range",
+      "stage": "open",
+      "category": "Data",
+      "code": "InvalidEncoding",
+      "context": "font-table-range",
+      "requested": null,
+      "limit": null,
+      "publication": "none"
+    },
+    {
+      "id": "unsupported-outline-profile",
+      "stage": "open",
+      "category": "Capability",
+      "code": "CapabilityUnavailable",
+      "context": "font-outline-profile",
+      "requested": null,
+      "limit": null,
+      "publication": "none"
+    },
+    {
+      "id": "mutation-after-open",
+      "stage": "query",
+      "category": "State",
+      "code": "InvalidRange",
+      "context": "font-source-revision-drift",
+      "requested": null,
+      "limit": null,
+      "publication": "existing-font-only"
+    },
+    {
+      "id": "checked-range-overflow",
+      "stage": "open",
+      "category": "Data",
+      "code": "InvalidEncoding",
+      "context": "font-table-range",
+      "requested": null,
+      "limit": null,
+      "publication": "none"
+    },
+    {
+      "id": "limit-source-exact",
+      "stage": "open",
+      "category": "",
+      "code": "",
+      "context": "",
+      "requested": 580,
+      "limit": 580,
+      "publication": "font"
+    },
+    {
+      "id": "limit-source-one-short",
+      "stage": "open",
+      "category": "Resource",
+      "code": "BudgetExceeded",
+      "context": "max-source-bytes",
+      "requested": 580,
+      "limit": 579,
+      "publication": "none"
+    },
+    {
+      "id": "budget-open-exact",
+      "stage": "open",
+      "category": "",
+      "code": "",
+      "context": "",
+      "requested": 580,
+      "limit": 580,
+      "publication": "font"
+    },
+    {
+      "id": "budget-open-one-short",
+      "stage": "open",
+      "category": "Resource",
+      "code": "BudgetExceeded",
+      "context": "bytes",
+      "requested": 580,
+      "limit": 579,
+      "publication": "none"
+    },
+    {
+      "id": "budget-outline-exact",
+      "stage": "outline",
+      "category": "",
+      "code": "",
+      "context": "",
+      "requested": 18,
+      "limit": 18,
+      "publication": "path"
+    },
+    {
+      "id": "budget-outline-one-short",
+      "stage": "outline",
+      "category": "Resource",
+      "code": "BudgetExceeded",
+      "context": "work",
+      "requested": 18,
+      "limit": 17,
+      "publication": "font-only"
+    },
+    {
+      "id": "nested-composite-recognized",
+      "stage": "outline",
+      "category": "Capability",
+      "code": "CapabilityUnavailable",
+      "context": "font-outline-nested-composite",
+      "requested": null,
+      "limit": null,
+      "publication": "font-only"
+    }
+  ]
+}

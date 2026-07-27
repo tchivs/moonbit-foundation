@@ -13,7 +13,9 @@ $FixtureDirectory = Join-Path $RepositoryRoot 'fixtures/font/dejavu-sans-2.37'
 $FontPath = Join-Path $FixtureDirectory 'DejaVuSans.ttf'
 $LicensePath = Join-Path $FixtureDirectory 'LICENSE'
 $OraclePath = Join-Path $FixtureDirectory 'oracle.json'
+$CasesPath = Join-Path $RepositoryRoot 'fixtures/font/qualification-cases.json'
 $ManifestPath = Join-Path $RepositoryRoot 'fixtures/manifest.json'
+$GeneratedSourcePath = Join-Path $RepositoryRoot 'modules/mb-font/font/generated_font_qualification_test.mbt'
 
 $ArchiveUrl = 'https://github.com/dejavu-fonts/dejavu-fonts/releases/download/version_2_37/dejavu-sans-ttf-2.37.zip'
 $ArchiveLength = 417746L
@@ -26,6 +28,7 @@ $LicenseLength = 8816L
 $LicenseSha256 = '7a083b136e64d064794c3419751e5c7dd10d2f64c108fe5ba161eae5e5958a93'
 $UpstreamLicense = 'Bitstream-Vera AND LicenseRef-DejaVu-Arev'
 $RetrievalDate = '2026-07-27'
+$GeneratedChunkSize = 4096
 
 function Get-FontQualificationSha256 {
   [CmdletBinding()]
@@ -732,23 +735,27 @@ function Update-OrCheckManifest {
   $matches = @($existing | Where-Object {
     $_.id -ceq $expected[0].id -or $_.id -ceq $expected[1].id
   })
+  $fontIndex = -1
+  $licenseIndex = -1
+  for ($index = 0; $index -lt $existing.Count; $index++) {
+    if ($existing[$index].id -ceq $expected[0].id) { $fontIndex = $index }
+    if ($existing[$index].id -ceq $expected[1].id) { $licenseIndex = $index }
+  }
   if ($CheckOnly) {
     if ($matches.Count -ne 2 -or $existing.Count -lt 2) {
       throw 'DejaVu manifest records are missing or duplicated.'
     }
-    if ($existing[$existing.Count - 2].id -cne $expected[0].id -or
-        $existing[$existing.Count - 1].id -cne $expected[1].id) {
-      throw 'DejaVu manifest records must be the final two records in canonical order.'
+    if ($fontIndex -lt 0 -or $licenseIndex -ne $fontIndex + 1) {
+      throw 'DejaVu manifest records must remain adjacent in canonical order.'
     }
-    Assert-ManifestRecord $existing[$existing.Count - 2] $expected[0]
-    Assert-ManifestRecord $existing[$existing.Count - 1] $expected[1]
+    Assert-ManifestRecord $existing[$fontIndex] $expected[0]
+    Assert-ManifestRecord $existing[$licenseIndex] $expected[1]
     return
   }
   if ($matches.Count -eq 2 -and
-      $existing[$existing.Count - 2].id -ceq $expected[0].id -and
-      $existing[$existing.Count - 1].id -ceq $expected[1].id) {
-    Assert-ManifestRecord $existing[$existing.Count - 2] $expected[0]
-    Assert-ManifestRecord $existing[$existing.Count - 1] $expected[1]
+      $fontIndex -ge 0 -and $licenseIndex -eq $fontIndex + 1) {
+    Assert-ManifestRecord $existing[$fontIndex] $expected[0]
+    Assert-ManifestRecord $existing[$licenseIndex] $expected[1]
     return
   }
   if ($matches.Count -ne 0) {
@@ -821,6 +828,292 @@ function Invoke-FontQualificationIntake {
   }
 }
 
+function Read-FontQualificationCases {
+  if (-not (Test-Path -LiteralPath $CasesPath -PathType Leaf)) {
+    throw "Font qualification cases are missing: $CasesPath"
+  }
+  $casesDocument = Get-Content -Raw -LiteralPath $CasesPath | ConvertFrom-Json
+  $documentKeys = @($casesDocument.PSObject.Properties.Name)
+  if (($documentKeys -join "`0") -cne ('schema_version','license','cases' -join "`0") -or
+      $casesDocument.schema_version -cne '1.0.0' -or
+      $casesDocument.license -cne 'Apache-2.0') {
+    throw 'Font qualification case document schema or license drifted.'
+  }
+  $expectedIds = @(
+    'malformed-directory-range',
+    'unsupported-outline-profile',
+    'mutation-after-open',
+    'checked-range-overflow',
+    'limit-source-exact',
+    'limit-source-one-short',
+    'budget-open-exact',
+    'budget-open-one-short',
+    'budget-outline-exact',
+    'budget-outline-one-short',
+    'nested-composite-recognized'
+  )
+  $actualCases = @($casesDocument.cases)
+  if (($actualCases.id -join "`0") -cne ($expectedIds -join "`0")) {
+    throw 'Font qualification case ID sequence drifted.'
+  }
+  $caseKeys = @(
+    'id','stage','category','code','context','requested','limit','publication'
+  )
+  $allowedStages = @('open','query','outline')
+  $allowedCategories = @('','Data','Capability','State','Resource')
+  $allowedCodes = @('','InvalidEncoding','CapabilityUnavailable','InvalidRange','BudgetExceeded')
+  $allowedPublications = @('none','font','path','existing-font-only','font-only')
+  foreach ($case in $actualCases) {
+    if ((@($case.PSObject.Properties.Name) -join "`0") -cne ($caseKeys -join "`0")) {
+      throw "Font qualification case '$($case.id)' key set or order drifted."
+    }
+    if ($allowedStages -cnotcontains [string]$case.stage -or
+        $allowedCategories -cnotcontains [string]$case.category -or
+        $allowedCodes -cnotcontains [string]$case.code -or
+        $allowedPublications -cnotcontains [string]$case.publication) {
+      throw "Font qualification case '$($case.id)' contains an unknown closed value."
+    }
+    if (($case.category -ceq '') -ne ($case.code -ceq '') -or
+        ($case.category -ceq '') -ne ($case.context -ceq '')) {
+      throw "Font qualification case '$($case.id)' success/error fields are inconsistent."
+    }
+    foreach ($field in @('requested','limit')) {
+      $value = $case.$field
+      if ($null -ne $value -and ([int64]$value -lt 0)) {
+        throw "Font qualification case '$($case.id)' has a negative $field."
+      }
+    }
+  }
+  return $casesDocument
+}
+
+function Get-QualificationCasesManifestRecord {
+  param([Parameter(Mandatory)][string]$Sha256)
+  return [ordered]@{
+    id = 'font-qualification-cases'
+    path = 'fixtures/font/qualification-cases.json'
+    origin = 'generated'
+    source = 'repository-derived:scripts/fixtures/Generate-FontQualification.ps1'
+    author = 'MoonBit Native Foundation project generator'
+    retrieval_date = $RetrievalDate
+    sha256 = $Sha256
+    license = 'Apache-2.0'
+    redistribution_status = 'not-applicable'
+    expected_use = 'Phase 100 closed hostile-input and transactional font qualification matrix'
+  }
+}
+
+function Update-OrCheckCasesManifest {
+  param([switch]$CheckOnly)
+
+  $casesBytes = [IO.File]::ReadAllBytes($CasesPath)
+  $casesSha256 = Get-FontQualificationSha256 -Bytes $casesBytes
+  $expected = Get-QualificationCasesManifestRecord -Sha256 $casesSha256
+  $manifest = Get-Content -Raw -LiteralPath $ManifestPath | ConvertFrom-Json
+  $records = @($manifest.records)
+  $matches = @($records | Where-Object id -CEQ $expected.id)
+  if ($CheckOnly) {
+    if ($matches.Count -ne 1 -or $records[$records.Count - 1].id -cne $expected.id) {
+      throw 'Font qualification case manifest record is missing, duplicated, or reordered.'
+    }
+    Assert-ManifestRecord $records[$records.Count - 1] $expected
+    return
+  }
+  if ($matches.Count -eq 0) {
+    $manifest.records = @($records) + @($expected)
+    [IO.File]::WriteAllText(
+      $ManifestPath,
+      (($manifest | ConvertTo-Json -Depth 30).Replace("`r`n", "`n") + "`n"),
+      $Utf8NoBom
+    )
+    return
+  }
+  if ($matches.Count -ne 1 -or $records[$records.Count - 1].id -cne $expected.id) {
+    throw 'Refusing duplicate or reordered font qualification case manifest record.'
+  }
+  foreach ($key in @($expected.Keys)) {
+    $records[$records.Count - 1].$key = $expected[$key]
+  }
+  [IO.File]::WriteAllText(
+    $ManifestPath,
+    (($manifest | ConvertTo-Json -Depth 30).Replace("`r`n", "`n") + "`n"),
+    $Utf8NoBom
+  )
+}
+
+function ConvertTo-MoonOptionalUInt64 {
+  param($Value)
+  if ($null -eq $Value) { return 'None' }
+  return "Some($([uint64]$Value)UL)"
+}
+
+function Write-FontQualificationGeneratedSource {
+  [CmdletBinding()]
+  param(
+    [Parameter(Mandatory)][byte[]]$FontBytes,
+    [Parameter(Mandatory)]$CasesDocument,
+    [switch]$CheckOnly
+  )
+
+  Assert-ExactBytesIdentity 'generated DejaVu source' $FontBytes $FontLength $FontSha256
+  $rows = [Collections.Generic.List[string]]::new()
+  $rows.Add('// Generated by scripts/fixtures/Generate-FontQualification.ps1. Do not edit.')
+  $rows.Add('// Canonical source: fixtures/font/dejavu-sans-2.37/DejaVuSans.ttf')
+  $rows.Add("// SHA-256: $FontSha256")
+  $rows.Add("// Upstream license: $UpstreamLicense")
+  $rows.Add("// Literal chunk size: $GeneratedChunkSize bytes")
+  $rows.Add('')
+  $rows.Add('///|')
+  $rows.Add('struct FontQualificationCase {')
+  $rows.Add('  id : String')
+  $rows.Add('  stage : String')
+  $rows.Add('  category : String')
+  $rows.Add('  code : String')
+  $rows.Add('  context : String')
+  $rows.Add('  requested : UInt64?')
+  $rows.Add('  limit : UInt64?')
+  $rows.Add('  publication : String')
+  $rows.Add('}')
+  $rows.Add('')
+  $rows.Add('///|')
+  $rows.Add('fn _font_qualification_join_bytes(parts : Array[Bytes]) -> Bytes {')
+  $rows.Add('  let mut capacity = 0')
+  $rows.Add('  for part in parts {')
+  $rows.Add('    capacity += part.length()')
+  $rows.Add('  }')
+  $rows.Add('  let output : Array[Byte] = Array::new(capacity~)')
+  $rows.Add('  for part in parts {')
+  $rows.Add('    output.push_iter(part.iter())')
+  $rows.Add('  }')
+  $rows.Add('  Bytes::from_array(output)')
+  $rows.Add('}')
+  $rows.Add('')
+
+  $chunkLiterals = [Collections.Generic.List[string]]::new()
+  $chunkCount = [Math]::Ceiling($FontBytes.Length / [double]$GeneratedChunkSize)
+  for ($chunk = 0; $chunk -lt $chunkCount; $chunk++) {
+    $start = $chunk * $GeneratedChunkSize
+    $length = [Math]::Min($GeneratedChunkSize, $FontBytes.Length - $start)
+    $builder = [Text.StringBuilder]::new($length * 4)
+    for ($index = 0; $index -lt $length; $index++) {
+      [void]$builder.AppendFormat('\x{0:x2}', $FontBytes[$start + $index])
+    }
+    $literal = $builder.ToString()
+    $chunkLiterals.Add($literal)
+    $rows.Add('///|')
+    $rows.Add(('fn _font_qualification_dejavu_chunk_{0:d3}() -> Bytes {{' -f $chunk))
+    $rows.Add(('  b"{0}"' -f $literal))
+    $rows.Add('}')
+    $rows.Add('')
+  }
+
+  $roundTrip = [Collections.Generic.List[byte]]::new($FontBytes.Length)
+  foreach ($literal in $chunkLiterals) {
+    $matches = [regex]::Matches($literal, '\\x(?<hex>[0-9a-f]{2})')
+    foreach ($match in $matches) {
+      $roundTrip.Add([Convert]::ToByte($match.Groups['hex'].Value, 16))
+    }
+  }
+  $roundTripBytes = $roundTrip.ToArray()
+  Assert-ExactBytesIdentity 'rendered DejaVu literals' $roundTripBytes $FontLength $FontSha256
+  if (-not [Linq.Enumerable]::SequenceEqual(
+      [byte[]]$FontBytes,
+      [byte[]]$roundTripBytes
+    )) {
+    throw 'Rendered DejaVu literal round-trip differs from canonical bytes.'
+  }
+
+  $rows.Add('///|')
+  $rows.Add('fn font_qualification_dejavu_sans_237_bytes() -> Bytes {')
+  $rows.Add('  _font_qualification_join_bytes([')
+  for ($chunk = 0; $chunk -lt $chunkCount; $chunk++) {
+    $rows.Add(('    _font_qualification_dejavu_chunk_{0:d3}(),' -f $chunk))
+  }
+  $rows.Add('  ])')
+  $rows.Add('}')
+  $rows.Add('')
+
+  $rows.Add('///|')
+  $rows.Add('fn font_qualification_compact_bytes() -> Bytes {')
+  $rows.Add('  let simple = b"\x00\x01\x00\x00\x00\x00\x00\x64\x00\x64\x00\x04\x00\x00\x31\x3a\x01\x35\x23\x32\x32\x64\x64"')
+  $rows.Add('  let first = font_test_component_record(0x002BUL, 1UL, 10, -4, [8192])')
+  $rows.Add('  let second = font_test_component_record(0x0009UL, 1UL, 3, 0, [8192])')
+  $rows.Add('  let composite = font_test_composite_glyph([first, second])')
+  $rows.Add('  let glyphs = [b"", simple, composite]')
+  $rows.Add('  let glyf : Array[Byte] = []')
+  $rows.Add('  let loca : Array[Byte] = []')
+  $rows.Add('  font_test_push_u16(loca, 0UL)')
+  $rows.Add('  for glyph in glyphs {')
+  $rows.Add('    glyf.push_iter(glyph.iter())')
+  $rows.Add('    if glyph.length() % 2 != 0 {')
+  $rows.Add('      glyf.push(b''\x00'')')
+  $rows.Add('    }')
+  $rows.Add('    font_test_push_u16(loca, glyf.length().to_uint64() / 2UL)')
+  $rows.Add('  }')
+  $rows.Add('  let hmtx : Array[Byte] = [b''\x01'', b''\xf4'', b''\x00'', b''\x00'', b''\x00'', b''\x00'', b''\x00'', b''\x00'']')
+  $rows.Add('  let maxp = font_test_maxp_table_with_glyphs(3UL).to_array()')
+  $rows.Add('  font_test_put_u16(maxp, 28, 16UL)')
+  $rows.Add('  font_test_put_u16(maxp, 30, 1UL)')
+  $rows.Add('  let cmap = font_test_cmap_records(')
+  $rows.Add('    [(0UL, 4UL, 0)],')
+  $rows.Add('    [font_test_cmap_subtable(font_test_cmap_format12([')
+  $rows.Add('      (0x0041UL, 0x0041UL, 1UL),')
+  $rows.Add('      (0x10300UL, 0x10300UL, 2UL),')
+  $rows.Add('    ]))],')
+  $rows.Add('  )')
+  $rows.Add('  font_test_build_truetype([')
+  $rows.Add('    { tag: b"OS/2", payload: font_test_fixed_table(78) },')
+  $rows.Add('    { tag: b"cmap", payload: cmap },')
+  $rows.Add('    { tag: b"glyf", payload: Bytes::from_array(glyf) },')
+  $rows.Add('    { tag: b"head", payload: font_test_head_table() },')
+  $rows.Add('    { tag: b"hhea", payload: font_test_hhea_table() },')
+  $rows.Add('    { tag: b"hmtx", payload: Bytes::from_array(hmtx) },')
+  $rows.Add('    { tag: b"kern", payload: font_test_kern_format0([(1UL, 2UL, -37)]) },')
+  $rows.Add('    { tag: b"loca", payload: Bytes::from_array(loca) },')
+  $rows.Add('    { tag: b"maxp", payload: Bytes::from_array(maxp) },')
+  $rows.Add('    { tag: b"name", payload: font_test_name_table() },')
+  $rows.Add('    { tag: b"post", payload: font_test_post_table() },')
+  $rows.Add('  ])')
+  $rows.Add('}')
+  $rows.Add('')
+
+  $rows.Add('///|')
+  $rows.Add('fn font_qualification_cases() -> Array[FontQualificationCase] {')
+  $rows.Add('  [')
+  foreach ($case in @($CasesDocument.cases)) {
+    $rows.Add('    {')
+    $rows.Add("      id: `"$($case.id)`",")
+    $rows.Add("      stage: `"$($case.stage)`",")
+    $rows.Add("      category: `"$($case.category)`",")
+    $rows.Add("      code: `"$($case.code)`",")
+    $rows.Add("      context: `"$($case.context)`",")
+    $rows.Add("      requested: $(ConvertTo-MoonOptionalUInt64 $case.requested),")
+    $rows.Add("      limit: $(ConvertTo-MoonOptionalUInt64 $case.limit),")
+    $rows.Add("      publication: `"$($case.publication)`",")
+    $rows.Add('    },')
+  }
+  $rows.Add('  ]')
+  $rows.Add('}')
+  $rows.Add('')
+
+  $rendered = ($rows -join "`n")
+  $renderedBytes = $Utf8NoBom.GetBytes($rendered)
+  if ($CheckOnly) {
+    if (-not (Test-Path -LiteralPath $GeneratedSourcePath -PathType Leaf)) {
+      throw "Generated font qualification source is missing: $GeneratedSourcePath"
+    }
+    $actualBytes = [IO.File]::ReadAllBytes($GeneratedSourcePath)
+    if (-not [Linq.Enumerable]::SequenceEqual(
+        [byte[]]$renderedBytes,
+        [byte[]]$actualBytes
+      )) {
+      throw "Generated font qualification source drifted: $GeneratedSourcePath"
+    }
+    return
+  }
+  [IO.File]::WriteAllBytes($GeneratedSourcePath, $renderedBytes)
+}
+
 function Test-FontQualificationInputs {
   foreach ($path in @($FontPath, $LicensePath, $OraclePath, $ManifestPath)) {
     if (-not (Test-Path -LiteralPath $path -PathType Leaf)) {
@@ -848,4 +1141,17 @@ if ($Intake) {
   Invoke-FontQualificationIntake
 }
 Test-FontQualificationInputs
-Write-Host 'Font qualification intake and independent oracle verification passed.'
+$casesDocument = Read-FontQualificationCases
+if ($Check) {
+  Update-OrCheckCasesManifest -CheckOnly
+  Write-FontQualificationGeneratedSource `
+    -FontBytes ([IO.File]::ReadAllBytes($FontPath)) `
+    -CasesDocument $casesDocument `
+    -CheckOnly
+} else {
+  Update-OrCheckCasesManifest
+  Write-FontQualificationGeneratedSource `
+    -FontBytes ([IO.File]::ReadAllBytes($FontPath)) `
+    -CasesDocument $casesDocument
+}
+Write-Host 'Font qualification intake, oracle, hostile matrix, and generated source verification passed.'

@@ -143,6 +143,18 @@
       "license": "Bitstream-Vera AND LicenseRef-DejaVu-Arev",
       "redistribution_status": "confirmed",
       "expected_use": "Phase 100 notice accompanying redistribution of DejaVu Sans 2.37"
+    },
+    {
+      "id": "font-qualification-cases",
+      "path": "fixtures/font/qualification-cases.json",
+      "origin": "generated",
+      "source": "repository-derived:scripts/fixtures/Generate-FontQualification.ps1",
+      "author": "MoonBit Native Foundation project generator",
+      "retrieval_date": "2026-07-27",
+      "sha256": "1b6de9e02d223bf4402555da3ff47ec1a66b4cad97ab30bb9f387789f2c406b8",
+      "license": "Apache-2.0",
+      "redistribution_status": "not-applicable",
+      "expected_use": "Phase 100 closed hostile-input and transactional font qualification matrix"
     }
   ]
 }
