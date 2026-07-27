@@ -2002,8 +2002,8 @@ test "outline composite phantom malformed and resource outcomes are distinct" {
   ).unwrap()
   let exact = font_test_budget_with_dimensions(
     0UL,
-    allocations=6UL,
-    allocation_size=1280UL,
+    allocations=11UL,
+    allocation_size=2048UL,
     25UL,
   )
   inspect(
@@ -2016,8 +2016,8 @@ test "outline composite phantom malformed and resource outcomes are distinct" {
   inspect(exact.remaining().work(), content="0")
   let short = font_test_budget_with_dimensions(
     0UL,
-    allocations=6UL,
-    allocation_size=1280UL,
+    allocations=11UL,
+    allocation_size=2048UL,
     24UL,
   )
   let short_error = exact_font
@@ -2028,6 +2028,20 @@ test "outline composite phantom malformed and resource outcomes are distinct" {
     content="true",
   )
   inspect(short.remaining().work(), content="4")
+  let allocation_short = font_test_budget_with_dimensions(
+    0UL,
+    allocations=10UL,
+    allocation_size=2048UL,
+    25UL,
+  )
+  let allocation_error = exact_font
+    .outline(exact_font.glyph_id(1UL).unwrap(), allocation_short)
+    .unwrap_err()
+  inspect(
+    allocation_error.category() == @error.ErrorCategory::Resource,
+    content="true",
+  )
+  inspect(allocation_short.remaining().allocations(), content="0")
 }
 
 ///|
@@ -2205,7 +2219,7 @@ test "outline point ceiling and caller budget exact fit are authoritative" {
   ).unwrap()
   let exact = font_test_budget_with_dimensions(
     0UL,
-    allocations=2UL,
+    allocations=5UL,
     allocation_size=160UL,
     18UL,
   )
@@ -2214,15 +2228,44 @@ test "outline point ceiling and caller budget exact fit are authoritative" {
     content="4",
   )
   inspect(exact.remaining().work(), content="0")
+  inspect(exact.remaining().allocations(), content="0")
   let short = font_test_budget_with_dimensions(
     0UL,
-    allocations=2UL,
+    allocations=5UL,
     allocation_size=160UL,
     17UL,
   )
   let error = font.outline(font.glyph_id(0UL).unwrap(), short).unwrap_err()
   inspect(error.category() == @error.ErrorCategory::Resource, content="true")
   inspect(short.remaining().work(), content="4")
+  let zero_allocations = font_test_budget_with_dimensions(
+    0UL,
+    allocations=0UL,
+    allocation_size=160UL,
+    18UL,
+  )
+  let zero_error = font
+    .outline(font.glyph_id(0UL).unwrap(), zero_allocations)
+    .unwrap_err()
+  inspect(
+    zero_error.category() == @error.ErrorCategory::Resource,
+    content="true",
+  )
+  inspect(zero_allocations.remaining().allocations(), content="0")
+  let allocation_short = font_test_budget_with_dimensions(
+    0UL,
+    allocations=4UL,
+    allocation_size=160UL,
+    18UL,
+  )
+  let allocation_error = font
+    .outline(font.glyph_id(0UL).unwrap(), allocation_short)
+    .unwrap_err()
+  inspect(
+    allocation_error.category() == @error.ErrorCategory::Resource,
+    content="true",
+  )
+  inspect(allocation_short.remaining().allocations(), content="0")
 }
 
 ///|

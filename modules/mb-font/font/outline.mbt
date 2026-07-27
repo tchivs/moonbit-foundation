@@ -284,13 +284,14 @@ fn font_outline_charge_work(
 }
 
 ///|
-fn font_outline_charge_allocation(
+fn font_outline_charge_allocations(
   budget : @budget.Budget,
+  allocations : UInt64,
   allocation_size : UInt64,
 ) -> Result[Unit, @error.CoreError] {
   let charge = @budget.ResourceCharge::new(
     bytes=0UL,
-    allocations=1UL,
+    allocations~,
     allocation_size~,
     width=0UL,
     height=0UL,
@@ -302,6 +303,14 @@ fn font_outline_charge_allocation(
     Ok(_) => ()
   }
   budget.charge(charge)
+}
+
+///|
+fn font_outline_charge_allocation(
+  budget : @budget.Budget,
+  allocation_size : UInt64,
+) -> Result[Unit, @error.CoreError] {
+  font_outline_charge_allocations(budget, 1UL, allocation_size)
 }
 
 ///|
@@ -513,7 +522,6 @@ fn font_decode_simple_geometry(
     Err(_) => return Err(font_outline_data_error("font-outline-endpoints"))
     Ok(_) => ()
   }
-  let endpoints : Array[UInt64] = []
   let mut previous : UInt64? = None
   for contour = 0UL; contour < contour_count; contour = contour + 1UL {
     let offset = 10UL + contour * 2UL
@@ -528,7 +536,6 @@ fn font_decode_simple_geometry(
         }
       None => ()
     }
-    endpoints.push(endpoint)
     previous = Some(endpoint)
   }
   let point_count = match previous {
@@ -612,9 +619,32 @@ fn font_decode_simple_geometry(
     Err(error) => return Err(error)
     Ok(_) => ()
   }
-  match font_outline_charge_allocation(budget, point_count * 32UL) {
+  let point_allocation_size = match @checked.checked_mul(point_count, 32UL) {
+    Err(_) => return Err(font_outline_data_error("font-outline-point-count"))
+    Ok(value) => value
+  }
+  let endpoint_allocation_size = match
+    @checked.checked_mul(contour_count, 8UL) {
+    Err(_) => return Err(font_outline_data_error("font-outline-endpoints"))
+    Ok(value) => value
+  }
+  let scratch_allocation_size = if point_allocation_size >
+    endpoint_allocation_size {
+    point_allocation_size
+  } else {
+    endpoint_allocation_size
+  }
+  match font_outline_charge_allocations(budget, 4UL, scratch_allocation_size) {
     Err(error) => return Err(error)
     Ok(_) => ()
+  }
+  let endpoints : Array[UInt64] = []
+  for contour = 0UL; contour < contour_count; contour = contour + 1UL {
+    let endpoint = match read_u16(source, 10UL + contour * 2UL) {
+      Err(_) => return Err(font_outline_data_error("font-outline-endpoints"))
+      Ok(value) => value
+    }
+    endpoints.push(endpoint)
   }
   let flags : Array[UInt64] = []
   let mut stored_flag_index = 0UL
@@ -1629,6 +1659,28 @@ fn font_decode_composite_outline(
   }
   if graph.saw_grid_rounding {
     return Err(font_outline_capability_error("font-outline-grid-rounding"))
+  }
+  let point_allocation_size = match
+    @checked.checked_mul(maxp.max_composite_points, 32UL) {
+    Err(_) =>
+      return Err(font_outline_data_error("font-outline-composite-points"))
+    Ok(value) => value
+  }
+  let endpoint_allocation_size = match
+    @checked.checked_mul(maxp.max_composite_contours, 8UL) {
+    Err(_) =>
+      return Err(font_outline_data_error("font-outline-composite-contours"))
+    Ok(value) => value
+  }
+  let scratch_allocation_size = if point_allocation_size >
+    endpoint_allocation_size {
+    point_allocation_size
+  } else {
+    endpoint_allocation_size
+  }
+  match font_outline_charge_allocations(budget, 2UL, scratch_allocation_size) {
+    Err(error) => return Err(error)
+    Ok(_) => ()
   }
   let parent_points : Array[OutlinePoint] = []
   let parent_endpoints : Array[UInt64] = []
