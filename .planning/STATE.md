@@ -14,7 +14,7 @@ progress:
   completed_phases: 2
   total_plans: 9
   completed_plans: 7
-current_plan: 1
+current_plan: 2
 total_plans_in_phase: 3
 ---
 
