@@ -23,7 +23,7 @@
 
 ### Qualification
 
-- [ ] **FONT-05**: Maintainers can reproduce the complete public font workflow and hostile-input qualification with licensed immutable fixtures on `js`, `wasm`, `wasm-gc`, and `native`, without GUI state, host font discovery, FFI, or target-specific behavior.
+- [x] **FONT-05**: Maintainers can reproduce the complete public font workflow and hostile-input qualification with licensed immutable fixtures on `js`, `wasm`, `wasm-gc`, and `native`, without GUI state, host font discovery, FFI, or target-specific behavior.
 
 ## Future Requirements
 
@@ -59,7 +59,7 @@ Roadmap phases populate this table. Every v0.32 requirement must map to exactly 
 | FONT-02 | Phase 98 | Complete |
 | FONT-03 | Phase 99 | Complete |
 | FONT-04 | Phase 98 | Complete |
-| FONT-05 | Phase 100 | Pending |
+| FONT-05 | Phase 100 | Complete |
 
 **Coverage:**
 
