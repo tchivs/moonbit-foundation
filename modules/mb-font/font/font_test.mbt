@@ -437,6 +437,56 @@ fn font_test_kern_format0(
 }
 
 ///|
+fn font_test_kern_subtable(source : Bytes) -> Bytes {
+  let output : Array[Byte] = []
+  for index = 4; index < source.length(); index = index + 1 {
+    output.push(source[index])
+  }
+  Bytes::from_array(output)
+}
+
+///|
+fn font_test_kern_classic(subtables : Array[Bytes]) -> Bytes {
+  let output : Array[Byte] = []
+  font_test_push_u16(output, 0UL)
+  font_test_push_u16(output, subtables.length().to_uint64())
+  for subtable in subtables {
+    for byte in subtable {
+      output.push(byte)
+    }
+  }
+  Bytes::from_array(output)
+}
+
+///|
+fn font_test_kern_apple_subtable(
+  length : UInt64,
+  suffix : Bytes,
+) -> Bytes {
+  let output : Array[Byte] = []
+  font_test_push_u32(output, length)
+  font_test_push_u16(output, 0UL)
+  font_test_push_u16(output, 0UL)
+  for byte in suffix {
+    output.push(byte)
+  }
+  Bytes::from_array(output)
+}
+
+///|
+fn font_test_kern_apple(subtables : Array[Bytes]) -> Bytes {
+  let output : Array[Byte] = []
+  font_test_push_u32(output, 0x00010000UL)
+  font_test_push_u32(output, subtables.length().to_uint64())
+  for subtable in subtables {
+    for byte in subtable {
+      output.push(byte)
+    }
+  }
+  Bytes::from_array(output)
+}
+
+///|
 fn font_test_cmap_records(
   records : Array[(UInt64, UInt64, Int)],
   subtables : Array[Bytes],
@@ -865,6 +915,25 @@ fn font_test_limits() -> FontLimits {
 }
 
 ///|
+fn font_test_limits_with_kern(
+  max_kern_subtables : UInt64,
+  max_kern_pairs : UInt64,
+) -> FontLimits {
+  FontLimits::new(
+    max_source_bytes=4096UL,
+    max_tables=32UL,
+    max_table_bytes=1024UL,
+    max_glyphs=16UL,
+    max_name_records=16UL,
+    max_cmap_records=16UL,
+    max_kern_subtables~,
+    max_kern_pairs~,
+    max_post_name_bytes=256UL,
+    max_work=16384UL,
+  ).unwrap()
+}
+
+///|
 fn font_test_budget() -> @budget.Budget {
   font_test_budget_with(4096UL, 16384UL)
 }
@@ -1039,6 +1108,116 @@ test "kerning rejects retained source mutation before publication" {
     Bytes::from_array([(original.to_uint64() ^ 1UL).to_byte()]),
   )
   font_test_assert_revision_drift(font.kerning(left, right).unwrap_err())
+}
+
+///|
+fn font_test_assert_kern_capability(kern : Bytes) -> Unit raise {
+  let owner = font_test_owner(font_test_truetype_with_kern_and_glyphs(kern, 3UL))
+  let font = Font::open(owner.view(), font_test_limits(), font_test_budget()).unwrap()
+  inspect(font.units_per_em().unwrap(), content="1000")
+  inspect(font.glyph_for_scalar(0x0041).unwrap().value(), content="0")
+  let glyph = font.glyph_id(0UL).unwrap()
+  let error = font.kerning(glyph, glyph).unwrap_err()
+  inspect(error.category() == @error.ErrorCategory::Capability, content="true")
+  inspect(
+    error.code() == @error.ErrorCode::CapabilityUnavailable,
+    content="true",
+  )
+  inspect(error.operation() == Some("font-kerning"), content="true")
+  inspect(error.context() == Some("font-kern-profile"), content="true")
+}
+
+///|
+test "well formed classic Apple and unknown kern profiles defer capability" {
+  let supported = font_test_kern_subtable(
+    font_test_kern_format0([(0UL, 1UL, 10)]),
+  )
+  font_test_assert_kern_capability(
+    font_test_kern_classic([supported, supported]),
+  )
+  font_test_assert_kern_capability(
+    font_test_kern_apple([font_test_kern_apple_subtable(8UL, b"")]),
+  )
+  font_test_assert_kern_capability(b"\x00\x02\x00\x00\xff\xff")
+}
+
+///|
+test "recognized classic and Apple kern envelope malformations fail opening" {
+  let supported = font_test_kern_subtable(
+    font_test_kern_format0([(0UL, 1UL, 10)]),
+  )
+  let malformed_classic = font_test_kern_classic([
+    supported,
+    b"\x00\x00\x00\x05\x00\x01",
+  ])
+  let malformed_apple = [
+    b"\x00\x01\x00\x00",
+    b"\x00\x01\x00\x00\x00\x00\x00\x01",
+    font_test_kern_apple([
+      font_test_kern_apple_subtable(7UL, b""),
+    ]),
+    font_test_kern_apple([
+      font_test_kern_apple_subtable(8UL, b"\x00"),
+    ]),
+  ]
+  for kern in [malformed_classic] + malformed_apple {
+    let budget = font_test_budget()
+    let before = budget.remaining()
+    let result = Font::open(
+      font_test_owner(font_test_truetype_with_kern_and_glyphs(kern, 3UL)).view(),
+      font_test_limits(),
+      budget,
+    )
+    inspect(result is Err(_), content="true")
+    match result {
+      Err(error) => {
+        inspect(error.category() == @error.ErrorCategory::Data, content="true")
+        inspect(
+          error.code() == @error.ErrorCode::InvalidEncoding,
+          content="true",
+        )
+        inspect(error.context() == Some("font-kern-envelope"), content="true")
+      }
+      Ok(_) => ()
+    }
+    inspect(budget.remaining().bytes() == before.bytes(), content="true")
+    inspect(budget.remaining().work() == before.work(), content="true")
+  }
+}
+
+///|
+test "kern semantic ceilings reject before subtable and pair scans" {
+  let supported = font_test_kern_subtable(
+    font_test_kern_format0([(0UL, 1UL, 10)]),
+  )
+  let two_subtables = font_test_truetype_with_kern_and_glyphs(
+    font_test_kern_classic([supported, supported]),
+    3UL,
+  )
+  let two_pairs = font_test_truetype_with_kern_and_glyphs(
+    font_test_kern_format0([(0UL, 1UL, 10), (1UL, 2UL, -5)]),
+    3UL,
+  )
+  for case in [
+    (two_subtables, font_test_limits_with_kern(1UL, 2UL), "max-kern-subtables"),
+    (two_pairs, font_test_limits_with_kern(1UL, 1UL), "max-kern-pairs"),
+  ] {
+    let (source, limits, context) = case
+    let budget = font_test_budget()
+    let before = budget.remaining()
+    let result = Font::open(font_test_owner(source).view(), limits, budget)
+    inspect(result is Err(_), content="true")
+    match result {
+      Err(error) => {
+        inspect(error.category() == @error.ErrorCategory::Resource, content="true")
+        inspect(error.code() == @error.ErrorCode::BudgetExceeded, content="true")
+        inspect(error.context() == Some(context), content="true")
+      }
+      Ok(_) => ()
+    }
+    inspect(budget.remaining().bytes() == before.bytes(), content="true")
+    inspect(budget.remaining().work() == before.work(), content="true")
+  }
 }
 
 ///|

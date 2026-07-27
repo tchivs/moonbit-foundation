@@ -205,6 +205,98 @@ test "format-4 admitted bases and binary search cover direct and indexed edges" 
 }
 
 ///|
+fn font_wb_kern_table(source : Bytes) -> TableWindow {
+  {
+    tag: 0x6B65726EUL,
+    checksum: 0UL,
+    offset: 0UL,
+    length_value: source.length().to_uint64(),
+    view: font_wb_view(source),
+  }
+}
+
+///|
+fn font_wb_kern_format0(
+  pairs : Array[(UInt64, UInt64, Int)],
+) -> Bytes {
+  let output : Array[Byte] = []
+  let pair_count = pairs.length().to_uint64()
+  let (search_range, selector, range_shift) = font_kern_search_facts(pair_count)
+  font_wb_put_u16(output, 0UL)
+  font_wb_put_u16(output, 1UL)
+  font_wb_put_u16(output, 0UL)
+  font_wb_put_u16(output, 14UL + pair_count * 6UL)
+  font_wb_put_u16(output, 1UL)
+  font_wb_put_u16(output, pair_count)
+  font_wb_put_u16(output, search_range)
+  font_wb_put_u16(output, selector)
+  font_wb_put_u16(output, range_shift)
+  for pair in pairs {
+    let (left, right, value) = pair
+    font_wb_put_u16(output, left)
+    font_wb_put_u16(output, right)
+    font_wb_put_u16(
+      output,
+      if value < 0 {
+        (value + 0x10000).to_uint64()
+      } else {
+        value.to_uint64()
+      },
+    )
+  }
+  Bytes::from_array(output)
+}
+
+///|
+test "kern helper fields keys signed values and binary search are canonical" {
+  for case in [
+    (0UL, (0UL, 0UL, 0UL)),
+    (1UL, (6UL, 0UL, 0UL)),
+    (3UL, (12UL, 1UL, 6UL)),
+    (4UL, (24UL, 2UL, 0UL)),
+  ] {
+    let (count, expected) = case
+    inspect(font_kern_search_facts(count) == expected, content="true")
+  }
+  inspect(font_kern_pair_key(1UL, 2UL), content="65538")
+  inspect(read_i16(font_wb_view(b"\xff\xec"), 0UL).unwrap(), content="-20")
+
+  let source = font_wb_kern_format0([
+    (0UL, 1UL, 10),
+    (1UL, 2UL, -20),
+    (2UL, 3UL, 30),
+    (3UL, 4UL, -40),
+  ])
+  let state = font_admit_kern(Some(font_wb_kern_table(source)), 5UL).unwrap()
+  inspect(font_lookup_kern(state, 0UL, 1UL).unwrap(), content="10")
+  inspect(font_lookup_kern(state, 1UL, 2UL).unwrap(), content="-20")
+  inspect(font_lookup_kern(state, 2UL, 3UL).unwrap(), content="30")
+  inspect(font_lookup_kern(state, 3UL, 4UL).unwrap(), content="-40")
+  inspect(font_lookup_kern(state, 1UL, 1UL).unwrap(), content="0")
+  inspect(font_lookup_kern(state, 4UL, 4UL).unwrap(), content="0")
+}
+
+///|
+test "kern admission rejects exact-length search order duplicate and range errors" {
+  let valid = font_wb_kern_format0([(0UL, 1UL, 10), (1UL, 2UL, -20)])
+  for malformed in [
+    font_wb_put_u16_at_copy(valid, 6, 25UL),
+    font_wb_put_u16_at_copy(valid, 12, 6UL),
+    font_wb_put_u16_at_copy(valid, 18, 2UL),
+    font_wb_put_u16_at_copy(valid, 24, 0UL),
+    font_wb_put_u16_at_copy(valid, 24, 0UL),
+    font_wb_put_u16_at_copy(valid, 20, 3UL),
+  ] {
+    inspect(
+      font_admit_kern(Some(font_wb_kern_table(malformed)), 3UL) is Err(_),
+      content="true",
+    )
+  }
+  let apple_short = font_wb_kern_table(b"\x00\x01\x00\x00\x00\x00\x00\x01")
+  inspect(font_admit_kern(Some(apple_short), 3UL) is Err(_), content="true")
+}
+
+///|
 fn font_wb_limits() -> FontLimits {
   FontLimits::new(
     max_source_bytes=4096UL,
