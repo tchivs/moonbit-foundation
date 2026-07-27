@@ -693,6 +693,25 @@ fn font_test_simple_outline_truetype() -> Bytes {
 }
 
 ///|
+fn font_test_zero_contour_outline_truetype() -> Bytes {
+  font_test_build_truetype([
+    { tag: b"OS/2", payload: font_test_fixed_table(78) },
+    { tag: b"cmap", payload: font_test_cmap_table() },
+    {
+      tag: b"glyf",
+      payload: b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x02\xaa\xbb",
+    },
+    { tag: b"head", payload: font_test_head_table() },
+    { tag: b"hhea", payload: font_test_hhea_table() },
+    { tag: b"hmtx", payload: b"\x01\xf4\x00\x00" },
+    { tag: b"loca", payload: b"\x00\x00\x00\x07" },
+    { tag: b"maxp", payload: font_test_maxp_table() },
+    { tag: b"name", payload: font_test_name_table() },
+    { tag: b"post", payload: font_test_post_table() },
+  ])
+}
+
+///|
 fn font_test_truetype_with_cmap(cmap : Bytes) -> Bytes {
   font_test_build_truetype([
     { tag: b"OS/2", payload: font_test_fixed_table(78) },
@@ -1031,12 +1050,19 @@ test "generated standalone TrueType opens and returns exact units per em" {
 ///|
 test "outline traces one simple quadratic contour into shared Path2" {
   let owner = font_test_owner(font_test_simple_outline_truetype())
+  let admission_budget = font_test_budget()
   let font = Font::open(
     owner.view(),
     font_test_limits(),
-    font_test_budget(),
+    admission_budget,
   ).unwrap()
-  let path = font.outline(font.glyph_id(0UL).unwrap(), font_test_budget()).unwrap()
+  let after_open = admission_budget.remaining()
+  let outline_budget = font_test_budget()
+  let outline_before = outline_budget.remaining()
+  let path = font.outline(font.glyph_id(0UL).unwrap(), outline_budget).unwrap()
+  let outline_after = outline_budget.remaining()
+  inspect(outline_after.work() < outline_before.work(), content="true")
+  inspect(admission_budget.remaining().work() == after_open.work(), content="true")
   inspect(path.length(), content="4")
   match path.get(0) {
     Some(@math.PathCommand::MoveTo(point)) => {
@@ -1065,6 +1091,52 @@ test "outline traces one simple quadratic contour into shared Path2" {
     Some(@math.PathCommand::Close) => ()
     _ => fail("expected Close")
   }
+}
+
+///|
+test "outline guards empty and zero-contour glyph results" {
+  let empty_owner = font_test_owner(font_test_minimal_truetype())
+  let empty = Font::open(
+    empty_owner.view(),
+    font_test_limits(),
+    font_test_budget(),
+  ).unwrap()
+  inspect(
+    empty
+    .outline(empty.glyph_id(0UL).unwrap(), font_test_budget())
+    .unwrap()
+    .length(),
+    content="0",
+  )
+
+  let zero_owner = font_test_owner(font_test_zero_contour_outline_truetype())
+  let zero = Font::open(
+    zero_owner.view(),
+    font_test_limits(),
+    font_test_budget(),
+  ).unwrap()
+  inspect(
+    zero
+    .outline(zero.glyph_id(0UL).unwrap(), font_test_budget())
+    .unwrap()
+    .length(),
+    content="0",
+  )
+
+  let larger_owner = font_test_owner(font_test_horizontal_metric_truetype())
+  let larger = Font::open(
+    larger_owner.view(),
+    font_test_limits(),
+    font_test_budget(),
+  ).unwrap()
+  let foreign = larger.glyph_id(2UL).unwrap()
+  let error = empty.outline(foreign, font_test_budget()).unwrap_err()
+  inspect(error.category() == @error.ErrorCategory::InvalidInput, content="true")
+  inspect(error.code() == @error.ErrorCode::InvalidRange, content="true")
+  inspect(error.operation() == Some("font-outline"), content="true")
+  inspect(error.requested() == Some(2UL), content="true")
+  inspect(error.limit() == Some(1UL), content="true")
+  inspect(error.context() == Some("font-glyph-id-range"), content="true")
 }
 
 ///|
