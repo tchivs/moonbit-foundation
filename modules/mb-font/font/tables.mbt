@@ -1194,6 +1194,13 @@ fn font_admit_name_envelope(
   } else {
     0UL
   }
+  // The selected static profile permits duplicate logical keys, but every
+  // record must preserve the canonical four-part nondecreasing order.
+  let mut has_previous = false
+  let mut previous_platform = 0UL
+  let mut previous_encoding = 0UL
+  let mut previous_language = 0UL
+  let mut previous_name = 0UL
   let mut index = 0UL
   while index < record_count {
     let record = 6UL + index * 12UL
@@ -1201,9 +1208,26 @@ fn font_admit_name_envelope(
       Err(error) => return Err(error)
       Ok(value) => value
     }
+    let encoding_id = match read_u16(table.view, record + 2UL) {
+      Err(error) => return Err(error)
+      Ok(value) => value
+    }
     let language_id = match read_u16(table.view, record + 4UL) {
       Err(error) => return Err(error)
       Ok(value) => value
+    }
+    let name_id = match read_u16(table.view, record + 6UL) {
+      Err(error) => return Err(error)
+      Ok(value) => value
+    }
+    if has_previous &&
+      (platform_id < previous_platform ||
+      (platform_id == previous_platform &&
+      (encoding_id < previous_encoding ||
+      (encoding_id == previous_encoding &&
+      (language_id < previous_language ||
+      (language_id == previous_language && name_id < previous_name)))))) {
+      return Err(font_data_error("font-name-envelope"))
     }
     if language_id >= 0x8000UL {
       if format == 1UL {
@@ -1237,6 +1261,11 @@ fn font_admit_name_envelope(
     if end > table.length_value {
       return Err(font_data_error("font-name-envelope"))
     }
+    has_previous = true
+    previous_platform = platform_id
+    previous_encoding = encoding_id
+    previous_language = language_id
+    previous_name = name_id
     index = index + 1UL
   }
   if format == 1UL {

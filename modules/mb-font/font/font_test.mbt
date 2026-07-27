@@ -376,6 +376,31 @@ fn font_test_name_table() -> Bytes {
 }
 
 ///|
+fn font_test_name_table_with_keys(
+  keys : Array[(UInt64, UInt64, UInt64, UInt64)],
+) -> Bytes {
+  let output : Array[Byte] = []
+  font_test_push_u16(output, 0UL)
+  font_test_push_u16(output, keys.length().to_uint64())
+  font_test_push_u16(output, 6UL + keys.length().to_uint64() * 12UL)
+  let mut string_offset = 0UL
+  for key in keys {
+    let (platform, encoding, language, name) = key
+    font_test_push_u16(output, platform)
+    font_test_push_u16(output, encoding)
+    font_test_push_u16(output, language)
+    font_test_push_u16(output, name)
+    font_test_push_u16(output, 1UL)
+    font_test_push_u16(output, string_offset)
+    string_offset = string_offset + 1UL
+  }
+  for _key in keys {
+    output.push(b'A')
+  }
+  Bytes::from_array(output)
+}
+
+///|
 fn font_test_post_table() -> Bytes {
   let output = Array::make(32, b'\x00')
   font_test_put_u32(output, 0, 0x00030000UL)
@@ -1697,6 +1722,47 @@ test "name language tags and post name references require exact envelopes" {
     is Ok(_),
     content="true",
   )
+}
+
+///|
+test "name admission enforces canonical four-part record ordering" {
+  let sorted = font_test_name_table_with_keys([
+    (3UL, 1UL, 0UL, 1UL),
+    (3UL, 1UL, 0UL, 2UL),
+    (3UL, 2UL, 0UL, 1UL),
+  ])
+  inspect(
+    Font::open(
+      font_test_owner(
+        font_test_truetype_with_metadata(sorted, font_test_post_table()),
+      ).view(),
+      font_test_limits(),
+      font_test_budget(),
+    )
+    is Ok(_),
+    content="true",
+  )
+  for
+    name in [
+      font_test_name_table_with_keys([
+        (3UL, 2UL, 0UL, 1UL),
+        (3UL, 1UL, 0UL, 1UL),
+      ]),
+      font_test_name_table_with_keys([
+        (3UL, 1UL, 0UL, 2UL),
+        (3UL, 1UL, 0UL, 1UL),
+      ]),
+    ] {
+    let error = Font::open(
+      font_test_owner(
+        font_test_truetype_with_metadata(name, font_test_post_table()),
+      ).view(),
+      font_test_limits(),
+      font_test_budget(),
+    ).unwrap_err()
+    inspect(error.category() == @error.ErrorCategory::Data, content="true")
+    inspect(error.context() == Some("font-name-envelope"), content="true")
+  }
 }
 
 ///|
