@@ -32,7 +32,7 @@ key-decisions:
   - "Expose every supported structural signature only as PresentUnverified and never inspect payload content."
   - "Run the final root revision guard after compact normalization and before the single budget charge."
 patterns-established:
-  - "DSIG admission: tuple authority -> protected/table validation -> bounded envelope traversal -> exact retained/work preflight -> normalization -> revision -> charge -> publication."
+  - "DSIG admission: tuple authority -> declaration preflight -> bounded count discovery -> structural preflight -> face/protected/alias validation -> DSIG semantic/envelope traversal -> exact retained/work preflight -> normalization -> revision -> charge -> publication."
   - "DSIG blocks: relative-to-DSIG checked ranges outside the record array, pairwise non-overlap, exact 8+payload length, and no payload read."
 requirements-completed: [TTC-01]
 coverage:

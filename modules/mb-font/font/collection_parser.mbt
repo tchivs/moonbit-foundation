@@ -620,13 +620,13 @@ fn font_collection_validate_dsig_blocks(
 }
 
 ///|
-fn font_collection_parse_dsig_declaration(
+fn font_collection_discover_dsig_record_count(
   source : @bytes.ByteView,
   declaration : CollectionDeclarationFacts,
   limits : FontCollectionLimits,
-) -> Result[CollectionDsigFacts, @error.CoreError] {
+) -> Result[UInt64, @error.CoreError] {
   if !declaration.dsig_present {
-    return Ok({ record_count: 0UL, record_array_end: 0UL })
+    return Ok(0UL)
   }
   let length = declaration.dsig_end - declaration.dsig_start
   if length < 8UL {
@@ -639,20 +639,42 @@ fn font_collection_parse_dsig_declaration(
       ),
     )
   }
-  let version = match
-    font_collection_read_u32(
-      source,
-      declaration.dsig_start,
-      "font-collection-dsig-version",
-    ) {
-    Ok(value) => value
-    Err(error) => return Err(error)
-  }
   let record_count = match
     font_collection_read_u16(
       source,
       declaration.dsig_start + 4UL,
       "font-collection-dsig-count",
+    ) {
+    Ok(value) => value
+    Err(error) => return Err(error)
+  }
+  if record_count > limits.max_dsig_records() {
+    return Err(
+      font_collection_limit_error(
+        "max-dsig-records",
+        record_count,
+        limits.max_dsig_records(),
+      ),
+    )
+  }
+  Ok(record_count)
+}
+
+///|
+fn font_collection_validate_dsig_declaration(
+  source : @bytes.ByteView,
+  declaration : CollectionDeclarationFacts,
+  record_count : UInt64,
+) -> Result[CollectionDsigFacts, @error.CoreError] {
+  if !declaration.dsig_present {
+    return Ok({ record_count: 0UL, record_array_end: 0UL })
+  }
+  let length = declaration.dsig_end - declaration.dsig_start
+  let version = match
+    font_collection_read_u32(
+      source,
+      declaration.dsig_start,
+      "font-collection-dsig-version",
     ) {
     Ok(value) => value
     Err(error) => return Err(error)
@@ -676,15 +698,6 @@ fn font_collection_parse_dsig_declaration(
       font_collection_data_error(
         "font-collection-dsig-count",
         source_offset=declaration.dsig_start + 4UL,
-      ),
-    )
-  }
-  if record_count > limits.max_dsig_records() {
-    return Err(
-      font_collection_limit_error(
-        "max-dsig-records",
-        record_count,
-        limits.max_dsig_records(),
       ),
     )
   }
@@ -2131,8 +2144,8 @@ fn font_collection_parse(
     Ok(value) => value
     Err(error) => return Err(error)
   }
-  let dsig = match
-    font_collection_parse_dsig_declaration(source, declaration, limits) {
+  let dsig_record_count = match
+    font_collection_discover_dsig_record_count(source, declaration, limits) {
     Ok(value) => value
     Err(error) => return Err(error)
   }
@@ -2145,7 +2158,7 @@ fn font_collection_parse(
       protected_count,
       if declaration.version == 0x00020000UL { 1UL } else { 0UL },
       if declaration.dsig_present { 1UL } else { 0UL },
-      dsig.record_count,
+      dsig_record_count,
       work_limit,
     ) {
     Ok(value) => value
@@ -2189,6 +2202,15 @@ fn font_collection_parse(
   }
   match font_collection_validate_aliases(source, declaration) {
     Ok(_) => ()
+    Err(error) => return Err(error)
+  }
+  let dsig = match
+    font_collection_validate_dsig_declaration(
+      source,
+      declaration,
+      dsig_record_count,
+    ) {
+    Ok(value) => value
     Err(error) => return Err(error)
   }
   match font_collection_validate_dsig_envelope(source, declaration, dsig) {

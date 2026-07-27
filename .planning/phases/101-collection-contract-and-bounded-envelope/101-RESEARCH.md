@@ -37,7 +37,7 @@
 - **D-15:** In TTC v2, an all-zero `(tag, length, offset)` tuple means no DSIG. Any partially zero tuple is malformed `Data`.
 - **D-16:** A present tuple must use tag `DSIG`, describe one checked non-empty range ending at collection EOF, and contain a bounded DSIG version-1 envelope with supported format-1 signature blocks. Payload bytes stay opaque; public status is only `PresentUnverified`, never trusted or verified.
 - **D-17:** Malformed DSIG structure is `Data`; a complete, well-formed but unsupported DSIG version or signature format is `Capability`. No cryptography, PKCS#7 interpretation, certificate validation, or trust-store policy is added.
-- **D-18:** Stable precedence is authority-first and traversal-stable: invalid limit construction; source-byte ceiling; TTC signature/version/header; face/count ceilings before dependent scans; offset/directory/range/profile/DSIG facts in wire order; retained-memory/work ceilings; caller budget preflight; final source-revision guard before publication.
+- **D-18:** Stable precedence is staged-authority-first and traversal-stable: invalid limit construction; source-byte ceiling; TTC signature/version/header, face-count, offset-array, and DSIG-tuple authority; declaration-work `max_work` and caller-work preflight before the per-face declaration scan; per-face table-count and cumulative-record ceilings plus bounded DSIG record-count discovery; structural-work `max_work` and caller-work preflight before face, protected-range, alias, and DSIG-body traversal; face/protected/alias facts before DSIG version/count-zero/flags and record/block semantics; retained-memory and exact-work ceilings; full caller budget preflight; final source-revision guard before publication. Each stage is atomic, and exact equality admits while a one-short authority fails before its dependent traversal.
 - **D-19:** A well-formed unsupported collection version/profile/DSIG format is `Capability`; malformed bytes and inconsistent ranges are `Data`; limit and budget exhaustion are `Resource`; out-of-range inspection indices are `InvalidInput`; revision drift is `State`.
 
 ### the agent's Discretion
@@ -256,9 +256,9 @@ All files remain in the existing `font` package; MoonBit package compilation dis
 
 ### Pattern 1: Three-Pass Authority Before Retention
 
-**Pass A — declaration authority:** validate source ceiling, base TTC header, non-zero face count, offset-array envelope, per-face table counts, cumulative record count, and DSIG declared length/count ceilings. Do not allocate arrays. [RECOMMENDATION derived from CONTEXT.md D-09, D-10, D-18]
+**Pass A — staged declaration authority:** validate the source ceiling, base TTC header, non-zero face count, offset-array envelope, and DSIG tuple; preflight exact declaration work before scanning per-face declarations; then validate per-face table counts, cumulative record count, and the bounded DSIG record count. Do not allocate arrays. [RECOMMENDATION derived from CONTEXT.md D-09, D-10, D-18]
 
-**Pass B — complete structural validation:** re-read in stable wire order and validate directory headers/search facts/tags/ranges/profiles, all protected-range and table-pair relations, then DSIG records/blocks. Directly re-read earlier wire records for pair checks rather than allocating attacker-sized scratch structures. [RECOMMENDATION derived from CONTEXT.md D-05, D-08, D-09]
+**Pass B — authorized structural validation:** compute and preflight exact structural work from the bounded declaration counts before re-reading directory headers/search facts/tags/ranges/profiles, all protected-range and table-pair relations, then DSIG version/count-zero/flags and records/blocks. DSIG count discovery is authority-only; its semantic validation follows face/protected/alias facts. Directly re-read earlier wire records for pair checks rather than allocating attacker-sized scratch structures. [RECOMMENDATION derived from CONTEXT.md D-05, D-08, D-09, D-18]
 
 **Pass C — retained normalization:** after exact retained/work ceiling checks and caller budget preflight, allocate only the compact face and protected-range arrays, normalize them, final-guard revision, charge once, and publish. [RECOMMENDATION derived from CONTEXT.md D-11 through D-14]
 
@@ -327,18 +327,21 @@ The wire shapes and table-relative block offset are normative OpenType 1.9.1 fac
 
 `FontCollectionLimits::new` must reject zero in constructor argument order with `InvalidInput/InvalidRange`, operation `font-collection-limits-new`, `requested=0`, `limit=1`, and the matching kebab-case context. It should otherwise preserve all `UInt64` values verbatim. [RECOMMENDATION mirroring verified `FontLimits::new`]
 
-Apply ceilings in this order:
+Apply ceilings and staged work authority in this order:
 
 1. `max_source_bytes`
 2. `max_faces`
-3. `max_tables_per_face` for each face in offset-array order
-4. checked cumulative `max_table_records`
-5. for present DSIG, `max_dsig_bytes`, then `max_dsig_records`
-6. after complete structural facts, `max_retained_bookkeeping_bytes`
-7. `max_work`
-8. caller budget preflight
+3. for present DSIG tuple authority, `max_dsig_bytes`
+4. declaration-work `max_work`, then caller work preflight
+5. `max_tables_per_face` for each face in offset-array order
+6. checked cumulative `max_table_records`
+7. for present DSIG count authority, `max_dsig_records`
+8. structural-work `max_work`, then caller work preflight
+9. after complete structural and DSIG semantic facts, `max_retained_bookkeeping_bytes`
+10. exact total `max_work`
+11. full caller budget preflight
 
-This order implements D-18 and ensures counts are bounded before dependent scans. [VERIFIED: CONTEXT.md D-10, D-18]
+This order implements D-18 and ensures every attacker-counted traversal is authorized before it runs. Declaration, structural, and exact-total one-short boundaries are separately observable and must be tested under both collection and caller authority. [VERIFIED: CONTEXT.md D-10, D-18]
 
 ### Retained Layout and Charge Formula
 
@@ -442,14 +445,18 @@ Within `FontCollection::open`, freeze this first-failure order:
 4. Minimum 12-byte base header; exact version `1.0` or `2.0`. A complete other version is `Capability`; random/non-container tag is `Data`. Recognized standalone SFNT/WOFF signatures may use `Capability` context `font-collection-container`.
 5. Non-zero face count, then `max_faces`.
 6. Checked complete offset-array and version-dependent header envelope.
-7. Per face in offset-array order: directory offset/range, non-zero table count, per-face and cumulative ceilings, SFNT header/search facts, records in tag order, checked table ranges, then profile facts.
-8. Protected ranges in header/directory/DSIG order; table/protected and table/table comparisons in deterministic earlier-record order.
-9. DSIG tuple coherence, DSIG byte/record ceilings, version, flags, record/block envelopes in record order, format, reserved/length/overlap facts.
-10. Retained-byte ceiling, then work ceiling.
-11. `Budget::preflight` in its built-in dimension order.
-12. Normalize retained facts.
-13. Final root revision guard.
-14. `Budget::charge` once, then construct/return `FontCollection`.
+7. TTC v2 DSIG tuple coherence, tag/alignment/range, and `max_dsig_bytes`.
+8. Declaration-work `max_work`, then caller-work preflight; a one-short failure precedes the per-face declaration scan.
+9. Per face in offset-array order: directory offset/minimum range, non-zero table count, per-face and cumulative ceilings; then bounded DSIG header/count discovery and `max_dsig_records`.
+10. Structural-work `max_work`, then caller-work preflight; a one-short failure precedes all face, protected-range, alias, and DSIG-body traversal.
+11. Per face in offset-array order: SFNT header/search facts, records in tag order, checked table ranges, then profile facts.
+12. Protected ranges in header/directory/DSIG order; table/protected and table/table comparisons in deterministic earlier-record order.
+13. DSIG version, count-zero, flags, record/block envelopes in record order, format, reserved/length/overlap facts.
+14. Retained-byte ceiling, then exact total work ceiling.
+15. Full `Budget::preflight` in its built-in dimension order.
+16. Normalize retained facts.
+17. Final root revision guard.
+18. `Budget::charge` once, then construct/return `FontCollection`.
 
 Malformed range arithmetic from wire offsets must be remapped to `Data/InvalidEncoding` with `font-collection-*` context; do not leak `CheckedRange`'s `InvalidInput` category for hostile bytes. [RECOMMENDATION derived from CONTEXT.md D-18, D-19 and verified core behavior]
 

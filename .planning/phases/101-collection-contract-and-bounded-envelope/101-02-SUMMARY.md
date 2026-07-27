@@ -32,7 +32,7 @@ key-decisions:
   - "Replay protected and table records deterministically instead of allocating attacker-sized structural scratch arrays."
   - "Permit cross-face sharing only for an exact root range with matching tag, length, and stored checksum metadata."
 patterns-established:
-  - "Collection authority: source/header/count ceilings -> all-face structure -> protected/alias replay -> exact charge preflight -> compact normalization."
+  - "Collection authority: source/header/tuple authority -> declaration preflight -> bounded counts -> structural preflight -> all-face/protected/alias structure -> exact charge preflight -> compact normalization."
   - "Collection identity: equal payload bytes at distinct offsets never imply sharing; only exact root coordinates plus metadata do."
 requirements-completed: [TTC-01]
 coverage:

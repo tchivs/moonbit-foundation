@@ -1329,6 +1329,93 @@ test "TTC-01 D-18 structural facts precede full-work and caller-budget errors" {
 }
 
 ///|
+test "TTC-01 staged work authority has exact stable precedence boundaries" {
+  let source = font_collection_test_dsig_ttc()
+  for
+    item in [
+      (10UL, 57UL, 11UL, 10UL, "max-work"),
+      (57UL, 10UL, 11UL, 10UL, "work"),
+      (42UL, 57UL, 43UL, 42UL, "max-work"),
+      (57UL, 42UL, 43UL, 42UL, "work"),
+      (56UL, 57UL, 57UL, 56UL, "max-work"),
+      (57UL, 56UL, 57UL, 56UL, "work"),
+    ] {
+    let (max_work, budget_work, requested, limit, context) = item
+    let owner = font_collection_test_owner(source)
+    let budget = font_collection_test_dsig_budget(budget_work)
+    let before = budget.remaining()
+    let error = FontCollection::open(
+      owner.view(),
+      font_collection_test_dsig_limits(1UL, 32UL, max_work),
+      budget,
+    ).unwrap_err()
+    inspect(error.category() == @error.ErrorCategory::Resource, content="true")
+    inspect(error.code() == @error.ErrorCode::BudgetExceeded, content="true")
+    inspect(error.context() == Some(context), content="true")
+    inspect(error.requested() == Some(requested), content="true")
+    inspect(error.limit() == Some(limit), content="true")
+    font_collection_test_assert_budget_unchanged(before, budget)
+  }
+}
+
+///|
+test "TTC-01 DSIG authority precedes faces but DSIG semantics follow them" {
+  let source = font_collection_test_dsig_ttc()
+  let malformed_tuple = source.to_array()
+  font_collection_test_put_u16(malformed_tuple, 38, 0UL)
+  font_collection_test_put_u32(malformed_tuple, 16, 0UL)
+  let tuple_owner = font_collection_test_owner(Bytes::from_array(malformed_tuple))
+  let tuple_budget = font_collection_test_dsig_budget(57UL)
+  let tuple_before = tuple_budget.remaining()
+  let tuple_error = FontCollection::open(
+    tuple_owner.view(),
+    font_collection_test_dsig_limits(1UL, 32UL, 57UL),
+    tuple_budget,
+  ).unwrap_err()
+  font_collection_test_assert_error(
+    tuple_error,
+    @error.ErrorCategory::Data,
+    @error.ErrorCode::InvalidEncoding,
+  )
+  inspect(
+    tuple_error.context() == Some("font-collection-dsig-tuple"),
+    content="true",
+  )
+  font_collection_test_assert_budget_unchanged(tuple_before, tuple_budget)
+
+  let mut semantics_follow_faces = true
+  for
+    item in [
+      (68, 2UL, false),
+      (72, 0UL, true),
+      (74, 2UL, true),
+    ] {
+    let (field, value, is_u16) = item
+    let malformed = source.to_array()
+    font_collection_test_put_u16(malformed, 38, 0UL)
+    if is_u16 {
+      font_collection_test_put_u16(malformed, field, value)
+    } else {
+      font_collection_test_put_u32(malformed, field, value)
+    }
+    let owner = font_collection_test_owner(Bytes::from_array(malformed))
+    let budget = font_collection_test_dsig_budget(57UL)
+    let before = budget.remaining()
+    let error = FontCollection::open(
+      owner.view(),
+      font_collection_test_dsig_limits(1UL, 32UL, 57UL),
+      budget,
+    ).unwrap_err()
+    semantics_follow_faces = semantics_follow_faces &&
+      error.category() == @error.ErrorCategory::Data &&
+      error.code() == @error.ErrorCode::InvalidEncoding &&
+      error.context() == Some("font-collection-search-facts")
+    font_collection_test_assert_budget_unchanged(before, budget)
+  }
+  inspect(semantics_follow_faces, content="true")
+}
+
+///|
 test "TTC-01 two-record DSIG accepts touching and unordered disjoint blocks" {
   for
     source in [
