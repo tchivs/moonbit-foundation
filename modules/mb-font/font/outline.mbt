@@ -314,6 +314,26 @@ fn font_outline_charge_allocation(
 }
 
 ///|
+fn font_outline_empty_path(
+  budget : @budget.Budget,
+) -> Result[@math.Path2, @error.CoreError] {
+  match font_outline_charge_allocation(budget, 0UL) {
+    Err(error) => return Err(error)
+    Ok(_) => Ok(@math.Path2::new())
+  }
+}
+
+///|
+fn font_outline_empty_geometry(
+  budget : @budget.Budget,
+) -> Result[OutlineGeometry, @error.CoreError] {
+  match font_outline_charge_allocations(budget, 2UL, 0UL) {
+    Err(error) => return Err(error)
+    Ok(_) => Ok({ points: [], endpoints: [] })
+  }
+}
+
+///|
 fn font_outline_read_delta(
   source : @bytes.ByteView,
   cursor : UInt64,
@@ -823,7 +843,7 @@ fn font_decode_zero_contour_outline(
   budget : @budget.Budget,
 ) -> Result[@math.Path2, @error.CoreError] {
   if source.length() == 10UL {
-    return Ok(@math.Path2::new())
+    return font_outline_empty_path(budget)
   }
   let instruction_length = match read_u16(source, 10UL) {
     Err(_) => return Err(font_outline_data_error("font-outline-instructions"))
@@ -867,7 +887,7 @@ fn font_decode_zero_contour_outline(
   }
   match font_outline_validate_trailing(source, cursor) {
     Err(error) => return Err(error)
-    Ok(_) => Ok(@math.Path2::new())
+    Ok(_) => font_outline_empty_path(budget)
   }
 }
 
@@ -1368,7 +1388,11 @@ fn font_decode_composite_outline(
       Ok(Some(value)) => Some(value)
     }
     let geometry : OutlineGeometry = match child {
-      None => { points: [], endpoints: [] }
+      None =>
+        match font_outline_empty_geometry(budget) {
+          Err(error) => return Err(error)
+          Ok(value) => value
+        }
       Some(value) => {
         if value.length() < 10UL {
           return Err(font_outline_data_error("font-outline-glyph-header"))
@@ -1389,7 +1413,11 @@ fn font_decode_composite_outline(
               value, maxp, limits, ledger, budget,
             ) {
             Err(error) => return Err(error)
-            Ok(_) => { points: [], endpoints: [] }
+            Ok(_) =>
+              match font_outline_empty_geometry(budget) {
+                Err(error) => return Err(error)
+                Ok(result) => result
+              }
           }
         } else {
           match
@@ -1582,7 +1610,7 @@ fn font_decode_outline(
   let ledger : OutlineWork = { used: 0UL }
   let glyph = match font_glyph_window(index, glyph_index) {
     Err(error) => return Err(error)
-    Ok(None) => return Ok(@math.Path2::new())
+    Ok(None) => return font_outline_empty_path(budget)
     Ok(Some(value)) => value
   }
   if glyph.length() < 10UL {

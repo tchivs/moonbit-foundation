@@ -2062,13 +2062,34 @@ test "outline guards empty and zero-contour glyph results" {
     font_test_limits(),
     font_test_budget(),
   ).unwrap()
+  let empty_exact = font_test_budget_with_dimensions(
+    0UL,
+    allocations=1UL,
+    allocation_size=0UL,
+    0UL,
+  )
   inspect(
     empty
-    .outline(empty.glyph_id(0UL).unwrap(), font_test_budget())
+    .outline(empty.glyph_id(0UL).unwrap(), empty_exact)
     .unwrap()
     .length(),
     content="0",
   )
+  inspect(empty_exact.remaining().allocations(), content="0")
+  let empty_zero = font_test_budget_with_dimensions(
+    0UL,
+    allocations=0UL,
+    allocation_size=0UL,
+    0UL,
+  )
+  let empty_error = empty
+    .outline(empty.glyph_id(0UL).unwrap(), empty_zero)
+    .unwrap_err()
+  inspect(
+    empty_error.category() == @error.ErrorCategory::Resource,
+    content="true",
+  )
+  inspect(empty_error.context() == Some("allocations"), content="true")
 
   let zero_owner = font_test_owner(font_test_zero_contour_outline_truetype())
   let zero = Font::open(
@@ -2076,13 +2097,35 @@ test "outline guards empty and zero-contour glyph results" {
     font_test_limits(),
     font_test_budget(),
   ).unwrap()
+  let zero_exact = font_test_budget_with_dimensions(
+    0UL,
+    allocations=1UL,
+    allocation_size=0UL,
+    2UL,
+  )
   inspect(
     zero
-    .outline(zero.glyph_id(0UL).unwrap(), font_test_budget())
+    .outline(zero.glyph_id(0UL).unwrap(), zero_exact)
     .unwrap()
     .length(),
     content="0",
   )
+  inspect(zero_exact.remaining().allocations(), content="0")
+  inspect(zero_exact.remaining().work(), content="0")
+  let zero_allocations = font_test_budget_with_dimensions(
+    0UL,
+    allocations=0UL,
+    allocation_size=0UL,
+    2UL,
+  )
+  let zero_error = zero
+    .outline(zero.glyph_id(0UL).unwrap(), zero_allocations)
+    .unwrap_err()
+  inspect(
+    zero_error.category() == @error.ErrorCategory::Resource,
+    content="true",
+  )
+  inspect(zero_error.context() == Some("allocations"), content="true")
 
   let larger_owner = font_test_owner(font_test_horizontal_metric_truetype())
   let larger = Font::open(
@@ -2101,6 +2144,68 @@ test "outline guards empty and zero-contour glyph results" {
   inspect(error.requested() == Some(2UL), content="true")
   inspect(error.limit() == Some(1UL), content="true")
   inspect(error.context() == Some("font-glyph-id-range"), content="true")
+}
+
+///|
+fn font_test_assert_empty_composite_allocation_plan(
+  child : Bytes,
+  exact_allocations : UInt64,
+) -> Unit raise {
+  let parent = font_test_composite_glyph([
+    font_test_component_record(0x0003UL, 0UL, 0, 0, []),
+  ])
+  let owner = font_test_owner(font_test_outline_graph_truetype([child, parent]))
+  let font = Font::open(
+    owner.view(),
+    font_test_limits(),
+    font_test_budget(),
+  ).unwrap()
+  let glyph = font.glyph_id(1UL).unwrap()
+  let exact = font_test_budget_with_dimensions(
+    0UL,
+    allocations=exact_allocations,
+    allocation_size=2048UL,
+    1UL,
+  )
+  inspect(font.outline(glyph, exact).unwrap().length(), content="0")
+  inspect(exact.remaining().allocations(), content="0")
+  inspect(exact.remaining().work(), content="0")
+
+  let zero = font_test_budget_with_dimensions(
+    0UL,
+    allocations=0UL,
+    allocation_size=2048UL,
+    1UL,
+  )
+  let zero_error = font.outline(glyph, zero).unwrap_err()
+  inspect(
+    zero_error.category() == @error.ErrorCategory::Resource,
+    content="true",
+  )
+  inspect(zero_error.context() == Some("allocations"), content="true")
+
+  let one_short = font_test_budget_with_dimensions(
+    0UL,
+    allocations=exact_allocations - 1UL,
+    allocation_size=2048UL,
+    1UL,
+  )
+  let one_short_error = font.outline(glyph, one_short).unwrap_err()
+  inspect(
+    one_short_error.category() == @error.ErrorCategory::Resource,
+    content="true",
+  )
+  inspect(one_short_error.context() == Some("allocations"), content="true")
+  inspect(one_short.remaining().allocations(), content="0")
+}
+
+///|
+test "outline charges every empty composite geometry allocation" {
+  font_test_assert_empty_composite_allocation_plan(b"", 9UL)
+  font_test_assert_empty_composite_allocation_plan(
+    b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00",
+    10UL,
+  )
 }
 
 ///|
