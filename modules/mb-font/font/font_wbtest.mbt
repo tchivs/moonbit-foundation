@@ -80,6 +80,66 @@ test "directory search selector work is exact at power-of-two boundaries" {
 }
 
 ///|
+fn font_wb_cmap_format12_groups(
+  groups : Array[(UInt64, UInt64, UInt64)],
+) -> Bytes {
+  let output : Array[Byte] = []
+  font_wb_put_u16(output, 12UL)
+  font_wb_put_u16(output, 0UL)
+  font_wb_put_u32(output, 16UL + groups.length().to_uint64() * 12UL)
+  font_wb_put_u32(output, 0UL)
+  font_wb_put_u32(output, groups.length().to_uint64())
+  for group in groups {
+    let (start_code, end_code, start_glyph) = group
+    font_wb_put_u32(output, start_code)
+    font_wb_put_u32(output, end_code)
+    font_wb_put_u32(output, start_glyph)
+  }
+  Bytes::from_array(output)
+}
+
+///|
+test "cmap rank and format-12 lower bound preserve canonical boundaries" {
+  inspect(font_cmap_rank(0UL, 4UL, 12UL) == Some(0), content="true")
+  inspect(font_cmap_rank(3UL, 10UL, 12UL) == Some(1), content="true")
+  inspect(font_cmap_rank(0UL, 3UL, 4UL) == Some(2), content="true")
+  inspect(font_cmap_rank(3UL, 1UL, 4UL) == Some(3), content="true")
+  for tuple in [
+    (0UL, 2UL, 4UL),
+    (1UL, 0UL, 4UL),
+    (3UL, 0UL, 4UL),
+    (3UL, 1UL, 12UL),
+  ] {
+    let (platform, encoding, format) = tuple
+    inspect(font_cmap_rank(platform, encoding, format) is None, content="true")
+  }
+
+  let source = font_wb_cmap_format12_groups([
+    (0x0041UL, 0x0042UL, 1UL),
+    (0x0100UL, 0x0100UL, 3UL),
+    (0x1F600UL, 0x1F601UL, 4UL),
+  ])
+  let facts : CmapFormat12Facts = {
+    view: font_wb_view(source),
+    offset: 0UL,
+    group_count: 3UL,
+  }
+  for case in [
+    (0x0041UL, 1UL),
+    (0x0042UL, 2UL),
+    (0x0043UL, 0UL),
+    (0x0100UL, 3UL),
+    (0x0101UL, 0UL),
+    (0x1F600UL, 4UL),
+    (0x1F601UL, 5UL),
+    (0x1F602UL, 0UL),
+  ] {
+    let (scalar, expected) = case
+    inspect(font_lookup_cmap_format12(facts, scalar).unwrap() == expected, content="true")
+  }
+}
+
+///|
 fn font_wb_limits() -> FontLimits {
   FontLimits::new(
     max_source_bytes=4096UL,

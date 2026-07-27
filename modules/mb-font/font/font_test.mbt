@@ -363,6 +363,71 @@ fn font_test_cmap_shared_format4_two_segments() -> Bytes {
 }
 
 ///|
+fn font_test_cmap_subtable(source : Bytes) -> Bytes {
+  let offset = font_test_read_u32(source, 8).to_int()
+  let output : Array[Byte] = []
+  for index = offset; index < source.length(); index = index + 1 {
+    output.push(source[index])
+  }
+  Bytes::from_array(output)
+}
+
+///|
+fn font_test_cmap_records(
+  records : Array[(UInt64, UInt64, Int)],
+  subtables : Array[Bytes],
+) -> Bytes {
+  let output : Array[Byte] = []
+  font_test_push_u16(output, 0UL)
+  font_test_push_u16(output, records.length().to_uint64())
+  let offsets : Array[UInt64] = []
+  let mut next_offset = 4UL + records.length().to_uint64() * 8UL
+  for subtable in subtables {
+    offsets.push(next_offset)
+    next_offset = next_offset + subtable.length().to_uint64()
+  }
+  for record in records {
+    let (platform, encoding, subtable) = record
+    font_test_push_u16(output, platform)
+    font_test_push_u16(output, encoding)
+    font_test_push_u32(output, offsets[subtable])
+  }
+  for subtable in subtables {
+    for byte in subtable {
+      output.push(byte)
+    }
+  }
+  Bytes::from_array(output)
+}
+
+///|
+fn font_test_cmap_format4_range(indexed : Bool) -> Bytes {
+  let output : Array[Byte] = []
+  font_test_push_u16(output, 4UL)
+  font_test_push_u16(output, if indexed { 38UL } else { 32UL })
+  font_test_push_u16(output, 0UL)
+  font_test_push_u16(output, 4UL)
+  font_test_push_u16(output, 4UL)
+  font_test_push_u16(output, 1UL)
+  font_test_push_u16(output, 0UL)
+  font_test_push_u16(output, 0x0043UL)
+  font_test_push_u16(output, 0xFFFFUL)
+  font_test_push_u16(output, 0UL)
+  font_test_push_u16(output, 0x0041UL)
+  font_test_push_u16(output, 0xFFFFUL)
+  font_test_push_u16(output, if indexed { 1UL } else { 0xFFC0UL })
+  font_test_push_u16(output, 1UL)
+  font_test_push_u16(output, if indexed { 4UL } else { 0UL })
+  font_test_push_u16(output, 0UL)
+  if indexed {
+    font_test_push_u16(output, 1UL)
+    font_test_push_u16(output, 0UL)
+    font_test_push_u16(output, 3UL)
+  }
+  Bytes::from_array(output)
+}
+
+///|
 fn font_test_fixed_table(length : Int) -> Bytes {
   Bytes::from_array(Array::make(length, b'\x00'))
 }
@@ -793,6 +858,138 @@ test "scalar query rejects retained source mutation before publication" {
     Bytes::from_array([(original.to_uint64() ^ 1UL).to_byte()]),
   )
   font_test_assert_revision_drift(font.glyph_for_scalar(0x0041).unwrap_err())
+}
+
+///|
+test "canonical cmap rank is record-order independent and never falls back" {
+  let format12_best = font_test_cmap_subtable(
+    font_test_cmap_format12([(0x0041UL, 0x0041UL, 1UL)]),
+  )
+  let format12_second = font_test_cmap_subtable(
+    font_test_cmap_format12([(0x0041UL, 0x0042UL, 2UL)]),
+  )
+  let format4_third = font_test_cmap_format4_range(false)
+  let format4_fourth = font_test_cmap_format4_range(true)
+  let subtables = [
+    format12_best,
+    format12_second,
+    format4_third,
+    format4_fourth,
+  ]
+  for records in [
+    [(3UL, 1UL, 3), (3UL, 10UL, 1), (0UL, 3UL, 2), (0UL, 4UL, 0)],
+    [(0UL, 4UL, 0), (0UL, 3UL, 2), (3UL, 10UL, 1), (3UL, 1UL, 3)],
+  ] {
+    let source = font_test_truetype_with_cmap_and_glyphs(
+      font_test_cmap_records(records, subtables),
+      5UL,
+    )
+    let font = Font::open(
+      font_test_owner(source).view(),
+      font_test_limits(),
+      font_test_budget(),
+    ).unwrap()
+    inspect(font.glyph_for_scalar(0x0041).unwrap().value(), content="1")
+    inspect(font.glyph_for_scalar(0x0042).unwrap().value(), content="0")
+  }
+}
+
+///|
+test "format 4 lookup preserves direct indexed raw-zero and supplementary misses" {
+  let direct_source = font_test_truetype_with_cmap_and_glyphs(
+    font_test_cmap_records(
+      [(0UL, 3UL, 0)],
+      [font_test_cmap_format4_range(false)],
+    ),
+    4UL,
+  )
+  let direct = Font::open(
+    font_test_owner(direct_source).view(),
+    font_test_limits(),
+    font_test_budget(),
+  ).unwrap()
+  inspect(direct.glyph_for_scalar(0x0041).unwrap().value(), content="1")
+  inspect(direct.glyph_for_scalar(0x0042).unwrap().value(), content="2")
+  inspect(direct.glyph_for_scalar(0x0043).unwrap().value(), content="3")
+  inspect(direct.glyph_for_scalar(0x0044).unwrap().value(), content="0")
+  inspect(direct.glyph_for_scalar(0xFFFE).unwrap().value(), content="0")
+  inspect(direct.glyph_for_scalar(0x1F600).unwrap().value(), content="0")
+
+  let indexed_source = font_test_truetype_with_cmap_and_glyphs(
+    font_test_cmap_records(
+      [(3UL, 1UL, 0)],
+      [font_test_cmap_format4_range(true)],
+    ),
+    5UL,
+  )
+  let indexed = Font::open(
+    font_test_owner(indexed_source).view(),
+    font_test_limits(),
+    font_test_budget(),
+  ).unwrap()
+  inspect(indexed.glyph_for_scalar(0x0041).unwrap().value(), content="2")
+  inspect(indexed.glyph_for_scalar(0x0042).unwrap().value(), content="0")
+  inspect(indexed.glyph_for_scalar(0x0043).unwrap().value(), content="4")
+}
+
+///|
+test "cmap aliases share one mapping while duplicate canonical keys reject" {
+  let format12 = font_test_cmap_subtable(
+    font_test_cmap_format12([(0x0041UL, 0x0041UL, 1UL)]),
+  )
+  let aliased = font_test_truetype_with_cmap_and_glyphs(
+    font_test_cmap_records([(3UL, 10UL, 0), (0UL, 4UL, 0)], [format12]),
+    2UL,
+  )
+  let font = Font::open(
+    font_test_owner(aliased).view(),
+    font_test_limits(),
+    font_test_budget(),
+  ).unwrap()
+  inspect(font.glyph_for_scalar(0x0041).unwrap().value(), content="1")
+
+  let duplicate = font_test_truetype_with_cmap_and_glyphs(
+    font_test_cmap_records(
+      [(3UL, 10UL, 0), (3UL, 10UL, 1)],
+      [
+        format12,
+        font_test_cmap_subtable(
+          font_test_cmap_format12([(0x0041UL, 0x0041UL, 2UL)]),
+        ),
+      ],
+    ),
+    3UL,
+  )
+  let error = Font::open(
+    font_test_owner(duplicate).view(),
+    font_test_limits(),
+    font_test_budget(),
+  ).unwrap_err()
+  inspect(error.category() == @error.ErrorCategory::Data, content="true")
+  inspect(error.code() == @error.ErrorCode::InvalidEncoding, content="true")
+  inspect(error.context() == Some("font-cmap-record-key"), content="true")
+}
+
+///|
+test "well formed legacy-only cmap is a distinct capability failure" {
+  let legacy = font_test_truetype_with_cmap(
+    font_test_cmap_records(
+      [(1UL, 0UL, 0)],
+      [font_test_cmap_format4_range(false)],
+    ),
+  )
+  let error = Font::open(
+    font_test_owner(legacy).view(),
+    font_test_limits(),
+    font_test_budget(),
+  ).unwrap_err()
+  inspect(error.category() == @error.ErrorCategory::Capability, content="true")
+  inspect(
+    error.code() == @error.ErrorCode::CapabilityUnavailable,
+    content="true",
+  )
+  inspect(error.operation() == Some("font-open"), content="true")
+  inspect(error.context() == Some("font-cmap-unicode"), content="true")
 }
 
 ///|
@@ -1514,10 +1711,6 @@ test "cmap admission rejects malformed supported bodies and record keys" {
     (0x100UL, 0x100UL, 0UL),
     (0x100UL, 0x100UL, 0UL),
   ])
-  let invalid_platform = font_test_cmap_table().to_array()
-  font_test_put_u16(invalid_platform, 4, 5UL)
-  let invalid_encoding = font_test_cmap_table().to_array()
-  font_test_put_u16(invalid_encoding, 6, 10UL)
   for
     cmap in [
       Bytes::from_array(invalid_search),
@@ -1526,10 +1719,7 @@ test "cmap admission rejects malformed supported bodies and record keys" {
       Bytes::from_array(dangling_range),
       reversed_group,
       overlapping_groups,
-      font_test_cmap_shared_format4_records(3UL, 1UL, 0UL, 3UL),
       font_test_cmap_shared_format4_records(3UL, 1UL, 3UL, 1UL),
-      Bytes::from_array(invalid_platform),
-      Bytes::from_array(invalid_encoding),
     ] {
     let error = Font::open(
       font_test_owner(font_test_truetype_with_cmap(cmap)).view(),
@@ -2132,6 +2322,7 @@ fn font_test_assert_every_query_drift(
   font_test_assert_revision_drift(font.global_bounds().unwrap_err())
   font_test_assert_revision_drift(font.hhea_line_metrics().unwrap_err())
   font_test_assert_revision_drift(font.typographic_line_metrics().unwrap_err())
+  font_test_assert_revision_drift(font.glyph_for_scalar(0x0041).unwrap_err())
   font_test_assert_revision_drift(font.glyph_id(0UL).unwrap_err())
   font_test_assert_revision_drift(font.horizontal_metrics(glyph).unwrap_err())
 }
