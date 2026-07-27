@@ -1113,7 +1113,7 @@ function Write-FontQualificationGeneratedSource {
   $rows.Add('')
   $rows.Add('///|')
   $rows.Add('struct FontQualificationOutlineExpectation {')
-  $rows.Add('  scalar : UInt64')
+  $rows.Add('  scalar : Int')
   $rows.Add('  glyph_id : UInt64')
   $rows.Add('  fingerprint_sha256 : String')
   $rows.Add('  commands : Array[FontQualificationExpectedCommand]')
@@ -1138,7 +1138,7 @@ function Write-FontQualificationGeneratedSource {
   $rows.Add('  [')
   foreach ($outline in $supportedOutlines) {
     $rows.Add('    {')
-    $rows.Add(('      scalar: 0x{0:x}UL,' -f [uint64]$outline.scalar_value))
+    $rows.Add(('      scalar: 0x{0:x},' -f [uint64]$outline.scalar_value))
     $rows.Add("      glyph_id: $([uint64]$outline.glyph_id)UL,")
     $rows.Add("      fingerprint_sha256: `"$($outline.fingerprint_sha256)`",")
     $rows.Add('      commands: [')

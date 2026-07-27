@@ -9,6 +9,10 @@ $ErrorActionPreference = 'Stop'
 $RepositoryRoot = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
 $Utf8NoBom = [Text.UTF8Encoding]::new($false)
 $Targets = @('js', 'wasm', 'wasm-gc', 'native')
+$OutlineAssertionTestFile = 'font/font_qualification_test.mbt'
+$OutlineAssertionTestName = 'font-complete-public freezes DejaVu Sans 2.37 public facts'
+$OutlineAssertionPassSummary = 'Total tests: 1, passed: 1, failed: 0.'
+$SupportedOutlineScalars = @('U+0041', 'U+034C', 'U+10300')
 $RecordKeys = @(
   'schema_version',
   'workflow_id',
@@ -205,11 +209,16 @@ function Get-FontQualificationGlyphFact {
   )
 
   $outline = if ($SupportedOutline) {
+    $commands = @($OracleGlyph.path.commands)
+    if ([int]$OracleGlyph.path.command_count -ne $commands.Count -or
+        [string]::IsNullOrWhiteSpace([string]$OracleGlyph.path.fingerprint_sha256)) {
+      throw "Independent oracle $($OracleGlyph.scalar) complete outline drifted."
+    }
     [pscustomobject][ordered]@{
       status = 'path'
       command_count = [int]$OracleGlyph.path.command_count
       fingerprint_sha256 = [string]$OracleGlyph.path.fingerprint_sha256
-      selected_commands = @($OracleGlyph.path.selected_commands)
+      selected_commands = @($commands | Select-Object -First 8)
     }
   } else {
     [pscustomobject][ordered]@{
@@ -246,6 +255,27 @@ function Get-FontQualificationPublicFacts {
   foreach ($scalar in @('U+0041', 'U+00E9', 'U+034C', 'U+10300')) {
     if (-not $glyphs.ContainsKey($scalar)) {
       throw "Independent oracle is missing public scalar $scalar."
+    }
+  }
+  $supported = @(
+    $Oracle.glyphs |
+      Where-Object { $SupportedOutlineScalars -ccontains [string]$_.scalar }
+  )
+  if ($supported.Count -ne $SupportedOutlineScalars.Count -or
+      (Compare-Object -CaseSensitive $SupportedOutlineScalars @($supported.scalar))) {
+    throw 'Independent oracle supported complete-outline set drifted.'
+  }
+  foreach ($glyph in $supported) {
+    $commands = @($glyph.path.commands)
+    if ([int]$glyph.path.command_count -ne $commands.Count -or
+        [string]::IsNullOrWhiteSpace([string]$glyph.path.fingerprint_sha256)) {
+      throw "Independent oracle supported glyph $($glyph.scalar) vector/count drifted."
+    }
+    $actualFingerprint = Get-FontQualificationSha256 (
+      $Utf8NoBom.GetBytes($commands -join '|')
+    )
+    if ($actualFingerprint -cne [string]$glyph.path.fingerprint_sha256) {
+      throw "Independent oracle supported glyph $($glyph.scalar) fingerprint drifted."
     }
   }
 
@@ -406,7 +436,8 @@ function New-FontQualificationEvidenceRecord {
     [Parameter(Mandatory)]$PublicFacts,
     [Parameter(Mandatory)]$HostileOutcomes,
     [Parameter(Mandatory)]$DependencyFacts,
-    [Parameter(Mandatory)][string]$TargetDirectory
+    [Parameter(Mandatory)][string]$TargetDirectory,
+    [Parameter(Mandatory)][string]$OutlineAssertionCommand
   )
 
   return [pscustomobject][ordered]@{
@@ -421,6 +452,9 @@ function New-FontQualificationEvidenceRecord {
     runner = [pscustomobject][ordered]@{
       generator_command = './scripts/fixtures/Generate-FontQualification.ps1 -Check'
       check_command = "moon -C modules/mb-font check --target $Target --frozen --target-dir `"$TargetDirectory`" --serial"
+      outline_assertion_test = $OutlineAssertionTestName
+      outline_assertion_command = $OutlineAssertionCommand
+      outline_assertion_passed = $true
       test_command = "moon -C modules/mb-font test font --target $Target --frozen --target-dir `"$TargetDirectory`" --no-parallelize"
       target_directory = $TargetDirectory.Replace('\', '/')
       no_parallelize = $true
@@ -566,6 +600,30 @@ try {
       if ($LASTEXITCODE -ne 0) {
         throw "Font qualification check for target $target failed with exit $LASTEXITCODE."
       }
+      $outlineAssertionCommand = (
+        "moon -C modules/mb-font test $OutlineAssertionTestFile " +
+        "-f '$OutlineAssertionTestName' --target $target --frozen " +
+        "--target-dir `"$targetDirectory`" --no-parallelize"
+      )
+      $outlineAssertionOutput = @(
+        & moon -C modules/mb-font test $OutlineAssertionTestFile `
+          -f $OutlineAssertionTestName --target $target --frozen `
+          --target-dir $targetDirectory --no-parallelize 2>&1
+      )
+      $outlineAssertionExit = $LASTEXITCODE
+      $outlineAssertionLines = @(
+        $outlineAssertionOutput | ForEach-Object { [string]$_ }
+      )
+      $outlineAssertionLines | ForEach-Object { Write-Host $_ }
+      if ($outlineAssertionExit -ne 0) {
+        throw "Font qualification focused outline assertion for target $target failed with exit $outlineAssertionExit."
+      }
+      $passSummaries = @(
+        $outlineAssertionLines | Where-Object { $_ -ceq $OutlineAssertionPassSummary }
+      )
+      if ($passSummaries.Count -ne 1) {
+        throw "Font qualification focused outline assertion for target $target did not report exactly one passing test."
+      }
       & moon -C modules/mb-font test font --target $target --frozen `
         --target-dir $targetDirectory --no-parallelize | Out-Host
       if ($LASTEXITCODE -ne 0) {
@@ -578,7 +636,8 @@ try {
         -PublicFacts $publicFacts `
         -HostileOutcomes $hostileOutcomes `
         -DependencyFacts $dependencyFacts `
-        -TargetDirectory $targetDirectory
+        -TargetDirectory $targetDirectory `
+        -OutlineAssertionCommand $outlineAssertionCommand
       Assert-FontQualificationEvidenceRecord $record
       $record
     }

@@ -27,7 +27,7 @@ struct FontQualificationExpectedCommand {
 
 ///|
 struct FontQualificationOutlineExpectation {
-  scalar : UInt64
+  scalar : Int
   glyph_id : UInt64
   fingerprint_sha256 : String
   commands : Array[FontQualificationExpectedCommand]
@@ -50,7 +50,7 @@ fn _font_qualification_join_bytes(parts : Array[Bytes]) -> Bytes {
 fn font_qualification_dejavu_supported_outlines() -> Array[FontQualificationOutlineExpectation] {
   [
     {
-      scalar: 0x41UL,
+      scalar: 0x41,
       glyph_id: 36UL,
       fingerprint_sha256: "ccb4bab2977fff264d8a8421ccb01e333b837e02bc7b5eb6c67e435ffcd2d308",
       commands: [
@@ -148,7 +148,7 @@ fn font_qualification_dejavu_supported_outlines() -> Array[FontQualificationOutl
       ],
     },
     {
-      scalar: 0x34cUL,
+      scalar: 0x34c,
       glyph_id: 765UL,
       fingerprint_sha256: "f5dfde0b4b9620c9de27a766cdd3fee9efa89f7fd1044c9d9f68ce2e94aed827",
       commands: [
@@ -491,7 +491,7 @@ fn font_qualification_dejavu_supported_outlines() -> Array[FontQualificationOutl
       ],
     },
     {
-      scalar: 0x10300UL,
+      scalar: 0x10300,
       glyph_id: 5373UL,
       fingerprint_sha256: "c082fb5502ff6694c084a4ebce10d0208171a9c8079051cb544868b44e92267a",
       commands: [

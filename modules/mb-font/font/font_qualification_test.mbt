@@ -118,6 +118,7 @@ fn font_qualification_assert_outline_expectation(
 ) -> Unit raise {
   let glyph = font.glyph_for_scalar(expectation.scalar).unwrap()
   inspect(glyph.value() == expectation.glyph_id, content="true")
+  inspect(expectation.fingerprint_sha256.length() == 64, content="true")
   let path = font.outline(glyph, font_qualification_outline_budget()).unwrap()
   inspect(path.length() == expectation.commands.length(), content="true")
   for index, command in expectation.commands {
