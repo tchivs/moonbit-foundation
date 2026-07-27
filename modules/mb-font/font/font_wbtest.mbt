@@ -55,15 +55,16 @@ test "directory size and table windows preserve checked boundaries" {
 
 ///|
 test "directory search selector work is exact at power-of-two boundaries" {
-  for case in [
-    (1UL, 0UL),
-    (2UL, 1UL),
-    (3UL, 1UL),
-    (4UL, 2UL),
-    (7UL, 2UL),
-    (8UL, 3UL),
-    (9UL, 3UL),
-  ] {
+  for
+    case in [
+      (1UL, 0UL),
+      (2UL, 1UL),
+      (3UL, 1UL),
+      (4UL, 2UL),
+      (7UL, 2UL),
+      (8UL, 3UL),
+      (9UL, 3UL),
+    ] {
     let (table_count, expected_selector) = case
     let (_, selector, _) = font_directory_search_facts(table_count).unwrap()
     inspect(selector == expected_selector, content="true")
@@ -131,12 +132,13 @@ test "cmap rank and format-12 lower bound preserve canonical boundaries" {
   inspect(font_cmap_rank(3UL, 10UL, 12UL) == Some(1), content="true")
   inspect(font_cmap_rank(0UL, 3UL, 4UL) == Some(2), content="true")
   inspect(font_cmap_rank(3UL, 1UL, 4UL) == Some(3), content="true")
-  for tuple in [
-    (0UL, 2UL, 4UL),
-    (1UL, 0UL, 4UL),
-    (3UL, 0UL, 4UL),
-    (3UL, 1UL, 12UL),
-  ] {
+  for
+    tuple in [
+      (0UL, 2UL, 4UL),
+      (1UL, 0UL, 4UL),
+      (3UL, 0UL, 4UL),
+      (3UL, 1UL, 12UL),
+    ] {
     let (platform, encoding, format) = tuple
     inspect(font_cmap_rank(platform, encoding, format) is None, content="true")
   }
@@ -151,27 +153,32 @@ test "cmap rank and format-12 lower bound preserve canonical boundaries" {
     offset: 0UL,
     group_count: 3UL,
   }
-  for case in [
-    (0x0041UL, 1UL),
-    (0x0042UL, 2UL),
-    (0x0043UL, 0UL),
-    (0x0100UL, 3UL),
-    (0x0101UL, 0UL),
-    (0x1F600UL, 4UL),
-    (0x1F601UL, 5UL),
-    (0x1F602UL, 0UL),
-  ] {
+  for
+    case in [
+      (0x0041UL, 1UL),
+      (0x0042UL, 2UL),
+      (0x0043UL, 0UL),
+      (0x0100UL, 3UL),
+      (0x0101UL, 0UL),
+      (0x1F600UL, 4UL),
+      (0x1F601UL, 5UL),
+      (0x1F602UL, 0UL),
+    ] {
     let (scalar, expected) = case
-    inspect(font_lookup_cmap_format12(facts, scalar).unwrap() == expected, content="true")
+    inspect(
+      font_lookup_cmap_format12(facts, scalar).unwrap() == expected,
+      content="true",
+    )
   }
 }
 
 ///|
 test "format-4 admitted bases and binary search cover direct and indexed edges" {
-  for case in [
-    (font_wb_cmap_format4_range(false), [1UL, 2UL, 3UL]),
-    (font_wb_cmap_format4_range(true), [2UL, 0UL, 4UL]),
-  ] {
+  for
+    case in [
+      (font_wb_cmap_format4_range(false), [1UL, 2UL, 3UL]),
+      (font_wb_cmap_format4_range(true), [2UL, 0UL, 4UL]),
+    ] {
     let (source, expected) = case
     let view = font_wb_view(source)
     let table : TableWindow = {
@@ -216,9 +223,7 @@ fn font_wb_kern_table(source : Bytes) -> TableWindow {
 }
 
 ///|
-fn font_wb_kern_format0(
-  pairs : Array[(UInt64, UInt64, Int)],
-) -> Bytes {
+fn font_wb_kern_format0(pairs : Array[(UInt64, UInt64, Int)]) -> Bytes {
   let output : Array[Byte] = []
   let pair_count = pairs.length().to_uint64()
   let (search_range, selector, range_shift) = font_kern_search_facts(pair_count)
@@ -249,12 +254,13 @@ fn font_wb_kern_format0(
 
 ///|
 test "kern helper fields keys signed values and binary search are canonical" {
-  for case in [
-    (0UL, (0UL, 0UL, 0UL)),
-    (1UL, (6UL, 0UL, 0UL)),
-    (3UL, (12UL, 1UL, 6UL)),
-    (4UL, (24UL, 2UL, 0UL)),
-  ] {
+  for
+    case in [
+      (0UL, (0UL, 0UL, 0UL)),
+      (1UL, (6UL, 0UL, 0UL)),
+      (3UL, (12UL, 1UL, 6UL)),
+      (4UL, (24UL, 2UL, 0UL)),
+    ] {
     let (count, expected) = case
     inspect(font_kern_search_facts(count) == expected, content="true")
   }
@@ -277,11 +283,7 @@ test "kern helper fields keys signed values and binary search are canonical" {
   let three = font_admit_kern(
     Some(
       font_wb_kern_table(
-        font_wb_kern_format0([
-          (0UL, 1UL, 10),
-          (1UL, 2UL, -20),
-          (2UL, 3UL, 30),
-        ]),
+        font_wb_kern_format0([(0UL, 1UL, 10), (1UL, 2UL, -20), (2UL, 3UL, 30)]),
       ),
     ),
     4UL,
@@ -309,22 +311,15 @@ test "kern helper fields keys signed values and binary search are canonical" {
 ///|
 test "kern admission rejects exact-length search order duplicate and range errors" {
   let valid = font_wb_kern_format0([(0UL, 1UL, 10), (1UL, 2UL, -20)])
-  for malformed in [
-    font_wb_put_u16_at_copy(valid, 6, 25UL),
-    font_wb_put_u16_at_copy(valid, 12, 6UL),
-    font_wb_put_u16_at_copy(valid, 18, 2UL),
-    font_wb_put_u16_at_copy(
-      font_wb_put_u16_at_copy(valid, 24, 0UL),
-      26,
-      1UL,
-    ),
-    font_wb_put_u16_at_copy(
-      font_wb_put_u16_at_copy(valid, 24, 0UL),
-      26,
-      0UL,
-    ),
-    font_wb_put_u16_at_copy(valid, 20, 3UL),
-  ] {
+  for
+    malformed in [
+      font_wb_put_u16_at_copy(valid, 6, 25UL),
+      font_wb_put_u16_at_copy(valid, 12, 6UL),
+      font_wb_put_u16_at_copy(valid, 18, 2UL),
+      font_wb_put_u16_at_copy(font_wb_put_u16_at_copy(valid, 24, 0UL), 26, 1UL),
+      font_wb_put_u16_at_copy(font_wb_put_u16_at_copy(valid, 24, 0UL), 26, 0UL),
+      font_wb_put_u16_at_copy(valid, 20, 3UL),
+    ] {
     inspect(
       font_admit_kern(Some(font_wb_kern_table(malformed)), 3UL) is Err(_),
       content="true",
@@ -332,6 +327,59 @@ test "kern admission rejects exact-length search order duplicate and range error
   }
   let apple_short = font_wb_kern_table(b"\x00\x01\x00\x00\x00\x00\x00\x01")
   inspect(font_admit_kern(Some(apple_short), 3UL) is Err(_), content="true")
+}
+
+///|
+test "font error taxonomy keeps input data capability state and resource distinct" {
+  let invalid_input = font_unicode_scalar_error()
+  inspect(
+    invalid_input.category() == @error.ErrorCategory::InvalidInput,
+    content="true",
+  )
+  inspect(
+    invalid_input.code() == @error.ErrorCode::InvalidRange,
+    content="true",
+  )
+  inspect(
+    invalid_input.operation() == Some("font-glyph-for-scalar"),
+    content="true",
+  )
+  inspect(
+    invalid_input.context() == Some("font-unicode-scalar-range"),
+    content="true",
+  )
+
+  let data = font_data_error("font-kern-format0")
+  inspect(data.category() == @error.ErrorCategory::Data, content="true")
+  inspect(data.code() == @error.ErrorCode::InvalidEncoding, content="true")
+  inspect(data.operation() == Some("font-open"), content="true")
+  inspect(data.context() == Some("font-kern-format0"), content="true")
+
+  let capability = font_kern_profile_error()
+  inspect(
+    capability.category() == @error.ErrorCategory::Capability,
+    content="true",
+  )
+  inspect(
+    capability.code() == @error.ErrorCode::CapabilityUnavailable,
+    content="true",
+  )
+  inspect(capability.operation() == Some("font-kerning"), content="true")
+  inspect(capability.context() == Some("font-kern-profile"), content="true")
+
+  let state = font_revision_error("font-query")
+  inspect(state.category() == @error.ErrorCategory::State, content="true")
+  inspect(state.code() == @error.ErrorCode::InvalidRange, content="true")
+  inspect(state.operation() == Some("font-query"), content="true")
+  inspect(state.context() == Some("font-source-revision-drift"), content="true")
+
+  let resource = font_limit_error("max-kern-pairs", 2UL, 1UL)
+  inspect(resource.category() == @error.ErrorCategory::Resource, content="true")
+  inspect(resource.code() == @error.ErrorCode::BudgetExceeded, content="true")
+  inspect(resource.operation() == Some("font-open"), content="true")
+  inspect(resource.requested() == Some(2UL), content="true")
+  inspect(resource.limit() == Some(1UL), content="true")
+  inspect(resource.context() == Some("max-kern-pairs"), content="true")
 }
 
 ///|

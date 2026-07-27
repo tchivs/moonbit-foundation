@@ -371,6 +371,7 @@ fn font_test_cmap_format12(groups : Array[(UInt64, UInt64, UInt64)]) -> Bytes {
   Bytes::from_array(output)
 }
 
+///|
 fn font_test_cmap_shared_format4_two_segments() -> Bytes {
   let output : Array[Byte] = []
   font_test_push_u16(output, 0UL)
@@ -399,9 +400,7 @@ fn font_test_cmap_subtable(source : Bytes) -> Bytes {
 }
 
 ///|
-fn font_test_kern_format0(
-  pairs : Array[(UInt64, UInt64, Int)],
-) -> Bytes {
+fn font_test_kern_format0(pairs : Array[(UInt64, UInt64, Int)]) -> Bytes {
   let output : Array[Byte] = []
   let pair_count = pairs.length().to_uint64()
   let mut power = if pair_count == 0UL { 0UL } else { 1UL }
@@ -459,10 +458,7 @@ fn font_test_kern_classic(subtables : Array[Bytes]) -> Bytes {
 }
 
 ///|
-fn font_test_kern_apple_subtable(
-  length : UInt64,
-  suffix : Bytes,
-) -> Bytes {
+fn font_test_kern_apple_subtable(length : UInt64, suffix : Bytes) -> Bytes {
   let output : Array[Byte] = []
   font_test_push_u32(output, length)
   font_test_push_u16(output, 0UL)
@@ -1015,22 +1011,34 @@ test "generated standalone TrueType opens and returns exact units per em" {
 test "one scalar query maps BMP and supplementary code points with stable boundaries" {
   let source = font_test_truetype_with_cmap_and_glyphs(
     font_test_cmap_format12([
-      (0x0041UL, 0x0041UL, 1UL),
-      (0x1F600UL, 0x1F600UL, 2UL),
+      (0x0041UL, 0x0042UL, 1UL),
+      (0x1F600UL, 0x1F601UL, 3UL),
     ]),
-    3UL,
+    5UL,
   )
   let owner = font_test_owner(source)
   let font = Font::open(owner.view(), font_test_limits(), font_test_budget()).unwrap()
   inspect(font.glyph_for_scalar(0x0041).unwrap().value(), content="1")
-  inspect(font.glyph_for_scalar(0x1F600).unwrap().value(), content="2")
-  inspect(font.glyph_for_scalar(0x0042).unwrap().value(), content="0")
-  for scalar in [-1, 0xD800, 0xDFFF, 0x110000] {
+  inspect(font.glyph_for_scalar(0x0042).unwrap().value(), content="2")
+  inspect(font.glyph_for_scalar(0x0043).unwrap().value(), content="0")
+  inspect(font.glyph_for_scalar(0x1F600).unwrap().value(), content="3")
+  inspect(font.glyph_for_scalar(0x1F601).unwrap().value(), content="4")
+  inspect(font.glyph_for_scalar(0x1F602).unwrap().value(), content="0")
+  for scalar in [0, 0x0378, 0xFDD0, 0xFFFE, 0xFFFF, 0x10FFFF] {
+    inspect(font.glyph_for_scalar(scalar).unwrap().value(), content="0")
+  }
+  for scalar in [-1, 0xD800, 0xDC00, 0xDFFF, 0x110000] {
     let error = font.glyph_for_scalar(scalar).unwrap_err()
-    inspect(error.category() == @error.ErrorCategory::InvalidInput, content="true")
+    inspect(
+      error.category() == @error.ErrorCategory::InvalidInput,
+      content="true",
+    )
     inspect(error.code() == @error.ErrorCode::InvalidRange, content="true")
     inspect(error.operation() == Some("font-glyph-for-scalar"), content="true")
-    inspect(error.context() == Some("font-unicode-scalar-range"), content="true")
+    inspect(
+      error.context() == Some("font-unicode-scalar-range"),
+      content="true",
+    )
   }
 }
 
@@ -1061,8 +1069,56 @@ test "one generated font maps Unicode scalars into a signed kern pair" {
   inspect(font.kerning(bmp, supplementary).unwrap(), content="-37")
   let after_queries = budget.remaining()
   inspect(after_queries.bytes() == after_open.bytes(), content="true")
-  inspect(after_queries.allocations() == after_open.allocations(), content="true")
+  inspect(
+    after_queries.allocations() == after_open.allocations(),
+    content="true",
+  )
   inspect(after_queries.work() == after_open.work(), content="true")
+}
+
+///|
+test "interleaved Unicode and kern queries remain isolated by font" {
+  let first = Font::open(
+    font_test_owner(
+      font_test_truetype_with_unicode_and_kern(
+        font_test_cmap_format12([
+          (0x0041UL, 0x0041UL, 1UL),
+          (0x1F600UL, 0x1F600UL, 2UL),
+        ]),
+        font_test_kern_format0([(1UL, 2UL, -37)]),
+        3UL,
+      ),
+    ).view(),
+    font_test_limits(),
+    font_test_budget(),
+  ).unwrap()
+  let second = Font::open(
+    font_test_owner(
+      font_test_truetype_with_unicode_and_kern(
+        font_test_cmap_format12([
+          (0x0041UL, 0x0041UL, 2UL),
+          (0x1F600UL, 0x1F600UL, 1UL),
+        ]),
+        font_test_kern_format0([(2UL, 1UL, 24)]),
+        3UL,
+      ),
+    ).view(),
+    font_test_limits(),
+    font_test_budget(),
+  ).unwrap()
+  let first_bmp = first.glyph_for_scalar(0x0041).unwrap()
+  let second_bmp = second.glyph_for_scalar(0x0041).unwrap()
+  let first_supplementary = first.glyph_for_scalar(0x1F600).unwrap()
+  let second_supplementary = second.glyph_for_scalar(0x1F600).unwrap()
+  inspect(first_bmp.value(), content="1")
+  inspect(second_bmp.value(), content="2")
+  inspect(first.kerning(first_bmp, first_supplementary).unwrap(), content="-37")
+  inspect(
+    second.kerning(second_bmp, second_supplementary).unwrap(),
+    content="24",
+  )
+  inspect(first.glyph_for_scalar(0x1F600).unwrap().value(), content="2")
+  inspect(second.glyph_for_scalar(0x1F600).unwrap().value(), content="1")
 }
 
 ///|
@@ -1093,9 +1149,19 @@ test "optional supported kern returns signed hits and neutral misses" {
   let absent_glyph = absent.glyph_id(0UL).unwrap()
   inspect(absent.kerning(absent_glyph, absent_glyph).unwrap(), content="0")
 
+  let empty = Font::open(
+    font_test_owner(
+      font_test_truetype_with_kern_and_glyphs(font_test_kern_format0([]), 1UL),
+    ).view(),
+    font_test_limits(),
+    font_test_budget(),
+  ).unwrap()
+  let empty_glyph = empty.glyph_id(0UL).unwrap()
+  inspect(empty.kerning(empty_glyph, empty_glyph).unwrap(), content="0")
+
   let source = font_test_truetype_with_kern_and_glyphs(
-    font_test_kern_format0([(1UL, 2UL, 40), (2UL, 1UL, -20)]),
-    3UL,
+    font_test_kern_format0([(0UL, 1UL, 10), (1UL, 2UL, -20), (2UL, 3UL, 30)]),
+    4UL,
   )
   let budget = font_test_budget()
   let font = Font::open(
@@ -1103,13 +1169,16 @@ test "optional supported kern returns signed hits and neutral misses" {
     font_test_limits(),
     budget,
   ).unwrap()
-  let left = font.glyph_id(1UL).unwrap()
-  let right = font.glyph_id(2UL).unwrap()
+  let first = font.glyph_id(0UL).unwrap()
+  let middle_left = font.glyph_id(1UL).unwrap()
+  let middle_right = font.glyph_id(2UL).unwrap()
+  let last = font.glyph_id(3UL).unwrap()
   let after_open = budget.remaining()
-  inspect(font.kerning(left, right).unwrap(), content="40")
-  inspect(font.kerning(right, left).unwrap(), content="-20")
-  inspect(font.kerning(right, right).unwrap(), content="0")
-  inspect(font.kerning(left, right).unwrap(), content="40")
+  inspect(font.kerning(first, middle_left).unwrap(), content="10")
+  inspect(font.kerning(middle_left, middle_right).unwrap(), content="-20")
+  inspect(font.kerning(middle_right, last).unwrap(), content="30")
+  inspect(font.kerning(last, first).unwrap(), content="0")
+  inspect(font.kerning(middle_left, middle_right).unwrap(), content="-20")
   let after_queries = budget.remaining()
   inspect(after_queries.bytes() == after_open.bytes(), content="true")
   inspect(after_queries.work() == after_open.work(), content="true")
@@ -1136,12 +1205,16 @@ test "kerning revalidates both glyphs against the receiving font" {
   ).unwrap()
   let local_glyph = smaller.glyph_id(0UL).unwrap()
   let foreign = larger.glyph_id(3UL).unwrap()
-  for result in [
-    smaller.kerning(foreign, local_glyph),
-    smaller.kerning(local_glyph, foreign),
-  ] {
+  for
+    result in [
+      smaller.kerning(foreign, local_glyph),
+      smaller.kerning(local_glyph, foreign),
+    ] {
     let error = result.unwrap_err()
-    inspect(error.category() == @error.ErrorCategory::InvalidInput, content="true")
+    inspect(
+      error.category() == @error.ErrorCategory::InvalidInput,
+      content="true",
+    )
     inspect(error.code() == @error.ErrorCode::InvalidRange, content="true")
     inspect(error.operation() == Some("font-kerning"), content="true")
     inspect(error.requested() == Some(3UL), content="true")
@@ -1172,7 +1245,9 @@ test "kerning rejects retained source mutation before publication" {
 
 ///|
 fn font_test_assert_kern_capability(kern : Bytes) -> Unit raise {
-  let owner = font_test_owner(font_test_truetype_with_kern_and_glyphs(kern, 3UL))
+  let owner = font_test_owner(
+    font_test_truetype_with_kern_and_glyphs(kern, 3UL),
+  )
   let font = Font::open(owner.view(), font_test_limits(), font_test_budget()).unwrap()
   inspect(font.units_per_em().unwrap(), content="1000")
   inspect(font.glyph_for_scalar(0x0041).unwrap().value(), content="0")
@@ -1188,6 +1263,32 @@ fn font_test_assert_kern_capability(kern : Bytes) -> Unit raise {
 }
 
 ///|
+fn font_test_assert_kern_open_data(
+  kern : Bytes,
+  glyph_count : UInt64,
+  context : String,
+) -> Unit raise {
+  let budget = font_test_budget()
+  let before = budget.remaining()
+  let result = Font::open(
+    font_test_owner(font_test_truetype_with_kern_and_glyphs(kern, glyph_count)).view(),
+    font_test_limits(),
+    budget,
+  )
+  let error = result.unwrap_err()
+  inspect(error.category() == @error.ErrorCategory::Data, content="true")
+  inspect(error.code() == @error.ErrorCode::InvalidEncoding, content="true")
+  inspect(error.operation() == Some("font-open"), content="true")
+  inspect(error.context() == Some(context), content="true")
+  inspect(budget.remaining().bytes() == before.bytes(), content="true")
+  inspect(
+    budget.remaining().allocations() == before.allocations(),
+    content="true",
+  )
+  inspect(budget.remaining().work() == before.work(), content="true")
+}
+
+///|
 test "well formed classic Apple and unknown kern profiles defer capability" {
   let supported = font_test_kern_subtable(
     font_test_kern_format0([(0UL, 1UL, 10)]),
@@ -1197,6 +1298,12 @@ test "well formed classic Apple and unknown kern profiles defer capability" {
   )
   font_test_assert_kern_capability(
     font_test_kern_classic([b"\x00\x00\x00\x06\x00\x00"]),
+  )
+  font_test_assert_kern_capability(
+    font_test_kern_classic([b"\x00\x00\x00\x06\x02\x01"]),
+  )
+  font_test_assert_kern_capability(
+    font_test_kern_classic([b"\x00\x00\x00\x06\x00\x03"]),
   )
   font_test_assert_kern_capability(
     font_test_kern_apple([font_test_kern_apple_subtable(8UL, b"")]),
@@ -1210,18 +1317,11 @@ test "recognized classic and Apple kern envelope malformations fail opening" {
     font_test_kern_format0([(0UL, 1UL, 10)]),
   )
   let malformed_classic = font_test_kern_classic([
-    supported,
-    b"\x00\x00\x00\x05\x00\x01",
+    supported, b"\x00\x00\x00\x05\x00\x01",
   ])
   let malformed_classic_edges = [
-    b"",
-    b"\x00",
-    b"\x00\x00",
-    b"\x00\x00\x00",
-    b"\x00\x00\x00\x01",
-    b"\x00\x00\x00\x01\x00\x00\x00\x06\x00",
-    b"\x00\x00\x00\x01\x00\x00\x00\x05\x00\x01",
-    b"\x00\x00\x00\x01\x00\x00\x00\x07\x00\x01",
+    b"", b"\x00", b"\x00\x00", b"\x00\x00\x00", b"\x00\x00\x00\x01", b"\x00\x00\x00\x01\x00\x00\x00\x06\x00",
+    b"\x00\x00\x00\x01\x00\x00\x00\x05\x00\x01", b"\x00\x00\x00\x01\x00\x00\x00\x07\x00\x01",
     b"\x00\x00\x00\x00\x00",
   ]
   let malformed_apple = [
@@ -1229,12 +1329,8 @@ test "recognized classic and Apple kern envelope malformations fail opening" {
     b"\x00\x01\x00\x00\x00\x00\x00\x01",
     b"\x00\x01\x00\x00\x00\x00\x00\x01\x00\x00\x00\x08\x00\x00\x00",
     b"\x00\x01\x00\x00\x00\x00\x00\x01\x00\x00\x00\x09\x00\x00\x00\x00",
-    font_test_kern_apple([
-      font_test_kern_apple_subtable(7UL, b""),
-    ]),
-    font_test_kern_apple([
-      font_test_kern_apple_subtable(8UL, b"\x00"),
-    ]),
+    font_test_kern_apple([font_test_kern_apple_subtable(7UL, b"")]),
+    font_test_kern_apple([font_test_kern_apple_subtable(8UL, b"\x00")]),
   ]
   for kern in [malformed_classic] + malformed_classic_edges + malformed_apple {
     let budget = font_test_budget()
@@ -1262,6 +1358,34 @@ test "recognized classic and Apple kern envelope malformations fail opening" {
 }
 
 ///|
+test "malformed supported kern pairs fail opening with exact data taxonomy" {
+  let valid = font_test_kern_format0([(0UL, 1UL, 10), (1UL, 2UL, -20)])
+  let bad_length = valid.to_array()
+  font_test_put_u16(bad_length, 6, 25UL)
+  let bad_search = valid.to_array()
+  font_test_put_u16(bad_search, 12, 6UL)
+  let descending = valid.to_array()
+  font_test_put_u16(descending, 24, 0UL)
+  font_test_put_u16(descending, 26, 0UL)
+  let duplicate = valid.to_array()
+  font_test_put_u16(duplicate, 24, 0UL)
+  font_test_put_u16(duplicate, 26, 1UL)
+  let out_of_range = valid.to_array()
+  font_test_put_u16(out_of_range, 18, 3UL)
+  for
+    case in [
+      (Bytes::from_array(bad_length), "font-kern-envelope"),
+      (Bytes::from_array(bad_search), "font-kern-search"),
+      (Bytes::from_array(descending), "font-kern-pair-order"),
+      (Bytes::from_array(duplicate), "font-kern-pair-order"),
+      (Bytes::from_array(out_of_range), "font-kern-glyph-range"),
+    ] {
+    let (kern, context) = case
+    font_test_assert_kern_open_data(kern, 3UL, context)
+  }
+}
+
+///|
 test "kern semantic ceilings reject before subtable and pair scans" {
   let supported = font_test_kern_subtable(
     font_test_kern_format0([(0UL, 1UL, 10)]),
@@ -1281,15 +1405,20 @@ test "kern semantic ceilings reject before subtable and pair scans" {
     ]),
     3UL,
   )
-  for case in [
-    (two_subtables, font_test_limits_with_kern(1UL, 2UL), "max-kern-subtables"),
-    (
-      two_apple_subtables,
-      font_test_limits_with_kern(1UL, 2UL),
-      "max-kern-subtables",
-    ),
-    (two_pairs, font_test_limits_with_kern(1UL, 1UL), "max-kern-pairs"),
-  ] {
+  for
+    case in [
+      (
+        two_subtables,
+        font_test_limits_with_kern(1UL, 2UL),
+        "max-kern-subtables",
+      ),
+      (
+        two_apple_subtables,
+        font_test_limits_with_kern(1UL, 2UL),
+        "max-kern-subtables",
+      ),
+      (two_pairs, font_test_limits_with_kern(1UL, 1UL), "max-kern-pairs"),
+    ] {
     let (source, limits, context) = case
     let budget = font_test_budget()
     let before = budget.remaining()
@@ -1297,8 +1426,14 @@ test "kern semantic ceilings reject before subtable and pair scans" {
     inspect(result is Err(_), content="true")
     match result {
       Err(error) => {
-        inspect(error.category() == @error.ErrorCategory::Resource, content="true")
-        inspect(error.code() == @error.ErrorCode::BudgetExceeded, content="true")
+        inspect(
+          error.category() == @error.ErrorCategory::Resource,
+          content="true",
+        )
+        inspect(
+          error.code() == @error.ErrorCode::BudgetExceeded,
+          content="true",
+        )
         inspect(error.context() == Some(context), content="true")
       }
       Ok(_) => ()
@@ -1362,10 +1497,7 @@ test "kern work admits exact fit and rejects one short atomically" {
   let left = font.glyph_id(1UL).unwrap()
   let right = font.glyph_id(2UL).unwrap()
   inspect(font.kerning(left, right).unwrap(), content="-5")
-  inspect(
-    exact_budget.remaining().work() == after_open.work(),
-    content="true",
-  )
+  inspect(exact_budget.remaining().work() == after_open.work(), content="true")
 
   let narrow_limits = FontLimits::new(
     max_source_bytes=source_length,
@@ -1437,8 +1569,7 @@ test "kern work admits exact fit and rejects one short atomically" {
     content="true",
   )
   inspect(
-    discovery_budget.remaining().allocations() ==
-    discovery_before.allocations(),
+    discovery_budget.remaining().allocations() == discovery_before.allocations(),
     content="true",
   )
   inspect(
@@ -1458,15 +1589,13 @@ test "canonical cmap rank is record-order independent and never falls back" {
   let format4_third = font_test_cmap_format4_range(false)
   let format4_fourth = font_test_cmap_format4_range(true)
   let subtables = [
-    format12_best,
-    format12_second,
-    format4_third,
-    format4_fourth,
+    format12_best, format12_second, format4_third, format4_fourth,
   ]
-  for records in [
-    [(3UL, 1UL, 3), (3UL, 10UL, 1), (0UL, 3UL, 2), (0UL, 4UL, 0)],
-    [(0UL, 4UL, 0), (0UL, 3UL, 2), (3UL, 10UL, 1), (3UL, 1UL, 3)],
-  ] {
+  for
+    records in [
+      [(3UL, 1UL, 3), (3UL, 10UL, 1), (0UL, 3UL, 2), (0UL, 4UL, 0)],
+      [(0UL, 4UL, 0), (0UL, 3UL, 2), (3UL, 10UL, 1), (3UL, 1UL, 3)],
+    ] {
     let source = font_test_truetype_with_cmap_and_glyphs(
       font_test_cmap_records(records, subtables),
       5UL,
@@ -1484,10 +1613,9 @@ test "canonical cmap rank is record-order independent and never falls back" {
 ///|
 test "format 4 lookup preserves direct indexed raw-zero and supplementary misses" {
   let direct_source = font_test_truetype_with_cmap_and_glyphs(
-    font_test_cmap_records(
-      [(0UL, 3UL, 0)],
-      [font_test_cmap_format4_range(false)],
-    ),
+    font_test_cmap_records([(0UL, 3UL, 0)], [
+      font_test_cmap_format4_range(false),
+    ]),
     4UL,
   )
   let direct = Font::open(
@@ -1503,10 +1631,7 @@ test "format 4 lookup preserves direct indexed raw-zero and supplementary misses
   inspect(direct.glyph_for_scalar(0x1F600).unwrap().value(), content="0")
 
   let indexed_source = font_test_truetype_with_cmap_and_glyphs(
-    font_test_cmap_records(
-      [(3UL, 1UL, 0)],
-      [font_test_cmap_format4_range(true)],
-    ),
+    font_test_cmap_records([(3UL, 1UL, 0)], [font_test_cmap_format4_range(true)]),
     5UL,
   )
   let indexed = Font::open(
@@ -1536,15 +1661,12 @@ test "cmap aliases share one mapping while duplicate canonical keys reject" {
   inspect(font.glyph_for_scalar(0x0041).unwrap().value(), content="1")
 
   let duplicate = font_test_truetype_with_cmap_and_glyphs(
-    font_test_cmap_records(
-      [(3UL, 10UL, 0), (3UL, 10UL, 1)],
-      [
-        format12,
-        font_test_cmap_subtable(
-          font_test_cmap_format12([(0x0041UL, 0x0041UL, 2UL)]),
-        ),
-      ],
-    ),
+    font_test_cmap_records([(3UL, 10UL, 0), (3UL, 10UL, 1)], [
+      format12,
+      font_test_cmap_subtable(
+        font_test_cmap_format12([(0x0041UL, 0x0041UL, 2UL)]),
+      ),
+    ]),
     3UL,
   )
   let error = Font::open(
@@ -1560,10 +1682,9 @@ test "cmap aliases share one mapping while duplicate canonical keys reject" {
 ///|
 test "well formed legacy-only cmap is a distinct capability failure" {
   let legacy = font_test_truetype_with_cmap_and_glyphs(
-    font_test_cmap_records(
-      [(1UL, 0UL, 0)],
-      [font_test_cmap_format4_range(false)],
-    ),
+    font_test_cmap_records([(1UL, 0UL, 0)], [
+      font_test_cmap_format4_range(false),
+    ]),
     4UL,
   )
   let error = Font::open(
@@ -2331,10 +2452,11 @@ test "format 4 admission validates direct and indexed glyph cardinality" {
   font_test_put_u16(direct_invalid, 36, 0UL)
   let indexed_invalid = font_test_cmap_format4_two_segments().to_array()
   font_test_put_u16(indexed_invalid, 44, 1UL)
-  for cmap in [
-    Bytes::from_array(direct_invalid),
-    Bytes::from_array(indexed_invalid),
-  ] {
+  for
+    cmap in [
+      Bytes::from_array(direct_invalid),
+      Bytes::from_array(indexed_invalid),
+    ] {
     let error = Font::open(
       font_test_owner(font_test_truetype_with_cmap(cmap)).view(),
       font_test_limits(),
@@ -2352,10 +2474,11 @@ test "format 4 admission validates direct and indexed glyph cardinality" {
   font_test_put_u16(terminal_indexed_invalid, 42, 2UL)
   font_test_put_u16(terminal_indexed_invalid, 44, 1UL)
   font_test_put_u16(terminal_indexed_invalid, 38, 0UL)
-  for cmap in [
-    Bytes::from_array(terminal_direct_invalid),
-    Bytes::from_array(terminal_indexed_invalid),
-  ] {
+  for
+    cmap in [
+      Bytes::from_array(terminal_direct_invalid),
+      Bytes::from_array(terminal_indexed_invalid),
+    ] {
     let error = Font::open(
       font_test_owner(font_test_truetype_with_cmap(cmap)).view(),
       font_test_limits(),
@@ -2471,15 +2594,16 @@ test "cmap body scans consume exact aggregate work and reject one short atomical
 
 ///|
 test "format 4 traversal preflights and charges exact single and shared work" {
-  for case in [
-    // loca/glyph (3), two cmap record passes (2), segment validation (2),
-    // pre-charge segment discovery (2), search helper (1), and mapping scan
-    // (2, including the terminal segment).
-    (font_test_cmap_format4_two_segments(), 12UL),
-    // The two distinct records share one subtable, but each authorized record
-    // repeats both segment/search/mapping traversals: 3 + 4 + 4 + 4 + 2 + 4.
-    (font_test_cmap_shared_format4_two_segments(), 21UL),
-  ] {
+  for
+    case in [
+      // loca/glyph (3), two cmap record passes (2), segment validation (2),
+      // pre-charge segment discovery (2), search helper (1), and mapping scan
+      // (2, including the terminal segment).
+      (font_test_cmap_format4_two_segments(), 12UL),
+      // The two distinct records share one subtable, but each authorized record
+      // repeats both segment/search/mapping traversals: 3 + 4 + 4 + 4 + 2 + 4.
+      (font_test_cmap_shared_format4_two_segments(), 21UL),
+    ] {
     let (cmap, count_driven_work) = case
     let source = font_test_truetype_with_cmap(cmap)
     let source_length = source.length().to_uint64()
@@ -2524,11 +2648,7 @@ test "format 4 traversal preflights and charges exact single and shared work" {
       exact_work - 1UL,
     )
     let before = short_budget.remaining()
-    let error = Font::open(
-      font_test_owner(source).view(),
-      limits,
-      short_budget,
-    ).unwrap_err()
+    let error = Font::open(font_test_owner(source).view(), limits, short_budget).unwrap_err()
     inspect(error.code() == @error.ErrorCode::BudgetExceeded, content="true")
     inspect(error.context() == Some("work"), content="true")
     inspect(short_budget.remaining().work() == before.work(), content="true")
@@ -2552,10 +2672,11 @@ test "semantic max work gates cmap discovery before attacker-driven loops" {
   let discovery_base_work = directory_work + table_count * 5UL
   // One encoding record is scanned at the first boundary. Its two format-4
   // segments are scanned only after the second cumulative boundary succeeds.
-  for case in [
-    (discovery_base_work + 1UL, discovery_base_work),
-    (discovery_base_work + 3UL, discovery_base_work + 2UL),
-  ] {
+  for
+    case in [
+      (discovery_base_work + 1UL, discovery_base_work),
+      (discovery_base_work + 3UL, discovery_base_work + 2UL),
+    ] {
     let (requested_work, max_work) = case
     let limits = FontLimits::new(
       max_source_bytes=source_length,
@@ -2576,24 +2697,14 @@ test "semantic max work gates cmap discovery before attacker-driven loops" {
       1000000UL,
     )
     let before = ample_budget.remaining()
-    let error = Font::open(
-      font_test_owner(source).view(),
-      limits,
-      ample_budget,
-    ).unwrap_err()
+    let error = Font::open(font_test_owner(source).view(), limits, ample_budget).unwrap_err()
     inspect(error.category() == @error.ErrorCategory::Resource, content="true")
     inspect(error.code() == @error.ErrorCode::BudgetExceeded, content="true")
     inspect(error.context() == Some("max-work"), content="true")
     inspect(error.requested() == Some(requested_work), content="true")
     inspect(error.limit() == Some(max_work), content="true")
-    inspect(
-      ample_budget.remaining().bytes() == before.bytes(),
-      content="true",
-    )
-    inspect(
-      ample_budget.remaining().work() == before.work(),
-      content="true",
-    )
+    inspect(ample_budget.remaining().bytes() == before.bytes(), content="true")
+    inspect(ample_budget.remaining().work() == before.work(), content="true")
   }
 }
 
