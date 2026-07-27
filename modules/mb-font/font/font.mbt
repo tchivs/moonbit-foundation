@@ -258,7 +258,7 @@ pub fn Font::glyph_for_scalar(
 fn Font::glyph_for_scalar_after_lookup(
   self : Font,
   scalar : Int,
-  _after_lookup : () -> Unit,
+  after_lookup : () -> Unit,
 ) -> Result[GlyphId, @error.CoreError] {
   match self.require_revision("font-query") {
     Err(error) => return Err(error)
@@ -272,6 +272,7 @@ fn Font::glyph_for_scalar_after_lookup(
     Err(error) => return Err(error)
     Ok(value) => value
   }
+  after_lookup()
   match self.require_revision("font-query") {
     Err(error) => return Err(error)
     Ok(_) => ()
@@ -363,7 +364,7 @@ fn Font::kerning_after_lookup(
   self : Font,
   left : GlyphId,
   right : GlyphId,
-  _after_lookup : () -> Unit,
+  after_lookup : () -> Unit,
 ) -> Result[Int, @error.CoreError] {
   match self.require_revision("font-query") {
     Err(error) => return Err(error)
@@ -392,6 +393,7 @@ fn Font::kerning_after_lookup(
     Err(error) => return Err(error)
     Ok(value) => value
   }
+  after_lookup()
   match self.require_revision("font-query") {
     Err(error) => return Err(error)
     Ok(_) => ()
