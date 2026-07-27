@@ -369,6 +369,13 @@ fn font_test_maxp_table() -> Bytes {
 }
 
 ///|
+fn font_test_maxp_table_with_glyphs(glyph_count : UInt64) -> Bytes {
+  let output = font_test_maxp_table().to_array()
+  font_test_put_u16(output, 4, glyph_count)
+  Bytes::from_array(output)
+}
+
+///|
 fn font_test_name_table() -> Bytes {
   b"\x00\x00\x00\x00\x00\x06"
 }
@@ -482,6 +489,33 @@ fn font_test_truetype_with_cmap(cmap : Bytes) -> Bytes {
     { tag: b"hmtx", payload: b"\x01\xf4\x00\x00" },
     { tag: b"loca", payload: b"\x00\x00\x00\x00" },
     { tag: b"maxp", payload: font_test_maxp_table() },
+    { tag: b"name", payload: font_test_name_table() },
+    { tag: b"post", payload: font_test_post_table() },
+  ])
+}
+
+///|
+fn font_test_truetype_with_cmap_and_glyphs(
+  cmap : Bytes,
+  glyph_count : UInt64,
+) -> Bytes {
+  let hmtx = b"\x01\xf4\x00\x00".to_array()
+  for _index = 1UL; _index < glyph_count; _index = _index + 1UL {
+    font_test_push_u16(hmtx, 0UL)
+  }
+  let loca : Array[Byte] = []
+  for _index = 0UL; _index <= glyph_count; _index = _index + 1UL {
+    font_test_push_u16(loca, 0UL)
+  }
+  font_test_build_truetype([
+    { tag: b"OS/2", payload: font_test_fixed_table(78) },
+    { tag: b"cmap", payload: cmap },
+    { tag: b"glyf", payload: b"" },
+    { tag: b"head", payload: font_test_head_table() },
+    { tag: b"hhea", payload: font_test_hhea_table() },
+    { tag: b"hmtx", payload: Bytes::from_array(hmtx) },
+    { tag: b"loca", payload: Bytes::from_array(loca) },
+    { tag: b"maxp", payload: font_test_maxp_table_with_glyphs(glyph_count) },
     { tag: b"name", payload: font_test_name_table() },
     { tag: b"post", payload: font_test_post_table() },
   ])
@@ -1439,6 +1473,58 @@ test "cmap admission rejects malformed supported bodies and record keys" {
     inspect(error.category() == @error.ErrorCategory::Data, content="true")
     inspect(error.context() == Some("font-cmap-envelope"), content="true")
   }
+}
+
+///|
+test "format 4 admission validates direct and indexed glyph cardinality" {
+  let direct_invalid = font_test_cmap_format4_two_segments().to_array()
+  font_test_put_u16(direct_invalid, 40, 0UL)
+  font_test_put_u16(direct_invalid, 36, 0UL)
+  let indexed_invalid = font_test_cmap_format4_two_segments().to_array()
+  font_test_put_u16(indexed_invalid, 44, 1UL)
+  for cmap in [
+    Bytes::from_array(direct_invalid),
+    Bytes::from_array(indexed_invalid),
+  ] {
+    let error = Font::open(
+      font_test_owner(font_test_truetype_with_cmap(cmap)).view(),
+      font_test_limits(),
+      font_test_budget(),
+    ).unwrap_err()
+    inspect(error.category() == @error.ErrorCategory::Data, content="true")
+    inspect(error.context() == Some("font-cmap-envelope"), content="true")
+  }
+
+  let direct_last_valid = font_test_cmap_format4_two_segments().to_array()
+  font_test_put_u16(direct_last_valid, 40, 0UL)
+  // U+0041 + 0xFFC0 wraps to glyph 1, the final glyph in a two-glyph font.
+  font_test_put_u16(direct_last_valid, 36, 0xFFC0UL)
+  ignore(
+    Font::open(
+      font_test_owner(
+        font_test_truetype_with_cmap_and_glyphs(
+          Bytes::from_array(direct_last_valid),
+          2UL,
+        ),
+      ).view(),
+      font_test_limits(),
+      font_test_budget(),
+    ).unwrap(),
+  )
+  let indexed_last_valid = font_test_cmap_format4_two_segments().to_array()
+  font_test_put_u16(indexed_last_valid, 44, 1UL)
+  ignore(
+    Font::open(
+      font_test_owner(
+        font_test_truetype_with_cmap_and_glyphs(
+          Bytes::from_array(indexed_last_valid),
+          2UL,
+        ),
+      ).view(),
+      font_test_limits(),
+      font_test_budget(),
+    ).unwrap(),
+  )
 }
 
 ///|

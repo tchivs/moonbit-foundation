@@ -871,7 +871,23 @@ fn font_validate_cmap_subtable(
           Err(error) => return Err(error)
           Ok(value) => value
         }
-        if range_offset != 0UL {
+        let id_delta = match read_u16(table.view, id_deltas + delta) {
+          Err(error) => return Err(error)
+          Ok(value) => value
+        }
+        let is_sentinel = index + 1UL == facts.body_records
+        if range_offset == 0UL {
+          if !is_sentinel {
+            let mut code = start_code
+            while code <= end_code {
+              let mapped = (code + id_delta) & 0xFFFFUL
+              if mapped != 0UL && mapped >= glyph_count {
+                return Err(font_data_error("font-cmap-envelope"))
+              }
+              code = code + 1UL
+            }
+          }
+        } else {
           if range_offset % 2UL != 0UL {
             return Err(font_data_error("font-cmap-envelope"))
           }
@@ -901,6 +917,35 @@ fn font_validate_cmap_subtable(
           }
           if first_glyph < glyph_array_start || last_glyph_end > subtable_end {
             return Err(font_data_error("font-cmap-envelope"))
+          }
+          if !is_sentinel {
+            let mut code = start_code
+            while code <= end_code {
+              let glyph_delta = match
+                @checked.checked_mul(
+                  match @checked.checked_sub(code, start_code) {
+                    Err(error) => return Err(error)
+                    Ok(value) => value
+                  },
+                  2UL,
+                ) {
+                Err(error) => return Err(error)
+                Ok(value) => value
+              }
+              let raw = match read_u16(table.view, first_glyph + glyph_delta) {
+                Err(error) => return Err(error)
+                Ok(value) => value
+              }
+              let mapped = if raw == 0UL {
+                0UL
+              } else {
+                (raw + id_delta) & 0xFFFFUL
+              }
+              if mapped != 0UL && mapped >= glyph_count {
+                return Err(font_data_error("font-cmap-envelope"))
+              }
+              code = code + 1UL
+            }
           }
         }
         previous_end = end_code
