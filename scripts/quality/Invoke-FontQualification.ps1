@@ -15,6 +15,9 @@ $Targets = @('js', 'wasm', 'wasm-gc', 'native')
 $OutlineAssertionTestFile = 'font/font_qualification_test.mbt'
 $OutlineAssertionTestName = 'font-complete-public freezes DejaVu Sans 2.37 public facts'
 $OutlineAssertionPassSummary = 'Total tests: 1, passed: 1, failed: 0.'
+$HostileAssertionTestFile = 'font/font_qualification_hostile_test.mbt'
+$HostileAssertionTestName = 'font qualification executes the closed hostile outcome matrix'
+$HostileAssertionPassSummary = 'Total tests: 1, passed: 1, failed: 0.'
 $SupportedOutlineScalars = @('U+0041', 'U+034C', 'U+10300')
 $EvidenceMarkerName = '.mnf-font-qualification-managed.json'
 $EvidenceMarkerSchema = 'mnf-font-qualification-evidence/v1'
@@ -237,6 +240,9 @@ function Assert-FontQualificationEvidenceRecord {
     'outline_assertion_test',
     'outline_assertion_command',
     'outline_assertion_passed',
+    'hostile_assertion_test',
+    'hostile_assertion_command',
+    'hostile_assertion_passed',
     'test_command',
     'target_directory',
     'no_parallelize'
@@ -246,6 +252,17 @@ function Assert-FontQualificationEvidenceRecord {
       $Record.runner.outline_assertion_passed -ne $true -or
       [string]$Record.runner.outline_assertion_command -cnotmatch [regex]::Escape("--target $($Record.target)")) {
     throw "$($Record.target) focused outline assertion evidence drifted."
+  }
+  $expectedHostileAssertion = 'font qualification executes the closed hostile outcome matrix'
+  $expectedHostileCommand = (
+    "moon -C modules/mb-font test $HostileAssertionTestFile " +
+    "-f '$expectedHostileAssertion' --target $($Record.target) --frozen " +
+    "--target-dir `"$($Record.runner.target_directory)`" --no-parallelize"
+  )
+  if ($Record.runner.hostile_assertion_test -cne $expectedHostileAssertion -or
+      $Record.runner.hostile_assertion_passed -ne $true -or
+      [string]$Record.runner.hostile_assertion_command -cne $expectedHostileCommand) {
+    throw "$($Record.target) focused hostile assertion evidence drifted."
   }
   if ($Record.schema_version -cne '1.0.0' -or
       $Record.workflow_id -cne 'font-complete-public-v1' -or
@@ -526,7 +543,8 @@ function New-FontQualificationEvidenceRecord {
     [Parameter(Mandatory)]$HostileOutcomes,
     [Parameter(Mandatory)]$DependencyFacts,
     [Parameter(Mandatory)][string]$TargetDirectory,
-    [Parameter(Mandatory)][string]$OutlineAssertionCommand
+    [Parameter(Mandatory)][string]$OutlineAssertionCommand,
+    [Parameter(Mandatory)][string]$HostileAssertionCommand
   )
 
   return [pscustomobject][ordered]@{
@@ -544,6 +562,9 @@ function New-FontQualificationEvidenceRecord {
       outline_assertion_test = $OutlineAssertionTestName
       outline_assertion_command = $OutlineAssertionCommand
       outline_assertion_passed = $true
+      hostile_assertion_test = $HostileAssertionTestName
+      hostile_assertion_command = $HostileAssertionCommand
+      hostile_assertion_passed = $true
       test_command = "moon -C modules/mb-font test font --target $Target --frozen --target-dir `"$TargetDirectory`" --no-parallelize"
       target_directory = $TargetDirectory.Replace('\', '/')
       no_parallelize = $true
@@ -715,6 +736,30 @@ try {
       if ($passSummaries.Count -ne 1) {
         throw "Font qualification focused outline assertion for target $target did not report exactly one passing test."
       }
+      $hostileAssertionCommand = (
+        "moon -C modules/mb-font test $HostileAssertionTestFile " +
+        "-f '$HostileAssertionTestName' --target $target --frozen " +
+        "--target-dir `"$targetDirectory`" --no-parallelize"
+      )
+      $hostileAssertionOutput = @(
+        & moon -C modules/mb-font test $HostileAssertionTestFile `
+          -f $HostileAssertionTestName --target $target --frozen `
+          --target-dir $targetDirectory --no-parallelize 2>&1
+      )
+      $hostileAssertionExit = $LASTEXITCODE
+      $hostileAssertionLines = @(
+        $hostileAssertionOutput | ForEach-Object { [string]$_ }
+      )
+      $hostileAssertionLines | ForEach-Object { Write-Host $_ }
+      if ($hostileAssertionExit -ne 0) {
+        throw "Font qualification focused hostile assertion for target $target failed with exit $hostileAssertionExit."
+      }
+      $hostilePassSummaries = @(
+        $hostileAssertionLines | Where-Object { $_ -ceq $HostileAssertionPassSummary }
+      )
+      if ($hostilePassSummaries.Count -ne 1) {
+        throw "Font qualification focused hostile assertion for target $target did not report exactly one passing test."
+      }
       & moon -C modules/mb-font test font --target $target --frozen `
         --target-dir $targetDirectory --no-parallelize | Out-Host
       if ($LASTEXITCODE -ne 0) {
@@ -728,7 +773,8 @@ try {
         -HostileOutcomes $hostileOutcomes `
         -DependencyFacts $dependencyFacts `
         -TargetDirectory $targetDirectory `
-        -OutlineAssertionCommand $outlineAssertionCommand
+        -OutlineAssertionCommand $outlineAssertionCommand `
+        -HostileAssertionCommand $hostileAssertionCommand
       Assert-FontQualificationEvidenceRecord $record
       $record
     }
