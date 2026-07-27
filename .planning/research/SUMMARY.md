@@ -202,7 +202,7 @@ Phases with established patterns that do not need broad ecosystem research:
 - [OpenType glyph format comparison](https://learn.microsoft.com/en-us/typography/opentype/spec/glyphformatcomparison) — distinct `glyf`, `CFF `, and CFF2 outline models.
 - [OpenType DSIG table](https://learn.microsoft.com/en-us/typography/opentype/spec/dsig) — collection-wide signature envelope and placement; v0.33 uses structure only, not trust.
 - [WOFF 1.0](https://www.w3.org/TR/WOFF/) and [WOFF2](https://www.w3.org/TR/WOFF2/) — official compression/reconstruction requirements supporting their exclusion.
-- Repository `modules/mb-font/font/{font,directory,tables,limits,cmap,kern,metrics,outline}.mbt`, `modules/mb-core/bytes/views.mbt`, module manifests, `moon.work`, and font qualification artifacts — existing code and integration authority.
+- Repository mb-font admission, directory, table, limit, cmap, kern, metric, and outline sources; the mb-core byte-view source; module manifests; workspace configuration; and font qualification artifacts — existing code and integration authority.
 
 ### Secondary (MEDIUM confidence)
 
