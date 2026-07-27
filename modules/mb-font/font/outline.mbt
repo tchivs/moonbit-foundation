@@ -1197,8 +1197,8 @@ fn font_parse_composite_descriptors(
   let mut cursor = 10UL
   let mut more = true
   let mut saw_grid_rounding = false
+  let mut saw_instructions = false
   let mut metrics_components = 0UL
-  let mut last_flags = 0UL
   while more {
     let component_count = descriptors.length().to_uint64() + 1UL
     if component_count > maxp.max_component_elements {
@@ -1235,8 +1235,8 @@ fn font_parse_composite_descriptors(
     if (flags & 0xE010UL) != 0UL {
       return Err(font_outline_data_error("font-outline-component-flags"))
     }
-    if (flags & 0x0100UL) != 0UL && (flags & 0x0020UL) != 0UL {
-      return Err(font_outline_data_error("font-outline-component-flags"))
+    if (flags & 0x0100UL) != 0UL {
+      saw_instructions = true
     }
     if (flags & 0x1800UL) == 0x1800UL {
       return Err(font_outline_data_error("font-outline-component-offset-flags"))
@@ -1403,10 +1403,9 @@ fn font_parse_composite_descriptors(
       cursor = cursor + 8UL
     }
     descriptors.push({ flags, glyph_index, placement, matrix })
-    last_flags = flags
     more = (flags & 0x0020UL) != 0UL
   }
-  if (last_flags & 0x0100UL) != 0UL {
+  if saw_instructions {
     let instruction_length = match read_u16(source, cursor) {
       Err(_) => return Err(font_outline_data_error("font-outline-instructions"))
       Ok(value) => value

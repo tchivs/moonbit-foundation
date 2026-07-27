@@ -810,6 +810,19 @@ fn font_test_composite_glyph(records : Array[Bytes]) -> Bytes {
 }
 
 ///|
+fn font_test_composite_glyph_with_instructions(
+  records : Array[Bytes],
+  instructions : Bytes,
+) -> Bytes {
+  let output = font_test_composite_glyph(records).to_array()
+  font_test_push_u16(output, instructions.length().to_uint64())
+  for byte in instructions {
+    output.push(byte)
+  }
+  Bytes::from_array(output)
+}
+
+///|
 fn font_test_outline_graph_truetype(
   glyphs : Array[Bytes],
   max_component_depth? : UInt64 = 4UL,
@@ -1573,6 +1586,45 @@ test "outline preserves component order and attaches transformed real points" {
       inspect(endpoint.y(), content="100")
     }
     _ => fail("expected transformed attached QuadTo")
+  }
+}
+
+///|
+test "outline accepts composite instructions declared on any component" {
+  let simple = font_test_simple_outline_glyf()
+  let instruction_cases = [
+    font_test_composite_glyph_with_instructions(
+      [
+        font_test_component_record(0x0123UL, 0UL, 0, 0, []),
+        font_test_component_record(0x0003UL, 0UL, 100, 0, []),
+      ],
+      b"\xaa\xbb",
+    ),
+    font_test_composite_glyph_with_instructions(
+      [
+        font_test_component_record(0x0023UL, 0UL, 0, 0, []),
+        font_test_component_record(0x0103UL, 0UL, 100, 0, []),
+      ],
+      b"\xaa\xbb",
+    ),
+    font_test_composite_glyph([
+      font_test_component_record(0x0023UL, 0UL, 0, 0, []),
+      font_test_component_record(0x0003UL, 0UL, 100, 0, []),
+    ]),
+  ]
+  for parent in instruction_cases {
+    let owner = font_test_owner(
+      font_test_outline_graph_truetype([simple, parent]),
+    )
+    let font = Font::open(
+      owner.view(),
+      font_test_limits(),
+      font_test_budget(),
+    ).unwrap()
+    let path = font
+      .outline(font.glyph_id(1UL).unwrap(), font_test_composite_budget())
+      .unwrap()
+    inspect(path.length(), content="8")
   }
 }
 
