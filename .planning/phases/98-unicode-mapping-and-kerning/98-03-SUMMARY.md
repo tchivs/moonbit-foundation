@@ -55,7 +55,7 @@ coverage:
       - kind: integration
         ref: "font/font_test.mbt#one generated font maps Unicode scalars into a signed kern pair"
         status: pass
-      - kind: portability
+      - kind: integration
         ref: "four target-specific tracer runs: js/wasm/wasm-gc/native, 1/1 each"
         status: pass
     human_judgment: false
@@ -66,7 +66,7 @@ coverage:
       - kind: unit
         ref: "moon -C modules/mb-font test font --target <target> --frozen --target-dir <isolated> --no-parallelize"
         status: pass
-      - kind: portability
+      - kind: integration
         ref: "js/wasm/wasm-gc/native: 60 passed, 0 failed on each target"
         status: pass
     human_judgment: false
