@@ -261,6 +261,36 @@ test "kern helper fields keys signed values and binary search are canonical" {
   inspect(font_kern_pair_key(1UL, 2UL), content="65538")
   inspect(read_i16(font_wb_view(b"\xff\xec"), 0UL).unwrap(), content="-20")
 
+  let empty = font_admit_kern(
+    Some(font_wb_kern_table(font_wb_kern_format0([]))),
+    1UL,
+  ).unwrap()
+  inspect(font_lookup_kern(empty, 0UL, 0UL).unwrap(), content="0")
+
+  let singleton = font_admit_kern(
+    Some(font_wb_kern_table(font_wb_kern_format0([(0UL, 1UL, -7)]))),
+    2UL,
+  ).unwrap()
+  inspect(font_lookup_kern(singleton, 0UL, 1UL).unwrap(), content="-7")
+  inspect(font_lookup_kern(singleton, 1UL, 0UL).unwrap(), content="0")
+
+  let three = font_admit_kern(
+    Some(
+      font_wb_kern_table(
+        font_wb_kern_format0([
+          (0UL, 1UL, 10),
+          (1UL, 2UL, -20),
+          (2UL, 3UL, 30),
+        ]),
+      ),
+    ),
+    4UL,
+  ).unwrap()
+  inspect(font_lookup_kern(three, 0UL, 1UL).unwrap(), content="10")
+  inspect(font_lookup_kern(three, 1UL, 2UL).unwrap(), content="-20")
+  inspect(font_lookup_kern(three, 2UL, 3UL).unwrap(), content="30")
+  inspect(font_lookup_kern(three, 3UL, 3UL).unwrap(), content="0")
+
   let source = font_wb_kern_format0([
     (0UL, 1UL, 10),
     (1UL, 2UL, -20),
@@ -283,8 +313,16 @@ test "kern admission rejects exact-length search order duplicate and range error
     font_wb_put_u16_at_copy(valid, 6, 25UL),
     font_wb_put_u16_at_copy(valid, 12, 6UL),
     font_wb_put_u16_at_copy(valid, 18, 2UL),
-    font_wb_put_u16_at_copy(valid, 24, 0UL),
-    font_wb_put_u16_at_copy(valid, 24, 0UL),
+    font_wb_put_u16_at_copy(
+      font_wb_put_u16_at_copy(valid, 24, 0UL),
+      26,
+      1UL,
+    ),
+    font_wb_put_u16_at_copy(
+      font_wb_put_u16_at_copy(valid, 24, 0UL),
+      26,
+      0UL,
+    ),
     font_wb_put_u16_at_copy(valid, 20, 3UL),
   ] {
     inspect(

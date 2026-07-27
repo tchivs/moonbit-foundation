@@ -65,11 +65,17 @@ priv struct RequiredTableFacts {
 }
 
 ///|
+priv struct FontAdmissionPlan {
+  charge : @budget.ResourceCharge
+  kern : KernState
+}
+
+///|
 fn font_admission_charge(
   directory : DirectoryFacts,
   limits : FontLimits,
   budget : @budget.Budget,
-) -> Result[@budget.ResourceCharge, @error.CoreError] {
+) -> Result[FontAdmissionPlan, @error.CoreError] {
   let maxp_table = match font_table_window(directory, 0x6D617870UL) {
     Err(error) => return Err(error)
     Ok(value) => value
@@ -137,51 +143,31 @@ fn font_admission_charge(
     Ok(value) => value
   }
 
-  let (kern_subtables, kern_pairs) = match
-    font_optional_table_window(directory, 0x6B65726EUL) {
-    None => (0UL, 0UL)
-    Some(kern_table) => {
-      match font_table_min_length(kern_table, 4UL, "font-kern-envelope") {
-        Err(error) => return Err(error)
-        Ok(_) => ()
-      }
-      let version = match read_u16(kern_table.view, 0UL) {
-        Err(_) => return Err(font_data_error("font-kern-envelope"))
-        Ok(value) => value
-      }
-      let subtable_count = match read_u16(kern_table.view, 2UL) {
-        Err(_) => return Err(font_data_error("font-kern-envelope"))
-        Ok(value) => value
-      }
-      let pair_count = if version == 0UL && subtable_count == 1UL {
-        match font_table_min_length(kern_table, 18UL, "font-kern-envelope") {
-          Err(error) => return Err(error)
-          Ok(_) => ()
-        }
-        match read_u16(kern_table.view, 10UL) {
-          Err(_) => return Err(font_data_error("font-kern-format0"))
-          Ok(value) => value
-        }
-      } else {
-        0UL
-      }
-      let kern_declared_work = match
-        @checked.checked_add(subtable_count, pair_count) {
-        Err(error) => return Err(error)
-        Ok(value) => value
-      }
-      let kern_preflight = match
-        @checked.checked_add(cmap_discovery_base_work, kern_declared_work) {
-        Err(error) => return Err(error)
-        Ok(value) => value
-      }
+  let kern_base_work = match
+    @checked.checked_add(
+      cmap_discovery_base_work,
       match
-        font_preflight_admission_work(budget, limits.max_work(), kern_preflight) {
+        @checked.checked_add(
+          cmap_records,
+          cmap_work.format4_discovery_work,
+        ) {
         Err(error) => return Err(error)
-        Ok(_) => ()
-      }
-      (subtable_count, pair_count)
-    }
+        Ok(value) => value
+      },
+    ) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  let kern = match
+    font_admit_kern_bounded(
+      font_optional_table_window(directory, 0x6B65726EUL),
+      num_glyphs,
+      limits,
+      budget,
+      kern_base_work,
+    ) {
+    Err(error) => return Err(error)
+    Ok(value) => value
   }
 
   let name_table = match font_table_window(directory, 0x6E616D65UL) {
@@ -298,9 +284,9 @@ fn font_admission_charge(
     Err(error) => return Err(error)
     Ok(value) => value
   }
-  // Five count-discovery lookups, ten presence lookups, eleven table-admission
+  // Five count-discovery lookups, ten presence lookups, ten table-admission
   // lookups, and three metric-index lookups each scan at most every record.
-  let lookup_work = match @checked.checked_mul(table_count, 29UL) {
+  let lookup_work = match @checked.checked_mul(table_count, 28UL) {
     Err(error) => return Err(error)
     Ok(value) => value
   }
@@ -327,8 +313,8 @@ fn font_admission_charge(
       language_records,
       post_glyph_records,
       post_name_bytes,
-      kern_subtables,
-      kern_pairs,
+      kern.subtable_work,
+      kern.pair_work,
     ] {
     work = match @checked.checked_add(work, count) {
       Err(error) => return Err(error)
@@ -352,8 +338,8 @@ fn font_admission_charge(
   } else {
     loca_allocation_size
   }
-  Ok(
-    @budget.ResourceCharge::new(
+  Ok({
+    charge: @budget.ResourceCharge::new(
       bytes=directory.source.length(),
       allocations=3UL,
       allocation_size~,
@@ -362,7 +348,8 @@ fn font_admission_charge(
       pixels=0UL,
       work~,
     ),
-  )
+    kern: kern.state,
+  })
 }
 
 ///|
@@ -1735,9 +1722,10 @@ fn font_admit_post_envelope(
 }
 
 ///|
-fn font_admit_required_tables(
+fn font_admit_required_tables_impl(
   directory : DirectoryFacts,
   limits : FontLimits,
+  retained_kern : KernState?,
 ) -> Result[RequiredTableFacts, @error.CoreError] {
   let head_table = match font_table_window(directory, 0x68656164UL) {
     Err(error) => return Err(error)
@@ -1793,13 +1781,17 @@ fn font_admit_required_tables(
     Err(error) => return Err(error)
     Ok(value) => value
   }
-  let kern = match
-    font_admit_kern(
-      font_optional_table_window(directory, 0x6B65726EUL),
-      maxp.num_glyphs,
-    ) {
-    Err(error) => return Err(error)
-    Ok(value) => value
+  let kern = match retained_kern {
+    Some(value) => value
+    None =>
+      match
+        font_admit_kern(
+          font_optional_table_window(directory, 0x6B65726EUL),
+          maxp.num_glyphs,
+        ) {
+        Err(error) => return Err(error)
+        Ok(value) => value
+      }
   }
   match font_admit_name_envelope(name_table, limits) {
     Err(error) => return Err(error)
@@ -1810,4 +1802,22 @@ fn font_admit_required_tables(
     Ok(_) => ()
   }
   Ok({ head, maxp, hhea, os2, cmap, kern })
+}
+
+///|
+#warnings("-1")
+fn font_admit_required_tables(
+  directory : DirectoryFacts,
+  limits : FontLimits,
+) -> Result[RequiredTableFacts, @error.CoreError] {
+  font_admit_required_tables_impl(directory, limits, None)
+}
+
+///|
+fn font_admit_required_tables_with_kern(
+  directory : DirectoryFacts,
+  limits : FontLimits,
+  kern : KernState,
+) -> Result[RequiredTableFacts, @error.CoreError] {
+  font_admit_required_tables_impl(directory, limits, Some(kern))
 }

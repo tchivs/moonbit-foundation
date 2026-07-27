@@ -113,12 +113,12 @@ pub fn Font::open(
     Err(error) => return Err(error)
     Ok(value) => value
   }
-  let admission_charge = match
+  let admission = match
     font_admission_charge(directory, limits, budget) {
     Err(error) => return Err(error)
     Ok(value) => value
   }
-  match budget.charge(admission_charge) {
+  match budget.charge(admission.charge) {
     Err(error) => return Err(error)
     Ok(_) => ()
   }
@@ -134,7 +134,8 @@ pub fn Font::open(
     Err(error) => return Err(error)
     Ok(_) => ()
   }
-  let tables = match font_admit_required_tables(directory, limits) {
+  let tables = match
+    font_admit_required_tables_with_kern(directory, limits, admission.kern) {
     Err(error) => return Err(error)
     Ok(value) => value
   }

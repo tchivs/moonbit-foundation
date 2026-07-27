@@ -1136,6 +1136,9 @@ test "well formed classic Apple and unknown kern profiles defer capability" {
     font_test_kern_classic([supported, supported]),
   )
   font_test_assert_kern_capability(
+    font_test_kern_classic([b"\x00\x00\x00\x06\x00\x00"]),
+  )
+  font_test_assert_kern_capability(
     font_test_kern_apple([font_test_kern_apple_subtable(8UL, b"")]),
   )
   font_test_assert_kern_capability(b"\x00\x02\x00\x00\xff\xff")
@@ -1150,9 +1153,22 @@ test "recognized classic and Apple kern envelope malformations fail opening" {
     supported,
     b"\x00\x00\x00\x05\x00\x01",
   ])
+  let malformed_classic_edges = [
+    b"",
+    b"\x00",
+    b"\x00\x00",
+    b"\x00\x00\x00",
+    b"\x00\x00\x00\x01",
+    b"\x00\x00\x00\x01\x00\x00\x00\x06\x00",
+    b"\x00\x00\x00\x01\x00\x00\x00\x05\x00\x01",
+    b"\x00\x00\x00\x01\x00\x00\x00\x07\x00\x01",
+    b"\x00\x00\x00\x00\x00",
+  ]
   let malformed_apple = [
     b"\x00\x01\x00\x00",
     b"\x00\x01\x00\x00\x00\x00\x00\x01",
+    b"\x00\x01\x00\x00\x00\x00\x00\x01\x00\x00\x00\x08\x00\x00\x00",
+    b"\x00\x01\x00\x00\x00\x00\x00\x01\x00\x00\x00\x09\x00\x00\x00\x00",
     font_test_kern_apple([
       font_test_kern_apple_subtable(7UL, b""),
     ]),
@@ -1160,7 +1176,7 @@ test "recognized classic and Apple kern envelope malformations fail opening" {
       font_test_kern_apple_subtable(8UL, b"\x00"),
     ]),
   ]
-  for kern in [malformed_classic] + malformed_apple {
+  for kern in [malformed_classic] + malformed_classic_edges + malformed_apple {
     let budget = font_test_budget()
     let before = budget.remaining()
     let result = Font::open(
@@ -1198,8 +1214,20 @@ test "kern semantic ceilings reject before subtable and pair scans" {
     font_test_kern_format0([(0UL, 1UL, 10), (1UL, 2UL, -5)]),
     3UL,
   )
+  let two_apple_subtables = font_test_truetype_with_kern_and_glyphs(
+    font_test_kern_apple([
+      font_test_kern_apple_subtable(8UL, b""),
+      font_test_kern_apple_subtable(8UL, b""),
+    ]),
+    3UL,
+  )
   for case in [
     (two_subtables, font_test_limits_with_kern(1UL, 2UL), "max-kern-subtables"),
+    (
+      two_apple_subtables,
+      font_test_limits_with_kern(1UL, 2UL),
+      "max-kern-subtables",
+    ),
     (two_pairs, font_test_limits_with_kern(1UL, 1UL), "max-kern-pairs"),
   ] {
     let (source, limits, context) = case
@@ -1218,6 +1246,145 @@ test "kern semantic ceilings reject before subtable and pair scans" {
     inspect(budget.remaining().bytes() == before.bytes(), content="true")
     inspect(budget.remaining().work() == before.work(), content="true")
   }
+}
+
+///|
+test "kern work admits exact fit and rejects one short atomically" {
+  let source = font_test_truetype_with_kern_and_glyphs(
+    font_test_kern_format0([(0UL, 1UL, 10), (1UL, 2UL, -5)]),
+    3UL,
+  )
+  let source_length = source.length().to_uint64()
+  let table_count = font_test_read_u16(source, 4)
+  let overlap_work = table_count * (table_count - 1UL) / 2UL
+  let (_, directory_selector_work, _) = font_test_search_facts(table_count)
+  let directory_normalization_work = table_count
+  // Base glyph/cmap scans contribute twelve count-driven units. The supported
+  // kern profile adds one subtable and two pair records exactly once.
+  let count_driven_work = 15UL
+  let exact_work = source_length * 2UL +
+    overlap_work +
+    directory_selector_work +
+    table_count +
+    directory_normalization_work +
+    table_count * 28UL +
+    table_count * 2UL +
+    count_driven_work
+  let discovery_work = source_length * 2UL +
+    overlap_work +
+    directory_selector_work +
+    table_count +
+    directory_normalization_work +
+    table_count * 5UL
+  let directory_allocation_size = table_count * 64UL
+  let exact_limits = FontLimits::new(
+    max_source_bytes=source_length,
+    max_tables=table_count,
+    max_table_bytes=source_length,
+    max_glyphs=3UL,
+    max_name_records=1UL,
+    max_cmap_records=1UL,
+    max_kern_subtables=1UL,
+    max_kern_pairs=2UL,
+    max_post_name_bytes=32UL,
+    max_work=exact_work,
+  ).unwrap()
+  let exact_budget = font_test_budget_with_dimensions(
+    source_length,
+    allocations=3UL,
+    allocation_size=directory_allocation_size,
+    exact_work,
+  )
+  let owner = font_test_owner(source)
+  let font = Font::open(owner.view(), exact_limits, exact_budget).unwrap()
+  inspect(exact_budget.remaining().work(), content="0")
+  let after_open = exact_budget.remaining()
+  let left = font.glyph_id(1UL).unwrap()
+  let right = font.glyph_id(2UL).unwrap()
+  inspect(font.kerning(left, right).unwrap(), content="-5")
+  inspect(
+    exact_budget.remaining().work() == after_open.work(),
+    content="true",
+  )
+
+  let narrow_limits = FontLimits::new(
+    max_source_bytes=source_length,
+    max_tables=table_count,
+    max_table_bytes=source_length,
+    max_glyphs=3UL,
+    max_name_records=1UL,
+    max_cmap_records=1UL,
+    max_kern_subtables=1UL,
+    max_kern_pairs=2UL,
+    max_post_name_bytes=32UL,
+    max_work=exact_work - 1UL,
+  ).unwrap()
+  let ample_budget = font_test_budget_with(source_length, exact_work)
+  let ample_before = ample_budget.remaining()
+  let max_work_error = Font::open(
+    font_test_owner(source).view(),
+    narrow_limits,
+    ample_budget,
+  ).unwrap_err()
+  inspect(max_work_error.context() == Some("max-work"), content="true")
+  inspect(
+    ample_budget.remaining().bytes() == ample_before.bytes(),
+    content="true",
+  )
+  inspect(
+    ample_budget.remaining().allocations() == ample_before.allocations(),
+    content="true",
+  )
+  inspect(
+    ample_budget.remaining().work() == ample_before.work(),
+    content="true",
+  )
+
+  let narrow_budget = font_test_budget_with(source_length, exact_work - 1UL)
+  let narrow_before = narrow_budget.remaining()
+  let budget_error = Font::open(
+    font_test_owner(source).view(),
+    exact_limits,
+    narrow_budget,
+  ).unwrap_err()
+  inspect(budget_error.context() == Some("work"), content="true")
+  inspect(
+    narrow_budget.remaining().bytes() == narrow_before.bytes(),
+    content="true",
+  )
+  inspect(
+    narrow_budget.remaining().allocations() == narrow_before.allocations(),
+    content="true",
+  )
+  inspect(
+    narrow_budget.remaining().work() == narrow_before.work(),
+    content="true",
+  )
+
+  let discovery_budget = font_test_budget_with(
+    source_length,
+    discovery_work - 1UL,
+  )
+  let discovery_before = discovery_budget.remaining()
+  let discovery_error = Font::open(
+    font_test_owner(source).view(),
+    exact_limits,
+    discovery_budget,
+  ).unwrap_err()
+  inspect(discovery_error.context() == Some("work"), content="true")
+  inspect(
+    discovery_budget.remaining().bytes() == discovery_before.bytes(),
+    content="true",
+  )
+  inspect(
+    discovery_budget.remaining().allocations() ==
+    discovery_before.allocations(),
+    content="true",
+  )
+  inspect(
+    discovery_budget.remaining().work() == discovery_before.work(),
+    content="true",
+  )
 }
 
 ///|
@@ -1729,7 +1896,7 @@ test "glyph and work ceilings admit exact values and reject one short atomically
   // loca/glyph scans (7), two cmap-record scans (2), one format-4
   // validation scan (2), and one pre-charge format-4 discovery scan (2).
   let count_driven_work = 12UL
-  let lookup_work = table_count * 29UL
+  let lookup_work = table_count * 28UL
   let table_iteration_work = table_count * 2UL
   let directory_normalization_work = table_count
   let exact_work = source_length * 2UL +
@@ -1887,7 +2054,7 @@ test "directory normalization copy is preflighted and charged once per table" {
     normalization_copy_work +
     table_count * 5UL
   let work_without_copy = parsed_directory_work +
-    table_count * 29UL +
+    table_count * 28UL +
     table_count * 2UL +
     12UL
   let exact_work = work_without_copy + normalization_copy_work
@@ -2203,7 +2370,7 @@ test "cmap body scans consume exact aggregate work and reject one short atomical
     directory_selector_work +
     table_count +
     table_count +
-    table_count * 29UL +
+    table_count * 28UL +
     table_count * 2UL +
     count_driven_work
   let limits = FontLimits::new(
@@ -2264,7 +2431,7 @@ test "format 4 traversal preflights and charges exact single and shared work" {
       directory_selector_work +
       table_count +
       table_count +
-      table_count * 29UL +
+      table_count * 28UL +
       table_count * 2UL +
       count_driven_work
     let limits = FontLimits::new(

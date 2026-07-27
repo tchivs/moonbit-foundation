@@ -16,6 +16,19 @@ priv enum KernState {
 }
 
 ///|
+priv struct KernAdmissionFacts {
+  state : KernState
+  subtable_work : UInt64
+  pair_work : UInt64
+}
+
+///|
+priv struct KernClassicProfile {
+  subtable_start : UInt64
+  subtable_length : UInt64
+}
+
+///|
 fn font_kern_pair_key(left : UInt64, right : UInt64) -> UInt64 {
   (left << 16) | right
 }
@@ -46,80 +59,131 @@ fn font_kern_profile_error() -> @error.CoreError {
 }
 
 ///|
-fn font_admit_kern(
-  table : TableWindow?,
+fn font_kern_classic_envelope(
+  table : TableWindow,
+  subtable_count : UInt64,
+) -> Result[KernClassicProfile?, @error.CoreError] {
+  let mut cursor = 4UL
+  let mut profile : KernClassicProfile? = None
+  for _index = 0UL; _index < subtable_count; _index = _index + 1UL {
+    let header_end = match @checked.checked_add(cursor, 6UL) {
+      Err(_) => return Err(font_data_error("font-kern-envelope"))
+      Ok(value) => value
+    }
+    if header_end > table.length_value {
+      return Err(font_data_error("font-kern-envelope"))
+    }
+    let version = match read_u16(table.view, cursor) {
+      Err(_) => return Err(font_data_error("font-kern-envelope"))
+      Ok(value) => value
+    }
+    let length = match read_u16(table.view, cursor + 2UL) {
+      Err(_) => return Err(font_data_error("font-kern-envelope"))
+      Ok(value) => value
+    }
+    let coverage = match read_u16(table.view, cursor + 4UL) {
+      Err(_) => return Err(font_data_error("font-kern-envelope"))
+      Ok(value) => value
+    }
+    if length < 6UL {
+      return Err(font_data_error("font-kern-envelope"))
+    }
+    let end = match @checked.checked_add(cursor, length) {
+      Err(_) => return Err(font_data_error("font-kern-envelope"))
+      Ok(value) => value
+    }
+    if end > table.length_value {
+      return Err(font_data_error("font-kern-envelope"))
+    }
+    if subtable_count == 1UL && version == 0UL && coverage == 0x0001UL {
+      profile = Some({ subtable_start: cursor, subtable_length: length })
+    }
+    cursor = end
+  }
+  if cursor != table.length_value {
+    return Err(font_data_error("font-kern-envelope"))
+  }
+  Ok(profile)
+}
+
+///|
+fn font_kern_apple_envelope(
+  table : TableWindow,
+  subtable_count : UInt64,
+) -> Result[Unit, @error.CoreError] {
+  let mut cursor = 8UL
+  for _index = 0UL; _index < subtable_count; _index = _index + 1UL {
+    let header_end = match @checked.checked_add(cursor, 8UL) {
+      Err(_) => return Err(font_data_error("font-kern-envelope"))
+      Ok(value) => value
+    }
+    if header_end > table.length_value {
+      return Err(font_data_error("font-kern-envelope"))
+    }
+    let length = match read_u32(table.view, cursor) {
+      Err(_) => return Err(font_data_error("font-kern-envelope"))
+      Ok(value) => value
+    }
+    if length < 8UL {
+      return Err(font_data_error("font-kern-envelope"))
+    }
+    let end = match @checked.checked_add(cursor, length) {
+      Err(_) => return Err(font_data_error("font-kern-envelope"))
+      Ok(value) => value
+    }
+    if end > table.length_value {
+      return Err(font_data_error("font-kern-envelope"))
+    }
+    cursor = end
+  }
+  if cursor != table.length_value {
+    return Err(font_data_error("font-kern-envelope"))
+  }
+  Ok(())
+}
+
+///|
+fn font_kern_format0_pair_count(
+  table : TableWindow,
+  profile : KernClassicProfile,
+) -> Result[UInt64, @error.CoreError] {
+  if profile.subtable_length < 14UL {
+    return Err(font_data_error("font-kern-format0"))
+  }
+  match read_u16(table.view, profile.subtable_start + 6UL) {
+    Err(_) => Err(font_data_error("font-kern-format0"))
+    Ok(value) => Ok(value)
+  }
+}
+
+///|
+fn font_kern_format0_facts(
+  table : TableWindow,
+  profile : KernClassicProfile,
+  pair_count : UInt64,
   num_glyphs : UInt64,
-) -> Result[KernState, @error.CoreError] {
-  let table = match table {
-    None => return Ok(Absent)
-    Some(value) => value
-  }
-  if table.length_value < 4UL {
-    return Err(font_data_error("font-kern-envelope"))
-  }
-  let version = match read_u16(table.view, 0UL) {
-    Err(_) => return Err(font_data_error("font-kern-envelope"))
-    Ok(value) => value
-  }
-  let subtable_count = match read_u16(table.view, 2UL) {
-    Err(_) => return Err(font_data_error("font-kern-envelope"))
-    Ok(value) => value
-  }
-  if version != 0UL || subtable_count != 1UL {
-    return Ok(Unsupported)
-  }
-  if table.length_value < 18UL {
-    return Err(font_data_error("font-kern-envelope"))
-  }
-  let subtable_version = match read_u16(table.view, 4UL) {
-    Err(_) => return Err(font_data_error("font-kern-envelope"))
-    Ok(value) => value
-  }
-  let subtable_length = match read_u16(table.view, 6UL) {
-    Err(_) => return Err(font_data_error("font-kern-envelope"))
-    Ok(value) => value
-  }
-  let coverage = match read_u16(table.view, 8UL) {
-    Err(_) => return Err(font_data_error("font-kern-envelope"))
-    Ok(value) => value
-  }
-  if subtable_length < 6UL {
-    return Err(font_data_error("font-kern-envelope"))
-  }
-  let table_end = match @checked.checked_add(4UL, subtable_length) {
-    Err(_) => return Err(font_data_error("font-kern-envelope"))
-    Ok(value) => value
-  }
-  if table_end != table.length_value {
-    return Err(font_data_error("font-kern-envelope"))
-  }
-  if subtable_version != 0UL || coverage != 0x0001UL {
-    return Ok(Unsupported)
-  }
-  let pair_count = match read_u16(table.view, 10UL) {
-    Err(_) => return Err(font_data_error("font-kern-format0"))
-    Ok(value) => value
-  }
+) -> Result[KernFormat0Facts, @error.CoreError] {
   let pair_bytes = match @checked.checked_mul(pair_count, 6UL) {
     Err(_) => return Err(font_data_error("font-kern-format0"))
     Ok(value) => value
   }
-  let expected_subtable_length = match @checked.checked_add(14UL, pair_bytes) {
+  let expected_length = match @checked.checked_add(14UL, pair_bytes) {
     Err(_) => return Err(font_data_error("font-kern-format0"))
     Ok(value) => value
   }
-  if subtable_length != expected_subtable_length {
+  if profile.subtable_length != expected_length {
     return Err(font_data_error("font-kern-format0"))
   }
-  let search_range = match read_u16(table.view, 12UL) {
+  let search_range = match read_u16(table.view, profile.subtable_start + 8UL) {
     Err(_) => return Err(font_data_error("font-kern-format0"))
     Ok(value) => value
   }
-  let entry_selector = match read_u16(table.view, 14UL) {
+  let entry_selector = match
+    read_u16(table.view, profile.subtable_start + 10UL) {
     Err(_) => return Err(font_data_error("font-kern-format0"))
     Ok(value) => value
   }
-  let range_shift = match read_u16(table.view, 16UL) {
+  let range_shift = match read_u16(table.view, profile.subtable_start + 12UL) {
     Err(_) => return Err(font_data_error("font-kern-format0"))
     Ok(value) => value
   }
@@ -131,13 +195,18 @@ fn font_admit_kern(
     range_shift != expected_shift {
     return Err(font_data_error("font-kern-search"))
   }
+  let pairs_start = match
+    @checked.checked_add(profile.subtable_start, 14UL) {
+    Err(_) => return Err(font_data_error("font-kern-format0"))
+    Ok(value) => value
+  }
   let mut previous_key : UInt64? = None
   for index = 0UL; index < pair_count; index = index + 1UL {
     let record_offset = match @checked.checked_mul(index, 6UL) {
       Err(_) => return Err(font_data_error("font-kern-format0"))
       Ok(value) => value
     }
-    let offset = match @checked.checked_add(18UL, record_offset) {
+    let offset = match @checked.checked_add(pairs_start, record_offset) {
       Err(_) => return Err(font_data_error("font-kern-format0"))
       Ok(value) => value
     }
@@ -166,7 +235,198 @@ fn font_admit_kern(
     }
     previous_key = Some(key)
   }
-  Ok(Supported({ view: table.view, pairs_start: 18UL, pair_count }))
+  Ok({ view: table.view, pairs_start, pair_count })
+}
+
+///|
+fn font_kern_classify(
+  table : TableWindow,
+  num_glyphs : UInt64,
+) -> Result[KernState, @error.CoreError] {
+  if table.length_value < 4UL {
+    return Err(font_data_error("font-kern-envelope"))
+  }
+  let prefix = match read_u32(table.view, 0UL) {
+    Err(_) => return Err(font_data_error("font-kern-envelope"))
+    Ok(value) => value
+  }
+  let classic_version = prefix >> 16
+  if classic_version == 0UL {
+    let subtable_count = prefix & 0xFFFFUL
+    let profile = match font_kern_classic_envelope(table, subtable_count) {
+      Err(error) => return Err(error)
+      Ok(value) => value
+    }
+    return match profile {
+      None => Ok(Unsupported)
+      Some(value) => {
+        let pair_count = match font_kern_format0_pair_count(table, value) {
+          Err(error) => return Err(error)
+          Ok(count) => count
+        }
+        match font_kern_format0_facts(table, value, pair_count, num_glyphs) {
+          Err(error) => Err(error)
+          Ok(facts) => Ok(Supported(facts))
+        }
+      }
+    }
+  }
+  if prefix == 0x00010000UL {
+    if table.length_value < 8UL {
+      return Err(font_data_error("font-kern-envelope"))
+    }
+    let subtable_count = match read_u32(table.view, 4UL) {
+      Err(_) => return Err(font_data_error("font-kern-envelope"))
+      Ok(value) => value
+    }
+    match font_kern_apple_envelope(table, subtable_count) {
+      Err(error) => return Err(error)
+      Ok(_) => return Ok(Unsupported)
+    }
+  }
+  Ok(Unsupported)
+}
+
+///|
+fn font_admit_kern(
+  table : TableWindow?,
+  num_glyphs : UInt64,
+) -> Result[KernState, @error.CoreError] {
+  match table {
+    None => Ok(Absent)
+    Some(value) => font_kern_classify(value, num_glyphs)
+  }
+}
+
+///|
+fn font_admit_kern_bounded(
+  table : TableWindow?,
+  num_glyphs : UInt64,
+  limits : FontLimits,
+  budget : @budget.Budget,
+  base_work : UInt64,
+) -> Result[KernAdmissionFacts, @error.CoreError] {
+  let table = match table {
+    None =>
+      return Ok({ state: Absent, subtable_work: 0UL, pair_work: 0UL })
+    Some(value) => value
+  }
+  if table.length_value < 4UL {
+    return Err(font_data_error("font-kern-envelope"))
+  }
+  let prefix = match read_u32(table.view, 0UL) {
+    Err(_) => return Err(font_data_error("font-kern-envelope"))
+    Ok(value) => value
+  }
+  let classic_version = prefix >> 16
+  if classic_version == 0UL {
+    let subtable_count = prefix & 0xFFFFUL
+    if subtable_count > limits.max_kern_subtables() {
+      return Err(
+        font_limit_error(
+          "max-kern-subtables",
+          subtable_count,
+          limits.max_kern_subtables(),
+        ),
+      )
+    }
+    let subtable_work = match @checked.checked_add(base_work, subtable_count) {
+      Err(error) => return Err(error)
+      Ok(value) => value
+    }
+    match
+      font_preflight_admission_work(budget, limits.max_work(), subtable_work) {
+      Err(error) => return Err(error)
+      Ok(_) => ()
+    }
+    let profile = match font_kern_classic_envelope(table, subtable_count) {
+      Err(error) => return Err(error)
+      Ok(value) => value
+    }
+    return match profile {
+      None =>
+        Ok({
+          state: Unsupported,
+          subtable_work: subtable_count,
+          pair_work: 0UL,
+        })
+      Some(value) => {
+        let pair_count = match font_kern_format0_pair_count(table, value) {
+          Err(error) => return Err(error)
+          Ok(count) => count
+        }
+        if pair_count > limits.max_kern_pairs() {
+          return Err(
+            font_limit_error(
+              "max-kern-pairs",
+              pair_count,
+              limits.max_kern_pairs(),
+            ),
+          )
+        }
+        let pair_work = match @checked.checked_add(subtable_work, pair_count) {
+          Err(error) => return Err(error)
+          Ok(result) => result
+        }
+        match
+          font_preflight_admission_work(
+            budget,
+            limits.max_work(),
+            pair_work,
+          ) {
+          Err(error) => return Err(error)
+          Ok(_) => ()
+        }
+        let facts = match
+          font_kern_format0_facts(table, value, pair_count, num_glyphs) {
+          Err(error) => return Err(error)
+          Ok(result) => result
+        }
+        Ok({
+          state: Supported(facts),
+          subtable_work: subtable_count,
+          pair_work: pair_count,
+        })
+      }
+    }
+  }
+  if prefix == 0x00010000UL {
+    if table.length_value < 8UL {
+      return Err(font_data_error("font-kern-envelope"))
+    }
+    let subtable_count = match read_u32(table.view, 4UL) {
+      Err(_) => return Err(font_data_error("font-kern-envelope"))
+      Ok(value) => value
+    }
+    if subtable_count > limits.max_kern_subtables() {
+      return Err(
+        font_limit_error(
+          "max-kern-subtables",
+          subtable_count,
+          limits.max_kern_subtables(),
+        ),
+      )
+    }
+    let subtable_work = match @checked.checked_add(base_work, subtable_count) {
+      Err(error) => return Err(error)
+      Ok(value) => value
+    }
+    match
+      font_preflight_admission_work(budget, limits.max_work(), subtable_work) {
+      Err(error) => return Err(error)
+      Ok(_) => ()
+    }
+    match font_kern_apple_envelope(table, subtable_count) {
+      Err(error) => return Err(error)
+      Ok(_) =>
+        return Ok({
+          state: Unsupported,
+          subtable_work: subtable_count,
+          pair_work: 0UL,
+        })
+    }
+  }
+  Ok({ state: Unsupported, subtable_work: 0UL, pair_work: 0UL })
 }
 
 ///|
