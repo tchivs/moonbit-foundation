@@ -841,6 +841,39 @@ test "TTC-01 exact sharing and touching pass while every overlap conflict fails"
 }
 
 ///|
+test "TTC-01 empty table offsets remain four-byte aligned" {
+  let source = font_collection_test_pair_ttc(
+    0x6E616D65UL,
+    7UL,
+    97UL,
+    0UL,
+    0x706F7374UL,
+    9UL,
+    100UL,
+    4UL,
+  )
+  let owner = font_collection_test_owner(source)
+  let budget = font_collection_test_pair_budget(248UL, 2UL, 80UL, 48UL)
+  let before = budget.remaining()
+  let error = FontCollection::open(
+    owner.view(),
+    font_collection_test_pair_limits(248UL, 48UL),
+    budget,
+  ).unwrap_err()
+  font_collection_test_assert_error(
+    error,
+    @error.ErrorCategory::Data,
+    @error.ErrorCode::InvalidEncoding,
+  )
+  inspect(
+    error.context() == Some("font-collection-table-alignment"),
+    content="true",
+  )
+  inspect(error.source_offset() == Some(52UL), content="true")
+  font_collection_test_assert_budget_unchanged(before, budget)
+}
+
+///|
 test "TTC-01 compact charge exact fit succeeds and every one-short is atomic" {
   let shared = font_collection_test_pair_ttc(
     0x6E616D65UL, 7UL, 96UL, 4UL, 0x6E616D65UL, 7UL, 96UL, 4UL,

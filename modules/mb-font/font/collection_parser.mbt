@@ -1621,7 +1621,7 @@ fn font_collection_scan_face(
       Ok(value) => value
       Err(error) => return Err(error)
     }
-    if table_length > 0UL && table_offset % 4UL != 0UL {
+    if table_offset % 4UL != 0UL {
       return Err(
         font_collection_data_error(
           "font-collection-table-alignment",
