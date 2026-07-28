@@ -1856,6 +1856,36 @@ function Assert-FontQualificationWorkflowContract {
       $currentStep.Add($line)
     }
   }
+  $continuedSteps = @(
+    $steps | Where-Object {
+      @($_ | Where-Object {
+        $_.Trim() -imatch '^continue-on-error\s*:'
+      }).Count -gt 0
+    }
+  )
+  Assert-Condition (
+    $continuedSteps.Count -eq 0
+  ) 'FontQualification steps must not continue on error.'
+  $runnerSteps = @(
+    $steps | Where-Object {
+      @($_ | Where-Object { $_.Trim() -ceq $laneCommand }).Count -gt 0
+    }
+  )
+  Assert-Condition (
+    $runnerSteps.Count -eq 1
+  ) 'FontQualification must contain exactly one closed runner step.'
+  $runner = @(
+    $runnerSteps[0] |
+      ForEach-Object { $_.Trim() } |
+      Where-Object { $_ -cne '' }
+  )
+  Assert-ExactSequence 'FontQualification runner step schema and values' `
+    $runner `
+    @(
+      'name: Run focused font qualification',
+      'shell: pwsh',
+      $laneCommand
+    )
   $uploadSteps = @(
     $steps | Where-Object {
       @($_ | Where-Object {
@@ -2939,6 +2969,58 @@ function Assert-FontQualificationArtifacts {
       )
     )
   } 'must not continue on error'
+  $laneCommand = (
+    '        run: ./scripts/quality.ps1 -Lane FontQualification ' +
+    '-EvidenceDirectory artifacts/release-qualification/ci-font-v2'
+  )
+  $installCommand = '        run: ./scripts/ci/Install-PinnedMoonBit.ps1'
+  $uploadCondition = '        if: ${{ success() }}'
+  foreach ($stepProbe in @(
+      @{
+        Name = 'runner step continue-on-error'
+        Needle = $laneCommand
+        Value = 'continue-on-error: true'
+      },
+      @{
+        Name = 'prerequisite step continue-on-error'
+        Needle = $installCommand
+        Value = 'continue-on-error: true'
+      },
+      @{
+        Name = 'upload step continue-on-error'
+        Needle = $uploadCondition
+        Value = 'continue-on-error: true'
+      },
+      @{
+        Name = 'runner step spaced continue-on-error'
+        Needle = $laneCommand
+        Value = 'continue-on-error : TRUE'
+      },
+      @{
+        Name = 'runner step cased continue-on-error'
+        Needle = $laneCommand
+        Value = 'Continue-On-Error: True'
+      },
+      @{
+        Name = 'prerequisite step cased and spaced continue-on-error'
+        Needle = $installCommand
+        Value = 'CONTINUE-ON-ERROR : false'
+      },
+      @{
+        Name = 'upload step cased and spaced continue-on-error'
+        Needle = $uploadCondition
+        Value = 'Continue-On-Error : FALSE'
+      }
+    )) {
+    Confirm-FontQualificationRejected $stepProbe.Name {
+      Assert-FontQualificationWorkflowContract -WorkflowText (
+        $qualityWorkflowText.Replace(
+          $stepProbe.Needle,
+          $stepProbe.Needle + "`n        " + $stepProbe.Value
+        )
+      )
+    } 'steps must not continue on error'
+  }
   Confirm-FontQualificationRejected 'shadow FontQualification job' {
     Assert-FontQualificationWorkflowContract -WorkflowText (
       $qualityWorkflowText + @"
