@@ -137,12 +137,6 @@ fn font_collection_wb_offset_directory(
 ) -> Bytes {
   let output = Array::make(160, b'\x00')
   let directory_start = 64
-  font_collection_wb_put_u32(output, directory_start, 0x00010000UL)
-  font_collection_wb_put_u16(output, directory_start + 4, 2UL)
-  font_collection_wb_put_u16(output, directory_start + 6, 32UL)
-  font_collection_wb_put_u16(output, directory_start + 8, 1UL)
-  font_collection_wb_put_u16(output, directory_start + 10, 0UL)
-
   let head_start = head_offset.to_int()
   let head_size = head_length.to_int()
   for index = 0; index < head_size; index = index + 1 {
@@ -160,6 +154,11 @@ fn font_collection_wb_offset_directory(
     output[name_start + index] = (0x40 + index).to_byte()
   }
 
+  font_collection_wb_put_u32(output, directory_start, 0x00010000UL)
+  font_collection_wb_put_u16(output, directory_start + 4, 2UL)
+  font_collection_wb_put_u16(output, directory_start + 6, 32UL)
+  font_collection_wb_put_u16(output, directory_start + 8, 1UL)
+  font_collection_wb_put_u16(output, directory_start + 10, 0UL)
   font_collection_wb_put_u32(output, directory_start + 12, 0x68656164UL)
   let head_checksum = font_collection_wb_checksum(
     output,
@@ -199,9 +198,15 @@ test "selected directory reads absolute fields and keeps table offsets root rela
   ).unwrap()
   inspect(directory.tables.length(), content="2")
   inspect(directory.tables[0].offset, content="32")
-  inspect(directory.tables[0].view.get(0UL).unwrap(), content="1")
+  inspect(
+    directory.tables[0].view.get(0UL).unwrap().to_uint64(),
+    content="1",
+  )
   inspect(directory.tables[1].offset, content="112")
-  inspect(directory.tables[1].view.get(0UL).unwrap(), content="64")
+  inspect(
+    directory.tables[1].view.get(0UL).unwrap().to_uint64(),
+    content="64",
+  )
 }
 
 ///|
@@ -276,10 +281,13 @@ test "collection checksum mode keeps table integrity and skips only root adjustm
     FontChecksumMode::Collection,
   ).unwrap()
   inspect(
-    font_validate_checksums(directory, FontChecksumMode::Collection) is Ok(_),
+    font_validate_checksums_with_mode(
+      directory,
+      FontChecksumMode::Collection,
+    ) is Ok(_),
     content="true",
   )
-  let standalone = font_validate_checksums(
+  let standalone = font_validate_checksums_with_mode(
     directory,
     FontChecksumMode::Standalone,
   ).unwrap_err()
@@ -304,7 +312,7 @@ test "collection checksum mode keeps table integrity and skips only root adjustm
     font_collection_wb_font_limits(bad_source.length()),
     FontChecksumMode::Collection,
   ).unwrap()
-  let bad_checksum = font_validate_checksums(
+  let bad_checksum = font_validate_checksums_with_mode(
     bad_directory,
     FontChecksumMode::Collection,
   ).unwrap_err()
