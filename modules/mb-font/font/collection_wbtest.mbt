@@ -323,6 +323,122 @@ test "collection checksum mode keeps table integrity and skips only root adjustm
 }
 
 ///|
+fn font_collection_wb_work_budget(work : UInt64) -> @budget.Budget {
+  @budget.Budget::new(
+    @budget.ResourceLimits::new(
+      bytes=0UL,
+      allocations=0UL,
+      allocation_size=0UL,
+      width=0UL,
+      height=0UL,
+      pixels=0UL,
+      depth=0UL,
+      work~,
+    ),
+  )
+}
+
+///|
+fn font_collection_wb_work_charge(work : UInt64) -> @budget.ResourceCharge {
+  @budget.ResourceCharge::new(
+    bytes=0UL,
+    allocations=0UL,
+    allocation_size=0UL,
+    width=0UL,
+    height=0UL,
+    pixels=0UL,
+    work~,
+  )
+}
+
+///|
+test "deferred admission ledger cumulatively preflights ancestors without charging" {
+  let exact = font_collection_wb_work_budget(15UL)
+  let exact_before = exact.remaining()
+  let exact_ledger = FontAdmissionLedger::new(
+    exact,
+    FontAdmissionCommitMode::CollectionDeferred,
+  )
+  exact_ledger.admit_stage(15UL, 13UL, 10UL, 3UL).unwrap()
+  exact_ledger.admit_stage(15UL, 15UL, 10UL, 2UL).unwrap()
+  inspect(exact_ledger.staged_work, content="5")
+  inspect(exact.remaining().work() == exact_before.work(), content="true")
+
+  let root = font_collection_wb_work_budget(20UL)
+  let child = root.child(
+    @budget.ResourceLimits::new(
+      bytes=0UL,
+      allocations=0UL,
+      allocation_size=0UL,
+      width=0UL,
+      height=0UL,
+      pixels=0UL,
+      depth=0UL,
+      work=20UL,
+    ),
+  ).unwrap()
+  root.charge(font_collection_wb_work_charge(6UL)).unwrap()
+  let root_before = root.remaining()
+  let child_before = child.remaining()
+  let ledger = FontAdmissionLedger::new(
+    child,
+    FontAdmissionCommitMode::CollectionDeferred,
+  )
+  ledger.admit_stage(20UL, 13UL, 10UL, 3UL).unwrap()
+  let error = ledger.admit_stage(20UL, 15UL, 10UL, 2UL).unwrap_err()
+  inspect(error.category() == @error.ErrorCategory::Resource, content="true")
+  inspect(error.context() == Some("work"), content="true")
+  inspect(ledger.staged_work, content="3")
+  inspect(root.remaining().work() == root_before.work(), content="true")
+  inspect(child.remaining().work() == child_before.work(), content="true")
+}
+
+///|
+test "admission ledger preserves standalone increments and rejects overflow atomically" {
+  let standalone_budget = font_collection_wb_work_budget(15UL)
+  let standalone = FontAdmissionLedger::new(
+    standalone_budget,
+    FontAdmissionCommitMode::StandaloneIncremental,
+  )
+  standalone.admit_stage(15UL, 13UL, 10UL, 3UL).unwrap()
+  inspect(standalone_budget.remaining().work(), content="12")
+  standalone.admit_stage(15UL, 15UL, 10UL, 2UL).unwrap()
+  inspect(standalone_budget.remaining().work(), content="10")
+  inspect(standalone.staged_work, content="5")
+
+  let overflow_budget = font_collection_wb_work_budget(
+    18446744073709551615UL,
+  )
+  let overflow = FontAdmissionLedger::new(
+    overflow_budget,
+    FontAdmissionCommitMode::CollectionDeferred,
+  )
+  overflow
+  .admit_stage(
+    18446744073709551615UL,
+    18446744073709551615UL,
+    0UL,
+    18446744073709551615UL,
+  )
+  .unwrap()
+  let before = overflow_budget.remaining()
+  let error = overflow
+  .admit_stage(
+    18446744073709551615UL,
+    18446744073709551615UL,
+    0UL,
+    1UL,
+  )
+  .unwrap_err()
+  inspect(error.category() == @error.ErrorCategory::Resource, content="true")
+  inspect(error.context() == Some("max-work"), content="true")
+  inspect(
+    overflow_budget.remaining().work() == before.work(),
+    content="true",
+  )
+}
+
+///|
 fn font_collection_wb_two_face_v2() -> Bytes {
   let output = Array::make(160, b'\x00')
   font_collection_wb_put_u32(output, 0, 0x74746366UL)
