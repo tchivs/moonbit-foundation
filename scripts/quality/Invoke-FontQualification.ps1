@@ -1136,10 +1136,95 @@ function New-FontQualificationEvidenceRecord {
   }
 }
 
+function Get-FontQualificationSemanticPayload {
+  param([Parameter(Mandatory)]$Record)
+
+  return [pscustomobject][ordered]@{
+    schema_version = $Record.schema_version
+    workflow_id = $Record.workflow_id
+    toolchain = $Record.toolchain
+    fixtures = $Record.fixtures
+    standalone_baseline = $Record.standalone_baseline
+    generated_collection_facts = $Record.generated_collection_facts
+    licensed_derivative_facts = $Record.licensed_derivative_facts
+    collection_hostile_outcomes = $Record.collection_hostile_outcomes
+    mutation_atomicity_facts = $Record.mutation_atomicity_facts
+    boundary_facts = $Record.boundary_facts
+    dependency_facts = $Record.dependency_facts
+    focused_assertions = $Record.focused_assertions
+    pass = $Record.pass
+  }
+}
+
+function Assert-FontQualificationComparisonRecord {
+  param(
+    [Parameter(Mandatory)]$Comparison,
+    [Parameter(Mandatory)][string]$Directory,
+    [Parameter(Mandatory)][string]$ManagedRoot
+  )
+
+  Assert-FontQualificationClosedKeys $Comparison @(
+    'schema_version',
+    'workflow_id',
+    'normalization_removed',
+    'targets',
+    'record_sha256',
+    'semantic_sha256',
+    'equal'
+  ) 'font qualification comparison'
+  Assert-FontQualificationClosedKeys `
+    $Comparison.record_sha256 `
+    $Targets `
+    'font qualification comparison record hashes'
+  if ($Comparison.schema_version -cne $EvidenceSchemaVersion -or
+      $Comparison.workflow_id -cne $EvidenceWorkflowId -or
+      (@($Comparison.normalization_removed) -join "`0") -cne
+        (@('target','runner') -join "`0") -or
+      (@($Comparison.targets) -join "`0") -cne ($Targets -join "`0") -or
+      $Comparison.equal -ne $true) {
+    throw 'Font qualification comparison identity or closed values drifted.'
+  }
+
+  $records = [Collections.Generic.List[object]]::new()
+  foreach ($target in $Targets) {
+    $path = Assert-FontQualificationEvidenceWriteBoundary `
+      -Directory $Directory `
+      -ManagedRoot $ManagedRoot `
+      -FileName "$target.json"
+    $bytes = [IO.File]::ReadAllBytes($path)
+    $actualHash = Get-FontQualificationSha256 $bytes
+    if ([string]$Comparison.record_sha256.$target -cne $actualHash) {
+      throw "Font qualification comparison hash drifted for target '$target'."
+    }
+    $record = $Utf8NoBom.GetString($bytes) | ConvertFrom-Json
+    Assert-FontQualificationEvidenceRecord $record
+    if ([string]$record.target -cne $target) {
+      throw "Font qualification comparison target/read-back drifted for '$target'."
+    }
+    $records.Add($record)
+  }
+  $canonical = @(
+    $records |
+      ForEach-Object {
+        ConvertTo-FontQualificationJson `
+          (Get-FontQualificationSemanticPayload $_) `
+          -Compress
+      }
+  )
+  if (@($canonical | Select-Object -Unique).Count -ne 1) {
+    throw 'Font qualification comparison read-back semantics differ.'
+  }
+  $semanticHash = Get-FontQualificationSha256 $Utf8NoBom.GetBytes($canonical[0])
+  if ([string]$Comparison.semantic_sha256 -cne $semanticHash) {
+    throw 'Font qualification comparison semantic hash drifted.'
+  }
+}
+
 function Compare-FontQualificationEvidence {
   param(
     [Parameter(Mandatory)][object[]]$Records,
-    [Parameter(Mandatory)][string]$Directory
+    [Parameter(Mandatory)][string]$Directory,
+    [Parameter(Mandatory)][string]$ManagedRoot
   )
 
   if ($Records.Count -ne 4) {
@@ -1157,21 +1242,7 @@ function Compare-FontQualificationEvidence {
   $semanticPayloads = @(
     foreach ($record in $Records) {
       Assert-FontQualificationEvidenceRecord $record
-      [pscustomobject][ordered]@{
-        schema_version = $record.schema_version
-        workflow_id = $record.workflow_id
-        toolchain = $record.toolchain
-        fixtures = $record.fixtures
-        standalone_baseline = $record.standalone_baseline
-        generated_collection_facts = $record.generated_collection_facts
-        licensed_derivative_facts = $record.licensed_derivative_facts
-        collection_hostile_outcomes = $record.collection_hostile_outcomes
-        mutation_atomicity_facts = $record.mutation_atomicity_facts
-        boundary_facts = $record.boundary_facts
-        dependency_facts = $record.dependency_facts
-        focused_assertions = $record.focused_assertions
-        pass = $record.pass
-      }
+      Get-FontQualificationSemanticPayload $record
     }
   )
   $canonical = @(
@@ -1199,14 +1270,23 @@ function Compare-FontQualificationEvidence {
     semantic_sha256 = $semanticHash
     equal = $true
   }
-  [void](Write-FontQualificationEvidenceJson `
+  $comparisonPath = Write-FontQualificationEvidenceJson `
     -Directory $Directory `
-    -ManagedRoot ([IO.Path]::GetFullPath(
-      (Join-Path $RepositoryRoot 'artifacts/release-qualification')
-    )) `
+    -ManagedRoot $ManagedRoot `
     -FileName 'comparison.json' `
-    -Value $comparison)
-  return $comparison
+    -Value $comparison
+  $comparisonBytes = [IO.File]::ReadAllBytes(
+    (Assert-FontQualificationEvidenceWriteBoundary `
+      -Directory $Directory `
+      -ManagedRoot $ManagedRoot `
+      -FileName 'comparison.json')
+  )
+  $readBack = $Utf8NoBom.GetString($comparisonBytes) | ConvertFrom-Json
+  Assert-FontQualificationComparisonRecord `
+    -Comparison $readBack `
+    -Directory $Directory `
+    -ManagedRoot $ManagedRoot
+  return $readBack
 }
 
 function Confirm-FontQualificationEvidenceRejected {
@@ -1425,26 +1505,30 @@ function Invoke-FontQualification {
     }
     $script:fontQualificationNegativeProbeCount = 0
     & $probe 'missing target evidence record' {
-      Compare-FontQualificationEvidence @($records | Select-Object -First 3) $resolvedEvidence
+      Compare-FontQualificationEvidence `
+        @($records | Select-Object -First 3) `
+        $resolvedEvidence `
+        $managedEvidenceRoot
     } 'Exactly four target evidence records are required'
     & $probe 'duplicate target evidence record' {
       $copy = @($records | ForEach-Object {
         ConvertTo-FontQualificationJson $_ -Compress | ConvertFrom-Json
       })
       $copy[3].target = 'js'
-      Compare-FontQualificationEvidence $copy $resolvedEvidence
+      Compare-FontQualificationEvidence $copy $resolvedEvidence $managedEvidenceRoot
     } 'unique'
     & $probe 'reordered target evidence record' {
-      Compare-FontQualificationEvidence @(
-        $records[1], $records[0], $records[2], $records[3]
-      ) $resolvedEvidence
+      Compare-FontQualificationEvidence `
+        @($records[1], $records[0], $records[2], $records[3]) `
+        $resolvedEvidence `
+        $managedEvidenceRoot
     } 'Target evidence order drifted'
     & $probe 'unknown target evidence record' {
       $copy = @($records | ForEach-Object {
         ConvertTo-FontQualificationJson $_ -Compress | ConvertFrom-Json
       })
       $copy[3].target = 'native-unknown'
-      Compare-FontQualificationEvidence $copy $resolvedEvidence
+      Compare-FontQualificationEvidence $copy $resolvedEvidence $managedEvidenceRoot
     } 'Target evidence order drifted'
     foreach ($identityProbe in @(
       @{ Name = 'schema'; Key = 'schema_version'; Value = '1.0.0' },
@@ -1483,21 +1567,21 @@ function Invoke-FontQualification {
         ConvertTo-FontQualificationJson $_ -Compress | ConvertFrom-Json
       })
       $copy[3].licensed_derivative_facts.shared_table_coordinates[0].root_offset++
-      Compare-FontQualificationEvidence $copy $resolvedEvidence
+      Compare-FontQualificationEvidence $copy $resolvedEvidence $managedEvidenceRoot
     } 'Four-target font qualification semantics differ'
     & $probe 'hostile error semantic divergence' {
       $copy = @($records | ForEach-Object {
         ConvertTo-FontQualificationJson $_ -Compress | ConvertFrom-Json
       })
       $copy[3].collection_hostile_outcomes.hostile[0].error.code = 'Drift'
-      Compare-FontQualificationEvidence $copy $resolvedEvidence
+      Compare-FontQualificationEvidence $copy $resolvedEvidence $managedEvidenceRoot
     } 'Four-target font qualification semantics differ'
     & $probe 'budget after semantic divergence' {
       $copy = @($records | ForEach-Object {
         ConvertTo-FontQualificationJson $_ -Compress | ConvertFrom-Json
       })
       $copy[3].collection_hostile_outcomes.budgets[0].budget_after.work++
-      Compare-FontQualificationEvidence $copy $resolvedEvidence
+      Compare-FontQualificationEvidence $copy $resolvedEvidence $managedEvidenceRoot
     } 'Four-target font qualification semantics differ'
     & $probe 'WOFF boundary divergence' {
       $copy = ConvertTo-FontQualificationJson $records[0] -Compress |
@@ -1530,7 +1614,7 @@ function Invoke-FontQualification {
         ConvertTo-FontQualificationJson $_ -Compress | ConvertFrom-Json
       })
       $copy[3].toolchain.moon = "$($copy[3].toolchain.moon)-drift"
-      Compare-FontQualificationEvidence $copy $resolvedEvidence
+      Compare-FontQualificationEvidence $copy $resolvedEvidence $managedEvidenceRoot
     } 'Four-target font qualification semantics differ'
     $negativeProbeCount = $script:fontQualificationNegativeProbeCount
     Remove-Variable fontQualificationNegativeProbeCount -Scope Script
@@ -1541,7 +1625,28 @@ function Invoke-FontQualification {
     if ($fullPassTotals.Count -ne 1) {
       throw 'Four-target discovered full-package pass totals differ.'
     }
-    $comparison = Compare-FontQualificationEvidence $records $resolvedEvidence
+    $comparison = Compare-FontQualificationEvidence `
+      $records `
+      $resolvedEvidence `
+      $managedEvidenceRoot
+    Confirm-FontQualificationEvidenceRejected 'comparison missing closed key' {
+      $copy = ConvertTo-FontQualificationJson $comparison -Compress |
+        ConvertFrom-Json
+      $copy.PSObject.Properties.Remove('equal')
+      Assert-FontQualificationComparisonRecord `
+        -Comparison $copy `
+        -Directory $resolvedEvidence `
+        -ManagedRoot $managedEvidenceRoot
+    } 'key count drifted'
+    Confirm-FontQualificationEvidenceRejected 'comparison record hash drift' {
+      $copy = ConvertTo-FontQualificationJson $comparison -Compress |
+        ConvertFrom-Json
+      $copy.record_sha256.js = '00'
+      Assert-FontQualificationComparisonRecord `
+        -Comparison $copy `
+        -Directory $resolvedEvidence `
+        -ManagedRoot $managedEvidenceRoot
+    } 'hash drifted'
     $writtenTargets = @(
       Get-ChildItem -LiteralPath $resolvedEvidence -Filter '*.json' |
         Where-Object {
