@@ -490,6 +490,59 @@ function Assert-FontQualificationExactValue {
   }
 }
 
+function Get-FontQualificationExpectedToolchain {
+  $policyPath = Join-Path $RepositoryRoot 'policy/foundation.json'
+  $policy = Get-Content -Raw -LiteralPath $policyPath |
+    ConvertFrom-Json -Depth 100
+  Assert-FontQualificationClosedKeys $policy.toolchain @(
+    'moon',
+    'moonc',
+    'moonrun'
+  ) 'Pinned toolchain policy'
+  Assert-FontQualificationClosedKeys $policy.toolchain.moon @(
+    'version',
+    'commit',
+    'release_date'
+  ) 'Pinned moon policy'
+  Assert-FontQualificationClosedKeys $policy.toolchain.moonc @(
+    'version',
+    'release_date'
+  ) 'Pinned moonc policy'
+  Assert-FontQualificationClosedKeys $policy.toolchain.moonrun @(
+    'version',
+    'commit',
+    'release_date'
+  ) 'Pinned moonrun policy'
+  return [pscustomobject][ordered]@{
+    moon = (
+      "moon $($policy.toolchain.moon.version) " +
+      "($($policy.toolchain.moon.commit) $($policy.toolchain.moon.release_date))"
+    )
+    moonc = (
+      "moonc $($policy.toolchain.moonc.version) " +
+      "($($policy.toolchain.moonc.release_date))"
+    )
+    moonrun = (
+      "moonrun $($policy.toolchain.moonrun.version) " +
+      "($($policy.toolchain.moonrun.commit) $($policy.toolchain.moonrun.release_date))"
+    )
+  }
+}
+
+function Assert-FontQualificationPinnedToolchain {
+  param([Parameter(Mandatory)]$Toolchain)
+
+  Assert-FontQualificationClosedKeys $Toolchain @(
+    'moon',
+    'moonc',
+    'moonrun'
+  ) 'Captured FontQualification toolchain'
+  Assert-FontQualificationExactValue `
+    $Toolchain `
+    (Get-FontQualificationExpectedToolchain) `
+    'FontQualification pinned toolchain identity'
+}
+
 function Assert-FontQualificationCaseFact {
   param(
     [Parameter(Mandatory)]$Case,
@@ -555,6 +608,7 @@ function Assert-FontQualificationEvidenceRecord {
 
   Assert-FontQualificationClosedKeys $Record $RecordKeys "$($Record.target) record"
   Assert-FontQualificationClosedKeys $Record.toolchain @('moon','moonc','moonrun') "$($Record.target) toolchain"
+  Assert-FontQualificationPinnedToolchain -Toolchain $Record.toolchain
   Assert-FontQualificationClosedKeys $Record.fixtures @(
     'dejavu_sans_237',
     'dejavu_license',
@@ -892,11 +946,13 @@ function Get-FontQualificationToolchain {
   if (-not $moon -or -not $moonc -or -not $moonrun) {
     throw 'MoonBit toolchain identity format drifted.'
   }
-  return [pscustomobject][ordered]@{
+  $captured = [pscustomobject][ordered]@{
     moon = $moon
     moonc = $moonc
     moonrun = $moonrun
   }
+  Assert-FontQualificationPinnedToolchain -Toolchain $captured
+  return $captured
 }
 
 function Get-FontQualificationGlyphFact {
@@ -1812,13 +1868,32 @@ function Invoke-FontQualification {
       $copy.source_identities.files[1] = $first
       Assert-FontQualificationEvidenceRecord $copy
     } 'focused source identities drifted'
+    foreach ($tool in @('moon', 'moonc', 'moonrun')) {
+      & $probe "$tool pinned identity drift" {
+        $copy = ConvertTo-FontQualificationJson $records[0] -Compress |
+          ConvertFrom-Json
+        $copy.toolchain.$tool = "$($copy.toolchain.$tool)-drift"
+        Assert-FontQualificationEvidenceRecord $copy
+      } 'pinned toolchain identity'
+    }
+    & $probe 'mutually consistent unauthorized toolchain substitution' {
+      $copy = @($records | ForEach-Object {
+        ConvertTo-FontQualificationJson $_ -Compress | ConvertFrom-Json
+      })
+      foreach ($record in $copy) {
+        $record.toolchain.moon = 'moon 99.0.0 (deadbee 2099-01-01)'
+        $record.toolchain.moonc = 'moonc v99.0.0 (2099-01-01)'
+        $record.toolchain.moonrun = 'moonrun 99.0.0 (deadbee 2099-01-01)'
+      }
+      Compare-FontQualificationEvidence $copy $resolvedEvidence $managedEvidenceRoot
+    } 'pinned toolchain identity'
     & $probe 'semantic evidence divergence' {
       $copy = @($records | ForEach-Object {
         ConvertTo-FontQualificationJson $_ -Compress | ConvertFrom-Json
       })
       $copy[3].toolchain.moon = "$($copy[3].toolchain.moon)-drift"
       Compare-FontQualificationEvidence $copy $resolvedEvidence $managedEvidenceRoot
-    } 'Four-target font qualification semantics differ'
+    } 'pinned toolchain identity|Four-target font qualification semantics differ'
     $negativeProbeCount = $script:fontQualificationNegativeProbeCount
     Remove-Variable fontQualificationNegativeProbeCount -Scope Script
 

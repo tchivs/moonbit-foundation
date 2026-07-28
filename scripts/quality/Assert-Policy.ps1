@@ -1780,6 +1780,30 @@ function Assert-FontCollectionOracleContract {
   ) 'Font collection standalone-oracle binding drifted.'
 }
 
+function Get-FontQualificationYamlMappingKey {
+  [CmdletBinding()]
+  param([Parameter(Mandatory)][AllowEmptyString()][string]$Line)
+
+  $entry = $Line.Trim()
+  if ($entry.StartsWith('- ', [StringComparison]::Ordinal)) {
+    $entry = $entry.Substring(2).TrimStart()
+  }
+  if ($entry -cmatch "^'(?<key>(?:[^']|'')*)'\s*:") {
+    return $Matches.key.Replace("''", "'")
+  }
+  if ($entry -cmatch '^"(?<key>[^"\\]*)"\s*:') {
+    return $Matches.key
+  }
+  if ($entry -cmatch '^(?<key>[A-Za-z0-9_-]+)\s*:') {
+    return $Matches.key
+  }
+  if ($entry.StartsWith("'", [StringComparison]::Ordinal) -or
+      $entry.StartsWith('"', [StringComparison]::Ordinal)) {
+    throw "FontQualification workflow contains an unsupported quoted mapping key: $entry"
+  }
+  return $null
+}
+
 function Assert-FontQualificationWorkflowContract {
   [CmdletBinding()]
   param([Parameter(Mandatory)][string]$WorkflowText)
@@ -1836,10 +1860,15 @@ function Assert-FontQualificationWorkflowContract {
   Assert-Condition (
     @($fontJobLines | Where-Object { $_.Trim() -ceq $laneCommand }).Count -eq 1
   ) 'FontQualification CI command must own the fresh v2 evidence directory.'
+  $jobContinuationKeys = @(
+    $fontJobLines | ForEach-Object {
+      if ($_ -cmatch '^    (?<entry>\S.*)$') {
+        Get-FontQualificationYamlMappingKey -Line $Matches.entry
+      }
+    } | Where-Object { $_ -ieq 'continue-on-error' }
+  )
   Assert-Condition (
-    @($fontJobLines | Where-Object {
-      $_ -cmatch '^    continue-on-error:'
-    }).Count -eq 0
+    $jobContinuationKeys.Count -eq 0
   ) 'FontQualification job must not continue on error.'
 
   $stepsLine = [Array]::IndexOf($fontJobLines, '    steps:')
@@ -1858,9 +1887,9 @@ function Assert-FontQualificationWorkflowContract {
   }
   $continuedSteps = @(
     $steps | Where-Object {
-      @($_ | Where-Object {
-        $_.Trim() -imatch '^continue-on-error\s*:'
-      }).Count -gt 0
+      @($_ | ForEach-Object {
+        Get-FontQualificationYamlMappingKey -Line $_
+      } | Where-Object { $_ -ieq 'continue-on-error' }).Count -gt 0
     }
   )
   Assert-Condition (
@@ -1885,6 +1914,51 @@ function Assert-FontQualificationWorkflowContract {
       'name: Run focused font qualification',
       'shell: pwsh',
       $laneCommand
+    )
+  $checkoutSteps = @(
+    $steps | Where-Object {
+      @($_ | Where-Object {
+        $_.Trim() -ceq
+          'uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683'
+      }).Count -gt 0
+    }
+  )
+  Assert-Condition (
+    $checkoutSteps.Count -eq 1
+  ) 'FontQualification must contain exactly one closed checkout step.'
+  Assert-ExactSequence 'FontQualification checkout step schema and values' `
+    @(
+      $checkoutSteps[0] |
+        ForEach-Object { $_.Trim() } |
+        Where-Object { $_ -cne '' }
+    ) `
+    @(
+      'name: Check out repository without persisted credentials',
+      'uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683',
+      'with:',
+      'persist-credentials: false',
+      'fetch-depth: 0'
+    )
+  $installerSteps = @(
+    $steps | Where-Object {
+      @($_ | Where-Object {
+        $_.Trim() -ceq 'run: ./scripts/ci/Install-PinnedMoonBit.ps1'
+      }).Count -gt 0
+    }
+  )
+  Assert-Condition (
+    $installerSteps.Count -eq 1
+  ) 'FontQualification must contain exactly one closed pinned-installer step.'
+  Assert-ExactSequence 'FontQualification pinned-installer step schema and values' `
+    @(
+      $installerSteps[0] |
+        ForEach-Object { $_.Trim() } |
+        Where-Object { $_ -cne '' }
+    ) `
+    @(
+      'name: Install content-addressed MoonBit toolchain',
+      'shell: pwsh',
+      'run: ./scripts/ci/Install-PinnedMoonBit.ps1'
     )
   $uploadSteps = @(
     $steps | Where-Object {
@@ -2839,6 +2913,34 @@ function Assert-QualityWorkflowToolchainTransport {
   )
 }
 
+function Assert-FontQualificationPinnedPolicyToolchain {
+  [CmdletBinding()]
+  param([Parameter(Mandatory)][object]$Policy)
+
+  Assert-ExactSequence 'Pinned toolchain policy tools' `
+    @($Policy.toolchain.PSObject.Properties.Name) `
+    @('moon', 'moonc', 'moonrun')
+  Assert-ExactSequence 'Pinned moon policy fields' `
+    @($Policy.toolchain.moon.PSObject.Properties.Name) `
+    @('version', 'commit', 'release_date')
+  Assert-ExactSequence 'Pinned moonc policy fields' `
+    @($Policy.toolchain.moonc.PSObject.Properties.Name) `
+    @('version', 'release_date')
+  Assert-ExactSequence 'Pinned moonrun policy fields' `
+    @($Policy.toolchain.moonrun.PSObject.Properties.Name) `
+    @('version', 'commit', 'release_date')
+  Assert-Condition (
+    $Policy.toolchain.moon.version -ceq '0.1.20260713' -and
+    $Policy.toolchain.moon.commit -ceq '75c7e1f' -and
+    $Policy.toolchain.moon.release_date -ceq '2026-07-13' -and
+    $Policy.toolchain.moonc.version -ceq 'v0.10.4+2cc641edf' -and
+    $Policy.toolchain.moonc.release_date -ceq '2026-07-15' -and
+    $Policy.toolchain.moonrun.version -ceq '0.1.20260713' -and
+    $Policy.toolchain.moonrun.commit -ceq '75c7e1f' -and
+    $Policy.toolchain.moonrun.release_date -ceq '2026-07-13'
+  ) 'FontQualification pinned policy toolchain identity drifted.'
+}
+
 function Assert-FontQualificationArtifacts {
   [CmdletBinding()]
   param(
@@ -2846,6 +2948,7 @@ function Assert-FontQualificationArtifacts {
     [Parameter(Mandatory)][string]$RepositoryRoot
   )
 
+  Assert-FontQualificationPinnedPolicyToolchain -Policy $Policy
   $fontModule = @($Policy.modules | Where-Object { $_.name -ceq 'tchivs/mb-font' })[0]
   $font = @($fontModule.public_packages | Where-Object { $_.path -ceq 'font' })[0]
   $productionSources = @('moon.pkg', 'cmap.mbt', 'collection.mbt', 'collection_limits.mbt', 'collection_parser.mbt', 'cursor.mbt', 'directory.mbt', 'font.mbt', 'kern.mbt', 'limits.mbt', 'metrics.mbt', 'outline.mbt', 'tables.mbt')
@@ -3021,6 +3124,37 @@ function Assert-FontQualificationArtifacts {
       )
     } 'steps must not continue on error'
   }
+  foreach ($quotedProbe in @(
+      @{ Name = 'single quoted'; Mapping = "'continue-on-error': true" },
+      @{ Name = 'double quoted'; Mapping = '"continue-on-error": true' },
+      @{ Name = 'single quoted cased and spaced'; Mapping = "'Continue-On-Error' : TRUE" },
+      @{ Name = 'double quoted cased and spaced'; Mapping = '"CONTINUE-ON-ERROR" : false' }
+    )) {
+    Confirm-FontQualificationRejected "$($quotedProbe.Name) job continuation" {
+      Assert-FontQualificationWorkflowContract -WorkflowText (
+        $qualityWorkflowText.Replace(
+          '    timeout-minutes: 20',
+          "    timeout-minutes: 20`n    $($quotedProbe.Mapping)"
+        )
+      )
+    } 'job must not continue on error'
+    foreach ($location in @(
+        @{ Name = 'prerequisite'; Needle = $installCommand },
+        @{ Name = 'runner'; Needle = $laneCommand },
+        @{ Name = 'upload'; Needle = $uploadCondition }
+      )) {
+      Confirm-FontQualificationRejected (
+        "$($quotedProbe.Name) $($location.Name) continuation"
+      ) {
+        Assert-FontQualificationWorkflowContract -WorkflowText (
+          $qualityWorkflowText.Replace(
+            $location.Needle,
+            $location.Needle + "`n        " + $quotedProbe.Mapping
+          )
+        )
+      } 'steps must not continue on error'
+    }
+  }
   Confirm-FontQualificationRejected 'shadow FontQualification job' {
     Assert-FontQualificationWorkflowContract -WorkflowText (
       $qualityWorkflowText + @"
@@ -3034,6 +3168,22 @@ function Assert-FontQualificationArtifacts {
     )
   } 'exactly one FontQualification job'
 
+  foreach ($toolchainProbe in @(
+      @{ Name = 'moon version'; Tool = 'moon'; Field = 'version'; Value = '0.1.20990101' },
+      @{ Name = 'moon commit'; Tool = 'moon'; Field = 'commit'; Value = 'deadbee' },
+      @{ Name = 'moonc version'; Tool = 'moonc'; Field = 'version'; Value = 'v99.0.0' },
+      @{ Name = 'moonrun version'; Tool = 'moonrun'; Field = 'version'; Value = '0.1.20990101' }
+    )) {
+    Confirm-FontQualificationRejected (
+      "pinned policy $($toolchainProbe.Name) drift"
+    ) {
+      $copy = $Policy | ConvertTo-Json -Depth 100 | ConvertFrom-Json -Depth 100
+      $copy.toolchain.($toolchainProbe.Tool).($toolchainProbe.Field) =
+        $toolchainProbe.Value
+      Assert-FontQualificationPinnedPolicyToolchain -Policy $copy
+    } 'pinned policy toolchain identity drifted'
+  }
+
   $runnerText = Get-Content -Raw -LiteralPath (
     Join-Path $RepositoryRoot 'scripts/quality/Invoke-FontQualification.ps1'
   )
@@ -3043,6 +3193,8 @@ function Assert-FontQualificationArtifacts {
       'artifacts/release-qualification/font-v2',
       'target/phase103-font-qualification-',
       'normalization_removed = @(''target'', ''runner'')'
+      'Get-FontQualificationExpectedToolchain'
+      'Assert-FontQualificationPinnedToolchain'
     )) {
     Assert-Condition (
       $runnerText.Contains($runnerFact, [StringComparison]::Ordinal)
