@@ -174,7 +174,7 @@ fn cff_decode_outline_atomic(
   glyph : UInt64,
   limits : FontLimits,
   budget : @budget.Budget,
-  after_stage : (@math.Path2) -> Unit,
+  after_stage : () -> Unit,
 ) -> Result[@math.Path2, @error.CoreError] {
   cff_decode_outline_atomic_with_probes(
     source,
@@ -200,7 +200,7 @@ fn cff_decode_outline_atomic_with_probes(
   limits : FontLimits,
   budget : @budget.Budget,
   before_execute : () -> Unit,
-  after_stage : (@math.Path2) -> Unit,
+  after_stage : () -> Unit,
 ) -> Result[@math.Path2, @error.CoreError] {
   if source.mutation_revision() != admitted.opening_revision {
     return Err(font_revision_error("font-outline"))
@@ -280,7 +280,7 @@ fn cff_decode_outline_atomic_with_probes(
     Err(error) => return Err(error)
     Ok(_) => ()
   }
-  after_stage(path)
+  after_stage()
   if source.mutation_revision() != admitted.opening_revision {
     return Err(font_revision_error("font-outline"))
   }

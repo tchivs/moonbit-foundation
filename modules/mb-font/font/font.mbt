@@ -754,7 +754,7 @@ pub fn Font::outline(
   glyph : GlyphId,
   budget : @budget.Budget,
 ) -> Result[@math.Path2, @error.CoreError] {
-  self.outline_after_decode(glyph, budget, fn(_path) { () })
+  self.outline_after_decode(glyph, budget, fn() { () })
 }
 
 ///|
@@ -762,7 +762,7 @@ fn Font::outline_after_decode(
   self : Font,
   glyph : GlyphId,
   budget : @budget.Budget,
-  after_decode : (@math.Path2) -> Unit,
+  after_decode : () -> Unit,
 ) -> Result[@math.Path2, @error.CoreError] {
   match self.require_revision("font-outline") {
     Err(error) => return Err(error)
@@ -804,7 +804,7 @@ fn Font::outline_after_decode(
         Err(error) => return Err(error)
         Ok(value) => value
       }
-      after_decode(path)
+      after_decode()
       match self.require_revision("font-outline") {
         Err(error) => return Err(error)
         Ok(_) => ()

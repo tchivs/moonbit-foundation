@@ -280,7 +280,7 @@ test "CFF outline exact path charge covers caller and ancestor dimensions" {
     font.limits,
     probe_budget,
     fn() { probes = probes + 1 },
-    fn(_path) { () },
+    fn() { () },
   ).unwrap()
   inspect(probes, content="1")
   cff_path_wb_assert_path_equal(caller_path, probed)
@@ -377,7 +377,7 @@ test "CFF outline exact path charge rejects overflow and count mismatch atomical
     glyph.value(),
     font.limits,
     budget,
-    fn(_path) { () },
+    fn() { () },
   ).unwrap_err()
   inspect(mismatch.category() == @error.ErrorCategory::Data, content="true")
   inspect(

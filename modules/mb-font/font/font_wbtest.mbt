@@ -840,9 +840,7 @@ test "outline rejects post-decode revision drift without path publication" {
   let font = Font::open(owner.view(), font_wb_limits(), font_wb_open_budget()).unwrap()
   let glyph = font.glyph_id(0UL).unwrap()
   let mut callback_count = 0
-  let result = font.outline_after_decode(glyph, font_wb_outline_budget(), fn(
-    _path,
-  ) {
+  let result = font.outline_after_decode(glyph, font_wb_outline_budget(), fn() {
     callback_count = callback_count + 1
     font_wb_mutate_one_byte(owner, 0UL)
   })
@@ -872,9 +870,7 @@ test "composite outline rejects post-decode revision drift without publication" 
   let font = Font::open(owner.view(), font_wb_limits(), font_wb_open_budget()).unwrap()
   let glyph = font.glyph_id(1UL).unwrap()
   let mut callback_count = 0
-  let result = font.outline_after_decode(glyph, font_wb_outline_budget(), fn(
-    _path,
-  ) {
+  let result = font.outline_after_decode(glyph, font_wb_outline_budget(), fn() {
     callback_count = callback_count + 1
     font_wb_mutate_one_byte(owner, 0UL)
   })
@@ -1315,7 +1311,7 @@ test "CFF outline exact path charge tracer rejects post-stage mutation atomicall
     .unwrap()
   let parent_before = mutation_parent.remaining()
   let before = mutation_budget.remaining()
-  let result = font.outline_after_decode(glyph, mutation_budget, fn(_path) {
+  let result = font.outline_after_decode(glyph, mutation_budget, fn() {
     font_wb_mutate_one_byte(owner, 0)
   })
   inspect(result is Err(_), content="true")
@@ -1369,7 +1365,7 @@ test "CFF outline atomic mutation probes preserve every budget window" {
       before_probes = before_probes + 1
       font_collection_wb_mutate_restore(before_owner, 0UL)
     },
-    fn(_path) { () },
+    fn() { () },
   ).unwrap_err()
   inspect(before_probes, content="1")
   inspect(
@@ -1411,7 +1407,7 @@ test "CFF outline atomic mutation probes preserve every budget window" {
     after_font.limits,
     after_child,
     fn() { () },
-    fn(_path) { font_collection_wb_mutate_restore(after_owner, 0UL) },
+    fn() { font_collection_wb_mutate_restore(after_owner, 0UL) },
   ).unwrap_err()
   inspect(
     after_error.category() == @error.ErrorCategory::State,
@@ -1459,7 +1455,7 @@ test "CFF outline atomic multi-fault precedence is State Resource Capability Dat
     font.limits,
     state_child,
     fn() { font_collection_wb_mutate_restore(owner, 0UL) },
-    fn(_path) { () },
+    fn() { () },
   ).unwrap_err()
   inspect(state.category() == @error.ErrorCategory::State, content="true")
   cff_path_wb_assert_limits_equal(
@@ -1495,7 +1491,7 @@ test "CFF outline atomic multi-fault precedence is State Resource Capability Dat
     resource_glyph.value(),
     resource_font.limits,
     resource_budget,
-    fn(_path) { () },
+    fn() { () },
   ).unwrap_err()
   inspect(
     resource.category() == @error.ErrorCategory::Resource,
@@ -1514,7 +1510,7 @@ test "CFF outline atomic multi-fault precedence is State Resource Capability Dat
     resource_glyph.value(),
     resource_font.limits,
     capability_budget,
-    fn(_path) { () },
+    fn() { () },
   ).unwrap_err()
   inspect(
     capability.category() == @error.ErrorCategory::Capability,
@@ -1544,7 +1540,7 @@ test "CFF outline atomic multi-fault precedence is State Resource Capability Dat
     data_glyph.value(),
     data_font.limits,
     data_budget,
-    fn(_path) { () },
+    fn() { () },
   ).unwrap_err()
   inspect(data.category() == @error.ErrorCategory::Data, content="true")
   cff_path_wb_assert_limits_equal(data_before, data_budget.remaining())

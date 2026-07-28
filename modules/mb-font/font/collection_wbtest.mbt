@@ -1709,7 +1709,7 @@ test "Phase 106 preserves selected CFF admission outline and mutation authority"
     .outline_after_decode(
       glyph,
       outline_budget,
-      fn(_path) { font_collection_wb_mutate_restore(owner, 0UL) },
+      fn() { font_collection_wb_mutate_restore(owner, 0UL) },
     )
     .unwrap_err()
   inspect(
