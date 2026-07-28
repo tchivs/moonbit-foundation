@@ -50,7 +50,7 @@ priv struct CffTopDict {
 #warnings("-7")
 priv struct CffFontDict {
   private_range : CffPrivateRange?
-  font_matrix : Array[CffNumber]
+  font_matrix : Array[CffNumber]?
   sid_operands : Array[UInt64]
   dict_units : UInt64
 }
@@ -61,6 +61,7 @@ priv struct CffPrivateDict {
   local_subrs : CffPrivateOffset?
   default_width_x : CffNumber
   nominal_width_x : CffNumber
+  initial_random_seed : Type2Fixed
   dict_units : UInt64
 }
 
@@ -124,6 +125,31 @@ fn cff_number_nonnegative_integer(
     Err(cff_data_error(context))
   } else {
     Ok(value.magnitude)
+  }
+}
+
+///|
+fn cff_number_to_type2_fixed(
+  value : CffNumber,
+  context : String,
+) -> Result[Type2Fixed, @error.CoreError] {
+  let numerator = match @checked.checked_mul(value.magnitude, 65536UL) {
+    Err(_) => return Err(cff_data_error(context))
+    Ok(result) => result
+  }
+  let scaled = numerator / value.denominator
+  let maximum = if value.negative { 2147483648UL } else { 2147483647UL }
+  if scaled > maximum {
+    return Err(cff_data_error(context))
+  }
+  let raw = if value.negative {
+    -scaled.reinterpret_as_int64()
+  } else {
+    scaled.reinterpret_as_int64()
+  }
+  match type2_fixed_from_raw(raw) {
+    Err(_) => Err(cff_data_error(context))
+    Ok(result) => Ok(result)
   }
 }
 
@@ -910,7 +936,7 @@ fn cff_decode_font_dict(
     Ok(value) => value
   }
   let mut private_range : CffPrivateRange? = None
-  let mut font_matrix = cff_default_font_matrix()
+  let mut font_matrix : Array[CffNumber]? = None
   let mut font_matrix_seen = false
   let sid_operands : Array[UInt64] = []
   for entry in entries {
@@ -949,7 +975,7 @@ fn cff_decode_font_dict(
         if font_matrix_seen {
           return Err(cff_data_error("font-cff-font-matrix-duplicate"))
         }
-        font_matrix = entry.operands
+        font_matrix = Some(entry.operands)
         font_matrix_seen = true
       }
       0x126UL => {
@@ -981,8 +1007,13 @@ fn cff_decode_private_dict(
   let mut local_subrs : CffPrivateOffset? = None
   let mut default_width_x = cff_number_zero()
   let mut nominal_width_x = cff_number_zero()
+  let mut initial_random_seed = match type2_fixed_from_raw(0L) {
+    Err(_) => return Err(cff_data_error("font-cff-private-initial-random-seed"))
+    Ok(value) => value
+  }
   let mut default_seen = false
   let mut nominal_seen = false
+  let mut initial_random_seed_seen = false
   for entry in entries {
     match entry.operator {
       19UL => {
@@ -1025,6 +1056,31 @@ fn cff_decode_private_dict(
         nominal_width_x = entry.operands[0]
         nominal_seen = true
       }
+      0x113UL => {
+        match
+          cff_require_arity(
+            entry,
+            1UL,
+            "font-cff-private-initial-random-seed",
+          ) {
+          Err(error) => return Err(error)
+          Ok(_) => ()
+        }
+        if initial_random_seed_seen {
+          return Err(
+            cff_data_error("font-cff-private-initial-random-seed-duplicate"),
+          )
+        }
+        initial_random_seed = match
+          cff_number_to_type2_fixed(
+            entry.operands[0],
+            "font-cff-private-initial-random-seed",
+          ) {
+          Err(error) => return Err(error)
+          Ok(value) => value
+        }
+        initial_random_seed_seen = true
+      }
       6UL | 8UL =>
         match cff_require_even_bounded(entry, 14UL, "font-cff-private-blue-array") {
           Err(error) => return Err(error)
@@ -1056,8 +1112,7 @@ fn cff_decode_private_dict(
       | 0x10AUL
       | 0x10BUL
       | 0x111UL
-      | 0x112UL
-      | 0x113UL =>
+      | 0x112UL =>
         match cff_require_arity(entry, 1UL, "font-cff-private-operator") {
           Err(error) => return Err(error)
           Ok(_) => ()
@@ -1065,5 +1120,11 @@ fn cff_decode_private_dict(
       _ => return Err(cff_data_error("font-cff-private-operator"))
     }
   }
-  Ok({ local_subrs, default_width_x, nominal_width_x, dict_units })
+  Ok({
+    local_subrs,
+    default_width_x,
+    nominal_width_x,
+    initial_random_seed,
+    dict_units,
+  })
 }

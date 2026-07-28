@@ -5,6 +5,8 @@ priv struct CffGlyphEnvironment {
   private_dict : CffPrivateDict
   local_subrs : CffIndex
   top_font_matrix : Array[CffNumber]
+  fd_font_matrix : Array[CffNumber]?
+  // Phase 104 compatibility alias. New VM code consumes the two fields above.
   font_matrix : Array[CffNumber]
 }
 
@@ -60,7 +62,7 @@ priv struct CffKeying {
 priv struct CffPrivateEnvironment {
   private_dict : CffPrivateDict
   local_subrs : CffIndex
-  font_matrix : Array[CffNumber]
+  font_matrix : Array[CffNumber]?
   dict_units : UInt64
 }
 
@@ -817,7 +819,7 @@ fn cff_decode_fd_select(
 fn cff_decode_private_environment(
   cff : TableWindow,
   private_range : CffPrivateRange,
-  font_matrix : Array[CffNumber],
+  font_matrix : Array[CffNumber]?,
   limits : FontLimits,
   private_context : String,
   authority : CffAuthorityLedger,
@@ -909,7 +911,7 @@ fn cff_resolve_name_keying(
     cff_decode_private_environment(
       cff,
       private_range,
-      top.font_matrix,
+      None,
       limits,
       "font-cff-private-range",
       authority,
@@ -973,7 +975,8 @@ fn cff_resolve_name_keying(
         private_dict: environment.private_dict,
         local_subrs: environment.local_subrs,
         top_font_matrix: top.font_matrix,
-        font_matrix: environment.font_matrix,
+        fd_font_matrix: None,
+        font_matrix: top.font_matrix,
       },
     })
     gid = gid + 1UL
@@ -1189,7 +1192,11 @@ fn cff_resolve_cid_keying(
         private_dict: selected.private_dict,
         local_subrs: selected.local_subrs,
         top_font_matrix: top.font_matrix,
-        font_matrix: selected.font_matrix,
+        fd_font_matrix: selected.font_matrix,
+        font_matrix: match selected.font_matrix {
+          Some(value) => value
+          None => top.font_matrix
+        },
       },
     })
     gid = gid + 1UL
