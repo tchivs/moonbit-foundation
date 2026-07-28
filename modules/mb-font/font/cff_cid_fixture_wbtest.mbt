@@ -230,8 +230,8 @@ test "CFF CID keying resolves charset formats one two and FDSelect format three"
     inspect(admitted.keying.fd_select.unwrap().format, content="3")
     inspect(admitted.keying.fd_select.unwrap().selectors.length(), content="3")
     inspect(admitted.keying.fd_select.unwrap().selectors[2], content="1")
-    inspect(admitted.glyph.key_value, content="101")
-    inspect(admitted.glyph.environment.fd == Some(1UL), content="true")
+    inspect(admitted.glyphs[2].key_value, content="101")
+    inspect(admitted.glyphs[2].environment.fd == Some(1UL), content="true")
   }
 }
 
@@ -328,17 +328,17 @@ test "CFF CID tracer resolves a nonzero GID through FDSelect format zero" {
     2UL,
   ).unwrap()
   inspect(admitted.glyphs.length(), content="3")
-  inspect(admitted.glyph.gid, content="2")
-  inspect(admitted.glyph.key_value, content="101")
-  inspect(admitted.glyph.environment.fd == Some(1UL), content="true")
-  inspect(admitted.glyph.environment.private_dict.local_subrs is Some(_), content="true")
-  inspect(admitted.glyph.environment.local_subrs.count, content="0")
+  inspect(admitted.glyphs[2].gid, content="2")
+  inspect(admitted.glyphs[2].key_value, content="101")
+  inspect(admitted.glyphs[2].environment.fd == Some(1UL), content="true")
+  inspect(admitted.glyphs[2].environment.private_dict.local_subrs is Some(_), content="true")
+  inspect(admitted.glyphs[2].environment.local_subrs.count, content="0")
   inspect(
-    admitted.glyph.environment.top_font_matrix[0].denominator,
+    admitted.glyphs[2].environment.top_font_matrix[0].denominator,
     content="1000",
   )
   inspect(
-    admitted.glyph.environment.fd_font_matrix.unwrap()[0].magnitude,
+    admitted.glyphs[2].environment.fd_font_matrix.unwrap()[0].magnitude,
     content="2",
   )
   inspect(admitted.keying.ros is Some(_), content="true")
@@ -353,9 +353,9 @@ test "CFF glyph descriptors preserve Top and optional FD matrix identity" {
     cff_wb_budget(),
     1UL,
   ).unwrap()
-  inspect(cid.glyph.environment.fd == Some(0UL), content="true")
-  inspect(cid.glyph.environment.top_font_matrix.length(), content="6")
-  inspect(cid.glyph.environment.fd_font_matrix is None, content="true")
+  inspect(cid.glyphs[1].environment.fd == Some(0UL), content="true")
+  inspect(cid.glyphs[1].environment.top_font_matrix.length(), content="6")
+  inspect(cid.glyphs[1].environment.fd_font_matrix is None, content="true")
 
   let named = admit_cff1_structure(
     font_wb_view(cff_wb_otf(cff_name_wb_table(), num_glyphs=3UL)),
@@ -363,9 +363,9 @@ test "CFF glyph descriptors preserve Top and optional FD matrix identity" {
     cff_wb_budget(),
     1UL,
   ).unwrap()
-  inspect(named.glyph.environment.fd is None, content="true")
-  inspect(named.glyph.environment.top_font_matrix.length(), content="6")
-  inspect(named.glyph.environment.fd_font_matrix is None, content="true")
+  inspect(named.glyphs[1].environment.fd is None, content="true")
+  inspect(named.glyphs[1].environment.top_font_matrix.length(), content="6")
+  inspect(named.glyphs[1].environment.fd_font_matrix is None, content="true")
 }
 
 ///|

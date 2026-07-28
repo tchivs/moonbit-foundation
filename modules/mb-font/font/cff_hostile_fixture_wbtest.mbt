@@ -168,7 +168,7 @@ test "CFF structural work allocation and caller authority are exact or absent" {
   inspect(admitted.charge.descriptors, content="3")
   inspect(admitted.charge.fd_environments, content="2")
   inspect(admitted.charge.work, content="1445")
-  let exact = cff_hostile_budget(580UL, 9UL, 8192UL, 1445UL)
+  let exact = cff_hostile_budget(652UL, 25UL, 8192UL, 1448UL)
   admit_cff1_structure(font_wb_view(source), font_wb_limits(), exact, 2UL)
   |> ignore
   inspect(exact.remaining().bytes(), content="0")
@@ -178,14 +178,14 @@ test "CFF structural work allocation and caller authority are exact or absent" {
   for dimension in [0, 1, 2, 3] {
     let budget = cff_hostile_budget(
       if dimension == 0 {
-        579UL
+        651UL
       } else {
-        580UL
+        652UL
       },
       if dimension == 1 {
-        8UL
+        24UL
       } else {
-        9UL
+        25UL
       },
       if dimension == 2 {
         8191UL
@@ -193,9 +193,9 @@ test "CFF structural work allocation and caller authority are exact or absent" {
         8192UL
       },
       if dimension == 3 {
-        1444UL
+        1447UL
       } else {
-        1445UL
+        1448UL
       },
     )
     let before = budget.remaining()
@@ -230,10 +230,10 @@ test "CFF format-4 common-table search work is exact and one-short atomic" {
   inspect(admitted.charge.work, content="1467")
 
   let exact = cff_hostile_budget(
-    source.length().to_uint64(),
+    source.length().to_uint64() + 24UL,
     64UL,
     16384UL,
-    1467UL,
+    1468UL,
   )
   admit_cff1_structure(
     font_wb_view(source),
@@ -244,10 +244,10 @@ test "CFF format-4 common-table search work is exact and one-short atomic" {
   inspect(exact.remaining().work(), content="0")
 
   let one_short = cff_hostile_budget(
-    source.length().to_uint64(),
+    source.length().to_uint64() + 24UL,
     64UL,
     16384UL,
-    1466UL,
+    1467UL,
   )
   let before = one_short.remaining()
   let error = admit_cff1_structure(

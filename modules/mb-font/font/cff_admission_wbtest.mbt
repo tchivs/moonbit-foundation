@@ -264,15 +264,16 @@ test "CFF1 tracer admits default and explicit Type 2 then resolves GID zero" {
     inspect(admitted.top.charstring_type.negative, content="false")
     inspect(admitted.top.charstring_type_explicit, content=item.1.to_string())
     inspect(admitted.charstrings.count, content="1")
-    inspect(admitted.glyph.gid, content="0")
-    inspect(admitted.glyph.charstring.view.length(), content="1")
+    inspect(admitted.glyphs[0].gid, content="0")
+    inspect(admitted.glyphs[0].charstring.view.length(), content="1")
     inspect(
-      admitted.glyph.charstring.view.get(0UL).unwrap(),
+      admitted.glyphs[0].charstring.view.get(0UL).unwrap(),
       content="b'\\x0E'",
     )
-    inspect(admitted.glyph.environment.private_dict.local_subrs is Some(_), content="true")
-    inspect(admitted.glyph.environment.local_subrs.count, content="0")
-    inspect(admitted.glyph.environment.font_matrix.length(), content="6")
+    inspect(admitted.glyphs[0].environment.private_dict.local_subrs is Some(_), content="true")
+    inspect(admitted.glyphs[0].environment.local_subrs.count, content="0")
+    inspect(admitted.glyphs[0].environment.font_matrix.length(), content="6")
+    inspect(admitted.bounds.length(), content="1")
   }
 }
 
@@ -304,6 +305,104 @@ test "CFF1 admission rejects a malformed later glyph without committing budget" 
     after.allocation_size() == before.allocation_size(),
     content="true",
   )
+  inspect(after.work() == before.work(), content="true")
+}
+
+///|
+test "CFF1 admission publishes complete all-glyph facts after one combined commit" {
+  let source = cff_wb_otf(
+    cff_wb_name_table_with_programs([
+      b"\x8b\x8b\x15\x8c\x8c\x05\x0e",
+      b"\x0e",
+      b"\x8b\x8b\x15\x8d\x8d\x05\x0e",
+    ]),
+    num_glyphs=3UL,
+  )
+  let admitted = admit_cff1_structure(
+    font_wb_view(source),
+    font_wb_limits(),
+    cff_wb_budget(),
+    0UL,
+  ).unwrap()
+  inspect(admitted.glyphs.length(), content="3")
+  inspect(admitted.bounds.length(), content="3")
+  inspect(admitted.bounds[0] is Some(_), content="true")
+  inspect(admitted.bounds[1] is None, content="true")
+  inspect(admitted.bounds[2] is Some(_), content="true")
+  inspect(admitted.type2_charge.bounds_slots, content="3")
+  inspect(admitted.metrics.num_glyphs, content="3")
+  inspect(admitted.metrics.number_of_h_metrics, content="1")
+  inspect(
+    admitted.combined_charge.bytes ==
+    admitted.charge.bytes + admitted.type2_charge.bytes,
+    content="true",
+  )
+  inspect(
+    admitted.combined_charge.allocations ==
+    admitted.charge.allocations + admitted.type2_charge.allocations,
+    content="true",
+  )
+  inspect(
+    admitted.combined_charge.work ==
+    admitted.charge.work + admitted.type2_charge.work,
+    content="true",
+  )
+
+  let exact = cff_hostile_budget(
+    admitted.combined_charge.bytes,
+    admitted.combined_charge.allocations,
+    admitted.combined_charge.allocation_size,
+    admitted.combined_charge.work,
+  )
+  admit_cff1_structure(
+    font_wb_view(source),
+    font_wb_limits(),
+    exact,
+    0UL,
+  ) |> ignore
+  inspect(exact.remaining().bytes(), content="0")
+  inspect(exact.remaining().allocations(), content="0")
+  inspect(exact.remaining().work(), content="0")
+}
+
+///|
+test "CFF1 final revision guard precedes the sole combined commit" {
+  let owner = font_wb_owner(
+    cff_wb_otf(
+      cff_wb_name_table_with_programs([b"\x0e", b"\x0e", b"\x0e"]),
+      num_glyphs=3UL,
+    ),
+  )
+  let budget = cff_wb_budget()
+  let before = budget.remaining()
+  let mut probes = 0
+  let error = admit_cff1_structure_at_after_preflight(
+    owner.view(),
+    0UL,
+    None,
+    FontChecksumMode::Standalone,
+    false,
+    font_wb_limits(),
+    budget,
+    0UL,
+    fn() {
+      probes = probes + 1
+      if probes == 2 {
+        font_collection_wb_mutate_restore(owner, 0UL)
+      }
+    },
+    fn() { () },
+    fn() { () },
+  ).unwrap_err()
+  inspect(probes, content="2")
+  inspect(error.category() == @error.ErrorCategory::State, content="true")
+  inspect(
+    error.context() == Some("font-cff-source-revision-drift"),
+    content="true",
+  )
+  let after = budget.remaining()
+  inspect(after.bytes() == before.bytes(), content="true")
+  inspect(after.allocations() == before.allocations(), content="true")
   inspect(after.work() == before.work(), content="true")
 }
 
@@ -346,7 +445,7 @@ test "CFF1 PaintType and StrokeWidth profile rejects atomically before publicati
       0UL,
     ).unwrap()
     inspect(admitted.glyphs.length(), content="1")
-    inspect(admitted.glyph.gid, content="0")
+    inspect(admitted.glyphs[0].gid, content="0")
   }
 
   for unsupported in [

@@ -188,13 +188,13 @@ test "CFF name keying resolves all predefined charset and Encoding pairs" {
       2UL,
     ).unwrap()
     inspect(admitted.glyphs.length(), content="3")
-    inspect(admitted.glyph.key_value, content=item.2.to_string())
+    inspect(admitted.glyphs[2].key_value, content=item.2.to_string())
     inspect(admitted.keying.charset.predefined == Some(item.0), content="true")
     inspect(admitted.keying.encoding.unwrap().predefined == Some(item.1), content="true")
     inspect(admitted.keying.encoding.unwrap().codes.length(), content="2")
-    inspect(admitted.glyph.environment.fd is None, content="true")
-    inspect(admitted.glyph.environment.private_dict.local_subrs is Some(_), content="true")
-    inspect(admitted.glyph.environment.local_subrs.count, content="0")
+    inspect(admitted.glyphs[2].environment.fd is None, content="true")
+    inspect(admitted.glyphs[2].environment.private_dict.local_subrs is Some(_), content="true")
+    inspect(admitted.glyphs[2].environment.local_subrs.count, content="0")
   }
 }
 
@@ -248,7 +248,7 @@ test "CFF allocation authority uses concrete predefined and custom Encoding maxi
     num_glyphs=3UL,
   )
   let predefined_exact = cff_hostile_budget(
-    predefined.length().to_uint64(),
+    predefined.length().to_uint64() + 72UL,
     64UL,
     2048UL,
     65536UL,
@@ -262,7 +262,7 @@ test "CFF allocation authority uses concrete predefined and custom Encoding maxi
   inspect(admitted.charge.allocation_size, content="2048")
 
   let predefined_short = cff_hostile_budget(
-    predefined.length().to_uint64(),
+    predefined.length().to_uint64() + 72UL,
     64UL,
     2047UL,
     65536UL,
@@ -310,7 +310,7 @@ test "CFF allocation authority uses concrete predefined and custom Encoding maxi
     num_glyphs=3UL,
   )
   let exact = cff_hostile_budget(
-    custom.length().to_uint64(),
+    custom.length().to_uint64() + 72UL,
     64UL,
     2048UL,
     65536UL,
@@ -325,7 +325,7 @@ test "CFF allocation authority uses concrete predefined and custom Encoding maxi
   inspect(custom_admitted.charge.allocation_size, content="2048")
 
   let short = cff_hostile_budget(
-    custom.length().to_uint64(),
+    custom.length().to_uint64() + 72UL,
     64UL,
     2047UL,
     65536UL,
@@ -391,7 +391,7 @@ test "CFF custom Encoding may leave trailing glyphs unencoded" {
   ).unwrap()
   inspect(admitted.keying.encoding.unwrap().codes.length(), content="1")
   inspect(admitted.keying.encoding.unwrap().gids[0], content="1")
-  inspect(admitted.glyph.gid, content="2")
+  inspect(admitted.glyphs[2].gid, content="2")
 }
 
 ///|

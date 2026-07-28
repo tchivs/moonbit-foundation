@@ -1005,7 +1005,8 @@ test "private outline source accepts complete CFF facts and no partial or mixed 
   match font_outline_source_from_cff(admitted) {
     FontOutlineSource::Cff1(value) => {
       inspect(value.glyphs.length(), content="3")
-      inspect(value.glyph.gid, content="1")
+      inspect(value.glyphs[1].gid, content="1")
+      inspect(value.bounds.length(), content="3")
     }
     _ => fail("complete admitted CFF facts must promote as Cff1")
   }

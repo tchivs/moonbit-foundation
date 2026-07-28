@@ -1235,15 +1235,15 @@ test "selected collection CFF1 facts use one bounded atomic shared-table transac
   inspect(admitted.directory_start, content="188")
   inspect(admitted.cff_table_offset > admitted.directory_start, content="true")
   inspect(admitted.glyphs.length(), content="3")
-  inspect(admitted.glyph.gid, content="2")
+  inspect(admitted.glyphs[2].gid, content="2")
   inspect(admitted.charge.work, content="526")
   inspect(admitted.charge.retained_bytes > 0UL, content="true")
 
   let exact_budget = font_collection_wb_cff_budget(
-    495UL,
-    10UL,
+    567UL,
+    26UL,
     8192UL,
-    526UL,
+    529UL,
   )
   admit_cff1_collection_structure(
     owner.view(),

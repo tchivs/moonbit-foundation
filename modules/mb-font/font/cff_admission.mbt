@@ -8,11 +8,49 @@ priv struct AdmittedCff1 {
   charstrings : CffIndex
   keying : CffKeying
   glyphs : Array[CffGlyphDescriptor]
-  glyph : CffGlyphDescriptor
+  bounds : Array[GlyphBoundsFacts?]
+  metrics : CffMetricFacts
   num_glyphs : UInt64
   charge : CffStructuralCharge
+  type2_charge : Type2StagedCharge
+  combined_charge : CffCombinedCharge
+  opening_revision : UInt64
   directory_start : UInt64
   cff_table_offset : UInt64
+}
+
+///|
+priv struct CffMetricFacts {
+  hmtx : TableWindow
+  units_per_em : UInt64
+  num_glyphs : UInt64
+  number_of_h_metrics : UInt64
+}
+
+///|
+priv struct CffStagedStructure {
+  top : CffTopDict
+  name : CffIndex
+  strings : CffIndex
+  global_subrs : CffIndex
+  charstrings : CffIndex
+  keying : CffKeying
+  glyphs : Array[CffGlyphDescriptor]
+  metrics : CffMetricFacts
+  num_glyphs : UInt64
+  charge : CffStructuralCharge
+  opening_revision : UInt64
+  directory_start : UInt64
+  cff_table_offset : UInt64
+}
+
+///|
+priv struct CffCombinedCharge {
+  resource : @budget.ResourceCharge
+  bytes : UInt64
+  allocations : UInt64
+  allocation_size : UInt64
+  work : UInt64
 }
 
 ///|
@@ -286,14 +324,15 @@ fn cff_validate_common_tables(
   num_glyphs : UInt64,
   limits : FontLimits,
   traversal_probe : () -> Unit,
-) -> Result[Unit, @error.CoreError] {
+) -> Result[CffMetricFacts, @error.CoreError] {
   match font_require_common_table_presence(directory) {
     Err(error) => return Err(error)
     Ok(_) => ()
   }
-  match font_decode_head(font_table_window(directory, 0x68656164UL).unwrap()) {
+  let head = match
+    font_decode_head(font_table_window(directory, 0x68656164UL).unwrap()) {
     Err(error) => return Err(error)
-    Ok(_) => ()
+    Ok(value) => value
   }
   let maxp : MaxpFacts = {
     num_glyphs,
@@ -358,7 +397,12 @@ fn cff_validate_common_tables(
     Err(error) => return Err(error)
     Ok(_) => ()
   }
-  Ok(())
+  Ok({
+    hmtx,
+    units_per_em: head.units_per_em,
+    num_glyphs,
+    number_of_h_metrics: hhea.number_of_h_metrics,
+  })
 }
 
 ///|
@@ -1097,7 +1141,7 @@ fn cff_admission_charge(
 
 ///|
 #warnings("-1")
-fn admit_cff1_structure_at_after_preflight(
+fn cff_stage_structure_at_after_preflight(
   source : @bytes.ByteView,
   directory_start : UInt64,
   expected_table_count : UInt64?,
@@ -1109,7 +1153,7 @@ fn admit_cff1_structure_at_after_preflight(
   before_final_guard : () -> Unit,
   common_traversal_probe : () -> Unit,
   keying_lookup_probe : () -> Unit,
-) -> Result[AdmittedCff1, @error.CoreError] {
+) -> Result[CffStagedStructure, @error.CoreError] {
   let opening_revision = source.mutation_revision()
   // Test and selected-face adapters place their mutation hook immediately
   // after the opening revision capture. Any already-observed revision drift
@@ -1206,12 +1250,12 @@ fn admit_cff1_structure_at_after_preflight(
     Err(error) => return Err(error)
     Ok(value) => value
   }
-  match
+  let metrics = match
     cff_validate_common_tables(
       directory, num_glyphs, limits, common_traversal_probe,
     ) {
     Err(error) => return Err(error)
-    Ok(_) => ()
+    Ok(value) => value
   }
   match cff_require_window(cff.view, 0UL, 4UL, "font-cff-header") {
     Err(error) => return Err(error)
@@ -1546,16 +1590,129 @@ fn admit_cff1_structure_at_after_preflight(
     Err(error) => return Err(error)
     Ok(value) => value
   }
+  Ok({
+    top,
+    name,
+    strings,
+    global_subrs,
+    charstrings,
+    keying: keying.keying,
+    glyphs: keying.glyphs,
+    metrics,
+    num_glyphs,
+    charge,
+    opening_revision,
+    directory_start,
+    cff_table_offset: cff.offset,
+  })
+}
+
+///|
+#warnings("-1")
+fn cff_combine_staged_charge(
+  structural : CffStructuralCharge,
+  type2 : Type2StagedCharge,
+) -> Result[CffCombinedCharge, @error.CoreError] {
+  let bytes = match @checked.checked_add(structural.bytes, type2.bytes) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  let allocations = match
+    @checked.checked_add(structural.allocations, type2.allocations) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  let allocation_size = if structural.allocation_size >
+    type2.allocation_size {
+    structural.allocation_size
+  } else {
+    type2.allocation_size
+  }
+  let work = match @checked.checked_add(structural.work, type2.work) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  Ok({
+    resource: @budget.ResourceCharge::new(
+      bytes~,
+      allocations~,
+      allocation_size~,
+      width=0UL,
+      height=0UL,
+      pixels=0UL,
+      work~,
+    ),
+    bytes,
+    allocations,
+    allocation_size,
+    work,
+  })
+}
+
+///|
+#warnings("-1")
+fn admit_cff1_structure_at_after_preflight(
+  source : @bytes.ByteView,
+  directory_start : UInt64,
+  expected_table_count : UInt64?,
+  checksum_mode : FontChecksumMode,
+  collection_charge : Bool,
+  limits : FontLimits,
+  budget : @budget.Budget,
+  gid : UInt64,
+  before_final_guard : () -> Unit,
+  common_traversal_probe : () -> Unit,
+  keying_lookup_probe : () -> Unit,
+) -> Result[AdmittedCff1, @error.CoreError] {
+  let staged = match
+    cff_stage_structure_at_after_preflight(
+      source,
+      directory_start,
+      expected_table_count,
+      checksum_mode,
+      collection_charge,
+      limits,
+      budget,
+      gid,
+      before_final_guard,
+      common_traversal_probe,
+      keying_lookup_probe,
+    ) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  let vm_limits = match type2_limits(limits) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  let executed = match
+    type2_stage_all_glyphs(
+      staged.glyphs,
+      staged.global_subrs,
+      staged.metrics.units_per_em,
+      vm_limits,
+      budget,
+      source,
+      staged.opening_revision,
+    ) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  let combined = match cff_combine_staged_charge(staged.charge, executed.charge) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
   let ledger = FontAdmissionLedger::new(
     budget,
     FontAdmissionCommitMode::CollectionDeferred,
   )
   match
-    ledger.preflight_atomic(limits.max_work(), charge.work, charge.resource) {
+    ledger.preflight_atomic(limits.max_work(), combined.work, combined.resource) {
     Err(error) => return Err(error)
     Ok(_) => ()
   }
-  if source.mutation_revision() != opening_revision {
+  before_final_guard()
+  if source.mutation_revision() != staged.opening_revision {
     return Err(
       @error.CoreError::new(
         @error.ErrorCategory::State,
@@ -1565,23 +1722,27 @@ fn admit_cff1_structure_at_after_preflight(
       ),
     )
   }
-  match ledger.commit_atomic(charge.resource) {
+  match ledger.commit_atomic(combined.resource) {
     Err(error) => return Err(error)
     Ok(_) => ()
   }
   Ok({
-    top,
-    name,
-    strings,
-    global_subrs,
-    charstrings,
-    keying: keying.keying,
-    glyphs: keying.glyphs,
-    glyph: keying.glyphs[gid.to_int()],
-    num_glyphs,
-    charge,
-    directory_start,
-    cff_table_offset: cff.offset,
+    top: staged.top,
+    name: staged.name,
+    strings: staged.strings,
+    global_subrs: staged.global_subrs,
+    charstrings: staged.charstrings,
+    keying: staged.keying,
+    glyphs: staged.glyphs,
+    bounds: executed.bounds,
+    metrics: staged.metrics,
+    num_glyphs: staged.num_glyphs,
+    charge: staged.charge,
+    type2_charge: executed.charge,
+    combined_charge: combined,
+    opening_revision: staged.opening_revision,
+    directory_start: staged.directory_start,
+    cff_table_offset: staged.cff_table_offset,
   })
 }
 
