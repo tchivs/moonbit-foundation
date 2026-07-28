@@ -1104,6 +1104,41 @@ test "shared CFF collection faces retain identical bounds and face-local hmtx" {
 }
 
 ///|
+test "CFF outline exact path charge tracer rejects post-stage mutation atomically" {
+  let cubic = b"\xef\x95\x9f\x15\xa9\x8b\xb3\x95\xbd\x81\x08\x0e"
+  let owner = font_wb_owner(
+    cff_wb_otf_with_cmap(
+      cff_wb_name_table_with_programs([b"\x0e", cubic]),
+      cff_wb_cmap_format4_two_segments(),
+      num_glyphs=2UL,
+    ),
+  )
+  let font = Font::open(
+    owner.view(),
+    font_wb_limits(),
+    cff_wb_budget(),
+  ).unwrap()
+  let glyph = font.glyph_id(1UL).unwrap()
+  let budget = font_wb_outline_budget()
+  let before = budget.remaining()
+  let result = font.outline_after_decode(glyph, budget, fn(_path) {
+    font_wb_mutate_one_byte(owner, 0)
+  })
+  inspect(result is Err(_), content="true")
+  let error = result.unwrap_err()
+  inspect(error.category() == @error.ErrorCategory::State, content="true")
+  inspect(error.context() == Some("font-source-revision-drift"), content="true")
+  let after = budget.remaining()
+  inspect(after.bytes() == before.bytes(), content="true")
+  inspect(after.allocations() == before.allocations(), content="true")
+  inspect(
+    after.allocation_size() == before.allocation_size(),
+    content="true",
+  )
+  inspect(after.work() == before.work(), content="true")
+}
+
+///|
 test "font directory matrix enforces canonical windows and checksums" {
   let valid = generated_minimal_truetype()
   let facts = font_parse_directory(font_wb_view(valid), font_wb_limits()).unwrap()

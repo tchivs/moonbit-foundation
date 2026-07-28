@@ -749,6 +749,140 @@ fn font_test_build_truetype(tables : Array[FontTestTable]) -> Bytes {
 }
 
 ///|
+fn font_test_cff_index(objects : Array[Bytes]) -> Bytes {
+  let output : Array[Byte] = []
+  font_test_push_u16(output, objects.length().to_uint64())
+  if objects.length() == 0 {
+    return Bytes::from_array(output)
+  }
+  output.push(b'\x01')
+  let mut next = 1UL
+  output.push(next.to_byte())
+  for object in objects {
+    next = next + object.length().to_uint64()
+    output.push(next.to_byte())
+  }
+  for object in objects {
+    for byte in object {
+      output.push(byte)
+    }
+  }
+  Bytes::from_array(output)
+}
+
+///|
+fn font_test_cff_dict_u32(output : Array[Byte], value : UInt64) -> Unit {
+  output.push(b'\x1d')
+  font_test_push_u32(output, value)
+}
+
+///|
+fn font_test_cff_top(charstrings : UInt64, private_offset : UInt64) -> Bytes {
+  let output : Array[Byte] = []
+  font_test_cff_dict_u32(output, charstrings)
+  output.push(b'\x11')
+  font_test_cff_dict_u32(output, 2UL)
+  font_test_cff_dict_u32(output, private_offset)
+  output.push(b'\x12')
+  Bytes::from_array(output)
+}
+
+///|
+fn font_test_cff_program_table(programs : Array[Bytes]) -> Bytes {
+  let header = b"\x01\x00\x04\x04"
+  let name = font_test_cff_index([b"Phase106"])
+  let strings = font_test_cff_index([])
+  let global_subrs = font_test_cff_index([])
+  let charstrings = font_test_cff_index(programs)
+  let private_data = b"\x8d\x13\x00\x00"
+  let placeholder_top = font_test_cff_top(0UL, 0UL)
+  let charstrings_offset = header.length().to_uint64() +
+    name.length().to_uint64() +
+    font_test_cff_index([placeholder_top]).length().to_uint64() +
+    strings.length().to_uint64() +
+    global_subrs.length().to_uint64()
+  let private_offset = charstrings_offset + charstrings.length().to_uint64()
+  let top = font_test_cff_top(charstrings_offset, private_offset)
+  let output : Array[Byte] = []
+  for part in [
+    header,
+    name,
+    font_test_cff_index([top]),
+    strings,
+    global_subrs,
+    charstrings,
+    private_data,
+  ] {
+    for byte in part {
+      output.push(byte)
+    }
+  }
+  Bytes::from_array(output)
+}
+
+///|
+fn font_test_build_opentype(tables : Array[FontTestTable]) -> Bytes {
+  let output = font_test_build_truetype(tables).to_array()
+  font_test_put_u32(output, 0, 0x4F54544FUL)
+  let head_offset = font_test_read_u32(
+    Bytes::from_array(output.copy()),
+    12 + 3 * 16 + 8,
+  )
+  font_test_put_u32(output, head_offset.to_int() + 8, 0UL)
+  let adjustment = (
+      0xB1B0AFBAUL - font_test_checksum(Bytes::from_array(output.copy()))
+    ) &
+    0xFFFFFFFFUL
+  font_test_put_u32(output, head_offset.to_int() + 8, adjustment)
+  Bytes::from_array(output)
+}
+
+///|
+fn font_test_standalone_cff1(programs : Array[Bytes]) -> Bytes {
+  let maxp : Array[Byte] = []
+  font_test_push_u32(maxp, 0x00005000UL)
+  font_test_push_u16(maxp, programs.length().to_uint64())
+  font_test_build_opentype([
+    {
+      tag: b"CFF ",
+      payload: font_test_cff_program_table(programs),
+    },
+    { tag: b"OS/2", payload: font_test_fixed_table(78) },
+    { tag: b"cmap", payload: font_test_cmap_format4_two_segments() },
+    { tag: b"head", payload: font_test_head_table() },
+    { tag: b"hhea", payload: font_test_hhea_table() },
+    { tag: b"hmtx", payload: b"\x02\x58\x00\x0a\x00\x14" },
+    {
+      tag: b"kern",
+      payload: font_test_kern_format0([(1UL, 1UL, -25)]),
+    },
+    { tag: b"maxp", payload: Bytes::from_array(maxp) },
+    { tag: b"name", payload: font_test_name_table() },
+    { tag: b"post", payload: font_test_post_table() },
+  ])
+}
+
+///|
+fn font_test_cff_open_budget() -> @budget.Budget {
+  font_test_budget_with_dimensions(
+    4096UL,
+    allocations=64UL,
+    allocation_size=16384UL,
+    65536UL,
+  )
+}
+
+///|
+fn font_test_cff_outline_budget() -> @budget.Budget {
+  font_test_budget_with_dimensions(
+    4096UL,
+    allocations=32UL,
+    allocation_size=16384UL,
+    65536UL,
+  )
+}
+
+///|
 fn font_test_minimal_truetype() -> Bytes {
   font_test_build_truetype([
     { tag: b"OS/2", payload: font_test_fixed_table(78) },
@@ -762,6 +896,55 @@ fn font_test_minimal_truetype() -> Bytes {
     { tag: b"name", payload: font_test_name_table() },
     { tag: b"post", payload: font_test_post_table() },
   ])
+}
+
+///|
+test "Phase 106 standalone CFF1 opens and publishes one native cubic path" {
+  let cubic = b"\xef\x95\x9f\x15\xa9\x8b\xb3\x95\xbd\x81\x08\x0e"
+  let owner = font_test_owner(
+    font_test_standalone_cff1([b"\x0e", cubic]),
+  )
+  let font = Font::open(
+    owner.view(),
+    font_test_limits(),
+    font_test_cff_open_budget(),
+  ).unwrap()
+  inspect(font.units_per_em().unwrap(), content="1000")
+  let glyph = font.glyph_for_scalar(0x41).unwrap()
+  inspect(glyph.value(), content="1")
+  inspect(font.glyph_id(1UL).unwrap().value(), content="1")
+  let metrics = font.horizontal_metrics(glyph).unwrap()
+  inspect(metrics.advance_width(), content="600")
+  inspect(metrics.left_side_bearing(), content="20")
+  inspect(metrics.right_side_bearing(), content="450")
+  inspect(font.kerning(glyph, glyph).unwrap(), content="-25")
+  let path = font.outline(glyph, font_test_cff_outline_budget()).unwrap()
+  inspect(path.length(), content="3")
+  match path.get(0) {
+    Some(@math.PathCommand::MoveTo(point)) =>
+      inspect(
+        point.x() == 10.0 && point.y() == 20.0,
+        content="true",
+      )
+    _ => fail("CFF cubic must begin with MoveTo")
+  }
+  match path.get(1) {
+    Some(@math.PathCommand::CubicTo(control1, control2, end)) =>
+      inspect(
+        control1.x() == 40.0 &&
+        control1.y() == 20.0 &&
+        control2.x() == 80.0 &&
+        control2.y() == 30.0 &&
+        end.x() == 130.0 &&
+        end.y() == 20.0,
+        content="true",
+      )
+    _ => fail("Type 2 cubic must remain a native CubicTo")
+  }
+  match path.get(2) {
+    Some(@math.PathCommand::Close) => ()
+    _ => fail("non-empty CFF contour must close")
+  }
 }
 
 ///|
