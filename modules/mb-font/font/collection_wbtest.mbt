@@ -1236,14 +1236,14 @@ test "selected collection CFF1 facts use one bounded atomic shared-table transac
   inspect(admitted.cff_table_offset > admitted.directory_start, content="true")
   inspect(admitted.glyphs.length(), content="3")
   inspect(admitted.glyph.gid, content="2")
-  inspect(admitted.charge.work > 0UL, content="true")
+  inspect(admitted.charge.work, content="526")
   inspect(admitted.charge.retained_bytes > 0UL, content="true")
 
   let exact_budget = font_collection_wb_cff_budget(
     495UL,
     10UL,
     8192UL,
-    524UL,
+    526UL,
   )
   admit_cff1_collection_structure(
     owner.view(),
@@ -1276,9 +1276,9 @@ test "selected collection CFF1 facts use one bounded atomic shared-table transac
         8192UL
       },
       if short_dimension == 3 {
-        523UL
+        525UL
       } else {
-        524UL
+        526UL
       },
     )
     let before = short_budget.remaining()
@@ -1298,7 +1298,7 @@ test "selected collection CFF1 facts use one bounded atomic shared-table transac
     495UL,
     10UL,
     8192UL,
-    524UL,
+    526UL,
   )
   let mutation_before = mutation_budget.remaining()
   let mutation_error = admit_cff1_collection_structure_after_preflight(

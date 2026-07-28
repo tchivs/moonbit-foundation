@@ -62,7 +62,9 @@ test "cff_structural_exact_and_one_short_cases" {
   inspect(admitted.charge.charset_entries, content="1")
   inspect(admitted.charge.encoding_entries, content="0")
   inspect(admitted.charge.fd_ranges, content="0")
-  inspect(admitted.charge.sid_cid_lookups, content="1")
+  // StandardEncoding contains 149 nonzero SIDs; each is looked up against the
+  // one-glyph ISOAdobe charset even though none is retained.
+  inspect(admitted.charge.sid_cid_lookups, content="149")
   inspect(admitted.charge.descriptors, content="1")
   inspect(admitted.charge.fd_environments, content="1")
   let ceilings = cff_structural_limits(font_wb_limits()).unwrap()
@@ -160,15 +162,17 @@ test "CFF structural work allocation and caller authority are exact or absent" {
     cff_wb_budget(),
     2UL,
   ).unwrap()
-  inspect(admitted.charge.fd_ranges > 0UL, content="true")
+  inspect(admitted.charge.fd_ranges, content="2")
+  inspect(admitted.charge.sid_cid_lookups, content="4")
   inspect(admitted.charge.encoding_entries, content="0")
   inspect(admitted.charge.descriptors, content="3")
   inspect(admitted.charge.fd_environments, content="2")
+  inspect(admitted.charge.work, content="1445")
   let exact = cff_hostile_budget(
     580UL,
     9UL,
     8192UL,
-    1441UL,
+    1445UL,
   )
   admit_cff1_structure(
     font_wb_view(source),
@@ -198,9 +202,9 @@ test "CFF structural work allocation and caller authority are exact or absent" {
         8192UL
       },
       if dimension == 3 {
-        1440UL
+        1444UL
       } else {
-        1441UL
+        1445UL
       },
     )
     let before = budget.remaining()
@@ -255,6 +259,28 @@ test "CFF caller work and allocation authority precede hostile keying traversal"
     )
     inspect(budget.remaining().work() == before.work(), content="true")
   }
+
+  let zero_work = cff_hostile_budget(
+    source.length().to_uint64(),
+    64UL,
+    16384UL,
+    0UL,
+  )
+  let mut common_traversals = 0
+  let error = admit_cff1_structure_at_after_preflight(
+    font_wb_view(source),
+    0UL,
+    None,
+    FontChecksumMode::Standalone,
+    false,
+    font_wb_limits(),
+    zero_work,
+    2UL,
+    fn() { () },
+    fn() { common_traversals = common_traversals + 1 },
+  ).unwrap_err()
+  inspect(error.category() == @error.ErrorCategory::Resource, content="true")
+  inspect(common_traversals, content="0")
 }
 
 ///|
@@ -310,6 +336,7 @@ test "CFF multi-fault precedence is state resource capability then data" {
     too_short,
     0UL,
     fn() { font_collection_wb_mutate_restore(owner, 0UL) },
+    fn() { () },
   ).unwrap_err()
   inspect(state_error.category() == @error.ErrorCategory::State, content="true")
   inspect(

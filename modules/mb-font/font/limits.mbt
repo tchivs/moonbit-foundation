@@ -215,13 +215,10 @@ fn cff_structural_limits(
     Err(error) => return Err(error)
     Ok(value) => value
   }
-  // One byte code can name at most 256 Encoding entries. Supplements remain
-  // bounded by the glyph/SID domain and are charged as SID lookups.
-  let max_encoding_entries = if limits.max_glyphs() > 256UL {
-    256UL
-  } else {
-    limits.max_glyphs()
-  }
+  // One byte code can name at most 256 Encoding entries. Supplements may map
+  // many distinct codes to the same already-encoded glyph, so this ceiling is
+  // independent of max_glyphs.
+  let max_encoding_entries = 256UL
   let retained_descriptors = match
     @checked.checked_mul(limits.max_glyphs(), 96UL) {
     Err(error) => return Err(error)
@@ -237,10 +234,33 @@ fn cff_structural_limits(
     Err(error) => return Err(error)
     Ok(value) => value
   }
+  let retained_charset_and_selectors = match
+    @checked.checked_mul(limits.max_glyphs(), 16UL) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  let retained_encoding = match @checked.checked_mul(max_encoding_entries, 16UL) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
   let max_retained_bytes = match
     @checked.checked_add(
-      retained_descriptors,
-      match @checked.checked_add(retained_ranges, retained_offsets) {
+      match @checked.checked_add(retained_descriptors, retained_ranges) {
+        Err(error) => return Err(error)
+        Ok(value) => value
+      },
+      match
+        @checked.checked_add(
+          retained_offsets,
+          match
+            @checked.checked_add(
+              retained_charset_and_selectors,
+              retained_encoding,
+            ) {
+            Err(error) => return Err(error)
+            Ok(value) => value
+          },
+        ) {
         Err(error) => return Err(error)
         Ok(value) => value
       },

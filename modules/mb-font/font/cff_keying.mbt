@@ -23,6 +23,7 @@ priv struct CffCharset {
   format : UInt64
   predefined : UInt64?
   values : Array[UInt64]
+  sid_cid_lookups : UInt64
 }
 
 ///|
@@ -32,6 +33,7 @@ priv struct CffEncoding {
   predefined : UInt64?
   codes : Array[UInt64]
   gids : Array[UInt64]
+  sid_cid_lookups : UInt64
 }
 
 ///|
@@ -69,6 +71,7 @@ priv struct CffKeyingResult {
   glyphs : Array[CffGlyphDescriptor]
   retained_indexes : Array[CffIndex]
   dict_units : UInt64
+  sid_cid_lookups : UInt64
 }
 
 ///|
@@ -173,7 +176,12 @@ fn cff_predefined_charset(
     values.push(source[gid.to_int()])
     gid = gid + 1UL
   }
-  Ok({ format: 0UL, predefined: Some(identifier), values })
+  Ok({
+    format: 0UL,
+    predefined: Some(identifier),
+    values,
+    sid_cid_lookups: 0UL,
+  })
 }
 
 ///|
@@ -292,6 +300,7 @@ fn cff_decode_custom_charset(
   }
   let values : Array[UInt64] = [0UL]
   let seen = cff_charset_seen_table()
+  let mut sid_cid_lookups = 0UL
   seen[0] = b'\x01'
   if format == 0UL {
     let mut gid = 1UL
@@ -306,6 +315,10 @@ fn cff_decode_custom_charset(
       match cff_charset_record_value(seen, values, value, cid_keyed, strings) {
         Err(error) => return Err(error)
         Ok(_) => ()
+      }
+      sid_cid_lookups = match @checked.checked_add(sid_cid_lookups, 1UL) {
+        Err(error) => return Err(error)
+        Ok(value) => value
       }
       gid = gid + 1UL
     }
@@ -332,12 +345,16 @@ fn cff_decode_custom_charset(
           Err(error) => return Err(error)
           Ok(_) => ()
         }
+        sid_cid_lookups = match @checked.checked_add(sid_cid_lookups, 1UL) {
+          Err(error) => return Err(error)
+          Ok(value) => value
+        }
         delta = delta + 1UL
       }
       cursor = cursor + 2UL + nleft_width
     }
   }
-  Ok({ format, predefined: None, values })
+  Ok({ format, predefined: None, values, sid_cid_lookups })
 }
 
 ///|
@@ -443,6 +460,7 @@ fn cff_predefined_encoding(
   }
   let codes : Array[UInt64] = []
   let gids : Array[UInt64] = []
+  let mut sid_cid_lookups = 0UL
   let mut code = 0UL
   while code < 256UL {
     let sid = source[code.to_int()]
@@ -454,10 +472,20 @@ fn cff_predefined_encoding(
           gids.push(gid)
         }
       }
+      sid_cid_lookups = match @checked.checked_add(sid_cid_lookups, 1UL) {
+        Err(error) => return Err(error)
+        Ok(value) => value
+      }
     }
     code = code + 1UL
   }
-  Ok({ format: 0UL, predefined: Some(identifier), codes, gids })
+  Ok({
+    format: 0UL,
+    predefined: Some(identifier),
+    codes,
+    gids,
+    sid_cid_lookups,
+  })
 }
 
 ///|
@@ -479,6 +507,7 @@ fn cff_decode_custom_encoding(
   let codes : Array[UInt64] = []
   let gids : Array[UInt64] = []
   let seen : Array[Bool] = Array::make(256, false)
+  let mut sid_cid_lookups = 0UL
   let mut cursor = offset + 2UL
   if format == 0UL {
     let count = cff.view.get(offset + 1UL).unwrap().to_uint64()
@@ -599,13 +628,17 @@ fn cff_decode_custom_encoding(
       if gid == 0UL || gid > main_gid_count {
         return Err(cff_data_error("font-cff-encoding-supplement-gid"))
       }
+      sid_cid_lookups = match @checked.checked_add(sid_cid_lookups, 2UL) {
+        Err(error) => return Err(error)
+        Ok(value) => value
+      }
       seen[code.to_int()] = true
       codes.push(code)
       gids.push(gid)
       supplement = supplement + 1UL
     }
   }
-  Ok({ format, predefined: None, codes, gids })
+  Ok({ format, predefined: None, codes, gids, sid_cid_lookups })
 }
 
 ///|
@@ -932,6 +965,14 @@ fn cff_resolve_name_keying(
     glyphs,
     retained_indexes: [environment.local_subrs],
     dict_units: environment.dict_units,
+    sid_cid_lookups: match
+      @checked.checked_add(
+        charset.sid_cid_lookups,
+        encoding.sid_cid_lookups,
+      ) {
+      Err(error) => return Err(error)
+      Ok(value) => value
+    },
   })
 }
 
@@ -949,6 +990,7 @@ fn cff_resolve_cid_keying(
     None => return Err(cff_data_error("font-cff-cid-ros"))
     Some(value) => value
   }
+  let mut sid_cid_lookups = 2UL
   match cff_validate_sid(ros.registry_sid, strings, "font-cff-cid-registry-sid") {
     Err(error) => return Err(error)
     Ok(_) => ()
@@ -982,6 +1024,11 @@ fn cff_resolve_cid_keying(
       true,
       strings,
     ) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  sid_cid_lookups = match
+    @checked.checked_add(sid_cid_lookups, charset.sid_cid_lookups) {
     Err(error) => return Err(error)
     Ok(value) => value
   }
@@ -1050,6 +1097,10 @@ fn cff_resolve_cid_keying(
       match cff_validate_sid(sid, strings, "font-cff-font-name") {
         Err(error) => return Err(error)
         Ok(_) => ()
+      }
+      sid_cid_lookups = match @checked.checked_add(sid_cid_lookups, 1UL) {
+        Err(error) => return Err(error)
+        Ok(value) => value
       }
     }
     let private_range = match font_dict.private_range {
@@ -1136,6 +1187,7 @@ fn cff_resolve_cid_keying(
     glyphs,
     retained_indexes,
     dict_units,
+    sid_cid_lookups,
   })
 }
 

@@ -293,6 +293,7 @@ fn cff_validate_common_tables(
   directory : DirectoryFacts,
   num_glyphs : UInt64,
   limits : FontLimits,
+  traversal_probe : () -> Unit,
 ) -> Result[Unit, @error.CoreError] {
   match font_require_common_table_presence(directory) {
     Err(error) => return Err(error)
@@ -340,6 +341,7 @@ fn cff_validate_common_tables(
     Err(error) => return Err(error)
     Ok(_) => ()
   }
+  traversal_probe()
   match
     font_admit_cmap_envelope(
       font_table_window(directory, 0x636D6170UL).unwrap(),
@@ -349,6 +351,7 @@ fn cff_validate_common_tables(
     Err(error) => return Err(error)
     Ok(_) => ()
   }
+  traversal_probe()
   match
     font_admit_name_envelope(
       font_table_window(directory, 0x6E616D65UL).unwrap(),
@@ -357,6 +360,7 @@ fn cff_validate_common_tables(
     Err(error) => return Err(error)
     Ok(_) => ()
   }
+  traversal_probe()
   match
     font_admit_post_envelope(
       font_table_window(directory, 0x706F7374UL).unwrap(),
@@ -367,6 +371,290 @@ fn cff_validate_common_tables(
     Ok(_) => ()
   }
   Ok(())
+}
+
+///|
+fn cff_preflight_common_table_traversal(
+  directory : DirectoryFacts,
+  num_glyphs : UInt64,
+  limits : FontLimits,
+  authority : CffAuthorityLedger,
+) -> Result[UInt64, @error.CoreError] {
+  let cmap = match font_table_window(directory, 0x636D6170UL) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  match font_table_min_length(cmap, 4UL, "font-cmap-envelope") {
+    Err(error) => return Err(error)
+    Ok(_) => ()
+  }
+  let cmap_records = match read_u16(cmap.view, 2UL) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  if cmap_records > limits.max_cmap_records() {
+    return Err(
+      font_limit_error(
+        "max-cmap-records",
+        cmap_records,
+        limits.max_cmap_records(),
+      ),
+    )
+  }
+  let cmap_record_bytes = match @checked.checked_mul(cmap_records, 8UL) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  let cmap_records_end = match @checked.checked_add(4UL, cmap_record_bytes) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  if cmap_records_end > cmap.length_value {
+    return Err(font_data_error("font-cmap-envelope"))
+  }
+  // Authorize the discovery scan before reading any attacker-declared record.
+  match authority.preflight(cmap_records, 0UL, 0UL) {
+    Err(error) => return Err(error)
+    Ok(_) => ()
+  }
+  let mut cmap_body_records = 0UL
+  let mut cmap_mapping_work = 0UL
+  let mut cmap_discovery_work = 0UL
+  let mut cmap_index = 0UL
+  while cmap_index < cmap_records {
+    let record = 4UL + cmap_index * 8UL
+    let platform = match read_u16(cmap.view, record) {
+      Err(error) => return Err(error)
+      Ok(value) => value
+    }
+    let encoding = match read_u16(cmap.view, record + 2UL) {
+      Err(error) => return Err(error)
+      Ok(value) => value
+    }
+    let subtable = match read_u32(cmap.view, record + 4UL) {
+      Err(error) => return Err(error)
+      Ok(value) => value
+    }
+    if subtable < cmap_records_end {
+      return Err(font_data_error("font-cmap-envelope"))
+    }
+    let envelope = match font_cmap_subtable_envelope(cmap, subtable) {
+      Err(error) => return Err(error)
+      Ok(value) => value
+    }
+    if !font_cmap_recognized_nonselected(
+      platform,
+      encoding,
+      envelope.format,
+    ) {
+      if envelope.format != 4UL && envelope.format != 12UL {
+        return Err(font_data_error("font-cmap-envelope"))
+      }
+      let facts = match font_cmap_subtable_facts(cmap, subtable) {
+        Err(error) => return Err(error)
+        Ok(value) => value
+      }
+      cmap_body_records = match
+        @checked.checked_add(cmap_body_records, facts.body_records) {
+        Err(error) => return Err(error)
+        Ok(value) => value
+      }
+      if facts.format == 4UL {
+        // The mapping-work discovery helper itself traverses every segment.
+        match authority.preflight(facts.body_records, 0UL, 0UL) {
+          Err(error) => return Err(error)
+          Ok(_) => ()
+        }
+        cmap_discovery_work = match
+          @checked.checked_add(cmap_discovery_work, facts.body_records) {
+          Err(error) => return Err(error)
+          Ok(value) => value
+        }
+        cmap_mapping_work = match
+          @checked.checked_add(
+            cmap_mapping_work,
+            match font_cmap_format4_mapping_work(cmap, subtable, facts) {
+              Err(error) => return Err(error)
+              Ok(value) => value
+            },
+          ) {
+          Err(error) => return Err(error)
+          Ok(value) => value
+        }
+      }
+    }
+    cmap_index = cmap_index + 1UL
+  }
+  let cmap_semantic_work = match
+    @checked.checked_add(
+      cmap_records,
+      match @checked.checked_add(cmap_body_records, cmap_mapping_work) {
+        Err(error) => return Err(error)
+        Ok(value) => value
+      },
+    ) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  match authority.preflight(cmap_semantic_work, 0UL, 0UL) {
+    Err(error) => return Err(error)
+    Ok(_) => ()
+  }
+
+  let name = match font_table_window(directory, 0x6E616D65UL) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  match font_table_min_length(name, 6UL, "font-name-envelope") {
+    Err(error) => return Err(error)
+    Ok(_) => ()
+  }
+  let name_format = match read_u16(name.view, 0UL) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  let name_records = match read_u16(name.view, 2UL) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  if name_format > 1UL {
+    return Err(font_data_error("font-name-envelope"))
+  }
+  if name_records > limits.max_name_records() {
+    return Err(
+      font_limit_error(
+        "max-name-records",
+        name_records,
+        limits.max_name_records(),
+      ),
+    )
+  }
+  let name_record_bytes = match @checked.checked_mul(name_records, 12UL) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  let name_records_end = match @checked.checked_add(6UL, name_record_bytes) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  if name_records_end > name.length_value {
+    return Err(font_data_error("font-name-envelope"))
+  }
+  let language_records = if name_format == 1UL {
+    let count_field_end = match @checked.checked_add(name_records_end, 2UL) {
+      Err(error) => return Err(error)
+      Ok(value) => value
+    }
+    if count_field_end > name.length_value {
+      return Err(font_data_error("font-name-envelope"))
+    }
+    let value = match read_u16(name.view, name_records_end) {
+      Err(error) => return Err(error)
+      Ok(value) => value
+    }
+    if value > limits.max_name_records() {
+      return Err(
+        font_limit_error(
+          "max-name-records",
+          value,
+          limits.max_name_records(),
+        ),
+      )
+    }
+    value
+  } else {
+    0UL
+  }
+  let name_work = match @checked.checked_add(name_records, language_records) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  match authority.preflight(name_work, 0UL, 0UL) {
+    Err(error) => return Err(error)
+    Ok(_) => ()
+  }
+
+  let post = match font_table_window(directory, 0x706F7374UL) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  match font_table_min_length(post, 32UL, "font-post-envelope") {
+    Err(error) => return Err(error)
+    Ok(_) => ()
+  }
+  let post_version = match read_u32(post.view, 0UL) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  let post_work = if post_version == 0x00020000UL {
+    match font_table_min_length(post, 34UL, "font-post-envelope") {
+      Err(error) => return Err(error)
+      Ok(_) => ()
+    }
+    let glyph_count = match read_u16(post.view, 32UL) {
+      Err(error) => return Err(error)
+      Ok(value) => value
+    }
+    let names_start = match
+      @checked.checked_add(
+        34UL,
+        match @checked.checked_mul(glyph_count, 2UL) {
+          Err(error) => return Err(error)
+          Ok(value) => value
+        },
+      ) {
+      Err(error) => return Err(error)
+      Ok(value) => value
+    }
+    if names_start > post.length_value {
+      return Err(font_data_error("font-post-envelope"))
+    }
+    let name_bytes = post.length_value - names_start
+    if name_bytes > limits.max_post_name_bytes() {
+      return Err(
+        font_limit_error(
+          "max-post-name-bytes",
+          name_bytes,
+          limits.max_post_name_bytes(),
+        ),
+      )
+    }
+    match @checked.checked_add(glyph_count, name_bytes) {
+      Err(error) => return Err(error)
+      Ok(value) => value
+    }
+  } else if post_version == 0x00025000UL {
+    num_glyphs
+  } else {
+    0UL
+  }
+  match authority.preflight(post_work, 0UL, 0UL) {
+    Err(error) => return Err(error)
+    Ok(_) => ()
+  }
+
+  let cmap_work = match
+    @checked.checked_add(
+      cmap_records,
+      match @checked.checked_add(cmap_discovery_work, cmap_semantic_work) {
+        Err(error) => return Err(error)
+        Ok(value) => value
+      },
+    ) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  match
+    @checked.checked_add(
+      cmap_work,
+      match @checked.checked_add(name_work, post_work) {
+        Err(error) => return Err(error)
+        Ok(value) => value
+      },
+    ) {
+    Err(error) => Err(error)
+    Ok(value) => Ok(value)
+  }
 }
 
 ///|
@@ -413,6 +701,140 @@ fn cff_table_subview(
 }
 
 ///|
+fn cff_predefined_charset_source_allocation(
+  identifier : UInt64,
+) -> Result[UInt64, @error.CoreError] {
+  match identifier {
+    0UL => Ok(1832UL)
+    1UL => Ok(1328UL)
+    2UL => Ok(696UL)
+    _ => Err(cff_data_error("font-cff-name-charset"))
+  }
+}
+
+///|
+fn cff_custom_encoding_entry_count(
+  cff : TableWindow,
+  offset : UInt64,
+  charset_entries : UInt64,
+  authority : CffAuthorityLedger,
+) -> Result[(UInt64, UInt64), @error.CoreError] {
+  match cff_require_window(cff.view, offset, 2UL, "font-cff-encoding-format") {
+    Err(error) => return Err(error)
+    Ok(_) => ()
+  }
+  let raw_format = cff.view.get(offset).unwrap().to_uint64()
+  let format = raw_format & 0x7FUL
+  if format > 1UL {
+    return Err(cff_data_error("font-cff-encoding-format"))
+  }
+  let mut cursor = offset + 2UL
+  let mut discovery_work = 0UL
+  let main_entries = if format == 0UL {
+    let count = cff.view.get(offset + 1UL).unwrap().to_uint64()
+    match
+      cff_require_window(
+        cff.view,
+        cursor,
+        count,
+        "font-cff-encoding-format0",
+      ) {
+      Err(error) => return Err(error)
+      Ok(_) => ()
+    }
+    if charset_entries == 0UL || count > charset_entries - 1UL {
+      return Err(cff_data_error("font-cff-encoding-cardinality"))
+    }
+    cursor = cursor + count
+    count
+  } else {
+    let range_count = cff.view.get(offset + 1UL).unwrap().to_uint64()
+    let range_bytes = match @checked.checked_mul(range_count, 2UL) {
+      Err(_) => return Err(cff_data_error("font-cff-encoding-range"))
+      Ok(value) => value
+    }
+    match
+      cff_require_window(
+        cff.view,
+        cursor,
+        range_bytes,
+        "font-cff-encoding-range",
+      ) {
+      Err(error) => return Err(error)
+      Ok(_) => ()
+    }
+    match authority.preflight(range_count, 0UL, 0UL) {
+      Err(error) => return Err(error)
+      Ok(_) => ()
+    }
+    discovery_work = range_count
+    let mut entries = 0UL
+    let mut range = 0UL
+    while range < range_count {
+      let first = cff.view.get(cursor + range * 2UL).unwrap().to_uint64()
+      let nleft = cff.view.get(cursor + range * 2UL + 1UL).unwrap().to_uint64()
+      if first > 255UL - nleft {
+        return Err(cff_data_error("font-cff-encoding-range"))
+      }
+      entries = match @checked.checked_add(entries, nleft + 1UL) {
+        Err(error) => return Err(error)
+        Ok(value) => value
+      }
+      if charset_entries == 0UL || entries > charset_entries - 1UL {
+        return Err(cff_data_error("font-cff-encoding-cardinality"))
+      }
+      range = range + 1UL
+    }
+    cursor = cursor + range_bytes
+    entries
+  }
+  let supplement_entries = if (raw_format & 0x80UL) != 0UL {
+    match
+      cff_require_window(
+        cff.view,
+        cursor,
+        1UL,
+        "font-cff-encoding-supplement",
+      ) {
+      Err(error) => return Err(error)
+      Ok(_) => ()
+    }
+    let count = cff.view.get(cursor).unwrap().to_uint64()
+    let supplement_bytes = match @checked.checked_mul(count, 3UL) {
+      Err(_) => return Err(cff_data_error("font-cff-encoding-supplement"))
+      Ok(value) => value
+    }
+    match
+      cff_require_window(
+        cff.view,
+        cursor + 1UL,
+        supplement_bytes,
+        "font-cff-encoding-supplement",
+      ) {
+      Err(error) => return Err(error)
+      Ok(_) => ()
+    }
+    count
+  } else {
+    0UL
+  }
+  let entries = match @checked.checked_add(main_entries, supplement_entries) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  if entries > 256UL {
+    return Err(
+      cff_data_error(
+        "font-cff-encoding-cardinality",
+        requested=entries,
+        limit=256UL,
+      ),
+    )
+  }
+  Ok((entries, discovery_work))
+}
+
+///|
 fn cff_admission_charge(
   charge_bytes : UInt64,
   directory : DirectoryFacts,
@@ -428,6 +850,8 @@ fn cff_admission_charge(
   fd_count : UInt64,
   header_bytes : UInt64,
   scratch_allocation_size : UInt64,
+  common_table_work : UInt64,
+  discovery_work : UInt64,
   cid_keyed : Bool,
   limits : FontLimits,
 ) -> Result[CffStructuralCharge, @error.CoreError] {
@@ -565,7 +989,16 @@ fn cff_admission_charge(
     }
   }
   let structural_work = match
-    @checked.checked_add(directory.work, cff.length_value) {
+    @checked.checked_add(
+      match @checked.checked_add(directory.work, cff.length_value) {
+        Err(error) => return Err(error)
+        Ok(value) => value
+      },
+      match @checked.checked_add(common_table_work, discovery_work) {
+        Err(error) => return Err(error)
+        Ok(value) => value
+      },
+    ) {
     Err(error) => return Err(error)
     Ok(value) => value
   }
@@ -640,7 +1073,9 @@ fn cff_admission_charge(
   if charset_entries > 0UL {
     allocations = allocations + 2UL
   }
-  if encoding_entries > 0UL {
+  // Source, retained code, and retained GID arrays are allocated even when a
+  // predefined Encoding retains no mappings for the selected charset.
+  if !cid_keyed {
     allocations = allocations + 3UL
   }
   if cid_keyed && fd_count > 0UL {
@@ -690,6 +1125,7 @@ fn admit_cff1_structure_at_after_preflight(
   budget : @budget.Budget,
   gid : UInt64,
   before_final_guard : () -> Unit,
+  common_traversal_probe : () -> Unit,
 ) -> Result[AdmittedCff1, @error.CoreError] {
   let opening_revision = source.mutation_revision()
   // Test and selected-face adapters place their mutation hook immediately
@@ -778,14 +1214,30 @@ fn admit_cff1_structure_at_after_preflight(
     Err(error) => return Err(error)
     Ok(value) => value
   }
-  match cff_validate_common_tables(directory, num_glyphs, limits) {
-    Err(error) => return Err(error)
-    Ok(_) => ()
-  }
   let authority = match
     CffAuthorityLedger::new(budget, charge_bytes, base_authority_work) {
     Err(error) => return Err(error)
     Ok(value) => value
+  }
+  let common_table_work = match
+    cff_preflight_common_table_traversal(
+      directory,
+      num_glyphs,
+      limits,
+      authority,
+    ) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  match
+    cff_validate_common_tables(
+      directory,
+      num_glyphs,
+      limits,
+      common_traversal_probe,
+    ) {
+    Err(error) => return Err(error)
+    Ok(_) => ()
   }
   match cff_require_window(cff.view, 0UL, 4UL, "font-cff-header") {
     Err(error) => return Err(error)
@@ -964,10 +1416,18 @@ fn admit_cff1_structure_at_after_preflight(
     Err(error) => return Err(error)
     Ok(value) => value
   }
-  let charset_scratch = if top.charset is Some(value) && value.value >= 3UL {
-    8192UL
-  } else {
-    3032UL
+  let charset_scratch = match top.charset {
+    Some(value) if value.value >= 3UL => 8192UL
+    Some(value) =>
+      match cff_predefined_charset_source_allocation(value.value) {
+        Err(error) => return Err(error)
+        Ok(value) => value
+      }
+    None =>
+      match cff_predefined_charset_source_allocation(0UL) {
+        Err(error) => return Err(error)
+        Ok(value) => value
+      }
   }
   let charset_max = if charset_allocation > charset_scratch {
     charset_allocation
@@ -978,19 +1438,39 @@ fn admit_cff1_structure_at_after_preflight(
     Err(error) => return Err(error)
     Ok(_) => ()
   }
+  let mut encoding_discovery_work = 0UL
   match top.ros {
     None => {
-      let encoding_scratch = if top.encoding is Some(value) && value.value >= 2UL {
-        256UL
+      let encoding_operand = match top.encoding {
+        None => 0UL
+        Some(value) => value.value
+      }
+      let (encoding_work, encoding_scratch) = if encoding_operand >= 2UL {
+        let (entries, discovery_work) = match
+          cff_custom_encoding_entry_count(
+            cff,
+            encoding_operand,
+            num_glyphs,
+            authority,
+          ) {
+          Err(error) => return Err(error)
+          Ok(value) => value
+        }
+        encoding_discovery_work = discovery_work
+        let retained_size = match @checked.checked_mul(entries, 8UL) {
+          Err(error) => return Err(error)
+          Ok(value) => value
+        }
+        (entries, if retained_size > 256UL { retained_size } else { 256UL })
       } else {
-        2048UL
+        (num_glyphs, 2048UL)
       }
       let encoding_size = if charset_allocation > encoding_scratch {
         charset_allocation
       } else {
         encoding_scratch
       }
-      match authority.preflight(num_glyphs, 3UL, encoding_size) {
+      match authority.preflight(encoding_work, 3UL, encoding_size) {
         Err(error) => return Err(error)
         Ok(_) => ()
       }
@@ -1033,15 +1513,8 @@ fn admit_cff1_structure_at_after_preflight(
   let charset_entries = keying.keying.charset.values.length().to_uint64()
   let sid_cid_lookups = match
     @checked.checked_add(
-      charset_entries,
-      match
-        @checked.checked_add(
-          encoding_entries,
-          if keying.keying.cid_keyed { 2UL } else { 0UL },
-        ) {
-        Err(error) => return Err(error)
-        Ok(value) => value
-      },
+      top.sid_operands.length().to_uint64(),
+      keying.sid_cid_lookups,
     ) {
     Err(error) => return Err(error)
     Ok(value) => value
@@ -1051,10 +1524,13 @@ fn admit_cff1_structure_at_after_preflight(
     Err(error) => return Err(error)
     Ok(value) => value
   }
-  let scratch_allocation_size = if keying.keying.charset.predefined is None {
-    8192UL
-  } else {
-    3032UL
+  let scratch_allocation_size = match keying.keying.charset.predefined {
+    None => 8192UL
+    Some(identifier) =>
+      match cff_predefined_charset_source_allocation(identifier) {
+        Err(error) => return Err(error)
+        Ok(value) => value
+      }
   }
   let scratch_allocation_size = match keying.keying.encoding {
     Some(value) if value.predefined is Some(_) =>
@@ -1063,12 +1539,22 @@ fn admit_cff1_structure_at_after_preflight(
       } else {
         2048UL
       }
-    Some(_) =>
-      if scratch_allocation_size > 256UL {
-        scratch_allocation_size
+    Some(_) => {
+      let retained_size = match @checked.checked_mul(encoding_entries, 8UL) {
+        Err(error) => return Err(error)
+        Ok(value) => value
+      }
+      let encoding_allocation = if retained_size > 256UL {
+        retained_size
       } else {
         256UL
       }
+      if scratch_allocation_size > encoding_allocation {
+        scratch_allocation_size
+      } else {
+        encoding_allocation
+      }
+    }
     None => scratch_allocation_size
   }
   let charge = match
@@ -1087,6 +1573,8 @@ fn admit_cff1_structure_at_after_preflight(
       keying.keying.fd_count,
       header_size,
       scratch_allocation_size,
+      common_table_work,
+      encoding_discovery_work,
       keying.keying.cid_keyed,
       limits,
     ) {
@@ -1154,6 +1642,7 @@ fn admit_cff1_structure(
     budget,
     gid,
     fn() { () },
+    fn() { () },
   )
 }
 
@@ -1177,6 +1666,7 @@ fn admit_cff1_collection_structure_after_preflight(
     budget,
     gid,
     before_final_guard,
+    fn() { () },
   )
 }
 

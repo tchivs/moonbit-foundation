@@ -78,6 +78,17 @@ fn cff_name_wb_encoding(
       Bytes::from_array(output)
     }
     5UL => b"\x01\x01\xff\x01"
+    6UL => {
+      // One main code plus every remaining byte code as a supplement. Every
+      // supplement resolves SID 1 to the already encoded GID 1, so the two
+      // retained UInt64 arrays each reach exactly 256 entries (2048 bytes).
+      let output : Array[Byte] = [b'\x80', b'\x01', b'\x00', b'\xFF']
+      for code = 1; code < 256; code = code + 1 {
+        output.push(code.to_byte())
+        font_wb_put_u16(output, 1UL)
+      }
+      Bytes::from_array(output)
+    }
     _ => b""
   }
 }
@@ -228,6 +239,69 @@ test "CFF name keying validates supplements through one SID domain" {
   inspect(admitted.keying.encoding.unwrap().codes.length(), content="3")
   inspect(admitted.keying.encoding.unwrap().codes[2], content="67")
   inspect(admitted.keying.encoding.unwrap().gids[2], content="1")
+}
+
+///|
+test "CFF allocation authority uses concrete predefined and custom Encoding maxima" {
+  let predefined = cff_wb_otf(
+    cff_name_wb_table(charset_mode=0UL, encoding_mode=0UL),
+    num_glyphs=3UL,
+  )
+  let predefined_exact = cff_hostile_budget(
+    predefined.length().to_uint64(),
+    64UL,
+    2048UL,
+    65536UL,
+  )
+  let admitted = admit_cff1_structure(
+    font_wb_view(predefined),
+    font_wb_limits(),
+    predefined_exact,
+    2UL,
+  ).unwrap()
+  inspect(admitted.charge.allocation_size, content="2048")
+
+  let custom = cff_wb_otf(
+    cff_name_wb_table(
+      charset_mode=0UL,
+      encoding_mode=6UL,
+      include_string=false,
+    ),
+    num_glyphs=3UL,
+  )
+  let exact = cff_hostile_budget(
+    custom.length().to_uint64(),
+    64UL,
+    2048UL,
+    65536UL,
+  )
+  let custom_admitted = admit_cff1_structure(
+    font_wb_view(custom),
+    font_wb_limits(),
+    exact,
+    1UL,
+  ).unwrap()
+  inspect(custom_admitted.keying.encoding.unwrap().codes.length(), content="256")
+  inspect(custom_admitted.charge.allocation_size, content="2048")
+
+  let short = cff_hostile_budget(
+    custom.length().to_uint64(),
+    64UL,
+    2047UL,
+    65536UL,
+  )
+  let before = short.remaining()
+  let error = admit_cff1_structure(
+    font_wb_view(custom),
+    font_wb_limits(),
+    short,
+    1UL,
+  ).unwrap_err()
+  inspect(error.category() == @error.ErrorCategory::Resource, content="true")
+  inspect(error.context() == Some("allocation_size"), content="true")
+  inspect(short.remaining().bytes() == before.bytes(), content="true")
+  inspect(short.remaining().allocations() == before.allocations(), content="true")
+  inspect(short.remaining().work() == before.work(), content="true")
 }
 
 ///|
