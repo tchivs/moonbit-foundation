@@ -5709,9 +5709,18 @@ test "directory table escape and missing head publish no Font" {
 
 ///|
 test "head length magic and font adjustment fail at stable semantic gates" {
-  let short_head = font_test_owner(font_test_minimal_truetype())
+  let minimal = font_test_minimal_truetype()
+  let short_head = font_test_owner(minimal)
   font_test_mutate_u32(short_head, 64UL, 0UL)
   font_test_mutate_u32(short_head, 72UL, 0UL)
+  let maxp_offset = font_test_table_offset(minimal, b"maxp")
+  font_test_mutate_u32(short_head, maxp_offset, 0x00020000UL)
+  let maxp = short_head.view().subview(maxp_offset, 32UL).unwrap()
+  font_test_mutate_u32(
+    short_head,
+    128UL,
+    font_test_checksum(font_test_view_bytes(maxp)),
+  )
   font_test_recompute_adjustment(short_head)
   let length_error = Font::open(
     short_head.view(),

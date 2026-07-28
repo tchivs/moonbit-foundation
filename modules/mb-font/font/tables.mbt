@@ -2160,20 +2160,57 @@ fn font_admit_required_tables_impl(
   limits : FontLimits,
   retained_kern : KernState?,
 ) -> Result[RequiredTableFacts, @error.CoreError] {
-  for tag in [0x676C7966UL, 0x6C6F6361UL] {
+  let head_table = match font_table_window(directory, 0x68656164UL) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  let maxp_table = match font_table_window(directory, 0x6D617870UL) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  let hhea_table = match font_table_window(directory, 0x68686561UL) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  let os2_table = match font_table_window(directory, 0x4F532F32UL) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  let cmap_table = match font_table_window(directory, 0x636D6170UL) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  let name_table = match font_table_window(directory, 0x6E616D65UL) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  let post_table = match font_table_window(directory, 0x706F7374UL) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  for tag in [0x676C7966UL, 0x686D7478UL, 0x6C6F6361UL] {
     match font_table_window(directory, tag) {
       Err(error) => return Err(error)
       Ok(_) => ()
     }
   }
-  let maxp = match
-    font_decode_maxp(
-      match font_table_window(directory, 0x6D617870UL) {
-        Err(error) => return Err(error)
-        Ok(value) => value
-      },
-      limits,
-    ) {
+  let head = match font_decode_head(head_table) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  let maxp = match font_decode_maxp(maxp_table, limits) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  let hhea = match font_decode_hhea(hhea_table, maxp) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  let os2 = match font_decode_os2(os2_table) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  let cmap = match font_admit_cmap_envelope(cmap_table, maxp, limits) {
     Err(error) => return Err(error)
     Ok(value) => value
   }
@@ -2189,13 +2226,15 @@ fn font_admit_required_tables_impl(
         Ok(value) => value
       }
   }
-  font_admit_common_tables_with_maxp(
-    directory,
-    limits,
-    maxp,
-    kern,
-    fn() { () },
-  )
+  match font_admit_name_envelope(name_table, limits) {
+    Err(error) => return Err(error)
+    Ok(_) => ()
+  }
+  match font_admit_post_envelope(post_table, maxp, limits) {
+    Err(error) => return Err(error)
+    Ok(_) => ()
+  }
+  Ok({ head, maxp, hhea, os2, cmap, kern })
 }
 
 ///|
