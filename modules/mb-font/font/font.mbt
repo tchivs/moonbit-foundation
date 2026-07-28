@@ -4,13 +4,14 @@
 /// `Cff1` accepts only the complete post-ledger `AdmittedCff1` aggregate; no
 /// profile fragment, parser cursor, FD selection, or per-GID partial state has
 /// an independently constructible outline-source case.
-#warnings("-7")
+#warnings("-6")
 priv enum FontOutlineSource {
   Glyf
   Cff1(AdmittedCff1)
 }
 
 ///|
+#warnings("-1")
 fn font_outline_source_from_cff(admitted : AdmittedCff1) -> FontOutlineSource {
   FontOutlineSource::Cff1(admitted)
 }

@@ -743,6 +743,7 @@ fn admit_cff1_structure_at_after_preflight(
 }
 
 ///|
+#warnings("-1")
 fn admit_cff1_structure(
   source : @bytes.ByteView,
   limits : FontLimits,
@@ -786,6 +787,7 @@ fn admit_cff1_collection_structure_after_preflight(
 }
 
 ///|
+#warnings("-1")
 fn admit_cff1_collection_structure(
   source : @bytes.ByteView,
   directory_start : UInt64,

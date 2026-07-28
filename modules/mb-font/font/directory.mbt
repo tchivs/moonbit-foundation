@@ -825,6 +825,7 @@ fn font_parse_cff1_directory_at(
 }
 
 ///|
+#warnings("-1")
 fn font_parse_cff1_directory(
   source : @bytes.ByteView,
   limits : FontLimits,
