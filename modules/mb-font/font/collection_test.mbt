@@ -777,6 +777,230 @@ fn font_collection_test_selected_font_limits(
 }
 
 ///|
+fn font_collection_test_cff_face(
+  programs : Array[Bytes],
+  scalar : UInt64,
+  advance_width : UInt64,
+  glyph_lsb : Int,
+  kern_value : Int,
+  bounds_seed : Int,
+  line_seed : Int,
+) -> Bytes {
+  let maxp : Array[Byte] = []
+  font_test_push_u32(maxp, 0x00005000UL)
+  font_test_push_u16(maxp, programs.length().to_uint64())
+  let hmtx : Array[Byte] = []
+  font_test_push_u16(hmtx, advance_width)
+  font_test_push_i16(hmtx, 10)
+  for gid = 1; gid < programs.length(); gid = gid + 1 {
+    font_test_push_i16(hmtx, glyph_lsb + gid - 1)
+  }
+  let head = font_test_head_table().to_array()
+  font_test_put_i16(head, 36, bounds_seed)
+  font_test_put_i16(head, 38, bounds_seed + 1)
+  font_test_put_i16(head, 40, bounds_seed + 100)
+  font_test_put_i16(head, 42, bounds_seed + 200)
+  let hhea = font_test_hhea_table().to_array()
+  font_test_put_i16(hhea, 4, line_seed)
+  font_test_put_i16(hhea, 6, 0 - line_seed)
+  font_test_put_i16(hhea, 8, line_seed / 10)
+  let os2 = font_test_fixed_table(78).to_array()
+  font_test_put_i16(os2, 68, line_seed + 1)
+  font_test_put_i16(os2, 70, 0 - line_seed - 1)
+  font_test_put_i16(os2, 72, line_seed / 10 + 1)
+  font_test_build_opentype([
+    { tag: b"CFF ", payload: font_test_cff_program_table(programs) },
+    { tag: b"OS/2", payload: Bytes::from_array(os2) },
+    {
+      tag: b"cmap",
+      payload: font_test_cmap_format12([(scalar, scalar, 1UL)]),
+    },
+    { tag: b"head", payload: Bytes::from_array(head) },
+    { tag: b"hhea", payload: Bytes::from_array(hhea) },
+    { tag: b"hmtx", payload: Bytes::from_array(hmtx) },
+    {
+      tag: b"kern",
+      payload: font_test_kern_format0([(1UL, 1UL, kern_value)]),
+    },
+    { tag: b"maxp", payload: Bytes::from_array(maxp) },
+    { tag: b"name", payload: font_test_name_table() },
+    { tag: b"post", payload: font_test_post_table() },
+  ])
+}
+
+///|
+fn font_collection_test_shared_cff1_ttc(
+  first : Bytes,
+  second : Bytes,
+) -> Bytes {
+  let table_count = font_collection_test_read_u16(first, 4).to_int()
+  let directory_bytes = 12 + table_count * 16
+  let first_directory = 32
+  let second_directory = first_directory + directory_bytes
+  let first_payload = second_directory + directory_bytes
+  let second_payload = first_payload + first.length()
+  let output = Array::make(second_payload + second.length(), b'\x00')
+  font_collection_test_put_u32(output, 0, 0x74746366UL)
+  font_collection_test_put_u32(output, 4, 0x00010000UL)
+  font_collection_test_put_u32(output, 8, 2UL)
+  font_collection_test_put_u32(output, 12, first_directory.to_uint64())
+  font_collection_test_put_u32(output, 16, second_directory.to_uint64())
+  for item in [
+    (first, first_directory, first_payload),
+    (second, second_directory, second_payload),
+  ] {
+    let (standalone, directory, payload) = item
+    for index = 0; index < directory_bytes; index = index + 1 {
+      output[directory + index] = standalone[index]
+    }
+    for index, byte in standalone {
+      output[payload + index] = byte
+    }
+  }
+  let shared_cff_offset = first_payload.to_uint64() +
+    font_collection_test_read_u32(first, 12 + 8)
+  for item in [
+    (first, first_directory, first_payload),
+    (second, second_directory, second_payload),
+  ] {
+    let (standalone, directory, payload) = item
+    for index = 0; index < table_count; index = index + 1 {
+      let record = 12 + index * 16
+      let tag = font_collection_test_read_u32(standalone, record)
+      let old_offset = font_collection_test_read_u32(standalone, record + 8)
+      font_collection_test_put_u32(
+        output,
+        directory + record + 8,
+        if tag == 0x43464620UL {
+          shared_cff_offset
+        } else {
+          payload.to_uint64() + old_offset
+        },
+      )
+    }
+  }
+  Bytes::from_array(output)
+}
+
+///|
+test "Phase 106 selected CFF1 shares cubic bytes and retains face local facts" {
+  let cubic = b"\xef\x95\x9f\x15\xa9\x8b\xb3\x95\xbd\x81\x08\x0e"
+  let programs = [b"\x0e", cubic]
+  let first_source = font_collection_test_cff_face(
+    programs,
+    0x41UL,
+    600UL,
+    20,
+    -25,
+    -10,
+    800,
+  )
+  let second_source = font_collection_test_cff_face(
+    programs,
+    0x42UL,
+    700UL,
+    -30,
+    35,
+    -20,
+    900,
+  )
+  let source = font_collection_test_shared_cff1_ttc(
+    first_source,
+    second_source,
+  )
+  let owner = font_collection_test_owner(source)
+  let collection = FontCollection::open(
+    owner.view(),
+    font_collection_test_selected_collection_limits(
+      source.length().to_uint64(),
+      2UL,
+      20UL,
+    ),
+    font_collection_test_selected_budget(),
+  ).unwrap()
+  inspect(collection.face_count().unwrap(), content="2")
+  for index in [0UL, 1UL] {
+    inspect(
+      collection.face_profile(index).unwrap() == FontFaceProfile::Cff,
+      content="true",
+    )
+  }
+  let first = collection
+    .open_face(0UL, font_test_limits(), font_test_cff_open_budget())
+    .unwrap()
+  let second = collection
+    .open_face(1UL, font_test_limits(), font_test_cff_open_budget())
+    .unwrap()
+  let standalone_first = Font::open(
+    font_collection_test_owner(first_source).view(),
+    font_test_limits(),
+    font_test_cff_open_budget(),
+  ).unwrap()
+  let standalone_second = Font::open(
+    font_collection_test_owner(second_source).view(),
+    font_test_limits(),
+    font_test_cff_open_budget(),
+  ).unwrap()
+
+  let first_glyph = first.glyph_for_scalar(0x41).unwrap()
+  let second_glyph = second.glyph_for_scalar(0x42).unwrap()
+  inspect(first_glyph.value(), content="1")
+  inspect(second_glyph.value(), content="1")
+  inspect(first.glyph_for_scalar(0x42).unwrap().value(), content="0")
+  inspect(second.glyph_for_scalar(0x41).unwrap().value(), content="0")
+  let first_metrics = first.horizontal_metrics(first_glyph).unwrap()
+  let second_metrics = second.horizontal_metrics(second_glyph).unwrap()
+  inspect(first_metrics.advance_width(), content="600")
+  inspect(first_metrics.left_side_bearing(), content="20")
+  inspect(second_metrics.advance_width(), content="700")
+  inspect(second_metrics.left_side_bearing(), content="-30")
+  inspect(first.kerning(first_glyph, first_glyph).unwrap(), content="-25")
+  inspect(second.kerning(second_glyph, second_glyph).unwrap(), content="35")
+  inspect(first.global_bounds().unwrap().x_min(), content="-10")
+  inspect(second.global_bounds().unwrap().x_min(), content="-20")
+  inspect(first.hhea_line_metrics().unwrap().ascent(), content="800")
+  inspect(second.hhea_line_metrics().unwrap().ascent(), content="900")
+  inspect(
+    first.typographic_line_metrics().unwrap().ascent(),
+    content="801",
+  )
+  inspect(
+    second.typographic_line_metrics().unwrap().ascent(),
+    content="901",
+  )
+  font_collection_test_assert_path_equal(
+    first
+    .outline(first_glyph, font_test_cff_outline_budget())
+    .unwrap(),
+    second
+    .outline(second_glyph, font_test_cff_outline_budget())
+    .unwrap(),
+  )
+  font_collection_test_assert_path_equal(
+    first
+    .outline(first_glyph, font_test_cff_outline_budget())
+    .unwrap(),
+    standalone_first
+    .outline(
+      standalone_first.glyph_for_scalar(0x41).unwrap(),
+      font_test_cff_outline_budget(),
+    )
+    .unwrap(),
+  )
+  font_collection_test_assert_path_equal(
+    second
+    .outline(second_glyph, font_test_cff_outline_budget())
+    .unwrap(),
+    standalone_second
+    .outline(
+      standalone_second.glyph_for_scalar(0x42).unwrap(),
+      font_test_cff_outline_budget(),
+    )
+    .unwrap(),
+  )
+}
+
+///|
 test "TTC-02 opens a cached static face against the retained collection root" {
   let source = font_collection_test_selected_ttc()
   let owner = font_collection_test_owner(source)
