@@ -22,6 +22,15 @@ priv struct CffPrivateRange {
 }
 
 ///|
+#warnings("-7")
+priv struct CffRos {
+  registry_sid : UInt64
+  ordering_sid : UInt64
+  supplement : UInt64
+}
+
+///|
+#warnings("-7")
 priv struct CffTopDict {
   charstring_type : CffNumber
   charstring_type_explicit : Bool
@@ -29,16 +38,21 @@ priv struct CffTopDict {
   private_range : CffPrivateRange?
   charset : CffTableOffset?
   encoding : CffTableOffset?
+  ros : CffRos?
+  fd_array : CffTableOffset?
+  fd_select : CffTableOffset?
   font_matrix : Array[CffNumber]
 }
 
 ///|
+#warnings("-7")
 priv struct CffFontDict {
   private_range : CffPrivateRange?
   font_matrix : Array[CffNumber]
 }
 
 ///|
+#warnings("-7")
 priv struct CffPrivateDict {
   local_subrs : CffPrivateOffset?
   default_width_x : CffNumber
@@ -58,11 +72,7 @@ fn cff_number_unsigned(value : UInt64) -> CffNumber {
 
 ///|
 fn cff_number_signed(negative : Bool, magnitude : UInt64) -> CffNumber {
-  {
-    negative: negative && magnitude != 0UL,
-    magnitude,
-    denominator: 1UL,
-  }
+  { negative: negative && magnitude != 0UL, magnitude, denominator: 1UL }
 }
 
 ///|
@@ -209,7 +219,8 @@ fn cff_decode_real(
   if !digit_seen {
     return Err(cff_data_error(context + "-real"))
   }
-  let mut denominator = match cff_pow10(fractional_digits, context + "-real-range") {
+  let mut denominator = match
+    cff_pow10(fractional_digits, context + "-real-range") {
     Err(error) => return Err(error)
     Ok(value) => value
   }
@@ -227,10 +238,11 @@ fn cff_decode_real(
       magnitude = match
         @checked.checked_mul(
           magnitude,
-          match cff_pow10(
-            exponent_magnitude - fractional_digits,
-            context + "-real-range",
-          ) {
+          match
+            cff_pow10(
+              exponent_magnitude - fractional_digits,
+              context + "-real-range",
+            ) {
             Err(error) => return Err(error)
             Ok(value) => value
           },
@@ -241,17 +253,18 @@ fn cff_decode_real(
       denominator = 1UL
     } else {
       denominator = match
-        cff_pow10(fractional_digits - exponent_magnitude, context + "-real-range") {
+        cff_pow10(
+          fractional_digits - exponent_magnitude,
+          context + "-real-range",
+        ) {
         Err(error) => return Err(error)
         Ok(value) => value
       }
     }
   }
-  Ok(({
-    negative: negative && magnitude != 0UL,
-    magnitude,
-    denominator,
-  }, cursor))
+  Ok(
+    ({ negative: negative && magnitude != 0UL, magnitude, denominator }, cursor),
+  )
 }
 
 ///|
@@ -278,20 +291,24 @@ fn cff_decode_dict_number(
       Ok(_) => ()
     }
     let second = source.get(cursor + 1UL).unwrap().to_uint64()
-    Ok((
-      cff_number_unsigned((first - 247UL) * 256UL + second + 108UL),
-      cursor + 2UL,
-    ))
+    Ok(
+      (
+        cff_number_unsigned((first - 247UL) * 256UL + second + 108UL),
+        cursor + 2UL,
+      ),
+    )
   } else if first >= 251UL && first <= 254UL {
     match cff_require_window(source, cursor, 2UL, context) {
       Err(error) => return Err(error)
       Ok(_) => ()
     }
     let second = source.get(cursor + 1UL).unwrap().to_uint64()
-    Ok((
-      cff_number_signed(true, (first - 251UL) * 256UL + second + 108UL),
-      cursor + 2UL,
-    ))
+    Ok(
+      (
+        cff_number_signed(true, (first - 251UL) * 256UL + second + 108UL),
+        cursor + 2UL,
+      ),
+    )
   } else if first == 28UL {
     match cff_require_window(source, cursor, 3UL, context) {
       Err(error) => return Err(error)
@@ -332,7 +349,8 @@ fn cff_parse_dict(
   while cursor < source.length() {
     let first = source.get(cursor).unwrap().to_uint64()
     if first == 28UL || first == 29UL || first == 30UL || first >= 32UL {
-      let (number, next) = match cff_decode_dict_number(source, cursor, context) {
+      let (number, next) = match
+        cff_decode_dict_number(source, cursor, context) {
         Err(error) => return Err(error)
         Ok(value) => value
       }
@@ -382,6 +400,19 @@ fn cff_require_arity(
 }
 
 ///|
+fn cff_require_even_nonempty(
+  entry : CffDictEntry,
+  context : String,
+) -> Result[Unit, @error.CoreError] {
+  let actual = entry.operands.length().to_uint64()
+  if actual == 0UL || actual % 2UL != 0UL {
+    Err(cff_data_error(context + "-arity", requested=actual))
+  } else {
+    Ok(())
+  }
+}
+
+///|
 fn cff_decode_top_dict(
   source : @bytes.ByteView,
 ) -> Result[CffTopDict, @error.CoreError] {
@@ -395,6 +426,9 @@ fn cff_decode_top_dict(
   let mut private_range : CffPrivateRange? = None
   let mut charset : CffTableOffset? = None
   let mut encoding : CffTableOffset? = None
+  let mut ros : CffRos? = None
+  let mut fd_array : CffTableOffset? = None
+  let mut fd_select : CffTableOffset? = None
   let mut font_matrix = cff_default_font_matrix()
   let mut font_matrix_seen = false
   for entry in entries {
@@ -415,7 +449,7 @@ fn cff_decode_top_dict(
           Err(error) => return Err(error)
           Ok(value) => value
         }
-        charset = Some({ value })
+        charset = Some({ value, })
       }
       16UL => {
         match cff_require_arity(entry, 1UL, "font-cff-top-encoding") {
@@ -433,7 +467,7 @@ fn cff_decode_top_dict(
           Err(error) => return Err(error)
           Ok(value) => value
         }
-        encoding = Some({ value })
+        encoding = Some({ value, })
       }
       17UL => {
         match cff_require_arity(entry, 1UL, "font-cff-top-charstrings") {
@@ -451,7 +485,7 @@ fn cff_decode_top_dict(
           Err(error) => return Err(error)
           Ok(value) => value
         }
-        charstrings = Some({ value })
+        charstrings = Some({ value, })
       }
       18UL => {
         match cff_require_arity(entry, 2UL, "font-cff-top-private") {
@@ -462,12 +496,18 @@ fn cff_decode_top_dict(
           return Err(cff_data_error("font-cff-top-private-duplicate"))
         }
         let size = match
-          cff_number_nonnegative_integer(entry.operands[0], "font-cff-top-private") {
+          cff_number_nonnegative_integer(
+            entry.operands[0],
+            "font-cff-top-private",
+          ) {
           Err(error) => return Err(error)
           Ok(value) => value
         }
         let offset = match
-          cff_number_nonnegative_integer(entry.operands[1], "font-cff-top-private") {
+          cff_number_nonnegative_integer(
+            entry.operands[1],
+            "font-cff-top-private",
+          ) {
           Err(error) => return Err(error)
           Ok(value) => value
         }
@@ -495,7 +535,103 @@ fn cff_decode_top_dict(
         font_matrix = entry.operands
         font_matrix_seen = true
       }
-      _ => ()
+      0x11EUL => {
+        match cff_require_arity(entry, 3UL, "font-cff-top-ros") {
+          Err(error) => return Err(error)
+          Ok(_) => ()
+        }
+        if ros is Some(_) {
+          return Err(cff_data_error("font-cff-top-ros-duplicate"))
+        }
+        let registry_sid = match
+          cff_number_nonnegative_integer(entry.operands[0], "font-cff-top-ros") {
+          Err(error) => return Err(error)
+          Ok(value) => value
+        }
+        let ordering_sid = match
+          cff_number_nonnegative_integer(entry.operands[1], "font-cff-top-ros") {
+          Err(error) => return Err(error)
+          Ok(value) => value
+        }
+        let supplement = match
+          cff_number_nonnegative_integer(entry.operands[2], "font-cff-top-ros") {
+          Err(error) => return Err(error)
+          Ok(value) => value
+        }
+        ros = Some({ registry_sid, ordering_sid, supplement })
+      }
+      0x124UL => {
+        match cff_require_arity(entry, 1UL, "font-cff-top-fd-array") {
+          Err(error) => return Err(error)
+          Ok(_) => ()
+        }
+        if fd_array is Some(_) {
+          return Err(cff_data_error("font-cff-top-fd-array-duplicate"))
+        }
+        let value = match
+          cff_number_nonnegative_integer(
+            entry.operands[0],
+            "font-cff-top-fd-array",
+          ) {
+          Err(error) => return Err(error)
+          Ok(value) => value
+        }
+        fd_array = Some({ value, })
+      }
+      0x125UL => {
+        match cff_require_arity(entry, 1UL, "font-cff-top-fd-select") {
+          Err(error) => return Err(error)
+          Ok(_) => ()
+        }
+        if fd_select is Some(_) {
+          return Err(cff_data_error("font-cff-top-fd-select-duplicate"))
+        }
+        let value = match
+          cff_number_nonnegative_integer(
+            entry.operands[0],
+            "font-cff-top-fd-select",
+          ) {
+          Err(error) => return Err(error)
+          Ok(value) => value
+        }
+        fd_select = Some({ value, })
+      }
+      0UL
+      | 1UL
+      | 2UL
+      | 3UL
+      | 4UL
+      | 13UL
+      | 0x100UL
+      | 0x101UL
+      | 0x102UL
+      | 0x103UL
+      | 0x104UL
+      | 0x105UL
+      | 0x108UL
+      | 0x114UL
+      | 0x115UL
+      | 0x116UL
+      | 0x11FUL
+      | 0x120UL
+      | 0x121UL
+      | 0x122UL
+      | 0x123UL
+      | 0x126UL =>
+        match cff_require_arity(entry, 1UL, "font-cff-top-operator") {
+          Err(error) => return Err(error)
+          Ok(_) => ()
+        }
+      5UL =>
+        match cff_require_arity(entry, 4UL, "font-cff-top-font-bbox") {
+          Err(error) => return Err(error)
+          Ok(_) => ()
+        }
+      14UL | 0x117UL =>
+        if entry.operands.length() == 0 {
+          return Err(cff_data_error("font-cff-top-operator-arity"))
+        }
+      _ => return Err(cff_data_error("font-cff-top-operator"))
     }
   }
   let charstrings_value = match charstrings {
@@ -509,11 +645,15 @@ fn cff_decode_top_dict(
     private_range,
     charset,
     encoding,
+    ros,
+    fd_array,
+    fd_select,
     font_matrix,
   })
 }
 
 ///|
+#warnings("-1")
 fn cff_decode_font_dict(
   source : @bytes.ByteView,
 ) -> Result[CffFontDict, @error.CoreError] {
@@ -535,12 +675,18 @@ fn cff_decode_font_dict(
           return Err(cff_data_error("font-cff-font-private-duplicate"))
         }
         let size = match
-          cff_number_nonnegative_integer(entry.operands[0], "font-cff-font-private") {
+          cff_number_nonnegative_integer(
+            entry.operands[0],
+            "font-cff-font-private",
+          ) {
           Err(error) => return Err(error)
           Ok(value) => value
         }
         let offset = match
-          cff_number_nonnegative_integer(entry.operands[1], "font-cff-font-private") {
+          cff_number_nonnegative_integer(
+            entry.operands[1],
+            "font-cff-font-private",
+          ) {
           Err(error) => return Err(error)
           Ok(value) => value
         }
@@ -557,7 +703,12 @@ fn cff_decode_font_dict(
         font_matrix = entry.operands
         font_matrix_seen = true
       }
-      _ => ()
+      0x126UL =>
+        match cff_require_arity(entry, 1UL, "font-cff-font-name") {
+          Err(error) => return Err(error)
+          Ok(_) => ()
+        }
+      _ => return Err(cff_data_error("font-cff-font-operator"))
     }
   }
   Ok({ private_range, font_matrix })
@@ -594,7 +745,7 @@ fn cff_decode_private_dict(
           Err(error) => return Err(error)
           Ok(value) => value
         }
-        local_subrs = Some({ value })
+        local_subrs = Some({ value, })
       }
       20UL => {
         match cff_require_arity(entry, 1UL, "font-cff-private-default-width") {
@@ -618,7 +769,25 @@ fn cff_decode_private_dict(
         nominal_width_x = entry.operands[0]
         nominal_seen = true
       }
-      _ => ()
+      6UL | 7UL | 8UL | 9UL | 0x10CUL | 0x10DUL =>
+        match cff_require_even_nonempty(entry, "font-cff-private-array") {
+          Err(error) => return Err(error)
+          Ok(_) => ()
+        }
+      10UL
+      | 11UL
+      | 0x109UL
+      | 0x10AUL
+      | 0x10BUL
+      | 0x10EUL
+      | 0x111UL
+      | 0x112UL
+      | 0x113UL =>
+        match cff_require_arity(entry, 1UL, "font-cff-private-operator") {
+          Err(error) => return Err(error)
+          Ok(_) => ()
+        }
+      _ => return Err(cff_data_error("font-cff-private-operator"))
     }
   }
   Ok({ local_subrs, default_width_x, nominal_width_x })

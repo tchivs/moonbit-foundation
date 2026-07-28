@@ -1,4 +1,5 @@
 ///|
+#warnings("-7")
 priv struct CffGlyphEnvironment {
   private_dict : CffPrivateDict?
   local_subrs : CffIndex
@@ -6,6 +7,7 @@ priv struct CffGlyphEnvironment {
 }
 
 ///|
+#warnings("-7")
 priv struct CffGlyphDescriptor {
   gid : UInt64
   charstring : CffIndexObject
@@ -13,6 +15,7 @@ priv struct CffGlyphDescriptor {
 }
 
 ///|
+#warnings("-7")
 priv struct AdmittedCff1 {
   top : CffTopDict
   name : CffIndex
@@ -66,12 +69,8 @@ fn cff_preclassify_static_profile(
     Err(error) => return Err(error)
     Ok(value) => value
   }
-  match cff_require_window(
-    source,
-    12UL,
-    record_bytes,
-    "font-cff-directory-range",
-  ) {
+  match
+    cff_require_window(source, 12UL, record_bytes, "font-cff-directory-range") {
     Err(error) => return Err(error)
     Ok(_) => ()
   }
@@ -144,9 +143,7 @@ fn cff_decode_maxp05(
     return Err(cff_data_error("font-cff-maxp-glyph-count"))
   }
   if num_glyphs > limits.max_glyphs() {
-    return Err(
-      font_limit_error("max-glyphs", num_glyphs, limits.max_glyphs()),
-    )
+    return Err(font_limit_error("max-glyphs", num_glyphs, limits.max_glyphs()))
   }
   Ok(num_glyphs)
 }
@@ -214,7 +211,8 @@ fn cff_admission_charge(
     Err(error) => return Err(error)
     Ok(value) => value
   }
-  let allocation_size = match @checked.checked_add(cff.length_value, offset_bytes) {
+  let allocation_size = match
+    @checked.checked_add(cff.length_value, offset_bytes) {
     Err(error) => return Err(error)
     Ok(value) => value
   }
@@ -244,6 +242,7 @@ fn cff_admission_charge(
 }
 
 ///|
+#warnings("-1")
 fn admit_cff1_structure(
   source : @bytes.ByteView,
   limits : FontLimits,
@@ -313,30 +312,17 @@ fn admit_cff1_structure(
   }
   if name.count != 1UL {
     return Err(
-      cff_data_error(
-        "font-cff-name-count",
-        requested=name.count,
-        limit=1UL,
-      ),
+      cff_data_error("font-cff-name-count", requested=name.count, limit=1UL),
     )
   }
   let (top_index, after_top) = match
-    cff_decode_index(
-      cff.view,
-      after_name,
-      1UL,
-      "font-cff-top-index",
-    ) {
+    cff_decode_index(cff.view, after_name, 1UL, "font-cff-top-index") {
     Err(error) => return Err(error)
     Ok(value) => value
   }
   if top_index.count != 1UL {
     return Err(
-      cff_data_error(
-        "font-cff-top-count",
-        requested=top_index.count,
-        limit=1UL,
-      ),
+      cff_data_error("font-cff-top-count", requested=top_index.count, limit=1UL),
     )
   }
   let top_object = match
@@ -399,13 +385,7 @@ fn admit_cff1_structure(
     )
   }
   if gid >= num_glyphs {
-    return Err(
-      cff_data_error(
-        "font-cff-gid",
-        requested=gid,
-        limit=num_glyphs,
-      ),
-    )
+    return Err(cff_data_error("font-cff-gid", requested=gid, limit=num_glyphs))
   }
   let charstring = match
     cff_index_object(charstrings, gid, "font-cff-charstrings-index") {
@@ -463,14 +443,7 @@ fn admit_cff1_structure(
       source,
       directory,
       cff,
-      [
-        name,
-        top_index,
-        strings,
-        global_subrs,
-        charstrings,
-        local_subrs,
-      ],
+      [name, top_index, strings, global_subrs, charstrings, local_subrs],
       limits,
     ) {
     Err(error) => return Err(error)
@@ -496,11 +469,7 @@ fn admit_cff1_structure(
     glyph: {
       gid,
       charstring,
-      environment: {
-        private_dict,
-        local_subrs,
-        font_matrix: top.font_matrix,
-      },
+      environment: { private_dict, local_subrs, font_matrix: top.font_matrix },
     },
     num_glyphs,
   })

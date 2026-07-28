@@ -59,20 +59,14 @@ test "CFF INDEX accepts empty and offSize one through four with exact windows" {
 
 ///|
 test "CFF INDEX rejects offset width first offset order extent count and object violations" {
-  for malformed in [
-    b"\x00\x01\x00",
-    b"\x00\x01\x05",
-    b"\x00\x01\x01\x02\x02\xAA",
-    b"\x00\x02\x01\x01\x03\x02\xAA\xBB",
-    b"\x00\x01\x01\x01\x04\xAA\xBB",
-  ] {
+  for
+    malformed in [
+      b"\x00\x01\x00", b"\x00\x01\x05", b"\x00\x01\x01\x02\x02\xAA", b"\x00\x02\x01\x01\x03\x02\xAA\xBB",
+      b"\x00\x01\x01\x01\x04\xAA\xBB",
+    ] {
     inspect(
-      cff_decode_index(
-        font_wb_view(malformed),
-        0UL,
-        8UL,
-        "cff-index-test",
-      ) is Err(_),
+      cff_decode_index(font_wb_view(malformed), 0UL, 8UL, "cff-index-test")
+      is Err(_),
       content="true",
     )
   }
@@ -82,14 +76,18 @@ test "CFF INDEX rejects offset width first offset order extent count and object 
       0UL,
       0UL,
       "cff-index-test",
-    ) is Err(_),
+    )
+    is Err(_),
     content="true",
   )
   let exact = cff_decode_index(
-    font_wb_view(cff_index_wb_single(1UL, b"\xAA")),
-    0UL,
-    1UL,
-    "cff-index-test",
-  ).unwrap().0
-  inspect(cff_index_object(exact, 1UL, "cff-index-test") is Err(_), content="true")
+      font_wb_view(cff_index_wb_single(1UL, b"\xAA")),
+      0UL,
+      1UL,
+      "cff-index-test",
+    ).unwrap().0
+  inspect(
+    cff_index_object(exact, 1UL, "cff-index-test") is Err(_),
+    content="true",
+  )
 }

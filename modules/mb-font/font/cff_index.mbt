@@ -1,4 +1,5 @@
 ///|
+#warnings("-7")
 priv struct CffIndexObject {
   offset : UInt64
   length : UInt64
@@ -6,6 +7,7 @@ priv struct CffIndexObject {
 }
 
 ///|
+#warnings("-7")
 priv struct CffIndex {
   count : UInt64
   off_size : UInt64
@@ -136,7 +138,12 @@ fn cff_decode_index(
   }
   if count > max_count {
     return Err(
-      cff_data_error(context, source_offset=start, requested=count, limit=max_count),
+      cff_data_error(
+        context,
+        source_offset=start,
+        requested=count,
+        limit=max_count,
+      ),
     )
   }
   if count == 0UL {
@@ -144,13 +151,18 @@ fn cff_decode_index(
       Err(error) => return Err(error)
       Ok(value) => value
     }
-    return Ok(({
-      count: 0UL,
-      off_size: 0UL,
-      offsets: [],
-      object_data: empty,
-      encoded_length: 2UL,
-    }, start + 2UL))
+    return Ok(
+      (
+        {
+          count: 0UL,
+          off_size: 0UL,
+          offsets: [],
+          object_data: empty,
+          encoded_length: 2UL,
+        },
+        start + 2UL,
+      ),
+    )
   }
   let off_size_offset = start + 2UL
   match cff_require_window(source, off_size_offset, 1UL, context) {
@@ -222,7 +234,8 @@ fn cff_decode_index(
     previous = value
     index = index + 1UL
   }
-  let object_data_start = match @checked.checked_add(offset_start, offset_bytes) {
+  let object_data_start = match
+    @checked.checked_add(offset_start, offset_bytes) {
     Err(error) => return Err(error)
     Ok(value) => value
   }
@@ -248,13 +261,12 @@ fn cff_decode_index(
     Ok(value) => value
   }
   let encoded_length = 3UL + offset_bytes + object_bytes
-  Ok(({
-    count,
-    off_size,
-    offsets,
-    object_data,
-    encoded_length,
-  }, start + encoded_length))
+  Ok(
+    (
+      { count, off_size, offsets, object_data, encoded_length },
+      start + encoded_length,
+    ),
+  )
 }
 
 ///|

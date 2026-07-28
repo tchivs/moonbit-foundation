@@ -695,12 +695,10 @@ fn parse_font_directory_at(
         ),
       )
     }
-    match font_table_overlaps_directory(
-      table_offset,
-      table_length,
-      directory_start,
-      directory_end,
-    ) {
+    match
+      font_table_overlaps_directory(
+        table_offset, table_length, directory_start, directory_end,
+      ) {
       Err(error) => return Err(error)
       Ok(true) =>
         return Err(
@@ -765,6 +763,7 @@ fn parse_font_directory_at(
   Ok({ source, records, work })
 }
 
+///|
 fn font_parse_directory_at(
   source : @bytes.ByteView,
   directory_start : UInt64,
@@ -774,11 +773,7 @@ fn font_parse_directory_at(
 ) -> Result[DirectoryFacts, @error.CoreError] {
   let legacy = match
     parse_font_directory_at(
-      source,
-      directory_start,
-      expected_table_count,
-      limits,
-      checksum_mode,
+      source, directory_start, expected_table_count, limits, checksum_mode,
     ) {
     Err(error) => return Err(error)
     Ok(value) => value
@@ -960,8 +955,7 @@ fn font_validate_checksums_with_mode(
     Ok(_) => ()
   }
   match checksum_mode {
-    FontChecksumMode::Standalone =>
-      font_validate_standalone_checksum(directory)
+    FontChecksumMode::Standalone => font_validate_standalone_checksum(directory)
     FontChecksumMode::Collection => Ok(())
   }
 }
