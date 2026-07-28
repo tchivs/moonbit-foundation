@@ -439,6 +439,71 @@ test "admission ledger preserves standalone increments and rejects overflow atom
 }
 
 ///|
+test "admission plan reports exact work without double counting staged scans" {
+  let source = generated_minimal_truetype()
+  let directory = font_parse_directory(
+    font_wb_view(source),
+    font_wb_limits(),
+  ).unwrap()
+
+  let standalone_budget = font_wb_open_budget()
+  let standalone_before = standalone_budget.remaining()
+  let standalone = font_admission_charge(
+    directory,
+    font_wb_limits(),
+    standalone_budget,
+    FontAdmissionCommitMode::StandaloneIncremental,
+  ).unwrap()
+  let staged = standalone_before.work() -
+    standalone_budget.remaining().work()
+  inspect(
+    standalone.exact_work ==
+    standalone.standalone_remaining_work + staged,
+    content="true",
+  )
+
+  let deferred_budget = font_wb_open_budget()
+  let deferred_before = deferred_budget.remaining()
+  let deferred = font_admission_charge(
+    directory,
+    font_wb_limits(),
+    deferred_budget,
+    FontAdmissionCommitMode::CollectionDeferred,
+  ).unwrap()
+  inspect(deferred.exact_work == standalone.exact_work, content="true")
+  inspect(
+    deferred_budget.remaining().work() == deferred_before.work(),
+    content="true",
+  )
+
+  let malformed = font_wb_mutate_table_field(
+    source,
+    b"cmap",
+    8,
+    b"\x00\x00\x00\x00",
+  )
+  let malformed_directory = font_parse_directory(
+    font_wb_view(malformed),
+    font_wb_limits(),
+  ).unwrap()
+  let failed_budget = font_wb_open_budget()
+  let failed_before = failed_budget.remaining()
+  inspect(
+    font_admission_charge(
+      malformed_directory,
+      font_wb_limits(),
+      failed_budget,
+      FontAdmissionCommitMode::CollectionDeferred,
+    ) is Err(_),
+    content="true",
+  )
+  inspect(
+    failed_budget.remaining().work() == failed_before.work(),
+    content="true",
+  )
+}
+
+///|
 fn font_collection_wb_two_face_v2() -> Bytes {
   let output = Array::make(160, b'\x00')
   font_collection_wb_put_u32(output, 0, 0x74746366UL)

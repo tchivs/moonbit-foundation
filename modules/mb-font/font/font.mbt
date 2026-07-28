@@ -115,7 +115,12 @@ pub fn Font::open(
     Ok(value) => value
   }
   let admission = match
-    font_admission_charge(directory, limits, budget) {
+    font_admission_charge(
+      directory,
+      limits,
+      budget,
+      FontAdmissionCommitMode::StandaloneIncremental,
+    ) {
     Err(error) => return Err(error)
     Ok(value) => value
   }

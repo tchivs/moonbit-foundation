@@ -80,9 +80,120 @@ priv struct RequiredTableFacts {
 }
 
 ///|
+#warnings("-7")
 priv struct FontAdmissionPlan {
   charge : @budget.ResourceCharge
   kern : KernState
+  exact_work : UInt64
+  standalone_remaining_work : UInt64
+}
+
+///|
+#warnings("-6")
+priv enum FontAdmissionCommitMode {
+  StandaloneIncremental
+  CollectionDeferred
+}
+
+///|
+priv struct FontAdmissionLedger {
+  caller : @budget.Budget
+  mode : FontAdmissionCommitMode
+  mut staged_work : UInt64
+}
+
+///|
+fn FontAdmissionLedger::new(
+  caller : @budget.Budget,
+  mode : FontAdmissionCommitMode,
+) -> FontAdmissionLedger {
+  { caller, mode, staged_work: 0UL }
+}
+
+///|
+fn FontAdmissionLedger::admit_stage(
+  self : FontAdmissionLedger,
+  max_work : UInt64,
+  semantic_work : UInt64,
+  budget_base_work : UInt64,
+  stage_work : UInt64,
+) -> Result[Unit, @error.CoreError] {
+  if semantic_work > max_work {
+    return Err(font_limit_error("max-work", semantic_work, max_work))
+  }
+  let next_staged = match @checked.checked_add(self.staged_work, stage_work) {
+    Err(_) =>
+      return Err(
+        font_limit_error(
+          "max-work",
+          18446744073709551615UL,
+          max_work,
+        ),
+      )
+    Ok(value) => value
+  }
+  let requested_work = match self.mode {
+    FontAdmissionCommitMode::StandaloneIncremental =>
+      match @checked.checked_add(budget_base_work, stage_work) {
+        Err(_) =>
+          return Err(
+            font_limit_error(
+              "max-work",
+              18446744073709551615UL,
+              max_work,
+            ),
+          )
+        Ok(value) => value
+      }
+    FontAdmissionCommitMode::CollectionDeferred =>
+      match @checked.checked_add(budget_base_work, next_staged) {
+        Err(_) =>
+          return Err(
+            font_limit_error(
+              "max-work",
+              18446744073709551615UL,
+              max_work,
+            ),
+          )
+        Ok(value) => value
+      }
+  }
+  match
+    self.caller.preflight(
+      @budget.ResourceCharge::new(
+        bytes=0UL,
+        allocations=0UL,
+        allocation_size=0UL,
+        width=0UL,
+        height=0UL,
+        pixels=0UL,
+        work=requested_work,
+      ),
+    ) {
+    Err(error) => return Err(error)
+    Ok(_) => ()
+  }
+  match self.mode {
+    FontAdmissionCommitMode::StandaloneIncremental =>
+      match
+        self.caller.charge(
+          @budget.ResourceCharge::new(
+            bytes=0UL,
+            allocations=0UL,
+            allocation_size=0UL,
+            width=0UL,
+            height=0UL,
+            pixels=0UL,
+            work=stage_work,
+          ),
+        ) {
+        Err(error) => return Err(error)
+        Ok(_) => ()
+      }
+    FontAdmissionCommitMode::CollectionDeferred => ()
+  }
+  self.staged_work = next_staged
+  Ok(())
 }
 
 ///|
@@ -90,7 +201,9 @@ fn font_admission_charge(
   directory : DirectoryFacts,
   limits : FontLimits,
   budget : @budget.Budget,
+  commit_mode : FontAdmissionCommitMode,
 ) -> Result[FontAdmissionPlan, @error.CoreError] {
+  let ledger = FontAdmissionLedger::new(budget, commit_mode)
   let maxp_table = match font_table_window(directory, 0x6D617870UL) {
     Err(error) => return Err(error)
     Ok(value) => value
@@ -147,10 +260,10 @@ fn font_admission_charge(
   // Count discovery is intentionally separate from semantic validation: it
   // determines the exact later scan work before the one authoritative charge.
   let cmap_work = match
-    font_cmap_declared_work(
+    font_cmap_declared_work_with_ledger(
       cmap_table,
       cmap_records,
-      budget,
+      ledger,
       limits.max_work(),
       cmap_discovery_base_work,
     ) {
@@ -180,7 +293,7 @@ fn font_admission_charge(
       font_optional_table_window(directory, 0x6B65726EUL),
       num_glyphs,
       limits,
-      budget,
+      ledger,
       kern_base_work,
       kern_budget_base_work,
     ) {
@@ -356,24 +469,13 @@ fn font_admission_charge(
   } else {
     loca_allocation_size
   }
-  let cmap_charged_work = match
-    @checked.checked_add(cmap_records, cmap_work.format4_discovery_work) {
+  let remaining_work = match @checked.checked_sub(work, ledger.staged_work) {
     Err(error) => return Err(error)
     Ok(value) => value
   }
-  let kern_charged_work = match
-    @checked.checked_add(kern.subtable_work, kern.pair_work) {
-    Err(error) => return Err(error)
-    Ok(value) => value
-  }
-  let charged_work = match
-    @checked.checked_add(cmap_charged_work, kern_charged_work) {
-    Err(error) => return Err(error)
-    Ok(value) => value
-  }
-  let remaining_work = match @checked.checked_sub(work, charged_work) {
-    Err(error) => return Err(error)
-    Ok(value) => value
+  let charge_work = match commit_mode {
+    FontAdmissionCommitMode::StandaloneIncremental => remaining_work
+    FontAdmissionCommitMode::CollectionDeferred => work
   }
   Ok({
     charge: @budget.ResourceCharge::new(
@@ -383,9 +485,11 @@ fn font_admission_charge(
       width=0UL,
       height=0UL,
       pixels=0UL,
-      work=remaining_work,
+      work=charge_work,
     ),
     kern: kern.state,
+    exact_work: work,
+    standalone_remaining_work: remaining_work,
   })
 }
 
@@ -915,49 +1019,6 @@ fn font_cmap_subtable_facts(
 }
 
 ///|
-fn font_preflight_admission_work(
-  budget : @budget.Budget,
-  max_work : UInt64,
-  work : UInt64,
-) -> Result[Unit, @error.CoreError] {
-  if work > max_work {
-    return Err(font_limit_error("max-work", work, max_work))
-  }
-  budget.preflight(
-    @budget.ResourceCharge::new(
-      bytes=0UL,
-      allocations=0UL,
-      allocation_size=0UL,
-      width=0UL,
-      height=0UL,
-      pixels=0UL,
-      work~,
-    ),
-  )
-}
-
-///|
-/// Commit already-preflighted attacker-declared scan work immediately before
-/// the consuming loop. Bytes and allocations remain part of the later atomic
-/// admission charge.
-fn font_charge_admission_work(
-  budget : @budget.Budget,
-  work : UInt64,
-) -> Result[Unit, @error.CoreError] {
-  budget.charge(
-    @budget.ResourceCharge::new(
-      bytes=0UL,
-      allocations=0UL,
-      allocation_size=0UL,
-      width=0UL,
-      height=0UL,
-      pixels=0UL,
-      work~,
-    ),
-  )
-}
-
-///|
 fn font_cmap_search_selector(seg_count : UInt64) -> UInt64 {
   if seg_count >= 16384UL {
     14UL
@@ -1056,10 +1117,10 @@ fn font_cmap_format4_mapping_work(
 }
 
 ///|
-fn font_cmap_declared_work(
+fn font_cmap_declared_work_with_ledger(
   table : TableWindow,
   record_count : UInt64,
-  budget : @budget.Budget,
+  ledger : FontAdmissionLedger,
   max_work : UInt64,
   discovery_base_work : UInt64,
 ) -> Result[CmapAdmissionWork, @error.CoreError] {
@@ -1079,11 +1140,13 @@ fn font_cmap_declared_work(
     Err(error) => return Err(error)
     Ok(value) => value
   }
-  match font_preflight_admission_work(budget, max_work, record_discovery_work) {
-    Err(error) => return Err(error)
-    Ok(_) => ()
-  }
-  match font_charge_admission_work(budget, record_count) {
+  match
+    ledger.admit_stage(
+      max_work,
+      record_discovery_work,
+      discovery_base_work,
+      record_count,
+    ) {
     Err(error) => return Err(error)
     Ok(_) => ()
   }
@@ -1150,21 +1213,13 @@ fn font_cmap_declared_work(
         if preflight_work > max_work {
           return Err(font_limit_error("max-work", preflight_work, max_work))
         }
-        let budget_preflight_work = match
-          @checked.checked_add(discovery_base_work, facts.body_records) {
-          Err(error) => return Err(error)
-          Ok(value) => value
-        }
         match
-          font_preflight_admission_work(
-            budget,
+          ledger.admit_stage(
             max_work,
-            budget_preflight_work,
+            preflight_work,
+            discovery_base_work,
+            facts.body_records,
           ) {
-          Err(error) => return Err(error)
-          Ok(_) => ()
-        }
-        match font_charge_admission_work(budget, facts.body_records) {
           Err(error) => return Err(error)
           Ok(_) => ()
         }
@@ -1193,6 +1248,27 @@ fn font_cmap_declared_work(
     index = index + 1UL
   }
   Ok({ body_records, format4_discovery_work, search_work, mapping_work })
+}
+
+///|
+#warnings("-1")
+fn font_cmap_declared_work(
+  table : TableWindow,
+  record_count : UInt64,
+  budget : @budget.Budget,
+  max_work : UInt64,
+  discovery_base_work : UInt64,
+) -> Result[CmapAdmissionWork, @error.CoreError] {
+  font_cmap_declared_work_with_ledger(
+    table,
+    record_count,
+    FontAdmissionLedger::new(
+      budget,
+      FontAdmissionCommitMode::StandaloneIncremental,
+    ),
+    max_work,
+    discovery_base_work,
+  )
 }
 
 ///|
