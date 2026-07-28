@@ -32,8 +32,19 @@ $RecordKeys = @(
   'boundary_facts',
   'dependency_facts',
   'focused_assertions',
+  'source_identities',
   'runner',
   'pass'
+)
+$FocusedSourceFiles = @(
+  'modules/mb-font/font/collection_test.mbt',
+  'modules/mb-font/font/collection_wbtest.mbt',
+  'modules/mb-font/font/font_test.mbt',
+  'modules/mb-font/font/font_wbtest.mbt',
+  'modules/mb-font/font/generated_fonts_wbtest.mbt',
+  'modules/mb-font/font/generated_font_qualification_test.mbt',
+  'modules/mb-font/font/font_qualification_test.mbt',
+  'modules/mb-font/font/font_qualification_hostile_test.mbt'
 )
 $FocusedAssertions = @(
   [pscustomobject][ordered]@{
@@ -138,6 +149,27 @@ function Get-FontQualificationFileFact {
     path = [IO.Path]::GetRelativePath($RepositoryRoot, $resolved).Replace('\', '/')
     length = $bytes.Length
     sha256 = Get-FontQualificationSha256 $bytes
+  }
+}
+
+function Get-FontQualificationSourceIdentities {
+  $commit = (& git -C $RepositoryRoot rev-parse HEAD).Trim()
+  if ($LASTEXITCODE -ne 0 -or $commit -cnotmatch '^[0-9a-f]{40}$') {
+    throw 'Font qualification could not resolve the repository commit identity.'
+  }
+  $tree = (& git -C $RepositoryRoot rev-parse 'HEAD^{tree}').Trim()
+  if ($LASTEXITCODE -ne 0 -or $tree -cnotmatch '^[0-9a-f]{40}$') {
+    throw 'Font qualification could not resolve the repository tree identity.'
+  }
+  return [pscustomobject][ordered]@{
+    repository_commit = $commit
+    repository_tree = $tree
+    files = @(
+      $FocusedSourceFiles |
+        ForEach-Object {
+          Get-FontQualificationFileFact (Join-Path $RepositoryRoot $_)
+        }
+    )
   }
 }
 
@@ -668,6 +700,31 @@ function Assert-FontQualificationEvidenceRecord {
   if ((Compare-Object $expectedImports @($Record.dependency_facts.package_imports))) {
     throw "$($Record.target) package-import evidence drifted."
   }
+  Assert-FontQualificationClosedKeys $Record.source_identities @(
+    'repository_commit',
+    'repository_tree',
+    'files'
+  ) "$($Record.target) source identities"
+  if ([string]$Record.source_identities.repository_commit -cnotmatch '^[0-9a-f]{40}$' -or
+      [string]$Record.source_identities.repository_tree -cnotmatch '^[0-9a-f]{40}$' -or
+      @($Record.source_identities.files).Count -ne $FocusedSourceFiles.Count) {
+    throw "$($Record.target) source identity count or git identity drifted."
+  }
+  $expectedSources = Get-FontQualificationSourceIdentities
+  if ((ConvertTo-FontQualificationJson $Record.source_identities -Compress) -cne
+      (ConvertTo-FontQualificationJson $expectedSources -Compress)) {
+    throw "$($Record.target) focused source identities drifted."
+  }
+  for ($index = 0; $index -lt $FocusedSourceFiles.Count; $index++) {
+    Assert-FontQualificationClosedKeys `
+      $Record.source_identities.files[$index] `
+      @('path','length','sha256') `
+      "$($Record.target) source identity $index"
+    if ([string]$Record.source_identities.files[$index].path -cne
+        $FocusedSourceFiles[$index]) {
+      throw "$($Record.target) focused source identity order drifted at $index."
+    }
+  }
   $focused = @($Record.focused_assertions)
   if ($focused.Count -ne $FocusedAssertions.Count) {
     throw "$($Record.target) focused assertion count drifted."
@@ -1084,6 +1141,7 @@ function New-FontQualificationEvidenceRecord {
     [Parameter(Mandatory)]$CollectionFacts,
     [Parameter(Mandatory)]$BoundaryFacts,
     [Parameter(Mandatory)]$DependencyFacts,
+    [Parameter(Mandatory)]$SourceIdentities,
     [Parameter(Mandatory)][string]$TargetDirectory,
     [Parameter(Mandatory)][object[]]$FocusedResults,
     [Parameter(Mandatory)][string]$FullPackageCommand,
@@ -1119,6 +1177,7 @@ function New-FontQualificationEvidenceRecord {
         }
       }
     )
+    source_identities = $SourceIdentities
     runner = [pscustomobject][ordered]@{
       generator_command = './scripts/fixtures/Generate-FontQualification.ps1 -Check'
       policy_command = 'Assert-FontFoundationPolicy -PolicyPath ./policy/foundation.json'
@@ -1152,6 +1211,7 @@ function Get-FontQualificationSemanticPayload {
     boundary_facts = $Record.boundary_facts
     dependency_facts = $Record.dependency_facts
     focused_assertions = $Record.focused_assertions
+    source_identities = $Record.source_identities
     pass = $Record.pass
   }
 }
@@ -1387,6 +1447,7 @@ function Invoke-FontQualification {
       -Fixtures $fixtures
     $boundaryFacts = Get-FontQualificationBoundaryFacts
     $dependencyFacts = Get-FontQualificationDependencyFacts
+    $sourceIdentities = Get-FontQualificationSourceIdentities
     $records = @(
       foreach ($target in $Targets) {
         $targetDirectory = "target/phase103-font-qualification-$target"
@@ -1480,6 +1541,7 @@ function Invoke-FontQualification {
           -CollectionFacts $collectionFacts `
           -BoundaryFacts $boundaryFacts `
           -DependencyFacts $dependencyFacts `
+          -SourceIdentities $sourceIdentities `
           -TargetDirectory $targetDirectory `
           -FocusedResults $focusedResults `
           -FullPackageCommand $fullPackageCommand `
@@ -1609,6 +1671,20 @@ function Invoke-FontQualification {
       $copy.focused_assertions[1] = $first
       Assert-FontQualificationEvidenceRecord $copy
     } 'focused assertion identity/order'
+    & $probe 'focused source hash divergence' {
+      $copy = ConvertTo-FontQualificationJson $records[0] -Compress |
+        ConvertFrom-Json
+      $copy.source_identities.files[0].sha256 = '00'
+      Assert-FontQualificationEvidenceRecord $copy
+    } 'focused source identities drifted'
+    & $probe 'focused source order divergence' {
+      $copy = ConvertTo-FontQualificationJson $records[0] -Compress |
+        ConvertFrom-Json
+      $first = $copy.source_identities.files[0]
+      $copy.source_identities.files[0] = $copy.source_identities.files[1]
+      $copy.source_identities.files[1] = $first
+      Assert-FontQualificationEvidenceRecord $copy
+    } 'focused source identities drifted'
     & $probe 'semantic evidence divergence' {
       $copy = @($records | ForEach-Object {
         ConvertTo-FontQualificationJson $_ -Compress | ConvertFrom-Json

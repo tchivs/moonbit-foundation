@@ -23,6 +23,7 @@ $expectedRecordKeys = @(
   'boundary_facts',
   'dependency_facts',
   'focused_assertions',
+  'source_identities',
   'runner',
   'pass'
 )
