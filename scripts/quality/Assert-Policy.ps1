@@ -1499,6 +1499,41 @@ function Confirm-FontQualificationRejected {
   Assert-Condition ($null -ne $failure -and $failure -cmatch $ExpectedPattern) "Font qualification accepted negative probe '$Name': '$failure'."
 }
 
+function Assert-FontQualificationWorkflowContract {
+  [CmdletBinding()]
+  param([Parameter(Mandatory)][string]$WorkflowText)
+
+  Assert-Condition (
+    ([regex]::Matches(
+      $WorkflowText,
+      '(?m)^  font-qualification:\s*$'
+    )).Count -eq 1
+  ) 'Quality workflow must contain exactly one FontQualification job.'
+  Assert-Condition (
+    $WorkflowText -cmatch (
+      '(?m)^\s*timeout-minutes:\s*20\s*$'
+    )
+  ) 'Measured FontQualification timeout must remain 20 minutes.'
+  Assert-Condition (
+    $WorkflowText -cmatch (
+      '(?m)^\s*run:\s*[.]/scripts/quality[.]ps1 -Lane ' +
+      'FontQualification -EvidenceDirectory ' +
+      'artifacts/release-qualification/ci-font-v2\s*$'
+    )
+  ) 'FontQualification CI command must own the fresh v2 evidence directory.'
+  Assert-Condition (
+    $WorkflowText -cmatch (
+      '(?ms)- name: Upload passing font qualification evidence\s+' +
+      'if: \$\{\{ success\(\) \}\}\s+' +
+      'uses: actions/upload-artifact@' +
+      'ea165f8d65b6e75b540449e92b4886f43607fa02\s+' +
+      'with:\s+' +
+      'name: font-qualification-evidence-v2\s+' +
+      'path: artifacts/release-qualification/ci-font-v2'
+    )
+  ) 'FontQualification CI upload must be success-only, pinned, and v2-owned.'
+}
+
 function Assert-QualityWorkflowToolchainTransport {
   [CmdletBinding()]
   param(
@@ -2480,6 +2515,45 @@ function Assert-FontQualificationArtifacts {
     -QualityWorkflowText $qualityWorkflowText `
     -AllWorkflowText $allWorkflowText `
     -InstallerText $installerText
+  Assert-FontQualificationWorkflowContract -WorkflowText $qualityWorkflowText
+  Confirm-FontQualificationRejected 'v1 CI evidence directory' {
+    Assert-FontQualificationWorkflowContract -WorkflowText (
+      $qualityWorkflowText.Replace('ci-font-v2', 'ci-font')
+    )
+  } 'fresh v2 evidence directory'
+  Confirm-FontQualificationRejected 'failing evidence upload' {
+    Assert-FontQualificationWorkflowContract -WorkflowText (
+      $qualityWorkflowText.Replace('${{ success() }}', '${{ always() }}')
+    )
+  } 'success-only'
+  Confirm-FontQualificationRejected 'unpinned evidence upload' {
+    Assert-FontQualificationWorkflowContract -WorkflowText (
+      $qualityWorkflowText.Replace(
+        'actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02',
+        'actions/upload-artifact@v4'
+      )
+    )
+  } 'success-only, pinned, and v2-owned'
+  Confirm-FontQualificationRejected 'unmeasured timeout increase' {
+    Assert-FontQualificationWorkflowContract -WorkflowText (
+      $qualityWorkflowText.Replace('timeout-minutes: 20', 'timeout-minutes: 21')
+    )
+  } 'timeout must remain 20 minutes'
+
+  $runnerText = Get-Content -Raw -LiteralPath (
+    Join-Path $RepositoryRoot 'scripts/quality/Invoke-FontQualification.ps1'
+  )
+  foreach ($runnerFact in @(
+      'mnf-font-qualification-evidence/v2',
+      'font-complete-public-v2',
+      'artifacts/release-qualification/font-v2',
+      'target/phase103-font-qualification-',
+      'normalization_removed = @(''target'', ''runner'')'
+    )) {
+    Assert-Condition (
+      $runnerText.Contains($runnerFact, [StringComparison]::Ordinal)
+    ) "FontQualification runner fact drifted: $runnerFact"
+  }
 
   $manifestPath = Join-Path $RepositoryRoot 'fixtures/manifest.json'
   Assert-FontQualificationFixtureManifest -ManifestPath $manifestPath -RepositoryRoot $RepositoryRoot
@@ -2670,6 +2744,16 @@ function Assert-FontFoundationPolicy {
   Assert-ExactSet 'Font module targets' @($fontModule.supported_targets) @('js', 'wasm', 'wasm-gc', 'native')
   $fontManifest = Read-QualityJson -Path (Join-Path $repoRoot 'modules/mb-font/moon.mod.json')
   Assert-Condition ($fontManifest.description -ceq $fontModule.description) 'Manifest description drift in modules/mb-font.'
+  $expectedDescription = (
+    'Portable bounded standalone TrueType and TTC/OTC version 1/version 2 ' +
+    'inspection with selected static-glyf admission, named metrics, ' +
+    'deterministic Unicode mapping, legacy kerning, and transactional Path2 ' +
+    'outlines for MoonBit Native Foundation.'
+  )
+  Assert-Condition (
+    $fontModule.description -ceq $expectedDescription -and
+    $fontManifest.description -ceq $expectedDescription
+  ) 'Font policy and manifest descriptions must expose the Phase 103 collection contract.'
 
   $fontEdges = @($policy.allowed_dependency_edges | Where-Object { $_.from -ceq 'tchivs/mb-font' })
   Assert-ExactSet 'Font dependency edges' @($fontEdges.to) @('tchivs/mb-core')
@@ -2747,6 +2831,21 @@ function Assert-FontFoundationPolicy {
   }
   Assert-Condition ($readmeText -cmatch 'tchivs/mb-core' -and $readmeText -match 'only direct module dependency') 'Font README must document mb-core as its only direct dependency.'
   Assert-Condition ($readmeText -cmatch 'Phase 100' -and $readmeText -cmatch 'generated micro-font') 'Font README must preserve the Phase 100 real-font evidence boundary.'
+  foreach ($readmeFact in @(
+      'TTC/OTC versions 1 and 2',
+      '757,428-byte',
+      '833d406d389d4ef3b0a38f168af7d51ca16c88605e1727f6d631871a4e05f80b',
+      'artifacts/release-qualification/font-v2',
+      'exactly four',
+      'target',
+      'runner',
+      'WOFF1/WOFF2',
+      'PresentUnverified'
+    )) {
+    Assert-Condition (
+      $readmeText.Contains($readmeFact, [StringComparison]::Ordinal)
+    ) "Font README Phase 103 fact drifted: $readmeFact"
+  }
   $outlineDataTaxonomy = [regex]::Match($readmeText, '(?ms)^- `Data`.*?(?=^- `Capability`)').Value
   $outlineResourceTaxonomy = [regex]::Match($readmeText, '(?ms)^- `Resource`.*?(?=^- `State`)').Value
   Assert-Condition (
@@ -2765,6 +2864,22 @@ function Assert-FontFoundationPolicy {
   $changelogText = Get-Content -Raw -LiteralPath (Join-Path $repoRoot 'modules/mb-font/CHANGELOG.md')
   Assert-Condition ($changelogText -cmatch 'independent release lifecycle') 'Font changelog must declare an independent release lifecycle.'
   Assert-Condition ($changelogText -cmatch '0[.]1[.]0 candidate [(]unpublished[)]') 'Font changelog must record the unpublished 0.1.0 candidate.'
+  Assert-Condition (
+    $changelogText -cmatch 'TTC/OTC' -and
+    $changelogText -cmatch '833d406d389d4ef3b0a38f168af7d51ca16c88605e1727f6d631871a4e05f80b' -and
+    $changelogText -cmatch 'font-complete-public-v2'
+  ) 'Font changelog must record the Phase 103 collection and evidence contract.'
+
+  $licensePolicyText = Get-Content -Raw -LiteralPath (
+    Join-Path $repoRoot 'docs/policies/licensing-and-fixtures.md'
+  )
+  Assert-Condition (
+    $licensePolicyText -cmatch 'external derivative' -and
+    $licensePolicyText -cmatch 'parent' -and
+    $licensePolicyText -cmatch 'generator' -and
+    $licensePolicyText -cmatch 'notice' -and
+    $licensePolicyText -cmatch 'redistribution_status'
+  ) 'Fixture policy must define the external derivative provenance rule.'
 
   $interfaceText = @($font.semantic_interface | ForEach-Object { [string]$_ })
   $privateLeakPattern = '(?i)(Cursor|TableWindow|TableRecord|DirectoryFacts|RequiredTableFacts|MetricIndexFacts|Collection(?:Face|Protected|Parse|Directory|Record|Range|Storage)Facts|Dsig(?:Record|Block|Payload)|CmapLookupFacts|CmapFormat4Facts|CmapFormat12Facts|KernState|KernFormat0Facts|SfntTag|RawOffset|WindowDescriptor|source_offset|retained_revision|mutation_revision|GlyphWindow|OutlinePoint|OutlineGeometry|F2Dot14|Composite(?:Placement|Descriptor|Parse|Frame|Classification)|OutlineWork|GraphColor|RealPoint|ImpliedPoint|PhantomPoint|Q15)'
