@@ -103,6 +103,63 @@ test "Type 2 invalid subr and recursive frame exhaustion are deterministic" {
 }
 
 ///|
+test "Type 2 frame scratch exactly covers the legal depth ceiling" {
+  let depth_ten = [
+    b"\x21\x0a\x0b",
+    b"\x22\x0a\x0b",
+    b"\x23\x0a\x0b",
+    b"\x24\x0a\x0b",
+    b"\x25\x0a\x0b",
+    b"\x26\x0a\x0b",
+    b"\x27\x0a\x0b",
+    b"\x28\x0a\x0b",
+    b"\x29\x0a\x0b",
+    b"\x0b",
+  ]
+  let limits = type2_vm_wb_limits(65535UL, 65535UL)
+  let root = font_wb_view(b"\x20\x0a\x0e")
+  let vm = Type2Vm::new(
+    root,
+    type2_fixture_index(depth_ten),
+    type2_fixture_index([]),
+    type2_fixed_from_raw(0L).unwrap(),
+    type2_fixed_from_raw(0L).unwrap(),
+    type2_fixed_from_raw(0L).unwrap(),
+    type2_identity_matrix(),
+    limits,
+  )
+  // Root plus ten live subroutine frames is the proven peak occupancy.
+  inspect(vm.frames.capacity(), content="11")
+  let legal = type2_fixture_run(b"\x20\x0a\x0e", depth_ten, [], limits).unwrap()
+  inspect(legal.ledger.calls, content="10")
+  inspect(legal.ledger.returns, content="10")
+
+  let depth_eleven = [
+    b"\x21\x0a\x0b",
+    b"\x22\x0a\x0b",
+    b"\x23\x0a\x0b",
+    b"\x24\x0a\x0b",
+    b"\x25\x0a\x0b",
+    b"\x26\x0a\x0b",
+    b"\x27\x0a\x0b",
+    b"\x28\x0a\x0b",
+    b"\x29\x0a\x0b",
+    b"\x2a\x0a\x0b",
+    b"\x0b",
+  ]
+  let rejected = type2_fixture_run(
+    b"\x20\x0a\x0e",
+    depth_eleven,
+    [],
+    limits,
+  ).unwrap_err()
+  inspect(
+    rejected.context() == Some("font-cff-type2-frame-depth"),
+    content="true",
+  )
+}
+
+///|
 test "Type 2 endchar terminates root and only an all-tail subroutine chain" {
   inspect(type2_vm_wb_run(b"\x0e") is Ok(_), content="true")
 
