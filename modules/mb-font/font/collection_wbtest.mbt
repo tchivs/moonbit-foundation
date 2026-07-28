@@ -1033,3 +1033,8 @@ test "collection final revision guard rejects mutate-restoration atomically" {
   inspect(after.allocation_size() == before.allocation_size(), content="true")
   inspect(after.work() == before.work(), content="true")
 }
+
+///|
+test "collection qualification preserves mid-operation mutation atomicity" {
+  fail("Phase 103 private collection mutation gate is not implemented")
+}

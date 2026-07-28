@@ -356,3 +356,13 @@ test "font qualification executes the closed hostile outcome matrix" {
     font_qualification_run_hostile_case(expected)
   }
 }
+
+///|
+test "font qualification executes the closed collection hostile outcome matrix" {
+  fail("Phase 103 collection hostile matrix is not implemented")
+}
+
+///|
+test "font qualification preserves public collection mutation atomicity" {
+  fail("Phase 103 public collection mutation matrix is not implemented")
+}
