@@ -321,6 +321,102 @@ fn type2_fixture_staging_budget() -> @budget.Budget {
 }
 
 ///|
+fn type2_fixture_repeated_roll_program(repetitions : Int) -> Bytes {
+  let program : Array[Byte] = [b'\x8b', b'\x8c', b'\x8d']
+  for repetition = 0; repetition < repetitions; repetition = repetition + 1 {
+    // Keep three operands live while repeatedly rotating them by one.
+    program.push(b'\x8e')
+    program.push(b'\x8c')
+    program.push(b'\x0c')
+    program.push(b'\x1e')
+  }
+  for drop = 0; drop < 3; drop = drop + 1 {
+    program.push(b'\x0c')
+    program.push(b'\x12')
+  }
+  program.push(b'\x0e')
+  Bytes::from_array(program)
+}
+
+///|
+fn type2_fixture_many_curve_program(curves : Int) -> Bytes {
+  let program : Array[Byte] = [b'\x8b', b'\x8b', b'\x15']
+  for curve = 0; curve < curves; curve = curve + 1 {
+    for operand = 0; operand < 6; operand = operand + 1 {
+      program.push(b'\x8b')
+    }
+    program.push(b'\x08')
+  }
+  program.push(b'\x0e')
+  Bytes::from_array(program)
+}
+
+///|
+fn type2_fixture_allocation_budget(allocations : UInt64) -> @budget.Budget {
+  @budget.Budget::new(
+    @budget.ResourceLimits::new(
+      // Two retained 24-byte bounds slots.
+      bytes=48UL,
+      // Independent invariant: four fixed scratch arrays per glyph, one
+      // retained-bounds payload for the drawn glyph, and one outer array.
+      allocations~,
+      allocation_size=384UL,
+      width=0UL,
+      height=0UL,
+      pixels=0UL,
+      depth=0UL,
+      work=65535UL,
+    ),
+  )
+}
+
+///|
+test "Type 2 repeated roll and many curves use fixed scratch allocation authority" {
+  let programs = [
+    type2_fixture_repeated_roll_program(64),
+    type2_fixture_many_curve_program(32),
+  ]
+  let (descriptors, global_subrs, authority) = type2_fixture_descriptors(
+    programs,
+    [],
+  )
+  let exact = type2_fixture_allocation_budget(10UL)
+  let staged = type2_stage_all_glyphs(
+    descriptors,
+    global_subrs,
+    1000UL,
+    type2_vm_wb_geometry_limits(128UL, 2UL, 65535UL, 65535UL),
+    exact,
+    authority,
+    authority.mutation_revision(),
+  ).unwrap()
+  inspect(staged.bounds[0] is None, content="true")
+  inspect(staged.bounds[1] is Some(_), content="true")
+  inspect(staged.charge.allocations, content="10")
+  inspect(staged.charge.allocation_size, content="384")
+
+  let (short_descriptors, short_global_subrs, short_authority) =
+    type2_fixture_descriptors(programs, [])
+  let one_short = type2_fixture_allocation_budget(9UL)
+  let before = one_short.remaining()
+  let error = type2_stage_all_glyphs(
+    short_descriptors,
+    short_global_subrs,
+    1000UL,
+    type2_vm_wb_geometry_limits(128UL, 2UL, 65535UL, 65535UL),
+    one_short,
+    short_authority,
+    short_authority.mutation_revision(),
+  ).unwrap_err()
+  inspect(error.category() == @error.ErrorCategory::Resource, content="true")
+  inspect(error.context() == Some("allocations"), content="true")
+  inspect(
+    one_short.remaining().allocations() == before.allocations(),
+    content="true",
+  )
+}
+
+///|
 test "Type 2 all-GID staging is ascending, exact, and does not commit budget" {
   let (descriptors, global_subrs, authority) = type2_fixture_descriptors(
     [
