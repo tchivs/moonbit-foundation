@@ -94,6 +94,119 @@ fn font_require_table_presence(
 }
 
 ///|
+fn font_from_admitted_facts(
+  source : @bytes.ByteView,
+  opening_revision : UInt64,
+  directory : DirectoryFacts,
+  tables : RequiredTableFacts,
+  metric_index : MetricIndexFacts,
+  limits : FontLimits,
+) -> Font {
+  {
+    source,
+    opening_revision,
+    units_per_em_value: tables.head.units_per_em,
+    global_bounds_value: {
+      x_min_value: tables.head.x_min,
+      y_min_value: tables.head.y_min,
+      x_max_value: tables.head.x_max,
+      y_max_value: tables.head.y_max,
+    },
+    hhea_line_metrics_value: {
+      ascent_value: tables.hhea.ascent,
+      descent_value: tables.hhea.descent,
+      line_gap_value: tables.hhea.line_gap,
+    },
+    typographic_line_metrics_value: {
+      ascent_value: tables.os2.typo_ascent,
+      descent_value: tables.os2.typo_descent,
+      line_gap_value: tables.os2.typo_line_gap,
+    },
+    directory,
+    tables,
+    metric_index,
+    limits,
+  }
+}
+
+///|
+fn font_open_collection_face(
+  source : @bytes.ByteView,
+  opening_revision : UInt64,
+  face : CollectionFaceFacts,
+  limits : FontLimits,
+  budget : @budget.Budget,
+  before_final_guard : () -> Unit,
+) -> Result[Font, @error.CoreError] {
+  let directory = match
+    font_parse_directory_at(
+      source,
+      face.directory_start,
+      Some(face.table_count),
+      limits,
+      FontChecksumMode::Collection,
+    ) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  match font_validate_profile(directory) {
+    Err(error) => return Err(error)
+    Ok(_) => ()
+  }
+  match font_require_table_presence(directory) {
+    Err(error) => return Err(error)
+    Ok(_) => ()
+  }
+  match
+    font_validate_checksums_with_mode(directory, FontChecksumMode::Collection) {
+    Err(error) => return Err(error)
+    Ok(_) => ()
+  }
+  let admission = match
+    font_admission_charge(
+      directory,
+      limits,
+      budget,
+      FontAdmissionCommitMode::CollectionDeferred,
+    ) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  let tables = match
+    font_admit_required_tables_with_kern(directory, limits, admission.kern) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  let metric_index = match
+    font_admit_metric_index(directory, tables.head, tables.maxp, tables.hhea) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  match budget.preflight(admission.charge) {
+    Err(error) => return Err(error)
+    Ok(_) => ()
+  }
+  before_final_guard()
+  if source.mutation_revision() != opening_revision {
+    return Err(font_collection_revision_error("font-collection-open-face"))
+  }
+  match budget.charge(admission.charge) {
+    Err(error) => return Err(error)
+    Ok(_) => ()
+  }
+  Ok(
+    font_from_admitted_facts(
+      source,
+      opening_revision,
+      directory,
+      tables,
+      metric_index,
+      limits,
+    ),
+  )
+}
+
+///|
 /// Admit one standalone TrueType-outline SFNT under explicit semantic limits
 /// and one caller-owned authoritative budget transaction.
 pub fn Font::open(
@@ -153,31 +266,16 @@ pub fn Font::open(
   if source.mutation_revision() != opening_revision {
     return Err(font_revision_error("font-open"))
   }
-  Ok({
-    source,
-    opening_revision,
-    units_per_em_value: tables.head.units_per_em,
-    global_bounds_value: {
-      x_min_value: tables.head.x_min,
-      y_min_value: tables.head.y_min,
-      x_max_value: tables.head.x_max,
-      y_max_value: tables.head.y_max,
-    },
-    hhea_line_metrics_value: {
-      ascent_value: tables.hhea.ascent,
-      descent_value: tables.hhea.descent,
-      line_gap_value: tables.hhea.line_gap,
-    },
-    typographic_line_metrics_value: {
-      ascent_value: tables.os2.typo_ascent,
-      descent_value: tables.os2.typo_descent,
-      line_gap_value: tables.os2.typo_line_gap,
-    },
-    directory,
-    tables,
-    metric_index,
-    limits,
-  })
+  Ok(
+    font_from_admitted_facts(
+      source,
+      opening_revision,
+      directory,
+      tables,
+      metric_index,
+      limits,
+    ),
+  )
 }
 
 ///|
