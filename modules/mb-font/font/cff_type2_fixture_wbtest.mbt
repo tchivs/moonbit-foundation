@@ -664,6 +664,121 @@ test "Type 2 work authority rejects caller and ancestor before VM visit" {
 }
 
 ///|
+test "Type 2 caller one-short stops before the unauthorized VM read" {
+  let (descriptors, global_subrs, authority) = type2_fixture_descriptors(
+    [b"\x8b\x0c\x12\x0e", b"\x0e"],
+    [],
+  )
+  let resource_limits = @budget.ResourceLimits::new(
+    bytes=1024UL,
+    allocations=64UL,
+    allocation_size=384UL,
+    width=0UL,
+    height=0UL,
+    pixels=0UL,
+    depth=0UL,
+    work=2UL,
+  )
+  let caller = @budget.Budget::new(resource_limits)
+  let before = caller.remaining()
+  let visited : Array[UInt64] = []
+  let mut vm_reads = 0
+  let error = type2_stage_all_glyphs_with_probe(
+    descriptors,
+    global_subrs,
+    1000UL,
+    type2_vm_wb_limits(65535UL, 65535UL),
+    caller,
+    authority,
+    authority.mutation_revision(),
+    fn(gid) { visited.push(gid) },
+    read_probe=fn() { vm_reads = vm_reads + 1 },
+  ).unwrap_err()
+  inspect(error.category() == @error.ErrorCategory::Resource, content="true")
+  inspect(error.context() == Some("work"), content="true")
+  inspect(vm_reads, content="2")
+  inspect(visited.length(), content="1")
+  inspect(visited[0], content="0")
+  inspect(caller.remaining().bytes() == before.bytes(), content="true")
+  inspect(
+    caller.remaining().allocations() == before.allocations(),
+    content="true",
+  )
+  inspect(caller.remaining().work() == before.work(), content="true")
+}
+
+///|
+test "Type 2 ancestor one-short stops before the unauthorized VM read" {
+  let (descriptors, global_subrs, authority) = type2_fixture_descriptors(
+    [b"\x8b\x0c\x12\x0e", b"\x0e"],
+    [],
+  )
+  let resource_limits = @budget.ResourceLimits::new(
+    bytes=1024UL,
+    allocations=64UL,
+    allocation_size=384UL,
+    width=0UL,
+    height=0UL,
+    pixels=0UL,
+    depth=0UL,
+    work=3UL,
+  )
+  let ancestor = @budget.Budget::new(resource_limits)
+  let child = ancestor.child(resource_limits).unwrap()
+  ancestor
+  .charge(
+    @budget.ResourceCharge::new(
+      bytes=0UL,
+      allocations=0UL,
+      allocation_size=0UL,
+      width=0UL,
+      height=0UL,
+      pixels=0UL,
+      work=1UL,
+    ),
+  )
+  .unwrap()
+  let ancestor_before = ancestor.remaining()
+  let child_before = child.remaining()
+  let visited : Array[UInt64] = []
+  let mut vm_reads = 0
+  let error = type2_stage_all_glyphs_with_probe(
+    descriptors,
+    global_subrs,
+    1000UL,
+    type2_vm_wb_limits(65535UL, 65535UL),
+    child,
+    authority,
+    authority.mutation_revision(),
+    fn(gid) { visited.push(gid) },
+    read_probe=fn() { vm_reads = vm_reads + 1 },
+  ).unwrap_err()
+  inspect(error.category() == @error.ErrorCategory::Resource, content="true")
+  inspect(error.context() == Some("work"), content="true")
+  inspect(vm_reads, content="2")
+  inspect(visited.length(), content="1")
+  inspect(visited[0], content="0")
+  inspect(
+    ancestor.remaining().bytes() == ancestor_before.bytes(),
+    content="true",
+  )
+  inspect(
+    ancestor.remaining().allocations() == ancestor_before.allocations(),
+    content="true",
+  )
+  inspect(
+    ancestor.remaining().work() == ancestor_before.work(),
+    content="true",
+  )
+  inspect(child.remaining().bytes() == child_before.bytes(), content="true")
+  inspect(
+    child.remaining().allocations() == child_before.allocations(),
+    content="true",
+  )
+  inspect(child.remaining().work() == child_before.work(), content="true")
+}
+
+///|
 test "Type 2 all-GID staging resets transient state and stops at first failure" {
   let (descriptors, global_subrs, authority) = type2_fixture_descriptors(
     [

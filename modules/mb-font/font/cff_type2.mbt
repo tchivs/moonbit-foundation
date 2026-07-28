@@ -32,6 +32,16 @@ priv struct Type2ExecutionLedger {
 }
 
 ///|
+/// Private ticket for the fixed byte/work unit carried by one Type 2
+/// instruction. All limits and deferred budget authority are checked before
+/// the instruction is observed; accepting the ticket only advances ledgers.
+priv struct Type2InstructionCharge {
+  executed_bytes : UInt64
+  work : UInt64
+  authority_work : UInt64?
+}
+
+///|
 /// Deferred caller/ancestor work authority shared by one staged Type 2
 /// transaction. Preflight advances this private ledger without committing the
 /// public budget; the admission transaction still performs the sole commit.
@@ -65,11 +75,22 @@ fn Type2WorkAuthority::preflight_additional(
   self : Type2WorkAuthority,
   amount : UInt64,
 ) -> Result[Unit, @error.CoreError] {
+  match self.preflight(amount) {
+    Err(error) => Err(error)
+    Ok(_) => Ok(())
+  }
+}
+
+///|
+fn Type2WorkAuthority::preflight(
+  self : Type2WorkAuthority,
+  amount : UInt64,
+) -> Result[UInt64, @error.CoreError] {
   let requested = match self.requested(amount) {
     Err(error) => return Err(error)
     Ok(value) => value
   }
-  self.budget.preflight(
+  match self.budget.preflight(
     @budget.ResourceCharge::new(
       bytes=0UL,
       allocations=0UL,
@@ -79,7 +100,18 @@ fn Type2WorkAuthority::preflight_additional(
       pixels=0UL,
       work=requested,
     ),
-  )
+  ) {
+    Err(error) => Err(error)
+    Ok(_) => Ok(requested)
+  }
+}
+
+///|
+fn Type2WorkAuthority::accept_preflighted(
+  self : Type2WorkAuthority,
+  requested : UInt64,
+) -> Unit {
+  self.work = requested
 }
 
 ///|
@@ -87,15 +119,11 @@ fn Type2WorkAuthority::charge(
   self : Type2WorkAuthority,
   amount : UInt64,
 ) -> Result[Unit, @error.CoreError] {
-  let requested = match self.requested(amount) {
+  let requested = match self.preflight(amount) {
     Err(error) => return Err(error)
     Ok(value) => value
   }
-  match self.preflight_additional(amount) {
-    Err(error) => return Err(error)
-    Ok(_) => ()
-  }
-  self.work = requested
+  self.accept_preflighted(requested)
   Ok(())
 }
 
@@ -269,6 +297,60 @@ fn Type2Vm::charge_work(
   }
   self.ledger.work = requested
   Ok(())
+}
+
+///|
+fn Type2Vm::preflight_instruction(
+  self : Type2Vm,
+) -> Result[Type2InstructionCharge, @error.CoreError] {
+  // Preserve byte-before-work Resource precedence while authorizing the work
+  // unit before the instruction is observed.
+  let executed_bytes = match
+    type2_checked_counter_add(
+      self.ledger.executed_bytes,
+      1UL,
+      self.limits.max_executed_bytes,
+      "font-cff-type2-executed-bytes",
+    ) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  let work = match
+    type2_checked_counter_add(
+      self.ledger.work,
+      1UL,
+      self.limits.max_work,
+      "font-cff-type2-work",
+    ) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  let authority_work = match self.work_authority {
+    Some(authority) =>
+      match authority.preflight(1UL) {
+        Err(error) => return Err(error)
+        Ok(value) => Some(value)
+      }
+    None => None
+  }
+  Ok({ executed_bytes, work, authority_work })
+}
+
+///|
+fn Type2Vm::accept_preflighted_instruction(
+  self : Type2Vm,
+  charge : Type2InstructionCharge,
+) -> Unit {
+  self.ledger.executed_bytes = charge.executed_bytes
+  self.ledger.work = charge.work
+  match self.work_authority {
+    Some(authority) =>
+      match charge.authority_work {
+        Some(requested) => authority.accept_preflighted(requested)
+        None => ()
+      }
+    None => ()
+  }
 }
 
 ///|
@@ -1593,7 +1675,6 @@ fn type2_execute_program_with_matrix_and_read_probe(
       Err(error) => return Err(error)
       Ok(_) => ()
     }
-    read_probe()
     let frame = vm.frames.pop().unwrap()
     if frame.cursor >= frame.source.length() {
       return Err(
@@ -1604,6 +1685,12 @@ fn type2_execute_program_with_matrix_and_read_probe(
         ),
       )
     }
+    let instruction_charge = match vm.preflight_instruction() {
+      Err(error) =>
+        return Err(type2_error_with_revision(root, opening_revision, error))
+      Ok(value) => value
+    }
+    read_probe()
     let operator_offset = frame.cursor
     let first = match frame.source.get(operator_offset) {
       Err(_) =>
@@ -1616,13 +1703,8 @@ fn type2_execute_program_with_matrix_and_read_probe(
         )
       Ok(value) => value.to_uint64()
     }
-    let result : Result[Type2Step, @error.CoreError] = match
-      vm.charge_bytes(1UL) {
-      Err(error) => Err(error)
-      Ok(_) =>
-        match vm.charge_work(1UL) {
-          Err(error) => Err(error)
-          Ok(_) => {
+    vm.accept_preflighted_instruction(instruction_charge)
+    let result : Result[Type2Step, @error.CoreError] = {
             frame.cursor = frame.cursor + 1UL
             if first == 28UL ||
               first == 255UL ||
@@ -1748,8 +1830,6 @@ fn type2_execute_program_with_matrix_and_read_probe(
                 }
               }
             }
-          }
-        }
     }
     match result {
       Err(error) =>
@@ -1916,6 +1996,7 @@ fn type2_stage_all_glyphs_unchecked_with_probe(
   authority : @bytes.ByteView,
   opening_revision : UInt64,
   visit_probe : (UInt64) -> Unit,
+  read_probe? : () -> Unit = fn() { () },
   prior_work? : UInt64 = 0UL,
 ) -> Result[Type2AllGlyphResult, @error.CoreError] {
   match type2_require_revision(authority, opening_revision) {
@@ -2109,7 +2190,7 @@ fn type2_stage_all_glyphs_unchecked_with_probe(
         units_per_em,
         limits,
         opening_revision,
-        read_probe=fn() { () },
+        read_probe~,
         work_authority=Some(deferred_work),
       ) {
       Err(error) =>
@@ -2357,6 +2438,7 @@ fn type2_stage_all_glyphs_with_probe(
   authority : @bytes.ByteView,
   opening_revision : UInt64,
   visit_probe : (UInt64) -> Unit,
+  read_probe? : () -> Unit = fn() { () },
   prior_work? : UInt64 = 0UL,
 ) -> Result[Type2AllGlyphResult, @error.CoreError] {
   match
@@ -2369,6 +2451,7 @@ fn type2_stage_all_glyphs_with_probe(
       authority,
       opening_revision,
       visit_probe,
+      read_probe~,
       prior_work~,
     ) {
     Err(error) =>
