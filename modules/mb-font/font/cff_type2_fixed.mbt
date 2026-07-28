@@ -225,7 +225,7 @@ fn Type2Prng::next(self : Type2Prng) -> Type2Fixed {
   state = state ^ (state >> 17)
   state = (state ^ (state << 5)) & 0xFFFFFFFFUL
   self.state = state
-  { raw: (state & 0xFFFFUL).reinterpret_as_int64() + 1L }
+  { raw: (state >> 16).reinterpret_as_int64() + 1L }
 }
 
 ///|

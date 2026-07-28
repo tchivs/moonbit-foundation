@@ -116,7 +116,7 @@ test "Type 2 scalar operators execute exact stack semantics" {
     0x12345678L,
     type2_vm_wb_limits(65535UL, 65535UL),
   ).unwrap()
-  inspect(random.width.unwrap().raw, content="23206")
+  inspect(random.width.unwrap().raw, content="34713")
 
   let dropped = type2_vm_wb_run(b"\x8c\x0c\x12\x0e").unwrap()
   inspect(dropped.width.unwrap().raw, content="0")
