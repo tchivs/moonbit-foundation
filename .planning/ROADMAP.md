@@ -77,10 +77,10 @@
   3. CFF admission executes every glyph through the same interpreter, retains truthful conservative integer bounds per GID, and keeps `hmtx` authoritative for public advance and side-bearing metrics.
   4. Any structural, program, numeric, resource, or mutation failure publishes no `Font`, no retained bounds, and no committed admission charge.
 
-**Plans**: 1/4 plans executed
+**Plans**: 2/4 plans executed
 
 - [x] 105-01-PLAN.md
-- [ ] 105-02-PLAN.md
+- [x] 105-02-PLAN.md
 - [ ] 105-03-PLAN.md
 - [ ] 105-04-PLAN.md
 
@@ -119,7 +119,7 @@
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 104. CFF1 Profile and Bounded Data Model | 4/4 | Complete    | 2026-07-28 |
-| 105. Bounded Type 2 Validation and Retained Metrics | 1/4 | In Progress|  |
+| 105. Bounded Type 2 Validation and Retained Metrics | 2/4 | In Progress|  |
 | 106. Cubic Path and Public/TTC Integration | 0/TBD | Not started | - |
 | 107. Hostile, Licensed, and Four-Target Qualification | 0/TBD | Not started | - |
 
