@@ -14,6 +14,13 @@ priv struct Type2Frame {
 }
 
 ///|
+priv enum Type2Step {
+  Continue(Type2Frame)
+  FramesManaged
+  Terminate
+}
+
+///|
 priv struct Type2ExecutionLedger {
   mut executed_bytes : UInt64
   mut work : UInt64
@@ -661,6 +668,177 @@ fn Type2Vm::execute_endchar(self : Type2Vm) -> Result[Unit, @error.CoreError] {
 }
 
 ///|
+fn type2_subr_bias(count : UInt64) -> UInt64 {
+  if count < 1240UL {
+    107UL
+  } else if count < 33900UL {
+    1131UL
+  } else {
+    32768UL
+  }
+}
+
+///|
+fn Type2Vm::execute_mask(
+  self : Type2Vm,
+  frame : Type2Frame,
+) -> Result[Unit, @error.CoreError] {
+  if self.geometry_started {
+    return Err(type2_data_error("font-cff-type2-hint-order"))
+  }
+  let has_width = !self.width_resolved && self.stack.length() % 2 == 1
+  match self.resolve_width(has_width) {
+    Err(error) => return Err(error)
+    Ok(_) => ()
+  }
+  if self.stack.length() % 2 != 0 {
+    return Err(type2_data_error("font-cff-type2-stem-arity"))
+  }
+  let additional = (self.stack.length() / 2).to_uint64()
+  let requested_stems = match @checked.checked_add(self.stems, additional) {
+    Err(_) =>
+      return Err(
+        type2_resource_error(
+          "font-cff-type2-stems",
+          self.stems,
+          self.limits.max_stems,
+        ),
+      )
+    Ok(value) => value
+  }
+  if requested_stems > self.limits.max_stems {
+    return Err(
+      type2_resource_error(
+        "font-cff-type2-stems",
+        requested_stems,
+        self.limits.max_stems,
+      ),
+    )
+  }
+  if requested_stems == 0UL {
+    return Err(type2_data_error("font-cff-type2-mask-without-stems"))
+  }
+  let mask_bytes = (requested_stems + 7UL) / 8UL
+  match self.charge_bytes(mask_bytes) {
+    Err(error) => return Err(error)
+    Ok(_) => ()
+  }
+  let terminal = match @checked.checked_add(frame.cursor, mask_bytes) {
+    Err(_) => return Err(type2_data_error("font-cff-type2-mask-truncated"))
+    Ok(value) => value
+  }
+  if terminal > frame.source.length() {
+    return Err(type2_data_error("font-cff-type2-mask-truncated"))
+  }
+  self.stems = requested_stems
+  self.clear_stack()
+  frame.cursor = terminal
+  self.ledger.mask_bytes = self.ledger.mask_bytes + mask_bytes
+  Ok(())
+}
+
+///|
+fn Type2Vm::execute_call(
+  self : Type2Vm,
+  caller : Type2Frame,
+  global : Bool,
+) -> Result[Unit, @error.CoreError] {
+  match self.require_stack(1) {
+    Err(error) => return Err(error)
+    Ok(_) => ()
+  }
+  let top = self.stack.length() - 1
+  let operand = match
+    type2_fixed_exact_int(self.stack[top], "font-cff-type2-subr-index") {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  let index = if global { self.global_subrs } else { self.local_subrs }
+  let biased = operand + type2_subr_bias(index.count).to_int()
+  let context = if global {
+    "font-cff-type2-global-subr-index"
+  } else {
+    "font-cff-type2-local-subr-index"
+  }
+  if biased < 0 || biased.to_uint64() >= index.count {
+    return Err(type2_data_error(context))
+  }
+  let requested_depth = self.frames.length().to_uint64() + 1UL
+  if requested_depth > self.limits.max_frames {
+    return Err(
+      type2_resource_error(
+        "font-cff-type2-frame-depth",
+        requested_depth,
+        self.limits.max_frames,
+      ),
+    )
+  }
+  let requested_calls = match
+    type2_checked_counter_add(
+      self.ledger.calls,
+      1UL,
+      self.limits.max_calls,
+      "font-cff-type2-calls",
+    ) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  // Calls carry a named work unit in addition to operator dispatch.
+  match self.charge_work(1UL) {
+    Err(error) => return Err(error)
+    Ok(_) => ()
+  }
+  let object = match
+    cff_index_object(index, biased.to_uint64(), context) {
+    Err(_) => return Err(type2_data_error(context))
+    Ok(value) => value
+  }
+  ignore(self.stack.pop())
+  self.ledger.calls = requested_calls
+  let tail_call = caller.cursor == caller.source.length()
+  self.frames.push(caller)
+  self.frames.push({
+    kind: if global { Global } else { Local },
+    source: object.view,
+    cursor: 0UL,
+    tail_call,
+  })
+  Ok(())
+}
+
+///|
+fn Type2Vm::execute_return(
+  self : Type2Vm,
+  frame : Type2Frame,
+) -> Result[Unit, @error.CoreError] {
+  match frame.kind {
+    Root => return Err(type2_data_error("font-cff-type2-root-return"))
+    Local | Global => ()
+  }
+  if frame.cursor != frame.source.length() {
+    return Err(type2_data_error("font-cff-type2-subr-trailing-bytes"))
+  }
+  match self.charge_work(1UL) {
+    Err(error) => return Err(error)
+    Ok(_) => ()
+  }
+  self.ledger.returns = self.ledger.returns + 1UL
+  Ok(())
+}
+
+///|
+fn type2_error_with_revision(
+  root : @bytes.ByteView,
+  opening_revision : UInt64,
+  error : @error.CoreError,
+) -> @error.CoreError {
+  match type2_require_revision(root, opening_revision) {
+    Err(state) => state
+    Ok(_) => error
+  }
+}
+
+///|
 fn type2_number_encoded_width(first : UInt64) -> UInt64 {
   if first == 28UL {
     3UL
@@ -749,56 +927,64 @@ fn type2_execute_program(
       Err(_) => return Err(type2_data_error("font-cff-type2-byte"))
       Ok(value) => value.to_uint64()
     }
-    let result : Result[Bool, @error.CoreError] = {
-      match vm.charge_bytes(1UL) {
-        Err(error) => Err(error)
-        Ok(_) =>
-          match vm.charge_work(1UL) {
-            Err(error) => Err(error)
-            Ok(_) => {
-              frame.cursor = frame.cursor + 1UL
-              if first == 28UL ||
-                first == 255UL ||
-                (first >= 32UL && first <= 254UL) {
-                let width = type2_number_encoded_width(first)
-                if width > 1UL {
-                  match vm.charge_bytes(width - 1UL) {
-                    Err(error) => Err(error)
-                    Ok(_) => {
-                      let decoded = match
-                        type2_decode_number(frame.source, operator_offset) {
-                        Err(error) => return Err(error)
-                        Ok(value) => value
-                      }
-                      match vm.push(decoded.0) {
-                        Err(error) => Err(error)
-                        Ok(_) => {
-                          frame.cursor = decoded.1
-                          vm.ledger.numbers = vm.ledger.numbers + 1UL
-                          vm.frames.push(frame)
-                          Ok(false)
-                        }
-                      }
+    let result : Result[Type2Step, @error.CoreError] = match vm.charge_bytes(1UL) {
+      Err(error) => Err(error)
+      Ok(_) =>
+        match vm.charge_work(1UL) {
+          Err(error) => Err(error)
+          Ok(_) => {
+            frame.cursor = frame.cursor + 1UL
+            if first == 28UL ||
+              first == 255UL ||
+              (first >= 32UL && first <= 254UL) {
+              let width = type2_number_encoded_width(first)
+              if width > 1UL {
+                match vm.charge_bytes(width - 1UL) {
+                  Err(error) => Err(error)
+                  Ok(_) => {
+                    let decoded = match
+                      type2_decode_number(frame.source, operator_offset) {
+                      Err(error) => return Err(error)
+                      Ok(value) => value
                     }
-                  }
-                } else {
-                  let decoded = match
-                    type2_decode_number(frame.source, operator_offset) {
-                    Err(error) => return Err(error)
-                    Ok(value) => value
-                  }
-                  match vm.push(decoded.0) {
-                    Err(error) => Err(error)
-                    Ok(_) => {
-                      frame.cursor = decoded.1
-                      vm.ledger.numbers = vm.ledger.numbers + 1UL
-                      vm.frames.push(frame)
-                      Ok(false)
+                    match vm.push(decoded.0) {
+                      Err(error) => Err(error)
+                      Ok(_) => {
+                        frame.cursor = decoded.1
+                        vm.ledger.numbers = vm.ledger.numbers + 1UL
+                        Ok(Continue(frame))
+                      }
                     }
                   }
                 }
               } else {
-                vm.ledger.operators = vm.ledger.operators + 1UL
+                let decoded = match
+                  type2_decode_number(frame.source, operator_offset) {
+                  Err(error) => return Err(error)
+                  Ok(value) => value
+                }
+                match vm.push(decoded.0) {
+                  Err(error) => Err(error)
+                  Ok(_) => {
+                    frame.cursor = decoded.1
+                    vm.ledger.numbers = vm.ledger.numbers + 1UL
+                    Ok(Continue(frame))
+                  }
+                }
+              }
+            } else {
+              vm.ledger.operators = vm.ledger.operators + 1UL
+              if first == 10UL || first == 29UL {
+                match vm.execute_call(frame, first == 29UL) {
+                  Err(error) => Err(error)
+                  Ok(_) => Ok(FramesManaged)
+                }
+              } else if first == 11UL {
+                match vm.execute_return(frame) {
+                  Err(error) => Err(error)
+                  Ok(_) => Ok(FramesManaged)
+                }
+              } else {
                 let operator_result = if first == 12UL {
                   match vm.charge_bytes(1UL) {
                     Err(error) => Err(error)
@@ -817,6 +1003,7 @@ fn type2_execute_program(
                 } else {
                   match first {
                     1UL | 3UL | 18UL | 23UL => vm.execute_stem()
+                    19UL | 20UL => vm.execute_mask(frame)
                     4UL => vm.execute_moveto(1)
                     21UL => vm.execute_moveto(2)
                     22UL => vm.execute_moveto(1)
@@ -827,8 +1014,6 @@ fn type2_execute_program(
                       Err(
                         type2_capability_error("font-cff-type2-cff2-operator"),
                       )
-                    10UL | 11UL | 19UL | 20UL | 29UL =>
-                      Err(type2_data_error("font-cff-type2-operator-pending"))
                     _ =>
                       Err(type2_data_error("font-cff-type2-reserved-operator"))
                   }
@@ -840,27 +1025,23 @@ fn type2_execute_program(
                       if frame.cursor != frame.source.length() {
                         Err(type2_data_error("font-cff-type2-trailing-bytes"))
                       } else {
-                        Ok(true)
+                        Ok(Terminate)
                       }
                     } else {
-                      vm.frames.push(frame)
-                      Ok(false)
+                      Ok(Continue(frame))
                     }
                   }
                 }
               }
             }
           }
-      }
+        }
     }
     match result {
       Err(error) => {
-        match type2_require_revision(root, opening_revision) {
-          Err(state) => return Err(state)
-          Ok(_) => return Err(error)
-        }
+        return Err(type2_error_with_revision(root, opening_revision, error))
       }
-      Ok(true) => {
+      Ok(Terminate) => {
         match type2_require_revision(root, opening_revision) {
           Err(error) => return Err(error)
           Ok(_) =>
@@ -873,7 +1054,8 @@ fn type2_execute_program(
             })
         }
       }
-      Ok(false) => ()
+      Ok(Continue(next)) => vm.frames.push(next)
+      Ok(FramesManaged) => ()
     }
   }
   Err(type2_data_error("font-cff-type2-unexpected-eof"))
