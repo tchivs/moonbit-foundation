@@ -39,7 +39,7 @@
 ## Phases
 
 - [x] **Phase 101: Collection Contract and Bounded Envelope** - Open and inspect bounded raw TTC/OTC version 1 and 2 collections through a compact semantic contract. (completed 2026-07-28)
-- [ ] **Phase 102: Root-Relative Selected-Face Admission** - Select one supported collection face and use the existing `Font` behavior through a no-copy root-relative adapter.
+- [x] **Phase 102: Root-Relative Selected-Face Admission** - Select one supported collection face and use the existing `Font` behavior through a no-copy root-relative adapter. (completed 2026-07-28)
 - [ ] **Phase 103: Hostile, Licensed, and Four-Target Qualification** - Prove atomic failures, standalone compatibility, licensed interoperability, and identical portable behavior.
 
 ## Phase Details
@@ -99,7 +99,7 @@
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 101. Collection Contract and Bounded Envelope | 3/3 | Complete    | 2026-07-28 |
-| 102. Root-Relative Selected-Face Admission | 3/3 | In Progress|  |
+| 102. Root-Relative Selected-Face Admission | 3/3 | Complete    | 2026-07-28 |
 | 103. Hostile, Licensed, and Four-Target Qualification | 0/TBD | Not started | - |
 
 ---

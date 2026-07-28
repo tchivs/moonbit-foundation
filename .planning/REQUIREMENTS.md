@@ -13,8 +13,8 @@ Requirements for the TrueType Collection Adapters milestone. Each requirement ma
 
 ### Selected-Face Admission
 
-- [ ] **TTC-02**: Library authors can select one in-range static `glyf`-based TrueType face from an admitted collection and receive the existing opaque `Font`, whose metrics, Unicode mapping, kerning, glyph identity, and unhinted outline behavior match the equivalent standalone logical font.
-- [ ] **TTC-03**: A selected collection face resolves table offsets against the collection root, preserves valid exact cross-face table sharing, enforces collection-specific checksum rules, and remains usable when unsupported CFF/CFF2 or variable siblings are present.
+- [x] **TTC-02**: Library authors can select one in-range static `glyf`-based TrueType face from an admitted collection and receive the existing opaque `Font`, whose metrics, Unicode mapping, kerning, glyph identity, and unhinted outline behavior match the equivalent standalone logical font.
+- [x] **TTC-03**: A selected collection face resolves table offsets against the collection root, preserves valid exact cross-face table sharing, enforces collection-specific checksum rules, and remains usable when unsupported CFF/CFF2 or variable siblings are present.
 
 ### Safety and Qualification
 
@@ -54,8 +54,8 @@ Populated during roadmap creation.
 | Requirement | Phase | Status |
 |-------------|-------|--------|
 | TTC-01 | Phase 101 | Complete |
-| TTC-02 | Phase 102 | Pending |
-| TTC-03 | Phase 102 | Pending |
+| TTC-02 | Phase 102 | Complete |
+| TTC-03 | Phase 102 | Complete |
 | TTC-04 | Phase 103 | Pending |
 | TTC-05 | Phase 103 | Pending |
 
