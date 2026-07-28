@@ -1788,11 +1788,15 @@ function Update-OrCheckCasesManifest {
   $manifest = Get-Content -Raw -LiteralPath $ManifestPath | ConvertFrom-Json
   $records = @($manifest.records)
   $matches = @($records | Where-Object id -CEQ $expected.id)
+  $recordIndex = -1
+  for ($index = 0; $index -lt $records.Count; $index++) {
+    if ($records[$index].id -ceq $expected.id) { $recordIndex = $index }
+  }
   if ($CheckOnly) {
-    if ($matches.Count -ne 1 -or $records[$records.Count - 1].id -cne $expected.id) {
+    if ($matches.Count -ne 1 -or $recordIndex -ne 10) {
       throw 'Font qualification case manifest record is missing, duplicated, or reordered.'
     }
-    Assert-ManifestRecord $records[$records.Count - 1] $expected
+    Assert-ManifestRecord $records[$recordIndex] $expected
     return
   }
   if ($matches.Count -eq 0) {
@@ -1804,11 +1808,11 @@ function Update-OrCheckCasesManifest {
     )
     return
   }
-  if ($matches.Count -ne 1 -or $records[$records.Count - 1].id -cne $expected.id) {
+  if ($matches.Count -ne 1 -or $recordIndex -ne 10) {
     throw 'Refusing duplicate or reordered font qualification case manifest record.'
   }
   foreach ($key in @($expected.Keys)) {
-    $records[$records.Count - 1].$key = $expected[$key]
+    $records[$recordIndex].$key = $expected[$key]
   }
   [IO.File]::WriteAllText(
     $ManifestPath,
@@ -1886,6 +1890,37 @@ function Assert-FontCollectionManifestContract {
   }
 }
 
+function Update-OrCheckFontCollectionManifest {
+  param([switch]$CheckOnly)
+
+  if ($CheckOnly) {
+    Assert-FontCollectionManifestContract
+    return
+  }
+  $manifest = Get-Content -Raw -LiteralPath $ManifestPath | ConvertFrom-Json
+  $records = @($manifest.records)
+  if ($records.Count -eq 14) {
+    Assert-FontCollectionManifestContract
+    return
+  }
+  if ($records.Count -ne 11) {
+    throw 'Refusing partial, duplicate, or reordered font collection manifest records.'
+  }
+  $prefixSha256 = Get-FontQualificationSha256 -Bytes $Utf8NoBom.GetBytes(
+    (ConvertTo-StableJson $records)
+  )
+  if ($prefixSha256 -cne $PreCollectionManifestRecordsSha256) {
+    throw 'Refusing to append after drifted pre-Phase-103 manifest records.'
+  }
+  $manifest.records = $records + @(Get-FontCollectionManifestRecords)
+  [IO.File]::WriteAllText(
+    $ManifestPath,
+    (ConvertTo-StableJson $manifest),
+    $Utf8NoBom
+  )
+  Assert-FontCollectionManifestContract
+}
+
 function Assert-FontCollectionGeneratedSourceContract {
   if (-not (Test-Path -LiteralPath $GeneratedSourcePath -PathType Leaf)) {
     throw "Generated font qualification source is missing: $GeneratedSourcePath"
@@ -1929,6 +1964,36 @@ function ConvertTo-MoonOptionalUInt64 {
   param($Value)
   if ($null -eq $Value) { return 'None' }
   return "Some($([uint64]$Value)UL)"
+}
+
+function ConvertTo-MoonOptionalString {
+  param($Value)
+  if ($null -eq $Value) { return 'None' }
+  $text = [string]$Value
+  if ($text.Contains('"', [StringComparison]::Ordinal) -or
+      $text.Contains('\', [StringComparison]::Ordinal)) {
+    throw "Generated MoonBit collection string requires unsupported escaping: $text"
+  }
+  return "Some(`"$text`")"
+}
+
+function Add-FontCollectionQualificationBudgetRows {
+  param(
+    [Parameter(Mandatory)][AllowEmptyString()][AllowEmptyCollection()]$Rows,
+    [Parameter(Mandatory)][string]$Property,
+    [Parameter(Mandatory)]$Budget,
+    [Parameter(Mandatory)][string]$Indent
+  )
+  [void]$Rows.Add("$Indent$Property`: {")
+  [void]$Rows.Add("$Indent  bytes: $([uint64]$Budget.bytes)UL,")
+  [void]$Rows.Add("$Indent  allocations: $([uint64]$Budget.allocations)UL,")
+  [void]$Rows.Add("$Indent  allocation_size: $([uint64]$Budget.allocation_size)UL,")
+  [void]$Rows.Add("$Indent  width: $([uint64]$Budget.width)UL,")
+  [void]$Rows.Add("$Indent  height: $([uint64]$Budget.height)UL,")
+  [void]$Rows.Add("$Indent  pixels: $([uint64]$Budget.pixels)UL,")
+  [void]$Rows.Add("$Indent  depth: $([uint64]$Budget.depth)UL,")
+  [void]$Rows.Add("$Indent  work: $([uint64]$Budget.work)UL,")
+  [void]$Rows.Add("$Indent},")
 }
 
 function ConvertTo-MoonDoubleLiteral {
@@ -2044,12 +2109,26 @@ function Write-FontQualificationGeneratedSource {
   [CmdletBinding()]
   param(
     [Parameter(Mandatory)][byte[]]$FontBytes,
+    [Parameter(Mandatory)][byte[]]$CollectionTtcBytes,
     [Parameter(Mandatory)]$Oracle,
     [Parameter(Mandatory)]$CasesDocument,
+    [Parameter(Mandatory)]$CollectionCasesDocument,
     [switch]$CheckOnly
   )
 
   Assert-ExactBytesIdentity 'generated DejaVu source' $FontBytes $FontLength $FontSha256
+  Assert-ExactBytesIdentity `
+    'generated DejaVu collection source' `
+    $CollectionTtcBytes `
+    $CollectionFontLength `
+    $CollectionFontSha256
+  $reconstructedTtc = New-FontQualificationDejaVuTtc -FontBytes $FontBytes
+  if (-not [Linq.Enumerable]::SequenceEqual(
+      [byte[]]$CollectionTtcBytes,
+      [byte[]]$reconstructedTtc
+    )) {
+    throw 'Generated MoonBit TTC assembler recipe differs from the canonical derivative.'
+  }
   $supportedOutlines = @(Get-FontQualificationSupportedOutlines -Oracle $Oracle)
   $rows = [Collections.Generic.List[string]]::new()
   $rows.Add('// Generated by scripts/fixtures/Generate-FontQualification.ps1. Do not edit.')
@@ -2057,6 +2136,9 @@ function Write-FontQualificationGeneratedSource {
   $rows.Add("// SHA-256: $FontSha256")
   $rows.Add("// Upstream license: $UpstreamLicense")
   $rows.Add("// Literal chunk size: $GeneratedChunkSize bytes")
+  $rows.Add('// Collection derivative: fixtures/font/dejavu-sans-2.37/DejaVuSans-two-face-v1.ttc')
+  $rows.Add("// Collection SHA-256: $CollectionFontSha256")
+  $rows.Add('// Collection bytes reuse the standalone literal; no second licensed literal body.')
   $rows.Add('')
   $rows.Add('///|')
   $rows.Add('struct FontQualificationCase {')
@@ -2068,6 +2150,46 @@ function Write-FontQualificationGeneratedSource {
   $rows.Add('  requested : UInt64?')
   $rows.Add('  limit : UInt64?')
   $rows.Add('  publication : String')
+  $rows.Add('}')
+  $rows.Add('')
+  $rows.Add('///|')
+  $rows.Add('struct FontCollectionQualificationBudgetSnapshot {')
+  $rows.Add('  bytes : UInt64')
+  $rows.Add('  allocations : UInt64')
+  $rows.Add('  allocation_size : UInt64')
+  $rows.Add('  width : UInt64')
+  $rows.Add('  height : UInt64')
+  $rows.Add('  pixels : UInt64')
+  $rows.Add('  depth : UInt64')
+  $rows.Add('  work : UInt64')
+  $rows.Add('}')
+  $rows.Add('')
+  $rows.Add('///|')
+  $rows.Add('struct FontCollectionQualificationError {')
+  $rows.Add('  category : String?')
+  $rows.Add('  code : String?')
+  $rows.Add('  operation : String?')
+  $rows.Add('  context : String?')
+  $rows.Add('  source_offset : UInt64?')
+  $rows.Add('  requested : UInt64?')
+  $rows.Add('  limit : UInt64?')
+  $rows.Add('}')
+  $rows.Add('')
+  $rows.Add('///|')
+  $rows.Add('struct FontCollectionQualificationCase {')
+  $rows.Add('  id : String')
+  $rows.Add('  group : String')
+  $rows.Add('  fixture_id : String')
+  $rows.Add('  stage : String')
+  $rows.Add('  entrypoint : String')
+  $rows.Add('  face_index : UInt64?')
+  $rows.Add('  mutation_window : String')
+  $rows.Add('  authority : String')
+  $rows.Add('  boundary : String')
+  $rows.Add('  error : FontCollectionQualificationError')
+  $rows.Add('  publication : String')
+  $rows.Add('  budget_before : FontCollectionQualificationBudgetSnapshot')
+  $rows.Add('  budget_after : FontCollectionQualificationBudgetSnapshot')
   $rows.Add('}')
   $rows.Add('')
   $rows.Add('///|')
@@ -2169,6 +2291,31 @@ function Write-FontQualificationGeneratedSource {
   $rows.Add('  ])')
   $rows.Add('}')
   $rows.Add('')
+  $rows.Add('///|')
+  $rows.Add('fn font_qualification_dejavu_two_face_ttc_v1_bytes() -> Bytes {')
+  $rows.Add('  let standalone = font_qualification_dejavu_sans_237_bytes()')
+  $rows.Add("  let output = Array::make($CollectionFontLength, b'\x00')")
+  $rows.Add('  font_test_put_u32(output, 0, 0x74746366UL)')
+  $rows.Add('  font_test_put_u32(output, 4, 0x00010000UL)')
+  $rows.Add('  font_test_put_u32(output, 8, 2UL)')
+  $rows.Add('  font_test_put_u32(output, 12, 20UL)')
+  $rows.Add('  font_test_put_u32(output, 16, 352UL)')
+  $rows.Add('  for index = 0; index < 332; index = index + 1 {')
+  $rows.Add('    output[20 + index] = standalone[index]')
+  $rows.Add('    output[352 + index] = standalone[index]')
+  $rows.Add('  }')
+  $rows.Add('  for record_index = 0; record_index < 20; record_index = record_index + 1 {')
+  $rows.Add('    let offset_field = 12 + record_index * 16 + 8')
+  $rows.Add('    let root_offset = font_test_read_u32(standalone, offset_field) + 352UL')
+  $rows.Add('    font_test_put_u32(output, 20 + offset_field, root_offset)')
+  $rows.Add('    font_test_put_u32(output, 352 + offset_field, root_offset)')
+  $rows.Add('  }')
+  $rows.Add('  for index = 332; index < standalone.length(); index = index + 1 {')
+  $rows.Add('    output[684 + index - 332] = standalone[index]')
+  $rows.Add('  }')
+  $rows.Add('  Bytes::from_array(output)')
+  $rows.Add('}')
+  $rows.Add('')
 
   $rows.Add('///|')
   $rows.Add('fn font_qualification_compact_bytes() -> Bytes {')
@@ -2228,6 +2375,56 @@ function Write-FontQualificationGeneratedSource {
     $rows.Add("      limit: $(ConvertTo-MoonOptionalUInt64 $case.limit),")
     $rows.Add("      publication: `"$($case.publication)`",")
     $rows.Add('    },')
+  }
+  $rows.Add('  ]')
+  $rows.Add('}')
+  $rows.Add('')
+  $rows.Add('///|')
+  $rows.Add('fn font_collection_qualification_cases() -> Array[')
+  $rows.Add('  FontCollectionQualificationCase,')
+  $rows.Add('] {')
+  $rows.Add('  [')
+  $collectionGroups = [ordered]@{
+    public_workflows = @($CollectionCasesDocument.public_workflows)
+    hostile_cases = @($CollectionCasesDocument.hostile_cases)
+    mutation_cases = @($CollectionCasesDocument.mutation_cases)
+    limit_cases = @($CollectionCasesDocument.limit_cases)
+    budget_cases = @($CollectionCasesDocument.budget_cases)
+  }
+  foreach ($group in @($collectionGroups.Keys)) {
+    foreach ($case in @($collectionGroups[$group])) {
+      $rows.Add('    {')
+      $rows.Add("      id: `"$($case.id)`",")
+      $rows.Add("      group: `"$group`",")
+      $rows.Add("      fixture_id: `"$($case.fixture_id)`",")
+      $rows.Add("      stage: `"$($case.stage)`",")
+      $rows.Add("      entrypoint: `"$($case.entrypoint)`",")
+      $rows.Add("      face_index: $(ConvertTo-MoonOptionalUInt64 $case.face_index),")
+      $rows.Add("      mutation_window: `"$($case.mutation_window)`",")
+      $rows.Add("      authority: `"$($case.authority)`",")
+      $rows.Add("      boundary: `"$($case.boundary)`",")
+      $rows.Add('      error: {')
+      $rows.Add("        category: $(ConvertTo-MoonOptionalString $case.error.category),")
+      $rows.Add("        code: $(ConvertTo-MoonOptionalString $case.error.code),")
+      $rows.Add("        operation: $(ConvertTo-MoonOptionalString $case.error.operation),")
+      $rows.Add("        context: $(ConvertTo-MoonOptionalString $case.error.context),")
+      $rows.Add("        source_offset: $(ConvertTo-MoonOptionalUInt64 $case.error.source_offset),")
+      $rows.Add("        requested: $(ConvertTo-MoonOptionalUInt64 $case.error.requested),")
+      $rows.Add("        limit: $(ConvertTo-MoonOptionalUInt64 $case.error.limit),")
+      $rows.Add('      },')
+      $rows.Add("      publication: `"$($case.publication)`",")
+      Add-FontCollectionQualificationBudgetRows `
+        -Rows $rows `
+        -Property 'budget_before' `
+        -Budget $case.budget_before `
+        -Indent '      '
+      Add-FontCollectionQualificationBudgetRows `
+        -Rows $rows `
+        -Property 'budget_after' `
+        -Budget $case.budget_after `
+        -Indent '      '
+      $rows.Add('    },')
+    }
   }
   $rows.Add('  ]')
   $rows.Add('}')
@@ -2296,20 +2493,25 @@ Update-OrCheckFontCollectionArtifacts `
   -CollectionOracle $collectionOracle `
   -CheckOnly:$Check
 $collectionCasesDocument = Read-FontCollectionQualificationCases
-Assert-FontCollectionManifestContract
-Assert-FontCollectionGeneratedSourceContract
+Update-OrCheckFontCollectionManifest -CheckOnly:$Check
 if ($Check) {
   Update-OrCheckCasesManifest -CheckOnly
   Write-FontQualificationGeneratedSource `
     -FontBytes $fontBytes `
+    -CollectionTtcBytes $collectionTtcBytes `
     -Oracle $oracle `
     -CasesDocument $casesDocument `
+    -CollectionCasesDocument $collectionCasesDocument `
     -CheckOnly
 } else {
   Update-OrCheckCasesManifest
   Write-FontQualificationGeneratedSource `
     -FontBytes $fontBytes `
+    -CollectionTtcBytes $collectionTtcBytes `
     -Oracle $oracle `
-    -CasesDocument $casesDocument
+    -CasesDocument $casesDocument `
+    -CollectionCasesDocument $collectionCasesDocument
 }
+Assert-FontCollectionManifestContract
+Assert-FontCollectionGeneratedSourceContract
 Write-Host 'Font qualification intake, oracle, hostile matrix, and generated source verification passed.'
