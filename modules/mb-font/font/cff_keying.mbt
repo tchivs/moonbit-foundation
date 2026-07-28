@@ -93,13 +93,134 @@ fn cff_validate_sid(
   }
 }
 
-///|
-fn cff_keying_empty_encoding() -> CffEncoding {
-  { format: 0UL, predefined: Some(0UL), codes: [], gids: [] }
+fn cff_expert_charset() -> Array[UInt64] {
+  [
+    0UL, 1UL, 229UL, 230UL, 231UL, 232UL, 233UL, 234UL,
+    235UL, 236UL, 237UL, 238UL, 13UL, 14UL, 15UL, 99UL,
+    239UL, 240UL, 241UL, 242UL, 243UL, 244UL, 245UL, 246UL,
+    247UL, 248UL, 27UL, 28UL, 249UL, 250UL, 251UL, 252UL,
+    253UL, 254UL, 255UL, 256UL, 257UL, 258UL, 259UL, 260UL,
+    261UL, 262UL, 263UL, 264UL, 265UL, 266UL, 109UL, 110UL,
+    267UL, 268UL, 269UL, 270UL, 271UL, 272UL, 273UL, 274UL,
+    275UL, 276UL, 277UL, 278UL, 279UL, 280UL, 281UL, 282UL,
+    283UL, 284UL, 285UL, 286UL, 287UL, 288UL, 289UL, 290UL,
+    291UL, 292UL, 293UL, 294UL, 295UL, 296UL, 297UL, 298UL,
+    299UL, 300UL, 301UL, 302UL, 303UL, 304UL, 305UL, 306UL,
+    307UL, 308UL, 309UL, 310UL, 311UL, 312UL, 313UL, 314UL,
+    315UL, 316UL, 317UL, 318UL, 158UL, 155UL, 163UL, 319UL,
+    320UL, 321UL, 322UL, 323UL, 324UL, 325UL, 326UL, 150UL,
+    164UL, 169UL, 327UL, 328UL, 329UL, 330UL, 331UL, 332UL,
+    333UL, 334UL, 335UL, 336UL, 337UL, 338UL, 339UL, 340UL,
+    341UL, 342UL, 343UL, 344UL, 345UL, 346UL, 347UL, 348UL,
+    349UL, 350UL, 351UL, 352UL, 353UL, 354UL, 355UL, 356UL,
+    357UL, 358UL, 359UL, 360UL, 361UL, 362UL, 363UL, 364UL,
+    365UL, 366UL, 367UL, 368UL, 369UL, 370UL, 371UL, 372UL,
+    373UL, 374UL, 375UL, 376UL, 377UL, 378UL,
+  ]
 }
 
 ///|
-fn cff_decode_custom_charset_format_zero(
+fn cff_expert_subset_charset() -> Array[UInt64] {
+  [
+    0UL, 1UL, 231UL, 232UL, 235UL, 236UL, 237UL, 238UL,
+    13UL, 14UL, 15UL, 99UL, 239UL, 240UL, 241UL, 242UL,
+    243UL, 244UL, 245UL, 246UL, 247UL, 248UL, 27UL, 28UL,
+    249UL, 250UL, 251UL, 253UL, 254UL, 255UL, 256UL, 257UL,
+    258UL, 259UL, 260UL, 261UL, 262UL, 263UL, 264UL, 265UL,
+    266UL, 109UL, 110UL, 267UL, 268UL, 269UL, 270UL, 272UL,
+    300UL, 301UL, 302UL, 305UL, 314UL, 315UL, 158UL, 155UL,
+    163UL, 320UL, 321UL, 322UL, 323UL, 324UL, 325UL, 326UL,
+    150UL, 164UL, 169UL, 327UL, 328UL, 329UL, 330UL, 331UL,
+    332UL, 333UL, 334UL, 335UL, 336UL, 337UL, 338UL, 339UL,
+    340UL, 341UL, 342UL, 343UL, 344UL, 345UL, 346UL,
+  ]
+}
+
+///|
+fn cff_predefined_charset(
+  identifier : UInt64,
+  num_glyphs : UInt64,
+) -> Result[CffCharset, @error.CoreError] {
+  let source = match identifier {
+    0UL => {
+      let values : Array[UInt64] = []
+      let mut sid = 0UL
+      while sid < 229UL {
+        values.push(sid)
+        sid = sid + 1UL
+      }
+      values
+    }
+    1UL => cff_expert_charset()
+    2UL => cff_expert_subset_charset()
+    _ => return Err(cff_data_error("font-cff-name-charset"))
+  }
+  if num_glyphs > source.length().to_uint64() {
+    return Err(
+      cff_data_error(
+        "font-cff-predefined-charset-coverage",
+        requested=num_glyphs,
+        limit=source.length().to_uint64(),
+      ),
+    )
+  }
+  let values : Array[UInt64] = []
+  let mut gid = 0UL
+  while gid < num_glyphs {
+    values.push(source[gid.to_int()])
+    gid = gid + 1UL
+  }
+  Ok({ format: 0UL, predefined: Some(identifier), values })
+}
+
+///|
+fn cff_charset_seen_table() -> Array[Byte] {
+  let seen : Array[Byte] = []
+  let mut index = 0
+  while index < 8192 {
+    seen.push(b'\x00')
+    index = index + 1
+  }
+  seen
+}
+
+///|
+fn cff_charset_record_value(
+  seen : Array[Byte],
+  values : Array[UInt64],
+  value : UInt64,
+  cid_keyed : Bool,
+  strings : CffIndex,
+) -> Result[Unit, @error.CoreError] {
+  if value == 0UL {
+    return Err(cff_data_error("font-cff-charset-notdef"))
+  }
+  let seen_index = (value >> 3).to_int()
+  let seen_mask = 1UL << (value & 7UL).to_int()
+  if (seen[seen_index].to_uint64() & seen_mask) != 0UL {
+    return Err(
+      cff_data_error(
+        if cid_keyed {
+          "font-cff-cid-duplicate"
+        } else {
+          "font-cff-sid-duplicate"
+        },
+      ),
+    )
+  }
+  if !cid_keyed {
+    match cff_validate_sid(value, strings, "font-cff-charset-sid") {
+      Err(error) => return Err(error)
+      Ok(_) => ()
+    }
+  }
+  seen[seen_index] = (seen[seen_index].to_uint64() | seen_mask).to_byte()
+  values.push(value)
+  Ok(())
+}
+
+///|
+fn cff_decode_custom_charset(
   cff : TableWindow,
   offset : UInt64,
   num_glyphs : UInt64,
@@ -111,62 +232,372 @@ fn cff_decode_custom_charset_format_zero(
     Ok(_) => ()
   }
   let format = cff.view.get(offset).unwrap().to_uint64()
-  if format != 0UL {
+  if format > 2UL {
     return Err(cff_data_error("font-cff-charset-format"))
   }
-  let entries = num_glyphs - 1UL
-  let bytes = match @checked.checked_mul(entries, 2UL) {
-    Err(_) => return Err(cff_data_error("font-cff-charset-count"))
-    Ok(value) => value
-  }
-  match
-    cff_require_window(
-      cff.view,
-      offset + 1UL,
-      bytes,
-      "font-cff-charset-format0",
-    ) {
-    Err(error) => return Err(error)
-    Ok(_) => ()
-  }
-  let values : Array[UInt64] = [0UL]
-  let seen : Array[Byte] = []
-  let mut seen_byte = 0
-  while seen_byte < 8192 {
-    seen.push(b'\x00')
-    seen_byte = seen_byte + 1
-  }
-  seen[0] = b'\x01'
-  let mut gid = 1UL
-  while gid < num_glyphs {
-    let value = match read_u16(cff.view, offset + 1UL + (gid - 1UL) * 2UL) {
-      Err(_) => return Err(cff_data_error("font-cff-charset-format0"))
+  if format == 0UL {
+    let entries = num_glyphs - 1UL
+    let bytes = match @checked.checked_mul(entries, 2UL) {
+      Err(_) => return Err(cff_data_error("font-cff-charset-count"))
       Ok(value) => value
     }
-    let seen_index = (value >> 3).to_int()
-    let seen_mask = 1UL << (value & 7UL).to_int()
-    if (seen[seen_index].to_uint64() & seen_mask) != 0UL {
-      return Err(
-        cff_data_error(
-          if cid_keyed {
-            "font-cff-cid-duplicate"
-          } else {
-            "font-cff-sid-duplicate"
-          },
-        ),
-      )
+    match
+      cff_require_window(
+        cff.view,
+        offset + 1UL,
+        bytes,
+        "font-cff-charset-format0",
+      ) {
+      Err(error) => return Err(error)
+      Ok(_) => ()
     }
-    if !cid_keyed {
-      match cff_validate_sid(value, strings, "font-cff-charset-sid") {
+  } else {
+    let nleft_width = if format == 1UL { 1UL } else { 2UL }
+    let mut cursor = offset + 1UL
+    let mut produced = 1UL
+    while produced < num_glyphs {
+      match
+        cff_require_window(
+          cff.view,
+          cursor,
+          2UL + nleft_width,
+          "font-cff-charset-range",
+        ) {
         Err(error) => return Err(error)
         Ok(_) => ()
       }
+      let first = match read_u16(cff.view, cursor) {
+        Err(_) => return Err(cff_data_error("font-cff-charset-range"))
+        Ok(value) => value
+      }
+      let nleft = if format == 1UL {
+        cff.view.get(cursor + 2UL).unwrap().to_uint64()
+      } else {
+        match read_u16(cff.view, cursor + 2UL) {
+          Err(_) => return Err(cff_data_error("font-cff-charset-range"))
+          Ok(value) => value
+        }
+      }
+      let span = nleft + 1UL
+      if span > num_glyphs - produced ||
+        first > 65535UL - nleft {
+        return Err(cff_data_error("font-cff-charset-range"))
+      }
+      produced = produced + span
+      cursor = cursor + 2UL + nleft_width
     }
-    seen[seen_index] = (seen[seen_index].to_uint64() | seen_mask).to_byte()
-    values.push(value)
-    gid = gid + 1UL
+  }
+  let values : Array[UInt64] = [0UL]
+  let seen = cff_charset_seen_table()
+  seen[0] = b'\x01'
+  if format == 0UL {
+    let mut gid = 1UL
+    while gid < num_glyphs {
+      let value = match read_u16(
+        cff.view,
+        offset + 1UL + (gid - 1UL) * 2UL,
+      ) {
+        Err(_) => return Err(cff_data_error("font-cff-charset-format0"))
+        Ok(value) => value
+      }
+      match cff_charset_record_value(seen, values, value, cid_keyed, strings) {
+        Err(error) => return Err(error)
+        Ok(_) => ()
+      }
+      gid = gid + 1UL
+    }
+  } else {
+    let nleft_width = if format == 1UL { 1UL } else { 2UL }
+    let mut cursor = offset + 1UL
+    while values.length().to_uint64() < num_glyphs {
+      let first = read_u16(cff.view, cursor).unwrap()
+      let nleft = if format == 1UL {
+        cff.view.get(cursor + 2UL).unwrap().to_uint64()
+      } else {
+        read_u16(cff.view, cursor + 2UL).unwrap()
+      }
+      let mut delta = 0UL
+      while delta <= nleft {
+        match
+          cff_charset_record_value(
+            seen,
+            values,
+            first + delta,
+            cid_keyed,
+            strings,
+          ) {
+          Err(error) => return Err(error)
+          Ok(_) => ()
+        }
+        delta = delta + 1UL
+      }
+      cursor = cursor + 2UL + nleft_width
+    }
   }
   Ok({ format, predefined: None, values })
+}
+
+///|
+fn cff_standard_encoding() -> Array[UInt64] {
+  [
+    0UL, 0UL, 0UL, 0UL, 0UL, 0UL, 0UL, 0UL,
+    0UL, 0UL, 0UL, 0UL, 0UL, 0UL, 0UL, 0UL,
+    0UL, 0UL, 0UL, 0UL, 0UL, 0UL, 0UL, 0UL,
+    0UL, 0UL, 0UL, 0UL, 0UL, 0UL, 0UL, 0UL,
+    1UL, 2UL, 3UL, 4UL, 5UL, 6UL, 7UL, 8UL,
+    9UL, 10UL, 11UL, 12UL, 13UL, 14UL, 15UL, 16UL,
+    17UL, 18UL, 19UL, 20UL, 21UL, 22UL, 23UL, 24UL,
+    25UL, 26UL, 27UL, 28UL, 29UL, 30UL, 31UL, 32UL,
+    33UL, 34UL, 35UL, 36UL, 37UL, 38UL, 39UL, 40UL,
+    41UL, 42UL, 43UL, 44UL, 45UL, 46UL, 47UL, 48UL,
+    49UL, 50UL, 51UL, 52UL, 53UL, 54UL, 55UL, 56UL,
+    57UL, 58UL, 59UL, 60UL, 61UL, 62UL, 63UL, 64UL,
+    65UL, 66UL, 67UL, 68UL, 69UL, 70UL, 71UL, 72UL,
+    73UL, 74UL, 75UL, 76UL, 77UL, 78UL, 79UL, 80UL,
+    81UL, 82UL, 83UL, 84UL, 85UL, 86UL, 87UL, 88UL,
+    89UL, 90UL, 91UL, 92UL, 93UL, 94UL, 95UL, 0UL,
+    0UL, 0UL, 0UL, 0UL, 0UL, 0UL, 0UL, 0UL,
+    0UL, 0UL, 0UL, 0UL, 0UL, 0UL, 0UL, 0UL,
+    0UL, 0UL, 0UL, 0UL, 0UL, 0UL, 0UL, 0UL,
+    0UL, 0UL, 0UL, 0UL, 0UL, 0UL, 0UL, 0UL,
+    0UL, 96UL, 97UL, 98UL, 99UL, 100UL, 101UL, 102UL,
+    103UL, 104UL, 105UL, 106UL, 107UL, 108UL, 109UL, 110UL,
+    0UL, 111UL, 112UL, 113UL, 114UL, 0UL, 115UL, 116UL,
+    117UL, 118UL, 119UL, 120UL, 121UL, 122UL, 0UL, 123UL,
+    0UL, 124UL, 125UL, 126UL, 127UL, 128UL, 129UL, 130UL,
+    131UL, 0UL, 132UL, 133UL, 0UL, 134UL, 135UL, 136UL,
+    137UL, 0UL, 0UL, 0UL, 0UL, 0UL, 0UL, 0UL,
+    0UL, 0UL, 0UL, 0UL, 0UL, 0UL, 0UL, 0UL,
+    0UL, 138UL, 0UL, 139UL, 0UL, 0UL, 0UL, 0UL,
+    140UL, 141UL, 142UL, 143UL, 0UL, 0UL, 0UL, 0UL,
+    0UL, 144UL, 0UL, 0UL, 0UL, 145UL, 0UL, 0UL,
+    146UL, 147UL, 148UL, 149UL, 0UL, 0UL, 0UL, 0UL,
+  ]
+}
+
+///|
+fn cff_expert_encoding() -> Array[UInt64] {
+  [
+    0UL, 0UL, 0UL, 0UL, 0UL, 0UL, 0UL, 0UL,
+    0UL, 0UL, 0UL, 0UL, 0UL, 0UL, 0UL, 0UL,
+    0UL, 0UL, 0UL, 0UL, 0UL, 0UL, 0UL, 0UL,
+    0UL, 0UL, 0UL, 0UL, 0UL, 0UL, 0UL, 0UL,
+    1UL, 229UL, 230UL, 0UL, 231UL, 232UL, 233UL, 234UL,
+    235UL, 236UL, 237UL, 238UL, 13UL, 14UL, 15UL, 99UL,
+    239UL, 240UL, 241UL, 242UL, 243UL, 244UL, 245UL, 246UL,
+    247UL, 248UL, 27UL, 28UL, 249UL, 250UL, 251UL, 252UL,
+    0UL, 253UL, 254UL, 255UL, 256UL, 257UL, 0UL, 0UL,
+    0UL, 258UL, 0UL, 0UL, 259UL, 260UL, 261UL, 262UL,
+    0UL, 0UL, 263UL, 264UL, 265UL, 0UL, 266UL, 109UL,
+    110UL, 267UL, 268UL, 269UL, 0UL, 270UL, 271UL, 272UL,
+    273UL, 274UL, 275UL, 276UL, 277UL, 278UL, 279UL, 280UL,
+    281UL, 282UL, 283UL, 284UL, 285UL, 286UL, 287UL, 288UL,
+    289UL, 290UL, 291UL, 292UL, 293UL, 294UL, 295UL, 296UL,
+    297UL, 298UL, 299UL, 300UL, 301UL, 302UL, 303UL, 0UL,
+    0UL, 0UL, 0UL, 0UL, 0UL, 0UL, 0UL, 0UL,
+    0UL, 0UL, 0UL, 0UL, 0UL, 0UL, 0UL, 0UL,
+    0UL, 0UL, 0UL, 0UL, 0UL, 0UL, 0UL, 0UL,
+    0UL, 0UL, 0UL, 0UL, 0UL, 0UL, 0UL, 0UL,
+    0UL, 304UL, 305UL, 306UL, 0UL, 0UL, 307UL, 308UL,
+    309UL, 310UL, 311UL, 0UL, 312UL, 0UL, 0UL, 313UL,
+    0UL, 0UL, 314UL, 315UL, 0UL, 0UL, 316UL, 317UL,
+    318UL, 0UL, 0UL, 0UL, 158UL, 155UL, 163UL, 319UL,
+    320UL, 321UL, 322UL, 323UL, 324UL, 325UL, 0UL, 0UL,
+    326UL, 150UL, 164UL, 169UL, 327UL, 328UL, 329UL, 330UL,
+    331UL, 332UL, 333UL, 334UL, 335UL, 336UL, 337UL, 338UL,
+    339UL, 340UL, 341UL, 342UL, 343UL, 344UL, 345UL, 346UL,
+    347UL, 348UL, 349UL, 350UL, 351UL, 352UL, 353UL, 354UL,
+    355UL, 356UL, 357UL, 358UL, 359UL, 360UL, 361UL, 362UL,
+    363UL, 364UL, 365UL, 366UL, 367UL, 368UL, 369UL, 370UL,
+    371UL, 372UL, 373UL, 374UL, 375UL, 376UL, 377UL, 378UL,
+  ]
+}
+
+///|
+fn cff_charset_gid_for_sid(
+  charset : CffCharset,
+  sid : UInt64,
+) -> UInt64? {
+  let mut gid = 1UL
+  while gid < charset.values.length().to_uint64() {
+    if charset.values[gid.to_int()] == sid {
+      return Some(gid)
+    }
+    gid = gid + 1UL
+  }
+  None
+}
+
+///|
+fn cff_predefined_encoding(
+  identifier : UInt64,
+  charset : CffCharset,
+) -> Result[CffEncoding, @error.CoreError] {
+  let source = match identifier {
+    0UL => cff_standard_encoding()
+    1UL => cff_expert_encoding()
+    _ => return Err(cff_data_error("font-cff-name-encoding"))
+  }
+  let codes : Array[UInt64] = []
+  let gids : Array[UInt64] = []
+  let mut code = 0UL
+  while code < 256UL {
+    let sid = source[code.to_int()]
+    if sid != 0UL {
+      match cff_charset_gid_for_sid(charset, sid) {
+        None => ()
+        Some(gid) => {
+          codes.push(code)
+          gids.push(gid)
+        }
+      }
+    }
+    code = code + 1UL
+  }
+  Ok({ format: 0UL, predefined: Some(identifier), codes, gids })
+}
+
+///|
+fn cff_decode_custom_encoding(
+  cff : TableWindow,
+  offset : UInt64,
+  charset : CffCharset,
+  strings : CffIndex,
+) -> Result[CffEncoding, @error.CoreError] {
+  match cff_require_window(cff.view, offset, 2UL, "font-cff-encoding-format") {
+    Err(error) => return Err(error)
+    Ok(_) => ()
+  }
+  let raw_format = cff.view.get(offset).unwrap().to_uint64()
+  let format = raw_format & 0x7FUL
+  if format > 1UL {
+    return Err(cff_data_error("font-cff-encoding-format"))
+  }
+  let codes : Array[UInt64] = []
+  let gids : Array[UInt64] = []
+  let seen : Array[Bool] = Array::make(256, false)
+  let mut cursor = offset + 2UL
+  if format == 0UL {
+    let count = cff.view.get(offset + 1UL).unwrap().to_uint64()
+    match
+      cff_require_window(
+        cff.view,
+        cursor,
+        count,
+        "font-cff-encoding-format0",
+      ) {
+      Err(error) => return Err(error)
+      Ok(_) => ()
+    }
+    if count != charset.values.length().to_uint64() - 1UL {
+      return Err(cff_data_error("font-cff-encoding-cardinality"))
+    }
+    let mut index = 0UL
+    while index < count {
+      let code = cff.view.get(cursor + index).unwrap().to_uint64()
+      if seen[code.to_int()] {
+        return Err(cff_data_error("font-cff-encoding-code-duplicate"))
+      }
+      seen[code.to_int()] = true
+      codes.push(code)
+      gids.push(index + 1UL)
+      index = index + 1UL
+    }
+    cursor = cursor + count
+  } else {
+    let range_count = cff.view.get(offset + 1UL).unwrap().to_uint64()
+    let range_bytes = match @checked.checked_mul(range_count, 2UL) {
+      Err(_) => return Err(cff_data_error("font-cff-encoding-range"))
+      Ok(value) => value
+    }
+    match
+      cff_require_window(
+        cff.view,
+        cursor,
+        range_bytes,
+        "font-cff-encoding-range",
+      ) {
+      Err(error) => return Err(error)
+      Ok(_) => ()
+    }
+    let mut range = 0UL
+    while range < range_count {
+      let first = cff.view.get(cursor + range * 2UL).unwrap().to_uint64()
+      let nleft = cff.view.get(cursor + range * 2UL + 1UL).unwrap().to_uint64()
+      if first > 255UL - nleft {
+        return Err(cff_data_error("font-cff-encoding-range"))
+      }
+      let mut delta = 0UL
+      while delta <= nleft {
+        let code = first + delta
+        if seen[code.to_int()] {
+          return Err(cff_data_error("font-cff-encoding-code-duplicate"))
+        }
+        seen[code.to_int()] = true
+        codes.push(code)
+        gids.push(gids.length().to_uint64() + 1UL)
+        delta = delta + 1UL
+      }
+      range = range + 1UL
+    }
+    if gids.length().to_uint64() != charset.values.length().to_uint64() - 1UL {
+      return Err(cff_data_error("font-cff-encoding-cardinality"))
+    }
+    cursor = cursor + range_bytes
+  }
+  if (raw_format & 0x80UL) != 0UL {
+    match
+      cff_require_window(
+        cff.view,
+        cursor,
+        1UL,
+        "font-cff-encoding-supplement",
+      ) {
+      Err(error) => return Err(error)
+      Ok(_) => ()
+    }
+    let supplement_count = cff.view.get(cursor).unwrap().to_uint64()
+    cursor = cursor + 1UL
+    let supplement_bytes = match @checked.checked_mul(supplement_count, 3UL) {
+      Err(_) => return Err(cff_data_error("font-cff-encoding-supplement"))
+      Ok(value) => value
+    }
+    match
+      cff_require_window(
+        cff.view,
+        cursor,
+        supplement_bytes,
+        "font-cff-encoding-supplement",
+      ) {
+      Err(error) => return Err(error)
+      Ok(_) => ()
+    }
+    let mut supplement = 0UL
+    while supplement < supplement_count {
+      let record = cursor + supplement * 3UL
+      let code = cff.view.get(record).unwrap().to_uint64()
+      let sid = read_u16(cff.view, record + 1UL).unwrap()
+      if sid == 0UL {
+        return Err(cff_data_error("font-cff-encoding-notdef"))
+      }
+      match cff_validate_sid(sid, strings, "font-cff-encoding-sid") {
+        Err(error) => return Err(error)
+        Ok(_) => ()
+      }
+      if seen[code.to_int()] {
+        return Err(cff_data_error("font-cff-encoding-code-duplicate"))
+      }
+      let gid = match cff_charset_gid_for_sid(charset, sid) {
+        None => return Err(cff_data_error("font-cff-encoding-sid"))
+        Some(value) => value
+      }
+      seen[code.to_int()] = true
+      codes.push(code)
+      gids.push(gid)
+      supplement = supplement + 1UL
+    }
+  }
+  Ok({ format, predefined: None, codes, gids })
 }
 
 ///|
@@ -289,23 +720,41 @@ fn cff_resolve_name_keying(
     Err(error) => return Err(error)
     Ok(value) => value
   }
-  let charset = if num_glyphs == 1UL {
-    { format: 0UL, predefined: Some(0UL), values: [0UL] }
+  let charset_operand = match top.charset {
+    None => 0UL
+    Some(value) => value.value
+  }
+  let charset = if charset_operand < 3UL {
+    match cff_predefined_charset(charset_operand, num_glyphs) {
+      Err(error) => return Err(error)
+      Ok(value) => value
+    }
   } else {
-    match top.charset {
-      Some(offset) if offset.value >= 3UL =>
-        match
-          cff_decode_custom_charset_format_zero(
-            cff,
-            offset.value,
-            num_glyphs,
-            false,
-            strings,
-          ) {
-          Err(error) => return Err(error)
-          Ok(value) => value
-        }
-      _ => return Err(cff_data_error("font-cff-name-charset"))
+    match
+      cff_decode_custom_charset(
+        cff,
+        charset_operand,
+        num_glyphs,
+        false,
+        strings,
+      ) {
+      Err(error) => return Err(error)
+      Ok(value) => value
+    }
+  }
+  let encoding_operand = match top.encoding {
+    None => 0UL
+    Some(value) => value.value
+  }
+  let encoding = if encoding_operand < 2UL {
+    match cff_predefined_encoding(encoding_operand, charset) {
+      Err(error) => return Err(error)
+      Ok(value) => value
+    }
+  } else {
+    match cff_decode_custom_encoding(cff, encoding_operand, charset, strings) {
+      Err(error) => return Err(error)
+      Ok(value) => value
     }
   }
   let glyphs : Array[CffGlyphDescriptor] = []
@@ -334,7 +783,7 @@ fn cff_resolve_name_keying(
     keying: {
       cid_keyed: false,
       charset,
-      encoding: Some(cff_keying_empty_encoding()),
+      encoding: Some(encoding),
       ros: None,
       fd_select: None,
       fd_count: 1UL,
@@ -383,7 +832,7 @@ fn cff_resolve_cid_keying(
     Some(value) => value.value
   }
   let charset = match
-    cff_decode_custom_charset_format_zero(
+    cff_decode_custom_charset(
       cff,
       charset_offset,
       num_glyphs,
