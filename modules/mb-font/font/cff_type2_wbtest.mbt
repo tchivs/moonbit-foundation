@@ -3,6 +3,16 @@ fn type2_vm_wb_limits(
   bytes : UInt64,
   work : UInt64,
 ) -> Type2Limits {
+  type2_vm_wb_geometry_limits(128UL, 32UL, bytes, work)
+}
+
+///|
+fn type2_vm_wb_geometry_limits(
+  points : UInt64,
+  contours : UInt64,
+  bytes : UInt64,
+  work : UInt64,
+) -> Type2Limits {
   type2_limits(
     FontLimits::new(
       max_source_bytes=4096UL,
@@ -13,8 +23,8 @@ fn type2_vm_wb_limits(
       max_cmap_records=1UL,
       max_kern_subtables=1UL,
       max_kern_pairs=1UL,
-      max_outline_points=128UL,
-      max_outline_contours=32UL,
+      max_outline_points=points,
+      max_outline_contours=contours,
       max_outline_components=1UL,
       max_outline_instruction_bytes=bytes,
       max_post_name_bytes=1UL,
