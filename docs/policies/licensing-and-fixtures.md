@@ -26,6 +26,18 @@ Project-authored source, documentation, and generated fixtures are licensed unde
 - **Requirement:** `PROH-GOV-04-EXTERNAL-FIXTURE` forbids committing an external fixture when redistribution is unconfirmed or any required provenance field is empty.
 - **Rationale:** Unconfirmed permission fails closed. A useful test case does not override licensing and provenance obligations.
 
+### External derivatives
+
+- **Requirement:** An external derivative remains external content. Its manifest
+  record must identify the immutable parent path and digest, the deterministic
+  generator and algorithm, the retained notice path and digest, the derivative
+  digest, and `redistribution_status: confirmed`.
+- **Rationale:** Repacking, combining, or otherwise deriving bytes does not
+  relabel third-party content as project-authored. Parent, generator, notice,
+  and derivative identities make the lineage reproducible while the confirmed
+  redistribution status keeps the same fail-closed licensing boundary as the
+  original fixture.
+
 ## Manifest contract
 
 The manifest is versioned and begins with an empty `records` array. Each future non-empty record must satisfy every field listed in `required_record_fields`. `redistribution_status` must be an allowed enumerated value; externally sourced records must use `confirmed`, while `unconfirmed` records are rejected rather than merely warned about.

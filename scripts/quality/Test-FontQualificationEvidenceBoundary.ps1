@@ -3,6 +3,41 @@ Set-StrictMode -Version Latest
 
 . (Join-Path $PSScriptRoot 'Invoke-FontQualification.ps1') -ImportOnly
 
+if ($EvidenceMarkerSchema -cne 'mnf-font-qualification-evidence/v2') {
+  throw "Evidence marker schema must be v2; received '$EvidenceMarkerSchema'."
+}
+if ($EvidenceWorkflowId -cne 'font-complete-public-v2') {
+  throw "Evidence workflow must be v2; received '$EvidenceWorkflowId'."
+}
+$expectedRecordKeys = @(
+  'schema_version',
+  'workflow_id',
+  'target',
+  'toolchain',
+  'fixtures',
+  'standalone_baseline',
+  'generated_collection_facts',
+  'licensed_derivative_facts',
+  'collection_hostile_outcomes',
+  'mutation_atomicity_facts',
+  'boundary_facts',
+  'dependency_facts',
+  'focused_assertions',
+  'runner',
+  'pass'
+)
+if ((Compare-Object -CaseSensitive $expectedRecordKeys $RecordKeys)) {
+  throw 'Target evidence record keys must match the closed v2 schema.'
+}
+$defaultEvidenceDirectory = (
+  Get-Command Invoke-FontQualification
+).Parameters['EvidenceDirectory'].Attributes |
+  Where-Object { $_ -is [Management.Automation.ParameterAttribute] } |
+  Select-Object -First 1
+if ($null -eq $defaultEvidenceDirectory) {
+  throw 'Import-only runner seam is missing EvidenceDirectory.'
+}
+
 $temporaryBase = [IO.Path]::GetFullPath([IO.Path]::GetTempPath()).TrimEnd(
   [IO.Path]::DirectorySeparatorChar,
   [IO.Path]::AltDirectorySeparatorChar
@@ -85,6 +120,22 @@ try {
   }
 
   $markerPath = Join-Path $owned $EvidenceMarkerName
+  Write-FontQualificationJson `
+    -Path $markerPath `
+    -Value ([pscustomobject][ordered]@{
+      schema = 'mnf-font-qualification-evidence/v1'
+      workflow_id = 'font-complete-public-v1'
+    })
+  [IO.File]::WriteAllText($ownedKnown, 'preserve after version 1 marker')
+  Assert-Rejected {
+    Clear-FontQualificationEvidenceFiles `
+      -Directory $owned `
+      -ManagedRoot $managedRoot
+  } 'marker is invalid'
+  if ([IO.File]::ReadAllText($ownedKnown) -cne 'preserve after version 1 marker') {
+    throw 'Version 1 marker authorized version 2 cleanup.'
+  }
+
   [IO.File]::WriteAllText($markerPath, '{"schema":"wrong","workflow_id":"wrong"}')
   [IO.File]::WriteAllText($ownedKnown, 'preserve after marker corruption')
   Assert-Rejected {
@@ -102,7 +153,7 @@ try {
     -Path (Join-Path $linkedOutside $EvidenceMarkerName) `
     -Value ([pscustomobject][ordered]@{
       schema = $EvidenceMarkerSchema
-      workflow_id = 'font-complete-public-v1'
+      workflow_id = $EvidenceWorkflowId
     })
   $linkedOutsideJson = Join-Path $linkedOutside 'js.json'
   [IO.File]::WriteAllText($linkedOutsideJson, 'outside caller-owned evidence')
