@@ -99,17 +99,17 @@ test "cff_structural_exact_and_one_short_cases" {
   // FDSelect 0/3, and final local-subroutine byte boundaries.
   cff_hostile_assert_atomic_error(
     cff_name_wb_table(encoding_mode=4UL)
-      |> fn(bytes) {
-        Bytes::from_array(font_wb_bytes_array(bytes)[0:bytes.length() - 1])
-      },
+    |> fn(bytes) {
+      Bytes::from_array(font_wb_bytes_array(bytes)[0:bytes.length() - 1])
+    },
     "font-cff-encoding-supplement",
     num_glyphs=3UL,
   )
   cff_hostile_assert_atomic_error(
     cff_cid_wb_table(fd_select_format=3UL)
-      |> fn(bytes) {
-        Bytes::from_array(font_wb_bytes_array(bytes)[0:bytes.length() - 1])
-      },
+    |> fn(bytes) {
+      Bytes::from_array(font_wb_bytes_array(bytes)[0:bytes.length() - 1])
+    },
     "font-cff-local-subrs-index",
     num_glyphs=3UL,
   )
@@ -168,18 +168,9 @@ test "CFF structural work allocation and caller authority are exact or absent" {
   inspect(admitted.charge.descriptors, content="3")
   inspect(admitted.charge.fd_environments, content="2")
   inspect(admitted.charge.work, content="1445")
-  let exact = cff_hostile_budget(
-    580UL,
-    9UL,
-    8192UL,
-    1445UL,
-  )
-  admit_cff1_structure(
-    font_wb_view(source),
-    font_wb_limits(),
-    exact,
-    2UL,
-  ) |> ignore
+  let exact = cff_hostile_budget(580UL, 9UL, 8192UL, 1445UL)
+  admit_cff1_structure(font_wb_view(source), font_wb_limits(), exact, 2UL)
+  |> ignore
   inspect(exact.remaining().bytes(), content="0")
   inspect(exact.remaining().allocations(), content="0")
   inspect(exact.remaining().work(), content="0")
@@ -230,20 +221,11 @@ test "CFF caller work and allocation authority precede hostile keying traversal"
     cff_cid_wb_table(invalid_unused_fd=true),
     num_glyphs=3UL,
   )
-  for budget in [
-    cff_hostile_budget(
-      source.length().to_uint64(),
-      0UL,
-      16384UL,
-      16384UL,
-    ),
-    cff_hostile_budget(
-      source.length().to_uint64(),
-      64UL,
-      16384UL,
-      0UL,
-    ),
-  ] {
+  for
+    budget in [
+      cff_hostile_budget(source.length().to_uint64(), 0UL, 16384UL, 16384UL),
+      cff_hostile_budget(source.length().to_uint64(), 64UL, 16384UL, 0UL),
+    ] {
     let before = budget.remaining()
     let error = admit_cff1_structure(
       font_wb_view(source),
@@ -278,6 +260,7 @@ test "CFF caller work and allocation authority precede hostile keying traversal"
     2UL,
     fn() { () },
     fn() { common_traversals = common_traversals + 1 },
+    fn() { () },
   ).unwrap_err()
   inspect(error.category() == @error.ErrorCategory::Resource, content="true")
   inspect(common_traversals, content="0")
@@ -321,7 +304,10 @@ test "CFF multi-fault precedence is state resource capability then data" {
     capability_error.category() == @error.ErrorCategory::Capability,
     content="true",
   )
-  inspect(capability_error.context() == Some("font-cff-profile"), content="true")
+  inspect(
+    capability_error.context() == Some("font-cff-profile"),
+    content="true",
+  )
 
   let owner = font_wb_owner(cff_wb_otf(cff_wb_table()))
   let too_short = cff_hostile_budget(1UL, 1UL, 1UL, 1UL)
@@ -336,6 +322,7 @@ test "CFF multi-fault precedence is state resource capability then data" {
     too_short,
     0UL,
     fn() { font_collection_wb_mutate_restore(owner, 0UL) },
+    fn() { () },
     fn() { () },
   ).unwrap_err()
   inspect(state_error.category() == @error.ErrorCategory::State, content="true")
