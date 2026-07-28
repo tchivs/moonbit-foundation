@@ -27,7 +27,9 @@ findings:
   warning: 2
   info: 0
   total: 8
-status: issues_found
+status: resolved
+resolved: 2026-07-28T07:08:00Z
+fix_report: 103-REVIEW-FIX.md
 ---
 
 # Phase 103: Code Review Report
@@ -35,7 +37,26 @@ status: issues_found
 **Reviewed:** 2026-07-28T06:07:19Z  
 **Depth:** deep  
 **Files Reviewed:** 18  
-**Status:** issues_found
+**Status:** resolved
+
+## Resolution
+
+All eight findings were addressed and verified on 2026-07-28.
+
+| Finding | Resolution | Commit |
+|---|---|---|
+| CR-01 | Replaced ID-derived placeholder outcomes with explicit runtime facts; regenerated the canonical corpus, manifest identity, generated MoonBit, and semantic policy digest. | `16980ffe` |
+| CR-02 | Bound runtime errors to generated rows field-for-field; directly executes collection limits, selected limit/open or constructor boundaries, checked pair overflow, caller budgets, and ancestor success/failure accounting. | `bbe59b7e` |
+| CR-03 | Closed every nested evidence section against canonical values, enforced failed-budget atomicity, and added permanent nested drift probes. | `0bb1f297` |
+| CR-04 | Added immediate write-boundary revalidation, exclusive same-directory staging, durable flush, atomic publication, read-back validation, and post-initialization link-swap regressions. | `700687ed` |
+| CR-05 | Added executable-token and container-magic flow guards plus independently locked production and negative-contract semantic digests. | `4708a5b1` |
+| CR-06 | Added a fail-closed structural workflow parser requiring one exact lane and one success-only upload, with all requested negative probes. | `449e913e` |
+| WR-01 | Closed, read back, and hash-validated `comparison.json`. | `d7e69d9f` |
+| WR-02 | Bound the evidence payload to all eight focused test/helper sources and exact repository commit/tree identity. | `d4eea58d` |
+
+Verification passed for the generator check, policy/negative contracts, evidence-boundary link-swap suite, native hostile and white-box focused tests, and the complete four-target runner: four records, fourteen focused gates per target, 152 full-package tests per target, 25 negative probes, and semantic hash `b60b515ab2015973e28230ce1ebf06e7d4596d21de678125e527be845b0d941b`.
+
+Implementation boundaries are explicit: the portable filesystem implementation rejects completed swaps before I/O and minimizes, but cannot mathematically eliminate, an adversarial swap in the final path-validation-to-create window without platform-specific handle-relative APIs. The capability policy uses locked executable-token/magic-flow analysis because no MoonBit AST facility is available in this toolchain. The workflow parser is intentionally a fail-closed parser for the repository's allowed YAML subset, not a general YAML implementation.
 
 ## Summary
 
