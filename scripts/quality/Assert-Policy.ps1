@@ -1697,41 +1697,110 @@ function Assert-FontQualificationWorkflowContract {
   [CmdletBinding()]
   param([Parameter(Mandatory)][string]$WorkflowText)
 
-  $fontJob = [regex]::Match(
-    $WorkflowText,
-    '(?ms)^  font-qualification:\s*$.*?(?=^  [a-z0-9-]+:\s*$|\z)'
+  Assert-Condition (
+    $WorkflowText -cnotmatch "`t" -and
+    $WorkflowText -cnotmatch '(?m)^\s*[^#\r\n]+[&*][A-Za-z0-9_-]+'
+  ) 'Quality workflow FontQualification contract forbids tabs and YAML aliases.'
+  $normalized = $WorkflowText.Replace("`r`n", "`n")
+  $lines = @($normalized -split "`n")
+  $jobsLine = [Array]::IndexOf($lines, 'jobs:')
+  Assert-Condition ($jobsLine -ge 0) 'Quality workflow jobs mapping is missing.'
+  $jobs = [ordered]@{}
+  $currentJob = $null
+  for ($index = $jobsLine + 1; $index -lt $lines.Count; $index++) {
+    $line = $lines[$index]
+    if ($line -cmatch '^[^ #]') { break }
+    if ($line -cmatch '^  (?<key>[a-z0-9-]+):\s*$') {
+      $currentJob = $Matches.key
+      Assert-Condition (-not $jobs.Contains($currentJob)) (
+        "Quality workflow duplicates job '$currentJob'."
+      )
+      $jobs[$currentJob] = [Collections.Generic.List[string]]::new()
+      continue
+    }
+    if ($null -ne $currentJob) {
+      $jobs[$currentJob].Add($line)
+    }
+  }
+
+  $laneCommand = (
+    'run: ./scripts/quality.ps1 -Lane FontQualification ' +
+    '-EvidenceDirectory artifacts/release-qualification/ci-font-v2'
+  )
+  $fontJobKeys = @(
+    foreach ($entry in $jobs.GetEnumerator()) {
+      if (@($entry.Value | Where-Object { $_.Trim() -ceq $laneCommand }).Count -gt 0) {
+        [string]$entry.Key
+      }
+    }
   )
   Assert-Condition (
-    $fontJob.Success -and
-    ([regex]::Matches(
-      $WorkflowText,
-      '(?m)^  font-qualification:\s*$'
-    )).Count -eq 1
+    $fontJobKeys.Count -eq 1 -and
+    $fontJobKeys[0] -ceq 'font-qualification' -and
+    $jobs.Contains('font-qualification')
   ) 'Quality workflow must contain exactly one FontQualification job.'
-  $fontJobText = $fontJob.Value
+  $fontJobLines = @($jobs['font-qualification'])
+  $fontJobText = $fontJobLines -join "`n"
   Assert-Condition (
-    $fontJobText -cmatch (
-      '(?m)^\s*timeout-minutes:\s*20\s*$'
-    )
+    @($fontJobLines | Where-Object { $_ -ceq '    timeout-minutes: 20' }).Count -eq 1
   ) 'Measured FontQualification timeout must remain 20 minutes.'
   Assert-Condition (
-    $fontJobText -cmatch (
-      '(?m)^\s*run:\s*[.]/scripts/quality[.]ps1 -Lane ' +
-      'FontQualification -EvidenceDirectory ' +
-      'artifacts/release-qualification/ci-font-v2\s*$'
-    )
+    @($fontJobLines | Where-Object { $_.Trim() -ceq $laneCommand }).Count -eq 1
   ) 'FontQualification CI command must own the fresh v2 evidence directory.'
   Assert-Condition (
-    $fontJobText -cmatch (
-      '(?ms)- name: Upload passing font qualification evidence\s+' +
-      'if: \$\{\{ success\(\) \}\}\s+' +
-      'uses: actions/upload-artifact@' +
-      'ea165f8d65b6e75b540449e92b4886f43607fa02\s+' +
-      'with:\s+' +
-      'name: font-qualification-evidence-v2\s+' +
+    @($fontJobLines | Where-Object {
+      $_ -cmatch '^    continue-on-error:'
+    }).Count -eq 0
+  ) 'FontQualification job must not continue on error.'
+
+  $stepsLine = [Array]::IndexOf($fontJobLines, '    steps:')
+  Assert-Condition ($stepsLine -ge 0) 'FontQualification steps sequence is missing.'
+  $steps = [Collections.Generic.List[object]]::new()
+  $currentStep = $null
+  for ($index = $stepsLine + 1; $index -lt $fontJobLines.Count; $index++) {
+    $line = $fontJobLines[$index]
+    if ($line -cmatch '^      - (?<rest>.+)$') {
+      $currentStep = [Collections.Generic.List[string]]::new()
+      $currentStep.Add('      ' + $Matches.rest)
+      $steps.Add($currentStep)
+    } elseif ($null -ne $currentStep) {
+      $currentStep.Add($line)
+    }
+  }
+  $uploadSteps = @(
+    $steps | Where-Object {
+      @($_ | Where-Object {
+        $_.Trim() -cmatch '^uses:\s*actions/upload-artifact@'
+      }).Count -gt 0
+    }
+  )
+  Assert-Condition (
+    $uploadSteps.Count -eq 1 -and
+    @($fontJobLines | Where-Object {
+      $_.Trim() -cmatch '^uses:\s*actions/upload-artifact@'
+    }).Count -eq 1
+  ) 'FontQualification CI upload must be success-only, pinned, and v2-owned.'
+  $upload = @(
+    $uploadSteps[0] |
+      ForEach-Object { $_.Trim() } |
+      Where-Object { $_ -cne '' }
+  )
+  Assert-ExactSequence 'FontQualification upload step schema and values' `
+    $upload `
+    @(
+      'name: Upload passing font qualification evidence',
+      'if: ${{ success() }}',
+      'uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02',
+      'with:',
+      'name: font-qualification-evidence-v2',
       'path: artifacts/release-qualification/ci-font-v2'
     )
-  ) 'FontQualification CI upload must be success-only, pinned, and v2-owned.'
+  Assert-Condition (
+    ([regex]::Matches(
+      $fontJobText,
+      [regex]::Escape('artifacts/release-qualification/ci-font-v2')
+    )).Count -eq 2
+  ) 'FontQualification evidence directory may appear only in its runner and upload steps.'
 }
 
 function Assert-QualityWorkflowToolchainTransport {
@@ -2739,6 +2808,51 @@ function Assert-FontQualificationArtifacts {
       $qualityWorkflowText.Replace('timeout-minutes: 20', 'timeout-minutes: 21')
     )
   } 'timeout must remain 20 minutes'
+  Confirm-FontQualificationRejected 'second failing-evidence upload' {
+    Assert-FontQualificationWorkflowContract -WorkflowText (
+      $qualityWorkflowText.Replace(
+        "`n  required:",
+        @"
+      - name: Upload failing font qualification evidence
+        if: `${{ always() }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: font-qualification-evidence-v2-failure
+          path: artifacts/release-qualification/ci-font-v2
+
+  required:
+"@
+      )
+    )
+  } 'success-only, pinned, and v2-owned'
+  Confirm-FontQualificationRejected 'aliased evidence path' {
+    Assert-FontQualificationWorkflowContract -WorkflowText (
+      $qualityWorkflowText.Replace(
+        'path: artifacts/release-qualification/ci-font-v2',
+        'path: *font-qualification-evidence'
+      )
+    )
+  } 'forbids tabs and YAML aliases'
+  Confirm-FontQualificationRejected 'FontQualification continue-on-error' {
+    Assert-FontQualificationWorkflowContract -WorkflowText (
+      $qualityWorkflowText.Replace(
+        '    timeout-minutes: 20',
+        "    timeout-minutes: 20`n    continue-on-error: true"
+      )
+    )
+  } 'must not continue on error'
+  Confirm-FontQualificationRejected 'shadow FontQualification job' {
+    Assert-FontQualificationWorkflowContract -WorkflowText (
+      $qualityWorkflowText + @"
+
+  font-qualification-shadow:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Shadow qualification
+        run: ./scripts/quality.ps1 -Lane FontQualification -EvidenceDirectory artifacts/release-qualification/ci-font-v2
+"@
+    )
+  } 'exactly one FontQualification job'
 
   $runnerText = Get-Content -Raw -LiteralPath (
     Join-Path $RepositoryRoot 'scripts/quality/Invoke-FontQualification.ps1'
