@@ -303,7 +303,7 @@ fn font_admit_kern_bounded(
   table : TableWindow?,
   num_glyphs : UInt64,
   limits : FontLimits,
-  budget : @budget.Budget,
+  ledger : FontAdmissionLedger,
   base_work : UInt64,
   base_budget_work : UInt64,
 ) -> Result[KernAdmissionFacts, @error.CoreError] {
@@ -340,21 +340,13 @@ fn font_admit_kern_bounded(
         font_limit_error("max-work", subtable_work, limits.max_work()),
       )
     }
-    let subtable_budget_work = match
-      @checked.checked_add(base_budget_work, subtable_count) {
-      Err(error) => return Err(error)
-      Ok(value) => value
-    }
     match
-      font_preflight_admission_work(
-        budget,
+      ledger.admit_stage(
         limits.max_work(),
-        subtable_budget_work,
+        subtable_work,
+        base_budget_work,
+        subtable_count,
       ) {
-      Err(error) => return Err(error)
-      Ok(_) => ()
-    }
-    match font_charge_admission_work(budget, subtable_count) {
       Err(error) => return Err(error)
       Ok(_) => ()
     }
@@ -392,21 +384,13 @@ fn font_admit_kern_bounded(
             font_limit_error("max-work", pair_work, limits.max_work()),
           )
         }
-        let pair_budget_work = match
-          @checked.checked_add(base_budget_work, pair_count) {
-          Err(error) => return Err(error)
-          Ok(result) => result
-        }
         match
-          font_preflight_admission_work(
-            budget,
+          ledger.admit_stage(
             limits.max_work(),
-            pair_budget_work,
+            pair_work,
+            base_budget_work,
+            pair_count,
           ) {
-          Err(error) => return Err(error)
-          Ok(_) => ()
-        }
-        match font_charge_admission_work(budget, pair_count) {
           Err(error) => return Err(error)
           Ok(_) => ()
         }
@@ -449,21 +433,13 @@ fn font_admit_kern_bounded(
         font_limit_error("max-work", subtable_work, limits.max_work()),
       )
     }
-    let subtable_budget_work = match
-      @checked.checked_add(base_budget_work, subtable_count) {
-      Err(error) => return Err(error)
-      Ok(value) => value
-    }
     match
-      font_preflight_admission_work(
-        budget,
+      ledger.admit_stage(
         limits.max_work(),
-        subtable_budget_work,
+        subtable_work,
+        base_budget_work,
+        subtable_count,
       ) {
-      Err(error) => return Err(error)
-      Ok(_) => ()
-    }
-    match font_charge_admission_work(budget, subtable_count) {
       Err(error) => return Err(error)
       Ok(_) => ()
     }

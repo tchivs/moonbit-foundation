@@ -79,6 +79,431 @@ fn font_collection_wb_mutate_restore(
 }
 
 ///|
+fn font_collection_wb_font_limits(source_length : UInt64) -> FontLimits {
+  FontLimits::new(
+    max_source_bytes=source_length,
+    max_tables=4UL,
+    max_table_bytes=64UL,
+    max_glyphs=4UL,
+    max_name_records=4UL,
+    max_cmap_records=4UL,
+    max_kern_subtables=4UL,
+    max_kern_pairs=4UL,
+    max_outline_points=64UL,
+    max_outline_contours=16UL,
+    max_outline_components=16UL,
+    max_outline_instruction_bytes=64UL,
+    max_post_name_bytes=64UL,
+    max_work=4096UL,
+  ).unwrap()
+}
+
+///|
+fn font_collection_wb_checksum(
+  source : Array[Byte],
+  start : Int,
+  length : Int,
+  zero_head_adjustment : Bool,
+) -> UInt64 {
+  let mut checksum = 0UL
+  let mut offset = 0
+  while offset < length {
+    let mut word = 0UL
+    for delta in [0, 1, 2, 3] {
+      let index = offset + delta
+      let byte = if
+        zero_head_adjustment && index >= 8 && index < 12 {
+        b'\x00'
+      } else if index < length {
+        source[start + index]
+      } else {
+        b'\x00'
+      }
+      word = (word << 8) | byte.to_uint64()
+    }
+    checksum = (checksum + word) & 0xFFFFFFFFUL
+    offset = offset + 4
+  }
+  checksum
+}
+
+///|
+fn font_collection_wb_offset_directory(
+  head_offset : UInt64,
+  head_length : UInt64,
+  name_offset : UInt64,
+  name_length : UInt64,
+  bad_head_checksum? : Bool = false,
+) -> Bytes {
+  let output = Array::make(160, b'\x00')
+  let directory_start = 64
+  let head_start = head_offset.to_int()
+  let head_size = head_length.to_int()
+  for index = 0; index < head_size; index = index + 1 {
+    output[head_start + index] = (index + 1).to_byte()
+  }
+  if head_size >= 12 {
+    output[head_start + 8] = b'\xaa'
+    output[head_start + 9] = b'\xbb'
+    output[head_start + 10] = b'\xcc'
+    output[head_start + 11] = b'\xdd'
+  }
+  let name_start = name_offset.to_int()
+  let name_size = name_length.to_int()
+  for index = 0; index < name_size; index = index + 1 {
+    output[name_start + index] = (0x40 + index).to_byte()
+  }
+
+  font_collection_wb_put_u32(output, directory_start, 0x00010000UL)
+  font_collection_wb_put_u16(output, directory_start + 4, 2UL)
+  font_collection_wb_put_u16(output, directory_start + 6, 32UL)
+  font_collection_wb_put_u16(output, directory_start + 8, 1UL)
+  font_collection_wb_put_u16(output, directory_start + 10, 0UL)
+  font_collection_wb_put_u32(output, directory_start + 12, 0x68656164UL)
+  let head_checksum = font_collection_wb_checksum(
+    output,
+    head_start,
+    head_size,
+    true,
+  )
+  font_collection_wb_put_u32(
+    output,
+    directory_start + 16,
+    if bad_head_checksum { head_checksum ^ 1UL } else { head_checksum },
+  )
+  font_collection_wb_put_u32(output, directory_start + 20, head_offset)
+  font_collection_wb_put_u32(output, directory_start + 24, head_length)
+
+  font_collection_wb_put_u32(output, directory_start + 28, 0x6E616D65UL)
+  font_collection_wb_put_u32(
+    output,
+    directory_start + 32,
+    font_collection_wb_checksum(output, name_start, name_size, false),
+  )
+  font_collection_wb_put_u32(output, directory_start + 36, name_offset)
+  font_collection_wb_put_u32(output, directory_start + 40, name_length)
+  Bytes::from_array(output)
+}
+
+///|
+test "selected directory reads absolute fields and keeps table offsets root relative" {
+  let source = font_collection_wb_offset_directory(32UL, 12UL, 112UL, 4UL)
+  let view = font_collection_wb_view(source)
+  let directory = font_parse_directory_at(
+    view,
+    64UL,
+    Some(2UL),
+    font_collection_wb_font_limits(view.length()),
+    FontChecksumMode::Collection,
+  ).unwrap()
+  inspect(directory.tables.length(), content="2")
+  inspect(directory.tables[0].offset, content="32")
+  inspect(
+    directory.tables[0].view.get(0UL).unwrap().to_uint64(),
+    content="1",
+  )
+  inspect(directory.tables[1].offset, content="112")
+  inspect(
+    directory.tables[1].view.get(0UL).unwrap().to_uint64(),
+    content="64",
+  )
+}
+
+///|
+test "selected directory permits touching tables and rejects intersections" {
+  let touching = font_collection_wb_view(
+    font_collection_wb_offset_directory(52UL, 12UL, 108UL, 4UL),
+  )
+  inspect(
+    font_parse_directory_at(
+      touching,
+      64UL,
+      Some(2UL),
+      font_collection_wb_font_limits(touching.length()),
+      FontChecksumMode::Collection,
+    ) is Ok(_),
+    content="true",
+  )
+
+  let intersecting = font_collection_wb_view(
+    font_collection_wb_offset_directory(60UL, 8UL, 112UL, 4UL),
+  )
+  let overlap = font_parse_directory_at(
+    intersecting,
+    64UL,
+    Some(2UL),
+    font_collection_wb_font_limits(intersecting.length()),
+    FontChecksumMode::Collection,
+  ).unwrap_err()
+  inspect(overlap.category() == @error.ErrorCategory::Data, content="true")
+  inspect(
+    overlap.context() == Some("font-table-directory-overlap"),
+    content="true",
+  )
+}
+
+///|
+test "selected directory cached count and checked base fail before record traversal" {
+  let source = font_collection_wb_view(
+    font_collection_wb_offset_directory(32UL, 12UL, 112UL, 4UL),
+  )
+  let count_error = font_parse_directory_at(
+    source,
+    64UL,
+    Some(1UL),
+    font_collection_wb_font_limits(source.length()),
+    FontChecksumMode::Collection,
+  ).unwrap_err()
+  inspect(count_error.category() == @error.ErrorCategory::Data, content="true")
+  inspect(count_error.context() == Some("font-table-count"), content="true")
+
+  let base_error = font_parse_directory_at(
+    source,
+    18446744073709551615UL,
+    None,
+    font_collection_wb_font_limits(source.length()),
+    FontChecksumMode::Collection,
+  ).unwrap_err()
+  inspect(base_error.category() == @error.ErrorCategory::Data, content="true")
+  inspect(base_error.context() == Some("font-sfnt-header"), content="true")
+}
+
+///|
+test "collection checksum mode keeps table integrity and skips only root adjustment" {
+  let source = font_collection_wb_view(
+    font_collection_wb_offset_directory(32UL, 12UL, 112UL, 4UL),
+  )
+  let directory = font_parse_directory_at(
+    source,
+    64UL,
+    Some(2UL),
+    font_collection_wb_font_limits(source.length()),
+    FontChecksumMode::Collection,
+  ).unwrap()
+  inspect(
+    font_validate_checksums_with_mode(
+      directory,
+      FontChecksumMode::Collection,
+    ) is Ok(_),
+    content="true",
+  )
+  let standalone = font_validate_checksums_with_mode(
+    directory,
+    FontChecksumMode::Standalone,
+  ).unwrap_err()
+  inspect(
+    standalone.context() == Some("font-checksum-adjustment"),
+    content="true",
+  )
+
+  let bad_source = font_collection_wb_view(
+    font_collection_wb_offset_directory(
+      32UL,
+      12UL,
+      112UL,
+      4UL,
+      bad_head_checksum=true,
+    ),
+  )
+  let bad_directory = font_parse_directory_at(
+    bad_source,
+    64UL,
+    Some(2UL),
+    font_collection_wb_font_limits(bad_source.length()),
+    FontChecksumMode::Collection,
+  ).unwrap()
+  let bad_checksum = font_validate_checksums_with_mode(
+    bad_directory,
+    FontChecksumMode::Collection,
+  ).unwrap_err()
+  inspect(
+    bad_checksum.context() == Some("font-table-checksum"),
+    content="true",
+  )
+}
+
+///|
+fn font_collection_wb_work_budget(work : UInt64) -> @budget.Budget {
+  @budget.Budget::new(
+    @budget.ResourceLimits::new(
+      bytes=0UL,
+      allocations=0UL,
+      allocation_size=0UL,
+      width=0UL,
+      height=0UL,
+      pixels=0UL,
+      depth=0UL,
+      work~,
+    ),
+  )
+}
+
+///|
+fn font_collection_wb_work_charge(work : UInt64) -> @budget.ResourceCharge {
+  @budget.ResourceCharge::new(
+    bytes=0UL,
+    allocations=0UL,
+    allocation_size=0UL,
+    width=0UL,
+    height=0UL,
+    pixels=0UL,
+    work~,
+  )
+}
+
+///|
+test "deferred admission ledger cumulatively preflights ancestors without charging" {
+  let exact = font_collection_wb_work_budget(15UL)
+  let exact_before = exact.remaining()
+  let exact_ledger = FontAdmissionLedger::new(
+    exact,
+    FontAdmissionCommitMode::CollectionDeferred,
+  )
+  exact_ledger.admit_stage(15UL, 13UL, 10UL, 3UL).unwrap()
+  exact_ledger.admit_stage(15UL, 15UL, 10UL, 2UL).unwrap()
+  inspect(exact_ledger.staged_work, content="5")
+  inspect(exact.remaining().work() == exact_before.work(), content="true")
+
+  let root = font_collection_wb_work_budget(20UL)
+  let child = root.child(
+    @budget.ResourceLimits::new(
+      bytes=0UL,
+      allocations=0UL,
+      allocation_size=0UL,
+      width=0UL,
+      height=0UL,
+      pixels=0UL,
+      depth=0UL,
+      work=20UL,
+    ),
+  ).unwrap()
+  root.charge(font_collection_wb_work_charge(6UL)).unwrap()
+  let root_before = root.remaining()
+  let child_before = child.remaining()
+  let ledger = FontAdmissionLedger::new(
+    child,
+    FontAdmissionCommitMode::CollectionDeferred,
+  )
+  ledger.admit_stage(20UL, 13UL, 10UL, 3UL).unwrap()
+  let error = ledger.admit_stage(20UL, 15UL, 10UL, 2UL).unwrap_err()
+  inspect(error.category() == @error.ErrorCategory::Resource, content="true")
+  inspect(error.context() == Some("work"), content="true")
+  inspect(ledger.staged_work, content="3")
+  inspect(root.remaining().work() == root_before.work(), content="true")
+  inspect(child.remaining().work() == child_before.work(), content="true")
+}
+
+///|
+test "admission ledger preserves standalone increments and rejects overflow atomically" {
+  let standalone_budget = font_collection_wb_work_budget(15UL)
+  let standalone = FontAdmissionLedger::new(
+    standalone_budget,
+    FontAdmissionCommitMode::StandaloneIncremental,
+  )
+  standalone.admit_stage(15UL, 13UL, 10UL, 3UL).unwrap()
+  inspect(standalone_budget.remaining().work(), content="12")
+  standalone.admit_stage(15UL, 15UL, 10UL, 2UL).unwrap()
+  inspect(standalone_budget.remaining().work(), content="10")
+  inspect(standalone.staged_work, content="5")
+
+  let overflow_budget = font_collection_wb_work_budget(
+    18446744073709551615UL,
+  )
+  let overflow = FontAdmissionLedger::new(
+    overflow_budget,
+    FontAdmissionCommitMode::CollectionDeferred,
+  )
+  overflow
+  .admit_stage(
+    18446744073709551615UL,
+    18446744073709551615UL,
+    0UL,
+    18446744073709551615UL,
+  )
+  .unwrap()
+  let before = overflow_budget.remaining()
+  let error = overflow
+  .admit_stage(
+    18446744073709551615UL,
+    18446744073709551615UL,
+    0UL,
+    1UL,
+  )
+  .unwrap_err()
+  inspect(error.category() == @error.ErrorCategory::Resource, content="true")
+  inspect(error.context() == Some("max-work"), content="true")
+  inspect(
+    overflow_budget.remaining().work() == before.work(),
+    content="true",
+  )
+}
+
+///|
+test "admission plan reports exact work without double counting staged scans" {
+  let source = generated_minimal_truetype()
+  let directory = font_parse_directory(
+    font_wb_view(source),
+    font_wb_limits(),
+  ).unwrap()
+
+  let standalone_budget = font_wb_open_budget()
+  let standalone_before = standalone_budget.remaining()
+  let standalone = font_admission_charge(
+    directory,
+    font_wb_limits(),
+    standalone_budget,
+    FontAdmissionCommitMode::StandaloneIncremental,
+  ).unwrap()
+  let staged = standalone_before.work() -
+    standalone_budget.remaining().work()
+  inspect(
+    standalone.exact_work ==
+    standalone.standalone_remaining_work + staged,
+    content="true",
+  )
+
+  let deferred_budget = font_wb_open_budget()
+  let deferred_before = deferred_budget.remaining()
+  let deferred = font_admission_charge(
+    directory,
+    font_wb_limits(),
+    deferred_budget,
+    FontAdmissionCommitMode::CollectionDeferred,
+  ).unwrap()
+  inspect(deferred.exact_work == standalone.exact_work, content="true")
+  inspect(
+    deferred_budget.remaining().work() == deferred_before.work(),
+    content="true",
+  )
+
+  let malformed = font_wb_mutate_table_field(
+    source,
+    b"cmap",
+    8,
+    b"\x00\x00\x00\x00",
+  )
+  let malformed_directory = font_parse_directory(
+    font_wb_view(malformed),
+    font_wb_limits(),
+  ).unwrap()
+  let failed_budget = font_wb_open_budget()
+  let failed_before = failed_budget.remaining()
+  inspect(
+    font_admission_charge(
+      malformed_directory,
+      font_wb_limits(),
+      failed_budget,
+      FontAdmissionCommitMode::CollectionDeferred,
+    ) is Err(_),
+    content="true",
+  )
+  inspect(
+    failed_budget.remaining().work() == failed_before.work(),
+    content="true",
+  )
+}
+
+///|
 fn font_collection_wb_two_face_v2() -> Bytes {
   let output = Array::make(160, b'\x00')
   font_collection_wb_put_u32(output, 0, 0x74746366UL)
