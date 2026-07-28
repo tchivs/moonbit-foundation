@@ -276,6 +276,64 @@ test "Type 2 rational add multiply and matrix scale cancel before products" {
 }
 
 ///|
+test "Type 2 rational add cancels opposite signed wide cross-products exactly" {
+  let left = type2_rational(6000000000000000001L, 2L).unwrap()
+  let right = type2_rational(-9000000000000000001L, 3L).unwrap()
+  let sum = match type2_rational_add(left, right) {
+    Err(_) => {
+      inspect(false, content="true")
+      return
+    }
+    Ok(value) => value
+  }
+  inspect(sum.numerator, content="1")
+  inspect(sum.denominator, content="6")
+
+  let reversed = match
+    type2_rational_add(
+      type2_rational(-6000000000000000001L, 2L).unwrap(),
+      type2_rational(9000000000000000001L, 3L).unwrap(),
+    ) {
+    Err(_) => {
+      inspect(false, content="true")
+      return
+    }
+    Ok(value) => value
+  }
+  inspect(reversed.numerator, content="-1")
+  inspect(reversed.denominator, content="6")
+
+  let one = type2_rational(1L, 1L).unwrap()
+  let matrix_sum = match
+    type2_rational_sum_of_products(left, one, right, one) {
+    Err(_) => {
+      inspect(false, content="true")
+      return
+    }
+    Ok(value) => value
+  }
+  inspect(matrix_sum.numerator, content="1")
+  inspect(matrix_sum.denominator, content="6")
+
+  inspect(
+    type2_rational_add(
+      type2_rational(6000000000000000001L, 2L).unwrap(),
+      type2_rational(9000000000000000001L, 3L).unwrap(),
+    )
+    is Err(_),
+    content="true",
+  )
+  inspect(
+    type2_rational_add(
+      type2_rational(-6000000000000000001L, 2L).unwrap(),
+      type2_rational(-9000000000000000001L, 3L).unwrap(),
+    )
+    is Err(_),
+    content="true",
+  )
+}
+
+///|
 fn type2_wb_matrix(
   a : Int64,
   b : Int64,
