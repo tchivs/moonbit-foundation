@@ -986,6 +986,12 @@ fn cff_resolve_cid_keying(
       Err(error) => return Err(error)
       Ok(value) => value
     }
+    for sid in font_dict.sid_operands {
+      match cff_validate_sid(sid, strings, "font-cff-font-name") {
+        Err(error) => return Err(error)
+        Ok(_) => ()
+      }
+    }
     let private_range = match font_dict.private_range {
       None => return Err(cff_data_error("font-cff-fd-private-required"))
       Some(value) => value

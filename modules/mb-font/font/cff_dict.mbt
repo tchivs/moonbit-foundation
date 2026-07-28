@@ -42,6 +42,7 @@ priv struct CffTopDict {
   fd_array : CffTableOffset?
   fd_select : CffTableOffset?
   font_matrix : Array[CffNumber]
+  sid_operands : Array[UInt64]
 }
 
 ///|
@@ -49,6 +50,7 @@ priv struct CffTopDict {
 priv struct CffFontDict {
   private_range : CffPrivateRange?
   font_matrix : Array[CffNumber]
+  sid_operands : Array[UInt64]
 }
 
 ///|
@@ -430,6 +432,64 @@ fn cff_require_even_nonempty(
 }
 
 ///|
+fn cff_require_boolean(
+  entry : CffDictEntry,
+  context : String,
+) -> Result[Unit, @error.CoreError] {
+  match cff_require_arity(entry, 1UL, context) {
+    Err(error) => return Err(error)
+    Ok(_) => ()
+  }
+  let value = match cff_number_nonnegative_integer(entry.operands[0], context) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  if value > 1UL {
+    Err(cff_data_error(context, requested=value, limit=1UL))
+  } else {
+    Ok(())
+  }
+}
+
+///|
+fn cff_require_sid_operand(
+  entry : CffDictEntry,
+  context : String,
+) -> Result[UInt64, @error.CoreError] {
+  match cff_require_arity(entry, 1UL, context) {
+    Err(error) => return Err(error)
+    Ok(_) => ()
+  }
+  let sid = match cff_number_nonnegative_integer(entry.operands[0], context) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  if sid > 65535UL {
+    Err(cff_data_error(context, requested=sid, limit=65535UL))
+  } else {
+    Ok(sid)
+  }
+}
+
+///|
+fn cff_require_even_bounded(
+  entry : CffDictEntry,
+  maximum : UInt64,
+  context : String,
+) -> Result[Unit, @error.CoreError] {
+  match cff_require_even_nonempty(entry, context) {
+    Err(error) => return Err(error)
+    Ok(_) => ()
+  }
+  let actual = entry.operands.length().to_uint64()
+  if actual > maximum {
+    Err(cff_data_error(context, requested=actual, limit=maximum))
+  } else {
+    Ok(())
+  }
+}
+
+///|
 fn cff_decode_top_dict(
   source : @bytes.ByteView,
 ) -> Result[CffTopDict, @error.CoreError] {
@@ -448,6 +508,7 @@ fn cff_decode_top_dict(
   let mut fd_select : CffTableOffset? = None
   let mut font_matrix = cff_default_font_matrix()
   let mut font_matrix_seen = false
+  let sid_operands : Array[UInt64] = []
   for entry in entries {
     match entry.operator {
       15UL => {
@@ -613,14 +674,20 @@ fn cff_decode_top_dict(
         }
         fd_select = Some({ value, })
       }
-      0UL
-      | 1UL
-      | 2UL
-      | 3UL
-      | 4UL
-      | 13UL
-      | 0x100UL
-      | 0x101UL
+      0UL | 1UL | 2UL | 3UL | 4UL | 0x100UL => {
+        let sid = match
+          cff_require_sid_operand(entry, "font-cff-top-sid") {
+          Err(error) => return Err(error)
+          Ok(value) => value
+        }
+        sid_operands.push(sid)
+      }
+      0x101UL =>
+        match cff_require_boolean(entry, "font-cff-top-is-fixed-pitch") {
+          Err(error) => return Err(error)
+          Ok(_) => ()
+        }
+      13UL
       | 0x102UL
       | 0x103UL
       | 0x104UL
@@ -634,7 +701,7 @@ fn cff_decode_top_dict(
       | 0x121UL
       | 0x122UL
       | 0x123UL
-      | 0x126UL =>
+      =>
         match cff_require_arity(entry, 1UL, "font-cff-top-operator") {
           Err(error) => return Err(error)
           Ok(_) => ()
@@ -666,6 +733,7 @@ fn cff_decode_top_dict(
     fd_array,
     fd_select,
     font_matrix,
+    sid_operands,
   })
 }
 
@@ -681,6 +749,7 @@ fn cff_decode_font_dict(
   let mut private_range : CffPrivateRange? = None
   let mut font_matrix = cff_default_font_matrix()
   let mut font_matrix_seen = false
+  let sid_operands : Array[UInt64] = []
   for entry in entries {
     match entry.operator {
       18UL => {
@@ -720,15 +789,18 @@ fn cff_decode_font_dict(
         font_matrix = entry.operands
         font_matrix_seen = true
       }
-      0x126UL =>
-        match cff_require_arity(entry, 1UL, "font-cff-font-name") {
+      0x126UL => {
+        let sid = match
+          cff_require_sid_operand(entry, "font-cff-font-name") {
           Err(error) => return Err(error)
-          Ok(_) => ()
+          Ok(value) => value
         }
+        sid_operands.push(sid)
+      }
       _ => return Err(cff_data_error("font-cff-font-operator"))
     }
   }
-  Ok({ private_range, font_matrix })
+  Ok({ private_range, font_matrix, sid_operands })
 }
 
 ///|
@@ -786,8 +858,23 @@ fn cff_decode_private_dict(
         nominal_width_x = entry.operands[0]
         nominal_seen = true
       }
-      6UL | 7UL | 8UL | 9UL | 0x10CUL | 0x10DUL =>
-        match cff_require_even_nonempty(entry, "font-cff-private-array") {
+      6UL | 8UL =>
+        match cff_require_even_bounded(entry, 14UL, "font-cff-private-blue-array") {
+          Err(error) => return Err(error)
+          Ok(_) => ()
+        }
+      7UL | 9UL =>
+        match cff_require_even_bounded(entry, 10UL, "font-cff-private-blue-array") {
+          Err(error) => return Err(error)
+          Ok(_) => ()
+        }
+      0x10CUL | 0x10DUL =>
+        match cff_require_even_bounded(entry, 12UL, "font-cff-private-stem-snap") {
+          Err(error) => return Err(error)
+          Ok(_) => ()
+        }
+      0x10EUL =>
+        match cff_require_boolean(entry, "font-cff-private-force-bold") {
           Err(error) => return Err(error)
           Ok(_) => ()
         }
@@ -796,7 +883,6 @@ fn cff_decode_private_dict(
       | 0x109UL
       | 0x10AUL
       | 0x10BUL
-      | 0x10EUL
       | 0x111UL
       | 0x112UL
       | 0x113UL =>

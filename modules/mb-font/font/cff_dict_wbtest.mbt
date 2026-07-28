@@ -155,3 +155,67 @@ test "CFF DICT enforces the 48 operand stack limit before allocation growth" {
     content="true",
   )
 }
+
+///|
+test "CFF typed DICT rejects invalid SID and boolean domains" {
+  for malformed in [
+    b"\x8A\x02\x8C\x11",
+    b"\x1E\x1A\x5F\x02\x8C\x11",
+    b"\x8D\x0C\x01\x8C\x11",
+  ] {
+    inspect(
+      cff_decode_top_dict(font_wb_view(malformed)) is Err(_),
+      content="true",
+    )
+  }
+  inspect(
+    cff_decode_font_dict(font_wb_view(b"\x8A\x0C\x26")) is Err(_),
+    content="true",
+  )
+  inspect(
+    cff_decode_private_dict(font_wb_view(b"\x8D\x0C\x0E")) is Err(_),
+    content="true",
+  )
+}
+
+///|
+test "CFF typed DICT resolves retained SIDs against String INDEX domain" {
+  let top = cff_decode_top_dict(
+    font_wb_view(b"\x1C\x01\x87\x02\x8C\x11"),
+  ).unwrap()
+  let strings = cff_decode_index(
+      font_wb_view(b"\x00\x00"),
+      0UL,
+      1UL,
+      "cff-dict-string-test",
+    ).unwrap().0
+  inspect(top.sid_operands.length(), content="1")
+  inspect(
+    cff_validate_sid(top.sid_operands[0], strings, "font-cff-top-sid") is Err(_),
+    content="true",
+  )
+}
+
+///|
+test "CFF Private DICT enforces blue-zone and StemSnap array maxima" {
+  let blue : Array[Byte] = []
+  for index = 0; index < 16; index = index + 1 {
+    blue.push(b'\x8B')
+  }
+  blue.push(b'\x06')
+  inspect(
+    cff_decode_private_dict(font_wb_view(Bytes::from_array(blue))) is Err(_),
+    content="true",
+  )
+
+  let stems : Array[Byte] = []
+  for index = 0; index < 14; index = index + 1 {
+    stems.push(b'\x8B')
+  }
+  stems.push(b'\x0C')
+  stems.push(b'\x0C')
+  inspect(
+    cff_decode_private_dict(font_wb_view(Bytes::from_array(stems))) is Err(_),
+    content="true",
+  )
+}

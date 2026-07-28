@@ -685,6 +685,12 @@ fn admit_cff1_structure_at_after_preflight(
     Err(error) => return Err(error)
     Ok(value) => value
   }
+  for sid in top.sid_operands {
+    match cff_validate_sid(sid, strings, "font-cff-top-sid") {
+      Err(error) => return Err(error)
+      Ok(_) => ()
+    }
+  }
   let (global_subrs, _) = match
     cff_decode_index(
       cff.view,
