@@ -4,16 +4,16 @@ milestone: v0.34
 milestone_name: CFF Outline Foundation
 current_phase: 104
 current_phase_name: CFF1 Profile and Bounded Data Model
-status: executing
-stopped_at: Completed 104-02-PLAN.md
-last_updated: "2026-07-28T10:35:10.348Z"
+status: verifying
+stopped_at: Completed 104-03-PLAN.md
+last_updated: "2026-07-28T11:05:40.854Z"
 last_activity: 2026-07-28
-last_activity_desc: Completed 104-02 name-keyed and CID-keyed per-GID environment resolution
+last_activity_desc: Completed 104-03 bounded atomic CFF1 admission and closed outline-source promotion
 progress:
   total_phases: 1
-  completed_phases: 0
+  completed_phases: 1
   total_plans: 3
-  completed_plans: 2
+  completed_plans: 3
 ---
 
 # Project State
@@ -30,10 +30,10 @@ See `.planning/PROJECT.md` (updated 2026-07-28 for v0.34).
 
 Phase: 104 of 107 (CFF1 Profile and Bounded Data Model)
 Plan: 3 of 3
-Status: Ready to execute
+Status: Phase complete — ready for verification
 Last activity: 2026-07-28 — Completed 104-02 name-keyed and CID-keyed per-GID environment resolution
 
-Progress: [███████░░░] 67%
+Progress: [██████████] 100%
 
 ## Milestone Metrics
 
@@ -56,6 +56,9 @@ Progress: [███████░░░] 67%
 - [Phase 104]: Retain closed predefined CFF1 charset and Encoding tables in private MoonBit code for deterministic bounded lookup.
 - [Phase 104]: Validate every FDArray private environment before FDSelect materialization, including FDs selected by no glyph.
 - [Phase 104]: Preserve Top and per-FD FontMatrix as separate structural facts for Phase 105 composition rules.
+- [Phase 104]: Derive private CFF structural ceilings from the existing non-zero FontLimits contract without widening the public limits API.
+- [Phase 104]: Use one deferred FontAdmissionLedger transaction for standalone and selected-collection CFF admission, committing only after revision validation.
+- [Phase 104]: Keep the private outline source closed over Glyf or one complete AdmittedCff1 aggregate; public CFF-backed Font promotion remains deferred.
 
 ### Pending Todos
 
@@ -79,8 +82,8 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-07-28T10:35:10.331Z
-Stopped at: Completed 104-02-PLAN.md
+Last session: 2026-07-28T11:05:40.840Z
+Stopped at: Completed 104-03-PLAN.md
 Resume file: None
 
 ## Operator Next Steps
@@ -100,3 +103,4 @@ Historical execution metrics remain available in archived milestone roadmaps. v0
 |------|----------|-------|-------|
 | Phase 104 P01 | 22min | 2 tasks | 7 files |
 | Phase 104 P02 | 25min | 3 tasks | 5 files |
+| Phase 104 P03 | 27min | 3 tasks | 10 files |
