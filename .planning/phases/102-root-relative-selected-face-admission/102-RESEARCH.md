@@ -616,7 +616,7 @@ All factual format claims were checked against official OpenType 1.9.1 documenta
 
 The selected accounting formula, private type names, context strings, and three-plan decomposition are labeled recommendations under explicit agent discretion. They are not external factual claims.
 
-## Open Questions
+## Prescriptive Defaults
 
 No user decision is required before planning. The planner should treat the following as prescriptive defaults:
 
