@@ -1226,6 +1226,57 @@ test "Phase 106 standalone CFF1 repeats and interleaves paths deterministically"
 }
 
 ///|
+test "CFF outline atomic rejects invalid and cross-font GIDs before charging" {
+  let receiving_owner = font_test_owner(
+    font_test_standalone_cff1([b"\x0e", b"\x0e"]),
+  )
+  let receiving = Font::open(
+    receiving_owner.view(),
+    font_test_limits(),
+    font_test_cff_open_budget(),
+  ).unwrap()
+  let foreign_owner = font_test_owner(
+    font_test_standalone_cff1([
+      b"\x0e",
+      b"\x0e",
+      b"\x8b\x8b\x15\x8c\x8b\x05\x0e",
+    ]),
+  )
+  let foreign = Font::open(
+    foreign_owner.view(),
+    font_test_limits(),
+    font_test_cff_open_budget(),
+  ).unwrap()
+  let foreign_glyph = foreign.glyph_id(2UL).unwrap()
+  let budget = font_test_cff_outline_budget()
+  let before = budget.remaining()
+  let error = receiving.outline(foreign_glyph, budget).unwrap_err()
+  inspect(
+    error.category() == @error.ErrorCategory::InvalidInput,
+    content="true",
+  )
+  inspect(error.code() == @error.ErrorCode::InvalidRange, content="true")
+  inspect(error.operation() == Some("font-outline"), content="true")
+  inspect(error.requested() == Some(2UL), content="true")
+  inspect(error.limit() == Some(2UL), content="true")
+  inspect(error.context() == Some("font-glyph-id-range"), content="true")
+  inspect(budget.remaining().bytes() == before.bytes(), content="true")
+  inspect(
+    budget.remaining().allocations() == before.allocations(),
+    content="true",
+  )
+  inspect(budget.remaining().work() == before.work(), content="true")
+
+  let invalid = receiving.glyph_id(2UL).unwrap_err()
+  inspect(
+    invalid.category() == @error.ErrorCategory::InvalidInput,
+    content="true",
+  )
+  inspect(invalid.operation() == Some("font-glyph-id"), content="true")
+  inspect(invalid.context() == Some("font-glyph-id-range"), content="true")
+}
+
+///|
 fn font_test_simple_outline_glyf() -> Bytes {
   b"\x00\x01\x00\x00\x00\x00\x00\x64\x00\x64\x00\x02\x00\x00\x31\x33\x34\x64\x64\x00"
 }

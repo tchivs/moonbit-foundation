@@ -386,3 +386,45 @@ test "CFF outline exact path charge rejects overflow and count mismatch atomical
   )
   cff_path_wb_assert_limits_equal(before, budget.remaining())
 }
+
+///|
+test "CFF outline atomic mid-fetch mutation publishes no staged path" {
+  for item in [
+    (b"\xf7", "font-cff-type2-number"),
+    (b"\x0c", "font-cff-type2-escape-truncated"),
+  ] {
+    let stable = type2_vm_wb_run(item.0).unwrap_err()
+    inspect(stable.category() == @error.ErrorCategory::Data, content="true")
+    inspect(stable.context() == Some(item.1), content="true")
+
+    let owner = font_wb_owner(item.0)
+    let view = owner.view()
+    let opening_revision = view.mutation_revision()
+    let mut probes = 0
+    let mutated = type2_execute_program_with_matrix_and_read_probe(
+      view,
+      type2_vm_wb_empty_index(view),
+      type2_vm_wb_empty_index(view),
+      type2_fixed_from_raw(0L).unwrap(),
+      type2_fixed_from_raw(0L).unwrap(),
+      type2_fixed_from_raw(0L).unwrap(),
+      cff_path_wb_identity_matrix(),
+      type2_vm_wb_limits(65535UL, 65535UL),
+      opening_revision,
+      false,
+      fn() {
+        probes = probes + 1
+        if probes == 1 {
+          font_collection_wb_mutate_restore(owner, 0UL)
+        }
+      },
+      path_sink=Some(Type2PathSink::new(1, cff_path_wb_identity_matrix())),
+    ).unwrap_err()
+    inspect(probes, content="1")
+    inspect(mutated.category() == @error.ErrorCategory::State, content="true")
+    inspect(
+      mutated.context() == Some("font-cff-type2-source-revision-drift"),
+      content="true",
+    )
+  }
+}

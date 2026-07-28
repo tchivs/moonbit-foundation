@@ -1255,6 +1255,217 @@ test "CFF outline exact path charge tracer rejects post-stage mutation atomicall
 }
 
 ///|
+test "CFF outline atomic mutation probes preserve every budget window" {
+  let cubic = b"\xef\x95\x9f\x15\xa9\x8b\xb3\x95\xbd\x81\x08\x0e"
+
+  let (before_owner, before_font) = cff_path_wb_owner_and_font([
+    b"\x0e",
+    cubic,
+    b"\x0e",
+  ])
+  let before_glyph = before_font.glyph_id(1UL).unwrap()
+  let before_charge = font_wb_cff_path_charge(before_font, before_glyph)
+  let before_parent = @budget.Budget::new(
+    cff_path_wb_exact_limits(before_charge),
+  )
+  let before_child = before_parent
+    .child(cff_path_wb_exact_limits(before_charge))
+    .unwrap()
+  let before_parent_remaining = before_parent.remaining()
+  let before_child_remaining = before_child.remaining()
+  let mut before_probes = 0
+  let before_error = cff_decode_outline_atomic_with_probes(
+    before_font.source,
+    cff_path_wb_admitted(before_font),
+    before_glyph.value(),
+    before_font.limits,
+    before_child,
+    fn() {
+      before_probes = before_probes + 1
+      font_collection_wb_mutate_restore(before_owner, 0UL)
+    },
+    fn(_path) { () },
+  ).unwrap_err()
+  inspect(before_probes, content="1")
+  inspect(
+    before_error.category() == @error.ErrorCategory::State,
+    content="true",
+  )
+  inspect(
+    before_error.context() == Some("font-source-revision-drift"),
+    content="true",
+  )
+  cff_path_wb_assert_limits_equal(
+    before_parent_remaining,
+    before_parent.remaining(),
+  )
+  cff_path_wb_assert_limits_equal(
+    before_child_remaining,
+    before_child.remaining(),
+  )
+
+  let (after_owner, after_font) = cff_path_wb_owner_and_font([
+    b"\x0e",
+    cubic,
+    b"\x0e",
+  ])
+  let after_glyph = after_font.glyph_id(1UL).unwrap()
+  let after_charge = font_wb_cff_path_charge(after_font, after_glyph)
+  let after_parent = @budget.Budget::new(
+    cff_path_wb_exact_limits(after_charge),
+  )
+  let after_child = after_parent
+    .child(cff_path_wb_exact_limits(after_charge))
+    .unwrap()
+  let after_parent_remaining = after_parent.remaining()
+  let after_child_remaining = after_child.remaining()
+  let after_error = cff_decode_outline_atomic_with_probes(
+    after_font.source,
+    cff_path_wb_admitted(after_font),
+    after_glyph.value(),
+    after_font.limits,
+    after_child,
+    fn() { () },
+    fn(_path) { font_collection_wb_mutate_restore(after_owner, 0UL) },
+  ).unwrap_err()
+  inspect(
+    after_error.category() == @error.ErrorCategory::State,
+    content="true",
+  )
+  inspect(
+    after_error.context() == Some("font-source-revision-drift"),
+    content="true",
+  )
+  cff_path_wb_assert_limits_equal(
+    after_parent_remaining,
+    after_parent.remaining(),
+  )
+  cff_path_wb_assert_limits_equal(
+    after_child_remaining,
+    after_child.remaining(),
+  )
+}
+
+///|
+test "CFF outline atomic multi-fault precedence is State Resource Capability Data" {
+  let cubic = b"\xef\x95\x9f\x15\xa9\x8b\xb3\x95\xbd\x81\x08\x0e"
+  let (owner, font) = cff_path_wb_owner_and_font([b"\x0e", cubic, b"\x0e"])
+  let glyph = font.glyph_id(1UL).unwrap()
+  let charge = font_wb_cff_path_charge(font, glyph)
+  let admitted = cff_path_wb_admitted(font)
+  let (capability_descriptors, _capability_subrs, _capability_authority) =
+    type2_fixture_descriptors([b"\x8b\x8b\x8b\x8b\x0e"], [0L])
+  admitted.glyphs[1] = capability_descriptors[0]
+
+  let short_limits = cff_path_wb_limits(
+    charge.bytes - 1UL,
+    charge.allocations,
+    charge.allocation_size,
+    charge.work,
+  )
+  let state_parent = @budget.Budget::new(short_limits)
+  let state_child = state_parent.child(short_limits).unwrap()
+  let state_parent_before = state_parent.remaining()
+  let state_child_before = state_child.remaining()
+  let state = cff_decode_outline_atomic_with_probes(
+    font.source,
+    admitted,
+    glyph.value(),
+    font.limits,
+    state_child,
+    fn() { font_collection_wb_mutate_restore(owner, 0UL) },
+    fn(_path) { () },
+  ).unwrap_err()
+  inspect(state.category() == @error.ErrorCategory::State, content="true")
+  cff_path_wb_assert_limits_equal(
+    state_parent_before,
+    state_parent.remaining(),
+  )
+  cff_path_wb_assert_limits_equal(
+    state_child_before,
+    state_child.remaining(),
+  )
+
+  let (_resource_owner, resource_font) = cff_path_wb_owner_and_font([
+    b"\x0e",
+    cubic,
+    b"\x0e",
+  ])
+  let resource_glyph = resource_font.glyph_id(1UL).unwrap()
+  let resource_charge = font_wb_cff_path_charge(resource_font, resource_glyph)
+  let resource_admitted = cff_path_wb_admitted(resource_font)
+  resource_admitted.glyphs[1] = capability_descriptors[0]
+  let resource_budget = @budget.Budget::new(
+    cff_path_wb_limits(
+      resource_charge.bytes - 1UL,
+      resource_charge.allocations,
+      resource_charge.allocation_size,
+      resource_charge.work,
+    ),
+  )
+  let resource_before = resource_budget.remaining()
+  let resource = cff_decode_outline_atomic(
+    resource_font.source,
+    resource_admitted,
+    resource_glyph.value(),
+    resource_font.limits,
+    resource_budget,
+    fn(_path) { () },
+  ).unwrap_err()
+  inspect(
+    resource.category() == @error.ErrorCategory::Resource,
+    content="true",
+  )
+  inspect(resource.context() == Some("bytes"), content="true")
+  cff_path_wb_assert_limits_equal(resource_before, resource_budget.remaining())
+
+  let capability_budget = @budget.Budget::new(
+    cff_path_wb_exact_limits(resource_charge),
+  )
+  let capability_before = capability_budget.remaining()
+  let capability = cff_decode_outline_atomic(
+    resource_font.source,
+    resource_admitted,
+    resource_glyph.value(),
+    resource_font.limits,
+    capability_budget,
+    fn(_path) { () },
+  ).unwrap_err()
+  inspect(
+    capability.category() == @error.ErrorCategory::Capability,
+    content="true",
+  )
+  cff_path_wb_assert_limits_equal(
+    capability_before,
+    capability_budget.remaining(),
+  )
+
+  let (_data_owner, data_font) = cff_path_wb_owner_and_font([
+    b"\x0e",
+    cubic,
+    b"\x0e",
+  ])
+  let data_glyph = data_font.glyph_id(1UL).unwrap()
+  let data_charge = font_wb_cff_path_charge(data_font, data_glyph)
+  let data_admitted = cff_path_wb_admitted(data_font)
+  let (data_descriptors, _data_subrs, _data_authority) =
+    type2_fixture_descriptors([b"\x00"], [0L])
+  data_admitted.glyphs[1] = data_descriptors[0]
+  let data_budget = @budget.Budget::new(cff_path_wb_exact_limits(data_charge))
+  let data_before = data_budget.remaining()
+  let data = cff_decode_outline_atomic(
+    data_font.source,
+    data_admitted,
+    data_glyph.value(),
+    data_font.limits,
+    data_budget,
+    fn(_path) { () },
+  ).unwrap_err()
+  inspect(data.category() == @error.ErrorCategory::Data, content="true")
+  cff_path_wb_assert_limits_equal(data_before, data_budget.remaining())
+}
+
+///|
 test "font directory matrix enforces canonical windows and checksums" {
   let valid = generated_minimal_truetype()
   let facts = font_parse_directory(font_wb_view(valid), font_wb_limits()).unwrap()
