@@ -337,9 +337,35 @@ test "CFF CID tracer resolves a nonzero GID through FDSelect format zero" {
     admitted.glyph.environment.top_font_matrix[0].denominator,
     content="1000",
   )
-  inspect(admitted.glyph.environment.font_matrix[0].magnitude, content="2")
+  inspect(
+    admitted.glyph.environment.fd_font_matrix.unwrap()[0].magnitude,
+    content="2",
+  )
   inspect(admitted.keying.ros is Some(_), content="true")
   inspect(admitted.keying.fd_count, content="2")
+}
+
+///|
+test "CFF glyph descriptors preserve Top and optional FD matrix identity" {
+  let cid = admit_cff1_structure(
+    font_wb_view(cff_wb_otf(cff_cid_wb_table(), num_glyphs=3UL)),
+    font_wb_limits(),
+    cff_wb_budget(),
+    1UL,
+  ).unwrap()
+  inspect(cid.glyph.environment.fd == Some(0UL), content="true")
+  inspect(cid.glyph.environment.top_font_matrix.length(), content="6")
+  inspect(cid.glyph.environment.fd_font_matrix is None, content="true")
+
+  let named = admit_cff1_structure(
+    font_wb_view(cff_wb_otf(cff_name_wb_table(), num_glyphs=3UL)),
+    font_wb_limits(),
+    cff_wb_budget(),
+    1UL,
+  ).unwrap()
+  inspect(named.glyph.environment.fd is None, content="true")
+  inspect(named.glyph.environment.top_font_matrix.length(), content="6")
+  inspect(named.glyph.environment.fd_font_matrix is None, content="true")
 }
 
 ///|

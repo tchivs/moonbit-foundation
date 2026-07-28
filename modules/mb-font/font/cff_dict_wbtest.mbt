@@ -44,7 +44,12 @@ test "CFF typed DICT schemas apply defaults and preserve named offset bases" {
     font_wb_view(b"\x8D\xA0\x12\x8C\x8B\x8B\x8C\x8B\x8B\x0C\x07"),
   ).unwrap()
   inspect(font.private_range.unwrap().offset.value, content="21")
-  inspect(font.font_matrix.length(), content="6")
+  inspect(font.font_matrix.unwrap().length(), content="6")
+
+  let inherited = cff_decode_font_dict(
+    font_wb_view(b"\x8D\xA0\x12"),
+  ).unwrap()
+  inspect(inherited.font_matrix is None, content="true")
 
   let private = cff_decode_private_dict(
     font_wb_view(b"\x8D\x13\xEF\x14\x27\x15"),
@@ -53,6 +58,33 @@ test "CFF typed DICT schemas apply defaults and preserve named offset bases" {
   inspect(private.default_width_x.magnitude, content="100")
   inspect(private.nominal_width_x.negative, content="true")
   inspect(private.nominal_width_x.magnitude, content="100")
+  inspect(private.initial_random_seed.raw, content="0")
+}
+
+///|
+test "CFF Private DICT retains checked initialRandomSeed integer and real facts" {
+  for item in [
+    (b"\x8D\x0C\x13", 131072L),
+    (b"\x1E\x1A\x5F\x0C\x13", 98304L),
+    (b"\x27\x0C\x13", -6553600L),
+  ] {
+    let private = cff_decode_private_dict(font_wb_view(item.0)).unwrap()
+    inspect(private.initial_random_seed.raw, content=item.1.to_string())
+  }
+  for item in [
+    (
+      b"\x8C\x0C\x13\x8D\x0C\x13",
+      "font-cff-private-initial-random-seed-duplicate",
+    ),
+    (
+      b"\x1D\x00\x00\x80\x00\x0C\x13",
+      "font-cff-private-initial-random-seed",
+    ),
+  ] {
+    let error = cff_decode_private_dict(font_wb_view(item.0)).unwrap_err()
+    inspect(error.category() == @error.ErrorCategory::Data, content="true")
+    inspect(error.context() == Some(item.1), content="true")
+  }
 }
 
 ///|
