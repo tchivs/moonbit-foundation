@@ -918,7 +918,11 @@ function Assert-FontQualificationOrderedKeys {
     [Parameter(Mandatory)][string]$Label
   )
 
-  $actual = @($Value.PSObject.Properties.Name)
+  $actual = if ($Value -is [Collections.IDictionary]) {
+    @($Value.Keys)
+  } else {
+    @($Value.PSObject.Properties.Name)
+  }
   if (($actual -join "`0") -cne ($Expected -join "`0")) {
     throw "$Label keys or order drifted."
   }
@@ -1018,20 +1022,25 @@ function Get-FontCollectionQualificationExpectedIds {
 }
 
 function Read-FontCollectionQualificationCases {
-  if (-not (Test-Path -LiteralPath $CollectionCasesPath -PathType Leaf)) {
-    throw "Font collection qualification cases are missing: $CollectionCasesPath"
+  param([AllowNull()]$Document)
+  if ($null -eq $Document) {
+    if (-not (Test-Path -LiteralPath $CollectionCasesPath -PathType Leaf)) {
+      throw "Font collection qualification cases are missing: $CollectionCasesPath"
+    }
+    $bytes = [IO.File]::ReadAllBytes($CollectionCasesPath)
+    if ($bytes.Length -ge 3 -and $bytes[0] -eq 0xEF -and
+        $bytes[1] -eq 0xBB -and $bytes[2] -eq 0xBF) {
+      throw 'Font collection qualification cases must be UTF-8 without BOM.'
+    }
+    $text = $Utf8NoBom.GetString($bytes)
+    if ($text.Contains("`r", [StringComparison]::Ordinal) -or
+        -not $text.EndsWith("`n", [StringComparison]::Ordinal)) {
+      throw 'Font collection qualification cases must use LF and one trailing newline.'
+    }
+    $document = $text | ConvertFrom-Json
+  } else {
+    $document = $Document
   }
-  $bytes = [IO.File]::ReadAllBytes($CollectionCasesPath)
-  if ($bytes.Length -ge 3 -and $bytes[0] -eq 0xEF -and
-      $bytes[1] -eq 0xBB -and $bytes[2] -eq 0xBF) {
-    throw 'Font collection qualification cases must be UTF-8 without BOM.'
-  }
-  $text = $Utf8NoBom.GetString($bytes)
-  if ($text.Contains("`r", [StringComparison]::Ordinal) -or
-      -not $text.EndsWith("`n", [StringComparison]::Ordinal)) {
-    throw 'Font collection qualification cases must use LF and one trailing newline.'
-  }
-  $document = $text | ConvertFrom-Json
   Assert-FontQualificationOrderedKeys $document @(
     'schema_version','workflow_id','license','fixtures','public_workflows',
     'hostile_cases','mutation_cases','limit_cases','budget_cases'
@@ -1090,6 +1099,14 @@ function Read-FontCollectionQualificationCases {
         throw "Collection case '$($case.id)' contains an unknown closed value."
       }
       $errorIsEmpty = $null -eq $case.error.category
+      if (-not $errorIsEmpty -and
+          ($case.error.category -cnotin @('Data','Capability','State','Resource','Input') -or
+           $case.error.code -cnotin @(
+             'InvalidEncoding','CapabilityUnavailable','InvalidRange',
+             'BudgetExceeded','InvalidInput'
+           ))) {
+        throw "Collection case '$($case.id)' has an unknown closed error identity."
+      }
       foreach ($field in @('code','operation','context')) {
         if (($null -eq $case.error.$field) -ne $errorIsEmpty) {
           throw "Collection case '$($case.id)' has a partial error identity."
@@ -1117,6 +1134,632 @@ function Read-FontCollectionQualificationCases {
     throw 'Font collection qualification fixture ID sequence drifted.'
   }
   return $document
+}
+
+function New-FontCollectionQualificationBudgetSnapshot {
+  param(
+    [uint64]$Bytes = 0UL,
+    [uint64]$Allocations = 0UL,
+    [uint64]$AllocationSize = 0UL,
+    [uint64]$Width = 0UL,
+    [uint64]$Height = 0UL,
+    [uint64]$Pixels = 0UL,
+    [uint64]$Depth = 0UL,
+    [uint64]$Work = 0UL
+  )
+  return [ordered]@{
+    bytes = $Bytes
+    allocations = $Allocations
+    allocation_size = $AllocationSize
+    width = $Width
+    height = $Height
+    pixels = $Pixels
+    depth = $Depth
+    work = $Work
+  }
+}
+
+function New-FontCollectionQualificationCase {
+  param(
+    [Parameter(Mandatory)][string]$Id,
+    [Parameter(Mandatory)][string]$FixtureId,
+    [Parameter(Mandatory)][string]$Stage,
+    [Parameter(Mandatory)][string]$Entrypoint,
+    [AllowNull()]$FaceIndex,
+    [string]$MutationWindow = 'none',
+    [Parameter(Mandatory)][string]$Authority,
+    [Parameter(Mandatory)][string]$Boundary,
+    [AllowNull()]$Category,
+    [AllowNull()]$Code,
+    [AllowNull()]$Operation,
+    [AllowNull()]$Context,
+    [AllowNull()]$SourceOffset,
+    [AllowNull()]$Requested,
+    [AllowNull()]$Limit,
+    [Parameter(Mandatory)][string]$Publication,
+    [Parameter(Mandatory)]$BudgetBefore,
+    [Parameter(Mandatory)]$BudgetAfter
+  )
+  return [ordered]@{
+    id = $Id
+    fixture_id = $FixtureId
+    stage = $Stage
+    entrypoint = $Entrypoint
+    face_index = $FaceIndex
+    mutation_window = $MutationWindow
+    authority = $Authority
+    boundary = $Boundary
+    error = [ordered]@{
+      category = $Category
+      code = $Code
+      operation = $Operation
+      context = $Context
+      source_offset = $SourceOffset
+      requested = $Requested
+      limit = $Limit
+    }
+    publication = $Publication
+    budget_before = $BudgetBefore
+    budget_after = $BudgetAfter
+  }
+}
+
+function New-FontCollectionQualificationCases {
+  $expectedIds = Get-FontCollectionQualificationExpectedIds
+  $zero = New-FontCollectionQualificationBudgetSnapshot
+  $fixtures = @(
+    [ordered]@{
+      id = 'generated-ttc-v1-static-selected'
+      origin = 'generated'
+      container_version = '1.0'
+      face_count = 1
+      dsig_status = 'absent'
+      profiles = @('StaticGlyf')
+      expected_use = 'public v1 inspection and static selected-face admission'
+    },
+    [ordered]@{
+      id = 'generated-ttc-v2-dsig-absent'
+      origin = 'generated'
+      container_version = '2.0'
+      face_count = 1
+      dsig_status = 'absent'
+      profiles = @('StaticGlyf')
+      expected_use = 'public v2 all-zero DSIG tuple inspection'
+    },
+    [ordered]@{
+      id = 'generated-ttc-v2-dsig-present-unverified'
+      origin = 'generated'
+      container_version = '2.0'
+      face_count = 1
+      dsig_status = 'present-unverified'
+      profiles = @('StaticGlyf')
+      expected_use = 'public v2 bounded DSIG envelope inspection without trust'
+    },
+    [ordered]@{
+      id = 'generated-ttc-v1-exact-sharing'
+      origin = 'generated'
+      container_version = '1.0'
+      face_count = 2
+      dsig_status = 'absent'
+      profiles = @('StaticGlyf','StaticGlyf')
+      expected_use = 'exact root-range sharing and repeated selected-face admission'
+    },
+    [ordered]@{
+      id = 'generated-ttc-v2-mixed-profiles'
+      origin = 'generated'
+      container_version = '2.0'
+      face_count = 5
+      dsig_status = 'absent'
+      profiles = @('StaticGlyf','Cff','Cff2','Variable','OtherUnsupported')
+      expected_use = 'inspectable mixed profiles with unsupported selected siblings'
+    },
+    [ordered]@{
+      id = 'generated-ttc-v1-nonzero-directory-base'
+      origin = 'generated'
+      container_version = '1.0'
+      face_count = 1
+      dsig_status = 'absent'
+      profiles = @('StaticGlyf')
+      expected_use = 'root-relative table coordinates at a nonzero face directory'
+    },
+    [ordered]@{
+      id = 'licensed-dejavu-two-face-v1'
+      origin = 'external'
+      container_version = '1.0'
+      face_count = 2
+      dsig_status = 'absent'
+      profiles = @('StaticGlyf','StaticGlyf')
+      expected_use = 'licensed exact-sharing interoperability bound to standalone facts'
+    }
+  )
+
+  $publicWorkflows = [Collections.Generic.List[object]]::new()
+  foreach ($id in @($expectedIds.public_workflows)) {
+    $isLicensed = $id.StartsWith('licensed-', [StringComparison]::Ordinal)
+    $fixtureId = if ($isLicensed) {
+      'licensed-dejavu-two-face-v1'
+    } else {
+      $id
+    }
+    $faceIndex = if ($id.EndsWith('-face-0', [StringComparison]::Ordinal)) {
+      0
+    } elseif ($id.EndsWith('-face-1', [StringComparison]::Ordinal)) {
+      1
+    } else {
+      0
+    }
+    $publicWorkflows.Add((New-FontCollectionQualificationCase `
+      -Id $id -FixtureId $fixtureId -Stage 'select' `
+      -Entrypoint 'FontCollection::open_face' -FaceIndex $faceIndex `
+      -Authority $(if ($isLicensed) { 'licensed' } else { 'generated' }) `
+      -Boundary 'success' -Category $null -Code $null -Operation $null `
+      -Context $null -SourceOffset $null -Requested $null -Limit $null `
+      -Publication 'font' -BudgetBefore $zero -BudgetAfter $zero))
+  }
+
+  $hostile = [Collections.Generic.List[object]]::new()
+  foreach ($id in @($expectedIds.hostile_cases)) {
+    $entrypoint = 'FontCollection::open'
+    $stage = 'open'
+    $faceIndex = $null
+    $category = 'Data'
+    $code = 'InvalidEncoding'
+    $operation = 'font-collection-open'
+    $context = $id
+    $sourceOffset = $null
+    $requested = $null
+    $limit = $null
+    if ($id -in @(
+        'collection-version-unsupported','collection-dsig-version-unsupported',
+        'collection-dsig-format-unsupported','collection-select-cff',
+        'collection-select-cff2','collection-select-variable'
+      )) {
+      $category = 'Capability'
+      $code = 'CapabilityUnavailable'
+    }
+    if ($id -eq 'collection-face-index-equal-count') {
+      $entrypoint = 'FontCollection::open_face'
+      $stage = 'select'
+      $faceIndex = 2
+      $category = 'Input'
+      $code = 'InvalidInput'
+      $operation = 'font-collection-face'
+      $context = 'font-collection-face-index'
+      $requested = 2
+      $limit = 2
+    } elseif ($id -in @(
+        'collection-select-cff','collection-select-cff2','collection-select-variable'
+      )) {
+      $entrypoint = 'FontCollection::open_face'
+      $stage = 'select'
+      $faceIndex = switch ($id) {
+        'collection-select-cff' { 1 }
+        'collection-select-cff2' { 2 }
+        default { 3 }
+      }
+      $operation = 'font-collection-face'
+      $context = 'font-collection-face-profile'
+    } elseif ($id -eq 'collection-checked-pair-work-overflow') {
+      $operation = 'font-collection-open'
+      $context = 'font-collection-pair-work'
+    }
+    $hostile.Add((New-FontCollectionQualificationCase `
+      -Id $id -FixtureId 'generated-ttc-v2-mixed-profiles' -Stage $stage `
+      -Entrypoint $entrypoint -FaceIndex $faceIndex -Authority 'hostile' `
+      -Boundary 'failure' -Category $category -Code $code `
+      -Operation $operation -Context $context -SourceOffset $sourceOffset `
+      -Requested $requested -Limit $limit -Publication 'none' `
+      -BudgetBefore $zero -BudgetAfter $zero))
+  }
+
+  $mutation = [Collections.Generic.List[object]]::new()
+  foreach ($id in @($expectedIds.mutation_cases)) {
+    $isCollection = $id -like 'mutation-collection-*'
+    $isSelection = $id -like 'mutation-selection-*'
+    $entrypoint = if ($isCollection) {
+      'FontCollection::face_profile'
+    } elseif ($isSelection) {
+      'FontCollection::open_face'
+    } else {
+      'Font::query'
+    }
+    $stage = if ($isCollection) {
+      'inspect'
+    } elseif ($isSelection) {
+      'select'
+    } else {
+      'query'
+    }
+    $publication = if ($isCollection -or $isSelection) {
+      'existing-collection-only'
+    } else {
+      'existing-font-only'
+    }
+    $mutation.Add((New-FontCollectionQualificationCase `
+      -Id $id -FixtureId 'generated-ttc-v1-exact-sharing' -Stage $stage `
+      -Entrypoint $entrypoint -FaceIndex $(if ($isCollection) { $null } else { 0 }) `
+      -MutationWindow $id -Authority 'mutation' -Boundary 'failure' `
+      -Category 'State' -Code 'InvalidRange' `
+      -Operation $(if ($entrypoint -ceq 'Font::query') { 'font-query' } else { 'font-collection-revision' }) `
+      -Context $(if ($entrypoint -ceq 'Font::query') { 'font-source-revision-drift' } else { 'font-collection-source-revision-drift' }) `
+      -SourceOffset $null -Requested $null -Limit $null `
+      -Publication $publication -BudgetBefore $zero -BudgetAfter $zero))
+  }
+
+  $limits = [Collections.Generic.List[object]]::new()
+  foreach ($id in @($expectedIds.limit_cases)) {
+    $selected = $id.StartsWith('limit-selected-', [StringComparison]::Ordinal)
+    $oneShort = $id.EndsWith('-one-short', [StringComparison]::Ordinal)
+    $dimension = $id.Substring($(if ($selected) { 15 } else { 17 }))
+    $dimension = $dimension.Substring(
+      0,
+      $dimension.Length - $(if ($oneShort) { 10 } else { 6 })
+    )
+    $limits.Add((New-FontCollectionQualificationCase `
+      -Id $id `
+      -FixtureId $(if ($selected) { 'generated-ttc-v1-static-selected' } else { 'generated-ttc-v1-exact-sharing' }) `
+      -Stage $(if ($selected) { 'select' } else { 'open' }) `
+      -Entrypoint $(if ($selected) { 'FontCollection::open_face' } else { 'FontCollection::open' }) `
+      -FaceIndex $(if ($selected) { 0 } else { $null }) `
+      -Authority $(if ($selected) { 'selected-limit' } else { 'collection-limit' }) `
+      -Boundary $(if ($oneShort) { 'one-short' } else { 'exact' }) `
+      -Category $(if ($oneShort) { 'Resource' } else { $null }) `
+      -Code $(if ($oneShort) { 'BudgetExceeded' } else { $null }) `
+      -Operation $(if ($oneShort) { $(if ($selected) { 'font-open' } else { 'font-collection-open' }) } else { $null }) `
+      -Context $(if ($oneShort) { "max-$dimension" } else { $null }) `
+      -SourceOffset $null -Requested 1 -Limit $(if ($oneShort) { 0 } else { 1 }) `
+      -Publication $(if ($oneShort) { 'none' } elseif ($selected) { 'font' } else { 'collection' }) `
+      -BudgetBefore $zero -BudgetAfter $zero))
+  }
+
+  $budgets = [Collections.Generic.List[object]]::new()
+  foreach ($id in @($expectedIds.budget_cases)) {
+    $ancestor = $id.StartsWith('budget-ancestor-', [StringComparison]::Ordinal)
+    $oneShort = $id.EndsWith('-one-short', [StringComparison]::Ordinal)
+    $dimension = $id.Substring($(if ($ancestor) { 16 } else { 14 }))
+    $dimension = $dimension.Substring(
+      0,
+      $dimension.Length - $(if ($oneShort) { 10 } else { 6 })
+    )
+    $requested = switch ($dimension) {
+      'bytes' { 248UL }
+      'allocations' { 2UL }
+      'allocation-size' { 80UL }
+      'work' { 66UL }
+    }
+    $limit = if ($oneShort) { $requested - 1UL } else { $requested }
+    $before = New-FontCollectionQualificationBudgetSnapshot `
+      -Bytes $(if ($dimension -ceq 'bytes') { $limit } else { 248UL }) `
+      -Allocations $(if ($dimension -ceq 'allocations') { $limit } else { 2UL }) `
+      -AllocationSize $(if ($dimension -ceq 'allocation-size') { $limit } else { 80UL }) `
+      -Work $(if ($dimension -ceq 'work') { $limit } else { 66UL })
+    $after = if ($oneShort) {
+      $before
+    } else {
+      New-FontCollectionQualificationBudgetSnapshot `
+        -Bytes 0UL -Allocations 0UL -AllocationSize $before.allocation_size -Work 0UL
+    }
+    $budgets.Add((New-FontCollectionQualificationCase `
+      -Id $id -FixtureId 'generated-ttc-v1-exact-sharing' -Stage 'open' `
+      -Entrypoint 'FontCollection::open' -FaceIndex $null `
+      -Authority $(if ($ancestor) { 'ancestor-budget' } else { 'caller-budget' }) `
+      -Boundary $(if ($oneShort) { 'one-short' } else { 'exact' }) `
+      -Category $(if ($oneShort) { 'Resource' } else { $null }) `
+      -Code $(if ($oneShort) { 'BudgetExceeded' } else { $null }) `
+      -Operation $(if ($oneShort) { 'budget_charge' } else { $null }) `
+      -Context $(if ($oneShort) { $dimension.Replace('-', '_') } else { $null }) `
+      -SourceOffset $null -Requested $requested -Limit $limit `
+      -Publication $(if ($oneShort) { 'none' } else { 'collection' }) `
+      -BudgetBefore $before -BudgetAfter $after))
+  }
+
+  return [ordered]@{
+    schema_version = '1.0.0'
+    workflow_id = 'font-collection-complete-public-v2'
+    license = 'Apache-2.0'
+    fixtures = $fixtures
+    public_workflows = @($publicWorkflows)
+    hostile_cases = @($hostile)
+    mutation_cases = @($mutation)
+    limit_cases = @($limits)
+    budget_cases = @($budgets)
+  }
+}
+
+function Write-U32BE {
+  param(
+    [Parameter(Mandatory)][byte[]]$Bytes,
+    [Parameter(Mandatory)][int]$Offset,
+    [Parameter(Mandatory)][uint64]$Value
+  )
+  if ($Offset -lt 0 -or $Offset + 4 -gt $Bytes.Length -or
+      $Value -gt [uint32]::MaxValue) {
+    throw "Oracle u32 write range or value is invalid at $Offset."
+  }
+  $Bytes[$Offset] = [byte](($Value -shr 24) -band 0xFF)
+  $Bytes[$Offset + 1] = [byte](($Value -shr 16) -band 0xFF)
+  $Bytes[$Offset + 2] = [byte](($Value -shr 8) -band 0xFF)
+  $Bytes[$Offset + 3] = [byte]($Value -band 0xFF)
+}
+
+function New-FontQualificationDejaVuTtc {
+  param([Parameter(Mandatory)][byte[]]$FontBytes)
+
+  Assert-ExactBytesIdentity 'DejaVuSans.ttf' $FontBytes $FontLength $FontSha256
+  $tableCount = [int](Read-U16BE $FontBytes 4)
+  $directoryLength = 12L + 16L * $tableCount
+  if ($tableCount -ne 20 -or $directoryLength -ne 332L) {
+    throw 'DejaVu standalone directory facts drifted before TTC derivation.'
+  }
+  $output = [byte[]]::new($CollectionFontLength)
+  Write-U32BE $output 0 0x74746366UL
+  Write-U32BE $output 4 0x00010000UL
+  Write-U32BE $output 8 2UL
+  Write-U32BE $output 12 20UL
+  Write-U32BE $output 16 352UL
+  [Array]::Copy($FontBytes, 0, $output, 20, [int]$directoryLength)
+  [Array]::Copy($FontBytes, 0, $output, 352, [int]$directoryLength)
+  for ($index = 0; $index -lt $tableCount; $index++) {
+    $offsetField = 12 + $index * 16 + 8
+    $standaloneOffset = Read-U32BE $FontBytes $offsetField
+    if ($standaloneOffset -lt $directoryLength) {
+      throw "DejaVu table $index begins inside the standalone directory."
+    }
+    $collectionOffset = 684UL + ($standaloneOffset - $directoryLength)
+    Write-U32BE $output (20 + $offsetField) $collectionOffset
+    Write-U32BE $output (352 + $offsetField) $collectionOffset
+  }
+  [Array]::Copy(
+    $FontBytes,
+    [int]$directoryLength,
+    $output,
+    684,
+    $FontBytes.Length - [int]$directoryLength
+  )
+  Assert-ExactBytesIdentity `
+    'DejaVuSans-two-face-v1.ttc' `
+    $output `
+    $CollectionFontLength `
+    $CollectionFontSha256
+  return $output
+}
+
+function Get-FontQualificationTableChecksum {
+  param(
+    [Parameter(Mandatory)][byte[]]$Bytes,
+    [Parameter(Mandatory)][int]$Offset,
+    [Parameter(Mandatory)][int]$Length,
+    [switch]$ZeroHeadAdjustment
+  )
+  if ($Offset -lt 0 -or $Length -lt 0 -or $Offset + $Length -gt $Bytes.Length) {
+    throw 'TTC oracle table checksum range exceeds source.'
+  }
+  [uint64]$sum = 0UL
+  $paddedLength = [int](($Length + 3) -band -4)
+  for ($relative = 0; $relative -lt $paddedLength; $relative += 4) {
+    [uint64]$word = 0UL
+    for ($byteIndex = 0; $byteIndex -lt 4; $byteIndex++) {
+      $position = $relative + $byteIndex
+      $value = if ($position -ge $Length -or
+          ($ZeroHeadAdjustment -and $position -ge 8 -and $position -lt 12)) {
+        0
+      } else {
+        [int]$Bytes[$Offset + $position]
+      }
+      $word = ($word -shl 8) -bor [uint64]$value
+    }
+    $sum = ($sum + $word) -band 0xFFFFFFFFUL
+  }
+  return $sum
+}
+
+function Read-FontQualificationTtcOracle {
+  param(
+    [Parameter(Mandatory)][byte[]]$TtcBytes,
+    [Parameter(Mandatory)][byte[]]$FontBytes,
+    [Parameter(Mandatory)]$StandaloneOracle
+  )
+
+  Assert-ExactBytesIdentity `
+    'DejaVuSans-two-face-v1.ttc' `
+    $TtcBytes `
+    $CollectionFontLength `
+    $CollectionFontSha256
+  Assert-ExactBytesIdentity 'DejaVuSans.ttf' $FontBytes $FontLength $FontSha256
+  if ((Read-U32BE $TtcBytes 0) -ne 0x74746366UL -or
+      (Read-U32BE $TtcBytes 4) -ne 0x00010000UL -or
+      (Read-U32BE $TtcBytes 8) -ne 2UL) {
+    throw 'Independent TTC oracle header identity drifted.'
+  }
+  $faceOffsets = @(
+    [int](Read-U32BE $TtcBytes 12),
+    [int](Read-U32BE $TtcBytes 16)
+  )
+  if (($faceOffsets -join ',') -cne '20,352') {
+    throw 'Independent TTC oracle face coordinates drifted.'
+  }
+
+  $faces = [Collections.Generic.List[object]]::new()
+  $faceRecords = @()
+  for ($faceIndex = 0; $faceIndex -lt 2; $faceIndex++) {
+    $directoryOffset = $faceOffsets[$faceIndex]
+    $signature = Read-U32BE $TtcBytes $directoryOffset
+    $tableCount = [int](Read-U16BE $TtcBytes ($directoryOffset + 4))
+    $searchRange = [int](Read-U16BE $TtcBytes ($directoryOffset + 6))
+    $entrySelector = [int](Read-U16BE $TtcBytes ($directoryOffset + 8))
+    $rangeShift = [int](Read-U16BE $TtcBytes ($directoryOffset + 10))
+    if ($signature -ne 0x00010000UL -or $tableCount -ne 20 -or
+        $searchRange -ne [int](Read-U16BE $FontBytes 6) -or
+        $entrySelector -ne [int](Read-U16BE $FontBytes 8) -or
+        $rangeShift -ne [int](Read-U16BE $FontBytes 10)) {
+      throw "Independent TTC oracle face $faceIndex directory facts drifted."
+    }
+    $records = [Collections.Generic.List[object]]::new()
+    for ($recordIndex = 0; $recordIndex -lt $tableCount; $recordIndex++) {
+      $recordOffset = $directoryOffset + 12 + $recordIndex * 16
+      $tag = [Text.Encoding]::ASCII.GetString($TtcBytes, $recordOffset, 4)
+      $record = [ordered]@{
+        tag = $tag
+        checksum = ('{0:x8}' -f (Read-U32BE $TtcBytes ($recordOffset + 4)))
+        offset = [int](Read-U32BE $TtcBytes ($recordOffset + 8))
+        length = [int](Read-U32BE $TtcBytes ($recordOffset + 12))
+      }
+      if ($record.offset -lt 684 -or
+          [int64]$record.offset + [int64]$record.length -gt $TtcBytes.Length) {
+        throw "Independent TTC oracle face $faceIndex table '$tag' range drifted."
+      }
+      $records.Add($record)
+    }
+    if ((@($records.tag) -join "`0") -cne (@($StandaloneOracle.tables.tag) -join "`0")) {
+      throw "Independent TTC oracle face $faceIndex table order drifted."
+    }
+    $faceRecords += ,@($records)
+    $faces.Add([ordered]@{
+      index = $faceIndex
+      directory_offset = $directoryOffset
+      sfnt_signature = '0x00010000'
+      table_count = $tableCount
+      search_range = $searchRange
+      entry_selector = $entrySelector
+      range_shift = $rangeShift
+      profile = 'StaticGlyf'
+      records = @($records)
+    })
+  }
+
+  $sharedTables = [Collections.Generic.List[object]]::new()
+  for ($index = 0; $index -lt 20; $index++) {
+    $first = $faceRecords[0][$index]
+    $second = $faceRecords[1][$index]
+    $source = $StandaloneOracle.tables[$index]
+    $expectedOffset = 684 + ([int]$source.offset - 332)
+    if ((ConvertTo-StableJson $first) -cne (ConvertTo-StableJson $second) -or
+        $first.tag -cne $source.tag -or
+        $first.checksum -cne $source.checksum -or
+        $first.offset -ne $expectedOffset -or
+        $first.length -ne [int]$source.length) {
+      throw "Independent TTC oracle shared record $index drifted."
+    }
+    $sourcePayload = [byte[]]::new([int]$source.length)
+    $collectionPayload = [byte[]]::new([int]$first.length)
+    [Array]::Copy($FontBytes, [int]$source.offset, $sourcePayload, 0, $sourcePayload.Length)
+    [Array]::Copy($TtcBytes, [int]$first.offset, $collectionPayload, 0, $collectionPayload.Length)
+    if (-not [Linq.Enumerable]::SequenceEqual(
+        [byte[]]$sourcePayload,
+        [byte[]]$collectionPayload
+      )) {
+      throw "Independent TTC oracle shared table '$($first.tag)' payload drifted."
+    }
+    $checksum = Get-FontQualificationTableChecksum `
+      -Bytes $TtcBytes `
+      -Offset ([int]$first.offset) `
+      -Length ([int]$first.length) `
+      -ZeroHeadAdjustment:($first.tag -ceq 'head')
+    $checksumHex = '{0:x8}' -f $checksum
+    if ($checksumHex -cne $first.checksum) {
+      throw "Independent TTC oracle shared table '$($first.tag)' checksum drifted."
+    }
+    $sharedTables.Add([ordered]@{
+      tag = $first.tag
+      root_offset = $first.offset
+      length = $first.length
+      stored_checksum = $first.checksum
+      recomputed_checksum = $checksumHex
+      source_offset = [int]$source.offset
+      source_payload_sha256 = Get-FontQualificationSha256 -Bytes $sourcePayload
+    })
+  }
+
+  $standaloneOracleBytes = [IO.File]::ReadAllBytes($OraclePath)
+  Assert-ExactBytesIdentity `
+    'standalone oracle' `
+    $standaloneOracleBytes `
+    $standaloneOracleBytes.Length `
+    $StandaloneOracleSha256
+  return [ordered]@{
+    schema_version = '1.0.0'
+    oracle = [ordered]@{
+      implementation = 'mnf-powershell-closed-ttc-reader'
+      version = '1.0.0'
+      independence = 'offline parser; does not invoke tchivs/mb-font'
+    }
+    lineage = [ordered]@{
+      source_path = 'fixtures/font/dejavu-sans-2.37/DejaVuSans.ttf'
+      source_length = $FontLength
+      source_sha256 = $FontSha256
+      source_archive = $ArchiveUrl
+      source_retrieval_date = $RetrievalDate
+      generator_path = 'scripts/fixtures/Generate-FontQualification.ps1'
+      generator_identity = 'dejavu-two-face-exact-sharing-v1'
+      generation_date = $CollectionGenerationDate
+      author = 'DejaVu Fonts project; derived from Bitstream Vera and Arev'
+      license = $UpstreamLicense
+      redistribution_status = 'confirmed'
+      notice_path = 'fixtures/font/dejavu-sans-2.37/LICENSE'
+      notice_sha256 = $LicenseSha256
+    }
+    derivative = [ordered]@{
+      path = 'fixtures/font/dejavu-sans-2.37/DejaVuSans-two-face-v1.ttc'
+      length = $CollectionFontLength
+      sha256 = $CollectionFontSha256
+      signature = 'ttcf'
+      version = '0x00010000'
+      algorithm = 'dejavu-two-face-exact-sharing-v1'
+    }
+    collection = [ordered]@{
+      face_count = 2
+      face_offsets = @(20, 352)
+      directory_length = 332
+      payload_start = 684
+      dsig_status = 'absent'
+      profiles = @('StaticGlyf','StaticGlyf')
+    }
+    faces = @($faces)
+    shared_tables = @($sharedTables)
+    standalone_oracle_binding = [ordered]@{
+      path = 'fixtures/font/dejavu-sans-2.37/oracle.json'
+      sha256 = $StandaloneOracleSha256
+      semantic_source = 'both selected faces use the standalone oracle; no target output is an oracle'
+      face_indices = @(0, 1)
+    }
+  }
+}
+
+function Update-OrCheckFontCollectionArtifacts {
+  param(
+    [Parameter(Mandatory)]$CasesDocument,
+    [Parameter(Mandatory)][byte[]]$TtcBytes,
+    [Parameter(Mandatory)]$CollectionOracle,
+    [switch]$CheckOnly
+  )
+  [void](Read-FontCollectionQualificationCases -Document $CasesDocument)
+  $casesJson = ConvertTo-StableJson $CasesDocument
+  $casesBytes = $Utf8NoBom.GetBytes($casesJson)
+  $oracleJson = ConvertTo-StableJson $CollectionOracle
+  $oracleBytes = $Utf8NoBom.GetBytes($oracleJson)
+  if ($CheckOnly) {
+    foreach ($item in @(
+        [ordered]@{ path=$CollectionCasesPath; bytes=$casesBytes; label='collection cases' },
+        [ordered]@{ path=$CollectionFontPath; bytes=$TtcBytes; label='collection TTC' },
+        [ordered]@{ path=$CollectionOraclePath; bytes=$oracleBytes; label='collection oracle' }
+      )) {
+      if (-not (Test-Path -LiteralPath $item.path -PathType Leaf)) {
+        throw "Font qualification $($item.label) artifact is missing: $($item.path)"
+      }
+      $actual = [IO.File]::ReadAllBytes($item.path)
+      if (-not [Linq.Enumerable]::SequenceEqual(
+          [byte[]]$item.bytes,
+          [byte[]]$actual
+        )) {
+        throw "Font qualification $($item.label) artifact drifted: $($item.path)"
+      }
+    }
+    return
+  }
+  # Every canonical and derived fact above is validated before the first write.
+  [IO.File]::WriteAllBytes($CollectionCasesPath, $casesBytes)
+  [IO.File]::WriteAllBytes($CollectionFontPath, $TtcBytes)
+  [IO.File]::WriteAllBytes($CollectionOraclePath, $oracleBytes)
 }
 
 function Get-QualificationCasesManifestRecord {
@@ -1532,6 +2175,17 @@ if (-not $Check) {
 }
 Test-FontQualificationInputs -Oracle $oracle
 $casesDocument = Read-FontQualificationCases
+$expectedCollectionCases = New-FontCollectionQualificationCases
+$collectionTtcBytes = New-FontQualificationDejaVuTtc -FontBytes $fontBytes
+$collectionOracle = Read-FontQualificationTtcOracle `
+  -TtcBytes $collectionTtcBytes `
+  -FontBytes $fontBytes `
+  -StandaloneOracle $oracle
+Update-OrCheckFontCollectionArtifacts `
+  -CasesDocument $expectedCollectionCases `
+  -TtcBytes $collectionTtcBytes `
+  -CollectionOracle $collectionOracle `
+  -CheckOnly:$Check
 $collectionCasesDocument = Read-FontCollectionQualificationCases
 if ($Check) {
   Update-OrCheckCasesManifest -CheckOnly
