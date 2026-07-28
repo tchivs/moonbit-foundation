@@ -20,6 +20,7 @@ priv struct Type2BoundsSink {
   mut contour_start_x : Type2Fixed
   mut contour_start_y : Type2Fixed
   mut contour_open : Bool
+  mut contour_has_segments : Bool
   mut points : UInt64
   mut contours : UInt64
   mut commands : UInt64
@@ -56,6 +57,7 @@ fn Type2BoundsSink::new(
     contour_start_x: zero,
     contour_start_y: zero,
     contour_open: false,
+    contour_has_segments: false,
     points: 0UL,
     contours: 0UL,
     commands: 0UL,
@@ -81,6 +83,7 @@ fn Type2BoundsSink::snapshot(self : Type2BoundsSink) -> Type2BoundsSink {
     contour_start_x: self.contour_start_x,
     contour_start_y: self.contour_start_y,
     contour_open: self.contour_open,
+    contour_has_segments: self.contour_has_segments,
     points: self.points,
     contours: self.contours,
     commands: self.commands,
@@ -270,6 +273,7 @@ fn Type2BoundsSink::move_relative(
   self.contour_start_x = x
   self.contour_start_y = y
   self.contour_open = true
+  self.contour_has_segments = false
   self.points = totals.0
   self.contours = totals.1
   self.commands = totals.2
@@ -296,6 +300,21 @@ fn Type2BoundsSink::preflight_segments(
 }
 
 ///|
+fn Type2BoundsSink::include_contour_start(
+  self : Type2BoundsSink,
+) -> Result[Unit, @error.CoreError] {
+  if self.contour_has_segments {
+    return Ok(())
+  }
+  match self.include_point(self.contour_start_x, self.contour_start_y) {
+    Err(error) => return Err(error)
+    Ok(_) => ()
+  }
+  self.contour_has_segments = true
+  Ok(())
+}
+
+///|
 fn Type2BoundsSink::line_relative_unchecked(
   self : Type2BoundsSink,
   dx : Type2Fixed,
@@ -311,11 +330,9 @@ fn Type2BoundsSink::line_relative_unchecked(
     Err(error) => return Err(error)
     Ok(value) => value
   }
-  if !self.has_segments {
-    match self.include_point(start_x, start_y) {
-      Err(error) => return Err(error)
-      Ok(_) => ()
-    }
+  match self.include_contour_start() {
+    Err(error) => return Err(error)
+    Ok(_) => ()
   }
   match self.include_point(x, y) {
     Err(error) => return Err(error)
@@ -362,11 +379,9 @@ fn Type2BoundsSink::cubic_relative_unchecked(
     Err(error) => return Err(error)
     Ok(value) => value
   }
-  if !self.has_segments {
-    match self.include_point(start_x, start_y) {
-      Err(error) => return Err(error)
-      Ok(_) => ()
-    }
+  match self.include_contour_start() {
+    Err(error) => return Err(error)
+    Ok(_) => ()
   }
   for point in [
     (control1_x, control1_y),
