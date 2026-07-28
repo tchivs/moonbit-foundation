@@ -1,27 +1,13 @@
 ///|
 #warnings("-7")
-priv struct CffGlyphEnvironment {
-  private_dict : CffPrivateDict?
-  local_subrs : CffIndex
-  font_matrix : Array[CffNumber]
-}
-
-///|
-#warnings("-7")
-priv struct CffGlyphDescriptor {
-  gid : UInt64
-  charstring : CffIndexObject
-  environment : CffGlyphEnvironment
-}
-
-///|
-#warnings("-7")
 priv struct AdmittedCff1 {
   top : CffTopDict
   name : CffIndex
   strings : CffIndex
   global_subrs : CffIndex
   charstrings : CffIndex
+  keying : CffKeying
+  glyphs : Array[CffGlyphDescriptor]
   glyph : CffGlyphDescriptor
   num_glyphs : UInt64
 }
@@ -197,6 +183,8 @@ fn cff_admission_charge(
   directory : DirectoryFacts,
   cff : TableWindow,
   indexes : Array[CffIndex],
+  descriptor_count : UInt64,
+  fd_count : UInt64,
   limits : FontLimits,
 ) -> Result[@budget.ResourceCharge, @error.CoreError] {
   let mut retained_offsets = 0UL
@@ -211,8 +199,26 @@ fn cff_admission_charge(
     Err(error) => return Err(error)
     Ok(value) => value
   }
+  let descriptor_bytes = match
+    @checked.checked_mul(descriptor_count, 96UL) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  let fd_bytes = match @checked.checked_mul(fd_count, 64UL) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  let structural_bytes = match
+    @checked.checked_add(offset_bytes, descriptor_bytes) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  let retained_bytes = match @checked.checked_add(structural_bytes, fd_bytes) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
   let allocation_size = match
-    @checked.checked_add(cff.length_value, offset_bytes) {
+    @checked.checked_add(cff.length_value, retained_bytes) {
     Err(error) => return Err(error)
     Ok(value) => value
   }
@@ -221,7 +227,17 @@ fn cff_admission_charge(
     Err(error) => return Err(error)
     Ok(value) => value
   }
-  let work = match @checked.checked_add(structural_work, retained_offsets) {
+  let keying_work = match
+    @checked.checked_add(retained_offsets, descriptor_count) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  let complete_keying_work = match @checked.checked_add(keying_work, fd_count) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  let work = match
+    @checked.checked_add(structural_work, complete_keying_work) {
     Err(error) => return Err(error)
     Ok(value) => value
   }
@@ -231,7 +247,7 @@ fn cff_admission_charge(
   Ok(
     @budget.ResourceCharge::new(
       bytes=source.length(),
-      allocations=8UL,
+      allocations=12UL + indexes.length().to_uint64(),
       allocation_size~,
       width=0UL,
       height=0UL,
@@ -387,63 +403,23 @@ fn admit_cff1_structure(
   if gid >= num_glyphs {
     return Err(cff_data_error("font-cff-gid", requested=gid, limit=num_glyphs))
   }
-  let charstring = match
-    cff_index_object(charstrings, gid, "font-cff-charstrings-index") {
+  let keying = match
+    cff_resolve_keying(cff, top, strings, charstrings, num_glyphs, limits) {
     Err(error) => return Err(error)
     Ok(value) => value
   }
-  let mut private_dict : CffPrivateDict? = None
-  let mut local_subrs = match cff_empty_index(cff.view) {
-    Err(error) => return Err(error)
-    Ok(value) => value
-  }
-  match top.private_range {
-    None => ()
-    Some(range) => {
-      let private_view = match
-        cff_table_subview(
-          cff,
-          range.offset.value,
-          range.size,
-          "font-cff-private-range",
-        ) {
-        Err(error) => return Err(error)
-        Ok(value) => value
-      }
-      let decoded = match cff_decode_private_dict(private_view) {
-        Err(error) => return Err(error)
-        Ok(value) => value
-      }
-      match decoded.local_subrs {
-        None => ()
-        Some(relative) => {
-          let local_start = match
-            @checked.checked_add(range.offset.value, relative.value) {
-            Err(_) => return Err(cff_data_error("font-cff-local-subrs-offset"))
-            Ok(value) => value
-          }
-          let (decoded_subrs, _) = match
-            cff_decode_index(
-              cff.view,
-              local_start,
-              limits.max_work(),
-              "font-cff-local-subrs-index",
-            ) {
-            Err(error) => return Err(error)
-            Ok(value) => value
-          }
-          local_subrs = decoded_subrs
-        }
-      }
-      private_dict = Some(decoded)
-    }
+  let indexes = [name, top_index, strings, global_subrs, charstrings]
+  for index in keying.retained_indexes {
+    indexes.push(index)
   }
   let charge = match
     cff_admission_charge(
       source,
       directory,
       cff,
-      [name, top_index, strings, global_subrs, charstrings, local_subrs],
+      indexes,
+      keying.glyphs.length().to_uint64(),
+      keying.keying.fd_count,
       limits,
     ) {
     Err(error) => return Err(error)
@@ -466,11 +442,9 @@ fn admit_cff1_structure(
     strings,
     global_subrs,
     charstrings,
-    glyph: {
-      gid,
-      charstring,
-      environment: { private_dict, local_subrs, font_matrix: top.font_matrix },
-    },
+    keying: keying.keying,
+    glyphs: keying.glyphs,
+    glyph: keying.glyphs[gid.to_int()],
     num_glyphs,
   })
 }

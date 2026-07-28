@@ -129,7 +129,7 @@ fn cff_cid_wb_table(
 ///|
 test "CFF CID tracer resolves a nonzero GID through FDSelect format zero" {
   let admitted = admit_cff1_structure(
-    font_wb_view(cff_wb_otf(cff_cid_wb_table())),
+    font_wb_view(cff_wb_otf(cff_cid_wb_table(), num_glyphs=3UL)),
     font_wb_limits(),
     cff_wb_budget(),
     2UL,
@@ -137,7 +137,7 @@ test "CFF CID tracer resolves a nonzero GID through FDSelect format zero" {
   inspect(admitted.glyphs.length(), content="3")
   inspect(admitted.glyph.gid, content="2")
   inspect(admitted.glyph.key_value, content="101")
-  inspect(admitted.glyph.environment.fd, content="Some(1)")
+  inspect(admitted.glyph.environment.fd == Some(1UL), content="true")
   inspect(admitted.glyph.environment.private_dict is Some(_), content="true")
   inspect(admitted.glyph.environment.local_subrs.count, content="0")
   inspect(
@@ -153,7 +153,7 @@ test "CFF CID tracer resolves a nonzero GID through FDSelect format zero" {
 test "CFF CID tracer rejects contradictory contracts atomically" {
   cff_key_wb_assert_atomic_error(
     cff_cid_wb_table(ros_operands=2UL),
-    "font-cff-top-ros",
+    "font-cff-top-ros-arity",
   )
   cff_key_wb_assert_atomic_error(
     cff_cid_wb_table(include_encoding=true),
