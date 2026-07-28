@@ -243,3 +243,47 @@ test "Type 2 random and transient state are unchanged by failed preflight" {
 
   type2_vm_wb_assert_data(type2_vm_wb_run(b"\x92\x8b\x0c\x14\xab\x0c\x15\x0e"))
 }
+
+///|
+test "Type 2 hints consume exact masks and resume at the next opcode" {
+  let exact = type2_vm_wb_run(b"\x8b\x8b\x01\x13\x0e\x0e").unwrap()
+  inspect(exact.stems, content="1")
+  inspect(exact.ledger.mask_bytes, content="1")
+  inspect(exact.ledger.executed_bytes, content="6")
+
+  let pending_vertical = type2_vm_wb_run(
+    b"\x8b\x8b\x01\x8b\x8b\x13\x00\x0e",
+  ).unwrap()
+  inspect(pending_vertical.stems, content="2")
+  inspect(pending_vertical.ledger.mask_bytes, content="1")
+
+  for malformed in [b"\x13\x00\x0e", b"\x8b\x8b\x01\x13"] {
+    type2_vm_wb_assert_data(type2_vm_wb_run(malformed))
+  }
+}
+
+///|
+test "Type 2 stem ceiling accepts 96 and rejects 97 before clearing operands" {
+  let exact : Array[Byte] = []
+  for _index = 0; _index < 96; _index = _index + 1 {
+    exact.push(b'\x8B')
+    exact.push(b'\x8B')
+    exact.push(b'\x01')
+  }
+  exact.push(b'\x0E')
+  inspect(
+    type2_vm_wb_run(Bytes::from_array(exact)).unwrap().stems,
+    content="96",
+  )
+
+  let overflow : Array[Byte] = []
+  for _index = 0; _index < 97; _index = _index + 1 {
+    overflow.push(b'\x8B')
+    overflow.push(b'\x8B')
+    overflow.push(b'\x01')
+  }
+  overflow.push(b'\x0E')
+  let error = type2_vm_wb_run(Bytes::from_array(overflow)).unwrap_err()
+  inspect(error.category() == @error.ErrorCategory::Resource, content="true")
+  inspect(error.context() == Some("font-cff-type2-stems"), content="true")
+}
