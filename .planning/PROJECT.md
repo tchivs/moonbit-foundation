@@ -10,13 +10,13 @@ The primary audience is MoonBit library authors and application developers build
 
 MoonBit developers can reuse stable, high-performance native infrastructure contracts instead of rebuilding incompatible foundations for every graphics, document, media, or automation product.
 
-## Current State: v0.33 TrueType Collection Adapters Complete
+## Current State: v0.34 Phase 104 CFF1 Admission Complete
 
-**Delivered:** Phases 101-103 added bounded TTC/OTC version 1/2 inspection and the single public `FontCollection::open_face` operation. Library authors can inspect caller-owned collections, select an admitted static `glyf` face, and receive the existing opaque `Font` without copying the retained collection root. Selected admission preserves exact shared ranges and unsupported-sibling isolation, uses fresh caller-owned limits and budgets, and retains standalone metrics, mapping, kerning, glyph, outline, checksum, and error behavior.
+**Delivered:** Phase 104 added a bounded private static CFF1 profile over standalone OpenType and selected TTC/OTC faces. Shared INDEX and typed DICT parsing, complete name-keyed and CID-keyed charset/Encoding/FDArray/FDSelect resolution, per-GID CharString/private-environment facts, exact resource authority, mutation guards, and closed `Glyf`/`Cff1` outline-source promotion now form the retained foundation for Type 2 execution.
 
-**Validated:** Phase 103 passed 16/16 goal must-haves with no gaps or human-verification debt. The final four-target lane passed 14 focused gates and 152/152 package tests per target, 29 evidence-negative probes, exact pinned `moon`/`moonc`/`moonrun` identities, and a closed four-record semantic comparison. The deterministic 757,428-byte two-face DejaVu TTC derivative, independent oracle, hostile 97-case matrix, mutation/resource atomicity, exact 85-line public interface, sole `mb-font -> mb-core` dependency, and WOFF/CFF/variable boundaries are policy-locked. Security verification closes 21 threats and records the three declared low-risk supply-chain assumptions as accepted, with zero open threats.
+**Validated:** Phase 104 passed 8/8 goal must-haves and CFF-01/CFF-02 with no remaining gaps or human-verification debt. The final lane passes 1204/1204 native tests and four-target checks; a three-round code-review fix loop closed parser grammar, required-table, allocation, authority, accounting, and test-oracle findings before the gap closure locked exact PaintType/StrokeWidth semantics and encounter-ordered Capability/Data outcomes. ASVS L1 security verification closes all 19 registered threats with zero open threats.
 
-**Next:** Choose and plan the next code-first milestone from the validated backlog.
+**Next:** Phase 105 adds bounded Type 2 validation and retained metrics over the admitted per-GID CFF1 facts.
 
 ## Current Milestone: v0.34 CFF Outline Foundation
 
@@ -66,6 +66,7 @@ MoonBit developers can reuse stable, high-performance native infrastructure cont
 
 ### Validated
 
+- [x] Static CFF1 faces admit through one bounded atomic standalone or selected-collection transaction and retain complete name-keyed or CID-keyed per-GID execution facts behind a closed private outline-source boundary. — Validated in Phase 104.
 - [x] Malformed collections, unsupported face profiles, mutation, exhausted limits, and exhausted budgets fail atomically with structured outcomes. — Validated in Phase 103.
 - [x] Maintainers can reproduce standalone and collection behavior with generated, licensed, hostile, and four-target evidence. — Validated in Phase 103.
 - [x] Library authors can select one in-range supported TTC/OTC face without copying the complete font. — Validated in Phase 102.
@@ -277,4 +278,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update toolchain, compatibility, benchmark, and adoption context.
 
 ---
-*Last updated: 2026-07-28 after starting the v0.34 CFF Outline Foundation milestone*
+*Last updated: 2026-07-28 after completing Phase 104 CFF1 Profile and Bounded Data Model*
