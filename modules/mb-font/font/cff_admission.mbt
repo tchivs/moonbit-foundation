@@ -1717,6 +1717,7 @@ fn admit_cff1_structure_at_after_preflight_with_glyph_probe(
       source,
       staged.opening_revision,
       glyph_visit_probe,
+      prior_work=staged.charge.work,
     ) {
     Err(error) => return Err(error)
     Ok(value) => value

@@ -43,6 +43,7 @@ priv struct Type2BoundsSink {
   matrix : Type2Matrix
   limits : Type2Limits
   path_sink : Type2PathSink?
+  work_authority : Type2WorkAuthority?
 }
 
 ///|
@@ -65,6 +66,7 @@ fn Type2BoundsSink::new_with_path(
   matrix : Type2Matrix,
   limits : Type2Limits,
   path_sink : Type2PathSink?,
+  work_authority? : Type2WorkAuthority? = None,
 ) -> Type2BoundsSink {
   let zero : Type2Fixed = { raw: 0L }
   let rational_zero : Type2Rational = { numerator: 0L, denominator: 1L }
@@ -91,6 +93,7 @@ fn Type2BoundsSink::new_with_path(
     matrix,
     limits,
     path_sink,
+    work_authority,
   }
 }
 
@@ -140,6 +143,18 @@ fn Type2BoundsSink::preflight(
     ) {
     Err(error) => return Err(error)
     Ok(value) => value
+  }
+  let geometry_work = match @checked.checked_add(points, commands) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  match self.work_authority {
+    Some(authority) =>
+      match authority.charge(geometry_work) {
+        Err(error) => return Err(error)
+        Ok(_) => ()
+      }
+    None => ()
   }
   Ok((next_points, next_contours, next_commands))
 }

@@ -517,6 +517,89 @@ test "Type 2 all-GID staging is ascending, exact, and does not commit budget" {
 }
 
 ///|
+test "Type 2 work authority rejects caller and ancestor before VM visit" {
+  let limits = type2_vm_wb_limits(65535UL, 65535UL)
+  let resource_limits = @budget.ResourceLimits::new(
+    bytes=32UL,
+    allocations=6UL,
+    allocation_size=384UL,
+    width=0UL,
+    height=0UL,
+    pixels=0UL,
+    depth=0UL,
+    work=0UL,
+  )
+  let (caller_descriptors, caller_subrs, caller_authority) =
+    type2_fixture_descriptors([b"\x00"], [])
+  let caller = @budget.Budget::new(resource_limits)
+  let caller_before = caller.remaining()
+  let caller_visited : Array[UInt64] = []
+  let caller_error = type2_stage_all_glyphs_with_probe(
+    caller_descriptors,
+    caller_subrs,
+    1000UL,
+    limits,
+    caller,
+    caller_authority,
+    caller_authority.mutation_revision(),
+    fn(gid) { caller_visited.push(gid) },
+  ).unwrap_err()
+  inspect(caller_error.category() == @error.ErrorCategory::Resource, content="true")
+  inspect(caller_error.context() == Some("work"), content="true")
+  inspect(caller_visited.length(), content="0")
+  inspect(caller.remaining().work() == caller_before.work(), content="true")
+
+  let (ancestor_descriptors, ancestor_subrs, ancestor_authority) =
+    type2_fixture_descriptors([b"\x00"], [])
+  let ancestor_limits = @budget.ResourceLimits::new(
+    bytes=32UL,
+    allocations=6UL,
+    allocation_size=384UL,
+    width=0UL,
+    height=0UL,
+    pixels=0UL,
+    depth=0UL,
+    work=1UL,
+  )
+  let ancestor = @budget.Budget::new(ancestor_limits)
+  let child = ancestor.child(ancestor_limits).unwrap()
+  ancestor
+  .charge(
+    @budget.ResourceCharge::new(
+      bytes=0UL,
+      allocations=0UL,
+      allocation_size=0UL,
+      width=0UL,
+      height=0UL,
+      pixels=0UL,
+      work=1UL,
+    ),
+  )
+  .unwrap()
+  let ancestor_before = ancestor.remaining()
+  let child_before = child.remaining()
+  let ancestor_visited : Array[UInt64] = []
+  let ancestor_error = type2_stage_all_glyphs_with_probe(
+    ancestor_descriptors,
+    ancestor_subrs,
+    1000UL,
+    limits,
+    child,
+    ancestor_authority,
+    ancestor_authority.mutation_revision(),
+    fn(gid) { ancestor_visited.push(gid) },
+  ).unwrap_err()
+  inspect(
+    ancestor_error.category() == @error.ErrorCategory::Resource,
+    content="true",
+  )
+  inspect(ancestor_error.context() == Some("work"), content="true")
+  inspect(ancestor_visited.length(), content="0")
+  inspect(ancestor.remaining().work() == ancestor_before.work(), content="true")
+  inspect(child.remaining().work() == child_before.work(), content="true")
+}
+
+///|
 test "Type 2 all-GID staging resets transient state and stops at first failure" {
   let (descriptors, global_subrs, authority) = type2_fixture_descriptors(
     [

@@ -32,6 +32,74 @@ priv struct Type2ExecutionLedger {
 }
 
 ///|
+/// Deferred caller/ancestor work authority shared by one staged Type 2
+/// transaction. Preflight advances this private ledger without committing the
+/// public budget; the admission transaction still performs the sole commit.
+priv struct Type2WorkAuthority {
+  budget : @budget.Budget
+  mut work : UInt64
+  limit : UInt64
+  context : String
+}
+
+///|
+fn Type2WorkAuthority::new(
+  budget : @budget.Budget,
+  work : UInt64,
+  limit : UInt64,
+  context : String,
+) -> Type2WorkAuthority {
+  { budget, work, limit, context }
+}
+
+///|
+fn Type2WorkAuthority::requested(
+  self : Type2WorkAuthority,
+  amount : UInt64,
+) -> Result[UInt64, @error.CoreError] {
+  type2_checked_counter_add(self.work, amount, self.limit, self.context)
+}
+
+///|
+fn Type2WorkAuthority::preflight_additional(
+  self : Type2WorkAuthority,
+  amount : UInt64,
+) -> Result[Unit, @error.CoreError] {
+  let requested = match self.requested(amount) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  self.budget.preflight(
+    @budget.ResourceCharge::new(
+      bytes=0UL,
+      allocations=0UL,
+      allocation_size=0UL,
+      width=0UL,
+      height=0UL,
+      pixels=0UL,
+      work=requested,
+    ),
+  )
+}
+
+///|
+fn Type2WorkAuthority::charge(
+  self : Type2WorkAuthority,
+  amount : UInt64,
+) -> Result[Unit, @error.CoreError] {
+  let requested = match self.requested(amount) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  match self.preflight_additional(amount) {
+    Err(error) => return Err(error)
+    Ok(_) => ()
+  }
+  self.work = requested
+  Ok(())
+}
+
+///|
 priv struct Type2VmResult {
   width : Type2Fixed?
   stems : UInt64
@@ -87,6 +155,7 @@ priv struct Type2Vm {
   prng : Type2Prng
   limits : Type2Limits
   ledger : Type2ExecutionLedger
+  work_authority : Type2WorkAuthority?
 }
 
 ///|
@@ -188,6 +257,14 @@ fn Type2Vm::charge_work(
     ) {
     Err(error) => return Err(error)
     Ok(value) => value
+  }
+  match self.work_authority {
+    Some(authority) =>
+      match authority.charge(amount) {
+        Err(error) => return Err(error)
+        Ok(_) => ()
+      }
+    None => ()
   }
   self.ledger.work = requested
   Ok(())
@@ -1353,6 +1430,7 @@ fn Type2Vm::new(
   matrix : Type2Matrix,
   limits : Type2Limits,
   path_sink? : Type2PathSink? = None,
+  work_authority? : Type2WorkAuthority? = None,
 ) -> Type2Vm {
   let stack : Array[Type2Fixed] = Array::new(
     capacity=limits.max_operand_stack.to_int(),
@@ -1375,7 +1453,12 @@ fn Type2Vm::new(
     stems: 0UL,
     geometry_started: false,
     geometry_operators: 0UL,
-    geometry: Type2BoundsSink::new_with_path(matrix, limits, path_sink),
+    geometry: Type2BoundsSink::new_with_path(
+      matrix,
+      limits,
+      path_sink,
+      work_authority~,
+    ),
     prng: Type2Prng::new(seed),
     limits,
     ledger: {
@@ -1387,6 +1470,7 @@ fn Type2Vm::new(
       numbers: 0UL,
       mask_bytes: 0UL,
     },
+    work_authority,
   }
 }
 
@@ -1452,6 +1536,7 @@ fn type2_execute_program_with_matrix_unretained(
   matrix : Type2Matrix,
   limits : Type2Limits,
   opening_revision : UInt64,
+  work_authority? : Type2WorkAuthority? = None,
 ) -> Result[Type2VmResult, @error.CoreError] {
   type2_execute_program_with_matrix_and_read_probe(
     root,
@@ -1465,6 +1550,7 @@ fn type2_execute_program_with_matrix_unretained(
     opening_revision,
     false,
     fn() { () },
+    work_authority~,
   )
 }
 
@@ -1482,6 +1568,7 @@ fn type2_execute_program_with_matrix_and_read_probe(
   retain_bounds : Bool,
   read_probe : () -> Unit,
   path_sink? : Type2PathSink? = None,
+  work_authority? : Type2WorkAuthority? = None,
 ) -> Result[Type2VmResult, @error.CoreError] {
   match type2_require_revision(root, opening_revision) {
     Err(error) => return Err(error)
@@ -1497,6 +1584,7 @@ fn type2_execute_program_with_matrix_and_read_probe(
     matrix,
     limits,
     path_sink~,
+    work_authority~,
   )
   while vm.frames.length() > 0 {
     match type2_require_revision(root, opening_revision) {
@@ -1705,6 +1793,7 @@ fn type2_execute_glyph(
   units_per_em : UInt64,
   limits : Type2Limits,
   opening_revision : UInt64,
+  work_authority? : Type2WorkAuthority? = None,
 ) -> Result[Type2VmResult, @error.CoreError] {
   type2_execute_glyph_with_path_capacity(
     descriptor,
@@ -1713,6 +1802,7 @@ fn type2_execute_glyph(
     limits,
     opening_revision,
     None,
+    work_authority~,
   )
 }
 
@@ -1724,6 +1814,7 @@ fn type2_execute_glyph_with_path_capacity(
   limits : Type2Limits,
   opening_revision : UInt64,
   path_capacity : Int?,
+  work_authority? : Type2WorkAuthority? = None,
 ) -> Result[Type2VmResult, @error.CoreError] {
   let default_width = match
     cff_number_to_type2_fixed(
@@ -1762,6 +1853,7 @@ fn type2_execute_glyph_with_path_capacity(
         matrix,
         limits,
         opening_revision,
+        work_authority~,
       )
     Some(capacity) =>
       match Type2PathSink::new(capacity, matrix) {
@@ -1780,6 +1872,7 @@ fn type2_execute_glyph_with_path_capacity(
             false,
             fn() { () },
             path_sink=Some(path_sink),
+            work_authority~,
           )
       }
   }
@@ -1817,6 +1910,7 @@ fn type2_stage_all_glyphs_unchecked_with_probe(
   authority : @bytes.ByteView,
   opening_revision : UInt64,
   visit_probe : (UInt64) -> Unit,
+  prior_work? : UInt64 = 0UL,
 ) -> Result[Type2AllGlyphResult, @error.CoreError] {
   match type2_require_revision(authority, opening_revision) {
     Err(error) => return Err(error)
@@ -1898,6 +1992,12 @@ fn type2_stage_all_glyphs_unchecked_with_probe(
       )
     Ok(_) => ()
   }
+  let deferred_work = Type2WorkAuthority::new(
+    budget,
+    prior_work,
+    limits.max_work,
+    "font-cff-type2-aggregate-work",
+  )
 
   let bounds : Array[GlyphBoundsFacts?] = Array::new(
     capacity=descriptors.length(),
@@ -1933,6 +2033,13 @@ fn type2_stage_all_glyphs_unchecked_with_probe(
         ),
       )
     }
+    match deferred_work.preflight_additional(1UL) {
+      Err(error) =>
+        return Err(
+          type2_stage_error_with_revision(authority, opening_revision, error),
+        )
+      Ok(_) => ()
+    }
     visit_probe(descriptor.gid)
     let result = match
       type2_execute_glyph(
@@ -1941,6 +2048,7 @@ fn type2_stage_all_glyphs_unchecked_with_probe(
         units_per_em,
         limits,
         opening_revision,
+        work_authority=Some(deferred_work),
       ) {
       Err(error) =>
         return Err(
@@ -2167,6 +2275,7 @@ fn type2_stage_all_glyphs_with_probe(
   authority : @bytes.ByteView,
   opening_revision : UInt64,
   visit_probe : (UInt64) -> Unit,
+  prior_work? : UInt64 = 0UL,
 ) -> Result[Type2AllGlyphResult, @error.CoreError] {
   match
     type2_stage_all_glyphs_unchecked_with_probe(
@@ -2178,6 +2287,7 @@ fn type2_stage_all_glyphs_with_probe(
       authority,
       opening_revision,
       visit_probe,
+      prior_work~,
     ) {
     Err(error) =>
       Err(type2_stage_error_with_revision(authority, opening_revision, error))
