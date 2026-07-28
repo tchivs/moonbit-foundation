@@ -27,7 +27,9 @@ findings:
   warning: 0
   info: 0
   total: 1
-status: issues_found
+status: resolved
+resolved: 2026-07-28T07:14:19Z
+fix_report: 103-REVIEW-FIX.md
 ---
 
 # Phase 103: Code Review Report
@@ -35,11 +37,11 @@ status: issues_found
 **Reviewed:** 2026-07-28T07:08:32Z
 **Depth:** deep
 **Files Reviewed:** 18
-**Status:** issues_found
+**Status:** resolved
 
 ## Summary
 
-Pass 2 re-reviewed HEAD `84b293b3e7a9a45b186fb9177888823452357b70` and the remediation range `700687ed..84b293b3`. Seven of the eight prior findings are closed by the current implementation. CR-06 remains a blocker: the new structural CI policy rejects job-level continuation and duplicate upload steps, but still accepts `continue-on-error: true` on the FontQualification runner step. That mutation can convert a failed qualification step into a successful step conclusion and permit the subsequent `${{ success() }}` upload to publish partial or failing evidence.
+Pass 2 re-reviewed HEAD `84b293b3e7a9a45b186fb9177888823452357b70` and the remediation range `700687ed..84b293b3`. The sole residual blocker is now closed by commit `1e5ba954`: the structural policy rejects `continue-on-error` on every FontQualification step, closes the runner step to its exact three-key schema, and permanently probes runner, prerequisite, and upload mutations with YAML-compatible spacing and casing variants.
 
 Targeted validation passed:
 
@@ -51,6 +53,10 @@ Targeted validation passed:
 
 The previous CFF/WOFF/variable aliases are now rejected, second-fixture schema drift is rejected, exact corpus semantics and failed-budget atomicity are locked, target/comparison evidence is closed and read back, and all focused source identities participate in the semantic payload.
 
+### Pass 2 Resolution
+
+The unchanged workflow passes. Twelve direct step-continuation mutations are rejected across the runner, prerequisite, and upload steps, including `continue-on-error : TRUE`, `Continue-On-Error: True`, and `CONTINUE-ON-ERROR : false`. The full policy contract and complete four-target FontQualification lane passed with 14 focused gates and 152 package tests per target, 25 negative probes, and semantic hash `960351f39e08294b59188278b518c2ed4266c1dfbce923dc08afb84a5c1b6ca5`.
+
 ### Prior Finding Revalidation
 
 | Finding | Pass 2 result | Evidence |
@@ -60,7 +66,7 @@ The previous CFF/WOFF/variable aliases are now rejected, second-fixture schema d
 | CR-03 | Closed | Target records compare nested sections to current canonical facts; corpus policy closes every fixture/case schema, exact semantic digest, and failed-budget atomicity. |
 | CR-04 | Closed for completed swaps | Every record/comparison write revalidates containment, link state, and marker; completed post-init target/comparison swaps were rejected without outside writes. |
 | CR-05 | Closed | The original renamed Type2, SFNT-inflation, and gvar-delta probes are rejected; production executable text and the negative contract are digest-locked. |
-| CR-06 | **Open** | Step-level `continue-on-error` remains accepted; see CR-06 below. |
+| CR-06 | Closed | Every step is checked structurally for continuation; the unique runner is closed to exact `name`, `shell`, and `run` keys; runner/prerequisite/upload variants are permanent negatives. |
 | WR-01 | Closed | `comparison.json` has a closed schema, durable write, read-back, per-record hash verification, and semantic-hash verification. |
 | WR-02 | Closed | Evidence binds the ordered eight-file focused source set plus exact repository commit and tree identities. |
 
@@ -92,6 +98,8 @@ Confirm-FontQualificationRejected 'runner step continue-on-error' {
   )
 } 'must not continue on error'
 ```
+
+**Resolution:** Fixed in `1e5ba954`. The policy now rejects the key on any parsed FontQualification step before upload topology validation and requires one exact runner step containing only `name`, `shell`, and `run`. Permanent probes cover runner, prerequisite, and upload steps plus mixed-case and spaced spellings.
 
 ---
 
