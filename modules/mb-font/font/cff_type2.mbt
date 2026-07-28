@@ -1764,20 +1764,24 @@ fn type2_execute_glyph_with_path_capacity(
         opening_revision,
       )
     Some(capacity) =>
-      type2_execute_program_with_matrix_and_read_probe(
-        descriptor.charstring.view,
-        descriptor.environment.local_subrs,
-        global_subrs,
-        default_width,
-        nominal_width,
-        descriptor.environment.private_dict.initial_random_seed,
-        matrix,
-        limits,
-        opening_revision,
-        false,
-        fn() { () },
-        path_sink=Some(Type2PathSink::new(capacity, matrix)),
-      )
+      match Type2PathSink::new(capacity, matrix) {
+        Err(error) => Err(error)
+        Ok(path_sink) =>
+          type2_execute_program_with_matrix_and_read_probe(
+            descriptor.charstring.view,
+            descriptor.environment.local_subrs,
+            global_subrs,
+            default_width,
+            nominal_width,
+            descriptor.environment.private_dict.initial_random_seed,
+            matrix,
+            limits,
+            opening_revision,
+            false,
+            fn() { () },
+            path_sink=Some(path_sink),
+          )
+      }
   }
 }
 

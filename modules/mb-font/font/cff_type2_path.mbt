@@ -24,8 +24,14 @@ fn type2_rational_to_double(
 }
 
 ///|
-fn Type2PathSink::new(capacity : Int, matrix : Type2Matrix) -> Type2PathSink {
-  { path: @math.Path2::with_capacity(capacity), matrix }
+fn Type2PathSink::new(
+  capacity : Int,
+  matrix : Type2Matrix,
+) -> Result[Type2PathSink, @error.CoreError] {
+  match @math.Path2::with_capacity(capacity) {
+    Err(error) => Err(error)
+    Ok(path) => Ok({ path, matrix })
+  }
 }
 
 ///|

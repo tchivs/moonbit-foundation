@@ -169,7 +169,7 @@ test "CFF path conversion freezes quotient plus remainder goldens" {
 
 ///|
 test "CFF path sink emits transformed native line and cubic commands" {
-  let sink = Type2PathSink::new(4, cff_path_wb_identity_matrix())
+  let sink = Type2PathSink::new(4, cff_path_wb_identity_matrix()).unwrap()
   sink.move_to(cff_path_wb_fixed(-98304L), cff_path_wb_fixed(98304L)).unwrap()
   sink.line_to(cff_path_wb_fixed(-65536L), cff_path_wb_fixed(81920L)).unwrap()
   sink
@@ -216,7 +216,7 @@ test "CFF path sink emits transformed native line and cubic commands" {
     d: cff_path_wb_rational(3L, 1L),
     tx: cff_path_wb_rational(1L, 2L),
     ty: cff_path_wb_rational(-1L, 2L),
-  })
+  }).unwrap()
   transformed
   .cubic_to(
     cff_path_wb_fixed(65536L),
@@ -418,7 +418,9 @@ test "CFF outline atomic mid-fetch mutation publishes no staged path" {
           font_collection_wb_mutate_restore(owner, 0UL)
         }
       },
-      path_sink=Some(Type2PathSink::new(1, cff_path_wb_identity_matrix())),
+      path_sink=Some(
+        Type2PathSink::new(1, cff_path_wb_identity_matrix()).unwrap(),
+      ),
     ).unwrap_err()
     inspect(probes, content="1")
     inspect(mutated.category() == @error.ErrorCategory::State, content="true")

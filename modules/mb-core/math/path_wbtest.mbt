@@ -13,7 +13,7 @@ test "path2 push and length track command count" {
 
 ///|
 test "path2 exact capacity starts empty and preserves insertion order" {
-  let path = Path2::with_capacity(4)
+  let path = Path2::with_capacity(4).unwrap()
   inspect(path.length(), content="0")
   path.push(MoveTo(Point2::new(-1.0, 2.0)))
   path.push(LineTo(Point2::new(3.0, -4.0)))
@@ -34,7 +34,7 @@ test "path2 exact capacity starts empty and preserves insertion order" {
 
 ///|
 test "path2 zero capacity remains a usable empty path" {
-  let path = Path2::with_capacity(0)
+  let path = Path2::with_capacity(0).unwrap()
   inspect(path.length(), content="0")
   inspect(path.bounds() is None, content="true")
   path.push(LineTo(Point2::new(1.0, 2.0)))
@@ -42,8 +42,12 @@ test "path2 zero capacity remains a usable empty path" {
 }
 
 ///|
-test "panic path2 negative capacity fails at constructor boundary" {
-  let _ = Path2::with_capacity(-1)
+test "path2 negative capacity is rejected deterministically" {
+  let error = Path2::with_capacity(-1).unwrap_err()
+  inspect(error.category() == @error.ErrorCategory::InvalidInput, content="true")
+  inspect(error.code() == @error.ErrorCode::InvalidRange, content="true")
+  inspect(error.operation() == Some("path2-with-capacity"), content="true")
+  inspect(error.context() == Some("capacity"), content="true")
 }
 
 ///|

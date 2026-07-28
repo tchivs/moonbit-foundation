@@ -43,9 +43,23 @@ pub fn Path2::new() -> Path2 {
 /// Construct an empty path with exact initial command capacity.
 ///
 /// The backing array remains private and append-only; callers receive the
-/// same format-neutral `Path2` contract as `Path2::new`.
-pub fn Path2::with_capacity(capacity : Int) -> Path2 {
-  { commands: Array::new(capacity~) }
+/// same format-neutral `Path2` contract as `Path2::new`. Negative capacities
+/// are rejected without invoking the backend allocator.
+pub fn Path2::with_capacity(
+  capacity : Int,
+) -> Result[Path2, @error.CoreError] {
+  if capacity < 0 {
+    Err(
+      @error.CoreError::new(
+        @error.ErrorCategory::InvalidInput,
+        @error.ErrorCode::InvalidRange,
+        operation="path2-with-capacity",
+        context="capacity",
+      ),
+    )
+  } else {
+    Ok({ commands: Array::new(capacity~) })
+  }
 }
 
 ///|
