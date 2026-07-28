@@ -408,6 +408,7 @@ fn cff_preflight_common_table_traversal(
   let mut cmap_body_records = 0UL
   let mut cmap_mapping_work = 0UL
   let mut cmap_discovery_work = 0UL
+  let mut cmap_search_work = 0UL
   let mut cmap_index = 0UL
   while cmap_index < cmap_records {
     let record = 4UL + cmap_index * 8UL
@@ -454,6 +455,14 @@ fn cff_preflight_common_table_traversal(
           Err(error) => return Err(error)
           Ok(value) => value
         }
+        cmap_search_work = match
+          @checked.checked_add(
+            cmap_search_work,
+            font_cmap_search_selector(facts.body_records),
+          ) {
+          Err(error) => return Err(error)
+          Ok(value) => value
+        }
         cmap_mapping_work = match
           @checked.checked_add(
             cmap_mapping_work,
@@ -472,7 +481,14 @@ fn cff_preflight_common_table_traversal(
   let cmap_semantic_work = match
     @checked.checked_add(
       cmap_records,
-      match @checked.checked_add(cmap_body_records, cmap_mapping_work) {
+      match
+        @checked.checked_add(
+          cmap_body_records,
+          match @checked.checked_add(cmap_search_work, cmap_mapping_work) {
+            Err(error) => return Err(error)
+            Ok(value) => value
+          },
+        ) {
         Err(error) => return Err(error)
         Ok(value) => value
       },

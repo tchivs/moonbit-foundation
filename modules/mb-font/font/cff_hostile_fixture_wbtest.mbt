@@ -216,6 +216,57 @@ test "CFF structural work allocation and caller authority are exact or absent" {
 }
 
 ///|
+test "CFF format-4 common-table search work is exact and one-short atomic" {
+  let source = cff_wb_otf_with_cmap(
+    cff_wb_table(),
+    cff_wb_cmap_format4_two_segments(),
+  )
+  let admitted = admit_cff1_structure(
+    font_wb_view(source),
+    font_wb_limits(),
+    cff_wb_budget(),
+    0UL,
+  ).unwrap()
+  inspect(admitted.charge.work, content="1467")
+
+  let exact = cff_hostile_budget(
+    source.length().to_uint64(),
+    64UL,
+    16384UL,
+    1467UL,
+  )
+  admit_cff1_structure(
+    font_wb_view(source),
+    font_wb_limits(),
+    exact,
+    0UL,
+  ) |> ignore
+  inspect(exact.remaining().work(), content="0")
+
+  let one_short = cff_hostile_budget(
+    source.length().to_uint64(),
+    64UL,
+    16384UL,
+    1466UL,
+  )
+  let before = one_short.remaining()
+  let error = admit_cff1_structure(
+    font_wb_view(source),
+    font_wb_limits(),
+    one_short,
+    0UL,
+  ).unwrap_err()
+  inspect(error.category() == @error.ErrorCategory::Resource, content="true")
+  inspect(error.context() == Some("work"), content="true")
+  inspect(one_short.remaining().bytes() == before.bytes(), content="true")
+  inspect(
+    one_short.remaining().allocations() == before.allocations(),
+    content="true",
+  )
+  inspect(one_short.remaining().work() == before.work(), content="true")
+}
+
+///|
 test "CFF caller work and allocation authority precede hostile keying traversal" {
   let source = cff_wb_otf(
     cff_cid_wb_table(invalid_unused_fd=true),

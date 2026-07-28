@@ -78,6 +78,15 @@ fn cff_wb_otf_tables(tables : Array[GeneratedFontTable]) -> Bytes {
 
 ///|
 fn cff_wb_otf(cff : Bytes, num_glyphs? : UInt64 = 1UL) -> Bytes {
+  cff_wb_otf_with_cmap(cff, generated_cmap_table(), num_glyphs~)
+}
+
+///|
+fn cff_wb_otf_with_cmap(
+  cff : Bytes,
+  cmap : Bytes,
+  num_glyphs? : UInt64 = 1UL,
+) -> Bytes {
   let hmtx = Array::make(
     (4UL + (num_glyphs - 1UL) * 2UL).to_int(),
     b'\x00',
@@ -85,7 +94,7 @@ fn cff_wb_otf(cff : Bytes, num_glyphs? : UInt64 = 1UL) -> Bytes {
   cff_wb_otf_tables([
     font_wb_table(b"CFF ", cff),
     font_wb_table(b"OS/2", generated_os2_table()),
-    font_wb_table(b"cmap", generated_cmap_table()),
+    font_wb_table(b"cmap", cmap),
     font_wb_table(b"head", generated_head_table()),
     font_wb_table(b"hhea", generated_hhea_table()),
     font_wb_table(b"hmtx", Bytes::from_array(hmtx)),
@@ -93,6 +102,34 @@ fn cff_wb_otf(cff : Bytes, num_glyphs? : UInt64 = 1UL) -> Bytes {
     font_wb_table(b"name", b"\x00\x00\x00\x00\x00\x06"),
     font_wb_table(b"post", generated_post_table()),
   ])
+}
+
+///|
+fn cff_wb_cmap_format4_two_segments() -> Bytes {
+  let output : Array[Byte] = []
+  font_wb_put_u16(output, 0UL)
+  font_wb_put_u16(output, 1UL)
+  font_wb_put_u16(output, 3UL)
+  font_wb_put_u16(output, 1UL)
+  font_wb_put_u32(output, 12UL)
+  font_wb_put_u16(output, 4UL)
+  font_wb_put_u16(output, 34UL)
+  font_wb_put_u16(output, 0UL)
+  font_wb_put_u16(output, 4UL)
+  font_wb_put_u16(output, 4UL)
+  font_wb_put_u16(output, 1UL)
+  font_wb_put_u16(output, 0UL)
+  font_wb_put_u16(output, 0x0041UL)
+  font_wb_put_u16(output, 0xFFFFUL)
+  font_wb_put_u16(output, 0UL)
+  font_wb_put_u16(output, 0x0041UL)
+  font_wb_put_u16(output, 0xFFFFUL)
+  font_wb_put_u16(output, 0UL)
+  font_wb_put_u16(output, 1UL)
+  font_wb_put_u16(output, 4UL)
+  font_wb_put_u16(output, 0UL)
+  font_wb_put_u16(output, 0UL)
+  Bytes::from_array(output)
 }
 
 ///|
