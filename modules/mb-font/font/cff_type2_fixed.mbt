@@ -295,13 +295,16 @@ fn type2_rational_add(
   left : Type2Rational,
   right : Type2Rational,
 ) -> Result[Type2Rational, @error.CoreError] {
+  let common = type2_gcd(left.denominator, right.denominator)
+  let left_scale = right.denominator / common
+  let right_scale = left.denominator / common
   let left_numerator = match
-    type2_checked_i64_mul(left.numerator, right.denominator) {
+    type2_checked_i64_mul(left.numerator, left_scale) {
     Err(error) => return Err(error)
     Ok(value) => value
   }
   let right_numerator = match
-    type2_checked_i64_mul(right.numerator, left.denominator) {
+    type2_checked_i64_mul(right.numerator, right_scale) {
     Err(error) => return Err(error)
     Ok(value) => value
   }
@@ -309,12 +312,21 @@ fn type2_rational_add(
     Err(error) => return Err(error)
     Ok(value) => value
   }
+  if numerator == 0L {
+    return Ok({ numerator: 0L, denominator: 1L })
+  }
+  // Any remaining cancellation can only come from the shared denominator
+  // factor. Apply it before forming the least common denominator.
+  let cancellation = type2_gcd(numerator, common)
   let denominator = match
-    type2_checked_i64_mul(left.denominator, right.denominator) {
+    type2_checked_i64_mul(
+      left.denominator / cancellation,
+      left_scale,
+    ) {
     Err(error) => return Err(error)
     Ok(value) => value
   }
-  type2_rational(numerator, denominator)
+  type2_rational(numerator / cancellation, denominator)
 }
 
 ///|
@@ -322,13 +334,24 @@ fn type2_rational_mul(
   left : Type2Rational,
   right : Type2Rational,
 ) -> Result[Type2Rational, @error.CoreError] {
+  if left.numerator == 0L || right.numerator == 0L {
+    return Ok({ numerator: 0L, denominator: 1L })
+  }
+  let left_cancellation = type2_gcd(left.numerator, right.denominator)
+  let right_cancellation = type2_gcd(right.numerator, left.denominator)
   let numerator = match
-    type2_checked_i64_mul(left.numerator, right.numerator) {
+    type2_checked_i64_mul(
+      left.numerator / left_cancellation,
+      right.numerator / right_cancellation,
+    ) {
     Err(error) => return Err(error)
     Ok(value) => value
   }
   let denominator = match
-    type2_checked_i64_mul(left.denominator, right.denominator) {
+    type2_checked_i64_mul(
+      left.denominator / right_cancellation,
+      right.denominator / left_cancellation,
+    ) {
     Err(error) => return Err(error)
     Ok(value) => value
   }

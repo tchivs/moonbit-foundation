@@ -129,16 +129,51 @@ fn cff_number_nonnegative_integer(
 }
 
 ///|
+fn cff_gcd_u64(left : UInt64, right : UInt64) -> UInt64 {
+  let mut a = left
+  let mut b = right
+  while b != 0UL {
+    let remainder = a % b
+    a = b
+    b = remainder
+  }
+  if a == 0UL { 1UL } else { a }
+}
+
+///|
 fn cff_number_to_type2_fixed(
   value : CffNumber,
   context : String,
 ) -> Result[Type2Fixed, @error.CoreError] {
-  let numerator = match @checked.checked_mul(value.magnitude, 65536UL) {
-    Err(_) => return Err(cff_data_error(context))
-    Ok(result) => result
+  if value.denominator == 0UL {
+    return Err(cff_data_error(context))
   }
-  let scaled = numerator / value.denominator
+  // Normalize first, then derive the sixteen fractional bits with an
+  // overflow-free doubling remainder. This computes
+  // floor(magnitude * 65536 / denominator) without ever forming that product.
+  let divisor = cff_gcd_u64(value.magnitude, value.denominator)
+  let magnitude = value.magnitude / divisor
+  let denominator = value.denominator / divisor
   let maximum = if value.negative { 2147483648UL } else { 2147483647UL }
+  let whole = magnitude / denominator
+  if whole > maximum / 65536UL {
+    return Err(cff_data_error(context))
+  }
+  let mut fractional = 0UL
+  let mut remainder = magnitude % denominator
+  let mut bit = 0
+  while bit < 16 {
+    fractional = fractional * 2UL
+    let complement = denominator - remainder
+    if remainder >= complement {
+      remainder = remainder - complement
+      fractional = fractional + 1UL
+    } else {
+      remainder = remainder + remainder
+    }
+    bit = bit + 1
+  }
+  let scaled = whole * 65536UL + fractional
   if scaled > maximum {
     return Err(cff_data_error(context))
   }

@@ -171,7 +171,7 @@ test "Type 2 Q16 conversion cancels huge CFF ratios before range checks" {
   )
   let positive_max = type2_wb_fraction(
     false,
-    3276799998474121093UL,
+    3276799999999999999UL,
     denominator,
   )
   inspect(
@@ -215,6 +215,7 @@ test "Type 2 rational add multiply and matrix scale cancel before products" {
   inspect(sum.numerator, content="1")
   inspect(sum.denominator, content="2400000000")
 
+  let one = type2_wb_number(1L)
   let near_one = type2_wb_fraction(
     false,
     999999999999999999UL,
@@ -235,6 +236,33 @@ test "Type 2 rational add multiply and matrix scale cancel before products" {
   inspect(type2_rational_ceil(point.0).unwrap(), content="1000")
   inspect(type2_rational_floor(point.1).unwrap(), content="999")
   inspect(type2_rational_ceil(point.1).unwrap(), content="1000")
+
+  let composed = type2_matrix_compose(
+    [
+      one,
+      zero,
+      zero,
+      one,
+      type2_wb_fraction(false, 1UL, 4000000000UL),
+      zero,
+    ],
+    Some([
+      one,
+      zero,
+      zero,
+      one,
+      type2_wb_fraction(false, 1UL, 6000000000UL),
+      zero,
+    ]),
+    1UL,
+  ).unwrap()
+  let translated = type2_matrix_apply(
+    composed,
+    type2_fixed_from_raw(0L).unwrap(),
+    type2_fixed_from_raw(0L).unwrap(),
+  ).unwrap()
+  inspect(translated.0.numerator, content="1")
+  inspect(translated.0.denominator, content="2400000000")
 
   let huge = type2_rational(9223372036854775807L, 1L).unwrap()
   inspect(
