@@ -133,6 +133,7 @@ priv struct Type2StagedCharge {
 priv struct Type2AllGlyphResult {
   bounds : Array[GlyphBoundsFacts?]
   path_command_counts : Array[UInt64]
+  path_work : Array[UInt64]
   charge : Type2StagedCharge
 }
 
@@ -1536,6 +1537,7 @@ fn type2_execute_program_with_matrix_unretained(
   matrix : Type2Matrix,
   limits : Type2Limits,
   opening_revision : UInt64,
+  read_probe? : () -> Unit = fn() { () },
   work_authority? : Type2WorkAuthority? = None,
 ) -> Result[Type2VmResult, @error.CoreError] {
   type2_execute_program_with_matrix_and_read_probe(
@@ -1549,7 +1551,7 @@ fn type2_execute_program_with_matrix_unretained(
     limits,
     opening_revision,
     false,
-    fn() { () },
+    read_probe,
     work_authority~,
   )
 }
@@ -1793,6 +1795,7 @@ fn type2_execute_glyph(
   units_per_em : UInt64,
   limits : Type2Limits,
   opening_revision : UInt64,
+  read_probe? : () -> Unit = fn() { () },
   work_authority? : Type2WorkAuthority? = None,
 ) -> Result[Type2VmResult, @error.CoreError] {
   type2_execute_glyph_with_path_capacity(
@@ -1802,6 +1805,7 @@ fn type2_execute_glyph(
     limits,
     opening_revision,
     None,
+    read_probe~,
     work_authority~,
   )
 }
@@ -1814,6 +1818,7 @@ fn type2_execute_glyph_with_path_capacity(
   limits : Type2Limits,
   opening_revision : UInt64,
   path_capacity : Int?,
+  read_probe? : () -> Unit = fn() { () },
   work_authority? : Type2WorkAuthority? = None,
 ) -> Result[Type2VmResult, @error.CoreError] {
   let default_width = match
@@ -1853,6 +1858,7 @@ fn type2_execute_glyph_with_path_capacity(
         matrix,
         limits,
         opening_revision,
+        read_probe~,
         work_authority~,
       )
     Some(capacity) =>
@@ -1870,7 +1876,7 @@ fn type2_execute_glyph_with_path_capacity(
             limits,
             opening_revision,
             false,
-            fn() { () },
+            read_probe,
             path_sink=Some(path_sink),
             work_authority~,
           )
@@ -1917,7 +1923,7 @@ fn type2_stage_all_glyphs_unchecked_with_probe(
     Ok(_) => ()
   }
   let bounds_slots = descriptors.length().to_uint64()
-  let bytes = match @checked.checked_mul(bounds_slots, 32UL) {
+  let bytes = match @checked.checked_mul(bounds_slots, 40UL) {
     Err(_) =>
       return Err(
         type2_stage_error_with_revision(
@@ -1951,7 +1957,7 @@ fn type2_stage_all_glyphs_unchecked_with_probe(
   let base_allocations = match
     @checked.checked_add(
       scratch_allocations,
-      if bounds_slots == 0UL { 0UL } else { 2UL },
+      if bounds_slots == 0UL { 0UL } else { 3UL },
     ) {
     Err(_) =>
       return Err(
@@ -2005,6 +2011,9 @@ fn type2_stage_all_glyphs_unchecked_with_probe(
   let path_command_counts : Array[UInt64] = Array::new(
     capacity=descriptors.length(),
   )
+  let path_work : Array[UInt64] = Array::new(
+    capacity=descriptors.length(),
+  )
   let mut allocations = base_allocations
   let mut executed_bytes = 0UL
   let mut work = 0UL
@@ -2048,6 +2057,7 @@ fn type2_stage_all_glyphs_unchecked_with_probe(
         units_per_em,
         limits,
         opening_revision,
+        read_probe=fn() { () },
         work_authority=Some(deferred_work),
       ) {
       Err(error) =>
@@ -2165,6 +2175,25 @@ fn type2_stage_all_glyphs_unchecked_with_probe(
       Err(error) => return Err(error)
       Ok(value) => value
     }
+    let path_geometry_work = match
+      type2_stage_checked_add(
+        result.geometry.points,
+        result.geometry.path_commands,
+        "font-cff-type2-path-work",
+      ) {
+      Err(error) => return Err(error)
+      Ok(value) => value
+    }
+    let outline_work = match
+      type2_stage_checked_add(
+        result.ledger.work,
+        path_geometry_work,
+        "font-cff-type2-path-work",
+      ) {
+      Err(error) => return Err(error)
+      Ok(value) => value
+    }
+    path_work.push(outline_work)
     work = match
       type2_checked_counter_add(
         work,
@@ -2243,6 +2272,7 @@ fn type2_stage_all_glyphs_unchecked_with_probe(
       Ok({
         bounds,
         path_command_counts,
+        path_work,
         charge: {
           resource,
           bytes,

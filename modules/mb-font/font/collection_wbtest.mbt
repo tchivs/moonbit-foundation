@@ -1254,14 +1254,14 @@ test "selected collection CFF1 facts use one bounded atomic shared-table transac
   inspect(admitted.glyphs[2].gid, content="2")
   inspect(admitted.charge.work, content="526")
   inspect(admitted.charge.retained_bytes > 0UL, content="true")
-  inspect(admitted.combined_charge.bytes, content="591")
-  inspect(admitted.combined_charge.allocations, content="24")
+  inspect(admitted.combined_charge.bytes, content="615")
+  inspect(admitted.combined_charge.allocations, content="25")
   inspect(admitted.combined_charge.allocation_size, content="8192")
   inspect(admitted.combined_charge.work, content="529")
 
   let exact_budget = font_collection_wb_cff_budget(
-    591UL,
-    24UL,
+    615UL,
+    25UL,
     8192UL,
     529UL,
   )
@@ -1281,14 +1281,14 @@ test "selected collection CFF1 facts use one bounded atomic shared-table transac
   for short_dimension in [0, 1, 2, 3] {
     let short_budget = font_collection_wb_cff_budget(
       if short_dimension == 0 {
-        590UL
+        614UL
       } else {
-        591UL
+        615UL
       },
       if short_dimension == 1 {
-        23UL
-      } else {
         24UL
+      } else {
+        25UL
       },
       if short_dimension == 2 {
         8191UL
@@ -1315,8 +1315,8 @@ test "selected collection CFF1 facts use one bounded atomic shared-table transac
   }
 
   let mutation_budget = font_collection_wb_cff_budget(
-    591UL,
-    24UL,
+    615UL,
+    25UL,
     8192UL,
     529UL,
   )
@@ -1461,13 +1461,13 @@ test "Phase 106 preserves selected CFF admission outline and mutation authority"
     Ok(value) => value
     Err(_) => fail("shared CFF collection admission must succeed")
   }
-  inspect(direct.combined_charge.bytes, content="602")
-  inspect(direct.combined_charge.allocations, content="25")
+  inspect(direct.combined_charge.bytes, content="626")
+  inspect(direct.combined_charge.allocations, content="26")
   inspect(direct.combined_charge.allocation_size, content="8192")
   inspect(direct.combined_charge.work, content="569")
   let exact_limits = @budget.ResourceLimits::new(
-    bytes=602UL,
-    allocations=25UL,
+    bytes=626UL,
+    allocations=26UL,
     allocation_size=8192UL,
     width=0UL,
     height=0UL,
@@ -1486,7 +1486,17 @@ test "Phase 106 preserves selected CFF admission outline and mutation authority"
 
   let admission_short = [
     @budget.ResourceLimits::new(
-      bytes=601UL,
+      bytes=625UL,
+      allocations=26UL,
+      allocation_size=8192UL,
+      width=0UL,
+      height=0UL,
+      pixels=0UL,
+      depth=0UL,
+      work=569UL,
+    ),
+    @budget.ResourceLimits::new(
+      bytes=626UL,
       allocations=25UL,
       allocation_size=8192UL,
       width=0UL,
@@ -1496,18 +1506,8 @@ test "Phase 106 preserves selected CFF admission outline and mutation authority"
       work=569UL,
     ),
     @budget.ResourceLimits::new(
-      bytes=602UL,
-      allocations=24UL,
-      allocation_size=8192UL,
-      width=0UL,
-      height=0UL,
-      pixels=0UL,
-      depth=0UL,
-      work=569UL,
-    ),
-    @budget.ResourceLimits::new(
-      bytes=602UL,
-      allocations=25UL,
+      bytes=626UL,
+      allocations=26UL,
       allocation_size=8191UL,
       width=0UL,
       height=0UL,
@@ -1516,8 +1516,8 @@ test "Phase 106 preserves selected CFF admission outline and mutation authority"
       work=569UL,
     ),
     @budget.ResourceLimits::new(
-      bytes=602UL,
-      allocations=25UL,
+      bytes=626UL,
+      allocations=26UL,
       allocation_size=8192UL,
       width=0UL,
       height=0UL,

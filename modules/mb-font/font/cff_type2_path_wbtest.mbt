@@ -347,6 +347,123 @@ test "CFF outline exact path charge rejects each one-short window atomically" {
 }
 
 ///|
+test "CFF outline work preflight prevents caller and ancestor VM execution" {
+  let cubic = b"\xef\x95\x9f\x15\xa9\x8b\xb3\x95\xbd\x81\x08\x0e"
+  let (_owner, font) = cff_path_wb_owner_and_font([b"\x0e", cubic, b"\x0e"])
+  let glyph = font.glyph_id(1UL).unwrap()
+  let admitted = cff_path_wb_admitted(font)
+  inspect(admitted.path_work, content="[1, 19, 1]")
+  let charge = font_wb_cff_cubic_path_charge()
+  let short_limits = cff_path_wb_limits(
+    charge.bytes,
+    charge.allocations,
+    charge.allocation_size,
+    charge.work - 1UL,
+  )
+
+  let caller = @budget.Budget::new(short_limits)
+  let caller_before = caller.remaining()
+  let mut caller_vm_reads = 0
+  let mut caller_staged = 0
+  let caller_error = cff_decode_outline_atomic_with_probes(
+    font.source,
+    admitted,
+    glyph.value(),
+    font.limits,
+    caller,
+    fn() { () },
+    fn() { caller_staged = caller_staged + 1 },
+    vm_read_probe=fn() { caller_vm_reads = caller_vm_reads + 1 },
+  ).unwrap_err()
+  inspect(caller_error.category() == @error.ErrorCategory::Resource, content="true")
+  inspect(caller_error.context() == Some("work"), content="true")
+  inspect(caller_vm_reads, content="0")
+  inspect(caller_staged, content="0")
+  cff_path_wb_assert_limits_equal(caller_before, caller.remaining())
+
+  let ancestor = @budget.Budget::new(short_limits)
+  let child = ancestor
+    .child(cff_path_wb_exact_limits(charge))
+    .unwrap_err()
+  inspect(child.category() == @error.ErrorCategory::Resource, content="true")
+
+  let exact_ancestor = @budget.Budget::new(cff_path_wb_exact_limits(charge))
+  let nested = exact_ancestor
+    .child(cff_path_wb_exact_limits(charge))
+    .unwrap()
+  exact_ancestor
+  .charge(
+    @budget.ResourceCharge::new(
+      bytes=0UL,
+      allocations=0UL,
+      allocation_size=0UL,
+      width=0UL,
+      height=0UL,
+      pixels=0UL,
+      work=1UL,
+    ),
+  )
+  .unwrap()
+  let ancestor_before = exact_ancestor.remaining()
+  let nested_before = nested.remaining()
+  let mut ancestor_vm_reads = 0
+  let mut ancestor_staged = 0
+  let ancestor_error = cff_decode_outline_atomic_with_probes(
+    font.source,
+    admitted,
+    glyph.value(),
+    font.limits,
+    nested,
+    fn() { () },
+    fn() { ancestor_staged = ancestor_staged + 1 },
+    vm_read_probe=fn() { ancestor_vm_reads = ancestor_vm_reads + 1 },
+  ).unwrap_err()
+  inspect(
+    ancestor_error.category() == @error.ErrorCategory::Resource,
+    content="true",
+  )
+  inspect(ancestor_error.context() == Some("work"), content="true")
+  inspect(ancestor_vm_reads, content="0")
+  inspect(ancestor_staged, content="0")
+  cff_path_wb_assert_limits_equal(
+    ancestor_before,
+    exact_ancestor.remaining(),
+  )
+  cff_path_wb_assert_limits_equal(nested_before, nested.remaining())
+}
+
+///|
+test "CFF retained path work matches empty and move-only query execution" {
+  let move_only = b"\x95\x9f\x15\x0e"
+  let (_owner, font) = cff_path_wb_owner_and_font([
+    b"\x0e",
+    move_only,
+    b"\x0e",
+  ])
+  let admitted = cff_path_wb_admitted(font)
+  let vm_limits = type2_limits(font.limits).unwrap()
+  let actual : Array[UInt64] = []
+  for index = 0; index < admitted.glyphs.length(); index = index + 1 {
+    let capacity = admitted.path_command_counts[index].to_int()
+    let executed = type2_execute_glyph_with_path_capacity(
+      admitted.glyphs[index],
+      admitted.global_subrs,
+      admitted.metrics.units_per_em,
+      vm_limits,
+      admitted.opening_revision,
+      Some(capacity),
+    ).unwrap()
+    actual.push(
+      executed.ledger.work +
+      executed.geometry.points +
+      executed.geometry.path_commands,
+    )
+  }
+  inspect(admitted.path_work, content="[1, 5, 1]")
+  inspect(actual, content="[1, 5, 1]")
+}
+
+///|
 test "CFF outline exact path charge rejects overflow and count mismatch atomically" {
   let vm_limits = type2_limits(font_wb_limits()).unwrap()
   let overflow = cff_path_charge(vm_limits, 288230376151711744UL, 0UL).unwrap_err()

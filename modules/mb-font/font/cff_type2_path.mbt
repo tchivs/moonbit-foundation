@@ -207,6 +207,7 @@ fn cff_decode_outline_atomic_with_probes(
   budget : @budget.Budget,
   before_execute : () -> Unit,
   after_stage : () -> Unit,
+  vm_read_probe? : () -> Unit = fn() { () },
 ) -> Result[@math.Path2, @error.CoreError] {
   if source.mutation_revision() != admitted.opening_revision {
     return Err(font_revision_error("font-outline"))
@@ -217,7 +218,8 @@ fn cff_decode_outline_atomic_with_probes(
   }
   if index < 0 ||
     index >= admitted.glyphs.length() ||
-    index >= admitted.path_command_counts.length() {
+    index >= admitted.path_command_counts.length() ||
+    index >= admitted.path_work.length() {
     return Err(
       font_glyph_id_error("font-outline", glyph, admitted.num_glyphs),
     )
@@ -235,12 +237,13 @@ fn cff_decode_outline_atomic_with_probes(
     Err(error) => return Err(error)
     Ok(value) => value
   }
-  let fixed_charge = match
-    cff_path_charge(vm_limits, command_capacity, 0UL) {
+  let expected_work = admitted.path_work[index]
+  let exact_charge = match
+    cff_path_charge(vm_limits, command_capacity, expected_work) {
     Err(error) => return Err(error)
     Ok(value) => value
   }
-  match budget.preflight(fixed_charge.resource) {
+  match budget.preflight(exact_charge.resource) {
     Err(error) => return Err(error)
     Ok(_) => ()
   }
@@ -252,6 +255,7 @@ fn cff_decode_outline_atomic_with_probes(
       vm_limits,
       admitted.opening_revision,
       Some(capacity),
+      read_probe=vm_read_probe,
     ) {
     Err(error) => return Err(error)
     Ok(value) => value
@@ -278,13 +282,8 @@ fn cff_decode_outline_atomic_with_probes(
     Err(error) => return Err(error)
     Ok(value) => value
   }
-  let exact_charge = match cff_path_charge(vm_limits, command_capacity, work) {
-    Err(error) => return Err(error)
-    Ok(value) => value
-  }
-  match budget.preflight(exact_charge.resource) {
-    Err(error) => return Err(error)
-    Ok(_) => ()
+  if work != expected_work {
+    return Err(type2_data_error("font-cff-type2-path-work"))
   }
   after_stage()
   if source.mutation_revision() != admitted.opening_revision {

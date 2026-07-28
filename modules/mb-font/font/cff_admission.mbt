@@ -10,6 +10,7 @@ priv struct AdmittedCff1 {
   glyphs : Array[CffGlyphDescriptor]
   bounds : Array[GlyphBoundsFacts?]
   path_command_counts : Array[UInt64]
+  path_work : Array[UInt64]
   directory : DirectoryFacts
   tables : RequiredTableFacts
   metrics : CffMetricFacts
@@ -1760,6 +1761,7 @@ fn admit_cff1_structure_at_after_preflight_with_glyph_probe(
     glyphs: staged.glyphs,
     bounds: executed.bounds,
     path_command_counts: executed.path_command_counts,
+    path_work: executed.path_work,
     directory: staged.directory,
     tables: staged.tables,
     metrics: staged.metrics,
