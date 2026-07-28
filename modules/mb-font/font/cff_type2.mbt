@@ -1356,7 +1356,7 @@ fn Type2Vm::new(
     capacity=limits.max_operand_stack.to_int(),
   )
   let frames : Array[Type2Frame] = Array::new(
-    capacity=limits.max_frames.to_int(),
+    capacity=limits.frame_capacity,
   )
   frames.push({ kind: Root, source: root, cursor: 0UL, tail_call: true })
   {

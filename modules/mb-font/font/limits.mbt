@@ -207,6 +207,7 @@ priv struct Type2Limits {
   max_transient : UInt64
   max_stems : UInt64
   max_frames : UInt64
+  frame_capacity : Int
   max_subrs : UInt64
   max_executed_bytes : UInt64
   max_points : UInt64
@@ -230,11 +231,29 @@ fn type2_limits(limits : FontLimits) -> Result[Type2Limits, @error.CoreError] {
     Err(error) => return Err(error)
     Ok(value) => value
   }
+  let max_frames = 10UL
+  let frame_slots = match @checked.checked_add(max_frames, 1UL) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  let frame_capacity = match @checked.checked_narrow_int(frame_slots) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  let operand_scratch_size = match @checked.checked_mul(48UL, 8UL) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  let frame_scratch_size = match @checked.checked_mul(frame_slots, 8UL) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
   Ok({
     max_operand_stack: 48UL,
     max_transient: 32UL,
     max_stems: 96UL,
-    max_frames: 10UL,
+    max_frames,
+    frame_capacity,
     max_subrs: 65536UL,
     max_executed_bytes: if limits.max_outline_instruction_bytes() < 65535UL {
       limits.max_outline_instruction_bytes()
@@ -249,8 +268,13 @@ fn type2_limits(limits : FontLimits) -> Result[Type2Limits, @error.CoreError] {
     // Four fixed-capacity arrays: operand, transient-value, transient-init,
     // and call-frame scratch. Geometry state is scalar and mutates in place.
     scratch_allocations: 4UL,
-    // The 48-entry operand stack is the largest fixed scratch array.
-    scratch_allocation_size: 48UL * 8UL,
+    // Account against the larger of the operand backing store and the
+    // root-plus-subroutine frame backing store.
+    scratch_allocation_size: if operand_scratch_size > frame_scratch_size {
+      operand_scratch_size
+    } else {
+      frame_scratch_size
+    },
   })
 }
 

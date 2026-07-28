@@ -384,6 +384,7 @@ test "Type 2 private limits intersect hard ceilings with caller authority" {
   inspect(minimal.max_transient, content="32")
   inspect(minimal.max_stems, content="96")
   inspect(minimal.max_frames, content="10")
+  inspect(minimal.frame_capacity, content="11")
   inspect(minimal.max_subrs, content="65536")
   inspect(minimal.max_executed_bytes, content="1")
   inspect(minimal.max_points, content="1")
