@@ -186,6 +186,165 @@ fn font_collection_wb_offset_directory(
 }
 
 ///|
+fn font_collection_wb_read_u32(source : Bytes, offset : Int) -> UInt64 {
+  (source[offset].to_uint64() << 24) |
+  (source[offset + 1].to_uint64() << 16) |
+  (source[offset + 2].to_uint64() << 8) |
+  source[offset + 3].to_uint64()
+}
+
+///|
+fn font_collection_wb_selected_ttc() -> Bytes {
+  let standalone = generated_minimal_truetype()
+  let directory_start = 256
+  let output = Array::make(directory_start + standalone.length(), b'\x00')
+  font_collection_wb_put_u32(output, 0, 0x74746366UL)
+  font_collection_wb_put_u32(output, 4, 0x00010000UL)
+  font_collection_wb_put_u32(output, 8, 1UL)
+  font_collection_wb_put_u32(output, 12, directory_start.to_uint64())
+  for index, byte in standalone {
+    output[directory_start + index] = byte
+  }
+  for index = 0; index < 10; index = index + 1 {
+    let record = 12 + index * 16
+    let old_offset = font_collection_wb_read_u32(standalone, record + 8)
+    let new_offset = if index == 6 { 20UL } else {
+      old_offset + directory_start.to_uint64()
+    }
+    font_collection_wb_put_u32(
+      output,
+      directory_start + record + 8,
+      new_offset,
+    )
+  }
+  let loca_offset = font_collection_wb_read_u32(standalone, 12 + 6 * 16 + 8)
+  let loca_length = font_collection_wb_read_u32(standalone, 12 + 6 * 16 + 12)
+  for index = 0; index < loca_length.to_int(); index = index + 1 {
+    output[20 + index] = standalone[loca_offset.to_int() + index]
+  }
+  Bytes::from_array(output)
+}
+
+///|
+fn font_collection_wb_selected_collection_limits(
+  source_length : UInt64,
+) -> FontCollectionLimits {
+  FontCollectionLimits::new(
+    max_source_bytes=source_length,
+    max_faces=1UL,
+    max_tables_per_face=10UL,
+    max_table_records=10UL,
+    max_dsig_records=1UL,
+    max_dsig_bytes=1UL,
+    max_retained_bookkeeping_bytes=4096UL,
+    max_work=65536UL,
+  ).unwrap()
+}
+
+///|
+fn font_collection_wb_selected_font_limits(
+  source_length : UInt64,
+) -> FontLimits {
+  FontLimits::new(
+    max_source_bytes=source_length,
+    max_tables=10UL,
+    max_table_bytes=1024UL,
+    max_glyphs=16UL,
+    max_name_records=16UL,
+    max_cmap_records=16UL,
+    max_kern_subtables=16UL,
+    max_kern_pairs=256UL,
+    max_outline_points=4096UL,
+    max_outline_contours=256UL,
+    max_outline_components=256UL,
+    max_outline_instruction_bytes=1024UL,
+    max_post_name_bytes=256UL,
+    max_work=16384UL,
+  ).unwrap()
+}
+
+///|
+fn font_collection_wb_selected_budget() -> @budget.Budget {
+  @budget.Budget::new(
+    @budget.ResourceLimits::new(
+      bytes=65536UL,
+      allocations=16UL,
+      allocation_size=65536UL,
+      width=0UL,
+      height=0UL,
+      pixels=0UL,
+      depth=0UL,
+      work=65536UL,
+    ),
+  )
+}
+
+///|
+test "selected final revision hook is atomic and successful Font retains root identity" {
+  let source = font_collection_wb_selected_ttc()
+  let owner = font_collection_wb_owner(source)
+  let collection = FontCollection::open(
+    owner.view(),
+    font_collection_wb_selected_collection_limits(source.length().to_uint64()),
+    font_collection_wb_selected_budget(),
+  ).unwrap()
+  let budget = font_collection_wb_selected_budget()
+  let before = budget.remaining()
+  let mut callback_count = 0
+  let error = collection
+    .open_face_after_admit(
+      0UL,
+      font_collection_wb_selected_font_limits(source.length().to_uint64()),
+      budget,
+      fn() {
+        callback_count = callback_count + 1
+        font_collection_wb_mutate_restore(owner, 20UL)
+      },
+    )
+    .unwrap_err()
+  inspect(callback_count, content="1")
+  inspect(error.category() == @error.ErrorCategory::State, content="true")
+  inspect(
+    error.operation() == Some("font-collection-open-face"),
+    content="true",
+  )
+  inspect(
+    error.context() == Some("font-collection-source-revision-drift"),
+    content="true",
+  )
+  let after = budget.remaining()
+  inspect(after.bytes() == before.bytes(), content="true")
+  inspect(after.allocations() == before.allocations(), content="true")
+  inspect(after.work() == before.work(), content="true")
+
+  let stable_source = font_collection_wb_selected_ttc()
+  let stable_owner = font_collection_wb_owner(stable_source)
+  let stable_collection = FontCollection::open(
+    stable_owner.view(),
+    font_collection_wb_selected_collection_limits(
+      stable_source.length().to_uint64(),
+    ),
+    font_collection_wb_selected_budget(),
+  ).unwrap()
+  let font = stable_collection
+    .open_face(
+      0UL,
+      font_collection_wb_selected_font_limits(
+        stable_source.length().to_uint64(),
+      ),
+      font_collection_wb_selected_budget(),
+    )
+    .unwrap()
+  inspect(font.source.length() == stable_collection.source.length(), content="true")
+  inspect(font.opening_revision == stable_collection.opening_revision, content="true")
+  inspect(
+    font.source.mutation_revision() ==
+    stable_collection.source.mutation_revision(),
+    content="true",
+  )
+}
+
+///|
 test "selected directory reads absolute fields and keeps table offsets root relative" {
   let source = font_collection_wb_offset_directory(32UL, 12UL, 112UL, 4UL)
   let view = font_collection_wb_view(source)

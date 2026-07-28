@@ -460,6 +460,101 @@ fn font_collection_test_selected_ttc() -> Bytes {
 }
 
 ///|
+fn font_collection_test_copy_selected_directory(
+  output : Array[Byte],
+  standalone : Bytes,
+  directory_start : Int,
+  payload_base : UInt64,
+) -> Unit {
+  let directory_length = 12 + 10 * 16
+  for index = 0; index < directory_length; index = index + 1 {
+    output[directory_start + index] = standalone[index]
+  }
+  for index = 0; index < 10; index = index + 1 {
+    let record = 12 + index * 16
+    let old_offset = font_collection_test_read_u32(standalone, record + 8)
+    font_collection_test_put_u32(
+      output,
+      directory_start + record + 8,
+      payload_base + old_offset,
+    )
+  }
+}
+
+///|
+fn font_collection_test_shared_selected_ttc() -> Bytes {
+  let standalone = font_test_minimal_truetype()
+  let payload_base = 768UL
+  let output = Array::make(payload_base.to_int() + standalone.length(), b'\x00')
+  font_collection_test_put_u32(output, 0, 0x74746366UL)
+  font_collection_test_put_u32(output, 4, 0x00010000UL)
+  font_collection_test_put_u32(output, 8, 2UL)
+  font_collection_test_put_u32(output, 12, 256UL)
+  font_collection_test_put_u32(output, 16, 512UL)
+  font_collection_test_copy_selected_directory(
+    output,
+    standalone,
+    256,
+    payload_base,
+  )
+  font_collection_test_copy_selected_directory(
+    output,
+    standalone,
+    512,
+    payload_base,
+  )
+  for index, byte in standalone {
+    output[payload_base.to_int() + index] = byte
+  }
+  Bytes::from_array(output)
+}
+
+///|
+fn font_collection_test_mixed_selected_ttc() -> Bytes {
+  let standalone = font_test_minimal_truetype()
+  let payload_base = 768UL
+  let output = Array::make(payload_base.to_int() + standalone.length(), b'\x00')
+  font_collection_test_put_u32(output, 0, 0x74746366UL)
+  font_collection_test_put_u32(output, 4, 0x00010000UL)
+  font_collection_test_put_u32(output, 8, 4UL)
+  for item in [(12, 256UL), (16, 512UL), (20, 544UL), (24, 576UL)] {
+    let (field, directory) = item
+    font_collection_test_put_u32(output, field, directory)
+  }
+  font_collection_test_copy_selected_directory(
+    output,
+    standalone,
+    256,
+    payload_base,
+  )
+  font_collection_test_write_directory(
+    output,
+    512,
+    0x4F54544FUL,
+    [0x43464620UL],
+    [700UL],
+  )
+  font_collection_test_write_directory(
+    output,
+    544,
+    0x4F54544FUL,
+    [0x43464632UL],
+    [704UL],
+  )
+  font_collection_test_write_directory(
+    output,
+    576,
+    0x00010000UL,
+    [0x66766172UL, 0x676C7966UL, 0x6C6F6361UL],
+    [708UL, 712UL, 716UL],
+  )
+  for index, byte in standalone {
+    output[payload_base.to_int() + index] = byte
+  }
+  Bytes::from_array(output)
+}
+
+///|
 fn font_collection_test_selected_limits(source_length : UInt64) -> FontCollectionLimits {
   FontCollectionLimits::new(
     max_source_bytes=source_length,
@@ -470,6 +565,24 @@ fn font_collection_test_selected_limits(source_length : UInt64) -> FontCollectio
     max_dsig_bytes=1UL,
     max_retained_bookkeeping_bytes=4096UL,
     max_work=65536UL,
+  ).unwrap()
+}
+
+///|
+fn font_collection_test_selected_collection_limits(
+  source_length : UInt64,
+  faces : UInt64,
+  records : UInt64,
+) -> FontCollectionLimits {
+  FontCollectionLimits::new(
+    max_source_bytes=source_length,
+    max_faces=faces,
+    max_tables_per_face=10UL,
+    max_table_records=records,
+    max_dsig_records=1UL,
+    max_dsig_bytes=1UL,
+    max_retained_bookkeeping_bytes=16384UL,
+    max_work=262144UL,
   ).unwrap()
 }
 
@@ -615,6 +728,181 @@ test "TTC-02 selection gates revision then index then cached profile" {
     content="true",
   )
   font_collection_test_assert_budget_unchanged(profile_before, profile_budget)
+}
+
+///|
+test "TTC-03 exact sharing and unsupported siblings stay selection local" {
+  let shared_source = font_collection_test_shared_selected_ttc()
+  let shared_owner = font_collection_test_owner(shared_source)
+  let shared = FontCollection::open(
+    shared_owner.view(),
+    font_collection_test_selected_collection_limits(
+      shared_source.length().to_uint64(),
+      2UL,
+      20UL,
+    ),
+    font_collection_test_selected_budget(),
+  ).unwrap()
+  let first = shared
+    .open_face(0UL, font_test_limits(), font_collection_test_selected_budget())
+    .unwrap()
+  let last = shared
+    .open_face(1UL, font_test_limits(), font_collection_test_selected_budget())
+    .unwrap()
+  inspect(first.units_per_em().unwrap(), content="1000")
+  inspect(last.units_per_em().unwrap(), content="1000")
+  inspect(
+    first.horizontal_metrics(first.glyph_id(0UL).unwrap()).unwrap().advance_width(),
+    content="500",
+  )
+  inspect(
+    last.horizontal_metrics(last.glyph_id(0UL).unwrap()).unwrap().advance_width(),
+    content="500",
+  )
+
+  let mixed_source = font_collection_test_mixed_selected_ttc()
+  let mixed_owner = font_collection_test_owner(mixed_source)
+  let mixed = FontCollection::open(
+    mixed_owner.view(),
+    font_collection_test_selected_collection_limits(
+      mixed_source.length().to_uint64(),
+      4UL,
+      15UL,
+    ),
+    font_collection_test_selected_budget(),
+  ).unwrap()
+  inspect(
+    mixed
+    .open_face(0UL, font_test_limits(), font_collection_test_selected_budget())
+    .unwrap()
+    .units_per_em()
+    .unwrap(),
+    content="1000",
+  )
+  for index in [1UL, 2UL, 3UL] {
+    let budget = font_collection_test_selected_budget()
+    let before = budget.remaining()
+    let error = mixed.open_face(index, font_test_limits(), budget).unwrap_err()
+    inspect(
+      error.category() == @error.ErrorCategory::Capability,
+      content="true",
+    )
+    inspect(
+      error.context() == Some("font-collection-face-profile"),
+      content="true",
+    )
+    font_collection_test_assert_budget_unchanged(before, budget)
+  }
+}
+
+///|
+test "TTC-02 selected D plus T charge is exact and every failure is atomic" {
+  let source = font_collection_test_selected_ttc()
+  let owner = font_collection_test_owner(source)
+  let collection = FontCollection::open(
+    owner.view(),
+    font_collection_test_selected_limits(source.length().to_uint64()),
+    font_collection_test_selected_budget(),
+  ).unwrap()
+  let mut table_bytes = 0UL
+  for index = 0; index < 10; index = index + 1 {
+    table_bytes = table_bytes +
+      font_collection_test_read_u32(source, 256 + 12 + index * 16 + 12)
+  }
+  let expected_bytes = 172UL + table_bytes
+  let exact = font_collection_test_selected_budget()
+  let exact_before = exact.remaining()
+  let opened = collection.open_face(0UL, font_test_limits(), exact).unwrap()
+  let exact_after = exact.remaining()
+  inspect(
+    exact_before.bytes() - exact_after.bytes() == expected_bytes,
+    content="true",
+  )
+  inspect(
+    exact_before.allocations() - exact_after.allocations() == 3UL,
+    content="true",
+  )
+  let exact_work = exact_before.work() - exact_after.work()
+  inspect(exact_work > 0UL, content="true")
+  inspect(opened.units_per_em().unwrap(), content="1000")
+  for item in [
+    (expected_bytes - 1UL, 3UL, 640UL, exact_work),
+    (expected_bytes, 2UL, 640UL, exact_work),
+    (expected_bytes, 3UL, 639UL, exact_work),
+    (expected_bytes, 3UL, 640UL, exact_work - 1UL),
+  ] {
+    let (bytes, allocations, allocation_size, work) = item
+    let budget = @budget.Budget::new(
+      @budget.ResourceLimits::new(
+        bytes~,
+        allocations~,
+        allocation_size~,
+        width=0UL,
+        height=0UL,
+        pixels=0UL,
+        depth=0UL,
+        work~,
+      ),
+    )
+    let before = budget.remaining()
+    let error = collection
+      .open_face(0UL, font_test_limits(), budget)
+      .unwrap_err()
+    inspect(error.category() == @error.ErrorCategory::Resource, content="true")
+    font_collection_test_assert_budget_unchanged(before, budget)
+  }
+
+  let bad = source.to_array()
+  let cmap_offset = font_collection_test_read_u32(source, 256 + 12 + 16 + 8)
+  bad[cmap_offset.to_int()] = (bad[cmap_offset.to_int()].to_uint64() ^ 1UL).to_byte()
+  let bad_source = Bytes::from_array(bad)
+  let bad_owner = font_collection_test_owner(bad_source)
+  let bad_collection = FontCollection::open(
+    bad_owner.view(),
+    font_collection_test_selected_limits(bad_source.length().to_uint64()),
+    font_collection_test_selected_budget(),
+  ).unwrap()
+  let bad_budget = font_collection_test_selected_budget()
+  let bad_before = bad_budget.remaining()
+  let checksum = bad_collection
+    .open_face(0UL, font_test_limits(), bad_budget)
+    .unwrap_err()
+  inspect(checksum.category() == @error.ErrorCategory::Data, content="true")
+  inspect(checksum.context() == Some("font-table-checksum"), content="true")
+  font_collection_test_assert_budget_unchanged(bad_before, bad_budget)
+}
+
+///|
+test "TTC-02 selected Fonts inherit permanent root mutation identity" {
+  let source = font_collection_test_selected_ttc()
+  let owner = font_collection_test_owner(source)
+  let collection = FontCollection::open(
+    owner.view(),
+    font_collection_test_selected_limits(source.length().to_uint64()),
+    font_collection_test_selected_budget(),
+  ).unwrap()
+  let font = collection
+    .open_face(0UL, font_test_limits(), font_collection_test_selected_budget())
+    .unwrap()
+  let glyph = font.glyph_id(0UL).unwrap()
+  font_collection_test_mutate(owner, 20UL, b'\x01')
+  for error in [
+    font.units_per_em().unwrap_err(),
+    font.global_bounds().unwrap_err(),
+    font.hhea_line_metrics().unwrap_err(),
+    font.typographic_line_metrics().unwrap_err(),
+    font.glyph_for_scalar(65).unwrap_err(),
+    font.glyph_id(0UL).unwrap_err(),
+    font.horizontal_metrics(glyph).unwrap_err(),
+    font.kerning(glyph, glyph).unwrap_err(),
+    font.outline(glyph, font_test_outline_budget()).unwrap_err(),
+  ] {
+    inspect(error.category() == @error.ErrorCategory::State, content="true")
+    inspect(
+      error.context() == Some("font-source-revision-drift"),
+      content="true",
+    )
+  }
 }
 
 ///|
