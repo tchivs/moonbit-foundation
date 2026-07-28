@@ -117,6 +117,49 @@ fn cff_wb_otf(cff : Bytes, num_glyphs? : UInt64 = 1UL) -> Bytes {
 }
 
 ///|
+fn cff_wb_name_table_with_programs(programs : Array[Bytes]) -> Bytes {
+  let header = b"\x01\x00\x04\x04"
+  let name = cff_key_wb_index([b"Name"])
+  let strings = cff_key_wb_index([b"custom"])
+  let global_subrs = cff_key_wb_index([])
+  let charstrings = cff_key_wb_index(programs)
+  let private_data = b"\x8d\x13\x00\x00"
+  let charset_data = cff_name_wb_charset(3UL)
+  let encoding_data = cff_name_wb_encoding(2UL)
+  let placeholder_top = cff_name_wb_top(0UL, 0UL, 0UL, 0UL)
+  let after_global = header.length().to_uint64() +
+    name.length().to_uint64() +
+    cff_key_wb_index([placeholder_top]).length().to_uint64() +
+    strings.length().to_uint64() +
+    global_subrs.length().to_uint64()
+  let charstrings_offset = after_global
+  let private_offset = charstrings_offset + charstrings.length().to_uint64()
+  let charset_offset = private_offset + private_data.length().to_uint64()
+  let encoding_offset = charset_offset + charset_data.length().to_uint64()
+  let top = cff_name_wb_top(
+    charset_offset,
+    encoding_offset,
+    charstrings_offset,
+    private_offset,
+  )
+  let output : Array[Byte] = []
+  for part in [
+    header,
+    name,
+    cff_key_wb_index([top]),
+    strings,
+    global_subrs,
+    charstrings,
+    private_data,
+    charset_data,
+    encoding_data,
+  ] {
+    cff_key_wb_append(output, part)
+  }
+  Bytes::from_array(output)
+}
+
+///|
 fn cff_wb_otf_with_cmap(
   cff : Bytes,
   cmap : Bytes,
@@ -231,6 +274,37 @@ test "CFF1 tracer admits default and explicit Type 2 then resolves GID zero" {
     inspect(admitted.glyph.environment.local_subrs.count, content="0")
     inspect(admitted.glyph.environment.font_matrix.length(), content="6")
   }
+}
+
+///|
+test "CFF1 admission rejects a malformed later glyph without committing budget" {
+  let source = cff_wb_otf(
+    cff_wb_name_table_with_programs([b"\x0e", b"\x00", b"\x0e"]),
+    num_glyphs=3UL,
+  )
+  let budget = cff_wb_budget()
+  let before = budget.remaining()
+  let result = admit_cff1_structure(
+    font_wb_view(source),
+    font_wb_limits(),
+    budget,
+    0UL,
+  )
+  inspect(result is Err(_), content="true")
+  let error = result.unwrap_err()
+  inspect(error.category() == @error.ErrorCategory::Data, content="true")
+  inspect(
+    error.context() == Some("font-cff-type2-reserved-operator"),
+    content="true",
+  )
+  let after = budget.remaining()
+  inspect(after.bytes() == before.bytes(), content="true")
+  inspect(after.allocations() == before.allocations(), content="true")
+  inspect(
+    after.allocation_size() == before.allocation_size(),
+    content="true",
+  )
+  inspect(after.work() == before.work(), content="true")
 }
 
 ///|
