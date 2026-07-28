@@ -1169,14 +1169,23 @@ function Get-FontExecutableSourceText {
 
   $text = Get-Content -Raw -LiteralPath $Path
   $output = [Text.StringBuilder]::new($text.Length)
+  $interpolations = [System.Collections.Generic.Stack[object]]::new()
   $state = 'code'
   $blockDepth = 0
+  $lineStart = 0
   $index = 0
   $slash = [char]47
   $asterisk = [char]42
   $backslash = [char]92
   $doubleQuote = [char]34
   $singleQuote = [char]39
+  $leftBrace = [char]123
+  $rightBrace = [char]125
+  $dollar = [char]36
+  $hash = [char]35
+  $verticalBar = [char]124
+  $horizontalTab = [char]9
+  $space = [char]32
   $lineFeed = [char]10
   $carriageReturn = [char]13
 
@@ -1186,6 +1195,25 @@ function Get-FontExecutableSourceText {
 
     switch ($state) {
       'code' {
+        $isMultilinePrefix = (
+          ($current -eq $dollar -or $current -eq $hash) -and
+          $next -eq $verticalBar
+        )
+        if ($isMultilinePrefix) {
+          for ($prefixIndex = $lineStart; $prefixIndex -lt $index; $prefixIndex += 1) {
+            $prefixCharacter = $text[$prefixIndex]
+            if ($prefixCharacter -ne $space -and $prefixCharacter -ne $horizontalTab) {
+              $isMultilinePrefix = $false
+              break
+            }
+          }
+        }
+        if ($isMultilinePrefix) {
+          [void]$output.Append('  ')
+          $state = if ($current -eq $dollar) { 'multiline-interpolated' } else { 'multiline-raw' }
+          $index += 2
+          continue
+        }
         if ($current -eq $slash -and $next -eq $slash) {
           [void]$output.Append('  ')
           $state = 'line-comment'
@@ -1214,13 +1242,46 @@ function Get-FontExecutableSourceText {
           $index += 1
           continue
         }
+        if ($interpolations.Count -gt 0 -and $current -eq $leftBrace) {
+          $frame = $interpolations.Peek()
+          $frame.BraceDepth += 1
+          [void]$output.Append($current)
+          $index += 1
+          continue
+        }
+        if ($interpolations.Count -gt 0 -and $current -eq $rightBrace) {
+          $frame = $interpolations.Peek()
+          $frame.BraceDepth -= 1
+          if ($frame.BraceDepth -eq 0) {
+            [void]$output.Append(' ')
+            [void]$interpolations.Pop()
+            $state = $frame.ResumeState
+          } else {
+            [void]$output.Append($current)
+          }
+          $index += 1
+          continue
+        }
+        if (
+          $interpolations.Count -gt 0 -and
+          ($current -eq $lineFeed -or $current -eq $carriageReturn)
+        ) {
+          throw "Font source '$Path' contains a newline inside string interpolation."
+        }
         [void]$output.Append($current)
+        if ($current -eq $lineFeed -or $current -eq $carriageReturn) {
+          $lineStart = $index + 1
+        }
         $index += 1
       }
       'line-comment' {
         if ($current -eq $lineFeed -or $current -eq $carriageReturn) {
+          if ($interpolations.Count -gt 0) {
+            throw "Font source '$Path' contains a line comment or newline inside string interpolation."
+          }
           [void]$output.Append($current)
           $state = 'code'
+          $lineStart = $index + 1
         } else {
           [void]$output.Append(' ')
         }
@@ -1241,15 +1302,28 @@ function Get-FontExecutableSourceText {
           continue
         }
         if ($current -eq $lineFeed -or $current -eq $carriageReturn) {
+          if ($interpolations.Count -gt 0) {
+            throw "Font source '$Path' contains a newline inside string interpolation."
+          }
           [void]$output.Append($current)
+          $lineStart = $index + 1
         } else {
           [void]$output.Append(' ')
         }
         $index += 1
       }
-      { $_ -eq 'string' -or $_ -eq 'character' } {
-        $terminator = if ($state -eq 'string') { $doubleQuote } else { $singleQuote }
+      'string' {
         if ($current -eq $backslash) {
+          if ($next -eq $leftBrace) {
+            [void]$output.Append('  ')
+            $interpolations.Push([pscustomobject]@{
+              ResumeState = $state
+              BraceDepth = 1
+            })
+            $state = 'code'
+            $index += 2
+            continue
+          }
           [void]$output.Append(' ')
           $index += 1
           if ($index -ge $text.Length) {
@@ -1264,14 +1338,71 @@ function Get-FontExecutableSourceText {
           $index += 1
           continue
         }
-        if ($current -eq $terminator) {
+        if ($current -eq $doubleQuote) {
           [void]$output.Append(' ')
           $state = 'code'
           $index += 1
           continue
         }
         if ($current -eq $lineFeed -or $current -eq $carriageReturn) {
+          throw "Font source '$Path' contains a newline inside a string literal."
+        } else {
+          [void]$output.Append(' ')
+        }
+        $index += 1
+      }
+      'character' {
+        if ($current -eq $backslash) {
+          [void]$output.Append(' ')
+          $index += 1
+          if ($index -ge $text.Length) {
+            throw "Font source '$Path' ends inside an escaped $state literal."
+          }
+          $escaped = $text[$index]
+          if ($escaped -eq $lineFeed -or $escaped -eq $carriageReturn) {
+            throw "Font source '$Path' contains a newline inside a character literal."
+          }
+          [void]$output.Append(' ')
+          $index += 1
+          continue
+        }
+        if ($current -eq $singleQuote) {
+          [void]$output.Append(' ')
+          $state = 'code'
+          $index += 1
+          continue
+        }
+        if ($current -eq $lineFeed -or $current -eq $carriageReturn) {
+          throw "Font source '$Path' contains a newline inside a character literal."
+        }
+        [void]$output.Append(' ')
+        $index += 1
+      }
+      'multiline-interpolated' {
+        if ($current -eq $backslash -and $next -eq $leftBrace) {
+          [void]$output.Append('  ')
+          $interpolations.Push([pscustomobject]@{
+            ResumeState = $state
+            BraceDepth = 1
+          })
+          $state = 'code'
+          $index += 2
+          continue
+        }
+        if ($current -eq $lineFeed -or $current -eq $carriageReturn) {
           [void]$output.Append($current)
+          $state = 'code'
+          $lineStart = $index + 1
+        } else {
+          [void]$output.Append(' ')
+        }
+        $index += 1
+      }
+      'multiline-raw' {
+        if ($current -eq $lineFeed -or $current -eq $carriageReturn) {
+          [void]$output.Append($current)
+          $state = 'code'
+          $lineStart = $index + 1
         } else {
           [void]$output.Append(' ')
         }
@@ -1283,6 +1414,9 @@ function Get-FontExecutableSourceText {
     }
   }
 
+  if ($interpolations.Count -gt 0) {
+    throw "Font source '$Path' ends inside string interpolation."
+  }
   if ($state -eq 'block-comment') {
     throw "Font source '$Path' ends inside a block comment."
   }
@@ -2416,7 +2550,46 @@ fn forbidden_probe() {
       Confirm-FontQualificationRejected "comment delimiters in strings cannot hide $($probe.Name)" {
         Assert-FontPortableSourceBoundary -SourcePaths @($negativeSource)
       } $probe.Pattern
+
+      $probeSource = 'fn forbidden_probe() { let hidden = "\{' + $probe.Call + '}" }'
+      [IO.File]::WriteAllText($negativeSource, $probeSource, [Text.UTF8Encoding]::new($false))
+      Confirm-FontQualificationRejected "string interpolation cannot hide $($probe.Name)" {
+        Assert-FontPortableSourceBoundary -SourcePaths @($negativeSource)
+      } $probe.Pattern
+
+      $probeSource = 'fn forbidden_probe() { let hidden = b"\{' + $probe.Call + '}" }'
+      [IO.File]::WriteAllText($negativeSource, $probeSource, [Text.UTF8Encoding]::new($false))
+      Confirm-FontQualificationRejected "bytes interpolation cannot hide $($probe.Name)" {
+        Assert-FontPortableSourceBoundary -SourcePaths @($negativeSource)
+      } $probe.Pattern
     }
+    [IO.File]::WriteAllText(
+      $negativeSource,
+      "fn forbidden_probe() {`n  let hidden = (`n    `$| \{rasterize_font()}`n  )`n}`n",
+      [Text.UTF8Encoding]::new($false)
+    )
+    Confirm-FontQualificationRejected 'interpolated multiline string cannot hide rasterization' {
+      Assert-FontPortableSourceBoundary -SourcePaths @($negativeSource)
+    } 'forbidden rasterization execution'
+
+    [IO.File]::WriteAllText(
+      $negativeSource,
+      'fn forbidden_probe() { let hidden = "\{if true { rasterize_font() } else { 0 }}" }',
+      [Text.UTF8Encoding]::new($false)
+    )
+    Confirm-FontQualificationRejected 'nested expression braces retain executable interpolation' {
+      Assert-FontPortableSourceBoundary -SourcePaths @($negativeSource)
+    } 'forbidden rasterization execution'
+
+    [IO.File]::WriteAllText(
+      $negativeSource,
+      'fn forbidden_probe() { let hidden = "\{/* } */ rasterize_font()}" }',
+      [Text.UTF8Encoding]::new($false)
+    )
+    Confirm-FontQualificationRejected 'comment braces cannot close executable interpolation' {
+      Assert-FontPortableSourceBoundary -SourcePaths @($negativeSource)
+    } 'forbidden rasterization execution'
+
     [IO.File]::WriteAllText(
       $negativeSource,
       'fn forbidden_probe() { let marker = "//"; rasterize_font() }',
@@ -2428,7 +2601,11 @@ fn forbidden_probe() {
 
     [IO.File]::WriteAllText(
       $negativeSource,
-      "/* quote-like text `" b'c' // remains comment text */`nfn allowed_probe() { let marker = `"/* not a comment */`" }`n",
+      (
+        "/* quote-like text `" b'c' // remains comment text */`n" +
+        "fn allowed_probe() { let marker = `"/* not a comment */`"; let escaped = `"\\{rasterize_font()}`"; let escaped_bytes = b`"\\{open_file()}`" }`n" +
+        "fn allowed_multiline_probe() {`n  let raw = (`n    #| \{rasterize_font()} open_file()`n  )`n}`n"
+      ),
       [Text.UTF8Encoding]::new($false)
     )
     Assert-FontPortableSourceBoundary -SourcePaths @($negativeSource)
