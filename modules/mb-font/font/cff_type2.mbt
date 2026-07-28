@@ -42,6 +42,32 @@ priv struct Type2VmResult {
 }
 
 ///|
+priv struct Type2StagedCharge {
+  resource : @budget.ResourceCharge
+  bytes : UInt64
+  allocations : UInt64
+  allocation_size : UInt64
+  work : UInt64
+  bounds_slots : UInt64
+  executed_bytes : UInt64
+  calls : UInt64
+  returns : UInt64
+  operators : UInt64
+  numbers : UInt64
+  mask_bytes : UInt64
+  geometry_operators : UInt64
+  points : UInt64
+  contours : UInt64
+  commands : UInt64
+}
+
+///|
+priv struct Type2AllGlyphResult {
+  bounds : Array[GlyphBoundsFacts?]
+  charge : Type2StagedCharge
+}
+
+///|
 priv struct Type2Vm {
   stack : Array[Type2Fixed]
   transient : Array[Type2Fixed]
@@ -1554,6 +1580,7 @@ fn type2_execute_program_with_matrix(
 fn type2_execute_glyph(
   descriptor : CffGlyphDescriptor,
   global_subrs : CffIndex,
+  units_per_em : UInt64,
   limits : Type2Limits,
   opening_revision : UInt64,
 ) -> Result[Type2VmResult, @error.CoreError] {
@@ -1573,14 +1600,397 @@ fn type2_execute_glyph(
     Err(_) => return Err(type2_data_error("font-cff-type2-nominal-width"))
     Ok(value) => value
   }
-  type2_execute_program(
+  let matrix = match
+    type2_matrix_compose(
+      descriptor.environment.top_font_matrix,
+      descriptor.environment.fd_font_matrix,
+      units_per_em,
+    ) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  type2_execute_program_with_matrix(
     descriptor.charstring.view,
     descriptor.environment.local_subrs,
     global_subrs,
     default_width,
     nominal_width,
     descriptor.environment.private_dict.initial_random_seed,
+    matrix,
     limits,
     opening_revision,
+  )
+}
+
+///|
+fn type2_stage_checked_add(
+  current : UInt64,
+  amount : UInt64,
+  context : String,
+) -> Result[UInt64, @error.CoreError] {
+  type2_checked_counter_add(current, amount, 18446744073709551615UL, context)
+}
+
+///|
+fn type2_stage_error_with_revision(
+  authority : @bytes.ByteView,
+  opening_revision : UInt64,
+  error : @error.CoreError,
+) -> @error.CoreError {
+  match type2_require_revision(authority, opening_revision) {
+    Err(state) => state
+    Ok(_) => error
+  }
+}
+
+///|
+#warnings("-1")
+fn type2_stage_all_glyphs_unchecked_with_probe(
+  descriptors : Array[CffGlyphDescriptor],
+  global_subrs : CffIndex,
+  units_per_em : UInt64,
+  limits : Type2Limits,
+  budget : @budget.Budget,
+  authority : @bytes.ByteView,
+  opening_revision : UInt64,
+  visit_probe : (UInt64) -> Unit,
+) -> Result[Type2AllGlyphResult, @error.CoreError] {
+  match type2_require_revision(authority, opening_revision) {
+    Err(error) => return Err(error)
+    Ok(_) => ()
+  }
+  let bounds_slots = descriptors.length().to_uint64()
+  let bytes = match @checked.checked_mul(bounds_slots, 24UL) {
+    Err(_) =>
+      return Err(
+        type2_stage_error_with_revision(
+          authority,
+          opening_revision,
+          type2_resource_error(
+            "font-cff-type2-bounds-bytes",
+            bounds_slots,
+            18446744073709551615UL,
+          ),
+        ),
+      )
+    Ok(value) => value
+  }
+  let scratch_allocations = match
+    @checked.checked_mul(bounds_slots, limits.scratch_allocations) {
+    Err(_) =>
+      return Err(
+        type2_stage_error_with_revision(
+          authority,
+          opening_revision,
+          type2_resource_error(
+            "font-cff-type2-allocations",
+            bounds_slots,
+            18446744073709551615UL,
+          ),
+        ),
+      )
+    Ok(value) => value
+  }
+  let allocations = match
+    @checked.checked_add(
+      scratch_allocations,
+      if bounds_slots == 0UL { 0UL } else { 1UL },
+    ) {
+    Err(_) =>
+      return Err(
+        type2_stage_error_with_revision(
+          authority,
+          opening_revision,
+          type2_resource_error(
+            "font-cff-type2-allocations",
+            scratch_allocations,
+            18446744073709551615UL,
+          ),
+        ),
+      )
+    Ok(value) => value
+  }
+  let allocation_size = if bytes > limits.scratch_allocation_size {
+    bytes
+  } else {
+    limits.scratch_allocation_size
+  }
+  let retained_authority = @budget.ResourceCharge::new(
+    bytes~,
+    allocations~,
+    allocation_size~,
+    width=0UL,
+    height=0UL,
+    pixels=0UL,
+    work=0UL,
+  )
+  match budget.preflight(retained_authority) {
+    Err(error) =>
+      return Err(
+        type2_stage_error_with_revision(authority, opening_revision, error),
+      )
+    Ok(_) => ()
+  }
+
+  let bounds : Array[GlyphBoundsFacts?] = []
+  let mut executed_bytes = 0UL
+  let mut work = 0UL
+  let mut calls = 0UL
+  let mut returns = 0UL
+  let mut operators = 0UL
+  let mut numbers = 0UL
+  let mut mask_bytes = 0UL
+  let mut geometry_operators = 0UL
+  let mut points = 0UL
+  let mut contours = 0UL
+  let mut commands = 0UL
+  for index = 0; index < descriptors.length(); index = index + 1 {
+    match type2_require_revision(authority, opening_revision) {
+      Err(error) => return Err(error)
+      Ok(_) => ()
+    }
+    let descriptor = descriptors[index]
+    let expected_gid = index.to_uint64()
+    if descriptor.gid != expected_gid {
+      return Err(
+        type2_stage_error_with_revision(
+          authority,
+          opening_revision,
+          type2_data_error("font-cff-type2-gid-order"),
+        ),
+      )
+    }
+    visit_probe(descriptor.gid)
+    let result = match
+      type2_execute_glyph(
+        descriptor,
+        global_subrs,
+        units_per_em,
+        limits,
+        opening_revision,
+      ) {
+      Err(error) =>
+        return Err(
+          type2_stage_error_with_revision(authority, opening_revision, error),
+        )
+      Ok(value) => value
+    }
+    executed_bytes = match
+      type2_stage_checked_add(
+        executed_bytes,
+        result.ledger.executed_bytes,
+        "font-cff-type2-aggregate-executed-bytes",
+      ) {
+      Err(error) => return Err(error)
+      Ok(value) => value
+    }
+    calls = match
+      type2_stage_checked_add(
+        calls,
+        result.ledger.calls,
+        "font-cff-type2-aggregate-calls",
+      ) {
+      Err(error) => return Err(error)
+      Ok(value) => value
+    }
+    returns = match
+      type2_stage_checked_add(
+        returns,
+        result.ledger.returns,
+        "font-cff-type2-aggregate-returns",
+      ) {
+      Err(error) => return Err(error)
+      Ok(value) => value
+    }
+    operators = match
+      type2_stage_checked_add(
+        operators,
+        result.ledger.operators,
+        "font-cff-type2-aggregate-operators",
+      ) {
+      Err(error) => return Err(error)
+      Ok(value) => value
+    }
+    numbers = match
+      type2_stage_checked_add(
+        numbers,
+        result.ledger.numbers,
+        "font-cff-type2-aggregate-numbers",
+      ) {
+      Err(error) => return Err(error)
+      Ok(value) => value
+    }
+    mask_bytes = match
+      type2_stage_checked_add(
+        mask_bytes,
+        result.ledger.mask_bytes,
+        "font-cff-type2-aggregate-mask-bytes",
+      ) {
+      Err(error) => return Err(error)
+      Ok(value) => value
+    }
+    geometry_operators = match
+      type2_stage_checked_add(
+        geometry_operators,
+        result.geometry_operators,
+        "font-cff-type2-aggregate-geometry-operators",
+      ) {
+      Err(error) => return Err(error)
+      Ok(value) => value
+    }
+    points = match
+      type2_stage_checked_add(
+        points,
+        result.geometry.points,
+        "font-cff-type2-aggregate-points",
+      ) {
+      Err(error) => return Err(error)
+      Ok(value) => value
+    }
+    contours = match
+      type2_stage_checked_add(
+        contours,
+        result.geometry.contours,
+        "font-cff-type2-aggregate-contours",
+      ) {
+      Err(error) => return Err(error)
+      Ok(value) => value
+    }
+    commands = match
+      type2_stage_checked_add(
+        commands,
+        result.geometry.commands,
+        "font-cff-type2-aggregate-commands",
+      ) {
+      Err(error) => return Err(error)
+      Ok(value) => value
+    }
+    let geometry_work = match
+      type2_stage_checked_add(
+        result.geometry.points,
+        result.geometry.commands,
+        "font-cff-type2-geometry-work",
+      ) {
+      Err(error) => return Err(error)
+      Ok(value) => value
+    }
+    let glyph_work = match
+      type2_stage_checked_add(
+        result.ledger.work,
+        geometry_work,
+        "font-cff-type2-glyph-work",
+      ) {
+      Err(error) => return Err(error)
+      Ok(value) => value
+    }
+    work = match
+      type2_checked_counter_add(
+        work,
+        glyph_work,
+        limits.max_work,
+        "font-cff-type2-aggregate-work",
+      ) {
+      Err(error) =>
+        return Err(
+          type2_stage_error_with_revision(authority, opening_revision, error),
+        )
+      Ok(value) => value
+    }
+    bounds.push(result.geometry.bounds)
+  }
+  match type2_require_revision(authority, opening_revision) {
+    Err(error) => return Err(error)
+    Ok(_) => ()
+  }
+  let resource = @budget.ResourceCharge::new(
+    bytes~,
+    allocations~,
+    allocation_size~,
+    width=0UL,
+    height=0UL,
+    pixels=0UL,
+    work~,
+  )
+  match budget.preflight(resource) {
+    Err(error) =>
+      return Err(
+        type2_stage_error_with_revision(authority, opening_revision, error),
+      )
+    Ok(_) => ()
+  }
+  match type2_require_revision(authority, opening_revision) {
+    Err(error) => return Err(error)
+    Ok(_) =>
+      Ok({
+        bounds,
+        charge: {
+          resource,
+          bytes,
+          allocations,
+          allocation_size,
+          work,
+          bounds_slots,
+          executed_bytes,
+          calls,
+          returns,
+          operators,
+          numbers,
+          mask_bytes,
+          geometry_operators,
+          points,
+          contours,
+          commands,
+        },
+      })
+  }
+}
+
+///|
+fn type2_stage_all_glyphs_with_probe(
+  descriptors : Array[CffGlyphDescriptor],
+  global_subrs : CffIndex,
+  units_per_em : UInt64,
+  limits : Type2Limits,
+  budget : @budget.Budget,
+  authority : @bytes.ByteView,
+  opening_revision : UInt64,
+  visit_probe : (UInt64) -> Unit,
+) -> Result[Type2AllGlyphResult, @error.CoreError] {
+  match
+    type2_stage_all_glyphs_unchecked_with_probe(
+      descriptors,
+      global_subrs,
+      units_per_em,
+      limits,
+      budget,
+      authority,
+      opening_revision,
+      visit_probe,
+    ) {
+    Err(error) =>
+      Err(type2_stage_error_with_revision(authority, opening_revision, error))
+    Ok(value) => Ok(value)
+  }
+}
+
+///|
+fn type2_stage_all_glyphs(
+  descriptors : Array[CffGlyphDescriptor],
+  global_subrs : CffIndex,
+  units_per_em : UInt64,
+  limits : Type2Limits,
+  budget : @budget.Budget,
+  authority : @bytes.ByteView,
+  opening_revision : UInt64,
+) -> Result[Type2AllGlyphResult, @error.CoreError] {
+  type2_stage_all_glyphs_with_probe(
+    descriptors,
+    global_subrs,
+    units_per_em,
+    limits,
+    budget,
+    authority,
+    opening_revision,
+    fn(_) { () },
   )
 }

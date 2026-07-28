@@ -306,10 +306,10 @@ test "Type 2 all-GID staging is ascending, exact, and does not commit budget" {
   inspect(staged.charge.points, content="4")
   inspect(staged.charge.contours, content="2")
   inspect(staged.charge.commands, content="6")
-  inspect(staged.charge.resource.bytes(), content="48")
-  inspect(staged.charge.resource.allocations(), content="11")
-  inspect(staged.charge.resource.allocation_size(), content="384")
-  inspect(staged.charge.resource.work(), content="24")
+  inspect(staged.charge.bytes, content="48")
+  inspect(staged.charge.allocations, content="11")
+  inspect(staged.charge.allocation_size, content="384")
+  inspect(staged.charge.work, content="24")
   inspect(budget.remaining().bytes() == before.bytes(), content="true")
   inspect(
     budget.remaining().allocations() == before.allocations(),
@@ -371,6 +371,10 @@ test "Type 2 all-GID staging resets PRNG from each selected environment" {
     authority,
     authority.mutation_revision(),
   ).unwrap()
-  inspect(staged.bounds[0] == staged.bounds[2], content="true")
-  inspect(staged.bounds[0] != staged.bounds[1], content="true")
+  let first = staged.bounds[0].unwrap()
+  let different = staged.bounds[1].unwrap()
+  let repeated = staged.bounds[2].unwrap()
+  inspect(first.x_min == repeated.x_min, content="true")
+  inspect(first.x_max == repeated.x_max, content="true")
+  inspect(first.x_min != different.x_min, content="true")
 }
