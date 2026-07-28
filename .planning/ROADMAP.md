@@ -34,7 +34,7 @@
 - ✅ **v0.30 SVG Production Readiness** — Phases 91-94 (shipped 2026-07-26). [Full history](./milestones/v0.30-ROADMAP.md)
 - ✅ **v0.31 SVG Numeric Boundary Unification** — Phases 95-96 (shipped 2026-07-26). [Full history](./milestones/v0.31-ROADMAP.md)
 - ✅ **v0.32 TrueType Font Foundation** — Phases 97-100 (shipped 2026-07-28). [Full history](./milestones/v0.32-ROADMAP.md)
-- 📋 **v0.33 TrueType Collection Adapters** — Phases 101-103 (planned).
+- ✅ **v0.33 TrueType Collection Adapters** — Phases 101-103 (completed 2026-07-28; pending milestone archive).
 
 ## Phases
 

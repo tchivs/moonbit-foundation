@@ -273,7 +273,7 @@ unchanged. Render:
 
 - a closed `FontCollectionQualificationCase` type including all structured error and
   eight-dimension budget fields;
-- `font_qualification_collection_cases()` in the canonical JSON order;
+- `font_qualification_cases()` delegates to `font_collection_qualification_cases()` in the canonical JSON order;
 - `font_qualification_dejavu_two_face_ttc_bytes()` built from the existing standalone
   accessor plus a small generated header/directory transformation.
 
