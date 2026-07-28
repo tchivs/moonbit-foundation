@@ -1275,7 +1275,7 @@ test "TTC-02 selection gates revision then index then cached profile" {
   let profile_budget = font_collection_test_selected_budget()
   let profile_before = profile_budget.remaining()
   let profile = mixed
-    .open_face(1UL, font_test_limits(), profile_budget)
+    .open_face(2UL, font_test_limits(), profile_budget)
     .unwrap_err()
   inspect(
     profile.category() == @error.ErrorCategory::Capability,
@@ -1337,7 +1337,7 @@ test "TTC-02 selected multi-fault precedence is exact and atomic" {
   let depleted_before = depleted.remaining()
   let profile = mixed
     .open_face(
-      1UL,
+      2UL,
       font_collection_test_selected_font_limits(1UL, max_work=1UL),
       depleted,
     )
@@ -1525,7 +1525,7 @@ test "TTC-03 exact sharing and unsupported siblings stay selection local" {
     .unwrap(),
     content="1000",
   )
-  for index in [1UL, 2UL, 3UL] {
+  for index in [2UL, 3UL] {
     let budget = font_collection_test_selected_budget()
     let before = budget.remaining()
     let error = mixed.open_face(index, font_test_limits(), budget).unwrap_err()

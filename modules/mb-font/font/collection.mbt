@@ -202,18 +202,32 @@ fn FontCollection::open_face_after_preflights(
       )
   }
   let face = self.faces[narrowed]
-  if face.profile != FontFaceProfile::StaticGlyf {
-    return Err(font_collection_profile_error())
+  match face.profile {
+    FontFaceProfile::StaticGlyf =>
+      font_open_collection_face(
+        self.source,
+        self.opening_revision,
+        face,
+        limits,
+        budget,
+        before_selected_loop,
+        before_final_guard,
+      )
+    FontFaceProfile::Cff =>
+      font_open_cff_collection_face(
+        self.source,
+        self.opening_revision,
+        face,
+        limits,
+        budget,
+        before_selected_loop,
+        before_final_guard,
+      )
+    FontFaceProfile::Cff2
+    | FontFaceProfile::Variable
+    | FontFaceProfile::OtherUnsupported =>
+      Err(font_collection_profile_error())
   }
-  font_open_collection_face(
-    self.source,
-    self.opening_revision,
-    face,
-    limits,
-    budget,
-    before_selected_loop,
-    before_final_guard,
-  )
 }
 
 ///|

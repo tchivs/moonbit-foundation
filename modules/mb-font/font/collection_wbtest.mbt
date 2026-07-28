@@ -1323,3 +1323,63 @@ test "selected collection CFF1 facts use one bounded atomic shared-table transac
     mutation_budget,
   )
 }
+
+///|
+test "Phase 106 selected CFF1 retains collection root and opening revision authority" {
+  let source = font_collection_wb_shared_cff_ttc()
+  let owner = font_collection_wb_owner(source)
+  let collection = FontCollection::open(
+    owner.view(),
+    FontCollectionLimits::new(
+      max_source_bytes=source.length().to_uint64(),
+      max_faces=2UL,
+      max_tables_per_face=9UL,
+      max_table_records=18UL,
+      max_dsig_records=1UL,
+      max_dsig_bytes=1UL,
+      max_retained_bookkeeping_bytes=16384UL,
+      max_work=262144UL,
+    ).unwrap(),
+    font_collection_wb_selected_budget(),
+  ).unwrap()
+  let selected = collection
+    .open_face(1UL, font_wb_limits(), cff_wb_budget())
+    .unwrap()
+  inspect(selected.source.length() == collection.source.length(), content="true")
+  inspect(selected.opening_revision == collection.opening_revision, content="true")
+  inspect(
+    selected.source.mutation_revision() ==
+    collection.source.mutation_revision(),
+    content="true",
+  )
+  match selected.outline_source {
+    FontOutlineSource::Cff1(admitted) => {
+      inspect(admitted.directory_start, content="188")
+      inspect(admitted.cff_table_offset > admitted.directory_start, content="true")
+      inspect(
+        admitted.opening_revision == collection.opening_revision,
+        content="true",
+      )
+    }
+    FontOutlineSource::Glyf(_) => fail("selected OTTO face must retain CFF facts")
+  }
+
+  font_collection_wb_mutate_restore(owner, 0UL)
+  let stale_budget = cff_wb_budget()
+  let stale_before = stale_budget.remaining()
+  let stale_error = font_open_cff_collection_face(
+    owner.view(),
+    collection.opening_revision,
+    collection.faces[1],
+    font_wb_limits(),
+    stale_budget,
+    fn(_stage) { () },
+    fn() { () },
+  ).unwrap_err()
+  inspect(stale_error.category() == @error.ErrorCategory::State, content="true")
+  inspect(
+    stale_error.context() == Some("font-cff-source-revision-drift"),
+    content="true",
+  )
+  font_collection_wb_assert_budget_unchanged(stale_before, stale_budget)
+}

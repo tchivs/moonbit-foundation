@@ -1130,8 +1130,12 @@ fn cff_stage_structure_at_after_preflight(
   before_final_guard : () -> Unit,
   common_traversal_probe : () -> Unit,
   keying_lookup_probe : () -> Unit,
+  authoritative_opening_revision? : UInt64,
 ) -> Result[CffStagedStructure, @error.CoreError] {
-  let opening_revision = source.mutation_revision()
+  let opening_revision = match authoritative_opening_revision {
+    Some(value) => value
+    None => source.mutation_revision()
+  }
   // Test and selected-face adapters place their mutation hook immediately
   // after the opening revision capture. Any already-observed revision drift
   // therefore has precedence over caller/resource/profile/data outcomes.
@@ -1677,6 +1681,7 @@ fn admit_cff1_structure_at_after_preflight_with_glyph_probe(
   common_traversal_probe : () -> Unit,
   keying_lookup_probe : () -> Unit,
   glyph_visit_probe : (UInt64) -> Unit,
+  authoritative_opening_revision? : UInt64,
 ) -> Result[AdmittedCff1, @error.CoreError] {
   let staged = match
     cff_stage_structure_at_after_preflight(
@@ -1691,6 +1696,7 @@ fn admit_cff1_structure_at_after_preflight_with_glyph_probe(
       before_final_guard,
       common_traversal_probe,
       keying_lookup_probe,
+      authoritative_opening_revision?,
     ) {
     Err(error) => return Err(error)
     Ok(value) => value
@@ -1778,6 +1784,7 @@ fn admit_cff1_structure_at_after_preflight(
   before_final_guard : () -> Unit,
   common_traversal_probe : () -> Unit,
   keying_lookup_probe : () -> Unit,
+  authoritative_opening_revision? : UInt64,
 ) -> Result[AdmittedCff1, @error.CoreError] {
   admit_cff1_structure_at_after_preflight_with_glyph_probe(
     source,
@@ -1792,6 +1799,7 @@ fn admit_cff1_structure_at_after_preflight(
     common_traversal_probe,
     keying_lookup_probe,
     fn(_) { () },
+    authoritative_opening_revision?,
   )
 }
 

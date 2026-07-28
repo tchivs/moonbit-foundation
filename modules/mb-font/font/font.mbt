@@ -370,6 +370,42 @@ fn font_open_collection_face(
 }
 
 ///|
+fn font_open_cff_collection_face(
+  source : @bytes.ByteView,
+  opening_revision : UInt64,
+  face : CollectionFaceFacts,
+  limits : FontLimits,
+  budget : @budget.Budget,
+  before_selected_loop : (String) -> Unit,
+  before_final_guard : () -> Unit,
+) -> Result[Font, @error.CoreError] {
+  let admitted = match
+    admit_cff1_structure_at_after_preflight(
+      source,
+      face.directory_start,
+      Some(face.table_count),
+      FontChecksumMode::Collection,
+      true,
+      limits,
+      budget,
+      0UL,
+      before_final_guard,
+      fn() { before_selected_loop("semantic") },
+      fn() { before_selected_loop("semantic") },
+      authoritative_opening_revision=opening_revision,
+    ) {
+    Err(error) =>
+      if error.category() == @error.ErrorCategory::Capability {
+        return Err(font_collection_profile_error())
+      } else {
+        return Err(error)
+      }
+    Ok(value) => value
+  }
+  Ok(font_from_admitted_cff1(source, admitted, limits))
+}
+
+///|
 /// Admit one standalone TrueType-outline SFNT under explicit semantic limits
 /// and one caller-owned authoritative budget transaction.
 pub fn Font::open(
