@@ -5,15 +5,15 @@ milestone_name: CFF Outline Foundation
 current_phase: 104
 current_phase_name: CFF1 Profile and Bounded Data Model
 status: executing
-stopped_at: Completed 104-01-PLAN.md; ready for 104-02-PLAN.md
-last_updated: "2026-07-28T10:06:46.822Z"
+stopped_at: Completed 104-02-PLAN.md
+last_updated: "2026-07-28T10:35:10.348Z"
 last_activity: 2026-07-28
-last_activity_desc: Completed 104-01 bounded static-CFF1 profile and structural data tracer
+last_activity_desc: Completed 104-02 name-keyed and CID-keyed per-GID environment resolution
 progress:
   total_phases: 1
   completed_phases: 0
   total_plans: 3
-  completed_plans: 1
+  completed_plans: 2
 ---
 
 # Project State
@@ -29,11 +29,11 @@ See `.planning/PROJECT.md` (updated 2026-07-28 for v0.34).
 ## Current Position
 
 Phase: 104 of 107 (CFF1 Profile and Bounded Data Model)
-Plan: 2 of 3
+Plan: 3 of 3
 Status: Ready to execute
-Last activity: 2026-07-28 — Completed 104-01 bounded static-CFF1 profile and structural data tracer
+Last activity: 2026-07-28 — Completed 104-02 name-keyed and CID-keyed per-GID environment resolution
 
-Progress: [███░░░░░░░] 33%
+Progress: [███████░░░] 67%
 
 ## Milestone Metrics
 
@@ -53,6 +53,9 @@ Progress: [███░░░░░░░] 33%
 - [Phase 104]: Reuse the canonical SFNT directory parser through a private static-CFF1 gate, preserving existing public TrueType admission.
 - [Phase 104]: Represent CFF DICT values as exact sign/magnitude/denominator facts with named table-relative and Private-relative offset wrappers.
 - [Phase 104]: Reject recognized unsupported profiles and non-Type-2 CharStrings before retaining or charging a per-GID descriptor.
+- [Phase 104]: Retain closed predefined CFF1 charset and Encoding tables in private MoonBit code for deterministic bounded lookup.
+- [Phase 104]: Validate every FDArray private environment before FDSelect materialization, including FDs selected by no glyph.
+- [Phase 104]: Preserve Top and per-FD FontMatrix as separate structural facts for Phase 105 composition rules.
 
 ### Pending Todos
 
@@ -60,7 +63,7 @@ None yet.
 
 ### Blockers/Concerns
 
-- Phase 104 remaining plans must freeze predefined tables, CID FontMatrix resolution, derived limits, and cross-keying structural precedence.
+- Phase 104 Plan 03 must freeze derived limits, cumulative work charging, and cross-keying structural precedence.
 - Phase 105 planning must freeze fixed-point rounding, deterministic PRNG/reset rules, FontMatrix composition, contour closure, deprecated `endchar` policy, bounds rounding, and resource-ledger units.
 - Phase 107 planning must approve immutable redistributable Latin/CJK assets, licenses/notices, parent and derivative digests, deterministic recipes, and independent pinned oracles.
 
@@ -76,23 +79,24 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-07-28T10:06:46.807Z
-Stopped at: Completed 104-01-PLAN.md; ready for 104-02-PLAN.md
+Last session: 2026-07-28T10:35:10.331Z
+Stopped at: Completed 104-02-PLAN.md
 Resume file: None
 
 ## Operator Next Steps
 
-- Execute `104-02-PLAN.md` to complete name-keyed charset, Encoding, SID, and generalized per-GID keying facts.
+- Execute `104-03-PLAN.md` to freeze derived structural limits, error precedence, and cross-keying qualification.
 
 ## Performance Metrics
 
-Historical execution metrics remain available in archived milestone roadmaps. v0.34 has no completed plans yet.
+Historical execution metrics remain available in archived milestone roadmaps. v0.34 has completed two plans.
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
-| 104 | 1 | 22min | 22min |
+| 104 | 2 | 47min | 24min |
 **Per-Plan Metrics:**
 
 | Plan | Duration | Tasks | Files |
 |------|----------|-------|-------|
 | Phase 104 P01 | 22min | 2 tasks | 7 files |
+| Phase 104 P02 | 25min | 3 tasks | 5 files |
