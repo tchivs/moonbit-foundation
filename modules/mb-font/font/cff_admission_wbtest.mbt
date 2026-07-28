@@ -10,8 +10,12 @@ fn cff_wb_maxp_table(num_glyphs : UInt64) -> Bytes {
 fn cff_wb_table(
   charstring_type? : UInt64 = 2UL,
   omit_type? : Bool = true,
+  top_semantics? : Bytes = b"",
 ) -> Bytes {
-  let dict_length = if omit_type { 5UL } else { 8UL }
+  let dict_length = (
+      if omit_type { 5UL } else { 8UL }
+    ) +
+    top_semantics.length().to_uint64()
   let charstrings_offset = 22UL + dict_length
   let private_offset = charstrings_offset + 6UL
   let output : Array[Byte] = [
@@ -39,6 +43,9 @@ fn cff_wb_table(
     output.push(b'\x0c')
     output.push(b'\x06')
   }
+  for byte in font_wb_bytes_array(top_semantics) {
+    output.push(byte)
+  }
   output.push((charstrings_offset + 139UL).to_byte())
   output.push(b'\x11')
   output.push(b'\x8d')
@@ -59,6 +66,34 @@ fn cff_wb_table(
   output.push(b'\x00')
   output.push(b'\x00')
   Bytes::from_array(output)
+}
+
+///|
+fn cff_wb_assert_profile_atomic_error(
+  top_semantics : Bytes,
+  category : @error.ErrorCategory,
+  context : String,
+) -> Unit raise {
+  let budget = cff_wb_budget()
+  let before = budget.remaining()
+  let result = admit_cff1_structure(
+    font_wb_view(cff_wb_otf(cff_wb_table(top_semantics~))),
+    font_wb_limits(),
+    budget,
+    0UL,
+  )
+  inspect(result is Err(_), content="true")
+  let error = result.unwrap_err()
+  inspect(error.category() == category, content="true")
+  inspect(error.context() == Some(context), content="true")
+  let after = budget.remaining()
+  inspect(after.bytes() == before.bytes(), content="true")
+  inspect(after.allocations() == before.allocations(), content="true")
+  inspect(
+    after.allocation_size() == before.allocation_size(),
+    content="true",
+  )
+  inspect(after.work() == before.work(), content="true")
 }
 
 ///|
@@ -218,6 +253,63 @@ test "CFF1 tracer rejects non-Type-2 before publication or budget charge" {
     content="true",
   )
   inspect(budget.remaining().work() == before.work(), content="true")
+}
+
+///|
+test "CFF1 PaintType and StrokeWidth profile rejects atomically before publication" {
+  for supported in [
+    b"",
+    b"\x8B\x0C\x05",
+    b"\x1E\x0F\x0C\x05",
+    b"\x8B\x0C\x08",
+    b"\x1E\x0F\x0C\x08",
+    b"\x1E\xE0\xFF\x0C\x05\x8B\x0C\x08",
+  ] {
+    let admitted = admit_cff1_structure(
+      font_wb_view(cff_wb_otf(cff_wb_table(top_semantics=supported))),
+      font_wb_limits(),
+      cff_wb_budget(),
+      0UL,
+    ).unwrap()
+    inspect(admitted.glyphs.length(), content="1")
+    inspect(admitted.glyph.gid, content="0")
+  }
+
+  for unsupported in [
+    b"\x8D\x0C\x05",
+    b"\x8A\x0C\x05",
+    b"\x1E\x2A\x0F\x0C\x05",
+    b"\x1E\x0A\x5F\x0C\x05",
+  ] {
+    cff_wb_assert_profile_atomic_error(
+      unsupported,
+      @error.ErrorCategory::Capability,
+      "font-cff-paint-type-unsupported",
+    )
+  }
+  for unsupported in [
+    b"\x8D\x0C\x08",
+    b"\x8A\x0C\x08",
+    b"\x1E\x2A\x0F\x0C\x08",
+    b"\x1E\xE0\xA5\xFF\x0C\x08",
+    b"\x8B\x0C\x05\x8D\x0C\x08",
+  ] {
+    cff_wb_assert_profile_atomic_error(
+      unsupported,
+      @error.ErrorCategory::Capability,
+      "font-cff-stroke-width-unsupported",
+    )
+  }
+  cff_wb_assert_profile_atomic_error(
+    b"\x8D\x0C\x05\x1C\x00",
+    @error.ErrorCategory::Capability,
+    "font-cff-paint-type-unsupported",
+  )
+  cff_wb_assert_profile_atomic_error(
+    b"\x8B\x8B\x0C\x08",
+    @error.ErrorCategory::Data,
+    "font-cff-top-stroke-width-arity",
+  )
 }
 
 ///|

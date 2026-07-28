@@ -208,6 +208,156 @@ test "CFF Top DICT rejects unsupported semantic operators as capabilities" {
 }
 
 ///|
+fn cff_dict_wb_assert_top_error(
+  source : Bytes,
+  category : @error.ErrorCategory,
+  context : String,
+) -> Unit raise {
+  let result = cff_decode_top_dict(font_wb_view(source))
+  inspect(result is Err(_), content="true")
+  let error = result.unwrap_err()
+  inspect(error.category() == category, content="true")
+  inspect(error.context() == Some(context), content="true")
+}
+
+///|
+test "CFF Top DICT closes PaintType and StrokeWidth profile" {
+  let required = b"\x8C\x11"
+  for supported in [
+    required,
+    b"\x8B\x0C\x05\x8C\x11",
+    b"\x1E\x0F\x0C\x05\x8C\x11",
+    b"\x1E\xE0\xFF\x0C\x05\x8C\x11",
+    b"\x8B\x0C\x08\x8C\x11",
+    b"\x1E\x0F\x0C\x08\x8C\x11",
+    b"\x1E\xE0\xFF\x0C\x08\x8C\x11",
+    b"\x8B\x0C\x05\x1E\x0F\x0C\x08\x8C\x11",
+  ] {
+    inspect(cff_decode_top_dict(font_wb_view(supported)) is Ok(_), content="true")
+  }
+
+  for unsupported in [
+    b"\x8D\x0C\x05\x8C\x11",
+    b"\x1E\x2A\x0F\x0C\x05\x8C\x11",
+    b"\x8C\x0C\x05\x8C\x11",
+    b"\x8A\x0C\x05\x8C\x11",
+    b"\x1E\x0A\x5F\x0C\x05\x8C\x11",
+    b"\x1E\xE0\xA5\xFF\x0C\x05\x8C\x11",
+  ] {
+    cff_dict_wb_assert_top_error(
+      unsupported,
+      @error.ErrorCategory::Capability,
+      "font-cff-paint-type-unsupported",
+    )
+  }
+  for unsupported in [
+    b"\x8D\x0C\x08\x8C\x11",
+    b"\x1E\x2A\x0F\x0C\x08\x8C\x11",
+    b"\x8C\x0C\x08\x8C\x11",
+    b"\x8A\x0C\x08\x8C\x11",
+    b"\x1E\x0A\x5F\x0C\x08\x8C\x11",
+    b"\x1E\xE0\xA5\xFF\x0C\x08\x8C\x11",
+    b"\x8B\x0C\x05\x8D\x0C\x08\x8C\x11",
+  ] {
+    cff_dict_wb_assert_top_error(
+      unsupported,
+      @error.ErrorCategory::Capability,
+      "font-cff-stroke-width-unsupported",
+    )
+  }
+
+  for item in [
+    (b"\x0C\x05", "font-cff-top-dict-arity"),
+    (b"\x1C\x00", "font-cff-top-dict"),
+    (b"\x8B\x0C", "font-cff-top-dict-operator"),
+    (b"\x16", "font-cff-top-dict-reserved"),
+    (b"\x1E\xAF", "font-cff-top-dict-real"),
+    (b"\x1E\x0D", "font-cff-top-dict-real-reserved"),
+    (b"\x1E\x0A\xF0", "font-cff-top-dict-real-padding"),
+    (
+      b"\x1E\x1B\x99\x99\x99\x99\x99\x99\x99\x99\x99\x99\x99\x99\x99\x99\x99\x99\x99\x9F",
+      "font-cff-top-dict-real-range",
+    ),
+    (b"\x8B", "font-cff-top-dict-truncated"),
+  ] {
+    cff_dict_wb_assert_top_error(
+      item.0,
+      @error.ErrorCategory::Data,
+      item.1,
+    )
+  }
+
+  for item in [
+    (
+      b"\x8B\x8B\x0C\x05\x8C\x11",
+      "font-cff-top-paint-type-arity",
+    ),
+    (
+      b"\x8B\x8B\x0C\x08\x8C\x11",
+      "font-cff-top-stroke-width-arity",
+    ),
+    (
+      b"\x8B\x0C\x05\x8B\x0C\x05\x8C\x11",
+      "font-cff-top-paint-type-duplicate",
+    ),
+    (
+      b"\x8B\x0C\x08\x8B\x0C\x08\x8C\x11",
+      "font-cff-top-stroke-width-duplicate",
+    ),
+  ] {
+    cff_dict_wb_assert_top_error(
+      item.0,
+      @error.ErrorCategory::Data,
+      item.1,
+    )
+  }
+
+  for malformed_suffix in [b"\x1C\x00", b"\x8B\x0C", b"\x16"] {
+    let paint : Array[Byte] = [
+      b'\x8D', b'\x0C', b'\x05',
+    ]
+    let stroke : Array[Byte] = [
+      b'\x8D', b'\x0C', b'\x08',
+    ]
+    for byte in font_wb_bytes_array(malformed_suffix) {
+      paint.push(byte)
+      stroke.push(byte)
+    }
+    cff_dict_wb_assert_top_error(
+      Bytes::from_array(paint),
+      @error.ErrorCategory::Capability,
+      "font-cff-paint-type-unsupported",
+    )
+    cff_dict_wb_assert_top_error(
+      Bytes::from_array(stroke),
+      @error.ErrorCategory::Capability,
+      "font-cff-stroke-width-unsupported",
+    )
+  }
+
+  for item in [
+    (
+      b"\x16\x8D\x0C\x05",
+      "font-cff-top-dict-reserved",
+    ),
+    (
+      b"\x1E\x0D\x8D\x0C\x08",
+      "font-cff-top-dict-real-reserved",
+    ),
+    (
+      b"\x1E\x0A\xF0\x8D\x0C\x05",
+      "font-cff-top-dict-real-padding",
+    ),
+  ] {
+    cff_dict_wb_assert_top_error(
+      item.0,
+      @error.ErrorCategory::Data,
+      item.1,
+    )
+  }
+}
+
+///|
 test "CFF typed DICT resolves retained SIDs against String INDEX domain" {
   let top = cff_decode_top_dict(
     font_wb_view(b"\x1C\x01\x87\x02\x8C\x11"),
