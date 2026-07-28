@@ -71,6 +71,24 @@ priv struct CffDictEntry {
 }
 
 ///|
+priv struct CffTopDictBuilder {
+  mut charstring_type : CffNumber
+  mut charstring_type_explicit : Bool
+  mut charstrings : CffTableOffset?
+  mut private_range : CffPrivateRange?
+  mut charset : CffTableOffset?
+  mut encoding : CffTableOffset?
+  mut ros : CffRos?
+  mut fd_array : CffTableOffset?
+  mut fd_select : CffTableOffset?
+  mut font_matrix : Array[CffNumber]
+  mut font_matrix_seen : Bool
+  mut paint_type_seen : Bool
+  mut stroke_width_seen : Bool
+  sid_operands : Array[UInt64]
+}
+
+///|
 fn cff_number_unsigned(value : UInt64) -> CffNumber {
   { negative: false, magnitude: value, denominator: 1UL }
 }
@@ -352,13 +370,14 @@ fn cff_decode_dict_number(
 }
 
 ///|
-fn cff_parse_dict(
+fn cff_parse_dict_incremental(
   source : @bytes.ByteView,
   context : String,
-) -> Result[Array[CffDictEntry], @error.CoreError] {
-  let entries : Array[CffDictEntry] = []
+  reduce : (CffDictEntry) -> Result[Unit, @error.CoreError],
+) -> Result[UInt64, @error.CoreError] {
   let mut operands : Array[CffNumber] = []
   let mut cursor = 0UL
+  let mut dict_units = 0UL
   while cursor < source.length() {
     let first = source.get(cursor).unwrap().to_uint64()
     if first == 28UL || first == 29UL || first == 30UL || first >= 32UL {
@@ -387,22 +406,67 @@ fn cff_parse_dict(
         return Err(cff_data_error(context + "-arity"))
       }
       let escaped = source.get(cursor + 1UL).unwrap().to_uint64()
-      entries.push({ operator: 0x100UL + escaped, operands })
+      let entry = { operator: 0x100UL + escaped, operands }
       operands = []
       cursor = cursor + 2UL
+      dict_units = match
+        @checked.checked_add(
+          dict_units,
+          entry.operands.length().to_uint64() + 1UL,
+        ) {
+        Err(error) => return Err(error)
+        Ok(value) => value
+      }
+      match reduce(entry) {
+        Err(error) => return Err(error)
+        Ok(_) => ()
+      }
     } else if first <= 21UL {
       if operands.length() == 0 {
         return Err(cff_data_error(context + "-arity"))
       }
-      entries.push({ operator: first, operands })
+      let entry = { operator: first, operands }
       operands = []
       cursor = cursor + 1UL
+      dict_units = match
+        @checked.checked_add(
+          dict_units,
+          entry.operands.length().to_uint64() + 1UL,
+        ) {
+        Err(error) => return Err(error)
+        Ok(value) => value
+      }
+      match reduce(entry) {
+        Err(error) => return Err(error)
+        Ok(_) => ()
+      }
     } else {
       return Err(cff_data_error(context + "-reserved"))
     }
   }
   if operands.length() != 0 {
     return Err(cff_data_error(context + "-truncated"))
+  }
+  Ok(dict_units)
+}
+
+///|
+fn cff_parse_dict(
+  source : @bytes.ByteView,
+  context : String,
+) -> Result[Array[CffDictEntry], @error.CoreError] {
+  let entries : Array[CffDictEntry] = []
+  match
+    cff_parse_dict_incremental(
+      source,
+      context,
+      fn(entry) {
+        entries.push(entry)
+        Ok(())
+      },
+    ) {
+    Err(error) => return Err(error)
+    Ok(_) => ()
   }
   Ok(entries)
 }
@@ -533,255 +597,303 @@ fn cff_dict_unit_count(
 }
 
 ///|
-fn cff_decode_top_dict(
-  source : @bytes.ByteView,
-) -> Result[CffTopDict, @error.CoreError] {
-  let entries = match cff_parse_dict(source, "font-cff-top-dict") {
-    Err(error) => return Err(error)
-    Ok(value) => value
+fn cff_top_dict_builder() -> CffTopDictBuilder {
+  {
+    charstring_type: cff_number_unsigned(2UL),
+    charstring_type_explicit: false,
+    charstrings: None,
+    private_range: None,
+    charset: None,
+    encoding: None,
+    ros: None,
+    fd_array: None,
+    fd_select: None,
+    font_matrix: cff_default_font_matrix(),
+    font_matrix_seen: false,
+    paint_type_seen: false,
+    stroke_width_seen: false,
+    sid_operands: [],
   }
-  let dict_units = match cff_dict_unit_count(entries) {
-    Err(error) => return Err(error)
-    Ok(value) => value
-  }
-  let mut charstring_type = cff_number_unsigned(2UL)
-  let mut charstring_type_explicit = false
-  let mut charstrings : CffTableOffset? = None
-  let mut private_range : CffPrivateRange? = None
-  let mut charset : CffTableOffset? = None
-  let mut encoding : CffTableOffset? = None
-  let mut ros : CffRos? = None
-  let mut fd_array : CffTableOffset? = None
-  let mut fd_select : CffTableOffset? = None
-  let mut font_matrix = cff_default_font_matrix()
-  let mut font_matrix_seen = false
-  let sid_operands : Array[UInt64] = []
-  for entry in entries {
-    match entry.operator {
-      15UL => {
-        match cff_require_arity(entry, 1UL, "font-cff-top-charset") {
-          Err(error) => return Err(error)
-          Ok(_) => ()
-        }
-        if charset is Some(_) {
-          return Err(cff_data_error("font-cff-top-charset-duplicate"))
-        }
-        let value = match
-          cff_number_nonnegative_integer(
-            entry.operands[0],
-            "font-cff-top-charset",
-          ) {
-          Err(error) => return Err(error)
-          Ok(value) => value
-        }
-        charset = Some({ value, })
+}
+
+///|
+fn cff_reduce_top_dict_entry(
+  builder : CffTopDictBuilder,
+  entry : CffDictEntry,
+) -> Result[Unit, @error.CoreError] {
+  match entry.operator {
+    15UL => {
+      match cff_require_arity(entry, 1UL, "font-cff-top-charset") {
+        Err(error) => return Err(error)
+        Ok(_) => ()
       }
-      16UL => {
-        match cff_require_arity(entry, 1UL, "font-cff-top-encoding") {
-          Err(error) => return Err(error)
-          Ok(_) => ()
-        }
-        if encoding is Some(_) {
-          return Err(cff_data_error("font-cff-top-encoding-duplicate"))
-        }
-        let value = match
-          cff_number_nonnegative_integer(
-            entry.operands[0],
-            "font-cff-top-encoding",
-          ) {
-          Err(error) => return Err(error)
-          Ok(value) => value
-        }
-        encoding = Some({ value, })
+      if builder.charset is Some(_) {
+        return Err(cff_data_error("font-cff-top-charset-duplicate"))
       }
-      17UL => {
-        match cff_require_arity(entry, 1UL, "font-cff-top-charstrings") {
-          Err(error) => return Err(error)
-          Ok(_) => ()
-        }
-        if charstrings is Some(_) {
-          return Err(cff_data_error("font-cff-top-charstrings-duplicate"))
-        }
-        let value = match
-          cff_number_nonnegative_integer(
-            entry.operands[0],
-            "font-cff-top-charstrings",
-          ) {
-          Err(error) => return Err(error)
-          Ok(value) => value
-        }
-        charstrings = Some({ value, })
+      let value = match
+        cff_number_nonnegative_integer(
+          entry.operands[0],
+          "font-cff-top-charset",
+        ) {
+        Err(error) => return Err(error)
+        Ok(value) => value
       }
-      18UL => {
-        match cff_require_arity(entry, 2UL, "font-cff-top-private") {
-          Err(error) => return Err(error)
-          Ok(_) => ()
-        }
-        if private_range is Some(_) {
-          return Err(cff_data_error("font-cff-top-private-duplicate"))
-        }
-        let size = match
-          cff_number_nonnegative_integer(
-            entry.operands[0],
-            "font-cff-top-private",
-          ) {
-          Err(error) => return Err(error)
-          Ok(value) => value
-        }
-        let offset = match
-          cff_number_nonnegative_integer(
-            entry.operands[1],
-            "font-cff-top-private",
-          ) {
-          Err(error) => return Err(error)
-          Ok(value) => value
-        }
-        private_range = Some({ size, offset: { value: offset } })
-      }
-      0x106UL => {
-        match cff_require_arity(entry, 1UL, "font-cff-charstring-type") {
-          Err(error) => return Err(error)
-          Ok(_) => ()
-        }
-        if charstring_type_explicit {
-          return Err(cff_data_error("font-cff-charstring-type-duplicate"))
-        }
-        charstring_type = entry.operands[0]
-        charstring_type_explicit = true
-      }
-      0x107UL => {
-        match cff_require_arity(entry, 6UL, "font-cff-font-matrix") {
-          Err(error) => return Err(error)
-          Ok(_) => ()
-        }
-        if font_matrix_seen {
-          return Err(cff_data_error("font-cff-font-matrix-duplicate"))
-        }
-        font_matrix = entry.operands
-        font_matrix_seen = true
-      }
-      0x11EUL => {
-        match cff_require_arity(entry, 3UL, "font-cff-top-ros") {
-          Err(error) => return Err(error)
-          Ok(_) => ()
-        }
-        if ros is Some(_) {
-          return Err(cff_data_error("font-cff-top-ros-duplicate"))
-        }
-        let registry_sid = match
-          cff_require_sid_number(entry.operands[0], "font-cff-top-ros") {
-          Err(error) => return Err(error)
-          Ok(value) => value
-        }
-        let ordering_sid = match
-          cff_require_sid_number(entry.operands[1], "font-cff-top-ros") {
-          Err(error) => return Err(error)
-          Ok(value) => value
-        }
-        let supplement = match
-          cff_number_nonnegative_integer(entry.operands[2], "font-cff-top-ros") {
-          Err(error) => return Err(error)
-          Ok(value) => value
-        }
-        ros = Some({ registry_sid, ordering_sid, supplement })
-      }
-      0x124UL => {
-        match cff_require_arity(entry, 1UL, "font-cff-top-fd-array") {
-          Err(error) => return Err(error)
-          Ok(_) => ()
-        }
-        if fd_array is Some(_) {
-          return Err(cff_data_error("font-cff-top-fd-array-duplicate"))
-        }
-        let value = match
-          cff_number_nonnegative_integer(
-            entry.operands[0],
-            "font-cff-top-fd-array",
-          ) {
-          Err(error) => return Err(error)
-          Ok(value) => value
-        }
-        fd_array = Some({ value, })
-      }
-      0x125UL => {
-        match cff_require_arity(entry, 1UL, "font-cff-top-fd-select") {
-          Err(error) => return Err(error)
-          Ok(_) => ()
-        }
-        if fd_select is Some(_) {
-          return Err(cff_data_error("font-cff-top-fd-select-duplicate"))
-        }
-        let value = match
-          cff_number_nonnegative_integer(
-            entry.operands[0],
-            "font-cff-top-fd-select",
-          ) {
-          Err(error) => return Err(error)
-          Ok(value) => value
-        }
-        fd_select = Some({ value, })
-      }
-      0UL | 1UL | 2UL | 3UL | 4UL | 0x100UL => {
-        let sid = match
-          cff_require_sid_operand(entry, "font-cff-top-sid") {
-          Err(error) => return Err(error)
-          Ok(value) => value
-        }
-        sid_operands.push(sid)
-      }
-      0x101UL =>
-        match cff_require_boolean(entry, "font-cff-top-is-fixed-pitch") {
-          Err(error) => return Err(error)
-          Ok(_) => ()
-        }
-      0x114UL | 0x115UL | 0x116UL | 0x117UL =>
-        return Err(cff_capability_error("font-cff-top-operator-unsupported"))
-      13UL
-      | 0x102UL
-      | 0x103UL
-      | 0x104UL
-      | 0x105UL
-      | 0x108UL
-      | 0x11FUL
-      | 0x120UL
-      | 0x121UL
-      | 0x122UL
-      | 0x123UL
-      =>
-        match cff_require_arity(entry, 1UL, "font-cff-top-operator") {
-          Err(error) => return Err(error)
-          Ok(_) => ()
-        }
-      5UL =>
-        match cff_require_arity(entry, 4UL, "font-cff-top-font-bbox") {
-          Err(error) => return Err(error)
-          Ok(_) => ()
-        }
-      14UL =>
-        if entry.operands.length() == 0 {
-          return Err(cff_data_error("font-cff-top-operator-arity"))
-        }
-      _ => return Err(cff_data_error("font-cff-top-operator"))
+      builder.charset = Some({ value, })
     }
+    16UL => {
+      match cff_require_arity(entry, 1UL, "font-cff-top-encoding") {
+        Err(error) => return Err(error)
+        Ok(_) => ()
+      }
+      if builder.encoding is Some(_) {
+        return Err(cff_data_error("font-cff-top-encoding-duplicate"))
+      }
+      let value = match
+        cff_number_nonnegative_integer(
+          entry.operands[0],
+          "font-cff-top-encoding",
+        ) {
+        Err(error) => return Err(error)
+        Ok(value) => value
+      }
+      builder.encoding = Some({ value, })
+    }
+    17UL => {
+      match cff_require_arity(entry, 1UL, "font-cff-top-charstrings") {
+        Err(error) => return Err(error)
+        Ok(_) => ()
+      }
+      if builder.charstrings is Some(_) {
+        return Err(cff_data_error("font-cff-top-charstrings-duplicate"))
+      }
+      let value = match
+        cff_number_nonnegative_integer(
+          entry.operands[0],
+          "font-cff-top-charstrings",
+        ) {
+        Err(error) => return Err(error)
+        Ok(value) => value
+      }
+      builder.charstrings = Some({ value, })
+    }
+    18UL => {
+      match cff_require_arity(entry, 2UL, "font-cff-top-private") {
+        Err(error) => return Err(error)
+        Ok(_) => ()
+      }
+      if builder.private_range is Some(_) {
+        return Err(cff_data_error("font-cff-top-private-duplicate"))
+      }
+      let size = match
+        cff_number_nonnegative_integer(
+          entry.operands[0],
+          "font-cff-top-private",
+        ) {
+        Err(error) => return Err(error)
+        Ok(value) => value
+      }
+      let offset = match
+        cff_number_nonnegative_integer(
+          entry.operands[1],
+          "font-cff-top-private",
+        ) {
+        Err(error) => return Err(error)
+        Ok(value) => value
+      }
+      builder.private_range = Some({ size, offset: { value: offset } })
+    }
+    0x105UL => {
+      match cff_require_arity(entry, 1UL, "font-cff-top-paint-type") {
+        Err(error) => return Err(error)
+        Ok(_) => ()
+      }
+      if builder.paint_type_seen {
+        return Err(cff_data_error("font-cff-top-paint-type-duplicate"))
+      }
+      builder.paint_type_seen = true
+      if entry.operands[0].magnitude != 0UL {
+        return Err(cff_capability_error("font-cff-paint-type-unsupported"))
+      }
+    }
+    0x106UL => {
+      match cff_require_arity(entry, 1UL, "font-cff-charstring-type") {
+        Err(error) => return Err(error)
+        Ok(_) => ()
+      }
+      if builder.charstring_type_explicit {
+        return Err(cff_data_error("font-cff-charstring-type-duplicate"))
+      }
+      builder.charstring_type = entry.operands[0]
+      builder.charstring_type_explicit = true
+    }
+    0x107UL => {
+      match cff_require_arity(entry, 6UL, "font-cff-font-matrix") {
+        Err(error) => return Err(error)
+        Ok(_) => ()
+      }
+      if builder.font_matrix_seen {
+        return Err(cff_data_error("font-cff-font-matrix-duplicate"))
+      }
+      builder.font_matrix = entry.operands
+      builder.font_matrix_seen = true
+    }
+    0x108UL => {
+      match cff_require_arity(entry, 1UL, "font-cff-top-stroke-width") {
+        Err(error) => return Err(error)
+        Ok(_) => ()
+      }
+      if builder.stroke_width_seen {
+        return Err(cff_data_error("font-cff-top-stroke-width-duplicate"))
+      }
+      builder.stroke_width_seen = true
+      if entry.operands[0].magnitude != 0UL {
+        return Err(cff_capability_error("font-cff-stroke-width-unsupported"))
+      }
+    }
+    0x11EUL => {
+      match cff_require_arity(entry, 3UL, "font-cff-top-ros") {
+        Err(error) => return Err(error)
+        Ok(_) => ()
+      }
+      if builder.ros is Some(_) {
+        return Err(cff_data_error("font-cff-top-ros-duplicate"))
+      }
+      let registry_sid = match
+        cff_require_sid_number(entry.operands[0], "font-cff-top-ros") {
+        Err(error) => return Err(error)
+        Ok(value) => value
+      }
+      let ordering_sid = match
+        cff_require_sid_number(entry.operands[1], "font-cff-top-ros") {
+        Err(error) => return Err(error)
+        Ok(value) => value
+      }
+      let supplement = match
+        cff_number_nonnegative_integer(entry.operands[2], "font-cff-top-ros") {
+        Err(error) => return Err(error)
+        Ok(value) => value
+      }
+      builder.ros = Some({ registry_sid, ordering_sid, supplement })
+    }
+    0x124UL => {
+      match cff_require_arity(entry, 1UL, "font-cff-top-fd-array") {
+        Err(error) => return Err(error)
+        Ok(_) => ()
+      }
+      if builder.fd_array is Some(_) {
+        return Err(cff_data_error("font-cff-top-fd-array-duplicate"))
+      }
+      let value = match
+        cff_number_nonnegative_integer(
+          entry.operands[0],
+          "font-cff-top-fd-array",
+        ) {
+        Err(error) => return Err(error)
+        Ok(value) => value
+      }
+      builder.fd_array = Some({ value, })
+    }
+    0x125UL => {
+      match cff_require_arity(entry, 1UL, "font-cff-top-fd-select") {
+        Err(error) => return Err(error)
+        Ok(_) => ()
+      }
+      if builder.fd_select is Some(_) {
+        return Err(cff_data_error("font-cff-top-fd-select-duplicate"))
+      }
+      let value = match
+        cff_number_nonnegative_integer(
+          entry.operands[0],
+          "font-cff-top-fd-select",
+        ) {
+        Err(error) => return Err(error)
+        Ok(value) => value
+      }
+      builder.fd_select = Some({ value, })
+    }
+    0UL | 1UL | 2UL | 3UL | 4UL | 0x100UL => {
+      let sid = match
+        cff_require_sid_operand(entry, "font-cff-top-sid") {
+        Err(error) => return Err(error)
+        Ok(value) => value
+      }
+      builder.sid_operands.push(sid)
+    }
+    0x101UL =>
+      match cff_require_boolean(entry, "font-cff-top-is-fixed-pitch") {
+        Err(error) => return Err(error)
+        Ok(_) => ()
+      }
+    0x114UL | 0x115UL | 0x116UL | 0x117UL =>
+      return Err(cff_capability_error("font-cff-top-operator-unsupported"))
+    13UL
+    | 0x102UL
+    | 0x103UL
+    | 0x104UL
+    | 0x11FUL
+    | 0x120UL
+    | 0x121UL
+    | 0x122UL
+    | 0x123UL
+    =>
+      match cff_require_arity(entry, 1UL, "font-cff-top-operator") {
+        Err(error) => return Err(error)
+        Ok(_) => ()
+      }
+    5UL =>
+      match cff_require_arity(entry, 4UL, "font-cff-top-font-bbox") {
+        Err(error) => return Err(error)
+        Ok(_) => ()
+      }
+    14UL =>
+      if entry.operands.length() == 0 {
+        return Err(cff_data_error("font-cff-top-operator-arity"))
+      }
+    _ => return Err(cff_data_error("font-cff-top-operator"))
   }
-  let charstrings_value = match charstrings {
+  Ok(())
+}
+
+///|
+fn cff_finish_top_dict(
+  builder : CffTopDictBuilder,
+  dict_units : UInt64,
+) -> Result[CffTopDict, @error.CoreError] {
+  let charstrings = match builder.charstrings {
     None => return Err(cff_data_error("font-cff-top-charstrings-required"))
     Some(value) => value
   }
   Ok({
-    charstring_type,
-    charstring_type_explicit,
-    charstrings: charstrings_value,
-    private_range,
-    charset,
-    encoding,
-    ros,
-    fd_array,
-    fd_select,
-    font_matrix,
-    sid_operands,
+    charstring_type: builder.charstring_type,
+    charstring_type_explicit: builder.charstring_type_explicit,
+    charstrings,
+    private_range: builder.private_range,
+    charset: builder.charset,
+    encoding: builder.encoding,
+    ros: builder.ros,
+    fd_array: builder.fd_array,
+    fd_select: builder.fd_select,
+    font_matrix: builder.font_matrix,
+    sid_operands: builder.sid_operands,
     dict_units,
   })
+}
+
+///|
+fn cff_decode_top_dict(
+  source : @bytes.ByteView,
+) -> Result[CffTopDict, @error.CoreError] {
+  let builder = cff_top_dict_builder()
+  let dict_units = match
+    cff_parse_dict_incremental(
+      source,
+      "font-cff-top-dict",
+      fn(entry) { cff_reduce_top_dict_entry(builder, entry) },
+    ) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  cff_finish_top_dict(builder, dict_units)
 }
 
 ///|
