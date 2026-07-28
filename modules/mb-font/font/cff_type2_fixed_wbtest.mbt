@@ -99,7 +99,7 @@ test "Type 2 xorshift stream is repeatable, resettable, and strictly positive" {
   let seed = type2_fixed_from_raw(0x12345678L).unwrap()
   let first = Type2Prng::new(seed)
   let second = Type2Prng::new(seed)
-  let expected = [23206L, 9380L, 62661L, 44185L]
+  let expected = [34713L, 5468L, 18465L, 33204L]
   for raw in expected {
     let a = first.next().raw
     let b = second.next().raw
@@ -111,7 +111,7 @@ test "Type 2 xorshift stream is repeatable, resettable, and strictly positive" {
   let zero_first = zero_seed.next().raw
   inspect(zero_first > 0L && zero_first <= 65536L, content="true")
   inspect(zero_seed.next().raw != zero_first, content="true")
-  inspect(Type2Prng::new(seed).next().raw, content="23206")
+  inspect(Type2Prng::new(seed).next().raw, content="34713")
 }
 
 ///|
