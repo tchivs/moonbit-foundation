@@ -82,7 +82,7 @@ Phase 103 closes v0.33 by turning the already implemented collection-to-`Font` b
 - `docs/policies/licensing-and-fixtures.md` — mandatory source, digest, license, redistribution, and expected-use metadata.
 - `fixtures/manifest.json` — authoritative fixture inventory and confirmed redistribution records.
 - `fixtures/font/dejavu-sans-2.37/LICENSE` — upstream reproduction, distribution, and modification terms.
-- `fixtures/font/dejavu-sans-2.37/NOTICE` — upstream notice retained with the derivative.
+- `fixtures/font/dejavu-sans-2.37/LICENSE` — exact upstream license/notice retained for both the source font and derivative; do not duplicate it as a new `NOTICE`.
 - `fixtures/font/dejavu-sans-2.37/oracle.json` — independently produced standalone semantic facts reused by selected-face qualification.
 
 ### Public module documentation
