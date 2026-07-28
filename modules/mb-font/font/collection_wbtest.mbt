@@ -1254,12 +1254,16 @@ test "selected collection CFF1 facts use one bounded atomic shared-table transac
   inspect(admitted.glyphs[2].gid, content="2")
   inspect(admitted.charge.work, content="526")
   inspect(admitted.charge.retained_bytes > 0UL, content="true")
+  inspect(admitted.combined_charge.bytes, content="591")
+  inspect(admitted.combined_charge.allocations, content="24")
+  inspect(admitted.combined_charge.allocation_size, content="8192")
+  inspect(admitted.combined_charge.work, content="529")
 
   let exact_budget = font_collection_wb_cff_budget(
-    admitted.combined_charge.bytes,
-    admitted.combined_charge.allocations,
-    admitted.combined_charge.allocation_size,
-    admitted.combined_charge.work,
+    591UL,
+    24UL,
+    8192UL,
+    529UL,
   )
   admit_cff1_collection_structure(
     owner.view(),
@@ -1277,24 +1281,24 @@ test "selected collection CFF1 facts use one bounded atomic shared-table transac
   for short_dimension in [0, 1, 2, 3] {
     let short_budget = font_collection_wb_cff_budget(
       if short_dimension == 0 {
-        admitted.combined_charge.bytes - 1UL
+        590UL
       } else {
-        admitted.combined_charge.bytes
+        591UL
       },
       if short_dimension == 1 {
-        admitted.combined_charge.allocations - 1UL
+        23UL
       } else {
-        admitted.combined_charge.allocations
+        24UL
       },
       if short_dimension == 2 {
-        admitted.combined_charge.allocation_size - 1UL
+        8191UL
       } else {
-        admitted.combined_charge.allocation_size
+        8192UL
       },
       if short_dimension == 3 {
-        admitted.combined_charge.work - 1UL
+        528UL
       } else {
-        admitted.combined_charge.work
+        529UL
       },
     )
     let before = short_budget.remaining()
@@ -1311,10 +1315,10 @@ test "selected collection CFF1 facts use one bounded atomic shared-table transac
   }
 
   let mutation_budget = font_collection_wb_cff_budget(
-    admitted.combined_charge.bytes,
-    admitted.combined_charge.allocations,
-    admitted.combined_charge.allocation_size,
-    admitted.combined_charge.work,
+    591UL,
+    24UL,
+    8192UL,
+    529UL,
   )
   let mutation_before = mutation_budget.remaining()
   let mutation_error = admit_cff1_collection_structure_after_preflight(
@@ -1457,15 +1461,19 @@ test "Phase 106 preserves selected CFF admission outline and mutation authority"
     Ok(value) => value
     Err(_) => fail("shared CFF collection admission must succeed")
   }
+  inspect(direct.combined_charge.bytes, content="602")
+  inspect(direct.combined_charge.allocations, content="25")
+  inspect(direct.combined_charge.allocation_size, content="8192")
+  inspect(direct.combined_charge.work, content="569")
   let exact_limits = @budget.ResourceLimits::new(
-    bytes=direct.combined_charge.bytes,
-    allocations=direct.combined_charge.allocations,
-    allocation_size=direct.combined_charge.allocation_size,
+    bytes=602UL,
+    allocations=25UL,
+    allocation_size=8192UL,
     width=0UL,
     height=0UL,
     pixels=0UL,
     depth=0UL,
-    work=direct.combined_charge.work,
+    work=569UL,
   )
   let exact = @budget.Budget::new(exact_limits)
   let selected = match collection.open_face(1UL, font_wb_limits(), exact) {
@@ -1478,44 +1486,44 @@ test "Phase 106 preserves selected CFF admission outline and mutation authority"
 
   let admission_short = [
     @budget.ResourceLimits::new(
-      bytes=direct.combined_charge.bytes - 1UL,
-      allocations=direct.combined_charge.allocations,
-      allocation_size=direct.combined_charge.allocation_size,
+      bytes=601UL,
+      allocations=25UL,
+      allocation_size=8192UL,
       width=0UL,
       height=0UL,
       pixels=0UL,
       depth=0UL,
-      work=direct.combined_charge.work,
+      work=569UL,
     ),
     @budget.ResourceLimits::new(
-      bytes=direct.combined_charge.bytes,
-      allocations=direct.combined_charge.allocations - 1UL,
-      allocation_size=direct.combined_charge.allocation_size,
+      bytes=602UL,
+      allocations=24UL,
+      allocation_size=8192UL,
       width=0UL,
       height=0UL,
       pixels=0UL,
       depth=0UL,
-      work=direct.combined_charge.work,
+      work=569UL,
     ),
     @budget.ResourceLimits::new(
-      bytes=direct.combined_charge.bytes,
-      allocations=direct.combined_charge.allocations,
-      allocation_size=direct.combined_charge.allocation_size - 1UL,
+      bytes=602UL,
+      allocations=25UL,
+      allocation_size=8191UL,
       width=0UL,
       height=0UL,
       pixels=0UL,
       depth=0UL,
-      work=direct.combined_charge.work,
+      work=569UL,
     ),
     @budget.ResourceLimits::new(
-      bytes=direct.combined_charge.bytes,
-      allocations=direct.combined_charge.allocations,
-      allocation_size=direct.combined_charge.allocation_size,
+      bytes=602UL,
+      allocations=25UL,
+      allocation_size=8192UL,
       width=0UL,
       height=0UL,
       pixels=0UL,
       depth=0UL,
-      work=direct.combined_charge.work - 1UL,
+      work=568UL,
     ),
   ]
   for limits in admission_short {
@@ -1545,7 +1553,7 @@ test "Phase 106 preserves selected CFF admission outline and mutation authority"
     font_collection_wb_assert_budget_unchanged(child_before, child)
   }
   let glyph = selected.glyph_id(1UL).unwrap()
-  let path_charge = font_wb_cff_path_charge(selected, glyph)
+  let path_charge = font_wb_cff_cubic_path_charge()
   let path_limits = font_collection_wb_cff_path_limits(path_charge)
   let path_exact = @budget.Budget::new(path_limits)
   match selected.outline(glyph, path_exact) {

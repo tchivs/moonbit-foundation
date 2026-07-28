@@ -247,7 +247,7 @@ test "CFF outline exact path charge covers caller and ancestor dimensions" {
   let cubic = b"\xef\x95\x9f\x15\xa9\x8b\xb3\x95\xbd\x81\x08\x0e"
   let (_owner, font) = cff_path_wb_owner_and_font([b"\x0e", cubic, b"\x0e"])
   let glyph = font.glyph_id(1UL).unwrap()
-  let charge = font_wb_cff_path_charge(font, glyph)
+  let charge = font_wb_cff_cubic_path_charge()
   let exact_limits = cff_path_wb_exact_limits(charge)
 
   let caller = @budget.Budget::new(exact_limits)
@@ -291,7 +291,7 @@ test "CFF outline exact path charge rejects each one-short window atomically" {
   let cubic = b"\xef\x95\x9f\x15\xa9\x8b\xb3\x95\xbd\x81\x08\x0e"
   let (_owner, font) = cff_path_wb_owner_and_font([b"\x0e", cubic, b"\x0e"])
   let glyph = font.glyph_id(1UL).unwrap()
-  let charge = font_wb_cff_path_charge(font, glyph)
+  let charge = font_wb_cff_cubic_path_charge()
   let short_limits = [
     (
       "bytes",
@@ -359,7 +359,7 @@ test "CFF outline exact path charge rejects overflow and count mismatch atomical
   let cubic = b"\xef\x95\x9f\x15\xa9\x8b\xb3\x95\xbd\x81\x08\x0e"
   let (_owner, font) = cff_path_wb_owner_and_font([b"\x0e", cubic, b"\x0e"])
   let glyph = font.glyph_id(1UL).unwrap()
-  let charge = font_wb_cff_path_charge(font, glyph)
+  let charge = font_wb_cff_cubic_path_charge()
   let admitted = cff_path_wb_admitted(font)
   admitted.path_command_counts[1] = charge.command_capacity + 1UL
   let budget = @budget.Budget::new(

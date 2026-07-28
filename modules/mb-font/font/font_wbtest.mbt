@@ -1151,29 +1151,23 @@ fn font_wb_shared_cff_face_local_hmtx_ttc() -> Bytes {
 }
 
 ///|
-fn font_wb_cff_path_charge(
-  font : Font,
-  glyph : GlyphId,
-) -> CffPathCharge {
-  let admitted = match font.outline_source {
-    FontOutlineSource::Cff1(value) => value
-    FontOutlineSource::Glyf(_) => abort("expected CFF outline source")
+fn font_wb_cff_cubic_path_charge() -> CffPathCharge {
+  {
+    resource: @budget.ResourceCharge::new(
+      bytes=192UL,
+      allocations=5UL,
+      allocation_size=384UL,
+      width=0UL,
+      height=0UL,
+      pixels=0UL,
+      work=19UL,
+    ),
+    bytes: 192UL,
+    allocations: 5UL,
+    allocation_size: 384UL,
+    work: 19UL,
+    command_capacity: 3UL,
   }
-  let vm_limits = type2_limits(font.limits).unwrap()
-  let index = glyph.value().to_int()
-  let command_capacity = admitted.path_command_counts[index]
-  let executed = type2_execute_glyph_with_path_capacity(
-    admitted.glyphs[index],
-    admitted.global_subrs,
-    admitted.metrics.units_per_em,
-    vm_limits,
-    admitted.opening_revision,
-    Some(command_capacity.to_int()),
-  ).unwrap()
-  let work = executed.ledger.work +
-    executed.geometry.points +
-    executed.geometry.path_commands
-  cff_path_charge(vm_limits, command_capacity, work).unwrap()
 }
 
 ///|
@@ -1245,7 +1239,7 @@ test "CFF outline exact path charge tracer rejects post-stage mutation atomicall
     cff_wb_budget(),
   ).unwrap()
   let glyph = font.glyph_id(1UL).unwrap()
-  let charge = font_wb_cff_path_charge(font, glyph)
+  let charge = font_wb_cff_cubic_path_charge()
   inspect(charge.command_capacity, content="3")
   inspect(charge.allocation_size, content="384")
 
@@ -1345,7 +1339,7 @@ test "CFF outline atomic mutation probes preserve every budget window" {
     b"\x0e",
   ])
   let before_glyph = before_font.glyph_id(1UL).unwrap()
-  let before_charge = font_wb_cff_path_charge(before_font, before_glyph)
+  let before_charge = font_wb_cff_cubic_path_charge()
   let before_parent = @budget.Budget::new(
     cff_path_wb_exact_limits(before_charge),
   )
@@ -1391,7 +1385,7 @@ test "CFF outline atomic mutation probes preserve every budget window" {
     b"\x0e",
   ])
   let after_glyph = after_font.glyph_id(1UL).unwrap()
-  let after_charge = font_wb_cff_path_charge(after_font, after_glyph)
+  let after_charge = font_wb_cff_cubic_path_charge()
   let after_parent = @budget.Budget::new(
     cff_path_wb_exact_limits(after_charge),
   )
@@ -1432,7 +1426,7 @@ test "CFF outline atomic multi-fault precedence is State Resource Capability Dat
   let cubic = b"\xef\x95\x9f\x15\xa9\x8b\xb3\x95\xbd\x81\x08\x0e"
   let (owner, font) = cff_path_wb_owner_and_font([b"\x0e", cubic, b"\x0e"])
   let glyph = font.glyph_id(1UL).unwrap()
-  let charge = font_wb_cff_path_charge(font, glyph)
+  let charge = font_wb_cff_cubic_path_charge()
   let admitted = cff_path_wb_admitted(font)
   let (capability_descriptors, _capability_subrs, _capability_authority) =
     type2_fixture_descriptors([b"\x8b\x8b\x8b\x8b\x0e"], [0L])
@@ -1473,7 +1467,7 @@ test "CFF outline atomic multi-fault precedence is State Resource Capability Dat
     b"\x0e",
   ])
   let resource_glyph = resource_font.glyph_id(1UL).unwrap()
-  let resource_charge = font_wb_cff_path_charge(resource_font, resource_glyph)
+  let resource_charge = font_wb_cff_cubic_path_charge()
   let resource_admitted = cff_path_wb_admitted(resource_font)
   resource_admitted.glyphs[1] = capability_descriptors[0]
   let resource_budget = @budget.Budget::new(
@@ -1527,7 +1521,7 @@ test "CFF outline atomic multi-fault precedence is State Resource Capability Dat
     b"\x0e",
   ])
   let data_glyph = data_font.glyph_id(1UL).unwrap()
-  let data_charge = font_wb_cff_path_charge(data_font, data_glyph)
+  let data_charge = font_wb_cff_cubic_path_charge()
   let data_admitted = cff_path_wb_admitted(data_font)
   let (data_descriptors, _data_subrs, _data_authority) =
     type2_fixture_descriptors([b"\x00"], [0L])

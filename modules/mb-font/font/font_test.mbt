@@ -1965,16 +1965,14 @@ test "generated standalone TrueType opens and returns exact units per em" {
 ///|
 test "Phase 106 preserves the public standalone static glyf fingerprint" {
   let owner = font_test_owner(font_test_minimal_truetype())
-  let budget = font_test_budget()
+  let budget = font_test_budget_with_dimensions(
+    460UL,
+    allocations=3UL,
+    allocation_size=640UL,
+    1296UL,
+  )
   let before = budget.remaining()
   let font = Font::open(owner.view(), font_test_limits(), budget).unwrap()
-  let repeated_budget = font_test_budget()
-  let repeated_before = repeated_budget.remaining()
-  let repeated = Font::open(
-    font_test_owner(font_test_minimal_truetype()).view(),
-    font_test_limits(),
-    repeated_budget,
-  ).unwrap()
   let glyph = font.glyph_id(0UL).unwrap()
   inspect(font.units_per_em().unwrap(), content="1000")
   inspect(font.global_bounds().unwrap().x_min(), content="0")
@@ -1985,62 +1983,49 @@ test "Phase 106 preserves the public standalone static glyf fingerprint" {
   inspect(metrics.advance_width(), content="500")
   inspect(metrics.left_side_bearing(), content="0")
   inspect(font.kerning(glyph, glyph).unwrap(), content="0")
-  let outline_budget = font_test_outline_budget()
+  let outline_budget = font_test_budget_with_dimensions(
+    0UL,
+    allocations=1UL,
+    allocation_size=0UL,
+    0UL,
+  )
   let outline_before = outline_budget.remaining()
   let outline = font.outline(glyph, outline_budget).unwrap()
-  let repeated_outline_budget = font_test_outline_budget()
-  let repeated_outline_before = repeated_outline_budget.remaining()
-  let repeated_outline = repeated
-    .outline(repeated.glyph_id(0UL).unwrap(), repeated_outline_budget)
-    .unwrap()
   inspect(outline.length(), content="0")
-  inspect(repeated_outline.length(), content="0")
   let after = budget.remaining()
-  let repeated_after = repeated_budget.remaining()
-  inspect(after.bytes() < before.bytes(), content="true")
-  inspect(after.allocations() < before.allocations(), content="true")
-  inspect(after.work() < before.work(), content="true")
+  inspect(before.bytes() - after.bytes(), content="460")
+  inspect(before.allocations() - after.allocations(), content="3")
+  inspect(after.allocation_size(), content="640")
+  inspect(before.work() - after.work(), content="1296")
   inspect(
-    before.bytes() - after.bytes() ==
-    repeated_before.bytes() - repeated_after.bytes(),
+    outline_before.bytes() - outline_budget.remaining().bytes(),
+    content="0",
+  )
+  inspect(
+    outline_before.allocations() - outline_budget.remaining().allocations(),
+    content="1",
+  )
+  inspect(outline_budget.remaining().allocation_size(), content="0")
+  inspect(
+    outline_before.work() - outline_budget.remaining().work(),
+    content="0",
+  )
+  let short_allocation = Font::open(
+    font_test_owner(font_test_minimal_truetype()).view(),
+    font_test_limits(),
+    font_test_budget_with_dimensions(
+      460UL,
+      allocations=3UL,
+      allocation_size=639UL,
+      1296UL,
+    ),
+  ).unwrap_err()
+  inspect(
+    short_allocation.category() == @error.ErrorCategory::Resource,
     content="true",
   )
   inspect(
-    before.allocations() - after.allocations() ==
-    repeated_before.allocations() - repeated_after.allocations(),
-    content="true",
-  )
-  inspect(
-    after.allocation_size() == repeated_after.allocation_size(),
-    content="true",
-  )
-  inspect(
-    before.work() - after.work() ==
-    repeated_before.work() - repeated_after.work(),
-    content="true",
-  )
-  inspect(
-    outline_before.bytes() - outline_budget.remaining().bytes() ==
-    repeated_outline_before.bytes() -
-    repeated_outline_budget.remaining().bytes(),
-    content="true",
-  )
-  inspect(
-    outline_before.allocations() -
-    outline_budget.remaining().allocations() ==
-    repeated_outline_before.allocations() -
-    repeated_outline_budget.remaining().allocations(),
-    content="true",
-  )
-  inspect(
-    outline_budget.remaining().allocation_size() ==
-    repeated_outline_budget.remaining().allocation_size(),
-    content="true",
-  )
-  inspect(
-    outline_before.work() - outline_budget.remaining().work() ==
-    repeated_outline_before.work() -
-    repeated_outline_budget.remaining().work(),
+    short_allocation.context() == Some("allocation_size"),
     content="true",
   )
   let gid_error = font.glyph_id(1UL).unwrap_err()
