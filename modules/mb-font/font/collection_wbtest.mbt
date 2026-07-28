@@ -1145,3 +1145,181 @@ test "collection qualification preserves mid-operation mutation atomicity" {
   inspect(select_error.limit() is None, content="true")
   font_collection_wb_assert_budget_unchanged(select_before, select_budget)
 }
+
+///|
+/// Two non-zero collection directories share the same root-relative CFF,
+/// head, and maxp table ranges. The copied standalone directory at `payload`
+/// is deliberately unreachable; it keeps the generated table bytes and
+/// checksums intact while both selected faces exercise root-relative records.
+fn font_collection_wb_shared_cff_ttc() -> Bytes {
+  let standalone = cff_wb_otf(
+    cff_name_wb_table(),
+    num_glyphs=3UL,
+  )
+  let table_count = 3
+  let directory_bytes = 12 + table_count * 16
+  let first_directory = 32
+  let second_directory = first_directory + directory_bytes
+  let payload = second_directory + directory_bytes
+  let output : Array[Byte] = []
+  let mut index = 0
+  while index < payload + standalone.length() {
+    output.push(b'\x00')
+    index = index + 1
+  }
+  font_collection_wb_put_u32(output, 0, 0x74746366UL)
+  font_collection_wb_put_u32(output, 4, 0x00010000UL)
+  font_collection_wb_put_u32(output, 8, 2UL)
+  font_collection_wb_put_u32(output, 12, first_directory.to_uint64())
+  font_collection_wb_put_u32(output, 16, second_directory.to_uint64())
+  let standalone_bytes = font_wb_bytes_array(standalone)
+  index = 0
+  while index < standalone.length() {
+    output[payload + index] = standalone_bytes[index]
+    index = index + 1
+  }
+  for directory in [first_directory, second_directory] {
+    index = 0
+    while index < directory_bytes {
+      output[directory + index] = standalone_bytes[index]
+      index = index + 1
+    }
+    index = 0
+    while index < table_count {
+      let record = 12 + index * 16
+      let old_offset = font_collection_wb_read_u32(standalone, record + 8)
+      font_collection_wb_put_u32(
+        output,
+        directory + record + 8,
+        payload.to_uint64() + old_offset,
+      )
+      index = index + 1
+    }
+  }
+  Bytes::from_array(output)
+}
+
+///|
+fn font_collection_wb_cff_budget(
+  bytes : UInt64,
+  allocations : UInt64,
+  allocation_size : UInt64,
+  work : UInt64,
+) -> @budget.Budget {
+  @budget.Budget::new(
+    @budget.ResourceLimits::new(
+      bytes~,
+      allocations~,
+      allocation_size~,
+      width=0UL,
+      height=0UL,
+      pixels=0UL,
+      depth=0UL,
+      work~,
+    ),
+  )
+}
+
+///|
+test "selected collection CFF1 facts use one bounded atomic shared-table transaction" {
+  let source = font_collection_wb_shared_cff_ttc()
+  let owner = font_collection_wb_owner(source)
+  let admitted = admit_cff1_collection_structure(
+    owner.view(),
+    92UL,
+    3UL,
+    font_wb_limits(),
+    cff_wb_budget(),
+    2UL,
+  ).unwrap()
+  inspect(admitted.directory_start, content="92")
+  inspect(admitted.cff_table_offset > admitted.directory_start, content="true")
+  inspect(admitted.glyphs.length(), content="3")
+  inspect(admitted.glyph.gid, content="2")
+  inspect(admitted.charge.work > 0UL, content="true")
+  inspect(admitted.charge.retained_bytes > 0UL, content="true")
+
+  let exact_budget = font_collection_wb_cff_budget(
+    admitted.charge.bytes,
+    admitted.charge.allocations,
+    admitted.charge.allocation_size,
+    admitted.charge.work,
+  )
+  admit_cff1_collection_structure(
+    owner.view(),
+    92UL,
+    3UL,
+    font_wb_limits(),
+    exact_budget,
+    2UL,
+  ) |> ignore
+  let exact_after = exact_budget.remaining()
+  inspect(exact_after.bytes(), content="0")
+  inspect(exact_after.allocations(), content="0")
+  inspect(exact_after.work(), content="0")
+
+  for short_dimension in [0, 1, 2, 3] {
+    let short_budget = font_collection_wb_cff_budget(
+      if short_dimension == 0 {
+        admitted.charge.bytes - 1UL
+      } else {
+        admitted.charge.bytes
+      },
+      if short_dimension == 1 {
+        admitted.charge.allocations - 1UL
+      } else {
+        admitted.charge.allocations
+      },
+      if short_dimension == 2 {
+        admitted.charge.allocation_size - 1UL
+      } else {
+        admitted.charge.allocation_size
+      },
+      if short_dimension == 3 {
+        admitted.charge.work - 1UL
+      } else {
+        admitted.charge.work
+      },
+    )
+    let before = short_budget.remaining()
+    let error = admit_cff1_collection_structure(
+      owner.view(),
+      92UL,
+      3UL,
+      font_wb_limits(),
+      short_budget,
+      2UL,
+    ).unwrap_err()
+    inspect(error.category() == @error.ErrorCategory::Resource, content="true")
+    font_collection_wb_assert_budget_unchanged(before, short_budget)
+  }
+
+  let mutation_budget = font_collection_wb_cff_budget(
+    admitted.charge.bytes,
+    admitted.charge.allocations,
+    admitted.charge.allocation_size,
+    admitted.charge.work,
+  )
+  let mutation_before = mutation_budget.remaining()
+  let mutation_error = admit_cff1_collection_structure_after_preflight(
+    owner.view(),
+    92UL,
+    3UL,
+    font_wb_limits(),
+    mutation_budget,
+    2UL,
+    fn() { font_collection_wb_mutate_restore(owner, admitted.cff_table_offset) },
+  ).unwrap_err()
+  inspect(
+    mutation_error.category() == @error.ErrorCategory::State,
+    content="true",
+  )
+  inspect(
+    mutation_error.context() == Some("font-cff-source-revision-drift"),
+    content="true",
+  )
+  font_collection_wb_assert_budget_unchanged(
+    mutation_before,
+    mutation_budget,
+  )
+}
