@@ -1,6 +1,6 @@
 ---
 phase: 104-cff1-profile-and-bounded-data-model
-reviewed: 2026-07-28T11:21:32Z
+reviewed: 2026-07-28T12:29:47Z
 depth: standard
 files_reviewed: 19
 files_reviewed_list:
@@ -24,196 +24,154 @@ files_reviewed_list:
   - modules/mb-font/font/limits.mbt
   - modules/mb-font/font/tables.mbt
 findings:
-  critical: 7
+  critical: 2
   warning: 2
   info: 0
-  total: 9
+  total: 4
 status: issues_found
 ---
 
 # Phase 104: Code Review Report
 
-**Reviewed:** 2026-07-28T11:21:32Z
+**Reviewed:** 2026-07-28T12:29:47Z
 **Depth:** standard
 **Files Reviewed:** 19
 **Status:** issues_found
 
 ## Summary
 
-The CFF1 parser, keying model, admission transaction, integration changes, and
-their tests were reviewed at standard depth. The native font-package suite
-passes (`181/181`), but the implementation still admits malformed CFF data,
-rejects valid custom encodings, and performs attacker-driven parsing and
-allocation before caller work/allocation authority is established. The passing
-resource tests are partly circular and therefore do not detect the accounting
-errors below.
+The exact original 19-file scope was reviewed after the iteration-2 fixes.
+The package suite passes (`191/191`) and `moon check --target all` passes.
+StemSnap arity, the exclusive SID/String INDEX bound, unsupported Top DICT
+operators, concrete predefined/custom allocation maxima, Encoding supplement
+capacity, named structural counters, and the existing public glyf path are
+implemented without a new functional regression in the reviewed scope.
+
+The result is still not shippable. Lookup work is counted only after the lookup
+traversals have run, so a short caller budget can be rejected at the final
+preflight after unauthorized keying work. The new common-table path also drops
+the format-4 search-work term that the shared TrueType admission path already
+charges. Two tests advertised as boundary/authority regressions do not exercise
+those missing boundaries.
 
 ## Narrative Findings (AI reviewer)
 
 ## Critical Issues
 
-### CR-01: Caller work and allocation authority is checked after the work has already happened
+### CR-01: SID/CID lookup traversal still precedes caller work authority
 
 **Classification:** BLOCKER
-**File:** `modules/mb-font/font/cff_admission.mbt:635-713`
-**Issue:** `cff_resolve_keying` builds charset, encoding, FDSelect, environment,
-INDEX-offset, and per-GID descriptor arrays before `cff_admission_charge` is
-calculated and before `ledger.preflight_atomic` checks the caller's work,
-allocation-count, and allocation-size limits. Standalone admission only
-preflights the source-byte dimension at lines 483-498; collection admission
-skips even that prefix when `collection_charge` is true. An unaffordable hostile
-font can therefore force the complete bounded parse and all retained-array
-allocations before returning `BudgetExceeded`, defeating the resource boundary
-the budget is meant to provide.
+**Files:** `modules/mb-font/font/cff_admission.mbt:1353-1357`,
+`modules/mb-font/font/cff_admission.mbt:1448-1475`,
+`modules/mb-font/font/cff_admission.mbt:1513-1595`,
+`modules/mb-font/font/cff_keying.mbt:465-480`,
+`modules/mb-font/font/cff_keying.mbt:609-632`,
+`modules/mb-font/font/cff_keying.mbt:989-1000`,
+`modules/mb-font/font/cff_keying.mbt:1092-1104`
 
-**Fix:** Add bounded discovery/preflight stages before every attacker-declared
-count traversal or allocation (INDEX offsets, charset/Encoding expansion,
-FDArray/FDSelect, local Subrs, and descriptors). Keep those checks
-non-consuming, perform the final exact aggregate preflight after discovery, and
-commit once only after the revision guard.
+**Issue:** The staged Encoding preflight authorizes `num_glyphs` for a
+predefined Encoding or the retained entry count for a custom Encoding. It does
+not authorize the lookup work later recorded in `sid_cid_lookups`. For example,
+StandardEncoding always scans all 256 source slots and performs 149 nonzero SID
+lookups, while the one-glyph path preflights only one Encoding work unit before
+entering that loop. Custom supplements perform two counted operations per
+supplement, and ROS, Top DICT, and Font DICT SID validations likewise run before
+their counts are known to the final charge. The aggregate is constructed only
+at lines 1513-1521 and enforced by `preflight_atomic` at lines 1589-1595, after
+all of those traversals. A caller short by one of these work units therefore
+receives `BudgetExceeded`, but only after the supposedly unauthorized work has
+already happened.
 
-### CR-02: `allocation_size` is charged as a total instead of a per-allocation maximum
+**Fix:** Preflight each lookup group before entering it and keep the staged
+ledger equal to the final exact charge. In particular:
 
-**Classification:** BLOCKER
-**File:** `modules/mb-font/font/cff_admission.mbt:344-347`
-**Issue:** The charge sets `allocation_size` to `cff.length_value +
-retained_bytes`. In the shared budget contract, `allocation_size` is a
-per-operation/per-allocation ceiling, not a consumable total. The CFF table is a
-retained `ByteView`, not one newly allocated buffer, and the retained arrays are
-separate allocations. This formula can reject a caller that can afford every
-actual allocation merely because the sum exceeds the largest-allocation limit;
-the exact/one-less test then freezes that incorrect value as its oracle.
+```moonbit
+// After decoding a DICT, before resolving its retained SIDs.
+authority.preflight(sid_operands.length().to_uint64(), 0UL, 0UL)?
 
-**Fix:** Calculate the checked size of each concrete allocation independently
-(each offsets array, descriptor array, charset/encoding array, FD selector,
-environment array, and so on) and charge the maximum single size. Keep total
-retained bytes as a separate semantic ceiling if required.
+// Custom Encoding framing already exposes the supplement count.
+let lookup_work = checked_mul(supplement_count, 2UL)?
+authority.preflight(main_iteration_work + supplement_count + lookup_work, 0UL, 0UL)?
 
-### CR-03: Valid custom encodings with unencoded glyphs are rejected
+// CID ROS has two known validations.
+authority.preflight(2UL, 0UL, 0UL)?
+```
 
-**Classification:** BLOCKER
-**File:** `modules/mb-font/font/cff_keying.mbt:492-494`
-**Issue:** Format 0 requires `nCodes == glyph_count - 1`, and format 1 repeats
-the same equality check at lines 543-545. CFF custom encodings may encode only
-some glyphs; glyphs omitted from the main encoding are explicitly unencoded.
-Thus a font with three glyphs and one encoded non-`.notdef` glyph is valid, but
-this parser returns `font-cff-encoding-cardinality`. The test fixture at
-`cff_name_keyed_fixture_wbtest.mbt:45-46` incorrectly labels that valid shape as
-`short_cardinality`.
+For predefined Encodings, compute and preflight both the fixed 256-entry source
+scan and the known nonzero-SID lookup count before `cff_predefined_encoding`.
+Add those same terms to `cff_admission_charge`; do not rely on the final atomic
+preflight to retroactively authorize work.
 
-**Fix:** Require the main encoding's produced GID count to be *at most*
-`glyph_count - 1`, map its entries sequentially from GID 1, and leave remaining
-glyphs unencoded. When supplements are present, also verify that each
-supplemented SID resolves to a glyph already mentioned by the main encoding, as
-required by the CFF supplement contract.
-
-### CR-04: Structurally incomplete OpenType fonts pass CFF admission
+### CR-02: CFF format-4 common-table work omits the search loop
 
 **Classification:** BLOCKER
-**File:** `modules/mb-font/font/cff_admission.mbt:500-530`
-**Issue:** After directory/checksum validation, admission requires only the
-`CFF ` and `maxp` tables. It never requires or validates the common OpenType
-tables that must be preserved for either outline format (`cmap`, `head`, `hhea`,
-`hmtx`, `name`, `OS/2`, and `post`). The successful fixture builder confirms
-the gap: `cff_admission_wbtest.mbt:80-85` constructs only `CFF `, `head`, and
-`maxp`, and the tracer admits it. This violates the phase's explicit
-"preserve existing common-table rules" boundary and allows an incomplete
-OpenType face to be promoted as fully admitted CFF structure.
+**Files:** `modules/mb-font/font/cff_admission.mbt:420-502`,
+`modules/mb-font/font/cff_admission.mbt:636-657`,
+`modules/mb-font/font/tables.mbt:1130-1161`,
+`modules/mb-font/font/tables.mbt:1335-1358`,
+`modules/mb-font/font/tables.mbt:1383-1391`
 
-**Fix:** Factor the existing required-table validation into common-table and
-outline-specific parts. CFF admission must require and validate the common
-tables plus `CFF ` and maxp 0.5, while omitting only the glyf-specific
-`glyf`/`loca` requirements.
+**Issue:** The CFF common-table preflight accumulates cmap record discovery,
+format-4 segment discovery, body records, and mapping spans, but never adds
+`font_cmap_search_selector(facts.body_records)`. The semantic decoder calls
+`font_cmap_search_facts`, whose loop computes the canonical search parameters.
+The existing shared TrueType admission path explicitly retains and charges this
+as `CmapAdmissionWork.search_work`; the new CFF duplicate omits it from both the
+staged authority ledger and `common_table_work`. Any CFF fixture with at least
+two format-4 segments is therefore undercharged, and its published “exact”
+work/one-short boundary is wrong.
 
-### CR-05: Required Private DICTs are modeled and admitted as optional
+**Fix:** Reuse the shared cmap declared-work facts if possible. Otherwise add a
+checked `cmap_search_work` accumulator:
 
-**Classification:** BLOCKER
-**File:** `modules/mb-font/font/cff_keying.mbt:766-807`
-**Issue:** `cff_decode_private_environment` treats a missing Private range as a
-successful environment with `private_dict = None`. Name-keyed admission uses
-that directly at lines 823-832, and CID admission accepts any Font DICT without
-a Private operator at lines 974-999. CFF1 requires a Private DICT (a zero-length
-Private DICT is the valid way to express all defaults), and each CID Font DICT
-must identify its corresponding Private DICT. The current optional descriptor
-can therefore publish malformed keying state to the future Type 2 VM.
+```moonbit
+cmap_search_work = checked_add(
+  cmap_search_work,
+  font_cmap_search_selector(facts.body_records),
+)?
+```
 
-**Fix:** Require `Top DICT.Private` for name-keyed fonts and
-`Font DICT.Private` for every CID FD before descriptor construction. Accept
-`size == 0` as a present default-valued Private DICT, but reject an absent
-operator. Make the admitted environment non-optional once validated.
-
-### CR-06: The DICT token parser accepts malformed real numbers and oversized operand stacks
-
-**Classification:** BLOCKER
-**File:** `modules/mb-font/font/cff_dict.mbt:140-218`
-**Issue:** The real-number state machine uses one `digit_seen` flag for both
-mantissa and exponent, so an encoding such as `1E` followed by a terminator is
-accepted as exponent zero. It also permits a minus sign in non-initial grammar
-positions and, when a high nibble is `0xF`, silently ignores a non-`0xF` padding
-nibble. Separately, `cff_parse_dict` at lines 342-385 never enforces CFF's
-maximum of 48 operands before an operator. These malformed sequences can reach
-typed admission instead of failing at the DICT boundary.
-
-**Fix:** Implement an explicit mantissa/exponent grammar with separate
-`mantissa_digit_seen` and `exponent_digit_seen` state, allow the sign only in
-the legal initial position, validate full-byte `0xF` padding, and reject a 49th
-pending operand before pushing it.
-
-### CR-07: The “typed” DICT schemas validate arity but not operand types or domains
-
-**Classification:** BLOCKER
-**File:** `modules/mb-font/font/cff_dict.mbt:599-624`
-**Issue:** SID, boolean, integer, and generic number operators are grouped
-together and checked only for one operand. For example, a negative/fractional
-`FullName` SID or `isFixedPitch = 2` is accepted. `FontName` receives the same
-arity-only handling at lines 706-710, and Private DICT booleans/numeric domains
-at lines 777-788 are likewise unvalidated. Custom SIDs are never resolved
-against the String INDEX for these operators. This contradicts the promised
-separate typed schemas and lets malformed supported-profile structure pass.
-
-**Fix:** Decode every known operator into its declared type: boolean must be
-integer 0/1, SID must be a non-negative integer in the CFF SID domain and must
-resolve after the String INDEX is available, offsets must use their named base,
-and operator-specific bounded arrays/deltas must enforce their format limits.
+Include it in the semantic preflight and the returned `common_table_work`, then
+update the exact final charge. Add a CFF format-4 fixture with at least two
+segments and assert both the corrected exact work and exact-minus-one failure.
 
 ## Warnings
 
-### WR-01: Named structural counters do not measure the structures their names claim
+### WR-01: Authority regressions probe common decoders but not keying lookups
 
 **Classification:** WARNING
-**File:** `modules/mb-font/font/cff_admission.mbt:648-675`
-**Issue:** `fd_ranges` is assigned the expanded selector array length (glyph
-count), not the number of format-3 ranges; `dict_units` is Top DICT byte length
-plus FD count rather than the number of DICT tokens/operators; and
-`header_bytes` is hard-coded to 4 even when `hdrSize` is larger. Allocation
-count is similarly a fixed `12 + indexes.length()` at lines 413-417. These
-values cannot support the stated exact per-structure ceilings or meaningful
-one-less qualification.
+**File:** `modules/mb-font/font/cff_hostile_fixture_wbtest.mbt:187-223`,
+`modules/mb-font/font/cff_hostile_fixture_wbtest.mbt:228-283`
 
-**Fix:** Accumulate checked, format-specific counters during bounded discovery:
-actual header extent, INDEX offsets/objects, decoded operands/operators,
-format-3 range count, and each concrete retained allocation. Use those facts
-both for semantic limits and the final charge.
+**Issue:** The one-short work test asserts only the eventual Resource result and
+unchanged budget. The only traversal callback added by iteration 2 is invoked at
+the three common-table decoder entries. Consequently the tests pass when keying
+and SID/CID lookup loops run before the final work rejection, which is exactly
+the CR-01 failure.
 
-### WR-02: Exact-budget tests use the production result as their expected-value oracle
+**Fix:** Add observable probes or precedence fixtures at the predefined
+Encoding, custom supplement, and CID ROS/Font DICT lookup boundaries. For a
+budget short at each boundary, assert the relevant lookup probe remains zero,
+not merely that the budget was not committed.
+
+### WR-02: The predefined Encoding allocation path has no one-short test
 
 **Classification:** WARNING
-**File:** `modules/mb-font/font/cff_hostile_fixture_wbtest.mbt:158-173`
-**Issue:** The test first admits the font, reads `admitted.charge`, and then
-declares those same values to be the exact expected budget. The collection test
-repeats this at `collection_wbtest.mbt:1227-1247`. Any systematic overcharge,
-undercount, or wrong dimension semantics therefore passes. The structural
-ceiling checks at lines 64-71 only assert `> 0`, so they also do not provide the
-promised exact/one-less evidence.
+**File:** `modules/mb-font/font/cff_name_keyed_fixture_wbtest.mbt:245-305`
 
-**Fix:** Compute expected charges from independent fixture facts or checked
-literal constants, then test exact and one-less values without first asking the
-production parser for the answer. Add direct cases for every structural ceiling
-and for affordable bytes with insufficient work/allocation authority before
-parsing begins.
+**Issue:** The test proves that predefined and custom Encodings both succeed at
+2048 bytes, but the 2047-byte rejection is exercised only against the custom
+supplement fixture. It therefore proves that the predefined path is not
+overcharged above 2048, but does not prove that its 2048-byte source-array
+allocation cannot be undercharged. This does not satisfy the fix report's claim
+that exact/one-short coverage exists for both paths.
+
+**Fix:** Re-run the `predefined` fixture with `allocation_size=2047`, assert a
+Resource/`allocation_size` error, and assert bytes, allocations, and work remain
+unchanged, mirroring the custom case.
 
 ---
 
-_Reviewed: 2026-07-28T11:21:32Z_
+_Reviewed: 2026-07-28T12:29:47Z_
 _Reviewer: the agent (gsd-code-reviewer)_
 _Depth: standard_
