@@ -4,6 +4,7 @@ fn cff_name_wb_top(
   encoding : UInt64,
   charstrings : UInt64,
   private_offset : UInt64,
+  include_private? : Bool = true,
 ) -> Bytes {
   let output : Array[Byte] = []
   cff_key_wb_dict_u32(output, charset)
@@ -12,9 +13,11 @@ fn cff_name_wb_top(
   output.push(b'\x10')
   cff_key_wb_dict_u32(output, charstrings)
   output.push(b'\x11')
-  cff_key_wb_dict_u32(output, 2UL)
-  cff_key_wb_dict_u32(output, private_offset)
-  output.push(b'\x12')
+  if include_private {
+    cff_key_wb_dict_u32(output, 2UL)
+    cff_key_wb_dict_u32(output, private_offset)
+    output.push(b'\x12')
+  }
   Bytes::from_array(output)
 }
 
@@ -39,6 +42,7 @@ fn cff_name_wb_encoding(
   duplicate_codes? : Bool = false,
   short_cardinality? : Bool = false,
   notdef_supplement? : Bool = false,
+  unencoded_supplement? : Bool = false,
 ) -> Bytes {
   match mode {
     2UL =>
@@ -53,13 +57,24 @@ fn cff_name_wb_encoding(
     4UL => {
       let output : Array[Byte] = [
         b'\x80',
-        b'\x02',
+        if unencoded_supplement { b'\x01' } else { b'\x02' },
         b'\x41',
-        b'\x42',
-        b'\x01',
-        b'\x43',
       ]
-      font_wb_put_u16(output, if notdef_supplement { 0UL } else { 391UL })
+      if !unencoded_supplement {
+        output.push(b'\x42')
+      }
+      output.push(b'\x01')
+      output.push(b'\x43')
+      font_wb_put_u16(
+        output,
+        if notdef_supplement {
+          0UL
+        } else if unencoded_supplement {
+          1UL
+        } else {
+          391UL
+        },
+      )
       Bytes::from_array(output)
     }
     5UL => b"\x01\x01\xff\x01"
@@ -76,6 +91,8 @@ fn cff_name_wb_table(
   duplicate_codes? : Bool = false,
   short_cardinality? : Bool = false,
   notdef_supplement? : Bool = false,
+  unencoded_supplement? : Bool = false,
+  include_private? : Bool = true,
 ) -> Bytes {
   let header = b"\x01\x00\x04\x04"
   let name = cff_key_wb_index([b"Name"])
@@ -96,8 +113,15 @@ fn cff_name_wb_table(
     duplicate_codes~,
     short_cardinality~,
     notdef_supplement~,
+    unencoded_supplement~,
   )
-  let placeholder_top = cff_name_wb_top(0UL, 0UL, 0UL, 0UL)
+  let placeholder_top = cff_name_wb_top(
+    0UL,
+    0UL,
+    0UL,
+    0UL,
+    include_private~,
+  )
   let after_global = header.length().to_uint64() +
     name.length().to_uint64() +
     cff_key_wb_index([placeholder_top]).length().to_uint64() +
@@ -112,6 +136,7 @@ fn cff_name_wb_table(
     if encoding_mode < 2UL { encoding_mode } else { encoding_offset },
     charstrings_offset,
     private_offset,
+    include_private~,
   )
   let output : Array[Byte] = []
   for part in [
@@ -157,7 +182,7 @@ test "CFF name keying resolves all predefined charset and Encoding pairs" {
     inspect(admitted.keying.encoding.unwrap().predefined == Some(item.1), content="true")
     inspect(admitted.keying.encoding.unwrap().codes.length(), content="2")
     inspect(admitted.glyph.environment.fd is None, content="true")
-    inspect(admitted.glyph.environment.private_dict is Some(_), content="true")
+    inspect(admitted.glyph.environment.private_dict.local_subrs is Some(_), content="true")
     inspect(admitted.glyph.environment.local_subrs.count, content="0")
   }
 }
@@ -220,10 +245,6 @@ test "CFF name keying rejects SID code range and cardinality faults atomically" 
     "font-cff-encoding-code-duplicate",
   )
   cff_key_wb_assert_atomic_error(
-    cff_name_wb_table(short_cardinality=true),
-    "font-cff-encoding-cardinality",
-  )
-  cff_key_wb_assert_atomic_error(
     cff_name_wb_table(encoding_mode=4UL, notdef_supplement=true),
     "font-cff-encoding-notdef",
   )
@@ -231,6 +252,32 @@ test "CFF name keying rejects SID code range and cardinality faults atomically" 
     cff_name_wb_table(encoding_mode=5UL),
     "font-cff-encoding-range",
   )
+  cff_key_wb_assert_atomic_error(
+    cff_name_wb_table(encoding_mode=4UL, unencoded_supplement=true),
+    "font-cff-encoding-supplement-gid",
+  )
+  cff_key_wb_assert_atomic_error(
+    cff_name_wb_table(include_private=false),
+    "font-cff-name-private-required",
+  )
+}
+
+///|
+test "CFF custom Encoding may leave trailing glyphs unencoded" {
+  let admitted = admit_cff1_structure(
+    font_wb_view(
+      cff_wb_otf(
+        cff_name_wb_table(short_cardinality=true),
+        num_glyphs=3UL,
+      ),
+    ),
+    font_wb_limits(),
+    cff_wb_budget(),
+    2UL,
+  ).unwrap()
+  inspect(admitted.keying.encoding.unwrap().codes.length(), content="1")
+  inspect(admitted.keying.encoding.unwrap().gids[0], content="1")
+  inspect(admitted.glyph.gid, content="2")
 }
 
 ///|

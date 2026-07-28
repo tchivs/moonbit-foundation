@@ -142,11 +142,6 @@ test "cff_structural_exact_and_one_short_cases" {
     "font-cff-cid-encoding",
     num_glyphs=3UL,
   )
-  cff_hostile_assert_atomic_error(
-    cff_name_wb_table(short_cardinality=true),
-    "font-cff-encoding-cardinality",
-    num_glyphs=3UL,
-  )
 }
 
 ///|

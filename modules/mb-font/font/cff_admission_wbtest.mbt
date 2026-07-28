@@ -124,7 +124,7 @@ test "CFF1 tracer admits default and explicit Type 2 then resolves GID zero" {
       admitted.glyph.charstring.view.get(0UL).unwrap(),
       content="b'\\x0E'",
     )
-    inspect(admitted.glyph.environment.private_dict is Some(_), content="true")
+    inspect(admitted.glyph.environment.private_dict.local_subrs is Some(_), content="true")
     inspect(admitted.glyph.environment.local_subrs.count, content="0")
     inspect(admitted.glyph.environment.font_matrix.length(), content="6")
   }

@@ -37,11 +37,14 @@ fn cff_cid_wb_font_dict(
   private_offset : UInt64,
   custom_matrix : Bool,
   invalid_matrix? : Bool = false,
+  include_private? : Bool = true,
 ) -> Bytes {
   let output : Array[Byte] = []
-  cff_key_wb_dict_u32(output, 2UL)
-  cff_key_wb_dict_u32(output, private_offset)
-  output.push(b'\x12')
+  if include_private {
+    cff_key_wb_dict_u32(output, 2UL)
+    cff_key_wb_dict_u32(output, private_offset)
+    output.push(b'\x12')
+  }
   if custom_matrix {
     let values = if invalid_matrix {
       [2UL, 0UL, 0UL, 2UL, 0UL]
@@ -119,6 +122,7 @@ fn cff_cid_wb_table(
   fd_sentinel? : UInt64 = 3UL,
   invalid_unused_fd? : Bool = false,
   invalid_matrix? : Bool = false,
+  missing_private_fd? : Bool = false,
 ) -> Bytes {
   let header = b"\x01\x00\x04\x04"
   let name = cff_key_wb_index([b"CID"])
@@ -157,7 +161,12 @@ fn cff_cid_wb_table(
   let fd_array_offset = fd_select_offset + fd_select.length().to_uint64()
   let placeholder_fd_array = cff_key_wb_index([
     cff_cid_wb_font_dict(0UL, false),
-    cff_cid_wb_font_dict(0UL, true, invalid_matrix~),
+    cff_cid_wb_font_dict(
+      0UL,
+      true,
+      invalid_matrix~,
+      include_private=!missing_private_fd,
+    ),
   ])
   let private_zero_offset = fd_array_offset +
     placeholder_fd_array.length().to_uint64()
@@ -170,6 +179,7 @@ fn cff_cid_wb_table(
       },
       true,
       invalid_matrix~,
+      include_private=!missing_private_fd,
     ),
   ])
   let top = cff_cid_wb_top(
@@ -268,6 +278,10 @@ test "CFF CID keying validates every unused FD and matrix before publication" {
     cff_cid_wb_table(invalid_matrix=true),
     "font-cff-font-matrix-arity",
   )
+  cff_key_wb_assert_atomic_error(
+    cff_cid_wb_table(missing_private_fd=true),
+    "font-cff-fd-private-required",
+  )
 }
 
 ///|
@@ -317,7 +331,7 @@ test "CFF CID tracer resolves a nonzero GID through FDSelect format zero" {
   inspect(admitted.glyph.gid, content="2")
   inspect(admitted.glyph.key_value, content="101")
   inspect(admitted.glyph.environment.fd == Some(1UL), content="true")
-  inspect(admitted.glyph.environment.private_dict is Some(_), content="true")
+  inspect(admitted.glyph.environment.private_dict.local_subrs is Some(_), content="true")
   inspect(admitted.glyph.environment.local_subrs.count, content="0")
   inspect(
     admitted.glyph.environment.top_font_matrix[0].denominator,

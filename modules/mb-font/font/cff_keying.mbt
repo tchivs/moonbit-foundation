@@ -2,7 +2,7 @@
 #warnings("-7")
 priv struct CffGlyphEnvironment {
   fd : UInt64?
-  private_dict : CffPrivateDict?
+  private_dict : CffPrivateDict
   local_subrs : CffIndex
   top_font_matrix : Array[CffNumber]
   font_matrix : Array[CffNumber]
@@ -55,7 +55,7 @@ priv struct CffKeying {
 ///|
 #warnings("-7")
 priv struct CffPrivateEnvironment {
-  private_dict : CffPrivateDict?
+  private_dict : CffPrivateDict
   local_subrs : CffIndex
   font_matrix : Array[CffNumber]
 }
@@ -489,7 +489,7 @@ fn cff_decode_custom_encoding(
       Err(error) => return Err(error)
       Ok(_) => ()
     }
-    if count != charset.values.length().to_uint64() - 1UL {
+    if count > charset.values.length().to_uint64() - 1UL {
       return Err(cff_data_error("font-cff-encoding-cardinality"))
     }
     let mut index = 0UL
@@ -536,15 +536,17 @@ fn cff_decode_custom_encoding(
         seen[code.to_int()] = true
         codes.push(code)
         gids.push(gids.length().to_uint64() + 1UL)
+        if gids.length().to_uint64() >
+          charset.values.length().to_uint64() - 1UL {
+          return Err(cff_data_error("font-cff-encoding-cardinality"))
+        }
         delta = delta + 1UL
       }
       range = range + 1UL
     }
-    if gids.length().to_uint64() != charset.values.length().to_uint64() - 1UL {
-      return Err(cff_data_error("font-cff-encoding-cardinality"))
-    }
     cursor = cursor + range_bytes
   }
+  let main_gid_count = gids.length().to_uint64()
   if (raw_format & 0x80UL) != 0UL {
     match
       cff_require_window(
@@ -590,6 +592,9 @@ fn cff_decode_custom_encoding(
       let gid = match cff_charset_gid_for_sid(charset, sid) {
         None => return Err(cff_data_error("font-cff-encoding-sid"))
         Some(value) => value
+      }
+      if gid == 0UL || gid > main_gid_count {
+        return Err(cff_data_error("font-cff-encoding-supplement-gid"))
       }
       seen[code.to_int()] = true
       codes.push(code)
@@ -753,55 +758,48 @@ fn cff_decode_fd_select(
 ///|
 fn cff_decode_private_environment(
   cff : TableWindow,
-  private_range : CffPrivateRange?,
+  private_range : CffPrivateRange,
   font_matrix : Array[CffNumber],
   limits : FontLimits,
   private_context : String,
 ) -> Result[CffPrivateEnvironment, @error.CoreError] {
-  let mut private_dict : CffPrivateDict? = None
   let mut local_subrs = match cff_empty_index(cff.view) {
     Err(error) => return Err(error)
     Ok(value) => value
   }
-  match private_range {
+  let private_view = match
+    cff_table_subview(
+      cff,
+      private_range.offset.value,
+      private_range.size,
+      private_context,
+    ) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  let private_dict = match cff_decode_private_dict(private_view) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  match private_dict.local_subrs {
     None => ()
-    Some(range) => {
-      let private_view = match
-        cff_table_subview(
-          cff,
-          range.offset.value,
-          range.size,
-          private_context,
+    Some(relative) => {
+      let start = match
+        @checked.checked_add(private_range.offset.value, relative.value) {
+        Err(_) => return Err(cff_data_error("font-cff-local-subrs-offset"))
+        Ok(value) => value
+      }
+      let (index, _) = match
+        cff_decode_index(
+          cff.view,
+          start,
+          limits.max_work(),
+          "font-cff-local-subrs-index",
         ) {
         Err(error) => return Err(error)
         Ok(value) => value
       }
-      let decoded = match cff_decode_private_dict(private_view) {
-        Err(error) => return Err(error)
-        Ok(value) => value
-      }
-      match decoded.local_subrs {
-        None => ()
-        Some(relative) => {
-          let start = match
-            @checked.checked_add(range.offset.value, relative.value) {
-            Err(_) => return Err(cff_data_error("font-cff-local-subrs-offset"))
-            Ok(value) => value
-          }
-          let (index, _) = match
-            cff_decode_index(
-              cff.view,
-              start,
-              limits.max_work(),
-              "font-cff-local-subrs-index",
-            ) {
-            Err(error) => return Err(error)
-            Ok(value) => value
-          }
-          local_subrs = index
-        }
-      }
-      private_dict = Some(decoded)
+      local_subrs = index
     }
   }
   Ok({ private_dict, local_subrs, font_matrix })
@@ -819,10 +817,14 @@ fn cff_resolve_name_keying(
   if top.fd_array is Some(_) || top.fd_select is Some(_) {
     return Err(cff_data_error("font-cff-name-fd-contract"))
   }
+  let private_range = match top.private_range {
+    None => return Err(cff_data_error("font-cff-name-private-required"))
+    Some(value) => value
+  }
   let environment = match
     cff_decode_private_environment(
       cff,
-      top.private_range,
+      private_range,
       top.font_matrix,
       limits,
       "font-cff-private-range",
@@ -984,10 +986,14 @@ fn cff_resolve_cid_keying(
       Err(error) => return Err(error)
       Ok(value) => value
     }
+    let private_range = match font_dict.private_range {
+      None => return Err(cff_data_error("font-cff-fd-private-required"))
+      Some(value) => value
+    }
     let environment = match
       cff_decode_private_environment(
         cff,
-        font_dict.private_range,
+        private_range,
         font_dict.font_matrix,
         limits,
         "font-cff-fd-private-range",
