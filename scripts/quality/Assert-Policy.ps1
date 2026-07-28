@@ -1467,7 +1467,11 @@ function Get-FontExecutableSourceText {
 
 function Assert-FontPortableSourceBoundary {
   [CmdletBinding()]
-  param([Parameter(Mandatory)][string[]]$SourcePaths)
+  param(
+    [Parameter(Mandatory)][string[]]$SourcePaths,
+    [string[]]$SemanticSourcePaths = @(),
+    [string]$ExpectedSemanticSha256 = ''
+  )
 
   $forbidden = [ordered]@{
     'FFI or native stub' = '(?im)(?:^\s*(?:extern\b|#(?:external|import)\b|#(?:if|elseif)\s+native\b)|\b(?:ffi|foreign_call|native_binding|c_abi)\w*\s*[(])'
@@ -1475,18 +1479,83 @@ function Assert-FontPortableSourceBoundary {
     'GUI canvas image or color dependency' = '(?i)(?:\b(?:gui|canvas|image|color)\w*\s*[(]|@(?:gui|canvas|image|color)\b)'
     'shaping execution' = '(?i)(?:\b(?:shape|shaper|shaping|bidi|layout)\w*\s*[(]|@(?:shape|shaping|layout)\b)'
     'hinting execution' = '(?i)(?:\b(?:hint|hinter|grid_fit|grid_round)\w*\s*[(]|@(?:hint|hinting)\b)'
-    'CFF or CFF2 execution' = '(?i)(?:\b(?:cff|cff2)\w*\s*[(]|@(?:cff|cff2)\b)'
-    'WOFF or WOFF2 admission' = '(?i)(?:\b(?:woff|woff2)\w*(?:open|admit|decode|decompress)\w*\s*[(]|\b(?:open|admit|decode|decompress)\w*(?:woff|woff2)\w*\s*[(]|@(?:woff|woff2)\b)'
-    'variable-font execution' = '(?i)(?:\b(?:instantiate|apply|execute|resolve)\w*(?:variable|variation|axis)\w*\s*[(]|\b(?:variable|variation|axis)\w*(?:instantiate|apply|execute|resolve)\w*\s*[(]|@(?:variable_font|variations?)\b)'
+    'CFF or CFF2 execution' = '(?i)(?:\b(?:cff|cff2)\w*\s*[(]|\b(?:(?:decode|execute|interpret|evaluate|run|apply|render|outline)\w*_(?:type2|charstring|cff2?)|(?:type2|charstring|cff2?)\w*_(?:decode|execute|interpret|evaluate|run|apply|render|outline))\w*\s*[(]|@(?:cff|cff2)\b)'
+    'WOFF or WOFF2 admission' = '(?i)(?:\b(?:woff|woff2)\w*(?:open|admit|decode|decompress)\w*\s*[(]|\b(?:open|admit|decode|decompress)\w*(?:woff|woff2)\w*\s*[(]|\b(?:(?:inflate|decompress|decode|admit|open|reconstruct)\w*_(?:woff2?|sfnt|container)|(?:woff2?|sfnt|container)\w*_(?:inflate|decompress|decode|admit|open|reconstruct))\w*\s*[(]|@(?:woff|woff2)\b)'
+    'variable-font execution' = '(?i)(?:\b(?:instantiate|apply|execute|resolve)\w*(?:variable|variation|axis)\w*\s*[(]|\b(?:variable|variation|axis)\w*(?:instantiate|apply|execute|resolve)\w*\s*[(]|\b(?:(?:apply|execute|instantiate|resolve|evaluate)\w*_(?:gvar|fvar|variation|delta)|(?:gvar|fvar|variation|delta)\w*_(?:apply|execute|instantiate|resolve|evaluate))\w*\s*[(]|@(?:variable_font|variations?)\b)'
     'rasterization execution' = '(?i)(?:\b(?:raster|rasterize|rasterizer|rasterization)\w*\s*[(]|@(?:raster|rasterizer)\b)'
   }
   foreach ($sourcePath in $SourcePaths) {
     Assert-Condition (Test-Path -LiteralPath $sourcePath -PathType Leaf) "Font source boundary cannot find '$sourcePath'."
+    $rawSource = Get-Content -Raw -LiteralPath $sourcePath
     $source = Get-FontExecutableSourceText -Path $sourcePath
     foreach ($entry in $forbidden.GetEnumerator()) {
       Assert-Condition ($source -cnotmatch [string]$entry.Value) "Font source '$sourcePath' acquires forbidden $($entry.Key)."
     }
+    foreach ($flow in @(
+        [pscustomobject]@{
+          Name = 'CFF/CFF2 tag-to-execution flow'
+          Magic = '(?i)(?:0x43464620|0x43464632|["'']CFF ?2?["''])'
+          Executable = '(?i)\b(?:type2|charstring|operator|cff_program)\w*\s*[(]'
+        },
+        [pscustomobject]@{
+          Name = 'WOFF/WOFF2 magic-to-inflation flow'
+          Magic = '(?i)(?:0x774F4646|0x774F4632|["'']wOF{1,2}2?["''])'
+          Executable = '(?i)\b(?:inflate|decompress|reconstruct)\w*\s*[(]'
+        },
+        [pscustomobject]@{
+          Name = 'fvar/gvar tag-to-delta flow'
+          Magic = '(?i)(?:0x66766172|0x67766172|["''](?:fvar|gvar)["''])'
+          Executable = '(?i)\b(?:delta|variation|axis)\w*\s*[(]'
+        }
+      )) {
+      Assert-Condition (
+        $rawSource -cnotmatch $flow.Magic -or
+        $source -cnotmatch $flow.Executable
+      ) "Font source '$sourcePath' acquires forbidden $($flow.Name)."
+    }
   }
+  if ($SemanticSourcePaths.Count -gt 0) {
+    Assert-Condition (
+      $ExpectedSemanticSha256 -cmatch '^[0-9a-f]{64}$'
+    ) 'Font portable semantic source digest is missing or malformed.'
+    $semanticText = @(
+      foreach ($sourcePath in $SemanticSourcePaths) {
+        Assert-Condition (
+          Test-Path -LiteralPath $sourcePath -PathType Leaf
+        ) "Font semantic source lock cannot find '$sourcePath'."
+        $relative = [IO.Path]::GetRelativePath($RepositoryRoot, $sourcePath).
+          Replace('\', '/')
+        $executable = Get-FontExecutableSourceText -Path $sourcePath
+        "$relative`n$executable"
+      }
+    ) -join "`n"
+    $semanticDigest = [Convert]::ToHexString(
+      [Security.Cryptography.SHA256]::HashData(
+        [Text.UTF8Encoding]::new($false).GetBytes($semanticText)
+      )
+    ).ToLowerInvariant()
+    Assert-Condition (
+      $semanticDigest -ceq $ExpectedSemanticSha256
+    ) 'Font portable production semantic digest drifted.'
+  }
+}
+
+function Get-FontPortableCapabilityNegativeContract {
+  return @(
+    [pscustomobject][ordered]@{ Name = 'FFI'; Source = 'fn forbidden_probe() { foreign_call() }'; Pattern = 'forbidden FFI or native stub' },
+    [pscustomobject][ordered]@{ Name = 'filesystem'; Source = 'fn forbidden_probe() { open_file() }'; Pattern = 'forbidden filesystem or host-font discovery' },
+    [pscustomobject][ordered]@{ Name = 'GUI'; Source = 'fn forbidden_probe() { canvas_draw() }'; Pattern = 'forbidden GUI canvas image or color dependency' },
+    [pscustomobject][ordered]@{ Name = 'shaping'; Source = 'fn forbidden_probe() { shape_text() }'; Pattern = 'forbidden shaping execution' },
+    [pscustomobject][ordered]@{ Name = 'hinting'; Source = 'fn forbidden_probe() { hint_outline() }'; Pattern = 'forbidden hinting execution' },
+    [pscustomobject][ordered]@{ Name = 'CFF'; Source = 'fn forbidden_probe() { cff_decode() }'; Pattern = 'forbidden CFF or CFF2 execution' },
+    [pscustomobject][ordered]@{ Name = 'renamed Type2'; Source = 'fn decode_type2_charstring() { } fn forbidden_probe() { decode_type2_charstring() }'; Pattern = 'forbidden CFF or CFF2 execution' },
+    [pscustomobject][ordered]@{ Name = 'WOFF'; Source = 'fn forbidden_probe() { decode_woff2() }'; Pattern = 'forbidden WOFF or WOFF2 admission' },
+    [pscustomobject][ordered]@{ Name = 'renamed SFNT inflation'; Source = 'fn inflate_sfnt_container() { } fn forbidden_probe() { inflate_sfnt_container() }'; Pattern = 'forbidden WOFF or WOFF2 admission' },
+    [pscustomobject][ordered]@{ Name = 'variable font'; Source = 'fn forbidden_probe() { instantiate_variable_font() }'; Pattern = 'forbidden variable-font execution' },
+    [pscustomobject][ordered]@{ Name = 'renamed gvar delta'; Source = 'fn apply_gvar_deltas() { } fn forbidden_probe() { apply_gvar_deltas() }'; Pattern = 'forbidden variable-font execution' },
+    [pscustomobject][ordered]@{ Name = 'WOFF magic flow'; Source = 'fn forbidden_probe() { let signature = 0x774F4646UL; inflate_payload() }'; Pattern = 'forbidden WOFF/WOFF2 magic-to-inflation flow' },
+    [pscustomobject][ordered]@{ Name = 'rasterization'; Source = 'fn forbidden_probe() { rasterize_font() }'; Pattern = 'forbidden rasterization execution' }
+  )
 }
 
 function Confirm-FontQualificationRejected {
@@ -1729,7 +1798,9 @@ function Assert-FontQualificationWorkflowContract {
   )
   $fontJobKeys = @(
     foreach ($entry in $jobs.GetEnumerator()) {
-      if (@($entry.Value | Where-Object { $_.Trim() -ceq $laneCommand }).Count -gt 0) {
+      if (@($entry.Value | Where-Object {
+        $_.Trim() -cmatch '^run:\s+[.]/scripts/quality[.]ps1\s+-Lane\s+FontQualification\b'
+      }).Count -gt 0) {
         [string]$entry.Key
       }
     }
@@ -1785,6 +1856,15 @@ function Assert-FontQualificationWorkflowContract {
       ForEach-Object { $_.Trim() } |
       Where-Object { $_ -cne '' }
   )
+  Assert-Condition (
+    $upload.Count -eq 6 -and
+    $upload[0] -ceq 'name: Upload passing font qualification evidence' -and
+    $upload[1] -ceq 'if: ${{ success() }}' -and
+    $upload[2] -ceq
+      'uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02' -and
+    $upload[4] -ceq 'name: font-qualification-evidence-v2' -and
+    $upload[5] -ceq 'path: artifacts/release-qualification/ci-font-v2'
+  ) 'FontQualification CI upload must be success-only, pinned, and v2-owned.'
   Assert-ExactSequence 'FontQualification upload step schema and values' `
     $upload `
     @(
@@ -3002,7 +3082,19 @@ function Assert-FontQualificationArtifacts {
     @($productionSources | Where-Object { $_ -cne 'moon.pkg' })
     $testSources
   ) | ForEach-Object { Join-Path $RepositoryRoot "modules/mb-font/font/$_" }
-  Assert-FontPortableSourceBoundary -SourcePaths $sourcePaths
+  $semanticSourcePaths = @(
+    $productionSources |
+      Where-Object { $_ -cne 'moon.pkg' } |
+      ForEach-Object { Join-Path $RepositoryRoot "modules/mb-font/font/$_" }
+  )
+  Assert-Condition (
+    [string]$font.portable_source_semantic_sha256 -cmatch '^[0-9a-f]{64}$' -and
+    [string]$font.capability_negative_contract_sha256 -cmatch '^[0-9a-f]{64}$'
+  ) 'Font portable semantic and capability-negative locks are missing.'
+  Assert-FontPortableSourceBoundary `
+    -SourcePaths $sourcePaths `
+    -SemanticSourcePaths $semanticSourcePaths `
+    -ExpectedSemanticSha256 ([string]$font.portable_source_semantic_sha256)
 
   Confirm-FontQualificationRejected 'extra public interface line' {
     Assert-FontPhase102Surface -InterfaceLines @(@($font.semantic_interface) + 'pub fn Font::rasterize(Self) -> Unit')
@@ -3012,6 +3104,29 @@ function Assert-FontQualificationArtifacts {
   } 'count mismatch'
   $negativeSource = Join-Path ([IO.Path]::GetTempPath()) ('mnf-font-boundary-' + [guid]::NewGuid().ToString('N') + '.mbt')
   try {
+    $capabilityNegativeContract = Get-FontPortableCapabilityNegativeContract
+    $negativeContractJson = $capabilityNegativeContract |
+      ConvertTo-Json -Depth 8 -Compress
+    $negativeContractDigest = [Convert]::ToHexString(
+      [Security.Cryptography.SHA256]::HashData(
+        [Text.UTF8Encoding]::new($false).GetBytes($negativeContractJson)
+      )
+    ).ToLowerInvariant()
+    Assert-Condition (
+      $negativeContractDigest -ceq
+        [string]$font.capability_negative_contract_sha256
+    ) 'Font capability-negative behavioral contract digest drifted.'
+    foreach ($probe in $capabilityNegativeContract) {
+      [IO.File]::WriteAllText(
+        $negativeSource,
+        ([string]$probe.Source),
+        [Text.UTF8Encoding]::new($false)
+      )
+      Confirm-FontQualificationRejected "immutable $($probe.Name) capability negative" {
+        Assert-FontPortableSourceBoundary -SourcePaths @($negativeSource)
+      } ([string]$probe.Pattern)
+    }
+
     $portableBoundaryProbes = @(
       [pscustomobject]@{ Name = 'FFI'; Call = 'foreign_call()'; Pattern = 'forbidden FFI or native stub' },
       [pscustomobject]@{ Name = 'filesystem'; Call = 'open_file()'; Pattern = 'forbidden filesystem or host-font discovery' },

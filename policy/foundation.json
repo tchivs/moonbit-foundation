@@ -2350,7 +2350,9 @@
             "wasm",
             "wasm-gc",
             "native"
-          ]
+          ],
+          "portable_source_semantic_sha256": "d77b0ba89e628e1fcce41b73bd84a5057bab03cafe621e4982a77605ee51270e",
+          "capability_negative_contract_sha256": "6dd8612dbd52a6ba2054a6b684ee817ee5dfe0a55668f47c211d55a8ca918866"
         }
       ]
     }
