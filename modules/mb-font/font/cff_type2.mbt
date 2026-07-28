@@ -827,6 +827,30 @@ fn Type2Vm::execute_return(
 }
 
 ///|
+fn Type2Vm::validate_endchar_frame(
+  self : Type2Vm,
+  frame : Type2Frame,
+) -> Result[Unit, @error.CoreError] {
+  if frame.cursor != frame.source.length() {
+    return Err(type2_data_error("font-cff-type2-trailing-bytes"))
+  }
+  match frame.kind {
+    Root => Ok(())
+    Local | Global => {
+      if !frame.tail_call {
+        return Err(type2_data_error("font-cff-type2-non-tail-endchar"))
+      }
+      for caller in self.frames {
+        if !caller.tail_call || caller.cursor != caller.source.length() {
+          return Err(type2_data_error("font-cff-type2-non-tail-endchar"))
+        }
+      }
+      Ok(())
+    }
+  }
+}
+
+///|
 fn type2_error_with_revision(
   root : @bytes.ByteView,
   opening_revision : UInt64,
@@ -1022,10 +1046,9 @@ fn type2_execute_program(
                   Err(error) => Err(error)
                   Ok(_) => {
                     if first == 14UL {
-                      if frame.cursor != frame.source.length() {
-                        Err(type2_data_error("font-cff-type2-trailing-bytes"))
-                      } else {
-                        Ok(Terminate)
+                      match vm.validate_endchar_frame(frame) {
+                        Err(error) => Err(error)
+                        Ok(_) => Ok(Terminate)
                       }
                     } else {
                       Ok(Continue(frame))
