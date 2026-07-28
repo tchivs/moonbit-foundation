@@ -955,6 +955,27 @@ test "Phase 106 selected CFF1 shares cubic bytes and retains face local facts" {
   let second = collection
     .open_face(1UL, font_test_limits(), font_test_cff_open_budget())
     .unwrap()
+  let short_selected = collection
+    .open_face(
+      0UL,
+      font_test_limits(),
+      font_test_budget_with_dimensions(
+        0UL,
+        allocations=64UL,
+        allocation_size=16384UL,
+        65536UL,
+      ),
+    )
+    .unwrap_err()
+  inspect(
+    short_selected.category() == @error.ErrorCategory::Resource,
+    content="true",
+  )
+  inspect(
+    short_selected.operation() == Some("font-collection-open-face"),
+    content="true",
+  )
+  inspect(short_selected.context() == Some("bytes"), content="true")
   let standalone_first = Font::open(
     font_collection_test_owner(first_source).view(),
     font_test_limits(),

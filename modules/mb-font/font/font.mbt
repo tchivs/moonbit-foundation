@@ -83,6 +83,25 @@ fn font_revision_error(operation : String) -> @error.CoreError {
 }
 
 ///|
+fn font_rebind_operation(
+  error : @error.CoreError,
+  operation : String,
+) -> @error.CoreError {
+  @error.CoreError::new(
+    error.category(),
+    error.code(),
+    operation~,
+    requested?=error.requested(),
+    completed?=error.completed(),
+    range_start?=error.range_start(),
+    range_end?=error.range_end(),
+    source_offset?=error.source_offset(),
+    limit?=error.limit(),
+    context?=error.context(),
+  )
+}
+
+///|
 fn Font::require_revision(
   self : Font,
   operation : String,
@@ -395,11 +414,9 @@ fn font_open_cff_collection_face(
       authoritative_opening_revision=opening_revision,
     ) {
     Err(error) =>
-      if error.category() == @error.ErrorCategory::Capability {
-        return Err(font_collection_profile_error())
-      } else {
-        return Err(error)
-      }
+      return Err(
+        font_rebind_operation(error, "font-collection-open-face"),
+      )
     Ok(value) => value
   }
   Ok(font_from_admitted_cff1(source, admitted, limits))
@@ -421,7 +438,7 @@ pub fn Font::open(
     if signature == 0x4F54544FUL {
       let admitted = match
         admit_cff1_structure(source, limits, budget, 0UL) {
-        Err(error) => return Err(error)
+        Err(error) => return Err(font_rebind_operation(error, "font-open"))
         Ok(value) => value
       }
       return Ok(font_from_admitted_cff1(source, admitted, limits))
@@ -763,14 +780,18 @@ fn Font::outline_after_decode(
   }
   match self.outline_source {
     FontOutlineSource::Cff1(admitted) =>
-      return cff_decode_outline_atomic(
-        self.source,
-        admitted,
-        glyph.value_value,
-        self.limits,
-        budget,
-        after_decode,
-      )
+      return match
+        cff_decode_outline_atomic(
+          self.source,
+          admitted,
+          glyph.value_value,
+          self.limits,
+          budget,
+          after_decode,
+        ) {
+        Err(error) => Err(font_rebind_operation(error, "font-outline"))
+        Ok(value) => Ok(value)
+      }
     FontOutlineSource::Glyf(index) => {
       let path = match
         font_decode_outline(

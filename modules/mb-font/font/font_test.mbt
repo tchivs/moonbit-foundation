@@ -931,6 +931,86 @@ fn font_test_minimal_truetype() -> Bytes {
 }
 
 ///|
+test "public CFF boundaries keep format-neutral operation names" {
+  let valid = font_test_standalone_cff1([
+    b"\x0e",
+    b"\xef\x95\x9f\x15\xa9\x8b\xb3\x95\xbd\x81\x08\x0e",
+  ])
+  let short_open = Font::open(
+    font_test_owner(valid).view(),
+    font_test_limits(),
+    font_test_budget_with_dimensions(
+      valid.length().to_uint64() - 1UL,
+      allocations=64UL,
+      allocation_size=16384UL,
+      65536UL,
+    ),
+  ).unwrap_err()
+  inspect(
+    short_open.category() == @error.ErrorCategory::Resource,
+    content="true",
+  )
+  inspect(short_open.operation() == Some("font-open"), content="true")
+  inspect(short_open.context() == Some("bytes"), content="true")
+
+  let malformed = Font::open(
+    font_test_owner(font_test_standalone_cff1([b"\x0e", b"\xf7"])).view(),
+    font_test_limits(),
+    font_test_cff_open_budget(),
+  ).unwrap_err()
+  inspect(malformed.category() == @error.ErrorCategory::Data, content="true")
+  inspect(malformed.operation() == Some("font-open"), content="true")
+  inspect(
+    malformed.context() == Some("font-cff-type2-number"),
+    content="true",
+  )
+
+  let owner = font_test_owner(valid)
+  let font = Font::open(
+    owner.view(),
+    font_test_limits(),
+    font_test_cff_open_budget(),
+  ).unwrap()
+  let glyph = font.glyph_id(1UL).unwrap()
+  let short_outline = font
+    .outline(
+      glyph,
+      font_test_budget_with_dimensions(
+        191UL,
+        allocations=5UL,
+        allocation_size=384UL,
+        19UL,
+      ),
+    )
+    .unwrap_err()
+  inspect(
+    short_outline.category() == @error.ErrorCategory::Resource,
+    content="true",
+  )
+  inspect(short_outline.operation() == Some("font-outline"), content="true")
+  inspect(short_outline.context() == Some("bytes"), content="true")
+
+  let first = owner.view().get(0UL).unwrap()
+  font_test_mutate_bytes(
+    owner,
+    0UL,
+    Bytes::from_array([(first.to_uint64() ^ 1UL).to_byte()]),
+  )
+  let stale_outline = font
+    .outline(glyph, font_test_cff_outline_budget())
+    .unwrap_err()
+  inspect(
+    stale_outline.category() == @error.ErrorCategory::State,
+    content="true",
+  )
+  inspect(stale_outline.operation() == Some("font-outline"), content="true")
+  inspect(
+    stale_outline.context() == Some("font-source-revision-drift"),
+    content="true",
+  )
+}
+
+///|
 test "Phase 106 standalone CFF1 opens and publishes one native cubic path" {
   let cubic = b"\xef\x95\x9f\x15\xa9\x8b\xb3\x95\xbd\x81\x08\x0e"
   let owner = font_test_owner(
