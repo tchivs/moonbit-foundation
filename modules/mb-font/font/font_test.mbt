@@ -1171,6 +1171,61 @@ test "Phase 106 standalone CFF1 converts fractional cancellation and translation
 }
 
 ///|
+test "Phase 106 standalone CFF1 repeats and interleaves paths deterministically" {
+  let random_line = b"\x0c\x17\xef\x0c\x18\x16\x8c\x8b\x05\x0e"
+  let cubic = b"\xef\x95\x9f\x15\xa9\x8b\xb3\x95\xbd\x81\x08\x0e"
+  let font = Font::open(
+    font_test_owner(
+      font_test_standalone_cff1([b"\x0e", random_line, cubic]),
+    )
+    .view(),
+    font_test_limits(),
+    font_test_cff_open_budget(),
+  ).unwrap()
+  let random_glyph = font.glyph_id(1UL).unwrap()
+  let cubic_glyph = font.glyph_id(2UL).unwrap()
+
+  let first_random_budget = font_test_cff_outline_budget()
+  let first_random_before = first_random_budget.remaining()
+  let first_random = font.outline(random_glyph, first_random_budget).unwrap()
+  let first_random_after = first_random_budget.remaining()
+
+  let cubic_path = font
+    .outline(cubic_glyph, font_test_cff_outline_budget())
+    .unwrap()
+  inspect(
+    cubic_path.get(1) is Some(@math.PathCommand::CubicTo(_, _, _)),
+    content="true",
+  )
+
+  let second_random_budget = font_test_cff_outline_budget()
+  let second_random_before = second_random_budget.remaining()
+  let second_random = font.outline(random_glyph, second_random_budget).unwrap()
+  let second_random_after = second_random_budget.remaining()
+  font_collection_test_assert_path_equal(first_random, second_random)
+  inspect(
+    first_random_before.bytes() - first_random_after.bytes() ==
+    second_random_before.bytes() - second_random_after.bytes(),
+    content="true",
+  )
+  inspect(
+    first_random_before.allocations() - first_random_after.allocations() ==
+    second_random_before.allocations() - second_random_after.allocations(),
+    content="true",
+  )
+  inspect(
+    first_random_before.work() - first_random_after.work() ==
+    second_random_before.work() - second_random_after.work(),
+    content="true",
+  )
+
+  let third_random = font
+    .outline(random_glyph, font_test_cff_outline_budget())
+    .unwrap()
+  font_collection_test_assert_path_equal(first_random, third_random)
+}
+
+///|
 fn font_test_simple_outline_glyf() -> Bytes {
   b"\x00\x01\x00\x00\x00\x00\x00\x64\x00\x64\x00\x02\x00\x00\x31\x33\x34\x64\x64\x00"
 }

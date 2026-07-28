@@ -12,6 +12,41 @@ test "path2 push and length track command count" {
 }
 
 ///|
+test "path2 exact capacity starts empty and preserves insertion order" {
+  let path = Path2::with_capacity(4)
+  inspect(path.length(), content="0")
+  path.push(MoveTo(Point2::new(-1.0, 2.0)))
+  path.push(LineTo(Point2::new(3.0, -4.0)))
+  path.push(
+    CubicTo(
+      Point2::new(5.0, 6.0),
+      Point2::new(7.0, 8.0),
+      Point2::new(9.0, 10.0),
+    ),
+  )
+  path.push(Close)
+  inspect(path.length(), content="4")
+  inspect(path.get(0) is Some(MoveTo(_)), content="true")
+  inspect(path.get(1) is Some(LineTo(_)), content="true")
+  inspect(path.get(2) is Some(CubicTo(_, _, _)), content="true")
+  inspect(path.get(3) is Some(Close), content="true")
+}
+
+///|
+test "path2 zero capacity remains a usable empty path" {
+  let path = Path2::with_capacity(0)
+  inspect(path.length(), content="0")
+  inspect(path.bounds() is None, content="true")
+  path.push(LineTo(Point2::new(1.0, 2.0)))
+  inspect(path.length(), content="1")
+}
+
+///|
+test "panic path2 negative capacity fails at constructor boundary" {
+  let _ = Path2::with_capacity(-1)
+}
+
+///|
 test "path2 get retrieves commands by index" {
   let path = Path2::new()
   path.push(MoveTo(Point2::new(1.0, 2.0)))
