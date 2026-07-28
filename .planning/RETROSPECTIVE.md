@@ -441,6 +441,49 @@
 
 - The milestone comprised 271 commits and 304 changed files; licensed fixture data dominated the diff volume.
 
+## Milestone: v0.33 — TrueType Collection Adapters
+
+**Shipped:** 2026-07-28
+**Phases:** 3 | **Plans:** 9 | **Tasks:** 18
+
+### What Was Built
+
+- A bounded TTC/OTC v1/v2 collection facade with closed face-profile and DSIG inspection.
+- Root-relative static TrueType face admission that returns the existing opaque `Font` without copying the retained collection root.
+- A licensed exact-sharing TTC derivative, independent oracle, closed 97-case hostile/resource/mutation corpus, and managed four-target evidence v2.
+
+### What Worked
+
+- Strict fixture → behavior → evidence waves kept immutable inputs, runtime qualification, and CI policy changes conflict-isolated.
+- Independent oracles and exact structured error/budget rows exposed differences between claimed corpus facts and actual public behavior.
+- Worktree-isolated executors and transactional review-fix branches preserved the orchestrator branch while long four-target lanes ran.
+- Goal-backward verification, security auditing, and milestone integration checks all found concrete evidence without human-only acceptance.
+
+### What Was Inefficient
+
+- The initial corpus used ID-derived placeholder error facts, so deep review had to reconstruct and bind exact per-case runtime outcomes.
+- Evidence/path/policy hardening required multiple adversarial review iterations to close nested drift, link swaps, YAML key quoting, continuation, and toolchain spoofing.
+- Historical summary hashes and one stale plan accessor literal needed explicit disposition during milestone integration.
+
+### Patterns Established
+
+- Generated qualification corpora must encode explicit runtime facts and be exhaustively dispatched; counts and non-empty fields are not proof.
+- Revalidate managed-root ownership and link state immediately before every write and read-back, not only during initialization.
+- Treat CI workflow parsing as a restricted closed schema, normalize quoted YAML keys, reject continuation at every level, and bind exact toolchain identity into each record.
+- Local qualification evidence is commit-scoped by design; CI regenerates exact-HEAD evidence for every checked-out revision.
+
+### Lessons Learned
+
+1. Closed nested schemas and value tables matter as much as top-level record hashes.
+2. Security boundaries need adversarial mutations that target parser normalization and time-of-check/time-of-use seams.
+3. Plan wiring literals should be updated when review remediation renames generated accessors, while historical execution hashes remain immutable records.
+4. A public API can remain tiny when portable evidence, resource authority, and unsupported-capability boundaries are treated as first-class deliverables.
+
+### Cost Observations
+
+- The milestone changed 88 files with 34,686 additions and 1,664 removals; generated fixture/evidence policy and tests dominate the diff.
+- The final complete qualification lane ran in about 114 seconds, leaving substantial headroom under the retained 20-minute CI timeout.
+
 ## Cross-Milestone Trends
 
 ### Process Evolution
@@ -457,6 +500,7 @@
 | v0.28 | 3 | 3 | Added bounded indexed Fixed-or-Stored compression with independent hostile-stream and four-target qualification. |
 | v0.29 | 3 | 3 | Extended the bounded indexed profile contract to Adam7 with pass-aware admission and independent hostile-stream qualification. |
 | v0.32 | 4 | 16 | Added a pure-MoonBit TrueType foundation with immutable licensed-font and exact four-target qualification. |
+| v0.33 | 3 | 9 | Added bounded TTC/OTC inspection and root-relative selection with licensed, hostile, exact-toolchain four-target evidence. |
 
 ### Cumulative Quality
 
@@ -472,6 +516,7 @@
 | v0.28 | 315/315 PNG tests per target | 5/5 | 3/3 phase verifications, no open artifact records |
 | v0.29 | 320/320 PNG tests per target | 5/5 | 3/3 phase verifications, no open artifact records |
 | v0.32 | 103/103 font tests per target plus hosted Required | 5/5 | 4/4 phase verifications, 8/8 links, 4/4 flows |
+| v0.33 | 152/152 font tests plus 14 focused gates per target | 5/5 | 3/3 phase verifications, 11/11 links, 6/6 flows |
 
 ### Top Lessons
 
