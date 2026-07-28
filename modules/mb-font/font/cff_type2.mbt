@@ -1451,11 +1451,24 @@ fn type2_execute_program_with_matrix_and_read_probe(
     read_probe()
     let frame = vm.frames.pop().unwrap()
     if frame.cursor >= frame.source.length() {
-      return Err(type2_data_error("font-cff-type2-unexpected-eof"))
+      return Err(
+        type2_error_with_revision(
+          root,
+          opening_revision,
+          type2_data_error("font-cff-type2-unexpected-eof"),
+        ),
+      )
     }
     let operator_offset = frame.cursor
     let first = match frame.source.get(operator_offset) {
-      Err(_) => return Err(type2_data_error("font-cff-type2-byte"))
+      Err(_) =>
+        return Err(
+          type2_error_with_revision(
+            root,
+            opening_revision,
+            type2_data_error("font-cff-type2-byte"),
+          ),
+        )
       Ok(value) => value.to_uint64()
     }
     let result : Result[Type2Step, @error.CoreError] = match
@@ -1476,7 +1489,14 @@ fn type2_execute_program_with_matrix_and_read_probe(
                   Ok(_) => {
                     let decoded = match
                       type2_decode_number(frame.source, operator_offset) {
-                      Err(error) => return Err(error)
+                      Err(error) =>
+                        return Err(
+                          type2_error_with_revision(
+                            root,
+                            opening_revision,
+                            error,
+                          ),
+                        )
                       Ok(value) => value
                     }
                     match vm.push(decoded.0) {
@@ -1492,7 +1512,14 @@ fn type2_execute_program_with_matrix_and_read_probe(
               } else {
                 let decoded = match
                   type2_decode_number(frame.source, operator_offset) {
-                  Err(error) => return Err(error)
+                  Err(error) =>
+                    return Err(
+                      type2_error_with_revision(
+                        root,
+                        opening_revision,
+                        error,
+                      ),
+                    )
                   Ok(value) => value
                 }
                 match vm.push(decoded.0) {
@@ -1524,7 +1551,13 @@ fn type2_execute_program_with_matrix_and_read_probe(
                       let escaped = match frame.source.get(frame.cursor) {
                         Err(_) =>
                           return Err(
-                            type2_data_error("font-cff-type2-escape-truncated"),
+                            type2_error_with_revision(
+                              root,
+                              opening_revision,
+                              type2_data_error(
+                                "font-cff-type2-escape-truncated",
+                              ),
+                            ),
                           )
                         Ok(value) => value.to_uint64()
                       }
@@ -1601,7 +1634,13 @@ fn type2_execute_program_with_matrix_and_read_probe(
       Ok(FramesManaged) => ()
     }
   }
-  Err(type2_data_error("font-cff-type2-unexpected-eof"))
+  Err(
+    type2_error_with_revision(
+      root,
+      opening_revision,
+      type2_data_error("font-cff-type2-unexpected-eof"),
+    ),
+  )
 }
 
 ///|
