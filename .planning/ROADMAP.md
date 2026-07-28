@@ -47,47 +47,63 @@
 ## Phase Details
 
 ### Phase 104: CFF1 Profile and Bounded Data Model
+
 **Goal**: Maintainers can admit only the supported static CFF1 structure and resolve every GID to one checked CharString and execution environment.
 **Depends on**: Phase 103 (existing standalone and collection font boundary)
 **Requirements**: CFF-01, CFF-02
 **Success Criteria** (what must be TRUE):
+
   1. Library authors can present bounded caller-owned `OTTO` bytes and receive deterministic admission only for the exact supported static CFF1 profile, with stable rejection of mixed, CFF2, variable, and otherwise unsupported profiles.
   2. Every admitted name-keyed GID resolves to exactly one bounded CharString and private/local-subroutine environment through checked predefined or custom charset and Encoding data.
   3. Every admitted CID-keyed GID resolves through checked `ROS`, CID charset, FDArray, FDSelect format 0/3, per-FD Private DICT/local Subrs, and FontMatrix facts; invalid SID, CID, FD, or glyph cardinality fails before facts are published.
   4. Maintainers can reproduce exact and one-short structural outcomes for Header, INDEX, DICT, String, CharStrings, Private DICT, and subroutine data under explicit limits and budgets.
-**Plans**: TBD
+
+**Plans**: 1/3 plans executed
+
+- [x] 104-01-PLAN.md
+- [ ] 104-02-PLAN.md
+- [ ] 104-03-PLAN.md
 
 ### Phase 105: Bounded Type 2 Validation and Retained Metrics
+
 **Goal**: Maintainers can validate every Type 2 glyph deterministically and retain truthful compact bounds before any CFF-backed font is published.
 **Depends on**: Phase 104
 **Requirements**: T2-01, T2-02, CFF-03
 **Success Criteria** (what must be TRUE):
+
   1. Supported Type 2 number, stack, transient, arithmetic, logical, storage, width, line, curve, flex, subroutine, termination, and project-owned `random` behavior produces target-identical fixed-point results.
   2. Hint and stem operators consume exact framing bytes without rendering hints, while exhausted stack, stem, frame, depth, byte, call, work, contour, command, point, allocation, mutation, or caller-budget authority fails deterministically without host recursion or partial execution state.
   3. CFF admission executes every glyph through the same interpreter, retains truthful conservative integer bounds per GID, and keeps `hmtx` authoritative for public advance and side-bearing metrics.
   4. Any structural, program, numeric, resource, or mutation failure publishes no `Font`, no retained bounds, and no committed admission charge.
+
 **Plans**: TBD
 
 ### Phase 106: Cubic Path and Public/TTC Integration
+
 **Goal**: Library authors can use static CFF1 outlines through the existing format-neutral `Font` and `FontCollection` workflows.
 **Depends on**: Phase 105
 **Requirements**: CFF-04, CFF-05
 **Success Criteria** (what must be TRUE):
+
   1. A supported standalone static CFF1 font opens as the existing opaque `Font`, with Unicode mapping, glyph identity, metrics, kerning, and structured errors remaining format-neutral.
   2. A CFF1 outline query atomically returns one complete native cubic `Path2`, including cubic control points, without exposing CFF internals, approximating curves as quadratics, or publishing partial geometry.
   3. A supported CFF1 TTC/OTC face uses the same admission and outline behavior as standalone CFF1 while preserving root-relative collection authority, table-local CFF offsets, and face-local common tables.
   4. Previously qualified static-`glyf` standalone and collection metrics, mappings, kerning, paths, errors, and charges remain unchanged.
+
 **Plans**: TBD
 
 ### Phase 107: Hostile, Licensed, and Four-Target Qualification
+
 **Goal**: Maintainers can reproduce interoperable, hostile-safe, compatibility-preserving CFF1 behavior on every supported target.
 **Depends on**: Phase 106
 **Requirements**: CFF-06
 **Success Criteria** (what must be TRUE):
+
   1. Generated name-keyed and multi-FD CID vectors reproduce expected GID selection, metrics, bounds, and cubic paths through standalone and collection public workflows.
   2. Immutable licensed Latin and CJK evidence has complete provenance and agrees with independent pinned host-oracle facts.
   3. Hostile structural, program, resource, mutation, and exact/one-short cases reproduce deterministic atomic outcomes while frozen static-`glyf` behavior remains unchanged.
   4. Isolated `js`, `wasm`, `wasm-gc`, and `native` runs produce exactly four equal semantic records together with reproducible Latin/CJK performance baselines and pinned toolchain, dependency, and public-API evidence.
+
 **Plans**: TBD
 
 ## Progress
@@ -96,7 +112,7 @@
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 104. CFF1 Profile and Bounded Data Model | 0/TBD | Not started | - |
+| 104. CFF1 Profile and Bounded Data Model | 1/3 | In Progress|  |
 | 105. Bounded Type 2 Validation and Retained Metrics | 0/TBD | Not started | - |
 | 106. Cubic Path and Public/TTC Integration | 0/TBD | Not started | - |
 | 107. Hostile, Licensed, and Four-Target Qualification | 0/TBD | Not started | - |
