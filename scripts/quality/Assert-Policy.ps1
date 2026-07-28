@@ -1600,17 +1600,19 @@ function Assert-FontCollectionCorpusContract {
     @($Corpus.limit_cases).Count -eq 44 -and
     @($Corpus.budget_cases).Count -eq 12
   ) 'Font collection corpus group counts drifted.'
-  Assert-ExactSequence 'Font collection fixture schema' `
-    @($Corpus.fixtures[0].PSObject.Properties.Name) `
-    @(
-      'id',
-      'origin',
-      'container_version',
-      'face_count',
-      'dsig_status',
-      'profiles',
-      'expected_use'
-    )
+  foreach ($fixture in @($Corpus.fixtures)) {
+    Assert-ExactSequence "Font collection fixture '$($fixture.id)' schema" `
+      @($fixture.PSObject.Properties.Name) `
+      @(
+        'id',
+        'origin',
+        'container_version',
+        'face_count',
+        'dsig_status',
+        'profiles',
+        'expected_use'
+      )
+  }
   $caseGroups = @(
     @($Corpus.public_workflows),
     @($Corpus.hostile_cases),
@@ -1661,6 +1663,12 @@ function Assert-FontCollectionCorpusContract {
             'work'
           )
       }
+      if ($case.boundary -in @('failure', 'one-short')) {
+        Assert-Condition (
+          ($case.budget_before | ConvertTo-Json -Depth 8 -Compress) -ceq
+          ($case.budget_after | ConvertTo-Json -Depth 8 -Compress)
+        ) "Font collection case '$($case.id)' failed budget atomicity drifted."
+      }
     }
   }
   $orderedIds = @(
@@ -1696,6 +1704,16 @@ function Assert-FontCollectionCorpusContract {
     $identityDigest -ceq
       '6f5564d1af06f0bccd2b7f867a739adb09c84c4ab3b0762cfeeff480f1fedd85'
   ) 'Font collection corpus ordered IDs drifted.'
+  $semanticJson = $Corpus | ConvertTo-Json -Depth 32 -Compress
+  $semanticDigest = [Convert]::ToHexString(
+    [Security.Cryptography.SHA256]::HashData(
+      [Text.UTF8Encoding]::new($false).GetBytes($semanticJson)
+    )
+  ).ToLowerInvariant()
+  Assert-Condition (
+    $semanticDigest -ceq
+      '82c939e3a6818c27224d92d9901f9ee1b9d54f57344a2a0ef929c90ebba457bb'
+  ) 'Font collection corpus exact semantic digest drifted.'
 }
 
 function Assert-FontCollectionOracleContract {
@@ -3029,6 +3047,24 @@ function Assert-FontQualificationArtifacts {
       Add-Member -NotePropertyName unexpected -NotePropertyValue $true
     Assert-FontCollectionCorpusContract -Corpus $copy
   } 'schema count mismatch'
+  Confirm-FontQualificationRejected 'second collection fixture key drift' {
+    $copy = $collectionCases | ConvertTo-Json -Depth 32 -Compress |
+      ConvertFrom-Json
+    $copy.fixtures[1].PSObject.Properties.Remove('expected_use')
+    Assert-FontCollectionCorpusContract -Corpus $copy
+  } 'schema count mismatch'
+  Confirm-FontQualificationRejected 'collection hostile context drift' {
+    $copy = $collectionCases | ConvertTo-Json -Depth 32 -Compress |
+      ConvertFrom-Json
+    $copy.hostile_cases[0].error.context = 'drift'
+    Assert-FontCollectionCorpusContract -Corpus $copy
+  } 'exact semantic digest drifted'
+  Confirm-FontQualificationRejected 'collection failed budget drift' {
+    $copy = $collectionCases | ConvertTo-Json -Depth 32 -Compress |
+      ConvertFrom-Json
+    $copy.hostile_cases[0].budget_after.work++
+    Assert-FontCollectionCorpusContract -Corpus $copy
+  } 'failed budget atomicity drifted'
 
   $collectionOracle = Read-QualityJson -Path (
     Join-Path $RepositoryRoot (

@@ -476,6 +476,20 @@ function Assert-FontQualificationClosedKeys {
   }
 }
 
+function Assert-FontQualificationExactValue {
+  param(
+    [Parameter(Mandatory)]$Actual,
+    [Parameter(Mandatory)]$Expected,
+    [Parameter(Mandatory)][string]$Label
+  )
+
+  $actualJson = ConvertTo-FontQualificationJson $Actual -Compress
+  $expectedJson = ConvertTo-FontQualificationJson $Expected -Compress
+  if ($actualJson -cne $expectedJson) {
+    throw "$Label exact ordered value drifted."
+  }
+}
+
 function Assert-FontQualificationCaseFact {
   param(
     [Parameter(Mandatory)]$Case,
@@ -526,6 +540,12 @@ function Assert-FontQualificationCaseFact {
         'existing-font-only'
       )) {
     throw "$Label enum drifted."
+  }
+  if ($Case.boundary -in @('failure', 'one-short')) {
+    Assert-FontQualificationExactValue `
+      $Case.budget_after `
+      $Case.budget_before `
+      "$Label failed budget atomicity"
   }
 }
 
@@ -777,6 +797,80 @@ function Assert-FontQualificationEvidenceRecord {
           [regex]::Escape("--target $($Record.target)")) {
       throw "$($Record.target) focused command result drifted."
     }
+  }
+  $expectedFixtures = [pscustomobject][ordered]@{
+    dejavu_sans_237 = Get-FontQualificationFileFact (
+      Join-Path $RepositoryRoot 'fixtures/font/dejavu-sans-2.37/DejaVuSans.ttf'
+    )
+    dejavu_license = Get-FontQualificationFileFact (
+      Join-Path $RepositoryRoot 'fixtures/font/dejavu-sans-2.37/LICENSE'
+    )
+    independent_oracle = Get-FontQualificationFileFact (
+      Join-Path $RepositoryRoot 'fixtures/font/dejavu-sans-2.37/oracle.json'
+    )
+    hostile_cases = Get-FontQualificationFileFact (
+      Join-Path $RepositoryRoot 'fixtures/font/qualification-cases.json'
+    )
+    collection_cases = Get-FontQualificationFileFact (
+      Join-Path $RepositoryRoot 'fixtures/font/collection-qualification-cases.json'
+    )
+    licensed_derivative = Get-FontQualificationFileFact (
+      Join-Path $RepositoryRoot 'fixtures/font/dejavu-sans-2.37/DejaVuSans-two-face-v1.ttc'
+    )
+    collection_oracle = Get-FontQualificationFileFact (
+      Join-Path $RepositoryRoot 'fixtures/font/dejavu-sans-2.37/collection-oracle.json'
+    )
+    generated_source = Get-FontQualificationFileFact (
+      Join-Path $RepositoryRoot 'modules/mb-font/font/generated_font_qualification_test.mbt'
+    )
+    workflow_test = Get-FontQualificationFileFact (
+      Join-Path $RepositoryRoot 'modules/mb-font/font/font_qualification_test.mbt'
+    )
+    hostile_test = Get-FontQualificationFileFact (
+      Join-Path $RepositoryRoot 'modules/mb-font/font/font_qualification_hostile_test.mbt'
+    )
+  }
+  $oracle = Get-Content -Raw -LiteralPath (
+    Join-Path $RepositoryRoot 'fixtures/font/dejavu-sans-2.37/oracle.json'
+  ) | ConvertFrom-Json
+  $cases = Get-Content -Raw -LiteralPath (
+    Join-Path $RepositoryRoot 'fixtures/font/qualification-cases.json'
+  ) | ConvertFrom-Json
+  $collectionCases = Get-Content -Raw -LiteralPath (
+    Join-Path $RepositoryRoot 'fixtures/font/collection-qualification-cases.json'
+  ) | ConvertFrom-Json
+  $collectionOracle = Get-Content -Raw -LiteralPath (
+    Join-Path $RepositoryRoot 'fixtures/font/dejavu-sans-2.37/collection-oracle.json'
+  ) | ConvertFrom-Json
+  $expectedCollection = Get-FontQualificationCollectionFacts `
+    -Corpus $collectionCases `
+    -CollectionOracle $collectionOracle `
+    -Fixtures $expectedFixtures
+  $expectedFocused = @(
+    $FocusedAssertions | ForEach-Object {
+      [pscustomobject][ordered]@{
+        group = [string]$_.group
+        file = [string]$_.file
+        name = [string]$_.name
+      }
+    }
+  )
+  foreach ($section in @(
+      [pscustomobject]@{ Label = 'fixtures'; Actual = $Record.fixtures; Expected = $expectedFixtures },
+      [pscustomobject]@{ Label = 'standalone public facts'; Actual = $Record.standalone_baseline.public_facts; Expected = (Get-FontQualificationPublicFacts $oracle) },
+      [pscustomobject]@{ Label = 'standalone hostile outcomes'; Actual = $Record.standalone_baseline.hostile_outcomes; Expected = (Get-FontQualificationHostileOutcomes $cases) },
+      [pscustomobject]@{ Label = 'generated collection facts'; Actual = $Record.generated_collection_facts; Expected = $expectedCollection.generated },
+      [pscustomobject]@{ Label = 'licensed derivative facts'; Actual = $Record.licensed_derivative_facts; Expected = $expectedCollection.licensed },
+      [pscustomobject]@{ Label = 'collection hostile outcomes'; Actual = $Record.collection_hostile_outcomes; Expected = $expectedCollection.hostile },
+      [pscustomobject]@{ Label = 'mutation atomicity facts'; Actual = $Record.mutation_atomicity_facts; Expected = $expectedCollection.mutation },
+      [pscustomobject]@{ Label = 'boundary facts'; Actual = $Record.boundary_facts; Expected = (Get-FontQualificationBoundaryFacts) },
+      [pscustomobject]@{ Label = 'dependency facts'; Actual = $Record.dependency_facts; Expected = (Get-FontQualificationDependencyFacts) },
+      [pscustomobject]@{ Label = 'focused assertions'; Actual = $Record.focused_assertions; Expected = $expectedFocused }
+    )) {
+    Assert-FontQualificationExactValue `
+      $section.Actual `
+      $section.Expected `
+      "$($Record.target) $($section.Label)"
   }
   if ($Record.schema_version -cne $EvidenceSchemaVersion -or
       $Record.workflow_id -cne $EvidenceWorkflowId -or
@@ -1618,6 +1712,38 @@ function Invoke-FontQualification {
         -NotePropertyValue $true
       Assert-FontQualificationEvidenceRecord $copy
     } 'key count drifted'
+    & $probe 'missing compact public fact' {
+      $copy = ConvertTo-FontQualificationJson $records[0] -Compress |
+        ConvertFrom-Json
+      $copy.standalone_baseline.public_facts.compact.PSObject.Properties.
+        Remove('units_per_em')
+      Assert-FontQualificationEvidenceRecord $copy
+    } 'exact ordered value drifted'
+    & $probe 'generated fixture ID drift' {
+      $copy = ConvertTo-FontQualificationJson $records[0] -Compress |
+        ConvertFrom-Json
+      $copy.generated_collection_facts.fixture_ids[0] = 'drift'
+      Assert-FontQualificationEvidenceRecord $copy
+    } 'exact ordered value drifted'
+    & $probe 'hostile context drift' {
+      $copy = ConvertTo-FontQualificationJson $records[0] -Compress |
+        ConvertFrom-Json
+      $copy.collection_hostile_outcomes.hostile[0].error.context = 'drift'
+      Assert-FontQualificationEvidenceRecord $copy
+    } 'exact ordered value drifted'
+    & $probe 'failed budget loses atomicity' {
+      $copy = ConvertTo-FontQualificationJson $records[0] -Compress |
+        ConvertFrom-Json
+      $copy.collection_hostile_outcomes.hostile[0].budget_after.work++
+      Assert-FontQualificationEvidenceRecord $copy
+    } 'failed budget atomicity'
+    & $probe 'shared coordinate extra key' {
+      $copy = ConvertTo-FontQualificationJson $records[0] -Compress |
+        ConvertFrom-Json
+      $copy.licensed_derivative_facts.shared_table_coordinates[0] |
+        Add-Member -NotePropertyName unexpected -NotePropertyValue 1
+      Assert-FontQualificationEvidenceRecord $copy
+    } 'exact ordered value drifted'
     & $probe 'licensed derivative digest divergence' {
       $copy = ConvertTo-FontQualificationJson $records[0] -Compress |
         ConvertFrom-Json
