@@ -163,7 +163,7 @@
       "source": "repository-derived:scripts/fixtures/Generate-FontQualification.ps1",
       "author": "MoonBit Native Foundation project generator",
       "retrieval_date": "2026-07-28",
-      "sha256": "4635b0130fe002cc1702b388db674911aee6334c0a35e8f2426a4ff0bd867738",
+      "sha256": "e09fda0ce87abb4212d5f8451f59a5744fe25a335dd6dcd4f37c1ca0fe470b61",
       "license": "Apache-2.0",
       "redistribution_status": "not-applicable",
       "expected_use": "Phase 103 closed public, hostile, mutation, limit, caller-budget, and ancestor-budget collection qualification matrix"

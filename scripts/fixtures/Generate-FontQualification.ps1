@@ -1092,11 +1092,12 @@ function Read-FontCollectionQualificationCases {
           $case.entrypoint -cnotin @(
             'FontCollection::open','FontCollection::face_profile',
             'FontCollection::open_face','Font::query','Font::glyph_id',
-            'Font::kerning','Font::outline'
+            'Font::kerning','Font::outline','FontLimits::new'
           ) -or
           $case.boundary -cnotin @('success','failure','exact','one-short') -or
           $case.publication -cnotin @(
-            'none','collection','font','existing-collection-only','existing-font-only'
+            'none','collection','font','limits',
+            'existing-collection-only','existing-font-only'
           )) {
         throw "Collection case '$($case.id)' contains an unknown closed value."
       }
@@ -1305,23 +1306,23 @@ function New-FontCollectionQualificationCases {
   $hostileFacts = @(
     @('collection-header-truncated','open','FontCollection::open',$null,'Data','InvalidEncoding','font-collection-open','font-collection-header',$null,4UL,0UL),
     @('collection-signature-invalid','open','FontCollection::open',$null,'Data','InvalidEncoding','font-collection-open','font-collection-signature',0UL,$null,$null),
-    @('collection-version-unsupported','open','FontCollection::open',$null,'Capability','CapabilityUnavailable','font-collection-open','font-collection-version',4UL,$null,$null),
+    @('collection-version-unsupported','open','FontCollection::open',$null,'Capability','CapabilityUnavailable','font-collection-open','font-collection-version',$null,$null,$null),
     @('collection-face-count-zero','open','FontCollection::open',$null,'Data','InvalidEncoding','font-collection-open','font-collection-face-count',8UL,$null,$null),
-    @('collection-offset-array-truncated','open','FontCollection::open',$null,'Data','InvalidEncoding','font-collection-open','font-collection-offset-array',12UL,20UL,15UL),
-    @('collection-face-directory-truncated','open','FontCollection::open',$null,'Data','InvalidEncoding','font-collection-open','font-collection-directory-range',$null,$null,$null),
+    @('collection-offset-array-truncated','open','FontCollection::open',$null,'Data','InvalidEncoding','font-collection-open','font-collection-offset-array',12UL,32UL,15UL),
+    @('collection-face-directory-truncated','open','FontCollection::open',$null,'Data','InvalidEncoding','font-collection-open','font-collection-directory-range',64UL,12UL,75UL),
     @('collection-directory-search-facts-invalid','open','FontCollection::open',$null,'Data','InvalidEncoding','font-collection-open','font-collection-search-facts',$null,$null,$null),
-    @('collection-directory-tags-unordered','open','FontCollection::open',$null,'Data','InvalidEncoding','font-collection-open','font-collection-table-tag-order',$null,$null,$null),
-    @('collection-table-range-overflow','open','FontCollection::open',$null,'Data','InvalidEncoding','font-collection-open','font-collection-table-range',$null,$null,$null),
-    @('collection-protected-range-overlap','open','FontCollection::open',$null,'Data','InvalidEncoding','font-collection-open','font-collection-table-protected-overlap',$null,$null,$null),
-    @('collection-same-face-overlap','open','FontCollection::open',$null,'Data','InvalidEncoding','font-collection-open','font-collection-same-face-overlap',$null,$null,$null),
-    @('collection-cross-face-partial-overlap','open','FontCollection::open',$null,'Data','InvalidEncoding','font-collection-open','font-collection-cross-face-overlap',$null,$null,$null),
-    @('collection-shared-range-metadata-conflict','open','FontCollection::open',$null,'Data','InvalidEncoding','font-collection-open','font-collection-shared-metadata',$null,$null,$null),
+    @('collection-directory-tags-unordered','open','FontCollection::open',$null,'Data','InvalidEncoding','font-collection-open','font-collection-table-tag-order',92UL,$null,$null),
+    @('collection-table-range-overflow','open','FontCollection::open',$null,'Data','InvalidEncoding','font-collection-open','font-collection-table-range',4294967292UL,8UL,160UL),
+    @('collection-protected-range-overlap','open','FontCollection::open',$null,'Data','InvalidEncoding','font-collection-open','font-collection-table-protected-overlap',64UL,4UL,$null),
+    @('collection-same-face-overlap','open','FontCollection::open',$null,'Data','InvalidEncoding','font-collection-open','font-collection-same-face-overlap',96UL,4UL,$null),
+    @('collection-cross-face-partial-overlap','open','FontCollection::open',$null,'Data','InvalidEncoding','font-collection-open','font-collection-cross-face-overlap',100UL,8UL,$null),
+    @('collection-shared-range-metadata-conflict','open','FontCollection::open',$null,'Data','InvalidEncoding','font-collection-open','font-collection-shared-metadata',96UL,4UL,$null),
     @('collection-dsig-partial-zero-tuple','open','FontCollection::open',$null,'Data','InvalidEncoding','font-collection-open','font-collection-dsig-tuple',$null,$null,$null),
-    @('collection-dsig-range-not-at-eof','open','FontCollection::open',$null,'Data','InvalidEncoding','font-collection-open','font-collection-dsig-range',$null,$null,$null),
-    @('collection-dsig-envelope-malformed','open','FontCollection::open',$null,'Data','InvalidEncoding','font-collection-open','font-collection-dsig-block-length',$null,$null,$null),
+    @('collection-dsig-range-not-at-eof','open','FontCollection::open',$null,'Data','InvalidEncoding','font-collection-open','font-collection-dsig-range',68UL,28UL,100UL),
+    @('collection-dsig-envelope-malformed','open','FontCollection::open',$null,'Data','InvalidEncoding','font-collection-open','font-collection-dsig-block-length',88UL,12UL,11UL),
     @('collection-dsig-version-unsupported','open','FontCollection::open',$null,'Capability','CapabilityUnavailable','font-collection-open','font-collection-dsig-version',$null,$null,$null),
     @('collection-dsig-format-unsupported','open','FontCollection::open',$null,'Capability','CapabilityUnavailable','font-collection-open','font-collection-dsig-format',$null,$null,$null),
-    @('collection-dsig-block-overlap','open','FontCollection::open',$null,'Data','InvalidEncoding','font-collection-open','font-collection-dsig-block-overlap',$null,$null,$null),
+    @('collection-dsig-block-overlap','open','FontCollection::open',$null,'Data','InvalidEncoding','font-collection-open','font-collection-dsig-block-overlap',108UL,12UL,$null),
     @('collection-face-index-equal-count','select','FontCollection::open_face',5,'Input','InvalidRange','font-collection-open-face','font-collection-face-index',$null,5UL,5UL),
     @('collection-select-cff','select','FontCollection::open_face',1,'Capability','CapabilityUnavailable','font-collection-open-face','font-collection-face-profile',$null,$null,$null),
     @('collection-select-cff2','select','FontCollection::open_face',2,'Capability','CapabilityUnavailable','font-collection-open-face','font-collection-face-profile',$null,$null,$null),
@@ -1375,20 +1376,20 @@ function New-FontCollectionQualificationCases {
   # envelope. Each row freezes the exact configured boundary; runtime tests
   # separately exercise the semantic parser demand for that dimension.
   $selectedLimitFacts = [ordered]@{
-    'source-bytes' = 536UL
-    'tables' = 16UL
-    'table-bytes' = 1024UL
-    'glyphs' = 16UL
-    'name-records' = 16UL
-    'cmap-records' = 16UL
-    'kern-subtables' = 16UL
-    'kern-pairs' = 256UL
-    'outline-points' = 4096UL
-    'outline-contours' = 256UL
-    'outline-components' = 256UL
-    'instruction-bytes' = 1024UL
-    'post-name-bytes' = 256UL
-    'work' = 16384UL
+    'source-bytes' = 716UL
+    'tables' = 10UL
+    'table-bytes' = 78UL
+    'glyphs' = 1UL
+    'name-records' = 1UL
+    'cmap-records' = 1UL
+    'kern-subtables' = 1UL
+    'kern-pairs' = 1UL
+    'outline-points' = 1UL
+    'outline-contours' = 1UL
+    'outline-components' = 1UL
+    'instruction-bytes' = 1UL
+    'post-name-bytes' = 1UL
+    'work' = 1UL
   }
   $limits = [Collections.Generic.List[object]]::new()
   foreach ($id in @($expectedIds.limit_cases)) {
@@ -1400,20 +1401,30 @@ function New-FontCollectionQualificationCases {
     if ($null -eq $requested) {
       throw "No explicit qualification boundary is declared for '$id'."
     }
-    $declaredLimit = if ($oneShort) { $requested - 1UL } else { $requested }
+    $constructorBoundary = $selected -and $dimension -notin @(
+      'source-bytes','tables','table-bytes'
+    )
+    $caseRequested = if ($constructorBoundary -and $oneShort) { 0UL } else { $requested }
+    $declaredLimit = if ($constructorBoundary -and $oneShort) {
+      1UL
+    } elseif ($oneShort) {
+      $requested - 1UL
+    } else {
+      $requested
+    }
     $limits.Add((New-FontCollectionQualificationCase `
       -Id $id -FixtureId $(if ($selected) { 'generated-ttc-v1-static-selected' } else { 'generated-ttc-v1-exact-sharing' }) `
-      -Stage $(if ($selected) { 'select' } else { 'open' }) `
-      -Entrypoint $(if ($selected) { 'FontCollection::open_face' } else { 'FontCollection::open' }) `
+      -Stage $(if ($constructorBoundary) { 'inspect' } elseif ($selected) { 'select' } else { 'open' }) `
+      -Entrypoint $(if ($constructorBoundary) { 'FontLimits::new' } elseif ($selected) { 'FontCollection::open_face' } else { 'FontCollection::open' }) `
       -FaceIndex $(if ($selected) { 0 } else { $null }) `
       -Authority $(if ($selected) { 'selected-limit' } else { 'collection-limit' }) `
       -Boundary $(if ($oneShort) { 'one-short' } else { 'exact' }) `
-      -Category $(if ($oneShort) { 'Resource' } else { $null }) `
-      -Code $(if ($oneShort) { 'BudgetExceeded' } else { $null }) `
-      -Operation $(if ($oneShort) { $(if ($selected) { 'font-open' } else { 'font-collection-open' }) } else { $null }) `
-      -Context $(if ($oneShort) { "max-$dimension" } else { $null }) `
-      -SourceOffset $null -Requested $requested -Limit $declaredLimit `
-      -Publication $(if ($oneShort) { 'none' } elseif ($selected) { 'font' } else { 'collection' }) `
+      -Category $(if ($oneShort) { $(if ($constructorBoundary) { 'Input' } else { 'Resource' }) } else { $null }) `
+      -Code $(if ($oneShort) { $(if ($constructorBoundary) { 'InvalidRange' } else { 'BudgetExceeded' }) } else { $null }) `
+      -Operation $(if ($oneShort) { $(if ($constructorBoundary) { 'font-limits-new' } elseif ($selected) { 'font-open' } else { 'font-collection-open' }) } else { $null }) `
+      -Context $(if ($oneShort) { $(if ($dimension -ceq 'instruction-bytes') { 'max-outline-instruction-bytes' } else { "max-$dimension" }) } else { $null }) `
+      -SourceOffset $null -Requested $caseRequested -Limit $declaredLimit `
+      -Publication $(if ($oneShort) { 'none' } elseif ($constructorBoundary) { 'limits' } elseif ($selected) { 'font' } else { 'collection' }) `
       -BudgetBefore $zero -BudgetAfter $zero))
   }
 

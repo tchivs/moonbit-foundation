@@ -536,6 +536,7 @@ function Assert-FontQualificationCaseFact {
         'none',
         'collection',
         'font',
+        'limits',
         'existing-collection-only',
         'existing-font-only'
       )) {
@@ -1756,21 +1757,21 @@ function Invoke-FontQualification {
       })
       $copy[3].licensed_derivative_facts.shared_table_coordinates[0].root_offset++
       Compare-FontQualificationEvidence $copy $resolvedEvidence $managedEvidenceRoot
-    } 'Four-target font qualification semantics differ'
+    } 'exact ordered value drifted|Four-target font qualification semantics differ'
     & $probe 'hostile error semantic divergence' {
       $copy = @($records | ForEach-Object {
         ConvertTo-FontQualificationJson $_ -Compress | ConvertFrom-Json
       })
       $copy[3].collection_hostile_outcomes.hostile[0].error.code = 'Drift'
       Compare-FontQualificationEvidence $copy $resolvedEvidence $managedEvidenceRoot
-    } 'Four-target font qualification semantics differ'
+    } 'exact ordered value drifted|Four-target font qualification semantics differ'
     & $probe 'budget after semantic divergence' {
       $copy = @($records | ForEach-Object {
         ConvertTo-FontQualificationJson $_ -Compress | ConvertFrom-Json
       })
       $copy[3].collection_hostile_outcomes.budgets[0].budget_after.work++
       Compare-FontQualificationEvidence $copy $resolvedEvidence $managedEvidenceRoot
-    } 'Four-target font qualification semantics differ'
+    } 'exact ordered value drifted|Four-target font qualification semantics differ'
     & $probe 'WOFF boundary divergence' {
       $copy = ConvertTo-FontQualificationJson $records[0] -Compress |
         ConvertFrom-Json

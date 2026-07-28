@@ -978,7 +978,13 @@ test "collection accounting formula includes every protected and alias pair" {
   let overflow = font_collection_choose_two(18446744073709551615UL, 48UL).unwrap_err()
   inspect(overflow.category() == @error.ErrorCategory::Resource, content="true")
   inspect(overflow.code() == @error.ErrorCode::BudgetExceeded, content="true")
+  inspect(overflow.operation() == Some("font-collection-open"), content="true")
   inspect(overflow.context() == Some("max-work"), content="true")
+  inspect(
+    overflow.requested() == Some(18446744073709551615UL),
+    content="true",
+  )
+  inspect(overflow.limit() == Some(48UL), content="true")
 }
 
 ///|

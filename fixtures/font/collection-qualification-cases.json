@@ -504,7 +504,7 @@
         "code": "CapabilityUnavailable",
         "operation": "font-collection-open",
         "context": "font-collection-version",
-        "source_offset": 4,
+        "source_offset": null,
         "requested": null,
         "limit": null
       },
@@ -585,7 +585,7 @@
         "operation": "font-collection-open",
         "context": "font-collection-offset-array",
         "source_offset": 12,
-        "requested": 20,
+        "requested": 32,
         "limit": 15
       },
       "publication": "none",
@@ -624,9 +624,9 @@
         "code": "InvalidEncoding",
         "operation": "font-collection-open",
         "context": "font-collection-directory-range",
-        "source_offset": null,
-        "requested": null,
-        "limit": null
+        "source_offset": 64,
+        "requested": 12,
+        "limit": 75
       },
       "publication": "none",
       "budget_before": {
@@ -704,7 +704,7 @@
         "code": "InvalidEncoding",
         "operation": "font-collection-open",
         "context": "font-collection-table-tag-order",
-        "source_offset": null,
+        "source_offset": 92,
         "requested": null,
         "limit": null
       },
@@ -744,9 +744,9 @@
         "code": "InvalidEncoding",
         "operation": "font-collection-open",
         "context": "font-collection-table-range",
-        "source_offset": null,
-        "requested": null,
-        "limit": null
+        "source_offset": 4294967292,
+        "requested": 8,
+        "limit": 160
       },
       "publication": "none",
       "budget_before": {
@@ -784,8 +784,8 @@
         "code": "InvalidEncoding",
         "operation": "font-collection-open",
         "context": "font-collection-table-protected-overlap",
-        "source_offset": null,
-        "requested": null,
+        "source_offset": 64,
+        "requested": 4,
         "limit": null
       },
       "publication": "none",
@@ -824,8 +824,8 @@
         "code": "InvalidEncoding",
         "operation": "font-collection-open",
         "context": "font-collection-same-face-overlap",
-        "source_offset": null,
-        "requested": null,
+        "source_offset": 96,
+        "requested": 4,
         "limit": null
       },
       "publication": "none",
@@ -864,8 +864,8 @@
         "code": "InvalidEncoding",
         "operation": "font-collection-open",
         "context": "font-collection-cross-face-overlap",
-        "source_offset": null,
-        "requested": null,
+        "source_offset": 100,
+        "requested": 8,
         "limit": null
       },
       "publication": "none",
@@ -904,8 +904,8 @@
         "code": "InvalidEncoding",
         "operation": "font-collection-open",
         "context": "font-collection-shared-metadata",
-        "source_offset": null,
-        "requested": null,
+        "source_offset": 96,
+        "requested": 4,
         "limit": null
       },
       "publication": "none",
@@ -984,9 +984,9 @@
         "code": "InvalidEncoding",
         "operation": "font-collection-open",
         "context": "font-collection-dsig-range",
-        "source_offset": null,
-        "requested": null,
-        "limit": null
+        "source_offset": 68,
+        "requested": 28,
+        "limit": 100
       },
       "publication": "none",
       "budget_before": {
@@ -1024,9 +1024,9 @@
         "code": "InvalidEncoding",
         "operation": "font-collection-open",
         "context": "font-collection-dsig-block-length",
-        "source_offset": null,
-        "requested": null,
-        "limit": null
+        "source_offset": 88,
+        "requested": 12,
+        "limit": 11
       },
       "publication": "none",
       "budget_before": {
@@ -1144,8 +1144,8 @@
         "code": "InvalidEncoding",
         "operation": "font-collection-open",
         "context": "font-collection-dsig-block-overlap",
-        "source_offset": null,
-        "requested": null,
+        "source_offset": 108,
+        "requested": 12,
         "limit": null
       },
       "publication": "none",
@@ -2389,8 +2389,8 @@
         "operation": null,
         "context": null,
         "source_offset": null,
-        "requested": 536,
-        "limit": 536
+        "requested": 716,
+        "limit": 716
       },
       "publication": "font",
       "budget_before": {
@@ -2429,8 +2429,8 @@
         "operation": "font-open",
         "context": "max-source-bytes",
         "source_offset": null,
-        "requested": 536,
-        "limit": 535
+        "requested": 716,
+        "limit": 715
       },
       "publication": "none",
       "budget_before": {
@@ -2469,8 +2469,8 @@
         "operation": null,
         "context": null,
         "source_offset": null,
-        "requested": 16,
-        "limit": 16
+        "requested": 10,
+        "limit": 10
       },
       "publication": "font",
       "budget_before": {
@@ -2509,8 +2509,8 @@
         "operation": "font-open",
         "context": "max-tables",
         "source_offset": null,
-        "requested": 16,
-        "limit": 15
+        "requested": 10,
+        "limit": 9
       },
       "publication": "none",
       "budget_before": {
@@ -2549,8 +2549,8 @@
         "operation": null,
         "context": null,
         "source_offset": null,
-        "requested": 1024,
-        "limit": 1024
+        "requested": 78,
+        "limit": 78
       },
       "publication": "font",
       "budget_before": {
@@ -2589,8 +2589,8 @@
         "operation": "font-open",
         "context": "max-table-bytes",
         "source_offset": null,
-        "requested": 1024,
-        "limit": 1023
+        "requested": 78,
+        "limit": 77
       },
       "publication": "none",
       "budget_before": {
@@ -2617,8 +2617,8 @@
     {
       "id": "limit-selected-glyphs-exact",
       "fixture_id": "generated-ttc-v1-static-selected",
-      "stage": "select",
-      "entrypoint": "FontCollection::open_face",
+      "stage": "inspect",
+      "entrypoint": "FontLimits::new",
       "face_index": 0,
       "mutation_window": "none",
       "authority": "selected-limit",
@@ -2629,10 +2629,10 @@
         "operation": null,
         "context": null,
         "source_offset": null,
-        "requested": 16,
-        "limit": 16
+        "requested": 1,
+        "limit": 1
       },
-      "publication": "font",
+      "publication": "limits",
       "budget_before": {
         "bytes": 0,
         "allocations": 0,
@@ -2657,20 +2657,20 @@
     {
       "id": "limit-selected-glyphs-one-short",
       "fixture_id": "generated-ttc-v1-static-selected",
-      "stage": "select",
-      "entrypoint": "FontCollection::open_face",
+      "stage": "inspect",
+      "entrypoint": "FontLimits::new",
       "face_index": 0,
       "mutation_window": "none",
       "authority": "selected-limit",
       "boundary": "one-short",
       "error": {
-        "category": "Resource",
-        "code": "BudgetExceeded",
-        "operation": "font-open",
+        "category": "Input",
+        "code": "InvalidRange",
+        "operation": "font-limits-new",
         "context": "max-glyphs",
         "source_offset": null,
-        "requested": 16,
-        "limit": 15
+        "requested": 0,
+        "limit": 1
       },
       "publication": "none",
       "budget_before": {
@@ -2697,8 +2697,8 @@
     {
       "id": "limit-selected-name-records-exact",
       "fixture_id": "generated-ttc-v1-static-selected",
-      "stage": "select",
-      "entrypoint": "FontCollection::open_face",
+      "stage": "inspect",
+      "entrypoint": "FontLimits::new",
       "face_index": 0,
       "mutation_window": "none",
       "authority": "selected-limit",
@@ -2709,10 +2709,10 @@
         "operation": null,
         "context": null,
         "source_offset": null,
-        "requested": 16,
-        "limit": 16
+        "requested": 1,
+        "limit": 1
       },
-      "publication": "font",
+      "publication": "limits",
       "budget_before": {
         "bytes": 0,
         "allocations": 0,
@@ -2737,20 +2737,20 @@
     {
       "id": "limit-selected-name-records-one-short",
       "fixture_id": "generated-ttc-v1-static-selected",
-      "stage": "select",
-      "entrypoint": "FontCollection::open_face",
+      "stage": "inspect",
+      "entrypoint": "FontLimits::new",
       "face_index": 0,
       "mutation_window": "none",
       "authority": "selected-limit",
       "boundary": "one-short",
       "error": {
-        "category": "Resource",
-        "code": "BudgetExceeded",
-        "operation": "font-open",
+        "category": "Input",
+        "code": "InvalidRange",
+        "operation": "font-limits-new",
         "context": "max-name-records",
         "source_offset": null,
-        "requested": 16,
-        "limit": 15
+        "requested": 0,
+        "limit": 1
       },
       "publication": "none",
       "budget_before": {
@@ -2777,8 +2777,8 @@
     {
       "id": "limit-selected-cmap-records-exact",
       "fixture_id": "generated-ttc-v1-static-selected",
-      "stage": "select",
-      "entrypoint": "FontCollection::open_face",
+      "stage": "inspect",
+      "entrypoint": "FontLimits::new",
       "face_index": 0,
       "mutation_window": "none",
       "authority": "selected-limit",
@@ -2789,10 +2789,10 @@
         "operation": null,
         "context": null,
         "source_offset": null,
-        "requested": 16,
-        "limit": 16
+        "requested": 1,
+        "limit": 1
       },
-      "publication": "font",
+      "publication": "limits",
       "budget_before": {
         "bytes": 0,
         "allocations": 0,
@@ -2817,20 +2817,20 @@
     {
       "id": "limit-selected-cmap-records-one-short",
       "fixture_id": "generated-ttc-v1-static-selected",
-      "stage": "select",
-      "entrypoint": "FontCollection::open_face",
+      "stage": "inspect",
+      "entrypoint": "FontLimits::new",
       "face_index": 0,
       "mutation_window": "none",
       "authority": "selected-limit",
       "boundary": "one-short",
       "error": {
-        "category": "Resource",
-        "code": "BudgetExceeded",
-        "operation": "font-open",
+        "category": "Input",
+        "code": "InvalidRange",
+        "operation": "font-limits-new",
         "context": "max-cmap-records",
         "source_offset": null,
-        "requested": 16,
-        "limit": 15
+        "requested": 0,
+        "limit": 1
       },
       "publication": "none",
       "budget_before": {
@@ -2857,8 +2857,8 @@
     {
       "id": "limit-selected-kern-subtables-exact",
       "fixture_id": "generated-ttc-v1-static-selected",
-      "stage": "select",
-      "entrypoint": "FontCollection::open_face",
+      "stage": "inspect",
+      "entrypoint": "FontLimits::new",
       "face_index": 0,
       "mutation_window": "none",
       "authority": "selected-limit",
@@ -2869,10 +2869,10 @@
         "operation": null,
         "context": null,
         "source_offset": null,
-        "requested": 16,
-        "limit": 16
+        "requested": 1,
+        "limit": 1
       },
-      "publication": "font",
+      "publication": "limits",
       "budget_before": {
         "bytes": 0,
         "allocations": 0,
@@ -2897,20 +2897,20 @@
     {
       "id": "limit-selected-kern-subtables-one-short",
       "fixture_id": "generated-ttc-v1-static-selected",
-      "stage": "select",
-      "entrypoint": "FontCollection::open_face",
+      "stage": "inspect",
+      "entrypoint": "FontLimits::new",
       "face_index": 0,
       "mutation_window": "none",
       "authority": "selected-limit",
       "boundary": "one-short",
       "error": {
-        "category": "Resource",
-        "code": "BudgetExceeded",
-        "operation": "font-open",
+        "category": "Input",
+        "code": "InvalidRange",
+        "operation": "font-limits-new",
         "context": "max-kern-subtables",
         "source_offset": null,
-        "requested": 16,
-        "limit": 15
+        "requested": 0,
+        "limit": 1
       },
       "publication": "none",
       "budget_before": {
@@ -2937,8 +2937,8 @@
     {
       "id": "limit-selected-kern-pairs-exact",
       "fixture_id": "generated-ttc-v1-static-selected",
-      "stage": "select",
-      "entrypoint": "FontCollection::open_face",
+      "stage": "inspect",
+      "entrypoint": "FontLimits::new",
       "face_index": 0,
       "mutation_window": "none",
       "authority": "selected-limit",
@@ -2949,10 +2949,10 @@
         "operation": null,
         "context": null,
         "source_offset": null,
-        "requested": 256,
-        "limit": 256
+        "requested": 1,
+        "limit": 1
       },
-      "publication": "font",
+      "publication": "limits",
       "budget_before": {
         "bytes": 0,
         "allocations": 0,
@@ -2977,20 +2977,20 @@
     {
       "id": "limit-selected-kern-pairs-one-short",
       "fixture_id": "generated-ttc-v1-static-selected",
-      "stage": "select",
-      "entrypoint": "FontCollection::open_face",
+      "stage": "inspect",
+      "entrypoint": "FontLimits::new",
       "face_index": 0,
       "mutation_window": "none",
       "authority": "selected-limit",
       "boundary": "one-short",
       "error": {
-        "category": "Resource",
-        "code": "BudgetExceeded",
-        "operation": "font-open",
+        "category": "Input",
+        "code": "InvalidRange",
+        "operation": "font-limits-new",
         "context": "max-kern-pairs",
         "source_offset": null,
-        "requested": 256,
-        "limit": 255
+        "requested": 0,
+        "limit": 1
       },
       "publication": "none",
       "budget_before": {
@@ -3017,8 +3017,8 @@
     {
       "id": "limit-selected-outline-points-exact",
       "fixture_id": "generated-ttc-v1-static-selected",
-      "stage": "select",
-      "entrypoint": "FontCollection::open_face",
+      "stage": "inspect",
+      "entrypoint": "FontLimits::new",
       "face_index": 0,
       "mutation_window": "none",
       "authority": "selected-limit",
@@ -3029,10 +3029,10 @@
         "operation": null,
         "context": null,
         "source_offset": null,
-        "requested": 4096,
-        "limit": 4096
+        "requested": 1,
+        "limit": 1
       },
-      "publication": "font",
+      "publication": "limits",
       "budget_before": {
         "bytes": 0,
         "allocations": 0,
@@ -3057,20 +3057,20 @@
     {
       "id": "limit-selected-outline-points-one-short",
       "fixture_id": "generated-ttc-v1-static-selected",
-      "stage": "select",
-      "entrypoint": "FontCollection::open_face",
+      "stage": "inspect",
+      "entrypoint": "FontLimits::new",
       "face_index": 0,
       "mutation_window": "none",
       "authority": "selected-limit",
       "boundary": "one-short",
       "error": {
-        "category": "Resource",
-        "code": "BudgetExceeded",
-        "operation": "font-open",
+        "category": "Input",
+        "code": "InvalidRange",
+        "operation": "font-limits-new",
         "context": "max-outline-points",
         "source_offset": null,
-        "requested": 4096,
-        "limit": 4095
+        "requested": 0,
+        "limit": 1
       },
       "publication": "none",
       "budget_before": {
@@ -3097,8 +3097,8 @@
     {
       "id": "limit-selected-outline-contours-exact",
       "fixture_id": "generated-ttc-v1-static-selected",
-      "stage": "select",
-      "entrypoint": "FontCollection::open_face",
+      "stage": "inspect",
+      "entrypoint": "FontLimits::new",
       "face_index": 0,
       "mutation_window": "none",
       "authority": "selected-limit",
@@ -3109,10 +3109,10 @@
         "operation": null,
         "context": null,
         "source_offset": null,
-        "requested": 256,
-        "limit": 256
+        "requested": 1,
+        "limit": 1
       },
-      "publication": "font",
+      "publication": "limits",
       "budget_before": {
         "bytes": 0,
         "allocations": 0,
@@ -3137,20 +3137,20 @@
     {
       "id": "limit-selected-outline-contours-one-short",
       "fixture_id": "generated-ttc-v1-static-selected",
-      "stage": "select",
-      "entrypoint": "FontCollection::open_face",
+      "stage": "inspect",
+      "entrypoint": "FontLimits::new",
       "face_index": 0,
       "mutation_window": "none",
       "authority": "selected-limit",
       "boundary": "one-short",
       "error": {
-        "category": "Resource",
-        "code": "BudgetExceeded",
-        "operation": "font-open",
+        "category": "Input",
+        "code": "InvalidRange",
+        "operation": "font-limits-new",
         "context": "max-outline-contours",
         "source_offset": null,
-        "requested": 256,
-        "limit": 255
+        "requested": 0,
+        "limit": 1
       },
       "publication": "none",
       "budget_before": {
@@ -3177,8 +3177,8 @@
     {
       "id": "limit-selected-outline-components-exact",
       "fixture_id": "generated-ttc-v1-static-selected",
-      "stage": "select",
-      "entrypoint": "FontCollection::open_face",
+      "stage": "inspect",
+      "entrypoint": "FontLimits::new",
       "face_index": 0,
       "mutation_window": "none",
       "authority": "selected-limit",
@@ -3189,10 +3189,10 @@
         "operation": null,
         "context": null,
         "source_offset": null,
-        "requested": 256,
-        "limit": 256
+        "requested": 1,
+        "limit": 1
       },
-      "publication": "font",
+      "publication": "limits",
       "budget_before": {
         "bytes": 0,
         "allocations": 0,
@@ -3217,20 +3217,20 @@
     {
       "id": "limit-selected-outline-components-one-short",
       "fixture_id": "generated-ttc-v1-static-selected",
-      "stage": "select",
-      "entrypoint": "FontCollection::open_face",
+      "stage": "inspect",
+      "entrypoint": "FontLimits::new",
       "face_index": 0,
       "mutation_window": "none",
       "authority": "selected-limit",
       "boundary": "one-short",
       "error": {
-        "category": "Resource",
-        "code": "BudgetExceeded",
-        "operation": "font-open",
+        "category": "Input",
+        "code": "InvalidRange",
+        "operation": "font-limits-new",
         "context": "max-outline-components",
         "source_offset": null,
-        "requested": 256,
-        "limit": 255
+        "requested": 0,
+        "limit": 1
       },
       "publication": "none",
       "budget_before": {
@@ -3257,8 +3257,8 @@
     {
       "id": "limit-selected-instruction-bytes-exact",
       "fixture_id": "generated-ttc-v1-static-selected",
-      "stage": "select",
-      "entrypoint": "FontCollection::open_face",
+      "stage": "inspect",
+      "entrypoint": "FontLimits::new",
       "face_index": 0,
       "mutation_window": "none",
       "authority": "selected-limit",
@@ -3269,10 +3269,10 @@
         "operation": null,
         "context": null,
         "source_offset": null,
-        "requested": 1024,
-        "limit": 1024
+        "requested": 1,
+        "limit": 1
       },
-      "publication": "font",
+      "publication": "limits",
       "budget_before": {
         "bytes": 0,
         "allocations": 0,
@@ -3297,20 +3297,20 @@
     {
       "id": "limit-selected-instruction-bytes-one-short",
       "fixture_id": "generated-ttc-v1-static-selected",
-      "stage": "select",
-      "entrypoint": "FontCollection::open_face",
+      "stage": "inspect",
+      "entrypoint": "FontLimits::new",
       "face_index": 0,
       "mutation_window": "none",
       "authority": "selected-limit",
       "boundary": "one-short",
       "error": {
-        "category": "Resource",
-        "code": "BudgetExceeded",
-        "operation": "font-open",
-        "context": "max-instruction-bytes",
+        "category": "Input",
+        "code": "InvalidRange",
+        "operation": "font-limits-new",
+        "context": "max-outline-instruction-bytes",
         "source_offset": null,
-        "requested": 1024,
-        "limit": 1023
+        "requested": 0,
+        "limit": 1
       },
       "publication": "none",
       "budget_before": {
@@ -3337,8 +3337,8 @@
     {
       "id": "limit-selected-post-name-bytes-exact",
       "fixture_id": "generated-ttc-v1-static-selected",
-      "stage": "select",
-      "entrypoint": "FontCollection::open_face",
+      "stage": "inspect",
+      "entrypoint": "FontLimits::new",
       "face_index": 0,
       "mutation_window": "none",
       "authority": "selected-limit",
@@ -3349,10 +3349,10 @@
         "operation": null,
         "context": null,
         "source_offset": null,
-        "requested": 256,
-        "limit": 256
+        "requested": 1,
+        "limit": 1
       },
-      "publication": "font",
+      "publication": "limits",
       "budget_before": {
         "bytes": 0,
         "allocations": 0,
@@ -3377,20 +3377,20 @@
     {
       "id": "limit-selected-post-name-bytes-one-short",
       "fixture_id": "generated-ttc-v1-static-selected",
-      "stage": "select",
-      "entrypoint": "FontCollection::open_face",
+      "stage": "inspect",
+      "entrypoint": "FontLimits::new",
       "face_index": 0,
       "mutation_window": "none",
       "authority": "selected-limit",
       "boundary": "one-short",
       "error": {
-        "category": "Resource",
-        "code": "BudgetExceeded",
-        "operation": "font-open",
+        "category": "Input",
+        "code": "InvalidRange",
+        "operation": "font-limits-new",
         "context": "max-post-name-bytes",
         "source_offset": null,
-        "requested": 256,
-        "limit": 255
+        "requested": 0,
+        "limit": 1
       },
       "publication": "none",
       "budget_before": {
@@ -3417,8 +3417,8 @@
     {
       "id": "limit-selected-work-exact",
       "fixture_id": "generated-ttc-v1-static-selected",
-      "stage": "select",
-      "entrypoint": "FontCollection::open_face",
+      "stage": "inspect",
+      "entrypoint": "FontLimits::new",
       "face_index": 0,
       "mutation_window": "none",
       "authority": "selected-limit",
@@ -3429,10 +3429,10 @@
         "operation": null,
         "context": null,
         "source_offset": null,
-        "requested": 16384,
-        "limit": 16384
+        "requested": 1,
+        "limit": 1
       },
-      "publication": "font",
+      "publication": "limits",
       "budget_before": {
         "bytes": 0,
         "allocations": 0,
@@ -3457,20 +3457,20 @@
     {
       "id": "limit-selected-work-one-short",
       "fixture_id": "generated-ttc-v1-static-selected",
-      "stage": "select",
-      "entrypoint": "FontCollection::open_face",
+      "stage": "inspect",
+      "entrypoint": "FontLimits::new",
       "face_index": 0,
       "mutation_window": "none",
       "authority": "selected-limit",
       "boundary": "one-short",
       "error": {
-        "category": "Resource",
-        "code": "BudgetExceeded",
-        "operation": "font-open",
+        "category": "Input",
+        "code": "InvalidRange",
+        "operation": "font-limits-new",
         "context": "max-work",
         "source_offset": null,
-        "requested": 16384,
-        "limit": 16383
+        "requested": 0,
+        "limit": 1
       },
       "publication": "none",
       "budget_before": {

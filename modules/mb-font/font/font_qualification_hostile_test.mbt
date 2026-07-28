@@ -373,6 +373,90 @@ fn font_collection_qualification_assert_snapshot_equal(
 }
 
 ///|
+fn font_collection_qualification_case(
+  id : String,
+) -> FontCollectionQualificationCase raise {
+  for expected in font_collection_qualification_cases() {
+    if expected.id == id {
+      return expected
+    }
+  }
+  fail("qualification case lacks a runtime dispatcher branch: " + id)
+}
+
+///|
+fn font_collection_qualification_assert_error(
+  id : String,
+  error : @error.CoreError,
+) -> Unit raise {
+  let expected = font_collection_qualification_case(id)
+  match expected.error.category {
+    Some("Data") =>
+      inspect(error.category() == @error.ErrorCategory::Data, content="true")
+    Some("Capability") =>
+      inspect(
+        error.category() == @error.ErrorCategory::Capability,
+        content="true",
+      )
+    Some("State") =>
+      inspect(error.category() == @error.ErrorCategory::State, content="true")
+    Some("Resource") =>
+      inspect(
+        error.category() == @error.ErrorCategory::Resource,
+        content="true",
+      )
+    Some("Input") =>
+      inspect(
+        error.category() == @error.ErrorCategory::InvalidInput,
+        content="true",
+      )
+    _ => fail(id)
+  }
+  match expected.error.code {
+    Some("InvalidEncoding") =>
+      inspect(
+        error.code() == @error.ErrorCode::InvalidEncoding,
+        content="true",
+      )
+    Some("CapabilityUnavailable") =>
+      inspect(
+        error.code() == @error.ErrorCode::CapabilityUnavailable,
+        content="true",
+      )
+    Some("InvalidRange") =>
+      inspect(error.code() == @error.ErrorCode::InvalidRange, content="true")
+    Some("BudgetExceeded") =>
+      inspect(
+        error.code() == @error.ErrorCode::BudgetExceeded,
+        content="true",
+      )
+    _ => fail(id)
+  }
+  if error.operation() != expected.error.operation { fail(id + ":operation") }
+  if error.context() != expected.error.context { fail(id + ":context") }
+  if error.source_offset() != expected.error.source_offset {
+    fail(id + ":source_offset")
+  }
+  if error.requested() != expected.error.requested {
+    fail(id + ":requested")
+  }
+  if error.limit() != expected.error.limit { fail(id + ":limit") }
+}
+
+///|
+fn font_collection_qualification_assert_exact(
+  id : String,
+  required : UInt64,
+) -> Unit raise {
+  let expected = font_collection_qualification_case(id)
+  inspect(expected.boundary == "exact", content="true")
+  inspect(expected.error.category is None, content="true")
+  inspect(expected.error.requested == Some(required), content="true")
+  inspect(expected.error.limit == Some(required), content="true")
+  inspect(expected.publication != "none", content="true")
+}
+
+///|
 fn font_collection_qualification_assert_ids(
   cases : Array[FontCollectionQualificationCase],
   start : Int,
@@ -402,10 +486,23 @@ fn font_collection_qualification_assert_ids(
       "success" | "exact" => inspect(expected.publication != "none", content="true")
       _ => fail(expected.id)
     }
-    ignore(expected.face_index)
-    ignore(expected.error.source_offset)
-    ignore(expected.error.requested)
-    ignore(expected.error.limit)
+    match expected.face_index {
+      Some(index) => inspect(index < 6UL, content="true")
+      None => ()
+    }
+    match expected.error.source_offset {
+      Some(offset) => inspect(offset.to_string().length() > 0, content="true")
+      None => ()
+    }
+    match expected.error.requested {
+      Some(requested) =>
+        inspect(requested.to_string().length() > 0, content="true")
+      None => ()
+    }
+    match expected.error.limit {
+      Some(limit) => inspect(limit.to_string().length() > 0, content="true")
+      None => ()
+    }
   }
 }
 
@@ -549,6 +646,7 @@ fn font_collection_qualification_assert_closed_matrix() -> Unit raise {
 
 ///|
 fn font_collection_qualification_expect_open_error(
+  id : String,
   source : Bytes,
   category : @error.ErrorCategory,
   code : @error.ErrorCode,
@@ -562,6 +660,7 @@ fn font_collection_qualification_expect_open_error(
     font_qualification_collection_limits(1000000UL, 64UL, 256UL),
     budget,
   ).unwrap_err()
+  font_collection_qualification_assert_error(id, error)
   inspect(error.category() == category, content="true")
   inspect(error.code() == code, content="true")
   inspect(error.operation() == Some("font-collection-open"), content="true")
@@ -574,6 +673,7 @@ fn font_collection_qualification_expect_open_error(
 ///|
 fn font_collection_qualification_assert_structural_failures() -> Unit raise {
   font_collection_qualification_expect_open_error(
+    "collection-header-truncated",
     b"",
     @error.ErrorCategory::Data,
     @error.ErrorCode::InvalidEncoding,
@@ -582,6 +682,7 @@ fn font_collection_qualification_assert_structural_failures() -> Unit raise {
   let invalid_signature = font_collection_test_ttc().to_array()
   font_collection_test_put_u32(invalid_signature, 0, 0UL)
   font_collection_qualification_expect_open_error(
+    "collection-signature-invalid",
     Bytes::from_array(invalid_signature),
     @error.ErrorCategory::Data,
     @error.ErrorCode::InvalidEncoding,
@@ -590,24 +691,28 @@ fn font_collection_qualification_assert_structural_failures() -> Unit raise {
   let invalid_version = font_collection_test_ttc().to_array()
   font_collection_test_put_u32(invalid_version, 4, 0x00030000UL)
   font_collection_qualification_expect_open_error(
+    "collection-version-unsupported",
     Bytes::from_array(invalid_version),
     @error.ErrorCategory::Capability,
     @error.ErrorCode::CapabilityUnavailable,
     "font-collection-version",
   )
   font_collection_qualification_expect_open_error(
+    "collection-face-count-zero",
     font_collection_test_zero_faces(),
     @error.ErrorCategory::Data,
     @error.ErrorCode::InvalidEncoding,
     "font-collection-face-count",
   )
   font_collection_qualification_expect_open_error(
+    "collection-offset-array-truncated",
     font_collection_test_prefix(font_collection_test_multi_ttc(), 15),
     @error.ErrorCategory::Data,
     @error.ErrorCode::InvalidEncoding,
     "font-collection-offset-array",
   )
   font_collection_qualification_expect_open_error(
+    "collection-face-directory-truncated",
     font_collection_test_prefix(font_collection_test_multi_ttc(), 75),
     @error.ErrorCategory::Data,
     @error.ErrorCode::InvalidEncoding,
@@ -617,6 +722,7 @@ fn font_collection_qualification_assert_structural_failures() -> Unit raise {
   let bad_search = font_collection_test_multi_ttc().to_array()
   font_collection_test_put_u16(bad_search, 70, 0UL)
   font_collection_qualification_expect_open_error(
+    "collection-directory-search-facts-invalid",
     Bytes::from_array(bad_search),
     @error.ErrorCategory::Data,
     @error.ErrorCode::InvalidEncoding,
@@ -626,12 +732,14 @@ fn font_collection_qualification_assert_structural_failures() -> Unit raise {
   font_collection_test_put_u32(unordered_tags, 76, 0x6C6F6361UL)
   font_collection_test_put_u32(unordered_tags, 92, 0x676C7966UL)
   font_collection_qualification_expect_open_error(
+    "collection-directory-tags-unordered",
     Bytes::from_array(unordered_tags),
     @error.ErrorCategory::Data,
     @error.ErrorCode::InvalidEncoding,
     "font-collection-table-tag-order",
   )
   font_collection_qualification_expect_open_error(
+    "collection-table-range-overflow",
     font_collection_test_pair_ttc(
       0x6E616D65UL,
       7UL,
@@ -651,25 +759,28 @@ fn font_collection_qualification_assert_structural_failures() -> Unit raise {
   for
     item in [
       (
+        "collection-cross-face-partial-overlap",
         font_collection_test_pair_ttc(
           name, 7UL, 96UL, 8UL, name, 7UL, 100UL, 8UL,
         ),
         "font-collection-cross-face-overlap",
       ),
       (
+        "collection-shared-range-metadata-conflict",
         font_collection_test_pair_ttc(
           name, 7UL, 96UL, 4UL, name, 8UL, 96UL, 4UL,
         ),
         "font-collection-shared-metadata",
       ),
       (
+        "collection-protected-range-overlap",
         font_collection_test_pair_ttc(
           name, 7UL, 64UL, 4UL, name, 9UL, 100UL, 4UL,
         ),
         "font-collection-table-protected-overlap",
       ),
     ] {
-    let (source, context) = item
+    let (id, source, context) = item
     let owner = font_collection_test_owner(source)
     let budget = font_collection_test_pair_budget(248UL, 2UL, 80UL, 66UL)
     let before = budget.remaining()
@@ -678,6 +789,7 @@ fn font_collection_qualification_assert_structural_failures() -> Unit raise {
       font_collection_test_pair_limits(248UL, 66UL),
       budget,
     ).unwrap_err()
+    font_collection_qualification_assert_error(id, error)
     inspect(error.category() == @error.ErrorCategory::Data, content="true")
     inspect(error.code() == @error.ErrorCode::InvalidEncoding, content="true")
     inspect(error.operation() == Some("font-collection-open"), content="true")
@@ -703,6 +815,10 @@ fn font_collection_qualification_assert_structural_failures() -> Unit raise {
     ).unwrap(),
     same_budget,
   ).unwrap_err()
+  font_collection_qualification_assert_error(
+    "collection-same-face-overlap",
+    same_error,
+  )
   inspect(
     same_error.context() == Some("font-collection-same-face-overlap"),
     content="true",
@@ -724,6 +840,10 @@ fn font_collection_qualification_assert_dsig_and_profile_failures() -> Unit rais
       font_collection_test_dsig_limits(1UL, 32UL, 57UL),
       budget,
     ).unwrap_err()
+    font_collection_qualification_assert_error(
+      "collection-dsig-partial-zero-tuple",
+      error,
+    )
     inspect(
       error.context() == Some("font-collection-dsig-tuple"),
       content="true",
@@ -742,6 +862,10 @@ fn font_collection_qualification_assert_dsig_and_profile_failures() -> Unit rais
     font_collection_test_dsig_limits(1UL, 32UL, 57UL),
     trailing_budget,
   ).unwrap_err()
+  font_collection_qualification_assert_error(
+    "collection-dsig-range-not-at-eof",
+    trailing_error,
+  )
   inspect(
     trailing_error.context() == Some("font-collection-dsig-range"),
     content="true",
@@ -775,6 +899,22 @@ fn font_collection_qualification_assert_dsig_and_profile_failures() -> Unit rais
       font_collection_test_dsig_limits(1UL, 32UL, 57UL),
       budget,
     ).unwrap_err()
+    if context == "font-collection-dsig-version" {
+      font_collection_qualification_assert_error(
+        "collection-dsig-version-unsupported",
+        error,
+      )
+    } else if context == "font-collection-dsig-format" {
+      font_collection_qualification_assert_error(
+        "collection-dsig-format-unsupported",
+        error,
+      )
+    } else if context == "font-collection-dsig-block-length" {
+      font_collection_qualification_assert_error(
+        "collection-dsig-envelope-malformed",
+        error,
+      )
+    }
     inspect(error.category() == category, content="true")
     inspect(error.context() == Some(context), content="true")
     font_collection_test_assert_budget_unchanged(before, budget)
@@ -788,6 +928,10 @@ fn font_collection_qualification_assert_dsig_and_profile_failures() -> Unit rais
     font_collection_test_two_dsig_limits(2UL, 52UL, 64UL),
     overlap_budget,
   ).unwrap_err()
+  font_collection_qualification_assert_error(
+    "collection-dsig-block-overlap",
+    overlap_error,
+  )
   inspect(
     overlap_error.context() == Some("font-collection-dsig-block-overlap"),
     content="true",
@@ -814,6 +958,13 @@ fn font_collection_qualification_assert_dsig_and_profile_failures() -> Unit rais
     let error = mixed
       .open_face(index, font_test_limits(), budget)
       .unwrap_err()
+    let id = match index {
+      1UL => "collection-select-cff"
+      2UL => "collection-select-cff2"
+      3UL => "collection-select-variable"
+      _ => fail("unexpected profile index")
+    }
+    font_collection_qualification_assert_error(id, error)
     inspect(error.category() == @error.ErrorCategory::Capability, content="true")
     inspect(
       error.code() == @error.ErrorCode::CapabilityUnavailable,
@@ -834,6 +985,10 @@ fn font_collection_qualification_assert_dsig_and_profile_failures() -> Unit rais
   let index_error = mixed
     .open_face(5UL, font_test_limits(), index_budget)
     .unwrap_err()
+  font_collection_qualification_assert_error(
+    "collection-face-index-equal-count",
+    index_error,
+  )
   inspect(
     index_error.category() == @error.ErrorCategory::InvalidInput,
     content="true",
@@ -842,6 +997,52 @@ fn font_collection_qualification_assert_dsig_and_profile_failures() -> Unit rais
   inspect(index_error.requested() == Some(5UL), content="true")
   inspect(index_error.limit() == Some(5UL), content="true")
   font_collection_test_assert_budget_unchanged(index_before, index_budget)
+}
+
+///|
+fn font_collection_qualification_selected_font_limits(
+  dimension : String,
+  value : UInt64,
+) -> FontLimits {
+  FontLimits::new(
+    max_source_bytes=if dimension == "source-bytes" { value } else { 716UL },
+    max_tables=if dimension == "tables" { value } else { 10UL },
+    max_table_bytes=if dimension == "table-bytes" { value } else { 78UL },
+    max_glyphs=if dimension == "glyphs" { value } else { 16UL },
+    max_name_records=if dimension == "name-records" { value } else { 16UL },
+    max_cmap_records=if dimension == "cmap-records" { value } else { 16UL },
+    max_kern_subtables=if dimension == "kern-subtables" { value } else { 16UL },
+    max_kern_pairs=if dimension == "kern-pairs" { value } else { 256UL },
+    max_outline_points=if dimension == "outline-points" { value } else { 4096UL },
+    max_outline_contours=if dimension == "outline-contours" { value } else { 256UL },
+    max_outline_components=if dimension == "outline-components" { value } else { 256UL },
+    max_outline_instruction_bytes=if dimension == "instruction-bytes" { value } else { 1024UL },
+    max_post_name_bytes=if dimension == "post-name-bytes" { value } else { 256UL },
+    max_work=if dimension == "work" { value } else { 16384UL },
+  ).unwrap()
+}
+
+///|
+fn font_collection_qualification_selected_limit_result(
+  dimension : String,
+  value : UInt64,
+) -> Result[FontLimits, @error.CoreError] {
+  FontLimits::new(
+    max_source_bytes=if dimension == "source-bytes" { value } else { 1UL },
+    max_tables=if dimension == "tables" { value } else { 1UL },
+    max_table_bytes=if dimension == "table-bytes" { value } else { 1UL },
+    max_glyphs=if dimension == "glyphs" { value } else { 1UL },
+    max_name_records=if dimension == "name-records" { value } else { 1UL },
+    max_cmap_records=if dimension == "cmap-records" { value } else { 1UL },
+    max_kern_subtables=if dimension == "kern-subtables" { value } else { 1UL },
+    max_kern_pairs=if dimension == "kern-pairs" { value } else { 1UL },
+    max_outline_points=if dimension == "outline-points" { value } else { 1UL },
+    max_outline_contours=if dimension == "outline-contours" { value } else { 1UL },
+    max_outline_components=if dimension == "outline-components" { value } else { 1UL },
+    max_outline_instruction_bytes=if dimension == "instruction-bytes" { value } else { 1UL },
+    max_post_name_bytes=if dimension == "post-name-bytes" { value } else { 1UL },
+    max_work=if dimension == "work" { value } else { 1UL },
+  )
 }
 
 ///|
@@ -855,6 +1056,10 @@ fn font_collection_qualification_assert_limits_and_budgets() -> Unit raise {
       font_collection_test_budget(),
     ).unwrap(),
   )
+  font_collection_qualification_assert_exact(
+    "limit-collection-source-bytes-exact",
+    88UL,
+  )
   let short_owner = font_collection_test_owner(compact)
   let short_budget = font_collection_test_budget()
   let short_before = short_budget.remaining()
@@ -863,6 +1068,10 @@ fn font_collection_qualification_assert_limits_and_budgets() -> Unit raise {
     font_collection_test_limits_with_source(87UL),
     short_budget,
   ).unwrap_err()
+  font_collection_qualification_assert_error(
+    "limit-collection-source-bytes-one-short",
+    short_error,
+  )
   inspect(short_error.category() == @error.ErrorCategory::Resource, content="true")
   inspect(short_error.context() == Some("max-source-bytes"), content="true")
   inspect(short_error.requested() == Some(88UL), content="true")
@@ -888,10 +1097,11 @@ fn font_collection_qualification_assert_limits_and_budgets() -> Unit raise {
   )
   for
     item in [
-      (4UL, 3UL, 8UL, 440UL, 252UL, "max-faces", 5UL, 4UL),
-      (5UL, 2UL, 8UL, 440UL, 252UL, "max-tables-per-face", 3UL, 2UL),
-      (5UL, 3UL, 7UL, 440UL, 252UL, "max-table-records", 8UL, 7UL),
+      ("limit-collection-faces-one-short", 4UL, 3UL, 8UL, 440UL, 252UL, "max-faces", 5UL, 4UL),
+      ("limit-collection-tables-per-face-one-short", 5UL, 2UL, 8UL, 440UL, 252UL, "max-tables-per-face", 3UL, 2UL),
+      ("limit-collection-table-records-one-short", 5UL, 3UL, 7UL, 440UL, 252UL, "max-table-records", 8UL, 7UL),
       (
+        "limit-collection-retained-bookkeeping-bytes-one-short",
         5UL,
         3UL,
         8UL,
@@ -901,9 +1111,10 @@ fn font_collection_qualification_assert_limits_and_budgets() -> Unit raise {
         440UL,
         439UL,
       ),
-      (5UL, 3UL, 8UL, 440UL, 251UL, "max-work", 252UL, 251UL),
+      ("limit-collection-work-one-short", 5UL, 3UL, 8UL, 440UL, 251UL, "max-work", 252UL, 251UL),
     ] {
     let (
+      id,
       faces,
       tables,
       records,
@@ -929,6 +1140,7 @@ fn font_collection_qualification_assert_limits_and_budgets() -> Unit raise {
       ).unwrap(),
       budget,
     ).unwrap_err()
+    font_collection_qualification_assert_error(id, error)
     inspect(error.category() == @error.ErrorCategory::Resource, content="true")
     inspect(error.code() == @error.ErrorCode::BudgetExceeded, content="true")
     inspect(error.context() == Some(context), content="true")
@@ -945,12 +1157,22 @@ fn font_collection_qualification_assert_limits_and_budgets() -> Unit raise {
       font_collection_test_dsig_budget(64UL),
     ).unwrap(),
   )
+  for item in [
+    ("limit-collection-faces-exact", 5UL),
+    ("limit-collection-tables-per-face-exact", 3UL),
+    ("limit-collection-table-records-exact", 8UL),
+    ("limit-collection-retained-bookkeeping-bytes-exact", 440UL),
+    ("limit-collection-work-exact", 252UL),
+  ] {
+    let (id, required) = item
+    font_collection_qualification_assert_exact(id, required)
+  }
   for
     item in [
-      (1UL, 56UL, "max-dsig-records", 2UL, 1UL),
-      (2UL, 55UL, "max-dsig-bytes", 56UL, 55UL),
+      ("limit-collection-dsig-records-one-short", 1UL, 56UL, "max-dsig-records", 2UL, 1UL),
+      ("limit-collection-dsig-bytes-one-short", 2UL, 55UL, "max-dsig-bytes", 56UL, 55UL),
     ] {
-    let (records, bytes, context, requested, limit) = item
+    let (id, records, bytes, context, requested, limit) = item
     let budget = font_collection_test_dsig_budget(64UL)
     let before = budget.remaining()
     let error = FontCollection::open(
@@ -958,6 +1180,7 @@ fn font_collection_qualification_assert_limits_and_budgets() -> Unit raise {
       font_collection_test_two_dsig_limits(records, bytes, 64UL),
       budget,
     ).unwrap_err()
+    font_collection_qualification_assert_error(id, error)
     inspect(error.category() == @error.ErrorCategory::Resource, content="true")
     inspect(error.code() == @error.ErrorCode::BudgetExceeded, content="true")
     inspect(error.context() == Some(context), content="true")
@@ -965,6 +1188,14 @@ fn font_collection_qualification_assert_limits_and_budgets() -> Unit raise {
     inspect(error.limit() == Some(limit), content="true")
     font_collection_test_assert_budget_unchanged(before, budget)
   }
+  font_collection_qualification_assert_exact(
+    "limit-collection-dsig-records-exact",
+    2UL,
+  )
+  font_collection_qualification_assert_exact(
+    "limit-collection-dsig-bytes-exact",
+    56UL,
+  )
 
   let shared = font_collection_test_pair_ttc(
     0x6E616D65UL,
@@ -990,12 +1221,12 @@ fn font_collection_qualification_assert_limits_and_budgets() -> Unit raise {
   inspect(exact_budget.remaining().work(), content="0")
   for
     item in [
-      (247UL, 2UL, 80UL, 66UL, "bytes", 248UL, 247UL),
-      (248UL, 1UL, 80UL, 66UL, "allocations", 2UL, 1UL),
-      (248UL, 2UL, 79UL, 66UL, "allocation_size", 80UL, 79UL),
-      (248UL, 2UL, 80UL, 65UL, "work", 66UL, 65UL),
+      ("budget-caller-bytes-one-short", 247UL, 2UL, 80UL, 66UL, "bytes", 248UL, 247UL),
+      ("budget-caller-allocations-one-short", 248UL, 1UL, 80UL, 66UL, "allocations", 2UL, 1UL),
+      ("budget-caller-allocation-size-one-short", 248UL, 2UL, 79UL, 66UL, "allocation_size", 80UL, 79UL),
+      ("budget-caller-work-one-short", 248UL, 2UL, 80UL, 65UL, "work", 66UL, 65UL),
     ] {
-    let (bytes, allocations, allocation_size, work, context, requested, limit) = item
+    let (id, bytes, allocations, allocation_size, work, context, requested, limit) = item
     let budget = font_collection_test_pair_budget(
       bytes,
       allocations,
@@ -1008,6 +1239,7 @@ fn font_collection_qualification_assert_limits_and_budgets() -> Unit raise {
       font_collection_test_pair_limits(248UL, 66UL),
       budget,
     ).unwrap_err()
+    font_collection_qualification_assert_error(id, error)
     inspect(error.category() == @error.ErrorCategory::Resource, content="true")
     inspect(error.code() == @error.ErrorCode::BudgetExceeded, content="true")
     inspect(error.operation() == Some("budget_charge"), content="true")
@@ -1017,12 +1249,36 @@ fn font_collection_qualification_assert_limits_and_budgets() -> Unit raise {
     font_collection_test_assert_budget_unchanged(before, budget)
   }
 
+  // Exact child reservations must debit both authorities identically.
+  let exact_ancestor = font_collection_test_pair_budget(248UL, 2UL, 80UL, 66UL)
+  let exact_child = exact_ancestor.child(exact_ancestor.remaining()).unwrap()
+  ignore(
+    FontCollection::open(
+      font_collection_test_owner(shared).view(),
+      font_collection_test_pair_limits(248UL, 66UL),
+      exact_child,
+    ).unwrap(),
+  )
+  for id in ["budget-ancestor-bytes-exact", "budget-ancestor-work-exact"] {
+    let expected = font_collection_qualification_case(id)
+    inspect(expected.budget_after.bytes, content="0")
+    inspect(expected.budget_after.allocations, content="0")
+    inspect(expected.budget_after.allocation_size, content="80")
+    inspect(expected.budget_after.work, content="0")
+  }
+  inspect(exact_ancestor.remaining().bytes(), content="0")
+  inspect(exact_ancestor.remaining().allocations(), content="0")
+  inspect(exact_ancestor.remaining().allocation_size(), content="80")
+  inspect(exact_ancestor.remaining().work(), content="0")
+  inspect(exact_child.remaining().bytes(), content="0")
+  inspect(exact_child.remaining().work(), content="0")
+
   for
     item in [
-      (1UL, 0UL, "bytes", 248UL, 247UL),
-      (0UL, 1UL, "work", 66UL, 65UL),
+      ("budget-ancestor-bytes-one-short", 1UL, 0UL, "bytes", 248UL, 247UL),
+      ("budget-ancestor-work-one-short", 0UL, 1UL, "work", 66UL, 65UL),
     ] {
-    let (bytes_charge, work_charge, context, requested, limit) = item
+    let (id, bytes_charge, work_charge, context, requested, limit) = item
     let ancestor = font_collection_test_pair_budget(248UL, 2UL, 80UL, 66UL)
     let child = ancestor.child(ancestor.remaining()).unwrap()
     ancestor.charge(
@@ -1043,6 +1299,7 @@ fn font_collection_qualification_assert_limits_and_budgets() -> Unit raise {
       font_collection_test_pair_limits(248UL, 66UL),
       child,
     ).unwrap_err()
+    font_collection_qualification_assert_error(id, error)
     inspect(error.operation() == Some("budget_charge"), content="true")
     inspect(error.context() == Some(context), content="true")
     inspect(error.requested() == Some(requested), content="true")
@@ -1052,12 +1309,82 @@ fn font_collection_qualification_assert_limits_and_budgets() -> Unit raise {
   }
 
   let selected_source = font_collection_test_selected_ttc()
+  inspect(selected_source.length(), content="716")
   let selected_owner = font_collection_test_owner(selected_source)
   let selected = FontCollection::open(
     selected_owner.view(),
     font_collection_test_selected_limits(selected_source.length().to_uint64()),
     font_collection_test_selected_budget(),
   ).unwrap()
+  for item in [
+    ("source-bytes", 716UL),
+    ("tables", 10UL),
+    ("table-bytes", 78UL),
+  ] {
+    let (dimension, required) = item
+    let exact_id = "limit-selected-" + dimension + "-exact"
+    let short_id = "limit-selected-" + dimension + "-one-short"
+    let exact_budget = font_collection_test_selected_budget()
+    ignore(
+      selected
+        .open_face(
+          0UL,
+          font_collection_qualification_selected_font_limits(
+            dimension,
+            required,
+          ),
+          exact_budget,
+        )
+        .unwrap(),
+    )
+    font_collection_qualification_assert_exact(exact_id, required)
+    let short_budget = font_collection_test_selected_budget()
+    let short_before = short_budget.remaining()
+    let short_error = selected
+      .open_face(
+        0UL,
+        font_collection_qualification_selected_font_limits(
+          dimension,
+          required - 1UL,
+        ),
+        short_budget,
+      )
+      .unwrap_err()
+    font_collection_qualification_assert_error(short_id, short_error)
+    font_collection_test_assert_budget_unchanged(short_before, short_budget)
+  }
+  for dimension in [
+    "glyphs",
+    "name-records",
+    "cmap-records",
+    "kern-subtables",
+    "kern-pairs",
+    "outline-points",
+    "outline-contours",
+    "outline-components",
+    "instruction-bytes",
+    "post-name-bytes",
+    "work",
+  ] {
+    ignore(
+      font_collection_qualification_selected_limit_result(
+        dimension,
+        1UL,
+      ).unwrap(),
+    )
+    font_collection_qualification_assert_exact(
+      "limit-selected-" + dimension + "-exact",
+      1UL,
+    )
+    let error = font_collection_qualification_selected_limit_result(
+      dimension,
+      0UL,
+    ).unwrap_err()
+    font_collection_qualification_assert_error(
+      "limit-selected-" + dimension + "-one-short",
+      error,
+    )
+  }
   let selected_budget = font_collection_test_selected_budget()
   let selected_before = selected_budget.remaining()
   let selected_error = selected
@@ -1069,6 +1396,10 @@ fn font_collection_qualification_assert_limits_and_budgets() -> Unit raise {
       selected_budget,
     )
     .unwrap_err()
+  font_collection_qualification_assert_error(
+    "limit-selected-source-bytes-one-short",
+    selected_error,
+  )
   inspect(selected_error.operation() == Some("font-open"), content="true")
   inspect(selected_error.context() == Some("max-source-bytes"), content="true")
   font_collection_test_assert_budget_unchanged(selected_before, selected_budget)
