@@ -165,6 +165,96 @@ function Write-FontQualificationJson {
   [IO.File]::WriteAllText($Path, $json, $Utf8NoBom)
 }
 
+function Assert-FontQualificationEvidenceWriteBoundary {
+  param(
+    [Parameter(Mandatory)][string]$Directory,
+    [Parameter(Mandatory)][string]$ManagedRoot,
+    [Parameter(Mandatory)][string]$FileName
+  )
+
+  if ([IO.Path]::GetFileName($FileName) -cne $FileName -or
+      $FileName -cnotin (@($Targets | ForEach-Object { "$_.json" }) + 'comparison.json')) {
+    throw "Evidence destination '$FileName' is not a managed qualification record."
+  }
+  Assert-FontQualificationEvidencePathHasNoLinks `
+    -Directory $Directory `
+    -ManagedRoot $ManagedRoot
+  Assert-FontQualificationEvidenceMarker $Directory
+  $destination = Join-Path $Directory $FileName
+  $parent = [IO.Path]::GetFullPath((Split-Path -Parent $destination))
+  if ($parent -cne [IO.Path]::GetFullPath($Directory)) {
+    throw "Evidence destination '$destination' escaped its managed directory."
+  }
+  $item = Get-Item -Force -LiteralPath $destination -ErrorAction SilentlyContinue
+  if ($null -ne $item -and
+      ($item.PSIsContainer -or
+       ($item.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0)) {
+    throw "Evidence destination must be a regular file: '$destination'."
+  }
+  return $destination
+}
+
+function Write-FontQualificationEvidenceJson {
+  param(
+    [Parameter(Mandatory)][string]$Directory,
+    [Parameter(Mandatory)][string]$ManagedRoot,
+    [Parameter(Mandatory)][string]$FileName,
+    [Parameter(Mandatory)]$Value
+  )
+
+  $destination = Assert-FontQualificationEvidenceWriteBoundary `
+    -Directory $Directory `
+    -ManagedRoot $ManagedRoot `
+    -FileName $FileName
+  $json = (ConvertTo-FontQualificationJson $Value) + "`n"
+  $temporaryName = '.mnf-font-qualification-' +
+    [Guid]::NewGuid().ToString('N') + '.tmp'
+  $temporaryPath = Join-Path $Directory $temporaryName
+  try {
+    # A completed link/junction swap is rejected above before any write.  The
+    # same-directory CreateNew + exclusive handle and immediate revalidation
+    # minimize the remaining path-based API window on portable PowerShell.
+    $stream = [IO.FileStream]::new(
+      $temporaryPath,
+      [IO.FileMode]::CreateNew,
+      [IO.FileAccess]::Write,
+      [IO.FileShare]::None
+    )
+    try {
+      $bytes = $Utf8NoBom.GetBytes($json)
+      $stream.Write($bytes, 0, $bytes.Length)
+      $stream.Flush($true)
+    } finally {
+      $stream.Dispose()
+    }
+    Assert-FontQualificationEvidencePathHasNoLinks `
+      -Directory $Directory `
+      -ManagedRoot $ManagedRoot
+    Assert-FontQualificationEvidenceMarker $Directory
+    $temporaryItem = Get-Item -Force -LiteralPath $temporaryPath
+    if ($temporaryItem.PSIsContainer -or
+        ($temporaryItem.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) {
+      throw "Evidence staging destination is not a regular file: '$temporaryPath'."
+    }
+    [IO.File]::Move($temporaryPath, $destination, $true)
+    $validated = Assert-FontQualificationEvidenceWriteBoundary `
+      -Directory $Directory `
+      -ManagedRoot $ManagedRoot `
+      -FileName $FileName
+    if ($validated -cne $destination) {
+      throw "Evidence destination changed during write: '$FileName'."
+    }
+  } finally {
+    if (Test-Path -LiteralPath $temporaryPath -PathType Leaf) {
+      Assert-FontQualificationEvidencePathHasNoLinks `
+        -Directory $Directory `
+        -ManagedRoot $ManagedRoot
+      Remove-Item -LiteralPath $temporaryPath -Force
+    }
+  }
+  return $destination
+}
+
 function Assert-FontQualificationEvidencePathHasNoLinks {
   param(
     [Parameter(Mandatory)][string]$Directory,
@@ -258,6 +348,10 @@ function Assert-FontQualificationEvidenceMarker {
   $markerPath = Join-Path $Directory $EvidenceMarkerName
   if (-not (Test-Path -LiteralPath $markerPath -PathType Leaf)) {
     throw "Managed font qualification evidence marker is missing from '$Directory'."
+  }
+  $markerItem = Get-Item -Force -LiteralPath $markerPath
+  if (($markerItem.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) {
+    throw "Managed font qualification evidence marker must not be a link in '$Directory'."
   }
   try {
     $marker = Get-Content -Raw -LiteralPath $markerPath | ConvertFrom-Json
@@ -1105,7 +1199,13 @@ function Compare-FontQualificationEvidence {
     semantic_sha256 = $semanticHash
     equal = $true
   }
-  Write-FontQualificationJson (Join-Path $Directory 'comparison.json') $comparison
+  [void](Write-FontQualificationEvidenceJson `
+    -Directory $Directory `
+    -ManagedRoot ([IO.Path]::GetFullPath(
+      (Join-Path $RepositoryRoot 'artifacts/release-qualification')
+    )) `
+    -FileName 'comparison.json' `
+    -Value $comparison)
   return $comparison
 }
 
@@ -1306,8 +1406,11 @@ function Invoke-FontQualification {
           -FullPackagePassTotal $fullPassed `
           -FullPackageSummary $fullSummaries[0]
         Assert-FontQualificationEvidenceRecord $record
-        $path = Join-Path $resolvedEvidence "$target.json"
-        Write-FontQualificationJson $path $record
+        $path = Write-FontQualificationEvidenceJson `
+          -Directory $resolvedEvidence `
+          -ManagedRoot $managedEvidenceRoot `
+          -FileName "$target.json" `
+          -Value $record
         $readBack = Get-Content -Raw -LiteralPath $path | ConvertFrom-Json
         Assert-FontQualificationEvidenceRecord $readBack
         $readBack

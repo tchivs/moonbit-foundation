@@ -48,6 +48,7 @@ $testRoot = Join-Path $temporaryBase (
 $managedRoot = Join-Path $testRoot 'managed'
 $outsideRoot = Join-Path $testRoot 'caller-owned'
 $linkPath = $null
+$swapLinks = [Collections.Generic.List[string]]::new()
 
 function Assert-Rejected {
   param(
@@ -179,10 +180,46 @@ try {
     throw 'Rejected linked evidence cleanup mutated the outside js.json.'
   }
 
+  foreach ($swapName in @('target-write-swap', 'comparison-write-swap')) {
+    $swapPath = Join-Path $managedRoot $swapName
+    Initialize-FontQualificationEvidenceDirectory `
+      -Directory $swapPath `
+      -ManagedRoot $managedRoot
+    Remove-Item -LiteralPath $swapPath -Recurse -Force
+    $swapOutside = Join-Path $outsideRoot $swapName
+    [void](New-Item -ItemType Directory -Path $swapOutside)
+    if ([OperatingSystem]::IsWindows()) {
+      [void](New-Item -ItemType Junction -Path $swapPath -Target $swapOutside)
+    } else {
+      [void](New-Item -ItemType SymbolicLink -Path $swapPath -Target $swapOutside)
+    }
+    $swapLinks.Add($swapPath)
+    $fileName = if ($swapName -ceq 'target-write-swap') {
+      'js.json'
+    } else {
+      'comparison.json'
+    }
+    Assert-Rejected {
+      Write-FontQualificationEvidenceJson `
+        -Directory $swapPath `
+        -ManagedRoot $managedRoot `
+        -FileName $fileName `
+        -Value ([pscustomobject][ordered]@{ probe = $true })
+    } 'link or reparse point'
+    if (Test-Path -LiteralPath (Join-Path $swapOutside $fileName)) {
+      throw "Post-initialization $fileName swap escaped the managed evidence root."
+    }
+  }
+
   Write-Host 'PASS: font qualification evidence destructive boundaries'
 } finally {
   if ($null -ne $linkPath -and (Test-Path -LiteralPath $linkPath)) {
     Remove-Item -LiteralPath $linkPath -Force
+  }
+  foreach ($swapLink in $swapLinks) {
+    if (Test-Path -LiteralPath $swapLink) {
+      Remove-Item -LiteralPath $swapLink -Force
+    }
   }
   $resolvedTestRoot = [IO.Path]::GetFullPath($testRoot)
   $requiredPrefix = $temporaryBase + [IO.Path]::DirectorySeparatorChar
