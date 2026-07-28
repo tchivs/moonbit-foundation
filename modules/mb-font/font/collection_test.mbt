@@ -807,6 +807,43 @@ test "TTC-02 opens a cached static face against the retained collection root" {
 }
 
 ///|
+test "Phase 104 freezes the public selected static glyf fingerprint" {
+  let source = font_collection_test_selected_ttc()
+  let owner = font_collection_test_owner(source)
+  let collection_budget = font_collection_test_selected_budget()
+  let collection_before = collection_budget.remaining()
+  let collection = FontCollection::open(
+    owner.view(),
+    font_collection_test_selected_limits(source.length().to_uint64()),
+    collection_budget,
+  ).unwrap()
+  inspect(collection.face_count().unwrap(), content="1")
+  inspect(
+    collection.face_profile(0UL).unwrap() == FontFaceProfile::StaticGlyf,
+    content="true",
+  )
+  let face_budget = font_collection_test_selected_budget()
+  let face_before = face_budget.remaining()
+  let font = collection
+    .open_face(0UL, font_test_limits(), face_budget)
+    .unwrap()
+  let glyph = font.glyph_id(0UL).unwrap()
+  inspect(font.units_per_em().unwrap(), content="1000")
+  inspect(font.horizontal_metrics(glyph).unwrap().advance_width(), content="500")
+  inspect(font.kerning(glyph, glyph).unwrap(), content="0")
+  inspect(
+    font.outline(glyph, font_test_outline_budget()).unwrap().length(),
+    content="0",
+  )
+  inspect(
+    collection_budget.remaining().bytes() < collection_before.bytes(),
+    content="true",
+  )
+  inspect(face_budget.remaining().bytes() < face_before.bytes(), content="true")
+  inspect(face_budget.remaining().work() < face_before.work(), content="true")
+}
+
+///|
 test "TTC-02 standalone and selected faces are publicly equivalent" {
   let standalone_source = font_collection_test_equivalence_truetype()
   let head_offset = font_test_table_offset(standalone_source, b"head")

@@ -1371,6 +1371,30 @@ test "generated standalone TrueType opens and returns exact units per em" {
 }
 
 ///|
+test "Phase 104 freezes the public standalone static glyf fingerprint" {
+  let owner = font_test_owner(font_test_minimal_truetype())
+  let budget = font_test_budget()
+  let before = budget.remaining()
+  let font = Font::open(owner.view(), font_test_limits(), budget).unwrap()
+  let glyph = font.glyph_id(0UL).unwrap()
+  inspect(font.units_per_em().unwrap(), content="1000")
+  inspect(font.global_bounds().unwrap().x_min(), content="0")
+  inspect(font.hhea_line_metrics().unwrap().ascent(), content="0")
+  inspect(font.typographic_line_metrics().unwrap().descent(), content="0")
+  inspect(font.glyph_for_scalar(65).unwrap().value(), content="0")
+  inspect(font.horizontal_metrics(glyph).unwrap().advance_width(), content="500")
+  inspect(font.kerning(glyph, glyph).unwrap(), content="0")
+  inspect(
+    font.outline(glyph, font_test_outline_budget()).unwrap().length(),
+    content="0",
+  )
+  let after = budget.remaining()
+  inspect(after.bytes() < before.bytes(), content="true")
+  inspect(after.allocations() < before.allocations(), content="true")
+  inspect(after.work() < before.work(), content="true")
+}
+
+///|
 test "one generated font traces empty repeated implied and attached outlines" {
   let owner = font_test_owner(font_test_portable_outline_matrix_truetype())
   let font = Font::open(owner.view(), font_test_limits(), font_test_budget()).unwrap()

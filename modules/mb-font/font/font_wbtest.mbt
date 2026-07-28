@@ -990,6 +990,62 @@ fn font_wb_limits() -> FontLimits {
 }
 
 ///|
+test "private outline source accepts complete CFF facts and no partial or mixed state" {
+  let admitted = admit_cff1_structure(
+    font_wb_view(
+      cff_wb_otf(
+        cff_name_wb_table(),
+        num_glyphs=3UL,
+      ),
+    ),
+    font_wb_limits(),
+    cff_wb_budget(),
+    1UL,
+  ).unwrap()
+  match font_outline_source_from_cff(admitted) {
+    FontOutlineSource::Cff1(value) => {
+      inspect(value.glyphs.length(), content="3")
+      inspect(value.glyph.gid, content="1")
+    }
+    _ => fail("complete admitted CFF facts must promote as Cff1")
+  }
+
+  let glyf_owner = font_wb_owner(generated_minimal_truetype())
+  let glyf_font = Font::open(
+    glyf_owner.view(),
+    font_wb_limits(),
+    font_wb_open_budget(),
+  ).unwrap()
+  match glyf_font.outline_source {
+    FontOutlineSource::Glyf => ()
+    _ => fail("existing public static glyf opening must remain Glyf")
+  }
+
+  let malformed = admit_cff1_structure(
+    font_wb_view(cff_wb_otf(b"\x01")),
+    font_wb_limits(),
+    cff_wb_budget(),
+    0UL,
+  )
+  inspect(malformed is Err(_), content="true")
+  let mixed = admit_cff1_structure(
+    font_wb_view(
+      cff_wb_otf_tables([
+        font_wb_table(b"CFF ", b"\x01"),
+        font_wb_table(b"glyf", b""),
+        font_wb_table(b"head", generated_head_table()),
+        font_wb_table(b"loca", b""),
+        font_wb_table(b"maxp", cff_wb_maxp_table(1UL)),
+      ]),
+    ),
+    font_wb_limits(),
+    cff_wb_budget(),
+    0UL,
+  )
+  inspect(mixed is Err(_), content="true")
+}
+
+///|
 test "font directory matrix enforces canonical windows and checksums" {
   let valid = generated_minimal_truetype()
   let facts = font_parse_directory(font_wb_view(valid), font_wb_limits()).unwrap()
