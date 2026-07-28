@@ -15,6 +15,13 @@ priv struct Type2Rational {
 }
 
 ///|
+#valtype
+priv struct Type2WideUnsigned {
+  hi : UInt64
+  lo : UInt64
+}
+
+///|
 priv struct Type2Matrix {
   a : Type2Rational
   b : Type2Rational
@@ -228,18 +235,6 @@ fn Type2Prng::next(self : Type2Prng) -> Type2Fixed {
   { raw: (state >> 16).reinterpret_as_int64() + 1L }
 }
 
-///|
-fn type2_checked_i64_add(
-  left : Int64,
-  right : Int64,
-) -> Result[Int64, @error.CoreError] {
-  match outline_checked_add(left, right) {
-    Err(_) => Err(type2_data_error("font-cff-type2-transform"))
-    Ok(value) => Ok(value)
-  }
-}
-
-///|
 fn type2_checked_i64_mul(
   left : Int64,
   right : Int64,
@@ -260,6 +255,87 @@ fn type2_gcd(left : Int64, right : Int64) -> Int64 {
     b = remainder
   }
   if a == 0L { 1L } else { a }
+}
+
+///|
+fn type2_wide_mul(left : UInt64, right : UInt64) -> Type2WideUnsigned {
+  let left_low = left & 0xffffffffUL
+  let left_high = left >> 32
+  let right_low = right & 0xffffffffUL
+  let right_high = right >> 32
+  let low_product = left_low * right_low
+  let middle_left = left_high * right_low + (low_product >> 32)
+  let middle_right = left_low * right_high + (middle_left & 0xffffffffUL)
+  {
+    hi: left_high * right_high +
+      (middle_left >> 32) +
+      (middle_right >> 32),
+    lo: left * right,
+  }
+}
+
+///|
+fn type2_wide_add(
+  left : Type2WideUnsigned,
+  right : Type2WideUnsigned,
+) -> Type2WideUnsigned {
+  let lo = left.lo + right.lo
+  let carry = if lo < left.lo { 1UL } else { 0UL }
+  { hi: left.hi + right.hi + carry, lo, }
+}
+
+///|
+fn type2_wide_compare(
+  left : Type2WideUnsigned,
+  right : Type2WideUnsigned,
+) -> Int {
+  if left.hi < right.hi {
+    -1
+  } else if left.hi > right.hi {
+    1
+  } else if left.lo < right.lo {
+    -1
+  } else if left.lo > right.lo {
+    1
+  } else {
+    0
+  }
+}
+
+///|
+fn type2_wide_subtract(
+  left : Type2WideUnsigned,
+  right : Type2WideUnsigned,
+) -> Type2WideUnsigned {
+  let borrow = if left.lo < right.lo { 1UL } else { 0UL }
+  { hi: left.hi - right.hi - borrow, lo: left.lo - right.lo }
+}
+
+///|
+fn type2_wide_div_rem(
+  value : Type2WideUnsigned,
+  divisor : UInt64,
+) -> (Type2WideUnsigned, UInt64) {
+  let mut quotient_high = 0UL
+  let mut quotient_low = 0UL
+  let mut remainder = 0UL
+  for bit = 127; bit >= 0; bit = bit - 1 {
+    let source_bit = if bit >= 64 {
+      (value.hi >> (bit - 64)) & 1UL
+    } else {
+      (value.lo >> bit) & 1UL
+    }
+    remainder = (remainder << 1) | source_bit
+    if remainder >= divisor {
+      remainder = remainder - divisor
+      if bit >= 64 {
+        quotient_high = quotient_high | (1UL << (bit - 64))
+      } else {
+        quotient_low = quotient_low | (1UL << bit)
+      }
+    }
+  }
+  ({ hi: quotient_high, lo: quotient_low }, remainder)
 }
 
 ///|
@@ -298,26 +374,68 @@ fn type2_rational_add(
   let common = type2_gcd(left.denominator, right.denominator)
   let left_scale = right.denominator / common
   let right_scale = left.denominator / common
-  let left_numerator = match
-    type2_checked_i64_mul(left.numerator, left_scale) {
-    Err(error) => return Err(error)
-    Ok(value) => value
+  let left_magnitude = if left.numerator < 0L {
+    (-left.numerator).reinterpret_as_uint64()
+  } else {
+    left.numerator.reinterpret_as_uint64()
   }
-  let right_numerator = match
-    type2_checked_i64_mul(right.numerator, right_scale) {
-    Err(error) => return Err(error)
-    Ok(value) => value
+  let right_magnitude = if right.numerator < 0L {
+    (-right.numerator).reinterpret_as_uint64()
+  } else {
+    right.numerator.reinterpret_as_uint64()
   }
-  let numerator = match type2_checked_i64_add(left_numerator, right_numerator) {
-    Err(error) => return Err(error)
-    Ok(value) => value
+  let left_product = type2_wide_mul(
+    left_magnitude,
+    left_scale.reinterpret_as_uint64(),
+  )
+  let right_product = type2_wide_mul(
+    right_magnitude,
+    right_scale.reinterpret_as_uint64(),
+  )
+  let left_negative = left.numerator < 0L
+  let right_negative = right.numerator < 0L
+  let (wide_numerator, negative) = if left_negative == right_negative {
+    (type2_wide_add(left_product, right_product), left_negative)
+  } else {
+    match type2_wide_compare(left_product, right_product) {
+      0 => ({ hi: 0UL, lo: 0UL }, false)
+      comparison =>
+        if comparison > 0 {
+          (type2_wide_subtract(left_product, right_product), left_negative)
+        } else {
+          (type2_wide_subtract(right_product, left_product), right_negative)
+        }
+    }
   }
-  if numerator == 0L {
+  if wide_numerator.hi == 0UL && wide_numerator.lo == 0UL {
     return Ok({ numerator: 0L, denominator: 1L })
   }
   // Any remaining cancellation can only come from the shared denominator
-  // factor. Apply it before forming the least common denominator.
-  let cancellation = type2_gcd(numerator, common)
+  // factor. Compute the wide numerator modulo that factor, then divide the
+  // exact wide magnitude before narrowing it back to the public Int64 domain.
+  let cancellation = if common == 1L {
+    1L
+  } else {
+    let (_, remainder) = type2_wide_div_rem(
+      wide_numerator,
+      common.reinterpret_as_uint64(),
+    )
+    type2_gcd(remainder.reinterpret_as_int64(), common)
+  }
+  let reduced_numerator = if cancellation == 1L {
+    wide_numerator
+  } else {
+    type2_wide_div_rem(
+      wide_numerator,
+      cancellation.reinterpret_as_uint64(),
+    ).0
+  }
+  if reduced_numerator.hi != 0UL ||
+    reduced_numerator.lo > 9223372036854775807UL {
+    return Err(type2_data_error("font-cff-type2-transform"))
+  }
+  let magnitude = reduced_numerator.lo.reinterpret_as_int64()
+  let numerator = if negative { -magnitude } else { magnitude }
   let denominator = match
     type2_checked_i64_mul(
       left.denominator / cancellation,
@@ -326,7 +444,7 @@ fn type2_rational_add(
     Err(error) => return Err(error)
     Ok(value) => value
   }
-  type2_rational(numerator / cancellation, denominator)
+  type2_rational(numerator, denominator)
 }
 
 ///|
