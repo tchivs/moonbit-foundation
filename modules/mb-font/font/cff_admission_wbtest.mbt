@@ -117,11 +117,14 @@ fn cff_wb_otf(cff : Bytes, num_glyphs? : UInt64 = 1UL) -> Bytes {
 }
 
 ///|
-fn cff_wb_name_table_with_programs(programs : Array[Bytes]) -> Bytes {
+fn cff_wb_name_table_with_programs(
+  programs : Array[Bytes],
+  global_programs? : Array[Bytes] = [],
+) -> Bytes {
   let header = b"\x01\x00\x04\x04"
   let name = cff_key_wb_index([b"Name"])
   let strings = cff_key_wb_index([b"custom"])
-  let global_subrs = cff_key_wb_index([])
+  let global_subrs = cff_key_wb_index(global_programs)
   let charstrings = cff_key_wb_index(programs)
   let private_data = b"\x8d\x13\x00\x00"
   let charset_data = cff_name_wb_charset(3UL)
@@ -385,6 +388,40 @@ test "CFF1 admission publishes complete all-glyph facts after one combined commi
 }
 
 ///|
+test "CFF1 admission retains exact named VM charges including subroutine work" {
+  let outcome = admit_cff1_structure(
+    font_wb_view(
+      cff_wb_otf(
+        cff_wb_name_table_with_programs(
+          [b"\x20\x1d\x0e", b"\x0e", b"\x0e"],
+          global_programs=[b"\x92\x0b"],
+        ),
+        num_glyphs=3UL,
+      ),
+    ),
+    font_wb_limits(),
+    cff_wb_budget(),
+    0UL,
+  )
+  let admitted = outcome.unwrap()
+  inspect(admitted.type2_charge.bounds_slots, content="3")
+  inspect(admitted.type2_charge.executed_bytes, content="7")
+  inspect(admitted.type2_charge.calls, content="1")
+  inspect(admitted.type2_charge.returns, content="1")
+  inspect(admitted.type2_charge.operators, content="5")
+  inspect(admitted.type2_charge.numbers, content="2")
+  inspect(admitted.type2_charge.mask_bytes, content="0")
+  inspect(admitted.type2_charge.geometry_operators, content="0")
+  inspect(admitted.type2_charge.points, content="0")
+  inspect(admitted.type2_charge.contours, content="0")
+  inspect(admitted.type2_charge.commands, content="0")
+  inspect(admitted.type2_charge.bytes, content="72")
+  inspect(admitted.type2_charge.allocations, content="16")
+  inspect(admitted.type2_charge.allocation_size, content="384")
+  inspect(admitted.type2_charge.work, content="9")
+}
+
+///|
 test "CFF1 final revision guard precedes the sole combined commit" {
   let owner = font_wb_owner(
     cff_wb_otf(
@@ -417,6 +454,48 @@ test "CFF1 final revision guard precedes the sole combined commit" {
   inspect(error.category() == @error.ErrorCategory::State, content="true")
   inspect(
     error.context() == Some("font-cff-source-revision-drift"),
+    content="true",
+  )
+  let after = budget.remaining()
+  inspect(after.bytes() == before.bytes(), content="true")
+  inspect(after.allocations() == before.allocations(), content="true")
+  inspect(after.work() == before.work(), content="true")
+}
+
+///|
+test "CFF1 mutation during ascending all-glyph execution publishes and charges nothing" {
+  let owner = font_wb_owner(
+    cff_wb_otf(
+      cff_wb_name_table_with_programs([b"\x0e", b"\x0e", b"\x0e"]),
+      num_glyphs=3UL,
+    ),
+  )
+  let budget = cff_wb_budget()
+  let before = budget.remaining()
+  let visited : Array[UInt64] = []
+  let error = admit_cff1_structure_at_after_preflight_with_glyph_probe(
+    owner.view(),
+    0UL,
+    None,
+    FontChecksumMode::Standalone,
+    false,
+    font_wb_limits(),
+    budget,
+    0UL,
+    fn() { () },
+    fn() { () },
+    fn() { () },
+    fn(gid) {
+      visited.push(gid)
+      if gid == 1UL {
+        font_collection_wb_mutate_restore(owner, 0UL)
+      }
+    },
+  ).unwrap_err()
+  inspect(visited, content="[0, 1]")
+  inspect(error.category() == @error.ErrorCategory::State, content="true")
+  inspect(
+    error.context() == Some("font-cff-type2-source-revision-drift"),
     content="true",
   )
   let after = budget.remaining()

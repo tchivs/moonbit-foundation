@@ -1047,6 +1047,63 @@ test "private outline source accepts complete CFF facts and no partial or mixed 
 }
 
 ///|
+fn font_wb_shared_cff_face_local_hmtx_ttc() -> Bytes {
+  let output = font_wb_bytes_array(font_collection_wb_shared_cff_ttc())
+  let second_hmtx = b"\x02\x58\x00\x0a\x00\x14\x00\x1e"
+  let second_hmtx_offset = output.length().to_uint64()
+  for byte in font_wb_bytes_array(second_hmtx) {
+    output.push(byte)
+  }
+  // The generated standalone directory is tag-sorted; hmtx is record five.
+  let second_hmtx_record = 188 + 12 + 5 * 16
+  font_collection_wb_put_u32(
+    output,
+    second_hmtx_record + 4,
+    generated_checksum(second_hmtx),
+  )
+  font_collection_wb_put_u32(
+    output,
+    second_hmtx_record + 8,
+    second_hmtx_offset,
+  )
+  Bytes::from_array(output)
+}
+
+///|
+test "shared CFF collection faces retain identical bounds and face-local hmtx" {
+  let owner = font_wb_owner(font_wb_shared_cff_face_local_hmtx_ttc())
+  let first = admit_cff1_collection_structure(
+    owner.view(),
+    32UL,
+    9UL,
+    font_wb_limits(),
+    cff_wb_budget(),
+    0UL,
+  ).unwrap()
+  let second = admit_cff1_collection_structure(
+    owner.view(),
+    188UL,
+    9UL,
+    font_wb_limits(),
+    cff_wb_budget(),
+    0UL,
+  ).unwrap()
+  inspect(first.cff_table_offset == second.cff_table_offset, content="true")
+  inspect(first.bounds.length(), content="3")
+  inspect(second.bounds.length(), content="3")
+  for gid = 0; gid < 3; gid = gid + 1 {
+    inspect(first.bounds[gid] is None, content="true")
+    inspect(second.bounds[gid] is None, content="true")
+  }
+  let first_metric = cff_read_hmtx_metric(first.metrics, 0UL).unwrap()
+  let second_metric = cff_read_hmtx_metric(second.metrics, 0UL).unwrap()
+  inspect(first_metric.0, content="0")
+  inspect(first_metric.1, content="0")
+  inspect(second_metric.0, content="600")
+  inspect(second_metric.1, content="10")
+}
+
+///|
 test "font directory matrix enforces canonical windows and checksums" {
   let valid = generated_minimal_truetype()
   let facts = font_parse_directory(font_wb_view(valid), font_wb_limits()).unwrap()

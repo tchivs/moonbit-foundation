@@ -1651,7 +1651,7 @@ fn cff_combine_staged_charge(
 
 ///|
 #warnings("-1")
-fn admit_cff1_structure_at_after_preflight(
+fn admit_cff1_structure_at_after_preflight_with_glyph_probe(
   source : @bytes.ByteView,
   directory_start : UInt64,
   expected_table_count : UInt64?,
@@ -1663,6 +1663,7 @@ fn admit_cff1_structure_at_after_preflight(
   before_final_guard : () -> Unit,
   common_traversal_probe : () -> Unit,
   keying_lookup_probe : () -> Unit,
+  glyph_visit_probe : (UInt64) -> Unit,
 ) -> Result[AdmittedCff1, @error.CoreError] {
   let staged = match
     cff_stage_structure_at_after_preflight(
@@ -1686,7 +1687,7 @@ fn admit_cff1_structure_at_after_preflight(
     Ok(value) => value
   }
   let executed = match
-    type2_stage_all_glyphs(
+    type2_stage_all_glyphs_with_probe(
       staged.glyphs,
       staged.global_subrs,
       staged.metrics.units_per_em,
@@ -1694,6 +1695,7 @@ fn admit_cff1_structure_at_after_preflight(
       budget,
       source,
       staged.opening_revision,
+      glyph_visit_probe,
     ) {
     Err(error) => return Err(error)
     Ok(value) => value
@@ -1744,6 +1746,37 @@ fn admit_cff1_structure_at_after_preflight(
     directory_start: staged.directory_start,
     cff_table_offset: staged.cff_table_offset,
   })
+}
+
+///|
+#warnings("-1")
+fn admit_cff1_structure_at_after_preflight(
+  source : @bytes.ByteView,
+  directory_start : UInt64,
+  expected_table_count : UInt64?,
+  checksum_mode : FontChecksumMode,
+  collection_charge : Bool,
+  limits : FontLimits,
+  budget : @budget.Budget,
+  gid : UInt64,
+  before_final_guard : () -> Unit,
+  common_traversal_probe : () -> Unit,
+  keying_lookup_probe : () -> Unit,
+) -> Result[AdmittedCff1, @error.CoreError] {
+  admit_cff1_structure_at_after_preflight_with_glyph_probe(
+    source,
+    directory_start,
+    expected_table_count,
+    checksum_mode,
+    collection_charge,
+    limits,
+    budget,
+    gid,
+    before_final_guard,
+    common_traversal_probe,
+    keying_lookup_probe,
+    fn(_) { () },
+  )
 }
 
 ///|

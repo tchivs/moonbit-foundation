@@ -47,6 +47,33 @@ fn cff_hostile_budget(
 }
 
 ///|
+fn cff_hostile_assert_program_error(
+  programs : Array[Bytes],
+  category : @error.ErrorCategory,
+  context : String,
+) -> Unit raise {
+  let source = cff_wb_otf(
+    cff_wb_name_table_with_programs(programs),
+    num_glyphs=programs.length().to_uint64(),
+  )
+  let budget = cff_wb_budget()
+  let before = budget.remaining()
+  let error = admit_cff1_structure(
+    font_wb_view(source),
+    font_wb_limits(),
+    budget,
+    0UL,
+  ).unwrap_err()
+  inspect(error.category() == category, content="true")
+  inspect(error.context() == Some(context), content="true")
+  let after = budget.remaining()
+  inspect(after.bytes() == before.bytes(), content="true")
+  inspect(after.allocations() == before.allocations(), content="true")
+  inspect(after.allocation_size() == before.allocation_size(), content="true")
+  inspect(after.work() == before.work(), content="true")
+}
+
+///|
 test "cff_structural_exact_and_one_short_cases" {
   let exact = cff_wb_table()
   let admitted = admit_cff1_structure(
@@ -147,6 +174,30 @@ test "cff_structural_exact_and_one_short_cases" {
     cff_cid_wb_table(include_encoding=true),
     "font-cff-cid-encoding",
     num_glyphs=3UL,
+  )
+}
+
+///|
+test "CFF all-glyph capability data and smallest-failing-GID outcomes are atomic" {
+  cff_hostile_assert_program_error(
+    [b"\x0e", b"\x8b\x8b\x8b\x8b\x0e", b"\x00"],
+    @error.ErrorCategory::Capability,
+    "font-cff-type2-seac",
+  )
+  cff_hostile_assert_program_error(
+    [b"\x0e", b"\x0f", b"\x00"],
+    @error.ErrorCategory::Capability,
+    "font-cff-type2-cff2-operator",
+  )
+  cff_hostile_assert_program_error(
+    [b"\x0e", b"\x8c\x8b\x0c\x0c\x0e", b"\x0f"],
+    @error.ErrorCategory::Data,
+    "font-cff-type2-division-by-zero",
+  )
+  cff_hostile_assert_program_error(
+    [b"\x0e", b"\x00", b"\x8b\x8b\x8b\x8b\x0e"],
+    @error.ErrorCategory::Data,
+    "font-cff-type2-reserved-operator",
   )
 }
 

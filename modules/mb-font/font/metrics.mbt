@@ -295,11 +295,22 @@ fn font_right_side_bearing(
 }
 
 ///|
-fn font_read_hmtx_metric(
-  index : MetricIndexFacts,
+fn font_read_hmtx_values(
+  hmtx : TableWindow,
+  num_glyphs : UInt64,
+  number_of_h_metrics : UInt64,
   glyph : UInt64,
 ) -> Result[(UInt64, Int), @error.CoreError] {
-  if glyph < index.number_of_h_metrics {
+  if glyph >= num_glyphs {
+    return Err(
+      font_metric_cardinality_error(
+        "font-hmtx-glyph-range",
+        requested=glyph,
+        limit=num_glyphs,
+      ),
+    )
+  }
+  if glyph < number_of_h_metrics {
     let offset = match @checked.checked_mul(glyph, 4UL) {
       Err(error) => return Err(error)
       Ok(value) => value
@@ -308,18 +319,18 @@ fn font_read_hmtx_metric(
       Err(error) => return Err(error)
       Ok(value) => value
     }
-    let advance = match read_u16(index.hmtx.view, offset) {
+    let advance = match read_u16(hmtx.view, offset) {
       Err(error) => return Err(error)
       Ok(value) => value
     }
-    let bearing = match read_i16(index.hmtx.view, bearing_offset) {
+    let bearing = match read_i16(hmtx.view, bearing_offset) {
       Err(error) => return Err(error)
       Ok(value) => value
     }
     Ok((advance, bearing))
   } else {
     let final_metric = match
-      @checked.checked_sub(index.number_of_h_metrics, 1UL) {
+      @checked.checked_sub(number_of_h_metrics, 1UL) {
       Err(error) => return Err(error)
       Ok(value) => value
     }
@@ -327,12 +338,12 @@ fn font_read_hmtx_metric(
       Err(error) => return Err(error)
       Ok(value) => value
     }
-    let advance = match read_u16(index.hmtx.view, final_offset) {
+    let advance = match read_u16(hmtx.view, final_offset) {
       Err(error) => return Err(error)
       Ok(value) => value
     }
     let tail_index = match
-      @checked.checked_sub(glyph, index.number_of_h_metrics) {
+      @checked.checked_sub(glyph, number_of_h_metrics) {
       Err(error) => return Err(error)
       Ok(value) => value
     }
@@ -341,7 +352,7 @@ fn font_read_hmtx_metric(
       Ok(value) => value
     }
     let long_bytes = match
-      @checked.checked_mul(index.number_of_h_metrics, 4UL) {
+      @checked.checked_mul(number_of_h_metrics, 4UL) {
       Err(error) => return Err(error)
       Ok(value) => value
     }
@@ -349,12 +360,38 @@ fn font_read_hmtx_metric(
       Err(error) => return Err(error)
       Ok(value) => value
     }
-    let bearing = match read_i16(index.hmtx.view, bearing_offset) {
+    let bearing = match read_i16(hmtx.view, bearing_offset) {
       Err(error) => return Err(error)
       Ok(value) => value
     }
     Ok((advance, bearing))
   }
+}
+
+///|
+fn font_read_hmtx_metric(
+  index : MetricIndexFacts,
+  glyph : UInt64,
+) -> Result[(UInt64, Int), @error.CoreError] {
+  font_read_hmtx_values(
+    index.hmtx,
+    index.num_glyphs,
+    index.number_of_h_metrics,
+    glyph,
+  )
+}
+
+///|
+fn cff_read_hmtx_metric(
+  metrics : CffMetricFacts,
+  glyph : UInt64,
+) -> Result[(UInt64, Int), @error.CoreError] {
+  font_read_hmtx_values(
+    metrics.hmtx,
+    metrics.num_glyphs,
+    metrics.number_of_h_metrics,
+    glyph,
+  )
 }
 
 ///|
