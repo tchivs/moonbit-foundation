@@ -64,21 +64,21 @@ Populated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| CFF-01 | TBD | Pending |
-| CFF-02 | TBD | Pending |
-| T2-01 | TBD | Pending |
-| T2-02 | TBD | Pending |
-| CFF-03 | TBD | Pending |
-| CFF-04 | TBD | Pending |
-| CFF-05 | TBD | Pending |
-| CFF-06 | TBD | Pending |
+| CFF-01 | Phase 104 | Pending |
+| CFF-02 | Phase 104 | Pending |
+| T2-01 | Phase 105 | Pending |
+| T2-02 | Phase 105 | Pending |
+| CFF-03 | Phase 105 | Pending |
+| CFF-04 | Phase 106 | Pending |
+| CFF-05 | Phase 106 | Pending |
+| CFF-06 | Phase 107 | Pending |
 
 **Coverage:**
 
 - v0.34 requirements: 8 total
-- Mapped to phases: 0
-- Unmapped: 8
+- Mapped to phases: 8
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-07-28*
-*Last updated: 2026-07-28 after v0.34 research synthesis*
+*Last updated: 2026-07-28 after v0.34 roadmap creation*

@@ -6,7 +6,7 @@ status: planning
 last_updated: "2026-07-28T08:10:35.815Z"
 last_activity: 2026-07-28
 progress:
-  total_phases: 0
+  total_phases: 4
   completed_phases: 0
   total_plans: 0
   completed_plans: 0
@@ -17,18 +17,20 @@ progress:
 
 ## Project Reference
 
-See `.planning/PROJECT.md` (updated 2026-07-28 for v0.33).
+See `.planning/PROJECT.md` (updated 2026-07-28 for v0.34).
 
 **Core value:** MoonBit developers can reuse stable, high-performance native infrastructure contracts instead of rebuilding incompatible foundations for every graphics, document, media, or automation product.
 
-**Current focus:** Planning the next milestone
+**Current focus:** Phase 104 — CFF1 Profile and Bounded Data Model
 
 ## Current Position
 
-Phase: Not started (defining requirements)
+Phase: 104 of 107 (CFF1 Profile and Bounded Data Model)
 Plan: —
-Status: Defining requirements
-Last activity: 2026-07-28 — Milestone v0.34 started
+Status: Ready to plan
+Last activity: 2026-07-28 — v0.34 roadmap created with 8/8 requirements mapped
+
+Progress: [░░░░░░░░░░] 0%
 
 ## Milestone Metrics
 
@@ -40,10 +42,11 @@ Last activity: 2026-07-28 — Milestone v0.34 started
 
 ### Decisions
 
-- [v0.33 roadmap]: Phase 101 freezes the additive collection identity, bounded all-face envelope, compact profile facts, and structural DSIG status before selected-face admission.
-- [v0.33 roadmap]: Phase 102 routes standalone and collection faces through one offset-aware admission seam; collection table offsets remain root-relative and valid exact cross-face sharing is preserved.
-- [v0.33 roadmap]: Phase 103 owns TTC-04 and TTC-05 so hostile atomicity, mutation, licensed interoperability, standalone compatibility, and four-target equality close through one public qualification boundary.
-- [v0.33 roadmap]: `tchivs/mb-font` remains pure MoonBit and portable with `tchivs/mb-core` as its only runtime dependency; WOFF/WOFF2, CFF/CFF2 outlines, variable fonts, FFI, and ambient I/O stay out of scope.
+- [v0.34 roadmap]: Phase 104 freezes exact CFF1 profile, bounded structural data, and one name-keyed or CID-keyed execution environment per GID before bytecode execution.
+- [v0.34 roadmap]: Phase 105 owns the single deterministic Type 2 interpreter, all-glyph validation, retained conservative bounds, `hmtx` metric authority, and atomic admission.
+- [v0.34 roadmap]: Phase 106 adds a cubic path sink and routes standalone and TTC/OTC CFF1 through the existing opaque `Font` contract without changing static-`glyf` behavior.
+- [v0.34 roadmap]: Phase 107 closes generated, licensed, hostile, performance, compatibility, and exact four-target evidence.
+- [v0.34 roadmap]: CFF2/variable execution, WOFF, shaping, hint execution, rasterization, color/bitmap glyphs, authoring, FFI, and ambient I/O remain out of scope.
 
 ### Pending Todos
 
@@ -51,36 +54,34 @@ None yet.
 
 ### Blockers/Concerns
 
-- Phase 101 planning must freeze the exact TTC v2 DSIG envelope, cumulative limits, protected-range policy, collection charge formula, and error precedence.
-- Phase 102 planning must freeze source-retention versus work accounting and the metadata-consistency rule for exact shared table ranges.
-- Phase 103 planning must verify licensed collection/derivative provenance, notice obligations, immutable digests, and independent oracle facts.
+- Phase 104 planning must freeze DICT duplicate/default policy, real/fixed conversion, predefined tables, CID FontMatrix rules, derived limits, and structural error precedence.
+- Phase 105 planning must freeze fixed-point rounding, deterministic PRNG/reset rules, FontMatrix composition, contour closure, deprecated `endchar` policy, bounds rounding, and resource-ledger units.
+- Phase 107 planning must approve immutable redistributable Latin/CJK assets, licenses/notices, parent and derivative digests, deterministic recipes, and independent pinned oracles.
 
 ## Deferred Items
 
 | Category | Item | Status | Deferred At |
 |----------|------|--------|-------------|
 | compressed containers | WOFF1/WOFF2 decode and reconstruction | deferred | v0.33 scope |
-| additional outlines | CFF/CFF2 outlines and variable-font instantiation | deferred | v0.33 scope |
+| variable outlines | CFF2 execution and variable-font instantiation | deferred | v0.34 scope |
 | text/rendering | Shaping, bidi, layout, discovery/fallback, hinting, and rasterization | deferred | v0.32 scope |
-| authoring | Collection writing, extraction, subsetting, merging, and standalone materialization | deferred | v0.33 scope |
+| other font profiles | Color/bitmap glyphs | deferred | v0.34 scope |
+| authoring | Font writing, extraction, subsetting, serialization, merging, and standalone materialization | deferred | v0.34 scope |
 
 ## Session Continuity
 
-Last session: 2026-07-28T04:03:25.859Z
-Stopped at: Phase 103 context gathered
-Resume file: .planning/phases/103-hostile-licensed-and-four-target-qualification/103-CONTEXT.md
+Last session: 2026-07-28
+Stopped at: v0.34 roadmap created; Phase 104 is ready for research-backed planning
+Resume file: None
 
 ## Operator Next Steps
 
-- Start the next milestone with /gsd-new-milestone
+- Plan Phase 104 with `$gsd-plan-phase 104 --research-phase`
 
 ## Performance Metrics
 
-Historical execution metrics remain available in the archived milestone roadmaps. v0.33 has no completed plans yet.
+Historical execution metrics remain available in archived milestone roadmaps. v0.34 has no completed plans yet.
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
-| 101-103 | 0 | - | - |
-| 101 | 3 | - | - |
-| 102 | 3 | - | - |
-| 103 | 3 | - | - |
+| 104-107 | 0 | - | - |
