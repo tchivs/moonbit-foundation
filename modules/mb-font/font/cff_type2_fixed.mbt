@@ -360,20 +360,37 @@ fn type2_matrix_from_cff(
   if values.length() != 6 {
     return Err(type2_data_error("font-cff-type2-transform"))
   }
-  let converted : Array[Type2Rational] = []
-  for value in values {
-    converted.push(match type2_rational_from_cff(value) {
-      Err(error) => return Err(error)
-      Ok(result) => result
-    })
+  let a = match type2_rational_from_cff(values[0]) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  let b = match type2_rational_from_cff(values[1]) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  let c = match type2_rational_from_cff(values[2]) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  let d = match type2_rational_from_cff(values[3]) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  let tx = match type2_rational_from_cff(values[4]) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  let ty = match type2_rational_from_cff(values[5]) {
+    Err(error) => return Err(error)
+    Ok(value) => value
   }
   Ok({
-    a: converted[0],
-    b: converted[1],
-    c: converted[2],
-    d: converted[3],
-    tx: converted[4],
-    ty: converted[5],
+    a,
+    b,
+    c,
+    d,
+    tx,
+    ty,
   })
 }
 
@@ -436,21 +453,31 @@ fn type2_matrix_scale(
     Err(error) => return Err(error)
     Ok(value) => value
   }
-  let scaled : Array[Type2Rational] = []
-  for value in [matrix.a, matrix.b, matrix.c, matrix.d, matrix.tx, matrix.ty] {
-    scaled.push(match type2_rational_mul(value, scale) {
-      Err(error) => return Err(error)
-      Ok(result) => result
-    })
+  let a = match type2_rational_mul(matrix.a, scale) {
+    Err(error) => return Err(error)
+    Ok(value) => value
   }
-  Ok({
-    a: scaled[0],
-    b: scaled[1],
-    c: scaled[2],
-    d: scaled[3],
-    tx: scaled[4],
-    ty: scaled[5],
-  })
+  let b = match type2_rational_mul(matrix.b, scale) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  let c = match type2_rational_mul(matrix.c, scale) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  let d = match type2_rational_mul(matrix.d, scale) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  let tx = match type2_rational_mul(matrix.tx, scale) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  let ty = match type2_rational_mul(matrix.ty, scale) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  Ok({ a, b, c, d, tx, ty })
 }
 
 ///|

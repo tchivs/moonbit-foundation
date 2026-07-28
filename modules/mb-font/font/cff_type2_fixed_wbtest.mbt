@@ -189,7 +189,7 @@ test "Type 2 private limits intersect hard ceilings with caller authority" {
   inspect(minimal.max_commands, content="3")
   inspect(minimal.max_calls, content="1")
   inspect(minimal.max_work, content="1")
-  inspect(minimal.scratch_allocations, content="5")
+  inspect(minimal.scratch_allocations, content="4")
   inspect(minimal.scratch_allocation_size, content="384")
 
   let clamped = type2_limits(

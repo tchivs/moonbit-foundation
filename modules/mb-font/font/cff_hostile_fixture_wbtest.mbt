@@ -219,7 +219,7 @@ test "CFF structural work allocation and caller authority are exact or absent" {
   inspect(admitted.charge.descriptors, content="3")
   inspect(admitted.charge.fd_environments, content="2")
   inspect(admitted.charge.work, content="1445")
-  let exact = cff_hostile_budget(652UL, 25UL, 8192UL, 1448UL)
+  let exact = cff_hostile_budget(652UL, 22UL, 8192UL, 1448UL)
   admit_cff1_structure(font_wb_view(source), font_wb_limits(), exact, 2UL)
   |> ignore
   inspect(exact.remaining().bytes(), content="0")
@@ -234,9 +234,9 @@ test "CFF structural work allocation and caller authority are exact or absent" {
         652UL
       },
       if dimension == 1 {
-        24UL
+        21UL
       } else {
-        25UL
+        22UL
       },
       if dimension == 2 {
         8191UL

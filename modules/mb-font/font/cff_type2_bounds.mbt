@@ -10,6 +10,10 @@ priv struct Type2GeometryFacts {
   min_y : Type2Fixed
   max_x : Type2Fixed
   max_y : Type2Fixed
+  bound_x_min : Int
+  bound_y_min : Int
+  bound_x_max : Int
+  bound_y_max : Int
   bounds : GlyphBoundsFacts?
 }
 
@@ -72,32 +76,6 @@ fn Type2BoundsSink::new(
     transformed_max_y: rational_zero,
     matrix,
     limits,
-  }
-}
-
-///|
-fn Type2BoundsSink::snapshot(self : Type2BoundsSink) -> Type2BoundsSink {
-  {
-    current_x: self.current_x,
-    current_y: self.current_y,
-    contour_start_x: self.contour_start_x,
-    contour_start_y: self.contour_start_y,
-    contour_open: self.contour_open,
-    contour_has_segments: self.contour_has_segments,
-    points: self.points,
-    contours: self.contours,
-    commands: self.commands,
-    has_segments: self.has_segments,
-    min_x: self.min_x,
-    min_y: self.min_y,
-    max_x: self.max_x,
-    max_y: self.max_y,
-    transformed_min_x: self.transformed_min_x,
-    transformed_min_y: self.transformed_min_y,
-    transformed_max_x: self.transformed_max_x,
-    transformed_max_y: self.transformed_max_y,
-    matrix: self.matrix,
-    limits: self.limits,
   }
 }
 
@@ -383,15 +361,17 @@ fn Type2BoundsSink::cubic_relative_unchecked(
     Err(error) => return Err(error)
     Ok(_) => ()
   }
-  for point in [
-    (control1_x, control1_y),
-    (control2_x, control2_y),
-    (end_x, end_y),
-  ] {
-    match self.include_point(point.0, point.1) {
-      Err(error) => return Err(error)
-      Ok(_) => ()
-    }
+  match self.include_point(control1_x, control1_y) {
+    Err(error) => return Err(error)
+    Ok(_) => ()
+  }
+  match self.include_point(control2_x, control2_y) {
+    Err(error) => return Err(error)
+    Ok(_) => ()
+  }
+  match self.include_point(end_x, end_y) {
+    Err(error) => return Err(error)
+    Ok(_) => ()
   }
   self.current_x = end_x
   self.current_y = end_y
@@ -417,25 +397,36 @@ fn Type2BoundsSink::close(
 ///|
 fn Type2BoundsSink::facts(
   self : Type2BoundsSink,
+  retain_bounds : Bool,
 ) -> Result[Type2GeometryFacts, @error.CoreError] {
-  let bounds = if self.has_segments {
+  let mut bound_x_min = 0
+  let mut bound_y_min = 0
+  let mut bound_x_max = 0
+  let mut bound_y_max = 0
+  if self.has_segments {
+    bound_x_min = match type2_rational_floor(self.transformed_min_x) {
+      Err(error) => return Err(error)
+      Ok(value) => value
+    }
+    bound_y_min = match type2_rational_floor(self.transformed_min_y) {
+      Err(error) => return Err(error)
+      Ok(value) => value
+    }
+    bound_x_max = match type2_rational_ceil(self.transformed_max_x) {
+      Err(error) => return Err(error)
+      Ok(value) => value
+    }
+    bound_y_max = match type2_rational_ceil(self.transformed_max_y) {
+      Err(error) => return Err(error)
+      Ok(value) => value
+    }
+  }
+  let bounds = if self.has_segments && retain_bounds {
     Some({
-      x_min: match type2_rational_floor(self.transformed_min_x) {
-        Err(error) => return Err(error)
-        Ok(value) => value
-      },
-      y_min: match type2_rational_floor(self.transformed_min_y) {
-        Err(error) => return Err(error)
-        Ok(value) => value
-      },
-      x_max: match type2_rational_ceil(self.transformed_max_x) {
-        Err(error) => return Err(error)
-        Ok(value) => value
-      },
-      y_max: match type2_rational_ceil(self.transformed_max_y) {
-        Err(error) => return Err(error)
-        Ok(value) => value
-      },
+      x_min: bound_x_min,
+      y_min: bound_y_min,
+      x_max: bound_x_max,
+      y_max: bound_y_max,
     })
   } else {
     None
@@ -451,6 +442,10 @@ fn Type2BoundsSink::facts(
     min_y: self.min_y,
     max_x: self.max_x,
     max_y: self.max_y,
+    bound_x_min,
+    bound_y_min,
+    bound_x_max,
+    bound_y_max,
     bounds,
   })
 }

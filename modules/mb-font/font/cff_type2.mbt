@@ -82,7 +82,7 @@ priv struct Type2Vm {
   mut stems : UInt64
   mut geometry_started : Bool
   mut geometry_operators : UInt64
-  mut geometry : Type2BoundsSink
+  geometry : Type2BoundsSink
   prng : Type2Prng
   limits : Type2Limits
   ledger : Type2ExecutionLedger
@@ -514,12 +514,35 @@ fn Type2Vm::execute_roll(self : Type2Vm) -> Result[Unit, @error.CoreError] {
   let start = count - 2 - n
   let normalized = (j % n + n) % n
   if normalized != 0 {
-    let copy : Array[Type2Fixed] = []
-    for index = start; index < count - 2; index = index + 1 {
-      copy.push(self.stack[index])
+    // Rotate right in place with three reversals. The operand stack has fixed
+    // capacity, so roll never allocates in proportion to operator count.
+    let end = count - 2
+    let mut left = start
+    let mut right = end - 1
+    while left < right {
+      let value = self.stack[left]
+      self.stack[left] = self.stack[right]
+      self.stack[right] = value
+      left = left + 1
+      right = right - 1
     }
-    for index = 0; index < n; index = index + 1 {
-      self.stack[start + (index + normalized) % n] = copy[index]
+    left = start
+    right = start + normalized - 1
+    while left < right {
+      let value = self.stack[left]
+      self.stack[left] = self.stack[right]
+      self.stack[right] = value
+      left = left + 1
+      right = right - 1
+    }
+    left = start + normalized
+    right = end - 1
+    while left < right {
+      let value = self.stack[left]
+      self.stack[left] = self.stack[right]
+      self.stack[right] = value
+      left = left + 1
+      right = right - 1
     }
   }
   ignore(self.stack.pop())
@@ -556,15 +579,14 @@ fn Type2Vm::execute_flex(
   if self.stack.length() != expected {
     return Err(type2_data_error("font-cff-type2-flex-arity"))
   }
-  let staged = self.geometry.snapshot()
-  match staged.preflight_segments(6UL, 2UL) {
+  match self.geometry.preflight_segments(6UL, 2UL) {
     Err(error) => return Err(error)
     Ok(_) => ()
   }
   let zero : Type2Fixed = { raw: 0L }
   let curves : Result[Unit, @error.CoreError] = match operator {
     34UL => {
-      match staged.cubic_relative_unchecked(
+      match self.geometry.cubic_relative_unchecked(
         self.stack[0],
         zero,
         self.stack[1],
@@ -578,7 +600,7 @@ fn Type2Vm::execute_flex(
             Err(_) => return Err(type2_data_error("font-cff-type2-coordinate"))
             Ok(value) => value
           }
-          staged.cubic_relative_unchecked(
+          self.geometry.cubic_relative_unchecked(
             self.stack[4],
             zero,
             self.stack[5],
@@ -590,7 +612,7 @@ fn Type2Vm::execute_flex(
       }
     }
     35UL => {
-      match staged.cubic_relative_unchecked(
+      match self.geometry.cubic_relative_unchecked(
         self.stack[0],
         self.stack[1],
         self.stack[2],
@@ -600,7 +622,7 @@ fn Type2Vm::execute_flex(
       ) {
         Err(error) => Err(error)
         Ok(_) =>
-          staged.cubic_relative_unchecked(
+          self.geometry.cubic_relative_unchecked(
             self.stack[6],
             self.stack[7],
             self.stack[8],
@@ -624,7 +646,7 @@ fn Type2Vm::execute_flex(
               }
           }
       }
-      match staged.cubic_relative_unchecked(
+      match self.geometry.cubic_relative_unchecked(
         self.stack[0],
         self.stack[1],
         self.stack[2],
@@ -634,7 +656,7 @@ fn Type2Vm::execute_flex(
       ) {
         Err(error) => Err(error)
         Ok(_) =>
-          staged.cubic_relative_unchecked(
+          self.geometry.cubic_relative_unchecked(
             self.stack[5],
             zero,
             self.stack[6],
@@ -684,7 +706,7 @@ fn Type2Vm::execute_flex(
           self.stack[10],
         )
       }
-      match staged.cubic_relative_unchecked(
+      match self.geometry.cubic_relative_unchecked(
         self.stack[0],
         self.stack[1],
         self.stack[2],
@@ -694,7 +716,7 @@ fn Type2Vm::execute_flex(
       ) {
         Err(error) => Err(error)
         Ok(_) =>
-          staged.cubic_relative_unchecked(
+          self.geometry.cubic_relative_unchecked(
             self.stack[6],
             self.stack[7],
             self.stack[8],
@@ -710,7 +732,6 @@ fn Type2Vm::execute_flex(
     Err(error) => return Err(error)
     Ok(_) => ()
   }
-  self.geometry = staged
   self.geometry_started = true
   self.geometry_operators = self.geometry_operators + 1UL
   self.clear_stack()
@@ -835,12 +856,10 @@ fn Type2Vm::execute_moveto(
     22UL => (self.stack[0], zero)
     _ => return Err(type2_data_error("font-cff-type2-operator"))
   }
-  let staged = self.geometry.snapshot()
-  match staged.move_relative(dx, dy) {
+  match self.geometry.move_relative(dx, dy) {
     Err(error) => return Err(error)
     Ok(_) => ()
   }
-  self.geometry = staged
   self.geometry_started = true
   self.geometry_operators = self.geometry_operators + 1UL
   self.clear_stack()
@@ -878,9 +897,8 @@ fn Type2Vm::execute_geometry(
     26UL | 27UL | 30UL | 31UL => (0, count / 4)
     _ => (0, 0)
   }
-  let staged = self.geometry.snapshot()
   match
-    staged.preflight_segments(
+    self.geometry.preflight_segments(
       line_count.to_uint64() + curve_count.to_uint64() * 3UL,
       line_count.to_uint64() + curve_count.to_uint64(),
     ) {
@@ -893,7 +911,7 @@ fn Type2Vm::execute_geometry(
       let mut index = 0
       while index < count {
         match
-          staged.line_relative_unchecked(
+          self.geometry.line_relative_unchecked(
             self.stack[index],
             self.stack[index + 1],
           ) {
@@ -907,9 +925,9 @@ fn Type2Vm::execute_geometry(
       let mut horizontal = operator == 6UL
       for delta in self.stack {
         let result = if horizontal {
-          staged.line_relative_unchecked(delta, zero)
+          self.geometry.line_relative_unchecked(delta, zero)
         } else {
-          staged.line_relative_unchecked(zero, delta)
+          self.geometry.line_relative_unchecked(zero, delta)
         }
         match result {
           Err(error) => return Err(error)
@@ -922,7 +940,7 @@ fn Type2Vm::execute_geometry(
       let mut index = 0
       while index < count {
         match
-          staged.cubic_relative_unchecked(
+          self.geometry.cubic_relative_unchecked(
             self.stack[index],
             self.stack[index + 1],
             self.stack[index + 2],
@@ -941,7 +959,7 @@ fn Type2Vm::execute_geometry(
       let mut index = 0
       while index < curve_end {
         match
-          staged.cubic_relative_unchecked(
+          self.geometry.cubic_relative_unchecked(
             self.stack[index],
             self.stack[index + 1],
             self.stack[index + 2],
@@ -955,7 +973,7 @@ fn Type2Vm::execute_geometry(
         index = index + 6
       }
       match
-        staged.line_relative_unchecked(
+        self.geometry.line_relative_unchecked(
           self.stack[curve_end],
           self.stack[curve_end + 1],
         ) {
@@ -968,7 +986,7 @@ fn Type2Vm::execute_geometry(
       let mut index = 0
       while index < curve_start {
         match
-          staged.line_relative_unchecked(
+          self.geometry.line_relative_unchecked(
             self.stack[index],
             self.stack[index + 1],
           ) {
@@ -978,7 +996,7 @@ fn Type2Vm::execute_geometry(
         index = index + 2
       }
       match
-        staged.cubic_relative_unchecked(
+        self.geometry.cubic_relative_unchecked(
           self.stack[curve_start],
           self.stack[curve_start + 1],
           self.stack[curve_start + 2],
@@ -999,7 +1017,7 @@ fn Type2Vm::execute_geometry(
       }
       while index < count {
         match
-          staged.cubic_relative_unchecked(
+          self.geometry.cubic_relative_unchecked(
             first_dx,
             self.stack[index],
             self.stack[index + 1],
@@ -1023,7 +1041,7 @@ fn Type2Vm::execute_geometry(
       }
       while index < count {
         match
-          staged.cubic_relative_unchecked(
+          self.geometry.cubic_relative_unchecked(
             self.stack[index],
             first_dy,
             self.stack[index + 1],
@@ -1045,7 +1063,7 @@ fn Type2Vm::execute_geometry(
         let remaining = count - index
         let optional = remaining == 5
         let result = if horizontal {
-          staged.cubic_relative_unchecked(
+          self.geometry.cubic_relative_unchecked(
             self.stack[index],
             zero,
             self.stack[index + 1],
@@ -1058,7 +1076,7 @@ fn Type2Vm::execute_geometry(
             self.stack[index + 3],
           )
         } else {
-          staged.cubic_relative_unchecked(
+          self.geometry.cubic_relative_unchecked(
             zero,
             self.stack[index],
             self.stack[index + 1],
@@ -1081,7 +1099,6 @@ fn Type2Vm::execute_geometry(
     }
     _ => return Err(type2_data_error("font-cff-type2-operator"))
   }
-  self.geometry = staged
   self.geometry_started = true
   self.geometry_operators = self.geometry_operators + 1UL
   self.clear_stack()
@@ -1106,12 +1123,10 @@ fn Type2Vm::execute_endchar(self : Type2Vm) -> Result[Unit, @error.CoreError] {
   if self.stack.length() != 0 {
     return Err(type2_data_error("font-cff-type2-endchar-arity"))
   }
-  let staged = self.geometry.snapshot()
-  match staged.close() {
+  match self.geometry.close() {
     Err(error) => return Err(error)
     Ok(_) => ()
   }
-  self.geometry = staged
   Ok(())
 }
 
@@ -1337,11 +1352,18 @@ fn Type2Vm::new(
   matrix : Type2Matrix,
   limits : Type2Limits,
 ) -> Type2Vm {
+  let stack : Array[Type2Fixed] = Array::new(
+    capacity=limits.max_operand_stack.to_int(),
+  )
+  let frames : Array[Type2Frame] = Array::new(
+    capacity=limits.max_frames.to_int(),
+  )
+  frames.push({ kind: Root, source: root, cursor: 0UL, tail_call: true })
   {
-    stack: [],
+    stack,
     transient: Array::make(limits.max_transient.to_int(), { raw: 0L }),
     transient_initialized: Array::make(limits.max_transient.to_int(), false),
-    frames: [{ kind: Root, source: root, cursor: 0UL, tail_call: true }],
+    frames,
     local_subrs,
     global_subrs,
     default_width,
@@ -1412,6 +1434,34 @@ fn type2_execute_program_with_matrix(
     matrix,
     limits,
     opening_revision,
+    true,
+    fn() { () },
+  )
+}
+
+///|
+fn type2_execute_program_with_matrix_unretained(
+  root : @bytes.ByteView,
+  local_subrs : CffIndex,
+  global_subrs : CffIndex,
+  default_width : Type2Fixed,
+  nominal_width : Type2Fixed,
+  seed : Type2Fixed,
+  matrix : Type2Matrix,
+  limits : Type2Limits,
+  opening_revision : UInt64,
+) -> Result[Type2VmResult, @error.CoreError] {
+  type2_execute_program_with_matrix_and_read_probe(
+    root,
+    local_subrs,
+    global_subrs,
+    default_width,
+    nominal_width,
+    seed,
+    matrix,
+    limits,
+    opening_revision,
+    false,
     fn() { () },
   )
 }
@@ -1427,6 +1477,7 @@ fn type2_execute_program_with_matrix_and_read_probe(
   matrix : Type2Matrix,
   limits : Type2Limits,
   opening_revision : UInt64,
+  retain_bounds : Bool,
   read_probe : () -> Unit,
 ) -> Result[Type2VmResult, @error.CoreError] {
   match type2_require_revision(root, opening_revision) {
@@ -1613,7 +1664,7 @@ fn type2_execute_program_with_matrix_and_read_probe(
         match type2_require_revision(root, opening_revision) {
           Err(error) => return Err(error)
           Ok(_) => {
-            let geometry = match vm.geometry.facts() {
+            let geometry = match vm.geometry.facts(retain_bounds) {
               Err(error) =>
                 return Err(
                   type2_error_with_revision(root, opening_revision, error),
@@ -1676,7 +1727,7 @@ fn type2_execute_glyph(
     Err(error) => return Err(error)
     Ok(value) => value
   }
-  type2_execute_program_with_matrix(
+  type2_execute_program_with_matrix_unretained(
     descriptor.charstring.view,
     descriptor.environment.local_subrs,
     global_subrs,
@@ -1758,7 +1809,7 @@ fn type2_stage_all_glyphs_unchecked_with_probe(
       )
     Ok(value) => value
   }
-  let allocations = match
+  let base_allocations = match
     @checked.checked_add(
       scratch_allocations,
       if bounds_slots == 0UL { 0UL } else { 1UL },
@@ -1782,16 +1833,20 @@ fn type2_stage_all_glyphs_unchecked_with_probe(
   } else {
     limits.scratch_allocation_size
   }
-  let retained_authority = @budget.ResourceCharge::new(
+  // Preflight every fixed-capacity scratch array and the preallocated outer
+  // retained-bounds array before constructing either. Individual non-empty
+  // GlyphBoundsFacts objects are preflighted cumulatively below, immediately
+  // before their allocation.
+  let fixed_authority = @budget.ResourceCharge::new(
     bytes~,
-    allocations~,
+    allocations=base_allocations,
     allocation_size~,
     width=0UL,
     height=0UL,
     pixels=0UL,
     work=0UL,
   )
-  match budget.preflight(retained_authority) {
+  match budget.preflight(fixed_authority) {
     Err(error) =>
       return Err(
         type2_stage_error_with_revision(authority, opening_revision, error),
@@ -1799,7 +1854,10 @@ fn type2_stage_all_glyphs_unchecked_with_probe(
     Ok(_) => ()
   }
 
-  let bounds : Array[GlyphBoundsFacts?] = []
+  let bounds : Array[GlyphBoundsFacts?] = Array::new(
+    capacity=descriptors.length(),
+  )
+  let mut allocations = base_allocations
   let mut executed_bytes = 0UL
   let mut work = 0UL
   let mut calls = 0UL
@@ -1963,7 +2021,44 @@ fn type2_stage_all_glyphs_unchecked_with_probe(
         )
       Ok(value) => value
     }
-    bounds.push(result.geometry.bounds)
+    if result.geometry.has_segments {
+      let next_allocations = match
+        type2_stage_checked_add(
+          allocations,
+          1UL,
+          "font-cff-type2-allocations",
+        ) {
+        Err(error) => return Err(error)
+        Ok(value) => value
+      }
+      let retained_bound_authority = @budget.ResourceCharge::new(
+        bytes~,
+        allocations=next_allocations,
+        allocation_size~,
+        width=0UL,
+        height=0UL,
+        pixels=0UL,
+        work=0UL,
+      )
+      match budget.preflight(retained_bound_authority) {
+        Err(error) =>
+          return Err(
+            type2_stage_error_with_revision(authority, opening_revision, error),
+          )
+        Ok(_) => ()
+      }
+      allocations = next_allocations
+      bounds.push(
+        Some({
+          x_min: result.geometry.bound_x_min,
+          y_min: result.geometry.bound_y_min,
+          x_max: result.geometry.bound_x_max,
+          y_max: result.geometry.bound_y_max,
+        }),
+      )
+    } else {
+      bounds.push(None)
+    }
   }
   match type2_require_revision(authority, opening_revision) {
     Err(error) => return Err(error)

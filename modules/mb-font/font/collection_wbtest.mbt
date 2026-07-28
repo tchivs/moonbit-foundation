@@ -1241,7 +1241,7 @@ test "selected collection CFF1 facts use one bounded atomic shared-table transac
 
   let exact_budget = font_collection_wb_cff_budget(
     567UL,
-    26UL,
+    23UL,
     8192UL,
     529UL,
   )

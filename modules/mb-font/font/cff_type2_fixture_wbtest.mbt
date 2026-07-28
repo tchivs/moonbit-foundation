@@ -248,6 +248,7 @@ test "Type 2 mid-fetch mutation wins truncated number and escape errors" {
       type2_identity_matrix(),
       type2_vm_wb_limits(65535UL, 65535UL),
       opening_revision,
+      true,
       fn() {
         probes = probes + 1
         if probes == 1 {

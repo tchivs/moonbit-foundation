@@ -246,8 +246,9 @@ fn type2_limits(limits : FontLimits) -> Result[Type2Limits, @error.CoreError] {
     max_commands,
     max_calls: limits.max_work(),
     max_work: limits.max_work(),
-    // Operand, transient-value, transient-init, call-frame, and geometry scratch.
-    scratch_allocations: 5UL,
+    // Four fixed-capacity arrays: operand, transient-value, transient-init,
+    // and call-frame scratch. Geometry state is scalar and mutates in place.
+    scratch_allocations: 4UL,
     // The 48-entry operand stack is the largest fixed scratch array.
     scratch_allocation_size: 48UL * 8UL,
   })
