@@ -79,6 +79,242 @@ fn font_collection_wb_mutate_restore(
 }
 
 ///|
+fn font_collection_wb_font_limits(source_length : UInt64) -> FontLimits {
+  FontLimits::new(
+    max_source_bytes=source_length,
+    max_tables=4UL,
+    max_table_bytes=64UL,
+    max_glyphs=4UL,
+    max_name_records=4UL,
+    max_cmap_records=4UL,
+    max_kern_subtables=4UL,
+    max_kern_pairs=4UL,
+    max_outline_points=64UL,
+    max_outline_contours=16UL,
+    max_outline_components=16UL,
+    max_outline_instruction_bytes=64UL,
+    max_post_name_bytes=64UL,
+    max_work=4096UL,
+  ).unwrap()
+}
+
+///|
+fn font_collection_wb_checksum(
+  source : Array[Byte],
+  start : Int,
+  length : Int,
+  zero_head_adjustment : Bool,
+) -> UInt64 {
+  let mut checksum = 0UL
+  let mut offset = 0
+  while offset < length {
+    let mut word = 0UL
+    for delta in [0, 1, 2, 3] {
+      let index = offset + delta
+      let byte = if
+        zero_head_adjustment && index >= 8 && index < 12 {
+        b'\x00'
+      } else if index < length {
+        source[start + index]
+      } else {
+        b'\x00'
+      }
+      word = (word << 8) | byte.to_uint64()
+    }
+    checksum = (checksum + word) & 0xFFFFFFFFUL
+    offset = offset + 4
+  }
+  checksum
+}
+
+///|
+fn font_collection_wb_offset_directory(
+  head_offset : UInt64,
+  head_length : UInt64,
+  name_offset : UInt64,
+  name_length : UInt64,
+  bad_head_checksum? : Bool = false,
+) -> Bytes {
+  let output = Array::make(160, b'\x00')
+  let directory_start = 64
+  font_collection_wb_put_u32(output, directory_start, 0x00010000UL)
+  font_collection_wb_put_u16(output, directory_start + 4, 2UL)
+  font_collection_wb_put_u16(output, directory_start + 6, 32UL)
+  font_collection_wb_put_u16(output, directory_start + 8, 1UL)
+  font_collection_wb_put_u16(output, directory_start + 10, 0UL)
+
+  let head_start = head_offset.to_int()
+  let head_size = head_length.to_int()
+  for index = 0; index < head_size; index = index + 1 {
+    output[head_start + index] = (index + 1).to_byte()
+  }
+  if head_size >= 12 {
+    output[head_start + 8] = b'\xaa'
+    output[head_start + 9] = b'\xbb'
+    output[head_start + 10] = b'\xcc'
+    output[head_start + 11] = b'\xdd'
+  }
+  let name_start = name_offset.to_int()
+  let name_size = name_length.to_int()
+  for index = 0; index < name_size; index = index + 1 {
+    output[name_start + index] = (0x40 + index).to_byte()
+  }
+
+  font_collection_wb_put_u32(output, directory_start + 12, 0x68656164UL)
+  let head_checksum = font_collection_wb_checksum(
+    output,
+    head_start,
+    head_size,
+    true,
+  )
+  font_collection_wb_put_u32(
+    output,
+    directory_start + 16,
+    if bad_head_checksum { head_checksum ^ 1UL } else { head_checksum },
+  )
+  font_collection_wb_put_u32(output, directory_start + 20, head_offset)
+  font_collection_wb_put_u32(output, directory_start + 24, head_length)
+
+  font_collection_wb_put_u32(output, directory_start + 28, 0x6E616D65UL)
+  font_collection_wb_put_u32(
+    output,
+    directory_start + 32,
+    font_collection_wb_checksum(output, name_start, name_size, false),
+  )
+  font_collection_wb_put_u32(output, directory_start + 36, name_offset)
+  font_collection_wb_put_u32(output, directory_start + 40, name_length)
+  Bytes::from_array(output)
+}
+
+///|
+test "selected directory reads absolute fields and keeps table offsets root relative" {
+  let source = font_collection_wb_offset_directory(32UL, 12UL, 112UL, 4UL)
+  let view = font_collection_wb_view(source)
+  let directory = font_parse_directory_at(
+    view,
+    64UL,
+    Some(2UL),
+    font_collection_wb_font_limits(view.length()),
+    FontChecksumMode::Collection,
+  ).unwrap()
+  inspect(directory.tables.length(), content="2")
+  inspect(directory.tables[0].offset, content="32")
+  inspect(directory.tables[0].view.get(0UL).unwrap(), content="1")
+  inspect(directory.tables[1].offset, content="112")
+  inspect(directory.tables[1].view.get(0UL).unwrap(), content="64")
+}
+
+///|
+test "selected directory permits touching tables and rejects intersections" {
+  let touching = font_collection_wb_view(
+    font_collection_wb_offset_directory(52UL, 12UL, 108UL, 4UL),
+  )
+  inspect(
+    font_parse_directory_at(
+      touching,
+      64UL,
+      Some(2UL),
+      font_collection_wb_font_limits(touching.length()),
+      FontChecksumMode::Collection,
+    ) is Ok(_),
+    content="true",
+  )
+
+  let intersecting = font_collection_wb_view(
+    font_collection_wb_offset_directory(60UL, 8UL, 112UL, 4UL),
+  )
+  let overlap = font_parse_directory_at(
+    intersecting,
+    64UL,
+    Some(2UL),
+    font_collection_wb_font_limits(intersecting.length()),
+    FontChecksumMode::Collection,
+  ).unwrap_err()
+  inspect(overlap.category() == @error.ErrorCategory::Data, content="true")
+  inspect(
+    overlap.context() == Some("font-table-directory-overlap"),
+    content="true",
+  )
+}
+
+///|
+test "selected directory cached count and checked base fail before record traversal" {
+  let source = font_collection_wb_view(
+    font_collection_wb_offset_directory(32UL, 12UL, 112UL, 4UL),
+  )
+  let count_error = font_parse_directory_at(
+    source,
+    64UL,
+    Some(1UL),
+    font_collection_wb_font_limits(source.length()),
+    FontChecksumMode::Collection,
+  ).unwrap_err()
+  inspect(count_error.category() == @error.ErrorCategory::Data, content="true")
+  inspect(count_error.context() == Some("font-table-count"), content="true")
+
+  let base_error = font_parse_directory_at(
+    source,
+    18446744073709551615UL,
+    None,
+    font_collection_wb_font_limits(source.length()),
+    FontChecksumMode::Collection,
+  ).unwrap_err()
+  inspect(base_error.category() == @error.ErrorCategory::Data, content="true")
+  inspect(base_error.context() == Some("font-sfnt-header"), content="true")
+}
+
+///|
+test "collection checksum mode keeps table integrity and skips only root adjustment" {
+  let source = font_collection_wb_view(
+    font_collection_wb_offset_directory(32UL, 12UL, 112UL, 4UL),
+  )
+  let directory = font_parse_directory_at(
+    source,
+    64UL,
+    Some(2UL),
+    font_collection_wb_font_limits(source.length()),
+    FontChecksumMode::Collection,
+  ).unwrap()
+  inspect(
+    font_validate_checksums(directory, FontChecksumMode::Collection) is Ok(_),
+    content="true",
+  )
+  let standalone = font_validate_checksums(
+    directory,
+    FontChecksumMode::Standalone,
+  ).unwrap_err()
+  inspect(
+    standalone.context() == Some("font-checksum-adjustment"),
+    content="true",
+  )
+
+  let bad_source = font_collection_wb_view(
+    font_collection_wb_offset_directory(
+      32UL,
+      12UL,
+      112UL,
+      4UL,
+      bad_head_checksum=true,
+    ),
+  )
+  let bad_directory = font_parse_directory_at(
+    bad_source,
+    64UL,
+    Some(2UL),
+    font_collection_wb_font_limits(bad_source.length()),
+    FontChecksumMode::Collection,
+  ).unwrap()
+  let bad_checksum = font_validate_checksums(
+    bad_directory,
+    FontChecksumMode::Collection,
+  ).unwrap_err()
+  inspect(
+    bad_checksum.context() == Some("font-table-checksum"),
+    content="true",
+  )
+}
+
+///|
 fn font_collection_wb_two_face_v2() -> Bytes {
   let output = Array::make(160, b'\x00')
   font_collection_wb_put_u32(output, 0, 0x74746366UL)
