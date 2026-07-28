@@ -284,6 +284,31 @@ test "Type 2 bounds transform every hull point and round outward" {
 }
 
 ///|
+test "Type 2 bounds include each non-empty contour start" {
+  let matrix = type2_matrix_compose(
+    type2_wb_matrix(2L, 0L, 0L, 3L, 10L, -10L),
+    None,
+    1UL,
+  ).unwrap()
+  let programs = [
+    // Draw (0, 0) -> (10, 10), move to (100, 100), then line inward.
+    b"\x8B\x8B\x15\x95\x95\x05\xE5\xE5\x15\x59\x59\x05\x0E",
+    // Draw the same first contour, then curve inward from (100, 100).
+    b"\x8B\x8B\x15\x95\x95\x05\xE5\xE5\x15\x81\x81\x81\x81\x81\x81\x08\x0E",
+  ]
+  for program in programs {
+    let bounds = type2_bounds_wb_run_with_matrix(
+      program,
+      matrix,
+    ).unwrap().geometry.bounds.unwrap()
+    inspect(bounds.x_min, content="10")
+    inspect(bounds.y_min, content="-10")
+    inspect(bounds.x_max, content="210")
+    inspect(bounds.y_max, content="290")
+  }
+}
+
+///|
 test "Type 2 empty and moveto-only glyphs retain no bound" {
   inspect(type2_vm_wb_run(b"\x0E").unwrap().geometry.bounds is None, content="true")
   inspect(
