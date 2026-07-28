@@ -697,14 +697,16 @@ and negative fixtures must all agree.
 
 | Slice | Exclusive file ownership | Required handoff |
 |---|---|---|
-| **103-01 Canonical fixtures/oracle/provenance** | four new fixture files, `fixtures/manifest.json`, `Generate-FontQualification.ps1`, `generated_font_qualification_test.mbt` | Freeze paths, ordered schemas/IDs, digests, oracle identity, generated type/function names, and exact TTC bytes before Slice 2 starts. |
+| **103-01 Canonical fixtures/oracle/provenance** | four new fixture files, `fixtures/manifest.json`, `Generate-FontQualification.ps1`, `generated_font_qualification_test.mbt`, plus only the exact fixture-manifest inventory block in `Assert-Policy.ps1` | Freeze paths, ordered schemas/IDs, digests, oracle identity, generated type/function names, exact TTC bytes, and the fail-closed 14-record manifest gate before Slice 2 starts. |
 | **103-02 Public/hostile/mutation/standalone locks** | `font_qualification_test.mbt`, `font_qualification_hostile_test.mbt`, `collection_wbtest.mbt` | Freeze exact focused file/test names, public fact sections, hostile ID order, budget schema, and pass identities before Slice 3 starts. Do not edit Slice 1 artifacts. |
-| **103-03 v2 evidence/policy/CI/docs** | runner, evidence-boundary test, `Assert-Policy.ps1`, `foundation.json`, workflow, module manifest, licensing policy, README, changelog | Consume Slice 1 digests/schemas and Slice 2 test identities verbatim. Do not regenerate fixtures or rename tests. |
+| **103-03 v2 evidence/policy/CI/docs** | runner, evidence-boundary test, remaining `Assert-Policy.ps1` v2/API/source/workflow gates, `foundation.json`, workflow, module manifest, licensing policy, README, changelog | Consume Slice 1's already-merged fixture-manifest classifier and digests/schemas plus Slice 2 test identities verbatim. Do not regress the 14-record gate, regenerate fixtures, or rename tests. |
 
-These are logical and file-level strict dependencies. There is no shared writable
-implementation file across slices, so the planner can avoid merge conflicts entirely.
-Do not parallelize Slice 2 before the generated symbols/case IDs exist, or Slice 3
-before the focused assertion names and evidence fact shapes are final.
+These are strict sequential dependencies. `Assert-Policy.ps1` is the sole shared writable
+file: Slice 1 owns only the manifest hard-dependency discovered by its fixture-policy
+gate, and Slice 3 reopens the already-merged file for the remaining v2 boundaries.
+No shared file is written concurrently. Do not parallelize Slice 2 before the generated
+symbols/case IDs exist, or Slice 3 before the focused assertion names and evidence fact
+shapes are final.
 
 ## Anti-Patterns to Reject Globally
 
