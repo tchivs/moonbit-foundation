@@ -2,13 +2,13 @@
 gsd_state_version: 1.0
 milestone: v0.34
 milestone_name: CFF Outline Foundation
-current_phase: 104
-current_phase_name: CFF1 Profile and Bounded Data Model
-status: verifying
+current_phase: 105
+current_phase_name: Bounded Type 2 Validation and Retained Metrics
+status: planning
 stopped_at: Completed 104-04-PLAN.md
-last_updated: "2026-07-28T13:24:46.688Z"
+last_updated: "2026-07-28T13:38:48.539Z"
 last_activity: 2026-07-28
-last_activity_desc: Completed 104-04 closed PaintType and StrokeWidth profile enforcement
+last_activity_desc: Phase 104 complete, transitioned to Phase 105
 progress:
   total_phases: 1
   completed_phases: 1
@@ -28,10 +28,10 @@ See `.planning/PROJECT.md` (updated 2026-07-28 for v0.34).
 
 ## Current Position
 
-Phase: 104 of 107 (CFF1 Profile and Bounded Data Model)
-Plan: 4 of 4
-Status: Phase complete — ready for verification
-Last activity: 2026-07-28 — Completed 104-04 closed PaintType and StrokeWidth profile enforcement
+Phase: 105 of 107 (Bounded Type 2 Validation and Retained Metrics)
+Plan: Not started
+Status: Ready to plan
+Last activity: 2026-07-28 — Phase 104 complete, transitioned to Phase 105
 
 Progress: [██████████] 100%
 
@@ -97,7 +97,7 @@ Historical execution metrics remain available in archived milestone roadmaps. v0
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
-| 104 | 4 | 86min | 22min |
+| 104 | 4 | - | - |
 **Per-Plan Metrics:**
 
 | Plan | Duration | Tasks | Files |
