@@ -122,7 +122,7 @@ fn cff_wb_budget() -> @budget.Budget {
     @budget.ResourceLimits::new(
       bytes=4096UL,
       allocations=32UL,
-      allocation_size=4096UL,
+      allocation_size=16384UL,
       width=0UL,
       height=0UL,
       pixels=0UL,

@@ -39,6 +39,7 @@ priv struct CffEncoding {
 priv struct CffFdSelect {
   format : UInt64
   selectors : Array[UInt64]
+  range_count : UInt64
 }
 
 ///|
@@ -58,6 +59,7 @@ priv struct CffPrivateEnvironment {
   private_dict : CffPrivateDict
   local_subrs : CffIndex
   font_matrix : Array[CffNumber]
+  dict_units : UInt64
 }
 
 ///|
@@ -66,6 +68,7 @@ priv struct CffKeyingResult {
   keying : CffKeying
   glyphs : Array[CffGlyphDescriptor]
   retained_indexes : Array[CffIndex]
+  dict_units : UInt64
 }
 
 ///|
@@ -644,7 +647,7 @@ fn cff_decode_fd_select(
       selectors.push(fd)
       gid = gid + 1UL
     }
-    return Ok({ format, selectors })
+    return Ok({ format, selectors, range_count: 0UL })
   }
   if format != 3UL {
     return Err(cff_data_error("font-cff-fd-select-format"))
@@ -752,7 +755,7 @@ fn cff_decode_fd_select(
     }
     range = range + 1UL
   }
-  Ok({ format, selectors })
+  Ok({ format, selectors, range_count })
 }
 
 ///|
@@ -762,6 +765,7 @@ fn cff_decode_private_environment(
   font_matrix : Array[CffNumber],
   limits : FontLimits,
   private_context : String,
+  authority : CffAuthorityLedger,
 ) -> Result[CffPrivateEnvironment, @error.CoreError] {
   let mut local_subrs = match cff_empty_index(cff.view) {
     Err(error) => return Err(error)
@@ -777,6 +781,14 @@ fn cff_decode_private_environment(
     Err(error) => return Err(error)
     Ok(value) => value
   }
+  let dict_allocation = match @checked.checked_mul(private_range.size, 32UL) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  match authority.preflight(0UL, 0UL, dict_allocation) {
+    Err(error) => return Err(error)
+    Ok(_) => ()
+  }
   let private_dict = match cff_decode_private_dict(private_view) {
     Err(error) => return Err(error)
     Ok(value) => value
@@ -788,6 +800,16 @@ fn cff_decode_private_environment(
         @checked.checked_add(private_range.offset.value, relative.value) {
         Err(_) => return Err(cff_data_error("font-cff-local-subrs-offset"))
         Ok(value) => value
+      }
+      match
+        authority.preflight_index(
+          cff.view,
+          start,
+          limits.max_work(),
+          "font-cff-local-subrs-index",
+        ) {
+        Err(error) => return Err(error)
+        Ok(_) => ()
       }
       let (index, _) = match
         cff_decode_index(
@@ -802,7 +824,12 @@ fn cff_decode_private_environment(
       local_subrs = index
     }
   }
-  Ok({ private_dict, local_subrs, font_matrix })
+  Ok({
+    private_dict,
+    local_subrs,
+    font_matrix,
+    dict_units: private_dict.dict_units,
+  })
 }
 
 ///|
@@ -813,6 +840,7 @@ fn cff_resolve_name_keying(
   charstrings : CffIndex,
   num_glyphs : UInt64,
   limits : FontLimits,
+  authority : CffAuthorityLedger,
 ) -> Result[CffKeyingResult, @error.CoreError] {
   if top.fd_array is Some(_) || top.fd_select is Some(_) {
     return Err(cff_data_error("font-cff-name-fd-contract"))
@@ -828,6 +856,7 @@ fn cff_resolve_name_keying(
       top.font_matrix,
       limits,
       "font-cff-private-range",
+      authority,
     ) {
     Err(error) => return Err(error)
     Ok(value) => value
@@ -902,6 +931,7 @@ fn cff_resolve_name_keying(
     },
     glyphs,
     retained_indexes: [environment.local_subrs],
+    dict_units: environment.dict_units,
   })
 }
 
@@ -913,6 +943,7 @@ fn cff_resolve_cid_keying(
   charstrings : CffIndex,
   num_glyphs : UInt64,
   limits : FontLimits,
+  authority : CffAuthorityLedger,
 ) -> Result[CffKeyingResult, @error.CoreError] {
   let ros = match top.ros {
     None => return Err(cff_data_error("font-cff-cid-ros"))
@@ -955,12 +986,24 @@ fn cff_resolve_cid_keying(
     Ok(value) => value
   }
   let (fd_array, _) = match
-    cff_decode_index(
+    {
+      match
+        authority.preflight_index(
+          cff.view,
+          fd_array_offset,
+          limits.max_glyphs(),
+          "font-cff-fd-array-index",
+        ) {
+        Err(error) => return Err(error)
+        Ok(_) => ()
+      }
+      cff_decode_index(
       cff.view,
       fd_array_offset,
       limits.max_glyphs(),
       "font-cff-fd-array-index",
-    ) {
+      )
+    } {
     Err(error) => return Err(error)
     Ok(value) => value
   }
@@ -974,13 +1017,30 @@ fn cff_resolve_cid_keying(
     )
   }
   let environments : Array[CffPrivateEnvironment] = []
+  let environment_allocation = match @checked.checked_mul(fd_array.count, 64UL) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  match authority.preflight(fd_array.count, 1UL, environment_allocation) {
+    Err(error) => return Err(error)
+    Ok(_) => ()
+  }
   let retained_indexes : Array[CffIndex] = [fd_array]
+  let mut dict_units = 0UL
   let mut fd = 0UL
   while fd < fd_array.count {
     let object = match
       cff_index_object(fd_array, fd, "font-cff-fd-array-index") {
       Err(error) => return Err(error)
       Ok(value) => value
+    }
+    let font_dict_allocation = match @checked.checked_mul(object.view.length(), 32UL) {
+      Err(error) => return Err(error)
+      Ok(value) => value
+    }
+    match authority.preflight(0UL, 0UL, font_dict_allocation) {
+      Err(error) => return Err(error)
+      Ok(_) => ()
     }
     let font_dict = match cff_decode_font_dict(object.view) {
       Err(error) => return Err(error)
@@ -996,6 +1056,10 @@ fn cff_resolve_cid_keying(
       None => return Err(cff_data_error("font-cff-fd-private-required"))
       Some(value) => value
     }
+    dict_units = match @checked.checked_add(dict_units, font_dict.dict_units) {
+      Err(error) => return Err(error)
+      Ok(value) => value
+    }
     let environment = match
       cff_decode_private_environment(
         cff,
@@ -1003,21 +1067,36 @@ fn cff_resolve_cid_keying(
         font_dict.font_matrix,
         limits,
         "font-cff-fd-private-range",
+        authority,
       ) {
       Err(error) => return Err(error)
       Ok(value) => value
     }
     retained_indexes.push(environment.local_subrs)
     environments.push(environment)
+    dict_units = match @checked.checked_add(dict_units, environment.dict_units) {
+      Err(error) => return Err(error)
+      Ok(value) => value
+    }
     fd = fd + 1UL
   }
   let fd_select = match
-    cff_decode_fd_select(
-      cff,
-      fd_select_offset,
-      num_glyphs,
-      fd_array.count,
-    ) {
+    {
+      let selector_allocation = match @checked.checked_mul(num_glyphs, 8UL) {
+        Err(error) => return Err(error)
+        Ok(value) => value
+      }
+      match authority.preflight(0UL, 1UL, selector_allocation) {
+        Err(error) => return Err(error)
+        Ok(_) => ()
+      }
+      cff_decode_fd_select(
+        cff,
+        fd_select_offset,
+        num_glyphs,
+        fd_array.count,
+      )
+    } {
     Err(error) => return Err(error)
     Ok(value) => value
   }
@@ -1056,6 +1135,7 @@ fn cff_resolve_cid_keying(
     },
     glyphs,
     retained_indexes,
+    dict_units,
   })
 }
 
@@ -1067,10 +1147,19 @@ fn cff_resolve_keying(
   charstrings : CffIndex,
   num_glyphs : UInt64,
   limits : FontLimits,
+  authority : CffAuthorityLedger,
 ) -> Result[CffKeyingResult, @error.CoreError] {
   match top.ros {
     Some(_) =>
-      cff_resolve_cid_keying(cff, top, strings, charstrings, num_glyphs, limits)
+      cff_resolve_cid_keying(
+        cff,
+        top,
+        strings,
+        charstrings,
+        num_glyphs,
+        limits,
+        authority,
+      )
     None =>
       cff_resolve_name_keying(
         cff,
@@ -1079,6 +1168,7 @@ fn cff_resolve_keying(
         charstrings,
         num_glyphs,
         limits,
+        authority,
       )
   }
 }

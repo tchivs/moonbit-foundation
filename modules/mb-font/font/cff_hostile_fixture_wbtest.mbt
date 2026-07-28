@@ -56,11 +56,15 @@ test "cff_structural_exact_and_one_short_cases" {
     0UL,
   ).unwrap()
   inspect(admitted.charge.header_bytes, content="4")
-  inspect(admitted.charge.index_offsets > 0UL, content="true")
-  inspect(admitted.charge.index_objects > 0UL, content="true")
-  inspect(admitted.charge.dict_units > 0UL, content="true")
-  inspect(admitted.charge.charset_entries > 0UL, content="true")
-  inspect(admitted.charge.sid_cid_lookups > 0UL, content="true")
+  inspect(admitted.charge.index_offsets, content="6")
+  inspect(admitted.charge.index_objects, content="3")
+  inspect(admitted.charge.dict_units, content="7")
+  inspect(admitted.charge.charset_entries, content="1")
+  inspect(admitted.charge.encoding_entries, content="0")
+  inspect(admitted.charge.fd_ranges, content="0")
+  inspect(admitted.charge.sid_cid_lookups, content="1")
+  inspect(admitted.charge.descriptors, content="1")
+  inspect(admitted.charge.fd_environments, content="1")
   let ceilings = cff_structural_limits(font_wb_limits()).unwrap()
   inspect(ceilings.max_index_entries > 0UL, content="true")
   inspect(ceilings.max_dict_units > 0UL, content="true")
@@ -160,12 +164,11 @@ test "CFF structural work allocation and caller authority are exact or absent" {
   inspect(admitted.charge.encoding_entries, content="0")
   inspect(admitted.charge.descriptors, content="3")
   inspect(admitted.charge.fd_environments, content="2")
-
   let exact = cff_hostile_budget(
-    admitted.charge.bytes,
-    admitted.charge.allocations,
-    admitted.charge.allocation_size,
-    admitted.charge.work,
+    580UL,
+    9UL,
+    8192UL,
+    1441UL,
   )
   admit_cff1_structure(
     font_wb_view(source),
@@ -180,26 +183,63 @@ test "CFF structural work allocation and caller authority are exact or absent" {
   for dimension in [0, 1, 2, 3] {
     let budget = cff_hostile_budget(
       if dimension == 0 {
-        admitted.charge.bytes - 1UL
+        579UL
       } else {
-        admitted.charge.bytes
+        580UL
       },
       if dimension == 1 {
-        admitted.charge.allocations - 1UL
+        8UL
       } else {
-        admitted.charge.allocations
+        9UL
       },
       if dimension == 2 {
-        admitted.charge.allocation_size - 1UL
+        8191UL
       } else {
-        admitted.charge.allocation_size
+        8192UL
       },
       if dimension == 3 {
-        admitted.charge.work - 1UL
+        1440UL
       } else {
-        admitted.charge.work
+        1441UL
       },
     )
+    let before = budget.remaining()
+    let error = admit_cff1_structure(
+      font_wb_view(source),
+      font_wb_limits(),
+      budget,
+      2UL,
+    ).unwrap_err()
+    inspect(error.category() == @error.ErrorCategory::Resource, content="true")
+    inspect(budget.remaining().bytes() == before.bytes(), content="true")
+    inspect(
+      budget.remaining().allocations() == before.allocations(),
+      content="true",
+    )
+    inspect(budget.remaining().work() == before.work(), content="true")
+  }
+}
+
+///|
+test "CFF caller work and allocation authority precede hostile keying traversal" {
+  let source = cff_wb_otf(
+    cff_cid_wb_table(invalid_unused_fd=true),
+    num_glyphs=3UL,
+  )
+  for budget in [
+    cff_hostile_budget(
+      source.length().to_uint64(),
+      0UL,
+      16384UL,
+      16384UL,
+    ),
+    cff_hostile_budget(
+      source.length().to_uint64(),
+      64UL,
+      16384UL,
+      0UL,
+    ),
+  ] {
     let before = budget.remaining()
     let error = admit_cff1_structure(
       font_wb_view(source),

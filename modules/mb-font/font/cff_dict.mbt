@@ -43,6 +43,7 @@ priv struct CffTopDict {
   fd_select : CffTableOffset?
   font_matrix : Array[CffNumber]
   sid_operands : Array[UInt64]
+  dict_units : UInt64
 }
 
 ///|
@@ -51,6 +52,7 @@ priv struct CffFontDict {
   private_range : CffPrivateRange?
   font_matrix : Array[CffNumber]
   sid_operands : Array[UInt64]
+  dict_units : UInt64
 }
 
 ///|
@@ -59,6 +61,7 @@ priv struct CffPrivateDict {
   local_subrs : CffPrivateOffset?
   default_width_x : CffNumber
   nominal_width_x : CffNumber
+  dict_units : UInt64
 }
 
 ///|
@@ -490,10 +493,32 @@ fn cff_require_even_bounded(
 }
 
 ///|
+fn cff_dict_unit_count(
+  entries : Array[CffDictEntry],
+) -> Result[UInt64, @error.CoreError] {
+  let mut units = 0UL
+  for entry in entries {
+    units = match
+      @checked.checked_add(
+        units,
+        entry.operands.length().to_uint64() + 1UL,
+      ) {
+      Err(error) => return Err(error)
+      Ok(value) => value
+    }
+  }
+  Ok(units)
+}
+
+///|
 fn cff_decode_top_dict(
   source : @bytes.ByteView,
 ) -> Result[CffTopDict, @error.CoreError] {
   let entries = match cff_parse_dict(source, "font-cff-top-dict") {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  let dict_units = match cff_dict_unit_count(entries) {
     Err(error) => return Err(error)
     Ok(value) => value
   }
@@ -734,6 +759,7 @@ fn cff_decode_top_dict(
     fd_select,
     font_matrix,
     sid_operands,
+    dict_units,
   })
 }
 
@@ -743,6 +769,10 @@ fn cff_decode_font_dict(
   source : @bytes.ByteView,
 ) -> Result[CffFontDict, @error.CoreError] {
   let entries = match cff_parse_dict(source, "font-cff-font-dict") {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  let dict_units = match cff_dict_unit_count(entries) {
     Err(error) => return Err(error)
     Ok(value) => value
   }
@@ -800,7 +830,7 @@ fn cff_decode_font_dict(
       _ => return Err(cff_data_error("font-cff-font-operator"))
     }
   }
-  Ok({ private_range, font_matrix, sid_operands })
+  Ok({ private_range, font_matrix, sid_operands, dict_units })
 }
 
 ///|
@@ -808,6 +838,10 @@ fn cff_decode_private_dict(
   source : @bytes.ByteView,
 ) -> Result[CffPrivateDict, @error.CoreError] {
   let entries = match cff_parse_dict(source, "font-cff-private-dict") {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  let dict_units = match cff_dict_unit_count(entries) {
     Err(error) => return Err(error)
     Ok(value) => value
   }
@@ -893,5 +927,5 @@ fn cff_decode_private_dict(
       _ => return Err(cff_data_error("font-cff-private-operator"))
     }
   }
-  Ok({ local_subrs, default_width_x, nominal_width_x })
+  Ok({ local_subrs, default_width_x, nominal_width_x, dict_units })
 }
