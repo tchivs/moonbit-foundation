@@ -216,6 +216,10 @@ fn cff_decode_outline_atomic_with_probes(
       font_glyph_id_error("font-outline", glyph, admitted.num_glyphs),
     )
   }
+  before_execute()
+  if source.mutation_revision() != admitted.opening_revision {
+    return Err(font_revision_error("font-outline"))
+  }
   let vm_limits = match type2_limits(limits) {
     Err(error) => return Err(error)
     Ok(value) => value
@@ -234,7 +238,6 @@ fn cff_decode_outline_atomic_with_probes(
     Err(error) => return Err(error)
     Ok(_) => ()
   }
-  before_execute()
   let executed = match
     type2_execute_glyph_with_path_capacity(
       admitted.glyphs[index],
