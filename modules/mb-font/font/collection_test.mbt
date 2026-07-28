@@ -851,6 +851,42 @@ test "TTC-02 selected D plus T charge is exact and every failure is atomic" {
   let exact_work = exact_before.work() - exact_after.work()
   inspect(exact_work > 0UL, content="true")
   inspect(opened.units_per_em().unwrap(), content="1000")
+  inspect(
+    collection
+    .open_face(
+      0UL,
+      font_collection_test_selected_font_limits(
+        source.length().to_uint64(),
+        max_work=exact_work,
+      ),
+      font_collection_test_selected_budget(),
+    )
+    .unwrap()
+    .units_per_em()
+    .unwrap(),
+    content="1000",
+  )
+  let short_work_budget = font_collection_test_selected_budget()
+  let short_work_before = short_work_budget.remaining()
+  let short_work = collection
+    .open_face(
+      0UL,
+      font_collection_test_selected_font_limits(
+        source.length().to_uint64(),
+        max_work=exact_work - 1UL,
+      ),
+      short_work_budget,
+    )
+    .unwrap_err()
+  inspect(
+    short_work.category() == @error.ErrorCategory::Resource,
+    content="true",
+  )
+  inspect(short_work.context() == Some("max-work"), content="true")
+  font_collection_test_assert_budget_unchanged(
+    short_work_before,
+    short_work_budget,
+  )
   for item in [
     (expected_bytes - 1UL, 3UL, 640UL, exact_work),
     (expected_bytes, 2UL, 640UL, exact_work),
