@@ -197,6 +197,25 @@ fn FontAdmissionLedger::admit_stage(
 }
 
 ///|
+fn font_collection_selected_extent_bytes(
+  directory : DirectoryFacts,
+) -> Result[UInt64, @error.CoreError] {
+  let directory_bytes = match
+    font_directory_end(directory.tables.length().to_uint64()) {
+    Err(error) => return Err(error)
+    Ok(value) => value
+  }
+  let mut table_bytes = 0UL
+  for table in directory.tables {
+    table_bytes = match @checked.checked_add(table_bytes, table.length_value) {
+      Err(error) => return Err(error)
+      Ok(value) => value
+    }
+  }
+  @checked.checked_add(directory_bytes, table_bytes)
+}
+
+///|
 fn font_admission_charge(
   directory : DirectoryFacts,
   limits : FontLimits,
@@ -477,9 +496,17 @@ fn font_admission_charge(
     FontAdmissionCommitMode::StandaloneIncremental => remaining_work
     FontAdmissionCommitMode::CollectionDeferred => work
   }
+  let charge_bytes = match commit_mode {
+    FontAdmissionCommitMode::StandaloneIncremental => directory.source.length()
+    FontAdmissionCommitMode::CollectionDeferred =>
+      match font_collection_selected_extent_bytes(directory) {
+        Err(error) => return Err(error)
+        Ok(value) => value
+      }
+  }
   Ok({
     charge: @budget.ResourceCharge::new(
-      bytes=directory.source.length(),
+      bytes=charge_bytes,
       allocations=3UL,
       allocation_size~,
       width=0UL,

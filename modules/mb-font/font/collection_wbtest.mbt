@@ -288,6 +288,22 @@ test "selected final revision hook is atomic and successful Font retains root id
     font_collection_wb_selected_collection_limits(source.length().to_uint64()),
     font_collection_wb_selected_budget(),
   ).unwrap()
+  let directory = font_parse_directory_at(
+    owner.view(),
+    256UL,
+    Some(10UL),
+    font_collection_wb_selected_font_limits(source.length().to_uint64()),
+    FontChecksumMode::Collection,
+  ).unwrap()
+  let mut table_bytes = 0UL
+  for table in directory.tables {
+    table_bytes = table_bytes + table.length_value
+  }
+  inspect(
+    font_collection_selected_extent_bytes(directory).unwrap() ==
+    172UL + table_bytes,
+    content="true",
+  )
   let budget = font_collection_wb_selected_budget()
   let before = budget.remaining()
   let mut callback_count = 0

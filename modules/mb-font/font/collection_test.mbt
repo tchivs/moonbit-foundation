@@ -603,6 +603,29 @@ fn font_collection_test_selected_budget() -> @budget.Budget {
 }
 
 ///|
+fn font_collection_test_selected_font_limits(
+  max_source_bytes : UInt64,
+  max_work? : UInt64 = 16384UL,
+) -> FontLimits {
+  FontLimits::new(
+    max_source_bytes~,
+    max_tables=10UL,
+    max_table_bytes=1024UL,
+    max_glyphs=16UL,
+    max_name_records=16UL,
+    max_cmap_records=16UL,
+    max_kern_subtables=16UL,
+    max_kern_pairs=256UL,
+    max_outline_points=4096UL,
+    max_outline_contours=256UL,
+    max_outline_components=256UL,
+    max_outline_instruction_bytes=1024UL,
+    max_post_name_bytes=256UL,
+    max_work~,
+  ).unwrap()
+}
+
+///|
 test "TTC-02 opens a cached static face against the retained collection root" {
   let source = font_collection_test_selected_ttc()
   let owner = font_collection_test_owner(source)
@@ -812,7 +835,10 @@ test "TTC-02 selected D plus T charge is exact and every failure is atomic" {
   let expected_bytes = 172UL + table_bytes
   let exact = font_collection_test_selected_budget()
   let exact_before = exact.remaining()
-  let opened = collection.open_face(0UL, font_test_limits(), exact).unwrap()
+  let exact_limits = font_collection_test_selected_font_limits(
+    source.length().to_uint64(),
+  )
+  let opened = collection.open_face(0UL, exact_limits, exact).unwrap()
   let exact_after = exact.remaining()
   inspect(
     exact_before.bytes() - exact_after.bytes() == expected_bytes,
@@ -846,11 +872,66 @@ test "TTC-02 selected D plus T charge is exact and every failure is atomic" {
     )
     let before = budget.remaining()
     let error = collection
-      .open_face(0UL, font_test_limits(), budget)
+      .open_face(0UL, exact_limits, budget)
       .unwrap_err()
     inspect(error.category() == @error.ErrorCategory::Resource, content="true")
     font_collection_test_assert_budget_unchanged(before, budget)
   }
+  let short_source_budget = font_collection_test_selected_budget()
+  let short_source_before = short_source_budget.remaining()
+  let short_source = collection
+    .open_face(
+      0UL,
+      font_collection_test_selected_font_limits(
+        source.length().to_uint64() - 1UL,
+      ),
+      short_source_budget,
+    )
+    .unwrap_err()
+  inspect(
+    short_source.category() == @error.ErrorCategory::Resource,
+    content="true",
+  )
+  inspect(short_source.context() == Some("max-source-bytes"), content="true")
+  font_collection_test_assert_budget_unchanged(
+    short_source_before,
+    short_source_budget,
+  )
+
+  let ancestor = @budget.Budget::new(
+    @budget.ResourceLimits::new(
+      bytes=expected_bytes,
+      allocations=3UL,
+      allocation_size=640UL,
+      width=0UL,
+      height=0UL,
+      pixels=0UL,
+      depth=0UL,
+      work=exact_work,
+    ),
+  )
+  let child = ancestor.child(ancestor.remaining()).unwrap()
+  ancestor.charge(
+    @budget.ResourceCharge::new(
+      bytes=1UL,
+      allocations=0UL,
+      allocation_size=0UL,
+      width=0UL,
+      height=0UL,
+      pixels=0UL,
+      work=0UL,
+    ),
+  ).unwrap()
+  let ancestor_before = ancestor.remaining()
+  let child_before = child.remaining()
+  let ancestor_error = collection.open_face(0UL, exact_limits, child).unwrap_err()
+  inspect(
+    ancestor_error.category() == @error.ErrorCategory::Resource,
+    content="true",
+  )
+  inspect(ancestor_error.context() == Some("bytes"), content="true")
+  font_collection_test_assert_budget_unchanged(ancestor_before, ancestor)
+  font_collection_test_assert_budget_unchanged(child_before, child)
 
   let bad = source.to_array()
   let cmap_offset = font_collection_test_read_u32(source, 256 + 12 + 16 + 8)
