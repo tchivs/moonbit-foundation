@@ -975,7 +975,14 @@ fn font_collection_qualification_assert_dsig_and_profile_failures() -> Unit rais
       content="true",
     )
     inspect(
-      error.context() == Some("font-collection-face-profile"),
+      error.context() ==
+      Some(
+        if index == 1UL {
+          "font-cff-profile"
+        } else {
+          "font-collection-face-profile"
+        },
+      ),
       content="true",
     )
     font_collection_test_assert_budget_unchanged(before, budget)

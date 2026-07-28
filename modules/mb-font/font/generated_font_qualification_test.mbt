@@ -3101,7 +3101,7 @@ fn font_collection_qualification_cases() -> Array[
         category: Some("Capability"),
         code: Some("CapabilityUnavailable"),
         operation: Some("font-collection-open-face"),
-        context: Some("font-collection-face-profile"),
+        context: Some("font-cff-profile"),
         source_offset: None,
         requested: None,
         limit: None,

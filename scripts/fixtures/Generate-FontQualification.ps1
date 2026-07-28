@@ -1324,7 +1324,7 @@ function New-FontCollectionQualificationCases {
     @('collection-dsig-format-unsupported','open','FontCollection::open',$null,'Capability','CapabilityUnavailable','font-collection-open','font-collection-dsig-format',$null,$null,$null),
     @('collection-dsig-block-overlap','open','FontCollection::open',$null,'Data','InvalidEncoding','font-collection-open','font-collection-dsig-block-overlap',108UL,12UL,$null),
     @('collection-face-index-equal-count','select','FontCollection::open_face',5,'Input','InvalidRange','font-collection-open-face','font-collection-face-index',$null,5UL,5UL),
-    @('collection-select-cff','select','FontCollection::open_face',1,'Capability','CapabilityUnavailable','font-collection-open-face','font-collection-face-profile',$null,$null,$null),
+    @('collection-select-cff','select','FontCollection::open_face',1,'Capability','CapabilityUnavailable','font-collection-open-face','font-cff-profile',$null,$null,$null),
     @('collection-select-cff2','select','FontCollection::open_face',2,'Capability','CapabilityUnavailable','font-collection-open-face','font-collection-face-profile',$null,$null,$null),
     @('collection-select-variable','select','FontCollection::open_face',3,'Capability','CapabilityUnavailable','font-collection-open-face','font-collection-face-profile',$null,$null,$null),
     @('collection-checked-pair-work-overflow','open','FontCollection::open',$null,'Resource','BudgetExceeded','font-collection-open','max-work',$null,[UInt64]::MaxValue,48UL)

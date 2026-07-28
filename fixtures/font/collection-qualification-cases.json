@@ -1223,7 +1223,7 @@
         "category": "Capability",
         "code": "CapabilityUnavailable",
         "operation": "font-collection-open-face",
-        "context": "font-collection-face-profile",
+        "context": "font-cff-profile",
         "source_offset": null,
         "requested": null,
         "limit": null
