@@ -58,6 +58,21 @@ Compatibility status: candidate. No stable API or public release is claimed.
   `wasm-gc`, and `native`.
 - Canonical four-target evidence records whose normalized semantics retain all
   public, hostile, fixture, toolchain, and dependency facts.
+- Bounded TTC/OTC version 1/version 2 collection inspection with exact face
+  count, ordered static-glyf/CFF/CFF2/variable/other profiles, and
+  absent/present-unverified DSIG facts.
+- Selected static-glyf face admission through the existing `Font` contract,
+  preserving root-relative ranges, caller/ancestor budgets, retained-source
+  identity, and atomic mutation failure.
+- The licensed 757,428-byte two-face DejaVu derivative, SHA-256
+  `833d406d389d4ef3b0a38f168af7d51ca16c88605e1727f6d631871a4e05f80b`,
+  with retained upstream notice, exact table sharing, a metadata-only
+  collection oracle, and both faces bound to the standalone oracle.
+- Phase 103 hostile, limit, budget, public mutation, and deterministic private
+  transition qualification across all four supported targets.
+- Managed `font-complete-public-v2` evidence with four ordered target records,
+  closed focused identities, discovered complete-package pass totals, and
+  semantic equality after removing only top-level target and runner.
 
 ### Fixed
 
@@ -67,8 +82,10 @@ Compatibility status: candidate. No stable API or public release is claimed.
   malformed or wrong-domain records still fail closed.
 
 The candidate still does not claim deeper composite geometry, phantom-point
-placement, grid rounding or hinting execution, rasterization, variations,
-CFF/CFF2, color/bitmap glyphs, text shaping/layout/discovery, font
-writing/editing, filesystem/host discovery, FFI, additional formats, or
-collection/web-font support. FONT-05 qualification does not claim publication,
-stability promotion, or a new public API.
+placement, grid rounding or hinting execution, rasterization, WOFF1/WOFF2
+admission, CFF/CFF2 selection or execution, variable instantiation, DSIG
+cryptographic trust, color/bitmap glyphs, text shaping/layout/discovery,
+collection extraction/materialization, font writing/editing, ambient
+filesystem/network or host discovery, FFI, or additional formats. Phase 103
+qualification does not claim registry publication, stability promotion,
+release-policy change, or a new public API.

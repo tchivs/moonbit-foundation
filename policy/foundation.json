@@ -2181,7 +2181,7 @@
       "name": "tchivs/mb-font",
       "path": "modules/mb-font",
       "version": "0.1.0",
-      "description": "Portable bounded standalone TrueType admission with named metrics, deterministic Unicode mapping, basic legacy horizontal kerning, and transactional simple plus one-level composite Path2 outlines for MoonBit Native Foundation.",
+      "description": "Portable bounded standalone TrueType and TTC/OTC version 1/version 2 inspection with selected static-glyf admission, named metrics, deterministic Unicode mapping, legacy kerning, and transactional Path2 outlines for MoonBit Native Foundation.",
       "repository": "https://github.com/tchivs/moonbit-foundation",
       "stability": "candidate",
       "preferred_target": "native",

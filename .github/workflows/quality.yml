@@ -23,13 +23,13 @@ jobs:
         run: ./scripts/ci/Install-PinnedMoonBit.ps1
       - name: Run focused font qualification
         shell: pwsh
-        run: ./scripts/quality.ps1 -Lane FontQualification -EvidenceDirectory artifacts/release-qualification/ci-font
+        run: ./scripts/quality.ps1 -Lane FontQualification -EvidenceDirectory artifacts/release-qualification/ci-font-v2
       - name: Upload passing font qualification evidence
         if: ${{ success() }}
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
-          name: font-qualification-evidence
-          path: artifacts/release-qualification/ci-font
+          name: font-qualification-evidence-v2
+          path: artifacts/release-qualification/ci-font-v2
 
   required:
     name: Required quality contract

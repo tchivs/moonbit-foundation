@@ -13,12 +13,13 @@ moonbit:
 
 # mb-font
 
-`tchivs/mb-font` admits a bounded standalone TrueType-outline SFNT from a
-caller-provided byte view and exposes named integer font metrics, deterministic
-Unicode scalar mapping, basic legacy horizontal kerning, and complete unhinted
-simple plus bounded one-level composite `Path2` outlines. It is a pure MoonBit
-foundation package: it does not discover files, call host font APIs, rasterize
-glyphs, or shape text.
+`tchivs/mb-font` admits a bounded standalone TrueType-outline SFNT or inspects
+TTC/OTC versions 1 and 2 from a caller-provided byte view. A selected
+static-glyf face enters the same `Font` contract with named integer metrics,
+deterministic Unicode scalar mapping, basic legacy horizontal kerning, and
+complete unhinted simple plus bounded one-level composite `Path2` outlines. It
+is a pure MoonBit foundation package: it does not discover files, call host font
+APIs, rasterize glyphs, or shape text.
 
 ## 0.1.0 candidate contract
 
@@ -29,7 +30,7 @@ glyphs, or shape text.
 | Required targets | `js`, `wasm`, `wasm-gc`, and `native` |
 | Preferred target | `native` |
 | Only direct module dependency | `tchivs/mb-core` |
-| Accepted input | one standalone `0x00010000` TrueType-outline SFNT |
+| Accepted input | one standalone `0x00010000` TrueType-outline SFNT, or TTC/OTC v1/v2 inspection plus selected static-glyf admission |
 
 The package retains the caller-provided `ByteView`; it does not copy the whole
 font or take filesystem ownership. The caller supplies both semantic
@@ -87,6 +88,22 @@ fn readme_outline_budget() -> @budget.Budget {
 }
 
 ///|
+fn readme_collection_budget() -> @budget.Budget {
+  @budget.Budget::new(
+    @budget.ResourceLimits::new(
+      bytes=8192UL,
+      allocations=32UL,
+      allocation_size=4096UL,
+      width=0UL,
+      height=0UL,
+      pixels=0UL,
+      depth=0UL,
+      work=131072UL,
+    ),
+  )
+}
+
+///|
 fn readme_generated_empty_font() -> Bytes {
   b"\x00\x01\x00\x00\x00\x0a\x00\x80\x00\x03\x00 OS/2\x00\x00\x00\x00\x00\x00\x00\xac\x00\x00\x00Ncmap\x00\x0c\x00&\x00\x00\x00\xfc\x00\x00\x00$glyf\x00\x00\x00\x00\x00\x00\x01 \x00\x00\x00\x00head_\x13@\xe5\x00\x00\x01 \x00\x00\x006hhea\x00\x01\x00\x01\x00\x00\x01X\x00\x00\x00$hmtx\x01\xf4\x00\x00\x00\x00\x01|\x00\x00\x00\x04loca\x00\x00\x00\x00\x00\x00\x01\x80\x00\x00\x00\x04maxp\x002\x00\xc1\x00\x00\x01\x84\x00\x00\x00 name\x00\x06\x00\x00\x00\x00\x01\xa4\x00\x00\x00\x06post\x00\x03\x00\x00\x00\x00\x01\xac\x00\x00\x00 \x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x00\x03\x00\x01\x00\x00\x00\x0c\x00\x04\x00\x18\x00\x00\x00\x02\x00\x02\x00\x00\x00\x00\xff\xff\x00\x00\xff\xff\x00\x01\x00\x00\x00\x01\x00\x00\x00\x01\x00\x00\xe2\xfa\x1bg_\x0f<\xf5\x00\x00\x03\xe8\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x08\x00\x02\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x01\xf4\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00\x01\x00@\x00\x10\x00@\x00\x10\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00@\x00\x10\x00\x01\x00\x00\x00\x00\x00\x06\x00\x00\x00\x03\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
 }
@@ -94,6 +111,52 @@ fn readme_generated_empty_font() -> Bytes {
 ///|
 fn readme_path_is_empty(path : @math.Path2) -> Bool {
   path.length() == 0 && path.get(0) is None
+}
+
+///|
+fn readme_read_u16(source : Bytes, offset : Int) -> UInt64 {
+  (source[offset].to_uint64() << 8) | source[offset + 1].to_uint64()
+}
+
+///|
+fn readme_read_u32(source : Bytes, offset : Int) -> UInt64 {
+  (source[offset].to_uint64() << 24) |
+  (source[offset + 1].to_uint64() << 16) |
+  (source[offset + 2].to_uint64() << 8) |
+  source[offset + 3].to_uint64()
+}
+
+///|
+fn readme_put_u32(output : Array[Byte], offset : Int, value : UInt64) -> Unit {
+  output[offset] = (value >> 24).to_byte()
+  output[offset + 1] = (value >> 16).to_byte()
+  output[offset + 2] = (value >> 8).to_byte()
+  output[offset + 3] = value.to_byte()
+}
+
+///|
+fn readme_generated_collection() -> Bytes {
+  let standalone = readme_generated_empty_font()
+  let directory_start = 256
+  let output = Array::make(directory_start + standalone.length(), b'\x00')
+  readme_put_u32(output, 0, 0x74746366UL)
+  readme_put_u32(output, 4, 0x00010000UL)
+  readme_put_u32(output, 8, 1UL)
+  readme_put_u32(output, 12, directory_start.to_uint64())
+  for index, byte in standalone {
+    output[directory_start + index] = byte
+  }
+  let table_count = readme_read_u16(standalone, 4).to_int()
+  for index = 0; index < table_count; index = index + 1 {
+    let record = 12 + index * 16
+    let old_offset = readme_read_u32(standalone, record + 8)
+    readme_put_u32(
+      output,
+      directory_start + record + 8,
+      old_offset + directory_start.to_uint64(),
+    )
+  }
+  Bytes::from_array(output)
 }
 
 ///|
@@ -153,6 +216,69 @@ test "generated bytes expose the direct guarded Path2 outline query" {
   let glyph = admitted.glyph_id(0UL).unwrap()
   let path = admitted.outline(glyph, readme_outline_budget()).unwrap()
   inspect(readme_path_is_empty(path), content="true")
+}
+
+///|
+test "caller-owned collection inspection selects one static glyf Font" {
+  let source = readme_generated_collection()
+  let owner = @bytes.OwnedBytes::from_bytes(
+    source,
+    readme_storage_budget(),
+  ).unwrap()
+  let collection_limits = @font.FontCollectionLimits::new(
+    max_source_bytes=4096UL,
+    max_faces=1UL,
+    max_tables_per_face=16UL,
+    max_table_records=16UL,
+    max_dsig_records=1UL,
+    max_dsig_bytes=1UL,
+    max_retained_bookkeeping_bytes=4096UL,
+    max_work=131072UL,
+  ).unwrap()
+  let font_limits = @font.FontLimits::new(
+    max_source_bytes=4096UL,
+    max_tables=32UL,
+    max_table_bytes=1024UL,
+    max_glyphs=16UL,
+    max_name_records=16UL,
+    max_cmap_records=16UL,
+    max_kern_subtables=16UL,
+    max_kern_pairs=256UL,
+    max_outline_points=4096UL,
+    max_outline_contours=256UL,
+    max_outline_components=256UL,
+    max_outline_instruction_bytes=1024UL,
+    max_post_name_bytes=256UL,
+    max_work=16384UL,
+  ).unwrap()
+  let collection = @font.FontCollection::open(
+    owner.view(),
+    collection_limits,
+    readme_collection_budget(),
+  ).unwrap()
+  inspect(collection.face_count().unwrap(), content="1")
+  inspect(
+    collection.face_profile(0UL).unwrap() == @font.FontFaceProfile::StaticGlyf,
+    content="true",
+  )
+  inspect(
+    collection.dsig_status().unwrap() == @font.FontCollectionDsigStatus::Absent,
+    content="true",
+  )
+  let selected = collection.open_face(
+    0UL,
+    font_limits,
+    readme_admission_budget(),
+  ).unwrap()
+  inspect(selected.units_per_em().unwrap(), content="1000")
+  inspect(
+    readme_path_is_empty(
+      selected
+      .outline(selected.glyph_id(0UL).unwrap(), readme_outline_budget())
+      .unwrap(),
+    ),
+    content="true",
+  )
 }
 ```
 
@@ -293,6 +419,27 @@ their table-local work and before publishing a value. Any mutation, including
 mutation followed by restoration of the original byte, permanently invalidates
 that admitted value because the revision changed.
 
+## Collection inspection and selected-face admission
+
+`FontCollection::open` recognizes TTC/OTC versions 1 and 2 under explicit
+`FontCollectionLimits` and a caller budget. It exposes only the face count,
+ordered face profiles, and DSIG status. `Absent` and `PresentUnverified` are
+structural observations; `PresentUnverified` is never a cryptographic trust
+decision. A `StaticGlyf` face may be selected through
+`FontCollection::open_face` and then uses the existing `FontLimits`, budget,
+metrics, mapping, kerning, and outline operations. CFF, CFF2, variable, and
+other unsupported profiles remain inspect-only and fail selection with a
+`Capability` outcome.
+
+The licensed interoperability derivative is the exact 757,428-byte
+`DejaVuSans-two-face-v1.ttc` with SHA-256
+`833d406d389d4ef3b0a38f168af7d51ca16c88605e1727f6d631871a4e05f80b`.
+It is deterministically derived from the immutable DejaVu Sans 2.37 parent,
+retains the upstream notice and license, contains two static-glyf faces sharing
+the same 20 table ranges, and both selected faces equal the standalone public
+oracle. The manifest and metadata-only collection oracle record the parent,
+generator, notice, exact sharing, and standalone-oracle lineage.
+
 ## Portable qualification contract
 
 Phase 100 qualifies the candidate contract with two complementary immutable-byte
@@ -357,15 +504,19 @@ Run the complete focused contract on `js`, `wasm`, `wasm-gc`, and `native`:
 ```powershell
 ./scripts/quality.ps1 `
   -Lane FontQualification `
-  -EvidenceDirectory artifacts/release-qualification/font
+  -EvidenceDirectory artifacts/release-qualification/font-v2
 ```
 
 The command checks fixture provenance and generated-source drift, the exact
-public interface and sole `mb-core` dependency, all public and hostile tests on
-each target, and literate examples. It writes one closed evidence record per
-target plus `comparison.json`. Only top-level `target` and `runner` fields are
-removed for comparison; all fixture, toolchain, dependency, public, hostile,
-and pass facts remain byte-visible. The four records must have identical
+public interface and sole `mb-core` dependency, all standalone, generated,
+licensed, hostile, limit, budget, and mutation assertions on each target, the
+complete package, and literate examples. The fresh
+`font-complete-public-v2` report writes exactly four ordered target records
+(`js.json`, `wasm.json`, `wasm-gc.json`, and `native.json`) plus
+`comparison.json`. Only top-level `target` and `runner` fields are removed for
+comparison; toolchain, fixtures, standalone facts, collection facts, hostile
+outcomes, mutation atomicity, boundaries, dependencies, focused identities,
+and pass state remain byte-visible. All four records must have identical
 normalized semantics before evidence is considered passing.
 
 The repository-wide Required lane is separate evidence and is deliberately
@@ -382,15 +533,19 @@ does not modify or relabel focused font qualification evidence.
 
 ## Deliberate boundary
 
-The qualified candidate provides admission, named global/per-glyph metrics,
+The qualified candidate provides standalone admission, bounded TTC/OTC
+inspection, selected static-glyf admission, named global/per-glyph metrics,
 one-scalar Unicode mapping, scoped legacy pair kerning, complete unhinted simple
 outlines, and bounded one-level composite `Path2` extraction. It deliberately
-excludes runtime file or host-font discovery, FFI, GUI or canvas state, shaping,
-layout, fallback, hinting execution, grid rounding, rasterization, CFF/CFF2,
-variations, color and bitmap glyphs, collection and web-font containers,
-writing/editing/subsetting, additional formats, and deeper composite expansion.
-The offline qualification tools may inspect committed bytes, but production and
-portable tests acquire no ambient host capability.
+excludes WOFF1/WOFF2 admission, CFF/CFF2 selection or execution, variable
+instantiation, DSIG cryptographic trust, runtime file or host-font discovery,
+ambient filesystem/network I/O, FFI, GUI or canvas state, shaping, layout,
+fallback, hinting execution, grid rounding, rasterization, color and bitmap
+glyphs, collection extraction/materialization, font
+authoring/writing/editing/subsetting, additional formats, and deeper composite
+expansion. The offline qualification tools may inspect committed bytes, but
+production and portable tests acquire no ambient host capability.
 
 This qualification does not publish the module, promote it to stable, add a
-public API, or broaden the accepted font profile.
+new registry publication, change release policy, or broaden the executable font
+profiles beyond selected static glyf.

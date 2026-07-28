@@ -1476,6 +1476,8 @@ function Assert-FontPortableSourceBoundary {
     'shaping execution' = '(?i)(?:\b(?:shape|shaper|shaping|bidi|layout)\w*\s*[(]|@(?:shape|shaping|layout)\b)'
     'hinting execution' = '(?i)(?:\b(?:hint|hinter|grid_fit|grid_round)\w*\s*[(]|@(?:hint|hinting)\b)'
     'CFF or CFF2 execution' = '(?i)(?:\b(?:cff|cff2)\w*\s*[(]|@(?:cff|cff2)\b)'
+    'WOFF or WOFF2 admission' = '(?i)(?:\b(?:woff|woff2)\w*(?:open|admit|decode|decompress)\w*\s*[(]|\b(?:open|admit|decode|decompress)\w*(?:woff|woff2)\w*\s*[(]|@(?:woff|woff2)\b)'
+    'variable-font execution' = '(?i)(?:\b(?:instantiate|apply|execute|resolve)\w*(?:variable|variation|axis)\w*\s*[(]|\b(?:variable|variation|axis)\w*(?:instantiate|apply|execute|resolve)\w*\s*[(]|@(?:variable_font|variations?)\b)'
     'rasterization execution' = '(?i)(?:\b(?:raster|rasterize|rasterizer|rasterization)\w*\s*[(]|@(?:raster|rasterizer)\b)'
   }
   foreach ($sourcePath in $SourcePaths) {
@@ -1499,30 +1501,228 @@ function Confirm-FontQualificationRejected {
   Assert-Condition ($null -ne $failure -and $failure -cmatch $ExpectedPattern) "Font qualification accepted negative probe '$Name': '$failure'."
 }
 
+function Assert-FontCollectionCorpusContract {
+  [CmdletBinding()]
+  param([Parameter(Mandatory)][object]$Corpus)
+
+  Assert-ExactSequence 'Font collection corpus schema' `
+    @($Corpus.PSObject.Properties.Name) `
+    @(
+      'schema_version',
+      'workflow_id',
+      'license',
+      'fixtures',
+      'public_workflows',
+      'hostile_cases',
+      'mutation_cases',
+      'limit_cases',
+      'budget_cases'
+    )
+  Assert-Condition (
+    $Corpus.schema_version -ceq '1.0.0' -and
+    $Corpus.workflow_id -ceq 'font-collection-complete-public-v2' -and
+    $Corpus.license -ceq 'Apache-2.0'
+  ) 'Font collection corpus identity or license drifted.'
+  Assert-Condition (
+    @($Corpus.fixtures).Count -eq 7 -and
+    @($Corpus.public_workflows).Count -eq 8 -and
+    @($Corpus.hostile_cases).Count -eq 24 -and
+    @($Corpus.mutation_cases).Count -eq 9 -and
+    @($Corpus.limit_cases).Count -eq 44 -and
+    @($Corpus.budget_cases).Count -eq 12
+  ) 'Font collection corpus group counts drifted.'
+  Assert-ExactSequence 'Font collection fixture schema' `
+    @($Corpus.fixtures[0].PSObject.Properties.Name) `
+    @(
+      'id',
+      'origin',
+      'container_version',
+      'face_count',
+      'dsig_status',
+      'profiles',
+      'expected_use'
+    )
+  $caseGroups = @(
+    @($Corpus.public_workflows),
+    @($Corpus.hostile_cases),
+    @($Corpus.mutation_cases),
+    @($Corpus.limit_cases),
+    @($Corpus.budget_cases)
+  )
+  foreach ($group in $caseGroups) {
+    foreach ($case in $group) {
+      Assert-ExactSequence 'Font collection case schema' `
+        @($case.PSObject.Properties.Name) `
+        @(
+          'id',
+          'fixture_id',
+          'stage',
+          'entrypoint',
+          'face_index',
+          'mutation_window',
+          'authority',
+          'boundary',
+          'error',
+          'publication',
+          'budget_before',
+          'budget_after'
+        )
+      Assert-ExactSequence 'Font collection case error schema' `
+        @($case.error.PSObject.Properties.Name) `
+        @(
+          'category',
+          'code',
+          'operation',
+          'context',
+          'source_offset',
+          'requested',
+          'limit'
+        )
+      foreach ($budgetName in @('budget_before', 'budget_after')) {
+        Assert-ExactSequence "Font collection case $budgetName schema" `
+          @($case.$budgetName.PSObject.Properties.Name) `
+          @(
+            'bytes',
+            'allocations',
+            'allocation_size',
+            'width',
+            'height',
+            'pixels',
+            'depth',
+            'work'
+          )
+      }
+    }
+  }
+  $orderedIds = @(
+    @($Corpus.fixtures.id) +
+    @($Corpus.public_workflows.id) +
+    @($Corpus.hostile_cases.id) +
+    @($Corpus.mutation_cases.id) +
+    @($Corpus.limit_cases.id) +
+    @($Corpus.budget_cases.id)
+  )
+  Assert-Condition (
+    $orderedIds.Count -eq 104
+  ) 'Font collection corpus IDs must be complete.'
+  foreach ($group in @(
+      @($Corpus.fixtures.id),
+      @($Corpus.public_workflows.id),
+      @($Corpus.hostile_cases.id),
+      @($Corpus.mutation_cases.id),
+      @($Corpus.limit_cases.id),
+      @($Corpus.budget_cases.id)
+    )) {
+    Assert-Condition (
+      @($group | Select-Object -Unique).Count -eq $group.Count
+    ) 'Font collection corpus IDs must be unique within each ordered group.'
+  }
+  $identityBytes = [Text.UTF8Encoding]::new($false).GetBytes(
+    $orderedIds -join "`n"
+  )
+  $identityDigest = [Convert]::ToHexString(
+    [Security.Cryptography.SHA256]::HashData($identityBytes)
+  ).ToLowerInvariant()
+  Assert-Condition (
+    $identityDigest -ceq
+      '6f5564d1af06f0bccd2b7f867a739adb09c84c4ab3b0762cfeeff480f1fedd85'
+  ) 'Font collection corpus ordered IDs drifted.'
+}
+
+function Assert-FontCollectionOracleContract {
+  [CmdletBinding()]
+  param([Parameter(Mandatory)][object]$Oracle)
+
+  Assert-ExactSequence 'Font collection oracle schema' `
+    @($Oracle.PSObject.Properties.Name) `
+    @(
+      'schema_version',
+      'oracle',
+      'lineage',
+      'derivative',
+      'collection',
+      'faces',
+      'shared_tables',
+      'standalone_oracle_binding'
+    )
+  Assert-Condition (
+    $Oracle.schema_version -ceq '1.0.0' -and
+    $Oracle.oracle.independence -ceq
+      'offline parser; does not invoke tchivs/mb-font'
+  ) 'Font collection oracle identity or independence drifted.'
+  Assert-ExactSequence 'Font collection derivative schema' `
+    @($Oracle.derivative.PSObject.Properties.Name) `
+    @('path','length','sha256','signature','version','algorithm')
+  Assert-Condition (
+    [int64]$Oracle.derivative.length -eq 757428 -and
+    $Oracle.derivative.sha256 -ceq
+      '833d406d389d4ef3b0a38f168af7d51ca16c88605e1727f6d631871a4e05f80b' -and
+    $Oracle.derivative.signature -ceq 'ttcf' -and
+    $Oracle.derivative.version -ceq '0x00010000'
+  ) 'Font licensed derivative identity drifted.'
+  Assert-ExactSequence 'Font collection structure schema' `
+    @($Oracle.collection.PSObject.Properties.Name) `
+    @(
+      'face_count',
+      'face_offsets',
+      'directory_length',
+      'payload_start',
+      'dsig_status',
+      'profiles'
+    )
+  Assert-Condition (
+    [int]$Oracle.collection.face_count -eq 2 -and
+    (@($Oracle.collection.face_offsets) -join ',') -ceq '20,352' -and
+    [int]$Oracle.collection.directory_length -eq 332 -and
+    [int]$Oracle.collection.payload_start -eq 684 -and
+    $Oracle.collection.dsig_status -ceq 'absent' -and
+    (@($Oracle.collection.profiles) -join ',') -ceq
+      'StaticGlyf,StaticGlyf' -and
+    @($Oracle.shared_tables).Count -eq 20
+  ) 'Font collection structure or exact sharing drifted.'
+  Assert-Condition (
+    $Oracle.lineage.notice_path -ceq
+      'fixtures/font/dejavu-sans-2.37/LICENSE' -and
+    -not [string]::IsNullOrWhiteSpace([string]$Oracle.lineage.notice_sha256) -and
+    $Oracle.lineage.redistribution_status -ceq 'confirmed'
+  ) 'Font collection derivative notice or redistribution facts drifted.'
+  Assert-Condition (
+    $Oracle.standalone_oracle_binding.sha256 -ceq
+      '4247394c3795a56aaf28c1885403201cfc277b06125f5887e14a40f3b4c6229a' -and
+    (@($Oracle.standalone_oracle_binding.face_indices) -join ',') -ceq '0,1'
+  ) 'Font collection standalone-oracle binding drifted.'
+}
+
 function Assert-FontQualificationWorkflowContract {
   [CmdletBinding()]
   param([Parameter(Mandatory)][string]$WorkflowText)
 
+  $fontJob = [regex]::Match(
+    $WorkflowText,
+    '(?ms)^  font-qualification:\s*$.*?(?=^  [a-z0-9-]+:\s*$|\z)'
+  )
   Assert-Condition (
+    $fontJob.Success -and
     ([regex]::Matches(
       $WorkflowText,
       '(?m)^  font-qualification:\s*$'
     )).Count -eq 1
   ) 'Quality workflow must contain exactly one FontQualification job.'
+  $fontJobText = $fontJob.Value
   Assert-Condition (
-    $WorkflowText -cmatch (
+    $fontJobText -cmatch (
       '(?m)^\s*timeout-minutes:\s*20\s*$'
     )
   ) 'Measured FontQualification timeout must remain 20 minutes.'
   Assert-Condition (
-    $WorkflowText -cmatch (
+    $fontJobText -cmatch (
       '(?m)^\s*run:\s*[.]/scripts/quality[.]ps1 -Lane ' +
       'FontQualification -EvidenceDirectory ' +
       'artifacts/release-qualification/ci-font-v2\s*$'
     )
   ) 'FontQualification CI command must own the fresh v2 evidence directory.'
   Assert-Condition (
-    $WorkflowText -cmatch (
+    $fontJobText -cmatch (
       '(?ms)- name: Upload passing font qualification evidence\s+' +
       'if: \$\{\{ success\(\) \}\}\s+' +
       'uses: actions/upload-artifact@' +
@@ -2610,6 +2810,57 @@ function Assert-FontQualificationArtifacts {
     'nested-composite-recognized'
   )
 
+  $collectionCases = Read-QualityJson -Path (
+    Join-Path $RepositoryRoot 'fixtures/font/collection-qualification-cases.json'
+  )
+  Assert-FontCollectionCorpusContract -Corpus $collectionCases
+  Confirm-FontQualificationRejected 'collection corpus schema drift' {
+    $copy = $collectionCases | ConvertTo-Json -Depth 32 -Compress |
+      ConvertFrom-Json
+    $copy.schema_version = '2.0.0'
+    Assert-FontCollectionCorpusContract -Corpus $copy
+  } 'identity or license drifted'
+  Confirm-FontQualificationRejected 'collection corpus reordered IDs' {
+    $copy = $collectionCases | ConvertTo-Json -Depth 32 -Compress |
+      ConvertFrom-Json
+    $first = $copy.public_workflows[0]
+    $copy.public_workflows[0] = $copy.public_workflows[1]
+    $copy.public_workflows[1] = $first
+    Assert-FontCollectionCorpusContract -Corpus $copy
+  } 'ordered IDs drifted'
+  Confirm-FontQualificationRejected 'collection corpus case key drift' {
+    $copy = $collectionCases | ConvertTo-Json -Depth 32 -Compress |
+      ConvertFrom-Json
+    $copy.hostile_cases[0].error |
+      Add-Member -NotePropertyName unexpected -NotePropertyValue $true
+    Assert-FontCollectionCorpusContract -Corpus $copy
+  } 'schema count mismatch'
+
+  $collectionOracle = Read-QualityJson -Path (
+    Join-Path $RepositoryRoot (
+      'fixtures/font/dejavu-sans-2.37/collection-oracle.json'
+    )
+  )
+  Assert-FontCollectionOracleContract -Oracle $collectionOracle
+  Confirm-FontQualificationRejected 'licensed derivative digest drift' {
+    $copy = $collectionOracle | ConvertTo-Json -Depth 32 -Compress |
+      ConvertFrom-Json
+    $copy.derivative.sha256 = '00'
+    Assert-FontCollectionOracleContract -Oracle $copy
+  } 'licensed derivative identity drifted'
+  Confirm-FontQualificationRejected 'licensed derivative notice drift' {
+    $copy = $collectionOracle | ConvertTo-Json -Depth 32 -Compress |
+      ConvertFrom-Json
+    $copy.lineage.notice_path = ''
+    Assert-FontCollectionOracleContract -Oracle $copy
+  } 'notice or redistribution facts drifted'
+  Confirm-FontQualificationRejected 'licensed sharing coordinate drift' {
+    $copy = $collectionOracle | ConvertTo-Json -Depth 32 -Compress |
+      ConvertFrom-Json
+    $copy.collection.payload_start = 685
+    Assert-FontCollectionOracleContract -Oracle $copy
+  } 'structure or exact sharing drifted'
+
   $generatedPath = Join-Path $RepositoryRoot 'modules/mb-font/font/generated_font_qualification_test.mbt'
   $generatedHeader = @((Get-Content -LiteralPath $generatedPath -TotalCount 5))
   Assert-ExactSequence 'Generated font qualification provenance header' $generatedHeader @(
@@ -2623,7 +2874,12 @@ function Assert-FontQualificationArtifacts {
   foreach ($symbol in @(
       'struct FontQualificationExpectedCommand',
       'struct FontQualificationOutlineExpectation',
-      'fn font_qualification_dejavu_supported_outlines'
+      'fn font_qualification_dejavu_supported_outlines',
+      'struct FontCollectionQualificationBudgetSnapshot',
+      'struct FontCollectionQualificationError',
+      'struct FontCollectionQualificationCase',
+      'fn font_qualification_dejavu_two_face_ttc_v1_bytes',
+      'fn font_collection_qualification_cases'
     )) {
     Assert-Condition ($generatedSource.Contains($symbol, [StringComparison]::Ordinal)) "Generated font qualification expectation symbol missing: $symbol"
   }
@@ -2649,6 +2905,8 @@ function Assert-FontQualificationArtifacts {
       [pscustomobject]@{ Name = 'shaping'; Call = 'shape_text()'; Pattern = 'forbidden shaping execution' },
       [pscustomobject]@{ Name = 'hinting'; Call = 'hint_outline()'; Pattern = 'forbidden hinting execution' },
       [pscustomobject]@{ Name = 'CFF'; Call = 'cff_decode()'; Pattern = 'forbidden CFF or CFF2 execution' },
+      [pscustomobject]@{ Name = 'WOFF'; Call = 'decode_woff2()'; Pattern = 'forbidden WOFF or WOFF2 admission' },
+      [pscustomobject]@{ Name = 'variable font'; Call = 'instantiate_variable_font()'; Pattern = 'forbidden variable-font execution' },
       [pscustomobject]@{ Name = 'rasterization'; Call = 'rasterize_font()'; Pattern = 'forbidden rasterization execution' }
     )
     foreach ($probe in $portableBoundaryProbes) {
@@ -2962,8 +3220,16 @@ function Assert-FontFoundationPolicy {
     'pub fn FontCollection::selected_range(Self, UInt64) -> @checked.CheckedRange',
     'pub fn FontCollection::selected_parser_facts(Self, UInt64) -> CollectionParseFacts',
     'pub fn FontCollection::selected_units_per_em(Self, UInt64) -> UInt64',
+    'pub fn FontCollection::extract_face(Self, UInt64) -> Bytes',
+    'pub fn FontCollection::materialize_face(Self, UInt64) -> Bytes',
+    'pub fn FontCollection::instantiate_variable(Self, UInt64) -> Font',
+    'pub fn FontCollection::open_woff(@bytes.ByteView) -> Self',
+    'pub fn FontCollection::open_woff2(@bytes.ByteView) -> Self',
     'pub fn Font::outline_path(Self) -> Unit',
     'pub fn Font::outline_commands(Self, GlyphId) -> Array[PathCommand]',
+    'pub fn Font::cff_outline(Self, GlyphId) -> @math.Path2',
+    'pub fn Font::cff2_outline(Self, GlyphId) -> @math.Path2',
+    'pub fn Font::instantiate_variation(Self) -> Font',
     'pub fn Font::nested_outline(Self, GlyphId) -> @math.Path2',
     'pub fn Font::open_file(String) -> Self',
     'pub fn Font::from_path(String) -> Self',
