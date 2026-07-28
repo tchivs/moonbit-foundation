@@ -113,3 +113,151 @@ test "Type 2 xorshift stream is repeatable, resettable, and strictly positive" {
   inspect(zero_seed.next().raw != zero_first, content="true")
   inspect(Type2Prng::new(seed).next().raw, content="23206")
 }
+
+///|
+fn type2_wb_number(value : Int64) -> CffNumber {
+  if value < 0L {
+    {
+      negative: true,
+      magnitude: (-value).reinterpret_as_uint64(),
+      denominator: 1UL,
+    }
+  } else {
+    {
+      negative: false,
+      magnitude: value.reinterpret_as_uint64(),
+      denominator: 1UL,
+    }
+  }
+}
+
+///|
+fn type2_wb_matrix(
+  a : Int64,
+  b : Int64,
+  c : Int64,
+  d : Int64,
+  tx : Int64,
+  ty : Int64,
+) -> Array[CffNumber] {
+  [
+    type2_wb_number(a),
+    type2_wb_number(b),
+    type2_wb_number(c),
+    type2_wb_number(d),
+    type2_wb_number(tx),
+    type2_wb_number(ty),
+  ]
+}
+
+///|
+fn type2_wb_limits(
+  points : UInt64,
+  contours : UInt64,
+  instructions : UInt64,
+  work : UInt64,
+) -> FontLimits {
+  FontLimits::new(
+    max_source_bytes=1UL,
+    max_tables=1UL,
+    max_table_bytes=1UL,
+    max_glyphs=1UL,
+    max_name_records=1UL,
+    max_cmap_records=1UL,
+    max_kern_subtables=1UL,
+    max_kern_pairs=1UL,
+    max_outline_points=points,
+    max_outline_contours=contours,
+    max_outline_components=1UL,
+    max_outline_instruction_bytes=instructions,
+    max_post_name_bytes=1UL,
+    max_work=work,
+  ).unwrap()
+}
+
+///|
+test "Type 2 private limits intersect hard ceilings with caller authority" {
+  let minimal = type2_limits(type2_wb_limits(1UL, 1UL, 1UL, 1UL)).unwrap()
+  inspect(minimal.max_operand_stack, content="48")
+  inspect(minimal.max_transient, content="32")
+  inspect(minimal.max_stems, content="96")
+  inspect(minimal.max_frames, content="10")
+  inspect(minimal.max_subrs, content="65536")
+  inspect(minimal.max_executed_bytes, content="1")
+  inspect(minimal.max_points, content="1")
+  inspect(minimal.max_contours, content="1")
+  inspect(minimal.max_commands, content="3")
+  inspect(minimal.max_calls, content="1")
+  inspect(minimal.max_work, content="1")
+  inspect(minimal.scratch_allocations, content="5")
+  inspect(minimal.scratch_allocation_size, content="384")
+
+  let clamped = type2_limits(
+    type2_wb_limits(1000UL, 1000UL, 70000UL, 90000UL),
+  ).unwrap()
+  inspect(clamped.max_executed_bytes, content="65535")
+  inspect(clamped.max_commands, content="3000")
+  inspect(clamped.max_calls, content="90000")
+
+  inspect(
+    type2_limits(
+      type2_wb_limits(
+        18446744073709551615UL,
+        18446744073709551615UL,
+        1UL,
+        1UL,
+      ),
+    )
+    is Err(_),
+    content="true",
+  )
+}
+
+///|
+test "Type 2 exact matrices apply FD then Top and retain outward bounds" {
+  let top = type2_wb_matrix(2L, 0L, 0L, 3L, 10L, -10L)
+  let fd = type2_wb_matrix(1L, 0L, 0L, 1L, 5L, 7L)
+  let matrix = type2_matrix_compose(top, Some(fd), 1UL).unwrap()
+  let point = type2_matrix_apply(
+    matrix,
+    type2_fixed_integer(1L).unwrap(),
+    type2_fixed_integer(2L).unwrap(),
+  ).unwrap()
+  inspect(point.0.numerator, content="22")
+  inspect(point.0.denominator, content="1")
+  inspect(point.1.numerator, content="17")
+  inspect(point.1.denominator, content="1")
+
+  let default_top = cff_default_font_matrix()
+  let normalized = type2_matrix_compose(default_top, None, 1000UL).unwrap()
+  let fractional = type2_matrix_apply(
+    normalized,
+    type2_fixed_from_raw(-98304L).unwrap(),
+    type2_fixed_from_raw(98304L).unwrap(),
+  ).unwrap()
+  inspect(type2_rational_floor(fractional.0).unwrap(), content="-2")
+  inspect(type2_rational_ceil(fractional.0).unwrap(), content="-1")
+  inspect(type2_rational_floor(fractional.1).unwrap(), content="1")
+  inspect(type2_rational_ceil(fractional.1).unwrap(), content="2")
+}
+
+///|
+test "Type 2 matrix primitives reject malformed and overflowing facts" {
+  inspect(
+    type2_matrix_compose([type2_wb_number(1L)], None, 1000UL) is Err(_),
+    content="true",
+  )
+  let huge = [
+    {
+      negative: false,
+      magnitude: 9223372036854775807UL,
+      denominator: 1UL,
+    },
+    type2_wb_number(0L),
+    type2_wb_number(0L),
+    type2_wb_number(1L),
+    type2_wb_number(0L),
+    type2_wb_number(0L),
+  ]
+  inspect(type2_matrix_compose(huge, Some(huge), 1000UL) is Err(_), content="true")
+}
