@@ -1402,6 +1402,33 @@ fn type2_execute_program_with_matrix(
   limits : Type2Limits,
   opening_revision : UInt64,
 ) -> Result[Type2VmResult, @error.CoreError] {
+  type2_execute_program_with_matrix_and_read_probe(
+    root,
+    local_subrs,
+    global_subrs,
+    default_width,
+    nominal_width,
+    seed,
+    matrix,
+    limits,
+    opening_revision,
+    fn() { () },
+  )
+}
+
+///|
+fn type2_execute_program_with_matrix_and_read_probe(
+  root : @bytes.ByteView,
+  local_subrs : CffIndex,
+  global_subrs : CffIndex,
+  default_width : Type2Fixed,
+  nominal_width : Type2Fixed,
+  seed : Type2Fixed,
+  matrix : Type2Matrix,
+  limits : Type2Limits,
+  opening_revision : UInt64,
+  read_probe : () -> Unit,
+) -> Result[Type2VmResult, @error.CoreError] {
   match type2_require_revision(root, opening_revision) {
     Err(error) => return Err(error)
     Ok(_) => ()
@@ -1421,6 +1448,7 @@ fn type2_execute_program_with_matrix(
       Err(error) => return Err(error)
       Ok(_) => ()
     }
+    read_probe()
     let frame = vm.frames.pop().unwrap()
     if frame.cursor >= frame.source.length() {
       return Err(type2_data_error("font-cff-type2-unexpected-eof"))

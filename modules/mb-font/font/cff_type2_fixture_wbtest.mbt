@@ -225,6 +225,49 @@ test "Type 2 error precedence is State then Resource then Capability then Data" 
 }
 
 ///|
+test "Type 2 mid-fetch mutation wins truncated number and escape errors" {
+  for item in [
+    (b"\xF7", "font-cff-type2-number"),
+    (b"\x0C", "font-cff-type2-escape-truncated"),
+  ] {
+    let stable = type2_vm_wb_run(item.0).unwrap_err()
+    inspect(stable.category() == @error.ErrorCategory::Data, content="true")
+    inspect(stable.context() == Some(item.1), content="true")
+
+    let owner = font_wb_owner(item.0)
+    let view = owner.view()
+    let opening_revision = view.mutation_revision()
+    let mut probes = 0
+    let mutated = type2_execute_program_with_matrix_and_read_probe(
+      view,
+      type2_vm_wb_empty_index(view),
+      type2_vm_wb_empty_index(view),
+      type2_fixed_from_raw(0L).unwrap(),
+      type2_fixed_from_raw(0L).unwrap(),
+      type2_fixed_from_raw(0L).unwrap(),
+      type2_identity_matrix(),
+      type2_vm_wb_limits(65535UL, 65535UL),
+      opening_revision,
+      fn() {
+        probes = probes + 1
+        if probes == 1 {
+          font_collection_wb_mutate_restore(owner, 0UL)
+        }
+      },
+    ).unwrap_err()
+    inspect(probes, content="1")
+    inspect(
+      mutated.category() == @error.ErrorCategory::State,
+      content="true",
+    )
+    inspect(
+      mutated.context() == Some("font-cff-type2-source-revision-drift"),
+      content="true",
+    )
+  }
+}
+
+///|
 fn type2_fixture_descriptors(
   programs : Array[Bytes],
   seeds : Array[Int64],
