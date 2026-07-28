@@ -18,8 +18,8 @@ Requirements for the TrueType Collection Adapters milestone. Each requirement ma
 
 ### Safety and Qualification
 
-- [ ] **TTC-04**: Malformed collection structure, invalid face indices, unsupported selected profiles, source mutation, checked-arithmetic failures, semantic-limit exhaustion, and budget exhaustion return deterministic structured outcomes without publishing a partial collection or font or charging an uncommitted transaction.
-- [ ] **TTC-05**: Maintainers can reproduce generated hostile, licensed interoperability, standalone-compatibility, and complete public collection-to-`Font` workflow evidence with identical semantic facts on `js`, `wasm`, `wasm-gc`, and `native`.
+- [x] **TTC-04**: Malformed collection structure, invalid face indices, unsupported selected profiles, source mutation, checked-arithmetic failures, semantic-limit exhaustion, and budget exhaustion return deterministic structured outcomes without publishing a partial collection or font or charging an uncommitted transaction.
+- [x] **TTC-05**: Maintainers can reproduce generated hostile, licensed interoperability, standalone-compatibility, and complete public collection-to-`Font` workflow evidence with identical semantic facts on `js`, `wasm`, `wasm-gc`, and `native`.
 
 ## Future Requirements
 
@@ -56,8 +56,8 @@ Populated during roadmap creation.
 | TTC-01 | Phase 101 | Complete |
 | TTC-02 | Phase 102 | Complete |
 | TTC-03 | Phase 102 | Complete |
-| TTC-04 | Phase 103 | Pending |
-| TTC-05 | Phase 103 | Pending |
+| TTC-04 | Phase 103 | Complete |
+| TTC-05 | Phase 103 | Complete |
 
 **Coverage:**
 
