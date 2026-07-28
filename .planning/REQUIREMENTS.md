@@ -9,7 +9,7 @@ Requirements for the TrueType Collection Adapters milestone. Each requirement ma
 
 ### Collection Inspection
 
-- [ ] **TTC-01**: Library authors can open caller-provided immutable TTC/OTC version 1 or 2 bytes under explicit collection limits, inspect the exact non-zero face count and bounded semantic profile of each zero-based face, and distinguish absent from structurally present-but-unverified version-2 DSIG data without exposing raw offsets or table records.
+- [x] **TTC-01**: Library authors can open caller-provided immutable TTC/OTC version 1 or 2 bytes under explicit collection limits, inspect the exact non-zero face count and bounded semantic profile of each zero-based face, and distinguish absent from structurally present-but-unverified version-2 DSIG data without exposing raw offsets or table records.
 
 ### Selected-Face Admission
 
@@ -53,13 +53,14 @@ Populated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| TTC-01 | Phase 101 | Pending |
+| TTC-01 | Phase 101 | Complete |
 | TTC-02 | Phase 102 | Pending |
 | TTC-03 | Phase 102 | Pending |
 | TTC-04 | Phase 103 | Pending |
 | TTC-05 | Phase 103 | Pending |
 
 **Coverage:**
+
 - v0.33 requirements: 5 total
 - Mapped to phases: 5
 - Unmapped: 0
