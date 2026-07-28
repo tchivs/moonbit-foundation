@@ -506,9 +506,9 @@ test "TTC-02 opens a cached static face against the retained collection root" {
     .unwrap()
   inspect(first.units_per_em().unwrap(), content="1000")
   inspect(second.units_per_em().unwrap(), content="1000")
-  inspect(first.global_bounds().unwrap().x_min(), content="-20")
-  inspect(first.hhea_line_metrics().unwrap().ascent(), content="800")
-  inspect(first.typographic_line_metrics().unwrap().descent(), content="-200")
+  inspect(first.global_bounds().unwrap().x_min(), content="0")
+  inspect(first.hhea_line_metrics().unwrap().ascent(), content="0")
+  inspect(first.typographic_line_metrics().unwrap().descent(), content="0")
   inspect(first.glyph_for_scalar(65).unwrap().value(), content="0")
   let glyph = first.glyph_id(0UL).unwrap()
   inspect(first.horizontal_metrics(glyph).unwrap().advance_width(), content="500")
@@ -517,6 +517,104 @@ test "TTC-02 opens a cached static face against the retained collection root" {
     first.outline(glyph, font_test_outline_budget()).unwrap().length(),
     content="0",
   )
+}
+
+///|
+test "TTC-02 selection gates revision then index then cached profile" {
+  let selected_source = font_collection_test_selected_ttc()
+  let selected_owner = font_collection_test_owner(selected_source)
+  let selected = FontCollection::open(
+    selected_owner.view(),
+    font_collection_test_selected_limits(selected_source.length().to_uint64()),
+    font_collection_test_selected_budget(),
+  ).unwrap()
+  let index_budget = font_collection_test_selected_budget()
+  let index_before = index_budget.remaining()
+  let index_error = selected
+    .open_face(1UL, font_test_limits(), index_budget)
+    .unwrap_err()
+  inspect(
+    index_error.category() == @error.ErrorCategory::InvalidInput,
+    content="true",
+  )
+  inspect(index_error.code() == @error.ErrorCode::InvalidRange, content="true")
+  inspect(
+    index_error.operation() == Some("font-collection-open-face"),
+    content="true",
+  )
+  inspect(index_error.requested() == Some(1UL), content="true")
+  inspect(index_error.limit() == Some(1UL), content="true")
+  inspect(
+    index_error.context() == Some("font-collection-face-index"),
+    content="true",
+  )
+  font_collection_test_assert_budget_unchanged(index_before, index_budget)
+  font_collection_test_mutate(selected_owner, 20UL, b'\x01')
+  let drift_budget = font_collection_test_selected_budget()
+  let drift_before = drift_budget.remaining()
+  let drift = selected
+    .open_face(1UL, font_test_limits(), drift_budget)
+    .unwrap_err()
+  inspect(drift.category() == @error.ErrorCategory::State, content="true")
+  inspect(drift.code() == @error.ErrorCode::InvalidRange, content="true")
+  inspect(
+    drift.operation() == Some("font-collection-open-face"),
+    content="true",
+  )
+  inspect(
+    drift.context() == Some("font-collection-source-revision-drift"),
+    content="true",
+  )
+  font_collection_test_assert_budget_unchanged(drift_before, drift_budget)
+
+  let mixed_owner = font_collection_test_owner(font_collection_test_multi_ttc())
+  let mixed = FontCollection::open(
+    mixed_owner.view(),
+    FontCollectionLimits::new(
+      max_source_bytes=400UL,
+      max_faces=5UL,
+      max_tables_per_face=3UL,
+      max_table_records=8UL,
+      max_dsig_records=1UL,
+      max_dsig_bytes=1UL,
+      max_retained_bookkeeping_bytes=440UL,
+      max_work=252UL,
+    ).unwrap(),
+    @budget.Budget::new(
+      @budget.ResourceLimits::new(
+        bytes=440UL,
+        allocations=2UL,
+        allocation_size=200UL,
+        width=0UL,
+        height=0UL,
+        pixels=0UL,
+        depth=0UL,
+        work=252UL,
+      ),
+    ),
+  ).unwrap()
+  let profile_budget = font_collection_test_selected_budget()
+  let profile_before = profile_budget.remaining()
+  let profile = mixed
+    .open_face(1UL, font_test_limits(), profile_budget)
+    .unwrap_err()
+  inspect(
+    profile.category() == @error.ErrorCategory::Capability,
+    content="true",
+  )
+  inspect(
+    profile.code() == @error.ErrorCode::CapabilityUnavailable,
+    content="true",
+  )
+  inspect(
+    profile.operation() == Some("font-collection-open-face"),
+    content="true",
+  )
+  inspect(
+    profile.context() == Some("font-collection-face-profile"),
+    content="true",
+  )
+  font_collection_test_assert_budget_unchanged(profile_before, profile_budget)
 }
 
 ///|

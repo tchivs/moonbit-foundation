@@ -38,16 +38,27 @@ fn font_collection_revision_error(operation : String) -> @error.CoreError {
 
 ///|
 fn font_collection_index_error(
+  operation : String,
   requested : UInt64,
   limit : UInt64,
 ) -> @error.CoreError {
   @error.CoreError::new(
     @error.ErrorCategory::InvalidInput,
     @error.ErrorCode::InvalidRange,
-    operation="font-collection-query",
+    operation~,
     requested~,
     limit~,
     context="font-collection-face-index",
+  )
+}
+
+///|
+fn font_collection_profile_error() -> @error.CoreError {
+  @error.CoreError::new(
+    @error.ErrorCategory::Capability,
+    @error.ErrorCode::CapabilityUnavailable,
+    operation="font-collection-open-face",
+    context="font-collection-face-profile",
   )
 }
 
@@ -125,13 +136,65 @@ pub fn FontCollection::face_profile(
   }
   let count = self.faces.length().to_uint64()
   if index >= count {
-    return Err(font_collection_index_error(index, count))
+    return Err(font_collection_index_error("font-collection-query", index, count))
   }
   let narrowed = match @checked.checked_narrow_int(index) {
     Ok(value) => value
-    Err(_) => return Err(font_collection_index_error(index, count))
+    Err(_) =>
+      return Err(font_collection_index_error("font-collection-query", index, count))
   }
   Ok(self.faces[narrowed].profile)
+}
+
+///|
+/// Admit one supported static TrueType face through the retained collection
+/// root into the existing opaque `Font`.
+pub fn FontCollection::open_face(
+  self : FontCollection,
+  index : UInt64,
+  limits : FontLimits,
+  budget : @budget.Budget,
+) -> Result[Font, @error.CoreError] {
+  self.open_face_after_admit(index, limits, budget, fn() { () })
+}
+
+///|
+fn FontCollection::open_face_after_admit(
+  self : FontCollection,
+  index : UInt64,
+  limits : FontLimits,
+  budget : @budget.Budget,
+  before_final_guard : () -> Unit,
+) -> Result[Font, @error.CoreError] {
+  match self.require_revision("font-collection-open-face") {
+    Err(error) => return Err(error)
+    Ok(_) => ()
+  }
+  let count = self.faces.length().to_uint64()
+  if index >= count {
+    return Err(
+      font_collection_index_error("font-collection-open-face", index, count),
+    )
+  }
+  let narrowed = match @checked.checked_narrow_int(index) {
+    Ok(value) => value
+    Err(_) =>
+      return Err(
+        font_collection_index_error("font-collection-open-face", index, count),
+      )
+  }
+  let face = self.faces[narrowed]
+  if face.profile != FontFaceProfile::StaticGlyf {
+    return Err(font_collection_profile_error())
+  }
+  font_open_collection_face(
+    self.source,
+    self.opening_revision,
+    face,
+    limits,
+    budget,
+    before_final_guard,
+  )
 }
 
 ///|
