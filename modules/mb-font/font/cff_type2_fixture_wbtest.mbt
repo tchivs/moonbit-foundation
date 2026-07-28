@@ -475,6 +475,69 @@ test "Type 2 repeated roll and many curves use fixed scratch allocation authorit
 }
 
 ///|
+test "Type 2 retained arrays use the maximum single allocation" {
+  let programs : Array[Bytes] = []
+  for _index = 0; _index < 10; _index = _index + 1 {
+    programs.push(b"\x0e")
+  }
+  let (descriptors, global_subrs, authority) =
+    type2_fixture_descriptors(programs, [])
+  let exact = @budget.Budget::new(
+    @budget.ResourceLimits::new(
+      bytes=400UL,
+      allocations=43UL,
+      allocation_size=384UL,
+      width=0UL,
+      height=0UL,
+      pixels=0UL,
+      depth=0UL,
+      work=10UL,
+    ),
+  )
+  let staged = type2_stage_all_glyphs(
+    descriptors,
+    global_subrs,
+    1000UL,
+    type2_vm_wb_limits(65535UL, 65535UL),
+    exact,
+    authority,
+    authority.mutation_revision(),
+  ).unwrap()
+  inspect(staged.charge.bytes, content="400")
+  inspect(staged.charge.allocations, content="43")
+  inspect(staged.charge.allocation_size, content="384")
+
+  let (short_descriptors, short_subrs, short_authority) =
+    type2_fixture_descriptors(programs, [])
+  let short = @budget.Budget::new(
+    @budget.ResourceLimits::new(
+      bytes=400UL,
+      allocations=43UL,
+      allocation_size=383UL,
+      width=0UL,
+      height=0UL,
+      pixels=0UL,
+      depth=0UL,
+      work=10UL,
+    ),
+  )
+  let visited : Array[UInt64] = []
+  let error = type2_stage_all_glyphs_with_probe(
+    short_descriptors,
+    short_subrs,
+    1000UL,
+    type2_vm_wb_limits(65535UL, 65535UL),
+    short,
+    short_authority,
+    short_authority.mutation_revision(),
+    fn(gid) { visited.push(gid) },
+  ).unwrap_err()
+  inspect(error.category() == @error.ErrorCategory::Resource, content="true")
+  inspect(error.context() == Some("allocation_size"), content="true")
+  inspect(visited.length(), content="0")
+}
+
+///|
 test "Type 2 all-GID staging is ascending, exact, and does not commit budget" {
   let (descriptors, global_subrs, authority) = type2_fixture_descriptors(
     [

@@ -1923,7 +1923,7 @@ fn type2_stage_all_glyphs_unchecked_with_probe(
     Ok(_) => ()
   }
   let bounds_slots = descriptors.length().to_uint64()
-  let bytes = match @checked.checked_mul(bounds_slots, 40UL) {
+  let bounds_bytes = match @checked.checked_mul(bounds_slots, 24UL) {
     Err(_) =>
       return Err(
         type2_stage_error_with_revision(
@@ -1936,6 +1936,47 @@ fn type2_stage_all_glyphs_unchecked_with_probe(
           ),
         ),
       )
+    Ok(value) => value
+  }
+  let path_count_bytes = match @checked.checked_mul(bounds_slots, 8UL) {
+    Err(_) =>
+      return Err(
+        type2_stage_error_with_revision(
+          authority,
+          opening_revision,
+          type2_resource_error(
+            "font-cff-type2-path-count-bytes",
+            bounds_slots,
+            18446744073709551615UL,
+          ),
+        ),
+      )
+    Ok(value) => value
+  }
+  let path_work_bytes = match @checked.checked_mul(bounds_slots, 8UL) {
+    Err(_) =>
+      return Err(
+        type2_stage_error_with_revision(
+          authority,
+          opening_revision,
+          type2_resource_error(
+            "font-cff-type2-path-work-bytes",
+            bounds_slots,
+            18446744073709551615UL,
+          ),
+        ),
+      )
+    Ok(value) => value
+  }
+  let bytes = match
+    @checked.checked_add(
+      bounds_bytes,
+      match @checked.checked_add(path_count_bytes, path_work_bytes) {
+        Err(error) => return Err(error)
+        Ok(value) => value
+      },
+    ) {
+    Err(error) => return Err(error)
     Ok(value) => value
   }
   let scratch_allocations = match
@@ -1973,8 +2014,19 @@ fn type2_stage_all_glyphs_unchecked_with_probe(
       )
     Ok(value) => value
   }
-  let allocation_size = if bytes > limits.scratch_allocation_size {
-    bytes
+  let path_allocation_size = if path_count_bytes > path_work_bytes {
+    path_count_bytes
+  } else {
+    path_work_bytes
+  }
+  let retained_allocation_size = if bounds_bytes > path_allocation_size {
+    bounds_bytes
+  } else {
+    path_allocation_size
+  }
+  let allocation_size = if retained_allocation_size >
+    limits.scratch_allocation_size {
+    retained_allocation_size
   } else {
     limits.scratch_allocation_size
   }
