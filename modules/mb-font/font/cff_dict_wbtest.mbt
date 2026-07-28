@@ -108,3 +108,50 @@ test "CFF typed DICT rejects wrong arity duplicate reserved and truncated forms"
     )
   }
 }
+
+///|
+test "CFF DICT rejects malformed real grammar and non-FF terminator padding" {
+  for malformed in [
+    b"\x1E\x1B\xFF",
+    b"\x1E\x1C\xFF",
+    b"\x1E\x1E\x2F",
+    b"\x1E\x1A\xEF",
+    b"\x1E\x10\xF0",
+  ] {
+    inspect(
+      cff_parse_dict(font_wb_view(malformed), "cff-dict-real-test") is Err(_),
+      content="true",
+    )
+  }
+}
+
+///|
+test "CFF DICT enforces the 48 operand stack limit before allocation growth" {
+  let accepted : Array[Byte] = []
+  for index = 0; index < 48; index = index + 1 {
+    accepted.push(b'\x8B')
+  }
+  accepted.push(b'\x05')
+  inspect(
+    cff_parse_dict(
+      font_wb_view(Bytes::from_array(accepted)),
+      "cff-dict-stack-test",
+    )
+    is Ok(_),
+    content="true",
+  )
+
+  let rejected : Array[Byte] = []
+  for index = 0; index < 49; index = index + 1 {
+    rejected.push(b'\x8B')
+  }
+  rejected.push(b'\x05')
+  inspect(
+    cff_parse_dict(
+      font_wb_view(Bytes::from_array(rejected)),
+      "cff-dict-stack-test",
+    )
+    is Err(_),
+    content="true",
+  )
+}

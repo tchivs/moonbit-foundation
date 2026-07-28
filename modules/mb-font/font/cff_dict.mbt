@@ -135,7 +135,8 @@ fn cff_decode_real(
   let mut exponent_negative = false
   let mut decimal_seen = false
   let mut exponent_seen = false
-  let mut digit_seen = false
+  let mut mantissa_digit_seen = false
+  let mut exponent_digit_seen = false
   let mut finished = false
   while !finished {
     match cff_require_window(source, cursor, 1UL, context) {
@@ -147,8 +148,8 @@ fn cff_decode_real(
     for shift in [4, 0] {
       let nibble = (byte.to_uint64() >> shift) & 0xFUL
       if nibble <= 9UL {
-        digit_seen = true
         if exponent_seen {
+          exponent_digit_seen = true
           exponent_magnitude = match
             @checked.checked_add(
               match @checked.checked_mul(exponent_magnitude, 10UL) {
@@ -164,6 +165,7 @@ fn cff_decode_real(
             return Err(cff_data_error(context + "-real-range"))
           }
         } else {
+          mantissa_digit_seen = true
           magnitude = match
             @checked.checked_add(
               match @checked.checked_mul(magnitude, 10UL) {
@@ -188,13 +190,13 @@ fn cff_decode_real(
               decimal_seen = true
             }
           0xBUL => {
-            if exponent_seen || !digit_seen {
+            if exponent_seen || !mantissa_digit_seen {
               return Err(cff_data_error(context + "-real"))
             }
             exponent_seen = true
           }
           0xCUL => {
-            if exponent_seen || !digit_seen {
+            if exponent_seen || !mantissa_digit_seen {
               return Err(cff_data_error(context + "-real"))
             }
             exponent_seen = true
@@ -202,12 +204,18 @@ fn cff_decode_real(
           }
           0xDUL => return Err(cff_data_error(context + "-real-reserved"))
           0xEUL =>
-            if digit_seen {
+            if negative ||
+              mantissa_digit_seen ||
+              decimal_seen ||
+              exponent_seen {
               return Err(cff_data_error(context + "-real"))
             } else {
               negative = true
             }
           0xFUL => {
+            if shift == 4 && (byte.to_uint64() & 0xFUL) != 0xFUL {
+              return Err(cff_data_error(context + "-real-padding"))
+            }
             finished = true
             break
           }
@@ -216,7 +224,7 @@ fn cff_decode_real(
       }
     }
   }
-  if !digit_seen {
+  if !mantissa_digit_seen || (exponent_seen && !exponent_digit_seen) {
     return Err(cff_data_error(context + "-real"))
   }
   let mut denominator = match
@@ -353,6 +361,15 @@ fn cff_parse_dict(
         cff_decode_dict_number(source, cursor, context) {
         Err(error) => return Err(error)
         Ok(value) => value
+      }
+      if operands.length().to_uint64() >= 48UL {
+        return Err(
+          cff_data_error(
+            context + "-operand-stack",
+            requested=operands.length().to_uint64() + 1UL,
+            limit=48UL,
+          ),
+        )
       }
       operands.push(number)
       cursor = next
