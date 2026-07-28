@@ -777,8 +777,19 @@ fn font_test_cff_dict_u32(output : Array[Byte], value : UInt64) -> Unit {
 }
 
 ///|
-fn font_test_cff_top(charstrings : UInt64, private_offset : UInt64) -> Bytes {
+fn font_test_cff_top(
+  charstrings : UInt64,
+  private_offset : UInt64,
+  translated_matrix? : Bool = false,
+) -> Bytes {
   let output : Array[Byte] = []
+  if translated_matrix {
+    for value in [1UL, 0UL, 0UL, 1UL, 5UL, 7UL] {
+      font_test_cff_dict_u32(output, value)
+    }
+    output.push(b'\x0c')
+    output.push(b'\x07')
+  }
   font_test_cff_dict_u32(output, charstrings)
   output.push(b'\x11')
   font_test_cff_dict_u32(output, 2UL)
@@ -788,21 +799,32 @@ fn font_test_cff_top(charstrings : UInt64, private_offset : UInt64) -> Bytes {
 }
 
 ///|
-fn font_test_cff_program_table(programs : Array[Bytes]) -> Bytes {
+fn font_test_cff_program_table(
+  programs : Array[Bytes],
+  translated_matrix? : Bool = false,
+) -> Bytes {
   let header = b"\x01\x00\x04\x04"
   let name = font_test_cff_index([b"Phase106"])
   let strings = font_test_cff_index([])
   let global_subrs = font_test_cff_index([])
   let charstrings = font_test_cff_index(programs)
   let private_data = b"\x8d\x13\x00\x00"
-  let placeholder_top = font_test_cff_top(0UL, 0UL)
+  let placeholder_top = font_test_cff_top(
+    0UL,
+    0UL,
+    translated_matrix~,
+  )
   let charstrings_offset = header.length().to_uint64() +
     name.length().to_uint64() +
     font_test_cff_index([placeholder_top]).length().to_uint64() +
     strings.length().to_uint64() +
     global_subrs.length().to_uint64()
   let private_offset = charstrings_offset + charstrings.length().to_uint64()
-  let top = font_test_cff_top(charstrings_offset, private_offset)
+  let top = font_test_cff_top(
+    charstrings_offset,
+    private_offset,
+    translated_matrix~,
+  )
   let output : Array[Byte] = []
   for part in [
     header,
@@ -838,14 +860,21 @@ fn font_test_build_opentype(tables : Array[FontTestTable]) -> Bytes {
 }
 
 ///|
-fn font_test_standalone_cff1(programs : Array[Bytes]) -> Bytes {
+fn font_test_standalone_cff1(
+  programs : Array[Bytes],
+  translated_matrix? : Bool = false,
+) -> Bytes {
   let maxp : Array[Byte] = []
   font_test_push_u32(maxp, 0x00005000UL)
   font_test_push_u16(maxp, programs.length().to_uint64())
+  let hmtx : Array[Byte] = [b'\x02', b'\x58', b'\x00', b'\x0a']
+  for gid = 1; gid < programs.length(); gid = gid + 1 {
+    font_test_push_i16(hmtx, gid * 10 + 10)
+  }
   font_test_build_opentype([
     {
       tag: b"CFF ",
-      payload: font_test_cff_program_table(programs),
+      payload: font_test_cff_program_table(programs, translated_matrix~),
     },
     { tag: b"OS/2", payload: font_test_fixed_table(78) },
     {
@@ -854,7 +883,7 @@ fn font_test_standalone_cff1(programs : Array[Bytes]) -> Bytes {
     },
     { tag: b"head", payload: font_test_head_table() },
     { tag: b"hhea", payload: font_test_hhea_table() },
-    { tag: b"hmtx", payload: b"\x02\x58\x00\x0a\x00\x14" },
+    { tag: b"hmtx", payload: Bytes::from_array(hmtx) },
     {
       tag: b"kern",
       payload: font_test_kern_format0([(1UL, 1UL, -25)]),
@@ -947,6 +976,197 @@ test "Phase 106 standalone CFF1 opens and publishes one native cubic path" {
   match path.get(2) {
     Some(@math.PathCommand::Close) => ()
     _ => fail("non-empty CFF contour must close")
+  }
+}
+
+///|
+test "Phase 106 standalone CFF1 freezes empty line flex contour and mapping edges" {
+  let move_only = b"\x95\x9f\x15\x0e"
+  let line = b"\x95\x9f\x15\x90\x84\x05\x0e"
+  let flex = b"\x8b\x8b\x15\x8c\x8d\x8e\x8f\x90\x91\x92\x93\x94\x95\x96\x97\x98\x0c\x23\x0e"
+  let contours = b"\x8b\x8b\x15\x8c\x8b\x05\x94\x95\x15\x8b\x8c\x05\x0e"
+  let owner = font_test_owner(
+    font_test_standalone_cff1([
+      b"\x0e",
+      move_only,
+      line,
+      flex,
+      contours,
+    ]),
+  )
+  let font = Font::open(
+    owner.view(),
+    font_test_limits(),
+    font_test_cff_open_budget(),
+  ).unwrap()
+
+  for gid in [0UL, 1UL] {
+    let glyph = font.glyph_id(gid).unwrap()
+    let path = font.outline(glyph, font_test_cff_outline_budget()).unwrap()
+    inspect(path.length(), content="0")
+    inspect(path.bounds() is None, content="true")
+    inspect(font.horizontal_metrics(glyph).unwrap().bounds() is None, content="true")
+  }
+
+  let line_path = font
+    .outline(
+      font.glyph_id(2UL).unwrap(),
+      font_test_cff_outline_budget(),
+    )
+    .unwrap()
+  inspect(line_path.length(), content="3")
+  match line_path.get(0) {
+    Some(@math.PathCommand::MoveTo(point)) =>
+      inspect(point.x() == 10.0 && point.y() == 20.0, content="true")
+    _ => fail("line contour must publish its pending MoveTo")
+  }
+  match line_path.get(1) {
+    Some(@math.PathCommand::LineTo(point)) =>
+      inspect(point.x() == 15.0 && point.y() == 13.0, content="true")
+    _ => fail("rlineto must remain LineTo")
+  }
+  inspect(line_path.get(2) is Some(@math.PathCommand::Close), content="true")
+
+  let flex_path = font
+    .outline(
+      font.glyph_id(3UL).unwrap(),
+      font_test_cff_outline_budget(),
+    )
+    .unwrap()
+  inspect(flex_path.length(), content="4")
+  inspect(
+    flex_path.get(0) is Some(@math.PathCommand::MoveTo(_)),
+    content="true",
+  )
+  inspect(
+    flex_path.get(1) is Some(@math.PathCommand::CubicTo(_, _, _)),
+    content="true",
+  )
+  inspect(
+    flex_path.get(2) is Some(@math.PathCommand::CubicTo(_, _, _)),
+    content="true",
+  )
+  inspect(flex_path.get(3) is Some(@math.PathCommand::Close), content="true")
+
+  let contour_path = font
+    .outline(
+      font.glyph_id(4UL).unwrap(),
+      font_test_cff_outline_budget(),
+    )
+    .unwrap()
+  inspect(contour_path.length(), content="6")
+  for index in [0, 3] {
+    inspect(
+      contour_path.get(index) is Some(@math.PathCommand::MoveTo(_)),
+      content="true",
+    )
+  }
+  for index in [1, 4] {
+    inspect(
+      contour_path.get(index) is Some(@math.PathCommand::LineTo(_)),
+      content="true",
+    )
+  }
+  for index in [2, 5] {
+    inspect(
+      contour_path.get(index) is Some(@math.PathCommand::Close),
+      content="true",
+    )
+  }
+
+  inspect(font.glyph_for_scalar(0x41).unwrap().value(), content="1")
+  inspect(font.glyph_for_scalar(0x42).unwrap().value(), content="0")
+  inspect(font.glyph_id(4UL).unwrap().value(), content="4")
+  inspect(font.glyph_id(5UL) is Err(_), content="true")
+  for scalar in [-1, 0xD800, 0x110000] {
+    let error = font.glyph_for_scalar(scalar).unwrap_err()
+    inspect(
+      error.category() == @error.ErrorCategory::InvalidInput,
+      content="true",
+    )
+    inspect(error.context() == Some("font-unicode-scalar-range"), content="true")
+  }
+}
+
+///|
+test "Phase 106 standalone CFF1 converts fractional cancellation and translation once" {
+  let fractional = b"\xff\xff\xfe\x80\x00\xff\x00\x01\x80\x00\x15\xff\x00\x00\x80\x00\xff\xff\xff\xc0\x00\x05\x0e"
+  let cancellation = b"\xff\x7f\xff\xff\xff\xff\x80\x00\x00\x00\x15\xff\x80\x00\x00\x01\xff\x7f\xff\xff\xff\x05\x0e"
+  let font = Font::open(
+    font_test_owner(
+      font_test_standalone_cff1([b"\x0e", fractional, cancellation]),
+    )
+    .view(),
+    font_test_limits(),
+    font_test_cff_open_budget(),
+  ).unwrap()
+
+  let fractional_path = font
+    .outline(
+      font.glyph_id(1UL).unwrap(),
+      font_test_cff_outline_budget(),
+    )
+    .unwrap()
+  match fractional_path.get(0) {
+    Some(@math.PathCommand::MoveTo(point)) =>
+      inspect(point.x() == -1.5 && point.y() == 1.5, content="true")
+    _ => fail("fractional CFF path must begin with MoveTo")
+  }
+  match fractional_path.get(1) {
+    Some(@math.PathCommand::LineTo(point)) =>
+      inspect(point.x() == -1.0 && point.y() == 1.25, content="true")
+    _ => fail("fractional CFF path must preserve its endpoint")
+  }
+
+  let cancellation_path = font
+    .outline(
+      font.glyph_id(2UL).unwrap(),
+      font_test_cff_outline_budget(),
+    )
+    .unwrap()
+  match cancellation_path.get(0) {
+    Some(@math.PathCommand::MoveTo(point)) =>
+      inspect(
+        point.x() == 32767.99998474121 && point.y() == -32768.0,
+        content="true",
+      )
+    _ => fail("large CFF path must begin with MoveTo")
+  }
+  match cancellation_path.get(1) {
+    Some(@math.PathCommand::LineTo(point)) =>
+      inspect(
+        point.x() == 0.0 && point.y() == -0.0000152587890625,
+        content="true",
+      )
+    _ => fail("large cancellation must preserve quotient and remainder")
+  }
+
+  let translated = Font::open(
+    font_test_owner(
+      font_test_standalone_cff1(
+        [b"\x0e", b"\x8c\x8d\x15\x8e\x8f\x05\x0e"],
+        translated_matrix=true,
+      ),
+    )
+    .view(),
+    font_test_limits(),
+    font_test_cff_open_budget(),
+  ).unwrap()
+  let translated_path = translated
+    .outline(
+      translated.glyph_id(1UL).unwrap(),
+      font_test_cff_outline_budget(),
+    )
+    .unwrap()
+  match translated_path.get(0) {
+    Some(@math.PathCommand::MoveTo(point)) =>
+      inspect(point.x() == 6000.0 && point.y() == 9000.0, content="true")
+    _ => fail("translated CFF path must begin with MoveTo")
+  }
+  match translated_path.get(1) {
+    Some(@math.PathCommand::LineTo(point)) =>
+      inspect(point.x() == 9000.0 && point.y() == 13000.0, content="true")
+    _ => fail("translated CFF path must preserve matrix order")
   }
 }
 
